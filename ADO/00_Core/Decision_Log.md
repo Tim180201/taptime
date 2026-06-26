@@ -9,6 +9,7 @@ Full architecture decisions are documented as ADRs under `ADO/01_Architecture/AD
 | ID | Title | Status | Date | Location |
 |---|---|---|---|---|
 | ADR-0001 | Repository Strategy: Monorepo | Accepted | 2026-06-26 | `ADO/01_Architecture/ADR/ADR-0001-repository-strategy.md` |
+| ADR-0002 | NFC Assignment Model | Accepted | 2026-06-26 | `ADO/01_Architecture/ADR/ADR-0002-nfc-assignment-model.md` |
 
 ## Decision Rule
 
