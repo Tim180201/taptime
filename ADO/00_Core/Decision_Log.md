@@ -9,6 +9,11 @@ Full architecture decisions are documented as ADRs under `ADO/01_Architecture/AD
 | ID | Title | Status | Date | Location |
 |---|---|---|---|---|
 | PV-0001 | Product Vision: Mission | Approved | 2026-06-26 | `ADO/01_Architecture/Product_Vision.md` |
+| PV-0002 | Product Vision: Vision | Approved | 2026-06-26 | `ADO/01_Architecture/Product_Vision.md` |
+| PV-0003 | Product Vision: Problem | Approved | 2026-06-26 | `ADO/01_Architecture/Product_Vision.md` |
+| PV-0004 | Product Vision: Our Solution | Approved | 2026-06-26 | `ADO/01_Architecture/Product_Vision.md` |
+| PV-0005 | Product Vision: Product Philosophy | Approved | 2026-06-26 | `ADO/01_Architecture/Product_Vision.md` |
+| PV-0006 | Product Vision: Long-term Vision | Approved | 2026-06-26 | `ADO/01_Architecture/Product_Vision.md` |
 | ADR-0001 | Repository Strategy: Monorepo | Accepted | 2026-06-26 | `ADO/01_Architecture/ADR/ADR-0001-repository-strategy.md` |
 | ADR-0002 | NFC Assignment Model | Accepted | 2026-06-26 | `ADO/01_Architecture/ADR/ADR-0002-nfc-assignment-model.md` |
 | ADR-0003 | Product Scope v1 | Accepted Draft | 2026-06-26 | `ADO/01_Architecture/ADR/ADR-0003-product-scope-v1.md` |
