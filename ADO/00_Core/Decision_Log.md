@@ -8,6 +8,7 @@ Full architecture decisions are documented as ADRs under `ADO/01_Architecture/AD
 
 | ID | Title | Status | Date | Location |
 |---|---|---|---|---|
+| PV-0001 | Product Vision: Mission | Approved | 2026-06-26 | `ADO/01_Architecture/Product_Vision.md` |
 | ADR-0001 | Repository Strategy: Monorepo | Accepted | 2026-06-26 | `ADO/01_Architecture/ADR/ADR-0001-repository-strategy.md` |
 | ADR-0002 | NFC Assignment Model | Accepted | 2026-06-26 | `ADO/01_Architecture/ADR/ADR-0002-nfc-assignment-model.md` |
 | ADR-0003 | Product Scope v1 | Accepted Draft | 2026-06-26 | `ADO/01_Architecture/ADR/ADR-0003-product-scope-v1.md` |
@@ -24,3 +25,5 @@ Every architectural decision must be:
 - evidence-based where possible
 - reversible where feasible
 - documented before implementation when it shapes long-term structure
+
+Product vision entries are not ADRs. They are high-impact product guidance documents owned by the Human Architect and Technical Lead.
