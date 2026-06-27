@@ -206,3 +206,133 @@ A Blueprint may only continue beyond this point when the following questions are
 - Can the Business Engine operate without interpretation gaps?
 
 Only then is the feature domain fully specified.
+
+---
+
+# Part 4
+
+## 10. Edge Cases
+
+### Purpose
+
+Edge Cases document exceptional situations outside the normal workflow.
+
+### Guiding Questions
+
+- Which failures may occur?
+- Which invalid inputs are possible?
+- Which conflicts can happen?
+- Which data may be missing?
+- Which race conditions are possible?
+
+### Example
+
+- Unknown NFC tag
+- Disabled employee
+- Archived customer
+- Missing permission
+- Offline without synchronization
+- Duplicate NFC scan
+- Session already active
+
+FDOS Rule: Every known edge case must be documented.
+
+## 11. Acceptance Criteria
+
+Acceptance Criteria define when a feature is complete.
+
+Examples:
+- A valid NFC scan creates a TimeEntry within one second.
+- An invalid NFC tag never starts time tracking.
+- Every Work Event remains auditable.
+
+FDOS Rule: No feature is complete without documented Acceptance Criteria.
+
+## 12. Technical Notes
+
+Technical Notes document technical constraints.
+
+Allowed:
+- Modules
+- Packages
+- APIs
+- Persistence
+- Offline
+- Synchronization
+- Security
+- Performance
+- Migrations
+- External Systems
+- Technical Risks
+
+Not allowed:
+- Business Rules
+- Product Rules
+- Business Decisions
+
+FDOS Rule: Technical Notes define implementation constraints without introducing Business Rules or business decisions.
+
+## 13. Development Tasks
+
+Development Tasks transform the Blueprint into implementation work.
+
+Development Tasks are derived from the approved Blueprint and refined during the Technical Specification phase.
+
+Example Tasks:
+- Extend NFC Scan Handler
+- Connect Business Engine
+- Create WorkEvent
+- Create TimeEntry
+- Extend Offline Queue
+- Extend Synchronization
+- Write Tests
+- Update Documentation
+
+FDOS Rule: Development Tasks originate only from an approved Blueprint.
+
+## Quality Gate 3 – Production Readiness
+
+Before a Feature Blueprint may enter the Technical Specification phase, the following must be complete:
+
+- Edge Cases documented
+- Acceptance Criteria complete
+- Technical Notes completed
+- Development Tasks defined
+
+Only then is the Blueprint considered production ready.
+
+## Blueprint Review
+
+Review verifies:
+- Consistency
+- Completeness
+- Product Vision
+- Product Principles
+- Domain Model
+- Business Rules
+- Decision Logic
+- Acceptance Criteria
+- Testability
+
+## Approval Process
+
+Only the Human Architect may approve a Blueprint.
+
+## Change Process
+
+Every approved Blueprint change records:
+- Version
+- Author
+- Date
+- Reason
+- Impact
+
+## Glossary
+
+Blueprint terminology follows the Domain Model.
+
+## Final FDOS Rules
+
+Product Vision → Feature Blueprint → Technical Specification → Development Tasks → Implementation → Testing → Release → Evidence
+
+Blueprints describe the product. Technical Specifications describe the implementation. Code implements the specification. Tests prove the quality.
