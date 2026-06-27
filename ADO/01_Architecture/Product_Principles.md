@@ -11,9 +11,7 @@ This document defines the product principles that guide TapTim.e decisions.
 
 When product behavior, UX or architecture is unclear, decisions should be checked against these principles before implementation.
 
-These principles derive from the Product Vision and must support the approved mission:
-
-> TapTim.e entwickelt Lösungen, mit denen Unternehmen Arbeitszeit einfach, zuverlässig und ohne Unterbrechung des Arbeitsflusses erfassen können.
+These principles derive from the completed EP-001 Product Vision and must support its mission, vision and product philosophy.
 
 ## Principle 1: One Tap. One Decision.
 
