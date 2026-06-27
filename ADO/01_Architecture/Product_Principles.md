@@ -2,13 +2,18 @@
 
 Status: Accepted Draft  
 Date: 2026-06-26  
-Owner: Human Architect + Technical Lead
+Owner: Human Architect + Technical Lead  
+Source: `ADO/01_Architecture/Product_Vision.md`
 
 ## Purpose
 
 This document defines the product principles that guide TapTim.e decisions.
 
 When product behavior, UX or architecture is unclear, decisions should be checked against these principles before implementation.
+
+These principles derive from the Product Vision and must support the approved mission:
+
+> TapTim.e entwickelt Lösungen, mit denen Unternehmen Arbeitszeit einfach, zuverlässig und ohne Unterbrechung des Arbeitsflusses erfassen können.
 
 ## Principle 1: One Tap. One Decision.
 
