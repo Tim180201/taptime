@@ -331,6 +331,104 @@ Every approved Blueprint change records:
 
 Blueprint terminology follows the Domain Model.
 
+---
+
+# Part 5
+
+## 14. Versioning
+
+Every Feature Blueprint has an explicit version.
+
+Versions document meaningful changes to product behavior, business rules, domain objects, decision logic, acceptance criteria or production readiness.
+
+Version changes must be understandable without reading the full git history.
+
+FDOS Rule: Every approved Blueprint change must update the Blueprint version or explicitly document why no version change is required.
+
+## 15. Traceability
+
+A Feature Blueprint must be traceable across the full FDOS chain.
+
+Traceability connects:
+- Product Vision
+- Product Principles
+- Feature Blueprint
+- Technical Specification
+- Development Tasks
+- Implementation
+- Tests
+- Release Evidence
+
+FDOS Rule: Every implementation task must trace back to an approved Feature Blueprint.
+
+## 16. Cross-Blueprint References
+
+A Feature Blueprint may reference other Blueprints when product behavior, domain objects or business decisions depend on them.
+
+Cross-Blueprint references must define:
+- Referenced Blueprint ID
+- Reason for the dependency
+- Affected Domain Objects
+- Affected Business Rules
+- Affected Decision Logic
+
+FDOS Rule: Cross-Blueprint dependencies must be explicit. Hidden product dependencies are not allowed.
+
+## 17. Architecture Decision References
+
+A Feature Blueprint may reference Architecture Decision Records when product behavior is constrained by an architectural decision.
+
+ADR references must not replace Blueprint content.
+
+They explain why a technical or architectural boundary exists.
+
+FDOS Rule: Architecture decisions may constrain a Blueprint, but they do not define product behavior.
+
+## 18. Review Cadence
+
+Feature Blueprints are reviewed when one of the following changes:
+- Product Vision
+- Product Principles
+- Domain Model
+- Business Rules
+- Decision Logic
+- Architecture Standards
+- Legal, compliance or audit requirements
+
+FDOS Rule: Approved Blueprints remain active engineering artifacts and must be maintained when their assumptions change.
+
+## 19. Ownership
+
+The Human Architect owns product intent.
+
+The Technical Lead owns the Feature Blueprint Standard and protects consistency across all Blueprints.
+
+Development Agents may propose implementation-driven improvements but may not change approved product behavior without review.
+
+FDOS Rule: Ownership must be explicit. Product authority and technical authority must not be mixed.
+
+## Final Review Gate – Review Ready
+
+Before a Feature Blueprint is marked Review Ready, the following must be true:
+
+- All mandatory Blueprint sections are complete.
+- All three Quality Gates are satisfied.
+- Product Rules are aligned with the Product Vision.
+- Business Rules are explicit and testable.
+- Domain Objects are consistent with the Domain Model.
+- Events are named as facts.
+- Decision Logic is complete.
+- Edge Cases are documented.
+- Acceptance Criteria are testable.
+- Technical Notes do not introduce business decisions.
+- Development Tasks are derived from the approved Blueprint.
+- Change history and versioning are clear.
+- Dependencies and ADR references are explicit.
+
+Only then may the Blueprint move into Architecture Review.
+
+FDOS Rule: Review Ready means the Blueprint is understandable, traceable and implementation-ready without additional verbal explanation.
+
 ## Final FDOS Rules
 
 Product Vision → Feature Blueprint → Technical Specification → Development Tasks → Implementation → Testing → Release → Evidence
