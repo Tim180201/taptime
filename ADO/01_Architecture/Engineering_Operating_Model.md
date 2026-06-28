@@ -19,6 +19,20 @@ FDOS Rule:
 
 > Every engineering role produces a complete handover to the next responsible role.
 
+## Official Agent Registry
+
+The current assignment of Engineering Roles to Human and AI Agent Instances is maintained in:
+
+`ADO/01_Architecture/Agent_Registry.md`
+
+The Engineering Operating Model defines responsibilities, authority and workflow.
+
+The Agent Registry defines the currently assigned execution instances.
+
+FDOS Rule:
+
+> Engineering Roles are permanent. Agent Instances are replaceable.
+
 ## Engineering Principle
 
 No role works in isolation.
