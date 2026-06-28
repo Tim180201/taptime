@@ -434,3 +434,224 @@ FDOS Rule: Review Ready means the Blueprint is understandable, traceable and imp
 Product Vision → Feature Blueprint → Technical Specification → Development Tasks → Implementation → Testing → Release → Evidence
 
 Blueprints describe the product. Technical Specifications describe the implementation. Code implements the specification. Tests prove the quality.
+
+---
+
+# Part 6
+
+## 20. Blueprint Templates
+
+### Purpose
+
+Every Feature Blueprint shall be created using the official FDOS Blueprint Template.
+
+The template guarantees consistency across all products, teams and engineering sessions.
+
+Blueprint authors shall not modify the mandatory document structure.
+
+Optional sections may only be added where explicitly permitted by the Feature Blueprint Standard.
+
+FDOS Rule:
+
+> Every Feature Blueprint originates from the official FDOS Blueprint Template.
+
+---
+
+## 21. Mandatory Metadata
+
+Every Feature Blueprint shall contain at least the following metadata.
+
+### Identification
+
+- Feature ID
+- Feature Name
+- Version
+- Status
+- Epic
+
+### Ownership
+
+- Author
+- Reviewer
+- Approval Authority
+
+### Dates
+
+- Creation Date
+- Last Updated
+- Approval Date
+
+### References
+
+- Product Vision
+- Product Principles
+- Domain Model
+- Architecture Decision Records
+- Technical Specification
+
+FDOS Rule:
+
+> Mandatory metadata shall remain complete throughout the complete Feature Blueprint lifecycle.
+
+---
+
+## 22. Blueprint Status Model
+
+A Feature Blueprint always has exactly one status.
+
+Allowed states are:
+
+- Draft
+- Review
+- Approved
+- In Development
+- Implemented
+- Released
+- Deprecated
+- Archived
+
+Status transitions follow the official FDOS lifecycle.
+
+No implementation may begin before the Blueprint reaches the **Approved** state.
+
+FDOS Rule:
+
+> Blueprint status shall always reflect the actual engineering state.
+
+---
+
+## 23. Auditability
+
+Every Feature Blueprint shall remain permanently auditable.
+
+The following information must always be recoverable:
+
+- Original Version
+- Version History
+- Approval History
+- Review Results
+- Change History
+- Related Technical Specifications
+- Related Development Tasks
+- Related Releases
+
+No engineering decision shall become irreversible.
+
+FDOS Rule:
+
+> Blueprint history shall never be lost.
+
+---
+
+## 24. Archive Rules
+
+Feature Blueprints are never deleted.
+
+Deprecated Blueprints become archived.
+
+Archived Blueprints remain searchable and accessible.
+
+Archived Blueprints continue to serve as engineering evidence and historical product knowledge.
+
+FDOS Rule:
+
+> Product knowledge shall be preserved permanently.
+
+---
+
+# Final Blueprint Lifecycle
+
+Every Feature Blueprint progresses through the following lifecycle:
+
+Idea
+
+↓
+
+Draft
+
+↓
+
+Review
+
+↓
+
+Approved
+
+↓
+
+Technical Specification
+
+↓
+
+Development
+
+↓
+
+Testing
+
+↓
+
+Release
+
+↓
+
+Evidence
+
+↓
+
+Archive
+
+Each lifecycle stage requires successful completion of the previous stage.
+
+---
+
+# Blueprint Standard Completion
+
+The Feature Blueprint Standard is considered complete only when:
+
+- every mandatory section is documented
+- all Quality Gates are satisfied
+- governance is fully documented
+- ownership is defined
+- traceability is complete
+- review procedures are documented
+- approval procedures are documented
+- versioning is defined
+- lifecycle management is documented
+- auditability is ensured
+
+Only then may the Feature Blueprint Standard become an official FDOS Core Standard.
+
+---
+
+# Engineering Principle
+
+A Feature Blueprint defines product behavior.
+
+A Technical Specification defines implementation.
+
+Development Tasks define execution.
+
+Source Code implements the specification.
+
+Tests verify correctness.
+
+Evidence proves completion.
+
+---
+
+# Closing Principle
+
+> Every line of code begins with a decision.
+>
+> Every decision begins with a Blueprint.
+>
+> Every Blueprint begins with the Product Vision.
+
+---
+
+# End of Standard
+
+This document defines the official FDOS Feature Blueprint Standard.
+
+All future product features within TapTim.e shall follow this standard unless superseded by a newer approved FDOS version.
