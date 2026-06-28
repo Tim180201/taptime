@@ -1,239 +1,288 @@
 # Feature Blueprint Standard
 
-Status: Draft
-Document ID: FBS-001
-Epic: EP-002
-Owner: Technical Lead
-Approval Authority: Human Architect
+Status: Review Ready  
+Document ID: FBS-001  
+Epic: EP-002  
+Owner: Technical Lead  
+Approval Authority: Human Architect  
+Related Documents: `Product_Vision.md`, `Product_Principles.md`, `Domain_Model.md`, `ADR-0005`, `ADR-0006`
 
 ## Purpose
-The Feature Blueprint Standard defines the mandatory standard for describing every new product feature before technical implementation begins. A Feature Blueprint describes product behavior, not implementation.
+
+The Feature Blueprint Standard defines the mandatory structure for describing every TapTim.e product feature before technical implementation begins.
+
+A Feature Blueprint describes product behavior. It does not describe implementation.
+
+Its purpose is to make product intent, user value, business rules, domain language, events, decision logic, acceptance criteria and delivery expectations explicit before a Technical Specification or Development Task is created.
 
 ## Relationship to Product Vision
+
 Every Feature Blueprint must align with the Product Vision and Product Principles.
 
+The Product Vision defines why TapTim.e exists. The Feature Blueprint defines what a single feature must do to support that vision.
+
+Core principles that every Blueprint must evaluate include:
+
+- One Tap. One Decision.
+- The Engine Decides.
+- Zero Decision UX.
+- Offline by Default, where relevant.
+- Everything is Auditable.
+- Professional Simplicity.
+
+The Product Vision has higher authority than any individual Feature Blueprint.
+
 ## Governance
-Human Architect approves product intent. Technical Lead owns the standard. Development Agent implements approved blueprints. Research Agent extracts organizational learning only.
+
+The Human Architect owns product intent and final approval.
+
+The Technical Lead owns the Feature Blueprint Standard, protects architectural consistency and ensures that Blueprints remain implementation-ready without hidden assumptions.
+
+Development Agents implement approved Blueprints through Technical Specifications and Development Tasks.
+
+Research Agents may analyze completed Blueprints for organizational learning, but they do not modify project artifacts directly.
+
+## Standard Workflow
+
+The mandatory FDOS delivery chain is:
+
+```text
+Product Vision
+  -> Feature Blueprint
+  -> Technical Specification
+  -> Development Tasks
+  -> Implementation
+  -> Testing
+  -> Release
+  -> Evidence
+```
+
+FDOS Rule: No code is written before the relevant Feature Blueprint has been approved.
 
 ## Blueprint Lifecycle
-Idea → Draft → Review → Approved → Technical Specification → Development → Testing → Released → Evidence
 
-## Engineering Workflow
-Product Vision → Feature Blueprint → Technical Specification → Development Tasks → Implementation → Testing → Release → Evidence
+A Feature Blueprint progresses through the following lifecycle:
 
-## Quality Gates
-Gate 1: Product Understanding
-Gate 2: Domain Completeness
-Gate 3: Production Readiness
+```text
+Idea
+  -> Draft
+  -> Review
+  -> Approved
+  -> Technical Specification
+  -> Development
+  -> Testing
+  -> Release
+  -> Evidence
+  -> Archive
+```
 
----
+Each lifecycle stage requires successful completion of the previous stage.
 
-# Part 2
+## Mandatory Blueprint Structure
 
-## Standard Structure
-The mandatory order is:
+Every Feature Blueprint follows this structure:
+
 1. Feature Information
 2. Business Goal
 3. User Goal
 4. Scope
 5. Product Rules
+6. Business Rules
+7. Domain Objects
+8. Events
+9. Decision Logic
+10. Edge Cases
+11. Acceptance Criteria
+12. Technical Notes
+13. Development Tasks
+14. Versioning
+15. Traceability
+16. Cross-Blueprint References
+17. Architecture Decision References
+18. Review Cadence
+19. Ownership
+20. Blueprint Template
+21. Mandatory Metadata
+22. Blueprint Status Model
+23. Auditability
+24. Archive Rules
 
-### 1. Feature Information
-Every Feature Blueprint contains a unique Feature ID, title, version, owner, approver, status and dates.
+## 1. Feature Information
+
+Every Feature Blueprint starts with clear identification metadata.
+
+Mandatory fields:
+
+- Feature ID
+- Feature Name
+- Version
+- Status
+- Epic
+- Author
+- Reviewer
+- Approval Authority
+- Creation Date
+- Last Updated
+- Approval Date, if approved
+- Related Product Vision
+- Related Product Principles
+- Related Domain Model
+- Related ADRs
+- Related Technical Specification, if available
 
 FDOS Rule: Every feature has exactly one Feature ID.
 
-### 2. Business Goal
-Describes why the business invests in the feature.
+## 2. Business Goal
 
-FDOS Rule: No feature without a documented Business Goal.
+The Business Goal describes why the business invests in the feature.
 
-### 3. User Goal
-Describes what the user wants to achieve.
+It explains the organizational value, business problem, risk reduction, cost reduction or process improvement created by the feature.
 
-FDOS Rule: No feature without a documented User Goal.
+It never describes UI, database structure, framework choices, APIs or implementation details.
 
-### 4. Scope
-Defines In Scope and Out of Scope to prevent scope creep.
+FDOS Rule: No feature exists without a documented Business Goal.
 
-FDOS Rule: Every blueprint documents both In Scope and Out of Scope.
+## 3. User Goal
 
-### 5. Product Rules
-Documents applicable Product Principles including One Tap. One Decision., Zero Decision UX, The Engine Decides, Offline by Default, Everything is Auditable and Professional Simplicity.
+The User Goal describes what the user wants to achieve.
 
-FDOS Rule: No Feature Blueprint without documented Product Rules.
+It explains the user's desired outcome, workflow improvement and reduction of unnecessary decisions or effort.
 
-## Quality Gate 1
-Before continuing, Feature Information, Business Goal, User Goal, Scope and Product Rules must be complete.
+FDOS Rule: No feature exists without a documented User Goal.
 
----
+## 4. Scope
 
-# Part 3
+The Scope defines the boundaries of the feature.
 
-### 6. Business Rules
+Every Blueprint must explicitly document:
 
-Business Rules define what is professionally and operationally true for a feature.
+- In Scope
+- Out of Scope
+
+Out of Scope is as important as In Scope because it prevents uncontrolled feature growth and protects maintainability.
+
+FDOS Rule: Every Blueprint documents both In Scope and Out of Scope.
+
+## 5. Product Rules
+
+Product Rules document how the feature supports TapTim.e's product identity.
+
+Every Blueprint checks the relevant Product Principles and describes how the feature supports them.
+
+At minimum, each Blueprint evaluates:
+
+- One Tap. One Decision.
+- Zero Decision UX.
+- The Engine Decides.
+- Offline by Default, where relevant.
+- Everything is Auditable.
+- Professional Simplicity.
+
+FDOS Rule: No Feature Blueprint is complete without documented Product Rules.
+
+## Quality Gate 1 – Product Understanding
+
+Before the Blueprint may continue into domain specification, the following must be true:
+
+- Feature Information is complete.
+- Business Goal is clear.
+- User Goal is clear.
+- In Scope and Out of Scope are documented.
+- Product Rules are documented.
+- Product Vision alignment is clear.
+
+If any item is missing, the Blueprint remains Draft.
+
+## 6. Business Rules
+
+Business Rules define what is professionally and operationally true for the feature.
 
 They are independent of UI, database, framework, API or infrastructure.
 
-They define business logic and form the foundation of the Business Engine.
+They form the foundation of the Business Engine.
 
 Good Business Rules are:
+
 - clear
 - testable
 - reproducible
 - business-driven
 - technology-independent
 
-Guiding questions:
-- Which conditions apply?
-- Which decisions are valid?
-- Which results can occur?
-- Which rules must never be violated?
-- Which rules always apply?
-
-Example for NFC Session Start:
-- One NFC tag has exactly one active assignment.
-- Every NFC scan creates exactly one Work Event.
-- Only authorized employees may start time tracking.
-- Original Work Events are never deleted.
-- Every correction remains auditable.
-
 FDOS Rule: Business Rules are documented before implementation. Code follows Business Rules, never the other way around.
 
-### 7. Domain Objects
+## 7. Domain Objects
 
 Domain Objects define the shared product language.
 
 They describe business concepts, not technical classes, database tables, API models or UI components.
 
-Their purpose is to create consistent architecture, documentation and code.
-
-Guiding questions:
-- Which Domain Objects exist?
-- What role does each object play?
-- Which relationships exist?
-- Are existing objects extended?
-- Are new Domain Objects introduced?
-
-Example for NFC Session Start:
-- Employee
-- Customer
-- NfcTag
-- NfcAssignment
-- WorkEvent
-- TimeEntry
+Blueprints must identify all relevant Domain Objects and whether existing Domain Objects are extended or new ones are introduced.
 
 FDOS Rule: New central Domain Objects may only be introduced through a Blueprint and the global Domain Model.
 
-### 8. Events
+## 8. Events
 
 Events describe facts that happened in the system.
 
 They are not commands, methods or UI actions.
 
-An Event means: something happened.
+Correct event names describe the past:
 
-Events connect user interaction, technical trigger, Business Engine and business result.
-
-Guiding questions:
-- Which Events are created?
-- Which Events are processed?
-- Which data does each Event contain?
-- Which Events must remain auditable?
-- Which Events trigger decisions?
-
-Naming convention:
-
-Correct:
 - NfcTagScanned
 - WorkEventCreated
 - TimeEntryStarted
 - SessionStopped
 
-Incorrect:
+Incorrect event names describe commands:
+
 - ScanNfcTag
 - StartTimeEntry
 - CreateWorkEvent
 
 FDOS Rule: Events describe facts. Decisions are made by the Business Engine.
 
-### 9. Decision Logic
+## 9. Decision Logic
 
 Decision Logic describes how the Business Engine derives business decisions from Events and Business Rules.
 
-It does not describe implementation.
-
-It describes which decision is made under which conditions.
-
 Every decision documents:
+
 - Trigger
 - Preconditions
 - Decision
 - Result
 - Follow-up Events
 
-Example:
-
-Trigger:
-NfcTagScanned
-
-Preconditions:
-- NFC tag is valid.
-- Employee is authorized.
-- Customer is active.
-
-Decision:
-Start TimeEntry.
-
-Result:
-A new TimeEntry exists.
-
-Follow-up Events:
-- WorkEventCreated
-- TimeEntryStarted
-
 FDOS Rule: The Business Engine must not contain implicit business decisions. Every business decision must be documented in the Blueprint.
 
 ## Quality Gate 2 – Domain Completeness
 
-A Blueprint may only continue beyond this point when the following questions are fully answered:
+Before the Blueprint may continue into production readiness, the following must be true:
 
-- Are all Business Rules documented?
-- Are all Domain Objects clearly named?
-- Are all relevant Events described?
-- Is the Decision Logic complete?
-- Can the Business Engine operate without interpretation gaps?
+- Business Rules are documented.
+- Domain Objects are clearly named.
+- Events are described as facts.
+- Decision Logic is complete.
+- The Business Engine can operate without interpretation gaps.
 
-Only then is the feature domain fully specified.
-
----
-
-# Part 4
+If any item is missing, the feature domain is not complete.
 
 ## 10. Edge Cases
 
-### Purpose
-
 Edge Cases document exceptional situations outside the normal workflow.
 
-### Guiding Questions
+They answer what happens when the normal flow cannot be executed.
 
-- Which failures may occur?
-- Which invalid inputs are possible?
-- Which conflicts can happen?
-- Which data may be missing?
-- Which race conditions are possible?
+Examples for NFC-based time tracking include:
 
-### Example
-
-- Unknown NFC tag
-- Disabled employee
-- Archived customer
-- Missing permission
-- Offline without synchronization
-- Duplicate NFC scan
-- Session already active
+- unknown NFC tag
+- disabled employee
+- archived customer
+- missing permission
+- offline without synchronization
+- duplicate scan
+- already active session
 
 FDOS Rule: Every known edge case must be documented.
 
@@ -241,99 +290,64 @@ FDOS Rule: Every known edge case must be documented.
 
 Acceptance Criteria define when a feature is complete.
 
-Examples:
-- A valid NFC scan creates a TimeEntry within one second.
-- An invalid NFC tag never starts time tracking.
-- Every Work Event remains auditable.
+They describe observable behavior, never implementation.
+
+Good Acceptance Criteria are:
+
+- clear
+- measurable
+- testable
+- reproducible
 
 FDOS Rule: No feature is complete without documented Acceptance Criteria.
 
 ## 12. Technical Notes
 
-Technical Notes document technical constraints.
+Technical Notes document implementation constraints without replacing the Technical Specification.
 
-Allowed:
-- Modules
-- Packages
+Allowed content includes:
+
+- modules
+- packages
 - APIs
-- Persistence
-- Offline
-- Synchronization
-- Security
-- Performance
-- Migrations
-- External Systems
-- Technical Risks
+- persistence
+- offline behavior
+- synchronization
+- security
+- performance
+- migrations
+- external systems
+- technical risks
 
-Not allowed:
-- Business Rules
-- Product Rules
-- Business Decisions
+Technical Notes must not introduce Business Rules, Product Rules or business decisions.
 
-FDOS Rule: Technical Notes define implementation constraints without introducing Business Rules or business decisions.
+FDOS Rule: Technical Notes complement the Blueprint. They never replace the Technical Specification.
 
 ## 13. Development Tasks
 
-Development Tasks transform the Blueprint into implementation work.
+Development Tasks transform the approved Blueprint into implementation work.
 
-Development Tasks are derived from the approved Blueprint and refined during the Technical Specification phase.
+They are refined during the Technical Specification phase.
 
-Example Tasks:
-- Extend NFC Scan Handler
-- Connect Business Engine
-- Create WorkEvent
-- Create TimeEntry
-- Extend Offline Queue
-- Extend Synchronization
-- Write Tests
-- Update Documentation
+Good Development Tasks are:
+
+- small
+- independent
+- testable
+- traceable
 
 FDOS Rule: Development Tasks originate only from an approved Blueprint.
 
 ## Quality Gate 3 – Production Readiness
 
-Before a Feature Blueprint may enter the Technical Specification phase, the following must be complete:
+Before a Blueprint may enter Technical Specification, the following must be true:
 
-- Edge Cases documented
-- Acceptance Criteria complete
-- Technical Notes completed
-- Development Tasks defined
+- Edge Cases are documented.
+- Acceptance Criteria are complete.
+- Technical Notes are complete.
+- Development Tasks are defined.
 
 Only then is the Blueprint considered production ready.
-
-## Blueprint Review
-
-Review verifies:
-- Consistency
-- Completeness
-- Product Vision
-- Product Principles
-- Domain Model
-- Business Rules
-- Decision Logic
-- Acceptance Criteria
-- Testability
-
-## Approval Process
-
-Only the Human Architect may approve a Blueprint.
-
-## Change Process
-
-Every approved Blueprint change records:
-- Version
-- Author
-- Date
-- Reason
-- Impact
-
-## Glossary
-
-Blueprint terminology follows the Domain Model.
-
----
-
-# Part 5
 
 ## 14. Versioning
 
@@ -341,15 +355,12 @@ Every Feature Blueprint has an explicit version.
 
 Versions document meaningful changes to product behavior, business rules, domain objects, decision logic, acceptance criteria or production readiness.
 
-Version changes must be understandable without reading the full git history.
-
 FDOS Rule: Every approved Blueprint change must update the Blueprint version or explicitly document why no version change is required.
 
 ## 15. Traceability
 
-A Feature Blueprint must be traceable across the full FDOS chain.
+A Feature Blueprint must be traceable across the full FDOS chain:
 
-Traceability connects:
 - Product Vision
 - Product Principles
 - Feature Blueprint
@@ -363,39 +374,41 @@ FDOS Rule: Every implementation task must trace back to an approved Feature Blue
 
 ## 16. Cross-Blueprint References
 
-A Feature Blueprint may reference other Blueprints when product behavior, domain objects or business decisions depend on them.
+Blueprints may reference other Blueprints when product behavior, Domain Objects or business decisions depend on them.
 
 Cross-Blueprint references must define:
-- Referenced Blueprint ID
-- Reason for the dependency
-- Affected Domain Objects
-- Affected Business Rules
-- Affected Decision Logic
 
-FDOS Rule: Cross-Blueprint dependencies must be explicit. Hidden product dependencies are not allowed.
+- referenced Blueprint ID
+- reason for dependency
+- affected Domain Objects
+- affected Business Rules
+- affected Decision Logic
+
+FDOS Rule: Hidden product dependencies are not allowed.
 
 ## 17. Architecture Decision References
 
-A Feature Blueprint may reference Architecture Decision Records when product behavior is constrained by an architectural decision.
+A Blueprint may reference ADRs when product behavior is constrained by an architectural decision.
 
-ADR references must not replace Blueprint content.
-
-They explain why a technical or architectural boundary exists.
+ADR references explain why a technical or architectural boundary exists. They do not replace Blueprint content.
 
 FDOS Rule: Architecture decisions may constrain a Blueprint, but they do not define product behavior.
 
 ## 18. Review Cadence
 
-Feature Blueprints are reviewed when one of the following changes:
+Approved Blueprints remain active engineering artifacts.
+
+They must be reviewed when one of the following changes:
+
 - Product Vision
 - Product Principles
 - Domain Model
 - Business Rules
 - Decision Logic
 - Architecture Standards
-- Legal, compliance or audit requirements
+- legal, compliance or audit requirements
 
-FDOS Rule: Approved Blueprints remain active engineering artifacts and must be maintained when their assumptions change.
+FDOS Rule: Approved Blueprints must be maintained when their assumptions change.
 
 ## 19. Ownership
 
@@ -405,101 +418,29 @@ The Technical Lead owns the Feature Blueprint Standard and protects consistency 
 
 Development Agents may propose implementation-driven improvements but may not change approved product behavior without review.
 
-FDOS Rule: Ownership must be explicit. Product authority and technical authority must not be mixed.
+FDOS Rule: Product authority and technical authority must not be mixed.
 
-## Final Review Gate – Review Ready
+## 20. Blueprint Template
 
-Before a Feature Blueprint is marked Review Ready, the following must be true:
+Every Feature Blueprint originates from the official FDOS Blueprint Template.
 
-- All mandatory Blueprint sections are complete.
-- All three Quality Gates are satisfied.
-- Product Rules are aligned with the Product Vision.
-- Business Rules are explicit and testable.
-- Domain Objects are consistent with the Domain Model.
-- Events are named as facts.
-- Decision Logic is complete.
-- Edge Cases are documented.
-- Acceptance Criteria are testable.
-- Technical Notes do not introduce business decisions.
-- Development Tasks are derived from the approved Blueprint.
-- Change history and versioning are clear.
-- Dependencies and ADR references are explicit.
+The template guarantees consistency across products, teams and engineering sessions.
 
-Only then may the Blueprint move into Architecture Review.
-
-FDOS Rule: Review Ready means the Blueprint is understandable, traceable and implementation-ready without additional verbal explanation.
-
-## Final FDOS Rules
-
-Product Vision → Feature Blueprint → Technical Specification → Development Tasks → Implementation → Testing → Release → Evidence
-
-Blueprints describe the product. Technical Specifications describe the implementation. Code implements the specification. Tests prove the quality.
-
----
-
-# Part 6
-
-## 20. Blueprint Templates
-
-### Purpose
-
-Every Feature Blueprint shall be created using the official FDOS Blueprint Template.
-
-The template guarantees consistency across all products, teams and engineering sessions.
-
-Blueprint authors shall not modify the mandatory document structure.
-
-Optional sections may only be added where explicitly permitted by the Feature Blueprint Standard.
-
-FDOS Rule:
-
-> Every Feature Blueprint originates from the official FDOS Blueprint Template.
-
----
+FDOS Rule: Blueprint authors must not modify the mandatory document structure unless the Feature Blueprint Standard itself is updated.
 
 ## 21. Mandatory Metadata
 
-Every Feature Blueprint shall contain at least the following metadata.
+Mandatory metadata must remain complete throughout the full Blueprint lifecycle.
 
-### Identification
+At minimum, the metadata covers identification, ownership, dates and references to related FDOS artifacts.
 
-- Feature ID
-- Feature Name
-- Version
-- Status
-- Epic
-
-### Ownership
-
-- Author
-- Reviewer
-- Approval Authority
-
-### Dates
-
-- Creation Date
-- Last Updated
-- Approval Date
-
-### References
-
-- Product Vision
-- Product Principles
-- Domain Model
-- Architecture Decision Records
-- Technical Specification
-
-FDOS Rule:
-
-> Mandatory metadata shall remain complete throughout the complete Feature Blueprint lifecycle.
-
----
+FDOS Rule: Blueprint metadata must always reflect the current engineering state.
 
 ## 22. Blueprint Status Model
 
 A Feature Blueprint always has exactly one status.
 
-Allowed states are:
+Allowed states:
 
 - Draft
 - Review
@@ -510,121 +451,58 @@ Allowed states are:
 - Deprecated
 - Archived
 
-Status transitions follow the official FDOS lifecycle.
+No implementation may begin before the Blueprint reaches Approved.
 
-No implementation may begin before the Blueprint reaches the **Approved** state.
-
-FDOS Rule:
-
-> Blueprint status shall always reflect the actual engineering state.
-
----
+FDOS Rule: Blueprint status reflects engineering reality.
 
 ## 23. Auditability
 
-Every Feature Blueprint shall remain permanently auditable.
+Every Feature Blueprint must remain permanently auditable.
 
-The following information must always be recoverable:
+The following must always be recoverable:
 
-- Original Version
-- Version History
-- Approval History
-- Review Results
-- Change History
-- Related Technical Specifications
-- Related Development Tasks
-- Related Releases
+- original version
+- version history
+- approval history
+- review results
+- change history
+- related Technical Specifications
+- related Development Tasks
+- related releases
 
-No engineering decision shall become irreversible.
-
-FDOS Rule:
-
-> Blueprint history shall never be lost.
-
----
+FDOS Rule: Blueprint history must never be lost.
 
 ## 24. Archive Rules
 
 Feature Blueprints are never deleted.
 
-Deprecated Blueprints become archived.
-
-Archived Blueprints remain searchable and accessible.
+Deprecated Blueprints become archived and remain searchable.
 
 Archived Blueprints continue to serve as engineering evidence and historical product knowledge.
 
-FDOS Rule:
+FDOS Rule: Product knowledge is preserved permanently.
 
-> Product knowledge shall be preserved permanently.
+## Final Review Gate – Review Ready
 
----
+Before a Feature Blueprint is marked Review Ready, the following must be true:
 
-# Final Blueprint Lifecycle
+- all mandatory Blueprint sections are complete
+- all three Quality Gates are satisfied
+- Product Rules align with the Product Vision
+- Business Rules are explicit and testable
+- Domain Objects are consistent with the Domain Model
+- Events are named as facts
+- Decision Logic is complete
+- Edge Cases are documented
+- Acceptance Criteria are testable
+- Technical Notes do not introduce business decisions
+- Development Tasks are derived from the approved Blueprint
+- change history and versioning are clear
+- dependencies and ADR references are explicit
 
-Every Feature Blueprint progresses through the following lifecycle:
+FDOS Rule: Review Ready means the Blueprint is understandable, traceable and implementation-ready without additional verbal explanation.
 
-Idea
-
-↓
-
-Draft
-
-↓
-
-Review
-
-↓
-
-Approved
-
-↓
-
-Technical Specification
-
-↓
-
-Development
-
-↓
-
-Testing
-
-↓
-
-Release
-
-↓
-
-Evidence
-
-↓
-
-Archive
-
-Each lifecycle stage requires successful completion of the previous stage.
-
----
-
-# Blueprint Standard Completion
-
-The Feature Blueprint Standard is considered complete only when:
-
-- every mandatory section is documented
-- all Quality Gates are satisfied
-- governance is fully documented
-- ownership is defined
-- traceability is complete
-- review procedures are documented
-- approval procedures are documented
-- versioning is defined
-- lifecycle management is documented
-- auditability is ensured
-
-Only then may the Feature Blueprint Standard become an official FDOS Core Standard.
-
----
-
-# Engineering Principle
+## Engineering Principle
 
 A Feature Blueprint defines product behavior.
 
@@ -638,9 +516,7 @@ Tests verify correctness.
 
 Evidence proves completion.
 
----
-
-# Closing Principle
+## Closing Principle
 
 > Every line of code begins with a decision.
 >
@@ -648,10 +524,8 @@ Evidence proves completion.
 >
 > Every Blueprint begins with the Product Vision.
 
----
+## End of Standard
 
-# End of Standard
-
-This document defines the official FDOS Feature Blueprint Standard.
+This document defines the official FDOS Feature Blueprint Standard for TapTim.e.
 
 All future product features within TapTim.e shall follow this standard unless superseded by a newer approved FDOS version.
