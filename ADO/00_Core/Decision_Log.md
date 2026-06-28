@@ -15,6 +15,7 @@ Full architecture decisions are documented as ADRs under `ADO/01_Architecture/AD
 | PV-0005 | Product Vision: Product Philosophy | Approved | 2026-06-26 | `ADO/01_Architecture/Product_Vision.md` |
 | PV-0006 | Product Vision: Long-term Vision | Approved | 2026-06-26 | `ADO/01_Architecture/Product_Vision.md` |
 | FBS-001 | Feature Blueprint Standard | Review Ready | 2026-06-28 | `ADO/01_Architecture/Feature_Blueprint_Standard.md` |
+| TTAP-001 | TapTim.e Technical Architecture Profile | Review Ready | 2026-06-28 | `ADO/01_Architecture/Technical_Architecture_Profile.md` |
 | ADR-0001 | Repository Strategy: Monorepo | Accepted | 2026-06-26 | `ADO/01_Architecture/ADR/ADR-0001-repository-strategy.md` |
 | ADR-0002 | NFC Assignment Model | Accepted | 2026-06-26 | `ADO/01_Architecture/ADR/ADR-0002-nfc-assignment-model.md` |
 | ADR-0003 | Product Scope v1 | Accepted Draft | 2026-06-26 | `ADO/01_Architecture/ADR/ADR-0003-product-scope-v1.md` |
@@ -35,3 +36,5 @@ Every architectural decision must be:
 Product vision entries are not ADRs. They are high-impact product guidance documents owned by the Human Architect and Technical Lead.
 
 FDOS core standards such as the Feature Blueprint Standard define mandatory project workflow and engineering quality rules.
+
+TapTim.e project-level profiles apply FDOS to the concrete TapTim.e product architecture without redefining FDOS Core.
