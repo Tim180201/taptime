@@ -11,7 +11,7 @@ Related Standards: EOM-001, AGR-001
 
 The Agent Operations Framework standardizes how Human and AI Agents operate within an FDOS-managed engineering project.
 
-It defines onboarding, repository discovery, operational readiness, context recovery, repository health verification, prompt initialization and session continuity.
+It defines bootstrap, onboarding, repository discovery, operational readiness, context recovery, repository health verification, prompt initialization and session continuity.
 
 ## Scope
 
@@ -23,6 +23,8 @@ It does not redefine engineering roles, engineering governance or product strate
 
 Every agent shall:
 
+- verify technical repository access before onboarding
+- verify repository inventory capability before onboarding
 - understand the project before working
 - continue existing documentation instead of recreating it
 - verify repository state before decisions
@@ -32,28 +34,31 @@ Every agent shall:
 
 ## Core Principles
 
-1. Repository Before Role
-2. Discovery Before Decisions
-3. Continue, Never Recreate
-4. Evidence Before Assumptions
-5. Operational Independence
+1. Bootstrap Before Onboarding
+2. Repository Before Role
+3. Discovery Before Decisions
+4. Continue, Never Recreate
+5. Evidence Before Assumptions
+6. Operational Independence
 
 ## EP-006 Standards
 
 EP-006 introduces the following draft standards:
 
+- ABS-001 – Agent Bootstrap Standard
 - AOS-001 – Agent Onboarding Standard
 - ADS-001 – Agent Discovery Standard
 - AIR-001 – Agent Inventory Report
 - OAP-001 – Official Agent Prompt Standard
 - RHS-001 – Repository Health Standard
-- Agent Lifecycle
-- Operational Guidelines
+- ALF-001 – Agent Lifecycle
+- AOG-001 – Agent Operational Guidelines
 
 ## Framework Flow
 
 ```text
 Agent Prompt
+  -> ABS-001 Bootstrap
   -> AOS-001 Onboarding
   -> ADS-001 Repository Discovery
   -> RHS-001 Repository Health Verification
@@ -67,6 +72,8 @@ Agent Prompt
 
 EP-006 is ready for final acceptance when:
 
+- completely new agents can verify technical repository access
+- completely new agents can determine whether their environment supports full repository inventory
 - completely new agents can onboard themselves
 - repository discovery is reproducible
 - operational readiness is measurable
