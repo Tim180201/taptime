@@ -5,7 +5,7 @@ Document ID: AOS-001
 Epic: EP-006  
 Owner: Technical Lead  
 Approval Authority: Human Architect  
-Related Standards: AOF-001, EOM-001, AGR-001
+Related Standards: ABS-001, AOF-001, EOM-001, AGR-001
 
 ## Purpose
 
@@ -14,6 +14,18 @@ The Agent Onboarding Standard defines how every Human or AI Agent becomes operat
 FDOS Rule:
 
 > No engineering work shall begin before Agent Onboarding has successfully completed.
+
+## Bootstrap Precondition
+
+AOS-001 may only begin after ABS-001 has completed successfully.
+
+ABS-001 verifies repository access and repository inventory capability.
+
+If ABS-001 reports `STATUS: BLOCKED`, AOS-001 shall not begin.
+
+FDOS Rule:
+
+> Agent Onboarding requires a completed Agent Bootstrap.
 
 ## Scope
 
@@ -35,7 +47,7 @@ Every agent shall:
 ## Onboarding Phases
 
 ```text
-Repository Access
+ABS-001 Bootstrap Complete
   -> Repository Discovery
   -> Artifact Discovery
   -> Repository Verification
@@ -45,17 +57,6 @@ Repository Access
 ```
 
 Skipping phases is not permitted.
-
-## Repository Access
-
-Before engineering work begins, the agent verifies:
-
-- repository access
-- branch
-- permissions
-- repository availability
-
-If access is incomplete, the agent reports `STATUS: BLOCKED`.
 
 ## Repository Discovery
 
@@ -95,7 +96,7 @@ Without AIR-001, onboarding is incomplete.
 
 Before engineering work begins:
 
-- Repository accessible
+- ABS-001 completed
 - Repository Discovery completed
 - Artifact Discovery completed
 - Repository Verification completed
@@ -106,4 +107,4 @@ Before engineering work begins:
 
 ## Completion Criteria
 
-AOS-001 is complete when onboarding is successfully completed, AIR-001 is produced and operational readiness is confirmed.
+AOS-001 is complete when ABS-001 has completed, onboarding is successfully completed, AIR-001 is produced and operational readiness is confirmed.
