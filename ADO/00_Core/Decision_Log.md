@@ -14,6 +14,7 @@ Full architecture decisions are documented as ADRs under `ADO/01_Architecture/AD
 | PV-0004 | Product Vision: Our Solution | Approved | 2026-06-26 | `ADO/01_Architecture/Product_Vision.md` |
 | PV-0005 | Product Vision: Product Philosophy | Approved | 2026-06-26 | `ADO/01_Architecture/Product_Vision.md` |
 | PV-0006 | Product Vision: Long-term Vision | Approved | 2026-06-26 | `ADO/01_Architecture/Product_Vision.md` |
+| ADO-NAV-001 | ADO Navigation Entry Point | Draft | 2026-06-29 | `ADO/README.md` |
 | FBS-001 | Feature Blueprint Standard | Review Ready | 2026-06-28 | `ADO/01_Architecture/Feature_Blueprint_Standard.md` |
 | TTAP-001 | TapTim.e Technical Architecture Profile | Review Ready | 2026-06-28 | `ADO/01_Architecture/Technical_Architecture_Profile.md` |
 | DTP-001 | TapTim.e Development Task Profile | Review Ready | 2026-06-28 | `ADO/01_Architecture/Development_Task_Profile.md` |
@@ -53,4 +54,4 @@ TapTim.e project-level profiles apply FDOS to the concrete TapTim.e product arch
 
 The Agent Registry defines the currently assigned human and AI execution instances for stable engineering roles.
 
-EP-006 draft standards define the operational bootstrap, onboarding, discovery, readiness and repository health layer for agents. They remain Draft until practical validation, review and Evidence are complete.
+EP-006 draft standards define the operational bootstrap, ADO navigation, onboarding, discovery, readiness and repository health layer for agents. They remain Draft until practical validation, review and Evidence are complete.
