@@ -19,6 +19,14 @@ Full architecture decisions are documented as ADRs under `ADO/01_Architecture/AD
 | DTP-001 | TapTim.e Development Task Profile | Review Ready | 2026-06-28 | `ADO/01_Architecture/Development_Task_Profile.md` |
 | EOM-001 | TapTim.e Engineering Operating Model | Review Ready | 2026-06-28 | `ADO/01_Architecture/Engineering_Operating_Model.md` |
 | AGR-001 | Official Engineering Agent Registry | Operational Configuration | 2026-06-28 | `ADO/01_Architecture/Agent_Registry.md` |
+| AOF-001 | Agent Operations Framework | Draft | 2026-06-29 | `ADO/01_Architecture/Agent_Operations_Framework.md` |
+| AOS-001 | Agent Onboarding Standard | Draft | 2026-06-29 | `ADO/01_Architecture/Agent_Onboarding_Standard.md` |
+| ADS-001 | Agent Discovery Standard | Draft | 2026-06-29 | `ADO/01_Architecture/Agent_Discovery_Standard.md` |
+| AIR-001 | Agent Inventory Report | Draft | 2026-06-29 | `ADO/01_Architecture/Agent_Inventory_Report.md` |
+| OAP-001 | Official Agent Prompt Standard | Draft | 2026-06-29 | `ADO/01_Architecture/Official_Agent_Prompt_Standard.md` |
+| ALF-001 | Agent Lifecycle | Draft | 2026-06-29 | `ADO/01_Architecture/Agent_Lifecycle.md` |
+| RHS-001 | Repository Health Standard | Draft | 2026-06-29 | `ADO/01_Architecture/Repository_Health_Standard.md` |
+| AOG-001 | Agent Operational Guidelines | Draft | 2026-06-29 | `ADO/01_Architecture/Agent_Operational_Guidelines.md` |
 | ADR-0001 | Repository Strategy: Monorepo | Accepted | 2026-06-26 | `ADO/01_Architecture/ADR/ADR-0001-repository-strategy.md` |
 | ADR-0002 | NFC Assignment Model | Accepted | 2026-06-26 | `ADO/01_Architecture/ADR/ADR-0002-nfc-assignment-model.md` |
 | ADR-0003 | Product Scope v1 | Accepted Draft | 2026-06-26 | `ADO/01_Architecture/ADR/ADR-0003-product-scope-v1.md` |
@@ -43,3 +51,5 @@ FDOS core standards such as the Feature Blueprint Standard define mandatory proj
 TapTim.e project-level profiles apply FDOS to the concrete TapTim.e product architecture without redefining FDOS Core.
 
 The Agent Registry defines the currently assigned human and AI execution instances for stable engineering roles.
+
+EP-006 draft standards define the operational onboarding, discovery, readiness and repository health layer for agents. They remain Draft until practical validation, review and Evidence are complete.
