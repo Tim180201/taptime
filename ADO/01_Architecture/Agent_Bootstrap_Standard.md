@@ -48,6 +48,7 @@ Agent Start
   -> Repository Capability Check
   -> Repository Inventory Check
   -> Bootstrap Result
+  -> ADO/README.md
   -> AOS-001 Agent Onboarding
 ```
 
@@ -83,6 +84,7 @@ Allowed methods:
 - local clone
 - uploaded repository archive
 - complete repository manifest
+- official ADO navigation entry point plus readable referenced documents
 
 Not sufficient:
 
@@ -114,6 +116,20 @@ Minimum required inventory scope:
 - ADRs
 - EP-006 standards
 
+## Step 4 — ADO Navigation Entry Point
+
+After ABS-001 completes successfully, the agent shall read:
+
+`ADO/README.md`
+
+This file is the official TapTim.e ADO navigation entry point.
+
+AOS-001 may begin only after `ADO/README.md` has been read.
+
+FDOS Rule:
+
+> Agent onboarding begins from the official ADO navigation entry point.
+
 ## Bootstrap Completion Criteria
 
 ABS-001 is complete when:
@@ -123,6 +139,7 @@ ABS-001 is complete when:
 - default branch is identified
 - repository inventory capability is verified
 - complete repository inventory is available or can be generated
+- `ADO/README.md` is available as the ADO navigation entry point
 
 Only then may the agent proceed to AOS-001.
 
@@ -133,6 +150,7 @@ The agent must block if:
 - GitHub access is unavailable
 - private repositories cannot be read
 - repository inventory cannot be obtained
+- `ADO/README.md` cannot be read
 - only README or web search is available
 - the agent cannot verify current repository state
 
@@ -142,7 +160,7 @@ ABS-001 produces one of two outcomes:
 
 ```text
 BOOTSTRAP COMPLETE
-Proceed to AOS-001.
+Read ADO/README.md and proceed to AOS-001.
 ```
 
 or
@@ -166,7 +184,7 @@ Before doing any work, run ABS-001 Agent Bootstrap Standard.
 
 If ABS-001 cannot be completed, stop and report STATUS: BLOCKED.
 
-If ABS-001 completes successfully, continue with AOS-001.
+If ABS-001 completes successfully, read ADO/README.md and continue with AOS-001.
 
 After READY FOR WORK, execute your role according to:
 - EOM-001 Engineering Operating Model
@@ -183,6 +201,6 @@ At the end of every task, produce:
 
 ABS-001 is the technical precondition for AOS-001.
 
-AOS-001 may only begin after ABS-001 completes successfully.
+AOS-001 may only begin after ABS-001 completes successfully and `ADO/README.md` has been read.
 
 ABS-001 does not replace AOS-001.
