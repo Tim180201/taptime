@@ -20,6 +20,7 @@ Full architecture decisions are documented as ADRs under `ADO/01_Architecture/AD
 | EOM-001 | TapTim.e Engineering Operating Model | Review Ready | 2026-06-28 | `ADO/01_Architecture/Engineering_Operating_Model.md` |
 | AGR-001 | Official Engineering Agent Registry | Operational Configuration | 2026-06-28 | `ADO/01_Architecture/Agent_Registry.md` |
 | AOF-001 | Agent Operations Framework | Draft | 2026-06-29 | `ADO/01_Architecture/Agent_Operations_Framework.md` |
+| ABS-001 | Agent Bootstrap Standard | Draft | 2026-06-29 | `ADO/01_Architecture/Agent_Bootstrap_Standard.md` |
 | AOS-001 | Agent Onboarding Standard | Draft | 2026-06-29 | `ADO/01_Architecture/Agent_Onboarding_Standard.md` |
 | ADS-001 | Agent Discovery Standard | Draft | 2026-06-29 | `ADO/01_Architecture/Agent_Discovery_Standard.md` |
 | AIR-001 | Agent Inventory Report | Draft | 2026-06-29 | `ADO/01_Architecture/Agent_Inventory_Report.md` |
@@ -52,4 +53,4 @@ TapTim.e project-level profiles apply FDOS to the concrete TapTim.e product arch
 
 The Agent Registry defines the currently assigned human and AI execution instances for stable engineering roles.
 
-EP-006 draft standards define the operational onboarding, discovery, readiness and repository health layer for agents. They remain Draft until practical validation, review and Evidence are complete.
+EP-006 draft standards define the operational bootstrap, onboarding, discovery, readiness and repository health layer for agents. They remain Draft until practical validation, review and Evidence are complete.
