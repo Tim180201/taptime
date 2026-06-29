@@ -121,6 +121,40 @@ GitHub Connection Verification
   -> READY FOR WORK
 ```
 
+## Review Agent Prompt Requirement
+
+Official Review Agent prompts shall define explicit review preconditions.
+
+A Review Agent may only review a concrete review target, such as:
+
+- Pull Request
+- Branch
+- Commit
+- Implementation Package
+- Engineering Package
+- Feature Blueprint
+- Development Task
+- explicit Technical Lead review scope
+
+If no concrete review target is supplied, the Review Agent shall not perform a repository-wide review.
+
+If no concrete review target is supplied, the Review Agent shall produce a Review Package with the decision:
+
+```text
+NOT REVIEWABLE
+```
+
+`NOT REVIEWABLE` means:
+
+- Agent initialization completed successfully.
+- The Review Agent reached READY FOR WORK.
+- No reviewable implementation artifact or review scope was supplied.
+- No implementation approval or rejection has occurred.
+
+FDOS Rule:
+
+> Missing review targets are not failed implementations. They are not reviewable.
+
 ## Prompt Versioning
 
 Official prompts are controlled engineering artifacts.
@@ -147,6 +181,7 @@ Validation includes:
 - Discovery sequence
 - Operational Readiness
 - Completion requirements
+- role-specific preconditions where applicable
 
 ## Expected Outcome
 
