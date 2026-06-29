@@ -1,6 +1,6 @@
 # OAP-001 – Official Agent Prompt Standard
 
-Status: Draft  
+Status: Validated  
 Document ID: OAP-001  
 Epic: EP-006  
 Owner: Technical Lead  
