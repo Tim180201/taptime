@@ -43,6 +43,13 @@ GitHub Connection Verification
 | EOM-001 | Engineering Operating Model | `ADO/01_Architecture/Engineering_Operating_Model.md` |
 | AGR-001 | Agent Registry | `ADO/01_Architecture/Agent_Registry.md` |
 
+## Governance
+
+| ID | Document | Location |
+|---|---|---|
+| Decision Log | Decision Log | `ADO/00_Core/Decision_Log.md` |
+| AVR-001 | Artifact Validation Register | `ADO/00_Governance/AVR-001_Artifact_Validation_Register.md` |
+
 ## EP-006 Agent Operations Framework
 
 | ID | Document | Location |
@@ -88,16 +95,6 @@ GitHub Connection Verification
 | Document | Location |
 |---|---|
 | Evidence Area | `ADO/05_Evidence/` |
-
-## Agent Rule
-
-If this ADO entry point cannot be found, the agent shall report:
-
-```text
-STATUS: BLOCKED
-Reason: ADO navigation entry point unavailable.
-Required Action: Provide ADO/README.md or repository inventory.
-```
 
 ## Navigation Rule
 
