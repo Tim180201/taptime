@@ -144,16 +144,46 @@ If no concrete review target is supplied, the Review Agent shall produce a Revie
 NOT REVIEWABLE
 ```
 
+Reason:
+
+```text
+No review target was supplied.
+```
+
+If a concrete review target exists but the available review evidence is insufficient to perform an objective evidence-based review, the Review Agent shall produce a Review Package with the decision:
+
+```text
+NOT REVIEWABLE
+```
+
+Reason:
+
+```text
+Review evidence is incomplete.
+```
+
+Examples of insufficient review evidence include:
+
+- commit cannot be inspected
+- changed files cannot be verified
+- engineering package is missing
+- implementation evidence is incomplete
+- validation evidence is unavailable
+
 `NOT REVIEWABLE` means:
 
 - Agent initialization completed successfully.
 - The Review Agent reached READY FOR WORK.
-- No reviewable implementation artifact or review scope was supplied.
+- No reviewable implementation artifact, review scope or review evidence was supplied.
 - No implementation approval or rejection has occurred.
 
 FDOS Rule:
 
-> Missing review targets are not failed implementations. They are not reviewable.
+> Missing review targets or incomplete review evidence are not failed implementations. They are not reviewable.
+
+FDOS Rule:
+
+> A Review Agent shall never infer implementation correctness from incomplete evidence.
 
 ## Prompt Versioning
 
