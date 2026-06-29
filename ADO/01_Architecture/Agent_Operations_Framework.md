@@ -1,11 +1,11 @@
 # EP-006 – Agent Operations Framework
 
-Status: Draft  
+Status: Validated  
 Document ID: AOF-001  
 Epic: EP-006  
 Owner: Technical Lead  
 Approval Authority: Human Architect  
-Related Standards: EOM-001, AGR-001
+Related Standards: EOM-001, AGR-001, AVR-001
 
 ## Purpose
 
@@ -88,8 +88,16 @@ EP-006 is ready for final acceptance when:
 - repository health verification is standardized
 - validation evidence exists
 
+## Validation Status
+
+EP-006 has been validated through a closed-loop engineering cycle.
+
+Validation evidence is tracked in:
+
+`ADO/00_Governance/AVR-001_Artifact_Validation_Register.md`
+
 ## Current Status
 
-EP-006 is integrated as a Draft ADO baseline for practical validation with new agents.
+EP-006 is a Validated ADO baseline.
 
-Final Evidence and acceptance shall be created only after validation.
+Promotion from `Validated` to `Accepted` requires Human Architect approval.
