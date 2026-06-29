@@ -5,7 +5,7 @@ Document ID: OAP-001
 Epic: EP-006  
 Owner: Technical Lead  
 Approval Authority: Human Architect  
-Related Standards: EOM-001, AGR-001, AOS-001, ADS-001, AIR-001
+Related Standards: ABS-001, EOM-001, AGR-001, AOS-001, ADS-001, AIR-001
 
 ## Purpose
 
@@ -39,6 +39,7 @@ Every Official Agent Prompt shall ensure that an agent:
 
 - understands its assigned role
 - understands repository hierarchy
+- runs ABS-001 before onboarding
 - performs mandatory onboarding
 - performs Repository Discovery
 - completes AIR-001
@@ -51,9 +52,10 @@ Every Official Agent Prompt shall contain:
 
 1. Role Initialization
 2. Repository Hierarchy
-3. Mandatory Onboarding
-4. Engineering References
-5. Completion Requirements
+3. Mandatory Bootstrap
+4. Mandatory Onboarding
+5. Engineering References
+6. Completion Requirements
 
 ## Repository Hierarchy
 
@@ -69,10 +71,21 @@ TapTim.e
 Assigned Engineering Role
 ```
 
+## Mandatory Bootstrap
+
+Every prompt shall require ABS-001 before AOS-001.
+
+If ABS-001 cannot be completed, the agent shall stop and report `STATUS: BLOCKED`.
+
+FDOS Rule:
+
+> Official prompts start with Agent Bootstrap, not Agent Onboarding.
+
 ## Mandatory Onboarding
 
 Every prompt shall require completion of:
 
+- ABS-001
 - AOS-001
 - ADS-001
 - AIR-001
@@ -99,6 +112,7 @@ Validation includes:
 
 - Repository hierarchy
 - Standard references
+- Bootstrap sequence
 - Onboarding sequence
 - Discovery sequence
 - Operational Readiness
