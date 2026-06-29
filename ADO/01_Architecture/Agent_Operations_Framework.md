@@ -11,7 +11,7 @@ Related Standards: EOM-001, AGR-001
 
 The Agent Operations Framework standardizes how Human and AI Agents operate within an FDOS-managed engineering project.
 
-It defines bootstrap, onboarding, repository discovery, operational readiness, context recovery, repository health verification, prompt initialization and session continuity.
+It defines bootstrap, ADO navigation, onboarding, repository discovery, operational readiness, context recovery, repository health verification, prompt initialization and session continuity.
 
 ## Scope
 
@@ -25,6 +25,7 @@ Every agent shall:
 
 - verify technical repository access before onboarding
 - verify repository inventory capability before onboarding
+- use the official ADO navigation entry point before discovery
 - understand the project before working
 - continue existing documentation instead of recreating it
 - verify repository state before decisions
@@ -35,16 +36,18 @@ Every agent shall:
 ## Core Principles
 
 1. Bootstrap Before Onboarding
-2. Repository Before Role
-3. Discovery Before Decisions
-4. Continue, Never Recreate
-5. Evidence Before Assumptions
-6. Operational Independence
+2. ADO Navigation Before Discovery
+3. Repository Before Role
+4. Discovery Before Decisions
+5. Continue, Never Recreate
+6. Evidence Before Assumptions
+7. Operational Independence
 
 ## EP-006 Standards
 
-EP-006 introduces the following draft standards:
+EP-006 introduces the following draft standards and navigation artifacts:
 
+- ADO/README.md – ADO Navigation Entry Point
 - ABS-001 – Agent Bootstrap Standard
 - AOS-001 – Agent Onboarding Standard
 - ADS-001 – Agent Discovery Standard
@@ -59,12 +62,14 @@ EP-006 introduces the following draft standards:
 ```text
 Agent Prompt
   -> ABS-001 Bootstrap
+  -> ADO/README.md
   -> AOS-001 Onboarding
   -> ADS-001 Repository Discovery
   -> RHS-001 Repository Health Verification
   -> AIR-001 Operational Readiness Certificate
   -> READY FOR WORK
   -> Engineering Operating Model
+  -> Agent Registry
   -> Role Handover
 ```
 
@@ -74,6 +79,7 @@ EP-006 is ready for final acceptance when:
 
 - completely new agents can verify technical repository access
 - completely new agents can determine whether their environment supports full repository inventory
+- completely new agents can locate mandatory documents through ADO/README.md
 - completely new agents can onboard themselves
 - repository discovery is reproducible
 - operational readiness is measurable
