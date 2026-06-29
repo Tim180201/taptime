@@ -15,17 +15,18 @@ Full architecture decisions are documented as ADRs under `ADO/01_Architecture/AD
 | PV-0005 | Product Vision: Product Philosophy | Approved | 2026-06-26 | `ADO/01_Architecture/Product_Vision.md` |
 | PV-0006 | Product Vision: Long-term Vision | Approved | 2026-06-26 | `ADO/01_Architecture/Product_Vision.md` |
 | ADO-NAV-001 | ADO Navigation Entry Point | Draft | 2026-06-29 | `ADO/README.md` |
+| AVR-001 | Artifact Validation Register | Active | 2026-06-29 | `ADO/00_Governance/AVR-001_Artifact_Validation_Register.md` |
 | FBS-001 | Feature Blueprint Standard | Review Ready | 2026-06-28 | `ADO/01_Architecture/Feature_Blueprint_Standard.md` |
 | TTAP-001 | TapTim.e Technical Architecture Profile | Review Ready | 2026-06-28 | `ADO/01_Architecture/Technical_Architecture_Profile.md` |
 | DTP-001 | TapTim.e Development Task Profile | Review Ready | 2026-06-28 | `ADO/01_Architecture/Development_Task_Profile.md` |
 | EOM-001 | TapTim.e Engineering Operating Model | Review Ready | 2026-06-28 | `ADO/01_Architecture/Engineering_Operating_Model.md` |
 | AGR-001 | Official Engineering Agent Registry | Operational Configuration | 2026-06-28 | `ADO/01_Architecture/Agent_Registry.md` |
-| AOF-001 | Agent Operations Framework | Draft | 2026-06-29 | `ADO/01_Architecture/Agent_Operations_Framework.md` |
+| AOF-001 | Agent Operations Framework | Validated | 2026-06-29 | `ADO/01_Architecture/Agent_Operations_Framework.md` |
 | ABS-001 | Agent Bootstrap Standard | Draft | 2026-06-29 | `ADO/01_Architecture/Agent_Bootstrap_Standard.md` |
 | AOS-001 | Agent Onboarding Standard | Draft | 2026-06-29 | `ADO/01_Architecture/Agent_Onboarding_Standard.md` |
 | ADS-001 | Agent Discovery Standard | Draft | 2026-06-29 | `ADO/01_Architecture/Agent_Discovery_Standard.md` |
 | AIR-001 | Agent Inventory Report | Draft | 2026-06-29 | `ADO/01_Architecture/Agent_Inventory_Report.md` |
-| OAP-001 | Official Agent Prompt Standard | Draft | 2026-06-29 | `ADO/01_Architecture/Official_Agent_Prompt_Standard.md` |
+| OAP-001 | Official Agent Prompt Standard | Validated | 2026-06-29 | `ADO/01_Architecture/Official_Agent_Prompt_Standard.md` |
 | ALF-001 | Agent Lifecycle | Draft | 2026-06-29 | `ADO/01_Architecture/Agent_Lifecycle.md` |
 | RHS-001 | Repository Health Standard | Draft | 2026-06-29 | `ADO/01_Architecture/Repository_Health_Standard.md` |
 | AOG-001 | Agent Operational Guidelines | Draft | 2026-06-29 | `ADO/01_Architecture/Agent_Operational_Guidelines.md` |
@@ -54,4 +55,6 @@ TapTim.e project-level profiles apply FDOS to the concrete TapTim.e product arch
 
 The Agent Registry defines the currently assigned human and AI execution instances for stable engineering roles.
 
-EP-006 draft standards define the operational bootstrap, ADO navigation, onboarding, discovery, readiness and repository health layer for agents. They remain Draft until practical validation, review and Evidence are complete.
+EP-006 standards define the operational bootstrap, ADO navigation, onboarding, discovery, readiness and repository health layer for agents. Their validation state is tracked in AVR-001.
+
+AVR-001 records whether engineering artifacts have been practically validated. It does not replace the Decision Log; it complements it by tracking validation evidence and maturity status.
