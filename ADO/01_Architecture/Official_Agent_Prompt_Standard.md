@@ -40,6 +40,7 @@ Every Official Agent Prompt shall ensure that an agent:
 - understands its assigned role
 - understands repository hierarchy
 - runs ABS-001 before onboarding
+- reads ADO/README.md after bootstrap
 - performs mandatory onboarding
 - performs Repository Discovery
 - completes AIR-001
@@ -53,9 +54,10 @@ Every Official Agent Prompt shall contain:
 1. Role Initialization
 2. Repository Hierarchy
 3. Mandatory Bootstrap
-4. Mandatory Onboarding
-5. Engineering References
-6. Completion Requirements
+4. ADO Navigation Entry Point
+5. Mandatory Onboarding
+6. Engineering References
+7. Completion Requirements
 
 ## Repository Hierarchy
 
@@ -81,6 +83,20 @@ FDOS Rule:
 
 > Official prompts start with Agent Bootstrap, not Agent Onboarding.
 
+## ADO Navigation Entry Point
+
+After ABS-001 completes successfully, every prompt shall require the agent to read:
+
+`ADO/README.md`
+
+This is the official TapTim.e ADO navigation entry point.
+
+AOS-001 shall begin only after `ADO/README.md` has been read.
+
+FDOS Rule:
+
+> Official prompts navigate through the ADO entry point instead of guessing document paths.
+
 ## Mandatory Onboarding
 
 Every prompt shall require completion of:
@@ -91,6 +107,19 @@ Every prompt shall require completion of:
 - AIR-001
 
 Engineering work shall not begin before Operational Readiness has been confirmed.
+
+## Standard Startup Sequence
+
+```text
+GitHub Connection Verification
+  -> ABS-001
+  -> ADO/README.md
+  -> AOS-001
+  -> ADS-001
+  -> RHS-001
+  -> AIR-001
+  -> READY FOR WORK
+```
 
 ## Prompt Versioning
 
@@ -113,6 +142,7 @@ Validation includes:
 - Repository hierarchy
 - Standard references
 - Bootstrap sequence
+- ADO navigation entry point
 - Onboarding sequence
 - Discovery sequence
 - Operational Readiness
