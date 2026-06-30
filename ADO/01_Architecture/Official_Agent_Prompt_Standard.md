@@ -33,6 +33,20 @@ These are already defined by EOM-001 and AGR-001.
 
 OAP-001 defines only how an official prompt initializes an engineering role.
 
+## Startup Sequence Authority
+
+Official prompts shall reference the mandatory startup sequence defined in:
+
+`ADO/README.md`
+
+OAP-001 may define prompt requirements, but it shall not redefine the official startup sequence.
+
+If an apparent conflict exists between an overview diagram, lifecycle model, prompt text and the official startup sequence, `ADO/README.md` is authoritative.
+
+FDOS Rule:
+
+> Prompts reference standards. Standards define engineering.
+
 ## Prompt Objectives
 
 Every Official Agent Prompt shall ensure that an agent:
@@ -130,7 +144,11 @@ Every prompt shall require completion of:
 
 Engineering work shall not begin before Operational Readiness has been confirmed.
 
-## Standard Startup Sequence
+## Official Startup Sequence Reference
+
+The official startup sequence is defined in `ADO/README.md`.
+
+For prompt validation purposes, official prompts shall reflect that sequence without redefining it:
 
 ```text
 GitHub Connector Verification
