@@ -19,7 +19,15 @@ FDOS Rule:
 
 > Agents shall perform Repository Discovery and locate the official ADO navigation entry point before executing the bootstrap sequence.
 
-## Agent Startup Order
+## Startup Sequence Authority
+
+`ADO/README.md` is the normative source for the official TapTim.e agent startup sequence.
+
+Other EP-006 artifacts may include operational overviews, lifecycle models or prompt requirements. Those supporting diagrams shall not redefine the official startup sequence.
+
+If an apparent conflict exists between this file and an overview or lifecycle diagram, this file is authoritative.
+
+## Official Startup Sequence (Normative)
 
 ```text
 GitHub Connector Verification
