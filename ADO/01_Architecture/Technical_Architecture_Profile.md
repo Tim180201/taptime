@@ -2,10 +2,11 @@
 
 Status: Review Ready  
 Document ID: TTAP-001  
-Epic: EP-003  
+Epic: EP-003 / EP-007  
 Owner: Technical Lead  
 Approval Authority: Human Architect  
-FDOS Reference: FDOS Genesis Core
+FDOS Reference: FDOS Genesis Core  
+Last Updated: 2026-06-30
 
 ## Purpose
 
@@ -52,6 +53,10 @@ Important technical decisions must be documented. Implicit architecture is treat
 ### Observable Systems
 
 The system must be understandable during operation. Events, logs and evidence support debugging, auditability and organizational learning.
+
+### Extend before Create
+
+Existing repository artifacts shall be extended before new artifacts are created.
 
 ## System Context
 
@@ -109,7 +114,7 @@ TapTim.e separates responsibilities strictly:
 
 - UI does not contain Business Rules.
 - Application orchestration does not make product decisions.
-- Business Engine does not depend on Flutter classes.
+- Business Engine does not depend on framework classes.
 - Domain does not depend on databases.
 - Repositories do not contain business decisions.
 - Services do not redefine product behavior.
@@ -120,141 +125,133 @@ FDOS Rule:
 
 > Every layer has a clear responsibility. Responsibility leakage is an architecture defect.
 
+## EP-007 Product Architecture Foundation
+
+EP-007 extends TTAP-001 into the Product Architecture Foundation without creating a separate Domain Model artifact.
+
+Architecture is organized as:
+
+```text
+Architecture Principles
+  -> Domain Architecture
+  -> Runtime Architecture
+  -> Infrastructure Architecture
+```
+
+## Domain Architecture
+
+Domain Architecture defines the conceptual business model of TapTim.e.
+
+It is the authoritative place for central domain language, relationships, aggregate boundaries, domain events, invariants and Business Engine responsibility.
+
+Feature Blueprints may use this language. They shall not redefine it.
+
+Technical Specifications may implement this architecture. They shall not reinterpret it.
+
+### Ubiquitous Language
+
+| Term | Meaning |
+|---|---|
+| Organization | A business customer account using TapTim.e. |
+| User | A person authenticated in TapTim.e. |
+| Employee | A user who records work time. |
+| Admin | A user who manages organization data and reviews time tracking information. |
+| Customer | A business target for tracked work in v1. |
+| NfcTag | A physical NFC token that provides a technical identifier. |
+| NfcAssignment | The active mapping between an NFC tag and an Assignment Target. |
+| Assignment Target | The business object an NFC tag points to. In v1 this is a Customer. |
+| Raw Scan Event | The technical fact that a scan occurred on a device. |
+| WorkEvent | The business-level event created from a valid trigger. |
+| TimeEntry | A business record representing started, active or completed work time. |
+| Business Engine | The domain component that interprets WorkEvents and derives business outcomes. |
+| Offline Queue | The runtime mechanism that stores unsynchronized operational events. |
+| Synchronization | The controlled exchange between local operational state and backend persistence. |
+
+### Aggregate Roots
+
+- Organization
+- NfcTag
+- NfcAssignment
+- WorkEvent
+- TimeEntry
+
+### Value Objects
+
+- OrganizationId
+- UserId
+- CustomerId
+- NfcTagId
+- NfcPayload
+- AssignmentTarget
+- WorkEventId
+- TimeEntryId
+- Timestamp
+- SyncState
+- ScanDeduplicationWindow
+
+### Domain Events
+
+- NfcTagScanned
+- NfcAssignmentResolved
+- NfcAssignmentRejected
+- WorkEventCreated
+- DuplicateScanIgnored
+- TimeEntryStarted
+- TimeEntryStopped
+- TimeEntryPending
+- WorkEventQueuedForSync
+- WorkEventSynchronized
+- WorkEventSyncFailed
+
+### Invariants
+
+- Every WorkEvent belongs to exactly one Organization.
+- Every WorkEvent is traceable to a trigger.
+- Every NFC-triggered WorkEvent is traceable to an NfcTag and NfcAssignment resolution outcome.
+- A TimeEntry must be derived from Business Engine logic.
+- A TimeEntry shall not be created directly by UI code.
+- A rejected scan must be observable as a rejection outcome.
+- Offline-created WorkEvents must remain locally available until synchronization succeeds or a recoverable conflict flow exists.
+
+## Runtime Architecture
+
+Runtime Architecture defines how TapTim.e behaves while running.
+
+```text
+User scans NFC tag
+  -> UI receives scan result
+  -> Application Layer creates NfcTagScanned input
+  -> Assignment Resolver resolves NfcAssignment
+  -> Assignment Validator validates assignment and target
+  -> WorkEvent Factory creates WorkEvent
+  -> Business Engine evaluates WorkEvent
+  -> TimeEntry result is produced
+  -> Offline Queue stores unsynchronized event/result when required
+  -> Synchronization Layer syncs when possible
+  -> UI displays outcome
+```
+
+Errors shall be categorized as recoverable, retryable, deferred, conflict or fatal.
+
+## Infrastructure Architecture
+
+Infrastructure Architecture defines the technical platform boundary and is governed by ADR-0007.
+
+The mobile platform provides NFC scan capture, user interaction, local runtime state, offline-capable event capture and synchronization triggers.
+
+The backend platform provides authentication, durable persistence, security enforcement, synchronization targets and audit support.
+
+Persistence stores organization records, users and roles, customers, NFC tags, NFC assignments, work events, time entries and synchronization metadata.
+
+External services may support authentication, persistence, hosting or operational observability. External services must not own TapTim.e product decisions.
+
 ## Technical Architecture Specification
 
 A Technical Architecture Specification answers how an approved Feature Blueprint is implemented in TapTim.e.
 
-It must describe:
-
-- affected architectural layers
-- involved components
-- changed interfaces
-- created or processed Events
-- changed data structures
-- persistence impact
-- synchronization impact
-- technical risks
-- required tests
+It must describe affected layers, components, interfaces, events, data structures, persistence impact, synchronization impact, risks and tests.
 
 It must not redefine Product Vision, Product Principles, Business Goals, User Goals, Business Rules or Product Rules.
-
-FDOS Rule:
-
-> The Technical Architecture Specification implements the approved Blueprint. It does not reinterpret it.
-
-## Completion Requirement
-
-A Technical Architecture Specification is complete when an unfamiliar senior software engineer can implement the feature without requiring architectural interpretation.
-
-The engineer may ask implementation questions. The engineer must not need to ask architectural questions.
-
-FDOS Rule:
-
-> Technical ambiguity must be resolved before implementation begins.
-
-## System Architecture Requirements
-
-Every Technical Architecture Specification documents:
-
-- system context
-- architecture overview
-- component responsibilities
-- interface contracts
-- data flow
-- dependency rules
-- affected external systems
-
-The specification identifies affected layers and unchanged layers.
-
-Component responsibilities must not overlap unnecessarily.
-
-Interface contracts describe inputs, outputs, error conditions and side effects. They describe communication, not implementation.
-
-Data flow documents where information moves, where state changes occur and where Events are produced.
-
-Allowed dependency direction follows the architectural layering from UI toward persistence. Reverse dependencies are not permitted unless explicitly justified.
-
-## Runtime Architecture Requirements
-
-Every Technical Architecture Specification documents runtime behavior through:
-
-- Event Architecture
-- State Management
-- Persistence Strategy
-- Synchronization Strategy
-- Error Strategy
-- Observability
-- Technical Risks
-- Architecture Decisions
-
-Events document producers, consumers, triggers, follow-up events and architectural impact.
-
-Business state never belongs to the UI.
-
-Persistence stores state but never defines product behavior.
-
-Synchronization documents trigger, local changes, queue behavior, conflict strategy, retry strategy and remote confirmation.
-
-Errors are categorized as recoverable, retryable, deferred, conflict or fatal.
-
-Architecture decisions explain why a solution was chosen.
-
-FDOS Rule:
-
-> Runtime behavior shall be explained through explicit event flow.
-
-## Engineering Quality Requirements
-
-Every Technical Architecture Specification evaluates:
-
-- Security Architecture
-- Performance Strategy
-- Reliability
-- Testability
-- Observability Quality
-- Deployment Considerations
-- Maintainability
-
-Security is an architectural concern, not an implementation detail.
-
-Performance-critical operations, asynchronous processing, blocking operations, expected performance goals and resource considerations must be documented.
-
-Reliability documents failure scenarios, recovery strategy, offline behavior, duplicate handling and consistency guarantees.
-
-Testability explains testable components, isolation strategy, mocking boundaries, deterministic behavior and integration testing scope.
-
-Deployment considerations include database migrations, infrastructure changes, API changes, feature flags, rollback strategy and deployment risks.
-
-FDOS Rule:
-
-> Engineering quality shall be designed before implementation begins.
-
-## Implementation Strategy Requirements
-
-Every Technical Architecture Specification defines:
-
-- implementation approach
-- incremental delivery
-- migration strategy
-- backward compatibility
-- rollout strategy
-- risk reduction
-- testing strategy
-- release evidence
-
-The implementation approach explains whether the feature extends existing architecture, introduces new components or replaces existing functionality.
-
-Incremental delivery should reduce risk and provide measurable progress.
-
-Migration is documented even when no migration is required.
-
-Backward compatibility covers previous application versions, existing APIs, stored data and historical events.
-
-Release evidence may include test results, review outcomes, migration validation, runtime evidence and operational verification.
-
-FDOS Rule:
-
-> A feature is complete only when implementation is supported by objective engineering evidence.
 
 ## Technical Architecture Template
 
@@ -277,67 +274,6 @@ Every Technical Architecture Specification follows this template:
 15. Architecture Decisions
 16. Release Evidence
 
-## Naming Conventions
-
-Events use past-tense facts.
-
-Services describe responsibilities.
-
-Repositories represent aggregates.
-
-Components describe business capabilities.
-
-## Documentation Standards
-
-Architecture documentation shall:
-
-- eliminate ambiguity
-- document responsibilities
-- define boundaries
-- justify decisions
-- avoid implementation details
-
-## Engineering Best Practices
-
-- Business Rules never belong to the UI.
-- Repositories do not contain business logic.
-- Events are immutable.
-- Components have one responsibility.
-- Prefer explicit architecture over implicit assumptions.
-- Prefer simplicity over unnecessary complexity.
-
-## Architecture Review Checklist
-
-Before approval verify:
-
-- architecture complete
-- layering correct
-- responsibilities defined
-- interfaces documented
-- runtime behaviour explained
-- risks documented
-- security reviewed
-- performance assessed
-- deployment evaluated
-
-## Engineering Checklist
-
-Before implementation verify:
-
-- architecture understood
-- risks accepted
-- migration evaluated
-- testing planned
-- rollout planned
-- monitoring prepared
-- evidence identified
-
-## Living Architecture
-
-Technical Architecture Specifications are living engineering documents.
-
-They evolve with the product and always reflect the current architectural reality.
-
 ## Closing Principles
 
 Architecture before implementation.
@@ -352,6 +288,4 @@ Maintainability before short-term optimization.
 
 Every implementation begins with architecture. Every architecture serves the product.
 
-## Engineering Baseline
-
-This Technical Architecture Profile establishes the architectural engineering baseline for all future Technical Architecture Specifications within the TapTim.e project.
+Extend before Create.
