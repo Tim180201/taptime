@@ -54,8 +54,8 @@ FDOS Rule:
 |---|---|---|---|---|---|---|---|---|---|---|
 | OAP-001 | Official Agent Prompt Standard | 1.0 | Validated | 2026-06-29 | Closed-loop engineering cycle | Technical Lead implementation, Review Agent finding, Technical Lead correction, follow-up Review Agent approval | APPROVED | Technical Lead | Review Agent | Validated distinction between `NOT REVIEWABLE` and `CHANGES REQUIRED`. |
 | EP-006 | Agent Operations Framework | 1.0 | Validated | 2026-06-29 | Closed-loop engineering cycle | Agent bootstrap, ADO navigation, Review Agent initialization, evidence-based review, correction cycle and approval | APPROVED | Technical Lead | Review Agent | Validated practical agent startup and review workflow. |
-| EP-006-FU-001 | Startup Sequence: Repository Discovery Before Bootstrap | 0.1 | Draft | Pending | Follow-up repository integration | `ADO/05_Evidence/EP-006/Startup_Sequence_Followup.md` | PENDING | Technical Lead | Pending | Follow-up change to validated EP-006 baseline. Requires Review Agent approval before treated as validated. |
-| EP-006-FU-002 | Startup Sequence Authority Clarification | 0.1 | Draft | Pending | Review finding resolution | `ADO/05_Evidence/EP-006/Startup_Sequence_Followup.md` | PENDING | Technical Lead | Pending | Resolves EP006-001 by defining ADO/README as normative startup source and AOF/ALF as informative context. |
+| EP-006-FU-001 | Startup Sequence: Repository Discovery Before Bootstrap | 1.0 | Validated | 2026-06-30 | Follow-up repository integration and review | `ADO/05_Evidence/EP-006/Startup_Sequence_Followup.md`, PR #2, merge commit `9ff8a6db21a748df65d7b773a38968db862f77de` | APPROVED | Technical Lead | Review Agent | Initial Repository Discovery now occurs before ABS-001. |
+| EP-006-FU-002 | Startup Sequence Authority Clarification | 1.0 | Validated | 2026-06-30 | Review finding resolution and review | `ADO/05_Evidence/EP-006/Startup_Sequence_Followup.md`, PR #2, merge commit `9ff8a6db21a748df65d7b773a38968db862f77de` | APPROVED | Technical Lead | Review Agent | Resolves EP006-001 by defining ADO/README as normative startup source and AOF/ALF as informative context. |
 
 ## Maintenance Rule
 
