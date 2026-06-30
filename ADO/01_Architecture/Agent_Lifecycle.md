@@ -11,7 +11,21 @@ Related Standards: AOS-001, ADS-001, AIR-001, EOM-001
 
 The Agent Lifecycle defines the complete lifecycle of every Human and AI Agent within an FDOS-managed engineering project.
 
-## Lifecycle
+ALF-001 describes lifecycle states and transitions. It does not define the normative startup sequence.
+
+The mandatory startup sequence is defined exclusively in:
+
+`ADO/README.md`
+
+FDOS Rule:
+
+> The ADO navigation entry point is the normative source for agent startup order.
+
+## Lifecycle State Model (Informative)
+
+The following model describes the agent lifecycle from initialization to completion.
+
+It includes startup-related states, engineering execution and session completion. It is not intended to redefine the official startup sequence.
 
 ```text
 New Agent
