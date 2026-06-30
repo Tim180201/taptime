@@ -19,6 +19,18 @@ EP-006 applies to every Human and AI Agent participating in TapTim.e engineering
 
 It does not redefine engineering roles, engineering governance or product strategy. Those remain defined by FDOS Genesis, EOM-001 and AGR-001.
 
+## Startup Sequence Authority
+
+The mandatory startup sequence is defined exclusively in:
+
+`ADO/README.md`
+
+AOF-001 may describe operational flow, but it shall not redefine the official startup sequence.
+
+FDOS Rule:
+
+> The ADO navigation entry point is the normative source for agent startup order.
+
 ## Objectives
 
 Every agent shall:
@@ -80,7 +92,11 @@ EP-006 introduces the following draft standards and navigation artifacts:
 - ALF-001 – Agent Lifecycle
 - AOG-001 – Agent Operational Guidelines
 
-## Framework Flow
+## Operational Lifecycle Overview (Informative)
+
+The following diagram illustrates the complete operational lifecycle around startup, role execution and handover.
+
+It is not the normative startup sequence. The mandatory startup sequence is defined in `ADO/README.md`.
 
 ```text
 Agent Prompt
@@ -96,6 +112,7 @@ Agent Prompt
   -> READY FOR WORK
   -> Engineering Operating Model
   -> Agent Registry
+  -> Role Execution
   -> Role Handover
 ```
 
