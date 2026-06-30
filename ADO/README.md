@@ -9,18 +9,32 @@ Approval Authority: Human Architect
 
 This file is the official navigation entry point for the TapTim.e ADO.
 
-Every Human and AI Agent shall read this document after ABS-001 has completed successfully and before AOS-001 begins.
+Every Human and AI Agent shall locate this document through repository evidence before executing ABS-001 and shall read it before AOS-001 begins.
 
 FDOS Rule:
 
 > Every engineering document required for agent initialization shall be reachable through one official ADO entry point.
 
-## Agent Startup Order
+FDOS Rule:
+
+> Agents shall perform Repository Discovery and locate the official ADO navigation entry point before executing the bootstrap sequence.
+
+## Startup Sequence Authority
+
+`ADO/README.md` is the normative source for the official TapTim.e agent startup sequence.
+
+Other EP-006 artifacts may include operational overviews, lifecycle models or prompt requirements. Those supporting diagrams shall not redefine the official startup sequence.
+
+If an apparent conflict exists between this file and an overview or lifecycle diagram, this file is authoritative.
+
+## Official Startup Sequence (Normative)
 
 ```text
-GitHub Connection Verification
+GitHub Connector Verification
+  -> Repository Discovery
+  -> Locate the official ADO Navigation Entry Point
+  -> Read ADO/README.md
   -> ABS-001 Agent Bootstrap Standard
-  -> ADO/README.md
   -> AOS-001 Agent Onboarding Standard
   -> ADS-001 Agent Discovery Standard
   -> RHS-001 Repository Health Standard
@@ -30,6 +44,14 @@ GitHub Connection Verification
   -> AGR-001 Agent Registry
   -> Role Execution
 ```
+
+## Discovery Compatibility Rule
+
+The initial Repository Discovery before ABS-001 is limited to locating the official ADO navigation entry point and verifying that repository evidence supports the startup sequence.
+
+ADS-001 remains the full Repository Discovery standard after AOS-001.
+
+This preserves backward compatibility while removing the assumption that `ADO/README.md` is known before repository evidence has been inspected.
 
 ## Mandatory Agent Startup Documents
 
@@ -98,4 +120,4 @@ GitHub Connection Verification
 
 ## Navigation Rule
 
-Agents shall not guess mandatory startup document paths when this index provides a stable path.
+Agents shall not guess mandatory startup document paths. Agents shall locate this ADO navigation entry point through repository evidence, read it and then follow the documented startup sequence.

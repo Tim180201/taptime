@@ -15,9 +15,14 @@ FDOS Rule:
 
 > No engineering work shall begin before Agent Onboarding has successfully completed.
 
-## Bootstrap Precondition
+## Startup Preconditions
 
-AOS-001 may only begin after ABS-001 has completed successfully.
+AOS-001 may only begin after:
+
+- GitHub Connector Verification completed,
+- initial Repository Discovery located the official ADO navigation entry point,
+- `ADO/README.md` was read,
+- ABS-001 completed successfully.
 
 ABS-001 verifies repository access and repository inventory capability.
 
@@ -25,7 +30,7 @@ If ABS-001 reports `STATUS: BLOCKED`, AOS-001 shall not begin.
 
 FDOS Rule:
 
-> Agent Onboarding requires a completed Agent Bootstrap.
+> Agent Onboarding requires completed repository evidence, ADO navigation and Agent Bootstrap.
 
 ## Scope
 
@@ -37,18 +42,18 @@ No engineering role is exempt.
 
 Every agent shall:
 
-- understand the engineering methodology
-- understand the project
-- identify existing artifacts
-- verify repository state
-- verify engineering standards
-- determine operational readiness
+- understand the engineering methodology,
+- understand the project,
+- identify existing artifacts,
+- verify repository state,
+- verify engineering standards,
+- determine operational readiness.
 
 ## Onboarding Phases
 
 ```text
 ABS-001 Bootstrap Complete
-  -> Repository Discovery
+  -> ADS-001 Repository Discovery
   -> Artifact Discovery
   -> Repository Verification
   -> Inventory Report
@@ -60,14 +65,16 @@ Skipping phases is not permitted.
 
 ## Repository Discovery
 
-The agent performs Repository Discovery according to ADS-001.
+The agent performs full Repository Discovery according to ADS-001.
 
 Discovery includes:
 
-- FDOS Genesis methodology
-- TapTim.e repository structure
-- TapTim.e ADO
-- relevant architecture, development and evidence artifacts
+- FDOS Genesis methodology,
+- TapTim.e repository structure,
+- TapTim.e ADO,
+- relevant architecture, development and evidence artifacts.
+
+Initial Repository Discovery before ABS-001 only locates the official ADO navigation entry point. It does not replace ADS-001.
 
 ## Artifact Discovery
 
@@ -79,12 +86,12 @@ Existing artifacts always have priority over creating new ones.
 
 The agent verifies:
 
-- duplicate documents
-- conflicting standards
-- missing references
-- obsolete artifacts
-- broken links
-- inconsistent documentation
+- duplicate documents,
+- conflicting standards,
+- missing references,
+- obsolete artifacts,
+- broken links,
+- inconsistent documentation.
 
 ## Inventory Report
 
@@ -96,15 +103,18 @@ Without AIR-001, onboarding is incomplete.
 
 Before engineering work begins:
 
-- ABS-001 completed
-- Repository Discovery completed
-- Artifact Discovery completed
-- Repository Verification completed
-- AIR-001 completed
-- Role understood
-- Required standards identified
-- Operational readiness confirmed
+- GitHub Connector Verification completed,
+- initial Repository Discovery completed,
+- ADO/README.md read,
+- ABS-001 completed,
+- ADS-001 Repository Discovery completed,
+- Artifact Discovery completed,
+- Repository Verification completed,
+- AIR-001 completed,
+- Role understood,
+- Required standards identified,
+- Operational readiness confirmed.
 
 ## Completion Criteria
 
-AOS-001 is complete when ABS-001 has completed, onboarding is successfully completed, AIR-001 is produced and operational readiness is confirmed.
+AOS-001 is complete when startup preconditions have completed, onboarding is successfully completed, AIR-001 is produced and operational readiness is confirmed.

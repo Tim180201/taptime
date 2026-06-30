@@ -33,19 +33,36 @@ These are already defined by EOM-001 and AGR-001.
 
 OAP-001 defines only how an official prompt initializes an engineering role.
 
+## Startup Sequence Authority
+
+Official prompts shall reference the mandatory startup sequence defined in:
+
+`ADO/README.md`
+
+OAP-001 may define prompt requirements, but it shall not redefine the official startup sequence.
+
+If an apparent conflict exists between an overview diagram, lifecycle model, prompt text and the official startup sequence, `ADO/README.md` is authoritative.
+
+FDOS Rule:
+
+> Prompts reference standards. Standards define engineering.
+
 ## Prompt Objectives
 
 Every Official Agent Prompt shall ensure that an agent:
 
-- understands its assigned role
-- understands repository hierarchy
-- runs ABS-001 before onboarding
-- reads ADO/README.md after bootstrap
-- performs mandatory onboarding
-- performs Repository Discovery
-- completes AIR-001
-- follows the Engineering Operating Model
-- produces mandatory Role Handovers
+- understands its assigned role,
+- understands repository hierarchy,
+- verifies the GitHub connector,
+- performs initial Repository Discovery before ABS-001,
+- locates the official ADO navigation entry point using repository evidence,
+- reads ADO/README.md before ABS-001,
+- runs ABS-001 before onboarding,
+- performs mandatory onboarding,
+- performs ADS-001 Repository Discovery,
+- completes AIR-001,
+- follows the Engineering Operating Model,
+- produces mandatory Role Handovers.
 
 ## Mandatory Prompt Structure
 
@@ -53,11 +70,13 @@ Every Official Agent Prompt shall contain:
 
 1. Role Initialization
 2. Repository Hierarchy
-3. Mandatory Bootstrap
-4. ADO Navigation Entry Point
-5. Mandatory Onboarding
-6. Engineering References
-7. Completion Requirements
+3. GitHub Connector Verification
+4. Initial Repository Discovery
+5. ADO Navigation Entry Point
+6. Mandatory Bootstrap
+7. Mandatory Onboarding
+8. Engineering References
+9. Completion Requirements
 
 ## Repository Hierarchy
 
@@ -73,52 +92,77 @@ TapTim.e
 Assigned Engineering Role
 ```
 
-## Mandatory Bootstrap
+## GitHub Connector Verification
 
-Every prompt shall require ABS-001 before AOS-001.
+Every prompt shall require the agent to verify that the integrated GitHub connector can access the required repositories before using repository content.
 
-If ABS-001 cannot be completed, the agent shall stop and report `STATUS: BLOCKED`.
+If connector access cannot be verified, the agent shall stop and report `STATUS: BLOCKED`.
+
+## Initial Repository Discovery
+
+Every prompt shall require initial Repository Discovery before ABS-001.
+
+The purpose of initial Repository Discovery is to locate the official ADO navigation entry point using repository evidence.
 
 FDOS Rule:
 
-> Official prompts start with Agent Bootstrap, not Agent Onboarding.
+> Agents shall perform Repository Discovery and locate the official ADO navigation entry point before executing the bootstrap sequence.
 
 ## ADO Navigation Entry Point
 
-After ABS-001 completes successfully, every prompt shall require the agent to read:
+Before ABS-001 begins, every prompt shall require the agent to locate and read:
 
 `ADO/README.md`
 
 This is the official TapTim.e ADO navigation entry point.
 
-AOS-001 shall begin only after `ADO/README.md` has been read.
+The agent shall not assume this path without repository evidence.
 
 FDOS Rule:
 
 > Official prompts navigate through the ADO entry point instead of guessing document paths.
 
+## Mandatory Bootstrap
+
+Every prompt shall require ABS-001 after GitHub Connector Verification, initial Repository Discovery, ADO navigation location and `ADO/README.md` reading.
+
+If ABS-001 cannot be completed, the agent shall stop and report `STATUS: BLOCKED`.
+
+FDOS Rule:
+
+> Official prompts start bootstrap only after the ADO navigation entry point has been located through repository evidence.
+
 ## Mandatory Onboarding
 
 Every prompt shall require completion of:
 
-- ABS-001
-- AOS-001
-- ADS-001
-- AIR-001
+- ABS-001,
+- AOS-001,
+- ADS-001,
+- RHS-001,
+- AIR-001.
 
 Engineering work shall not begin before Operational Readiness has been confirmed.
 
-## Standard Startup Sequence
+## Official Startup Sequence Reference
+
+The official startup sequence is defined in `ADO/README.md`.
+
+For prompt validation purposes, official prompts shall reflect that sequence without redefining it:
 
 ```text
-GitHub Connection Verification
+GitHub Connector Verification
+  -> Repository Discovery
+  -> Locate the official ADO Navigation Entry Point
+  -> Read ADO/README.md
   -> ABS-001
-  -> ADO/README.md
   -> AOS-001
   -> ADS-001
   -> RHS-001
   -> AIR-001
   -> READY FOR WORK
+  -> EOM-001
+  -> AGR-001
 ```
 
 ## Review Agent Prompt Requirement
@@ -205,8 +249,11 @@ Validation includes:
 
 - Repository hierarchy
 - Standard references
+- GitHub connector verification
+- Initial Repository Discovery
+- ADO navigation entry point location
+- ADO/README.md reading
 - Bootstrap sequence
-- ADO navigation entry point
 - Onboarding sequence
 - Discovery sequence
 - Operational Readiness

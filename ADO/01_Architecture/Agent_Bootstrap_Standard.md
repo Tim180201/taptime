@@ -9,15 +9,27 @@ Related Standards: AOF-001, AOS-001, ADS-001, AIR-001, RHS-001
 
 ## Purpose
 
-ABS-001 defines the mandatory technical startup process for every Human or AI Agent in TapTim.e.
+ABS-001 defines the mandatory technical bootstrap process for every Human or AI Agent in TapTim.e.
 
 The Bootstrap verifies whether an agent can technically begin Agent Onboarding.
 
-ABS-001 does not perform onboarding, repository discovery, repository health verification or role execution.
+ABS-001 does not perform onboarding, full ADS-001 repository discovery, repository health verification or role execution.
 
 FDOS Rule:
 
 > No agent may start onboarding before Agent Bootstrap has verified repository access and repository reading capability.
+
+## Startup Preconditions
+
+ABS-001 may begin only after:
+
+1. GitHub Connector Verification has completed.
+2. Initial Repository Discovery has located the official ADO navigation entry point using repository evidence.
+3. `ADO/README.md` has been read.
+
+FDOS Rule:
+
+> Agents shall perform Repository Discovery and locate the official ADO navigation entry point before executing the bootstrap sequence.
 
 ## Scope
 
@@ -43,12 +55,11 @@ FDOS Rule:
 ## Bootstrap Sequence
 
 ```text
-Agent Start
+ADO/README.md Read
   -> Git Access Check
   -> Repository Capability Check
   -> Repository Inventory Check
   -> Bootstrap Result
-  -> ADO/README.md
   -> AOS-001 Agent Onboarding
 ```
 
@@ -116,30 +127,28 @@ Minimum required inventory scope:
 - ADRs
 - EP-006 standards
 
-## Step 4 — ADO Navigation Entry Point
+## Step 4 — Bootstrap Completion
 
-After ABS-001 completes successfully, the agent shall read:
+After ABS-001 completes successfully, the agent proceeds to AOS-001.
 
-`ADO/README.md`
-
-This file is the official TapTim.e ADO navigation entry point.
-
-AOS-001 may begin only after `ADO/README.md` has been read.
+`ADO/README.md` has already been located and read before ABS-001 begins.
 
 FDOS Rule:
 
-> Agent onboarding begins from the official ADO navigation entry point.
+> Agent onboarding begins only after repository evidence, ADO navigation and bootstrap have been completed.
 
 ## Bootstrap Completion Criteria
 
 ABS-001 is complete when:
 
-- Git access is verified
-- repository read permission is verified
-- default branch is identified
-- repository inventory capability is verified
-- complete repository inventory is available or can be generated
-- `ADO/README.md` is available as the ADO navigation entry point
+- GitHub Connector Verification was completed before ABS-001,
+- the official ADO navigation entry point was located before ABS-001,
+- `ADO/README.md` was read before ABS-001,
+- Git access is verified,
+- repository read permission is verified,
+- default branch is identified,
+- repository inventory capability is verified,
+- complete repository inventory is available or can be generated.
 
 Only then may the agent proceed to AOS-001.
 
@@ -147,12 +156,13 @@ Only then may the agent proceed to AOS-001.
 
 The agent must block if:
 
-- GitHub access is unavailable
-- private repositories cannot be read
-- repository inventory cannot be obtained
-- `ADO/README.md` cannot be read
-- only README or web search is available
-- the agent cannot verify current repository state
+- GitHub access is unavailable,
+- private repositories cannot be read,
+- repository inventory cannot be obtained,
+- `ADO/README.md` cannot be read,
+- only README or web search is available,
+- the agent cannot verify current repository state,
+- the agent cannot confirm that ADO navigation was located through repository evidence.
 
 ## Bootstrap Result
 
@@ -160,7 +170,7 @@ ABS-001 produces one of two outcomes:
 
 ```text
 BOOTSTRAP COMPLETE
-Read ADO/README.md and proceed to AOS-001.
+Proceed to AOS-001.
 ```
 
 or
@@ -180,11 +190,16 @@ Repositories:
 - FDOS Genesis: https://github.com/Tim180201/fdos-genesis
 - TapTim.e: https://github.com/Tim180201/taptime
 
-Before doing any work, run ABS-001 Agent Bootstrap Standard.
+Before doing any work:
+
+1. Verify GitHub Connector access.
+2. Perform initial Repository Discovery.
+3. Locate and read ADO/README.md using repository evidence.
+4. Run ABS-001 Agent Bootstrap Standard.
 
 If ABS-001 cannot be completed, stop and report STATUS: BLOCKED.
 
-If ABS-001 completes successfully, read ADO/README.md and continue with AOS-001.
+If ABS-001 completes successfully, continue with AOS-001.
 
 After READY FOR WORK, execute your role according to:
 - EOM-001 Engineering Operating Model
@@ -201,6 +216,6 @@ At the end of every task, produce:
 
 ABS-001 is the technical precondition for AOS-001.
 
-AOS-001 may only begin after ABS-001 completes successfully and `ADO/README.md` has been read.
+AOS-001 may only begin after GitHub Connector Verification, initial Repository Discovery, ADO navigation, `ADO/README.md` reading and ABS-001 have completed successfully.
 
 ABS-001 does not replace AOS-001.
