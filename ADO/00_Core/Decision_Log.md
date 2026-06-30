@@ -36,6 +36,10 @@ Full architecture decisions are documented as ADRs under `ADO/01_Architecture/AD
 | ADR-0004 | Offline-first Core Events | Accepted Draft | 2026-06-26 | `ADO/01_Architecture/ADR/ADR-0004-offline-first-core-events.md` |
 | ADR-0005 | Event-driven Business Engine | Accepted Draft | 2026-06-26 | `ADO/01_Architecture/ADR/ADR-0005-event-driven-business-engine.md` |
 | ADR-0006 | Domain-first Architecture | Accepted Draft | 2026-06-26 | `ADO/01_Architecture/ADR/ADR-0006-domain-first-architecture.md` |
+| ADR-0007 | Technology Platform Baseline | Draft | 2026-06-30 | `ADO/01_Architecture/ADR/ADR-0007-technology-platform-baseline.md` |
+| EP-007 | Product Architecture Foundation | Integration Draft | 2026-06-30 | `ADO/02_Development/EP-007_Product_Architecture_Foundation.md` |
+| FB-001 | NFC Scan Creates Work Event | Draft | 2026-06-30 | `ADO/01_Architecture/Feature_Blueprints/FB-001-nfc-scan-creates-work-event.md` |
+| TS-001 | NFC Scan Creates Work Event Technical Specification | Draft | 2026-06-30 | `ADO/01_Architecture/Technical_Specifications/TS-001-nfc-scan-creates-work-event.md` |
 
 ## Decision Rule
 
@@ -56,5 +60,7 @@ TapTim.e project-level profiles apply FDOS to the concrete TapTim.e product arch
 The Agent Registry defines the currently assigned human and AI execution instances for stable engineering roles.
 
 EP-006 standards define the operational bootstrap, ADO navigation, onboarding, discovery, readiness and repository health layer for agents. Their validation state is tracked in AVR-001.
+
+EP-007 defines the initial product architecture foundation and is integrated as Draft / Integration Draft until evidence-based review has completed.
 
 AVR-001 records whether engineering artifacts have been practically validated. It does not replace the Decision Log; it complements it by tracking validation evidence and maturity status.
