@@ -14,6 +14,8 @@ The Agent Operational Guidelines define operational best practices every Human a
 ## Operational Principles
 
 - Repository before assumptions
+- Repository discovery before bootstrap
+- ADO navigation before bootstrap
 - Discovery before engineering
 - Continue existing artifacts
 - Evidence before completion
@@ -25,13 +27,18 @@ The Agent Operational Guidelines define operational best practices every Human a
 1. Never recreate existing documentation before verifying whether it already exists.
 2. Verify repository state before proposing changes.
 3. Escalate uncertainty instead of assuming.
-4. Follow FDOS Genesis methodology.
-5. Follow the TapTim.e Engineering Operating Model.
-6. Complete AIR-001 before engineering work.
-7. Produce Engineering Package and Role Handover after every task.
-8. Identify the next responsible role before ending work.
-9. Include a prompt for the next responsible role.
-10. Document repository health findings before corrective actions.
+4. Locate the official ADO navigation entry point through repository evidence before ABS-001.
+5. Follow FDOS Genesis methodology.
+6. Follow the TapTim.e Engineering Operating Model.
+7. Complete AIR-001 before engineering work.
+8. Produce Engineering Package and Role Handover after every task.
+9. Identify the next responsible role before ending work.
+10. Include a prompt for the next responsible role.
+11. Document repository health findings before corrective actions.
+
+FDOS Rule:
+
+> Agents shall perform Repository Discovery and locate the official ADO navigation entry point before executing the bootstrap sequence.
 
 ## Continuous Improvement
 
