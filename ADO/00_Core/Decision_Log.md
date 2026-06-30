@@ -38,29 +38,17 @@ Full architecture decisions are documented as ADRs under `ADO/01_Architecture/AD
 | ADR-0004 | Offline-first Core Events | Accepted Draft | 2026-06-26 | `ADO/01_Architecture/ADR/ADR-0004-offline-first-core-events.md` |
 | ADR-0005 | Event-driven Business Engine | Accepted Draft | 2026-06-26 | `ADO/01_Architecture/ADR/ADR-0005-event-driven-business-engine.md` |
 | ADR-0006 | Domain-first Architecture | Accepted Draft | 2026-06-26 | `ADO/01_Architecture/ADR/ADR-0006-domain-first-architecture.md` |
+| ADR-0007 | Technology Platform Baseline | Draft | 2026-06-30 | `ADO/01_Architecture/ADR/ADR-0007-technology-platform-baseline.md` |
+| EP-007 | Product Architecture Foundation | Integration Draft | 2026-06-30 | `ADO/02_Development/EP-007_Product_Architecture_Foundation.md` |
+| FB-001 | NFC Scan Creates Work Event | Draft | 2026-06-30 | `ADO/01_Architecture/Feature_Blueprints/NFC_Scan_Creates_Work_Event.md` |
+| TS-001 | NFC Scan Creates Work Event Technical Specification | Draft | 2026-06-30 | `ADO/01_Architecture/Technical_Specifications/TS-001-nfc-scan-creates-work-event.md` |
 
 ## Decision Rule
 
-Every architectural decision must be:
+Every architectural decision must be explicit, traceable, evidence-based where possible, reversible where feasible and documented before implementation when it shapes long-term structure.
 
-- explicit
-- traceable
-- evidence-based where possible
-- reversible where feasible
-- documented before implementation when it shapes long-term structure
+EP-006 startup follow-ups are approved and validated in AVR-001.
 
-Product vision entries are high-impact product guidance documents owned by the Human Architect and Technical Lead.
+EP-007 product architecture foundation is integrated as draft architecture baseline until final closure metadata is applied.
 
-FDOS core standards such as the Feature Blueprint Standard define mandatory project workflow and engineering quality rules.
-
-TapTim.e project-level profiles apply FDOS to the concrete TapTim.e product architecture without redefining FDOS Core.
-
-The Agent Registry defines assigned engineering role instances for stable project roles.
-
-EP-006 standards define the operational bootstrap, ADO navigation, onboarding, discovery, readiness and repository health layer for agents. Their validation state is tracked in AVR-001.
-
-EP-006-FU-001 records the approved follow-up decision to require initial Repository Discovery and ADO navigation location before ABS-001.
-
-EP-006-FU-002 records the approved clarification that `ADO/README.md` is the normative startup sequence source, while AOF-001 and ALF-001 provide non-normative operational/lifecycle context.
-
-AVR-001 records whether engineering artifacts have been practically validated. It does not replace the Decision Log; it complements it by tracking validation evidence and maturity status.
+AVR-001 records validation status for engineering artifacts.
