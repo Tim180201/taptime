@@ -54,6 +54,7 @@ FDOS Rule:
 |---|---|---|---|---|---|---|---|---|---|---|
 | OAP-001 | Official Agent Prompt Standard | 1.0 | Validated | 2026-06-29 | Closed-loop engineering cycle | Technical Lead implementation, Review Agent finding, Technical Lead correction, follow-up Review Agent approval | APPROVED | Technical Lead | Review Agent | Validated distinction between `NOT REVIEWABLE` and `CHANGES REQUIRED`. |
 | EP-006 | Agent Operations Framework | 1.0 | Validated | 2026-06-29 | Closed-loop engineering cycle | Agent bootstrap, ADO navigation, Review Agent initialization, evidence-based review, correction cycle and approval | APPROVED | Technical Lead | Review Agent | Validated practical agent startup and review workflow. |
+| EP-006-FU-001 | Startup Sequence: Repository Discovery Before Bootstrap | 0.1 | Draft | Pending | Follow-up repository integration | `ADO/05_Evidence/EP-006/Startup_Sequence_Followup.md` | PENDING | Technical Lead | Pending | Follow-up change to validated EP-006 baseline. Requires Review Agent approval before treated as validated. |
 
 ## Maintenance Rule
 
