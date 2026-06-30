@@ -4,7 +4,7 @@ Status: Active
 Document ID: AVR-001  
 Owner: Technical Lead  
 Approval Authority: Human Architect  
-Related Artifacts: Decision Log, EP-006, OAP-001
+Related Artifacts: Decision Log, EP-006, OAP-001, EP-007
 
 ## Purpose
 
@@ -54,6 +54,11 @@ FDOS Rule:
 |---|---|---|---|---|---|---|---|---|---|---|
 | OAP-001 | Official Agent Prompt Standard | 1.0 | Validated | 2026-06-29 | Closed-loop engineering cycle | Technical Lead implementation, Review Agent finding, Technical Lead correction, follow-up Review Agent approval | APPROVED | Technical Lead | Review Agent | Validated distinction between `NOT REVIEWABLE` and `CHANGES REQUIRED`. |
 | EP-006 | Agent Operations Framework | 1.0 | Validated | 2026-06-29 | Closed-loop engineering cycle | Agent bootstrap, ADO navigation, Review Agent initialization, evidence-based review, correction cycle and approval | APPROVED | Technical Lead | Review Agent | Validated practical agent startup and review workflow. |
+| ADR-0007 | Technology Platform Baseline | 0.1 | Draft | Pending | Repository integration | `ADO/05_Evidence/EP-007/Repository_Reconciliation.md` | PENDING | Technical Lead | Pending | Draft platform baseline integrated for review. |
+| TTAP-001 | Technical Architecture Profile EP-007 Extension | 0.2 | Draft | Pending | Repository integration | `ADO/05_Evidence/EP-007/Repository_Reconciliation.md` | PENDING | Technical Lead | Pending | Extended with Product Architecture Foundation structure. |
+| FB-001 | NFC Scan Creates Work Event | 0.1 | Draft | Pending | Repository integration | `ADO/05_Evidence/EP-007/Repository_Reconciliation.md` | PENDING | Technical Lead | Pending | First Feature Blueprint integrated for review. |
+| TS-001 | NFC Scan Creates Work Event Technical Specification | 0.1 | Draft | Pending | Repository integration | `ADO/05_Evidence/EP-007/Repository_Reconciliation.md` | PENDING | Technical Lead | Pending | First Technical Specification integrated for review. |
+| EP-007 | Product Architecture Foundation | 0.1 | Draft | Pending | Repository integration | `ADO/05_Evidence/EP-007/Repository_Reconciliation.md` | PENDING | Technical Lead | Pending | Not closed. Requires Review Agent approval before validation. |
 
 ## Maintenance Rule
 
