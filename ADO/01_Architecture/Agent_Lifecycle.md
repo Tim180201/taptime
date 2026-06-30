@@ -15,9 +15,14 @@ The Agent Lifecycle defines the complete lifecycle of every Human and AI Agent w
 
 ```text
 New Agent
-  -> Repository Access
+  -> GitHub Connector Verification
+  -> Initial Repository Discovery
+  -> Locate ADO Navigation Entry Point
+  -> Read ADO/README.md
+  -> ABS-001 Bootstrap
   -> AOS-001 Onboarding
   -> ADS-001 Discovery
+  -> RHS-001 Repository Health Verification
   -> AIR-001 Inventory Report
   -> READY FOR WORK
   -> Engineering Execution
@@ -29,6 +34,9 @@ New Agent
 ## Agent States
 
 - NEW
+- CONNECTOR_VERIFICATION
+- INITIAL_DISCOVERY
+- BOOTSTRAP
 - DISCOVERY
 - READY FOR WORK
 - IN PROGRESS
@@ -47,28 +55,34 @@ FDOS Rule:
 
 An agent may enter READY FOR WORK only after:
 
-- AOS-001 completed
-- ADS-001 completed
-- AIR-001 completed
-- repository health assessed
-- role responsibilities understood
+- GitHub Connector Verification completed,
+- initial Repository Discovery completed,
+- official ADO navigation entry point located,
+- `ADO/README.md` read,
+- ABS-001 completed,
+- AOS-001 completed,
+- ADS-001 completed,
+- RHS-001 repository health assessed,
+- AIR-001 completed,
+- role responsibilities understood.
 
 ## Session Resume
 
 When a session is interrupted or restarted, the agent shall:
 
-- verify repository state again
-- review latest Decision Log entries
-- confirm whether prior AIR-001 remains valid
-- update AIR-001 if repository state changed
-- continue only after readiness is confirmed
+- verify repository state again,
+- confirm the official ADO navigation entry point from repository evidence,
+- review latest Decision Log entries,
+- confirm whether prior AIR-001 remains valid,
+- update AIR-001 if repository state changed,
+- continue only after readiness is confirmed.
 
 ## Completion Criteria
 
 An agent session is complete only when:
 
-- assigned work is completed or explicitly blocked
-- evidence is documented
-- Role Handover is complete
-- next responsible role is identified
-- prompt for next role is created
+- assigned work is completed or explicitly blocked,
+- evidence is documented,
+- Role Handover is complete,
+- next responsible role is identified,
+- prompt for next role is created.
