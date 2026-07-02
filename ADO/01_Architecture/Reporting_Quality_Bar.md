@@ -1,13 +1,12 @@
 # Reporting Quality Bar — v1
 
-Status: Accepted
+Status: Recommendation — pending Technical Lead review (see `ADO/05_Evidence/EP-002/Research_Agent_Recommendations.md`)
 Date: 2026-07-02
-Approved by Human Architect: 2026-07-02
-Related: ADR-0003 (Product Scope v1), `EV-0003-time-tracking-market-research.md`
+Related: ADR-0003 (Product Scope v1), `EV-0007-time-tracking-market-research.md`
 
 ## Purpose
 
-ADR-0003 currently scopes v1 reporting as "basic export/reporting" without further definition. `EV-0003-time-tracking-market-research.md` shows that TimeDock — the closest existing precedent to TapTim.e's own approach (NFC-token-based time tracking, 92% user satisfaction) — is criticized specifically for weak reporting. If TapTim.e treats reporting as an afterthought, it inherits the one significant weakness of the product most similar to it, while a genuinely reliable NFC layer goes unnoticed because the output around it is thin.
+ADR-0003 currently scopes v1 reporting as "basic export/reporting" without further definition. `EV-0007-time-tracking-market-research.md` shows that TimeDock — the closest existing precedent to TapTim.e's own approach (NFC-token-based time tracking, 92% user satisfaction) — is criticized specifically for weak reporting. If TapTim.e treats reporting as an afterthought, it inherits the one significant weakness of the product most similar to it, while a genuinely reliable NFC layer goes unnoticed because the output around it is thin.
 
 This document does not expand v1 scope. It defines what "basic" must actually mean so it isn't reinterpreted as "minimal effort" during implementation.
 

@@ -6,6 +6,7 @@ Thumbs.db
 .vscode/
 .idea/
 *.swp
+*.bak
 
 # Node (once Sprint 2 introduces a JS/TS stack)
 node_modules/

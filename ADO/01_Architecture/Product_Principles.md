@@ -62,11 +62,11 @@ The product should feel simple to the user while remaining internally robust, te
 
 Simplicity must not mean hidden data loss, missing auditability or untestable business rules.
 
-## Principle 8: Auditability is Protection, Not Surveillance. (Approved 2026-07-02)
+## Principle 8: Auditability is Protection, Not Surveillance. (Recommendation — pending Technical Lead review, see `ADO/05_Evidence/EP-002/Research_Agent_Recommendations.md`)
 
 Principle 5 requires that work events and time entries remain traceable. This addition governs how that traceability is presented to the person being tracked.
 
-`EV-0003-time-tracking-market-research.md` shows that employee monitoring creates measurable resentment, disengagement and distrust when it feels like surveillance — but is broadly accepted (around 92% in the cited research) when it is transparent and framed as benefiting the employee.
+`EV-0007-time-tracking-market-research.md` shows that employee monitoring creates measurable resentment, disengagement and distrust when it feels like surveillance — but is broadly accepted (around 92% in the cited research) when it is transparent and framed as benefiting the employee.
 
 Every place the audit trail becomes visible to an Employee — onboarding, in-app copy, correction flows — must frame it as protection of their logged hours and pay accuracy, not as oversight of their behavior. This is a content and UX requirement for whoever designs onboarding and UI, not only an architectural one, and should be treated as a Product Rule check in every future Feature Blueprint that touches employee-facing screens.
 

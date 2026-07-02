@@ -41,7 +41,6 @@ Employee scans assigned NFC tag
 - Basic admin overview
 - Basic export/reporting
 - Offline capture of core work events
-- Open Session Reminder (time-based, non-GPS, added by Revision 2026-07-02)
 
 ## Explicitly Out of Scope for v1
 
@@ -84,11 +83,11 @@ This ADR must be reviewed before implementing any feature outside the v1 scope.
 
 ---
 
-## Revision 2026-07-02 (Approved, integrated into In Scope above)
+## Revision 2026-07-02 (Recommendation — not yet integrated, pending Technical Lead review, see `ADO/05_Evidence/EP-002/Research_Agent_Recommendations.md`)
 
 ### Context for Revision
 
-`EV-0003-time-tracking-market-research.md` identifies forgotten clock-outs as roughly half of the largest quantified pain point across existing time tracking products (the other half, forgotten clock-in, is already addressed by NFC-first design). NFC solves "did I start tracking" through a physical trigger, but does nothing by itself for "did I remember to tap out."
+`EV-0007-time-tracking-market-research.md` identifies forgotten clock-outs as roughly half of the largest quantified pain point across existing time tracking products (the other half, forgotten clock-in, is already addressed by NFC-first design). NFC solves "did I start tracking" through a physical trigger, but does nothing by itself for "did I remember to tap out."
 
 ### Proposed Addition to In Scope for v1
 
@@ -100,7 +99,7 @@ This does not conflict with "GPS tracking as primary feature: out of scope" abov
 
 Cheap to add now (it is a Business Engine rule plus a local notification, not a new subsystem), and it closes the one half of the industry's single biggest named complaint that NFC does not already solve by itself.
 
-### Human Architect Decision
+### Status
 
-Approved 2026-07-02. Reflected in the "In Scope for v1" list above.
+Recommendation only. Not reflected in "In Scope for v1" above pending Technical Lead review — see `ADO/05_Evidence/EP-002/Research_Agent_Recommendations.md`.
 

@@ -120,14 +120,14 @@ Teacher visits student
 
 ## Open Modeling Questions
 
-- Can one scan both start and stop time depending on current state? — **Resolved by ADR-0008** (Accepted): toggle-based, scan starts if no open session exists for the target, scan stops if one does.
-- How should duplicate scans be handled? — **Resolved by ADR-0008**: debounce window plus idempotent event processing, with no silent drops.
+- Can one scan both start and stop time depending on current state? — **Proposed answer in ADR-0008** (Recommendation, not yet reviewed by Technical Lead): toggle-based, scan starts if no open session exists for the target, scan stops if one does. Note: FB-001/TS-001 on `main` already establish the business-rule level ("duplicate scans shall not create duplicate TimeEntries"); ADR-0008 only proposes the mechanism-level detail — see `ADO/05_Evidence/EP-002/Repository_Reconciliation.md`.
+- How should duplicate scans be handled? — see above; mechanism-level detail proposed in ADR-0008, business rule already covered by FB-001.
 - What happens if the mobile device is offline? — covered by ADR-0004; local event queue and sync design due in Sprint 6.
 - Is customer confirmation legally or operationally relevant, or only practical evidence? — still open, no proposal yet.
-- Can one NFC tag have multiple assignments over time? — **Resolved by ADR-0008**: yes, via new Assignment records over time.
-- Should assignment history be immutable for auditability? — **Resolved by ADR-0008**: yes, Assignments are never overwritten, only superseded.
-- Which roles may assign or reassign NFC tags? — **Resolved by ADR-0008**: System Owner and Administrator only, per the existing Role Model permission matrix.
+- Can one NFC tag have multiple assignments over time? — proposed in ADR-0008 (Recommendation): yes, via new Assignment records over time.
+- Should assignment history be immutable for auditability? — proposed in ADR-0008 (Recommendation): yes, Assignments are never overwritten, only superseded.
+- Which roles may assign or reassign NFC tags? — proposed in ADR-0008 (Recommendation): System Owner and Administrator only, per the existing Role Model permission matrix.
 
-## Accepted Addition
+## Proposed Addition (Recommendation, not yet reviewed)
 
-`ADR-0003` Revision 2026-07-02 (Approved) adds an **Open Session Reminder** concept to v1 scope: a time-based, non-GPS local reminder triggered when a Work Event has been open unusually long without a stop scan. See the ADR-0003 revision section for rationale (`EV-0003-time-tracking-market-research.md`).
+`ADR-0003` Revision 2026-07-02 proposes an **Open Session Reminder** concept for v1 scope: a time-based, non-GPS local reminder triggered when a Work Event has been open unusually long without a stop scan. Pending Technical Lead review — see `ADO/05_Evidence/EP-002/Research_Agent_Recommendations.md`.

@@ -1,13 +1,12 @@
 # Pricing Principles
 
-Status: Accepted
+Status: Recommendation — pending Technical Lead review (see `ADO/05_Evidence/EP-002/Research_Agent_Recommendations.md`)
 Date: 2026-07-02
-Approved by Human Architect: 2026-07-02
-Related: `Product_Vision.md`, `Product_Principles.md`, `EV-0003-time-tracking-market-research.md`
+Related: `Product_Vision.md`, `Product_Principles.md`, `EV-0007-time-tracking-market-research.md`
 
 ## Purpose
 
-No pricing or monetization model exists yet for TapTim.e, and building one is not urgent before implementation. But `EV-0003-time-tracking-market-research.md` shows that pricing behavior — not just product quality — is a recurring, trust-destroying failure mode in this market: Harvest's 600% price increase after an acquisition, and Clockify locking core-feeling functionality (approvals, GPS, time-off) behind paid tiers, are both cited as reasons users lose trust in a product they otherwise found adequate.
+No pricing or monetization model exists yet for TapTim.e, and building one is not urgent before implementation. But `EV-0007-time-tracking-market-research.md` shows that pricing behavior — not just product quality — is a recurring, trust-destroying failure mode in this market: Harvest's 600% price increase after an acquisition, and Clockify locking core-feeling functionality (approvals, GPS, time-off) behind paid tiers, are both cited as reasons users lose trust in a product they otherwise found adequate.
 
 This document commits to a small number of pricing principles now, while they are free, rather than after a precedent has already been set that would be expensive or embarrassing to reverse.
 

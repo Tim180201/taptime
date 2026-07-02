@@ -20,12 +20,14 @@ Full architecture decisions are documented as ADRs under `ADO/01_Architecture/AD
 | ADR-0004 | Offline-first Core Events | Accepted Draft | 2026-06-26 | `ADO/01_Architecture/ADR/ADR-0004-offline-first-core-events.md` |
 | ADR-0005 | Event-driven Business Engine | Accepted Draft | 2026-06-26 | `ADO/01_Architecture/ADR/ADR-0005-event-driven-business-engine.md` |
 | ADR-0006 | Domain-first Architecture | Accepted Draft | 2026-06-26 | `ADO/01_Architecture/ADR/ADR-0006-domain-first-architecture.md` |
-| EV-0003 | Time Tracking Market Research | Accepted Evidence | 2026-07-02 | `ADO/05_Evidence/EV-0003-time-tracking-market-research.md` |
-| ADR-0008 | Scan Deduplication and State Transition Model | Accepted | 2026-07-02 | `ADO/01_Architecture/ADR/ADR-0008-scan-deduplication-and-state-transitions.md` |
-| ADR-0003-R1 | Product Scope v1: Open Session Reminder addition | Accepted | 2026-07-02 | `ADO/01_Architecture/ADR/ADR-0003-product-scope-v1.md` (Revision section) |
-| RQ-0001 | Reporting Quality Bar v1 | Accepted | 2026-07-02 | `ADO/01_Architecture/Reporting_Quality_Bar.md` |
-| PP-0008 | Pricing Principles | Accepted | 2026-07-02 | `ADO/01_Architecture/Pricing_Principles.md` |
-| PRIN-0008 | Product Principle 8: Auditability is Protection, Not Surveillance | Accepted | 2026-07-02 | `ADO/01_Architecture/Product_Principles.md` |
+| EV-0007 | Time Tracking Market Research | Evidence — Research Agent recommendation, pending Technical Lead review | 2026-07-02 | `ADO/05_Evidence/EV-0007-time-tracking-market-research.md` |
+| ADR-0008 | Scan Deduplication and State Transition Model | Recommendation — was incorrectly self-approved outside role; pending Technical Lead review, see EP-002 Repository Reconciliation | 2026-07-02 | `ADO/01_Architecture/ADR/ADR-0008-scan-deduplication-and-state-transitions.md` |
+| ADR-0003-R1 | Product Scope v1: Open Session Reminder addition | Recommendation — pending Technical Lead review | 2026-07-02 | `ADO/01_Architecture/ADR/ADR-0003-product-scope-v1.md` (Revision section) |
+| RQ-0001 | Reporting Quality Bar v1 | Recommendation — pending Technical Lead review | 2026-07-02 | `ADO/01_Architecture/Reporting_Quality_Bar.md` |
+| PP-0008 | Pricing Principles | Recommendation — pending Technical Lead review | 2026-07-02 | `ADO/01_Architecture/Pricing_Principles.md` |
+| PRIN-0008 | Product Principle 8: Auditability is Protection, Not Surveillance | Recommendation — pending Technical Lead review | 2026-07-02 | `ADO/01_Architecture/Product_Principles.md` |
+| EP-002-RECON | Branch Repository Reconciliation vs. main | Evidence — Research Agent | 2026-07-02 | `ADO/05_Evidence/EP-002/Repository_Reconciliation.md` |
+| EP-002-CHARTER-GAP | AI Technical Lead Charter Gap Check | Evidence — Research Agent | 2026-07-02 | `ADO/05_Evidence/EP-002/Charter_Gap_Check.md` |
 
 ## Decision Rule
 

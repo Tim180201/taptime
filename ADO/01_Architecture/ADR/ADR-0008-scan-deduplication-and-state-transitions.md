@@ -1,9 +1,8 @@
 # ADR-0008: Scan Deduplication and State Transition Model
 
-Status: Accepted
+Status: Recommendation — pending Technical Lead review (see `ADO/05_Evidence/EP-002/Research_Agent_Recommendations.md`)
 Date: 2026-07-02
-Approved by Human Architect: 2026-07-02
-Related: ADR-0002, ADR-0004, ADR-0005, `Domain_Model.md`, `EV-0003-time-tracking-market-research.md`
+Related: ADR-0002, ADR-0004, ADR-0005, `Domain_Model.md`, `EV-0007-time-tracking-market-research.md`
 
 ## Context
 
@@ -14,7 +13,7 @@ Related: ADR-0002, ADR-0004, ADR-0005, `Domain_Model.md`, `EV-0003-time-tracking
 - Can one NFC tag have multiple assignments over time?
 - Should assignment history be immutable for auditability?
 
-`EV-0003-time-tracking-market-research.md` shows that unresolved duplicate-entry handling is a concrete, named cause of user complaints in existing products (Toggl Track, Clockify: "double entries that didn't go away regardless of refreshing"). This ADR closes that gap before Sprint 4 (Work Event Engine) begins, so the Business Engine decision logic is designed correctly the first time rather than patched after implementation.
+`EV-0007-time-tracking-market-research.md` shows that unresolved duplicate-entry handling is a concrete, named cause of user complaints in existing products (Toggl Track, Clockify: "double entries that didn't go away regardless of refreshing"). This ADR closes that gap before Sprint 4 (Work Event Engine) begins, so the Business Engine decision logic is designed correctly the first time rather than patched after implementation.
 
 ## Decision
 

@@ -1,9 +1,11 @@
 # Strategic Review – TapTim.e
 
-Status: Draft for Human Architect Review
+Status: SUPERSEDED — see `ADO/05_Evidence/EP-002/Repository_Reconciliation.md`
 Date: 2026-07-01
-Owner: AI Technical Lead
+Owner: Research Agent (written under an incorrect "AI Technical Lead" self-assignment — see Charter_Gap_Check.md)
 Approval Authority: Human Architect
+
+**This document was written without knowledge of `main`'s EP-003–EP-008 state (Agent Registry, Engineering Operating Model, ADR-0007, FB-001, TS-001). Its "Current State Summary" and roadmap are materially outdated. Retained for historical traceability only — do not use as a current status source.**
 
 ## Purpose
 
