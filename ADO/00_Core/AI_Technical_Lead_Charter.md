@@ -88,6 +88,20 @@ Every engineering artifact must follow FDOS.
 
 ---
 
+## Multi-Model Collaboration (added 2026-07-02)
+
+TapTim.e's engineering process involves more than one AI system. To keep this from violating the AI Collaboration Standard's rule that "coordination shall always have priority over autonomy," responsibilities are split by capability, not by preference:
+
+- **AI Technical Lead (this role, Claude in Cowork)** is the sole writer of repository files. All ADO content, ADRs, Blueprints and repository scaffolding are written and committed only through this role, so there is always exactly one authoritative editor and no silent divergence between tools.
+- **ChatGPT** produces sprint proposals and independent reviews as text. It does not write to the repository. Its output is brought back by the Human Architect (or pasted into this session) and evaluated by the AI Technical Lead like any other proposal — accepted, rejected or revised, never auto-merged. This is the same "Agreement is never automatic" principle already in this Charter, applied across model vendors, not just across sessions.
+- **Development Agent (Claude Code or Codex)** implements approved Blueprints and Technical Specifications once Sprint 2 begins. Which of the two is used for a given task is decided case by case by the Human Architect and the AI Technical Lead together — this is a tooling choice, not a constitutional one. Both require a real local environment (git push access, build tools, eventually a device) that this chat's sandbox does not have.
+
+### Rule
+
+Only the AI Technical Lead role writes files. Every other AI participant's output is a proposal, not a commit, until reviewed here.
+
+---
+
 ## Git Workflow
 
 Git is the single source of truth.
