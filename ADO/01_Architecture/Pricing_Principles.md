@@ -34,7 +34,7 @@ This is a Human Architect-owned business decision, not a technical one — it is
 
 ## Status
 
-Approved as guiding principle. This does not require any implementation work at this stage; it binds future pricing decisions, not current architecture.
+Recommendation only. Pending Technical Lead review.
 
 ## Review Trigger
 
