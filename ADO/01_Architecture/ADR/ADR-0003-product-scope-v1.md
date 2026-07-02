@@ -41,6 +41,7 @@ Employee scans assigned NFC tag
 - Basic admin overview
 - Basic export/reporting
 - Offline capture of core work events
+- Open Session Reminder (time-based, non-GPS, added by Revision 2026-07-02)
 
 ## Explicitly Out of Scope for v1
 
@@ -80,3 +81,26 @@ Negative:
 ## Review Trigger
 
 This ADR must be reviewed before implementing any feature outside the v1 scope.
+
+---
+
+## Revision 2026-07-02 (Approved, integrated into In Scope above)
+
+### Context for Revision
+
+`EV-0003-time-tracking-market-research.md` identifies forgotten clock-outs as roughly half of the largest quantified pain point across existing time tracking products (the other half, forgotten clock-in, is already addressed by NFC-first design). NFC solves "did I start tracking" through a physical trigger, but does nothing by itself for "did I remember to tap out."
+
+### Proposed Addition to In Scope for v1
+
+- **Open Session Reminder**: a local, time-based reminder (not GPS, not location-based) triggered when a Work Event has been open unusually long without a corresponding stop scan. Implemented as elapsed-time-on-an-open-session logic inside the Business Engine, surfaced as a device notification to the Employee.
+
+This does not conflict with "GPS tracking as primary feature: out of scope" above, since it requires no location data — only the elapsed duration of an already-open Work Event, which the domain model already tracks.
+
+### Rationale for Revision
+
+Cheap to add now (it is a Business Engine rule plus a local notification, not a new subsystem), and it closes the one half of the industry's single biggest named complaint that NFC does not already solve by itself.
+
+### Human Architect Decision
+
+Approved 2026-07-02. Reflected in the "In Scope for v1" list above.
+

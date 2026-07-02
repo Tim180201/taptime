@@ -1,6 +1,6 @@
 # TapTim.e
 
-Status: Sprint 0 – Project Foundation  
+Status: Sprint 1 – Product Architecture (Sprint 0 complete)
 Mode: FDOS-aligned product development  
 Repository: `Tim180201/taptime`
 
@@ -12,7 +12,9 @@ Build a stable, maintainable and scalable time tracking product with NFC-first m
 
 ## Current Phase
 
-TapTim.e is currently in the blank project bootstrap phase. No application stack has been finalized yet.
+Product Vision, Product Principles, the Feature Blueprint Standard and ADR-0001 through ADR-0006 (plus ADR-0008) are Approved. No application stack has been finalized yet — see `ADO/01_Architecture/Tech_Stack.md`, which currently blocks Sprint 2.
+
+For a full status snapshot, see `ADO/00_Core/Strategic_Review_2026-07-01.md` and `CHANGELOG.md`.
 
 ## Technical Leadership Principles
 
@@ -32,8 +34,12 @@ docs/                General documentation outside ADO
 infrastructure/      Deployment, cloud and environment definitions later
 scripts/             Automation and maintenance scripts later
 tests/               Cross-cutting test assets later
-.github/             GitHub workflows and contribution templates later
+.github/             Pull request template; CI workflows follow the Sprint 2 stack decision
 ```
+
+## Contributing
+
+See `CONTRIBUTING.md` for the mandatory engineering order and roles. See `CHANGELOG.md` for a chronological summary of decisions.
 
 ## Reference Projects
 

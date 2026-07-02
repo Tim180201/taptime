@@ -128,6 +128,8 @@ Tim180201/taptime
 architecture/ep-002-feature-blueprint-standard
 ```
 
+**Correction (2026-07-02):** an earlier edit here claimed this branch was already merged to `main`. Verified against git history — it is not. `main` is still 5 files behind this branch (the EP-002 consolidation and the AI Technical Lead Charter itself only exist on this branch). Merge to `main` is still outstanding.
+
 ---
 
 ## Current Progress
@@ -150,24 +152,30 @@ Feature Blueprint Standard
 Status:
 
 ```text
-Architecture Branch
+Completed
+Merged
+Review Ready — Feature_Blueprint_Standard.md is canonical
 ```
 
-Progress:
+---
+
+### Post-EP-002 Additions (2026-07-02)
+
+Following EV-0003 (Time Tracking Market Research), the following were proposed and Approved by the Human Architect:
 
 ```text
-Part 1 Complete
-Part 2 Complete
-Part 3 Complete
-Part 4 Pending Integration
+ADR-0008: Scan Deduplication and State Transition Model
+ADR-0003 Revision: Open Session Reminder added to v1 scope
+Reporting Quality Bar v1
+Pricing Principles
+Product Principle 8: Auditability is Protection, Not Surveillance
 ```
 
 Next:
 
 ```text
-Architecture Consolidation Sprint
-Review Ready
-Merge to main
+ADR-0007: Tech Stack decision (still Not Decided, blocks Sprint 2)
+Close out remaining Sprint 1 open questions before Sprint 2 starts
 ```
 
 ---

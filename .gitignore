@@ -1,0 +1,41 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors / IDE
+.vscode/
+.idea/
+*.swp
+
+# Node (once Sprint 2 introduces a JS/TS stack)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Expo / React Native (anticipated per Tech_Stack.md reference stack)
+.expo/
+dist/
+build/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# Environment / secrets
+.env
+.env.*
+service-account.json
+*.pem
+
+# Logs
+*.log
+firebase-debug.log
+
+# Archives
+*.zip
+
+# Local tooling
+.claude/
