@@ -1,41 +1,26 @@
 # Tech Stack
 
-Status: Not Decided
+Status: Decided — see ADR-0007
 
 ## Current Position
 
-No technical stack is finalized for TapTim.e yet.
+The TapTim.e technology platform baseline is decided and Approved. This file is a navigation pointer, not a duplicate source of technical knowledge.
 
-## Reference Stack from frogs
+Authoritative source: `ADO/01_Architecture/ADR/ADR-0007-technology-platform-baseline.md`
 
-The reference project `frogs-zeiterfassung` uses:
+ADR-0007 defines the mobile-first platform baseline (React Native / Expo, native NFC capability, local offline-capable persistence, explicit synchronization), the backend baseline (managed authentication, cloud-hosted persistence, explicit synchronization) and the platform boundaries that keep domain logic independent from UI, NFC libraries and persistence APIs.
 
-- React Native
-- Expo and Expo Router
-- Firebase Authentication
-- Firebase Firestore
-- `react-native-nfc-manager`
-- Android NFC intent handling
-- JavaScript and JSX
+## Reference Evidence
 
-## Technical Lead Position
+`frogs-zeiterfassung` (React Native, Expo, Firebase Authentication, Firebase Firestore, `react-native-nfc-manager`) is retained as technical reference evidence that informed ADR-0007. It is not a source code baseline; see the root `README.md` Reference Projects section.
 
-The frogs stack is a strong candidate because it already contains relevant NFC and Firebase experience.
+## Where to Look Next
 
-However, TapTim.e will not inherit the stack automatically. The stack decision must be validated against:
+- Platform decision and rationale: ADR-0007
+- Technical architecture responsibilities and layering: `ADO/01_Architecture/Technical_Architecture_Profile.md` (TTAP-001)
+- Feature-level implementation detail: `ADO/01_Architecture/Technical_Specifications/`
+- Developer-facing implementation guidance: `ADO/01_Architecture/Developer_Implementation_Manual/`
 
-- NFC reliability
-- Android real-device behavior
-- maintainability
-- testing capability
-- release process
-- long-term scalability
-- security requirements
+## Change Rule
 
-## Required Stack Decision
-
-A dedicated ADR must decide the implementation stack before app code is generated.
-
-Expected ADR:
-
-- `ADR-0002-mobile-and-backend-stack.md`
+Do not duplicate ADR-0007 content here. If the platform baseline changes, update ADR-0007 (or supersede it with a new ADR) through the standard engineering workflow, and update this pointer only if the referenced document paths change.
