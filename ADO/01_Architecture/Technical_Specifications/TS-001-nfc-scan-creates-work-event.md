@@ -1,6 +1,6 @@
 # TS-001 – NFC Scan Creates Work Event Technical Specification
 
-Status: Draft  
+Status: Approved  
 Specification ID: TS-001  
 Related Feature Blueprint: FB-001  
 Epic: EP-007 – Product Architecture Foundation  

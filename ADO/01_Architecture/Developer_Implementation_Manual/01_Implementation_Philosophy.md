@@ -1,0 +1,847 @@
+# EP-008 – Developer Implementation Manual
+
+## Chapter 01 – Implementation Philosophy
+
+Status: Draft  
+Document ID: EP-008-CH01  
+Epic: EP-008  
+Owner: Technical Lead  
+Approval Authority: Human Architect  
+Repository Scope: TapTim.e ADO  
+Integration Status: Branch integration for Human Architect review  
+Related Artifacts: Product Vision, Decision Log, AVR-001, ADRs, TTAP-001, Feature Blueprints, Technical Specifications, Development Task Profile, EOM-001, AGR-001
+
+---
+
+## 1. Purpose
+
+This chapter defines the implementation philosophy for TapTim.e.
+
+It does not define product intent, architecture, feature behavior, technical specifications, development tasks or governance. Those responsibilities remain with their existing ADO artifacts. This chapter explains how developers shall work with those artifacts when turning approved engineering decisions into software.
+
+The purpose of the implementation philosophy is to make developer decisions consistent across the codebase.
+
+A developer working on TapTim.e shall not ask:
+
+```text
+What can I implement quickly?
+```
+
+The developer shall ask:
+
+```text
+What has the repository already approved, which responsibility owns this behavior, and how do I implement it without changing its meaning?
+```
+
+Implementation work is therefore not creative reinterpretation of architecture. It is disciplined translation of approved engineering knowledge into code, tests and evidence.
+
+This chapter establishes the mental model for all later EP-008 chapters.
+
+Later chapters explain repository foundation, solution structure, domain implementation, business engine implementation, application orchestration, infrastructure, mobile implementation, readiness and repository integration. This chapter defines the rules that apply to all of them.
+
+---
+
+## 2. Responsibilities
+
+### 2.1 Responsibility of Implementation Philosophy
+
+The implementation philosophy is responsible for developer conduct during implementation.
+
+It defines how developers shall:
+
+- use repository evidence before making implementation choices,
+- distinguish implementation decisions from architecture decisions,
+- preserve approved responsibilities,
+- continue existing repository work instead of recreating it,
+- handle incomplete evidence,
+- escalate missing decisions,
+- keep source code traceable to approved ADO artifacts,
+- test behavior at the correct responsibility boundary,
+- avoid moving business meaning into the wrong layer.
+
+It is intentionally cross-cutting. It applies to every chapter of EP-008 and every implementation area of TapTim.e.
+
+### 2.2 Responsibility of Developers
+
+A developer implementing TapTim.e is responsible for producing code that matches approved repository knowledge.
+
+The developer shall:
+
+- inspect the current repository state before implementation,
+- identify the source-of-truth artifacts for the task,
+- use EP-008 as implementation guidance only,
+- preserve architecture boundaries,
+- preserve feature behavior,
+- preserve technical specification intent,
+- avoid duplicate concepts,
+- write tests that verify the correct responsibility,
+- document evidence and handover information.
+
+The developer shall not:
+
+- reinterpret product intent,
+- make new architecture decisions silently,
+- create new business rules from implementation convenience,
+- infer product behavior from UI or persistence,
+- treat missing repository evidence as permission to invent behavior,
+- hide deviations inside implementation code.
+
+### 2.3 Responsibility of the Technical Lead
+
+The Technical Lead owns engineering governance and implementation guidance.
+
+For EP-008, the Technical Lead is responsible for:
+
+- translating approved repository knowledge into developer guidance,
+- maintaining alignment with Product Vision, ADRs, TTAP, Feature Blueprints, Technical Specifications and Development Tasks,
+- identifying when implementation guidance requires repository reconciliation,
+- preventing duplication of architecture content,
+- preparing implementation work for Development Agent execution,
+- preserving traceability across engineering artifacts.
+
+The Technical Lead shall not use EP-008 to change product scope or bypass Human Architect authority.
+
+### 2.4 Responsibility of Review
+
+Review remains separate from implementation guidance.
+
+The Review Agent may use EP-008 as supporting evidence when reviewing implementation quality, but approval must still be based on the authoritative source artifacts and repository reality.
+
+EP-008 does not replace:
+
+- architecture compliance review,
+- feature behavior validation,
+- technical specification validation,
+- evidence review,
+- test validation.
+
+### 2.5 Responsibility Boundaries
+
+Implementation philosophy defines how to work.
+
+It does not define what the product is, what the architecture is or what a feature does.
+
+| Responsibility | Source of Truth | EP-008 Role |
+|---|---|---|
+| Product intent | Product Vision | Do not redefine. |
+| Engineering decisions | Decision Log / ADRs | Apply through implementation guidance. |
+| Technical architecture | TTAP and architecture artifacts | Preserve boundaries. |
+| Feature behavior | Feature Blueprints | Implement only approved behavior. |
+| Feature implementation detail | Technical Specifications | Align implementation. |
+| Work scope | Development Tasks | Support execution, do not expand. |
+| Engineering workflow | EOM-001 | Follow required handovers and gates. |
+| Agent responsibilities | AGR-001 | Respect role boundaries. |
+
+---
+
+## 3. Diagram
+
+### 3.1 Implementation Decision Flow
+
+```text
+Implementation Question
+  -> Check Repository Reality
+  -> Identify Source-of-Truth Artifact
+  -> Determine Owning Responsibility
+  -> Apply EP-008 Guidance
+  -> Implement Smallest Correct Change
+  -> Test at Responsibility Boundary
+  -> Record Evidence and Handover
+```
+
+This flow prevents implementation work from becoming undocumented architecture work.
+
+### 3.2 Missing Decision Flow
+
+```text
+Developer Encounters Missing Decision
+  -> Verify Repository Evidence
+  -> Confirm No Existing Artifact Owns the Answer
+  -> Stop Business/Architecture Interpretation
+  -> Document Missing Decision
+  -> Escalate to Responsible Role
+  -> Implement Only Safe Supporting Work
+```
+
+A missing decision is not a development opportunity. It is an engineering signal.
+
+### 3.3 Responsibility Boundary Model
+
+```text
+UI / Mobile Layer
+  captures facts and presents outcomes
+
+Application Layer
+  orchestrates use cases and calls responsibilities
+
+Business Engine Boundary
+  interprets facts and produces decisions/events
+
+Domain Foundation
+  provides stable concepts and invariants
+
+Infrastructure Layer
+  persists, transports and integrates data
+```
+
+The most important principle is that business meaning must remain inside the approved business decision boundary.
+
+No implementation layer may claim a responsibility only because it is technically convenient.
+
+---
+
+## 4. Dependencies
+
+### 4.1 Repository Evidence Dependency
+
+Implementation depends on repository evidence.
+
+Before making a meaningful implementation decision, developers shall verify the current repository content that applies to the task.
+
+Minimum evidence checks usually include:
+
+- current branch,
+- relevant ADO artifact paths,
+- Decision Log status,
+- related ADRs,
+- related Technical Architecture Profile sections,
+- related Feature Blueprint,
+- related Technical Specification,
+- related Development Task,
+- current source code reality.
+
+The exact set depends on the task. The principle does not.
+
+### 4.2 Dependency Priority
+
+When implementation guidance, source code and architecture appear to overlap, apply this order:
+
+1. Current repository reality.
+2. Product Vision for product intent.
+3. Decision Log and ADRs for durable decisions.
+4. TTAP for architecture responsibilities.
+5. Feature Blueprints for feature behavior.
+6. Technical Specifications for feature implementation detail.
+7. Development Tasks for assigned scope.
+8. EP-008 for developer implementation guidance.
+9. Existing source code as implementation state.
+
+Repository reality is always inspected first because it tells the developer what actually exists. Approved architecture then defines what the repository is intended to become.
+
+A conflict between source code and approved architecture shall be documented. It shall not be silently resolved by changing product or architecture meaning inside code.
+
+### 4.3 Dependency on Existing Concepts
+
+Developers shall reuse approved concepts before creating new ones.
+
+Before adding a new type, module, service, event, decision result, adapter, repository, use case or rule object, verify whether an equivalent concept already exists in:
+
+- approved artifacts,
+- current source code,
+- technical specifications,
+- architecture documents,
+- development tasks.
+
+New concepts shall be introduced only when they are necessary, named consistently and traceable to an approved reason.
+
+### 4.4 Dependency on Reviewability
+
+Implementation must be reviewable.
+
+A reviewer must be able to answer:
+
+```text
+Which approved artifact does this code implement?
+Which responsibility owns this behavior?
+What boundary does this test verify?
+What evidence proves the implementation is correct?
+```
+
+If those questions cannot be answered, the implementation is not ready for review.
+
+---
+
+## 5. Rules
+
+### 5.1 Repository Before Assumptions
+
+Developers shall inspect repository evidence before implementing.
+
+Do not rely on:
+
+- memory,
+- previous conversations,
+- inferred behavior,
+- file names alone,
+- UI appearance,
+- partial code snippets,
+- architectural intuition.
+
+Use the repository as the source of truth.
+
+### 5.2 Reality Has Priority Over Architecture
+
+The actual repository state determines the starting point for implementation.
+
+If the repository does not yet contain the ideal architecture, the developer shall not pretend it does. The correct action is to document the gap and implement the approved next step.
+
+This prevents accidental rewrites and protects ongoing work.
+
+### 5.3 Continue, Never Recreate
+
+Developers shall continue existing work.
+
+Do not create a second implementation path just because the existing one is incomplete. Extend, refactor or reconcile according to approved scope.
+
+Recreation is allowed only when explicitly approved by task scope or architecture decision.
+
+### 5.4 Extend Before Create
+
+When a capability is missing, first determine whether an existing artifact or implementation structure should be extended.
+
+Creation of new permanent concepts requires a clear reason.
+
+Good reasons include:
+
+- approved architecture requires the concept,
+- approved technical specification requires the concept,
+- existing concept has a different responsibility,
+- extension would violate separation of concerns,
+- Human Architect or Technical Lead has approved the new scope through the workflow.
+
+Bad reasons include:
+
+- faster to create a new file,
+- easier to test in isolation,
+- naming preference,
+- uncertainty about existing code,
+- avoiding repository discovery.
+
+### 5.5 Traceability Before Convenience
+
+Convenient implementation is not sufficient.
+
+Every meaningful implementation choice must be traceable to an approved reason.
+
+Traceability may be captured in:
+
+- commit message,
+- development task notes,
+- implementation evidence,
+- role handover,
+- test names,
+- comments when they clarify architectural boundaries.
+
+Traceability does not require excessive comments. It requires that the reason for code exists outside personal memory.
+
+### 5.6 Implement Approved Decisions, Do Not Invent Missing Ones
+
+Developers implement approved decisions.
+
+When an implementation question is not answered by approved artifacts, the developer shall escalate it.
+
+This is especially important for:
+
+- business rules,
+- state transitions,
+- accepted/rejected/deferred outcomes,
+- synchronization meaning,
+- offline behavior,
+- permissions,
+- audit behavior,
+- data retention,
+- conflict resolution.
+
+Missing product or architecture meaning must not be hidden inside code.
+
+### 5.7 Business Meaning Belongs to the Business Decision Boundary
+
+No UI, database, synchronization, transport or infrastructure component may determine business meaning.
+
+Those components may capture, persist, synchronize or display information. They may not decide what a fact means for the business.
+
+Examples:
+
+```text
+Allowed:
+A mobile screen captures that an NFC tag was scanned.
+
+Not allowed:
+A mobile screen decides that the scan starts a work session.
+```
+
+```text
+Allowed:
+A repository stores a decision result.
+
+Not allowed:
+A repository determines whether the decision is accepted or rejected.
+```
+
+### 5.8 Keep Decisions Deterministic Where Business Rules Require Determinism
+
+Business decisions must be deterministic when based on the same facts, rules and state.
+
+Implementation shall avoid hidden dependencies such as:
+
+- current UI state,
+- network timing,
+- database side effects,
+- adapter-specific behavior,
+- mutable global state,
+- implicit system clock usage without explicit modeling.
+
+When time or environment matters, it shall be passed explicitly or isolated behind a controlled abstraction.
+
+### 5.9 Make Boundaries Explicit
+
+Code shall make responsibility boundaries visible.
+
+A reviewer should be able to distinguish:
+
+- fact capture,
+- use case orchestration,
+- business interpretation,
+- persistence,
+- synchronization,
+- presentation,
+- test setup.
+
+If those responsibilities are mixed in one file or function, the implementation is likely violating the manual.
+
+### 5.10 Escalate Instead of Guessing
+
+If an implementation question changes behavior, architecture or scope, the developer shall escalate.
+
+Escalation is required when:
+
+- the repository gives conflicting guidance,
+- no artifact owns the answer,
+- the answer would create a new business rule,
+- implementation requires changing architecture boundaries,
+- tests cannot define expected behavior from approved artifacts,
+- a workaround would become permanent repository knowledge.
+
+---
+
+## 6. Examples
+
+### 6.1 Example: Choosing Where Logic Belongs
+
+A developer implements handling for a scanned NFC tag.
+
+Correct reasoning:
+
+```text
+The scan itself is a fact.
+The mobile layer captures the fact.
+The application layer submits the fact.
+The business decision boundary interprets the fact.
+The result is persisted and presented after decision evaluation.
+```
+
+Incorrect reasoning:
+
+```text
+The NFC screen knows the user scanned a tag, so the screen can start a work session directly.
+```
+
+The incorrect version derives business meaning from UI input capture.
+
+### 6.2 Example: Handling an Undefined Rule
+
+A developer cannot find a rule for duplicate NFC scans within a short time window.
+
+Correct response:
+
+```text
+Document the missing rule.
+Escalate to the Technical Lead or Human Architect depending on whether the gap is technical or product-related.
+Implement only safe plumbing if already approved.
+Do not create hidden duplicate handling behavior.
+```
+
+Incorrect response:
+
+```text
+Ignore scans within 30 seconds because that seems reasonable.
+```
+
+The incorrect version invents a business rule.
+
+### 6.3 Example: Persistence Boundary
+
+Correct persistence role:
+
+```text
+Store WorkEventDecisionResult after the business decision boundary has produced it.
+Load previous state required by the business decision boundary.
+Return data without interpreting its business meaning.
+```
+
+Incorrect persistence role:
+
+```text
+If an open work session exists, automatically close it when another scan is inserted.
+```
+
+The incorrect version places state transition logic inside persistence.
+
+### 6.4 Example: Test Placement
+
+Correct test strategy:
+
+```text
+Business rule tests verify accepted/rejected/deferred decisions at the business decision boundary.
+Application tests verify that facts are passed to the business decision boundary and results are handled.
+Infrastructure tests verify persistence mapping.
+UI tests verify capture and presentation.
+```
+
+Incorrect test strategy:
+
+```text
+Only test the UI flow and assume business correctness because the screen changes state.
+```
+
+The incorrect version tests presentation rather than business decision correctness.
+
+### 6.5 Example: Traceable Commit
+
+Good commit message:
+
+```text
+EP-008: add application use case boundary for NFC scan fact submission
+```
+
+Good implementation evidence:
+
+```text
+Implements fact submission without business interpretation in the mobile layer. Decision evaluation remains delegated to the business decision boundary according to approved architecture guidance.
+```
+
+Weak implementation evidence:
+
+```text
+Added NFC logic.
+```
+
+Traceability shall explain responsibility, not only activity.
+
+---
+
+## 7. Implementation Notes
+
+### 7.1 Implementation Decisions vs Architecture Decisions
+
+An implementation decision chooses how to code an approved responsibility.
+
+An architecture decision changes responsibility, structure or long-term direction.
+
+Examples of implementation decisions:
+
+- choosing a function name that matches approved terminology,
+- splitting a mapper for readability,
+- adding tests around an approved boundary,
+- passing a clock dependency explicitly for deterministic tests,
+- using a local interface to decouple an adapter.
+
+Examples of architecture decisions:
+
+- moving business interpretation from the business decision boundary into infrastructure,
+- changing event ownership,
+- changing persistence responsibility,
+- changing feature behavior,
+- introducing a new runtime component responsibility,
+- changing offline-first behavior.
+
+Developers may make implementation decisions within task scope. They may not make architecture decisions silently.
+
+### 7.2 Practical Developer Checklist
+
+Before implementation:
+
+```text
+1. Am I on the correct branch?
+2. Which task am I implementing?
+3. Which Feature Blueprint or Technical Specification owns the behavior?
+4. Which ADR or TTAP section constrains the structure?
+5. Which existing code already implements related behavior?
+6. Which responsibility boundary owns the change?
+7. What tests prove correctness?
+8. What evidence must I produce?
+```
+
+During implementation:
+
+```text
+1. Keep changes inside approved scope.
+2. Avoid duplicate concepts.
+3. Keep business meaning in the correct boundary.
+4. Keep dependencies explicit.
+5. Keep behavior deterministic where required.
+6. Add tests at the correct level.
+7. Document deviations immediately.
+```
+
+Before handover:
+
+```text
+1. Verify changed files.
+2. Verify tests.
+3. Verify traceability to ADO artifacts.
+4. Record known risks.
+5. Record open questions.
+6. Identify next responsible role.
+```
+
+### 7.3 Implementation Pattern: Explicit Fact Submission
+
+Facts should enter the system through explicit use-case or application boundaries.
+
+A fact is not a business decision.
+
+Examples of facts:
+
+- `NfcTagScanned`,
+- `QrCodeScanned`,
+- `ManualEntryRequested`,
+- `DeviceTimeObserved`,
+- `OfflineStateDetected`.
+
+Facts should be represented in a way that preserves what happened without prematurely deciding what it means.
+
+Implementation guidance:
+
+- name facts in past tense where appropriate,
+- avoid embedding decision outcomes in fact names,
+- keep fact capture separate from business interpretation,
+- include metadata needed for deterministic evaluation,
+- validate shape before business interpretation,
+- pass facts to the approved decision boundary.
+
+Anti-pattern:
+
+```text
+StartWorkSessionFromNfcScan
+```
+
+This name already assumes the business outcome.
+
+Better pattern:
+
+```text
+NfcTagScanned
+```
+
+This name describes the fact only.
+
+### 7.4 Implementation Pattern: Deterministic Decision Boundary
+
+Business decisions should be implemented so the same inputs produce the same outputs under the same rules and state.
+
+Implementation guidance:
+
+- pass required state explicitly,
+- avoid hidden reads from UI or infrastructure inside rule evaluation,
+- isolate time dependencies,
+- return explicit decision results,
+- emit business events only after rule evaluation,
+- make rejection and deferral outcomes explicit.
+
+This pattern is expanded in Chapter 05 – Business Engine Foundation.
+
+### 7.5 Implementation Pattern: Thin Adapters
+
+Adapters shall translate between external systems and internal boundaries.
+
+They shall not own business meaning.
+
+Examples:
+
+- NFC adapter reads tag data and emits a scan fact.
+- Persistence adapter stores and loads records.
+- Synchronization adapter transfers pending events.
+- UI adapter presents decision results.
+
+Adapters may handle technical errors. They may not decide business outcomes.
+
+### 7.6 Error Handling Philosophy
+
+Errors and business decisions are different concepts.
+
+A rejected business decision is not necessarily an error.
+
+Examples:
+
+| Situation | Classification |
+|---|---|
+| Invalid NFC payload shape | Input validation or technical input issue |
+| Unknown tag according to business rules | Business decision, likely rejected or deferred |
+| Database unavailable | Infrastructure error |
+| Offline device | Runtime condition, may lead to pending synchronization |
+| Missing business rule | Engineering blocker requiring escalation |
+
+Implementation shall keep these categories separate.
+
+Do not model every non-success outcome as an exception.
+
+### 7.7 Testing Philosophy
+
+Tests shall verify the owning responsibility.
+
+Business decision tests:
+
+- verify facts, rules and state produce expected outcomes,
+- avoid UI and infrastructure dependencies,
+- include accepted, rejected, ignored, deferred and pending synchronization cases where defined.
+
+Application tests:
+
+- verify orchestration,
+- verify correct delegation,
+- verify error and result handling,
+- avoid redefining business rules.
+
+Infrastructure tests:
+
+- verify mapping,
+- verify storage behavior,
+- verify synchronization transport behavior,
+- avoid business interpretation.
+
+UI tests:
+
+- verify input capture,
+- verify presentation of outcomes,
+- verify user flow,
+- avoid business decision logic.
+
+### 7.8 Naming Philosophy
+
+Names shall reflect responsibility.
+
+Good names reduce architecture ambiguity.
+
+Guidance:
+
+- facts describe what happened,
+- commands describe requested actions,
+- decisions describe evaluated outcomes,
+- events describe business-significant results after evaluation,
+- adapters describe technical integration,
+- use cases describe application orchestration.
+
+Avoid names that mix responsibility.
+
+Bad example:
+
+```text
+SaveAndApproveScanService
+```
+
+This combines persistence and business decision.
+
+Better separation:
+
+```text
+SubmitScanFactUseCase
+EvaluateScanDecision
+PersistDecisionResult
+```
+
+Exact names may evolve with repository implementation, but responsibility separation shall remain visible.
+
+### 7.9 Documentation Philosophy
+
+Documentation shall clarify responsibility and traceability.
+
+Do not duplicate source-of-truth content inside implementation comments.
+
+Use comments when they explain:
+
+- why a boundary exists,
+- why a dependency is explicit,
+- why a case is deferred,
+- which approved artifact constrains behavior,
+- why a temporary workaround is safe.
+
+Avoid comments that restate code without explaining responsibility.
+
+---
+
+## 8. Engineering Decision
+
+### 8.1 Decision Statement
+
+TapTim.e implementation shall follow a repository-evidence-first, boundary-preserving implementation philosophy.
+
+Developers shall implement approved decisions, preserve responsibility boundaries, avoid assumptions, keep business meaning in the approved business decision boundary and produce traceable evidence for implementation work.
+
+### 8.2 Rationale
+
+TapTim.e depends on clear separation between product intent, architecture, feature behavior, technical specification and implementation.
+
+Without a shared implementation philosophy, developers may produce code that works locally but violates the approved engineering model.
+
+Common risks include:
+
+- business rules leaking into UI,
+- persistence becoming a hidden decision engine,
+- infrastructure determining product meaning,
+- duplicate concepts emerging across layers,
+- tests verifying presentation instead of business correctness,
+- missing decisions being silently invented,
+- implementation convenience overriding architecture.
+
+The implementation philosophy reduces these risks by defining how developers think and act before writing code.
+
+### 8.3 Consequences
+
+Implementation work shall be slower when repository evidence is missing, because missing evidence must be escalated rather than guessed.
+
+This is intentional.
+
+The cost of escalation is lower than the cost of silently embedding incorrect business or architecture decisions into source code.
+
+Developers gain freedom inside implementation boundaries, but not across product, architecture or feature boundaries.
+
+Review becomes more reliable because code can be checked against explicit responsibilities and source-of-truth artifacts.
+
+### 8.4 Non-Decisions
+
+This chapter does not decide:
+
+- final codebase folder structure,
+- concrete framework patterns,
+- exact class or function names,
+- database schema,
+- synchronization protocol,
+- UI flow,
+- feature behavior,
+- deployment model,
+- runtime component ownership beyond approved architecture.
+
+Those topics belong to existing or future approved artifacts and later EP-008 chapters where appropriate.
+
+---
+
+## 9. Summary
+
+TapTim.e developers shall implement from repository evidence, not assumptions.
+
+They shall continue existing work, extend before creating, preserve responsibility boundaries and escalate missing decisions instead of inventing them.
+
+EP-008 provides implementation guidance, but it does not replace Product Vision, ADRs, TTAP, Feature Blueprints, Technical Specifications, Development Tasks, EOM-001 or AGR-001.
+
+The central implementation mindset is:
+
+```text
+Find the approved responsibility.
+Implement the smallest correct change.
+Test the owning boundary.
+Document the evidence.
+Escalate missing decisions.
+```
+
+This philosophy applies to every later chapter of the Developer Implementation Manual and to every implementation step in TapTim.e.
