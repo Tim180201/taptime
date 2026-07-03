@@ -40,7 +40,7 @@ Full architecture decisions are documented as ADRs under `ADO/01_Architecture/AD
 | ADR-0006 | Domain-first Architecture | Accepted Draft | 2026-06-26 | `ADO/01_Architecture/ADR/ADR-0006-domain-first-architecture.md` |
 | ADR-0007 | Technology Platform Baseline | Approved | 2026-06-30 | `ADO/01_Architecture/ADR/ADR-0007-technology-platform-baseline.md` |
 | EP-007 | Product Architecture Foundation | Closed | 2026-06-30 | `ADO/02_Development/EP-007_Product_Architecture_Foundation.md` |
-| FB-001 | NFC Scan Creates Work Event | Approved | 2026-06-30 | `ADO/01_Architecture/Feature_Blueprints/NFC_Scan_Creates_Work_Event.md` |
+| FB-001 | NFC Scan Creates Work Event | Approved | 2026-06-30 | `ADO/01_Architecture/Feature_Blueprints/FB-001-nfc-scan-creates-work-event.md` |
 | TS-001 | NFC Scan Creates Work Event Technical Specification | Approved | 2026-06-30 | `ADO/01_Architecture/Technical_Specifications/TS-001-nfc-scan-creates-work-event.md` |
 | EP-007-DT | EP-007 Development Tasks (DT-001–DT-010) | Draft | 2026-06-30 | `ADO/02_Development/EP-007_Development_Tasks.md` |
 | RHS-SPRINT-001 | Repository Health Sprint 001 | Completed | 2026-07-03 | `ADO/02_Development/Repository_Health_Sprint_001.md` |

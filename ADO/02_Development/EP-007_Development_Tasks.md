@@ -4,7 +4,7 @@ Status: Draft
 Epic: EP-007 – Product Architecture Foundation  
 Owner: Technical Lead  
 Approval Authority: Human Architect  
-Related Feature Blueprint: `ADO/01_Architecture/Feature_Blueprints/NFC_Scan_Creates_Work_Event.md`  
+Related Feature Blueprint: `ADO/01_Architecture/Feature_Blueprints/FB-001-nfc-scan-creates-work-event.md`  
 Related Technical Specification: `ADO/01_Architecture/Technical_Specifications/TS-001-nfc-scan-creates-work-event.md`  
 Related Architecture: `ADO/01_Architecture/Technical_Architecture_Profile.md`  
 Created Date: 2026-06-30

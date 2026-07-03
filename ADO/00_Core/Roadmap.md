@@ -1,6 +1,24 @@
 # Technical Roadmap
 
-Status: Draft
+Status: Superseded by the EP-based engineering model — preserved for historical reference. `ADO/00_Core/Decision_Log.md` is authoritative for current engineering status.
+
+## Current Engineering Model
+
+This document originally planned TapTim.e using a Sprint 0–6 model. That model has been superseded by the EP-002…EP-008 epic-based engineering model used throughout the rest of the repository. The Sprint sections below are preserved unchanged as historical planning content and are not rewritten; they are not the current source of truth for engineering status.
+
+Historical-to-current mapping, for traceability:
+
+| Original Sprint (below, unchanged) | Corresponding current state |
+|---|---|
+| Sprint 0 – Foundation | Superseded by EP-002…EP-006 (repository, agent and governance foundation). |
+| Sprint 1 – Product Architecture | Superseded by EP-007 (Product Architecture Foundation) — Closed. The `Status: Active` recorded below is historical and no longer reflects the current state. |
+| Sprint 2 – Stack and Implementation Baseline | ADR-0007 (Technology Platform Baseline) — Approved, delivered as part of EP-007. |
+| Sprint 3 – Identity and Data Foundation | Not yet mapped to an epic; no corresponding EP work exists yet. |
+| Sprint 4 – Work Event Engine | Corresponds to the upcoming Development Sprint 001, tasks DT-004/DT-005. |
+| Sprint 5 – NFC Engine | Corresponds to the upcoming Development Sprint 001, tasks DT-001–DT-003. |
+| Sprint 6 – Offline Sync Foundation | Not yet mapped to an epic. |
+
+For the authoritative current epic and Development Task status, see `ADO/00_Core/Decision_Log.md` and `ADO/00_Core/Project_Status.md`.
 
 ## Sprint 0 – Foundation
 
