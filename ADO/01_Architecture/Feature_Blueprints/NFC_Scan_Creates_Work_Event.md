@@ -1,6 +1,6 @@
 # FB-001 – NFC Scan Creates Work Event
 
-Status: Draft  
+Status: Approved  
 Feature ID: FB-001  
 Feature Name: NFC Scan Creates Work Event  
 Epic: EP-007 – Product Architecture Foundation  
