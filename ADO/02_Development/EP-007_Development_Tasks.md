@@ -44,6 +44,14 @@ Acceptance Criteria:
 - Adapter errors are explicit.
 - Domain and Business Engine do not depend on NFC library APIs.
 
+### Development Sprint 001 Implementation Notes
+
+Status: Completed — Review Agent verified, Human Architect approved (2026-07-03).
+
+See `ADO/02_Development/Development_Sprint_001_Plan.md` for the full plan. Summary: implemented as a port/interface plus a fake or manually-triggered test double for this sprint; no real NFC SDK or native platform NFC API integration. Objective and Acceptance Criteria above are unchanged.
+
+Implementation: `packages/core/src/ports/NfcScanPort.ts`, `packages/core/src/infrastructure/adapters/FakeNfcScanAdapter.ts`. Tests: `packages/core/tests/infrastructure/FakeNfcScanAdapter.test.ts`.
+
 ## DT-002 – Assignment Resolver
 
 Objective: Resolve an NfcPayload to an NfcAssignment within organization context.
@@ -53,6 +61,14 @@ Acceptance Criteria:
 - Known tags resolve to assignments.
 - Unknown tags return explicit rejection.
 - Resolution does not create WorkEvents.
+
+### Development Sprint 001 Implementation Notes
+
+Status: Completed — Review Agent verified, Human Architect approved (2026-07-03).
+
+See `ADO/02_Development/Development_Sprint_001_Plan.md`. Implemented against an in-memory/fake repository (no Firebase/Firestore) for this sprint. Objective and Acceptance Criteria above are unchanged.
+
+Implementation: `packages/core/src/business/AssignmentResolver.ts`. Tests: `packages/core/tests/business/AssignmentResolver.test.ts`.
 
 ## DT-003 – Assignment Validator
 
@@ -65,6 +81,14 @@ Acceptance Criteria:
 - Unauthorized access is rejected.
 - Valid assignments produce a validation success result.
 
+### Development Sprint 001 Implementation Notes
+
+Status: Completed — Review Agent verified, Human Architect approved (2026-07-03).
+
+See `ADO/02_Development/Development_Sprint_001_Plan.md`. Implemented against an in-memory/fake repository for this sprint. The validation success result is shaped to be handed to a stubbed `WorkEventCreationPort` (interface only, no implementation) so DT-004 (WorkEvent Factory) has a defined seam. Duplicate-scan protection and start/stop toggle logic (Finding F-01, still open per `ADO/02_Development/Repository_Freeze_Sprint.md`) remain explicitly out of scope for this task. Objective and Acceptance Criteria above are unchanged.
+
+Implementation: `packages/core/src/business/AssignmentValidator.ts`, `packages/core/src/application/NfcScanApplicationService.ts`, `packages/core/src/ports/WorkEventCreationPort.ts` (interface only). Tests: `packages/core/tests/business/AssignmentValidator.test.ts`, `packages/core/tests/application/NfcScanApplicationService.test.ts`.
+
 ## DT-004 – WorkEvent Factory
 
 Objective: Create WorkEvent domain objects from valid scan and assignment context.
@@ -74,6 +98,10 @@ Acceptance Criteria:
 - WorkEvent contains required traceability.
 - Invalid inputs do not create WorkEvents.
 - Factory has deterministic tests.
+
+### Development Sprint 002 Implementation Notes
+
+See `ADO/02_Development/Development_Sprint_002_Plan.md`. Fully in scope for Sprint 002 — none of this task's Acceptance Criteria depend on Finding F-01 (duplicate-scan/toggle mechanism). Consumes `AcceptedAssignmentValidationResult` from DT-003 (`packages/core/src/business/AssignmentValidationResult.ts`). Objective and Acceptance Criteria above are unchanged.
 
 ## DT-005 – TimeEntry Generator
 
@@ -85,6 +113,10 @@ Acceptance Criteria:
 - UI does not decide start or stop.
 - Tests cover start, stop and pending outcomes.
 
+### Development Sprint 002 Implementation Notes
+
+See `ADO/02_Development/Development_Sprint_002_Plan.md`. Partially in scope for Sprint 002: the "no active TimeEntry exists for target" branch (deterministically produces `TimeEntryStarted`) is implemented and tested this sprint. The "active TimeEntry already exists" branch (stop/duplicate/defer) depends on Finding F-01 (duplicate-scan/toggle mechanism, still open per `ADO/02_Development/Repository_Freeze_Sprint.md`) and is represented only as an explicit escalation outcome, not implemented as a business decision. This task's Acceptance Criteria ("Tests cover start, stop and pending outcomes") is therefore only partially satisfied by Sprint 002 — full satisfaction requires F-01 to be resolved first. Objective and Acceptance Criteria above are unchanged.
+
 ## DT-006 – Repository Layer
 
 Objective: Implement repository boundaries for storing and loading WorkEvents, TimeEntries and assignment data required by TS-001.
@@ -94,6 +126,10 @@ Acceptance Criteria:
 - Repositories do not contain business decisions.
 - Domain objects are not replaced by persistence document shapes.
 - Persistence failures are explicit.
+
+### Development Sprint 002 Implementation Notes
+
+See `ADO/02_Development/Development_Sprint_002_Plan.md`. Only a minimal in-memory slice is in scope for Sprint 002: persist `WorkEvent`s and answer whether an active `TimeEntry` exists for a given target, sufficient to support DT-004/DT-005. No Firestore-backed implementation and no synchronization metadata (DT-007/DT-008 remain out of scope). Objective and Acceptance Criteria above are unchanged; this sprint satisfies them only for the in-memory slice, not the full repository surface.
 
 ## DT-007 – Offline Queue
 

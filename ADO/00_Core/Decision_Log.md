@@ -46,6 +46,9 @@ Full architecture decisions are documented as ADRs under `ADO/01_Architecture/AD
 | RHS-SPRINT-001 | Repository Health Sprint 001 | Completed | 2026-07-03 | `ADO/02_Development/Repository_Health_Sprint_001.md` |
 | RM-SPRINT-002 | Repository Maintenance Sprint 002 | Completed | 2026-07-03 | `ADO/02_Development/Repository_Maintenance_Sprint_002.md` |
 | F-11-DECISION | Archive Consistency Disposition (F-11) — Option B accepted: historical archive documents remain on `architecture/ep-002-feature-blueprint-standard` and are not restored to `main`; existing CHANGELOG.md note and Repository Freeze Sprint documentation are sufficient for traceability | Approved | 2026-07-03 | `ADO/02_Development/Repository_Freeze_Sprint.md` |
+| RF-SPRINT | Repository Freeze Sprint | Completed | 2026-07-03 | `ADO/02_Development/Repository_Freeze_Sprint.md` |
+| DEV-SPRINT-001 | Development Sprint 001 (DT-001-DT-003 implementation: NfcScanAdapter, AssignmentResolver, AssignmentValidator) — Review Agent verified | Completed | 2026-07-03 | `ADO/02_Development/Development_Sprint_001_Plan.md` |
+| DEV-SPRINT-002 | Development Sprint 002 Plan (DT-004/DT-005 partial/DT-006 slice implementation plan) | Planned | 2026-07-03 | `ADO/02_Development/Development_Sprint_002_Plan.md` |
 
 ## Decision Rule
 
@@ -59,8 +62,14 @@ Repository Status:
 
 ```text
 EP-008 in progress (Chapters 00-03 drafted).
-Repository Health Sprint 001 and Repository Maintenance Sprint 002 completed.
-READY FOR DEVELOPMENT SPRINT 001 – NFC Scan Creates Work Event (DT-001-DT-010)
+Repository Health Sprint 001, Repository Maintenance Sprint 002 and Repository Freeze Sprint completed.
+Development Sprint 001 completed: DT-001 (NfcScanAdapter), DT-002 (AssignmentResolver) and
+  DT-003 (AssignmentValidator) implemented in `packages/core`, Review Agent verified, Human
+  Architect approved. First TypeScript/Node stack introduced in the repository (npm workspaces,
+  strict TypeScript, Vitest), per ADR-0007.
+DT-004/DT-005 remain gated on Finding F-01 (duplicate-scan/toggle mechanism, undefined).
+READY FOR DEVELOPMENT SPRINT 002 – WorkEvent Factory / Business Engine (DT-004/DT-005 scope,
+  pending Finding F-01 resolution)
 ```
 
 AVR-001 records validation status for engineering artifacts.

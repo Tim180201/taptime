@@ -1,0 +1,18 @@
+{
+  "name": "@taptime/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "TapTim.e domain, business and application core. Independent of UI, persistence and external infrastructure (TTAP-001).",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "test": "vitest run",
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.9"
+  }
+}

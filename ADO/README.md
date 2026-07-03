@@ -116,6 +116,9 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | EP-007 Development Tasks (DT-001-DT-010) | `ADO/02_Development/EP-007_Development_Tasks.md` |
 | Repository Health Sprint 001 | `ADO/02_Development/Repository_Health_Sprint_001.md` |
 | Repository Maintenance Sprint 002 | `ADO/02_Development/Repository_Maintenance_Sprint_002.md` |
+| Repository Freeze Sprint | `ADO/02_Development/Repository_Freeze_Sprint.md` |
+| Development Sprint 001 Plan (DT-001-DT-003) | `ADO/02_Development/Development_Sprint_001_Plan.md` |
+| Development Sprint 002 Plan (DT-004/DT-005/DT-006 slice) | `ADO/02_Development/Development_Sprint_002_Plan.md` |
 | Development Area | `ADO/02_Development/` |
 
 ## Evidence
