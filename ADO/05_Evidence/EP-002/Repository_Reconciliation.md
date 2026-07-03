@@ -6,6 +6,19 @@ Date: 2026-07-02
 Related: AGR-001, EOM-001, ADO/README.md, AVR-001, EP-007 Repository_Reconciliation.md (precedent format)
 Review Reference: ChatGPT Review Package, EP-002 Feature Blueprint Standard Branch, decision CHANGES REQUIRED
 
+## Preservation Status
+
+This branch has been superseded by the current `main` branch. It is intentionally preserved as historical engineering evidence.
+
+Its purpose is:
+
+- preserve Repository Reconciliation
+- preserve Research Agent recommendations
+- preserve archived working artifacts
+- preserve engineering traceability
+
+This branch shall NOT be merged into `main`. Instead, individual recommendations shall be evaluated independently and integrated into `main` only after Technical Lead approval. Repository hygiene improvements may be integrated separately where appropriate. The branch remains available as historical engineering evidence.
+
 ## Purpose
 
 This document reconciles `architecture/ep-002-feature-blueprint-standard` against the current state of `main`, per the Human Architect's direction following the CHANGES REQUIRED review. Repository reconciliation was performed against the current branch state. Branch comparison shall be verified during review and is intentionally not persisted as permanent repository knowledge. It follows the same reconciliation method used in `ADO/05_Evidence/EP-007/Repository_Reconciliation.md`.
