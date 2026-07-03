@@ -25,3 +25,9 @@ export const NfcTagId = brandedNonEmptyString<'NfcTagId'>('NfcTagId');
 // object is required even though TTAP-001's Value Objects list does not name it explicitly.
 export type NfcAssignmentId = Brand<string, 'NfcAssignmentId'>;
 export const NfcAssignmentId = brandedNonEmptyString<'NfcAssignmentId'>('NfcAssignmentId');
+
+export type WorkEventId = Brand<string, 'WorkEventId'>;
+export const WorkEventId = brandedNonEmptyString<'WorkEventId'>('WorkEventId');
+
+export type TimeEntryId = Brand<string, 'TimeEntryId'>;
+export const TimeEntryId = brandedNonEmptyString<'TimeEntryId'>('TimeEntryId');

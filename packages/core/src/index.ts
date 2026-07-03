@@ -8,21 +8,34 @@ export * from './domain/NfcTag';
 export * from './domain/NfcAssignment';
 export * from './domain/facts/NfcTagScanned';
 export * from './domain/events/NfcAssignmentResolution';
+export * from './domain/WorkEvent';
+export * from './domain/TimeEntry';
+export * from './domain/events/WorkEventCreated';
+export * from './domain/events/TimeEntryStarted';
+export * from './domain/generateId';
 
 export * from './ports/NfcScanPort';
 export * from './ports/NfcTagRepository';
 export * from './ports/NfcAssignmentRepository';
 export * from './ports/CustomerRepository';
 export * from './ports/WorkEventCreationPort';
+export * from './ports/WorkEventRepository';
+export * from './ports/TimeEntryRepository';
 
 export * from './business/AssignmentResolver';
 export * from './business/AssignmentValidator';
 export * from './business/AssignmentValidationResult';
+export * from './business/WorkEventFactory';
+export * from './business/BusinessEngine';
+export * from './business/BusinessEngineDecision';
 
 export * from './application/NfcScanApplicationService';
 export * from './application/ScanPipelineOutcome';
+export * from './application/WorkEventCreationService';
 
 export * from './infrastructure/adapters/FakeNfcScanAdapter';
 export * from './infrastructure/repositories/InMemoryNfcTagRepository';
 export * from './infrastructure/repositories/InMemoryNfcAssignmentRepository';
 export * from './infrastructure/repositories/InMemoryCustomerRepository';
+export * from './infrastructure/repositories/InMemoryWorkEventRepository';
+export * from './infrastructure/repositories/InMemoryTimeEntryRepository';
