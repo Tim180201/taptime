@@ -17,7 +17,7 @@ Full architecture decisions are documented as ADRs under `ADO/01_Architecture/AD
 | ADO-NAV-001 | ADO Navigation Entry Point | Draft | 2026-06-29 | `ADO/README.md` |
 | AVR-001 | Artifact Validation Register | Active | 2026-06-29 | `ADO/00_Governance/AVR-001_Artifact_Validation_Register.md` |
 | FBS-001 | Feature Blueprint Standard | Review Ready | 2026-06-28 | `ADO/01_Architecture/Feature_Blueprint_Standard.md` |
-| TTAP-001 | TapTim.e Technical Architecture Profile | Review Ready | 2026-06-28 | `ADO/01_Architecture/Technical_Architecture_Profile.md` |
+| TTAP-001 | TapTim.e Technical Architecture Profile | Approved | 2026-06-28 | `ADO/01_Architecture/Technical_Architecture_Profile.md` |
 | DTP-001 | TapTim.e Development Task Profile | Review Ready | 2026-06-28 | `ADO/01_Architecture/Development_Task_Profile.md` |
 | EOM-001 | TapTim.e Engineering Operating Model | Review Ready | 2026-06-28 | `ADO/01_Architecture/Engineering_Operating_Model.md` |
 | AGR-001 | Official Engineering Agent Registry | Operational Configuration | 2026-06-28 | `ADO/01_Architecture/Agent_Registry.md` |
@@ -42,6 +42,9 @@ Full architecture decisions are documented as ADRs under `ADO/01_Architecture/AD
 | EP-007 | Product Architecture Foundation | Closed | 2026-06-30 | `ADO/02_Development/EP-007_Product_Architecture_Foundation.md` |
 | FB-001 | NFC Scan Creates Work Event | Approved | 2026-06-30 | `ADO/01_Architecture/Feature_Blueprints/NFC_Scan_Creates_Work_Event.md` |
 | TS-001 | NFC Scan Creates Work Event Technical Specification | Approved | 2026-06-30 | `ADO/01_Architecture/Technical_Specifications/TS-001-nfc-scan-creates-work-event.md` |
+| EP-007-DT | EP-007 Development Tasks (DT-001–DT-010) | Draft | 2026-06-30 | `ADO/02_Development/EP-007_Development_Tasks.md` |
+| RHS-SPRINT-001 | Repository Health Sprint 001 | Completed | 2026-07-03 | `ADO/02_Development/Repository_Health_Sprint_001.md` |
+| RM-SPRINT-002 | Repository Maintenance Sprint 002 | Completed | 2026-07-03 | `ADO/02_Development/Repository_Maintenance_Sprint_002.md` |
 
 ## Decision Rule
 
@@ -54,7 +57,9 @@ EP-007 established the initial Product Architecture Foundation for TapTim.e and 
 Repository Status:
 
 ```text
-READY FOR EP-008 – Solution Foundation
+EP-008 in progress (Chapters 00-03 drafted).
+Repository Health Sprint 001 and Repository Maintenance Sprint 002 completed.
+READY FOR DEVELOPMENT SPRINT 001 – NFC Scan Creates Work Event (DT-001-DT-010)
 ```
 
 AVR-001 records validation status for engineering artifacts.

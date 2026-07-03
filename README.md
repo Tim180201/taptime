@@ -1,6 +1,6 @@
 # TapTim.e
 
-Status: EP-008 – Developer Implementation Manual (EP-007 Product Architecture Foundation closed)  
+Status: Ready for Development Sprint 001 (EP-007 closed, EP-008 in progress)  
 Mode: FDOS-aligned product development  
 Repository: `Tim180201/taptime`
 
@@ -12,9 +12,11 @@ Build a stable, maintainable and scalable time tracking product with NFC-first m
 
 ## Current Phase
 
-EP-007 (Product Architecture Foundation) is closed: the platform baseline (ADR-0007), the Technical Architecture Profile (TTAP-001), the first Feature Blueprint (FB-001) and its Technical Specification (TS-001) are approved. The repository is `READY FOR EP-008 – Solution Foundation` per the Decision Log.
+EP-007 (Product Architecture Foundation) is closed: the platform baseline (ADR-0007), the Technical Architecture Profile (TTAP-001), the first Feature Blueprint (FB-001) and its Technical Specification (TS-001) are all Approved.
 
-EP-008 (Developer Implementation Manual) is in progress. See `ADO/01_Architecture/Developer_Implementation_Manual/` for the chapters completed so far.
+EP-008 (Developer Implementation Manual) is in progress on `main`; see `ADO/01_Architecture/Developer_Implementation_Manual/` for the chapters completed so far (00-03).
+
+Two repository maintenance sprints (`ADO/02_Development/Repository_Health_Sprint_001.md`, `ADO/02_Development/Repository_Maintenance_Sprint_002.md`) have closed the known consistency findings ahead of Development Sprint 001, which implements the first Feature Blueprint (FB-001/TS-001) through Development Tasks DT-001-DT-010 (`ADO/02_Development/EP-007_Development_Tasks.md`).
 
 For the authoritative current status, see `ADO/00_Core/Decision_Log.md` and `ADO/00_Core/Project_Status.md`. For the official agent/contributor entry point into the engineering knowledge base, see `ADO/README.md`.
 

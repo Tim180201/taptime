@@ -101,21 +101,29 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 |---|---|
 | Product Vision | `ADO/01_Architecture/Product_Vision.md` |
 | Feature Blueprint Standard | `ADO/01_Architecture/Feature_Blueprint_Standard.md` |
-| Technical Architecture Profile | `ADO/01_Architecture/Technical_Architecture_Profile.md` |
+| Technical Architecture Profile (TTAP-001) | `ADO/01_Architecture/Technical_Architecture_Profile.md` |
 | Development Task Profile | `ADO/01_Architecture/Development_Task_Profile.md` |
 | Architecture Decision Records | `ADO/01_Architecture/ADR/` |
+| Feature Blueprints (incl. FB-001) | `ADO/01_Architecture/Feature_Blueprints/` |
+| Technical Specifications (incl. TS-001) | `ADO/01_Architecture/Technical_Specifications/` |
+| Developer Implementation Manual (EP-008) | `ADO/01_Architecture/Developer_Implementation_Manual/` |
 
 ## Development
 
 | Document | Location |
 |---|---|
 | EP-006 Validation Sprint | `ADO/02_Development/EP-006_Validation_Sprint.md` |
+| EP-007 Development Tasks (DT-001-DT-010) | `ADO/02_Development/EP-007_Development_Tasks.md` |
+| Repository Health Sprint 001 | `ADO/02_Development/Repository_Health_Sprint_001.md` |
+| Repository Maintenance Sprint 002 | `ADO/02_Development/Repository_Maintenance_Sprint_002.md` |
 | Development Area | `ADO/02_Development/` |
 
 ## Evidence
 
 | Document | Location |
 |---|---|
+| Repository Readiness Assessment | `ADO/05_Evidence/Repository_Readiness_Assessment.md` |
+| EP-008 Evidence (incl. Repository Health Follow-up) | `ADO/05_Evidence/EP-008/` |
 | Evidence Area | `ADO/05_Evidence/` |
 
 ## Navigation Rule

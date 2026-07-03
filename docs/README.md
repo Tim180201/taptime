@@ -4,7 +4,7 @@ This folder is for general documentation that sits outside the FDOS-governed kno
 
 ## docs/ vs. ADO/ — what goes where
 
-`ADO/` is the governed knowledge base: Product Vision, Product Principles, ADRs, the Feature Blueprint Standard, the Decision Log, the Risk Register and Evidence. Everything in `ADO/` follows the FDOS approval process (Human Architect sign-off, versioning, traceability, Quality Gates) — see `CONTRIBUTING.md` and `ADO/00_Core/AI_Technical_Lead_Charter.md`.
+`ADO/` is the governed knowledge base: Product Vision, Product Principles, ADRs, the Feature Blueprint Standard, the Decision Log, the Risk Register and Evidence. Everything in `ADO/` follows the FDOS approval process (Human Architect sign-off, versioning, traceability, Quality Gates) — see `CONTRIBUTING.md` and `ADO/README.md`.
 
 `docs/` is for material that explains rather than decides, and does not require that governance overhead:
 
