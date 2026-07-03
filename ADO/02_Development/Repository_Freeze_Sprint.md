@@ -102,7 +102,7 @@ No changes were made to: Product Vision narrative content, any ADR, TTAP-001 con
 | ID | Finding | Severity | Notes |
 |---|---|---|---|
 | F-01 | Duplicate-scan protection window / start-stop toggle mechanism not concretely defined. | BLOCKER (for DT-004/DT-005 only) | Unchanged. Not implemented, per explicit instruction. See dedicated Technical Lead recommendation below. Does not block DT-001–DT-003. |
-| F-11 | `ADO/99_Archive/` contains no files on `main` (only `.gitkeep`); `CHANGELOG.md`, `Repository_Health_Sprint_001.md`, `Repository_Readiness_Assessment.md` describe specific files as archived. Files exist only on `architecture/ep-002-feature-blueprint-standard`. | HIGH | Unchanged. Evaluated this sprint (RF-001); disposition deliberately not decided independently. Two viable options below. |
+| F-11 | `ADO/99_Archive/` contains no files on `main` (only `.gitkeep`); `CHANGELOG.md`, `Repository_Health_Sprint_001.md`, `Repository_Readiness_Assessment.md` describe specific files as archived. Files exist only on `architecture/ep-002-feature-blueprint-standard`. | CLOSED (was HIGH) | Technical Lead decision (2026-07-03): Option B accepted. Archived files remain on the evidence branch and are not restored to `main`. See Disposition below. Recorded in Decision Log as `F-11-DECISION`. |
 | F-09 | `Glossary.md` does not define most domain terms actually used by TTAP-001/FB-001/TS-001. | LOW | Unchanged. Not named in this sprint's task list. |
 | F-10 | `Risk_Register.md` R-003 stale relative to ADR-0007's approval. | LOW | Unchanged. Not named in this sprint's task list. |
 | INFO | `CONTRIBUTING.md` claims `main` is protected and PR review is mandatory. Actual GitHub branch-protection configuration not verified (not visible from a local clone). | INFO | Carried over, still unverified. |
@@ -122,6 +122,10 @@ Two options, both evidence-supportable:
 (b) **Accept the corrective note already in `CHANGELOG.md`** (added in Repository Maintenance Sprint 002) as sufficient, and leave `ADO/99_Archive/` empty on `main`, treating the branch itself as the permanent archive location.
 
 No implementation was made for either option in this sprint. Recommend the Technical Lead choose (a) or (b) explicitly; either is a small, low-risk, single-sprint follow-up.
+
+### Disposition — F-11 (Technical Lead Decision, 2026-07-03)
+
+Option B accepted. The historical archive documents (`AI_Technical_Lead_Charter.md`, `Strategic_Review_2026-07-01.md`, the pre-consolidation Feature Blueprint Standard draft) remain preserved on `architecture/ep-002-feature-blueprint-standard` and shall NOT be restored to `main`. The existing `CHANGELOG.md` corrective note (added in Repository Maintenance Sprint 002) and this Repository Freeze Sprint documentation are considered sufficient to preserve traceability. `ADO/99_Archive/` on `main` remains at `.gitkeep` only — this is now the accepted, permanent state, not an open gap. F-11 is closed. Decision recorded in `ADO/00_Core/Decision_Log.md` as `F-11-DECISION`. No architecture, governance artifact or ADR was modified to implement this decision; only this documentation and the Decision Log were updated.
 
 ## Repository Consistency Status
 
@@ -147,7 +151,7 @@ before Development Sprint 001: NONE for DT-001–DT-003.
 READY FOR DEVELOPMENT SPRINT 001
 ```
 
-Scope: DT-001 (NFC Scan Adapter), DT-002 (Assignment Resolver) and DT-003 (Assignment Validator) may begin without further repository maintenance. DT-004 (WorkEvent Factory) and DT-005 (TimeEntry Generator) remain gated on F-01 (Technical Lead decision on the duplicate-scan/toggle mechanism), consistent with every prior review of this finding. F-11 (archive consistency) and the four remaining LOW/INFO findings are governance/evidence hygiene items that do not block Development Sprint 001 and are reserved for Technical Lead / Human Architect disposition.
+Scope: DT-001 (NFC Scan Adapter), DT-002 (Assignment Resolver) and DT-003 (Assignment Validator) may begin without further repository maintenance. DT-004 (WorkEvent Factory) and DT-005 (TimeEntry Generator) remain gated on F-01 (Technical Lead decision on the duplicate-scan/toggle mechanism), consistent with every prior review of this finding. F-11 (archive consistency) is closed (Technical Lead decision, Option B — see Disposition above). The three remaining LOW/INFO findings are governance/evidence hygiene items that do not block Development Sprint 001 and remain reserved for Technical Lead / Human Architect disposition.
 
 ## Role Handover
 
@@ -168,20 +172,19 @@ Changed Artifacts: Product_Vision.md (status field), Roadmap.md (added historica
 Evidence: repository-wide path-reference sweep before and after all edits; direct listing of
   ADO/99_Archive/ contents; git status confirming rename recorded as R (not delete+add).
 Known Risks: None of the changes are architectural. F-01 continues to block DT-004/DT-005 only.
-  F-11 remains open pending Technical Lead choice between two evidence-supportable options.
-Open Questions: F-01 mechanism definition (Technical Lead, before DT-004/DT-005), F-11 disposition
-  (Technical Lead: restore archive files vs. accept corrective note), F-09/F-10 (Technical Lead,
-  low priority, not addressed this sprint as they were out of this sprint's task list).
-Next Responsible Role: Technical Lead / Human Architect — review this report, decide F-01 and
-  F-11, and authorize Development Sprint 001 (DT-001 first) and/or continuation of EP-008
-  Chapter 04.
+  F-11 is closed (Technical Lead decision, 2026-07-03, Option B — see Disposition section above).
+Open Questions: F-01 mechanism definition (Technical Lead, before DT-004/DT-005); F-09/F-10
+  (Technical Lead, low priority, not addressed this sprint as they were out of this sprint's task
+  list). F-11 is resolved and no longer an open question.
+Next Responsible Role: Technical Lead / Human Architect — review this report, decide F-01, and
+  authorize Development Sprint 001 (DT-001 first) and/or continuation of EP-008 Chapter 04.
 Reason for Handover: Sprint scope (RF-001-RF-007) is complete; per stop condition, no further
   work proceeds automatically.
 Prompt for Next Role: Review Changed Artifacts and Remaining Findings. Decide F-01 before
-  DT-004/DT-005. Decide F-11's disposition (restore vs. accept note). Direct whether Development
-  Sprint 001 or EP-008 Chapter 04 begins next.
+  DT-004/DT-005. F-11 is closed and needs no further action. Direct whether Development Sprint
+  001 or EP-008 Chapter 04 begins next.
 ```
 
 ## Stop Condition
 
-Repository Freeze Sprint is complete. Stopping here. No further repository modifications made. EP-008 not started. Development Sprint 001 not begun. Awaiting Technical Lead / Human Architect review and disposition of F-01 and F-11.
+Repository Freeze Sprint is complete. Stopping here. No further repository modifications made. EP-008 not started. Development Sprint 001 not begun. F-11 is closed (2026-07-03, Option B). Awaiting Technical Lead / Human Architect review and disposition of F-01.

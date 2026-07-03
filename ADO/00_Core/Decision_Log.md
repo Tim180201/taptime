@@ -45,6 +45,7 @@ Full architecture decisions are documented as ADRs under `ADO/01_Architecture/AD
 | EP-007-DT | EP-007 Development Tasks (DT-001–DT-010) | Draft | 2026-06-30 | `ADO/02_Development/EP-007_Development_Tasks.md` |
 | RHS-SPRINT-001 | Repository Health Sprint 001 | Completed | 2026-07-03 | `ADO/02_Development/Repository_Health_Sprint_001.md` |
 | RM-SPRINT-002 | Repository Maintenance Sprint 002 | Completed | 2026-07-03 | `ADO/02_Development/Repository_Maintenance_Sprint_002.md` |
+| F-11-DECISION | Archive Consistency Disposition (F-11) — Option B accepted: historical archive documents remain on `architecture/ep-002-feature-blueprint-standard` and are not restored to `main`; existing CHANGELOG.md note and Repository Freeze Sprint documentation are sufficient for traceability | Approved | 2026-07-03 | `ADO/02_Development/Repository_Freeze_Sprint.md` |
 
 ## Decision Rule
 
