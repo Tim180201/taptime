@@ -845,3 +845,48 @@ Escalate missing decisions.
 ```
 
 This philosophy applies to every later chapter of the Developer Implementation Manual and to every implementation step in TapTim.e.
+
+---
+
+## 10. Implemented Reality (EP-008 Synchronization Update)
+
+This section documents where the philosophy above has already been applied in committed code, so the guidance in Sections 5–7 is no longer only illustrative. Evidence verified 2026-07-03 against `main` commit `78be5c9` (Development Sprint 002) and `159d7f9` (Development Sprint 001).
+
+### 10.1 "Escalate Instead of Guessing" Was Implemented, Not Just Illustrated
+
+Section 6.2 of this chapter uses "duplicate NFC scans within a short time window" as an example of a rule that must be escalated rather than guessed. Development Sprint 002 (`ADO/02_Development/Development_Sprint_002_Plan.md`) encountered exactly this situation as Finding F-01 (duplicate-scan/toggle mechanism undefined) and implemented the escalation as a typed result rather than an invented rule:
+
+`packages/core/src/business/BusinessEngineDecision.ts` defines:
+
+```ts
+export type BusinessEngineDecision =
+  | { readonly status: 'time_entry_started'; readonly timeEntry: TimeEntry; readonly event: TimeEntryStarted }
+  | { readonly status: 'escalation_required'; readonly reason: 'duplicate_scan_rule_undefined'; readonly workEvent: WorkEvent };
+```
+
+`packages/core/src/business/BusinessEngine.ts` returns the `escalation_required` branch whenever an active `TimeEntry` already exists for the target, instead of guessing whether the second scan should stop, be ignored, or be deferred:
+
+```ts
+if (activeTimeEntryForTarget !== null) {
+  return { status: 'escalation_required', reason: 'duplicate_scan_rule_undefined', workEvent };
+}
+```
+
+This is confirmed by test intent in `packages/core/tests/business/BusinessEngine.test.ts` ("returns an explicit escalation, never a guessed stop/duplicate/defer outcome, when an active TimeEntry already exists") and in `packages/core/tests/application/NfcScanToTimeEntryPipeline.test.ts` ("does not create a second active TimeEntry for a second scan of the same target (escalation, never a guess)"). No stop/duplicate/defer behavior has been invented; DT-005's Acceptance Criterion "Tests cover start, stop and pending outcomes" is therefore only partially satisfied, exactly as recorded in `EP-007_Development_Tasks.md` under DT-005.
+
+### 10.2 "Keep Decisions Deterministic" (§5.8) Was Implemented via Explicit Dependency Injection
+
+Section 5.8 requires avoiding hidden dependencies such as an implicit system clock and requires that time be passed explicitly. `WorkEventFactory` and `BusinessEngine` (`packages/core/src/business/WorkEventFactory.ts`, `BusinessEngine.ts`) both implement this literally: their ID and clock sources are constructor parameters with real defaults (`generateId`, `new Date().toISOString()`), overridable in tests:
+
+```ts
+constructor(
+  private readonly newTimeEntryId: () => TimeEntryId = () => TimeEntryId(generateId()),
+  private readonly now: () => Timestamp = () => createTimestamp(new Date().toISOString()),
+) {}
+```
+
+Tests supply fixed functions (e.g. `() => TimeEntryId('time-entry-1')`), which is what makes the `BusinessEngine.test.ts` determinism test ("same WorkEvent and same active-TimeEntry state always produce the same decision") possible without mocking a global clock.
+
+### 10.3 Traceability in Practice
+
+Sprint 002 source comments follow the traceability guidance of Section 5.5/7.9: e.g. `BusinessEngineDecision.ts` states in-file why the escalation branch exists ("intentionally not a stop/duplicate/defer decision... because the rule that would decide it (Finding F-01...) is not yet defined by repository evidence"), rather than leaving the reason only in a commit message or plan document.

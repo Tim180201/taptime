@@ -439,3 +439,189 @@ Place behavior where its approved responsibility belongs.
 UI captures and presents. Application orchestrates. Business Engine interprets facts and produces decisions/events. Domain provides stable concepts. Infrastructure persists, transports and integrates.
 
 The solution must remain traceable, testable and boundary-preserving.
+
+---
+
+## 10. Implemented Reality (Development Sprint 001 & Development Sprint 002)
+
+This section documents how the responsibility model in Sections 2–7 has actually been implemented in `packages/core`, per Development Sprint 001 (`ADO/02_Development/Development_Sprint_001_Plan.md`, DT-001–DT-003) and Development Sprint 002 (`ADO/02_Development/Development_Sprint_002_Plan.md`, DT-004 full scope, DT-005 deterministic branch, DT-006 in-memory slice). Evidence verified 2026-07-03 against `main` at commit `78be5c9` (Sprint 002) preceded by `159d7f9` (Sprint 001). It does not restate FB-001, TS-001, TTAP-001 or ADR content; it explains how that already-approved architecture was built. DT-001–DT-003 are Completed (Review Agent verified, Human Architect approved per `EP-007_Development_Tasks.md`); DT-004/DT-005 (partial)/DT-006 (slice) are implemented and committed to `main` but carry no recorded review/approval yet — this distinction applies to every subsection below.
+
+### 10.1 Implementation Boundaries as Built
+
+| Responsibility Area (Section 2.3) | Implemented As | Files |
+|---|---|---|
+| Mobile / UI | Not yet implemented | — |
+| Application | `NfcScanApplicationService`, `WorkEventCreationService` | `packages/core/src/application/` |
+| Business Engine | `AssignmentResolver`, `AssignmentValidator`, `WorkEventFactory`, `BusinessEngine` | `packages/core/src/business/` |
+| Domain | `WorkEvent`, `TimeEntry`, facts, events, value objects | `packages/core/src/domain/` |
+| Infrastructure | Fake/in-memory adapters and repositories only | `packages/core/src/infrastructure/` |
+| Ports (seams between the above) | Interfaces only, no framework code | `packages/core/src/ports/` |
+
+No mobile/UI layer exists yet; nothing in Sprint 001/002 required one, since both sprints stopped at the business-decision boundary (DT-001–DT-006), before offline queue, synchronization or presentation (DT-007–DT-010).
+
+### 10.2 Business Pipeline Implementation
+
+The pipeline in Section 3.2 ("Fact Captured -> Application Use Case -> Business Engine Evaluation -> Decision Result -> Business Event -> Persistence/Sync/Presentation") is implemented end-to-end for the "online, first scan" case by `NfcScanApplicationService.submitScan` (DT-001/002/003 seam) calling into `WorkEventCreationService.handleValidatedAssignment` (DT-004/005/006 seam):
+
+```ts
+submitScan(caller: CallerContext): ScanPipelineOutcome {
+  const captureResult = this.nfcScanPort.scan();
+  if (captureResult.status === 'unreadable') {
+    return { stage: 'capture', status: 'unreadable' };
+  }
+  const fact = nfcTagScanned(captureResult.payload, this.now());
+  const resolution = this.assignmentResolver.resolve(fact);
+  if (resolution.type === 'NfcAssignmentRejected') {
+    return { stage: 'resolution', status: 'rejected', reason: resolution.reason };
+  }
+  const validationResult = this.assignmentValidator.validate(resolution.assignment, caller);
+  if (validationResult.status === 'accepted') {
+    this.workEventCreationPort.handleValidatedAssignment(validationResult);
+  }
+  return { stage: 'validation', result: validationResult };
+}
+```
+
+This is orchestration only (Section 5.4): it calls the resolver and validator, and hands an already-accepted result to the `WorkEventCreationPort` seam; it does not itself decide acceptance, rejection or TimeEntry outcomes. The full pipeline, wired end-to-end with in-memory adapters, is exercised by `packages/core/tests/application/NfcScanToTimeEntryPipeline.test.ts`.
+
+### 10.3 Assignment Resolver Implementation (DT-002)
+
+`packages/core/src/business/AssignmentResolver.ts` resolves an `NfcTagScanned` fact to an `NfcAssignmentResolution` without creating a WorkEvent, matching FB-001 Decision Logic 1 and DT-002's Acceptance Criteria:
+
+```ts
+resolve(fact: NfcTagScanned): NfcAssignmentResolution {
+  const tag = this.nfcTagRepository.findByPayload(fact.payload);
+  if (tag === null) {
+    return nfcAssignmentRejected(fact.payload, 'unknown_tag');
+  }
+  const assignment = this.nfcAssignmentRepository.findActiveByTagId(tag.id);
+  if (assignment === null) {
+    return nfcAssignmentRejected(fact.payload, 'inactive_assignment');
+  }
+  return nfcAssignmentResolved(assignment);
+}
+```
+
+Unknown tags and inactive assignments both produce an explicit rejection result (`nfcAssignmentRejected`) rather than a thrown error or a silent default, keeping rejection a first-class decision result rather than an exception (Section 7.5 of this chapter, and Chapter 01 Section 7.6).
+
+### 10.4 Assignment Validator Implementation (DT-003)
+
+`packages/core/src/business/AssignmentValidator.ts` implements FB-001 Decision Logic 2 (Validate Assignment Target) as an ordered sequence of explicit rejection checks, each with its own reason code, falling through to `accepted` only when all checks pass:
+
+```ts
+validate(assignment: NfcAssignment, caller: CallerContext): AssignmentValidationResult {
+  if (caller.status !== 'authenticated') {
+    return { status: 'rejected', assignment, reason: 'employee_not_authenticated' };
+  }
+  if (caller.organizationId !== assignment.organizationId) {
+    return { status: 'rejected', assignment, reason: 'employee_lacks_organization_access' };
+  }
+  const target = this.customerRepository.findById(assignment.target.targetId);
+  if (target === null) {
+    return { status: 'rejected', assignment, reason: 'missing_assignment_target' };
+  }
+  if (!target.active) {
+    return { status: 'rejected', assignment, reason: 'assignment_target_disabled' };
+  }
+  return { status: 'accepted', assignment, target, caller };
+}
+```
+
+The `accepted` branch's result type (`AcceptedAssignmentValidationResult`) is the only input `WorkEventFactory.createFromAcceptedAssignment` (DT-004) accepts — see Section 10.6 below for why this closes off invalid inputs at the type level rather than by runtime check.
+
+### 10.5 Business Engine Boundary Implementation (DT-004, DT-005 partial)
+
+Section 5.5 states the Business Engine owns business interpretation and decision results. This is implemented as two collaborating, separately-testable units:
+
+`WorkEventFactory` (DT-004) turns an accepted validation result into a `WorkEvent`, adding traceability fields (`assignmentId`, `nfcTagId`, `triggeredBy`, `occurredAt`) without making any accept/reject decision itself — the type of its input already guarantees the result is accepted:
+
+```ts
+createFromAcceptedAssignment(result: AcceptedAssignmentValidationResult): WorkEvent {
+  return {
+    id: this.newWorkEventId(),
+    organizationId: result.assignment.organizationId,
+    assignmentId: result.assignment.id,
+    nfcTagId: result.assignment.nfcTagId,
+    target: result.assignment.target,
+    triggeredBy: result.caller.userId,
+    occurredAt: this.now(),
+  };
+}
+```
+
+`BusinessEngine` (DT-005, deterministic branch only) then evaluates the resulting `WorkEvent` against explicitly-passed state (`activeTimeEntryForTarget: TimeEntry | null` — Section 5.7's "dependencies must be explicit", not a hidden repository read inside the engine) and produces a `BusinessEngineDecision` — see Section 10.6.
+
+### 10.6 Decision Result Flow
+
+`packages/core/src/business/BusinessEngineDecision.ts` is the Decision Result type referenced generically in Section 3.2:
+
+```ts
+export type BusinessEngineDecision =
+  | { readonly status: 'time_entry_started'; readonly timeEntry: TimeEntry; readonly event: TimeEntryStarted }
+  | { readonly status: 'escalation_required'; readonly reason: 'duplicate_scan_rule_undefined'; readonly workEvent: WorkEvent };
+```
+
+Only two branches exist because only two are covered by current repository evidence: no active TimeEntry for the target (deterministically starts one) and an active TimeEntry already existing (escalated, per Finding F-01 — see EP-008 Chapter 01, Section 10.1, for why this is an escalation and not an invented stop/duplicate/defer rule). DT-005's remaining Acceptance Criteria ("stop and pending outcomes") have no corresponding branch yet.
+
+### 10.7 Business Event Generation
+
+Facts (Chapter 01 Section 7.3) and business events are kept as distinct implemented types. `NfcTagScanned` (`domain/facts/`) is a fact; `WorkEventCreated` and `TimeEntryStarted` (`domain/events/`) are business events emitted only after their owning responsibility has produced a result, matching Section 3.2 ("Business events are produced only after rule evaluation"):
+
+```ts
+export function workEventCreated(workEvent: WorkEvent): WorkEventCreated {
+  return { type: 'WorkEventCreated', workEvent };
+}
+export function timeEntryStarted(timeEntry: TimeEntry): TimeEntryStarted {
+  return { type: 'TimeEntryStarted', timeEntry };
+}
+```
+
+`WorkEventCreationService` (DT-004/005/006 wiring) is the only place these are constructed and emitted, via an injected `onEvent` callback — persistence and event emission are both driven from the decision result, not from inside the repositories:
+
+```ts
+handleValidatedAssignment(result: AcceptedAssignmentValidationResult): void {
+  const workEvent = this.workEventFactory.createFromAcceptedAssignment(result);
+  this.workEventRepository.save(workEvent);
+  this.onEvent(workEventCreated(workEvent));
+  const activeTimeEntryForTarget = this.timeEntryRepository.findActiveByTarget(
+    workEvent.organizationId, workEvent.target,
+  );
+  const decision = this.businessEngine.evaluate(workEvent, activeTimeEntryForTarget);
+  if (decision.status === 'time_entry_started') {
+    this.timeEntryRepository.save(decision.timeEntry);
+    this.onEvent(decision.event);
+  }
+}
+```
+
+Note that `WorkEvent` persistence is unconditional (every validated scan is auditable), while `TimeEntry` persistence and the `TimeEntryStarted` event are conditional on the Business Engine's decision — this is the concrete implementation of Section 5.4 ("Application Orchestrates But Does Not Interpret"): the service always records the fact of a WorkEvent, but only acts on a TimeEntry when the Business Engine, not the application service, has decided one should exist.
+
+### 10.8 Testing Strategy as Implemented
+
+The test layout matches Section 7.6's expectations exactly:
+
+- Business Engine decision tests (`packages/core/tests/business/BusinessEngine.test.ts`, `WorkEventFactory.test.ts`, `AssignmentResolver.test.ts`, `AssignmentValidator.test.ts`) are deterministic, pass fixed ID/clock functions, and contain no UI or infrastructure dependency.
+- Application orchestration tests (`packages/core/tests/application/WorkEventCreationService.test.ts`, `NfcScanApplicationService.test.ts`) verify delegation and result handling.
+- Infrastructure tests (`packages/core/tests/infrastructure/InMemoryWorkEventRepository.test.ts`, `InMemoryTimeEntryRepository.test.ts`, `FakeNfcScanAdapter.test.ts`) verify storage/lookup behavior only.
+- One integration test (`NfcScanToTimeEntryPipeline.test.ts`) wires all of the above together with real (in-memory) implementations of every port, verifying the approved flow across boundaries end-to-end, including the escalation case for a repeated scan.
+
+### 10.9 Implementation Examples for Developers
+
+A minimal, correct new use case built on this pipeline should: accept a fact or an already-validated result, not decide on it; call the Business Engine or resolver/validator for interpretation; persist the WorkEvent unconditionally and the business outcome conditionally on the decision; emit business events only from the decision result, never from inside a repository. The `WorkEventCreationService` in Section 10.7 above is the reference example for this shape.
+
+### 10.10 Common Implementation Mistakes Observed to Avoid
+
+Based on how DT-004/DT-005 were deliberately scoped, the following mistakes are called out because they were explicitly designed against:
+
+- Guessing the duplicate-scan/toggle rule instead of escalating it (would have violated Chapter 01 Section 5.10 and silently created undocumented product behavior — avoided via `BusinessEngineDecision`'s `escalation_required` branch).
+- Reading `activeTimeEntryForTarget` from inside `BusinessEngine` instead of passing it in explicitly (would have violated Section 5.7 of this chapter — avoided by making it a parameter of `evaluate`).
+- Allowing `WorkEventFactory` to accept a rejected or pending validation result (would have required a runtime check; avoided structurally by typing the method parameter as `AcceptedAssignmentValidationResult` only).
+- Persisting a `TimeEntry` unconditionally alongside the `WorkEvent` (would have hidden the Business Engine's decision inside a repository call; avoided by making `TimeEntry` persistence conditional on `decision.status === 'time_entry_started'`).
+
+### 10.11 Responsibility Boundaries Confirmed by Implementation
+
+Implementation confirms, rather than contradicts, Section 5: `AssignmentResolver`/`AssignmentValidator`/`WorkEventFactory`/`BusinessEngine` contain all business interpretation for this slice (Section 5.5); `NfcScanApplicationService`/`WorkEventCreationService` only orchestrate and never branch on business meaning themselves beyond dispatching on already-produced decision results (Section 5.4); `InMemory*Repository` classes (Section 5.3) only store/retrieve and perform no rule evaluation, confirmed by inspection of `InMemoryWorkEventRepository.ts` and `InMemoryTimeEntryRepository.ts`, whose only non-trivial logic is a lookup filter (`findActiveByTarget`), not a decision.
+
+### 10.12 Known Gaps
+
+DT-006 implements only the in-memory slice needed for DT-004/DT-005 (no Firestore-backed repository, no synchronization metadata); DT-007 (Offline Queue) and DT-008 (Synchronization Service) are not started; no mobile/UI layer exists; DT-005's "stop" and "pending" outcomes remain unimplemented pending Finding F-01 resolution. These gaps are carried over unchanged from `EP-007_Development_Tasks.md` and `Development_Sprint_002_Plan.md`; this chapter does not attempt to resolve them.
