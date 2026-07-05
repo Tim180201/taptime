@@ -13,6 +13,9 @@ export * from './domain/TimeEntry';
 export * from './domain/events/WorkEventCreated';
 export * from './domain/events/TimeEntryStarted';
 export * from './domain/generateId';
+export * from './domain/SyncState';
+export * from './domain/QueuedWorkEventRecord';
+export * from './domain/events/WorkEventQueuedForSync';
 
 export * from './ports/NfcScanPort';
 export * from './ports/NfcTagRepository';
@@ -21,6 +24,7 @@ export * from './ports/CustomerRepository';
 export * from './ports/WorkEventCreationPort';
 export * from './ports/WorkEventRepository';
 export * from './ports/TimeEntryRepository';
+export * from './ports/OfflineQueue';
 
 export * from './business/AssignmentResolver';
 export * from './business/AssignmentValidator';
@@ -39,3 +43,4 @@ export * from './infrastructure/repositories/InMemoryNfcAssignmentRepository';
 export * from './infrastructure/repositories/InMemoryCustomerRepository';
 export * from './infrastructure/repositories/InMemoryWorkEventRepository';
 export * from './infrastructure/repositories/InMemoryTimeEntryRepository';
+export * from './infrastructure/repositories/InMemoryOfflineQueue';

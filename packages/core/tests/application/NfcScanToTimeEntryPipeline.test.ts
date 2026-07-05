@@ -5,6 +5,7 @@ import { InMemoryNfcAssignmentRepository } from '../../src/infrastructure/reposi
 import { InMemoryCustomerRepository } from '../../src/infrastructure/repositories/InMemoryCustomerRepository';
 import { InMemoryWorkEventRepository } from '../../src/infrastructure/repositories/InMemoryWorkEventRepository';
 import { InMemoryTimeEntryRepository } from '../../src/infrastructure/repositories/InMemoryTimeEntryRepository';
+import { InMemoryOfflineQueue } from '../../src/infrastructure/repositories/InMemoryOfflineQueue';
 import { AssignmentResolver } from '../../src/business/AssignmentResolver';
 import { AssignmentValidator } from '../../src/business/AssignmentValidator';
 import { WorkEventFactory } from '../../src/business/WorkEventFactory';
@@ -48,8 +49,10 @@ describe('NFC scan to TimeEntry pipeline (end-to-end)', () => {
 
     const workEventRepository = new InMemoryWorkEventRepository();
     const timeEntryRepository = new InMemoryTimeEntryRepository();
+    const offlineQueue = new InMemoryOfflineQueue();
+    let workEventCounter = 0;
     const workEventFactory = new WorkEventFactory(
-      () => WorkEventId('work-event-1'),
+      () => WorkEventId(`work-event-${++workEventCounter}`),
       () => createTimestamp('2026-07-03T12:00:00.000Z'),
     );
     const businessEngine = new BusinessEngine(
@@ -62,7 +65,9 @@ describe('NFC scan to TimeEntry pipeline (end-to-end)', () => {
       businessEngine,
       workEventRepository,
       timeEntryRepository,
+      offlineQueue,
       onEvent,
+      () => createTimestamp('2026-07-03T12:00:02.000Z'),
     );
 
     const applicationService = new NfcScanApplicationService(
@@ -73,11 +78,12 @@ describe('NFC scan to TimeEntry pipeline (end-to-end)', () => {
       () => createTimestamp('2026-07-03T10:00:00.000Z'),
     );
 
-    return { adapter, applicationService, workEventRepository, timeEntryRepository, onEvent };
+    return { adapter, applicationService, workEventRepository, timeEntryRepository, offlineQueue, onEvent };
   }
 
-  it('turns an accepted scan into an observable TimeEntryStarted when no prior session exists', () => {
-    const { adapter, applicationService, workEventRepository, timeEntryRepository, onEvent } = buildPipeline();
+  it('turns an accepted scan into an observable TimeEntryStarted when no prior session exists, and queues it for sync', () => {
+    const { adapter, applicationService, workEventRepository, timeEntryRepository, offlineQueue, onEvent } =
+      buildPipeline();
     adapter.triggerScan(payload);
 
     const outcome = applicationService.submitScan(caller);
@@ -88,10 +94,17 @@ describe('NFC scan to TimeEntry pipeline (end-to-end)', () => {
     expect(startedTimeEntry).not.toBeNull();
     expect(startedTimeEntry?.status).toBe('started');
     expect(onEvent).toHaveBeenCalledWith(expect.objectContaining({ type: 'TimeEntryStarted' }));
+
+    const pending = offlineQueue.findPending();
+    expect(pending).toHaveLength(1);
+    expect(pending[0].workEvent).toEqual(workEventRepository.findAll()[0]);
+    expect(pending[0].decision).toEqual(expect.objectContaining({ status: 'time_entry_started' }));
+    expect(pending[0].syncState).toBe('pending');
+    expect(onEvent).toHaveBeenCalledWith(expect.objectContaining({ type: 'WorkEventQueuedForSync' }));
   });
 
-  it('does not create a second active TimeEntry for a second scan of the same target (escalation, never a guess)', () => {
-    const { adapter, applicationService, timeEntryRepository } = buildPipeline();
+  it('does not create a second active TimeEntry for a second scan of the same target, and still queues the escalation record (never a guess)', () => {
+    const { adapter, applicationService, timeEntryRepository, offlineQueue, onEvent } = buildPipeline();
     adapter.triggerScan(payload);
     applicationService.submitScan(caller);
 
@@ -100,5 +113,12 @@ describe('NFC scan to TimeEntry pipeline (end-to-end)', () => {
 
     const activeEntries = timeEntryRepository.findAll().filter((entry) => entry.status === 'started');
     expect(activeEntries).toHaveLength(1);
+
+    const pending = offlineQueue.findPending();
+    expect(pending).toHaveLength(2);
+    expect(pending[1].decision).toEqual(
+      expect.objectContaining({ status: 'escalation_required', reason: 'duplicate_scan_rule_undefined' }),
+    );
+    expect(onEvent).toHaveBeenCalledWith(expect.objectContaining({ type: 'WorkEventQueuedForSync' }));
   });
 });

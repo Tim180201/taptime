@@ -4,6 +4,7 @@ import { WorkEventFactory } from '../../src/business/WorkEventFactory';
 import { BusinessEngine } from '../../src/business/BusinessEngine';
 import { InMemoryWorkEventRepository } from '../../src/infrastructure/repositories/InMemoryWorkEventRepository';
 import { InMemoryTimeEntryRepository } from '../../src/infrastructure/repositories/InMemoryTimeEntryRepository';
+import { InMemoryOfflineQueue } from '../../src/infrastructure/repositories/InMemoryOfflineQueue';
 import { NfcAssignmentId, NfcTagId, OrganizationId, CustomerId, UserId, WorkEventId, TimeEntryId } from '../../src/domain/ids';
 import { customerAssignmentTarget } from '../../src/domain/AssignmentTarget';
 import { authenticatedCaller } from '../../src/domain/CallerContext';
@@ -42,19 +43,22 @@ function buildService(onEvent = vi.fn()) {
   );
   const workEventRepository = new InMemoryWorkEventRepository();
   const timeEntryRepository = new InMemoryTimeEntryRepository();
+  const offlineQueue = new InMemoryOfflineQueue();
   const service = new WorkEventCreationService(
     workEventFactory,
     businessEngine,
     workEventRepository,
     timeEntryRepository,
+    offlineQueue,
     onEvent,
+    () => createTimestamp('2026-07-03T12:00:02.000Z'),
   );
-  return { service, workEventRepository, timeEntryRepository, onEvent };
+  return { service, workEventRepository, timeEntryRepository, offlineQueue, onEvent };
 }
 
 describe('WorkEventCreationService (WorkEventCreationPort implementation)', () => {
-  it('creates and persists a WorkEvent, then a TimeEntry, when no active TimeEntry exists', () => {
-    const { service, workEventRepository, timeEntryRepository, onEvent } = buildService();
+  it('creates and persists a WorkEvent, then a TimeEntry, when no active TimeEntry exists, and enqueues it for sync', () => {
+    const { service, workEventRepository, timeEntryRepository, offlineQueue, onEvent } = buildService();
 
     service.handleValidatedAssignment(acceptedResult);
 
@@ -65,10 +69,19 @@ describe('WorkEventCreationService (WorkEventCreationPort implementation)', () =
       type: 'TimeEntryStarted',
       timeEntry: timeEntryRepository.findActiveByTarget(organizationId, target),
     });
+    const pending = offlineQueue.findPending();
+    expect(pending).toHaveLength(1);
+    expect(pending[0]).toEqual({
+      workEvent: workEventRepository.findAll()[0],
+      decision: { status: 'time_entry_started', timeEntry: timeEntryRepository.findActiveByTarget(organizationId, target), event: expect.any(Object) },
+      syncState: 'pending',
+      queuedAt: '2026-07-03T12:00:02.000Z',
+    });
+    expect(onEvent).toHaveBeenNthCalledWith(3, { type: 'WorkEventQueuedForSync', record: pending[0] });
   });
 
-  it('always persists the WorkEvent for auditability, even when escalation is required', () => {
-    const { service, workEventRepository, timeEntryRepository, onEvent } = buildService();
+  it('always persists and enqueues the WorkEvent for auditability, even when escalation is required', () => {
+    const { service, workEventRepository, timeEntryRepository, offlineQueue, onEvent } = buildService();
     const preExistingActiveTimeEntry: TimeEntry = {
       id: TimeEntryId('time-entry-existing'),
       workEventId: WorkEventId('work-event-existing'),
@@ -83,7 +96,16 @@ describe('WorkEventCreationService (WorkEventCreationPort implementation)', () =
 
     expect(workEventRepository.findAll()).toHaveLength(1);
     expect(timeEntryRepository.findAll()).toEqual([preExistingActiveTimeEntry]);
-    expect(onEvent).toHaveBeenCalledTimes(1);
-    expect(onEvent).toHaveBeenCalledWith({ type: 'WorkEventCreated', workEvent: workEventRepository.findAll()[0] });
+    expect(onEvent).toHaveBeenCalledTimes(2);
+    expect(onEvent).toHaveBeenNthCalledWith(1, { type: 'WorkEventCreated', workEvent: workEventRepository.findAll()[0] });
+
+    const pending = offlineQueue.findPending();
+    expect(pending).toHaveLength(1);
+    expect(pending[0].decision).toEqual({
+      status: 'escalation_required',
+      reason: 'duplicate_scan_rule_undefined',
+      workEvent: workEventRepository.findAll()[0],
+    });
+    expect(onEvent).toHaveBeenNthCalledWith(2, { type: 'WorkEventQueuedForSync', record: pending[0] });
   });
 });
