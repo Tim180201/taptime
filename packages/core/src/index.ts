@@ -41,9 +41,11 @@ export * from './application/ScanPipelineOutcome';
 export * from './application/WorkEventCreationService';
 export * from './application/SynchronizationResult';
 export * from './application/SynchronizationService';
+export * from './application/ScanResultPresenter';
 
 export * from './infrastructure/adapters/FakeNfcScanAdapter';
 export * from './infrastructure/adapters/FakeSynchronizationGateway';
+export * from './infrastructure/adapters/CliNfcScanAdapter';
 export * from './infrastructure/repositories/InMemoryNfcTagRepository';
 export * from './infrastructure/repositories/InMemoryNfcAssignmentRepository';
 export * from './infrastructure/repositories/InMemoryCustomerRepository';

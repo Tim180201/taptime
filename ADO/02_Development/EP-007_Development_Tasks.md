@@ -52,6 +52,12 @@ See `ADO/02_Development/Development_Sprint_001_Plan.md` for the full plan. Summa
 
 Implementation: `packages/core/src/ports/NfcScanPort.ts`, `packages/core/src/infrastructure/adapters/FakeNfcScanAdapter.ts`. Tests: `packages/core/tests/infrastructure/FakeNfcScanAdapter.test.ts`.
 
+### Development Sprint 005 Implementation Notes
+
+See `ADO/02_Development/Development_Sprint_005_Plan.md` for the full plan. Extension (not replacement): a second `NfcScanPort` implementation, `CliNfcScanAdapter`, accepts genuinely external, non-hard-coded-fixture input (a CLI argument or stdin-sourced string) instead of a Vitest literal, normalizing it into the same `NfcScanCaptureResult` shape — including an explicit `unreadable` result for missing/empty/whitespace-only input. `FakeNfcScanAdapter` is untouched and remains the test-only adapter. Objective and Acceptance Criteria above are unchanged and are satisfied again by this second implementation.
+
+Implementation: `packages/core/src/infrastructure/adapters/CliNfcScanAdapter.ts`. Tests: `packages/core/tests/infrastructure/CliNfcScanAdapter.test.ts`.
+
 ## DT-002 – Assignment Resolver
 
 Objective: Resolve an NfcPayload to an NfcAssignment within organization context.
@@ -189,6 +195,33 @@ Acceptance Criteria:
 - Tests verify normal, rejection, duplicate and offline flows.
 - Tests verify Business Rules stay outside UI and persistence.
 - Test evidence is attached to implementation handover.
+
+### Development Sprint 005 Implementation Notes
+
+See `ADO/02_Development/Development_Sprint_005_Plan.md` for the full plan. Extended (not replaced) with: unit tests for the new `CliNfcScanAdapter` (infrastructure boundary only) and `ScanResultPresenter` (presentation boundary only, exhaustively covering every currently-defined `ScanPipelineOutcome`/event shape, including both `BusinessEngineDecision` branches), plus a consolidated demonstration test that drives the DT-011 composition root — using the real, unmodified DT-001–DT-008 production classes, not mocks — through every currently-defined pipeline outcome (unreadable, unknown tag, accepted+started, accepted+escalated, synchronized, retryable failure, conflict) reachable from the demo's single seeded scenario. The remaining `AssignmentResolver`/`AssignmentValidator` rejection reasons not reachable from that single scenario (e.g. disabled customer, organization mismatch) are exhaustively covered at the `ScanResultPresenter` rendering-correctness level and were already covered at the business-decision level by DT-002/DT-003's own existing tests; this is a documented scope boundary, not a gap (see Development Sprint 005 Role Handover). Objective and Acceptance Criteria above are unchanged.
+
+Implementation: `packages/core/tests/infrastructure/CliNfcScanAdapter.test.ts`, `packages/core/tests/application/ScanResultPresenter.test.ts`, `packages/core/tests/cli/runScan.test.ts`.
+
+## DT-011 – Real Scan Composition Root & Result Presentation
+
+Objective: Assemble DT-001–DT-008 into a single runnable composition driven by real external input, and implement TS-001's `ScanResultPresenter` to render every pipeline outcome.
+
+Acceptance Criteria:
+
+- A runnable entry point exists and can be executed outside the test runner.
+- Real (non-hard-coded-fixture) input can trigger a scan through it.
+- Every currently-defined pipeline outcome (accepted+started, accepted+escalated, each rejection reason, synchronized, retryable-failure, conflict) is rendered through `ScanResultPresenter`.
+- No new business decision logic is introduced anywhere in the composition root.
+
+### Development Sprint 005 Implementation Notes
+
+Status: Implemented — Pending Review (2026-07-05). Per DTP-001's Completion Rule ("Implementation alone never completes a Development Task"), this is not marked Completed until Review Agent verification and Human Architect approval are recorded.
+
+See `ADO/02_Development/Development_Sprint_005_Plan.md` for the full plan, including why this task does not attempt physical NFC hardware (Section 3: no mobile app or native module exists yet; that remains future Mobile Foundation work gated on an ADR-0007 mobile-validation decision). DT-011 was approved by the Human Architect as one combined task (composition root + `ScanResultPresenter`), not split into two Development Tasks.
+
+Implemented: `ScanResultPresenter` (TS-001-named, never previously built) renders every `ScanPipelineOutcome` (capture/resolution/validation stages, all rejection reasons) and every downstream domain event (`WorkEventCreated`, `TimeEntryStarted`, `WorkEventQueuedForSync` — rendered distinctly for the `time_entry_started` and `escalation_required` `BusinessEngineDecision` branches — `WorkEventSynchronized`, `WorkEventSyncFailed` with `retryable_failure`/`conflict` distinguished). A composition root (`buildScanDemoPipeline`) wires `CliNfcScanAdapter` (DT-001 extension) → `AssignmentResolver` → `AssignmentValidator` → `WorkEventCreationService` (`WorkEventFactory`/`BusinessEngine`/in-memory repositories/`InMemoryOfflineQueue`) → `SynchronizationService`/`FakeSynchronizationGateway` → `ScanResultPresenter`, using every DT-001–DT-008 production class unmodified, seeded with small, clearly-labeled demo-only data (one Organization, one authenticated employee, one Customer, one NfcTag, one active NfcAssignment). A thin CLI entry point (`packages/core/src/cli/runScan.ts`, run via `npm run demo:scan --workspace=@taptime/core -- <payload> [success|retryable_failure|conflict]`) reads real, non-hard-coded CLI input; the composition logic itself is exported as `buildScanDemoPipeline` so tests can drive it directly and deterministically with the real production classes, not mocks. Manually verified runnable end-to-end outside the test runner via `tsx` for all seven outcome scenarios (see Implementation Summary in the handover). No new business decision logic was introduced; every accept/reject/escalate/sync decision remains exactly where DT-002–DT-005/DT-008 already put it.
+
+Implementation: `packages/core/src/application/ScanResultPresenter.ts`, `packages/core/src/infrastructure/adapters/CliNfcScanAdapter.ts`, `packages/core/src/cli/runScan.ts`. Tests: `packages/core/tests/application/ScanResultPresenter.test.ts`, `packages/core/tests/infrastructure/CliNfcScanAdapter.test.ts`, `packages/core/tests/cli/runScan.test.ts`.
 
 ## Dependencies
 
