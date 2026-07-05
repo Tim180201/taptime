@@ -556,7 +556,7 @@ EP-008 is successful only when it enables developers to implement TapTim.e corre
 
 ### 10.1 Verification Basis
 
-This section was added as part of an EP-008 Synchronization Update. It reflects repository evidence verified on 2026-07-03 against `main` at commit `78be5c9` ("feat: complete Development Sprint 002 business decision pipeline"), preceded by `159d7f9` ("feat(EP-007): implement DT-001-DT-003"). It does not restate Development Task detail; it points to the artifacts that own that detail.
+This section was added as part of an EP-008 Synchronization Update and extended for a second update covering Development Sprint 003. It reflects repository evidence verified on 2026-07-05 against `main` at commits `03c04bd`/`90fdea8` ("feat(DT-007): implement offline queue foundation" / "...port, adapter and enqueue wiring"), preceded by `78be5c9` (Development Sprint 002) and `159d7f9` (Development Sprint 001). It does not restate Development Task detail; it points to the artifacts that own that detail.
 
 ### 10.2 Current Implementation Status
 
@@ -568,14 +568,19 @@ This section was added as part of an EP-008 Synchronization Update. It reflects 
 | DT-004 WorkEvent Factory | Development Sprint 002 | Implemented and committed (`78be5c9`); no Review Agent/Human Architect approval recorded yet |
 | DT-005 TimeEntry Generator | Development Sprint 002 | Partially implemented (deterministic branch only, gated by Finding F-01 for the remainder); no approval recorded yet |
 | DT-006 Repository Layer | Development Sprint 002 | In-memory slice implemented; no approval recorded yet |
-| DT-007–DT-010 | Not started | No implementation notes recorded |
+| DT-007 Offline Queue | Development Sprint 003 | Implemented and committed (`03c04bd`/`90fdea8`); no "Status: Completed" line or Decision Log entry recorded for Sprint 003 yet — see Section 10.5 |
+| DT-008–DT-010 | Not started | No implementation notes recorded |
 
 The authoritative record for this table is `ADO/02_Development/EP-007_Development_Tasks.md`. This chapter does not duplicate its Acceptance Criteria; it only orients the developer to what "implemented reality" currently covers.
 
 ### 10.3 What "Implemented Reality" Currently Means for EP-008
 
-Chapters 00–03 now include, in addition to implementation philosophy and architecture guidance, sections describing how DT-001 through DT-004 (and the in-scope part of DT-005/DT-006) were actually built in `packages/core`. Chapters 04–10 (Domain Foundation through Repository Integration) do not exist yet; the chapter mapping table in Section 7.2 is unchanged and still describes planned scope for those chapters, not implemented content.
+Chapters 00–03 now include, in addition to implementation philosophy and architecture guidance, sections describing how DT-001 through DT-004 (and the in-scope part of DT-005/DT-006), and now DT-007, were actually built in `packages/core`. Chapters 04–10 (Domain Foundation through Repository Integration) do not exist yet; the chapter mapping table in Section 7.2 is unchanged and still describes planned scope for those chapters, not implemented content.
 
 ### 10.4 Open Governance Note (Escalated, Not Resolved Here)
 
 `ADO/00_Core/Decision_Log.md` currently records `DEV-SPRINT-002` as status "Planned" and its "Repository Status" narrative still states "DT-004/DT-005 remain gated on Finding F-01" and "READY FOR DEVELOPMENT SPRINT 002", even though Development Sprint 002 code is already committed to `main` at `78be5c9`. This is a repository-reality/Decision-Log mismatch (EP-008 Ch01 §5.4, Reality Has Priority Over Architecture). It is noted here as a finding for Technical Lead/Human Architect action; this task does not modify the Decision Log, since that was out of the explicit scope of the EP-008 Synchronization Update.
+
+### 10.5 Second Open Governance Note (Development Sprint 003)
+
+`ADO/02_Development/EP-007_Development_Tasks.md`'s DT-007 section carries a "Development Sprint 003 Implementation Notes" subsection but, unlike DT-001–DT-003, no "Status: Completed — Review Agent verified, Human Architect approved" line, and `ADO/00_Core/Decision_Log.md` has no `DEV-SPRINT-003` row at all (verified by direct search). This EP-008 update proceeds on explicit Technical Lead instruction that Development Sprint 003 is "completed and review-approved," but repository evidence alone does not yet show that approval in the two places prior sprints recorded it. Flagged here for Technical Lead/Human Architect action; not corrected by this task, consistent with the precedent set in Section 10.4.

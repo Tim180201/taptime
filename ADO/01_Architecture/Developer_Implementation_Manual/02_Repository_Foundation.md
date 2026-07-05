@@ -462,18 +462,19 @@ This chapter prepares developers for the following EP-008 chapters by ensuring t
 
 ## 10. Implemented Reality (EP-008 Synchronization Update)
 
-### 10.1 Actual `packages/core/src` Structure (as of `main` commit `78be5c9`)
+### 10.1 Actual `packages/core/src` Structure (as of `main` commits `03c04bd`/`90fdea8`)
 
-Development Sprint 001 and Development Sprint 002 are the first implementation work in the repository, so this is the first point at which "repository reality" (Section 2.3) exists as source code rather than only as ADO artifacts. The current structure, verified by direct inspection, is:
+Development Sprint 001, Development Sprint 002 and Development Sprint 003 are the implementation work in the repository so far, so this is the first point at which "repository reality" (Section 2.3) exists as source code rather than only as ADO artifacts. The current structure, verified by direct inspection, is:
 
 ```text
 packages/core/src/
   domain/
     ids.ts, Timestamp.ts, NfcPayload.ts, CallerContext.ts, AssignmentTarget.ts,
     Customer.ts, NfcTag.ts, NfcAssignment.ts, WorkEvent.ts, TimeEntry.ts,
-    generateId.ts
+    SyncState.ts, QueuedWorkEventRecord.ts, generateId.ts
     domain/facts/        (NfcTagScanned.ts)
-    domain/events/        (NfcAssignmentResolution.ts, WorkEventCreated.ts, TimeEntryStarted.ts)
+    domain/events/        (NfcAssignmentResolution.ts, WorkEventCreated.ts, TimeEntryStarted.ts,
+                            WorkEventQueuedForSync.ts)
   business/
     AssignmentResolver.ts, AssignmentValidator.ts, AssignmentValidationResult.ts,
     WorkEventFactory.ts, BusinessEngine.ts, BusinessEngineDecision.ts
@@ -482,19 +483,19 @@ packages/core/src/
   ports/
     NfcScanPort.ts, NfcTagRepository.ts, NfcAssignmentRepository.ts,
     CustomerRepository.ts, WorkEventCreationPort.ts, WorkEventRepository.ts,
-    TimeEntryRepository.ts
+    TimeEntryRepository.ts, OfflineQueue.ts
   infrastructure/
     infrastructure/adapters/     (FakeNfcScanAdapter.ts)
     infrastructure/repositories/ (InMemory*Repository.ts for NfcTag, NfcAssignment,
-                                   Customer, WorkEvent, TimeEntry)
+                                   Customer, WorkEvent, TimeEntry, and InMemoryOfflineQueue.ts)
 ```
 
-This is the direct source for Section 3.1's "Repository as Engineering System" diagram at implementation depth: `domain` holds facts/events and stable concepts, `business` holds decision logic (DT-002/003/004/005), `application` holds orchestration (DT-001/003 seam, DT-004/005 wiring), `ports` holds the interfaces both sides depend on, and `infrastructure` holds the fake/in-memory adapters implementing those ports for this stage of the project.
+This is the direct source for Section 3.1's "Repository as Engineering System" diagram at implementation depth: `domain` holds facts/events and stable concepts (now including the `SyncState` value object and `QueuedWorkEventRecord`), `business` holds decision logic (DT-002/003/004/005), `application` holds orchestration (DT-001/003 seam, DT-004/005/007 wiring), `ports` holds the interfaces both sides depend on (now including `OfflineQueue`), and `infrastructure` holds the fake/in-memory adapters implementing those ports for this stage of the project (now including `InMemoryOfflineQueue`).
 
 ### 10.2 Reconciliation With Chapter 03's Suggested Structure
 
-Chapter 03, Section 7.2 suggests `domain/ application/ business/ infrastructure/ mobile/ shared/` as a non-binding placement guide. The implemented structure matches this closely but adds a top-level `ports/` directory that Chapter 03 does not name explicitly (Chapter 03 Section 7.3 discusses ports/adapters conceptually without prescribing a folder). Per Section 5.7 of this chapter ("Document Repository Reality"), this is recorded here rather than silently treated as a deviation: the actual repository groups all port interfaces under `ports/`, separate from the `business`/`application` code that depends on them and the `infrastructure` code that implements them. No `mobile/` or `shared/` directories exist yet, consistent with DT-007 onward (Offline Queue, Synchronization, mobile client) not having started.
+Chapter 03, Section 7.2 suggests `domain/ application/ business/ infrastructure/ mobile/ shared/` as a non-binding placement guide. The implemented structure matches this closely but adds a top-level `ports/` directory that Chapter 03 does not name explicitly (Chapter 03 Section 7.3 discusses ports/adapters conceptually without prescribing a folder). Per Section 5.7 of this chapter ("Document Repository Reality"), this is recorded here rather than silently treated as a deviation: the actual repository groups all port interfaces under `ports/`, separate from the `business`/`application` code that depends on them and the `infrastructure` code that implements them. DT-007 (Offline Queue) followed this same pattern exactly (`OfflineQueue` in `ports/`, `InMemoryOfflineQueue` in `infrastructure/repositories/`) rather than introducing a new top-level grouping for queue-related code — a direct application of "Extend Before Create" to repository structure itself. No `mobile/` or `shared/` directories exist yet, consistent with DT-008 onward (Synchronization Service, mobile client) not having started.
 
 ### 10.3 Traceability Chain, Worked Example
 
-Applying Section 3.3's traceability chain to a concrete file: `packages/core/src/business/BusinessEngine.ts` traces to Development Task DT-005 (`EP-007_Development_Tasks.md`), which traces to Development Sprint 002 Plan Section 8/12 (`Development_Sprint_002_Plan.md`), which traces to TS-001's Business Engine component responsibility and FB-001's Decision Logic 4 (Derive TimeEntry Outcome), which trace to TTAP-001's Business Engine architecture responsibility and Decision Log record `DEV-SPRINT-002`.
+Applying Section 3.3's traceability chain to a concrete file: `packages/core/src/business/BusinessEngine.ts` traces to Development Task DT-005 (`EP-007_Development_Tasks.md`), which traces to Development Sprint 002 Plan Section 8/12 (`Development_Sprint_002_Plan.md`), which traces to TS-001's Business Engine component responsibility and FB-001's Decision Logic 4 (Derive TimeEntry Outcome), which trace to TTAP-001's Business Engine architecture responsibility and Decision Log record `DEV-SPRINT-002`. Applying the same chain to `packages/core/src/ports/OfflineQueue.ts`: it traces to DT-007 (`EP-007_Development_Tasks.md`), to Development Sprint 003 Plan Sections 6/10/16 (`Development_Sprint_003_Plan.md`), to TS-001's `OfflineQueue` component responsibility and TTAP-001's Runtime Architecture flow, and to FB-001's Business Rule "Offline operation shall preserve the WorkEvent locally" — with no corresponding Decision Log record yet (see Chapter 00 Section 10.5).

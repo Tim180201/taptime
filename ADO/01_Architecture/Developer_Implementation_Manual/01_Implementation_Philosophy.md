@@ -890,3 +890,22 @@ Tests supply fixed functions (e.g. `() => TimeEntryId('time-entry-1')`), which i
 ### 10.3 Traceability in Practice
 
 Sprint 002 source comments follow the traceability guidance of Section 5.5/7.9: e.g. `BusinessEngineDecision.ts` states in-file why the escalation branch exists ("intentionally not a stop/duplicate/defer decision... because the rule that would decide it (Finding F-01...) is not yet defined by repository evidence"), rather than leaving the reason only in a commit message or plan document.
+
+### 10.4 The Offline Queue Confirms the Business Meaning Boundary (Development Sprint 003)
+
+Section 5.7 states that no infrastructure component may determine business meaning; it may only capture, persist, synchronize or display. Development Sprint 003 (DT-007, `ADO/02_Development/Development_Sprint_003_Plan.md`) implemented the `OfflineQueue` in exact accordance with this rule rather than as an exception to it.
+
+`packages/core/src/application/WorkEventCreationService.ts` enqueues every `WorkEvent` together with whatever `BusinessEngineDecision` the Business Engine already produced, unchanged:
+
+```ts
+const queueResult = this.offlineQueue.enqueue({
+  workEvent,
+  decision,
+  syncState: 'pending',
+  queuedAt: this.now(),
+});
+```
+
+The queue is handed the decision after it has been made; it never calls `businessEngine.evaluate` itself and never branches on `decision.status` to decide what to store. Both the `time_entry_started` and `escalation_required` branches are queued identically. This is the same discipline as Section 10.1's escalation example: the queue does not attempt to interpret or improve on a decision it was not asked to make.
+
+A common mistake this guards against: it would have been technically easy to make `OfflineQueue.enqueue` skip escalated records, or to have it decide retry priority based on business outcome. Either choice would silently move business interpretation into infrastructure. Sprint 003 avoided this by keeping `EnqueueResult` limited to `'enqueued' | 'already_queued'` — a storage-level outcome only, never a business one.

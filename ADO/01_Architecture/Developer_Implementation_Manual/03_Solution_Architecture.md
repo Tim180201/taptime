@@ -442,9 +442,9 @@ The solution must remain traceable, testable and boundary-preserving.
 
 ---
 
-## 10. Implemented Reality (Development Sprint 001 & Development Sprint 002)
+## 10. Implemented Reality (Development Sprint 001, 002 & 003)
 
-This section documents how the responsibility model in Sections 2–7 has actually been implemented in `packages/core`, per Development Sprint 001 (`ADO/02_Development/Development_Sprint_001_Plan.md`, DT-001–DT-003) and Development Sprint 002 (`ADO/02_Development/Development_Sprint_002_Plan.md`, DT-004 full scope, DT-005 deterministic branch, DT-006 in-memory slice). Evidence verified 2026-07-03 against `main` at commit `78be5c9` (Sprint 002) preceded by `159d7f9` (Sprint 001). It does not restate FB-001, TS-001, TTAP-001 or ADR content; it explains how that already-approved architecture was built. DT-001–DT-003 are Completed (Review Agent verified, Human Architect approved per `EP-007_Development_Tasks.md`); DT-004/DT-005 (partial)/DT-006 (slice) are implemented and committed to `main` but carry no recorded review/approval yet — this distinction applies to every subsection below.
+This section documents how the responsibility model in Sections 2–7 has actually been implemented in `packages/core`, per Development Sprint 001 (`ADO/02_Development/Development_Sprint_001_Plan.md`, DT-001–DT-003), Development Sprint 002 (`ADO/02_Development/Development_Sprint_002_Plan.md`, DT-004 full scope, DT-005 deterministic branch, DT-006 in-memory slice) and Development Sprint 003 (`ADO/02_Development/Development_Sprint_003_Plan.md`, DT-007 Offline Queue). Evidence verified 2026-07-05 against `main` at commits `03c04bd`/`90fdea8` (Sprint 003), preceded by `78be5c9` (Sprint 002) and `159d7f9` (Sprint 001). It does not restate FB-001, TS-001, TTAP-001 or ADR content; it explains how that already-approved architecture was built. DT-001–DT-003 are Completed (Review Agent verified, Human Architect approved per `EP-007_Development_Tasks.md`); DT-004/DT-005 (partial)/DT-006 (slice)/DT-007 are implemented and committed to `main` but carry no recorded review/approval yet in `EP-007_Development_Tasks.md` or the Decision Log (see Chapter 00 Sections 10.4–10.5) — this distinction applies to every subsection below.
 
 ### 10.1 Implementation Boundaries as Built
 
@@ -454,10 +454,10 @@ This section documents how the responsibility model in Sections 2–7 has actual
 | Application | `NfcScanApplicationService`, `WorkEventCreationService` | `packages/core/src/application/` |
 | Business Engine | `AssignmentResolver`, `AssignmentValidator`, `WorkEventFactory`, `BusinessEngine` | `packages/core/src/business/` |
 | Domain | `WorkEvent`, `TimeEntry`, facts, events, value objects | `packages/core/src/domain/` |
-| Infrastructure | Fake/in-memory adapters and repositories only | `packages/core/src/infrastructure/` |
+| Infrastructure | Fake/in-memory adapters and repositories, including the offline queue adapter | `packages/core/src/infrastructure/` |
 | Ports (seams between the above) | Interfaces only, no framework code | `packages/core/src/ports/` |
 
-No mobile/UI layer exists yet; nothing in Sprint 001/002 required one, since both sprints stopped at the business-decision boundary (DT-001–DT-006), before offline queue, synchronization or presentation (DT-007–DT-010).
+No mobile/UI layer exists yet; nothing in Sprint 001/002/003 required one, since all three sprints stopped at the business-decision-and-queueing boundary (DT-001–DT-007), before synchronization or presentation (DT-008–DT-010).
 
 ### 10.2 Business Pipeline Implementation
 
@@ -622,6 +622,89 @@ Based on how DT-004/DT-005 were deliberately scoped, the following mistakes are 
 
 Implementation confirms, rather than contradicts, Section 5: `AssignmentResolver`/`AssignmentValidator`/`WorkEventFactory`/`BusinessEngine` contain all business interpretation for this slice (Section 5.5); `NfcScanApplicationService`/`WorkEventCreationService` only orchestrate and never branch on business meaning themselves beyond dispatching on already-produced decision results (Section 5.4); `InMemory*Repository` classes (Section 5.3) only store/retrieve and perform no rule evaluation, confirmed by inspection of `InMemoryWorkEventRepository.ts` and `InMemoryTimeEntryRepository.ts`, whose only non-trivial logic is a lookup filter (`findActiveByTarget`), not a decision.
 
-### 10.12 Known Gaps
+### 10.12 Offline Queue Implementation (DT-007)
 
-DT-006 implements only the in-memory slice needed for DT-004/DT-005 (no Firestore-backed repository, no synchronization metadata); DT-007 (Offline Queue) and DT-008 (Synchronization Service) are not started; no mobile/UI layer exists; DT-005's "stop" and "pending" outcomes remain unimplemented pending Finding F-01 resolution. These gaps are carried over unchanged from `EP-007_Development_Tasks.md` and `Development_Sprint_002_Plan.md`; this chapter does not attempt to resolve them.
+Development Sprint 003 implements the `OfflineQueue` component named in TS-001's Architecture Flow and TTAP-001's Runtime Architecture, sitting immediately after the repository layer and before the (not-yet-built) Synchronization Service. It exists to satisfy ADR-0004's Implementation Rule ("must not implement core time tracking as a direct online-only database write... must include a local event queue or equivalent offline-capable mechanism") and FB-001's Business Rules that a WorkEvent's local evidence must survive regardless of connectivity. Concretely, it is a small, storage-only seam that every created `WorkEvent` passes through on its way toward eventual synchronization — it does not sit in front of WorkEvent creation, it sits after it (Section 10.7 below).
+
+### 10.13 Queue Responsibilities and Boundaries
+
+The `OfflineQueue`'s responsibility is narrow and explicit: accept a `QueuedWorkEventRecord` (a `WorkEvent`, its `BusinessEngineDecision`, and a `SyncState`), store it, and report whether storing succeeded or the record was already present. It has exactly one non-trivial rule, and that rule is about identity, not business meaning: `packages/core/src/infrastructure/repositories/InMemoryOfflineQueue.ts` keys records by `WorkEvent.id` and returns `{ status: 'already_queued' }` instead of overwriting:
+
+```ts
+enqueue(record: QueuedWorkEventRecord): EnqueueResult {
+  if (this.records.has(record.workEvent.id)) {
+    return { status: 'already_queued', workEventId: record.workEvent.id };
+  }
+  this.records.set(record.workEvent.id, record);
+  return { status: 'enqueued', record };
+}
+```
+
+What must never move into the queue (Section 5.3/5.5 of this chapter): any interpretation of `BusinessEngineDecision.status`, any retry/backoff/conflict logic (that is DT-008's Synchronization Service responsibility), and any decision about whether a `WorkEvent` "deserves" to be queued. The queue stores what it is given; it does not filter or rank by business outcome (EP-008 Ch01 Section 10.4).
+
+### 10.14 Queue Interfaces
+
+`packages/core/src/ports/OfflineQueue.ts` defines the seam other components depend on, following the same port/adapter pattern as every other DT-001–DT-006 seam (Section 7.3 of this chapter):
+
+```ts
+export type EnqueueResult =
+  | { readonly status: 'enqueued'; readonly record: QueuedWorkEventRecord }
+  | { readonly status: 'already_queued'; readonly workEventId: WorkEventId };
+
+export interface OfflineQueue {
+  enqueue(record: QueuedWorkEventRecord): EnqueueResult;
+  findPending(): readonly QueuedWorkEventRecord[];
+}
+```
+
+`findPending()` is the read side of the seam DT-008's future Synchronization Service will consume — it returns only records whose `SyncState` is `'pending'`, filtering out any already-marked `'synchronized'`/`'failed'` records without interpreting why they reached that state.
+
+### 10.15 Queue Persistence Abstraction
+
+`QueuedWorkEventRecord` (`packages/core/src/domain/QueuedWorkEventRecord.ts`) references the existing `WorkEvent` and `BusinessEngineDecision` types by value rather than redefining their fields, and adds only what the queue itself needs — `syncState: SyncState` and `queuedAt: Timestamp`:
+
+```ts
+export interface QueuedWorkEventRecord {
+  readonly workEvent: WorkEvent;
+  readonly decision: BusinessEngineDecision | null;
+  readonly syncState: SyncState;
+  readonly queuedAt: Timestamp;
+}
+```
+
+`SyncState` (`packages/core/src/domain/SyncState.ts`) is the Value Object named in TTAP-001's Domain Architecture, implemented as `'pending' | 'synchronized' | 'failed'`. Only `'pending'` is ever produced this sprint; `'synchronized'`/`'failed'` are named now (per TTAP-001) but set only by the future Synchronization Service. `InMemoryOfflineQueue` is, deliberately, the only persistence abstraction implemented — no real database or network client was introduced (Development Sprint 003 Plan, Section 2/7), consistent with ADR-0007 leaving the backend persistence technology undecided.
+
+### 10.16 Business Event Flow After Queueing
+
+`WorkEventCreationService.handleValidatedAssignment` (extended, not replaced, in Development Sprint 003) enqueues after its existing DT-004/005/006 steps and emits `WorkEventQueuedForSync` only when the enqueue actually happened:
+
+```ts
+const queueResult = this.offlineQueue.enqueue({
+  workEvent, decision, syncState: 'pending', queuedAt: this.now(),
+});
+if (queueResult.status === 'enqueued') {
+  this.onEvent(workEventQueuedForSync(queueResult.record));
+}
+```
+
+This preserves the event ordering already established in Sprint 001/002 (`WorkEventCreated`, then conditionally `TimeEntryStarted`) and simply adds `WorkEventQueuedForSync` as the last event in the sequence — it does not reorder or replace the earlier events, and it is emitted regardless of whether the Business Engine's decision was `time_entry_started` or `escalation_required` (EP-008 Ch01 Section 10.4). `WorkEventSynchronized`/`WorkEventSyncFailed` (also named in TTAP-001) are not emitted anywhere yet — they belong to DT-008.
+
+### 10.17 Application and Business Engine Responsibilities, Reconfirmed
+
+Sprint 003 changes nothing about who decides what. `WorkEventFactory` and `BusinessEngine` (DT-004/DT-005) are unmodified by this sprint; `WorkEventCreationService` (Application layer, Section 5.4) gained one additional orchestration step — call the queue after the decision is known — without gaining any new decision-making responsibility. The Business Engine still does not know the queue exists; `BusinessEngine.evaluate`'s signature is untouched by DT-007.
+
+### 10.18 Testing Strategy for the Queue
+
+Following the same layering as Section 10.8: `InMemoryOfflineQueue.test.ts` tests the infrastructure boundary only (enqueue, duplicate-enqueue-returns-explicit-result rather than throwing, retrieval of pending-only records) with no business logic involved. `WorkEventCreationService.test.ts` and `NfcScanToTimeEntryPipeline.test.ts` were both extended to assert a `QueuedWorkEventRecord` exists after a full pipeline run for **both** the `time_entry_started` and `escalation_required` branches — proving the queue's behavior does not depend on the Business Engine's decision. One coverage gap is recorded rather than silently left implicit: `QueuedWorkEventRecord.decision` is typed as `BusinessEngineDecision | null`, but no current application code path constructs a record with `decision: null` — that state is exercised only by `InMemoryOfflineQueue.test.ts`'s own standalone fixture, not through the wired service/pipeline tests (recorded as a Known Remaining Risk under DT-007 in `EP-007_Development_Tasks.md`).
+
+### 10.19 Common Implementation Pitfalls (Queue)
+
+- Letting the queue branch on `decision.status` (e.g. to skip escalated records, or to prioritize retries) — this would move business interpretation into infrastructure (Section 5.3/5.5); avoided by treating `decision` as opaque payload.
+- Throwing on a duplicate enqueue instead of returning `{ status: 'already_queued' }` — would make a routine, expected condition (a WorkEvent already known to the queue) indistinguishable from a real failure; avoided by using the same explicit-result pattern as `BusinessEngineDecision`'s `escalation_required` branch.
+- Overwriting an existing record on a repeated enqueue — would silently discard the original `queuedAt`/state; `InMemoryOfflineQueue` explicitly checks existence before writing.
+- Emitting `WorkEventSynchronized`/`WorkEventSyncFailed` early, before a real Synchronization Service exists to justify them — would create events with no producer that actually confirms their meaning; DT-007 emits only `WorkEventQueuedForSync`.
+- Introducing a database client "since we're touching persistence anyway" — out of scope per ADR-0007 and the Development Sprint 003 Plan; `InMemoryOfflineQueue` intentionally has no I/O.
+
+### 10.20 Known Gaps
+
+DT-006 implements only the in-memory slice needed for DT-004/DT-005 (no Firestore-backed repository, no synchronization metadata); DT-007 (Offline Queue) is implemented as an in-memory adapter only, with no real persistence or network behavior; DT-008 (Synchronization Service) is not started; no mobile/UI layer exists; DT-005's "stop" and "pending" outcomes remain unimplemented pending Finding F-01 resolution; `QueuedWorkEventRecord.decision`'s `null` state has no integration-level test coverage (Section 10.18). These gaps are carried over unchanged from `EP-007_Development_Tasks.md` and `Development_Sprint_002_Plan.md`/`Development_Sprint_003_Plan.md`; this chapter does not attempt to resolve them.
