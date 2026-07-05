@@ -141,6 +141,14 @@ Acceptance Criteria:
 - Queue records preserve traceability.
 - Queue failures are observable.
 
+### Development Sprint 003 Implementation Notes
+
+See `ADO/02_Development/Development_Sprint_003_Plan.md` for the full plan. Implemented as an in-memory `OfflineQueue` port + `InMemoryOfflineQueue` adapter, consistent with the in-memory pattern used by DT-001–DT-006 (no real backend/database, deferred per ADR-0007). `WorkEventCreationService` was extended (not replaced) to enqueue every created `WorkEvent` — together with its `BusinessEngineDecision`, whichever branch produced it — as a `QueuedWorkEventRecord` with `syncState: 'pending'`, emitting `WorkEventQueuedForSync`. This applies identically to the `time_entry_started` and `escalation_required` branches; the queue does not interpret the Business Engine's decision (ADR-0005). Duplicate enqueue attempts for the same `WorkEvent` id return an explicit `{ status: 'already_queued' }` result rather than throwing. Objective and Acceptance Criteria above are unchanged.
+
+Implementation: `packages/core/src/domain/SyncState.ts`, `QueuedWorkEventRecord.ts`, `domain/events/WorkEventQueuedForSync.ts`, `packages/core/src/ports/OfflineQueue.ts`, `packages/core/src/infrastructure/repositories/InMemoryOfflineQueue.ts`, `packages/core/src/application/WorkEventCreationService.ts` (extended). Tests: `packages/core/tests/infrastructure/InMemoryOfflineQueue.test.ts`, `packages/core/tests/application/WorkEventCreationService.test.ts` (extended), `packages/core/tests/application/NfcScanToTimeEntryPipeline.test.ts` (extended for both decision branches).
+
+**Known Remaining Risk:** `QueuedWorkEventRecord.decision` is typed as `BusinessEngineDecision | null`, but no current code path constructs a record with `decision: null` — that state is exercised only by `InMemoryOfflineQueue.test.ts`'s own fixture, not through the wired `WorkEventCreationService`/pipeline tests. Typecheck and all tests pass today (no functional defect), but this typed state has no integration-level test coverage and should be re-checked when DT-008 adds a second writer of `QueuedWorkEventRecord`.
+
 ## DT-008 – Synchronization Service
 
 Objective: Synchronize queued WorkEvents and related results with backend persistence.
