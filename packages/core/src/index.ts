@@ -16,6 +16,8 @@ export * from './domain/generateId';
 export * from './domain/SyncState';
 export * from './domain/QueuedWorkEventRecord';
 export * from './domain/events/WorkEventQueuedForSync';
+export * from './domain/events/WorkEventSynchronized';
+export * from './domain/events/WorkEventSyncFailed';
 
 export * from './ports/NfcScanPort';
 export * from './ports/NfcTagRepository';
@@ -25,6 +27,7 @@ export * from './ports/WorkEventCreationPort';
 export * from './ports/WorkEventRepository';
 export * from './ports/TimeEntryRepository';
 export * from './ports/OfflineQueue';
+export * from './ports/SynchronizationGateway';
 
 export * from './business/AssignmentResolver';
 export * from './business/AssignmentValidator';
@@ -36,8 +39,11 @@ export * from './business/BusinessEngineDecision';
 export * from './application/NfcScanApplicationService';
 export * from './application/ScanPipelineOutcome';
 export * from './application/WorkEventCreationService';
+export * from './application/SynchronizationResult';
+export * from './application/SynchronizationService';
 
 export * from './infrastructure/adapters/FakeNfcScanAdapter';
+export * from './infrastructure/adapters/FakeSynchronizationGateway';
 export * from './infrastructure/repositories/InMemoryNfcTagRepository';
 export * from './infrastructure/repositories/InMemoryNfcAssignmentRepository';
 export * from './infrastructure/repositories/InMemoryCustomerRepository';

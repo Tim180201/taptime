@@ -78,4 +78,21 @@ describe('InMemoryOfflineQueue (DT-007)', () => {
 
     expect(queue.findPending()).toEqual([]);
   });
+
+  it('updateSyncState (DT-008) transitions a record out of findPending once synchronized', () => {
+    const queue = new InMemoryOfflineQueue();
+    const workEvent = buildWorkEvent();
+    queue.enqueue(buildRecord(workEvent));
+
+    queue.updateSyncState(workEvent.id, 'synchronized');
+
+    expect(queue.findPending()).toEqual([]);
+  });
+
+  it('updateSyncState (DT-008) does nothing for a WorkEvent id that was never enqueued', () => {
+    const queue = new InMemoryOfflineQueue();
+
+    expect(() => queue.updateSyncState(WorkEventId('never-enqueued'), 'synchronized')).not.toThrow();
+    expect(queue.findPending()).toEqual([]);
+  });
 });

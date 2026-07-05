@@ -143,6 +143,8 @@ Acceptance Criteria:
 
 ### Development Sprint 003 Implementation Notes
 
+Status: Completed — Review Agent verified (one mechanical finding: a typecheck/test coverage gap for `QueuedWorkEventRecord.decision: null`, documented below as a Known Remaining Risk), Human Architect approved (2026-07-05).
+
 See `ADO/02_Development/Development_Sprint_003_Plan.md` for the full plan. Implemented as an in-memory `OfflineQueue` port + `InMemoryOfflineQueue` adapter, consistent with the in-memory pattern used by DT-001–DT-006 (no real backend/database, deferred per ADR-0007). `WorkEventCreationService` was extended (not replaced) to enqueue every created `WorkEvent` — together with its `BusinessEngineDecision`, whichever branch produced it — as a `QueuedWorkEventRecord` with `syncState: 'pending'`, emitting `WorkEventQueuedForSync`. This applies identically to the `time_entry_started` and `escalation_required` branches; the queue does not interpret the Business Engine's decision (ADR-0005). Duplicate enqueue attempts for the same `WorkEvent` id return an explicit `{ status: 'already_queued' }` result rather than throwing. Objective and Acceptance Criteria above are unchanged.
 
 Implementation: `packages/core/src/domain/SyncState.ts`, `QueuedWorkEventRecord.ts`, `domain/events/WorkEventQueuedForSync.ts`, `packages/core/src/ports/OfflineQueue.ts`, `packages/core/src/infrastructure/repositories/InMemoryOfflineQueue.ts`, `packages/core/src/application/WorkEventCreationService.ts` (extended). Tests: `packages/core/tests/infrastructure/InMemoryOfflineQueue.test.ts`, `packages/core/tests/application/WorkEventCreationService.test.ts` (extended), `packages/core/tests/application/NfcScanToTimeEntryPipeline.test.ts` (extended for both decision branches).
@@ -159,6 +161,12 @@ Acceptance Criteria:
 - Retryable failures preserve local state.
 - Conflicts are observable.
 - Successful synchronization updates SyncState.
+
+### Development Sprint 004 Implementation Notes
+
+See `ADO/02_Development/Development_Sprint_004_Plan.md` for the full plan. Implemented as a `SynchronizationGateway` port + `FakeSynchronizationGateway` adapter (configurable success/retryable-failure/conflict outcomes), consistent with the fake/in-memory pattern used by DT-001–DT-007 — no real backend/database technology is introduced (deferred per ADR-0006/ADR-0007). `SynchronizationService` reads pending records via `OfflineQueue.findPending()`, attempts synchronization once per record per call (no retry scheduling/backoff — out of scope), and transitions `SyncState` via a narrowly-scoped `OfflineQueue.updateSyncState()` extension: `synchronized` on success, remains `pending` (never dropped) on a retryable failure, `failed` on conflict. `WorkEventSynchronized` and `WorkEventSyncFailed` are emitted following the existing constructor-function pattern; a conflict is distinguished from a plain retryable failure via `WorkEventSyncFailed.outcome`, since TTAP-001 names only one `WorkEventSyncFailed` event, not a separate conflict event. The service never reads `QueuedWorkEventRecord.decision` for anything beyond forwarding it (ADR-0005/ADR-0006). Objective and Acceptance Criteria above are unchanged.
+
+Implementation: `packages/core/src/application/SynchronizationResult.ts`, `SynchronizationService.ts`, `packages/core/src/domain/events/WorkEventSynchronized.ts`, `WorkEventSyncFailed.ts`, `packages/core/src/ports/SynchronizationGateway.ts`, `OfflineQueue.ts` (extended with `updateSyncState`), `packages/core/src/infrastructure/adapters/FakeSynchronizationGateway.ts`, `infrastructure/repositories/InMemoryOfflineQueue.ts` (extended). Tests: `packages/core/tests/infrastructure/FakeSynchronizationGateway.test.ts`, `InMemoryOfflineQueue.test.ts` (extended), `packages/core/tests/application/SynchronizationService.test.ts`, `NfcScanToTimeEntryPipeline.test.ts` (extended for both decision branches through to `synchronized`).
 
 ## DT-009 – Error Handling
 

@@ -6,12 +6,14 @@ import { InMemoryCustomerRepository } from '../../src/infrastructure/repositorie
 import { InMemoryWorkEventRepository } from '../../src/infrastructure/repositories/InMemoryWorkEventRepository';
 import { InMemoryTimeEntryRepository } from '../../src/infrastructure/repositories/InMemoryTimeEntryRepository';
 import { InMemoryOfflineQueue } from '../../src/infrastructure/repositories/InMemoryOfflineQueue';
+import { FakeSynchronizationGateway } from '../../src/infrastructure/adapters/FakeSynchronizationGateway';
 import { AssignmentResolver } from '../../src/business/AssignmentResolver';
 import { AssignmentValidator } from '../../src/business/AssignmentValidator';
 import { WorkEventFactory } from '../../src/business/WorkEventFactory';
 import { BusinessEngine } from '../../src/business/BusinessEngine';
 import { NfcScanApplicationService } from '../../src/application/NfcScanApplicationService';
 import { WorkEventCreationService } from '../../src/application/WorkEventCreationService';
+import { SynchronizationService } from '../../src/application/SynchronizationService';
 import { NfcAssignmentId, NfcTagId, OrganizationId, CustomerId, UserId, WorkEventId, TimeEntryId } from '../../src/domain/ids';
 import { customerAssignmentTarget } from '../../src/domain/AssignmentTarget';
 import { authenticatedCaller } from '../../src/domain/CallerContext';
@@ -78,12 +80,32 @@ describe('NFC scan to TimeEntry pipeline (end-to-end)', () => {
       () => createTimestamp('2026-07-03T10:00:00.000Z'),
     );
 
-    return { adapter, applicationService, workEventRepository, timeEntryRepository, offlineQueue, onEvent };
+    const synchronizationGateway = new FakeSynchronizationGateway();
+    const synchronizationService = new SynchronizationService(offlineQueue, synchronizationGateway, onEvent);
+
+    return {
+      adapter,
+      applicationService,
+      workEventRepository,
+      timeEntryRepository,
+      offlineQueue,
+      synchronizationGateway,
+      synchronizationService,
+      onEvent,
+    };
   }
 
-  it('turns an accepted scan into an observable TimeEntryStarted when no prior session exists, and queues it for sync', () => {
-    const { adapter, applicationService, workEventRepository, timeEntryRepository, offlineQueue, onEvent } =
-      buildPipeline();
+  it('turns an accepted scan into an observable TimeEntryStarted when no prior session exists, queues it for sync, and synchronizes it end-to-end', () => {
+    const {
+      adapter,
+      applicationService,
+      workEventRepository,
+      timeEntryRepository,
+      offlineQueue,
+      synchronizationGateway,
+      synchronizationService,
+      onEvent,
+    } = buildPipeline();
     adapter.triggerScan(payload);
 
     const outcome = applicationService.submitScan(caller);
@@ -101,10 +123,22 @@ describe('NFC scan to TimeEntry pipeline (end-to-end)', () => {
     expect(pending[0].decision).toEqual(expect.objectContaining({ status: 'time_entry_started' }));
     expect(pending[0].syncState).toBe('pending');
     expect(onEvent).toHaveBeenCalledWith(expect.objectContaining({ type: 'WorkEventQueuedForSync' }));
+
+    synchronizationGateway.configureSuccess();
+    synchronizationService.synchronizePending();
+
+    expect(offlineQueue.findPending()).toHaveLength(0);
+    expect(onEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'WorkEventSynchronized',
+        record: expect.objectContaining({ syncState: 'synchronized' }),
+      }),
+    );
   });
 
-  it('does not create a second active TimeEntry for a second scan of the same target, and still queues the escalation record (never a guess)', () => {
-    const { adapter, applicationService, timeEntryRepository, offlineQueue, onEvent } = buildPipeline();
+  it('does not create a second active TimeEntry for a second scan of the same target, still queues the escalation record (never a guess), and synchronizes both records', () => {
+    const { adapter, applicationService, timeEntryRepository, offlineQueue, synchronizationGateway, synchronizationService, onEvent } =
+      buildPipeline();
     adapter.triggerScan(payload);
     applicationService.submitScan(caller);
 
@@ -120,5 +154,14 @@ describe('NFC scan to TimeEntry pipeline (end-to-end)', () => {
       expect.objectContaining({ status: 'escalation_required', reason: 'duplicate_scan_rule_undefined' }),
     );
     expect(onEvent).toHaveBeenCalledWith(expect.objectContaining({ type: 'WorkEventQueuedForSync' }));
+
+    synchronizationGateway.configureSuccess();
+    synchronizationService.synchronizePending();
+
+    expect(offlineQueue.findPending()).toHaveLength(0);
+    const synchronizedEvents = onEvent.mock.calls
+      .map(([event]) => event)
+      .filter((event) => event.type === 'WorkEventSynchronized');
+    expect(synchronizedEvents).toHaveLength(2);
   });
 });
