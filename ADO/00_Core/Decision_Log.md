@@ -50,6 +50,7 @@ Full architecture decisions are documented as ADRs under `ADO/01_Architecture/AD
 | DEV-SPRINT-001 | Development Sprint 001 (DT-001-DT-003 implementation: NfcScanAdapter, AssignmentResolver, AssignmentValidator) — Review Agent verified | Completed | 2026-07-03 | `ADO/02_Development/Development_Sprint_001_Plan.md` |
 | DEV-SPRINT-002 | Development Sprint 002 Plan (DT-004/DT-005 partial/DT-006 slice implementation plan) | Planned | 2026-07-03 | `ADO/02_Development/Development_Sprint_002_Plan.md` |
 | DEV-SPRINT-003 | Development Sprint 003 (DT-007 implementation: Offline Queue) — Review Agent verified (one mechanical finding, corrected), Human Architect approved | Completed | 2026-07-05 | `ADO/02_Development/Development_Sprint_003_Plan.md` |
+| DEV-SPRINT-004 | Development Sprint 004 (DT-008 implementation: Synchronization Service) — implemented and committed (`e19de60`), typecheck clean, 53 tests pass; no Review Agent verification or Human Architect approval recorded yet | Implemented — Pending Review | 2026-07-05 | `ADO/02_Development/Development_Sprint_004_Plan.md` |
 
 ## Decision Rule
 
@@ -79,9 +80,15 @@ Development Sprint 003 completed: DT-007 (Offline Queue) implemented in `package
   (`03c04bd`/`90fdea8`), Review Agent verified (one mechanical finding: a typecheck/test coverage
   gap for `QueuedWorkEventRecord.decision: null`, corrected as a documented Known Remaining Risk),
   Human Architect approved.
+Development Sprint 004 implemented: DT-008 (Synchronization Service) implemented in
+  `packages/core` (`e19de60`) against a fake in-process SynchronizationGateway (no real
+  backend/database, deferred per ADR-0006/ADR-0007); typecheck clean, 53 tests pass. No Review
+  Agent verification or Human Architect approval recorded yet — repository is prepared for an
+  independent Review Agent review, not yet closed out (EP-008 Ch00 Section 10.6).
 DT-004/DT-005's remaining "stop"/"pending" outcomes remain gated on Finding F-01
   (duplicate-scan/toggle mechanism, still undefined).
-READY FOR DEVELOPMENT SPRINT 004 PLANNING.
+DEVELOPMENT SPRINT 004 AWAITING REVIEW AGENT VERIFICATION AND HUMAN ARCHITECT APPROVAL BEFORE
+  DEVELOPMENT SPRINT 005 PLANNING BEGINS.
 ```
 
 AVR-001 records validation status for engineering artifacts.

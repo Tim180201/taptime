@@ -442,22 +442,22 @@ The solution must remain traceable, testable and boundary-preserving.
 
 ---
 
-## 10. Implemented Reality (Development Sprint 001, 002 & 003)
+## 10. Implemented Reality (Development Sprint 001–004)
 
-This section documents how the responsibility model in Sections 2–7 has actually been implemented in `packages/core`, per Development Sprint 001 (`ADO/02_Development/Development_Sprint_001_Plan.md`, DT-001–DT-003), Development Sprint 002 (`ADO/02_Development/Development_Sprint_002_Plan.md`, DT-004 full scope, DT-005 deterministic branch, DT-006 in-memory slice) and Development Sprint 003 (`ADO/02_Development/Development_Sprint_003_Plan.md`, DT-007 Offline Queue). Evidence verified 2026-07-05 against `main` at commits `03c04bd`/`90fdea8` (Sprint 003), preceded by `78be5c9` (Sprint 002) and `159d7f9` (Sprint 001). It does not restate FB-001, TS-001, TTAP-001 or ADR content; it explains how that already-approved architecture was built. DT-001–DT-003 are Completed (Review Agent verified, Human Architect approved per `EP-007_Development_Tasks.md`); DT-004/DT-005 (partial)/DT-006 (slice)/DT-007 are implemented and committed to `main` but carry no recorded review/approval yet in `EP-007_Development_Tasks.md` or the Decision Log (see Chapter 00 Sections 10.4–10.5) — this distinction applies to every subsection below.
+This section documents how the responsibility model in Sections 2–7 has actually been implemented in `packages/core`, per Development Sprint 001 (`Development_Sprint_001_Plan.md`, DT-001–DT-003), Development Sprint 002 (`Development_Sprint_002_Plan.md`, DT-004 full scope, DT-005 deterministic branch, DT-006 in-memory slice), Development Sprint 003 (`Development_Sprint_003_Plan.md`, DT-007 Offline Queue) and Development Sprint 004 (`Development_Sprint_004_Plan.md`, DT-008 Synchronization Service). Evidence verified 2026-07-05 against `main` at commit `e19de60` (Sprint 004), preceded by `03c04bd`/`90fdea8` (Sprint 003), `78be5c9` (Sprint 002) and `159d7f9` (Sprint 001). It does not restate FB-001, TS-001, TTAP-001 or ADR content; it explains how that already-approved architecture was built. DT-001–DT-003 and DT-007 are Completed (Review Agent verified, Human Architect approved per `EP-007_Development_Tasks.md`); DT-004/DT-005 (partial)/DT-006 (slice)/DT-008 are implemented and committed to `main` but carry no recorded review/approval yet — DT-008 in particular is explicitly pending an independent Review Agent review at the time of this update (see Chapter 00 Section 10.6) — this distinction applies to every subsection below.
 
 ### 10.1 Implementation Boundaries as Built
 
 | Responsibility Area (Section 2.3) | Implemented As | Files |
 |---|---|---|
 | Mobile / UI | Not yet implemented | — |
-| Application | `NfcScanApplicationService`, `WorkEventCreationService` | `packages/core/src/application/` |
+| Application | `NfcScanApplicationService`, `WorkEventCreationService`, `SynchronizationService` | `packages/core/src/application/` |
 | Business Engine | `AssignmentResolver`, `AssignmentValidator`, `WorkEventFactory`, `BusinessEngine` | `packages/core/src/business/` |
 | Domain | `WorkEvent`, `TimeEntry`, facts, events, value objects | `packages/core/src/domain/` |
-| Infrastructure | Fake/in-memory adapters and repositories, including the offline queue adapter | `packages/core/src/infrastructure/` |
+| Infrastructure | Fake/in-memory adapters and repositories, including the offline queue and synchronization gateway adapters | `packages/core/src/infrastructure/` |
 | Ports (seams between the above) | Interfaces only, no framework code | `packages/core/src/ports/` |
 
-No mobile/UI layer exists yet; nothing in Sprint 001/002/003 required one, since all three sprints stopped at the business-decision-and-queueing boundary (DT-001–DT-007), before synchronization or presentation (DT-008–DT-010).
+No mobile/UI layer exists yet; nothing in Sprint 001–004 required one, since all four sprints stopped at the business-decision-queueing-and-synchronization boundary (DT-001–DT-008), before presentation (DT-009–DT-010 and the mobile client).
 
 ### 10.2 Business Pipeline Implementation
 
@@ -705,6 +705,83 @@ Following the same layering as Section 10.8: `InMemoryOfflineQueue.test.ts` test
 - Emitting `WorkEventSynchronized`/`WorkEventSyncFailed` early, before a real Synchronization Service exists to justify them — would create events with no producer that actually confirms their meaning; DT-007 emits only `WorkEventQueuedForSync`.
 - Introducing a database client "since we're touching persistence anyway" — out of scope per ADR-0007 and the Development Sprint 003 Plan; `InMemoryOfflineQueue` intentionally has no I/O.
 
-### 10.20 Known Gaps
+### 10.20 Synchronization Service Implementation (DT-008)
 
-DT-006 implements only the in-memory slice needed for DT-004/DT-005 (no Firestore-backed repository, no synchronization metadata); DT-007 (Offline Queue) is implemented as an in-memory adapter only, with no real persistence or network behavior; DT-008 (Synchronization Service) is not started; no mobile/UI layer exists; DT-005's "stop" and "pending" outcomes remain unimplemented pending Finding F-01 resolution; `QueuedWorkEventRecord.decision`'s `null` state has no integration-level test coverage (Section 10.18). These gaps are carried over unchanged from `EP-007_Development_Tasks.md` and `Development_Sprint_002_Plan.md`/`Development_Sprint_003_Plan.md`; this chapter does not attempt to resolve them.
+Development Sprint 004 implements the `SynchronizationService` component named in TS-001's Architecture Flow and TTAP-001's Runtime Architecture, the step immediately after the Offline Queue. Its job is narrow and matches TS-001's Synchronization Requirements directly: read `pending` records, attempt to reconcile each with the remote side exactly once per call, and update `SyncState` based on an explicit, typed outcome — never based on the `WorkEvent`'s or `TimeEntry`'s business meaning. `packages/core/src/application/SynchronizationService.ts`:
+
+```ts
+synchronizePending(): void {
+  for (const record of this.offlineQueue.findPending()) {
+    const result = this.synchronizationGateway.synchronize(record);
+
+    if (result.status === 'synchronized') {
+      this.offlineQueue.updateSyncState(record.workEvent.id, 'synchronized');
+      this.onEvent(workEventSynchronized({ ...record, syncState: 'synchronized' }));
+      continue;
+    }
+    if (result.status === 'conflict') {
+      this.offlineQueue.updateSyncState(record.workEvent.id, 'failed');
+      this.onEvent(workEventSyncFailed({ ...record, syncState: 'failed' }, 'conflict', result.reason));
+      continue;
+    }
+    // retryable_failure: SyncState stays 'pending' - never dropped from the queue.
+    this.onEvent(workEventSyncFailed(record, 'retryable_failure', result.reason));
+  }
+}
+```
+
+No real backend is called here — `SynchronizationGateway` (Section 10.22) is implemented only as a fake this sprint, deliberately, per ADR-0006/ADR-0007 (Development Sprint 004 Plan, Section 2/7).
+
+### 10.21 Queue Synchronization Responsibilities and Boundaries
+
+`OfflineQueue` (DT-007) gained exactly one new capability this sprint — `updateSyncState(workEventId, syncState)` — and nothing else. It does not gain a "synchronize" method, does not call `SynchronizationGateway` itself, and does not decide when synchronization should be attempted; `SynchronizationService` owns that orchestration entirely, and the queue remains a passive store that `SynchronizationService` reads from and writes state back to. This preserves DT-007's original responsibility boundary (EP-008 Ch01 §10.4) rather than widening it: the queue still only stores what it is given and reports storage-level outcomes, never business or synchronization-policy outcomes.
+
+### 10.22 Synchronization Interfaces
+
+`packages/core/src/ports/SynchronizationGateway.ts` defines the seam representing "the remote side," with exactly the shape DT-008's Acceptance Criteria require and nothing more:
+
+```ts
+export interface SynchronizationGateway {
+  synchronize(record: QueuedWorkEventRecord): SynchronizationResult;
+}
+```
+
+`SynchronizationResult` (`packages/core/src/application/SynchronizationResult.ts`) is a three-way explicit result — `'synchronized' | 'retryable_failure' | 'conflict'` — following the same typed-outcome pattern as `BusinessEngineDecision` and `EnqueueResult`, so a caller can never mistake "needs a retry" for "needs human/architectural attention" (a conflict). `FakeSynchronizationGateway` (`infrastructure/adapters/`) implements the port as a manually-configurable double (`configureSuccess()`, `configureRetryableFailure(reason)`, `configureConflict(reason)`), mirroring `FakeNfcScanAdapter`'s role for hardware — it is a test/dev double by design, not a placeholder for missing effort.
+
+### 10.23 Queue Persistence Abstraction, Extended
+
+No new persistence abstraction was introduced this sprint. `InMemoryOfflineQueue.updateSyncState` (extended, not replaced) performs an in-place `Map` update:
+
+```ts
+updateSyncState(workEventId: WorkEventId, syncState: SyncState): void {
+  const existing = this.records.get(workEventId);
+  if (existing === undefined) { return; }
+  this.records.set(workEventId, { ...existing, syncState });
+}
+```
+
+`SyncState`'s `'synchronized'` and `'failed'` values (named in TTAP-001 since Sprint 003, unused until now) are produced for the first time this sprint. Still no real database or network client exists anywhere in `packages/core` — verified by inspecting `package.json` (only `typescript`, `vitest`, `@types/node`).
+
+### 10.24 Business Event Flow After Synchronization
+
+`WorkEventSynchronized` and `WorkEventSyncFailed` (`domain/events/`) extend the event sequence Sprint 001–003 already established (`WorkEventCreated` → conditionally `TimeEntryStarted` → `WorkEventQueuedForSync`) with a fourth and, for failure cases, alternative step. `WorkEventSyncFailed` carries an `outcome: 'retryable_failure' | 'conflict'` field specifically because TTAP-001 names only one `WorkEventSyncFailed` event, not a separate conflict event — Sprint 004 satisfies "Conflicts are observable" (DT-008 Acceptance Criteria) by distinguishing the outcome inside the single approved event type rather than inventing a new, unapproved event name.
+
+### 10.25 Application and Business Engine Responsibilities, Reconfirmed Again
+
+`WorkEventFactory`, `BusinessEngine`, and `BusinessEngineDecision` (DT-004/DT-005) are untouched by Sprint 004 — verified by their unchanged file content. `SynchronizationService` sits entirely downstream of the Business Engine's decision and only ever forwards `QueuedWorkEventRecord.decision`, confirmed by a dedicated test (Section 10.26). This is the third sprint in a row (after DT-006's repositories and DT-007's queue) where a new infrastructure-adjacent component was added without widening who is allowed to interpret business meaning.
+
+### 10.26 Testing Strategy for Synchronization
+
+`FakeSynchronizationGateway.test.ts` tests the double's configurability only. `SynchronizationService.test.ts` covers all three outcomes plus two boundary-preserving assertions: a dedicated test that the service "does not read or branch on `QueuedWorkEventRecord.decision` for anything other than forwarding it," and a test that multiple pending records are all processed in one pass. `NfcScanToTimeEntryPipeline.test.ts` was extended so a full scan run reaches `synchronized` end-to-end for both the `time_entry_started` and `escalation_required` branches, mirroring exactly how DT-007's own pipeline extension proved the queue was decision-agnostic.
+
+### 10.27 Common Implementation Pitfalls (Synchronization)
+
+- Letting `SynchronizationService` or `SynchronizationGateway` branch on `decision.status` — would reintroduce business interpretation into infrastructure; both only ever forward `decision` untouched.
+- Collapsing `retryable_failure` and `conflict` into one "failed" case — would make FB-001's "Synchronization conflict after offline capture" edge case invisible; the two are distinct fields/branches throughout.
+- Dropping a record from the queue on any failure — a retryable failure must leave `SyncState` at `pending`; only `conflict` moves a record out of `findPending()` (to `failed`), and even then it remains inspectable in the queue, not deleted.
+- Adding retry scheduling/backoff timers this sprint — explicitly out of scope (Development Sprint 004 Plan, Section 7); one attempt per call is the full extent of DT-008's scope.
+- Reaching for a real database/network client "since synchronization is the point" — still deferred per ADR-0006/ADR-0007; `FakeSynchronizationGateway` is the only implementation this sprint, by design, not by omission.
+
+### 10.28 Known Gaps
+
+DT-006 implements only the in-memory slice needed for DT-004/DT-005 (no Firestore-backed repository, no synchronization metadata); DT-007/DT-008 are implemented as in-memory/fake adapters only, with no real persistence or network behavior; no retry scheduling or backoff policy exists yet; no mobile/UI layer exists; DT-005's "stop" and "pending" outcomes remain unimplemented pending Finding F-01 resolution; `QueuedWorkEventRecord.decision`'s `null` state still has no integration-level test coverage (Section 10.18). DT-008 itself is implemented and tested but not yet reviewed/approved (Chapter 00 Section 10.6) — this chapter documents that it exists, not that it is closed out. These gaps are carried over largely unchanged from `EP-007_Development_Tasks.md` and the Sprint 002/003/004 plans; this chapter does not attempt to resolve them.
