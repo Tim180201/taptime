@@ -106,8 +106,13 @@ function isDemoSyncOutcome(value: string | undefined): value is DemoSyncOutcome 
   return value === 'success' || value === 'retryable_failure' || value === 'conflict';
 }
 
-// CLI entry point - only runs when this file is executed directly, not when imported by tests.
-if (import.meta.url === `file://${process.argv[1]}`) {
+// CLI entry point - only runs when this file is executed directly (as a Node CLI script),
+// not when imported by tests or by a non-Node runtime such as Expo/Metro/Hermes, where
+// `process.argv` does not exist in the Node CLI sense (Development Sprint 006, Section 12).
+const isNodeCliInvocation =
+  typeof process !== 'undefined' && Array.isArray(process.argv) && typeof process.argv[1] === 'string';
+
+if (isNodeCliInvocation && import.meta.url === `file://${process.argv[1]}`) {
   const [, , rawPayload, syncOutcomeArg] = process.argv;
   const pipeline = buildScanDemoPipeline();
   pipeline.scan(rawPayload);

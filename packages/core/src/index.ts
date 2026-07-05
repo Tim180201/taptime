@@ -52,3 +52,5 @@ export * from './infrastructure/repositories/InMemoryCustomerRepository';
 export * from './infrastructure/repositories/InMemoryWorkEventRepository';
 export * from './infrastructure/repositories/InMemoryTimeEntryRepository';
 export * from './infrastructure/repositories/InMemoryOfflineQueue';
+
+export * from './cli/runScan';

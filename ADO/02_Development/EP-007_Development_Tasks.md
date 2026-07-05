@@ -223,6 +223,38 @@ Implemented: `ScanResultPresenter` (TS-001-named, never previously built) render
 
 Implementation: `packages/core/src/application/ScanResultPresenter.ts`, `packages/core/src/infrastructure/adapters/CliNfcScanAdapter.ts`, `packages/core/src/cli/runScan.ts`. Tests: `packages/core/tests/application/ScanResultPresenter.test.ts`, `packages/core/tests/infrastructure/CliNfcScanAdapter.test.ts`, `packages/core/tests/cli/runScan.test.ts`.
 
+### Development Sprint 006 Implementation Notes
+
+See `ADO/02_Development/Development_Sprint_006_Plan.md`. Two small, targeted extensions to this already-implemented task, no behavior change to the composition logic itself: (1) `packages/core/src/index.ts` now re-exports `./cli/runScan` (`buildScanDemoPipeline`, `DEMO_KNOWN_PAYLOAD`, supporting types) so `@taptime/mobile` (DT-012) can import and call the existing composition root, rather than reimplementing any part of it; (2) the CLI entry-point guard in `runScan.ts` was hardened (`typeof process !== 'undefined' && Array.isArray(process.argv) && typeof process.argv[1] === 'string'`) after Metro/Expo bundling proved that `process.argv` does not exist in the Expo/Hermes runtime the way it does under Node — without this guard, merely importing the module from a mobile app would have thrown at load time. This is a defensive fix to the module's own CLI-trigger condition, not a change to `buildScanDemoPipeline`'s behavior; all 81 existing `packages/core` tests continue to pass unchanged. Objective and Acceptance Criteria above are unchanged.
+
+## DT-012 – Mobile Application Foundation
+
+Objective: Establish `apps/mobile` as a runnable Expo/React Native application that depends on `@taptime/core` and invokes its existing DT-011 composition root from a real mobile JavaScript runtime, without duplicating any business logic.
+
+Acceptance Criteria:
+
+- `apps/mobile` exists as a workspace package and launches in the Expo development environment.
+- It depends on `@taptime/core` and imports the composition root rather than re-implementing any part of it.
+- A placeholder scan interaction (button/text-input, not real NFC) triggers the composition root and displays its outcome on-screen.
+- No persistence, network, or auth code is added inside `apps/mobile`.
+- `packages/core`'s business/application/domain code is unchanged except for the export extension described above.
+
+### Development Sprint 006 Implementation Notes
+
+Status: Implemented — Pending Review (2026-07-05). Per DTP-001's Completion Rule ("Implementation alone never completes a Development Task"), this is not marked Completed until Review Agent verification and Human Architect approval are recorded.
+
+See `ADO/02_Development/Development_Sprint_006_Plan.md` for the full plan, including the self-corrected sprint ordering rationale (Section 3: the React Native/Expo framework choice is already Approved/Validated per ADR-0007; only the backend/auth technology remains deferred, so a Mobile Foundation scaffold has no undecided dependency blocking it).
+
+Implemented: `apps/mobile`, an Expo TypeScript (`blank-typescript` template) project, added to the existing npm workspaces (`apps/*` was already in the root workspaces glob; no root change needed). It depends on `@taptime/core` (workspace-linked) and imports only the package's public root export (`buildScanDemoPipeline`, `DEMO_KNOWN_PAYLOAD`) — no deep imports into `business/`, `domain/`, `application/` or `infrastructure/` subpaths, and no business, domain or persistence code exists inside `apps/mobile` (verified by direct inspection: `apps/mobile/src/` contains only `navigation/AppNavigator.tsx` and `screens/ScanScreen.tsx`). `AppNavigator` is a deliberately minimal single-screen "navigator" (no routing library added, per the plan's explicit allowance). `ScanScreen` provides a text-input + button placeholder scan trigger (not real NFC — none exists) and a "Synchronize" button, both calling the composition root's existing `scan(...)`/`synchronizePending(...)` functions unmodified, and renders the accumulated `ScanResultPresenter` output strings in a `Text` list — no new presentation or business logic.
+
+**Spike-first, as instructed (Section 14 step 1):** before building any screen, a minimal `App.tsx` imported `buildScanDemoPipeline` from `@taptime/core` and was bundled via `npx expo export --platform ios`, which succeeded (630 modules, valid Hermes bytecode bundle) — proving the cross-package Metro/Bundler consumption path (Section 12's top risk) resolves cleanly. This also surfaced a real, previously-undiscovered risk: `runScan.ts`'s Node-CLI-only trigger guard read `process.argv[1]` unconditionally, which is not defined the way Node defines it in the Expo/Hermes runtime; this was hardened (see DT-011's Sprint 006 notes above) before proceeding, rather than working around it with a duplicated/simplified reimplementation.
+
+**Environment constraint (documented, not silently worked around):** this execution environment has no iOS/Android simulator or device available. Full manual verification (launching the Expo development client/simulator, tapping the on-screen scan trigger, and eyeballing the rendered result) could not be performed and must be done by the Technical Lead/Human Architect or Review Agent on a real environment before DT-012 is marked Completed. What *was* verified in this environment: (1) `npx expo export --platform ios` succeeds and produces a valid bundle both before and after the full screen was built; (2) `npx tsc --noEmit` (using `apps/mobile`'s own Expo-based `tsconfig.json`) passes with no errors; (3) `apps/mobile` contains no business logic, verified by direct inspection and by the fact that its only `@taptime/core` import is the public root export; (4) the CLI demo (`npm run demo:scan --workspace=@taptime/core -- demo-tag-payload success`) was re-run and produces the same message shapes `ScanScreen` renders, since both consume the identical `buildScanDemoPipeline`/`ScanResultPresenter` — there is no second, divergent implementation to compare against.
+
+`apps/mobile/tsconfig.json` extends `expo/tsconfig.base` (Expo's own required baseline for JSX/React Native module resolution), not the repository's root `tsconfig.base.json` (which targets a pure Node/TypeScript package and lacks JSX/React Native settings) — a deviation from the plan's literal Section 6 wording, made because Expo's own base config is required for the app to build at all; noted explicitly per "repository reality has priority."
+
+Implementation: `apps/mobile/package.json`, `app.json`, `tsconfig.json`, `App.tsx`, `index.ts`, `src/navigation/AppNavigator.tsx`, `src/screens/ScanScreen.tsx`. `packages/core/src/index.ts` (export extension, see DT-011 Sprint 006 notes above). Verification: `npx expo export --platform ios` (bundling proof), `npx tsc --noEmit` (typecheck), manual CLI comparison via `npm run demo:scan`; no automated component test was added (no React Native component-testing framework — e.g. Jest/`@testing-library/react-native` — exists yet in this repository, and `ScanScreen`'s event handlers are thin, direct calls to the composition root with no branching logic of their own to unit-test; documented here as the accepted alternative per the plan's own Section 11 allowance).
+
 ## Dependencies
 
 - ADR-0007 must exist.
