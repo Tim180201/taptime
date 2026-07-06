@@ -1,7 +1,7 @@
 import { OrganizationId, UserId, CustomerId, NfcTagId, NfcAssignmentId } from '../domain/ids';
 import { createNfcPayload } from '../domain/NfcPayload';
 import { customerAssignmentTarget } from '../domain/AssignmentTarget';
-import { authenticatedCaller } from '../domain/CallerContext';
+import { authenticatedCaller, type CallerContext } from '../domain/CallerContext';
 import type { Customer } from '../domain/Customer';
 import type { NfcTag } from '../domain/NfcTag';
 import type { NfcAssignment } from '../domain/NfcAssignment';
@@ -31,7 +31,7 @@ export const DEMO_KNOWN_PAYLOAD = 'demo-tag-payload';
 export type DemoSyncOutcome = 'success' | 'retryable_failure' | 'conflict';
 
 export interface ScanDemoPipeline {
-  scan(rawPayload: string | undefined): ScanPipelineOutcome;
+  scan(rawPayload: string | undefined, caller?: CallerContext): ScanPipelineOutcome;
   synchronizePending(outcome?: DemoSyncOutcome): void;
 }
 
@@ -41,7 +41,10 @@ export interface ScanDemoPipeline {
 // AssignmentResolver/AssignmentValidator/BusinessEngine/SynchronizationService already put it.
 export function buildScanDemoPipeline(output: (line: string) => void = (line) => console.log(line)): ScanDemoPipeline {
   const organizationId = OrganizationId('demo-org');
-  const caller = authenticatedCaller(UserId('demo-employee'), organizationId);
+  // Default demo caller, preserved for the existing CLI usage (npm run demo:scan) when no
+  // externally-produced CallerContext (e.g. from a real SessionService sign-in, DT-013) is
+  // supplied to scan() - see DT-014, Development Sprint 008 Plan Section 6.
+  const defaultCaller = authenticatedCaller(UserId('demo-employee'), organizationId);
 
   const customerId = CustomerId('demo-customer');
   const customer: Customer = { id: customerId, organizationId, active: true };
@@ -83,7 +86,7 @@ export function buildScanDemoPipeline(output: (line: string) => void = (line) =>
   );
 
   return {
-    scan(rawPayload: string | undefined): ScanPipelineOutcome {
+    scan(rawPayload: string | undefined, caller: CallerContext = defaultCaller): ScanPipelineOutcome {
       adapter.setInput(rawPayload);
       const outcome = applicationService.submitScan(caller);
       output(presenter.presentScanOutcome(outcome));

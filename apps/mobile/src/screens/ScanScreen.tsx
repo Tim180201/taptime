@@ -1,12 +1,18 @@
 import { useMemo, useState } from 'react';
 import { Button, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { buildScanDemoPipeline, DEMO_KNOWN_PAYLOAD } from '@taptime/core';
+import { buildScanDemoPipeline, DEMO_KNOWN_PAYLOAD, type CallerContext } from '@taptime/core';
+
+interface ScanScreenProps {
+  caller: CallerContext;
+}
 
 // Placeholder scan trigger (DT-012): a text input + button, not real NFC hardware - none
 // exists yet (Development Sprint 006 Plan, Section 7). Calls the existing DT-011 composition
 // root unmodified; introduces no business logic of its own (ADR-0007 Platform Boundaries -
-// the domain/Business Engine remain independent of React Native/Expo).
-export function ScanScreen() {
+// the domain/Business Engine remain independent of React Native/Expo). The scan action uses
+// the signed-in session's CallerContext (DT-014), not the composition root's hard-coded
+// demo caller default.
+export function ScanScreen({ caller }: ScanScreenProps) {
   const [payload, setPayload] = useState(DEMO_KNOWN_PAYLOAD);
   const [outputLines, setOutputLines] = useState<string[]>([]);
 
@@ -16,7 +22,7 @@ export function ScanScreen() {
   );
 
   function handleScan(): void {
-    pipeline.scan(payload);
+    pipeline.scan(payload, caller);
   }
 
   function handleSynchronize(): void {

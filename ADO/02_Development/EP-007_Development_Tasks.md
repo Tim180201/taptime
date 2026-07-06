@@ -278,6 +278,35 @@ Implemented: `AuthenticationResult` (explicit typed result, mirroring `Synchroni
 
 Implementation: `packages/core/src/application/AuthenticationResult.ts`, `SessionService.ts`, `packages/core/src/ports/AuthenticationGateway.ts`, `packages/core/src/infrastructure/adapters/FakeAuthenticationGateway.ts`. Tests: `packages/core/tests/infrastructure/FakeAuthenticationGateway.test.ts`, `packages/core/tests/application/SessionService.test.ts`, `packages/core/tests/application/SessionDerivedCallerPipeline.test.ts`.
 
+### Development Sprint 008 Implementation Notes
+
+DT-013's remaining Acceptance Criteria above ("`apps/mobile` gains a `LoginScreen`...", "The scan composition root uses the signed-in session's `CallerContext`...") are now satisfied — see DT-014 below, which completes the mobile-integration half of this task without modifying anything implemented here in Sprint 007. `AuthenticationGateway`, `FakeAuthenticationGateway`, `SessionService`, `AuthenticationResult`, `authenticatedCaller()`/`UNAUTHENTICATED_CALLER` and `AssignmentValidator`'s `employee_not_authenticated` check are all unchanged by Sprint 008.
+
+## DT-014 – Mobile Session Integration
+
+Objective: Complete the mobile-facing half of DT-013 — a `LoginScreen` in `apps/mobile` that calls the existing `SessionService`, and a composition root that accepts the resulting `CallerContext` instead of a hard-coded demo caller — so a real person can authenticate and enter the app.
+
+Acceptance Criteria:
+
+- `apps/mobile` gains a `LoginScreen` that calls `SessionService.signIn(...)` and, on success, navigates to `ScanScreen`, passing the resulting `CallerContext`.
+- On rejection, the screen displays the gateway's rejection reason without inventing new business rules.
+- `buildScanDemoPipeline`/`runScan.ts` accepts an externally-produced `CallerContext` while preserving existing CLI behavior.
+- `ScanScreen`'s scan action uses the signed-in session's `CallerContext`.
+- `AssignmentValidator`'s existing `employee_not_authenticated` behavior remains exercised, not modified.
+- No persistence, network, or real managed-auth-provider code is added.
+
+### Development Sprint 008 Implementation Notes
+
+Status: Implemented — Pending Review (2026-07-06). Per DTP-001's Completion Rule ("Implementation alone never completes a Development Task"), this is not marked Completed until Review Agent verification and Human Architect approval are recorded.
+
+See `ADO/02_Development/Development_Sprint_008_Plan.md` for the full plan. This task closes exactly what `Development_Sprint_007_Closure.md` deferred: the mobile-facing half of DT-013.
+
+Implemented: `buildScanDemoPipeline`'s `scan()` method now accepts an optional second `caller: CallerContext` parameter, defaulting to the pre-existing hard-coded `authenticatedCaller(UserId('demo-employee'), organizationId)` when omitted — the existing `npm run demo:scan` CLI and all pre-existing tests calling `scan(payload)` with one argument are unaffected (verified: all 94 pre-existing tests plus this sprint's own new tests pass unchanged). A new composition-level test (`runScan.callerOverride.test.ts`) proves both the default path and an externally-supplied, `SessionService`-derived `CallerContext` path produce correct, distinct outcomes, including that `AssignmentValidator`'s existing `employee_not_authenticated` rejection is reached unmodified for a rejected sign-in. `apps/mobile` gains `LoginScreen` (a sign-in-code text input + button calling `SessionService.signIn(...)` then `toCallerContext(...)`, displaying the gateway's `invalid_credentials` reason as-is on rejection — no new rejection reasons invented). `AppNavigator` was extended from a single-screen render to a minimal conditional Login → Scan flow (`useState<CallerContext | null>`; no routing library added — not found genuinely necessary for two screens, consistent with Sprint 006's precedent). `ScanScreen` now receives `caller: CallerContext` as a prop and passes it into `pipeline.scan(payload, caller)` instead of relying on the composition root's default. No business logic was added anywhere in `apps/mobile`; `apps/mobile`'s only `@taptime/core` imports remain its public root export (`SessionService`, `toCallerContext`, `FakeAuthenticationGateway`, `buildScanDemoPipeline`, `DEMO_KNOWN_PAYLOAD`, `CallerContext` type) — no deep imports into `business/`, `domain/`, `application/` or `infrastructure/` subpaths, verified by direct inspection.
+
+**Verified in this environment (no simulator/device available, consistent with the constraint documented since Sprint 006):** `npx expo export --platform ios` succeeds (639 modules, valid Hermes bytecode bundle) both before and after these changes; `npx tsc --noEmit` (via `apps/mobile`'s own Expo-based `tsconfig.json`) passes with no errors; direct inspection confirms no business/authentication logic was duplicated inside `apps/mobile`. Full manual verification (launching the Expo development client/simulator, signing in via `LoginScreen`, confirming navigation to `ScanScreen`, and confirming a scan reflects the signed-in identity) could not be performed and must be done by the Technical Lead/Human Architect or Review Agent on a real environment before DT-014 is marked Completed.
+
+Implementation: `packages/core/src/cli/runScan.ts` (extended), `apps/mobile/src/screens/LoginScreen.tsx` (new), `apps/mobile/src/navigation/AppNavigator.tsx` (extended), `apps/mobile/src/screens/ScanScreen.tsx` (extended). Tests: `packages/core/tests/cli/runScan.callerOverride.test.ts`.
+
 ## Dependencies
 
 - ADR-0007 must exist.
