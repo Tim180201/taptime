@@ -513,4 +513,18 @@ apps/mobile/
     screens/ScanScreen.tsx
 ```
 
-The root workspaces glob already included `apps/*` before Sprint 006 (no root `package.json` change was needed to add it). `apps/mobile`'s `package.json` depends on `@taptime/core` via the workspace protocol (`"@taptime/core": "*"`) and on `expo`, `react`, `react-native`, `react-native-web`/`react-dom` (the last two added in a follow-up commit, `43a628e`, to support `expo start --web`). Its own `tsconfig.json` extends `expo/tsconfig.base`, not this repository's root `tsconfig.base.json` — documented as a deliberate deviation (Chapter 03 Section 10.34), since Expo's base config is required for JSX/React Native module resolution that the root Node-oriented config does not provide. No persistence, network, or auth code exists inside `apps/mobile` — verified by the directory listing above containing no `infrastructure/`, `ports/`, or repository/gateway files of its own.
+The root workspaces glob already included `apps/*` before Sprint 006 (no root `package.json` change was needed to add it). `apps/mobile`'s `package.json` depends on `@taptime/core` via the workspace protocol (`"@taptime/core": "*"`) and on `expo`, `react`, `react-native`, `react-native-web`/`react-dom` (the last two added in a follow-up commit, `43a628e`, to support `expo start --web`). Its own `tsconfig.json` extends `expo/tsconfig.base`, not this repository's root `tsconfig.base.json` — documented as a deliberate deviation (Chapter 03 Section 10.34), since Expo's base config is required for JSX/React Native module resolution that the root Node-oriented config does not provide. No persistence, network, or auth code exists inside `apps/mobile` — verified by the directory listing above containing no `infrastructure/`, `ports/`, or repository/gateway files of its own. (As of Development Sprint 007, this remains true: `apps/mobile` still has no authentication code, since Sprint 007's mobile-side scope was not built this session — Section 10.5.)
+
+### 10.5 `packages/core/src` Structure Extended for Authentication (Development Sprint 007)
+
+Development Sprint 007 (DT-013) added four files to the structure listed in Section 10.1, following its existing grouping exactly — no new top-level directory was introduced:
+
+```text
+packages/core/src/
+  ports/AuthenticationGateway.ts        (port + Credentials shape)
+  application/AuthenticationResult.ts   (explicit typed result)
+  application/SessionService.ts         (signIn(), toCallerContext())
+  infrastructure/adapters/FakeAuthenticationGateway.ts
+```
+
+This follows the same pattern DT-007/DT-008 already established (Section 10.2): the port lives in `ports/`, its fake/local implementation in `infrastructure/adapters/`, and its orchestration in `application/` — no new top-level grouping was added for authentication, consistent with "Extend Before Create" applied to repository structure itself. `packages/core/src/domain/CallerContext.ts` (Section 10.1's original listing, Development Sprint 001) is unchanged; `SessionService.toCallerContext()` produces values through its existing, exported helper functions only. The mobile-side half of DT-013's Acceptance Criteria (a `LoginScreen` in `apps/mobile`) remains a follow-up item, not built this sprint (Chapter 00 Section 10.9).

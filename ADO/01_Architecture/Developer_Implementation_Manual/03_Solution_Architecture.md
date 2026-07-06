@@ -442,7 +442,7 @@ The solution must remain traceable, testable and boundary-preserving.
 
 ---
 
-## 10. Implemented Reality (Development Sprint 001–004 & 006)
+## 10. Implemented Reality (Development Sprint 001–004, 006 & 007)
 
 This section documents how the responsibility model in Sections 2–7 has actually been implemented in `packages/core`, per Development Sprint 001 (`Development_Sprint_001_Plan.md`, DT-001–DT-003), Development Sprint 002 (`Development_Sprint_002_Plan.md`, DT-004 full scope, DT-005 deterministic branch, DT-006 in-memory slice), Development Sprint 003 (`Development_Sprint_003_Plan.md`, DT-007 Offline Queue) and Development Sprint 004 (`Development_Sprint_004_Plan.md`, DT-008 Synchronization Service). Evidence verified 2026-07-05 against `main` at commit `e19de60` (Sprint 004), preceded by `03c04bd`/`90fdea8` (Sprint 003), `78be5c9` (Sprint 002) and `159d7f9` (Sprint 001). It does not restate FB-001, TS-001, TTAP-001 or ADR content; it explains how that already-approved architecture was built. DT-001–DT-003 and DT-007 are Completed (Review Agent verified, Human Architect approved per `EP-007_Development_Tasks.md`); DT-004/DT-005 (partial)/DT-006 (slice)/DT-008 are implemented and committed to `main` but carry no recorded review/approval yet — DT-008 in particular is explicitly pending an independent Review Agent review at the time of this update (see Chapter 00 Section 10.6) — this distinction applies to every subsection below.
 
@@ -810,6 +810,63 @@ No React Native component-testing framework (e.g. Jest with `@testing-library/re
 - Reconciliation with Section 7.2: that section's suggested `mobile/` folder is not implemented as a subfolder of `packages/core/src` — the repository instead added `apps/mobile` as a separate, top-level workspace package (Chapter 02 Section 10.4), which serves the same responsibility-oriented purpose (isolating mobile-runtime code from domain/business/application/infrastructure) at the workspace level rather than the folder level. Recorded here as a documented reconciliation, per Section 7.1's own instruction, not silently treated as a deviation.
 - `apps/mobile/tsconfig.json` extending `expo/tsconfig.base` rather than the root `tsconfig.base.json` is likewise a documented deviation, required for Expo's own JSX/React Native module resolution, not an inconsistency introduced by oversight.
 
-### 10.35 Known Gaps (Renumbered; Extended for Development Sprint 006)
+### 10.36 Authentication & Session Foundation Implementation (DT-013)
 
-DT-006 implements only the in-memory slice needed for DT-004/DT-005 (no Firestore-backed repository, no synchronization metadata); DT-007/DT-008 are implemented as in-memory/fake adapters only, with no real persistence or network behavior; no retry scheduling or backoff policy exists yet; DT-005's "stop" and "pending" outcomes remain unimplemented pending Finding F-01 resolution; `QueuedWorkEventRecord.decision`'s `null` state still has no integration-level test coverage (Section 10.18). DT-008 itself is implemented and tested but not yet reviewed/approved (Chapter 00 Section 10.6). A mobile UI layer now exists (DT-012, Sections 10.29–10.34) but: no simulator/device launch verification has been performed in any environment this work has run in (Chapter 00 Section 10.7); the on-screen "Synchronize" control cannot trigger `retryable_failure`/`conflict`, only `success` (Section 10.32); no automated component test exists for `apps/mobile` (Section 10.33); and no authentication, real NFC hardware, or navigation beyond a single screen exists, all by explicit Sprint 006 scope boundary. Development Sprint 005's composition-root/`ScanResultPresenter` narrative has not yet been synchronized into this chapter (Chapter 00 Section 10.8) — DT-011's row in Section 10.2's status table is the only place that work is currently reflected here. These gaps are carried over largely unchanged from `EP-007_Development_Tasks.md` and the Sprint 002/003/004/006 plans; this chapter does not attempt to resolve them.
+Development Sprint 007 implements the first piece of TS-001's Security Requirements ("user must be authenticated") that has ever had code behind it. Its job is exactly as narrow as every prior infrastructure-adjacent component: authenticate a credential and produce (or reject) a `CallerContext` — never decide anything about assignments, WorkEvents, or business outcomes. `packages/core/src/application/SessionService.ts`:
+
+```ts
+export class SessionService {
+  constructor(private readonly authenticationGateway: AuthenticationGateway) {}
+
+  signIn(credentials: Credentials): AuthenticationResult {
+    return this.authenticationGateway.authenticate(credentials);
+  }
+}
+
+export function toCallerContext(result: AuthenticationResult): CallerContext {
+  if (result.status === 'authenticated') {
+    return authenticatedCaller(result.userId, result.organizationId);
+  }
+  return UNAUTHENTICATED_CALLER;
+}
+```
+
+No real managed authentication provider is called here — `AuthenticationGateway` (Section 10.38) is implemented only as a fake this sprint, deliberately, per ADR-0007 (the *category* "managed authentication provider" is Approved; the *specific* provider is a Human Architect decision not yet made, exactly as ADR-0007 deferred the specific synchronization/persistence technology before DT-007/DT-008 built fakes against approved ports).
+
+**Scope actually built, per explicit Human Architect instruction narrowing the Development Sprint 007 Plan's Section 6:** only `AuthenticationGateway`, `FakeAuthenticationGateway`, `SessionService`, and `AuthenticationResult`, all inside `packages/core`. The plan's mobile `LoginScreen`, `AppNavigator` extension, and the composition root's substitution of a real session for its hard-coded demo caller were **not built this session** (Chapter 00 Section 10.9). This section documents what exists, not the full DT-013 Acceptance Criteria.
+
+### 10.37 Authentication Responsibilities and Boundaries
+
+`CallerContext` (`packages/core/src/domain/CallerContext.ts`, Development Sprint 001) is unchanged: `SessionService` produces values through its existing, exported `authenticatedCaller()`/`UNAUTHENTICATED_CALLER` helpers, introducing no new identity type. `AssignmentValidator` (`packages/core/src/business/AssignmentValidator.ts`, DT-003) is unchanged and untouched by this sprint — its existing `caller.status !== 'authenticated'` check, returning `{ status: 'rejected', reason: 'employee_not_authenticated' }`, is exercised by the new `SessionDerivedCallerPipeline.test.ts` (Section 10.39), not modified by it. This preserves the exact responsibility boundary Section 10.1 established for the queue and Section 10.20 established for synchronization: a new infrastructure-adjacent capability was added without widening who is allowed to interpret business meaning.
+
+### 10.38 Authentication Interfaces
+
+`packages/core/src/ports/AuthenticationGateway.ts` defines the seam representing "the eventual managed authentication provider," with exactly the shape DT-013's narrowed Acceptance Criteria require and nothing more:
+
+```ts
+export interface Credentials {
+  readonly signInCode: string;
+}
+
+export interface AuthenticationGateway {
+  authenticate(credentials: Credentials): AuthenticationResult;
+}
+```
+
+`Credentials` is deliberately a single opaque `signInCode`, not a username/password pair — this sprint builds no password flow, no registration, no credential management. `AuthenticationResult` (`packages/core/src/application/AuthenticationResult.ts`) is a two-way explicit result — `{ status: 'authenticated'; userId; organizationId } | { status: 'rejected'; reason: 'invalid_credentials' }` — following the same typed-outcome pattern as `BusinessEngineDecision`, `EnqueueResult`, and `SynchronizationResult`. `FakeAuthenticationGateway` (`infrastructure/adapters/`) implements the port against a small, clearly-labeled, constructor-overridable set of in-memory demo accounts (`DEFAULT_DEMO_ACCOUNT`: `signInCode: 'demo-employee-code'` → the same `'demo-employee'`/`'demo-org'` identity `buildScanDemoPipeline` already uses) — mirroring `FakeSynchronizationGateway`'s role as a configurable double, not a placeholder built by omission.
+
+### 10.39 Testing Strategy for Authentication
+
+`FakeAuthenticationGateway.test.ts` tests the double's configurability (successful sign-in, invalid-credentials rejection) only. `SessionService.test.ts` covers both `AuthenticationResult` branches plus a dedicated boundary-preserving assertion that `SessionService` "does not itself decide anything beyond what the gateway returned," mirroring `SynchronizationService.test.ts`'s equivalent test (Section 10.26). `SessionDerivedCallerPipeline.test.ts` is the sprint's most significant test: it proves a `CallerContext` produced via `SessionService`/`FakeAuthenticationGateway` reaches identical `AssignmentValidator` outcomes — both the accepted path and the existing `employee_not_authenticated` rejection — as the pre-existing hard-coded `authenticatedCaller(...)` fixture, without any change to `AssignmentValidator` itself. All 94 `packages/core` tests pass (81 pre-existing plus 13 new: 6 in `SessionService.test.ts`, 5 in `FakeAuthenticationGateway.test.ts`, 2 in `SessionDerivedCallerPipeline.test.ts`); `npm run typecheck` is clean for both `packages/core` and `apps/mobile`.
+
+### 10.40 Common Implementation Pitfalls (Authentication)
+
+- Letting `SessionService` or `AuthenticationGateway` branch on organization/assignment/WorkEvent business meaning — would reintroduce business interpretation into an infrastructure-adjacent seam; both only ever authenticate-or-reject a credential.
+- Introducing a new identity/`CallerContext`-like type for authenticated sessions instead of reusing the existing one — would create two identity shapes for `AssignmentValidator` and downstream code to reconcile; `toCallerContext()` reuses `authenticatedCaller()`/`UNAUTHENTICATED_CALLER` unchanged.
+- Modifying `AssignmentValidator`'s existing authentication check "since we're building auth now" — the whole value of Sprint 001's `CallerContext` seam is that it did not need to change; `SessionDerivedCallerPipeline.test.ts` exists specifically to prove this.
+- Building a real managed-authentication-provider integration (e.g. Firebase Auth) this sprint — explicitly out of scope; the specific provider remains a Human Architect decision not yet made, and `FakeAuthenticationGateway` is the only implementation this sprint, by design.
+- Treating DT-013 as fully Completed because its `packages/core` portion is reviewed and approved — its Acceptance Criteria also require a mobile `LoginScreen` and composition-root wiring, neither of which exists yet (Section 10.36); this is tracked as a separate, proposed follow-up task (DT-014), not silently folded into this sprint's Completed status.
+
+### 10.41 Known Gaps (Renumbered; Extended for Development Sprint 007)
+
+DT-006 implements only the in-memory slice needed for DT-004/DT-005 (no Firestore-backed repository, no synchronization metadata); DT-007/DT-008 are implemented as in-memory/fake adapters only, with no real persistence or network behavior; no retry scheduling or backoff policy exists yet; DT-005's "stop" and "pending" outcomes remain unimplemented pending Finding F-01 resolution; `QueuedWorkEventRecord.decision`'s `null` state still has no integration-level test coverage (Section 10.18). DT-008 itself is implemented and tested but not yet reviewed/approved (Chapter 00 Section 10.6). A mobile UI layer exists (DT-012, Sections 10.29–10.34): no simulator/device launch verification has ever been performed in any environment this work has run in (Chapter 00 Section 10.7, historical); the on-screen "Synchronize" control cannot trigger `retryable_failure`/`conflict`, only `success` (Section 10.32); no automated component test exists for `apps/mobile` (Section 10.33). An authentication foundation exists at the `packages/core` level only (DT-013, Sections 10.36–10.40): no real managed authentication provider is integrated (by design, pending a Human Architect technology decision); no mobile `LoginScreen` exists, so a user still cannot actually sign in through `apps/mobile` today; the scan composition root (`runScan.ts`) still constructs its hard-coded demo `CallerContext` rather than accepting a session-derived one; no role/permission enforcement beyond the binary authenticated/unauthenticated check exists (`Role_Model.md`'s permission matrix remains entirely unimplemented). Development Sprint 005's composition-root/`ScanResultPresenter` narrative has still not been synchronized into this chapter (Chapter 00 Section 10.8) — DT-011's row in Section 10.2's status table is the only place that work is currently reflected here. These gaps are carried over largely unchanged from `EP-007_Development_Tasks.md` and the Sprint 002/003/004/006/007 plans; this chapter does not attempt to resolve them.

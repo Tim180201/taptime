@@ -53,6 +53,7 @@ Full architecture decisions are documented as ADRs under `ADO/01_Architecture/AD
 | DEV-SPRINT-004 | Development Sprint 004 (DT-008 implementation: Synchronization Service) — implemented and committed (`e19de60`), typecheck clean, 53 tests pass; no Review Agent verification or Human Architect approval recorded yet | Implemented — Pending Review | 2026-07-05 | `ADO/02_Development/Development_Sprint_004_Plan.md` |
 | DEV-SPRINT-005 | Development Sprint 005 (DT-011 implementation: Real Scan Composition Root & Result Presentation) — implemented and committed, typecheck clean, Review Agent verified, Human Architect approved; EP-008 narrative synchronization for this sprint remains outstanding (carried forward, see EP-008 Ch00 Section 10.8) | Completed | 2026-07-06 | `ADO/02_Development/Development_Sprint_005_Plan.md` |
 | DEV-SPRINT-006 | Development Sprint 006 (DT-012 implementation: Mobile Application Foundation, `apps/mobile`) — implemented and committed (`7fbc96e`, `43a628e`), `apps/mobile` and `packages/core` typecheck clean, all 81 `packages/core` tests pass, Review Agent verified, Human Architect approved; no simulator/device launch verification was performed during implementation, superseded for governance purposes by the recorded review | Completed | 2026-07-06 | `ADO/02_Development/Development_Sprint_006_Plan.md` |
+| DEV-SPRINT-007 | Development Sprint 007 (DT-013 implementation: Authentication & Session Foundation) — implemented and committed (`ebce0c0`), `packages/core` typecheck clean, all 94 tests pass, Review Agent verified, Human Architect approved, **for a Human-Architect-narrowed scope**: `AuthenticationGateway`, `FakeAuthenticationGateway`, `SessionService`, `AuthenticationResult` only; the plan's mobile `LoginScreen`/`AppNavigator`/composition-root wiring was explicitly not built this session and remains open, proposed as follow-up DT-014 (not yet created or approved) | Completed | 2026-07-06 | `ADO/02_Development/Development_Sprint_007_Plan.md` |
 
 ## Decision Rule
 
@@ -104,11 +105,24 @@ Development Sprint 006 completed: DT-012 (Mobile Application Foundation) impleme
   approved (2026-07-06); the previously-recorded lack of simulator/device launch verification and
   the Synchronize control's `success`-only outcome remain accurate implementation notes but no
   longer block Completed status, per the recorded review.
+Development Sprint 007 completed for a **Human-Architect-narrowed scope**: DT-013
+  (`AuthenticationGateway` port, `FakeAuthenticationGateway`, `SessionService`,
+  `AuthenticationResult`) implemented in `packages/core` (`ebce0c0`) as a fake/local
+  authentication foundation only, per ADR-0007's deferred-technology treatment (no real managed
+  provider chosen or attempted); typecheck clean, all 94 `packages/core` tests pass, including a
+  dedicated test proving a `SessionService`-derived `CallerContext` reaches identical
+  `AssignmentValidator` outcomes to the pre-existing hard-coded caller fixture. Review Agent
+  verified, Human Architect approved (2026-07-06) **for this narrowed scope only** — the plan's
+  mobile `LoginScreen`, `AppNavigator` extension, and composition-root wiring were explicitly
+  excluded from this session's implementation and this review, and remain open, proposed as
+  follow-up DT-014 (not yet created or approved).
 DT-004/DT-005's remaining "stop"/"pending" outcomes remain gated on Finding F-01
   (duplicate-scan/toggle mechanism, still undefined).
 DEVELOPMENT SPRINT 004 REMAINS AWAITING REVIEW AGENT VERIFICATION AND HUMAN ARCHITECT APPROVAL.
-  DEVELOPMENT SPRINTS 005 AND 006 ARE NOW CLOSED (COMPLETED). DEVELOPMENT SPRINT 007 PLANNING MAY
-  PROCEED ONLY ON EXPLICIT TECHNICAL LEAD / HUMAN ARCHITECT AUTHORIZATION.
+  DEVELOPMENT SPRINTS 005, 006 AND 007 (NARROWED SCOPE) ARE NOW CLOSED (COMPLETED). DT-013's
+  REMAINING MOBILE-INTEGRATION ACCEPTANCE CRITERIA ARE NOT YET SATISFIED AND AWAIT A FOLLOW-UP
+  TASK. DEVELOPMENT SPRINT 008 PLANNING MAY PROCEED ONLY ON EXPLICIT TECHNICAL LEAD / HUMAN
+  ARCHITECT AUTHORIZATION.
 ```
 
 AVR-001 records validation status for engineering artifacts.
