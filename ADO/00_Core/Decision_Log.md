@@ -51,6 +51,8 @@ Full architecture decisions are documented as ADRs under `ADO/01_Architecture/AD
 | DEV-SPRINT-002 | Development Sprint 002 Plan (DT-004/DT-005 partial/DT-006 slice implementation plan) | Planned | 2026-07-03 | `ADO/02_Development/Development_Sprint_002_Plan.md` |
 | DEV-SPRINT-003 | Development Sprint 003 (DT-007 implementation: Offline Queue) — Review Agent verified (one mechanical finding, corrected), Human Architect approved | Completed | 2026-07-05 | `ADO/02_Development/Development_Sprint_003_Plan.md` |
 | DEV-SPRINT-004 | Development Sprint 004 (DT-008 implementation: Synchronization Service) — implemented and committed (`e19de60`), typecheck clean, 53 tests pass; no Review Agent verification or Human Architect approval recorded yet | Implemented — Pending Review | 2026-07-05 | `ADO/02_Development/Development_Sprint_004_Plan.md` |
+| DEV-SPRINT-005 | Development Sprint 005 (DT-011 implementation: Real Scan Composition Root & Result Presentation) — implemented and committed, typecheck clean; no Review Agent verification or Human Architect approval recorded yet; EP-008 narrative synchronization for this sprint remains outstanding (carried forward, see EP-008 Ch00 Section 10.8) | Implemented — Pending Review | 2026-07-05 | `ADO/02_Development/Development_Sprint_005_Plan.md` |
+| DEV-SPRINT-006 | Development Sprint 006 (DT-012 implementation: Mobile Application Foundation, `apps/mobile`) — implemented and committed (`7fbc96e`, `43a628e`), `apps/mobile` and `packages/core` typecheck clean, all 81 `packages/core` tests pass; no simulator/device launch verification performed in any environment this work has run in; no Review Agent verification or Human Architect approval recorded yet | Implemented — Pending Review | 2026-07-06 | `ADO/02_Development/Development_Sprint_006_Plan.md` |
 
 ## Decision Rule
 
@@ -63,9 +65,11 @@ EP-007 established the initial Product Architecture Foundation for TapTim.e and 
 Repository Status:
 
 ```text
-EP-008 Chapters 00-03 synchronized with implemented reality through Development Sprint 003
-  (documents implemented reality, not planned implementation; see EP-008 Ch00 Sections 10.4-10.5
-  for two open governance notes carried below).
+EP-008 Chapters 00-03 synchronized with implemented reality through Development Sprint 004 in full
+  narrative, plus Development Sprint 006's Mobile Foundation (Development Sprint 005's
+  composition-root/ScanResultPresenter narrative is a carried-forward gap, not yet synchronized;
+  see EP-008 Ch00 Section 10.8). See EP-008 Ch00 Sections 10.4-10.8 for the open governance notes
+  carried below.
 Repository Health Sprint 001, Repository Maintenance Sprint 002 and Repository Freeze Sprint completed.
 Development Sprint 001 completed: DT-001 (NfcScanAdapter), DT-002 (AssignmentResolver) and
   DT-003 (AssignmentValidator) implemented in `packages/core`, Review Agent verified, Human
@@ -85,10 +89,23 @@ Development Sprint 004 implemented: DT-008 (Synchronization Service) implemented
   backend/database, deferred per ADR-0006/ADR-0007); typecheck clean, 53 tests pass. No Review
   Agent verification or Human Architect approval recorded yet — repository is prepared for an
   independent Review Agent review, not yet closed out (EP-008 Ch00 Section 10.6).
+Development Sprint 005 implemented: DT-011 (Real Scan Composition Root & `ScanResultPresenter`)
+  implemented in `packages/core`, wiring DT-001-DT-008 production classes into one runnable
+  composition (`buildScanDemoPipeline`) driven by real, non-hard-coded CLI input; no physical NFC
+  hardware attempted (none exists), a scope correction accepted at planning time. No Review Agent
+  verification or Human Architect approval recorded yet.
+Development Sprint 006 implemented: DT-012 (Mobile Application Foundation) implemented as
+  `apps/mobile` (`7fbc96e`, `43a628e`), an Expo/React Native app depending on `@taptime/core` and
+  calling the existing DT-011 composition root unmodified from a placeholder (text input + button)
+  scan trigger; no persistence, network, or auth code added; `apps/mobile` and `packages/core`
+  typecheck clean, all 81 `packages/core` tests pass. No simulator/device launch verification
+  performed in any environment this work has run in; the on-screen Synchronize control can only
+  trigger the `success` outcome, unlike the CLI. No Review Agent verification or Human Architect
+  approval recorded yet.
 DT-004/DT-005's remaining "stop"/"pending" outcomes remain gated on Finding F-01
   (duplicate-scan/toggle mechanism, still undefined).
-DEVELOPMENT SPRINT 004 AWAITING REVIEW AGENT VERIFICATION AND HUMAN ARCHITECT APPROVAL BEFORE
-  DEVELOPMENT SPRINT 005 PLANNING BEGINS.
+DEVELOPMENT SPRINTS 004, 005 AND 006 ARE ALL AWAITING REVIEW AGENT VERIFICATION AND HUMAN ARCHITECT
+  APPROVAL. DEVELOPMENT SPRINT 007 SHALL NOT BEGIN UNTIL THIS CLOSURE IS REVIEWED.
 ```
 
 AVR-001 records validation status for engineering artifacts.

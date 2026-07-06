@@ -556,7 +556,7 @@ EP-008 is successful only when it enables developers to implement TapTim.e corre
 
 ### 10.1 Verification Basis
 
-This section was added as part of an EP-008 Synchronization Update and has since been extended twice, most recently to cover Development Sprint 004. It reflects repository evidence verified on 2026-07-05 against `main` at commit `e19de60` ("feat(DT-008): implement synchronization service; docs: close DT-007/Sprint 003 governance"), preceded by `03c04bd`/`90fdea8` (Development Sprint 003), `78be5c9` (Development Sprint 002) and `159d7f9` (Development Sprint 001). It does not restate Development Task detail; it points to the artifacts that own that detail.
+This section was added as part of an EP-008 Synchronization Update and has since been extended repeatedly, most recently to cover Development Sprint 006. It reflects repository evidence verified on 2026-07-06 against `main` at commit `43a628e` ("chore(mobile): add Expo web dependencies"), preceded by `7fbc96e` (Development Sprint 006: `apps/mobile` scaffold, `packages/core` export extension, `runScan.ts` CLI-guard hardening), and, further back, `e19de60` (Development Sprint 004), `03c04bd`/`90fdea8` (Development Sprint 003), `78be5c9` (Development Sprint 002) and `159d7f9` (Development Sprint 001). It does not restate Development Task detail; it points to the artifacts that own that detail.
 
 ### 10.2 Current Implementation Status
 
@@ -571,6 +571,8 @@ This section was added as part of an EP-008 Synchronization Update and has since
 | DT-007 Offline Queue | Development Sprint 003 | Completed — Review Agent verified (one mechanical finding, corrected), Human Architect approved |
 | DT-008 Synchronization Service | Development Sprint 004 | Implemented and committed (`e19de60`), typecheck clean, 53 tests pass; no Review Agent verification or Human Architect approval recorded yet — see Section 10.6 |
 | DT-009–DT-010 | Not started | No implementation notes recorded |
+| DT-011 Real Scan Composition Root & Result Presentation | Development Sprint 005 | Implemented — Pending Review (2026-07-05); no Review Agent verification or Human Architect approval recorded yet — narrative not yet synchronized into this EP-008 chapter set, see Section 10.8 |
+| DT-012 Mobile Application Foundation | Development Sprint 006 | Implemented — Pending Review (2026-07-05); no Review Agent verification or Human Architect approval recorded yet — see Section 10.7 |
 
 The authoritative record for this table is `ADO/02_Development/EP-007_Development_Tasks.md`. This chapter does not duplicate its Acceptance Criteria; it only orients the developer to what "implemented reality" currently covers.
 
@@ -589,3 +591,11 @@ Chapters 00–03 now include, in addition to implementation philosophy and archi
 ### 10.6 Third Open Governance Note (Development Sprint 004, Not Yet Resolved)
 
 Unlike Development Sprint 003, Development Sprint 004 has **not** been asserted as reviewed or approved at the time of this EP-008 update. Repository evidence (verified by direct search) shows: DT-008 in `EP-007_Development_Tasks.md` carries a "Status: Implemented and committed... pending Review Agent verification and Human Architect approval" line — not "Completed" — and the Decision Log's `DEV-SPRINT-004` row is marked "Implemented — Pending Review", not "Completed". This is deliberate: the task that produced this EP-008 update explicitly asked that the repository be prepared for an independent Review Agent review, not that the review be performed or assumed. This EP-008 update therefore documents DT-008's implementation as repository reality (it exists, typechecks, and is tested) without asserting a review/approval status that repository evidence does not yet support.
+
+### 10.7 Fourth Open Governance Note (Development Sprint 006, Not Yet Resolved)
+
+The same discipline applies to Development Sprint 006. DT-012 in `EP-007_Development_Tasks.md` carries "Status: Implemented — Pending Review (2026-07-05)", and its own Implementation Notes record an explicit environment constraint: no iOS/Android simulator or device was available in the environment that built it, so on-device/simulator launch and interaction could not be manually verified there. This Sprint 006 closure re-verified, in this session, that `apps/mobile` and `packages/core` both typecheck cleanly and that the `packages/core` test suite (81 tests) passes; it did not perform simulator/device verification either, and does not assert one occurred. `DEV-SPRINT-006` in the Decision Log is recorded as "Implemented — Pending Review", not "Completed", consistent with this evidence.
+
+### 10.8 Fifth Open Governance Note (Development Sprint 005 Narrative Gap, Carried Forward)
+
+Development Sprint 005 (DT-011: composition root and `ScanResultPresenter`) was implemented and is reflected in Section 10.2's status table, but its implementation narrative was never synchronized into Chapters 00–03's "Implemented Reality" sections — the last full narrative synchronization before this update was Development Sprint 004 (Sections 10.1–10.6 above; Chapter 03 Sections 10.1–10.28). This Sprint 006 closure was explicitly scoped to synchronizing the Mobile Foundation only (Development Sprint 006 Closure task); it does not retroactively add Sprint 005's composition-root narrative. This is noted here as a pre-existing, carried-forward finding for a future EP-008 update, not silently resolved and not silently ignored.

@@ -500,3 +500,17 @@ Chapter 03, Section 7.2 suggests `domain/ application/ business/ infrastructure/
 ### 10.3 Traceability Chain, Worked Example
 
 Applying Section 3.3's traceability chain to a concrete file: `packages/core/src/business/BusinessEngine.ts` traces to Development Task DT-005 (`EP-007_Development_Tasks.md`), which traces to Development Sprint 002 Plan Section 8/12 (`Development_Sprint_002_Plan.md`), which traces to TS-001's Business Engine component responsibility and FB-001's Decision Logic 4 (Derive TimeEntry Outcome), which trace to TTAP-001's Business Engine architecture responsibility and Decision Log record `DEV-SPRINT-002`. Applying the same chain to `packages/core/src/ports/OfflineQueue.ts`: it traces to DT-007, to Development Sprint 003 Plan Sections 6/10/16, to TS-001's `OfflineQueue` component responsibility and TTAP-001's Runtime Architecture flow, and to FB-001's Business Rule "Offline operation shall preserve the WorkEvent locally" — now with Decision Log record `DEV-SPRINT-003` (Completed). Applying the same chain to `packages/core/src/ports/SynchronizationGateway.ts`: it traces to DT-008, to Development Sprint 004 Plan Sections 6/10/16 (`Development_Sprint_004_Plan.md`), to TS-001's `SynchronizationService` component responsibility and TTAP-001's Runtime Architecture flow, and to FB-001's Edge Case "Synchronization conflict after offline capture" — with Decision Log record `DEV-SPRINT-004`, currently "Implemented — Pending Review" rather than "Completed" (see Chapter 00 Section 10.6).
+
+### 10.4 Workspace Structure Extended With `apps/mobile` (Development Sprint 006)
+
+Development Sprint 006 (DT-012) added the repository's first `apps/*` workspace package, verified by direct inspection:
+
+```text
+apps/mobile/
+  App.tsx, index.ts, app.json, package.json, tsconfig.json
+  src/
+    navigation/AppNavigator.tsx
+    screens/ScanScreen.tsx
+```
+
+The root workspaces glob already included `apps/*` before Sprint 006 (no root `package.json` change was needed to add it). `apps/mobile`'s `package.json` depends on `@taptime/core` via the workspace protocol (`"@taptime/core": "*"`) and on `expo`, `react`, `react-native`, `react-native-web`/`react-dom` (the last two added in a follow-up commit, `43a628e`, to support `expo start --web`). Its own `tsconfig.json` extends `expo/tsconfig.base`, not this repository's root `tsconfig.base.json` — documented as a deliberate deviation (Chapter 03 Section 10.34), since Expo's base config is required for JSX/React Native module resolution that the root Node-oriented config does not provide. No persistence, network, or auth code exists inside `apps/mobile` — verified by the directory listing above containing no `infrastructure/`, `ports/`, or repository/gateway files of its own.
