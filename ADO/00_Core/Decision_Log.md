@@ -54,6 +54,7 @@ Full architecture decisions are documented as ADRs under `ADO/01_Architecture/AD
 | DEV-SPRINT-005 | Development Sprint 005 (DT-011 implementation: Real Scan Composition Root & Result Presentation) — implemented and committed, typecheck clean, Review Agent verified, Human Architect approved; EP-008 narrative synchronization for this sprint remains outstanding (carried forward, see EP-008 Ch00 Section 10.8) | Completed | 2026-07-06 | `ADO/02_Development/Development_Sprint_005_Plan.md` |
 | DEV-SPRINT-006 | Development Sprint 006 (DT-012 implementation: Mobile Application Foundation, `apps/mobile`) — implemented and committed (`7fbc96e`, `43a628e`), `apps/mobile` and `packages/core` typecheck clean, all 81 `packages/core` tests pass, Review Agent verified, Human Architect approved; no simulator/device launch verification was performed during implementation, superseded for governance purposes by the recorded review | Completed | 2026-07-06 | `ADO/02_Development/Development_Sprint_006_Plan.md` |
 | DEV-SPRINT-007 | Development Sprint 007 (DT-013 implementation: Authentication & Session Foundation) — implemented and committed (`ebce0c0`), `packages/core` typecheck clean, all 94 tests pass, Review Agent verified, Human Architect approved, **for a Human-Architect-narrowed scope**: `AuthenticationGateway`, `FakeAuthenticationGateway`, `SessionService`, `AuthenticationResult` only; the plan's mobile `LoginScreen`/`AppNavigator`/composition-root wiring was explicitly not built this session and remains open, proposed as follow-up DT-014 (not yet created or approved) | Completed | 2026-07-06 | `ADO/02_Development/Development_Sprint_007_Plan.md` |
+| DEV-SPRINT-008 | Development Sprint 008 (DT-014 implementation: Mobile Session Integration — `LoginScreen`, `AppNavigator` Login → Scan flow, `runScan.ts` external-`CallerContext` support) — implemented and committed (`6898a46`), `apps/mobile` and `packages/core` typecheck clean, all 98 `packages/core` tests pass, Review Agent verified, Human Architect approved; completes DT-013's full Acceptance Criteria across both tasks; no simulator/device launch verification was performed during implementation, superseded for governance purposes by the recorded review | Completed | 2026-07-06 | `ADO/02_Development/Development_Sprint_008_Plan.md` |
 
 ## Decision Rule
 
@@ -116,13 +117,23 @@ Development Sprint 007 completed for a **Human-Architect-narrowed scope**: DT-01
   mobile `LoginScreen`, `AppNavigator` extension, and composition-root wiring were explicitly
   excluded from this session's implementation and this review, and remain open, proposed as
   follow-up DT-014 (not yet created or approved).
+Development Sprint 008 completed: DT-014 (Mobile Session Integration) implemented as a
+  `LoginScreen` in `apps/mobile` (calling the existing `SessionService`/`FakeAuthenticationGateway`
+  unmodified), an `AppNavigator` Login → Scan flow, and a `runScan.ts` extension accepting an
+  optional externally-produced `CallerContext` (default preserved for the existing CLI); commit
+  `6898a46`. `apps/mobile` and `packages/core` typecheck clean, all 98 `packages/core` tests pass
+  (81 pre-existing + 13 Sprint 007 + 4 new). Review Agent verified, Human Architect approved
+  (2026-07-06). This **completes DT-013's full Acceptance Criteria across both Development Tasks**
+  — a real user can now authenticate through `apps/mobile` and have that identity reach the scan
+  composition root and `AssignmentValidator` unmodified. As with Sprint 006/007, no
+  simulator/device launch verification was performed during implementation; this remains an
+  accurate implementation note but no longer blocks Completed status, per the recorded review.
 DT-004/DT-005's remaining "stop"/"pending" outcomes remain gated on Finding F-01
   (duplicate-scan/toggle mechanism, still undefined).
 DEVELOPMENT SPRINT 004 REMAINS AWAITING REVIEW AGENT VERIFICATION AND HUMAN ARCHITECT APPROVAL.
-  DEVELOPMENT SPRINTS 005, 006 AND 007 (NARROWED SCOPE) ARE NOW CLOSED (COMPLETED). DT-013's
-  REMAINING MOBILE-INTEGRATION ACCEPTANCE CRITERIA ARE NOT YET SATISFIED AND AWAIT A FOLLOW-UP
-  TASK. DEVELOPMENT SPRINT 008 PLANNING MAY PROCEED ONLY ON EXPLICIT TECHNICAL LEAD / HUMAN
-  ARCHITECT AUTHORIZATION.
+  DEVELOPMENT SPRINTS 005, 006, 007 AND 008 ARE NOW CLOSED (COMPLETED). DT-013's MOBILE-INTEGRATION
+  ACCEPTANCE CRITERIA ARE NOW SATISFIED VIA DT-014. DEVELOPMENT SPRINT 009 PLANNING MAY PROCEED
+  ONLY ON EXPLICIT TECHNICAL LEAD / HUMAN ARCHITECT AUTHORIZATION.
 ```
 
 AVR-001 records validation status for engineering artifacts.

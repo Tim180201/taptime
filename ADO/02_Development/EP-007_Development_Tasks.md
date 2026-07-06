@@ -282,6 +282,8 @@ Implementation: `packages/core/src/application/AuthenticationResult.ts`, `Sessio
 
 DT-013's remaining Acceptance Criteria above ("`apps/mobile` gains a `LoginScreen`...", "The scan composition root uses the signed-in session's `CallerContext`...") are now satisfied — see DT-014 below, which completes the mobile-integration half of this task without modifying anything implemented here in Sprint 007. `AuthenticationGateway`, `FakeAuthenticationGateway`, `SessionService`, `AuthenticationResult`, `authenticatedCaller()`/`UNAUTHENTICATED_CALLER` and `AssignmentValidator`'s `employee_not_authenticated` check are all unchanged by Sprint 008.
 
+**Development Sprint 008 Governance Closure note:** DT-013 itself was already "Completed — Review Agent verified, Human Architect approved" as of the Development Sprint 007 Governance Closure, for its narrowed (`packages/core`-only) scope; that status is unchanged by this closure. With DT-014 (below) now also Completed, DT-013's full original Acceptance Criteria — across both Development Tasks together — are satisfied and reviewed.
+
 ## DT-014 – Mobile Session Integration
 
 Objective: Complete the mobile-facing half of DT-013 — a `LoginScreen` in `apps/mobile` that calls the existing `SessionService`, and a composition root that accepts the resulting `CallerContext` instead of a hard-coded demo caller — so a real person can authenticate and enter the app.
@@ -297,7 +299,7 @@ Acceptance Criteria:
 
 ### Development Sprint 008 Implementation Notes
 
-Status: Implemented — Pending Review (2026-07-06). Per DTP-001's Completion Rule ("Implementation alone never completes a Development Task"), this is not marked Completed until Review Agent verification and Human Architect approval are recorded.
+Status: Completed — Review Agent verified, Human Architect approved (2026-07-06). Per Technical Lead authorization following independent Review Agent approval of Development Sprint 008, this task's status is updated from "Implemented — Pending Review" to "Completed" (Governance Closure, `ADO/02_Development/Development_Sprint_008_Closure.md`). This closes DT-013's full Acceptance Criteria across both Development Tasks (Section above).
 
 See `ADO/02_Development/Development_Sprint_008_Plan.md` for the full plan. This task closes exactly what `Development_Sprint_007_Closure.md` deferred: the mobile-facing half of DT-013.
 
