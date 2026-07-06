@@ -215,7 +215,7 @@ Acceptance Criteria:
 
 ### Development Sprint 005 Implementation Notes
 
-Status: Implemented — Pending Review (2026-07-05). Per DTP-001's Completion Rule ("Implementation alone never completes a Development Task"), this is not marked Completed until Review Agent verification and Human Architect approval are recorded.
+Status: Completed — Review Agent verified, Human Architect approved (2026-07-06). Per Technical Lead authorization following independent Review Agent approval of Development Sprint 005, this task's status is updated from "Implemented — Pending Review" to "Completed" (Governance Closure, `ADO/02_Development/Development_Sprint_005_Closure.md`).
 
 See `ADO/02_Development/Development_Sprint_005_Plan.md` for the full plan, including why this task does not attempt physical NFC hardware (Section 3: no mobile app or native module exists yet; that remains future Mobile Foundation work gated on an ADR-0007 mobile-validation decision). DT-011 was approved by the Human Architect as one combined task (composition root + `ScanResultPresenter`), not split into two Development Tasks.
 
@@ -241,7 +241,7 @@ Acceptance Criteria:
 
 ### Development Sprint 006 Implementation Notes
 
-Status: Implemented — Pending Review (2026-07-05). Per DTP-001's Completion Rule ("Implementation alone never completes a Development Task"), this is not marked Completed until Review Agent verification and Human Architect approval are recorded.
+Status: Completed — Review Agent verified, Human Architect approved (2026-07-06). Per Technical Lead authorization following independent Review Agent approval of Development Sprint 006, this task's status is updated from "Implemented — Pending Review" to "Completed" (Governance Closure, `ADO/02_Development/Development_Sprint_006_Closure.md`). The previously documented environment constraint (no simulator/device available in this session's environment) is unchanged as a historical implementation note; it is superseded for governance purposes by the recorded Review Agent verification.
 
 See `ADO/02_Development/Development_Sprint_006_Plan.md` for the full plan, including the self-corrected sprint ordering rationale (Section 3: the React Native/Expo framework choice is already Approved/Validated per ADR-0007; only the backend/auth technology remains deferred, so a Mobile Foundation scaffold has no undecided dependency blocking it).
 
