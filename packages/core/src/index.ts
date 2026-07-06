@@ -28,6 +28,7 @@ export * from './ports/WorkEventRepository';
 export * from './ports/TimeEntryRepository';
 export * from './ports/OfflineQueue';
 export * from './ports/SynchronizationGateway';
+export * from './ports/AuthenticationGateway';
 
 export * from './business/AssignmentResolver';
 export * from './business/AssignmentValidator';
@@ -42,10 +43,13 @@ export * from './application/WorkEventCreationService';
 export * from './application/SynchronizationResult';
 export * from './application/SynchronizationService';
 export * from './application/ScanResultPresenter';
+export * from './application/AuthenticationResult';
+export * from './application/SessionService';
 
 export * from './infrastructure/adapters/FakeNfcScanAdapter';
 export * from './infrastructure/adapters/FakeSynchronizationGateway';
 export * from './infrastructure/adapters/CliNfcScanAdapter';
+export * from './infrastructure/adapters/FakeAuthenticationGateway';
 export * from './infrastructure/repositories/InMemoryNfcTagRepository';
 export * from './infrastructure/repositories/InMemoryNfcAssignmentRepository';
 export * from './infrastructure/repositories/InMemoryCustomerRepository';

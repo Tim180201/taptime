@@ -255,6 +255,29 @@ Implemented: `apps/mobile`, an Expo TypeScript (`blank-typescript` template) pro
 
 Implementation: `apps/mobile/package.json`, `app.json`, `tsconfig.json`, `App.tsx`, `index.ts`, `src/navigation/AppNavigator.tsx`, `src/screens/ScanScreen.tsx`. `packages/core/src/index.ts` (export extension, see DT-011 Sprint 006 notes above). Verification: `npx expo export --platform ios` (bundling proof), `npx tsc --noEmit` (typecheck), manual CLI comparison via `npm run demo:scan`; no automated component test was added (no React Native component-testing framework — e.g. Jest/`@testing-library/react-native` — exists yet in this repository, and `ScanScreen`'s event handlers are thin, direct calls to the composition root with no branching logic of their own to unit-test; documented here as the accepted alternative per the plan's own Section 11 allowance).
 
+## DT-013 – Authentication & Session Foundation
+
+Objective: Establish a `Session`/current-user mechanism — an `AuthenticationGateway` port, a fake/local implementation, a `SessionService`, and a mobile Login screen — that produces a real `CallerContext` for the existing scan composition root, without changing any business decision logic that already depends on `CallerContext`.
+
+Acceptance Criteria:
+
+- `AuthenticationGateway` port and `FakeAuthenticationGateway` exist and are tested in isolation.
+- `SessionService` calls the gateway and returns/produces a `CallerContext` using the existing `authenticatedCaller()`/`UNAUTHENTICATED_CALLER` helpers, unchanged.
+- `apps/mobile` gains a `LoginScreen` that calls `SessionService` and, on success, navigates to `ScanScreen` carrying the resulting `CallerContext`.
+- The scan composition root uses the signed-in session's `CallerContext` instead of the Sprint 005/006 hard-coded demo caller.
+- `AssignmentValidator`'s existing `employee_not_authenticated` behavior is exercised, not modified.
+- No persistence, network, or real managed-auth-provider code is added.
+
+### Development Sprint 007 Implementation Notes
+
+Status: Implemented — Pending Review (2026-07-06), **partial scope by explicit instruction**. Per DTP-001's Completion Rule ("Implementation alone never completes a Development Task"), this is not marked Completed until Review Agent verification and Human Architect approval are recorded.
+
+See `ADO/02_Development/Development_Sprint_007_Plan.md` for the full plan. **Scope actually implemented this session, per explicit Human Architect instruction narrowing the plan's Section 6 scope:** "Build only the AuthenticationGateway, FakeAuthenticationGateway and SessionService." Accordingly, this sprint delivers the `packages/core` authentication foundation only. The plan's remaining Section 6 items — extending `buildScanDemoPipeline`/`runScan.ts` to accept an externally-produced `CallerContext`, `apps/mobile`'s `LoginScreen`, and `AppNavigator`'s Login → Scan extension — were **not built this session** and remain open for a follow-up sprint/session before DT-013's Acceptance Criteria ("`apps/mobile` gains a `LoginScreen`...", "The scan composition root uses the signed-in session's `CallerContext`...") are fully satisfied. This is a deliberate, instructed scope split, not an oversight.
+
+Implemented: `AuthenticationResult` (explicit typed result, mirroring `SynchronizationResult`'s pattern: `authenticated` | `rejected` with `reason: 'invalid_credentials'` — no password flow, no other rejection reason is determinable by a fake/local gateway). `AuthenticationGateway` port (`authenticate(credentials): AuthenticationResult`) with a `Credentials` shape of a single opaque `signInCode` (not a username/password pair, per the explicit "no password flows" instruction). `FakeAuthenticationGateway`, seeded by default with one clearly-labeled demo account (`DEFAULT_DEMO_ACCOUNT`: `signInCode: 'demo-employee-code'` → `userId: 'demo-employee'`, `organizationId: 'demo-org'` — matching `buildScanDemoPipeline`'s existing demo identity naming), and constructor-overridable with additional demo accounts for tests. `SessionService.signIn(credentials)` forwards the gateway's `AuthenticationResult` faithfully (verified by a dedicated test asserting it decides nothing beyond what the gateway returned); a standalone `toCallerContext(result)` function converts an `AuthenticationResult` into the existing, unchanged `CallerContext` shape via `authenticatedCaller()`/`UNAUTHENTICATED_CALLER` — no new identity type introduced. A dedicated pipeline-level test (`SessionDerivedCallerPipeline.test.ts`) proves a `SessionService`-derived `CallerContext` reaches the exact same `AssignmentValidator` outcomes (both accepted and the existing `employee_not_authenticated` rejection) as the hard-coded `authenticatedCaller(...)` fixture — `AssignmentValidator`/`BusinessEngine`/`WorkEventCreationService` are reused completely unmodified. `packages/core/src/index.ts` re-exports the four new public symbols. `runScan.ts`, `apps/mobile`, and all DT-001–DT-012 business logic are untouched.
+
+Implementation: `packages/core/src/application/AuthenticationResult.ts`, `SessionService.ts`, `packages/core/src/ports/AuthenticationGateway.ts`, `packages/core/src/infrastructure/adapters/FakeAuthenticationGateway.ts`. Tests: `packages/core/tests/infrastructure/FakeAuthenticationGateway.test.ts`, `packages/core/tests/application/SessionService.test.ts`, `packages/core/tests/application/SessionDerivedCallerPipeline.test.ts`.
+
 ## Dependencies
 
 - ADR-0007 must exist.
