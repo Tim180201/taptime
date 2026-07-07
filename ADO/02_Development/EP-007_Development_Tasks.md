@@ -137,6 +137,10 @@ Acceptance Criteria:
 
 See `ADO/02_Development/Development_Sprint_002_Plan.md`. Only a minimal in-memory slice is in scope for Sprint 002: persist `WorkEvent`s and answer whether an active `TimeEntry` exists for a given target, sufficient to support DT-004/DT-005. No Firestore-backed implementation and no synchronization metadata (DT-007/DT-008 remain out of scope). Objective and Acceptance Criteria above are unchanged; this sprint satisfies them only for the in-memory slice, not the full repository surface.
 
+### Development Sprint 010 Implementation Notes
+
+See DT-015 below. `WorkEventRepository`/`TimeEntryRepository` now have a second, durable, file-based implementation (`FileWorkEventRepository`/`FileTimeEntryRepository`) alongside the in-memory one above — the in-memory implementation is unchanged and remains the default. "Persistence failures are explicit" remains only trivially satisfied by both implementations (still no I/O failure paths — the file adapters use straightforward synchronous `fs` calls with no error handling beyond what Node itself throws); a real backend/Firestore implementation, still deferred, would need to address this properly.
+
 ## DT-007 – Offline Queue
 
 Objective: Implement offline queue behavior for unsynchronized WorkEvents and related outcomes.
@@ -156,6 +160,10 @@ See `ADO/02_Development/Development_Sprint_003_Plan.md` for the full plan. Imple
 Implementation: `packages/core/src/domain/SyncState.ts`, `QueuedWorkEventRecord.ts`, `domain/events/WorkEventQueuedForSync.ts`, `packages/core/src/ports/OfflineQueue.ts`, `packages/core/src/infrastructure/repositories/InMemoryOfflineQueue.ts`, `packages/core/src/application/WorkEventCreationService.ts` (extended). Tests: `packages/core/tests/infrastructure/InMemoryOfflineQueue.test.ts`, `packages/core/tests/application/WorkEventCreationService.test.ts` (extended), `packages/core/tests/application/NfcScanToTimeEntryPipeline.test.ts` (extended for both decision branches).
 
 **Known Remaining Risk:** `QueuedWorkEventRecord.decision` is typed as `BusinessEngineDecision | null`, but no current code path constructs a record with `decision: null` — that state is exercised only by `InMemoryOfflineQueue.test.ts`'s own fixture, not through the wired `WorkEventCreationService`/pipeline tests. Typecheck and all tests pass today (no functional defect), but this typed state has no integration-level test coverage and should be re-checked when DT-008 adds a second writer of `QueuedWorkEventRecord`.
+
+### Development Sprint 010 Implementation Notes
+
+See DT-015 below. `OfflineQueue` now has a second, durable, file-based implementation (`FileOfflineQueue`) alongside `InMemoryOfflineQueue` above — the in-memory implementation is unchanged and remains the default; its `already_queued` duplicate-enqueue semantics are matched exactly.
 
 ## DT-008 – Synchronization Service
 
@@ -336,6 +344,35 @@ Implemented: `buildScanDemoPipeline`'s `scan()` method now accepts an optional s
 **Verified in this environment (no simulator/device available, consistent with the constraint documented since Sprint 006):** `npx expo export --platform ios` succeeds (639 modules, valid Hermes bytecode bundle) both before and after these changes; `npx tsc --noEmit` (via `apps/mobile`'s own Expo-based `tsconfig.json`) passes with no errors; direct inspection confirms no business/authentication logic was duplicated inside `apps/mobile`. Full manual verification (launching the Expo development client/simulator, signing in via `LoginScreen`, confirming navigation to `ScanScreen`, and confirming a scan reflects the signed-in identity) could not be performed and must be done by the Technical Lead/Human Architect or Review Agent on a real environment before DT-014 is marked Completed.
 
 Implementation: `packages/core/src/cli/runScan.ts` (extended), `apps/mobile/src/screens/LoginScreen.tsx` (new), `apps/mobile/src/navigation/AppNavigator.tsx` (extended), `apps/mobile/src/screens/ScanScreen.tsx` (extended). Tests: `packages/core/tests/cli/runScan.callerOverride.test.ts`.
+
+## DT-015 – Local Persistence Foundation
+
+Objective: Implement durable, file-based adapters for the existing `OfflineQueue`, `WorkEventRepository`, and `TimeEntryRepository` ports, proving queued WorkEvents, TimeEntries, and offline-queue state survive process restart, without introducing any cloud/backend persistence technology or new business logic.
+
+Acceptance Criteria:
+
+- `FileOfflineQueue`, `FileWorkEventRepository`, and `FileTimeEntryRepository` exist, implement their respective ports exactly, and are tested in isolation, including a dedicated test proving data survives a simulated process restart (a fresh adapter instance reading what a previous instance wrote).
+- `buildScanDemoPipeline` can be configured to use the durable adapters instead of its in-memory defaults, with the in-memory defaults unchanged when no durable option is supplied.
+- No new dependency is added to `packages/core/package.json`.
+- No business/application logic (`AssignmentResolver`, `AssignmentValidator`, `BusinessEngine`, `WorkEventFactory`, `SynchronizationService`, `SessionService`) is modified.
+
+### Development Sprint 010 Implementation Notes
+
+Status: Implemented — Pending Review (2026-07-07). Per DTP-001's Completion Rule ("Implementation alone never completes a Development Task"), this is not marked Completed until Review Agent verification and Human Architect approval are recorded.
+
+See `ADO/02_Development/Development_Sprint_010_Plan.md` for the full plan, including why this sprint builds local, file-based persistence only, not cloud/backend technology (ADR-0004/ADR-0007 split local from cloud persistence; only the cloud half remains a deferred Human Architect decision).
+
+**Implemented as specified:** a shared, dependency-free `JsonFileStore` helper (`readJsonArray`/`writeJsonArray`, using Node's built-in synchronous `fs`, matching the existing synchronous port signatures) reused by three new durable adapters — `FileOfflineQueue`, `FileWorkEventRepository`, `FileTimeEntryRepository` — each matching its in-memory counterpart's exact behavioral contract (including `FileOfflineQueue`'s `already_queued` duplicate handling). None of the three existing ports, the three existing in-memory adapters, or any business/application logic (`AssignmentResolver`, `AssignmentValidator`, `BusinessEngine`, `WorkEventFactory`, `SynchronizationService`, `SessionService`) were modified — verified by `git diff` showing zero changes to any of those files. No new dependency was added to `packages/core/package.json`; only Node's built-in `fs`/`path` are used.
+
+**Required deviation from the plan's literal Section 6 wording, discovered and corrected during implementation:** the plan specified extending `buildScanDemoPipeline` with "an optional configuration selecting durable file-based storage (with a configurable directory/file path)" directly. Implementing it exactly that way — with the directory-to-adapter construction (and therefore the `fs`/`path` imports) inside `runScan.ts` itself — broke `apps/mobile`'s Metro bundling entirely (`Unable to resolve module path from .../runScan.ts`), because `packages/core/src/index.ts`'s barrel export (`export * from './cli/runScan'`, present since Sprint 006/DT-012) makes `runScan.ts` part of the static import graph every `@taptime/core` consumer resolves, and Node's `fs`/`path` have no React Native/Hermes equivalent — this is a **hard bundling failure**, not merely a runtime risk like the `process.argv`/`import.meta` guard from Sprint 006. This was caught by re-running the same `npx expo export --platform ios` verification step established in Sprint 006/008, immediately after wiring the storage option, before considering the sprint done — exactly the "prove it before building further" discipline those sprints established.
+
+**Fix:** `buildScanDemoPipeline`'s `ScanDemoStorageOptions` now accepts pre-built port instances (`workEventRepository`, `timeEntryRepository`, `offlineQueue` — all type-only interface references, erased at compile time, so `runScan.ts` itself never imports `fs`/`path`/the File\*-adapter classes) instead of a raw directory string. The actual `fs`/`path`-dependent construction of durable adapter instances from a directory path now lives in a new, Node-only file, `packages/core/src/cli/runScanCli.ts`, which is the new `npm run demo:scan` entry point (`buildDurableStorage(directory)`) and is **not** re-exported from `packages/core/src/index.ts`. `apps/mobile` was not touched and does not need to be — it continues importing `buildScanDemoPipeline` from `@taptime/core`'s existing barrel unchanged, and `npx expo export --platform ios` was re-verified successful (645 modules) after this fix. This preserves DT-015's actual intent (`buildScanDemoPipeline` is configurable for durable storage; the in-memory default is unchanged) while being demonstrably necessary given Metro's inability to resolve Node built-ins — documented here rather than silently worked around.
+
+**Verified:** all three new adapters' unit tests, including dedicated "survives simulated restart" tests (a fresh adapter instance pointed at the same temp directory correctly reads what a prior instance wrote). A composition-level test (`runScan.storageOverride.test.ts`) proves the default (in-memory) and durable-storage paths both work, that state does not leak between two different storage directories, and — the core proof this sprint exists to deliver — that a `TimeEntry` written by one pipeline instance causes a *second*, independently-constructed pipeline instance pointed at the same directory to correctly escalate (not re-start) a second scan of the same target. Manually re-verified via two genuinely separate OS process invocations (`TAPTIME_DEMO_STORAGE_DIR=<dir> npm run demo:scan -- demo-tag-payload success`, run twice): the first process starts a TimeEntry; the second, freshly-started process correctly reads it back from disk and escalates — real, not simulated, cross-process durability. The existing in-memory default (no environment variable) was re-verified unchanged: two separate process runs each independently start a TimeEntry, exactly as before this sprint.
+
+**Explicitly out of scope, as planned, and documented as known limitations rather than built:** no concurrency/locking or atomic-write handling (a straightforward "read whole file, modify, write whole file" approach is used; a crash mid-write is not protected against); no cloud/backend persistence technology; no mobile-native storage library (`expo-sqlite`/`AsyncStorage`) wired into `apps/mobile` — this remains a natural, smaller follow-up task, analogous to the DT-013→DT-014 split.
+
+Implementation: `packages/core/src/infrastructure/persistence/JsonFileStore.ts`, `FileOfflineQueue.ts`, `FileWorkEventRepository.ts`, `FileTimeEntryRepository.ts`, `packages/core/src/cli/runScan.ts` (extended, `ScanDemoStorageOptions` now interface-based), `packages/core/src/cli/runScanCli.ts` (new Node CLI entry point, replaces `runScan.ts` as the `demo:scan` script target). Tests: `packages/core/tests/infrastructure/persistence/JsonFileStore.test.ts`, `FileOfflineQueue.test.ts`, `FileWorkEventRepository.test.ts`, `FileTimeEntryRepository.test.ts`, `packages/core/tests/cli/runScan.storageOverride.test.ts`.
 
 ## Dependencies
 

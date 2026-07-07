@@ -22,6 +22,9 @@ import { WorkEventCreationService } from '../application/WorkEventCreationServic
 import { SynchronizationService } from '../application/SynchronizationService';
 import { ScanResultPresenter } from '../application/ScanResultPresenter';
 import type { ScanPipelineOutcome } from '../application/ScanPipelineOutcome';
+import type { OfflineQueue } from '../ports/OfflineQueue';
+import type { WorkEventRepository } from '../ports/WorkEventRepository';
+import type { TimeEntryRepository } from '../ports/TimeEntryRepository';
 
 // Demo-only seed data (not production seed data): one Organization, one authenticated
 // employee, one Customer, one NfcTag and one active NfcAssignment - sufficient to drive one
@@ -35,11 +38,31 @@ export interface ScanDemoPipeline {
   synchronizePending(outcome?: DemoSyncOutcome): void;
 }
 
+// DT-015: substitutes durable adapter instances for the default in-memory ones. Deliberately
+// typed against the port interfaces only (WorkEventRepository/TimeEntryRepository/
+// OfflineQueue), not a storage-technology-specific shape such as a directory path - type-only
+// imports are erased at compile time, so this file never needs a runtime import of `fs`/
+// `path` or the File*-adapter classes themselves. This is a required deviation from
+// Development_Sprint_010_Plan.md Section 6's literal "directory/file path" wording: this
+// module (via packages/core/src/index.ts's barrel export) is imported by apps/mobile, and a
+// runtime `fs`/`path` import here breaks Metro bundling entirely (Node's `fs` has no React
+// Native equivalent) - discovered and documented in this sprint's implementation notes.
+// Building the actual durable instances (which does need `fs`/`path`) is the Node-only CLI's
+// job - see runScanCli.ts.
+export interface ScanDemoStorageOptions {
+  readonly workEventRepository: WorkEventRepository;
+  readonly timeEntryRepository: TimeEntryRepository;
+  readonly offlineQueue: OfflineQueue;
+}
+
 // DT-011 composition root. Wires DT-001-DT-008's existing, unmodified production classes
 // into one runnable program driven by real (non-hard-coded-fixture) input. Introduces no new
 // business decision logic - every accept/reject/escalate/sync decision remains exactly where
 // AssignmentResolver/AssignmentValidator/BusinessEngine/SynchronizationService already put it.
-export function buildScanDemoPipeline(output: (line: string) => void = (line) => console.log(line)): ScanDemoPipeline {
+export function buildScanDemoPipeline(
+  output: (line: string) => void = (line) => console.log(line),
+  storage?: ScanDemoStorageOptions,
+): ScanDemoPipeline {
   const organizationId = OrganizationId('demo-org');
   // Default demo caller, preserved for the existing CLI usage (npm run demo:scan) when no
   // externally-produced CallerContext (e.g. from a real SessionService sign-in, DT-013) is
@@ -60,9 +83,12 @@ export function buildScanDemoPipeline(output: (line: string) => void = (line) =>
     active: true,
   };
 
-  const workEventRepository = new InMemoryWorkEventRepository();
-  const timeEntryRepository = new InMemoryTimeEntryRepository();
-  const offlineQueue = new InMemoryOfflineQueue();
+  // DT-015: durable adapters when supplied, in-memory otherwise - the exact
+  // additive-parameter pattern established for CallerContext in Development Sprint 008. The
+  // three ports/behavioral contracts are identical either way.
+  const workEventRepository: WorkEventRepository = storage?.workEventRepository ?? new InMemoryWorkEventRepository();
+  const timeEntryRepository: TimeEntryRepository = storage?.timeEntryRepository ?? new InMemoryTimeEntryRepository();
+  const offlineQueue: OfflineQueue = storage?.offlineQueue ?? new InMemoryOfflineQueue();
   const synchronizationGateway = new FakeSynchronizationGateway();
   const presenter = new ScanResultPresenter();
 
@@ -105,19 +131,6 @@ export function buildScanDemoPipeline(output: (line: string) => void = (line) =>
   };
 }
 
-function isDemoSyncOutcome(value: string | undefined): value is DemoSyncOutcome {
+export function isDemoSyncOutcome(value: string | undefined): value is DemoSyncOutcome {
   return value === 'success' || value === 'retryable_failure' || value === 'conflict';
-}
-
-// CLI entry point - only runs when this file is executed directly (as a Node CLI script),
-// not when imported by tests or by a non-Node runtime such as Expo/Metro/Hermes, where
-// `process.argv` does not exist in the Node CLI sense (Development Sprint 006, Section 12).
-const isNodeCliInvocation =
-  typeof process !== 'undefined' && Array.isArray(process.argv) && typeof process.argv[1] === 'string';
-
-if (isNodeCliInvocation && import.meta.url === `file://${process.argv[1]}`) {
-  const [, , rawPayload, syncOutcomeArg] = process.argv;
-  const pipeline = buildScanDemoPipeline();
-  pipeline.scan(rawPayload);
-  pipeline.synchronizePending(isDemoSyncOutcome(syncOutcomeArg) ? syncOutcomeArg : 'success');
 }
