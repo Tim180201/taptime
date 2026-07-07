@@ -541,3 +541,19 @@ apps/mobile/src/
 ```
 
 No new top-level grouping was added inside `apps/mobile/src` (still just `navigation/` and `screens/`), and no `ports/`, `infrastructure/`, or business-logic directory was introduced — `LoginScreen`'s only `@taptime/core` imports remain the public root export (`SessionService`, `toCallerContext`, `FakeAuthenticationGateway`, the `CallerContext` type), matching `ScanScreen`'s existing import discipline (Section 10.4). `packages/core/src/cli/runScan.ts` gained one new, optional parameter to `scan()` (Section 10.5's `SessionService`/`AuthenticationGateway`/`FakeAuthenticationGateway`/`AuthenticationResult` files are otherwise unchanged) — no new file was added to `packages/core` this sprint; the only `packages/core` change is the composition root's signature extension.
+
+### 10.7 `packages/core/src` Structure Extended for Error Classification (Development Sprint 009)
+
+Development Sprint 009 (DT-009) added six files, following the existing grouping exactly — no new top-level directory was introduced:
+
+```text
+packages/core/src/
+  domain/ErrorCategory.ts                          (the five-value taxonomy type)
+  business/classifyAssignmentValidationResult.ts
+  business/classifyBusinessEngineDecision.ts
+  application/classifyScanPipelineOutcome.ts
+  application/classifySynchronizationResult.ts
+  application/classifyAuthenticationResult.ts
+```
+
+`ErrorCategory` itself lives in `domain/`, not `application/` — a deliberate placement choice (documented in the file's own header comment) so that the two `business/`-layer classification functions can depend on it without inverting the approved dependency direction (Section 2.3/EP-008 Ch03 §5.7: Business depends on Domain, never the reverse; Application depends on both). The remaining three classification functions live in `application/`, next to the result types they classify, following the same co-location pattern DT-007/DT-008/DT-013 already established for ports/adapters (Section 10.2/10.5). No new top-level grouping (e.g. a `classification/` or `errors/` folder) was introduced — six small, purpose-placed files were added to already-existing directories instead, consistent with "Extend Before Create" applied to repository structure. `packages/core/src/application/ScanResultPresenter.ts` (Section 10.3) was extended in place, not duplicated.
