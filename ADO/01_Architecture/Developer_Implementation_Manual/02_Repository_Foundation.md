@@ -572,3 +572,18 @@ packages/core/src/
 ```
 
 `infrastructure/persistence/` sits beside, not inside, `infrastructure/repositories/` — the existing `InMemoryOfflineQueue`/`InMemoryWorkEventRepository`/`InMemoryTimeEntryRepository` (Section 10.1) were left untouched in their original location, and the new durable adapters were placed in a sibling directory rather than mixed into the same one, keeping "which adapter is the default" (in-memory, `repositories/`) visually distinct from "which adapter is durable" (`persistence/`) at the folder level. `JsonFileStore.ts` is the one file in this set with no port to implement — it is a plain internal utility (`readJsonArray`/`writeJsonArray`) reused by all three adapters, following the same "one small shared helper, not three copies" discipline "Extend Before Create" requires. `cli/runScanCli.ts` was added beside the existing `cli/runScan.ts` (Section 10.1) rather than replacing it, because the two files now have different runtime constraints: `runScan.ts` must remain safe for `apps/mobile`'s bundler to resolve (Section 10.6), while `runScanCli.ts` is Node-only by design and is the new target of the `demo:scan` script. No new top-level grouping beyond `infrastructure/persistence/` was introduced.
+
+### 10.9 `apps/mobile/src` Structure Extended for Real NFC Hardware (Development Sprint 011)
+
+Development Sprint 011 (DT-016) introduced exactly one new directory in `apps/mobile`, `src/nfc/`, alongside the existing `src/screens/`/`src/navigation/` grouping (Section 10.4/10.6):
+
+```text
+apps/mobile/
+  src/nfc/RnNfcScanAdapter.ts        (new; implements packages/core's NfcScanPort)
+  src/screens/ScanScreen.tsx          (extended, not rewritten)
+  tests/nfc/RnNfcScanAdapter.test.ts  (new)
+  tests/nfc/normalizeTag.test.ts      (new)
+  vitest.config.ts                    (new — apps/mobile's first test runner)
+```
+
+`src/nfc/` was added as a sibling to `src/screens/` and `src/navigation/`, not nested inside either, because `RnNfcScanAdapter` is an infrastructure adapter (it implements a `packages/core` port), not a screen or a navigation concern — the same responsibility-reflects-placement discipline Chapter 00 Section 7.5 requires, now applied inside `apps/mobile` for the first time rather than only within `packages/core`. This is also the first Development Sprint to add a test runner to `apps/mobile` at all: `vitest` (already used throughout `packages/core`, introducing no new testing paradigm to the repository) was added as a dev dependency, scoped to plain TypeScript logic tests only (`normalizeTag()`'s payload normalization, the adapter's capability-check branching and its async-event-to-sync-`scan()` bridge) — no `jsdom`/React Native component-rendering harness (`jest-expo`/`@testing-library/react-native`) was introduced, since this sprint's testable surface does not include screen rendering. `packages/core/src/ports/NfcScanPort.ts` itself was not touched; `RnNfcScanAdapter` is consumed by `ScanScreen.tsx` exactly the way `FakeNfcScanAdapter`/`CliNfcScanAdapter` are consumed by their respective composition points, with no new top-level grouping beyond `apps/mobile/src/nfc/` introduced.

@@ -60,6 +60,7 @@ Full architecture decisions are documented as ADRs under `ADO/01_Architecture/AD
 | DEV-SPRINT-008 | Development Sprint 008 (DT-014 implementation: Mobile Session Integration — `LoginScreen`, `AppNavigator` Login → Scan flow, `runScan.ts` external-`CallerContext` support) — implemented and committed (`6898a46`), `apps/mobile` and `packages/core` typecheck clean, all 98 `packages/core` tests pass, Review Agent verified, Human Architect approved; completes DT-013's full Acceptance Criteria across both tasks; no simulator/device launch verification was performed during implementation, superseded for governance purposes by the recorded review | Completed | 2026-07-06 | `ADO/02_Development/Development_Sprint_008_Plan.md` |
 | DEV-SPRINT-009 | Development Sprint 009 (DT-009 implementation: Error Handling — `ErrorCategory` type plus five pure classification functions mapping `ScanPipelineOutcome`/`AssignmentValidationResult`/`BusinessEngineDecision`/`SynchronizationResult`/`AuthenticationResult` onto TTAP-001's Runtime Architecture taxonomy, `ScanResultPresenter` extended additively) — implemented and committed (`77fa0c2`), `packages/core` and `apps/mobile` typecheck clean, all 127 `packages/core` tests pass, Review Agent verified, Human Architect approved; no business/application logic that produces these result types was modified (verified by diff); implements a Development Task defined since EP-007's original sequence but never previously started | Completed | 2026-07-07 | `ADO/02_Development/Development_Sprint_009_Plan.md` |
 | DEV-SPRINT-010 | Development Sprint 010 (DT-015 implementation: Local Persistence Foundation — shared `JsonFileStore` helper plus three durable, file-based adapters `FileOfflineQueue`/`FileWorkEventRepository`/`FileTimeEntryRepository`, matching their in-memory counterparts' exact behavioral contracts; `buildScanDemoPipeline` extended with an interface-typed `ScanDemoStorageOptions` parameter, in-memory default unchanged; Node-only `runScanCli.ts` added as the new `demo:scan` entry point after a Metro-bundling regression was found and fixed by keeping `fs`/`path` out of `runScan.ts`, which `apps/mobile` imports transitively) — implemented and committed (`7bea186`), `packages/core` and `apps/mobile` typecheck clean, all 154 `packages/core` tests pass (127 pre-existing + 27 new), Review Agent verified, Human Architect approved; no business/application logic was modified and no new dependency was added (verified by diff); closes the local half of ADR-0004's "local event queue... before production release" requirement, leaving cloud/backend persistence technology and mobile-native on-device storage both explicitly deferred | Completed | 2026-07-07 | `ADO/02_Development/Development_Sprint_010_Plan.md` |
+| DEV-SPRINT-011 | Development Sprint 011 (DT-016 implementation: Real NFC Hardware Integration — `RnNfcScanAdapter` in `apps/mobile`, a third `NfcScanPort` implementation using `react-native-nfc-manager`, wired into `ScanScreen.tsx` as the primary scan trigger, replacing the DT-012 placeholder text input) — implemented and committed (`c5bae77`), `packages/core` and `apps/mobile` typecheck clean, all 154 `packages/core` tests pass (unaffected, zero `packages/core` changes) plus 10 new `apps/mobile` tests, Review Agent verified, Human Architect approved; planned directly against EP-009 Product Readiness priorities, selecting this item over the higher-ranked Organization Management priority because no Feature Blueprint exists yet for the latter (Product Readiness Assessment Section 11.1) while this item was already fully specified by FB-001/TS-001/ADR-0007; **physical Android/NFC-tag device validation could not be performed in this environment and remains an outstanding item**, mirroring DT-012's precedent | Completed (physical-device validation outstanding) | 2026-07-07 | `ADO/02_Development/Development_Sprint_011_Plan.md` |
 
 ## Decision Rule
 
@@ -176,10 +177,31 @@ Product Readiness Assessment and Product Readiness Roadmap (2026-07-07) complete
   governance activity alongside Development Sprints and EP-008 — it introduces no implementation,
   no architecture and no Feature Blueprints; it governs the readiness work Development Sprints do
   not cover.
+Development Sprint 011 completed: DT-016 (Real NFC Hardware Integration) implemented in
+  `apps/mobile` (`c5bae77`) as `RnNfcScanAdapter`, a third `NfcScanPort` implementation (alongside
+  `FakeNfcScanAdapter`/`CliNfcScanAdapter`, both unchanged) using `react-native-nfc-manager`,
+  wired into `ScanScreen.tsx` as the primary "Scan NFC Tag" trigger (the DT-012 manual text input
+  is retained as a fallback); zero changes to `packages/core` (verified by diff), zero new
+  business/application logic. This is the first Development Sprint planned directly against
+  EP-009 Product Readiness priorities: it deliberately did not target Organization Management
+  (the higher-ranked priority per Product Readiness Assessment Section 11.1) because no Feature
+  Blueprint exists for it yet, and instead implemented the next Roadmap item that this
+  repository's existing Product Vision -> Feature Blueprint -> Technical Specification ->
+  Development Task order already permits — FB-001/TS-001/ADR-0007 already fully specify the
+  `NfcScanAdapter` component this task extends. `apps/mobile` and `packages/core` typecheck
+  clean, all 154 `packages/core` tests pass (unaffected) plus 10 new `apps/mobile` tests. Review
+  Agent verified, Human Architect approved (2026-07-07); **physical Android device/NFC-tag
+  validation could not be performed in this environment and remains an outstanding item**,
+  mirroring the precedent set by DT-012 — this does not block Completed status but does block
+  treating DT-016 as functionally, not just structurally, proven.
 DEVELOPMENT SPRINT 004 REMAINS AWAITING REVIEW AGENT VERIFICATION AND HUMAN ARCHITECT APPROVAL.
-  DEVELOPMENT SPRINTS 005, 006, 007, 008, 009 AND 010 ARE NOW CLOSED (COMPLETED). DT-013's
-  MOBILE-INTEGRATION ACCEPTANCE CRITERIA REMAIN SATISFIED VIA DT-014. DEVELOPMENT SPRINT 011
-  PLANNING MAY PROCEED ONLY ON EXPLICIT TECHNICAL LEAD / HUMAN ARCHITECT AUTHORIZATION. EP-009
+  DEVELOPMENT SPRINTS 005, 006, 007, 008, 009, 010 AND 011 ARE NOW CLOSED (COMPLETED). DT-013's
+  MOBILE-INTEGRATION ACCEPTANCE CRITERIA REMAIN SATISFIED VIA DT-014. DT-016's PHYSICAL-DEVICE
+  VALIDATION REMAINS OUTSTANDING AND IS THE RECOMMENDED IMMEDIATE PRIORITY (SEE DEVELOPMENT
+  SPRINT 011 CLOSURE). DEVELOPMENT SPRINT 012 PLANNING MAY PROCEED ONLY ON EXPLICIT TECHNICAL
+  LEAD / HUMAN ARCHITECT AUTHORIZATION, AND SHOULD BE PRECEDED BY EITHER DT-016 DEVICE VALIDATION
+  OR HUMAN ARCHITECT INITIATION OF FB-002 (ORGANIZATION MANAGEMENT) DRAFTING — NO FURTHER
+  CODE-IMPLEMENTATION DEVELOPMENT SPRINT IS CURRENTLY READY WITHOUT ONE OF THOSE TWO STEPS. EP-009
   (PRODUCT READINESS FRAMEWORK) IS NOW ACTIVE AS A PERMANENT, PARALLEL GOVERNANCE STREAM
   ALONGSIDE THE DEVELOPMENT SPRINT MODEL.
 ```
