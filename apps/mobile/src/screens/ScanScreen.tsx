@@ -1,27 +1,57 @@
 import { useMemo, useState } from 'react';
 import { Button, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { buildScanDemoPipeline, DEMO_KNOWN_PAYLOAD, type CallerContext } from '@taptime/core';
+import { RnNfcScanAdapter } from '../nfc/RnNfcScanAdapter';
 
 interface ScanScreenProps {
   caller: CallerContext;
 }
 
-// Placeholder scan trigger (DT-012): a text input + button, not real NFC hardware - none
-// exists yet (Development Sprint 006 Plan, Section 7). Calls the existing DT-011 composition
-// root unmodified; introduces no business logic of its own (ADR-0007 Platform Boundaries -
-// the domain/Business Engine remain independent of React Native/Expo). The scan action uses
-// the signed-in session's CallerContext (DT-014), not the composition root's hard-coded
-// demo caller default.
+// DT-016: the primary scan trigger is now real NFC tag detection (RnNfcScanAdapter, Android
+// only - NFC_Capability_Model.md's iOS question remains open, not decided here). The manual
+// text input from DT-012 is retained as an optional fallback/debug affordance. Both paths
+// call the same, existing, unmodified pipeline.scan(payload, caller) - no business logic
+// here (ADR-0007 Platform Boundaries).
 export function ScanScreen({ caller }: ScanScreenProps) {
   const [payload, setPayload] = useState(DEMO_KNOWN_PAYLOAD);
   const [outputLines, setOutputLines] = useState<string[]>([]);
+  const [nfcStatus, setNfcStatus] = useState('Tap "Scan NFC Tag" to begin.');
+  const [isWaitingForTag, setIsWaitingForTag] = useState(false);
 
   const pipeline = useMemo(
     () => buildScanDemoPipeline((line) => setOutputLines((previous) => [...previous, line])),
     [],
   );
+  const nfcAdapter = useMemo(() => new RnNfcScanAdapter(), []);
 
-  function handleScan(): void {
+  async function handleNfcScan(): Promise<void> {
+    setIsWaitingForTag(true);
+    try {
+      const capability = await nfcAdapter.checkCapability();
+      if (capability === 'not_supported') {
+        setNfcStatus('NFC is not available on this device.');
+        return;
+      }
+      if (capability === 'disabled') {
+        setNfcStatus('NFC is disabled. Please enable it in your device settings.');
+        return;
+      }
+
+      setNfcStatus('Hold a tag near the device…');
+      const result = await nfcAdapter.waitForNextTag();
+      if (result.status === 'unreadable') {
+        setNfcStatus('Could not read the NFC tag. Please try again.');
+        return;
+      }
+
+      setNfcStatus(`Tag read: ${result.payload}`);
+      pipeline.scan(result.payload, caller);
+    } finally {
+      setIsWaitingForTag(false);
+    }
+  }
+
+  function handleManualScan(): void {
     pipeline.scan(payload, caller);
   }
 
@@ -31,7 +61,19 @@ export function ScanScreen({ caller }: ScanScreenProps) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>TapTim.e — Scan (placeholder trigger)</Text>
+      <Text style={styles.title}>TapTim.e — Scan</Text>
+
+      <Text style={styles.status} testID="nfc-status">
+        {nfcStatus}
+      </Text>
+      <Button
+        title={isWaitingForTag ? 'Waiting for tag…' : 'Scan NFC Tag'}
+        onPress={handleNfcScan}
+        disabled={isWaitingForTag}
+        testID="nfc-scan-button"
+      />
+
+      <Text style={styles.fallbackLabel}>Manual fallback (debug)</Text>
       <TextInput
         style={styles.input}
         value={payload}
@@ -41,7 +83,7 @@ export function ScanScreen({ caller }: ScanScreenProps) {
         testID="scan-payload-input"
       />
       <View style={styles.buttonRow}>
-        <Button title="Scan" onPress={handleScan} testID="scan-button" />
+        <Button title="Scan (manual)" onPress={handleManualScan} testID="scan-button" />
         <Button title="Synchronize" onPress={handleSynchronize} testID="synchronize-button" />
       </View>
       <ScrollView style={styles.output} testID="scan-output">
@@ -64,6 +106,16 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     marginBottom: 12,
+  },
+  status: {
+    marginBottom: 8,
+    color: '#444',
+  },
+  fallbackLabel: {
+    marginTop: 20,
+    marginBottom: 4,
+    fontSize: 12,
+    color: '#888',
   },
   input: {
     borderWidth: 1,

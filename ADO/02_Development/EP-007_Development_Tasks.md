@@ -58,6 +58,10 @@ See `ADO/02_Development/Development_Sprint_005_Plan.md` for the full plan. Exten
 
 Implementation: `packages/core/src/infrastructure/adapters/CliNfcScanAdapter.ts`. Tests: `packages/core/tests/infrastructure/CliNfcScanAdapter.test.ts`.
 
+### Development Sprint 011 Implementation Notes
+
+See DT-016 below. A third `NfcScanPort` implementation, `RnNfcScanAdapter`, exists in `apps/mobile` — a real, hardware-backed adapter for Android, using `react-native-nfc-manager`. `NfcScanPort.ts` itself, `FakeNfcScanAdapter`, and `CliNfcScanAdapter` are all unchanged. Objective and Acceptance Criteria above are unchanged and are satisfied a third time by this implementation.
+
 ## DT-002 – Assignment Resolver
 
 Objective: Resolve an NfcPayload to an NfcAssignment within organization context.
@@ -373,6 +377,41 @@ See `ADO/02_Development/Development_Sprint_010_Plan.md` for the full plan, inclu
 **Explicitly out of scope, as planned, and documented as known limitations rather than built:** no concurrency/locking or atomic-write handling (a straightforward "read whole file, modify, write whole file" approach is used; a crash mid-write is not protected against); no cloud/backend persistence technology; no mobile-native storage library (`expo-sqlite`/`AsyncStorage`) wired into `apps/mobile` — this remains a natural, smaller follow-up task, analogous to the DT-013→DT-014 split.
 
 Implementation: `packages/core/src/infrastructure/persistence/JsonFileStore.ts`, `FileOfflineQueue.ts`, `FileWorkEventRepository.ts`, `FileTimeEntryRepository.ts`, `packages/core/src/cli/runScan.ts` (extended, `ScanDemoStorageOptions` now interface-based), `packages/core/src/cli/runScanCli.ts` (new Node CLI entry point, replaces `runScan.ts` as the `demo:scan` script target). Tests: `packages/core/tests/infrastructure/persistence/JsonFileStore.test.ts`, `FileOfflineQueue.test.ts`, `FileWorkEventRepository.test.ts`, `FileTimeEntryRepository.test.ts`, `packages/core/tests/cli/runScan.storageOverride.test.ts`.
+
+## DT-016 – Real NFC Hardware Integration
+
+Objective: Implement a native NFC adapter for Android satisfying the existing `NfcScanPort` contract, wired into `apps/mobile`'s `ScanScreen`, proving a physical NFC tag scan reaches the unmodified Business Engine/composition pipeline.
+
+Acceptance Criteria:
+
+- A native adapter class exists, implements `NfcScanPort.scan()` exactly.
+- `ScanScreen.tsx` triggers a real scan (not manual text entry) as its primary interaction.
+- NFC-unavailable and NFC-disabled device states are surfaced distinctly rather than silently failing.
+- No business/application logic (`AssignmentResolver`, `AssignmentValidator`, `BusinessEngine`, `WorkEventFactory`, `SynchronizationService`, `SessionService`, `NfcScanApplicationService`) is modified.
+- `packages/core` gains no new dependency (the native library is `apps/mobile`-only, preserving ADR-0007's Domain Platform boundary).
+- Physical-device validation is explicitly logged as an outstanding item, not silently assumed complete.
+
+### Development Sprint 011 Implementation Notes
+
+Status: Implemented — Pending Review, **physical-device validation outstanding** (2026-07-07). Per DTP-001's Completion Rule and AVR-001 ("Validation requires evidence. Status shall never be upgraded by assumption"), this is not marked Completed until Review Agent verification, Human Architect approval, **and** real Android device/NFC-tag validation are all recorded — mirroring how DT-012 was originally recorded ("Completed... no simulator/device launch verification was performed during implementation"), not asserting a higher confidence level than repository evidence supports.
+
+See `ADO/02_Development/Development_Sprint_011_Plan.md` for the full plan, including why this sprint targets real NFC hardware integration rather than Organization Management (Section 3: no Feature Blueprint exists for Organization Management yet; this repository has never once bypassed the mandatory Product Vision → Feature Blueprint → Technical Specification → Development Task order, and this task does not either).
+
+**Library choice:** `react-native-nfc-manager` (`^3.17.2`), per the plan's own Section 2 evidence (already referenced by `Tech_Stack.md` as informing ADR-0007's platform baseline via the `frogs-zeiterfassung` reference project). It ships an Expo config plugin (`app.plugin.js`), added to `apps/mobile/app.json`'s `plugins` array, which adds the `android.permission.NFC` manifest permission and raises `compileSdkVersion` to 31+; no manual native-code editing was required.
+
+**Implemented:** `RnNfcScanAdapter` (`apps/mobile/src/nfc/RnNfcScanAdapter.ts`) implements `NfcScanPort.scan()` exactly, unmodified from `packages/core/src/ports/NfcScanPort.ts`. Real NFC tag detection is inherently asynchronous (a physical tap can occur at any time), while the port's `scan()` method is synchronous; the adapter bridges the two exactly the way `CliNfcScanAdapter` already does for CLI input — `waitForNextTag()` (async) registers a native tag-discovery listener and buffers the normalized result; `scan()` (sync, satisfying the unmodified port) returns whatever is currently buffered. A separate, additional `checkCapability()` method (not part of `NfcScanPort`, exactly as `CliNfcScanAdapter.setInput()` is also additional-beyond-the-port) surfaces `NFC_Capability_Model.md`'s Required Failure States — `'not_supported'` and `'disabled'` — as narrowly-scoped capability states, not new `AssignmentResolver`/`AssignmentValidator` business rejection reasons; `ready` proceeds to `waitForNextTag()`. `ScanScreen.tsx` was extended (not rewritten): "Scan NFC Tag" is now the primary trigger, calling `checkCapability()` then `waitForNextTag()` and, on a captured result, `pipeline.scan(result.payload, caller)` — the exact same, unmodified composition-root call the placeholder already made. The manual text input, `Scan (manual)` button, and `Synchronize` button (DT-012/DT-014) are retained unchanged as a fallback/debug affordance, including their existing `testID`s. No change was made to `buildScanDemoPipeline`/`runScan.ts` — `apps/mobile` already supplies its own trigger via the screen, exactly as the plan's Section 8 anticipated, so no composition-root change was needed. `packages/core/package.json` gained no new dependency; `react-native-nfc-manager` is `apps/mobile`-only, preserving ADR-0007's Domain Platform boundary (verified: `git diff --stat -- packages/core/` is empty).
+
+**Platform scope:** Android only, as scoped. `NFC_Capability_Model.md`'s own open question ("Is iOS NFC support in scope for v1?") is not resolved by this sprint and is not silently decided either way — the adapter's JS/TS code is not Android-exclusive at the type level (the library supports both platforms), but no iOS-specific testing, tuning, or product decision was made.
+
+**Testing:** since `apps/mobile` had no test runner configured before this sprint (DT-012/DT-014 precedent: no component-testing framework existed), `vitest` (already used throughout `packages/core`, no new testing paradigm) was added to `apps/mobile` as a dev dependency, scoped to plain TypeScript logic tests only — no `jsdom`/React Native component rendering is exercised, so no `jest-expo`/`@testing-library/react-native` was needed. Unit tests cover `normalizeTag()`'s payload normalization (valid id, missing id, empty/whitespace id) and `RnNfcScanAdapter`'s capability-check branching (`not_supported`, `disabled`, `ready`) and its async-event-to-sync-`scan()` bridge (a test double simulates `react-native-nfc-manager`'s `DiscoverTag` event callback firing, proving `waitForNextTag()` resolves correctly and `scan()` reflects the buffered result afterward) and the `registerTagEvent()` failure path. 10 new tests, all passing; `packages/core`'s 154 pre-existing tests are unaffected (different workspace, no shared code changed).
+
+**Verified in this environment (no physical Android device or NFC-capable simulator available — the same constraint documented since Development Sprint 006):** `npx tsc --noEmit` passes for both workspaces; `npx expo export --platform android` succeeds (666 modules, valid Hermes bytecode bundle) and `--platform ios` also still succeeds (668 modules, regression check) after adding the native dependency; `npx vitest run` passes (10/10) in `apps/mobile`; direct inspection (`git diff --stat -- packages/core/`) confirms zero changes to `packages/core`. **What could not be verified in this environment and remains an explicit outstanding item:** that a real NFC tag, on a real Android device, is actually detected, read, and produces the expected on-screen outcome — this requires physical hardware per ADR-0007's own Validation Requirements and must be performed by the Technical Lead/Human Architect (or Review Agent) with device access before this task is considered functionally proven, not just structurally correct.
+
+**Explicitly out of scope, as planned:** Organization Management (no Feature Blueprint exists; tracked separately, not as a Development Sprint); NFC tag registration/provisioning (depends on the same not-yet-specified Organization/Customer management capability); iOS support (open product question, not decided); any change to `AssignmentResolver`, `AssignmentValidator`, `BusinessEngine`, `WorkEventFactory`, `SynchronizationService`, `SessionService`, `NfcScanApplicationService`, or the three DT-015 durable-persistence adapters (all confirmed unmodified).
+
+**Known limitation, consistent with prior sprints' disclosure pattern:** `react-native-nfc-manager`'s peer dependency on `@expo/config-plugins` surfaces the same pre-existing moderate-severity `npm audit` findings already documented since Development Sprint 006 (Expo's own build-tooling transitive dependencies — `uuid`/`xcode`); not a new vulnerability class, not fixed (fixing would force a major Expo downgrade), same accepted-risk disposition as before.
+
+Implementation: `apps/mobile/src/nfc/RnNfcScanAdapter.ts` (new), `apps/mobile/src/screens/ScanScreen.tsx` (extended), `apps/mobile/app.json` (plugin registration), `apps/mobile/package.json` (`react-native-nfc-manager`, `vitest` dependencies + `test` script), `apps/mobile/vitest.config.ts` (new). Tests: `apps/mobile/tests/nfc/normalizeTag.test.ts`, `RnNfcScanAdapter.test.ts`.
 
 ## Dependencies
 
