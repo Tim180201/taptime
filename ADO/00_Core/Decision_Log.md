@@ -46,6 +46,9 @@ Full architecture decisions are documented as ADRs under `ADO/01_Architecture/AD
 | RHS-SPRINT-001 | Repository Health Sprint 001 | Completed | 2026-07-03 | `ADO/02_Development/Repository_Health_Sprint_001.md` |
 | RM-SPRINT-002 | Repository Maintenance Sprint 002 | Completed | 2026-07-03 | `ADO/02_Development/Repository_Maintenance_Sprint_002.md` |
 | F-11-DECISION | Archive Consistency Disposition (F-11) — Option B accepted: historical archive documents remain on `architecture/ep-002-feature-blueprint-standard` and are not restored to `main`; existing CHANGELOG.md note and Repository Freeze Sprint documentation are sufficient for traceability | Approved | 2026-07-03 | `ADO/02_Development/Repository_Freeze_Sprint.md` |
+| EP-009 | Product Readiness Framework — establishes Product Readiness as a permanent, continuously-reassessed governance activity alongside Development Sprints and EP-008; does not create implementation, architecture, Feature Blueprints or Development Tasks | Active (continuous) | 2026-07-07 | `ADO/02_Development/EP-009_Product_Readiness_Framework.md` |
+| PRA-2026-07 | Product Readiness Assessment (baseline) — ten-domain evidence-based readiness evaluation, Technical Lead reviewed | Active (baseline) | 2026-07-07 | `ADO/05_Evidence/Product_Readiness_Assessment.md` |
+| PRR-2026-07 | Product Readiness Roadmap (baseline) — Now / Before Pilot Customers / Before First Paying Customers / Before 100 Customers / Before 1,000 Customers milestones, Engineering / Product Capability / Business-Legal-GTM tracks | Active (baseline) | 2026-07-07 | `ADO/05_Evidence/Product_Readiness_Roadmap.md` |
 | RF-SPRINT | Repository Freeze Sprint | Completed | 2026-07-03 | `ADO/02_Development/Repository_Freeze_Sprint.md` |
 | DEV-SPRINT-001 | Development Sprint 001 (DT-001-DT-003 implementation: NfcScanAdapter, AssignmentResolver, AssignmentValidator) — Review Agent verified | Completed | 2026-07-03 | `ADO/02_Development/Development_Sprint_001_Plan.md` |
 | DEV-SPRINT-002 | Development Sprint 002 Plan (DT-004/DT-005 partial/DT-006 slice implementation plan) | Planned | 2026-07-03 | `ADO/02_Development/Development_Sprint_002_Plan.md` |
@@ -163,10 +166,22 @@ Development Sprint 010 completed: DT-015 (Local Persistence Foundation) implemen
   (`expo-sqlite`/`AsyncStorage`) both remain explicitly deferred, proposed follow-up work.
 DT-004/DT-005's remaining "stop"/"pending" outcomes remain gated on Finding F-01
   (duplicate-scan/toggle mechanism, still undefined).
+Product Readiness Assessment and Product Readiness Roadmap (2026-07-07) completed Technical Lead
+  review, including a seven-change follow-up revision (Business Event Platform framing, a
+  capability-hierarchy perspective, a re-evaluation of the primary strategic bottleneck, an
+  Engineering/Product Capability/Business-Legal-GTM track separation in the Roadmap, an evaluated
+  and deliberately-not-yet-adopted Business Readiness domain, a qualitative Readiness Scorecard,
+  and a long-term governance recommendation). EP-009 (Product Readiness Framework) was then
+  created to formally establish Product Readiness as a permanent, continuously-reassessed
+  governance activity alongside Development Sprints and EP-008 — it introduces no implementation,
+  no architecture and no Feature Blueprints; it governs the readiness work Development Sprints do
+  not cover.
 DEVELOPMENT SPRINT 004 REMAINS AWAITING REVIEW AGENT VERIFICATION AND HUMAN ARCHITECT APPROVAL.
   DEVELOPMENT SPRINTS 005, 006, 007, 008, 009 AND 010 ARE NOW CLOSED (COMPLETED). DT-013's
   MOBILE-INTEGRATION ACCEPTANCE CRITERIA REMAIN SATISFIED VIA DT-014. DEVELOPMENT SPRINT 011
-  PLANNING MAY PROCEED ONLY ON EXPLICIT TECHNICAL LEAD / HUMAN ARCHITECT AUTHORIZATION.
+  PLANNING MAY PROCEED ONLY ON EXPLICIT TECHNICAL LEAD / HUMAN ARCHITECT AUTHORIZATION. EP-009
+  (PRODUCT READINESS FRAMEWORK) IS NOW ACTIVE AS A PERMANENT, PARALLEL GOVERNANCE STREAM
+  ALONGSIDE THE DEVELOPMENT SPRINT MODEL.
 ```
 
 AVR-001 records validation status for engineering artifacts.

@@ -113,12 +113,12 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Document | Location |
 |---|---|
 | EP-006 Validation Sprint | `ADO/02_Development/EP-006_Validation_Sprint.md` |
-| EP-007 Development Tasks (DT-001-DT-010) | `ADO/02_Development/EP-007_Development_Tasks.md` |
+| EP-007 Development Tasks (DT-001-DT-015) | `ADO/02_Development/EP-007_Development_Tasks.md` |
+| EP-009 Product Readiness Framework | `ADO/02_Development/EP-009_Product_Readiness_Framework.md` |
 | Repository Health Sprint 001 | `ADO/02_Development/Repository_Health_Sprint_001.md` |
 | Repository Maintenance Sprint 002 | `ADO/02_Development/Repository_Maintenance_Sprint_002.md` |
 | Repository Freeze Sprint | `ADO/02_Development/Repository_Freeze_Sprint.md` |
-| Development Sprint 001 Plan (DT-001-DT-003) | `ADO/02_Development/Development_Sprint_001_Plan.md` |
-| Development Sprint 002 Plan (DT-004/DT-005/DT-006 slice) | `ADO/02_Development/Development_Sprint_002_Plan.md` |
+| Development Sprint 001-010 Plans and Closures | `ADO/02_Development/Development_Sprint_001_Plan.md` through `Development_Sprint_010_Closure.md` |
 | Development Area | `ADO/02_Development/` |
 
 ## Evidence
@@ -126,6 +126,9 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Document | Location |
 |---|---|
 | Repository Readiness Assessment | `ADO/05_Evidence/Repository_Readiness_Assessment.md` |
+| MVP Readiness Assessment | `ADO/05_Evidence/MVP_Readiness_Assessment.md` |
+| Product Readiness Assessment (EP-009 baseline) | `ADO/05_Evidence/Product_Readiness_Assessment.md` |
+| Product Readiness Roadmap (EP-009 baseline) | `ADO/05_Evidence/Product_Readiness_Roadmap.md` |
 | EP-008 Evidence (incl. Repository Health Follow-up) | `ADO/05_Evidence/EP-008/` |
 | Evidence Area | `ADO/05_Evidence/` |
 
