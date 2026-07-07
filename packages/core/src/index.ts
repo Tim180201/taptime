@@ -18,6 +18,7 @@ export * from './domain/QueuedWorkEventRecord';
 export * from './domain/events/WorkEventQueuedForSync';
 export * from './domain/events/WorkEventSynchronized';
 export * from './domain/events/WorkEventSyncFailed';
+export * from './domain/ErrorCategory';
 
 export * from './ports/NfcScanPort';
 export * from './ports/NfcTagRepository';
@@ -36,6 +37,8 @@ export * from './business/AssignmentValidationResult';
 export * from './business/WorkEventFactory';
 export * from './business/BusinessEngine';
 export * from './business/BusinessEngineDecision';
+export * from './business/classifyAssignmentValidationResult';
+export * from './business/classifyBusinessEngineDecision';
 
 export * from './application/NfcScanApplicationService';
 export * from './application/ScanPipelineOutcome';
@@ -45,6 +48,9 @@ export * from './application/SynchronizationService';
 export * from './application/ScanResultPresenter';
 export * from './application/AuthenticationResult';
 export * from './application/SessionService';
+export * from './application/classifyScanPipelineOutcome';
+export * from './application/classifySynchronizationResult';
+export * from './application/classifyAuthenticationResult';
 
 export * from './infrastructure/adapters/FakeNfcScanAdapter';
 export * from './infrastructure/adapters/FakeSynchronizationGateway';

@@ -6,6 +6,9 @@ import type { TimeEntryStarted } from '../domain/events/TimeEntryStarted';
 import type { WorkEventQueuedForSync } from '../domain/events/WorkEventQueuedForSync';
 import type { WorkEventSynchronized } from '../domain/events/WorkEventSynchronized';
 import type { WorkEventSyncFailed } from '../domain/events/WorkEventSyncFailed';
+import type { ErrorCategory } from '../domain/ErrorCategory';
+import { classifyScanPipelineOutcome } from './classifyScanPipelineOutcome';
+import { classifyBusinessEngineDecision } from '../business/classifyBusinessEngineDecision';
 
 export type PresentableEvent =
   | WorkEventCreated
@@ -13,6 +16,14 @@ export type PresentableEvent =
   | WorkEventQueuedForSync
   | WorkEventSynchronized
   | WorkEventSyncFailed;
+
+// DT-009. Pairs an existing rendered message with its TTAP-001 error category, without
+// changing the message itself - additive to presentScanOutcome()/presentEvent(), never a
+// replacement for them.
+export interface PresentedOutcome {
+  readonly message: string;
+  readonly category: ErrorCategory | null;
+}
 
 const RESOLUTION_REJECTION_DESCRIPTIONS: Record<AssignmentResolutionRejectionReason, string> = {
   unknown_tag: 'the scanned tag is not known to this organization',
@@ -79,5 +90,32 @@ export class ScanResultPresenter {
     }
 
     return `WorkEvent ${workEventId} queued for synchronization (state: ${event.record.syncState}).`;
+  }
+
+  // DT-009. Additive: pairs presentScanOutcome()'s exact, unchanged message with its
+  // TTAP-001 error category.
+  presentScanOutcomeWithCategory(outcome: ScanPipelineOutcome): PresentedOutcome {
+    return { message: this.presentScanOutcome(outcome), category: classifyScanPipelineOutcome(outcome) };
+  }
+
+  // DT-009. Additive: pairs presentEvent()'s exact, unchanged message with its TTAP-001
+  // error category.
+  presentEventWithCategory(event: PresentableEvent): PresentedOutcome {
+    return { message: this.presentEvent(event), category: this.classifyEvent(event) };
+  }
+
+  private classifyEvent(event: PresentableEvent): ErrorCategory | null {
+    switch (event.type) {
+      case 'WorkEventCreated':
+      case 'TimeEntryStarted':
+      case 'WorkEventSynchronized':
+        return null;
+      case 'WorkEventQueuedForSync':
+        return event.record.decision === null ? null : classifyBusinessEngineDecision(event.record.decision);
+      case 'WorkEventSyncFailed':
+        return event.outcome === 'conflict' ? 'conflict' : 'retryable';
+      default:
+        return event satisfies never;
+    }
   }
 }

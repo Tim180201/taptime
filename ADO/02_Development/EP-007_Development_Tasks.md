@@ -186,6 +186,34 @@ Acceptance Criteria:
 - User-facing outcomes are clear enough for implementation.
 - Technical errors remain observable for evidence and debugging.
 
+### Development Sprint 009 Implementation Notes
+
+Status: Implemented — Pending Review (2026-07-06). Per DTP-001's Completion Rule ("Implementation alone never completes a Development Task"), this is not marked Completed until Review Agent verification and Human Architect approval are recorded.
+
+See `ADO/02_Development/Development_Sprint_009_Plan.md` for the full plan. Implemented as a shared `ErrorCategory` type (`'recoverable' | 'retryable' | 'deferred' | 'conflict' | 'fatal'`, exactly TTAP-001's Runtime Architecture wording) plus five pure, read-only classification functions — one per existing result/outcome type — mapping each rejection/failure reason onto that taxonomy without changing any of the five types' shapes or the business/application logic that produces them (verified: `AssignmentResolver`, `AssignmentValidator`, `BusinessEngine`, `WorkEventFactory`, `SynchronizationService`, `SessionService`, and all five result/outcome type files are byte-for-byte unchanged — confirmed by `git diff`). `ErrorCategory` lives in `domain/`, not `application/`, specifically so the business-layer classification functions can depend on it without inverting the approved dependency direction (Business depends on Domain, never the reverse).
+
+**Final category mapping** (rationale documented in each classification function's own comments):
+
+| Reason | Source type | Category |
+|---|---|---|
+| `unreadable` (capture) | `ScanPipelineOutcome` | recoverable |
+| `unknown_tag` | `ScanPipelineOutcome` (resolution) | recoverable |
+| `inactive_assignment` | `ScanPipelineOutcome` (resolution) | recoverable |
+| `employee_not_authenticated` | `AssignmentValidationResult` | recoverable |
+| `employee_lacks_organization_access` | `AssignmentValidationResult` | fatal |
+| `missing_assignment_target` | `AssignmentValidationResult` | fatal |
+| `assignment_target_disabled` | `AssignmentValidationResult` | fatal |
+| `escalation_required` / `duplicate_scan_rule_undefined` | `BusinessEngineDecision` | deferred |
+| `retryable_failure` | `SynchronizationResult` | retryable |
+| `conflict` | `SynchronizationResult` | conflict |
+| `invalid_credentials` | `AuthenticationResult` | recoverable |
+
+**Rationale for the recoverable/fatal split** (no genuinely ambiguous case required escalation, but this distinction is an interpretive judgment call, documented explicitly rather than silently assumed, since TTAP-001 names the five categories without further definition): a reason is `recoverable` when the scanning employee's own immediate next action (rescan, sign in with a different/correct credential) can plausibly resolve it without anyone else's intervention. A reason is `fatal` (to this specific attempt, not to the application) when it reflects a data/permission state — wrong organization, a missing or disabled target — that only an administrator can correct; no amount of retrying by the employee changes the outcome. `retryable`/`conflict` reuse `SynchronizationResult`'s own existing, already-precise names. `deferred` reuses `BusinessEngineDecision`'s own existing "deliberate placeholder" framing for Finding F-01.
+
+`ScanResultPresenter` was extended additively with two new methods, `presentScanOutcomeWithCategory()` and `presentEventWithCategory()`, each returning `{ message, category }` by calling the existing, completely unchanged `presentScanOutcome()`/`presentEvent()` methods internally and pairing the result with the new classification. Its pre-existing 16 tests were not modified; 9 new tests were added for the two new methods.
+
+Implementation: `packages/core/src/domain/ErrorCategory.ts`, `packages/core/src/business/classifyAssignmentValidationResult.ts`, `classifyBusinessEngineDecision.ts`, `packages/core/src/application/classifyScanPipelineOutcome.ts`, `classifySynchronizationResult.ts`, `classifyAuthenticationResult.ts`, `packages/core/src/application/ScanResultPresenter.ts` (extended). Tests: `packages/core/tests/business/classifyAssignmentValidationResult.test.ts`, `classifyBusinessEngineDecision.test.ts`, `packages/core/tests/application/classifyScanPipelineOutcome.test.ts`, `classifySynchronizationResult.test.ts`, `classifyAuthenticationResult.test.ts`, `packages/core/tests/application/ScanResultPresenter.test.ts` (extended).
+
 ## DT-010 – Tests
 
 Objective: Create verification coverage for the NFC Scan Creates Work Event implementation.

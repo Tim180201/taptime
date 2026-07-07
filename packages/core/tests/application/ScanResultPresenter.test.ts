@@ -196,4 +196,117 @@ describe('ScanResultPresenter (DT-011, TS-001 ScanResultPresenter)', () => {
       ).toBe(`WorkEvent ${workEvent.id} has a synchronization conflict: remote record already modified.`);
     });
   });
+
+  // DT-009: additive coverage only - presentScanOutcome()/presentEvent() above are untouched.
+  describe('presentScanOutcomeWithCategory', () => {
+    it('pairs the unchanged rejection message with its recoverable category for an unreadable capture', () => {
+      const presenter = new ScanResultPresenter();
+      const outcome: ScanPipelineOutcome = { stage: 'capture', status: 'unreadable' };
+
+      expect(presenter.presentScanOutcomeWithCategory(outcome)).toEqual({
+        message: 'Scan rejected: unreadable NFC payload.',
+        category: 'recoverable',
+      });
+    });
+
+    it('pairs a fatal validation rejection with its unchanged message', () => {
+      const presenter = new ScanResultPresenter();
+      const outcome: ScanPipelineOutcome = {
+        stage: 'validation',
+        result: { status: 'rejected', assignment, reason: 'assignment_target_disabled' },
+      };
+
+      expect(presenter.presentScanOutcomeWithCategory(outcome)).toEqual({
+        message: 'Scan rejected: the assignment target is disabled.',
+        category: 'fatal',
+      });
+    });
+
+    it('pairs an accepted outcome with a null category (not an error)', () => {
+      const presenter = new ScanResultPresenter();
+      const outcome: ScanPipelineOutcome = {
+        stage: 'validation',
+        result: { status: 'accepted', assignment, target: customer, caller },
+      };
+
+      expect(presenter.presentScanOutcomeWithCategory(outcome)).toEqual({
+        message: 'Scan accepted: assignment validated, awaiting Business Engine decision.',
+        category: null,
+      });
+    });
+  });
+
+  describe('presentEventWithCategory', () => {
+    it('pairs a fact event (WorkEventCreated) with a null category', () => {
+      const presenter = new ScanResultPresenter();
+
+      expect(presenter.presentEventWithCategory({ type: 'WorkEventCreated', workEvent })).toEqual({
+        message: `WorkEvent ${workEvent.id} created for organization ${organizationId}.`,
+        category: null,
+      });
+    });
+
+    it('pairs a queued-for-sync event carrying an escalation_required decision with deferred', () => {
+      const presenter = new ScanResultPresenter();
+      const record = queuedRecord({
+        status: 'escalation_required',
+        reason: 'duplicate_scan_rule_undefined',
+        workEvent,
+      });
+
+      expect(presenter.presentEventWithCategory({ type: 'WorkEventQueuedForSync', record })).toEqual({
+        message: `WorkEvent ${workEvent.id} accepted but escalated (duplicate_scan_rule_undefined); queued for synchronization.`,
+        category: 'deferred',
+      });
+    });
+
+    it('pairs a queued-for-sync event carrying a time_entry_started decision with a null category', () => {
+      const presenter = new ScanResultPresenter();
+      const record = queuedRecord({
+        status: 'time_entry_started',
+        timeEntry,
+        event: { type: 'TimeEntryStarted', timeEntry },
+      });
+
+      expect(presenter.presentEventWithCategory({ type: 'WorkEventQueuedForSync', record }).category).toBeNull();
+    });
+
+    it('pairs a successful synchronization with a null category', () => {
+      const presenter = new ScanResultPresenter();
+      const record = queuedRecord(null, 'synchronized');
+
+      expect(presenter.presentEventWithCategory({ type: 'WorkEventSynchronized', record })).toEqual({
+        message: `WorkEvent ${workEvent.id} synchronized successfully.`,
+        category: null,
+      });
+    });
+
+    it('pairs a retryable sync failure with retryable, distinct from a conflict', () => {
+      const presenter = new ScanResultPresenter();
+      const record = queuedRecord(null, 'pending');
+
+      expect(
+        presenter.presentEventWithCategory({
+          type: 'WorkEventSyncFailed',
+          record,
+          outcome: 'retryable_failure',
+          reason: 'network timeout',
+        }).category,
+      ).toBe('retryable');
+    });
+
+    it('pairs a sync conflict with conflict, distinct from a retryable failure', () => {
+      const presenter = new ScanResultPresenter();
+      const record = queuedRecord(null, 'failed');
+
+      expect(
+        presenter.presentEventWithCategory({
+          type: 'WorkEventSyncFailed',
+          record,
+          outcome: 'conflict',
+          reason: 'remote record already modified',
+        }).category,
+      ).toBe('conflict');
+    });
+  });
 });
