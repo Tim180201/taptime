@@ -1,6 +1,6 @@
 # Project Status
 
-Status: DEVELOPMENT SPRINTS 001–011 COMPLETE — EP-009 PRODUCT READINESS FRAMEWORK ACTIVE — DT-016 PHYSICAL-DEVICE VALIDATION OUTSTANDING  
+Status: DEVELOPMENT SPRINTS 001–011 COMPLETE — EP-009 PRODUCT READINESS FRAMEWORK ACTIVE — FB-002 (ORGANIZATION MANAGEMENT FOUNDATION) DRAFTED, AWAITING TECHNICAL LEAD REVIEW — DT-016 PHYSICAL-DEVICE VALIDATION OUTSTANDING  
 Date: 2026-07-07  
 Owner: Human Architect + Technical Lead
 
@@ -19,6 +19,7 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
 - EP-008 Developer Implementation Manual Chapters 00–03 are synchronized with implemented reality through Development Sprint 011 (real NFC hardware integration, durable local persistence, error categorization, authentication/session foundation, mobile foundation, offline queue, synchronization service, and the original scan-to-WorkEvent pipeline).
 - The Business Core (NFC scan through Assignment Resolution, Assignment Validation, WorkEvent creation, Business Engine decision, TimeEntry generation, offline queue, durable local persistence and error classification) is implemented and tested: 154 `packages/core` tests pass (unaffected by Sprint 011), plus 10 new `apps/mobile` tests; typecheck is clean for both `packages/core` and `apps/mobile`.
 - Development Sprint 011 was the first Development Sprint planned directly against EP-009 Product Readiness priorities: it evaluated and deliberately did not target Organization Management (the higher-ranked priority per Product Readiness Assessment Section 11.1) because no Feature Blueprint exists for it, implementing Real NFC Hardware Integration (DT-016) instead — see `Development_Sprint_011_Plan.md` Section 3 and `Development_Sprint_011_Closure.md`.
+- A dedicated FB-002 Organization Management Scope Assessment (`ADO/05_Evidence/FB-002_Organization_Management_Scope_Assessment.md`) has been completed, followed by **FB-002 – Organization Management Foundation** (`ADO/01_Architecture/Feature_Blueprints/FB-002-organization-management-foundation.md`), created as a **Draft** Feature Blueprint: Organization, Membership, minimal Administrator/Employee Roles, Organization-owned Customer/NfcTag/NfcAssignment, Administration, and Scan Pipeline Enablement (reusing FB-001's existing pipeline unchanged). Identity (the authentication mechanism) is explicitly out of scope and remains a separate future capability. FB-002 awaits Technical Lead review; no TS-002, Development Task, ADR, or code change exists yet.
 - The Product Readiness Assessment and Product Readiness Roadmap (2026-07-07) have completed Technical Lead review, including a seven-change follow-up revision. **EP-009 – Product Readiness Framework** is now Active, formally establishing Product Readiness as a permanent, continuously-reassessed governance activity alongside Development Sprints and EP-008 — see `ADO/02_Development/EP-009_Product_Readiness_Framework.md`.
 - Repository Health Sprint 001 and Repository Maintenance Sprint 002 are completed; known repository consistency findings from that era have been closed or explicitly logged as remaining findings for Technical Lead disposition.
 - `frogs-zeiterfassung` remains technical reference evidence, not a source code baseline.
@@ -28,12 +29,12 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
 
 Two Epics are concurrently Active, per EP-009's own stated relationship to the rest of the repository (`EP-009_Product_Readiness_Framework.md` Section 2):
 
-- **EP-008 – Developer Implementation Manual** (guidance track, synchronized through Development Sprint 011; Chapters 04–10 not yet written) and the **Development Sprint model** (implementation track) — no further code-implementation Development Sprint is currently ready to plan without first closing one of: DT-016 physical-device validation, Human Architect initiation of FB-002 (Organization Management) drafting, the backend/persistence technology decision, or Finding F-01 (Decision Log Repository Status; `Development_Sprint_011_Closure.md` Section 14).
+- **EP-008 – Developer Implementation Manual** (guidance track, synchronized through Development Sprint 011; Chapters 04–10 not yet written) and the **Development Sprint model** (implementation track) — no further code-implementation Development Sprint is currently ready to plan without first closing one of: DT-016 physical-device validation, Technical Lead review/approval of FB-002 (Organization Management Foundation) followed by TS-002 drafting, the backend/persistence technology decision, or Finding F-01 (Decision Log Repository Status; `Development_Sprint_011_Closure.md` Section 14).
 - **EP-009 – Product Readiness Framework** (continuous, parallel governance track) — governs Product Readiness domains outside implementation: Technical Operations, Product, Commercial, Legal & Compliance, Deployment, Go-To-Market, Customer, Support and Scaling Readiness (Business Readiness evaluated and deliberately not yet adopted as an official domain, per Product Readiness Assessment Section 13).
 
 ### Goals
 
-- Close DT-016's outstanding physical-device validation and/or initiate FB-002 (Organization Management) drafting — both recommended in parallel, per `Development_Sprint_011_Closure.md` Section 14 — before planning Development Sprint 012.
+- Close DT-016's outstanding physical-device validation and/or secure Technical Lead review/approval of FB-002 (Organization Management Foundation, now Drafted) — both recommended in parallel, per `Development_Sprint_011_Closure.md` Section 14 — before planning Development Sprint 012.
 - Maintain EP-009's Product Readiness Assessment/Roadmap as a continuously-extended baseline (not recreated) as further Development Sprints, architecture decisions, pilot customers or commercial milestones occur.
 - Preserve traceability from source code, and from Product Readiness Decisions, back to approved engineering and governance decisions.
 
@@ -46,5 +47,5 @@ Two Epics are concurrently Active, per EP-009's own stated relationship to the r
 
 1. Technical Lead / Human Architect to review `ADO/02_Development/Development_Sprint_011_Closure.md`.
 2. Perform physical Android device/NFC-tag validation of DT-016 (RnNfcScanAdapter) — the lowest-effort outstanding item, closing an already-implemented Development Task rather than starting a new one.
-3. In parallel, initiate Feature Blueprint drafting for Organization Management (FB-002), per the Product Readiness Roadmap's "Now" milestone and the re-evaluated priority finding in `Product_Readiness_Assessment.md` Section 11.1.
+3. In parallel, Technical Lead to review `ADO/01_Architecture/Feature_Blueprints/FB-002-organization-management-foundation.md` (Draft) for approval; upon approval, TS-002 drafting may begin. The Human Architect open questions listed in FB-002's "Open Questions" section should be resolved before or during that drafting.
 4. Keep the Decision Log, AVR-001, and (per EP-009) future Product Readiness Decisions current as further Development Sprints, architecture decisions, or readiness milestones are reached.

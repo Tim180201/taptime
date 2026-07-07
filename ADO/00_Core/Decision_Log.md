@@ -61,6 +61,7 @@ Full architecture decisions are documented as ADRs under `ADO/01_Architecture/AD
 | DEV-SPRINT-009 | Development Sprint 009 (DT-009 implementation: Error Handling — `ErrorCategory` type plus five pure classification functions mapping `ScanPipelineOutcome`/`AssignmentValidationResult`/`BusinessEngineDecision`/`SynchronizationResult`/`AuthenticationResult` onto TTAP-001's Runtime Architecture taxonomy, `ScanResultPresenter` extended additively) — implemented and committed (`77fa0c2`), `packages/core` and `apps/mobile` typecheck clean, all 127 `packages/core` tests pass, Review Agent verified, Human Architect approved; no business/application logic that produces these result types was modified (verified by diff); implements a Development Task defined since EP-007's original sequence but never previously started | Completed | 2026-07-07 | `ADO/02_Development/Development_Sprint_009_Plan.md` |
 | DEV-SPRINT-010 | Development Sprint 010 (DT-015 implementation: Local Persistence Foundation — shared `JsonFileStore` helper plus three durable, file-based adapters `FileOfflineQueue`/`FileWorkEventRepository`/`FileTimeEntryRepository`, matching their in-memory counterparts' exact behavioral contracts; `buildScanDemoPipeline` extended with an interface-typed `ScanDemoStorageOptions` parameter, in-memory default unchanged; Node-only `runScanCli.ts` added as the new `demo:scan` entry point after a Metro-bundling regression was found and fixed by keeping `fs`/`path` out of `runScan.ts`, which `apps/mobile` imports transitively) — implemented and committed (`7bea186`), `packages/core` and `apps/mobile` typecheck clean, all 154 `packages/core` tests pass (127 pre-existing + 27 new), Review Agent verified, Human Architect approved; no business/application logic was modified and no new dependency was added (verified by diff); closes the local half of ADR-0004's "local event queue... before production release" requirement, leaving cloud/backend persistence technology and mobile-native on-device storage both explicitly deferred | Completed | 2026-07-07 | `ADO/02_Development/Development_Sprint_010_Plan.md` |
 | DEV-SPRINT-011 | Development Sprint 011 (DT-016 implementation: Real NFC Hardware Integration — `RnNfcScanAdapter` in `apps/mobile`, a third `NfcScanPort` implementation using `react-native-nfc-manager`, wired into `ScanScreen.tsx` as the primary scan trigger, replacing the DT-012 placeholder text input) — implemented and committed (`c5bae77`), `packages/core` and `apps/mobile` typecheck clean, all 154 `packages/core` tests pass (unaffected, zero `packages/core` changes) plus 10 new `apps/mobile` tests, Review Agent verified, Human Architect approved; planned directly against EP-009 Product Readiness priorities, selecting this item over the higher-ranked Organization Management priority because no Feature Blueprint exists yet for the latter (Product Readiness Assessment Section 11.1) while this item was already fully specified by FB-001/TS-001/ADR-0007; **physical Android/NFC-tag device validation could not be performed in this environment and remains an outstanding item**, mirroring DT-012's precedent | Completed (physical-device validation outstanding) | 2026-07-07 | `ADO/02_Development/Development_Sprint_011_Plan.md` |
+| FB-002 | Organization Management Foundation — the second core Feature Blueprint, defining the minimal Organization/Membership foundation (Organization, Membership, minimal Administrator/Employee Roles, Organization-owned Customer/NfcTag/NfcAssignment, Administration, Scan Pipeline Enablement) required for a real pilot customer; built directly on `ADO/05_Evidence/FB-002_Organization_Management_Scope_Assessment.md`; explicitly excludes Identity (authentication mechanism), which remains a separate future capability; explicitly excludes the full `Role_Model.md` permission matrix, self-service onboarding, and any change to FB-001's business rules or Business Engine decision logic | Draft | 2026-07-07 | `ADO/01_Architecture/Feature_Blueprints/FB-002-organization-management-foundation.md` |
 
 ## Decision Rule
 
@@ -194,16 +195,42 @@ Development Sprint 011 completed: DT-016 (Real NFC Hardware Integration) impleme
   validation could not be performed in this environment and remains an outstanding item**,
   mirroring the precedent set by DT-012 — this does not block Completed status but does block
   treating DT-016 as functionally, not just structurally, proven.
+A dedicated FB-002 Organization Management Scope Assessment
+  (`ADO/05_Evidence/FB-002_Organization_Management_Scope_Assessment.md`) was completed, answering
+  "what is the smallest correct Organization Management scope that enables a real pilot customer
+  without violating existing architecture?" from repository evidence only. Direct code inspection
+  found no `Organization`/`User`/`Employee`/`Role` domain type anywhere in `packages/core` (only
+  opaque `OrganizationId`/`UserId` identifiers), and found `CustomerRepository`, `NfcTagRepository`
+  and `NfcAssignmentRepository` all read-only today (no `save`/`create` method on any of the
+  three). A Technical Lead follow-up question ("should Identity & Membership be split into a
+  separate, later Capability Blueprint?") was answered from `Product_Readiness_Assessment.md`
+  Section 12.2's already-reviewed Capability Hierarchy, which places "roles, membership" under the
+  Organization layer and Identity as a separate, adjacent layer: Identity (the authentication
+  mechanism) should be split into a future, separate Feature Blueprint, but Membership stays with
+  Organization Management, per repository evidence (Scope Assessment Addendum, Section 10).
+FB-002 – Organization Management Foundation (`ADO/01_Architecture/Feature_Blueprints/FB-002-organization-management-foundation.md`)
+  was then created as a Draft Feature Blueprint, built directly on that Scope Assessment, per an
+  explicit Technical Lead scope decision: Organization, Membership, minimal Administrator/Employee
+  Roles, Organization-owned Customer/NfcTag/NfcAssignment, Administration (create Customer/
+  AssignmentTarget, register NFC Tag, assign NFC Tag), and Scan Pipeline Enablement (existing
+  FB-001 pipeline consumes Organization-owned data instead of `runScan.ts`'s hard-coded demo
+  fixtures, with zero change to `AssignmentResolver`/`AssignmentValidator`/`WorkEventFactory`/
+  `BusinessEngine`). Identity (the authentication mechanism) is explicitly out of scope, remaining
+  a separate future Feature Blueprint per the Addendum above. No TS-002, Development Task, ADR,
+  TTAP change, EP-008 change, code, or test was created; FB-002 awaits Technical Lead review before
+  any Technical Specification may be drafted.
 DEVELOPMENT SPRINT 004 REMAINS AWAITING REVIEW AGENT VERIFICATION AND HUMAN ARCHITECT APPROVAL.
   DEVELOPMENT SPRINTS 005, 006, 007, 008, 009, 010 AND 011 ARE NOW CLOSED (COMPLETED). DT-013's
   MOBILE-INTEGRATION ACCEPTANCE CRITERIA REMAIN SATISFIED VIA DT-014. DT-016's PHYSICAL-DEVICE
   VALIDATION REMAINS OUTSTANDING AND IS THE RECOMMENDED IMMEDIATE PRIORITY (SEE DEVELOPMENT
-  SPRINT 011 CLOSURE). DEVELOPMENT SPRINT 012 PLANNING MAY PROCEED ONLY ON EXPLICIT TECHNICAL
-  LEAD / HUMAN ARCHITECT AUTHORIZATION, AND SHOULD BE PRECEDED BY EITHER DT-016 DEVICE VALIDATION
-  OR HUMAN ARCHITECT INITIATION OF FB-002 (ORGANIZATION MANAGEMENT) DRAFTING — NO FURTHER
-  CODE-IMPLEMENTATION DEVELOPMENT SPRINT IS CURRENTLY READY WITHOUT ONE OF THOSE TWO STEPS. EP-009
-  (PRODUCT READINESS FRAMEWORK) IS NOW ACTIVE AS A PERMANENT, PARALLEL GOVERNANCE STREAM
-  ALONGSIDE THE DEVELOPMENT SPRINT MODEL.
+  SPRINT 011 CLOSURE). FB-002 (ORGANIZATION MANAGEMENT FOUNDATION) IS NOW DRAFTED AND AWAITS
+  TECHNICAL LEAD REVIEW; TS-002 AND ANY ORGANIZATION-MANAGEMENT DEVELOPMENT TASK REMAIN
+  UNCREATED UNTIL FB-002 IS APPROVED, PER THE MANDATORY FDOS DELIVERY CHAIN. DEVELOPMENT SPRINT
+  012 PLANNING MAY PROCEED ONLY ON EXPLICIT TECHNICAL LEAD / HUMAN ARCHITECT AUTHORIZATION, AND
+  SHOULD BE PRECEDED BY EITHER DT-016 DEVICE VALIDATION OR FB-002 APPROVAL/TS-002 DRAFTING — NO
+  FURTHER CODE-IMPLEMENTATION DEVELOPMENT SPRINT IS CURRENTLY READY WITHOUT ONE OF THOSE TWO
+  STEPS. EP-009 (PRODUCT READINESS FRAMEWORK) IS NOW ACTIVE AS A PERMANENT, PARALLEL GOVERNANCE
+  STREAM ALONGSIDE THE DEVELOPMENT SPRINT MODEL.
 ```
 
 AVR-001 records validation status for engineering artifacts.
