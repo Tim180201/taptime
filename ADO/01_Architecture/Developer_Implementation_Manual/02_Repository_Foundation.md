@@ -557,3 +557,18 @@ packages/core/src/
 ```
 
 `ErrorCategory` itself lives in `domain/`, not `application/` — a deliberate placement choice (documented in the file's own header comment) so that the two `business/`-layer classification functions can depend on it without inverting the approved dependency direction (Section 2.3/EP-008 Ch03 §5.7: Business depends on Domain, never the reverse; Application depends on both). The remaining three classification functions live in `application/`, next to the result types they classify, following the same co-location pattern DT-007/DT-008/DT-013 already established for ports/adapters (Section 10.2/10.5). No new top-level grouping (e.g. a `classification/` or `errors/` folder) was introduced — six small, purpose-placed files were added to already-existing directories instead, consistent with "Extend Before Create" applied to repository structure. `packages/core/src/application/ScanResultPresenter.ts` (Section 10.3) was extended in place, not duplicated.
+
+### 10.8 `packages/core/src` Structure Extended for Durable Persistence (Development Sprint 010)
+
+Development Sprint 010 (DT-015) introduced exactly one new directory, `infrastructure/persistence/`, alongside the existing `infrastructure/repositories/` grouping (Section 10.1):
+
+```text
+packages/core/src/
+  infrastructure/persistence/JsonFileStore.ts             (shared read/write helper)
+  infrastructure/persistence/FileOfflineQueue.ts
+  infrastructure/persistence/FileWorkEventRepository.ts
+  infrastructure/persistence/FileTimeEntryRepository.ts
+  cli/runScanCli.ts                                        (new Node-only CLI entry point)
+```
+
+`infrastructure/persistence/` sits beside, not inside, `infrastructure/repositories/` — the existing `InMemoryOfflineQueue`/`InMemoryWorkEventRepository`/`InMemoryTimeEntryRepository` (Section 10.1) were left untouched in their original location, and the new durable adapters were placed in a sibling directory rather than mixed into the same one, keeping "which adapter is the default" (in-memory, `repositories/`) visually distinct from "which adapter is durable" (`persistence/`) at the folder level. `JsonFileStore.ts` is the one file in this set with no port to implement — it is a plain internal utility (`readJsonArray`/`writeJsonArray`) reused by all three adapters, following the same "one small shared helper, not three copies" discipline "Extend Before Create" requires. `cli/runScanCli.ts` was added beside the existing `cli/runScan.ts` (Section 10.1) rather than replacing it, because the two files now have different runtime constraints: `runScan.ts` must remain safe for `apps/mobile`'s bundler to resolve (Section 10.6), while `runScanCli.ts` is Node-only by design and is the new target of the `demo:scan` script. No new top-level grouping beyond `infrastructure/persistence/` was introduced.

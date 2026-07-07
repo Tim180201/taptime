@@ -56,6 +56,7 @@ Full architecture decisions are documented as ADRs under `ADO/01_Architecture/AD
 | DEV-SPRINT-007 | Development Sprint 007 (DT-013 implementation: Authentication & Session Foundation) — implemented and committed (`ebce0c0`), `packages/core` typecheck clean, all 94 tests pass, Review Agent verified, Human Architect approved, **for a Human-Architect-narrowed scope**: `AuthenticationGateway`, `FakeAuthenticationGateway`, `SessionService`, `AuthenticationResult` only; the plan's mobile `LoginScreen`/`AppNavigator`/composition-root wiring was explicitly not built this session and remains open, proposed as follow-up DT-014 (not yet created or approved) | Completed | 2026-07-06 | `ADO/02_Development/Development_Sprint_007_Plan.md` |
 | DEV-SPRINT-008 | Development Sprint 008 (DT-014 implementation: Mobile Session Integration — `LoginScreen`, `AppNavigator` Login → Scan flow, `runScan.ts` external-`CallerContext` support) — implemented and committed (`6898a46`), `apps/mobile` and `packages/core` typecheck clean, all 98 `packages/core` tests pass, Review Agent verified, Human Architect approved; completes DT-013's full Acceptance Criteria across both tasks; no simulator/device launch verification was performed during implementation, superseded for governance purposes by the recorded review | Completed | 2026-07-06 | `ADO/02_Development/Development_Sprint_008_Plan.md` |
 | DEV-SPRINT-009 | Development Sprint 009 (DT-009 implementation: Error Handling — `ErrorCategory` type plus five pure classification functions mapping `ScanPipelineOutcome`/`AssignmentValidationResult`/`BusinessEngineDecision`/`SynchronizationResult`/`AuthenticationResult` onto TTAP-001's Runtime Architecture taxonomy, `ScanResultPresenter` extended additively) — implemented and committed (`77fa0c2`), `packages/core` and `apps/mobile` typecheck clean, all 127 `packages/core` tests pass, Review Agent verified, Human Architect approved; no business/application logic that produces these result types was modified (verified by diff); implements a Development Task defined since EP-007's original sequence but never previously started | Completed | 2026-07-07 | `ADO/02_Development/Development_Sprint_009_Plan.md` |
+| DEV-SPRINT-010 | Development Sprint 010 (DT-015 implementation: Local Persistence Foundation — shared `JsonFileStore` helper plus three durable, file-based adapters `FileOfflineQueue`/`FileWorkEventRepository`/`FileTimeEntryRepository`, matching their in-memory counterparts' exact behavioral contracts; `buildScanDemoPipeline` extended with an interface-typed `ScanDemoStorageOptions` parameter, in-memory default unchanged; Node-only `runScanCli.ts` added as the new `demo:scan` entry point after a Metro-bundling regression was found and fixed by keeping `fs`/`path` out of `runScan.ts`, which `apps/mobile` imports transitively) — implemented and committed (`7bea186`), `packages/core` and `apps/mobile` typecheck clean, all 154 `packages/core` tests pass (127 pre-existing + 27 new), Review Agent verified, Human Architect approved; no business/application logic was modified and no new dependency was added (verified by diff); closes the local half of ADR-0004's "local event queue... before production release" requirement, leaving cloud/backend persistence technology and mobile-native on-device storage both explicitly deferred | Completed | 2026-07-07 | `ADO/02_Development/Development_Sprint_010_Plan.md` |
 
 ## Decision Rule
 
@@ -142,11 +143,29 @@ Development Sprint 009 completed: DT-009 (Error Handling) implemented in `packag
   original task sequence (DT-009) that had never previously been started, closing the last
   already-approved-but-unbuilt piece of TTAP-001 architecture remaining in the current Development
   Task set.
+Development Sprint 010 completed: DT-015 (Local Persistence Foundation) implemented in
+  `packages/core` (`7bea186`) as a shared, dependency-free `JsonFileStore` helper plus three
+  durable, file-based adapters (`FileOfflineQueue`, `FileWorkEventRepository`,
+  `FileTimeEntryRepository`), each matching its in-memory counterpart's exact behavioral
+  contract; `buildScanDemoPipeline` extended with an interface-typed `ScanDemoStorageOptions`
+  parameter (in-memory default unchanged). A Metro-bundling regression (Node's `fs`/`path` have
+  no React Native equivalent, and `runScan.ts` is part of `apps/mobile`'s static import graph via
+  `packages/core`'s barrel export) was discovered and fixed during implementation by moving the
+  directory-to-adapter construction into a new, Node-only `runScanCli.ts`, keeping `runScan.ts`
+  itself free of `fs`/`path` imports; `npx expo export --platform ios` re-verified successful
+  (645 modules) after the fix. `packages/core` and `apps/mobile` typecheck clean, all 154
+  `packages/core` tests pass (127 pre-existing + 27 new), including dedicated tests proving data
+  survives a simulated process restart and a manual verification across two genuinely separate
+  OS process invocations. No business/application logic was modified and no new dependency was
+  added (verified by diff). Review Agent verified, Human Architect approved (2026-07-07). This
+  closes the local half of ADR-0004's "local event queue... before production release"
+  requirement; cloud/backend persistence technology and mobile-native on-device storage
+  (`expo-sqlite`/`AsyncStorage`) both remain explicitly deferred, proposed follow-up work.
 DT-004/DT-005's remaining "stop"/"pending" outcomes remain gated on Finding F-01
   (duplicate-scan/toggle mechanism, still undefined).
 DEVELOPMENT SPRINT 004 REMAINS AWAITING REVIEW AGENT VERIFICATION AND HUMAN ARCHITECT APPROVAL.
-  DEVELOPMENT SPRINTS 005, 006, 007, 008 AND 009 ARE NOW CLOSED (COMPLETED). DT-013's
-  MOBILE-INTEGRATION ACCEPTANCE CRITERIA REMAIN SATISFIED VIA DT-014. DEVELOPMENT SPRINT 010
+  DEVELOPMENT SPRINTS 005, 006, 007, 008, 009 AND 010 ARE NOW CLOSED (COMPLETED). DT-013's
+  MOBILE-INTEGRATION ACCEPTANCE CRITERIA REMAIN SATISFIED VIA DT-014. DEVELOPMENT SPRINT 011
   PLANNING MAY PROCEED ONLY ON EXPLICIT TECHNICAL LEAD / HUMAN ARCHITECT AUTHORIZATION.
 ```
 

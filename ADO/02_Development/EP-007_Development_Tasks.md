@@ -358,7 +358,7 @@ Acceptance Criteria:
 
 ### Development Sprint 010 Implementation Notes
 
-Status: Implemented — Pending Review (2026-07-07). Per DTP-001's Completion Rule ("Implementation alone never completes a Development Task"), this is not marked Completed until Review Agent verification and Human Architect approval are recorded.
+Status: Completed — Review Agent verified, Human Architect approved (2026-07-07). As with DT-009, this task carries no simulator/device or narrowed-scope caveat: DT-015 is a pure `packages/core` change (the durable adapters, `JsonFileStore`, and the `runScan.ts`/`runScanCli.ts` split), verified in this environment via `npm run typecheck`/`npm run test` (154 `packages/core` tests pass, 27 new) and via genuinely separate OS process invocations proving cross-process durability (see Implementation Notes above). Its full, original Acceptance Criteria were implemented and reviewed in one pass.
 
 See `ADO/02_Development/Development_Sprint_010_Plan.md` for the full plan, including why this sprint builds local, file-based persistence only, not cloud/backend technology (ADR-0004/ADR-0007 split local from cloud persistence; only the cloud half remains a deferred Human Architect decision).
 
