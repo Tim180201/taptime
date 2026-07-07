@@ -1,0 +1,139 @@
+# Product Readiness Roadmap
+
+Role: Research / Implementation Support acting on behalf of Technical Lead (per AGR-001)
+Date: 2026-07-07
+Companion Document: `ADO/05_Evidence/Product_Readiness_Assessment.md` (source of all evidence and category-level detail cited below)
+Scope: Roadmap only, organized by commercial milestone rather than by category. No code implemented. No architecture, ADR, TTAP-001, FB-001, TS-001, Product Vision, or EP-008 content modified.
+
+---
+
+## How to Read This Roadmap
+
+Each item below references the Product Readiness Assessment section it is drawn from. This roadmap does not introduce new findings; it resequences the same findings by *when they must be resolved*, rather than *what category they belong to*. Items are placed at the earliest milestone by which they must be resolved — an item listed "Before Pilot Customers" is a hard prerequisite for that milestone, not merely relevant to it. Where an item's owner is the Human Architect (a business, legal, or product-scope decision) rather than an engineering role, this is marked explicitly, since this roadmap cannot authorize or perform that decision itself.
+
+**Strategic frame.** Consistent with the companion assessment's Section 0.1 and Section 12, "Product Capability" items below are read as extensions of TapTim.e's long-term Business Event Platform vision (Identity -> Organization -> People -> Assets -> NFC -> Business Events -> Business Engine -> Time Tracking), not as isolated feature requests — this is why, for example, "Organization Management" and "Customer/tag management" are grouped together below as capability work rather than described as unrelated features.
+
+**Track structure (added in this revision, per Technical Lead review).** Within each milestone below, items are now grouped into three tracks so the type of work — and the type of owner it needs — is visible at a glance, without changing which milestone any item belongs to or reprioritizing existing work:
+
+- **Engineering Track** — infrastructure, CI/CD, deployment, monitoring and operational tooling (Assessment Sections 1, 2, 6, 10).
+- **Product Capability Track** — capability-hierarchy work per Assessment Section 12 (Identity, Organization, People, Assets/NFC registration, Business Events/Business Engine extensions, Time Tracking, Administration, Reports) (Assessment Sections 1, 3, 8).
+- **Business, Legal & Go-To-Market Track** — pricing, legal/compliance, go-to-market and support-process decisions that are neither engineering implementation nor product-capability implementation (Assessment Sections 4, 5, 7, 9).
+
+This grouping is an organizational presentation change only; it does not alter which milestone any item is assigned to, and it does not add, remove, or reprioritize any finding from the original roadmap.
+
+---
+
+## Now
+
+Work that costs little, blocks nothing else, and should start immediately regardless of what else is prioritized next.
+
+**Engineering Track**
+
+- Stand up a minimal CI pipeline (typecheck + test on every push/PR) — near-zero cost, closes the single largest silent-regression risk in the repository today. (Assessment Section 2.)
+- Make the backend/cloud persistence technology decision that ADR-0007 deferred at EP-007's founding — this single decision unblocks Technical Operations, Deployment, and Scaling Readiness simultaneously (Assessment Section 11) and has no reason to wait for other roadmap items to resolve first. (Sections 2, 6, 10, Human Architect.) Per Assessment Section 11.1, this remains the primary bottleneck for what a pilot needs to become durable and scalable — it should proceed now, in parallel with, not after, the Product Capability Track item below.
+- Clear the Development Sprint 002/004 governance backlog (Review Agent verification, Human Architect approval) so it does not continue accumulating underneath new work. (Section 1, Technical Lead.)
+- Refresh the root `README.md`, `CHANGELOG.md`, `Project_Status.md`, and `Roadmap.md` — all four currently describe a pre-Sprint-001 repository state and would actively mislead anyone (engineer, investor, pilot customer's technical contact) who reads them today. (Section 2, Technical Lead — governance housekeeping, no architecture change.)
+
+**Product Capability Track**
+
+- Begin Feature Blueprint / Technical Specification drafting for Organization Management (Organization, People, Assets capability layers per Assessment Section 12). Per Assessment Section 11.1's re-evaluation, this — not the backend technology decision — is the more foundational bottleneck for reaching the very first pilot, because no Feature Blueprint exists for it today and full implementation remains scheduled at the Before Pilot Customers milestone below; specification work has no reason to wait for that milestone to begin. This does not reprioritize the implementation item itself, only its specification start date. (Sections 3, 11.1, Human Architect scope decision + Technical Lead specification.)
+- Resolve Finding F-01 (the duplicate-scan/toggle rule) — a Human Architect product decision within the Business Engine/Time Tracking capability layers, with no engineering dependency; every sprint since Sprint 002 has correctly deferred rather than guessed at it, but it should not remain open once real users are shown the product. (Section 1, Human Architect.)
+
+**Business, Legal & Go-To-Market Track**
+
+- Make an explicit software license decision for the repository (even "proprietary, all rights reserved" is a decision; today there is none). (Section 5, Human Architect.)
+
+## Before Pilot Customers
+
+Work required before any real company, even one running an informal, unpaid pilot, can be handed the product.
+
+**Product Capability Track** *(led by Organization Management — the primary bottleneck for this milestone per Assessment Section 11.1)*
+
+- Organization onboarding: a way (even a manually-assisted one) for a new Organization, its Administrators, and its Employees to be set up — today every identity is a hard-coded demo fixture. (Section 3/8, requires a new Feature Blueprint — Human Architect scope decision, Technical Lead specification.) Per Section 11.1, this is the single most consequential open item for reaching this milestone at all.
+- Customer/AssignmentTarget and NFC tag management: a way for an Administrator to register an NFC tag and assign it to a real customer/target, without editing source code. (Section 3, new Feature Blueprint required.)
+- Real NFC hardware integration in `apps/mobile` (a native NFC library wired to the existing `NfcScanPort`) — today only fake/CLI-simulated input exists; a pilot cannot scan a physical tag. (Section 3, Development Agent, once the mobile NFC library choice is made.)
+- A minimal "view own time entries" screen — closes the loop so a pilot employee can see that their scan produced something real. (Section 3, new Feature Blueprint required — TTAP-001/FB-001/TS-001 currently have no component for this.)
+
+**Engineering Track**
+
+- A real backend/persistence target reachable from a pilot's devices (depends on the "Now" backend technology decision) — the current file-based local persistence (DT-015) is explicitly not designed for multi-device or multi-user durability. (Section 2/6, Development Agent, gated on the backend decision.) Per Section 11.1, a single-device, single-organization pilot could in principle proceed on the existing local persistence while this is finalized, provided the Product Capability Track item above (Organization Management) exists to configure that pilot distinctly.
+- A mobile release mechanism that does not require a locally-run `expo start` — app store developer accounts, bundle identifiers, and a build/distribution pipeline (e.g. EAS Build) so a pilot user can actually install the app. (Section 6, Technical Lead/Development Agent.)
+
+**Business, Legal & Go-To-Market Track**
+
+- At minimum a placeholder Privacy Policy and Terms of Service, and an explicit internal decision on the GDPR data-processing basis and retention policy for the employee time/scan data a pilot will generate — given the product's German/EU market framing, this should be resolved before, not after, the first pilot organization's real employee data is processed. (Section 5, Human Architect + legal counsel.)
+- Explicit guidance for pilot customers regarding works-council/employee-representation approval, given the product's nature as an employee time-tracking (and potentially monitoring-adjacent) system in the German market. (Section 5, Human Architect + legal counsel.)
+- A pricing/packaging hypothesis, even if not charged during the pilot itself — costs nothing to define now and avoids an awkward conversation later about what a pilot is expected to convert into. (Section 4, Human Architect.)
+- A defined ideal customer profile and pilot-acquisition channel. (Section 7, Human Architect. See also the companion assessment's Section 13 — repository evidence does not yet support a full Business Readiness category, so this remains tracked here under Go-To-Market.)
+- A minimal support channel and communication process for pilot users (even "email the founder"). (Section 9, Human Architect.)
+
+## Before First Paying Customers
+
+Work required before TapTim.e can be sold, invoiced, and depended upon commercially, beyond an informal pilot relationship.
+
+**Product Capability Track**
+
+- Basic admin/reporting/export capability, if pilot feedback confirms it is a purchase requirement rather than a nice-to-have (ADR-0003 already lists this as in v1 scope; whether it is a pre-paid-launch requirement or a fast-follow is a Human Architect prioritization call informed by pilot feedback). (Section 3, new Feature Blueprint required — this extends the Business Events/Time Tracking capability layers per Assessment Section 12, not a standalone reporting feature.)
+
+**Engineering Track**
+
+- A CI-gated, environment-separated (dev/staging/production) deployment pipeline for the chosen backend, plus monitoring, error tracking, and structured logging — an unpaid pilot can tolerate manual operational attention; a paying customer should not depend on it. (Section 2, Technical Lead/Development Agent.)
+- Resolve the remaining Development Sprint 002/004/005-narrative governance backlog if not already cleared in the "Now" phase — a paying customer's technical due diligence (if any) should not find open review gaps in the engineering record. (Section 1, Technical Lead.)
+
+**Business, Legal & Go-To-Market Track**
+
+- A billing/subscription mechanism (or a manually-invoiced interim process, if simpler at this stage) implementing the pricing hypothesis validated during the pilot phase. (Section 4, Human Architect decision + Technical Lead/Development Agent integration.)
+- Full GDPR documentation appropriate for a paying commercial relationship: a Data Processing Agreement template for customers, a finalized data retention/deletion policy, and a data residency commitment tied to whatever backend hosting decision was made. (Section 5, Human Architect + legal counsel.)
+- Full go-to-market materials: positioning, a marketing/landing presence, and sales collateral distinct from the internal Product Vision document. (Section 7, Human Architect.)
+- Formal support runbooks and, at minimum, an informal SLA commitment appropriate for the first paying customers' expectations. (Section 9, Human Architect.)
+
+## Before 100 Customers
+
+Work required to operate reliably at a scale where manual, founder-mediated processes for onboarding, support, and operations no longer hold.
+
+**Product Capability Track**
+
+- A self-serve or substantially automated onboarding flow, replacing whatever manually-assisted process was used for pilots and early paying customers. (Section 8, Technical Lead/Development Agent, once the onboarding model is proven with early customers — this is the Organization/Identity capability layers, per Assessment Section 12, maturing from manually-assisted to self-serve.)
+
+**Engineering Track**
+
+- Multi-tenant data isolation validated against the real, chosen backend under realistic concurrent load — not just the in-process unit tests that validate it today. (Section 10, Technical Lead.)
+- A rate-limiting/quota strategy per organization, and a capacity/cost model that scales with customer count. (Section 10, Technical Lead.)
+- Mobile-native local storage (`expo-sqlite`/`AsyncStorage` or equivalent), if not already done earlier, so on-device durability does not depend on the desktop-oriented `packages/core` file adapters built in Development Sprint 010 — this was always scoped as a smaller, separate follow-up to DT-015. (Section 1/10, Development Agent.)
+
+**Business, Legal & Go-To-Market Track**
+
+- A status page and more formal incident-communication process. (Section 9, Human Architect/Technical Lead.)
+- Consideration of a formal compliance certification (SOC 2, ISO 27001), typically driven by customer procurement requirements appearing around this scale, not before. (Section 5, Human Architect — cost/benefit decision informed by actual customer demand.)
+
+## Before 1,000 Customers
+
+Work required for TapTim.e to operate as a mature, scaled SaaS platform.
+
+**Product Capability Track**
+
+- Reassess whether TapTim.e's long-term vision (`Product_Vision.md` Section 6 — "eine Plattform für Arbeitsereignisse," a broader work-events platform beyond time tracking) should begin architecturally, now that a large, real customer base provides validated demand signal for which direction to extend. (Section 3, Human Architect — this is explicitly a future product-strategy decision, not something this roadmap resolves.) This is the natural point to evaluate extending the capability hierarchy (Assessment Section 12) beyond NFC and Time Tracking into additional trigger types or Business Event applications.
+
+**Engineering Track**
+
+- Full horizontal scaling strategy and load testing for the chosen backend/compute model under realistic 1,000-organization concurrent usage. (Section 10, Technical Lead.)
+- A mature, tested disaster-recovery and backup strategy, exercised (not just documented) at this scale. (Section 2, Technical Lead.)
+- Revisit ADR-0007's platform baseline and every other ADR/TTAP-001 assumption made at Sprint 1 scale (a standing "Review Trigger" already exists on several ADRs — e.g. ADR-0005 "must be revisited before implementing additional trigger types," ADR-0007 "shall be revisited when... implementation evidence contradicts this platform baseline") against several years of real production evidence, rather than assuming Sprint-1-era decisions still hold unchanged. (Section 1, Technical Lead + Human Architect.) This is also the natural trigger point for a scheduled reassessment per the companion assessment's Section 15 (Long-term Governance).
+
+**Business, Legal & Go-To-Market Track**
+
+- A dedicated support/customer-success function, distinct from the founding engineering team. (Section 9, Human Architect.)
+
+---
+
+## Revision Note (Technical Lead Review Follow-up, 2026-07-07)
+
+This roadmap was updated once, after Technical Lead review, to: (1) add the "Strategic frame" paragraph above, connecting roadmap items to the companion assessment's Business Event Platform framing (Section 0.1) and capability hierarchy (Section 12); (2) organize every milestone's existing items into an Engineering Track, a Product Capability Track, and a Business, Legal & Go-To-Market Track, without adding, removing, or reprioritizing any item, and without moving any item to a different milestone; (3) note, within the Now and Before Pilot Customers milestones, the re-evaluated primary-bottleneck finding from the companion assessment's Section 11.1 (Organization Management as the more foundational blocker for reaching the first pilot, alongside — not instead of — the backend technology decision). No original roadmap item's wording, milestone assignment, or substance was changed; this revision only added track labels, short cross-reference notes, and this closing note.
+
+## Role Handover
+
+See `ADO/05_Evidence/Product_Readiness_Assessment.md` Section 16 for the full Role Handover covering both documents produced in this task and this revision.
+
+## Stop Condition
+
+Per task instruction: stop after this roadmap and its companion assessment. No implementation was created. No repository content other than these two new files was modified. Awaiting Technical Lead / Human Architect review. Do not continue automatically.
