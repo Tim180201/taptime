@@ -1,17 +1,18 @@
-# EP-007 Development Tasks – NFC Scan Creates Work Event
+# EP-007 Development Tasks
 
 Status: Draft  
 Epic: EP-007 – Product Architecture Foundation  
 Owner: Technical Lead  
 Approval Authority: Human Architect  
-Related Feature Blueprint: `ADO/01_Architecture/Feature_Blueprints/FB-001-nfc-scan-creates-work-event.md`  
-Related Technical Specification: `ADO/01_Architecture/Technical_Specifications/TS-001-nfc-scan-creates-work-event.md`  
+Related Feature Blueprint: `ADO/01_Architecture/Feature_Blueprints/FB-001-nfc-scan-creates-work-event.md`; `ADO/01_Architecture/Feature_Blueprints/FB-002-organization-management-foundation.md` (DT-017–DT-026)  
+Related Technical Specification: `ADO/01_Architecture/Technical_Specifications/TS-001-nfc-scan-creates-work-event.md`; `ADO/01_Architecture/Technical_Specifications/TS-002-organization-management-foundation.md` (DT-017–DT-026)  
 Related Architecture: `ADO/01_Architecture/Technical_Architecture_Profile.md`  
-Created Date: 2026-06-30
+Created Date: 2026-06-30  
+Last Updated: 2026-07-07 (extended with DT-017–DT-026, Organization Management Foundation)
 
 ## Purpose
 
-This document defines the initial Development Task structure for implementing TS-001.
+This document defines the Development Task structure for TapTim.e's implemented and planned Feature Blueprint/Technical Specification pairs. It originally defined only the initial Development Task structure for implementing TS-001 (DT-001–DT-016, NFC Scan Creates Work Event); it now also contains the Development Task decomposition for TS-002 (DT-017–DT-026, Organization Management Foundation). Both task sequences live in this one document because both are EP-007 Development Tasks; TS-001's and TS-002's own Feature Blueprints/Technical Specifications remain the authoritative source for the product behavior and architecture each task implements — this document only bounds and sequences the implementation units.
 
 Development Tasks are bounded implementation units. They do not redefine product intent, Business Rules or architecture.
 
@@ -413,13 +414,331 @@ See `ADO/02_Development/Development_Sprint_011_Plan.md` for the full plan, inclu
 
 Implementation: `apps/mobile/src/nfc/RnNfcScanAdapter.ts` (new), `apps/mobile/src/screens/ScanScreen.tsx` (extended), `apps/mobile/app.json` (plugin registration), `apps/mobile/package.json` (`react-native-nfc-manager`, `vitest` dependencies + `test` script), `apps/mobile/vitest.config.ts` (new). Tests: `apps/mobile/tests/nfc/normalizeTag.test.ts`, `RnNfcScanAdapter.test.ts`.
 
+## Task Sequence — Organization Management Foundation (TS-002)
+
+FB-002 and TS-002 have completed Technical Lead review. The following Development Tasks decompose TS-002 into the smallest safe, independently reviewable and testable implementation units, per the Technical Lead's explicit instruction to optimize for engineering quality rather than task count. Every task extends existing repository structure and reuses patterns already proven by DT-001–DT-016; none introduces an architectural redesign, and none touches `BusinessEngine`, `AssignmentResolver`, `AssignmentValidator`, `WorkEventFactory`, `NfcScanApplicationService`, `CallerContext`, `OfflineQueue`, `SynchronizationService`, or error handling — all confirmed unchanged by TS-002 itself.
+
+```text
+DT-017 Organization Domain & Repository
+  -> DT-018 Membership Domain & Repository
+  -> DT-019 Membership Authorization Validator
+  -> DT-020 Customer Repository Write Extension       -\
+  -> DT-021 NFC Tag Repository Write Extension          |-> (parallel, independent)
+  -> DT-022 NFC Assignment Repository Write Extension -/
+  -> DT-023 Organization Administration: Customer Registration (creates OrganizationAdministrationService)
+  -> DT-024 Organization Administration: NFC Tag Registration (extends the same service, created by DT-023)
+  -> DT-025 Organization Administration: NFC Tag Assignment (extends the same service, created by DT-023)
+  -> DT-026 Existing Scan Pipeline Integration Verification
+```
+
+DT-020, DT-021 and DT-022 have no dependency on each other and have no dependency on DT-017–DT-019; they may be implemented and reviewed in any order. DT-023–DT-025 consume these write extensions and the MembershipAuthorizationValidator. DT-023, DT-024 and DT-025 are not independent, however: `OrganizationAdministrationService` is a single class, created by DT-023 and extended in place by DT-024 and DT-025, one method each — DT-024 and DT-025 must not be implemented as if creating their own instance of the service, and both depend on DT-023 for that reason (see each task's own Dependencies).
+
+## DT-017 – Organization Domain & Repository
+
+Objective: Introduce `Organization` as a real domain object (currently only `OrganizationId` exists), an `OrganizationRepository` port with an in-memory implementation, and an `OrganizationManagementService` that creates an Organization.
+
+Repository Responsibility: Domain (`Organization` type) and Infrastructure (`OrganizationRepository` port + `InMemoryOrganizationRepository`) and Application (`OrganizationManagementService`) — three small, related additions bundled into one task because none is independently meaningful without the others, mirroring how DT-007 bundled a new domain type, a new port, a new adapter and a service extension into one Development Task.
+
+Acceptance Criteria:
+
+- `Organization` exists as a domain object: `OrganizationId` (existing, unchanged) plus a human-readable `name`. No `status` field (TS-002: not required by any Decision Logic; a pure additive follow-up if the Human Architect later requires one).
+- `OrganizationRepository` port exists with `findById(id: OrganizationId): Organization | null` and a save/create method; `InMemoryOrganizationRepository` implements it, following the exact constructor-seeded pattern of `InMemoryCustomerRepository`.
+- `OrganizationManagementService` constructs an `Organization` and calls `OrganizationRepository`'s save method, producing `OrganizationCreated` (new domain event, following the `WorkEventCreated`/`TimeEntryStarted` constructor-function idiom).
+- Organization creation has no precondition beyond the request itself (TS-002 Decision 1) — a second, third, etc. Organization can always be created without depending on any other Organization's data.
+- Unit tests cover: `InMemoryOrganizationRepository` (find/save round-trip, not-found case), `OrganizationManagementService` (produces `OrganizationCreated` with the correct fields).
+
+Implementation Boundary (must not be touched): `Customer`, `NfcTag`, `NfcAssignment`, `AssignmentTarget`, `CallerContext`, any existing port, any existing repository, any existing Application Service, `BusinessEngine`, `AssignmentResolver`, `AssignmentValidator`, `WorkEventFactory`.
+
+Testing Expectations: unit tests only, in isolation, no composition-level test yet (that is DT-026). No physical/device verification applicable.
+
+Out of Scope: Organization status/suspension; Organization update or deletion; any UI or CLI entry point that calls `OrganizationManagementService` (a future Development Task or Mobile/CLI concern, not designed here); durable/file-backed `OrganizationRepository` implementation (may follow DT-015's precedent later, not required now).
+
+Dependencies: TS-002 (Section "Domain Model", "Ports", "Application Services"), FB-002 (Capability 1). None on DT-001–DT-016 beyond the existing `ids.ts`/domain-event idiom they established.
+
+Relationship to TS-002: Implements Capability 1's Domain Model (`Organization`), Ports (`OrganizationRepository`), and Application Services (`OrganizationManagementService`) sections exactly as specified; implements Sequence Diagram 1 (Organization Creation).
+
+Relationship to FB-002: Implements Capability 1 (Organization) and Decision 1 (Create Organization) exactly as specified; satisfies the In Scope item "Organization existence as a real, addressable business container."
+
+### Implementation Notes
+
+Status: Not yet implemented. Placeholder — to be completed during Development Sprint 012 (or a later sprint) implementation, per DTP-001's Completion Rule ("Implementation alone never completes a Development Task").
+
+## DT-018 – Membership Domain & Repository
+
+Objective: Introduce the Membership **domain/repository/service foundation only** — `Membership` and `MembershipRole` as real domain objects, a new `MembershipId` branded identifier, a `MembershipRepository` port with an in-memory implementation, and a `MembershipService` exposing a `grantMembership(...)` method. This task builds the mechanical capability to construct and save a Membership; it does not build, and must not be read as building, an authorized, admin-facing "grant a Membership" flow (see Out of Scope).
+
+Repository Responsibility: Domain (`Membership`, `MembershipRole`, `MembershipId`) and Infrastructure (`MembershipRepository` port + `InMemoryMembershipRepository`) and Application (`MembershipService`) — same bundling rationale as DT-017.
+
+Acceptance Criteria:
+
+- `MembershipId` is added to `packages/core/src/domain/ids.ts` alongside the existing branded ID types, following the exact same `Brand<Value, BrandName>`/`brandedNonEmptyString` factory pattern.
+- `Membership` exists as a domain object: its own `MembershipId`, `organizationId: OrganizationId`, `userId: UserId`, `role: MembershipRole` — carrying its own identity rather than only a compound key, following the precedent ADR-0002 already set for `NfcAssignment`.
+- `MembershipRole` exists as a value, not an entity: `'administrator' | 'employee'`, mirroring the existing string-literal-union idiom already used for `AssignmentTarget.targetType`.
+- `MembershipRepository` port exists with `findByUserId(userId: UserId): Membership | null` (one Membership per actor, per FB-002's single-membership assumption) and a save/create method; `InMemoryMembershipRepository` implements it.
+- `MembershipService` constructs a `Membership` and calls `MembershipRepository`'s save method, producing `MembershipGranted`.
+- Unit tests cover: `MembershipId` construction (including the existing empty/whitespace-string rejection behavior every other branded ID already has), `InMemoryMembershipRepository` (find/save round-trip, not-found case), `MembershipService` (produces `MembershipGranted` with the correct fields).
+
+Implementation Boundary (must not be touched): everything DT-017 lists, plus DT-017's own `Organization`/`OrganizationRepository`/`OrganizationManagementService` (consumed, not modified).
+
+Testing Expectations: unit tests only, in isolation.
+
+Out of Scope: **the Membership-granting bootstrap question** (TS-002 Open Questions: how the very first Administrator Membership of a newly created Organization is authorized, when no prior Administrator Membership exists to authorize it) remains explicitly unresolved after this task — `MembershipService.grantMembership(...)` as built here performs no authorization check itself (DT-019 builds `MembershipAuthorizationValidator` as a separate, standalone component; no task in this package wires it in front of `MembershipService`). **Consequently, no admin-facing Membership-granting flow is implemented or ready for use after DT-018 (or after DT-019) — `MembershipService` alone is domain/repository/service foundation, callable only from tests or a future, not-yet-created orchestration, and must not be treated as a safe, authorized capability until the Human Architect resolves the bootstrap question and a task wiring `MembershipAuthorizationValidator` in front of it is planned.** This is a deliberately carried-forward gap, not a new Development Task added here, per instruction. Multi-organization membership (`findByUserId` returning more than one result) is out of scope, per FB-002 Open Question 2. Durable/file-backed `MembershipRepository` implementation is out of scope.
+
+Dependencies: DT-017 (an Organization must exist for a Membership to reference).
+
+Relationship to TS-002: Implements Capability 2's Domain Model (`Membership`, `MembershipRole`), Ports (`MembershipRepository`), and Application Services (`MembershipService`) sections; implements Sequence Diagram 2 (Membership Creation).
+
+Relationship to FB-002: Implements Capability 2 (Membership) and Decision 2 (Create Membership); satisfies the In Scope items "Membership" and "Minimal Membership Roles: Administrator, Employee only."
+
+### Implementation Notes
+
+Status: Not yet implemented. Placeholder — to be completed during Development Sprint 012 (or a later sprint) implementation.
+
+## DT-019 – Membership Authorization Validator
+
+Objective: Implement `MembershipAuthorizationValidator`, a new Business-area component structurally identical to the existing `AssignmentValidator` — pure, deterministic, no side effects — that evaluates whether a Membership may perform an administrative action against a target Organization.
+
+Repository Responsibility: Business Engine responsibility area, directly alongside `AssignmentValidator`, per TS-002's explicit placement decision (this is a Business Rule, not an Application-layer concern).
+
+Acceptance Criteria:
+
+- `MembershipAuthorizationValidator` takes a `Membership` (or its absence) and a target `OrganizationId` and returns an accepted/rejected result, mirroring `AssignmentValidationResult`'s `{ status: 'accepted' | 'rejected', reason? }` shape exactly.
+- Rejection reasons, exactly as TS-002 specifies: `membership_not_found` (no Membership exists for the actor), `membership_lacks_administrator_role` (Membership exists but carries the Employee role), `cross_organization_access` (Membership's Organization differs from the target Organization).
+- The component has no side effects and no dependency on any repository directly inside its own decision logic (the Membership is passed in, exactly as `AssignmentValidator.validate()` receives its inputs already resolved) — consistent with "Application Orchestrates But Does Not Interpret" and the equal-and-opposite rule that Business components decide without performing I/O themselves.
+- Unit tests cover: accepted case (Administrator Membership, matching Organization); each of the three rejection reasons independently.
+
+Implementation Boundary (must not be touched): `AssignmentValidator` itself is not modified in any way — `MembershipAuthorizationValidator` is a new, separate, structurally analogous class, not an extension of `AssignmentValidator`. No Application Service is built or modified by this task.
+
+Testing Expectations: unit tests only, in isolation, following `AssignmentValidator.test.ts`'s existing structure (one test per acceptance/rejection branch).
+
+Out of Scope: any caller of this validator (DT-023–DT-025's responsibility for Customer/NfcTag/NfcAssignment administration; no task in this package wires it in front of `MembershipService.grantMembership(...)`, so it does not resolve DT-018's Membership-granting bootstrap question either — this task creates the validator component only, it does not decide who may grant a Membership); any change to `AssignmentValidator`'s own `employee_lacks_organization_access`/`missing_assignment_target`/`assignment_target_disabled` behavior, which remains exactly as-is per TS-002 Decision 7.
+
+Dependencies: DT-018 (`Membership`/`MembershipRole` domain objects must exist).
+
+Relationship to TS-002: Implements the "New Business-Area Component" section exactly; the shared precondition for Sequence Diagrams 2–5.
+
+Relationship to FB-002: Implements Decision 6 (Evaluate Whether an Actor May Perform an Administrative Action) and the Business Rule "Only a Membership with the Administrator Role may create or assign Organization-owned pilot data."
+
+### Implementation Notes
+
+Status: Not yet implemented. Placeholder — to be completed during Development Sprint 012 (or a later sprint) implementation.
+
+## DT-020 – Customer Repository Write Extension
+
+Objective: Extend the existing `CustomerRepository` port with one additive save/create method, update `InMemoryCustomerRepository` accordingly, and introduce the `CustomerCreated` domain event.
+
+Repository Responsibility: Infrastructure (port extension + adapter update) and Domain (new event). No Application Service is built by this task (DT-023 consumes it).
+
+Acceptance Criteria:
+
+- `CustomerRepository` gains one new method (create/save a `Customer`); `findById` is unchanged, byte-for-byte, and its existing tests continue to pass unmodified.
+- `InMemoryCustomerRepository` implements the new method, consistent with its existing constructor-seeded-array pattern.
+- `CustomerCreated` domain event exists, carrying the created `Customer`, following the `WorkEventCreated` idiom exactly.
+- A dedicated test proves the new save method and `findById` compose correctly (save then find-by-id returns the saved Customer).
+- `AssignmentValidator`'s existing `CustomerRepository.findById` usage is verified unchanged and its existing tests pass without modification.
+
+Implementation Boundary (must not be touched): `Customer`'s shape (no field added, removed or renamed); `AssignmentValidator`; any other repository.
+
+Testing Expectations: unit tests only, in isolation; explicit non-regression check that `AssignmentValidator.test.ts` requires no changes.
+
+Out of Scope: any authorization check on who may call the new save method (DT-023's responsibility); Customer update/deactivation; durable/file-backed implementation.
+
+Dependencies: None beyond existing repository code. Independent of DT-017/DT-018/DT-019 (may be implemented in parallel).
+
+Relationship to TS-002: Implements the "Extended Existing Ports" (`CustomerRepository`) and part of the "Business Events" sections.
+
+Relationship to FB-002: Implements part of Capability 3 (Business Assets) and Decision 3's write path (Create Customer / AssignmentTarget).
+
+### Implementation Notes
+
+Status: Not yet implemented. Placeholder — to be completed during Development Sprint 012 (or a later sprint) implementation.
+
+## DT-021 – NFC Tag Repository Write Extension
+
+Objective: Extend the existing `NfcTagRepository` port with one additive save/create (registration) method, update `InMemoryNfcTagRepository` accordingly, and introduce the `NfcTagRegistered` domain event.
+
+Repository Responsibility: Infrastructure (port extension + adapter update) and Domain (new event).
+
+Acceptance Criteria:
+
+- `NfcTagRepository` gains one new method (register/save an `NfcTag`); `findByPayload` is unchanged, byte-for-byte, and its existing tests continue to pass unmodified.
+- `InMemoryNfcTagRepository` implements the new method.
+- `NfcTagRegistered` domain event exists, carrying the registered `NfcTag`.
+- A dedicated test proves the new save method and `findByPayload` compose correctly (register then find-by-payload returns the registered tag).
+- `AssignmentResolver`'s existing `NfcTagRepository.findByPayload` usage is verified unchanged and its existing tests pass without modification.
+
+Implementation Boundary (must not be touched): `NfcTag`'s shape; `AssignmentResolver`; any other repository.
+
+Testing Expectations: unit tests only, in isolation; explicit non-regression check that `AssignmentResolver.test.ts` requires no changes.
+
+Out of Scope: any authorization check (DT-024's responsibility); tag deactivation/retirement; any physical tag-provisioning workflow (`NFC_Capability_Model.md`'s own open question, "Do we need tag provisioning inside the app?" — not resolved here, per FB-002 Open Question 7); durable/file-backed implementation.
+
+Dependencies: None beyond existing repository code. Independent of DT-017/DT-018/DT-019/DT-020/DT-022.
+
+Relationship to TS-002: Implements the "Extended Existing Ports" (`NfcTagRepository`) and part of the "Business Events" sections.
+
+Relationship to FB-002: Implements part of Capability 3 (Business Assets) and Decision 4's write path (Register NFC Tag).
+
+### Implementation Notes
+
+Status: Not yet implemented. Placeholder — to be completed during Development Sprint 012 (or a later sprint) implementation.
+
+## DT-022 – NFC Assignment Repository Write Extension
+
+Objective: Extend the existing `NfcAssignmentRepository` port with one additive save/create method, update `InMemoryNfcAssignmentRepository` accordingly, and introduce the `NfcTagAssigned` domain event.
+
+Repository Responsibility: Infrastructure (port extension + adapter update) and Domain (new event).
+
+Acceptance Criteria:
+
+- `NfcAssignmentRepository` gains one new method (create/save an `NfcAssignment`); `findActiveByTagId` is unchanged, byte-for-byte, and its existing tests continue to pass unmodified.
+- `InMemoryNfcAssignmentRepository` implements the new method.
+- `NfcTagAssigned` domain event exists, carrying the created `NfcAssignment`.
+- A dedicated test proves the new save method and `findActiveByTagId` compose correctly (create an active assignment, then find-active-by-tag-id returns it).
+- `AssignmentResolver`'s existing `NfcAssignmentRepository.findActiveByTagId` usage is verified unchanged and its existing tests pass without modification.
+
+Implementation Boundary (must not be touched): `NfcAssignment`'s shape; `AssignmentTarget`'s shape; `AssignmentResolver`; any other repository.
+
+Testing Expectations: unit tests only, in isolation; explicit non-regression check that `AssignmentResolver.test.ts` requires no changes.
+
+Out of Scope: any authorization or same-organization cross-check (DT-025's responsibility); re-assignment/assignment history semantics (FB-002 Open Question 3, not resolved here); durable/file-backed implementation.
+
+Dependencies: None beyond existing repository code. Independent of DT-017/DT-018/DT-019/DT-020/DT-021.
+
+Relationship to TS-002: Implements the "Extended Existing Ports" (`NfcAssignmentRepository`) and part of the "Business Events" sections.
+
+Relationship to FB-002: Implements part of Capability 3 (Business Assets) and Decision 5's write path (Assign NFC Tag).
+
+### Implementation Notes
+
+Status: Not yet implemented. Placeholder — to be completed during Development Sprint 012 (or a later sprint) implementation.
+
+## DT-023 – Organization Administration: Customer Registration
+
+Objective: Create `OrganizationAdministrationService` (TS-002's single Application Service for Capability 4) with its first method, `createCustomer(...)`, orchestrating `MembershipAuthorizationValidator` and the DT-020 write path to let an Administrator Membership create a Customer within their own Organization. **This task creates the `OrganizationAdministrationService` class itself; DT-024 and DT-025 extend this same class with their own methods — neither DT-024 nor DT-025 creates a separate or second instance of this service.**
+
+Repository Responsibility: Application (orchestration only — no business rule owned directly, per `NfcScanApplicationService`'s existing "orchestrates but does not interpret" boundary).
+
+Acceptance Criteria:
+
+- `OrganizationAdministrationService.createCustomer(...)` calls `MembershipAuthorizationValidator` first; on rejection, returns the rejection reason and performs no write.
+- On acceptance, constructs a `Customer` (`organizationId` taken from the requesting Membership's Organization, per TS-002 Decision 3) and calls `CustomerRepository`'s new save method, producing `CustomerCreated`.
+- An Employee Membership attempting this method is rejected with `membership_lacks_administrator_role`; an Administrator Membership of a different Organization is rejected with `cross_organization_access`.
+- Unit tests cover: accepted path (Customer created, event produced); each rejection path, verifying no write occurs on rejection.
+
+Implementation Boundary (must not be touched): `MembershipAuthorizationValidator` (consumed, not modified); `CustomerRepository` (consumed, not modified beyond DT-020); any FB-001 pipeline component.
+
+Testing Expectations: unit tests, including a test double or in-memory `MembershipAuthorizationValidator`/`CustomerRepository` combination proving the full orchestration; no composition-level pipeline test yet (DT-026).
+
+Out of Scope: any UI or CLI entry point calling this service; Customer field validation beyond what `Customer`'s existing shape already requires.
+
+Dependencies: DT-019 (`MembershipAuthorizationValidator`), DT-020 (`CustomerRepository` write path).
+
+Relationship to TS-002: Implements Capability 4's `createCustomer` method and Sequence Diagram 3 (Customer Registration) exactly.
+
+Relationship to FB-002: Implements Decision 3 (Create Customer / AssignmentTarget) and the Business Rule "Only a Membership with the Administrator Role may create or assign Organization-owned pilot data."
+
+### Implementation Notes
+
+Status: Not yet implemented. Placeholder — to be completed during Development Sprint 012 (or a later sprint) implementation.
+
+## DT-024 – Organization Administration: NFC Tag Registration
+
+Objective: Extend `OrganizationAdministrationService` — **created by DT-023, not created again here** — with a second method, `registerNfcTag(...)`, orchestrating `MembershipAuthorizationValidator` and the DT-021 write path to let an Administrator Membership register an NFC Tag within their own Organization.
+
+Repository Responsibility: Application (orchestration only), same boundary as DT-023.
+
+Acceptance Criteria:
+
+- `OrganizationAdministrationService.registerNfcTag(...)` calls `MembershipAuthorizationValidator` first; on rejection, returns the rejection reason and performs no write.
+- On acceptance, constructs an `NfcTag` (`organizationId` taken from the requesting Membership's Organization) and calls `NfcTagRepository`'s new save method, producing `NfcTagRegistered`.
+- Same rejection-path coverage as DT-023, applied to tag registration.
+- Unit tests cover: accepted path; each rejection path, verifying no write occurs on rejection.
+
+Implementation Boundary (must not be touched): `MembershipAuthorizationValidator`; `NfcTagRepository` (beyond DT-021); any FB-001 pipeline component.
+
+Testing Expectations: unit tests, same structure as DT-023.
+
+Out of Scope: any UI or CLI entry point; any physical tag-provisioning workflow (same exclusion as DT-021); duplicate-payload handling across Organizations (FB-002 Open Question 5, not resolved here).
+
+Dependencies: DT-023 (`OrganizationAdministrationService` must already exist as a class before this task can add a method to it), DT-019 (`MembershipAuthorizationValidator`), DT-021 (`NfcTagRepository` write path).
+
+Relationship to TS-002: Implements Capability 4's `registerNfcTag` method and Sequence Diagram 4 (NFC Tag Registration) exactly.
+
+Relationship to FB-002: Implements Decision 4 (Register NFC Tag) and the same Business Rule as DT-023.
+
+### Implementation Notes
+
+Status: Not yet implemented. Placeholder — to be completed during Development Sprint 012 (or a later sprint) implementation.
+
+## DT-025 – Organization Administration: NFC Tag Assignment
+
+Objective: Extend `OrganizationAdministrationService` — **created by DT-023, not created again here** — with a third method, `assignNfcTag(...)`, orchestrating `MembershipAuthorizationValidator`, a same-Organization cross-check between the NfcTag and the AssignmentTarget, and the DT-022 write path.
+
+Repository Responsibility: Application (orchestration only), same boundary as DT-023/DT-024.
+
+Acceptance Criteria:
+
+- `OrganizationAdministrationService.assignNfcTag(...)` calls `MembershipAuthorizationValidator` first; on rejection, returns the rejection reason and performs no write.
+- On acceptance, additionally verifies the target `NfcTag` and `AssignmentTarget` both belong to the same Organization as the requesting Membership (TS-002 Decision 5) — mirroring `AssignmentValidator`'s existing cross-check pattern; a mismatch is rejected with `cross_organization_access` without a write.
+- On full acceptance, constructs an `NfcAssignment` and calls `NfcAssignmentRepository`'s new save method, producing `NfcTagAssigned`.
+- Unit tests cover: accepted path; `MembershipAuthorizationValidator` rejection paths; the additional same-Organization Tag/Target mismatch rejection, verifying no write occurs on any rejection.
+
+Implementation Boundary (must not be touched): `MembershipAuthorizationValidator`; `NfcAssignmentRepository` (beyond DT-022); `AssignmentTarget`'s shape; any FB-001 pipeline component.
+
+Testing Expectations: unit tests, same structure as DT-023/DT-024, plus the additional cross-check case.
+
+Out of Scope: any UI or CLI entry point; re-assignment of an already-assigned tag (FB-002 Open Question 3, not resolved here — this task creates a new assignment only, it does not define re-assignment semantics).
+
+Dependencies: DT-023 (`OrganizationAdministrationService` must already exist as a class before this task can add a method to it — and a Customer/AssignmentTarget must exist, via `createCustomer`, to assign a tag to), DT-024 (`OrganizationAdministrationService` must already have `registerNfcTag` — and the NfcTag must actually be registered before it can be assigned), DT-019 (`MembershipAuthorizationValidator`), DT-022 (`NfcAssignmentRepository` write path).
+
+Relationship to TS-002: Implements Capability 4's `assignNfcTag` method and Sequence Diagram 5 (NFC Tag Assignment) exactly.
+
+Relationship to FB-002: Implements Decision 5 (Assign NFC Tag) and the Business Rule "A Tag may be assigned only to an AssignmentTarget in the same Organization."
+
+### Implementation Notes
+
+Status: Not yet implemented. Placeholder — to be completed during Development Sprint 012 (or a later sprint) implementation.
+
+## DT-026 – Existing Scan Pipeline Integration Verification
+
+Objective: Prove, without changing any pipeline code, that `AssignmentResolver`, `AssignmentValidator`, `WorkEventFactory` and `BusinessEngine` produce identical outcomes when `NfcTagRepository`/`NfcAssignmentRepository`/`CustomerRepository` are populated through DT-020–DT-025's Administration flow instead of `runScan.ts`'s hard-coded demo fixture.
+
+Repository Responsibility: Tests/verification only — no production code in `business/`, `application/`, or `domain/` is added or modified by this task, mirroring DT-010's and DT-011's role as composition/verification-focused tasks.
+
+Acceptance Criteria:
+
+- A new composition-level test constructs a real (non-demo) Organization, Administrator Membership and Employee Membership via DT-017/DT-018; creates a Customer, registers an NFC Tag, and assigns it via DT-023/DT-024/DT-025; then drives a scan through the unmodified `NfcScanApplicationService`/`AssignmentResolver`/`AssignmentValidator`/`WorkEventFactory`/`BusinessEngine` pipeline and asserts the same `WorkEventCreated`/`TimeEntryStarted` outcome shape DT-011's existing demo-pipeline test already asserts for the fixture case.
+- A second test proves cross-Organization data is correctly invisible/rejected: a scan using a Membership from Organization A cannot resolve or validate against Organization B's Tag/Assignment/Customer, exercising `AssignmentValidator`'s existing `employee_lacks_organization_access` unchanged.
+- `git diff` confirms zero changes to `AssignmentResolver.ts`, `AssignmentValidator.ts`, `WorkEventFactory.ts`, `BusinessEngine.ts`, `NfcScanApplicationService.ts`, `CallerContext.ts`.
+- `runScan.ts`'s existing `buildScanDemoPipeline` and its existing tests are verified unchanged and continue to pass — this task does not require modifying the demo CLI pipeline (a future, separate, non-required follow-up may let it optionally accept Organization-owned repository instances, mirroring DT-015's `ScanDemoStorageOptions` precedent, but that is not part of this task).
+
+Implementation Boundary (must not be touched): every file listed in "Architecture Principles Preserved" in TS-002; this task adds tests only.
+
+Testing Expectations: composition-level tests only, using real (unmocked) production classes throughout, exactly as DT-011's and DT-015's composition tests already do.
+
+Out of Scope: any CLI or mobile entry point wiring the new Administration Services into `runScan.ts`/`apps/mobile` (a future Development Task, not required to prove TS-002's architectural claim); performance/scale testing; any new business decision logic.
+
+Dependencies: DT-017, DT-018, DT-019, DT-020, DT-021, DT-022, DT-023, DT-024, DT-025 — this is the final, integrating task and requires all preceding Organization Management tasks to exist.
+
+Relationship to TS-002: Implements Capability 5 (Scan Pipeline Enablement) and Sequence Diagram 6 (Existing Scan Using Organization-Owned Data); directly verifies TS-002's Primary Design Question answer.
+
+Relationship to FB-002: Implements the In Scope item "Replacing hard-coded, source-code demo fixtures as a product capability goal" and Decision 7 (Evaluate Whether a Scan Belongs to the Same Organization Context, unchanged).
+
+### Implementation Notes
+
+Status: Not yet implemented. Placeholder — to be completed during Development Sprint 012 (or a later sprint) implementation.
+
 ## Dependencies
 
 - ADR-0007 must exist.
 - TTAP-001 EP-007 extension must exist.
 - FB-001 must exist.
 - TS-001 must exist.
+- For DT-017–DT-026: FB-002 and TS-002 must exist and have completed Technical Lead review (both satisfied as of this update).
 
 ## Completion Rule
 
 This task structure is ready for Development Agent planning only after Review Agent approval of the EP-007 repository integration.
+
+DT-017–DT-026 are ready for Development Sprint 012 planning: each has an explicit objective, acceptance criteria, dependency, implementation boundary, testing expectation and out-of-scope definition. None has been implemented yet — every "Implementation Notes" section above is a placeholder, to be completed only once a Development Sprint actually builds the task, per DTP-001's Completion Rule ("Implementation alone never completes a Development Task") and AVR-001 ("Validation requires evidence. Status shall never be upgraded by assumption.").
