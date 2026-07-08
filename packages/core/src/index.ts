@@ -19,6 +19,8 @@ export * from './domain/events/WorkEventQueuedForSync';
 export * from './domain/events/WorkEventSynchronized';
 export * from './domain/events/WorkEventSyncFailed';
 export * from './domain/ErrorCategory';
+export * from './domain/Organization';
+export * from './domain/events/OrganizationCreated';
 
 export * from './ports/NfcScanPort';
 export * from './ports/NfcTagRepository';
@@ -30,6 +32,7 @@ export * from './ports/TimeEntryRepository';
 export * from './ports/OfflineQueue';
 export * from './ports/SynchronizationGateway';
 export * from './ports/AuthenticationGateway';
+export * from './ports/OrganizationRepository';
 
 export * from './business/AssignmentResolver';
 export * from './business/AssignmentValidator';
@@ -51,6 +54,7 @@ export * from './application/SessionService';
 export * from './application/classifyScanPipelineOutcome';
 export * from './application/classifySynchronizationResult';
 export * from './application/classifyAuthenticationResult';
+export * from './application/OrganizationManagementService';
 
 export * from './infrastructure/adapters/FakeNfcScanAdapter';
 export * from './infrastructure/adapters/FakeSynchronizationGateway';
@@ -62,5 +66,6 @@ export * from './infrastructure/repositories/InMemoryCustomerRepository';
 export * from './infrastructure/repositories/InMemoryWorkEventRepository';
 export * from './infrastructure/repositories/InMemoryTimeEntryRepository';
 export * from './infrastructure/repositories/InMemoryOfflineQueue';
+export * from './infrastructure/repositories/InMemoryOrganizationRepository';
 
 export * from './cli/runScan';
