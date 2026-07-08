@@ -3,4 +3,5 @@ import type { NfcPayload } from '../domain/NfcPayload';
 
 export interface NfcTagRepository {
   findByPayload(payload: NfcPayload): NfcTag | null;
+  register(nfcTag: NfcTag): void;
 }

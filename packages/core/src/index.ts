@@ -24,6 +24,9 @@ export * from './domain/events/OrganizationCreated';
 export * from './domain/MembershipRole';
 export * from './domain/Membership';
 export * from './domain/events/MembershipGranted';
+export * from './domain/events/CustomerCreated';
+export * from './domain/events/NfcTagRegistered';
+export * from './domain/events/NfcTagAssigned';
 
 export * from './ports/NfcScanPort';
 export * from './ports/NfcTagRepository';
