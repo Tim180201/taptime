@@ -587,3 +587,23 @@ apps/mobile/
 ```
 
 `src/nfc/` was added as a sibling to `src/screens/` and `src/navigation/`, not nested inside either, because `RnNfcScanAdapter` is an infrastructure adapter (it implements a `packages/core` port), not a screen or a navigation concern — the same responsibility-reflects-placement discipline Chapter 00 Section 7.5 requires, now applied inside `apps/mobile` for the first time rather than only within `packages/core`. This is also the first Development Sprint to add a test runner to `apps/mobile` at all: `vitest` (already used throughout `packages/core`, introducing no new testing paradigm to the repository) was added as a dev dependency, scoped to plain TypeScript logic tests only (`normalizeTag()`'s payload normalization, the adapter's capability-check branching and its async-event-to-sync-`scan()` bridge) — no `jsdom`/React Native component-rendering harness (`jest-expo`/`@testing-library/react-native`) was introduced, since this sprint's testable surface does not include screen rendering. `packages/core/src/ports/NfcScanPort.ts` itself was not touched; `RnNfcScanAdapter` is consumed by `ScanScreen.tsx` exactly the way `FakeNfcScanAdapter`/`CliNfcScanAdapter` are consumed by their respective composition points, with no new top-level grouping beyond `apps/mobile/src/nfc/` introduced.
+
+### 10.10 `packages/core/src` Extended for the First Organization Management Slice — No New Top-Level Grouping (Development Sprint 012)
+
+Development Sprint 012 (DT-017) added exactly one new file to each of `packages/core/src`'s four existing top-level groupings — no new grouping was introduced, matching every prior Development Sprint's discipline for extending, not restructuring, this layout:
+
+```text
+packages/core/src/
+  domain/Organization.ts                                  (new)
+  domain/events/OrganizationCreated.ts                     (new)
+  ports/OrganizationRepository.ts                          (new)
+  infrastructure/repositories/InMemoryOrganizationRepository.ts  (new)
+  application/OrganizationManagementService.ts             (new)
+  index.ts                                                 (extended — five new export lines, existing grouped-barrel convention preserved)
+
+packages/core/tests/
+  infrastructure/InMemoryOrganizationRepository.test.ts     (new)
+  application/OrganizationManagementService.test.ts         (new)
+```
+
+Each new file was placed exactly where its existing counterpart already lives — `Organization.ts` alongside `Customer.ts` in `domain/`, `OrganizationCreated.ts` alongside `WorkEventCreated.ts` in `domain/events/`, `OrganizationRepository.ts` alongside `CustomerRepository.ts` in `ports/`, `InMemoryOrganizationRepository.ts` alongside `InMemoryCustomerRepository.ts` in `infrastructure/repositories/`, and `OrganizationManagementService.ts` alongside `NfcScanApplicationService.ts` in `application/` — so a developer already oriented by Sections 10.1–10.6's layout finds Organization Management's first slice in the same place they would look for any other domain/port/service triad, with no new documentation of the layout itself required. `index.ts`'s five new export lines were added within their existing grouped sections (domain, ports, infrastructure, application), preserving the file's existing ordering-by-layer convention rather than appending to the end.
