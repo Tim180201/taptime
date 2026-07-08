@@ -649,3 +649,31 @@ packages/core/tests/business/
 ```
 
 `MembershipAuthorizationValidator.ts` and `MembershipAuthorizationResult.ts` are placed directly beside `AssignmentValidator.ts`/`AssignmentValidationResult.ts` — the same file pair pattern, not a new subgrouping within `business/` — so a developer already oriented by this chapter's layout finds the second Business-area validator exactly where they would look for the first. Unlike every prior Organization Management addition (DT-017's `domain`/`ports`/`infrastructure`/`application` triad, DT-018's same triad plus a `domain/ids.ts` extension), this is the first Organization Management Development Task to add files to `business/` — confirming that grouping, too, extends cleanly without requiring a new top-level directory or a different internal structure. `index.ts`'s two new export lines were added within the file's `business/` grouped section, directly adjacent to `AssignmentValidator`/`AssignmentValidationResult`'s own export lines, preserving the file's ordering-by-layer convention.
+
+### 10.13 Three Pre-Existing Ports Extended in Place — No New File, No New Grouping (Development Sprint 015)
+
+Development Sprint 015 (DT-020, DT-021, DT-022) is the first Organization Management Development step whose target files predate Organization Management itself — `CustomerRepository.ts`, `NfcTagRepository.ts`, and `NfcAssignmentRepository.ts` (all in `packages/core/src/ports/`), and their three `InMemory*` counterparts (all in `packages/core/src/infrastructure/repositories/`), have existed since this repository's original DT-001–DT-006 implementation:
+
+```text
+packages/core/src/ports/
+  CustomerRepository.ts          (existing — one method added: save)
+  NfcTagRepository.ts            (existing — one method added: register)
+  NfcAssignmentRepository.ts     (existing — one method added: save)
+
+packages/core/src/infrastructure/repositories/
+  InMemoryCustomerRepository.ts       (existing — save implemented, defensive-copy constructor)
+  InMemoryNfcTagRepository.ts         (existing — register implemented, defensive-copy constructor)
+  InMemoryNfcAssignmentRepository.ts  (existing — save implemented, defensive-copy constructor)
+
+packages/core/src/domain/events/
+  CustomerCreated.ts       (new)
+  NfcTagRegistered.ts      (new)
+  NfcTagAssigned.ts        (new)
+
+packages/core/tests/infrastructure/
+  InMemoryCustomerRepository.test.ts       (new — first dedicated test file for this repository)
+  InMemoryNfcTagRepository.test.ts         (new — first dedicated test file for this repository)
+  InMemoryNfcAssignmentRepository.test.ts  (new — first dedicated test file for this repository)
+```
+
+No new top-level directory and no new subgrouping were introduced; every changed file already had a home. `index.ts`'s three new export lines were added within its existing `domain/events/` grouped section, directly adjacent to `OrganizationCreated`/`MembershipGranted`'s own export lines, following the same ordering-by-layer convention Section 10.12 already documented for DT-019's two export lines — the port and adapter changes themselves required no new export lines, since `CustomerRepository`/`NfcTagRepository`/`NfcAssignmentRepository`/`InMemoryCustomerRepository`/`InMemoryNfcTagRepository`/`InMemoryNfcAssignmentRepository` were already exported before this sprint. The three new test files are placed in `packages/core/tests/infrastructure/`, directly beside `InMemoryOrganizationRepository.test.ts`/`InMemoryMembershipRepository.test.ts`, mirroring the `src/` structure they test exactly.

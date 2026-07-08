@@ -575,7 +575,15 @@ Relationship to FB-002: Implements part of Capability 3 (Business Assets) and De
 
 ### Implementation Notes
 
-Status: Not yet implemented. Placeholder — to be completed during Development Sprint 012 (or a later sprint) implementation.
+Status: Completed — implemented during Development Sprint 015, Review Agent verified, Human Architect approved (see `ADO/02_Development/Development_Sprint_015_Closure.md`). Per DTP-001's Completion Rule, this status reflects verification and approval, not implementation alone.
+
+Commit: `7db5ade`.
+
+Implementation summary: `CustomerRepository` (`packages/core/src/ports/CustomerRepository.ts`) extended with `save(customer: Customer): void`; `findById` unchanged, byte-for-byte. `InMemoryCustomerRepository` (`packages/core/src/infrastructure/repositories/InMemoryCustomerRepository.ts`) implements `save` as a single `.push(customer)` onto its internal array, and its constructor was upgraded from a bare-reference assignment to the defensive-copy pattern (`this.customers = [...customers]`), matching `InMemoryOrganizationRepository`/`InMemoryMembershipRepository`. `CustomerCreated` (`packages/core/src/domain/events/CustomerCreated.ts`) added as a `{ type: 'CustomerCreated', customer: Customer }` interface plus a `customerCreated(customer)` constructor function, following the `WorkEventCreated` idiom exactly. Registered in `packages/core/src/index.ts`'s existing `domain/events/` grouped export section.
+
+Test results: 5 new unit tests added in `packages/core/tests/infrastructure/InMemoryCustomerRepository.test.ts` — not-found baseline, save-then-`findById` round-trip, "does not find under a different id," constructor-seeded lookup, and no-mutation-of-constructor-input. `npm run test --workspace=@taptime/core`: 39 test files, 197 tests, all passing (up from 181 pre-Sprint-015). `npm run typecheck --workspace=@taptime/core`: clean, no errors. `AssignmentValidator.test.ts` (5 tests) re-run and confirmed passing with zero modification; `git diff` against the pre-Sprint-015 commit confirms `AssignmentValidator.ts` and its test file are byte-for-byte unchanged.
+
+Known limitations: none beyond what was deliberately left open by design — `CustomerRepository.save` has no caller anywhere in the repository (not wired into any Application Service, per this task's own Out of Scope); no authorization check exists on who may call it (DT-023's responsibility); `Customer` update/deactivation remains unimplemented; only an in-memory adapter exists, no durable/file-backed implementation. Scope isolation independently verified: `Customer`'s shape, `AssignmentValidator`, `AssignmentResolver`, `MembershipService`, `OrganizationManagementService`, `MembershipAuthorizationValidator` all confirmed byte-for-byte unchanged; no changes to `apps/mobile`; `OrganizationAdministrationService` does not exist anywhere in the repository.
 
 ## DT-021 – NFC Tag Repository Write Extension
 
@@ -605,7 +613,15 @@ Relationship to FB-002: Implements part of Capability 3 (Business Assets) and De
 
 ### Implementation Notes
 
-Status: Not yet implemented. Placeholder — to be completed during Development Sprint 012 (or a later sprint) implementation.
+Status: Completed — implemented during Development Sprint 015, Review Agent verified, Human Architect approved (see `ADO/02_Development/Development_Sprint_015_Closure.md`). Per DTP-001's Completion Rule, this status reflects verification and approval, not implementation alone.
+
+Commit: `7db5ade`.
+
+Implementation summary: `NfcTagRepository` (`packages/core/src/ports/NfcTagRepository.ts`) extended with `register(nfcTag: NfcTag): void`; `findByPayload` unchanged, byte-for-byte. `InMemoryNfcTagRepository` (`packages/core/src/infrastructure/repositories/InMemoryNfcTagRepository.ts`) implements `register` as a single `.push(nfcTag)`, and its constructor was upgraded to the same defensive-copy pattern as `InMemoryCustomerRepository`. `NfcTagRegistered` (`packages/core/src/domain/events/NfcTagRegistered.ts`) added as a `{ type: 'NfcTagRegistered', nfcTag: NfcTag }` interface plus an `nfcTagRegistered(nfcTag)` constructor function. Registered in `packages/core/src/index.ts`'s existing `domain/events/` grouped export section.
+
+Test results: 5 new unit tests added in `packages/core/tests/infrastructure/InMemoryNfcTagRepository.test.ts` — not-found baseline, register-then-`findByPayload` round-trip, "does not find under a different payload," constructor-seeded lookup, and no-mutation-of-constructor-input. `npm run test --workspace=@taptime/core`: 39 test files, 197 tests, all passing. `npm run typecheck --workspace=@taptime/core`: clean. `AssignmentResolver.test.ts` (5 tests) re-run and confirmed passing with zero modification; `git diff` against the pre-Sprint-015 commit confirms `AssignmentResolver.ts` and its test file are byte-for-byte unchanged.
+
+Known limitations: none beyond what was deliberately left open by design — `NfcTagRepository.register` has no caller anywhere in the repository; no authorization check exists on who may call it (DT-024's responsibility); tag deactivation/retirement and any physical tag-provisioning workflow remain unimplemented (FB-002 Open Question 7, unresolved); only an in-memory adapter exists. Scope isolation independently verified: `NfcTag`'s shape, `AssignmentResolver`, `AssignmentValidator`, `MembershipService`, `OrganizationManagementService`, `MembershipAuthorizationValidator` all confirmed byte-for-byte unchanged; no changes to `apps/mobile`; `OrganizationAdministrationService` does not exist anywhere in the repository.
 
 ## DT-022 – NFC Assignment Repository Write Extension
 
@@ -635,7 +651,15 @@ Relationship to FB-002: Implements part of Capability 3 (Business Assets) and De
 
 ### Implementation Notes
 
-Status: Not yet implemented. Placeholder — to be completed during Development Sprint 012 (or a later sprint) implementation.
+Status: Completed — implemented during Development Sprint 015, Review Agent verified, Human Architect approved (see `ADO/02_Development/Development_Sprint_015_Closure.md`). Per DTP-001's Completion Rule, this status reflects verification and approval, not implementation alone.
+
+Commit: `7db5ade`.
+
+Implementation summary: `NfcAssignmentRepository` (`packages/core/src/ports/NfcAssignmentRepository.ts`) extended with `save(nfcAssignment: NfcAssignment): void`; `findActiveByTagId` unchanged, byte-for-byte. `InMemoryNfcAssignmentRepository` (`packages/core/src/infrastructure/repositories/InMemoryNfcAssignmentRepository.ts`) implements `save` as a single `.push(nfcAssignment)`, and its constructor was upgraded to the same defensive-copy pattern. `NfcTagAssigned` (`packages/core/src/domain/events/NfcTagAssigned.ts`) added as a `{ type: 'NfcTagAssigned', nfcAssignment: NfcAssignment }` interface plus an `nfcTagAssigned(nfcAssignment)` constructor function. Registered in `packages/core/src/index.ts`'s existing `domain/events/` grouped export section.
+
+Test results: 6 new unit tests added in `packages/core/tests/infrastructure/InMemoryNfcAssignmentRepository.test.ts` — not-found baseline, save-active-then-`findActiveByTagId` round-trip, "does not return an inactive assignment" (explicit non-regression proof of pre-existing behavior), "does not find under a different tag id," constructor-seeded lookup, and no-mutation-of-constructor-input. `npm run test --workspace=@taptime/core`: 39 test files, 197 tests, all passing. `npm run typecheck --workspace=@taptime/core`: clean. `AssignmentResolver.test.ts` (5 tests) re-run and confirmed passing with zero modification; `git diff` against the pre-Sprint-015 commit confirms `AssignmentResolver.ts` and its test file are byte-for-byte unchanged.
+
+Known limitations: none beyond what was deliberately left open by design — `NfcAssignmentRepository.save` has no caller anywhere in the repository; no authorization or same-Organization cross-check exists (DT-025's responsibility); re-assignment/assignment history semantics (FB-002 Open Question 3) remain unresolved — `save` accepts and stores whatever `NfcAssignment` it is given, with no uniqueness enforcement; only an in-memory adapter exists. Scope isolation independently verified: `NfcAssignment`'s shape, `AssignmentTarget`'s shape, `AssignmentResolver`, `AssignmentValidator`, `MembershipService`, `OrganizationManagementService`, `MembershipAuthorizationValidator` all confirmed byte-for-byte unchanged; no changes to `apps/mobile`; `OrganizationAdministrationService` does not exist anywhere in the repository.
 
 ## DT-023 – Organization Administration: Customer Registration
 
