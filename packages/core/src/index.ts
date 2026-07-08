@@ -41,6 +41,8 @@ export * from './ports/MembershipRepository';
 export * from './business/AssignmentResolver';
 export * from './business/AssignmentValidator';
 export * from './business/AssignmentValidationResult';
+export * from './business/MembershipAuthorizationValidator';
+export * from './business/MembershipAuthorizationResult';
 export * from './business/WorkEventFactory';
 export * from './business/BusinessEngine';
 export * from './business/BusinessEngineDecision';
