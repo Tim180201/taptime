@@ -607,3 +607,26 @@ packages/core/tests/
 ```
 
 Each new file was placed exactly where its existing counterpart already lives — `Organization.ts` alongside `Customer.ts` in `domain/`, `OrganizationCreated.ts` alongside `WorkEventCreated.ts` in `domain/events/`, `OrganizationRepository.ts` alongside `CustomerRepository.ts` in `ports/`, `InMemoryOrganizationRepository.ts` alongside `InMemoryCustomerRepository.ts` in `infrastructure/repositories/`, and `OrganizationManagementService.ts` alongside `NfcScanApplicationService.ts` in `application/` — so a developer already oriented by Sections 10.1–10.6's layout finds Organization Management's first slice in the same place they would look for any other domain/port/service triad, with no new documentation of the layout itself required. `index.ts`'s five new export lines were added within their existing grouped sections (domain, ports, infrastructure, application), preserving the file's existing ordering-by-layer convention rather than appending to the end.
+
+### 10.11 `packages/core/src` Extended for the Membership Slice — One Existing File Additively Extended, No New Top-Level Grouping (Development Sprint 013)
+
+Development Sprint 013 (DT-018) follows Section 10.10's exact discipline one sprint later, with one small difference: one of its additions extends an existing file rather than creating a new one, because the component it adds (a branded identifier) belongs inside `packages/core/src/domain/ids.ts`, not in a file of its own:
+
+```text
+packages/core/src/
+  domain/ids.ts                                            (extended — MembershipId added, existing Brand/brandedNonEmptyString pattern)
+  domain/MembershipRole.ts                                 (new)
+  domain/Membership.ts                                     (new)
+  domain/events/MembershipGranted.ts                       (new)
+  ports/MembershipRepository.ts                            (new)
+  infrastructure/repositories/InMemoryMembershipRepository.ts  (new)
+  application/MembershipService.ts                         (new)
+  index.ts                                                 (extended — six new export lines, existing grouped-barrel convention preserved)
+
+packages/core/tests/
+  domain/ids.test.ts                                       (extended — MembershipId construction/rejection assertions added to existing tests)
+  infrastructure/InMemoryMembershipRepository.test.ts       (new)
+  application/MembershipService.test.ts                     (new)
+```
+
+Each new file was placed exactly where its DT-017 counterpart lives — `Membership.ts` alongside `Organization.ts` in `domain/`, `MembershipGranted.ts` alongside `OrganizationCreated.ts` in `domain/events/`, `MembershipRepository.ts` alongside `OrganizationRepository.ts` in `ports/`, `InMemoryMembershipRepository.ts` alongside `InMemoryOrganizationRepository.ts` in `infrastructure/repositories/`, and `MembershipService.ts` alongside `OrganizationManagementService.ts` in `application/`. `MembershipRole.ts` is placed as its own sibling file in `domain/` rather than inlined inside `Membership.ts`, mirroring how `AssignmentTarget.targetType`'s underlying union and `SyncState`/`ErrorCategory` are each their own named type — a small, disclosed naming/location choice (`Development_Sprint_013_Plan.md` Section 9), not a deviation from any Acceptance Criterion. `ids.ts`'s extension follows the file's own existing pattern exactly: a new `Brand<string, 'MembershipId'>` type plus a `brandedNonEmptyString<'MembershipId'>('MembershipId')` constant, appended after `TimeEntryId`, the file's most recent prior addition. `index.ts`'s six new export lines were added within their existing grouped sections, preserving the file's ordering-by-layer convention, the same discipline Section 10.10 already established for DT-017.
