@@ -537,7 +537,15 @@ Relationship to FB-002: Implements Decision 6 (Evaluate Whether an Actor May Per
 
 ### Implementation Notes
 
-Status: Not yet implemented. Placeholder — to be completed during Development Sprint 012 (or a later sprint) implementation.
+Status: Completed — implemented during Development Sprint 014, Review Agent verified, Human Architect approved (see `ADO/02_Development/Development_Sprint_014_Closure.md`). Per DTP-001's Completion Rule, this status reflects verification and approval, not implementation alone.
+
+Commit: `874ecaf`.
+
+Implementation summary: `MembershipAuthorizationResult` added (`packages/core/src/business/MembershipAuthorizationResult.ts`) as a discriminated union mirroring `AssignmentValidationResult`'s `{ status: 'accepted' | 'rejected', reason? }` shape, with `MembershipAuthorizationRejectionReason` restricted to `membership_not_found` | `membership_lacks_administrator_role` | `cross_organization_access`. `MembershipAuthorizationValidator` added (`packages/core/src/business/MembershipAuthorizationValidator.ts`) as a class exposing a single `authorize(membership: Membership | null, organizationId: OrganizationId): MembershipAuthorizationResult` method; decision order: `null` Membership → `membership_not_found`; non-administrator role → `membership_lacks_administrator_role`; `organizationId` mismatch → `cross_organization_access`; otherwise → accepted. Deliberately, and per this task's own Acceptance Criteria, the class takes no constructor dependency on any repository — a disclosed divergence from `AssignmentValidator`'s constructor-injected-`CustomerRepository` shape, since its inputs are passed in already resolved by a future caller. Both symbols are exported from `packages/core/src/index.ts` in the established grouped-barrel convention, alongside `AssignmentValidator`/`AssignmentValidationResult`.
+
+Test results: 6 new unit tests added in `packages/core/tests/business/MembershipAuthorizationValidator.test.ts` — the accepted case (Administrator Membership, matching Organization), each of the three required rejection branches independently, plus two tests beyond the minimum bar (purity/determinism; no first-Administrator bootstrap special-casing). `npm run test --workspace=@taptime/core`: 36 test files, 181 tests, all passing (up from 175 pre-Sprint-014). `npm run typecheck --workspace=@taptime/core`: clean, no errors.
+
+Known limitations: none beyond what was deliberately left open by design — `MembershipAuthorizationValidator` has no caller anywhere in the repository (not wired into `MembershipService` or any Application Service, per this task's own Out of Scope); the first-Administrator bootstrap question remains unresolved; no admin-facing Membership-granting flow exists. Scope isolation independently verified: `AssignmentValidator`, `MembershipService`, `OrganizationManagementService` confirmed byte-for-byte unchanged; no changes to `apps/mobile`, `AssignmentResolver`, `WorkEventFactory`, `BusinessEngine`, `NfcScanApplicationService`, `CallerContext`, `OfflineQueue`, `SynchronizationService`, `AuthenticationGateway`, or `FakeAuthenticationGateway`; `OrganizationAdministrationService` does not exist anywhere in the repository; `CustomerRepository`/`NfcTagRepository`/`NfcAssignmentRepository` remain read-only (no `save(` methods).
 
 ## DT-020 – Customer Repository Write Extension
 

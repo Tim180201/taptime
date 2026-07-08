@@ -630,3 +630,22 @@ packages/core/tests/
 ```
 
 Each new file was placed exactly where its DT-017 counterpart lives — `Membership.ts` alongside `Organization.ts` in `domain/`, `MembershipGranted.ts` alongside `OrganizationCreated.ts` in `domain/events/`, `MembershipRepository.ts` alongside `OrganizationRepository.ts` in `ports/`, `InMemoryMembershipRepository.ts` alongside `InMemoryOrganizationRepository.ts` in `infrastructure/repositories/`, and `MembershipService.ts` alongside `OrganizationManagementService.ts` in `application/`. `MembershipRole.ts` is placed as its own sibling file in `domain/` rather than inlined inside `Membership.ts`, mirroring how `AssignmentTarget.targetType`'s underlying union and `SyncState`/`ErrorCategory` are each their own named type — a small, disclosed naming/location choice (`Development_Sprint_013_Plan.md` Section 9), not a deviation from any Acceptance Criterion. `ids.ts`'s extension follows the file's own existing pattern exactly: a new `Brand<string, 'MembershipId'>` type plus a `brandedNonEmptyString<'MembershipId'>('MembershipId')` constant, appended after `TimeEntryId`, the file's most recent prior addition. `index.ts`'s six new export lines were added within their existing grouped sections, preserving the file's ordering-by-layer convention, the same discipline Section 10.10 already established for DT-017.
+
+### 10.12 `packages/core/src/business/` Extended With a Second Validator/Result Pair — No New Top-Level Grouping (Development Sprint 014)
+
+Development Sprint 014 (DT-019) extends the `business/` grouping for the first time since this repository's original DT-002/DT-003 implementation, adding a second validator/result pair directly alongside the first:
+
+```text
+packages/core/src/business/
+  AssignmentValidator.ts                    (existing, unchanged)
+  AssignmentValidationResult.ts             (existing, unchanged)
+  MembershipAuthorizationValidator.ts       (new)
+  MembershipAuthorizationResult.ts          (new)
+  index.ts (packages/core/src/index.ts)     (extended — two new export lines)
+
+packages/core/tests/business/
+  AssignmentValidator.test.ts                (existing, unchanged)
+  MembershipAuthorizationValidator.test.ts    (new)
+```
+
+`MembershipAuthorizationValidator.ts` and `MembershipAuthorizationResult.ts` are placed directly beside `AssignmentValidator.ts`/`AssignmentValidationResult.ts` — the same file pair pattern, not a new subgrouping within `business/` — so a developer already oriented by this chapter's layout finds the second Business-area validator exactly where they would look for the first. Unlike every prior Organization Management addition (DT-017's `domain`/`ports`/`infrastructure`/`application` triad, DT-018's same triad plus a `domain/ids.ts` extension), this is the first Organization Management Development Task to add files to `business/` — confirming that grouping, too, extends cleanly without requiring a new top-level directory or a different internal structure. `index.ts`'s two new export lines were added within the file's `business/` grouped section, directly adjacent to `AssignmentValidator`/`AssignmentValidationResult`'s own export lines, preserving the file's ordering-by-layer convention.
