@@ -677,3 +677,22 @@ packages/core/tests/infrastructure/
 ```
 
 No new top-level directory and no new subgrouping were introduced; every changed file already had a home. `index.ts`'s three new export lines were added within its existing `domain/events/` grouped section, directly adjacent to `OrganizationCreated`/`MembershipGranted`'s own export lines, following the same ordering-by-layer convention Section 10.12 already documented for DT-019's two export lines — the port and adapter changes themselves required no new export lines, since `CustomerRepository`/`NfcTagRepository`/`NfcAssignmentRepository`/`InMemoryCustomerRepository`/`InMemoryNfcTagRepository`/`InMemoryNfcAssignmentRepository` were already exported before this sprint. The three new test files are placed in `packages/core/tests/infrastructure/`, directly beside `InMemoryOrganizationRepository.test.ts`/`InMemoryMembershipRepository.test.ts`, mirroring the `src/` structure they test exactly.
+
+### 10.14 `packages/core/src/application/` Extended With a Third Organization Management Service — No New Top-Level Grouping (Development Sprint 016)
+
+Development Sprint 016 (DT-023) adds a third Organization Management Application Service directly alongside the first two, following `OrganizationManagementService.ts`/`MembershipService.ts`'s own file-per-service, flat layout exactly:
+
+```text
+packages/core/src/application/
+  OrganizationManagementService.ts       (existing, unchanged)
+  MembershipService.ts                   (existing, unchanged)
+  OrganizationAdministrationService.ts   (new — CreateCustomerResult type co-located)
+  index.ts (packages/core/src/index.ts)  (extended — one new export line)
+
+packages/core/tests/application/
+  OrganizationManagementService.test.ts       (existing, unchanged)
+  MembershipService.test.ts                   (existing, unchanged)
+  OrganizationAdministrationService.test.ts   (new)
+```
+
+`OrganizationAdministrationService.ts` is placed directly beside `OrganizationManagementService.ts`/`MembershipService.ts` — no new subgrouping within `application/`, and no separate file for `CreateCustomerResult` (co-located in the same file, since it is specific to this one service's own return shape, unlike `MembershipAuthorizationResult`, which is a reusable Business-area evaluation result with its own file). `index.ts`'s one new export line was added within the file's existing `application/` grouped section, directly adjacent to `OrganizationManagementService`/`MembershipService`'s own export lines, preserving the file's ordering-by-layer convention every prior sprint's export addition has followed.
