@@ -696,3 +696,22 @@ packages/core/tests/application/
 ```
 
 `OrganizationAdministrationService.ts` is placed directly beside `OrganizationManagementService.ts`/`MembershipService.ts` — no new subgrouping within `application/`, and no separate file for `CreateCustomerResult` (co-located in the same file, since it is specific to this one service's own return shape, unlike `MembershipAuthorizationResult`, which is a reusable Business-area evaluation result with its own file). `index.ts`'s one new export line was added within the file's existing `application/` grouped section, directly adjacent to `OrganizationManagementService`/`MembershipService`'s own export lines, preserving the file's ordering-by-layer convention every prior sprint's export addition has followed.
+
+### 10.15 `packages/core/src/application/OrganizationAdministrationService.ts` Extended In Place — No New File, No New Export Line (Development Sprint 017)
+
+Development Sprint 017 (DT-024) adds `registerNfcTag(...)` and `RegisterNfcTagResult` directly inside the already-existing `OrganizationAdministrationService.ts`, the first Organization Management Development Task to require no new file anywhere in `packages/core/src/`:
+
+```text
+packages/core/src/application/
+  OrganizationManagementService.ts       (existing, unchanged)
+  MembershipService.ts                   (existing, unchanged)
+  OrganizationAdministrationService.ts   (extended — registerNfcTag(...), RegisterNfcTagResult co-located; constructor gains NfcTagRepository)
+  index.ts (packages/core/src/index.ts)  (unchanged — no new export line needed)
+
+packages/core/tests/application/
+  OrganizationManagementService.test.ts       (existing, unchanged)
+  MembershipService.test.ts                   (existing, unchanged)
+  OrganizationAdministrationService.test.ts   (extended — 7 new tests; 6 pre-existing tests' constructor call sites updated for the new required parameter)
+```
+
+`RegisterNfcTagResult` is co-located in the same file as `CreateCustomerResult`, for the same reason DT-023 established (Section 10.14): each is specific to its own method's return shape, not a reusable Business-area type. `index.ts` required no change — `OrganizationAdministrationService` was already exported in full as a class from DT-023; adding a method to an already-exported class needs no new barrel-export line, confirmed by an empty `git diff` against `index.ts`. The one structural change this sprint makes to the file is to its constructor, which gained a third required dependency (`NfcTagRepository`) — this is disclosed in Chapter 01 Section 10.17 and Chapter 03 Section 10.90/10.92 as a genuine mid-sprint correction, not treated here as if it had been uneventful: the corrected constructor places all three required dependencies (`membershipAuthorizationValidator`, `customerRepository`, `nfcTagRepository`) before both defaulted id generators (`newCustomerId`, `newNfcTagId`), preserving the file's own established constructor-shape convention rather than introducing a new one.
