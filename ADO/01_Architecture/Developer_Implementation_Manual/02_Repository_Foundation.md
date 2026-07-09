@@ -734,3 +734,19 @@ packages/core/tests/application/
 ```
 
 `AssignNfcTagResult` is co-located in the same file as `CreateCustomerResult`/`RegisterNfcTagResult`, for the same reason established at Sections 10.14/10.15. `index.ts` again required no change — `OrganizationAdministrationService`, `NfcAssignmentRepository`, `InMemoryNfcAssignmentRepository`, `NfcAssignment`, and `NfcTagAssigned` were all already exported from prior sprints; adding a method to an already-exported class, consuming already-exported types, needs no new barrel-export line, confirmed by an empty `git diff` against `index.ts`. The constructor gained a fourth required dependency (`NfcAssignmentRepository`) and a third defaulted id generator (`newNfcAssignmentId`) — and this time, unlike Section 10.15's own disclosed mid-sprint correction, the extension was applied cleanly on the first pass: all four required dependencies precede all three defaults, confirmed both by direct inspection and by an out-of-band tests-inclusive typecheck showing zero arity-related errors (`Development_Sprint_018_Closure.md` Section 6). This is the file's third consecutive sprint of constructor growth, and the first of the three to require no post-implementation correction of that growth.
+
+### 10.17 A Third `tests/application/` File Added — Extending the One-File-Per-Composition-Concern Convention, Not a New Top-Level Grouping (Development Sprint 019)
+
+Development Sprint 019 (DT-026) adds a new file directly inside the already-existing `packages/core/tests/application/` directory, extending its own established one-file-per-composition-concern convention rather than inventing a new grouping or directory:
+
+```text
+packages/core/tests/application/
+  NfcScanToTimeEntryPipeline.test.ts       (existing, unchanged — DT-011's own fixture-based FB-001 pipeline proof)
+  OrganizationAdministrationService.test.ts (existing, unchanged — 22 tests, Administration-service unit behavior in isolation)
+  OrganizationOwnedScanPipeline.test.ts    (new — 2 tests, Administration-sourced data flowing into the unmodified FB-001 pipeline)
+
+packages/core/src/
+  (no file added or modified anywhere under src/)
+```
+
+No production file was added, modified, or requires any new barrel-export line — `packages/core/src/index.ts` shows zero diff, confirmed directly, since the new test file consumes only already-exported classes (`OrganizationManagementService`, `MembershipService`, `OrganizationAdministrationService`, `AssignmentResolver`, `AssignmentValidator`, `WorkEventFactory`, `BusinessEngine`, `NfcScanApplicationService`, `FakeNfcScanAdapter`, and every `InMemory*` repository/queue class), all already exported from prior sprints. This is the first sprint in the DT-017–DT-026 sequence where "Extend Before Create" (Section 5.4) applies entirely to test infrastructure rather than to any production file: the new file was justified, at planning time, not by an absent capability but by an absent *composition concern* — neither existing file in `tests/application/` proves that Administration-sourced data satisfies the same shape `NfcScanToTimeEntryPipeline.test.ts` already proves for literal fixtures, and DT-026's own Acceptance Criteria explicitly asked for "**a new** composition-level test," not a third `describe` block appended to an existing file (`Development_Sprint_019_Plan.md` Section 11). The repository's existing convention — one file per composition concern, not one file per Development Task or one file per class — is preserved, not replaced, by this addition.
