@@ -715,3 +715,22 @@ packages/core/tests/application/
 ```
 
 `RegisterNfcTagResult` is co-located in the same file as `CreateCustomerResult`, for the same reason DT-023 established (Section 10.14): each is specific to its own method's return shape, not a reusable Business-area type. `index.ts` required no change — `OrganizationAdministrationService` was already exported in full as a class from DT-023; adding a method to an already-exported class needs no new barrel-export line, confirmed by an empty `git diff` against `index.ts`. The one structural change this sprint makes to the file is to its constructor, which gained a third required dependency (`NfcTagRepository`) — this is disclosed in Chapter 01 Section 10.17 and Chapter 03 Section 10.90/10.92 as a genuine mid-sprint correction, not treated here as if it had been uneventful: the corrected constructor places all three required dependencies (`membershipAuthorizationValidator`, `customerRepository`, `nfcTagRepository`) before both defaulted id generators (`newCustomerId`, `newNfcTagId`), preserving the file's own established constructor-shape convention rather than introducing a new one.
+
+### 10.16 `packages/core/src/application/OrganizationAdministrationService.ts` Extended a Third Time In Place — No New File, No New Export Line, Constructor Extension Applied Cleanly (Development Sprint 018)
+
+Development Sprint 018 (DT-025) adds `assignNfcTag(...)` and `AssignNfcTagResult` directly inside the already-existing `OrganizationAdministrationService.ts`, completing the three-method service without adding any new file:
+
+```text
+packages/core/src/application/
+  OrganizationManagementService.ts       (existing, unchanged)
+  MembershipService.ts                   (existing, unchanged)
+  OrganizationAdministrationService.ts   (extended — assignNfcTag(...), AssignNfcTagResult co-located; constructor gains NfcAssignmentRepository and newNfcAssignmentId)
+  index.ts (packages/core/src/index.ts)  (unchanged — no new export line needed)
+
+packages/core/tests/application/
+  OrganizationManagementService.test.ts       (existing, unchanged)
+  MembershipService.test.ts                   (existing, unchanged)
+  OrganizationAdministrationService.test.ts   (extended — 9 new tests; 13 pre-existing tests' constructor call sites updated for the new required parameter)
+```
+
+`AssignNfcTagResult` is co-located in the same file as `CreateCustomerResult`/`RegisterNfcTagResult`, for the same reason established at Sections 10.14/10.15. `index.ts` again required no change — `OrganizationAdministrationService`, `NfcAssignmentRepository`, `InMemoryNfcAssignmentRepository`, `NfcAssignment`, and `NfcTagAssigned` were all already exported from prior sprints; adding a method to an already-exported class, consuming already-exported types, needs no new barrel-export line, confirmed by an empty `git diff` against `index.ts`. The constructor gained a fourth required dependency (`NfcAssignmentRepository`) and a third defaulted id generator (`newNfcAssignmentId`) — and this time, unlike Section 10.15's own disclosed mid-sprint correction, the extension was applied cleanly on the first pass: all four required dependencies precede all three defaults, confirmed both by direct inspection and by an out-of-band tests-inclusive typecheck showing zero arity-related errors (`Development_Sprint_018_Closure.md` Section 6). This is the file's third consecutive sprint of constructor growth, and the first of the three to require no post-implementation correction of that growth.
