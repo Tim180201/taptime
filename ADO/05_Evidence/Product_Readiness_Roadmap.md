@@ -126,6 +126,33 @@ Work required for TapTim.e to operate as a mature, scaled SaaS platform.
 
 ---
 
+## Addendum (2026-07-10)
+
+Following an external CTO review of the repository (`ADO/05_Evidence/External_CTO_Review_Triage_2026-07-10.md`) and the resulting `ADO/05_Evidence/Core_Roadmap_v2_Commercial_Readiness.md`, this addendum reprioritizes the "Now" and "Before Pilot Customers" sections above to reflect twelve independently re-verified findings (K1–K12). This is an addendum, not a rewrite: no existing item's wording is removed, and Core Roadmap v2 is the authoritative sequencing document going forward for the items named below — this roadmap's own milestone structure and per-category detail (Sections above) remain the reference for everything this addendum does not touch.
+
+**Now (reprioritized, per Core Roadmap v2 Block A):**
+
+- F-01 TimeEntry Start/Stop resolution — no longer merely "should not remain open once real users are shown the product" (original wording above); this is now the single highest-priority item, since `TimeEntry`'s own type only supports a `started` state and every repeat scan escalates with no resolution path (Finding K3). See Core Roadmap v2 Block A, DT-029–DT-033.
+- Backend technology ADR — unchanged in substance from the original "Now" item above, now additionally scoped to explicitly address the async port migration risk (Finding K7): every port in the repository is currently synchronous, and this must be resolved before, not after, backend persistence work begins. See Core Roadmap v2 Block B, DT-036/DT-038/DT-039.
+- CI/test typecheck enforcement — the original "Now" item ("stand up a minimal CI pipeline") is reaffirmed and extended: `.github/workflows/` still contains no workflow (Finding K8), and `packages/core/tsconfig.json`'s `"include": ["src"]` still excludes `tests/` from typecheck (Finding K9, a standing finding since DT-024). See Core Roadmap v2 Block A, DT-034/DT-035.
+- Runtime composition root — a new item, not present in the original "Now" section: Organization Management (DT-017–DT-026) is code/test-complete but not runtime-reachable, and the mobile app's `ScanScreen` still runs a hard-coded demo pipeline (Finding K1). See Core Roadmap v2 Block C, DT-045–DT-047.
+- Real authentication — a new item: `LoginScreen` constructs `FakeAuthenticationGateway` directly (Finding K4). See Core Roadmap v2 Block C, DT-049–DT-052.
+- NFC payload strategy and physical NFC validation — the original "real NFC hardware integration" item (listed under "Before Pilot Customers" below) is split: the payload strategy decision moves to "Now" because it is a prerequisite decision, not implementation effort, while physical validation remains gated on real NFC port wiring first (Finding K2). See Core Roadmap v2 Block D, DT-053/DT-058.
+
+**Before Pilot Customers (reprioritized, per Core Roadmap v2 Blocks D–G):**
+
+- Server persistence and tenant isolation — reaffirms the original "a real backend/persistence target reachable from a pilot's devices" item, now explicitly gated on the Backend Technology ADR and the async port migration (both moved to "Now" above). See Core Roadmap v2 Block B, DT-040–DT-044.
+- Organization setup flow — reaffirms the original "Organization onboarding" item; now explicitly scoped as a generic, code-edit-free setup flow for Organization/Membership/Customer/NfcTag/NfcAssignment. See Core Roadmap v2 Block E, DT-063–DT-066.
+- Mobile distribution — reaffirms the original "a mobile release mechanism that does not require a locally-run `expo start`" item; confirmed still entirely absent (no `eas.json`, placeholder `app.json`, Finding K11). See Core Roadmap v2 Block G, DT-075–DT-078.
+- Sync gateway — a new item, not distinctly named in the original "Before Pilot Customers" section: `FakeSynchronizationGateway` is the only implementation in the repository (Finding K6). See Core Roadmap v2 Block E, DT-060–DT-062.
+- Correction/audit — a new item: manual TimeEntry correction with a reason and an append-only audit log, both prerequisites for a credible pilot once Start/Stop exists. See Core Roadmap v2 Block F, DT-069–DT-071.
+- Export — a new item: CSV export of time records, closing the loop so a pilot employee/administrator can see and extract real data. See Core Roadmap v2 Block E, DT-067/DT-068.
+- Legal/privacy external review — reaffirms the original "Privacy Policy/Terms of Service/GDPR data-processing basis" items; explicitly reframed as elapsed-calendar-time work, not sprint-time work (Finding K12), and sequenced to partially overlap Blocks F/G rather than strictly follow them. See Core Roadmap v2 Block H, DT-079–DT-084.
+
+**Before First Paying Customers (unchanged in substance, cross-referenced):** the original items above (admin/reporting/export if pilot feedback confirms it, CI-gated deployment pipeline, billing, full GDPR documentation, go-to-market materials, support runbooks) remain valid and are now cross-referenced to Core Roadmap v2 Block H (DT-085–DT-089) and Block I (UI/UX productization, explicitly sequenced last/parallel, not before the runtime foundation).
+
+This addendum does not change the "Before 100 Customers" or "Before 1,000 Customers" milestones above; neither was materially touched by the external CTO review's findings.
+
 ## Revision Note (Technical Lead Review Follow-up, 2026-07-07)
 
 This roadmap was updated once, after Technical Lead review, to: (1) add the "Strategic frame" paragraph above, connecting roadmap items to the companion assessment's Business Event Platform framing (Section 0.1) and capability hierarchy (Section 12); (2) organize every milestone's existing items into an Engineering Track, a Product Capability Track, and a Business, Legal & Go-To-Market Track, without adding, removing, or reprioritizing any item, and without moving any item to a different milestone; (3) note, within the Now and Before Pilot Customers milestones, the re-evaluated primary-bottleneck finding from the companion assessment's Section 11.1 (Organization Management as the more foundational blocker for reaching the first pilot, alongside — not instead of — the backend technology decision). No original roadmap item's wording, milestone assignment, or substance was changed; this revision only added track labels, short cross-reference notes, and this closing note.
@@ -136,4 +163,4 @@ See `ADO/05_Evidence/Product_Readiness_Assessment.md` Section 16 for the full Ro
 
 ## Stop Condition
 
-Per task instruction: stop after this roadmap and its companion assessment. No implementation was created. No repository content other than these two new files was modified. Awaiting Technical Lead / Human Architect review. Do not continue automatically.
+Per original task instruction, the 2026-07-07 roadmap stopped after the roadmap and companion assessment. The 2026-07-10 addendum was added later as a targeted roadmap update following the External CTO Review and Core Roadmap v2 rebaseline. No implementation was created by this addendum. Awaiting Technical Lead / Human Architect review.
