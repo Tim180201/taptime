@@ -1,6 +1,6 @@
 # Block B4 — Identity Binding and Authoritative Membership Resolution Evidence
 
-Status: Implemented — Awaiting Technical Lead Review; No B4 or B5 Approval Claimed
+Status: Completed — Technical Lead, GitHub CI and Independent Security Approved; B5 Not Authorized
 Date: 2026-07-13
 Owner: Implementation Agent
 Architecture authority: `ADO/01_Architecture/ADR/ADR-0008-backend-tenant-isolation-and-async-foundation.md`
@@ -20,7 +20,7 @@ asymmetrically signed provider access token
 
 The verifier emits only verified issuer and subject. The PostgreSQL resolver derives User, Organization, Membership and current Membership role from server data. The orchestration service compares the requested Organization with that resolved Organization before any later tenant-owned lookup. Token or request claims cannot select or elevate TapTim.e User, Organization, tenant or role.
 
-This is an implementation awaiting review, not approval of B4 and not authorization for B5.
+This implementation is approved and closed as Block B4. It does not authorize B5.
 
 ## 2. Implementation Inventory
 
@@ -132,6 +132,6 @@ Local direct verification used Node.js 24.17.0, npm 11.13.0 and PostgreSQL 17.10
 
 The isolated GitHub Actions B4 job uses Node 24.17.0, PostgreSQL 17.10, `npm ci`, migrations `001`–`004`, migration rerun/ledger verification, B4 tests-inclusive typecheck, all adversarial tests and the B4 build. Credentials and keys are synthetic and local to the job.
 
-## 8. Review Recommendation
+## 8. Approval Outcome
 
-B4 is ready for Technical Lead review after the final full repository regression recorded for this worktree. B5 remains unauthorized until that review explicitly accepts the identity boundary, JWT profile, resolver privilege surface and remaining gates.
+Technical Lead verification approved the complete implementation, GitHub Actions run `29261459523` passed all four jobs, and the independent Claude architecture/security review returned **APPROVED** with no P0/P1 findings. B4 is closed. B5 remains a separate authorization decision; its required carry-forwards are recorded in the B4 closure.

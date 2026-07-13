@@ -1,6 +1,6 @@
 # Block B4 — Identity Binding and Authoritative Membership Resolution Implementation Plan
 
-Status: Implemented — Awaiting Technical Lead Review; No B4 Approval or B5 Authorization Claimed
+Status: Completed — Technical Lead, GitHub CI and Independent Security Approved; B5 Not Authorized
 Date: 2026-07-13
 Owner: Implementation Agent
 Approval Authority: Technical Lead
@@ -85,7 +85,7 @@ Primary sources:
 - No B5 Organization/config adapter and no B6 WorkEvent/Decision/TimeEntry ingestion.
 - No OAuth/multi-provider linking and no email-equality account merge.
 - No retention, backup, clock or revocation-grace product rule.
-- B5 remains unauthorized until B4 Technical Lead review is complete.
+- B5 remains a separate slice and requires explicit Human Architect/Technical Lead authorization after B4 closure.
 
 ## Verification Gates
 
@@ -98,4 +98,4 @@ Primary sources:
 
 ## Implementation Outcome
 
-The scoped implementation and its final security-correction round are complete in the uncommitted worktree. Migration `004` normalizes an existing resolver role and removes its parent roles; synthetic B3/B4 logins prove exact membership graphs; the JWKS endpoint is cryptographically anchored to the configured issuer and uses HTTPS except for numeric loopback test infrastructure; and the Context helper's non-authorizing boundary is explicit. The isolated `@taptime/backend-identity` workspace now has 54 adversarial JWT/PostgreSQL tests, while the B3 suite has 125. No HTTP API, cloud, Mobile, B5 or B6 behavior was added. The complete repository regression is recorded in `ADO/05_Evidence/Block_B4_Identity_Binding_Authoritative_Membership_Resolution_Evidence.md`. B4 remains awaiting Technical Lead review; B5 remains unauthorized.
+The scoped implementation and its final security-correction round are complete. Migration `004` normalizes an existing resolver role and removes its parent roles; synthetic B3/B4 logins prove exact membership graphs; the JWKS endpoint is cryptographically anchored to the configured issuer and uses HTTPS except for numeric loopback test infrastructure; and the Context helper's non-authorizing boundary is explicit. The isolated `@taptime/backend-identity` workspace has 54 adversarial JWT/PostgreSQL tests, while the B3 suite has 125. No HTTP API, cloud, Mobile, B5 or B6 behavior was added. Technical Lead verification, GitHub Actions run `29261459523` and the independent Claude architecture/security review all returned clean approval. Closure and P2 dispositions are recorded in `ADO/02_Development/Block_B4_Identity_Binding_Membership_Resolution_Closure.md` and `ADO/05_Evidence/Block_B4_Independent_Architecture_Security_Review.md`. B5 remains a separate Human Architect/Technical Lead authorization decision.
