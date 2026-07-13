@@ -25,6 +25,9 @@ const assignment: NfcAssignment = {
 };
 const customer: Customer = { id: CustomerId('customer-1'), organizationId, active: true };
 const caller = authenticatedCaller(UserId('user-1'), organizationId);
+if (caller.status !== 'authenticated') {
+  throw new Error('Expected an authenticated caller fixture.');
+}
 const acceptedResult: AcceptedAssignmentValidationResult = {
   status: 'accepted',
   assignment,
@@ -101,11 +104,15 @@ describe('WorkEventCreationService (WorkEventCreationPort implementation)', () =
 
     const pending = offlineQueue.findPending();
     expect(pending).toHaveLength(1);
-    expect(pending[0].decision).toEqual({
+    const [pendingRecord] = pending;
+    if (!pendingRecord) {
+      throw new Error('Expected one pending offline queue record.');
+    }
+    expect(pendingRecord.decision).toEqual({
       status: 'escalation_required',
       reason: 'duplicate_scan_rule_undefined',
       workEvent: workEventRepository.findAll()[0],
     });
-    expect(onEvent).toHaveBeenNthCalledWith(2, { type: 'WorkEventQueuedForSync', record: pending[0] });
+    expect(onEvent).toHaveBeenNthCalledWith(2, { type: 'WorkEventQueuedForSync', record: pendingRecord });
   });
 });

@@ -70,7 +70,11 @@ describe('InMemoryOfflineQueue (DT-007)', () => {
     const pending = queue.findPending();
 
     expect(pending).toHaveLength(1);
-    expect(pending[0].workEvent.id).toBe(pendingWorkEvent.id);
+    const [pendingRecord] = pending;
+    if (!pendingRecord) {
+      throw new Error('Expected one pending offline queue record.');
+    }
+    expect(pendingRecord.workEvent.id).toBe(pendingWorkEvent.id);
   });
 
   it('returns an empty list when nothing has been queued', () => {

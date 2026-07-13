@@ -119,9 +119,13 @@ describe('NFC scan to TimeEntry pipeline (end-to-end)', () => {
 
     const pending = offlineQueue.findPending();
     expect(pending).toHaveLength(1);
-    expect(pending[0].workEvent).toEqual(workEventRepository.findAll()[0]);
-    expect(pending[0].decision).toEqual(expect.objectContaining({ status: 'time_entry_started' }));
-    expect(pending[0].syncState).toBe('pending');
+    const [pendingRecord] = pending;
+    if (!pendingRecord) {
+      throw new Error('Expected one pending offline queue record.');
+    }
+    expect(pendingRecord.workEvent).toEqual(workEventRepository.findAll()[0]);
+    expect(pendingRecord.decision).toEqual(expect.objectContaining({ status: 'time_entry_started' }));
+    expect(pendingRecord.syncState).toBe('pending');
     expect(onEvent).toHaveBeenCalledWith(expect.objectContaining({ type: 'WorkEventQueuedForSync' }));
 
     synchronizationGateway.configureSuccess();
@@ -150,7 +154,11 @@ describe('NFC scan to TimeEntry pipeline (end-to-end)', () => {
 
     const pending = offlineQueue.findPending();
     expect(pending).toHaveLength(2);
-    expect(pending[1].decision).toEqual(
+    const secondPendingRecord = pending[1];
+    if (!secondPendingRecord) {
+      throw new Error('Expected a second pending offline queue record.');
+    }
+    expect(secondPendingRecord.decision).toEqual(
       expect.objectContaining({ status: 'escalation_required', reason: 'duplicate_scan_rule_undefined' }),
     );
     expect(onEvent).toHaveBeenCalledWith(expect.objectContaining({ type: 'WorkEventQueuedForSync' }));
