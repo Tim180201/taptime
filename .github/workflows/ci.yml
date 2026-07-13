@@ -210,3 +210,64 @@ jobs:
 
       - name: Build backend B4 identity package
         run: npm run build --workspace=@taptime/backend-identity
+
+  backend-b5-read-model:
+    name: Backend B5 tenant-safe read model
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:17.10-alpine
+        env:
+          POSTGRES_DB: taptime_b5
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: taptime_b5_installer
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U taptime_b5_installer -d taptime_b5"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      B3_DATABASE_URL: postgresql://taptime_b5_installer:postgres@127.0.0.1:5432/taptime_b5
+      B5_DATABASE_URL: postgresql://taptime_b5_installer:postgres@127.0.0.1:5432/taptime_b5
+      B5_RUNTIME_PASSWORD: b5-ci-synthetic-only
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.17.0
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies from lockfile
+        run: npm ci
+
+      - name: Build the approved B4 identity dependency
+        run: npm run build --workspace=@taptime/backend-identity
+
+      - name: Apply schema migrations 001 through 004
+        run: npm run migrate --workspace=@taptime/backend-schema
+
+      - name: Re-run and verify the migration ledger
+        run: |
+          npm run migrate --workspace=@taptime/backend-schema
+          npm run verify-migrations --workspace=@taptime/backend-schema
+
+      - name: Typecheck backend B5 production and test sources
+        run: npm run typecheck --workspace=@taptime/backend-read-model
+
+      - name: Test backend B5 tenant-safe read model against direct PostgreSQL
+        run: npm test --workspace=@taptime/backend-read-model
+
+      - name: Build backend B5 read-model package
+        run: npm run build --workspace=@taptime/backend-read-model
