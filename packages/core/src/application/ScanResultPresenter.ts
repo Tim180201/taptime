@@ -1,8 +1,10 @@
 import type { ScanPipelineOutcome } from './ScanPipelineOutcome';
 import type { AssignmentResolutionRejectionReason } from '../domain/events/NfcAssignmentResolution';
 import type { AssignmentValidationRejectionReason } from '../business/AssignmentValidationResult';
+import type { DuplicateScanIgnored } from '../domain/events/DuplicateScanIgnored';
 import type { WorkEventCreated } from '../domain/events/WorkEventCreated';
 import type { TimeEntryStarted } from '../domain/events/TimeEntryStarted';
+import type { TimeEntryStopped } from '../domain/events/TimeEntryStopped';
 import type { WorkEventQueuedForSync } from '../domain/events/WorkEventQueuedForSync';
 import type { WorkEventSynchronized } from '../domain/events/WorkEventSynchronized';
 import type { WorkEventSyncFailed } from '../domain/events/WorkEventSyncFailed';
@@ -13,6 +15,8 @@ import { classifyBusinessEngineDecision } from '../business/classifyBusinessEngi
 export type PresentableEvent =
   | WorkEventCreated
   | TimeEntryStarted
+  | TimeEntryStopped
+  | DuplicateScanIgnored
   | WorkEventQueuedForSync
   | WorkEventSynchronized
   | WorkEventSyncFailed;
@@ -64,6 +68,10 @@ export class ScanResultPresenter {
         return `WorkEvent ${event.workEvent.id} created for organization ${event.workEvent.organizationId}.`;
       case 'TimeEntryStarted':
         return `TimeEntry ${event.timeEntry.id} started.`;
+      case 'TimeEntryStopped':
+        return `TimeEntry ${event.timeEntry.id} stopped.`;
+      case 'DuplicateScanIgnored':
+        return `WorkEvent ${event.workEvent.id} ignored as a duplicate of WorkEvent ${event.previousWorkEvent.id}.`;
       case 'WorkEventQueuedForSync':
         return this.presentQueuedForSync(event);
       case 'WorkEventSynchronized':
@@ -81,15 +89,24 @@ export class ScanResultPresenter {
     const { decision } = event.record;
     const workEventId = event.record.workEvent.id;
 
-    if (decision?.status === 'time_entry_started') {
-      return `WorkEvent ${workEventId} accepted and started (TimeEntry ${decision.timeEntry.id}); queued for synchronization.`;
+    if (decision === null) {
+      return `WorkEvent ${workEventId} queued for synchronization (state: ${event.record.syncState}).`;
     }
 
-    if (decision?.status === 'escalation_required') {
-      return `WorkEvent ${workEventId} accepted but escalated (${decision.reason}); queued for synchronization.`;
+    switch (decision.status) {
+      case 'time_entry_started':
+        return `WorkEvent ${workEventId} accepted and started (TimeEntry ${decision.timeEntry.id}); queued for synchronization.`;
+      case 'time_entry_stopped':
+        return `WorkEvent ${workEventId} accepted and stopped (TimeEntry ${decision.timeEntry.id}); queued for synchronization.`;
+      case 'duplicate_scan_ignored':
+        return `WorkEvent ${workEventId} accepted but ignored as a duplicate of WorkEvent ${decision.previousWorkEvent.id}; queued for synchronization.`;
+      case 'active_entry_for_other_target_rejected':
+        return `WorkEvent ${workEventId} rejected: TimeEntry ${decision.activeTimeEntry.id} is active for another target; queued for synchronization.`;
+      case 'escalation_required':
+        return `WorkEvent ${workEventId} escalated due to inconsistent state (${decision.reason}); queued for synchronization.`;
+      default:
+        return decision satisfies never;
     }
-
-    return `WorkEvent ${workEventId} queued for synchronization (state: ${event.record.syncState}).`;
   }
 
   // DT-009. Additive: pairs presentScanOutcome()'s exact, unchanged message with its
@@ -108,6 +125,8 @@ export class ScanResultPresenter {
     switch (event.type) {
       case 'WorkEventCreated':
       case 'TimeEntryStarted':
+      case 'TimeEntryStopped':
+      case 'DuplicateScanIgnored':
       case 'WorkEventSynchronized':
         return null;
       case 'WorkEventQueuedForSync':

@@ -6,22 +6,32 @@ import { FileWorkEventRepository } from '../../../src/infrastructure/persistence
 import { NfcAssignmentId, NfcTagId, OrganizationId, CustomerId, UserId, WorkEventId } from '../../../src/domain/ids';
 import { customerAssignmentTarget } from '../../../src/domain/AssignmentTarget';
 import { createTimestamp } from '../../../src/domain/Timestamp';
+import type { AssignmentTarget } from '../../../src/domain/AssignmentTarget';
 import type { WorkEvent } from '../../../src/domain/WorkEvent';
 
-function buildWorkEvent(id = 'work-event-1'): WorkEvent {
+const organizationId = OrganizationId('org-1');
+const userId = UserId('user-1');
+const target = customerAssignmentTarget(CustomerId('customer-1'));
+const otherTarget = customerAssignmentTarget(CustomerId('customer-2'));
+
+function buildWorkEvent(
+  id: string,
+  occurredAt = '2026-07-07T09:00:00.000Z',
+  eventOrganizationId = organizationId,
+  eventUserId = userId,
+  eventTarget: AssignmentTarget = target,
+): WorkEvent {
   return {
     id: WorkEventId(id),
-    organizationId: OrganizationId('org-1'),
-    assignmentId: NfcAssignmentId('assignment-1'),
-    nfcTagId: NfcTagId('tag-1'),
-    target: customerAssignmentTarget(CustomerId('customer-1')),
-    triggeredBy: UserId('user-1'),
-    occurredAt: createTimestamp('2026-07-07T09:00:00.000Z'),
+    organizationId: eventOrganizationId,
+    assignmentId: NfcAssignmentId(`assignment-${id}`),
+    nfcTagId: NfcTagId(`tag-${id}`),
+    target: eventTarget,
+    triggeredBy: eventUserId,
+    occurredAt: createTimestamp(occurredAt),
   };
 }
 
-// DT-015: mirrors InMemoryWorkEventRepository.test.ts's coverage exactly, plus a dedicated
-// "survives restart" test.
 describe('FileWorkEventRepository (DT-015)', () => {
   let tempDirectory: string;
   let filePath: string;
@@ -37,7 +47,7 @@ describe('FileWorkEventRepository (DT-015)', () => {
 
   it('persists WorkEvents without interpreting their business meaning', () => {
     const repository = new FileWorkEventRepository(filePath);
-    const workEvent = buildWorkEvent();
+    const workEvent = buildWorkEvent('work-event-1');
 
     repository.save(workEvent);
 
@@ -55,19 +65,35 @@ describe('FileWorkEventRepository (DT-015)', () => {
     expect(repository.findAll()).toEqual([first, second]);
   });
 
-  it('returns an empty list when nothing has been saved', () => {
+  it('returns an empty list and no latest match when nothing has been saved', () => {
     const repository = new FileWorkEventRepository(filePath);
 
     expect(repository.findAll()).toEqual([]);
+    expect(repository.findLatestByUserAndTarget(organizationId, userId, target)).toBeNull();
   });
 
-  it('survives a simulated process restart: a fresh instance reads what a previous instance wrote', () => {
+  it('returns the chronologically latest WorkEvent for the exact organization, user and target', () => {
+    const repository = new FileWorkEventRepository(filePath);
+    const earlier = buildWorkEvent('work-event-earlier', '2026-07-07T09:00:00.000Z');
+    const latest = buildWorkEvent('work-event-latest', '2026-07-07T11:00:00.000Z');
+    repository.save(latest);
+    repository.save(buildWorkEvent('other-org', '2026-07-07T12:00:00.000Z', OrganizationId('org-2')));
+    repository.save(buildWorkEvent('other-user', '2026-07-07T12:00:00.000Z', organizationId, UserId('user-2')));
+    repository.save(buildWorkEvent('other-target', '2026-07-07T12:00:00.000Z', organizationId, userId, otherTarget));
+    repository.save(earlier);
+
+    expect(repository.findLatestByUserAndTarget(organizationId, userId, target)).toEqual(latest);
+  });
+
+  it('preserves the latest matching WorkEvent query across repository instances', () => {
     const firstInstance = new FileWorkEventRepository(filePath);
-    const workEvent = buildWorkEvent();
-    firstInstance.save(workEvent);
+    const earlier = buildWorkEvent('work-event-earlier', '2026-07-07T09:00:00.000Z');
+    const latest = buildWorkEvent('work-event-latest', '2026-07-07T11:00:00.000Z');
+    firstInstance.save(earlier);
+    firstInstance.save(latest);
 
     const secondInstance = new FileWorkEventRepository(filePath);
 
-    expect(secondInstance.findAll()).toEqual([workEvent]);
+    expect(secondInstance.findLatestByUserAndTarget(organizationId, userId, target)).toEqual(latest);
   });
 });

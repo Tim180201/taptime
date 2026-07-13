@@ -4,7 +4,7 @@ import { NfcAssignmentId, NfcTagId, OrganizationId, CustomerId, UserId, WorkEven
 import { customerAssignmentTarget } from '../../src/domain/AssignmentTarget';
 import { createTimestamp } from '../../src/domain/Timestamp';
 import type { WorkEvent } from '../../src/domain/WorkEvent';
-import type { TimeEntry } from '../../src/domain/TimeEntry';
+import type { StartedTimeEntry, StoppedTimeEntry } from '../../src/domain/TimeEntry';
 import type { BusinessEngineDecision } from '../../src/business/BusinessEngineDecision';
 
 const organizationId = OrganizationId('org-1');
@@ -18,31 +18,58 @@ const workEvent: WorkEvent = {
   triggeredBy: UserId('user-1'),
   occurredAt: createTimestamp('2026-07-06T09:00:00.000Z'),
 };
-const timeEntry: TimeEntry = {
+const startedTimeEntry: StartedTimeEntry = {
   id: TimeEntryId('time-entry-1'),
   workEventId: workEvent.id,
   organizationId,
   userId: workEvent.triggeredBy,
   target,
   status: 'started',
-  startedAt: createTimestamp('2026-07-06T09:00:01.000Z'),
+  startedAt: workEvent.occurredAt,
+};
+const stoppedTimeEntry: StoppedTimeEntry = {
+  ...startedTimeEntry,
+  status: 'stopped',
+  stoppedAt: createTimestamp('2026-07-06T10:00:00.000Z'),
+  stoppedByWorkEventId: WorkEventId('work-event-stop'),
 };
 
-describe('classifyBusinessEngineDecision (DT-009)', () => {
-  it('returns null for time_entry_started (not an error)', () => {
-    const decision: BusinessEngineDecision = {
+describe('classifyBusinessEngineDecision (DT-009, F-01)', () => {
+  it.each([
+    {
       status: 'time_entry_started',
-      timeEntry,
-      event: { type: 'TimeEntryStarted', timeEntry },
-    };
-
+      timeEntry: startedTimeEntry,
+      event: { type: 'TimeEntryStarted', timeEntry: startedTimeEntry },
+    },
+    {
+      status: 'time_entry_stopped',
+      timeEntry: stoppedTimeEntry,
+      event: { type: 'TimeEntryStopped', timeEntry: stoppedTimeEntry },
+    },
+    {
+      status: 'duplicate_scan_ignored',
+      workEvent,
+      previousWorkEvent: workEvent,
+      event: { type: 'DuplicateScanIgnored', workEvent, previousWorkEvent: workEvent },
+    },
+  ] satisfies readonly BusinessEngineDecision[])('classifies $status as no error', (decision) => {
     expect(classifyBusinessEngineDecision(decision)).toBeNull();
   });
 
-  it('classifies escalation_required as deferred, documenting Finding F-01 without resolving it', () => {
+  it('classifies an active entry for another target as recoverable', () => {
+    const decision: BusinessEngineDecision = {
+      status: 'active_entry_for_other_target_rejected',
+      workEvent,
+      activeTimeEntry: startedTimeEntry,
+    };
+
+    expect(classifyBusinessEngineDecision(decision)).toBe('recoverable');
+  });
+
+  it('classifies an inconsistent state escalation as deferred', () => {
     const decision: BusinessEngineDecision = {
       status: 'escalation_required',
-      reason: 'duplicate_scan_rule_undefined',
+      reason: 'work_event_precedes_previous_accepted_work_event',
       workEvent,
     };
 

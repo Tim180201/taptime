@@ -55,28 +55,6 @@ describe('FileTimeEntryRepository (DT-015)', () => {
     rmSync(tempDirectory, { recursive: true, force: true });
   });
 
-  it('returns null when no active TimeEntry exists for the target', () => {
-    const repository = new FileTimeEntryRepository(filePath);
-
-    expect(repository.findActiveByTarget(organizationId, target)).toBeNull();
-  });
-
-  it('finds an active TimeEntry for the exact (organization, target) pair', () => {
-    const repository = new FileTimeEntryRepository(filePath);
-    const timeEntry = buildStartedTimeEntry();
-    repository.save(timeEntry);
-
-    expect(repository.findActiveByTarget(organizationId, target)).toEqual(timeEntry);
-  });
-
-  it('does not match a different target or a different organization', () => {
-    const repository = new FileTimeEntryRepository(filePath);
-    repository.save(buildStartedTimeEntry());
-
-    expect(repository.findActiveByTarget(organizationId, otherTarget)).toBeNull();
-    expect(repository.findActiveByTarget(OrganizationId('org-2'), target)).toBeNull();
-  });
-
   it('finds an active TimeEntry for the exact organization and user', () => {
     const repository = new FileTimeEntryRepository(filePath);
     const timeEntry = buildStartedTimeEntry();
@@ -112,7 +90,6 @@ describe('FileTimeEntryRepository (DT-015)', () => {
     repository.save(stoppedTimeEntry);
 
     expect(repository.findActiveByUser(organizationId, userId)).toBeNull();
-    expect(repository.findActiveByTarget(organizationId, target)).toBeNull();
   });
 
   it('updates exactly the matching started TimeEntry to stopped without creating a duplicate', () => {
@@ -141,14 +118,14 @@ describe('FileTimeEntryRepository (DT-015)', () => {
     expect(repository.findAll()).toEqual([existingTimeEntry]);
   });
 
-  it('survives a simulated process restart: a fresh instance reads what a previous instance wrote', () => {
+  it('survives a simulated process restart: a fresh instance finds the active user entry', () => {
     const firstInstance = new FileTimeEntryRepository(filePath);
     const timeEntry = buildStartedTimeEntry();
     firstInstance.save(timeEntry);
 
     const secondInstance = new FileTimeEntryRepository(filePath);
 
-    expect(secondInstance.findActiveByTarget(organizationId, target)).toEqual(timeEntry);
+    expect(secondInstance.findActiveByUser(organizationId, userId)).toEqual(timeEntry);
   });
 
   it('preserves an updated stopped TimeEntry across repository instances', () => {

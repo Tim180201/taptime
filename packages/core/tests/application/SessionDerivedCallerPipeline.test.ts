@@ -56,10 +56,7 @@ describe('Scan pipeline driven by a SessionService-derived CallerContext', () =>
       () => WorkEventId('work-event-1'),
       () => createTimestamp('2026-07-06T09:00:00.000Z'),
     );
-    const businessEngine = new BusinessEngine(
-      () => TimeEntryId('time-entry-1'),
-      () => createTimestamp('2026-07-06T09:00:01.000Z'),
-    );
+    const businessEngine = new BusinessEngine(() => TimeEntryId('time-entry-1'));
     const workEventCreationPort = new WorkEventCreationService(
       workEventFactory,
       businessEngine,
@@ -104,7 +101,7 @@ describe('Scan pipeline driven by a SessionService-derived CallerContext', () =>
       },
     });
     expect(workEventRepository.findAll()).toHaveLength(1);
-    expect(timeEntryRepository.findActiveByTarget(organizationId, target)?.status).toBe('started');
+    expect(timeEntryRepository.findActiveByUser(organizationId, DEFAULT_DEMO_ACCOUNT.userId)?.status).toBe('started');
   });
 
   it('does not modify AssignmentValidator\'s existing employee_not_authenticated check: a rejected sign-in still produces that exact rejection', () => {

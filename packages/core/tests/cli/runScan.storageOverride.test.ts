@@ -63,11 +63,10 @@ describe('buildScanDemoPipeline storage-selection support (DT-015)', () => {
     const secondPipeline = buildScanDemoPipeline((line) => secondLines.push(line), buildDurableStorage(tempDirectory));
     secondPipeline.scan(DEMO_KNOWN_PAYLOAD);
 
-    // A second scan against the same durable target, from a fresh pipeline instance built
-    // from fresh adapter instances, only escalates (rather than starting a second TimeEntry)
-    // if the first instance's TimeEntry actually survived on disk and was read back - this is
-    // the core proof of durability.
-    expect(secondLines.some((line) => line.includes('accepted but escalated'))).toBe(true);
+    // A second immediate scan against the same durable target, from fresh adapter instances,
+    // is recognized as a duplicate only if the first instance's WorkEvent survived on disk
+    // and was read back. It also proves that the active TimeEntry was not replaced.
+    expect(secondLines.some((line) => line.includes('accepted but ignored as a duplicate'))).toBe(true);
   });
 
   it('does not leak state between two different storage directories', () => {

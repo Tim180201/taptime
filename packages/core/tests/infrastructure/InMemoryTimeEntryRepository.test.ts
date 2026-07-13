@@ -38,28 +38,6 @@ function stopTimeEntry(timeEntry: StartedTimeEntry): StoppedTimeEntry {
 }
 
 describe('InMemoryTimeEntryRepository (DT-006 slice)', () => {
-  it('returns null when no active TimeEntry exists for the target', () => {
-    const repository = new InMemoryTimeEntryRepository();
-
-    expect(repository.findActiveByTarget(organizationId, target)).toBeNull();
-  });
-
-  it('finds an active TimeEntry for the exact (organization, target) pair', () => {
-    const repository = new InMemoryTimeEntryRepository();
-    const timeEntry = buildStartedTimeEntry();
-    repository.save(timeEntry);
-
-    expect(repository.findActiveByTarget(organizationId, target)).toEqual(timeEntry);
-  });
-
-  it('does not match a different target or a different organization', () => {
-    const repository = new InMemoryTimeEntryRepository();
-    repository.save(buildStartedTimeEntry());
-
-    expect(repository.findActiveByTarget(organizationId, otherTarget)).toBeNull();
-    expect(repository.findActiveByTarget(OrganizationId('org-2'), target)).toBeNull();
-  });
-
   it('finds an active TimeEntry for the exact organization and user', () => {
     const repository = new InMemoryTimeEntryRepository();
     const timeEntry = buildStartedTimeEntry();
@@ -95,7 +73,6 @@ describe('InMemoryTimeEntryRepository (DT-006 slice)', () => {
     repository.save(stoppedTimeEntry);
 
     expect(repository.findActiveByUser(organizationId, userId)).toBeNull();
-    expect(repository.findActiveByTarget(organizationId, target)).toBeNull();
   });
 
   it('updates exactly the matching started TimeEntry to stopped without creating a duplicate', () => {

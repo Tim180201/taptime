@@ -77,10 +77,7 @@ describe('Organization-owned data flowing through the existing scan pipeline (DT
       () => createTimestamp('2026-07-09T12:00:00.000Z'),
     );
     let timeEntryCounter = 0;
-    const businessEngine = new BusinessEngine(
-      () => TimeEntryId(`time-entry-${++timeEntryCounter}`),
-      () => createTimestamp('2026-07-09T12:00:01.000Z'),
-    );
+    const businessEngine = new BusinessEngine(() => TimeEntryId(`time-entry-${++timeEntryCounter}`));
     const onEvent = vi.fn();
     const workEventCreationService = new WorkEventCreationService(
       workEventFactory,
@@ -179,7 +176,7 @@ describe('Organization-owned data flowing through the existing scan pipeline (DT
     expect(savedWorkEvent.nfcTagId).toBe(nfcAssignment.nfcTagId);
     expect(savedWorkEvent.target).toEqual(nfcAssignment.target);
 
-    const startedTimeEntry = timeEntryRepository.findActiveByTarget(organizationA.id, target);
+    const startedTimeEntry = timeEntryRepository.findActiveByUser(organizationA.id, employeeMembership.userId);
     expect(startedTimeEntry).not.toBeNull();
     expect(startedTimeEntry?.status).toBe('started');
   });

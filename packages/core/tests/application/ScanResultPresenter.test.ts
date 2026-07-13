@@ -5,7 +5,7 @@ import { customerAssignmentTarget } from '../../src/domain/AssignmentTarget';
 import { authenticatedCaller } from '../../src/domain/CallerContext';
 import { createTimestamp } from '../../src/domain/Timestamp';
 import type { WorkEvent } from '../../src/domain/WorkEvent';
-import type { TimeEntry } from '../../src/domain/TimeEntry';
+import type { StartedTimeEntry, StoppedTimeEntry } from '../../src/domain/TimeEntry';
 import type { QueuedWorkEventRecord } from '../../src/domain/QueuedWorkEventRecord';
 import type { NfcAssignment } from '../../src/domain/NfcAssignment';
 import type { Customer } from '../../src/domain/Customer';
@@ -36,7 +36,7 @@ const workEvent: WorkEvent = {
   occurredAt: createTimestamp('2026-07-05T09:00:00.000Z'),
 };
 
-const timeEntry: TimeEntry = {
+const timeEntry: StartedTimeEntry = {
   id: TimeEntryId('time-entry-1'),
   workEventId: workEvent.id,
   organizationId,
@@ -44,6 +44,17 @@ const timeEntry: TimeEntry = {
   target,
   status: 'started',
   startedAt: createTimestamp('2026-07-05T09:00:01.000Z'),
+};
+const stoppedTimeEntry: StoppedTimeEntry = {
+  ...timeEntry,
+  status: 'stopped',
+  stoppedAt: createTimestamp('2026-07-05T10:00:00.000Z'),
+  stoppedByWorkEventId: WorkEventId('work-event-stop'),
+};
+const previousWorkEvent: WorkEvent = {
+  ...workEvent,
+  id: WorkEventId('work-event-previous'),
+  occurredAt: createTimestamp('2026-07-05T08:59:59.000Z'),
 };
 
 function queuedRecord(decision: QueuedWorkEventRecord['decision'], syncState: QueuedWorkEventRecord['syncState'] = 'pending'): QueuedWorkEventRecord {
@@ -128,6 +139,22 @@ describe('ScanResultPresenter (DT-011, TS-001 ScanResultPresenter)', () => {
       );
     });
 
+    it('renders TimeEntryStopped', () => {
+      const presenter = new ScanResultPresenter();
+
+      expect(presenter.presentEvent({ type: 'TimeEntryStopped', timeEntry: stoppedTimeEntry })).toBe(
+        `TimeEntry ${stoppedTimeEntry.id} stopped.`,
+      );
+    });
+
+    it('renders DuplicateScanIgnored with current and previous WorkEvent traceability', () => {
+      const presenter = new ScanResultPresenter();
+
+      expect(
+        presenter.presentEvent({ type: 'DuplicateScanIgnored', workEvent, previousWorkEvent }),
+      ).toBe(`WorkEvent ${workEvent.id} ignored as a duplicate of WorkEvent ${previousWorkEvent.id}.`);
+    });
+
     it('renders WorkEventQueuedForSync distinctly for the time_entry_started decision branch', () => {
       const presenter = new ScanResultPresenter();
       const record = queuedRecord({
@@ -141,16 +168,56 @@ describe('ScanResultPresenter (DT-011, TS-001 ScanResultPresenter)', () => {
       );
     });
 
-    it('renders WorkEventQueuedForSync distinctly for the escalation_required decision branch (accepted+escalated)', () => {
+    it('renders WorkEventQueuedForSync distinctly for the time_entry_stopped decision branch', () => {
+      const presenter = new ScanResultPresenter();
+      const record = queuedRecord({
+        status: 'time_entry_stopped',
+        timeEntry: stoppedTimeEntry,
+        event: { type: 'TimeEntryStopped', timeEntry: stoppedTimeEntry },
+      });
+
+      expect(presenter.presentEvent({ type: 'WorkEventQueuedForSync', record })).toBe(
+        `WorkEvent ${workEvent.id} accepted and stopped (TimeEntry ${timeEntry.id}); queued for synchronization.`,
+      );
+    });
+
+    it('renders WorkEventQueuedForSync distinctly for the duplicate_scan_ignored decision branch', () => {
+      const presenter = new ScanResultPresenter();
+      const record = queuedRecord({
+        status: 'duplicate_scan_ignored',
+        workEvent,
+        previousWorkEvent,
+        event: { type: 'DuplicateScanIgnored', workEvent, previousWorkEvent },
+      });
+
+      expect(presenter.presentEvent({ type: 'WorkEventQueuedForSync', record })).toBe(
+        `WorkEvent ${workEvent.id} accepted but ignored as a duplicate of WorkEvent ${previousWorkEvent.id}; queued for synchronization.`,
+      );
+    });
+
+    it('renders WorkEventQueuedForSync distinctly for an active entry on another target', () => {
+      const presenter = new ScanResultPresenter();
+      const record = queuedRecord({
+        status: 'active_entry_for_other_target_rejected',
+        workEvent,
+        activeTimeEntry: timeEntry,
+      });
+
+      expect(presenter.presentEvent({ type: 'WorkEventQueuedForSync', record })).toBe(
+        `WorkEvent ${workEvent.id} rejected: TimeEntry ${timeEntry.id} is active for another target; queued for synchronization.`,
+      );
+    });
+
+    it('renders WorkEventQueuedForSync distinctly for an inconsistent-state escalation', () => {
       const presenter = new ScanResultPresenter();
       const record = queuedRecord({
         status: 'escalation_required',
-        reason: 'duplicate_scan_rule_undefined',
+        reason: 'work_event_precedes_previous_accepted_work_event',
         workEvent,
       });
 
       expect(presenter.presentEvent({ type: 'WorkEventQueuedForSync', record })).toBe(
-        `WorkEvent ${workEvent.id} accepted but escalated (duplicate_scan_rule_undefined); queued for synchronization.`,
+        `WorkEvent ${workEvent.id} escalated due to inconsistent state (work_event_precedes_previous_accepted_work_event); queued for synchronization.`,
       );
     });
 
@@ -250,16 +317,16 @@ describe('ScanResultPresenter (DT-011, TS-001 ScanResultPresenter)', () => {
       });
     });
 
-    it('pairs a queued-for-sync event carrying an escalation_required decision with deferred', () => {
+    it('pairs a queued-for-sync inconsistent-state escalation with deferred', () => {
       const presenter = new ScanResultPresenter();
       const record = queuedRecord({
         status: 'escalation_required',
-        reason: 'duplicate_scan_rule_undefined',
+        reason: 'work_event_precedes_previous_accepted_work_event',
         workEvent,
       });
 
       expect(presenter.presentEventWithCategory({ type: 'WorkEventQueuedForSync', record })).toEqual({
-        message: `WorkEvent ${workEvent.id} accepted but escalated (duplicate_scan_rule_undefined); queued for synchronization.`,
+        message: `WorkEvent ${workEvent.id} escalated due to inconsistent state (work_event_precedes_previous_accepted_work_event); queued for synchronization.`,
         category: 'deferred',
       });
     });
@@ -273,6 +340,35 @@ describe('ScanResultPresenter (DT-011, TS-001 ScanResultPresenter)', () => {
       });
 
       expect(presenter.presentEventWithCategory({ type: 'WorkEventQueuedForSync', record }).category).toBeNull();
+    });
+
+    it('pairs stopped and duplicate outcomes with a null category', () => {
+      const presenter = new ScanResultPresenter();
+      const stoppedRecord = queuedRecord({
+        status: 'time_entry_stopped',
+        timeEntry: stoppedTimeEntry,
+        event: { type: 'TimeEntryStopped', timeEntry: stoppedTimeEntry },
+      });
+      const duplicateRecord = queuedRecord({
+        status: 'duplicate_scan_ignored',
+        workEvent,
+        previousWorkEvent,
+        event: { type: 'DuplicateScanIgnored', workEvent, previousWorkEvent },
+      });
+
+      expect(presenter.presentEventWithCategory({ type: 'WorkEventQueuedForSync', record: stoppedRecord }).category).toBeNull();
+      expect(presenter.presentEventWithCategory({ type: 'WorkEventQueuedForSync', record: duplicateRecord }).category).toBeNull();
+    });
+
+    it('pairs an active entry for another target with recoverable', () => {
+      const presenter = new ScanResultPresenter();
+      const record = queuedRecord({
+        status: 'active_entry_for_other_target_rejected',
+        workEvent,
+        activeTimeEntry: timeEntry,
+      });
+
+      expect(presenter.presentEventWithCategory({ type: 'WorkEventQueuedForSync', record }).category).toBe('recoverable');
     });
 
     it('pairs a successful synchronization with a null category', () => {

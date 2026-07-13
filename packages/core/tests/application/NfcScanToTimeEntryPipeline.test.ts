@@ -16,21 +16,21 @@ import { WorkEventCreationService } from '../../src/application/WorkEventCreatio
 import { SynchronizationService } from '../../src/application/SynchronizationService';
 import { NfcAssignmentId, NfcTagId, OrganizationId, CustomerId, UserId, WorkEventId, TimeEntryId } from '../../src/domain/ids';
 import { customerAssignmentTarget } from '../../src/domain/AssignmentTarget';
-import { authenticatedCaller } from '../../src/domain/CallerContext';
-import { createTimestamp } from '../../src/domain/Timestamp';
+import { authenticatedCaller, type CallerContext } from '../../src/domain/CallerContext';
+import { createTimestamp, type Timestamp } from '../../src/domain/Timestamp';
 import { createNfcPayload } from '../../src/domain/NfcPayload';
 import type { NfcTag } from '../../src/domain/NfcTag';
 import type { NfcAssignment } from '../../src/domain/NfcAssignment';
 import type { Customer } from '../../src/domain/Customer';
+import type { StartedTimeEntry } from '../../src/domain/TimeEntry';
 
-// Proves the full Business Decision Pipeline (Development Sprint 002 Plan, Section 1):
-// NfcScanFact -> AssignmentResolver -> AssignmentValidator -> WorkEventCreationPort
-// (WorkEventFactory -> BusinessEngine) -> Decision Result -> Business Event.
-describe('NFC scan to TimeEntry pipeline (end-to-end)', () => {
+describe('NFC scan to TimeEntry lifecycle pipeline (F-01 end-to-end)', () => {
   const organizationId = OrganizationId('org-1');
+  const userId = UserId('user-1');
   const payload = 'known-tag-payload';
   const tag: NfcTag = { id: NfcTagId('tag-1'), organizationId, payload: createNfcPayload(payload) };
   const target = customerAssignmentTarget(CustomerId('customer-1'));
+  const otherTarget = customerAssignmentTarget(CustomerId('customer-2'));
   const assignment: NfcAssignment = {
     id: NfcAssignmentId('assignment-1'),
     organizationId,
@@ -39,7 +39,7 @@ describe('NFC scan to TimeEntry pipeline (end-to-end)', () => {
     active: true,
   };
   const activeCustomer: Customer = { id: CustomerId('customer-1'), organizationId, active: true };
-  const caller = authenticatedCaller(UserId('user-1'), organizationId);
+  const caller = authenticatedCaller(userId, organizationId);
 
   function buildPipeline() {
     const adapter = new FakeNfcScanAdapter();
@@ -48,19 +48,17 @@ describe('NFC scan to TimeEntry pipeline (end-to-end)', () => {
       new InMemoryNfcAssignmentRepository([assignment]),
     );
     const validator = new AssignmentValidator(new InMemoryCustomerRepository([activeCustomer]));
-
     const workEventRepository = new InMemoryWorkEventRepository();
     const timeEntryRepository = new InMemoryTimeEntryRepository();
     const offlineQueue = new InMemoryOfflineQueue();
+    let currentOccurredAt = createTimestamp('2026-07-13T08:00:00.000Z');
     let workEventCounter = 0;
+    let timeEntryCounter = 0;
     const workEventFactory = new WorkEventFactory(
       () => WorkEventId(`work-event-${++workEventCounter}`),
-      () => createTimestamp('2026-07-03T12:00:00.000Z'),
+      () => currentOccurredAt,
     );
-    const businessEngine = new BusinessEngine(
-      () => TimeEntryId('time-entry-1'),
-      () => createTimestamp('2026-07-03T12:00:01.000Z'),
-    );
+    const businessEngine = new BusinessEngine(() => TimeEntryId(`time-entry-${++timeEntryCounter}`));
     const onEvent = vi.fn();
     const workEventCreationPort = new WorkEventCreationService(
       workEventFactory,
@@ -69,23 +67,26 @@ describe('NFC scan to TimeEntry pipeline (end-to-end)', () => {
       timeEntryRepository,
       offlineQueue,
       onEvent,
-      () => createTimestamp('2026-07-03T12:00:02.000Z'),
+      () => currentOccurredAt,
     );
-
     const applicationService = new NfcScanApplicationService(
       adapter,
       resolver,
       validator,
       workEventCreationPort,
-      () => createTimestamp('2026-07-03T10:00:00.000Z'),
+      () => currentOccurredAt,
     );
-
     const synchronizationGateway = new FakeSynchronizationGateway();
     const synchronizationService = new SynchronizationService(offlineQueue, synchronizationGateway, onEvent);
 
+    function scanAt(occurredAt: string, scanCaller: CallerContext = caller): void {
+      currentOccurredAt = createTimestamp(occurredAt);
+      adapter.triggerScan(payload);
+      applicationService.submitScan(scanCaller);
+    }
+
     return {
-      adapter,
-      applicationService,
+      scanAt,
       workEventRepository,
       timeEntryRepository,
       offlineQueue,
@@ -95,81 +96,149 @@ describe('NFC scan to TimeEntry pipeline (end-to-end)', () => {
     };
   }
 
-  it('turns an accepted scan into an observable TimeEntryStarted when no prior session exists, queues it for sync, and synchronizes it end-to-end', () => {
-    const {
-      adapter,
-      applicationService,
-      workEventRepository,
-      timeEntryRepository,
-      offlineQueue,
-      synchronizationGateway,
-      synchronizationService,
-      onEvent,
-    } = buildPipeline();
-    adapter.triggerScan(payload);
+  function decisionStatuses(offlineQueue: InMemoryOfflineQueue): Array<string | undefined> {
+    return offlineQueue.findPending().map((record) => record.decision?.status);
+  }
 
-    const outcome = applicationService.submitScan(caller);
+  it('starts on the first scan, queues the decision and remains synchronizable', () => {
+    const pipeline = buildPipeline();
 
-    expect(outcome.stage).toBe('validation');
-    expect(workEventRepository.findAll()).toHaveLength(1);
-    const startedTimeEntry = timeEntryRepository.findActiveByTarget(organizationId, target);
-    expect(startedTimeEntry).not.toBeNull();
-    expect(startedTimeEntry?.status).toBe('started');
-    expect(onEvent).toHaveBeenCalledWith(expect.objectContaining({ type: 'TimeEntryStarted' }));
+    pipeline.scanAt('2026-07-13T08:00:00.000Z');
 
-    const pending = offlineQueue.findPending();
-    expect(pending).toHaveLength(1);
-    const [pendingRecord] = pending;
-    if (!pendingRecord) {
-      throw new Error('Expected one pending offline queue record.');
-    }
-    expect(pendingRecord.workEvent).toEqual(workEventRepository.findAll()[0]);
-    expect(pendingRecord.decision).toEqual(expect.objectContaining({ status: 'time_entry_started' }));
-    expect(pendingRecord.syncState).toBe('pending');
-    expect(onEvent).toHaveBeenCalledWith(expect.objectContaining({ type: 'WorkEventQueuedForSync' }));
+    expect(pipeline.timeEntryRepository.findActiveByUser(organizationId, userId)).toEqual(
+      expect.objectContaining({ status: 'started', startedAt: '2026-07-13T08:00:00.000Z' }),
+    );
+    expect(decisionStatuses(pipeline.offlineQueue)).toEqual(['time_entry_started']);
+    pipeline.synchronizationGateway.configureSuccess();
+    pipeline.synchronizationService.synchronizePending();
+    expect(pipeline.offlineQueue.findPending()).toEqual([]);
+  });
 
-    synchronizationGateway.configureSuccess();
-    synchronizationService.synchronizePending();
+  it('ignores a second scan under five seconds without changing TimeEntry state', () => {
+    const pipeline = buildPipeline();
+    pipeline.scanAt('2026-07-13T08:00:00.000Z');
+    const stateAfterStart = pipeline.timeEntryRepository.findAll();
 
-    expect(offlineQueue.findPending()).toHaveLength(0);
-    expect(onEvent).toHaveBeenCalledWith(
+    pipeline.scanAt('2026-07-13T08:00:04.999Z');
+
+    expect(pipeline.timeEntryRepository.findAll()).toEqual(stateAfterStart);
+    expect(decisionStatuses(pipeline.offlineQueue)).toEqual(['time_entry_started', 'duplicate_scan_ignored']);
+    expect(pipeline.onEvent).toHaveBeenCalledWith(
       expect.objectContaining({
-        type: 'WorkEventSynchronized',
-        record: expect.objectContaining({ syncState: 'synchronized' }),
+        type: 'DuplicateScanIgnored',
+        workEvent: expect.objectContaining({ id: 'work-event-2' }),
+        previousWorkEvent: expect.objectContaining({ id: 'work-event-1' }),
       }),
     );
   });
 
-  it('does not create a second active TimeEntry for a second scan of the same target, still queues the escalation record (never a guess), and synchronizes both records', () => {
-    const { adapter, applicationService, timeEntryRepository, offlineQueue, synchronizationGateway, synchronizationService, onEvent } =
-      buildPipeline();
-    adapter.triggerScan(payload);
-    applicationService.submitScan(caller);
+  it('stops at exactly five seconds without creating a second TimeEntry', () => {
+    const pipeline = buildPipeline();
+    pipeline.scanAt('2026-07-13T08:00:00.000Z');
 
-    adapter.triggerScan(payload);
-    applicationService.submitScan(caller);
+    pipeline.scanAt('2026-07-13T08:00:05.000Z');
 
-    const activeEntries = timeEntryRepository.findAll().filter((entry) => entry.status === 'started');
-    expect(activeEntries).toHaveLength(1);
+    expect(pipeline.timeEntryRepository.findAll()).toEqual([
+      expect.objectContaining({
+        id: 'time-entry-1',
+        status: 'stopped',
+        workEventId: 'work-event-1',
+        stoppedByWorkEventId: 'work-event-2',
+        stoppedAt: '2026-07-13T08:00:05.000Z',
+      }),
+    ]);
+    expect(decisionStatuses(pipeline.offlineQueue)).toEqual(['time_entry_started', 'time_entry_stopped']);
+  });
 
-    const pending = offlineQueue.findPending();
-    expect(pending).toHaveLength(2);
-    const secondPendingRecord = pending[1];
-    if (!secondPendingRecord) {
-      throw new Error('Expected a second pending offline queue record.');
-    }
-    expect(secondPendingRecord.decision).toEqual(
-      expect.objectContaining({ status: 'escalation_required', reason: 'duplicate_scan_rule_undefined' }),
+  it('stops on a later scan for the same target', () => {
+    const pipeline = buildPipeline();
+    pipeline.scanAt('2026-07-13T08:00:00.000Z');
+
+    pipeline.scanAt('2026-07-13T12:00:00.000Z');
+
+    expect(pipeline.timeEntryRepository.findAll()[0]?.status).toBe('stopped');
+  });
+
+  it('ignores a scan directly after stop and leaves the stopped state unchanged', () => {
+    const pipeline = buildPipeline();
+    pipeline.scanAt('2026-07-13T08:00:00.000Z');
+    pipeline.scanAt('2026-07-13T08:00:05.000Z');
+    const stateAfterStop = pipeline.timeEntryRepository.findAll();
+
+    pipeline.scanAt('2026-07-13T08:00:09.999Z');
+
+    expect(pipeline.timeEntryRepository.findAll()).toEqual(stateAfterStop);
+    expect(decisionStatuses(pipeline.offlineQueue)).toEqual([
+      'time_entry_started',
+      'time_entry_stopped',
+      'duplicate_scan_ignored',
+    ]);
+  });
+
+  it('supports start, stop and restart once five seconds have elapsed after stop', () => {
+    const pipeline = buildPipeline();
+    pipeline.scanAt('2026-07-13T08:00:00.000Z');
+    pipeline.scanAt('2026-07-13T08:00:05.000Z');
+
+    pipeline.scanAt('2026-07-13T08:00:10.000Z');
+
+    expect(pipeline.timeEntryRepository.findAll()).toHaveLength(2);
+    expect(pipeline.timeEntryRepository.findAll()[0]?.status).toBe('stopped');
+    expect(pipeline.timeEntryRepository.findAll()[1]).toEqual(
+      expect.objectContaining({ id: 'time-entry-2', status: 'started', workEventId: 'work-event-3' }),
     );
-    expect(onEvent).toHaveBeenCalledWith(expect.objectContaining({ type: 'WorkEventQueuedForSync' }));
+    expect(decisionStatuses(pipeline.offlineQueue)).toEqual([
+      'time_entry_started',
+      'time_entry_stopped',
+      'time_entry_started',
+    ]);
+  });
 
-    synchronizationGateway.configureSuccess();
-    synchronizationService.synchronizePending();
+  it('keeps different users on the same AssignmentTarget independent', () => {
+    const pipeline = buildPipeline();
+    const otherUserId = UserId('user-2');
+    pipeline.scanAt('2026-07-13T08:00:00.000Z');
 
-    expect(offlineQueue.findPending()).toHaveLength(0);
-    const synchronizedEvents = onEvent.mock.calls
-      .map(([event]) => event)
-      .filter((event) => event.type === 'WorkEventSynchronized');
-    expect(synchronizedEvents).toHaveLength(2);
+    pipeline.scanAt('2026-07-13T08:00:01.000Z', authenticatedCaller(otherUserId, organizationId));
+
+    expect(pipeline.timeEntryRepository.findActiveByUser(organizationId, userId)?.status).toBe('started');
+    expect(pipeline.timeEntryRepository.findActiveByUser(organizationId, otherUserId)?.status).toBe('started');
+    expect(pipeline.timeEntryRepository.findAll()).toHaveLength(2);
+    expect(decisionStatuses(pipeline.offlineQueue)).toEqual(['time_entry_started', 'time_entry_started']);
+  });
+
+  it('rejects an active TimeEntry for another target without changing state', () => {
+    const pipeline = buildPipeline();
+    const activeTimeEntry: StartedTimeEntry = {
+      id: TimeEntryId('time-entry-existing'),
+      workEventId: WorkEventId('work-event-other-target'),
+      organizationId,
+      userId,
+      target: otherTarget,
+      status: 'started',
+      startedAt: createTimestamp('2026-07-13T07:00:00.000Z'),
+    };
+    pipeline.timeEntryRepository.save(activeTimeEntry);
+
+    pipeline.scanAt('2026-07-13T08:00:00.000Z');
+
+    expect(pipeline.timeEntryRepository.findAll()).toEqual([activeTimeEntry]);
+    expect(decisionStatuses(pipeline.offlineQueue)).toEqual(['active_entry_for_other_target_rejected']);
+  });
+
+  it('escalates a backward WorkEvent and preserves the active TimeEntry', () => {
+    const pipeline = buildPipeline();
+    pipeline.scanAt('2026-07-13T08:00:05.000Z');
+    const stateAfterStart = pipeline.timeEntryRepository.findAll();
+
+    pipeline.scanAt('2026-07-13T08:00:04.999Z');
+
+    expect(pipeline.timeEntryRepository.findAll()).toEqual(stateAfterStart);
+    expect(pipeline.offlineQueue.findPending()[1]?.decision).toEqual(
+      expect.objectContaining({
+        status: 'escalation_required',
+        reason: 'work_event_precedes_active_time_entry',
+      }),
+    );
   });
 });

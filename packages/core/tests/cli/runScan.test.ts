@@ -43,7 +43,7 @@ describe('DT-011 composition root (buildScanDemoPipeline)', () => {
     expect(lines.some((line) => line.includes('synchronized successfully'))).toBe(true);
   });
 
-  it('escalates a second scan of the same target instead of guessing, and still queues/synchronizes it', () => {
+  it('ignores a second scan of the same target inside the duplicate window and still queues/synchronizes it', () => {
     const lines: string[] = [];
     const pipeline = buildScanDemoPipeline((line) => lines.push(line));
 
@@ -51,9 +51,7 @@ describe('DT-011 composition root (buildScanDemoPipeline)', () => {
     const secondOutcome = pipeline.scan(DEMO_KNOWN_PAYLOAD);
 
     expect(secondOutcome.stage).toBe('validation');
-    expect(
-      lines.some((line) => line.includes('accepted but escalated') && line.includes('duplicate_scan_rule_undefined')),
-    ).toBe(true);
+    expect(lines.some((line) => line.includes('accepted but ignored as a duplicate'))).toBe(true);
 
     pipeline.synchronizePending('success');
 

@@ -94,7 +94,11 @@ describe('SynchronizationService (DT-008)', () => {
     const workEvent = buildWorkEvent('work-event-1');
     const recordWithDecision: QueuedWorkEventRecord = {
       ...buildRecord(workEvent),
-      decision: { status: 'escalation_required', reason: 'duplicate_scan_rule_undefined', workEvent },
+      decision: {
+        status: 'escalation_required',
+        reason: 'work_event_precedes_previous_accepted_work_event',
+        workEvent,
+      },
     };
     offlineQueue.enqueue(recordWithDecision);
     gateway.configureSuccess();
