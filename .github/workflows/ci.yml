@@ -45,3 +45,53 @@ jobs:
 
       - name: Build core
         run: npm run build --workspace=@taptime/core
+
+  backend-b1-spike:
+    name: Backend B1 PostgreSQL spike
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:17.10-alpine
+        env:
+          POSTGRES_DB: taptime_b1
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d taptime_b1"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      B1_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/taptime_b1
+      B1_RUNTIME_DATABASE_URL: postgresql://taptime_b1_runtime:b1-ci-synthetic-only@127.0.0.1:5432/taptime_b1
+      B1_RUNTIME_PASSWORD: b1-ci-synthetic-only
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.17.0
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies from lockfile
+        run: npm ci
+
+      - name: Typecheck backend B1 spike
+        run: npm run typecheck --workspace=@taptime/backend-b1-spike
+
+      - name: Test backend B1 spike against direct PostgreSQL
+        run: npm test --workspace=@taptime/backend-b1-spike
+
+      - name: Build backend B1 spike
+        run: npm run build --workspace=@taptime/backend-b1-spike
