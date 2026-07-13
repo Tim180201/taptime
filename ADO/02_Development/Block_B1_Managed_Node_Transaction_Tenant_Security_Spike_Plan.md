@@ -1,6 +1,6 @@
 # Block B1 — Managed Node Transaction and Tenant Security Spike Plan
 
-Status: Technical Lead Review Passed — Publication CI Pending, Not Production Ready
+Status: Completed — Technical Lead Approved, Not Production Ready
 Date: 2026-07-13
 Owner: Implementation Agent
 Approval Authority: Technical Lead
@@ -41,4 +41,4 @@ No production backend, HTTP API, cloud resource, authentication integration, rep
 
 ## Implementation Result
 
-The first Technical Lead review returned `CHANGES REQUIRED` because table grants/policies were overly broad, SELECT isolation was Organization-only and the direct test path used the privileged installer connection. The first correction added operation-specific immutable grants/policies, User-scoped RLS and a separate least-privilege runtime login. The second Technical Lead finding correctly identified that Organization-qualified foreign keys still allowed cross-User references inside one Organization. The second correction adds User-qualified unique keys and foreign keys throughout WorkEvent, TimeEntry, Decision, Receipt and Audit relationships while retaining the Organization constraints. Renewed Technical Lead review passed locally with 39 direct PostgreSQL tests; two Supavisor tests remain skipped. Publication CI must pass before B1 closure or B2 authorization. Detailed evidence is recorded in `ADO/05_Evidence/Block_B1_Managed_Node_Transaction_Tenant_Security_Spike_Evidence.md`.
+The first Technical Lead review returned `CHANGES REQUIRED` because table grants/policies were overly broad, SELECT isolation was Organization-only and the direct test path used the privileged installer connection. The first correction added operation-specific immutable grants/policies, User-scoped RLS and a separate least-privilege runtime login. The second Technical Lead finding correctly identified that Organization-qualified foreign keys still allowed cross-User references inside one Organization. The second correction adds User-qualified unique keys and foreign keys throughout WorkEvent, TimeEntry, Decision, Receipt and Audit relationships while retaining the Organization constraints. Renewed Technical Lead review passed with 39 direct PostgreSQL tests; two Supavisor tests remain skipped. GitHub Actions run `29220424071` passed both the Core/Mobile and isolated Backend B1 PostgreSQL jobs. B1 is complete and B2 Async-Port Migration is authorized within ADR-0008's boundaries. Detailed evidence is recorded in `ADO/05_Evidence/Block_B1_Managed_Node_Transaction_Tenant_Security_Spike_Evidence.md`.

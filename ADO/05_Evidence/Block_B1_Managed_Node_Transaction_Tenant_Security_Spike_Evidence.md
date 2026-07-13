@@ -1,6 +1,6 @@
 # Block B1 — Managed Node Transaction and Tenant Security Spike Evidence
 
-Status: Technical Lead Review Passed — Publication CI Pending, Not Production Ready
+Status: Completed — Technical Lead Approved, B2 Authorized, Not Production Ready
 Date: 2026-07-13
 Architecture Authority: `ADO/01_Architecture/ADR/ADR-0008-backend-tenant-isolation-and-async-foundation.md`
 Plan: `ADO/02_Development/Block_B1_Managed_Node_Transaction_Tenant_Security_Spike_Plan.md`
@@ -11,7 +11,7 @@ The first Technical Lead review returned `CHANGES REQUIRED`. It correctly identi
 
 The second Technical Lead finding identified a remaining referential-integrity gap: Organization-qualified foreign keys could still associate User A's rows with User B's WorkEvent or TimeEntry inside the same Organization. The second correction adds owning-User-qualified unique keys and foreign keys to every lifecycle relationship. Same-Organization User isolation is described as complete only after this referential correction.
 
-The corrected direct PostgreSQL test suite passes locally. It now proves operation-specific immutable evidence, RLS and referential same-Organization User isolation, and a separate least-privilege runtime login. Renewed Technical Lead review accepts this local evidence; publication CI remains the final B1 closure gate and B2 is not yet authorized.
+The corrected direct PostgreSQL test suite passes locally and in GitHub Actions. It proves operation-specific immutable evidence, RLS and referential same-Organization User isolation, and a separate least-privilege runtime login. Renewed Technical Lead review accepts the evidence; GitHub Actions run `29220424071` passed both required jobs. B1 is complete and B2 is authorized within the conditions below.
 
 This is disposable technical evidence, not a production backend, schema migration, repository adapter, authentication integration or cloud deployment. No Supabase resource or real-person data was used.
 
@@ -162,10 +162,10 @@ Managed Node remains the preferred primary lifecycle runtime. The direct Node/Po
 
 ## 10. B1/B2 Gate
 
-**Technical Lead local review accepts B1, conditional on successful publication CI. B2 is not yet authorized.** After hosted CI passes, the Technical Lead may authorize B2 as compiler-enforced Core/Application boundary work without selecting a production database connection mode. The following conditions remain:
+**Technical Lead approves B1 and authorizes B2 Async-Port Migration** as compiler-enforced Core/Application boundary work without selecting or implementing a production database connection mode. The following conditions remain:
 
 - B2 must not introduce a production backend adapter, HTTP API or cloud dependency.
 - Supavisor Session/Transaction verification remains an open pre-production adapter/deployment gate, not a falsely completed B1 result.
 - Core Business Rules remain synchronous/pure; only effectful ports and Application Services migrate to Promise contracts.
-- The first successful hosted CI run remains required evidence after this approved commit/push workflow.
-- A failing hosted CI run reopens B1 and keeps B2 blocked.
+- GitHub Actions run `29220424071` is the first successful hosted B1 evidence: Core/Mobile job and Backend B1 PostgreSQL job both passed.
+- A future regression in these jobs reopens the affected gate.

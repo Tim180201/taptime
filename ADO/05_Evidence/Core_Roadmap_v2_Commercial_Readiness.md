@@ -86,7 +86,7 @@ Blocks are ranges, not fixed sprint-by-sprint commitments; candidate Development
 
 ### Block B – Backend and Async Foundation
 
-**Status: Architecture approved; implementation not started (2026-07-13).** ADR-0008 was approved after independent architecture/security review and corrective Technical Lead verification. B1's managed-Node transaction/security spike is the next gate; production personal data remains prohibited until legal/privacy retention and backup requirements are approved.
+**Status: Architecture approved; B1 completed and Technical-Lead approved, B2 next (2026-07-13).** ADR-0008 was approved after independent architecture/security review and corrective Technical Lead verification. B1's managed-Node transaction/security spike passed 39 direct-PostgreSQL tests locally and in GitHub Actions run `29220424071` after two security correction rounds. B2 Async-Port Migration is authorized; both Supavisor-mode validation and production personal data remain gated, the latter until legal/privacy retention and backup requirements are approved.
 
 **Target:** Week 2–4 · **Candidate Sprints:** 025–030
 
