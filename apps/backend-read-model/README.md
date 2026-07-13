@@ -15,7 +15,7 @@ This is not a production backend, HTTP API, cloud integration or general reposit
 write, list, raw-query, lifecycle or synchronization surface. Only synthetic local/CI data and
 credentials may be used.
 
-The workspace expects migrations `001` through `004` and the built `@taptime/backend-identity`
+The workspace expects the current migrations `001` through `005` and the built `@taptime/backend-identity`
 workspace. Run its direct PostgreSQL verification with:
 
 ```bash

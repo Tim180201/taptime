@@ -309,19 +309,19 @@ afterAll(async () => {
 });
 
 describe('B3 deterministic migration system', () => {
-  it('applies exactly four sorted versioned migrations through the authorized B4 addition', async () => {
+  it('applies exactly five sorted versioned migrations through the authorized B6 addition', async () => {
     const rows = await installerPool.query<{ version: string; checksum: string }>(
       `SELECT version, checksum FROM ${B3_MIGRATION_TABLE} ORDER BY version`,
     );
 
-    expect(rows.rows.map((row) => row.version)).toEqual(['001', '002', '003', '004']);
+    expect(rows.rows.map((row) => row.version)).toEqual(['001', '002', '003', '004', '005']);
     expect(rows.rows.every((row) => /^[0-9a-f]{64}$/.test(row.checksum))).toBe(true);
   });
 
   it('reruns safely without applying any migration twice', async () => {
     await expect(migrate(installerPool)).resolves.toEqual({
       applied: [],
-      alreadyApplied: ['001', '002', '003', '004'],
+      alreadyApplied: ['001', '002', '003', '004', '005'],
     });
   });
 

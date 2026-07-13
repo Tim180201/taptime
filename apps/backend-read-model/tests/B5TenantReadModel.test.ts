@@ -198,17 +198,17 @@ afterAll(async () => {
 });
 
 describe('B5 versioned-schema and least-privilege runtime boundary', () => {
-  it('uses exactly migrations 001 through 004 without a B5 migration', async () => {
+  it('uses the current migrations 001 through 005 without a B5-owned migration', async () => {
     const migrations = await loadMigrations();
-    expect(migrations.map(({ version }) => version)).toEqual(['001', '002', '003', '004']);
+    expect(migrations.map(({ version }) => version)).toEqual(['001', '002', '003', '004', '005']);
 
     const ledger = await installerPool.query<{ version: string }>(
       `SELECT version FROM ${B3_MIGRATION_TABLE} ORDER BY version`,
     );
-    expect(ledger.rows.map(({ version }) => version)).toEqual(['001', '002', '003', '004']);
+    expect(ledger.rows.map(({ version }) => version)).toEqual(['001', '002', '003', '004', '005']);
     expect(await migrate(installerPool)).toEqual({
       applied: [],
-      alreadyApplied: ['001', '002', '003', '004'],
+      alreadyApplied: ['001', '002', '003', '004', '005'],
     });
   });
 

@@ -227,18 +227,18 @@ afterAll(async () => {
 });
 
 describe('versioned B4 migration', () => {
-  it('applies migrations 001 through 004 once and records the immutable ledger', async () => {
+  it('applies the current migrations 001 through 005 once and records the immutable ledger', async () => {
     const migrations = await loadMigrations();
-    expect(migrations.map(({ version }) => version)).toEqual(['001', '002', '003', '004']);
+    expect(migrations.map(({ version }) => version)).toEqual(['001', '002', '003', '004', '005']);
 
     const ledger = await installerPool.query<{ version: string; checksum: string }>(
       `SELECT version, checksum FROM ${B3_MIGRATION_TABLE} ORDER BY version`,
     );
-    expect(ledger.rows.map(({ version }) => version)).toEqual(['001', '002', '003', '004']);
+    expect(ledger.rows.map(({ version }) => version)).toEqual(['001', '002', '003', '004', '005']);
     expect(ledger.rows.every(({ checksum }) => /^[0-9a-f]{64}$/.test(checksum))).toBe(true);
 
     const rerun = await migrate(installerPool);
-    expect(rerun).toEqual({ applied: [], alreadyApplied: ['001', '002', '003', '004'] });
+    expect(rerun).toEqual({ applied: [], alreadyApplied: ['001', '002', '003', '004', '005'] });
   });
 });
 
@@ -647,15 +647,19 @@ describe('least-privilege resolver database boundary', () => {
     ]);
   });
 
-  it('grants the resolver role only schema usage and the dedicated function execution', async () => {
+  it('grants the resolver role only schema usage and the two approved identity functions', async () => {
     const grants = await installerPool.query<{
       can_use_schema: boolean;
-      can_execute: boolean;
+      can_execute_resolution: boolean;
+      can_execute_locking_resolution: boolean;
+      can_execute_configuration_lock: boolean;
       table_grants: string;
     }>(
       `SELECT
          has_schema_privilege($1, $2, 'USAGE') AS can_use_schema,
-         has_function_privilege($1, $3, 'EXECUTE') AS can_execute,
+         has_function_privilege($1, $3, 'EXECUTE') AS can_execute_resolution,
+         has_function_privilege($1, $4, 'EXECUTE') AS can_execute_locking_resolution,
+         has_function_privilege($1, $5, 'EXECUTE') AS can_execute_configuration_lock,
          (SELECT count(*)::text
           FROM information_schema.role_table_grants
           WHERE grantee = $1) AS table_grants`,
@@ -663,11 +667,15 @@ describe('least-privilege resolver database boundary', () => {
         B4_IDENTITY_RESOLVER_ROLE,
         B3_SCHEMA,
         `${B3_SCHEMA}.resolve_request_actor(text,text)`,
+        `${B3_SCHEMA}.lock_request_actor(text,text)`,
+        `${B3_SCHEMA}.lock_lifecycle_configuration(uuid,uuid)`,
       ],
     );
     expect(grants.rows[0]).toEqual({
       can_use_schema: true,
-      can_execute: true,
+      can_execute_resolution: true,
+      can_execute_locking_resolution: true,
+      can_execute_configuration_lock: false,
       table_grants: '0',
     });
   });

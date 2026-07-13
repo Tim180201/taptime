@@ -139,10 +139,10 @@ jobs:
       - name: Typecheck backend B3 schema
         run: npm run typecheck --workspace=@taptime/backend-schema
 
-      - name: Apply B3 migrations to empty PostgreSQL database
+      - name: Apply current schema migrations 001 through 005 to empty PostgreSQL database
         run: npm run migrate --workspace=@taptime/backend-schema
 
-      - name: Re-run B3 migrations and verify versions
+      - name: Re-run and verify migration ledger 001 through 005
         run: |
           npm run migrate --workspace=@taptime/backend-schema
           npm run verify-migrations --workspace=@taptime/backend-schema
@@ -194,7 +194,7 @@ jobs:
       - name: Install dependencies from lockfile
         run: npm ci
 
-      - name: Apply B4 schema migrations 001 through 004
+      - name: Apply current schema migrations 001 through 005 for B4
         run: npm run migrate --workspace=@taptime/backend-schema
 
       - name: Re-run and verify the B4 migration ledger
@@ -255,7 +255,7 @@ jobs:
       - name: Build the approved B4 identity dependency
         run: npm run build --workspace=@taptime/backend-identity
 
-      - name: Apply schema migrations 001 through 004
+      - name: Apply current schema migrations 001 through 005 for B5
         run: npm run migrate --workspace=@taptime/backend-schema
 
       - name: Re-run and verify the migration ledger
@@ -271,3 +271,67 @@ jobs:
 
       - name: Build backend B5 read-model package
         run: npm run build --workspace=@taptime/backend-read-model
+
+  backend-b6-lifecycle:
+    name: Backend B6 server-canonical lifecycle
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:17.10-alpine
+        env:
+          POSTGRES_DB: taptime_b6
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: taptime_b6_installer
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U taptime_b6_installer -d taptime_b6"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      B3_DATABASE_URL: postgresql://taptime_b6_installer:postgres@127.0.0.1:5432/taptime_b6
+      B6_DATABASE_URL: postgresql://taptime_b6_installer:postgres@127.0.0.1:5432/taptime_b6
+      B6_RUNTIME_PASSWORD: b6-ci-synthetic-only
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.17.0
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies from lockfile
+        run: npm ci
+
+      - name: Build approved Core, schema, and identity dependencies
+        run: |
+          npm run build --workspace=@taptime/core
+          npm run build --workspace=@taptime/backend-schema
+          npm run build --workspace=@taptime/backend-identity
+
+      - name: Apply schema migrations 001 through 005
+        run: npm run migrate --workspace=@taptime/backend-schema
+
+      - name: Re-run and verify migration ledger 001 through 005
+        run: |
+          npm run migrate --workspace=@taptime/backend-schema
+          npm run verify-migrations --workspace=@taptime/backend-schema
+
+      - name: Typecheck B6 production and test sources
+        run: npm run typecheck --workspace=@taptime/backend-lifecycle
+
+      - name: Test B6 against direct PostgreSQL 17
+        run: npm test --workspace=@taptime/backend-lifecycle
+
+      - name: Build backend B6 lifecycle package
+        run: npm run build --workspace=@taptime/backend-lifecycle
