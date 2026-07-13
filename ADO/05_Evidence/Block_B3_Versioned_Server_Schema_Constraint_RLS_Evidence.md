@@ -1,6 +1,6 @@
 # Block B3 — Versioned Server Schema, Constraint and RLS Evidence
 
-Status: Implemented — Technical Lead Approved; Awaiting Independent Security Review
+Status: Completed — Technical Lead and Independent Security Approved
 Date: 2026-07-13
 Owner: Implementation Agent
 Approval Authorities: Technical Lead and Independent Security Reviewer
@@ -11,7 +11,7 @@ Plan: `ADO/02_Development/Block_B3_Versioned_Server_Schema_Implementation_Plan.m
 
 Block B3 introduces the isolated `@taptime/backend-schema` Node 24 workspace. It contains three deterministic PostgreSQL 17 migrations, a checksum/version-ledger runner, a production-shaped logical schema, structural Organization/User/AssignmentTarget integrity, truthful Core-Decision and SyncReceipt result mappings, column-specific grants, forced RLS on all twelve logical tables, transaction-atomic administrative audit evidence and a 124-test direct-PostgreSQL security matrix.
 
-The package is not a production backend or adapter. The disposable B1 spike is unchanged. No API, Auth provider, Supabase/cloud resource, service-role client access, Mobile integration or production data exists. B4 is not authorized.
+The package is not a production backend or adapter. The disposable B1 spike is unchanged. No API, Auth provider, Supabase/cloud resource, service-role client access, Mobile integration or production data exists. This implementation evidence did not authorize B4; the later approved B3 closure authorizes only the separate narrow B4 identity/Membership slice.
 
 ## 2. Migration Evidence
 
@@ -182,8 +182,8 @@ Local evidence on Node `v24.17.0` and PostgreSQL `17.10`:
 
 ## 7. Explicitly Open Gates
 
-- Technical Lead review is complete and approved after three adversarial correction rounds; independent security review remains required.
-- B4 is not authorized.
+- Technical Lead review completed after three adversarial correction rounds; the independent security review returned `APPROVED` with no blocking findings.
+- This implementation evidence does not authorize B4; the subsequent B3 closure records its separate narrow authorization.
 - No production personal data until legally approved retention, erasure/anonymization, restriction, backup region/encryption/expiry and restore-replay controls exist.
 - No numeric clock-skew, long-offline, unusual-duration or Membership-revocation grace threshold is implemented.
 - Historical Membership/Customer/Assignment boundaries are stored, but ambiguous delayed evidence remains deferred/no-mutation until the approved product policy is implemented.
@@ -201,4 +201,4 @@ Local evidence on Node `v24.17.0` and PostgreSQL `17.10`:
 
 ## 8. Review Recommendation
 
-B3 is Technical-Lead approved and ready for independent security review. That review should focus on composite FK completeness, SECURITY DEFINER helper safety, exact grants, policy interaction, migration operational assumptions and whether the deferred product/legal gates are sufficiently explicit. No subsequent Block should be inferred as approved from this readiness statement.
+B3 is Technical-Lead and independently security approved. The independent review confirmed the composite FK, Decision/Receipt truth, SECURITY DEFINER, grant, RLS, revocation and timestamp claims and recorded only non-blocking P2 carry-forwards. B4 authorization is recorded separately in the B3 closure and current Project Status; no later Block is inferred as approved.
