@@ -1,0 +1,29 @@
+{
+  "name": "@taptime/backend-identity",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Non-production Block B4 proof for verified provider identity and authoritative TapTim.e Membership resolution.",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json --emitDeclarationOnly && esbuild src/index.ts --bundle --platform=node --target=node24 --format=esm --external:jose --external:pg --sourcemap --outfile=dist/index.js",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@taptime/core": "*",
+    "jose": "^6.2.3",
+    "pg": "^8.22.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.13",
+    "@types/pg": "^8.20.0",
+    "esbuild": "^0.28.1",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.9"
+  }
+}

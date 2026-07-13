@@ -12,10 +12,10 @@ try {
     `SELECT version FROM ${B3_MIGRATION_TABLE} ORDER BY version`,
   );
   const versions = result.rows.map((row) => row.version);
-  if (versions.join(',') !== '001,002,003') {
-    throw new Error(`Unexpected B3 migration versions: ${versions.join(',') || 'none'}`);
+  if (versions.join(',') !== '001,002,003,004') {
+    throw new Error(`Unexpected backend schema migration versions: ${versions.join(',') || 'none'}`);
   }
-  process.stdout.write(`B3 migration versions verified: ${versions.join(',')}\n`);
+  process.stdout.write(`Backend schema migration versions verified: ${versions.join(',')}\n`);
 } finally {
   await pool.end();
 }

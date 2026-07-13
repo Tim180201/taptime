@@ -1,8 +1,8 @@
-# TapTim.e Backend Schema — Block B3
+# TapTim.e Backend Schema — Blocks B3–B4
 
-This workspace contains the versioned PostgreSQL 17 schema, migration runner and security integration evidence for Block B3.
+This workspace contains the versioned PostgreSQL 17 schema, migration runner and security integration evidence through the additive Block B4 identity-resolver migration.
 
-It is **not a production backend**, repository adapter, HTTP API, Auth integration or cloud deployment. It creates no Supabase resource and contains only synthetic test identities/data. The disposable B1 spike remains separate under `apps/backend-b1-spike`.
+It is **not a production backend**, repository adapter, HTTP API, Auth provider integration or cloud deployment. It creates no Supabase resource and contains only synthetic test identities/data. The disposable B1 spike remains separate under `apps/backend-b1-spike`.
 
 Required local environment:
 

@@ -27,18 +27,25 @@ export const ids = {
   auditB: '70000000-0000-4000-8000-000000000002',
 } as const;
 
-const loginNames = {
+export const B3_SYNTHETIC_LOGIN_NAMES = {
   employee: 'taptime_b3_employee_test_login',
   administrator: 'taptime_b3_administrator_test_login',
   lifecycle: 'taptime_b3_lifecycle_test_login',
 } as const;
+
+export const B3_APPLICATION_ROLES = [
+  'taptime_employee',
+  'taptime_administrator',
+  'taptime_server_lifecycle',
+  'taptime_identity_resolver',
+] as const;
 
 function quoteLiteral(value: string): string {
   return `'${value.replaceAll("'", "''")}'`;
 }
 
 export async function ensureSyntheticLogins(installerPool: Pool, password: string): Promise<void> {
-  for (const [kind, login] of Object.entries(loginNames)) {
+  for (const [kind, login] of Object.entries(B3_SYNTHETIC_LOGIN_NAMES)) {
     const role = kind === 'employee'
       ? 'taptime_employee'
       : kind === 'administrator'
@@ -52,20 +59,26 @@ export async function ensureSyntheticLogins(installerPool: Pool, password: strin
         END IF;
       END
       $login$;
-      ALTER ROLE ${login} WITH LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS
+      ALTER ROLE ${login} WITH LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE
+        NOREPLICATION NOBYPASSRLS
         PASSWORD ${quoteLiteral(password)};
-      REVOKE taptime_employee, taptime_administrator, taptime_server_lifecycle FROM ${login};
+      REVOKE taptime_employee, taptime_administrator, taptime_server_lifecycle,
+        taptime_identity_resolver FROM ${login};
       GRANT ${role} TO ${login};
     `);
   }
 }
 
-export function runtimeConnectionString(baseConnectionString: string, kind: keyof typeof loginNames, password: string): string {
+export function runtimeConnectionString(
+  baseConnectionString: string,
+  kind: keyof typeof B3_SYNTHETIC_LOGIN_NAMES,
+  password: string,
+): string {
   const url = new URL(baseConnectionString);
   if (!['postgresql:', 'postgres:'].includes(url.protocol) || url.hostname.length === 0) {
     throw new Error('B3 runtime security tests require a TCP PostgreSQL URL with an explicit host');
   }
-  url.username = loginNames[kind];
+  url.username = B3_SYNTHETIC_LOGIN_NAMES[kind];
   url.password = password;
   return url.toString();
 }

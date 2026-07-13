@@ -22,6 +22,7 @@ import {
   type Migration,
 } from '../src/index.js';
 import {
+  B3_SYNTHETIC_LOGIN_NAMES,
   ensureSyntheticLogins,
   ids,
   postgresErrorCode,
@@ -308,20 +309,61 @@ afterAll(async () => {
 });
 
 describe('B3 deterministic migration system', () => {
-  it('applies exactly three sorted versioned migrations to an empty schema', async () => {
+  it('applies exactly four sorted versioned migrations through the authorized B4 addition', async () => {
     const rows = await installerPool.query<{ version: string; checksum: string }>(
       `SELECT version, checksum FROM ${B3_MIGRATION_TABLE} ORDER BY version`,
     );
 
-    expect(rows.rows.map((row) => row.version)).toEqual(['001', '002', '003']);
+    expect(rows.rows.map((row) => row.version)).toEqual(['001', '002', '003', '004']);
     expect(rows.rows.every((row) => /^[0-9a-f]{64}$/.test(row.checksum))).toBe(true);
   });
 
   it('reruns safely without applying any migration twice', async () => {
     await expect(migrate(installerPool)).resolves.toEqual({
       applied: [],
-      alreadyApplied: ['001', '002', '003'],
+      alreadyApplied: ['001', '002', '003', '004'],
     });
+  });
+
+  it('removes resolver-role contamination and restores each B3 login to exactly its target role', async () => {
+    await installerPool.query(
+      `GRANT taptime_identity_resolver TO ${B3_SYNTHETIC_LOGIN_NAMES.employee}`,
+    );
+    await ensureSyntheticLogins(installerPool, runtimePassword);
+
+    const memberships = await installerPool.query<{
+      login_name: string;
+      parent_roles: string[];
+    }>(
+      `SELECT
+         member.rolname AS login_name,
+         ARRAY(
+           SELECT parent.rolname::text
+           FROM pg_catalog.pg_auth_members AS membership
+           JOIN pg_catalog.pg_roles AS parent ON parent.oid = membership.roleid
+           WHERE membership.member = member.oid
+           ORDER BY parent.rolname
+         )::text[] AS parent_roles
+       FROM pg_catalog.pg_roles AS member
+       WHERE member.rolname = ANY($1::text[])
+       ORDER BY member.rolname`,
+      [Object.values(B3_SYNTHETIC_LOGIN_NAMES)],
+    );
+
+    expect(memberships.rows).toEqual([
+      {
+        login_name: B3_SYNTHETIC_LOGIN_NAMES.administrator,
+        parent_roles: ['taptime_administrator'],
+      },
+      {
+        login_name: B3_SYNTHETIC_LOGIN_NAMES.employee,
+        parent_roles: ['taptime_employee'],
+      },
+      {
+        login_name: B3_SYNTHETIC_LOGIN_NAMES.lifecycle,
+        parent_roles: ['taptime_server_lifecycle'],
+      },
+    ]);
   });
 
   it('rejects checksum drift for an already applied version', async () => {

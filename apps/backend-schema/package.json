@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Versioned PostgreSQL 17 schema, constraints and RLS evidence for TapTim.e Block B3; not a production adapter.",
+  "description": "Versioned PostgreSQL 17 schema, constraints, RLS and identity-resolution evidence through TapTim.e Block B4; not a production adapter.",
   "engines": {
     "node": ">=24 <25"
   },
