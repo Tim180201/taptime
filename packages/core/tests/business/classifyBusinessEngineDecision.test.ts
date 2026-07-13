@@ -22,6 +22,7 @@ const timeEntry: TimeEntry = {
   id: TimeEntryId('time-entry-1'),
   workEventId: workEvent.id,
   organizationId,
+  userId: workEvent.triggeredBy,
   target,
   status: 'started',
   startedAt: createTimestamp('2026-07-06T09:00:01.000Z'),

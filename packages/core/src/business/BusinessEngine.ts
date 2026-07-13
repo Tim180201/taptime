@@ -1,5 +1,5 @@
 import type { WorkEvent } from '../domain/WorkEvent';
-import type { TimeEntry } from '../domain/TimeEntry';
+import type { StartedTimeEntry } from '../domain/TimeEntry';
 import { TimeEntryId } from '../domain/ids';
 import { generateId } from '../domain/generateId';
 import { createTimestamp, type Timestamp } from '../domain/Timestamp';
@@ -16,15 +16,16 @@ export class BusinessEngine {
     private readonly now: () => Timestamp = () => createTimestamp(new Date().toISOString()),
   ) {}
 
-  evaluate(workEvent: WorkEvent, activeTimeEntryForTarget: TimeEntry | null): BusinessEngineDecision {
+  evaluate(workEvent: WorkEvent, activeTimeEntryForTarget: StartedTimeEntry | null): BusinessEngineDecision {
     if (activeTimeEntryForTarget !== null) {
       return { status: 'escalation_required', reason: 'duplicate_scan_rule_undefined', workEvent };
     }
 
-    const timeEntry: TimeEntry = {
+    const timeEntry: StartedTimeEntry = {
       id: this.newTimeEntryId(),
       workEventId: workEvent.id,
       organizationId: workEvent.organizationId,
+      userId: workEvent.triggeredBy,
       target: workEvent.target,
       status: 'started',
       startedAt: this.now(),

@@ -12,6 +12,7 @@ export * from './domain/WorkEvent';
 export * from './domain/TimeEntry';
 export * from './domain/events/WorkEventCreated';
 export * from './domain/events/TimeEntryStarted';
+export * from './domain/events/TimeEntryStopped';
 export * from './domain/generateId';
 export * from './domain/SyncState';
 export * from './domain/QueuedWorkEventRecord';

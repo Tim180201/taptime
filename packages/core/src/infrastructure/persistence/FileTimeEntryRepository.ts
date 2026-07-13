@@ -1,5 +1,5 @@
 import type { TimeEntryRepository } from '../../ports/TimeEntryRepository';
-import type { TimeEntry } from '../../domain/TimeEntry';
+import type { StartedTimeEntry, TimeEntry } from '../../domain/TimeEntry';
 import type { AssignmentTarget } from '../../domain/AssignmentTarget';
 import type { OrganizationId } from '../../domain/ids';
 import { readJsonArray, writeJsonArray } from './JsonFileStore';
@@ -9,10 +9,10 @@ import { readJsonArray, writeJsonArray } from './JsonFileStore';
 export class FileTimeEntryRepository implements TimeEntryRepository {
   constructor(private readonly filePath: string) {}
 
-  findActiveByTarget(organizationId: OrganizationId, target: AssignmentTarget): TimeEntry | null {
+  findActiveByTarget(organizationId: OrganizationId, target: AssignmentTarget): StartedTimeEntry | null {
     return (
       this.findAll().find(
-        (entry) =>
+        (entry): entry is StartedTimeEntry =>
           entry.organizationId === organizationId &&
           entry.target.targetType === target.targetType &&
           entry.target.targetId === target.targetId &&

@@ -20,7 +20,7 @@ const workEvent: WorkEvent = {
 };
 
 describe('BusinessEngine (DT-005, deterministic branch)', () => {
-  it('produces TimeEntryStarted when no active TimeEntry exists for the target', () => {
+  it('produces TimeEntryStarted owned by the WorkEvent user when no active TimeEntry exists for the target', () => {
     const engine = new BusinessEngine(
       () => TimeEntryId('time-entry-1'),
       () => createTimestamp('2026-07-03T12:00:01.000Z'),
@@ -34,6 +34,7 @@ describe('BusinessEngine (DT-005, deterministic branch)', () => {
         id: 'time-entry-1',
         workEventId: workEvent.id,
         organizationId,
+        userId: workEvent.triggeredBy,
         target,
         status: 'started',
         startedAt: '2026-07-03T12:00:01.000Z',
@@ -44,6 +45,7 @@ describe('BusinessEngine (DT-005, deterministic branch)', () => {
           id: 'time-entry-1',
           workEventId: workEvent.id,
           organizationId,
+          userId: workEvent.triggeredBy,
           target,
           status: 'started',
           startedAt: '2026-07-03T12:00:01.000Z',
@@ -58,6 +60,7 @@ describe('BusinessEngine (DT-005, deterministic branch)', () => {
       id: TimeEntryId('time-entry-existing'),
       workEventId: WorkEventId('work-event-existing'),
       organizationId,
+      userId: UserId('user-1'),
       target,
       status: 'started',
       startedAt: createTimestamp('2026-07-03T11:00:00.000Z'),

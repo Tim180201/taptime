@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { InMemoryTimeEntryRepository } from '../../src/infrastructure/repositories/InMemoryTimeEntryRepository';
-import { OrganizationId, CustomerId, WorkEventId, TimeEntryId } from '../../src/domain/ids';
+import { OrganizationId, CustomerId, UserId, WorkEventId, TimeEntryId } from '../../src/domain/ids';
 import { customerAssignmentTarget } from '../../src/domain/AssignmentTarget';
 import { createTimestamp } from '../../src/domain/Timestamp';
 import type { TimeEntry } from '../../src/domain/TimeEntry';
@@ -22,6 +22,7 @@ describe('InMemoryTimeEntryRepository (DT-006 slice)', () => {
       id: TimeEntryId('time-entry-1'),
       workEventId: WorkEventId('work-event-1'),
       organizationId,
+      userId: UserId('user-1'),
       target,
       status: 'started',
       startedAt: createTimestamp('2026-07-03T12:00:00.000Z'),
@@ -37,6 +38,7 @@ describe('InMemoryTimeEntryRepository (DT-006 slice)', () => {
       id: TimeEntryId('time-entry-1'),
       workEventId: WorkEventId('work-event-1'),
       organizationId,
+      userId: UserId('user-1'),
       target,
       status: 'started',
       startedAt: createTimestamp('2026-07-03T12:00:00.000Z'),

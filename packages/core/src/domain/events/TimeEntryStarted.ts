@@ -1,10 +1,10 @@
-import type { TimeEntry } from '../TimeEntry';
+import type { StartedTimeEntry } from '../TimeEntry';
 
 export interface TimeEntryStarted {
   readonly type: 'TimeEntryStarted';
-  readonly timeEntry: TimeEntry;
+  readonly timeEntry: StartedTimeEntry;
 }
 
-export function timeEntryStarted(timeEntry: TimeEntry): TimeEntryStarted {
+export function timeEntryStarted(timeEntry: StartedTimeEntry): TimeEntryStarted {
   return { type: 'TimeEntryStarted', timeEntry };
 }

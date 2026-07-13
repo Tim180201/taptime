@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { FileTimeEntryRepository } from '../../../src/infrastructure/persistence/FileTimeEntryRepository';
-import { OrganizationId, CustomerId, WorkEventId, TimeEntryId } from '../../../src/domain/ids';
+import { OrganizationId, CustomerId, UserId, WorkEventId, TimeEntryId } from '../../../src/domain/ids';
 import { customerAssignmentTarget } from '../../../src/domain/AssignmentTarget';
 import { createTimestamp } from '../../../src/domain/Timestamp';
 import type { TimeEntry } from '../../../src/domain/TimeEntry';
@@ -17,6 +17,7 @@ function buildTimeEntry(id = 'time-entry-1'): TimeEntry {
     id: TimeEntryId(id),
     workEventId: WorkEventId('work-event-1'),
     organizationId,
+    userId: UserId('user-1'),
     target,
     status: 'started',
     startedAt: createTimestamp('2026-07-07T09:00:00.000Z'),

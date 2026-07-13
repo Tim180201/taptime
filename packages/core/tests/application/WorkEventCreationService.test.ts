@@ -89,6 +89,7 @@ describe('WorkEventCreationService (WorkEventCreationPort implementation)', () =
       id: TimeEntryId('time-entry-existing'),
       workEventId: WorkEventId('work-event-existing'),
       organizationId,
+      userId: UserId('user-1'),
       target,
       status: 'started',
       startedAt: createTimestamp('2026-07-03T11:00:00.000Z'),
