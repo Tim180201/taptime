@@ -2,6 +2,7 @@
 
 Role: Research / Implementation Support acting on behalf of Technical Lead (per AGR-001)
 Date: 2026-07-10
+Status: Active execution baseline — Block A completed 2026-07-13; Block B next
 Scope: Core platform roadmap only. Generic platform language throughout (Organization, Membership, Role, User, AssignmentTarget, Customer, NfcTag, NfcAssignment, TimeEntry, WorkEvent, BusinessEvent, Policy, AuditEvent, Export, Backend, Auth, Tenant Isolation, Mobile App, Admin Web, Website). No customer-specific product, company, or branch assumption is named anywhere in this document. No code implemented. No architecture, ADR, TTAP-001, FB-001/TS-001, FB-002/TS-002, or Product Vision content modified.
 Related Artifacts: `ADO/05_Evidence/External_CTO_Review_Triage_2026-07-10.md`, `ADO/05_Evidence/Product_Readiness_Assessment.md`, `ADO/05_Evidence/Product_Readiness_Roadmap.md`, `ADO/02_Development/Development_Sprint_019_Closure.md`, `ADO/02_Development/EP-007_Development_Tasks.md`, `ADO/00_Core/Project_Status.md`, `ADO/00_Core/Decision_Log.md`
 
@@ -64,6 +65,8 @@ These are calendar estimates at approximately 4 hours/day, consistent with Secti
 Blocks are ranges, not fixed sprint-by-sprint commitments; candidate Development Tasks (DTs) are named to make scope concrete, not to overclaim exact duration per DT. Sprint numbers are candidate ranges only, continuing from Development Sprint 019 (the last completed sprint).
 
 ### Block A – Core Truth and Reliability
+
+**Status: Completed (2026-07-13).** DT-027/028 were delivered by the review triage and this roadmap; DT-029–033 were completed through the approved F-01 decision and commits `f5a0027`, `d8d3833`, and `72eb03d`; DT-034/035 were completed by commits `b2004ea` and `2493f17`. See `ADO/02_Development/Block_A_Core_Truth_and_Reliability_Closure.md`.
 
 **Target:** Week 1–2 · **Candidate Sprints:** 020–024
 
@@ -287,6 +290,10 @@ Evidence produced: this roadmap and the accompanying triage document.
 
 Next responsible role: Technical Lead / Human Architect to review this roadmap and the accompanying triage, then confirm Development Sprint 020's scope (governance-only, if not already fully completed by this task) before Development Sprint 021 (F-01 / TimeEntry Lifecycle Decision + Plan) is created as a separate, later task.
 
-## 11. Stop Condition
+## 11. Progress Update – 2026-07-13
 
-Per task instruction: stop after creating this roadmap and the accompanying evidence/status updates. Do not commit. Do not push. Do not start Development Sprint 020 implementation. Do not create a Development Sprint 021 Plan. Wait for Technical Lead review.
+Core Roadmap v2 Block A is complete. The repository now has an engine-driven TimeEntry lifecycle, duplicate suppression, user-aware active-entry handling, started/stopped persistence, lifecycle integration tests, GitHub Actions CI, and tests-inclusive TypeScript checks. The verified baseline is 262 passing Core tests, 10 passing Mobile tests, clean typecheck and a successful Core build. The next execution gate is Block B's backend technology and security architecture decision package; backend implementation must not begin by silently choosing a provider or tenancy model.
+
+## 12. Original Creation Stop Condition (Historical)
+
+The original 2026-07-10 roadmap-creation task ended after producing the roadmap and accompanying evidence/status updates, without committing, pushing or starting implementation. That creation-time stop condition was satisfied and is retained only as provenance; it is not an active instruction after the 2026-07-13 Block A progress update.
