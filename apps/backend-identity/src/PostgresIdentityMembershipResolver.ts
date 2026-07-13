@@ -27,7 +27,7 @@ export class PostgresIdentityMembershipResolver implements IdentityMembershipRes
   async resolve(identity: VerifiedProviderIdentity): Promise<IdentityMembershipResolutionResult> {
     const client = await this.pool.connect();
     try {
-      await client.query('BEGIN');
+      await client.query('BEGIN ISOLATION LEVEL READ COMMITTED READ ONLY');
       await client.query(`SET LOCAL ROLE ${B4_IDENTITY_RESOLVER_ROLE}`);
       const result = await client.query<ResolvedActorRow>(
         `SELECT user_id, organization_id, membership_id, membership_role

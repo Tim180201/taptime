@@ -1,51 +1,75 @@
-import { useMemo, useState } from 'react';
+import { useRef, useState } from 'react';
 import { Button, StyleSheet, Text, TextInput, View } from 'react-native';
-import { SessionService, toCallerContext, FakeAuthenticationGateway, type CallerContext } from '@taptime/core';
+import type { SignInResult } from '../auth/contracts';
 
 interface LoginScreenProps {
-  onSignedIn: (caller: CallerContext) => void;
+  readonly signIn: (email: string, password: string) => Promise<SignInResult>;
+  readonly disabled: boolean;
 }
 
-// DT-014: minimal credential input + "Sign in" action calling the existing SessionService
-// (DT-013), unmodified. Introduces no business/authentication logic of its own - it only
-// calls SessionService.signIn() and toCallerContext(), then passes the result through
-// (ADR-0007 Platform Boundaries). No password flow: Credentials is a single opaque
-// signInCode, unchanged from Sprint 007.
-export function LoginScreen({ onSignedIn }: LoginScreenProps) {
-  const [signInCode, setSignInCode] = useState('');
-  const [rejectionReason, setRejectionReason] = useState<string | null>(null);
-
-  const sessionService = useMemo(() => new SessionService(new FakeAuthenticationGateway()), []);
+export function LoginScreen({ signIn, disabled }: LoginScreenProps) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const submitInFlight = useRef(false);
+  const [message, setMessage] = useState<string | null>(null);
 
   async function handleSignIn(): Promise<void> {
-    const result = await sessionService.signIn({ signInCode });
-
-    if (result.status === 'authenticated') {
-      setRejectionReason(null);
-      onSignedIn(toCallerContext(result));
+    if (submitInFlight.current || disabled) {
       return;
     }
-
-    setRejectionReason(result.reason);
+    submitInFlight.current = true;
+    setSubmitting(true);
+    setMessage(null);
+    try {
+      const result = await signIn(email, password);
+      if (result.status === 'invalid_credentials') {
+        setMessage('E-Mail-Adresse oder Passwort ist nicht gültig.');
+      } else if (result.status === 'authority_rejected') {
+        setMessage('Für dieses Konto ist kein aktiver TapTim.e-Zugang verfügbar.');
+      } else if (result.status === 'context_unavailable') {
+        setMessage('Der Sitzungskontext ist vorübergehend nicht verfügbar.');
+      } else if (result.status === 'infrastructure_error') {
+        setMessage('Die Anmeldung ist derzeit nicht verfügbar.');
+      }
+    } catch {
+      setMessage('Die Anmeldung ist derzeit nicht verfügbar.');
+    } finally {
+      submitInFlight.current = false;
+      setSubmitting(false);
+    }
   }
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>TapTim.e — Sign in</Text>
+      <Text style={styles.title}>TapTim.e — Anmeldung</Text>
       <TextInput
         style={styles.input}
-        value={signInCode}
-        onChangeText={setSignInCode}
-        placeholder="Sign-in code"
+        value={email}
+        onChangeText={setEmail}
+        placeholder="E-Mail-Adresse"
         autoCapitalize="none"
-        testID="sign-in-code-input"
+        autoComplete="email"
+        keyboardType="email-address"
+        testID="email-input"
       />
-      <Button title="Sign in" onPress={handleSignIn} testID="sign-in-button" />
-      {rejectionReason !== null ? (
-        <Text style={styles.error} testID="sign-in-error">
-          Sign-in rejected: {rejectionReason}
-        </Text>
-      ) : null}
+      <TextInput
+        style={styles.input}
+        value={password}
+        onChangeText={setPassword}
+        placeholder="Passwort"
+        autoCapitalize="none"
+        autoComplete="current-password"
+        secureTextEntry
+        testID="password-input"
+      />
+      <Button
+        title={submitting ? 'Anmeldung läuft …' : 'Anmelden'}
+        onPress={handleSignIn}
+        disabled={disabled || submitting}
+        testID="sign-in-button"
+      />
+      {message !== null ? <Text style={styles.error}>{message}</Text> : null}
     </View>
   );
 }

@@ -1,0 +1,470 @@
+import { describe, expect, it, vi } from 'vitest';
+import { MobileSessionCoordinator } from '../../src/auth/MobileSessionCoordinator';
+import type {
+  BackendSessionPort,
+  BackendSessionResolution,
+  ProductSessionContext,
+  ProviderAuthEvent,
+  ProviderAuthPort,
+  ProviderRefreshResult,
+  ProviderSignInResult,
+  RefreshTokenStore,
+} from '../../src/auth/contracts';
+
+const productSession: ProductSessionContext = {
+  userId: '10000000-0000-4000-8000-000000000101',
+  membershipId: '12000000-0000-4000-8000-000000000101',
+  organizationId: '00000000-0000-4000-8000-000000000101',
+  role: 'employee',
+};
+
+function deferred<Value>() {
+  let resolve!: (value: Value) => void;
+  let reject!: (error: unknown) => void;
+  const promise = new Promise<Value>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, resolve, reject };
+}
+
+class FakeProvider implements ProviderAuthPort {
+  readonly signInCalls: Array<[string, string]> = [];
+  readonly refreshCalls: string[] = [];
+  signOutCalls = 0;
+  subscribeCalls = 0;
+  unsubscribeCalls = 0;
+  startAutoRefreshCalls = 0;
+  stopAutoRefreshCalls = 0;
+  signInImplementation: (email: string, password: string) => Promise<ProviderSignInResult> =
+    async () => ({
+      status: 'authenticated',
+      tokens: { accessToken: 'signed-in-access', refreshToken: 'signed-in-refresh' },
+    });
+  refreshImplementation: (refreshToken: string) => Promise<ProviderRefreshResult> =
+    async () => ({
+      status: 'refreshed',
+      tokens: { accessToken: 'rotated-access', refreshToken: 'rotated-refresh' },
+    });
+  signOutImplementation: () => Promise<void> = async () => undefined;
+  private readonly listeners = new Set<(event: ProviderAuthEvent) => void>();
+
+  async signInWithPassword(email: string, password: string): Promise<ProviderSignInResult> {
+    this.signInCalls.push([email, password]);
+    return this.signInImplementation(email, password);
+  }
+
+  async refreshSession(refreshToken: string): Promise<ProviderRefreshResult> {
+    this.refreshCalls.push(refreshToken);
+    return this.refreshImplementation(refreshToken);
+  }
+
+  async signOutLocal(): Promise<void> {
+    this.signOutCalls += 1;
+    await this.signOutImplementation();
+  }
+
+  subscribe(listener: (event: ProviderAuthEvent) => void): () => void {
+    this.subscribeCalls += 1;
+    this.listeners.add(listener);
+    return () => {
+      this.unsubscribeCalls += 1;
+      this.listeners.delete(listener);
+    };
+  }
+
+  async startAutoRefresh(): Promise<void> {
+    this.startAutoRefreshCalls += 1;
+  }
+
+  async stopAutoRefresh(): Promise<void> {
+    this.stopAutoRefreshCalls += 1;
+  }
+
+  emit(event: ProviderAuthEvent): void {
+    for (const listener of this.listeners) {
+      listener(event);
+    }
+  }
+}
+
+class FakeRefreshTokenStore implements RefreshTokenStore {
+  value: string | null;
+  readonly writes: string[] = [];
+  clearCalls = 0;
+  readCalls = 0;
+  availableCalls = 0;
+  availableImplementation: () => Promise<boolean> = async () => true;
+  readImplementation: () => Promise<string | null>;
+  writeImplementation: (value: string) => Promise<void> = async () => undefined;
+  clearImplementation: () => Promise<void> = async () => undefined;
+
+  constructor(value: string | null = null) {
+    this.value = value;
+    this.readImplementation = async () => this.value;
+  }
+
+  async isAvailable(): Promise<boolean> {
+    this.availableCalls += 1;
+    return this.availableImplementation();
+  }
+
+  async read(): Promise<string | null> {
+    this.readCalls += 1;
+    return this.readImplementation();
+  }
+
+  async write(value: string): Promise<void> {
+    this.writes.push(value);
+    await this.writeImplementation(value);
+    this.value = value;
+  }
+
+  async clear(): Promise<void> {
+    this.clearCalls += 1;
+    await this.clearImplementation();
+    this.value = null;
+  }
+}
+
+class FakeBackendSession implements BackendSessionPort {
+  readonly accessTokens: string[] = [];
+  implementation: (accessToken: string) => Promise<BackendSessionResolution> =
+    async () => ({ status: 'resolved', session: productSession });
+
+  async resolve(accessToken: string): Promise<BackendSessionResolution> {
+    this.accessTokens.push(accessToken);
+    return this.implementation(accessToken);
+  }
+}
+
+function setup(storedRefreshToken: string | null = null) {
+  const provider = new FakeProvider();
+  const store = new FakeRefreshTokenStore(storedRefreshToken);
+  const backend = new FakeBackendSession();
+  const coordinator = new MobileSessionCoordinator(provider, store, backend);
+  return { provider, store, backend, coordinator };
+}
+
+describe('MobileSessionCoordinator', () => {
+  it('starts signed out when no refresh token exists', async () => {
+    const { coordinator, provider, store } = setup();
+    await coordinator.start();
+    expect(coordinator.getState()).toEqual({ status: 'unauthenticated', reason: 'not_signed_in' });
+    expect(store.readCalls).toBe(1);
+    expect(provider.refreshCalls).toEqual([]);
+    expect(provider.subscribeCalls).toBe(1);
+  });
+
+  it('restores in order, persists only the rotated refresh token, then resolves backend authority', async () => {
+    const { coordinator, provider, store, backend } = setup('stored-refresh');
+    await coordinator.start();
+
+    expect(provider.refreshCalls).toEqual(['stored-refresh']);
+    expect(store.writes).toEqual(['rotated-refresh']);
+    expect(store.value).toBe('rotated-refresh');
+    expect(backend.accessTokens).toEqual(['rotated-access']);
+    expect(coordinator.getState()).toEqual({ status: 'authenticated', session: productSession });
+    expect(JSON.stringify(store.writes)).not.toContain('rotated-access');
+  });
+
+  it('makes parallel start calls share one restore operation', async () => {
+    const { coordinator, provider } = setup('stored-refresh');
+    const refresh = deferred<ProviderRefreshResult>();
+    provider.refreshImplementation = () => refresh.promise;
+
+    const first = coordinator.start();
+    const second = coordinator.start();
+    await vi.waitFor(() => expect(provider.refreshCalls).toHaveLength(1));
+    refresh.resolve({
+      status: 'refreshed',
+      tokens: { accessToken: 'access', refreshToken: 'refresh' },
+    });
+    await Promise.all([first, second]);
+    expect(provider.refreshCalls).toHaveLength(1);
+    expect(provider.subscribeCalls).toBe(1);
+  });
+
+  it('makes parallel explicit refresh calls single-flight', async () => {
+    const { coordinator, provider, store, backend } = setup('stored-refresh');
+    await coordinator.start();
+    const refresh = deferred<ProviderRefreshResult>();
+    provider.refreshImplementation = () => refresh.promise;
+    const initialCount = provider.refreshCalls.length;
+
+    const first = coordinator.refresh();
+    const second = coordinator.refresh();
+    await vi.waitFor(() => expect(provider.refreshCalls).toHaveLength(initialCount + 1));
+    refresh.resolve({
+      status: 'refreshed',
+      tokens: { accessToken: 'next-access', refreshToken: 'next-refresh' },
+    });
+    await Promise.all([first, second]);
+    expect(provider.refreshCalls).toHaveLength(initialCount + 1);
+
+    const writesBeforeEventRefresh = store.writes.length;
+    const backendCallsBeforeEventRefresh = backend.accessTokens.length;
+    provider.refreshImplementation = async () => {
+      const tokens = { accessToken: 'event-access', refreshToken: 'event-refresh' };
+      provider.emit({ type: 'token_refreshed', tokens });
+      return { status: 'refreshed', tokens };
+    };
+    await coordinator.refresh();
+    expect(store.writes.slice(writesBeforeEventRefresh)).toEqual(['event-refresh']);
+    expect(backend.accessTokens.slice(backendCallsBeforeEventRefresh)).toEqual(['event-access']);
+  });
+
+  it('signs in with exact email/password while storage sees neither password nor access token', async () => {
+    const { coordinator, provider, store, backend } = setup();
+    const result = await coordinator.signIn('employee@example.invalid', 'exact-password');
+
+    expect(result).toEqual({ status: 'authenticated' });
+    expect(provider.signInCalls).toEqual([['employee@example.invalid', 'exact-password']]);
+    expect(store.writes).toEqual(['signed-in-refresh']);
+    expect(JSON.stringify(store.writes)).not.toContain('exact-password');
+    expect(JSON.stringify(store.writes)).not.toContain('signed-in-access');
+    expect(backend.accessTokens).toEqual(['signed-in-access']);
+  });
+
+  it('prevents duplicate concurrent sign-in submission at the capability boundary', async () => {
+    const { coordinator, provider } = setup();
+    const signIn = deferred<ProviderSignInResult>();
+    provider.signInImplementation = () => signIn.promise;
+    const first = coordinator.signIn('first@example.invalid', 'password');
+    const second = coordinator.signIn('second@example.invalid', 'different');
+    await vi.waitFor(() => expect(provider.signInCalls).toHaveLength(1));
+    signIn.resolve({
+      status: 'authenticated',
+      tokens: { accessToken: 'access', refreshToken: 'refresh' },
+    });
+    await expect(Promise.all([first, second])).resolves.toEqual([
+      { status: 'authenticated' },
+      { status: 'authenticated' },
+    ]);
+    expect(provider.signInCalls).toEqual([['first@example.invalid', 'password']]);
+  });
+
+  it('distinguishes invalid credentials from provider infrastructure failure without details', async () => {
+    const invalid = setup();
+    invalid.provider.signInImplementation = async () => ({ status: 'invalid_credentials' });
+    await expect(invalid.coordinator.signIn('a@example.invalid', 'bad'))
+      .resolves.toEqual({ status: 'invalid_credentials' });
+    expect(invalid.coordinator.getState()).toEqual({
+      status: 'unauthenticated', reason: 'invalid_credentials',
+    });
+
+    const unavailable = setup();
+    unavailable.provider.signInImplementation = async () => { throw new Error('provider secret'); };
+    await expect(unavailable.coordinator.signIn('a@example.invalid', 'bad'))
+      .resolves.toEqual({ status: 'infrastructure_error' });
+    expect(unavailable.coordinator.getState()).toEqual({
+      status: 'runtime_unavailable', reason: 'authentication_unavailable',
+    });
+  });
+
+  it('clears a terminally rejected restored provider session', async () => {
+    const { coordinator, provider, store } = setup('expired-refresh');
+    provider.refreshImplementation = async () => ({ status: 'rejected' });
+    await coordinator.start();
+    expect(coordinator.getState()).toEqual({ status: 'unauthenticated', reason: 'not_signed_in' });
+    expect(store.value).toBeNull();
+    expect(provider.signOutCalls).toBe(1);
+
+    const unavailable = setup('stored-refresh');
+    unavailable.provider.refreshImplementation = async () => {
+      throw new Error('provider infrastructure detail');
+    };
+    await unavailable.coordinator.start();
+    expect(unavailable.coordinator.getState()).toEqual({
+      status: 'runtime_unavailable', reason: 'authentication_unavailable',
+    });
+    expect(unavailable.store.value).toBe('stored-refresh');
+  });
+
+  it('clears product/provider state when authoritative backend rejects Membership', async () => {
+    const { coordinator, provider, store, backend } = setup();
+    backend.implementation = async () => ({ status: 'authority_rejected' });
+    await expect(coordinator.signIn('a@example.invalid', 'password'))
+      .resolves.toEqual({ status: 'authority_rejected' });
+    expect(coordinator.getState()).toEqual({
+      status: 'unauthenticated', reason: 'authority_rejected',
+    });
+    expect(store.value).toBeNull();
+    expect(provider.signOutCalls).toBe(1);
+
+    const failingStorage = setup();
+    failingStorage.backend.implementation = async () => ({ status: 'authority_rejected' });
+    failingStorage.store.clearImplementation = async () => {
+      if (failingStorage.store.clearCalls > 1) {
+        throw new Error('secure storage unavailable');
+      }
+    };
+    await failingStorage.coordinator.signIn('a@example.invalid', 'password');
+    expect(failingStorage.coordinator.getState()).toEqual({
+      status: 'runtime_unavailable', reason: 'storage_unavailable',
+    });
+    expect(failingStorage.provider.signOutCalls).toBe(1);
+  });
+
+  it('retains a retryable context-unavailable gate and resolves it without re-authenticating', async () => {
+    const { coordinator, provider, store, backend } = setup();
+    backend.implementation = async () => ({ status: 'unavailable' });
+    await expect(coordinator.signIn('a@example.invalid', 'password'))
+      .resolves.toEqual({ status: 'context_unavailable' });
+    expect(coordinator.getState()).toEqual({ status: 'context_unavailable' });
+    expect(store.value).toBe('signed-in-refresh');
+
+    backend.implementation = async () => ({ status: 'resolved', session: productSession });
+    await Promise.all([coordinator.retryContext(), coordinator.retryContext()]);
+    expect(coordinator.getState()).toEqual({ status: 'authenticated', session: productSession });
+    expect(provider.signInCalls).toHaveLength(1);
+    expect(backend.accessTokens).toEqual(['signed-in-access', 'signed-in-access']);
+  });
+
+  it('maps a thrown backend call to the same closed retryable context state', async () => {
+    const { coordinator, backend } = setup();
+    backend.implementation = async () => { throw new Error('network detail'); };
+    await expect(coordinator.signIn('a@example.invalid', 'password'))
+      .resolves.toEqual({ status: 'context_unavailable' });
+    expect(coordinator.getState()).toEqual({ status: 'context_unavailable' });
+  });
+
+  it('sign-out removes SecureStore and in-memory authority even if provider cleanup fails', async () => {
+    const { coordinator, provider, store } = setup();
+    await coordinator.signIn('a@example.invalid', 'password');
+    provider.signOutImplementation = async () => { throw new Error('network'); };
+    await coordinator.signOut();
+    expect(store.value).toBeNull();
+    expect(coordinator.getState()).toEqual({ status: 'signed_out' });
+  });
+
+  it('fails closed and cleans provider state when refresh-token persistence fails', async () => {
+    const { coordinator, provider, store } = setup();
+    store.writeImplementation = async () => { throw new Error('secure storage unavailable'); };
+    await expect(coordinator.signIn('a@example.invalid', 'password'))
+      .resolves.toEqual({ status: 'infrastructure_error' });
+    expect(coordinator.getState()).toEqual({
+      status: 'runtime_unavailable', reason: 'storage_unavailable',
+    });
+    expect(store.value).toBeNull();
+    expect(provider.signOutCalls).toBe(1);
+  });
+
+  it('re-resolves authority after TOKEN_REFRESHED and clears a newly rejected Membership', async () => {
+    const { coordinator, provider, store, backend } = setup();
+    await coordinator.start();
+    await coordinator.signIn('a@example.invalid', 'password');
+    backend.implementation = async () => ({ status: 'authority_rejected' });
+
+    provider.emit({
+      type: 'token_refreshed',
+      tokens: { accessToken: 'auto-access', refreshToken: 'auto-refresh' },
+    });
+
+    await vi.waitFor(() => expect(coordinator.getState()).toEqual({
+      status: 'unauthenticated', reason: 'authority_rejected',
+    }));
+    expect(backend.accessTokens.at(-1)).toBe('auto-access');
+    expect(store.value).toBeNull();
+    expect(provider.signOutCalls).toBe(1);
+  });
+
+  it('orders auth-state refresh writes so the newest rotation wins', async () => {
+    const { coordinator, provider, store } = setup();
+    await coordinator.start();
+    await coordinator.signIn('a@example.invalid', 'password');
+    const firstWrite = deferred<void>();
+    store.writeImplementation = async (value) => {
+      if (value === 'event-refresh-1') {
+        await firstWrite.promise;
+      }
+    };
+
+    provider.emit({
+      type: 'token_refreshed',
+      tokens: { accessToken: 'event-access-1', refreshToken: 'event-refresh-1' },
+    });
+    provider.emit({
+      type: 'token_refreshed',
+      tokens: { accessToken: 'event-access-2', refreshToken: 'event-refresh-2' },
+    });
+    await vi.waitFor(() => expect(store.writes).toContain('event-refresh-1'));
+    firstWrite.resolve();
+    await vi.waitFor(() => expect(store.value).toBe('event-refresh-2'));
+    expect(store.writes.slice(-2)).toEqual(['event-refresh-1', 'event-refresh-2']);
+  });
+
+  it('ignores a stale backend rejection after a newer provider token was accepted', async () => {
+    const { coordinator, provider, backend } = setup();
+    await coordinator.start();
+    await coordinator.signIn('a@example.invalid', 'password');
+    const oldResolution = deferred<BackendSessionResolution>();
+    backend.implementation = (token) => token === 'old-event-access'
+      ? oldResolution.promise
+      : Promise.resolve({ status: 'resolved', session: productSession });
+
+    provider.emit({
+      type: 'token_refreshed',
+      tokens: { accessToken: 'old-event-access', refreshToken: 'old-event-refresh' },
+    });
+    await vi.waitFor(() => expect(backend.accessTokens).toContain('old-event-access'));
+    provider.emit({
+      type: 'token_refreshed',
+      tokens: { accessToken: 'new-event-access', refreshToken: 'new-event-refresh' },
+    });
+    await vi.waitFor(() => expect(backend.accessTokens).toContain('new-event-access'));
+    oldResolution.resolve({ status: 'authority_rejected' });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(coordinator.getState()).toEqual({ status: 'authenticated', session: productSession });
+    expect(provider.signOutCalls).toBe(0);
+  });
+
+  it('prevents a delayed restore from repopulating state after sign-out', async () => {
+    const { coordinator, provider, store } = setup('stored-refresh');
+    const refresh = deferred<ProviderRefreshResult>();
+    provider.refreshImplementation = () => refresh.promise;
+    const restoring = coordinator.start();
+    await vi.waitFor(() => expect(provider.refreshCalls).toEqual(['stored-refresh']));
+
+    const signingOut = coordinator.signOut();
+    refresh.resolve({
+      status: 'refreshed',
+      tokens: { accessToken: 'late-access', refreshToken: 'late-refresh' },
+    });
+    await Promise.all([restoring, signingOut]);
+    expect(coordinator.getState()).toEqual({ status: 'signed_out' });
+    expect(store.value).toBeNull();
+    expect(store.writes).not.toContain('late-refresh');
+  });
+
+  it('ignores provider token events after sign-out', async () => {
+    const { coordinator, provider, store, backend } = setup();
+    await coordinator.start();
+    await coordinator.signOut();
+    provider.emit({
+      type: 'token_refreshed',
+      tokens: { accessToken: 'late-access', refreshToken: 'late-refresh' },
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(store.value).toBeNull();
+    expect(backend.accessTokens).toEqual([]);
+    expect(coordinator.getState()).toEqual({ status: 'signed_out' });
+  });
+
+  it('prevents a stopped delayed start from opening authority and can restart cleanly', async () => {
+    const { coordinator, store, provider } = setup();
+    const availability = deferred<boolean>();
+    store.availableImplementation = () => availability.promise;
+    const starting = coordinator.start();
+    coordinator.stop();
+    availability.resolve(true);
+    await starting;
+    expect(provider.refreshCalls).toEqual([]);
+    expect(provider.unsubscribeCalls).toBe(1);
+
+    store.availableImplementation = async () => true;
+    await coordinator.start();
+    expect(coordinator.getState()).toEqual({ status: 'unauthenticated', reason: 'not_signed_in' });
+    expect(provider.subscribeCalls).toBe(2);
+  });
+});

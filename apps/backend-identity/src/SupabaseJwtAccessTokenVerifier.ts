@@ -25,6 +25,13 @@ export interface SupabaseRemoteJwtAccessTokenVerifierConfiguration
   readonly jwksUrl: URL;
 }
 
+export class AccessTokenVerificationInfrastructureError extends Error {
+  constructor(cause: unknown) {
+    super('Access-token verification infrastructure is unavailable', { cause });
+    this.name = 'AccessTokenVerificationInfrastructureError';
+  }
+}
+
 export class SupabaseJwtAccessTokenVerifier implements AccessTokenVerifier {
   private static readonly audience = 'authenticated';
   private readonly issuer: string;
@@ -116,7 +123,11 @@ export class SupabaseJwtAccessTokenVerifier implements AccessTokenVerifier {
         identity: Object.freeze({ issuer: this.issuer, subject: payload.sub }),
       };
     } catch (error) {
-      return { status: 'rejected', reason: rejectionReason(error) };
+      const reason = rejectionReason(error);
+      if (reason !== null) {
+        return { status: 'rejected', reason };
+      }
+      throw new AccessTokenVerificationInfrastructureError(error);
     }
   }
 }
@@ -158,7 +169,7 @@ function isNumericLoopbackHost(hostname: string): boolean {
     && octets.every((octet) => /^\d{1,3}$/.test(octet) && Number(octet) <= 255);
 }
 
-function rejectionReason(error: unknown): AccessTokenVerificationRejectionReason {
+function rejectionReason(error: unknown): AccessTokenVerificationRejectionReason | null {
   if (error instanceof errors.JWTExpired) {
     return 'token_expired';
   }
@@ -183,5 +194,13 @@ function rejectionReason(error: unknown): AccessTokenVerificationRejectionReason
   ) {
     return 'invalid_signature';
   }
-  return 'malformed_token';
+  if (
+    error instanceof errors.JWSInvalid
+    || error instanceof errors.JWTInvalid
+    || error instanceof errors.JOSEAlgNotAllowed
+    || error instanceof errors.JOSENotSupported
+  ) {
+    return 'malformed_token';
+  }
+  return null;
 }

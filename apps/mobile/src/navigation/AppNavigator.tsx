@@ -1,18 +1,66 @@
-import { useState } from 'react';
-import type { CallerContext } from '@taptime/core';
+import { useSyncExternalStore } from 'react';
+import { Button, StyleSheet, Text, View } from 'react-native';
+import type { MobileSessionCapability } from '../auth/contracts';
 import { LoginScreen } from '../screens/LoginScreen';
 import { ScanScreen } from '../screens/ScanScreen';
 
-// Two-screen Login -> Scan flow (Development Sprint 008, DT-014), extending Sprint 006's
-// single-screen foundation exactly as its own comment anticipated ("establishing the pattern
-// and location for future navigation"). A minimal conditional render is sufficient for two
-// screens; no routing library was found genuinely necessary.
-export function AppNavigator() {
-  const [caller, setCaller] = useState<CallerContext | null>(null);
+export function AppNavigator({ session }: { readonly session: MobileSessionCapability }) {
+  const state = useSyncExternalStore(
+    (listener) => session.subscribe(listener),
+    () => session.getState(),
+    () => session.getState(),
+  );
 
-  if (caller === null) {
-    return <LoginScreen onSignedIn={setCaller} />;
+  if (state.status === 'authenticated') {
+    return <ScanScreen session={state.session} signOut={() => session.signOut()} />;
   }
-
-  return <ScanScreen caller={caller} />;
+  if (state.status === 'context_unavailable') {
+    return (
+      <MessageScreen title="Sitzungskontext vorübergehend nicht verfügbar.">
+        <Button title="Erneut versuchen" onPress={() => session.retryContext()} />
+        <Button title="Abmelden" onPress={() => session.signOut()} />
+      </MessageScreen>
+    );
+  }
+  if (state.status === 'runtime_unavailable') {
+    return <MessageScreen title="TapTim.e ist derzeit nicht verfügbar." />;
+  }
+  if (state.status === 'initializing') {
+    return <MessageScreen title="Sitzung wird sicher wiederhergestellt …" />;
+  }
+  return (
+    <LoginScreen
+      signIn={(email, password) => session.signIn(email, password)}
+      disabled={state.status === 'signing_in'}
+    />
+  );
 }
+
+function MessageScreen({
+  title,
+  children,
+}: {
+  readonly title: string;
+  readonly children?: React.ReactNode;
+}) {
+  return (
+    <View style={styles.container}>
+      <Text style={styles.title}>{title}</Text>
+      {children}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    justifyContent: 'center',
+    gap: 12,
+    paddingHorizontal: 24,
+    backgroundColor: '#fff',
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: '600',
+  },
+});

@@ -1,16 +1,19 @@
 {
   "name": "@taptime/mobile",
   "version": "1.0.0",
-  "description": "TapTim.e Mobile Foundation (DT-012). Depends on @taptime/core; contains no business logic of its own (ADR-0007 Platform Boundaries).",
+  "description": "TapTim.e Mobile app with C1 production authentication/runtime composition and an explicit development-only demo path.",
   "main": "index.ts",
   "dependencies": {
+    "@supabase/supabase-js": "^2.110.3",
     "@taptime/core": "*",
     "expo": "~57.0.2",
+    "expo-secure-store": "~57.0.0",
     "expo-status-bar": "~57.0.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-native": "0.86.0",
     "react-native-nfc-manager": "^3.17.2",
+    "react-native-url-polyfill": "^3.0.0",
     "react-native-web": "^0.21.2"
   },
   "devDependencies": {
