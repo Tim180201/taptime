@@ -6,6 +6,8 @@ Feature Name: NFC Scan Creates Work Event
 Epic: EP-007 – Product Architecture Foundation  
 Owner: Technical Lead  
 Approval Authority: Human Architect  
+Last Updated: 2026-07-13
+Engine Decision Amendment: Approved by Human Architect, 2026-07-13
 Related Product Vision: `ADO/01_Architecture/Product_Vision.md`  
 Related Architecture: `ADO/01_Architecture/Technical_Architecture_Profile.md`  
 Related ADRs: ADR-0002, ADR-0003, ADR-0004, ADR-0005, ADR-0006, ADR-0007  
@@ -72,6 +74,8 @@ The employee shall not choose start or stop manually for the normal NFC scan flo
 
 The Business Engine decides whether the WorkEvent starts, stops, rejects or defers time tracking.
 
+An NFC scan is a trigger, not a start or stop command. The Business Engine derives the outcome from the authenticated user, resolved assignment target, event time and current domain state.
+
 ### Offline by Default
 
 Core work event capture must remain available offline.
@@ -85,7 +89,14 @@ Every successful or rejected scan outcome must be traceable.
 - An unknown NFC tag shall not create a WorkEvent.
 - An inactive NFC assignment shall not create a WorkEvent.
 - A disabled or inaccessible assignment target shall not create a normal WorkEvent.
-- Duplicate scans inside the configured protection window shall not create duplicate TimeEntries.
+- Every TimeEntry shall belong to exactly one Organization and one authenticated User.
+- Multiple Users may track time independently against the same AssignmentTarget.
+- A valid WorkEvent for a User without an active TimeEntry shall start a TimeEntry for that User and AssignmentTarget.
+- A valid WorkEvent for a User with an active TimeEntry for the same AssignmentTarget shall stop that TimeEntry.
+- A repeated valid scan by the same User for the same AssignmentTarget within five seconds of the previous accepted scan shall be treated as a duplicate and shall not start or stop a TimeEntry.
+- A valid WorkEvent for a User who already has an active TimeEntry for another AssignmentTarget shall be rejected with an observable outcome in version 1. Automatic target switching is out of scope.
+- TimeEntry duration shall be derived from `startedAt` and `stoppedAt`; it shall not be stored as a second mutable source of truth.
+- Start and stop outcomes shall remain traceable to their originating WorkEvents.
 - A valid NFC scan shall produce a business-level WorkEvent.
 - A WorkEvent shall be interpreted by the Business Engine.
 - The UI shall not decide whether the scan starts or stops work time.
@@ -172,11 +183,16 @@ Trigger: WorkEventCreated
 
 Decision:
 
-- start, stop, defer or reject time tracking.
+- evaluate duplicate protection for the same User and AssignmentTarget,
+- evaluate the User's active TimeEntry state,
+- start when no active TimeEntry exists,
+- stop when an active TimeEntry exists for the same AssignmentTarget,
+- reject when an active TimeEntry exists for another AssignmentTarget,
+- escalate instead of guessing when state is ambiguous or inconsistent.
 
 Result:
 
-- TimeEntryStarted, TimeEntryStopped, TimeEntryPending or rejection outcome.
+- DuplicateScanIgnored, TimeEntryStarted, TimeEntryStopped, rejection outcome or explicit escalation.
 
 ## Edge Cases
 
@@ -189,6 +205,8 @@ Result:
 - Employee lacks organization access.
 - Duplicate scan.
 - Existing active TimeEntry for same assignment target.
+- Existing active TimeEntry for another assignment target.
+- Multiple employees tracking time independently for the same assignment target.
 - Offline without remote synchronization.
 - Local queue write failure.
 - Synchronization conflict after offline capture.
@@ -198,7 +216,10 @@ Result:
 - A known active NFC tag can create a WorkEvent.
 - An unknown NFC tag does not create a WorkEvent.
 - An inactive assignment does not create a WorkEvent.
-- Duplicate scans inside the protection window do not create duplicate TimeEntries.
+- Duplicate scans by the same User for the same AssignmentTarget inside the five-second protection window do not start or stop TimeEntries.
+- The same User can start, stop and later restart time for the same AssignmentTarget through Business Engine decisions.
+- Different Users can hold independent TimeEntries for the same AssignmentTarget.
+- A User cannot hold parallel active TimeEntries for different AssignmentTargets in version 1.
 - The Business Engine owns start/stop/deferred decision logic.
 - Offline operation can preserve the WorkEvent locally.
 - The feature produces observable outcomes for success and rejection cases.
