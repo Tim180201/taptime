@@ -44,6 +44,6 @@ The independent Claude architecture/security review returned **APPROVED** with n
 
 Supavisor modes, production API/adapters, real Supabase resources and Auth provisioning, retention/deletion/backups, device-time/offline/revocation policy, NFC payload security and physical validation, monitoring, load/performance and production personal data remain gated.
 
-## 6. Next Recommended Slice
+## 6. Next Authorized Slice
 
-B5 is technically recommended as the narrow read-only Organization/config repository-adapter slice from the approved Block B sequence. It must re-check active Membership in the actual tenant transaction, select only the restricted runtime role, enforce RLS, expose no unscoped query and prove cross-tenant denial. B5 is not authorized by this closure; Human Architect/Technical Lead authorization remains explicit.
+The Human Architect explicitly authorized B5 after this closure on 2026-07-13. B5 is limited to the narrow read-only Organization/config repository-adapter slice from the approved Block B sequence. It must re-check active Membership in the actual tenant transaction, select only the restricted runtime role, enforce RLS, expose no unscoped query and prove cross-tenant denial. B5 must not add writes, HTTP, cloud resources or B6 lifecycle ingestion.
