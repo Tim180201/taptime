@@ -1,6 +1,6 @@
 # Block B6 — Server-canonical Lifecycle Ingestion Implementation Plan
 
-Status: Implemented — Awaiting Technical Lead Review
+Status: Completed — Technical Lead, GitHub CI and Independent Security Approved
 
 Date: 2026-07-13
 
@@ -33,7 +33,8 @@ Each WorkEvent is processed in a separate `READ COMMITTED` transaction:
    locked snapshot. Inactive current configuration, or an event predating Assignment validity, Tag
    creation or Customer activation, is deferred without inventing a Core result.
 8. Check canonical WorkEvent-v1 idempotency before evaluation. An identical retry returns the
-   existing Decision; different content yields a disclosure-safe typed conflict.
+   existing Decision; deferred historical evidence remains deferred without reinterpretation; and
+   different content yields a disclosure-safe typed conflict.
 9. Lock the active User TimeEntry with `FOR UPDATE`, load the latest accepted same-target WorkEvent,
    construct the server-authoritative Core WorkEvent and call the unchanged `BusinessEngine`.
 10. Atomically write WorkEvent, the exact required TimeEntry mutation, CanonicalDecision,

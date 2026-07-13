@@ -1,6 +1,6 @@
 # Block B6 — Server-canonical Lifecycle Ingestion Evidence
 
-Status: Implemented — Awaiting Technical Lead Review
+Status: Completed — Technical Lead, GitHub CI and Independent Security Approved
 
 Date: 2026-07-13
 
@@ -96,6 +96,8 @@ exactly the B1/B3-approved vector.
   Receipt.
 - Exact active configuration is also deferred with the same truthful evidence-only mapping when
   `occurredAt` predates `Assignment.valid_from`, `Tag.created_at` or `Customer.activated_at`.
+- An identical retry of that historical evidence remains deferred without re-running Core. Fixed
+  event/configuration timestamps do not become historically valid through passage of server time.
 - Revoked/unknown authority is rejected generically. No post-revocation grace, historical
   configuration interpretation or device-clock rule is invented.
 
@@ -104,7 +106,7 @@ current Tag fact, locks the row against deletion and records this as a remaining
 
 ## 5. Adversarial test evidence
 
-The isolated suite has **66 direct PostgreSQL/JWT tests** and covers:
+The isolated suite has **67 direct PostgreSQL/JWT tests** and covers:
 
 - all five genuine Core decisions and exact WorkEvent/TimeEntry/Decision/Receipt/Audit mappings;
 - Start → Stop → Start, one-active-entry enforcement, same-User serialization and different-User
@@ -119,6 +121,7 @@ The isolated suite has **66 direct PostgreSQL/JWT tests** and covers:
 - concurrent IdentityBinding/Membership revocation and Assignment/Customer deactivation/Tag
   deletion against held transaction locks;
 - all three event-time validity starts for active Assignment/Tag/Customer snapshots;
+- retry of temporally invalid evidence without historical reinterpretation or duplicate writes;
 - exact role graph, function grants/search paths, direct/DDL/`RESET ROLE` denial, transaction-local
   role/GUC cleanup, lock release and unnamed-query execution;
 - migrations `001`–`005`, idempotent migration ledger and canonical hash golden vector.
@@ -132,7 +135,7 @@ asymmetric keys, local loopback JWKS infrastructure, synthetic credentials and s
 |---|---|
 | `npm ci` from the lockfile | Passed; 565 packages, unchanged baseline of 11 moderate findings |
 | B6 tests-inclusive typecheck | Passed |
-| B6 direct PostgreSQL tests | 66 passed |
+| B6 direct PostgreSQL tests | 67 passed |
 | B6 build | Passed |
 | migration `001`–`005` clean apply/rerun/ledger | Passed |
 | B3 tests-inclusive typecheck / tests / build | Passed / 125 passed / passed |
@@ -152,17 +155,17 @@ this scope.
 
 One isolated GitHub Actions job uses Node `24.17.0`, PostgreSQL `17.10-alpine`, `npm ci`, required
 Core/schema/B4 builds, clean migration `001`–`005` apply plus rerun/ledger verification, B6
-tests-inclusive typecheck, all B6 tests and B6 build. No secret or cloud access is required. A GitHub
-run has not yet occurred; CI success is not claimed.
+tests-inclusive typecheck, all B6 tests and B6 build. No secret or cloud access is required. GitHub
+Actions run `29269282536` passed all six jobs for implementation commit `9531672`.
 
 Remaining gates:
 
-- Technical Lead review and an actual GitHub Actions run;
 - no HTTP/API, production adapter, cloud/Supabase provisioning, Mobile wiring or batch endpoint;
 - no Supavisor-mode validation or production connection/pooling/load proof;
 - no post-revocation offline grace/review path, historical Assignment interpretation, clock
   tolerance, administrative correction or reconciliation policy;
 - no production personal data until privacy, retention, deletion and backup gates are approved.
 
-Block B6 is implemented and ready for Technical Lead review. This evidence does not approve Block
-C or any production deployment.
+Block B6 is completed after Technical Lead, GitHub CI and independent security approval. This
+evidence does not approve Block C or any production deployment. Closure and independent finding
+dispositions are recorded in the corresponding B6 closure/review artifacts.

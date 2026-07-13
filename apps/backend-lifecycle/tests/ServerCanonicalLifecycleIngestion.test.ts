@@ -1146,6 +1146,39 @@ describe('deferred configuration and mutable-row race safety', () => {
       }]);
     });
 
+  it('keeps temporally invalid evidence deferred on retry without historical reinterpretation',
+    async () => {
+      const input = await command({
+        eventNumber: 192,
+        receiptNumber: 192,
+        assignmentId: ids.temporalAssignmentA,
+        tagId: ids.temporalAssignmentTagA,
+        customerId: ids.temporalAssignmentCustomerA,
+        occurredAt: '2026-07-02T00:00:00.000Z',
+      });
+      let evaluations = 0;
+      const controls = {
+        beforeEngineEvaluation: async () => { evaluations += 1; },
+      };
+
+      await expect(coordinator.ingest(input, controls)).resolves.toEqual({
+        status: 'deferred',
+        reason: 'configuration_unavailable_or_inactive',
+      });
+      await expect(coordinator.ingest(input, controls)).resolves.toEqual({
+        status: 'deferred',
+        reason: 'configuration_unavailable_or_inactive',
+      });
+      expect(evaluations).toBe(0);
+      expect(await lifecycleCounts(installerPool)).toEqual({
+        work_events: 1,
+        time_entries: 0,
+        canonical_decisions: 0,
+        sync_receipts: 0,
+        audit_events: 1,
+      });
+    });
+
   it('holds the Membership lock through commit so concurrent revocation cannot race mutation', async () => {
     const locked = deferred();
     const release = deferred();
