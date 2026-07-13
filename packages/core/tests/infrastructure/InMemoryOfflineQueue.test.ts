@@ -28,46 +28,46 @@ function buildRecord(workEvent: WorkEvent): QueuedWorkEventRecord {
 }
 
 describe('InMemoryOfflineQueue (DT-007)', () => {
-  it('enqueues a new record and reports it as enqueued', () => {
+  it('enqueues a new record and reports it as enqueued', async () => {
     const queue = new InMemoryOfflineQueue();
     const record = buildRecord(buildWorkEvent());
 
-    const result = queue.enqueue(record);
+    const result = await queue.enqueue(record);
 
     expect(result).toEqual({ status: 'enqueued', record });
   });
 
-  it('reports an explicit already_queued result instead of throwing for a duplicate WorkEvent', () => {
+  it('reports an explicit already_queued result instead of throwing for a duplicate WorkEvent', async () => {
     const queue = new InMemoryOfflineQueue();
     const workEvent = buildWorkEvent();
-    queue.enqueue(buildRecord(workEvent));
+    await queue.enqueue(buildRecord(workEvent));
 
-    const result = queue.enqueue(buildRecord(workEvent));
+    const result = await queue.enqueue(buildRecord(workEvent));
 
     expect(result).toEqual({ status: 'already_queued', workEventId: workEvent.id });
   });
 
-  it('does not overwrite the original record on a duplicate enqueue attempt', () => {
+  it('does not overwrite the original record on a duplicate enqueue attempt', async () => {
     const queue = new InMemoryOfflineQueue();
     const workEvent = buildWorkEvent();
-    queue.enqueue(buildRecord(workEvent));
+    await queue.enqueue(buildRecord(workEvent));
 
-    queue.enqueue(buildRecord(workEvent));
+    await queue.enqueue(buildRecord(workEvent));
 
-    expect(queue.findPending()).toHaveLength(1);
+    expect(await queue.findPending()).toHaveLength(1);
   });
 
-  it('retrieves only pending records', () => {
+  it('retrieves only pending records', async () => {
     const queue = new InMemoryOfflineQueue();
     const pendingWorkEvent = buildWorkEvent('work-event-1');
     const synchronizedRecord: QueuedWorkEventRecord = {
       ...buildRecord(buildWorkEvent('work-event-2')),
       syncState: 'synchronized',
     };
-    queue.enqueue(buildRecord(pendingWorkEvent));
-    queue.enqueue(synchronizedRecord);
+    await queue.enqueue(buildRecord(pendingWorkEvent));
+    await queue.enqueue(synchronizedRecord);
 
-    const pending = queue.findPending();
+    const pending = await queue.findPending();
 
     expect(pending).toHaveLength(1);
     const [pendingRecord] = pending;
@@ -77,26 +77,26 @@ describe('InMemoryOfflineQueue (DT-007)', () => {
     expect(pendingRecord.workEvent.id).toBe(pendingWorkEvent.id);
   });
 
-  it('returns an empty list when nothing has been queued', () => {
+  it('returns an empty list when nothing has been queued', async () => {
     const queue = new InMemoryOfflineQueue();
 
-    expect(queue.findPending()).toEqual([]);
+    expect(await queue.findPending()).toEqual([]);
   });
 
-  it('updateSyncState (DT-008) transitions a record out of findPending once synchronized', () => {
+  it('updateSyncState (DT-008) transitions a record out of findPending once synchronized', async () => {
     const queue = new InMemoryOfflineQueue();
     const workEvent = buildWorkEvent();
-    queue.enqueue(buildRecord(workEvent));
+    await queue.enqueue(buildRecord(workEvent));
 
-    queue.updateSyncState(workEvent.id, 'synchronized');
+    await queue.updateSyncState(workEvent.id, 'synchronized');
 
-    expect(queue.findPending()).toEqual([]);
+    expect(await queue.findPending()).toEqual([]);
   });
 
-  it('updateSyncState (DT-008) does nothing for a WorkEvent id that was never enqueued', () => {
+  it('updateSyncState (DT-008) does nothing for a WorkEvent id that was never enqueued', async () => {
     const queue = new InMemoryOfflineQueue();
 
-    expect(() => queue.updateSyncState(WorkEventId('never-enqueued'), 'synchronized')).not.toThrow();
-    expect(queue.findPending()).toEqual([]);
+    await expect(queue.updateSyncState(WorkEventId('never-enqueued'), 'synchronized')).resolves.toBeUndefined();
+    expect(await queue.findPending()).toEqual([]);
   });
 });

@@ -24,46 +24,46 @@ const activeCustomer: Customer = { id: customerId, organizationId, active: true 
 const disabledCustomer: Customer = { id: customerId, organizationId, active: false };
 
 describe('AssignmentValidator (DT-003)', () => {
-  it('accepts a valid assignment for an authenticated, in-organization employee with an active target', () => {
+  it('accepts a valid assignment for an authenticated, in-organization employee with an active target', async () => {
     const validator = new AssignmentValidator(new InMemoryCustomerRepository([activeCustomer]));
     const caller = authenticatedCaller(UserId('user-1'), organizationId);
 
-    const result = validator.validate(assignment, caller);
+    const result = await validator.validate(assignment, caller);
 
     expect(result).toEqual({ status: 'accepted', assignment, target: activeCustomer, caller });
   });
 
-  it('rejects when the employee is not authenticated', () => {
+  it('rejects when the employee is not authenticated', async () => {
     const validator = new AssignmentValidator(new InMemoryCustomerRepository([activeCustomer]));
 
-    const result = validator.validate(assignment, UNAUTHENTICATED_CALLER);
+    const result = await validator.validate(assignment, UNAUTHENTICATED_CALLER);
 
     expect(result).toEqual({ status: 'rejected', assignment, reason: 'employee_not_authenticated' });
   });
 
-  it('rejects when the employee lacks organization access', () => {
+  it('rejects when the employee lacks organization access', async () => {
     const validator = new AssignmentValidator(new InMemoryCustomerRepository([activeCustomer]));
     const caller = authenticatedCaller(UserId('user-1'), otherOrganizationId);
 
-    const result = validator.validate(assignment, caller);
+    const result = await validator.validate(assignment, caller);
 
     expect(result).toEqual({ status: 'rejected', assignment, reason: 'employee_lacks_organization_access' });
   });
 
-  it('rejects when the assignment target is missing', () => {
+  it('rejects when the assignment target is missing', async () => {
     const validator = new AssignmentValidator(new InMemoryCustomerRepository([]));
     const caller = authenticatedCaller(UserId('user-1'), organizationId);
 
-    const result = validator.validate(assignment, caller);
+    const result = await validator.validate(assignment, caller);
 
     expect(result).toEqual({ status: 'rejected', assignment, reason: 'missing_assignment_target' });
   });
 
-  it('rejects when the customer target is disabled', () => {
+  it('rejects when the customer target is disabled', async () => {
     const validator = new AssignmentValidator(new InMemoryCustomerRepository([disabledCustomer]));
     const caller = authenticatedCaller(UserId('user-1'), organizationId);
 
-    const result = validator.validate(assignment, caller);
+    const result = await validator.validate(assignment, caller);
 
     expect(result).toEqual({ status: 'rejected', assignment, reason: 'assignment_target_disabled' });
   });

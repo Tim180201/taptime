@@ -21,35 +21,35 @@ const record: QueuedWorkEventRecord = {
 };
 
 describe('FakeSynchronizationGateway (DT-008)', () => {
-  it('is synchronized by default', () => {
+  it('is synchronized by default', async () => {
     const gateway = new FakeSynchronizationGateway();
 
-    expect(gateway.synchronize(record)).toEqual({ status: 'synchronized' });
+    expect(await gateway.synchronize(record)).toEqual({ status: 'synchronized' });
   });
 
-  it('returns a configured retryable_failure result', () => {
+  it('returns a configured retryable_failure result', async () => {
     const gateway = new FakeSynchronizationGateway();
     gateway.configureRetryableFailure('network timeout');
 
-    expect(gateway.synchronize(record)).toEqual({ status: 'retryable_failure', reason: 'network timeout' });
+    expect(await gateway.synchronize(record)).toEqual({ status: 'retryable_failure', reason: 'network timeout' });
   });
 
-  it('returns a configured conflict result, distinct from retryable_failure', () => {
+  it('returns a configured conflict result, distinct from retryable_failure', async () => {
     const gateway = new FakeSynchronizationGateway();
     gateway.configureConflict('remote record already modified');
 
-    expect(gateway.synchronize(record)).toEqual({
+    expect(await gateway.synchronize(record)).toEqual({
       status: 'conflict',
       reason: 'remote record already modified',
     });
   });
 
-  it('can be reconfigured back to success', () => {
+  it('can be reconfigured back to success', async () => {
     const gateway = new FakeSynchronizationGateway();
     gateway.configureConflict('remote record already modified');
 
     gateway.configureSuccess();
 
-    expect(gateway.synchronize(record)).toEqual({ status: 'synchronized' });
+    expect(await gateway.synchronize(record)).toEqual({ status: 'synchronized' });
   });
 });

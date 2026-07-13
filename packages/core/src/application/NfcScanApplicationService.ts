@@ -18,21 +18,21 @@ export class NfcScanApplicationService {
     private readonly now: () => Timestamp = () => createTimestamp(new Date().toISOString()),
   ) {}
 
-  submitScan(caller: CallerContext): ScanPipelineOutcome {
-    const captureResult = this.nfcScanPort.scan();
+  async submitScan(caller: CallerContext): Promise<ScanPipelineOutcome> {
+    const captureResult = await this.nfcScanPort.scan();
     if (captureResult.status === 'unreadable') {
       return { stage: 'capture', status: 'unreadable' };
     }
 
     const fact = nfcTagScanned(captureResult.payload, this.now());
-    const resolution = this.assignmentResolver.resolve(fact);
+    const resolution = await this.assignmentResolver.resolve(fact);
     if (resolution.type === 'NfcAssignmentRejected') {
       return { stage: 'resolution', status: 'rejected', reason: resolution.reason };
     }
 
-    const validationResult = this.assignmentValidator.validate(resolution.assignment, caller);
+    const validationResult = await this.assignmentValidator.validate(resolution.assignment, caller);
     if (validationResult.status === 'accepted') {
-      this.workEventCreationPort.handleValidatedAssignment(validationResult);
+      await this.workEventCreationPort.handleValidatedAssignment(validationResult);
     }
 
     return { stage: 'validation', result: validationResult };

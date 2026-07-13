@@ -15,7 +15,7 @@ export class FakeNfcScanAdapter implements NfcScanPort {
     this.queuedResult = { status: 'unreadable' };
   }
 
-  scan(): NfcScanCaptureResult {
+  async scan(): Promise<NfcScanCaptureResult> {
     return this.queuedResult;
   }
 }

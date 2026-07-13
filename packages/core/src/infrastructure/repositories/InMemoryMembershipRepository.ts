@@ -9,11 +9,11 @@ export class InMemoryMembershipRepository implements MembershipRepository {
     this.memberships = [...memberships];
   }
 
-  findByUserId(userId: UserId): Membership | null {
+  async findByUserId(userId: UserId): Promise<Membership | null> {
     return this.memberships.find((membership) => membership.userId === userId) ?? null;
   }
 
-  save(membership: Membership): void {
+  async save(membership: Membership): Promise<void> {
     this.memberships.push(membership);
   }
 }

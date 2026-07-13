@@ -9,11 +9,11 @@ export class InMemoryCustomerRepository implements CustomerRepository {
     this.customers = [...customers];
   }
 
-  findById(customerId: CustomerId): Customer | null {
+  async findById(customerId: CustomerId): Promise<Customer | null> {
     return this.customers.find((customer) => customer.id === customerId) ?? null;
   }
 
-  save(customer: Customer): void {
+  async save(customer: Customer): Promise<void> {
     this.customers.push(customer);
   }
 }

@@ -17,7 +17,11 @@ export class MembershipService {
     private readonly newMembershipId: () => MembershipId = () => MembershipId(generateId()),
   ) {}
 
-  grantMembership(organizationId: OrganizationId, userId: UserId, role: MembershipRole): MembershipGranted {
+  async grantMembership(
+    organizationId: OrganizationId,
+    userId: UserId,
+    role: MembershipRole,
+  ): Promise<MembershipGranted> {
     const membership: Membership = {
       id: this.newMembershipId(),
       organizationId,
@@ -25,7 +29,7 @@ export class MembershipService {
       role,
     };
 
-    this.membershipRepository.save(membership);
+    await this.membershipRepository.save(membership);
 
     return membershipGranted(membership);
   }

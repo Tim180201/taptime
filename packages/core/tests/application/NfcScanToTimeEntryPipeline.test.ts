@@ -79,10 +79,10 @@ describe('NFC scan to TimeEntry lifecycle pipeline (F-01 end-to-end)', () => {
     const synchronizationGateway = new FakeSynchronizationGateway();
     const synchronizationService = new SynchronizationService(offlineQueue, synchronizationGateway, onEvent);
 
-    function scanAt(occurredAt: string, scanCaller: CallerContext = caller): void {
+    async function scanAt(occurredAt: string, scanCaller: CallerContext = caller): Promise<void> {
       currentOccurredAt = createTimestamp(occurredAt);
       adapter.triggerScan(payload);
-      applicationService.submitScan(scanCaller);
+      await applicationService.submitScan(scanCaller);
     }
 
     return {
@@ -96,33 +96,33 @@ describe('NFC scan to TimeEntry lifecycle pipeline (F-01 end-to-end)', () => {
     };
   }
 
-  function decisionStatuses(offlineQueue: InMemoryOfflineQueue): Array<string | undefined> {
-    return offlineQueue.findPending().map((record) => record.decision?.status);
+  async function decisionStatuses(offlineQueue: InMemoryOfflineQueue): Promise<Array<string | undefined>> {
+    return (await offlineQueue.findPending()).map((record) => record.decision?.status);
   }
 
-  it('starts on the first scan, queues the decision and remains synchronizable', () => {
+  it('starts on the first scan, queues the decision and remains synchronizable', async () => {
     const pipeline = buildPipeline();
 
-    pipeline.scanAt('2026-07-13T08:00:00.000Z');
+    await pipeline.scanAt('2026-07-13T08:00:00.000Z');
 
-    expect(pipeline.timeEntryRepository.findActiveByUser(organizationId, userId)).toEqual(
+    expect(await pipeline.timeEntryRepository.findActiveByUser(organizationId, userId)).toEqual(
       expect.objectContaining({ status: 'started', startedAt: '2026-07-13T08:00:00.000Z' }),
     );
-    expect(decisionStatuses(pipeline.offlineQueue)).toEqual(['time_entry_started']);
+    expect(await decisionStatuses(pipeline.offlineQueue)).toEqual(['time_entry_started']);
     pipeline.synchronizationGateway.configureSuccess();
-    pipeline.synchronizationService.synchronizePending();
-    expect(pipeline.offlineQueue.findPending()).toEqual([]);
+    await pipeline.synchronizationService.synchronizePending();
+    expect(await pipeline.offlineQueue.findPending()).toEqual([]);
   });
 
-  it('ignores a second scan under five seconds without changing TimeEntry state', () => {
+  it('ignores a second scan under five seconds without changing TimeEntry state', async () => {
     const pipeline = buildPipeline();
-    pipeline.scanAt('2026-07-13T08:00:00.000Z');
-    const stateAfterStart = pipeline.timeEntryRepository.findAll();
+    await pipeline.scanAt('2026-07-13T08:00:00.000Z');
+    const stateAfterStart = await pipeline.timeEntryRepository.findAll();
 
-    pipeline.scanAt('2026-07-13T08:00:04.999Z');
+    await pipeline.scanAt('2026-07-13T08:00:04.999Z');
 
-    expect(pipeline.timeEntryRepository.findAll()).toEqual(stateAfterStart);
-    expect(decisionStatuses(pipeline.offlineQueue)).toEqual(['time_entry_started', 'duplicate_scan_ignored']);
+    expect(await pipeline.timeEntryRepository.findAll()).toEqual(stateAfterStart);
+    expect(await decisionStatuses(pipeline.offlineQueue)).toEqual(['time_entry_started', 'duplicate_scan_ignored']);
     expect(pipeline.onEvent).toHaveBeenCalledWith(
       expect.objectContaining({
         type: 'DuplicateScanIgnored',
@@ -132,13 +132,13 @@ describe('NFC scan to TimeEntry lifecycle pipeline (F-01 end-to-end)', () => {
     );
   });
 
-  it('stops at exactly five seconds without creating a second TimeEntry', () => {
+  it('stops at exactly five seconds without creating a second TimeEntry', async () => {
     const pipeline = buildPipeline();
-    pipeline.scanAt('2026-07-13T08:00:00.000Z');
+    await pipeline.scanAt('2026-07-13T08:00:00.000Z');
 
-    pipeline.scanAt('2026-07-13T08:00:05.000Z');
+    await pipeline.scanAt('2026-07-13T08:00:05.000Z');
 
-    expect(pipeline.timeEntryRepository.findAll()).toEqual([
+    expect(await pipeline.timeEntryRepository.findAll()).toEqual([
       expect.objectContaining({
         id: 'time-entry-1',
         status: 'stopped',
@@ -147,67 +147,67 @@ describe('NFC scan to TimeEntry lifecycle pipeline (F-01 end-to-end)', () => {
         stoppedAt: '2026-07-13T08:00:05.000Z',
       }),
     ]);
-    expect(decisionStatuses(pipeline.offlineQueue)).toEqual(['time_entry_started', 'time_entry_stopped']);
+    expect(await decisionStatuses(pipeline.offlineQueue)).toEqual(['time_entry_started', 'time_entry_stopped']);
   });
 
-  it('stops on a later scan for the same target', () => {
+  it('stops on a later scan for the same target', async () => {
     const pipeline = buildPipeline();
-    pipeline.scanAt('2026-07-13T08:00:00.000Z');
+    await pipeline.scanAt('2026-07-13T08:00:00.000Z');
 
-    pipeline.scanAt('2026-07-13T12:00:00.000Z');
+    await pipeline.scanAt('2026-07-13T12:00:00.000Z');
 
-    expect(pipeline.timeEntryRepository.findAll()[0]?.status).toBe('stopped');
+    expect((await pipeline.timeEntryRepository.findAll())[0]?.status).toBe('stopped');
   });
 
-  it('ignores a scan directly after stop and leaves the stopped state unchanged', () => {
+  it('ignores a scan directly after stop and leaves the stopped state unchanged', async () => {
     const pipeline = buildPipeline();
-    pipeline.scanAt('2026-07-13T08:00:00.000Z');
-    pipeline.scanAt('2026-07-13T08:00:05.000Z');
-    const stateAfterStop = pipeline.timeEntryRepository.findAll();
+    await pipeline.scanAt('2026-07-13T08:00:00.000Z');
+    await pipeline.scanAt('2026-07-13T08:00:05.000Z');
+    const stateAfterStop = await pipeline.timeEntryRepository.findAll();
 
-    pipeline.scanAt('2026-07-13T08:00:09.999Z');
+    await pipeline.scanAt('2026-07-13T08:00:09.999Z');
 
-    expect(pipeline.timeEntryRepository.findAll()).toEqual(stateAfterStop);
-    expect(decisionStatuses(pipeline.offlineQueue)).toEqual([
+    expect(await pipeline.timeEntryRepository.findAll()).toEqual(stateAfterStop);
+    expect(await decisionStatuses(pipeline.offlineQueue)).toEqual([
       'time_entry_started',
       'time_entry_stopped',
       'duplicate_scan_ignored',
     ]);
   });
 
-  it('supports start, stop and restart once five seconds have elapsed after stop', () => {
+  it('supports start, stop and restart once five seconds have elapsed after stop', async () => {
     const pipeline = buildPipeline();
-    pipeline.scanAt('2026-07-13T08:00:00.000Z');
-    pipeline.scanAt('2026-07-13T08:00:05.000Z');
+    await pipeline.scanAt('2026-07-13T08:00:00.000Z');
+    await pipeline.scanAt('2026-07-13T08:00:05.000Z');
 
-    pipeline.scanAt('2026-07-13T08:00:10.000Z');
+    await pipeline.scanAt('2026-07-13T08:00:10.000Z');
 
-    expect(pipeline.timeEntryRepository.findAll()).toHaveLength(2);
-    expect(pipeline.timeEntryRepository.findAll()[0]?.status).toBe('stopped');
-    expect(pipeline.timeEntryRepository.findAll()[1]).toEqual(
+    expect(await pipeline.timeEntryRepository.findAll()).toHaveLength(2);
+    expect((await pipeline.timeEntryRepository.findAll())[0]?.status).toBe('stopped');
+    expect((await pipeline.timeEntryRepository.findAll())[1]).toEqual(
       expect.objectContaining({ id: 'time-entry-2', status: 'started', workEventId: 'work-event-3' }),
     );
-    expect(decisionStatuses(pipeline.offlineQueue)).toEqual([
+    expect(await decisionStatuses(pipeline.offlineQueue)).toEqual([
       'time_entry_started',
       'time_entry_stopped',
       'time_entry_started',
     ]);
   });
 
-  it('keeps different users on the same AssignmentTarget independent', () => {
+  it('keeps different users on the same AssignmentTarget independent', async () => {
     const pipeline = buildPipeline();
     const otherUserId = UserId('user-2');
-    pipeline.scanAt('2026-07-13T08:00:00.000Z');
+    await pipeline.scanAt('2026-07-13T08:00:00.000Z');
 
-    pipeline.scanAt('2026-07-13T08:00:01.000Z', authenticatedCaller(otherUserId, organizationId));
+    await pipeline.scanAt('2026-07-13T08:00:01.000Z', authenticatedCaller(otherUserId, organizationId));
 
-    expect(pipeline.timeEntryRepository.findActiveByUser(organizationId, userId)?.status).toBe('started');
-    expect(pipeline.timeEntryRepository.findActiveByUser(organizationId, otherUserId)?.status).toBe('started');
-    expect(pipeline.timeEntryRepository.findAll()).toHaveLength(2);
-    expect(decisionStatuses(pipeline.offlineQueue)).toEqual(['time_entry_started', 'time_entry_started']);
+    expect((await pipeline.timeEntryRepository.findActiveByUser(organizationId, userId))?.status).toBe('started');
+    expect((await pipeline.timeEntryRepository.findActiveByUser(organizationId, otherUserId))?.status).toBe('started');
+    expect(await pipeline.timeEntryRepository.findAll()).toHaveLength(2);
+    expect(await decisionStatuses(pipeline.offlineQueue)).toEqual(['time_entry_started', 'time_entry_started']);
   });
 
-  it('rejects an active TimeEntry for another target without changing state', () => {
+  it('rejects an active TimeEntry for another target without changing state', async () => {
     const pipeline = buildPipeline();
     const activeTimeEntry: StartedTimeEntry = {
       id: TimeEntryId('time-entry-existing'),
@@ -218,23 +218,23 @@ describe('NFC scan to TimeEntry lifecycle pipeline (F-01 end-to-end)', () => {
       status: 'started',
       startedAt: createTimestamp('2026-07-13T07:00:00.000Z'),
     };
-    pipeline.timeEntryRepository.save(activeTimeEntry);
+    await pipeline.timeEntryRepository.save(activeTimeEntry);
 
-    pipeline.scanAt('2026-07-13T08:00:00.000Z');
+    await pipeline.scanAt('2026-07-13T08:00:00.000Z');
 
-    expect(pipeline.timeEntryRepository.findAll()).toEqual([activeTimeEntry]);
-    expect(decisionStatuses(pipeline.offlineQueue)).toEqual(['active_entry_for_other_target_rejected']);
+    expect(await pipeline.timeEntryRepository.findAll()).toEqual([activeTimeEntry]);
+    expect(await decisionStatuses(pipeline.offlineQueue)).toEqual(['active_entry_for_other_target_rejected']);
   });
 
-  it('escalates a backward WorkEvent and preserves the active TimeEntry', () => {
+  it('escalates a backward WorkEvent and preserves the active TimeEntry', async () => {
     const pipeline = buildPipeline();
-    pipeline.scanAt('2026-07-13T08:00:05.000Z');
-    const stateAfterStart = pipeline.timeEntryRepository.findAll();
+    await pipeline.scanAt('2026-07-13T08:00:05.000Z');
+    const stateAfterStart = await pipeline.timeEntryRepository.findAll();
 
-    pipeline.scanAt('2026-07-13T08:00:04.999Z');
+    await pipeline.scanAt('2026-07-13T08:00:04.999Z');
 
-    expect(pipeline.timeEntryRepository.findAll()).toEqual(stateAfterStart);
-    expect(pipeline.offlineQueue.findPending()[1]?.decision).toEqual(
+    expect(await pipeline.timeEntryRepository.findAll()).toEqual(stateAfterStart);
+    expect((await pipeline.offlineQueue.findPending())[1]?.decision).toEqual(
       expect.objectContaining({
         status: 'escalation_required',
         reason: 'work_event_precedes_active_time_entry',

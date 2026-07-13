@@ -9,11 +9,11 @@ export class InMemoryNfcAssignmentRepository implements NfcAssignmentRepository 
     this.assignments = [...assignments];
   }
 
-  findActiveByTagId(nfcTagId: NfcTagId): NfcAssignment | null {
+  async findActiveByTagId(nfcTagId: NfcTagId): Promise<NfcAssignment | null> {
     return this.assignments.find((assignment) => assignment.nfcTagId === nfcTagId && assignment.active) ?? null;
   }
 
-  save(nfcAssignment: NfcAssignment): void {
+  async save(nfcAssignment: NfcAssignment): Promise<void> {
     this.assignments.push(nfcAssignment);
   }
 }

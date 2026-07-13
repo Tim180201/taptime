@@ -6,5 +6,5 @@ import type { SynchronizationResult } from '../application/SynchronizationResult
 // forwarding it untouched (ADR-0005, ADR-0006). No real network/database client is used
 // this sprint (ADR-0007, deferred).
 export interface SynchronizationGateway {
-  synchronize(record: QueuedWorkEventRecord): SynchronizationResult;
+  synchronize(record: QueuedWorkEventRecord): Promise<SynchronizationResult>;
 }

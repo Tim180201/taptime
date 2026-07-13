@@ -34,8 +34,8 @@ export const DEMO_KNOWN_PAYLOAD = 'demo-tag-payload';
 export type DemoSyncOutcome = 'success' | 'retryable_failure' | 'conflict';
 
 export interface ScanDemoPipeline {
-  scan(rawPayload: string | undefined, caller?: CallerContext): ScanPipelineOutcome;
-  synchronizePending(outcome?: DemoSyncOutcome): void;
+  scan(rawPayload: string | undefined, caller?: CallerContext): Promise<ScanPipelineOutcome>;
+  synchronizePending(outcome?: DemoSyncOutcome): Promise<void>;
 }
 
 // DT-015: substitutes durable adapter instances for the default in-memory ones. Deliberately
@@ -112,13 +112,13 @@ export function buildScanDemoPipeline(
   );
 
   return {
-    scan(rawPayload: string | undefined, caller: CallerContext = defaultCaller): ScanPipelineOutcome {
+    async scan(rawPayload: string | undefined, caller: CallerContext = defaultCaller): Promise<ScanPipelineOutcome> {
       adapter.setInput(rawPayload);
-      const outcome = applicationService.submitScan(caller);
+      const outcome = await applicationService.submitScan(caller);
       output(presenter.presentScanOutcome(outcome));
       return outcome;
     },
-    synchronizePending(outcome: DemoSyncOutcome = 'success'): void {
+    async synchronizePending(outcome: DemoSyncOutcome = 'success'): Promise<void> {
       if (outcome === 'retryable_failure') {
         synchronizationGateway.configureRetryableFailure('demo: simulated network timeout');
       } else if (outcome === 'conflict') {
@@ -126,7 +126,7 @@ export function buildScanDemoPipeline(
       } else {
         synchronizationGateway.configureSuccess();
       }
-      synchronizationService.synchronizePending();
+      await synchronizationService.synchronizePending();
     },
   };
 }

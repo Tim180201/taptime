@@ -55,89 +55,89 @@ describe('FileTimeEntryRepository (DT-015)', () => {
     rmSync(tempDirectory, { recursive: true, force: true });
   });
 
-  it('finds an active TimeEntry for the exact organization and user', () => {
+  it('finds an active TimeEntry for the exact organization and user', async () => {
     const repository = new FileTimeEntryRepository(filePath);
     const timeEntry = buildStartedTimeEntry();
-    repository.save(timeEntry);
+    await repository.save(timeEntry);
 
-    expect(repository.findActiveByUser(organizationId, userId)).toEqual(timeEntry);
-    expect(repository.findActiveByUser(organizationId, otherUserId)).toBeNull();
-    expect(repository.findActiveByUser(OrganizationId('org-2'), userId)).toBeNull();
+    expect(await repository.findActiveByUser(organizationId, userId)).toEqual(timeEntry);
+    expect(await repository.findActiveByUser(organizationId, otherUserId)).toBeNull();
+    expect(await repository.findActiveByUser(OrganizationId('org-2'), userId)).toBeNull();
   });
 
-  it('keeps two users on the same AssignmentTarget independent', () => {
+  it('keeps two users on the same AssignmentTarget independent', async () => {
     const repository = new FileTimeEntryRepository(filePath);
     const firstUserEntry = buildStartedTimeEntry();
     const secondUserEntry = buildStartedTimeEntry(TimeEntryId('time-entry-2'), otherUserId);
-    repository.save(firstUserEntry);
-    repository.save(secondUserEntry);
+    await repository.save(firstUserEntry);
+    await repository.save(secondUserEntry);
 
-    expect(repository.findActiveByUser(organizationId, userId)).toEqual(firstUserEntry);
-    expect(repository.findActiveByUser(organizationId, otherUserId)).toEqual(secondUserEntry);
+    expect(await repository.findActiveByUser(organizationId, userId)).toEqual(firstUserEntry);
+    expect(await repository.findActiveByUser(organizationId, otherUserId)).toEqual(secondUserEntry);
   });
 
-  it('finds the same user as active independently of the AssignmentTarget', () => {
+  it('finds the same user as active independently of the AssignmentTarget', async () => {
     const repository = new FileTimeEntryRepository(filePath);
     const timeEntry = buildStartedTimeEntry(TimeEntryId('time-entry-other-target'), userId, otherTarget);
-    repository.save(timeEntry);
+    await repository.save(timeEntry);
 
-    expect(repository.findActiveByUser(organizationId, userId)).toEqual(timeEntry);
+    expect(await repository.findActiveByUser(organizationId, userId)).toEqual(timeEntry);
   });
 
-  it('does not return a stopped TimeEntry as active', () => {
+  it('does not return a stopped TimeEntry as active', async () => {
     const repository = new FileTimeEntryRepository(filePath);
     const stoppedTimeEntry = stopTimeEntry(buildStartedTimeEntry());
-    repository.save(stoppedTimeEntry);
+    await repository.save(stoppedTimeEntry);
 
-    expect(repository.findActiveByUser(organizationId, userId)).toBeNull();
+    expect(await repository.findActiveByUser(organizationId, userId)).toBeNull();
   });
 
-  it('updates exactly the matching started TimeEntry to stopped without creating a duplicate', () => {
+  it('updates exactly the matching started TimeEntry to stopped without creating a duplicate', async () => {
     const repository = new FileTimeEntryRepository(filePath);
     const startedTimeEntry = buildStartedTimeEntry();
     const stoppedTimeEntry = stopTimeEntry(startedTimeEntry);
     const unrelatedTimeEntry = buildStartedTimeEntry(TimeEntryId('time-entry-2'), otherUserId);
-    repository.save(startedTimeEntry);
-    repository.save(unrelatedTimeEntry);
+    await repository.save(startedTimeEntry);
+    await repository.save(unrelatedTimeEntry);
 
-    repository.update(stoppedTimeEntry);
+    await repository.update(stoppedTimeEntry);
 
-    expect(repository.findAll()).toEqual([stoppedTimeEntry, unrelatedTimeEntry]);
-    expect(repository.findActiveByUser(organizationId, userId)).toBeNull();
+    expect(await repository.findAll()).toEqual([stoppedTimeEntry, unrelatedTimeEntry]);
+    expect(await repository.findActiveByUser(organizationId, userId)).toBeNull();
   });
 
-  it('throws an explicit error when updating an unknown TimeEntryId', () => {
+  it('throws an explicit error when updating an unknown TimeEntryId', async () => {
     const repository = new FileTimeEntryRepository(filePath);
     const existingTimeEntry = buildStartedTimeEntry();
     const unknownTimeEntry = stopTimeEntry(buildStartedTimeEntry(TimeEntryId('time-entry-unknown')));
-    repository.save(existingTimeEntry);
+    await repository.save(existingTimeEntry);
 
-    expect(() => repository.update(unknownTimeEntry)).toThrowError(
+    await expect(repository.update(unknownTimeEntry)).rejects.toThrowError(
       'Cannot update unknown TimeEntry: time-entry-unknown',
     );
-    expect(repository.findAll()).toEqual([existingTimeEntry]);
+    expect(await repository.findAll()).toEqual([existingTimeEntry]);
   });
 
-  it('survives a simulated process restart: a fresh instance finds the active user entry', () => {
+  it('survives a simulated process restart: a fresh instance finds the active user entry', async () => {
     const firstInstance = new FileTimeEntryRepository(filePath);
     const timeEntry = buildStartedTimeEntry();
-    firstInstance.save(timeEntry);
+    await firstInstance.save(timeEntry);
 
     const secondInstance = new FileTimeEntryRepository(filePath);
 
-    expect(secondInstance.findActiveByUser(organizationId, userId)).toEqual(timeEntry);
+    expect(await secondInstance.findActiveByUser(organizationId, userId)).toEqual(timeEntry);
   });
 
-  it('preserves an updated stopped TimeEntry across repository instances', () => {
+  it('preserves an updated stopped TimeEntry across repository instances', async () => {
     const firstInstance = new FileTimeEntryRepository(filePath);
     const startedTimeEntry = buildStartedTimeEntry();
     const stoppedTimeEntry = stopTimeEntry(startedTimeEntry);
-    firstInstance.save(startedTimeEntry);
-    firstInstance.update(stoppedTimeEntry);
+    await firstInstance.save(startedTimeEntry);
+    await firstInstance.update(stoppedTimeEntry);
 
     const secondInstance = new FileTimeEntryRepository(filePath);
 
-    expect(secondInstance.findAll()).toEqual([stoppedTimeEntry]);
-    expect(secondInstance.findActiveByUser(organizationId, userId)).toBeNull();
+    expect(await secondInstance.findAll()).toEqual([stoppedTimeEntry]);
+    expect(await secondInstance.findActiveByUser(organizationId, userId)).toBeNull();
   });
 });

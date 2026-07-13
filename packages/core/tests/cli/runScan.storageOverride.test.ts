@@ -33,35 +33,35 @@ describe('buildScanDemoPipeline storage-selection support (DT-015)', () => {
     rmSync(tempDirectory, { recursive: true, force: true });
   });
 
-  it('preserves the existing in-memory-only default when no storage option is supplied', () => {
+  it('preserves the existing in-memory-only default when no storage option is supplied', async () => {
     const lines: string[] = [];
     const pipeline = buildScanDemoPipeline((line) => lines.push(line));
 
-    const outcome = pipeline.scan(DEMO_KNOWN_PAYLOAD);
+    const outcome = await pipeline.scan(DEMO_KNOWN_PAYLOAD);
 
     expect(outcome.stage).toBe('validation');
     expect(lines.some((line) => line.includes('accepted and started'))).toBe(true);
   });
 
-  it('accepts explicit durable-storage adapters and produces the same accepted outcome as the in-memory default', () => {
+  it('accepts explicit durable-storage adapters and produces the same accepted outcome as the in-memory default', async () => {
     const lines: string[] = [];
     const pipeline = buildScanDemoPipeline((line) => lines.push(line), buildDurableStorage(tempDirectory));
 
-    const outcome = pipeline.scan(DEMO_KNOWN_PAYLOAD);
+    const outcome = await pipeline.scan(DEMO_KNOWN_PAYLOAD);
 
     expect(outcome.stage).toBe('validation');
     expect(lines.some((line) => line.includes('accepted and started'))).toBe(true);
   });
 
-  it('a TimeEntry written by one pipeline instance is still present when a fresh instance reads the same directory (simulated process restart)', () => {
+  it('a TimeEntry written by one pipeline instance is still present when a fresh instance reads the same directory (simulated process restart)', async () => {
     const firstLines: string[] = [];
     const firstPipeline = buildScanDemoPipeline((line) => firstLines.push(line), buildDurableStorage(tempDirectory));
-    firstPipeline.scan(DEMO_KNOWN_PAYLOAD);
+    await firstPipeline.scan(DEMO_KNOWN_PAYLOAD);
     expect(firstLines.some((line) => line.includes('accepted and started'))).toBe(true);
 
     const secondLines: string[] = [];
     const secondPipeline = buildScanDemoPipeline((line) => secondLines.push(line), buildDurableStorage(tempDirectory));
-    secondPipeline.scan(DEMO_KNOWN_PAYLOAD);
+    await secondPipeline.scan(DEMO_KNOWN_PAYLOAD);
 
     // A second immediate scan against the same durable target, from fresh adapter instances,
     // is recognized as a duplicate only if the first instance's WorkEvent survived on disk
@@ -69,18 +69,18 @@ describe('buildScanDemoPipeline storage-selection support (DT-015)', () => {
     expect(secondLines.some((line) => line.includes('accepted but ignored as a duplicate'))).toBe(true);
   });
 
-  it('does not leak state between two different storage directories', () => {
+  it('does not leak state between two different storage directories', async () => {
     const otherTempDirectory = mkdtempSync(join(tmpdir(), 'taptime-run-scan-storage-other-'));
     try {
       const firstPipeline = buildScanDemoPipeline(() => {}, buildDurableStorage(tempDirectory));
-      firstPipeline.scan(DEMO_KNOWN_PAYLOAD);
+      await firstPipeline.scan(DEMO_KNOWN_PAYLOAD);
 
       const otherDirectoryLines: string[] = [];
       const secondPipeline = buildScanDemoPipeline(
         (line) => otherDirectoryLines.push(line),
         buildDurableStorage(otherTempDirectory),
       );
-      secondPipeline.scan(DEMO_KNOWN_PAYLOAD);
+      await secondPipeline.scan(DEMO_KNOWN_PAYLOAD);
 
       // A fresh directory has no prior TimeEntry, so this scan starts (not escalates) - proof
       // that the two directories are genuinely isolated, not sharing hidden in-process state.

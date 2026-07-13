@@ -109,7 +109,7 @@ describe('Organization-owned data flowing through the existing scan pipeline (DT
     };
   }
 
-  it('accepted path: an Employee Membership scanning Organization-owned data created via OrganizationAdministrationService produces a WorkEvent and starts a TimeEntry, matching the existing fixture-based pipeline outcome shape', () => {
+  it('accepted path: an Employee Membership scanning Organization-owned data created via OrganizationAdministrationService produces a WorkEvent and starts a TimeEntry, matching the existing fixture-based pipeline outcome shape', async () => {
     const {
       organizationManagementService,
       membershipService,
@@ -120,19 +120,19 @@ describe('Organization-owned data flowing through the existing scan pipeline (DT
       timeEntryRepository,
     } = buildOrganizationOwnedPipeline();
 
-    const organizationA = organizationManagementService.createOrganization('Org A').organization;
-    const adminMembership = membershipService.grantMembership(organizationA.id, UserId('user-admin-a'), 'administrator')
+    const organizationA = (await organizationManagementService.createOrganization('Org A')).organization;
+    const adminMembership = (await membershipService.grantMembership(organizationA.id, UserId('user-admin-a'), 'administrator'))
       .membership;
-    const employeeMembership = membershipService.grantMembership(organizationA.id, UserId('user-employee-a'), 'employee')
+    const employeeMembership = (await membershipService.grantMembership(organizationA.id, UserId('user-employee-a'), 'employee'))
       .membership;
 
-    const createCustomerResult = organizationAdministrationService.createCustomer(adminMembership, organizationA.id);
+    const createCustomerResult = await organizationAdministrationService.createCustomer(adminMembership, organizationA.id);
     if (createCustomerResult.status !== 'accepted') {
       throw new Error('expected accepted CreateCustomerResult');
     }
     const customer = createCustomerResult.customer;
 
-    const registerNfcTagResult = organizationAdministrationService.registerNfcTag(
+    const registerNfcTagResult = await organizationAdministrationService.registerNfcTag(
       adminMembership,
       organizationA.id,
       createNfcPayload('org-a-known-tag'),
@@ -143,7 +143,7 @@ describe('Organization-owned data flowing through the existing scan pipeline (DT
     const nfcTag = registerNfcTagResult.nfcTag;
 
     const target = customerAssignmentTarget(customer.id);
-    const assignNfcTagResult = organizationAdministrationService.assignNfcTag(
+    const assignNfcTagResult = await organizationAdministrationService.assignNfcTag(
       adminMembership,
       organizationA.id,
       nfcTag,
@@ -156,7 +156,7 @@ describe('Organization-owned data flowing through the existing scan pipeline (DT
 
     adapter.triggerScan('org-a-known-tag');
     const caller = authenticatedCaller(employeeMembership.userId, organizationA.id);
-    const outcome = nfcScanApplicationService.submitScan(caller);
+    const outcome = await nfcScanApplicationService.submitScan(caller);
 
     expect(outcome.stage).toBe('validation');
     if (outcome.stage !== 'validation') {
@@ -164,7 +164,7 @@ describe('Organization-owned data flowing through the existing scan pipeline (DT
     }
     expect(outcome.result.status).toBe('accepted');
 
-    const savedWorkEvents = workEventRepository.findAll();
+    const savedWorkEvents = await workEventRepository.findAll();
     expect(savedWorkEvents).toHaveLength(1);
     const savedWorkEvent = savedWorkEvents[0];
     expect(savedWorkEvent).toBeDefined();
@@ -176,12 +176,12 @@ describe('Organization-owned data flowing through the existing scan pipeline (DT
     expect(savedWorkEvent.nfcTagId).toBe(nfcAssignment.nfcTagId);
     expect(savedWorkEvent.target).toEqual(nfcAssignment.target);
 
-    const startedTimeEntry = timeEntryRepository.findActiveByUser(organizationA.id, employeeMembership.userId);
+    const startedTimeEntry = await timeEntryRepository.findActiveByUser(organizationA.id, employeeMembership.userId);
     expect(startedTimeEntry).not.toBeNull();
     expect(startedTimeEntry?.status).toBe('started');
   });
 
-  it('rejected: an Employee Membership from a different Organization scanning Organization-A-owned data returns employee_lacks_organization_access and creates no WorkEvent', () => {
+  it('rejected: an Employee Membership from a different Organization scanning Organization-A-owned data returns employee_lacks_organization_access and creates no WorkEvent', async () => {
     const {
       organizationManagementService,
       membershipService,
@@ -191,17 +191,17 @@ describe('Organization-owned data flowing through the existing scan pipeline (DT
       workEventRepository,
     } = buildOrganizationOwnedPipeline();
 
-    const organizationA = organizationManagementService.createOrganization('Org A').organization;
-    const adminMembership = membershipService.grantMembership(organizationA.id, UserId('user-admin-a-2'), 'administrator')
+    const organizationA = (await organizationManagementService.createOrganization('Org A')).organization;
+    const adminMembership = (await membershipService.grantMembership(organizationA.id, UserId('user-admin-a-2'), 'administrator'))
       .membership;
 
-    const createCustomerResult = organizationAdministrationService.createCustomer(adminMembership, organizationA.id);
+    const createCustomerResult = await organizationAdministrationService.createCustomer(adminMembership, organizationA.id);
     if (createCustomerResult.status !== 'accepted') {
       throw new Error('expected accepted CreateCustomerResult');
     }
     const customer = createCustomerResult.customer;
 
-    const registerNfcTagResult = organizationAdministrationService.registerNfcTag(
+    const registerNfcTagResult = await organizationAdministrationService.registerNfcTag(
       adminMembership,
       organizationA.id,
       createNfcPayload('org-a-known-tag'),
@@ -212,7 +212,7 @@ describe('Organization-owned data flowing through the existing scan pipeline (DT
     const nfcTag = registerNfcTagResult.nfcTag;
 
     const target = customerAssignmentTarget(customer.id);
-    const assignNfcTagResult = organizationAdministrationService.assignNfcTag(
+    const assignNfcTagResult = await organizationAdministrationService.assignNfcTag(
       adminMembership,
       organizationA.id,
       nfcTag,
@@ -222,13 +222,13 @@ describe('Organization-owned data flowing through the existing scan pipeline (DT
       throw new Error('expected accepted AssignNfcTagResult');
     }
 
-    const organizationB = organizationManagementService.createOrganization('Org B').organization;
-    const employeeBMembership = membershipService.grantMembership(organizationB.id, UserId('user-employee-b'), 'employee')
+    const organizationB = (await organizationManagementService.createOrganization('Org B')).organization;
+    const employeeBMembership = (await membershipService.grantMembership(organizationB.id, UserId('user-employee-b'), 'employee'))
       .membership;
 
     adapter.triggerScan('org-a-known-tag');
     const caller = authenticatedCaller(employeeBMembership.userId, organizationB.id);
-    const outcome = nfcScanApplicationService.submitScan(caller);
+    const outcome = await nfcScanApplicationService.submitScan(caller);
 
     expect(outcome.stage).toBe('validation');
     if (outcome.stage !== 'validation') {
@@ -237,6 +237,6 @@ describe('Organization-owned data flowing through the existing scan pipeline (DT
     expect(outcome.result).toEqual(
       expect.objectContaining({ status: 'rejected', reason: 'employee_lacks_organization_access' }),
     );
-    expect(workEventRepository.findAll()).toHaveLength(0);
+    expect(await workEventRepository.findAll()).toHaveLength(0);
   });
 });

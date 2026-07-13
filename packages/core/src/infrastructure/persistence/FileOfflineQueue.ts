@@ -11,7 +11,7 @@ import { readJsonArray, writeJsonArray } from './JsonFileStore';
 export class FileOfflineQueue implements OfflineQueue {
   constructor(private readonly filePath: string) {}
 
-  enqueue(record: QueuedWorkEventRecord): EnqueueResult {
+  async enqueue(record: QueuedWorkEventRecord): Promise<EnqueueResult> {
     const records = this.readAll();
     if (records.some((existing) => existing.workEvent.id === record.workEvent.id)) {
       return { status: 'already_queued', workEventId: record.workEvent.id };
@@ -22,11 +22,11 @@ export class FileOfflineQueue implements OfflineQueue {
     return { status: 'enqueued', record };
   }
 
-  findPending(): readonly QueuedWorkEventRecord[] {
+  async findPending(): Promise<readonly QueuedWorkEventRecord[]> {
     return this.readAll().filter((record) => record.syncState === 'pending');
   }
 
-  updateSyncState(workEventId: WorkEventId, syncState: SyncState): void {
+  async updateSyncState(workEventId: WorkEventId, syncState: SyncState): Promise<void> {
     const records = this.readAll();
     const index = records.findIndex((record) => record.workEvent.id === workEventId);
     if (index === -1) {

@@ -3,10 +3,10 @@ import { DEFAULT_DEMO_ACCOUNT, FakeAuthenticationGateway } from '../../src/infra
 import { OrganizationId, UserId } from '../../src/domain/ids';
 
 describe('FakeAuthenticationGateway (DT-013)', () => {
-  it('authenticates the default demo account for its known sign-in code', () => {
+  it('authenticates the default demo account for its known sign-in code', async () => {
     const gateway = new FakeAuthenticationGateway();
 
-    const result = gateway.authenticate({ signInCode: DEFAULT_DEMO_ACCOUNT.signInCode });
+    const result = await gateway.authenticate({ signInCode: DEFAULT_DEMO_ACCOUNT.signInCode });
 
     expect(result).toEqual({
       status: 'authenticated',
@@ -15,23 +15,23 @@ describe('FakeAuthenticationGateway (DT-013)', () => {
     });
   });
 
-  it('rejects an unknown sign-in code with an explicit result, not a thrown exception', () => {
+  it('rejects an unknown sign-in code with an explicit result, not a thrown exception', async () => {
     const gateway = new FakeAuthenticationGateway();
 
-    const result = gateway.authenticate({ signInCode: 'not-a-known-code' });
+    const result = await gateway.authenticate({ signInCode: 'not-a-known-code' });
 
     expect(result).toEqual({ status: 'rejected', reason: 'invalid_credentials' });
   });
 
-  it('rejects an empty sign-in code', () => {
+  it('rejects an empty sign-in code', async () => {
     const gateway = new FakeAuthenticationGateway();
 
-    const result = gateway.authenticate({ signInCode: '' });
+    const result = await gateway.authenticate({ signInCode: '' });
 
     expect(result).toEqual({ status: 'rejected', reason: 'invalid_credentials' });
   });
 
-  it('supports a custom, clearly-labeled set of demo accounts instead of the default', () => {
+  it('supports a custom, clearly-labeled set of demo accounts instead of the default', async () => {
     const secondAccount = {
       signInCode: 'second-demo-code',
       userId: UserId('second-demo-employee'),
@@ -39,7 +39,7 @@ describe('FakeAuthenticationGateway (DT-013)', () => {
     };
     const gateway = new FakeAuthenticationGateway([DEFAULT_DEMO_ACCOUNT, secondAccount]);
 
-    const result = gateway.authenticate({ signInCode: 'second-demo-code' });
+    const result = await gateway.authenticate({ signInCode: 'second-demo-code' });
 
     expect(result).toEqual({
       status: 'authenticated',
@@ -48,12 +48,12 @@ describe('FakeAuthenticationGateway (DT-013)', () => {
     });
   });
 
-  it('is deterministic: the same credentials always produce the same result', () => {
+  it('is deterministic: the same credentials always produce the same result', async () => {
     const gateway = new FakeAuthenticationGateway();
     const credentials = { signInCode: DEFAULT_DEMO_ACCOUNT.signInCode };
 
-    const first = gateway.authenticate(credentials);
-    const second = gateway.authenticate(credentials);
+    const first = await gateway.authenticate(credentials);
+    const second = await gateway.authenticate(credentials);
 
     expect(first).toEqual(second);
   });

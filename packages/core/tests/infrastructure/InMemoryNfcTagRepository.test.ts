@@ -5,13 +5,13 @@ import { createNfcPayload } from '../../src/domain/NfcPayload';
 import type { NfcTag } from '../../src/domain/NfcTag';
 
 describe('InMemoryNfcTagRepository (DT-021)', () => {
-  it('returns null when no NfcTag was ever registered for the given payload', () => {
+  it('returns null when no NfcTag was ever registered for the given payload', async () => {
     const repository = new InMemoryNfcTagRepository();
 
-    expect(repository.findByPayload(createNfcPayload('unknown-payload'))).toBeNull();
+    expect(await repository.findByPayload(createNfcPayload('unknown-payload'))).toBeNull();
   });
 
-  it('registers an NfcTag and finds it again by payload (round-trip)', () => {
+  it('registers an NfcTag and finds it again by payload (round-trip)', async () => {
     const repository = new InMemoryNfcTagRepository();
     const tag: NfcTag = {
       id: NfcTagId('tag-1'),
@@ -19,23 +19,23 @@ describe('InMemoryNfcTagRepository (DT-021)', () => {
       payload: createNfcPayload('tag-payload-1'),
     };
 
-    repository.register(tag);
+    await repository.register(tag);
 
-    expect(repository.findByPayload(createNfcPayload('tag-payload-1'))).toEqual(tag);
+    expect(await repository.findByPayload(createNfcPayload('tag-payload-1'))).toEqual(tag);
   });
 
-  it('does not find an NfcTag registered under a different payload', () => {
+  it('does not find an NfcTag registered under a different payload', async () => {
     const repository = new InMemoryNfcTagRepository();
-    repository.register({
+    await repository.register({
       id: NfcTagId('tag-1'),
       organizationId: OrganizationId('org-1'),
       payload: createNfcPayload('tag-payload-1'),
     });
 
-    expect(repository.findByPayload(createNfcPayload('some-other-payload'))).toBeNull();
+    expect(await repository.findByPayload(createNfcPayload('some-other-payload'))).toBeNull();
   });
 
-  it('supports constructor-seeded NfcTags (existing, unchanged behavior)', () => {
+  it('supports constructor-seeded NfcTags (existing, unchanged behavior)', async () => {
     const seeded: NfcTag = {
       id: NfcTagId('tag-seed'),
       organizationId: OrganizationId('org-1'),
@@ -43,16 +43,16 @@ describe('InMemoryNfcTagRepository (DT-021)', () => {
     };
     const repository = new InMemoryNfcTagRepository([seeded]);
 
-    expect(repository.findByPayload(createNfcPayload('seed-payload'))).toEqual(seeded);
+    expect(await repository.findByPayload(createNfcPayload('seed-payload'))).toEqual(seeded);
   });
 
-  it('does not mutate the array passed into its constructor', () => {
+  it('does not mutate the array passed into its constructor', async () => {
     const seed: NfcTag[] = [
       { id: NfcTagId('tag-seed'), organizationId: OrganizationId('org-1'), payload: createNfcPayload('seed-payload') },
     ];
     const repository = new InMemoryNfcTagRepository(seed);
 
-    repository.register({
+    await repository.register({
       id: NfcTagId('tag-2'),
       organizationId: OrganizationId('org-1'),
       payload: createNfcPayload('tag-payload-2'),

@@ -9,8 +9,8 @@ import { authenticatedCaller, UNAUTHENTICATED_CALLER, type CallerContext } from 
 export class SessionService {
   constructor(private readonly authenticationGateway: AuthenticationGateway) {}
 
-  signIn(credentials: Credentials): AuthenticationResult {
-    return this.authenticationGateway.authenticate(credentials);
+  async signIn(credentials: Credentials): Promise<AuthenticationResult> {
+    return await this.authenticationGateway.authenticate(credentials);
   }
 }
 

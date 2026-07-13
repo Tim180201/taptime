@@ -17,18 +17,18 @@ export class SynchronizationService {
     private readonly onEvent: (event: SynchronizationEvent) => void = () => {},
   ) {}
 
-  synchronizePending(): void {
-    for (const record of this.offlineQueue.findPending()) {
-      const result = this.synchronizationGateway.synchronize(record);
+  async synchronizePending(): Promise<void> {
+    for (const record of await this.offlineQueue.findPending()) {
+      const result = await this.synchronizationGateway.synchronize(record);
 
       if (result.status === 'synchronized') {
-        this.offlineQueue.updateSyncState(record.workEvent.id, 'synchronized');
+        await this.offlineQueue.updateSyncState(record.workEvent.id, 'synchronized');
         this.onEvent(workEventSynchronized({ ...record, syncState: 'synchronized' }));
         continue;
       }
 
       if (result.status === 'conflict') {
-        this.offlineQueue.updateSyncState(record.workEvent.id, 'failed');
+        await this.offlineQueue.updateSyncState(record.workEvent.id, 'failed');
         this.onEvent(workEventSyncFailed({ ...record, syncState: 'failed' }, 'conflict', result.reason));
         continue;
       }

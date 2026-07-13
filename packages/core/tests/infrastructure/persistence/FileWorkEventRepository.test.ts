@@ -45,55 +45,55 @@ describe('FileWorkEventRepository (DT-015)', () => {
     rmSync(tempDirectory, { recursive: true, force: true });
   });
 
-  it('persists WorkEvents without interpreting their business meaning', () => {
+  it('persists WorkEvents without interpreting their business meaning', async () => {
     const repository = new FileWorkEventRepository(filePath);
     const workEvent = buildWorkEvent('work-event-1');
 
-    repository.save(workEvent);
+    await repository.save(workEvent);
 
-    expect(repository.findAll()).toEqual([workEvent]);
+    expect(await repository.findAll()).toEqual([workEvent]);
   });
 
-  it('appends across multiple saves rather than overwriting', () => {
+  it('appends across multiple saves rather than overwriting', async () => {
     const repository = new FileWorkEventRepository(filePath);
     const first = buildWorkEvent('work-event-1');
     const second = buildWorkEvent('work-event-2');
 
-    repository.save(first);
-    repository.save(second);
+    await repository.save(first);
+    await repository.save(second);
 
-    expect(repository.findAll()).toEqual([first, second]);
+    expect(await repository.findAll()).toEqual([first, second]);
   });
 
-  it('returns an empty list and no latest match when nothing has been saved', () => {
+  it('returns an empty list and no latest match when nothing has been saved', async () => {
     const repository = new FileWorkEventRepository(filePath);
 
-    expect(repository.findAll()).toEqual([]);
-    expect(repository.findLatestByUserAndTarget(organizationId, userId, target)).toBeNull();
+    expect(await repository.findAll()).toEqual([]);
+    expect(await repository.findLatestByUserAndTarget(organizationId, userId, target)).toBeNull();
   });
 
-  it('returns the chronologically latest WorkEvent for the exact organization, user and target', () => {
+  it('returns the chronologically latest WorkEvent for the exact organization, user and target', async () => {
     const repository = new FileWorkEventRepository(filePath);
     const earlier = buildWorkEvent('work-event-earlier', '2026-07-07T09:00:00.000Z');
     const latest = buildWorkEvent('work-event-latest', '2026-07-07T11:00:00.000Z');
-    repository.save(latest);
-    repository.save(buildWorkEvent('other-org', '2026-07-07T12:00:00.000Z', OrganizationId('org-2')));
-    repository.save(buildWorkEvent('other-user', '2026-07-07T12:00:00.000Z', organizationId, UserId('user-2')));
-    repository.save(buildWorkEvent('other-target', '2026-07-07T12:00:00.000Z', organizationId, userId, otherTarget));
-    repository.save(earlier);
+    await repository.save(latest);
+    await repository.save(buildWorkEvent('other-org', '2026-07-07T12:00:00.000Z', OrganizationId('org-2')));
+    await repository.save(buildWorkEvent('other-user', '2026-07-07T12:00:00.000Z', organizationId, UserId('user-2')));
+    await repository.save(buildWorkEvent('other-target', '2026-07-07T12:00:00.000Z', organizationId, userId, otherTarget));
+    await repository.save(earlier);
 
-    expect(repository.findLatestByUserAndTarget(organizationId, userId, target)).toEqual(latest);
+    expect(await repository.findLatestByUserAndTarget(organizationId, userId, target)).toEqual(latest);
   });
 
-  it('preserves the latest matching WorkEvent query across repository instances', () => {
+  it('preserves the latest matching WorkEvent query across repository instances', async () => {
     const firstInstance = new FileWorkEventRepository(filePath);
     const earlier = buildWorkEvent('work-event-earlier', '2026-07-07T09:00:00.000Z');
     const latest = buildWorkEvent('work-event-latest', '2026-07-07T11:00:00.000Z');
-    firstInstance.save(earlier);
-    firstInstance.save(latest);
+    await firstInstance.save(earlier);
+    await firstInstance.save(latest);
 
     const secondInstance = new FileWorkEventRepository(filePath);
 
-    expect(secondInstance.findLatestByUserAndTarget(organizationId, userId, target)).toEqual(latest);
+    expect(await secondInstance.findLatestByUserAndTarget(organizationId, userId, target)).toEqual(latest);
   });
 });

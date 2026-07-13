@@ -6,7 +6,7 @@ import type { AssignmentValidationResult } from './AssignmentValidationResult';
 export class AssignmentValidator {
   constructor(private readonly customerRepository: CustomerRepository) {}
 
-  validate(assignment: NfcAssignment, caller: CallerContext): AssignmentValidationResult {
+  async validate(assignment: NfcAssignment, caller: CallerContext): Promise<AssignmentValidationResult> {
     if (caller.status !== 'authenticated') {
       return { status: 'rejected', assignment, reason: 'employee_not_authenticated' };
     }
@@ -15,7 +15,7 @@ export class AssignmentValidator {
       return { status: 'rejected', assignment, reason: 'employee_lacks_organization_access' };
     }
 
-    const target = this.customerRepository.findById(assignment.target.targetId);
+    const target = await this.customerRepository.findById(assignment.target.targetId);
     if (target === null) {
       return { status: 'rejected', assignment, reason: 'missing_assignment_target' };
     }

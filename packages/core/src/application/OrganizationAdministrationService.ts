@@ -44,7 +44,10 @@ export class OrganizationAdministrationService {
     private readonly newNfcAssignmentId: () => NfcAssignmentId = () => NfcAssignmentId(generateId()),
   ) {}
 
-  createCustomer(membership: Membership | null, organizationId: OrganizationId): CreateCustomerResult {
+  async createCustomer(
+    membership: Membership | null,
+    organizationId: OrganizationId,
+  ): Promise<CreateCustomerResult> {
     const authorizationResult = this.membershipAuthorizationValidator.authorize(membership, organizationId);
 
     if (authorizationResult.status === 'rejected') {
@@ -57,16 +60,16 @@ export class OrganizationAdministrationService {
       active: true,
     };
 
-    this.customerRepository.save(customer);
+    await this.customerRepository.save(customer);
 
     return { status: 'accepted', customer, event: customerCreated(customer) };
   }
 
-  registerNfcTag(
+  async registerNfcTag(
     membership: Membership | null,
     organizationId: OrganizationId,
     payload: NfcPayload,
-  ): RegisterNfcTagResult {
+  ): Promise<RegisterNfcTagResult> {
     const authorizationResult = this.membershipAuthorizationValidator.authorize(membership, organizationId);
 
     if (authorizationResult.status === 'rejected') {
@@ -79,17 +82,17 @@ export class OrganizationAdministrationService {
       payload,
     };
 
-    this.nfcTagRepository.register(nfcTag);
+    await this.nfcTagRepository.register(nfcTag);
 
     return { status: 'accepted', nfcTag, event: nfcTagRegistered(nfcTag) };
   }
 
-  assignNfcTag(
+  async assignNfcTag(
     membership: Membership | null,
     organizationId: OrganizationId,
     nfcTag: NfcTag,
     target: AssignmentTarget,
-  ): AssignNfcTagResult {
+  ): Promise<AssignNfcTagResult> {
     const authorizationResult = this.membershipAuthorizationValidator.authorize(membership, organizationId);
 
     if (authorizationResult.status === 'rejected') {
@@ -103,7 +106,7 @@ export class OrganizationAdministrationService {
     // A missing target Customer is treated as cross_organization_access, not a distinct
     // "not found" reason - MembershipAuthorizationResult has no such category, and this task
     // must not add one (Development_Sprint_018_Plan.md Section 8).
-    const resolvedCustomer = this.customerRepository.findById(target.targetId);
+    const resolvedCustomer = await this.customerRepository.findById(target.targetId);
     if (resolvedCustomer === null || resolvedCustomer.organizationId !== authorizationResult.membership.organizationId) {
       return { status: 'rejected', reason: 'cross_organization_access' };
     }
@@ -116,7 +119,7 @@ export class OrganizationAdministrationService {
       active: true,
     };
 
-    this.nfcAssignmentRepository.save(nfcAssignment);
+    await this.nfcAssignmentRepository.save(nfcAssignment);
 
     return { status: 'accepted', nfcAssignment, event: nfcTagAssigned(nfcAssignment) };
   }

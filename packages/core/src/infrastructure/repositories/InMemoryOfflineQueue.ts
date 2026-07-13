@@ -6,7 +6,7 @@ import type { SyncState } from '../../domain/SyncState';
 export class InMemoryOfflineQueue implements OfflineQueue {
   private readonly records = new Map<string, QueuedWorkEventRecord>();
 
-  enqueue(record: QueuedWorkEventRecord): EnqueueResult {
+  async enqueue(record: QueuedWorkEventRecord): Promise<EnqueueResult> {
     if (this.records.has(record.workEvent.id)) {
       return { status: 'already_queued', workEventId: record.workEvent.id };
     }
@@ -15,11 +15,11 @@ export class InMemoryOfflineQueue implements OfflineQueue {
     return { status: 'enqueued', record };
   }
 
-  findPending(): readonly QueuedWorkEventRecord[] {
+  async findPending(): Promise<readonly QueuedWorkEventRecord[]> {
     return Array.from(this.records.values()).filter((record) => record.syncState === 'pending');
   }
 
-  updateSyncState(workEventId: WorkEventId, syncState: SyncState): void {
+  async updateSyncState(workEventId: WorkEventId, syncState: SyncState): Promise<void> {
     const existing = this.records.get(workEventId);
     if (existing === undefined) {
       return;

@@ -20,7 +20,7 @@ export class FakeSynchronizationGateway implements SynchronizationGateway {
     this.nextResult = { status: 'conflict', reason };
   }
 
-  synchronize(_record: QueuedWorkEventRecord): SynchronizationResult {
+  async synchronize(_record: QueuedWorkEventRecord): Promise<SynchronizationResult> {
     return this.nextResult;
   }
 }

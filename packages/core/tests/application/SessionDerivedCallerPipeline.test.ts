@@ -78,9 +78,9 @@ describe('Scan pipeline driven by a SessionService-derived CallerContext', () =>
     return { adapter, applicationService, workEventRepository, timeEntryRepository };
   }
 
-  it('reaches the same accepted+started outcome as the hard-coded authenticatedCaller() fixture', () => {
+  it('reaches the same accepted+started outcome as the hard-coded authenticatedCaller() fixture', async () => {
     const sessionService = new SessionService(new FakeAuthenticationGateway());
-    const authenticationResult = sessionService.signIn({ signInCode: DEFAULT_DEMO_ACCOUNT.signInCode });
+    const authenticationResult = await sessionService.signIn({ signInCode: DEFAULT_DEMO_ACCOUNT.signInCode });
     const sessionCaller = toCallerContext(authenticationResult);
 
     const hardCodedCaller = authenticatedCaller(DEFAULT_DEMO_ACCOUNT.userId, DEFAULT_DEMO_ACCOUNT.organizationId);
@@ -89,7 +89,7 @@ describe('Scan pipeline driven by a SessionService-derived CallerContext', () =>
     const { adapter, applicationService, workEventRepository, timeEntryRepository } = buildPipeline();
     adapter.triggerScan(payload);
 
-    const outcome = applicationService.submitScan(sessionCaller);
+    const outcome = await applicationService.submitScan(sessionCaller);
 
     expect(outcome).toEqual({
       stage: 'validation',
@@ -100,13 +100,13 @@ describe('Scan pipeline driven by a SessionService-derived CallerContext', () =>
         caller: hardCodedCaller,
       },
     });
-    expect(workEventRepository.findAll()).toHaveLength(1);
-    expect(timeEntryRepository.findActiveByUser(organizationId, DEFAULT_DEMO_ACCOUNT.userId)?.status).toBe('started');
+    expect(await workEventRepository.findAll()).toHaveLength(1);
+    expect((await timeEntryRepository.findActiveByUser(organizationId, DEFAULT_DEMO_ACCOUNT.userId))?.status).toBe('started');
   });
 
-  it('does not modify AssignmentValidator\'s existing employee_not_authenticated check: a rejected sign-in still produces that exact rejection', () => {
+  it('does not modify AssignmentValidator\'s existing employee_not_authenticated check: a rejected sign-in still produces that exact rejection', async () => {
     const sessionService = new SessionService(new FakeAuthenticationGateway());
-    const authenticationResult = sessionService.signIn({ signInCode: 'not-a-real-code' });
+    const authenticationResult = await sessionService.signIn({ signInCode: 'not-a-real-code' });
     expect(authenticationResult).toEqual({ status: 'rejected', reason: 'invalid_credentials' });
     const sessionCaller = toCallerContext(authenticationResult);
     expect(sessionCaller).toEqual({ status: 'unauthenticated' });
@@ -114,7 +114,7 @@ describe('Scan pipeline driven by a SessionService-derived CallerContext', () =>
     const { adapter, applicationService } = buildPipeline();
     adapter.triggerScan(payload);
 
-    const outcome = applicationService.submitScan(sessionCaller);
+    const outcome = await applicationService.submitScan(sessionCaller);
 
     expect(outcome).toEqual({
       stage: 'validation',

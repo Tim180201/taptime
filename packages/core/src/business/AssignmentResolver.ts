@@ -13,13 +13,13 @@ export class AssignmentResolver {
     private readonly nfcAssignmentRepository: NfcAssignmentRepository,
   ) {}
 
-  resolve(fact: NfcTagScanned): NfcAssignmentResolution {
-    const tag = this.nfcTagRepository.findByPayload(fact.payload);
+  async resolve(fact: NfcTagScanned): Promise<NfcAssignmentResolution> {
+    const tag = await this.nfcTagRepository.findByPayload(fact.payload);
     if (tag === null) {
       return nfcAssignmentRejected(fact.payload, 'unknown_tag');
     }
 
-    const assignment = this.nfcAssignmentRepository.findActiveByTagId(tag.id);
+    const assignment = await this.nfcAssignmentRepository.findActiveByTagId(tag.id);
     if (assignment === null) {
       return nfcAssignmentRejected(fact.payload, 'inactive_assignment');
     }

@@ -15,20 +15,17 @@ export function normalizeTag(tag: TagEvent): NfcScanCaptureResult {
   return { status: 'captured', payload: createNfcPayload(tag.id) };
 }
 
-// DT-016. Real, hardware-backed implementation of the existing NfcScanPort contract
-// (packages/core/src/ports/NfcScanPort.ts, unmodified - its own comment anticipated exactly
-// this adapter). NFC tag detection is inherently asynchronous (a physical tap can happen at
-// any time), but the port's scan() method is synchronous - this adapter bridges the two
-// exactly the way CliNfcScanAdapter already does for CLI input: an async listener
-// (waitForNextTag) buffers the latest normalized result, and scan() synchronously returns
-// whatever is currently buffered.
+// DT-016. Real, hardware-backed implementation of the NfcScanPort contract
+// (packages/core/src/ports/NfcScanPort.ts). NFC tag detection is inherently asynchronous:
+// a physical tap can happen at any time. Both the scan() port method and the existing
+// waitForNextTag() Mobile helper await the same native capture path without inventing Block D
+// runtime composition here.
 //
 // Captures a technical fact (a tag was read, or could not be) - it never decides business
 // meaning (NFC_Capability_Model.md: "creating a raw scan event... passing the scan event to
 // the business layer"; ADR-0007 Domain Platform boundary). Android only this sprint; iOS
 // remains an explicitly open product question (NFC_Capability_Model.md), not decided here.
 export class RnNfcScanAdapter implements NfcScanPort {
-  private latestResult: NfcScanCaptureResult = { status: 'unreadable' };
   private started = false;
 
   async checkCapability(): Promise<NfcCapabilityState> {
@@ -47,7 +44,6 @@ export class RnNfcScanAdapter implements NfcScanPort {
 
     return new Promise((resolve) => {
       const finish = (result: NfcScanCaptureResult): void => {
-        this.latestResult = result;
         NfcManager.setEventListener(NfcEvents.DiscoverTag, null);
         void NfcManager.unregisterTagEvent().catch(() => undefined);
         resolve(result);
@@ -63,8 +59,8 @@ export class RnNfcScanAdapter implements NfcScanPort {
     });
   }
 
-  scan(): NfcScanCaptureResult {
-    return this.latestResult;
+  async scan(): Promise<NfcScanCaptureResult> {
+    return this.waitForNextTag();
   }
 
   private async ensureStarted(): Promise<void> {

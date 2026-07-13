@@ -5,6 +5,6 @@ import type { UserId } from '../domain/ids';
 // membership-per-actor assumption), plus the one write method this specification's new
 // repository needs.
 export interface MembershipRepository {
-  findByUserId(userId: UserId): Membership | null;
-  save(membership: Membership): void;
+  findByUserId(userId: UserId): Promise<Membership | null>;
+  save(membership: Membership): Promise<void>;
 }

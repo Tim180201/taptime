@@ -27,7 +27,7 @@ export class CliNfcScanAdapter implements NfcScanPort {
     this.queuedResult = normalize(rawInput);
   }
 
-  scan(): NfcScanCaptureResult {
+  async scan(): Promise<NfcScanCaptureResult> {
     return this.queuedResult;
   }
 }

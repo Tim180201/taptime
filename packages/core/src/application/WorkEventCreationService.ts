@@ -37,17 +37,17 @@ export class WorkEventCreationService implements WorkEventCreationPort {
     private readonly now: () => Timestamp = () => createTimestamp(new Date().toISOString()),
   ) {}
 
-  handleValidatedAssignment(result: AcceptedAssignmentValidationResult): void {
+  async handleValidatedAssignment(result: AcceptedAssignmentValidationResult): Promise<void> {
     const workEvent = this.workEventFactory.createFromAcceptedAssignment(result);
-    const previousAcceptedWorkEventForUserAndTarget = this.workEventRepository.findLatestByUserAndTarget(
+    const previousAcceptedWorkEventForUserAndTarget = await this.workEventRepository.findLatestByUserAndTarget(
       workEvent.organizationId,
       workEvent.triggeredBy,
       workEvent.target,
     );
-    this.workEventRepository.save(workEvent);
+    await this.workEventRepository.save(workEvent);
     this.onEvent(workEventCreated(workEvent));
 
-    const activeTimeEntryForUser = this.timeEntryRepository.findActiveByUser(
+    const activeTimeEntryForUser = await this.timeEntryRepository.findActiveByUser(
       workEvent.organizationId,
       workEvent.triggeredBy,
     );
@@ -58,11 +58,11 @@ export class WorkEventCreationService implements WorkEventCreationPort {
 
     switch (decision.status) {
       case 'time_entry_started':
-        this.timeEntryRepository.save(decision.timeEntry);
+        await this.timeEntryRepository.save(decision.timeEntry);
         this.onEvent(decision.event);
         break;
       case 'time_entry_stopped':
-        this.timeEntryRepository.update(decision.timeEntry);
+        await this.timeEntryRepository.update(decision.timeEntry);
         this.onEvent(decision.event);
         break;
       case 'duplicate_scan_ignored':
@@ -75,7 +75,7 @@ export class WorkEventCreationService implements WorkEventCreationPort {
         decision satisfies never;
     }
 
-    const queueResult = this.offlineQueue.enqueue({
+    const queueResult = await this.offlineQueue.enqueue({
       workEvent,
       decision,
       syncState: 'pending',

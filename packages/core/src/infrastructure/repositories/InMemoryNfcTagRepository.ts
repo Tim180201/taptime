@@ -9,11 +9,11 @@ export class InMemoryNfcTagRepository implements NfcTagRepository {
     this.tags = [...tags];
   }
 
-  findByPayload(payload: NfcPayload): NfcTag | null {
+  async findByPayload(payload: NfcPayload): Promise<NfcTag | null> {
     return this.tags.find((tag) => tag.payload === payload) ?? null;
   }
 
-  register(nfcTag: NfcTag): void {
+  async register(nfcTag: NfcTag): Promise<void> {
     this.tags.push(nfcTag);
   }
 }

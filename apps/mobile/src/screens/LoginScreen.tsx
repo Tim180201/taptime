@@ -17,8 +17,8 @@ export function LoginScreen({ onSignedIn }: LoginScreenProps) {
 
   const sessionService = useMemo(() => new SessionService(new FakeAuthenticationGateway()), []);
 
-  function handleSignIn(): void {
-    const result = sessionService.signIn({ signInCode });
+  async function handleSignIn(): Promise<void> {
+    const result = await sessionService.signIn({ signInCode });
 
     if (result.status === 'authenticated') {
       setRejectionReason(null);

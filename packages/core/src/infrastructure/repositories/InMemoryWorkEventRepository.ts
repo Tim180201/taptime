@@ -6,11 +6,11 @@ import type { OrganizationId, UserId } from '../../domain/ids';
 export class InMemoryWorkEventRepository implements WorkEventRepository {
   private readonly workEvents: WorkEvent[] = [];
 
-  findLatestByUserAndTarget(
+  async findLatestByUserAndTarget(
     organizationId: OrganizationId,
     userId: UserId,
     target: AssignmentTarget,
-  ): WorkEvent | null {
+  ): Promise<WorkEvent | null> {
     return this.workEvents.reduce<WorkEvent | null>((latest, workEvent) => {
       const matches =
         workEvent.organizationId === organizationId &&
@@ -27,11 +27,11 @@ export class InMemoryWorkEventRepository implements WorkEventRepository {
     }, null);
   }
 
-  save(workEvent: WorkEvent): void {
+  async save(workEvent: WorkEvent): Promise<void> {
     this.workEvents.push(workEvent);
   }
 
-  findAll(): readonly WorkEvent[] {
+  async findAll(): Promise<readonly WorkEvent[]> {
     return this.workEvents;
   }
 }

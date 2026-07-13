@@ -9,11 +9,11 @@ export class InMemoryOrganizationRepository implements OrganizationRepository {
     this.organizations = [...organizations];
   }
 
-  findById(id: OrganizationId): Organization | null {
+  async findById(id: OrganizationId): Promise<Organization | null> {
     return this.organizations.find((organization) => organization.id === id) ?? null;
   }
 
-  save(organization: Organization): void {
+  async save(organization: Organization): Promise<void> {
     this.organizations.push(organization);
   }
 }

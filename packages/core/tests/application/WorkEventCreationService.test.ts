@@ -85,39 +85,39 @@ function buildService(currentWorkEventId: string, occurredAt: string, onEvent = 
 }
 
 describe('WorkEventCreationService (F-01 orchestration)', () => {
-  it('persists and queues a first WorkEvent, saves the started TimeEntry and emits TimeEntryStarted', () => {
+  it('persists and queues a first WorkEvent, saves the started TimeEntry and emits TimeEntryStarted', async () => {
     const { service, workEventRepository, timeEntryRepository, offlineQueue, onEvent } = buildService(
       'work-event-start',
       '2026-07-13T12:00:00.000Z',
     );
 
-    service.handleValidatedAssignment(acceptedResult);
+    await service.handleValidatedAssignment(acceptedResult);
 
-    const [savedWorkEvent] = workEventRepository.findAll();
-    const activeTimeEntry = timeEntryRepository.findActiveByUser(organizationId, userId);
+    const [savedWorkEvent] = await workEventRepository.findAll();
+    const activeTimeEntry = await timeEntryRepository.findActiveByUser(organizationId, userId);
     expect(savedWorkEvent).toBeDefined();
     expect(activeTimeEntry).toEqual(
       expect.objectContaining({ workEventId: savedWorkEvent?.id, startedAt: savedWorkEvent?.occurredAt }),
     );
     expect(onEvent).toHaveBeenCalledWith({ type: 'TimeEntryStarted', timeEntry: activeTimeEntry });
-    expect(offlineQueue.findPending()[0]?.decision).toEqual(
+    expect((await offlineQueue.findPending())[0]?.decision).toEqual(
       expect.objectContaining({ status: 'time_entry_started', timeEntry: activeTimeEntry }),
     );
   });
 
-  it('updates the existing TimeEntry to stopped without creating a second entry and queues the stop decision', () => {
+  it('updates the existing TimeEntry to stopped without creating a second entry and queues the stop decision', async () => {
     const { service, workEventRepository, timeEntryRepository, offlineQueue, onEvent } = buildService(
       'work-event-stop',
       '2026-07-13T12:00:05.000Z',
     );
     const startWorkEvent = buildWorkEvent('work-event-start', '2026-07-13T12:00:00.000Z');
     const startedTimeEntry = buildStartedTimeEntry(startWorkEvent);
-    workEventRepository.save(startWorkEvent);
-    timeEntryRepository.save(startedTimeEntry);
+    await workEventRepository.save(startWorkEvent);
+    await timeEntryRepository.save(startedTimeEntry);
 
-    service.handleValidatedAssignment(acceptedResult);
+    await service.handleValidatedAssignment(acceptedResult);
 
-    expect(timeEntryRepository.findAll()).toEqual([
+    expect(await timeEntryRepository.findAll()).toEqual([
       {
         ...startedTimeEntry,
         status: 'stopped',
@@ -125,70 +125,70 @@ describe('WorkEventCreationService (F-01 orchestration)', () => {
         stoppedByWorkEventId: 'work-event-stop',
       },
     ]);
-    expect(timeEntryRepository.findActiveByUser(organizationId, userId)).toBeNull();
+    expect(await timeEntryRepository.findActiveByUser(organizationId, userId)).toBeNull();
     expect(onEvent).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'TimeEntryStopped', timeEntry: expect.objectContaining({ id: startedTimeEntry.id }) }),
     );
-    expect(offlineQueue.findPending()[0]?.decision?.status).toBe('time_entry_stopped');
+    expect((await offlineQueue.findPending())[0]?.decision?.status).toBe('time_entry_stopped');
   });
 
-  it('does not change TimeEntry state for a duplicate and queues/emits DuplicateScanIgnored', () => {
+  it('does not change TimeEntry state for a duplicate and queues/emits DuplicateScanIgnored', async () => {
     const { service, workEventRepository, timeEntryRepository, offlineQueue, onEvent } = buildService(
       'work-event-duplicate',
       '2026-07-13T12:00:04.999Z',
     );
     const startWorkEvent = buildWorkEvent('work-event-start', '2026-07-13T12:00:00.000Z');
     const startedTimeEntry = buildStartedTimeEntry(startWorkEvent);
-    workEventRepository.save(startWorkEvent);
-    timeEntryRepository.save(startedTimeEntry);
+    await workEventRepository.save(startWorkEvent);
+    await timeEntryRepository.save(startedTimeEntry);
 
-    service.handleValidatedAssignment(acceptedResult);
+    await service.handleValidatedAssignment(acceptedResult);
 
-    expect(timeEntryRepository.findAll()).toEqual([startedTimeEntry]);
+    expect(await timeEntryRepository.findAll()).toEqual([startedTimeEntry]);
     expect(onEvent).toHaveBeenCalledWith({
       type: 'DuplicateScanIgnored',
       workEvent: expect.objectContaining({ id: 'work-event-duplicate' }),
       previousWorkEvent: startWorkEvent,
     });
-    expect(offlineQueue.findPending()[0]?.decision).toEqual(
+    expect((await offlineQueue.findPending())[0]?.decision).toEqual(
       expect.objectContaining({ status: 'duplicate_scan_ignored', previousWorkEvent: startWorkEvent }),
     );
   });
 
-  it('does not change TimeEntry state when another target is active and queues the rejection', () => {
+  it('does not change TimeEntry state when another target is active and queues the rejection', async () => {
     const { service, timeEntryRepository, offlineQueue } = buildService(
       'work-event-current',
       '2026-07-13T12:00:10.000Z',
     );
     const otherTargetStart = buildWorkEvent('work-event-other-target', '2026-07-13T11:00:00.000Z', otherTarget);
     const activeTimeEntry = buildStartedTimeEntry(otherTargetStart);
-    timeEntryRepository.save(activeTimeEntry);
+    await timeEntryRepository.save(activeTimeEntry);
 
-    service.handleValidatedAssignment(acceptedResult);
+    await service.handleValidatedAssignment(acceptedResult);
 
-    expect(timeEntryRepository.findAll()).toEqual([activeTimeEntry]);
-    expect(offlineQueue.findPending()[0]?.decision).toEqual({
+    expect(await timeEntryRepository.findAll()).toEqual([activeTimeEntry]);
+    expect((await offlineQueue.findPending())[0]?.decision).toEqual({
       status: 'active_entry_for_other_target_rejected',
       workEvent: expect.objectContaining({ id: 'work-event-current' }),
       activeTimeEntry,
     });
   });
 
-  it('always stores and queues a backward WorkEvent but does not change TimeEntry state on escalation', () => {
+  it('always stores and queues a backward WorkEvent but does not change TimeEntry state on escalation', async () => {
     const { service, workEventRepository, timeEntryRepository, offlineQueue } = buildService(
       'work-event-backward',
       '2026-07-13T11:59:59.999Z',
     );
     const startWorkEvent = buildWorkEvent('work-event-start', '2026-07-13T12:00:00.000Z');
     const activeTimeEntry = buildStartedTimeEntry(startWorkEvent);
-    workEventRepository.save(startWorkEvent);
-    timeEntryRepository.save(activeTimeEntry);
+    await workEventRepository.save(startWorkEvent);
+    await timeEntryRepository.save(activeTimeEntry);
 
-    service.handleValidatedAssignment(acceptedResult);
+    await service.handleValidatedAssignment(acceptedResult);
 
-    expect(workEventRepository.findAll()).toHaveLength(2);
-    expect(timeEntryRepository.findAll()).toEqual([activeTimeEntry]);
-    expect(offlineQueue.findPending()[0]?.decision).toEqual(
+    expect(await workEventRepository.findAll()).toHaveLength(2);
+    expect(await timeEntryRepository.findAll()).toEqual([activeTimeEntry]);
+    expect((await offlineQueue.findPending())[0]?.decision).toEqual(
       expect.objectContaining({
         status: 'escalation_required',
         reason: 'work_event_precedes_active_time_entry',

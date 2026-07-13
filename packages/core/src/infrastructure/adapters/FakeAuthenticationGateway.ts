@@ -28,7 +28,7 @@ export class FakeAuthenticationGateway implements AuthenticationGateway {
     this.accountsBySignInCode = new Map(accounts.map((account) => [account.signInCode, account]));
   }
 
-  authenticate(credentials: Credentials): AuthenticationResult {
+  async authenticate(credentials: Credentials): Promise<AuthenticationResult> {
     const account = this.accountsBySignInCode.get(credentials.signInCode);
     if (account === undefined) {
       return { status: 'rejected', reason: 'invalid_credentials' };

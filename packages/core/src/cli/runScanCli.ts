@@ -29,5 +29,5 @@ const [, , rawPayload, syncOutcomeArg] = process.argv;
 // separate process invocations); omitted, the CLI's existing in-memory default is unchanged.
 const storageDirectory = process.env.TAPTIME_DEMO_STORAGE_DIR;
 const pipeline = buildScanDemoPipeline(undefined, storageDirectory ? buildDurableStorage(storageDirectory) : undefined);
-pipeline.scan(rawPayload);
-pipeline.synchronizePending(isDemoSyncOutcome(syncOutcomeArg) ? syncOutcomeArg : 'success');
+await pipeline.scan(rawPayload);
+await pipeline.synchronizePending(isDemoSyncOutcome(syncOutcomeArg) ? syncOutcomeArg : 'success');

@@ -9,12 +9,12 @@ import { readJsonArray, writeJsonArray } from './JsonFileStore';
 export class FileWorkEventRepository implements WorkEventRepository {
   constructor(private readonly filePath: string) {}
 
-  findLatestByUserAndTarget(
+  async findLatestByUserAndTarget(
     organizationId: OrganizationId,
     userId: UserId,
     target: AssignmentTarget,
-  ): WorkEvent | null {
-    return this.findAll().reduce<WorkEvent | null>((latest, workEvent) => {
+  ): Promise<WorkEvent | null> {
+    return this.readAll().reduce<WorkEvent | null>((latest, workEvent) => {
       const matches =
         workEvent.organizationId === organizationId &&
         workEvent.triggeredBy === userId &&
@@ -30,13 +30,17 @@ export class FileWorkEventRepository implements WorkEventRepository {
     }, null);
   }
 
-  save(workEvent: WorkEvent): void {
+  async save(workEvent: WorkEvent): Promise<void> {
     const workEvents = readJsonArray<WorkEvent>(this.filePath);
     workEvents.push(workEvent);
     writeJsonArray(this.filePath, workEvents);
   }
 
-  findAll(): readonly WorkEvent[] {
+  async findAll(): Promise<readonly WorkEvent[]> {
+    return this.readAll();
+  }
+
+  private readAll(): WorkEvent[] {
     return readJsonArray<WorkEvent>(this.filePath);
   }
 }

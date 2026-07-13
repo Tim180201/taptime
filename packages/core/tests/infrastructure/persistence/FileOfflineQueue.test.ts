@@ -45,92 +45,92 @@ describe('FileOfflineQueue (DT-015)', () => {
     rmSync(tempDirectory, { recursive: true, force: true });
   });
 
-  it('enqueues a new record and reports it as enqueued', () => {
+  it('enqueues a new record and reports it as enqueued', async () => {
     const queue = new FileOfflineQueue(filePath);
     const record = buildRecord(buildWorkEvent());
 
-    const result = queue.enqueue(record);
+    const result = await queue.enqueue(record);
 
     expect(result).toEqual({ status: 'enqueued', record });
   });
 
-  it('reports an explicit already_queued result instead of throwing for a duplicate WorkEvent', () => {
+  it('reports an explicit already_queued result instead of throwing for a duplicate WorkEvent', async () => {
     const queue = new FileOfflineQueue(filePath);
     const workEvent = buildWorkEvent();
-    queue.enqueue(buildRecord(workEvent));
+    await queue.enqueue(buildRecord(workEvent));
 
-    const result = queue.enqueue(buildRecord(workEvent));
+    const result = await queue.enqueue(buildRecord(workEvent));
 
     expect(result).toEqual({ status: 'already_queued', workEventId: workEvent.id });
   });
 
-  it('does not overwrite the original record on a duplicate enqueue attempt', () => {
+  it('does not overwrite the original record on a duplicate enqueue attempt', async () => {
     const queue = new FileOfflineQueue(filePath);
     const workEvent = buildWorkEvent();
-    queue.enqueue(buildRecord(workEvent));
+    await queue.enqueue(buildRecord(workEvent));
 
-    queue.enqueue(buildRecord(workEvent));
+    await queue.enqueue(buildRecord(workEvent));
 
-    expect(queue.findPending()).toHaveLength(1);
+    expect(await queue.findPending()).toHaveLength(1);
   });
 
-  it('retrieves only pending records', () => {
+  it('retrieves only pending records', async () => {
     const queue = new FileOfflineQueue(filePath);
     const pendingWorkEvent = buildWorkEvent('work-event-1');
     const synchronizedRecord: QueuedWorkEventRecord = {
       ...buildRecord(buildWorkEvent('work-event-2')),
       syncState: 'synchronized',
     };
-    queue.enqueue(buildRecord(pendingWorkEvent));
-    queue.enqueue(synchronizedRecord);
+    await queue.enqueue(buildRecord(pendingWorkEvent));
+    await queue.enqueue(synchronizedRecord);
 
-    const pending = queue.findPending();
+    const pending = await queue.findPending();
 
     expect(pending).toHaveLength(1);
     expect(pending[0]?.workEvent.id).toBe(pendingWorkEvent.id);
   });
 
-  it('returns an empty list when nothing has been queued', () => {
+  it('returns an empty list when nothing has been queued', async () => {
     const queue = new FileOfflineQueue(filePath);
 
-    expect(queue.findPending()).toEqual([]);
+    expect(await queue.findPending()).toEqual([]);
   });
 
-  it('updateSyncState transitions a record out of findPending once synchronized', () => {
+  it('updateSyncState transitions a record out of findPending once synchronized', async () => {
     const queue = new FileOfflineQueue(filePath);
     const workEvent = buildWorkEvent();
-    queue.enqueue(buildRecord(workEvent));
+    await queue.enqueue(buildRecord(workEvent));
 
-    queue.updateSyncState(workEvent.id, 'synchronized');
+    await queue.updateSyncState(workEvent.id, 'synchronized');
 
-    expect(queue.findPending()).toEqual([]);
+    expect(await queue.findPending()).toEqual([]);
   });
 
-  it('updateSyncState does nothing for a WorkEvent id that was never enqueued', () => {
+  it('updateSyncState does nothing for a WorkEvent id that was never enqueued', async () => {
     const queue = new FileOfflineQueue(filePath);
 
-    expect(() => queue.updateSyncState(WorkEventId('never-enqueued'), 'synchronized')).not.toThrow();
-    expect(queue.findPending()).toEqual([]);
+    await expect(queue.updateSyncState(WorkEventId('never-enqueued'), 'synchronized')).resolves.toBeUndefined();
+    expect(await queue.findPending()).toEqual([]);
   });
 
-  it('survives a simulated process restart: a fresh instance reads what a previous instance wrote', () => {
+  it('survives a simulated process restart: a fresh instance reads what a previous instance wrote', async () => {
     const firstInstance = new FileOfflineQueue(filePath);
     const workEvent = buildWorkEvent();
-    firstInstance.enqueue(buildRecord(workEvent));
+    await firstInstance.enqueue(buildRecord(workEvent));
 
     const secondInstance = new FileOfflineQueue(filePath);
 
-    expect(secondInstance.findPending()).toEqual([buildRecord(workEvent)]);
+    expect(await secondInstance.findPending()).toEqual([buildRecord(workEvent)]);
   });
 
-  it('survives a simulated process restart after a state transition made by a previous instance', () => {
+  it('survives a simulated process restart after a state transition made by a previous instance', async () => {
     const firstInstance = new FileOfflineQueue(filePath);
     const workEvent = buildWorkEvent();
-    firstInstance.enqueue(buildRecord(workEvent));
-    firstInstance.updateSyncState(workEvent.id, 'synchronized');
+    await firstInstance.enqueue(buildRecord(workEvent));
+    await firstInstance.updateSyncState(workEvent.id, 'synchronized');
 
     const secondInstance = new FileOfflineQueue(filePath);
 
-    expect(secondInstance.findPending()).toEqual([]);
+    expect(await secondInstance.findPending()).toEqual([]);
   });
 });

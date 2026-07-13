@@ -13,7 +13,7 @@ export type EnqueueResult =
 // SynchronizationService to record a synchronization outcome - it does not interpret
 // business meaning (EP-008 Ch01 5.7/Ch03 5.3).
 export interface OfflineQueue {
-  enqueue(record: QueuedWorkEventRecord): EnqueueResult;
-  findPending(): readonly QueuedWorkEventRecord[];
-  updateSyncState(workEventId: WorkEventId, syncState: SyncState): void;
+  enqueue(record: QueuedWorkEventRecord): Promise<EnqueueResult>;
+  findPending(): Promise<readonly QueuedWorkEventRecord[]>;
+  updateSyncState(workEventId: WorkEventId, syncState: SyncState): Promise<void>;
 }

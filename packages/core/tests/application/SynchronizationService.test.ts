@@ -37,15 +37,15 @@ function buildService(onEvent = vi.fn()) {
 }
 
 describe('SynchronizationService (DT-008)', () => {
-  it('transitions a pending record to synchronized on gateway success and emits WorkEventSynchronized', () => {
+  it('transitions a pending record to synchronized on gateway success and emits WorkEventSynchronized', async () => {
     const { service, offlineQueue, gateway, onEvent } = buildService();
     const workEvent = buildWorkEvent('work-event-1');
-    offlineQueue.enqueue(buildRecord(workEvent));
+    await offlineQueue.enqueue(buildRecord(workEvent));
     gateway.configureSuccess();
 
-    service.synchronizePending();
+    await service.synchronizePending();
 
-    expect(offlineQueue.findPending()).toHaveLength(0);
+    expect(await offlineQueue.findPending()).toHaveLength(0);
     expect(onEvent).toHaveBeenCalledWith(
       expect.objectContaining({
         type: 'WorkEventSynchronized',
@@ -54,16 +54,16 @@ describe('SynchronizationService (DT-008)', () => {
     );
   });
 
-  it('leaves a record pending (never dropped) on a retryable failure and emits WorkEventSyncFailed', () => {
+  it('leaves a record pending (never dropped) on a retryable failure and emits WorkEventSyncFailed', async () => {
     const { service, offlineQueue, gateway, onEvent } = buildService();
     const workEvent = buildWorkEvent('work-event-1');
-    offlineQueue.enqueue(buildRecord(workEvent));
+    await offlineQueue.enqueue(buildRecord(workEvent));
     gateway.configureRetryableFailure('network timeout');
 
-    service.synchronizePending();
+    await service.synchronizePending();
 
-    expect(offlineQueue.findPending()).toHaveLength(1);
-    expect(offlineQueue.findPending()[0]?.syncState).toBe('pending');
+    expect(await offlineQueue.findPending()).toHaveLength(1);
+    expect((await offlineQueue.findPending())[0]?.syncState).toBe('pending');
     expect(onEvent).toHaveBeenCalledWith({
       type: 'WorkEventSyncFailed',
       record: expect.objectContaining({ syncState: 'pending' }),
@@ -72,15 +72,15 @@ describe('SynchronizationService (DT-008)', () => {
     });
   });
 
-  it('produces a distinct, observable conflict outcome, never collapsed into a plain retryable failure', () => {
+  it('produces a distinct, observable conflict outcome, never collapsed into a plain retryable failure', async () => {
     const { service, offlineQueue, gateway, onEvent } = buildService();
     const workEvent = buildWorkEvent('work-event-1');
-    offlineQueue.enqueue(buildRecord(workEvent));
+    await offlineQueue.enqueue(buildRecord(workEvent));
     gateway.configureConflict('remote record already modified');
 
-    service.synchronizePending();
+    await service.synchronizePending();
 
-    expect(offlineQueue.findPending()).toHaveLength(0);
+    expect(await offlineQueue.findPending()).toHaveLength(0);
     expect(onEvent).toHaveBeenCalledWith({
       type: 'WorkEventSyncFailed',
       record: expect.objectContaining({ syncState: 'failed' }),
@@ -89,7 +89,7 @@ describe('SynchronizationService (DT-008)', () => {
     });
   });
 
-  it('does not read or branch on QueuedWorkEventRecord.decision for anything other than forwarding it', () => {
+  it('does not read or branch on QueuedWorkEventRecord.decision for anything other than forwarding it', async () => {
     const { service, offlineQueue, gateway, onEvent } = buildService();
     const workEvent = buildWorkEvent('work-event-1');
     const recordWithDecision: QueuedWorkEventRecord = {
@@ -100,10 +100,10 @@ describe('SynchronizationService (DT-008)', () => {
         workEvent,
       },
     };
-    offlineQueue.enqueue(recordWithDecision);
+    await offlineQueue.enqueue(recordWithDecision);
     gateway.configureSuccess();
 
-    service.synchronizePending();
+    await service.synchronizePending();
 
     expect(onEvent).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -112,14 +112,14 @@ describe('SynchronizationService (DT-008)', () => {
     );
   });
 
-  it('synchronizes every pending record in a single pass', () => {
+  it('synchronizes every pending record in a single pass', async () => {
     const { service, offlineQueue, gateway } = buildService();
-    offlineQueue.enqueue(buildRecord(buildWorkEvent('work-event-1')));
-    offlineQueue.enqueue(buildRecord(buildWorkEvent('work-event-2')));
+    await offlineQueue.enqueue(buildRecord(buildWorkEvent('work-event-1')));
+    await offlineQueue.enqueue(buildRecord(buildWorkEvent('work-event-2')));
     gateway.configureSuccess();
 
-    service.synchronizePending();
+    await service.synchronizePending();
 
-    expect(offlineQueue.findPending()).toHaveLength(0);
+    expect(await offlineQueue.findPending()).toHaveLength(0);
   });
 });

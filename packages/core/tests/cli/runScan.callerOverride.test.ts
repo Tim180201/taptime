@@ -9,11 +9,11 @@ import { authenticatedCaller, UNAUTHENTICATED_CALLER } from '../../src/domain/Ca
 // keep working exactly as before; an externally-produced CallerContext (e.g. from
 // SessionService, DT-013) must be honored when supplied.
 describe('buildScanDemoPipeline external CallerContext support (DT-014)', () => {
-  it('preserves the existing hard-coded demo caller when scan() is called with one argument, as the CLI does', () => {
+  it('preserves the existing hard-coded demo caller when scan() is called with one argument, as the CLI does', async () => {
     const lines: string[] = [];
     const pipeline = buildScanDemoPipeline((line) => lines.push(line));
 
-    const outcome = pipeline.scan(DEMO_KNOWN_PAYLOAD);
+    const outcome = await pipeline.scan(DEMO_KNOWN_PAYLOAD);
 
     expect(outcome).toEqual({
       stage: 'validation',
@@ -24,15 +24,15 @@ describe('buildScanDemoPipeline external CallerContext support (DT-014)', () => 
     });
   });
 
-  it('uses a session-derived CallerContext when explicitly supplied, reaching the same accepted outcome as SessionDerivedCallerPipeline.test.ts proves', () => {
+  it('uses a session-derived CallerContext when explicitly supplied, reaching the same accepted outcome as SessionDerivedCallerPipeline.test.ts proves', async () => {
     const sessionService = new SessionService(new FakeAuthenticationGateway());
-    const authenticationResult = sessionService.signIn({ signInCode: DEFAULT_DEMO_ACCOUNT.signInCode });
+    const authenticationResult = await sessionService.signIn({ signInCode: DEFAULT_DEMO_ACCOUNT.signInCode });
     const sessionCaller = toCallerContext(authenticationResult);
 
     const lines: string[] = [];
     const pipeline = buildScanDemoPipeline((line) => lines.push(line));
 
-    const outcome = pipeline.scan(DEMO_KNOWN_PAYLOAD, sessionCaller);
+    const outcome = await pipeline.scan(DEMO_KNOWN_PAYLOAD, sessionCaller);
 
     expect(outcome.stage).toBe('validation');
     expect(outcome).toEqual({
@@ -42,15 +42,15 @@ describe('buildScanDemoPipeline external CallerContext support (DT-014)', () => 
     expect(lines.some((line) => line.includes('accepted and started'))).toBe(true);
   });
 
-  it('surfaces AssignmentValidator\'s existing employee_not_authenticated rejection, unmodified, for a rejected session', () => {
+  it('surfaces AssignmentValidator\'s existing employee_not_authenticated rejection, unmodified, for a rejected session', async () => {
     const sessionService = new SessionService(new FakeAuthenticationGateway());
-    const authenticationResult = sessionService.signIn({ signInCode: 'not-a-real-code' });
+    const authenticationResult = await sessionService.signIn({ signInCode: 'not-a-real-code' });
     const sessionCaller = toCallerContext(authenticationResult);
     expect(sessionCaller).toEqual(UNAUTHENTICATED_CALLER);
 
     const pipeline = buildScanDemoPipeline(() => {});
 
-    const outcome = pipeline.scan(DEMO_KNOWN_PAYLOAD, sessionCaller);
+    const outcome = await pipeline.scan(DEMO_KNOWN_PAYLOAD, sessionCaller);
 
     expect(outcome).toEqual({
       stage: 'validation',
@@ -58,12 +58,12 @@ describe('buildScanDemoPipeline external CallerContext support (DT-014)', () => 
     });
   });
 
-  it('does not let an externally-produced caller leak into a later default-argument call', () => {
+  it('does not let an externally-produced caller leak into a later default-argument call', async () => {
     const sessionCaller = authenticatedCaller(DEFAULT_DEMO_ACCOUNT.userId, DEFAULT_DEMO_ACCOUNT.organizationId);
     const pipeline = buildScanDemoPipeline(() => {});
 
-    pipeline.scan(DEMO_KNOWN_PAYLOAD, sessionCaller);
-    const secondOutcome = pipeline.scan('some-unrelated-payload');
+    await pipeline.scan(DEMO_KNOWN_PAYLOAD, sessionCaller);
+    const secondOutcome = await pipeline.scan('some-unrelated-payload');
 
     expect(secondOutcome).toEqual({ stage: 'resolution', status: 'rejected', reason: 'unknown_tag' });
   });

@@ -7,6 +7,6 @@ export interface WorkEventRepository {
     organizationId: OrganizationId,
     userId: UserId,
     target: AssignmentTarget,
-  ): WorkEvent | null;
-  save(workEvent: WorkEvent): void;
+  ): Promise<WorkEvent | null>;
+  save(workEvent: WorkEvent): Promise<void>;
 }

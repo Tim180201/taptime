@@ -21,7 +21,7 @@ function scanFact(rawPayload = payload) {
 }
 
 describe('AssignmentResolver (DT-002)', () => {
-  it('resolves a known tag with an active assignment to NfcAssignmentResolved', () => {
+  it('resolves a known tag with an active assignment to NfcAssignmentResolved', async () => {
     const assignment: NfcAssignment = {
       id: NfcAssignmentId('assignment-1'),
       organizationId,
@@ -34,23 +34,23 @@ describe('AssignmentResolver (DT-002)', () => {
       new InMemoryNfcAssignmentRepository([assignment]),
     );
 
-    const result = resolver.resolve(scanFact());
+    const result = await resolver.resolve(scanFact());
 
     expect(result).toEqual({ type: 'NfcAssignmentResolved', assignment });
   });
 
-  it('rejects an unknown NFC tag explicitly', () => {
+  it('rejects an unknown NFC tag explicitly', async () => {
     const resolver = new AssignmentResolver(
       new InMemoryNfcTagRepository([]),
       new InMemoryNfcAssignmentRepository([]),
     );
 
-    const result = resolver.resolve(scanFact());
+    const result = await resolver.resolve(scanFact());
 
     expect(result).toEqual({ type: 'NfcAssignmentRejected', payload, reason: 'unknown_tag' });
   });
 
-  it('rejects a known tag with an inactive assignment explicitly', () => {
+  it('rejects a known tag with an inactive assignment explicitly', async () => {
     const inactiveAssignment: NfcAssignment = {
       id: NfcAssignmentId('assignment-1'),
       organizationId,
@@ -63,29 +63,29 @@ describe('AssignmentResolver (DT-002)', () => {
       new InMemoryNfcAssignmentRepository([inactiveAssignment]),
     );
 
-    const result = resolver.resolve(scanFact());
+    const result = await resolver.resolve(scanFact());
 
     expect(result).toEqual({ type: 'NfcAssignmentRejected', payload, reason: 'inactive_assignment' });
   });
 
-  it('rejects a known tag with no assignment at all as inactive_assignment', () => {
+  it('rejects a known tag with no assignment at all as inactive_assignment', async () => {
     const resolver = new AssignmentResolver(
       new InMemoryNfcTagRepository([tag]),
       new InMemoryNfcAssignmentRepository([]),
     );
 
-    const result = resolver.resolve(scanFact());
+    const result = await resolver.resolve(scanFact());
 
     expect(result).toEqual({ type: 'NfcAssignmentRejected', payload, reason: 'inactive_assignment' });
   });
 
-  it('does not create WorkEvents (resolver returns a decision result only)', () => {
+  it('does not create WorkEvents (resolver returns a decision result only)', async () => {
     const resolver = new AssignmentResolver(
       new InMemoryNfcTagRepository([tag]),
       new InMemoryNfcAssignmentRepository([]),
     );
 
-    const result = resolver.resolve(scanFact());
+    const result = await resolver.resolve(scanFact());
 
     expect(result).not.toHaveProperty('workEvent');
   });

@@ -12,5 +12,5 @@ export interface Credentials {
 // decision, not yet made). Must not make or alter any business decision - it only ever
 // authenticates or rejects a credential (ADR-0006 domain-first boundary).
 export interface AuthenticationGateway {
-  authenticate(credentials: Credentials): AuthenticationResult;
+  authenticate(credentials: Credentials): Promise<AuthenticationResult>;
 }

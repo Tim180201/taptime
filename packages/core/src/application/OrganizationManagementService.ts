@@ -16,13 +16,13 @@ export class OrganizationManagementService {
     private readonly newOrganizationId: () => OrganizationId = () => OrganizationId(generateId()),
   ) {}
 
-  createOrganization(name: string): OrganizationCreated {
+  async createOrganization(name: string): Promise<OrganizationCreated> {
     const organization: Organization = {
       id: this.newOrganizationId(),
       name,
     };
 
-    this.organizationRepository.save(organization);
+    await this.organizationRepository.save(organization);
 
     return organizationCreated(organization);
   }

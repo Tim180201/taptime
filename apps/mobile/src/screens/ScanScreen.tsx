@@ -10,7 +10,7 @@ interface ScanScreenProps {
 // DT-016: the primary scan trigger is now real NFC tag detection (RnNfcScanAdapter, Android
 // only - NFC_Capability_Model.md's iOS question remains open, not decided here). The manual
 // text input from DT-012 is retained as an optional fallback/debug affordance. Both paths
-// call the same, existing, unmodified pipeline.scan(payload, caller) - no business logic
+// await the same pipeline.scan(payload, caller) - no business logic
 // here (ADR-0007 Platform Boundaries).
 export function ScanScreen({ caller }: ScanScreenProps) {
   const [payload, setPayload] = useState(DEMO_KNOWN_PAYLOAD);
@@ -45,18 +45,18 @@ export function ScanScreen({ caller }: ScanScreenProps) {
       }
 
       setNfcStatus(`Tag read: ${result.payload}`);
-      pipeline.scan(result.payload, caller);
+      await pipeline.scan(result.payload, caller);
     } finally {
       setIsWaitingForTag(false);
     }
   }
 
-  function handleManualScan(): void {
-    pipeline.scan(payload, caller);
+  async function handleManualScan(): Promise<void> {
+    await pipeline.scan(payload, caller);
   }
 
-  function handleSynchronize(): void {
-    pipeline.synchronizePending('success');
+  async function handleSynchronize(): Promise<void> {
+    await pipeline.synchronizePending('success');
   }
 
   return (

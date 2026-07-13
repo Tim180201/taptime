@@ -42,7 +42,7 @@ function buildService(options: {
   );
   const validator = new AssignmentValidator(new InMemoryCustomerRepository(options.customers ?? []));
   const workEventCreationPort: WorkEventCreationPort = options.workEventCreationPort ?? {
-    handleValidatedAssignment: vi.fn(),
+    handleValidatedAssignment: vi.fn().mockResolvedValue(undefined),
   };
   const service = new NfcScanApplicationService(
     adapter,
@@ -55,27 +55,27 @@ function buildService(options: {
 }
 
 describe('NfcScanApplicationService (orchestration)', () => {
-  it('returns an unreadable capture outcome and does not call the Business Engine boundary', () => {
+  it('returns an unreadable capture outcome and does not call the Business Engine boundary', async () => {
     const { adapter, service, workEventCreationPort } = buildService({});
     adapter.triggerUnreadableScan();
 
-    const outcome = service.submitScan(authenticatedCaller(UserId('user-1'), organizationId));
+    const outcome = await service.submitScan(authenticatedCaller(UserId('user-1'), organizationId));
 
     expect(outcome).toEqual({ stage: 'capture', status: 'unreadable' });
     expect(workEventCreationPort.handleValidatedAssignment).not.toHaveBeenCalled();
   });
 
-  it('forwards an unknown-tag resolution rejection without calling the validator outcome or the port', () => {
+  it('forwards an unknown-tag resolution rejection without calling the validator outcome or the port', async () => {
     const { adapter, service, workEventCreationPort } = buildService({});
     adapter.triggerScan('known-tag-payload');
 
-    const outcome = service.submitScan(authenticatedCaller(UserId('user-1'), organizationId));
+    const outcome = await service.submitScan(authenticatedCaller(UserId('user-1'), organizationId));
 
     expect(outcome).toEqual({ stage: 'resolution', status: 'rejected', reason: 'unknown_tag' });
     expect(workEventCreationPort.handleValidatedAssignment).not.toHaveBeenCalled();
   });
 
-  it('forwards a validation rejection without calling the Business Engine boundary', () => {
+  it('forwards a validation rejection without calling the Business Engine boundary', async () => {
     const { adapter, service, workEventCreationPort } = buildService({
       tags: [tag],
       assignments: [assignment],
@@ -83,7 +83,7 @@ describe('NfcScanApplicationService (orchestration)', () => {
     });
     adapter.triggerScan('known-tag-payload');
 
-    const outcome = service.submitScan(authenticatedCaller(UserId('user-1'), organizationId));
+    const outcome = await service.submitScan(authenticatedCaller(UserId('user-1'), organizationId));
 
     expect(outcome).toEqual({
       stage: 'validation',
@@ -92,7 +92,7 @@ describe('NfcScanApplicationService (orchestration)', () => {
     expect(workEventCreationPort.handleValidatedAssignment).not.toHaveBeenCalled();
   });
 
-  it('calls resolver then validator in order, forwards the accepted result unchanged and hands it to the Business Engine boundary', () => {
+  it('calls resolver then validator in order, forwards the accepted result unchanged and hands it to the Business Engine boundary', async () => {
     const { adapter, service, workEventCreationPort } = buildService({
       tags: [tag],
       assignments: [assignment],
@@ -101,7 +101,7 @@ describe('NfcScanApplicationService (orchestration)', () => {
     adapter.triggerScan('known-tag-payload');
     const caller = authenticatedCaller(UserId('user-1'), organizationId);
 
-    const outcome = service.submitScan(caller);
+    const outcome = await service.submitScan(caller);
 
     const expectedResult = { status: 'accepted', assignment, target: activeCustomer, caller };
     expect(outcome).toEqual({ stage: 'validation', result: expectedResult });
@@ -109,7 +109,7 @@ describe('NfcScanApplicationService (orchestration)', () => {
     expect(workEventCreationPort.handleValidatedAssignment).toHaveBeenCalledWith(expectedResult);
   });
 
-  it('does not itself decide accept/reject: an unauthenticated caller is rejected by the validator, not the service', () => {
+  it('does not itself decide accept/reject: an unauthenticated caller is rejected by the validator, not the service', async () => {
     const { adapter, service, workEventCreationPort } = buildService({
       tags: [tag],
       assignments: [assignment],
@@ -117,7 +117,7 @@ describe('NfcScanApplicationService (orchestration)', () => {
     });
     adapter.triggerScan('known-tag-payload');
 
-    const outcome = service.submitScan(UNAUTHENTICATED_CALLER);
+    const outcome = await service.submitScan(UNAUTHENTICATED_CALLER);
 
     expect(outcome).toEqual({
       stage: 'validation',

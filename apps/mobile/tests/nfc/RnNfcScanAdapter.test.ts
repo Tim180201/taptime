@@ -18,7 +18,7 @@ vi.mock('react-native-nfc-manager', () => ({
 
 const { RnNfcScanAdapter } = await import('../../src/nfc/RnNfcScanAdapter');
 
-// DT-016: covers capability-check branching and the async-event-to-sync-scan() bridge using
+// DT-016: covers capability-check branching and the async-event-to-async-scan() bridge using
 // a test double for react-native-nfc-manager - no real hardware required, mirroring
 // FakeNfcScanAdapter.test.ts/CliNfcScanAdapter.test.ts's rigor for the two existing
 // NfcScanPort implementations.
@@ -32,10 +32,25 @@ describe('RnNfcScanAdapter (DT-016)', () => {
     nfcManagerMock.unregisterTagEvent.mockResolvedValue(undefined);
   });
 
-  it('scan() returns unreadable before any tag has ever been discovered', () => {
+  it('scan() waits for native tag detection and returns the normalized capture result', async () => {
     const adapter = new RnNfcScanAdapter();
 
-    expect(adapter.scan()).toEqual({ status: 'unreadable' });
+    const resultPromise = adapter.scan();
+    let settled = false;
+    const observedResultPromise = resultPromise.then((result) => {
+      settled = true;
+      return result;
+    });
+    await vi.waitFor(() => expect(nfcManagerMock.setEventListener).toHaveBeenCalled());
+    const [, listener] = nfcManagerMock.setEventListener.mock.calls[0] as [string, (tag: { id: string }) => void];
+
+    expect(resultPromise).toBeInstanceOf(Promise);
+    expect(settled).toBe(false);
+    listener({ id: 'scan-tag-123' });
+
+    await expect(observedResultPromise).resolves.toEqual({ status: 'captured', payload: 'scan-tag-123' });
+    expect(nfcManagerMock.registerTagEvent).toHaveBeenCalledTimes(1);
+    expect(nfcManagerMock.unregisterTagEvent).toHaveBeenCalledTimes(1);
   });
 
   it('reports not_supported when the device has no NFC hardware, without starting the manager', async () => {
@@ -61,7 +76,7 @@ describe('RnNfcScanAdapter (DT-016)', () => {
     expect(await adapter.checkCapability()).toBe('ready');
   });
 
-  it('resolves waitForNextTag with a captured, normalized payload once the native library reports a discovered tag, and buffers it for scan()', async () => {
+  it('resolves waitForNextTag with a captured, normalized payload once the native library reports a discovered tag', async () => {
     const adapter = new RnNfcScanAdapter();
 
     const resultPromise = adapter.waitForNextTag();
@@ -72,25 +87,28 @@ describe('RnNfcScanAdapter (DT-016)', () => {
     const result = await resultPromise;
 
     expect(result).toEqual({ status: 'captured', payload: 'tag-abc-123' });
-    expect(adapter.scan()).toEqual({ status: 'captured', payload: 'tag-abc-123' });
     expect(nfcManagerMock.unregisterTagEvent).toHaveBeenCalledTimes(1);
   });
 
-  it('resolves waitForNextTag as unreadable when registerTagEvent itself fails', async () => {
+  it('resolves scan() as unreadable when registerTagEvent itself fails', async () => {
     nfcManagerMock.registerTagEvent.mockRejectedValue(new Error('platform error'));
     const adapter = new RnNfcScanAdapter();
 
-    const result = await adapter.waitForNextTag();
+    const result = await adapter.scan();
 
     expect(result).toEqual({ status: 'unreadable' });
-    expect(adapter.scan()).toEqual({ status: 'unreadable' });
+    expect(nfcManagerMock.unregisterTagEvent).toHaveBeenCalledTimes(1);
   });
 
-  it('starts the native manager only once across multiple calls', async () => {
+  it('starts the native manager only once across capability and capture calls', async () => {
     const adapter = new RnNfcScanAdapter();
 
     await adapter.checkCapability();
-    await adapter.checkCapability();
+    const resultPromise = adapter.scan();
+    await vi.waitFor(() => expect(nfcManagerMock.setEventListener).toHaveBeenCalled());
+    const [, listener] = nfcManagerMock.setEventListener.mock.calls[0] as [string, (tag: { id: string }) => void];
+    listener({ id: 'tag-once' });
+    await resultPromise;
 
     expect(nfcManagerMock.start).toHaveBeenCalledTimes(1);
   });

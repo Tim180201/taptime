@@ -5,7 +5,7 @@ import type { OrganizationId, UserId } from '../../domain/ids';
 export class InMemoryTimeEntryRepository implements TimeEntryRepository {
   private readonly timeEntries: TimeEntry[] = [];
 
-  findActiveByUser(organizationId: OrganizationId, userId: UserId): StartedTimeEntry | null {
+  async findActiveByUser(organizationId: OrganizationId, userId: UserId): Promise<StartedTimeEntry | null> {
     return (
       this.timeEntries.find(
         (entry): entry is StartedTimeEntry =>
@@ -14,11 +14,11 @@ export class InMemoryTimeEntryRepository implements TimeEntryRepository {
     );
   }
 
-  save(timeEntry: TimeEntry): void {
+  async save(timeEntry: TimeEntry): Promise<void> {
     this.timeEntries.push(timeEntry);
   }
 
-  update(timeEntry: TimeEntry): void {
+  async update(timeEntry: TimeEntry): Promise<void> {
     const index = this.timeEntries.findIndex((existing) => existing.id === timeEntry.id);
     if (index === -1) {
       throw new Error(`Cannot update unknown TimeEntry: ${timeEntry.id}`);
@@ -27,7 +27,7 @@ export class InMemoryTimeEntryRepository implements TimeEntryRepository {
     this.timeEntries[index] = timeEntry;
   }
 
-  findAll(): readonly TimeEntry[] {
+  async findAll(): Promise<readonly TimeEntry[]> {
     return this.timeEntries;
   }
 }

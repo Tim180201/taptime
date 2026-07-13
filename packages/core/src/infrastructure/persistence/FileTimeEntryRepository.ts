@@ -8,22 +8,22 @@ import { readJsonArray, writeJsonArray } from './JsonFileStore';
 export class FileTimeEntryRepository implements TimeEntryRepository {
   constructor(private readonly filePath: string) {}
 
-  findActiveByUser(organizationId: OrganizationId, userId: UserId): StartedTimeEntry | null {
+  async findActiveByUser(organizationId: OrganizationId, userId: UserId): Promise<StartedTimeEntry | null> {
     return (
-      this.findAll().find(
+      this.readAll().find(
         (entry): entry is StartedTimeEntry =>
           entry.organizationId === organizationId && entry.userId === userId && entry.status === 'started',
       ) ?? null
     );
   }
 
-  save(timeEntry: TimeEntry): void {
+  async save(timeEntry: TimeEntry): Promise<void> {
     const timeEntries = readJsonArray<TimeEntry>(this.filePath);
     timeEntries.push(timeEntry);
     writeJsonArray(this.filePath, timeEntries);
   }
 
-  update(timeEntry: TimeEntry): void {
+  async update(timeEntry: TimeEntry): Promise<void> {
     const timeEntries = readJsonArray<TimeEntry>(this.filePath);
     const index = timeEntries.findIndex((existing) => existing.id === timeEntry.id);
     if (index === -1) {
@@ -34,7 +34,11 @@ export class FileTimeEntryRepository implements TimeEntryRepository {
     writeJsonArray(this.filePath, timeEntries);
   }
 
-  findAll(): readonly TimeEntry[] {
+  async findAll(): Promise<readonly TimeEntry[]> {
+    return this.readAll();
+  }
+
+  private readAll(): TimeEntry[] {
     return readJsonArray<TimeEntry>(this.filePath);
   }
 }

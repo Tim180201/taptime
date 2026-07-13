@@ -5,11 +5,11 @@ import type { AuthenticationGateway } from '../../src/ports/AuthenticationGatewa
 import type { AuthenticationResult } from '../../src/application/AuthenticationResult';
 
 describe('SessionService (DT-013)', () => {
-  it('forwards a successful authentication result from the gateway faithfully', () => {
+  it('forwards a successful authentication result from the gateway faithfully', async () => {
     const gateway = new FakeAuthenticationGateway();
     const service = new SessionService(gateway);
 
-    const result = service.signIn({ signInCode: DEFAULT_DEMO_ACCOUNT.signInCode });
+    const result = await service.signIn({ signInCode: DEFAULT_DEMO_ACCOUNT.signInCode });
 
     expect(result).toEqual({
       status: 'authenticated',
@@ -18,27 +18,27 @@ describe('SessionService (DT-013)', () => {
     });
   });
 
-  it('forwards a rejection result from the gateway faithfully', () => {
+  it('forwards a rejection result from the gateway faithfully', async () => {
     const gateway = new FakeAuthenticationGateway();
     const service = new SessionService(gateway);
 
-    const result = service.signIn({ signInCode: 'unknown' });
+    const result = await service.signIn({ signInCode: 'unknown' });
 
     expect(result).toEqual({ status: 'rejected', reason: 'invalid_credentials' });
   });
 
-  it('does not decide anything beyond what the gateway returned (pure pass-through)', () => {
+  it('does not decide anything beyond what the gateway returned (pure pass-through)', async () => {
     const scriptedResult: AuthenticationResult = {
       status: 'authenticated',
       userId: DEFAULT_DEMO_ACCOUNT.userId,
       organizationId: DEFAULT_DEMO_ACCOUNT.organizationId,
     };
-    const authenticate = vi.fn().mockReturnValue(scriptedResult);
+    const authenticate = vi.fn().mockResolvedValue(scriptedResult);
     const gateway: AuthenticationGateway = { authenticate };
     const service = new SessionService(gateway);
     const credentials = { signInCode: 'anything' };
 
-    const result = service.signIn(credentials);
+    const result = await service.signIn(credentials);
 
     expect(authenticate).toHaveBeenCalledTimes(1);
     expect(authenticate).toHaveBeenCalledWith(credentials);
