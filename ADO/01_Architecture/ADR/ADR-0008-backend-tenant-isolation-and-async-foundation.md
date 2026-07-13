@@ -1,7 +1,8 @@
 # ADR-0008: Backend, Tenant Isolation and Async Foundation
 
-Status: Proposed — Technical Lead Reviewed; Human Architect Decision Required
+Status: Approved
 Date: 2026-07-13
+Approval Date: 2026-07-13
 Roadmap: Core Roadmap v2, Block B (DT-036–DT-044)
 Owner: Technical Lead
 Approval Authority: Human Architect
@@ -9,11 +10,29 @@ Related Artifacts: ADR-0004, ADR-0005, ADR-0006, ADR-0007, TTAP-001, FB-001, TS-
 
 ## Status Meaning
 
-This ADR is a recommendation, not an approved platform selection. It authorizes no implementation, dependency installation, cloud resource creation or data migration.
+This ADR is the approved Block B architecture baseline. It authorizes implementation only through the phased gates in this document; it does not authorize production personal data, production rollout or bypassing privacy/security acceptance gates.
 
-If approved, ADR-0008 refines ADR-0007's deliberately open backend baseline. It does not supersede ADR-0007's mobile, offline-first, domain-first or explicit-synchronization decisions.
+ADR-0008 refines ADR-0007's deliberately open backend baseline. It does not supersede ADR-0007's mobile, offline-first, domain-first or explicit-synchronization decisions.
 
-The first independent architecture/security review returned `CHANGES REQUIRED`. Its findings have been incorporated with the dispositions recorded in the related review artifact. Renewed Technical Lead review verified those corrections and approved this document as the Block B decision package. The ADR itself remains Proposed and has not received Human Architect approval.
+The first independent architecture/security review returned `CHANGES REQUIRED`. Its findings have been incorporated with the dispositions recorded in the related review artifact. Renewed Technical Lead review verified those corrections. The Human Architect approved the corrected recommendation on 2026-07-13 with the dispositions and safety defaults below.
+
+## Human Architect Approval and V1 Dispositions
+
+The Human Architect approved:
+
+1. Supabase-managed PostgreSQL and Supabase Auth as the v1 managed data/identity platform.
+2. Pooled shared-schema tenancy with mandatory RLS, composite tenant constraints and negative isolation tests.
+3. Managed persistent Node.js as the primary transactional lifecycle API runtime; Edge Functions remain narrow-task infrastructure unless the complete spike proves lifecycle suitability.
+4. One active Membership per User in v1.
+5. Audited operator/manual provisioning for the first Organization and first Administrator.
+6. Email/password as the single controlled v1 sign-in method; additional providers or identity linking require a new explicit review.
+7. Identity-first operator provisioning for pilot employees; a normal active Membership is not created before a stable verified User identity exists.
+8. Immediate revocation of ordinary access. Alleged pre-revocation offline evidence uses a restricted ingestion path with a grace-window-plus-administrative-review policy; until numeric limits are approved, it is retained as deferred evidence and causes no automatic TimeEntry mutation.
+9. Server-canonical decisions with explicit conflict/deferred reconciliation; local state is never silently overwritten.
+10. The Clock and Offline Anomaly Policy. Until numeric tolerances are approved, suspicious evidence is deferred for review and causes no automatic TimeEntry mutation.
+11. Central EU (Frankfurt) as the intended initial data region, subject to provider availability and final legal/privacy confirmation.
+12. No production personal data until legal review approves numeric retention, deletion/anonymization/restriction and backup requirements. The architecture recommendations are safety defaults, not legal conclusions.
+13. Organization-scoped NFC payload uniqueness provisionally for v1 schema work; Block D must finalize payload representation/security before production migration.
 
 ## Context
 
@@ -29,9 +48,9 @@ Block A completed the local TimeEntry lifecycle, CI and tests-inclusive TypeScri
 
 The backend choice must support the actual TapTim.e model: Organization-scoped relational data, an immutable WorkEvent trail, a one-active-TimeEntry-per-user invariant, idempotent offline synchronization, a minimal Administrator/Employee role model and a small implementation team.
 
-## Proposed Decision
+## Approved Decision
 
-Subject to Human Architect approval, TapTim.e shall use this Block B baseline:
+TapTim.e shall use this Block B baseline:
 
 1. **Managed data and identity plane:** Supabase-managed PostgreSQL and Supabase Auth.
 2. **Server application boundary:** an authenticated TapTim.e backend API invokes the existing Core Application/Business boundaries. Mobile and future Admin Web do not perform authoritative writes directly against database tables.
@@ -82,7 +101,7 @@ Every tenant-owned row shall carry a non-null `organization_id`. Isolation uses 
 2. identity is mapped to a stable TapTim.e `UserId`;
 3. the current or historically relevant Membership for the requested Organization is resolved from server data;
 4. ordinary access requires an active Membership and the required role/capability;
-5. a dedicated sync-ingestion path handles pre-revocation offline evidence according to the not-yet-approved revocation policy and never grants general tenant access;
+5. a dedicated sync-ingestion path handles pre-revocation offline evidence under the approved grace-window-plus-administrative-review policy and never grants general tenant access; until numeric limits are approved, evidence remains deferred without TimeEntry mutation;
 6. repository queries are scoped by `organization_id` and never expose an unscoped list/find method;
 7. composite foreign keys prevent relationships crossing Organization boundaries;
 8. RLS repeats the Membership/Organization condition for reads and writes;
@@ -100,7 +119,7 @@ The Organization identifier supplied by a client is a requested scope, never tru
 | Submit/synchronize own WorkEvents | Yes | Yes |
 | Read own TimeEntries and own sync state | Yes | Yes |
 | Create/manage Customers, NFC Tags and NFC Assignments | No | Yes |
-| Manage Memberships within own Organization | No | Proposed, except first-admin bootstrap and subject to invitation/revocation decisions |
+| Manage Memberships within own Organization | No | Yes, except first-admin bootstrap and subject to approved invitation/revocation safeguards |
 | Read Organization-wide WorkEvents, TimeEntries and audit evidence | No | Yes |
 | Cross-Organization access | No | No |
 
@@ -305,23 +324,15 @@ Negative:
 - Append-only auditability must be reconciled with legally reviewed retention, erasure, restriction and anonymization operations.
 - Clock, revocation and historical-validity anomalies require a review path rather than only synchronous success/rejection.
 
-## Required Approval and Open Decisions
+## Remaining Gated Decisions
 
-Human Architect decisions required before implementation:
+The architecture direction is approved. These values remain deliberately gated before the affected production slice:
 
-1. Approve or reject Supabase PostgreSQL + Supabase Auth as the v1 managed platform.
-2. Approve the pooled-schema/RLS tenant model rather than database-per-Organization isolation.
-3. Decide the first Organization/first Administrator bootstrap rule.
-4. Confirm the current one-active-Membership-per-user v1 assumption or approve multi-Organization membership before schema implementation.
-5. Decide the product outcome for a late offline WorkEvent whose server-canonical decision conflicts with local state.
-6. Approve Membership revocation/deactivation semantics before real user administration.
-7. Approve region/data-residency, backup and retention requirements with privacy/legal input before production data.
-8. Approve the personal-data retention/erasure strategy for immutable WorkEvents, decisions and audit events, including when physical deletion, genuine anonymization, pseudonymization/restriction or continued legally required retention applies.
-9. Decide how pre-revocation offline WorkEvents are handled: grace window, administrative review, categorical rejection or a defined combination.
-10. Approve the Clock and Offline Anomaly Policy: separate anomaly classes, tolerances, maximum ordinary offline delay and escalation/review behavior.
-11. Approve the v1 sign-in method and whether/when additional providers or identity linking are permitted.
-12. Decide the invitation/provisioning sequence for an employee who has no TapTim.e `UserId`, including creation timing for User, `identity_binding` and Membership.
-13. Approve NFC payload uniqueness/representation before production migration.
+1. Numeric grace window, clock/anomaly tolerances and ordinary maximum offline delay.
+2. Legally approved data-class retention periods and expiry actions.
+3. Backup/PITR plan, encryption evidence, restore cadence and deletion-ledger behavior for the selected Supabase plan.
+4. Final NFC payload representation/security in Block D.
+5. Production deployment provider for the managed Node service and its exact connection mode.
 
 Technical Lead decisions/gates required:
 
@@ -336,8 +347,7 @@ Technical Lead decisions/gates required:
 
 No backend adapter, async migration, provider dependency or cloud resource may be introduced until:
 
-- this ADR receives Human Architect disposition;
-- the open product decisions that affect schema/security are resolved or explicitly deferred with safe defaults;
+- the affected product decisions are resolved or explicitly deferred with the approved no-mutation/no-production-data safety defaults;
 - renewed Technical Lead review has confirmed the independent review findings are incorporated;
 - the independent architecture/security review and dispositions remain linked as evidence;
 - the first implementation slice has a short plan with negative tenant-isolation tests.

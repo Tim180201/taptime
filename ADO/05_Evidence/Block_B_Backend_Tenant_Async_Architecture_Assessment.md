@@ -1,11 +1,11 @@
 # Block B Backend, Tenant Isolation and Async Architecture Assessment
 
-Status: Technical Lead Approved as Decision Package — Human Architect Decision Required, No Implementation
+Status: Approved Architecture Baseline — Phased Implementation Authorized, No Production Data
 Date: 2026-07-13
 Roadmap: Core Roadmap v2, Block B (DT-036–DT-044)
 Role: Implementation Agent supporting Technical Lead
-Approval Authority for proposed architecture: Human Architect
-Proposed ADR: `ADO/01_Architecture/ADR/ADR-0008-backend-tenant-isolation-and-async-foundation.md`
+Approval Authority: Human Architect — Approved 2026-07-13
+Approved ADR: `ADO/01_Architecture/ADR/ADR-0008-backend-tenant-isolation-and-async-foundation.md`
 
 ## 1. Purpose and Scope
 
@@ -320,7 +320,7 @@ Admin Web never:
 
 ### 8.1 Selected model
 
-Proposed v1 model: pooled PostgreSQL database, shared schema, row-level tenant key.
+Approved v1 model: pooled PostgreSQL database, shared schema, row-level tenant key.
 
 Why this fits v1:
 
@@ -340,7 +340,7 @@ For every authenticated request:
 3. Read the current Membership and, for delayed WorkEvent ingestion only, its grant/revocation history for the requested Organization.
 4. Reject absent/revoked Membership for ordinary API access before tenant-owned lookup.
 5. Route alleged pre-revocation offline evidence through the dedicated restricted sync path; do not grant ordinary tenant access and do not silently discard the evidence.
-6. Apply the not-yet-approved grace/review/rejection policy plus clock and historical-validity checks.
+6. Apply the approved grace-window-plus-administrative-review policy plus clock and historical-validity checks; until numeric limits are approved, retain evidence as deferred without TimeEntry mutation.
 7. Check the required minimal role/capability.
 8. Create a request actor context `{ userId, organizationId, role }`.
 9. Pass that context to tenant-scoped Core/application ports.
@@ -453,7 +453,7 @@ Two product decisions remain necessary:
 - first Organization/Administrator bootstrap has no existing Administrator to authorize it;
 - current Membership domain has no revoked/inactive lifecycle.
 
-Proposed technical accommodation is `revoked_at` server authorization metadata and one audited privileged bootstrap command. Neither should be implemented until the Human Architect approves the product behavior.
+Approved technical accommodation is `revoked_at` server authorization metadata and one audited privileged bootstrap command. Numeric grace/anomaly limits remain gated; until approved, affected evidence is deferred without TimeEntry mutation.
 
 Employee invitation exposes a second provisioning gap: `Membership.userId` requires a stable TapTim.e `UserId`, but an invited employee may not yet have authenticated. The Human Architect must select one flow:
 
@@ -877,23 +877,25 @@ Do not begin with all repositories or direct Mobile database access. The first r
 | Transaction pooler prepared-statement incompatibility breaks lifecycle writes | High/Availability | test session/transaction modes; disable prepared statements in transaction mode; driver-specific spike evidence |
 | Backup/restore resurrects erased, revoked or restricted data | Critical/Privacy | encryption/region/retention controls; isolated restore; deletion/revocation ledger replay; quarterly restore evidence |
 
-## 14. Human Architect Decisions Still Required
+## 14. Human Architect Disposition
+
+ADR-0008 was approved on 2026-07-13. The table below now records the accepted v1 direction; numeric/legal values remain gated where stated.
 
 | Decision | Recommendation | Why approval is required |
 |---|---|---|
-| Managed backend/auth platform | Supabase PostgreSQL + Supabase Auth | resolves ADR-0007's deferred provider decision |
-| Tenant deployment model | pooled schema + RLS, not database per Organization | security/cost/operational architecture |
-| First Organization/Admin bootstrap | one audited privileged server command/manual provisioning | product ownership/security behavior is currently undefined |
-| Membership cardinality | retain one active Membership per User for v1 | FB-002 assumption affects schema and login UX |
-| Membership revocation | approve explicit revocation/deactivation semantics | required for safe real user administration; absent from Domain |
-| Offline conflict outcome | server canonical decision + explicit conflict/deferred reconciliation | affects user-visible time truth and correction workflow |
-| Region/residency/backup retention | choose deployment/backup region, encryption evidence, retention and restore-test cadence after privacy/legal input | customer data/legal commitment |
-| NFC payload scope/representation | Organization-scoped uniqueness provisionally; finalize in Block D | affects security, collision behavior and migration |
-| Privacy/erasure/anonymization | approve legal bases and numeric periods for every data class plus deletion, genuine anonymization, pseudonymization/restriction and restored-copy treatment | append-only evidence does not override GDPR/storage limitation; pseudonymized data remains personal data |
-| Pre-revocation offline WorkEvents | prefer defined grace window followed by administrative review; categorical rejection only by explicit decision | legitimate work must not disappear, forged backdating must not be accepted |
-| Clock/offline anomaly policy | approve separate skew/backwards/duration/offline-delay tolerances and review outcomes; no absolute-difference-only rule | device time is untrusted and long offline delay may be legitimate |
-| Login/linking methods | one controlled v1 sign-in method; add providers/linking only after explicit review | Supabase automatic same-verified-email linking changes identity behavior |
-| Unregistered employee invitation/provisioning | choose identity-first, pending invitation or reserved inactive User flow | defines creation/activation timing of User, `identity_binding` and Membership |
+| Managed backend/auth platform | Approved: Supabase PostgreSQL + Supabase Auth | resolves ADR-0007's deferred provider decision |
+| Tenant deployment model | Approved: pooled schema + RLS, not database per Organization | security/cost/operational architecture |
+| First Organization/Admin bootstrap | Approved: audited operator/manual provisioning | safe pilot bootstrap without inventing a third user role |
+| Membership cardinality | Approved: one active Membership per User for v1 | preserves current FB-002/Core assumption |
+| Membership revocation | Approved: immediate ordinary-access revocation plus restricted pre-revocation evidence path | numeric grace/anomaly limits remain gated; deferred/no-mutation is the safe default |
+| Offline conflict outcome | Approved: server canonical decision + explicit conflict/deferred reconciliation | local time is never silently overwritten |
+| Region/residency/backup retention | Approved direction: Central EU (Frankfurt); exact backup/retention controls remain gated before production data | customer data/legal commitment |
+| NFC payload scope/representation | Approved provisionally: Organization-scoped uniqueness; finalize representation/security in Block D | affects security, collision behavior and migration |
+| Privacy/erasure/anonymization | Approved policy boundary; numeric/legal periods and expiry actions remain gated and production personal data is prohibited until legal approval | append-only evidence does not override GDPR/storage limitation |
+| Pre-revocation offline WorkEvents | Approved: grace window plus administrative review; numeric window remains gated, with deferred/no-mutation default | legitimate work must not disappear, forged backdating must not be accepted |
+| Clock/offline anomaly policy | Approved; numeric tolerances remain gated, with deferred/no-mutation default | device time is untrusted and long offline delay may be legitimate |
+| Login/linking methods | Approved: email/password only for v1; add providers/linking only after explicit review | prevents unreviewed automatic linking behavior |
+| Unregistered employee invitation/provisioning | Approved for pilot: identity-first operator provisioning | Membership activates only after a stable verified User exists |
 
 ## 15. Technical Lead Decisions After Human Approval
 

@@ -1,14 +1,16 @@
 # Tech Stack
 
-Status: Decided — see ADR-0007
+Status: Decided — see ADR-0007 and ADR-0008
 
 ## Current Position
 
 The TapTim.e technology platform baseline is decided and Approved. This file is a navigation pointer, not a duplicate source of technical knowledge.
 
-Authoritative source: `ADO/01_Architecture/ADR/ADR-0007-technology-platform-baseline.md`
+Authoritative sources: `ADO/01_Architecture/ADR/ADR-0007-technology-platform-baseline.md` and `ADO/01_Architecture/ADR/ADR-0008-backend-tenant-isolation-and-async-foundation.md`
 
 ADR-0007 defines the mobile-first platform baseline (React Native / Expo, native NFC capability, local offline-capable persistence, explicit synchronization), the backend baseline (managed authentication, cloud-hosted persistence, explicit synchronization) and the platform boundaries that keep domain logic independent from UI, NFC libraries and persistence APIs.
+
+ADR-0008 refines the backend baseline to Supabase-managed PostgreSQL/Auth with a managed Node.js transactional API, pooled-schema tenant isolation, RLS and phased async/backend implementation gates.
 
 ## Reference Evidence
 
