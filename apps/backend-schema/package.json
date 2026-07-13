@@ -1,0 +1,30 @@
+{
+  "name": "@taptime/backend-schema",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Versioned PostgreSQL 17 schema, constraints and RLS evidence for TapTim.e Block B3; not a production adapter.",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json --emitDeclarationOnly && esbuild src/index.ts --bundle --platform=node --target=node24 --format=esm --external:pg --sourcemap --outfile=dist/index.js",
+    "migrate": "node --import tsx src/cli.ts",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "verify-migrations": "node --import tsx src/verifyMigrations.ts"
+  },
+  "dependencies": {
+    "pg": "^8.22.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.13",
+    "@types/pg": "^8.20.0",
+    "esbuild": "^0.28.1",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.9"
+  }
+}

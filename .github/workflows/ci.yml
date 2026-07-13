@@ -95,3 +95,60 @@ jobs:
 
       - name: Build backend B1 spike
         run: npm run build --workspace=@taptime/backend-b1-spike
+
+  backend-b3-schema:
+    name: Backend B3 PostgreSQL schema security
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:17.10-alpine
+        env:
+          POSTGRES_DB: taptime_b3
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: taptime_b3_installer
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U taptime_b3_installer -d taptime_b3"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      B3_DATABASE_URL: postgresql://taptime_b3_installer:postgres@127.0.0.1:5432/taptime_b3
+      B3_RUNTIME_PASSWORD: b3-ci-synthetic-only
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.17.0
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies from lockfile
+        run: npm ci
+
+      - name: Typecheck backend B3 schema
+        run: npm run typecheck --workspace=@taptime/backend-schema
+
+      - name: Apply B3 migrations to empty PostgreSQL database
+        run: npm run migrate --workspace=@taptime/backend-schema
+
+      - name: Re-run B3 migrations and verify versions
+        run: |
+          npm run migrate --workspace=@taptime/backend-schema
+          npm run verify-migrations --workspace=@taptime/backend-schema
+
+      - name: Test B3 constraints and RLS negative matrix
+        run: npm test --workspace=@taptime/backend-schema
+
+      - name: Build backend B3 schema package
+        run: npm run build --workspace=@taptime/backend-schema
