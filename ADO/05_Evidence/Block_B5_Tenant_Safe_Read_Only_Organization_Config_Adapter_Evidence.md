@@ -1,6 +1,6 @@
 # Block B5 — Tenant-safe Read-only Organization/Config Adapter Evidence
 
-Status: Implemented — Awaiting Technical Lead Review
+Status: Completed — Technical Lead, GitHub CI and Independent Security Approved; B6 Not Authorized
 Date: 2026-07-13
 Owner: Implementation Agent
 Architecture Authority: `ADO/01_Architecture/ADR/ADR-0008-backend-tenant-isolation-and-async-foundation.md`
@@ -124,7 +124,8 @@ idempotent rerun plus ledger verification, tests-inclusive B5 typecheck, all B5 
 Only official checkout/setup-node Actions and the local PostgreSQL service are used. All database
 credentials and JWT material are synthetic and job-local.
 
-The YAML parsed locally. No GitHub-hosted run is claimed for the uncommitted implementation.
+The YAML parsed locally. After publication, GitHub Actions run `29264083804` passed all five jobs,
+including the isolated B5 PostgreSQL/JWT job on Node 24.17.0 and PostgreSQL 17.10.
 
 ## 7. Local Verification
 
@@ -153,12 +154,15 @@ Local verification used Node.js `v24.17.0`, npm `11.13.0` and PostgreSQL `17.10`
 
 ## 8. Remaining Gates and Review Recommendation
 
-- Technical Lead review is required; B5 is not approved or completed by this implementation report.
-- The new CI job has not run on GitHub while changes remain uncommitted.
+- Technical Lead attack review is complete. It found and closed one blocking escaped-repository
+  pool-capability lifetime defect before publication.
+- GitHub Actions run `29264083804` passed all five jobs for implementation commit `68b7f44`.
+- The independent Claude architecture/security review returned `APPROVED` with no P0/P1 findings.
 - B6 lifecycle ingestion, any HTTP/API boundary, Mobile/Auth runtime composition, synchronization,
   Supabase/cloud resources and production credentials/data remain unauthorized.
 - Production pooling/Supavisor modes, performance/load, observability, privacy retention/deletion,
   backup/restore, NFC payload security and physical-device validation remain open gates.
 - The existing 11 moderate dependency findings remain open and unchanged; no automatic fix ran.
 
-The scoped implementation is ready for Technical Lead review. B6 must not begin from this status.
+The scoped B5 implementation is closed. B6 remains a separate Human Architect authorization and
+must not begin from this status.

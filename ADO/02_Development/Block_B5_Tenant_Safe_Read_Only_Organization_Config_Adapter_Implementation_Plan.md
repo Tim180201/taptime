@@ -1,6 +1,6 @@
 # Block B5 — Tenant-safe Read-only Organization/Config Adapter Implementation Plan
 
-Status: Implemented — Awaiting Technical Lead Review
+Status: Completed — Technical Lead, GitHub CI and Independent Security Approved; B6 Not Authorized
 Date: 2026-07-13
 Owner: Implementation Agent
 Approval Authority: Technical Lead
@@ -76,12 +76,14 @@ raw access token + requested OrganizationId
 
 No writes, HTTP/API route, Supabase/cloud resource, production credential/data, Mobile integration,
 login UX, B6 lifecycle ingestion, synchronization, new migration or Business Rule is authorized.
-Successful implementation ends at `Implemented — Awaiting Technical Lead Review`; it does not
-authorize B6 and does not claim a GitHub-hosted CI run before review.
+The implementation phase ended at `Implemented — Awaiting Technical Lead Review`; the separate B5
+closure records subsequent Technical Lead, GitHub CI and independent security approval. That
+closure does not authorize B6.
 
 ## Implementation Outcome
 
 The authorized slice is implemented with 41 passing direct-PostgreSQL/JWT tests. The coordinator,
 five read-only Core-port projections, synthetic least-privilege runtime login, isolated CI job and
 implementation evidence match the security invariants above. Full local Node 24 regression is
-green. Technical Lead review remains required; no B6 authorization is inferred.
+green. Technical Lead review, GitHub Actions run `29264083804` and the independent Claude review
+subsequently approved the slice with no P0/P1 findings. No B6 authorization is inferred.

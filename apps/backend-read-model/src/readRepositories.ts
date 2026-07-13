@@ -59,6 +59,7 @@ export function createTenantReadRepositories(
   const organization = Object.freeze({
     async findById(id: OrganizationId): Promise<Organization | null> {
       assertSessionActive();
+      // Organization is the tenant root and has no organization_id column; both IDs must match.
       const row = oneOrNull(await client.query<OrganizationRow>(
         `SELECT id, name
          FROM taptime_server.organizations
