@@ -15,7 +15,8 @@ Diese Regeln gelten verbindlich für alle Codex-Tasks in diesem Repository. Vor 
 - Änderungen müssen klein, fokussiert und anhand des Diffs nachvollziehbar bleiben.
 - Unverwandte Dateien und bestehende Nutzeränderungen dürfen nicht verändert, überschrieben oder zurückgesetzt werden.
 - ADO-Dokumente sind nur zu aktualisieren, wenn die Änderung die tatsächliche Projektwahrheit materiell verändert.
-- Commits, Pushes, Pull Requests und Merges sind ohne ausdrücklichen Auftrag verboten.
+- Implementation Agents erstellen ohne ausdrücklichen Auftrag keine Commits, Pushes, Pull Requests oder Merges.
+- Änderungen, die der Technical Lead nach vollständiger Prüfung ausdrücklich mit `APPROVED` abnimmt, dürfen unter der dauerhaften Freigabe des Human Architect direkt committed und nach `main` gepusht werden. Vor dem Push müssen der Remote-Stand geprüft und alle relevanten Verifikationen erfolgreich abgeschlossen sein.
 
 ## Verifikation und Abschluss
 
