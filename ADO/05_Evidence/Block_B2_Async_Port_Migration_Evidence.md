@@ -1,6 +1,6 @@
 # Block B2 — Async Port Migration Implementation Evidence
 
-Status: Technical Lead Review Passed — Publication CI Pending, B3 Not Authorized
+Status: Completed — Technical Lead Approved, B3 Authorized
 Date: 2026-07-13
 Owner: Implementation Agent
 Approval Authority: Technical Lead
@@ -89,13 +89,13 @@ The direct B1 regression used the existing disposable local PostgreSQL setup and
 
 ## 7. Boundaries and Remaining Gates
 
-- Technical Lead review accepts the corrected B2 diff locally; successful publication CI remains the closure gate.
+- Technical Lead review accepts the corrected B2 diff; GitHub Actions run `29221790966` passed both publication jobs.
 - No productive backend adapter exists; B1 remains a spike, not a production repository implementation.
 - Supavisor Session/Transaction compatibility remains a pre-production deployment gate.
-- Block B3 must not begin without explicit authorization after this review.
+- Block B3 versioned schema/constraints/RLS work is authorized as the next isolated slice; this does not authorize production cloud resources or data.
 - Mobile still uses the current demo/runtime composition; real Auth, HTTP, Sync and physical NFC validation are later blocks.
 - The migration deliberately does not add cancellation, retries, parallel synchronization or new error mapping because each could change observable behavior.
 
 ## 8. Recommendation
 
-The Technical Lead accepts the corrected B2 implementation locally because the complete effectful boundary is Promise-based, all current callers await it, regression suites retain their exact counts, the native NFC adapter now performs a real asynchronous capture and the pure Core boundary remains synchronous. B2 closes only after successful publication CI. This acceptance is not approval for B3.
+The Technical Lead approves the corrected B2 implementation because the complete effectful boundary is Promise-based, all current callers await it, regression suites retain their exact counts, the native NFC adapter now performs a real asynchronous capture and the pure Core boundary remains synchronous. GitHub Actions run `29221790966` passed both the Core/Mobile and Backend B1 PostgreSQL jobs. B2 is complete and B3 versioned schema/constraints/RLS work is authorized within ADR-0008's non-production boundaries.

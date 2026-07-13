@@ -2,7 +2,7 @@
 
 Role: Research / Implementation Support acting on behalf of Technical Lead (per AGR-001)
 Date: 2026-07-10
-Status: Active execution baseline — Block A and B1 completed; Block B2 passed corrected local Technical Lead review 2026-07-13 with publication CI pending; Block B3 not authorized
+Status: Active execution baseline — Block A, B1 and B2 completed; Block B3 versioned schema/constraints/RLS authorized and next as of 2026-07-13
 Scope: Core platform roadmap only. Generic platform language throughout (Organization, Membership, Role, User, AssignmentTarget, Customer, NfcTag, NfcAssignment, TimeEntry, WorkEvent, BusinessEvent, Policy, AuditEvent, Export, Backend, Auth, Tenant Isolation, Mobile App, Admin Web, Website). No customer-specific product, company, or branch assumption is named anywhere in this document. No code implemented. No architecture, ADR, TTAP-001, FB-001/TS-001, FB-002/TS-002, or Product Vision content modified.
 Related Artifacts: `ADO/05_Evidence/External_CTO_Review_Triage_2026-07-10.md`, `ADO/05_Evidence/Product_Readiness_Assessment.md`, `ADO/05_Evidence/Product_Readiness_Roadmap.md`, `ADO/02_Development/Development_Sprint_019_Closure.md`, `ADO/02_Development/EP-007_Development_Tasks.md`, `ADO/00_Core/Project_Status.md`, `ADO/00_Core/Decision_Log.md`
 
@@ -86,7 +86,7 @@ Blocks are ranges, not fixed sprint-by-sprint commitments; candidate Development
 
 ### Block B – Backend and Async Foundation
 
-**Status: Architecture approved; B1 completed and Technical-Lead approved, B2 next (2026-07-13).** ADR-0008 was approved after independent architecture/security review and corrective Technical Lead verification. B1's managed-Node transaction/security spike passed 39 direct-PostgreSQL tests locally and in GitHub Actions run `29220424071` after two security correction rounds. B2 Async-Port Migration is authorized; both Supavisor-mode validation and production personal data remain gated, the latter until legal/privacy retention and backup requirements are approved.
+**Status: Architecture approved; B1 and B2 completed and Technical-Lead approved, B3 next (2026-07-13).** ADR-0008 was approved after independent architecture/security review and corrective Technical Lead verification. B1's managed-Node transaction/security spike passed 39 direct-PostgreSQL tests locally and in GitHub Actions after two security correction rounds. B2 completed the Promise migration across all twelve effectful ports and passed GitHub Actions run `29221790966` after one Technical Lead correction. B3 versioned schema/constraints/RLS is authorized; both Supavisor-mode validation and production personal data remain gated, the latter until legal/privacy retention and backup requirements are approved.
 
 **Target:** Week 2–4 · **Candidate Sprints:** 025–030
 
