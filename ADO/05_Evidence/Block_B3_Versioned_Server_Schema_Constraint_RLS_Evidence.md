@@ -160,6 +160,8 @@ PostgreSQL codes asserted where security/integrity evidence depends on them: `22
 
 GitHub Actions retains the Core/Mobile quality job and B1 PostgreSQL job and adds an isolated `backend-b3-schema` job with PostgreSQL `17.10-alpine`. It installs from the lockfile, typechecks B3, applies migrations to the empty database, reruns the runner, verifies `001,002,003`, runs the complete matrix and builds the package. Only official checkout/setup-node actions are used; the database credentials are explicitly synthetic CI-only values.
 
+Technical-Lead-approved implementation commit `903917c` passed GitHub Actions run `29243934150`: Core/Mobile quality, the unchanged B1 PostgreSQL spike and the new isolated B3 PostgreSQL 17 schema-security job all completed successfully.
+
 Local evidence on Node `v24.17.0` and PostgreSQL `17.10`:
 
 | Check | Result |
