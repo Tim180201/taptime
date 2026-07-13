@@ -1,6 +1,6 @@
 # Block B5 — Tenant-safe Read-only Organization/Config Adapter Evidence
 
-Status: Completed — Technical Lead, GitHub CI and Independent Security Approved; B6 Not Authorized
+Status: Completed — Technical Lead, GitHub CI and Independent Security Approved; B6 Subsequently Authorized Separately
 Date: 2026-07-13
 Owner: Implementation Agent
 Architecture Authority: `ADO/01_Architecture/ADR/ADR-0008-backend-tenant-isolation-and-async-foundation.md`
@@ -164,5 +164,5 @@ Local verification used Node.js `v24.17.0`, npm `11.13.0` and PostgreSQL `17.10`
   backup/restore, NFC payload security and physical-device validation remain open gates.
 - The existing 11 moderate dependency findings remain open and unchanged; no automatic fix ran.
 
-The scoped B5 implementation is closed. B6 remains a separate Human Architect authorization and
-must not begin from this status.
+The scoped B5 implementation is closed. B6 was not inferred from this status and was subsequently
+authorized separately in `Block_B6_Server_Canonical_Lifecycle_Ingestion_Authorization.md`.

@@ -1,6 +1,6 @@
 # Block B5 — Tenant-safe Read-only Organization/Config Adapter Implementation Plan
 
-Status: Completed — Technical Lead, GitHub CI and Independent Security Approved; B6 Not Authorized
+Status: Completed — Technical Lead, GitHub CI and Independent Security Approved; B6 Subsequently Authorized Separately
 Date: 2026-07-13
 Owner: Implementation Agent
 Approval Authority: Technical Lead

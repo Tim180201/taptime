@@ -3,7 +3,7 @@
 Status: Completed — Technical Lead, GitHub CI and Independent Security Approved
 Date: 2026-07-13
 Owner: Technical Lead
-Human Architect: Independent review supplied; B6 remains not authorized
+Human Architect: Independent review supplied; B6 subsequently authorized separately
 
 ## 1. Closed Scope
 
@@ -61,7 +61,8 @@ validation, monitoring, load/performance and production personal data remain gat
 
 ## 6. Next Slice
 
-B6 is not authorized by this closure. Before any lifecycle write adapter is implemented, the Human
-Architect must explicitly approve a narrow B6 scope. Its mandatory trust rule is that every
-CanonicalDecision comes only from the genuine server-side `BusinessEngine.evaluate()` result;
-client-supplied decision, TimeEntry transition or authority fields may never become server truth.
+B6 was not authorized by this closure. The Human Architect subsequently authorized the separate,
+narrow scope in `Block_B6_Server_Canonical_Lifecycle_Ingestion_Authorization.md`. Its mandatory
+trust rule is that every CanonicalDecision comes only from the genuine server-side
+`BusinessEngine.evaluate()` result; client-supplied decision, TimeEntry transition or authority
+fields may never become server truth.
