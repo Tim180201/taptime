@@ -187,11 +187,11 @@ below remains outstanding until observed by the Human Architect.
 | Required observation | Status | Evidence |
 |---|---|---|
 | Tester and date | Observed | Human Architect reported the physical run in the Technical-Lead task on 2026-07-14 |
-| Android model and OS | Outstanding | No device available |
+| Android model and OS | Observed | Samsung Galaxy A33 5G running Android 15 |
 | App build type/version | Observed | Internal `TapTim.e Validation` APK from EAS build `c459616c-3e90-49f5-a508-8044d05e1c25`, commit `7ac4fa4` |
 | NFC library version | Prepared | `react-native-nfc-manager` 3.17.2 from lockfile |
-| Physical tag product/type A | Partially observed | Physical Tag A scanned successfully; product/type not yet recorded |
-| Physical tag product/type B | Partially observed | Physical Tag B scanned successfully; product/type not yet recorded |
+| Physical tag product/type A | Observed | NTAG213; ten stable reads on the recorded Galaxy A33 5G |
+| Physical tag product/type B | Observed | NTAG213; ten stable reads on the recorded Galaxy A33 5G and distinct from Tag A |
 | Ten remove-and-retap reads per tag | Observed | Human Architect confirmed 10 successful reads for Tag A and 10 for Tag B; raw identifiers were not supplied |
 | Stable identity per tag and distinct A/B identities | Observed | Validation app completed its guarded stability result, which requires 10 matching reads per slot, zero mismatches and distinct shortened fingerprints |
 | Disabled-NFC behavior | Observed | With Android NFC disabled and the app reopened, the Human Architect confirmed the explicit disabled state and blocked scan action; after re-enabling NFC and reopening, the app returned to ready and scanning remained available |
@@ -210,14 +210,15 @@ below remains outstanding until observed by the Human Architect.
   production cloud configuration, production data or deployment evidence.
 - Operator provisioning must use canonical payloads; no in-product registration UI exists yet.
 - After the active TapTim.e capture cleaned up, presenting the tag again caused Android to show
-  external handling options. This confirms that no second TapTim.e capture remained active, but the
-  exact system UI and tag NDEF/type must be recorded and considered in pilot tag procurement/UX.
+  the system prompt `Aktion wählen` on the Galaxy A33 5G. The same prompt appears when an NTAG213 is
+  presented without first pressing `Tag A scannen`. This confirms that no second TapTim.e capture
+  remained active; Android owns dispatch outside an explicit app capture. The behavior must be
+  considered in pilot instructions and the later product NFC interaction design.
 - The existing 11 moderate dependency findings remain open; this task did not apply audit fixes.
 - Two Supavisor connection modes remain unverified.
 
 ## 9. Required next action
 
-The Human Architect next records the Android model/OS, tag product/type and exact external Android
-option text if known, and confirms that validation screens disclosed no raw UID/token/provider
-error. Only observed results may replace `Outstanding`; a missing synthetic server test environment
-keeps the unassigned-tag and end-to-end Start/Stop items open.
+The Human Architect next confirms that validation screens disclosed no raw UID/token/provider error.
+Only observed results may replace `Outstanding`; a missing synthetic server test environment keeps
+the unassigned-tag and end-to-end Start/Stop items open.
