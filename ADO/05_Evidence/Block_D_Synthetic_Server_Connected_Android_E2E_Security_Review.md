@@ -1,6 +1,6 @@
 # Block D — Synthetic Server-connected Android E2E Security Review
 
-Status: Technical-Lead and GitHub-CI Approved after Five Blocking Corrections — Awaiting Physical E2E
+Status: Technical-Lead Approved after Six Blocking Corrections — Latest Correction Awaiting GitHub CI; Physical E2E In Progress
 
 Date: 2026-07-14
 
@@ -67,6 +67,7 @@ it is never treated as authentication or stored as the server lookup key.
 | D-E2E-TL03 | The real five-case PostgreSQL harness was not itself enforced by GitHub Actions | Added an isolated PostgreSQL 17 CI job for Typecheck, 5/5 tests and build | Closed; run `29329906106` passed |
 | D-E2E-TL04 | The first clean Linux CI run exposed that Typecheck had relied on locally prebuilt dependency declarations | Added an explicit ordered build of Core, schema, B4, B5, B6 and C2 dependencies before harness Typecheck | Closed; run `29329906106` passed |
 | D-E2E-TL05 | A normal GitHub service container reports a Docker-bridge server address, correctly failing the strict server-loopback guard; a failed setup also exposed an unsafe test-teardown dereference | Run the disposable PostgreSQL 17 container with host networking and `listen_addresses=127.0.0.1`; initialize teardown capability before environment setup and guard partial setup | Closed; run `29329906106` passed |
+| D-E2E-TL06 | The first real Expo prebuild rewrote tracked `android`/`ios` npm scripts, leaving a dirty source tree | Snapshot tracked `package.json` before prebuild and restore it exactly in `finally`, on success or failure; add Mobile boundary regression | Closed locally; 253/253 Mobile tests passed; CI pending |
 
 ## 5. Deliberate limitations
 
@@ -87,17 +88,18 @@ it is never treated as authentication or stored as the server lookup key.
 - The existing eleven moderate dependency findings remain open; no audit fix was applied.
 - Supabase Cloud, Supavisor, production TLS/secrets/observability, C3, Block E and production data
   remain unverified and unauthorized.
-- This implementation environment had no Android SDK/JDK/ADB or attached device. The APK install,
-  reverse mapping and physical Tag-B/Tag-A UI outcomes remain unobserved in this task until a
-  properly equipped Human/delegated run occurs.
+- The later Human run now has Java 17, Android SDK 36, ADB, an authorized SM-A336B and a successful
+  66-MB local release build. Installation, reverse mapping and physical Tag-B/Tag-A UI outcomes
+  remain unobserved.
 
 ## 6. Review conclusion
 
-After the five corrections above, the implementation is appropriately fail-closed for a
+After the six corrections above, the implementation is appropriately fail-closed for a
 disposable synthetic test harness and does not weaken the product C2/B3–B6 boundaries. Technical
-Lead verdict: `APPROVED`; all eight GitHub CI jobs passed in run `29329906106`. The physical
-server-connected checklist remains open; this review is not a physical-result claim or an
-independent third-party approval.
+Lead verdict: `APPROVED`; the first five corrections passed all eight jobs in run `29329906106`,
+and the sixth passes Mobile 253 locally while its CI is pending. The physical server-connected
+checklist remains open; this review is not a physical-result claim or an independent third-party
+approval.
 
 Primary platform references:
 

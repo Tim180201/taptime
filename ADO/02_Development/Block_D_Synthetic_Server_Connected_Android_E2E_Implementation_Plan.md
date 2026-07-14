@@ -1,6 +1,6 @@
 # Block D — Synthetic Server-connected Android E2E Implementation Plan
 
-Status: Software Technical-Lead and GitHub-CI Approved after Five Corrections — Awaiting Local Android APK/Physical Run
+Status: Software Technical-Lead Approved after Six Corrections — Latest Correction Awaiting GitHub CI; Physical Run In Progress
 
 Date: 2026-07-14
 
@@ -166,9 +166,11 @@ must not be reported as a physical server-connected result.
   the installed Android SDK permits it;
 - migration set/hash invariants, `git diff --check`, changed-file and `research/` scope checks.
 
-Technical-Lead review returned `APPROVED` after five blocking corrections: an existing untracked
+Technical-Lead review returned `APPROVED` after six blocking corrections: an existing untracked
 native Android project is now preserved fail-closed, successful USB reverse mappings have an exact
 scoped disconnect helper, the five-test PostgreSQL harness is enforced by a dedicated CI job, and
 that clean Linux job now builds every required workspace declaration before Typecheck and runs
 PostgreSQL 17 on host loopback rather than weakening the server-address guard for Docker bridging.
+The first real local release build additionally revealed and closed Expo prebuild's automatic
+tracked `package.json` script rewrite by restoring the exact prebuild snapshot in a `finally` path.
 Commit/push is therefore authorized. Physical completion remains gated on the separate checklist.

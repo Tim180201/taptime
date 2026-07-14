@@ -1,9 +1,10 @@
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const mobileDirectory = fileURLToPath(new URL('..', import.meta.url));
 const androidDirectory = fileURLToPath(new URL('../android', import.meta.url));
+const packageJsonPath = fileURLToPath(new URL('../package.json', import.meta.url));
 const androidSdk = process.env.ANDROID_HOME ?? process.env.ANDROID_SDK_ROOT;
 if (androidSdk === undefined || !existsSync(androidSdk)) {
   throw new Error('Synthetic E2E local build requires ANDROID_HOME or ANDROID_SDK_ROOT');
@@ -29,9 +30,16 @@ const environment = {
   EXPO_PUBLIC_TAPTIME_DEMO_MODE: 'false',
 };
 
-run('npx', ['expo', 'prebuild', '--platform', 'android', '--no-install'], {
-  environment,
-});
+const packageJsonBeforePrebuild = readFileSync(packageJsonPath, 'utf8');
+try {
+  run('npx', ['expo', 'prebuild', '--platform', 'android', '--no-install'], {
+    environment,
+  });
+} finally {
+  if (readFileSync(packageJsonPath, 'utf8') !== packageJsonBeforePrebuild) {
+    writeFileSync(packageJsonPath, packageJsonBeforePrebuild, 'utf8');
+  }
+}
 run('./gradlew', ['assembleRelease'], {
   cwd: androidDirectory,
   environment,

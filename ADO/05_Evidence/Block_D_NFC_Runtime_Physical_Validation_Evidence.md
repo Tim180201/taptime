@@ -196,9 +196,10 @@ unassigned, Tag A can be armed once by shortened validation fingerprint and prov
 Administrator RLS/audit without creating lifecycle evidence, and the following two commands produce
 server-canonical Start then Stop. Core/Mobile are 288/253; all backend regressions remain green.
 
-No Android SDK/JDK/ADB or attached device was available in the implementation environment. The APK,
-USB reverse table and physical UI observations are therefore still outstanding and no physical
-server-connected pass is claimed. Full implementation, verification and security boundaries are in
+The later physical run now has Java 17, Android SDK 36, ADB and an authorized SM-A336B available;
+its 66-MB release APK built successfully. Installation, USB reverse and physical UI observations
+remain outstanding, so no physical server-connected pass is claimed. Full implementation,
+verification and security boundaries are in
 `ADO/05_Evidence/Block_D_Synthetic_Server_Connected_Android_E2E_Evidence.md` and
 `ADO/05_Evidence/Block_D_Synthetic_Server_Connected_Android_E2E_Security_Review.md`.
 
@@ -251,7 +252,8 @@ server-connected pass is claimed. Full implementation, verification and security
 
 The device-local physical checklist is complete for one Galaxy A33 5G / Android 15 and two NTAG213
 tags. The local synthetic server environment is implemented and its automated direct-PostgreSQL
-path is green and Technical-Lead/GitHub-CI approved after five corrections in run `29329906106`,
-but it still requires an equipped physical run. Until the
+path is green and Technical-Lead approved after six corrections; its first release APK is built and
+the latest tracked-state correction awaits CI. Installation and the equipped physical run remain
+open. Until the
 unassigned-tag product screen and server-confirmed Start/Stop are observed, this evidence does not
 close full Block D or claim pilot readiness across the intended device set.

@@ -1,6 +1,6 @@
 # Block D — Synthetic Server-connected Android E2E Evidence
 
-Status: Software Technical-Lead and GitHub-CI Approved after Five Corrections — Awaiting Local Android APK/Physical Run
+Status: Software Technical-Lead Approved after Six Corrections — Latest Correction Awaiting GitHub CI; Physical Run In Progress
 
 Date: 2026-07-14
 
@@ -16,8 +16,10 @@ the unchanged Core `BusinessEngine`. Its automated direct-PostgreSQL test proves
 Tag B, fingerprint-bound audited Tag-A fixture assignment, no lifecycle mutation during
 provisioning, then server-canonical Start and Stop six seconds apart.
 
-No current-task physical Android run occurred. This implementation environment has no Android
-SDK/JDK/ADB or connected device. Therefore the following are not claimed:
+The physical run has now begun on the approved Galaxy A33 5G. Java 17, Android SDK/API 36, Build
+Tools 36.0.0, NDK 27.1, CMake 3.22.1 and ADB are installed; the authorized device is visible as
+`SM_A336B`; and the distinct local release APK built successfully in 6m12s. It is not yet installed
+and no server-connected NFC observation has occurred. Therefore the following are not claimed:
 
 - no physical Tag-B unassigned product-screen observation;
 - no physical Tag-A provisioning capture;
@@ -98,8 +100,8 @@ NFC stability and cleanup, but it did not use Auth/C2/PostgreSQL and cannot sati
 
 | Required observation | Status | Evidence |
 |---|---|---|
-| Synthetic product APK built locally and installed | Outstanding | Android SDK/JDK/ADB unavailable in the implementation environment |
-| USB reverse contains only Auth 54321 and C2 3000 | Outstanding | Requires attached authorized Android device |
+| Synthetic product APK built locally and installed | Partial | 66-MB release APK built successfully; SHA-256 `52257c14df918136ca689d15f10bcf1ccc84bbc911c1cb2f7977a116696e2624`; installation outstanding |
+| USB reverse contains only Auth 54321 and C2 3000 | Outstanding | Galaxy A33 is ADB-authorized; reverse table remains empty before controlled installation |
 | Real synthetic password login and Membership screen | Outstanding | No device run in this task |
 | Physical NTAG213 Tag B is server-side unassigned | Outstanding | Automated synthetic payload proof is not physical evidence |
 | Physical Tag A matches approved shortened fingerprint | Outstanding | Raw UID must not be recorded |
@@ -107,7 +109,7 @@ NFC stability and cleanup, but it did not use Auth/C2/PostgreSQL and cannot sati
 | First post-provision Tag-A scan shows server-confirmed Start | Outstanding | Requires server-connected device run |
 | Second Tag-A scan after at least six seconds shows server-confirmed Stop | Outstanding | Requires server-connected device run |
 | No raw UID/token/provider error in UI, terminal or captured Evidence | Outstanding | Source/automated boundary passed; physical observation still required |
-| Tester/date/device/OS/app build/PostgreSQL/runtime versions recorded | Outstanding | Human/delegated observation required |
+| Tester/date/device/OS/app build/PostgreSQL/runtime versions recorded | Partial | Human Architect; 2026-07-14; SM-A336B/Galaxy A33 5G; Android 15 previously recorded; local PostgreSQL 17.10; final installed build/run values outstanding |
 
 ## 6. Complete verification results
 
@@ -134,7 +136,8 @@ host-loopback PostgreSQL `17.10` cluster; no remote or cloud service was contact
 | Synthetic Android Expo export | Passed; Hermes bundle generated from 780 modules |
 | Synthetic Expo config and variant mismatch | Passed; exact package/name/scheme, inconsistent variant rejected |
 | Disposable synthetic Android prebuild inspection | Passed; distinct application ID, base cleartext denied, only `127.0.0.1` allowed |
-| Local release APK/installation | Unavailable; Android SDK/JDK/ADB and attached device absent; helper stopped before prebuild |
+| Local release APK/installation | APK build passed on attached SM-A336B host environment; installation and physical observations outstanding |
+| Tracked prebuild-state preservation | Passed after Technical-Lead correction; the first real prebuild rewrite was reverted and the helper now restores exact `package.json` content even on failure |
 | Native-project preservation guard | Passed in source/regression review; any existing tracked or untracked `apps/mobile/android` directory is refused without deletion |
 | USB reverse cleanup helper | Passed in source/regression review; removes only approved ports `54321` and `3000`, refuses unexpected targets and preserves unrelated mappings |
 | Migrations `001`–`005` | Unchanged by repository diff |
@@ -167,7 +170,7 @@ workspace declarations before Typecheck and preserves the server-side loopback g
 networking for its disposable PostgreSQL container. Implementation commits `3fe76ed`, `b584568`
 and `d32702b` then passed all eight jobs in GitHub Actions run `29329906106`. The truthful status is:
 
-`Software Technical-Lead and GitHub-CI Approved after Five Corrections — Awaiting Local Android APK/Physical Run`
+`Software Technical-Lead Approved after Six Corrections — Latest Correction Awaiting GitHub CI; Physical Run In Progress`
 
 No physical completion is claimed until the Human Architect or delegated tester records the table
 above.

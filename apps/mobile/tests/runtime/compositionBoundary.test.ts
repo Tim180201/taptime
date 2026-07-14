@@ -168,6 +168,8 @@ describe('C1 Mobile composition boundary', () => {
       expect(buildSource).not.toMatch(/https?:\/\/(?!127\.0\.0\.1)/);
       expect(buildSource).toContain('existsSync(androidDirectory)');
       expect(buildSource).not.toContain("'--clean'");
+      expect(buildSource).toContain('packageJsonBeforePrebuild');
+      expect(buildSource).toContain('writeFileSync(packageJsonPath, packageJsonBeforePrebuild');
       expect(installSource).toContain("['reverse', '--list']");
       expect(installSource).toContain('activeMappings.length !== requiredMappings.length');
       expect(installSource).toContain("['reverse', '--remove', device]");
