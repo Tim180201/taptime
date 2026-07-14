@@ -3,6 +3,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { TextDecoder } from 'node:util';
 import {
   CustomerId,
+  MembershipId,
   NfcAssignmentId,
   NfcTagId,
   OrganizationId,
@@ -22,6 +23,8 @@ import type {
 const SESSION_PATH = '/v1/session';
 const SCAN_CONTEXT_PATH = '/v1/scan-context/resolve';
 const LIFECYCLE_PATH = '/v1/lifecycle-events';
+const DEFERRED_LIFECYCLE_PATH = '/v1/lifecycle-events/deferred';
+const EXPECTED_MEMBERSHIP_HEADER = 'x-taptime-expected-membership-id';
 const MAX_AUTHORIZATION_LENGTH = 4_096;
 const MAX_BODY_BYTES = 16 * 1_024;
 const MAX_HEADER_BYTES = 8_192;
@@ -39,7 +42,7 @@ type ErrorCode =
   | 'service_unavailable'
   | 'unauthorized';
 
-type Route = 'lifecycle' | 'scan_context' | 'session';
+type Route = 'deferred_lifecycle' | 'lifecycle' | 'scan_context' | 'session';
 
 export interface BackendHttpServerOptions {
   readonly onDiagnostic?: BackendApiDiagnosticSink;
@@ -157,6 +160,15 @@ async function handleRequest(
     return;
   }
 
+  const expectedMembershipId = route === 'lifecycle' || route === 'deferred_lifecycle'
+    ? expectedMembershipHeader(request, route === 'deferred_lifecycle')
+    : undefined;
+  if (expectedMembershipId === null) {
+    request.resume();
+    respondError(response, 400, 'invalid_request');
+    return;
+  }
+
   let body: unknown;
   try {
     body = parseJson(await readBoundedBody(request));
@@ -180,10 +192,28 @@ async function handleRequest(
     );
     return;
   }
+  if (route === 'deferred_lifecycle') {
+    if (expectedMembershipId === undefined) {
+      respondError(response, 400, 'invalid_request');
+      return;
+    }
+    await handleDeferredLifecycle(
+      response,
+      accessToken,
+      body,
+      expectedMembershipId,
+      dependencies,
+      options,
+      correlationId,
+      timeoutMilliseconds,
+    );
+    return;
+  }
   await handleLifecycle(
     response,
     accessToken,
     body,
+    expectedMembershipId,
     dependencies,
     options,
     correlationId,
@@ -260,6 +290,7 @@ async function handleLifecycle(
   response: ServerResponse,
   accessToken: string,
   body: unknown,
+  expectedMembershipId: MembershipId | undefined,
   dependencies: BackendApiDependencies,
   options: BackendHttpServerOptions,
   correlationId: string,
@@ -273,13 +304,56 @@ async function handleLifecycle(
 
   try {
     const result = await withTimeout(
-      dependencies.lifecycleIngestor.ingest(command),
+      dependencies.lifecycleIngestor.ingest(command, expectedMembershipId),
       timeoutMilliseconds,
     );
     switch (result.status) {
       case 'synchronized':
         respondJson(response, 200, result);
         return;
+      case 'deferred':
+        respondJson(response, 202, result);
+        return;
+      case 'conflict':
+        respondJson(response, 409, result);
+        return;
+      case 'rejected':
+        respondError(response, 401, 'unauthorized');
+        return;
+      default:
+        return result satisfies never;
+    }
+  } catch {
+    emitDiagnostic(options.onDiagnostic, {
+      code: 'lifecycle_ingestion_failed',
+      correlationId,
+    });
+    respondError(response, 503, 'service_unavailable');
+  }
+}
+
+async function handleDeferredLifecycle(
+  response: ServerResponse,
+  accessToken: string,
+  body: unknown,
+  expectedMembershipId: MembershipId,
+  dependencies: BackendApiDependencies,
+  options: BackendHttpServerOptions,
+  correlationId: string,
+  timeoutMilliseconds: number,
+): Promise<void> {
+  const command = parseLifecycleBody(accessToken, body, 1);
+  if (command === null) {
+    respondError(response, 400, 'invalid_request');
+    return;
+  }
+
+  try {
+    const result = await withTimeout(
+      dependencies.deferredLifecycleIngestor.ingestDeferred(command, expectedMembershipId),
+      timeoutMilliseconds,
+    );
+    switch (result.status) {
       case 'deferred':
         respondJson(response, 202, result);
         return;
@@ -311,6 +385,9 @@ function requestRoute(url: string | undefined): Route | null {
   if (url === LIFECYCLE_PATH) {
     return 'lifecycle';
   }
+  if (url === DEFERRED_LIFECYCLE_PATH) {
+    return 'deferred_lifecycle';
+  }
   return null;
 }
 
@@ -321,6 +398,7 @@ function diagnosticCodeForRoute(route: Route | null): BackendApiDiagnostic['code
     case 'scan_context':
       return 'scan_context_resolution_failed';
     case 'lifecycle':
+    case 'deferred_lifecycle':
       return 'lifecycle_ingestion_failed';
     case null:
       return null;
@@ -393,6 +471,24 @@ function rawHeaderValues(request: IncomingMessage, name: string): readonly strin
     }
   }
   return values;
+}
+
+function expectedMembershipHeader(
+  request: IncomingMessage,
+  required: boolean,
+): MembershipId | undefined | null {
+  const values = rawHeaderValues(request, EXPECTED_MEMBERSHIP_HEADER);
+  if (values.length === 0) {
+    return required ? null : undefined;
+  }
+  if (values.length !== 1 || !isUuid(values[0])) {
+    return null;
+  }
+  try {
+    return MembershipId(values[0].toLowerCase());
+  } catch {
+    return null;
+  }
 }
 
 async function readBoundedBody(request: IncomingMessage): Promise<Buffer> {
@@ -475,6 +571,7 @@ function parseScanContextBody(body: unknown): {
 function parseLifecycleBody(
   accessToken: string,
   body: unknown,
+  requiredAttemptNumber?: number,
 ): LifecycleIngestionCommand | null {
   if (
     !isRecord(body)
@@ -498,6 +595,10 @@ function parseLifecycleBody(
     || !isUuid(body.receipt.id)
     || !Number.isSafeInteger(body.receipt.attemptNumber)
     || (body.receipt.attemptNumber as number) <= 0
+    || (
+      requiredAttemptNumber !== undefined
+      && body.receipt.attemptNumber !== requiredAttemptNumber
+    )
     || (
       body.receipt.clientTimeEntryId !== undefined
       && !isUuid(body.receipt.clientTimeEntryId)

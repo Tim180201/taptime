@@ -54,6 +54,7 @@ authorized E2+ concern. E1 intentionally fails closed and never auto-deletes pos
 - Initial implementation commit `e0f2898` passed all eight jobs in run `29340810743`.
 - Its governance HEAD `dea043f` passed all eight jobs in run `29341021239`, closing E1-R-05.
 - Corrective commit `2ff3991` passed all eight jobs in run `29343959552`.
+- E1 closure-publication commit `9f2f922` passed all eight jobs in run `29344464075`.
 
 The independent review of `9b2c8a5..dea043f` returned `APPROVED WITH NON-BLOCKING FINDINGS`: no
 P0/P1/P2 and five P3 observations. Every observation is recorded and dispositioned in

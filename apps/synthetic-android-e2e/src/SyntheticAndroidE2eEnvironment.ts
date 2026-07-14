@@ -88,6 +88,10 @@ export async function createSyntheticAndroidE2eEnvironment(
       provisionerPool,
       onSafeEvent,
     );
+    const lifecycleCoordinator = new ServerCanonicalLifecycleIngestionCoordinator(
+      lifecyclePool,
+      verifier,
+    );
     apiServer = createBackendHttpServer(
       {
         sessionAuthority: new B4SessionAuthorityResolver(
@@ -95,10 +99,8 @@ export async function createSyntheticAndroidE2eEnvironment(
           new PostgresIdentityMembershipResolver(sessionPool),
         ),
         scanContextResolver: provisioningScanContext,
-        lifecycleIngestor: new ServerCanonicalLifecycleIngestionCoordinator(
-          lifecyclePool,
-          verifier,
-        ),
+        lifecycleIngestor: lifecycleCoordinator,
+        deferredLifecycleIngestor: lifecycleCoordinator,
       },
       {
         onDiagnostic(diagnostic) {

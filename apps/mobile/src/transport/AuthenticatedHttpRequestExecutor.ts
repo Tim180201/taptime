@@ -30,7 +30,16 @@ export type AuthenticatedHttpResult =
   | { readonly status: 'unavailable' };
 
 export interface AuthenticatedJsonPostPort {
-  post(endpoint: URL, body: string): Promise<AuthenticatedHttpResult>;
+  post(
+    endpoint: URL,
+    body: string,
+    options?: AuthenticatedJsonPostOptions,
+  ): Promise<AuthenticatedHttpResult>;
+}
+
+export interface AuthenticatedJsonPostOptions {
+  /** Compare-only lifecycle expectation. No caller can inject arbitrary headers through this port. */
+  readonly expectedMembershipId: string;
 }
 
 export class AuthenticatedHttpRequestExecutor implements AuthenticatedJsonPostPort {
@@ -44,7 +53,11 @@ export class AuthenticatedHttpRequestExecutor implements AuthenticatedJsonPostPo
     }
   }
 
-  async post(endpoint: URL, body: string): Promise<AuthenticatedHttpResult> {
+  async post(
+    endpoint: URL,
+    body: string,
+    options?: AuthenticatedJsonPostOptions,
+  ): Promise<AuthenticatedHttpResult> {
     if (utf8ByteLength(body) > MAXIMUM_JSON_BODY_BYTES) {
       return { status: 'unavailable' };
     }
@@ -64,6 +77,9 @@ export class AuthenticatedHttpRequestExecutor implements AuthenticatedJsonPostPo
               Authorization: `Bearer ${accessToken()}`,
               'Cache-Control': 'no-store',
               'Content-Type': 'application/json',
+              ...(options === undefined
+                ? {}
+                : { 'X-TapTime-Expected-Membership-Id': options.expectedMembershipId }),
             },
             body,
             credentials: 'omit',

@@ -678,7 +678,20 @@ function createSessionRegressionServer(
     },
     lifecycleIngestor: {
       async ingest() {
-        return { status: 'deferred', reason: 'configuration_unavailable_or_inactive' };
+        return {
+          status: 'deferred',
+          evidenceStored: false,
+          reason: 'configuration_unavailable_or_inactive',
+        };
+      },
+    },
+    deferredLifecycleIngestor: {
+      async ingestDeferred() {
+        return {
+          status: 'deferred',
+          evidenceStored: false,
+          reason: 'configuration_unavailable_or_inactive',
+        };
       },
     },
   }, {

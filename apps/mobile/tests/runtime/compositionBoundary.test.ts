@@ -65,6 +65,7 @@ describe('C1 Mobile composition boundary', () => {
     expect(runtimeSource).toContain('return this.sessionCapability');
     expect(runtimeSource).toContain('new RnNfcScanAdapter');
     expect(runtimeSource).toContain('new ProductScanOrchestrator');
+    expect(runtimeSource).toContain('new SessionBoundScanContextResolver');
     expect(runtimeSource).toContain('new ExpoSecureLifecycleEvidenceOutbox');
     expect(runtimeSource).not.toContain('waitForNextTag');
     expect(runtimeSource).toContain('randomUUID');
@@ -95,7 +96,7 @@ describe('C1 Mobile composition boundary', () => {
     ]) {
       expect(orchestratorSource).not.toContain(forbidden);
     }
-    expect(orchestratorSource).toContain('this.lifecycle.ingest(pending.command)');
+    expect(orchestratorSource).toContain('this.lifecycle.ingest(pending.submission)');
     expect(orchestratorSource).toContain('this.nfcScan.scan()');
     expect(orchestratorSource).not.toContain('waitForNextTag');
     expect(orchestratorSource).toContain('switch (result.decision.status)');

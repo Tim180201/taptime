@@ -59,7 +59,8 @@ GitHub Actions evidence:
 
 - `29340810743` — initial implementation `e0f2898` — eight of eight jobs passed;
 - `29341021239` — documented initial governance HEAD `dea043f` — eight of eight jobs passed;
-- `29343959552` — corrective implementation `2ff3991` — eight of eight jobs passed.
+- `29343959552` — corrective implementation `2ff3991` — eight of eight jobs passed;
+- `29344464075` — E1 closure-publication commit `9f2f922` — eight of eight jobs passed.
 
 ## 4. Accepted limitations
 

@@ -18,15 +18,19 @@ import {
   customerAssignmentTarget,
   type BusinessEngineDecision,
   type BusinessEngineEscalationReason,
+  type MembershipId,
   type StartedTimeEntry,
   type WorkEvent,
 } from '@taptime/core';
 import type { Pool, PoolClient, QueryResult, QueryResultRow } from 'pg';
 import type {
   B6WriteStage,
+  DurableDeferredLifecycleIngestionResult,
+  DeferredLifecycleIngestionResult,
   LifecycleIngestionCommand,
   LifecycleIngestionControls,
   LifecycleIngestionResult,
+  NonDurableDeferredLifecycleIngestionResult,
   PersistedLifecycleDecision,
 } from './types.js';
 
@@ -119,9 +123,45 @@ export class ServerCanonicalLifecycleIngestionCoordinator {
 
   async ingest(
     command: LifecycleIngestionCommand,
+    expectedMembershipId?: MembershipId,
     controls: LifecycleIngestionControls = {},
   ): Promise<LifecycleIngestionResult> {
+    return this.ingestWithPolicy(command, 'canonical', expectedMembershipId, controls);
+  }
+
+  async ingestDeferred(
+    command: LifecycleIngestionCommand,
+    expectedMembershipId: MembershipId,
+    controls: LifecycleIngestionControls = {},
+  ): Promise<DeferredLifecycleIngestionResult> {
+    return this.ingestWithPolicy(command, 'defer_only', expectedMembershipId, controls);
+  }
+
+  private ingestWithPolicy(
+    command: LifecycleIngestionCommand,
+    policy: 'canonical',
+    expectedMembershipId: MembershipId | undefined,
+    controls: LifecycleIngestionControls,
+  ): Promise<LifecycleIngestionResult>;
+
+  private ingestWithPolicy(
+    command: LifecycleIngestionCommand,
+    policy: 'defer_only',
+    expectedMembershipId: MembershipId,
+    controls: LifecycleIngestionControls,
+  ): Promise<DeferredLifecycleIngestionResult>;
+
+  private async ingestWithPolicy(
+    command: LifecycleIngestionCommand,
+    policy: 'canonical' | 'defer_only',
+    expectedMembershipId: MembershipId | undefined,
+    controls: LifecycleIngestionControls,
+  ): Promise<LifecycleIngestionResult | DeferredLifecycleIngestionResult> {
     validateCommand(command);
+    validateExpectedMembershipId(expectedMembershipId, policy);
+    if (policy === 'defer_only' && command.receipt.attemptNumber !== 1) {
+      throw new TypeError('Deferred lifecycle receipt attemptNumber must be exactly 1');
+    }
 
     const verification = await this.accessTokenVerifier.verify(command.accessToken);
     if (verification.status === 'rejected') {
@@ -153,6 +193,11 @@ export class ServerCanonicalLifecycleIngestionCoordinator {
         transactionOpen = false;
         return { status: 'rejected', reason: 'identity_or_membership_unavailable' };
       }
+      if (expectedMembershipId !== undefined && actor.membership_id !== expectedMembershipId) {
+        await rollback(client);
+        transactionOpen = false;
+        return { status: 'rejected', reason: 'identity_or_membership_unavailable' };
+      }
       if (actor.organization_id !== command.requestedOrganizationId) {
         await rollback(client);
         transactionOpen = false;
@@ -173,7 +218,7 @@ export class ServerCanonicalLifecycleIngestionCoordinator {
       if (configuration === null || !configurationMatches(configuration, command)) {
         await rollback(client);
         transactionOpen = false;
-        return { status: 'deferred', reason: 'configuration_unavailable_or_inactive' };
+        return nonDurableDeferredResult();
       }
 
       const workEvent = toAuthoritativeWorkEvent(command, actor, configuration);
@@ -196,10 +241,31 @@ export class ServerCanonicalLifecycleIngestionCoordinator {
           return { status: 'conflict', reason: 'work_event_content_conflict' };
         }
         const persisted = await findPersistedDecision(client, workEvent);
+        if (policy === 'defer_only' && persisted !== null) {
+          await rollback(client);
+          transactionOpen = false;
+          return { status: 'conflict', reason: 'receipt_metadata_conflict' };
+        }
         if (persisted === null) {
+          const receiptResult = await ensureDeferredReceipt(
+            client,
+            command,
+            workEvent,
+            policy === 'canonical' || configurationIsCurrentlyActive(configuration),
+          );
+          if (receiptResult === 'conflict') {
+            await rollback(client);
+            transactionOpen = false;
+            return { status: 'conflict', reason: 'receipt_metadata_conflict' };
+          }
+          if (receiptResult === 'unavailable') {
+            await rollback(client);
+            transactionOpen = false;
+            return nonDurableDeferredResult();
+          }
           await query(client, 'COMMIT');
           transactionOpen = false;
-          return { status: 'deferred', reason: 'configuration_unavailable_or_inactive' };
+          return durableDeferredResult(command, true);
         }
         const receiptResult = await ensureRetryReceipt(
           client,
@@ -217,6 +283,38 @@ export class ServerCanonicalLifecycleIngestionCoordinator {
         return synchronizedResult(command, persisted, true);
       }
 
+      if (policy === 'defer_only') {
+        if (!configurationIsCurrentlyActive(configuration)) {
+          await rollback(client);
+          transactionOpen = false;
+          return nonDurableDeferredResult();
+        }
+        const inserted = await insertWorkEvent(client, workEvent, contentHash);
+        if (!inserted) {
+          await rollback(client);
+          transactionOpen = false;
+          return { status: 'conflict', reason: 'work_event_content_conflict' };
+        }
+        await afterWrite('work_event', controls);
+
+        if (!await insertDeferredReceipt(client, command, workEvent)) {
+          await rollback(client);
+          transactionOpen = false;
+          return { status: 'conflict', reason: 'receipt_metadata_conflict' };
+        }
+        await afterWrite('sync_receipt', controls);
+
+        await insertAuditEvent(client, command, workEvent, {
+          eventType: 'LifecycleDeferred',
+          payload: { reason: 'cached_context_requires_review' },
+        });
+        await afterWrite('audit_event', controls);
+
+        await query(client, 'COMMIT');
+        transactionOpen = false;
+        return durableDeferredResult(command, false);
+      }
+
       if (!configurationIsAutomaticallyEvaluable(configuration, command.workEvent.occurredAt)) {
         const inserted = await insertWorkEvent(client, workEvent, contentHash);
         if (!inserted) {
@@ -225,6 +323,12 @@ export class ServerCanonicalLifecycleIngestionCoordinator {
           return { status: 'conflict', reason: 'work_event_content_conflict' };
         }
         await afterWrite('work_event', controls);
+        if (!await insertDeferredReceipt(client, command, workEvent)) {
+          await rollback(client);
+          transactionOpen = false;
+          return { status: 'conflict', reason: 'receipt_metadata_conflict' };
+        }
+        await afterWrite('sync_receipt', controls);
         await insertAuditEvent(client, command, workEvent, {
           eventType: 'LifecycleDeferred',
           payload: { reason: configurationIsCurrentlyActive(configuration)
@@ -234,7 +338,7 @@ export class ServerCanonicalLifecycleIngestionCoordinator {
         await afterWrite('audit_event', controls);
         await query(client, 'COMMIT');
         transactionOpen = false;
-        return { status: 'deferred', reason: 'configuration_unavailable_or_inactive' };
+        return durableDeferredResult(command, false);
       }
 
       const activeTimeEntry = await findActiveTimeEntry(client, actor);
@@ -285,6 +389,18 @@ export class ServerCanonicalLifecycleIngestionCoordinator {
     } finally {
       client.release();
     }
+  }
+}
+
+function validateExpectedMembershipId(
+  expectedMembershipId: MembershipId | undefined,
+  policy: 'canonical' | 'defer_only',
+): void {
+  if (policy === 'defer_only' && expectedMembershipId === undefined) {
+    throw new TypeError('Deferred lifecycle ingestion requires an expected Membership ID');
+  }
+  if (expectedMembershipId !== undefined && !uuidPattern.test(expectedMembershipId)) {
+    throw new TypeError('Expected Membership ID must be a UUID');
   }
 }
 
@@ -695,6 +811,79 @@ async function insertReceipt(
   return result.rowCount === 1;
 }
 
+async function insertDeferredReceipt(
+  client: PoolClient,
+  command: LifecycleIngestionCommand,
+  workEvent: WorkEvent,
+): Promise<boolean> {
+  const result = await query(
+    client,
+    `INSERT INTO taptime_server.sync_receipts (
+       id, organization_id, user_id, target_type, target_customer_id, work_event_id,
+       attempt_number, status, client_time_entry_id
+     ) VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5::uuid, $6::uuid, $7,
+       'received', $8::uuid)
+     ON CONFLICT DO NOTHING`,
+    [
+      command.receipt.id,
+      workEvent.organizationId,
+      workEvent.triggeredBy,
+      workEvent.target.targetType,
+      workEvent.target.targetId,
+      workEvent.id,
+      command.receipt.attemptNumber,
+      command.receipt.clientTimeEntryId ?? null,
+    ],
+  );
+  return result.rowCount === 1;
+}
+
+async function ensureDeferredReceipt(
+  client: PoolClient,
+  command: LifecycleIngestionCommand,
+  workEvent: WorkEvent,
+  allowInsert: boolean,
+): Promise<'accepted' | 'conflict' | 'unavailable'> {
+  const existing = await query<ReceiptRow>(
+    client,
+    `SELECT id, work_event_id, attempt_number, status, server_decision_work_event_id,
+            client_time_entry_id, server_time_entry_id
+     FROM taptime_server.sync_receipts
+     WHERE organization_id = $1::uuid
+       AND user_id = $2::uuid
+       AND (
+         id = $3::uuid
+         OR (work_event_id = $4::uuid AND attempt_number = $5)
+       )`,
+    [
+      workEvent.organizationId,
+      workEvent.triggeredBy,
+      command.receipt.id,
+      workEvent.id,
+      command.receipt.attemptNumber,
+    ],
+  );
+  if (existing.rows.length > 0) {
+    if (existing.rows.length !== 1) {
+      return 'conflict';
+    }
+    const row = existing.rows[0]!;
+    return row.id === command.receipt.id
+      && row.work_event_id === workEvent.id
+      && row.attempt_number === command.receipt.attemptNumber
+      && row.status === 'received'
+      && row.server_decision_work_event_id === null
+      && row.client_time_entry_id === (command.receipt.clientTimeEntryId ?? null)
+      && row.server_time_entry_id === null
+      ? 'accepted'
+      : 'conflict';
+  }
+  if (!allowInsert) {
+    return 'unavailable';
+  }
+  return await insertDeferredReceipt(client, command, workEvent) ? 'accepted' : 'conflict';
+}
+
 async function ensureRetryReceipt(
   client: PoolClient,
   command: LifecycleIngestionCommand,
@@ -863,6 +1052,27 @@ function synchronizedResult(
     workEventId: command.workEvent.id,
     receiptId: command.receipt.id,
     serverTimeEntryId: resultTimeEntryId(decision),
+  };
+}
+
+function durableDeferredResult(
+  command: LifecycleIngestionCommand,
+  idempotentRetry: boolean,
+): DurableDeferredLifecycleIngestionResult {
+  return {
+    status: 'deferred',
+    evidenceStored: true,
+    idempotentRetry,
+    workEventId: command.workEvent.id,
+    receiptId: command.receipt.id,
+  };
+}
+
+function nonDurableDeferredResult(): NonDurableDeferredLifecycleIngestionResult {
+  return {
+    status: 'deferred',
+    evidenceStored: false,
+    reason: 'configuration_unavailable_or_inactive',
   };
 }
 

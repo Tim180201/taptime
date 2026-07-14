@@ -69,6 +69,28 @@ describe('AuthenticatedHttpRequestExecutor', () => {
     expect(body).not.toContain('memory-only-access');
   });
 
+  it('adds only the fixed compare-only Membership header when explicitly requested', async () => {
+    const fetchRequest = vi.fn(async () => Response.json({ accepted: true }));
+    const executor = new AuthenticatedHttpRequestExecutor(
+      new FixedAuthentication(),
+      fetchRequest,
+    );
+    const expectedMembershipId = '10000000-0000-4000-8000-000000000101';
+
+    await executor.post(new URL('https://api.example/v1/lifecycle-events'), '{}', {
+      expectedMembershipId,
+    });
+
+    expect(fetchRequest).toHaveBeenCalledWith(
+      'https://api.example/v1/lifecycle-events',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          'X-TapTime-Expected-Membership-Id': expectedMembershipId,
+        }),
+      }),
+    );
+  });
+
   it.each([429, 500, 503])('maps HTTP %s to a typed transient failure', async (status) => {
     const executor = new AuthenticatedHttpRequestExecutor(
       new FixedAuthentication(),

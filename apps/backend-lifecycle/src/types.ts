@@ -58,14 +58,31 @@ export type LifecycleIngestionResult =
       readonly receiptId: string;
       readonly serverTimeEntryId: TimeEntryId | null;
     }
-  | {
-      readonly status: 'conflict';
-      readonly reason: 'work_event_content_conflict' | 'receipt_metadata_conflict';
-    }
-  | {
-      readonly status: 'deferred';
-      readonly reason: 'configuration_unavailable_or_inactive';
-    }
+  | DurableDeferredLifecycleIngestionResult
+  | NonDurableDeferredLifecycleIngestionResult
+  | LifecycleIngestionConflictResult
+  | LifecycleIngestionRejectionResult;
+
+export interface DurableDeferredLifecycleIngestionResult {
+  readonly status: 'deferred';
+  readonly evidenceStored: true;
+  readonly idempotentRetry: boolean;
+  readonly workEventId: WorkEventId;
+  readonly receiptId: string;
+}
+
+export interface NonDurableDeferredLifecycleIngestionResult {
+  readonly status: 'deferred';
+  readonly evidenceStored: false;
+  readonly reason: 'configuration_unavailable_or_inactive';
+}
+
+export interface LifecycleIngestionConflictResult {
+  readonly status: 'conflict';
+  readonly reason: 'work_event_content_conflict' | 'receipt_metadata_conflict';
+}
+
+export type LifecycleIngestionRejectionResult =
   | {
       readonly status: 'rejected';
       readonly reason: 'access_token_rejected';
@@ -79,6 +96,12 @@ export type LifecycleIngestionResult =
       readonly status: 'rejected';
       readonly reason: 'requested_organization_mismatch';
     };
+
+export type DeferredLifecycleIngestionResult =
+  | DurableDeferredLifecycleIngestionResult
+  | NonDurableDeferredLifecycleIngestionResult
+  | LifecycleIngestionConflictResult
+  | LifecycleIngestionRejectionResult;
 
 export type B6WriteStage =
   | 'work_event'

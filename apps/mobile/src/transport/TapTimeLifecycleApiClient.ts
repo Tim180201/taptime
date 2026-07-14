@@ -8,6 +8,7 @@ import type {
   LifecycleEventApiPort,
   LifecycleEventCommand,
   LifecycleEventResult,
+  LifecycleEventSubmission,
   ServerLifecycleDecision,
 } from './contracts';
 import {
@@ -30,17 +31,25 @@ const escalationReasons = new Set<BusinessEngineEscalationReason>([
 ]);
 
 export class TapTimeLifecycleApiClient implements LifecycleEventApiPort {
-  private readonly endpoint: URL;
+  private readonly canonicalEndpoint: URL;
+  private readonly deferredEndpoint: URL;
 
   constructor(baseUrl: string, private readonly request: AuthenticatedJsonPostPort) {
-    this.endpoint = new URL('v1/lifecycle-events', withTrailingSlash(baseUrl));
+    const normalizedBaseUrl = withTrailingSlash(baseUrl);
+    this.canonicalEndpoint = new URL('v1/lifecycle-events', normalizedBaseUrl);
+    this.deferredEndpoint = new URL('v1/lifecycle-events/deferred', normalizedBaseUrl);
   }
 
-  async ingest(command: LifecycleEventCommand): Promise<LifecycleEventResult> {
-    if (!isValidCommand(command)) {
+  async ingest(submission: LifecycleEventSubmission): Promise<LifecycleEventResult> {
+    if (!isValidSubmission(submission)) {
       return { status: 'unavailable' };
     }
-    const response = await this.request.post(this.endpoint, serializeCommand(command));
+    const command = submission.command;
+    const response = await this.request.post(
+      submission.mode === 'canonical' ? this.canonicalEndpoint : this.deferredEndpoint,
+      serializeCommand(command),
+      { expectedMembershipId: submission.expectedMembershipId },
+    );
     if (response.status !== 'response') {
       return response;
     }
@@ -52,11 +61,7 @@ export class TapTimeLifecycleApiClient implements LifecycleEventApiPort {
       return { status: 'unavailable' };
     }
     if (response.statusCode === 202) {
-      return hasExactKeys(body, ['reason', 'status'])
-        && body.status === 'deferred'
-        && body.reason === 'configuration_unavailable_or_inactive'
-        ? { status: 'deferred', reason: body.reason }
-        : { status: 'unavailable' };
+      return parseDeferredResult(body, command);
     }
     if (response.statusCode === 409) {
       return hasExactKeys(body, ['reason', 'status'])
@@ -69,8 +74,17 @@ export class TapTimeLifecycleApiClient implements LifecycleEventApiPort {
     if (response.statusCode !== 200) {
       return { status: 'unavailable' };
     }
+    if (submission.mode === 'defer_only') {
+      return { status: 'unavailable' };
+    }
     return parseSynchronizedResult(body, command);
   }
+}
+
+function isValidSubmission(submission: LifecycleEventSubmission): boolean {
+  return (submission.mode === 'canonical' || submission.mode === 'defer_only')
+    && isUuid(submission.expectedMembershipId)
+    && isValidCommand(submission.command);
 }
 
 function isValidCommand(command: LifecycleEventCommand): boolean {
@@ -109,6 +123,47 @@ function serializeCommand(command: LifecycleEventCommand): string {
         : { clientTimeEntryId: command.receipt.clientTimeEntryId }),
     },
   });
+}
+
+function parseDeferredResult(
+  body: Record<string, unknown>,
+  command: LifecycleEventCommand,
+): LifecycleEventResult {
+  if (
+    hasExactKeys(body, [
+      'evidenceStored',
+      'idempotentRetry',
+      'receiptId',
+      'status',
+      'workEventId',
+    ])
+    && body.status === 'deferred'
+    && body.evidenceStored === true
+    && typeof body.idempotentRetry === 'boolean'
+    && body.workEventId === command.workEvent.id
+    && body.receiptId === command.receipt.id
+  ) {
+    return {
+      status: 'deferred',
+      evidenceStored: true,
+      idempotentRetry: body.idempotentRetry,
+      workEventId: WorkEventId(command.workEvent.id),
+      receiptId: command.receipt.id,
+    };
+  }
+  if (
+    hasExactKeys(body, ['evidenceStored', 'reason', 'status'])
+    && body.status === 'deferred'
+    && body.evidenceStored === false
+    && body.reason === 'configuration_unavailable_or_inactive'
+  ) {
+    return {
+      status: 'deferred',
+      evidenceStored: false,
+      reason: body.reason,
+    };
+  }
+  return { status: 'unavailable' };
 }
 
 function parseSynchronizedResult(

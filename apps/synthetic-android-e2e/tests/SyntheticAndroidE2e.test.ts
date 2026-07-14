@@ -310,6 +310,77 @@ describeWithPostgres('synthetic Android product-to-server E2E', () => {
       expect(diagnostics).not.toContain(tagB);
       expect(diagnostics).not.toContain(token);
     });
+
+  it('stores defer-only evidence with no canonical Decision or TimeEntry mutation', async () => {
+    const provider = mobileAuthAdapter(environment);
+    const signIn = await provider.signInWithPassword(SYNTHETIC_AUTH_EMAIL, syntheticPassword);
+    if (signIn.status !== 'authenticated') {
+      throw new Error('Synthetic sign-in unexpectedly failed');
+    }
+    const tagA = createNfcPayload('nfc:uid:v1:04A1B2C3');
+    let contextResponse = await resolveScanContext(signIn.tokens.accessToken, tagA);
+    if (contextResponse.status === 404) {
+      environment.armTagA(fingerprint(tagA));
+      expect((await resolveScanContext(signIn.tokens.accessToken, tagA)).status).toBe(404);
+      contextResponse = await resolveScanContext(signIn.tokens.accessToken, tagA);
+    }
+    expect(contextResponse.status).toBe(200);
+    const context = await contextResponse.json() as {
+      assignmentId: string;
+      nfcTagId: string;
+      target: { targetType: 'customer'; targetId: string };
+    };
+    const before = await environment.evidenceCounts();
+    const evidence = lifecycleBody(context, new Date(Date.now() + 10_000), 3);
+
+    const response = await postDeferredLifecycle(signIn.tokens.accessToken, evidence);
+    expect(response.status).toBe(202);
+    await expect(response.json()).resolves.toEqual({
+      status: 'deferred',
+      evidenceStored: true,
+      idempotentRetry: false,
+      workEventId: evidence.workEvent.id,
+      receiptId: evidence.receipt.id,
+    });
+    const retry = await postDeferredLifecycle(signIn.tokens.accessToken, evidence);
+    expect(retry.status).toBe(202);
+    await expect(retry.json()).resolves.toMatchObject({
+      status: 'deferred',
+      evidenceStored: true,
+      idempotentRetry: true,
+    });
+
+    expect(await environment.evidenceCounts()).toEqual({
+      auditEvents: before.auditEvents + 1,
+      canonicalDecisions: before.canonicalDecisions,
+      nfcAssignments: before.nfcAssignments,
+      nfcTags: before.nfcTags,
+      stoppedTimeEntries: before.stoppedTimeEntries,
+      syncReceipts: before.syncReceipts + 1,
+      timeEntries: before.timeEntries,
+      workEvents: before.workEvents + 1,
+    });
+    const stored = await installerPool.query<{
+      decision_count: string;
+      receipt_status: string;
+      time_entry_count: string;
+    }>(
+      `SELECT receipt.status AS receipt_status,
+              (SELECT count(*)::text FROM taptime_server.canonical_decisions
+               WHERE work_event_id = $1::uuid) AS decision_count,
+              (SELECT count(*)::text FROM taptime_server.time_entries
+               WHERE start_work_event_id = $1::uuid OR stop_work_event_id = $1::uuid)
+                AS time_entry_count
+       FROM taptime_server.sync_receipts AS receipt
+       WHERE receipt.work_event_id = $1::uuid`,
+      [evidence.workEvent.id],
+    );
+    expect(stored.rows).toEqual([{
+      receipt_status: 'received',
+      decision_count: '0',
+      time_entry_count: '0',
+    }]);
+  });
 });
 
 function mobileAuthAdapter(environment: SyntheticAndroidE2eEnvironment) {
@@ -371,6 +442,18 @@ function postLifecycle(accessToken: string, body: unknown): Promise<Response> {
     headers: {
       authorization: `Bearer ${accessToken}`,
       'content-type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+}
+
+function postDeferredLifecycle(accessToken: string, body: unknown): Promise<Response> {
+  return fetch(`${environmentUrl()}/v1/lifecycle-events/deferred`, {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${accessToken}`,
+      'content-type': 'application/json',
+      'x-taptime-expected-membership-id': syntheticIds.membership,
     },
     body: JSON.stringify(body),
   });

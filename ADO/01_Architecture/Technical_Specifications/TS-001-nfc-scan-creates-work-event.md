@@ -6,10 +6,11 @@ Related Feature Blueprint: FB-001
 Epic: EP-007 – Product Architecture Foundation  
 Owner: Technical Lead  
 Approval Authority: Human Architect  
-Last Updated: 2026-07-13
+Last Updated: 2026-07-14
 Engine Decision Amendment: Approved by Human Architect, 2026-07-13
+Offline Authority Amendment: Approved for E2A by Human Architect, 2026-07-14
 Related Architecture: `ADO/01_Architecture/Technical_Architecture_Profile.md`  
-Related ADRs: ADR-0002, ADR-0003, ADR-0004, ADR-0005, ADR-0006, ADR-0007  
+Related ADRs: ADR-0002, ADR-0003, ADR-0004, ADR-0005, ADR-0006, ADR-0007, ADR-0008, ADR-0009, ADR-0010
 Related Development Tasks: `ADO/02_Development/EP-007_Development_Tasks.md`
 
 ## Purpose
@@ -58,7 +59,9 @@ NFC Scan
 - Business Engine owns business decisions.
 - Domain layer is independent from UI, NFC libraries and persistence APIs.
 - Persistence stores state but does not define product behavior.
-- Synchronization preserves local evidence until success or conflict handling.
+- Synchronization preserves local evidence until an exact synchronized or durable-deferred server
+  acknowledgement. Conflict, authority rejection and non-durable deferral retain protected evidence
+  for explicit reconciliation.
 
 ## Runtime Behaviour
 
@@ -78,13 +81,20 @@ NFC Scan
 ### Offline Flow
 
 1. Employee scans NFC tag.
-2. Local assignment data is used.
-3. WorkEvent is created if local rules allow.
-4. Business Engine derives local result.
-5. Records are stored locally.
-6. OfflineQueue marks pending sync.
-7. SynchronizationService retries later.
-8. UI displays local confirmation with pending state.
+2. Product Mobile first attempts current authenticated server scan-context resolution.
+3. E2A may use one volatile context previously resolved in the exact same authenticated session only
+   after a transient transport failure and an exact payload/session match.
+4. Mobile creates immutable candidate WorkEvent evidence but derives no local lifecycle result.
+5. The exact command is durably stored before transmission and remains bound to User, Organization
+   and Membership.
+6. A dedicated server path compares the expected Membership with current server authority and
+   requires an exact active current Assignment/Customer configuration before storing cached-context
+   evidence as deferred, without invoking a new Business Engine decision or mutating TimeEntry.
+7. Mobile removes local evidence only after an exact durable server acknowledgement.
+8. UI displays server-review-pending state and never a provisional Start/Stop confirmation.
+
+Cold-start offline identity, persisted configuration cache, multiple queued events and automatic
+offline lifecycle decisions are not part of E2A and require separate authorization.
 
 ### Rejection Flow
 

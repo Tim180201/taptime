@@ -13,9 +13,11 @@ import {
 } from '@taptime/core';
 import type { NfcCaptureLifecyclePort, NfcCapabilityState } from '../../src/nfc/RnNfcScanAdapter';
 import { ProductScanOrchestrator } from '../../src/scan/ProductScanOrchestrator';
+import { SessionBoundScanContextResolver } from '../../src/scan/SessionBoundScanContextResolver';
 import type {
   LifecycleEvidenceOutbox,
   PendingLifecycleEvidence,
+  StoredLifecycleEvidence,
 } from '../../src/scan/LifecycleEvidenceOutbox';
 import type {
   ProductScanSessionContextReader,
@@ -25,6 +27,7 @@ import type {
   LifecycleEventApiPort,
   LifecycleEventCommand,
   LifecycleEventResult,
+  LifecycleEventSubmission,
   ScanContextApiPort,
   ScanContextResolutionCommand,
   ScanContextResolutionResult,
@@ -161,28 +164,32 @@ class FakeScanContext implements ScanContextApiPort {
 }
 
 class FakeLifecycle implements LifecycleEventApiPort {
-  readonly commands: LifecycleEventCommand[] = [];
-  implementation: (command: LifecycleEventCommand) => Promise<LifecycleEventResult> =
+  readonly submissions: LifecycleEventSubmission[] = [];
+  implementation: (submission: LifecycleEventSubmission) => Promise<LifecycleEventResult> =
     async () => startedResult;
 
-  async ingest(command: LifecycleEventCommand): Promise<LifecycleEventResult> {
-    this.commands.push(command);
-    return this.implementation(command);
+  get commands(): LifecycleEventCommand[] {
+    return this.submissions.map(({ command }) => command);
+  }
+
+  async ingest(submission: LifecycleEventSubmission): Promise<LifecycleEventResult> {
+    this.submissions.push(submission);
+    return this.implementation(submission);
   }
 }
 
 class FakeOutbox implements LifecycleEvidenceOutbox {
-  evidence: PendingLifecycleEvidence | null = null;
+  evidence: StoredLifecycleEvidence | null = null;
   readError: unknown = null;
   writeError: unknown = null;
   clearError: unknown = null;
-  readImplementation: (() => Promise<PendingLifecycleEvidence | null>) | null = null;
+  readImplementation: (() => Promise<StoredLifecycleEvidence | null>) | null = null;
   readCalls = 0;
   writeCalls = 0;
   clearCalls = 0;
   onWrite: () => void = () => undefined;
 
-  async read(): Promise<PendingLifecycleEvidence | null> {
+  async read(): Promise<StoredLifecycleEvidence | null> {
     this.readCalls += 1;
     if (this.readError !== null) {
       throw this.readError;
@@ -229,7 +236,7 @@ function setup(outbox = new FakeOutbox()) {
   const orchestrator = new ProductScanOrchestrator(
     nfc,
     nfc,
-    scanContext,
+    new SessionBoundScanContextResolver(scanContext),
     lifecycle,
     session,
     createUuid,
@@ -241,6 +248,15 @@ function setup(outbox = new FakeOutbox()) {
 async function startReady(context: ReturnType<typeof setup>): Promise<void> {
   await context.orchestrator.start();
   expect(context.orchestrator.getState()).toEqual({ status: 'ready', outcome: null });
+}
+
+function requireReplayable(
+  evidence: StoredLifecycleEvidence | null,
+): PendingLifecycleEvidence {
+  if (evidence?.kind !== 'replayable') {
+    throw new Error('Expected replayable lifecycle evidence');
+  }
+  return evidence;
 }
 
 describe('ProductScanOrchestrator (Block D)', () => {
@@ -284,6 +300,10 @@ describe('ProductScanOrchestrator (Block D)', () => {
         attemptNumber: 1,
       },
     }]);
+    expect(context.lifecycle.submissions[0]).toMatchObject({
+      mode: 'canonical',
+      expectedMembershipId: sessionA.session.membershipId,
+    });
     expect(context.createUuid).toHaveBeenCalledTimes(2);
     expect(context.outbox.writeCalls).toBe(1);
     expect(context.outbox.clearCalls).toBe(1);
@@ -387,14 +407,85 @@ describe('ProductScanOrchestrator (Block D)', () => {
       },
       serverTimeEntryId: null,
     }, 'escalation_required'],
-    [{ status: 'deferred', reason: 'configuration_unavailable_or_inactive' }, 'deferred'],
-    [{ status: 'conflict', reason: 'work_event_content_conflict' }, 'conflict'],
   ] as const)('maps the exact server result to presentation %s without local lifecycle choice', async (result, outcome) => {
     const context = setup();
     context.lifecycle.implementation = async () => result;
     await startReady(context);
     await context.orchestrator.scan();
     expect(context.orchestrator.getState()).toEqual({ status: 'ready', outcome: { status: outcome } });
+  });
+
+  it('clears exact durable deferred evidence and publishes only server-review pending', async () => {
+    const context = setup();
+    context.lifecycle.implementation = async () => ({
+      status: 'deferred',
+      evidenceStored: true,
+      idempotentRetry: false,
+      workEventId: WorkEventId('60000000-0000-4000-8000-000000000101'),
+      receiptId: '70000000-0000-4000-8000-000000000101',
+    });
+    await startReady(context);
+    await context.orchestrator.scan();
+    expect(context.outbox.evidence).toBeNull();
+    expect(context.orchestrator.getState()).toEqual({
+      status: 'ready', outcome: { status: 'server_review_pending' },
+    });
+  });
+
+  it('routes an exact same-session cached context only through defer-only submission', async () => {
+    const context = setup();
+    context.lifecycle.implementation = vi.fn()
+      .mockResolvedValueOnce(startedResult)
+      .mockResolvedValueOnce({
+        status: 'deferred',
+        evidenceStored: true,
+        idempotentRetry: false,
+        workEventId: WorkEventId('60000000-0000-4000-8000-000000000102'),
+        receiptId: '70000000-0000-4000-8000-000000000102',
+      });
+    await startReady(context);
+    await context.orchestrator.scan();
+    context.scanContext.implementation = async () => ({ status: 'transient_failure' });
+
+    await context.orchestrator.scan();
+
+    expect(context.lifecycle.submissions.map(({ mode }) => mode)).toEqual([
+      'canonical',
+      'defer_only',
+    ]);
+    expect(context.lifecycle.submissions[1]?.expectedMembershipId).toBe(
+      sessionA.session.membershipId,
+    );
+    expect(context.orchestrator.getState()).toEqual({
+      status: 'ready', outcome: { status: 'server_review_pending' },
+    });
+    expect(context.outbox.evidence).toBeNull();
+  });
+
+  it('retains defer-only evidence and suppresses a faulty synchronized adapter result', async () => {
+    const context = setup();
+    context.lifecycle.implementation = vi.fn()
+      .mockResolvedValueOnce(startedResult)
+      .mockResolvedValueOnce({
+        status: 'synchronized',
+        idempotentRetry: false,
+        decision: {
+          status: 'time_entry_stopped',
+          timeEntryId: TimeEntryId('50000000-0000-4000-8000-000000000101'),
+        },
+        workEventId: WorkEventId('60000000-0000-4000-8000-000000000102'),
+        receiptId: '70000000-0000-4000-8000-000000000102',
+        serverTimeEntryId: TimeEntryId('50000000-0000-4000-8000-000000000101'),
+      });
+    await startReady(context);
+    await context.orchestrator.scan();
+    context.scanContext.implementation = async () => ({ status: 'transient_failure' });
+
+    await context.orchestrator.scan();
+
+    expect(context.lifecycle.submissions[1]?.mode).toBe('defer_only');
+    expect(context.orchestrator.getState()).toEqual({ status: 'retry_pending' });
+    expect(context.outbox.evidence).not.toBeNull();
   });
 
   it('coalesces rapid presses into one capture and one immutable evidence set', async () => {
@@ -446,8 +537,7 @@ describe('ProductScanOrchestrator (Block D)', () => {
     beforeRestart.lifecycle.implementation = async () => ({ status: 'unavailable' });
     await startReady(beforeRestart);
     await beforeRestart.orchestrator.scan();
-    const stored = outbox.evidence;
-    expect(stored).not.toBeNull();
+    const stored = requireReplayable(outbox.evidence);
     expect(beforeRestart.orchestrator.getState()).toEqual({ status: 'retry_pending' });
     await beforeRestart.orchestrator.stop();
 
@@ -457,7 +547,7 @@ describe('ProductScanOrchestrator (Block D)', () => {
     expect(afterRestart.orchestrator.getState()).toEqual({ status: 'retry_pending' });
     await afterRestart.orchestrator.retry();
 
-    expect(afterRestart.lifecycle.commands).toEqual([stored!.command]);
+    expect(afterRestart.lifecycle.commands).toEqual([stored.submission.command]);
     expect(afterRestart.lifecycle.commands[0]!.receipt.attemptNumber).toBe(1);
     expect(outbox.evidence).toBeNull();
     expect(afterRestart.orchestrator.getState()).toEqual({
@@ -476,7 +566,9 @@ describe('ProductScanOrchestrator (Block D)', () => {
     const other = setup(outbox);
     other.session.replace(sessionB);
     await other.orchestrator.start();
-    expect(other.orchestrator.getState()).toEqual({ status: 'protected_pending' });
+    expect(other.orchestrator.getState()).toEqual({
+      status: 'protected_pending', reason: 'identity_mismatch',
+    });
     await other.orchestrator.retry();
     await other.orchestrator.scan();
     expect(other.lifecycle.commands).toEqual([]);
@@ -484,9 +576,64 @@ describe('ProductScanOrchestrator (Block D)', () => {
     expect(outbox.evidence).not.toBeNull();
   });
 
+  it('protects version-1 Membership-unknown evidence without replay or rebinding', async () => {
+    const outbox = new FakeOutbox();
+    const owner = setup(outbox);
+    owner.lifecycle.implementation = async () => ({ status: 'transient_failure' });
+    await startReady(owner);
+    await owner.orchestrator.scan();
+    const pending = requireReplayable(outbox.evidence);
+    await owner.orchestrator.stop();
+    outbox.evidence = Object.freeze({
+      kind: 'protected_v1' as const,
+      binding: Object.freeze({
+        organizationId: pending.binding.organizationId,
+        userId: pending.binding.userId,
+      }),
+      command: pending.submission.command,
+    });
+
+    const restarted = setup(outbox);
+    await restarted.orchestrator.start();
+    expect(restarted.orchestrator.getState()).toEqual({
+      status: 'protected_pending', reason: 'legacy_membership_unknown',
+    });
+    await restarted.orchestrator.retry();
+    await restarted.orchestrator.scan();
+    expect(restarted.lifecycle.submissions).toEqual([]);
+    expect(restarted.nfc.scanCalls).toBe(0);
+    expect(outbox.evidence?.kind).toBe('protected_v1');
+  });
+
+  it('protects pending evidence from a replacement Membership for the same User and Organization',
+    async () => {
+      const outbox = new FakeOutbox();
+      const owner = setup(outbox);
+      owner.lifecycle.implementation = async () => ({ status: 'transient_failure' });
+      await startReady(owner);
+      await owner.orchestrator.scan();
+      await owner.orchestrator.stop();
+
+      const replacement = setup(outbox);
+      replacement.session.replace(Object.freeze({
+        generation: 2,
+        session: Object.freeze({
+          ...sessionA.session,
+          membershipId: '12000000-0000-4000-8000-000000000303',
+        }),
+      }));
+      await replacement.orchestrator.start();
+      expect(replacement.orchestrator.getState()).toEqual({
+        status: 'protected_pending', reason: 'identity_mismatch',
+      });
+      await replacement.orchestrator.retry();
+      expect(replacement.lifecycle.submissions).toEqual([]);
+      expect(outbox.evidence).not.toBeNull();
+    });
+
   it('finishes durable recovery before a concurrent session can activate NFC', async () => {
     const outbox = new FakeOutbox();
-    const recovery = deferred<PendingLifecycleEvidence | null>();
+    const recovery = deferred<StoredLifecycleEvidence | null>();
     outbox.readImplementation = () => recovery.promise;
     const context = setup(outbox);
     const start = context.orchestrator.start();
@@ -500,7 +647,9 @@ describe('ProductScanOrchestrator (Block D)', () => {
     recovery.resolve(owner.outbox.evidence);
     await start;
 
-    expect(context.orchestrator.getState()).toEqual({ status: 'protected_pending' });
+    expect(context.orchestrator.getState()).toEqual({
+      status: 'protected_pending', reason: 'identity_mismatch',
+    });
     expect(context.nfc.capabilityCalls).toBe(0);
   });
 
@@ -515,8 +664,8 @@ describe('ProductScanOrchestrator (Block D)', () => {
       expect(staleEvidence).not.toBeNull();
 
       const outbox = new FakeOutbox();
-      const firstRead = deferred<PendingLifecycleEvidence | null>();
-      const secondRead = deferred<PendingLifecycleEvidence | null>();
+      const firstRead = deferred<StoredLifecycleEvidence | null>();
+      const secondRead = deferred<StoredLifecycleEvidence | null>();
       let readNumber = 0;
       outbox.readImplementation = () => (readNumber++ === 0 ? firstRead.promise : secondRead.promise);
       const context = setup(outbox);
@@ -578,18 +727,27 @@ describe('ProductScanOrchestrator (Block D)', () => {
     context.outbox.clearError = new Error('synthetic secure-store clear failure');
     await startReady(context);
     await context.orchestrator.scan();
-    const stored = context.outbox.evidence;
-    expect(stored).not.toBeNull();
+    const stored = requireReplayable(context.outbox.evidence);
     expect(context.orchestrator.getState()).toEqual({ status: 'retry_pending' });
     context.outbox.clearError = null;
     await context.orchestrator.retry();
-    expect(context.lifecycle.commands).toEqual([stored!.command, stored!.command]);
+    expect(context.lifecycle.commands).toEqual([
+      stored.submission.command,
+      stored.submission.command,
+    ]);
     expect(context.outbox.evidence).toBeNull();
   });
 
   it.each([
     { status: 'transient_failure' },
     { status: 'unavailable' },
+    { status: 'authority_rejected' },
+    { status: 'conflict', reason: 'work_event_content_conflict' },
+    {
+      status: 'deferred',
+      evidenceStored: false,
+      reason: 'configuration_unavailable_or_inactive',
+    },
   ] as const)('treats lifecycle %s as ambiguous and blocks a new scan', async (result) => {
     const context = setup();
     context.lifecycle.implementation = async () => result;
@@ -598,6 +756,7 @@ describe('ProductScanOrchestrator (Block D)', () => {
     await context.orchestrator.scan();
     expect(context.orchestrator.getState()).toEqual({ status: 'retry_pending' });
     expect(context.nfc.scanCalls).toBe(1);
+    expect(context.outbox.evidence).not.toBeNull();
   });
 
   it('cancels capture on session replacement and never submits a late old-session tag', async () => {
@@ -687,6 +846,7 @@ describe('ProductScanOrchestrator (Block D)', () => {
     await operation;
     await vi.waitFor(() => expect(context.orchestrator.getState()).toEqual({
       status: 'protected_pending',
+      reason: 'identity_mismatch',
     }));
     await context.orchestrator.retry();
     expect(context.lifecycle.commands).toHaveLength(1);
@@ -720,7 +880,9 @@ describe('ProductScanOrchestrator (Block D)', () => {
     await context.orchestrator.scan();
     const original = context.lifecycle.commands[0]!;
     context.session.replace(sessionB);
-    await vi.waitFor(() => expect(context.orchestrator.getState()).toEqual({ status: 'protected_pending' }));
+    await vi.waitFor(() => expect(context.orchestrator.getState()).toEqual({
+      status: 'protected_pending', reason: 'identity_mismatch',
+    }));
     await context.orchestrator.retry();
     await context.orchestrator.scan();
     expect(context.lifecycle.commands).toHaveLength(1);

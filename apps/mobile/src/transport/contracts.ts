@@ -1,6 +1,7 @@
 import type {
   AssignmentTarget,
   BusinessEngineEscalationReason,
+  MembershipId,
   NfcAssignmentId,
   NfcTagId,
   OrganizationId,
@@ -53,6 +54,20 @@ export interface LifecycleEventCommand {
   readonly receipt: LifecycleReceiptEvidence;
 }
 
+export type LifecycleSubmissionMode = 'canonical' | 'defer_only';
+
+/**
+ * Private transport submission persisted by the Mobile outbox.
+ *
+ * expectedMembershipId is a compare-only narrowing value. The server still derives every actor,
+ * tenant and role from the authenticated identity and current database state.
+ */
+export interface LifecycleEventSubmission {
+  readonly mode: LifecycleSubmissionMode;
+  readonly expectedMembershipId: MembershipId;
+  readonly command: LifecycleEventCommand;
+}
+
 export type ServerLifecycleDecision =
   | {
       readonly status: 'time_entry_started' | 'time_entry_stopped';
@@ -82,6 +97,14 @@ export type LifecycleEventResult =
     }
   | {
       readonly status: 'deferred';
+      readonly evidenceStored: true;
+      readonly idempotentRetry: boolean;
+      readonly workEventId: WorkEventId;
+      readonly receiptId: string;
+    }
+  | {
+      readonly status: 'deferred';
+      readonly evidenceStored: false;
       readonly reason: 'configuration_unavailable_or_inactive';
     }
   | {
@@ -91,7 +114,7 @@ export type LifecycleEventResult =
   | MobileTransportFailure;
 
 export interface LifecycleEventApiPort {
-  ingest(command: LifecycleEventCommand): Promise<LifecycleEventResult>;
+  ingest(submission: LifecycleEventSubmission): Promise<LifecycleEventResult>;
 }
 
 export interface ProductServerTransport {

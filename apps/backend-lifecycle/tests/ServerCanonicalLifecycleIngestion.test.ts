@@ -10,6 +10,7 @@ import { Pool } from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
   CustomerId,
+  MembershipId,
   NfcAssignmentId,
   NfcTagId,
   OrganizationId,
@@ -700,10 +701,10 @@ describe('idempotency, canonical hash and append-only retries', () => {
   it('returns an identical retry without re-running Core or mutating TimeEntry', async () => {
     const input = await command({ eventNumber: 70, receiptNumber: 70 });
     let evaluations = 0;
-    const first = await coordinator.ingest(input, {
+    const first = await coordinator.ingest(input, undefined, {
       beforeEngineEvaluation: async () => { evaluations += 1; },
     });
-    const retry = await coordinator.ingest(input, {
+    const retry = await coordinator.ingest(input, undefined, {
       beforeEngineEvaluation: async () => { evaluations += 1; },
     });
     expect(retry).toEqual({ ...first, idempotentRetry: true });
@@ -813,7 +814,7 @@ describe('atomic rollback and transaction-scoped serialization', () => {
     'audit_event',
   ])('rolls back completely after injected failure at %s', async (stage) => {
     const input = await command({ eventNumber: 110, receiptNumber: 110 });
-    await expect(coordinator.ingest(input, { failAfter: stage })).rejects.toEqual(
+    await expect(coordinator.ingest(input, undefined, { failAfter: stage })).rejects.toEqual(
       expect.objectContaining({ name: 'InjectedB6Failure', stage }),
     );
     expect(await lifecycleCounts(installerPool)).toEqual({
@@ -832,7 +833,7 @@ describe('atomic rollback and transaction-scoped serialization', () => {
       receiptNumber: 121,
       occurredAt: '2026-07-13T08:00:05.000Z',
     });
-    await expect(coordinator.ingest(stop, { failAfter: 'time_entry' })).rejects.toBeInstanceOf(
+    await expect(coordinator.ingest(stop, undefined, { failAfter: 'time_entry' })).rejects.toBeInstanceOf(
       InjectedB6Failure,
     );
     const state = await installerPool.query(
@@ -858,7 +859,7 @@ describe('atomic rollback and transaction-scoped serialization', () => {
       receiptNumber: 131,
       occurredAt: '2026-07-13T08:00:05.000Z',
     });
-    const first = coordinator.ingest(firstCommand, {
+    const first = coordinator.ingest(firstCommand, undefined, {
       afterAuthorityLocked: async () => {
         locked.resolve();
         await release.promise;
@@ -900,7 +901,7 @@ describe('atomic rollback and transaction-scoped serialization', () => {
 
   it('releases the advisory lock after rollback so the same command can succeed', async () => {
     const input = await command({ eventNumber: 150, receiptNumber: 150 });
-    await expect(coordinator.ingest(input, { failAfter: 'work_event' })).rejects.toBeInstanceOf(
+    await expect(coordinator.ingest(input, undefined, { failAfter: 'work_event' })).rejects.toBeInstanceOf(
       InjectedB6Failure,
     );
     await expect(coordinator.ingest(input)).resolves.toMatchObject({
@@ -1032,6 +1033,7 @@ describe('authority, tenant, User and configuration isolation', () => {
     }));
     expect(result).toEqual({
       status: 'deferred',
+      evidenceStored: false,
       reason: 'configuration_unavailable_or_inactive',
     });
     expect((await lifecycleCounts(installerPool)).work_events).toBe(0);
@@ -1083,6 +1085,7 @@ describe('authority, tenant, User and configuration isolation', () => {
     }));
     expect(result).toEqual({
       status: 'deferred',
+      evidenceStored: false,
       reason: 'configuration_unavailable_or_inactive',
     });
     expect(await lifecycleCounts(installerPool)).toEqual({
@@ -1108,11 +1111,343 @@ describe('authority, tenant, User and configuration isolation', () => {
   });
 });
 
+describe('E2A Membership-bound defer-only lifecycle evidence', () => {
+  it('atomically persists exact durable evidence without running Core or mutating TimeEntry',
+    async () => {
+      const input = await command({
+        eventNumber: 182,
+        receiptNumber: 182,
+        clientTimeEntryId: uuid('6', 982),
+      });
+      let engineEvaluations = 0;
+      const writes: B6WriteStage[] = [];
+      const result = await coordinator.ingestDeferred(
+        input,
+        MembershipId(ids.membershipA),
+        {
+          beforeEngineEvaluation: async () => { engineEvaluations += 1; },
+          afterWrite: async (stage) => { writes.push(stage); },
+        },
+      );
+
+      expect(result).toEqual({
+        status: 'deferred',
+        evidenceStored: true,
+        idempotentRetry: false,
+        workEventId: input.workEvent.id,
+        receiptId: input.receipt.id,
+      });
+      expect(engineEvaluations).toBe(0);
+      expect(writes).toEqual(['work_event', 'sync_receipt', 'audit_event']);
+      expect(await lifecycleCounts(installerPool)).toEqual({
+        work_events: 1,
+        time_entries: 0,
+        canonical_decisions: 0,
+        sync_receipts: 1,
+        audit_events: 1,
+      });
+
+      const persisted = await installerPool.query(
+        `SELECT receipt.id, receipt.status, receipt.attempt_number,
+                receipt.server_decision_work_event_id, receipt.client_time_entry_id,
+                receipt.server_time_entry_id, audit.event_type, audit.payload
+         FROM ${B3_SCHEMA}.sync_receipts AS receipt
+         JOIN ${B3_SCHEMA}.audit_events AS audit
+           ON audit.organization_id = receipt.organization_id
+          AND audit.work_event_user_id = receipt.user_id
+          AND audit.work_event_id = receipt.work_event_id
+         WHERE receipt.work_event_id = $1`,
+        [input.workEvent.id],
+      );
+      expect(persisted.rows).toEqual([{
+        id: input.receipt.id,
+        status: 'received',
+        attempt_number: 1,
+        server_decision_work_event_id: null,
+        client_time_entry_id: input.receipt.clientTimeEntryId,
+        server_time_entry_id: null,
+        event_type: 'LifecycleDeferred',
+        payload: { reason: 'cached_context_requires_review' },
+      }]);
+    });
+
+  it('returns an exact idempotent durable acknowledgement without duplicate evidence', async () => {
+    const input = await command({ eventNumber: 183, receiptNumber: 183 });
+    const first = await coordinator.ingestDeferred(input, MembershipId(ids.membershipA));
+    const retry = await coordinator.ingestDeferred(input, MembershipId(ids.membershipA));
+
+    expect(retry).toEqual({ ...first, idempotentRetry: true });
+    expect(await lifecycleCounts(installerPool)).toEqual({
+      work_events: 1,
+      time_entries: 0,
+      canonical_decisions: 0,
+      sync_receipts: 1,
+      audit_events: 1,
+    });
+  });
+
+  it('replays an exact durable acknowledgement after configuration deactivation', async () => {
+    const input = await command({ eventNumber: 198, receiptNumber: 198 });
+    const first = await coordinator.ingestDeferred(input, MembershipId(ids.membershipA));
+    await installerPool.query(
+      `UPDATE ${B3_SCHEMA}.nfc_assignments
+       SET active = false, valid_to = transaction_timestamp(), row_version = row_version + 1
+       WHERE id = $1`,
+      [ids.assignmentA],
+    );
+
+    await expect(coordinator.ingestDeferred(
+      input,
+      MembershipId(ids.membershipA),
+    )).resolves.toEqual({ ...first, idempotentRetry: true });
+    expect(await lifecycleCounts(installerPool)).toEqual({
+      work_events: 1,
+      time_entries: 0,
+      canonical_decisions: 0,
+      sync_receipts: 1,
+      audit_events: 1,
+    });
+  });
+
+  it('rejects the same attempt with another Receipt ID as an exact receipt conflict', async () => {
+    const input = await command({ eventNumber: 184, receiptNumber: 184 });
+    await coordinator.ingestDeferred(input, MembershipId(ids.membershipA));
+    await expect(coordinator.ingestDeferred(
+      { ...input, receipt: { id: uuid('6', 185), attemptNumber: 1 } },
+      MembershipId(ids.membershipA),
+    )).resolves.toEqual({ status: 'conflict', reason: 'receipt_metadata_conflict' });
+    expect((await lifecycleCounts(installerPool)).sync_receipts).toBe(1);
+  });
+
+  it('rejects any defer-only attempt other than the fixed first attempt before persistence',
+    async () => {
+      const input = await command({ eventNumber: 185, receiptNumber: 185, attemptNumber: 2 });
+      await expect(coordinator.ingestDeferred(
+        input,
+        MembershipId(ids.membershipA),
+      )).rejects.toThrow('attemptNumber must be exactly 1');
+      expect((await lifecycleCounts(installerPool)).work_events).toBe(0);
+    });
+
+  it('rejects changed content without altering the durable deferred evidence', async () => {
+    const deferredInput = await command({ eventNumber: 186, receiptNumber: 186 });
+    await coordinator.ingestDeferred(deferredInput, MembershipId(ids.membershipA));
+    const changed = {
+      ...deferredInput,
+      workEvent: {
+        ...deferredInput.workEvent,
+        occurredAt: createTimestamp('2026-07-13T08:00:01.000Z'),
+      },
+      receipt: { id: uuid('6', 187), attemptNumber: 1 },
+    };
+    await expect(coordinator.ingestDeferred(
+      changed,
+      MembershipId(ids.membershipA),
+    )).resolves.toEqual({ status: 'conflict', reason: 'work_event_content_conflict' });
+    expect(await lifecycleCounts(installerPool)).toEqual({
+      work_events: 1,
+      time_entries: 0,
+      canonical_decisions: 0,
+      sync_receipts: 1,
+      audit_events: 1,
+    });
+  });
+
+  it('rejects an already-canonical WorkEvent without downgrading its Decision', async () => {
+    const canonicalInput = await command({ eventNumber: 188, receiptNumber: 188 });
+    await coordinator.ingest(canonicalInput);
+    await expect(coordinator.ingestDeferred(
+      canonicalInput,
+      MembershipId(ids.membershipA),
+    )).resolves.toEqual({ status: 'conflict', reason: 'receipt_metadata_conflict' });
+    expect(await lifecycleCounts(installerPool)).toEqual({
+      work_events: 1,
+      time_entries: 1,
+      canonical_decisions: 1,
+      sync_receipts: 1,
+      audit_events: 1,
+    });
+  });
+
+  it('keeps a defer-only WorkEvent deferred when later submitted to the canonical path', async () => {
+    const input = await command({ eventNumber: 189, receiptNumber: 189 });
+    await coordinator.ingestDeferred(input, MembershipId(ids.membershipA));
+    let engineEvaluations = 0;
+    await expect(coordinator.ingest(input, MembershipId(ids.membershipA), {
+      beforeEngineEvaluation: async () => { engineEvaluations += 1; },
+    })).resolves.toEqual({
+      status: 'deferred',
+      evidenceStored: true,
+      idempotentRetry: true,
+      workEventId: input.workEvent.id,
+      receiptId: input.receipt.id,
+    });
+    expect(engineEvaluations).toBe(0);
+    expect(await lifecycleCounts(installerPool)).toEqual({
+      work_events: 1,
+      time_entries: 0,
+      canonical_decisions: 0,
+      sync_receipts: 1,
+      audit_events: 1,
+    });
+  });
+
+  it.each([
+    [ids.inactiveAssignmentA, ids.inactiveTagA, ids.customerA],
+    [ids.inactiveCustomerAssignmentA, ids.inactiveCustomerTagA, ids.inactiveCustomerA],
+  ])('returns non-durable evidence for inactive current configuration',
+    async (assignmentId, tagId, customerId) => {
+      const input = await command({
+        eventNumber: 193,
+        receiptNumber: 193,
+        assignmentId,
+        tagId,
+        customerId,
+      });
+      await expect(coordinator.ingestDeferred(
+        input,
+        MembershipId(ids.membershipA),
+      )).resolves.toEqual({
+        status: 'deferred',
+        evidenceStored: false,
+        reason: 'configuration_unavailable_or_inactive',
+      });
+      expect(await lifecycleCounts(installerPool)).toEqual({
+        work_events: 0,
+        time_entries: 0,
+        canonical_decisions: 0,
+        sync_receipts: 0,
+        audit_events: 0,
+      });
+    });
+
+  it.each([
+    ['missing Assignment', { assignmentId: uuid('5', 999) }],
+    ['mismatched Tag', { tagId: ids.otherTagA }],
+    ['mismatched target', { customerId: ids.otherCustomerA }],
+    ['foreign tenant mapping', {
+      assignmentId: ids.assignmentB,
+      tagId: ids.tagB,
+      customerId: ids.customerB,
+    }],
+  ])('keeps defer-only %s non-durable with zero lifecycle writes', async (_label, mismatch) => {
+    const input = await command({
+      eventNumber: 199,
+      receiptNumber: 199,
+      ...mismatch,
+    });
+    await expect(coordinator.ingestDeferred(
+      input,
+      MembershipId(ids.membershipA),
+    )).resolves.toEqual({
+      status: 'deferred',
+      evidenceStored: false,
+      reason: 'configuration_unavailable_or_inactive',
+    });
+    expect(await lifecycleCounts(installerPool)).toEqual({
+      work_events: 0,
+      time_entries: 0,
+      canonical_decisions: 0,
+      sync_receipts: 0,
+      audit_events: 0,
+    });
+  });
+
+  it('uses active current configuration without inventing an event-time freshness policy', async () => {
+    const input = await command({
+      eventNumber: 194,
+      receiptNumber: 194,
+      assignmentId: ids.temporalAssignmentA,
+      tagId: ids.temporalAssignmentTagA,
+      customerId: ids.temporalAssignmentCustomerA,
+      occurredAt: '2026-07-02T00:00:00.000Z',
+    });
+    await expect(coordinator.ingestDeferred(
+      input,
+      MembershipId(ids.membershipA),
+    )).resolves.toEqual({
+      status: 'deferred',
+      evidenceStored: true,
+      idempotentRetry: false,
+      workEventId: input.workEvent.id,
+      receiptId: input.receipt.id,
+    });
+    expect((await lifecycleCounts(installerPool)).canonical_decisions).toBe(0);
+  });
+
+  it('fails a missing, malformed, mismatched or replacement Membership closed', async () => {
+    const input = await command({ eventNumber: 195, receiptNumber: 195 });
+    await expect(coordinator.ingestDeferred(
+      input,
+      undefined as unknown as ReturnType<typeof MembershipId>,
+    )).rejects.toThrow('requires an expected Membership ID');
+    await expect(coordinator.ingestDeferred(
+      input,
+      MembershipId('not-a-uuid'),
+    )).rejects.toThrow('Expected Membership ID must be a UUID');
+    await expect(coordinator.ingestDeferred(
+      input,
+      MembershipId(ids.membershipA2),
+    )).resolves.toEqual({ status: 'rejected', reason: 'identity_or_membership_unavailable' });
+
+    await installerPool.query(
+      `DELETE FROM ${B3_SCHEMA}.memberships WHERE id = $1`,
+      [ids.membershipA],
+    );
+    await installerPool.query(
+      `INSERT INTO ${B3_SCHEMA}.memberships
+         (id, organization_id, user_id, role, created_at, revoked_at)
+       VALUES ($1, $2, $3, 'employee', transaction_timestamp(), NULL)`,
+      [uuid('6', 995), ids.organizationA, ids.userA],
+    );
+    await expect(coordinator.ingestDeferred(
+      input,
+      MembershipId(ids.membershipA),
+    )).resolves.toEqual({ status: 'rejected', reason: 'identity_or_membership_unavailable' });
+    expect((await lifecycleCounts(installerPool)).work_events).toBe(0);
+  });
+
+  it('lets the canonical path optionally narrow authority to the exact locked Membership',
+    async () => {
+      const rejectedInput = await command({ eventNumber: 196, receiptNumber: 196 });
+      await expect(coordinator.ingest(
+        rejectedInput,
+        MembershipId(ids.membershipA2),
+      )).resolves.toEqual({ status: 'rejected', reason: 'identity_or_membership_unavailable' });
+      expect((await lifecycleCounts(installerPool)).work_events).toBe(0);
+
+      await expect(coordinator.ingest(
+        rejectedInput,
+        MembershipId(ids.membershipA),
+      )).resolves.toMatchObject({ status: 'synchronized' });
+    });
+
+  it.each<B6WriteStage>([
+    'work_event',
+    'sync_receipt',
+    'audit_event',
+  ])('rolls back all defer-only evidence after an injected %s failure', async (stage) => {
+    const input = await command({ eventNumber: 197, receiptNumber: 197 });
+    await expect(coordinator.ingestDeferred(
+      input,
+      MembershipId(ids.membershipA),
+      { failAfter: stage },
+    )).rejects.toEqual(expect.objectContaining({ name: 'InjectedB6Failure', stage }));
+    expect(await lifecycleCounts(installerPool)).toEqual({
+      work_events: 0,
+      time_entries: 0,
+      canonical_decisions: 0,
+      sync_receipts: 0,
+      audit_events: 0,
+    });
+  });
+});
+
 describe('deferred configuration and mutable-row race safety', () => {
   it.each([
     [ids.inactiveAssignmentA, ids.inactiveTagA, ids.customerA],
     [ids.inactiveCustomerAssignmentA, ids.inactiveCustomerTagA, ids.inactiveCustomerA],
-  ])('stores only WorkEvent plus LifecycleDeferred Audit for inactive current configuration',
+  ])('stores WorkEvent, received Receipt and LifecycleDeferred Audit for inactive current configuration',
     async (assignmentId, tagId, customerId) => {
       const result = await coordinator.ingest(await command({
         eventNumber: 190,
@@ -1123,21 +1458,31 @@ describe('deferred configuration and mutable-row race safety', () => {
       }));
       expect(result).toEqual({
         status: 'deferred',
-        reason: 'configuration_unavailable_or_inactive',
+        evidenceStored: true,
+        idempotentRetry: false,
+        workEventId: uuid('5', 190),
+        receiptId: uuid('6', 190),
       });
       expect(await lifecycleCounts(installerPool)).toEqual({
         work_events: 1,
         time_entries: 0,
         canonical_decisions: 0,
-        sync_receipts: 0,
+        sync_receipts: 1,
         audit_events: 1,
       });
       const audit = await installerPool.query(
-        `SELECT event_type, payload FROM ${B3_SCHEMA}.audit_events`,
+        `SELECT audit.event_type, audit.payload, receipt.status AS receipt_status,
+                receipt.server_decision_work_event_id, receipt.server_time_entry_id
+         FROM ${B3_SCHEMA}.audit_events AS audit
+         JOIN ${B3_SCHEMA}.sync_receipts AS receipt
+           ON receipt.work_event_id = audit.work_event_id`,
       );
       expect(audit.rows).toEqual([{
         event_type: 'LifecycleDeferred',
         payload: { reason: 'current_configuration_inactive' },
+        receipt_status: 'received',
+        server_decision_work_event_id: null,
+        server_time_entry_id: null,
       }]);
     });
 
@@ -1172,13 +1517,16 @@ describe('deferred configuration and mutable-row race safety', () => {
       }));
       expect(result).toEqual({
         status: 'deferred',
-        reason: 'configuration_unavailable_or_inactive',
+        evidenceStored: true,
+        idempotentRetry: false,
+        workEventId: uuid('5', 191),
+        receiptId: uuid('6', 191),
       });
       expect(await lifecycleCounts(installerPool)).toEqual({
         work_events: 1,
         time_entries: 0,
         canonical_decisions: 0,
-        sync_receipts: 0,
+        sync_receipts: 1,
         audit_events: 1,
       });
       const audit = await installerPool.query(
@@ -1205,20 +1553,26 @@ describe('deferred configuration and mutable-row race safety', () => {
         beforeEngineEvaluation: async () => { evaluations += 1; },
       };
 
-      await expect(coordinator.ingest(input, controls)).resolves.toEqual({
+      await expect(coordinator.ingest(input, undefined, controls)).resolves.toEqual({
         status: 'deferred',
-        reason: 'configuration_unavailable_or_inactive',
+        evidenceStored: true,
+        idempotentRetry: false,
+        workEventId: input.workEvent.id,
+        receiptId: input.receipt.id,
       });
-      await expect(coordinator.ingest(input, controls)).resolves.toEqual({
+      await expect(coordinator.ingest(input, undefined, controls)).resolves.toEqual({
         status: 'deferred',
-        reason: 'configuration_unavailable_or_inactive',
+        evidenceStored: true,
+        idempotentRetry: true,
+        workEventId: input.workEvent.id,
+        receiptId: input.receipt.id,
       });
       expect(evaluations).toBe(0);
       expect(await lifecycleCounts(installerPool)).toEqual({
         work_events: 1,
         time_entries: 0,
         canonical_decisions: 0,
-        sync_receipts: 0,
+        sync_receipts: 1,
         audit_events: 1,
       });
     });
@@ -1226,7 +1580,7 @@ describe('deferred configuration and mutable-row race safety', () => {
   it('holds the Membership lock through commit so concurrent revocation cannot race mutation', async () => {
     const locked = deferred();
     const release = deferred();
-    const ingestion = coordinator.ingest(await command({ eventNumber: 200, receiptNumber: 200 }), {
+    const ingestion = coordinator.ingest(await command({ eventNumber: 200, receiptNumber: 200 }), undefined, {
       afterAuthorityLocked: async () => { locked.resolve(); await release.promise; },
     });
     await locked.promise;
@@ -1245,7 +1599,7 @@ describe('deferred configuration and mutable-row race safety', () => {
   it('holds the IdentityBinding lock through commit so concurrent revocation cannot race mutation', async () => {
     const locked = deferred();
     const release = deferred();
-    const ingestion = coordinator.ingest(await command({ eventNumber: 201, receiptNumber: 201 }), {
+    const ingestion = coordinator.ingest(await command({ eventNumber: 201, receiptNumber: 201 }), undefined, {
       afterAuthorityLocked: async () => { locked.resolve(); await release.promise; },
     });
     await locked.promise;
@@ -1298,6 +1652,7 @@ describe('deferred configuration and mutable-row race safety', () => {
       const release = deferred();
       const ingestion = coordinator.ingest(
         input,
+        undefined,
         { afterConfigurationLocked: async () => { locked.resolve(); await release.promise; } },
       );
       await locked.promise;
@@ -1318,6 +1673,7 @@ describe('pool cleanup, unnamed execution and error truth', () => {
   it('cleans fixed roles and every transaction-local context after rollback', async () => {
     await expect(coordinator.ingest(
       await command({ eventNumber: 211, receiptNumber: 211 }),
+      undefined,
       { failAfter: 'canonical_decision' },
     )).rejects.toBeInstanceOf(InjectedB6Failure);
     expectCleanConnection(await pooledConnectionState());

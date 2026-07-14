@@ -1,5 +1,6 @@
 import {
   CustomerId,
+  MembershipId,
   NfcAssignmentId,
   NfcTagId,
   OrganizationId,
@@ -11,13 +12,19 @@ import {
 import { describe, expect, it } from 'vitest';
 import type {
   AuthenticatedHttpResult,
+  AuthenticatedJsonPostOptions,
   AuthenticatedJsonPostPort,
 } from '../../src/transport/AuthenticatedHttpRequestExecutor';
 import { TapTimeLifecycleApiClient } from '../../src/transport/TapTimeLifecycleApiClient';
-import type { LifecycleEventCommand } from '../../src/transport/contracts';
+import type {
+  LifecycleEventCommand,
+  LifecycleEventSubmission,
+  LifecycleSubmissionMode,
+} from '../../src/transport/contracts';
 
 const ids = {
   organization: '00000000-0000-4000-8000-000000000101',
+  membership: '10000000-0000-4000-8000-000000000101',
   assignment: '40000000-0000-4000-8000-000000000101',
   tag: '30000000-0000-4000-8000-000000000101',
   customer: '20000000-0000-4000-8000-000000000101',
@@ -47,14 +54,33 @@ function command(clientTimeEntryId?: string): LifecycleEventCommand {
   };
 }
 
+function submission(
+  mode: LifecycleSubmissionMode = 'canonical',
+  lifecycleCommand: LifecycleEventCommand = command(),
+): LifecycleEventSubmission {
+  return {
+    mode,
+    expectedMembershipId: MembershipId(ids.membership),
+    command: lifecycleCommand,
+  };
+}
+
 class FakeJsonPost implements AuthenticatedJsonPostPort {
-  readonly calls: Array<{ readonly endpoint: string; readonly body: string }> = [];
+  readonly calls: Array<{
+    readonly endpoint: string;
+    readonly body: string;
+    readonly options: AuthenticatedJsonPostOptions | undefined;
+  }> = [];
   result: AuthenticatedHttpResult = synchronized({
     status: 'time_entry_started', timeEntryId: ids.timeEntry,
   }, ids.timeEntry);
 
-  async post(endpoint: URL, body: string): Promise<AuthenticatedHttpResult> {
-    this.calls.push({ endpoint: endpoint.href, body });
+  async post(
+    endpoint: URL,
+    body: string,
+    options?: AuthenticatedJsonPostOptions,
+  ): Promise<AuthenticatedHttpResult> {
+    this.calls.push({ endpoint: endpoint.href, body, options });
     return this.result;
   }
 }
@@ -82,7 +108,7 @@ function setup() {
 }
 
 describe('TapTimeLifecycleApiClient', () => {
-  it('serializes only authorized evidence and the one optional client TimeEntry field', async () => {
+  it('serializes only authorized evidence plus the compare-only Membership header', async () => {
     const { request, client } = setup();
     const input = {
       ...command(ids.timeEntry),
@@ -100,9 +126,12 @@ describe('TapTimeLifecycleApiClient', () => {
       },
     };
 
-    await expect(client.ingest(input)).resolves.toMatchObject({ status: 'synchronized' });
+    await expect(client.ingest(submission('canonical', input))).resolves.toMatchObject({
+      status: 'synchronized',
+    });
     expect(request.calls).toHaveLength(1);
     expect(request.calls[0]?.endpoint).toBe('https://api.example/base/v1/lifecycle-events');
+    expect(request.calls[0]?.options).toEqual({ expectedMembershipId: ids.membership });
     expect(JSON.parse(request.calls[0]!.body)).toEqual({
       organizationId: ids.organization,
       workEvent: {
@@ -118,12 +147,12 @@ describe('TapTimeLifecycleApiClient', () => {
         clientTimeEntryId: ids.timeEntry,
       },
     });
-    expect(request.calls[0]?.body).not.toMatch(/triggeredBy|role|result|forged/);
+    expect(request.calls[0]?.body).not.toMatch(/membership|triggeredBy|role|result|forged/i);
   });
 
   it('omits rather than invents an absent client TimeEntry ID', async () => {
     const { request, client } = setup();
-    await client.ingest(command());
+    await client.ingest(submission());
     expect(JSON.parse(request.calls[0]!.body).receipt).toEqual({
       id: ids.receipt, attemptNumber: 1,
     });
@@ -138,7 +167,7 @@ describe('TapTimeLifecycleApiClient', () => {
   ] as const)('accepts the exact server-canonical decision variant %#', async (decision, timeEntryId) => {
     const { request, client } = setup();
     request.result = synchronized(decision, timeEntryId);
-    await expect(client.ingest(command())).resolves.toEqual({
+    await expect(client.ingest(submission())).resolves.toEqual({
       status: 'synchronized',
       idempotentRetry: false,
       decision,
@@ -157,24 +186,62 @@ describe('TapTimeLifecycleApiClient', () => {
     request.result = {
       status: 'response', statusCode: 200, contentType: 'application/json', body: JSON.stringify(body),
     };
-    await expect(client.ingest(command())).resolves.toMatchObject({
+    await expect(client.ingest(submission())).resolves.toMatchObject({
       status: 'synchronized', idempotentRetry: true, workEventId: ids.event, receiptId: ids.receipt,
     });
   });
 
-  it.each([
-    ['deferred', 202, 'configuration_unavailable_or_inactive'],
-    ['conflict', 409, 'work_event_content_conflict'],
-    ['conflict', 409, 'receipt_metadata_conflict'],
-  ] as const)('maps exact HTTP %s vocabulary', async (status, statusCode, reason) => {
+  it('maps exact durable and non-durable deferred acknowledgements', async () => {
     const { request, client } = setup();
     request.result = {
       status: 'response',
-      statusCode,
+      statusCode: 202,
       contentType: 'application/json',
-      body: JSON.stringify({ status, reason }),
+      body: JSON.stringify({
+        status: 'deferred',
+        evidenceStored: true,
+        idempotentRetry: false,
+        workEventId: ids.event,
+        receiptId: ids.receipt,
+      }),
     };
-    await expect(client.ingest(command())).resolves.toEqual({ status, reason });
+    await expect(client.ingest(submission('defer_only'))).resolves.toEqual({
+      status: 'deferred',
+      evidenceStored: true,
+      idempotentRetry: false,
+      workEventId: ids.event,
+      receiptId: ids.receipt,
+    });
+
+    request.result = {
+      status: 'response',
+      statusCode: 202,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        status: 'deferred',
+        evidenceStored: false,
+        reason: 'configuration_unavailable_or_inactive',
+      }),
+    };
+    await expect(client.ingest(submission('defer_only'))).resolves.toEqual({
+      status: 'deferred',
+      evidenceStored: false,
+      reason: 'configuration_unavailable_or_inactive',
+    });
+  });
+
+  it.each([
+    'work_event_content_conflict',
+    'receipt_metadata_conflict',
+  ] as const)('maps exact conflict vocabulary: %s', async (reason) => {
+    const { request, client } = setup();
+    request.result = {
+      status: 'response',
+      statusCode: 409,
+      contentType: 'application/json',
+      body: JSON.stringify({ status: 'conflict', reason }),
+    };
+    await expect(client.ingest(submission())).resolves.toEqual({ status: 'conflict', reason });
   });
 
   it.each([
@@ -187,7 +254,7 @@ describe('TapTimeLifecycleApiClient', () => {
   ])('rejects inconsistent or over-broad synchronized result %#', async (result) => {
     const { request, client } = setup();
     request.result = result;
-    await expect(client.ingest(command())).resolves.toEqual({ status: 'unavailable' });
+    await expect(client.ingest(submission())).resolves.toEqual({ status: 'unavailable' });
   });
 
   it('rejects response evidence that belongs to another WorkEvent or Receipt', async () => {
@@ -198,12 +265,38 @@ describe('TapTimeLifecycleApiClient', () => {
     const body = JSON.parse(response.body);
     body.workEventId = ids.previousEvent;
     request.result = { ...response, body: JSON.stringify(body) };
-    await expect(client.ingest(command())).resolves.toEqual({ status: 'unavailable' });
+    await expect(client.ingest(submission())).resolves.toEqual({ status: 'unavailable' });
 
     body.workEventId = ids.event;
     body.receiptId = '60000000-0000-4000-8000-000000000999';
     request.result = { ...response, body: JSON.stringify(body) };
-    await expect(client.ingest(command())).resolves.toEqual({ status: 'unavailable' });
+    await expect(client.ingest(submission())).resolves.toEqual({ status: 'unavailable' });
+  });
+
+  it('rejects malformed or ambiguous deferred acknowledgements', async () => {
+    const { request, client } = setup();
+    for (const body of [
+      { status: 'deferred', reason: 'configuration_unavailable_or_inactive' },
+      {
+        status: 'deferred', evidenceStored: true, idempotentRetry: false,
+        workEventId: ids.previousEvent, receiptId: ids.receipt,
+      },
+      {
+        status: 'deferred', evidenceStored: true, idempotentRetry: false,
+        workEventId: ids.event, receiptId: '60000000-0000-4000-8000-000000000999',
+      },
+      {
+        status: 'deferred', evidenceStored: false,
+        reason: 'configuration_unavailable_or_inactive', extra: 'forbidden',
+      },
+    ]) {
+      request.result = {
+        status: 'response', statusCode: 202, contentType: 'application/json', body: JSON.stringify(body),
+      };
+      await expect(client.ingest(submission('defer_only'))).resolves.toEqual({
+        status: 'unavailable',
+      });
+    }
   });
 
   it('rejects wrong status/body pairings, non-JSON success and additional top-level fields', async () => {
@@ -212,21 +305,21 @@ describe('TapTimeLifecycleApiClient', () => {
       status: 'response',
       statusCode: 202,
       contentType: 'application/json',
-      body: JSON.stringify({ status: 'synchronized', reason: 'configuration_unavailable_or_inactive' }),
+      body: JSON.stringify({ status: 'synchronized', evidenceStored: true }),
     };
-    await expect(client.ingest(command())).resolves.toEqual({ status: 'unavailable' });
+    await expect(client.ingest(submission())).resolves.toEqual({ status: 'unavailable' });
 
     const valid = synchronized({
       status: 'time_entry_started', timeEntryId: ids.timeEntry,
     }, ids.timeEntry) as Extract<AuthenticatedHttpResult, { status: 'response' }>;
     request.result = { ...valid, contentType: 'text/html' };
-    await expect(client.ingest(command())).resolves.toEqual({ status: 'unavailable' });
+    await expect(client.ingest(submission())).resolves.toEqual({ status: 'unavailable' });
 
     request.result = {
       ...valid,
       body: JSON.stringify({ ...JSON.parse(valid.body), providerSubject: 'must-not-escape' }),
     };
-    await expect(client.ingest(command())).resolves.toEqual({ status: 'unavailable' });
+    await expect(client.ingest(submission())).resolves.toEqual({ status: 'unavailable' });
   });
 
   it('rejects invalid local evidence before any authenticated request', async () => {
@@ -238,9 +331,14 @@ describe('TapTimeLifecycleApiClient', () => {
     const invalidOrganization = {
       ...command(), organizationId: OrganizationId('not-a-uuid'),
     };
-    await expect(client.ingest(invalidAttempt)).resolves.toEqual({ status: 'unavailable' });
-    await expect(client.ingest(invalidTimestamp)).resolves.toEqual({ status: 'unavailable' });
-    await expect(client.ingest(invalidOrganization)).resolves.toEqual({ status: 'unavailable' });
+    for (const invalid of [invalidAttempt, invalidTimestamp, invalidOrganization]) {
+      await expect(client.ingest(submission('canonical', invalid))).resolves.toEqual({
+        status: 'unavailable',
+      });
+    }
+    await expect(client.ingest({
+      ...submission(), expectedMembershipId: MembershipId('not-a-uuid'),
+    })).resolves.toEqual({ status: 'unavailable' });
     expect(request.calls).toEqual([]);
   });
 
@@ -248,7 +346,18 @@ describe('TapTimeLifecycleApiClient', () => {
     const { request, client } = setup();
     for (const status of ['authority_rejected', 'transient_failure', 'unavailable'] as const) {
       request.result = { status };
-      await expect(client.ingest(command())).resolves.toEqual({ status });
+      await expect(client.ingest(submission())).resolves.toEqual({ status });
     }
+  });
+
+  it('uses the defer endpoint and suppresses any synchronized response from it', async () => {
+    const { request, client } = setup();
+    await expect(client.ingest(submission('defer_only'))).resolves.toEqual({
+      status: 'unavailable',
+    });
+    expect(request.calls[0]?.endpoint).toBe(
+      'https://api.example/base/v1/lifecycle-events/deferred',
+    );
+    expect(request.calls[0]?.options).toEqual({ expectedMembershipId: ids.membership });
   });
 });

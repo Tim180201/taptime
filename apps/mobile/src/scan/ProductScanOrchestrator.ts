@@ -1,4 +1,5 @@
 import {
+  MembershipId,
   OrganizationId,
   UserId,
   WorkEventId,
@@ -9,15 +10,16 @@ import {
 import type { NfcCaptureLifecyclePort } from '../nfc/RnNfcScanAdapter';
 import type {
   LifecycleEventApiPort,
-  LifecycleEventCommand,
   LifecycleEventResult,
-  ScanContextApiPort,
+  LifecycleEventSubmission,
 } from '../transport/contracts';
 import { isUuid } from '../transport/strictJson';
 import type {
   LifecycleEvidenceOutbox,
   PendingLifecycleEvidence,
+  StoredLifecycleEvidence,
 } from './LifecycleEvidenceOutbox';
+import type { ProductScanContextResolver } from './ProductScanContextResolver';
 import type {
   PendingLifecycleBinding,
   ProductScanCapability,
@@ -27,6 +29,7 @@ import type {
   ProductScanState,
   SecureUuidGenerator,
 } from './contracts';
+import { sameProductScanSessionSnapshot } from './sessionSnapshot';
 
 export class ProductScanOrchestrator implements ProductScanCapability {
   private state: ProductScanState = Object.freeze({ status: 'inactive' });
@@ -38,13 +41,13 @@ export class ProductScanOrchestrator implements ProductScanCapability {
   private transitionVersion = 0;
   private operationVersion = 0;
   private operationFlight: Promise<void> | null = null;
-  private pendingEvidence: PendingLifecycleEvidence | null = null;
+  private pendingEvidence: StoredLifecycleEvidence | null = null;
   private secureStorageAvailable = true;
 
   constructor(
     private readonly nfcScan: NfcScanPort,
     private readonly nfcLifecycle: NfcCaptureLifecyclePort,
-    private readonly scanContext: ScanContextApiPort,
+    private readonly scanContext: ProductScanContextResolver,
     private readonly lifecycle: LifecycleEventApiPort,
     private readonly sessionContext: ProductScanSessionContextReader,
     private readonly createUuid: SecureUuidGenerator,
@@ -67,7 +70,7 @@ export class ProductScanOrchestrator implements ProductScanCapability {
     this.started = true;
     const startGeneration = ++this.startGeneration;
     this.secureStorageAvailable = true;
-    let restoredEvidence: PendingLifecycleEvidence | null;
+    let restoredEvidence: StoredLifecycleEvidence | null;
     try {
       restoredEvidence = await this.outbox.read();
     } catch {
@@ -101,6 +104,7 @@ export class ProductScanOrchestrator implements ProductScanCapability {
     this.observedSession = null;
     this.unsubscribeSession?.();
     this.unsubscribeSession = null;
+    this.scanContext.clear();
     this.setState({ status: 'inactive' });
     await this.nfcLifecycle.stop();
   }
@@ -134,6 +138,7 @@ export class ProductScanOrchestrator implements ProductScanCapability {
     const snapshot = this.sessionContext.capture();
     if (
       pending === null
+      || pending.kind !== 'replayable'
       || snapshot === null
       || !sameBinding(pending.binding, snapshot)
     ) {
@@ -194,7 +199,7 @@ export class ProductScanOrchestrator implements ProductScanCapability {
     let resolution;
     try {
       resolution = await this.scanContext.resolve({
-        organizationId: OrganizationId(snapshot.session.organizationId),
+        session: snapshot,
         payload: capture.payload,
       });
     } catch {
@@ -229,23 +234,29 @@ export class ProductScanOrchestrator implements ProductScanCapability {
       this.setReady({ status: 'nfc_unavailable' });
       return;
     }
-    const pending = Object.freeze({
+    const pending: PendingLifecycleEvidence = Object.freeze({
+      kind: 'replayable' as const,
       binding: Object.freeze({
+        membershipId: MembershipId(snapshot.session.membershipId),
         organizationId: OrganizationId(snapshot.session.organizationId),
         userId: UserId(snapshot.session.userId),
       }),
-      command: freezeLifecycleCommand({
-        organizationId: OrganizationId(snapshot.session.organizationId),
-        workEvent: {
-          id: WorkEventId(workEventId),
-          assignmentId: resolution.assignmentId,
-          nfcTagId: resolution.nfcTagId,
-          target: resolution.target,
-          occurredAt: capturedAt,
-        },
-        receipt: {
-          id: receiptId,
-          attemptNumber: 1,
+      submission: freezeLifecycleSubmission({
+        mode: resolution.source === 'live' ? 'canonical' : 'defer_only',
+        expectedMembershipId: MembershipId(snapshot.session.membershipId),
+        command: {
+          organizationId: OrganizationId(snapshot.session.organizationId),
+          workEvent: {
+            id: WorkEventId(workEventId),
+            assignmentId: resolution.assignmentId,
+            nfcTagId: resolution.nfcTagId,
+            target: resolution.target,
+            occurredAt: capturedAt,
+          },
+          receipt: {
+            id: receiptId,
+            attemptNumber: 1,
+          },
         },
       }),
     });
@@ -277,20 +288,20 @@ export class ProductScanOrchestrator implements ProductScanCapability {
     this.setState({ status: 'submitting', phase: 'lifecycle' });
     let result: LifecycleEventResult;
     try {
-      result = await this.lifecycle.ingest(pending.command);
+      result = await this.lifecycle.ingest(pending.submission);
     } catch {
       result = { status: 'unavailable' };
     }
-    if (result.status === 'transient_failure' || result.status === 'unavailable') {
+    if (!isExactDurableAcknowledgement(pending.submission, result)) {
       if (this.isCurrent(operationVersion, snapshot)) {
         this.setState({ status: 'retry_pending' });
       }
       return;
     }
 
-    // A definitive response closes the durable evidence even if the UI session changed while the
-    // old authenticated request was in flight. Clear before publishing so a process death can only
-    // cause an exact idempotent replay, never silent loss.
+    // Only exact durable server proof closes local evidence, even if the UI session changed while
+    // the old authenticated request was in flight. Clear before publishing so process death can
+    // cause only an exact idempotent replay, never silent loss.
     try {
       await this.outbox.clear(pending);
     } catch {
@@ -303,8 +314,8 @@ export class ProductScanOrchestrator implements ProductScanCapability {
     if (!this.isCurrent(operationVersion, snapshot)) {
       return;
     }
-    if (result.status === 'authority_rejected') {
-      this.setReady({ status: 'session_rejected' });
+    if (result.status === 'deferred') {
+      this.setReady({ status: 'server_review_pending' });
       return;
     }
     this.setReady(lifecycleOutcome(result));
@@ -315,6 +326,7 @@ export class ProductScanOrchestrator implements ProductScanCapability {
     if (sameSnapshot(this.observedSession, next)) {
       return;
     }
+    this.scanContext.clear();
     const transitionVersion = ++this.transitionVersion;
     this.operationVersion += 1;
     this.setState(next === null ? { status: 'inactive' } : { status: 'checking' });
@@ -343,10 +355,17 @@ export class ProductScanOrchestrator implements ProductScanCapability {
       this.setState({ status: 'inactive' });
       return;
     }
+    if (this.pendingEvidence?.kind === 'protected_v1') {
+      this.setState({
+        status: 'protected_pending',
+        reason: 'legacy_membership_unknown',
+      });
+      return;
+    }
     if (this.pendingEvidence !== null && !sameBinding(this.pendingEvidence.binding, current)) {
       // Retain the exact durable evidence for its original identity, but disclose no details and
       // allow neither retry nor a new scan while another identity is active.
-      this.setState({ status: 'protected_pending' });
+      this.setState({ status: 'protected_pending', reason: 'identity_mismatch' });
       return;
     }
     if (this.pendingEvidence !== null) {
@@ -418,14 +437,8 @@ function captureOutcome(status: Exclude<NfcScanCaptureResult['status'], 'capture
 }
 
 function lifecycleOutcome(
-  result: Exclude<LifecycleEventResult, { status: 'authority_rejected' | 'transient_failure' | 'unavailable' }>,
+  result: Extract<LifecycleEventResult, { status: 'synchronized' }>,
 ): ProductScanOutcome {
-  if (result.status === 'deferred') {
-    return { status: 'deferred' };
-  }
-  if (result.status === 'conflict') {
-    return { status: 'conflict' };
-  }
   switch (result.decision.status) {
     case 'time_entry_started':
       return { status: 'time_entry_started' };
@@ -442,15 +455,40 @@ function lifecycleOutcome(
   }
 }
 
-function freezeLifecycleCommand(command: LifecycleEventCommand): LifecycleEventCommand {
+function freezeLifecycleSubmission(
+  submission: LifecycleEventSubmission,
+): LifecycleEventSubmission {
   return Object.freeze({
-    organizationId: command.organizationId,
-    workEvent: Object.freeze({
-      ...command.workEvent,
-      target: Object.freeze({ ...command.workEvent.target }),
+    mode: submission.mode,
+    expectedMembershipId: submission.expectedMembershipId,
+    command: Object.freeze({
+      organizationId: submission.command.organizationId,
+      workEvent: Object.freeze({
+        ...submission.command.workEvent,
+        target: Object.freeze({ ...submission.command.workEvent.target }),
+      }),
+      receipt: Object.freeze({ ...submission.command.receipt }),
     }),
-    receipt: Object.freeze({ ...command.receipt }),
   });
+}
+
+type DurableLifecycleAcknowledgement =
+  | Extract<LifecycleEventResult, { status: 'synchronized' }>
+  | Extract<LifecycleEventResult, { status: 'deferred'; evidenceStored: true }>;
+
+function isExactDurableAcknowledgement(
+  submission: LifecycleEventSubmission,
+  result: LifecycleEventResult,
+): result is DurableLifecycleAcknowledgement {
+  if (result.status === 'synchronized') {
+    return submission.mode === 'canonical'
+      && result.workEventId === submission.command.workEvent.id
+      && result.receiptId === submission.command.receipt.id;
+  }
+  return result.status === 'deferred'
+    && result.evidenceStored
+    && result.workEventId === submission.command.workEvent.id
+    && result.receiptId === submission.command.receipt.id;
 }
 
 function sameBinding(
@@ -458,7 +496,8 @@ function sameBinding(
   snapshot: ProductScanSessionSnapshot,
 ): boolean {
   return binding.organizationId === snapshot.session.organizationId
-    && binding.userId === snapshot.session.userId;
+    && binding.userId === snapshot.session.userId
+    && binding.membershipId === snapshot.session.membershipId;
 }
 
 function sameSnapshot(
@@ -468,10 +507,6 @@ function sameSnapshot(
   return left === right || (
     left !== null
     && right !== null
-    && left.generation === right.generation
-    && left.session.userId === right.session.userId
-    && left.session.organizationId === right.session.organizationId
-    && left.session.membershipId === right.session.membershipId
-    && left.session.role === right.session.role
+    && sameProductScanSessionSnapshot(left, right)
   );
 }

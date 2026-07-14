@@ -1,6 +1,7 @@
 import * as SecureStore from 'expo-secure-store';
 import {
   CustomerId,
+  MembershipId,
   NfcAssignmentId,
   NfcTagId,
   OrganizationId,
@@ -22,6 +23,8 @@ import {
 import type {
   LifecycleEvidenceOutbox,
   PendingLifecycleEvidence,
+  ProtectedLegacyLifecycleEvidence,
+  StoredLifecycleEvidence,
 } from './LifecycleEvidenceOutbox';
 
 export const LIFECYCLE_EVIDENCE_OUTBOX_STORAGE_KEY = 'taptime.lifecycle-evidence-outbox.v1';
@@ -35,7 +38,7 @@ const secureStoreOptions: SecureStore.SecureStoreOptions = {
 let nativeOutboxOperationTail: Promise<void> = Promise.resolve();
 
 export class ExpoSecureLifecycleEvidenceOutbox implements LifecycleEvidenceOutbox {
-  read(): Promise<PendingLifecycleEvidence | null> {
+  read(): Promise<StoredLifecycleEvidence | null> {
     return runSerializedNativeOutboxOperation(async () => {
       await assertSecureStoreAvailable();
       const serialized = await SecureStore.getItemAsync(
@@ -93,7 +96,11 @@ export class ExpoSecureLifecycleEvidenceOutbox implements LifecycleEvidenceOutbo
         return;
       }
       const parsed = parseStoredEvidence(existing);
-      if (parsed === null || serializeEvidence(parsed) !== serializeEvidence(evidence)) {
+      if (
+        parsed === null
+        || parsed.kind !== 'replayable'
+        || serializeEvidence(parsed) !== serializeEvidence(evidence)
+      ) {
         throw new Error('Lifecycle evidence outbox contains a different record');
       }
       await SecureStore.deleteItemAsync(
@@ -118,9 +125,9 @@ function runSerializedNativeOutboxOperation<Result>(
 
 function serializeEvidence(evidence: PendingLifecycleEvidence): string {
   return JSON.stringify({
-    version: 1,
+    version: 2,
     binding: evidence.binding,
-    command: evidence.command,
+    submission: evidence.submission,
   });
 }
 
@@ -130,13 +137,57 @@ async function assertSecureStoreAvailable(): Promise<void> {
   }
 }
 
-function parseStoredEvidence(serialized: string): PendingLifecycleEvidence | null {
+function parseStoredEvidence(serialized: string): StoredLifecycleEvidence | null {
   const root = parseJsonObject(serialized);
+  if (root === null || !hasExactKeys(root, ['version', 'binding', root.version === 1
+    ? 'command'
+    : 'submission'])) {
+    return null;
+  }
+  if (root.version === 1) {
+    return parseProtectedVersionOneEvidence(root);
+  }
+  if (root.version !== 2) {
+    return null;
+  }
   if (
-    root === null
-    || !hasExactKeys(root, ['version', 'binding', 'command'])
-    || root.version !== 1
-    || !isObject(root.binding)
+    !isObject(root.binding)
+    || !hasExactKeys(root.binding, ['membershipId', 'organizationId', 'userId'])
+    || !isUuid(root.binding.membershipId)
+    || !isUuid(root.binding.organizationId)
+    || !isUuid(root.binding.userId)
+    || !isObject(root.submission)
+    || !hasExactKeys(root.submission, ['command', 'expectedMembershipId', 'mode'])
+    || (root.submission.mode !== 'canonical' && root.submission.mode !== 'defer_only')
+    || !isUuid(root.submission.expectedMembershipId)
+    || root.submission.expectedMembershipId !== root.binding.membershipId
+  ) {
+    return null;
+  }
+  const command = parseCommand(root.submission.command);
+  if (command === null || command.organizationId !== root.binding.organizationId) {
+    return null;
+  }
+  return Object.freeze({
+    kind: 'replayable' as const,
+    binding: Object.freeze({
+      membershipId: MembershipId(root.binding.membershipId),
+      organizationId: OrganizationId(root.binding.organizationId),
+      userId: UserId(root.binding.userId),
+    }),
+    submission: Object.freeze({
+      mode: root.submission.mode,
+      expectedMembershipId: MembershipId(root.submission.expectedMembershipId),
+      command,
+    }),
+  });
+}
+
+function parseProtectedVersionOneEvidence(
+  root: Record<string, unknown>,
+): ProtectedLegacyLifecycleEvidence | null {
+  if (
+    !isObject(root.binding)
     || !hasExactKeys(root.binding, ['organizationId', 'userId'])
     || !isUuid(root.binding.organizationId)
     || !isUuid(root.binding.userId)
@@ -148,6 +199,7 @@ function parseStoredEvidence(serialized: string): PendingLifecycleEvidence | nul
     return null;
   }
   return Object.freeze({
+    kind: 'protected_v1' as const,
     binding: Object.freeze({
       organizationId: OrganizationId(root.binding.organizationId),
       userId: UserId(root.binding.userId),

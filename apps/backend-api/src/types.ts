@@ -9,6 +9,7 @@ import type {
   UserId,
 } from '@taptime/core';
 import type {
+  DeferredLifecycleIngestionResult,
   LifecycleIngestionCommand,
   LifecycleIngestionResult,
 } from '@taptime/backend-lifecycle';
@@ -50,13 +51,24 @@ export interface ScanContextResolver {
 }
 
 export interface LifecycleIngestor {
-  ingest(command: LifecycleIngestionCommand): Promise<LifecycleIngestionResult>;
+  ingest(
+    command: LifecycleIngestionCommand,
+    expectedMembershipId?: MembershipId,
+  ): Promise<LifecycleIngestionResult>;
+}
+
+export interface DeferredLifecycleIngestor {
+  ingestDeferred(
+    command: LifecycleIngestionCommand,
+    expectedMembershipId: MembershipId,
+  ): Promise<DeferredLifecycleIngestionResult>;
 }
 
 export interface BackendApiDependencies {
   readonly sessionAuthority: SessionAuthorityResolver;
   readonly scanContextResolver: ScanContextResolver;
   readonly lifecycleIngestor: LifecycleIngestor;
+  readonly deferredLifecycleIngestor: DeferredLifecycleIngestor;
 }
 
 export interface BackendApiDiagnostic {

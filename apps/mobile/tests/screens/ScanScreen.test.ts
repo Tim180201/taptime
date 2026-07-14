@@ -21,7 +21,8 @@ describe('ScanScreen presentation', () => {
     [{ status: 'submitting', phase: 'lifecycle' }, 'Scan wird sicher verarbeitet'],
     [{ status: 'retry_pending' }, 'Übertragung noch offen'],
     [{ status: 'secure_storage_unavailable' }, 'Sicherer Speicher nicht verfügbar'],
-    [{ status: 'protected_pending' }, 'Ausstehender Vorgang geschützt'],
+    [{ status: 'protected_pending', reason: 'identity_mismatch' }, 'Ausstehender Vorgang geschützt'],
+    [{ status: 'protected_pending', reason: 'legacy_membership_unknown' }, 'Älterer Vorgang geschützt'],
     [{ status: 'ready', outcome: null }, 'Bereit zum Scannen'],
     [{ status: 'ready', outcome: { status: 'unreadable' } }, 'Tag nicht lesbar'],
     [{ status: 'ready', outcome: { status: 'timed_out' } }, 'Scan abgelaufen'],
@@ -34,8 +35,7 @@ describe('ScanScreen presentation', () => {
     [{ status: 'ready', outcome: { status: 'duplicate_scan_ignored' } }, 'Doppelter Scan ignoriert'],
     [{ status: 'ready', outcome: { status: 'active_entry_for_other_target_rejected' } }, 'Andere Arbeitszeit ist aktiv'],
     [{ status: 'ready', outcome: { status: 'escalation_required' } }, 'Prüfung erforderlich'],
-    [{ status: 'ready', outcome: { status: 'deferred' } }, 'Scan zur Prüfung vorgemerkt'],
-    [{ status: 'ready', outcome: { status: 'conflict' } }, 'Scan-Konflikt'],
+    [{ status: 'ready', outcome: { status: 'server_review_pending' } }, 'Scan sicher gespeichert'],
     [{ status: 'ready', outcome: { status: 'session_rejected' } }, 'Sitzung nicht mehr gültig'],
   ] as Array<[ProductScanState, string]>)('presents %s truthfully', (state, title) => {
     expect(presentScanState(state).title).toBe(title);
@@ -48,13 +48,12 @@ describe('ScanScreen presentation', () => {
     expect(presentation.message).not.toMatch(/[0-9a-f]{8}-[0-9a-f-]{27,}/i);
   });
 
-  it('does not claim a local mutation for rejected, duplicate, escalation, deferred or conflict results', () => {
+  it('does not claim a local mutation for rejected, duplicate, escalation or deferred evidence', () => {
     for (const status of [
       'duplicate_scan_ignored',
       'active_entry_for_other_target_rejected',
       'escalation_required',
-      'deferred',
-      'conflict',
+      'server_review_pending',
     ] as const) {
       const message = presentScanState({ status: 'ready', outcome: { status } }).message;
       expect(message).not.toMatch(/lokal gestartet|lokal gestoppt|erfolgreich geändert/i);
@@ -62,10 +61,21 @@ describe('ScanScreen presentation', () => {
   });
 
   it('does not disclose protected evidence from another identity', () => {
-    const presentation = presentScanState({ status: 'protected_pending' });
-    expect(presentation.message).toContain('ursprüngliche Konto');
+    const presentation = presentScanState({
+      status: 'protected_pending', reason: 'identity_mismatch',
+    });
+    expect(presentation.message).toContain('nicht mit dem ausstehenden Vorgang überein');
     expect(presentation.message).not.toMatch(/[0-9a-f]{8}-[0-9a-f-]{27,}/i);
     expect(presentation.message).not.toContain('nfc:uid');
+  });
+
+  it('gives protected legacy evidence support guidance without identifiers', () => {
+    const presentation = presentScanState({
+      status: 'protected_pending', reason: 'legacy_membership_unknown',
+    });
+    expect(presentation.message).toContain('keine eindeutig zuordenbare Mitgliedschaft');
+    expect(presentation.message).toContain('Support');
+    expect(presentation.message).not.toMatch(/[0-9a-f]{8}-[0-9a-f-]{27,}/i);
   });
 
   it('does not promise that restart repairs a persistent secure-storage failure', () => {

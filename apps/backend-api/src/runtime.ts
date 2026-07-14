@@ -57,6 +57,10 @@ export function createBackendApiRuntime(
   const sessionPool = createRuntimePool(sessionDatabase.connectionString);
   const readModelPool = createRuntimePool(readModelDatabase.connectionString);
   const lifecyclePool = createRuntimePool(lifecycleDatabase.connectionString);
+  const lifecycleCoordinator = new ServerCanonicalLifecycleIngestionCoordinator(
+    lifecyclePool,
+    verifier,
+  );
   const server = createBackendHttpServer(
     {
       sessionAuthority: new B4SessionAuthorityResolver(
@@ -66,10 +70,8 @@ export function createBackendApiRuntime(
       scanContextResolver: new B5ScanContextResolver(
         new TenantReadSessionCoordinator(readModelPool, verifier),
       ),
-      lifecycleIngestor: new ServerCanonicalLifecycleIngestionCoordinator(
-        lifecyclePool,
-        verifier,
-      ),
+      lifecycleIngestor: lifecycleCoordinator,
+      deferredLifecycleIngestor: lifecycleCoordinator,
     },
     options,
   );

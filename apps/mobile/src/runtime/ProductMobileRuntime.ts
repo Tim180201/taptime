@@ -9,6 +9,7 @@ import { TapTimeSessionApiClient } from '../auth/TapTimeSessionApiClient';
 import { RnNfcScanAdapter } from '../nfc/RnNfcScanAdapter';
 import { ExpoSecureLifecycleEvidenceOutbox } from '../scan/ExpoSecureLifecycleEvidenceOutbox';
 import { ProductScanOrchestrator } from '../scan/ProductScanOrchestrator';
+import { SessionBoundScanContextResolver } from '../scan/SessionBoundScanContextResolver';
 import type {
   ProductScanSessionContextReader,
   ProductScanSessionSnapshot,
@@ -79,7 +80,7 @@ export function createProductMobileRuntime(): ProductMobileRuntimeCreation {
   const scanOrchestrator = new ProductScanOrchestrator(
     nfcAdapter,
     nfcAdapter,
-    serverTransport.scanContext,
+    new SessionBoundScanContextResolver(serverTransport.scanContext),
     serverTransport.lifecycle,
     scanSessionContext,
     randomUUID,

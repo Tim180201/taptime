@@ -26,6 +26,7 @@ import { createBackendApiRuntime, type BackendApiRuntime } from '../src/runtime.
 import type {
   BackendApiDependencies,
   BackendApiDiagnostic,
+  DeferredLifecycleIngestor,
   LifecycleIngestor,
   ScanContextResolver,
   SessionAuthorityResolver,
@@ -289,7 +290,7 @@ describe('C2 package, runtime composition, and least privilege', () => {
         receipt: { id: uuid('6', 901), attemptNumber: 1 },
       };
       try {
-        await expect(coordinator.ingest(command, { failAfter: 'work_event' }))
+        await expect(coordinator.ingest(command, undefined, { failAfter: 'work_event' }))
           .rejects.toBeInstanceOf(InjectedB6Failure);
         await expectCleanPooledConnection(pool, C2_LIFECYCLE_RUNTIME_LOGIN);
 
@@ -321,10 +322,12 @@ describe('exact routes, HTTP hardening, and disclosure-safe errors', () => {
     ['POST', '/v1/session', 405, 'GET'],
     ['GET', '/v1/scan-context/resolve', 405, 'POST'],
     ['GET', '/v1/lifecycle-events', 405, 'POST'],
+    ['GET', '/v1/lifecycle-events/deferred', 405, 'POST'],
     ['GET', '/v1/session/', 404, undefined],
     ['GET', '/v1/session?x=1', 404, undefined],
     ['POST', '/v1/scan-context/resolve/', 404, undefined],
     ['POST', '/v1/lifecycle-event', 404, undefined],
+    ['POST', '/v1/lifecycle-events/deferred/', 404, undefined],
     ['GET', '/v1/anything-else', 404, undefined],
   ])('rejects non-contract request %s %s', async (method, path, status, allow) => {
     const response = await rawRequest(apiOrigin, { method, path });
@@ -702,7 +705,10 @@ describe('B6-backed server-canonical lifecycle route', () => {
     expect(response.status).toBe(202);
     expect(JSON.parse(response.text)).toEqual({
       status: 'deferred',
-      reason: 'configuration_unavailable_or_inactive',
+      evidenceStored: true,
+      idempotentRetry: false,
+      workEventId: body.workEvent.id,
+      receiptId: body.receipt.id,
     });
   });
 
@@ -747,7 +753,7 @@ describe('B6-backed server-canonical lifecycle route', () => {
             }
             firstIngestion = false;
             try {
-              return await coordinator.ingest(command, {
+              return await coordinator.ingest(command, undefined, {
                 async afterWrite(stage) {
                   if (stage === 'work_event') {
                     writeReached.resolve();
@@ -902,6 +908,302 @@ describe('B6-backed server-canonical lifecycle route', () => {
   });
 });
 
+describe('E2A defer-only lifecycle route', () => {
+  it('stores exact durable evidence without a Decision or TimeEntry and retries idempotently',
+    async () => {
+      const body = lifecycleBody({ event: 101, receipt: 101 });
+      const first = await postDeferredLifecycle(body);
+      expect(first.status).toBe(202);
+      expect(JSON.parse(first.text)).toEqual({
+        status: 'deferred',
+        evidenceStored: true,
+        idempotentRetry: false,
+        workEventId: body.workEvent.id,
+        receiptId: body.receipt.id,
+      });
+
+      const retry = await postDeferredLifecycle(body);
+      expect(retry.status).toBe(202);
+      expect(JSON.parse(retry.text)).toEqual({
+        status: 'deferred',
+        evidenceStored: true,
+        idempotentRetry: true,
+        workEventId: body.workEvent.id,
+        receiptId: body.receipt.id,
+      });
+
+      const persisted = await installerPool.query<{
+        audit_events: string;
+        decisions: string;
+        receipt_id: string;
+        receipt_status: string;
+        server_decision_work_event_id: string | null;
+        server_time_entry_id: string | null;
+        time_entries: string;
+        work_events: string;
+      }>(
+        `SELECT
+           (SELECT count(*)::text FROM ${B3_SCHEMA}.work_events) AS work_events,
+           (SELECT count(*)::text FROM ${B3_SCHEMA}.time_entries) AS time_entries,
+           (SELECT count(*)::text FROM ${B3_SCHEMA}.canonical_decisions) AS decisions,
+           (SELECT count(*)::text FROM ${B3_SCHEMA}.audit_events) AS audit_events,
+           receipt.id::text AS receipt_id,
+           receipt.status AS receipt_status,
+           receipt.server_decision_work_event_id::text,
+           receipt.server_time_entry_id::text
+         FROM ${B3_SCHEMA}.sync_receipts AS receipt
+         WHERE receipt.id = $1::uuid`,
+        [body.receipt.id],
+      );
+      expect(persisted.rows).toEqual([{
+        work_events: '1',
+        time_entries: '0',
+        decisions: '0',
+        audit_events: '1',
+        receipt_id: body.receipt.id,
+        receipt_status: 'received',
+        server_decision_work_event_id: null,
+        server_time_entry_id: null,
+      }]);
+    });
+
+  it('returns truthful non-durable deferral for inactive current configuration with zero writes',
+    async () => {
+      const body = lifecycleBody({
+        event: 102,
+        receipt: 102,
+        assignmentId: ids.inactiveAssignmentA,
+        nfcTagId: ids.inactiveTagA,
+        targetId: ids.customerA,
+      });
+      const response = await postDeferredLifecycle(body);
+      expect(response.status).toBe(202);
+      expect(JSON.parse(response.text)).toEqual({
+        status: 'deferred',
+        evidenceStored: false,
+        reason: 'configuration_unavailable_or_inactive',
+      });
+      const counts = await installerPool.query<{ audit_events: string; work_events: string }>(
+        `SELECT
+           (SELECT count(*)::text FROM ${B3_SCHEMA}.work_events) AS work_events,
+           (SELECT count(*)::text FROM ${B3_SCHEMA}.audit_events) AS audit_events`,
+      );
+      expect(counts.rows).toEqual([{ work_events: '0', audit_events: '0' }]);
+    });
+
+  it('fails a Membership mismatch closed and writes no evidence', async () => {
+    const body = lifecycleBody({ event: 103, receipt: 103 });
+    expectGenericError(await postDeferredLifecycle(body, ids.membershipA2), 401, 'unauthorized');
+    const count = await installerPool.query<{ count: string }>(
+      `SELECT count(*)::text AS count FROM ${B3_SCHEMA}.work_events`,
+    );
+    expect(count.rows[0]?.count).toBe('0');
+  });
+
+  it('never exposes a canonical Decision through the defer-only route', async () => {
+    const body = lifecycleBody({ event: 104, receipt: 104 });
+    expect((await postLifecycle(body)).status).toBe(200);
+    const response = await postDeferredLifecycle(body);
+    expect(response.status).toBe(409);
+    expect(JSON.parse(response.text)).toEqual({
+      status: 'conflict',
+      reason: 'receipt_metadata_conflict',
+    });
+  });
+
+  it('keeps the JSON command closed and rejects a client-selected policy field', async () => {
+    const body = Object.assign(lifecycleBody({ event: 105, receipt: 105 }), {
+      mode: 'canonical',
+    });
+    expectGenericError(await postDeferredLifecycle(body), 400, 'invalid_request');
+  });
+
+  it('accepts only the fixed first deferred-evidence attempt', async () => {
+    const body = lifecycleBody({ event: 110, receipt: 110 });
+    body.receipt.attemptNumber = 2;
+    expectGenericError(await postDeferredLifecycle(body), 400, 'invalid_request');
+  });
+
+  it('requires exactly one valid expected-Membership header before invoking the capability',
+    async () => {
+      let calls = 0;
+      const canonicalMembershipId = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee';
+      const server = createBackendHttpServer(testDependencies({
+        deferredLifecycleIngestor: {
+          async ingestDeferred(_command, expectedMembershipId) {
+            calls += 1;
+            expect(expectedMembershipId).toBe(canonicalMembershipId);
+            return {
+              status: 'deferred',
+              evidenceStored: false,
+              reason: 'configuration_unavailable_or_inactive',
+            };
+          },
+        },
+      }));
+      await listen(server);
+      const origin = serverOrigin(server);
+      const body = JSON.stringify(lifecycleBody({ event: 106, receipt: 106 }));
+      try {
+        expectGenericError(await postRaw(
+          '/v1/lifecycle-events/deferred',
+          'abc.def.ghi',
+          body,
+          origin,
+        ), 400, 'invalid_request');
+        expectGenericError(await rawRequest(origin, {
+          method: 'POST',
+          path: '/v1/lifecycle-events/deferred',
+          headers: {
+            authorization: 'Bearer abc.def.ghi',
+            'content-type': 'application/json',
+            'content-length': String(Buffer.byteLength(body)),
+            'x-taptime-expected-membership-id': 'invalid',
+          },
+          body,
+        }), 400, 'invalid_request');
+        expectGenericError(await rawRequest(origin, {
+          method: 'POST',
+          path: '/v1/lifecycle-events/deferred',
+          rawHeaders: [
+            'Authorization', 'Bearer abc.def.ghi',
+            'Content-Type', 'application/json',
+            'Content-Length', String(Buffer.byteLength(body)),
+            'X-TapTime-Expected-Membership-Id', ids.membershipA,
+            'X-TapTime-Expected-Membership-Id', ids.membershipA,
+          ],
+          body,
+        }), 400, 'invalid_request');
+        expect(calls).toBe(0);
+
+        const accepted = await rawRequest(origin, {
+          method: 'POST',
+          path: '/v1/lifecycle-events/deferred',
+          headers: {
+            authorization: 'Bearer abc.def.ghi',
+            'content-type': 'application/json',
+            'content-length': String(Buffer.byteLength(body)),
+            'x-taptime-expected-membership-id': canonicalMembershipId.toUpperCase(),
+          },
+          body,
+        });
+        expect(accepted.status).toBe(202);
+        expect(calls).toBe(1);
+      } finally {
+        await closeServer(server);
+      }
+    });
+
+  it('accepts the expected-Membership header optionally on canonical ingestion', async () => {
+    const received: Array<string | undefined> = [];
+    const server = createBackendHttpServer(testDependencies({
+      lifecycleIngestor: {
+        async ingest(_command, expectedMembershipId) {
+          received.push(expectedMembershipId);
+          return {
+            status: 'deferred',
+            evidenceStored: false,
+            reason: 'configuration_unavailable_or_inactive',
+          };
+        },
+      },
+    }));
+    await listen(server);
+    const origin = serverOrigin(server);
+    const body = lifecycleBody({ event: 107, receipt: 107 });
+    const serialized = JSON.stringify(body);
+    try {
+      expect((await postJson(origin, '/v1/lifecycle-events', 'abc.def.ghi', body)).status).toBe(202);
+      expect((await postCanonicalWithMembership(origin, body, ids.membershipA)).status).toBe(202);
+      expect(received).toEqual([undefined, ids.membershipA]);
+
+      expectGenericError(await rawRequest(origin, {
+        method: 'POST',
+        path: '/v1/lifecycle-events',
+        headers: {
+          authorization: 'Bearer abc.def.ghi',
+          'content-type': 'application/json',
+          'content-length': String(Buffer.byteLength(serialized)),
+          'x-taptime-expected-membership-id': 'invalid',
+        },
+        body: serialized,
+      }), 400, 'invalid_request');
+      expectGenericError(await rawRequest(origin, {
+        method: 'POST',
+        path: '/v1/lifecycle-events',
+        rawHeaders: [
+          'Authorization', 'Bearer abc.def.ghi',
+          'Content-Type', 'application/json',
+          'Content-Length', String(Buffer.byteLength(serialized)),
+          'X-TapTime-Expected-Membership-Id', ids.membershipA,
+          'X-TapTime-Expected-Membership-Id', ids.membershipA,
+        ],
+        body: serialized,
+      }), 400, 'invalid_request');
+      expect(received).toEqual([undefined, ids.membershipA]);
+    } finally {
+      await closeServer(server);
+    }
+  });
+
+  it('fails an optional canonical expected-Membership mismatch closed', async () => {
+    const body = lifecycleBody({ event: 108, receipt: 108 });
+    const serialized = JSON.stringify(body);
+    const response = await rawRequest(apiOrigin, {
+      method: 'POST',
+      path: '/v1/lifecycle-events',
+      headers: {
+        authorization: `Bearer ${await token(ids.subjectA)}`,
+        'content-type': 'application/json',
+        'content-length': String(Buffer.byteLength(serialized)),
+        'x-taptime-expected-membership-id': ids.membershipA2,
+      },
+      body: serialized,
+    });
+    expectGenericError(response, 401, 'unauthorized');
+    const count = await installerPool.query<{ count: string }>(
+      `SELECT count(*)::text AS count FROM ${B3_SCHEMA}.work_events`,
+    );
+    expect(count.rows[0]?.count).toBe('0');
+  });
+
+  it('maps deferred-ingestion failure to generic 503 and a fixed diagnostic', async () => {
+    const safeDiagnostics: BackendApiDiagnostic[] = [];
+    const server = createBackendHttpServer(testDependencies({
+      deferredLifecycleIngestor: {
+        async ingestDeferred() {
+          throw new Error('sensitive-deferred-failure');
+        },
+      },
+    }), { onDiagnostic: (diagnostic) => safeDiagnostics.push(diagnostic) });
+    await listen(server);
+    const origin = serverOrigin(server);
+    const body = JSON.stringify(lifecycleBody({ event: 109, receipt: 109 }));
+    try {
+      const response = await rawRequest(origin, {
+        method: 'POST',
+        path: '/v1/lifecycle-events/deferred',
+        headers: {
+          authorization: 'Bearer abc.def.ghi',
+          'content-type': 'application/json',
+          'content-length': String(Buffer.byteLength(body)),
+          'x-taptime-expected-membership-id': ids.membershipA,
+        },
+        body,
+      });
+      expectGenericError(response, 503, 'service_unavailable');
+      expect(safeDiagnostics).toEqual([{
+        code: 'lifecycle_ingestion_failed',
+        correlationId: response.headers['x-request-id'],
+      }]);
+      expect(JSON.stringify({ response, safeDiagnostics }))
+        .not.toContain('sensitive-deferred-failure');
+    } finally {
+      await closeServer(server);
+    }
+  });
+});
+
 interface LifecycleBody {
   organizationId: string;
   workEvent: {
@@ -962,6 +1264,43 @@ async function getSession(value: string): Promise<HttpResult> {
 
 async function postLifecycle(body: LifecycleBody): Promise<HttpResult> {
   return postProduct('/v1/lifecycle-events', await token(ids.subjectA), body);
+}
+
+async function postDeferredLifecycle(
+  body: LifecycleBody,
+  expectedMembershipId: string = ids.membershipA,
+): Promise<HttpResult> {
+  const serialized = JSON.stringify(body);
+  return rawRequest(apiOrigin, {
+    method: 'POST',
+    path: '/v1/lifecycle-events/deferred',
+    headers: {
+      authorization: `Bearer ${await token(ids.subjectA)}`,
+      'content-type': 'application/json',
+      'content-length': String(Buffer.byteLength(serialized)),
+      'x-taptime-expected-membership-id': expectedMembershipId,
+    },
+    body: serialized,
+  });
+}
+
+async function postCanonicalWithMembership(
+  origin: string,
+  body: LifecycleBody,
+  expectedMembershipId: string,
+): Promise<HttpResult> {
+  const serialized = JSON.stringify(body);
+  return rawRequest(origin, {
+    method: 'POST',
+    path: '/v1/lifecycle-events',
+    headers: {
+      authorization: 'Bearer abc.def.ghi',
+      'content-type': 'application/json',
+      'content-length': String(Buffer.byteLength(serialized)),
+      'x-taptime-expected-membership-id': expectedMembershipId,
+    },
+    body: serialized,
+  });
 }
 
 async function postProduct(path: string, value: string, body: unknown): Promise<HttpResult> {
@@ -1125,10 +1464,29 @@ function testDependencies(
   };
   const lifecycleIngestor: LifecycleIngestor = {
     async ingest() {
-      return { status: 'deferred', reason: 'configuration_unavailable_or_inactive' };
+      return {
+        status: 'deferred',
+        evidenceStored: false,
+        reason: 'configuration_unavailable_or_inactive',
+      };
     },
   };
-  return { sessionAuthority, scanContextResolver, lifecycleIngestor, ...overrides };
+  const deferredLifecycleIngestor: DeferredLifecycleIngestor = {
+    async ingestDeferred() {
+      return {
+        status: 'deferred',
+        evidenceStored: false,
+        reason: 'configuration_unavailable_or_inactive',
+      };
+    },
+  };
+  return {
+    sessionAuthority,
+    scanContextResolver,
+    lifecycleIngestor,
+    deferredLifecycleIngestor,
+    ...overrides,
+  };
 }
 
 function throwingScanResolver(secret: string): ScanContextResolver {

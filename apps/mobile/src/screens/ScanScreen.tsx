@@ -131,11 +131,17 @@ export function presentScanState(state: ProductScanState): ScanScreenPresentatio
         tone: 'error',
       };
     case 'protected_pending':
-      return {
-        title: 'Ausstehender Vorgang geschützt',
-        message: 'Eine ausstehende Übertragung ist an das ursprüngliche Konto gebunden. Melde dich mit diesem Konto an, um sie sicher abzuschließen.',
-        tone: 'warning',
-      };
+      return state.reason === 'legacy_membership_unknown'
+        ? {
+            title: 'Älterer Vorgang geschützt',
+            message: 'Dieser Vorgang besitzt noch keine eindeutig zuordenbare Mitgliedschaft. Lösche weder die App noch ihre Daten und wende dich zur sicheren Klärung an den Support.',
+            tone: 'warning',
+          }
+        : {
+            title: 'Ausstehender Vorgang geschützt',
+            message: 'Die aktuelle Mitgliedschaft stimmt nicht mit dem ausstehenden Vorgang überein. Er bleibt geschützt und kann nicht neu zugeordnet werden.',
+            tone: 'warning',
+          };
     case 'ready':
       return state.outcome === null
         ? {
@@ -175,10 +181,8 @@ function presentOutcome(
       return { title: 'Andere Arbeitszeit ist aktiv', message: 'Beende zuerst die bereits aktive Arbeitszeit. Es wurde nichts verändert.', tone: 'warning' };
     case 'escalation_required':
       return { title: 'Prüfung erforderlich', message: 'Der Scan muss geprüft werden. Deine Arbeitszeit wurde nicht stillschweigend verändert.', tone: 'warning' };
-    case 'deferred':
-      return { title: 'Scan zur Prüfung vorgemerkt', message: 'Der Server hat den Vorgang angenommen, aber noch keine Arbeitszeit verändert.', tone: 'warning' };
-    case 'conflict':
-      return { title: 'Scan-Konflikt', message: 'Der Server hat widersprüchliche Daten erkannt und keine neue Bestätigung erteilt.', tone: 'error' };
+    case 'server_review_pending':
+      return { title: 'Scan sicher gespeichert', message: 'Der Server hat die Scan-Evidenz gespeichert. Deine Arbeitszeit wurde noch nicht verändert und wartet auf eine sichere Prüfung.', tone: 'warning' };
     case 'session_rejected':
       return { title: 'Sitzung nicht mehr gültig', message: 'Bitte melde dich erneut an.', tone: 'error' };
     default:

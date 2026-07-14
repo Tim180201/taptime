@@ -1,4 +1,4 @@
-import type { OrganizationId, UserId } from '@taptime/core';
+import type { MembershipId, OrganizationId, UserId } from '@taptime/core';
 import type { InternalAuthenticatedSessionSnapshot } from '../auth/contracts';
 
 export type ProductScanSessionSnapshot = InternalAuthenticatedSessionSnapshot;
@@ -22,8 +22,7 @@ export type ProductScanOutcome =
   | { readonly status: 'duplicate_scan_ignored' }
   | { readonly status: 'active_entry_for_other_target_rejected' }
   | { readonly status: 'escalation_required' }
-  | { readonly status: 'deferred' }
-  | { readonly status: 'conflict' }
+  | { readonly status: 'server_review_pending' }
   | { readonly status: 'session_rejected' };
 
 export type ProductScanState =
@@ -38,8 +37,11 @@ export type ProductScanState =
   | { readonly status: 'retry_pending' }
   /** Durable evidence cannot be loaded or updated safely; new scans are fail-closed. */
   | { readonly status: 'secure_storage_unavailable' }
-  /** Pending evidence exists, but belongs to another authenticated identity. */
-  | { readonly status: 'protected_pending' };
+  /** Pending evidence cannot be replayed under the current exact Membership context. */
+  | {
+      readonly status: 'protected_pending';
+      readonly reason: 'identity_mismatch' | 'legacy_membership_unknown';
+    };
 
 export interface ProductScanCapability {
   getState(): ProductScanState;
@@ -52,6 +54,7 @@ export interface ProductScanCapability {
 export interface PendingLifecycleBinding {
   readonly organizationId: OrganizationId;
   readonly userId: UserId;
+  readonly membershipId: MembershipId;
 }
 
 export type SecureUuidGenerator = () => string;
