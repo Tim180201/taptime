@@ -1,6 +1,6 @@
 # Block E1 — Durable Lifecycle Evidence Outbox Implementation Plan
 
-Status: Completed — Technical Lead Verification Passed
+Status: Completed — Technical Lead, GitHub CI and Independent Security Verification Passed
 Date: 2026-07-14
 Baseline: `9b2c8a5ed8b70a8aed5e367f6c919f439b5ac1ed`
 Owner: Technical Lead / Codex implementation
@@ -24,8 +24,8 @@ roadmap and architecture; it does not derive a new product rule from that memo.
 ## 2. Implementation sequence
 
 1. Add a single-record `LifecycleEvidenceOutbox` port containing only binding plus exact command.
-2. Add a strict `ExpoSecureLifecycleEvidenceOutbox` adapter using a versioned native key, device-only
-   accessibility, 4-KiB limit and closed schema.
+2. Add a strict `ExpoSecureLifecycleEvidenceOutbox` adapter using a versioned native key,
+   platform-accurate secure-storage semantics, a 2-KiB limit and closed schema.
 3. Compose the adapter privately in `ProductMobileRuntime`; React receives no storage authority.
 4. Load the record before NFC capability activation, persist before first lifecycle submission,
    clear before terminal UI publication, and fail closed on every persistence error.

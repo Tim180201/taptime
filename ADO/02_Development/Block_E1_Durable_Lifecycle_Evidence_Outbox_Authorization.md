@@ -1,6 +1,6 @@
 # Block E1 — Durable Lifecycle Evidence Outbox Authorization
 
-Status: Authorized — Implemented; Technical Lead Review Passed
+Status: Authorized — Implemented; Technical Lead, GitHub CI and Independent Security Review Passed
 Authorization Date: 2026-07-14
 Authorized Baseline: `9b2c8a5ed8b70a8aed5e367f6c919f439b5ac1ed`
 Human Architect Authorization: Explicitly supplied after Block D closure ("der sinnvollste und professionellste Weg")
@@ -21,7 +21,7 @@ The product flow remains:
 physical capture
   -> current server scan-context resolution
   -> immutable LifecycleEventCommand
-  -> durable device-only outbox write
+  -> durable platform-secure native outbox write
   -> existing authenticated C2 lifecycle endpoint
   -> server-canonical BusinessEngine decision
   -> durable outbox clear
@@ -39,9 +39,10 @@ without inventing offline assignment authority or reusing the legacy Core demo q
 - Persist only the existing `LifecycleEventCommand` plus its originating User/Organization binding.
   Never persist access tokens, refresh tokens, provider objects, raw NFC UID payloads, server
   decisions, Customer display data or database details.
-- Use the already installed native `expo-secure-store` adapter with
-  `WHEN_UNLOCKED_THIS_DEVICE_ONLY`, a fixed versioned key, strict schema validation and a bounded
-  serialized payload. No new dependency or migration is authorized.
+- Use the already installed native `expo-secure-store` adapter with a fixed versioned key, strict
+  schema validation and a bounded serialized payload. `WHEN_UNLOCKED_THIS_DEVICE_ONLY` configures
+  iOS Keychain accessibility; Android relies on expo-secure-store's Keystore-backed encrypted native
+  storage and does not interpret that iOS field. No new dependency or migration is authorized.
 - The current UI blocks a second scan while evidence is unresolved. The first durable adapter must
   therefore model exactly one record and must not falsely claim a multi-event offline queue.
 - Write the record before the first lifecycle HTTP request. A storage write failure sends no
@@ -60,7 +61,7 @@ without inventing offline assignment authority or reusing the legacy Core demo q
 
 Automated tests must prove:
 
-- native device-only key/options and exact schema round-trip;
+- native versioned key, platform-accurate options and exact schema round-trip;
 - rejection of unknown versions, extra authority/decision fields, tenant mismatch, changed attempt
   number, oversized values and unavailable storage;
 - persistence occurs before lifecycle submission and definitive results clear it;
