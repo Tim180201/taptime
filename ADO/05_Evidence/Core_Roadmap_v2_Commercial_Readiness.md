@@ -2,7 +2,7 @@
 
 Role: Research / Implementation Support acting on behalf of Technical Lead (per AGR-001)
 Date: 2026-07-10
-Status: Active execution baseline — Block A, B1–B6, C1/C2, Block D, E1 and narrow E2A completed after Technical Lead, GitHub CI and independent security approval as of 2026-07-14; E2A also passed controlled physical Galaxy C2-transport-loss/restart validation; E2A advances but does not complete DT-060–DT-062 or Block E; Block D device-local and synthetic server-connected physical Android validation passed on the approved Galaxy A33/NTAG213 set; C3 and Block E outside E2A unauthorized
+Status: Active execution baseline — Block A, B1–B6, C1/C2, Block D, E1 and narrow E2A completed for their recorded scopes as of 2026-07-14; no-code C3A passed independent re-review with Human Architect acceptance pending; E2A also passed controlled physical Galaxy C2-transport-loss/restart validation; E2A advances but does not complete DT-060–DT-062 or Block E; Block D device-local and synthetic server-connected physical Android validation passed on the approved Galaxy A33/NTAG213 set; C3B–C3E and Block E outside E2A remain separately gated
 Scope: Core platform roadmap only. Generic platform language throughout (Organization, Membership, Role, User, AssignmentTarget, Customer, NfcTag, NfcAssignment, TimeEntry, WorkEvent, BusinessEvent, Policy, AuditEvent, Export, Backend, Auth, Tenant Isolation, Mobile App, Admin Web, Website). No customer-specific product, company, or branch assumption is named anywhere in this document. No code implemented. No architecture, ADR, TTAP-001, FB-001/TS-001, FB-002/TS-002, or Product Vision content modified.
 Related Artifacts: `ADO/05_Evidence/External_CTO_Review_Triage_2026-07-10.md`, `ADO/05_Evidence/Product_Readiness_Assessment.md`, `ADO/05_Evidence/Product_Readiness_Roadmap.md`, `ADO/02_Development/Development_Sprint_019_Closure.md`, `ADO/02_Development/EP-007_Development_Tasks.md`, `ADO/00_Core/Project_Status.md`, `ADO/00_Core/Decision_Log.md`
 
@@ -10,13 +10,16 @@ Related Artifacts: `ADO/05_Evidence/External_CTO_Review_Triage_2026-07-10.md`, `
 
 ## 1. Purpose
 
-This roadmap supersedes the previous, undocumented "8–12 workday" commercial-readiness estimate — no repository artifact ever recorded that figure in writing (`External_CTO_Review_Triage_2026-07-10.md` Section 1), but it had circulated as an informal planning assumption and is corrected here with a calendar-based, evidence-grounded timeline. It integrates the External CTO Review's findings (`External_CTO_Review_Triage_2026-07-10.md`), each independently re-verified against current repository source code before being incorporated below. It defines the realistic path from **Core Prototype** (the repository's current, actual state — see Section 2) to **Technical Pilot Readiness** and, beyond that, **Commercial Readiness**.
+This roadmap supersedes the previous, undocumented "8–12 workday" commercial-readiness estimate — no repository artifact ever recorded that figure in writing (`External_CTO_Review_Triage_2026-07-10.md` Section 1), but it had circulated as an informal planning assumption and is corrected here with a calendar-based, evidence-grounded timeline. It integrates the External CTO Review's findings (`External_CTO_Review_Triage_2026-07-10.md`), each independently re-verified against repository source code at creation. It defines the path from the **Core Prototype** baseline recorded on 2026-07-10 (Section 2) to **Technical Pilot Readiness** and, beyond that, **Commercial Readiness**; the status header and block notes carry the later disposition.
 
 This document does not replace `Product_Readiness_Assessment.md`'s per-category detail or `Product_Readiness_Roadmap.md`'s milestone structure; it sits alongside both, translating the External CTO Review's specific findings into a sequenced, block-based execution plan. `Product_Readiness_Roadmap.md` receives a targeted addendum, not a rewrite, reflecting this roadmap's reprioritization (see that file's own "Addendum (2026-07-10)" section).
 
-## 2. Current Baseline
+## 2. Historical Creation Baseline (2026-07-10; Development Sprint 019)
 
-TapTim.e currently has, confirmed by direct repository evidence as of Development Sprint 019 (`Development_Sprint_019_Closure.md`; `External_CTO_Review_Triage_2026-07-10.md` Section 2–4):
+At roadmap creation, TapTim.e had the following state, confirmed by direct repository evidence as of
+Development Sprint 019 (`Development_Sprint_019_Closure.md`;
+`External_CTO_Review_Triage_2026-07-10.md` Section 2–4). These bullets are historical; later block
+status sections and the document header are current:
 
 - A strong core architecture: hexagonal ports/adapters separation, orchestration-only Application Services, no business decision leaking into an Application Service anywhere.
 - A tested scan pipeline: `NfcScanApplicationService` → `AssignmentResolver` → `AssignmentValidator` → `WorkEventCreationService` → `WorkEventFactory`/`BusinessEngine`, 221 `packages/core` tests passing, typecheck clean.
@@ -106,7 +109,7 @@ Blocks are ranges, not fixed sprint-by-sprint commitments; candidate Development
 
 ### Block C – Runtime Composition, Auth and Real Product Path
 
-**Status: C1 and C2 completed (2026-07-14) after Technical Lead, GitHub CI and independent security approval; DT-047/048 and C3 remain separately gated.** The default Mobile path uses the real Supabase email/password adapter, refresh-token-only SecureStore restoration and server-authoritative Membership session resolution. C2 adds only the exact three-route unified API and private Mobile B5/B6 clients. The later Block-D slice wires the authenticated NFC product path without changing C2's boundary. C3 requires separate authorization for Organization/Admin bootstrap.
+**Status: C1 and C2 completed; no-code C3A passed independent re-review (2026-07-14), with Human Architect acceptance pending. C3B–C3E remain unauthorized.** The default Mobile path uses the real Supabase email/password adapter, refresh-token-only SecureStore restoration and server-authoritative Membership session resolution. C2 adds only the exact three-route unified API and private Mobile B5/B6 clients. The later Block-D slice wires the authenticated NFC product path without changing C2's boundary. C3A proposes FB-002 v1.2, TS-002 v1.1 and ADR-0011: named-operator first Organization/Admin bootstrap, a distinct narrow normal Admin write session, bound receipts, required Customer/Tag display names, protected raw UID handling, disclosure-safe results and append-only Assignment history. It adds no route, migration or UI.
 
 **Target:** Week 4–6 · **Candidate Sprints:** 031–036
 
@@ -122,6 +125,13 @@ Blocks are ranges, not fixed sprint-by-sprint commitments; candidate Development
 | DT-052 | Mobile Composition Root / Session Injection | `LoginScreen` no longer directly instantiates `FakeAuthenticationGateway` or `SessionService`. |
 
 **Outcome:** No more demo pipeline as the product path; Organization/Membership code becomes runtime-relevant, not test-only; a real auth path exists; a user-to-membership context exists.
+
+**C3A execution note (2026-07-14):** DT-048's architecture decision passed independent validation,
+but is not yet Human-accepted or implemented. The proposed professional order is C3B (private
+bootstrap only), C3C (normal setup backend/API), C3D (Admin Web plus protected Android capture) and
+C3E (identity-first Employee Membership setup plus explicit reassignment after their policy gates).
+This split also advances DT-047, while DT-063–DT-066 remain open until the operational setup surfaces
+are implemented and validated.
 
 ### Block D – NFC Runtime and Physical Validation
 

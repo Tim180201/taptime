@@ -774,6 +774,13 @@ Test results: `packages/core/tests/application/OrganizationAdministrationService
 
 Known limitations: none beyond what was deliberately left open by design — `OrganizationAdministrationService.assignNfcTag(...)` has no caller anywhere in the repository outside its own test file (no UI, CLI, or mobile entry point calls it, per this task's own Out of Scope); the missing-target-Customer resolution means the caller cannot distinguish "not found" from "wrong Organization" from the result alone — a genuine, disclosed limitation of the current result vocabulary, not merely a documentation note; no check against `NfcAssignmentRepository.findActiveByTagId(...)` is performed before saving, so reassignment of an already-assigned tag is not prevented, per this task's own Out of Scope (FB-002 Open Question 3, not resolved here). Scope isolation independently verified: `MembershipAuthorizationValidator`, `MembershipAuthorizationResult`, `Membership`, `NfcTag`, `NfcAssignment`, `AssignmentTarget`, `Customer`, `NfcTagAssigned`, `NfcAssignmentRepository`, `NfcTagRepository`, `CustomerRepository`, `AssignmentResolver`, `AssignmentValidator` all confirmed byte-for-byte unchanged (and all of their test files); `NfcTagRepository` is not even called by `assignNfcTag(...)`; no changes to `apps/mobile`, `BusinessEngine`, `WorkEventFactory`, `NfcScanApplicationService`, `CallerContext`, `OfflineQueue`, `SynchronizationService`, or error handling; no scan-pipeline integration verification (DT-026) was performed by this task.
 
+**Post-closure C3A reconciliation (2026-07-14):** the limitation also includes accepting a detached
+`NfcTag` that is never reloaded from `NfcTagRepository` and not checking `Customer.active`. The
+review-ready ADR-0011 therefore prohibits exposing this method directly as an API. Proposed C3
+reloads Tag/Customer in a current
+tenant write transaction and maps missing/inactive/inaccessible targets to
+`assignment_target_unavailable`. This note does not rewrite DT-025's historical implementation.
+
 ## DT-026 – Existing Scan Pipeline Integration Verification
 
 Objective: Prove, without changing any pipeline code, that `AssignmentResolver`, `AssignmentValidator`, `WorkEventFactory` and `BusinessEngine` produce identical outcomes when `NfcTagRepository`/`NfcAssignmentRepository`/`CustomerRepository` are populated through DT-020–DT-025's Administration flow instead of `runScan.ts`'s hard-coded demo fixture.
@@ -809,6 +816,11 @@ Test results: `npm run test --workspace=@taptime/core` — 221/221 tests passing
 
 Known limitations: this proof is repository-internal only — no UI, CLI, or mobile entry point calls any Organization Management Application Service after this task, and this task deliberately does not change that; DT-026 does not make TapTim.e pilot-ready by itself. This completes the DT-017–DT-026 TS-002 Organization Management Foundation Development Task sequence in full — no DT-027 or later task exists anywhere in FB-002, TS-002, or this document. The missing-target-Customer result-vocabulary limitation disclosed at DT-025's closure, the Membership-granting bootstrap question, tag reassignment/history semantics, tag payload collision semantics (FB-002 Open Questions), and `packages/core/tsconfig.json`'s standing `"include": ["src"]` `tests/`-typecheck-coverage gap all remain unresolved, unaffected by this task. See `Development_Sprint_019_Closure.md` for full evidence.
 
+**Post-closure C3A reconciliation (2026-07-14):** review-ready FB-002 v1.2, TS-002 v1.1 and ADR-0011
+propose resolutions to the architecture questions above without changing DT-026's code/test
+evidence. The Core foundation remains complete; Human Architect acceptance and every C3 runtime
+implementation remain gated.
+
 ## Dependencies
 
 - ADR-0007 must exist.
@@ -821,4 +833,8 @@ Known limitations: this proof is repository-internal only — no UI, CLI, or mob
 
 This task structure is ready for Development Agent planning only after Review Agent approval of the EP-007 repository integration.
 
-DT-017–DT-026 are ready for Development Sprint 012 planning: each has an explicit objective, acceptance criteria, dependency, implementation boundary, testing expectation and out-of-scope definition. None has been implemented yet — every "Implementation Notes" section above is a placeholder, to be completed only once a Development Sprint actually builds the task, per DTP-001's Completion Rule ("Implementation alone never completes a Development Task") and AVR-001 ("Validation requires evidence. Status shall never be upgraded by assumption.").
+DT-017–DT-026 were planned and subsequently implemented, reviewed and approved across Development
+Sprints 012–019; their populated Implementation Notes and closures are the evidence. This original
+planning gate is satisfied. The review-ready C3A package reconciles the completed Core foundation with the real
+backend/runtime boundary; it does not retroactively convert the Core services into transport
+authority or authorize C3B–C3E before Human Architect acceptance.

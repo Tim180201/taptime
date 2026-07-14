@@ -1,20 +1,25 @@
 # TS-002 – Organization Management Foundation Technical Specification
 
-Status: Draft
+Status: Review Ready — independent re-review passed; Human acceptance pending
 Specification ID: TS-002
+Version: 1.1
+Last Updated: 2026-07-14
+Acceptance: Pending Human Architect
 Related Feature Blueprint: FB-002 (`ADO/01_Architecture/Feature_Blueprints/FB-002-organization-management-foundation.md`)
 Related Evidence: `ADO/05_Evidence/FB-002_Organization_Management_Scope_Assessment.md`
 Epic: EP-009 – Product Readiness Framework (Product Capability Track); EP-007 – Product Architecture Foundation (architectural continuity)
 Owner: Technical Lead
 Approval Authority: Human Architect
 Related Architecture: `ADO/01_Architecture/Technical_Architecture_Profile.md` (TTAP-001)
-Related ADRs: ADR-0002, ADR-0003, ADR-0005, ADR-0006, ADR-0007
+Related ADRs: ADR-0002, ADR-0003, ADR-0005, ADR-0006, ADR-0007, ADR-0008, ADR-0009, ADR-0011
 Related Technical Specification: TS-001 (`ADO/01_Architecture/Technical_Specifications/TS-001-nfc-scan-creates-work-event.md`) — extended, not replaced
-Related Development Tasks: Not yet created (out of scope for this document)
+Related Development Tasks: DT-017–DT-026 completed (Core foundation); C3B–C3E proposed and separately gated
 
 ## Purpose
 
-TS-002 defines the technical implementation baseline for FB-002 – Organization Management Foundation, now the authoritative feature definition following Technical Lead review.
+TS-002 defines the technical implementation baseline for the review-ready FB-002 Organization
+Management Foundation. FB-002 remains the product authority; this specification owns its technical
+realization.
 
 It translates FB-002 into implementation-ready technical architecture: Domain Objects, Ports, Application Services, Business Events, sequence flows and responsibility boundaries. It does not redefine product intent (owned by FB-002), does not redesign existing architecture (owned by TTAP-001/ADRs/TS-001), and does not create Development Tasks, code, tests or an ADR.
 
@@ -22,7 +27,7 @@ It translates FB-002 into implementation-ready technical architecture: Domain Ob
 
 How is FB-002 implemented while preserving the existing Business Engine architecture?
 
-Answer, in one sentence, elaborated throughout this document: every existing pipeline component (`AssignmentResolver`, `AssignmentValidator`, `WorkEventFactory`, `BusinessEngine`) already depends only on read-only repository ports (`NfcTagRepository.findByPayload`, `NfcAssignmentRepository.findActiveByTagId`, `CustomerRepository.findById`) — once those ports are backed by data written through FB-002's new write-capable Administration flow instead of `runScan.ts`'s hard-coded literals, the entire existing pipeline operates correctly with zero code changes. TS-002 therefore only adds new Domain Objects, new/extended Ports, and new Application Services alongside the existing architecture; it changes nothing inside it.
+Answer, in one sentence, elaborated throughout this document: every existing pipeline component (`AssignmentResolver`, `AssignmentValidator`, `WorkEventFactory`, `BusinessEngine`) already depends only on read-only repository ports (`NfcTagRepository.findByPayload`, `NfcAssignmentRepository.findActiveByTagId`, `CustomerRepository.findById`) — once those ports are backed by tenant-safe data written through the C3 administration boundary instead of `runScan.ts` literals, the pipeline operates without changing its decision logic. The Core foundation added Domain Objects, Ports and Application Services; the normative C3A amendment adds display fields and isolated server capabilities around that foundation without redesigning the scan engine.
 
 ## Architecture Principles Preserved
 
@@ -40,7 +45,7 @@ Per the Technical Lead's explicit direction, TS-002 does not redesign, and requi
 
 Every design decision below was evaluated against this list and rejected if it required touching any of them. None does.
 
-## Repository Evidence Baseline
+## Repository Evidence Baseline (Historical 2026-07-07 Snapshot)
 
 TS-002 is built on FB-002 and its Scope Assessment, and on direct inspection of current repository code, confirming:
 
@@ -52,62 +57,225 @@ TS-002 is built on FB-002 and its Scope Assessment, and on direct inspection of 
 - `runScan.ts`'s `buildScanDemoPipeline()` constructs one literal demo `Organization`/`Customer`/`NfcTag`/`NfcAssignment` and passes them directly into `InMemory*Repository` constructors. TS-002's Administration flow is the replacement path for that construction — not a change to `runScan.ts` itself, which remains a legitimate demo/CLI composition root either way.
 - `Technical_Architecture_Profile.md`'s Responsibility Areas (EP-008 Ch03 §2.3): Mobile/UI, Application, Business Engine, Domain, Infrastructure, Shared — TS-002 places every new component into these existing areas; it introduces no new area.
 
-## Domain Model
+The baseline above is retained as creation-time evidence. Statements such as "read-only today",
+"no Organization/Membership type" and "FakeAuthenticationGateway is today's only source" are not
+current. The following amendment is normative where any historical section conflicts with it.
 
-### New Domain Objects
+## Normative C3A Runtime Amendment (2026-07-14)
 
-- **Organization** — new. Minimal shape: an identifier (`OrganizationId`, already existing) plus a human-readable `name`. Repository evidence does not require an explicit `status` field: no Decision Logic in FB-002 references an "inactive Organization" rejection path, and ADR-0003's v1 scope does not mention organization suspension. `status` is therefore not included now; if the Human Architect resolves FB-002's Open Question 6 to require one, it is a pure additive field change, not a redesign (extends the Aggregate Root TTAP-001 already names, per ADR-0006's domain-first rule).
-- **Membership** — new. Associates one actor (`UserId`) with one `Organization` (`OrganizationId`) and one `MembershipRole`. Carries its own identifier (`MembershipId`, new branded ID, added to `ids.ts` alongside the existing branded ID types), following the same precedent ADR-0002 already set for `NfcAssignment` — an association object gets its own identity, not just a compound key of the things it associates. Per FB-002's assumption (Open Question 2), one Membership per actor exists at a time; the repository (below) is shaped accordingly.
-- **MembershipRole** — new. A value, not an entity: `'administrator' | 'employee'`, carried by a `Membership`, mirroring the existing string-literal-union idiom already used for `AssignmentTarget.targetType` and `SyncState`/`ErrorCategory`. Not a standalone domain object — consistent with FB-002's Technical Lead Review Follow-up, which clarified Administrator/Employee as Membership Roles, not entities.
+### Current implemented baseline
 
-### Existing Domain Objects Reused, Unchanged
+- DT-017–DT-026 implement and verify the complete Core-foundation sequence described below.
+- ADR-0008 and migrations `001`–`005` implement PostgreSQL tenant integrity, forced RLS, temporal
+  Assignments, administrative audit, identity binding and current-Membership resolution.
+- B4/B5/B6 and C1/C2 provide issuer-bound identity verification, tenant-safe reads,
+  server-canonical lifecycle transactions and authenticated HTTP transport.
+- ADR-0009 provides the only supported physical v1 Tag payload: canonical Android UID.
+- No bootstrap or normal administration route exists. Existing Core services remain internal
+  foundation code and must not be exposed directly.
 
-- `Customer`, `AssignmentTarget`, `NfcTag`, `NfcAssignment` — same shape, same `organizationId` scoping already in place. TS-002 adds only a write path for each (Ports, below); no field is added, removed or renamed.
-- `CallerContext` — unchanged shape. TS-002 does not alter `{ status: 'authenticated', userId, organizationId } | { status: 'unauthenticated' }`. A `Membership` is what a future Identity implementation would look up to populate a real `CallerContext.organizationId`; TS-002 defines the lookup Port (`MembershipRepository.findByUserId`, below) but not the Identity mechanism that would call it (Identity Boundary, below).
+### Normative precedence
+
+The original Domain/Port/Application sections remain authoritative for the implemented in-process
+foundation except where this amendment adds a real-runtime requirement. In particular, historical
+claims that no backend/API/Identity implementation exists, that Customer/NfcTag shapes remain
+unchanged for all future use, or that no additional architecture decision is needed are superseded.
+
+### C3 runtime data extension
+
+- `Customer` gains required non-unique `displayName`: ADR-0011 `taptime-name-v1`, 1–120 Unicode
+  scalars and at most 480 normalized UTF-8 bytes.
+- `NfcTag` gains required non-unique `displayName`: `taptime-name-v1`, 1–80 scalars and at most 320
+  normalized UTF-8 bytes.
+- PostgreSQL receives additive non-null columns and an explicit deterministic backfill for synthetic
+  fixtures before constraints become strict. Its versioned normalizer uses the pinned Unicode 17.0
+  White_Space/category tables and authoritative length checks from ADR-0011; Node uses identical
+  generated tables and golden vectors for preflight.
+- Admin read DTOs are projections, not Domain/database serialization:
+  `AdminOrganizationSummary { id, name }`,
+  `AdminCustomerSummary { id, displayName, active }` and
+  `AdminNfcTagSummary { id, displayName, validationFingerprint, assignmentState, targetCustomerId }`.
+  No Admin DTO returns `payload_value`.
+- `validationFingerprint` is the first 12 uppercase hexadecimal characters of SHA-256 over the
+  canonical payload. It is display-only and non-authoritative.
+
+### Bootstrap capability
+
+The first Organization/Admin flow does not call `OrganizationManagementService` and
+`MembershipService` as free-standing public operations. A private `@taptime/backend-bootstrap` CLI
+verifies the target's provider token, then connects with an individual short-lived
+`LOGIN NOINHERIT` operator principal, requires TLS `verify-full` outside numeric loopback, and
+explicitly assumes the execute-only `taptime_bootstrap_executor`. The SECURITY DEFINER capability's
+distinct NOLOGIN owner has only exact SELECT/INSERT plus controlled BYPASSRLS; ordinary runtimes
+cannot assume either role. It creates/reuses the safe IdentityBinding, creates Organization and first
+Administrator Membership, appends exactly three truthful operator audit events and an append-only
+idempotency receipt in one transaction. Audit and receipt persist exact `session_user` in an
+immutable `operator_principal`; cross-operator replay fails closed with a separate rejection audit.
+ADR-0011 defines the complete grant, credential, replay and disclosure contract.
+
+`Organization.name` uses `taptime-name-v1`, the same 1–120 scalar/480-byte bound as Customer names,
+and no global uniqueness constraint.
+
+### Normal Admin write capability
+
+The server accepts only raw access token, mandatory `expectedMembershipId` narrowing and a fixed
+command/projection request. Missing or malformed expected Membership is `invalid_request`; mismatch
+with the locked current Membership is `forbidden`. This check happens before receipt lookup or any
+resource query.
+An `AdminWriteSessionCoordinator` verifies identity, locks and derives the current active Membership
+inside the same transaction, requires `administrator`, sets transaction-local actor/tenant/
+Membership/correlation context and selects a dedicated narrow `taptime_admin_setup` role. It exposes
+only expiring fixed methods; no caller receives a Pool, Client, SQL function, generic repository or
+role selector.
+
+The initial commands are:
+
+```text
+createCustomer(expectedMembershipId, commandId, displayName)
+provisionNfcTag(expectedMembershipId, commandId, customerId, displayName, canonicalPayload)
+readSetupProjection(expectedMembershipId, cursor, limit)
+```
+
+The provisioning command atomically resolves the current tenant's active Customer, validates the
+ADR-0009 payload, inserts the Tag and first active Assignment, writes its command receipt and appends
+audit evidence. It takes IDs/values, never a deserialized Membership, Customer or NfcTag object.
+
+Normal receipts are append-only and unique by `(organization_id, command_id)`. They store exact
+actor User, expected Membership, command type, hash version, canonical digest, safe result code and
+only applicable result IDs; never a raw request/name input, token/identity claim or NFC payload. The
+digest uses ADR-0011's domain-separated length-prefixed tuple. Exact authority/type/digest replay
+returns the stored result; any difference is `command_id_conflict`.
+
+After authority/expected-Membership validation, each mutation takes the ADR-0011 transaction-scoped
+advisory lock for its versioned `(organization_id, command_id)` key before receipt lookup. This
+serializes two same-tenant Administrators racing the same ID; the waiter re-reads and maps exact
+actor/Membership/type/digest or returns `command_id_conflict`. A unique violation is defence-in-depth
+and is mapped by the same re-read, never returned directly.
+
+C3C allowlists only `taptime_admin_setup` in the administrative audit trigger in addition to the
+existing role. `createCustomer` appends exactly one `CustomerCreated`; `provisionNfcTag` appends
+exactly one `NfcTagRegistered` plus one `NfcTagAssigned`. Actor is current derived User,
+`operator_principal` is null and correlation is command ID. Exact replay and rollback append no
+events; payload/receipt contain no raw UID.
+
+### Runtime result contract
+
+The C3 typed/HTTP boundary separates authority, resource state and infrastructure:
+
+| Condition | Public result | HTTP class |
+|---|---|---:|
+| invalid/expired identity, missing/revoked binding or no active Membership | `unauthorized` | 401 |
+| Employee, expected-Membership mismatch or role mismatch | `forbidden` | 403 |
+| missing/inactive/inaccessible Customer target | `assignment_target_unavailable` | 404 |
+| tenant-local payload already registered by a different command | `tag_payload_already_registered` | 409 |
+| command ID reused with different authority, type or normalized content | `command_id_conflict` | 409 |
+| malformed/extra-key/over-limit command | `invalid_request` | 400 |
+| timeout/database/infrastructure failure | `service_unavailable` | 503 |
+
+The missing-Customer branch is never serialized as `cross_organization_access`. Tenant-scoped
+queries make absent and foreign resources indistinguishable. Internal diagnostics can retain an
+allowlisted cause without resource IDs or cross-tenant disclosure.
+
+Precedence is normative: validate current authority and expected Membership; return an exact stored
+receipt; reject a divergent receipt; then evaluate resources. An existing tenant-local payload under
+a different command is always `tag_payload_already_registered`, irrespective of Assignment state.
+`assignment_conflict` belongs only to a later explicit assign/reassign capability.
+
+### Assignment and payload invariants
+
+- One active Membership per User is normative for v1.
+- NFC payload uniqueness is `(organization_id, payload_value)`; the same payload in another tenant
+  is allowed and not observable.
+- One active Assignment per `(organization_id, nfc_tag_id)` is normative.
+- The initial provision command never reassigns. A later explicit reassignment locks the old row,
+  treats same-target as semantic idempotency and otherwise deactivates old plus appends new in one
+  transaction. Historical WorkEvents retain their Assignment snapshot.
+- Authenticated Android owns Customer selection, Tag label entry, native capture and direct
+  provision submission. Its raw payload may exist only as an ephemeral transport-internal value
+  between adapter and coordinator; it is absent from React component/state, persistence, Web,
+  response, receipt, audit and normal diagnostics. This is a supported-client boundary, not device
+  attestation or server proof of a physical scan.
+
+### Membership boundary
+
+First-Administrator bootstrap is the only bypass of normal Administrator authorization. Later grants
+require a stable verified User and current server-derived Administrator. No last Administrator may
+be revoked/demoted without atomic replacement. Invitation, revocation and role-change transport/UI
+remain outside the initial setup API.
+
+## Core-Foundation Domain Model (Implemented)
+
+### Domain Objects Added by DT-017–DT-019
+
+- **Organization** — added in the Core foundation with identifier plus human-readable `name`. V1 has no active/inactive `status`; Organization suspension is explicitly deferred and requires a separate product/security decision.
+- **Membership** — added in the Core foundation to associate `UserId`, `OrganizationId` and `MembershipRole`, with its own `MembershipId` following ADR-0002's association-identity precedent. One active Membership per User is already schema-enforced and retained in the review-ready C3 v1 proposal; multi-Organization Membership is a future ADR trigger.
+- **MembershipRole** — added as the value `'administrator' | 'employee'`, carried by a Membership rather than modeled as a standalone entity.
+
+### Existing Domain Objects Reused; C3 Display Extension Above
+
+- `Customer`, `AssignmentTarget`, `NfcTag`, `NfcAssignment` — the original Core-foundation step reused
+  their then-current shapes and added only write paths. The normative C3A amendment now requires
+  additive Customer/Tag display names for the real setup runtime; IDs, Organization scoping,
+  canonical payload and Assignment identity/history remain preserved.
+- `CallerContext` — unchanged shape. TS-002 does not alter `{ status: 'authenticated', userId, organizationId } | { status: 'unauthenticated' }`. The current server runtime derives identity and Membership through B4/C1 rather than trusting a client-populated `CallerContext`; the Core lookup remains foundation evidence only.
 
 ### No User / Identity Domain
 
-Per FB-002's Identity Boundary, TS-002 introduces no `User`, `Employee` or `Administrator` domain entity, and no Identity domain concept. `UserId` remains the only representation of "an actor," exactly as it is today.
+The Core foundation introduced no `User`, `Employee` or `Administrator` domain entity and no
+Identity domain concept. B3/B4 later added server User/IdentityBinding persistence; C3 does not turn
+those transport/persistence records into new Core domain entities.
 
-## Ports
+## Core-Foundation Ports (Implemented)
 
 Evaluated against repository evidence; only the following are justified.
 
-### New Ports
+### Ports Added by DT-017–DT-018
 
-- **OrganizationRepository** — new, because no `Organization` type or repository exists at all today. Methods: find an Organization by its `OrganizationId`; save (create) an Organization. Mirrors the existing `CustomerRepository`'s minimal read shape, plus the one write method every new repository in this specification needs.
-- **MembershipRepository** — new, same justification. Methods: find the Membership for a given `UserId` (per FB-002's single-membership assumption); save (create) a Membership. This is the Port a future Identity implementation would call to replace `FakeAuthenticationGateway`'s hard-coded account map — noted here as an integration point, not designed here (Identity Boundary, below). If the Human Architect later resolves FB-002 Open Question 2 to allow multi-organization membership, this method's signature is the one identified extension point that would need revisiting.
+- **OrganizationRepository** — added because no `Organization` type/repository existed in the creation
+  baseline. Methods: find by `OrganizationId`; save/create.
+- **MembershipRepository** — added with find-by-`UserId` and save/create for the implemented one-active-
+  Membership v1 invariant. B4/C1 now own real identity resolution; multi-Organization Membership
+  would require revisiting this Core port under a future ADR.
 
-### Extended Existing Ports
+### Existing Ports Extended by DT-020–DT-022
 
-- **CustomerRepository** — extend with one new method: save (create) a Customer. `findById` is unchanged. No new port type introduced; the existing interface gains a write method, exactly as the Technical Lead's candidate list anticipated ("CustomerRepository extensions").
-- **NfcTagRepository** — extend with one new method: save (register) an NfcTag. `findByPayload` is unchanged.
-- **NfcAssignmentRepository** — extend with one new method: save (create) an NfcAssignment. `findActiveByTagId` is unchanged.
+- **CustomerRepository** — gained save/create; `findById` retained its read semantics.
+- **NfcTagRepository** — gained register/save; `findByPayload` retained its read semantics.
+- **NfcAssignmentRepository** — gained save/create; `findActiveByTagId` retained its read semantics.
 
 ### Explicitly Not Introduced
 
 - No separate "writer" or "command" port type alongside each existing "reader" port. Repository evidence (every existing repository port names a single cohesive concept — "the Customer repository," not "the Customer reader" and "the Customer writer") supports extending the existing interfaces in place, not introducing a new port-splitting pattern the repository does not otherwise use.
 - No changes to `AuthenticationGateway`, `NfcScanPort`, `WorkEventCreationPort`, `OfflineQueue`, `SynchronizationGateway`, `WorkEventRepository`, `TimeEntryRepository` — none is implicated by FB-002's scope.
 
-## Application Services
+## Core-Foundation Application Services (Implemented)
 
 Evaluated against repository evidence and against the granularity already established by existing services (`NfcScanApplicationService` orchestrates several steps as one cohesive service, rather than one service per step; `SynchronizationService` and `SessionService` are similarly single-purpose orchestrators). The Technical Lead's candidate list (OrganizationManagementService, MembershipService, CustomerManagementService, NfcRegistrationService, AssignmentManagementService) is not adopted as-is: splitting Customer/NFC-Tag/NFC-Assignment administration into three separate services would fragment one cohesive Administrator use-case area (FB-002 Capability 4) more finely than any existing service in this repository is split, without evidence requiring it. TS-002 instead defines three Application Services, mapped one-to-one to FB-002's Capabilities 1, 2 and 4 (Capability 3 is data, not a service; Capability 5 reuses existing services unchanged):
 
-- **OrganizationManagementService** (Capability 1 / FB-002 Decision 1). One responsibility: create an Organization. Orchestrates: construct the `Organization` domain object, call `OrganizationRepository.save`, produce `OrganizationCreated`. Owns no business rule beyond "an Organization can always be created" (FB-002's Decision 1 preconditions: none).
-- **MembershipService** (Capability 2 / FB-002 Decision 2). One responsibility: grant a Membership. Orchestrates: construct the `Membership` domain object (actor, Organization, `MembershipRole`), call `MembershipRepository.save`, produce `MembershipGranted`. Delegates the "may this request proceed" question to the new `MembershipAuthorizationValidator` (Business responsibility area, below) for every grant except the first Administrator Membership of a newly created Organization, which has no existing Administrator to authorize it — an explicit, unresolved bootstrapping question, carried into Open Questions/Extension Points below exactly as FB-002 left it open (Open Question 1).
-- **OrganizationAdministrationService** (Capability 4 / FB-002 Decisions 3–5). Three methods, one per FB-002 Decision: create a Customer/AssignmentTarget; register an NfcTag; assign an NfcTag to an AssignmentTarget. Each method: (1) calls `MembershipAuthorizationValidator` (below) with the requesting actor's Membership and the target Organization; (2) on acceptance, constructs the domain object and calls the relevant extended repository's save method; (3) produces the corresponding Event (`CustomerCreated`, `NfcTagRegistered`, `NfcTagAssigned`) or returns the rejection. `assignNfcTag` additionally requires (per FB-002 Decision 5) that the NfcTag and the AssignmentTarget already belong to the same Organization as the requesting Membership, mirroring `AssignmentValidator`'s existing cross-check pattern.
+- **OrganizationManagementService** (Capability 1 / FB-002 Decision 1). One Core-foundation responsibility: construct and save an Organization and produce `OrganizationCreated`. It has no authority checks and therefore is not a public C3 use case; ADR-0011's hardened bootstrap capability owns real first-Organization creation.
+- **MembershipService** (Capability 2 / FB-002 Decision 2). One responsibility: construct and save a
+  Membership and produce `MembershipGranted`. The implemented DT-018 service deliberately performs
+  no Organization-existence, actor-authorization or first-Administrator check. It is a foundation
+  component, not a public use case. Contrary to the original pre-implementation expectation, it
+  does **not** delegate to `MembershipAuthorizationValidator`; C3 must place it only behind
+  ADR-0011's private bootstrap or a future server-derived normal-grant coordinator.
+- **OrganizationAdministrationService** (Capability 4 / FB-002 Decisions 3–5). Three in-process Core methods create a Customer/AssignmentTarget, register an NfcTag and assign an NfcTag to an AssignmentTarget. They validate detached domain inputs with `MembershipAuthorizationValidator`, construct the domain object, call the repository and return the corresponding Event/rejection. The implemented `assignNfcTag` does not reload the Tag, verify `Customer.active` or check an existing active Assignment. It is therefore foundation code only. C3 accepts scalar command data, reloads every resource under the current locked tenant and enforces database state inside one transaction.
 
 None of these services owns a business rule directly — each orchestrates and delegates to a Business-area validator or an existing/extended repository, exactly matching `NfcScanApplicationService`'s existing "orchestrates but does not interpret" boundary (EP-008 Ch03 §2.3).
 
-## New Business-Area Component
+## Core-Foundation Business-Area Component (Implemented)
 
-- **MembershipAuthorizationValidator** — new, placed in the Business Engine responsibility area, directly alongside and structurally identical in shape to the existing `AssignmentValidator`: a pure, deterministic class with no side effects, taking domain objects in and returning a validation result out. Evaluates whether a Membership may perform an administrative action against a target Organization (FB-002 Decision 6): rejects with `membership_not_found` (no Membership exists for the actor), `membership_lacks_administrator_role` (Membership exists but carries the Employee role), or `cross_organization_access` (Membership's Organization differs from the target Organization's data) — otherwise accepts. This is a business rule (FB-002's Business Rules already state it in prose: "Only a Membership with the Administrator Role may create or assign Organization-owned pilot data"), so it belongs in the Business responsibility area, not inside an Application Service, exactly as `AssignmentValidator` already established the precedent for the equivalent scan-time rule.
+- **MembershipAuthorizationValidator** — added in the Business Engine responsibility area as a pure,
+  deterministic in-process validator. It returns `membership_not_found`,
+  `membership_lacks_administrator_role` or `cross_organization_access`. These remain Core-foundation
+  results only; the C3 transport uses the normative disclosure-safe table above.
 
 `AssignmentValidator` itself is not modified; its existing `employee_lacks_organization_access` check continues to operate exactly as today (FB-002 Decision 7 restates this without changing it).
 
-## Business Events
+## Core-Foundation Business Events (Implemented)
 
-New domain events (`packages/core/src/domain/events/`, following the existing `WorkEventCreated`/`TimeEntryStarted` idiom: a `type` discriminant plus the created/decided domain object):
+Domain events added under `packages/core/src/domain/events/`, following the existing
+`WorkEventCreated`/`TimeEntryStarted` idiom:
 
 - **OrganizationCreated** — carries the created `Organization`.
 - **MembershipGranted** — carries the created `Membership`.
@@ -121,9 +289,11 @@ Rejections (`membership_not_found`, `membership_lacks_administrator_role`, `cros
 
 No FB-001 event (`NfcTagScanned`, `NfcAssignmentResolved`, `NfcAssignmentRejected`, `WorkEventCreated`, `DuplicateScanIgnored`, `TimeEntryStarted`, `TimeEntryStopped`, `TimeEntryPending`, `WorkEventQueuedForSync`) is redefined, renamed or given new fields.
 
-## Sequence Diagrams
+## Core-Foundation Sequence Diagrams (Historical In-Process Boundary)
 
-Text-flow, matching TS-001's existing style.
+Text-flow, matching TS-001's existing style. These diagrams explain DT-017–DT-026; their detached
+Membership/Organization/NfcTag parameters are never transport inputs. The normative C3A sequence
+above supersedes them for the real server boundary.
 
 ### 1. Organization Creation
 
@@ -139,8 +309,8 @@ Administration request (Organization name)
 
 ```text
 Administration request (actor, Organization, MembershipRole)
-  -> MembershipService
-  -> [except the bootstrapping case, see Open Questions] MembershipAuthorizationValidator
+  -> [trusted coordinator derives/authorizes actor; private bootstrap is a separate path]
+  -> MembershipService (foundation construction/persistence only)
   -> constructs Membership domain object
   -> MembershipRepository.save
   -> MembershipGranted
@@ -198,13 +368,13 @@ This sixth flow is the direct answer to the Primary Design Question: it is chara
 
 Mapped to the existing Responsibility Areas (`Technical_Architecture_Profile.md`; EP-008 Ch03 §2.3) — no new area is introduced:
 
-| Area | New / Changed in TS-002 |
+| Area | Implemented foundation and current C3 effect |
 |---|---|
-| Domain | `Organization`, `Membership`, `MembershipRole` (new); `OrganizationCreated`, `MembershipGranted`, `CustomerCreated`, `NfcTagRegistered`, `NfcTagAssigned` (new events); `MembershipId` added to `ids.ts`. `Customer`, `NfcTag`, `NfcAssignment`, `AssignmentTarget`, `CallerContext` unchanged. |
-| Business Engine | `MembershipAuthorizationValidator` (new, structurally identical to `AssignmentValidator`). `AssignmentResolver`, `AssignmentValidator`, `WorkEventFactory`, `BusinessEngine` unchanged. |
-| Application | `OrganizationManagementService`, `MembershipService`, `OrganizationAdministrationService` (new, orchestration-only, mirroring `NfcScanApplicationService`'s boundary). `NfcScanApplicationService`, `SynchronizationService`, `SessionService`, `WorkEventCreationService` unchanged. |
-| Infrastructure | `OrganizationRepository`, `MembershipRepository` (new ports + new `InMemory*` implementations); `CustomerRepository`, `NfcTagRepository`, `NfcAssignmentRepository` (extended with a save method + updated `InMemory*` implementations). Durable/file-backed adapters for the new/extended repositories are a future, additive follow-up, exactly mirroring DT-015's precedent (in-memory default, durable adapter optional) — not required by TS-002 itself. `OfflineQueue`, `SynchronizationGateway`, `AuthenticationGateway`, `NfcScanPort`, `WorkEventCreationPort` unchanged. |
-| Mobile / UI | Not touched by TS-002. Whatever entry point eventually calls these new Application Services (a CLI command mirroring `runScanCli.ts`'s precedent, or a future minimal admin screen) is Development Task / future-TS scope, not designed here. |
+| Domain | `Organization`, `Membership`, `MembershipRole` and their creation events were added by the Core foundation; `MembershipId` was added to `ids.ts`. C3 additionally requires `Customer.displayName` and `NfcTag.displayName`; `NfcAssignment`, `AssignmentTarget` and `CallerContext` retain their Core identities/shapes. |
+| Business Engine | The Core foundation added `MembershipAuthorizationValidator`, structurally analogous to `AssignmentValidator`. `AssignmentResolver`, `AssignmentValidator`, `WorkEventFactory` and `BusinessEngine` remain unchanged. |
+| Application | The Core foundation added orchestration-only `OrganizationManagementService`, `MembershipService` and `OrganizationAdministrationService`. C3 places them behind the server-derived boundaries above rather than exposing them directly. `NfcScanApplicationService`, `SynchronizationService`, `SessionService` and `WorkEventCreationService` remain unchanged. |
+| Infrastructure | The Core foundation added `OrganizationRepository`, `MembershipRepository` and their `InMemory*` implementations, then extended Customer/Tag/Assignment repositories with writes. C3 supplies the separately gated PostgreSQL capabilities; `OfflineQueue`, `SynchronizationGateway`, `AuthenticationGateway`, `NfcScanPort` and `WorkEventCreationPort` remain unchanged. |
+| Mobile / UI | Not touched by the Core foundation. C3D later owns the separately gated Admin Web and protected Android Administrator capture; neither may call the Core services directly. |
 | Shared | `ids.ts` extended additively with `MembershipId`. No other shared utility changes. |
 
 No business logic moves between areas; no new responsibility area is invented.
@@ -216,19 +386,23 @@ TS-002 extends, and does not replace:
 - **FB-001 / TS-001**: the entire scan pipeline (Sequence 6, above) is reused verbatim. TS-002 adds no new step to it and removes none.
 - **Business Engine**: unchanged. It continues to receive the same `WorkEvent` shape from the same `WorkEventFactory`, regardless of whether the underlying `NfcAssignment`/`Customer` came from a fixture or from real Organization-owned data.
 - **AssignmentValidator**: unchanged. Its `employee_lacks_organization_access`/`missing_assignment_target`/`assignment_target_disabled` outcomes are exactly preserved; `MembershipAuthorizationValidator` is a new, separate, structurally analogous component for administrative actions, not a modification of `AssignmentValidator`.
-- **Current repositories**: `CustomerRepository`/`NfcTagRepository`/`NfcAssignmentRepository` gain one additive method each; every existing method and every existing caller of those methods is unaffected.
+- **Current repositories**: the Core foundation added one write method to each of `CustomerRepository`/`NfcTagRepository`/`NfcAssignmentRepository`; C3 adds display data and server adapters without changing the existing scan-read semantics.
 - **Current adapters**: `FakeAuthenticationGateway`, `FakeNfcScanAdapter`, `CliNfcScanAdapter`, `FakeSynchronizationGateway` are all unchanged. `runScan.ts`'s `buildScanDemoPipeline` continues to work exactly as today; it is not required to change for TS-002 to be implemented, though a future Development Task may choose to let it optionally accept Organization-owned repository instances the same way DT-015 let it optionally accept durable storage instances.
 - **Current scan flow**: identical (Sequence 6, above).
 
 Document of exactly what remains unchanged (for review convenience, repeating the Architecture Principles Preserved list): `BusinessEngine`, `AssignmentResolver`, `AssignmentValidator`, `WorkEventFactory`, `NfcScanApplicationService`, `NfcScanPort`, `WorkEventCreationPort`, `CallerContext`, `OfflineQueue`, `SynchronizationService`/`SynchronizationGateway`, `ErrorCategory` and its `classify*` functions.
 
-## Identity Boundary
+## Identity Boundary (Historical Core Scope; Current Runtime Uses ADR-0008/C1)
 
-Unchanged from FB-002: TS-002 does not specify a real authentication provider, OAuth, Firebase Auth, Auth0, password handling, token/session architecture, or credential lifecycle. `FakeAuthenticationGateway` is not modified. `MembershipRepository.findByUserId` is defined as the Port a future Identity implementation would call to determine a real caller's `organizationId` (replacing today's hard-coded account map), but that future implementation, its provider, and its integration into `SessionService`/`toCallerContext` are explicitly out of scope here.
+The original Core specification did not select or implement Identity and correctly left
+`FakeAuthenticationGateway` unchanged. ADR-0008, B4 and C1 later supplied the real v1 provider/token/
+session boundary. C3 reuses that concrete verification and server Membership resolution; it does not
+revive `MembershipRepository.findByUserId` or a client-supplied CallerContext as runtime authority.
+Provider linking, password lifecycle and additional sign-in methods remain outside TS-002.
 
-## Implementation Strategy (Logical Dependency Order, Not Development Tasks)
+## Historical Core Implementation Order (Completed by DT-017–DT-026)
 
-Recommended order, by dependency only — no Development Task numbering:
+The original dependency order was:
 
 ```text
 Organization (domain object + OrganizationRepository + OrganizationManagementService)
@@ -246,45 +420,79 @@ OrganizationAdministrationService (createCustomer, registerNfcTag, assignNfcTag)
 Existing Scan Pipeline Integration (no code change — verification only: confirm AssignmentResolver/AssignmentValidator/WorkEventFactory/BusinessEngine behave identically when NfcTagRepository/NfcAssignmentRepository/CustomerRepository are backed by Administration-flow-written data instead of runScan.ts literals)
 ```
 
-Each step is a precondition for the next: Membership cannot be authorized without an Organization to belong to; Administration cannot be authorized without `MembershipAuthorizationValidator`; the existing scan pipeline cannot be verified against real data until the extended repositories and Administration Service exist.
+DT-017–DT-026 completed this order. It is not the C3 runtime sequence; C3B bootstrap, C3C normal
+setup backend/API, C3D UI/capture and C3E Membership/reassignment remain separately gated.
 
-## Out of Scope
+## Historical Core-Foundation Out of Scope and Current C3 Exclusions
 
 Unchanged from FB-002, restated for this specification's own boundary:
 
-- Identity Provider selection, OAuth, Firebase Auth, password handling (Identity Boundary, above).
+- Additional Identity Provider selection, OAuth expansion and password-product behavior beyond the
+  approved ADR-0008/C1 v1 boundary (Identity Boundary, above).
 - Billing, reporting, exports, analytics, Customer self-service portal.
 - The full `Role_Model.md` role matrix; Team Lead/System Owner implementation; permission-management UI.
 - Approval workflows.
-- Backend/cloud persistence technology, database schema, API design (REST/GraphQL), deployment topology, cloud provider selection — all remain deferred per ADR-0007 and are not resolved or narrowed by this specification.
+- The original Core slice excluded backend/cloud/schema/API work. ADR-0008 and B3–C2 later delivered
+  that foundation. C3 still excludes cloud deployment selection, production data and generic API
+  design beyond ADR-0011's fixed setup capability.
+- Public/self-service Organization signup; generic Membership CRUD; invitation/revocation/role
+  management; Organization status/rename; delete; implicit reassignment; Web/iOS NFC capture.
 - Any change to FB-001's business rules, decision logic, duplicate-scan/Finding F-01 behavior, or Business Engine decision logic.
 
 ## Quality Requirements Self-Check
 
-- Implementation-readiness: every new/extended component's responsibility, dependency direction and boundary is stated; a Development Agent should need no further architectural decision beyond ordinary implementation choices (naming, exact method signatures, test structure).
+- Core-foundation implementation-readiness: DT-017–DT-026 have implemented and verified the original
+  component sequence. The historical claim that no further architecture decision was needed applied
+  only to that in-process foundation, not a real C3 transport/runtime.
+- C3 readiness: ADR-0011 and the normative amendment above now decide bootstrap, normal write
+  authority, display fields, result vocabulary, payload uniqueness and Assignment history. C3B–C3E
+  still require separate exact-baseline authorizations and implementation reviews.
 - Traceability: every new component is traced to a specific FB-002 Capability/Decision and to a specific existing repository precedent (`AssignmentValidator`, `CustomerRepository`, `NfcScanApplicationService`, `ids.ts`, ADR-0002's `NfcAssignment` identity precedent).
-- Authoritative for FB-002: this document is the complete technical translation of FB-002's five Capabilities; nothing in FB-002's In Scope is left technically unaddressed, and nothing beyond it is introduced.
+- Review-ready for FB-002: this document covers the implemented Core foundation and corrected C3A
+  runtime contract. Independent re-review passed; Human Architect acceptance is pending. Bootstrap, normal setup API and UI
+  are not implemented.
 
-## Open Questions Carried Forward (Not Resolved Here)
+## Former Open Questions — Current Disposition
 
-Unchanged from FB-002, plus one newly surfaced during this specification:
-
-- FB-002 Open Questions 1–8 (provisioning mechanism, multi-organization membership, tag re-assignment/history, exact rejection semantics for "no Membership at all," cross-Organization payload collisions, Organization status, tag physical-provisioning workflow, Identity-layer sequencing) all remain open, unresolved by TS-002, and unaffected by it.
-- **Newly surfaced (Membership-granting bootstrap):** `MembershipAuthorizationValidator` requires an existing Administrator Membership to authorize granting a new one — but the very first Membership of a newly created Organization has no existing Administrator to grant it. TS-002 does not resolve this; it is flagged as a Human Architect decision needed before or during implementation of `MembershipService` (candidates might include: the actor who created the Organization is automatically its first Administrator Membership, or an explicit pilot/manual bootstrap step outside `MembershipAuthorizationValidator`'s normal check — neither is decided here).
+- First Organization/Admin: resolved by ADR-0011 private operator bootstrap; C3B implementation gated.
+- Membership cardinality: one active Membership per User for v1.
+- Reassignment/history: temporal append-only history and one active Assignment per Tag; explicit
+  reassignment implementation later gated.
+- Missing/wrong-Organization resource semantics: disclosure-safe
+  `assignment_target_unavailable`; authorization remains a separate forbidden result.
+- Payload collision: Organization-scoped uniqueness, same value across tenants allowed/undisclosed.
+- Organization status: explicitly deferred; no suspension semantics in C3 v1.
+- Physical provisioning: canonical Android UID/capture resolved by ADR-0009; protected Android
+  registration selected; NDEF writing/iOS/Web capture deferred.
+- Identity sequencing: resolved by ADR-0008/B4/C1 before C3 runtime.
+- Customer/Tag usability: required display names added to the C3 contract; implementation gated.
+- Normal Membership invitation/revocation/last-admin UI: remains separately gated, not an ambiguity
+  in the initial C3 setup surface.
 
 ## Traceability
 
 ```text
 Product Vision
-  -> ADR-0002 / ADR-0003 / ADR-0005 / ADR-0006 / ADR-0007
+  -> ADR-0002 / ADR-0003 / ADR-0005 / ADR-0006 / ADR-0007 / ADR-0008 / ADR-0009
   -> TTAP-001
   -> FB-001 (existing, unchanged) -> TS-001 (existing, unchanged)
-  -> FB-002 (existing, Technical-Lead-reviewed)
-  -> TS-002 (this document)
-  -> Development Tasks (not yet created)
+  -> FB-002 v1.2 (review-ready)
+  -> TS-002 v1.1 (this review-ready Core + C3A specification)
+  -> DT-017–DT-026 (Core foundation complete)
+  -> ADR-0011 / C3A (independently validated; Human Architect acceptance pending)
+  -> C3B–C3E (separately gated)
 ```
 
-## Role Handover
+## Review Reconciliation Note (2026-07-14)
+
+Version 1.1 is review-ready after direct source/schema reconciliation and independent C3A
+correction review. The
+original sections remain useful evidence for why the Core foundation was shaped as it was. The
+normative C3A amendment corrects their time-dependent statements and adds the transport/security
+contract required for real runtime work. Human Architect acceptance is pending and no C3 product
+code is authorized.
+
+## Historical Role Handover (2026-07-07)
 
 Implemented scope: TS-002 – Organization Management Foundation Technical Specification created as a Draft, translating the Technical-Lead-reviewed FB-002 into implementation-ready architecture (new Domain Objects, Ports, Application Services, one new Business-area validator, Business Events, six sequence flows, responsibility-area mapping, extension strategy, logical implementation order). No Development Task, code, test, ADR, or TTAP change was created or modified.
 
@@ -305,6 +513,6 @@ Evidence produced: this specification, the Decision Log entry, and the ADO/READM
 
 Next responsible role: Technical Lead to review TS-002 for approval readiness. Per the assigned stop condition, this task does not create Development Tasks and does not begin Development Sprint 012.
 
-## Stop Condition
+## Historical Stop Condition (Satisfied 2026-07-07)
 
 Per task instruction: stop after TS-002 has been created. Do not create Development Tasks. Do not begin Sprint 012. Wait for Technical Lead review.

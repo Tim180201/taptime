@@ -1,31 +1,34 @@
 # FB-002 – Organization Management Foundation
 
-Status: Draft
+Status: Review Ready — independent re-review passed; Human acceptance pending
 Feature ID: FB-002
 Feature Name: Organization Management Foundation
-Version: 1.1
+Version: 1.2
 Epic: EP-009 – Product Readiness Framework (Product Capability Track); EP-007 – Product Architecture Foundation (architectural continuity)
 Owner: Technical Lead
 Approval Authority: Human Architect
 Creation Date: 2026-07-07
-Last Updated: 2026-07-07 (Technical Lead Review Follow-up: Capability Hierarchy naming evaluation; Membership Role terminology clarification)
-Approval Date: Not yet approved
+Last Updated: 2026-07-14 (C3A implementation and security reconciliation)
+Acceptance: Pending Human Architect
 Related Product Vision: `ADO/01_Architecture/Product_Vision.md`
 Related Product Principles: `ADO/01_Architecture/Product_Principles.md`
 Related Domain Model: `ADO/01_Architecture/Domain_Model.md`
 Related Role Model: `ADO/01_Architecture/Role_Model.md`
 Related Architecture: `ADO/01_Architecture/Technical_Architecture_Profile.md` (TTAP-001)
-Related ADRs: ADR-0002, ADR-0003, ADR-0005, ADR-0006, ADR-0007
+Related ADRs: ADR-0002, ADR-0003, ADR-0005, ADR-0006, ADR-0007, ADR-0008, ADR-0009, ADR-0011
 Related Feature Blueprint: FB-001 – NFC Scan Creates Work Event (`ADO/01_Architecture/Feature_Blueprints/FB-001-nfc-scan-creates-work-event.md`)
-Related Technical Specification: Not yet created (TS-002 is out of scope for this document)
-Related Evidence: `ADO/05_Evidence/FB-002_Organization_Management_Scope_Assessment.md`
-Related Governance: `ADO/02_Development/EP-009_Product_Readiness_Framework.md`, `ADO/05_Evidence/Product_Readiness_Assessment.md`, `ADO/05_Evidence/Product_Readiness_Roadmap.md`
+Related Technical Specification: `ADO/01_Architecture/Technical_Specifications/TS-002-organization-management-foundation.md`
+Related Evidence: `ADO/05_Evidence/FB-002_Organization_Management_Scope_Assessment.md`, `ADO/05_Evidence/Block_C3A_Independent_Architecture_Security_Review.md`
+Related Governance: `ADO/02_Development/EP-009_Product_Readiness_Framework.md`, `ADO/02_Development/Block_C3A_Organization_Administration_Architecture_Authorization.md`, `ADO/02_Development/Block_C3_Organization_Administration_Implementation_Plan.md`, `ADO/05_Evidence/Product_Readiness_Assessment.md`, `ADO/05_Evidence/Product_Readiness_Roadmap.md`
 
 ## Purpose
 
 FB-002 defines the second core product feature for TapTim.e: the minimal Organization and Membership foundation required for a real pilot customer.
 
-It describes what shall exist so that an Organization, its Administrator(s), its Employees and its business assets (Customers, NFC Tags, NFC Assignments) are real, Organization-owned data — not the hard-coded demo fixtures FB-001's pipeline currently depends on (`buildScanDemoPipeline`, `FakeAuthenticationGateway`'s account map).
+It describes the product capability through which an Organization, its Administrator(s), its
+Employees and its business assets (Customers, NFC Tags, NFC Assignments) become real,
+Organization-owned data. The capability originated as the replacement for FB-001's hard-coded demo
+fixtures and now governs the separately gated C3 setup runtime.
 
 It does not define UI, database structure, API design, authentication provider selection or implementation details.
 
@@ -37,7 +40,10 @@ FDOS Rule:
 
 Enable TapTim.e to onboard a real pilot customer whose own Organization, Administrator, Employees, Customers and NFC Tags exist as real data, rather than as source-code fixtures shared by every user of the demo pipeline.
 
-This is a precondition for any commercial pilot: without it, every organization using TapTim.e today is, in effect, the same hard-coded `'demo-org'`. The business value is unlocking the very first paying/piloting customer, per the Product Readiness Assessment's re-evaluated finding (Section 11.1) that Organization Management, not backend/cloud technology, is the primary bottleneck for reaching Pilot Customers.
+The Core, backend and Android foundations no longer make every runtime interaction a shared fixture,
+but a commercial pilot still requires the governed Organization bootstrap and setup capability to be
+implemented. The business value is onboarding the first paying/piloting customer without source-code
+seeding or cross-tenant ambiguity.
 
 ## User Goal
 
@@ -45,13 +51,13 @@ An Administrator wants to set up their own business in TapTim.e: register the Cu
 
 An Employee wants to belong to their employer's Organization and scan an assigned NFC tag exactly as FB-001 already describes, with no change to that experience — the only difference is that the tag, its assignment and the resolved Customer are now real, Organization-owned data instead of a shared demo fixture.
 
-## Business Context
+## Historical Business Context (2026-07-07)
 
 TapTim.e is not merely a time tracking application. Per `Product_Vision.md`, it is the first capability of a broader Business Event Platform for small and medium-sized businesses, with the Business Engine as its strategic center. Development Sprints 001–011 built the first working scan-to-business-event foundation (FB-001/TS-001), most recently adding real NFC hardware integration (DT-016, Development Sprint 011). EP-009 established Product Readiness as a permanent governance stream running alongside Development Sprints and EP-008.
 
 Every Development Sprint to date has proven and extended the *scan-to-WorkEvent* pipeline using one shared demo Organization, one demo Employee, one demo Customer and one demo NFC Tag, all defined as literal objects in `packages/core/src/cli/runScan.ts`, and one demo sign-in code authenticated by `FakeAuthenticationGateway`. This was correct and sufficient for proving the Business Engine, offline queue, durable persistence, error categorization and native NFC hardware integration in isolation. It is not sufficient for a second, real Organization to exist alongside the demo one. FB-002 closes that gap.
 
-## Product Readiness Context
+## Historical Product Readiness Context (2026-07-07)
 
 `Product_Readiness_Assessment.md` Section 11.1 (as re-evaluated after Technical Lead review) concludes that Organization Management is the primary bottleneck for reaching Pilot Customers, because no Feature Blueprint or Technical Specification exists for it — not because of any product-strategy gap. Section 12's Capability Hierarchy places this Blueprint's scope precisely:
 
@@ -81,7 +87,7 @@ Business Events / Business Engine / Time Tracking   <-- FB-001, unchanged
 
 `Product_Readiness_Roadmap.md` names Organization Management / FB-002 as a "Now" milestone item. `Development_Sprint_011_Closure.md` recommended, as one of two parallel next priorities, Human Architect initiation of FB-002 drafting. This Blueprint is that initiation, following the dedicated scope assessment referenced below.
 
-## Repository Evidence
+## Repository Evidence (Historical 2026-07-07 Creation Baseline)
 
 This Blueprint is built directly on `ADO/05_Evidence/FB-002_Organization_Management_Scope_Assessment.md`, which is the evidence baseline for every scope decision below. Key findings carried forward:
 
@@ -92,19 +98,58 @@ This Blueprint is built directly on `ADO/05_Evidence/FB-002_Organization_Managem
 - `FakeAuthenticationGateway` is today's entire mechanism for "which Organization does this Employee belong to" — a hard-coded map of sign-in code to `{ userId, organizationId }`. Per the Scope Assessment's Addendum (Section 10, following a direct Technical Lead follow-up question), Identity (the authentication mechanism itself) and Membership (which Organization/Role a caller belongs to) are evidenced as separable: `Product_Readiness_Assessment.md` Section 12.2 already places "roles, membership" under the **Organization** capability layer, not the Identity layer, and `FakeAuthenticationGateway`'s existing multi-account constructor shows the two capabilities are not implementation-coupled today. FB-002 therefore includes Membership and excludes the authentication mechanism itself, per the Identity Boundary section below.
 - `Role_Model.md` (Status: "Sprint 1 Draft," unchanged since 2026-06-26) defines four roles (System Owner, Administrator, Team Lead, Employee) with a full permission matrix, none of which has any code-level presence. FB-002 deliberately implements only the minimal Administrator/Employee distinction needed for pilot readiness, per the Technical Lead's explicit scope decision, leaving the full matrix as documented but not-yet-built target (Out of Scope, below).
 
+The statements above intentionally preserve the repository state that informed the original
+Blueprint. They are not current implementation claims. The following reconciliation is the current
+review-ready proposal.
+
+## Current Review Reconciliation (2026-07-14)
+
+- DT-017–DT-026 are complete at the Core code/test level: Organization, Membership, minimal roles,
+  repositories, authorization validation, Customer/Tag/Assignment writes and unchanged scan-pipeline
+  composition exist.
+- ADR-0008 and B3–B6 establish the real PostgreSQL/Auth/tenant/lifecycle foundation. C1/C2 expose
+  real identity/session and authenticated scan/lifecycle transport. Block D proves Android NFC with
+  ADR-0009's canonical UID payload. These later foundations supersede the historical statements that
+  backend, identity and physical validation did not exist.
+- The existing Core services remain a foundation, not an HTTP authority boundary. C3 must derive the
+  current User, Membership, Organization and role from verified server state and reload requested
+  resources inside one tenant transaction.
+- The first Organization and first Administrator use ADR-0011's private audited operator bootstrap,
+  never a normal Administrator or self-service route.
+- One active Membership per User is the implemented schema and proposed C3 v1 invariant. Normal Membership management,
+  invitation, revocation and last-Administrator transfer remain separately gated.
+- NFC payload uniqueness is Organization-scoped. Assignment history is append-only with at most one
+  active Assignment per Tag; implicit reassignment is prohibited.
+- `Customer.displayName` and `NfcTag.displayName` are required for the real setup runtime. The raw
+  canonical NFC payload is a backend locator, not a UI label; presentation uses a clearly labelled,
+  shortened non-authoritative validation fingerprint.
+- A missing, inactive or inaccessible AssignmentTarget is `assignment_target_unavailable` at the
+  C3 boundary. DT-025's in-process `cross_organization_access` fallback is historical and is not a
+  public transport result.
+
+Reconciliation does not rewrite chronology: implementation began under individually approved Development
+Sprints while this header still said Draft. Version 1.2 reconciles that governed evidence and fixes
+the remaining product/security decisions before any C3 runtime implementation.
+
 ## In Scope
 
 - Organization existence as a real, addressable business container (not only an ID).
-- Organization status, if repository evidence or Decision Logic requires distinguishing an active Organization from an inactive one (see Open Questions).
+- Organization existence without a v1 active/inactive status; suspension semantics are explicitly
+  deferred to a separate product/security decision.
 - Membership: an association between an actor (`UserId`) and an Organization, carrying a minimal Membership Role.
 - Minimal Membership Roles: Administrator, Employee only — Roles carried by a Membership, not standalone domain entities.
-- Customer / AssignmentTarget creation, owned by an Organization.
-- NFC Tag registration, owned by an Organization.
+- Customer / AssignmentTarget creation with a required human-readable display name, owned by an Organization.
+- NFC Tag registration with an operator-owned display name and protected canonical payload, owned by an Organization.
 - NFC Tag assignment to an AssignmentTarget, within the same Organization.
 - Organization-scoped data ownership for Customer, NfcTag and NfcAssignment.
 - Organization-scoped authorization for administrative actions (creating/registering/assigning), mirroring the organization-scoping already enforced for scans by `AssignmentValidator`.
 - Preservation of FB-001's existing scan authorization behavior, unchanged.
-- Pilot/manual provisioning of Organizations, Memberships, Customers and NFC Tags (an Administrator or an equivalent manual/internal mechanism performs setup; no self-service signup flow).
+- Pilot provisioning through the private first-Organization/Administrator bootstrap followed by
+  current-Administrator setup commands; no self-service signup flow.
+- Private audited operator bootstrap for the first Organization and first Administrator, distinct
+  from every normal Administrator capability.
+- Disclosure-safe Customer/Tag setup summaries that use names and a shortened validation fingerprint
+  rather than UUIDs or raw NFC payloads as their primary presentation.
 - Replacing hard-coded, source-code demo fixtures as a product capability goal — the demo Organization may continue to exist as one Organization among others, but must no longer be the *only* Organization the system can represent.
 - Relationship to FB-001's existing scan flow (Cross-Blueprint References, below).
 - Relationship to EP-009 Product Readiness (Product Readiness Context, above).
@@ -119,10 +164,17 @@ This Blueprint is built directly on `ADO/05_Evidence/FB-002_Organization_Managem
 - System Owner role implementation.
 - Permission-management UI.
 - User lifecycle management beyond minimal Membership (no invitations, deactivation workflows, or multi-organization membership).
-- Password flows, OAuth, magic links, token/session architecture, managed identity provider selection (Firebase Auth, Auth0 or otherwise) — see Identity Boundary.
-- The backend/cloud persistence technology decision (remains deferred per ADR-0007; FB-002 does not resolve it).
+- Password flows, OAuth, magic links and provider-linking behavior — Identity remains a separate
+  product capability even though ADR-0008/C1 now supply the approved v1 implementation foundation.
+- Backend/cloud implementation details — ADR-0008 now governs them, but they remain outside this
+  product-behavior Blueprint.
+- Public or self-service first-Organization signup.
+- Browser copy/paste of raw NFC UID payloads, Web NFC and NFC tag writing.
+- Membership invitation, revocation, role-change and last-Administrator user interfaces.
+- Implicit NFC Tag reassignment or deletion of Assignment history.
 - Reporting, exports, time correction, approval workflows.
-- Mobile-native NFC tag writing/physical provisioning; iOS-specific NFC behavior; physical-device validation of scanning (these remain DT-016's and NFC_Capability_Model.md's open items, untouched by FB-002).
+- Mobile-native NFC tag writing/NDEF provisioning and iOS-specific NFC behavior. Physical scanning
+  validation remains governed by Block D/ADR-0009 and is not changed by FB-002.
 - Any change to FB-001's business rules, decision logic or the duplicate-scan/Finding F-01 behavior.
 - Any change to Business Engine decision logic.
 
@@ -145,15 +197,19 @@ Administrator and Employee are not standalone domain entities. Both are **Member
 - **Administrator (Membership Role)** — an actor whose Membership carries the Administrator Role. May create Customers/AssignmentTargets, register NFC Tags, and assign NFC Tags to AssignmentTargets, only within their own Organization.
 - **Employee (Membership Role)** — an actor whose Membership carries the Employee Role. May scan an assigned NFC Tag exactly as FB-001 describes; may not perform any administrative action (Business Rules, below).
 
-System Owner and Team Lead (`Role_Model.md`) are explicitly not implemented as distinct Membership Roles in this Blueprint; every Membership in FB-002's scope carries either the Administrator or Employee Role (Out of Scope, above; Open Questions, below).
+System Owner and Team Lead (`Role_Model.md`) are explicitly not implemented as distinct Membership Roles in this Blueprint; every Membership in FB-002's scope carries either the Administrator or Employee Role (Out of Scope, above; Former Open Questions disposition, below).
 
 ## Core Concepts
 
 - **Organization**: the owning business container for all of an actor's and business asset's data. Every Customer, NfcTag and NfcAssignment belongs to exactly one Organization.
 - **Membership**: the association between an actor and an Organization, carrying exactly one minimal Membership Role (Administrator or Employee). Membership answers "which Organization and role is this actor associated with?" — distinct from Identity, which answers "who has authenticated?" (Identity Boundary, below).
 - **Membership Role (minimal)**: Administrator or Employee — a property carried by a Membership, not a standalone domain entity in its own right. Determines whether a Membership may perform administrative actions (Business Rules, below). Not the full `Role_Model.md` matrix.
-- **Customer / AssignmentTarget**: an Organization-owned target that work is tracked against, exactly as already modeled by FB-001/ADR-0002 — FB-002 adds the ability to create one, not a new shape for it.
-- **NFC Tag**: an Organization-owned physical token identifier, exactly as already modeled by FB-001/ADR-0002 — FB-002 adds the ability to register one, not a new shape for it.
+- **Customer / AssignmentTarget**: an Organization-owned target that work is tracked against. The
+  Core-foundation shape is extended for the real setup runtime with a required human-readable
+  `displayName`; the name is presentation/business data, not authority.
+- **NFC Tag**: an Organization-owned physical token identifier with a required operator-owned
+  `displayName`. Its canonical payload remains a technical locator; a shortened SHA-256 validation
+  fingerprint may help an operator match the physical Tag but is not identity or authority.
 - **NFC Assignment**: the Organization-owned mapping of an NFC Tag to an AssignmentTarget, exactly as already modeled by FB-001/ADR-0002 — FB-002 adds the ability to create one, not a new shape for it.
 
 ## Domain Objects
@@ -163,8 +219,10 @@ FB-002 uses the domain language defined by TTAP-001 and `Domain_Model.md`, exten
 - **Organization** — extended from an identifier-only concept (`OrganizationId`) to a real domain object. New.
 - **Membership** — the association of an actor with an Organization and a minimal Membership Role. New.
 - **Membership Role (minimal)** — Administrator or Employee, carried by a Membership; not a standalone domain object. New, minimal subset of `Role_Model.md`'s documented four roles.
-- **Customer / AssignmentTarget** — existing, unchanged shape (ADR-0002, FB-001). Extended only with a creation capability.
-- **NfcTag** — existing, unchanged shape (ADR-0002, FB-001). Extended only with a registration capability.
+- **Customer / AssignmentTarget** — existing Core-foundation concept; add required `displayName` for
+  the C3 runtime while preserving ID, Organization ownership and active state.
+- **NfcTag** — existing Core-foundation concept; add required `displayName` for the C3 runtime while
+  preserving ID, Organization ownership and canonical payload.
 - **NfcAssignment** — existing, unchanged shape (ADR-0002, FB-001). Extended only with a creation capability.
 - **CallerContext** — existing, unchanged shape (Development Sprint 001). FB-002 does not alter it; a Membership is what a future Technical Specification would use to populate `CallerContext.organizationId` for a real (non-fixture) caller, but that population mechanism belongs to Identity, not FB-002 (Identity Boundary, below).
 
@@ -177,11 +235,25 @@ No change is made to `WorkEvent`, `TimeEntry`, `BusinessEngine`, `OfflineQueue`,
 - Every NFC Tag belongs to exactly one Organization.
 - Every NFC Assignment belongs to exactly one Organization.
 - A Tag may be assigned only to an AssignmentTarget in the same Organization.
+- Every Customer and NFC Tag exposed by the real setup flow has a nonblank bounded display name.
+  Display names are not unique and never grant access.
+- A raw NFC UID/canonical payload is not normal presentation data. A shortened validation fingerprint
+  is a non-authoritative physical matching aid only.
+- Every normal Admin command/projection carries the session's expected Membership ID as mandatory
+  narrowing. The server still derives authority; a stale Membership can never redirect work into a
+  replacement Organization.
+- New physical v1 Tags use ADR-0009's canonical UID representation. Payload uniqueness is enforced
+  within one Organization; the same payload in another Organization is permitted and undisclosed.
+- At most one NFC Assignment is active for a Tag. Reassignment never overwrites history: an explicit
+  future reassignment closes the old Assignment and appends the new one atomically.
 - Only a Membership with the Administrator Role may create or assign Organization-owned pilot data (Customer/AssignmentTarget creation, NFC Tag registration, NFC Tag assignment).
 - An Employee Membership may scan but may not administer Organization-owned assets.
 - A scan may only be evaluated inside the Organization context of the authenticated caller's Membership — this is a restatement, not a change, of `AssignmentValidator`'s existing `employee_lacks_organization_access` behavior, which FB-002 must preserve exactly.
 - Cross-Organization access must be rejected or impossible by construction for both administrative actions (new, per FB-002) and scan evaluation (existing, per FB-001/`AssignmentValidator`).
-- A Membership belongs to exactly one Organization (Open Questions records whether this may ever change).
+- One active Membership belongs to exactly one Organization for v1. Multi-Organization Membership
+  requires a future ADR and schema/API redesign review.
+- One active Membership per User is the v1 invariant. The last active Administrator cannot be
+  removed without an atomic transfer that leaves another active Administrator.
 - FB-002 does not invent duplicate-scan behavior (Finding F-01 remains exactly as FB-001 left it).
 - FB-002 does not invent billing or pricing rules.
 - FB-002 does not invent or specify real authentication behavior (Identity Boundary, below).
@@ -193,8 +265,11 @@ No change is made to `WorkEvent`, `TimeEntry`, `BusinessEngine`, `OfflineQueue`,
 - CustomerCreated
 - NfcTagRegistered
 - NfcTagAssigned
-- AdministrativeActionRejected (an actor without an Administrator Membership, or an actor acting outside their own Organization, attempted to create/register/assign)
-- CrossOrganizationAccessRejected (an administrative action or scan resolution was attempted against a different Organization's data)
+- NfcAssignmentDeactivated (an explicit reassignment closed a formerly active Assignment)
+
+Rejected administrative requests are typed operation/security outcomes, not Domain Events. A
+server audit may record an allowlisted rejection category, but it never exposes another tenant's
+resource existence. FB-001's existing scan rejection events remain unchanged.
 
 Events describe facts that happened, consistent with FB-001's existing event style (e.g., `NfcTagScanned`, `WorkEventCreated`). No event above changes or duplicates any FB-001 event (`NfcTagScanned`, `NfcAssignmentResolved`, `NfcAssignmentRejected`, `WorkEventCreated`, `DuplicateScanIgnored`, `TimeEntryStarted`, `TimeEntryStopped`, `TimeEntryPending`, `WorkEventQueuedForSync`), which remain entirely owned by FB-001.
 
@@ -202,9 +277,11 @@ Events describe facts that happened, consistent with FB-001's existing event sty
 
 ### Decision 1: Create Organization
 
-Trigger: an Administrator-provisioning action (pilot/manual setup) requests a new Organization.
+Trigger: the private audited operator bootstrap requests a new pilot Organization for a verified
+provider identity.
 
-Preconditions: none beyond the request itself — Organization creation has no dependency on any other Organization's data.
+Preconditions: a verified issuer/subject, an unused bootstrap request ID and no conflicting existing
+Membership; normal Administrator and self-service paths are not eligible.
 
 Decision: create the Organization.
 
@@ -212,9 +289,11 @@ Result: OrganizationCreated.
 
 ### Decision 2: Create Membership
 
-Trigger: an actor is to be associated with an Organization and a minimal Role.
+Trigger: a verified actor is to be associated with an Organization and a minimal Role.
 
-Preconditions: the Organization must exist (Decision 1).
+Preconditions: the Organization and stable verified User must exist. The first Administrator is
+created only by Decision 1's bootstrap. Every later grant requires a current Administrator and must
+preserve one-active-Membership-per-User and last-Administrator safety.
 
 Decision: associate the actor with the Organization and a Membership Role (Administrator or Employee).
 
@@ -222,41 +301,72 @@ Result: MembershipGranted.
 
 ### Decision 3: Create Customer / AssignmentTarget
 
-Trigger: an Administrator Membership requests a new Customer within their Organization.
+Trigger: an Administrator Membership requests a new Customer with a display name within their Organization.
 
 Preconditions: the requesting Membership must have the Administrator Role and must belong to the target Organization.
 
-Decision: create the Customer, owned by that Organization; otherwise reject.
+Decision: normalize and validate the name, then create the Customer owned by that Organization;
+otherwise return an invalid-data, forbidden or infrastructure outcome without a partial write.
 
-Result: CustomerCreated, or AdministrativeActionRejected.
+Result: CustomerCreated, or a typed `invalid_request`, `forbidden` or `service_unavailable` outcome.
 
 ### Decision 4: Register NFC Tag
 
-Trigger: an Administrator Membership requests registration of a new NFC Tag within their Organization.
+Trigger: a protected Administrator capture supplies a display name and ADR-0009 canonical UID payload.
 
-Preconditions: same as Decision 3.
+Preconditions: same as Decision 3; the payload must be canonical and not already registered inside
+the Organization.
 
-Decision: register the NFC Tag, owned by that Organization; otherwise reject.
+Decision: register the NFC Tag, owned by that Organization; the supported first runtime combines
+registration and first assignment atomically. A tenant-local duplicate under another command is a
+conflict; another tenant's state is never disclosed.
 
-Result: NfcTagRegistered, or AdministrativeActionRejected.
+Result: NfcTagRegistered, or a typed `invalid_request`, `forbidden`,
+`tag_payload_already_registered` or `service_unavailable` outcome.
 
 ### Decision 5: Assign NFC Tag
 
-Trigger: an Administrator Membership requests assigning a registered NFC Tag to an AssignmentTarget.
+Trigger: the initial provision command has just registered a new NFC Tag and requests its first
+Assignment to an AssignmentTarget in the same transaction.
 
-Preconditions: the requesting Membership must have the Administrator Role and belong to the same Organization as both the NFC Tag and the AssignmentTarget.
+Preconditions: the requesting Membership must have the Administrator Role; the newly inserted Tag
+and server-reloaded active AssignmentTarget must belong to that current Organization.
 
-Decision: create the NfcAssignment if the Tag and the AssignmentTarget belong to the same Organization as the requesting Membership; otherwise reject.
+Decision: create the first NfcAssignment inside the same transaction as Tag registration. A missing,
+inactive or inaccessible target is `assignment_target_unavailable`. An existing tenant-local
+payload under another command has already returned `tag_payload_already_registered`; the initial
+flow never reaches an overlapping Assignment result.
 
-Result: NfcTagAssigned, or CrossOrganizationAccessRejected.
+Result: NfcTagAssigned, `assignment_target_unavailable`, `forbidden` or a typed invalid/infrastructure
+result.
 
 ### Decision 6: Evaluate Whether an Actor May Perform an Administrative Action
 
 Trigger: any of Decisions 3–5.
 
-Decision: the actor's Membership must exist, must carry the Administrator Role, and must belong to the same Organization as the data being created/registered/assigned.
+Decision: current Membership is derived and locked from the authenticated identity. It must be
+active, carry the Administrator Role and own the requested resources. Client-supplied Membership,
+Organization and role values are never authority.
 
-Result: proceed, or AdministrativeActionRejected / CrossOrganizationAccessRejected.
+Result: proceed, `unauthorized` or `forbidden`. Decisions 3–5 use the exact target/command outcomes
+in the table below, including `assignment_target_unavailable`; no generic `resource-unavailable`
+result exists. Detailed internal causes are not public tenant-existence signals.
+
+### Normative C3 Public Result Contract
+
+| Condition | Public result |
+|---|---|
+| invalid/expired identity, missing/revoked binding or no active Membership | `unauthorized` |
+| Employee, expected-Membership mismatch or role mismatch | `forbidden` |
+| missing/inactive/inaccessible Customer target | `assignment_target_unavailable` |
+| command ID reused with different authority, type or normalized content | `command_id_conflict` |
+| tenant-local payload already registered by another command | `tag_payload_already_registered` |
+| malformed/over-limit data | `invalid_request` |
+| infrastructure/deadline failure | `service_unavailable` |
+
+`assignment_conflict` is reserved for the later explicit assign/reassign capability. PascalCase
+names in Decisions 1–5 are successful Domain Events only; rejected requests never produce
+`AdministrativeActionRejected` or `CrossOrganizationAccessRejected` events.
 
 ### Decision 7: Evaluate Whether a Scan Belongs to the Same Organization Context
 
@@ -274,7 +384,7 @@ Decision Logic here remains conceptual, as required at Feature Blueprint level; 
 
 **Capability 2 — Membership.** The association between an actor, an Organization and a minimal Membership Role (Administrator or Employee — Roles carried by the Membership, not standalone entities). Answers "which Organization and role is this actor associated with?"
 
-**Capability 3 — Business Assets.** Customer/AssignmentTarget, NFC Tag, and NFC Assignment, each owned by exactly one Organization — the same shapes FB-001 already defines, now creatable rather than fixed.
+**Capability 3 — Business Assets.** Customer/AssignmentTarget, NFC Tag, and NFC Assignment, each owned by exactly one Organization. FB-002 preserves their FB-001 identities and relationships, adds the C3 display fields, and makes setup data creatable rather than fixed.
 
 **Capability 4 — Administration.** The minimal Administrator actions required to prepare a pilot: create a Customer/AssignmentTarget, register an NFC Tag, assign an NFC Tag to an AssignmentTarget — each scoped to the Administrator's own Organization.
 
@@ -288,8 +398,8 @@ Decision Logic here remains conceptual, as required at Feature Blueprint level; 
 Organization exists (Capability 1)
   -> Administrator Membership exists, belonging to that Organization (Capability 2)
   -> Administrator creates Customer / AssignmentTarget (Capability 4 -> Capability 3)
-  -> Administrator registers NFC Tag (Capability 4 -> Capability 3)
-  -> Administrator assigns NFC Tag to AssignmentTarget (Capability 4 -> Capability 3)
+  -> protected Android Administrator capture supplies canonical NFC payload
+  -> backend atomically registers and first-assigns NFC Tag to AssignmentTarget (Capability 4 -> Capability 3)
 ```
 
 ### Flow 2 — Employee Scan Against Real Organization Data (unchanged from FB-001, now Organization-owned)
@@ -302,11 +412,12 @@ Employee Membership exists, belonging to the same Organization (Capability 2)
   -> Business Engine evaluates the scan and derives the WorkEvent/TimeEntry outcome (FB-001, unchanged)
 ```
 
-### Flow 3 — Rejected Cross-Organization Attempt
+### Flow 3 — Rejected Cross-Organization Resource Guess
 
 ```text
-Administrator (Organization A) attempts to create/register/assign data referencing Organization B's Customer/NfcTag
-  -> Decision 6 rejects: CrossOrganizationAccessRejected
+Administrator (Organization A) submits Organization B's Customer ID as a provision target
+  -> server-derived tenant query reveals no Organization-B resource
+  -> Decision 6 returns `assignment_target_unavailable`, identical to an absent/inactive Customer
 ```
 
 ## Edge Cases
@@ -314,12 +425,21 @@ Administrator (Organization A) attempts to create/register/assign data referenci
 - An actor with no Membership at all attempts an administrative action.
 - An Employee Membership attempts an administrative action (create/register/assign).
 - An Administrator attempts to create a Customer, register a Tag, or assign a Tag referencing a different Organization's data (Flow 3).
-- An Organization has zero Administrators (no one able to provision it).
-- An NFC Tag is registered but never assigned (valid, inert state — mirrors FB-001's "inactive assignment" edge case, but at the registration stage).
-- An NFC Tag already assigned to one AssignmentTarget is assigned again to a different AssignmentTarget within the same Organization (re-assignment; `Domain_Model.md`'s own Open Modeling Question, "Can one NFC tag have multiple assignments over time?", applies and is not resolved here — see Open Questions).
-- Two different Organizations independently register a Tag with the same physical payload (payload collision across Organizations — not resolved here; see Open Questions).
+- An Organization bootstrap would leave zero Administrators (transaction fails; no partial Organization remains).
+- A historical or separately imported NFC Tag is registered but unassigned (valid, inert model
+  state); the supported initial C3 command cannot create that state because register+assign is atomic.
+- An NFC Tag already assigned to one AssignmentTarget is sent through first-provisioning under a
+  different command (`tag_payload_already_registered`; no implicit reassignment). A later explicit
+  reassignment uses its separately authorized `assignment_conflict` contract and preserves history.
+- Two different Organizations independently register a Tag with the same physical payload (allowed,
+  Organization-scoped and undisclosed; the UID is not an authentication factor).
+- A Customer or Tag display name is blank, overlong or contains a control character (invalid data;
+  no write).
+- An Administrator repeats an exact setup command after an ambiguous transport failure (same safe
+  result and IDs; no duplicate write/audit event).
 - A Customer/AssignmentTarget is created but never referenced by any NFC Assignment (valid, inert state).
-- An authenticated caller's Membership cannot be found at scan time (distinct from FB-001's existing `employee_not_authenticated`; this is "authenticated but not a member of any Organization" — see Open Questions on exact rejection semantics).
+- An authenticated caller's current Membership cannot be found: the administrative boundary returns
+  disclosure-safe `unauthorized`; FB-001's existing scan outcomes remain unchanged.
 - The demo Organization (`'demo-org'`) continues to exist alongside real Organizations; nothing in FB-002 requires removing it.
 
 ## Acceptance Criteria
@@ -329,60 +449,98 @@ Administrator (Organization A) attempts to create/register/assign data referenci
 - An Employee Membership scoped to the same Organization can scan the assigned Tag and receive the same FB-001-defined outcome as the demo pipeline already produces, without any change to `AssignmentResolver`, `AssignmentValidator`, `WorkEventFactory` or `BusinessEngine`.
 - An Administrator Membership cannot create, register or assign data referencing a different Organization's Customer or Tag.
 - An Employee Membership cannot perform any administrative action (create/register/assign).
+- The first Organization and first Administrator can be created only through the private audited
+  bootstrap; exact retry is idempotent and a divergent retry fails closed.
+- Customers and Tags can be recognized by human-readable names. A Tag may additionally show a
+  labelled 12-character SHA-256 validation fingerprint, but no setup list or response exposes its
+  raw UID/canonical payload.
+- First Tag registration and Assignment are atomic in the supported initial setup flow; an existing
+  active Assignment is never silently replaced.
+- Missing, inactive and inaccessible AssignmentTargets have one disclosure-safe public result and
+  cannot be distinguished to enumerate another Organization.
 - `AssignmentValidator`'s existing `employee_lacks_organization_access`, `missing_assignment_target` and `assignment_target_disabled` outcomes remain unchanged and continue to pass their existing tests.
 - The feature remains traceable to TTAP-001, ADR-0002, ADR-0003, ADR-0006 and the FB-002 Scope Assessment.
 - No implementation details are required to understand feature behavior.
 
-## Technical Notes
+## Technical Notes (Historical Core-Foundation Scope, Reconciled by C3A)
 
-Technical implementation is deferred to a future TS-002, not created by this Blueprint. For the Technical Lead's future sizing reference only (not a specification): the Scope Assessment identifies that `CustomerRepository`, `NfcTagRepository` and `NfcAssignmentRepository` are read-only today and would need write-capable methods; no `Organization`/`Membership`/`Role` domain type or repository exists at all today and would need to be created; the backend/cloud persistence technology for any new writable repository remains an independently deferred decision (ADR-0007) that this Blueprint does not resolve. Technical Notes here introduce no Business Rules, Product Rules or business decisions beyond what is already stated above.
+The original 2026-07-07 note correctly deferred implementation to TS-002 and identified then-missing
+write ports and Organization/Membership types. DT-017–DT-026 have since implemented that Core
+foundation; ADR-0008 and B3–C2 provide the server/identity foundation. ADR-0011 and the current
+TS-002 amendment now govern the remaining bootstrap and runtime-write boundary. No Core service or
+detached request object is itself transport authorization.
 
 ## Identity Boundary
 
-Identity is explicitly not part of FB-002. FB-002 does not specify: a real authentication provider, Firebase Auth, Auth0, OAuth, password reset, magic links, token handling, or credential lifecycle. Identity remains a separate, future capability/Feature Blueprint, gated on ADR-0007's own already-deferred managed-authentication-provider decision.
+Identity product behavior remains outside FB-002. ADR-0008/C1 have since selected and implemented
+the v1 identity/session foundation, but that does not merge Identity and Membership into one
+capability. FB-002 still does not specify password reset, OAuth expansion, provider linking or
+credential lifecycle.
 
-Membership, however, is part of FB-002. The distinction: Identity answers "who has authenticated?"; Membership answers "which Organization and role is this actor associated with?" FB-002 may assume an already-authenticated caller, or a pilot/manual identity mechanism (e.g., today's `FakeAuthenticationGateway`, possibly extended with more manually-configured accounts), but does not design the authentication mechanism itself. This boundary is evidenced, not asserted, by `Product_Readiness_Assessment.md` Section 12.2 (which places "roles, membership" under the Organization layer, distinct from Identity) and by the FB-002 Scope Assessment's Addendum (Section 10), which found the two capabilities are not implementation-coupled today (`FakeAuthenticationGateway`'s existing multi-account design).
+Membership, however, is part of FB-002. Identity answers "who authenticated?"; Membership answers
+"which Organization and role may that User act in?" C3 verifies identity first and then derives the
+current Membership exclusively from server data. Bootstrap is the single privileged exception and
+still starts from a verified provider identity.
 
 ## Cross-Blueprint References
 
-- **FB-001 – NFC Scan Creates Work Event.** FB-002 depends on FB-001 because Capability 5 (Scan Pipeline Enablement) requires that FB-001's existing pipeline be able to operate on Organization-owned data. Affected Domain Objects: `Customer`, `NfcTag`, `NfcAssignment` (creation capability added; shapes unchanged). Affected Business Rules: none of FB-001's Business Rules change; FB-002 adds new Business Rules governing creation/administration, layered alongside FB-001's existing scan-time rules. Affected Decision Logic: none of FB-001's Decision Logic (Decisions 1–4 in FB-001) changes; FB-002's Decision 7 explicitly restates, and requires the preservation of, FB-001's/`AssignmentValidator`'s existing organization-scoped check. FB-002 must not redefine FB-001.
+- **FB-001 – NFC Scan Creates Work Event.** FB-002 depends on FB-001 because Capability 5 (Scan Pipeline Enablement) requires that FB-001's existing pipeline be able to operate on Organization-owned data. Affected Domain Objects: `Customer` and `NfcTag` gain C3 display fields; `NfcAssignment` keeps its identity/relationship and gains creation/history behavior at the runtime boundary. Affected Business Rules: none of FB-001's scan Business Rules change; FB-002 adds new Business Rules governing creation/administration, layered alongside FB-001's existing scan-time rules. Affected Decision Logic: none of FB-001's Decision Logic (Decisions 1–4 in FB-001) changes; FB-002's Decision 7 explicitly restates, and requires the preservation of, FB-001's/`AssignmentValidator`'s existing organization-scoped check. FB-002 must not redefine FB-001.
 
 ## Architecture Decision References
 
 - **ADR-0002 (NFC Assignment Model)** — constrains FB-002 to keep `NfcTag`, `NfcAssignment` and `AssignmentTarget` conceptually separate and to keep the target type extensible; FB-002's NFC Tag registration/assignment capabilities must produce data in this exact shape, not a simplified or collapsed one.
 - **ADR-0003 (Product Scope v1)** — already approves "Organization account," "User authentication," "Basic role model," "Employee users," "Customer records," "NFC tag registration," "NFC tag assignment to customers" and "Basic admin overview" as v1 scope, and already excludes "Customer self-service portal." FB-002 operates entirely within this already-approved boundary.
 - **ADR-0006 (Domain-first Architecture)** — constrains FB-002's new Domain Objects (Organization, Membership, minimal Role) to be modeled as business concepts first; no persistence-technology shape may define them.
-- **ADR-0007 (Technology Platform Baseline)** — its deferred backend/cloud persistence technology decision and its deferred managed-authentication-provider decision both remain unresolved by FB-002; FB-002 depends on neither being resolved first (Technical Notes, Identity Boundary, above).
+- **ADR-0007 (Technology Platform Baseline)** — originally left backend/auth provider choices outside
+  this Blueprint. ADR-0008 later resolves that implementation direction without changing FB-002's
+  product ownership.
+- **ADR-0008 (Backend, Tenant Isolation and Async Foundation)** — supplies the approved PostgreSQL,
+  Auth, tenant, one-active-Membership and audited-operator-bootstrap direction.
+- **ADR-0009 (Android NFC UID Payload)** — fixes the canonical v1 physical payload and establishes
+  that UID is a locator, not a secret or authorization factor.
+- **ADR-0011 (Secure Organization Bootstrap and Administration Boundary)** — resolves the first
+  Administrator, normal write-session, disclosure, display-name, idempotency and Assignment-history
+  rules required before C3 runtime implementation.
 
 ADR references explain why an architectural boundary exists; they do not replace this Blueprint's own content.
 
-## Open Questions
+## Former Open Questions — C3A Disposition
 
-Carried forward from the FB-002 Scope Assessment (Section 8) and from `Domain_Model.md`/`Role_Model.md`'s own open questions, requiring Human Architect decision before or during a future TS-002:
-
-1. How is Organization/Membership initially established for a pilot — direct config entry, an internal admin tool, or a minimal Administrator-only UI? (Manual/admin-driven provisioning is the recommended direction; the exact mechanism is not decided here.)
-2. Can a Membership ever span more than one Organization? `Role_Model.md`'s own Open Questions ask this; `CallerContext`'s current shape assumes no; FB-002 assumes no.
-3. Can one NFC Tag have multiple assignments over time (re-assignment), and should assignment history be immutable for auditability? (`Domain_Model.md`'s own Open Modeling Question; not resolved by FB-002.)
-4. What is the correct rejection semantics and Event name when an authenticated actor has no Membership at all, versus a Membership in the wrong Organization? (Edge Cases, above.)
-5. Should an NFC Tag payload collision across two different Organizations be prevented, detected, or considered out of scope for a pilot where only one or a small number of real Organizations exist? (Edge Cases, above.)
-6. Is an explicit Organization "status" (active/inactive) required for pilot readiness, or is Organization existence alone sufficient? (`In Scope` lists this conditionally.)
-7. Should NFC Tag registration in a future TS-002 include any physical-provisioning workflow, or only registration of an already-encoded payload string, mirroring today's `createNfcPayload(DEMO_KNOWN_PAYLOAD)` pattern? (`NFC_Capability_Model.md`'s own Open Technical Question, "Do we need tag provisioning inside the app?", applies and is not resolved here.)
-8. When should the future Identity-layer Feature Blueprint (real authentication provider) be scheduled relative to FB-002/TS-002 — before, after, or fully in parallel? (Identity Boundary, above.)
+| # | Disposition | Validated v1 proposal pending acceptance |
+|---|---|---|
+| 1 | Resolved | Private audited operator CLI bootstraps the first Organization/Admin. Normal setup is a separate authenticated Administrator capability. |
+| 2 | Resolved for v1 | One active Membership per User, therefore one Organization context at a time. Multi-Organization Membership is a future ADR trigger. |
+| 3 | Resolved in architecture | Assignment history is immutable; one active Assignment per Tag. Initial setup never reassigns implicitly. A later explicit reassignment atomically closes old and appends new. |
+| 4 | Resolved | Identity/Membership failures are unauthorized/forbidden; missing/inactive/inaccessible targets are `assignment_target_unavailable`. Rejections are typed outcomes/security audit candidates, not new Domain Events. |
+| 5 | Resolved for v1 | Canonical payload uniqueness is Organization-scoped. Same payload across Organizations is permitted and not disclosed. |
+| 6 | Deferred explicitly | Organization existence is sufficient for v1. Suspension requires a separate decision covering login, offline evidence, retention and exports. |
+| 7 | Partially resolved | ADR-0009 fixes Android UID capture/codec. Initial setup registers an already encoded Tag through protected Android capture; NDEF writing, iOS and browser capture remain separate. |
+| 8 | Resolved in sequencing | ADR-0008/B4/C1 provide Identity before C3 runtime wiring. Identity behavior remains its own capability. |
 
 ## Traceability
 
 ```text
 Product Vision
-  -> ADR-0002 / ADR-0003 / ADR-0005 / ADR-0006 / ADR-0007
+  -> ADR-0002 / ADR-0003 / ADR-0005 / ADR-0006 / ADR-0007 / ADR-0008 / ADR-0009
   -> TTAP-001
   -> FB-001 (existing, unchanged)
-  -> FB-002 (this Blueprint)
+  -> FB-002 v1.2 (this review-ready Blueprint)
   -> FB-002 Scope Assessment (ADO/05_Evidence/FB-002_Organization_Management_Scope_Assessment.md)
-  -> TS-002 (not yet created)
-  -> Development Tasks (not yet created)
+  -> TS-002 (review-ready current-state and C3 runtime specification)
+  -> DT-017–DT-026 (Core foundation complete)
+  -> ADR-0011 / C3A (independently validated; Human Architect acceptance pending)
+  -> C3B–C3E (separately gated implementation)
 ```
 
-## Revision Note (Technical Lead Review Follow-up, 2026-07-07)
+## Revision Note (C3A Review Reconciliation, 2026-07-14)
+
+Version 1.2 is review-ready after direct reconciliation with DT-017–DT-026, ADR-0008/ADR-0009,
+migrations `001`–`005`, B4/B5/B6, C1/C2 and independent C3A architecture/security corrections. It
+resolves the first-Administrator, Membership-cardinality, payload-collision, Assignment-history and
+missing-target questions; adds the minimum Customer/Tag display contract; and explicitly gates C3
+implementation. Human Architect acceptance is still required; no bootstrap/API/UI exists.
+
+## Historical Revision Note (Technical Lead Review Follow-up, 2026-07-07)
 
 FB-002 has completed a first round of Technical Lead review. This is a refinement of the Draft, not a rewrite; no Business Rule, Domain Object, Decision Logic outcome, Scope item, or Acceptance Criterion changed in meaning.
 
@@ -391,7 +549,7 @@ FB-002 has completed a first round of Technical Lead review. This is a refinemen
 
 Version bumped to 1.1 to reflect this refinement round (Status remains Draft; not yet Approved).
 
-## Role Handover
+## Historical Role Handover (2026-07-07)
 
 Implemented scope: FB-002 – Organization Management Foundation created as a Draft Feature Blueprint, per the Technical Lead's explicit scope decision (Organization, Membership, minimal Administrator/Employee Roles, Organization-owned Business Assets, Administration, Scan Pipeline Enablement), directly built on `ADO/05_Evidence/FB-002_Organization_Management_Scope_Assessment.md` and its Identity/Membership-split Addendum. No TS-002, no Development Task, no ADR, no TTAP change, no EP-008 change, no code, and no test was created or modified.
 
@@ -414,6 +572,6 @@ Next responsible role: Technical Lead to review FB-002 for approval readiness; H
 
 **Follow-up (Technical Lead Review Follow-up, 2026-07-07):** Applied Change 1 and Change 2 above (Revision Note). Only this file (`ADO/01_Architecture/Feature_Blueprints/FB-002-organization-management-foundation.md`) was modified — no Decision Log, README, Project_Status, code, or other repository file was touched, per this follow-up's explicit instruction. Stop condition: stop after this update; await further Technical Lead review.
 
-## Stop Condition
+## Historical Stop Condition (Satisfied 2026-07-07)
 
 Per task instruction: stop after FB-002 has been created and the minimum required cross-references have been updated. Do not continue to TS-002. Do not create Development Tasks. Do not begin Sprint 012. Await Technical Lead review.

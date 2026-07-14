@@ -153,6 +153,30 @@ Following an external CTO review of the repository (`ADO/05_Evidence/External_CT
 
 This addendum does not change the "Before 100 Customers" or "Before 1,000 Customers" milestones above; neither was materially touched by the external CTO review's findings.
 
+## Addendum (2026-07-14 — C3A Organization Administration Architecture)
+
+The historical "Now" and 2026-07-10 findings above remain provenance, but their implementation-state
+claims have advanced. CI, engine Start/Stop, backend/Auth/tenant foundations, real product Mobile
+composition and Android NFC validation are now complete for their recorded scopes. FB-002 v1.2,
+TS-002 v1.1 and ADR-0011 passed independent re-review and remain Review Ready; Human Architect
+acceptance of C3A is pending.
+
+Organization setup remains a Before-Pilot prerequisite and is now sequenced more precisely:
+
+1. **C3B:** private operator-only first Organization/Administrator bootstrap, migration `006`,
+   durable receipt, truthful audit and security matrix;
+2. **C3C:** normal tenant-safe Admin setup backend/API with required Customer/Tag display names,
+   protected canonical UID handling and atomic first Tag registration/Assignment;
+3. **C3D:** minimal Admin Web plus protected Android Administrator capture after the C3C contract is
+   approved;
+4. **C3E:** later, separately authorized identity-first Employee Membership setup and explicit
+   reassignment after their policy gates.
+
+C3A itself implements none of these surfaces and does not authorize them before acceptance.
+DT-063–DT-066 remain open until the end-to-end
+operational setup flow and its human/physical gates pass. Core Roadmap v2 remains the authoritative
+execution sequence.
+
 ## Revision Note (Technical Lead Review Follow-up, 2026-07-07)
 
 This roadmap was updated once, after Technical Lead review, to: (1) add the "Strategic frame" paragraph above, connecting roadmap items to the companion assessment's Business Event Platform framing (Section 0.1) and capability hierarchy (Section 12); (2) organize every milestone's existing items into an Engineering Track, a Product Capability Track, and a Business, Legal & Go-To-Market Track, without adding, removing, or reprioritizing any item, and without moving any item to a different milestone; (3) note, within the Now and Before Pilot Customers milestones, the re-evaluated primary-bottleneck finding from the companion assessment's Section 11.1 (Organization Management as the more foundational blocker for reaching the first pilot, alongside — not instead of — the backend technology decision). No original roadmap item's wording, milestone assignment, or substance was changed; this revision only added track labels, short cross-reference notes, and this closing note.

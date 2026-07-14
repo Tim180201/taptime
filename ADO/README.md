@@ -103,7 +103,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Feature Blueprint Standard | `ADO/01_Architecture/Feature_Blueprint_Standard.md` |
 | Technical Architecture Profile (TTAP-001) | `ADO/01_Architecture/Technical_Architecture_Profile.md` |
 | Development Task Profile | `ADO/01_Architecture/Development_Task_Profile.md` |
-| Architecture Decision Records | `ADO/01_Architecture/ADR/` |
+| Architecture Decision Records (through ADR-0011) | `ADO/01_Architecture/ADR/` |
 | Feature Blueprints (incl. FB-001, FB-002) | `ADO/01_Architecture/Feature_Blueprints/` |
 | Technical Specifications (incl. TS-001, TS-002) | `ADO/01_Architecture/Technical_Specifications/` |
 | Developer Implementation Manual (EP-008) | `ADO/01_Architecture/Developer_Implementation_Manual/` |
@@ -113,8 +113,10 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Document | Location |
 |---|---|
 | EP-006 Validation Sprint | `ADO/02_Development/EP-006_Validation_Sprint.md` |
-| EP-007 Development Tasks (DT-001-DT-015) | `ADO/02_Development/EP-007_Development_Tasks.md` |
+| EP-007 Development Tasks (DT-001–DT-026) | `ADO/02_Development/EP-007_Development_Tasks.md` |
 | EP-009 Product Readiness Framework | `ADO/02_Development/EP-009_Product_Readiness_Framework.md` |
+| Block C3A Organization Administration Architecture Authorization | `ADO/02_Development/Block_C3A_Organization_Administration_Architecture_Authorization.md` |
+| Block C3 Organization Administration Proposed Implementation Plan | `ADO/02_Development/Block_C3_Organization_Administration_Implementation_Plan.md` |
 | Repository Health Sprint 001 | `ADO/02_Development/Repository_Health_Sprint_001.md` |
 | Repository Maintenance Sprint 002 | `ADO/02_Development/Repository_Maintenance_Sprint_002.md` |
 | Repository Freeze Sprint | `ADO/02_Development/Repository_Freeze_Sprint.md` |
@@ -129,6 +131,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | MVP Readiness Assessment | `ADO/05_Evidence/MVP_Readiness_Assessment.md` |
 | Product Readiness Assessment (EP-009 baseline) | `ADO/05_Evidence/Product_Readiness_Assessment.md` |
 | Product Readiness Roadmap (EP-009 baseline) | `ADO/05_Evidence/Product_Readiness_Roadmap.md` |
+| Block C3A Independent Architecture/Security Review | `ADO/05_Evidence/Block_C3A_Independent_Architecture_Security_Review.md` |
 | EP-008 Evidence (incl. Repository Health Follow-up) | `ADO/05_Evidence/EP-008/` |
 | Evidence Area | `ADO/05_Evidence/` |
 
