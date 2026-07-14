@@ -1,10 +1,17 @@
 import { useSyncExternalStore } from 'react';
 import { Button, StyleSheet, Text, View } from 'react-native';
 import type { MobileSessionCapability } from '../auth/contracts';
+import type { ProductScanCapability } from '../scan/contracts';
 import { LoginScreen } from '../screens/LoginScreen';
 import { ScanScreen } from '../screens/ScanScreen';
 
-export function AppNavigator({ session }: { readonly session: MobileSessionCapability }) {
+export function AppNavigator({
+  session,
+  scan,
+}: {
+  readonly session: MobileSessionCapability;
+  readonly scan: ProductScanCapability;
+}) {
   const state = useSyncExternalStore(
     (listener) => session.subscribe(listener),
     () => session.getState(),
@@ -12,7 +19,13 @@ export function AppNavigator({ session }: { readonly session: MobileSessionCapab
   );
 
   if (state.status === 'authenticated') {
-    return <ScanScreen session={state.session} signOut={() => session.signOut()} />;
+    return (
+      <ScanScreen
+        session={state.session}
+        scan={scan}
+        signOut={() => session.signOut()}
+      />
+    );
   }
   if (state.status === 'context_unavailable') {
     return (

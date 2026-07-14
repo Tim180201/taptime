@@ -788,4 +788,40 @@ describe('MobileSessionCoordinator', () => {
     expect(unauthorizedAttempts).toBe(1);
     expect(completedAttempts).toBe(1);
   });
+
+  it('keeps the private authenticated snapshot current only for its exact session generation', async () => {
+    const { coordinator } = setup();
+    expect(coordinator.captureAuthenticatedSessionSnapshot()).toBeNull();
+    await coordinator.signIn('employee@example.invalid', 'password');
+    const snapshot = coordinator.captureAuthenticatedSessionSnapshot();
+    expect(snapshot).not.toBeNull();
+    expect(coordinator.isAuthenticatedSessionSnapshotCurrent(snapshot!)).toBe(true);
+
+    await coordinator.signOut();
+    expect(coordinator.isAuthenticatedSessionSnapshotCurrent(snapshot!)).toBe(false);
+    await coordinator.signIn('employee@example.invalid', 'password');
+    expect(coordinator.isAuthenticatedSessionSnapshotCurrent(snapshot!)).toBe(false);
+    expect(coordinator.captureAuthenticatedSessionSnapshot()!.generation)
+      .toBeGreaterThan(snapshot!.generation);
+  });
+
+  it('invalidates a private snapshot when authoritative Membership context changes', async () => {
+    const { coordinator, backend } = setup();
+    await coordinator.signIn('employee@example.invalid', 'password');
+    const snapshot = coordinator.captureAuthenticatedSessionSnapshot()!;
+    backend.implementation = async () => ({
+      status: 'resolved',
+      session: {
+        ...productSession,
+        membershipId: '12000000-0000-4000-8000-000000000202',
+        organizationId: '00000000-0000-4000-8000-000000000202',
+      },
+    });
+
+    await coordinator.refresh();
+
+    expect(coordinator.isAuthenticatedSessionSnapshotCurrent(snapshot)).toBe(false);
+    expect(coordinator.captureAuthenticatedSessionSnapshot()!.session.organizationId)
+      .toBe('00000000-0000-4000-8000-000000000202');
+  });
 });

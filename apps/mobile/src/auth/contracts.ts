@@ -81,6 +81,15 @@ export interface MobileSessionCapability {
 }
 
 /**
+ * Private runtime snapshot used to invalidate work across authentication/authority changes. It is
+ * intentionally absent from MobileSessionCapability and therefore never reaches React.
+ */
+export interface InternalAuthenticatedSessionSnapshot {
+  readonly generation: number;
+  readonly session: ProductSessionContext;
+}
+
+/**
  * An access-token reader is valid only while one infrastructure attempt is running. The
  * coordinator invalidates it as soon as that attempt settles, so it cannot become a retained
  * token capability in a screen, queue or later callback.

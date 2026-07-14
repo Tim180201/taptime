@@ -20,8 +20,8 @@ export function DemoScanScreen({ caller }: { readonly caller: CallerContext }) {
       return;
     }
     setStatus('Waiting for demo tag …');
-    const result = await nfc.waitForNextTag();
-    if (result.status === 'unreadable') {
+    const result = await nfc.scan();
+    if (result.status !== 'captured') {
       setStatus('Demo tag unreadable.');
       return;
     }

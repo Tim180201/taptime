@@ -1,5 +1,6 @@
 export * from './domain/ids';
 export * from './domain/NfcPayload';
+export * from './domain/CanonicalNfcUidPayload';
 export * from './domain/Timestamp';
 export * from './domain/CallerContext';
 export * from './domain/AssignmentTarget';

@@ -4,6 +4,7 @@ import type {
   AuthenticatedRequestExecution,
   BackendSessionPort,
   EphemeralAccessTokenReader,
+  InternalAuthenticatedSessionSnapshot,
   MobileSessionCapability,
   MobileSessionState,
   ProviderAuthEvent,
@@ -63,6 +64,25 @@ export class MobileSessionCoordinator implements
 
   getState(): MobileSessionState {
     return this.state;
+  }
+
+  captureAuthenticatedSessionSnapshot(): InternalAuthenticatedSessionSnapshot | null {
+    if (this.state.status !== 'authenticated' || !this.providerSessionAllowed) {
+      return null;
+    }
+    return Object.freeze({ generation: this.generation, session: this.state.session });
+  }
+
+  isAuthenticatedSessionSnapshotCurrent(
+    snapshot: InternalAuthenticatedSessionSnapshot,
+  ): boolean {
+    const current = this.captureAuthenticatedSessionSnapshot();
+    return current !== null
+      && current.generation === snapshot.generation
+      && current.session.userId === snapshot.session.userId
+      && current.session.organizationId === snapshot.session.organizationId
+      && current.session.membershipId === snapshot.session.membershipId
+      && current.session.role === snapshot.session.role;
   }
 
   subscribe(listener: () => void): () => void {

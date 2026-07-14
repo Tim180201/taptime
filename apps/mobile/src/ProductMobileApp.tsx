@@ -1,15 +1,27 @@
 import { useEffect, useMemo, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 import { AppNavigator } from './navigation/AppNavigator';
 import { createProductMobileRuntime } from './runtime/ProductMobileRuntime';
 
 export function ProductMobileApp() {
   const creation = useMemo(() => createProductMobileRuntime(), []);
 
+  if (Platform.OS === 'web') {
+    return <UnsupportedNfcPlatform />;
+  }
   if (creation.status === 'unavailable') {
     return <UnavailableProductRuntime />;
   }
   return <ReadyProductMobileApp runtime={creation.runtime} />;
+}
+
+function UnsupportedNfcPlatform() {
+  return (
+    <View style={styles.container}>
+      <Text style={styles.title}>NFC wird hier nicht unterstützt.</Text>
+      <Text>Produktive NFC-Scans sind in dieser Version ausschließlich auf Android verfügbar.</Text>
+    </View>
+  );
 }
 
 function ReadyProductMobileApp({
@@ -31,7 +43,7 @@ function ReadyProductMobileApp({
   if (startFailed) {
     return <UnavailableProductRuntime />;
   }
-  return <AppNavigator session={runtime.session} />;
+  return <AppNavigator session={runtime.session} scan={runtime.scan} />;
 }
 
 function UnavailableProductRuntime() {

@@ -46,6 +46,10 @@ jobs:
       - name: Build core
         run: npm run build --workspace=@taptime/core
 
+      - name: Bundle Android product graph
+        working-directory: apps/mobile
+        run: npx expo export --platform android
+
   backend-b1-spike:
     name: Backend B1 PostgreSQL spike
     runs-on: ubuntu-latest

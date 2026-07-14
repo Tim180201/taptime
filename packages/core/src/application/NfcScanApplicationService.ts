@@ -20,11 +20,13 @@ export class NfcScanApplicationService {
 
   async submitScan(caller: CallerContext): Promise<ScanPipelineOutcome> {
     const captureResult = await this.nfcScanPort.scan();
-    if (captureResult.status === 'unreadable') {
+    // The legacy/local pipeline has one capture-failure presentation. Block D's product runtime
+    // preserves the more precise technical terminal state before this application boundary.
+    if (captureResult.status !== 'captured') {
       return { stage: 'capture', status: 'unreadable' };
     }
 
-    const fact = nfcTagScanned(captureResult.payload, this.now());
+    const fact = nfcTagScanned(captureResult.payload, captureResult.capturedAt ?? this.now());
     const resolution = await this.assignmentResolver.resolve(fact);
     if (resolution.type === 'NfcAssignmentRejected') {
       return { stage: 'resolution', status: 'rejected', reason: resolution.reason };

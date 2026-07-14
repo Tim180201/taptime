@@ -40,7 +40,7 @@ describe('C1 Mobile composition boundary', () => {
     }
   });
 
-  it('keeps C2 transport private in the composition root and the holding UI truthful', async () => {
+  it('keeps C2 transport and native NFC private while React receives only the scan facade', async () => {
     const runtimeSource = await readFile(
       fileURLToPath(new URL('../../src/runtime/ProductMobileRuntime.ts', import.meta.url)),
       'utf8',
@@ -57,9 +57,41 @@ describe('C1 Mobile composition boundary', () => {
     expect(runtimeSource).toContain('TapTimeLifecycleApiClient');
     expect(runtimeSource).toContain('React receives a real narrow facade');
     expect(runtimeSource).toContain('return this.sessionCapability');
-    expect(scanScreenSource).toContain('NFC-Aktivierung folgt in Block D');
-    expect(scanScreenSource).not.toMatch(/TextInput|payload|scan-context|lifecycle-events/i);
-    expect(scanScreenSource.match(/<Button/g)).toHaveLength(1);
+    expect(runtimeSource).toContain('new RnNfcScanAdapter');
+    expect(runtimeSource).toContain('new ProductScanOrchestrator');
+    expect(runtimeSource).not.toContain('waitForNextTag');
+    expect(runtimeSource).toContain('randomUUID');
+    expect(runtimeSource).not.toContain('Math.random');
+    expect(runtimeSource).toContain('return this.scanCapability');
+    expect(scanScreenSource).toContain('NFC-Tag scannen');
+    expect(scanScreenSource).toContain('Scan abbrechen');
+    expect(scanScreenSource).toContain('Unveränderte Daten erneut senden');
+    expect(scanScreenSource).toContain('Abmelden');
+    expect(scanScreenSource).toContain("disabled={state.status !== 'ready'}");
+    expect(scanScreenSource).not.toMatch(
+      /TextInput|payload|scan-context|lifecycle-events|NfcManager|accessToken|refreshToken/i,
+    );
+  });
+
+  it('keeps lifecycle decisions out of Mobile orchestration and delegates only to the server result', async () => {
+    const orchestratorSource = await readFile(
+      fileURLToPath(new URL('../../src/scan/ProductScanOrchestrator.ts', import.meta.url)),
+      'utf8',
+    );
+    for (const forbidden of [
+      'BusinessEngine',
+      'startedAt',
+      'stoppedAt',
+      'activeTimeEntry',
+      'findActive',
+      'duplicateWindow',
+    ]) {
+      expect(orchestratorSource).not.toContain(forbidden);
+    }
+    expect(orchestratorSource).toContain('this.lifecycle.ingest(pending.command)');
+    expect(orchestratorSource).toContain('this.nfcScan.scan()');
+    expect(orchestratorSource).not.toContain('waitForNextTag');
+    expect(orchestratorSource).toContain('switch (result.decision.status)');
   });
 
   it('loads the development demo lazily and never imports it statically', async () => {
@@ -71,5 +103,15 @@ describe('C1 Mobile composition boundary', () => {
     expect(appSource).not.toMatch(/^import .*\.\/src\/demo\//m);
     expect(appSource).toContain("process.env.EXPO_PUBLIC_TAPTIME_DEMO_MODE === 'true'");
     expect(appSource).toContain('__DEV__');
+  });
+
+  it('shows Web as explicitly unsupported without enabling a native NFC runtime', async () => {
+    const productAppSource = await readFile(
+      fileURLToPath(new URL('../../src/ProductMobileApp.tsx', import.meta.url)),
+      'utf8',
+    );
+    expect(productAppSource).toContain("Platform.OS === 'web'");
+    expect(productAppSource).toContain('ausschließlich auf Android verfügbar');
+    expect(productAppSource).not.toContain('NfcManager');
   });
 });
