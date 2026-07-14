@@ -121,6 +121,7 @@ describe('C1 Mobile composition boundary', () => {
     );
     expect(uiSource).toContain('keine Zeiterfassung');
     expect(uiSource).toContain('keine Serverübertragung');
+    expect(uiSource).toContain('PRÜF-FINGERPRINT · SHA-256 GEKÜRZT');
     expect(runtimeSource).toContain('CryptoDigestAlgorithm.SHA256');
     expect(uiSource).not.toMatch(/payload|tag\.id|NfcManager|fetch\(|supabase|expo-crypto/i);
     expect(runtimeSource).not.toMatch(/fetch\(|supabase/i);

@@ -199,7 +199,7 @@ below remains outstanding until observed by the Human Architect.
 | Rapid duplicate press | Observed | Human Architect double-pressed the validation scan action, presented Tag A once and confirmed the counter remained exactly `1`; presenting the tag again without a new app scan did not increment TapTim.e |
 | Unassigned-tag product screen | Outstanding | Requires physical tag and test server |
 | Server-confirmed Start then Stop | Outstanding | Requires synthetic physical-test provisioning |
-| No raw UID/token/provider-error disclosure | Outstanding | Source/tests pass; device-screen inspection absent |
+| No raw UID/token/provider-error disclosure | Observed | Human Architect confirmed that the only identifier-like UI value was the expected 12-character shortened SHA-256 validation fingerprint; no raw UID, token or provider error was displayed |
 
 ## 8. Remaining limits and gates
 
@@ -214,11 +214,16 @@ below remains outstanding until observed by the Human Architect.
   presented without first pressing `Tag A scannen`. This confirms that no second TapTim.e capture
   remained active; Android owns dispatch outside an explicit app capture. The behavior must be
   considered in pilot instructions and the later product NFC interaction design.
+- The tester initially considered the unlabeled 12-character shortened SHA-256 value potentially to
+  be a UID. This was a real presentation ambiguity, not raw-UID disclosure. The follow-up build now
+  labels it explicitly as `PRÜF-FINGERPRINT · SHA-256 GEKÜRZT` and auto-increments its Android build
+  version so an installed validation app can be upgraded unambiguously.
 - The existing 11 moderate dependency findings remain open; this task did not apply audit fixes.
 - Two Supavisor connection modes remain unverified.
 
 ## 9. Required next action
 
-The Human Architect next confirms that validation screens disclosed no raw UID/token/provider error.
-Only observed results may replace `Outstanding`; a missing synthetic server test environment keeps
-the unassigned-tag and end-to-end Start/Stop items open.
+The device-local physical checklist is complete for one Galaxy A33 5G / Android 15 and two NTAG213
+tags. A missing synthetic server test environment keeps the unassigned-tag product screen and
+end-to-end Start/Stop items open; this evidence does not yet close full Block D or claim pilot
+readiness across the intended device set.

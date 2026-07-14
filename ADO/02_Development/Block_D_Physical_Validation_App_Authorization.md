@@ -1,6 +1,6 @@
 # Block D — Physical Validation App Authorization
 
-Status: Implemented, CI Approved and Internal APK Built — Installation and Physical Validation Pending
+Status: Implemented, CI Approved and Device-local Physical Validation Passed — Product End-to-End Validation Pending
 
 Date: 2026-07-14
 

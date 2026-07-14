@@ -19,6 +19,7 @@
     "physical-validation": {
       "extends": "base",
       "distribution": "internal",
+      "autoIncrement": true,
       "env": {
         "APP_VARIANT": "physical-validation",
         "EXPO_PUBLIC_TAPTIME_RUNTIME_VARIANT": "physical-validation"
