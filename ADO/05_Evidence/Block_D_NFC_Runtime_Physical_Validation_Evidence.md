@@ -218,6 +218,12 @@ below remains outstanding until observed by the Human Architect.
   be a UID. This was a real presentation ambiguity, not raw-UID disclosure. The follow-up build now
   labels it explicitly as `PRÜF-FINGERPRINT · SHA-256 GEKÜRZT` and auto-increments its Android build
   version so an installed validation app can be upgraded unambiguously.
+- Corrective commit `56790c2d52cd6a1a2fa2ecd3d8bb9740d9b1708b` passed all seven jobs in
+  GitHub Actions run `29324366418`. EAS build `6969b72b-8f01-496e-95ff-4e481019bdf8` finished as
+  Android build 2. Its 66-MB APK is available at
+  `https://expo.dev/artifacts/eas/C3gI1SSOUM2gyC5QsiL1aJcWxpLOxYc4WaK_D7k3WL4.apk`, passed ZIP
+  integrity verification and has SHA-256
+  `14886c68a095b4ff92159e67ff4757524875018e5b624d81d9daceed7acf3121`.
 - The existing 11 moderate dependency findings remain open; this task did not apply audit fixes.
 - Two Supavisor connection modes remain unverified.
 
