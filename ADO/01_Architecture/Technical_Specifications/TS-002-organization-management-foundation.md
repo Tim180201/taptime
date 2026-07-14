@@ -1,23 +1,25 @@
 # TS-002 – Organization Management Foundation Technical Specification
 
-Status: Review Ready — independent re-review passed; Human acceptance pending
+Status: Approved by Human Architect — implementation remains sliced and gated
 Specification ID: TS-002
-Version: 1.1
-Last Updated: 2026-07-14
-Acceptance: Pending Human Architect
+Version: 1.2
+Last Updated: 2026-07-14 (C3B feasibility amendment)
+Acceptance: Accepted 2026-07-14
 Related Feature Blueprint: FB-002 (`ADO/01_Architecture/Feature_Blueprints/FB-002-organization-management-foundation.md`)
-Related Evidence: `ADO/05_Evidence/FB-002_Organization_Management_Scope_Assessment.md`
+Related Evidence: `ADO/05_Evidence/FB-002_Organization_Management_Scope_Assessment.md`,
+`ADO/05_Evidence/Block_C3A_Independent_Architecture_Security_Review.md`,
+`ADO/05_Evidence/Block_C3B_Independent_Architecture_Security_Review.md`
 Epic: EP-009 – Product Readiness Framework (Product Capability Track); EP-007 – Product Architecture Foundation (architectural continuity)
 Owner: Technical Lead
 Approval Authority: Human Architect
 Related Architecture: `ADO/01_Architecture/Technical_Architecture_Profile.md` (TTAP-001)
 Related ADRs: ADR-0002, ADR-0003, ADR-0005, ADR-0006, ADR-0007, ADR-0008, ADR-0009, ADR-0011
 Related Technical Specification: TS-001 (`ADO/01_Architecture/Technical_Specifications/TS-001-nfc-scan-creates-work-event.md`) — extended, not replaced
-Related Development Tasks: DT-017–DT-026 completed (Core foundation); C3B–C3E proposed and separately gated
+Related Development Tasks: DT-017–DT-026 completed (Core foundation); C3B authorized; C3C–C3E gated
 
 ## Purpose
 
-TS-002 defines the technical implementation baseline for the review-ready FB-002 Organization
+TS-002 defines the technical implementation baseline for the accepted FB-002 Organization
 Management Foundation. FB-002 remains the product authority; this specification owns its technical
 realization.
 
@@ -88,7 +90,7 @@ unchanged for all future use, or that no additional architecture decision is nee
 - `NfcTag` gains required non-unique `displayName`: `taptime-name-v1`, 1–80 scalars and at most 320
   normalized UTF-8 bytes.
 - PostgreSQL receives additive non-null columns and an explicit deterministic backfill for synthetic
-  fixtures before constraints become strict. Its versioned normalizer uses the pinned Unicode 17.0
+  fixtures before constraints become strict. Its versioned normalizer uses the pinned Unicode 15.1
   White_Space/category tables and authoritative length checks from ADR-0011; Node uses identical
   generated tables and golden vectors for preflight.
 - Admin read DTOs are projections, not Domain/database serialization:
@@ -420,8 +422,9 @@ OrganizationAdministrationService (createCustomer, registerNfcTag, assignNfcTag)
 Existing Scan Pipeline Integration (no code change — verification only: confirm AssignmentResolver/AssignmentValidator/WorkEventFactory/BusinessEngine behave identically when NfcTagRepository/NfcAssignmentRepository/CustomerRepository are backed by Administration-flow-written data instead of runScan.ts literals)
 ```
 
-DT-017–DT-026 completed this order. It is not the C3 runtime sequence; C3B bootstrap, C3C normal
-setup backend/API, C3D UI/capture and C3E Membership/reassignment remain separately gated.
+DT-017–DT-026 completed this order. It is not the C3 runtime sequence; C3B bootstrap is separately
+authorized, while C3C normal setup backend/API, C3D UI/capture and C3E Membership/reassignment
+remain gated.
 
 ## Historical Core-Foundation Out of Scope and Current C3 Exclusions
 
@@ -445,16 +448,18 @@ Unchanged from FB-002, restated for this specification's own boundary:
   component sequence. The historical claim that no further architecture decision was needed applied
   only to that in-process foundation, not a real C3 transport/runtime.
 - C3 readiness: ADR-0011 and the normative amendment above now decide bootstrap, normal write
-  authority, display fields, result vocabulary, payload uniqueness and Assignment history. C3B–C3E
-  still require separate exact-baseline authorizations and implementation reviews.
+  authority, display fields, result vocabulary, payload uniqueness and Assignment history. C3B has
+  a separate exact-baseline authorization and implementation-review gate; C3C–C3E still require
+  their own exact-baseline authorizations and implementation reviews.
 - Traceability: every new component is traced to a specific FB-002 Capability/Decision and to a specific existing repository precedent (`AssignmentValidator`, `CustomerRepository`, `NfcScanApplicationService`, `ids.ts`, ADR-0002's `NfcAssignment` identity precedent).
-- Review-ready for FB-002: this document covers the implemented Core foundation and corrected C3A
-  runtime contract. Independent re-review passed; Human Architect acceptance is pending. Bootstrap, normal setup API and UI
-  are not implemented.
+- Accepted FB-002/TS-002 baseline: this document covers the implemented Core foundation and
+  corrected C3A runtime contract. Independent re-review passed and Human Architect acceptance is
+  complete. C3B is separately authorized and subject to its own closure; the normal setup API and
+  UI are not implemented.
 
 ## Former Open Questions — Current Disposition
 
-- First Organization/Admin: resolved by ADR-0011 private operator bootstrap; C3B implementation gated.
+- First Organization/Admin: resolved by ADR-0011 private operator bootstrap; C3B separately authorized.
 - Membership cardinality: one active Membership per User for v1.
 - Reassignment/history: temporal append-only history and one active Assignment per Tag; explicit
   reassignment implementation later gated.
@@ -476,21 +481,31 @@ Product Vision
   -> ADR-0002 / ADR-0003 / ADR-0005 / ADR-0006 / ADR-0007 / ADR-0008 / ADR-0009
   -> TTAP-001
   -> FB-001 (existing, unchanged) -> TS-001 (existing, unchanged)
-  -> FB-002 v1.2 (review-ready)
-  -> TS-002 v1.1 (this review-ready Core + C3A specification)
+  -> FB-002 v1.2 (accepted)
+  -> TS-002 v1.2 (this accepted Core + C3A specification with C3B feasibility amendment)
   -> DT-017–DT-026 (Core foundation complete)
-  -> ADR-0011 / C3A (independently validated; Human Architect acceptance pending)
-  -> C3B–C3E (separately gated)
+  -> ADR-0011 / C3A (independently validated and Human-accepted)
+  -> C3B (separately authorized) / C3C–C3E (gated)
 ```
 
 ## Review Reconciliation Note (2026-07-14)
 
-Version 1.1 is review-ready after direct source/schema reconciliation and independent C3A
+Version 1.1 was accepted after direct source/schema reconciliation and independent C3A
 correction review. The
 original sections remain useful evidence for why the Core foundation was shaped as it was. The
 normative C3A amendment corrects their time-dependent statements and adds the transport/security
-contract required for real runtime work. Human Architect acceptance is pending and no C3 product
-code is authorized.
+contract required for real runtime work. Human Architect acceptance is complete. C3B is separately
+authorized; no C3C–C3E product code is authorized.
+
+## C3B Feasibility Amendment (Version 1.2, 2026-07-14)
+
+Version 1.2 changes only the versioned `taptime-name-v1` Unicode authority from the C3A-reviewed
+Unicode-17 proposal to PostgreSQL-17-authoritative Unicode 15.1. PostgreSQL 17.10 reports internal
+Unicode 15.1 even when separately installed ICU data is newer; Node 24 therefore uses pinned
+UCD-15.1 property tables and rejects post-15.1 assignments before normalization. The C3B
+authorization and independent pre-review record this feasibility correction. All other accepted
+C3A behavior, result, authority and gating decisions remain unchanged; a future Unicode change
+requires `taptime-name-v2` rather than a silent v1 mutation.
 
 ## Historical Role Handover (2026-07-07)
 

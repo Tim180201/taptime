@@ -158,8 +158,9 @@ This addendum does not change the "Before 100 Customers" or "Before 1,000 Custom
 The historical "Now" and 2026-07-10 findings above remain provenance, but their implementation-state
 claims have advanced. CI, engine Start/Stop, backend/Auth/tenant foundations, real product Mobile
 composition and Android NFC validation are now complete for their recorded scopes. FB-002 v1.2,
-TS-002 v1.1 and ADR-0011 passed independent re-review and remain Review Ready; Human Architect
-acceptance of C3A is pending.
+TS-002 v1.2 and ADR-0011 passed independent C3A re-review/Human Architect acceptance plus the narrow
+C3B feasibility pre-review. C3B alone is implemented and independently reviewed locally with
+exact-head CI pending; C3C–C3E remain gated.
 
 Organization setup remains a Before-Pilot prerequisite and is now sequenced more precisely:
 
@@ -172,7 +173,8 @@ Organization setup remains a Before-Pilot prerequisite and is now sequenced more
 4. **C3E:** later, separately authorized identity-first Employee Membership setup and explicit
    reassignment after their policy gates.
 
-C3A itself implements none of these surfaces and does not authorize them before acceptance.
+C3A itself implemented none of these surfaces. Its later acceptance did not authorize them
+automatically; only C3B received a separate implementation authorization.
 DT-063–DT-066 remain open until the end-to-end
 operational setup flow and its human/physical gates pass. Core Roadmap v2 remains the authoritative
 execution sequence.

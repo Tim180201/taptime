@@ -1,15 +1,18 @@
 # ADR-0011: Secure Organization Bootstrap and Administration Boundary
 
-Status: Review Ready — independent re-review passed; Human Architect acceptance pending
+Status: Accepted by Human Architect — C3B separately authorized; C3C–C3E gated
 Date: 2026-07-14
-Acceptance: Pending Human Architect
+Acceptance: Accepted 2026-07-14
 Roadmap: Core Roadmap v2, Block C3 and later setup slices DT-063–DT-066
 Owner: Technical Lead
 Approval Authority: Human Architect
 Related Artifacts: ADR-0006, ADR-0008, ADR-0009, FB-002, TS-002,
 `ADO/02_Development/Block_C3A_Organization_Administration_Architecture_Authorization.md`,
+`ADO/02_Development/Block_C3B_Secure_Organization_Bootstrap_Authorization.md`,
 `ADO/02_Development/Block_C3_Organization_Administration_Implementation_Plan.md`,
-`ADO/05_Evidence/Block_C3A_Independent_Architecture_Security_Review.md`
+`ADO/05_Evidence/Block_C3A_Independent_Architecture_Security_Review.md`,
+`ADO/05_Evidence/Block_C3B_Independent_Architecture_Security_Review.md`,
+`ADO/05_Evidence/Block_C3B_Secure_Organization_Bootstrap_Evidence.md`
 
 ## Context
 
@@ -63,6 +66,13 @@ issuer-bound B4 JWT verifier and passes only the verified issuer and subject int
 transaction. Email, a client-supplied User ID and unverified profile claims are never linking
 authority.
 
+The named operator is an explicit privileged identity-attestation authority for this one bootstrap
+capability. PostgreSQL receives verified issuer/subject values but cannot cryptographically prove
+that the official CLI, rather than a direct invocation by the same authorized operator, performed
+JWT verification. Individual short-lived authority, exact least privilege and immutable
+`session_user` attribution are the control. A separately signed proof whose key is unavailable to
+the operator would be a new trust plane and is not part of C3B.
+
 The database operator is a separate identity from the target Administrator. Every bootstrap operator
 uses an individual, non-shared `LOGIN NOINHERIT` principal whose opaque principal name is registered
 to exactly one human in the operations/IAM inventory. A platform security administrator owns role
@@ -79,13 +89,16 @@ The bootstrap command contains:
 - verified issuer and subject derived from the token;
 - no requested user, binding, Organization, Membership or role ID.
 
-Names use one versioned contract, `taptime-name-v1`, pinned to Unicode 17.0. Decode strict UTF-8,
-normalize to NFC, remove leading/trailing code points in Unicode 17.0's `White_Space` property, then
+Names use one versioned contract, `taptime-name-v1`, pinned to Unicode 15.1. Decode strict UTF-8,
+normalize to NFC, remove leading/trailing code points in Unicode 15.1's `White_Space` property, then
 reject any remaining code point in General Categories `Cc`, `Cf`, `Cs`, `Co`, `Cn`, `Zl` or `Zp`.
 Length is measured in Unicode scalar values and UTF-8 bytes after normalization: Organization and
 Customer names require 1–120 scalars and at most 480 bytes; Tag labels require 1–80 scalars and at
-most 320 bytes. The versioned database normalization capability is authoritative; Node uses the same
-generated Unicode table and golden vectors for preflight, but may not override a database rejection.
+most 320 bytes. PostgreSQL 17 must report UTF8 and internal Unicode 15.1 or migration `006` fails.
+The versioned database normalization capability is authoritative; Node uses pinned UCD-15.1
+property tables, rejects post-15.1 assignments before its newer normalizer runs and shares golden
+vectors, but may not override a database rejection. A later Unicode upgrade is
+`taptime-name-v2` plus a separate migration, never a silent v1 change.
 Organization names are not globally unique and are never identity or authority.
 
 The server generates every resource ID. The role is fixed to `administrator` and
@@ -95,7 +108,8 @@ verified identity and its User has no Membership. A revoked/conflicting binding,
 Membership, or an identity concurrently provisioned elsewhere fails closed. Only an exact receipt
 replay is exempt.
 
-Migration `006` shall introduce `taptime_bootstrap_executor NOLOGIN NOINHERIT NOBYPASSRLS` with
+Migration `006` shall be installed only by an out-of-band PostgreSQL superuser and shall introduce
+`taptime_bootstrap_executor NOLOGIN NOINHERIT NOBYPASSRLS` with
 schema `USAGE`, no table grants and EXECUTE on one hardened capability. Each named operator LOGIN
 has database `CONNECT` plus membership in that executor only and must explicitly
 `SET LOCAL ROLE taptime_bootstrap_executor` inside the transaction; because the LOGIN is NOINHERIT

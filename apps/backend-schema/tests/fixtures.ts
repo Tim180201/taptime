@@ -86,6 +86,7 @@ export function runtimeConnectionString(
 export async function truncateB3(installerPool: Pool): Promise<void> {
   await installerPool.query(`
     TRUNCATE TABLE
+      taptime_server.bootstrap_receipts,
       taptime_server.audit_events,
       taptime_server.sync_receipts,
       taptime_server.canonical_decisions,

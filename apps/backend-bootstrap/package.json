@@ -1,0 +1,36 @@
+{
+  "name": "@taptime/backend-bootstrap",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "C3B operator-only first Organization and Administrator bootstrap capability.",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "taptime-bootstrap": "./dist/main.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json --emitDeclarationOnly && esbuild src/index.ts src/main.ts --bundle --platform=node --target=node24 --format=esm --external:@taptime/backend-identity --external:pg --sourcemap --outdir=dist && chmod 755 dist/main.js",
+    "start": "node dist/main.js",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "verify-bin": "node scripts/verifyBuiltCli.mjs"
+  },
+  "dependencies": {
+    "@taptime/backend-identity": "*",
+    "@unicode/unicode-15.1.0": "1.6.17",
+    "pg": "^8.22.0"
+  },
+  "devDependencies": {
+    "@taptime/backend-schema": "*",
+    "@types/node": "^24.10.13",
+    "@types/pg": "^8.20.0",
+    "esbuild": "^0.28.1",
+    "jose": "^6.2.3",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.9"
+  }
+}

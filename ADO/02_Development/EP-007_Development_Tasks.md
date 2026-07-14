@@ -816,10 +816,9 @@ Test results: `npm run test --workspace=@taptime/core` — 221/221 tests passing
 
 Known limitations: this proof is repository-internal only — no UI, CLI, or mobile entry point calls any Organization Management Application Service after this task, and this task deliberately does not change that; DT-026 does not make TapTim.e pilot-ready by itself. This completes the DT-017–DT-026 TS-002 Organization Management Foundation Development Task sequence in full — no DT-027 or later task exists anywhere in FB-002, TS-002, or this document. The missing-target-Customer result-vocabulary limitation disclosed at DT-025's closure, the Membership-granting bootstrap question, tag reassignment/history semantics, tag payload collision semantics (FB-002 Open Questions), and `packages/core/tsconfig.json`'s standing `"include": ["src"]` `tests/`-typecheck-coverage gap all remain unresolved, unaffected by this task. See `Development_Sprint_019_Closure.md` for full evidence.
 
-**Post-closure C3A reconciliation (2026-07-14):** review-ready FB-002 v1.2, TS-002 v1.1 and ADR-0011
-propose resolutions to the architecture questions above without changing DT-026's code/test
-evidence. The Core foundation remains complete; Human Architect acceptance and every C3 runtime
-implementation remain gated.
+**Post-closure C3A/C3B-feasibility reconciliation (2026-07-14):** accepted FB-002 v1.2, TS-002 v1.2 and ADR-0011
+resolve the architecture questions above without changing DT-026's code/test evidence. The Core
+foundation remains complete; C3B is separately authorized and C3C–C3E remain gated.
 
 ## Dependencies
 
@@ -835,6 +834,6 @@ This task structure is ready for Development Agent planning only after Review Ag
 
 DT-017–DT-026 were planned and subsequently implemented, reviewed and approved across Development
 Sprints 012–019; their populated Implementation Notes and closures are the evidence. This original
-planning gate is satisfied. The review-ready C3A package reconciles the completed Core foundation with the real
+planning gate is satisfied. The accepted C3A package reconciles the completed Core foundation with the real
 backend/runtime boundary; it does not retroactively convert the Core services into transport
-authority or authorize C3B–C3E before Human Architect acceptance.
+authority. C3B is separately authorized after Human acceptance; C3C–C3E remain gated.

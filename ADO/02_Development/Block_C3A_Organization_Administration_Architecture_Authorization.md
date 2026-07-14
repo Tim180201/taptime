@@ -1,13 +1,15 @@
 # Block C3A — Organization Administration Architecture Authorization
 
-Status: Review Ready — independent re-review passed; Human acceptance pending
+Status: Completed — independently validated and accepted by Human Architect
 Authorization Date: 2026-07-14
 Authorized Baseline: `220c55f72ffb0ba73c73c748af9701898529725a`
+Acceptance Date: 2026-07-14
 Human Architect Authorization: Explicit continuation under the delegated professional architecture
 direction ("Wir machen es nach deiner Vorstellung" / "Leg los Chef")
 Owner: Technical Lead
 Architecture Authorities: ADR-0006, ADR-0008, ADR-0009, ADR-0011, FB-002, TS-002, B3–B6 and C1/C2
-Roadmap Scope: C3A governance/architecture freeze only; C3B–C3E remain gated
+Roadmap Scope: C3A governance/architecture freeze completed; C3B separately authorized later;
+C3C–C3E remain gated
 Effort: Medium
 
 ## 1. Authorized objective
@@ -27,8 +29,8 @@ cloud resource, UI, credential or production data.
 
 ## 2. Corrected C3A proposal
 
-- FB-002 and TS-002 are independently validated and ready for Human Architect acceptance after explicit current-state
-  reconciliation; their 2026-07-07
+- FB-002 and TS-002 passed independent validation and were subsequently accepted by the Human
+  Architect after explicit current-state reconciliation; their 2026-07-07
   repository snapshots remain labelled historical rather than being presented as current.
 - First Organization/Admin creation is one private, operator-authenticated, idempotent and audited
   transaction. It is never a public API route or third product role.
@@ -86,10 +88,14 @@ Any open P0/P1/P2 finding blocks C3B authorization. Every review pass and its di
 - Project Status, Decision Log, Risk Register, roadmap and ADO navigation remain truthful.
 - No product code, migration, dependency, cloud state or `research/` content changes.
 
-## 5. Current truth
+## 5. Acceptance and current truth
 
-C3A passed independent technical re-review; it does not yet authorize implementation or make
-setup operational. There is still no
-Organization bootstrap CLI, normal setup API, Customer/Tag display-name migration, Admin Web or
-mobile Administrator capture screen. C3B–C3E remain unauthorized; C3B may be considered first only
-after the Human Architect explicitly accepts C3A and then separately continues into C3B.
+C3A passed independent technical re-review and the Human Architect then explicitly accepted the
+professional architecture direction. The later instruction to continue under that direction is
+recorded separately as C3B authorization; it does not retroactively make C3A an implementation
+slice or authorize C3C–C3E.
+
+During C3B feasibility verification, PostgreSQL 17's authoritative Unicode 15.1 normalizer exposed
+the C3A draft's technically incorrect Unicode-17 pin. The accepted invariant is narrowly corrected
+to Unicode 15.1 in ADR-0011 and TS-002 v1.2 under the C3B authorization/pre-review, with future
+upgrades versioned as v2. This preserves deterministic database authority rather than weakening it.

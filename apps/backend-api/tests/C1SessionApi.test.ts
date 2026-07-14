@@ -100,16 +100,16 @@ afterAll(async () => {
 });
 
 describe('versioned C1 foundation', () => {
-  it('uses exactly unchanged migrations 001 through 005 and reruns the ledger cleanly', async () => {
+  it('uses exactly migrations 001 through 006 and reruns the ledger cleanly', async () => {
     const migrations = await loadMigrations();
-    expect(migrations.map(({ version }) => version)).toEqual(['001', '002', '003', '004', '005']);
+    expect(migrations.map(({ version }) => version)).toEqual(['001', '002', '003', '004', '005', '006']);
     const ledger = await installerPool.query<{ version: string; checksum: string }>(
       `SELECT version, checksum FROM ${B3_MIGRATION_TABLE} ORDER BY version`,
     );
-    expect(ledger.rows.map(({ version }) => version)).toEqual(['001', '002', '003', '004', '005']);
+    expect(ledger.rows.map(({ version }) => version)).toEqual(['001', '002', '003', '004', '005', '006']);
     expect(ledger.rows.every(({ checksum }) => /^[0-9a-f]{64}$/.test(checksum))).toBe(true);
     await expect(migrate(installerPool)).resolves.toEqual({
-      applied: [], alreadyApplied: ['001', '002', '003', '004', '005'],
+      applied: [], alreadyApplied: ['001', '002', '003', '004', '005', '006'],
     });
   });
 });

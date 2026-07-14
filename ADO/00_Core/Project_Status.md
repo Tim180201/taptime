@@ -1,6 +1,6 @@
 # Project Status
 
-Status: CORE ROADMAP V2 BLOCK A, B1–B6, C1/C2, BLOCK D, E1 AND NARROW E2A COMPLETE FOR THEIR RECORDED SCOPES — C3A FB-002 V1.2 / TS-002 V1.1 / ADR-0011 CORRECTED AND REVIEW READY, HUMAN ARCHITECT ACCEPTANCE PENDING — MOBILE 310 / CORE 288 / LIFECYCLE 88 / API 139 / SYNTHETIC E2E 6 REMAIN THE LAST PRODUCT-CODE BASELINE — C3B BOOTSTRAP, C3C ADMIN SETUP API, C3D UI, C3E MEMBERSHIP/REASSIGNMENT, DT-060–DT-068 AND BLOCK E REMAIN OPEN — 2 SUPAVISOR MODES UNVERIFIED — NO PRODUCTION PERSONAL DATA AUTHORIZED — CORE PROTOTYPE, NOT YET A PRODUCT — NO FULL OFFLINE/PRODUCTION CLOUD SYNC PATH
+Status: CORE ROADMAP V2 BLOCK A, B1–B6, C1/C2, BLOCK D, E1 AND NARROW E2A COMPLETE FOR THEIR RECORDED SCOPES — C3A FB-002 V1.2 / TS-002 V1.2 / ADR-0011 INDEPENDENTLY VALIDATED AND HUMAN-ACCEPTED — C3B SECURE BOOTSTRAP IMPLEMENTED AND INDEPENDENTLY REVIEWED LOCALLY; EXACT-HEAD CI PENDING; C3C–C3E UNAUTHORIZED — MOBILE 310 / CORE 288 / LIFECYCLE 88 / API 139 / SYNTHETIC E2E 6 REMAIN THE LAST PUBLISHED PRODUCT-CODE BASELINE — DT-060–DT-068 AND BLOCK E REMAIN OPEN — 2 SUPAVISOR MODES UNVERIFIED — NO PRODUCTION PERSONAL DATA AUTHORIZED — CORE PROTOTYPE, NOT YET A PRODUCT — NO FULL OFFLINE/PRODUCTION CLOUD SYNC PATH
 Date: 2026-07-14
 Owner: Human Architect + Technical Lead
 
@@ -33,19 +33,23 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
 - **E2A closure publication is CI-verified.** Governance commit `de03a71` passed all eight jobs in
   GitHub Actions run `29351043179`; this publication fact changes no scope and leaves DT-060–DT-062
   plus Block E open.
-- **C3A Organization Administration Architecture is review-ready without product code.** FB-002 v1.2
-  and TS-002 v1.1 reconcile DT-017–DT-026 with B3–C2. ADR-0011 proposes a private
+- **C3A Organization Administration Architecture is accepted; C3B alone is authorized.** FB-002 v1.2
+  and TS-002 v1.2 reconcile DT-017–DT-026 with B3–C2. ADR-0011 establishes a private
   operator-only first Organization/Admin bootstrap, a distinct least-privilege normal Admin write
   session, durable command receipts, `assignment_target_unavailable`, Organization-scoped canonical
   payload uniqueness, append-only Assignment history and required Customer/Tag display names with
   safe fingerprint presentation. The first independent pass rejected 3 P1/6 P2/2 P3, the second
   required changes for 2 P2/3 P3, and the governance scan added 1 P2/1 P3. Every finding was corrected;
-  final independent re-review passed with zero open P0/P1/P2/P3. C3A changes no migration, package,
-  API or UI. Human Architect acceptance remains required; C3B–C3E are unauthorized.
+  final independent re-review passed with zero open P0/P1/P2/P3 and the Human Architect accepted the
+  direction. C3B was separately authorized on baseline `f7d3855`; its implementation, 188-test
+  matrix and independent final review now pass locally with exact-head publication CI pending.
+  C3C–C3E remain unauthorized.
+  Its feasibility review corrected `taptime-name-v1` to PostgreSQL-17-authoritative Unicode 15.1
+  and made the privileged operator-attestation trust plus external IAM/TLS gates explicit.
 - **The internal physical-validation APK passed its device-local physical checklist on a Samsung Galaxy A33 5G running Android 15 with two NTAG213 tags.** Both tags produced ten stable and distinct shortened fingerprints; disabled NFC, timeout without counter mutation, explicit cancel, scan-after-cleanup and rapid duplicate coalescing behaved as designed. A tag presented outside an explicit capture produced Android's external `Aktion wählen` prompt and no TapTim.e counter change. No raw UID, token or provider error was disclosed; the tester's initial uncertainty about the unlabeled 12-character hash produced a real UX correction that now labels it explicitly as a shortened SHA-256 validation fingerprint. Follow-up commit `56790c2` passed all seven jobs in run `29324366418`; EAS build `6969b72b-8f01-496e-95ff-4e481019bdf8` produced integrity-verified Android build 2. This is device evidence, not Block-G distribution, broad pilot-fleet coverage or production deployment.
 - **The synthetic server-connected Android E2E harness and physical product run passed after six blocking Technical-Lead corrections.** USB `adb reverse` kept the distinct synthetic APK's Auth and C2 access on numeric loopback without LAN/tunnel/cloud. A per-run scrypt password plus ephemeral RS256/JWKS drove the real Mobile auth adapter; real C2/B4/B5/B6/Core and PostgreSQL migrations `001`–`005` remained authoritative. Five automated tests comprise exactly three direct PostgreSQL integration cases and two non-database safety/source guards. Correction commit `59c4ac7` passed all eight jobs in run `29333578360`. The 66-MB APK installed on `SM_A336B`; physical Tag B showed `Tag nicht zugeordnet`, fingerprint-bound Tag-A provisioning produced 1 Tag/Assignment and 2 AuditEvents with zero lifecycle evidence, and the next scans showed `Arbeitszeit gestartet` then `Arbeitszeit gestoppt`. Final state was 2 WorkEvents/Decisions/Receipts, 1 stopped TimeEntry and 4 AuditEvents. Normal shutdown and scoped disconnect left an empty reverse table. No raw UID, token, database/provider error or real person data was displayed. Independent D-FINAL-01 corrected only the previous test-count wording; no code/security blocker remains.
 - Development Sprint 011 was the first Development Sprint planned directly against EP-009 Product Readiness priorities: it evaluated and deliberately did not target Organization Management (the higher-ranked priority per Product Readiness Assessment Section 11.1) because no Feature Blueprint exists for it, implementing Real NFC Hardware Integration (DT-016) instead — see `Development_Sprint_011_Plan.md` Section 3 and `Development_Sprint_011_Closure.md`.
-- **FB-002 v1.2 and TS-002 v1.1 are Review Ready after C3A reconciliation.** DT-017–DT-026 remain complete as the Core/test foundation. ADR-0008/B3–C2 supply the real identity, tenant, persistence and transport context that the 2026-07-07 drafts intentionally lacked; review-ready ADR-0011 proposes first-Administrator bootstrap, one-active-Membership v1, Tag uniqueness, Assignment history, missing-target disclosure and required Customer/Tag display names. Human Architect acceptance remains pending. The detailed Sprint 012–019 chronology remains authoritative. No bootstrap CLI, Admin setup API or setup UI exists yet.
+- **FB-002 v1.2, TS-002 v1.2 and ADR-0011 are accepted after C3A reconciliation and the narrow C3B feasibility amendment.** DT-017–DT-026 remain complete as the Core/test foundation. ADR-0008/B3–C2 supply the real identity, tenant, persistence and transport context that the 2026-07-07 drafts intentionally lacked. C3B's isolated bootstrap CLI/migration passed Technical-Lead verification and independent final review; exact-head CI is pending. No normal Admin setup API or setup UI exists yet.
 - The Product Readiness Assessment and Product Readiness Roadmap (2026-07-07) have completed Technical Lead review, including a seven-change follow-up revision. **EP-009 – Product Readiness Framework** is now Active, formally establishing Product Readiness as a permanent, continuously-reassessed governance activity alongside Development Sprints and EP-008 — see `ADO/02_Development/EP-009_Product_Readiness_Framework.md`.
 - **Historical external CTO snapshot (2026-07-10).** At review time, the repository was correctly
   classified as a Core Prototype with K1–K12 covering demo composition, bypassed native capture,
@@ -66,14 +70,14 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
 
 Two Epics are concurrently Active, per EP-009's own stated relationship to the rest of the repository (`EP-009_Product_Readiness_Framework.md` Section 2):
 
-- **EP-008 – Developer Implementation Manual** (guidance track, synchronized through Development Sprint 019; Chapters 04–10 not yet written) and the **Roadmap v2 implementation track** — Development Sprints 001–019 and Core Roadmap v2 Blocks A, B1–B6, C1/C2 and D are complete for their recorded scopes. E1 and the narrow E2A slice are complete after Technical-Lead, eight-job CI, Human physical Android and independent final-review approval. C3A passed independent re-review but awaits Human Architect acceptance; C3B–C3E and Block E outside E2A remain gated. Block D software, CI, device-local NFC, synthetic server-connected physical Android validation and independent final review are approved/passed for the recorded Galaxy A33/NTAG213 set. The DT-017–DT-026 Core sequence remains complete; its C3A reconciliation is proposed by FB-002 v1.2/TS-002 v1.1/ADR-0011. F-01 is resolved and implemented. DT-016/DT-058's physical Android gate is closed for the approved set; ADR-0008 through ADR-0010 remain approved.
+- **EP-008 – Developer Implementation Manual** (guidance track, synchronized through Development Sprint 019; Chapters 04–10 not yet written) and the **Roadmap v2 implementation track** — Development Sprints 001–019 and Core Roadmap v2 Blocks A, B1–B6, C1/C2 and D are complete for their recorded scopes. E1 and the narrow E2A slice are complete after Technical-Lead, eight-job CI, Human physical Android and independent final-review approval. C3A passed independent re-review and Human acceptance; C3B is locally implemented and independently reviewed with exact-head CI pending, while C3C–C3E and Block E outside E2A remain gated. Block D software, CI, device-local NFC, synthetic server-connected physical Android validation and independent final review are approved/passed for the recorded Galaxy A33/NTAG213 set. The DT-017–DT-026 Core sequence remains complete; its accepted C3 baseline is FB-002 v1.2/TS-002 v1.2/ADR-0011. F-01 is resolved and implemented. DT-016/DT-058's physical Android gate is closed for the approved set; ADR-0008 through ADR-0011 remain approved.
 - **EP-009 – Product Readiness Framework** (continuous, parallel governance track) — governs Product Readiness domains outside implementation: Technical Operations, Product, Commercial, Legal & Compliance, Deployment, Go-To-Market, Customer, Support and Scaling Readiness (Business Readiness evaluated and deliberately not yet adopted as an official domain, per Product Readiness Assessment Section 13).
 
 ### Goals
 
 - Preserve the approved Block D Android NFC runtime boundary, E1's server-ready durable-evidence
-  boundary, E2A's narrow defer-only authority boundary and C3A's review-ready no-code administration proposal
-  without entering C3B–C3E or Block-E implementation scope.
+  boundary, E2A's narrow defer-only authority boundary and accepted C3A administration architecture
+  while implementing only authorized C3B and not entering C3C–C3E or broader Block-E scope.
 - Preserve the closed E2A boundary without widening it into full-offline E2; any persisted
   multi-context cache, multi-event queue, automatic evaluation or numeric clock/revocation policy
   requires a separate Human-Architect authorization.
@@ -87,10 +91,10 @@ Two Epics are concurrently Active, per EP-009's own stated relationship to the r
 
 ## Immediate Next Steps
 
-1. Obtain explicit Human Architect acceptance of the independently validated C3A package.
-2. Only then separately authorize C3B: isolated bootstrap CLI, migration `006`, least-privilege
-   role graph, append-only receipt, three truthful operator audit events and the full rollback/
-   concurrency security matrix. C3A itself authorizes no implementation.
+1. Publish the locally approved C3B implementation and complete exact-head nine-job CI for the
+   isolated bootstrap CLI, migration `006`, least-privilege role graph and security matrix.
+2. Keep the real production endpoint/CA, one-human operator IAM inventory, short-lived credential
+   delivery/revocation and controlled execution evidence as explicit deployment gates.
 3. After C3B closure, separately authorize C3C's narrow normal Admin setup backend/API. Do not expose
    the existing broad Administrator role or detached Core Membership/NfcTag objects.
 4. Keep C3D UI and C3E identity-first Membership/reassignment, persisted multi-event offline work and

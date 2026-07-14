@@ -1,16 +1,17 @@
 # Block C3 — Organization Administration Implementation Plan
 
-Status: Proposed — requires C3A Human Architect acceptance; every slice separately authorized
+Status: Active — C3B implementation/final review passed locally and exact-head CI is pending;
+C3C–C3E remain separately gated
 Date: 2026-07-14
-Planning Baseline: `220c55f72ffb0ba73c73c748af9701898529725a`
+Planning Baseline: `f7d38558e9a1e6d5f7c2cfd1f4a1ec6eed3ebd44`
 Owner: Technical Lead
-Proposed Architecture: ADR-0011, FB-002 v1.2 and TS-002 v1.1 review-ready reconciliation
+Architecture: Accepted ADR-0011, FB-002 v1.2 and TS-002 v1.2
 
 ## 1. Recommended sequence and Codex effort
 
 | Slice | Scope | Codex effort | Current authority |
 |---|---|---:|---|
-| C3B | Isolated first Organization/Administrator bootstrap CLI, migration `006`, role graph, receipt/audit and security matrix | High | Not authorized |
+| C3B | Isolated first Organization/Administrator bootstrap CLI, migration `006`, role graph, receipt/audit and security matrix | High | Implemented and independently reviewed — exact-head CI pending |
 | C3C | Tenant-safe normal setup backend/API, Customer/Tag display names, atomic Customer and NFC provision commands, resumable safe projection | Very High | Not authorized |
 | C3D | Minimal Admin Web shell for Customer/assignment setup plus protected Android Administrator NFC capture | Very High | Not authorized |
 | C3E | Explicit reassignment and identity-first employee Membership setup after their separate policy gates | Very High | Not authorized |
@@ -41,7 +42,7 @@ semantics. C3E is not required for first bootstrap/setup proof.
   schema-valid audit with receipt Organization, `BootstrapRequest`/request-ID entity, request-ID
   correlation, current operator and safe reason-only payload;
 - same request ID/different content conflict;
-- Organization-name Unicode-17 normalization/category/scalar+byte bounds and exact Node/SQL
+- Organization-name Unicode-15.1 normalization/category/scalar+byte bounds and exact Node/SQL
   bootstrap-digest golden vectors;
 - revoked/conflicting identity, existing Membership and concurrent distinct request rejection;
 - request-ID and identity advisory-lock races;
@@ -65,7 +66,7 @@ normal API credential reuse, partial retry cleanup or unaudited bypass.
 ### Deliverables
 
 - additive Domain/schema fields for `Customer.displayName` and `NfcTag.displayName`, including safe
-  synthetic-fixture backfill and the Unicode-17 `taptime-name-v1` normalization capability;
+  synthetic-fixture backfill and the Unicode-15.1 `taptime-name-v1` normalization capability;
 - distinct setup database pool/login/role and RLS/policy/audit changes with no Membership/delete/
   lifecycle capability;
 - explicit `taptime_admin_setup` audit-trigger allowlist with fixed Customer/Tag/Assignment events,
@@ -95,7 +96,7 @@ normal API credential reuse, partial retry cleanup or unaudited bypass.
 - missing/inactive/cross-tenant target maps identically to `assignment_target_unavailable`;
 - exact replay precedes resource checks; another command with an existing tenant payload always maps
   to `tag_payload_already_registered`; `assignment_conflict` is not an initial provision result;
-- Unicode-17 normalization order/categories/scalar+byte limits, Node/SQL digest golden vectors and
+- Unicode-15.1 normalization order/categories/scalar+byte limits, Node/SQL digest golden vectors and
   duplicate display-name allowance;
 - raw payload leakage scans across DTOs, receipts, diagnostics, audit, source logs and UI state;
 - setup-role audit allowlist and exact evidence: create Customer = one `CustomerCreated`; provision

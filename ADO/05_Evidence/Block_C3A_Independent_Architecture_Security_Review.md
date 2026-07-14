@@ -1,6 +1,6 @@
 # Block C3A — Independent Architecture and Security Review
 
-Status: Validated by final independent re-review — Human Architect acceptance pending
+Status: Validated by final independent re-review — subsequently accepted by Human Architect
 Date: 2026-07-14
 Reviewed Baseline: `220c55f72ffb0ba73c73c748af9701898529725a` plus the uncommitted C3A documentation diff
 Review Type: Independent read-only architecture/security review
@@ -32,7 +32,7 @@ blocking. The Technical Lead accepted all findings; none was waived.
 | C3A-REV-04 | P2 | Normal command receipts lacked a tenant/actor/Membership/type/hash namespace and raw-payload exclusion. | Receipt key is `(organization_id, command_id)` and stores actor, expected Membership, command type, hash version, canonical digest, safe result and applicable result IDs only. Divergent authority/type/content is `command_id_conflict`; request bodies and raw payload never persist. |
 | C3A-REV-05 | P2 | FB/ADR/TS public result vocabularies conflicted and did not map a verified identity without an active binding/Membership. | One normative table maps invalid identity/binding/no active Membership to `unauthorized`, Employee/stale Membership to `forbidden`, inaccessible target to `assignment_target_unavailable`, and removes PascalCase rejection events. |
 | C3A-REV-06 | P2 | `tag_payload_already_registered` overlapped `assignment_conflict` in initial provisioning. | Fixed precedence is authority → exact receipt → divergent receipt → resources. A payload under another command is always `tag_payload_already_registered`; `assignment_conflict` is reserved for a later explicit assign/reassign capability. |
-| C3A-REV-07 | P2 | Name normalization and idempotency hashing were not deterministic across Node/PostgreSQL. | `taptime-name-v1` pins Unicode 17.0, operation order, White_Space/categories, scalar/byte bounds and database authority. Hashing uses a versioned domain-separated, four-byte-length-prefixed UTF-8 tuple with shared Node/SQL golden vectors. |
+| C3A-REV-07 | P2 | Name normalization and idempotency hashing were not deterministic across Node/PostgreSQL. | The reviewed draft pinned a versioned Unicode contract, operation order, White_Space/categories, scalar/byte bounds and database authority. C3B feasibility later proved PostgreSQL 17 is Unicode 15.1, so the accepted v1 pin was corrected from 17.0 to 15.1 without changing the determinism rule. Hashing remains a versioned domain-separated, four-byte-length-prefixed UTF-8 tuple with shared Node/SQL golden vectors. |
 | C3A-REV-08 | P2 | The Admin-Web/Android raw-payload handoff had no implementable pairing contract and overstated capture proof. | V1 uses no Web pairing. Android owns Customer selection, label, capture and direct submission; payload is ephemeral only inside a non-React coordinator. "Protected" means authenticated supported-client gating, not attestation or physical-origin proof. |
 | C3A-REV-09 | P2 | C3D required an Employee scan although Employee provisioning is not authorized until C3E. | The C3D gate uses the bootstrap Administrator for product Start/Stop. Employee provisioning stays C3E; direct SQL seeding is not permitted. |
 | C3A-REV-10 | P3 | C3D wanted Organization name but the safe projection did not provide it. | Added tenant-bound `AdminOrganizationSummary { id, name }` to the setup projection. |
@@ -77,8 +77,21 @@ This passing technical review does not promote FB-002, TS-002 or ADR-0011 to App
 authorize C3B–C3E. That transition requires explicit Human Architect acceptance after the reviewed
 commit is published, followed by a separate authorization for each implementation slice.
 
-## 6. Current truth
+## 6. Truth at final C3A re-review
 
-C3A is a no-code architecture/security package. C3B, C3C, C3D, C3E and every product implementation
-remain unauthorized. The repository still has no Organization bootstrap CLI, normal Admin setup API,
-display-name migration, Admin Web or Android Administrator provisioning screen.
+At this review point C3A was a no-code architecture/security package. C3B, C3C, C3D, C3E and every
+product implementation were unauthorized, and the repository had no Organization bootstrap CLI,
+normal setup API, display-name migration, Admin Web or Android Administrator provisioning screen.
+
+## 7. Subsequent Human acceptance and C3B feasibility amendment
+
+After publication of the passing re-review, the Human Architect explicitly accepted continued work
+under the Technical Lead's professional architecture direction on 2026-07-14. C3A is therefore
+accepted. A later, separate continuation instruction authorized C3B only; C3C–C3E remain gated.
+
+C3B's pre-implementation feasibility review demonstrated with PostgreSQL 17.10 that the database's
+internal Unicode version is 15.1 rather than the draft's 17.0. ADR-0011, TS-002 v1.2 and the
+implementation authorization narrowly correct `taptime-name-v1` to Unicode 15.1, enforce a database
+version gate and reserve any upgrade for v2. The correction strengthens the reviewed
+database-authoritative invariant and is recorded in the separate C3B review; it does not alter this
+review's historical v1.1 verdict chronology.

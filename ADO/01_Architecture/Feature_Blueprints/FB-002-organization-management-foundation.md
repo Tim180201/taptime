@@ -1,6 +1,6 @@
 # FB-002 – Organization Management Foundation
 
-Status: Review Ready — independent re-review passed; Human acceptance pending
+Status: Approved by Human Architect — implementation remains sliced and gated
 Feature ID: FB-002
 Feature Name: Organization Management Foundation
 Version: 1.2
@@ -9,7 +9,7 @@ Owner: Technical Lead
 Approval Authority: Human Architect
 Creation Date: 2026-07-07
 Last Updated: 2026-07-14 (C3A implementation and security reconciliation)
-Acceptance: Pending Human Architect
+Acceptance: Accepted 2026-07-14
 Related Product Vision: `ADO/01_Architecture/Product_Vision.md`
 Related Product Principles: `ADO/01_Architecture/Product_Principles.md`
 Related Domain Model: `ADO/01_Architecture/Domain_Model.md`
@@ -100,7 +100,7 @@ This Blueprint is built directly on `ADO/05_Evidence/FB-002_Organization_Managem
 
 The statements above intentionally preserve the repository state that informed the original
 Blueprint. They are not current implementation claims. The following reconciliation is the current
-review-ready proposal.
+accepted architecture baseline.
 
 ## Current Review Reconciliation (2026-07-14)
 
@@ -506,7 +506,7 @@ ADR references explain why an architectural boundary exists; they do not replace
 
 ## Former Open Questions — C3A Disposition
 
-| # | Disposition | Validated v1 proposal pending acceptance |
+| # | Disposition | Accepted v1 contract |
 |---|---|---|
 | 1 | Resolved | Private audited operator CLI bootstraps the first Organization/Admin. Normal setup is a separate authenticated Administrator capability. |
 | 2 | Resolved for v1 | One active Membership per User, therefore one Organization context at a time. Multi-Organization Membership is a future ADR trigger. |
@@ -524,21 +524,23 @@ Product Vision
   -> ADR-0002 / ADR-0003 / ADR-0005 / ADR-0006 / ADR-0007 / ADR-0008 / ADR-0009
   -> TTAP-001
   -> FB-001 (existing, unchanged)
-  -> FB-002 v1.2 (this review-ready Blueprint)
+  -> FB-002 v1.2 (this accepted Blueprint)
   -> FB-002 Scope Assessment (ADO/05_Evidence/FB-002_Organization_Management_Scope_Assessment.md)
-  -> TS-002 (review-ready current-state and C3 runtime specification)
+  -> TS-002 (accepted current-state and C3 runtime specification)
   -> DT-017–DT-026 (Core foundation complete)
-  -> ADR-0011 / C3A (independently validated; Human Architect acceptance pending)
-  -> C3B–C3E (separately gated implementation)
+  -> ADR-0011 / C3A (independently validated and Human-accepted)
+  -> C3B (separately authorized implementation) / C3C–C3E (gated)
 ```
 
 ## Revision Note (C3A Review Reconciliation, 2026-07-14)
 
-Version 1.2 is review-ready after direct reconciliation with DT-017–DT-026, ADR-0008/ADR-0009,
+Version 1.2 is accepted after direct reconciliation with DT-017–DT-026, ADR-0008/ADR-0009,
 migrations `001`–`005`, B4/B5/B6, C1/C2 and independent C3A architecture/security corrections. It
 resolves the first-Administrator, Membership-cardinality, payload-collision, Assignment-history and
 missing-target questions; adds the minimum Customer/Tag display contract; and explicitly gates C3
-implementation. Human Architect acceptance is still required; no bootstrap/API/UI exists.
+implementation. Human Architect acceptance is complete. C3B is separately authorized and its
+implementation is subject to its own evidence-based closure; no normal setup API/UI exists and
+C3C–C3E remain gated.
 
 ## Historical Revision Note (Technical Lead Review Follow-up, 2026-07-07)
 

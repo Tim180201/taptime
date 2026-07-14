@@ -1,8 +1,9 @@
-# TapTim.e Backend Schema — Blocks B3–B6
+# TapTim.e Backend Schema — Blocks B3–C3B
 
 This workspace contains the versioned PostgreSQL 17 schema, migration runner and security
-integration evidence through migrations `001`–`005`. Migration `005` is the additive Block B6
-transaction-locking identity/Membership resolver; migrations `001`–`004` remain immutable.
+integration evidence through migrations `001`–`006`. Migration `006` adds only the isolated C3B
+bootstrap roles, receipt, operator attribution and hardened capability; migrations `001`–`005`
+remain immutable.
 
 It is **not a production backend**, repository adapter, HTTP API, Auth provider integration or cloud deployment. It creates no Supabase resource and contains only synthetic test identities/data. The disposable B1 spike remains separate under `apps/backend-b1-spike`.
 
@@ -23,4 +24,7 @@ npm test --workspace=@taptime/backend-schema
 npm run build --workspace=@taptime/backend-schema
 ```
 
-The installer connection requires schema/role creation privileges. Runtime tests create separate synthetic `NOINHERIT` logins and never print their password. Do not reuse the test password or installer connection in a deployed service.
+Migration `006` requires an out-of-band PostgreSQL superuser installer because it creates and owns a
+deliberately isolated `BYPASSRLS` function-owner role. Migrations must never run at application
+startup. Runtime tests create separate synthetic `NOINHERIT` logins and never print their password.
+Do not reuse the test password or installer connection in a deployed service.
