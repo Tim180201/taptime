@@ -1,6 +1,6 @@
 # Block C3B — Secure Organization Bootstrap Evidence
 
-Status: Local implementation and independent review complete — exact-head GitHub CI pending
+Status: Completed — Technical Lead, exact-head GitHub CI and independent security approved
 
 Date: 2026-07-14
 
@@ -109,10 +109,12 @@ Migration SHA-256 inventory:
 | `005_locked_identity_membership_resolver.sql` | `b3abfdd8648250f7360ae1bb9659d0cc0a147673b79ef8a5b8b2d37b476c0d47` |
 | `006_secure_organization_bootstrap.sql` | `02c5ef3054fbb7fadeea71c0f627a66af9e96eeb30ce3b0bbaf6f0594b5a4660` |
 
-## 6. Publication and exact-head CI gate
+## 6. Publication and exact-head CI
 
-The implementation commit and its nine-job GitHub Actions run are intentionally recorded only
-after the exact candidate is committed and CI finishes. C3B is not closed by local evidence alone.
+Implementation commit `e10fcaf8358261fff283d39eca1c79748122dcab` passed all nine jobs in GitHub
+Actions run `29363513529`. The run's `headSha` exactly matches the implementation commit. It covers
+Core/Mobile and Android export, B1, B3, B4, B5, B6, C1/C2, synthetic Android E2E and the new isolated
+C3B PostgreSQL/security job. The C3B job also builds and genuinely executes the packaged CLI binary.
 
 ## 7. Remaining operational gates
 
@@ -127,3 +129,6 @@ after the exact candidate is committed and CI finishes. C3B is not closed by loc
 
 These limits make C3B a production-shaped repository capability, not production-operational
 deployment approval. C3C–C3E remain unauthorized and require a separate Human authorization.
+
+Repository implementation status: **Completed — Technical Lead, exact-head nine-job GitHub CI and
+independent security approved**.

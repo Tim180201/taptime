@@ -818,7 +818,7 @@ Known limitations: this proof is repository-internal only — no UI, CLI, or mob
 
 **Post-closure C3A/C3B-feasibility reconciliation (2026-07-14):** accepted FB-002 v1.2, TS-002 v1.2 and ADR-0011
 resolve the architecture questions above without changing DT-026's code/test evidence. The Core
-foundation remains complete; C3B is separately authorized and C3C–C3E remain gated.
+foundation remains complete; C3B is separately completed and C3C–C3E remain gated.
 
 ## Dependencies
 
@@ -836,4 +836,5 @@ DT-017–DT-026 were planned and subsequently implemented, reviewed and approved
 Sprints 012–019; their populated Implementation Notes and closures are the evidence. This original
 planning gate is satisfied. The accepted C3A package reconciles the completed Core foundation with the real
 backend/runtime boundary; it does not retroactively convert the Core services into transport
-authority. C3B is separately authorized after Human acceptance; C3C–C3E remain gated.
+authority. C3B separately completed after Human acceptance and its own authorization/review/CI
+cycle; C3C–C3E remain gated.

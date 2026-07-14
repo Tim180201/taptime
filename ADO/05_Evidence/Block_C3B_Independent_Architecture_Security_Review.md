@@ -1,6 +1,6 @@
 # Block C3B — Independent Architecture and Security Review
 
-Status: Pre-implementation and final implementation reviews passed; exact-head GitHub CI pending
+Status: Completed — Pre-implementation/final reviews and exact-head nine-job CI passed
 Date: 2026-07-14
 Reviewed Baseline: `f7d38558e9a1e6d5f7c2cfd1f4a1ec6eed3ebd44`
 Review Type: Independent read-only pre-implementation and final architecture/security review
@@ -107,6 +107,7 @@ No finding was waived. Every finding above was corrected and independently re-re
 
 Final implementation-review verdict: **PASS**.
 
-Open severity: zero P0, zero P1, zero P2 and zero P3. The implementation candidate is approved for
-publication. Closure still requires a committed implementation and successful nine-job GitHub CI on
-that exact commit. This review does not approve production deployment or C3C–C3E.
+Open severity: zero P0, zero P1, zero P2 and zero P3. The approved implementation was published as
+`e10fcaf8358261fff283d39eca1c79748122dcab` and passed all nine jobs in GitHub Actions run
+`29363513529`. C3B may close as repository implementation. This review does not approve production
+deployment or C3C–C3E.

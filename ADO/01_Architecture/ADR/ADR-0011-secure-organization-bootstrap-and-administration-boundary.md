@@ -1,6 +1,6 @@
 # ADR-0011: Secure Organization Bootstrap and Administration Boundary
 
-Status: Accepted by Human Architect — C3B separately authorized; C3C–C3E gated
+Status: Accepted by Human Architect — C3B completed; C3C–C3E gated
 Date: 2026-07-14
 Acceptance: Accepted 2026-07-14
 Roadmap: Core Roadmap v2, Block C3 and later setup slices DT-063–DT-066
@@ -9,6 +9,7 @@ Approval Authority: Human Architect
 Related Artifacts: ADR-0006, ADR-0008, ADR-0009, FB-002, TS-002,
 `ADO/02_Development/Block_C3A_Organization_Administration_Architecture_Authorization.md`,
 `ADO/02_Development/Block_C3B_Secure_Organization_Bootstrap_Authorization.md`,
+`ADO/02_Development/Block_C3B_Secure_Organization_Bootstrap_Closure.md`,
 `ADO/02_Development/Block_C3_Organization_Administration_Implementation_Plan.md`,
 `ADO/05_Evidence/Block_C3A_Independent_Architecture_Security_Review.md`,
 `ADO/05_Evidence/Block_C3B_Independent_Architecture_Security_Review.md`,
@@ -374,12 +375,12 @@ Negative:
 
 ## Implementation gates
 
-C3B bootstrap implementation requires Human Architect acceptance of this ADR followed by a separate
-continuation, implementation plan,
-direct PostgreSQL security matrix, rollback/concurrency tests, Technical-Lead review, GitHub CI and
-independent security review. C3C normal administration requires a second separate authorization
-after C3B closure. Admin Web/Mobile setup, production deployment and production personal data remain
-outside this ADR's implementation authority.
+C3B bootstrap implementation completed after Human Architect acceptance of this ADR, separate
+continuation, implementation plan, direct PostgreSQL security matrix, rollback/concurrency tests,
+Technical-Lead review, exact-head nine-job GitHub CI and independent security review. C3C normal
+administration still requires a second separate authorization after C3B closure. Admin Web/Mobile
+setup, production deployment and production personal data remain outside this ADR's implementation
+authority.
 
 ## Review triggers
 

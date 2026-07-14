@@ -1,7 +1,6 @@
 # Block C3 — Organization Administration Implementation Plan
 
-Status: Active — C3B implementation/final review passed locally and exact-head CI is pending;
-C3C–C3E remain separately gated
+Status: Active — C3B completed; C3C–C3E remain separately gated and unauthorized
 Date: 2026-07-14
 Planning Baseline: `f7d38558e9a1e6d5f7c2cfd1f4a1ec6eed3ebd44`
 Owner: Technical Lead
@@ -11,12 +10,12 @@ Architecture: Accepted ADR-0011, FB-002 v1.2 and TS-002 v1.2
 
 | Slice | Scope | Codex effort | Current authority |
 |---|---|---:|---|
-| C3B | Isolated first Organization/Administrator bootstrap CLI, migration `006`, role graph, receipt/audit and security matrix | High | Implemented and independently reviewed — exact-head CI pending |
+| C3B | Isolated first Organization/Administrator bootstrap CLI, migration `006`, role graph, receipt/audit and security matrix | High | Completed — Technical Lead, independent review and nine-job CI passed |
 | C3C | Tenant-safe normal setup backend/API, Customer/Tag display names, atomic Customer and NFC provision commands, resumable safe projection | Very High | Not authorized |
 | C3D | Minimal Admin Web shell for Customer/assignment setup plus protected Android Administrator NFC capture | Very High | Not authorized |
 | C3E | Explicit reassignment and identity-first employee Membership setup after their separate policy gates | Very High | Not authorized |
 
-C3B must close before C3C. C3C must close before a product UI is allowed to claim operational setup.
+C3B is closed. C3C must close before a product UI is allowed to claim operational setup.
 C3D may be visually scaffolded only after the C3C contract is frozen; it must not invent backend
 semantics. C3E is not required for first bootstrap/setup proof.
 
