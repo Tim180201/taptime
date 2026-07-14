@@ -36,6 +36,8 @@ export type ProductScanState =
   | { readonly status: 'scanning' }
   | { readonly status: 'submitting'; readonly phase: 'scan_context' | 'lifecycle' }
   | { readonly status: 'retry_pending' }
+  /** Durable evidence cannot be loaded or updated safely; new scans are fail-closed. */
+  | { readonly status: 'secure_storage_unavailable' }
   /** Pending evidence exists, but belongs to another authenticated identity. */
   | { readonly status: 'protected_pending' };
 

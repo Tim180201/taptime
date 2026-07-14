@@ -8,6 +8,7 @@ import { createSupabaseEmailPasswordAuthAdapter } from '../auth/SupabaseEmailPas
 import { TapTimeSessionApiClient } from '../auth/TapTimeSessionApiClient';
 import type { MobileSessionCapability } from '../auth/contracts';
 import { RnNfcScanAdapter } from '../nfc/RnNfcScanAdapter';
+import { ExpoSecureLifecycleEvidenceOutbox } from '../scan/ExpoSecureLifecycleEvidenceOutbox';
 import { ProductScanOrchestrator } from '../scan/ProductScanOrchestrator';
 import type {
   ProductScanCapability,
@@ -88,6 +89,7 @@ export function createProductMobileRuntime(): ProductMobileRuntimeCreation {
     serverTransport.lifecycle,
     scanSessionContext,
     randomUUID,
+    new ExpoSecureLifecycleEvidenceOutbox(),
   );
   return {
     status: 'ready',

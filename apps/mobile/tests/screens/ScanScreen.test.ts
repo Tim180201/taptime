@@ -19,7 +19,8 @@ describe('ScanScreen presentation', () => {
     [{ status: 'scanning' }, 'Bereit zum Erfassen'],
     [{ status: 'submitting', phase: 'scan_context' }, 'Scan wird sicher verarbeitet'],
     [{ status: 'submitting', phase: 'lifecycle' }, 'Scan wird sicher verarbeitet'],
-    [{ status: 'retry_pending' }, 'Bestätigung ist unklar'],
+    [{ status: 'retry_pending' }, 'Übertragung noch offen'],
+    [{ status: 'secure_storage_unavailable' }, 'Sicherer Speicher nicht verfügbar'],
     [{ status: 'protected_pending' }, 'Ausstehender Vorgang geschützt'],
     [{ status: 'ready', outcome: null }, 'Bereit zum Scannen'],
     [{ status: 'ready', outcome: { status: 'unreadable' } }, 'Tag nicht lesbar'],
@@ -40,9 +41,9 @@ describe('ScanScreen presentation', () => {
     expect(presentScanState(state).title).toBe(title);
   });
 
-  it('discloses that ambiguous evidence is volatile and only unchanged evidence can be retried', () => {
+  it('discloses that pending evidence survives restart and only unchanged evidence can be retried', () => {
     const presentation = presentScanState({ status: 'retry_pending' });
-    expect(presentation.message).toContain('App geöffnet bleibt');
+    expect(presentation.message).toContain('App-Neustart');
     expect(presentation.message).toContain('unveränderten Daten');
     expect(presentation.message).not.toMatch(/[0-9a-f]{8}-[0-9a-f-]{27,}/i);
   });
@@ -62,7 +63,7 @@ describe('ScanScreen presentation', () => {
 
   it('does not disclose protected evidence from another identity', () => {
     const presentation = presentScanState({ status: 'protected_pending' });
-    expect(presentation.message).toContain('vorherige Sitzung');
+    expect(presentation.message).toContain('ursprüngliche Konto');
     expect(presentation.message).not.toMatch(/[0-9a-f]{8}-[0-9a-f-]{27,}/i);
     expect(presentation.message).not.toContain('nfc:uid');
   });

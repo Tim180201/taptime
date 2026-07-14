@@ -62,6 +62,7 @@ describe('C1 Mobile composition boundary', () => {
     expect(runtimeSource).toContain('return this.sessionCapability');
     expect(runtimeSource).toContain('new RnNfcScanAdapter');
     expect(runtimeSource).toContain('new ProductScanOrchestrator');
+    expect(runtimeSource).toContain('new ExpoSecureLifecycleEvidenceOutbox');
     expect(runtimeSource).not.toContain('waitForNextTag');
     expect(runtimeSource).toContain('randomUUID');
     expect(runtimeSource).not.toContain('Math.random');

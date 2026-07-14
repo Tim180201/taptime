@@ -15,6 +15,10 @@ import type {
 } from '../transport/contracts';
 import { isUuid } from '../transport/strictJson';
 import type {
+  LifecycleEvidenceOutbox,
+  PendingLifecycleEvidence,
+} from './LifecycleEvidenceOutbox';
+import type {
   PendingLifecycleBinding,
   ProductScanCapability,
   ProductScanOutcome,
@@ -23,11 +27,6 @@ import type {
   ProductScanState,
   SecureUuidGenerator,
 } from './contracts';
-
-interface PendingLifecycleEvidence {
-  readonly binding: PendingLifecycleBinding;
-  readonly command: LifecycleEventCommand;
-}
 
 export class ProductScanOrchestrator implements ProductScanCapability {
   private state: ProductScanState = Object.freeze({ status: 'inactive' });
@@ -39,6 +38,7 @@ export class ProductScanOrchestrator implements ProductScanCapability {
   private operationVersion = 0;
   private operationFlight: Promise<void> | null = null;
   private pendingEvidence: PendingLifecycleEvidence | null = null;
+  private secureStorageAvailable = true;
 
   constructor(
     private readonly nfcScan: NfcScanPort,
@@ -47,6 +47,7 @@ export class ProductScanOrchestrator implements ProductScanCapability {
     private readonly lifecycle: LifecycleEventApiPort,
     private readonly sessionContext: ProductScanSessionContextReader,
     private readonly createUuid: SecureUuidGenerator,
+    private readonly outbox: LifecycleEvidenceOutbox,
   ) {}
 
   getState(): ProductScanState {
@@ -63,6 +64,19 @@ export class ProductScanOrchestrator implements ProductScanCapability {
       return;
     }
     this.started = true;
+    this.secureStorageAvailable = true;
+    try {
+      this.pendingEvidence = await this.outbox.read();
+    } catch {
+      this.secureStorageAvailable = false;
+      this.setState({ status: 'secure_storage_unavailable' });
+      return;
+    }
+    if (!this.started) {
+      return;
+    }
+    // Recovery completes before session observation can activate NFC. Subscribing before the read
+    // would permit a concurrent authenticated transition to expose a brief scan-ready window.
     this.unsubscribeSession = this.sessionContext.subscribe(() => {
       this.beginSessionTransition();
     });
@@ -228,6 +242,19 @@ export class ProductScanOrchestrator implements ProductScanCapability {
       }),
     });
     this.pendingEvidence = pending;
+    try {
+      await this.outbox.write(pending);
+    } catch {
+      this.pendingEvidence = null;
+      this.secureStorageAvailable = false;
+      if (this.isCurrent(operationVersion, snapshot)) {
+        this.setState({ status: 'secure_storage_unavailable' });
+      }
+      return;
+    }
+    if (!this.isCurrent(operationVersion, snapshot)) {
+      return;
+    }
     await this.submitLifecycle(pending, snapshot, operationVersion);
   }
 
@@ -253,8 +280,17 @@ export class ProductScanOrchestrator implements ProductScanCapability {
       return;
     }
 
-    // A definitive response closes the volatile evidence even if the UI session changed while
-    // the old authenticated request was in flight. The result is not published across identities.
+    // A definitive response closes the durable evidence even if the UI session changed while the
+    // old authenticated request was in flight. Clear before publishing so a process death can only
+    // cause an exact idempotent replay, never silent loss.
+    try {
+      await this.outbox.clear(pending);
+    } catch {
+      if (this.isCurrent(operationVersion, snapshot)) {
+        this.setState({ status: 'retry_pending' });
+      }
+      return;
+    }
     this.pendingEvidence = null;
     if (!this.isCurrent(operationVersion, snapshot)) {
       return;
@@ -291,12 +327,16 @@ export class ProductScanOrchestrator implements ProductScanCapability {
       return;
     }
     const current = this.sessionContext.capture();
+    if (!this.secureStorageAvailable) {
+      this.setState({ status: 'secure_storage_unavailable' });
+      return;
+    }
     if (next === null || current === null || !sameSnapshot(next, current)) {
       this.setState({ status: 'inactive' });
       return;
     }
     if (this.pendingEvidence !== null && !sameBinding(this.pendingEvidence.binding, current)) {
-      // Retain the exact volatile evidence for its original identity, but disclose no details and
+      // Retain the exact durable evidence for its original identity, but disclose no details and
       // allow neither retry nor a new scan while another identity is active.
       this.setState({ status: 'protected_pending' });
       return;

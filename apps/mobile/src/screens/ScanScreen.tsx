@@ -120,14 +120,20 @@ export function presentScanState(state: ProductScanState): ScanScreenPresentatio
       };
     case 'retry_pending':
       return {
-        title: 'Bestätigung ist unklar',
-        message: 'Der Server könnte den Scan bereits gespeichert haben. Solange die App geöffnet bleibt, können ausschließlich dieselben unveränderten Daten erneut gesendet werden.',
+        title: 'Übertragung noch offen',
+        message: 'Der Scan ist sicher auf diesem Gerät vorgemerkt. Es können ausschließlich dieselben unveränderten Daten erneut gesendet werden – auch nach einem App-Neustart.',
         tone: 'warning',
+      };
+    case 'secure_storage_unavailable':
+      return {
+        title: 'Sicherer Speicher nicht verfügbar',
+        message: 'Neue Scans sind zum Schutz deiner Arbeitszeit gesperrt. Starte die App erneut und versuche es dann noch einmal.',
+        tone: 'error',
       };
     case 'protected_pending':
       return {
         title: 'Ausstehender Vorgang geschützt',
-        message: 'Eine ausstehende Übertragung ist an die vorherige Sitzung gebunden. Melde dich mit dem ursprünglichen Konto an oder starte die App neu.',
+        message: 'Eine ausstehende Übertragung ist an das ursprüngliche Konto gebunden. Melde dich mit diesem Konto an, um sie sicher abzuschließen.',
         tone: 'warning',
       };
     case 'ready':

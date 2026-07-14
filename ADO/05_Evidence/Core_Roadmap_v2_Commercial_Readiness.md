@@ -2,7 +2,7 @@
 
 Role: Research / Implementation Support acting on behalf of Technical Lead (per AGR-001)
 Date: 2026-07-10
-Status: Active execution baseline — Block A, B1–B6, C1/C2 and Block D completed after Technical Lead, GitHub CI and independent security approval as of 2026-07-14; Block D device-local and synthetic server-connected physical Android validation passed on the approved Galaxy A33/NTAG213 set after six corrections; independent review found no P0/P1/P2 and one corrected non-blocking P3; C3 and Block E unauthorized
+Status: Active execution baseline — Block A, B1–B6, C1/C2 and Block D completed after Technical Lead, GitHub CI and independent security approval as of 2026-07-14; E1 durable single-lifecycle recovery implemented and Technical-Lead approved with CI/independent review pending; Block D device-local and synthetic server-connected physical Android validation passed on the approved Galaxy A33/NTAG213 set; C3 and the remainder of Block E unauthorized
 Scope: Core platform roadmap only. Generic platform language throughout (Organization, Membership, Role, User, AssignmentTarget, Customer, NfcTag, NfcAssignment, TimeEntry, WorkEvent, BusinessEvent, Policy, AuditEvent, Export, Backend, Auth, Tenant Isolation, Mobile App, Admin Web, Website). No customer-specific product, company, or branch assumption is named anywhere in this document. No code implemented. No architecture, ADR, TTAP-001, FB-001/TS-001, FB-002/TS-002, or Product Vision content modified.
 Related Artifacts: `ADO/05_Evidence/External_CTO_Review_Triage_2026-07-10.md`, `ADO/05_Evidence/Product_Readiness_Assessment.md`, `ADO/05_Evidence/Product_Readiness_Roadmap.md`, `ADO/02_Development/Development_Sprint_019_Closure.md`, `ADO/02_Development/EP-007_Development_Tasks.md`, `ADO/00_Core/Project_Status.md`, `ADO/00_Core/Decision_Log.md`
 
@@ -142,6 +142,8 @@ Blocks are ranges, not fixed sprint-by-sprint commitments; candidate Development
 **Outcome:** A real NFC path exists; physical NFC assumptions are validated; payload matching works consistently; the mobile scan path follows the intended architecture.
 
 ### Block E – Sync, Setup, Export and Minimal Operations
+
+**Status: E1 prerequisite implemented and Technical-Lead approved; CI/independent review pending (2026-07-14).** E1 replaces Block D's volatile ambiguous-command slot with one strict device-only, User/Organization-bound lifecycle outbox record and exact C2/B6 replay. It advances DT-060–DT-062 but does not complete them. Full offline scan-context caching, multiple events, scheduling/backoff, background sync and DT-063–DT-068 remain open and separately gated.
 
 **Target:** Week 6–9 · **Candidate Sprints:** 042–048
 
