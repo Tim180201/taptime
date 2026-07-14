@@ -62,6 +62,7 @@ the final open severity count is P0/P1/P2/P3 = 0.
 | Schema/dependencies | Migrations remain exactly `001`–`005`; no SQL migration or dependency changed |
 | Repository hygiene | `git diff --check` passed; `research/` remained outside scope |
 | GitHub Actions | Run `29348512506`, exact head `4b5ecdc7d6605db3e231f9ead966ebf104900a30`, eight of eight jobs passed |
+| Closure publication | Commit `de03a718e96a9df46b796f3770ca599cd57da8c5`, run `29351043179`, eight of eight jobs passed |
 
 The eight successful GitHub jobs cover Core/Mobile typecheck, tests and Android export; B1; B3; B4;
 B5; B6 lifecycle; C2 API/Mobile transport; and the synthetic Android E2E harness.

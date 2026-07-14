@@ -37,6 +37,8 @@ added.
   Gradle release build, migration/dependency guards and `git diff --check` passed.
 - Implementation commit `4b5ecdc7d6605db3e231f9ead966ebf104900a30` passed all eight GitHub
   Actions jobs in run `29348512506`.
+- Closure-publication commit `de03a718e96a9df46b796f3770ca599cd57da8c5` passed all eight GitHub
+  Actions jobs in run `29351043179`.
 
 The independent final architecture/security review inspected the complete implementation, CI,
 physical evidence and closure claims and returned `APPROVED`. E2A-FINAL-01, one P3 publication-sync
