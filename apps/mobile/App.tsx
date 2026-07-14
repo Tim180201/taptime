@@ -9,14 +9,26 @@ const DevelopmentDemoMobileApp = lazy(async () => {
   return { default: module.DemoMobileApp };
 });
 
+const PhysicalValidationMobileApp = lazy(async () => {
+  const module = await import('./src/validation/PhysicalValidationMobileApp');
+  return { default: module.PhysicalValidationMobileApp };
+});
+
 export default function App() {
   const mode = selectMobileCompositionMode(
+    process.env.EXPO_PUBLIC_TAPTIME_RUNTIME_VARIANT === 'physical-validation',
     process.env.EXPO_PUBLIC_TAPTIME_DEMO_MODE === 'true',
     __DEV__,
   );
   return (
     <>
-      {mode === 'demo'
+      {mode === 'physical_validation'
+        ? (
+            <Suspense fallback={<View />}>
+              <PhysicalValidationMobileApp />
+            </Suspense>
+          )
+        : mode === 'demo'
         ? (
             <Suspense fallback={<View />}>
               <DevelopmentDemoMobileApp />
@@ -24,16 +36,16 @@ export default function App() {
           )
         : mode === 'product'
           ? <ProductMobileApp />
-          : <ForbiddenDemoConfiguration />}
+          : <ForbiddenConfiguration />}
       <StatusBar style="auto" />
     </>
   );
 }
 
-function ForbiddenDemoConfiguration() {
+function ForbiddenConfiguration() {
   return (
     <View style={styles.container}>
-      <Text>Die Demo-Komposition ist in diesem Build nicht zulässig.</Text>
+      <Text>Die gewählte App-Komposition ist in diesem Build nicht zulässig.</Text>
     </View>
   );
 }

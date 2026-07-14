@@ -148,6 +148,33 @@ CI's existing quality job now runs the expanded Root Typecheck/Mobile tests and 
 Implementation commit `fac778d` passed all seven jobs in GitHub Actions run `29319811973`, including
 the new Android product bundle gate and every PostgreSQL/API regression job.
 
+### 6.1 Internal physical-validation APK tooling
+
+On 2026-07-14 the Human Architect authorized a narrow internal build/tooling addition so the
+physical test can run without Metro or a development client. The implementation adds:
+
+- EAS profile `physical-validation` with internal distribution and explicit APK output;
+- a distinct Android package `com.tim180201.mobile.validation`, app name
+  `TapTim.e Validation` and URI scheme `taptime-validation`;
+- a fail-closed build/runtime variant match and mutual exclusion from the development demo;
+- a local-only two-tag validation controller with one production-adapter capture entry point,
+  stable-read counters, mismatch detection, explicit cancel/reset and rapid-request coalescing;
+- a purpose-built phone UI that explicitly states it performs neither time tracking nor server
+  transmission and receives only a 12-hex-character SHA-256 fingerprint, never the canonical
+  payload or raw UID.
+
+Local evidence: Mobile typecheck passed; 252 tests in 16 files passed; Core 288 tests passed;
+workspace build passed; the validation Expo configuration resolved to the distinct
+package/name/scheme; Android Hermes export generated from 780 modules. EAS generated a dedicated
+remote Android keystore during the configuration proof. The initial uncommitted-source build
+`3efa9b86-512f-4ebb-8468-49fafc9931bd` was deliberately canceled before completion so the final APK
+can be tied to the reviewed commit. Build completion and install/device observations remain
+separate evidence.
+
+This tooling does not upgrade Block D readiness. It has no authentication, C2/B5/B6 client,
+assignment, lifecycle decision, durable storage or production cloud/data path. The physical table
+below remains outstanding until observed by the Human Architect.
+
 ## 7. Physical validation table — not yet executed
 
 | Required observation | Status | Evidence |

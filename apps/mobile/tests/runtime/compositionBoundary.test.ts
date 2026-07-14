@@ -5,12 +5,15 @@ import { selectMobileCompositionMode } from '../../src/runtime/compositionMode';
 
 describe('C1 Mobile composition boundary', () => {
   it.each([
-    [false, false, 'product'],
-    [false, true, 'product'],
-    [true, true, 'demo'],
-    [true, false, 'demo_forbidden'],
-  ] as const)('selects %s/%s as %s', (demoRequested, developmentBuild, expected) => {
-    expect(selectMobileCompositionMode(demoRequested, developmentBuild)).toBe(expected);
+    [false, false, false, 'product'],
+    [false, false, true, 'product'],
+    [false, true, true, 'demo'],
+    [false, true, false, 'configuration_forbidden'],
+    [true, false, false, 'physical_validation'],
+    [true, false, true, 'physical_validation'],
+    [true, true, true, 'configuration_forbidden'],
+  ] as const)('selects %s/%s/%s as %s', (validationRequested, demoRequested, developmentBuild, expected) => {
+    expect(selectMobileCompositionMode(validationRequested, demoRequested, developmentBuild)).toBe(expected);
   });
 
   it('keeps product screens free of fake auth, demo pipeline, tokens, and storage infrastructure', async () => {
@@ -102,7 +105,25 @@ describe('C1 Mobile composition boundary', () => {
     expect(appSource).toContain("import('./src/demo/DemoMobileApp')");
     expect(appSource).not.toMatch(/^import .*\.\/src\/demo\//m);
     expect(appSource).toContain("process.env.EXPO_PUBLIC_TAPTIME_DEMO_MODE === 'true'");
+    expect(appSource).toContain("process.env.EXPO_PUBLIC_TAPTIME_RUNTIME_VARIANT === 'physical-validation'");
+    expect(appSource).toContain("import('./src/validation/PhysicalValidationMobileApp')");
     expect(appSource).toContain('__DEV__');
+  });
+
+  it('keeps the physical validation UI local and free of raw UID disclosure', async () => {
+    const uiSource = await readFile(
+      fileURLToPath(new URL('../../src/validation/PhysicalValidationMobileApp.tsx', import.meta.url)),
+      'utf8',
+    );
+    const runtimeSource = await readFile(
+      fileURLToPath(new URL('../../src/validation/createPhysicalValidationRuntime.ts', import.meta.url)),
+      'utf8',
+    );
+    expect(uiSource).toContain('keine Zeiterfassung');
+    expect(uiSource).toContain('keine Serverübertragung');
+    expect(runtimeSource).toContain('CryptoDigestAlgorithm.SHA256');
+    expect(uiSource).not.toMatch(/payload|tag\.id|NfcManager|fetch\(|supabase|expo-crypto/i);
+    expect(runtimeSource).not.toMatch(/fetch\(|supabase/i);
   });
 
   it('shows Web as explicitly unsupported without enabling a native NFC runtime', async () => {
