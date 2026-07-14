@@ -34,6 +34,7 @@ export class ProductScanOrchestrator implements ProductScanCapability {
   private started = false;
   private unsubscribeSession: (() => void) | null = null;
   private observedSession: ProductScanSessionSnapshot | null = null;
+  private startGeneration = 0;
   private transitionVersion = 0;
   private operationVersion = 0;
   private operationFlight: Promise<void> | null = null;
@@ -64,17 +65,23 @@ export class ProductScanOrchestrator implements ProductScanCapability {
       return;
     }
     this.started = true;
+    const startGeneration = ++this.startGeneration;
     this.secureStorageAvailable = true;
+    let restoredEvidence: PendingLifecycleEvidence | null;
     try {
-      this.pendingEvidence = await this.outbox.read();
+      restoredEvidence = await this.outbox.read();
     } catch {
+      if (!this.isCurrentStart(startGeneration)) {
+        return;
+      }
       this.secureStorageAvailable = false;
       this.setState({ status: 'secure_storage_unavailable' });
       return;
     }
-    if (!this.started) {
+    if (!this.isCurrentStart(startGeneration)) {
       return;
     }
+    this.pendingEvidence = restoredEvidence;
     // Recovery completes before session observation can activate NFC. Subscribing before the read
     // would permit a concurrent authenticated transition to expose a brief scan-ready window.
     this.unsubscribeSession = this.sessionContext.subscribe(() => {
@@ -88,6 +95,7 @@ export class ProductScanOrchestrator implements ProductScanCapability {
       return;
     }
     this.started = false;
+    this.startGeneration += 1;
     this.transitionVersion += 1;
     this.operationVersion += 1;
     this.observedSession = null;
@@ -376,6 +384,10 @@ export class ProductScanOrchestrator implements ProductScanCapability {
     return this.started
       && operationVersion === this.operationVersion
       && this.sessionContext.isCurrent(snapshot);
+  }
+
+  private isCurrentStart(startGeneration: number): boolean {
+    return this.started && startGeneration === this.startGeneration;
   }
 
   private setReady(outcome: ProductScanOutcome): void {

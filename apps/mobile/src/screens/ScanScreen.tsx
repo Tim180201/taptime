@@ -127,7 +127,7 @@ export function presentScanState(state: ProductScanState): ScanScreenPresentatio
     case 'secure_storage_unavailable':
       return {
         title: 'Sicherer Speicher nicht verfügbar',
-        message: 'Neue Scans sind zum Schutz deiner Arbeitszeit gesperrt. Starte die App erneut und versuche es dann noch einmal.',
+        message: 'Neue Scans sind zum Schutz deiner Arbeitszeit gesperrt. Starte die App einmal neu. Bleibt die Meldung bestehen, lösche weder die App noch ihre Daten und wende dich an den Support.',
         tone: 'error',
       };
     case 'protected_pending':

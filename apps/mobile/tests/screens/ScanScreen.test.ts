@@ -67,4 +67,12 @@ describe('ScanScreen presentation', () => {
     expect(presentation.message).not.toMatch(/[0-9a-f]{8}-[0-9a-f-]{27,}/i);
     expect(presentation.message).not.toContain('nfc:uid');
   });
+
+  it('does not promise that restart repairs a persistent secure-storage failure', () => {
+    const presentation = presentScanState({ status: 'secure_storage_unavailable' });
+    expect(presentation.message).toContain('Bleibt die Meldung bestehen');
+    expect(presentation.message).toContain('wende dich an den Support');
+    expect(presentation.message).toContain('lösche weder die App noch ihre Daten');
+    expect(presentation.message).not.toContain('versuche es dann noch einmal');
+  });
 });

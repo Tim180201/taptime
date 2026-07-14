@@ -44,10 +44,13 @@ describe('C1 Mobile composition boundary', () => {
   });
 
   it('keeps C2 transport and native NFC private while React receives only the scan facade', async () => {
-    const runtimeSource = await readFile(
-      fileURLToPath(new URL('../../src/runtime/ProductMobileRuntime.ts', import.meta.url)),
+    const runtimeSource = (await Promise.all([
+      '../../src/runtime/ProductMobileRuntime.ts',
+      '../../src/runtime/DefaultProductMobileRuntime.ts',
+    ].map((relativePath) => readFile(
+      fileURLToPath(new URL(relativePath, import.meta.url)),
       'utf8',
-    );
+    )))).join('\n');
     const scanScreenSource = await readFile(
       fileURLToPath(new URL('../../src/screens/ScanScreen.tsx', import.meta.url)),
       'utf8',
@@ -109,6 +112,14 @@ describe('C1 Mobile composition boundary', () => {
     expect(appSource).toContain("process.env.EXPO_PUBLIC_TAPTIME_RUNTIME_VARIANT === 'physical-validation'");
     expect(appSource).toContain("import('./src/validation/PhysicalValidationMobileApp')");
     expect(appSource).toContain('__DEV__');
+  });
+
+  it('invalidates an obsolete runtime-start failure observer during React cleanup', async () => {
+    const productAppSource = await readFile(
+      fileURLToPath(new URL('../../src/ProductMobileApp.tsx', import.meta.url)),
+      'utf8',
+    );
+    expect(productAppSource).toMatch(/active = false;\s+runtime\.stop\(\);/);
   });
 
   it('keeps the physical validation UI local and free of raw UID disclosure', async () => {

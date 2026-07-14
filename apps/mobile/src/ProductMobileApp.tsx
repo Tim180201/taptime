@@ -37,7 +37,10 @@ function ReadyProductMobileApp({
         setStartFailed(true);
       }
     });
-    return () => runtime.stop();
+    return () => {
+      active = false;
+      runtime.stop();
+    };
   }, [runtime]);
 
   if (startFailed) {

@@ -26,75 +26,94 @@ import type {
 
 export const LIFECYCLE_EVIDENCE_OUTBOX_STORAGE_KEY = 'taptime.lifecycle-evidence-outbox.v1';
 
-const MAXIMUM_SERIALIZED_EVIDENCE_BYTES = 4_096;
+const MAXIMUM_SERIALIZED_EVIDENCE_BYTES = 2_048;
 const secureStoreOptions: SecureStore.SecureStoreOptions = {
+  // iOS Keychain accessibility. Android ignores this field and instead uses its Keystore-backed
+  // encrypted SharedPreferences implementation supplied by expo-secure-store.
   keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
 };
+let nativeOutboxOperationTail: Promise<void> = Promise.resolve();
 
 export class ExpoSecureLifecycleEvidenceOutbox implements LifecycleEvidenceOutbox {
-  async read(): Promise<PendingLifecycleEvidence | null> {
-    await assertSecureStoreAvailable();
-    const serialized = await SecureStore.getItemAsync(
-      LIFECYCLE_EVIDENCE_OUTBOX_STORAGE_KEY,
-      secureStoreOptions,
-    );
-    if (serialized === null) {
-      return null;
-    }
-    if (utf8ByteLength(serialized) > MAXIMUM_SERIALIZED_EVIDENCE_BYTES) {
-      throw new Error('Stored lifecycle evidence exceeds the permitted size');
-    }
-    const evidence = parseStoredEvidence(serialized);
-    if (evidence === null) {
-      throw new Error('Stored lifecycle evidence is invalid');
-    }
-    return evidence;
+  read(): Promise<PendingLifecycleEvidence | null> {
+    return runSerializedNativeOutboxOperation(async () => {
+      await assertSecureStoreAvailable();
+      const serialized = await SecureStore.getItemAsync(
+        LIFECYCLE_EVIDENCE_OUTBOX_STORAGE_KEY,
+        secureStoreOptions,
+      );
+      if (serialized === null) {
+        return null;
+      }
+      if (utf8ByteLength(serialized) > MAXIMUM_SERIALIZED_EVIDENCE_BYTES) {
+        throw new Error('Stored lifecycle evidence exceeds the permitted size');
+      }
+      const evidence = parseStoredEvidence(serialized);
+      if (evidence === null) {
+        throw new Error('Stored lifecycle evidence is invalid');
+      }
+      return evidence;
+    });
   }
 
-  async write(evidence: PendingLifecycleEvidence): Promise<void> {
-    await assertSecureStoreAvailable();
-    const existing = await SecureStore.getItemAsync(
-      LIFECYCLE_EVIDENCE_OUTBOX_STORAGE_KEY,
-      secureStoreOptions,
-    );
-    if (existing !== null) {
-      // A second command must never replace unresolved work evidence, even if a composition bug
-      // accidentally creates two runtime instances.
-      throw new Error('Lifecycle evidence outbox is already occupied');
-    }
-    const serialized = serializeEvidence(evidence);
-    if (utf8ByteLength(serialized) > MAXIMUM_SERIALIZED_EVIDENCE_BYTES) {
-      throw new Error('Lifecycle evidence exceeds the permitted size');
-    }
-    // Reparse before persistence so an invalid infrastructure caller can never poison recovery.
-    if (parseStoredEvidence(serialized) === null) {
-      throw new TypeError('Lifecycle evidence is invalid');
-    }
-    await SecureStore.setItemAsync(
-      LIFECYCLE_EVIDENCE_OUTBOX_STORAGE_KEY,
-      serialized,
-      secureStoreOptions,
-    );
+  write(evidence: PendingLifecycleEvidence): Promise<void> {
+    return runSerializedNativeOutboxOperation(async () => {
+      await assertSecureStoreAvailable();
+      const existing = await SecureStore.getItemAsync(
+        LIFECYCLE_EVIDENCE_OUTBOX_STORAGE_KEY,
+        secureStoreOptions,
+      );
+      if (existing !== null) {
+        throw new Error('Lifecycle evidence outbox is already occupied');
+      }
+      const serialized = serializeEvidence(evidence);
+      if (utf8ByteLength(serialized) > MAXIMUM_SERIALIZED_EVIDENCE_BYTES) {
+        throw new Error('Lifecycle evidence exceeds the permitted size');
+      }
+      // Reparse before persistence so an invalid infrastructure caller can never poison recovery.
+      if (parseStoredEvidence(serialized) === null) {
+        throw new TypeError('Lifecycle evidence is invalid');
+      }
+      await SecureStore.setItemAsync(
+        LIFECYCLE_EVIDENCE_OUTBOX_STORAGE_KEY,
+        serialized,
+        secureStoreOptions,
+      );
+    });
   }
 
-  async clear(evidence: PendingLifecycleEvidence): Promise<void> {
-    await assertSecureStoreAvailable();
-    const existing = await SecureStore.getItemAsync(
-      LIFECYCLE_EVIDENCE_OUTBOX_STORAGE_KEY,
-      secureStoreOptions,
-    );
-    if (existing === null) {
-      return;
-    }
-    const parsed = parseStoredEvidence(existing);
-    if (parsed === null || serializeEvidence(parsed) !== serializeEvidence(evidence)) {
-      throw new Error('Lifecycle evidence outbox contains a different record');
-    }
-    await SecureStore.deleteItemAsync(
-      LIFECYCLE_EVIDENCE_OUTBOX_STORAGE_KEY,
-      secureStoreOptions,
-    );
+  clear(evidence: PendingLifecycleEvidence): Promise<void> {
+    return runSerializedNativeOutboxOperation(async () => {
+      await assertSecureStoreAvailable();
+      const existing = await SecureStore.getItemAsync(
+        LIFECYCLE_EVIDENCE_OUTBOX_STORAGE_KEY,
+        secureStoreOptions,
+      );
+      if (existing === null) {
+        return;
+      }
+      const parsed = parseStoredEvidence(existing);
+      if (parsed === null || serializeEvidence(parsed) !== serializeEvidence(evidence)) {
+        throw new Error('Lifecycle evidence outbox contains a different record');
+      }
+      await SecureStore.deleteItemAsync(
+        LIFECYCLE_EVIDENCE_OUTBOX_STORAGE_KEY,
+        secureStoreOptions,
+      );
+    });
   }
+}
+
+/** Serializes composite native operations across all adapter instances in this JavaScript runtime. */
+function runSerializedNativeOutboxOperation<Result>(
+  operation: () => Promise<Result>,
+): Promise<Result> {
+  const result = nativeOutboxOperationTail.then(operation);
+  nativeOutboxOperationTail = result.then(
+    () => undefined,
+    () => undefined,
+  );
+  return result;
 }
 
 function serializeEvidence(evidence: PendingLifecycleEvidence): string {

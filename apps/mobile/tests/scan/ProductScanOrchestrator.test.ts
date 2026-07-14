@@ -86,6 +86,10 @@ class FakeSessionContext implements ProductScanSessionContextReader {
 
   constructor(private snapshot: ProductScanSessionSnapshot | null = sessionA) {}
 
+  get listenerCount(): number {
+    return this.listeners.size;
+  }
+
   capture(): ProductScanSessionSnapshot | null {
     return this.snapshot;
   }
@@ -499,6 +503,49 @@ describe('ProductScanOrchestrator (Block D)', () => {
     expect(context.orchestrator.getState()).toEqual({ status: 'protected_pending' });
     expect(context.nfc.capabilityCalls).toBe(0);
   });
+
+  it.each(['late success', 'late failure'] as const)(
+    'ignores a stale outbox read after stop and restart: %s',
+    async (staleCompletion) => {
+      const staleOwner = setup();
+      staleOwner.lifecycle.implementation = async () => ({ status: 'transient_failure' });
+      await startReady(staleOwner);
+      await staleOwner.orchestrator.scan();
+      const staleEvidence = staleOwner.outbox.evidence;
+      expect(staleEvidence).not.toBeNull();
+
+      const outbox = new FakeOutbox();
+      const firstRead = deferred<PendingLifecycleEvidence | null>();
+      const secondRead = deferred<PendingLifecycleEvidence | null>();
+      let readNumber = 0;
+      outbox.readImplementation = () => (readNumber++ === 0 ? firstRead.promise : secondRead.promise);
+      const context = setup(outbox);
+
+      const firstStart = context.orchestrator.start();
+      await context.orchestrator.stop();
+      const secondStart = context.orchestrator.start();
+      secondRead.resolve(null);
+      await secondStart;
+      expect(context.orchestrator.getState()).toEqual({ status: 'ready', outcome: null });
+      expect(context.session.listenerCount).toBe(1);
+
+      if (staleCompletion === 'late success') {
+        firstRead.resolve(staleEvidence);
+      } else {
+        firstRead.reject(new Error('synthetic stale secure-store failure'));
+      }
+      await firstStart;
+
+      expect(context.orchestrator.getState()).toEqual({ status: 'ready', outcome: null });
+      expect(context.session.listenerCount).toBe(1);
+      await context.orchestrator.scan();
+      expect(context.nfc.scanCalls).toBe(1);
+      await context.orchestrator.stop();
+      expect(context.session.listenerCount).toBe(0);
+      context.session.replace(sessionB);
+      expect(context.orchestrator.getState()).toEqual({ status: 'inactive' });
+    },
+  );
 
   it('fails closed without a lifecycle request when durable persistence fails', async () => {
     const context = setup();

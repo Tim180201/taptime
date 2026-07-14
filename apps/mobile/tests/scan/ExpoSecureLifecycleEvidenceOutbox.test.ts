@@ -58,7 +58,7 @@ describe('ExpoSecureLifecycleEvidenceOutbox', () => {
     secureStore.deleteItemAsync.mockResolvedValue(undefined);
   });
 
-  it('round-trips one exact device-only lifecycle record', async () => {
+  it('round-trips one exact lifecycle record with the configured native options', async () => {
     const outbox = new ExpoSecureLifecycleEvidenceOutbox();
     await outbox.write(evidence);
     const serialized = secureStore.setItemAsync.mock.calls[0]![1] as string;
@@ -71,6 +71,7 @@ describe('ExpoSecureLifecycleEvidenceOutbox', () => {
     expect(restored!.command.receipt.attemptNumber).toBe(1);
     expect(serialized).not.toContain('nfc:uid');
     expect(serialized).not.toMatch(/accessToken|refreshToken|time_entry_started/i);
+    expect(serialized.length).toBeLessThan(2_048);
     const options = { keychainAccessible: 'WHEN_UNLOCKED_THIS_DEVICE_ONLY' };
     expect(LIFECYCLE_EVIDENCE_OUTBOX_STORAGE_KEY).toBe(
       'taptime.lifecycle-evidence-outbox.v1',
@@ -137,6 +138,28 @@ describe('ExpoSecureLifecycleEvidenceOutbox', () => {
     expect(secureStore.setItemAsync).not.toHaveBeenCalled();
   });
 
+  it('serializes occupancy checks across adapter instances in one JavaScript runtime', async () => {
+    let stored: string | null = null;
+    secureStore.getItemAsync.mockImplementation(async () => stored);
+    secureStore.setItemAsync.mockImplementation(async (_key: string, value: string) => {
+      stored = value;
+    });
+    const first = new ExpoSecureLifecycleEvidenceOutbox();
+    const second = new ExpoSecureLifecycleEvidenceOutbox();
+
+    const [firstResult, secondResult] = await Promise.allSettled([
+      first.write(evidence),
+      second.write(evidence),
+    ]);
+
+    expect(firstResult.status).toBe('fulfilled');
+    expect(secondResult.status).toBe('rejected');
+    expect(secondResult).toMatchObject({
+      reason: expect.objectContaining({ message: 'Lifecycle evidence outbox is already occupied' }),
+    });
+    expect(secureStore.setItemAsync).toHaveBeenCalledTimes(1);
+  });
+
   it('never clears a different unresolved lifecycle record', async () => {
     secureStore.getItemAsync.mockResolvedValue(JSON.stringify({
       version: 1,
@@ -156,7 +179,7 @@ describe('ExpoSecureLifecycleEvidenceOutbox', () => {
   });
 
   it('rejects oversized stored evidence before parsing', async () => {
-    secureStore.getItemAsync.mockResolvedValue('x'.repeat(4_097));
+    secureStore.getItemAsync.mockResolvedValue('x'.repeat(2_049));
     await expect(new ExpoSecureLifecycleEvidenceOutbox().read()).rejects.toThrow('permitted size');
   });
 });
