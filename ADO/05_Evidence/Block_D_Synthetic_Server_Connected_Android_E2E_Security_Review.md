@@ -1,6 +1,6 @@
 # Block D — Synthetic Server-connected Android E2E Security Review
 
-Status: Technical-Lead/GitHub-CI Approved after Six Blocking Corrections — Physical Android E2E Passed; Independent Final Review Outstanding
+Status: Technical-Lead/GitHub-CI Approved after Six Blocking Corrections — Physical Android E2E and Independent Review Passed
 
 Date: 2026-07-14
 
@@ -15,9 +15,9 @@ operator workflow. It does not approve production Auth, deployment, C3 administr
 offline synchronization or production personal data.
 
 No external cloud, public tunnel, remote database, real person record or production credential was
-created or used. Technical-Lead review is complete and authorizes commit/push after the corrections
-in Section 4. A Human/delegated physical run remains mandatory before any server-connected NFC
-result is claimed.
+created or used. Technical-Lead review is complete after the corrections in Section 4. The later
+Human physical run and independent final review both passed and are recorded in their dedicated
+evidence artifacts.
 
 ## 2. Trust boundaries and protected values
 
@@ -56,7 +56,7 @@ it is never treated as authentication or stored as the server lookup key.
 | D-E2E-S11 | Cleanup | Passed in automated teardown and compiled startup/stop check | Normal shutdown closes terminal input, HTTP servers and runtime pools, drops the disposable schema/ledger and generated runtime logins, then closes the installer pool. A separate fail-closed device helper removes only reverse ports `54321` and `3000`, refuses unexpected targets and never uses `--remove-all`. Crash recovery still requires dropping/recreating the dedicated database before reuse. |
 | D-E2E-S12 | External-resource gate | Passed | Build/run helpers contain no EAS, tunnel, cloud or remote-host command. No such resource was created during implementation. |
 | D-E2E-S13 | Existing native project protection | Passed after Technical-Lead correction | The original clean-prebuild helper could delete an existing untracked `apps/mobile/android` directory. The approved helper refuses both tracked and untracked native directories and no longer uses Expo's destructive `--clean` flag. |
-| D-E2E-S14 | Continuous regression gate | Passed in GitHub Actions | Dedicated PostgreSQL `17.10` job passed tests-inclusive Typecheck, all five direct-database tests, build and cleanup in run `29329906106`; it remains active on every push/PR to `main`. |
+| D-E2E-S14 | Continuous regression gate | Passed in GitHub Actions | Dedicated PostgreSQL `17.10` job passed tests-inclusive Typecheck, all three direct PostgreSQL integration cases, both non-database safety/source guards, build and cleanup in run `29329906106`; it remains active on every push/PR to `main`. |
 
 ## 4. Technical-Lead findings and corrections
 
@@ -64,7 +64,7 @@ it is never treated as authentication or stored as the server lookup key.
 |---|---|---|---|
 | D-E2E-TL01 | `expo prebuild --clean` could remove an existing untracked native Android project despite the tracked-file guard | Removed `--clean`; added an exact existing-directory refusal before prebuild | Closed; blocking |
 | D-E2E-TL02 | Successful installation left reverse mappings active with cleanup only described manually | Added a mandatory printed command and a scoped helper that validates/removes only `54321` and `3000` | Closed; blocking |
-| D-E2E-TL03 | The real five-case PostgreSQL harness was not itself enforced by GitHub Actions | Added an isolated PostgreSQL 17 CI job for Typecheck, 5/5 tests and build | Closed; run `29329906106` passed |
+| D-E2E-TL03 | The complete five-test harness was not itself enforced by GitHub Actions | Added an isolated PostgreSQL 17 CI job for Typecheck, all 3 direct PostgreSQL cases, both non-database guards and build | Closed; run `29329906106` passed |
 | D-E2E-TL04 | The first clean Linux CI run exposed that Typecheck had relied on locally prebuilt dependency declarations | Added an explicit ordered build of Core, schema, B4, B5, B6 and C2 dependencies before harness Typecheck | Closed; run `29329906106` passed |
 | D-E2E-TL05 | A normal GitHub service container reports a Docker-bridge server address, correctly failing the strict server-loopback guard; a failed setup also exposed an unsafe test-teardown dereference | Run the disposable PostgreSQL 17 container with host networking and `listen_addresses=127.0.0.1`; initialize teardown capability before environment setup and guard partial setup | Closed; run `29329906106` passed |
 | D-E2E-TL06 | The first real Expo prebuild rewrote tracked `android`/`ios` npm scripts, leaving a dirty source tree | Snapshot tracked `package.json` before prebuild and restore it exactly in `finally`, on success or failure; add Mobile boundary regression | Closed; 253/253 Mobile tests passed and all eight jobs passed in run `29333578360` for commit `59c4ac7` |
@@ -102,8 +102,11 @@ Lead verdict: `APPROVED`; the first five corrections passed all eight jobs in ru
 and correction commit `59c4ac7` passed all eight in run `29333578360`. The Human Architect then
 completed the physical server-connected checklist with exact final evidence of 1 stopped
 TimeEntry, 2 WorkEvents, 2 Decisions, 2 Receipts, 1 Tag, 1 Assignment and 4 AuditEvents, followed by
-normal shutdown and an empty USB reverse table. This Technical-Lead review is not an independent
-third-party approval; that final independent architecture/security gate remains outstanding.
+normal shutdown and an empty USB reverse table. The subsequent independent review of
+`4f540ca..ac5eeba` returned `APPROVED WITH NON-BLOCKING FINDINGS`: no P0/P1/P2 and one
+documentation-only P3 correcting the test composition from five direct database tests to three
+database cases plus two guards. Technical Lead accepted and corrected D-FINAL-01; no blocker
+remains.
 
 Primary platform references:
 

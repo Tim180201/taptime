@@ -1,6 +1,6 @@
 # Block D — NFC Runtime and Physical Validation Evidence
 
-Status: Software/GitHub-CI Approved and Physical Android Product E2E Passed — Independent Final Review Outstanding
+Status: Completed — Software/GitHub-CI, Physical Android Product E2E and Independent Review Approved
 Date: 2026-07-14
 Implementation Baseline: `bac5f4868ecf36364d62629ed312306fa29dc9d7`
 Authorization Commit Parent: `4f540ca648b9ef98c5ad4ccf3798e0279fc8bb6c`
@@ -24,8 +24,9 @@ Mobile/Auth/C2/B4/B5/B6/PostgreSQL/Core path.
 
 DT-016/DT-058's recorded Android physical gate and the physical portion of DT-059 are therefore
 evidenced for this approved device/tag set. This is not pilot readiness, a broad device matrix,
-production cloud/provider validation, iOS validation or Block-E synchronization evidence. A final
-independent architecture/security review remains outstanding before unqualified Block-D closure.
+production cloud/provider validation, iOS validation or Block-E synchronization evidence. The
+independent final review approved the combined code/evidence with no P0/P1/P2 and one corrected
+documentation-only P3; Block D is therefore closed for its authorized Android-v1 scope.
 
 ## 2. Implemented architecture
 
@@ -194,8 +195,9 @@ the distinct synthetic package can reach host-loopback Auth and C2 without LAN, 
 device trust-anchor configuration. The variant still selects the real `ProductMobileApp` and real
 NFC/C2 product composition; its native cleartext exception is restricted to numeric loopback.
 
-Five direct PostgreSQL tests pass through the real Mobile password adapter, asymmetric local JWT
-verification, C2, B4/B5/B6 and the unchanged Core `BusinessEngine`. They prove Tag B stays
+Five automated tests pass: three direct PostgreSQL integration cases cover exact roles, real Mobile
+authentication/session refresh and the complete lifecycle; two non-database guards cover the
+loopback database URL and Mobile lifecycle-authority source boundary. Together they prove Tag B stays
 unassigned, Tag A can be armed once by shortened validation fingerprint and provisioned through
 Administrator RLS/audit without creating lifecycle evidence, and the following two commands produce
 server-canonical Start then Stop. Core/Mobile are 288/253; all backend regressions remain green.
@@ -259,14 +261,15 @@ verification and security boundaries are in
   `14886c68a095b4ff92159e67ff4757524875018e5b624d81d9daceed7acf3121`.
 - The existing 11 moderate dependency findings remain open; this task did not apply audit fixes.
 - Two Supavisor connection modes remain unverified.
-- The final independent architecture/security review of the combined Block-D implementation and
-  physical evidence remains outstanding.
+- The independent review accepted these limits, found no P0/P1/P2 and reported one corrected
+  documentation-only P3 about the exact three-database-plus-two-guard test composition.
 
 ## 9. Required next action
 
 The device-local and server-connected physical checklists are complete for one Galaxy A33 5G /
 Android 15 and two NTAG213 tags. Correction commit `59c4ac7` passed all eight jobs in GitHub Actions
 run `29333578360`; the strictly local physical product path and cleanup passed as recorded above.
-The next responsible action is an independent final architecture/security review of the combined
-Block-D code and evidence. C3, Block E, production cloud/data, iOS and broader pilot-device
-validation remain separately gated.
+The independent final architecture/security review of `4f540ca..ac5eeba` returned
+`APPROVED WITH NON-BLOCKING FINDINGS`; D-FINAL-01's test-count wording is corrected and no blocker
+remains. Block D is closed for the authorized Android-v1 device/tag scope. C3, Block E, production
+cloud/data, iOS and broader pilot-device validation remain separately gated.

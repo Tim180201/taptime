@@ -1,6 +1,6 @@
 # Block D — Synthetic Server-connected Android E2E Implementation Plan
 
-Status: Implemented — Technical-Lead/GitHub-CI Approved after Six Corrections; Physical Android E2E Passed; Independent Final Review Outstanding
+Status: Completed — Technical-Lead/GitHub-CI and Physical Android E2E Approved; Independent Review Approved with One Corrected Non-blocking P3
 
 Date: 2026-07-14
 
@@ -168,7 +168,8 @@ must not be reported as a physical server-connected result.
 
 Technical-Lead review returned `APPROVED` after six blocking corrections: an existing untracked
 native Android project is now preserved fail-closed, successful USB reverse mappings have an exact
-scoped disconnect helper, the five-test PostgreSQL harness is enforced by a dedicated CI job, and
+scoped disconnect helper, the five-test harness (three direct PostgreSQL integration cases and two
+non-database safety/source guards) is enforced by a dedicated CI job, and
 that clean Linux job now builds every required workspace declaration before Typecheck and runs
 PostgreSQL 17 on host loopback rather than weakening the server-address guard for Docker bridging.
 The first real local release build additionally revealed and closed Expo prebuild's automatic
@@ -178,5 +179,8 @@ completed the separate physical checklist on the approved Galaxy A33 5G: real lo
 unassigned behavior, fingerprint-bound Tag-A provisioning without lifecycle mutation, and
 server-confirmed Start then Stop all passed through Auth/C2/B4/B5/B6/PostgreSQL/Core. Normal
 shutdown removed the synthetic state and the scoped disconnect helper removed both USB reverse
-mappings. Implementation and physical execution are complete; only the independent final
-architecture/security review remains before unqualified Block-D governance closure.
+mappings. Independent final review of `4f540ca..ac5eeba` returned
+`APPROVED WITH NON-BLOCKING FINDINGS`: no P0/P1/P2 and one P3 correcting the overstated direct
+PostgreSQL test count. That documentation finding is accepted and corrected in the closure commit.
+Implementation, physical execution and independent review are complete; C3 and Block E remain
+unauthorized.

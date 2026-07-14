@@ -1,6 +1,6 @@
 # Block D — Synthetic Server-connected Android E2E Evidence
 
-Status: Technical-Lead/GitHub-CI Approved after Six Corrections — Physical Android E2E Passed; Independent Final Review Outstanding
+Status: Completed — Technical-Lead/GitHub-CI, Physical Android E2E and Independent Review Approved
 
 Date: 2026-07-14
 
@@ -12,9 +12,11 @@ Approved implementation commits: `3fe76ed`, `b584568`, `d32702b`, `59c4ac7`
 
 A strictly local synthetic environment now exercises the real Mobile email/password adapter,
 issuer-bound asymmetric JWT verification, real C2 routes, B4/B5/B6, PostgreSQL RLS/transactions and
-the unchanged Core `BusinessEngine`. Its automated direct-PostgreSQL test proves generic unassigned
-Tag B, fingerprint-bound audited Tag-A fixture assignment, no lifecycle mutation during
-provisioning, then server-canonical Start and Stop six seconds apart.
+the unchanged Core `BusinessEngine`. Three direct PostgreSQL integration cases prove exact runtime
+roles, real Mobile authentication/session refresh and generic unassigned Tag B, fingerprint-bound
+audited Tag-A fixture assignment, no lifecycle mutation during provisioning, then server-canonical
+Start and Stop six seconds apart. Two additional non-database guards enforce the loopback database
+URL and Mobile lifecycle-authority source boundary.
 
 The Human Architect completed the physical run on the approved Galaxy A33 5G / Android 15 with two
 NTAG213 tags. Java 17, Android SDK/API 36, Build Tools 36.0.0, NDK 27.1, CMake 3.22.1 and ADB were
@@ -89,10 +91,10 @@ Runtime: Node `24.17.0`; PostgreSQL `17.10`; direct numeric-loopback connection.
 | Final reciprocal database trace | Passed; 2 WorkEvents, 2 Decisions, 2 Receipts, 1 stopped TimeEntry, 4 AuditEvents |
 | Safe diagnostics | Passed; fixed enum only, no payload/token |
 
-Focused workspace result at evidence creation: 5 tests passed in one file; tests-inclusive
-Typecheck passed; build passed. Mobile passed 253 tests in 16 files after adding the synthetic
-variant boundary regression. Full repository regression results are recorded in Section 6 after the
-completion run.
+Focused workspace result at evidence creation: 5 tests passed in one file — 3 direct PostgreSQL
+integration cases and 2 non-database safety/source guards; tests-inclusive Typecheck passed; build
+passed. Mobile passed 253 tests in 16 files after adding the synthetic variant boundary regression.
+Full repository regression results are recorded in Section 6 after the completion run.
 
 ## 5. Physical server-connected checklist — passed
 
@@ -129,8 +131,8 @@ host-loopback PostgreSQL `17.10` cluster; no remote or cloud service was contact
 | B5 Typecheck/tests | Passed; 42/42 |
 | B6 Typecheck/tests | Passed; 68/68 |
 | C1/C2 API Typecheck/tests | Passed; 127/127 in 2 files |
-| Synthetic Android E2E Typecheck/tests | Passed; 5/5 in 1 file |
-| Dedicated synthetic PostgreSQL 17 CI job | Passed in GitHub Actions runs `29329906106` and `29333578360`; latest run is bound to correction commit `59c4ac7`; Typecheck, 5/5 direct-PostgreSQL tests, build and loopback container cleanup all green |
+| Synthetic Android E2E Typecheck/tests | Passed; 5/5 in 1 file: 3 direct PostgreSQL integration cases and 2 non-database safety/source guards |
+| Dedicated synthetic PostgreSQL 17 CI job | Passed in GitHub Actions runs `29329906106` and `29333578360`; latest implementation run is bound to correction commit `59c4ac7`; Typecheck, all 3 direct PostgreSQL cases, both guards, build and loopback container cleanup are green |
 | Compiled harness startup/normal shutdown | Passed; loopback services started, `stop` returned and cleanup completed |
 | Root/workspace build | Passed, including Core and every backend workspace |
 | Product Android Expo export | Passed; Hermes bundle generated from 780 modules |
@@ -163,8 +165,8 @@ read, write, test and diff scope used for this implementation.
 - `research/` was neither read nor changed for implementation.
 - Physical evidence covers the recorded Galaxy A33 5G / Android 15 and two NTAG213 tags, not a
   broader Android compatibility matrix or production pilot fleet.
-- A final independent architecture/security review remains outstanding before unqualified Block-D
-  governance closure.
+- Independent review of `4f540ca..ac5eeba` returned `APPROVED WITH NON-BLOCKING FINDINGS`: no
+  P0/P1/P2 and one accepted/corrected documentation-only P3 about the exact test composition.
 
 ## 8. Gate status
 
@@ -175,8 +177,9 @@ The first five corrections passed all eight jobs in run `29329906106`; correctio
 passed all eight jobs in run `29333578360`. The Human Architect then completed and explicitly
 confirmed every physical checklist outcome above. The truthful status is:
 
-`Technical-Lead/GitHub-CI Approved after Six Corrections — Physical Android E2E Passed; Independent Final Review Outstanding`
+`Completed — Technical-Lead/GitHub-CI, Physical Android E2E and Independent Review Approved`
 
-The local implementation and physical gate are complete. C3, Block E, cloud/production operations
-and unqualified Block-D closure remain outside this evidence; the next gate is independent final
-architecture/security review.
+The local implementation, physical gate and independent review are complete. D-FINAL-01 corrected
+the claim from five direct database tests to the truthful three database cases plus two guards. No
+blocker remains. C3, Block E and cloud/production operations remain outside this evidence and
+unauthorized.
