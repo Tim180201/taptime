@@ -455,6 +455,15 @@ jobs:
       - name: Install dependencies from lockfile
         run: npm ci
 
+      - name: Build synthetic harness type dependencies
+        run: |
+          npm run build --workspace=@taptime/core
+          npm run build --workspace=@taptime/backend-schema
+          npm run build --workspace=@taptime/backend-identity
+          npm run build --workspace=@taptime/backend-read-model
+          npm run build --workspace=@taptime/backend-lifecycle
+          npm run build --workspace=@taptime/backend-api
+
       - name: Typecheck synthetic Android E2E harness
         run: npm run typecheck --workspace=@taptime/synthetic-android-e2e
 

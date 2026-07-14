@@ -1,6 +1,6 @@
 # Block D — Synthetic Server-connected Android E2E Security Review
 
-Status: Technical-Lead Approved after Three Blocking Corrections — Awaiting GitHub CI and Physical E2E
+Status: Technical-Lead Approved after Four Blocking Corrections — Awaiting GitHub CI and Physical E2E
 
 Date: 2026-07-14
 
@@ -65,6 +65,7 @@ it is never treated as authentication or stored as the server lookup key.
 | D-E2E-TL01 | `expo prebuild --clean` could remove an existing untracked native Android project despite the tracked-file guard | Removed `--clean`; added an exact existing-directory refusal before prebuild | Closed; blocking |
 | D-E2E-TL02 | Successful installation left reverse mappings active with cleanup only described manually | Added a mandatory printed command and a scoped helper that validates/removes only `54321` and `3000` | Closed; blocking |
 | D-E2E-TL03 | The real five-case PostgreSQL harness was not itself enforced by GitHub Actions | Added an isolated PostgreSQL 17 CI job for Typecheck, 5/5 tests and build | Closed in workflow; remote execution pending |
+| D-E2E-TL04 | The first clean Linux CI run exposed that Typecheck had relied on locally prebuilt dependency declarations | Added an explicit ordered build of Core, schema, B4, B5, B6 and C2 dependencies before harness Typecheck | Closed in workflow; remote rerun pending |
 
 ## 5. Deliberate limitations
 
@@ -91,7 +92,7 @@ it is never treated as authentication or stored as the server lookup key.
 
 ## 6. Review conclusion
 
-After the three corrections above, the implementation is appropriately fail-closed for a
+After the four corrections above, the implementation is appropriately fail-closed for a
 disposable synthetic test harness and does not weaken the product C2/B3–B6 boundaries. Technical
 Lead verdict: `APPROVED` for commit/push. GitHub CI and the physical server-connected checklist
 remain open; this review is not a physical-result claim or an independent third-party approval.
