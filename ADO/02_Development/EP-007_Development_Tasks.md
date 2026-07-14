@@ -849,6 +849,7 @@ authorization/review/CI cycles; C3D/C3E remain gated.
 Current checkpoint (2026-07-15): C3C repository implementation commit
 `b90729a0a4b325f523cd98ea5a741defb00155f6` passed the complete 1,394-test matrix, three independent
 exact-SHA reviews with zero open P0/P1/P2/P3 and exact-head ten-of-ten GitHub Actions run
-`29375259275`; C3C is closed for that repository scope. Its ADO closure-publication commit/CI remains
-pending. C3D/C3E remain unauthorized and DT-063–DT-066 remain open. This current checkpoint
-supplements rather than rewrites the historical DT-017–DT-026 completion evidence above.
+`29375259275`; C3C is closed for that repository scope. Its ADO closure-publication commit
+`9c79c6d2f2166d22cc61bfbc03ba79c434bbbfe0` passed all ten jobs in exact-head run `29376668158`.
+C3D/C3E remain unauthorized and DT-063–DT-066 remain open. This current checkpoint supplements
+rather than rewrites the historical DT-017–DT-026 completion evidence above.

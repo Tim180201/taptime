@@ -123,5 +123,6 @@ the logs align with the complete 1,394-test matrix.
 Final verdict: **APPROVED FOR C3C REPOSITORY CLOSURE**.
 
 This approval grants no production/cloud/data authority and no C3D/C3E, Admin Web, Android capture,
-Membership CRUD or reassignment authority. The ADO-only closure-publication commit and its exact-head
-CI remain pending and are not represented by the implementation commit/run above.
+Membership CRUD or reassignment authority. The later ADO-only closure-publication commit
+`9c79c6d2f2166d22cc61bfbc03ba79c434bbbfe0` passed its distinct exact-head ten-job GitHub Actions run
+`29376668158`; publication of this review and closure changes none of those limits.

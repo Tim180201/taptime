@@ -148,9 +148,10 @@ run `29375259275`. The implementation evidence is
 `ADO/05_Evidence/Block_C3C_Normal_Administration_Backend_Evidence.md` and the closure is
 `ADO/02_Development/Block_C3C_Normal_Administration_Backend_Closure.md`.
 
-These gates close only the authorized C3C repository implementation. The ADO-only closure-publication
-commit and its exact-head CI are still pending and have no identifier yet. No C3D/C3E or production
-authority follows from C3C closure.
+These gates close only the authorized C3C repository implementation. The later ADO-only
+closure-publication commit `9c79c6d2f2166d22cc61bfbc03ba79c434bbbfe0` passed all ten jobs in
+exact-head GitHub Actions run `29376668158`. No C3D/C3E or production authority follows from C3C
+closure or its publication.
 
 ## 7. Stop conditions
 

@@ -208,9 +208,10 @@ ten jobs.
 C3C repository implementation is therefore closed. This changes no roadmap order and does not
 claim operational setup, production readiness, cloud deployment or production-data authority.
 C3D Admin Web/protected Android capture and C3E Membership/reassignment remain separately
-unauthorized; DT-063–DT-066 remain open until their UI, identity, human and physical gates pass. The
-ADO-only closure-publication commit and its exact-head CI are still pending and have no identifier at
-this checkpoint.
+unauthorized; DT-063–DT-066 remain open until their UI, identity, human and physical gates pass.
+ADO-only closure-publication commit `9c79c6d2f2166d22cc61bfbc03ba79c434bbbfe0` subsequently passed all
+ten jobs in exact-head GitHub Actions run `29376668158`; this publication fact changes no roadmap
+order or authority.
 
 ## Revision Note (Technical Lead Review Follow-up, 2026-07-07)
 

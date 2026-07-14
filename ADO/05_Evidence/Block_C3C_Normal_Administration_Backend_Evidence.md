@@ -7,6 +7,8 @@ Authorized Baseline: `c1148d57edb12312a102f090715c4b28308f6347`
 Implementation Commit: `b90729a0a4b325f523cd98ea5a741defb00155f6`
 Implementation Tree: `671be72784f68b9437a9f53e251acbbb22ce3e97`
 Implementation CI: GitHub Actions run `29375259275` — exact implementation SHA, ten of ten jobs passed
+Closure-publication commit: `9c79c6d2f2166d22cc61bfbc03ba79c434bbbfe0`
+Closure-publication CI: GitHub Actions run `29376668158` — exact publication SHA, ten of ten jobs passed
 Runtime Under Test: Node.js 24 and PostgreSQL 17
 Owner: Technical Lead
 Authority: `ADO/02_Development/Block_C3C_Normal_Administration_Backend_Authorization.md`
@@ -17,8 +19,8 @@ Closure: `ADO/02_Development/Block_C3C_Normal_Administration_Backend_Closure.md`
 This document records implementation and final verification evidence for the authorized C3C slice
 only. The exact implementation commit, tree, CI and independent approvals above close that repository
 scope. They grant no C3D/C3E authority or production/cloud/data readiness. The separate ADO
-closure-publication commit/CI remains pending and must be recorded only from its future real
-identifiers and results.
+closure-publication commit `9c79c6d2f2166d22cc61bfbc03ba79c434bbbfe0` passed exact-head ten-job
+GitHub Actions run `29376668158`; that publication evidence changes no implementation scope.
 
 The implementation remains bound to the exact baseline and contract in the C3C authorization:
 
@@ -127,7 +129,7 @@ Additional local verification passed:
 | Independent final database/security, governance/CI and complete-diff reviews | Passed — all three APPROVED; zero open P0/P1/P2/P3 |
 | Exact-head GitHub Actions CI | Passed — run `29375259275`, exact implementation SHA, ten of ten jobs |
 | C3C repository closure | **Completed** |
-| ADO closure-publication commit and exact-head CI | **Pending — no identifier claimed** |
+| ADO closure-publication commit and exact-head CI | **Passed — `9c79c6d2f2166d22cc61bfbc03ba79c434bbbfe0`, run `29376668158`, ten of ten jobs** |
 
 C3D, C3E, production deployment and production personal data remain gated. DT-063–DT-066 remain
 open until the complete operational setup surfaces and their required human/device validation have

@@ -128,9 +128,10 @@ C3E or production implementation is authorized by this checkpoint.
 Implementation commit `b90729a0a4b325f523cd98ea5a741defb00155f6`, tree
 `671be72784f68b9437a9f53e251acbbb22ce3e97`, subsequently passed three independent exact-SHA reviews
 with zero open P0/P1/P2/P3 and exact-head GitHub Actions run `29375259275` with ten of ten jobs.
-C3C repository implementation is therefore closed. The ADO-only closure-publication commit/CI is
-still pending; DT-063–DT-066 remain open, and no C3D, C3E or production implementation is authorized
-by this closure. Evidence:
+C3C repository implementation is therefore closed. ADO-only closure-publication commit
+`9c79c6d2f2166d22cc61bfbc03ba79c434bbbfe0` passed all ten jobs in exact-head GitHub Actions run
+`29376668158`; DT-063–DT-066 remain open, and no C3D, C3E or production implementation is authorized
+by this closure or its publication. Evidence:
 `ADO/02_Development/Block_C3C_Normal_Administration_Backend_Closure.md`.
 
 ## 4. C3D — first real setup UI

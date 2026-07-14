@@ -130,6 +130,7 @@ Development Task. C3C implementation commit `b90729a0a4b325f523cd98ea5a741defb00
 exact-SHA reviews with zero open P0/P1/P2/P3 and exact-head ten-of-ten GitHub Actions run
 `29375259275`. Evidence is recorded in
 `ADO/05_Evidence/Block_C3C_Normal_Administration_Backend_Evidence.md` and closure in
-`ADO/02_Development/Block_C3C_Normal_Administration_Backend_Closure.md`. The ADO-only
-closure-publication commit/CI is still pending. C3D/C3E and production remain gated, and
-DT-063–DT-066 remain open until their operational setup surfaces are implemented and validated.
+`ADO/02_Development/Block_C3C_Normal_Administration_Backend_Closure.md`. ADO-only
+closure-publication commit `9c79c6d2f2166d22cc61bfbc03ba79c434bbbfe0` passed all ten exact-head CI
+jobs in run `29376668158`. C3D/C3E and production remain gated, and DT-063–DT-066 remain open until
+their operational setup surfaces are implemented and validated.

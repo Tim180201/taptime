@@ -9,10 +9,13 @@ Implementation commit: `b90729a0a4b325f523cd98ea5a741defb00155f6`
 Implementation tree: `671be72784f68b9437a9f53e251acbbb22ce3e97`
 GitHub Actions run: `29375259275` — exact `push` to `main`, exact implementation SHA, ten of ten
 jobs passed
+Closure-publication commit: `9c79c6d2f2166d22cc61bfbc03ba79c434bbbfe0`
+Closure-publication CI: GitHub Actions run `29376668158` — exact publication SHA, ten of ten jobs
+passed
 Production authority: Not granted
 Next-slice authority: C3D and C3E remain separately unauthorized
-Closure-publication state: This ADO-only publication has no commit or CI identifier yet; its real
-commit and exact-head CI remain pending and must not be inferred from the implementation identifiers
+Closure-publication state: Completed and exact-head CI-verified; publication evidence does not
+expand the already closed repository scope
 
 ## 1. Closed repository scope
 
@@ -123,6 +126,8 @@ SHA-256 inventory is:
 - Implementation commit: `b90729a0a4b325f523cd98ea5a741defb00155f6`
 - Implementation tree: `671be72784f68b9437a9f53e251acbbb22ce3e97`
 - Exact-head implementation CI: run `29375259275`, ten of ten jobs passed
+- Closure-publication commit: `9c79c6d2f2166d22cc61bfbc03ba79c434bbbfe0`
+- Exact-head closure-publication CI: run `29376668158`, ten of ten jobs passed
 
 ## 7. Remaining gates
 
@@ -137,9 +142,15 @@ closure authorizes none of them automatically and records no physical or human s
 
 ## 8. Closure-publication checkpoint
 
-This document and its synchronized ADO status changes are an uncommitted governance publication at
-creation time. They do not reuse implementation commit `b90729a0a4b325f523cd98ea5a741defb00155f6`
-or run `29375259275` as evidence for their own publication. A later real closure-publication commit
-and its exact-head GitHub CI may be recorded only after they exist and pass.
+At creation time, this document and its synchronized ADO status changes were an uncommitted
+governance publication. They did not reuse implementation commit
+`b90729a0a4b325f523cd98ea5a741defb00155f6` or run `29375259275` as evidence for their own
+publication.
+
+Subsequently, the document and synchronized status changes were published in governance commit
+`9c79c6d2f2166d22cc61bfbc03ba79c434bbbfe0`. GitHub Actions run `29376668158` is bound to that exact
+`main` SHA and passed all ten jobs. These publication identifiers remain distinct from the
+implementation identifiers; they verify only publication of the already approved closure and grant
+no additional authority.
 
 `research/` remains outside this closure and this publication scope.
