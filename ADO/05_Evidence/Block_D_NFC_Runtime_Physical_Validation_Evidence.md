@@ -1,6 +1,6 @@
 # Block D — NFC Runtime and Physical Validation Evidence
 
-Status: Software Approved by Technical Lead — Awaiting Physical Device Validation and GitHub CI
+Status: Software Approved by Technical Lead and GitHub CI — Awaiting Physical Device Validation
 Date: 2026-07-14
 Implementation Baseline: `bac5f4868ecf36364d62629ed312306fa29dc9d7`
 Authorization Commit Parent: `4f540ca648b9ef98c5ad4ccf3798e0279fc8bb6c`
@@ -9,6 +9,8 @@ Scope: DT-053–DT-059; DT-058 and the physical portion of DT-059 remain open
 
 Technical Lead Review Date: 2026-07-14
 Technical Lead Verdict: `APPROVED` for the software slice after three blocking corrections
+Approved Implementation Commit: `fac778da8540dc744718ff583256d138aa1d874d`
+GitHub Actions: Run `29319811973` — all seven jobs passed
 
 ## 1. Truthful result
 
@@ -143,7 +145,8 @@ Focused automated evidence includes:
 CI's existing quality job now runs the expanded Root Typecheck/Mobile tests and additionally executes
 `npx expo export --platform android` from `apps/mobile`.
 
-GitHub Actions verification of the publication commit is pending at the time of this evidence update.
+Implementation commit `fac778d` passed all seven jobs in GitHub Actions run `29319811973`, including
+the new Android product bundle gate and every PostgreSQL/API regression job.
 
 ## 7. Physical validation table — not yet executed
 
@@ -177,7 +180,6 @@ GitHub Actions verification of the publication commit is pending at the time of 
 
 ## 9. Required next action
 
-Publish the Technical-Lead-approved software and confirm GitHub Actions. A Human Architect or
-delegated tester then executes the complete physical checklist with one supported Android device and
-at least two real tags. Only observed results may replace `Outstanding`; any missing server test
-environment keeps the end-to-end Start/Stop item open.
+A Human Architect or delegated tester executes the complete physical checklist with one supported
+Android device and at least two real tags. Only observed results may replace `Outstanding`; any
+missing server test environment keeps the end-to-end Start/Stop item open.
