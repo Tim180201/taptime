@@ -18,7 +18,10 @@ import {
   createTimestamp,
   customerAssignmentTarget,
 } from '@taptime/core';
-import { SupabaseJwtAccessTokenVerifier } from '@taptime/backend-identity';
+import {
+  AccessTokenVerificationInfrastructureError,
+  SupabaseJwtAccessTokenVerifier,
+} from '@taptime/backend-identity';
 import {
   B3_CONTENT_HASH_ALGORITHM,
   B3_CONTENT_HASH_VERSION,
@@ -149,6 +152,22 @@ async function startJwksServer(jwk: JWK): Promise<{ server: Server; origin: URL 
   const address = server.address();
   if (address === null || typeof address === 'string') {
     throw new Error('Synthetic B6 JWKS server did not expose a TCP address');
+  }
+  return { server, origin: new URL(`http://127.0.0.1:${address.port}`) };
+}
+
+async function startUnavailableJwksServer(): Promise<{ server: Server; origin: URL }> {
+  const server = createServer((_request, response) => {
+    response.writeHead(503, { 'content-type': 'application/json' });
+    response.end('{}');
+  });
+  await new Promise<void>((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(0, '127.0.0.1', resolve);
+  });
+  const address = server.address();
+  if (address === null || typeof address === 'string') {
+    throw new Error('Unavailable synthetic B6 JWKS server did not expose a TCP address');
   }
   return { server, origin: new URL(`http://127.0.0.1:${address.port}`) };
 }
@@ -900,6 +919,31 @@ describe('authority, tenant, User and configuration isolation', () => {
     }));
     expect(result).toEqual({ status: 'rejected', reason: 'requested_organization_mismatch' });
     expect((await lifecycleCounts(installerPool)).work_events).toBe(0);
+  });
+
+  it('propagates JWKS infrastructure failure without writing lifecycle evidence', async () => {
+    const unavailable = await startUnavailableJwksServer();
+    const unavailableIssuer = new URL('/unavailable-b6/auth/v1', unavailable.origin).href;
+    const unavailableVerifier = SupabaseJwtAccessTokenVerifier.fromRemoteJwks({
+      issuer: unavailableIssuer,
+      jwksUrl: new URL(`${unavailableIssuer}/.well-known/jwks.json`),
+      allowedAlgorithms: ['RS256'],
+    });
+    const unavailableCoordinator = new ServerCanonicalLifecycleIngestionCoordinator(
+      runtimePool,
+      unavailableVerifier,
+    );
+    const before = await lifecycleCounts(installerPool);
+    try {
+      await expect(unavailableCoordinator.ingest(await command({
+        eventNumber: 163,
+        receiptNumber: 163,
+        token: await accessToken({ issuer: unavailableIssuer }),
+      }))).rejects.toBeInstanceOf(AccessTokenVerificationInfrastructureError);
+      expect(await lifecycleCounts(installerPool)).toEqual(before);
+    } finally {
+      await closeServer(unavailable.server);
+    }
   });
 
   it('ignores forged User, Organization, role, Decision and TimeEntry token claims', async () => {

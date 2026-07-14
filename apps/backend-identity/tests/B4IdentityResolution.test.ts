@@ -11,6 +11,7 @@ import { Pool, type PoolClient } from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { MembershipId, OrganizationId, UserId } from '@taptime/core';
 import {
+  AccessTokenVerificationInfrastructureError,
   B4_IDENTITY_RESOLVER_ROLE,
   PostgresIdentityMembershipResolver,
   RequestActorResolutionService,
@@ -171,6 +172,22 @@ async function startJwksServer(jwk: JWK): Promise<{ server: Server; origin: URL 
   const address = server.address();
   if (address === null || typeof address === 'string') {
     throw new Error('Synthetic JWKS server did not expose a TCP address');
+  }
+  return { server, origin: new URL(`http://127.0.0.1:${address.port}`) };
+}
+
+async function startUnavailableJwksServer(): Promise<{ server: Server; origin: URL }> {
+  const server = createServer((_request, response) => {
+    response.writeHead(503, { 'content-type': 'application/json' });
+    response.end('{}');
+  });
+  await new Promise<void>((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(0, '127.0.0.1', resolve);
+  });
+  const address = server.address();
+  if (address === null || typeof address === 'string') {
+    throw new Error('Unavailable synthetic JWKS server did not expose a TCP address');
   }
   return { server, origin: new URL(`http://127.0.0.1:${address.port}`) };
 }
@@ -347,6 +364,25 @@ describe('Supabase access-token verification boundary', () => {
       jwksUrl: jwksUrlB,
       allowedAlgorithms: ['RS256'],
     })).toThrow('Supabase JWKS URL must match the configured issuer');
+  });
+
+  it('propagates JWKS infrastructure failure through actor resolution instead of rejecting identity', async () => {
+    const unavailable = await startUnavailableJwksServer();
+    const unavailableIssuer = new URL('/unavailable/auth/v1', unavailable.origin).href;
+    const unavailableVerifier = SupabaseJwtAccessTokenVerifier.fromRemoteJwks({
+      issuer: unavailableIssuer,
+      jwksUrl: new URL(`${unavailableIssuer}/.well-known/jwks.json`),
+      allowedAlgorithms: ['RS256'],
+    });
+    const unavailableService = new RequestActorResolutionService(unavailableVerifier, resolver);
+    try {
+      await expect(unavailableService.resolve({
+        accessToken: await accessToken({ issuer: unavailableIssuer }),
+        requestedOrganizationId: OrganizationId(b4Ids.organizationA),
+      })).rejects.toBeInstanceOf(AccessTokenVerificationInfrastructureError);
+    } finally {
+      await closeServer(unavailable.server);
+    }
   });
 
   it.each([

@@ -1,6 +1,6 @@
 # Block C1 — Real Runtime Composition and Authentication Evidence
 
-Status: Technical Lead Approved — Awaiting CI and Independent Security Review
+Status: Completed — Technical Lead, GitHub CI and Independent Security Approved
 
 Date: 2026-07-13
 
@@ -119,9 +119,9 @@ Node `24.17.0`. Final local results are:
 | C1 build | Passed |
 | Mobile tests-inclusive typecheck | Passed |
 | Mobile tests | 95 passed |
-| B6 tests | 67 passed |
-| B5 tests | 41 passed |
-| B4 tests | 54 passed |
+| B6 tests | 68 passed after independent-review disposition |
+| B5 tests | 42 passed after independent-review disposition |
+| B4 tests | 55 passed after independent-review disposition |
 | B3 tests | 125 passed |
 | B1 tests | 39 passed; 2 explicitly permitted Supavisor skips |
 | Core tests | 262 passed |
@@ -147,5 +147,7 @@ Node `24.17.0`. Final local results are:
   real data, B5/B6 HTTP routes, scan/sync transport, DT-047/048, C2/C3, Block D and physical NFC
   validation remain outside C1.
 
-C1 is implemented and ready for Technical Lead review. No acceptance or authorization of C2/C3
-is claimed.
+Technical Lead review, GitHub Actions run `29279475547` and the independent verdict
+`APPROVED WITH NON-BLOCKING FINDINGS` are complete. Final dispositions and closure evidence are in
+`ADO/05_Evidence/Block_C1_Independent_Architecture_Security_Review.md` and
+`ADO/02_Development/Block_C1_Real_Runtime_Authentication_Closure.md`. C2/C3 remain unauthorized.

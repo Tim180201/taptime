@@ -16,7 +16,10 @@ import {
   createNfcPayload,
   type NfcPayload,
 } from '@taptime/core';
-import { SupabaseJwtAccessTokenVerifier } from '@taptime/backend-identity';
+import {
+  AccessTokenVerificationInfrastructureError,
+  SupabaseJwtAccessTokenVerifier,
+} from '@taptime/backend-identity';
 import {
   TenantReadSessionCoordinator,
   type TenantReadRepositories,
@@ -58,6 +61,7 @@ let coordinator: TenantReadSessionCoordinator;
 
 interface AccessTokenOptions {
   readonly subject?: string;
+  readonly issuer?: string;
   readonly claims?: Readonly<Record<string, unknown>>;
 }
 
@@ -73,7 +77,7 @@ async function accessToken(options: AccessTokenOptions = {}): Promise<string> {
     ...options.claims,
   })
     .setProtectedHeader({ alg: 'RS256', kid: keyId, typ: 'JWT' })
-    .setIssuer(issuer)
+    .setIssuer(options.issuer ?? issuer)
     .setAudience('authenticated')
     .setSubject(options.subject ?? subjects.employeeA)
     .setIssuedAt(now)
@@ -112,6 +116,22 @@ async function startJwksServer(jwk: JWK): Promise<{ server: Server; origin: URL 
   const address = server.address();
   if (address === null || typeof address === 'string') {
     throw new Error('Synthetic B5 JWKS server did not expose a TCP address');
+  }
+  return { server, origin: new URL(`http://127.0.0.1:${address.port}`) };
+}
+
+async function startUnavailableJwksServer(): Promise<{ server: Server; origin: URL }> {
+  const server = createServer((_request, response) => {
+    response.writeHead(503, { 'content-type': 'application/json' });
+    response.end('{}');
+  });
+  await new Promise<void>((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(0, '127.0.0.1', resolve);
+  });
+  const address = server.address();
+  if (address === null || typeof address === 'string') {
+    throw new Error('Unavailable synthetic B5 JWKS server did not expose a TCP address');
   }
   return { server, origin: new URL(`http://127.0.0.1:${address.port}`) };
 }
@@ -552,6 +572,36 @@ describe('authoritative token, Membership, Organization and role binding', () =>
       tokenReason: 'malformed_token',
     });
     expect(callbackCalled).toBe(false);
+  });
+
+  it('propagates JWKS infrastructure failure without entering the tenant callback', async () => {
+    const unavailable = await startUnavailableJwksServer();
+    const unavailableIssuer = new URL('/unavailable-b5/auth/v1', unavailable.origin).href;
+    const unavailableVerifier = SupabaseJwtAccessTokenVerifier.fromRemoteJwks({
+      issuer: unavailableIssuer,
+      jwksUrl: new URL(`${unavailableIssuer}/.well-known/jwks.json`),
+      allowedAlgorithms: ['RS256'],
+    });
+    const unavailableCoordinator = new TenantReadSessionCoordinator(
+      runtimePool,
+      unavailableVerifier,
+    );
+    let callbackCalled = false;
+    try {
+      await expect(unavailableCoordinator.run(
+        {
+          accessToken: await accessToken({ issuer: unavailableIssuer }),
+          requestedOrganizationId: OrganizationId(ids.organizationA),
+        },
+        async () => {
+          callbackCalled = true;
+          return 'must-not-run';
+        },
+      )).rejects.toBeInstanceOf(AccessTokenVerificationInfrastructureError);
+      expect(callbackCalled).toBe(false);
+    } finally {
+      await closeServer(unavailable.server);
+    }
   });
 
   it('returns one generic rejection for an unknown IdentityBinding', async () => {

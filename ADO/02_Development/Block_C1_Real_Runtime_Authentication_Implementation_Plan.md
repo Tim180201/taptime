@@ -1,6 +1,6 @@
 # Block C1 — Real Runtime Composition and Authentication Implementation Plan
 
-Status: Technical Lead Approved — Awaiting CI and Independent Security Review
+Status: Completed — Technical Lead, GitHub CI and Independent Security Approved
 
 Date: 2026-07-13
 
@@ -88,3 +88,7 @@ Block D and physical NFC validation remain unauthorized.
   `__DEV__` are both true, with a visible warning. It is neither default nor fallback.
 - The product route stops truthfully at “Authentifiziert – Scan-Verbindung folgt in C2”. C2/C3
   remain unauthorized and no scan/synchronization/backend-data route was composed.
+
+Closure and independent finding dispositions are recorded in
+`ADO/02_Development/Block_C1_Real_Runtime_Authentication_Closure.md` and
+`ADO/05_Evidence/Block_C1_Independent_Architecture_Security_Review.md`.
