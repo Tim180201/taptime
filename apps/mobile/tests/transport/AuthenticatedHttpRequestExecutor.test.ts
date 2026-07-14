@@ -57,10 +57,10 @@ describe('AuthenticatedHttpRequestExecutor', () => {
         headers: {
           Accept: 'application/json',
           Authorization: 'Bearer memory-only-access',
+          'Cache-Control': 'no-store',
           'Content-Type': 'application/json',
         },
         body,
-        cache: 'no-store',
         credentials: 'omit',
         redirect: 'manual',
         signal: expect.any(AbortSignal),
@@ -157,6 +157,38 @@ describe('AuthenticatedHttpRequestExecutor', () => {
 
     await expect(executor.post(new URL('https://api.example/v1/test'), '{}'))
       .resolves.toEqual({ status: 'unavailable' });
+  });
+
+  it('cancels an oversized streamed response without Content-Length before full buffering', async () => {
+    const cancel = vi.fn();
+    let chunkIndex = 0;
+    const chunks = [
+      new Uint8Array(8 * 1024),
+      new Uint8Array(8 * 1024),
+      new Uint8Array(1),
+    ];
+    const response = new Response(new ReadableStream<Uint8Array>({
+      pull(controller) {
+        controller.enqueue(chunks[chunkIndex++]!);
+      },
+      cancel,
+    }, {
+      // Match expo/fetch's lazy native response stream rather than prefetching another chunk.
+      highWaterMark: 0,
+    }), {
+      headers: { 'content-type': 'application/json' },
+    });
+    const text = vi.spyOn(response, 'text');
+    const executor = new AuthenticatedHttpRequestExecutor(
+      new FixedAuthentication(),
+      async () => response,
+    );
+
+    await expect(executor.post(new URL('https://api.example/v1/test'), '{}'))
+      .resolves.toEqual({ status: 'unavailable' });
+    expect(text).not.toHaveBeenCalled();
+    expect(cancel).toHaveBeenCalledOnce();
+    expect(chunkIndex).toBe(3);
   });
 
   it('rejects invalid body length metadata and invalid deadlines fail-fast', async () => {

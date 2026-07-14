@@ -1,6 +1,6 @@
 # Block C2 — Authenticated Server Transport Foundation Evidence
 
-Status: Implemented — Awaiting Technical Lead Review
+Status: Completed — Technical Lead, GitHub CI and Independent Security Approved
 
 Date: 2026-07-14
 
@@ -86,8 +86,8 @@ three distinct synthetic C2 runtime logins, builds Core/B3/B4/B5/B6, applies mig
 typechecks/tests Mobile. It uses local asymmetric JWKS infrastructure and needs no cloud secret.
 
 Local YAML parsing found seven jobs and ten C2 steps and verified the exact workspace commands.
-The new workflow has not yet run on GitHub because this implementation is intentionally
-uncommitted and unpushed.
+Implementation commit `9f5b127` ran the workflow in GitHub Actions run `29314305059`; all seven
+jobs, including the isolated C2 API/Mobile transport job, completed successfully.
 
 ## 5. Adversarial implementation-review dispositions
 
@@ -108,6 +108,10 @@ The implementation audit found and closed these pre-handoff gaps:
   equivalent session-pool proof.
 - Ordinary idempotency was covered, but not a lost response after B6 began writing. The new
   disconnect test proves one canonical row set followed by an idempotent identical retry.
+- The independent review found that a Mobile response without `Content-Length` was fully buffered
+  before its post-read size check. Product composition now uses Expo's native streaming fetch;
+  the executor counts response bytes incrementally, fatally decodes UTF-8 and cancels above 16 KiB.
+  A focused lengthless-stream test proves cancellation without calling `response.text()`.
 
 ## 6. Local verification
 
@@ -120,7 +124,7 @@ data and credentials.
 | Root tests-inclusive typecheck | Passed for Core and Mobile |
 | Core tests | 262 passed in 42 files |
 | Mobile tests-inclusive typecheck | Passed |
-| Mobile tests | 153 passed in 13 files; includes the existing 10 NFC tests |
+| Mobile tests | 154 passed in 13 files; includes the existing 10 NFC tests and streamed-response bound |
 | C2 API tests-inclusive typecheck | Passed |
 | C1/C2 API tests | 127 passed in 2 files: 43 preserved C1 plus 84 C2 |
 | C2 API build | Passed |
@@ -130,6 +134,7 @@ data and credentials.
 | B6 typecheck/tests/build | Passed; 68 tests |
 | B1 typecheck/tests/build | Passed; 39 direct-PostgreSQL tests, 2 permitted Supavisor skips |
 | Core build and complete workspace build | Passed |
+| Expo Android production export | Passed; Metro bundled 768 modules with native `expo/fetch` composition |
 | Workflow YAML and npm commands | Parsed and verified; 7 jobs, 10 C2 steps, Node 24.17.0, PostgreSQL 17.10 |
 | Migrations | Exactly `001`–`005`, byte-for-byte unchanged from baseline; no `006` |
 | `git diff --check` | Passed after implementation and again after documentation |
@@ -139,7 +144,8 @@ roles/schema were available; no cloud resource was created.
 
 ## 7. Remaining limits and gates
 
-- Technical Lead review and a real GitHub Actions run are still required; no approval is claimed.
+- Technical Lead review, GitHub Actions run `29314305059` and independent security review passed;
+  the review's sole P2 was corrected before closure.
 - No live Supabase project/provider, Supavisor connection or deployed API was tested.
 - SecureStore/AppState and NFC remain contract-tested, not physically device-validated. NFC
   capture is intentionally not connected to the new transport until Block D.
@@ -154,4 +160,4 @@ roles/schema were available; no cloud resource was created.
 - DT-047/048, C3, Blocks D/E, durable offline queue/sync orchestration, Organization bootstrap,
   cloud/deployment, production data and new Business Rules remain unauthorized.
 
-Implementation status: **Implemented — Awaiting Technical Lead Review**.
+Implementation status: **Completed — Technical Lead, GitHub CI and Independent Security Approved**.

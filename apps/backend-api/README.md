@@ -46,7 +46,7 @@ synthetic-only variables `C2_DATABASE_URL`, `C2_SESSION_DATABASE_URL`,
 `C2_READ_MODEL_DATABASE_URL`, `C2_LIFECYCLE_DATABASE_URL` plus their three corresponding
 `C2_*_RUNTIME_PASSWORD` values. No cloud resource or production credential is required.
 
-This unreviewed C2 implementation is not production-ready: deployment, production secrets/data,
+This reviewed C2 transport foundation is not yet a production deployment: production secrets/data,
 Supavisor validation, observability/rate policy and Blocks C3/D/E remain separate gates.
 
 Run after building Core, schema, identity, read-model and lifecycle dependencies:

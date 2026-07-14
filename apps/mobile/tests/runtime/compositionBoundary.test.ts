@@ -51,6 +51,8 @@ describe('C1 Mobile composition boundary', () => {
     );
 
     expect(runtimeSource).toContain('AuthenticatedHttpRequestExecutor');
+    expect(runtimeSource).toContain("fetch as expoFetch } from 'expo/fetch'");
+    expect(runtimeSource).toContain('AuthenticatedHttpRequestExecutor(coordinator, expoFetch)');
     expect(runtimeSource).toContain('TapTimeScanContextApiClient');
     expect(runtimeSource).toContain('TapTimeLifecycleApiClient');
     expect(runtimeSource).toContain('React receives a real narrow facade');

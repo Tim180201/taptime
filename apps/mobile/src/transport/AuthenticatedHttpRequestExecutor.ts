@@ -4,7 +4,19 @@ import { utf8ByteLength } from './strictJson';
 const DEFAULT_REQUEST_TIMEOUT_MILLISECONDS = 10_000;
 const MAXIMUM_JSON_BODY_BYTES = 16 * 1024;
 
-type FetchPort = typeof fetch;
+export interface AuthenticatedFetchRequestInit {
+  readonly method: 'POST';
+  readonly headers: Readonly<Record<string, string>>;
+  readonly body: string;
+  readonly credentials: 'omit';
+  readonly redirect: 'manual';
+  readonly signal: AbortSignal;
+}
+
+export type AuthenticatedFetchPort = (
+  input: string,
+  init: AuthenticatedFetchRequestInit,
+) => Promise<Response>;
 
 export type AuthenticatedHttpResult =
   | {
@@ -24,7 +36,7 @@ export interface AuthenticatedJsonPostPort {
 export class AuthenticatedHttpRequestExecutor implements AuthenticatedJsonPostPort {
   constructor(
     private readonly authentication: AuthenticatedRequestCapability,
-    private readonly fetchRequest: FetchPort = fetch,
+    private readonly fetchRequest: AuthenticatedFetchPort = fetch,
     private readonly requestTimeoutMilliseconds = DEFAULT_REQUEST_TIMEOUT_MILLISECONDS,
   ) {
     if (!Number.isSafeInteger(requestTimeoutMilliseconds) || requestTimeoutMilliseconds <= 0) {
@@ -50,10 +62,10 @@ export class AuthenticatedHttpRequestExecutor implements AuthenticatedJsonPostPo
             headers: {
               Accept: 'application/json',
               Authorization: `Bearer ${accessToken()}`,
+              'Cache-Control': 'no-store',
               'Content-Type': 'application/json',
             },
             body,
-            cache: 'no-store',
             credentials: 'omit',
             redirect: 'manual',
             signal: abortController.signal,
@@ -82,8 +94,8 @@ export class AuthenticatedHttpRequestExecutor implements AuthenticatedJsonPostPo
               return { status: 'completed', value: { status: 'unavailable' } };
             }
           }
-          const responseBody = await response.text();
-          if (utf8ByteLength(responseBody) > MAXIMUM_JSON_BODY_BYTES) {
+          const responseBody = await readBoundedResponseText(response);
+          if (responseBody === null) {
             return { status: 'completed', value: { status: 'unavailable' } };
           }
           return {
@@ -114,6 +126,45 @@ export class AuthenticatedHttpRequestExecutor implements AuthenticatedJsonPostPo
     return execution.status === 'authority_rejected'
       ? { status: 'authority_rejected' }
       : { status: 'transient_failure' };
+  }
+}
+
+async function readBoundedResponseText(response: Response): Promise<string | null> {
+  const body = response.body;
+  if (body === null) {
+    return '';
+  }
+
+  const reader = body.getReader();
+  const decoder = new TextDecoder('utf-8', { fatal: true });
+  let bytes = 0;
+  let text = '';
+  try {
+    while (true) {
+      const chunk = await reader.read();
+      if (chunk.done) {
+        text += decoder.decode();
+        return text;
+      }
+      bytes += chunk.value.byteLength;
+      if (bytes > MAXIMUM_JSON_BODY_BYTES) {
+        try {
+          await reader.cancel('TapTim.e response body exceeded its byte limit');
+        } catch {
+          // The response is already unavailable; cancellation is best-effort cleanup only.
+        }
+        return null;
+      }
+      text += decoder.decode(chunk.value, { stream: true });
+    }
+  } catch {
+    return null;
+  } finally {
+    try {
+      reader.releaseLock();
+    } catch {
+      // A failed or canceled stream cannot provide application data regardless of lock cleanup.
+    }
   }
 }
 

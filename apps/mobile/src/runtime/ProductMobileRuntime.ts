@@ -1,4 +1,5 @@
 import { Platform } from 'react-native';
+import { fetch as expoFetch } from 'expo/fetch';
 import { ExpoRefreshTokenStore } from '../auth/ExpoRefreshTokenStore';
 import { MobileSessionCoordinator } from '../auth/MobileSessionCoordinator';
 import { createSupabaseEmailPasswordAuthAdapter } from '../auth/SupabaseEmailPasswordAuthAdapter';
@@ -46,7 +47,9 @@ export function createProductMobileRuntime(): ProductMobileRuntimeCreation {
     new TapTimeSessionApiClient(configuration.configuration.tapTimeApiBaseUrl),
   );
   const appStateLifecycle = createNativeAppStateAutoRefreshLifecycle(provider);
-  const authenticatedRequests = new AuthenticatedHttpRequestExecutor(coordinator);
+  // Expo's native fetch exposes a real ReadableStream, allowing the transport to stop oversized
+  // responses before they are buffered in full by React Native's legacy fetch polyfill.
+  const authenticatedRequests = new AuthenticatedHttpRequestExecutor(coordinator, expoFetch);
   const serverTransport: ProductServerTransport = Object.freeze({
     scanContext: new TapTimeScanContextApiClient(
       configuration.configuration.tapTimeApiBaseUrl,
