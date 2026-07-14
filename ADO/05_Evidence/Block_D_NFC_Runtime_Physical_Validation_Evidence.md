@@ -1,11 +1,11 @@
 # Block D — NFC Runtime and Physical Validation Evidence
 
-Status: Software Approved and Device-local NFC Validation Passed — Server-connected Physical Validation Outstanding
+Status: Software/GitHub-CI Approved and Physical Android Product E2E Passed — Independent Final Review Outstanding
 Date: 2026-07-14
 Implementation Baseline: `bac5f4868ecf36364d62629ed312306fa29dc9d7`
 Authorization Commit Parent: `4f540ca648b9ef98c5ad4ccf3798e0279fc8bb6c`
 Authority: ADR-0009 and `Block_D_NFC_Runtime_Physical_Validation_Authorization.md`
-Scope: DT-053–DT-059; DT-058 and the physical portion of DT-059 remain open
+Scope: DT-053–DT-059; DT-016/DT-058 and the physical portion of DT-059 are now evidenced on the approved Android device/tag set
 
 Technical Lead Review Date: 2026-07-14
 Technical Lead Verdict: `APPROVED` for the software slice after three blocking corrections
@@ -14,15 +14,18 @@ GitHub Actions: Run `29319811973` — all seven jobs passed
 
 ## 1. Truthful result
 
-The authorized Android software path is implemented and automated regressions pass. No physical
-Android device or physical NFC tag was available to this Implementation Agent. Consequently:
+The authorized Android software path is implemented, automated regressions pass and the Human
+Architect completed both physical gates on a Samsung Galaxy A33 5G / Android 15 with two NTAG213
+tags. The device-local validation proved ten stable/distinct reads per tag, disabled-NFC behavior,
+timeout, cancellation, cleanup and duplicate coalescing. The later strictly local product E2E then
+proved real synthetic login, physical Tag-B unassigned handling, fingerprint-bound Tag-A
+provisioning with zero lifecycle mutation, and server-confirmed Start then Stop through the real
+Mobile/Auth/C2/B4/B5/B6/PostgreSQL/Core path.
 
-- no physical UID stability, byte order, disabled-NFC, timeout, cancellation or cleanup result is
-  claimed;
-- no real unassigned-tag screen observation is claimed;
-- no physical server-confirmed Start/Stop is claimed;
-- DT-016's old hardware assumption and DT-058 remain open;
-- Block D is not physically NFC-validated, pilot-ready or product-approved.
+DT-016/DT-058's recorded Android physical gate and the physical portion of DT-059 are therefore
+evidenced for this approved device/tag set. This is not pilot readiness, a broad device matrix,
+production cloud/provider validation, iOS validation or Block-E synchronization evidence. A final
+independent architecture/security review remains outstanding before unqualified Block-D closure.
 
 ## 2. Implemented architecture
 
@@ -175,12 +178,13 @@ The commit-bound EAS internal-distribution build
 `https://expo.dev/artifacts/eas/YRZhVIul94iI8CFxF72C96Qb1v-Hy8ddTAwdN63EKp4.apk`, passed ZIP
 integrity verification and has SHA-256
 `005f6cee512f0ec6ad27b50a170e8076cf97cf8523918b99bd034452a8c3cecf`. GitHub Actions run
-`29322368886` passed all seven jobs for the same commit. Installation and device observations remain
-separate evidence.
+`29322368886` passed all seven jobs for the same commit. Installation and device observations were
+recorded later in the physical table below.
 
-This tooling does not upgrade Block D readiness. It has no authentication, C2/B5/B6 client,
-assignment, lifecycle decision, durable storage or production cloud/data path. The physical table
-below remains outstanding until observed by the Human Architect.
+This tooling alone did not upgrade Block D readiness. It has no authentication, C2/B5/B6 client,
+assignment, lifecycle decision, durable storage or production cloud/data path. The Human Architect
+later completed the device-local and separate synthetic server-connected observations recorded
+below.
 
 ### 6.2 Synthetic server-connected Android E2E test environment
 
@@ -196,14 +200,18 @@ unassigned, Tag A can be armed once by shortened validation fingerprint and prov
 Administrator RLS/audit without creating lifecycle evidence, and the following two commands produce
 server-canonical Start then Stop. Core/Mobile are 288/253; all backend regressions remain green.
 
-The later physical run now has Java 17, Android SDK 36, ADB and an authorized SM-A336B available;
-its 66-MB release APK built successfully. Installation, USB reverse and physical UI observations
-remain outstanding, so no physical server-connected pass is claimed. Full implementation,
+The later physical run used Java 17, Android SDK 36, ADB and the authorized `SM_A336B`. Its 66-MB
+release APK built in 6m12s and installed successfully. The guarded helper applied exactly the two
+approved USB reverse mappings. The Human Architect then observed Tag B as unassigned, controlled
+Tag-A assignment with 2 AuditEvents and no lifecycle evidence, `Arbeitszeit gestartet`, and after
+at least six seconds `Arbeitszeit gestoppt`. Final sanitized status was exactly 1 stopped TimeEntry,
+2 WorkEvents, 2 Decisions, 2 Receipts, 1 Tag, 1 Assignment and 4 AuditEvents. Normal shutdown and
+the disconnect helper succeeded; the final reverse table was empty. Full implementation,
 verification and security boundaries are in
 `ADO/05_Evidence/Block_D_Synthetic_Server_Connected_Android_E2E_Evidence.md` and
 `ADO/05_Evidence/Block_D_Synthetic_Server_Connected_Android_E2E_Security_Review.md`.
 
-## 7. Physical validation table — partially executed
+## 7. Physical validation table — passed for approved Android device/tag set
 
 | Required observation | Status | Evidence |
 |---|---|---|
@@ -218,13 +226,17 @@ verification and security boundaries are in
 | Disabled-NFC behavior | Observed | With Android NFC disabled and the app reopened, the Human Architect confirmed the explicit disabled state and blocked scan action; after re-enabling NFC and reopening, the app returned to ready and scanning remained available |
 | Timeout, cancel and scan-after-cleanup | Observed | Human Architect confirmed the 20-second no-tag timeout completed without incrementing the counter, explicit cancellation reported cleanly and the immediately following Tag-A scan succeeded, proving physical scan-after-cleanup |
 | Rapid duplicate press | Observed | Human Architect double-pressed the validation scan action, presented Tag A once and confirmed the counter remained exactly `1`; presenting the tag again without a new app scan did not increment TapTim.e |
-| Unassigned-tag product screen | Outstanding | Requires physical tag and test server |
-| Server-confirmed Start then Stop | Outstanding | Requires synthetic physical-test provisioning |
-| No raw UID/token/provider-error disclosure | Observed | Human Architect confirmed that the only identifier-like UI value was the expected 12-character shortened SHA-256 validation fingerprint; no raw UID, token or provider error was displayed |
+| Synthetic product build/install and exact USB loopback | Observed | 66-MB `TapTim.e Synthetic E2E` APK, SHA-256 `52257c14df918136ca689d15f10bcf1ccc84bbc911c1cb2f7977a116696e2624`, installed on `SM_A336B`; exactly ports 54321 and 3000 were reversed |
+| Unassigned-tag product screen | Observed | Physical NTAG213 Tag B showed `Tag nicht zugeordnet`; both pre-arm and armed negative controls left Tags, Assignments and lifecycle counts at zero |
+| Fingerprint-bound Tag-A provisioning | Observed | Only the 12-character shortened validation fingerprint was armed; capture produced 1 Tag, 1 Assignment and 2 AuditEvents with zero WorkEvents/Decisions/Receipts/TimeEntries |
+| Server-confirmed Start then Stop | Observed | Product showed `Arbeitszeit gestartet` then, after at least six seconds, `Arbeitszeit gestoppt`; final server status showed 2 WorkEvents, 2 Decisions, 2 Receipts and 1 stopped TimeEntry |
+| No raw UID/token/provider-error disclosure | Observed | Human Architect explicitly confirmed no raw UID, token, database/provider error or real person data was displayed |
+| Normal shutdown and scoped transport cleanup | Observed | `synthetic_e2e_stopped`, `synthetic_e2e_loopback_reverse_removed`, shell variables unset and final `adb reverse --list` empty |
 
 ## 8. Remaining limits and gates
 
-- Physical UID stability and byte order across the intended Android device/tag set are unknown.
+- Physical UID stability is proven for the recorded Galaxy A33/NTAG213 pair; behavior across a
+  broader Android device/tag matrix remains unknown.
 - UID cloning, emulation and unsuitable random/no-ID tags remain ADR-0009 limitations.
 - Ambiguous evidence is volatile and can be lost when the app process terminates.
 - There is no Block E offline queue/scheduler, C3 administration flow, iOS capture, NDEF flow,
@@ -247,13 +259,14 @@ verification and security boundaries are in
   `14886c68a095b4ff92159e67ff4757524875018e5b624d81d9daceed7acf3121`.
 - The existing 11 moderate dependency findings remain open; this task did not apply audit fixes.
 - Two Supavisor connection modes remain unverified.
+- The final independent architecture/security review of the combined Block-D implementation and
+  physical evidence remains outstanding.
 
 ## 9. Required next action
 
-The device-local physical checklist is complete for one Galaxy A33 5G / Android 15 and two NTAG213
-tags. The local synthetic server environment is implemented and its automated direct-PostgreSQL
-path is green and Technical-Lead approved after six corrections; its first release APK is built and
-the latest tracked-state correction awaits CI. Installation and the equipped physical run remain
-open. Until the
-unassigned-tag product screen and server-confirmed Start/Stop are observed, this evidence does not
-close full Block D or claim pilot readiness across the intended device set.
+The device-local and server-connected physical checklists are complete for one Galaxy A33 5G /
+Android 15 and two NTAG213 tags. Correction commit `59c4ac7` passed all eight jobs in GitHub Actions
+run `29333578360`; the strictly local physical product path and cleanup passed as recorded above.
+The next responsible action is an independent final architecture/security review of the combined
+Block-D code and evidence. C3, Block E, production cloud/data, iOS and broader pilot-device
+validation remain separately gated.

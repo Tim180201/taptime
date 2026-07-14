@@ -1,6 +1,6 @@
 # Block D — Synthetic Server-connected Android E2E Security Review
 
-Status: Technical-Lead Approved after Six Blocking Corrections — Latest Correction Awaiting GitHub CI; Physical E2E In Progress
+Status: Technical-Lead/GitHub-CI Approved after Six Blocking Corrections — Physical Android E2E Passed; Independent Final Review Outstanding
 
 Date: 2026-07-14
 
@@ -67,7 +67,7 @@ it is never treated as authentication or stored as the server lookup key.
 | D-E2E-TL03 | The real five-case PostgreSQL harness was not itself enforced by GitHub Actions | Added an isolated PostgreSQL 17 CI job for Typecheck, 5/5 tests and build | Closed; run `29329906106` passed |
 | D-E2E-TL04 | The first clean Linux CI run exposed that Typecheck had relied on locally prebuilt dependency declarations | Added an explicit ordered build of Core, schema, B4, B5, B6 and C2 dependencies before harness Typecheck | Closed; run `29329906106` passed |
 | D-E2E-TL05 | A normal GitHub service container reports a Docker-bridge server address, correctly failing the strict server-loopback guard; a failed setup also exposed an unsafe test-teardown dereference | Run the disposable PostgreSQL 17 container with host networking and `listen_addresses=127.0.0.1`; initialize teardown capability before environment setup and guard partial setup | Closed; run `29329906106` passed |
-| D-E2E-TL06 | The first real Expo prebuild rewrote tracked `android`/`ios` npm scripts, leaving a dirty source tree | Snapshot tracked `package.json` before prebuild and restore it exactly in `finally`, on success or failure; add Mobile boundary regression | Closed locally; 253/253 Mobile tests passed; CI pending |
+| D-E2E-TL06 | The first real Expo prebuild rewrote tracked `android`/`ios` npm scripts, leaving a dirty source tree | Snapshot tracked `package.json` before prebuild and restore it exactly in `finally`, on success or failure; add Mobile boundary regression | Closed; 253/253 Mobile tests passed and all eight jobs passed in run `29333578360` for commit `59c4ac7` |
 
 ## 5. Deliberate limitations
 
@@ -88,18 +88,22 @@ it is never treated as authentication or stored as the server lookup key.
 - The existing eleven moderate dependency findings remain open; no audit fix was applied.
 - Supabase Cloud, Supavisor, production TLS/secrets/observability, C3, Block E and production data
   remain unverified and unauthorized.
-- The later Human run now has Java 17, Android SDK 36, ADB, an authorized SM-A336B and a successful
-  66-MB local release build. Installation, reverse mapping and physical Tag-B/Tag-A UI outcomes
-  remain unobserved.
+- The Human run covered one Galaxy A33 5G / Android 15 and two NTAG213 tags. It does not establish a
+  broad Android device matrix, iOS behavior, production distribution or pilot-fleet operations.
+- The physical run passed installation, exact loopback mapping, real synthetic login, Tag-B
+  unassigned behavior, fingerprint-bound Tag-A provisioning, server-confirmed Start/Stop, safe
+  disclosure and complete scoped cleanup. It remains synthetic and strictly local.
 
 ## 6. Review conclusion
 
 After the six corrections above, the implementation is appropriately fail-closed for a
 disposable synthetic test harness and does not weaken the product C2/B3–B6 boundaries. Technical
 Lead verdict: `APPROVED`; the first five corrections passed all eight jobs in run `29329906106`,
-and the sixth passes Mobile 253 locally while its CI is pending. The physical server-connected
-checklist remains open; this review is not a physical-result claim or an independent third-party
-approval.
+and correction commit `59c4ac7` passed all eight in run `29333578360`. The Human Architect then
+completed the physical server-connected checklist with exact final evidence of 1 stopped
+TimeEntry, 2 WorkEvents, 2 Decisions, 2 Receipts, 1 Tag, 1 Assignment and 4 AuditEvents, followed by
+normal shutdown and an empty USB reverse table. This Technical-Lead review is not an independent
+third-party approval; that final independent architecture/security gate remains outstanding.
 
 Primary platform references:
 

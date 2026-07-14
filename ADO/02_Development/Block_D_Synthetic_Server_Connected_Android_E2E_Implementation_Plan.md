@@ -1,6 +1,6 @@
 # Block D — Synthetic Server-connected Android E2E Implementation Plan
 
-Status: Software Technical-Lead Approved after Six Corrections — Latest Correction Awaiting GitHub CI; Physical Run In Progress
+Status: Implemented — Technical-Lead/GitHub-CI Approved after Six Corrections; Physical Android E2E Passed; Independent Final Review Outstanding
 
 Date: 2026-07-14
 
@@ -173,4 +173,10 @@ that clean Linux job now builds every required workspace declaration before Type
 PostgreSQL 17 on host loopback rather than weakening the server-address guard for Docker bridging.
 The first real local release build additionally revealed and closed Expo prebuild's automatic
 tracked `package.json` script rewrite by restoring the exact prebuild snapshot in a `finally` path.
-Commit/push is therefore authorized. Physical completion remains gated on the separate checklist.
+Commit `59c4ac7` passed all eight GitHub Actions jobs in run `29333578360`. The Human Architect then
+completed the separate physical checklist on the approved Galaxy A33 5G: real login, Tag-B
+unassigned behavior, fingerprint-bound Tag-A provisioning without lifecycle mutation, and
+server-confirmed Start then Stop all passed through Auth/C2/B4/B5/B6/PostgreSQL/Core. Normal
+shutdown removed the synthetic state and the scoped disconnect helper removed both USB reverse
+mappings. Implementation and physical execution are complete; only the independent final
+architecture/security review remains before unqualified Block-D governance closure.

@@ -1,12 +1,12 @@
 # Block D — Synthetic Server-connected Android E2E Evidence
 
-Status: Software Technical-Lead Approved after Six Corrections — Latest Correction Awaiting GitHub CI; Physical Run In Progress
+Status: Technical-Lead/GitHub-CI Approved after Six Corrections — Physical Android E2E Passed; Independent Final Review Outstanding
 
 Date: 2026-07-14
 
 Authorized baseline: `b55c9f6f186374c4de987bfa6cfbd391ee03c833`
 
-Approved implementation commits: `3fe76ed`, `b584568`, `d32702b`
+Approved implementation commits: `3fe76ed`, `b584568`, `d32702b`, `59c4ac7`
 
 ## 1. Truthful outcome
 
@@ -16,16 +16,17 @@ the unchanged Core `BusinessEngine`. Its automated direct-PostgreSQL test proves
 Tag B, fingerprint-bound audited Tag-A fixture assignment, no lifecycle mutation during
 provisioning, then server-canonical Start and Stop six seconds apart.
 
-The physical run has now begun on the approved Galaxy A33 5G. Java 17, Android SDK/API 36, Build
-Tools 36.0.0, NDK 27.1, CMake 3.22.1 and ADB are installed; the authorized device is visible as
-`SM_A336B`; and the distinct local release APK built successfully in 6m12s. It is not yet installed
-and no server-connected NFC observation has occurred. Therefore the following are not claimed:
+The Human Architect completed the physical run on the approved Galaxy A33 5G / Android 15 with two
+NTAG213 tags. Java 17, Android SDK/API 36, Build Tools 36.0.0, NDK 27.1, CMake 3.22.1 and ADB were
+used. The distinct `com.tim180201.mobile.synthetic` release APK built in 6m12s, installed through
+the guarded helper, authenticated with the per-run synthetic account, rejected physical Tag B,
+provisioned physical Tag A without lifecycle mutation, and then displayed server-confirmed Start
+and Stop. Final PostgreSQL evidence was exactly 2 WorkEvents, 2 canonical Decisions, 2 Receipts,
+1 stopped TimeEntry, 1 Tag, 1 Assignment and 4 AuditEvents.
 
-- no physical Tag-B unassigned product-screen observation;
-- no physical Tag-A provisioning capture;
-- no physical server-confirmed Start/Stop;
-- no installed synthetic product APK or verified USB reverse table;
-- no Supabase Cloud/provider or production deployment validation.
+This proves the approved strictly local Android product path on the recorded device/tag set. It
+does not claim Supabase Cloud/provider operations, production deployment, production secrets/data,
+iOS support, broad Android device coverage or Block-E synchronization.
 
 No external cloud/tunnel/build resource was created because the selected local approach does not
 need one and the Human Architect explicitly gated such creation.
@@ -93,23 +94,23 @@ Typecheck passed; build passed. Mobile passed 253 tests in 16 files after adding
 variant boundary regression. Full repository regression results are recorded in Section 6 after the
 completion run.
 
-## 5. Physical server-connected checklist — outstanding
+## 5. Physical server-connected checklist — passed
 
 The prior Galaxy A33 5G / Android 15 / two-NTAG213 device-local validation remains valid evidence for
 NFC stability and cleanup, but it did not use Auth/C2/PostgreSQL and cannot satisfy this table.
 
 | Required observation | Status | Evidence |
 |---|---|---|
-| Synthetic product APK built locally and installed | Partial | 66-MB release APK built successfully; SHA-256 `52257c14df918136ca689d15f10bcf1ccc84bbc911c1cb2f7977a116696e2624`; installation outstanding |
-| USB reverse contains only Auth 54321 and C2 3000 | Outstanding | Galaxy A33 is ADB-authorized; reverse table remains empty before controlled installation |
-| Real synthetic password login and Membership screen | Outstanding | No device run in this task |
-| Physical NTAG213 Tag B is server-side unassigned | Outstanding | Automated synthetic payload proof is not physical evidence |
-| Physical Tag A matches approved shortened fingerprint | Outstanding | Raw UID must not be recorded |
-| Tag-A provisioning capture creates audit but no lifecycle evidence | Outstanding | Requires server-connected device run |
-| First post-provision Tag-A scan shows server-confirmed Start | Outstanding | Requires server-connected device run |
-| Second Tag-A scan after at least six seconds shows server-confirmed Stop | Outstanding | Requires server-connected device run |
-| No raw UID/token/provider error in UI, terminal or captured Evidence | Outstanding | Source/automated boundary passed; physical observation still required |
-| Tester/date/device/OS/app build/PostgreSQL/runtime versions recorded | Partial | Human Architect; 2026-07-14; SM-A336B/Galaxy A33 5G; Android 15 previously recorded; local PostgreSQL 17.10; final installed build/run values outstanding |
+| Synthetic product APK built locally and installed | Passed | 66-MB release APK; SHA-256 `52257c14df918136ca689d15f10bcf1ccc84bbc911c1cb2f7977a116696e2624`; version 1.0.0/code 1; target SDK 36; guarded streamed install returned `Success` |
+| USB reverse contains only Auth 54321 and C2 3000 | Passed | Authorized device `SM_A336B`; install helper verified exactly `tcp:54321 -> tcp:54321` and `tcp:3000 -> tcp:3000` |
+| Real synthetic password login and Membership screen | Passed | Real Mobile password adapter authenticated the `.invalid` fixture and enabled the Employee product scan screen; sensitive values were not printed or captured |
+| Physical NTAG213 Tag B is server-side unassigned | Passed | Product showed `Tag nicht zugeordnet`; before arming and while armed, status remained zero across Tags, Assignments and lifecycle evidence |
+| Physical Tag A matches approved shortened fingerprint | Passed | Operator armed only the previously displayed 12-character shortened SHA-256 validation fingerprint; no raw UID was recorded |
+| Tag-A provisioning capture creates audit but no lifecycle evidence | Passed | Status moved to 1 Tag, 1 Assignment and 2 AuditEvents while WorkEvents, Decisions, Receipts and TimeEntries remained zero |
+| First post-provision Tag-A scan shows server-confirmed Start | Passed | Product showed `Arbeitszeit gestartet`; status showed 1 WorkEvent, 1 Decision, 1 Receipt and 1 active TimeEntry |
+| Second Tag-A scan after at least six seconds shows server-confirmed Stop | Passed | Product showed `Arbeitszeit gestoppt`; final status showed 2 WorkEvents, 2 Decisions, 2 Receipts and 1 stopped TimeEntry |
+| No raw UID/token/provider error in UI, terminal or captured Evidence | Passed | Human Architect explicitly confirmed no raw UID, token, database/provider error or real person data was displayed |
+| Tester/date/device/OS/app build/PostgreSQL/runtime versions recorded | Passed | Human Architect; 2026-07-14; Samsung Galaxy A33 5G (`SM_A336B`), Android 15; app 1.0.0/code 1; Node 24.17.0; PostgreSQL 17.10; Java 17.0.19 |
 
 ## 6. Complete verification results
 
@@ -129,17 +130,18 @@ host-loopback PostgreSQL `17.10` cluster; no remote or cloud service was contact
 | B6 Typecheck/tests | Passed; 68/68 |
 | C1/C2 API Typecheck/tests | Passed; 127/127 in 2 files |
 | Synthetic Android E2E Typecheck/tests | Passed; 5/5 in 1 file |
-| Dedicated synthetic PostgreSQL 17 CI job | Passed in GitHub Actions run `29329906106`; Typecheck, 5/5 direct-PostgreSQL tests, build and loopback container cleanup all green |
+| Dedicated synthetic PostgreSQL 17 CI job | Passed in GitHub Actions runs `29329906106` and `29333578360`; latest run is bound to correction commit `59c4ac7`; Typecheck, 5/5 direct-PostgreSQL tests, build and loopback container cleanup all green |
 | Compiled harness startup/normal shutdown | Passed; loopback services started, `stop` returned and cleanup completed |
 | Root/workspace build | Passed, including Core and every backend workspace |
 | Product Android Expo export | Passed; Hermes bundle generated from 780 modules |
 | Synthetic Android Expo export | Passed; Hermes bundle generated from 780 modules |
 | Synthetic Expo config and variant mismatch | Passed; exact package/name/scheme, inconsistent variant rejected |
 | Disposable synthetic Android prebuild inspection | Passed; distinct application ID, base cleartext denied, only `127.0.0.1` allowed |
-| Local release APK/installation | APK build passed on attached SM-A336B host environment; installation and physical observations outstanding |
+| Local release APK/installation | Passed; 66-MB release APK built in 6m12s, integrity hash recorded above and guarded streamed install succeeded on `SM_A336B` |
 | Tracked prebuild-state preservation | Passed after Technical-Lead correction; the first real prebuild rewrite was reverted and the helper now restores exact `package.json` content even on failure |
 | Native-project preservation guard | Passed in source/regression review; any existing tracked or untracked `apps/mobile/android` directory is refused without deletion |
 | USB reverse cleanup helper | Passed in source/regression review; removes only approved ports `54321` and `3000`, refuses unexpected targets and preserves unrelated mappings |
+| Physical normal shutdown and transport cleanup | Passed; `stop` returned `synthetic_e2e_stopped`, disconnect returned `synthetic_e2e_loopback_reverse_removed`, password/database variables were unset and final `adb reverse --list` was empty |
 | Migrations `001`–`005` | Unchanged by repository diff |
 | `git diff --check` | Passed |
 
@@ -159,18 +161,22 @@ read, write, test and diff scope used for this implementation.
   the dedicated database reset/drop procedure.
 - The existing eleven moderate dependency findings and two unverified Supavisor modes remain open.
 - `research/` was neither read nor changed for implementation.
+- Physical evidence covers the recorded Galaxy A33 5G / Android 15 and two NTAG213 tags, not a
+  broader Android compatibility matrix or production pilot fleet.
+- A final independent architecture/security review remains outstanding before unqualified Block-D
+  governance closure.
 
 ## 8. Gate status
 
-Technical-Lead review returned `APPROVED` after correcting five blocking review findings: the
-build helper can no longer replace an existing untracked native Android project, successful
-installations now name and implement a mandatory scoped USB-reverse cleanup action, and the full
-five-test PostgreSQL harness has its own CI job whose clean-Linux sequence builds its required
-workspace declarations before Typecheck and preserves the server-side loopback guard by using host
-networking for its disposable PostgreSQL container. Implementation commits `3fe76ed`, `b584568`
-and `d32702b` then passed all eight jobs in GitHub Actions run `29329906106`. The truthful status is:
+Technical-Lead review returned `APPROVED` after six blocking corrections: native-project
+preservation, scoped USB reverse cleanup, dedicated CI enforcement, clean-Linux dependency builds,
+strict host-loopback PostgreSQL execution and exact tracked-state restoration after Expo prebuild.
+The first five corrections passed all eight jobs in run `29329906106`; correction commit `59c4ac7`
+passed all eight jobs in run `29333578360`. The Human Architect then completed and explicitly
+confirmed every physical checklist outcome above. The truthful status is:
 
-`Software Technical-Lead Approved after Six Corrections — Latest Correction Awaiting GitHub CI; Physical Run In Progress`
+`Technical-Lead/GitHub-CI Approved after Six Corrections — Physical Android E2E Passed; Independent Final Review Outstanding`
 
-No physical completion is claimed until the Human Architect or delegated tester records the table
-above.
+The local implementation and physical gate are complete. C3, Block E, cloud/production operations
+and unqualified Block-D closure remain outside this evidence; the next gate is independent final
+architecture/security review.
