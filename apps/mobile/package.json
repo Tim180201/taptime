@@ -26,6 +26,9 @@
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
+    "android:synthetic-e2e:build": "node scripts/buildSyntheticE2eAndroid.mjs",
+    "android:synthetic-e2e:disconnect": "node scripts/disconnectSyntheticE2eAndroid.mjs",
+    "android:synthetic-e2e:install": "node scripts/installSyntheticE2eAndroid.mjs",
     "ios": "expo start --ios",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",

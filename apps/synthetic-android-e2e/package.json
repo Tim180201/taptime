@@ -1,0 +1,36 @@
+{
+  "name": "@taptime/synthetic-android-e2e",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Strictly local, non-production Android/Auth/C2/PostgreSQL end-to-end test harness.",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json --emitDeclarationOnly && esbuild src/index.ts src/main.ts --bundle --platform=node --target=node24 --format=esm --alias:@taptime/backend-api=../backend-api/src/index.ts --alias:@taptime/backend-identity=../backend-identity/src/index.ts --alias:@taptime/backend-lifecycle=../backend-lifecycle/src/index.ts --alias:@taptime/backend-read-model=../backend-read-model/src/index.ts --alias:@taptime/backend-schema=../backend-schema/src/index.ts --alias:@taptime/core=../../packages/core/src/index.ts --external:jose --external:pg --sourcemap --outdir=dist",
+    "start": "node dist/main.js",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@taptime/backend-api": "*",
+    "@taptime/backend-identity": "*",
+    "@taptime/backend-lifecycle": "*",
+    "@taptime/backend-read-model": "*",
+    "@taptime/backend-schema": "*",
+    "@taptime/core": "*",
+    "jose": "^6.2.3",
+    "pg": "^8.22.0"
+  },
+  "devDependencies": {
+    "@supabase/supabase-js": "^2.110.3",
+    "@types/node": "^24.10.13",
+    "@types/pg": "^8.20.0",
+    "esbuild": "^0.28.1",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.9"
+  }
+}

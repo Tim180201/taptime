@@ -127,6 +127,55 @@ describe('C1 Mobile composition boundary', () => {
     expect(runtimeSource).not.toMatch(/fetch\(|supabase/i);
   });
 
+  it('keeps the synthetic E2E build on the real product composition and loopback-only transport',
+    async () => {
+      const [
+        appSource,
+        configSource,
+        networkPolicySource,
+        buildSource,
+        installSource,
+        disconnectSource,
+      ] = await Promise.all([
+        readFile(fileURLToPath(new URL('../../App.tsx', import.meta.url)), 'utf8'),
+        readFile(fileURLToPath(new URL('../../app.config.js', import.meta.url)), 'utf8'),
+        readFile(fileURLToPath(new URL(
+          '../../plugins/withSyntheticE2eNetworkSecurity.js',
+          import.meta.url,
+        )), 'utf8'),
+        readFile(fileURLToPath(new URL(
+          '../../scripts/buildSyntheticE2eAndroid.mjs',
+          import.meta.url,
+        )), 'utf8'),
+        readFile(fileURLToPath(new URL(
+          '../../scripts/installSyntheticE2eAndroid.mjs',
+          import.meta.url,
+        )), 'utf8'),
+        readFile(fileURLToPath(new URL(
+          '../../scripts/disconnectSyntheticE2eAndroid.mjs',
+          import.meta.url,
+        )), 'utf8'),
+      ]);
+      expect(configSource).toContain("appVariant === 'synthetic-e2e'");
+      expect(configSource).toContain("runtimeVariant === 'synthetic-e2e'");
+      expect(configSource).toContain('com.tim180201.mobile.synthetic');
+      expect(configSource).toContain('withSyntheticE2eNetworkSecurity(configuration)');
+      expect(appSource).not.toContain("=== 'synthetic-e2e'");
+      expect(networkPolicySource).toContain('base-config cleartextTrafficPermitted="false"');
+      expect(networkPolicySource).toContain('<domain includeSubdomains="false">127.0.0.1</domain>');
+      expect(buildSource).toContain('EXPO_PUBLIC_TAPTIME_DEMO_MODE: \'false\'');
+      expect(buildSource).toContain("APP_VARIANT: 'synthetic-e2e'");
+      expect(buildSource).not.toMatch(/https?:\/\/(?!127\.0\.0\.1)/);
+      expect(buildSource).toContain('existsSync(androidDirectory)');
+      expect(buildSource).not.toContain("'--clean'");
+      expect(installSource).toContain("['reverse', '--list']");
+      expect(installSource).toContain('activeMappings.length !== requiredMappings.length');
+      expect(installSource).toContain("['reverse', '--remove', device]");
+      expect(installSource).toContain('android:synthetic-e2e:disconnect');
+      expect(disconnectSource).toContain("['reverse', '--remove', device]");
+      expect(disconnectSource).not.toContain("'--remove-all'");
+    });
+
   it('shows Web as explicitly unsupported without enabling a native NFC runtime', async () => {
     const productAppSource = await readFile(
       fileURLToPath(new URL('../../src/ProductMobileApp.tsx', import.meta.url)),

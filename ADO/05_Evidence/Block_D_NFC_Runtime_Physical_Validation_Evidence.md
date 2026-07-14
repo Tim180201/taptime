@@ -1,6 +1,6 @@
 # Block D — NFC Runtime and Physical Validation Evidence
 
-Status: Software Approved by Technical Lead and GitHub CI — Awaiting Physical Device Validation
+Status: Software Approved and Device-local NFC Validation Passed — Server-connected Physical Validation Outstanding
 Date: 2026-07-14
 Implementation Baseline: `bac5f4868ecf36364d62629ed312306fa29dc9d7`
 Authorization Commit Parent: `4f540ca648b9ef98c5ad4ccf3798e0279fc8bb6c`
@@ -182,6 +182,26 @@ This tooling does not upgrade Block D readiness. It has no authentication, C2/B5
 assignment, lifecycle decision, durable storage or production cloud/data path. The physical table
 below remains outstanding until observed by the Human Architect.
 
+### 6.2 Synthetic server-connected Android E2E test environment
+
+On 2026-07-14 the Human Architect authorized a separate, strictly non-production environment for
+the still-open product-server observations. USB `adb reverse` was selected before implementation so
+the distinct synthetic package can reach host-loopback Auth and C2 without LAN, tunnel, cloud or
+device trust-anchor configuration. The variant still selects the real `ProductMobileApp` and real
+NFC/C2 product composition; its native cleartext exception is restricted to numeric loopback.
+
+Five direct PostgreSQL tests pass through the real Mobile password adapter, asymmetric local JWT
+verification, C2, B4/B5/B6 and the unchanged Core `BusinessEngine`. They prove Tag B stays
+unassigned, Tag A can be armed once by shortened validation fingerprint and provisioned through
+Administrator RLS/audit without creating lifecycle evidence, and the following two commands produce
+server-canonical Start then Stop. Core/Mobile are 288/253; all backend regressions remain green.
+
+No Android SDK/JDK/ADB or attached device was available in the implementation environment. The APK,
+USB reverse table and physical UI observations are therefore still outstanding and no physical
+server-connected pass is claimed. Full implementation, verification and security boundaries are in
+`ADO/05_Evidence/Block_D_Synthetic_Server_Connected_Android_E2E_Evidence.md` and
+`ADO/05_Evidence/Block_D_Synthetic_Server_Connected_Android_E2E_Security_Review.md`.
+
 ## 7. Physical validation table — partially executed
 
 | Required observation | Status | Evidence |
@@ -230,6 +250,8 @@ below remains outstanding until observed by the Human Architect.
 ## 9. Required next action
 
 The device-local physical checklist is complete for one Galaxy A33 5G / Android 15 and two NTAG213
-tags. A missing synthetic server test environment keeps the unassigned-tag product screen and
-end-to-end Start/Stop items open; this evidence does not yet close full Block D or claim pilot
-readiness across the intended device set.
+tags. The local synthetic server environment is implemented and its automated direct-PostgreSQL
+path is green and Technical-Lead approved after three corrections, but it still requires GitHub CI
+and an equipped physical run. Until the
+unassigned-tag product screen and server-confirmed Start/Stop are observed, this evidence does not
+close full Block D or claim pilot readiness across the intended device set.

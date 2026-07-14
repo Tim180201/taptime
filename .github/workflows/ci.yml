@@ -415,3 +415,51 @@ jobs:
         run: |
           npm run typecheck --workspace=@taptime/mobile
           npm test --workspace=@taptime/mobile
+
+  synthetic-android-e2e:
+    name: Synthetic server-connected Android E2E harness
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:17.10-alpine
+        env:
+          POSTGRES_DB: taptime_synthetic_android_e2e
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d taptime_synthetic_android_e2e"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      TAPTIME_SYNTHETIC_E2E_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/taptime_synthetic_android_e2e
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.17.0
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies from lockfile
+        run: npm ci
+
+      - name: Typecheck synthetic Android E2E harness
+        run: npm run typecheck --workspace=@taptime/synthetic-android-e2e
+
+      - name: Test synthetic Android E2E harness against clean PostgreSQL 17
+        run: npm test --workspace=@taptime/synthetic-android-e2e
+
+      - name: Build synthetic Android E2E harness
+        run: npm run build --workspace=@taptime/synthetic-android-e2e
