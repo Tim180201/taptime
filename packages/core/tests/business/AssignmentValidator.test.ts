@@ -20,8 +20,8 @@ const assignment: NfcAssignment = {
   active: true,
 };
 
-const activeCustomer: Customer = { id: customerId, organizationId, active: true };
-const disabledCustomer: Customer = { id: customerId, organizationId, active: false };
+const activeCustomer: Customer = { id: customerId, organizationId, displayName: 'Synthetic Customer', active: true };
+const disabledCustomer: Customer = { id: customerId, organizationId, displayName: 'Synthetic Customer', active: false };
 
 describe('AssignmentValidator (DT-003)', () => {
   it('accepts a valid assignment for an authenticated, in-organization employee with an active target', async () => {

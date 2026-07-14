@@ -47,6 +47,7 @@ export class OrganizationAdministrationService {
   async createCustomer(
     membership: Membership | null,
     organizationId: OrganizationId,
+    displayName: string,
   ): Promise<CreateCustomerResult> {
     const authorizationResult = this.membershipAuthorizationValidator.authorize(membership, organizationId);
 
@@ -57,6 +58,7 @@ export class OrganizationAdministrationService {
     const customer: Customer = {
       id: this.newCustomerId(),
       organizationId: authorizationResult.membership.organizationId,
+      displayName,
       active: true,
     };
 
@@ -69,6 +71,7 @@ export class OrganizationAdministrationService {
     membership: Membership | null,
     organizationId: OrganizationId,
     payload: NfcPayload,
+    displayName: string,
   ): Promise<RegisterNfcTagResult> {
     const authorizationResult = this.membershipAuthorizationValidator.authorize(membership, organizationId);
 
@@ -79,6 +82,7 @@ export class OrganizationAdministrationService {
     const nfcTag: NfcTag = {
       id: this.newNfcTagId(),
       organizationId: authorizationResult.membership.organizationId,
+      displayName,
       payload,
     };
 

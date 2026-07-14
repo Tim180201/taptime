@@ -83,8 +83,8 @@ export async function prepareSyntheticDatabase(
     installerPool,
     await loadMigrations(migrationDirectory),
   );
-  if (migration.applied.join(',') !== '001,002,003,004,005,006') {
-    throw new Error('Synthetic E2E requires a clean migration set 001 through 006');
+  if (migration.applied.join(',') !== '001,002,003,004,005,006,007') {
+    throw new Error('Synthetic E2E requires a clean migration set 001 through 007');
   }
 
   await normalizeApplicationRoles(installerPool);
@@ -296,8 +296,8 @@ async function seedSyntheticTenant(pool: Pool, issuer: string): Promise<void> {
   );
   await pool.query(
     `INSERT INTO ${B3_SCHEMA}.customers
-       (id, organization_id, active, activated_at, deactivated_at)
-     VALUES ($1, $2, true, transaction_timestamp(), NULL)`,
+       (id, organization_id, display_name, active, activated_at, deactivated_at)
+     VALUES ($1, $2, 'Synthetic Android Customer', true, transaction_timestamp(), NULL)`,
     [syntheticIds.customer, syntheticIds.organization],
   );
 }

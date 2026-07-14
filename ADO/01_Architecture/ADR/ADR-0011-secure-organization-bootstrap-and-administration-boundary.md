@@ -1,6 +1,7 @@
 # ADR-0011: Secure Organization Bootstrap and Administration Boundary
 
-Status: Accepted by Human Architect — C3B completed; C3C–C3E gated
+Status: Accepted by Human Architect — C3B completed; C3C authorized and locally implemented with
+independent final review/exact-head CI pending; C3D/C3E gated
 Date: 2026-07-14
 Acceptance: Accepted 2026-07-14
 Roadmap: Core Roadmap v2, Block C3 and later setup slices DT-063–DT-066
@@ -10,12 +11,19 @@ Related Artifacts: ADR-0006, ADR-0008, ADR-0009, FB-002, TS-002,
 `ADO/02_Development/Block_C3A_Organization_Administration_Architecture_Authorization.md`,
 `ADO/02_Development/Block_C3B_Secure_Organization_Bootstrap_Authorization.md`,
 `ADO/02_Development/Block_C3B_Secure_Organization_Bootstrap_Closure.md`,
+`ADO/02_Development/Block_C3C_Normal_Administration_Backend_Authorization.md`,
 `ADO/02_Development/Block_C3_Organization_Administration_Implementation_Plan.md`,
 `ADO/05_Evidence/Block_C3A_Independent_Architecture_Security_Review.md`,
 `ADO/05_Evidence/Block_C3B_Independent_Architecture_Security_Review.md`,
-`ADO/05_Evidence/Block_C3B_Secure_Organization_Bootstrap_Evidence.md`
+`ADO/05_Evidence/Block_C3B_Secure_Organization_Bootstrap_Evidence.md`,
+`ADO/05_Evidence/Block_C3C_Independent_Architecture_Security_Review.md`,
+`ADO/05_Evidence/Block_C3C_Normal_Administration_Backend_Evidence.md`
 
-## Context
+## Decision-time context (2026-07-14)
+
+This section records the source/runtime gaps that existed when the decision was accepted, before
+the separately authorized C3C implementation. It is retained as decision provenance rather than a
+claim about the 2026-07-15 local worktree.
 
 The DT-017–DT-026 Core foundation proves Organization, Membership, Customer, NFC Tag and NFC
 Assignment behavior in process. B3–B6 and C1/C2 later established PostgreSQL tenancy, real identity,
@@ -38,6 +46,12 @@ surface is built:
   authorization with resource state;
 - Core in-memory adapters do not implement the temporal one-active-assignment and tenant-local
   payload constraints already enforced by PostgreSQL.
+
+**Current implementation note (2026-07-15):** C3C now locally implements required Customer/Tag
+display names, the narrow normal-administration coordinator/database role, exact setup commands and
+the safe projection around the unchanged Core authority limitations above. Local verification and
+Technical-Lead mid-review pass. The implementation commit/head, independent final review and
+exact-head ten-job CI remain pending, so this note is neither C3C closure nor UI/production authority.
 
 ## Decision
 
@@ -378,9 +392,10 @@ Negative:
 C3B bootstrap implementation completed after Human Architect acceptance of this ADR, separate
 continuation, implementation plan, direct PostgreSQL security matrix, rollback/concurrency tests,
 Technical-Lead review, exact-head nine-job GitHub CI and independent security review. C3C normal
-administration still requires a second separate authorization after C3B closure. Admin Web/Mobile
-setup, production deployment and production personal data remain outside this ADR's implementation
-authority.
+administration received that separate authorization and is locally implemented/verified; its
+implementation head, independent final review and exact-head ten-job CI remain mandatory before
+closure. Admin Web/Mobile setup, production deployment and production personal data remain outside
+this ADR's implementation authority.
 
 ## Review triggers
 

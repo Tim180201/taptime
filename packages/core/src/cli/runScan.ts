@@ -70,10 +70,10 @@ export function buildScanDemoPipeline(
   const defaultCaller = authenticatedCaller(UserId('demo-employee'), organizationId);
 
   const customerId = CustomerId('demo-customer');
-  const customer: Customer = { id: customerId, organizationId, active: true };
+  const customer: Customer = { id: customerId, organizationId, displayName: 'Synthetic Customer', active: true };
 
   const tagId = NfcTagId('demo-tag');
-  const tag: NfcTag = { id: tagId, organizationId, payload: createNfcPayload(DEMO_KNOWN_PAYLOAD) };
+  const tag: NfcTag = { id: tagId, organizationId, displayName: 'Synthetic Tag', payload: createNfcPayload(DEMO_KNOWN_PAYLOAD) };
 
   const assignment: NfcAssignment = {
     id: NfcAssignmentId('demo-assignment'),

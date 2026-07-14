@@ -218,17 +218,17 @@ afterAll(async () => {
 });
 
 describe('B5 versioned-schema and least-privilege runtime boundary', () => {
-  it('uses the current migrations 001 through 006 without a B5-owned migration', async () => {
+  it('uses the current migrations 001 through 007 without a B5-owned migration', async () => {
     const migrations = await loadMigrations();
-    expect(migrations.map(({ version }) => version)).toEqual(['001', '002', '003', '004', '005', '006']);
+    expect(migrations.map(({ version }) => version)).toEqual(['001', '002', '003', '004', '005', '006', '007']);
 
     const ledger = await installerPool.query<{ version: string }>(
       `SELECT version FROM ${B3_MIGRATION_TABLE} ORDER BY version`,
     );
-    expect(ledger.rows.map(({ version }) => version)).toEqual(['001', '002', '003', '004', '005', '006']);
+    expect(ledger.rows.map(({ version }) => version)).toEqual(['001', '002', '003', '004', '005', '006', '007']);
     expect(await migrate(installerPool)).toEqual({
       applied: [],
-      alreadyApplied: ['001', '002', '003', '004', '005', '006'],
+      alreadyApplied: ['001', '002', '003', '004', '005', '006', '007'],
     });
   });
 
@@ -356,10 +356,16 @@ describe('tenant-scoped read-only repository adapters', () => {
           userId: ids.employeeA,
           role: 'employee',
         },
-        customer: { id: ids.customerA, organizationId: ids.organizationA, active: true },
+        customer: {
+          id: ids.customerA,
+          organizationId: ids.organizationA,
+          displayName: 'Synthetic Customer A',
+          active: true,
+        },
         tag: {
           id: ids.tagA,
           organizationId: ids.organizationA,
+          displayName: 'Synthetic Tag A',
           payload: 'shared-synthetic-payload',
         },
         assignment: {
@@ -437,6 +443,7 @@ describe('tenant-scoped read-only repository adapters', () => {
       value: {
         id: ids.tagA,
         organizationId: ids.organizationA,
+        displayName: 'Synthetic Tag A',
         payload: 'shared-synthetic-payload',
       },
     });

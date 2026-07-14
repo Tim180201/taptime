@@ -134,13 +134,14 @@ async function insertLifecycleWorkEvent(
 
 async function seedOtherTarget(): Promise<void> {
   await installerPool.query(
-    `INSERT INTO ${B3_SCHEMA}.customers (id, organization_id, active, activated_at)
-     VALUES ($1, $2, true, '2026-07-01T00:00:00Z')`,
+    `INSERT INTO ${B3_SCHEMA}.customers
+      (id, organization_id, display_name, active, activated_at)
+     VALUES ($1, $2, 'Synthetic Other Target', true, '2026-07-01T00:00:00Z')`,
     [otherTarget.customerId, ids.organizationA],
   );
   await installerPool.query(
-    `INSERT INTO ${B3_SCHEMA}.nfc_tags (id, organization_id, payload_value)
-     VALUES ($1, $2, 'synthetic-other-target')`,
+    `INSERT INTO ${B3_SCHEMA}.nfc_tags (id, organization_id, display_name, payload_value)
+     VALUES ($1, $2, 'Synthetic Other Tag', 'synthetic-other-target')`,
     [otherTarget.tagId, ids.organizationA],
   );
   await installerPool.query(
@@ -309,19 +310,19 @@ afterAll(async () => {
 });
 
 describe('B3 deterministic migration system', () => {
-  it('applies exactly six sorted versioned migrations through the authorized C3B addition', async () => {
+  it('applies exactly seven sorted versioned migrations through the authorized C3C addition', async () => {
     const rows = await installerPool.query<{ version: string; checksum: string }>(
       `SELECT version, checksum FROM ${B3_MIGRATION_TABLE} ORDER BY version`,
     );
 
-    expect(rows.rows.map((row) => row.version)).toEqual(['001', '002', '003', '004', '005', '006']);
+    expect(rows.rows.map((row) => row.version)).toEqual(['001', '002', '003', '004', '005', '006', '007']);
     expect(rows.rows.every((row) => /^[0-9a-f]{64}$/.test(row.checksum))).toBe(true);
   });
 
   it('reruns safely without applying any migration twice', async () => {
     await expect(migrate(installerPool)).resolves.toEqual({
       applied: [],
-      alreadyApplied: ['001', '002', '003', '004', '005', '006'],
+      alreadyApplied: ['001', '002', '003', '004', '005', '006', '007'],
     });
   });
 
@@ -397,12 +398,13 @@ describe('B3 deterministic migration system', () => {
     expect(result.rows[0]).toEqual({ table_exists: false, ledger_count: '0' });
   });
 
-  it('contains exactly the thirteen approved logical server tables', async () => {
+  it('contains exactly the fourteen approved logical server tables', async () => {
     const result = await installerPool.query<{ table_name: string }>(
       `SELECT table_name FROM information_schema.tables WHERE table_schema = $1 ORDER BY table_name`,
       [B3_SCHEMA],
     );
     expect(result.rows.map((row) => row.table_name)).toEqual([
+      'admin_setup_command_receipts',
       'audit_events',
       'bootstrap_receipts',
       'canonical_decisions',
@@ -429,7 +431,7 @@ describe('B3 deterministic migration system', () => {
         AND relation.relrowsecurity
         AND relation.relforcerowsecurity
     `);
-    expect(result.rows[0]?.count).toBe('13');
+    expect(result.rows[0]?.count).toBe('14');
   });
 });
 
@@ -696,7 +698,8 @@ describe('B3 Employee and Administrator RLS matrix', () => {
     const inserted = await adminQuery(
       adminAContext,
       `INSERT INTO ${B3_SCHEMA}.customers
-        (id, organization_id, active) VALUES ($1, $2, true)`,
+        (id, organization_id, display_name, active)
+       VALUES ($1, $2, 'Synthetic Administrator Customer', true)`,
       [id, ids.organizationA],
     );
     const updated = await adminQuery(
@@ -724,8 +727,9 @@ describe('B3 Employee and Administrator RLS matrix', () => {
         adminQuery(
           adminAContext,
           `INSERT INTO ${B3_SCHEMA}.customers
-            (id, organization_id, active, activated_at) VALUES
-            ('20000000-0000-4000-8000-000000000099', $1, true, transaction_timestamp())`,
+            (id, organization_id, display_name, active, activated_at) VALUES
+            ('20000000-0000-4000-8000-000000000099', $1,
+             'Synthetic Cross Tenant Customer', true, transaction_timestamp())`,
           [ids.organizationB],
         ),
       ),
@@ -2112,13 +2116,15 @@ describe('B3 atomic administrative audit evidence', () => {
     );
     await adminQuery(
       adminAContext,
-      `INSERT INTO ${B3_SCHEMA}.customers (id, organization_id, active) VALUES ($1, $2, true)`,
+      `INSERT INTO ${B3_SCHEMA}.customers (id, organization_id, display_name, active)
+       VALUES ($1, $2, 'Synthetic Deleted Customer', true)`,
       [deletedCustomerId, ids.organizationA],
     );
     await adminQuery(adminAContext, `DELETE FROM ${B3_SCHEMA}.customers WHERE id = $1`, [deletedCustomerId]);
     await adminQuery(
       adminAContext,
-      `INSERT INTO ${B3_SCHEMA}.customers (id, organization_id, active) VALUES ($1, $2, true)`,
+      `INSERT INTO ${B3_SCHEMA}.customers (id, organization_id, display_name, active)
+       VALUES ($1, $2, 'Synthetic Deactivated Customer', true)`,
       [deactivatedCustomerId, ids.organizationA],
     );
     await adminQuery(
@@ -2130,15 +2136,15 @@ describe('B3 atomic administrative audit evidence', () => {
     );
     await adminQuery(
       adminAContext,
-      `INSERT INTO ${B3_SCHEMA}.nfc_tags (id, organization_id, payload_value)
-       VALUES ($1, $2, 'do-not-audit-full-nfc-payload')`,
+      `INSERT INTO ${B3_SCHEMA}.nfc_tags (id, organization_id, display_name, payload_value)
+       VALUES ($1, $2, 'Synthetic Deleted Tag', 'do-not-audit-full-nfc-payload')`,
       [deletedTagId, ids.organizationA],
     );
     await adminQuery(adminAContext, `DELETE FROM ${B3_SCHEMA}.nfc_tags WHERE id = $1`, [deletedTagId]);
     await adminQuery(
       adminAContext,
-      `INSERT INTO ${B3_SCHEMA}.nfc_tags (id, organization_id, payload_value)
-       VALUES ($1, $2, 'assignment-only-synthetic-payload')`,
+      `INSERT INTO ${B3_SCHEMA}.nfc_tags (id, organization_id, display_name, payload_value)
+       VALUES ($1, $2, 'Synthetic Assignment Tag', 'assignment-only-synthetic-payload')`,
       [assignmentTagId, ids.organizationA],
     );
     await adminQuery(
@@ -2181,8 +2187,8 @@ describe('B3 atomic administrative audit evidence', () => {
     const tagId = '30000000-0000-4000-8000-000000000082';
     await adminQuery(
       adminAContext,
-      `INSERT INTO ${B3_SCHEMA}.nfc_tags (id, organization_id, payload_value)
-       VALUES ($1, $2, 'credential-like-value-must-not-be-audited')`,
+      `INSERT INTO ${B3_SCHEMA}.nfc_tags (id, organization_id, display_name, payload_value)
+       VALUES ($1, $2, 'Synthetic Audit Tag', 'credential-like-value-must-not-be-audited')`,
       [tagId, ids.organizationA],
     );
     const audit = await installerPool.query<{ payload: Record<string, unknown>; serialized: string }>(
@@ -2202,8 +2208,9 @@ describe('B3 atomic administrative audit evidence', () => {
       await postgresErrorCode(
         adminQuery(
           adminAContext,
-          `INSERT INTO ${B3_SCHEMA}.customers (id, organization_id, active)
-           VALUES ('20000000-0000-4000-8000-000000000083', $1, true)`,
+          `INSERT INTO ${B3_SCHEMA}.customers (id, organization_id, display_name, active)
+           VALUES ('20000000-0000-4000-8000-000000000083', $1,
+             'Synthetic Rejected Customer', true)`,
           [ids.organizationB],
         ),
       ),
@@ -2438,8 +2445,10 @@ describe('B3 structural constraints and idempotency primitives', () => {
     expect(
       await postgresErrorCode(
         installerPool.query(
-          `INSERT INTO ${B3_SCHEMA}.nfc_tags (id, organization_id, payload_value)
-           VALUES ('30000000-0000-4000-8000-000000000099', $1, 'shared-synthetic-payload')`,
+          `INSERT INTO ${B3_SCHEMA}.nfc_tags
+            (id, organization_id, display_name, payload_value)
+           VALUES ('30000000-0000-4000-8000-000000000099', $1,
+             'Synthetic Duplicate Tag', 'shared-synthetic-payload')`,
           [ids.organizationA],
         ),
       ),

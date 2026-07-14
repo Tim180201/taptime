@@ -78,6 +78,7 @@ Local verification uses a dedicated disposable PostgreSQL 17 database and a supe
 
 ```bash
 export C3B_DATABASE_URL="postgresql://$USER@127.0.0.1:5432/taptime_c3b"
+npm run build --workspace=@taptime/administration-contract
 npm run typecheck --workspace=@taptime/backend-bootstrap
 npm test --workspace=@taptime/backend-bootstrap
 npm run build --workspace=@taptime/backend-bootstrap

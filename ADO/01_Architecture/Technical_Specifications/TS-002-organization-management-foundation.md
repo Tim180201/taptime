@@ -1,22 +1,25 @@
 # TS-002 – Organization Management Foundation Technical Specification
 
-Status: Approved by Human Architect — implementation remains sliced and gated
+Status: Approved by Human Architect — C3B completed; C3C authorized and locally implemented with
+independent final review/exact-head CI pending; later slices gated
 Specification ID: TS-002
-Version: 1.2
-Last Updated: 2026-07-14 (C3B implementation closure)
+Version: 1.3
+Last Updated: 2026-07-15 (C3C local implementation checkpoint; exact contract unchanged)
 Acceptance: Accepted 2026-07-14
 Related Feature Blueprint: FB-002 (`ADO/01_Architecture/Feature_Blueprints/FB-002-organization-management-foundation.md`)
 Related Evidence: `ADO/05_Evidence/FB-002_Organization_Management_Scope_Assessment.md`,
 `ADO/05_Evidence/Block_C3A_Independent_Architecture_Security_Review.md`,
 `ADO/05_Evidence/Block_C3B_Independent_Architecture_Security_Review.md`,
-`ADO/05_Evidence/Block_C3B_Secure_Organization_Bootstrap_Evidence.md`
+`ADO/05_Evidence/Block_C3B_Secure_Organization_Bootstrap_Evidence.md`,
+`ADO/05_Evidence/Block_C3C_Normal_Administration_Backend_Evidence.md`
 Epic: EP-009 – Product Readiness Framework (Product Capability Track); EP-007 – Product Architecture Foundation (architectural continuity)
 Owner: Technical Lead
 Approval Authority: Human Architect
 Related Architecture: `ADO/01_Architecture/Technical_Architecture_Profile.md` (TTAP-001)
 Related ADRs: ADR-0002, ADR-0003, ADR-0005, ADR-0006, ADR-0007, ADR-0008, ADR-0009, ADR-0011
 Related Technical Specification: TS-001 (`ADO/01_Architecture/Technical_Specifications/TS-001-nfc-scan-creates-work-event.md`) — extended, not replaced
-Related Development Tasks: DT-017–DT-026 completed (Core foundation); C3B completed; C3C–C3E gated
+Related Development Tasks: DT-017–DT-026 completed; C3B completed; C3C authorized and locally
+implemented with final gates pending; C3D/C3E gated
 
 ## Purpose
 
@@ -66,7 +69,7 @@ current. The following amendment is normative where any historical section confl
 
 ## Normative C3A Runtime Amendment (2026-07-14)
 
-### Current implemented baseline
+### C3A implementation baseline at amendment time
 
 - DT-017–DT-026 implement and verify the complete Core-foundation sequence described below.
 - ADR-0008 and migrations `001`–`005` implement PostgreSQL tenant integrity, forced RLS, temporal
@@ -74,8 +77,9 @@ current. The following amendment is normative where any historical section confl
 - B4/B5/B6 and C1/C2 provide issuer-bound identity verification, tenant-safe reads,
   server-canonical lifecycle transactions and authenticated HTTP transport.
 - ADR-0009 provides the only supported physical v1 Tag payload: canonical Android UID.
-- No bootstrap or normal administration route exists. Existing Core services remain internal
-  foundation code and must not be exposed directly.
+- At the C3A amendment time, no bootstrap or normal administration route existed. Existing Core
+  services remain internal foundation code and must not be exposed directly; later C3B/C3C
+  implementation follows the fixed boundaries below rather than changing that rule.
 
 ### Normative precedence
 
@@ -424,7 +428,8 @@ Existing Scan Pipeline Integration (no code change — verification only: confir
 ```
 
 DT-017–DT-026 completed this order. It is not the C3 runtime sequence; C3B bootstrap is completed,
-while C3C normal setup backend/API, C3D UI/capture and C3E Membership/reassignment remain gated.
+C3C normal setup backend/API is authorized and locally implemented with independent final review and
+exact-head ten-job CI pending, while C3D UI/capture and C3E Membership/reassignment remain gated.
 
 ## Historical Core-Foundation Out of Scope and Current C3 Exclusions
 
@@ -454,7 +459,8 @@ Unchanged from FB-002, restated for this specification's own boundary:
 - Traceability: every new component is traced to a specific FB-002 Capability/Decision and to a specific existing repository precedent (`AssignmentValidator`, `CustomerRepository`, `NfcScanApplicationService`, `ids.ts`, ADR-0002's `NfcAssignment` identity precedent).
 - Accepted FB-002/TS-002 baseline: this document covers the implemented Core foundation and
   corrected C3A runtime contract. Independent re-review passed and Human Architect acceptance is
-  complete. C3B is separately completed; the normal setup API and UI are not implemented.
+  complete. C3B is separately completed and C3C is explicitly authorized; the normal setup API is
+  in implementation and the C3D/C3E UI/Membership surfaces remain gated.
 
 ## Former Open Questions — Current Disposition
 
@@ -469,7 +475,7 @@ Unchanged from FB-002, restated for this specification's own boundary:
 - Physical provisioning: canonical Android UID/capture resolved by ADR-0009; protected Android
   registration selected; NDEF writing/iOS/Web capture deferred.
 - Identity sequencing: resolved by ADR-0008/B4/C1 before C3 runtime.
-- Customer/Tag usability: required display names added to the C3 contract; implementation gated.
+- Customer/Tag usability: required display names are part of the authorized C3C implementation.
 - Normal Membership invitation/revocation/last-admin UI: remains separately gated, not an ambiguity
   in the initial C3 setup surface.
 
@@ -481,10 +487,10 @@ Product Vision
   -> TTAP-001
   -> FB-001 (existing, unchanged) -> TS-001 (existing, unchanged)
   -> FB-002 v1.2 (accepted)
-  -> TS-002 v1.2 (this accepted Core + C3A specification with C3B feasibility amendment)
+  -> TS-002 v1.3 (C3A/C3B contract plus exact C3C transport amendment)
   -> DT-017–DT-026 (Core foundation complete)
   -> ADR-0011 / C3A (independently validated and Human-accepted)
-  -> C3B (completed) / C3C–C3E (gated)
+  -> C3B (completed) / C3C (authorized + locally implemented; final review/CI pending) / C3D–C3E (gated)
 ```
 
 ## Review Reconciliation Note (2026-07-14)
@@ -494,7 +500,8 @@ correction review. The
 original sections remain useful evidence for why the Core foundation was shaped as it was. The
 normative C3A amendment corrects their time-dependent statements and adds the transport/security
 contract required for real runtime work. Human Architect acceptance and C3B implementation closure
-are complete; no C3C–C3E product code is authorized.
+are complete. C3C was later explicitly authorized on baseline `c1148d57`; C3D/C3E remain
+unauthorized.
 
 ## C3B Feasibility Amendment (Version 1.2, 2026-07-14)
 
@@ -505,6 +512,52 @@ UCD-15.1 property tables and rejects post-15.1 assignments before normalization.
 authorization and independent pre-review record this feasibility correction. All other accepted
 C3A behavior, result, authority and gating decisions remain unchanged; a future Unicode change
 requires `taptime-name-v2` rather than a silent v1 mutation.
+
+## C3C Exact Runtime Amendment (Version 1.3, 2026-07-14)
+
+Version 1.3 freezes the transport details that the accepted logical C3A contract intentionally left
+to the separately gated implementation slice. The Human Architect explicitly authorized C3C on
+baseline `c1148d57edb12312a102f090715c4b28308f6347` after three independent read-only pre-reviews.
+
+The exact authenticated JSON surface is:
+
+```text
+POST /v1/administration/customers
+  { expectedMembershipId, commandId, displayName }
+
+POST /v1/administration/nfc-tags/provision
+  { expectedMembershipId, commandId, customerId, displayName, canonicalPayload }
+
+POST /v1/administration/setup-projection
+  { expectedMembershipId, cursor, limit }
+```
+
+The body is the single expected-Membership source for these routes; the C2 lifecycle narrowing
+header is rejected here. This is a narrowing identifier, not a caller-supplied Membership or
+authority object. Every UUID input must already be canonical lowercase text. No Organization,
+User, role, active state or complete Domain object is accepted. The server derives and locks all
+authority before receipt or resource visibility.
+
+Customer mutation success is
+`{ status: "succeeded", idempotentRetry, customer: AdminCustomerSummary }`. Tag provision success is
+`{ status: "succeeded", idempotentRetry, nfcTag: AdminNfcTagSummary, assignmentId }`. Both are HTTP
+200 and contain no Domain Event or raw payload. The fixed failure vocabulary and HTTP mapping remain
+the table in this specification.
+
+Projection returns
+`{ status: "succeeded", organization, customers, nfcTags, nextCursor }`. It uses one v1 keyset
+cursor across Customers ordered by UUID followed by Tags ordered by UUID, with a combined integer
+limit of 1–20 and a maximum 256-byte cursor. `assignmentState` is exactly `assigned | unassigned`;
+`targetCustomerId` is a UUID exactly when assigned and otherwise null. The encoded response must
+remain below 16 KiB at maximum allowed name lengths.
+
+Migration `007` supplies a neutral pure C3 Unicode/digest contract, ID-only ASCII fixture backfill,
+database-authoritative name/digest validation, a setup-only canonical UID insert guard, safe stored
+fingerprint, success-only receipt, fail-closed setup audit allowlist and the distinct setup role.
+The fourth API login may assume only identity resolver and setup roles. Deadline propagation plus
+PostgreSQL lock/statement/transaction bounds prevents a reported timeout from leaving an
+uncontrolled write transaction. The complete binding details and stop conditions are normative in
+`ADO/02_Development/Block_C3C_Normal_Administration_Backend_Authorization.md`.
 
 ## Historical Role Handover (2026-07-07)
 

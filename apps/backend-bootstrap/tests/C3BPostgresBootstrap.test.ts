@@ -48,7 +48,7 @@ beforeAll(async () => {
   await installerPool.query(`DROP SCHEMA IF EXISTS ${B3_SCHEMA} CASCADE`);
   await installerPool.query(`DROP TABLE IF EXISTS ${B3_MIGRATION_TABLE}`);
   const migration = await migrate(installerPool);
-  expect(migration.applied).toEqual(['001', '002', '003', '004', '005', '006']);
+  expect(migration.applied).toEqual(['001', '002', '003', '004', '005', '006', '007']);
   jwks = await createJwksServer();
   verifier = SupabaseJwtAccessTokenVerifier.fromRemoteJwks({
     issuer: jwks.issuer,
@@ -76,12 +76,12 @@ afterAll(async () => {
 });
 
 describe('migration 006 and role graph', () => {
-  it('records exactly migrations 001 through 006 and reruns the immutable ledger', async () => {
+  it('records exactly migrations 001 through 007 and reruns the immutable ledger', async () => {
     expect((await loadMigrations()).map(({ version }) => version)).toEqual([
-      '001', '002', '003', '004', '005', '006',
+      '001', '002', '003', '004', '005', '006', '007',
     ]);
     await expect(migrate(installerPool)).resolves.toEqual({
-      applied: [], alreadyApplied: ['001', '002', '003', '004', '005', '006'],
+      applied: [], alreadyApplied: ['001', '002', '003', '004', '005', '006', '007'],
     });
   });
 
@@ -201,6 +201,31 @@ describe('migration 006 and role graph', () => {
     ].map(([table_name, privilege_type]) => ({ table_name, privilege_type })));
   });
 
+  it('gives the owner exactly the external name-normalization capability required by Organization constraints', async () => {
+    const grants = await installerPool.query<{
+      function_name: string;
+      privilege_type: string;
+      is_grantable: boolean;
+    }>(`
+      SELECT capability.oid::regprocedure::text AS function_name,
+        privilege.privilege_type,
+        privilege.is_grantable
+      FROM pg_proc AS capability
+      JOIN pg_namespace AS namespace ON namespace.oid = capability.pronamespace
+      CROSS JOIN LATERAL aclexplode(capability.proacl) AS privilege
+      JOIN pg_roles AS grantee ON grantee.oid = privilege.grantee
+      WHERE namespace.nspname = '${B3_SCHEMA}'
+        AND grantee.rolname = 'taptime_bootstrap_function_owner'
+        AND capability.proowner <> grantee.oid
+      ORDER BY function_name, privilege_type
+    `);
+    expect(grants.rows).toEqual([{
+      function_name: `${B3_SCHEMA}.normalize_taptime_name_v1(text,text)`,
+      privilege_type: 'EXECUTE',
+      is_grantable: false,
+    }]);
+  });
+
   it('makes the function owner own exactly one schema function and no table', async () => {
     const result = await installerPool.query<{ owned_functions: string; owned_relations: string }>(`
       SELECT
@@ -235,6 +260,7 @@ describe('migration 006 and role graph', () => {
       { rolname: 'taptime_bootstrap_executor', object_class: 'pg_proc', deptype: 'a', dependency_count: '1' },
       { rolname: 'taptime_bootstrap_function_owner', object_class: 'pg_class', deptype: 'a', dependency_count: '6' },
       { rolname: 'taptime_bootstrap_function_owner', object_class: 'pg_namespace', deptype: 'a', dependency_count: '1' },
+      { rolname: 'taptime_bootstrap_function_owner', object_class: 'pg_proc', deptype: 'a', dependency_count: '1' },
       { rolname: 'taptime_bootstrap_function_owner', object_class: 'pg_proc', deptype: 'o', dependency_count: '1' },
       { rolname: operatorA, object_class: 'pg_database', deptype: 'a', dependency_count: '1' },
       { rolname: operatorB, object_class: 'pg_database', deptype: 'a', dependency_count: '1' },

@@ -28,7 +28,7 @@ describe('NFC scan to TimeEntry lifecycle pipeline (F-01 end-to-end)', () => {
   const organizationId = OrganizationId('org-1');
   const userId = UserId('user-1');
   const payload = 'known-tag-payload';
-  const tag: NfcTag = { id: NfcTagId('tag-1'), organizationId, payload: createNfcPayload(payload) };
+  const tag: NfcTag = { id: NfcTagId('tag-1'), organizationId, displayName: 'Synthetic Tag', payload: createNfcPayload(payload) };
   const target = customerAssignmentTarget(CustomerId('customer-1'));
   const otherTarget = customerAssignmentTarget(CustomerId('customer-2'));
   const assignment: NfcAssignment = {
@@ -38,7 +38,7 @@ describe('NFC scan to TimeEntry lifecycle pipeline (F-01 end-to-end)', () => {
     target,
     active: true,
   };
-  const activeCustomer: Customer = { id: CustomerId('customer-1'), organizationId, active: true };
+  const activeCustomer: Customer = { id: CustomerId('customer-1'), organizationId, displayName: 'Synthetic Customer', active: true };
   const caller = authenticatedCaller(userId, organizationId);
 
   function buildPipeline() {

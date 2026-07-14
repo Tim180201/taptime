@@ -13,6 +13,15 @@ import type {
   LifecycleIngestionCommand,
   LifecycleIngestionResult,
 } from '@taptime/backend-lifecycle';
+import type {
+  AdminCoordinatorControls,
+  CreateCustomerCommand,
+  CreateCustomerResult,
+  ProvisionNfcTagCommand,
+  ProvisionNfcTagResult,
+  ReadSetupProjectionCommand,
+  ReadSetupProjectionResult,
+} from '@taptime/backend-administration';
 
 export interface ResolvedProductSession {
   readonly userId: UserId;
@@ -64,15 +73,34 @@ export interface DeferredLifecycleIngestor {
   ): Promise<DeferredLifecycleIngestionResult>;
 }
 
+export interface AdministrationCoordinator {
+  createCustomer(
+    command: CreateCustomerCommand,
+    controls?: AdminCoordinatorControls,
+  ): Promise<CreateCustomerResult>;
+
+  provisionNfcTag(
+    command: ProvisionNfcTagCommand,
+    controls?: AdminCoordinatorControls,
+  ): Promise<ProvisionNfcTagResult>;
+
+  readSetupProjection(
+    command: ReadSetupProjectionCommand,
+    controls?: AdminCoordinatorControls,
+  ): Promise<ReadSetupProjectionResult>;
+}
+
 export interface BackendApiDependencies {
   readonly sessionAuthority: SessionAuthorityResolver;
   readonly scanContextResolver: ScanContextResolver;
   readonly lifecycleIngestor: LifecycleIngestor;
   readonly deferredLifecycleIngestor: DeferredLifecycleIngestor;
+  readonly administration: AdministrationCoordinator;
 }
 
 export interface BackendApiDiagnostic {
   readonly code:
+    | 'administration_failed'
     | 'lifecycle_ingestion_failed'
     | 'scan_context_resolution_failed'
     | 'session_resolution_failed';

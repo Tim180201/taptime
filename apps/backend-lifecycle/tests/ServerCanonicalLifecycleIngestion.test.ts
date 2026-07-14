@@ -265,19 +265,19 @@ afterAll(async () => {
 });
 
 describe('B6 migration and least-privilege runtime boundary', () => {
-  it('applies exactly migrations 001 through 006 and reruns the immutable ledger', async () => {
+  it('applies exactly migrations 001 through 007 and reruns the immutable ledger', async () => {
     expect((await loadMigrations()).map(({ version }) => version)).toEqual([
-      '001', '002', '003', '004', '005', '006',
+      '001', '002', '003', '004', '005', '006', '007',
     ]);
     const ledger = await installerPool.query<{ version: string }>(
       `SELECT version FROM ${B3_MIGRATION_TABLE} ORDER BY version`,
     );
     expect(ledger.rows.map(({ version }) => version)).toEqual([
-      '001', '002', '003', '004', '005', '006',
+      '001', '002', '003', '004', '005', '006', '007',
     ]);
     await expect(migrate(installerPool)).resolves.toEqual({
       applied: [],
-      alreadyApplied: ['001', '002', '003', '004', '005', '006'],
+      alreadyApplied: ['001', '002', '003', '004', '005', '006', '007'],
     });
   });
 

@@ -88,8 +88,9 @@ async function provisionTagA(pool: Pool, payload: NfcPayload): Promise<void> {
     await setAdministratorContext(client);
     await client.query('SET LOCAL ROLE taptime_administrator');
     await client.query(
-      `INSERT INTO taptime_server.nfc_tags (id, organization_id, payload_value)
-       VALUES ($1, $2, $3)`,
+      `INSERT INTO taptime_server.nfc_tags
+         (id, organization_id, display_name, payload_value)
+       VALUES ($1, $2, 'Synthetic Android Tag A', $3)`,
       [syntheticIds.tagA, syntheticIds.organization, payload],
     );
     await client.query(

@@ -33,12 +33,14 @@ interface MembershipRow {
 interface CustomerRow {
   readonly id: string;
   readonly organization_id: string;
+  readonly display_name: string;
   readonly active: boolean;
 }
 
 interface NfcTagRow {
   readonly id: string;
   readonly organization_id: string;
+  readonly display_name: string;
   readonly payload_value: string;
 }
 
@@ -98,7 +100,7 @@ export function createTenantReadRepositories(
     async findById(customerId: CustomerId): Promise<Customer | null> {
       assertSessionActive();
       const row = oneOrNull(await client.query<CustomerRow>(
-        `SELECT id, organization_id, active
+        `SELECT id, organization_id, display_name, active
          FROM taptime_server.customers
          WHERE organization_id = $1::uuid
            AND id = $2::uuid`,
@@ -109,6 +111,7 @@ export function createTenantReadRepositories(
         : {
             id: CustomerId(row.id),
             organizationId: OrganizationId(row.organization_id),
+            displayName: row.display_name,
             active: row.active,
           };
     },
@@ -118,7 +121,7 @@ export function createTenantReadRepositories(
     async findByPayload(payload: NfcPayload): Promise<NfcTag | null> {
       assertSessionActive();
       const row = oneOrNull(await client.query<NfcTagRow>(
-        `SELECT id, organization_id, payload_value
+        `SELECT id, organization_id, display_name, payload_value
          FROM taptime_server.nfc_tags
          WHERE organization_id = $1::uuid
            AND payload_value = $2`,
@@ -129,6 +132,7 @@ export function createTenantReadRepositories(
         : {
             id: NfcTagId(row.id),
             organizationId: OrganizationId(row.organization_id),
+            displayName: row.display_name,
             payload: createNfcPayload(row.payload_value),
           };
     },

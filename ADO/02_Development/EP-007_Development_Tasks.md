@@ -820,6 +820,13 @@ Known limitations: this proof is repository-internal only — no UI, CLI, or mob
 resolve the architecture questions above without changing DT-026's code/test evidence. The Core
 foundation remains complete; C3B is separately completed and C3C–C3E remain gated.
 
+**Post-closure C3C reconciliation checkpoint (2026-07-15):** TS-002 v1.3 and the authorized C3C
+implementation add the tenant-safe normal setup backend/API around this unchanged historical Core
+foundation. Local Node-24/PostgreSQL-17 verification passed, but C3C still awaits its implementation
+head, independent final review and exact-head ten-job CI. This does not change DT-017–DT-026's
+Completed status, create a new EP-007 Development Task or complete DT-063–DT-066. C3D/C3E and
+production remain gated.
+
 ## Dependencies
 
 - ADR-0007 must exist.
@@ -838,3 +845,8 @@ planning gate is satisfied. The accepted C3A package reconciles the completed Co
 backend/runtime boundary; it does not retroactively convert the Core services into transport
 authority. C3B separately completed after Human acceptance and its own authorization/review/CI
 cycle; C3C–C3E remain gated.
+
+Current checkpoint (2026-07-15): C3C is now authorized and locally implemented/verified, while its
+independent final review and exact-head ten-job CI remain pending. C3D/C3E remain unauthorized and
+DT-063–DT-066 remain open. This current checkpoint supplements rather than rewrites the historical
+DT-017–DT-026 completion evidence above.

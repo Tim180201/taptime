@@ -3,10 +3,13 @@
 Status: strictly local, synthetic and non-production test infrastructure
 
 This Node-24 workspace runs the real C2 HTTP router, B4 identity resolution, B5 tenant read model,
-B6 lifecycle coordinator, Core `BusinessEngine` and PostgreSQL migrations `001`–`006`. It adds only
+B6 lifecycle coordinator, Core `BusinessEngine` and PostgreSQL migrations `001`–`007`. It adds only
 a local password/JWKS fixture and a one-shot Tag-A fixture-provisioning control. It is not a
 production Auth provider, backend deployment, C3 administration API or Block-E synchronization
 implementation.
+
+The shared router contains the C3C paths, but this harness deliberately supplies no administration
+database coordinator: every such call is disabled and returns only the generic unavailable result.
 
 ## Safety boundary
 

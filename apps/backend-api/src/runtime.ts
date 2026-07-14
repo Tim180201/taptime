@@ -1,3 +1,4 @@
+import { AdminWriteSessionCoordinator } from '@taptime/backend-administration';
 import {
   PostgresIdentityMembershipResolver,
   SupabaseJwtAccessTokenVerifier,
@@ -16,6 +17,7 @@ export interface BackendApiRuntimeConfiguration {
   readonly sessionDatabaseUrl: string;
   readonly readModelDatabaseUrl: string;
   readonly lifecycleDatabaseUrl: string;
+  readonly administrationDatabaseUrl: string;
   readonly supabaseIssuer: string;
 }
 
@@ -45,7 +47,13 @@ export function createBackendApiRuntime(
   const sessionDatabase = validateDatabaseUrl(configuration.sessionDatabaseUrl);
   const readModelDatabase = validateDatabaseUrl(configuration.readModelDatabaseUrl);
   const lifecycleDatabase = validateDatabaseUrl(configuration.lifecycleDatabaseUrl);
-  assertDistinctDatabaseUsers([sessionDatabase, readModelDatabase, lifecycleDatabase]);
+  const administrationDatabase = validateDatabaseUrl(configuration.administrationDatabaseUrl);
+  assertDistinctDatabaseUsers([
+    sessionDatabase,
+    readModelDatabase,
+    lifecycleDatabase,
+    administrationDatabase,
+  ]);
 
   const issuer = configuration.supabaseIssuer.replace(/\/+$/, '');
   const verifier = SupabaseJwtAccessTokenVerifier.fromRemoteJwks({
@@ -57,6 +65,7 @@ export function createBackendApiRuntime(
   const sessionPool = createRuntimePool(sessionDatabase.connectionString);
   const readModelPool = createRuntimePool(readModelDatabase.connectionString);
   const lifecyclePool = createRuntimePool(lifecycleDatabase.connectionString);
+  const administrationPool = createRuntimePool(administrationDatabase.connectionString);
   const lifecycleCoordinator = new ServerCanonicalLifecycleIngestionCoordinator(
     lifecyclePool,
     verifier,
@@ -72,6 +81,7 @@ export function createBackendApiRuntime(
       ),
       lifecycleIngestor: lifecycleCoordinator,
       deferredLifecycleIngestor: lifecycleCoordinator,
+      administration: new AdminWriteSessionCoordinator(administrationPool, verifier),
     },
     options,
   );
@@ -93,6 +103,7 @@ export function createBackendApiRuntime(
         sessionPool.end(),
         readModelPool.end(),
         lifecyclePool.end(),
+        administrationPool.end(),
       ]);
       const failure = results.find(
         (result): result is PromiseRejectedResult => result.status === 'rejected',

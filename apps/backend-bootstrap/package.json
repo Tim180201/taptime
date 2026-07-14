@@ -20,8 +20,8 @@
     "verify-bin": "node scripts/verifyBuiltCli.mjs"
   },
   "dependencies": {
+    "@taptime/administration-contract": "*",
     "@taptime/backend-identity": "*",
-    "@unicode/unicode-15.1.0": "1.6.17",
     "pg": "^8.22.0"
   },
   "devDependencies": {

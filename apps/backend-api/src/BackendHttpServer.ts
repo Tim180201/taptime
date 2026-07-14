@@ -24,6 +24,9 @@ const SESSION_PATH = '/v1/session';
 const SCAN_CONTEXT_PATH = '/v1/scan-context/resolve';
 const LIFECYCLE_PATH = '/v1/lifecycle-events';
 const DEFERRED_LIFECYCLE_PATH = '/v1/lifecycle-events/deferred';
+const ADMIN_CUSTOMERS_PATH = '/v1/administration/customers';
+const ADMIN_NFC_PROVISION_PATH = '/v1/administration/nfc-tags/provision';
+const ADMIN_SETUP_PROJECTION_PATH = '/v1/administration/setup-projection';
 const EXPECTED_MEMBERSHIP_HEADER = 'x-taptime-expected-membership-id';
 const MAX_AUTHORIZATION_LENGTH = 4_096;
 const MAX_BODY_BYTES = 16 * 1_024;
@@ -33,16 +36,28 @@ const MAX_SCAN_PAYLOAD_BYTES = 1_024;
 const DEFAULT_OPERATION_TIMEOUT_MILLISECONDS = 8_000;
 const compactJwtPattern = /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/;
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const canonicalUuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const isoTimestampPattern = /^(\d{4})-(\d{2})-(\d{2})T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})$/;
 
 type ErrorCode =
+  | 'assignment_target_unavailable'
+  | 'command_id_conflict'
+  | 'forbidden'
   | 'invalid_request'
   | 'method_not_allowed'
   | 'not_found'
   | 'service_unavailable'
+  | 'tag_payload_already_registered'
   | 'unauthorized';
 
-type Route = 'deferred_lifecycle' | 'lifecycle' | 'scan_context' | 'session';
+type Route =
+  | 'admin_create_customer'
+  | 'admin_provision_nfc_tag'
+  | 'admin_setup_projection'
+  | 'deferred_lifecycle'
+  | 'lifecycle'
+  | 'scan_context'
+  | 'session';
 
 export interface BackendHttpServerOptions {
   readonly onDiagnostic?: BackendApiDiagnosticSink;
@@ -128,6 +143,14 @@ async function handleRequest(
     respondError(response, 400, 'invalid_request');
     return;
   }
+  if (
+    isAdministrationRoute(route)
+    && rawHeaderValues(request, EXPECTED_MEMBERSHIP_HEADER).length > 0
+  ) {
+    request.resume();
+    respondError(response, 400, 'invalid_request');
+    return;
+  }
 
   if (route === 'session' && requestHasBody(request)) {
     request.resume();
@@ -180,6 +203,42 @@ async function handleRequest(
     return;
   }
 
+  if (route === 'admin_create_customer') {
+    await handleCreateCustomer(
+      response,
+      accessToken,
+      body,
+      dependencies,
+      options,
+      correlationId,
+      timeoutMilliseconds,
+    );
+    return;
+  }
+  if (route === 'admin_provision_nfc_tag') {
+    await handleProvisionNfcTag(
+      response,
+      accessToken,
+      body,
+      dependencies,
+      options,
+      correlationId,
+      timeoutMilliseconds,
+    );
+    return;
+  }
+  if (route === 'admin_setup_projection') {
+    await handleSetupProjection(
+      response,
+      accessToken,
+      body,
+      dependencies,
+      options,
+      correlationId,
+      timeoutMilliseconds,
+    );
+    return;
+  }
   if (route === 'scan_context') {
     await handleScanContext(
       response,
@@ -242,6 +301,183 @@ async function handleSession(
   } catch {
     emitDiagnostic(options.onDiagnostic, {
       code: 'session_resolution_failed',
+      correlationId,
+    });
+    respondError(response, 503, 'service_unavailable');
+  }
+}
+
+async function handleCreateCustomer(
+  response: ServerResponse,
+  accessToken: string,
+  body: unknown,
+  dependencies: BackendApiDependencies,
+  options: BackendHttpServerOptions,
+  correlationId: string,
+  timeoutMilliseconds: number,
+): Promise<void> {
+  const command = parseCreateCustomerBody(body);
+  if (command === null) {
+    respondError(response, 400, 'invalid_request');
+    return;
+  }
+
+  await handleAdministrationOperation(
+    response,
+    options,
+    correlationId,
+    timeoutMilliseconds,
+    (deadlineEpochMilliseconds) => dependencies.administration.createCustomer(
+      { accessToken, ...command },
+      { deadlineEpochMilliseconds },
+    ),
+    (result) => ({
+      status: 'succeeded',
+      idempotentRetry: result.idempotentRetry,
+      customer: {
+        id: result.customer.id,
+        displayName: result.customer.displayName,
+        active: result.customer.active,
+      },
+    }),
+  );
+}
+
+async function handleProvisionNfcTag(
+  response: ServerResponse,
+  accessToken: string,
+  body: unknown,
+  dependencies: BackendApiDependencies,
+  options: BackendHttpServerOptions,
+  correlationId: string,
+  timeoutMilliseconds: number,
+): Promise<void> {
+  const command = parseProvisionNfcTagBody(body);
+  if (command === null) {
+    respondError(response, 400, 'invalid_request');
+    return;
+  }
+
+  await handleAdministrationOperation(
+    response,
+    options,
+    correlationId,
+    timeoutMilliseconds,
+    (deadlineEpochMilliseconds) => dependencies.administration.provisionNfcTag(
+      { accessToken, ...command },
+      { deadlineEpochMilliseconds },
+    ),
+    (result) => ({
+      status: 'succeeded',
+      idempotentRetry: result.idempotentRetry,
+      nfcTag: {
+        id: result.nfcTag.id,
+        displayName: result.nfcTag.displayName,
+        validationFingerprint: result.nfcTag.validationFingerprint,
+        assignmentState: result.nfcTag.assignmentState,
+        targetCustomerId: result.nfcTag.targetCustomerId,
+      },
+      assignmentId: result.assignmentId,
+    }),
+  );
+}
+
+async function handleSetupProjection(
+  response: ServerResponse,
+  accessToken: string,
+  body: unknown,
+  dependencies: BackendApiDependencies,
+  options: BackendHttpServerOptions,
+  correlationId: string,
+  timeoutMilliseconds: number,
+): Promise<void> {
+  const command = parseSetupProjectionBody(body);
+  if (command === null) {
+    respondError(response, 400, 'invalid_request');
+    return;
+  }
+
+  await handleAdministrationOperation(
+    response,
+    options,
+    correlationId,
+    timeoutMilliseconds,
+    (deadlineEpochMilliseconds) => dependencies.administration.readSetupProjection(
+      { accessToken, ...command },
+      { deadlineEpochMilliseconds },
+    ),
+    (result) => ({
+      status: 'succeeded',
+      organization: {
+        id: result.organization.id,
+        name: result.organization.name,
+      },
+      customers: result.customers.map((customer) => ({
+        id: customer.id,
+        displayName: customer.displayName,
+        active: customer.active,
+      })),
+      nfcTags: result.nfcTags.map((nfcTag) => ({
+        id: nfcTag.id,
+        displayName: nfcTag.displayName,
+        validationFingerprint: nfcTag.validationFingerprint,
+        assignmentState: nfcTag.assignmentState,
+        targetCustomerId: nfcTag.targetCustomerId,
+      })),
+      nextCursor: result.nextCursor,
+    }),
+  );
+}
+
+async function handleAdministrationOperation<Result extends { readonly status: string }>(
+  response: ServerResponse,
+  options: BackendHttpServerOptions,
+  correlationId: string,
+  timeoutMilliseconds: number,
+  operation: (deadlineEpochMilliseconds: number) => Promise<Result>,
+  successResponse: (result: Extract<Result, { readonly status: 'succeeded' }>) => unknown,
+): Promise<void> {
+  try {
+    const deadlineEpochMilliseconds = Date.now() + timeoutMilliseconds;
+    if (!Number.isSafeInteger(deadlineEpochMilliseconds)) {
+      throw new Error('Backend API administration deadline is outside the safe integer range');
+    }
+    const result = await withTimeout(
+      operation(deadlineEpochMilliseconds),
+      timeoutMilliseconds,
+    );
+    switch (result.status) {
+      case 'succeeded':
+        respondJson(
+          response,
+          200,
+          successResponse(result as Extract<Result, { readonly status: 'succeeded' }>),
+        );
+        return;
+      case 'invalid_request':
+        respondError(response, 400, 'invalid_request');
+        return;
+      case 'unauthorized':
+        respondError(response, 401, 'unauthorized');
+        return;
+      case 'forbidden':
+        respondError(response, 403, 'forbidden');
+        return;
+      case 'assignment_target_unavailable':
+        respondError(response, 404, 'assignment_target_unavailable');
+        return;
+      case 'tag_payload_already_registered':
+        respondError(response, 409, 'tag_payload_already_registered');
+        return;
+      case 'command_id_conflict':
+        respondError(response, 409, 'command_id_conflict');
+        return;
+      default:
+        throw new Error('Administration coordinator returned an unsupported result');
+    }
+  } catch {
+    emitDiagnostic(options.onDiagnostic, {
+      code: 'administration_failed',
       correlationId,
     });
     respondError(response, 503, 'service_unavailable');
@@ -376,6 +612,15 @@ async function handleDeferredLifecycle(
 }
 
 function requestRoute(url: string | undefined): Route | null {
+  if (url === ADMIN_CUSTOMERS_PATH) {
+    return 'admin_create_customer';
+  }
+  if (url === ADMIN_NFC_PROVISION_PATH) {
+    return 'admin_provision_nfc_tag';
+  }
+  if (url === ADMIN_SETUP_PROJECTION_PATH) {
+    return 'admin_setup_projection';
+  }
   if (url === SESSION_PATH) {
     return 'session';
   }
@@ -393,6 +638,10 @@ function requestRoute(url: string | undefined): Route | null {
 
 function diagnosticCodeForRoute(route: Route | null): BackendApiDiagnostic['code'] | null {
   switch (route) {
+    case 'admin_create_customer':
+    case 'admin_provision_nfc_tag':
+    case 'admin_setup_projection':
+      return 'administration_failed';
     case 'session':
       return 'session_resolution_failed';
     case 'scan_context':
@@ -405,6 +654,12 @@ function diagnosticCodeForRoute(route: Route | null): BackendApiDiagnostic['code
     default:
       return route satisfies never;
   }
+}
+
+function isAdministrationRoute(route: Route): boolean {
+  return route === 'admin_create_customer'
+    || route === 'admin_provision_nfc_tag'
+    || route === 'admin_setup_projection';
 }
 
 function hasForbiddenSharedHeader(request: IncomingMessage): boolean {
@@ -544,6 +799,96 @@ function parseJson(body: Buffer): unknown {
   return JSON.parse(json) as unknown;
 }
 
+function parseCreateCustomerBody(body: unknown): {
+  readonly expectedMembershipId: MembershipId;
+  readonly commandId: string;
+  readonly displayName: string;
+} | null {
+  if (
+    !isRecord(body)
+    || !hasExactKeys(body, ['commandId', 'displayName', 'expectedMembershipId'])
+    || !isCanonicalUuid(body.expectedMembershipId)
+    || !isCanonicalUuid(body.commandId)
+    || typeof body.displayName !== 'string'
+  ) {
+    return null;
+  }
+  try {
+    return {
+      expectedMembershipId: MembershipId(body.expectedMembershipId),
+      commandId: body.commandId,
+      displayName: body.displayName,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function parseProvisionNfcTagBody(body: unknown): {
+  readonly expectedMembershipId: MembershipId;
+  readonly commandId: string;
+  readonly customerId: CustomerId;
+  readonly displayName: string;
+  readonly canonicalPayload: string;
+} | null {
+  if (
+    !isRecord(body)
+    || !hasExactKeys(
+      body,
+      ['canonicalPayload', 'commandId', 'customerId', 'displayName', 'expectedMembershipId'],
+    )
+    || !isCanonicalUuid(body.expectedMembershipId)
+    || !isCanonicalUuid(body.commandId)
+    || !isCanonicalUuid(body.customerId)
+    || typeof body.displayName !== 'string'
+    || typeof body.canonicalPayload !== 'string'
+  ) {
+    return null;
+  }
+  try {
+    return {
+      expectedMembershipId: MembershipId(body.expectedMembershipId),
+      commandId: body.commandId,
+      customerId: CustomerId(body.customerId),
+      displayName: body.displayName,
+      canonicalPayload: body.canonicalPayload,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function parseSetupProjectionBody(body: unknown): {
+  readonly expectedMembershipId: MembershipId;
+  readonly cursor: string | null;
+  readonly limit: number;
+} | null {
+  if (
+    !isRecord(body)
+    || !hasExactKeys(body, ['cursor', 'expectedMembershipId', 'limit'])
+    || !isCanonicalUuid(body.expectedMembershipId)
+    || (body.cursor !== null && typeof body.cursor !== 'string')
+    || (
+      typeof body.cursor === 'string'
+      && Buffer.byteLength(body.cursor, 'utf8') > 256
+    )
+    || !Number.isSafeInteger(body.limit)
+    || (body.limit as number) < 1
+    || (body.limit as number) > 20
+  ) {
+    return null;
+  }
+  try {
+    return {
+      expectedMembershipId: MembershipId(body.expectedMembershipId),
+      cursor: body.cursor as string | null,
+      limit: body.limit as number,
+    };
+  } catch {
+    return null;
+  }
+}
+
 function parseScanContextBody(body: unknown): {
   readonly requestedOrganizationId: OrganizationId;
   readonly payload: ReturnType<typeof createNfcPayload>;
@@ -650,6 +995,10 @@ function hasExactKeys(
 
 function isUuid(value: unknown): value is string {
   return typeof value === 'string' && uuidPattern.test(value);
+}
+
+function isCanonicalUuid(value: unknown): value is string {
+  return typeof value === 'string' && canonicalUuidPattern.test(value);
 }
 
 function isIsoTimestamp(value: unknown): value is string {

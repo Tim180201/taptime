@@ -179,6 +179,21 @@ DT-063–DT-066 remain open until the end-to-end
 operational setup flow and its human/physical gates pass. Core Roadmap v2 remains the authoritative
 execution sequence.
 
+## Addendum (2026-07-15 — C3C Local Implementation Checkpoint)
+
+The 2026-07-14 C3A/C3B addendum above remains the state recorded at that date. The Human Architect
+subsequently authorized C3C on exact baseline `c1148d57`; TS-002 v1.3 froze its transport and
+deadline details. The normal tenant-safe Admin setup backend/API is now implemented locally and its
+Node-24/PostgreSQL-17 matrix passes 1,394 tests plus complete workspace typechecks/builds and Android
+export. Every implementation/precommit finding reported so far was corrected, including the
+receipt/resource binding, race, normalization and C3B function-owner compatibility cases.
+
+This is not a C3C closure. No implementation SHA or CI run is claimed; independent final review and
+exact-head ten-of-ten GitHub Actions CI remain pending. C3D/C3E and production remain unauthorized.
+DT-063–DT-066 remain open because a backend alone is not the complete code-edit-free operational
+setup flow: the Admin Web, protected Android Administrator capture and required human/physical gates
+still have to be separately authorized, implemented and approved.
+
 ## Revision Note (Technical Lead Review Follow-up, 2026-07-07)
 
 This roadmap was updated once, after Technical Lead review, to: (1) add the "Strategic frame" paragraph above, connecting roadmap items to the companion assessment's Business Event Platform framing (Section 0.1) and capability hierarchy (Section 12); (2) organize every milestone's existing items into an Engineering Track, a Product Capability Track, and a Business, Legal & Go-To-Market Track, without adding, removing, or reprioritizing any item, and without moving any item to a different milestone; (3) note, within the Now and Before Pilot Customers milestones, the re-evaluated primary-bottleneck finding from the companion assessment's Section 11.1 (Organization Management as the more foundational blocker for reaching the first pilot, alongside — not instead of — the backend technology decision). No original roadmap item's wording, milestone assignment, or substance was changed; this revision only added track labels, short cross-reference notes, and this closing note.

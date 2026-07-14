@@ -126,7 +126,11 @@ describe('Organization-owned data flowing through the existing scan pipeline (DT
     const employeeMembership = (await membershipService.grantMembership(organizationA.id, UserId('user-employee-a'), 'employee'))
       .membership;
 
-    const createCustomerResult = await organizationAdministrationService.createCustomer(adminMembership, organizationA.id);
+    const createCustomerResult = await organizationAdministrationService.createCustomer(
+      adminMembership,
+      organizationA.id,
+      'Nordwerk Logistics',
+    );
     if (createCustomerResult.status !== 'accepted') {
       throw new Error('expected accepted CreateCustomerResult');
     }
@@ -136,6 +140,7 @@ describe('Organization-owned data flowing through the existing scan pipeline (DT
       adminMembership,
       organizationA.id,
       createNfcPayload('org-a-known-tag'),
+      'Main Entrance',
     );
     if (registerNfcTagResult.status !== 'accepted') {
       throw new Error('expected accepted RegisterNfcTagResult');
@@ -195,7 +200,11 @@ describe('Organization-owned data flowing through the existing scan pipeline (DT
     const adminMembership = (await membershipService.grantMembership(organizationA.id, UserId('user-admin-a-2'), 'administrator'))
       .membership;
 
-    const createCustomerResult = await organizationAdministrationService.createCustomer(adminMembership, organizationA.id);
+    const createCustomerResult = await organizationAdministrationService.createCustomer(
+      adminMembership,
+      organizationA.id,
+      'Nordwerk Logistics',
+    );
     if (createCustomerResult.status !== 'accepted') {
       throw new Error('expected accepted CreateCustomerResult');
     }
@@ -205,6 +214,7 @@ describe('Organization-owned data flowing through the existing scan pipeline (DT
       adminMembership,
       organizationA.id,
       createNfcPayload('org-a-known-tag'),
+      'Main Entrance',
     );
     if (registerNfcTagResult.status !== 'accepted') {
       throw new Error('expected accepted RegisterNfcTagResult');

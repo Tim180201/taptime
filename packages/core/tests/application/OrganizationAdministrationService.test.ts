@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, expectTypeOf, it, vi } from 'vitest';
 import { OrganizationAdministrationService } from '../../src/application/OrganizationAdministrationService';
 import { MembershipAuthorizationValidator } from '../../src/business/MembershipAuthorizationValidator';
 import { InMemoryCustomerRepository } from '../../src/infrastructure/repositories/InMemoryCustomerRepository';
@@ -14,6 +14,9 @@ import type { CustomerRepository } from '../../src/ports/CustomerRepository';
 import type { NfcTagRepository } from '../../src/ports/NfcTagRepository';
 import type { NfcAssignmentRepository } from '../../src/ports/NfcAssignmentRepository';
 
+const CUSTOMER_DISPLAY_NAME = 'Nordwerk Logistics';
+const NFC_TAG_DISPLAY_NAME = 'Main Entrance';
+
 describe('OrganizationAdministrationService.createCustomer (DT-023)', () => {
   it('accepted path: Administrator Membership for the same Organization saves the Customer and produces CustomerCreated', async () => {
     const repository = new InMemoryCustomerRepository();
@@ -26,19 +29,52 @@ describe('OrganizationAdministrationService.createCustomer (DT-023)', () => {
       role: 'administrator',
     };
 
-    const result = await service.createCustomer(membership, OrganizationId('org-1'));
+    const result = await service.createCustomer(membership, OrganizationId('org-1'), CUSTOMER_DISPLAY_NAME);
 
     expect(result).toEqual({
       status: 'accepted',
-      customer: { id: CustomerId('customer-fixed-1'), organizationId: OrganizationId('org-1'), active: true },
+      customer: { id: CustomerId('customer-fixed-1'), organizationId: OrganizationId('org-1'), displayName: CUSTOMER_DISPLAY_NAME, active: true },
       event: {
         type: 'CustomerCreated',
-        customer: { id: CustomerId('customer-fixed-1'), organizationId: OrganizationId('org-1'), active: true },
+        customer: { id: CustomerId('customer-fixed-1'), organizationId: OrganizationId('org-1'), displayName: CUSTOMER_DISPLAY_NAME, active: true },
       },
     });
     expect(await repository.findById(CustomerId('customer-fixed-1'))).toEqual(
       result.status === 'accepted' ? result.customer : undefined,
     );
+  });
+
+  it('requires and preserves the explicitly supplied Customer display name in the result, event, and repository', async () => {
+    expectTypeOf<Parameters<OrganizationAdministrationService['createCustomer']>>().toEqualTypeOf<[
+      Membership | null,
+      OrganizationId,
+      string,
+    ]>();
+
+    const repository = new InMemoryCustomerRepository();
+    const service = new OrganizationAdministrationService(
+      new MembershipAuthorizationValidator(),
+      repository,
+      new InMemoryNfcTagRepository(),
+      new InMemoryNfcAssignmentRepository(),
+      () => CustomerId('customer-explicit-name'),
+    );
+    const membership: Membership = {
+      id: MembershipId('membership-explicit-customer-name'),
+      organizationId: OrganizationId('org-1'),
+      userId: UserId('user-explicit-customer-name'),
+      role: 'administrator',
+    };
+    const displayName = 'Kronenwerk Services GmbH';
+
+    const result = await service.createCustomer(membership, OrganizationId('org-1'), displayName);
+
+    expect(result.status).toBe('accepted');
+    if (result.status === 'accepted') {
+      expect(result.customer.displayName).toBe(displayName);
+      expect(result.event.customer.displayName).toBe(displayName);
+    }
+    expect((await repository.findById(CustomerId('customer-explicit-name')))?.displayName).toBe(displayName);
   });
 
   it('calls CustomerRepository.save exactly once with the constructed Customer on the accepted path', async () => {
@@ -53,7 +89,7 @@ describe('OrganizationAdministrationService.createCustomer (DT-023)', () => {
       role: 'administrator',
     };
 
-    const result = await service.createCustomer(membership, OrganizationId('org-1'));
+    const result = await service.createCustomer(membership, OrganizationId('org-1'), CUSTOMER_DISPLAY_NAME);
 
     expect(save).toHaveBeenCalledTimes(1);
     expect(result.status).toBe('accepted');
@@ -68,7 +104,7 @@ describe('OrganizationAdministrationService.createCustomer (DT-023)', () => {
     const validator = new MembershipAuthorizationValidator();
     const service = new OrganizationAdministrationService(validator, repository, new InMemoryNfcTagRepository(), new InMemoryNfcAssignmentRepository(), () => CustomerId('customer-should-not-exist'));
 
-    const result = await service.createCustomer(null, OrganizationId('org-1'));
+    const result = await service.createCustomer(null, OrganizationId('org-1'), CUSTOMER_DISPLAY_NAME);
 
     expect(result).toEqual({ status: 'rejected', reason: 'membership_not_found' });
     expect(await repository.findById(CustomerId('customer-should-not-exist'))).toBeNull();
@@ -85,7 +121,7 @@ describe('OrganizationAdministrationService.createCustomer (DT-023)', () => {
       role: 'employee',
     };
 
-    const result = await service.createCustomer(membership, OrganizationId('org-1'));
+    const result = await service.createCustomer(membership, OrganizationId('org-1'), CUSTOMER_DISPLAY_NAME);
 
     expect(result).toEqual({ status: 'rejected', reason: 'membership_lacks_administrator_role' });
     expect(await repository.findById(CustomerId('customer-should-not-exist'))).toBeNull();
@@ -102,7 +138,7 @@ describe('OrganizationAdministrationService.createCustomer (DT-023)', () => {
       role: 'administrator',
     };
 
-    const result = await service.createCustomer(membership, OrganizationId('org-2'));
+    const result = await service.createCustomer(membership, OrganizationId('org-2'), CUSTOMER_DISPLAY_NAME);
 
     expect(result).toEqual({ status: 'rejected', reason: 'cross_organization_access' });
     expect(await repository.findById(CustomerId('customer-should-not-exist'))).toBeNull();
@@ -127,9 +163,9 @@ describe('OrganizationAdministrationService.createCustomer (DT-023)', () => {
       role: 'administrator',
     };
 
-    await service.createCustomer(null, OrganizationId('org-1'));
-    await service.createCustomer(employeeMembership, OrganizationId('org-1'));
-    await service.createCustomer(crossOrgMembership, OrganizationId('org-2'));
+    await service.createCustomer(null, OrganizationId('org-1'), CUSTOMER_DISPLAY_NAME);
+    await service.createCustomer(employeeMembership, OrganizationId('org-1'), CUSTOMER_DISPLAY_NAME);
+    await service.createCustomer(crossOrgMembership, OrganizationId('org-2'), CUSTOMER_DISPLAY_NAME);
 
     expect(save).not.toHaveBeenCalled();
   });
@@ -156,19 +192,65 @@ describe('OrganizationAdministrationService.registerNfcTag (DT-024)', () => {
     };
     const payload = createNfcPayload('payload-1');
 
-    const result = await service.registerNfcTag(membership, OrganizationId('org-1'), payload);
+    const result = await service.registerNfcTag(membership, OrganizationId('org-1'), payload, NFC_TAG_DISPLAY_NAME);
 
     expect(result).toEqual({
       status: 'accepted',
-      nfcTag: { id: NfcTagId('tag-fixed-1'), organizationId: OrganizationId('org-1'), payload },
+      nfcTag: {
+        id: NfcTagId('tag-fixed-1'),
+        organizationId: OrganizationId('org-1'),
+        displayName: NFC_TAG_DISPLAY_NAME,
+        payload,
+      },
       event: {
         type: 'NfcTagRegistered',
-        nfcTag: { id: NfcTagId('tag-fixed-1'), organizationId: OrganizationId('org-1'), payload },
+        nfcTag: {
+          id: NfcTagId('tag-fixed-1'),
+          organizationId: OrganizationId('org-1'),
+          displayName: NFC_TAG_DISPLAY_NAME,
+          payload,
+        },
       },
     });
     expect(await nfcTagRepository.findByPayload(payload)).toEqual(
       result.status === 'accepted' ? result.nfcTag : undefined,
     );
+  });
+
+  it('requires and preserves the explicitly supplied NFC tag display name in the result, event, and repository', async () => {
+    expectTypeOf<Parameters<OrganizationAdministrationService['registerNfcTag']>>().toEqualTypeOf<[
+      Membership | null,
+      OrganizationId,
+      ReturnType<typeof createNfcPayload>,
+      string,
+    ]>();
+
+    const nfcTagRepository = new InMemoryNfcTagRepository();
+    const service = new OrganizationAdministrationService(
+      new MembershipAuthorizationValidator(),
+      new InMemoryCustomerRepository(),
+      nfcTagRepository,
+      new InMemoryNfcAssignmentRepository(),
+      () => CustomerId('customer-unused'),
+      () => NfcTagId('tag-explicit-name'),
+    );
+    const membership: Membership = {
+      id: MembershipId('membership-explicit-tag-name'),
+      organizationId: OrganizationId('org-1'),
+      userId: UserId('user-explicit-tag-name'),
+      role: 'administrator',
+    };
+    const payload = createNfcPayload('payload-explicit-tag-name');
+    const displayName = 'Haupteingang Lager Nord';
+
+    const result = await service.registerNfcTag(membership, OrganizationId('org-1'), payload, displayName);
+
+    expect(result.status).toBe('accepted');
+    if (result.status === 'accepted') {
+      expect(result.nfcTag.displayName).toBe(displayName);
+      expect(result.event.nfcTag.displayName).toBe(displayName);
+    }
+    expect((await nfcTagRepository.findByPayload(payload))?.displayName).toBe(displayName);
   });
 
   it('calls NfcTagRepository.register exactly once with the constructed NfcTag on the accepted path', async () => {
@@ -191,7 +273,12 @@ describe('OrganizationAdministrationService.registerNfcTag (DT-024)', () => {
       role: 'administrator',
     };
 
-    const result = await service.registerNfcTag(membership, OrganizationId('org-1'), createNfcPayload('payload-2'));
+    const result = await service.registerNfcTag(
+      membership,
+      OrganizationId('org-1'),
+      createNfcPayload('payload-2'),
+      NFC_TAG_DISPLAY_NAME,
+    );
 
     expect(register).toHaveBeenCalledTimes(1);
     expect(result.status).toBe('accepted');
@@ -215,7 +302,7 @@ describe('OrganizationAdministrationService.registerNfcTag (DT-024)', () => {
     );
     const payload = createNfcPayload('payload-3');
 
-    const result = await service.registerNfcTag(null, OrganizationId('org-1'), payload);
+    const result = await service.registerNfcTag(null, OrganizationId('org-1'), payload, NFC_TAG_DISPLAY_NAME);
 
     expect(result).toEqual({ status: 'rejected', reason: 'membership_not_found' });
     expect(await nfcTagRepository.findByPayload(payload)).toBeNull();
@@ -241,7 +328,7 @@ describe('OrganizationAdministrationService.registerNfcTag (DT-024)', () => {
     };
     const payload = createNfcPayload('payload-4');
 
-    const result = await service.registerNfcTag(membership, OrganizationId('org-1'), payload);
+    const result = await service.registerNfcTag(membership, OrganizationId('org-1'), payload, NFC_TAG_DISPLAY_NAME);
 
     expect(result).toEqual({ status: 'rejected', reason: 'membership_lacks_administrator_role' });
     expect(await nfcTagRepository.findByPayload(payload)).toBeNull();
@@ -267,7 +354,7 @@ describe('OrganizationAdministrationService.registerNfcTag (DT-024)', () => {
     };
     const payload = createNfcPayload('payload-5');
 
-    const result = await service.registerNfcTag(membership, OrganizationId('org-2'), payload);
+    const result = await service.registerNfcTag(membership, OrganizationId('org-2'), payload, NFC_TAG_DISPLAY_NAME);
 
     expect(result).toEqual({ status: 'rejected', reason: 'cross_organization_access' });
     expect(await nfcTagRepository.findByPayload(payload)).toBeNull();
@@ -300,9 +387,9 @@ describe('OrganizationAdministrationService.registerNfcTag (DT-024)', () => {
       role: 'administrator',
     };
 
-    await service.registerNfcTag(null, OrganizationId('org-1'), createNfcPayload('payload-6'));
-    await service.registerNfcTag(employeeMembership, OrganizationId('org-1'), createNfcPayload('payload-7'));
-    await service.registerNfcTag(crossOrgMembership, OrganizationId('org-2'), createNfcPayload('payload-8'));
+    await service.registerNfcTag(null, OrganizationId('org-1'), createNfcPayload('payload-6'), NFC_TAG_DISPLAY_NAME);
+    await service.registerNfcTag(employeeMembership, OrganizationId('org-1'), createNfcPayload('payload-7'), NFC_TAG_DISPLAY_NAME);
+    await service.registerNfcTag(crossOrgMembership, OrganizationId('org-2'), createNfcPayload('payload-8'), NFC_TAG_DISPLAY_NAME);
 
     expect(register).not.toHaveBeenCalled();
   });
@@ -326,7 +413,12 @@ describe('OrganizationAdministrationService.registerNfcTag (DT-024)', () => {
       role: 'administrator',
     };
 
-    const result = await service.registerNfcTag(membership, OrganizationId('org-1'), createNfcPayload('payload-9'));
+    const result = await service.registerNfcTag(
+      membership,
+      OrganizationId('org-1'),
+      createNfcPayload('payload-9'),
+      NFC_TAG_DISPLAY_NAME,
+    );
 
     expect(result.status).toBe('accepted');
     if (result.status === 'accepted') {
@@ -345,12 +437,13 @@ describe('OrganizationAdministrationService.assignNfcTag (DT-025)', () => {
   const matchingNfcTag: NfcTag = {
     id: NfcTagId('tag-1'),
     organizationId: OrganizationId('org-1'),
+    displayName: 'Synthetic Tag',
     payload: createNfcPayload('payload-tag-1'),
   };
 
   it('accepted path: Administrator Membership, matching NfcTag, and matching AssignmentTarget/Customer saves the NfcAssignment and produces NfcTagAssigned', async () => {
     const customerRepository = new InMemoryCustomerRepository();
-    const customer: Customer = { id: CustomerId('customer-1'), organizationId: OrganizationId('org-1'), active: true };
+    const customer: Customer = { id: CustomerId('customer-1'), organizationId: OrganizationId('org-1'), displayName: 'Synthetic Customer', active: true };
     await customerRepository.save(customer);
     const save = vi.fn().mockResolvedValue(undefined);
     const nfcAssignmentRepository: NfcAssignmentRepository = { findActiveByTagId: vi.fn().mockResolvedValue(null), save };
@@ -398,7 +491,7 @@ describe('OrganizationAdministrationService.assignNfcTag (DT-025)', () => {
 
   it('rejected: missing Membership returns membership_not_found and performs no write', async () => {
     const customerRepository = new InMemoryCustomerRepository();
-    const customer: Customer = { id: CustomerId('customer-1'), organizationId: OrganizationId('org-1'), active: true };
+    const customer: Customer = { id: CustomerId('customer-1'), organizationId: OrganizationId('org-1'), displayName: 'Synthetic Customer', active: true };
     await customerRepository.save(customer);
     const nfcAssignmentRepository = new InMemoryNfcAssignmentRepository();
     const validator = new MembershipAuthorizationValidator();
@@ -421,7 +514,7 @@ describe('OrganizationAdministrationService.assignNfcTag (DT-025)', () => {
 
   it('rejected: Employee Membership returns membership_lacks_administrator_role and performs no write', async () => {
     const customerRepository = new InMemoryCustomerRepository();
-    const customer: Customer = { id: CustomerId('customer-1'), organizationId: OrganizationId('org-1'), active: true };
+    const customer: Customer = { id: CustomerId('customer-1'), organizationId: OrganizationId('org-1'), displayName: 'Synthetic Customer', active: true };
     await customerRepository.save(customer);
     const nfcAssignmentRepository = new InMemoryNfcAssignmentRepository();
     const validator = new MembershipAuthorizationValidator();
@@ -445,7 +538,7 @@ describe('OrganizationAdministrationService.assignNfcTag (DT-025)', () => {
 
   it('rejected: Administrator Membership of a different Organization returns cross_organization_access and performs no write', async () => {
     const customerRepository = new InMemoryCustomerRepository();
-    const customer: Customer = { id: CustomerId('customer-1'), organizationId: OrganizationId('org-1'), active: true };
+    const customer: Customer = { id: CustomerId('customer-1'), organizationId: OrganizationId('org-1'), displayName: 'Synthetic Customer', active: true };
     await customerRepository.save(customer);
     const nfcAssignmentRepository = new InMemoryNfcAssignmentRepository();
     const validator = new MembershipAuthorizationValidator();
@@ -468,7 +561,7 @@ describe('OrganizationAdministrationService.assignNfcTag (DT-025)', () => {
 
   it('rejected: NfcTag Organization mismatch returns cross_organization_access and performs no write', async () => {
     const customerRepository = new InMemoryCustomerRepository();
-    const customer: Customer = { id: CustomerId('customer-1'), organizationId: OrganizationId('org-1'), active: true };
+    const customer: Customer = { id: CustomerId('customer-1'), organizationId: OrganizationId('org-1'), displayName: 'Synthetic Customer', active: true };
     await customerRepository.save(customer);
     const nfcAssignmentRepository = new InMemoryNfcAssignmentRepository();
     const validator = new MembershipAuthorizationValidator();
@@ -481,7 +574,7 @@ describe('OrganizationAdministrationService.assignNfcTag (DT-025)', () => {
       () => NfcTagId('tag-unused'),
       () => NfcAssignmentId('assignment-should-not-exist'),
     );
-    const mismatchedNfcTag: NfcTag = { id: NfcTagId('tag-2'), organizationId: OrganizationId('org-2'), payload: createNfcPayload('payload-tag-2') };
+    const mismatchedNfcTag: NfcTag = { id: NfcTagId('tag-2'), organizationId: OrganizationId('org-2'), displayName: 'Synthetic Tag', payload: createNfcPayload('payload-tag-2') };
     const target = customerAssignmentTarget(customer.id);
 
     const result = await service.assignNfcTag(membership, OrganizationId('org-1'), mismatchedNfcTag, target);
@@ -492,7 +585,7 @@ describe('OrganizationAdministrationService.assignNfcTag (DT-025)', () => {
 
   it('rejected: AssignmentTarget/Customer Organization mismatch returns cross_organization_access and performs no write', async () => {
     const customerRepository = new InMemoryCustomerRepository();
-    const otherOrgCustomer: Customer = { id: CustomerId('customer-2'), organizationId: OrganizationId('org-2'), active: true };
+    const otherOrgCustomer: Customer = { id: CustomerId('customer-2'), organizationId: OrganizationId('org-2'), displayName: 'Synthetic Customer', active: true };
     await customerRepository.save(otherOrgCustomer);
     const nfcAssignmentRepository = new InMemoryNfcAssignmentRepository();
     const validator = new MembershipAuthorizationValidator();
@@ -539,7 +632,7 @@ describe('OrganizationAdministrationService.assignNfcTag (DT-025)', () => {
     const findActiveByTagId = vi.fn().mockResolvedValue(null);
     const nfcAssignmentRepository: NfcAssignmentRepository = { findActiveByTagId, save };
     const customerRepository = new InMemoryCustomerRepository();
-    const otherOrgCustomer: Customer = { id: CustomerId('customer-2'), organizationId: OrganizationId('org-2'), active: true };
+    const otherOrgCustomer: Customer = { id: CustomerId('customer-2'), organizationId: OrganizationId('org-2'), displayName: 'Synthetic Customer', active: true };
     await customerRepository.save(otherOrgCustomer);
     const validator = new MembershipAuthorizationValidator();
     const service = new OrganizationAdministrationService(
@@ -552,7 +645,7 @@ describe('OrganizationAdministrationService.assignNfcTag (DT-025)', () => {
       () => NfcAssignmentId('assignment-should-not-exist'),
     );
     const employeeMembership: Membership = { ...membership, role: 'employee' };
-    const mismatchedNfcTag: NfcTag = { id: NfcTagId('tag-2'), organizationId: OrganizationId('org-2'), payload: createNfcPayload('payload-tag-2') };
+    const mismatchedNfcTag: NfcTag = { id: NfcTagId('tag-2'), organizationId: OrganizationId('org-2'), displayName: 'Synthetic Tag', payload: createNfcPayload('payload-tag-2') };
     const matchingTarget = customerAssignmentTarget(CustomerId('customer-does-not-exist'));
     const otherOrgTarget = customerAssignmentTarget(otherOrgCustomer.id);
 
@@ -568,7 +661,7 @@ describe('OrganizationAdministrationService.assignNfcTag (DT-025)', () => {
 
   it('uses the injected deterministic NfcAssignmentId generator for the saved NfcAssignment', async () => {
     const customerRepository = new InMemoryCustomerRepository();
-    const customer: Customer = { id: CustomerId('customer-1'), organizationId: OrganizationId('org-1'), active: true };
+    const customer: Customer = { id: CustomerId('customer-1'), organizationId: OrganizationId('org-1'), displayName: 'Synthetic Customer', active: true };
     await customerRepository.save(customer);
     const nfcAssignmentRepository = new InMemoryNfcAssignmentRepository();
     const validator = new MembershipAuthorizationValidator();

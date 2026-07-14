@@ -171,11 +171,12 @@ export async function resetAndSeedB6(installerPool: Pool, issuer: string): Promi
   );
   await installerPool.query(
     `INSERT INTO taptime_server.customers
-       (id, organization_id, active, activated_at, deactivated_at) VALUES
-       ($1, $5, true, '2026-07-01T00:00:00Z', NULL),
-       ($2, $5, true, '2026-07-01T00:00:00Z', NULL),
-       ($3, $5, false, '2026-07-01T00:00:00Z', '2026-07-02T00:00:00Z'),
-       ($4, $6, true, '2026-07-01T00:00:00Z', NULL)`,
+       (id, organization_id, display_name, active, activated_at, deactivated_at) VALUES
+       ($1, $5, 'Lifecycle Customer A', true, '2026-07-01T00:00:00Z', NULL),
+       ($2, $5, 'Lifecycle Customer A Other', true, '2026-07-01T00:00:00Z', NULL),
+       ($3, $5, 'Lifecycle Customer A Inactive', false, '2026-07-01T00:00:00Z',
+        '2026-07-02T00:00:00Z'),
+       ($4, $6, 'Lifecycle Customer B', true, '2026-07-01T00:00:00Z', NULL)`,
     [
       ids.customerA,
       ids.otherCustomerA,
@@ -187,10 +188,13 @@ export async function resetAndSeedB6(installerPool: Pool, issuer: string): Promi
   );
   await installerPool.query(
     `INSERT INTO taptime_server.customers
-       (id, organization_id, active, activated_at, deactivated_at) VALUES
-       ($1, $4, true, '2026-07-01T00:00:00Z', NULL),
-       ($2, $4, true, '2026-07-01T00:00:00Z', NULL),
-       ($3, $4, true, '2026-07-03T00:00:00Z', NULL)`,
+       (id, organization_id, display_name, active, activated_at, deactivated_at) VALUES
+       ($1, $4, 'Lifecycle Temporal Assignment Customer', true,
+        '2026-07-01T00:00:00Z', NULL),
+       ($2, $4, 'Lifecycle Temporal Tag Customer', true,
+        '2026-07-01T00:00:00Z', NULL),
+       ($3, $4, 'Lifecycle Temporal Customer', true,
+        '2026-07-03T00:00:00Z', NULL)`,
     [
       ids.temporalAssignmentCustomerA,
       ids.temporalTagCustomerA,
@@ -200,12 +204,13 @@ export async function resetAndSeedB6(installerPool: Pool, issuer: string): Promi
   );
   await installerPool.query(
     `INSERT INTO taptime_server.nfc_tags
-       (id, organization_id, payload_value, created_at) VALUES
-       ($1, $6, 'b6-a', '2026-07-01T00:00:00Z'),
-       ($2, $6, 'b6-a-other', '2026-07-01T00:00:00Z'),
-       ($3, $6, 'b6-a-inactive', '2026-07-01T00:00:00Z'),
-       ($4, $6, 'b6-a-inactive-customer', '2026-07-01T00:00:00Z'),
-       ($5, $7, 'b6-b', '2026-07-01T00:00:00Z')`,
+       (id, organization_id, display_name, payload_value, created_at) VALUES
+       ($1, $6, 'Lifecycle Tag A', 'b6-a', '2026-07-01T00:00:00Z'),
+       ($2, $6, 'Lifecycle Tag A Other', 'b6-a-other', '2026-07-01T00:00:00Z'),
+       ($3, $6, 'Lifecycle Tag A Inactive', 'b6-a-inactive', '2026-07-01T00:00:00Z'),
+       ($4, $6, 'Lifecycle Tag A Inactive Customer', 'b6-a-inactive-customer',
+        '2026-07-01T00:00:00Z'),
+       ($5, $7, 'Lifecycle Tag B', 'b6-b', '2026-07-01T00:00:00Z')`,
     [
       ids.tagA,
       ids.otherTagA,
@@ -218,10 +223,13 @@ export async function resetAndSeedB6(installerPool: Pool, issuer: string): Promi
   );
   await installerPool.query(
     `INSERT INTO taptime_server.nfc_tags
-       (id, organization_id, payload_value, created_at) VALUES
-       ($1, $4, 'b6-temporal-assignment', '2026-07-01T00:00:00Z'),
-       ($2, $4, 'b6-temporal-tag', '2026-07-03T00:00:00Z'),
-       ($3, $4, 'b6-temporal-customer', '2026-07-01T00:00:00Z')`,
+       (id, organization_id, display_name, payload_value, created_at) VALUES
+       ($1, $4, 'Lifecycle Temporal Assignment Tag', 'b6-temporal-assignment',
+        '2026-07-01T00:00:00Z'),
+       ($2, $4, 'Lifecycle Temporal Tag', 'b6-temporal-tag',
+        '2026-07-03T00:00:00Z'),
+       ($3, $4, 'Lifecycle Temporal Customer Tag', 'b6-temporal-customer',
+        '2026-07-01T00:00:00Z')`,
     [
       ids.temporalAssignmentTagA,
       ids.temporalTagA,

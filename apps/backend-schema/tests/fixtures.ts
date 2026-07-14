@@ -136,13 +136,16 @@ export async function seedB3(installerPool: Pool): Promise<void> {
     );
     await client.query(
       `INSERT INTO taptime_server.customers
-        (id, organization_id, active, activated_at) VALUES
-        ($1, $3, true, '2026-07-01T00:00:00Z'), ($2, $4, true, '2026-07-01T00:00:00Z')`,
+        (id, organization_id, display_name, active, activated_at) VALUES
+        ($1, $3, 'Synthetic Customer A', true, '2026-07-01T00:00:00Z'),
+        ($2, $4, 'Synthetic Customer B', true, '2026-07-01T00:00:00Z')`,
       [ids.customerA, ids.customerB, ids.organizationA, ids.organizationB],
     );
     await client.query(
-      `INSERT INTO taptime_server.nfc_tags (id, organization_id, payload_value) VALUES
-        ($1, $3, 'shared-synthetic-payload'), ($2, $4, 'shared-synthetic-payload')`,
+      `INSERT INTO taptime_server.nfc_tags
+        (id, organization_id, display_name, payload_value) VALUES
+        ($1, $3, 'Synthetic Tag A', 'shared-synthetic-payload'),
+        ($2, $4, 'Synthetic Tag B', 'shared-synthetic-payload')`,
       [ids.tagA, ids.tagB, ids.organizationA, ids.organizationB],
     );
     await client.query(

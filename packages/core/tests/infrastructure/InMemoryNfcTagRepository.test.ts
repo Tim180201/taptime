@@ -16,6 +16,7 @@ describe('InMemoryNfcTagRepository (DT-021)', () => {
     const tag: NfcTag = {
       id: NfcTagId('tag-1'),
       organizationId: OrganizationId('org-1'),
+      displayName: 'Synthetic Tag',
       payload: createNfcPayload('tag-payload-1'),
     };
 
@@ -29,6 +30,7 @@ describe('InMemoryNfcTagRepository (DT-021)', () => {
     await repository.register({
       id: NfcTagId('tag-1'),
       organizationId: OrganizationId('org-1'),
+      displayName: 'Synthetic Tag',
       payload: createNfcPayload('tag-payload-1'),
     });
 
@@ -39,6 +41,7 @@ describe('InMemoryNfcTagRepository (DT-021)', () => {
     const seeded: NfcTag = {
       id: NfcTagId('tag-seed'),
       organizationId: OrganizationId('org-1'),
+      displayName: 'Synthetic Tag',
       payload: createNfcPayload('seed-payload'),
     };
     const repository = new InMemoryNfcTagRepository([seeded]);
@@ -48,13 +51,14 @@ describe('InMemoryNfcTagRepository (DT-021)', () => {
 
   it('does not mutate the array passed into its constructor', async () => {
     const seed: NfcTag[] = [
-      { id: NfcTagId('tag-seed'), organizationId: OrganizationId('org-1'), payload: createNfcPayload('seed-payload') },
+      { id: NfcTagId('tag-seed'), organizationId: OrganizationId('org-1'), displayName: 'Synthetic Tag', payload: createNfcPayload('seed-payload') },
     ];
     const repository = new InMemoryNfcTagRepository(seed);
 
     await repository.register({
       id: NfcTagId('tag-2'),
       organizationId: OrganizationId('org-1'),
+      displayName: 'Synthetic Tag',
       payload: createNfcPayload('tag-payload-2'),
     });
 

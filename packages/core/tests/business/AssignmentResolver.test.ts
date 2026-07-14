@@ -13,7 +13,7 @@ import type { NfcAssignment } from '../../src/domain/NfcAssignment';
 
 const organizationId = OrganizationId('org-1');
 const payload = createNfcPayload('known-tag-payload');
-const tag: NfcTag = { id: NfcTagId('tag-1'), organizationId, payload };
+const tag: NfcTag = { id: NfcTagId('tag-1'), organizationId, displayName: 'Synthetic Tag', payload };
 const target = customerAssignmentTarget(CustomerId('customer-1'));
 
 function scanFact(rawPayload = payload) {

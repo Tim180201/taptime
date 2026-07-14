@@ -1,35 +1,45 @@
-# TapTim.e Backend API — Block C2
+# TapTim.e Backend API — C3C transport
 
-This private Node 24 workspace exposes exactly three production-shaped transport boundaries:
+This private Node 24 workspace exposes the authenticated product API plus the three fixed C3C
+administration capabilities:
 
 ```text
 GET  /v1/session
 POST /v1/scan-context/resolve
 POST /v1/lifecycle-events
+POST /v1/lifecycle-events/deferred
+
+POST /v1/administration/customers
+  { expectedMembershipId, commandId, displayName }
+POST /v1/administration/nfc-tags/provision
+  { expectedMembershipId, commandId, customerId, displayName, canonicalPayload }
+POST /v1/administration/setup-projection
+  { expectedMembershipId, cursor, limit }
+
 Authorization: Bearer <Supabase access token>
 ```
 
-The session route preserves C1's server-authoritative User, Membership, Organization and role
-projection. Scan-context resolution treats the submitted payload as an opaque, case-sensitive
-value and runs only through the approved B5 tenant read session. Lifecycle evidence runs only
-through B6, whose genuine Core `BusinessEngine` remains the canonical decision source.
+Administration JSON is exact and bounded. Its UUID inputs must already be canonical lowercase text.
+The expected Membership in the body is only a narrowing value: the server derives and locks the
+current User, Organization, Membership and Administrator role. The lifecycle
+`X-TapTime-Expected-Membership-Id` header is rejected on every administration route, so the body is
+the single narrowing source. Raw NFC payloads are accepted only by the provision request and are
+never returned or written to transport diagnostics.
 
-Every route independently verifies the configured issuer's asymmetric access token. The process
-uses three separate PostgreSQL pools and distinct runtime login names:
+The process owns four PostgreSQL pools with four distinct runtime login names:
 
 - session: exactly `taptime_identity_resolver`;
-- read model: `taptime_identity_resolver`, `taptime_employee` and
-  `taptime_administrator`, with B5 enforcing a read-only transaction;
-- lifecycle: `taptime_identity_resolver` and `taptime_server_lifecycle`.
+- read model: `taptime_identity_resolver`, `taptime_employee` and `taptime_administrator`, with a
+  read-only tenant transaction;
+- lifecycle: `taptime_identity_resolver` and `taptime_server_lifecycle`;
+- administration: only `taptime_identity_resolver` and `taptime_admin_setup`.
 
-The runtime rejects duplicate database usernames. Request JSON is exact and bounded, responses are
-JSON and `no-store`, and infrastructure failures are generic. Tokens, request payloads, database
-URLs, passwords and provider/database errors are never diagnostic data.
-
-The three URL usernames must be distinct after percent-decoding. To prevent `node-postgres`
-query parameters from silently replacing a login, endpoint, startup role or fixed timeout, only
-TLS-related URL query parameters are accepted; all other connection parameters fail before pool
-creation.
+The runtime rejects duplicate database usernames. To prevent `node-postgres` query parameters from
+silently replacing a login, endpoint, startup role or timeout, only TLS-related URL parameters are
+accepted. Every administration operation receives the HTTP operation deadline, while its database
+coordinator enforces transaction, statement and lock bounds before the HTTP timeout can be reported.
+Infrastructure failures are generic; tokens, request bodies, database URLs, passwords and provider
+or database errors are never diagnostic data.
 
 The managed-runtime entry point requires:
 
@@ -37,19 +47,21 @@ The managed-runtime entry point requires:
 TAPTIME_SESSION_DATABASE_URL
 TAPTIME_READ_MODEL_DATABASE_URL
 TAPTIME_LIFECYCLE_DATABASE_URL
+TAPTIME_ADMINISTRATION_DATABASE_URL
 SUPABASE_ISSUER
 PORT                                      # optional, default 3000
 ```
 
-Local tests use a disposable PostgreSQL 17 database, local asymmetric JWKS infrastructure and the
-synthetic-only variables `C2_DATABASE_URL`, `C2_SESSION_DATABASE_URL`,
-`C2_READ_MODEL_DATABASE_URL`, `C2_LIFECYCLE_DATABASE_URL` plus their three corresponding
-`C2_*_RUNTIME_PASSWORD` values. No cloud resource or production credential is required.
+Local C2 regression tests use disposable PostgreSQL 17 data, local asymmetric JWKS infrastructure
+and synthetic-only `C2_*` variables. C3C's isolated administration workspace owns the database,
+authority, receipt, audit and concurrency integration matrix; this workspace owns the exact HTTP
+surface, status mapping, header/body hardening, deadline propagation and runtime composition.
 
-This reviewed C2 transport foundation is not yet a production deployment: production secrets/data,
-Supavisor validation, observability/rate policy and Blocks C3/D/E remain separate gates.
+This is not a production deployment: production secrets/data, Supavisor validation,
+observability/rate policy and later C3D/C3E surfaces remain separate gates.
 
-Run after building Core, schema, identity, read-model and lifecycle dependencies:
+Run after building the administration contract, Core, schema, identity, read-model, lifecycle and
+administration dependencies:
 
 ```bash
 npm run typecheck --workspace=@taptime/backend-api

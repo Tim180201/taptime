@@ -13,7 +13,7 @@ verified asymmetric-JWKS Access Token
 It is **not** an HTTP API, Supabase deployment, Mobile login integration, invitation/bootstrap
 system, account-linking implementation, repository adapter or lifecycle-ingestion service. It uses
 only synthetic test identities, locally generated keys/JWKS and the current backend-schema
-migrations `001` through `006`.
+migrations `001` through `007`.
 
 The configured JWKS URL is accepted only when it is exactly
 `<issuer>/.well-known/jwks.json`; issuer and signing keys therefore form one trust anchor rather

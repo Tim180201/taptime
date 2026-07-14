@@ -115,3 +115,18 @@ APPROVED
 ```
 
 or documented findings requiring correction.
+
+## Current Organization-Administration Reconciliation Addendum (2026-07-15)
+
+The sections above are the historical EP-007 integration record from 2026-06-30 and remain
+unchanged as provenance. Later DT-017–DT-026 completed the TS-002 Core foundation. Accepted
+ADR-0011, FB-002 v1.2 and TS-002 v1.3 now reconcile that foundation with the real server authority:
+C3B is completed, and C3C is explicitly authorized and locally implemented/verified as the narrow
+normal setup backend/API.
+
+This addendum changes no original EP-007 package classification and creates no new EP-007
+Development Task. C3C local evidence is recorded in
+`ADO/05_Evidence/Block_C3C_Normal_Administration_Backend_Evidence.md`; its implementation
+commit/head, independent final review and exact-head ten-job GitHub CI are still pending. C3D/C3E
+and production remain gated, and DT-063–DT-066 remain open until their operational setup surfaces
+are implemented and validated.

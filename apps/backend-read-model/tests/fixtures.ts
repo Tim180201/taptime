@@ -82,15 +82,17 @@ export async function resetAndSeedB5(installerPool: Pool, issuer: string): Promi
   );
   await installerPool.query(
     `INSERT INTO taptime_server.customers
-       (id, organization_id, active, activated_at, deactivated_at)
-     VALUES ($1, $2, false, '2026-07-01T00:00:00Z', '2026-07-02T00:00:00Z')`,
+       (id, organization_id, display_name, active, activated_at, deactivated_at)
+     VALUES ($1, $2, 'Read Model Inactive Customer', false,
+       '2026-07-01T00:00:00Z', '2026-07-02T00:00:00Z')`,
     [b5Ids.inactiveCustomerA, ids.organizationA],
   );
   await installerPool.query(
-    `INSERT INTO taptime_server.nfc_tags (id, organization_id, payload_value) VALUES
-       ($1, $4, 'tenant-b-only-payload'),
-       ($2, $4, 'shared-synthetic-payload-near'),
-       ($3, $5, 'inactive-assignment-payload')`,
+    `INSERT INTO taptime_server.nfc_tags
+       (id, organization_id, display_name, payload_value) VALUES
+       ($1, $4, 'Read Model Tenant B Only Tag', 'tenant-b-only-payload'),
+       ($2, $4, 'Read Model Tenant B Similar Tag', 'shared-synthetic-payload-near'),
+       ($3, $5, 'Read Model Inactive Tag', 'inactive-assignment-payload')`,
     [
       b5Ids.tenantBOnlyTag,
       b5Ids.tenantBSimilarTag,

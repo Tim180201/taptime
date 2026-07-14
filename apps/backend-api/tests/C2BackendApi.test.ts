@@ -4,6 +4,7 @@ import {
   type Server,
 } from 'node:http';
 import { SupabaseJwtAccessTokenVerifier } from '@taptime/backend-identity';
+import { AdminWriteSessionCoordinator } from '@taptime/backend-administration';
 import {
   InjectedB6Failure,
   ServerCanonicalLifecycleIngestionCoordinator,
@@ -39,6 +40,7 @@ import {
   type SyntheticJwksInfrastructure,
 } from './fixtures.js';
 import {
+  C2_ADMINISTRATION_RUNTIME_LOGIN,
   C2_LIFECYCLE_RUNTIME_LOGIN,
   C2_READ_MODEL_RUNTIME_LOGIN,
   C2_RUNTIME_ROLE_GRAPH,
@@ -57,6 +59,8 @@ const passwords = {
   session: process.env.C2_SESSION_RUNTIME_PASSWORD ?? 'c2-session-local-synthetic-only',
   readModel: process.env.C2_READ_MODEL_RUNTIME_PASSWORD ?? 'c2-read-local-synthetic-only',
   lifecycle: process.env.C2_LIFECYCLE_RUNTIME_PASSWORD ?? 'c2-lifecycle-local-synthetic-only',
+  administration: process.env.C2_ADMINISTRATION_RUNTIME_PASSWORD
+    ?? 'c2-administration-local-synthetic-only',
 } as const;
 const connectionStrings = {
   session: process.env.C2_SESSION_DATABASE_URL ?? runtimeConnectionString(
@@ -73,6 +77,11 @@ const connectionStrings = {
     installerConnectionString,
     C2_LIFECYCLE_RUNTIME_LOGIN,
     passwords.lifecycle,
+  ),
+  administration: process.env.C2_ADMINISTRATION_DATABASE_URL ?? runtimeConnectionString(
+    installerConnectionString,
+    C2_ADMINISTRATION_RUNTIME_LOGIN,
+    passwords.administration,
   ),
 } as const;
 
@@ -92,6 +101,7 @@ beforeAll(async () => {
   expectRuntimeUsername(connectionStrings.session, C2_SESSION_RUNTIME_LOGIN);
   expectRuntimeUsername(connectionStrings.readModel, C2_READ_MODEL_RUNTIME_LOGIN);
   expectRuntimeUsername(connectionStrings.lifecycle, C2_LIFECYCLE_RUNTIME_LOGIN);
+  expectRuntimeUsername(connectionStrings.administration, C2_ADMINISTRATION_RUNTIME_LOGIN);
   jwks = await startSyntheticJwks();
   await resetMigrateAndPrepareC2(installerPool, passwords);
   await resetAndSeedC2(installerPool, jwks.issuerA);
@@ -99,6 +109,7 @@ beforeAll(async () => {
     sessionDatabaseUrl: connectionStrings.session,
     readModelDatabaseUrl: connectionStrings.readModel,
     lifecycleDatabaseUrl: connectionStrings.lifecycle,
+    administrationDatabaseUrl: connectionStrings.administration,
     supabaseIssuer: jwks.issuerA,
   }, {
     onDiagnostic: (diagnostic) => diagnostics.push(diagnostic),
@@ -119,17 +130,17 @@ afterAll(async () => {
 });
 
 describe('C2 package, runtime composition, and least privilege', () => {
-  it('uses exactly migrations 001 through 006 and reruns the ledger cleanly', async () => {
+  it('uses exactly migrations 001 through 007 and reruns the ledger cleanly', async () => {
     expect((await loadMigrations()).map(({ version }) => version)).toEqual([
-      '001', '002', '003', '004', '005', '006',
+      '001', '002', '003', '004', '005', '006', '007',
     ]);
     await expect(migrate(installerPool)).resolves.toEqual({
       applied: [],
-      alreadyApplied: ['001', '002', '003', '004', '005', '006'],
+      alreadyApplied: ['001', '002', '003', '004', '005', '006', '007'],
     });
   });
 
-  it('normalizes three distinct non-owner runtime logins with exact parent roles', async () => {
+  it('normalizes four distinct non-owner runtime logins with exact parent roles', async () => {
     for (const [login, roles] of Object.entries(C2_RUNTIME_ROLE_GRAPH)) {
       expect(await parentRoles(installerPool, login)).toEqual([...roles]);
       const result = await installerPool.query<{
@@ -171,6 +182,7 @@ describe('C2 package, runtime composition, and least privilege', () => {
     ['session', connectionStrings.session],
     ['read model', connectionStrings.readModel],
     ['lifecycle', connectionStrings.lifecycle],
+    ['administration', connectionStrings.administration],
   ])('%s login has no direct table access and cannot perform DDL', async (_name, url) => {
     const pool = new Pool({ connectionString: url, max: 1 });
     try {
@@ -190,6 +202,7 @@ describe('C2 package, runtime composition, and least privilege', () => {
       [connectionStrings.session, ['taptime_employee', 'taptime_server_lifecycle']],
       [connectionStrings.readModel, ['taptime_server_lifecycle']],
       [connectionStrings.lifecycle, ['taptime_employee', 'taptime_administrator']],
+      [connectionStrings.administration, ['taptime_employee', 'taptime_administrator', 'taptime_server_lifecycle']],
     ] as const;
     for (const [url, roles] of attempts) {
       const pool = new Pool({ connectionString: url, max: 1 });
@@ -213,6 +226,7 @@ describe('C2 package, runtime composition, and least privilege', () => {
       sessionDatabaseUrl: invalidUrl,
       readModelDatabaseUrl: connectionStrings.readModel,
       lifecycleDatabaseUrl: connectionStrings.lifecycle,
+      administrationDatabaseUrl: connectionStrings.administration,
       supabaseIssuer: 'https://synthetic.supabase.co/auth/v1',
     })).toThrow(/database URL|runtime login/);
   });
@@ -226,6 +240,7 @@ describe('C2 package, runtime composition, and least privilege', () => {
       sessionDatabaseUrl: connectionStrings.session,
       readModelDatabaseUrl: encodedAlias,
       lifecycleDatabaseUrl: connectionStrings.lifecycle,
+      administrationDatabaseUrl: connectionStrings.administration,
       supabaseIssuer: 'https://synthetic.supabase.co/auth/v1',
     })).toThrow('Backend API database runtime login names must be distinct');
   });
@@ -242,6 +257,7 @@ describe('C2 package, runtime composition, and least privilege', () => {
       sessionDatabaseUrl: connectionStrings.session,
       readModelDatabaseUrl: overridden.href,
       lifecycleDatabaseUrl: connectionStrings.lifecycle,
+      administrationDatabaseUrl: connectionStrings.administration,
       supabaseIssuer: 'https://synthetic.supabase.co/auth/v1',
     })).toThrow('Backend API database URL contains an unsupported connection parameter');
   });
@@ -512,6 +528,127 @@ describe('exact routes, HTTP hardening, and disclosure-safe errors', () => {
       await closeServer(server);
     }
   });
+});
+
+describe('C3C real administration runtime', () => {
+  it('commits once after a lost HTTP response and replays the identical Customer command',
+    async () => {
+      const administrationPool = new Pool({
+        connectionString: connectionStrings.administration,
+        max: 1,
+      });
+      const coordinator = new AdminWriteSessionCoordinator(
+        administrationPool,
+        createC2Verifier(),
+      );
+      const writeReached = deferred<void>();
+      const continueWrite = deferred<void>();
+      const firstCommandCompleted = deferred<void>();
+      let firstCommand = true;
+      const administration: BackendApiDependencies['administration'] = {
+        async createCustomer(command, controls) {
+          if (!firstCommand) {
+            return coordinator.createCustomer(command, controls);
+          }
+          firstCommand = false;
+          try {
+            return await coordinator.createCustomer(command, {
+              ...controls,
+              async afterWrite(stage) {
+                if (stage === 'customer_and_audit') {
+                  writeReached.resolve();
+                  await continueWrite.promise;
+                }
+              },
+            });
+          } finally {
+            firstCommandCompleted.resolve();
+          }
+        },
+        async provisionNfcTag(command, controls) {
+          return coordinator.provisionNfcTag(command, controls);
+        },
+        async readSetupProjection(command, controls) {
+          return coordinator.readSetupProjection(command, controls);
+        },
+      };
+      const server = createBackendHttpServer(testDependencies({ administration }));
+      await listen(server);
+      const origin = serverOrigin(server);
+      const accessToken = await token(ids.subjectA2);
+      const command = {
+        expectedMembershipId: ids.membershipA2,
+        commandId: '13000000-0000-4000-8000-000000000777',
+        displayName: 'Lost Response Customer',
+      };
+      const serializedBody = JSON.stringify(command);
+      try {
+        const url = new URL('/v1/administration/customers', origin);
+        const request = httpRequest({
+          hostname: url.hostname,
+          port: url.port,
+          path: url.pathname,
+          method: 'POST',
+          headers: {
+            authorization: `Bearer ${accessToken}`,
+            'content-type': 'application/json',
+            'content-length': String(Buffer.byteLength(serializedBody)),
+          },
+        }, (response) => response.resume());
+        request.on('error', () => undefined);
+        const connectionClosed = new Promise<void>((resolve) => request.once('close', resolve));
+        request.end(serializedBody);
+
+        await writeReached.promise;
+        request.destroy();
+        await connectionClosed;
+        continueWrite.resolve();
+        await firstCommandCompleted.promise;
+
+        const retry = await postJson(
+          origin,
+          '/v1/administration/customers',
+          accessToken,
+          command,
+        );
+        expect(retry.status).toBe(200);
+        expect(JSON.parse(retry.text)).toMatchObject({
+          status: 'succeeded',
+          idempotentRetry: true,
+          customer: {
+            displayName: 'Lost Response Customer',
+            active: true,
+          },
+        });
+        const counts = await installerPool.query<{
+          audits: number;
+          customers: number;
+          receipts: number;
+        }>(
+          `SELECT
+             (SELECT count(*)::integer
+              FROM taptime_server.customers
+              WHERE display_name = 'Lost Response Customer') AS customers,
+             (SELECT count(*)::integer
+              FROM taptime_server.admin_setup_command_receipts
+              WHERE command_id = $1) AS receipts,
+             (SELECT count(*)::integer
+              FROM taptime_server.audit_events
+              WHERE correlation_id = $1::text
+                AND event_type = 'CustomerCreated') AS audits`,
+          [command.commandId],
+        );
+        expect(counts.rows[0]).toEqual({ customers: 1, receipts: 1, audits: 1 });
+        await expectCleanPooledConnection(
+          administrationPool,
+          C2_ADMINISTRATION_RUNTIME_LOGIN,
+        );
+      } finally {
+        continueWrite.resolve();
+        await closeServer(server);
+        await administrationPool.end();
+      }
+    });
 });
 
 describe('B5-backed scan-context route', () => {
@@ -1480,11 +1617,23 @@ function testDependencies(
       };
     },
   };
+  const administration: BackendApiDependencies['administration'] = {
+    async createCustomer() {
+      return { status: 'unauthorized' };
+    },
+    async provisionNfcTag() {
+      return { status: 'unauthorized' };
+    },
+    async readSetupProjection() {
+      return { status: 'unauthorized' };
+    },
+  };
   return {
     sessionAuthority,
     scanContextResolver,
     lifecycleIngestor,
     deferredLifecycleIngestor,
+    administration,
     ...overrides,
   };
 }

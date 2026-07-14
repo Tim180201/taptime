@@ -17,7 +17,7 @@ const assignment: NfcAssignment = {
   target,
   active: true,
 };
-const customer: Customer = { id: CustomerId('customer-1'), organizationId, active: true };
+const customer: Customer = { id: CustomerId('customer-1'), organizationId, displayName: 'Synthetic Customer', active: true };
 const caller = authenticatedCaller(UserId('user-1'), organizationId);
 if (caller.status !== 'authenticated') {
   throw new Error('Expected an authenticated caller fixture.');

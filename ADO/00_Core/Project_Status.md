@@ -1,7 +1,7 @@
 # Project Status
 
-Status: CORE ROADMAP V2 BLOCK A, B1–B6, C1/C2, C3B, BLOCK D, E1 AND NARROW E2A COMPLETE FOR THEIR RECORDED SCOPES — C3A FB-002 V1.2 / TS-002 V1.2 / ADR-0011 INDEPENDENTLY VALIDATED AND HUMAN-ACCEPTED — C3B SECURE BOOTSTRAP PASSED TECHNICAL LEAD, EXACT-HEAD NINE-JOB CI AND INDEPENDENT SECURITY; C3C–C3E UNAUTHORIZED — MOBILE 310 / CORE 288 / BOOTSTRAP 188 / LIFECYCLE 88 / API 139 / SYNTHETIC E2E 6 ARE THE PUBLISHED PRODUCT-CODE BASELINE — DT-060–DT-068 AND BLOCK E REMAIN OPEN — 2 SUPAVISOR MODES UNVERIFIED — NO PRODUCTION PERSONAL DATA AUTHORIZED — CORE PROTOTYPE, NOT YET A PRODUCT — NO FULL OFFLINE/PRODUCTION CLOUD SYNC PATH
-Date: 2026-07-14
+Status: CORE ROADMAP V2 BLOCK A, B1–B6, C1/C2, C3B, BLOCK D, E1 AND NARROW E2A COMPLETE FOR THEIR RECORDED SCOPES — C3A FB-002 V1.2 / TS-002 V1.3 / ADR-0011 HUMAN-ACCEPTED — C3C AUTHORIZED AND LOCALLY IMPLEMENTED/VERIFIED WITH 1,394 TESTS, BUT INDEPENDENT FINAL REVIEW, IMPLEMENTATION HEAD AND EXACT-HEAD TEN-JOB CI PENDING; NOT CLOSED — C3D/C3E UNAUTHORIZED — MOBILE 310 / CORE 290 / CONTRACT 3 / ADMINISTRATION 75 / BOOTSTRAP 189 / LIFECYCLE 88 / API 172 / SYNTHETIC E2E 6 ARE THE CURRENT LOCAL PRODUCT-CODE COUNTS — DT-060–DT-068 AND BLOCK E REMAIN OPEN — 2 SUPAVISOR MODES UNVERIFIED — NO PRODUCTION PERSONAL DATA AUTHORIZED — CORE PROTOTYPE, NOT YET A PRODUCT — NO FULL OFFLINE/PRODUCTION CLOUD SYNC PATH
+Date: 2026-07-15
 Owner: Human Architect + Technical Lead
 
 ## Product
@@ -17,7 +17,7 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
 - EP-007 Product Architecture Foundation is closed; see AVR-001 for validation evidence.
 - EP-007 Development Tasks (`ADO/02_Development/EP-007_Development_Tasks.md`) now span DT-001–DT-026 across Development Sprints 001–019, all Completed (DEV-SPRINT-001 through DEV-SPRINT-019 in the Decision Log), except Development Sprint 002 (DT-004/005/006) and Development Sprint 004 (DT-008), which remain implemented but not yet Review-Agent-verified or Human-Architect-approved. DT-016's original no-device caveat is now closed for the approved Galaxy A33/Android 15/two-NTAG213 set by device-local stability evidence and authenticated product-server unassigned/Start/Stop evidence. **DT-017–DT-026 (the full TS-002 Organization Management Foundation Development Task sequence) are now all Completed** — no DT-027 or later task exists anywhere in FB-002, TS-002, or `EP-007_Development_Tasks.md`.
 - EP-008 Developer Implementation Manual Chapters 00–03 are synchronized with implemented reality through Development Sprint 019 (Existing Scan Pipeline Integration Verification, Organization Administration NFC Tag Assignment, Organization Administration NFC Tag Registration, Organization Administration Customer Registration, repository write extensions for Customer/NfcTag/NfcAssignment, Membership authorization validator, Membership domain/repository/service foundation, Organization domain/repository/service foundation, real NFC hardware integration, durable local persistence, error categorization, authentication/session foundation, mobile foundation, offline queue, synchronization service, and the original scan-to-WorkEvent pipeline).
-- The Business Core (NFC scan through Assignment Resolution, Assignment Validation, WorkEvent creation, Business Engine decision, TimeEntry lifecycle, offline queue, durable local persistence and error classification) is implemented and tested: 288 `packages/core` tests pass (262 existing plus 26 ADR-0009 codec cases); the expanded Mobile suite passes 310 tests in 19 files, including physical-validation, synthetic-E2E product-composition, E1 durable recovery and E2A session-bound cache/outbox/reconciliation boundaries; tests are included in the TypeScript check; the Core and workspace builds succeed.
+- The Business Core (NFC scan through Assignment Resolution, Assignment Validation, WorkEvent creation, Business Engine decision, TimeEntry lifecycle, offline queue, durable local persistence and error classification) is implemented and tested: 290 `packages/core` tests pass (262 existing plus 26 ADR-0009 codec cases and two explicit required-display-name contract/persistence cases); the expanded Mobile suite passes 310 tests in 19 files, including physical-validation, synthetic-E2E product-composition, E1 durable recovery and E2A session-bound cache/outbox/reconciliation boundaries; tests are included in the TypeScript check; the Core and workspace builds succeed.
 - **Core Roadmap v2 Block A is complete.** The Human Architect approved F-01's engine-driven lifecycle rule; `TimeEntry` now has typed started/stopped states and WorkEvent traceability; repositories support user-aware active lookup and updates; the Business Engine handles start, stop, duplicate suppression (`< 5 seconds`), other-target rejection and inconsistent-state escalation; GitHub Actions runs install/typecheck/test/build on pushes and pull requests to `main`. Implementation commits: `f5a0027`, `d8d3833`, `72eb03d`; enabling commits: `2493f17`, `b2004ea`. Closure evidence: `ADO/02_Development/Block_A_Core_Truth_and_Reliability_Closure.md`.
 - **ADR-0008 is approved after independent security review and renewed Technical Lead verification; phased Block B implementation is authorized.** The approved baseline is Supabase-managed PostgreSQL/Auth, managed Node as primary transactional lifecycle runtime, pooled-schema RLS/composite tenant constraints, one active Membership per User, email/password-only v1 authentication, audited operator bootstrap and identity-first pilot provisioning. Conflict, device-time and pre-revocation evidence use explicit deferred/review paths rather than silent mutation. Central EU (Frankfurt) is the intended initial region. No production personal data is authorized until legal retention/erasure/anonymization and backup requirements are approved. No production backend or cloud resource exists; the disposable B1 result is recorded below.
 - **Block B1 is completed and Technical-Lead approved.** Two review rounds corrected broad mutation rights, Organization-only visibility, privileged runtime use and cross-User referential manipulation. WorkEvent/TimeEntry unique keys and every TimeEntry/Decision/Receipt/Audit foreign key are User- and Organization-qualified; immutable evidence has operation-specific grants; runtime uses a separate non-owner/non-superuser login. Direct PostgreSQL 17.10 passes 39 tests locally and in GitHub Actions run `29220424071`, including cross-User `23503` rejection; two Supavisor modes remain explicitly unverified and are a pre-production gate. No production backend adapter, HTTP API, Auth integration or cloud resource exists.
@@ -33,8 +33,9 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
 - **E2A closure publication is CI-verified.** Governance commit `de03a71` passed all eight jobs in
   GitHub Actions run `29351043179`; this publication fact changes no scope and leaves DT-060–DT-062
   plus Block E open.
-- **C3A Organization Administration Architecture is accepted and C3B is completed.** FB-002 v1.2
-  and TS-002 v1.2 reconcile DT-017–DT-026 with B3–C2. ADR-0011 establishes a private
+- **C3A Organization Administration Architecture is accepted, C3B is completed and C3C is locally
+  implemented/verified with final gates pending.** FB-002 v1.2 and TS-002 v1.3 reconcile
+  DT-017–DT-026 with B3–C2. ADR-0011 establishes a private
   operator-only first Organization/Admin bootstrap, a distinct least-privilege normal Admin write
   session, durable command receipts, `assignment_target_unavailable`, Organization-scoped canonical
   payload uniqueness, append-only Assignment history and required Customer/Tag display names with
@@ -43,14 +44,21 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   final independent re-review passed with zero open P0/P1/P2/P3 and the Human Architect accepted the
   direction. C3B was separately authorized on baseline `f7d3855`; implementation commit `e10fcaf`
   passed its 188-test matrix, independent final review and all nine exact-head GitHub CI jobs in run
-  `29363513529`. This closes repository implementation only. C3C–C3E and production deployment
-  remain unauthorized.
+  `29363513529`. C3C was explicitly authorized on baseline `c1148d57`; its local migration `007`,
+  least-privilege setup coordinator/pool, exact three-route API and safe projection pass the full
+  1,394-test Node-24/PostgreSQL-17 regression plus workspace typechecks/builds and Android export.
+  Every implementation/precommit finding reported so far was corrected, including receipt/resource
+  binding, race, fail-closed normalization and C3B-owner compatibility. No implementation SHA or CI
+  run is claimed: independent final review and
+  exact-head ten-job CI remain pending, so C3C is not closed. C3D/C3E and production deployment
+  remain unauthorized. Evidence: `ADO/05_Evidence/Block_C3C_Normal_Administration_Backend_Evidence.md`
+  and `ADO/05_Evidence/Block_C3C_Independent_Architecture_Security_Review.md`.
   Its feasibility review corrected `taptime-name-v1` to PostgreSQL-17-authoritative Unicode 15.1
   and made the privileged operator-attestation trust plus external IAM/TLS gates explicit.
 - **The internal physical-validation APK passed its device-local physical checklist on a Samsung Galaxy A33 5G running Android 15 with two NTAG213 tags.** Both tags produced ten stable and distinct shortened fingerprints; disabled NFC, timeout without counter mutation, explicit cancel, scan-after-cleanup and rapid duplicate coalescing behaved as designed. A tag presented outside an explicit capture produced Android's external `Aktion wählen` prompt and no TapTim.e counter change. No raw UID, token or provider error was disclosed; the tester's initial uncertainty about the unlabeled 12-character hash produced a real UX correction that now labels it explicitly as a shortened SHA-256 validation fingerprint. Follow-up commit `56790c2` passed all seven jobs in run `29324366418`; EAS build `6969b72b-8f01-496e-95ff-4e481019bdf8` produced integrity-verified Android build 2. This is device evidence, not Block-G distribution, broad pilot-fleet coverage or production deployment.
 - **The synthetic server-connected Android E2E harness and physical product run passed after six blocking Technical-Lead corrections.** USB `adb reverse` kept the distinct synthetic APK's Auth and C2 access on numeric loopback without LAN/tunnel/cloud. A per-run scrypt password plus ephemeral RS256/JWKS drove the real Mobile auth adapter; real C2/B4/B5/B6/Core and PostgreSQL migrations `001`–`005` remained authoritative. Five automated tests comprise exactly three direct PostgreSQL integration cases and two non-database safety/source guards. Correction commit `59c4ac7` passed all eight jobs in run `29333578360`. The 66-MB APK installed on `SM_A336B`; physical Tag B showed `Tag nicht zugeordnet`, fingerprint-bound Tag-A provisioning produced 1 Tag/Assignment and 2 AuditEvents with zero lifecycle evidence, and the next scans showed `Arbeitszeit gestartet` then `Arbeitszeit gestoppt`. Final state was 2 WorkEvents/Decisions/Receipts, 1 stopped TimeEntry and 4 AuditEvents. Normal shutdown and scoped disconnect left an empty reverse table. No raw UID, token, database/provider error or real person data was displayed. Independent D-FINAL-01 corrected only the previous test-count wording; no code/security blocker remains.
 - Development Sprint 011 was the first Development Sprint planned directly against EP-009 Product Readiness priorities: it evaluated and deliberately did not target Organization Management (the higher-ranked priority per Product Readiness Assessment Section 11.1) because no Feature Blueprint exists for it, implementing Real NFC Hardware Integration (DT-016) instead — see `Development_Sprint_011_Plan.md` Section 3 and `Development_Sprint_011_Closure.md`.
-- **FB-002 v1.2, TS-002 v1.2 and ADR-0011 are accepted after C3A reconciliation and the narrow C3B feasibility amendment.** DT-017–DT-026 remain complete as the Core/test foundation. ADR-0008/B3–C2 supply the real identity, tenant, persistence and transport context that the 2026-07-07 drafts intentionally lacked. C3B's isolated bootstrap CLI/migration passed Technical-Lead verification, independent final review and exact-head nine-job CI. No normal Admin setup API or setup UI exists yet.
+- **FB-002 v1.2, TS-002 v1.3 and ADR-0011 are accepted after C3A reconciliation, C3B and the exact C3C amendment.** DT-017–DT-026 remain complete as the Core/test foundation. ADR-0008/B3–C2 supply the real identity, tenant, persistence and transport context that the 2026-07-07 drafts intentionally lacked. C3B's isolated bootstrap CLI/migration passed Technical-Lead verification, independent final review and exact-head nine-job CI. The normal Admin setup backend/API now exists locally and passed its local matrix; it is not published/closed until independent final review and exact-head ten-job CI pass. No setup UI exists yet.
 - The Product Readiness Assessment and Product Readiness Roadmap (2026-07-07) have completed Technical Lead review, including a seven-change follow-up revision. **EP-009 – Product Readiness Framework** is now Active, formally establishing Product Readiness as a permanent, continuously-reassessed governance activity alongside Development Sprints and EP-008 — see `ADO/02_Development/EP-009_Product_Readiness_Framework.md`.
 - **Historical external CTO snapshot (2026-07-10).** At review time, the repository was correctly
   classified as a Core Prototype with K1–K12 covering demo composition, bypassed native capture,
@@ -59,10 +67,11 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   rewrite and produced Core Roadmap v2 plus the calendar-based readiness ranges. See
   `ADO/05_Evidence/External_CTO_Review_Triage_2026-07-10.md`; these statements are provenance, not the
   current implementation baseline.
-- **Current disposition (2026-07-14).** Blocks A, B1–B6, C1/C2 and D closed the recorded K1–K5 and
+- **Current disposition (2026-07-15).** Blocks A, B1–B6, C1/C2 and D closed the recorded K1–K5 and
   K7–K9 engineering gaps for their approved scopes. E1/E2A advance but do not complete K6/full
   synchronization; legacy persistence/recovery risk, product distribution and K12 legal/privacy work
-  remain open. Core Roadmap v2 still governs the remaining path, including C3C–C3E and Blocks E–I.
+  remain open. C3C is locally implemented/verified but still awaits its independent-final and
+  exact-head-CI gates. Core Roadmap v2 still governs C3C publication, C3D/C3E and Blocks E–I.
 - Repository Health Sprint 001 and Repository Maintenance Sprint 002 are completed; known repository consistency findings from that era have been closed or explicitly logged as remaining findings for Technical Lead disposition.
 - `frogs-zeiterfassung` remains technical reference evidence, not a source code baseline.
 - Root `README.md`, `CHANGELOG.md`, and `Roadmap.md` still describe a pre-Sprint-001 repository state and have not yet been refreshed — this is a known, already-tracked finding (Product Readiness Roadmap, "Now" milestone, Engineering Track), not an oversight of this update.
@@ -71,14 +80,15 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
 
 Two Epics are concurrently Active, per EP-009's own stated relationship to the rest of the repository (`EP-009_Product_Readiness_Framework.md` Section 2):
 
-- **EP-008 – Developer Implementation Manual** (guidance track, synchronized through Development Sprint 019; Chapters 04–10 not yet written) and the **Roadmap v2 implementation track** — Development Sprints 001–019 and Core Roadmap v2 Blocks A, B1–B6, C1/C2, C3B and D are complete for their recorded scopes. E1 and the narrow E2A slice are complete after Technical-Lead, eight-job CI, Human physical Android and independent final-review approval. C3A passed independent re-review and Human acceptance; C3B passed Technical-Lead, exact-head nine-job CI and independent security, while C3C–C3E and Block E outside E2A remain gated. Block D software, CI, device-local NFC, synthetic server-connected physical Android validation and independent final review are approved/passed for the recorded Galaxy A33/NTAG213 set. The DT-017–DT-026 Core sequence remains complete; its accepted C3 baseline is FB-002 v1.2/TS-002 v1.2/ADR-0011. F-01 is resolved and implemented. DT-016/DT-058's physical Android gate is closed for the approved set; ADR-0008 through ADR-0011 remain approved.
+- **EP-008 – Developer Implementation Manual** (guidance track, synchronized through Development Sprint 019; Chapters 04–10 not yet written) and the **Roadmap v2 implementation track** — Development Sprints 001–019 and Core Roadmap v2 Blocks A, B1–B6, C1/C2, C3B and D are complete for their recorded scopes. E1 and the narrow E2A slice are complete after Technical-Lead, eight-job CI, Human physical Android and independent final-review approval. C3A passed independent re-review and Human acceptance; C3B passed Technical-Lead, exact-head nine-job CI and independent security. C3C is authorized and locally implemented/verified, but its implementation head, independent final review and exact-head ten-job CI remain gated; C3D/C3E and Block E outside E2A remain unauthorized. Block D software, CI, device-local NFC, synthetic server-connected physical Android validation and independent final review are approved/passed for the recorded Galaxy A33/NTAG213 set. The DT-017–DT-026 Core sequence remains complete; its accepted C3 baseline is FB-002 v1.2/TS-002 v1.3/ADR-0011. F-01 is resolved and implemented. DT-016/DT-058's physical Android gate is closed for the approved set; ADR-0008 through ADR-0011 remain approved.
 - **EP-009 – Product Readiness Framework** (continuous, parallel governance track) — governs Product Readiness domains outside implementation: Technical Operations, Product, Commercial, Legal & Compliance, Deployment, Go-To-Market, Customer, Support and Scaling Readiness (Business Readiness evaluated and deliberately not yet adopted as an official domain, per Product Readiness Assessment Section 13).
 
 ### Goals
 
 - Preserve the approved Block D Android NFC runtime boundary, E1's server-ready durable-evidence
-  boundary, E2A's narrow defer-only authority boundary, accepted C3A administration architecture
-  and completed C3B boundary without entering C3C–C3E or broader Block-E scope.
+  boundary, E2A's narrow defer-only authority boundary, accepted C3A administration architecture,
+  completed C3B boundary and locally verified C3C boundary without entering C3D/C3E or broader
+  Block-E scope.
 - Preserve the closed E2A boundary without widening it into full-offline E2; any persisted
   multi-context cache, multi-event queue, automatic evaluation or numeric clock/revocation policy
   requires a separate Human-Architect authorization.
@@ -92,12 +102,12 @@ Two Epics are concurrently Active, per EP-009's own stated relationship to the r
 
 ## Immediate Next Steps
 
-1. Decide and explicitly authorize the next exact-baseline slice before any C3C code; the recommended
-   next slice is C3C's narrow normal Admin setup backend/API.
+1. Publish only the exact C3C implementation scope, then obtain an independent final
+   architecture/security/governance review against that implementation SHA.
 2. Keep the real production endpoint/CA, one-human operator IAM inventory, short-lived credential
    delivery/revocation and controlled execution evidence as explicit deployment gates.
-3. Do not expose the existing broad Administrator role or detached Core Membership/NfcTag objects;
-   C3C must retain the accepted narrow write-session contract.
+3. Require exact-head ten-of-ten GitHub Actions CI before any C3C closure; retain the accepted narrow
+   write-session contract and never expose the broad Administrator role or detached Core authority.
 4. Keep C3D UI and C3E identity-first Membership/reassignment, persisted multi-event offline work and
    remaining DT-060–DT-068 gated behind their own decisions and reviews.
 5. Keep the Decision Log, Project Status and block-level closure evidence current throughout Roadmap v2 execution.

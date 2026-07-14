@@ -18,7 +18,7 @@ import type { Customer } from '../../src/domain/Customer';
 
 const organizationId = OrganizationId('org-1');
 const payload = createNfcPayload('known-tag-payload');
-const tag: NfcTag = { id: NfcTagId('tag-1'), organizationId, payload };
+const tag: NfcTag = { id: NfcTagId('tag-1'), organizationId, displayName: 'Synthetic Tag', payload };
 const target = customerAssignmentTarget(CustomerId('customer-1'));
 const assignment: NfcAssignment = {
   id: NfcAssignmentId('assignment-1'),
@@ -27,7 +27,7 @@ const assignment: NfcAssignment = {
   target,
   active: true,
 };
-const activeCustomer: Customer = { id: CustomerId('customer-1'), organizationId, active: true };
+const activeCustomer: Customer = { id: CustomerId('customer-1'), organizationId, displayName: 'Synthetic Customer', active: true };
 
 function buildService(options: {
   tags?: NfcTag[];

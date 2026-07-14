@@ -10,6 +10,7 @@ export { ids };
 export const C2_SESSION_RUNTIME_LOGIN = 'taptime_c2_session_runtime';
 export const C2_READ_MODEL_RUNTIME_LOGIN = 'taptime_c2_read_model_runtime';
 export const C2_LIFECYCLE_RUNTIME_LOGIN = 'taptime_c2_lifecycle_runtime';
+export const C2_ADMINISTRATION_RUNTIME_LOGIN = 'taptime_c2_administration_runtime';
 
 export const C2_RUNTIME_ROLE_GRAPH = Object.freeze({
   [C2_SESSION_RUNTIME_LOGIN]: ['taptime_identity_resolver'],
@@ -22,6 +23,10 @@ export const C2_RUNTIME_ROLE_GRAPH = Object.freeze({
     'taptime_identity_resolver',
     'taptime_server_lifecycle',
   ],
+  [C2_ADMINISTRATION_RUNTIME_LOGIN]: [
+    'taptime_admin_setup',
+    'taptime_identity_resolver',
+  ],
 } as const);
 
 export async function resetMigrateAndPrepareC2(
@@ -30,13 +35,14 @@ export async function resetMigrateAndPrepareC2(
     readonly session: string;
     readonly readModel: string;
     readonly lifecycle: string;
+    readonly administration: string;
   },
 ): Promise<void> {
   await installerPool.query(`DROP SCHEMA IF EXISTS ${B3_SCHEMA} CASCADE`);
   await installerPool.query(`DROP TABLE IF EXISTS ${B3_MIGRATION_TABLE}`);
   const result = await migrate(installerPool);
-  if (result.applied.join(',') !== '001,002,003,004,005,006') {
-    throw new Error('C2 requires a clean migration set 001 through 006');
+  if (result.applied.join(',') !== '001,002,003,004,005,006,007') {
+    throw new Error('C2 requires a clean migration set 001 through 007');
   }
 
   await normalizeRuntimeLogin(
@@ -57,10 +63,22 @@ export async function resetMigrateAndPrepareC2(
     passwords.lifecycle,
     C2_RUNTIME_ROLE_GRAPH[C2_LIFECYCLE_RUNTIME_LOGIN],
   );
+  await normalizeRuntimeLogin(
+    installerPool,
+    C2_ADMINISTRATION_RUNTIME_LOGIN,
+    passwords.administration,
+    C2_RUNTIME_ROLE_GRAPH[C2_ADMINISTRATION_RUNTIME_LOGIN],
+  );
 }
 
 export async function resetAndSeedC2(installerPool: Pool, issuer: string): Promise<void> {
   await resetAndSeedB6(installerPool, issuer);
+  await installerPool.query(
+    `UPDATE taptime_server.memberships
+     SET role = 'administrator', row_version = row_version + 1
+     WHERE id = $1`,
+    [ids.membershipA2],
+  );
 }
 
 export function runtimeConnectionString(

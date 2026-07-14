@@ -143,10 +143,10 @@ jobs:
       - name: Typecheck backend B3 schema
         run: npm run typecheck --workspace=@taptime/backend-schema
 
-      - name: Apply current schema migrations 001 through 006 to empty PostgreSQL database
+      - name: Apply current schema migrations 001 through 007 to empty PostgreSQL database
         run: npm run migrate --workspace=@taptime/backend-schema
 
-      - name: Re-run and verify migration ledger 001 through 006
+      - name: Re-run and verify migration ledger 001 through 007
         run: |
           npm run migrate --workspace=@taptime/backend-schema
           npm run verify-migrations --workspace=@taptime/backend-schema
@@ -198,7 +198,7 @@ jobs:
       - name: Install dependencies from lockfile
         run: npm ci
 
-      - name: Apply current schema migrations 001 through 006 for B4
+      - name: Apply current schema migrations 001 through 007 for B4
         run: npm run migrate --workspace=@taptime/backend-schema
 
       - name: Re-run and verify the B4 migration ledger
@@ -259,7 +259,7 @@ jobs:
       - name: Build the approved B4 identity dependency
         run: npm run build --workspace=@taptime/backend-identity
 
-      - name: Apply current schema migrations 001 through 006 for B5
+      - name: Apply current schema migrations 001 through 007 for B5
         run: npm run migrate --workspace=@taptime/backend-schema
 
       - name: Re-run and verify the migration ledger
@@ -323,10 +323,10 @@ jobs:
           npm run build --workspace=@taptime/backend-schema
           npm run build --workspace=@taptime/backend-identity
 
-      - name: Apply schema migrations 001 through 006
+      - name: Apply schema migrations 001 through 007
         run: npm run migrate --workspace=@taptime/backend-schema
 
-      - name: Re-run and verify migration ledger 001 through 006
+      - name: Re-run and verify migration ledger 001 through 007
         run: |
           npm run migrate --workspace=@taptime/backend-schema
           npm run verify-migrations --workspace=@taptime/backend-schema
@@ -341,7 +341,7 @@ jobs:
         run: npm run build --workspace=@taptime/backend-lifecycle
 
   backend-c2-api:
-    name: Backend C2 authenticated API and Mobile transport
+    name: Backend C2/C3C authenticated API and Mobile transport
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -366,9 +366,11 @@ jobs:
       C2_SESSION_DATABASE_URL: postgresql://taptime_c2_session_runtime:c2-session-ci-synthetic-only@127.0.0.1:5432/taptime_c2
       C2_READ_MODEL_DATABASE_URL: postgresql://taptime_c2_read_model_runtime:c2-read-ci-synthetic-only@127.0.0.1:5432/taptime_c2
       C2_LIFECYCLE_DATABASE_URL: postgresql://taptime_c2_lifecycle_runtime:c2-lifecycle-ci-synthetic-only@127.0.0.1:5432/taptime_c2
+      C2_ADMINISTRATION_DATABASE_URL: postgresql://taptime_c2_administration_runtime:c2-administration-ci-synthetic-only@127.0.0.1:5432/taptime_c2
       C2_SESSION_RUNTIME_PASSWORD: c2-session-ci-synthetic-only
       C2_READ_MODEL_RUNTIME_PASSWORD: c2-read-ci-synthetic-only
       C2_LIFECYCLE_RUNTIME_PASSWORD: c2-lifecycle-ci-synthetic-only
+      C2_ADMINISTRATION_RUNTIME_PASSWORD: c2-administration-ci-synthetic-only
 
     steps:
       - name: Check out repository
@@ -386,29 +388,31 @@ jobs:
       - name: Install dependencies from lockfile
         run: npm ci
 
-      - name: Build required Core, schema, B4, B5, and B6 dependencies
+      - name: Build required contract, Core, schema, B4, B5, B6, and C3C dependencies
         run: |
+          npm run build --workspace=@taptime/administration-contract
           npm run build --workspace=@taptime/core
           npm run build --workspace=@taptime/backend-schema
           npm run build --workspace=@taptime/backend-identity
           npm run build --workspace=@taptime/backend-read-model
           npm run build --workspace=@taptime/backend-lifecycle
+          npm run build --workspace=@taptime/backend-administration
 
-      - name: Apply schema migrations 001 through 006 to clean PostgreSQL 17
+      - name: Apply schema migrations 001 through 007 to clean PostgreSQL 17
         run: npm run migrate --workspace=@taptime/backend-schema
 
-      - name: Re-run and verify migration ledger 001 through 006
+      - name: Re-run and verify migration ledger 001 through 007
         run: |
           npm run migrate --workspace=@taptime/backend-schema
           npm run verify-migrations --workspace=@taptime/backend-schema
 
-      - name: Typecheck C2 API production and test sources
+      - name: Typecheck C2/C3C API production and test sources
         run: npm run typecheck --workspace=@taptime/backend-api
 
-      - name: Test C1 and C2 API against direct PostgreSQL and local JWKS
+      - name: Test C1, C2, and C3C API against direct PostgreSQL and local JWKS
         run: npm test --workspace=@taptime/backend-api
 
-      - name: Build C2 backend API
+      - name: Build C2/C3C backend API
         run: npm run build --workspace=@taptime/backend-api
 
       - name: Typecheck and test Mobile authentication and C2 transports
@@ -458,14 +462,15 @@ jobs:
 
       - name: Build C3B type dependencies
         run: |
+          npm run build --workspace=@taptime/administration-contract
           npm run build --workspace=@taptime/core
           npm run build --workspace=@taptime/backend-schema
           npm run build --workspace=@taptime/backend-identity
 
-      - name: Apply schema migrations 001 through 006 to clean PostgreSQL 17
+      - name: Apply schema migrations 001 through 007 to clean PostgreSQL 17
         run: npm run migrate --workspace=@taptime/backend-schema
 
-      - name: Re-run and verify migration ledger 001 through 006
+      - name: Re-run and verify migration ledger 001 through 007
         run: |
           npm run migrate --workspace=@taptime/backend-schema
           npm run verify-migrations --workspace=@taptime/backend-schema
@@ -481,6 +486,74 @@ jobs:
 
       - name: Execute and verify isolated C3B operator CLI binary
         run: npm run verify-bin --workspace=@taptime/backend-bootstrap
+
+  backend-c3c-administration:
+    name: Backend C3C normal administration security
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:17.10-alpine
+        env:
+          POSTGRES_DB: taptime_c3c
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: taptime_c3c_installer
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U taptime_c3c_installer -d taptime_c3c"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      B3_DATABASE_URL: postgresql://taptime_c3c_installer:postgres@127.0.0.1:5432/taptime_c3c
+      C3C_DATABASE_URL: postgresql://taptime_c3c_installer:postgres@127.0.0.1:5432/taptime_c3c
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.17.0
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies from lockfile
+        run: npm ci
+
+      - name: Build C3C contract, Core, schema, and identity dependencies
+        run: |
+          npm run build --workspace=@taptime/administration-contract
+          npm run build --workspace=@taptime/core
+          npm run build --workspace=@taptime/backend-schema
+          npm run build --workspace=@taptime/backend-identity
+
+      - name: Apply schema migrations 001 through 007 to clean PostgreSQL 17
+        run: npm run migrate --workspace=@taptime/backend-schema
+
+      - name: Re-run and verify migration ledger 001 through 007
+        run: |
+          npm run migrate --workspace=@taptime/backend-schema
+          npm run verify-migrations --workspace=@taptime/backend-schema
+
+      - name: Typecheck and test neutral C3 contract
+        run: |
+          npm run typecheck --workspace=@taptime/administration-contract
+          npm test --workspace=@taptime/administration-contract
+
+      - name: Typecheck and test C3C against direct PostgreSQL 17
+        run: |
+          npm run typecheck --workspace=@taptime/backend-administration
+          npm test --workspace=@taptime/backend-administration
+
+      - name: Build isolated C3C administration package
+        run: npm run build --workspace=@taptime/backend-administration
 
   synthetic-android-e2e:
     name: Synthetic server-connected Android E2E harness
@@ -527,11 +600,13 @@ jobs:
 
       - name: Build synthetic harness type dependencies
         run: |
+          npm run build --workspace=@taptime/administration-contract
           npm run build --workspace=@taptime/core
           npm run build --workspace=@taptime/backend-schema
           npm run build --workspace=@taptime/backend-identity
           npm run build --workspace=@taptime/backend-read-model
           npm run build --workspace=@taptime/backend-lifecycle
+          npm run build --workspace=@taptime/backend-administration
           npm run build --workspace=@taptime/backend-api
 
       - name: Typecheck synthetic Android E2E harness

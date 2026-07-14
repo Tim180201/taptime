@@ -25,6 +25,7 @@ import { SyntheticLocalAuthServer } from './SyntheticLocalAuthServer.js';
 
 export type SyntheticEnvironmentSafeEvent =
   | SyntheticSafeEvent
+  | 'api_administration_unavailable'
   | 'api_lifecycle_unavailable'
   | 'api_scan_context_unavailable'
   | 'api_session_unavailable';
@@ -101,10 +102,24 @@ export async function createSyntheticAndroidE2eEnvironment(
         scanContextResolver: provisioningScanContext,
         lifecycleIngestor: lifecycleCoordinator,
         deferredLifecycleIngestor: lifecycleCoordinator,
+        administration: {
+          async createCustomer() {
+            throw new Error('Administration is disabled in the synthetic Android harness');
+          },
+          async provisionNfcTag() {
+            throw new Error('Administration is disabled in the synthetic Android harness');
+          },
+          async readSetupProjection() {
+            throw new Error('Administration is disabled in the synthetic Android harness');
+          },
+        },
       },
       {
         onDiagnostic(diagnostic) {
           switch (diagnostic.code) {
+            case 'administration_failed':
+              onSafeEvent('api_administration_unavailable');
+              return;
             case 'lifecycle_ingestion_failed':
               onSafeEvent('api_lifecycle_unavailable');
               return;

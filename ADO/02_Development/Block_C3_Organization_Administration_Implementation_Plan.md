@@ -1,17 +1,18 @@
 # Block C3 — Organization Administration Implementation Plan
 
-Status: Active — C3B completed; C3C–C3E remain separately gated and unauthorized
-Date: 2026-07-14
+Status: Active — C3B completed; C3C locally implemented and verified with final review/ten-job CI
+pending; C3D/C3E unauthorized
+Date: 2026-07-15
 Planning Baseline: `f7d38558e9a1e6d5f7c2cfd1f4a1ec6eed3ebd44`
 Owner: Technical Lead
-Architecture: Accepted ADR-0011, FB-002 v1.2 and TS-002 v1.2
+Architecture: Accepted ADR-0011, FB-002 v1.2 and TS-002 v1.3
 
 ## 1. Recommended sequence and Codex effort
 
 | Slice | Scope | Codex effort | Current authority |
 |---|---|---:|---|
 | C3B | Isolated first Organization/Administrator bootstrap CLI, migration `006`, role graph, receipt/audit and security matrix | High | Completed — Technical Lead, independent review and nine-job CI passed |
-| C3C | Tenant-safe normal setup backend/API, Customer/Tag display names, atomic Customer and NFC provision commands, resumable safe projection | Very High | Not authorized |
+| C3C | Tenant-safe normal setup backend/API, Customer/Tag display names, atomic Customer and NFC provision commands, resumable safe projection | Very High | Authorized on `c1148d57`; local implementation/mid-review passed, implementation head, independent final review and exact-head ten-job CI pending |
 | C3D | Minimal Admin Web shell for Customer/assignment setup plus protected Android Administrator NFC capture | Very High | Not authorized |
 | C3E | Explicit reassignment and identity-first employee Membership setup after their separate policy gates | Very High | Not authorized |
 
@@ -109,6 +110,18 @@ normal API credential reuse, partial retry cleanup or unaudited bypass.
 Stop if the slice requires Membership CRUD, delete, Organization rename/status, implicit
 reassignment, generic SQL/CRUD, browser UID entry, production data or a broader role than the fixed
 setup capability.
+
+### Local implementation checkpoint (2026-07-15)
+
+The authorized C3C scope is implemented locally. Node-24/PostgreSQL-17 verification passed 1,394
+tests plus all workspace typechecks/builds and Android export. The workflow parses with ten jobs,
+migrations `001`–`006` are unchanged and every reported implementation/precommit finding has been
+corrected locally. Evidence:
+`ADO/05_Evidence/Block_C3C_Normal_Administration_Backend_Evidence.md`.
+
+C3C is not complete or closed. An implementation commit/head, independent final review and exact-head
+ten-of-ten GitHub Actions result remain mandatory. DT-063–DT-066 therefore remain open, and no C3D,
+C3E or production implementation is authorized by this checkpoint.
 
 ## 4. C3D — first real setup UI
 

@@ -3,12 +3,14 @@ import { createBackendApiRuntime } from './runtime.js';
 const sessionDatabaseUrl = requiredEnvironmentValue('TAPTIME_SESSION_DATABASE_URL');
 const readModelDatabaseUrl = requiredEnvironmentValue('TAPTIME_READ_MODEL_DATABASE_URL');
 const lifecycleDatabaseUrl = requiredEnvironmentValue('TAPTIME_LIFECYCLE_DATABASE_URL');
+const administrationDatabaseUrl = requiredEnvironmentValue('TAPTIME_ADMINISTRATION_DATABASE_URL');
 const supabaseIssuer = requiredEnvironmentValue('SUPABASE_ISSUER');
 const port = parsePort(process.env.PORT ?? '3000');
 const runtime = createBackendApiRuntime({
   sessionDatabaseUrl,
   readModelDatabaseUrl,
   lifecycleDatabaseUrl,
+  administrationDatabaseUrl,
   supabaseIssuer,
 });
 
@@ -38,6 +40,7 @@ runtime.server.once('error', () => {
 
 type RequiredRuntimeEnvironmentName =
   | 'SUPABASE_ISSUER'
+  | 'TAPTIME_ADMINISTRATION_DATABASE_URL'
   | 'TAPTIME_LIFECYCLE_DATABASE_URL'
   | 'TAPTIME_READ_MODEL_DATABASE_URL'
   | 'TAPTIME_SESSION_DATABASE_URL';
@@ -45,7 +48,7 @@ type RequiredRuntimeEnvironmentName =
 function requiredEnvironmentValue(name: RequiredRuntimeEnvironmentName): string {
   const value = process.env[name];
   if (value === undefined || value.length === 0) {
-    throw new Error(`Required C2 runtime environment variable is missing: ${name}`);
+    throw new Error(`Required backend API runtime environment variable is missing: ${name}`);
   }
   return value;
 }

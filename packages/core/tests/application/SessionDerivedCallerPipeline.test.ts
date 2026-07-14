@@ -30,7 +30,7 @@ import type { Customer } from '../../src/domain/Customer';
 describe('Scan pipeline driven by a SessionService-derived CallerContext', () => {
   const organizationId = DEFAULT_DEMO_ACCOUNT.organizationId;
   const payload = 'known-tag-payload';
-  const tag: NfcTag = { id: NfcTagId('tag-1'), organizationId, payload: createNfcPayload(payload) };
+  const tag: NfcTag = { id: NfcTagId('tag-1'), organizationId, displayName: 'Synthetic Tag', payload: createNfcPayload(payload) };
   const target = customerAssignmentTarget(CustomerId('customer-1'));
   const assignment: NfcAssignment = {
     id: NfcAssignmentId('assignment-1'),
@@ -39,7 +39,7 @@ describe('Scan pipeline driven by a SessionService-derived CallerContext', () =>
     target,
     active: true,
   };
-  const activeCustomer: Customer = { id: CustomerId('customer-1'), organizationId, active: true };
+  const activeCustomer: Customer = { id: CustomerId('customer-1'), organizationId, displayName: 'Synthetic Customer', active: true };
 
   function buildPipeline() {
     const adapter = new FakeNfcScanAdapter();

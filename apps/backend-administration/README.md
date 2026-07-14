@@ -1,0 +1,29 @@
+# `@taptime/backend-administration`
+
+Private C3C Node 24 workspace for the normal tenant-safe setup plane. It verifies the existing B4
+identity boundary, locks the current Membership, requires an exact expected Membership plus current
+Administrator role, then uses only `taptime_admin_setup` inside migration `007`.
+
+The workspace exposes fixed Customer creation, atomic NFC Tag registration/first Assignment and a
+bounded safe projection. It exposes no Pool, repository, generic SQL, Membership mutation,
+reassignment, delete or lifecycle operation. Raw canonical NFC payload is accepted only by the
+provision command and is absent from every result, receipt, audit payload and diagnostic.
+
+Migration `007` keeps the runtime role free of raw-payload reads and Customer update privileges.
+Two callable `SECURITY DEFINER` data capabilities perform only the conflict-safe Tag insert and
+active Customer row lock under a separate non-login owner. A trigger-only receipt-integrity
+capability independently rebinds every committed receipt to its exact resources, request digest and
+audit provenance; the authority/audit owner remains isolated from those data rights. Every command
+carries its HTTP deadline into PostgreSQL lock, statement and transaction bounds.
+
+Local verification uses a disposable PostgreSQL 17 database and a superuser installer:
+
+```bash
+export C3C_DATABASE_URL="postgresql://$USER@127.0.0.1:5432/taptime_c3c"
+npm run build --workspace=@taptime/administration-contract
+npm run typecheck --workspace=@taptime/backend-administration
+npm test --workspace=@taptime/backend-administration
+npm run build --workspace=@taptime/backend-administration
+```
+
+This is repository implementation evidence, not a public or production deployment approval.
