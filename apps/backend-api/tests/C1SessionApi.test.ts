@@ -9,11 +9,11 @@ import {
 } from '@taptime/backend-identity';
 import { B3_MIGRATION_TABLE, B3_SCHEMA, loadMigrations, migrate } from '@taptime/backend-schema';
 import { B4SessionAuthorityResolver } from '../src/B4SessionAuthorityResolver.js';
-import { createSessionHttpServer } from '../src/SessionHttpServer.js';
-import { createSessionApiRuntime, type SessionApiRuntime } from '../src/runtime.js';
+import { createBackendHttpServer } from '../src/BackendHttpServer.js';
+import { createBackendApiRuntime, type BackendApiRuntime } from '../src/runtime.js';
 import type { SessionApiDiagnostic, SessionAuthorityResolver } from '../src/types.js';
 import {
-  C1_RUNTIME_LOGIN,
+  C2_SESSION_RUNTIME_LOGIN,
   accessToken,
   c1Ids,
   closeServer,
@@ -26,11 +26,23 @@ import {
   type SyntheticJwksInfrastructure,
 } from './fixtures.js';
 
-const installerConnectionString = process.env.C1_DATABASE_URL
-  ?? 'postgresql://timbartz@127.0.0.1:5432/taptime_c1';
-const runtimePassword = process.env.C1_RUNTIME_PASSWORD ?? 'c1-local-synthetic-only';
-const configuredRuntimeConnectionString = process.env.C1_RUNTIME_DATABASE_URL
+const installerConnectionString = process.env.C2_DATABASE_URL
+  ?? 'postgresql://timbartz@127.0.0.1:5432/taptime_c2';
+const runtimePassword = process.env.C2_SESSION_RUNTIME_PASSWORD ?? 'c2-session-local-synthetic-only';
+const configuredRuntimeConnectionString = process.env.C2_SESSION_DATABASE_URL
   ?? runtimeConnectionString(installerConnectionString, runtimePassword);
+const configuredReadModelConnectionString = process.env.C2_READ_MODEL_DATABASE_URL
+  ?? connectionStringFor(
+    installerConnectionString,
+    'taptime_c2_read_model_runtime',
+    process.env.C2_READ_MODEL_RUNTIME_PASSWORD ?? 'c2-read-local-synthetic-only',
+  );
+const configuredLifecycleConnectionString = process.env.C2_LIFECYCLE_DATABASE_URL
+  ?? connectionStringFor(
+    installerConnectionString,
+    'taptime_c2_lifecycle_runtime',
+    process.env.C2_LIFECYCLE_RUNTIME_PASSWORD ?? 'c2-lifecycle-local-synthetic-only',
+  );
 const installerPool = new Pool({ connectionString: installerConnectionString, max: 4 });
 const resolverPool = new Pool({ connectionString: configuredRuntimeConnectionString, max: 1 });
 
@@ -41,7 +53,7 @@ interface HttpResult {
 }
 
 let jwks: SyntheticJwksInfrastructure;
-let runtime: SessionApiRuntime;
+let runtime: BackendApiRuntime;
 let apiOrigin: string;
 let verifier: SupabaseJwtAccessTokenVerifier;
 let resolver: PostgresIdentityMembershipResolver;
@@ -49,8 +61,10 @@ const diagnostics: SessionApiDiagnostic[] = [];
 
 beforeAll(async () => {
   const runtimeUrl = new URL(configuredRuntimeConnectionString);
-  if (decodeURIComponent(runtimeUrl.username) !== C1_RUNTIME_LOGIN) {
-    throw new Error(`C1_RUNTIME_DATABASE_URL must use the synthetic ${C1_RUNTIME_LOGIN} login`);
+  if (decodeURIComponent(runtimeUrl.username) !== C2_SESSION_RUNTIME_LOGIN) {
+    throw new Error(
+      `C2_SESSION_DATABASE_URL must use the synthetic ${C2_SESSION_RUNTIME_LOGIN} login`,
+    );
   }
   jwks = await startSyntheticJwks();
   await resetMigrateAndPrepareLogin(installerPool, runtimePassword);
@@ -61,8 +75,10 @@ beforeAll(async () => {
     allowedAlgorithms: ['RS256'],
   });
   resolver = new PostgresIdentityMembershipResolver(resolverPool);
-  runtime = createSessionApiRuntime({
-    databaseUrl: configuredRuntimeConnectionString,
+  runtime = createBackendApiRuntime({
+    sessionDatabaseUrl: configuredRuntimeConnectionString,
+    readModelDatabaseUrl: configuredReadModelConnectionString,
+    lifecycleDatabaseUrl: configuredLifecycleConnectionString,
     supabaseIssuer: jwks.issuerA,
   }, {
     onDiagnostic: (diagnostic) => diagnostics.push(diagnostic),
@@ -310,7 +326,7 @@ describe('strict HTTP transport boundary', () => {
   it('never invokes authority for invalid route, method, body, or Bearer input', async () => {
     const resolve = vi.fn<SessionAuthorityResolver['resolve']>(async () => ({ status: 'rejected' }));
     const authority: SessionAuthorityResolver = { resolve };
-    const server = createSessionHttpServer(authority);
+    const server = createSessionRegressionServer(authority);
     await listen(server);
     const origin = serverOrigin(server);
     try {
@@ -355,7 +371,7 @@ describe('generic infrastructure handling', () => {
       allowedAlgorithms: ['RS256'],
     });
     const authority = new B4SessionAuthorityResolver(unavailableVerifier, resolver);
-    const server = createSessionHttpServer(authority);
+    const server = createSessionRegressionServer(authority);
     await listen(server);
     try {
       const token = await accessToken(jwks, { issuer });
@@ -376,7 +392,7 @@ describe('generic infrastructure handling', () => {
     const failingAuthority = new B4SessionAuthorityResolver(verifier, {
       resolve: async () => { throw new Error('postgresql://user:secret@database.internal'); },
     });
-    const server = createSessionHttpServer(failingAuthority, {
+    const server = createSessionRegressionServer(failingAuthority, {
       onDiagnostic: (diagnostic) => safeDiagnostics.push(diagnostic),
     });
     await listen(server);
@@ -401,7 +417,7 @@ describe('generic infrastructure handling', () => {
   });
 
   it('still returns generic 503 when the optional diagnostic sink itself throws', async () => {
-    const server = createSessionHttpServer({
+    const server = createSessionRegressionServer({
       resolve: async () => { throw new Error('internal'); },
     }, {
       onDiagnostic: () => { throw new Error('diagnostic failure'); },
@@ -418,7 +434,7 @@ describe('generic infrastructure handling', () => {
 
   it('bounds a stalled authority call and returns the same generic 503', async () => {
     const neverSettles = new Promise<never>(() => undefined);
-    const server = createSessionHttpServer({
+    const server = createSessionRegressionServer({
       resolve: () => neverSettles,
     }, {
       authorityTimeoutMilliseconds: 10,
@@ -465,7 +481,7 @@ describe('least-privilege identity resolver runtime', () => {
     }>(
       `SELECT rolcanlogin, rolinherit, rolsuper, rolcreatedb, rolcreaterole, rolbypassrls
        FROM pg_catalog.pg_roles WHERE rolname = $1`,
-      [C1_RUNTIME_LOGIN],
+      [C2_SESSION_RUNTIME_LOGIN],
     );
     expect(attributes.rows[0]).toEqual({
       rolcanlogin: true,
@@ -475,7 +491,7 @@ describe('least-privilege identity resolver runtime', () => {
       rolcreaterole: false,
       rolbypassrls: false,
     });
-    expect(await parentRoles(C1_RUNTIME_LOGIN)).toEqual([B4_IDENTITY_RESOLVER_ROLE]);
+    expect(await parentRoles(C2_SESSION_RUNTIME_LOGIN)).toEqual([B4_IDENTITY_RESOLVER_ROLE]);
     expect(await parentRoles(B4_IDENTITY_RESOLVER_ROLE)).toEqual([]);
     const ownership = await installerPool.query<{ count: string }>(
       `SELECT count(*)::text
@@ -483,7 +499,7 @@ describe('least-privilege identity resolver runtime', () => {
        JOIN pg_catalog.pg_namespace namespace ON namespace.oid = object.relnamespace
        JOIN pg_catalog.pg_roles owner ON owner.oid = object.relowner
        WHERE namespace.nspname = $1 AND owner.rolname = $2`,
-      [B3_SCHEMA, C1_RUNTIME_LOGIN],
+      [B3_SCHEMA, C2_SESSION_RUNTIME_LOGIN],
     );
     expect(ownership.rows[0]?.count).toBe('0');
   });
@@ -500,7 +516,9 @@ describe('least-privilege identity resolver runtime', () => {
       expect(await postgresErrorCode(pool.query(`CREATE TABLE ${B3_SCHEMA}.c1_forbidden (id int)`)))
         .toBe('42501');
       expect(await postgresErrorCode(pool.query('SET ROLE taptime_employee'))).toBe('42501');
-      expect(await postgresErrorCode(pool.query(`ALTER ROLE ${C1_RUNTIME_LOGIN} SUPERUSER`)))
+      expect(await postgresErrorCode(pool.query(
+        `ALTER ROLE ${C2_SESSION_RUNTIME_LOGIN} SUPERUSER`,
+      )))
         .toBe('42501');
     } finally {
       await pool.end();
@@ -526,9 +544,9 @@ describe('least-privilege identity resolver runtime', () => {
         current_setting('app.membership_id', true) AS membership_context`,
     );
     expect(state.rows[0]).toEqual({
-      current_user: C1_RUNTIME_LOGIN,
-      session_user: C1_RUNTIME_LOGIN,
-      current_role: C1_RUNTIME_LOGIN,
+      current_user: C2_SESSION_RUNTIME_LOGIN,
+      session_user: C2_SESSION_RUNTIME_LOGIN,
+      current_role: C2_SESSION_RUNTIME_LOGIN,
       organization_context: null,
       user_context: null,
       membership_context: null,
@@ -631,4 +649,40 @@ async function parentRoles(memberName: string): Promise<string[]> {
     [memberName],
   );
   return result.rows.map(({ role_name }) => role_name);
+}
+
+function connectionStringFor(
+  installerUrl: string,
+  username: string,
+  password: string,
+): string {
+  const url = new URL(installerUrl);
+  url.username = username;
+  url.password = password;
+  return url.href;
+}
+
+function createSessionRegressionServer(
+  authority: SessionAuthorityResolver,
+  options: {
+    readonly onDiagnostic?: (diagnostic: SessionApiDiagnostic) => void;
+    readonly authorityTimeoutMilliseconds?: number;
+  } = {},
+): Server {
+  return createBackendHttpServer({
+    sessionAuthority: authority,
+    scanContextResolver: {
+      async resolve() {
+        return { status: 'not_resolved' };
+      },
+    },
+    lifecycleIngestor: {
+      async ingest() {
+        return { status: 'deferred', reason: 'configuration_unavailable_or_inactive' };
+      },
+    },
+  }, {
+    onDiagnostic: options.onDiagnostic,
+    operationTimeoutMilliseconds: options.authorityTimeoutMilliseconds,
+  });
 }

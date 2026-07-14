@@ -467,4 +467,325 @@ describe('MobileSessionCoordinator', () => {
     expect(coordinator.getState()).toEqual({ status: 'unauthenticated', reason: 'not_signed_in' });
     expect(provider.subscribeCalls).toBe(2);
   });
+
+  it('exposes the access token only through an attempt-scoped reader that expires afterwards', async () => {
+    const { coordinator } = setup();
+    await coordinator.signIn('employee@example.invalid', 'password');
+    let retainedReader: (() => string) | null = null;
+
+    await expect(coordinator.executeAuthenticatedRequest(async (readAccessToken) => {
+      retainedReader = readAccessToken;
+      expect(readAccessToken()).toBe('signed-in-access');
+      return { status: 'completed', value: 'accepted' };
+    })).resolves.toEqual({ status: 'completed', value: 'accepted' });
+
+    expect(() => retainedReader?.()).toThrow('access has expired');
+  });
+
+  it('refreshes and re-resolves authority once before one authenticated retry', async () => {
+    const { coordinator, provider, backend, store } = setup();
+    await coordinator.signIn('employee@example.invalid', 'password');
+    const tokens: string[] = [];
+
+    await expect(coordinator.executeAuthenticatedRequest(async (readAccessToken) => {
+      const token = readAccessToken();
+      tokens.push(token);
+      return token === 'signed-in-access'
+        ? { status: 'authority_rejected' }
+        : { status: 'completed', value: 'server-result' };
+    })).resolves.toEqual({ status: 'completed', value: 'server-result' });
+
+    expect(tokens).toEqual(['signed-in-access', 'rotated-access']);
+    expect(provider.refreshCalls).toEqual(['signed-in-refresh']);
+    expect(backend.accessTokens).toEqual(['signed-in-access', 'rotated-access']);
+    expect(store.value).toBe('rotated-refresh');
+  });
+
+  it('shares one refresh and token rotation across concurrent 401 operations', async () => {
+    const { coordinator, provider } = setup();
+    await coordinator.signIn('employee@example.invalid', 'password');
+    const refresh = deferred<ProviderRefreshResult>();
+    provider.refreshImplementation = () => refresh.promise;
+    const attempts = [0, 0, 0];
+
+    const operations = attempts.map(async (_value, index) => coordinator.executeAuthenticatedRequest(
+      async (readAccessToken) => {
+        attempts[index] += 1;
+        return readAccessToken() === 'signed-in-access'
+          ? { status: 'authority_rejected' as const }
+          : { status: 'completed' as const, value: `result-${index}` };
+      },
+    ));
+    await vi.waitFor(() => expect(provider.refreshCalls).toEqual(['signed-in-refresh']));
+    refresh.resolve({
+      status: 'refreshed',
+      tokens: { accessToken: 'shared-access', refreshToken: 'shared-refresh' },
+    });
+
+    await expect(Promise.all(operations)).resolves.toEqual([
+      { status: 'completed', value: 'result-0' },
+      { status: 'completed', value: 'result-1' },
+      { status: 'completed', value: 'result-2' },
+    ]);
+    expect(provider.refreshCalls).toHaveLength(1);
+    expect(attempts).toEqual([2, 2, 2]);
+  });
+
+  it('clears local authority after a second 401 and never performs a third attempt', async () => {
+    const { coordinator, provider, store } = setup();
+    await coordinator.signIn('employee@example.invalid', 'password');
+    let attempts = 0;
+
+    await expect(coordinator.executeAuthenticatedRequest(async (readAccessToken) => {
+      readAccessToken();
+      attempts += 1;
+      return { status: 'authority_rejected' };
+    })).resolves.toEqual({ status: 'authority_rejected' });
+
+    expect(attempts).toBe(2);
+    expect(provider.refreshCalls).toEqual(['signed-in-refresh']);
+    expect(provider.signOutCalls).toBe(1);
+    expect(store.value).toBeNull();
+    expect(coordinator.getState()).toEqual({
+      status: 'unauthenticated', reason: 'authority_rejected',
+    });
+  });
+
+  it('does not retry or discard the refresh token when 401 renewal infrastructure fails', async () => {
+    const { coordinator, provider, store } = setup();
+    await coordinator.signIn('employee@example.invalid', 'password');
+    provider.refreshImplementation = async () => { throw new Error('provider detail'); };
+    let attempts = 0;
+
+    await expect(coordinator.executeAuthenticatedRequest(async () => {
+      attempts += 1;
+      return { status: 'authority_rejected' };
+    })).resolves.toEqual({ status: 'unavailable' });
+
+    expect(attempts).toBe(1);
+    expect(store.value).toBe('signed-in-refresh');
+    expect(coordinator.getState()).toEqual({
+      status: 'runtime_unavailable', reason: 'authentication_unavailable',
+    });
+  });
+
+  it('does not retry when renewed server context is unavailable and keeps the rotation', async () => {
+    const { coordinator, backend, store } = setup();
+    await coordinator.signIn('employee@example.invalid', 'password');
+    backend.implementation = async (accessToken) => accessToken === 'rotated-access'
+      ? { status: 'unavailable' }
+      : { status: 'resolved', session: productSession };
+    let attempts = 0;
+
+    await expect(coordinator.executeAuthenticatedRequest(async () => {
+      attempts += 1;
+      return { status: 'authority_rejected' };
+    })).resolves.toEqual({ status: 'unavailable' });
+
+    expect(attempts).toBe(1);
+    expect(store.value).toBe('rotated-refresh');
+    expect(coordinator.getState()).toEqual({ status: 'context_unavailable' });
+  });
+
+  it('clears authority without retry when renewed server context rejects Membership', async () => {
+    const { coordinator, backend, provider, store } = setup();
+    await coordinator.signIn('employee@example.invalid', 'password');
+    backend.implementation = async (accessToken) => accessToken === 'rotated-access'
+      ? { status: 'authority_rejected' }
+      : { status: 'resolved', session: productSession };
+    let attempts = 0;
+
+    await expect(coordinator.executeAuthenticatedRequest(async () => {
+      attempts += 1;
+      return { status: 'authority_rejected' };
+    })).resolves.toEqual({ status: 'authority_rejected' });
+
+    expect(attempts).toBe(1);
+    expect(store.value).toBeNull();
+    expect(provider.signOutCalls).toBe(1);
+    expect(coordinator.getState()).toEqual({
+      status: 'unauthenticated', reason: 'authority_rejected',
+    });
+  });
+
+  it('uses an already rotated provider token without starting a redundant refresh', async () => {
+    const { coordinator, provider, backend } = setup();
+    await coordinator.start();
+    await coordinator.signIn('employee@example.invalid', 'password');
+    const firstAttempt = deferred<void>();
+    const seenTokens: string[] = [];
+
+    const operation = coordinator.executeAuthenticatedRequest(async (readAccessToken) => {
+      const token = readAccessToken();
+      seenTokens.push(token);
+      if (token === 'signed-in-access') {
+        await firstAttempt.promise;
+        return { status: 'authority_rejected' };
+      }
+      return { status: 'completed', value: 'rotated-result' };
+    });
+    provider.emit({
+      type: 'token_refreshed',
+      tokens: { accessToken: 'event-access', refreshToken: 'event-refresh' },
+    });
+    await vi.waitFor(() => expect(backend.accessTokens).toContain('event-access'));
+    firstAttempt.resolve();
+
+    await expect(operation).resolves.toEqual({ status: 'completed', value: 'rotated-result' });
+    expect(seenTokens).toEqual(['signed-in-access', 'event-access']);
+    expect(provider.refreshCalls).toEqual([]);
+  });
+
+  it('does not clear a newer provider session when a retried 401 belongs to an old token', async () => {
+    const { coordinator, provider, backend, store } = setup();
+    await coordinator.start();
+    await coordinator.signIn('employee@example.invalid', 'password');
+    const retry = deferred<void>();
+    let attempts = 0;
+
+    const operation = coordinator.executeAuthenticatedRequest(async () => {
+      attempts += 1;
+      if (attempts === 2) {
+        await retry.promise;
+      }
+      return { status: 'authority_rejected' };
+    });
+    await vi.waitFor(() => expect(attempts).toBe(2));
+    provider.emit({
+      type: 'token_refreshed',
+      tokens: { accessToken: 'newest-access', refreshToken: 'newest-refresh' },
+    });
+    await vi.waitFor(() => expect(backend.accessTokens).toContain('newest-access'));
+    retry.resolve();
+
+    await expect(operation).resolves.toEqual({ status: 'unavailable' });
+    expect(coordinator.getState()).toEqual({ status: 'authenticated', session: productSession });
+    expect(store.value).toBe('newest-refresh');
+    expect(provider.signOutCalls).toBe(0);
+  });
+
+  it('never replays an old-generation request under a newly signed-in session', async () => {
+    const { coordinator, provider, backend, store } = setup();
+    await coordinator.start();
+    await coordinator.signIn('user-a@example.invalid', 'password-a');
+    const firstAttempt = deferred<void>();
+    const eventResolution = deferred<BackendSessionResolution>();
+    backend.implementation = (accessToken) => accessToken === 'event-access'
+      ? eventResolution.promise
+      : Promise.resolve({ status: 'resolved', session: productSession });
+    const seenTokens: string[] = [];
+
+    const oldOperation = coordinator.executeAuthenticatedRequest(async (readAccessToken) => {
+      seenTokens.push(readAccessToken());
+      await firstAttempt.promise;
+      return { status: 'authority_rejected' };
+    });
+    provider.emit({
+      type: 'token_refreshed',
+      tokens: { accessToken: 'event-access', refreshToken: 'event-refresh' },
+    });
+    await vi.waitFor(() => expect(backend.accessTokens).toContain('event-access'));
+    firstAttempt.resolve();
+
+    await coordinator.signOut();
+    provider.signInImplementation = async () => ({
+      status: 'authenticated',
+      tokens: { accessToken: 'user-b-access', refreshToken: 'user-b-refresh' },
+    });
+    await expect(coordinator.signIn('user-b@example.invalid', 'password-b'))
+      .resolves.toEqual({ status: 'authenticated' });
+    eventResolution.resolve({ status: 'resolved', session: productSession });
+
+    await expect(oldOperation).resolves.toEqual({ status: 'unavailable' });
+    expect(seenTokens).toEqual(['signed-in-access']);
+    expect(store.value).toBe('user-b-refresh');
+    expect(coordinator.getState()).toEqual({ status: 'authenticated', session: productSession });
+  });
+
+  it('drains every newer provider event before retrying with the latest resolved token', async () => {
+    const { coordinator, provider, backend } = setup();
+    await coordinator.start();
+    await coordinator.signIn('employee@example.invalid', 'password');
+    const firstAttempt = deferred<void>();
+    const firstEventResolution = deferred<BackendSessionResolution>();
+    const secondEventResolution = deferred<BackendSessionResolution>();
+    backend.implementation = (accessToken) => {
+      if (accessToken === 'event-access-1') {
+        return firstEventResolution.promise;
+      }
+      if (accessToken === 'event-access-2') {
+        return secondEventResolution.promise;
+      }
+      return Promise.resolve({ status: 'resolved', session: productSession });
+    };
+    const seenTokens: string[] = [];
+
+    const operation = coordinator.executeAuthenticatedRequest(async (readAccessToken) => {
+      const token = readAccessToken();
+      seenTokens.push(token);
+      if (token === 'signed-in-access') {
+        await firstAttempt.promise;
+        return { status: 'authority_rejected' };
+      }
+      return { status: 'completed', value: 'latest-result' };
+    });
+    provider.emit({
+      type: 'token_refreshed',
+      tokens: { accessToken: 'event-access-1', refreshToken: 'event-refresh-1' },
+    });
+    await vi.waitFor(() => expect(backend.accessTokens).toContain('event-access-1'));
+    firstAttempt.resolve();
+    provider.emit({
+      type: 'token_refreshed',
+      tokens: { accessToken: 'event-access-2', refreshToken: 'event-refresh-2' },
+    });
+    await vi.waitFor(() => expect(backend.accessTokens).toContain('event-access-2'));
+    firstEventResolution.resolve({ status: 'resolved', session: productSession });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(seenTokens).toEqual(['signed-in-access']);
+    secondEventResolution.resolve({ status: 'resolved', session: productSession });
+
+    await expect(operation).resolves.toEqual({ status: 'completed', value: 'latest-result' });
+    expect(seenTokens).toEqual(['signed-in-access', 'event-access-2']);
+    expect(provider.refreshCalls).toEqual([]);
+  });
+
+  it('contains every late concurrent result after a shared 401 renewal enters fail-state', async () => {
+    const { coordinator, provider } = setup();
+    await coordinator.signIn('employee@example.invalid', 'password');
+    provider.refreshImplementation = async () => { throw new Error('provider unavailable'); };
+    const lateUnauthorized = deferred<void>();
+    const lateCompleted = deferred<void>();
+    let firstAttempts = 0;
+    let unauthorizedAttempts = 0;
+    let completedAttempts = 0;
+
+    const first = coordinator.executeAuthenticatedRequest(async () => {
+      firstAttempts += 1;
+      return { status: 'authority_rejected' };
+    });
+    const second = coordinator.executeAuthenticatedRequest(async () => {
+      unauthorizedAttempts += 1;
+      await lateUnauthorized.promise;
+      return { status: 'authority_rejected' };
+    });
+    const third = coordinator.executeAuthenticatedRequest(async () => {
+      completedAttempts += 1;
+      await lateCompleted.promise;
+      return { status: 'completed', value: 'stale-result' };
+    });
+    await expect(first).resolves.toEqual({ status: 'unavailable' });
+    expect(coordinator.getState()).toEqual({
+      status: 'runtime_unavailable', reason: 'authentication_unavailable',
+    });
+    lateUnauthorized.resolve();
+    lateCompleted.resolve();
+
+    await expect(second).resolves.toEqual({ status: 'unavailable' });
+    await expect(third).resolves.toEqual({ status: 'unavailable' });
+    expect(provider.refreshCalls).toEqual(['signed-in-refresh']);
+    expect(firstAttempts).toBe(1);
+    expect(unauthorizedAttempts).toBe(1);
+    expect(completedAttempts).toBe(1);
+  });
 });

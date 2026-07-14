@@ -37,8 +37,14 @@ export class TapTimeSessionApiClient implements BackendSessionPort {
           Accept: 'application/json',
           Authorization: `Bearer ${accessToken}`,
         },
+        cache: 'no-store',
+        credentials: 'omit',
+        redirect: 'error',
         signal: abortController.signal,
       });
+      if (response.redirected) {
+        return { status: 'unavailable' };
+      }
       if (response.status === 401) {
         return { status: 'authority_rejected' };
       }

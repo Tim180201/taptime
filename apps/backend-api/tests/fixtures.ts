@@ -3,7 +3,7 @@ import { exportJWK, generateKeyPair, SignJWT, type CryptoKey, type JWK } from 'j
 import { Pool } from 'pg';
 import { B3_MIGRATION_TABLE, B3_SCHEMA, migrate } from '../../backend-schema/src/index.js';
 
-export const C1_RUNTIME_LOGIN = 'taptime_c1_session_runtime';
+export const C2_SESSION_RUNTIME_LOGIN = 'taptime_c2_session_runtime';
 
 export const c1Ids = {
   organizationA: '00000000-0000-4000-8000-000000000201',
@@ -67,16 +67,16 @@ export async function ensureExactRuntimeLogin(
   await installerPool.query(`
     DO $login$
     BEGIN
-      IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = '${C1_RUNTIME_LOGIN}') THEN
-        CREATE ROLE ${C1_RUNTIME_LOGIN}
+      IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = '${C2_SESSION_RUNTIME_LOGIN}') THEN
+        CREATE ROLE ${C2_SESSION_RUNTIME_LOGIN}
           LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS;
       END IF;
     END
     $login$;
-    ALTER ROLE ${C1_RUNTIME_LOGIN}
+    ALTER ROLE ${C2_SESSION_RUNTIME_LOGIN}
       LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS
       PASSWORD ${passwordLiteral};
-    ALTER ROLE ${C1_RUNTIME_LOGIN} RESET ALL;
+    ALTER ROLE ${C2_SESSION_RUNTIME_LOGIN} RESET ALL;
 
     DO $parents$
     DECLARE parent_name text;
@@ -86,24 +86,24 @@ export async function ensureExactRuntimeLogin(
         FROM pg_catalog.pg_auth_members membership
         JOIN pg_catalog.pg_roles member ON member.oid = membership.member
         JOIN pg_catalog.pg_roles parent ON parent.oid = membership.roleid
-        WHERE member.rolname = '${C1_RUNTIME_LOGIN}'
+        WHERE member.rolname = '${C2_SESSION_RUNTIME_LOGIN}'
       LOOP
-        EXECUTE format('REVOKE %I FROM ${C1_RUNTIME_LOGIN}', parent_name);
+        EXECUTE format('REVOKE %I FROM ${C2_SESSION_RUNTIME_LOGIN}', parent_name);
       END LOOP;
     END
     $parents$;
 
-    REVOKE ALL PRIVILEGES ON SCHEMA ${B3_SCHEMA} FROM ${C1_RUNTIME_LOGIN};
-    REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA ${B3_SCHEMA} FROM ${C1_RUNTIME_LOGIN};
-    REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA ${B3_SCHEMA} FROM ${C1_RUNTIME_LOGIN};
-    REVOKE ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA ${B3_SCHEMA} FROM ${C1_RUNTIME_LOGIN};
-    GRANT taptime_identity_resolver TO ${C1_RUNTIME_LOGIN};
+    REVOKE ALL PRIVILEGES ON SCHEMA ${B3_SCHEMA} FROM ${C2_SESSION_RUNTIME_LOGIN};
+    REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA ${B3_SCHEMA} FROM ${C2_SESSION_RUNTIME_LOGIN};
+    REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA ${B3_SCHEMA} FROM ${C2_SESSION_RUNTIME_LOGIN};
+    REVOKE ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA ${B3_SCHEMA} FROM ${C2_SESSION_RUNTIME_LOGIN};
+    GRANT taptime_identity_resolver TO ${C2_SESSION_RUNTIME_LOGIN};
   `);
 }
 
 export function runtimeConnectionString(installerConnectionString: string, password: string): string {
   const url = new URL(installerConnectionString);
-  url.username = C1_RUNTIME_LOGIN;
+  url.username = C2_SESSION_RUNTIME_LOGIN;
   url.password = password;
   return url.href;
 }

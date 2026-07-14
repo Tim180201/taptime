@@ -336,8 +336,8 @@ jobs:
       - name: Build backend B6 lifecycle package
         run: npm run build --workspace=@taptime/backend-lifecycle
 
-  backend-c1-session:
-    name: Backend C1 session and Mobile auth
+  backend-c2-api:
+    name: Backend C2 authenticated API and Mobile transport
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -345,22 +345,26 @@ jobs:
       postgres:
         image: postgres:17.10-alpine
         env:
-          POSTGRES_DB: taptime_c1
+          POSTGRES_DB: taptime_c2
           POSTGRES_PASSWORD: postgres
-          POSTGRES_USER: taptime_c1_installer
+          POSTGRES_USER: taptime_c2_installer
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U taptime_c1_installer -d taptime_c1"
+          --health-cmd "pg_isready -U taptime_c2_installer -d taptime_c2"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
 
     env:
-      B3_DATABASE_URL: postgresql://taptime_c1_installer:postgres@127.0.0.1:5432/taptime_c1
-      C1_DATABASE_URL: postgresql://taptime_c1_installer:postgres@127.0.0.1:5432/taptime_c1
-      C1_RUNTIME_DATABASE_URL: postgresql://taptime_c1_session_runtime:c1-ci-synthetic-only@127.0.0.1:5432/taptime_c1
-      C1_RUNTIME_PASSWORD: c1-ci-synthetic-only
+      B3_DATABASE_URL: postgresql://taptime_c2_installer:postgres@127.0.0.1:5432/taptime_c2
+      C2_DATABASE_URL: postgresql://taptime_c2_installer:postgres@127.0.0.1:5432/taptime_c2
+      C2_SESSION_DATABASE_URL: postgresql://taptime_c2_session_runtime:c2-session-ci-synthetic-only@127.0.0.1:5432/taptime_c2
+      C2_READ_MODEL_DATABASE_URL: postgresql://taptime_c2_read_model_runtime:c2-read-ci-synthetic-only@127.0.0.1:5432/taptime_c2
+      C2_LIFECYCLE_DATABASE_URL: postgresql://taptime_c2_lifecycle_runtime:c2-lifecycle-ci-synthetic-only@127.0.0.1:5432/taptime_c2
+      C2_SESSION_RUNTIME_PASSWORD: c2-session-ci-synthetic-only
+      C2_READ_MODEL_RUNTIME_PASSWORD: c2-read-ci-synthetic-only
+      C2_LIFECYCLE_RUNTIME_PASSWORD: c2-lifecycle-ci-synthetic-only
 
     steps:
       - name: Check out repository
@@ -378,11 +382,13 @@ jobs:
       - name: Install dependencies from lockfile
         run: npm ci
 
-      - name: Build required Core, schema, and B4 identity dependencies
+      - name: Build required Core, schema, B4, B5, and B6 dependencies
         run: |
           npm run build --workspace=@taptime/core
           npm run build --workspace=@taptime/backend-schema
           npm run build --workspace=@taptime/backend-identity
+          npm run build --workspace=@taptime/backend-read-model
+          npm run build --workspace=@taptime/backend-lifecycle
 
       - name: Apply schema migrations 001 through 005 to clean PostgreSQL 17
         run: npm run migrate --workspace=@taptime/backend-schema
@@ -392,16 +398,16 @@ jobs:
           npm run migrate --workspace=@taptime/backend-schema
           npm run verify-migrations --workspace=@taptime/backend-schema
 
-      - name: Typecheck C1 production and test sources
-        run: npm run typecheck --workspace=@taptime/backend-session-api
+      - name: Typecheck C2 API production and test sources
+        run: npm run typecheck --workspace=@taptime/backend-api
 
-      - name: Test C1 session API against direct PostgreSQL and local JWKS
-        run: npm test --workspace=@taptime/backend-session-api
+      - name: Test C1 and C2 API against direct PostgreSQL and local JWKS
+        run: npm test --workspace=@taptime/backend-api
 
-      - name: Build C1 session API
-        run: npm run build --workspace=@taptime/backend-session-api
+      - name: Build C2 backend API
+        run: npm run build --workspace=@taptime/backend-api
 
-      - name: Typecheck and test Mobile C1 authentication
+      - name: Typecheck and test Mobile authentication and C2 transports
         run: |
           npm run typecheck --workspace=@taptime/mobile
           npm test --workspace=@taptime/mobile

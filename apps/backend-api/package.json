@@ -1,22 +1,24 @@
 {
-  "name": "@taptime/backend-session-api",
+  "name": "@taptime/backend-api",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Private C1 Node 24 transport exposing only server-authoritative GET /v1/session.",
+  "description": "Private C2 Node 24 API for session, scan-context resolution, and server-canonical lifecycle ingestion.",
   "engines": {
     "node": ">=24 <25"
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {
-    "build": "tsc -p tsconfig.build.json --emitDeclarationOnly && esbuild src/index.ts src/main.ts --bundle --platform=node --target=node24 --format=esm --external:@taptime/backend-identity --external:@taptime/core --external:pg --sourcemap --outdir=dist",
+    "build": "tsc -p tsconfig.build.json --emitDeclarationOnly && esbuild src/index.ts src/main.ts --bundle --platform=node --target=node24 --format=esm --external:@taptime/backend-identity --external:@taptime/backend-lifecycle --external:@taptime/backend-read-model --external:@taptime/core --external:pg --sourcemap --outdir=dist",
     "start": "node dist/main.js",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
     "@taptime/backend-identity": "*",
+    "@taptime/backend-lifecycle": "*",
+    "@taptime/backend-read-model": "*",
     "@taptime/core": "*",
     "pg": "^8.22.0"
   },

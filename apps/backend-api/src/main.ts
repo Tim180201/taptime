@@ -1,9 +1,16 @@
-import { createSessionApiRuntime } from './runtime.js';
+import { createBackendApiRuntime } from './runtime.js';
 
-const databaseUrl = requiredEnvironmentValue('TAPTIME_DATABASE_URL');
+const sessionDatabaseUrl = requiredEnvironmentValue('TAPTIME_SESSION_DATABASE_URL');
+const readModelDatabaseUrl = requiredEnvironmentValue('TAPTIME_READ_MODEL_DATABASE_URL');
+const lifecycleDatabaseUrl = requiredEnvironmentValue('TAPTIME_LIFECYCLE_DATABASE_URL');
 const supabaseIssuer = requiredEnvironmentValue('SUPABASE_ISSUER');
 const port = parsePort(process.env.PORT ?? '3000');
-const runtime = createSessionApiRuntime({ databaseUrl, supabaseIssuer });
+const runtime = createBackendApiRuntime({
+  sessionDatabaseUrl,
+  readModelDatabaseUrl,
+  lifecycleDatabaseUrl,
+  supabaseIssuer,
+});
 
 runtime.server.listen(port, '0.0.0.0');
 
@@ -23,16 +30,22 @@ async function shutdown(): Promise<void> {
 process.once('SIGINT', () => void shutdown());
 process.once('SIGTERM', () => void shutdown());
 runtime.server.once('error', () => {
-  process.stderr.write('TapTim.e session API failed to start\n');
+  process.stderr.write('TapTim.e backend API failed to start\n');
   void shutdown().finally(() => {
     process.exitCode = 1;
   });
 });
 
-function requiredEnvironmentValue(name: 'SUPABASE_ISSUER' | 'TAPTIME_DATABASE_URL'): string {
+type RequiredRuntimeEnvironmentName =
+  | 'SUPABASE_ISSUER'
+  | 'TAPTIME_LIFECYCLE_DATABASE_URL'
+  | 'TAPTIME_READ_MODEL_DATABASE_URL'
+  | 'TAPTIME_SESSION_DATABASE_URL';
+
+function requiredEnvironmentValue(name: RequiredRuntimeEnvironmentName): string {
   const value = process.env[name];
   if (value === undefined || value.length === 0) {
-    throw new Error(`Required C1 runtime environment variable is missing: ${name}`);
+    throw new Error(`Required C2 runtime environment variable is missing: ${name}`);
   }
   return value;
 }

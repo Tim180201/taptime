@@ -29,6 +29,9 @@ describe('TapTimeSessionApiClient', () => {
     expect(init).toEqual({
       method: 'GET',
       headers: { Accept: 'application/json', Authorization: 'Bearer memory-only-access' },
+      cache: 'no-store',
+      credentials: 'omit',
+      redirect: 'error',
       signal: expect.any(AbortSignal),
     });
     expect(JSON.stringify(init)).not.toContain('refresh');
@@ -78,6 +81,14 @@ describe('TapTimeSessionApiClient', () => {
       async () => new Response('not-json'),
     );
     await expect(jsonClient.resolve('token')).resolves.toEqual({ status: 'unavailable' });
+  });
+
+  it('fails closed when a fetch implementation reports a redirected response', async () => {
+    const response = Response.json(session);
+    Object.defineProperty(response, 'redirected', { value: true });
+    const client = new TapTimeSessionApiClient('https://api.example/', async () => response);
+
+    await expect(client.resolve('memory-only-access')).resolves.toEqual({ status: 'unavailable' });
   });
 
   it('aborts a stalled request and maps it to retryable context unavailability', async () => {

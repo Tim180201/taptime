@@ -28,11 +28,36 @@ describe('C1 Mobile composition boundary', () => {
       'buildScanDemoPipeline',
       'SupabaseEmailPasswordAuthAdapter',
       'ExpoRefreshTokenStore',
+      'AuthenticatedHttpRequestExecutor',
+      'TapTimeScanContextApiClient',
+      'TapTimeLifecycleApiClient',
+      'ServerCanonicalLifecycleIngestionCoordinator',
+      'TenantReadSessionCoordinator',
       'accessToken',
       'refreshToken',
     ]) {
       expect(productSource).not.toContain(forbidden);
     }
+  });
+
+  it('keeps C2 transport private in the composition root and the holding UI truthful', async () => {
+    const runtimeSource = await readFile(
+      fileURLToPath(new URL('../../src/runtime/ProductMobileRuntime.ts', import.meta.url)),
+      'utf8',
+    );
+    const scanScreenSource = await readFile(
+      fileURLToPath(new URL('../../src/screens/ScanScreen.tsx', import.meta.url)),
+      'utf8',
+    );
+
+    expect(runtimeSource).toContain('AuthenticatedHttpRequestExecutor');
+    expect(runtimeSource).toContain('TapTimeScanContextApiClient');
+    expect(runtimeSource).toContain('TapTimeLifecycleApiClient');
+    expect(runtimeSource).toContain('React receives a real narrow facade');
+    expect(runtimeSource).toContain('return this.sessionCapability');
+    expect(scanScreenSource).toContain('NFC-Aktivierung folgt in Block D');
+    expect(scanScreenSource).not.toMatch(/TextInput|payload|scan-context|lifecycle-events/i);
+    expect(scanScreenSource.match(/<Button/g)).toHaveLength(1);
   });
 
   it('loads the development demo lazily and never imports it statically', async () => {

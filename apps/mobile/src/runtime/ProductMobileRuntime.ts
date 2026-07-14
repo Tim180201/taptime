@@ -4,6 +4,10 @@ import { MobileSessionCoordinator } from '../auth/MobileSessionCoordinator';
 import { createSupabaseEmailPasswordAuthAdapter } from '../auth/SupabaseEmailPasswordAuthAdapter';
 import { TapTimeSessionApiClient } from '../auth/TapTimeSessionApiClient';
 import type { MobileSessionCapability } from '../auth/contracts';
+import { AuthenticatedHttpRequestExecutor } from '../transport/AuthenticatedHttpRequestExecutor';
+import { TapTimeLifecycleApiClient } from '../transport/TapTimeLifecycleApiClient';
+import { TapTimeScanContextApiClient } from '../transport/TapTimeScanContextApiClient';
+import type { ProductServerTransport } from '../transport/contracts';
 import {
   createNativeAppStateAutoRefreshLifecycle,
   type AppStateAutoRefreshLifecycle,
@@ -42,22 +46,46 @@ export function createProductMobileRuntime(): ProductMobileRuntimeCreation {
     new TapTimeSessionApiClient(configuration.configuration.tapTimeApiBaseUrl),
   );
   const appStateLifecycle = createNativeAppStateAutoRefreshLifecycle(provider);
+  const authenticatedRequests = new AuthenticatedHttpRequestExecutor(coordinator);
+  const serverTransport: ProductServerTransport = Object.freeze({
+    scanContext: new TapTimeScanContextApiClient(
+      configuration.configuration.tapTimeApiBaseUrl,
+      authenticatedRequests,
+    ),
+    lifecycle: new TapTimeLifecycleApiClient(
+      configuration.configuration.tapTimeApiBaseUrl,
+      authenticatedRequests,
+    ),
+  });
   return {
     status: 'ready',
-    runtime: new DefaultProductMobileRuntime(coordinator, appStateLifecycle),
+    runtime: new DefaultProductMobileRuntime(coordinator, appStateLifecycle, serverTransport),
   };
 }
 
 class DefaultProductMobileRuntime implements ProductMobileRuntime {
   private started = false;
+  private readonly sessionCapability: MobileSessionCapability;
 
   constructor(
     private readonly coordinator: MobileSessionCoordinator,
     private readonly appStateLifecycle: AppStateAutoRefreshLifecycle,
-  ) {}
+    // C2 composes these private clients for later orchestrators without exposing them to React.
+    private readonly serverTransport: ProductServerTransport,
+  ) {
+    // React receives a real narrow facade, not the coordinator object that owns C2 token access.
+    this.sessionCapability = Object.freeze({
+      getState: () => this.coordinator.getState(),
+      subscribe: (listener: () => void) => this.coordinator.subscribe(listener),
+      signIn: (email: string, password: string) => this.coordinator.signIn(email, password),
+      retryContext: () => this.coordinator.retryContext(),
+      refresh: () => this.coordinator.refresh(),
+      signOut: () => this.coordinator.signOut(),
+    });
+  }
 
   get session(): MobileSessionCapability {
-    return this.coordinator;
+    return this.sessionCapability;
   }
 
   async start(): Promise<void> {
@@ -65,6 +93,8 @@ class DefaultProductMobileRuntime implements ProductMobileRuntime {
       return;
     }
     this.started = true;
+    // Keep the private capability graph owned for the complete product-runtime lifetime.
+    void this.serverTransport;
     await this.coordinator.start();
     this.appStateLifecycle.start();
   }

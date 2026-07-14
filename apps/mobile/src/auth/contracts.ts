@@ -79,3 +79,28 @@ export interface MobileSessionCapability {
   refresh(): Promise<void>;
   signOut(): Promise<void>;
 }
+
+/**
+ * An access-token reader is valid only while one infrastructure attempt is running. The
+ * coordinator invalidates it as soon as that attempt settles, so it cannot become a retained
+ * token capability in a screen, queue or later callback.
+ */
+export type EphemeralAccessTokenReader = () => string;
+
+export type AuthenticatedRequestAttempt<Value> =
+  | { readonly status: 'completed'; readonly value: Value }
+  | { readonly status: 'authority_rejected' };
+
+export type AuthenticatedRequestExecution<Value> =
+  | { readonly status: 'completed'; readonly value: Value }
+  | { readonly status: 'authority_rejected' }
+  | { readonly status: 'unavailable' };
+
+/** Internal infrastructure capability. It is deliberately absent from MobileSessionCapability. */
+export interface AuthenticatedRequestCapability {
+  executeAuthenticatedRequest<Value>(
+    attempt: (
+      accessToken: EphemeralAccessTokenReader,
+    ) => Promise<AuthenticatedRequestAttempt<Value>>,
+  ): Promise<AuthenticatedRequestExecution<Value>>;
+}

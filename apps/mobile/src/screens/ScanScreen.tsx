@@ -10,10 +10,10 @@ export function ScanScreen({ session, signOut }: ScanScreenProps) {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>TapTim.e</Text>
-      <Text style={styles.status}>Authentifiziert – Scan-Verbindung folgt in C2</Text>
+      <Text style={styles.status}>Authentifiziert – NFC-Aktivierung folgt in Block D</Text>
       <Text>Rolle: {session.role === 'administrator' ? 'Administrator' : 'Mitarbeiter'}</Text>
       <Text style={styles.pending}>
-        In C1 wird kein Demo- oder NFC-Pfad automatisch ausgeführt.
+        C2 stellt nur den privaten Servertransport bereit und löst keinen Scan aus.
       </Text>
       <Button title="Abmelden" onPress={signOut} testID="sign-out-button" />
     </View>

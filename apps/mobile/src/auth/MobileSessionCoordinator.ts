@@ -1,5 +1,9 @@
 import type {
+  AuthenticatedRequestAttempt,
+  AuthenticatedRequestCapability,
+  AuthenticatedRequestExecution,
   BackendSessionPort,
+  EphemeralAccessTokenReader,
   MobileSessionCapability,
   MobileSessionState,
   ProviderAuthEvent,
@@ -9,7 +13,30 @@ import type {
   SignInResult,
 } from './contracts';
 
-export class MobileSessionCoordinator implements MobileSessionCapability {
+interface CredentialSnapshot {
+  readonly accessToken: string;
+  readonly generation: number;
+  readonly tokenRevision: number;
+}
+
+type CredentialRenewal =
+  | { readonly status: 'ready'; readonly credentials: CredentialSnapshot }
+  | { readonly status: 'authority_rejected' }
+  | { readonly status: 'unavailable' };
+
+interface UnauthorizedRefreshFlight {
+  readonly generation: number;
+  readonly tokenRevision: number;
+  readonly operation: Promise<CredentialRenewal>;
+}
+
+type AttemptInvocation<Value> =
+  | AuthenticatedRequestAttempt<Value>
+  | { readonly status: 'unavailable' };
+
+export class MobileSessionCoordinator implements
+  MobileSessionCapability,
+  AuthenticatedRequestCapability {
   private state: MobileSessionState = Object.freeze({ status: 'initializing' });
   private readonly listeners = new Set<() => void>();
   private started = false;
@@ -26,6 +53,7 @@ export class MobileSessionCoordinator implements MobileSessionCapability {
   private storageTail: Promise<void> = Promise.resolve();
   private providerOperationTail: Promise<void> = Promise.resolve();
   private providerEventFlight: Promise<void> = Promise.resolve();
+  private unauthorizedRefreshFlight: UnauthorizedRefreshFlight | null = null;
 
   constructor(
     private readonly provider: ProviderAuthPort,
@@ -179,6 +207,48 @@ export class MobileSessionCoordinator implements MobileSessionCapability {
     }
   }
 
+  async executeAuthenticatedRequest<Value>(
+    attempt: (
+      accessToken: EphemeralAccessTokenReader,
+    ) => Promise<AuthenticatedRequestAttempt<Value>>,
+  ): Promise<AuthenticatedRequestExecution<Value>> {
+    const initialCredentials = this.captureAuthenticatedCredentials();
+    if (initialCredentials === null) {
+      return { status: 'unavailable' };
+    }
+
+    const firstAttempt = await this.invokeAuthenticatedAttempt(attempt, initialCredentials);
+    if (firstAttempt.status === 'unavailable') {
+      return firstAttempt;
+    }
+    if (firstAttempt.status === 'completed') {
+      return this.isCurrentCredentials(initialCredentials)
+        ? firstAttempt
+        : this.currentUnavailableOrRejectedResult();
+    }
+
+    const renewal = await this.renewAfterUnauthorized(initialCredentials);
+    if (renewal.status !== 'ready') {
+      return renewal;
+    }
+
+    const secondAttempt = await this.invokeAuthenticatedAttempt(attempt, renewal.credentials);
+    if (secondAttempt.status === 'unavailable') {
+      return secondAttempt;
+    }
+    if (secondAttempt.status === 'completed') {
+      return this.isCurrentCredentials(renewal.credentials)
+        ? secondAttempt
+        : this.currentUnavailableOrRejectedResult();
+    }
+
+    if (!this.isCurrentCredentials(renewal.credentials)) {
+      return this.currentUnavailableOrRejectedResult();
+    }
+    await this.clearRejectedSession('authority_rejected');
+    return { status: 'authority_rejected' };
+  }
+
   private async performSignIn(email: string, password: string): Promise<SignInResult> {
     const generation = this.invalidateInMemorySession();
     this.setState({ status: 'signing_in' });
@@ -216,6 +286,132 @@ export class MobileSessionCoordinator implements MobileSessionCapability {
       return { status: 'infrastructure_error' };
     }
     return this.resolveBackendContext(result.tokens.accessToken, generation, tokenRevision);
+  }
+
+  private async invokeAuthenticatedAttempt<Value>(
+    attempt: (
+      accessToken: EphemeralAccessTokenReader,
+    ) => Promise<AuthenticatedRequestAttempt<Value>>,
+    credentials: CredentialSnapshot,
+  ): Promise<AttemptInvocation<Value>> {
+    let active = true;
+    const readAccessToken = (): string => {
+      if (!active) {
+        throw new Error('Authenticated request access has expired');
+      }
+      return credentials.accessToken;
+    };
+    try {
+      return await attempt(readAccessToken);
+    } catch {
+      return { status: 'unavailable' };
+    } finally {
+      active = false;
+    }
+  }
+
+  private async renewAfterUnauthorized(
+    rejectedCredentials: CredentialSnapshot,
+  ): Promise<CredentialRenewal> {
+    if (rejectedCredentials.generation !== this.generation) {
+      return this.currentRenewalFailure();
+    }
+    if (rejectedCredentials.tokenRevision !== this.tokenRevision) {
+      return this.awaitStableProviderCredentials(rejectedCredentials);
+    }
+    if (!this.isCurrentCredentials(rejectedCredentials)) {
+      return this.currentRenewalFailure();
+    }
+
+    const existingFlight = this.unauthorizedRefreshFlight;
+    if (
+      existingFlight !== null
+      && existingFlight.generation === rejectedCredentials.generation
+      && existingFlight.tokenRevision === rejectedCredentials.tokenRevision
+    ) {
+      return existingFlight.operation;
+    }
+
+    const operation = this.performUnauthorizedRenewal(rejectedCredentials);
+    const flight: UnauthorizedRefreshFlight = {
+      generation: rejectedCredentials.generation,
+      tokenRevision: rejectedCredentials.tokenRevision,
+      operation,
+    };
+    this.unauthorizedRefreshFlight = flight;
+    try {
+      return await operation;
+    } finally {
+      if (this.unauthorizedRefreshFlight === flight) {
+        this.unauthorizedRefreshFlight = null;
+      }
+    }
+  }
+
+  private async performUnauthorizedRenewal(
+    rejectedCredentials: CredentialSnapshot,
+  ): Promise<CredentialRenewal> {
+    await this.refresh();
+    return this.awaitStableProviderCredentials(rejectedCredentials);
+  }
+
+  private async awaitStableProviderCredentials(
+    rejectedCredentials: CredentialSnapshot,
+  ): Promise<CredentialRenewal> {
+    while (rejectedCredentials.generation === this.generation) {
+      const observedFlight = this.providerEventFlight;
+      await observedFlight;
+      if (rejectedCredentials.generation !== this.generation) {
+        return this.currentRenewalFailure();
+      }
+      if (observedFlight !== this.providerEventFlight) {
+        continue;
+      }
+      const currentCredentials = this.captureAuthenticatedCredentials();
+      if (
+        currentCredentials === null
+        || currentCredentials.tokenRevision === rejectedCredentials.tokenRevision
+      ) {
+        return this.currentRenewalFailure();
+      }
+      return { status: 'ready', credentials: currentCredentials };
+    }
+    return this.currentRenewalFailure();
+  }
+
+  private captureAuthenticatedCredentials(): CredentialSnapshot | null {
+    if (
+      this.state.status !== 'authenticated'
+      || !this.providerSessionAllowed
+      || this.accessToken === null
+    ) {
+      return null;
+    }
+    return {
+      accessToken: this.accessToken,
+      generation: this.generation,
+      tokenRevision: this.tokenRevision,
+    };
+  }
+
+  private isCurrentCredentials(credentials: CredentialSnapshot): boolean {
+    return this.state.status === 'authenticated'
+      && this.providerSessionAllowed
+      && credentials.generation === this.generation
+      && credentials.tokenRevision === this.tokenRevision
+      && credentials.accessToken === this.accessToken;
+  }
+
+  private currentRenewalFailure(): CredentialRenewal {
+    return this.state.status === 'unauthenticated' || this.state.status === 'signed_out'
+      ? { status: 'authority_rejected' }
+      : { status: 'unavailable' };
+  }
+
+  private currentUnavailableOrRejectedResult(): AuthenticatedRequestExecution<never> {
+    return this.state.status === 'unauthenticated' || this.state.status === 'signed_out'
+      ? { status: 'authority_rejected' }
+      : { status: 'unavailable' };
   }
 
   private async performRefresh(generation: number): Promise<void> {
@@ -367,6 +563,7 @@ export class MobileSessionCoordinator implements MobileSessionCapability {
     this.accessToken = null;
     this.refreshToken = null;
     this.tokenRevision += 1;
+    this.unauthorizedRefreshFlight = null;
     return this.generation;
   }
 
