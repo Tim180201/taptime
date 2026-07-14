@@ -182,18 +182,18 @@ This tooling does not upgrade Block D readiness. It has no authentication, C2/B5
 assignment, lifecycle decision, durable storage or production cloud/data path. The physical table
 below remains outstanding until observed by the Human Architect.
 
-## 7. Physical validation table — not yet executed
+## 7. Physical validation table — partially executed
 
 | Required observation | Status | Evidence |
 |---|---|---|
-| Tester and date | Outstanding | No physical tester run supplied |
+| Tester and date | Observed | Human Architect reported the physical run in the Technical-Lead task on 2026-07-14 |
 | Android model and OS | Outstanding | No device available |
-| App build type/version | Outstanding | No installable device run performed |
+| App build type/version | Observed | Internal `TapTim.e Validation` APK from EAS build `c459616c-3e90-49f5-a508-8044d05e1c25`, commit `7ac4fa4` |
 | NFC library version | Prepared | `react-native-nfc-manager` 3.17.2 from lockfile |
-| Physical tag product/type A | Outstanding | No physical tag available |
-| Physical tag product/type B | Outstanding | No physical tag available |
-| Ten remove-and-retap reads per tag | Outstanding | Must record only redacted/hash evidence |
-| Stable identity per tag and distinct A/B identities | Outstanding | Must not be inferred from unit tests |
+| Physical tag product/type A | Partially observed | Physical Tag A scanned successfully; product/type not yet recorded |
+| Physical tag product/type B | Partially observed | Physical Tag B scanned successfully; product/type not yet recorded |
+| Ten remove-and-retap reads per tag | Observed | Human Architect confirmed 10 successful reads for Tag A and 10 for Tag B; raw identifiers were not supplied |
+| Stable identity per tag and distinct A/B identities | Observed | Validation app completed its guarded stability result, which requires 10 matching reads per slot, zero mismatches and distinct shortened fingerprints |
 | Disabled-NFC behavior | Outstanding | Must be observed on device |
 | Timeout, cancel and scan-after-cleanup | Outstanding | Automated only; physical proof absent |
 | Rapid duplicate press | Outstanding | Automated only; physical proof absent |
@@ -214,6 +214,7 @@ below remains outstanding until observed by the Human Architect.
 
 ## 9. Required next action
 
-A Human Architect or delegated tester executes the complete physical checklist with one supported
-Android device and at least two real tags. Only observed results may replace `Outstanding`; any
-missing server test environment keeps the end-to-end Start/Stop item open.
+The Human Architect next executes disabled-NFC, timeout, explicit cancellation, scan-after-cleanup
+and rapid-duplicate cases, then records the Android model/OS and tag product/type if known. Only
+observed results may replace `Outstanding`; any missing server test environment keeps the
+unassigned-tag and end-to-end Start/Stop items open.
