@@ -1,7 +1,6 @@
 # Block C3 — Organization Administration Implementation Plan
 
-Status: Active — C3B completed; C3C locally implemented and verified with final review/ten-job CI
-pending; C3D/C3E unauthorized
+Status: Active — C3B and C3C repository implementation completed; C3D/C3E unauthorized
 Date: 2026-07-15
 Planning Baseline: `f7d38558e9a1e6d5f7c2cfd1f4a1ec6eed3ebd44`
 Owner: Technical Lead
@@ -12,13 +11,14 @@ Architecture: Accepted ADR-0011, FB-002 v1.2 and TS-002 v1.3
 | Slice | Scope | Codex effort | Current authority |
 |---|---|---:|---|
 | C3B | Isolated first Organization/Administrator bootstrap CLI, migration `006`, role graph, receipt/audit and security matrix | High | Completed — Technical Lead, independent review and nine-job CI passed |
-| C3C | Tenant-safe normal setup backend/API, Customer/Tag display names, atomic Customer and NFC provision commands, resumable safe projection | Very High | Authorized on `c1148d57`; local implementation/mid-review passed, implementation head, independent final review and exact-head ten-job CI pending |
+| C3C | Tenant-safe normal setup backend/API, Customer/Tag display names, atomic Customer and NFC provision commands, resumable safe projection | Very High | Completed — implementation `b90729a0a4b325f523cd98ea5a741defb00155f6`, independent exact-SHA reviews and exact-head ten-job CI passed |
 | C3D | Minimal Admin Web shell for Customer/assignment setup plus protected Android Administrator NFC capture | Very High | Not authorized |
 | C3E | Explicit reassignment and identity-first employee Membership setup after their separate policy gates | Very High | Not authorized |
 
-C3B is closed. C3C must close before a product UI is allowed to claim operational setup.
-C3D may be visually scaffolded only after the C3C contract is frozen; it must not invent backend
-semantics. C3E is not required for first bootstrap/setup proof.
+C3B and C3C repository implementation are closed. The C3C backend prerequisite is satisfied, but no
+product UI or operational setup is thereby claimed. C3D remains unauthorized and requires its own
+exact-baseline authorization before any Admin Web or Android capture work; it must not invent backend
+semantics. C3E is not required for first bootstrap/setup proof and remains separately unauthorized.
 
 ## 2. C3B — secure bootstrap implementation
 
@@ -122,6 +122,16 @@ corrected locally. Evidence:
 C3C is not complete or closed. An implementation commit/head, independent final review and exact-head
 ten-of-ten GitHub Actions result remain mandatory. DT-063–DT-066 therefore remain open, and no C3D,
 C3E or production implementation is authorized by this checkpoint.
+
+### Repository closure checkpoint (2026-07-15)
+
+Implementation commit `b90729a0a4b325f523cd98ea5a741defb00155f6`, tree
+`671be72784f68b9437a9f53e251acbbb22ce3e97`, subsequently passed three independent exact-SHA reviews
+with zero open P0/P1/P2/P3 and exact-head GitHub Actions run `29375259275` with ten of ten jobs.
+C3C repository implementation is therefore closed. The ADO-only closure-publication commit/CI is
+still pending; DT-063–DT-066 remain open, and no C3D, C3E or production implementation is authorized
+by this closure. Evidence:
+`ADO/02_Development/Block_C3C_Normal_Administration_Backend_Closure.md`.
 
 ## 4. C3D — first real setup UI
 

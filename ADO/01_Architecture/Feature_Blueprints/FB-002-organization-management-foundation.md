@@ -529,7 +529,7 @@ Product Vision
   -> TS-002 (accepted current-state and C3 runtime specification)
   -> DT-017–DT-026 (Core foundation complete)
   -> ADR-0011 / C3A (independently validated and Human-accepted)
-  -> C3B (completed implementation) / C3C–C3E (gated)
+  -> C3B (completed implementation) / C3C (completed repository implementation) / C3D–C3E (gated)
 ```
 
 ## Revision Note (C3A Review Reconciliation, 2026-07-14)

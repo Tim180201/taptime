@@ -843,10 +843,12 @@ DT-017–DT-026 were planned and subsequently implemented, reviewed and approved
 Sprints 012–019; their populated Implementation Notes and closures are the evidence. This original
 planning gate is satisfied. The accepted C3A package reconciles the completed Core foundation with the real
 backend/runtime boundary; it does not retroactively convert the Core services into transport
-authority. C3B separately completed after Human acceptance and its own authorization/review/CI
-cycle; C3C–C3E remain gated.
+authority. C3B and C3C separately completed after Human acceptance and their own
+authorization/review/CI cycles; C3D/C3E remain gated.
 
-Current checkpoint (2026-07-15): C3C is now authorized and locally implemented/verified, while its
-independent final review and exact-head ten-job CI remain pending. C3D/C3E remain unauthorized and
-DT-063–DT-066 remain open. This current checkpoint supplements rather than rewrites the historical
-DT-017–DT-026 completion evidence above.
+Current checkpoint (2026-07-15): C3C repository implementation commit
+`b90729a0a4b325f523cd98ea5a741defb00155f6` passed the complete 1,394-test matrix, three independent
+exact-SHA reviews with zero open P0/P1/P2/P3 and exact-head ten-of-ten GitHub Actions run
+`29375259275`; C3C is closed for that repository scope. Its ADO closure-publication commit/CI remains
+pending. C3D/C3E remain unauthorized and DT-063–DT-066 remain open. This current checkpoint
+supplements rather than rewrites the historical DT-017–DT-026 completion evidence above.

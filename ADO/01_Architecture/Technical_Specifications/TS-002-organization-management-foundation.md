@@ -1,25 +1,26 @@
 # TS-002 – Organization Management Foundation Technical Specification
 
-Status: Approved by Human Architect — C3B completed; C3C authorized and locally implemented with
-independent final review/exact-head CI pending; later slices gated
+Status: Approved by Human Architect — C3B and C3C repository implementation completed after their
+separate exact-baseline review/CI cycles; later slices gated
 Specification ID: TS-002
 Version: 1.3
-Last Updated: 2026-07-15 (C3C local implementation checkpoint; exact contract unchanged)
+Last Updated: 2026-07-15 (C3C repository closure checkpoint; exact contract unchanged)
 Acceptance: Accepted 2026-07-14
 Related Feature Blueprint: FB-002 (`ADO/01_Architecture/Feature_Blueprints/FB-002-organization-management-foundation.md`)
 Related Evidence: `ADO/05_Evidence/FB-002_Organization_Management_Scope_Assessment.md`,
 `ADO/05_Evidence/Block_C3A_Independent_Architecture_Security_Review.md`,
 `ADO/05_Evidence/Block_C3B_Independent_Architecture_Security_Review.md`,
 `ADO/05_Evidence/Block_C3B_Secure_Organization_Bootstrap_Evidence.md`,
-`ADO/05_Evidence/Block_C3C_Normal_Administration_Backend_Evidence.md`
+`ADO/05_Evidence/Block_C3C_Normal_Administration_Backend_Evidence.md`,
+`ADO/02_Development/Block_C3C_Normal_Administration_Backend_Closure.md`
 Epic: EP-009 – Product Readiness Framework (Product Capability Track); EP-007 – Product Architecture Foundation (architectural continuity)
 Owner: Technical Lead
 Approval Authority: Human Architect
 Related Architecture: `ADO/01_Architecture/Technical_Architecture_Profile.md` (TTAP-001)
 Related ADRs: ADR-0002, ADR-0003, ADR-0005, ADR-0006, ADR-0007, ADR-0008, ADR-0009, ADR-0011
 Related Technical Specification: TS-001 (`ADO/01_Architecture/Technical_Specifications/TS-001-nfc-scan-creates-work-event.md`) — extended, not replaced
-Related Development Tasks: DT-017–DT-026 completed; C3B completed; C3C authorized and locally
-implemented with final gates pending; C3D/C3E gated
+Related Development Tasks: DT-017–DT-026 completed; C3B and C3C repository implementation
+completed; C3D/C3E gated
 
 ## Purpose
 
@@ -427,9 +428,9 @@ OrganizationAdministrationService (createCustomer, registerNfcTag, assignNfcTag)
 Existing Scan Pipeline Integration (no code change — verification only: confirm AssignmentResolver/AssignmentValidator/WorkEventFactory/BusinessEngine behave identically when NfcTagRepository/NfcAssignmentRepository/CustomerRepository are backed by Administration-flow-written data instead of runScan.ts literals)
 ```
 
-DT-017–DT-026 completed this order. It is not the C3 runtime sequence; C3B bootstrap is completed,
-C3C normal setup backend/API is authorized and locally implemented with independent final review and
-exact-head ten-job CI pending, while C3D UI/capture and C3E Membership/reassignment remain gated.
+DT-017–DT-026 completed this order. It is not the C3 runtime sequence; C3B bootstrap and C3C normal
+setup backend/API repository implementation are completed after their separate review/CI cycles,
+while C3D UI/capture and C3E Membership/reassignment remain gated.
 
 ## Historical Core-Foundation Out of Scope and Current C3 Exclusions
 
@@ -454,13 +455,13 @@ Unchanged from FB-002, restated for this specification's own boundary:
   only to that in-process foundation, not a real C3 transport/runtime.
 - C3 readiness: ADR-0011 and the normative amendment above now decide bootstrap, normal write
   authority, display fields, result vocabulary, payload uniqueness and Assignment history. C3B
-  passed its separate exact-baseline authorization, implementation, review and CI gates; C3C–C3E
-  still require their own exact-baseline authorizations and implementation reviews.
+  and C3C passed their separate exact-baseline authorization, implementation, review and CI gates;
+  C3D/C3E still require their own exact-baseline authorizations and implementation reviews.
 - Traceability: every new component is traced to a specific FB-002 Capability/Decision and to a specific existing repository precedent (`AssignmentValidator`, `CustomerRepository`, `NfcScanApplicationService`, `ids.ts`, ADR-0002's `NfcAssignment` identity precedent).
 - Accepted FB-002/TS-002 baseline: this document covers the implemented Core foundation and
   corrected C3A runtime contract. Independent re-review passed and Human Architect acceptance is
-  complete. C3B is separately completed and C3C is explicitly authorized; the normal setup API is
-  in implementation and the C3D/C3E UI/Membership surfaces remain gated.
+  complete. C3B and C3C repository implementation are separately completed; the C3D/C3E
+  UI/Membership surfaces remain gated.
 
 ## Former Open Questions — Current Disposition
 
@@ -475,7 +476,8 @@ Unchanged from FB-002, restated for this specification's own boundary:
 - Physical provisioning: canonical Android UID/capture resolved by ADR-0009; protected Android
   registration selected; NDEF writing/iOS/Web capture deferred.
 - Identity sequencing: resolved by ADR-0008/B4/C1 before C3 runtime.
-- Customer/Tag usability: required display names are part of the authorized C3C implementation.
+- Customer/Tag usability: required display names are part of the completed C3C repository
+  implementation.
 - Normal Membership invitation/revocation/last-admin UI: remains separately gated, not an ambiguity
   in the initial C3 setup surface.
 
@@ -490,7 +492,7 @@ Product Vision
   -> TS-002 v1.3 (C3A/C3B contract plus exact C3C transport amendment)
   -> DT-017–DT-026 (Core foundation complete)
   -> ADR-0011 / C3A (independently validated and Human-accepted)
-  -> C3B (completed) / C3C (authorized + locally implemented; final review/CI pending) / C3D–C3E (gated)
+  -> C3B (completed) / C3C (repository implementation completed) / C3D–C3E (gated)
 ```
 
 ## Review Reconciliation Note (2026-07-14)
@@ -500,8 +502,9 @@ correction review. The
 original sections remain useful evidence for why the Core foundation was shaped as it was. The
 normative C3A amendment corrects their time-dependent statements and adds the transport/security
 contract required for real runtime work. Human Architect acceptance and C3B implementation closure
-are complete. C3C was later explicitly authorized on baseline `c1148d57`; C3D/C3E remain
-unauthorized.
+are complete. C3C was later explicitly authorized on baseline `c1148d57` and its repository
+implementation completed at `b90729a0a4b325f523cd98ea5a741defb00155f6` after exact-SHA review and
+exact-head CI; C3D/C3E remain unauthorized.
 
 ## C3B Feasibility Amendment (Version 1.2, 2026-07-14)
 

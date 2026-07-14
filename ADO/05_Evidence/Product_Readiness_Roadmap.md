@@ -194,6 +194,24 @@ DT-063–DT-066 remain open because a backend alone is not the complete code-edi
 setup flow: the Admin Web, protected Android Administrator capture and required human/physical gates
 still have to be separately authorized, implemented and approved.
 
+## Addendum (2026-07-15 — C3C Repository Closure)
+
+The local checkpoint above is retained as chronology. C3C implementation commit
+`b90729a0a4b325f523cd98ea5a741defb00155f6`, parent
+`c1148d57edb12312a102f090715c4b28308f6347` and tree
+`671be72784f68b9437a9f53e251acbbb22ce3e97` subsequently passed the complete 1,394-test matrix,
+all workspace checks and three independent exact-SHA final-review tracks. Database/security,
+governance/CI and complete-diff review each returned `APPROVED` with zero open P0/P1/P2/P3.
+GitHub Actions run `29375259275` is bound to that exact implementation SHA on `main` and passed all
+ten jobs.
+
+C3C repository implementation is therefore closed. This changes no roadmap order and does not
+claim operational setup, production readiness, cloud deployment or production-data authority.
+C3D Admin Web/protected Android capture and C3E Membership/reassignment remain separately
+unauthorized; DT-063–DT-066 remain open until their UI, identity, human and physical gates pass. The
+ADO-only closure-publication commit and its exact-head CI are still pending and have no identifier at
+this checkpoint.
+
 ## Revision Note (Technical Lead Review Follow-up, 2026-07-07)
 
 This roadmap was updated once, after Technical Lead review, to: (1) add the "Strategic frame" paragraph above, connecting roadmap items to the companion assessment's Business Event Platform framing (Section 0.1) and capability hierarchy (Section 12); (2) organize every milestone's existing items into an Engineering Track, a Product Capability Track, and a Business, Legal & Go-To-Market Track, without adding, removing, or reprioritizing any item, and without moving any item to a different milestone; (3) note, within the Now and Before Pilot Customers milestones, the re-evaluated primary-bottleneck finding from the companion assessment's Section 11.1 (Organization Management as the more foundational blocker for reaching the first pilot, alongside — not instead of — the backend technology decision). No original roadmap item's wording, milestone assignment, or substance was changed; this revision only added track labels, short cross-reference notes, and this closing note.

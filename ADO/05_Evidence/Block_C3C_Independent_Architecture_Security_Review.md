@@ -1,16 +1,19 @@
 # Block C3C — Independent Architecture and Security Review
 
-Status: Active — pre-implementation review, local post-correction mid-review and independent
-database/security precommit re-review passed; independent final review against the implementation
-commit pending
+Status: Completed — pre-implementation, local post-correction, independent precommit and three
+independent exact-SHA final-review tracks passed with zero open P0/P1/P2/P3
 Pre-implementation Review Date: 2026-07-14
 Local Mid-review Date: 2026-07-15
 Independent Database/Security Precommit Re-review Date: 2026-07-15
+Independent Exact-SHA Final Review Date: 2026-07-15
 Reviewed Baseline: `c1148d57edb12312a102f090715c4b28308f6347`
 Baseline CI: GitHub Actions `29364210818` — exact-head nine of nine jobs passed
+Reviewed Implementation Commit: `b90729a0a4b325f523cd98ea5a741defb00155f6`
+Reviewed Implementation Tree: `671be72784f68b9437a9f53e251acbbb22ce3e97`
+Implementation CI: GitHub Actions `29375259275` — exact implementation SHA, ten of ten jobs passed
 Review Type: Three independent read-only pre-implementation tracks, Technical-Lead local
-implementation mid-review and independent database/security precommit re-review; exact-SHA
-independent final track pending
+implementation mid-review, independent database/security precommit re-review and independent
+exact-SHA database/security, governance/CI and complete-diff final tracks
 Owner: Technical Lead
 
 ## 1. Scope and independence
@@ -83,7 +86,7 @@ corrected before publication:
 | C3C-IMPL-FIX-15 | Added direct-coordinator runtime type closure for non-string canonical payloads. |
 | C3C-IMPL-FIX-16 | Restored C3B compatibility through exactly one normalizer capability grant and exact ACL/dependency proof. |
 | C3C-IMPL-FIX-17 | Made a `NULL` SQL name kind explicitly fail closed. |
-| C3C-IMPL-FIX-18 | Proved exact Customer and Tag success replay after later resource deactivation. |
+| C3C-IMPL-FIX-18 | Proved exact Customer replay after Customer deactivation and exact Tag replay after Assignment/target deactivation. |
 | C3C-IMPL-FIX-19 | Synchronized package, README and CI labels/dependencies with the implemented graph. |
 
 Post-correction local status: every reported finding is corrected. The independent precommit
@@ -95,7 +98,30 @@ independent final approval and does not close C3C.
 
 ## 5. Independent final review
 
-Pending after creation of the implementation commit/head. The independent reviewer must inspect the
-published source/diff/evidence and return no open P0/P1/P2 before closure. Exact-head ten-job GitHub
-CI is also pending and will require its real run ID; neither an implementation SHA nor a CI run ID is
-claimed here.
+The final review inspected exact implementation commit
+`b90729a0a4b325f523cd98ea5a741defb00155f6`, parent
+`c1148d57edb12312a102f090715c4b28308f6347` and tree
+`671be72784f68b9437a9f53e251acbbb22ce3e97`. The tree matched the post-correction precommit state;
+migrations `001`–`006` remained byte-identical and migration `007` had exact SHA-256
+`c64c22ac915f5bc29857a8fac1a316586af47d70e8eb34926b8ce6ad8063f595`.
+
+Three independent read-only final tracks returned **APPROVED**:
+
+- database/security exact-SHA review verified migration `007`, roles, ACLs, RLS, capability owners,
+  receipt integrity, audit provenance, concurrency/race behavior and C3B compatibility;
+- governance/CI exact-SHA review verified ADO, README, package, workflow, test-count, link, scope and
+  non-closure claims; and
+- complete implementation-diff review verified the entire authorized source/diff/evidence boundary
+  without scope expansion.
+
+Final open severity is **P0 = 0, P1 = 0, P2 = 0, P3 = 0**. No finding was waived.
+
+GitHub Actions run `29375259275` is a completed successful `push` run on `main` with `headSha`
+exactly `b90729a0a4b325f523cd98ea5a741defb00155f6`. All ten defined jobs completed successfully, and
+the logs align with the complete 1,394-test matrix.
+
+Final verdict: **APPROVED FOR C3C REPOSITORY CLOSURE**.
+
+This approval grants no production/cloud/data authority and no C3D/C3E, Admin Web, Android capture,
+Membership CRUD or reassignment authority. The ADO-only closure-publication commit and its exact-head
+CI remain pending and are not represented by the implementation commit/run above.

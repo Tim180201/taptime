@@ -1,19 +1,24 @@
 # Block C3C — Normal Administration Backend/API Implementation Evidence
 
-Status: Local implementation and Technical-Lead verification passed — independent final review,
-implementation commit/head and exact-head ten-job GitHub CI pending
+Status: Completed — implementation, Technical-Lead verification, independent exact-SHA reviews and
+exact-head ten-job GitHub CI passed; C3C repository scope closed
 Evidence Date: 2026-07-15
 Authorized Baseline: `c1148d57edb12312a102f090715c4b28308f6347`
+Implementation Commit: `b90729a0a4b325f523cd98ea5a741defb00155f6`
+Implementation Tree: `671be72784f68b9437a9f53e251acbbb22ce3e97`
+Implementation CI: GitHub Actions run `29375259275` — exact implementation SHA, ten of ten jobs passed
 Runtime Under Test: Node.js 24 and PostgreSQL 17
 Owner: Technical Lead
 Authority: `ADO/02_Development/Block_C3C_Normal_Administration_Backend_Authorization.md`
+Closure: `ADO/02_Development/Block_C3C_Normal_Administration_Backend_Closure.md`
 
 ## 1. Evidence boundary
 
-This document records local implementation evidence for the authorized C3C slice only. It is not a
-closure and does not claim an implementation commit, published implementation head, exact-head CI
-run, independent final approval, C3D/C3E authority or production readiness. Those gates remain
-pending and must be recorded only from their real identifiers and results.
+This document records implementation and final verification evidence for the authorized C3C slice
+only. The exact implementation commit, tree, CI and independent approvals above close that repository
+scope. They grant no C3D/C3E authority or production/cloud/data readiness. The separate ADO
+closure-publication commit/CI remains pending and must be recorded only from its future real
+identifiers and results.
 
 The implementation remains bound to the exact baseline and contract in the C3C authorization:
 
@@ -28,9 +33,9 @@ The implementation remains bound to the exact baseline and contract in the C3C a
 No Admin Web, Android Administrator capture UI, Membership CRUD, invitations, role changes,
 reassignment, delete/update, production infrastructure/data or C3D/C3E behavior is included.
 
-## 2. Local implementation result
+## 2. Implementation result
 
-The local implementation contains the authorized neutral administration contract, migration `007`,
+The implementation contains the authorized neutral administration contract, migration `007`,
 isolated normal-administration coordinator, API/runtime integration, fourth pool, strict transport
 parsing and a dedicated tenth PostgreSQL-backed CI job definition. Customer creation, atomic Tag
 registration/assignment, idempotent success replay, divergent-command rejection and safe paginated
@@ -65,7 +70,7 @@ reported finding is corrected and none is waived.
 | C3C-IMPL-FIX-15 | Direct non-HTTP coordinator callers could pass a non-string payload into Core and receive an exception. | Runtime type checking now precedes canonical-payload parsing; missing and numeric adversarial values return `invalid_request`. |
 | C3C-IMPL-FIX-16 | The new Organization-name constraint broke C3B because its isolated function owner lacked normalizer execution. | Exactly one minimal normalizer `EXECUTE` grant was added to the bootstrap function owner with exact ACL/dependency proof; C3B passes 189 tests. |
 | C3C-IMPL-FIX-17 | SQL `NOT IN` treated a `NULL` name kind as unknown and fell into the Tag branch. | `requested_kind IS NULL` is explicitly fail-closed and covered by the shared SQL-contract test. |
-| C3C-IMPL-FIX-18 | The normative promise that exact success replay survives later resource deactivation lacked a direct regression. | Customer and Tag/Assignment tests deactivate the stored resources after success and prove the exact retry returns the original success without new rows, audits or receipts. |
+| C3C-IMPL-FIX-18 | The normative promise that exact success replay survives later resource deactivation lacked a direct regression. | The Customer test deactivates its Customer; the Tag test deactivates the stored Assignment and target Customer. Both prove the exact retry returns the original success without new rows, audits or receipts. |
 | C3C-IMPL-FIX-19 | Package/README/CI labels and dependencies understated the complete C3C boundary. | Unused dependency/constant hygiene, dependency prebuild instructions, trigger documentation and C2/C3C CI labels now match the actual graph. |
 
 All findings reported through this local precommit checkpoint are corrected. The independent
@@ -99,6 +104,8 @@ Additional local verification passed:
 - every workspace typecheck;
 - every workspace build;
 - Android export;
+- built C3B CLI verification;
+- clean package-graph validation with `npm ls`;
 - CI workflow YAML validation with exactly ten defined jobs, including the isolated C3C
   PostgreSQL-17/Node-24 job;
 - migration ledger/order/repeat checks through `001`–`007`;
@@ -116,10 +123,11 @@ Additional local verification passed:
 | Local implementation and regression verification | Passed |
 | Technical-Lead post-correction mid-review | Passed; every reported finding corrected |
 | Independent precommit database/security re-review | Passed; zero open P0/P1/P2/P3 |
-| Implementation commit and exact implementation head | **Pending — no SHA recorded** |
-| Independent final architecture/security/governance review | **Pending** |
-| Exact-head GitHub Actions CI | **Pending — no run ID recorded; ten of ten required** |
-| C3C closure | **Not created / not authorized yet** |
+| Implementation commit and exact implementation head | Passed — `b90729a0a4b325f523cd98ea5a741defb00155f6`, tree `671be72784f68b9437a9f53e251acbbb22ce3e97` |
+| Independent final database/security, governance/CI and complete-diff reviews | Passed — all three APPROVED; zero open P0/P1/P2/P3 |
+| Exact-head GitHub Actions CI | Passed — run `29375259275`, exact implementation SHA, ten of ten jobs |
+| C3C repository closure | **Completed** |
+| ADO closure-publication commit and exact-head CI | **Pending — no identifier claimed** |
 
 C3D, C3E, production deployment and production personal data remain gated. DT-063–DT-066 remain
 open until the complete operational setup surfaces and their required human/device validation have

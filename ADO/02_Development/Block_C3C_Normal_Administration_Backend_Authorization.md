@@ -1,11 +1,14 @@
 # Block C3C — Normal Administration Backend/API Authorization
 
-Status: Authorized — local implementation and Technical-Lead verification passed; independent final
-review, implementation commit/head and exact-head ten-job CI pending
+Status: Completed — authorized C3C repository implementation passed Technical-Lead verification,
+exact-SHA independent reviews and exact-head ten-job CI
 Authorization Date: 2026-07-14
-Local Implementation Evidence Date: 2026-07-15
+Implementation Evidence and Closure Date: 2026-07-15
 Authorized Baseline: `c1148d57edb12312a102f090715c4b28308f6347`
 Baseline CI: GitHub Actions run `29364210818` — nine of nine jobs passed at the exact baseline
+Implementation Commit: `b90729a0a4b325f523cd98ea5a741defb00155f6`
+Implementation Tree: `671be72784f68b9437a9f53e251acbbb22ce3e97`
+Implementation CI: GitHub Actions run `29375259275` — exact implementation SHA, ten of ten jobs passed
 Human Architect Authorization: Explicit ("ist autorisiert, leg los chef!")
 Owner: Technical Lead
 Architecture Authority: Accepted ADR-0011, FB-002 v1.2 and TS-002 v1.3
@@ -136,14 +139,18 @@ command. Initial provision never returns `assignment_conflict` and never reassig
 - isolated PostgreSQL-17/Node-24 C3C CI job, Technical-Lead diff/claim audit and independent final
   architecture/security/governance review with no open P0/P1/P2 before closure.
 
-The local Node-24/PostgreSQL-17 implementation and regression matrix passed on 2026-07-15 with
+The Node-24/PostgreSQL-17 implementation and regression matrix passed on 2026-07-15 with
 1,394 executed tests, complete workspace typechecks/builds, Android export, ten-job workflow YAML
-validation, unchanged migrations `001`–`006` and a clean diff check. The implementation evidence is
-`ADO/05_Evidence/Block_C3C_Normal_Administration_Backend_Evidence.md`.
+validation, unchanged migrations `001`–`006`, clean package-graph validation and a clean diff check.
+Implementation commit `b90729a0a4b325f523cd98ea5a741defb00155f6` then passed three independent
+exact-SHA final-review tracks with zero open P0/P1/P2/P3 and all ten exact-head jobs in GitHub Actions
+run `29375259275`. The implementation evidence is
+`ADO/05_Evidence/Block_C3C_Normal_Administration_Backend_Evidence.md` and the closure is
+`ADO/02_Development/Block_C3C_Normal_Administration_Backend_Closure.md`.
 
-This local result does not satisfy the remaining publication gates. The implementation commit/head,
-independent final review and exact-head ten-of-ten GitHub Actions run are still pending; therefore no
-C3C closure exists and no C3D/C3E or production authority follows.
+These gates close only the authorized C3C repository implementation. The ADO-only closure-publication
+commit and its exact-head CI are still pending and have no identifier yet. No C3D/C3E or production
+authority follows from C3C closure.
 
 ## 7. Stop conditions
 

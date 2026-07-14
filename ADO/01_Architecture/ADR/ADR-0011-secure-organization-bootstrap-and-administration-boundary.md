@@ -1,7 +1,7 @@
 # ADR-0011: Secure Organization Bootstrap and Administration Boundary
 
-Status: Accepted by Human Architect — C3B completed; C3C authorized and locally implemented with
-independent final review/exact-head CI pending; C3D/C3E gated
+Status: Accepted by Human Architect — C3B and C3C repository implementation completed after their
+separate exact-baseline review/CI cycles; C3D/C3E gated
 Date: 2026-07-14
 Acceptance: Accepted 2026-07-14
 Roadmap: Core Roadmap v2, Block C3 and later setup slices DT-063–DT-066
@@ -12,6 +12,7 @@ Related Artifacts: ADR-0006, ADR-0008, ADR-0009, FB-002, TS-002,
 `ADO/02_Development/Block_C3B_Secure_Organization_Bootstrap_Authorization.md`,
 `ADO/02_Development/Block_C3B_Secure_Organization_Bootstrap_Closure.md`,
 `ADO/02_Development/Block_C3C_Normal_Administration_Backend_Authorization.md`,
+`ADO/02_Development/Block_C3C_Normal_Administration_Backend_Closure.md`,
 `ADO/02_Development/Block_C3_Organization_Administration_Implementation_Plan.md`,
 `ADO/05_Evidence/Block_C3A_Independent_Architecture_Security_Review.md`,
 `ADO/05_Evidence/Block_C3B_Independent_Architecture_Security_Review.md`,
@@ -47,11 +48,12 @@ surface is built:
 - Core in-memory adapters do not implement the temporal one-active-assignment and tenant-local
   payload constraints already enforced by PostgreSQL.
 
-**Current implementation note (2026-07-15):** C3C now locally implements required Customer/Tag
-display names, the narrow normal-administration coordinator/database role, exact setup commands and
-the safe projection around the unchanged Core authority limitations above. Local verification and
-Technical-Lead mid-review pass. The implementation commit/head, independent final review and
-exact-head ten-job CI remain pending, so this note is neither C3C closure nor UI/production authority.
+**Current implementation note (2026-07-15):** C3C implements required Customer/Tag display names,
+the narrow normal-administration coordinator/database role, exact setup commands and the safe
+projection around the unchanged Core authority limitations above. Implementation commit
+`b90729a0a4b325f523cd98ea5a741defb00155f6` passed the 1,394-test matrix, three independent
+exact-SHA reviews with zero open P0/P1/P2/P3 and all ten jobs in exact-head GitHub Actions run
+`29375259275`. C3C is closed for its repository scope; this is neither UI nor production authority.
 
 ## Decision
 
@@ -392,10 +394,10 @@ Negative:
 C3B bootstrap implementation completed after Human Architect acceptance of this ADR, separate
 continuation, implementation plan, direct PostgreSQL security matrix, rollback/concurrency tests,
 Technical-Lead review, exact-head nine-job GitHub CI and independent security review. C3C normal
-administration received that separate authorization and is locally implemented/verified; its
-implementation head, independent final review and exact-head ten-job CI remain mandatory before
-closure. Admin Web/Mobile setup, production deployment and production personal data remain outside
-this ADR's implementation authority.
+administration also completed its separately authorized repository cycle at implementation commit
+`b90729a0a4b325f523cd98ea5a741defb00155f6`, after exact-SHA independent review and exact-head
+ten-job GitHub CI. Admin Web/Mobile setup, production deployment and production personal data remain
+outside this ADR's implementation authority.
 
 ## Review triggers
 
