@@ -196,7 +196,7 @@ below remains outstanding until observed by the Human Architect.
 | Stable identity per tag and distinct A/B identities | Observed | Validation app completed its guarded stability result, which requires 10 matching reads per slot, zero mismatches and distinct shortened fingerprints |
 | Disabled-NFC behavior | Observed | With Android NFC disabled and the app reopened, the Human Architect confirmed the explicit disabled state and blocked scan action; after re-enabling NFC and reopening, the app returned to ready and scanning remained available |
 | Timeout, cancel and scan-after-cleanup | Observed | Human Architect confirmed the 20-second no-tag timeout completed without incrementing the counter, explicit cancellation reported cleanly and the immediately following Tag-A scan succeeded, proving physical scan-after-cleanup |
-| Rapid duplicate press | Outstanding | Automated only; physical proof absent |
+| Rapid duplicate press | Observed | Human Architect double-pressed the validation scan action, presented Tag A once and confirmed the counter remained exactly `1`; presenting the tag again without a new app scan did not increment TapTim.e |
 | Unassigned-tag product screen | Outstanding | Requires physical tag and test server |
 | Server-confirmed Start then Stop | Outstanding | Requires synthetic physical-test provisioning |
 | No raw UID/token/provider-error disclosure | Outstanding | Source/tests pass; device-screen inspection absent |
@@ -209,12 +209,15 @@ below remains outstanding until observed by the Human Architect.
 - There is no Block E offline queue/scheduler, C3 administration flow, iOS capture, NDEF flow,
   production cloud configuration, production data or deployment evidence.
 - Operator provisioning must use canonical payloads; no in-product registration UI exists yet.
+- After the active TapTim.e capture cleaned up, presenting the tag again caused Android to show
+  external handling options. This confirms that no second TapTim.e capture remained active, but the
+  exact system UI and tag NDEF/type must be recorded and considered in pilot tag procurement/UX.
 - The existing 11 moderate dependency findings remain open; this task did not apply audit fixes.
 - Two Supavisor connection modes remain unverified.
 
 ## 9. Required next action
 
-The Human Architect next executes disabled-NFC, timeout, explicit cancellation, scan-after-cleanup
-and rapid-duplicate cases, then records the Android model/OS and tag product/type if known. Only
-observed results may replace `Outstanding`; any missing server test environment keeps the
-unassigned-tag and end-to-end Start/Stop items open.
+The Human Architect next records the Android model/OS, tag product/type and exact external Android
+option text if known, and confirms that validation screens disclosed no raw UID/token/provider
+error. Only observed results may replace `Outstanding`; a missing synthetic server test environment
+keeps the unassigned-tag and end-to-end Start/Stop items open.
