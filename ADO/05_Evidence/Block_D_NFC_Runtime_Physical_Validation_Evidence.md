@@ -194,7 +194,7 @@ below remains outstanding until observed by the Human Architect.
 | Physical tag product/type B | Partially observed | Physical Tag B scanned successfully; product/type not yet recorded |
 | Ten remove-and-retap reads per tag | Observed | Human Architect confirmed 10 successful reads for Tag A and 10 for Tag B; raw identifiers were not supplied |
 | Stable identity per tag and distinct A/B identities | Observed | Validation app completed its guarded stability result, which requires 10 matching reads per slot, zero mismatches and distinct shortened fingerprints |
-| Disabled-NFC behavior | Outstanding | Must be observed on device |
+| Disabled-NFC behavior | Observed | With Android NFC disabled and the app reopened, the Human Architect confirmed the explicit disabled state and blocked scan action; after re-enabling NFC and reopening, the app returned to ready and scanning remained available |
 | Timeout, cancel and scan-after-cleanup | Observed | Human Architect confirmed the 20-second no-tag timeout completed without incrementing the counter, explicit cancellation reported cleanly and the immediately following Tag-A scan succeeded, proving physical scan-after-cleanup |
 | Rapid duplicate press | Outstanding | Automated only; physical proof absent |
 | Unassigned-tag product screen | Outstanding | Requires physical tag and test server |
