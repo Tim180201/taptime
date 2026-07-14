@@ -195,7 +195,7 @@ below remains outstanding until observed by the Human Architect.
 | Ten remove-and-retap reads per tag | Observed | Human Architect confirmed 10 successful reads for Tag A and 10 for Tag B; raw identifiers were not supplied |
 | Stable identity per tag and distinct A/B identities | Observed | Validation app completed its guarded stability result, which requires 10 matching reads per slot, zero mismatches and distinct shortened fingerprints |
 | Disabled-NFC behavior | Outstanding | Must be observed on device |
-| Timeout, cancel and scan-after-cleanup | Outstanding | Automated only; physical proof absent |
+| Timeout, cancel and scan-after-cleanup | Partially observed | Human Architect confirmed explicit cancellation reported cleanly and the immediately following Tag-A scan succeeded, proving physical scan-after-cleanup; timeout remains outstanding |
 | Rapid duplicate press | Outstanding | Automated only; physical proof absent |
 | Unassigned-tag product screen | Outstanding | Requires physical tag and test server |
 | Server-confirmed Start then Stop | Outstanding | Requires synthetic physical-test provisioning |
