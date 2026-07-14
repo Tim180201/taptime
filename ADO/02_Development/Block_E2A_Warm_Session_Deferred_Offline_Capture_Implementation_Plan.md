@@ -1,6 +1,6 @@
 # Block E2A — Warm-Session Deferred Offline Capture Implementation Plan
 
-Status: Authorized — Independent Pre-Implementation Review Passed; Implementation In Progress
+Status: Completed — Technical Lead, GitHub CI, Human Physical Android and Independent Security Approved
 Date: 2026-07-14
 Baseline: `9f2f922fd46e33cb9d53d80e4a7dbedb73653ad1`
 Owner: Technical Lead / Codex implementation
@@ -26,12 +26,16 @@ Effort: High
 7. Update German UI copy so offline capture never claims Start/Stop and retained evidence never
    claims server acceptance. **Completed locally.**
 8. Run tests-inclusive checks, integration/fault-injection tests, workspace builds, Android export,
-   migration guards and diff/security scans. **Completed locally; GitHub CI remains pending.**
+   migration guards and diff/security scans. **Completed locally and in all eight jobs of GitHub
+   Actions run `29348512506` for exact implementation commit `4b5ecdc`.**
 9. Complete the physical Android gate, closure/security evidence and an independent final review.
-   **Independent implementation review completed: APPROVED, both P3 findings dispositioned;
-   physical validation and final closure review pending.**
+   **Independent implementation review completed: APPROVED, both P3 findings dispositioned.
+   Physical Galaxy A33 / Android 15 validation passed, including controlled C2 transport loss,
+   force-stop/restart preservation, exact retry and no deferred TimeEntry mutation. Independent
+   final review returned `APPROVED` with no open P0/P1/P2/P3.**
 10. Commit and push only after Technical Lead approval; `research/` remains out of scope.
-    **Pending.**
+    **Completed for implementation commit `4b5ecdc`; pushed to `main`; `research/` remained
+    untracked and untouched.**
 
 ## 2. Parallel work boundaries
 
@@ -54,5 +58,7 @@ context.
 ## 4. Closure truth
 
 Completion does not mean full offline mode. It means one physical action against one context already
-resolved in the same running authenticated session can survive transient network loss as exact,
-server-stored, deferred evidence without granting Mobile lifecycle authority.
+resolved in the same running authenticated session can survive transient C2 server-transport loss
+as exact, server-stored, deferred evidence without granting Mobile lifecycle authority. The physical
+gate removed only the synthetic Mobile API reverse mapping; it did not test airplane mode or total
+device connectivity loss.

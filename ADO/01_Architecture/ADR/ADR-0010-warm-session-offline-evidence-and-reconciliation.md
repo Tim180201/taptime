@@ -7,7 +7,10 @@ Roadmap: Core Roadmap v2, Block E (first offline-capture slice of DT-060–DT-06
 Owner: Technical Lead
 Approval Authority: Human Architect
 Related Artifacts: ADR-0004, ADR-0006, ADR-0008, ADR-0009, FB-001, TS-001,
-`ADO/02_Development/Block_E2A_Warm_Session_Deferred_Offline_Capture_Authorization.md`
+`ADO/02_Development/Block_E2A_Warm_Session_Deferred_Offline_Capture_Authorization.md`,
+`ADO/02_Development/Block_E2A_Warm_Session_Deferred_Offline_Capture_Closure.md`,
+`ADO/05_Evidence/Block_E2A_Warm_Session_Deferred_Offline_Capture_Physical_Validation_Evidence.md`,
+`ADO/05_Evidence/Block_E2A_Independent_Final_Architecture_Security_Review.md`
 
 ## Context
 

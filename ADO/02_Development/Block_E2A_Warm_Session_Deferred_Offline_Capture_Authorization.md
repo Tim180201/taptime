@@ -1,8 +1,11 @@
 # Block E2A — Warm-Session Deferred Offline Capture Authorization
 
-Status: Authorized — Independent Pre-Implementation Review Passed; Implementation In Progress
+Status: Completed — Technical Lead, GitHub CI, Human Physical Android and Independent Security Approved
 Authorization Date: 2026-07-14
 Authorized Baseline: `9f2f922fd46e33cb9d53d80e4a7dbedb73653ad1`
+Implementation Commit: `4b5ecdc7d6605db3e231f9ead966ebf104900a30`
+Implementation CI: GitHub Actions run `29348512506` — all eight jobs passed
+Independent Final Review: `APPROVED`; no open P0/P1/P2/P3 findings
 Human Architect Authorization: Explicit continuation under the delegated professional architecture
 direction ("Wir machen es nach deiner Vorstellung" / "lass loslegen")
 Owner: Technical Lead
@@ -117,6 +120,13 @@ Before E2A closure, the supported Android device must prove:
 Closure may claim only warm-session same-context offline evidence capture. DT-060–DT-062 and Block E
 remain open until the durable multi-context/multi-event/reconciliation design is separately
 authorized, implemented, physically validated and independently approved.
+
+The Human Architect completed this gate on a Galaxy A33 5G / Android 15 with NTAG213 Tag A. The
+controlled interruption removed only C2 USB reverse `tcp:3000`, not all device connectivity. The
+already captured version-2 command survived Android force-stop/relaunch and exact explicit retry.
+Final server state retained one active TimeEntry and one CanonicalDecision while the deferred delta
+added only WorkEvent, `received` SyncReceipt and Audit evidence. Full details are in
+`ADO/05_Evidence/Block_E2A_Warm_Session_Deferred_Offline_Capture_Physical_Validation_Evidence.md`.
 
 ## 6. Explicit non-goals
 

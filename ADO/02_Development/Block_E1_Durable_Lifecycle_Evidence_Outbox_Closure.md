@@ -72,8 +72,18 @@ Physical E1 process-death/restart recovery has not yet been repeated on Android.
 Block-D Start/Stop evidence, native-adapter tests and production bundle verification do not replace
 that later device gate.
 
+### Follow-up — E2A physical version-2 evidence, 2026-07-14
+
+Subsequent E2A validation physically proved that one already captured Membership-bound version-2
+record survives Android `am force-stop` and relaunch on Galaxy A33 / Android 15, remains protected
+until C2/session restoration and can be submitted only through exact explicit retry. This closes the
+recorded physical restart-evidence gap for the later E2A version-2 path. It does not retroactively
+validate version-1 Membership-unknown replay, cold-start scan-context resolution, multiple records,
+automatic/background sync or reconciliation, and it does not change E1's original authorization.
+
 ## 5. Recommended next step
 
-Design E2 as the tenant-safe offline capture/cache slice. Its authorization must explicitly decide
-assignment activation/revocation, cache staleness and supported reconciliation before implementation.
-E1 must not be widened implicitly to answer those product/security questions.
+E2A subsequently delivered and closed only one volatile same-session/same-context deferred-evidence
+slice. Any next Block-E work must still separately decide durable multi-context cache validity,
+assignment activation/revocation, multiple-event ordering and supported reconciliation. Neither E1
+nor E2A may be widened implicitly to answer those product/security questions.

@@ -74,6 +74,15 @@ GitHub Actions evidence:
 - Physical E1 restart recovery has not yet been repeated on Android.
 - Production data, cloud deployment, retention/erasure and pilot operations remain unauthorized.
 
+### Follow-up — E2A physical version-2 evidence, 2026-07-14
+
+Later E2A physical validation proved that an already captured Membership-bound version-2 record
+survives Android force-stop/relaunch on Galaxy A33 / Android 15 and remains protected until exact
+explicit retry. This supersedes only the earlier missing-device-evidence statement for that later
+version-2 E2A path. It does not validate version-1 Membership-unknown replay, multi-record/full
+offline behavior, automatic/background synchronization or support reconciliation, and it does not
+expand the original E1 security verdict.
+
 ## 5. Final disposition
 
 Block E1 is independently security approved with five corrected or explicitly bounded non-blocking

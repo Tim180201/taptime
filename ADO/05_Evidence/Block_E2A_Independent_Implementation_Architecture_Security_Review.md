@@ -1,6 +1,6 @@
 # Block E2A — Independent Implementation Architecture and Security Review
 
-Status: APPROVED — Implementation Scope Only; GitHub CI and Physical Android Gate Pending
+Status: APPROVED — Implementation Scope; Subsequent GitHub CI and Physical Android Gates Passed; Closure Verdict Separate
 Review Date: 2026-07-14
 Reviewed Baseline: `9f2f922fd46e33cb9d53d80e4a7dbedb73653ad1` plus the complete uncommitted E2A implementation and in-progress governance diff
 Reviewer Independence: Read-only reviewer separate from the implementing streams
@@ -66,7 +66,16 @@ deltas. The complete six-test suite and the isolated defer-only case both pass.
 **APPROVED** for the implemented E2A scope. Both non-blocking P3 findings are dispositioned and the
 targeted independent follow-up found no new finding.
 
-This is not E2A closure evidence. GitHub CI and the physical Galaxy A33 warm-session offline,
-restart-protection and deferred-server-evidence checklist remain mandatory. The endpoint is not
-client/device/physical-scan attestation, DT-060–DT-062 and Block E remain open, and production or
-full-offline claims remain unauthorized.
+At the time of this implementation review, this was not E2A closure evidence and GitHub CI plus the
+physical Galaxy A33 checklist remained mandatory. The endpoint is not client/device/physical-scan
+attestation, DT-060–DT-062 and Block E remain open, and production or full-offline claims remain
+unauthorized.
+
+## 6. Subsequent gate record — not part of the original implementation verdict
+
+Technical Lead record: the reviewed implementation was published as commit
+`4b5ecdc7d6605db3e231f9ead966ebf104900a30`, which passed all eight jobs in GitHub Actions run
+`29348512506`. The Human Architect subsequently completed the controlled Galaxy A33 / Android 15
+C2-transport-loss, process-restart and deferred-evidence checklist. Those later facts are assessed
+by the separate independent final review; they do not retroactively expand this implementation-only
+review's provenance or scope.
