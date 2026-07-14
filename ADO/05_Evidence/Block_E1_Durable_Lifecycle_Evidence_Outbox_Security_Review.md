@@ -1,6 +1,6 @@
 # Block E1 — Durable Lifecycle Evidence Outbox Technical Lead Security Review
 
-Status: APPROVED — Independent Review Pending
+Status: TECHNICAL LEAD AND GITHUB CI APPROVED — Independent Review Pending
 Date: 2026-07-14
 Reviewer: Technical Lead self-assessment
 Scope: Block E1 diff from `9b2c8a5`; `research/` excluded and unchanged
@@ -41,7 +41,8 @@ oversized payload and unavailable native storage. Existing NFC concurrency, sess
 transport and presentation regressions remain green.
 
 Core remains 288/288. The complete workspace build and Android Expo export pass. Migrations remain
-`001`–`005`.
+`001`–`005`. GitHub Actions run `29340810743`, bound to implementation commit `e0f2898`, passed all
+eight jobs.
 
 ## 4. Accepted limitations
 

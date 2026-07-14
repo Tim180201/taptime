@@ -1,6 +1,6 @@
 # Block E1 — Durable Lifecycle Evidence Outbox Closure
 
-Status: Implemented — Technical Lead Approved; GitHub CI and Independent Review Pending
+Status: Implemented — Technical Lead and GitHub CI Approved; Independent Review Pending
 Date: 2026-07-14
 Owner: Technical Lead
 Authorized Baseline: `9b2c8a5ed8b70a8aed5e367f6c919f439b5ac1ed`
@@ -42,9 +42,10 @@ full offline mode or background synchronization.
 - Expo production Android export: passed; 781 modules bundled to Hermes output.
 - `git diff --check`: passed.
 - Migrations remain exactly `001`–`005`; no SQL, backend, Core behavior or dependency changed.
+- Implementation commit: `e0f2898`; GitHub Actions run `29340810743` passed all eight jobs.
 
-GitHub Actions and an independent architecture/security review remain pending at this pre-publication
-closure point and must not be reported as passed until their evidence exists.
+An independent architecture/security review remains pending and must not be reported as passed
+until its evidence exists.
 
 ## 4. Explicitly still open
 
