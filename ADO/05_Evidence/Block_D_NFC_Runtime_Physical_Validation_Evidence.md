@@ -168,7 +168,14 @@ workspace build passed; the validation Expo configuration resolved to the distin
 package/name/scheme; Android Hermes export generated from 780 modules. EAS generated a dedicated
 remote Android keystore during the configuration proof. The initial uncommitted-source build
 `3efa9b86-512f-4ebb-8468-49fafc9931bd` was deliberately canceled before completion so the final APK
-can be tied to the reviewed commit. Build completion and install/device observations remain
+could be tied to reviewed commit `7ac4fa4a7bd28777ea763438fb9a2ff2eff8e796`.
+
+The commit-bound EAS internal-distribution build
+`c459616c-3e90-49f5-a508-8044d05e1c25` then finished successfully. Its 66-MB APK is available at
+`https://expo.dev/artifacts/eas/YRZhVIul94iI8CFxF72C96Qb1v-Hy8ddTAwdN63EKp4.apk`, passed ZIP
+integrity verification and has SHA-256
+`005f6cee512f0ec6ad27b50a170e8076cf97cf8523918b99bd034452a8c3cecf`. GitHub Actions run
+`29322368886` passed all seven jobs for the same commit. Installation and device observations remain
 separate evidence.
 
 This tooling does not upgrade Block D readiness. It has no authentication, C2/B5/B6 client,
