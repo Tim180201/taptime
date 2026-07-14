@@ -1,6 +1,6 @@
 # Block D — Synthetic Server-connected Android E2E Evidence
 
-Status: Software Technical-Lead Approved after Four Corrections — Awaiting GitHub CI and Local Android APK/Physical Run
+Status: Software Technical-Lead Approved after Five Corrections — Awaiting GitHub CI and Local Android APK/Physical Run
 
 Date: 2026-07-14
 
@@ -127,7 +127,7 @@ host-loopback PostgreSQL `17.10` cluster; no remote or cloud service was contact
 | B6 Typecheck/tests | Passed; 68/68 |
 | C1/C2 API Typecheck/tests | Passed; 127/127 in 2 files |
 | Synthetic Android E2E Typecheck/tests | Passed; 5/5 in 1 file |
-| Dedicated synthetic PostgreSQL 17 CI job | Initial clean-Linux run caught missing dependency declaration builds before Typecheck; corrected workflow rerun pending |
+| Dedicated synthetic PostgreSQL 17 CI job | First clean-Linux run caught missing dependency declaration builds; second proved Typecheck but exposed Docker-bridge server addressing; host-loopback PostgreSQL correction rerun pending |
 | Compiled harness startup/normal shutdown | Passed; loopback services started, `stop` returned and cleanup completed |
 | Root/workspace build | Passed, including Core and every backend workspace |
 | Product Android Expo export | Passed; Hermes bundle generated from 780 modules |
@@ -159,13 +159,15 @@ read, write, test and diff scope used for this implementation.
 
 ## 8. Gate status
 
-Technical-Lead review returned `APPROVED` after correcting four blocking review findings: the
+Technical-Lead review returned `APPROVED` after correcting five blocking review findings: the
 build helper can no longer replace an existing untracked native Android project, successful
 installations now name and implement a mandatory scoped USB-reverse cleanup action, and the full
 five-test PostgreSQL harness has its own CI job whose clean-Linux sequence builds its required
-workspace declarations before Typecheck. The truthful status before the successful CI rerun is:
+workspace declarations before Typecheck and preserves the server-side loopback guard by using host
+networking for its disposable PostgreSQL container. The truthful status before the successful CI
+rerun is:
 
-`Software Technical-Lead Approved after Four Corrections — Awaiting GitHub CI and Local Android APK/Physical Run`
+`Software Technical-Lead Approved after Five Corrections — Awaiting GitHub CI and Local Android APK/Physical Run`
 
 Commit/push is authorized. No GitHub-CI success is claimed until the pushed workflow completes, and
 no physical completion is claimed until the Human Architect or delegated tester records the table

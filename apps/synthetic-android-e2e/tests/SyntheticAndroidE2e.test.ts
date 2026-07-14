@@ -58,6 +58,7 @@ describeWithPostgres('synthetic Android product-to-server E2E', () => {
   const safeEvents: SyntheticEnvironmentSafeEvent[] = [];
 
   beforeAll(async () => {
+    installerPool = new Pool({ connectionString: installerDatabaseUrl });
     environment = await createSyntheticAndroidE2eEnvironment({
       installerDatabaseUrl: installerDatabaseUrl as string,
       password: syntheticPassword,
@@ -66,10 +67,14 @@ describeWithPostgres('synthetic Android product-to-server E2E', () => {
       onSafeEvent: (event) => safeEvents.push(event),
     });
     currentEnvironmentUrl = environment.apiBaseUrl;
-    installerPool = new Pool({ connectionString: installerDatabaseUrl });
   });
 
   afterAll(async () => {
+    if (environment === undefined) {
+      await installerPool?.end();
+      currentEnvironmentUrl = '';
+      return;
+    }
     await environment?.close();
     const cleanup = await installerPool.query<{
       runtime_logins: string;
