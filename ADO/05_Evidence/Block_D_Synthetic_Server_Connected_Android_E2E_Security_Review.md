@@ -1,6 +1,6 @@
 # Block D — Synthetic Server-connected Android E2E Security Review
 
-Status: Technical-Lead Approved after Five Blocking Corrections — Awaiting GitHub CI and Physical E2E
+Status: Technical-Lead and GitHub-CI Approved after Five Blocking Corrections — Awaiting Physical E2E
 
 Date: 2026-07-14
 
@@ -56,7 +56,7 @@ it is never treated as authentication or stored as the server lookup key.
 | D-E2E-S11 | Cleanup | Passed in automated teardown and compiled startup/stop check | Normal shutdown closes terminal input, HTTP servers and runtime pools, drops the disposable schema/ledger and generated runtime logins, then closes the installer pool. A separate fail-closed device helper removes only reverse ports `54321` and `3000`, refuses unexpected targets and never uses `--remove-all`. Crash recovery still requires dropping/recreating the dedicated database before reuse. |
 | D-E2E-S12 | External-resource gate | Passed | Build/run helpers contain no EAS, tunnel, cloud or remote-host command. No such resource was created during implementation. |
 | D-E2E-S13 | Existing native project protection | Passed after Technical-Lead correction | The original clean-prebuild helper could delete an existing untracked `apps/mobile/android` directory. The approved helper refuses both tracked and untracked native directories and no longer uses Expo's destructive `--clean` flag. |
-| D-E2E-S14 | Continuous regression gate | Passed in workflow review; remote run pending | A dedicated PostgreSQL `17.10` GitHub Actions job now runs the synthetic harness tests-inclusive Typecheck, all five direct-database tests and build on every push/PR to `main`. |
+| D-E2E-S14 | Continuous regression gate | Passed in GitHub Actions | Dedicated PostgreSQL `17.10` job passed tests-inclusive Typecheck, all five direct-database tests, build and cleanup in run `29329906106`; it remains active on every push/PR to `main`. |
 
 ## 4. Technical-Lead findings and corrections
 
@@ -64,9 +64,9 @@ it is never treated as authentication or stored as the server lookup key.
 |---|---|---|---|
 | D-E2E-TL01 | `expo prebuild --clean` could remove an existing untracked native Android project despite the tracked-file guard | Removed `--clean`; added an exact existing-directory refusal before prebuild | Closed; blocking |
 | D-E2E-TL02 | Successful installation left reverse mappings active with cleanup only described manually | Added a mandatory printed command and a scoped helper that validates/removes only `54321` and `3000` | Closed; blocking |
-| D-E2E-TL03 | The real five-case PostgreSQL harness was not itself enforced by GitHub Actions | Added an isolated PostgreSQL 17 CI job for Typecheck, 5/5 tests and build | Closed in workflow; remote execution pending |
-| D-E2E-TL04 | The first clean Linux CI run exposed that Typecheck had relied on locally prebuilt dependency declarations | Added an explicit ordered build of Core, schema, B4, B5, B6 and C2 dependencies before harness Typecheck | Closed in workflow; remote rerun pending |
-| D-E2E-TL05 | A normal GitHub service container reports a Docker-bridge server address, correctly failing the strict server-loopback guard; a failed setup also exposed an unsafe test-teardown dereference | Run the disposable PostgreSQL 17 container with host networking and `listen_addresses=127.0.0.1`; initialize teardown capability before environment setup and guard partial setup | Closed in workflow/test; remote rerun pending |
+| D-E2E-TL03 | The real five-case PostgreSQL harness was not itself enforced by GitHub Actions | Added an isolated PostgreSQL 17 CI job for Typecheck, 5/5 tests and build | Closed; run `29329906106` passed |
+| D-E2E-TL04 | The first clean Linux CI run exposed that Typecheck had relied on locally prebuilt dependency declarations | Added an explicit ordered build of Core, schema, B4, B5, B6 and C2 dependencies before harness Typecheck | Closed; run `29329906106` passed |
+| D-E2E-TL05 | A normal GitHub service container reports a Docker-bridge server address, correctly failing the strict server-loopback guard; a failed setup also exposed an unsafe test-teardown dereference | Run the disposable PostgreSQL 17 container with host networking and `listen_addresses=127.0.0.1`; initialize teardown capability before environment setup and guard partial setup | Closed; run `29329906106` passed |
 
 ## 5. Deliberate limitations
 
@@ -95,8 +95,9 @@ it is never treated as authentication or stored as the server lookup key.
 
 After the five corrections above, the implementation is appropriately fail-closed for a
 disposable synthetic test harness and does not weaken the product C2/B3–B6 boundaries. Technical
-Lead verdict: `APPROVED` for commit/push. GitHub CI and the physical server-connected checklist
-remain open; this review is not a physical-result claim or an independent third-party approval.
+Lead verdict: `APPROVED`; all eight GitHub CI jobs passed in run `29329906106`. The physical
+server-connected checklist remains open; this review is not a physical-result claim or an
+independent third-party approval.
 
 Primary platform references:
 
