@@ -326,8 +326,10 @@ Chapters 00–03 preserve their historical Sprint-019 narratives and add current
 through Blocks A, B1–B6, C1/C2, D, E1/E2A and C3A–C3C on baseline
 `fda5e5b9e878311b0caa647c6b49ab14943b706e`. Chapters 04–10 remain a separate documentation backlog.
 Synchronization publication `d9060fe96bcb9d2e3282d5cb08a455d113b86307` passed all ten jobs in
-exact-head GitHub Actions run `29394356224` on `main`; independent external review and Human
-acceptance remain pending.
+exact-head GitHub Actions run `29394356224` on `main`; closure
+`9c9144fa468cbaa6d1195a172f92e746ad3eb265` passed ten-of-ten run `29394550988`. Independent final
+review returned `APPROVED` with no open repository finding after disposition. Human acceptance
+remains pending.
 
 EP-009's additive 2026-07-15 reassessment dispositions K1–K12 and extends the qualitative scorecard
 without rewriting the 2026-07-07 baseline. This governance maintenance changes no Roadmap order:

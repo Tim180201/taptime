@@ -1,11 +1,12 @@
 # EP-008 Post-Sprint-019 Block-Boundary Synchronization Evidence
 
-Status: Completed — synchronization publication and exact-head CI passed; independent external review pending
+Status: Completed — synchronization and closure CI passed; independent final review approved; Human acceptance pending
 Evidence Date: 2026-07-15
 Owner: Technical Lead
 Authorized baseline: `fda5e5b9e878311b0caa647c6b49ab14943b706e`
 Plan: `ADO/02_Development/EP-008_Post_Sprint_019_Block_Boundary_Synchronization_Plan.md`
 Closure: `ADO/02_Development/EP-008_Post_Sprint_019_Block_Boundary_Synchronization_Closure.md`
+Independent Review: `ADO/05_Evidence/EP-008/EP-008_Post_Sprint_019_Independent_Final_Review.md`
 Production authority: Not granted
 
 ## 1. Evidence boundary
@@ -86,7 +87,8 @@ These are source-baseline facts, not publication evidence for this new synchroni
 | Technical-Lead approval | **APPROVED for publication — zero open P0/P1/P2/P3** |
 | Synchronization commit | Passed — `d9060fe96bcb9d2e3282d5cb08a455d113b86307` on `main` |
 | Exact-head ten-job CI | Passed — run `29394356224`, `push`, `main`, exact synchronization SHA, ten of ten jobs |
-| Independent external review | Planned after publication; no approval claimed |
+| Closure publication and exact-head CI | Passed — `9c9144fa468cbaa6d1195a172f92e746ad3eb265`, run `29394550988`, ten of ten jobs |
+| Independent external review | **APPROVED** on exact closure head; no open repository P0/P1/P2/P3 after disposition |
 
 ## 7. Technical-Lead review
 
@@ -102,8 +104,9 @@ The Technical Lead reviewed the complete diff against the exact baseline and dir
 - local/remote baseline equality before editing.
 
 Final local verdict: **APPROVED FOR ADO PUBLICATION**, with P0 = 0, P1 = 0, P2 = 0 and P3 = 0.
-No finding is waived. External independent review remains deliberately scheduled after publication,
-as requested by the Human Architect, and is not pre-claimed here.
+No Technical-Lead finding was waived. The subsequently completed independent review is recorded in
+the dedicated final-review artifact rather than retroactively represented as part of this earlier
+local review step.
 
 ## 8. Publication evidence
 
@@ -114,6 +117,12 @@ published on `main`. GitHub Actions run `29394356224` completed successfully for
 
 The following ADO-only closure publication records these already-existing facts. Its own SHA and
 exact-head CI run are final handoff evidence and are not recursively inserted into a third commit.
+
+Closure commit `9c9144fa468cbaa6d1195a172f92e746ad3eb265` subsequently passed exact-head
+ten-of-ten run `29394550988`. Independent final review then returned `APPROVED`. Its one P3-labeled
+method observation concerned only the review sandbox's SSH host-key setup; HTTPS remote verification
+passed and no repository correction was required. The Technical Lead retained the observation in
+the review artifact and closed it as not applicable to TapTim.e. No repository finding remains open.
 
 ## 9. Open gates retained
 

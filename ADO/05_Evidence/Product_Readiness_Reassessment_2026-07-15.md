@@ -1,6 +1,6 @@
 # Product Readiness Reassessment — 2026-07-15
 
-Status: Review Ready — additive EP-009 reassessment, Human acceptance pending
+Status: Independent Final Review Approved — additive EP-009 reassessment, Human acceptance pending
 Assessment Date: 2026-07-15
 Owner: Technical Lead
 Repository Baseline: `fda5e5b9e878311b0caa647c6b49ab14943b706e`
@@ -84,8 +84,12 @@ must close before C3D so the developer manual and readiness view do not compound
 
 ## 6. Review and next update
 
-The Technical Lead may approve repository-evidence accuracy after diff and exact-head CI. Human
-acceptance is required before this `Review Ready` reassessment is promoted as an accepted Product
+Technical-Lead review, both exact-head publication CI gates and independent external final review
+have approved the repository-evidence accuracy. The independent review confirmed all K1–K12
+dispositions and the complete scorecard with no open repository P0/P1/P2/P3 after disposition; see
+`ADO/05_Evidence/EP-008/EP-008_Post_Sprint_019_Independent_Final_Review.md`.
+
+Human acceptance is still required before this reassessment is promoted as an accepted Product
 Readiness baseline. The next reassessment trigger is a material readiness change such as completed
 C3D/C3E, supported pilot distribution, production deployment evidence, legal review or real pilot
 outcomes.

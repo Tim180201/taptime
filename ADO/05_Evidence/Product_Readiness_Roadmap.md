@@ -246,6 +246,12 @@ The current critical path remains C3D, C3E, the rest of Block E, then Blocks F/G
 elapsed-time Block-H/legal-commercial work. This addendum does not reorder Core Roadmap v2, authorize
 the next slice, claim a live Supabase/production system or authorize production personal data.
 
+Independent final review of exact closure head
+`9c9144fa468cbaa6d1195a172f92e746ad3eb265` approved the complete K1–K12 disposition, scorecard and
+authority boundaries. No repository finding remains open after disposition; Human acceptance of the
+reassessment remains pending. Evidence:
+`ADO/05_Evidence/EP-008/EP-008_Post_Sprint_019_Independent_Final_Review.md`.
+
 ## Revision Note (Technical Lead Review Follow-up, 2026-07-07)
 
 This roadmap was updated once, after Technical Lead review, to: (1) add the "Strategic frame" paragraph above, connecting roadmap items to the companion assessment's Business Event Platform framing (Section 0.1) and capability hierarchy (Section 12); (2) organize every milestone's existing items into an Engineering Track, a Product Capability Track, and a Business, Legal & Go-To-Market Track, without adding, removing, or reprioritizing any item, and without moving any item to a different milestone; (3) note, within the Now and Before Pilot Customers milestones, the re-evaluated primary-bottleneck finding from the companion assessment's Section 11.1 (Organization Management as the more foundational blocker for reaching the first pilot, alongside — not instead of — the backend technology decision). No original roadmap item's wording, milestone assignment, or substance was changed; this revision only added track labels, short cross-reference notes, and this closing note.
