@@ -2,10 +2,8 @@
 
 **Date:** 2026-07-15
 
-**Status:** Physical-validation harness and C3D-LOOPBACK-01 correction published, independently
-approved and exact-head CI green; the restarted Human sequence exposed C3D-CORS-01 and
-C3D-FETCH-01, both locally corrected; renewed delta review, exact-head CI and a complete fresh
-Human sequence remain pending
+**Status:** PASSED — C3D-CORS-01/C3D-FETCH-01 correction independently approved, exact-head CI
+green and complete fresh Human physical validation passed on the approved Galaxy A33/NTAG213 set
 
 **Harness baseline:** `e697d468cf36e34325cd4c61f85f398c51ec4429`
 
@@ -14,6 +12,13 @@ Human sequence remain pending
 **Harness tree:** `d15e5346d8eca34d404242491dd7ac4b80f35574`
 
 **Harness CI:** GitHub Actions `29401264170`, attempt 2 — exact harness SHA, ten of ten jobs passed
+
+**Validated correction commit:** `e686578751e8e09d7a8a48c3fd3058825dcedbf7`
+
+**Validated correction tree:** `f80e700fd3e6e519573954ac8004fd4bbedea1c4`
+
+**Validated correction CI:** GitHub Actions `29405184995`, attempt 1 — exact correction SHA, ten
+of ten jobs passed
 
 **Authority:** Existing Block C3D Human physical closure gate in
 `ADO/02_Development/Block_C3D_Admin_Web_Android_Capture_Authorization.md`
@@ -105,34 +110,65 @@ write or NFC capture:
   A receiver-sensitive regression test fails on an unbound invocation and passes only through the
   corrected default client.
 
-Current local evidence is Core 290/290, Mobile 338/338, Admin Web 27/27, neutral contract 3/3 and
-PostgreSQL-backed synthetic harness 9/9; Core/Mobile/Admin-Web/harness TypeScript checks and the
-Admin-Web/harness production builds pass. A controlled actual-browser smoke then completed
-password sign-in, `/v1/session` confirmation and the safe setup projection, displaying exactly one
-synthetic Customer and zero Tags without exposing raw payload or credentials. The smoke created no
-Customer, Tag, Assignment, administration receipt or lifecycle evidence. Harness/API/Web were
-stopped, the Android test app was cleared and both scoped reverse mappings were removed.
+Correction commit `e686578751e8e09d7a8a48c3fd3058825dcedbf7`, tree
+`f80e700fd3e6e519573954ac8004fd4bbedea1c4`, passed independent read-only delta review with zero
+open P0/P1/P2/P3 and all ten jobs in exact-head GitHub Actions run `29405184995`, attempt 1. The
+review independently reproduced Core 290/290, Mobile 338/338, Admin Web 27/27, neutral contract
+3/3 and PostgreSQL-backed harness 9/9 plus the relevant TypeScript checks, builds and
+`git diff --check`. Those prerequisites authorized one complete fresh Human sequence; no
+observation from either aborted browser attempt was carried forward.
 
-The correction is not yet published or independently reviewed. Consequently every checklist item
-below remains `Pending`, and the next physical attempt must restart from the first observation only
-after independent delta approval and ten-of-ten exact-head CI.
+## Completed Human physical validation
+
+The Human Architect completed the fresh sequence against correction commit `e686578` on the
+approved Galaxy A33/Android device and physical NTAG213. The installed synthetic APK SHA-256 was
+`a0424934eaf85e4e9f92c8e84ab26abf89e64c147ba35d725e65aa173d076da1`. Auth and API were reachable
+only through the exact scoped numeric-loopback reverse mappings during the run.
+
+- Employee sign-in exposed no `NFC-Einrichtung`; sign-out succeeded.
+- Administrator Admin Web sign-in created synthetic Customer `C3D Physischer Test 2026-07-15`.
+  Web showed only the safe Organization/Customer/Tag projection and no raw UID/canonical payload.
+- Android Administrator refresh showed the same new Customer. A capture interrupted by Android
+  force-stop/restart preserved the valid session/projection and created no Tag, Assignment or
+  administration receipt.
+- Real C3C provisioning registered and assigned physical Tag label `C3D Eingang 2026-07-15` to the
+  new Customer. Web and Android agreed on the safe fingerprint `B55E8B6AEB30`, label, Customer and
+  assigned state.
+- The first lifecycle attempt displayed the fail-closed `Zuordnung nicht erreichbar`; sanitized
+  database evidence remained unchanged at zero WorkEvents, Decisions, lifecycle Receipts and
+  TimeEntries. Read-only replay with both Administrator and Employee authority then resolved the
+  stored Tag to its one active assignment with HTTP 200. A temporary disclosure-safe loopback proxy
+  observed only route/status/body length and the approved 12-character fingerprint: the controlled
+  retry carried fingerprint `B55E8B6AEB30`, resolution returned HTTP 200 and lifecycle Start returned
+  HTTP 200. After restoring the normal direct `tcp:3000 -> tcp:3000` mapping and removing the proxy,
+  the next scan returned `Arbeitszeit gestoppt`. No retry duplicated a lifecycle mutation.
+- Final sanitized state was exactly Customers 2, Tags 1, Assignments 1, admin receipts 2,
+  WorkEvents 2, canonical Decisions 2, lifecycle SyncReceipts 2, one stopped TimeEntry and
+  AuditEvents 5. Decision distribution was exactly one `time_entry_started` and one
+  `time_entry_stopped`, with no started TimeEntry remaining.
+- Android and Admin Web sign-out succeeded. Harness/Auth/API/Web and the temporary proxy stopped;
+  schema plus migration table were removed; ports 54321/3000/5173 had zero listeners; the two
+  scoped reverse mappings and all C3D screen sessions were absent.
+- No raw UID/canonical payload, token, password, private key, database/provider error or real-person
+  data was displayed or written to evidence.
 
 ## Human observation checklist
 
 | Observation | Status |
 |---|---|
-| Galaxy A33 connected over authorized USB; NFC enabled; exact two reverse mappings | Pending |
-| Employee login exposes no `NFC-Einrichtung` capability | Pending |
-| Administrator Admin Web login and Customer creation | Pending |
-| Safe Web projection contains no raw UID/canonical payload | Pending |
-| Android Administrator projection sees the created Customer | Pending |
-| Capture interrupted by force-stop/restart creates no Tag, Assignment or receipt | Pending |
-| Physical NTAG213 capture/register/assign succeeds through real C3C | Pending |
-| Web/Android show the same safe label, fingerprint and Customer assignment | Pending |
-| Same Administrator scans the assigned Tag for server-backed Start then Stop | Pending |
-| Fresh-run sanitized counts equal Customers 2, Tags 1, Assignments 1, admin receipts 2, WorkEvents 2, Decisions 2, lifecycle Receipts 2, stopped TimeEntries 1 and AuditEvents 5 | Pending |
-| No raw UID/payload, token, password, provider/database error or real-person data disclosed | Pending |
-| Web/Android sign-out, harness shutdown, schema cleanup and scoped reverse removal | Pending |
+| Galaxy A33 connected over authorized USB; NFC enabled; exact two reverse mappings | Passed |
+| Employee login exposes no `NFC-Einrichtung` capability | Passed |
+| Administrator Admin Web login and Customer creation | Passed |
+| Safe Web projection contains no raw UID/canonical payload | Passed |
+| Android Administrator projection sees the created Customer | Passed |
+| Capture interrupted by force-stop/restart creates no Tag, Assignment or receipt | Passed |
+| Physical NTAG213 capture/register/assign succeeds through real C3C | Passed |
+| Web/Android show the same safe label, fingerprint and Customer assignment | Passed |
+| Same Administrator scans the assigned Tag for server-backed Start then Stop | Passed |
+| Fresh-run sanitized counts equal Customers 2, Tags 1, Assignments 1, admin receipts 2, WorkEvents 2, Decisions 2, lifecycle Receipts 2, stopped TimeEntries 1 and AuditEvents 5 | Passed |
+| No raw UID/payload, token, password, provider/database error or real-person data disclosed | Passed |
+| Web/Android sign-out, harness shutdown, schema cleanup and scoped reverse removal | Passed |
 
-Only the Human Architect or a delegated physical tester may mark these observations passed. Until
-then C3D remains open. C3E, production, distribution and personal data remain unauthorized.
+The Human Architect supplied every physical observation above and confirmed both UI sign-outs.
+This closes the C3D Human physical gate. C3E, production, distribution and personal data remain
+unauthorized.

@@ -2,9 +2,8 @@
 
 **Date:** 2026-07-15
 
-**Status:** Original and C3D-LOOPBACK-01 corrections independently approved and exact-head CI
-green; restarted-gate findings C3D-CORS-01 and C3D-FETCH-01 locally corrected; their delta review,
-exact-head CI and a complete fresh Human closure remain open
+**Status:** COMPLETED — all corrections independently approved, exact-head CI green and complete
+fresh Human physical validation passed
 
 **Authorization decision baseline:** `316f017973fbba18a58c2340c9c79a28f06573e5`
 
@@ -62,15 +61,15 @@ green head, and the failed-job rerun passed without a source change.
 - Review and Technical-Lead disposition are recorded in
   `ADO/05_Evidence/Block_C3D_Independent_Architecture_Security_Review.md`.
 
-## Open Human gate
+## Human gate requirement
 
-C3D is not closed until an Administrator proves against the approved server-connected environment:
+C3D was not closed until an Administrator proved against the approved server-connected environment:
 Web sign-in, Customer creation, Android refresh, native capture/register/assign, safe fingerprint
 visibility, then Start and Stop with that same assigned tag. Employee denial plus Android
 process/session replacement must also be observed. No production-person data is authorized.
 
 The earlier Block-D synthetic harness intentionally disabled C3C administration and could not run
-this sequence. Its scoped C3D extension, verification and still-pending Human checklist are recorded
+this sequence. Its scoped C3D extension, verification and Human checklist are recorded
 in `ADO/05_Evidence/Block_C3D_Physical_Validation_Evidence.md`. Harness commit
 `032ae9603a13c81e1f8dd880c42aa81828f017a4`, tree
 `d15e5346d8eca34d404242491dd7ac4b80f35574`, passed all ten jobs in exact-head run `29401264170`,
@@ -87,11 +86,29 @@ P0/P1/P2/P3 and exact-head GitHub Actions run `29402429508` with ten of ten jobs
 The permitted restart then exposed C3D-CORS-01 and C3D-FETCH-01 before any setup write or NFC
 capture. The harness CORS allowlist omitted the Supabase SDK's mandatory
 `X-Supabase-Api-Version` request header, and the Admin-Web client stored browser `fetch` unbound,
-causing `TypeError: Illegal invocation` before `/v1/session`. The local correction adds the exact
+causing `TypeError: Illegal invocation` before `/v1/session`. The correction adds the exact
 header/test, invokes `globalThis.fetch(...)` with its required receiver, preserves existing
-fail-closed redirect handling and adds a receiver-sensitive regression test. A real
-browser smoke now reaches the safe projection (one synthetic Customer, zero Tags). Local evidence
-is Core 290/290, Mobile 338/338, Admin Web 27/27, contract 3/3, PostgreSQL-backed harness 9/9,
-relevant TypeScript checks and Admin-Web/harness builds. This correction changes no Mobile,
-backend, C3C, schema, Core rule, production authority or personal data and remains pending its own
-independent delta review plus exact-head CI.
+fail-closed redirect handling and adds a receiver-sensitive regression test. Commit
+`e686578751e8e09d7a8a48c3fd3058825dcedbf7`, tree
+`f80e700fd3e6e519573954ac8004fd4bbedea1c4`, passed independent delta review with zero open
+P0/P1/P2/P3 and exact-head GitHub Actions run `29405184995`, attempt 1, with ten of ten jobs.
+
+## Human physical closure
+
+The complete checklist then restarted from its first observation and passed on the approved Galaxy
+A33/Android and physical NTAG213. Employee setup denial, Administrator Web Customer creation,
+safe Web/Android projection agreement, force-stop interruption non-mutation, real C3C physical Tag
+registration/assignment and same-Administrator server-backed Start/Stop were observed. The final
+sanitized state was exactly Customers 2, Tags 1, Assignments 1, admin receipts 2, WorkEvents 2,
+Decisions 2, lifecycle Receipts 2, one stopped TimeEntry and AuditEvents 5. Android/Web sign-out,
+harness/schema shutdown and scoped reverse removal passed.
+
+An initial Start attempt failed closed as `Zuordnung nicht erreichbar` with zero lifecycle delta.
+Read-only Administrator and Employee probes each resolved the stored Tag with HTTP 200; a
+disclosure-safe controlled retry proved the same safe fingerprint and completed exactly one Start,
+then the restored direct connection completed exactly one Stop. No raw UID/canonical payload,
+token, password, provider/database error or real-person data was disclosed. Detailed evidence is
+recorded in `ADO/05_Evidence/Block_C3D_Physical_Validation_Evidence.md`.
+
+C3D is completed for its authorized repository and Human physical scope. C3E, reassignment,
+Web/iOS NFC, production operation/data and distribution remain unauthorized.

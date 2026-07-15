@@ -1,8 +1,7 @@
 # Block C3 — Organization Administration Implementation Plan
 
-Status: Active — C3B/C3C completed; C3D-LOOPBACK-01 independently approved and exact-head CI
-green; C3D-CORS-01/C3D-FETCH-01 locally corrected after the restarted physical gate; renewed delta
-review, exact-head CI and complete fresh Human closure pending; C3E unauthorized
+Status: Active — C3B/C3C/C3D completed for their authorized scopes; C3D corrections independently
+approved, exact-head CI green and complete fresh Human physical validation passed; C3E unauthorized
 Date: 2026-07-15
 Planning Baseline: `f7d38558e9a1e6d5f7c2cfd1f4a1ec6eed3ebd44`
 Owner: Technical Lead
@@ -14,7 +13,7 @@ Architecture: Accepted ADR-0011, FB-002 v1.2 and TS-002 v1.3
 |---|---|---:|---|
 | C3B | Isolated first Organization/Administrator bootstrap CLI, migration `006`, role graph, receipt/audit and security matrix | High | Completed — Technical Lead, independent review and nine-job CI passed |
 | C3C | Tenant-safe normal setup backend/API, Customer/Tag display names, atomic Customer and NFC provision commands, resumable safe projection | Very High | Completed — implementation `b90729a0a4b325f523cd98ea5a741defb00155f6`, independent exact-SHA reviews and exact-head ten-job CI passed |
-| C3D | Minimal Admin Web shell for Customer/assignment setup plus protected Android Administrator NFC capture | Extra High | Corrections `293a0f4` and `ad64cec` independently approved/exact-head CI green; C3D-CORS-01/C3D-FETCH-01 locally corrected; renewed review/CI and complete fresh Human observations pending |
+| C3D | Minimal Admin Web shell for Customer/assignment setup plus protected Android Administrator NFC capture | Extra High | Completed — final correction `e686578`, independent zero-finding review, exact-head ten-job CI and fresh Galaxy/NTAG213 Human gate passed |
 | C3E | Explicit reassignment and identity-first employee Membership setup after their separate policy gates | Very High | Not authorized |
 
 C3B and C3C repository implementation are closed. The C3C backend prerequisite is satisfied. The
@@ -166,9 +165,24 @@ existing fail-closed redirect behavior. Current local evidence is Core 290, Mobi
 contract 3 and PostgreSQL-backed harness 9 plus relevant TypeScript checks and builds. A real
 browser smoke reaches the safe one-Customer/zero-Tag projection.
 
-The newest correction still requires a targeted commit, independent read-only delta review and a
-ten-of-ten exact-head CI run. Only then may the complete Human observation sequence restart from
-its first row. No preliminary observation from either aborted attempt is carried forward.
+The newest correction was published as `e686578751e8e09d7a8a48c3fd3058825dcedbf7`, tree
+`f80e700fd3e6e519573954ac8004fd4bbedea1c4`. Its independent read-only delta review returned
+`APPROVED` with zero open P0/P1/P2/P3, and exact-head GitHub Actions run `29405184995`, attempt 1,
+passed all ten jobs.
+
+### Physical closure checkpoint (2026-07-15)
+
+The Human Architect then restarted the complete observation sequence from its first row and passed
+it on the approved Galaxy A33/NTAG213. Employee setup denial, Administrator Web Customer creation,
+safe projection agreement, force-stop non-mutation, real C3C Tag registration/assignment and the
+same Administrator's server-backed Start/Stop all passed. Final sanitized state was exactly
+Customers 2, Tags 1, Assignments 1, admin receipts 2, WorkEvents 2, Decisions 2, lifecycle Receipts
+2, one stopped TimeEntry and AuditEvents 5. Android/Web sign-out, schema/harness shutdown and scoped
+reverse removal passed. The one initial fail-closed lifecycle attempt created no server mutation;
+controlled read-only diagnosis and retry proved one Start and one Stop without duplication.
+
+C3D is therefore completed for its authorized repository and Human physical scope. This does not
+authorize C3E, reassignment, Web/iOS NFC, production operation/data or distribution.
 
 ## 5. Independent review and publication gates
 

@@ -1,8 +1,7 @@
 # Block C3D — Independent Architecture/Security Review and Correction Disposition
 
-Status: **Original and C3D-LOOPBACK-01 delta reviews APPROVED with zero open P0/P1/P2/P3 and
-exact-head CI passed; C3D-CORS-01/C3D-FETCH-01 locally corrected after the restarted physical
-gate and pending renewed delta review plus exact-head CI; Human physical closure pending**
+Status: **APPROVED — all C3D implementation/correction reviews have zero open P0/P1/P2/P3,
+exact-head CI passed and the complete fresh Human physical gate passed**
 Review Date: 2026-07-15
 Reviewed Implementation Commit: `35eb6441688b4c76ea0e89b7f1f2f69decca4a14`
 Reviewed Implementation Parent: `0af755a3678c3756cee31579cb563c8977b514af`
@@ -10,6 +9,10 @@ Original Implementation CI: GitHub Actions `29396350642` — exact reviewed SHA,
 Correction Commit: `293a0f4ff92fda38616476b66e600cc98fd20cdc`
 Correction Tree: `d676669684b9cd3f3a5b5f2c88919e8533de3b7e`
 Correction CI: GitHub Actions `29400109183`, attempt 2 — exact correction SHA, ten of ten jobs passed
+Browser-runtime Correction Commit: `e686578751e8e09d7a8a48c3fd3058825dcedbf7`
+Browser-runtime Correction Tree: `f80e700fd3e6e519573954ac8004fd4bbedea1c4`
+Browser-runtime Correction CI: GitHub Actions `29405184995`, attempt 1 — exact correction SHA,
+ten of ten jobs passed
 Owner: Technical Lead
 
 ## 1. Independent review result
@@ -131,14 +134,39 @@ canonical spellings of `http://127.0.0.1:54321` and that URL normalization canno
 exception. Exact-head GitHub Actions run `29402429508`, attempt 1, passed all ten jobs. These facts
 satisfied the prerequisites for a fresh Human physical-gate start.
 
-## 9. Restarted-gate findings pending renewed review
+## 9. C3D-CORS-01/C3D-FETCH-01 renewed review and publication
 
 The restarted gate exposed C3D-CORS-01 and C3D-FETCH-01 before setup mutation or NFC capture. The
-local correction adds the Supabase SDK's exact `X-Supabase-Api-Version` header to the harness CORS
+correction adds the Supabase SDK's exact `X-Supabase-Api-Version` header to the harness CORS
 allowlist and replaces unbound browser `fetch` storage with a receiver-safe
 `globalThis.fetch(...)` call while preserving existing fail-closed redirect handling. Tests exercise
 the real PostgreSQL-backed preflight/auth request and a receiver-sensitive default client. A real
 browser smoke completes Auth, `/v1/session` and the safe projection.
 
-This later correction has not yet received independent delta review or exact-head CI. No physical
-observation may be promoted until both gates pass and the complete Human sequence is restarted.
+The independent read-only delta review of parent `ad64cec3660e9bf89bcff1c334d01dbd79081ad5`
+through commit `e686578751e8e09d7a8a48c3fd3058825dcedbf7`, tree
+`f80e700fd3e6e519573954ac8004fd4bbedea1c4`, returned **APPROVED** with zero open P0/P1/P2/P3.
+It confirmed the narrow exact-origin/no-credentials CORS change, receiver-safe default fetch,
+unchanged injected-fetch support and unchanged redirect/timeout/bound/parser defenses. Local
+reproduction passed Core 290/290, Mobile 338/338, Admin Web 27/27, neutral contract 3/3 and
+PostgreSQL-backed harness 9/9 plus relevant TypeScript checks, builds and `git diff --check`.
+Exact-head GitHub Actions run `29405184995`, attempt 1, passed all ten jobs.
+
+## 10. Human physical closure
+
+After those two automated prerequisites, the Human Architect restarted the checklist from its
+first row and completed it on the approved Galaxy A33/NTAG213 set. Employee denial, Admin Web
+Customer creation, safe Web/Android projection agreement, Android force-stop non-mutation, real
+C3C physical provisioning and same-Administrator server-backed Start/Stop all passed. Final
+sanitized counts were exactly Customers 2, Tags 1, Assignments 1, admin receipts 2, WorkEvents 2,
+Decisions 2, lifecycle Receipts 2, one stopped TimeEntry and AuditEvents 5.
+
+One initial lifecycle attempt failed closed as `Zuordnung nicht erreichbar` with zero lifecycle
+mutation. Both roles then resolved the stored Tag read-only with HTTP 200; a disclosure-safe
+controlled retry proved the same approved fingerprint and completed one Start. With the normal
+direct mapping restored, the next scan completed one Stop. Android/Web sign-out, schema/migration
+cleanup, listener shutdown and scoped reverse removal all passed. Detailed evidence is recorded in
+`ADO/05_Evidence/Block_C3D_Physical_Validation_Evidence.md`.
+
+Final C3D verdict: **APPROVED — zero open P0/P1/P2/P3 and Human physical gate passed**. This grants
+no C3E, production, distribution, cloud-operation or personal-data authority.
