@@ -9,7 +9,9 @@ import { exportJWK, generateKeyPair, SignJWT, type JWK } from 'jose';
 import {
   SYNTHETIC_ADMIN_AUTH_EMAIL,
   SYNTHETIC_AUTH_EMAIL,
+  SYNTHETIC_ENROLLMENT_AUTH_EMAIL,
   SYNTHETIC_PUBLISHABLE_KEY,
+  SYNTHETIC_SECOND_ENROLLMENT_AUTH_EMAIL,
   syntheticIds,
 } from './constants.js';
 
@@ -35,6 +37,16 @@ const syntheticAuthAccounts: readonly SyntheticAuthAccount[] = Object.freeze([
     email: SYNTHETIC_ADMIN_AUTH_EMAIL,
     providerSession: syntheticIds.administratorProviderSession,
     providerSubject: syntheticIds.administratorProviderSubject,
+  }),
+  Object.freeze({
+    email: SYNTHETIC_ENROLLMENT_AUTH_EMAIL,
+    providerSession: syntheticIds.enrollmentProviderSession,
+    providerSubject: syntheticIds.enrollmentProviderSubject,
+  }),
+  Object.freeze({
+    email: SYNTHETIC_SECOND_ENROLLMENT_AUTH_EMAIL,
+    providerSession: syntheticIds.secondEnrollmentProviderSession,
+    providerSubject: syntheticIds.secondEnrollmentProviderSubject,
   }),
 ]);
 

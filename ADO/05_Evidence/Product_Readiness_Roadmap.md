@@ -274,10 +274,11 @@ findings only; the Human Architect subsequently accepted this readiness delta.
 The former C3E planning item is split into separately governed boundaries: C3E1 identity-first
 Employee Membership setup has a zero-finding reviewed, Human-accepted contract. Initial
 implementation `42b7c7a` was published and passed exact-head ten-of-ten run `29414515751`, but final
-review returned `CHANGES REQUIRED`; the six-finding correction is locally verified while external
-exact-head CI confirmation and independent delta re-review remain pending. C3E2 explicit Tag
-reassignment remains unauthorized. The current critical path is therefore C3E1 correction
-CI/delta re-review and its later Human Gate, C3E2, the rest of Block E, Blocks F/G
+review returned `CHANGES REQUIRED`; correction `450d767` then passed zero-finding independent delta
+review and exact-head ten-of-ten run `29416554531`, authorizing the complete fresh Human Gate. Its
+strictly local physical harness is 10/10 locally but still requires exact-head CI and independent
+review before observations. C3E2 explicit Tag reassignment remains unauthorized. The current
+critical path is therefore C3E1 harness CI/review and its fresh Human Gate, C3E2, the rest of Block E, Blocks F/G
 and parallel elapsed-time Block-H/legal-commercial work. This
 addendum changes no original roadmap milestone. C3E1 implementation authority is governed only by
 its separate accepted package; no production-data authority follows.

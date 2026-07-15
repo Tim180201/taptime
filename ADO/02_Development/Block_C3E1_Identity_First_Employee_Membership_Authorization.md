@@ -473,8 +473,9 @@ The pre-implementation gates are satisfied as follows:
 4. the Human Architect separately stated that C3E1 is released and instructed implementation to
    begin. That statement authorizes repository implementation only within this package.
 
-Current verdict: **C3E1 REPOSITORY IMPLEMENTATION AUTHORIZED ON BASELINE `70d163f`; C3E2,
-PRODUCTION AND THE HUMAN PHYSICAL GATE REMAIN UNAUTHORIZED**.
+Current verdict: **C3E1 IMPLEMENTATION CORRECTION `450d767` INDEPENDENTLY APPROVED AND EXACT-HEAD
+CI GREEN; THE COMPLETE FRESH HUMAN PHYSICAL GATE IS AUTHORIZED. C3E2 AND PRODUCTION REMAIN
+UNAUTHORIZED**.
 
 ## 13. Independent review findings and corrective disposition
 
@@ -496,8 +497,8 @@ Independent delta re-review of corrected commit
 `70d163fa0473692f61555f1580f25382e1e807af`, tree
 `33e5f7a94d49fadcab4f8f14b6fa842a55aad928`, closed every finding and returned `APPROVED` with no
 open P0/P1/P2/P3. The Human Architect then accepted the complete contract and separately authorized
-its repository implementation. A later implementation still requires complete local verification,
-independent final review and exact-head CI before any Human Physical Gate may begin.
+its repository implementation. The later implementation and focused correction completed their
+required verification, independent review and exact-head CI as recorded below.
 
 ## 14. Repository implementation checkpoint
 
@@ -506,16 +507,18 @@ tree `22c47b6c8a36f22787dd50c86b89b03d8008a6a2`, and passed exact-head ten-of-te
 `29414515751`, attempt 1. Independent final review then returned `CHANGES REQUIRED` with three P2
 and three P3 findings and no P0/P1.
 
-The current focused correction retains migration `008`, the exact isolated capability/owner roles,
+The focused correction retains migration `008`, the exact isolated capability/owner roles,
 invitation/redemption/projection backend and transport and the explicit Android pre-Membership
 enrollment shell without C3E2 or production expansion. It adds error-aware checked-out-client
 retirement, stale-secret tombstones, strict Employee projection safety, exact JSON media-type
 checking, the normative ten-second backend deadline and truthful ADO synchronization. Fresh
-`npm ci` plus focused final evidence is 1,527 passing tests with two approved Supavisor-mode skips,
+`npm ci` plus focused final evidence was 1,527 passing tests with two approved Supavisor-mode skips,
 all workspace typechecks/builds, Android export, migration-ledger and built-CLI checks. Detailed
 evidence is `ADO/05_Evidence/Block_C3E1_Implementation_Evidence.md`.
 
-This checkpoint is not an approval or closure. External exact-head CI confirmation for the
-correction and independent delta re-review remain required before the separately authorized fresh
-Human Gate may start. C3E2, production resources/data, deployment and distribution remain
-unauthorized.
+Correction commit `450d7673431d3201dd02b2887f98ff6a1754e553`, tree
+`a60d306ad063e4117b2685bb578742bb0a46bccb`, passed independent delta re-review with no open
+P0/P1/P2/P3 and exact-head ten-of-ten GitHub Actions run `29416554531`, attempt 1. The Human Gate is
+therefore authorized. A subsequent strictly local physical-harness candidate adds no product
+authority; its own exact-head CI and independent review must pass before observations start. C3E2,
+production resources/data, deployment and distribution remain unauthorized.

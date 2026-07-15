@@ -2,9 +2,9 @@
 
 **Date:** 2026-07-15
 
-**Status:** INITIAL IMPLEMENTATION PUBLISHED AND EXACT-HEAD CI GREEN, BUT FINAL REVIEW RETURNED
-`CHANGES REQUIRED` — six-finding correction locally verified; independent delta re-review and
-external exact-head CI confirmation remain mandatory before the Human Physical Gate
+**Status:** IMPLEMENTATION CORRECTION `450d767` INDEPENDENTLY APPROVED WITH ZERO OPEN P0–P3 AND
+EXACT-HEAD CI 10/10 GREEN — Human Gate authorized; strictly local C3E1 physical-harness delta must
+receive its own exact-head CI and independent review before observations start
 
 **Authorization baseline:** `70d163fa0473692f61555f1580f25382e1e807af`
 
@@ -15,7 +15,12 @@ external exact-head CI confirmation remain mandatory before the Human Physical G
 passed all ten jobs
 
 **Independent final-review disposition:** `CHANGES REQUIRED` with three P2 and three P3 findings;
-no P0/P1. The correction described below is not an approval or closure claim.
+no P0/P1.
+
+**Approved correction:** commit `450d7673431d3201dd02b2887f98ff6a1754e553`, tree
+`a60d306ad063e4117b2685bb578742bb0a46bccb`; exact-head GitHub Actions run `29416554531`, attempt 1,
+passed all ten jobs. Independent read-only delta re-review returned `APPROVED` with no open
+P0/P1/P2/P3 and explicitly authorized the complete fresh C3E1 Human Physical Gate.
 
 ## Delivered boundary
 
@@ -45,8 +50,10 @@ no P0/P1. The correction described below is not an approval or closure claim.
   shell. Normal sign-in 401 behavior remains unchanged. Provider tokens stay behind attempt-scoped
   readers; no Organization/User/Membership/role context exists until successful redemption is
   followed by the unchanged normal `/v1/session` resolution.
-- The older synthetic C3D physical harness remains deliberately C3E1-disabled and fails its new
-  routes closed; its source-aliased build nevertheless verifies the expanded API dependency graph.
+- A subsequent strictly local physical-harness delta composes the real C3E1 routes through two
+  additional isolated runtime logins and two reserved-domain pre-Membership identities. It adds
+  sanitized C3E1 counts plus an operator-controlled final-pre-commit pause/abort used only to prove
+  interrupted redemption rollback; no secret, token, provider subject or generated ID is printed.
 
 ## Adversarial and concurrency evidence
 
@@ -87,8 +94,8 @@ Freshly reproduced after `npm ci` from the committed lockfile:
 | Backend B5 read model | 42/42 |
 | Backend schema | 125/125 |
 | Mobile | 356/356 in 23 files |
-| Synthetic Android E2E harness | 9/9 |
-| **Total** | **1,527 passed, 2 approved skips** |
+| Synthetic Android E2E harness | 10/10 |
+| **Total** | **1,528 passed, 2 approved skips** |
 
 Additional checks:
 
@@ -106,8 +113,8 @@ Additional checks:
 ## Independent implementation review and correction
 
 The initial implementation was published as `42b7c7a` and its exact-head ten-job CI passed. The
-subsequent independent final review nevertheless returned `CHANGES REQUIRED`. The current
-correction closes the six reported findings without expanding C3E1:
+subsequent independent final review nevertheless returned `CHANGES REQUIRED`. Correction
+`450d767` closed the six reported findings without expanding C3E1:
 
 1. checked-out PostgreSQL clients now receive an error listener, active-connection checks and
    `release(error)` retirement; a real transaction-timeout regression proves rollback and pool
@@ -121,18 +128,24 @@ correction closes the six reported findings without expanding C3E1:
 5. the backend operation-timeout default is the normative ten seconds and the API regression binds
    the propagated deadline; and
 6. this evidence and the current ADO status surfaces distinguish the already published initial
-   commit/CI from the still-unapproved correction head and remove the earlier pool-cleanup and
-   one-time-secret overclaims.
+   commit/CI from the correction's then-pending review state and remove the earlier pool-cleanup
+   and one-time-secret overclaims.
+
+Independent re-review of `42b7c7a...450d767` confirmed every disposition, reproduced all 1,527
+implementation tests plus the two approved skips, independently bound run `29416554531` to the
+exact SHA and returned `APPROVED` with zero open P0–P3.
 
 ## Remaining gates and authority
 
-This evidence claims neither correction approval nor Human validation. The next valid sequence is:
+The Human Gate is authorized but no physical observation has started. The strictly local harness
+delta is validation infrastructure added after the approved product correction. The valid sequence
+is therefore:
 
-1. publish the focused correction after final diff/claim audit;
-2. externally confirm green exact-head GitHub Actions for that correction SHA;
-3. obtain independent delta architecture/security/code re-review of `42b7c7a...<correction-sha>`;
-   and
-4. only after both gates pass, separately start the fresh Human identity/device checklist.
+1. publish the focused harness/evidence commit after final diff/claim audit;
+2. externally confirm green exact-head GitHub Actions for that harness SHA;
+3. obtain independent architecture/security/code review of `450d767...<harness-sha>`; and
+4. only after both harness gates pass, start the complete fresh checklist in
+   `ADO/05_Evidence/Block_C3E1_Physical_Validation_Evidence.md` from its controlled prerequisite.
 
 C3E2, generic Membership CRUD/revocation/reassignment, provider-account creation, production
 resources/data, deployment/distribution, Web/iOS NFC and broader Block-E work remain unauthorized.

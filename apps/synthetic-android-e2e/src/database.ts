@@ -14,6 +14,8 @@ const applicationRoles = [
   'taptime_administrator',
   'taptime_server_lifecycle',
   'taptime_identity_resolver',
+  'taptime_employee_invitation_creator',
+  'taptime_employee_enrollment_redeemer',
 ] as const;
 const migrationDirectory = fileURLToPath(new URL('../../backend-schema/migrations/', import.meta.url));
 
@@ -32,6 +34,11 @@ const runtimeRoleGraph = Object.freeze({
     'taptime_admin_setup',
     'taptime_identity_resolver',
   ],
+  [runtimeLogins.employeeInvitation]: [
+    'taptime_employee_invitation_creator',
+    'taptime_identity_resolver',
+  ],
+  [runtimeLogins.employeeEnrollment]: ['taptime_employee_enrollment_redeemer'],
   [runtimeLogins.provisioner]: ['taptime_administrator'],
 } as const);
 
@@ -50,6 +57,17 @@ export interface SyntheticEvidenceCounts {
   readonly syncReceipts: number;
   readonly timeEntries: number;
   readonly workEvents: number;
+}
+
+export interface SyntheticEmployeeEnrollmentEvidenceCounts {
+  readonly activeEmployeeInvitations: number;
+  readonly consumedEmployeeInvitations: number;
+  readonly employeeInvitationReceipts: number;
+  readonly employeeMemberships: number;
+  readonly employeeRedemptionReceipts: number;
+  readonly identityBindings: number;
+  readonly memberships: number;
+  readonly users: number;
 }
 
 export function validateSyntheticInstallerDatabaseUrl(value: string): URL {
@@ -99,6 +117,8 @@ export async function prepareSyntheticDatabase(
     readModel: randomBytes(32).toString('base64url'),
     lifecycle: randomBytes(32).toString('base64url'),
     administration: randomBytes(32).toString('base64url'),
+    employeeInvitation: randomBytes(32).toString('base64url'),
+    employeeEnrollment: randomBytes(32).toString('base64url'),
     provisioner: randomBytes(32).toString('base64url'),
   } as const;
   for (const [login, roles] of Object.entries(runtimeRoleGraph)) {
@@ -124,6 +144,16 @@ export async function prepareSyntheticDatabase(
         installerDatabaseUrl,
         runtimeLogins.administration,
         passwords.administration,
+      ),
+      employeeInvitation: runtimeConnectionString(
+        installerDatabaseUrl,
+        runtimeLogins.employeeInvitation,
+        passwords.employeeInvitation,
+      ),
+      employeeEnrollment: runtimeConnectionString(
+        installerDatabaseUrl,
+        runtimeLogins.employeeEnrollment,
+        passwords.employeeEnrollment,
       ),
       provisioner: runtimeConnectionString(
         installerDatabaseUrl,
@@ -163,6 +193,44 @@ export async function readSyntheticEvidenceCounts(pool: Pool): Promise<Synthetic
     syncReceipts: Number(row.syncReceipts),
     timeEntries: Number(row.timeEntries),
     workEvents: Number(row.workEvents),
+  });
+}
+
+export async function readSyntheticEmployeeEnrollmentEvidenceCounts(
+  pool: Pool,
+): Promise<SyntheticEmployeeEnrollmentEvidenceCounts> {
+  const result = await pool.query<Record<keyof SyntheticEmployeeEnrollmentEvidenceCounts, string>>(`
+    SELECT
+      (SELECT count(*)::text
+       FROM ${B3_SCHEMA}.employee_membership_invitations
+       WHERE consumed_at IS NULL AND expires_at > transaction_timestamp())
+        AS "activeEmployeeInvitations",
+      (SELECT count(*)::text
+       FROM ${B3_SCHEMA}.employee_membership_invitations
+       WHERE consumed_at IS NOT NULL) AS "consumedEmployeeInvitations",
+      (SELECT count(*)::text FROM ${B3_SCHEMA}.employee_invitation_command_receipts)
+        AS "employeeInvitationReceipts",
+      (SELECT count(*)::text FROM ${B3_SCHEMA}.memberships
+       WHERE role = 'employee' AND revoked_at IS NULL) AS "employeeMemberships",
+      (SELECT count(*)::text FROM ${B3_SCHEMA}.employee_enrollment_redemption_receipts)
+        AS "employeeRedemptionReceipts",
+      (SELECT count(*)::text FROM ${B3_SCHEMA}.identity_bindings) AS "identityBindings",
+      (SELECT count(*)::text FROM ${B3_SCHEMA}.memberships) AS "memberships",
+      (SELECT count(*)::text FROM ${B3_SCHEMA}.users) AS "users"
+  `);
+  const row = result.rows[0];
+  if (row === undefined) {
+    throw new Error('Synthetic C3E1 evidence query returned no result');
+  }
+  return Object.freeze({
+    activeEmployeeInvitations: Number(row.activeEmployeeInvitations),
+    consumedEmployeeInvitations: Number(row.consumedEmployeeInvitations),
+    employeeInvitationReceipts: Number(row.employeeInvitationReceipts),
+    employeeMemberships: Number(row.employeeMemberships),
+    employeeRedemptionReceipts: Number(row.employeeRedemptionReceipts),
+    identityBindings: Number(row.identityBindings),
+    memberships: Number(row.memberships),
+    users: Number(row.users),
   });
 }
 

@@ -1,10 +1,9 @@
 # Block C3 — Organization Administration Implementation Plan
 
 Status: Active — C3B/C3C/C3D completed for their authorized scopes; C3D closure sync Human-accepted;
-C3E1 corrected contract independently approved with zero open P0–P3, Human-accepted and repository
-implementation authorized on exact baseline `70d163f`; initial implementation `42b7c7a` published
-with ten-of-ten exact-head CI, final review `CHANGES REQUIRED`, six-finding correction locally
-verified and awaiting external exact-head CI confirmation plus independent delta re-review; C3E2
+C3E1 implementation correction `450d767` independently approved with zero open P0–P3 and exact-head
+ten-of-ten CI; complete fresh Human Gate authorized; strictly local physical-harness candidate 10/10
+locally and awaiting its own exact-head CI plus independent review before observations; C3E2
 unauthorized
 Date: 2026-07-15
 Planning Baseline: `f7d38558e9a1e6d5f7c2cfd1f4a1ec6eed3ebd44`
@@ -18,7 +17,7 @@ Architecture: Accepted ADR-0011, FB-002 v1.2 and TS-002 v1.3
 | C3B | Isolated first Organization/Administrator bootstrap CLI, migration `006`, role graph, receipt/audit and security matrix | High | Completed — Technical Lead, independent review and nine-job CI passed |
 | C3C | Tenant-safe normal setup backend/API, Customer/Tag display names, atomic Customer and NFC provision commands, resumable safe projection | Very High | Completed — implementation `b90729a0a4b325f523cd98ea5a741defb00155f6`, independent exact-SHA reviews and exact-head ten-job CI passed |
 | C3D | Minimal Admin Web shell for Customer/assignment setup plus protected Android Administrator NFC capture | Extra High | Completed — final correction `e686578`, independent zero-finding review, exact-head ten-job CI and fresh Galaxy/NTAG213 Human gate passed |
-| C3E1 | Identity-first Employee Membership setup through a separately reviewed least-privilege invitation/redemption boundary | Very High | Initial implementation `42b7c7a` published/10-job CI green; final review `CHANGES REQUIRED`; correction locally verified, external exact-head CI confirmation and independent delta re-review required before Human Gate |
+| C3E1 | Identity-first Employee Membership setup through a separately reviewed least-privilege invitation/redemption boundary | Very High | Correction `450d767` independently approved and exact-head CI green; Human Gate authorized; local physical harness requires its own exact-head CI/review before observations |
 | C3E2 | Explicit Tag reassignment with preserved Assignment history and future time attribution | Very High | Not authorized |
 
 C3B and C3C repository implementation are closed. The C3C backend prerequisite is satisfied. The
@@ -208,14 +207,15 @@ The exact token, schema, route, role, receipt, audit and UI contracts were indep
 on corrected commit `70d163f` with no open P0/P1/P2/P3 and accepted by the Human Architect. Migration
 `008` and the bounded repository implementation were authorized on that exact baseline. Initial
 implementation `42b7c7a` was published and passed exact-head run `29414515751`; independent final
-review returned `CHANGES REQUIRED` with three P2 and three P3 findings. The six-finding correction
-is locally verified as recorded in `ADO/05_Evidence/Block_C3E1_Implementation_Evidence.md`. The
-remaining gates are:
+review returned `CHANGES REQUIRED` with three P2 and three P3 findings. Correction `450d767`, tree
+`a60d306`, subsequently passed independent zero-finding delta review and exact-head ten-of-ten run
+`29416554531`; the complete fresh Human Gate is authorized. Because the former C3D harness disabled
+all C3E1 routes, the remaining pre-observation gates apply only to its strictly local extension:
 
-1. preserve the accepted package with no C3E2/production expansion while publishing the correction;
-2. externally confirm green exact-head CI for the correction SHA;
-3. obtain independent delta architecture/security/code re-review of the exact correction; and
-4. only then a separately started fresh Human identity/device gate before closure.
+1. preserve the accepted package with no C3E2/production expansion while publishing the harness;
+2. externally confirm green exact-head CI for the harness SHA;
+3. obtain independent delta architecture/security/code review of `450d767...<harness-sha>`; and
+4. only then start the complete fresh Human identity/device checklist from its prerequisite.
 
 C3E2 remains outside this package and requires its own Assignment-history and time-attribution
 policy decision before implementation planning.

@@ -3,7 +3,10 @@ import {
   B5ScanContextResolver,
   createBackendHttpServer,
 } from '@taptime/backend-api';
-import { AdminWriteSessionCoordinator } from '@taptime/backend-administration';
+import {
+  AdminWriteSessionCoordinator,
+  EmployeeMembershipEnrollmentCoordinator,
+} from '@taptime/backend-administration';
 import {
   PostgresIdentityMembershipResolver,
   SupabaseJwtAccessTokenVerifier,
@@ -14,12 +17,16 @@ import { Pool } from 'pg';
 import {
   SYNTHETIC_ADMIN_AUTH_EMAIL,
   SYNTHETIC_AUTH_EMAIL,
+  SYNTHETIC_ENROLLMENT_AUTH_EMAIL,
   SYNTHETIC_PUBLISHABLE_KEY,
+  SYNTHETIC_SECOND_ENROLLMENT_AUTH_EMAIL,
 } from './constants.js';
 import {
   cleanSyntheticDatabase,
   prepareSyntheticDatabase,
+  readSyntheticEmployeeEnrollmentEvidenceCounts,
   readSyntheticEvidenceCounts,
+  type SyntheticEmployeeEnrollmentEvidenceCounts,
   type SyntheticEvidenceCounts,
 } from './database.js';
 import {
@@ -27,9 +34,15 @@ import {
   type SyntheticSafeEvent,
 } from './FingerprintProvisioningScanContextResolver.js';
 import { SyntheticLocalAuthServer } from './SyntheticLocalAuthServer.js';
+import {
+  SyntheticRedemptionInterruptionController,
+  type SyntheticRedemptionInterruptionEvent,
+  type SyntheticRedemptionInterruptionState,
+} from './SyntheticRedemptionInterruptionController.js';
 
 export type SyntheticEnvironmentSafeEvent =
   | SyntheticSafeEvent
+  | SyntheticRedemptionInterruptionEvent
   | 'api_administration_unavailable'
   | 'api_employee_enrollment_unavailable'
   | 'api_lifecycle_unavailable'
@@ -50,8 +63,14 @@ export interface SyntheticAndroidE2eEnvironment {
   readonly authBaseUrl: string;
   readonly email: typeof SYNTHETIC_AUTH_EMAIL;
   readonly employeeEmail: typeof SYNTHETIC_AUTH_EMAIL;
+  readonly enrollmentEmail: typeof SYNTHETIC_ENROLLMENT_AUTH_EMAIL;
   readonly publishableKey: typeof SYNTHETIC_PUBLISHABLE_KEY;
+  readonly secondEnrollmentEmail: typeof SYNTHETIC_SECOND_ENROLLMENT_AUTH_EMAIL;
+  abortPausedRedemption(): void;
   armTagA(expectedFingerprint: string): void;
+  armNextRedemptionInterruption(): void;
+  employeeEnrollmentEvidenceCounts(): Promise<SyntheticEmployeeEnrollmentEvidenceCounts>;
+  redemptionInterruptionState(): SyntheticRedemptionInterruptionState;
   provisioningState(): 'armed' | 'disarmed' | 'provisioning';
   evidenceCounts(): Promise<SyntheticEvidenceCounts>;
   close(): Promise<void>;
@@ -70,7 +89,10 @@ export async function createSyntheticAndroidE2eEnvironment(
   let readModelPool: Pool | null = null;
   let lifecyclePool: Pool | null = null;
   let administrationPool: Pool | null = null;
+  let employeeInvitationPool: Pool | null = null;
+  let employeeEnrollmentPool: Pool | null = null;
   let provisionerPool: Pool | null = null;
+  let redemptionInterruption: SyntheticRedemptionInterruptionController | null = null;
   let apiServer: ReturnType<typeof createBackendHttpServer> | null = null;
 
   try {
@@ -84,6 +106,8 @@ export async function createSyntheticAndroidE2eEnvironment(
     readModelPool = createPool(database.connectionStrings.readModel);
     lifecyclePool = createPool(database.connectionStrings.lifecycle);
     administrationPool = createPool(database.connectionStrings.administration);
+    employeeInvitationPool = createPool(database.connectionStrings.employeeInvitation);
+    employeeEnrollmentPool = createPool(database.connectionStrings.employeeEnrollment);
     provisionerPool = createPool(database.connectionStrings.provisioner, 1);
 
     const verifier = SupabaseJwtAccessTokenVerifier.fromRemoteJwks({
@@ -103,6 +127,14 @@ export async function createSyntheticAndroidE2eEnvironment(
       lifecyclePool,
       verifier,
     );
+    redemptionInterruption = new SyntheticRedemptionInterruptionController(
+      new EmployeeMembershipEnrollmentCoordinator(
+        employeeInvitationPool,
+        employeeEnrollmentPool,
+        verifier,
+      ),
+      onSafeEvent,
+    );
     apiServer = createBackendHttpServer(
       {
         sessionAuthority: new B4SessionAuthorityResolver(
@@ -113,17 +145,7 @@ export async function createSyntheticAndroidE2eEnvironment(
         lifecycleIngestor: lifecycleCoordinator,
         deferredLifecycleIngestor: lifecycleCoordinator,
         administration: new AdminWriteSessionCoordinator(administrationPool, verifier),
-        employeeEnrollment: {
-          async createInvitation() {
-            throw new Error('C3E1 is disabled in the synthetic C3D harness');
-          },
-          async readEmployeeMembershipsProjection() {
-            throw new Error('C3E1 is disabled in the synthetic C3D harness');
-          },
-          async redeemInvitation() {
-            throw new Error('C3E1 is disabled in the synthetic C3D harness');
-          },
-        },
+        employeeEnrollment: redemptionInterruption,
       },
       {
         onDiagnostic(diagnostic) {
@@ -156,11 +178,14 @@ export async function createSyntheticAndroidE2eEnvironment(
       throw new Error('Synthetic C2 API did not expose a TCP port');
     }
     const activeApiServer = apiServer;
+    const activeRedemptionInterruption = redemptionInterruption;
     const pools = [
       sessionPool,
       readModelPool,
       lifecyclePool,
       administrationPool,
+      employeeInvitationPool,
+      employeeEnrollmentPool,
       provisionerPool,
     ] as const;
     let closed = false;
@@ -170,10 +195,20 @@ export async function createSyntheticAndroidE2eEnvironment(
       authBaseUrl: auth.publicUrl,
       email: SYNTHETIC_AUTH_EMAIL,
       employeeEmail: SYNTHETIC_AUTH_EMAIL,
+      enrollmentEmail: SYNTHETIC_ENROLLMENT_AUTH_EMAIL,
       publishableKey: SYNTHETIC_PUBLISHABLE_KEY,
+      secondEnrollmentEmail: SYNTHETIC_SECOND_ENROLLMENT_AUTH_EMAIL,
+      abortPausedRedemption: () => activeRedemptionInterruption.abortPausedRedemption(),
       armTagA: (expectedFingerprint: string) => {
         provisioningScanContext.armTagA(expectedFingerprint);
       },
+      armNextRedemptionInterruption: () => {
+        activeRedemptionInterruption.armNextRedemptionInterruption();
+      },
+      employeeEnrollmentEvidenceCounts: () => (
+        readSyntheticEmployeeEnrollmentEvidenceCounts(installerPool)
+      ),
+      redemptionInterruptionState: () => activeRedemptionInterruption.getState(),
       provisioningState: () => provisioningScanContext.getState(),
       evidenceCounts: () => readSyntheticEvidenceCounts(installerPool),
       async close(): Promise<void> {
@@ -181,6 +216,7 @@ export async function createSyntheticAndroidE2eEnvironment(
           return;
         }
         closed = true;
+        activeRedemptionInterruption.close();
         await Promise.allSettled([
           closeServer(activeApiServer),
           ...pools.map((pool) => pool.end()),
@@ -194,12 +230,15 @@ export async function createSyntheticAndroidE2eEnvironment(
       },
     });
   } catch (error) {
+    redemptionInterruption?.close();
     await Promise.allSettled([
       apiServer === null ? Promise.resolve() : closeServer(apiServer),
       sessionPool?.end() ?? Promise.resolve(),
       readModelPool?.end() ?? Promise.resolve(),
       lifecyclePool?.end() ?? Promise.resolve(),
       administrationPool?.end() ?? Promise.resolve(),
+      employeeInvitationPool?.end() ?? Promise.resolve(),
+      employeeEnrollmentPool?.end() ?? Promise.resolve(),
       provisionerPool?.end() ?? Promise.resolve(),
       auth.close(),
     ]);

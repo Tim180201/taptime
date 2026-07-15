@@ -9,7 +9,9 @@ import {
   SYNTHETIC_ADMIN_AUTH_EMAIL,
   SYNTHETIC_AUTH_EMAIL,
   SYNTHETIC_DATABASE_NAME,
+  SYNTHETIC_ENROLLMENT_AUTH_EMAIL,
   SYNTHETIC_PUBLISHABLE_KEY,
+  SYNTHETIC_SECOND_ENROLLMENT_AUTH_EMAIL,
   createSyntheticAndroidE2eEnvironment,
   fingerprint,
   parentRoles,
@@ -109,6 +111,13 @@ describeWithPostgres('synthetic Android product-to-server E2E', () => {
       'taptime_admin_setup',
       'taptime_identity_resolver',
     ]);
+    await expect(parentRoles(installerPool, runtimeLogins.employeeInvitation)).resolves.toEqual([
+      'taptime_employee_invitation_creator',
+      'taptime_identity_resolver',
+    ]);
+    await expect(parentRoles(installerPool, runtimeLogins.employeeEnrollment)).resolves.toEqual([
+      'taptime_employee_enrollment_redeemer',
+    ]);
     await expect(parentRoles(installerPool, runtimeLogins.provisioner)).resolves.toEqual([
       'taptime_administrator',
     ]);
@@ -128,7 +137,7 @@ describeWithPostgres('synthetic Android product-to-server E2E', () => {
        ORDER BY rolname`,
       [Object.values(runtimeLogins)],
     );
-    expect(roles.rows).toHaveLength(5);
+    expect(roles.rows).toHaveLength(7);
     expect(roles.rows.every((role) => (
       !role.rolsuper
       && !role.rolcreaterole
@@ -593,6 +602,171 @@ describeWithPostgres('synthetic Android product-to-server E2E', () => {
       expect(JSON.stringify(safeEvents)).not.toContain(payload);
       expect(safeEvents).not.toContain('api_administration_unavailable');
     });
+
+  it('runs real C3E1 invitation, fail-closed interruption, redemption, and reuse denial',
+    async () => {
+      const provider = mobileAuthAdapter(environment);
+      const administrator = await provider.signInWithPassword(
+        SYNTHETIC_ADMIN_AUTH_EMAIL,
+        syntheticPassword,
+      );
+      const prospectiveEmployee = await provider.signInWithPassword(
+        SYNTHETIC_ENROLLMENT_AUTH_EMAIL,
+        syntheticPassword,
+      );
+      if (administrator.status !== 'authenticated' || prospectiveEmployee.status !== 'authenticated') {
+        throw new Error('Synthetic C3E1 identities unexpectedly failed authentication');
+      }
+      const prospectiveSession = await fetch(`${environment.apiBaseUrl}/v1/session`, {
+        headers: { authorization: `Bearer ${prospectiveEmployee.tokens.accessToken}` },
+      });
+      expect(prospectiveSession.status).toBe(401);
+
+      const baseline = await environment.employeeEnrollmentEvidenceCounts();
+      expect(baseline).toEqual({
+        activeEmployeeInvitations: 0,
+        consumedEmployeeInvitations: 0,
+        employeeInvitationReceipts: 0,
+        employeeMemberships: 1,
+        employeeRedemptionReceipts: 0,
+        identityBindings: 2,
+        memberships: 2,
+        users: 2,
+      });
+      const generalBaseline = await environment.evidenceCounts();
+      const invitationResponse = await postAdministration(
+        administrator.tokens.accessToken,
+        '/v1/administration/employee-invitations',
+        {
+          expectedMembershipId: syntheticIds.administratorMembership,
+          commandId: '70000000-0000-4000-8000-000000000101',
+          displayName: 'C3E1 Synthetic Employee',
+        },
+      );
+      expect(invitationResponse.status).toBe(200);
+      expect(invitationResponse.headers.get('cache-control')).toBe('no-store');
+      const invitation = await invitationResponse.json() as {
+        expiresAt: string;
+        invitationSecret: string;
+        status: string;
+      };
+      expect(invitation).toMatchObject({ status: 'succeeded' });
+      expect(invitation.invitationSecret).toMatch(/^[A-Za-z0-9_-]{43}$/);
+      expect(Date.parse(invitation.expiresAt)).toBeGreaterThan(Date.now());
+
+      const invitationEvidence = {
+        ...baseline,
+        activeEmployeeInvitations: 1,
+        employeeInvitationReceipts: 1,
+      };
+      expect(await environment.employeeEnrollmentEvidenceCounts()).toEqual(invitationEvidence);
+
+      const wrongSecret = Buffer.alloc(32, 0x11).toString('base64url');
+      expect(wrongSecret).not.toBe(invitation.invitationSecret);
+      const wrongRedemption = await postEmployeeEnrollment(
+        prospectiveEmployee.tokens.accessToken,
+        '70000000-0000-4000-8000-000000000102',
+        wrongSecret,
+      );
+      expect(wrongRedemption.status).toBe(404);
+      await expect(wrongRedemption.json()).resolves.toEqual({
+        error: { code: 'enrollment_unavailable' },
+      });
+      expect(await environment.employeeEnrollmentEvidenceCounts()).toEqual(invitationEvidence);
+
+      const eventStart = safeEvents.length;
+      environment.armNextRedemptionInterruption();
+      const interruptedRequest = postEmployeeEnrollment(
+        prospectiveEmployee.tokens.accessToken,
+        '70000000-0000-4000-8000-000000000103',
+        invitation.invitationSecret,
+      );
+      await waitForSafeEvent(safeEvents, 'redemption_paused');
+      expect(environment.redemptionInterruptionState()).toBe('paused');
+      environment.abortPausedRedemption();
+      const interruptedResponse = await interruptedRequest;
+      expect(interruptedResponse.status).toBe(503);
+      expect(environment.redemptionInterruptionState()).toBe('disarmed');
+      expect(await environment.employeeEnrollmentEvidenceCounts()).toEqual(invitationEvidence);
+
+      const successfulRedemption = await postEmployeeEnrollment(
+        prospectiveEmployee.tokens.accessToken,
+        '70000000-0000-4000-8000-000000000104',
+        invitation.invitationSecret,
+      );
+      expect(successfulRedemption.status).toBe(200);
+      const successText = await successfulRedemption.text();
+      expect(successText).not.toContain(invitation.invitationSecret);
+      expect(JSON.parse(successText)).toEqual({
+        status: 'succeeded',
+        organizationName: 'Synthetic Android E2E',
+        membershipDisplayName: 'C3E1 Synthetic Employee',
+        role: 'employee',
+      });
+      const enrolledSession = await fetch(`${environment.apiBaseUrl}/v1/session`, {
+        headers: { authorization: `Bearer ${prospectiveEmployee.tokens.accessToken}` },
+      });
+      expect(enrolledSession.status).toBe(200);
+      await expect(enrolledSession.json()).resolves.toMatchObject({
+        organizationId: syntheticIds.organization,
+        role: 'employee',
+      });
+      const completedEvidence = {
+        activeEmployeeInvitations: 0,
+        consumedEmployeeInvitations: 1,
+        employeeInvitationReceipts: 1,
+        employeeMemberships: 2,
+        employeeRedemptionReceipts: 1,
+        identityBindings: 3,
+        memberships: 3,
+        users: 3,
+      };
+      expect(await environment.employeeEnrollmentEvidenceCounts()).toEqual(completedEvidence);
+      expect(await environment.evidenceCounts()).toMatchObject({
+        auditEvents: generalBaseline.auditEvents + 2,
+      });
+
+      const secondEmployee = await provider.signInWithPassword(
+        SYNTHETIC_SECOND_ENROLLMENT_AUTH_EMAIL,
+        syntheticPassword,
+      );
+      if (secondEmployee.status !== 'authenticated') {
+        throw new Error('Second synthetic enrollment identity unexpectedly failed authentication');
+      }
+      const secondSession = await fetch(`${environment.apiBaseUrl}/v1/session`, {
+        headers: { authorization: `Bearer ${secondEmployee.tokens.accessToken}` },
+      });
+      expect(secondSession.status).toBe(401);
+      const reuse = await postEmployeeEnrollment(
+        secondEmployee.tokens.accessToken,
+        '70000000-0000-4000-8000-000000000105',
+        invitation.invitationSecret,
+      );
+      expect(reuse.status).toBe(404);
+      expect(await environment.employeeEnrollmentEvidenceCounts()).toEqual(completedEvidence);
+
+      const employeeProjection = await postAdministration(
+        administrator.tokens.accessToken,
+        '/v1/administration/employee-memberships-projection',
+        { expectedMembershipId: syntheticIds.administratorMembership, cursor: null, limit: 20 },
+      );
+      expect(employeeProjection.status).toBe(200);
+      await expect(employeeProjection.json()).resolves.toMatchObject({
+        employeeMemberships: [expect.objectContaining({
+          displayName: 'C3E1 Synthetic Employee',
+          role: 'employee',
+          active: true,
+        })],
+      });
+
+      const newSafeEvents = JSON.stringify(safeEvents.slice(eventStart));
+      expect(newSafeEvents).toContain('redemption_interruption_armed');
+      expect(newSafeEvents).toContain('redemption_paused');
+      expect(newSafeEvents).toContain('redemption_interrupted');
+      expect(newSafeEvents).not.toContain(invitation.invitationSecret);
+      expect(newSafeEvents).not.toContain(prospectiveEmployee.tokens.accessToken);
+      expect(newSafeEvents).not.toContain(secondEmployee.tokens.accessToken);
+    });
 });
 
 function mobileAuthAdapter(environment: SyntheticAndroidE2eEnvironment) {
@@ -684,6 +858,34 @@ function postAdministration(
     },
     body: JSON.stringify(body),
   });
+}
+
+function postEmployeeEnrollment(
+  accessToken: string,
+  commandId: string,
+  invitationSecret: string,
+): Promise<Response> {
+  return fetch(`${environmentUrl()}/v1/employee-enrollment/redeem`, {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${accessToken}`,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({ commandId, invitationSecret }),
+  });
+}
+
+async function waitForSafeEvent(
+  events: readonly SyntheticEnvironmentSafeEvent[],
+  expected: SyntheticEnvironmentSafeEvent,
+): Promise<void> {
+  const deadline = Date.now() + 2_000;
+  while (!events.includes(expected)) {
+    if (Date.now() >= deadline) {
+      throw new Error(`Timed out waiting for synthetic event ${expected}`);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
 }
 
 function uuid(prefix: '5' | '6', sequence: number): string {

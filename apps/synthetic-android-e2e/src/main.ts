@@ -24,7 +24,9 @@ try {
     'synthetic_e2e_ready',
     `administrator_login_email=${environment.administratorEmail}`,
     `employee_login_email=${environment.employeeEmail}`,
-    'operator_commands=arm-tag-a <12-hex-fingerprint> | status | stop',
+    `employee_enrollment_login_email=${environment.enrollmentEmail}`,
+    `second_employee_enrollment_login_email=${environment.secondEnrollmentEmail}`,
+    'operator_commands=arm-tag-a <12-hex-fingerprint> | arm-redemption-interruption | abort-redemption | status | stop',
     'sensitive_values_are_never_printed',
     '',
   ].join('\n'));
@@ -49,11 +51,24 @@ async function handleCommand(
 ): Promise<void> {
   const normalized = line.trim();
   if (normalized === 'status') {
-    const counts = await activeEnvironment.evidenceCounts();
+    const [counts, employeeEnrollment] = await Promise.all([
+      activeEnvironment.evidenceCounts(),
+      activeEnvironment.employeeEnrollmentEvidenceCounts(),
+    ]);
     process.stdout.write(`synthetic_e2e_status=${JSON.stringify({
       provisioning: activeEnvironment.provisioningState(),
+      redemptionInterruption: activeEnvironment.redemptionInterruptionState(),
       ...counts,
+      employeeEnrollment,
     })}\n`);
+    return;
+  }
+  if (normalized === 'arm-redemption-interruption') {
+    activeEnvironment.armNextRedemptionInterruption();
+    return;
+  }
+  if (normalized === 'abort-redemption') {
+    activeEnvironment.abortPausedRedemption();
     return;
   }
   if (normalized === 'stop') {
