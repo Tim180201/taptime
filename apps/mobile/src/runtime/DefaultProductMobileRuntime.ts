@@ -74,6 +74,7 @@ export class DefaultProductMobileRuntime implements ProductMobileRuntime {
       getState: () => this.administrationCoordinator.getState(),
       subscribe: (listener: () => void) => this.administrationCoordinator.subscribe(listener),
       refresh: () => this.administrationCoordinator.refresh(),
+      loadMore: () => this.administrationCoordinator.loadMore(),
       provision: (customerId: string, displayName: string) => this.administrationCoordinator.provision(customerId, displayName),
       cancel: () => this.administrationCoordinator.cancel(),
     });

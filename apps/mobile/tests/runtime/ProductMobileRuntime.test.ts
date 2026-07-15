@@ -52,6 +52,7 @@ class FakeAdministrationRuntimeOwner {
   readonly start = vi.fn<() => Promise<void>>(async () => undefined);
   readonly stop = vi.fn<() => Promise<void>>(async () => undefined);
   readonly refresh = vi.fn<() => Promise<void>>(async () => undefined);
+  readonly loadMore = vi.fn<() => Promise<void>>(async () => undefined);
   readonly provision = vi.fn<(_customerId: string, _displayName: string) => Promise<void>>(async () => undefined);
   readonly cancel = vi.fn<() => Promise<void>>(async () => undefined);
   readonly subscribe = vi.fn<(_listener: () => void) => () => void>(() => () => undefined);
@@ -103,19 +104,39 @@ describe('DefaultProductMobileRuntime lifecycle', () => {
     expect(context.appState.start).not.toHaveBeenCalled();
   });
 
-  it.each(['scan recovery', 'session restoration'] as const)(
+  it('does not start session or app-state ownership after stop during administration setup', async () => {
+    const context = setup();
+    const administrationStart = deferred();
+    context.administration.start.mockImplementationOnce(() => administrationStart.promise);
+
+    const starting = context.runtime.start();
+    await vi.waitFor(() => expect(context.administration.start).toHaveBeenCalledTimes(1));
+    context.runtime.stop();
+    administrationStart.resolve();
+    await starting;
+
+    expect(context.administration.stop).toHaveBeenCalledTimes(1);
+    expect(context.session.start).not.toHaveBeenCalled();
+    expect(context.appState.start).not.toHaveBeenCalled();
+  });
+
+  it.each(['scan recovery', 'administration setup', 'session restoration'] as const)(
     'ignores a stale %s failure after stop and a successful restart',
     async (phase) => {
       const context = setup();
       const staleStart = deferred();
       if (phase === 'scan recovery') {
         context.scan.start.mockImplementationOnce(() => staleStart.promise);
+      } else if (phase === 'administration setup') {
+        context.administration.start.mockImplementationOnce(() => staleStart.promise);
       } else {
         context.session.start.mockImplementationOnce(() => staleStart.promise);
       }
 
       const firstStart = context.runtime.start();
-      if (phase === 'session restoration') {
+      if (phase === 'administration setup') {
+        await vi.waitFor(() => expect(context.administration.start).toHaveBeenCalledTimes(1));
+      } else if (phase === 'session restoration') {
         await vi.waitFor(() => expect(context.session.start).toHaveBeenCalledTimes(1));
       }
       context.runtime.stop();

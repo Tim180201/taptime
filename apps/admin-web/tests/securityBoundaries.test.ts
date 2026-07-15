@@ -25,4 +25,11 @@ describe('C3D Admin Web security boundaries', () => {
     const auth = await readFile(new URL('../src/SupabaseMemoryAuth.ts', import.meta.url), 'utf8');
     expect(auth).toContain('persistSession: false'); expect(auth).toContain('detectSessionInUrl: false');
   });
+
+  it('retains a narrow mobile layout for the production-rendered setup surface', async () => {
+    const styles = await readFile(new URL('../src/styles.css', import.meta.url), 'utf8');
+    expect(styles).toContain('@media(max-width:720px)');
+    expect(styles).toContain('.grid{grid-template-columns:1fr}');
+    expect(styles).toContain('.inline{flex-direction:column}');
+  });
 });

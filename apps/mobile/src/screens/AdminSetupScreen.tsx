@@ -45,6 +45,7 @@ export function AdminSetupScreen({ administration }: { readonly administration: 
           <Text>{tag.assignmentState === 'assigned' ? 'Zugeordnet' : 'Nicht zugeordnet'}</Text>
         </View>
       ))}
+      {projection.nextCursor === null ? null : <Button title="Weitere Einträge laden" onPress={() => administration.loadMore()} disabled={busy} />}
       <Button title="Ansicht aktualisieren" onPress={() => administration.refresh()} disabled={busy} />
     </ScrollView>
   );

@@ -3,6 +3,7 @@ import { hasExactKeys, isJsonContentType, isObject, isUuid, parseJsonObject } fr
 import type { AdminProjectionResult, AdminSetupApiPort, ProvisionAdminTagResult } from './contracts';
 
 const fingerprintPattern = /^[A-F0-9]{12}$/;
+const cursorPattern = /^v1:[ct]:[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
 export class TapTimeAdministrationApiClient implements AdminSetupApiPort {
   private readonly projectionEndpoint: URL;
@@ -14,10 +15,10 @@ export class TapTimeAdministrationApiClient implements AdminSetupApiPort {
     this.provisionEndpoint = new URL('v1/administration/nfc-tags/provision', base);
   }
 
-  async readProjection(expectedMembershipId: string): Promise<AdminProjectionResult> {
-    if (!isUuid(expectedMembershipId)) return { status: 'unavailable' };
+  async readProjection(expectedMembershipId: string, cursor: string | null): Promise<AdminProjectionResult> {
+    if (!isUuid(expectedMembershipId) || (cursor !== null && !cursorPattern.test(cursor))) return { status: 'unavailable' };
     const response = await this.request.post(this.projectionEndpoint, JSON.stringify({
-      expectedMembershipId, cursor: null, limit: 20,
+      expectedMembershipId, cursor, limit: 20,
     }));
     if (response.status !== 'response') return response;
     if (response.statusCode === 401 || response.statusCode === 403) return { status: 'authority_rejected' };
@@ -56,11 +57,11 @@ function parseProjection(text: string): AdminProjectionResult | null {
     || body.status !== 'succeeded' || !isObject(body.organization)
     || !hasExactKeys(body.organization, ['id', 'name']) || !isUuid(body.organization.id)
     || typeof body.organization.name !== 'string' || !Array.isArray(body.customers)
-    || !Array.isArray(body.nfcTags) || !(body.nextCursor === null || typeof body.nextCursor === 'string')) return null;
+    || !Array.isArray(body.nfcTags) || !(body.nextCursor === null || (typeof body.nextCursor === 'string' && cursorPattern.test(body.nextCursor)))) return null;
   const customers = body.customers.map(parseCustomer);
   const nfcTags = body.nfcTags.map(parseTag);
   if (customers.some((value) => value === null) || nfcTags.some((value) => value === null)) return null;
-  return Object.freeze({ status: 'succeeded' as const, organization: Object.freeze({ id: body.organization.id, name: body.organization.name }), customers: Object.freeze(customers as NonNullable<ReturnType<typeof parseCustomer>>[]), nfcTags: Object.freeze(nfcTags as NonNullable<ReturnType<typeof parseTag>>[]) });
+  return Object.freeze({ status: 'succeeded' as const, organization: Object.freeze({ id: body.organization.id, name: body.organization.name }), customers: Object.freeze(customers as NonNullable<ReturnType<typeof parseCustomer>>[]), nfcTags: Object.freeze(nfcTags as NonNullable<ReturnType<typeof parseTag>>[]), nextCursor: body.nextCursor });
 }
 
 function parseCustomer(value: unknown) {

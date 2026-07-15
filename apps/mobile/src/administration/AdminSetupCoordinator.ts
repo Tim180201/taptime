@@ -38,6 +38,30 @@ export class AdminSetupCoordinator implements AdminSetupCapability {
 
   async refresh(): Promise<void> { await this.loadProjection(null); }
 
+  async loadMore(): Promise<void> {
+    const current = this.state;
+    const snapshot = this.session.capture();
+    if (!this.active || current.status !== 'ready' || current.projection.nextCursor === null
+      || snapshot === null || snapshot.session.role !== 'administrator') return;
+    const requestedCursor = current.projection.nextCursor;
+    const generation = ++this.generation;
+    this.setState({ status: 'loading' });
+    const result = await this.api.readProjection(snapshot.session.membershipId, requestedCursor);
+    if (!this.isCurrent(generation, snapshot)) return;
+    if (result.status === 'succeeded') {
+      const merged = mergeProjection(current.projection, result, requestedCursor);
+      if (merged !== null) {
+        this.setState({ status: 'ready', projection: merged, outcome: current.outcome });
+      } else {
+        this.finish(current.projection, { status: 'request_failed' });
+      }
+    } else if (result.status === 'authority_rejected') {
+      this.setState({ status: 'inactive' });
+    } else {
+      this.finish(current.projection, { status: 'request_failed' });
+    }
+  }
+
   async provision(customerId: string, displayName: string): Promise<void> {
     const current = this.state;
     const snapshot = this.session.capture();
@@ -92,10 +116,10 @@ export class AdminSetupCoordinator implements AdminSetupCapability {
     if (!this.active || snapshot === null || snapshot.session.role !== 'administrator') return;
     const generation = suppliedGeneration;
     this.setState({ status: 'loading' });
-    const result = await this.api.readProjection(snapshot.session.membershipId);
+    const result = await this.api.readProjection(snapshot.session.membershipId, null);
     if (!this.isCurrent(generation, snapshot)) return;
     if (result.status === 'succeeded') {
-      this.setState({ status: 'ready', projection: { organization: result.organization, customers: result.customers, nfcTags: result.nfcTags }, outcome });
+      this.setState({ status: 'ready', projection: { organization: result.organization, customers: result.customers, nfcTags: result.nfcTags, nextCursor: result.nextCursor }, outcome });
     } else if (result.status === 'authority_rejected') {
       this.setState({ status: 'inactive' });
     } else {
@@ -108,4 +132,17 @@ export class AdminSetupCoordinator implements AdminSetupCapability {
   }
   private finish(projection: Extract<AdminSetupState, { status: 'ready' }>['projection'], outcome: AdminSetupOutcome): void { this.setState({ status: 'ready', projection, outcome }); }
   private setState(state: AdminSetupState): void { this.state = Object.freeze(state); for (const listener of this.listeners) listener(); }
+}
+
+function mergeProjection(current: Extract<AdminSetupState, { status: 'ready' }>['projection'], next: Extract<Awaited<ReturnType<AdminSetupApiPort['readProjection']>>, { status: 'succeeded' }>, requestedCursor: string): Extract<AdminSetupState, { status: 'ready' }>['projection'] | null {
+  if (current.organization.id !== next.organization.id || current.organization.name !== next.organization.name || next.nextCursor === requestedCursor) return null;
+  const customerIds = new Set(current.customers.map((customer) => customer.id));
+  const tagIds = new Set(current.nfcTags.map((tag) => tag.id));
+  if (next.customers.some((customer) => customerIds.has(customer.id)) || next.nfcTags.some((tag) => tagIds.has(tag.id))) return null;
+  return Object.freeze({
+    organization: current.organization,
+    customers: Object.freeze([...current.customers, ...next.customers]),
+    nfcTags: Object.freeze([...current.nfcTags, ...next.nfcTags]),
+    nextCursor: next.nextCursor,
+  });
 }

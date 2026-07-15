@@ -81,6 +81,30 @@ describe('C1 Mobile composition boundary', () => {
     );
   });
 
+  it('keeps administration capture and tokens out of React, persistence, and logging surfaces', async () => {
+    const reactSource = (await Promise.all([
+      '../../src/screens/AdminSetupScreen.tsx',
+      '../../src/navigation/AppNavigator.tsx',
+      '../../src/runtime/DefaultProductMobileRuntime.ts',
+      '../../src/ProductMobileApp.tsx',
+    ].map((relativePath) => readFile(
+      fileURLToPath(new URL(relativePath, import.meta.url)),
+      'utf8',
+    )))).join('\n');
+    expect(reactSource).not.toMatch(
+      /canonicalPayload|nfc:uid|accessToken|refreshToken|SecureStore|AsyncStorage|console\.|logger/i,
+    );
+
+    const coordinatorSource = await readFile(
+      fileURLToPath(new URL('../../src/administration/AdminSetupCoordinator.ts', import.meta.url)),
+      'utf8',
+    );
+    expect(coordinatorSource).toContain('canonicalPayload: capture.payload');
+    expect(coordinatorSource).not.toMatch(
+      /SecureStore|AsyncStorage|FileSystem|persist|enqueue|console\.|logger/i,
+    );
+  });
+
   it('keeps lifecycle decisions out of Mobile orchestration and delegates only to the server result', async () => {
     const orchestratorSource = await readFile(
       fileURLToPath(new URL('../../src/scan/ProductScanOrchestrator.ts', import.meta.url)),

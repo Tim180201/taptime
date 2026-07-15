@@ -2,6 +2,7 @@ export interface SafeProjection {
   readonly organization: { readonly id: string; readonly name: string };
   readonly customers: readonly { readonly id: string; readonly displayName: string; readonly active: boolean }[];
   readonly nfcTags: readonly { readonly id: string; readonly displayName: string; readonly validationFingerprint: string; readonly assignmentState: 'assigned' | 'unassigned'; readonly targetCustomerId: string | null }[];
+  readonly nextCursor: string | null;
 }
 export type AdminWebState =
   | { readonly status: 'signed_out' }
@@ -16,5 +17,6 @@ export interface AdminWebCapability {
   signIn(email: string, password: string): Promise<void>;
   signOut(): Promise<void>;
   refresh(): Promise<void>;
+  loadMore(): Promise<void>;
   createCustomer(displayName: string): Promise<void>;
 }

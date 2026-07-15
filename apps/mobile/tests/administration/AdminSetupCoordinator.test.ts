@@ -4,7 +4,7 @@ import { AdminSetupCoordinator } from '../../src/administration/AdminSetupCoordi
 import type { AdminSessionSnapshot, AdminSetupApiPort } from '../../src/administration/contracts';
 
 const snapshot: AdminSessionSnapshot = { generation: 1, session: { userId: '10000000-0000-4000-8000-000000000001', membershipId: '20000000-0000-4000-8000-000000000001', organizationId: '30000000-0000-4000-8000-000000000001', role: 'administrator' } };
-const projection = { status: 'succeeded' as const, organization: { id: snapshot.session.organizationId, name: 'TapTim.e' }, customers: [{ id: '40000000-0000-4000-8000-000000000001', displayName: 'Werkstatt', active: true }], nfcTags: [] };
+const projection = { status: 'succeeded' as const, organization: { id: snapshot.session.organizationId, name: 'TapTim.e' }, customers: [{ id: '40000000-0000-4000-8000-000000000001', displayName: 'Werkstatt', active: true }], nfcTags: [], nextCursor: null };
 
 function setup(role: 'administrator' | 'employee' = 'administrator') {
   let current = { ...snapshot, session: { ...snapshot.session, role } } as AdminSessionSnapshot; let listener: () => void = () => undefined;
@@ -38,5 +38,92 @@ describe('AdminSetupCoordinator', () => {
     context.replace({ ...snapshot, generation: 2, session: { ...snapshot.session, membershipId: '60000000-0000-4000-8000-000000000001' } });
     resolve({ status: 'succeeded', validationFingerprint: 'A1B2C3D4E5F6' }); await provisioning;
     expect(JSON.stringify(context.coordinator.getState())).not.toContain('A1B2C3D4E5F6');
+  });
+
+  it.each([
+    [{ status: 'authority_rejected' as const }, 'session_rejected'],
+    [{ status: 'tag_payload_already_registered' as const }, 'tag_already_registered'],
+    [{ status: 'assignment_target_unavailable' as const }, 'customer_unavailable'],
+    [{ status: 'invalid_request' as const }, 'invalid_input'],
+    [{ status: 'command_id_conflict' as const }, 'request_failed'],
+    [{ status: 'transient_failure' as const }, 'request_failed'],
+    [{ status: 'unavailable' as const }, 'request_failed'],
+  ])('maps a safe administration error %# to %s without exposing capture data', async (result, expected) => {
+    const context = setup();
+    vi.mocked(context.api.provisionTag).mockResolvedValueOnce(result);
+    await context.coordinator.start();
+
+    await context.coordinator.provision(projection.customers[0]!.id, 'Eingang');
+
+    expect(context.coordinator.getState()).toEqual({
+      status: 'ready', projection: {
+        organization: projection.organization,
+        customers: projection.customers,
+        nfcTags: projection.nfcTags,
+        nextCursor: null,
+      }, outcome: { status: expected },
+    });
+    expect(JSON.stringify(context.coordinator.getState())).not.toContain('nfc:uid');
+  });
+
+  it('loads and merges exactly one bounded cursor page', async () => {
+    const context = setup();
+    const cursor = 'v1:c:40000000-0000-4000-8000-000000000001';
+    vi.mocked(context.api.readProjection).mockResolvedValueOnce({ ...projection, nextCursor: cursor });
+    await context.coordinator.start();
+    vi.mocked(context.api.readProjection).mockResolvedValueOnce({
+      ...projection,
+      customers: [{ id: '40000000-0000-4000-8000-000000000002', displayName: 'Lager', active: true }],
+      nextCursor: null,
+    });
+
+    await context.coordinator.loadMore();
+
+    expect(context.api.readProjection).toHaveBeenLastCalledWith(snapshot.session.membershipId, cursor);
+    expect(context.coordinator.getState()).toEqual({
+      status: 'ready', outcome: null,
+      projection: {
+        organization: projection.organization,
+        customers: [...projection.customers, { id: '40000000-0000-4000-8000-000000000002', displayName: 'Lager', active: true }],
+        nfcTags: [],
+        nextCursor: null,
+      },
+    });
+  });
+
+  it('fails closed for cross-Organization or duplicate pagination data', async () => {
+    const cursor = 'v1:c:40000000-0000-4000-8000-000000000001';
+    const invalidPages = [
+      {
+        ...projection,
+        organization: { id: '30000000-0000-4000-8000-000000000002', name: 'Andere Organisation' },
+        customers: [{ id: '40000000-0000-4000-8000-000000000002', displayName: 'Lager', active: true }],
+        nextCursor: null,
+      },
+      {
+        ...projection,
+        nextCursor: null,
+      },
+    ];
+
+    for (const invalidPage of invalidPages) {
+      const context = setup();
+      vi.mocked(context.api.readProjection).mockResolvedValueOnce({ ...projection, nextCursor: cursor });
+      await context.coordinator.start();
+      vi.mocked(context.api.readProjection).mockResolvedValueOnce(invalidPage);
+
+      await context.coordinator.loadMore();
+
+      expect(context.coordinator.getState()).toEqual({
+        status: 'ready',
+        projection: {
+          organization: projection.organization,
+          customers: projection.customers,
+          nfcTags: projection.nfcTags,
+          nextCursor: cursor,
+        },
+        outcome: { status: 'request_failed' },
+      });
+    }
   });
 });

@@ -18,6 +18,7 @@ export interface AdminSetupProjection {
   readonly organization: { readonly id: string; readonly name: string };
   readonly customers: readonly AdminCustomerSummary[];
   readonly nfcTags: readonly AdminNfcTagSummary[];
+  readonly nextCursor: string | null;
 }
 
 export type AdminSetupOutcome =
@@ -38,6 +39,7 @@ export interface AdminSetupCapability {
   getState(): AdminSetupState;
   subscribe(listener: () => void): () => void;
   refresh(): Promise<void>;
+  loadMore(): Promise<void>;
   provision(customerId: string, displayName: string): Promise<void>;
   cancel(): Promise<void>;
 }
@@ -63,7 +65,7 @@ export type ProvisionAdminTagResult =
   | AdminTransportFailure;
 
 export interface AdminSetupApiPort {
-  readProjection(expectedMembershipId: string): Promise<AdminProjectionResult>;
+  readProjection(expectedMembershipId: string, cursor: string | null): Promise<AdminProjectionResult>;
   provisionTag(command: {
     readonly expectedMembershipId: string;
     readonly commandId: string;

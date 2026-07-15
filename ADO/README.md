@@ -8,6 +8,8 @@ Approval Authority: Human Architect
 ## Purpose
 
 Current C3D implementation evidence: `ADO/05_Evidence/Block_C3D_Implementation_Evidence.md`.
+Independent review and Technical-Lead correction disposition:
+`ADO/05_Evidence/Block_C3D_Independent_Architecture_Security_Review.md`.
 
 This file is the official navigation entry point for the TapTim.e ADO.
 
@@ -149,6 +151,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Block C3B Secure Organization Bootstrap Evidence | `ADO/05_Evidence/Block_C3B_Secure_Organization_Bootstrap_Evidence.md` |
 | Block C3C Independent Architecture/Security Review (exact-SHA final approved) | `ADO/05_Evidence/Block_C3C_Independent_Architecture_Security_Review.md` |
 | Block C3C Normal Administration Backend/API Implementation and Closure Evidence | `ADO/05_Evidence/Block_C3C_Normal_Administration_Backend_Evidence.md` |
+| Block C3D Independent Architecture/Security Review and Correction Disposition | `ADO/05_Evidence/Block_C3D_Independent_Architecture_Security_Review.md` |
 | EP-008 Evidence (incl. Repository Health Follow-up) | `ADO/05_Evidence/EP-008/` |
 | Evidence Area | `ADO/05_Evidence/` |
 
