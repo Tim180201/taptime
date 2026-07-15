@@ -2,8 +2,9 @@
 
 Status: Active — C3B/C3C/C3D completed for their authorized scopes; C3D closure sync Human-accepted;
 C3E1 implementation correction `450d767` independently approved with zero open P0–P3 and exact-head
-ten-of-ten CI; complete fresh Human Gate authorized; strictly local physical-harness candidate 10/10
-locally and awaiting its own exact-head CI plus independent review before observations; C3E2
+ten-of-ten CI; complete fresh Human Gate authorized; first harness `ee522a5` CI-green but review
+`CHANGES REQUIRED`; focused four-finding correction 16/16 and awaiting publication, exact-head CI
+plus delta re-review before observations; C3E2
 unauthorized
 Date: 2026-07-15
 Planning Baseline: `f7d38558e9a1e6d5f7c2cfd1f4a1ec6eed3ebd44`
@@ -17,7 +18,7 @@ Architecture: Accepted ADR-0011, FB-002 v1.2 and TS-002 v1.3
 | C3B | Isolated first Organization/Administrator bootstrap CLI, migration `006`, role graph, receipt/audit and security matrix | High | Completed — Technical Lead, independent review and nine-job CI passed |
 | C3C | Tenant-safe normal setup backend/API, Customer/Tag display names, atomic Customer and NFC provision commands, resumable safe projection | Very High | Completed — implementation `b90729a0a4b325f523cd98ea5a741defb00155f6`, independent exact-SHA reviews and exact-head ten-job CI passed |
 | C3D | Minimal Admin Web shell for Customer/assignment setup plus protected Android Administrator NFC capture | Extra High | Completed — final correction `e686578`, independent zero-finding review, exact-head ten-job CI and fresh Galaxy/NTAG213 Human gate passed |
-| C3E1 | Identity-first Employee Membership setup through a separately reviewed least-privilege invitation/redemption boundary | Very High | Correction `450d767` independently approved and exact-head CI green; Human Gate authorized; local physical harness requires its own exact-head CI/review before observations |
+| C3E1 | Identity-first Employee Membership setup through a separately reviewed least-privilege invitation/redemption boundary | Very High | Correction `450d767` independently approved/CI-green; Human Gate authorized; first harness review `CHANGES REQUIRED`, focused 16/16 correction requires publication/CI/delta re-review before observations |
 | C3E2 | Explicit Tag reassignment with preserved Assignment history and future time attribution | Very High | Not authorized |
 
 C3B and C3C repository implementation are closed. The C3C backend prerequisite is satisfied. The

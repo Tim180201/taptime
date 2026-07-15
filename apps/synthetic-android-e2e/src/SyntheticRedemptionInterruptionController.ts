@@ -1,15 +1,3 @@
-import type { EmployeeMembershipEnrollmentCoordinator as EmployeeEnrollmentPort } from '@taptime/backend-api';
-import {
-  EmployeeMembershipEnrollmentCoordinator,
-  type CreateEmployeeMembershipInvitationCommand,
-  type CreateEmployeeMembershipInvitationResult,
-  type EmployeeEnrollmentCoordinatorControls,
-  type ReadEmployeeMembershipsProjectionCommand,
-  type ReadEmployeeMembershipsProjectionResult,
-  type RedeemEmployeeMembershipInvitationCommand,
-  type RedeemEmployeeMembershipInvitationResult,
-} from '@taptime/backend-administration';
-
 export type SyntheticRedemptionInterruptionEvent =
   | 'redemption_interruption_armed'
   | 'redemption_interrupted'
@@ -17,69 +5,64 @@ export type SyntheticRedemptionInterruptionEvent =
 
 export type SyntheticRedemptionInterruptionState = 'armed' | 'disarmed' | 'paused';
 
-const automaticAbortMilliseconds = 8_000;
+export interface SyntheticRedemptionInterruptionAttempt {
+  beforeCommit(): Promise<void>;
+  finish(): void;
+}
 
-/** Strictly local fault injection at the real coordinator's final pre-commit boundary. */
-export class SyntheticRedemptionInterruptionController implements EmployeeEnrollmentPort {
+const automaticAbortMilliseconds = 8_000;
+const inactiveAttempt: SyntheticRedemptionInterruptionAttempt = Object.freeze({
+  async beforeCommit(): Promise<void> {},
+  finish(): void {},
+});
+
+/** Strictly local, credential-free latch for one real redemption attempt. */
+export class SyntheticRedemptionInterruptionController {
   private state: SyntheticRedemptionInterruptionState = 'disarmed';
+  private activeAttempt: symbol | null = null;
   private pendingRejection: ((error: Error) => void) | null = null;
   private automaticAbort: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
-    private readonly delegate: EmployeeMembershipEnrollmentCoordinator,
     private readonly onSafeEvent: (event: SyntheticRedemptionInterruptionEvent) => void,
   ) {}
-
-  createInvitation(
-    command: CreateEmployeeMembershipInvitationCommand,
-    controls?: EmployeeEnrollmentCoordinatorControls,
-  ): Promise<CreateEmployeeMembershipInvitationResult> {
-    return this.delegate.createInvitation(command, controls);
-  }
-
-  readEmployeeMembershipsProjection(
-    command: ReadEmployeeMembershipsProjectionCommand,
-    controls?: EmployeeEnrollmentCoordinatorControls,
-  ): Promise<ReadEmployeeMembershipsProjectionResult> {
-    return this.delegate.readEmployeeMembershipsProjection(command, controls);
-  }
-
-  redeemInvitation(
-    command: RedeemEmployeeMembershipInvitationCommand,
-    controls: EmployeeEnrollmentCoordinatorControls = {},
-  ): Promise<RedeemEmployeeMembershipInvitationResult> {
-    return this.delegate.redeemInvitation(command, {
-      ...controls,
-      beforeCommit: async () => {
-        await controls.beforeCommit?.();
-        await this.pauseIfArmed();
-      },
-    });
-  }
 
   armNextRedemptionInterruption(): void {
     if (this.state !== 'disarmed') {
       throw new Error('Synthetic redemption interruption is already active');
     }
     this.state = 'armed';
-    try {
-      this.onSafeEvent('redemption_interruption_armed');
-    } catch (error) {
-      this.state = 'disarmed';
-      throw error;
+    this.emitSafeEvent('redemption_interruption_armed');
+  }
+
+  beginRedemptionAttempt(): SyntheticRedemptionInterruptionAttempt {
+    if (this.state !== 'armed' || this.activeAttempt !== null) {
+      return inactiveAttempt;
     }
+    const attemptToken = Symbol('synthetic-redemption-attempt');
+    this.activeAttempt = attemptToken;
+    let finished = false;
+    return Object.freeze({
+      beforeCommit: async () => {
+        if (!finished) {
+          await this.pauseClaimedAttempt(attemptToken);
+        }
+      },
+      finish: () => {
+        if (finished) {
+          return;
+        }
+        finished = true;
+        this.finishClaimedAttempt(attemptToken);
+      },
+    });
   }
 
   abortPausedRedemption(): void {
     if (this.state !== 'paused' || this.pendingRejection === null) {
       throw new Error('No synthetic redemption is paused');
     }
-    const reject = this.pendingRejection;
-    this.pendingRejection = null;
-    this.clearAutomaticAbort();
-    this.state = 'disarmed';
-    reject(new Error('Synthetic C3E1 redemption interrupted before commit'));
-    this.onSafeEvent('redemption_interrupted');
+    this.abortPausedRedemptionInternal();
   }
 
   getState(): SyntheticRedemptionInterruptionState {
@@ -88,35 +71,65 @@ export class SyntheticRedemptionInterruptionController implements EmployeeEnroll
 
   close(): void {
     if (this.state === 'paused' && this.pendingRejection !== null) {
-      this.abortPausedRedemption();
+      this.abortPausedRedemptionInternal();
       return;
     }
     this.clearAutomaticAbort();
+    this.activeAttempt = null;
+    this.pendingRejection = null;
     this.state = 'disarmed';
   }
 
-  private async pauseIfArmed(): Promise<void> {
-    if (this.state !== 'armed') {
+  private async pauseClaimedAttempt(attemptToken: symbol): Promise<void> {
+    if (this.state !== 'armed' || this.activeAttempt !== attemptToken) {
       return;
     }
     this.state = 'paused';
     const paused = new Promise<void>((_resolve, reject) => {
       this.pendingRejection = reject;
       this.automaticAbort = setTimeout(() => {
-        if (this.state === 'paused') {
-          this.abortPausedRedemption();
+        if (this.state === 'paused' && this.pendingRejection !== null) {
+          this.abortPausedRedemptionInternal();
         }
       }, automaticAbortMilliseconds);
     });
-    try {
-      this.onSafeEvent('redemption_paused');
-    } catch (error) {
-      this.pendingRejection = null;
-      this.clearAutomaticAbort();
-      this.state = 'disarmed';
-      throw error;
-    }
+    this.emitSafeEvent('redemption_paused');
     await paused;
+  }
+
+  private finishClaimedAttempt(attemptToken: symbol): void {
+    if (this.activeAttempt !== attemptToken) {
+      return;
+    }
+    if (this.state === 'paused' && this.pendingRejection !== null) {
+      this.abortPausedRedemptionInternal();
+      return;
+    }
+    this.clearAutomaticAbort();
+    this.activeAttempt = null;
+    this.pendingRejection = null;
+    this.state = 'disarmed';
+  }
+
+  private abortPausedRedemptionInternal(): void {
+    const reject = this.pendingRejection;
+    if (reject === null) {
+      return;
+    }
+    this.pendingRejection = null;
+    this.clearAutomaticAbort();
+    this.activeAttempt = null;
+    this.state = 'disarmed';
+    reject(new Error('Synthetic C3E1 redemption interrupted before commit'));
+    this.emitSafeEvent('redemption_interrupted');
+  }
+
+  private emitSafeEvent(event: SyntheticRedemptionInterruptionEvent): void {
+    try {
+      this.onSafeEvent(event);
+    } catch {
+      // Diagnostics must never affect transaction rollback or environment cleanup.
+    }
   }
 
   private clearAutomaticAbort(): void {

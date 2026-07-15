@@ -207,3 +207,5 @@ The integration suite uses the real Mobile email/password adapter, asymmetric to
 C2/C3C/B4/B5/B6/Core paths. It proves separate Employee/Administrator authority, real Customer
 creation and atomic Tag provisioning, the legacy unassigned/provision/Start/Stop regression, exact
 role graphs, Administrator-RLS audit evidence and the absence of lifecycle mutation during setup.
+The separate credential-free latch suite proves eight-second autoabort, paused shutdown, safe-event
+callback isolation, pre-hook delegate-failure disarm, double-abort safety and single-attempt claiming.

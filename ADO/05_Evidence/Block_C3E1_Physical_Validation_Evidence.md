@@ -3,8 +3,9 @@
 **Date:** 2026-07-15
 
 **Status:** NOT STARTED — implementation correction independently approved and exact-head CI
-green; local physical-harness extension verified, but its own exact-head CI and independent review
-must be externally confirmed before the first Human observation
+green; first physical-harness commit `ee522a5` passed exact-head CI but independent review returned
+`CHANGES REQUIRED`; focused four-finding harness correction is 16/16 locally and still requires
+publication, exact-head CI and independent delta re-review before the first Human observation
 
 **Validated implementation correction:** `450d7673431d3201dd02b2887f98ff6a1754e553`
 
@@ -15,6 +16,14 @@ ten of ten jobs passed
 
 **Implementation review:** independent read-only delta re-review of `42b7c7a...450d767` returned
 `APPROVED` with no open P0/P1/P2/P3 and authorized the complete fresh Human Physical Gate
+
+**First harness candidate:** commit `ee522a568f3c8dee71b8ffeac34f2dec9a905559`, tree
+`2e8d850dd8627af9ca873c1faaaf5adc18d53087`; exact-head GitHub Actions run `29418851293`, attempt 1,
+passed all ten jobs
+
+**Harness review disposition:** `CHANGES REQUIRED` with two P2 and two P3 findings: the fault
+controller itself accepted sensitive commands, callback failure could skip cleanup, a delegate
+failure before `beforeCommit` retained stale arm state, and lifecycle regressions were missing
 
 **Authority:** Section 9 of
 `ADO/02_Development/Block_C3E1_Identity_First_Employee_Membership_Authorization.md`
@@ -35,9 +44,11 @@ The current delta changes only strictly local synthetic validation infrastructur
   deliberately creates no User, IdentityBinding or Membership for either;
 - the real `EmployeeMembershipEnrollmentCoordinator` is wired behind the existing loopback-only
   API with separate invitation and redemption pools;
-- a fault controller may pause exactly the next real redemption at the final `beforeCommit` hook
-  and abort it. It automatically aborts after eight seconds, is unavailable outside this harness
-  and never receives or prints the invitation secret, access token or provider identity;
+- a credential-free fault latch claims only the next redemption attempt and receives only no-argument
+  `beforeCommit()`/`finish()` lifecycle calls. Command/delegate forwarding remains in the separate
+  harness composition, so the latch never receives the invitation secret, token, command or
+  provider identity. It pauses only at the final hook, auto-aborts after eight seconds and isolates
+  diagnostic callback failure from rollback and cleanup;
 - sanitized status adds only aggregate invitation/receipt/User/Binding/Membership counts and the
   interruption state; and
 - existing C3D physical setup and Block-D lifecycle regressions remain unchanged.
@@ -47,7 +58,7 @@ production resource, deployment/distribution path or personal data is added.
 
 ## Automated harness evidence
 
-The PostgreSQL-backed harness now passes 10/10 tests. The added real C3E1 regression proves:
+The PostgreSQL-backed harness now passes 16/16 tests in two files. The real C3E1 regression proves:
 
 - both new runtime-role graphs and absence of inherited direct table access;
 - provider authentication for a pre-Membership identity followed by `/v1/session` 401;
@@ -60,7 +71,11 @@ The PostgreSQL-backed harness now passes 10/10 tests. The added real C3E1 regres
 - a second pre-Membership identity cannot reuse the consumed invitation and creates no row; and
 - safe events contain neither invitation secret nor either access token.
 
-Including this added regression, the clean local repository matrix is 1,528 passed tests plus the
+Six focused lifecycle regressions additionally prove exact eight-second autoabort, paused shutdown,
+delegate rejection before `beforeCommit`, throwing diagnostic callbacks, manual/timer double-abort
+safety and single-attempt claiming under concurrency.
+
+Including these regressions, the clean local repository matrix is 1,534 passed tests plus the
 two approved Supavisor-mode skips. The exact complete verification record is maintained in
 `ADO/05_Evidence/Block_C3E1_Implementation_Evidence.md`.
 

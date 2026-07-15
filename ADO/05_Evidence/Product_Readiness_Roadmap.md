@@ -276,9 +276,10 @@ Employee Membership setup has a zero-finding reviewed, Human-accepted contract. 
 implementation `42b7c7a` was published and passed exact-head ten-of-ten run `29414515751`, but final
 review returned `CHANGES REQUIRED`; correction `450d767` then passed zero-finding independent delta
 review and exact-head ten-of-ten run `29416554531`, authorizing the complete fresh Human Gate. Its
-strictly local physical harness is 10/10 locally but still requires exact-head CI and independent
-review before observations. C3E2 explicit Tag reassignment remains unauthorized. The current
-critical path is therefore C3E1 harness CI/review and its fresh Human Gate, C3E2, the rest of Block E, Blocks F/G
+first strictly local physical harness `ee522a5` passed CI but review returned `CHANGES REQUIRED`;
+its four-finding correction is 16/16 locally and still requires publication, exact-head CI and
+independent delta re-review before observations. C3E2 explicit Tag reassignment remains unauthorized.
+The current critical path is therefore C3E1 harness correction CI/re-review and its fresh Human Gate, C3E2, the rest of Block E, Blocks F/G
 and parallel elapsed-time Block-H/legal-commercial work. This
 addendum changes no original roadmap milestone. C3E1 implementation authority is governed only by
 its separate accepted package; no production-data authority follows.

@@ -866,8 +866,9 @@ re-review and exact-head CI; the Human Architect accepted/authorized C3E1 implem
 implementation `42b7c7a` was published and passed exact-head ten-of-ten run `29414515751`, but final
 review returned `CHANGES REQUIRED` with three P2 and three P3 findings. Correction `450d767` passed
 zero-finding independent delta review and exact-head ten-of-ten run `29416554531`, authorizing the
-fresh Human Gate. The strictly local physical-harness candidate is 10/10 locally and awaits its own
-exact-head CI plus independent review before observations. C3E2 remains unauthorized. This
+fresh Human Gate. First strictly local harness commit `ee522a5` passed exact-head CI but independent
+review returned `CHANGES REQUIRED`; its focused four-finding correction is 16/16 locally and awaits
+publication, exact-head CI plus delta re-review before observations. C3E2 remains unauthorized. This
 reconciliation creates no new EP-007
 Development Task: DT-063–DT-066 remain candidate Roadmap-v2 work outside the completed
 DT-017–DT-026 sequence.

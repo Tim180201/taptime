@@ -3,8 +3,9 @@
 **Date:** 2026-07-15
 
 **Status:** IMPLEMENTATION CORRECTION `450d767` INDEPENDENTLY APPROVED WITH ZERO OPEN P0–P3 AND
-EXACT-HEAD CI 10/10 GREEN — Human Gate authorized; strictly local C3E1 physical-harness delta must
-receive its own exact-head CI and independent review before observations start
+EXACT-HEAD CI 10/10 GREEN — Human Gate authorized; first local physical-harness commit `ee522a5`
+received `CHANGES REQUIRED`; focused four-finding correction is locally verified and must receive
+its own exact-head CI plus independent delta re-review before observations start
 
 **Authorization baseline:** `70d163fa0473692f61555f1580f25382e1e807af`
 
@@ -53,7 +54,9 @@ P0/P1/P2/P3 and explicitly authorized the complete fresh C3E1 Human Physical Gat
 - A subsequent strictly local physical-harness delta composes the real C3E1 routes through two
   additional isolated runtime logins and two reserved-domain pre-Membership identities. It adds
   sanitized C3E1 counts plus an operator-controlled final-pre-commit pause/abort used only to prove
-  interrupted redemption rollback; no secret, token, provider subject or generated ID is printed.
+  interrupted redemption rollback. Its corrected fault latch receives only credential-free attempt
+  lifecycle calls; sensitive command/delegate forwarding stays outside it. No secret, token,
+  provider subject or generated ID is printed.
 
 ## Adversarial and concurrency evidence
 
@@ -94,8 +97,8 @@ Freshly reproduced after `npm ci` from the committed lockfile:
 | Backend B5 read model | 42/42 |
 | Backend schema | 125/125 |
 | Mobile | 356/356 in 23 files |
-| Synthetic Android E2E harness | 10/10 |
-| **Total** | **1,528 passed, 2 approved skips** |
+| Synthetic Android E2E harness | 16/16 in 2 files |
+| **Total** | **1,534 passed, 2 approved skips** |
 
 Additional checks:
 
@@ -135,15 +138,31 @@ Independent re-review of `42b7c7a...450d767` confirmed every disposition, reprod
 implementation tests plus the two approved skips, independently bound run `29416554531` to the
 exact SHA and returned `APPROVED` with zero open P0–P3.
 
+## Independent harness review and correction
+
+The first strictly local harness candidate `ee522a5`, tree `2e8d850`, passed exact-head ten-of-ten
+run `29418851293`. Independent review nevertheless returned `CHANGES REQUIRED` with two P2 and two
+P3 findings and no P0/P1. All four are accepted and corrected without product-scope expansion:
+
+1. the fault controller no longer implements the enrollment port or receives token/secret/command
+   objects; a separate composition owns normal delegation and supplies only a credential-free
+   attempt latch;
+2. diagnostic callback failures are contained inside the latch and can no longer escape rollback
+   or environment cleanup;
+3. an attempt-scoped `finally` disarms the claimed latch even when the delegate rejects before the
+   final hook; and
+4. six focused regressions cover autoabort, paused shutdown, delegate failure, callback failure,
+   double abort and concurrent claim behavior.
+
 ## Remaining gates and authority
 
 The Human Gate is authorized but no physical observation has started. The strictly local harness
 delta is validation infrastructure added after the approved product correction. The valid sequence
 is therefore:
 
-1. publish the focused harness/evidence commit after final diff/claim audit;
-2. externally confirm green exact-head GitHub Actions for that harness SHA;
-3. obtain independent architecture/security/code review of `450d767...<harness-sha>`; and
+1. publish the focused four-finding harness/evidence correction after final diff/claim audit;
+2. externally confirm green exact-head GitHub Actions for that correction SHA;
+3. obtain independent delta re-review of `ee522a5...<correction-sha>`; and
 4. only after both harness gates pass, start the complete fresh checklist in
    `ADO/05_Evidence/Block_C3E1_Physical_Validation_Evidence.md` from its controlled prerequisite.
 

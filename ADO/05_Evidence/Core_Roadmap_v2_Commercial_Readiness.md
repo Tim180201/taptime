@@ -2,7 +2,7 @@
 
 Role: Research / Implementation Support acting on behalf of Technical Lead (per AGR-001)
 Date: 2026-07-10
-Status: Active execution baseline — Block A, B1–B6, C1/C2, C3B, C3C, C3D, Block D, E1 and narrow E2A completed for their recorded repository/Human-gate scopes as of 2026-07-15; C3D closure synchronization and EP-009 delta Human-accepted; C3E1 implementation correction `450d767` independently approved with zero open P0–P3 and exact-head ten-of-ten CI, complete fresh Human Gate authorized, strictly local physical-harness candidate 10/10 and awaiting its own exact-head CI plus independent review before observations; C3E2 remains unauthorized; E2A does not complete DT-060–DT-062 or Block E
+Status: Active execution baseline — Block A, B1–B6, C1/C2, C3B, C3C, C3D, Block D, E1 and narrow E2A completed for their recorded repository/Human-gate scopes as of 2026-07-15; C3D closure synchronization and EP-009 delta Human-accepted; C3E1 implementation correction `450d767` independently approved with zero open P0–P3 and exact-head ten-of-ten CI, complete fresh Human Gate authorized; first harness `ee522a5` CI-green but review `CHANGES REQUIRED`, focused four-finding correction 16/16 and awaiting publication/exact-head CI/delta re-review before observations; C3E2 remains unauthorized; E2A does not complete DT-060–DT-062 or Block E
 Scope: Core platform roadmap only. Generic platform language throughout (Organization, Membership, Role, User, AssignmentTarget, Customer, NfcTag, NfcAssignment, TimeEntry, WorkEvent, BusinessEvent, Policy, AuditEvent, Export, Backend, Auth, Tenant Isolation, Mobile App, Admin Web, Website). No customer-specific product, company, or branch assumption is named anywhere in this document. The original 2026-07-10 creation implemented no code and modified no architecture/ADR/TTAP/FB/TS/Product Vision content; later dated synchronization updates change only current status/traceability, not accepted product or architecture rules.
 Related Artifacts: `ADO/05_Evidence/External_CTO_Review_Triage_2026-07-10.md`, `ADO/05_Evidence/Product_Readiness_Assessment.md`, `ADO/05_Evidence/Product_Readiness_Roadmap.md`, `ADO/02_Development/Development_Sprint_019_Closure.md`, `ADO/02_Development/EP-007_Development_Tasks.md`, `ADO/00_Core/Project_Status.md`, `ADO/00_Core/Decision_Log.md`
 
@@ -98,8 +98,9 @@ only the local harness and Human observations remain gated.
 implementation was published as `42b7c7a` and passed ten-of-ten run `29414515751`, but final review
 returned `CHANGES REQUIRED`. Correction `450d767` then passed zero-finding independent delta review
 and exact-head ten-of-ten run `29416554531`, authorizing the complete fresh Human Gate. A strictly
-local physical-harness candidate is 10/10 locally; “gated” above now means harness exact-head CI,
-independent harness-delta review and only then the fresh Human observations.
+first local harness `ee522a5` passed exact-head CI but review returned `CHANGES REQUIRED`; its focused
+16/16 correction is local. “Gated” above now means correction publication, exact-head CI,
+independent delta re-review and only then the fresh Human observations.
 
 **Target:** Week 2–4 · **Candidate Sprints:** 025–030
 
@@ -119,7 +120,7 @@ independent harness-delta review and only then the fresh Human observations.
 
 ### Block C – Runtime Composition, Auth and Real Product Path
 
-**Status: C1, C2, C3B, C3C and C3D completed for their recorded scopes; no-code C3A passed independent re-review and Human acceptance (2026-07-15). C3E1 implementation correction `450d767` passed zero-finding independent review and exact-head CI; its Human Gate is authorized, while the local physical-harness candidate still requires its own CI/review before observations. C3E2 remains unauthorized.** The default Mobile path uses the real Supabase email/password adapter, refresh-token-only SecureStore restoration and server-authoritative Membership session resolution. C2 adds only the earlier session/scan/lifecycle/defer routes and private Mobile transport. The later Block-D slice wires the authenticated NFC product path without changing C2's lifecycle boundary. Accepted FB-002 v1.2, TS-002 v1.3 and ADR-0011 define named-operator first Organization/Admin bootstrap, a distinct narrow normal Admin write session, bound receipts, required Customer/Tag display names, protected raw UID handling, disclosure-safe results and append-only Assignment history. C3C realizes that normal setup backend through exact create-Customer, atomic provision-Tag and safe setup-projection routes. C3D completed the Admin Web and protected Android capture surfaces without changing C3C semantics or granting production authority; full closure evidence is recorded in Section 14. C3E1 adds only the separately accepted invitation/redemption Membership boundary and does not alter lifecycle/NFC semantics.
+**Status: C1, C2, C3B, C3C and C3D completed for their recorded scopes; no-code C3A passed independent re-review and Human acceptance (2026-07-15). C3E1 implementation correction `450d767` passed zero-finding independent review and exact-head CI; its Human Gate is authorized. First local harness `ee522a5` passed CI but review returned `CHANGES REQUIRED`; its focused 16/16 correction requires publication/CI/delta re-review before observations. C3E2 remains unauthorized.** The default Mobile path uses the real Supabase email/password adapter, refresh-token-only SecureStore restoration and server-authoritative Membership session resolution. C2 adds only the earlier session/scan/lifecycle/defer routes and private Mobile transport. The later Block-D slice wires the authenticated NFC product path without changing C2's lifecycle boundary. Accepted FB-002 v1.2, TS-002 v1.3 and ADR-0011 define named-operator first Organization/Admin bootstrap, a distinct narrow normal Admin write session, bound receipts, required Customer/Tag display names, protected raw UID handling, disclosure-safe results and append-only Assignment history. C3C realizes that normal setup backend through exact create-Customer, atomic provision-Tag and safe setup-projection routes. C3D completed the Admin Web and protected Android capture surfaces without changing C3C semantics or granting production authority; full closure evidence is recorded in Section 14. C3E1 adds only the separately accepted invitation/redemption Membership boundary and does not alter lifecycle/NFC semantics.
 
 **Target:** Week 4–6 · **Candidate Sprints:** 031–036
 
@@ -143,8 +144,9 @@ repository implementation passed its separate authorization, exact-SHA independe
 exact-head ten-job CI cycle and is closed. C3D (Admin Web plus protected Android capture)
 subsequently completed independent review, exact-head CI and its complete fresh Human physical gate.
 C3E1 identity-first Employee Membership correction `450d767` passed independent zero-finding review
-and exact-head ten-of-ten run `29416554531`; the fresh Human Gate is authorized. Its local physical
-harness awaits its own exact-head CI and independent review before observations. C3E2 explicit
+and exact-head ten-of-ten run `29416554531`; the fresh Human Gate is authorized. First harness
+`ee522a5` passed CI but review required four corrections; the 16/16 correction awaits publication,
+exact-head CI and delta re-review before observations. C3E2 explicit
 reassignment remains unauthorized.
 DT-063–DT-066 remain open as Roadmap candidates because C3E1/C3E2 and pilot-grade
 operational onboarding are not complete, even though C3D closed the recorded initial UI/capture

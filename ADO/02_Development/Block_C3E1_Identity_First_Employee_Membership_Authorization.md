@@ -519,6 +519,9 @@ evidence is `ADO/05_Evidence/Block_C3E1_Implementation_Evidence.md`.
 Correction commit `450d7673431d3201dd02b2887f98ff6a1754e553`, tree
 `a60d306ad063e4117b2685bb578742bb0a46bccb`, passed independent delta re-review with no open
 P0/P1/P2/P3 and exact-head ten-of-ten GitHub Actions run `29416554531`, attempt 1. The Human Gate is
-therefore authorized. A subsequent strictly local physical-harness candidate adds no product
-authority; its own exact-head CI and independent review must pass before observations start. C3E2,
+therefore authorized. First strictly local physical-harness commit `ee522a5` passed exact-head run
+`29418851293`, but independent review returned `CHANGES REQUIRED` with two P2 and two P3 findings.
+Its credential-free-latch/lifecycle-test correction is 16/16 locally and adds no product authority;
+correction publication, exact-head CI and independent delta re-review must pass before observations.
+C3E2,
 production resources/data, deployment and distribution remain unauthorized.

@@ -2,6 +2,7 @@ import {
   B4SessionAuthorityResolver,
   B5ScanContextResolver,
   createBackendHttpServer,
+  type EmployeeMembershipEnrollmentCoordinator as EmployeeEnrollmentPort,
 } from '@taptime/backend-api';
 import {
   AdminWriteSessionCoordinator,
@@ -127,13 +128,16 @@ export async function createSyntheticAndroidE2eEnvironment(
       lifecyclePool,
       verifier,
     );
-    redemptionInterruption = new SyntheticRedemptionInterruptionController(
-      new EmployeeMembershipEnrollmentCoordinator(
-        employeeInvitationPool,
-        employeeEnrollmentPool,
-        verifier,
-      ),
-      onSafeEvent,
+    const employeeEnrollmentCoordinator = new EmployeeMembershipEnrollmentCoordinator(
+      employeeInvitationPool,
+      employeeEnrollmentPool,
+      verifier,
+    );
+    const interruptionController = new SyntheticRedemptionInterruptionController(onSafeEvent);
+    redemptionInterruption = interruptionController;
+    const employeeEnrollment = composeSyntheticEmployeeEnrollmentInterruption(
+      employeeEnrollmentCoordinator,
+      interruptionController,
     );
     apiServer = createBackendHttpServer(
       {
@@ -145,7 +149,7 @@ export async function createSyntheticAndroidE2eEnvironment(
         lifecycleIngestor: lifecycleCoordinator,
         deferredLifecycleIngestor: lifecycleCoordinator,
         administration: new AdminWriteSessionCoordinator(administrationPool, verifier),
-        employeeEnrollment: redemptionInterruption,
+        employeeEnrollment,
       },
       {
         onDiagnostic(diagnostic) {
@@ -178,7 +182,6 @@ export async function createSyntheticAndroidE2eEnvironment(
       throw new Error('Synthetic C2 API did not expose a TCP port');
     }
     const activeApiServer = apiServer;
-    const activeRedemptionInterruption = redemptionInterruption;
     const pools = [
       sessionPool,
       readModelPool,
@@ -198,17 +201,17 @@ export async function createSyntheticAndroidE2eEnvironment(
       enrollmentEmail: SYNTHETIC_ENROLLMENT_AUTH_EMAIL,
       publishableKey: SYNTHETIC_PUBLISHABLE_KEY,
       secondEnrollmentEmail: SYNTHETIC_SECOND_ENROLLMENT_AUTH_EMAIL,
-      abortPausedRedemption: () => activeRedemptionInterruption.abortPausedRedemption(),
+      abortPausedRedemption: () => interruptionController.abortPausedRedemption(),
       armTagA: (expectedFingerprint: string) => {
         provisioningScanContext.armTagA(expectedFingerprint);
       },
       armNextRedemptionInterruption: () => {
-        activeRedemptionInterruption.armNextRedemptionInterruption();
+        interruptionController.armNextRedemptionInterruption();
       },
       employeeEnrollmentEvidenceCounts: () => (
         readSyntheticEmployeeEnrollmentEvidenceCounts(installerPool)
       ),
-      redemptionInterruptionState: () => activeRedemptionInterruption.getState(),
+      redemptionInterruptionState: () => interruptionController.getState(),
       provisioningState: () => provisioningScanContext.getState(),
       evidenceCounts: () => readSyntheticEvidenceCounts(installerPool),
       async close(): Promise<void> {
@@ -216,7 +219,7 @@ export async function createSyntheticAndroidE2eEnvironment(
           return;
         }
         closed = true;
-        activeRedemptionInterruption.close();
+        interruptionController.close();
         await Promise.allSettled([
           closeServer(activeApiServer),
           ...pools.map((pool) => pool.end()),
@@ -250,6 +253,33 @@ export async function createSyntheticAndroidE2eEnvironment(
     await installerPool.end();
     throw error;
   }
+}
+
+export function composeSyntheticEmployeeEnrollmentInterruption(
+  delegate: EmployeeEnrollmentPort,
+  interruption: SyntheticRedemptionInterruptionController,
+): EmployeeEnrollmentPort {
+  const composed: EmployeeEnrollmentPort = {
+    createInvitation: (command, controls) => delegate.createInvitation(command, controls),
+    readEmployeeMembershipsProjection: (command, controls) => (
+      delegate.readEmployeeMembershipsProjection(command, controls)
+    ),
+    async redeemInvitation(command, controls = {}) {
+      const interruptionAttempt = interruption.beginRedemptionAttempt();
+      try {
+        return await delegate.redeemInvitation(command, {
+          ...controls,
+          beforeCommit: async () => {
+            await controls.beforeCommit?.();
+            await interruptionAttempt.beforeCommit();
+          },
+        });
+      } finally {
+        interruptionAttempt.finish();
+      }
+    },
+  };
+  return Object.freeze(composed);
 }
 
 function createPool(connectionString: string, max: number = 4): Pool {
