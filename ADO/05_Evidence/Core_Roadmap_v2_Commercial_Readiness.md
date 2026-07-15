@@ -2,7 +2,7 @@
 
 Role: Research / Implementation Support acting on behalf of Technical Lead (per AGR-001)
 Date: 2026-07-10
-Status: Active execution baseline — Block A, B1–B6, C1/C2, C3B, C3C, C3D, Block D, E1 and narrow E2A completed for their recorded repository/Human-gate scopes as of 2026-07-15; C3D closure synchronization and EP-009 delta independently accepted with Human acceptance pending; C3E1 is a six-P2 corrected re-review candidate with no implementation authority, while C3E2 remains unauthorized; E2A does not complete DT-060–DT-062 or Block E
+Status: Active execution baseline — Block A, B1–B6, C1/C2, C3B, C3C, C3D, Block D, E1 and narrow E2A completed for their recorded repository/Human-gate scopes as of 2026-07-15; C3D closure synchronization and EP-009 delta Human-accepted; C3E1 exact contract independently approved/Human-accepted and repository implementation authorized on `70d163f`, while C3E2 remains unauthorized; E2A does not complete DT-060–DT-062 or Block E
 Scope: Core platform roadmap only. Generic platform language throughout (Organization, Membership, Role, User, AssignmentTarget, Customer, NfcTag, NfcAssignment, TimeEntry, WorkEvent, BusinessEvent, Policy, AuditEvent, Export, Backend, Auth, Tenant Isolation, Mobile App, Admin Web, Website). No customer-specific product, company, or branch assumption is named anywhere in this document. The original 2026-07-10 creation implemented no code and modified no architecture/ADR/TTAP/FB/TS/Product Vision content; later dated synchronization updates change only current status/traceability, not accepted product or architecture rules.
 Related Artifacts: `ADO/05_Evidence/External_CTO_Review_Triage_2026-07-10.md`, `ADO/05_Evidence/Product_Readiness_Assessment.md`, `ADO/05_Evidence/Product_Readiness_Roadmap.md`, `ADO/02_Development/Development_Sprint_019_Closure.md`, `ADO/02_Development/EP-007_Development_Tasks.md`, `ADO/00_Core/Project_Status.md`, `ADO/00_Core/Decision_Log.md`
 
@@ -109,7 +109,7 @@ Blocks are ranges, not fixed sprint-by-sprint commitments; candidate Development
 
 ### Block C – Runtime Composition, Auth and Real Product Path
 
-**Status: C1, C2, C3B, C3C and C3D completed for their recorded scopes; no-code C3A passed independent re-review and Human acceptance (2026-07-15). C3E1 is a six-P2 corrected re-review candidate with no implementation authority; C3E2 remains unauthorized.** The default Mobile path uses the real Supabase email/password adapter, refresh-token-only SecureStore restoration and server-authoritative Membership session resolution. C2 adds only the earlier session/scan/lifecycle/defer routes and private Mobile transport. The later Block-D slice wires the authenticated NFC product path without changing C2's lifecycle boundary. Accepted FB-002 v1.2, TS-002 v1.3 and ADR-0011 define named-operator first Organization/Admin bootstrap, a distinct narrow normal Admin write session, bound receipts, required Customer/Tag display names, protected raw UID handling, disclosure-safe results and append-only Assignment history. C3C realizes that normal setup backend through exact create-Customer, atomic provision-Tag and safe setup-projection routes. C3D completed the Admin Web and protected Android capture surfaces without changing C3C semantics or granting production authority; full closure evidence is recorded in Section 14.
+**Status: C1, C2, C3B, C3C and C3D completed for their recorded scopes; no-code C3A passed independent re-review and Human acceptance (2026-07-15). C3E1 exact contract passed zero-finding review and is Human-accepted/implementation-authorized on `70d163f`; C3E2 remains unauthorized.** The default Mobile path uses the real Supabase email/password adapter, refresh-token-only SecureStore restoration and server-authoritative Membership session resolution. C2 adds only the earlier session/scan/lifecycle/defer routes and private Mobile transport. The later Block-D slice wires the authenticated NFC product path without changing C2's lifecycle boundary. Accepted FB-002 v1.2, TS-002 v1.3 and ADR-0011 define named-operator first Organization/Admin bootstrap, a distinct narrow normal Admin write session, bound receipts, required Customer/Tag display names, protected raw UID handling, disclosure-safe results and append-only Assignment history. C3C realizes that normal setup backend through exact create-Customer, atomic provision-Tag and safe setup-projection routes. C3D completed the Admin Web and protected Android capture surfaces without changing C3C semantics or granting production authority; full closure evidence is recorded in Section 14.
 
 **Target:** Week 4–6 · **Candidate Sprints:** 031–036
 
@@ -369,8 +369,8 @@ The former combined C3E label is now split so that distinct privileged boundarie
 silently coupled:
 
 - **C3E1:** identity-first Employee Membership setup. Its first independent review returned six P2
-  contract findings and no P0/P1/P3. The corrected candidate requires renewed independent review,
-  explicit Human Architect acceptance and a separate exact-baseline implementation authorization.
+  contract findings and no P0/P1/P3. Corrected commit `70d163f` passed zero-finding independent
+  re-review/exact-head CI and received Human acceptance plus exact-baseline implementation authority.
 - **C3E2:** explicit Tag reassignment. It remains separately unauthorized and must preserve
   Assignment history and future time-attribution rules through its own policy and review gates.
 
@@ -378,7 +378,7 @@ The completed C3D evidence triggered an additive EP-009 readiness delta. The pro
 disposition remains unchanged from the accepted C3C reassessment: Engineering is Established;
 Product, Deployment, Technical Operations, Customer and Scaling are Developing; Business,
 Commercial, Legal/Compliance and Support are Emerging. Independent review found that delta
-acceptable; Human Architect acceptance remains pending.
-The current engineering critical path is C3E1 review/authorization, C3E2 policy/authorization, the
+acceptable and the Human Architect accepted it.
+The current engineering critical path is C3E1 implementation/final review, C3E2 policy/authorization, the
 remaining Block-E work, then Blocks F/G and the parallel elapsed-time Block-H/legal-commercial path.
 No production cloud resource, production personal data, pilot or market-readiness claim follows.

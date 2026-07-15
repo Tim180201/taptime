@@ -1,7 +1,7 @@
 # Block C3D Closure Synchronization Evidence
 
 Date: 2026-07-15
-Status: **INDEPENDENTLY ACCEPTED FOR C3D SYNCHRONIZATION — Human Architect acceptance pending; corrected C3E1 re-review separate**
+Status: **HUMAN-ACCEPTED — C3D synchronization final; C3E1 implementation governed separately**
 Authorized Baseline: `a0419866c2b992ae8fc5474144064bc0652d215a`
 Authority: Human Architect authorized an ADO-only C3D closure synchronization followed by a C3E1
 authorization package; C3E product code remains unauthorized
@@ -75,5 +75,9 @@ Publication and independent review then established:
 Review evidence:
 `ADO/05_Evidence/Block_C3D_C3E1_Independent_Architecture_Security_Review.md`.
 
-Current verdict: **C3D SYNCHRONIZATION INDEPENDENTLY ACCEPTED; HUMAN ARCHITECT ACCEPTANCE PENDING;
-C3E1 CORRECTED RE-REVIEW CANDIDATE; C3E1 IMPLEMENTATION NOT AUTHORIZED**.
+Corrected C3E1 commit `70d163f` subsequently passed independent zero-finding re-review and exact-head
+ten-of-ten run `29410078768`. The Human Architect then accepted this C3D synchronization and
+separately accepted/authorized the bounded C3E1 contract/implementation.
+
+Current verdict: **C3D SYNCHRONIZATION HUMAN-ACCEPTED AND FINAL; C3E1 REPOSITORY IMPLEMENTATION
+AUTHORIZED ON `70d163f`; C3E2/PRODUCTION/HUMAN PHYSICAL GATE UNAUTHORIZED**.

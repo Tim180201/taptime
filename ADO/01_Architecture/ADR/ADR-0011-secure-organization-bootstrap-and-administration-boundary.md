@@ -1,8 +1,7 @@
 # ADR-0011: Secure Organization Bootstrap and Administration Boundary
 
-Status: Accepted by Human Architect — C3B and C3C repository implementation completed after their
-separate exact-baseline review/CI cycles; C3D implementation and Human physical gate completed;
-C3E1/C3E2 implementation gated
+Status: Accepted by Human Architect — C3B/C3C/C3D completed; C3E1 exact contract Human-accepted and
+repository implementation authorized on `70d163f`; C3E2/production gated
 Date: 2026-07-14
 Acceptance: Accepted 2026-07-14
 Roadmap: Core Roadmap v2, Block C3 and later setup slices DT-063–DT-066
@@ -413,17 +412,17 @@ does not change this ADR's Membership or Assignment-history decisions.
 
 The former combined C3E planning label is now separated for review:
 
-- **C3E1** proposes identity-first Employee Membership enrollment through a separately reviewed,
+- **C3E1** defines identity-first Employee Membership enrollment through a separately reviewed,
   short-lived invitation/redemption capability. Its first package review returned six P2 contract
-  findings and no P0/P1/P3; the corrected candidate requires renewed independent review and Human
-  acceptance. Implementation is not authorized.
+  findings and no P0/P1/P3; corrected commit `70d163f` passed zero-finding independent re-review and
+  exact-head ten-of-ten CI. The Human Architect accepted the exact contract and separately authorized
+  repository implementation on that baseline.
 - **C3E2** remains the later explicit Tag reassignment capability. It must lock/deactivate/append
   Assignment history atomically and remains completely unauthorized.
 
-The separation narrows authorization and review scope; it does not accept the proposed C3E1 token,
-display-name, schema or transport contract. The corrected token/cap, historical-Membership,
-pre-Membership state, HTTP, lock and audit details require renewed independent review and explicit
-Human Architect acceptance before implementation.
+The separation narrows authorization and review scope. The exact C3E1 token/cap,
+historical-Membership, pre-Membership state, display-name, schema, HTTP, lock and audit contract is
+accepted only as recorded in the C3E1 authorization package. C3E2 and production remain separate.
 
 ## Review triggers
 

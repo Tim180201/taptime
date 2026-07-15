@@ -1,7 +1,7 @@
 # FB-002 – Organization Management Foundation
 
-Status: Approved by Human Architect — C3B/C3C/C3D completed for their accepted scopes;
-C3E1/C3E2 remain separately gated
+Status: Approved by Human Architect — C3B/C3C/C3D completed; C3E1 exact contract accepted and
+repository implementation authorized on `70d163f`; C3E2 gated
 Feature ID: FB-002
 Feature Name: Organization Management Foundation
 Version: 1.2
@@ -531,7 +531,7 @@ Product Vision
   -> DT-017–DT-026 (Core foundation complete)
   -> ADR-0011 / C3A (independently validated and Human-accepted)
   -> C3B/C3C/C3D (completed for accepted scopes)
-  -> C3E1 identity-first Employee Membership / C3E2 reassignment (separately gated)
+  -> C3E1 identity-first Employee Membership (implementation authorized) / C3E2 reassignment (gated)
 ```
 
 ## Revision Note (C3D Closure Synchronization, 2026-07-15)
@@ -540,11 +540,11 @@ C3D completed the separately authorized safe Admin Web/protected Android initial
 independent zero-finding review, exact-head CI and a complete fresh Human physical gate. This closes
 the initial Customer/Tag setup UI boundary without changing any FB-002 Business Rule.
 
-The later C3E label is split for authorization discipline only: C3E1 covers identity-first Employee
-Membership enrollment; C3E2 covers explicit append-only Tag reassignment. Both remain gated. The
-C3E1 review package proposes a short-lived invitation/redemption flow, but this Blueprint does not
-accept that implementation contract. Its first review returned six C3E1 P2 contract findings; the
-corrected candidate requires renewed independent review and Human Architect approval.
+The later C3E label is split for authorization discipline: C3E1 covers identity-first Employee
+Membership enrollment; C3E2 covers explicit append-only Tag reassignment. The corrected C3E1
+short-lived invitation/redemption contract passed zero-finding independent re-review on `70d163f`,
+was accepted by the Human Architect and is repository-implementation-authorized on that baseline.
+C3E2 remains gated.
 
 ## Revision Note (C3A Review Reconciliation, 2026-07-14)
 

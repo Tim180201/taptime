@@ -9,7 +9,7 @@ Epic: EP-008
 Owner: Technical Lead  
 Approval Authority: Human Architect  
 Repository Scope: TapTim.e ADO  
-Integration Status: Human-accepted synchronization through C3C repository closure and the narrow E2A slice on 2026-07-15; C3D closure addendum independently accepted and awaiting Human acceptance
+Integration Status: Human-accepted synchronization through C3D closure; C3E1 exact contract Human-accepted and repository implementation authorized on `70d163f`
 Synchronization Baseline: `fda5e5b9e878311b0caa647c6b49ab14943b706e` (2026-07-15)
 Related Artifacts: Product Vision, Decision Log, AVR-001, ADRs, TTAP-001, Feature Blueprints, Technical Specifications, Development Task Profile, EOM-001, AGR-001
 
@@ -1060,18 +1060,18 @@ stop and escalate rather than inferring it from a convenient adapter or UI requi
 The remaining gates are C3D/C3E, full offline synchronization outside E2A, production/cloud/real-data
 operation, distribution, legal/commercial work and the missing EP-008 Chapters 04–10.
 
-## 12. C3D Closure Addendum (2026-07-15 — Independent Review Accepted; Human Acceptance Pending)
+## 12. C3D Closure Addendum (2026-07-15 — Human Accepted)
 
 The Section-11 gate list records the Human-accepted C3C/E2A snapshot. C3D later completed its
 separate review, exact-head CI and fresh Human physical gate; its ADO closure baseline `a041986` also
 passed ten-of-ten run `29407078949`. The current administration discipline is therefore:
 
 - preserve C3C's narrow current-Administrator authority and C3D's safe Web/Android presentation;
-- treat the six-P2 corrected C3E1 invitation/redemption design as a renewed-review candidate only,
-  never as implementation authority; and
+- implement the zero-finding reviewed and Human-accepted C3E1 invitation/redemption design only
+  within exact baseline authority `70d163f`; and
 - keep C3E2 reassignment, broader Membership management and production authority behind separate
   product/policy decisions.
 
 All non-C3 administration-independent gates listed in Section 11 remain. Independent review found
-this addendum acceptable; it changes no accepted implementation philosophy and awaits Human
-Architect acceptance.
+this addendum acceptable and the Human Architect accepted it; the separately authorized C3E1
+package remains the only authority for its implementation.

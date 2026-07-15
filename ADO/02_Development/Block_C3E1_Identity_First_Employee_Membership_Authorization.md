@@ -1,12 +1,19 @@
 # Block C3E1 — Identity-First Employee Membership Authorization Package
 
-Status: **CORRECTED REVIEW CANDIDATE — RENEWED INDEPENDENT REVIEW REQUIRED; REPOSITORY IMPLEMENTATION NOT AUTHORIZED**
+Status: **HUMAN-ACCEPTED — C3E1 REPOSITORY IMPLEMENTATION AUTHORIZED ON EXACT BASELINE; C3E2/PRODUCTION UNAUTHORIZED**
 Package Authorization Date: 2026-07-15
 Exact Package Baseline: `a0419866c2b992ae8fc5474144064bc0652d215a`
 Independent Review Commit: `4e3ae76f4fdfad751e31b546aa4b1a63e04a67ee`
 Independent Review Verdict: `CHANGES REQUIRED` — six P2 C3E1 contract findings; no P0/P1/P3
-Human Authority: Human Architect authorized this ADO-only package and explicitly withheld C3E
-product-code authority pending a later approval
+Corrected Review Commit: `70d163fa0473692f61555f1580f25382e1e807af`
+Corrected Review Tree: `33e5f7a94d49fadcab4f8f14b6fa842a55aad928`
+Corrected Exact-head CI: GitHub Actions `29410078768`, attempt 1, ten of ten jobs passed
+Corrected Independent Re-review Verdict: `APPROVED` — no open P0/P1/P2/P3
+Human Acceptance and Implementation Authorization Date: 2026-07-15
+Exact Implementation Baseline: `70d163fa0473692f61555f1580f25382e1e807af`
+Human Authority: Human Architect explicitly accepted every Section-12 product/policy decision and,
+in a later separate statement, authorized the exact C3E1 repository implementation on the baseline
+above. C3E2, production resources/data and any Physical Gate remain unauthorized.
 Owner: Technical Lead
 Governing Architecture: Accepted ADR-0008, ADR-0011, FB-002 v1.2 and TS-002 v1.3
 Proposed Effort: Very High
@@ -24,8 +31,11 @@ privileged boundaries. C3E1 concerns provider identity, User/IdentityBinding cre
 authority and pre-Membership client state. C3E2 changes future time attribution and Assignment
 history. Combining them would make independent authorization, rollback and security review weaker.
 
-This document is an authorization package for review. It does not authorize migration `008`, a new
-runtime role, backend route, Admin Web/Mobile change, dependency, cloud resource or production data.
+After independent zero-finding re-review and explicit Human acceptance, this document is the
+normative authorization for the exact C3E1 repository slice described below. It authorizes migration
+`008`, the named least-privilege roles/pools, the three exact backend operations, the bounded Admin
+Web/Android changes and their tests. It does not authorize C3E2, a cloud resource, production data,
+provider-account creation, deployment/distribution or a Physical Gate.
 
 ## 2. Repository evidence and rejected shortcuts
 
@@ -445,24 +455,26 @@ Stop and return to Human Architect/independent review if implementation would re
 - production personal data or a live deployment; or
 - a changed BusinessEngine, lifecycle Decision or NFC payload contract.
 
-## 12. Authorization gates and next decision
+## 12. Authorization gates and implementation authority
 
-Before any C3E1 repository implementation begins:
+The pre-implementation gates are satisfied as follows:
 
-1. renewed independent read-only architecture/security review must verify every P2 correction and
-   return no open P0–P3 finding;
-2. the Human Architect must explicitly accept all proposed product/policy decisions: a bearer
+1. renewed independent read-only architecture/security review verified every P2 correction on
+   commit `70d163fa0473692f61555f1580f25382e1e807af` and returned `APPROVED` with no open P0–P3;
+2. the Human Architect explicitly accepted all proposed product/policy decisions: a bearer
    invitation may be redeemed by any verified pre-existing provider identity that possesses it;
    every historical Membership fails closed; `memberships.display_name` is nullable only for legacy
    rows and mandatory for C3E1 grants; TTL is exactly 15 minutes; the Organization cap is five;
    clipboard/copy support is excluded; exact replay survives later creator revocation without a new
    grant; the creator Administrator is the audit actor while the redeeming IdentityBinding is bound
    provenance; and C3E2 remains separate;
-3. the accepted package must be bound to the then-current exact implementation baseline; and
-4. a separate statement must authorize repository implementation only.
+3. the accepted package is bound to exact implementation baseline
+   `70d163fa0473692f61555f1580f25382e1e807af`; and
+4. the Human Architect separately stated that C3E1 is released and instructed implementation to
+   begin. That statement authorizes repository implementation only within this package.
 
-Current verdict: **CORRECTED REVIEW CANDIDATE; RENEWED INDEPENDENT REVIEW REQUIRED; C3E1
-IMPLEMENTATION REMAINS UNAUTHORIZED**.
+Current verdict: **C3E1 REPOSITORY IMPLEMENTATION AUTHORIZED ON BASELINE `70d163f`; C3E2,
+PRODUCTION AND THE HUMAN PHYSICAL GATE REMAIN UNAUTHORIZED**.
 
 ## 13. Independent review findings and corrective disposition
 
@@ -480,6 +492,9 @@ candidate:
 | C3E1-REV-05 | First redemption and exact replay now have fixed invitation/creator/identity/Binding/User/Membership lock orders plus revocation and dual-invitation race tests. |
 | C3E1-REV-06 | Creator Administrator is the grant/audit actor; redeeming IdentityBinding is durable receipt/invitation provenance; dedicated-role trigger allowlists and exact audit counts are fixed. |
 
-These dispositions are proposed contract corrections, not accepted architecture. They require a
-renewed independent delta review and explicit Human Architect acceptance before any separate
-implementation authorization can be considered.
+Independent delta re-review of corrected commit
+`70d163fa0473692f61555f1580f25382e1e807af`, tree
+`33e5f7a94d49fadcab4f8f14b6fa842a55aad928`, closed every finding and returned `APPROVED` with no
+open P0/P1/P2/P3. The Human Architect then accepted the complete contract and separately authorized
+its repository implementation. A later implementation still requires complete local verification,
+independent final review and exact-head CI before any Human Physical Gate may begin.

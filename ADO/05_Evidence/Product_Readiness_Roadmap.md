@@ -255,10 +255,9 @@ accepted the reassessment on 2026-07-15. Evidence:
 
 ## Addendum (2026-07-15 — C3D Closure Delta and C3E Split)
 
-The accepted reassessment above remains the formal current readiness baseline until the
-independently accepted additive delta at
+The Human-accepted additive delta at
 `ADO/05_Evidence/Product_Readiness_Reassessment_2026-07-15_C3D_Closure_Delta.md`
-receives explicit Human Architect acceptance. That delta is triggered by C3D's
+is the formal current readiness baseline. That delta is triggered by C3D's
 later completed repository/Human physical scope on closure baseline
 `a0419866c2b992ae8fc5474144064bc0652d215a`, including exact-head ten-of-ten run `29407078949`.
 
@@ -270,14 +269,14 @@ legal readiness, support maturity or market validation.
 
 Independent read-only review of publication commit `4e3ae76` found this scorecard and critical-path
 delta acceptable. Its overall `CHANGES REQUIRED` verdict concerned six separate C3E1 contract P2
-findings only; this readiness delta now awaits Human Architect acceptance.
+findings only; the Human Architect subsequently accepted this readiness delta.
 
 The former C3E planning item is split into separately governed boundaries: C3E1 identity-first
-Employee Membership setup has a six-P2 corrected re-review candidate but no implementation authority;
-C3E2 explicit Tag reassignment remains unauthorized. The current critical path is therefore C3E1,
+Employee Membership setup has a zero-finding reviewed, Human-accepted contract and repository
+implementation authority on `70d163f`; C3E2 explicit Tag reassignment remains unauthorized. The current critical path is therefore C3E1 implementation/final review,
 C3E2, the rest of Block E, Blocks F/G and parallel elapsed-time Block-H/legal-commercial work. This
-addendum changes no original roadmap milestone and grants no implementation or production-data
-authority.
+addendum changes no original roadmap milestone. C3E1 implementation authority is governed only by
+its separate accepted package; no production-data authority follows.
 
 ## Revision Note (Technical Lead Review Follow-up, 2026-07-07)
 

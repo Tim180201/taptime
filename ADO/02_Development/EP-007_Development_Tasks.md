@@ -845,7 +845,8 @@ Sprints 012–019; their populated Implementation Notes and closures are the evi
 planning gate is satisfied. The accepted C3A package reconciles the completed Core foundation with the real
 backend/runtime boundary; it does not retroactively convert the Core services into transport
 authority. C3B, C3C and C3D separately completed after Human acceptance and their applicable
-authorization/review/CI/Human gates; C3E1 implementation and C3E2 remain gated.
+authorization/review/CI/Human gates; C3E1 is separately implementation-authorized on `70d163f`
+without creating a new EP-007 Development Task, while C3E2 remains gated.
 
 Current checkpoint (2026-07-15): C3C repository implementation commit
 `b90729a0a4b325f523cd98ea5a741defb00155f6` passed the complete 1,394-test matrix, three independent
@@ -860,7 +861,8 @@ review and exact-head CI, its complete fresh Galaxy A33/NTAG213 Human physical g
 closure commit `a0419866c2b992ae8fc5474144064bc0652d215a` passed exact-head ten-of-ten run
 `29407078949`. The former combined C3E planning label is now split into C3E1 identity-first Employee
 Membership setup and C3E2 explicit Tag reassignment. The initial C3E1 authorization package received
-six P2 contract findings and no P0/P1/P3. Its corrected candidate requires renewed independent review;
-neither C3E1 implementation nor C3E2 is authorized. This reconciliation creates no new EP-007
+six P2 contract findings and no P0/P1/P3. Corrected commit `70d163f` passed zero-finding independent
+re-review and exact-head CI; the Human Architect accepted/authorized C3E1 implementation. C3E2
+remains unauthorized. This reconciliation creates no new EP-007
 Development Task: DT-063–DT-066 remain candidate Roadmap-v2 work outside the completed
 DT-017–DT-026 sequence.

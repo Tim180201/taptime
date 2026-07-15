@@ -1,7 +1,7 @@
 # Product Readiness Reassessment — C3D Closure Delta
 
 Date: 2026-07-15
-Status: **INDEPENDENTLY ACCEPTED — Human Architect acceptance pending**
+Status: **HUMAN-ACCEPTED — current Product Readiness reassessment delta**
 Previous accepted reassessment:
 `ADO/05_Evidence/Product_Readiness_Reassessment_2026-07-15.md`
 Evidence baseline: `a0419866c2b992ae8fc5474144064bc0652d215a`
@@ -97,11 +97,11 @@ This delta becomes the accepted current Product Readiness view only after:
    **satisfied for this delta**;
 2. every delta finding is dispositioned without silently upgrading a domain — **satisfied; no
    finding was assigned to this delta**; and
-3. the Human Architect explicitly accepts the delta — **pending**.
+3. the Human Architect explicitly accepts the delta — **satisfied on 2026-07-15**.
 
-Until Human acceptance, the earlier accepted reassessment remains the formal accepted baseline.
-No code, architecture acceptance, C3E
-implementation, production authority or personal-data authority follows from this delta.
+This delta is now the formal accepted current reassessment. It grants no production, legal,
+commercial, pilot or personal-data authority. C3E1 repository implementation authority is recorded
+separately and does not follow from the readiness scorecard itself.
 
 ## 7. Independent review disposition
 
@@ -111,7 +111,7 @@ Independent read-only review of publication commit
 critical path and authority limits acceptable. The overall package verdict was `CHANGES REQUIRED`
 only for six separate C3E1 contract P2 findings; no finding was assigned to this readiness delta.
 
-The earlier accepted reassessment remains formally controlling until the Human Architect explicitly
-accepts this delta. Independent acceptance creates no C3E1/C3E2 implementation, production, legal,
-commercial, pilot or personal-data authority. Review record:
+The Human Architect explicitly accepted this delta after corrected C3E1 re-review. Its unchanged
+ratings are now the formal current readiness view. That acceptance creates no C3E2, production,
+legal, commercial, pilot or personal-data authority. Review record:
 `ADO/05_Evidence/Block_C3D_C3E1_Independent_Architecture_Security_Review.md`.
