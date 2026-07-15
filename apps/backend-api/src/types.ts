@@ -15,12 +15,19 @@ import type {
 } from '@taptime/backend-lifecycle';
 import type {
   AdminCoordinatorControls,
+  CreateEmployeeMembershipInvitationCommand,
+  CreateEmployeeMembershipInvitationResult,
   CreateCustomerCommand,
   CreateCustomerResult,
+  EmployeeEnrollmentCoordinatorControls,
   ProvisionNfcTagCommand,
   ProvisionNfcTagResult,
+  ReadEmployeeMembershipsProjectionCommand,
+  ReadEmployeeMembershipsProjectionResult,
   ReadSetupProjectionCommand,
   ReadSetupProjectionResult,
+  RedeemEmployeeMembershipInvitationCommand,
+  RedeemEmployeeMembershipInvitationResult,
 } from '@taptime/backend-administration';
 
 export interface ResolvedProductSession {
@@ -90,17 +97,36 @@ export interface AdministrationCoordinator {
   ): Promise<ReadSetupProjectionResult>;
 }
 
+export interface EmployeeMembershipEnrollmentCoordinator {
+  createInvitation(
+    command: CreateEmployeeMembershipInvitationCommand,
+    controls?: EmployeeEnrollmentCoordinatorControls,
+  ): Promise<CreateEmployeeMembershipInvitationResult>;
+
+  redeemInvitation(
+    command: RedeemEmployeeMembershipInvitationCommand,
+    controls?: EmployeeEnrollmentCoordinatorControls,
+  ): Promise<RedeemEmployeeMembershipInvitationResult>;
+
+  readEmployeeMembershipsProjection(
+    command: ReadEmployeeMembershipsProjectionCommand,
+    controls?: EmployeeEnrollmentCoordinatorControls,
+  ): Promise<ReadEmployeeMembershipsProjectionResult>;
+}
+
 export interface BackendApiDependencies {
   readonly sessionAuthority: SessionAuthorityResolver;
   readonly scanContextResolver: ScanContextResolver;
   readonly lifecycleIngestor: LifecycleIngestor;
   readonly deferredLifecycleIngestor: DeferredLifecycleIngestor;
   readonly administration: AdministrationCoordinator;
+  readonly employeeEnrollment: EmployeeMembershipEnrollmentCoordinator;
 }
 
 export interface BackendApiDiagnostic {
   readonly code:
     | 'administration_failed'
+    | 'employee_enrollment_failed'
     | 'lifecycle_ingestion_failed'
     | 'scan_context_resolution_failed'
     | 'session_resolution_failed';

@@ -4,17 +4,18 @@ import type { SignInResult } from '../auth/contracts';
 
 interface LoginScreenProps {
   readonly signIn: (email: string, password: string) => Promise<SignInResult>;
+  readonly signInForEmployeeEnrollment: (email: string, password: string) => Promise<SignInResult>;
   readonly disabled: boolean;
 }
 
-export function LoginScreen({ signIn, disabled }: LoginScreenProps) {
+export function LoginScreen({ signIn, signInForEmployeeEnrollment, disabled }: LoginScreenProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const submitInFlight = useRef(false);
   const [message, setMessage] = useState<string | null>(null);
 
-  async function handleSignIn(): Promise<void> {
+  async function handleSignIn(employeeEnrollmentIntent = false): Promise<void> {
     if (submitInFlight.current || disabled) {
       return;
     }
@@ -22,7 +23,9 @@ export function LoginScreen({ signIn, disabled }: LoginScreenProps) {
     setSubmitting(true);
     setMessage(null);
     try {
-      const result = await signIn(email, password);
+      const result = await (employeeEnrollmentIntent
+        ? signInForEmployeeEnrollment(email, password)
+        : signIn(email, password));
       if (result.status === 'invalid_credentials') {
         setMessage('E-Mail-Adresse oder Passwort ist nicht gültig.');
       } else if (result.status === 'authority_rejected') {
@@ -65,10 +68,18 @@ export function LoginScreen({ signIn, disabled }: LoginScreenProps) {
       />
       <Button
         title={submitting ? 'Anmeldung läuft …' : 'Anmelden'}
-        onPress={handleSignIn}
+        onPress={() => handleSignIn(false)}
         disabled={disabled || submitting}
         testID="sign-in-button"
       />
+      <View style={styles.enrollmentAction}>
+        <Button
+          title="Mit Einladung beitreten"
+          onPress={() => handleSignIn(true)}
+          disabled={disabled || submitting}
+          testID="employee-enrollment-sign-in-button"
+        />
+      </View>
       {message !== null ? <Text style={styles.error}>{message}</Text> : null}
     </View>
   );
@@ -97,4 +108,5 @@ const styles = StyleSheet.create({
     marginTop: 12,
     color: '#b00020',
   },
+  enrollmentAction: { marginTop: 10 },
 });

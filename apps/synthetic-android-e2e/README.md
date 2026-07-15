@@ -4,7 +4,8 @@ Status: strictly local, synthetic and non-production test infrastructure
 
 This Node-24 workspace runs the real C2/C3C HTTP router, B4 identity resolution, B5 tenant read
 model, B6 lifecycle coordinator, C3C administration coordinator, Core `BusinessEngine` and
-PostgreSQL migrations `001`–`007`. It adds only a local password/JWKS fixture, separate synthetic
+PostgreSQL migrations `001`–`008`. C3E1 API operations remain explicitly disabled/fail-closed in
+this older C3D physical harness. It adds only a local password/JWKS fixture, separate synthetic
 Employee/Administrator identities and the retained one-shot Tag-A fixture-provisioning control used
 by the earlier Block-D regression. It is not a production Auth provider, backend deployment or
 Block-E synchronization implementation.

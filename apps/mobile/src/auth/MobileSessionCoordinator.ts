@@ -3,6 +3,8 @@ import type {
   AuthenticatedRequestCapability,
   AuthenticatedRequestExecution,
   BackendSessionPort,
+  EmployeeEnrollmentPort,
+  EmployeeEnrollmentResult,
   EphemeralAccessTokenReader,
   InternalAuthenticatedSessionSnapshot,
   MobileSessionCapability,
@@ -55,11 +57,16 @@ export class MobileSessionCoordinator implements
   private providerOperationTail: Promise<void> = Promise.resolve();
   private providerEventFlight: Promise<void> = Promise.resolve();
   private unauthorizedRefreshFlight: UnauthorizedRefreshFlight | null = null;
+  private enrollmentIntentGeneration: number | null = null;
 
   constructor(
     private readonly provider: ProviderAuthPort,
     private readonly refreshTokenStore: RefreshTokenStore,
     private readonly backendSession: BackendSessionPort,
+    private readonly employeeEnrollment: EmployeeEnrollmentPort = {
+      async redeem() { return { status: 'transient_failure' }; },
+    },
+    private readonly createCommandId: () => string = () => globalThis.crypto.randomUUID(),
   ) {}
 
   getState(): MobileSessionState {
@@ -151,10 +158,22 @@ export class MobileSessionCoordinator implements
   }
 
   async signIn(email: string, password: string): Promise<SignInResult> {
+    return this.startSignIn(email, password, false);
+  }
+
+  async signInForEmployeeEnrollment(email: string, password: string): Promise<SignInResult> {
+    return this.startSignIn(email, password, true);
+  }
+
+  private async startSignIn(
+    email: string,
+    password: string,
+    employeeEnrollmentIntent: boolean,
+  ): Promise<SignInResult> {
     if (this.signInFlight !== null) {
       return this.signInFlight;
     }
-    const operation = this.performSignIn(email, password);
+    const operation = this.performSignIn(email, password, employeeEnrollmentIntent);
     this.signInFlight = operation;
     try {
       return await operation;
@@ -163,6 +182,56 @@ export class MobileSessionCoordinator implements
         this.signInFlight = null;
       }
     }
+  }
+
+  async redeemEmployeeInvitation(invitationSecret: string): Promise<EmployeeEnrollmentResult> {
+    if (
+      this.state.status !== 'enrollment_only'
+      || this.enrollmentIntentGeneration !== this.generation
+      || this.accessToken === null
+      || !this.providerSessionAllowed
+    ) return { status: 'context_unavailable' };
+    const generation = this.generation;
+    const tokenRevision = this.tokenRevision;
+    const accessToken = this.accessToken;
+    let active = true;
+    let result;
+    try {
+      result = await this.employeeEnrollment.redeem(
+        () => {
+          if (!active) throw new Error('Employee enrollment access has expired');
+          return accessToken;
+        },
+        this.createCommandId(),
+        invitationSecret,
+      );
+    } catch {
+      result = { status: 'transient_failure' as const };
+    } finally {
+      active = false;
+    }
+    if (generation !== this.generation || tokenRevision !== this.tokenRevision) {
+      return { status: 'context_unavailable' };
+    }
+    if (result.status === 'authority_rejected') {
+      await this.clearRejectedSession('authority_rejected');
+      return { status: 'authority_rejected' };
+    }
+    if (result.status === 'enrollment_unavailable' || result.status === 'invalid_request') {
+      this.setState({ status: 'enrollment_only', notice: result.status });
+      return { status: result.status };
+    }
+    if (result.status === 'transient_failure') {
+      this.setState({ status: 'enrollment_only', notice: 'request_failed' });
+      return { status: 'context_unavailable' };
+    }
+    this.enrollmentIntentGeneration = null;
+    const sessionResult = await this.resolveBackendContext(accessToken, generation, tokenRevision);
+    return sessionResult.status === 'authenticated'
+      ? { status: 'enrolled' }
+      : sessionResult.status === 'authority_rejected'
+        ? { status: 'authority_rejected' }
+        : { status: 'context_unavailable' };
   }
 
   async refresh(): Promise<void> {
@@ -269,8 +338,13 @@ export class MobileSessionCoordinator implements
     return { status: 'authority_rejected' };
   }
 
-  private async performSignIn(email: string, password: string): Promise<SignInResult> {
+  private async performSignIn(
+    email: string,
+    password: string,
+    employeeEnrollmentIntent: boolean,
+  ): Promise<SignInResult> {
     const generation = this.invalidateInMemorySession();
+    this.enrollmentIntentGeneration = employeeEnrollmentIntent ? generation : null;
     this.setState({ status: 'signing_in' });
     try {
       await this.enqueueStorageClear(generation);
@@ -435,6 +509,10 @@ export class MobileSessionCoordinator implements
   }
 
   private async performRefresh(generation: number): Promise<void> {
+    const enrollmentNotice = this.state.status === 'enrollment_only'
+      && this.enrollmentIntentGeneration === generation
+      ? this.state.notice
+      : undefined;
     let storedRefreshToken: string | null;
     try {
       storedRefreshToken = this.refreshToken ?? await this.refreshTokenStore.read();
@@ -482,6 +560,10 @@ export class MobileSessionCoordinator implements
       await this.handleStorageFailure();
       return;
     }
+    if (enrollmentNotice !== undefined) {
+      this.setState({ status: 'enrollment_only', notice: enrollmentNotice });
+      return;
+    }
     await this.resolveBackendContext(result.tokens.accessToken, generation, tokenRevision);
   }
 
@@ -503,12 +585,21 @@ export class MobileSessionCoordinator implements
       return { status: 'infrastructure_error' };
     }
     if (result.status === 'resolved') {
+      this.enrollmentIntentGeneration = null;
       this.setState({ status: 'authenticated', session: result.session });
       return { status: 'authenticated' };
     }
     if (result.status === 'unavailable') {
       this.setState({ status: 'context_unavailable' });
       return { status: 'context_unavailable' };
+    }
+    if (
+      this.enrollmentIntentGeneration === generation
+      && this.providerSessionAllowed
+      && this.accessToken === accessToken
+    ) {
+      this.setState({ status: 'enrollment_only', notice: null });
+      return { status: 'enrollment_required' };
     }
     await this.clearRejectedSession('authority_rejected');
     return { status: 'authority_rejected' };
@@ -561,9 +652,13 @@ export class MobileSessionCoordinator implements
       return;
     }
     const generation = this.generation;
+    const preserveEnrollmentShell = this.state.status === 'enrollment_only'
+      && this.enrollmentIntentGeneration === generation;
     const tokenRevision = this.acceptProviderTokens(event.tokens);
     const operation = this.enqueueTokenWrite(event.tokens.refreshToken, generation).then(
-      () => this.resolveBackendContext(event.tokens.accessToken, generation, tokenRevision),
+      () => preserveEnrollmentShell
+        ? undefined
+        : this.resolveBackendContext(event.tokens.accessToken, generation, tokenRevision),
       () => this.handleStorageFailure(),
     ).catch(() => undefined);
     this.providerEventFlight = operation.then(() => undefined);
@@ -584,6 +679,7 @@ export class MobileSessionCoordinator implements
     this.refreshToken = null;
     this.tokenRevision += 1;
     this.unauthorizedRefreshFlight = null;
+    this.enrollmentIntentGeneration = null;
     return this.generation;
   }
 

@@ -1,4 +1,10 @@
-import type { AdminWebCapability, AdminWebState, SafeProjection } from './contracts';
+import type {
+  AdminWebCapability,
+  AdminWebState,
+  SafeEmployeeProjection,
+  SafeProjection,
+  VolatileInvitationSecret,
+} from './contracts';
 import { AdminWebApiClient, type AdminWebApiPort } from './AdminWebApiClient';
 
 export interface AdminWebAuthPort {
@@ -12,6 +18,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
   private membershipId: string | null = null;
   private generation = 0;
   private authenticationQueue: Promise<void> = Promise.resolve();
+  private invitationExpiryTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly listeners = new Set<() => void>();
 
   constructor(
@@ -25,6 +32,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
   async signIn(email: string, password: string): Promise<void> {
     const generation = ++this.generation;
     this.membershipId = null;
+    this.clearInvitationExpiryTimer();
     this.setState({ status: 'signing_in' });
     await this.enqueueAuthentication(() => this.completeSignIn(generation, email, password));
   }
@@ -32,6 +40,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
   async signOut(): Promise<void> {
     this.generation += 1;
     this.membershipId = null;
+    this.clearInvitationExpiryTimer();
     this.setState({ status: 'signed_out' });
     await this.enqueueAuthentication(() => this.safeSignOut());
   }
@@ -42,15 +51,27 @@ export class AdminWebCoordinator implements AdminWebCapability {
     const generation = this.generation;
     this.setState({ status: 'loading' });
     let result;
+    let employees;
     try {
       result = await this.auth.withAccessToken((token) => this.api.projection(token, membershipId, null));
+      employees = result?.status === 'succeeded'
+        ? await this.auth.withAccessToken((token) => this.api.employeeProjection(token, membershipId, null))
+        : null;
     } catch {
       result = null;
+      employees = null;
     }
     if (generation !== this.generation) return;
-    if (result?.status === 'succeeded') {
-      this.setState({ status: 'ready', projection: result.value, creating: false, notice: null });
-    } else if (result === null || result.status === 'rejected') {
+    if (result?.status === 'succeeded' && employees?.status === 'succeeded') {
+      this.setState(readyState(result.value, employees.value));
+    } else if (
+      result === null
+      || result.status === 'rejected'
+      || (
+        result.status === 'succeeded'
+        && (employees === null || employees.status === 'rejected')
+      )
+    ) {
       await this.rejectOutsideAuthentication(generation, 'Administrator-Sitzung ist nicht mehr gültig.');
     } else {
       this.setState({ status: 'unavailable', message: 'Einrichtungsdaten sind derzeit nicht erreichbar.' });
@@ -58,11 +79,12 @@ export class AdminWebCoordinator implements AdminWebCapability {
   }
 
   async loadMore(): Promise<void> {
-    const current = this.state;
+    let current = this.state;
     const membershipId = this.membershipId;
     if (current.status !== 'ready' || membershipId === null || current.projection.nextCursor === null) return;
     const generation = this.generation;
     const requestedCursor = current.projection.nextCursor;
+    current = { ...current, invitation: null };
     this.setState({ status: 'loading' });
     let result;
     try {
@@ -74,7 +96,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
     if (result?.status === 'succeeded') {
       const merged = mergeProjection(current.projection, result.value, requestedCursor);
       if (merged !== null) {
-        this.setState({ status: 'ready', projection: merged, creating: false, notice: current.notice });
+        this.setState({ ...current, projection: merged, creating: false });
       } else {
         this.setState({ status: 'unavailable', message: 'Weitere Einrichtungsdaten konnten nicht sicher bestätigt werden.' });
       }
@@ -110,6 +132,105 @@ export class AdminWebCoordinator implements AdminWebCapability {
     }
   }
 
+  async loadMoreEmployees(): Promise<void> {
+    const current = this.state;
+    const membershipId = this.membershipId;
+    if (
+      current.status !== 'ready'
+      || membershipId === null
+      || current.employeeProjection.nextCursor === null
+    ) return;
+    const generation = this.generation;
+    const requestedCursor = current.employeeProjection.nextCursor;
+    let result;
+    try {
+      result = await this.auth.withAccessToken(
+        (token) => this.api.employeeProjection(token, membershipId, requestedCursor),
+      );
+    } catch {
+      result = { status: 'unavailable' as const };
+    }
+    if (generation !== this.generation) return;
+    if (result?.status === 'succeeded') {
+      const merged = mergeEmployeeProjection(
+        current.employeeProjection,
+        result.value,
+        requestedCursor,
+      );
+      if (merged !== null) {
+        this.setState({ ...current, employeeProjection: merged });
+      } else {
+        this.setState({ status: 'unavailable', message: 'Weitere Beschäftigtendaten konnten nicht sicher bestätigt werden.' });
+      }
+    } else if (result === null || result.status === 'rejected') {
+      await this.rejectOutsideAuthentication(generation, 'Administrator-Sitzung ist nicht mehr gültig.');
+    } else {
+      this.setState({ ...current, notice: 'Weitere Beschäftigtendaten sind derzeit nicht erreichbar.' });
+    }
+  }
+
+  async createEmployeeInvitation(displayName: string): Promise<void> {
+    const current = this.state;
+    const membershipId = this.membershipId;
+    if (
+      current.status !== 'ready'
+      || membershipId === null
+      || displayName.trim().length < 1
+      || Array.from(displayName.normalize('NFC').trim()).length > 120
+    ) return;
+    const generation = this.generation;
+    this.setState({
+      ...current,
+      creatingEmployee: true,
+      invitation: null,
+      notice: null,
+    });
+    let result;
+    try {
+      result = await this.auth.withAccessToken((token) => this.api.createEmployeeInvitation(
+        token,
+        membershipId,
+        crypto.randomUUID(),
+        displayName,
+      ));
+    } catch {
+      result = { status: 'unavailable' as const };
+    }
+    if (generation !== this.generation) return;
+    const latest = this.state;
+    if (latest.status !== 'ready') return;
+    if (result?.status === 'succeeded') {
+      this.setState({
+        ...latest,
+        creatingEmployee: false,
+        invitation: result.value,
+        notice: 'Einladung wurde einmalig erzeugt.',
+      });
+    } else if (result === null || result.status === 'rejected') {
+      await this.rejectOutsideAuthentication(generation, 'Administrator-Sitzung ist nicht mehr gültig.');
+    } else if (result.status === 'conflict') {
+      const notice = result.code === 'invitation_limit_reached'
+        ? 'Es sind bereits fünf aktive Einladungen vorhanden.'
+        : result.code === 'invitation_created_token_unavailable'
+          ? 'Diese Einladung wurde bereits erzeugt; ihr Geheimnis kann nicht erneut angezeigt werden.'
+          : 'Die Einladungsanfrage steht mit einer vorhandenen Anfrage in Konflikt.';
+      this.setState({ ...latest, creatingEmployee: false, invitation: null, notice });
+    } else {
+      this.setState({
+        ...latest,
+        creatingEmployee: false,
+        invitation: null,
+        notice: 'Einladung konnte nicht sicher erzeugt werden.',
+      });
+    }
+  }
+
+  dismissInvitation(): void {
+    const current = this.state;
+    if (current.status !== 'ready' || current.invitation === null) return;
+    this.setState({ ...current, invitation: null, notice: 'Einladungsgeheimnis wurde verworfen.' });
+  }
+
   private async completeSignIn(generation: number, email: string, password: string): Promise<void> {
     try {
       if (!await this.auth.signIn(email, password)) {
@@ -133,7 +254,17 @@ export class AdminWebCoordinator implements AdminWebCapability {
       const projection = await this.auth.withAccessToken((token) => this.api.projection(token, session.value.membershipId, null));
       if (generation !== this.generation) { await this.safeSignOut(); return; }
       if (projection?.status === 'succeeded') {
-        this.setState({ status: 'ready', projection: projection.value, creating: false, notice: null });
+        const employees = await this.auth.withAccessToken(
+          (token) => this.api.employeeProjection(token, session.value.membershipId, null),
+        );
+        if (generation !== this.generation) { await this.safeSignOut(); return; }
+        if (employees?.status === 'succeeded') {
+          this.setState(readyState(projection.value, employees.value));
+        } else if (employees === null || employees.status === 'rejected') {
+          await this.rejectWithinAuthentication(generation, 'Administrator-Sitzung ist nicht mehr gültig.');
+        } else {
+          this.setState({ status: 'unavailable', message: 'Beschäftigtendaten sind derzeit nicht erreichbar.' });
+        }
       } else if (projection === null || projection.status === 'rejected') {
         await this.rejectWithinAuthentication(generation, 'Administrator-Sitzung ist nicht mehr gültig.');
       } else {
@@ -175,9 +306,57 @@ export class AdminWebCoordinator implements AdminWebCapability {
   }
 
   private setState(state: AdminWebState): void {
+    this.clearInvitationExpiryTimer();
     this.state = Object.freeze(state);
+    if (state.status === 'ready' && state.invitation !== null) {
+      const generation = this.generation;
+      const invitation = state.invitation;
+      const remaining = Date.parse(invitation.expiresAt) - Date.now();
+      if (remaining <= 0) {
+        this.state = Object.freeze({ ...state, invitation: null, notice: 'Einladung ist abgelaufen.' });
+      } else {
+        this.invitationExpiryTimer = setTimeout(() => {
+          const current = this.state;
+          if (
+            generation === this.generation
+            && current.status === 'ready'
+            && current.invitation?.value === invitation.value
+          ) {
+            this.setState({ ...current, invitation: null, notice: 'Einladung ist abgelaufen.' });
+          }
+        }, Math.min(remaining, 2_147_483_647));
+      }
+    }
     for (const listener of this.listeners) listener();
   }
+
+  private clearInvitationExpiryTimer(): void {
+    if (this.invitationExpiryTimer !== null) {
+      clearTimeout(this.invitationExpiryTimer);
+      this.invitationExpiryTimer = null;
+    }
+  }
+}
+
+function readyState(
+  projection: SafeProjection,
+  employeeProjection: SafeEmployeeProjection,
+): Extract<AdminWebState, { readonly status: 'ready' }> {
+  if (
+    projection.organization.id !== employeeProjection.organization.id
+    || projection.organization.name !== employeeProjection.organization.name
+  ) {
+    throw new Error('Administration projections disagree about the Organization');
+  }
+  return {
+    status: 'ready',
+    projection,
+    employeeProjection,
+    creating: false,
+    creatingEmployee: false,
+    invitation: null,
+    notice: null,
+  };
 }
 
 function mergeProjection(current: SafeProjection, next: SafeProjection, requestedCursor: string): SafeProjection | null {
@@ -189,6 +368,28 @@ function mergeProjection(current: SafeProjection, next: SafeProjection, requeste
     organization: current.organization,
     customers: Object.freeze([...current.customers, ...next.customers]),
     nfcTags: Object.freeze([...current.nfcTags, ...next.nfcTags]),
+    nextCursor: next.nextCursor,
+  });
+}
+
+function mergeEmployeeProjection(
+  current: SafeEmployeeProjection,
+  next: SafeEmployeeProjection,
+  requestedCursor: string,
+): SafeEmployeeProjection | null {
+  if (
+    current.organization.id !== next.organization.id
+    || current.organization.name !== next.organization.name
+    || next.nextCursor === requestedCursor
+  ) return null;
+  const membershipIds = new Set(current.employeeMemberships.map((membership) => membership.id));
+  if (next.employeeMemberships.some((membership) => membershipIds.has(membership.id))) return null;
+  return Object.freeze({
+    organization: current.organization,
+    employeeMemberships: Object.freeze([
+      ...current.employeeMemberships,
+      ...next.employeeMemberships,
+    ]),
     nextCursor: next.nextCursor,
   });
 }

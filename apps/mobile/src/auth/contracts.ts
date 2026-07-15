@@ -49,6 +49,21 @@ export interface BackendSessionPort {
   resolve(accessToken: string): Promise<BackendSessionResolution>;
 }
 
+export type EmployeeEnrollmentRedemption =
+  | { readonly status: 'succeeded' }
+  | { readonly status: 'enrollment_unavailable' }
+  | { readonly status: 'invalid_request' }
+  | { readonly status: 'authority_rejected' }
+  | { readonly status: 'transient_failure' };
+
+export interface EmployeeEnrollmentPort {
+  redeem(
+    accessToken: EphemeralAccessTokenReader,
+    commandId: string,
+    invitationSecret: string,
+  ): Promise<EmployeeEnrollmentRedemption>;
+}
+
 export type MobileSessionState =
   | { readonly status: 'initializing' }
   | {
@@ -57,6 +72,10 @@ export type MobileSessionState =
     }
   | { readonly status: 'signing_in' }
   | { readonly status: 'authenticated'; readonly session: ProductSessionContext }
+  | {
+      readonly status: 'enrollment_only';
+      readonly notice: 'enrollment_unavailable' | 'invalid_request' | 'request_failed' | null;
+    }
   | { readonly status: 'context_unavailable' }
   | {
       readonly status: 'runtime_unavailable';
@@ -69,12 +88,22 @@ export type SignInResult =
   | { readonly status: 'invalid_credentials' }
   | { readonly status: 'authority_rejected' }
   | { readonly status: 'context_unavailable' }
-  | { readonly status: 'infrastructure_error' };
+  | { readonly status: 'infrastructure_error' }
+  | { readonly status: 'enrollment_required' };
+
+export type EmployeeEnrollmentResult =
+  | { readonly status: 'enrolled' }
+  | { readonly status: 'enrollment_unavailable' }
+  | { readonly status: 'invalid_request' }
+  | { readonly status: 'authority_rejected' }
+  | { readonly status: 'context_unavailable' };
 
 export interface MobileSessionCapability {
   getState(): MobileSessionState;
   subscribe(listener: () => void): () => void;
   signIn(email: string, password: string): Promise<SignInResult>;
+  signInForEmployeeEnrollment(email: string, password: string): Promise<SignInResult>;
+  redeemEmployeeInvitation(invitationSecret: string): Promise<EmployeeEnrollmentResult>;
   retryContext(): Promise<void>;
   refresh(): Promise<void>;
   signOut(): Promise<void>;

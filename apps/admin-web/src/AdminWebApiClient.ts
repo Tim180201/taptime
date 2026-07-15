@@ -1,11 +1,23 @@
-import type { SafeProjection } from './contracts';
+import type { SafeEmployeeProjection, SafeProjection, VolatileInvitationSecret } from './contracts';
 
 const maximumJsonBodyBytes = 16 * 1024;
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const cursor = /^v1:[ct]:[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+const employeeCursor = /^v1:e:[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+const invitationSecret = /^[A-Za-z0-9_-]{43}$/;
+const canonicalTimestamp = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 const fingerprint = /^[A-F0-9]{12}$/;
 export type Session = { readonly membershipId: string; readonly role: 'administrator' | 'employee' };
-export type ApiResult<Value> = { readonly status: 'succeeded'; readonly value: Value } | { readonly status: 'rejected' | 'unavailable' };
+export type ApiResult<Value> =
+  | { readonly status: 'succeeded'; readonly value: Value }
+  | { readonly status: 'rejected' | 'unavailable' }
+  | {
+      readonly status: 'conflict';
+      readonly code:
+        | 'command_id_conflict'
+        | 'invitation_created_token_unavailable'
+        | 'invitation_limit_reached';
+    };
 
 export interface AdminWebApiPort {
   session(token: string): Promise<ApiResult<Session>>;
@@ -16,6 +28,17 @@ export interface AdminWebApiPort {
     commandId: string,
     displayName: string,
   ): Promise<ApiResult<true>>;
+  employeeProjection(
+    token: string,
+    membershipId: string,
+    nextCursor: string | null,
+  ): Promise<ApiResult<SafeEmployeeProjection>>;
+  createEmployeeInvitation(
+    token: string,
+    membershipId: string,
+    commandId: string,
+    displayName: string,
+  ): Promise<ApiResult<VolatileInvitationSecret>>;
 }
 
 export class AdminWebApiClient implements AdminWebApiPort {
@@ -35,17 +58,44 @@ export class AdminWebApiClient implements AdminWebApiPort {
       return true;
     });
   }
-  private async request<Value>(path: string, token: string, method: 'GET' | 'POST', body: object | undefined, parse: (value: unknown) => Value | null): Promise<ApiResult<Value>> {
+  async employeeProjection(token: string, membershipId: string, nextCursor: string | null): Promise<ApiResult<SafeEmployeeProjection>> {
+    if (nextCursor !== null && !employeeCursor.test(nextCursor)) return { status: 'unavailable' };
+    return this.request(
+      '/v1/administration/employee-memberships-projection',
+      token,
+      'POST',
+      { expectedMembershipId: membershipId, cursor: nextCursor, limit: 20 },
+      parseEmployeeProjection,
+    );
+  }
+  async createEmployeeInvitation(token: string, membershipId: string, commandId: string, displayName: string): Promise<ApiResult<VolatileInvitationSecret>> {
+    return this.request(
+      '/v1/administration/employee-invitations',
+      token,
+      'POST',
+      { expectedMembershipId: membershipId, commandId, displayName },
+      parseInvitation,
+      true,
+    );
+  }
+  private async request<Value>(path: string, token: string, method: 'GET' | 'POST', body: object | undefined, parse: (value: unknown) => Value | null, exposeInvitationConflicts = false): Promise<ApiResult<Value>> {
     const controller = new AbortController(); const timeout = setTimeout(() => controller.abort(), 10_000);
     try {
       const response = await this.fetchRequest(path, { method, headers: { Accept: 'application/json', Authorization: `Bearer ${token}`, 'Cache-Control': 'no-store', ...(body ? { 'Content-Type': 'application/json' } : {}) }, body: body ? JSON.stringify(body) : undefined, cache: 'no-store', credentials: 'omit', redirect: 'manual', signal: controller.signal });
       if (response.status === 401 || response.status === 403) return { status: 'rejected' };
-      if (response.status !== 200 || response.redirected || !response.headers.get('content-type')?.toLowerCase().startsWith('application/json')) return { status: 'unavailable' };
-      const declaredLength = response.headers.get('content-length');
-      if (declaredLength !== null) {
-        const length = Number(declaredLength);
-        if (!Number.isSafeInteger(length) || length < 0 || length > maximumJsonBodyBytes) return { status: 'unavailable' };
+      if (exposeInvitationConflicts && response.status === 409) {
+        if (
+          response.redirected
+          || !response.headers.get('content-type')?.toLowerCase().startsWith('application/json')
+          || !hasSafeDeclaredLength(response)
+        ) return { status: 'unavailable' };
+        const conflictText = await readBoundedResponseText(response);
+        if (conflictText === null) return { status: 'unavailable' };
+        const code = parseInvitationConflict(JSON.parse(conflictText));
+        return code === null ? { status: 'unavailable' } : { status: 'conflict', code };
       }
+      if (response.status !== 200 || response.redirected || !response.headers.get('content-type')?.toLowerCase().startsWith('application/json')) return { status: 'unavailable' };
+      if (!hasSafeDeclaredLength(response)) return { status: 'unavailable' };
       const text = await readBoundedResponseText(response);
       if (text === null) return { status: 'unavailable' };
       const value = parse(JSON.parse(text)); return value === null ? { status: 'unavailable' } : { status: 'succeeded', value };
@@ -61,8 +111,53 @@ function parseProjection(value: unknown): SafeProjection | null {
   if (customers.some((x) => x === null) || tags.some((x) => x === null)) return null;
   return { organization: { id: String(value.organization.id), name: value.organization.name }, customers: customers as SafeProjection['customers'], nfcTags: tags as SafeProjection['nfcTags'], nextCursor: value.nextCursor };
 }
+function parseEmployeeProjection(value: unknown): SafeEmployeeProjection | null {
+  if (!isRecord(value) || !exact(value, ['status', 'organization', 'employeeMemberships', 'nextCursor'])
+    || value.status !== 'succeeded' || !isRecord(value.organization)
+    || !exact(value.organization, ['id', 'name']) || !uuid.test(String(value.organization.id))
+    || typeof value.organization.name !== 'string' || !Array.isArray(value.employeeMemberships)
+    || !(value.nextCursor === null || (typeof value.nextCursor === 'string' && employeeCursor.test(value.nextCursor)))) return null;
+  const memberships = value.employeeMemberships.map((entry) => isRecord(entry)
+    && exact(entry, ['id', 'displayName', 'role', 'active'])
+    && uuid.test(String(entry.id)) && typeof entry.displayName === 'string'
+    && entry.role === 'employee' && entry.active === true
+    ? { id: String(entry.id), displayName: entry.displayName, role: 'employee' as const, active: true as const }
+    : null);
+  if (memberships.some((entry) => entry === null)) return null;
+  return {
+    organization: { id: String(value.organization.id), name: value.organization.name },
+    employeeMemberships: memberships as SafeEmployeeProjection['employeeMemberships'],
+    nextCursor: value.nextCursor,
+  };
+}
+function parseInvitation(value: unknown): VolatileInvitationSecret | null {
+  if (!isRecord(value) || !exact(value, ['status', 'invitationSecret', 'expiresAt'])
+    || value.status !== 'succeeded' || typeof value.invitationSecret !== 'string'
+    || !invitationSecret.test(value.invitationSecret) || typeof value.expiresAt !== 'string'
+    || !canonicalTimestamp.test(value.expiresAt) || new Date(value.expiresAt).toISOString() !== value.expiresAt) return null;
+  const binary = atob(value.invitationSecret.replaceAll('-', '+').replaceAll('_', '/') + '=');
+  const decoded = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+  const encoded = btoa(binary).replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/, '');
+  if (decoded.length !== 32 || encoded !== value.invitationSecret) return null;
+  return { value: value.invitationSecret, expiresAt: value.expiresAt };
+}
+function parseInvitationConflict(value: unknown): 'command_id_conflict' | 'invitation_created_token_unavailable' | 'invitation_limit_reached' | null {
+  if (!isRecord(value) || !exact(value, ['error']) || !isRecord(value.error) || !exact(value.error, ['code'])) return null;
+  return value.error.code === 'command_id_conflict'
+    || value.error.code === 'invitation_created_token_unavailable'
+    || value.error.code === 'invitation_limit_reached'
+    ? value.error.code
+    : null;
+}
 function isRecord(value: unknown): value is Record<string, unknown> { return typeof value === 'object' && value !== null && !Array.isArray(value); }
 function exact(value: Record<string, unknown>, keys: readonly string[]): boolean { return Object.keys(value).sort().join(',') === [...keys].sort().join(','); }
+
+function hasSafeDeclaredLength(response: Response): boolean {
+  const declaredLength = response.headers.get('content-length');
+  if (declaredLength === null) return true;
+  const length = Number(declaredLength);
+  return Number.isSafeInteger(length) && length >= 0 && length <= maximumJsonBodyBytes;
+}
 
 async function readBoundedResponseText(response: Response): Promise<string | null> {
   if (response.body === null) return '';

@@ -83,6 +83,16 @@ const connectionStrings = {
     C2_ADMINISTRATION_RUNTIME_LOGIN,
     passwords.administration,
   ),
+  employeeInvitation: runtimeConnectionString(
+    installerConnectionString,
+    'taptime_c3e1_invitation_runtime',
+    'c3e1-invitation-local-synthetic-only',
+  ),
+  employeeEnrollment: runtimeConnectionString(
+    installerConnectionString,
+    'taptime_c3e1_enrollment_runtime',
+    'c3e1-enrollment-local-synthetic-only',
+  ),
 } as const;
 
 const installerPool = new Pool({ connectionString: installerConnectionString, max: 8 });
@@ -110,6 +120,8 @@ beforeAll(async () => {
     readModelDatabaseUrl: connectionStrings.readModel,
     lifecycleDatabaseUrl: connectionStrings.lifecycle,
     administrationDatabaseUrl: connectionStrings.administration,
+    employeeInvitationDatabaseUrl: connectionStrings.employeeInvitation,
+    employeeEnrollmentDatabaseUrl: connectionStrings.employeeEnrollment,
     supabaseIssuer: jwks.issuerA,
   }, {
     onDiagnostic: (diagnostic) => diagnostics.push(diagnostic),
@@ -130,13 +142,13 @@ afterAll(async () => {
 });
 
 describe('C2 package, runtime composition, and least privilege', () => {
-  it('uses exactly migrations 001 through 007 and reruns the ledger cleanly', async () => {
+  it('uses exactly migrations 001 through 008 and reruns the ledger cleanly', async () => {
     expect((await loadMigrations()).map(({ version }) => version)).toEqual([
-      '001', '002', '003', '004', '005', '006', '007',
+      '001', '002', '003', '004', '005', '006', '007', '008',
     ]);
     await expect(migrate(installerPool)).resolves.toEqual({
       applied: [],
-      alreadyApplied: ['001', '002', '003', '004', '005', '006', '007'],
+      alreadyApplied: ['001', '002', '003', '004', '005', '006', '007', '008'],
     });
   });
 
@@ -227,6 +239,8 @@ describe('C2 package, runtime composition, and least privilege', () => {
       readModelDatabaseUrl: connectionStrings.readModel,
       lifecycleDatabaseUrl: connectionStrings.lifecycle,
       administrationDatabaseUrl: connectionStrings.administration,
+      employeeInvitationDatabaseUrl: connectionStrings.employeeInvitation,
+      employeeEnrollmentDatabaseUrl: connectionStrings.employeeEnrollment,
       supabaseIssuer: 'https://synthetic.supabase.co/auth/v1',
     })).toThrow(/database URL|runtime login/);
   });
@@ -241,6 +255,8 @@ describe('C2 package, runtime composition, and least privilege', () => {
       readModelDatabaseUrl: encodedAlias,
       lifecycleDatabaseUrl: connectionStrings.lifecycle,
       administrationDatabaseUrl: connectionStrings.administration,
+      employeeInvitationDatabaseUrl: connectionStrings.employeeInvitation,
+      employeeEnrollmentDatabaseUrl: connectionStrings.employeeEnrollment,
       supabaseIssuer: 'https://synthetic.supabase.co/auth/v1',
     })).toThrow('Backend API database runtime login names must be distinct');
   });
@@ -258,6 +274,8 @@ describe('C2 package, runtime composition, and least privilege', () => {
       readModelDatabaseUrl: overridden.href,
       lifecycleDatabaseUrl: connectionStrings.lifecycle,
       administrationDatabaseUrl: connectionStrings.administration,
+      employeeInvitationDatabaseUrl: connectionStrings.employeeInvitation,
+      employeeEnrollmentDatabaseUrl: connectionStrings.employeeEnrollment,
       supabaseIssuer: 'https://synthetic.supabase.co/auth/v1',
     })).toThrow('Backend API database URL contains an unsupported connection parameter');
   });
@@ -1628,12 +1646,24 @@ function testDependencies(
       return { status: 'unauthorized' };
     },
   };
+  const employeeEnrollment: BackendApiDependencies['employeeEnrollment'] = {
+    async createInvitation() {
+      return { status: 'unauthorized' };
+    },
+    async redeemInvitation() {
+      return { status: 'unauthorized' };
+    },
+    async readEmployeeMembershipsProjection() {
+      return { status: 'unauthorized' };
+    },
+  };
   return {
     sessionAuthority,
     scanContextResolver,
     lifecycleIngestor,
     deferredLifecycleIngestor,
     administration,
+    employeeEnrollment,
     ...overrides,
   };
 }

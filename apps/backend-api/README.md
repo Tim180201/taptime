@@ -1,7 +1,7 @@
-# TapTim.e Backend API — C3C transport
+# TapTim.e Backend API — C3C/C3E1 transport
 
-This private Node 24 workspace exposes the authenticated product API plus the three fixed C3C
-administration capabilities:
+This private Node 24 workspace exposes the authenticated product API, the three fixed C3C
+administration capabilities and the three separately bounded C3E1 operations:
 
 ```text
 GET  /v1/session
@@ -15,6 +15,12 @@ POST /v1/administration/nfc-tags/provision
   { expectedMembershipId, commandId, customerId, displayName, canonicalPayload }
 POST /v1/administration/setup-projection
   { expectedMembershipId, cursor, limit }
+POST /v1/administration/employee-invitations
+  { expectedMembershipId, commandId, displayName }
+POST /v1/administration/employee-memberships-projection
+  { expectedMembershipId, cursor, limit }
+POST /v1/employee-enrollment/redeem
+  { commandId, invitationSecret }
 
 Authorization: Bearer <Supabase access token>
 ```
@@ -26,13 +32,16 @@ current User, Organization, Membership and Administrator role. The lifecycle
 the single narrowing source. Raw NFC payloads are accepted only by the provision request and are
 never returned or written to transport diagnostics.
 
-The process owns four PostgreSQL pools with four distinct runtime login names:
+The process owns six PostgreSQL pools with six distinct runtime login names:
 
 - session: exactly `taptime_identity_resolver`;
 - read model: `taptime_identity_resolver`, `taptime_employee` and `taptime_administrator`, with a
   read-only tenant transaction;
 - lifecycle: `taptime_identity_resolver` and `taptime_server_lifecycle`;
 - administration: only `taptime_identity_resolver` and `taptime_admin_setup`.
+- Employee invitation/projection: only `taptime_identity_resolver` and
+  `taptime_employee_invitation_creator`;
+- pre-Membership redemption: only `taptime_employee_enrollment_redeemer`.
 
 The runtime rejects duplicate database usernames. To prevent `node-postgres` query parameters from
 silently replacing a login, endpoint, startup role or timeout, only TLS-related URL parameters are
@@ -48,6 +57,8 @@ TAPTIME_SESSION_DATABASE_URL
 TAPTIME_READ_MODEL_DATABASE_URL
 TAPTIME_LIFECYCLE_DATABASE_URL
 TAPTIME_ADMINISTRATION_DATABASE_URL
+TAPTIME_EMPLOYEE_INVITATION_DATABASE_URL
+TAPTIME_EMPLOYEE_ENROLLMENT_DATABASE_URL
 SUPABASE_ISSUER
 PORT                                      # optional, default 3000
 ```
@@ -58,7 +69,7 @@ authority, receipt, audit and concurrency integration matrix; this workspace own
 surface, status mapping, header/body hardening, deadline propagation and runtime composition.
 
 This is not a production deployment: production secrets/data, Supavisor validation,
-observability/rate policy and later C3D/C3E surfaces remain separate gates.
+observability/rate policy and later C3E2 surfaces remain separate gates.
 
 Run after building the administration contract, Core, schema, identity, read-model, lifecycle and
 administration dependencies:

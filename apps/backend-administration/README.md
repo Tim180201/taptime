@@ -1,6 +1,6 @@
 # `@taptime/backend-administration`
 
-Private C3C Node 24 workspace for the normal tenant-safe setup plane. It verifies the existing B4
+Private C3C/C3E1 Node 24 workspace for the tenant-safe setup and Employee enrollment planes. It verifies the existing B4
 identity boundary, locks the current Membership, requires an exact expected Membership plus current
 Administrator role, then uses only `taptime_admin_setup` inside migration `007`.
 
@@ -15,6 +15,12 @@ active Customer row lock under a separate non-login owner. A trigger-only receip
 capability independently rebinds every committed receipt to its exact resources, request digest and
 audit provenance; the authority/audit owner remains isolated from those data rights. Every command
 carries its HTTP deadline into PostgreSQL lock, statement and transaction bounds.
+
+Migration `008` adds a distinct current-Administrator invitation capability and a separate
+pre-Membership redemption capability. A server-generated 32-byte secret is returned once and only
+its domain-separated digest is stored. Redemption creates User, IdentityBinding, Employee
+Membership, consumption, receipt and creator-attributed audit atomically. The two runtime logins
+cannot assume one another's role and have no direct table access.
 
 Local verification uses a disposable PostgreSQL 17 database and a superuser installer:
 

@@ -1,13 +1,18 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { AdminWebApiPort, ApiResult, Session } from '../src/AdminWebApiClient';
 import { AdminWebCoordinator, type AdminWebAuthPort } from '../src/AdminWebCoordinator';
-import type { SafeProjection } from '../src/contracts';
+import type { SafeEmployeeProjection, SafeProjection } from '../src/contracts';
 
 const membershipId = '20000000-0000-4000-8000-000000000001';
 const projection: SafeProjection = {
   organization: { id: '30000000-0000-4000-8000-000000000001', name: 'TapTim.e' },
   customers: [{ id: '40000000-0000-4000-8000-000000000001', displayName: 'Werkstatt', active: true }],
   nfcTags: [],
+  nextCursor: null,
+};
+const employeeProjection: SafeEmployeeProjection = {
+  organization: projection.organization,
+  employeeMemberships: [],
   nextCursor: null,
 };
 
@@ -36,6 +41,16 @@ class FakeApi implements AdminWebApiPort {
   }));
   readonly createCustomer = vi.fn<AdminWebApiPort['createCustomer']>(async () => ({
     status: 'succeeded', value: true,
+  }));
+  readonly employeeProjection = vi.fn<AdminWebApiPort['employeeProjection']>(async () => ({
+    status: 'succeeded', value: employeeProjection,
+  }));
+  readonly createEmployeeInvitation = vi.fn<AdminWebApiPort['createEmployeeInvitation']>(async () => ({
+    status: 'succeeded',
+    value: {
+      value: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+      expiresAt: '2099-07-15T12:34:56.789Z',
+    },
   }));
 }
 
@@ -101,7 +116,8 @@ describe('AdminWebCoordinator', () => {
     expect(auth.active).toBe(true);
     expect(api.projection).toHaveBeenCalledTimes(1);
     expect(coordinator.getState()).toEqual({
-      status: 'ready', projection, creating: false, notice: null,
+      status: 'ready', projection, employeeProjection, creating: false,
+      creatingEmployee: false, invitation: null, notice: null,
     });
   });
 
@@ -119,7 +135,8 @@ describe('AdminWebCoordinator', () => {
     );
     expect(api.projection).toHaveBeenCalledTimes(2);
     expect(coordinator.getState()).toEqual({
-      status: 'ready', projection, creating: false, notice: 'Kunde wurde sicher angelegt.',
+      status: 'ready', projection, employeeProjection, creating: false,
+      creatingEmployee: false, invitation: null, notice: 'Kunde wurde sicher angelegt.',
     });
   });
 
@@ -127,6 +144,20 @@ describe('AdminWebCoordinator', () => {
     const { auth, api, coordinator } = setup();
     await coordinator.signIn('administrator@example.test', 'secret');
     api.projection.mockResolvedValueOnce({ status: 'rejected' });
+
+    await coordinator.refresh();
+
+    expect(coordinator.getState()).toEqual({
+      status: 'unavailable', message: 'Administrator-Sitzung ist nicht mehr gültig.',
+    });
+    expect(auth.signOut).toHaveBeenCalledOnce();
+    expect(auth.active).toBe(false);
+  });
+
+  it('invalidates and signs out when the Employee projection rejects a refresh', async () => {
+    const { auth, api, coordinator } = setup();
+    await coordinator.signIn('administrator@example.test', 'secret');
+    api.employeeProjection.mockResolvedValueOnce({ status: 'rejected' });
 
     await coordinator.refresh();
 
@@ -158,7 +189,8 @@ describe('AdminWebCoordinator', () => {
 
     expect(api.projection).toHaveBeenLastCalledWith('memory-only-token', membershipId, cursor);
     expect(coordinator.getState()).toEqual({
-      status: 'ready', creating: false, notice: null,
+      status: 'ready', creating: false, creatingEmployee: false,
+      invitation: null, notice: null, employeeProjection,
       projection: {
         organization: projection.organization,
         customers: [...projection.customers, { id: '40000000-0000-4000-8000-000000000002', displayName: 'Lager', active: true }],
@@ -215,5 +247,99 @@ describe('AdminWebCoordinator', () => {
         status: 'unavailable', message: 'Weitere Einrichtungsdaten konnten nicht sicher bestätigt werden.',
       });
     }
+  });
+
+  it('holds an invitation secret only in the ready generation and clears it on sign-out', async () => {
+    const { auth, api, coordinator } = setup();
+    await coordinator.signIn('administrator@example.test', 'secret');
+
+    await coordinator.createEmployeeInvitation('Employee Alpha');
+
+    expect(api.createEmployeeInvitation).toHaveBeenCalledWith(
+      'memory-only-token',
+      membershipId,
+      expect.stringMatching(/^[0-9a-f-]{36}$/i),
+      'Employee Alpha',
+    );
+    expect(coordinator.getState()).toMatchObject({
+      status: 'ready',
+      invitation: {
+        value: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+        expiresAt: '2099-07-15T12:34:56.789Z',
+      },
+      creatingEmployee: false,
+    });
+
+    await coordinator.signOut();
+
+    expect(coordinator.getState()).toEqual({ status: 'signed_out' });
+    expect(auth.active).toBe(false);
+  });
+
+  it('never restores a once-disclosed secret on refresh or command replay conflict', async () => {
+    const { api, coordinator } = setup();
+    await coordinator.signIn('administrator@example.test', 'secret');
+    await coordinator.createEmployeeInvitation('Employee Alpha');
+    expect(coordinator.getState()).toMatchObject({ status: 'ready', invitation: expect.any(Object) });
+
+    await coordinator.refresh();
+
+    expect(coordinator.getState()).toMatchObject({ status: 'ready', invitation: null });
+    api.createEmployeeInvitation.mockResolvedValueOnce({
+      status: 'conflict', code: 'invitation_created_token_unavailable',
+    });
+    await coordinator.createEmployeeInvitation('Employee Alpha');
+    expect(coordinator.getState()).toMatchObject({
+      status: 'ready',
+      invitation: null,
+      notice: 'Diese Einladung wurde bereits erzeugt; ihr Geheimnis kann nicht erneut angezeigt werden.',
+    });
+  });
+
+  it('never restores a once-disclosed secret after setup pagination leaves the ready screen', async () => {
+    const { api, coordinator } = setup();
+    const cursor = 'v1:c:40000000-0000-4000-8000-000000000001';
+    api.projection.mockResolvedValueOnce({
+      status: 'succeeded', value: { ...projection, nextCursor: cursor },
+    });
+    await coordinator.signIn('administrator@example.test', 'secret');
+    await coordinator.createEmployeeInvitation('Employee Alpha');
+    expect(coordinator.getState()).toMatchObject({ status: 'ready', invitation: expect.any(Object) });
+    api.projection.mockResolvedValueOnce({
+      status: 'succeeded',
+      value: {
+        organization: projection.organization,
+        customers: [{
+          id: '40000000-0000-4000-8000-000000000002',
+          displayName: 'Lager',
+          active: true,
+        }],
+        nfcTags: [],
+        nextCursor: null,
+      },
+    });
+
+    await coordinator.loadMore();
+
+    expect(coordinator.getState()).toMatchObject({ status: 'ready', invitation: null });
+  });
+
+  it('fails closed when the Employee projection claims a different Organization', async () => {
+    const { auth, api, coordinator } = setup();
+    api.employeeProjection.mockResolvedValueOnce({
+      status: 'succeeded',
+      value: {
+        organization: { id: '30000000-0000-4000-8000-000000000002', name: 'Andere Organisation' },
+        employeeMemberships: [],
+        nextCursor: null,
+      },
+    });
+
+    await coordinator.signIn('administrator@example.test', 'secret');
+
+    expect(coordinator.getState()).toEqual({
+      status: 'unavailable', message: 'Anmeldung derzeit nicht verfügbar.',
+    });
+    expect(auth.active).toBe(false);
   });
 });

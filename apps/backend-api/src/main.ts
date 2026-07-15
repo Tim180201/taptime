@@ -4,6 +4,8 @@ const sessionDatabaseUrl = requiredEnvironmentValue('TAPTIME_SESSION_DATABASE_UR
 const readModelDatabaseUrl = requiredEnvironmentValue('TAPTIME_READ_MODEL_DATABASE_URL');
 const lifecycleDatabaseUrl = requiredEnvironmentValue('TAPTIME_LIFECYCLE_DATABASE_URL');
 const administrationDatabaseUrl = requiredEnvironmentValue('TAPTIME_ADMINISTRATION_DATABASE_URL');
+const employeeInvitationDatabaseUrl = requiredEnvironmentValue('TAPTIME_EMPLOYEE_INVITATION_DATABASE_URL');
+const employeeEnrollmentDatabaseUrl = requiredEnvironmentValue('TAPTIME_EMPLOYEE_ENROLLMENT_DATABASE_URL');
 const supabaseIssuer = requiredEnvironmentValue('SUPABASE_ISSUER');
 const port = parsePort(process.env.PORT ?? '3000');
 const runtime = createBackendApiRuntime({
@@ -11,6 +13,8 @@ const runtime = createBackendApiRuntime({
   readModelDatabaseUrl,
   lifecycleDatabaseUrl,
   administrationDatabaseUrl,
+  employeeInvitationDatabaseUrl,
+  employeeEnrollmentDatabaseUrl,
   supabaseIssuer,
 });
 
@@ -41,6 +45,8 @@ runtime.server.once('error', () => {
 type RequiredRuntimeEnvironmentName =
   | 'SUPABASE_ISSUER'
   | 'TAPTIME_ADMINISTRATION_DATABASE_URL'
+  | 'TAPTIME_EMPLOYEE_ENROLLMENT_DATABASE_URL'
+  | 'TAPTIME_EMPLOYEE_INVITATION_DATABASE_URL'
   | 'TAPTIME_LIFECYCLE_DATABASE_URL'
   | 'TAPTIME_READ_MODEL_DATABASE_URL'
   | 'TAPTIME_SESSION_DATABASE_URL';

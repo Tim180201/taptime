@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "C3C tenant-safe normal organization setup coordinator and safe projection.",
+  "description": "C3C tenant-safe setup plus C3E1 Employee invitation and enrollment coordinators.",
   "engines": {
     "node": ">=24 <25"
   },

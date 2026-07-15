@@ -3,6 +3,9 @@ import { MobileSessionCoordinator } from '../../src/auth/MobileSessionCoordinato
 import type {
   BackendSessionPort,
   BackendSessionResolution,
+  EmployeeEnrollmentPort,
+  EmployeeEnrollmentRedemption,
+  EphemeralAccessTokenReader,
   ProductSessionContext,
   ProviderAuthEvent,
   ProviderAuthPort,
@@ -138,12 +141,36 @@ class FakeBackendSession implements BackendSessionPort {
   }
 }
 
+class FakeEmployeeEnrollment implements EmployeeEnrollmentPort {
+  readonly calls: Array<{ commandId: string; invitationSecret: string; accessToken: string }> = [];
+  retainedReader: EphemeralAccessTokenReader | null = null;
+  implementation: () => Promise<EmployeeEnrollmentRedemption> =
+    async () => ({ status: 'enrollment_unavailable' });
+
+  async redeem(
+    accessToken: EphemeralAccessTokenReader,
+    commandId: string,
+    invitationSecret: string,
+  ): Promise<EmployeeEnrollmentRedemption> {
+    this.retainedReader = accessToken;
+    this.calls.push({ commandId, invitationSecret, accessToken: accessToken() });
+    return this.implementation();
+  }
+}
+
 function setup(storedRefreshToken: string | null = null) {
   const provider = new FakeProvider();
   const store = new FakeRefreshTokenStore(storedRefreshToken);
   const backend = new FakeBackendSession();
-  const coordinator = new MobileSessionCoordinator(provider, store, backend);
-  return { provider, store, backend, coordinator };
+  const enrollment = new FakeEmployeeEnrollment();
+  const coordinator = new MobileSessionCoordinator(
+    provider,
+    store,
+    backend,
+    enrollment,
+    () => 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+  );
+  return { provider, store, backend, enrollment, coordinator };
 }
 
 describe('MobileSessionCoordinator', () => {
@@ -224,6 +251,106 @@ describe('MobileSessionCoordinator', () => {
     expect(JSON.stringify(store.writes)).not.toContain('exact-password');
     expect(JSON.stringify(store.writes)).not.toContain('signed-in-access');
     expect(backend.accessTokens).toEqual(['signed-in-access']);
+  });
+
+  it('keeps normal 401 sign-in fail-closed while explicit enrollment intent opens no product authority', async () => {
+    const normal = setup();
+    normal.backend.implementation = async () => ({ status: 'authority_rejected' });
+    await expect(normal.coordinator.signIn('employee@example.invalid', 'password'))
+      .resolves.toEqual({ status: 'authority_rejected' });
+    expect(normal.coordinator.getState()).toEqual({
+      status: 'unauthenticated', reason: 'authority_rejected',
+    });
+    expect(normal.provider.signOutCalls).toBe(1);
+    expect(normal.store.value).toBeNull();
+
+    const enrollment = setup();
+    enrollment.backend.implementation = async () => ({ status: 'authority_rejected' });
+    await expect(enrollment.coordinator.signInForEmployeeEnrollment(
+      'employee@example.invalid',
+      'password',
+    )).resolves.toEqual({ status: 'enrollment_required' });
+    expect(enrollment.coordinator.getState()).toEqual({ status: 'enrollment_only', notice: null });
+    expect(enrollment.provider.signOutCalls).toBe(0);
+    expect(enrollment.store.value).toBe('signed-in-refresh');
+    expect(enrollment.coordinator.captureAuthenticatedSessionSnapshot()).toBeNull();
+    await expect(enrollment.coordinator.executeAuthenticatedRequest(async () => ({
+      status: 'completed', value: 'must-not-run',
+    }))).resolves.toEqual({ status: 'unavailable' });
+  });
+
+  it('does not enter enrollment-only after a backend transport failure', async () => {
+    const { coordinator, backend } = setup();
+    backend.implementation = async () => ({ status: 'unavailable' });
+    await expect(coordinator.signInForEmployeeEnrollment('employee@example.invalid', 'password'))
+      .resolves.toEqual({ status: 'context_unavailable' });
+    expect(coordinator.getState()).toEqual({ status: 'context_unavailable' });
+  });
+
+  it('redeems through an ephemeral token reader, clears input responsibility, and retains only the authority-free shell on 404', async () => {
+    const { coordinator, backend, enrollment } = setup();
+    backend.implementation = async () => ({ status: 'authority_rejected' });
+    await coordinator.signInForEmployeeEnrollment('employee@example.invalid', 'password');
+    enrollment.implementation = async () => ({ status: 'enrollment_unavailable' });
+
+    await expect(coordinator.redeemEmployeeInvitation('canonical-secret'))
+      .resolves.toEqual({ status: 'enrollment_unavailable' });
+    expect(enrollment.calls).toEqual([{
+      commandId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      invitationSecret: 'canonical-secret',
+      accessToken: 'signed-in-access',
+    }]);
+    expect(coordinator.getState()).toEqual({
+      status: 'enrollment_only', notice: 'enrollment_unavailable',
+    });
+    expect(() => enrollment.retainedReader?.()).toThrow('Employee enrollment access has expired');
+  });
+
+  it('requires the unchanged session endpoint to establish product authority after redemption', async () => {
+    const { coordinator, backend, enrollment } = setup();
+    let sessionAttempt = 0;
+    backend.implementation = async () => (++sessionAttempt === 1
+      ? { status: 'authority_rejected' }
+      : { status: 'resolved', session: productSession });
+    await coordinator.signInForEmployeeEnrollment('employee@example.invalid', 'password');
+    enrollment.implementation = async () => ({ status: 'succeeded' });
+
+    await expect(coordinator.redeemEmployeeInvitation('canonical-secret'))
+      .resolves.toEqual({ status: 'enrolled' });
+    expect(backend.accessTokens).toEqual(['signed-in-access', 'signed-in-access']);
+    expect(coordinator.getState()).toEqual({ status: 'authenticated', session: productSession });
+  });
+
+  it('signs out and clears provider state when redemption rejects the provider token', async () => {
+    const { coordinator, backend, enrollment, provider, store } = setup();
+    backend.implementation = async () => ({ status: 'authority_rejected' });
+    await coordinator.signInForEmployeeEnrollment('employee@example.invalid', 'password');
+    enrollment.implementation = async () => ({ status: 'authority_rejected' });
+
+    await expect(coordinator.redeemEmployeeInvitation('canonical-secret'))
+      .resolves.toEqual({ status: 'authority_rejected' });
+    expect(coordinator.getState()).toEqual({
+      status: 'unauthenticated', reason: 'authority_rejected',
+    });
+    expect(provider.signOutCalls).toBe(1);
+    expect(store.value).toBeNull();
+  });
+
+  it('rotates provider tokens inside the enrollment generation without granting context', async () => {
+    const { coordinator, backend, provider, store } = setup();
+    await coordinator.start();
+    backend.implementation = async () => ({ status: 'authority_rejected' });
+    await coordinator.signInForEmployeeEnrollment('employee@example.invalid', 'password');
+    const backendCalls = backend.accessTokens.length;
+
+    provider.emit({
+      type: 'token_refreshed',
+      tokens: { accessToken: 'enrollment-rotated-access', refreshToken: 'enrollment-rotated-refresh' },
+    });
+    await vi.waitFor(() => expect(store.value).toBe('enrollment-rotated-refresh'));
+    expect(coordinator.getState()).toEqual({ status: 'enrollment_only', notice: null });
+    expect(backend.accessTokens).toHaveLength(backendCalls);
+    expect(coordinator.captureAuthenticatedSessionSnapshot()).toBeNull();
   });
 
   it('prevents duplicate concurrent sign-in submission at the capability boundary', async () => {

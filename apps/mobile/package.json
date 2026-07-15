@@ -1,7 +1,7 @@
 {
   "name": "@taptime/mobile",
   "version": "1.0.0",
-  "description": "TapTim.e Mobile app with C1 authentication, C2 private server transport, and an explicit development-only demo path.",
+  "description": "TapTim.e Mobile app with C1 authentication, C2 private transport, C3E1 Employee enrollment, and an explicit development-only demo path.",
   "main": "index.ts",
   "dependencies": {
     "@supabase/supabase-js": "^2.110.3",

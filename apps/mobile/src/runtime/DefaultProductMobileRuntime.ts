@@ -58,6 +58,12 @@ export class DefaultProductMobileRuntime implements ProductMobileRuntime {
       getState: () => this.coordinator.getState(),
       subscribe: (listener: () => void) => this.coordinator.subscribe(listener),
       signIn: (email: string, password: string) => this.coordinator.signIn(email, password),
+      signInForEmployeeEnrollment: (email: string, password: string) => (
+        this.coordinator.signInForEmployeeEnrollment(email, password)
+      ),
+      redeemEmployeeInvitation: (invitationSecret: string) => (
+        this.coordinator.redeemEmployeeInvitation(invitationSecret)
+      ),
       retryContext: () => this.coordinator.retryContext(),
       refresh: () => this.coordinator.refresh(),
       signOut: () => this.coordinator.signOut(),

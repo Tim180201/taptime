@@ -8,6 +8,7 @@ import { TapTimeAdministrationApiClient } from '../administration/TapTimeAdminis
 import { MobileSessionCoordinator } from '../auth/MobileSessionCoordinator';
 import { createSupabaseEmailPasswordAuthAdapter } from '../auth/SupabaseEmailPasswordAuthAdapter';
 import { TapTimeSessionApiClient } from '../auth/TapTimeSessionApiClient';
+import { TapTimeEmployeeEnrollmentApiClient } from '../auth/TapTimeEmployeeEnrollmentApiClient';
 import { RnNfcScanAdapter } from '../nfc/RnNfcScanAdapter';
 import { ExclusiveNfcCaptureArbiter } from '../nfc/ExclusiveNfcCaptureArbiter';
 import { ExpoSecureLifecycleEvidenceOutbox } from '../scan/ExpoSecureLifecycleEvidenceOutbox';
@@ -54,6 +55,11 @@ export function createProductMobileRuntime(): ProductMobileRuntimeCreation {
     provider,
     new ExpoRefreshTokenStore(),
     new TapTimeSessionApiClient(configuration.configuration.tapTimeApiBaseUrl),
+    new TapTimeEmployeeEnrollmentApiClient(
+      configuration.configuration.tapTimeApiBaseUrl,
+      expoFetch as typeof fetch,
+    ),
+    randomUUID,
   );
   const appStateLifecycle = createNativeAppStateAutoRefreshLifecycle(provider);
   // Expo's native fetch exposes a real ReadableStream, allowing the transport to stop oversized

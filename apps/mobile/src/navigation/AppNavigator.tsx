@@ -5,6 +5,7 @@ import type { ProductScanCapability } from '../scan/contracts';
 import type { AdminSetupCapability } from '../administration/contracts';
 import { AdminSetupScreen } from '../screens/AdminSetupScreen';
 import { LoginScreen } from '../screens/LoginScreen';
+import { EmployeeEnrollmentScreen } from '../screens/EmployeeEnrollmentScreen';
 import { ScanScreen } from '../screens/ScanScreen';
 
 export function AppNavigator({
@@ -45,6 +46,13 @@ export function AppNavigator({
       />
     );
   }
+  if (state.status === 'enrollment_only') {
+    return <EmployeeEnrollmentScreen
+      notice={state.notice}
+      redeem={(invitationSecret) => session.redeemEmployeeInvitation(invitationSecret)}
+      signOut={() => session.signOut()}
+    />;
+  }
   if (state.status === 'context_unavailable') {
     return (
       <MessageScreen title="Sitzungskontext vorübergehend nicht verfügbar.">
@@ -62,6 +70,9 @@ export function AppNavigator({
   return (
     <LoginScreen
       signIn={(email, password) => session.signIn(email, password)}
+      signInForEmployeeEnrollment={(email, password) => (
+        session.signInForEmployeeEnrollment(email, password)
+      )}
       disabled={state.status === 'signing_in'}
     />
   );

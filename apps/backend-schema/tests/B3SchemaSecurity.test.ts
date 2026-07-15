@@ -310,19 +310,19 @@ afterAll(async () => {
 });
 
 describe('B3 deterministic migration system', () => {
-  it('applies exactly seven sorted versioned migrations through the authorized C3C addition', async () => {
+  it('applies exactly eight sorted versioned migrations through the authorized C3E1 addition', async () => {
     const rows = await installerPool.query<{ version: string; checksum: string }>(
       `SELECT version, checksum FROM ${B3_MIGRATION_TABLE} ORDER BY version`,
     );
 
-    expect(rows.rows.map((row) => row.version)).toEqual(['001', '002', '003', '004', '005', '006', '007']);
+    expect(rows.rows.map((row) => row.version)).toEqual(['001', '002', '003', '004', '005', '006', '007', '008']);
     expect(rows.rows.every((row) => /^[0-9a-f]{64}$/.test(row.checksum))).toBe(true);
   });
 
   it('reruns safely without applying any migration twice', async () => {
     await expect(migrate(installerPool)).resolves.toEqual({
       applied: [],
-      alreadyApplied: ['001', '002', '003', '004', '005', '006', '007'],
+      alreadyApplied: ['001', '002', '003', '004', '005', '006', '007', '008'],
     });
   });
 
@@ -398,7 +398,7 @@ describe('B3 deterministic migration system', () => {
     expect(result.rows[0]).toEqual({ table_exists: false, ledger_count: '0' });
   });
 
-  it('contains exactly the fourteen approved logical server tables', async () => {
+  it('contains exactly the seventeen approved logical server tables', async () => {
     const result = await installerPool.query<{ table_name: string }>(
       `SELECT table_name FROM information_schema.tables WHERE table_schema = $1 ORDER BY table_name`,
       [B3_SCHEMA],
@@ -409,6 +409,9 @@ describe('B3 deterministic migration system', () => {
       'bootstrap_receipts',
       'canonical_decisions',
       'customers',
+      'employee_enrollment_redemption_receipts',
+      'employee_invitation_command_receipts',
+      'employee_membership_invitations',
       'identity_bindings',
       'memberships',
       'nfc_assignments',
@@ -431,7 +434,7 @@ describe('B3 deterministic migration system', () => {
         AND relation.relrowsecurity
         AND relation.relforcerowsecurity
     `);
-    expect(result.rows[0]?.count).toBe('14');
+    expect(result.rows[0]?.count).toBe('17');
   });
 });
 

@@ -12,6 +12,9 @@ function render(state: AdminWebState): string {
     refresh: vi.fn(async () => undefined),
     loadMore: vi.fn(async () => undefined),
     createCustomer: vi.fn(async () => undefined),
+    createEmployeeInvitation: vi.fn(async () => undefined),
+    loadMoreEmployees: vi.fn(async () => undefined),
+    dismissInvitation: vi.fn(() => undefined),
   };
   return renderToStaticMarkup(<App administration={administration} />);
 }
@@ -36,7 +39,14 @@ describe('Admin Web rendered states', () => {
     const html = render({
       status: 'ready',
       creating: false,
+      creatingEmployee: false,
+      invitation: null,
       notice: 'Kunde wurde sicher angelegt.',
+      employeeProjection: {
+        organization: { id: '30000000-0000-4000-8000-000000000001', name: 'TapTim.e' },
+        employeeMemberships: [],
+        nextCursor: null,
+      },
       projection: {
         organization: { id: '30000000-0000-4000-8000-000000000001', name: 'TapTim.e' },
         customers: [{ id: '40000000-0000-4000-8000-000000000001', displayName: 'Werkstatt', active: true }],
@@ -59,7 +69,8 @@ describe('Admin Web rendered states', () => {
 
   it('renders explicit empty states for both bounded setup lists', () => {
     const html = render({
-      status: 'ready', creating: false, notice: null,
+      status: 'ready', creating: false, creatingEmployee: false, invitation: null, notice: null,
+      employeeProjection: { organization: { id: '30000000-0000-4000-8000-000000000001', name: 'TapTim.e' }, employeeMemberships: [], nextCursor: null },
       projection: { organization: { id: '30000000-0000-4000-8000-000000000001', name: 'TapTim.e' }, customers: [], nfcTags: [], nextCursor: null },
     });
     expect(html).toContain('Noch keine Kunden vorhanden.');
@@ -68,13 +79,42 @@ describe('Admin Web rendered states', () => {
 
   it('offers explicit cursor pagination only while another bounded page exists', () => {
     const html = render({
-      status: 'ready', creating: false, notice: null,
+      status: 'ready', creating: false, creatingEmployee: false, invitation: null, notice: null,
+      employeeProjection: { organization: { id: '30000000-0000-4000-8000-000000000001', name: 'TapTim.e' }, employeeMemberships: [], nextCursor: null },
       projection: {
         organization: { id: '30000000-0000-4000-8000-000000000001', name: 'TapTim.e' },
         customers: [], nfcTags: [],
         nextCursor: 'v1:c:40000000-0000-4000-8000-000000000001',
       },
     });
-    expect(html).toContain('Weitere Einträge laden');
+    expect(html).toContain('Weitere Einrichtungsdaten laden');
+  });
+
+  it('renders the one-time invitation deliberately without storage or clipboard controls', () => {
+    const secret = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
+    const html = render({
+      status: 'ready',
+      creating: false,
+      creatingEmployee: false,
+      invitation: { value: secret, expiresAt: '2099-07-15T12:34:56.789Z' },
+      notice: 'Einladung wurde einmalig erzeugt.',
+      projection: {
+        organization: { id: '30000000-0000-4000-8000-000000000001', name: 'TapTim.e' },
+        customers: [], nfcTags: [], nextCursor: null,
+      },
+      employeeProjection: {
+        organization: { id: '30000000-0000-4000-8000-000000000001', name: 'TapTim.e' },
+        employeeMemberships: [{
+          id: '70000000-0000-4000-8000-000000000001',
+          displayName: 'Employee Alpha', role: 'employee', active: true,
+        }],
+        nextCursor: null,
+      },
+    });
+    expect(html).toContain('Nur jetzt sicher übergeben');
+    expect(html).toContain(`<code>${secret}</code>`);
+    expect(html).toContain('Geheimnis verwerfen');
+    expect(html).toContain('Employee Alpha');
+    expect(html).not.toMatch(/localStorage|sessionStorage|clipboard/i);
   });
 });

@@ -49,6 +49,16 @@ const configuredAdministrationConnectionString = process.env.C2_ADMINISTRATION_D
     'taptime_c2_administration_runtime',
     process.env.C2_ADMINISTRATION_RUNTIME_PASSWORD ?? 'c2-administration-local-synthetic-only',
   );
+const configuredEmployeeInvitationConnectionString = connectionStringFor(
+  installerConnectionString,
+  'taptime_c3e1_invitation_runtime',
+  'c3e1-invitation-local-synthetic-only',
+);
+const configuredEmployeeEnrollmentConnectionString = connectionStringFor(
+  installerConnectionString,
+  'taptime_c3e1_enrollment_runtime',
+  'c3e1-enrollment-local-synthetic-only',
+);
 const installerPool = new Pool({ connectionString: installerConnectionString, max: 4 });
 const resolverPool = new Pool({ connectionString: configuredRuntimeConnectionString, max: 1 });
 
@@ -86,6 +96,8 @@ beforeAll(async () => {
     readModelDatabaseUrl: configuredReadModelConnectionString,
     lifecycleDatabaseUrl: configuredLifecycleConnectionString,
     administrationDatabaseUrl: configuredAdministrationConnectionString,
+    employeeInvitationDatabaseUrl: configuredEmployeeInvitationConnectionString,
+    employeeEnrollmentDatabaseUrl: configuredEmployeeEnrollmentConnectionString,
     supabaseIssuer: jwks.issuerA,
   }, {
     onDiagnostic: (diagnostic) => diagnostics.push(diagnostic),
@@ -107,16 +119,16 @@ afterAll(async () => {
 });
 
 describe('versioned C1 foundation', () => {
-  it('uses exactly migrations 001 through 007 and reruns the ledger cleanly', async () => {
+  it('uses exactly migrations 001 through 008 and reruns the ledger cleanly', async () => {
     const migrations = await loadMigrations();
-    expect(migrations.map(({ version }) => version)).toEqual(['001', '002', '003', '004', '005', '006', '007']);
+    expect(migrations.map(({ version }) => version)).toEqual(['001', '002', '003', '004', '005', '006', '007', '008']);
     const ledger = await installerPool.query<{ version: string; checksum: string }>(
       `SELECT version, checksum FROM ${B3_MIGRATION_TABLE} ORDER BY version`,
     );
-    expect(ledger.rows.map(({ version }) => version)).toEqual(['001', '002', '003', '004', '005', '006', '007']);
+    expect(ledger.rows.map(({ version }) => version)).toEqual(['001', '002', '003', '004', '005', '006', '007', '008']);
     expect(ledger.rows.every(({ checksum }) => /^[0-9a-f]{64}$/.test(checksum))).toBe(true);
     await expect(migrate(installerPool)).resolves.toEqual({
-      applied: [], alreadyApplied: ['001', '002', '003', '004', '005', '006', '007'],
+      applied: [], alreadyApplied: ['001', '002', '003', '004', '005', '006', '007', '008'],
     });
   });
 });
@@ -712,8 +724,23 @@ function createSessionRegressionServer(
         return { status: 'unauthorized' };
       },
     },
+    employeeEnrollment: unavailableEmployeeEnrollment(),
   }, {
     onDiagnostic: options.onDiagnostic,
     operationTimeoutMilliseconds: options.authorityTimeoutMilliseconds,
   });
+}
+
+function unavailableEmployeeEnrollment() {
+  return {
+    async createInvitation() {
+      return { status: 'unauthorized' as const };
+    },
+    async redeemInvitation() {
+      return { status: 'unauthorized' as const };
+    },
+    async readEmployeeMembershipsProjection() {
+      return { status: 'unauthorized' as const };
+    },
+  };
 }

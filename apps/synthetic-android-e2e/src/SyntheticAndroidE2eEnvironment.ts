@@ -31,6 +31,7 @@ import { SyntheticLocalAuthServer } from './SyntheticLocalAuthServer.js';
 export type SyntheticEnvironmentSafeEvent =
   | SyntheticSafeEvent
   | 'api_administration_unavailable'
+  | 'api_employee_enrollment_unavailable'
   | 'api_lifecycle_unavailable'
   | 'api_scan_context_unavailable'
   | 'api_session_unavailable';
@@ -112,12 +113,26 @@ export async function createSyntheticAndroidE2eEnvironment(
         lifecycleIngestor: lifecycleCoordinator,
         deferredLifecycleIngestor: lifecycleCoordinator,
         administration: new AdminWriteSessionCoordinator(administrationPool, verifier),
+        employeeEnrollment: {
+          async createInvitation() {
+            throw new Error('C3E1 is disabled in the synthetic C3D harness');
+          },
+          async readEmployeeMembershipsProjection() {
+            throw new Error('C3E1 is disabled in the synthetic C3D harness');
+          },
+          async redeemInvitation() {
+            throw new Error('C3E1 is disabled in the synthetic C3D harness');
+          },
+        },
       },
       {
         onDiagnostic(diagnostic) {
           switch (diagnostic.code) {
             case 'administration_failed':
               onSafeEvent('api_administration_unavailable');
+              return;
+            case 'employee_enrollment_failed':
+              onSafeEvent('api_employee_enrollment_unavailable');
               return;
             case 'lifecycle_ingestion_failed':
               onSafeEvent('api_lifecycle_unavailable');

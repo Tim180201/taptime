@@ -433,6 +433,17 @@ function administrationCoordinator(
 function dependencies(administration: AdministrationCoordinator): BackendApiDependencies {
   return {
     administration,
+    employeeEnrollment: {
+      async createInvitation() {
+        return { status: 'unauthorized' };
+      },
+      async redeemInvitation() {
+        return { status: 'unauthorized' };
+      },
+      async readEmployeeMembershipsProjection() {
+        return { status: 'unauthorized' };
+      },
+    },
     sessionAuthority: { resolve: async () => ({ status: 'rejected' }) },
     scanContextResolver: { resolve: async () => ({ status: 'not_resolved' }) },
     lifecycleIngestor: {

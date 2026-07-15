@@ -5,6 +5,8 @@ import { Pool, type PoolClient } from 'pg';
 
 export const C3C_ISSUER = 'https://synthetic.invalid/auth';
 export const C3C_RUNTIME_LOGIN = 'taptime_c3c_admin_setup_test_login';
+export const C3E1_INVITATION_RUNTIME_LOGIN = 'taptime_c3e1_invitation_test_login';
+export const C3E1_ENROLLMENT_RUNTIME_LOGIN = 'taptime_c3e1_enrollment_test_login';
 
 export const ids = {
   organizationA: '00000000-0000-4000-8000-000000000001',
@@ -57,6 +59,8 @@ export const fixtureTokens = {
   adminB: 'fixture-token-admin-b',
   orphan: 'fixture-token-orphan',
   rejected: 'fixture-token-rejected',
+  prospectiveA: 'fixture-token-prospective-a',
+  prospectiveB: 'fixture-token-prospective-b',
 } as const;
 
 const tokenSubjects: Readonly<Record<string, string>> = Object.freeze({
@@ -65,6 +69,8 @@ const tokenSubjects: Readonly<Record<string, string>> = Object.freeze({
   [fixtureTokens.employeeA]: 'employee-a',
   [fixtureTokens.adminB]: 'admin-b',
   [fixtureTokens.orphan]: 'orphan',
+  [fixtureTokens.prospectiveA]: 'prospective-a',
+  [fixtureTokens.prospectiveB]: 'prospective-b',
 });
 
 export const fixtureAccessTokenVerifier: AccessTokenVerifier = Object.freeze({
@@ -135,6 +141,55 @@ export async function removeC3CRuntimeLogin(installerPool: Pool): Promise<void> 
     REVOKE taptime_identity_resolver, taptime_admin_setup FROM ${C3C_RUNTIME_LOGIN};
     DROP ROLE IF EXISTS ${C3C_RUNTIME_LOGIN};
   `);
+}
+
+export async function ensureC3E1RuntimeLogins(
+  installerPool: Pool,
+  invitationPassword: string,
+  enrollmentPassword: string,
+): Promise<void> {
+  await ensureRuntimeLogin(
+    installerPool,
+    C3E1_INVITATION_RUNTIME_LOGIN,
+    invitationPassword,
+    ['taptime_identity_resolver', 'taptime_employee_invitation_creator'],
+  );
+  await ensureRuntimeLogin(
+    installerPool,
+    C3E1_ENROLLMENT_RUNTIME_LOGIN,
+    enrollmentPassword,
+    ['taptime_employee_enrollment_redeemer'],
+  );
+}
+
+export async function removeC3E1RuntimeLogins(installerPool: Pool): Promise<void> {
+  const database = await currentDatabase(installerPool);
+  for (const login of [C3E1_INVITATION_RUNTIME_LOGIN, C3E1_ENROLLMENT_RUNTIME_LOGIN]) {
+    await installerPool.query(`
+      REVOKE CONNECT ON DATABASE ${quoteIdentifier(database)} FROM ${login};
+      DROP OWNED BY ${login};
+      REVOKE
+        taptime_identity_resolver,
+        taptime_employee_invitation_creator,
+        taptime_employee_enrollment_redeemer
+      FROM ${login};
+      DROP ROLE IF EXISTS ${login};
+    `);
+  }
+}
+
+export function c3e1RuntimeConnectionString(
+  baseConnectionString: string,
+  login: typeof C3E1_INVITATION_RUNTIME_LOGIN | typeof C3E1_ENROLLMENT_RUNTIME_LOGIN,
+  password: string,
+): string {
+  const url = new URL(baseConnectionString);
+  if (!['postgresql:', 'postgres:'].includes(url.protocol) || url.hostname.length === 0) {
+    throw new Error('C3E1 tests require a TCP PostgreSQL URL with an explicit host');
+  }
+  url.username = login;
+  url.password = password;
+  return url.toString();
 }
 
 export function runtimeConnectionString(
@@ -327,6 +382,43 @@ export async function postgresErrorCode(operation: Promise<unknown>): Promise<st
 async function currentDatabase(pool: Pool): Promise<string> {
   const result = await pool.query<{ current_database: string }>('SELECT current_database()');
   return result.rows[0]!.current_database;
+}
+
+async function ensureRuntimeLogin(
+  installerPool: Pool,
+  login: string,
+  password: string,
+  roles: readonly string[],
+): Promise<void> {
+  await installerPool.query(`
+    DO $login$
+    BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = ${quoteLiteral(login)}) THEN
+        EXECUTE pg_catalog.format(
+          'CREATE ROLE %I LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS',
+          ${quoteLiteral(login)}
+        );
+      END IF;
+    END
+    $login$;
+    ALTER ROLE ${quoteIdentifier(login)} WITH
+      LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE
+      NOREPLICATION NOBYPASSRLS PASSWORD ${quoteLiteral(password)};
+    REVOKE
+      taptime_employee,
+      taptime_administrator,
+      taptime_server_lifecycle,
+      taptime_identity_resolver,
+      taptime_admin_setup,
+      taptime_employee_invitation_creator,
+      taptime_employee_enrollment_redeemer
+    FROM ${quoteIdentifier(login)};
+    ${roles.map((role) => `GRANT ${role} TO ${quoteIdentifier(login)} WITH INHERIT FALSE, SET TRUE, ADMIN FALSE;`).join('\n')}
+  `);
+  await installerPool.query(`
+    GRANT CONNECT ON DATABASE ${quoteIdentifier(await currentDatabase(installerPool))}
+      TO ${quoteIdentifier(login)}
+  `);
 }
 
 function quoteIdentifier(value: string): string {

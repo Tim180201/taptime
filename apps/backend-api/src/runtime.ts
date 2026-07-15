@@ -1,4 +1,7 @@
-import { AdminWriteSessionCoordinator } from '@taptime/backend-administration';
+import {
+  AdminWriteSessionCoordinator,
+  EmployeeMembershipEnrollmentCoordinator,
+} from '@taptime/backend-administration';
 import {
   PostgresIdentityMembershipResolver,
   SupabaseJwtAccessTokenVerifier,
@@ -18,6 +21,8 @@ export interface BackendApiRuntimeConfiguration {
   readonly readModelDatabaseUrl: string;
   readonly lifecycleDatabaseUrl: string;
   readonly administrationDatabaseUrl: string;
+  readonly employeeInvitationDatabaseUrl: string;
+  readonly employeeEnrollmentDatabaseUrl: string;
   readonly supabaseIssuer: string;
 }
 
@@ -48,11 +53,15 @@ export function createBackendApiRuntime(
   const readModelDatabase = validateDatabaseUrl(configuration.readModelDatabaseUrl);
   const lifecycleDatabase = validateDatabaseUrl(configuration.lifecycleDatabaseUrl);
   const administrationDatabase = validateDatabaseUrl(configuration.administrationDatabaseUrl);
+  const employeeInvitationDatabase = validateDatabaseUrl(configuration.employeeInvitationDatabaseUrl);
+  const employeeEnrollmentDatabase = validateDatabaseUrl(configuration.employeeEnrollmentDatabaseUrl);
   assertDistinctDatabaseUsers([
     sessionDatabase,
     readModelDatabase,
     lifecycleDatabase,
     administrationDatabase,
+    employeeInvitationDatabase,
+    employeeEnrollmentDatabase,
   ]);
 
   const issuer = configuration.supabaseIssuer.replace(/\/+$/, '');
@@ -66,6 +75,8 @@ export function createBackendApiRuntime(
   const readModelPool = createRuntimePool(readModelDatabase.connectionString);
   const lifecyclePool = createRuntimePool(lifecycleDatabase.connectionString);
   const administrationPool = createRuntimePool(administrationDatabase.connectionString);
+  const employeeInvitationPool = createRuntimePool(employeeInvitationDatabase.connectionString);
+  const employeeEnrollmentPool = createRuntimePool(employeeEnrollmentDatabase.connectionString);
   const lifecycleCoordinator = new ServerCanonicalLifecycleIngestionCoordinator(
     lifecyclePool,
     verifier,
@@ -82,6 +93,11 @@ export function createBackendApiRuntime(
       lifecycleIngestor: lifecycleCoordinator,
       deferredLifecycleIngestor: lifecycleCoordinator,
       administration: new AdminWriteSessionCoordinator(administrationPool, verifier),
+      employeeEnrollment: new EmployeeMembershipEnrollmentCoordinator(
+        employeeInvitationPool,
+        employeeEnrollmentPool,
+        verifier,
+      ),
     },
     options,
   );
@@ -104,6 +120,8 @@ export function createBackendApiRuntime(
         readModelPool.end(),
         lifecyclePool.end(),
         administrationPool.end(),
+        employeeInvitationPool.end(),
+        employeeEnrollmentPool.end(),
       ]);
       const failure = results.find(
         (result): result is PromiseRejectedResult => result.status === 'rejected',

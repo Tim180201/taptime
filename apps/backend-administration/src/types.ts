@@ -25,6 +25,71 @@ export interface AdminNfcTagSummary {
   readonly targetCustomerId: CustomerId | null;
 }
 
+export interface EmployeeMembershipSummary {
+  readonly id: MembershipId;
+  readonly displayName: string;
+  readonly role: 'employee';
+  readonly active: true;
+}
+
+export interface CreateEmployeeMembershipInvitationCommand {
+  readonly accessToken: string;
+  readonly expectedMembershipId: MembershipId;
+  readonly commandId: string;
+  readonly displayName: string;
+}
+
+export interface RedeemEmployeeMembershipInvitationCommand {
+  readonly accessToken: string;
+  readonly commandId: string;
+  readonly invitationSecret: string;
+}
+
+export interface ReadEmployeeMembershipsProjectionCommand {
+  readonly accessToken: string;
+  readonly expectedMembershipId: MembershipId;
+  readonly cursor: string | null;
+  readonly limit: number;
+}
+
+export type CreateEmployeeMembershipInvitationResult =
+  | {
+      readonly status: 'succeeded';
+      readonly invitationSecret: string;
+      readonly expiresAt: string;
+    }
+  | AdminAuthorityRejection
+  | { readonly status: 'invitation_created_token_unavailable' }
+  | { readonly status: 'invitation_limit_reached' }
+  | { readonly status: 'command_id_conflict' }
+  | { readonly status: 'invalid_request' };
+
+export type RedeemEmployeeMembershipInvitationResult =
+  | {
+      readonly status: 'succeeded';
+      readonly organizationName: string;
+      readonly membershipDisplayName: string;
+      readonly role: 'employee';
+    }
+  | { readonly status: 'unauthorized' }
+  | { readonly status: 'enrollment_unavailable' }
+  | { readonly status: 'invalid_request' };
+
+export type ReadEmployeeMembershipsProjectionResult =
+  | {
+      readonly status: 'succeeded';
+      readonly organization: AdminOrganizationSummary;
+      readonly employeeMemberships: readonly EmployeeMembershipSummary[];
+      readonly nextCursor: string | null;
+    }
+  | AdminAuthorityRejection
+  | { readonly status: 'invalid_request' };
+
+export interface EmployeeEnrollmentCoordinatorControls {
+  readonly deadlineEpochMilliseconds?: number;
+  readonly beforeCommit?: () => Promise<void> | void;
+}
+
 export interface CreateCustomerCommand {
   readonly accessToken: string;
   readonly expectedMembershipId: MembershipId;

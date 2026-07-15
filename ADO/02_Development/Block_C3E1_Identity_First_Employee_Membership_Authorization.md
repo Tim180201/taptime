@@ -498,3 +498,17 @@ Independent delta re-review of corrected commit
 open P0/P1/P2/P3. The Human Architect then accepted the complete contract and separately authorized
 its repository implementation. A later implementation still requires complete local verification,
 independent final review and exact-head CI before any Human Physical Gate may begin.
+
+## 14. Repository implementation checkpoint
+
+The authorized repository candidate is locally implemented and verified on 2026-07-15. It adds
+migration `008`, the exact isolated capability/owner roles, invitation/redemption/projection backend
+and transport, volatile Admin Web one-time-secret handling and the explicit Android pre-Membership
+enrollment shell without C3E2 or production expansion. Fresh `npm ci` plus focused final evidence is 1,522 passing
+tests with two approved Supavisor-mode skips, all workspace typechecks/builds, Android export,
+migration-ledger and built-CLI checks. Detailed evidence is
+`ADO/05_Evidence/Block_C3E1_Implementation_Evidence.md`.
+
+This checkpoint is not an approval or closure. Publication commit, independent exact-commit final
+review and green exact-head CI remain required before the separately authorized fresh Human Gate
+may start. C3E2, production resources/data, deployment and distribution remain unauthorized.

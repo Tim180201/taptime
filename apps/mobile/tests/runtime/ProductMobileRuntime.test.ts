@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { MobileSessionState, SignInResult } from '../../src/auth/contracts';
+import type { EmployeeEnrollmentResult, MobileSessionState, SignInResult } from '../../src/auth/contracts';
 import {
   DefaultProductMobileRuntime,
   type ProductScanRuntimeOwner,
@@ -26,6 +26,12 @@ class FakeSessionRuntimeOwner implements ProductSessionRuntimeOwner {
   readonly signIn = vi.fn<
     (_email: string, _password: string) => Promise<SignInResult>
   >(async () => ({ status: 'invalid_credentials' }));
+  readonly signInForEmployeeEnrollment = vi.fn<
+    (_email: string, _password: string) => Promise<SignInResult>
+  >(async () => ({ status: 'invalid_credentials' }));
+  readonly redeemEmployeeInvitation = vi.fn<
+    (_invitationSecret: string) => Promise<EmployeeEnrollmentResult>
+  >(async () => ({ status: 'context_unavailable' }));
   readonly retryContext = vi.fn<() => Promise<void>>(async () => undefined);
   readonly refresh = vi.fn<() => Promise<void>>(async () => undefined);
   readonly signOut = vi.fn<() => Promise<void>>(async () => undefined);

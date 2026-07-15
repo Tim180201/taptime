@@ -27,6 +27,9 @@ const DEFERRED_LIFECYCLE_PATH = '/v1/lifecycle-events/deferred';
 const ADMIN_CUSTOMERS_PATH = '/v1/administration/customers';
 const ADMIN_NFC_PROVISION_PATH = '/v1/administration/nfc-tags/provision';
 const ADMIN_SETUP_PROJECTION_PATH = '/v1/administration/setup-projection';
+const ADMIN_EMPLOYEE_INVITATIONS_PATH = '/v1/administration/employee-invitations';
+const ADMIN_EMPLOYEE_MEMBERSHIPS_PROJECTION_PATH = '/v1/administration/employee-memberships-projection';
+const EMPLOYEE_ENROLLMENT_REDEEM_PATH = '/v1/employee-enrollment/redeem';
 const EXPECTED_MEMBERSHIP_HEADER = 'x-taptime-expected-membership-id';
 const MAX_AUTHORIZATION_LENGTH = 4_096;
 const MAX_BODY_BYTES = 16 * 1_024;
@@ -43,18 +46,24 @@ type ErrorCode =
   | 'assignment_target_unavailable'
   | 'command_id_conflict'
   | 'forbidden'
+  | 'enrollment_unavailable'
   | 'invalid_request'
   | 'method_not_allowed'
   | 'not_found'
   | 'service_unavailable'
+  | 'invitation_created_token_unavailable'
+  | 'invitation_limit_reached'
   | 'tag_payload_already_registered'
   | 'unauthorized';
 
 type Route =
   | 'admin_create_customer'
+  | 'admin_create_employee_invitation'
+  | 'admin_employee_memberships_projection'
   | 'admin_provision_nfc_tag'
   | 'admin_setup_projection'
   | 'deferred_lifecycle'
+  | 'employee_enrollment_redeem'
   | 'lifecycle'
   | 'scan_context'
   | 'session';
@@ -144,7 +153,7 @@ async function handleRequest(
     return;
   }
   if (
-    isAdministrationRoute(route)
+    (isAdministrationRoute(route) || route === 'employee_enrollment_redeem')
     && rawHeaderValues(request, EXPECTED_MEMBERSHIP_HEADER).length > 0
   ) {
     request.resume();
@@ -205,6 +214,42 @@ async function handleRequest(
 
   if (route === 'admin_create_customer') {
     await handleCreateCustomer(
+      response,
+      accessToken,
+      body,
+      dependencies,
+      options,
+      correlationId,
+      timeoutMilliseconds,
+    );
+    return;
+  }
+  if (route === 'admin_create_employee_invitation') {
+    await handleCreateEmployeeInvitation(
+      response,
+      accessToken,
+      body,
+      dependencies,
+      options,
+      correlationId,
+      timeoutMilliseconds,
+    );
+    return;
+  }
+  if (route === 'admin_employee_memberships_projection') {
+    await handleEmployeeMembershipsProjection(
+      response,
+      accessToken,
+      body,
+      dependencies,
+      options,
+      correlationId,
+      timeoutMilliseconds,
+    );
+    return;
+  }
+  if (route === 'employee_enrollment_redeem') {
+    await handleEmployeeEnrollmentRedemption(
       response,
       accessToken,
       body,
@@ -429,6 +474,114 @@ async function handleSetupProjection(
   );
 }
 
+async function handleCreateEmployeeInvitation(
+  response: ServerResponse,
+  accessToken: string,
+  body: unknown,
+  dependencies: BackendApiDependencies,
+  options: BackendHttpServerOptions,
+  correlationId: string,
+  timeoutMilliseconds: number,
+): Promise<void> {
+  const command = parseCreateEmployeeInvitationBody(body);
+  if (command === null) {
+    respondError(response, 400, 'invalid_request');
+    return;
+  }
+  await handleAdministrationOperation(
+    response,
+    options,
+    correlationId,
+    timeoutMilliseconds,
+    (deadlineEpochMilliseconds) => dependencies.employeeEnrollment.createInvitation(
+      { accessToken, ...command },
+      { deadlineEpochMilliseconds },
+    ),
+    (result) => ({
+      status: 'succeeded',
+      invitationSecret: result.invitationSecret,
+      expiresAt: result.expiresAt,
+    }),
+  );
+}
+
+async function handleEmployeeMembershipsProjection(
+  response: ServerResponse,
+  accessToken: string,
+  body: unknown,
+  dependencies: BackendApiDependencies,
+  options: BackendHttpServerOptions,
+  correlationId: string,
+  timeoutMilliseconds: number,
+): Promise<void> {
+  const command = parseEmployeeMembershipsProjectionBody(body);
+  if (command === null) {
+    respondError(response, 400, 'invalid_request');
+    return;
+  }
+  await handleAdministrationOperation(
+    response,
+    options,
+    correlationId,
+    timeoutMilliseconds,
+    (deadlineEpochMilliseconds) => dependencies.employeeEnrollment.readEmployeeMembershipsProjection(
+      { accessToken, ...command },
+      { deadlineEpochMilliseconds },
+    ),
+    (result) => ({
+      status: 'succeeded',
+      organization: result.organization,
+      employeeMemberships: result.employeeMemberships,
+      nextCursor: result.nextCursor,
+    }),
+  );
+}
+
+async function handleEmployeeEnrollmentRedemption(
+  response: ServerResponse,
+  accessToken: string,
+  body: unknown,
+  dependencies: BackendApiDependencies,
+  options: BackendHttpServerOptions,
+  correlationId: string,
+  timeoutMilliseconds: number,
+): Promise<void> {
+  const command = parseEmployeeEnrollmentRedemptionBody(body);
+  if (command === null) {
+    respondError(response, 400, 'invalid_request');
+    return;
+  }
+  try {
+    const deadlineEpochMilliseconds = Date.now() + timeoutMilliseconds;
+    const result = await withTimeout(
+      dependencies.employeeEnrollment.redeemInvitation(
+        { accessToken, ...command },
+        { deadlineEpochMilliseconds },
+      ),
+      timeoutMilliseconds,
+    );
+    switch (result.status) {
+      case 'succeeded':
+        respondJson(response, 200, result);
+        return;
+      case 'invalid_request':
+        respondError(response, 400, 'invalid_request');
+        return;
+      case 'unauthorized':
+        respondError(response, 401, 'unauthorized');
+        return;
+      case 'enrollment_unavailable':
+        respondError(response, 404, 'enrollment_unavailable');
+        return;
+      default:
+        return result satisfies never;
+    }
+  } catch {
+    emitDiagnostic(options.onDiagnostic, { code: 'employee_enrollment_failed', correlationId });
+    respondError(response, 503, 'service_unavailable');
+  }
+}
+
 async function handleAdministrationOperation<Result extends { readonly status: string }>(
   response: ServerResponse,
   options: BackendHttpServerOptions,
@@ -471,6 +624,12 @@ async function handleAdministrationOperation<Result extends { readonly status: s
         return;
       case 'command_id_conflict':
         respondError(response, 409, 'command_id_conflict');
+        return;
+      case 'invitation_created_token_unavailable':
+        respondError(response, 409, 'invitation_created_token_unavailable');
+        return;
+      case 'invitation_limit_reached':
+        respondError(response, 409, 'invitation_limit_reached');
         return;
       default:
         throw new Error('Administration coordinator returned an unsupported result');
@@ -612,6 +771,15 @@ async function handleDeferredLifecycle(
 }
 
 function requestRoute(url: string | undefined): Route | null {
+  if (url === ADMIN_EMPLOYEE_INVITATIONS_PATH) {
+    return 'admin_create_employee_invitation';
+  }
+  if (url === ADMIN_EMPLOYEE_MEMBERSHIPS_PROJECTION_PATH) {
+    return 'admin_employee_memberships_projection';
+  }
+  if (url === EMPLOYEE_ENROLLMENT_REDEEM_PATH) {
+    return 'employee_enrollment_redeem';
+  }
   if (url === ADMIN_CUSTOMERS_PATH) {
     return 'admin_create_customer';
   }
@@ -639,9 +807,13 @@ function requestRoute(url: string | undefined): Route | null {
 function diagnosticCodeForRoute(route: Route | null): BackendApiDiagnostic['code'] | null {
   switch (route) {
     case 'admin_create_customer':
+    case 'admin_create_employee_invitation':
+    case 'admin_employee_memberships_projection':
     case 'admin_provision_nfc_tag':
     case 'admin_setup_projection':
       return 'administration_failed';
+    case 'employee_enrollment_redeem':
+      return 'employee_enrollment_failed';
     case 'session':
       return 'session_resolution_failed';
     case 'scan_context':
@@ -658,6 +830,8 @@ function diagnosticCodeForRoute(route: Route | null): BackendApiDiagnostic['code
 
 function isAdministrationRoute(route: Route): boolean {
   return route === 'admin_create_customer'
+    || route === 'admin_create_employee_invitation'
+    || route === 'admin_employee_memberships_projection'
     || route === 'admin_provision_nfc_tag'
     || route === 'admin_setup_projection';
 }
@@ -887,6 +1061,71 @@ function parseSetupProjectionBody(body: unknown): {
   } catch {
     return null;
   }
+}
+
+function parseCreateEmployeeInvitationBody(body: unknown): {
+  readonly expectedMembershipId: MembershipId;
+  readonly commandId: string;
+  readonly displayName: string;
+} | null {
+  if (
+    !isRecord(body)
+    || !hasExactKeys(body, ['commandId', 'displayName', 'expectedMembershipId'])
+    || !isCanonicalUuid(body.expectedMembershipId)
+    || !isCanonicalUuid(body.commandId)
+    || typeof body.displayName !== 'string'
+  ) {
+    return null;
+  }
+  return {
+    expectedMembershipId: MembershipId(body.expectedMembershipId),
+    commandId: body.commandId,
+    displayName: body.displayName,
+  };
+}
+
+function parseEmployeeMembershipsProjectionBody(body: unknown): {
+  readonly expectedMembershipId: MembershipId;
+  readonly cursor: string | null;
+  readonly limit: number;
+} | null {
+  if (
+    !isRecord(body)
+    || !hasExactKeys(body, ['cursor', 'expectedMembershipId', 'limit'])
+    || !isCanonicalUuid(body.expectedMembershipId)
+    || (body.cursor !== null && typeof body.cursor !== 'string')
+    || (typeof body.cursor === 'string' && Buffer.byteLength(body.cursor, 'utf8') > 256)
+    || !Number.isSafeInteger(body.limit)
+    || (body.limit as number) < 1
+    || (body.limit as number) > 20
+  ) {
+    return null;
+  }
+  return {
+    expectedMembershipId: MembershipId(body.expectedMembershipId),
+    cursor: body.cursor as string | null,
+    limit: body.limit as number,
+  };
+}
+
+function parseEmployeeEnrollmentRedemptionBody(body: unknown): {
+  readonly commandId: string;
+  readonly invitationSecret: string;
+} | null {
+  if (
+    !isRecord(body)
+    || !hasExactKeys(body, ['commandId', 'invitationSecret'])
+    || !isCanonicalUuid(body.commandId)
+    || typeof body.invitationSecret !== 'string'
+    || !/^[A-Za-z0-9_-]{43}$/.test(body.invitationSecret)
+  ) {
+    return null;
+  }
+  const decoded = Buffer.from(body.invitationSecret, 'base64url');
+  if (decoded.length !== 32 || decoded.toString('base64url') !== body.invitationSecret) {
+    return null;
+  }
+  return { commandId: body.commandId, invitationSecret: body.invitationSecret };
 }
 
 function parseScanContextBody(body: unknown): {

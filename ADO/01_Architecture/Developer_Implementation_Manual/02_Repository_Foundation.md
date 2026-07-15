@@ -835,3 +835,17 @@ boundaries Human-authorized on exact baseline `70d163f`. C3E2 remains a
 separate unauthorized boundary. Existing migration bytes `001`–`007`, role separation and the
 ten-job CI topology remain current repository rules. Independent review found this addendum
 acceptable and the Human Architect accepted it.
+
+## 13. C3E1 Repository Candidate Addendum (2026-07-15)
+
+The Human-authorized C3E1 candidate extends the current map with migration `008`, two separated
+invitation/redemption runtime logins, three exact API operations, volatile Admin Web invitation
+handling and an explicit Android pre-Membership enrollment shell. `backend-schema` now owns ordered
+migrations `001`–`008`; existing bytes `001`–`007` remain immutable. `backend-api` now uses six
+distinct database users, and `backend-administration` owns both the still-separated C3C and C3E1
+coordinators. The ten-job CI topology is expanded in scope, not job count.
+
+The candidate passed local clean-install verification but is not yet independently approved or
+exact-head CI-validated. C3E2, production data/resources, deployment/distribution and the fresh
+Human Gate remain outside this addendum. Evidence:
+`ADO/05_Evidence/Block_C3E1_Implementation_Evidence.md`.

@@ -48,7 +48,7 @@ beforeAll(async () => {
   await installerPool.query(`DROP SCHEMA IF EXISTS ${B3_SCHEMA} CASCADE`);
   await installerPool.query(`DROP TABLE IF EXISTS ${B3_MIGRATION_TABLE}`);
   const migration = await migrate(installerPool);
-  expect(migration.applied).toEqual(['001', '002', '003', '004', '005', '006', '007']);
+  expect(migration.applied).toEqual(['001', '002', '003', '004', '005', '006', '007', '008']);
   jwks = await createJwksServer();
   verifier = SupabaseJwtAccessTokenVerifier.fromRemoteJwks({
     issuer: jwks.issuer,
@@ -76,12 +76,12 @@ afterAll(async () => {
 });
 
 describe('migration 006 and role graph', () => {
-  it('records exactly migrations 001 through 007 and reruns the immutable ledger', async () => {
+  it('records exactly migrations 001 through 008 and reruns the immutable ledger', async () => {
     expect((await loadMigrations()).map(({ version }) => version)).toEqual([
-      '001', '002', '003', '004', '005', '006', '007',
+      '001', '002', '003', '004', '005', '006', '007', '008',
     ]);
     await expect(migrate(installerPool)).resolves.toEqual({
-      applied: [], alreadyApplied: ['001', '002', '003', '004', '005', '006', '007'],
+      applied: [], alreadyApplied: ['001', '002', '003', '004', '005', '006', '007', '008'],
     });
   });
 
@@ -219,11 +219,18 @@ describe('migration 006 and role graph', () => {
         AND capability.proowner <> grantee.oid
       ORDER BY function_name, privilege_type
     `);
-    expect(grants.rows).toEqual([{
-      function_name: `${B3_SCHEMA}.normalize_taptime_name_v1(text,text)`,
-      privilege_type: 'EXECUTE',
-      is_grantable: false,
-    }]);
+    expect(grants.rows).toEqual([
+      {
+        function_name: `${B3_SCHEMA}.normalize_membership_display_name_v1(text)`,
+        privilege_type: 'EXECUTE',
+        is_grantable: false,
+      },
+      {
+        function_name: `${B3_SCHEMA}.normalize_taptime_name_v1(text,text)`,
+        privilege_type: 'EXECUTE',
+        is_grantable: false,
+      },
+    ]);
   });
 
   it('makes the function owner own exactly one schema function and no table', async () => {
@@ -260,7 +267,7 @@ describe('migration 006 and role graph', () => {
       { rolname: 'taptime_bootstrap_executor', object_class: 'pg_proc', deptype: 'a', dependency_count: '1' },
       { rolname: 'taptime_bootstrap_function_owner', object_class: 'pg_class', deptype: 'a', dependency_count: '6' },
       { rolname: 'taptime_bootstrap_function_owner', object_class: 'pg_namespace', deptype: 'a', dependency_count: '1' },
-      { rolname: 'taptime_bootstrap_function_owner', object_class: 'pg_proc', deptype: 'a', dependency_count: '1' },
+      { rolname: 'taptime_bootstrap_function_owner', object_class: 'pg_proc', deptype: 'a', dependency_count: '2' },
       { rolname: 'taptime_bootstrap_function_owner', object_class: 'pg_proc', deptype: 'o', dependency_count: '1' },
       { rolname: operatorA, object_class: 'pg_database', deptype: 'a', dependency_count: '1' },
       { rolname: operatorB, object_class: 'pg_database', deptype: 'a', dependency_count: '1' },
