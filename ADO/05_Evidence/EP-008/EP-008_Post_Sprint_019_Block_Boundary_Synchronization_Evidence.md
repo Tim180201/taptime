@@ -1,10 +1,11 @@
 # EP-008 Post-Sprint-019 Block-Boundary Synchronization Evidence
 
-Status: Local synchronization and Technical-Lead review passed — publication commit and exact-head CI pending
+Status: Completed — synchronization publication and exact-head CI passed; independent external review pending
 Evidence Date: 2026-07-15
 Owner: Technical Lead
 Authorized baseline: `fda5e5b9e878311b0caa647c6b49ab14943b706e`
 Plan: `ADO/02_Development/EP-008_Post_Sprint_019_Block_Boundary_Synchronization_Plan.md`
+Closure: `ADO/02_Development/EP-008_Post_Sprint_019_Block_Boundary_Synchronization_Closure.md`
 Production authority: Not granted
 
 ## 1. Evidence boundary
@@ -83,8 +84,8 @@ These are source-baseline facts, not publication evidence for this new synchroni
 | ADO referenced-file existence | Passed — 126 unique referenced ADO Markdown paths resolved |
 | Markdown/table and diff checks | Passed — balanced fences, table structure and clean `git diff --check` |
 | Technical-Lead approval | **APPROVED for publication — zero open P0/P1/P2/P3** |
-| Synchronization commit | Pending — no identifier claimed |
-| Exact-head ten-job CI | Pending — no run claimed |
+| Synchronization commit | Passed — `d9060fe96bcb9d2e3282d5cb08a455d113b86307` on `main` |
+| Exact-head ten-job CI | Passed — run `29394356224`, `push`, `main`, exact synchronization SHA, ten of ten jobs |
 | Independent external review | Planned after publication; no approval claimed |
 
 ## 7. Technical-Lead review
@@ -104,7 +105,17 @@ Final local verdict: **APPROVED FOR ADO PUBLICATION**, with P0 = 0, P1 = 0, P2 =
 No finding is waived. External independent review remains deliberately scheduled after publication,
 as requested by the Human Architect, and is not pre-claimed here.
 
-## 8. Open gates retained
+## 8. Publication evidence
+
+Synchronization commit `d9060fe96bcb9d2e3282d5cb08a455d113b86307` has parent
+`fda5e5b9e878311b0caa647c6b49ab14943b706e`, contains only the authorized 15-file ADO delta and is
+published on `main`. GitHub Actions run `29394356224` completed successfully for event `push`, branch
+`main` and that exact head SHA; all ten named jobs passed.
+
+The following ADO-only closure publication records these already-existing facts. Its own SHA and
+exact-head CI run are final handoff evidence and are not recursively inserted into a third commit.
+
+## 9. Open gates retained
 
 EP-008 Chapters 04–10, C3D/C3E, DT-060–DT-068, full offline, correction/export, two external
 Supavisor modes, production cloud/IAM/monitoring/backup/data, pilot/store distribution, support and

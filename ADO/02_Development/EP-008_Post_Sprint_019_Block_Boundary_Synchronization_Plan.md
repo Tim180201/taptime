@@ -1,10 +1,12 @@
 # EP-008 Post-Sprint-019 Block-Boundary Synchronization Plan
 
-Status: Implemented locally and Technical-Lead approved — publication commit/CI pending
+Status: Completed — synchronization publication and exact-head CI passed; closure publication pending
 Date: 2026-07-15
 Owner: Technical Lead
 Human Authority: Explicit Human Architect instruction to proceed on 2026-07-15
 Exact baseline: `fda5e5b9e878311b0caa647c6b49ab14943b706e`
+Synchronization publication: `d9060fe96bcb9d2e3282d5cb08a455d113b86307`
+Synchronization CI: GitHub Actions run `29394356224` — ten of ten jobs passed
 Production authority: Not granted
 Engineering-slice authority: C3D/C3E remain separately gated
 
@@ -71,3 +73,14 @@ The first ADO-only commit publishes the synchronized manual/reassessment and mus
 A later ADO-only closure commit records that real commit/run and may be created only after both exist.
 The closure commit must itself pass exact-head CI; its identifier is reported as final publication
 evidence without recursively inventing another future identifier.
+
+## 7. Completion record
+
+The synchronization publication commit `d9060fe96bcb9d2e3282d5cb08a455d113b86307` was pushed to
+`main`. GitHub Actions run `29394356224` is a completed `push` run bound to that exact SHA and passed
+all ten jobs. This satisfies the first publication gate. The separate ADO-only closure publication
+records that evidence; its own final SHA and exact-head CI run are reported after publication rather
+than recursively embedded into another commit.
+
+Independent external review remains pending and is not a prerequisite falsely claimed by this
+Technical-Lead closure. EP-008 Chapters 00–03 remain Draft until Human acceptance.
