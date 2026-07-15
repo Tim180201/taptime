@@ -2,7 +2,8 @@
 
 Status: Active — C3B/C3C/C3D completed for their authorized scopes; C3D corrections independently
 approved, exact-head CI green and complete fresh Human physical validation passed; C3E1
-authorization package review-ready but implementation unauthorized; C3E2 unauthorized
+authorization package corrected after six P2 findings and awaiting renewed independent review;
+implementation unauthorized; C3E2 unauthorized
 Date: 2026-07-15
 Planning Baseline: `f7d38558e9a1e6d5f7c2cfd1f4a1ec6eed3ebd44`
 Owner: Technical Lead
@@ -15,7 +16,7 @@ Architecture: Accepted ADR-0011, FB-002 v1.2 and TS-002 v1.3
 | C3B | Isolated first Organization/Administrator bootstrap CLI, migration `006`, role graph, receipt/audit and security matrix | High | Completed — Technical Lead, independent review and nine-job CI passed |
 | C3C | Tenant-safe normal setup backend/API, Customer/Tag display names, atomic Customer and NFC provision commands, resumable safe projection | Very High | Completed — implementation `b90729a0a4b325f523cd98ea5a741defb00155f6`, independent exact-SHA reviews and exact-head ten-job CI passed |
 | C3D | Minimal Admin Web shell for Customer/assignment setup plus protected Android Administrator NFC capture | Extra High | Completed — final correction `e686578`, independent zero-finding review, exact-head ten-job CI and fresh Galaxy/NTAG213 Human gate passed |
-| C3E1 | Identity-first Employee Membership setup through a separately reviewed least-privilege invitation/redemption boundary | Very High | Authorization package review-ready; implementation not authorized |
+| C3E1 | Identity-first Employee Membership setup through a separately reviewed least-privilege invitation/redemption boundary | Very High | Six-P2 corrected review candidate; renewed independent review required; implementation not authorized |
 | C3E2 | Explicit Tag reassignment with preserved Assignment history and future time attribution | Very High | Not authorized |
 
 C3B and C3C repository implementation are closed. The C3C backend prerequisite is satisfied. The
@@ -189,7 +190,7 @@ authorize C3E1 implementation, C3E2, Web/iOS NFC, production operation/data or d
 
 ## 5. C3E1 — identity-first Employee Membership setup
 
-The review-ready authorization package is
+The corrected review-candidate authorization package is
 `ADO/02_Development/Block_C3E1_Identity_First_Employee_Membership_Authorization.md`. It proposes a
 two-step boundary: a current Administrator creates a short-lived Organization-bound Employee
 invitation, and a pre-existing verified provider identity with no Membership redeems it. The
@@ -202,10 +203,12 @@ authorization sources. It excludes provider-account creation, generic Membership
 revocation/role change, last-Administrator policy, email delivery and all Tag reassignment.
 
 This section records planning only. The proposed token, schema, route, role, receipt, audit and UI
-contracts are not accepted architecture and no migration number is reserved until all of the
-following occur:
+contracts are not accepted architecture and no migration number is reserved. Independent review of
+the first package returned six P2 contract findings and no P0/P1/P3; all six are dispositioned in
+the package and review evidence. The following gates remain:
 
-1. independent architecture/security review of the exact package;
+1. renewed independent architecture/security review of the exact correction delta with no open
+   P0–P3;
 2. explicit Human Architect acceptance of the resulting product/policy boundary;
 3. a separate implementation authorization bound to an exact clean baseline;
 4. implementation review, exact-head CI and a fresh Human identity/device gate before closure.

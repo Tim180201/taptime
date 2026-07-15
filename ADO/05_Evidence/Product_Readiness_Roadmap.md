@@ -255,10 +255,10 @@ accepted the reassessment on 2026-07-15. Evidence:
 
 ## Addendum (2026-07-15 — C3D Closure Delta and C3E Split)
 
-The accepted reassessment above remains the formal current readiness baseline until the additive
-delta at
+The accepted reassessment above remains the formal current readiness baseline until the
+independently accepted additive delta at
 `ADO/05_Evidence/Product_Readiness_Reassessment_2026-07-15_C3D_Closure_Delta.md`
-passes independent review and explicit Human Architect acceptance. That delta is triggered by C3D's
+receives explicit Human Architect acceptance. That delta is triggered by C3D's
 later completed repository/Human physical scope on closure baseline
 `a0419866c2b992ae8fc5474144064bc0652d215a`, including exact-head ten-of-ten run `29407078949`.
 
@@ -268,8 +268,12 @@ Legal/Compliance and Support remain Emerging. C3D materially closes the first pr
 and physical provisioning proof, but it does not establish production deployment, pilot operation,
 legal readiness, support maturity or market validation.
 
+Independent read-only review of publication commit `4e3ae76` found this scorecard and critical-path
+delta acceptable. Its overall `CHANGES REQUIRED` verdict concerned six separate C3E1 contract P2
+findings only; this readiness delta now awaits Human Architect acceptance.
+
 The former C3E planning item is split into separately governed boundaries: C3E1 identity-first
-Employee Membership setup has a review-ready authorization package but no implementation authority;
+Employee Membership setup has a six-P2 corrected re-review candidate but no implementation authority;
 C3E2 explicit Tag reassignment remains unauthorized. The current critical path is therefore C3E1,
 C3E2, the rest of Block E, Blocks F/G and parallel elapsed-time Block-H/legal-commercial work. This
 addendum changes no original roadmap milestone and grants no implementation or production-data

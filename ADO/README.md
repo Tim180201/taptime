@@ -159,6 +159,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Block C3D Independent Architecture/Security Review and Correction Disposition | `ADO/05_Evidence/Block_C3D_Independent_Architecture_Security_Review.md` |
 | Block C3D Physical Validation Evidence | `ADO/05_Evidence/Block_C3D_Physical_Validation_Evidence.md` |
 | Block C3D Closure Synchronization Evidence | `ADO/05_Evidence/Block_C3D_Closure_Synchronization_Evidence.md` |
+| C3D Closure Sync / C3E1 Independent Architecture-Security Review | `ADO/05_Evidence/Block_C3D_C3E1_Independent_Architecture_Security_Review.md` |
 | Product Readiness Reassessment — C3D Closure Delta | `ADO/05_Evidence/Product_Readiness_Reassessment_2026-07-15_C3D_Closure_Delta.md` |
 | EP-008 Evidence (incl. Repository Health Follow-up) | `ADO/05_Evidence/EP-008/` |
 | Evidence Area | `ADO/05_Evidence/` |

@@ -458,10 +458,11 @@ Unchanged from FB-002, restated for this specification's own boundary:
   component sequence. The historical claim that no further architecture decision was needed applied
   only to that in-process foundation, not a real C3 transport/runtime.
 - C3 readiness: ADR-0011 and the normative amendment above now decide bootstrap, normal write
-  authority, display fields, result vocabulary, payload uniqueness and Assignment history. C3B
-  C3B and C3C passed their separate exact-baseline authorization, implementation, review and CI
-  gates; C3D additionally passed its complete fresh Human physical gate. C3E1 has only a
-  review-ready authorization package, while C3E2 remains unplanned and unauthorized.
+  authority, display fields, result vocabulary, payload uniqueness and Assignment history. C3B and
+  C3C passed their separate exact-baseline authorization, implementation, review and CI gates; C3D
+  additionally passed its complete fresh Human physical gate. C3E1 has only a six-P2 corrected
+  review candidate awaiting renewed independent review, while C3E2 remains unplanned and
+  unauthorized.
 - Traceability: every new component is traced to a specific FB-002 Capability/Decision and to a specific existing repository precedent (`AssignmentValidator`, `CustomerRepository`, `NfcScanApplicationService`, `ids.ts`, ADR-0002's `NfcAssignment` identity precedent).
 - Accepted FB-002/TS-002 baseline: this document covers the implemented Core foundation and
   corrected C3A runtime contract. Independent re-review passed and Human Architect acceptance is
@@ -511,9 +512,11 @@ shape or transport authority.
 
 The former combined C3E planning label is split for authorization discipline:
 
-- **C3E1** is identity-first Employee Membership setup. Its authorization package is review-ready,
-  but none of its proposed invitation, redemption, role, schema, API or UI details are accepted or
-  implementation-authorized until independent review and explicit Human Architect acceptance.
+- **C3E1** is identity-first Employee Membership setup. Its initial authorization-package review
+  returned six P2 contract findings and no P0/P1/P3. The corrected candidate fixes the historical
+  Membership, pre-Membership state, token/cap, HTTP, lock and audit boundaries, but none is accepted
+  or implementation-authorized until renewed independent review and explicit Human Architect
+  acceptance.
 - **C3E2** is explicit Tag reassignment. It remains separately gated because Assignment history and
   future time attribution are a distinct privileged boundary from identity/Membership authority.
 

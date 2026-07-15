@@ -414,13 +414,15 @@ does not change this ADR's Membership or Assignment-history decisions.
 The former combined C3E planning label is now separated for review:
 
 - **C3E1** proposes identity-first Employee Membership enrollment through a separately reviewed,
-  short-lived invitation/redemption capability. Its package is review-ready; implementation is not
-  authorized.
+  short-lived invitation/redemption capability. Its first package review returned six P2 contract
+  findings and no P0/P1/P3; the corrected candidate requires renewed independent review and Human
+  acceptance. Implementation is not authorized.
 - **C3E2** remains the later explicit Tag reassignment capability. It must lock/deactivate/append
   Assignment history atomically and remains completely unauthorized.
 
 The separation narrows authorization and review scope; it does not accept the proposed C3E1 token,
-display-name, schema or transport contract. Those details require independent review and explicit
+display-name, schema or transport contract. The corrected token/cap, historical-Membership,
+pre-Membership state, HTTP, lock and audit details require renewed independent review and explicit
 Human Architect acceptance before implementation.
 
 ## Review triggers

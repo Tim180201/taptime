@@ -1,7 +1,7 @@
 # Block C3D Closure Synchronization Evidence
 
 Date: 2026-07-15
-Status: **REVIEW CANDIDATE — exact-head publication CI and independent ADO review required**
+Status: **INDEPENDENTLY ACCEPTED FOR C3D SYNCHRONIZATION — Human Architect acceptance pending; corrected C3E1 re-review separate**
 Authorized Baseline: `a0419866c2b992ae8fc5474144064bc0652d215a`
 Authority: Human Architect authorized an ADO-only C3D closure synchronization followed by a C3E1
 authorization package; C3E product code remains unauthorized
@@ -36,7 +36,8 @@ This ADO-only slice:
   Development Task;
 - splits the previously combined C3E planning label into review-only C3E1 identity/Membership and
   still-unauthorized C3E2 reassignment; and
-- adds the C3E1 authorization package as review-ready, with implementation explicitly withheld.
+- adds the C3E1 authorization package as a review candidate, with implementation explicitly
+  withheld. Its first independent review later required six P2 corrections as recorded below.
 
 ## 3. Non-changes
 
@@ -60,13 +61,19 @@ Local Technical-Lead preparation verified:
 - no source, SQL, package/dependency, workflow or test file changed, so no local product test result
   is promoted as new evidence by this documentation-only slice.
 
-Before this synchronization is promoted as published evidence:
+Publication and independent review then established:
 
-- every cross-reference and current-status claim must be audited against repository HEAD;
-- `git diff --check` and a no-code scope check must pass;
-- the focused ADO diff must be committed/pushed under the standing Human authorization;
-- exact-head GitHub Actions must pass; and
-- an independent read-only reviewer must verify governance consistency and the C3E1 package before
-  C3E1 implementation can be considered for Human authorization.
+- commit `4e3ae76f4fdfad751e31b546aa4b1a63e04a67ee`, tree
+  `101eee3cb51ce43c3e2f4cf3debe937ffd5b29ef`, was pushed to `main`;
+- exact-head GitHub Actions run `29408264969`, attempt 1, passed all ten jobs;
+- independent read-only review confirmed the C3D synchronization and EP-009 delta acceptable, all
+  references valid, `git diff --check` clean and no non-ADO change; and
+- the same review returned overall `CHANGES REQUIRED` solely because the C3E1 package had six P2
+  contract gaps. Those corrections require a renewed independent delta review and do not reopen the
+  accepted C3D/EP-009 component disposition.
 
-Current verdict: **ADO DELTA REVIEW CANDIDATE; C3E1 IMPLEMENTATION NOT AUTHORIZED**.
+Review evidence:
+`ADO/05_Evidence/Block_C3D_C3E1_Independent_Architecture_Security_Review.md`.
+
+Current verdict: **C3D SYNCHRONIZATION INDEPENDENTLY ACCEPTED; HUMAN ARCHITECT ACCEPTANCE PENDING;
+C3E1 CORRECTED RE-REVIEW CANDIDATE; C3E1 IMPLEMENTATION NOT AUTHORIZED**.

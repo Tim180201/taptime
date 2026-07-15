@@ -543,7 +543,8 @@ the initial Customer/Tag setup UI boundary without changing any FB-002 Business 
 The later C3E label is split for authorization discipline only: C3E1 covers identity-first Employee
 Membership enrollment; C3E2 covers explicit append-only Tag reassignment. Both remain gated. The
 C3E1 review package proposes a short-lived invitation/redemption flow, but this Blueprint does not
-accept that implementation contract until independent review and Human Architect approval.
+accept that implementation contract. Its first review returned six C3E1 P2 contract findings; the
+corrected candidate requires renewed independent review and Human Architect approval.
 
 ## Revision Note (C3A Review Reconciliation, 2026-07-14)
 
