@@ -13,7 +13,7 @@ Architecture: Accepted ADR-0011, FB-002 v1.2 and TS-002 v1.3
 |---|---|---:|---|
 | C3B | Isolated first Organization/Administrator bootstrap CLI, migration `006`, role graph, receipt/audit and security matrix | High | Completed — Technical Lead, independent review and nine-job CI passed |
 | C3C | Tenant-safe normal setup backend/API, Customer/Tag display names, atomic Customer and NFC provision commands, resumable safe projection | Very High | Completed — implementation `b90729a0a4b325f523cd98ea5a741defb00155f6`, independent exact-SHA reviews and exact-head ten-job CI passed |
-| C3D | Minimal Admin Web shell for Customer/assignment setup plus protected Android Administrator NFC capture | Extra High | Correction independently approved and published at `293a0f4`; exact-head run `29400109183` passed ten of ten; scoped physical-validation harness locally verified, with its exact-head CI and Human observations pending |
+| C3D | Minimal Admin Web shell for Customer/assignment setup plus protected Android Administrator NFC capture | Extra High | Correction independently approved and published at `293a0f4`; scoped physical-validation harness `032ae96` passed exact-head run `29401264170` ten of ten; Human observations pending |
 | C3E | Explicit reassignment and identity-first employee Membership setup after their separate policy gates | Very High | Not authorized |
 
 C3B and C3C repository implementation are closed. The C3C backend prerequisite is satisfied. The

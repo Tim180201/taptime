@@ -2,10 +2,16 @@
 
 **Date:** 2026-07-15
 
-**Status:** Physical-validation harness locally verified; exact-head CI and Human physical
-observations pending
+**Status:** Physical-validation harness locally verified, published and exact-head CI passed;
+Human physical observations pending
 
 **Harness baseline:** `e697d468cf36e34325cd4c61f85f398c51ec4429`
+
+**Harness commit:** `032ae9603a13c81e1f8dd880c42aa81828f017a4`
+
+**Harness tree:** `d15e5346d8eca34d404242491dd7ac4b80f35574`
+
+**Harness CI:** GitHub Actions `29401264170`, attempt 2 — exact harness SHA, ten of ten jobs passed
 
 **Authority:** Existing Block C3D Human physical closure gate in
 `ADO/02_Development/Block_C3D_Admin_Web_Android_Capture_Authorization.md`
@@ -53,6 +59,11 @@ configuration or product authority.
   preflight, Administrator login, proxied `/v1/session` and safe setup projection, then shut down
   the harness and disposable schema.
 - `git diff --check` passed.
+
+The harness commit passed all ten jobs in exact-head GitHub Actions run `29401264170`, attempt 2.
+Attempt 1 passed all 189 C3B assertions but reported the pre-existing late PostgreSQL forced-database
+cleanup event (`57P01`); the unchanged SHA passed the failed-job rerun. No C3B or workflow source
+was part of the harness change.
 
 ## Human observation checklist
 

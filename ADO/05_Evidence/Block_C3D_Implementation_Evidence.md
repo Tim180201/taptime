@@ -4,7 +4,7 @@
 
 **Status:** Correction independently approved with zero open findings and published at an exact
 commit/tree with ten-of-ten exact-head CI; scoped physical-validation harness locally verified;
-exact-head harness CI and physical Human closure remain open
+exact-head harness CI passed; physical Human closure remains open
 
 **Authorization decision baseline:** `316f017973fbba18a58c2340c9c79a28f06573e5`
 
@@ -71,4 +71,7 @@ process/session replacement must also be observed. No production-person data is 
 
 The earlier Block-D synthetic harness intentionally disabled C3C administration and could not run
 this sequence. Its scoped C3D extension, verification and still-pending Human checklist are recorded
-in `ADO/05_Evidence/Block_C3D_Physical_Validation_Evidence.md`.
+in `ADO/05_Evidence/Block_C3D_Physical_Validation_Evidence.md`. Harness commit
+`032ae9603a13c81e1f8dd880c42aa81828f017a4`, tree
+`d15e5346d8eca34d404242491dd7ac4b80f35574`, passed all ten jobs in exact-head run `29401264170`,
+attempt 2.
