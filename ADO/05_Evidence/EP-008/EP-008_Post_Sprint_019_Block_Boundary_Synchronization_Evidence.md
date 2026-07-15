@@ -1,12 +1,13 @@
 # EP-008 Post-Sprint-019 Block-Boundary Synchronization Evidence
 
-Status: Completed — synchronization and closure CI passed; independent final review approved; Human acceptance pending
+Status: Completed — synchronization and closure CI passed; independent final review approved; Human accepted
 Evidence Date: 2026-07-15
 Owner: Technical Lead
 Authorized baseline: `fda5e5b9e878311b0caa647c6b49ab14943b706e`
 Plan: `ADO/02_Development/EP-008_Post_Sprint_019_Block_Boundary_Synchronization_Plan.md`
 Closure: `ADO/02_Development/EP-008_Post_Sprint_019_Block_Boundary_Synchronization_Closure.md`
 Independent Review: `ADO/05_Evidence/EP-008/EP-008_Post_Sprint_019_Independent_Final_Review.md`
+Human Acceptance: `ADO/02_Development/EP-008_Post_Sprint_019_Human_Acceptance.md`
 Production authority: Not granted
 
 ## 1. Evidence boundary
@@ -89,6 +90,7 @@ These are source-baseline facts, not publication evidence for this new synchroni
 | Exact-head ten-job CI | Passed — run `29394356224`, `push`, `main`, exact synchronization SHA, ten of ten jobs |
 | Closure publication and exact-head CI | Passed — `9c9144fa468cbaa6d1195a172f92e746ad3eb265`, run `29394550988`, ten of ten jobs |
 | Independent external review | **APPROVED** on exact closure head; no open repository P0/P1/P2/P3 after disposition |
+| Human acceptance | **ACCEPTED** on 2026-07-15 for EP-008 Chapters 00–03 and the EP-009 reassessment |
 
 ## 7. Technical-Lead review
 

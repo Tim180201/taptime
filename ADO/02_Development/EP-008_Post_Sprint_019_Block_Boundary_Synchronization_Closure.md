@@ -1,6 +1,6 @@
 # EP-008 Post-Sprint-019 Block-Boundary Synchronization Closure
 
-Status: Completed — Technical-Lead, exact-head CI and independent final review approved; Human acceptance pending
+Status: Completed — Technical-Lead, exact-head CI, independent final review and Human acceptance complete
 Date: 2026-07-15
 Owner: Technical Lead
 Human Authority: Explicit Human Architect instruction to proceed on 2026-07-15
@@ -10,6 +10,7 @@ Synchronization CI: GitHub Actions run `29394356224` — ten of ten jobs passed
 Closure publication: `9c9144fa468cbaa6d1195a172f92e746ad3eb265`
 Closure CI: GitHub Actions run `29394550988` — ten of ten jobs passed
 Independent Review: `ADO/05_Evidence/EP-008/EP-008_Post_Sprint_019_Independent_Final_Review.md`
+Human Acceptance: `ADO/02_Development/EP-008_Post_Sprint_019_Human_Acceptance.md`
 Production authority: Not granted
 
 ## 1. Closed scope
@@ -51,13 +52,12 @@ an explicitly non-repository SSH sandbox observation, compensated by fresh HTTPS
 verification and requiring no repository correction. The Technical Lead retained and closed it as
 not applicable; no open P0/P1/P2/P3 remains.
 
-This verdict closes the documentation-maintenance and independent-review gates only. It does not
-promote EP-008 Chapters 00–03 from Draft or accept the EP-009 reassessment on behalf of the Human
-Architect.
+The Human Architect subsequently accepted EP-008 Chapters 00–03 and the 2026-07-15 EP-009
+reassessment. This completes the synchronization, review and acceptance gates without authorizing
+C3D or any later implementation/deployment gate.
 
 ## 4. Open gates retained
 
-- Human acceptance of the independently approved synchronized Draft guidance remains open.
 - EP-008 Chapters 04–10 remain a separate documentation backlog.
 - C3D/C3E and Block E outside the narrow E2A authority remain separately gated.
 - DT-060–DT-068, full offline, correction/export and two Supavisor modes remain open.

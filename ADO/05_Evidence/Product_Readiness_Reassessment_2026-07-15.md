@@ -1,6 +1,6 @@
 # Product Readiness Reassessment — 2026-07-15
 
-Status: Independent Final Review Approved — additive EP-009 reassessment, Human acceptance pending
+Status: Accepted — independent final review approved and Human Architect accepted on 2026-07-15
 Assessment Date: 2026-07-15
 Owner: Technical Lead
 Repository Baseline: `fda5e5b9e878311b0caa647c6b49ab14943b706e`
@@ -89,7 +89,8 @@ have approved the repository-evidence accuracy. The independent review confirmed
 dispositions and the complete scorecard with no open repository P0/P1/P2/P3 after disposition; see
 `ADO/05_Evidence/EP-008/EP-008_Post_Sprint_019_Independent_Final_Review.md`.
 
-Human acceptance is still required before this reassessment is promoted as an accepted Product
-Readiness baseline. The next reassessment trigger is a material readiness change such as completed
-C3D/C3E, supported pilot distribution, production deployment evidence, legal review or real pilot
-outcomes.
+The Human Architect accepted this reassessment on 2026-07-15; see
+`ADO/02_Development/EP-008_Post_Sprint_019_Human_Acceptance.md`. It is therefore the accepted current
+evidence-based Product Readiness view while the 2026-07-07 Assessment/Roadmap remain immutable
+chronology. The next reassessment trigger is a material readiness change such as completed C3D/C3E,
+supported pilot distribution, production deployment evidence, legal review or real pilot outcomes.

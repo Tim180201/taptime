@@ -328,8 +328,9 @@ through Blocks A, B1–B6, C1/C2, D, E1/E2A and C3A–C3C on baseline
 Synchronization publication `d9060fe96bcb9d2e3282d5cb08a455d113b86307` passed all ten jobs in
 exact-head GitHub Actions run `29394356224` on `main`; closure
 `9c9144fa468cbaa6d1195a172f92e746ad3eb265` passed ten-of-ten run `29394550988`. Independent final
-review returned `APPROVED` with no open repository finding after disposition. Human acceptance
-remains pending.
+review returned `APPROVED` with no open repository finding after disposition. The Human Architect
+accepted EP-008 Chapters 00–03 and the EP-009 reassessment on 2026-07-15. C3D remains separately
+gated.
 
 EP-009's additive 2026-07-15 reassessment dispositions K1–K12 and extends the qualitative scorecard
 without rewriting the 2026-07-07 baseline. This governance maintenance changes no Roadmap order:

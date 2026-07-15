@@ -1,6 +1,6 @@
 # EP-008 Post-Sprint-019 Block-Boundary Synchronization Plan
 
-Status: Completed — synchronization and closure CI passed; independent final review approved; Human acceptance pending
+Status: Completed — synchronization and closure CI passed; independent final review approved; Human accepted
 Date: 2026-07-15
 Owner: Technical Lead
 Human Authority: Explicit Human Architect instruction to proceed on 2026-07-15
@@ -10,6 +10,7 @@ Synchronization CI: GitHub Actions run `29394356224` — ten of ten jobs passed
 Closure publication: `9c9144fa468cbaa6d1195a172f92e746ad3eb265`
 Closure CI: GitHub Actions run `29394550988` — ten of ten jobs passed
 Independent Review: `ADO/05_Evidence/EP-008/EP-008_Post_Sprint_019_Independent_Final_Review.md`
+Human Acceptance: `ADO/02_Development/EP-008_Post_Sprint_019_Human_Acceptance.md`
 Production authority: Not granted
 Engineering-slice authority: C3D/C3E remain separately gated
 
@@ -91,4 +92,5 @@ concerned only SSH host-key configuration in the review sandbox; fresh HTTPS rem
 passed, the review required no repository correction and the Technical Lead closed the observation
 as not applicable to TapTim.e. Final open repository counts are P0/P1/P2/P3 = 0/0/0/0.
 
-EP-008 Chapters 00–03 remain Draft until Human acceptance.
+The Human Architect accepted the synchronized EP-008 Chapters 00–03 and the 2026-07-15 EP-009
+Product Readiness Reassessment on 2026-07-15. C3D remains separately gated.

@@ -1,6 +1,6 @@
 # EP-008 Post-Sprint-019 Independent Final Review
 
-Status: **APPROVED** — independent final review complete; Human acceptance pending
+Status: **APPROVED** — independent final review complete; Human accepted on 2026-07-15
 Review Date: 2026-07-15
 Review Agent: Independent external Claude review
 Review Baseline: `fda5e5b9e878311b0caa647c6b49ab14943b706e`
@@ -73,10 +73,11 @@ consistent. No C3D, C3E, broader Block-E or production authority is created.
 
 ## 6. Authority and remaining gates
 
-This review completes the independent-review gate only. EP-008 Chapters 00–03 remain Draft and the
-EP-009 reassessment remains pending Human acceptance. Chapters 04–10, C3D/C3E, Block E outside E2A,
-full offline, correction/export, two Supavisor modes, production cloud/data/IAM/operations,
-pilot/store distribution, support and legal/commercial readiness remain open.
+The Human Architect subsequently accepted EP-008 Chapters 00–03 and the EP-009 reassessment on
+2026-07-15; see `ADO/02_Development/EP-008_Post_Sprint_019_Human_Acceptance.md`. Chapters 04–10,
+C3D/C3E, Block E outside E2A, full offline, correction/export, two Supavisor modes, production
+cloud/data/IAM/operations, pilot/store distribution, support and legal/commercial readiness remain
+open.
 
 Publication of this review artifact is ADO-only. Its final publication SHA and exact-head CI result
 are reported at handoff after they exist and are not recursively invented here.
