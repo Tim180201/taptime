@@ -2,9 +2,9 @@
 
 **Date:** 2026-07-15
 
-**Status:** Original correction independently approved with zero open findings and exact-head CI;
-physical-start finding C3D-LOOPBACK-01 locally corrected; its delta review, exact-head CI and the
-restarted physical Human closure remain open
+**Status:** Original and C3D-LOOPBACK-01 corrections independently approved and exact-head CI
+green; restarted-gate findings C3D-CORS-01 and C3D-FETCH-01 locally corrected; their delta review,
+exact-head CI and a complete fresh Human closure remain open
 
 **Authorization decision baseline:** `316f017973fbba18a58c2340c9c79a28f06573e5`
 
@@ -28,7 +28,7 @@ restarted physical Human closure remain open
 ## Automated evidence
 
 - `npm run typecheck` — passed for Core, Mobile and Admin Web.
-- `npm test` — Core 290/290, Mobile 338/338, Admin Web 26/26.
+- `npm test` — Core 290/290, Mobile 338/338, Admin Web 27/27.
 - Neutral administration contract 3/3, C3C direct-PostgreSQL administration 75/75 and C2/C3C
   backend API 172/172 passed locally.
 - `npm run build --workspace=@taptime/admin-web` — passed; production Vite bundle emitted.
@@ -78,6 +78,20 @@ attempt 2.
 
 The first actual physical-gate browser start subsequently exposed C3D-LOOPBACK-01: the Admin Web
 runtime parser rejected the harness's exact numeric HTTP loopback Auth origin before login. The
-narrow local correction and adversarial origin tests are recorded in
-`ADO/05_Evidence/Block_C3D_Physical_Validation_Evidence.md`; it changes no Mobile/backend/C3C/schema
-or production authority and remains pending independent delta review plus exact-head CI.
+narrow correction and adversarial origin tests are recorded in
+`ADO/05_Evidence/Block_C3D_Physical_Validation_Evidence.md`. Commit
+`ad64cec3660e9bf89bcff1c334d01dbd79081ad5`, tree
+`71bd087d7f5ac27abb1540f0c0a39266e2cc86bf`, passed independent delta review with zero open
+P0/P1/P2/P3 and exact-head GitHub Actions run `29402429508` with ten of ten jobs.
+
+The permitted restart then exposed C3D-CORS-01 and C3D-FETCH-01 before any setup write or NFC
+capture. The harness CORS allowlist omitted the Supabase SDK's mandatory
+`X-Supabase-Api-Version` request header, and the Admin-Web client stored browser `fetch` unbound,
+causing `TypeError: Illegal invocation` before `/v1/session`. The local correction adds the exact
+header/test, invokes `globalThis.fetch(...)` with its required receiver, preserves existing
+fail-closed redirect handling and adds a receiver-sensitive regression test. A real
+browser smoke now reaches the safe projection (one synthetic Customer, zero Tags). Local evidence
+is Core 290/290, Mobile 338/338, Admin Web 27/27, contract 3/3, PostgreSQL-backed harness 9/9,
+relevant TypeScript checks and Admin-Web/harness builds. This correction changes no Mobile,
+backend, C3C, schema, Core rule, production authority or personal data and remains pending its own
+independent delta review plus exact-head CI.

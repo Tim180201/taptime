@@ -19,7 +19,7 @@ export interface AdminWebApiPort {
 }
 
 export class AdminWebApiClient implements AdminWebApiPort {
-  constructor(private readonly fetchRequest: typeof fetch = fetch) {}
+  constructor(private readonly fetchRequest: typeof fetch = (input, init) => globalThis.fetch(input, init)) {}
   async session(token: string): Promise<ApiResult<Session>> { return this.request('/v1/session', token, 'GET', undefined, parseSession); }
   async projection(token: string, membershipId: string, nextCursor: string | null): Promise<ApiResult<SafeProjection>> {
     if (nextCursor !== null && !cursor.test(nextCursor)) return { status: 'unavailable' };

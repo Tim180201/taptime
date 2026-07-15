@@ -2,9 +2,10 @@
 
 **Date:** 2026-07-15
 
-**Status:** Physical-validation harness published and exact-head CI passed; C3D-LOOPBACK-01
-locally corrected after the first real browser start; correction delta review, exact-head CI and
-the restarted Human physical sequence remain pending
+**Status:** Physical-validation harness and C3D-LOOPBACK-01 correction published, independently
+approved and exact-head CI green; the restarted Human sequence exposed C3D-CORS-01 and
+C3D-FETCH-01, both locally corrected; renewed delta review, exact-head CI and a complete fresh
+Human sequence remain pending
 
 **Harness baseline:** `e697d468cf36e34325cd4c61f85f398c51ec4429`
 
@@ -52,7 +53,7 @@ configuration or product authority.
 - Synthetic C3D/legacy server-connected E2E: 9/9, including exact role graphs, separate identities,
   identity-bound Administrator refresh, Employee denial, exact-origin CORS, real Customer creation,
   atomic Tag provisioning, disclosure-safe results and the retained Start/Stop/defer regression.
-- Core: 290/290; Mobile: 338/338; Admin Web: 26/26; neutral C3 contract: 3/3.
+- Core: 290/290; Mobile: 338/338; Admin Web: 27/27; neutral C3 contract: 3/3.
 - Direct PostgreSQL C3C administration: 75/75; backend API: 172/172.
 - Synthetic harness, backend API, backend administration, Mobile and Admin Web TypeScript checks
   passed; synthetic harness and Admin Web production builds passed; Android Expo export passed.
@@ -77,13 +78,44 @@ actual `main.tsx` runtime-configuration branch, so it had not exposed this misma
 
 The narrow correction accepts HTTP only for canonical origin `http://127.0.0.1:54321`; HTTPS
 remains the general path, while alternate IPv4 spellings, IPv6/other loopback, `localhost`, a wrong
-port, LAN/remote hosts, embedded credentials, paths, queries, fragments and short keys remain rejected. No Mobile, backend, C3C,
-schema, Core rule, production endpoint or product authority changed. Local post-correction evidence
-is Admin Web 26/26 plus build/typecheck, Core 290/290, Mobile 338/338, neutral contract 3/3,
-synthetic harness 9/9 and their relevant TypeScript checks. Reloading the actual Vite entry point
-then rendered the Administrator sign-in surface. The preliminary Employee observation is not
-promoted in the checklist because the controlled sequence was intentionally aborted and will be
-restarted on the reviewed exact-head correction.
+port, LAN/remote hosts, embedded credentials, paths, queries, fragments and short keys remain
+rejected. No Mobile, backend, C3C, schema, Core rule, production endpoint or product authority
+changed. Correction commit `ad64cec3660e9bf89bcff1c334d01dbd79081ad5`, tree
+`71bd087d7f5ac27abb1540f0c0a39266e2cc86bf`, passed independent read-only delta review with zero
+open P0/P1/P2/P3 and all ten jobs in exact-head GitHub Actions run `29402429508`, attempt 1.
+The Human gate was therefore permitted to restart. The preliminary Employee observation is not
+promoted in the checklist because the complete sequence must remain one fresh reviewed exact-head
+run.
+
+## C3D-CORS-01 and C3D-FETCH-01 restarted-gate corrections
+
+The restarted real-browser sequence exposed two further runtime integration gaps before any setup
+write or NFC capture:
+
+- **C3D-CORS-01:** `@supabase/auth-js` sends `X-Supabase-Api-Version` on password-auth requests,
+  but the loopback harness preflight allowlist omitted that header. The browser therefore blocked
+  sign-in even though the visible form and credentials were valid. The harness now permits that
+  exact SDK header in addition to its existing narrow set, while retaining exact-origin,
+  no-credentials CORS. The PostgreSQL-backed harness test drives the real preflight and actual
+  password request with the header and asserts the exact response allowlist.
+- **C3D-FETCH-01:** `AdminWebApiClient` stored the browser's `fetch` function unbound. Real WebKit
+  and Chromium reject that invocation with `TypeError: Illegal invocation`, so `/v1/session` was
+  never sent after successful Auth. The default client now invokes `globalThis.fetch(...)` with
+  its required receiver while preserving the existing fail-closed redirect handling.
+  A receiver-sensitive regression test fails on an unbound invocation and passes only through the
+  corrected default client.
+
+Current local evidence is Core 290/290, Mobile 338/338, Admin Web 27/27, neutral contract 3/3 and
+PostgreSQL-backed synthetic harness 9/9; Core/Mobile/Admin-Web/harness TypeScript checks and the
+Admin-Web/harness production builds pass. A controlled actual-browser smoke then completed
+password sign-in, `/v1/session` confirmation and the safe setup projection, displaying exactly one
+synthetic Customer and zero Tags without exposing raw payload or credentials. The smoke created no
+Customer, Tag, Assignment, administration receipt or lifecycle evidence. Harness/API/Web were
+stopped, the Android test app was cleared and both scoped reverse mappings were removed.
+
+The correction is not yet published or independently reviewed. Consequently every checklist item
+below remains `Pending`, and the next physical attempt must restart from the first observation only
+after independent delta approval and ten-of-ten exact-head CI.
 
 ## Human observation checklist
 

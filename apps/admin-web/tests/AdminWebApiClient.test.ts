@@ -47,6 +47,27 @@ describe('AdminWebApiClient', () => {
     expect(calls[0]?.init?.headers).toMatchObject({ Authorization: 'Bearer secret-token' });
   });
 
+  it('invokes the default browser fetch with its required global receiver', async () => {
+    const browserFetch = vi.fn(function (this: typeof globalThis) {
+      if (this !== globalThis) throw new TypeError('Illegal invocation');
+      return Promise.resolve(json({
+        userId: ids.user,
+        membershipId: ids.membership,
+        organizationId: ids.organization,
+        role: 'administrator',
+      }));
+    });
+    vi.stubGlobal('fetch', browserFetch);
+    try {
+      await expect(new AdminWebApiClient().session('secret-token')).resolves.toEqual({
+        status: 'succeeded', value: { membershipId: ids.membership, role: 'administrator' },
+      });
+      expect(browserFetch).toHaveBeenCalledOnce();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('serializes the bounded projection request and rejects malformed cursor or extra response fields', async () => {
     const fetchRequest = vi.fn<typeof fetch>(async () => json(validProjection()));
     const client = new AdminWebApiClient(fetchRequest);

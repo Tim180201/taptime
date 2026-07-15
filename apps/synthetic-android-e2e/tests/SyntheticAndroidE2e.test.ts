@@ -230,11 +230,14 @@ describeWithPostgres('synthetic Android product-to-server E2E', () => {
       headers: {
         origin: 'http://127.0.0.1:5173',
         'access-control-request-method': 'POST',
-        'access-control-request-headers': 'apikey,content-type,x-client-info',
+        'access-control-request-headers': 'apikey,content-type,x-client-info,x-supabase-api-version',
       },
     });
     expect(allowed.status).toBe(204);
     expect(allowed.headers.get('access-control-allow-origin')).toBe('http://127.0.0.1:5173');
+    expect(allowed.headers.get('access-control-allow-headers')).toBe(
+      'apikey, authorization, content-type, x-client-info, x-supabase-api-version',
+    );
     expect(allowed.headers.get('access-control-allow-credentials')).toBeNull();
 
     const signedIn = await fetch(
@@ -245,6 +248,7 @@ describeWithPostgres('synthetic Android product-to-server E2E', () => {
           origin: 'http://127.0.0.1:5173',
           apikey: SYNTHETIC_PUBLISHABLE_KEY,
           'content-type': 'application/json',
+          'x-supabase-api-version': '2024-01-01',
         },
         body: JSON.stringify({
           email: SYNTHETIC_ADMIN_AUTH_EMAIL,

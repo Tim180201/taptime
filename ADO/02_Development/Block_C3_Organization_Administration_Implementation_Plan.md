@@ -1,7 +1,8 @@
 # Block C3 — Organization Administration Implementation Plan
 
-Status: Active — C3B/C3C completed; C3D-LOOPBACK-01 locally corrected; independent delta review,
-exact-head CI and restarted Human physical closure pending; C3E unauthorized
+Status: Active — C3B/C3C completed; C3D-LOOPBACK-01 independently approved and exact-head CI
+green; C3D-CORS-01/C3D-FETCH-01 locally corrected after the restarted physical gate; renewed delta
+review, exact-head CI and complete fresh Human closure pending; C3E unauthorized
 Date: 2026-07-15
 Planning Baseline: `f7d38558e9a1e6d5f7c2cfd1f4a1ec6eed3ebd44`
 Owner: Technical Lead
@@ -13,7 +14,7 @@ Architecture: Accepted ADR-0011, FB-002 v1.2 and TS-002 v1.3
 |---|---|---:|---|
 | C3B | Isolated first Organization/Administrator bootstrap CLI, migration `006`, role graph, receipt/audit and security matrix | High | Completed — Technical Lead, independent review and nine-job CI passed |
 | C3C | Tenant-safe normal setup backend/API, Customer/Tag display names, atomic Customer and NFC provision commands, resumable safe projection | Very High | Completed — implementation `b90729a0a4b325f523cd98ea5a741defb00155f6`, independent exact-SHA reviews and exact-head ten-job CI passed |
-| C3D | Minimal Admin Web shell for Customer/assignment setup plus protected Android Administrator NFC capture | Extra High | Prior correction `293a0f4` independently approved; physical-start C3D-LOOPBACK-01 locally corrected; delta review, exact-head CI and restarted Human observations pending |
+| C3D | Minimal Admin Web shell for Customer/assignment setup plus protected Android Administrator NFC capture | Extra High | Corrections `293a0f4` and `ad64cec` independently approved/exact-head CI green; C3D-CORS-01/C3D-FETCH-01 locally corrected; renewed review/CI and complete fresh Human observations pending |
 | C3E | Explicit reassignment and identity-first employee Membership setup after their separate policy gates | Very High | Not authorized |
 
 C3B and C3C repository implementation are closed. The C3C backend prerequisite is satisfied. The
@@ -151,6 +152,23 @@ Android capture/register/assign Tag → the same Administrator's product scan St
 C3D closure. This avoids an unauthorized Employee-seeding path; identity-first Employee provisioning
 remains C3E. Responsive accessibility, loading/error/empty states and Android process/session
 replacement are mandatory. iOS/Web NFC remains outside the first physical gate.
+
+### Physical-start correction checkpoint (2026-07-15)
+
+The exact-loopback correction `ad64cec3660e9bf89bcff1c334d01dbd79081ad5`, tree
+`71bd087d7f5ac27abb1540f0c0a39266e2cc86bf`, passed independent delta review with zero open
+P0/P1/P2/P3 and exact-head ten-of-ten run `29402429508`. The permitted restart then exposed two
+further browser-runtime integration gaps before setup mutation or NFC capture: the local Auth
+harness did not allow the Supabase SDK's `X-Supabase-Api-Version` preflight header, and the Admin
+Web API client stored browser `fetch` without its required global receiver. Both are locally
+corrected with exact-header/real-preflight and receiver-sensitive tests while preserving the
+existing fail-closed redirect behavior. Current local evidence is Core 290, Mobile 338, Admin Web 27,
+contract 3 and PostgreSQL-backed harness 9 plus relevant TypeScript checks and builds. A real
+browser smoke reaches the safe one-Customer/zero-Tag projection.
+
+The newest correction still requires a targeted commit, independent read-only delta review and a
+ten-of-ten exact-head CI run. Only then may the complete Human observation sequence restart from
+its first row. No preliminary observation from either aborted attempt is carried forward.
 
 ## 5. Independent review and publication gates
 

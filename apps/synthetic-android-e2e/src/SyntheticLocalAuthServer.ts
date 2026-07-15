@@ -16,7 +16,7 @@ import {
 const maximumBodyBytes = 4_096;
 const accessTokenLifetimeSeconds = 300;
 const keyId = 'taptime-synthetic-android-e2e-rs256';
-const allowedBrowserRequestHeaders = 'apikey, authorization, content-type, x-client-info';
+const allowedBrowserRequestHeaders = 'apikey, authorization, content-type, x-client-info, x-supabase-api-version';
 type SyntheticSigningKey = Awaited<ReturnType<typeof generateKeyPair>>['privateKey'];
 
 interface SyntheticAuthAccount {

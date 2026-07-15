@@ -1,7 +1,8 @@
 # Block C3D — Independent Architecture/Security Review and Correction Disposition
 
-Status: **Independent delta re-review APPROVED with zero open P0/P1/P2/P3; exact correction
-commit/tree published and exact-head CI passed; Human physical closure pending**
+Status: **Original and C3D-LOOPBACK-01 delta reviews APPROVED with zero open P0/P1/P2/P3 and
+exact-head CI passed; C3D-CORS-01/C3D-FETCH-01 locally corrected after the restarted physical
+gate and pending renewed delta review plus exact-head CI; Human physical closure pending**
 Review Date: 2026-07-15
 Reviewed Implementation Commit: `35eb6441688b4c76ea0e89b7f1f2f69decca4a14`
 Reviewed Implementation Parent: `0af755a3678c3756cee31579cb563c8977b514af`
@@ -119,3 +120,25 @@ not final or closed until that server-connected device/browser gate is recorded 
 
 C3E, Membership CRUD/reassignment, Web/iOS NFC, production operation/data and distribution remain
 unauthorized.
+
+## 8. C3D-LOOPBACK-01 independent delta review and publication
+
+The separately published loopback correction is commit
+`ad64cec3660e9bf89bcff1c334d01dbd79081ad5`, tree
+`71bd087d7f5ac27abb1540f0c0a39266e2cc86bf`. The independent read-only delta review returned
+**APPROVED** with zero open P0/P1/P2/P3, confirming that HTTP is accepted only for the two exact
+canonical spellings of `http://127.0.0.1:54321` and that URL normalization cannot broaden the
+exception. Exact-head GitHub Actions run `29402429508`, attempt 1, passed all ten jobs. These facts
+satisfied the prerequisites for a fresh Human physical-gate start.
+
+## 9. Restarted-gate findings pending renewed review
+
+The restarted gate exposed C3D-CORS-01 and C3D-FETCH-01 before setup mutation or NFC capture. The
+local correction adds the Supabase SDK's exact `X-Supabase-Api-Version` header to the harness CORS
+allowlist and replaces unbound browser `fetch` storage with a receiver-safe
+`globalThis.fetch(...)` call while preserving existing fail-closed redirect handling. Tests exercise
+the real PostgreSQL-backed preflight/auth request and a receiver-sensitive default client. A real
+browser smoke completes Auth, `/v1/session` and the safe projection.
+
+This later correction has not yet received independent delta review or exact-head CI. No physical
+observation may be promoted until both gates pass and the complete Human sequence is restarted.
