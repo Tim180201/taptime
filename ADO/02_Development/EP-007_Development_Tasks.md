@@ -8,7 +8,7 @@ Related Feature Blueprint: `ADO/01_Architecture/Feature_Blueprints/FB-001-nfc-sc
 Related Technical Specification: `ADO/01_Architecture/Technical_Specifications/TS-001-nfc-scan-creates-work-event.md`; `ADO/01_Architecture/Technical_Specifications/TS-002-organization-management-foundation.md` (DT-017–DT-026)  
 Related Architecture: `ADO/01_Architecture/Technical_Architecture_Profile.md`  
 Created Date: 2026-06-30  
-Last Updated: 2026-07-07 (extended with DT-017–DT-026, Organization Management Foundation)
+Last Updated: 2026-07-15 (C3D closure and C3E1/C3E2 planning reconciliation; no new task created)
 
 ## Purpose
 
@@ -818,7 +818,8 @@ Known limitations: this proof is repository-internal only — no UI, CLI, or mob
 
 **Post-closure C3A/C3B-feasibility reconciliation (2026-07-14):** accepted FB-002 v1.2, TS-002 v1.2 and ADR-0011
 resolve the architecture questions above without changing DT-026's code/test evidence. The Core
-foundation remains complete; C3B is separately completed and C3C–C3E remain gated.
+foundation remains complete; this sentence records the 2026-07-14 state, before later C3C/C3D
+closures.
 
 **Post-closure C3C reconciliation checkpoint (2026-07-15):** TS-002 v1.3 and the authorized C3C
 implementation add the tenant-safe normal setup backend/API around this unchanged historical Core
@@ -843,13 +844,22 @@ DT-017–DT-026 were planned and subsequently implemented, reviewed and approved
 Sprints 012–019; their populated Implementation Notes and closures are the evidence. This original
 planning gate is satisfied. The accepted C3A package reconciles the completed Core foundation with the real
 backend/runtime boundary; it does not retroactively convert the Core services into transport
-authority. C3B and C3C separately completed after Human acceptance and their own
-authorization/review/CI cycles; C3D/C3E remain gated.
+authority. C3B, C3C and C3D separately completed after Human acceptance and their applicable
+authorization/review/CI/Human gates; C3E1 implementation and C3E2 remain gated.
 
 Current checkpoint (2026-07-15): C3C repository implementation commit
 `b90729a0a4b325f523cd98ea5a741defb00155f6` passed the complete 1,394-test matrix, three independent
 exact-SHA reviews with zero open P0/P1/P2/P3 and exact-head ten-of-ten GitHub Actions run
 `29375259275`; C3C is closed for that repository scope. Its ADO closure-publication commit
 `9c79c6d2f2166d22cc61bfbc03ba79c434bbbfe0` passed all ten jobs in exact-head run `29376668158`.
-C3D/C3E remain unauthorized and DT-063–DT-066 remain open. This current checkpoint supplements
-rather than rewrites the historical DT-017–DT-026 completion evidence above.
+C3D was still unauthorized at this checkpoint and DT-063–DT-066 remained open. This checkpoint
+supplements rather than rewrites the historical DT-017–DT-026 completion evidence above.
+
+Current closure reconciliation (2026-07-15): C3D corrections passed independent zero-finding
+review and exact-head CI, its complete fresh Galaxy A33/NTAG213 Human physical gate passed, and ADO
+closure commit `a0419866c2b992ae8fc5474144064bc0652d215a` passed exact-head ten-of-ten run
+`29407078949`. The former combined C3E planning label is now split into C3E1 identity-first Employee
+Membership setup and C3E2 explicit Tag reassignment. The C3E1 authorization package is review-ready,
+but neither C3E1 implementation nor C3E2 is authorized. This reconciliation creates no new EP-007
+Development Task: DT-063–DT-066 remain candidate Roadmap-v2 work outside the completed
+DT-017–DT-026 sequence.

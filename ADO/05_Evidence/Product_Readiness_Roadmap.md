@@ -253,6 +253,28 @@ accepted the reassessment on 2026-07-15. Evidence:
 `ADO/05_Evidence/EP-008/EP-008_Post_Sprint_019_Independent_Final_Review.md` and
 `ADO/02_Development/EP-008_Post_Sprint_019_Human_Acceptance.md`.
 
+## Addendum (2026-07-15 — C3D Closure Delta and C3E Split)
+
+The accepted reassessment above remains the formal current readiness baseline until the additive
+delta at
+`ADO/05_Evidence/Product_Readiness_Reassessment_2026-07-15_C3D_Closure_Delta.md`
+passes independent review and explicit Human Architect acceptance. That delta is triggered by C3D's
+later completed repository/Human physical scope on closure baseline
+`a0419866c2b992ae8fc5474144064bc0652d215a`, including exact-head ten-of-ten run `29407078949`.
+
+The proposed scorecard does not upgrade any domain: Engineering remains Established; Product,
+Deployment, Technical Operations, Customer and Scaling remain Developing; Business, Commercial,
+Legal/Compliance and Support remain Emerging. C3D materially closes the first protected setup UI
+and physical provisioning proof, but it does not establish production deployment, pilot operation,
+legal readiness, support maturity or market validation.
+
+The former C3E planning item is split into separately governed boundaries: C3E1 identity-first
+Employee Membership setup has a review-ready authorization package but no implementation authority;
+C3E2 explicit Tag reassignment remains unauthorized. The current critical path is therefore C3E1,
+C3E2, the rest of Block E, Blocks F/G and parallel elapsed-time Block-H/legal-commercial work. This
+addendum changes no original roadmap milestone and grants no implementation or production-data
+authority.
+
 ## Revision Note (Technical Lead Review Follow-up, 2026-07-07)
 
 This roadmap was updated once, after Technical Lead review, to: (1) add the "Strategic frame" paragraph above, connecting roadmap items to the companion assessment's Business Event Platform framing (Section 0.1) and capability hierarchy (Section 12); (2) organize every milestone's existing items into an Engineering Track, a Product Capability Track, and a Business, Legal & Go-To-Market Track, without adding, removing, or reprioritizing any item, and without moving any item to a different milestone; (3) note, within the Now and Before Pilot Customers milestones, the re-evaluated primary-bottleneck finding from the companion assessment's Section 11.1 (Organization Management as the more foundational blocker for reaching the first pilot, alongside — not instead of — the backend technology decision). No original roadmap item's wording, milestone assignment, or substance was changed; this revision only added track labels, short cross-reference notes, and this closing note.

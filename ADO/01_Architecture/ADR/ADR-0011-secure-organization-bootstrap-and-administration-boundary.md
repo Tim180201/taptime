@@ -1,7 +1,8 @@
 # ADR-0011: Secure Organization Bootstrap and Administration Boundary
 
 Status: Accepted by Human Architect — C3B and C3C repository implementation completed after their
-separate exact-baseline review/CI cycles; C3D/C3E gated
+separate exact-baseline review/CI cycles; C3D implementation and Human physical gate completed;
+C3E1/C3E2 implementation gated
 Date: 2026-07-14
 Acceptance: Accepted 2026-07-14
 Roadmap: Core Roadmap v2, Block C3 and later setup slices DT-063–DT-066
@@ -13,12 +14,16 @@ Related Artifacts: ADR-0006, ADR-0008, ADR-0009, FB-002, TS-002,
 `ADO/02_Development/Block_C3B_Secure_Organization_Bootstrap_Closure.md`,
 `ADO/02_Development/Block_C3C_Normal_Administration_Backend_Authorization.md`,
 `ADO/02_Development/Block_C3C_Normal_Administration_Backend_Closure.md`,
+`ADO/02_Development/Block_C3D_Admin_Web_Android_Capture_Authorization.md`,
+`ADO/02_Development/Block_C3E1_Identity_First_Employee_Membership_Authorization.md`,
 `ADO/02_Development/Block_C3_Organization_Administration_Implementation_Plan.md`,
 `ADO/05_Evidence/Block_C3A_Independent_Architecture_Security_Review.md`,
 `ADO/05_Evidence/Block_C3B_Independent_Architecture_Security_Review.md`,
 `ADO/05_Evidence/Block_C3B_Secure_Organization_Bootstrap_Evidence.md`,
 `ADO/05_Evidence/Block_C3C_Independent_Architecture_Security_Review.md`,
-`ADO/05_Evidence/Block_C3C_Normal_Administration_Backend_Evidence.md`
+`ADO/05_Evidence/Block_C3C_Normal_Administration_Backend_Evidence.md`,
+`ADO/05_Evidence/Block_C3D_Implementation_Evidence.md`,
+`ADO/05_Evidence/Block_C3D_Physical_Validation_Evidence.md`
 
 ## Decision-time context (2026-07-14)
 
@@ -397,7 +402,26 @@ Technical-Lead review, exact-head nine-job GitHub CI and independent security re
 administration also completed its separately authorized repository cycle at implementation commit
 `b90729a0a4b325f523cd98ea5a741defb00155f6`, after exact-SHA independent review and exact-head
 ten-job GitHub CI. Admin Web/Mobile setup, production deployment and production personal data remain
-outside this ADR's implementation authority.
+outside this ADR's implementation authority at decision time. C3D later received its own exact
+authorization and completed independent review, exact-head CI and the fresh Human physical gate.
+That later closure does not authorize C3E1/C3E2 or production.
+
+## C3D closure and C3E planning reconciliation (2026-07-15)
+
+C3D realizes only the already accepted safe Admin Web/protected Android initial-setup boundary. It
+does not change this ADR's Membership or Assignment-history decisions.
+
+The former combined C3E planning label is now separated for review:
+
+- **C3E1** proposes identity-first Employee Membership enrollment through a separately reviewed,
+  short-lived invitation/redemption capability. Its package is review-ready; implementation is not
+  authorized.
+- **C3E2** remains the later explicit Tag reassignment capability. It must lock/deactivate/append
+  Assignment history atomically and remains completely unauthorized.
+
+The separation narrows authorization and review scope; it does not accept the proposed C3E1 token,
+display-name, schema or transport contract. Those details require independent review and explicit
+Human Architect acceptance before implementation.
 
 ## Review triggers
 

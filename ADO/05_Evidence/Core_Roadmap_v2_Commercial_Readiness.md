@@ -2,8 +2,8 @@
 
 Role: Research / Implementation Support acting on behalf of Technical Lead (per AGR-001)
 Date: 2026-07-10
-Status: Active execution baseline — Block A, B1–B6, C1/C2, C3B, C3C, Block D, E1 and narrow E2A completed for their recorded repository scopes as of 2026-07-15; no-code C3A passed independent re-review and Human acceptance; C3B secure bootstrap passed Technical Lead, exact-head nine-job CI and independent security; C3C normal administration passed Technical Lead, three exact-SHA independent reviews and exact-head ten-job CI, and closure-publication commit `9c79c6d2f2166d22cc61bfbc03ba79c434bbbfe0` passed all ten jobs in exact-head run `29376668158`; C3D/C3E remain gated; E2A passed controlled physical Galaxy C2-transport-loss/restart validation but does not complete DT-060–DT-062 or Block E; Block D device-local and synthetic server-connected physical Android validation passed on the approved Galaxy A33/NTAG213 set
-Scope: Core platform roadmap only. Generic platform language throughout (Organization, Membership, Role, User, AssignmentTarget, Customer, NfcTag, NfcAssignment, TimeEntry, WorkEvent, BusinessEvent, Policy, AuditEvent, Export, Backend, Auth, Tenant Isolation, Mobile App, Admin Web, Website). No customer-specific product, company, or branch assumption is named anywhere in this document. No code implemented. No architecture, ADR, TTAP-001, FB-001/TS-001, FB-002/TS-002, or Product Vision content modified.
+Status: Active execution baseline — Block A, B1–B6, C1/C2, C3B, C3C, C3D, Block D, E1 and narrow E2A completed for their recorded repository/Human-gate scopes as of 2026-07-15; no-code C3A passed independent re-review and Human acceptance; C3D corrections passed independent zero-finding review and exact-head ten-job CI, and its complete fresh Galaxy A33/NTAG213 Human physical gate passed; C3E1 has a review-ready authorization package but no implementation authority, while C3E2 remains unauthorized; E2A does not complete DT-060–DT-062 or Block E
+Scope: Core platform roadmap only. Generic platform language throughout (Organization, Membership, Role, User, AssignmentTarget, Customer, NfcTag, NfcAssignment, TimeEntry, WorkEvent, BusinessEvent, Policy, AuditEvent, Export, Backend, Auth, Tenant Isolation, Mobile App, Admin Web, Website). No customer-specific product, company, or branch assumption is named anywhere in this document. The original 2026-07-10 creation implemented no code and modified no architecture/ADR/TTAP/FB/TS/Product Vision content; later dated synchronization updates change only current status/traceability, not accepted product or architecture rules.
 Related Artifacts: `ADO/05_Evidence/External_CTO_Review_Triage_2026-07-10.md`, `ADO/05_Evidence/Product_Readiness_Assessment.md`, `ADO/05_Evidence/Product_Readiness_Roadmap.md`, `ADO/02_Development/Development_Sprint_019_Closure.md`, `ADO/02_Development/EP-007_Development_Tasks.md`, `ADO/00_Core/Project_Status.md`, `ADO/00_Core/Decision_Log.md`
 
 ---
@@ -89,7 +89,7 @@ Blocks are ranges, not fixed sprint-by-sprint commitments; candidate Development
 
 ### Block B – Backend and Async Foundation
 
-**Status: Architecture approved; B1–B6, C1/C2, C3C, Block D and narrow E2A completed after Technical Lead, GitHub CI and independent security approval (2026-07-15).** ADR-0008 was approved after independent architecture/security review and corrective Technical Lead verification. B1's managed-Node transaction/security spike passed 39 direct-PostgreSQL tests locally and in GitHub Actions after two security correction rounds. B2 completed the Promise migration across all twelve effectful ports and passed GitHub Actions run `29221790966` after one Technical Lead correction. B3 provides three versioned PostgreSQL 17 migrations, twelve forced-RLS tables, reciprocal TimeEntry/Decision traceability, truthful five-way Core Decision/SyncReceipt mappings, exact Start/Stop WorkEvent `occurred_at` binding and its 125-test current negative matrix. B4 adds migration `004` plus the isolated Node 24 identity workspace; B5 adds the tenant-safe read-only coordinator; B6 adds the non-HTTP server-canonical lifecycle coordinator and migration `005`. Their approved implementation/closure evidence remains authoritative. C1 implements DT-045/046 and DT-049–DT-052 with default product Mobile composition, Supabase email/password, refresh-token-only SecureStore restoration and B4-backed session resolution. C2 implements the strict three-route B4/B5/B6 API and private Mobile transport foundation with three distinct least-privilege pools. Implementation commit `9f5b127` passed all seven jobs in run `29314305059`; independent review found no P0/P1 and its sole P2 was corrected through incrementally bounded Expo native response streaming. Direct C2 evidence is 127 API tests (43 C1 + 84 C2) and 154 Mobile tests. Block D implementation commit `fac778d` passed all seven jobs in run `29319811973`; the Galaxy A33/NTAG213 device-local and server-connected product checklists passed. The strictly local harness uses five automated tests — three direct PostgreSQL integration cases and two non-database safety/source guards — and passed all eight jobs. Independent final review found no P0/P1/P2; its sole P3 test-count wording finding was corrected at closure. E2A implementation commit `4b5ecdc` passed all eight jobs in run `29348512506`, and controlled Galaxy A33 warm-session C2-transport-loss plus force-stop/restart validation passed without a deferred lifecycle decision or TimeEntry mutation. Its independent final review returned `APPROVED` with no open finding. C3C implementation commit `b90729a0a4b325f523cd98ea5a741defb00155f6` adds migration `007` and the fourth least-privilege administration plane; the 1,394-test matrix and complete workspace verification passed, three independent exact-SHA reviews returned APPROVED with zero P0/P1/P2/P3 and exact-head run `29375259275` passed ten of ten jobs. C3D/C3E, Block E outside E2A, Supavisor validation and production personal data remain gated.
+**Status: Architecture approved; B1–B6, C1/C2, C3C, C3D, Block D and narrow E2A completed after their recorded Technical Lead, GitHub CI, independent security and applicable Human gates (2026-07-15).** ADR-0008 was approved after independent architecture/security review and corrective Technical Lead verification. B1's managed-Node transaction/security spike passed 39 direct-PostgreSQL tests locally and in GitHub Actions after two security correction rounds. B2 completed the Promise migration across all twelve effectful ports and passed GitHub Actions run `29221790966` after one Technical Lead correction. B3 provides three versioned PostgreSQL 17 migrations, twelve forced-RLS tables, reciprocal TimeEntry/Decision traceability, truthful five-way Core Decision/SyncReceipt mappings, exact Start/Stop WorkEvent `occurred_at` binding and its 125-test current negative matrix. B4 adds migration `004` plus the isolated Node 24 identity workspace; B5 adds the tenant-safe read-only coordinator; B6 adds the non-HTTP server-canonical lifecycle coordinator and migration `005`. Their approved implementation/closure evidence remains authoritative. C1 implements DT-045/046 and DT-049–DT-052 with default product Mobile composition, Supabase email/password, refresh-token-only SecureStore restoration and B4-backed session resolution. C2 implements the strict three-route B4/B5/B6 API and private Mobile transport foundation with three distinct least-privilege pools. Implementation commit `9f5b127` passed all seven jobs in run `29314305059`; independent review found no P0/P1 and its sole P2 was corrected through incrementally bounded Expo native response streaming. Direct C2 evidence is 127 API tests (43 C1 + 84 C2) and 154 Mobile tests. Block D implementation commit `fac778d` passed all seven jobs in run `29319811973`; the Galaxy A33/NTAG213 device-local and server-connected product checklists passed. The strictly local harness uses five automated tests — three direct PostgreSQL integration cases and two non-database safety/source guards — and passed all eight jobs. Independent final review found no P0/P1/P2; its sole P3 test-count wording finding was corrected at closure. E2A implementation commit `4b5ecdc` passed all eight jobs in run `29348512506`, and controlled Galaxy A33 warm-session C2-transport-loss plus force-stop/restart validation passed without a deferred lifecycle decision or TimeEntry mutation. Its independent final review returned `APPROVED` with no open finding. C3C implementation commit `b90729a0a4b325f523cd98ea5a741defb00155f6` adds migration `007` and the fourth least-privilege administration plane; the 1,394-test matrix and complete workspace verification passed, three independent exact-SHA reviews returned APPROVED with zero P0/P1/P2/P3 and exact-head run `29375259275` passed ten of ten jobs. C3D's final correction and complete Human physical gate are recorded in Section 14. C3E1 implementation, C3E2, Block E outside E2A, Supavisor validation and production personal data remain gated.
 
 **Target:** Week 2–4 · **Candidate Sprints:** 025–030
 
@@ -109,7 +109,7 @@ Blocks are ranges, not fixed sprint-by-sprint commitments; candidate Development
 
 ### Block C – Runtime Composition, Auth and Real Product Path
 
-**Status: C1, C2, C3B and C3C repository implementation completed; no-code C3A passed independent re-review and Human acceptance (2026-07-15). C3D is separately authorized on exact baseline `316f017973fbba18a58c2340c9c79a28f06573e5`; C3E remains unauthorized.** The default Mobile path uses the real Supabase email/password adapter, refresh-token-only SecureStore restoration and server-authoritative Membership session resolution. C2 adds only the earlier session/scan/lifecycle/defer routes and private Mobile transport. The later Block-D slice wires the authenticated NFC product path without changing C2's lifecycle boundary. Accepted FB-002 v1.2, TS-002 v1.3 and ADR-0011 define named-operator first Organization/Admin bootstrap, a distinct narrow normal Admin write session, bound receipts, required Customer/Tag display names, protected raw UID handling, disclosure-safe results and append-only Assignment history. C3C realizes that normal setup backend through exact create-Customer, atomic provision-Tag and safe setup-projection routes. C3D is limited to its authorized Admin Web and protected Android capture surfaces and does not change C3C semantics or grant production authority.
+**Status: C1, C2, C3B, C3C and C3D completed for their recorded scopes; no-code C3A passed independent re-review and Human acceptance (2026-07-15). C3E1 has a review-ready authorization package but no implementation authority; C3E2 remains unauthorized.** The default Mobile path uses the real Supabase email/password adapter, refresh-token-only SecureStore restoration and server-authoritative Membership session resolution. C2 adds only the earlier session/scan/lifecycle/defer routes and private Mobile transport. The later Block-D slice wires the authenticated NFC product path without changing C2's lifecycle boundary. Accepted FB-002 v1.2, TS-002 v1.3 and ADR-0011 define named-operator first Organization/Admin bootstrap, a distinct narrow normal Admin write session, bound receipts, required Customer/Tag display names, protected raw UID handling, disclosure-safe results and append-only Assignment history. C3C realizes that normal setup backend through exact create-Customer, atomic provision-Tag and safe setup-projection routes. C3D completed the Admin Web and protected Android capture surfaces without changing C3C semantics or granting production authority; full closure evidence is recorded in Section 14.
 
 **Target:** Week 4–6 · **Candidate Sprints:** 031–036
 
@@ -130,11 +130,12 @@ Blocks are ranges, not fixed sprint-by-sprint commitments; candidate Development
 validation and Human acceptance. C3B private bootstrap passed implementation, independent review and
 exact-head nine-job CI and remains the closed bootstrap-only plane. C3C's normal setup backend/API
 repository implementation passed its separate authorization, exact-SHA independent review and
-exact-head ten-job CI cycle and is closed. C3D (Admin Web plus protected Android capture) is now
-separately authorized on exact baseline `316f017973fbba18a58c2340c9c79a28f06573e5`; C3E
-(identity-first Employee Membership setup plus explicit reassignment) remains unauthorized.
-DT-063–DT-066 remain open until the operational setup surfaces and required human/device validation
-are implemented and approved.
+exact-head ten-job CI cycle and is closed. C3D (Admin Web plus protected Android capture)
+subsequently completed independent review, exact-head CI and its complete fresh Human physical gate.
+C3E1 identity-first Employee Membership implementation and C3E2 explicit reassignment remain
+unauthorized. DT-063–DT-066 remain open as Roadmap candidates because C3E1/C3E2 and pilot-grade
+operational onboarding are not complete, even though C3D closed the recorded initial UI/capture
+Human proof.
 
 ### Block D – NFC Runtime and Physical Validation
 
@@ -156,7 +157,25 @@ are implemented and approved.
 
 ### Block E – Sync, Setup, Export and Minimal Operations
 
-**Status: E1 and narrow E2A completed after Technical-Lead, GitHub CI, Human physical Android and independent security approval (2026-07-14).** E1 replaces Block D's volatile ambiguous-command slot with one strict platform-secure lifecycle outbox record; closure-publication commit `9f2f922` passed eight-job run `29344464075`. E2A adds only one volatile exact-session scan context, Membership-bound outbox v2 evidence and a dedicated defer-only server path that can atomically store WorkEvent, `received` Receipt and Audit without a CanonicalDecision or TimeEntry mutation. Independent implementation review returned `APPROVED`; its two P3 findings were corrected and independently reverified. Mobile 310, Core 288, lifecycle 88, API 139 and synthetic E2E 6 plus workspace build and Android export passed; commit `4b5ecdc` passed all eight jobs in run `29348512506`. Controlled Galaxy A33 / Android 15 validation removed only C2 reverse `tcp:3000`, preserved the pending command across force-stop/restart and stored the deferred delta without another Decision or TimeEntry stop. Independent final review returned `APPROVED`; its publication-sync P3 was corrected and no finding remains open. This is not airplane mode or full offline. E2A advances but does not complete DT-060–DT-062 or Block E. C3C's completed normal setup backend advances only the backend portions of DT-064–DT-066; the operational UI/capture/human validation remain missing and separately unauthorized. Durable multi-context caching, multiple events, scheduling/backoff, supported reconciliation, background sync and DT-063–DT-068 remain open and separately gated.
+**Status: E1 and narrow E2A completed after Technical-Lead, GitHub CI, Human physical Android and
+independent security approval (2026-07-14).** E1 replaces Block D's volatile ambiguous-command slot
+with one strict platform-secure lifecycle outbox record; closure-publication commit `9f2f922` passed
+eight-job run `29344464075`. E2A adds only one volatile exact-session scan context,
+Membership-bound outbox v2 evidence and a dedicated defer-only server path that can atomically store
+WorkEvent, `received` Receipt and Audit without a CanonicalDecision or TimeEntry mutation.
+Independent implementation review returned `APPROVED`; its two P3 findings were corrected and
+independently reverified. Mobile 310, Core 288, lifecycle 88, API 139 and synthetic E2E 6 plus
+workspace build and Android export passed; commit `4b5ecdc` passed all eight jobs in run
+`29348512506`. Controlled Galaxy A33 / Android 15 validation removed only C2 reverse `tcp:3000`,
+preserved the pending command across force-stop/restart and stored the deferred delta without another
+Decision or TimeEntry stop. Independent final review returned `APPROVED`; its publication-sync P3
+was corrected and no finding remains open. This is not airplane mode or full offline. E2A advances
+but does not complete DT-060–DT-062 or Block E. C3C/C3D prove the initial
+Customer/Tag/Assignment backend, UI/capture and Human physical flow for their controlled synthetic
+scope. DT-063–DT-066 remain open as Roadmap candidates because identity-first Employee onboarding,
+explicit reassignment and pilot-grade operations are not complete. Durable multi-context caching,
+multiple events, scheduling/backoff, supported reconciliation, background sync and DT-063–DT-068
+remain open and separately gated.
 
 **Target:** Week 6–9 · **Candidate Sprints:** 042–048
 
@@ -321,7 +340,7 @@ The original 2026-07-10 roadmap-creation task ended after producing the roadmap 
 
 ## 13. Progress Update – 2026-07-15 Governance Synchronization
 
-The post-Sprint-019 EP-008 block-boundary trigger is now acted on as an ADO-only maintenance slice.
+The post-Sprint-019 EP-008 block-boundary trigger was acted on as an ADO-only maintenance slice.
 Chapters 00–03 preserve their historical Sprint-019 narratives and add current reconciliations
 through Blocks A, B1–B6, C1/C2, D, E1/E2A and C3A–C3C on baseline
 `fda5e5b9e878311b0caa647c6b49ab14943b706e`. Chapters 04–10 remain a separate documentation backlog.
@@ -329,10 +348,36 @@ Synchronization publication `d9060fe96bcb9d2e3282d5cb08a455d113b86307` passed al
 exact-head GitHub Actions run `29394356224` on `main`; closure
 `9c9144fa468cbaa6d1195a172f92e746ad3eb265` passed ten-of-ten run `29394550988`. Independent final
 review returned `APPROVED` with no open repository finding after disposition. The Human Architect
-accepted EP-008 Chapters 00–03 and the EP-009 reassessment on 2026-07-15. C3D remains separately
-gated.
+accepted EP-008 Chapters 00–03 and the EP-009 reassessment on 2026-07-15. At that synchronization
+point C3D remained separately gated; its later disposition is recorded below.
 
 EP-009's additive 2026-07-15 reassessment dispositions K1–K12 and extends the qualitative scorecard
-without rewriting the 2026-07-07 baseline. This governance maintenance changes no Roadmap order:
-C3D remains the next separately authorized engineering candidate, followed by C3E and the remaining
-Block-E path. No C3D/C3E or production authority is granted by this update.
+without rewriting the 2026-07-07 baseline. That governance maintenance changed no Roadmap order
+and granted no C3D/C3E or production authority at that time.
+
+## 14. Progress Update – 2026-07-15 C3D Closure and C3E Split
+
+C3D subsequently completed its separately authorized repository and Human physical scope. Final
+browser-runtime correction `e686578751e8e09d7a8a48c3fd3058825dcedbf7` passed independent
+zero-finding review and exact-head ten-of-ten GitHub Actions run `29405184995`. The complete fresh
+Galaxy A33/NTAG213 sequence then passed Employee setup denial, Administrator Web Customer creation,
+safe Web/Android projection agreement, force-stop non-mutation, real Tag provisioning/assignment,
+same-Administrator server-backed Start/Stop and final cleanup. ADO closure commit
+`a0419866c2b992ae8fc5474144064bc0652d215a` passed exact-head ten-of-ten run `29407078949`.
+
+The former combined C3E label is now split so that distinct privileged boundaries cannot be
+silently coupled:
+
+- **C3E1:** identity-first Employee Membership setup. A security-focused authorization package is
+  review-ready, but implementation remains unauthorized pending independent review, explicit Human
+  Architect acceptance and a separate exact-baseline implementation authorization.
+- **C3E2:** explicit Tag reassignment. It remains separately unauthorized and must preserve
+  Assignment history and future time-attribution rules through its own policy and review gates.
+
+The completed C3D evidence triggered an additive EP-009 readiness delta. The proposed rating
+disposition remains unchanged from the accepted C3C reassessment: Engineering is Established;
+Product, Deployment, Technical Operations, Customer and Scaling are Developing; Business,
+Commercial, Legal/Compliance and Support are Emerging. That delta is review-ready, not yet accepted.
+The current engineering critical path is C3E1 review/authorization, C3E2 policy/authorization, the
+remaining Block-E work, then Blocks F/G and the parallel elapsed-time Block-H/legal-commercial path.
+No production cloud resource, production personal data, pilot or market-readiness claim follows.

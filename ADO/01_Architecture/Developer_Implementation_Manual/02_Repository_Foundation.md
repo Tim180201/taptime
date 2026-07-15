@@ -9,7 +9,7 @@ Epic: EP-008
 Owner: Technical Lead  
 Approval Authority: Human Architect  
 Repository Scope: TapTim.e ADO  
-Integration Status: Human-accepted synchronization through C3C repository closure and the narrow E2A slice on 2026-07-15
+Integration Status: Human-accepted synchronization through C3C repository closure and the narrow E2A slice on 2026-07-15; C3D closure addendum below is an ADO review candidate
 Synchronization Baseline: `fda5e5b9e878311b0caa647c6b49ab14943b706e` (2026-07-15)
 Related Artifacts: ADO/README.md, Decision Log, AVR-001, Product Vision, ADRs, TTAP-001, Feature Blueprint Standard, Feature Blueprints, Technical Specifications, Development Task Profile, EOM-001, AGR-001
 
@@ -822,3 +822,15 @@ addenda when repository reality advances.
 Current unresolved repository gates include the missing EP-008 Chapters 04–10, two external
 Supavisor validations, production infrastructure/observability, real distribution and legal/privacy
 work. They must not be represented as completed merely because repository CI is green.
+
+## 12. C3D Closure Addendum (2026-07-15 — Review Candidate)
+
+C3D later added Admin Web and protected Android workspaces/surfaces without changing the repository
+foundation rules above. Its correction and physical-validation closure is recorded on baseline
+`a0419866c2b992ae8fc5474144064bc0652d215a`, which passed ten-job run `29407078949`. This ADO-only
+status addendum adds no package, dependency, workflow, migration or source change.
+
+A future C3E1 implementation may add only the separately reviewed least-privilege workspace/schema
+boundaries authorized at that time; the current review package reserves none. C3E2 remains a
+separate unauthorized boundary. Existing migration bytes `001`–`007`, role separation and the
+ten-job CI topology remain current repository rules. This addendum awaits independent ADO review.

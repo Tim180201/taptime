@@ -9,7 +9,7 @@ Epic: EP-008
 Owner: Technical Lead  
 Approval Authority: Human Architect  
 Repository Scope: TapTim.e ADO  
-Integration Status: Human-accepted synchronization through C3C repository closure and the narrow E2A slice on 2026-07-15
+Integration Status: Human-accepted synchronization through C3C repository closure and the narrow E2A slice on 2026-07-15; C3D closure addendum below is an ADO review candidate
 Synchronization Baseline: `fda5e5b9e878311b0caa647c6b49ab14943b706e` (2026-07-15)
 Related Artifacts: Product Vision, Decision Log, AVR-001, ADRs, TTAP-001, Feature Blueprints, Technical Specifications, Development Task Profile, EOM-001, AGR-001
 
@@ -1059,3 +1059,18 @@ stop and escalate rather than inferring it from a convenient adapter or UI requi
 
 The remaining gates are C3D/C3E, full offline synchronization outside E2A, production/cloud/real-data
 operation, distribution, legal/commercial work and the missing EP-008 Chapters 04–10.
+
+## 12. C3D Closure Addendum (2026-07-15 — Review Candidate)
+
+The Section-11 gate list records the Human-accepted C3C/E2A snapshot. C3D later completed its
+separate review, exact-head CI and fresh Human physical gate; its ADO closure baseline `a041986` also
+passed ten-of-ten run `29407078949`. The current administration discipline is therefore:
+
+- preserve C3C's narrow current-Administrator authority and C3D's safe Web/Android presentation;
+- treat the C3E1 invitation/redemption design as a review proposal only, never as implementation
+  authority; and
+- keep C3E2 reassignment, broader Membership management and production authority behind separate
+  product/policy decisions.
+
+All non-C3 administration-independent gates listed in Section 11 remain. This addendum changes no
+accepted implementation philosophy and remains pending independent ADO review.

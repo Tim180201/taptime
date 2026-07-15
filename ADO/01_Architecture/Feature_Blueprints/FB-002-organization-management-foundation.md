@@ -1,6 +1,7 @@
 # FB-002 – Organization Management Foundation
 
-Status: Approved by Human Architect — implementation remains sliced and gated
+Status: Approved by Human Architect — C3B/C3C/C3D completed for their accepted scopes;
+C3E1/C3E2 remain separately gated
 Feature ID: FB-002
 Feature Name: Organization Management Foundation
 Version: 1.2
@@ -8,7 +9,7 @@ Epic: EP-009 – Product Readiness Framework (Product Capability Track); EP-007 
 Owner: Technical Lead
 Approval Authority: Human Architect
 Creation Date: 2026-07-07
-Last Updated: 2026-07-14 (C3B implementation closure)
+Last Updated: 2026-07-15 (C3D closure synchronization; product rules unchanged)
 Acceptance: Accepted 2026-07-14
 Related Product Vision: `ADO/01_Architecture/Product_Vision.md`
 Related Product Principles: `ADO/01_Architecture/Product_Principles.md`
@@ -18,8 +19,8 @@ Related Architecture: `ADO/01_Architecture/Technical_Architecture_Profile.md` (T
 Related ADRs: ADR-0002, ADR-0003, ADR-0005, ADR-0006, ADR-0007, ADR-0008, ADR-0009, ADR-0011
 Related Feature Blueprint: FB-001 – NFC Scan Creates Work Event (`ADO/01_Architecture/Feature_Blueprints/FB-001-nfc-scan-creates-work-event.md`)
 Related Technical Specification: `ADO/01_Architecture/Technical_Specifications/TS-002-organization-management-foundation.md`
-Related Evidence: `ADO/05_Evidence/FB-002_Organization_Management_Scope_Assessment.md`, `ADO/05_Evidence/Block_C3A_Independent_Architecture_Security_Review.md`, `ADO/05_Evidence/Block_C3B_Secure_Organization_Bootstrap_Evidence.md`
-Related Governance: `ADO/02_Development/EP-009_Product_Readiness_Framework.md`, `ADO/02_Development/Block_C3A_Organization_Administration_Architecture_Authorization.md`, `ADO/02_Development/Block_C3B_Secure_Organization_Bootstrap_Closure.md`, `ADO/02_Development/Block_C3_Organization_Administration_Implementation_Plan.md`, `ADO/05_Evidence/Product_Readiness_Assessment.md`, `ADO/05_Evidence/Product_Readiness_Roadmap.md`
+Related Evidence: `ADO/05_Evidence/FB-002_Organization_Management_Scope_Assessment.md`, `ADO/05_Evidence/Block_C3A_Independent_Architecture_Security_Review.md`, `ADO/05_Evidence/Block_C3B_Secure_Organization_Bootstrap_Evidence.md`, `ADO/05_Evidence/Block_C3D_Implementation_Evidence.md`, `ADO/05_Evidence/Block_C3D_Physical_Validation_Evidence.md`
+Related Governance: `ADO/02_Development/EP-009_Product_Readiness_Framework.md`, `ADO/02_Development/Block_C3A_Organization_Administration_Architecture_Authorization.md`, `ADO/02_Development/Block_C3B_Secure_Organization_Bootstrap_Closure.md`, `ADO/02_Development/Block_C3E1_Identity_First_Employee_Membership_Authorization.md`, `ADO/02_Development/Block_C3_Organization_Administration_Implementation_Plan.md`, `ADO/05_Evidence/Product_Readiness_Assessment.md`, `ADO/05_Evidence/Product_Readiness_Roadmap.md`
 
 ## Purpose
 
@@ -529,8 +530,20 @@ Product Vision
   -> TS-002 (accepted current-state and C3 runtime specification)
   -> DT-017–DT-026 (Core foundation complete)
   -> ADR-0011 / C3A (independently validated and Human-accepted)
-  -> C3B (completed implementation) / C3C (completed repository implementation) / C3D–C3E (gated)
+  -> C3B/C3C/C3D (completed for accepted scopes)
+  -> C3E1 identity-first Employee Membership / C3E2 reassignment (separately gated)
 ```
+
+## Revision Note (C3D Closure Synchronization, 2026-07-15)
+
+C3D completed the separately authorized safe Admin Web/protected Android initial-setup surface after
+independent zero-finding review, exact-head CI and a complete fresh Human physical gate. This closes
+the initial Customer/Tag setup UI boundary without changing any FB-002 Business Rule.
+
+The later C3E label is split for authorization discipline only: C3E1 covers identity-first Employee
+Membership enrollment; C3E2 covers explicit append-only Tag reassignment. Both remain gated. The
+C3E1 review package proposes a short-lived invitation/redemption flow, but this Blueprint does not
+accept that implementation contract until independent review and Human Architect approval.
 
 ## Revision Note (C3A Review Reconciliation, 2026-07-14)
 

@@ -9,7 +9,7 @@ Epic: EP-008
 Owner: Technical Lead  
 Approval Authority: Human Architect  
 Repository Scope: TapTim.e ADO  
-Integration Status: Human-accepted synchronization through C3C repository closure and the narrow E2A slice on 2026-07-15
+Integration Status: Human-accepted synchronization through C3C repository closure and the narrow E2A slice on 2026-07-15; C3D closure addendum below is an ADO review candidate
 Synchronization Baseline: `fda5e5b9e878311b0caa647c6b49ab14943b706e` (2026-07-15)
 Related Artifacts: TTAP-001, ADRs, Product Vision, Feature Blueprints, Technical Specifications, Development Task Profile, Decision Log, AVR-001
 
@@ -1251,3 +1251,22 @@ The actual current gaps are:
 - EP-008 Chapters 04–10 remain a separately governed documentation backlog.
 
 No current implementation should be derived from Section 10.101 without applying this reconciliation.
+
+## 12. C3D Closure Addendum (2026-07-15 — Review Candidate)
+
+Section 11 remains the accepted C3C/E2A solution snapshot. C3D subsequently implemented the
+same-origin memory-session Admin Web and protected Android Administrator capture boundaries, passed
+independent zero-finding correction review, exact-head ten-job CI and the complete fresh Galaxy
+A33/NTAG213 Human gate. It did not add Membership authority, change C3C semantics or move any
+Business Engine decision into a client.
+
+The current solution gap list therefore replaces the first two Section-11 bullets with:
+
+- C3E1 identity-first Employee Membership setup has a review-ready invitation/redemption proposal,
+  but no accepted contract or implementation authority; and
+- C3E2 role/Assignment reassignment remains separately unauthorized.
+
+DT-060–DT-068, Block E outside E2A, production infrastructure/data, external Supavisor validation,
+pilot/store distribution, export/correction, support, legal/commercial readiness, broader iOS
+validation and Chapters 04–10 remain open. This status addendum awaits independent ADO review and
+changes no accepted solution-architecture rule.

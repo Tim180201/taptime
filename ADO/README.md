@@ -7,9 +7,13 @@ Approval Authority: Human Architect
 
 ## Purpose
 
-Current C3D implementation evidence: `ADO/05_Evidence/Block_C3D_Implementation_Evidence.md`.
+Completed C3D implementation/physical evidence:
+`ADO/05_Evidence/Block_C3D_Implementation_Evidence.md` and
+`ADO/05_Evidence/Block_C3D_Physical_Validation_Evidence.md`.
 Independent review and Technical-Lead correction disposition:
 `ADO/05_Evidence/Block_C3D_Independent_Architecture_Security_Review.md`.
+Current next-slice review package:
+`ADO/02_Development/Block_C3E1_Identity_First_Employee_Membership_Authorization.md`.
 
 This file is the official navigation entry point for the TapTim.e ADO.
 
@@ -128,6 +132,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Block C3C Normal Administration Backend/API Authorization | `ADO/02_Development/Block_C3C_Normal_Administration_Backend_Authorization.md` |
 | Block C3C Normal Administration Backend/API Closure | `ADO/02_Development/Block_C3C_Normal_Administration_Backend_Closure.md` |
 | Block C3D Admin Web and Protected Android Capture Authorization | `ADO/02_Development/Block_C3D_Admin_Web_Android_Capture_Authorization.md` |
+| Block C3E1 Identity-First Employee Membership Authorization Package | `ADO/02_Development/Block_C3E1_Identity_First_Employee_Membership_Authorization.md` |
 | Block C3 Organization Administration Implementation Plan | `ADO/02_Development/Block_C3_Organization_Administration_Implementation_Plan.md` |
 | Repository Health Sprint 001 | `ADO/02_Development/Repository_Health_Sprint_001.md` |
 | Repository Maintenance Sprint 002 | `ADO/02_Development/Repository_Maintenance_Sprint_002.md` |
@@ -153,6 +158,8 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Block C3C Normal Administration Backend/API Implementation and Closure Evidence | `ADO/05_Evidence/Block_C3C_Normal_Administration_Backend_Evidence.md` |
 | Block C3D Independent Architecture/Security Review and Correction Disposition | `ADO/05_Evidence/Block_C3D_Independent_Architecture_Security_Review.md` |
 | Block C3D Physical Validation Evidence | `ADO/05_Evidence/Block_C3D_Physical_Validation_Evidence.md` |
+| Block C3D Closure Synchronization Evidence | `ADO/05_Evidence/Block_C3D_Closure_Synchronization_Evidence.md` |
+| Product Readiness Reassessment — C3D Closure Delta | `ADO/05_Evidence/Product_Readiness_Reassessment_2026-07-15_C3D_Closure_Delta.md` |
 | EP-008 Evidence (incl. Repository Health Follow-up) | `ADO/05_Evidence/EP-008/` |
 | Evidence Area | `ADO/05_Evidence/` |
 
