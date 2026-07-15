@@ -2,12 +2,20 @@
 
 **Date:** 2026-07-15
 
-**Status:** LOCALLY VERIFIED IMPLEMENTATION CANDIDATE — publication commit, independent final
-implementation review, exact-head CI and Human Physical Gate remain pending
+**Status:** INITIAL IMPLEMENTATION PUBLISHED AND EXACT-HEAD CI GREEN, BUT FINAL REVIEW RETURNED
+`CHANGES REQUIRED` — six-finding correction locally verified; independent delta re-review and
+external exact-head CI confirmation remain mandatory before the Human Physical Gate
 
 **Authorization baseline:** `70d163fa0473692f61555f1580f25382e1e807af`
 
 **Authorization/governance checkpoint:** `1cad21d` (`docs: authorize C3E1 implementation`)
+
+**Initial implementation:** commit `42b7c7a81d5a36bdce2842863f4cfdf637ea5e49`, tree
+`22c47b6c8a36f22787dd50c86b89b03d8008a6a2`; exact-head GitHub Actions run `29414515751`, attempt 1,
+passed all ten jobs
+
+**Independent final-review disposition:** `CHANGES REQUIRED` with three P2 and three P3 findings;
+no P0/P1. The correction described below is not an approval or closure claim.
 
 ## Delivered boundary
 
@@ -29,7 +37,10 @@ implementation review, exact-head CI and Human Physical Gate remain pending
   header on these body-narrowed operations.
 - Admin Web adds bounded Employee projection plus deliberate one-time secret display. The secret is
   volatile and is cleared on expiry, dismissal, sign-in/out, session replacement, refresh, a new
-  generation and every unavailable state; it is never copied automatically or recovered on replay.
+  generation and every unavailable state. Generation tombstones prevent stale asynchronous
+  pagination or command completions from restoring a dismissed disclosure. Every Employee page is
+  independently checked for canonical safe names, strict UUID ordering, uniqueness, cursor
+  continuity and exact full-page continuation before it can enter coordinator state.
 - Android adds an explicit enrollment-intent sign-in path and authority-free `enrollment_only`
   shell. Normal sign-in 401 behavior remains unchanged. Provider tokens stay behind attempt-scoped
   readers; no Organization/User/Membership/role context exists until successful redemption is
@@ -52,7 +63,8 @@ implementation review, exact-head CI and Human Physical Gate remain pending
   zero partial state, while later revocation preserves the committed Employee and exact replay.
 - PostgreSQL failure triggers after User insert, Binding insert, Membership insert, invitation
   update, redemption-receipt insert and grant-audit insert each prove complete rollback. A separate
-  pre-commit interruption proves coordinator rollback and pool cleanup.
+  pre-commit interruption and a real PostgreSQL transaction-timeout regression prove rollback,
+  error-aware client retirement and replacement-pool usability without partial state.
 - Effective ACL catalog checks prove both runtime entry roles have no table privilege and no
   unexpected function execution. Migration contamination, cross-role `SET ROLE` and direct-table
   access fail closed.
@@ -65,8 +77,8 @@ Freshly reproduced after `npm ci` from the committed lockfile:
 |---|---:|
 | Administration contract | 3/3 |
 | Core | 290/290 |
-| Admin Web | 35/35 |
-| Backend administration (C3C + C3E1) | 101/101 |
+| Admin Web | 39/39 |
+| Backend administration (C3C + C3E1) | 102/102 |
 | Backend API | 190/190 |
 | Backend B1 | 39 passed, 2 approved Supavisor-mode skips |
 | Backend C3B bootstrap | 189/189 |
@@ -76,7 +88,7 @@ Freshly reproduced after `npm ci` from the committed lockfile:
 | Backend schema | 125/125 |
 | Mobile | 356/356 in 23 files |
 | Synthetic Android E2E harness | 9/9 |
-| **Total** | **1,522 passed, 2 approved skips** |
+| **Total** | **1,527 passed, 2 approved skips** |
 
 Additional checks:
 
@@ -91,14 +103,35 @@ Additional checks:
   Expo/config-plugin `uuid` advisory remains; the proposed forced Expo downgrade is breaking and is
   not a valid scoped C3E1 correction.
 
+## Independent implementation review and correction
+
+The initial implementation was published as `42b7c7a` and its exact-head ten-job CI passed. The
+subsequent independent final review nevertheless returned `CHANGES REQUIRED`. The current
+correction closes the six reported findings without expanding C3E1:
+
+1. checked-out PostgreSQL clients now receive an error listener, active-connection checks and
+   `release(error)` retirement; a real transaction-timeout regression proves rollback and pool
+   recovery;
+2. Admin Web invitation-disclosure generations are tombstoned so stale async completions cannot
+   restore a dismissed secret;
+3. Admin Web Employee projections fail closed on unsafe names, duplicates, non-monotonic IDs,
+   cursor regression or invalid continuation shape;
+4. JSON response parsing accepts only the exact `application/json` media type plus parameters, not
+   prefix lookalikes such as `application/jsonp`;
+5. the backend operation-timeout default is the normative ten seconds and the API regression binds
+   the propagated deadline; and
+6. this evidence and the current ADO status surfaces distinguish the already published initial
+   commit/CI from the still-unapproved correction head and remove the earlier pool-cleanup and
+   one-time-secret overclaims.
+
 ## Remaining gates and authority
 
-This evidence does not claim publication, independent approval, exact-head CI or Human validation.
-The next valid sequence is:
+This evidence claims neither correction approval nor Human validation. The next valid sequence is:
 
-1. publish one focused implementation commit on `main` after final diff/claim audit;
-2. obtain independent architecture/security/code review of that exact commit;
-3. require green exact-head GitHub Actions for the same SHA; and
+1. publish the focused correction after final diff/claim audit;
+2. externally confirm green exact-head GitHub Actions for that correction SHA;
+3. obtain independent delta architecture/security/code re-review of `42b7c7a...<correction-sha>`;
+   and
 4. only after both gates pass, separately start the fresh Human identity/device checklist.
 
 C3E2, generic Membership CRUD/revocation/reassignment, provider-account creation, production

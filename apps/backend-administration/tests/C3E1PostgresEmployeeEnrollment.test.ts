@@ -7,7 +7,7 @@ import {
   migrate,
 } from '@taptime/backend-schema';
 import { Pool } from 'pg';
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EmployeeMembershipEnrollmentCoordinator } from '../src/index.js';
 import {
   C3E1_ENROLLMENT_RUNTIME_LOGIN,
@@ -210,6 +210,51 @@ describe('migration 008 Employee invitation and enrollment boundary', () => {
       audit_count: 1,
     });
     expect(stored.rows[0]!.audit_json).not.toContain(result.invitationSecret);
+  });
+
+  it('captures transaction-timeout client errors, destroys the connection, and rolls back', async () => {
+    const timeoutPool = new Pool({
+      connectionString: c3e1RuntimeConnectionString(
+        installerDatabaseUrl,
+        C3E1_INVITATION_RUNTIME_LOGIN,
+        invitationPassword,
+      ),
+      max: 1,
+      application_name: 'taptime-c3e1-transaction-timeout-test',
+    });
+    const timeoutCoordinator = new EmployeeMembershipEnrollmentCoordinator(
+      timeoutPool,
+      enrollmentPool,
+      fixtureAccessTokenVerifier,
+    );
+    try {
+      await timeoutPool.query('SELECT 1');
+      await expect(timeoutCoordinator.createInvitation({
+        accessToken: fixtureTokens.adminA,
+        expectedMembershipId: membershipIds.adminA,
+        commandId: randomUUID(),
+        displayName: 'Employee Timeout',
+      }, {
+        deadlineEpochMilliseconds: Date.now() + 400,
+        beforeCommit: async () => new Promise((resolve) => setTimeout(resolve, 650)),
+      })).rejects.toBeInstanceOf(Error);
+
+      await vi.waitFor(() => expect(timeoutPool.totalCount).toBe(0));
+      const state = await installerPool.query<{ invitations: number; receipts: number; audits: number }>(`
+        SELECT
+          (SELECT count(*)::integer FROM taptime_server.employee_membership_invitations
+           WHERE display_name = 'Employee Timeout') AS invitations,
+          (SELECT count(*)::integer FROM taptime_server.employee_invitation_command_receipts) AS receipts,
+          (SELECT count(*)::integer FROM taptime_server.audit_events
+           WHERE event_type = 'EmployeeMembershipInvitationCreated') AS audits
+      `);
+      expect(state.rows[0]).toEqual({ invitations: 0, receipts: 0, audits: 0 });
+      await expect(timeoutPool.query('SELECT 1 AS healthy')).resolves.toMatchObject({
+        rows: [{ healthy: 1 }],
+      });
+    } finally {
+      await timeoutPool.end();
+    }
   });
 
   it('pins the 15-minute lifetime and canonicalizes the Membership display-name Unicode vector', async () => {

@@ -1,4 +1,5 @@
 import type { SafeEmployeeProjection, SafeProjection, VolatileInvitationSecret } from './contracts';
+import { isSafeEmployeeProjectionPage } from './employeeProjectionSafety';
 
 const maximumJsonBodyBytes = 16 * 1024;
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -65,7 +66,7 @@ export class AdminWebApiClient implements AdminWebApiPort {
       token,
       'POST',
       { expectedMembershipId: membershipId, cursor: nextCursor, limit: 20 },
-      parseEmployeeProjection,
+      (value) => parseEmployeeProjection(value, nextCursor),
     );
   }
   async createEmployeeInvitation(token: string, membershipId: string, commandId: string, displayName: string): Promise<ApiResult<VolatileInvitationSecret>> {
@@ -86,7 +87,7 @@ export class AdminWebApiClient implements AdminWebApiPort {
       if (exposeInvitationConflicts && response.status === 409) {
         if (
           response.redirected
-          || !response.headers.get('content-type')?.toLowerCase().startsWith('application/json')
+          || !isJsonContentType(response.headers.get('content-type'))
           || !hasSafeDeclaredLength(response)
         ) return { status: 'unavailable' };
         const conflictText = await readBoundedResponseText(response);
@@ -94,7 +95,7 @@ export class AdminWebApiClient implements AdminWebApiPort {
         const code = parseInvitationConflict(JSON.parse(conflictText));
         return code === null ? { status: 'unavailable' } : { status: 'conflict', code };
       }
-      if (response.status !== 200 || response.redirected || !response.headers.get('content-type')?.toLowerCase().startsWith('application/json')) return { status: 'unavailable' };
+      if (response.status !== 200 || response.redirected || !isJsonContentType(response.headers.get('content-type'))) return { status: 'unavailable' };
       if (!hasSafeDeclaredLength(response)) return { status: 'unavailable' };
       const text = await readBoundedResponseText(response);
       if (text === null) return { status: 'unavailable' };
@@ -111,7 +112,10 @@ function parseProjection(value: unknown): SafeProjection | null {
   if (customers.some((x) => x === null) || tags.some((x) => x === null)) return null;
   return { organization: { id: String(value.organization.id), name: value.organization.name }, customers: customers as SafeProjection['customers'], nfcTags: tags as SafeProjection['nfcTags'], nextCursor: value.nextCursor };
 }
-function parseEmployeeProjection(value: unknown): SafeEmployeeProjection | null {
+function parseEmployeeProjection(
+  value: unknown,
+  requestedCursor: string | null,
+): SafeEmployeeProjection | null {
   if (!isRecord(value) || !exact(value, ['status', 'organization', 'employeeMemberships', 'nextCursor'])
     || value.status !== 'succeeded' || !isRecord(value.organization)
     || !exact(value.organization, ['id', 'name']) || !uuid.test(String(value.organization.id))
@@ -124,11 +128,12 @@ function parseEmployeeProjection(value: unknown): SafeEmployeeProjection | null 
     ? { id: String(entry.id), displayName: entry.displayName, role: 'employee' as const, active: true as const }
     : null);
   if (memberships.some((entry) => entry === null)) return null;
-  return {
+  const projection: SafeEmployeeProjection = {
     organization: { id: String(value.organization.id), name: value.organization.name },
     employeeMemberships: memberships as SafeEmployeeProjection['employeeMemberships'],
     nextCursor: value.nextCursor,
   };
+  return isSafeEmployeeProjectionPage(projection, requestedCursor) ? projection : null;
 }
 function parseInvitation(value: unknown): VolatileInvitationSecret | null {
   if (!isRecord(value) || !exact(value, ['status', 'invitationSecret', 'expiresAt'])
@@ -151,6 +156,10 @@ function parseInvitationConflict(value: unknown): 'command_id_conflict' | 'invit
 }
 function isRecord(value: unknown): value is Record<string, unknown> { return typeof value === 'object' && value !== null && !Array.isArray(value); }
 function exact(value: Record<string, unknown>, keys: readonly string[]): boolean { return Object.keys(value).sort().join(',') === [...keys].sort().join(','); }
+
+function isJsonContentType(value: string | null): boolean {
+  return value !== null && value.split(';', 1)[0]?.trim().toLowerCase() === 'application/json';
+}
 
 function hasSafeDeclaredLength(response: Response): boolean {
   const declaredLength = response.headers.get('content-length');

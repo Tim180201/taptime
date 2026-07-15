@@ -501,14 +501,21 @@ independent final review and exact-head CI before any Human Physical Gate may be
 
 ## 14. Repository implementation checkpoint
 
-The authorized repository candidate is locally implemented and verified on 2026-07-15. It adds
-migration `008`, the exact isolated capability/owner roles, invitation/redemption/projection backend
-and transport, volatile Admin Web one-time-secret handling and the explicit Android pre-Membership
-enrollment shell without C3E2 or production expansion. Fresh `npm ci` plus focused final evidence is 1,522 passing
-tests with two approved Supavisor-mode skips, all workspace typechecks/builds, Android export,
-migration-ledger and built-CLI checks. Detailed evidence is
-`ADO/05_Evidence/Block_C3E1_Implementation_Evidence.md`.
+The authorized repository implementation was published as commit `42b7c7a81d5a36bdce2842863f4cfdf637ea5e49`,
+tree `22c47b6c8a36f22787dd50c86b89b03d8008a6a2`, and passed exact-head ten-of-ten GitHub Actions run
+`29414515751`, attempt 1. Independent final review then returned `CHANGES REQUIRED` with three P2
+and three P3 findings and no P0/P1.
 
-This checkpoint is not an approval or closure. Publication commit, independent exact-commit final
-review and green exact-head CI remain required before the separately authorized fresh Human Gate
-may start. C3E2, production resources/data, deployment and distribution remain unauthorized.
+The current focused correction retains migration `008`, the exact isolated capability/owner roles,
+invitation/redemption/projection backend and transport and the explicit Android pre-Membership
+enrollment shell without C3E2 or production expansion. It adds error-aware checked-out-client
+retirement, stale-secret tombstones, strict Employee projection safety, exact JSON media-type
+checking, the normative ten-second backend deadline and truthful ADO synchronization. Fresh
+`npm ci` plus focused final evidence is 1,527 passing tests with two approved Supavisor-mode skips,
+all workspace typechecks/builds, Android export, migration-ledger and built-CLI checks. Detailed
+evidence is `ADO/05_Evidence/Block_C3E1_Implementation_Evidence.md`.
+
+This checkpoint is not an approval or closure. External exact-head CI confirmation for the
+correction and independent delta re-review remain required before the separately authorized fresh
+Human Gate may start. C3E2, production resources/data, deployment and distribution remain
+unauthorized.

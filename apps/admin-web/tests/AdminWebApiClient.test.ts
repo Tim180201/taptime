@@ -31,6 +31,15 @@ function validProjection() {
   };
 }
 
+function employeeMemberships(start: number, count: number) {
+  return Array.from({ length: count }, (_, index) => ({
+    id: `70000000-0000-4000-8000-${(start + index).toString().padStart(12, '0')}`,
+    displayName: `Employee ${start + index}`,
+    role: 'employee' as const,
+    active: true as const,
+  }));
+}
+
 describe('AdminWebApiClient', () => {
   it('accepts only the exact session shape and keeps the request same-origin and credential-free', async () => {
     const calls: Array<{ readonly input: RequestInfo | URL; readonly init?: RequestInit }> = [];
@@ -120,29 +129,21 @@ describe('AdminWebApiClient', () => {
   });
 
   it('strictly parses the bounded Employee Membership projection', async () => {
+    const firstPage = employeeMemberships(1, 20);
+    const firstCursor = `v1:e:${firstPage.at(-1)!.id}`;
     const fetchRequest = vi.fn<typeof fetch>(async () => json({
       status: 'succeeded',
       organization: { id: ids.organization, name: 'TapTim.e' },
-      employeeMemberships: [{
-        id: ids.employeeMembership,
-        displayName: 'Employee Alpha',
-        role: 'employee',
-        active: true,
-      }],
-      nextCursor: `v1:e:${ids.employeeMembership}`,
+      employeeMemberships: firstPage,
+      nextCursor: firstCursor,
     }));
     const client = new AdminWebApiClient(fetchRequest);
     await expect(client.employeeProjection('token', ids.membership, null)).resolves.toEqual({
       status: 'succeeded',
       value: {
         organization: { id: ids.organization, name: 'TapTim.e' },
-        employeeMemberships: [{
-          id: ids.employeeMembership,
-          displayName: 'Employee Alpha',
-          role: 'employee',
-          active: true,
-        }],
-        nextCursor: `v1:e:${ids.employeeMembership}`,
+        employeeMemberships: firstPage,
+        nextCursor: firstCursor,
       },
     });
     expect(JSON.parse(String(fetchRequest.mock.calls[0]?.[1]?.body))).toEqual({
@@ -158,6 +159,46 @@ describe('AdminWebApiClient', () => {
     }));
     await expect(client.employeeProjection('token', ids.membership, null))
       .resolves.toEqual({ status: 'unavailable' });
+  });
+
+  it('rejects unsafe Employee names, duplicates, ordering, and cursor discontinuity', async () => {
+    const requestedCursor = 'v1:e:70000000-0000-4000-8000-000000000020';
+    const validPage = employeeMemberships(21, 20);
+    const responses = [
+      {
+        status: 'succeeded', organization: { id: ids.organization, name: 'TapTim.e' },
+        employeeMemberships: [validPage[0], validPage[0]], nextCursor: null,
+      },
+      {
+        status: 'succeeded', organization: { id: ids.organization, name: 'TapTim.e' },
+        employeeMemberships: [validPage[1], validPage[0]], nextCursor: null,
+      },
+      {
+        status: 'succeeded', organization: { id: ids.organization, name: 'TapTim.e' },
+        employeeMemberships: [{ ...validPage[0], id: requestedCursor.slice(5) }], nextCursor: null,
+      },
+      {
+        status: 'succeeded', organization: { id: ids.organization, name: 'TapTim.e' },
+        employeeMemberships: validPage, nextCursor: `v1:e:${validPage[18]!.id}`,
+      },
+      {
+        status: 'succeeded', organization: { id: ids.organization, name: 'TapTim.e' },
+        employeeMemberships: [{ ...validPage[0], displayName: ' Employee 21' }], nextCursor: null,
+      },
+      {
+        status: 'succeeded', organization: { id: ids.organization, name: 'TapTim.e' },
+        employeeMemberships: [{ ...validPage[0], displayName: 'E\u0301mployee 21' }], nextCursor: null,
+      },
+      {
+        status: 'succeeded', organization: { id: ids.organization, name: 'TapTim.e' },
+        employeeMemberships: [{ ...validPage[0], displayName: `Employee\u0000 21` }], nextCursor: null,
+      },
+    ];
+    const client = new AdminWebApiClient(async () => json(responses.shift()!));
+    for (let index = 0; index < 7; index += 1) {
+      await expect(client.employeeProjection('token', ids.membership, requestedCursor))
+        .resolves.toEqual({ status: 'unavailable' });
+    }
   });
 
   it('accepts only a canonical one-time invitation secret and exposes only allowlisted conflicts', async () => {
@@ -189,6 +230,11 @@ describe('AdminWebApiClient', () => {
     fetchRequest.mockResolvedValueOnce(new Response(JSON.stringify({
       error: { code: 'invitation_limit_reached' },
     }), { status: 409, headers: { 'Content-Type': 'text/plain' } }));
+    await expect(client.createEmployeeInvitation('token', ids.membership, ids.command, 'Employee Alpha'))
+      .resolves.toEqual({ status: 'unavailable' });
+    fetchRequest.mockResolvedValueOnce(new Response(JSON.stringify({
+      error: { code: 'invitation_limit_reached' },
+    }), { status: 409, headers: { 'Content-Type': 'application/jsonp' } }));
     await expect(client.createEmployeeInvitation('token', ids.membership, ids.command, 'Employee Alpha'))
       .resolves.toEqual({ status: 'unavailable' });
     fetchRequest.mockResolvedValueOnce(new Response(JSON.stringify({

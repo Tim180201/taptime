@@ -845,7 +845,9 @@ migrations `001`–`008`; existing bytes `001`–`007` remain immutable. `backen
 distinct database users, and `backend-administration` owns both the still-separated C3C and C3E1
 coordinators. The ten-job CI topology is expanded in scope, not job count.
 
-The candidate passed local clean-install verification but is not yet independently approved or
-exact-head CI-validated. C3E2, production data/resources, deployment/distribution and the fresh
+Initial implementation `42b7c7a` passed exact-head ten-of-ten run `29414515751`, but independent
+final review returned `CHANGES REQUIRED` with three P2 and three P3 findings. Its six-finding
+correction is locally verified and still requires external exact-head CI confirmation plus
+independent delta re-review. C3E2, production data/resources, deployment/distribution and the fresh
 Human Gate remain outside this addendum. Evidence:
 `ADO/05_Evidence/Block_C3E1_Implementation_Evidence.md`.

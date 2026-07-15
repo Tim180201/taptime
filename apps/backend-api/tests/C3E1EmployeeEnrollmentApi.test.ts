@@ -104,14 +104,22 @@ describe('C3E1 Employee enrollment HTTP contract', () => {
   });
 
   it('redeems a canonical secret without accepting any client-supplied tenant context', async () => {
-    const redeemInvitation = vi.fn(async () => ({
-      status: 'succeeded' as const,
-      organizationName: 'Synthetic Organization A',
-      membershipDisplayName: 'Employee Alpha',
-      role: 'employee' as const,
-    }));
+    let propagatedDeadline = 0;
+    const redeemInvitation = vi.fn<EmployeeMembershipEnrollmentCoordinator['redeemInvitation']>(
+      async (_command, controls) => {
+        propagatedDeadline = controls?.deadlineEpochMilliseconds ?? 0;
+        return {
+          status: 'succeeded',
+          organizationName: 'Synthetic Organization A',
+          membershipDisplayName: 'Employee Alpha',
+          role: 'employee',
+        };
+      },
+    );
+    const beforeRequest = Date.now();
     const response = await post(await origin(coordinator({ redeemInvitation })),
       '/v1/employee-enrollment/redeem', { commandId, invitationSecret });
+    const afterRequest = Date.now();
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
       status: 'succeeded',
@@ -123,6 +131,8 @@ describe('C3E1 Employee enrollment HTTP contract', () => {
       { accessToken, commandId, invitationSecret },
       { deadlineEpochMilliseconds: expect.any(Number) },
     );
+    expect(propagatedDeadline).toBeGreaterThanOrEqual(beforeRequest + 10_000);
+    expect(propagatedDeadline).toBeLessThanOrEqual(afterRequest + 10_000);
   });
 
   it.each([

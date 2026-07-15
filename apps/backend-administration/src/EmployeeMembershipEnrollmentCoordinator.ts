@@ -331,15 +331,25 @@ async function withTransaction<Value>(
   operation: (client: PoolClient) => Promise<Value>,
 ): Promise<Value> {
   const client = await pool.connect();
+  let connectionFailure: Error | undefined;
+  const recordConnectionFailure = (error: Error): void => {
+    connectionFailure ??= error;
+  };
+  const assertActive = (): void => {
+    assertBeforeDeadline(deadline);
+    if (connectionFailure !== undefined) throw connectionFailure;
+  };
+  client.on('error', recordConnectionFailure);
   let transactionOpen = false;
   try {
+    assertActive();
     await client.query('BEGIN ISOLATION LEVEL READ COMMITTED READ WRITE');
     transactionOpen = true;
     await setDatabaseDeadlines(client, deadline);
     const value = await operation(client);
-    assertBeforeDeadline(deadline);
+    assertActive();
     await controls.beforeCommit?.();
-    assertBeforeDeadline(deadline);
+    assertActive();
     await client.query('COMMIT');
     transactionOpen = false;
     return value;
@@ -353,7 +363,8 @@ async function withTransaction<Value>(
     }
     throw error;
   } finally {
-    client.release();
+    client.off('error', recordConnectionFailure);
+    client.release(connectionFailure);
   }
 }
 

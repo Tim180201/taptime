@@ -2,8 +2,10 @@
 
 Status: Active — C3B/C3C/C3D completed for their authorized scopes; C3D closure sync Human-accepted;
 C3E1 corrected contract independently approved with zero open P0–P3, Human-accepted and repository
-implementation authorized on exact baseline `70d163f`; implementation candidate locally verified,
-publication/final review/exact-head CI pending; C3E2 unauthorized
+implementation authorized on exact baseline `70d163f`; initial implementation `42b7c7a` published
+with ten-of-ten exact-head CI, final review `CHANGES REQUIRED`, six-finding correction locally
+verified and awaiting external exact-head CI confirmation plus independent delta re-review; C3E2
+unauthorized
 Date: 2026-07-15
 Planning Baseline: `f7d38558e9a1e6d5f7c2cfd1f4a1ec6eed3ebd44`
 Owner: Technical Lead
@@ -16,7 +18,7 @@ Architecture: Accepted ADR-0011, FB-002 v1.2 and TS-002 v1.3
 | C3B | Isolated first Organization/Administrator bootstrap CLI, migration `006`, role graph, receipt/audit and security matrix | High | Completed — Technical Lead, independent review and nine-job CI passed |
 | C3C | Tenant-safe normal setup backend/API, Customer/Tag display names, atomic Customer and NFC provision commands, resumable safe projection | Very High | Completed — implementation `b90729a0a4b325f523cd98ea5a741defb00155f6`, independent exact-SHA reviews and exact-head ten-job CI passed |
 | C3D | Minimal Admin Web shell for Customer/assignment setup plus protected Android Administrator NFC capture | Extra High | Completed — final correction `e686578`, independent zero-finding review, exact-head ten-job CI and fresh Galaxy/NTAG213 Human gate passed |
-| C3E1 | Identity-first Employee Membership setup through a separately reviewed least-privilege invitation/redemption boundary | Very High | Locally verified implementation candidate; publication, final independent review and exact-head CI required before Human Gate |
+| C3E1 | Identity-first Employee Membership setup through a separately reviewed least-privilege invitation/redemption boundary | Very High | Initial implementation `42b7c7a` published/10-job CI green; final review `CHANGES REQUIRED`; correction locally verified, external exact-head CI confirmation and independent delta re-review required before Human Gate |
 | C3E2 | Explicit Tag reassignment with preserved Assignment history and future time attribution | Very High | Not authorized |
 
 C3B and C3C repository implementation are closed. The C3C backend prerequisite is satisfied. The
@@ -204,13 +206,15 @@ revocation/role change, last-Administrator policy, email delivery and all Tag re
 
 The exact token, schema, route, role, receipt, audit and UI contracts were independently re-reviewed
 on corrected commit `70d163f` with no open P0/P1/P2/P3 and accepted by the Human Architect. Migration
-`008` and the bounded repository implementation were authorized on that exact baseline and are now
-locally implemented and verified as recorded in
-`ADO/05_Evidence/Block_C3E1_Implementation_Evidence.md`. The remaining gates are:
+`008` and the bounded repository implementation were authorized on that exact baseline. Initial
+implementation `42b7c7a` was published and passed exact-head run `29414515751`; independent final
+review returned `CHANGES REQUIRED` with three P2 and three P3 findings. The six-finding correction
+is locally verified as recorded in `ADO/05_Evidence/Block_C3E1_Implementation_Evidence.md`. The
+remaining gates are:
 
-1. preserve the accepted package with no C3E2/production expansion during publication;
-2. independent final architecture/security/code review of the exact implementation commit;
-3. green exact-head CI; and
+1. preserve the accepted package with no C3E2/production expansion while publishing the correction;
+2. externally confirm green exact-head CI for the correction SHA;
+3. obtain independent delta architecture/security/code re-review of the exact correction; and
 4. only then a separately started fresh Human identity/device gate before closure.
 
 C3E2 remains outside this package and requires its own Assignment-history and time-attribution

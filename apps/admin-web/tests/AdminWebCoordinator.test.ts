@@ -16,6 +16,15 @@ const employeeProjection: SafeEmployeeProjection = {
   nextCursor: null,
 };
 
+function employeeMemberships(start: number, count: number) {
+  return Array.from({ length: count }, (_, index) => ({
+    id: `70000000-0000-4000-8000-${(start + index).toString().padStart(12, '0')}`,
+    displayName: `Employee ${start + index}`,
+    role: 'employee' as const,
+    active: true as const,
+  }));
+}
+
 function deferred<Value>() {
   let resolve!: (value: Value) => void;
   const promise = new Promise<Value>((done) => { resolve = done; });
@@ -322,6 +331,114 @@ describe('AdminWebCoordinator', () => {
     await coordinator.loadMore();
 
     expect(coordinator.getState()).toMatchObject({ status: 'ready', invitation: null });
+  });
+
+  it('tombstones a dismissed secret against a later Employee-pagination completion', async () => {
+    const { api, coordinator } = setup();
+    const firstPage = employeeMemberships(1, 20);
+    const cursor = `v1:e:${firstPage.at(-1)!.id}`;
+    api.employeeProjection.mockResolvedValueOnce({
+      status: 'succeeded',
+      value: {
+        organization: projection.organization,
+        employeeMemberships: firstPage,
+        nextCursor: cursor,
+      },
+    });
+    await coordinator.signIn('administrator@example.test', 'secret');
+    await coordinator.createEmployeeInvitation('Employee Alpha');
+    const pendingPage = deferred<ApiResult<SafeEmployeeProjection>>();
+    api.employeeProjection.mockImplementationOnce(() => pendingPage.promise);
+
+    const loading = coordinator.loadMoreEmployees();
+    await vi.waitFor(() => expect(api.employeeProjection).toHaveBeenCalledTimes(2));
+    coordinator.dismissInvitation();
+    expect(coordinator.getState()).toMatchObject({ status: 'ready', invitation: null });
+    pendingPage.resolve({
+      status: 'succeeded',
+      value: {
+        organization: projection.organization,
+        employeeMemberships: employeeMemberships(21, 1),
+        nextCursor: null,
+      },
+    });
+    await loading;
+
+    expect(coordinator.getState()).toMatchObject({
+      status: 'ready',
+      invitation: null,
+      employeeProjection: { employeeMemberships: [...firstPage, ...employeeMemberships(21, 1)] },
+    });
+  });
+
+  it('tombstones a dismissed secret against any later non-disclosure async state write', async () => {
+    const { api, coordinator } = setup();
+    await coordinator.signIn('administrator@example.test', 'secret');
+    await coordinator.createEmployeeInvitation('Employee Alpha');
+    const pendingCustomer = deferred<ApiResult<true>>();
+    api.createCustomer.mockImplementationOnce(() => pendingCustomer.promise);
+
+    const creating = coordinator.createCustomer('Werkstatt Zwei');
+    await vi.waitFor(() => expect(api.createCustomer).toHaveBeenCalledTimes(1));
+    coordinator.dismissInvitation();
+    pendingCustomer.resolve({ status: 'unavailable' });
+    await creating;
+
+    expect(coordinator.getState()).toMatchObject({ status: 'ready', invitation: null });
+  });
+
+  it('fails closed for duplicate, unordered, cursor-regressing, or discontinuous Employee pages', async () => {
+    const firstPage = employeeMemberships(1, 20);
+    const cursor = `v1:e:${firstPage.at(-1)!.id}`;
+    const nextPage = employeeMemberships(21, 20);
+    const invalidPages: readonly SafeEmployeeProjection[] = [
+      {
+        organization: projection.organization,
+        employeeMemberships: [nextPage[0]!, nextPage[0]!],
+        nextCursor: null,
+      },
+      {
+        organization: projection.organization,
+        employeeMemberships: [nextPage[1]!, nextPage[0]!],
+        nextCursor: null,
+      },
+      {
+        organization: projection.organization,
+        employeeMemberships: [{ ...nextPage[0]!, id: cursor.slice(5) }],
+        nextCursor: null,
+      },
+      {
+        organization: projection.organization,
+        employeeMemberships: nextPage,
+        nextCursor: `v1:e:${nextPage[18]!.id}`,
+      },
+      {
+        organization: projection.organization,
+        employeeMemberships: [{ ...nextPage[0]!, displayName: ' Employee 21' }],
+        nextCursor: null,
+      },
+    ];
+
+    for (const invalidPage of invalidPages) {
+      const { api, coordinator } = setup();
+      api.employeeProjection.mockResolvedValueOnce({
+        status: 'succeeded',
+        value: {
+          organization: projection.organization,
+          employeeMemberships: firstPage,
+          nextCursor: cursor,
+        },
+      });
+      await coordinator.signIn('administrator@example.test', 'secret');
+      api.employeeProjection.mockResolvedValueOnce({ status: 'succeeded', value: invalidPage });
+
+      await coordinator.loadMoreEmployees();
+
+      expect(coordinator.getState()).toEqual({
+        status: 'unavailable',
+        message: 'Weitere Beschäftigtendaten konnten nicht sicher bestätigt werden.',
+      });
+    }
   });
 
   it('fails closed when the Employee projection claims a different Organization', async () => {

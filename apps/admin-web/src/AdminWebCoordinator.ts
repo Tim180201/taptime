@@ -6,6 +6,7 @@ import type {
   VolatileInvitationSecret,
 } from './contracts';
 import { AdminWebApiClient, type AdminWebApiPort } from './AdminWebApiClient';
+import { isSafeEmployeeProjectionPage } from './employeeProjectionSafety';
 
 export interface AdminWebAuthPort {
   signIn(email: string, password: string): Promise<boolean>;
@@ -19,6 +20,8 @@ export class AdminWebCoordinator implements AdminWebCapability {
   private generation = 0;
   private authenticationQueue: Promise<void> = Promise.resolve();
   private invitationExpiryTimer: ReturnType<typeof setTimeout> | null = null;
+  private invitationDisclosureEpoch = 0;
+  private readonly invitationDisclosureEpochs = new WeakMap<VolatileInvitationSecret, number>();
   private readonly listeners = new Set<() => void>();
 
   constructor(
@@ -128,7 +131,14 @@ export class AdminWebCoordinator implements AdminWebCapability {
     } else if (result === null || result.status === 'rejected') {
       await this.rejectOutsideAuthentication(generation, 'Administrator-Sitzung ist nicht mehr gültig.');
     } else {
-      this.setState({ ...current, creating: false, notice: 'Kunde konnte nicht bestätigt angelegt werden.' });
+      const latest = this.state;
+      if (latest.status === 'ready') {
+        this.setState({
+          ...latest,
+          creating: false,
+          notice: 'Kunde konnte nicht bestätigt angelegt werden.',
+        });
+      }
     }
   }
 
@@ -151,21 +161,26 @@ export class AdminWebCoordinator implements AdminWebCapability {
       result = { status: 'unavailable' as const };
     }
     if (generation !== this.generation) return;
+    const latest = this.state;
+    if (
+      latest.status !== 'ready'
+      || latest.employeeProjection.nextCursor !== requestedCursor
+    ) return;
     if (result?.status === 'succeeded') {
       const merged = mergeEmployeeProjection(
-        current.employeeProjection,
+        latest.employeeProjection,
         result.value,
         requestedCursor,
       );
       if (merged !== null) {
-        this.setState({ ...current, employeeProjection: merged });
+        this.setState({ ...latest, employeeProjection: merged });
       } else {
         this.setState({ status: 'unavailable', message: 'Weitere Beschäftigtendaten konnten nicht sicher bestätigt werden.' });
       }
     } else if (result === null || result.status === 'rejected') {
       await this.rejectOutsideAuthentication(generation, 'Administrator-Sitzung ist nicht mehr gültig.');
     } else {
-      this.setState({ ...current, notice: 'Weitere Beschäftigtendaten sind derzeit nicht erreichbar.' });
+      this.setState({ ...latest, notice: 'Weitere Beschäftigtendaten sind derzeit nicht erreichbar.' });
     }
   }
 
@@ -305,8 +320,26 @@ export class AdminWebCoordinator implements AdminWebCapability {
     try { await this.auth.signOut(); } catch { /* local state remains invalidated */ }
   }
 
-  private setState(state: AdminWebState): void {
+  private setState(requestedState: AdminWebState): void {
     this.clearInvitationExpiryTimer();
+    const previousInvitation = this.state.status === 'ready' ? this.state.invitation : null;
+    let state = requestedState;
+    if (state.status === 'ready' && state.invitation !== null) {
+      const recordedEpoch = this.invitationDisclosureEpochs.get(state.invitation);
+      if (recordedEpoch === undefined) {
+        this.invitationDisclosureEpoch += 1;
+        this.invitationDisclosureEpochs.set(state.invitation, this.invitationDisclosureEpoch);
+      } else if (recordedEpoch !== this.invitationDisclosureEpoch) {
+        state = {
+          ...state,
+          invitation: this.state.status === 'ready' ? this.state.invitation : null,
+        };
+      }
+    }
+    const nextInvitation = state.status === 'ready' ? state.invitation : null;
+    if (previousInvitation !== null && nextInvitation === null) {
+      this.invitationDisclosureEpoch += 1;
+    }
     this.state = Object.freeze(state);
     if (state.status === 'ready' && state.invitation !== null) {
       const generation = this.generation;
@@ -345,6 +378,7 @@ function readyState(
   if (
     projection.organization.id !== employeeProjection.organization.id
     || projection.organization.name !== employeeProjection.organization.name
+    || !isSafeEmployeeProjectionPage(employeeProjection, null)
   ) {
     throw new Error('Administration projections disagree about the Organization');
   }
@@ -381,6 +415,7 @@ function mergeEmployeeProjection(
     current.organization.id !== next.organization.id
     || current.organization.name !== next.organization.name
     || next.nextCursor === requestedCursor
+    || !isSafeEmployeeProjectionPage(next, requestedCursor)
   ) return null;
   const membershipIds = new Set(current.employeeMemberships.map((membership) => membership.id));
   if (next.employeeMemberships.some((membership) => membershipIds.has(membership.id))) return null;
