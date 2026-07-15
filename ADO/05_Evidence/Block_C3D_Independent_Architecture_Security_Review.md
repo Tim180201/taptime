@@ -1,12 +1,14 @@
 # Block C3D — Independent Architecture/Security Review and Correction Disposition
 
 Status: **Independent delta re-review APPROVED with zero open P0/P1/P2/P3; exact correction
-commit/tree and exact-head CI pending**
+commit/tree published and exact-head CI passed; Human physical closure pending**
 Review Date: 2026-07-15
 Reviewed Implementation Commit: `35eb6441688b4c76ea0e89b7f1f2f69decca4a14`
 Reviewed Implementation Parent: `0af755a3678c3756cee31579cb563c8977b514af`
 Original Implementation CI: GitHub Actions `29396350642` — exact reviewed SHA, ten of ten jobs passed
-Correction Review Target: uncommitted Technical-Lead working tree; exact commit/tree not assigned yet
+Correction Commit: `293a0f4ff92fda38616476b66e600cc98fd20cdc`
+Correction Tree: `d676669684b9cd3f3a5b5f2c88919e8533de3b7e`
+Correction CI: GitHub Actions `29400109183`, attempt 2 — exact correction SHA, ten of ten jobs passed
 Owner: Technical Lead
 
 ## 1. Independent review result
@@ -103,13 +105,17 @@ matrices, product builds and Android export.
 
 Final renewed-review verdict: **APPROVED — zero open P0/P1/P2/P3**.
 
-## 7. Pending final gate
+## 7. Publication and pending Human gate
 
-This document is not final approval. The remaining sequence is:
+The corrected tree was published on `main` as commit
+`293a0f4ff92fda38616476b66e600cc98fd20cdc`, tree
+`d676669684b9cd3f3a5b5f2c88919e8533de3b7e`. Exact-head GitHub Actions run `29400109183`, attempt
+2, passed all ten jobs. Attempt 1 passed all 189 C3B assertions but reported one late PostgreSQL
+cleanup connection event (`57P01`) after a forced dirty-database teardown; the failed-job rerun on
+the unchanged SHA passed, and neither C3B nor the workflow differed from the previous green head.
 
-1. the corrected exact commit/tree must be recorded and pushed under the standing Human-Architect
-   publication authority; and
-2. GitHub Actions must pass all ten jobs on that exact head before the Human physical gate begins.
+The automated prerequisites are therefore satisfied and the Human physical gate may begin. C3D is
+not final or closed until that server-connected device/browser gate is recorded as passed.
 
 C3E, Membership CRUD/reassignment, Web/iOS NFC, production operation/data and distribution remain
 unauthorized.

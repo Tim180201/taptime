@@ -2,8 +2,8 @@
 
 **Date:** 2026-07-15
 
-**Status:** Correction independently approved with zero open findings; exact correction commit/tree
-and exact-head CI pending; physical Human closure gate remains open
+**Status:** Correction independently approved with zero open findings and published at an exact
+commit/tree with ten-of-ten exact-head CI; physical Human closure gate remains open
 
 **Authorization decision baseline:** `316f017973fbba18a58c2340c9c79a28f06573e5`
 
@@ -38,9 +38,12 @@ and exact-head CI pending; physical Human closure gate remains open
   of `react-native-nfc-manager` is not an acceptable fix.
 
 Original implementation commit `35eb6441688b4c76ea0e89b7f1f2f69decca4a14` passed ten-of-ten
-GitHub Actions run `29396350642`. The correction working tree passed renewed independent delta
-re-review with zero open P0/P1/P2/P3; an exact correction commit/tree and a new ten-of-ten exact-head
-run remain mandatory before the Human physical gate.
+GitHub Actions run `29396350642`. The independently approved correction is published on `main` as
+commit `293a0f4ff92fda38616476b66e600cc98fd20cdc`, tree
+`d676669684b9cd3f3a5b5f2c88919e8533de3b7e`. Exact-head GitHub Actions run `29400109183`, attempt
+2, passed all ten jobs. Attempt 1 had passed every C3B assertion (189/189) but failed that job on a
+late PostgreSQL cleanup connection event (`57P01`); no C3B or workflow file differed from the prior
+green head, and the failed-job rerun passed without a source change.
 
 ## Correction delivered after independent review
 
@@ -60,8 +63,7 @@ run remain mandatory before the Human physical gate.
 
 ## Open Human gate
 
-C3D is not closed until the correction first passes independent delta review plus exact-head CI and
-an Administrator then proves against the approved server-connected environment:
+C3D is not closed until an Administrator proves against the approved server-connected environment:
 Web sign-in, Customer creation, Android refresh, native capture/register/assign, safe fingerprint
 visibility, then Start and Stop with that same assigned tag. Employee denial plus Android
 process/session replacement must also be observed. No production-person data is authorized.
