@@ -2,8 +2,9 @@
 
 **Date:** 2026-07-15
 
-**Status:** Physical-validation harness locally verified, published and exact-head CI passed;
-Human physical observations pending
+**Status:** Physical-validation harness published and exact-head CI passed; C3D-LOOPBACK-01
+locally corrected after the first real browser start; correction delta review, exact-head CI and
+the restarted Human physical sequence remain pending
 
 **Harness baseline:** `e697d468cf36e34325cd4c61f85f398c51ec4429`
 
@@ -64,6 +65,25 @@ The harness commit passed all ten jobs in exact-head GitHub Actions run `2940126
 Attempt 1 passed all 189 C3B assertions but reported the pre-existing late PostgreSQL forced-database
 cleanup event (`57P01`); the unchanged SHA passed the failed-job rerun. No C3B or workflow source
 was part of the harness change.
+
+## C3D-LOOPBACK-01 physical-start correction
+
+The first controlled Human sequence proved the Android Employee denial on the freshly built Galaxy
+A33 app, then the actual Admin Web entry point displayed `TapTim.e ist nicht konfiguriert.` before
+any Administrator credential or setup write. Repository reading showed that the Admin Web runtime
+parser accepted only HTTPS while the authorized loopback harness necessarily supplied
+`http://127.0.0.1:54321`. The earlier live smoke had exercised Auth/API/proxy behavior but not the
+actual `main.tsx` runtime-configuration branch, so it had not exposed this mismatch.
+
+The narrow correction accepts HTTP only for canonical origin `http://127.0.0.1:54321`; HTTPS
+remains the general path, while alternate IPv4 spellings, IPv6/other loopback, `localhost`, a wrong
+port, LAN/remote hosts, embedded credentials, paths, queries, fragments and short keys remain rejected. No Mobile, backend, C3C,
+schema, Core rule, production endpoint or product authority changed. Local post-correction evidence
+is Admin Web 26/26 plus build/typecheck, Core 290/290, Mobile 338/338, neutral contract 3/3,
+synthetic harness 9/9 and their relevant TypeScript checks. Reloading the actual Vite entry point
+then rendered the Administrator sign-in surface. The preliminary Employee observation is not
+promoted in the checklist because the controlled sequence was intentionally aborted and will be
+restarted on the reviewed exact-head correction.
 
 ## Human observation checklist
 

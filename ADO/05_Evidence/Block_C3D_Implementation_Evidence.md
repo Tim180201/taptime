@@ -2,9 +2,9 @@
 
 **Date:** 2026-07-15
 
-**Status:** Correction independently approved with zero open findings and published at an exact
-commit/tree with ten-of-ten exact-head CI; scoped physical-validation harness locally verified;
-exact-head harness CI passed; physical Human closure remains open
+**Status:** Original correction independently approved with zero open findings and exact-head CI;
+physical-start finding C3D-LOOPBACK-01 locally corrected; its delta review, exact-head CI and the
+restarted physical Human closure remain open
 
 **Authorization decision baseline:** `316f017973fbba18a58c2340c9c79a28f06573e5`
 
@@ -75,3 +75,9 @@ in `ADO/05_Evidence/Block_C3D_Physical_Validation_Evidence.md`. Harness commit
 `032ae9603a13c81e1f8dd880c42aa81828f017a4`, tree
 `d15e5346d8eca34d404242491dd7ac4b80f35574`, passed all ten jobs in exact-head run `29401264170`,
 attempt 2.
+
+The first actual physical-gate browser start subsequently exposed C3D-LOOPBACK-01: the Admin Web
+runtime parser rejected the harness's exact numeric HTTP loopback Auth origin before login. The
+narrow local correction and adversarial origin tests are recorded in
+`ADO/05_Evidence/Block_C3D_Physical_Validation_Evidence.md`; it changes no Mobile/backend/C3C/schema
+or production authority and remains pending independent delta review plus exact-head CI.

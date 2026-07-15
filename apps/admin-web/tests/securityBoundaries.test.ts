@@ -4,9 +4,22 @@ import { AdminWebApiClient } from '../src/AdminWebApiClient';
 import { readAdminWebConfiguration } from '../src/runtimeConfiguration';
 
 describe('C3D Admin Web security boundaries', () => {
-  it('accepts only an HTTPS Supabase origin and required publishable key', () => {
+  it('accepts only an HTTPS Supabase origin or the exact numeric HTTP loopback harness origin', () => {
     expect(readAdminWebConfiguration({ VITE_TAPTIME_SUPABASE_URL: 'https://example.supabase.co/path?x=1', VITE_TAPTIME_SUPABASE_PUBLISHABLE_KEY: 'x'.repeat(20) })).toBeNull();
     expect(readAdminWebConfiguration({ VITE_TAPTIME_SUPABASE_URL: 'http://example.supabase.co', VITE_TAPTIME_SUPABASE_PUBLISHABLE_KEY: 'x'.repeat(20) })).toBeNull();
+    expect(readAdminWebConfiguration({ VITE_TAPTIME_SUPABASE_URL: 'http://localhost:54321', VITE_TAPTIME_SUPABASE_PUBLISHABLE_KEY: 'x'.repeat(20) })).toBeNull();
+    expect(readAdminWebConfiguration({ VITE_TAPTIME_SUPABASE_URL: 'http://127.0.0.2:54321', VITE_TAPTIME_SUPABASE_PUBLISHABLE_KEY: 'x'.repeat(20) })).toBeNull();
+    expect(readAdminWebConfiguration({ VITE_TAPTIME_SUPABASE_URL: 'http://127.1:54321', VITE_TAPTIME_SUPABASE_PUBLISHABLE_KEY: 'x'.repeat(20) })).toBeNull();
+    expect(readAdminWebConfiguration({ VITE_TAPTIME_SUPABASE_URL: 'http://2130706433:54321', VITE_TAPTIME_SUPABASE_PUBLISHABLE_KEY: 'x'.repeat(20) })).toBeNull();
+    expect(readAdminWebConfiguration({ VITE_TAPTIME_SUPABASE_URL: 'http://[::1]:54321', VITE_TAPTIME_SUPABASE_PUBLISHABLE_KEY: 'x'.repeat(20) })).toBeNull();
+    expect(readAdminWebConfiguration({ VITE_TAPTIME_SUPABASE_URL: 'http://127.0.0.1:54322', VITE_TAPTIME_SUPABASE_PUBLISHABLE_KEY: 'x'.repeat(20) })).toBeNull();
+    expect(readAdminWebConfiguration({ VITE_TAPTIME_SUPABASE_URL: 'http://user:secret@127.0.0.1:54321', VITE_TAPTIME_SUPABASE_PUBLISHABLE_KEY: 'x'.repeat(20) })).toBeNull();
+    expect(readAdminWebConfiguration({ VITE_TAPTIME_SUPABASE_URL: 'http://127.0.0.1:54321/path', VITE_TAPTIME_SUPABASE_PUBLISHABLE_KEY: 'x'.repeat(20) })).toBeNull();
+    expect(readAdminWebConfiguration({ VITE_TAPTIME_SUPABASE_URL: 'http://127.0.0.1:54321?query=1', VITE_TAPTIME_SUPABASE_PUBLISHABLE_KEY: 'x'.repeat(20) })).toBeNull();
+    expect(readAdminWebConfiguration({ VITE_TAPTIME_SUPABASE_URL: 'http://127.0.0.1:54321#fragment', VITE_TAPTIME_SUPABASE_PUBLISHABLE_KEY: 'x'.repeat(20) })).toBeNull();
+    expect(readAdminWebConfiguration({ VITE_TAPTIME_SUPABASE_URL: 'http://127.0.0.1:54321', VITE_TAPTIME_SUPABASE_PUBLISHABLE_KEY: 'short' })).toBeNull();
+    expect(readAdminWebConfiguration({ VITE_TAPTIME_SUPABASE_URL: 'http://127.0.0.1:54321', VITE_TAPTIME_SUPABASE_PUBLISHABLE_KEY: 'x'.repeat(20) })).toEqual({ supabaseUrl: 'http://127.0.0.1:54321', supabasePublishableKey: 'x'.repeat(20) });
+    expect(readAdminWebConfiguration({ VITE_TAPTIME_SUPABASE_URL: 'http://127.0.0.1:54321/', VITE_TAPTIME_SUPABASE_PUBLISHABLE_KEY: 'x'.repeat(20) })).toEqual({ supabaseUrl: 'http://127.0.0.1:54321', supabasePublishableKey: 'x'.repeat(20) });
     expect(readAdminWebConfiguration({ VITE_TAPTIME_SUPABASE_URL: 'https://example.supabase.co', VITE_TAPTIME_SUPABASE_PUBLISHABLE_KEY: 'x'.repeat(20) })).toEqual({ supabaseUrl: 'https://example.supabase.co', supabasePublishableKey: 'x'.repeat(20) });
   });
 
