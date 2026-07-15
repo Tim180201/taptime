@@ -493,3 +493,14 @@ Per task instruction: stop after producing this assessment and the companion roa
 ## Revision Note (Technical Lead Review Follow-up, 2026-07-07)
 
 This assessment was updated once, after Technical Lead review, to incorporate seven specific requested changes without rewriting, weakening, or removing any prior finding: Section 0.1 (Business Event Platform strategic frame), Section 1 and Section 3 (Business Engine centrality and NFC-as-first-trigger framing added in place), Section 11.1 (re-evaluation of the primary strategic bottleneck — Organization Management identified as the more foundational blocker for reaching Pilot Customers, without retracting the backend technology decision's standing finding for later milestones), Section 12 (Capability Perspective, new), Section 13 (Business Readiness category evaluation, new — found not supportable by current evidence and retained as a placeholder rather than invented), Section 14 (Product Readiness Scorecard, new), and Section 15 (Long-term Governance recommendation, new). All content from the original assessment (Sections 1–11 as originally numbered) is preserved; this revision only renumbered the closing Role Handover and Stop Condition sections to accommodate the five new sections inserted before them, and lightly extended three existing sections (0, 1, 3) with additional framing paragraphs. See the companion `Product_Readiness_Roadmap.md`'s own Revision Note for the corresponding roadmap-side changes (Engineering Track / Product Capability Track separation, per the same review).
+
+## Addendum (2026-07-15 — Current Reassessment Pointer)
+
+Sections 1–17 and the 2026-07-07 Revision Note above remain the immutable creation baseline. Their
+present-tense repository and scorecard claims are not the current implementation inventory.
+
+EP-009's first evidence-triggered additive reassessment is
+`ADO/05_Evidence/Product_Readiness_Reassessment_2026-07-15.md`. It dispositions K1–K12 and extends
+the qualitative scorecard using tracked evidence through baseline
+`fda5e5b9e878311b0caa647c6b49ab14943b706e`. The companion Roadmap contains dated disposition
+addenda. No baseline finding is deleted or silently rewritten.

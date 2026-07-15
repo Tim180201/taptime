@@ -164,3 +164,21 @@ Next responsible role: Technical Lead / Human Architect to review EP-009. Per th
 ## 11. Stop Condition
 
 Per task instruction: stop after EP-009 has been created and the minimum required cross-references (Section 9) have been made. No additional documents were created. No implementation, Feature Blueprint, or Development Task was created. Awaiting Technical Lead / Human Architect review.
+
+## 12. Cadence Reconciliation and First Evidence-Triggered Reassessment (2026-07-15)
+
+The original Section 2 statement that every Development Sprint closure updates EP-008 remains the
+historical process used through Sprint 019. Core Roadmap v2 Section 9 subsequently introduced the
+approved temporary execution-phase adjustment: Decision Log and Project Status stay current at every
+slice, while full EP-008 synchronization is reserved for material Block boundaries or genuinely new
+architecture decisions. This reconciliation changes cadence, not EP-008's authority.
+
+That reduced cadence was not a waiver. Completed Blocks A, B1–B6, C1/C2, D, E1/E2A and C3A–C3C
+triggered the post-Sprint-019 synchronization recorded in
+`ADO/05_Evidence/EP-008/EP-008_Post_Sprint_019_Block_Boundary_Synchronization_Evidence.md`.
+
+The same evidence change triggers EP-009's first additive reassessment:
+`ADO/05_Evidence/Product_Readiness_Reassessment_2026-07-15.md`. The 2026-07-07 Assessment and
+Roadmap remain the immutable baseline; the reassessment and dated Roadmap addenda extend them.
+Human acceptance remains required before the Review Ready reassessment becomes an accepted current
+Product Readiness baseline.

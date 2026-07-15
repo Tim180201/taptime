@@ -153,6 +153,21 @@ Following an external CTO review of the repository (`ADO/05_Evidence/External_CT
 
 This addendum does not change the "Before 100 Customers" or "Before 1,000 Customers" milestones above; neither was materially touched by the external CTO review's findings.
 
+## Addendum (2026-07-13 — Block A K3/K8/K9 Disposition)
+
+The original "Now" items and the 2026-07-10 reprioritization above are retained as creation-time
+chronology, not current open work. Core Roadmap v2 Block A subsequently closed K3, K8 and K9:
+DT-029–DT-033 delivered the engine-driven started/stopped TimeEntry lifecycle in commits `f5a0027`,
+`d8d3833` and `72eb03d`; DT-034 added `.github/workflows/ci.yml` for push/PR CI in `b2004ea`; and
+DT-035 added `packages/core/tsconfig.typecheck.json` plus the tests-inclusive Core typecheck script in
+`2493f17`. GitHub Actions run `29216961546` passed.
+
+These three findings are completed, not current "Now" backlog. The source-only
+`packages/core/tsconfig.json` remains the build configuration and does not contradict the separate
+tests-inclusive typecheck configuration. This disposition closes no later roadmap item and grants no
+additional authority. Evidence:
+`ADO/02_Development/Block_A_Core_Truth_and_Reliability_Closure.md`.
+
 ## Addendum (2026-07-14 — C3A Organization Administration Architecture)
 
 The historical "Now" and 2026-07-10 findings above remain provenance, but their implementation-state
@@ -212,6 +227,24 @@ unauthorized; DT-063–DT-066 remain open until their UI, identity, human and ph
 ADO-only closure-publication commit `9c79c6d2f2166d22cc61bfbc03ba79c434bbbfe0` subsequently passed all
 ten jobs in exact-head GitHub Actions run `29376668158`; this publication fact changes no roadmap
 order or authority.
+
+## Addendum (2026-07-15 — EP-009 Evidence-Triggered Reassessment)
+
+The additive reassessment at
+`ADO/05_Evidence/Product_Readiness_Reassessment_2026-07-15.md` evaluates current tracked evidence
+through final C3C baseline `fda5e5b9e878311b0caa647c6b49ab14943b706e`. It preserves every earlier
+dated item above as chronology and supplies the current K1–K12 disposition and ten-domain scorecard.
+
+K1–K5 and K7–K9 are closed for their explicitly approved repository/device scopes. K6 remains open
+outside the narrow E1/E2A evidence path; K10 remains as a legacy-adapter risk despite removal from the
+product Mobile authority path; K11 has internal EAS/APK evidence but no pilot/store distribution; and
+K12 remains open. Engineering stays Established. Product, Deployment, Technical Operations, Customer
+and Scaling advance to Developing based on real repository evidence, while Business, Commercial,
+Legal/Compliance and Support remain Emerging. No domain is Advanced.
+
+The current critical path remains C3D, C3E, the rest of Block E, then Blocks F/G and the parallel
+elapsed-time Block-H/legal-commercial work. This addendum does not reorder Core Roadmap v2, authorize
+the next slice, claim a live Supabase/production system or authorize production personal data.
 
 ## Revision Note (Technical Lead Review Follow-up, 2026-07-07)
 

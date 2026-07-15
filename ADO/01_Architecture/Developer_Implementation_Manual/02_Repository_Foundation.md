@@ -8,7 +8,8 @@ Epic: EP-008
 Owner: Technical Lead  
 Approval Authority: Human Architect  
 Repository Scope: TapTim.e ADO  
-Integration Status: Branch integration for Human Architect review  
+Integration Status: Main synchronization through C3C repository closure and the narrow E2A slice; Draft pending Human Architect approval
+Synchronization Baseline: `fda5e5b9e878311b0caa647c6b49ab14943b706e` (2026-07-15)
 Related Artifacts: ADO/README.md, Decision Log, AVR-001, Product Vision, ADRs, TTAP-001, Feature Blueprint Standard, Feature Blueprints, Technical Specifications, Development Task Profile, EOM-001, AGR-001
 
 ---
@@ -750,3 +751,73 @@ packages/core/src/
 ```
 
 No production file was added, modified, or requires any new barrel-export line — `packages/core/src/index.ts` shows zero diff, confirmed directly, since the new test file consumes only already-exported classes (`OrganizationManagementService`, `MembershipService`, `OrganizationAdministrationService`, `AssignmentResolver`, `AssignmentValidator`, `WorkEventFactory`, `BusinessEngine`, `NfcScanApplicationService`, `FakeNfcScanAdapter`, and every `InMemory*` repository/queue class), all already exported from prior sprints. This is the first sprint in the DT-017–DT-026 sequence where "Extend Before Create" (Section 5.4) applies entirely to test infrastructure rather than to any production file: the new file was justified, at planning time, not by an absent capability but by an absent *composition concern* — neither existing file in `tests/application/` proves that Administration-sourced data satisfies the same shape `NfcScanToTimeEntryPipeline.test.ts` already proves for literal fixtures, and DT-026's own Acceptance Criteria explicitly asked for "**a new** composition-level test," not a third `describe` block appended to an existing file (`Development_Sprint_019_Plan.md` Section 11). The repository's existing convention — one file per composition concern, not one file per Development Task or one file per class — is preserved, not replaced, by this addition.
+
+## 11. Post-Sprint-019 Block-Boundary Reconciliation (2026-07-15)
+
+### 11.1 Current monorepo map
+
+Section 10 is the historical Sprint-019 repository map. The current tracked product/server workspace
+map at synchronization baseline `fda5e5b9e878311b0caa647c6b49ab14943b706e` is:
+
+```text
+packages/
+  core/                         domain, Business Engine, ports and shared application contracts
+  administration-contract/     neutral Unicode-15.1 name and request-digest contract
+
+apps/
+  mobile/                       React Native/Expo product, Auth, NFC, outbox and C2 transports
+  backend-b1-spike/             disposable direct-PostgreSQL transaction/security proof
+  backend-schema/               migrations 001–007, ledger, constraints, grants and RLS tests
+  backend-identity/             B4 JWT verification and current Membership resolution
+  backend-read-model/           B5 tenant-safe read-only configuration coordinator
+  backend-lifecycle/            B6 server-canonical lifecycle and E2A defer-only evidence
+  backend-api/                  C1/C2/C3C authenticated bounded HTTP transport
+  backend-bootstrap/            C3B private named-operator bootstrap CLI
+  backend-administration/       C3C tenant-safe normal administration coordinator
+  synthetic-android-e2e/        isolated server-connected Android product harness
+```
+
+Every workspace boundary is intentional. Code may share types only through declared package exports;
+it must not reach across workspaces to borrow database clients, role selection, private tokens or
+unbounded query capability.
+
+### 11.2 Database and migration boundary
+
+`apps/backend-schema/migrations/001_foundation.sql` through
+`007_normal_administration.sql` are the only ordered schema history. Existing migration bytes are
+immutable after publication; corrections are additive. The migration ledger, repeat-apply behavior,
+role graph, grants, RLS policies and compatibility consumers must be verified together.
+
+Runtime code uses non-owner, non-superuser least-privilege roles. B4 identity, B5 read, B6 lifecycle,
+C3B bootstrap and C3C administration have distinct authority. A new feature must extend the correct
+coordinator rather than importing a broader pool or adding generic SQL to `backend-api`.
+
+### 11.3 CI and verification topology
+
+`.github/workflows/ci.yml` runs on pushes and pull requests to `main` and defines ten jobs:
+
+1. Core/Mobile typecheck, tests, build and Android bundle;
+2. B1 PostgreSQL spike;
+3. B3 schema security;
+4. B4 identity/Membership security;
+5. B5 tenant-safe read model;
+6. B6 server-canonical lifecycle;
+7. C2/C3C authenticated API and Mobile transport;
+8. C3B secure Organization bootstrap;
+9. C3C normal administration security; and
+10. synthetic server-connected Android E2E.
+
+The Core `typecheck` script uses its tests-inclusive configuration. The source-only build
+configuration is not evidence that tests were skipped. Test totals and job counts must always be
+bound to the exact commit/run that produced them.
+
+### 11.4 Documentation and evidence placement
+
+Permanent architecture remains under `ADO/01_Architecture`; authorized work and closure under
+`ADO/02_Development`; reproducible verification and independent reviews under `ADO/05_Evidence`.
+Historical assessments and sprint narratives remain immutable chronology and receive later dated
+addenda when repository reality advances.
+
+Current unresolved repository gates include the missing EP-008 Chapters 04–10, two external
+Supavisor validations, production infrastructure/observability, real distribution and legal/privacy
+work. They must not be represented as completed merely because repository CI is green.

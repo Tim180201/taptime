@@ -8,7 +8,8 @@ Epic: EP-008
 Owner: Technical Lead  
 Approval Authority: Human Architect  
 Repository Scope: TapTim.e ADO  
-Integration Status: Branch integration for Human Architect review  
+Integration Status: Main synchronization through C3C repository closure and the narrow E2A slice; Draft pending Human Architect approval
+Synchronization Baseline: `fda5e5b9e878311b0caa647c6b49ab14943b706e` (2026-07-15)
 Related Artifacts: TTAP-001, ADRs, Product Vision, Feature Blueprints, Technical Specifications, Development Task Profile, Decision Log, AVR-001
 
 ---
@@ -1142,6 +1143,110 @@ Development Sprint 019 implements the eighth and final slice of FB-002/TS-002 (O
 
 **Zero production code changed**, confirmed two independent ways: (1) `git show --stat 72e45f5` lists exactly 3 changed files, none under `packages/core/src/` or `apps/mobile/`; (2) `git diff --stat 2c9cdab..HEAD -- packages/core/src apps/mobile/src` (spanning the entire range since Development Sprint 018's own commit) is empty. This confirms the exact mechanism `Development_Sprint_019_Plan.md`'s own Repository Evidence (Section 2) identified before implementation began: `AssignmentResolver.resolve(...)` has no Organization awareness at all — it resolves any registered Tag/Assignment regardless of Organization — and the entire cross-Organization check lives inside `AssignmentValidator.validate(...)`, comparing `caller.organizationId !== assignment.organizationId`. Because this mechanism already existed, exactly as DT-026's own Acceptance Criteria named it, no new logic was needed anywhere, and the plan's own anticipated Risk (a production code change proving necessary, requiring the Development Agent Prompt's "escalate rather than silently fix" clause) never materialized.
 
-### 10.101 Known Gaps (Renumbered; Extended for Development Sprint 019)
+### 10.101 Historical Known Gaps at Development Sprint 019
 
 DT-006 implements only the in-memory slice needed for DT-004/DT-005 as its default (no synchronization metadata beyond what DT-015 now adds for durability); DT-007/DT-008 remain fake/in-memory-by-default adapters with no real network behavior; no retry scheduling or backoff policy exists yet; DT-005's "stop" and "pending" outcomes remain unimplemented pending Finding F-01 resolution (its `escalation_required` outcome is now classified `'deferred'`, Section 10.45, but the underlying rule remains undefined); `QueuedWorkEventRecord.decision`'s `null` state still has no integration-level test coverage (Section 10.18). DT-008 itself is implemented and tested but not yet reviewed/approved (Chapter 00 Section 10.6). A mobile UI layer exists (DT-012, Sections 10.29–10.34): no simulator/device launch verification has ever been performed in any environment this work has run in (Chapter 00 Section 10.7/10.10/10.13, historical); the on-screen "Synchronize" control cannot trigger `retryable_failure`/`conflict`, only `success` (Section 10.32); no automated component test exists for `ScanScreen`'s React rendering specifically, only for the NFC adapter logic beneath it (Section 10.61). Authentication (DT-013 + DT-014) is fully wired end-to-end, with the same limitations as before (no real managed authentication provider; in-memory-only session; no role/permission enforcement; no credential-management flow). Error classification (DT-009, Sections 10.45–10.49) remains observability-only. Local persistence (DT-015, Sections 10.51–10.56) exists as a durable, file-based option behind the existing ports, not yet wired into `apps/mobile`'s own on-device storage; cloud/backend persistence technology remains undecided (ADR-0007). Real NFC hardware integration (DT-016, Sections 10.58–10.62) now exists for Android, but: physical Android device/NFC-tag validation has not been performed in any environment this work has run in (Section 10.61) — the single most important outstanding item carried forward from Development Sprint 011; iOS support remains an open, undecided product question. **Organization Management (FB-002/TS-002) is now complete at the code/test-verification level — the DT-017–DT-026 Development Task sequence is closed in full.** `Organization`/`OrganizationRepository`/`OrganizationManagementService` (DT-017, Sections 10.64–10.67), `MembershipId`/`MembershipRole`/`Membership`/`MembershipRepository`/`InMemoryMembershipRepository`/`MembershipService` (DT-018, Sections 10.69–10.72), `MembershipAuthorizationResult`/`MembershipAuthorizationValidator` (DT-019, Sections 10.74–10.77), the `CustomerRepository`/`NfcTagRepository`/`NfcAssignmentRepository` write extensions plus `CustomerCreated`/`NfcTagRegistered`/`NfcTagAssigned` (DT-020/DT-021/DT-022, Sections 10.79–10.82), `OrganizationAdministrationService.createCustomer(...)` (DT-023, Sections 10.84–10.87), `OrganizationAdministrationService.registerNfcTag(...)` (DT-024, Sections 10.89–10.92), `OrganizationAdministrationService.assignNfcTag(...)` (DT-025, Sections 10.94–10.97), and now `OrganizationOwnedScanPipeline.test.ts` proving this Administration-flow-written data is consumed correctly by the existing, unmodified FB-001 scan pipeline (DT-026, Sections 10.99–10.100) are all implemented and Completed. No DT-027 or later task exists anywhere in FB-002, TS-002, or `EP-007_Development_Tasks.md` — the currently-approved decomposition ends here. This proof remains **repository-internal only**: the Membership-granting bootstrap question TS-002 surfaced (how a new Organization's first Administrator Membership is authorized when no prior Administrator exists) remains explicitly unresolved; tag reassignment/history semantics and tag payload collision semantics (FB-002 Open Questions) remain unresolved; a target `Customer` not found and a target `Customer` in the wrong Organization are indistinguishable in `assignNfcTag(...)`'s own result shape, a disclosed limitation (Section 10.95); `CustomerRepository.save`, `NfcTagRepository.register`, `NfcAssignmentRepository.save`, and all three `OrganizationAdministrationService` methods have no caller anywhere in the repository outside their own test files; no UI/CLI entry point calls `OrganizationManagementService`, `MembershipService`, or `OrganizationAdministrationService` either, so an Organization, a Membership, a Customer, an NFC Tag, or an NFC Tag Assignment can each be created only from a test today; no admin-facing UI, CLI setup flow, mobile setup flow, or pilot-ready export/overview exists. `packages/core/tsconfig.json`'s `"include": ["src"]` leaves `tests/` outside `npm run typecheck`'s coverage, a standing repository-hygiene finding surfaced by DT-024's own constructor-arity regression (Section 10.90) and still not resolved — Development Sprint 019's own supplementary tests-inclusive check (Section 10.100) continues to work around it, but the `tsconfig.json` setting itself remains open. Development Sprint 005's composition-root/`ScanResultPresenter` narrative has still not been synchronized into this chapter (Chapter 00 Section 10.8) — DT-011's row in Section 10.2's status table is the only place that work is currently reflected here. A viewing/reporting capability remains a named product requirement (`Role_Model.md`, `System_Overview.md`) with no approved architectural component to build against — not attempted this sprint. These gaps are carried over largely unchanged from `EP-007_Development_Tasks.md` and the Sprint 002/003/004/006/007/008/009/010/011/012/013/014/015/016/017/018/019 plans; this chapter does not attempt to resolve them.
+
+## 11. Post-Sprint-019 Block-Boundary Reconciliation (2026-07-15)
+
+### 11.1 Current solution map
+
+Section 10 records the architecture as observed through Development Sprint 019. Its synchronous
+examples, fake runtime composition and Section 10.101 gaps are historical. The current repository
+solution is:
+
+```text
+Android NFC capture
+  -> Mobile authenticated composition
+  -> bounded C2 API transport
+  -> B4 current IdentityBinding + Membership
+  -> B5 current tenant configuration read
+  -> B6 server-canonical lifecycle transaction
+  -> Core BusinessEngine decision
+  -> PostgreSQL WorkEvent / TimeEntry / Decision / Receipt / Audit
+
+Transient C2 loss after one exact warm-session context
+  -> E1 exact platform-secure outbox record
+  -> E2A dedicated defer-only endpoint
+  -> PostgreSQL WorkEvent / received Receipt / Audit only
+
+Private operator bootstrap
+  -> C3B CLI + B4 verification
+  -> migration-006 bootstrap function / Receipt / Audit
+
+Normal tenant administration
+  -> exact C3C API routes + B4 verification
+  -> fourth least-privilege administration pool
+  -> Customer or NFC Tag + first Assignment / Receipt / Audit
+```
+
+### 11.2 Product lifecycle path
+
+The NFC scan is a trigger, not a Start/Stop command. Mobile captures and canonically encodes evidence,
+preserves identity/session generation and submits it to the server. B6 locks current authority and
+configuration, serializes per Organization/User, invokes the unchanged Core `BusinessEngine` and
+persists the exact accepted/duplicate/rejected/deferred mapping atomically.
+
+The Business Engine supports: no active entry → Start; same-target active entry → Stop; same-target
+scan inside five seconds → duplicate; other-target active entry → rejection without automatic
+switching; inconsistent state → escalation. Device time and client-selected decisions are not
+canonical server authority.
+
+### 11.3 Authentication and tenant boundary
+
+The product Mobile path uses Supabase email/password authentication and refresh-token-only secure
+restoration. The API receives a raw access token but B4 verifies issuer/signature/subject and resolves
+current IdentityBinding/Membership from PostgreSQL. Requested Organization and expected Membership
+narrow the server result; they never grant authority.
+
+B5 and B6 create transaction-local tenant context and assume only their fixed roles. RLS plus
+Organization/User-qualified foreign keys protect persistence even when callers guess another
+tenant's identifiers. Public results are disclosure-safe and do not expose provider/database errors.
+
+### 11.4 Mobile durability and narrow offline evidence
+
+Before first lifecycle transmission, E1 persists one exact server-ready command in private
+platform-secure storage. It is bound to User, Organization and Membership generation; clearing is
+matching-record-only after a definitive server result. Storage failure blocks a new scan rather than
+silently weakening durability.
+
+E2A retains one positive scan context only in volatile memory and only for the same session. After a
+transient C2 transport failure, it may persist and explicitly retry exact deferred evidence. The
+server revalidates current Membership and Assignment/Customer configuration, then writes WorkEvent,
+`received` SyncReceipt and Audit without a Business Engine call, CanonicalDecision or TimeEntry
+mutation. This is not airplane-mode support, a multi-event queue, background sync or full offline.
+
+### 11.5 Administration planes
+
+C3B and C3C deliberately do not reuse lifecycle or broad Administrator authority:
+
+- C3B creates the first Organization/Administrator through a private named-operator CLI, fixed
+  SECURITY DEFINER capability and durable operator attribution.
+- C3C requires a current Administrator Membership plus exact expected-Membership narrowing. Its
+  three authenticated routes expose create Customer, register-plus-first-assign NFC Tag and bounded
+  safe setup projection. Canonical raw NFC payload remains confined; only a safe fingerprint is
+  projected.
+- C3C receipts bind Organization, actor, expected Membership, command type, request digest, exact
+  safe resources and exact audits. Exact replay remains deterministic after later deactivation;
+  divergent replay is rejected.
+
+### 11.6 Current verification and remaining gaps
+
+The current closed C3C repository scope passed the 1,394-test Node-24/PostgreSQL-17 matrix, all
+workspace typechecks/builds, Android export, migration apply/repeat/ledger verification and ten-job
+CI. Physical Android evidence exists for the approved Galaxy A33/Android 15/NTAG213 set and for the
+synthetic server-connected lifecycle path.
+
+The actual current gaps are:
+
+- C3D Admin Web and protected Android Administrator capture are not implemented;
+- C3E identity-first Membership setup, role changes and explicit reassignment are not implemented;
+- DT-060–DT-068 and Block E outside the narrow E2A exception remain open;
+- no production cloud deployment, production credential/IAM/monitoring/backup evidence or production
+  personal data is authorized;
+- two external Supavisor modes remain unverified;
+- pilot/store distribution, export/correction, support, legal/commercial readiness and broader iOS
+  validation remain open; and
+- EP-008 Chapters 04–10 remain a separately governed documentation backlog.
+
+No current implementation should be derived from Section 10.101 without applying this reconciliation.

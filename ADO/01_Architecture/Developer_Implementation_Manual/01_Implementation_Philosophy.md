@@ -8,7 +8,8 @@ Epic: EP-008
 Owner: Technical Lead  
 Approval Authority: Human Architect  
 Repository Scope: TapTim.e ADO  
-Integration Status: Branch integration for Human Architect review  
+Integration Status: Main synchronization through C3C repository closure and the narrow E2A slice; Draft pending Human Architect approval
+Synchronization Baseline: `fda5e5b9e878311b0caa647c6b49ab14943b706e` (2026-07-15)
 Related Artifacts: Product Vision, Decision Log, AVR-001, ADRs, TTAP-001, Feature Blueprints, Technical Specifications, Development Task Profile, EOM-001, AGR-001
 
 ---
@@ -1001,3 +1002,59 @@ This sprint also produces a second, independent confirmation of Section 10.14's 
 Development Sprint 019 (DT-026) is the first Development Task in the DT-017–DT-026 sequence to add zero production code, and its own philosophical contribution is distinct from Sections 10.14–10.18's own findings, which are all about how production code is built: this sprint is about what closes an architectural claim. TS-002's own "Architecture Principles Preserved" section asserted, at design time, that Organization Management and the existing FB-001 scan pipeline would compose without modification to either. Nine Development Tasks (DT-017 through DT-025) built the Organization Management side of that claim, one method or component at a time, but none of them — individually or collectively — actually drove Administration-created data through the scan pipeline. `OrganizationOwnedScanPipeline.test.ts` is the first artifact in this repository to close that specific claim with a real, repository-verifiable, re-runnable test rather than with the original design document's own prose. This distinction matters beyond DT-026 itself: a Feature Blueprint or Technical Specification's "Architecture Principles Preserved" section is a prediction, checked once at design time against the architecture as understood then; only a passing composition-level test, built after every predicted component actually exists, closes the loop and proves the prediction held under real code, not just under review.
 
 This sprint also reconfirms Section 10.16/10.18's "Extend Before Create across component boundaries" finding a third time, at the composition level rather than the single-service level: `AssignmentResolver`/`AssignmentValidator` are constructed from the *same* `CustomerRepository`/`NfcTagRepository`/`NfcAssignmentRepository` instances `OrganizationAdministrationService`'s own calls wrote to — a deliberate wiring choice, not an incidental one, since constructing fresh repository instances for the pipeline half of the test would have proven only that two independently-seeded, structurally-identical datasets produce the same outcome, not that the same data flows from one Application Service into another. The plan's own Recommended Implementation Order (`Development_Sprint_019_Plan.md` Section 17, step 4) specified this wiring explicitly, and this closure's own independent inspection (`Development_Sprint_019_Closure.md` Section 2) confirms it was implemented exactly as specified — the difference between a test that merely resembles integration and one that actually is integration lies entirely in this one wiring decision.
+
+## 11. Post-Sprint-019 Block-Boundary Reconciliation (2026-07-15)
+
+### 11.1 Historical and current guidance
+
+Section 10 remains the historical record of how the original Core foundation evolved through Sprint
+019. Examples there that use synchronous calls, fake authentication, demo composition or the earlier
+two-outcome Business Engine are not current implementation templates. The rules in Sections 1–9
+remain valid; the current application of those rules is fixed below.
+
+### 11.2 Current implementation philosophy
+
+- **Await every effectful boundary.** Repository, queue, authentication, synchronization, NFC and
+  server transport ports are asynchronous. Omitting `await`, hiding a promise or restoring a
+  synchronous adapter contract is a regression.
+- **The server owns canonical lifecycle decisions.** Mobile submits NFC evidence; B4 resolves current
+  identity/Membership, B5 reads current configuration and B6 invokes the unchanged Core
+  `BusinessEngine`. Mobile never converts a scan directly into Start or Stop.
+- **Current authority beats detached objects and claims.** Roles and Organization/Membership context
+  are derived from current locked server records. Token role claims, caller-selected SQL roles and
+  detached Core Administration objects are never transport authority.
+- **Least privilege is structural.** Schema, identity, read, lifecycle, bootstrap and normal
+  administration use distinct packages, logins/pools and fixed capability surfaces. Do not merge
+  them for convenience or expose the broad Administrator role.
+- **Retries repeat exact evidence.** Command IDs bind canonical request digests and result resources.
+  Exact replay is deterministic; divergent replay is rejected. A lost response is not permission to
+  synthesize a new command or mutate the stored outbox payload.
+- **Evidence and mutation remain distinct.** E2A's defer-only path may store WorkEvent, received
+  SyncReceipt and Audit evidence after a bounded warm-session transport failure. It must not invoke
+  the Business Engine, create a CanonicalDecision or change a TimeEntry.
+- **Secrets and raw NFC identity stay confined.** Tokens, passwords, canonical UID payloads and
+  provider/database errors do not cross public responses, UI copy, receipts, audits or normal logs.
+  Safe NFC presentation uses the approved shortened fingerprint only.
+- **Timeouts and cleanup are correctness.** Every bounded HTTP/SQL path propagates deadlines,
+  rolls back on failure and releases or destroys the client safely. Capability objects must expire
+  when their callback or transaction ends.
+
+### 11.3 Administration-specific discipline
+
+C3B is a private named-operator first-Organization/bootstrap plane. C3C is the distinct narrow normal
+Administrator plane for Customer creation, NFC Tag registration plus first Assignment and safe setup
+projection. C3C requires current Administrator Membership and exact expected-Membership narrowing;
+its receipts are success-only, Organization/actor/Membership/type/digest/resource bound and
+trigger-checked against exact audits. Neither plane authorizes Membership CRUD, reassignment,
+generic SQL/CRUD, Admin Web or production credentials.
+
+### 11.4 Review and traceability discipline
+
+Implementation claims are accepted only when local verification, independent review and exact-head
+CI agree on the same source state. Historical test counts are never promoted to current counts.
+Documentation-only changes preserve dated chronology and add a later disposition instead of
+rewriting earlier evidence. When a rule, threshold, production policy or authority is still missing,
+stop and escalate rather than inferring it from a convenient adapter or UI requirement.
+
+The remaining gates are C3D/C3E, full offline synchronization outside E2A, production/cloud/real-data
+operation, distribution, legal/commercial work and the missing EP-008 Chapters 04–10.

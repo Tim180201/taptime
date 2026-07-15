@@ -8,7 +8,8 @@ Epic: EP-008
 Owner: Technical Lead  
 Approval Authority: Human Architect  
 Repository Scope: TapTim.e ADO  
-Integration Status: Branch integration for Human Architect review  
+Integration Status: Main synchronization through C3C repository closure and the narrow E2A slice; Draft pending Human Architect approval
+Synchronization Baseline: `fda5e5b9e878311b0caa647c6b49ab14943b706e` (2026-07-15)
 Related Artifacts: Product Vision, Decision Log, AVR-001, ADRs, TTAP-001, Feature Blueprints, Technical Specifications, Development Task Profile, EOM-001, AGR-001
 
 ---
@@ -666,3 +667,59 @@ Development Sprint 018 (DT-025) implements the seventh Organization Management D
 ### 10.21 Eighteenth Open Governance Note (Development Sprint 019, Existing Scan Pipeline Integration Verification) — Resolved
 
 Development Sprint 019 (DT-026) implements the eighth and final Organization Management Development step, and the only Development Task in the DT-017–DT-026 sequence to add zero production code — commit `72e45f5`. A new composition-level test file, `packages/core/tests/application/OrganizationOwnedScanPipeline.test.ts`, contains exactly two tests, both using real (unmocked) production classes throughout: an accepted-path test constructs a real Organization, a real Administrator Membership and a real Employee Membership, a real Customer/NfcTag/NfcAssignment created via `OrganizationAdministrationService`'s three methods (DT-023/DT-024/DT-025), wires the same `CustomerRepository`/`NfcTagRepository`/`NfcAssignmentRepository` instances directly into a real `AssignmentResolver`/`AssignmentValidator`, and drives a scan through the unmodified `NfcScanApplicationService` pipeline, asserting the same accepted-outcome shape (`WorkEvent` saved, `TimeEntry` started) DT-011's existing fixture-based pipeline test already asserts; a cross-Organization rejection test proves the pipeline's existing `employee_lacks_organization_access` rejection (`AssignmentValidator`, unchanged since Development Sprint 001) still fires correctly against Administration-created data. **This closes the TS-002 Organization Management Foundation Development Task sequence in full** — DT-017 through DT-026 are all now Completed; no DT-027 or later task exists anywhere in FB-002, TS-002, or `EP-007_Development_Tasks.md`. Zero production code was added or modified, confirmed two independent ways: a single-commit file-list check and a full-range `git diff --stat` against Development Sprint 018's own commit, both empty for every file under `packages/core/src/` and `apps/mobile/src/`. An independent Review Agent approved this sprint, and the Technical Lead authorized recording DT-026 and `DEV-SPRINT-019` as "Completed." Like DT-017 through DT-025, this sprint carries no simulator/device or environment constraint; all 221 `packages/core` tests pass (219 pre-existing + 2 new) and typecheck is clean; `apps/mobile` remains untouched (10/10 tests still pass); `runScan.ts`'s own 14 CLI tests are confirmed passing with zero diff. `AssignmentResolver`, `AssignmentValidator`, `WorkEventFactory`, `BusinessEngine`, `NfcScanApplicationService`, `WorkEventCreationService`, `OrganizationAdministrationService`, `OrganizationManagementService`, `MembershipService`, `CallerContext`, and both pre-existing test files (`NfcScanToTimeEntryPipeline.test.ts`, `OrganizationAdministrationService.test.ts`) are all confirmed byte-for-byte unchanged. This proof is repository-internal only — no UI, CLI, or mobile entry point calls any Organization Management Application Service after this sprint either, and this sprint deliberately does not change that. The Membership-granting bootstrap question, tag reassignment/history semantics, tag payload collision semantics, the missing-target-Customer result-vocabulary limitation, and `packages/core/tsconfig.json`'s standing `tests/`-typecheck-coverage gap all remain unresolved (`Development_Sprint_019_Closure.md`, Known Remaining Risks, Lessons Learned). No Development Sprint 020 was created; `Development_Sprint_019_Closure.md` Section 14 instead recommends a Technical Lead/Human Architect decision point among several possible next tracks.
+
+## 11. Post-Sprint-019 Block-Boundary Reconciliation (2026-07-15)
+
+### 11.1 Status and authority
+
+Section 10 is retained as the historical Development Sprint 001–019 snapshot. Its uses of
+"current", its test counts and its open-gap statements describe that earlier repository baseline;
+they must not be used as the present implementation inventory. This section is the additive EP-008
+reconciliation required by Core Roadmap v2 Section 9 after material Block boundaries.
+
+The synchronized repository baseline is `fda5e5b9e878311b0caa647c6b49ab14943b706e`. Architecture,
+feature behavior and authorization remain owned by the accepted ADRs, Feature Blueprints, Technical
+Specifications, Decision Log and block closures. This manual translates those decisions into current
+developer guidance and creates no new product or architecture authority.
+
+### 11.2 Current implemented-reality matrix
+
+| Scope | Current implemented reality |
+|---|---|
+| Block A | Engine-driven Start/Stop, duplicate suppression, other-target rejection and inconsistent-state escalation are implemented. CI and tests-inclusive Core TypeScript checking are active. F-01 and findings K3/K8/K9 are closed. |
+| B1–B6 | Async effectful ports, PostgreSQL 17 schema/migrations, forced RLS, tenant-qualified integrity, JWT IdentityBinding/Membership resolution, tenant-safe reads and server-canonical lifecycle ingestion are implemented in isolated workspaces. |
+| C1/C2 | Product Mobile uses real Supabase email/password session handling and authenticated bounded HTTP transport. Server-derived identity and Membership, not token claims or detached Core objects, are authoritative. |
+| Block D | The Android NFC adapter drives the real authenticated product path. Galaxy A33/Android 15 plus NTAG213 device-local and server-connected validation closed DT-016 for that approved set. |
+| E1/E2A | One exact server-ready lifecycle command is stored in platform-secure Mobile storage before send. The narrow warm-session fallback can persist defer-only evidence after transient C2 loss, but cannot create a CanonicalDecision or mutate a TimeEntry. |
+| C3A–C3C | Accepted ADR-0011/FB-002/TS-002 define separate bootstrap and normal-administration authority. C3B implements the private named-operator bootstrap; C3C implements tenant-safe Customer creation, NFC Tag registration/first Assignment and bounded safe projection. |
+
+The C3C closure matrix executed 1,394 tests: administration contract 3, Core 290, Mobile 310,
+B1 39, schema 125, identity 55, read model 42, lifecycle 88, bootstrap 189, administration 75,
+API 172 and synthetic Android E2E 6. The two external Supavisor modes are not counted as passes.
+The exact implementation and publication evidence is indexed by
+`ADO/02_Development/Block_C3C_Normal_Administration_Backend_Closure.md`.
+
+### 11.3 Historical findings now resolved
+
+The following Section-10 statements are historical and no longer current:
+
+- F-01, Stop and duplicate handling are no longer open;
+- Core tests are included by the dedicated typecheck configuration even though the build-only
+  `tsconfig.json` continues to include source files only;
+- fake Authentication is no longer the product composition;
+- backend technology and the repository server boundary are no longer undecided;
+- physical Android/NFC validation is no longer outstanding for the approved Galaxy/NTAG213 set;
+- Organization setup no longer has only test callers: C3B and C3C provide real server-side setup
+  entry points, while the operational UI remains intentionally gated; and
+- the DT-011 narrative gap is superseded by the current block-boundary reconciliation.
+
+### 11.4 Current gates
+
+C3D Admin Web/protected Android Administrator capture, C3E identity-first Membership setup and
+reassignment, full offline synchronization outside E2A, export/correction, production deployment,
+pilot/store distribution, legal/commercial readiness, two Supavisor modes, production monitoring and
+production personal data remain open or separately gated. No developer may infer authority for those
+scopes from this synchronization.
+
+Chapters 04–10 named in Section 7.2 remain planned manual chapters, not existing artifacts. Their
+absence is tracked as a separate documentation backlog and is not silently treated as implemented.

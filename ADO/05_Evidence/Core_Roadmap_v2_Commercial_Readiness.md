@@ -318,3 +318,15 @@ Core Roadmap v2 Block A is complete. The repository now has an engine-driven Tim
 ## 12. Original Creation Stop Condition (Historical)
 
 The original 2026-07-10 roadmap-creation task ended after producing the roadmap and accompanying evidence/status updates, without committing, pushing or starting implementation. That creation-time stop condition was satisfied and is retained only as provenance; it is not an active instruction after the 2026-07-13 Block A progress update.
+
+## 13. Progress Update – 2026-07-15 Governance Synchronization
+
+The post-Sprint-019 EP-008 block-boundary trigger is now acted on as an ADO-only maintenance slice.
+Chapters 00–03 preserve their historical Sprint-019 narratives and add current reconciliations
+through Blocks A, B1–B6, C1/C2, D, E1/E2A and C3A–C3C on baseline
+`fda5e5b9e878311b0caa647c6b49ab14943b706e`. Chapters 04–10 remain a separate documentation backlog.
+
+EP-009's additive 2026-07-15 reassessment dispositions K1–K12 and extends the qualitative scorecard
+without rewriting the 2026-07-07 baseline. This governance maintenance changes no Roadmap order:
+C3D remains the next separately authorized engineering candidate, followed by C3E and the remaining
+Block-E path. No C3D/C3E or production authority is granted by this update.
