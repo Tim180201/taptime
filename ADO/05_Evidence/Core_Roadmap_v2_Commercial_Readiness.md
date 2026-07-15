@@ -109,7 +109,7 @@ Blocks are ranges, not fixed sprint-by-sprint commitments; candidate Development
 
 ### Block C – Runtime Composition, Auth and Real Product Path
 
-**Status: C1, C2, C3B and C3C repository implementation completed; no-code C3A passed independent re-review and Human acceptance (2026-07-15). C3B implementation commit `e10fcaf` passed all nine jobs in run `29363513529` plus independent security; C3C implementation commit `b90729a0a4b325f523cd98ea5a741defb00155f6` passed three exact-SHA independent reviews and all ten jobs in run `29375259275`; C3D/C3E remain unauthorized.** The default Mobile path uses the real Supabase email/password adapter, refresh-token-only SecureStore restoration and server-authoritative Membership session resolution. C2 adds only the earlier session/scan/lifecycle/defer routes and private Mobile transport. The later Block-D slice wires the authenticated NFC product path without changing C2's lifecycle boundary. Accepted FB-002 v1.2, TS-002 v1.3 and ADR-0011 define named-operator first Organization/Admin bootstrap, a distinct narrow normal Admin write session, bound receipts, required Customer/Tag display names, protected raw UID handling, disclosure-safe results and append-only Assignment history. C3C realizes that normal setup backend through exact create-Customer, atomic provision-Tag and safe setup-projection routes. Its repository scope is closed, but it is not an operational UI/setup-flow or production-readiness claim.
+**Status: C1, C2, C3B and C3C repository implementation completed; no-code C3A passed independent re-review and Human acceptance (2026-07-15). C3D is separately authorized on exact baseline `316f017973fbba18a58c2340c9c79a28f06573e5`; C3E remains unauthorized.** The default Mobile path uses the real Supabase email/password adapter, refresh-token-only SecureStore restoration and server-authoritative Membership session resolution. C2 adds only the earlier session/scan/lifecycle/defer routes and private Mobile transport. The later Block-D slice wires the authenticated NFC product path without changing C2's lifecycle boundary. Accepted FB-002 v1.2, TS-002 v1.3 and ADR-0011 define named-operator first Organization/Admin bootstrap, a distinct narrow normal Admin write session, bound receipts, required Customer/Tag display names, protected raw UID handling, disclosure-safe results and append-only Assignment history. C3C realizes that normal setup backend through exact create-Customer, atomic provision-Tag and safe setup-projection routes. C3D is limited to its authorized Admin Web and protected Android capture surfaces and does not change C3C semantics or grant production authority.
 
 **Target:** Week 4–6 · **Candidate Sprints:** 031–036
 
@@ -130,11 +130,11 @@ Blocks are ranges, not fixed sprint-by-sprint commitments; candidate Development
 validation and Human acceptance. C3B private bootstrap passed implementation, independent review and
 exact-head nine-job CI and remains the closed bootstrap-only plane. C3C's normal setup backend/API
 repository implementation passed its separate authorization, exact-SHA independent review and
-exact-head ten-job CI cycle and is closed. The remaining order stays C3D (Admin Web plus protected
-Android capture) and C3E (identity-first Employee Membership setup plus explicit reassignment), but
-both remain separately unauthorized behind their own policy gates. DT-063–DT-066 remain open until
-those complete operational setup surfaces and required human/device validation are implemented and
-approved.
+exact-head ten-job CI cycle and is closed. C3D (Admin Web plus protected Android capture) is now
+separately authorized on exact baseline `316f017973fbba18a58c2340c9c79a28f06573e5`; C3E
+(identity-first Employee Membership setup plus explicit reassignment) remains unauthorized.
+DT-063–DT-066 remain open until the operational setup surfaces and required human/device validation
+are implemented and approved.
 
 ### Block D – NFC Runtime and Physical Validation
 

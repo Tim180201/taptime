@@ -1,6 +1,6 @@
 # Block C3 — Organization Administration Implementation Plan
 
-Status: Active — C3B and C3C repository implementation completed; C3D/C3E unauthorized
+Status: Active — C3B/C3C completed; C3D authorized on exact baseline; C3E unauthorized
 Date: 2026-07-15
 Planning Baseline: `f7d38558e9a1e6d5f7c2cfd1f4a1ec6eed3ebd44`
 Owner: Technical Lead
@@ -12,13 +12,14 @@ Architecture: Accepted ADR-0011, FB-002 v1.2 and TS-002 v1.3
 |---|---|---:|---|
 | C3B | Isolated first Organization/Administrator bootstrap CLI, migration `006`, role graph, receipt/audit and security matrix | High | Completed — Technical Lead, independent review and nine-job CI passed |
 | C3C | Tenant-safe normal setup backend/API, Customer/Tag display names, atomic Customer and NFC provision commands, resumable safe projection | Very High | Completed — implementation `b90729a0a4b325f523cd98ea5a741defb00155f6`, independent exact-SHA reviews and exact-head ten-job CI passed |
-| C3D | Minimal Admin Web shell for Customer/assignment setup plus protected Android Administrator NFC capture | Very High | Not authorized |
+| C3D | Minimal Admin Web shell for Customer/assignment setup plus protected Android Administrator NFC capture | Extra High | Authorized on baseline `316f017973fbba18a58c2340c9c79a28f06573e5` |
 | C3E | Explicit reassignment and identity-first employee Membership setup after their separate policy gates | Very High | Not authorized |
 
-C3B and C3C repository implementation are closed. The C3C backend prerequisite is satisfied, but no
-product UI or operational setup is thereby claimed. C3D remains unauthorized and requires its own
-exact-baseline authorization before any Admin Web or Android capture work; it must not invent backend
-semantics. C3E is not required for first bootstrap/setup proof and remains separately unauthorized.
+C3B and C3C repository implementation are closed. The C3C backend prerequisite is satisfied. The
+Human Architect separately authorized C3D on exact baseline
+`316f017973fbba18a58c2340c9c79a28f06573e5`; its dedicated authorization freezes Admin Web plus
+protected Android capture without inventing backend semantics. C3E is not required for first
+bootstrap/setup proof and remains separately unauthorized.
 
 ## 2. C3B — secure bootstrap implementation
 
