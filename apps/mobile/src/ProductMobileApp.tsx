@@ -46,7 +46,7 @@ function ReadyProductMobileApp({
   if (startFailed) {
     return <UnavailableProductRuntime />;
   }
-  return <AppNavigator session={runtime.session} scan={runtime.scan} />;
+  return <AppNavigator session={runtime.session} scan={runtime.scan} administration={runtime.administration} />;
 }
 
 function UnavailableProductRuntime() {

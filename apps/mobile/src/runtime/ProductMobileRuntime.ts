@@ -3,10 +3,13 @@ import { fetch as expoFetch } from 'expo/fetch';
 import { randomUUID } from 'expo-crypto';
 import { createTimestamp } from '@taptime/core';
 import { ExpoRefreshTokenStore } from '../auth/ExpoRefreshTokenStore';
+import { AdminSetupCoordinator } from '../administration/AdminSetupCoordinator';
+import { TapTimeAdministrationApiClient } from '../administration/TapTimeAdministrationApiClient';
 import { MobileSessionCoordinator } from '../auth/MobileSessionCoordinator';
 import { createSupabaseEmailPasswordAuthAdapter } from '../auth/SupabaseEmailPasswordAuthAdapter';
 import { TapTimeSessionApiClient } from '../auth/TapTimeSessionApiClient';
 import { RnNfcScanAdapter } from '../nfc/RnNfcScanAdapter';
+import { ExclusiveNfcCaptureArbiter } from '../nfc/ExclusiveNfcCaptureArbiter';
 import { ExpoSecureLifecycleEvidenceOutbox } from '../scan/ExpoSecureLifecycleEvidenceOutbox';
 import { ProductScanOrchestrator } from '../scan/ProductScanOrchestrator';
 import { SessionBoundScanContextResolver } from '../scan/SessionBoundScanContextResolver';
@@ -65,6 +68,10 @@ export function createProductMobileRuntime(): ProductMobileRuntimeCreation {
       configuration.configuration.tapTimeApiBaseUrl,
       authenticatedRequests,
     ),
+    administration: new TapTimeAdministrationApiClient(
+      configuration.configuration.tapTimeApiBaseUrl,
+      authenticatedRequests,
+    ),
   });
   const scanSessionContext: ProductScanSessionContextReader = Object.freeze({
     capture: () => coordinator.captureAuthenticatedSessionSnapshot(),
@@ -77,14 +84,23 @@ export function createProductMobileRuntime(): ProductMobileRuntimeCreation {
     platform: Platform.OS,
     captureTimestamp: () => createTimestamp(new Date().toISOString()),
   });
+  const nfcArbiter = new ExclusiveNfcCaptureArbiter(nfcAdapter);
+  const lifecycleNfc = nfcArbiter.scope('lifecycle');
+  const administrationNfc = nfcArbiter.scope('administration');
   const scanOrchestrator = new ProductScanOrchestrator(
-    nfcAdapter,
-    nfcAdapter,
+    lifecycleNfc,
+    lifecycleNfc,
     new SessionBoundScanContextResolver(serverTransport.scanContext),
     serverTransport.lifecycle,
     scanSessionContext,
     randomUUID,
     new ExpoSecureLifecycleEvidenceOutbox(),
+  );
+  const administrationCoordinator = new AdminSetupCoordinator(
+    scanSessionContext,
+    administrationNfc,
+    serverTransport.administration,
+    randomUUID,
   );
   return {
     status: 'ready',
@@ -93,6 +109,7 @@ export function createProductMobileRuntime(): ProductMobileRuntimeCreation {
       appStateLifecycle,
       serverTransport,
       scanOrchestrator,
+      administrationCoordinator,
     ),
   };
 }

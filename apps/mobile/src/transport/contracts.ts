@@ -9,6 +9,7 @@ import type {
   Timestamp,
   WorkEventId,
 } from '@taptime/core';
+import type { AdminSetupApiPort } from '../administration/contracts';
 
 export type MobileTransportFailure =
   | { readonly status: 'authority_rejected' }
@@ -120,4 +121,5 @@ export interface LifecycleEventApiPort {
 export interface ProductServerTransport {
   readonly scanContext: ScanContextApiPort;
   readonly lifecycle: LifecycleEventApiPort;
+  readonly administration: AdminSetupApiPort;
 }

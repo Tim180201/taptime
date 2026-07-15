@@ -8,8 +8,8 @@
     "apps/*"
   ],
   "scripts": {
-    "test": "npm run test --workspace=@taptime/core && npm run test --workspace=@taptime/mobile",
+    "test": "npm run test --workspace=@taptime/core && npm run test --workspace=@taptime/mobile && npm run test --workspace=@taptime/admin-web",
     "build": "npm run build --workspaces --if-present",
-    "typecheck": "npm run typecheck --workspace=@taptime/core && npm run typecheck --workspace=@taptime/mobile"
+    "typecheck": "npm run typecheck --workspace=@taptime/core && npm run typecheck --workspace=@taptime/mobile && npm run typecheck --workspace=@taptime/admin-web"
   }
 }

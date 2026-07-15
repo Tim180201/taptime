@@ -7,6 +7,8 @@ Approval Authority: Human Architect
 
 ## Purpose
 
+Current C3D implementation evidence: `ADO/05_Evidence/Block_C3D_Implementation_Evidence.md`.
+
 This file is the official navigation entry point for the TapTim.e ADO.
 
 Every Human and AI Agent shall locate this document through repository evidence before executing ABS-001 and shall read it before AOS-001 begins.

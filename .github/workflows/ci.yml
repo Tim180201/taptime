@@ -37,14 +37,17 @@ jobs:
       - name: Install dependencies from lockfile
         run: npm ci
 
-      - name: Typecheck core and mobile
+      - name: Typecheck core, mobile, and Admin Web
         run: npm run typecheck
 
-      - name: Test core and mobile
+      - name: Test core, mobile, and Admin Web
         run: npm test
 
       - name: Build core
         run: npm run build --workspace=@taptime/core
+
+      - name: Build Admin Web
+        run: npm run build --workspace=@taptime/admin-web
 
       - name: Bundle Android product graph
         working-directory: apps/mobile

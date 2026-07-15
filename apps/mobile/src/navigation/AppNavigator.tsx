@@ -1,17 +1,22 @@
-import { useSyncExternalStore } from 'react';
+import { useState, useSyncExternalStore } from 'react';
 import { Button, StyleSheet, Text, View } from 'react-native';
 import type { MobileSessionCapability } from '../auth/contracts';
 import type { ProductScanCapability } from '../scan/contracts';
+import type { AdminSetupCapability } from '../administration/contracts';
+import { AdminSetupScreen } from '../screens/AdminSetupScreen';
 import { LoginScreen } from '../screens/LoginScreen';
 import { ScanScreen } from '../screens/ScanScreen';
 
 export function AppNavigator({
   session,
   scan,
+  administration,
 }: {
   readonly session: MobileSessionCapability;
   readonly scan: ProductScanCapability;
+  readonly administration: AdminSetupCapability;
 }) {
+  const [administratorView, setAdministratorView] = useState<'scan' | 'setup'>('scan');
   const state = useSyncExternalStore(
     (listener) => session.subscribe(listener),
     () => session.getState(),
@@ -19,6 +24,19 @@ export function AppNavigator({
   );
 
   if (state.status === 'authenticated') {
+    if (state.session.role === 'administrator') {
+      return (
+        <View style={styles.administratorShell}>
+          <View style={styles.tabs}>
+            <Button title="Zeiterfassung" onPress={() => { void administration.cancel(); setAdministratorView('scan'); }} />
+            <Button title="NFC-Einrichtung" onPress={() => { void scan.cancel(); setAdministratorView('setup'); }} />
+          </View>
+          {administratorView === 'setup'
+            ? <AdminSetupScreen administration={administration} />
+            : <ScanScreen session={state.session} scan={scan} signOut={() => session.signOut()} />}
+        </View>
+      );
+    }
     return (
       <ScanScreen
         session={state.session}
@@ -65,6 +83,8 @@ function MessageScreen({
 }
 
 const styles = StyleSheet.create({
+  administratorShell: { flex: 1 },
+  tabs: { flexDirection: 'row', justifyContent: 'space-around', paddingTop: 42, paddingBottom: 4, backgroundColor: '#fff' },
   container: {
     flex: 1,
     justifyContent: 'center',

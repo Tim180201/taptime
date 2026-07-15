@@ -1,10 +1,12 @@
 import type { MobileSessionCapability } from '../auth/contracts';
+import type { AdminSetupCapability } from '../administration/contracts';
 import type { ProductScanCapability } from '../scan/contracts';
 import type { ProductServerTransport } from '../transport/contracts';
 
 export interface ProductMobileRuntime {
   readonly session: MobileSessionCapability;
   readonly scan: ProductScanCapability;
+  readonly administration: AdminSetupCapability;
   start(): Promise<void>;
   stop(): void;
 }
@@ -17,6 +19,11 @@ export interface ProductSessionRuntimeOwner extends MobileSessionCapability {
 
 /** @internal Runtime owner used to keep orchestrator lifecycle and React capability separate. */
 export interface ProductScanRuntimeOwner extends ProductScanCapability {
+  start(): Promise<void>;
+  stop(): Promise<void>;
+}
+
+export interface ProductAdministrationRuntimeOwner extends AdminSetupCapability {
   start(): Promise<void>;
   stop(): Promise<void>;
 }
@@ -36,6 +43,7 @@ export class DefaultProductMobileRuntime implements ProductMobileRuntime {
   private runtimeGeneration = 0;
   private readonly sessionCapability: MobileSessionCapability;
   private readonly scanCapability: ProductScanCapability;
+  private readonly administrationCapability: AdminSetupCapability;
 
   constructor(
     private readonly coordinator: ProductSessionRuntimeOwner,
@@ -43,6 +51,7 @@ export class DefaultProductMobileRuntime implements ProductMobileRuntime {
     // C2 composes these private clients for later orchestrators without exposing them to React.
     private readonly serverTransport: ProductServerTransport,
     private readonly scanOrchestrator: ProductScanRuntimeOwner,
+    private readonly administrationCoordinator: ProductAdministrationRuntimeOwner,
   ) {
     // React receives a real narrow facade, not the coordinator object that owns C2 token access.
     this.sessionCapability = Object.freeze({
@@ -61,6 +70,13 @@ export class DefaultProductMobileRuntime implements ProductMobileRuntime {
       cancel: () => this.scanOrchestrator.cancel(),
       retry: () => this.scanOrchestrator.retry(),
     });
+    this.administrationCapability = Object.freeze({
+      getState: () => this.administrationCoordinator.getState(),
+      subscribe: (listener: () => void) => this.administrationCoordinator.subscribe(listener),
+      refresh: () => this.administrationCoordinator.refresh(),
+      provision: (customerId: string, displayName: string) => this.administrationCoordinator.provision(customerId, displayName),
+      cancel: () => this.administrationCoordinator.cancel(),
+    });
   }
 
   get session(): MobileSessionCapability {
@@ -69,6 +85,10 @@ export class DefaultProductMobileRuntime implements ProductMobileRuntime {
 
   get scan(): ProductScanCapability {
     return this.scanCapability;
+  }
+
+  get administration(): AdminSetupCapability {
+    return this.administrationCapability;
   }
 
   async start(): Promise<void> {
@@ -91,6 +111,13 @@ export class DefaultProductMobileRuntime implements ProductMobileRuntime {
       return;
     }
     try {
+      await this.administrationCoordinator.start();
+    } catch (error) {
+      if (this.isCurrentRuntime(runtimeGeneration)) throw error;
+      return;
+    }
+    if (!this.isCurrentRuntime(runtimeGeneration)) return;
+    try {
       await this.coordinator.start();
     } catch (error) {
       if (this.isCurrentRuntime(runtimeGeneration)) {
@@ -111,6 +138,7 @@ export class DefaultProductMobileRuntime implements ProductMobileRuntime {
     this.started = false;
     this.runtimeGeneration += 1;
     this.appStateLifecycle.stop();
+    void this.administrationCoordinator.stop();
     void this.scanOrchestrator.stop();
     this.coordinator.stop();
   }

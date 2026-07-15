@@ -6,6 +6,7 @@ import {
   type ProductSessionRuntimeOwner,
 } from '../../src/runtime/DefaultProductMobileRuntime';
 import type { ProductScanState } from '../../src/scan/contracts';
+import type { AdminSetupState } from '../../src/administration/contracts';
 import type { ProductServerTransport } from '../../src/transport/contracts';
 
 function deferred() {
@@ -47,16 +48,27 @@ class FakeScanRuntimeOwner implements ProductScanRuntimeOwner {
   }
 }
 
+class FakeAdministrationRuntimeOwner {
+  readonly start = vi.fn<() => Promise<void>>(async () => undefined);
+  readonly stop = vi.fn<() => Promise<void>>(async () => undefined);
+  readonly refresh = vi.fn<() => Promise<void>>(async () => undefined);
+  readonly provision = vi.fn<(_customerId: string, _displayName: string) => Promise<void>>(async () => undefined);
+  readonly cancel = vi.fn<() => Promise<void>>(async () => undefined);
+  readonly subscribe = vi.fn<(_listener: () => void) => () => void>(() => () => undefined);
+  getState(): AdminSetupState { return { status: 'inactive' }; }
+}
+
 function setup() {
   const session = new FakeSessionRuntimeOwner();
   const scan = new FakeScanRuntimeOwner();
+  const administration = new FakeAdministrationRuntimeOwner();
   const appState = {
     start: vi.fn<() => void>(),
     stop: vi.fn<() => void>(),
   };
   const serverTransport = Object.freeze({}) as ProductServerTransport;
-  const runtime = new DefaultProductMobileRuntime(session, appState, serverTransport, scan);
-  return { session, scan, appState, runtime };
+  const runtime = new DefaultProductMobileRuntime(session, appState, serverTransport, scan, administration);
+  return { session, scan, administration, appState, runtime };
 }
 
 describe('DefaultProductMobileRuntime lifecycle', () => {
