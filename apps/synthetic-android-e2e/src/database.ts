@@ -28,6 +28,10 @@ const runtimeRoleGraph = Object.freeze({
     'taptime_identity_resolver',
     'taptime_server_lifecycle',
   ],
+  [runtimeLogins.administration]: [
+    'taptime_admin_setup',
+    'taptime_identity_resolver',
+  ],
   [runtimeLogins.provisioner]: ['taptime_administrator'],
 } as const);
 
@@ -36,8 +40,10 @@ export interface SyntheticDatabaseRuntime {
 }
 
 export interface SyntheticEvidenceCounts {
+  readonly adminSetupReceipts: number;
   readonly auditEvents: number;
   readonly canonicalDecisions: number;
+  readonly customers: number;
   readonly nfcAssignments: number;
   readonly nfcTags: number;
   readonly stoppedTimeEntries: number;
@@ -92,6 +98,7 @@ export async function prepareSyntheticDatabase(
     session: randomBytes(32).toString('base64url'),
     readModel: randomBytes(32).toString('base64url'),
     lifecycle: randomBytes(32).toString('base64url'),
+    administration: randomBytes(32).toString('base64url'),
     provisioner: randomBytes(32).toString('base64url'),
   } as const;
   for (const [login, roles] of Object.entries(runtimeRoleGraph)) {
@@ -113,6 +120,11 @@ export async function prepareSyntheticDatabase(
         runtimeLogins.lifecycle,
         passwords.lifecycle,
       ),
+      administration: runtimeConnectionString(
+        installerDatabaseUrl,
+        runtimeLogins.administration,
+        passwords.administration,
+      ),
       provisioner: runtimeConnectionString(
         installerDatabaseUrl,
         runtimeLogins.provisioner,
@@ -125,8 +137,10 @@ export async function prepareSyntheticDatabase(
 export async function readSyntheticEvidenceCounts(pool: Pool): Promise<SyntheticEvidenceCounts> {
   const result = await pool.query<Record<keyof SyntheticEvidenceCounts, string>>(`
     SELECT
+      (SELECT count(*)::text FROM ${B3_SCHEMA}.admin_setup_command_receipts) AS "adminSetupReceipts",
       (SELECT count(*)::text FROM ${B3_SCHEMA}.audit_events) AS "auditEvents",
       (SELECT count(*)::text FROM ${B3_SCHEMA}.canonical_decisions) AS "canonicalDecisions",
+      (SELECT count(*)::text FROM ${B3_SCHEMA}.customers) AS "customers",
       (SELECT count(*)::text FROM ${B3_SCHEMA}.nfc_assignments) AS "nfcAssignments",
       (SELECT count(*)::text FROM ${B3_SCHEMA}.nfc_tags) AS "nfcTags",
       (SELECT count(*)::text FROM ${B3_SCHEMA}.time_entries WHERE status = 'stopped') AS "stoppedTimeEntries",
@@ -139,8 +153,10 @@ export async function readSyntheticEvidenceCounts(pool: Pool): Promise<Synthetic
     throw new Error('Synthetic E2E evidence query returned no result');
   }
   return Object.freeze({
+    adminSetupReceipts: Number(row.adminSetupReceipts),
     auditEvents: Number(row.auditEvents),
     canonicalDecisions: Number(row.canonicalDecisions),
+    customers: Number(row.customers),
     nfcAssignments: Number(row.nfcAssignments),
     nfcTags: Number(row.nfcTags),
     stoppedTimeEntries: Number(row.stoppedTimeEntries),
@@ -286,12 +302,17 @@ async function seedSyntheticTenant(pool: Pool, issuer: string): Promise<void> {
   await pool.query(
     `INSERT INTO ${B3_SCHEMA}.identity_bindings
        (id, user_id, issuer, subject, created_at, revoked_at)
-     VALUES ($1, $2, $3, $4, transaction_timestamp(), NULL)`,
+     VALUES
+       ($1, $3, $5, $6, transaction_timestamp(), NULL),
+       ($2, $4, $5, $7, transaction_timestamp(), NULL)`,
     [
       syntheticIds.identityBinding,
+      syntheticIds.administratorIdentityBinding,
       syntheticIds.user,
+      syntheticIds.administratorUser,
       issuer,
       syntheticIds.providerSubject,
+      syntheticIds.administratorProviderSubject,
     ],
   );
   await pool.query(

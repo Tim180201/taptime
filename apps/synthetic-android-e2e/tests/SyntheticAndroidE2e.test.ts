@@ -6,6 +6,7 @@ import { Pool } from 'pg';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { SupabaseEmailPasswordAuthAdapter } from '../../mobile/src/auth/SupabaseEmailPasswordAuthAdapter.js';
 import {
+  SYNTHETIC_ADMIN_AUTH_EMAIL,
   SYNTHETIC_AUTH_EMAIL,
   SYNTHETIC_DATABASE_NAME,
   SYNTHETIC_PUBLISHABLE_KEY,
@@ -104,6 +105,10 @@ describeWithPostgres('synthetic Android product-to-server E2E', () => {
       'taptime_identity_resolver',
       'taptime_server_lifecycle',
     ]);
+    await expect(parentRoles(installerPool, runtimeLogins.administration)).resolves.toEqual([
+      'taptime_admin_setup',
+      'taptime_identity_resolver',
+    ]);
     await expect(parentRoles(installerPool, runtimeLogins.provisioner)).resolves.toEqual([
       'taptime_administrator',
     ]);
@@ -123,7 +128,7 @@ describeWithPostgres('synthetic Android product-to-server E2E', () => {
        ORDER BY rolname`,
       [Object.values(runtimeLogins)],
     );
-    expect(roles.rows).toHaveLength(4);
+    expect(roles.rows).toHaveLength(5);
     expect(roles.rows.every((role) => (
       !role.rolsuper
       && !role.rolcreaterole
@@ -166,6 +171,106 @@ describeWithPostgres('synthetic Android product-to-server E2E', () => {
     expect(refresh.tokens.refreshToken).not.toBe(signIn.tokens.refreshToken);
   });
 
+  it('resolves separate Employee and Administrator identities and denies Employee setup access',
+    async () => {
+      const provider = mobileAuthAdapter(environment);
+      const employee = await provider.signInWithPassword(SYNTHETIC_AUTH_EMAIL, syntheticPassword);
+      if (employee.status !== 'authenticated') {
+        throw new Error('Synthetic Employee sign-in unexpectedly failed');
+      }
+      const employeeProjection = await postAdministration(
+        employee.tokens.accessToken,
+        '/v1/administration/setup-projection',
+        { expectedMembershipId: syntheticIds.membership, cursor: null, limit: 20 },
+      );
+      expect(employeeProjection.status).toBe(403);
+
+      const administrator = await provider.signInWithPassword(
+        SYNTHETIC_ADMIN_AUTH_EMAIL,
+        syntheticPassword,
+      );
+      if (administrator.status !== 'authenticated') {
+        throw new Error('Synthetic Administrator sign-in unexpectedly failed');
+      }
+      const refreshedAdministrator = await provider.refreshSession(
+        administrator.tokens.refreshToken,
+      );
+      expect(refreshedAdministrator.status).toBe('refreshed');
+      if (refreshedAdministrator.status !== 'refreshed') {
+        throw new Error('Synthetic Administrator refresh unexpectedly failed');
+      }
+      const sessionResponse = await fetch(`${environment.apiBaseUrl}/v1/session`, {
+        headers: { authorization: `Bearer ${refreshedAdministrator.tokens.accessToken}` },
+      });
+      expect(sessionResponse.status).toBe(200);
+      await expect(sessionResponse.json()).resolves.toEqual({
+        userId: syntheticIds.administratorUser,
+        membershipId: syntheticIds.administratorMembership,
+        organizationId: syntheticIds.organization,
+        role: 'administrator',
+      });
+      const projectionResponse = await postAdministration(
+        refreshedAdministrator.tokens.accessToken,
+        '/v1/administration/setup-projection',
+        { expectedMembershipId: syntheticIds.administratorMembership, cursor: null, limit: 20 },
+      );
+      expect(projectionResponse.status).toBe(200);
+      await expect(projectionResponse.json()).resolves.toMatchObject({
+        status: 'succeeded',
+        organization: { id: syntheticIds.organization, name: 'Synthetic Android E2E' },
+        customers: [{ id: syntheticIds.customer, displayName: 'Synthetic Android Customer' }],
+        nfcTags: [],
+        nextCursor: null,
+      });
+    });
+
+  it('allows browser Auth CORS only for the exact loopback Admin Web origin', async () => {
+    const allowed = await fetch(`${environment.authBaseUrl}/auth/v1/token?grant_type=password`, {
+      method: 'OPTIONS',
+      headers: {
+        origin: 'http://127.0.0.1:5173',
+        'access-control-request-method': 'POST',
+        'access-control-request-headers': 'apikey,content-type,x-client-info',
+      },
+    });
+    expect(allowed.status).toBe(204);
+    expect(allowed.headers.get('access-control-allow-origin')).toBe('http://127.0.0.1:5173');
+    expect(allowed.headers.get('access-control-allow-credentials')).toBeNull();
+
+    const signedIn = await fetch(
+      `${environment.authBaseUrl}/auth/v1/token?grant_type=password`,
+      {
+        method: 'POST',
+        headers: {
+          origin: 'http://127.0.0.1:5173',
+          apikey: SYNTHETIC_PUBLISHABLE_KEY,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: SYNTHETIC_ADMIN_AUTH_EMAIL,
+          password: syntheticPassword,
+        }),
+      },
+    );
+    expect(signedIn.status).toBe(200);
+    expect(signedIn.headers.get('access-control-allow-origin')).toBe('http://127.0.0.1:5173');
+    expect(signedIn.headers.get('access-control-allow-credentials')).toBeNull();
+    await expect(signedIn.json()).resolves.toMatchObject({
+      token_type: 'bearer',
+      user: { email: SYNTHETIC_ADMIN_AUTH_EMAIL },
+    });
+
+    const rejected = await fetch(`${environment.authBaseUrl}/auth/v1/token?grant_type=password`, {
+      method: 'OPTIONS',
+      headers: {
+        origin: 'http://localhost:5173',
+        'access-control-request-method': 'POST',
+      },
+    });
+    expect(rejected.status).toBe(403);
+    expect(rejected.headers.get('access-control-allow-origin')).toBeNull();
+  });
+
   it('proves unassigned B, fingerprint-bound A provisioning, Start, and Stop through C2/B6/Core',
     async () => {
       const provider = mobileAuthAdapter(environment);
@@ -193,8 +298,10 @@ describeWithPostgres('synthetic Android product-to-server E2E', () => {
       expect(provisioningCapture.status).toBe(404);
       expect(environment.provisioningState()).toBe('disarmed');
       expect(await environment.evidenceCounts()).toEqual({
+        adminSetupReceipts: 0,
         auditEvents: 2,
         canonicalDecisions: 0,
+        customers: 1,
         nfcAssignments: 1,
         nfcTags: 1,
         stoppedTimeEntries: 0,
@@ -262,8 +369,10 @@ describeWithPostgres('synthetic Android product-to-server E2E', () => {
       });
 
       expect(await environment.evidenceCounts()).toEqual({
+        adminSetupReceipts: 0,
         auditEvents: 4,
         canonicalDecisions: 2,
+        customers: 1,
         nfcAssignments: 1,
         nfcTags: 1,
         stoppedTimeEntries: 1,
@@ -351,8 +460,10 @@ describeWithPostgres('synthetic Android product-to-server E2E', () => {
     });
 
     expect(await environment.evidenceCounts()).toEqual({
+      adminSetupReceipts: before.adminSetupReceipts,
       auditEvents: before.auditEvents + 1,
       canonicalDecisions: before.canonicalDecisions,
+      customers: before.customers,
       nfcAssignments: before.nfcAssignments,
       nfcTags: before.nfcTags,
       stoppedTimeEntries: before.stoppedTimeEntries,
@@ -381,6 +492,103 @@ describeWithPostgres('synthetic Android product-to-server E2E', () => {
       time_entry_count: '0',
     }]);
   });
+
+  it('runs real C3C Customer creation and atomic Tag provisioning with disclosure-safe results',
+    async () => {
+      const provider = mobileAuthAdapter(environment);
+      const signIn = await provider.signInWithPassword(
+        SYNTHETIC_ADMIN_AUTH_EMAIL,
+        syntheticPassword,
+      );
+      if (signIn.status !== 'authenticated') {
+        throw new Error('Synthetic Administrator sign-in unexpectedly failed');
+      }
+      const token = signIn.tokens.accessToken;
+      const before = await environment.evidenceCounts();
+      const createResponse = await postAdministration(
+        token,
+        '/v1/administration/customers',
+        {
+          expectedMembershipId: syntheticIds.administratorMembership,
+          commandId: '70000000-0000-4000-8000-000000000001',
+          displayName: 'C3D Physical Gate Customer',
+        },
+      );
+      expect(createResponse.status).toBe(200);
+      const created = await createResponse.json() as {
+        customer: { id: string; displayName: string; active: boolean };
+        idempotentRetry: boolean;
+        status: string;
+      };
+      expect(created).toMatchObject({
+        status: 'succeeded',
+        idempotentRetry: false,
+        customer: { displayName: 'C3D Physical Gate Customer', active: true },
+      });
+
+      const payload = createNfcPayload('nfc:uid:v1:04C3D701');
+      const provisionResponse = await postAdministration(
+        token,
+        '/v1/administration/nfc-tags/provision',
+        {
+          expectedMembershipId: syntheticIds.administratorMembership,
+          commandId: '70000000-0000-4000-8000-000000000002',
+          customerId: created.customer.id,
+          displayName: 'C3D Physical Gate Tag',
+          canonicalPayload: payload,
+        },
+      );
+      expect(provisionResponse.status).toBe(200);
+      const provisionedText = await provisionResponse.text();
+      expect(provisionedText).not.toContain(payload);
+      const provisioned = JSON.parse(provisionedText) as Record<string, unknown>;
+      expect(provisioned).toMatchObject({
+        status: 'succeeded',
+        idempotentRetry: false,
+        nfcTag: {
+          displayName: 'C3D Physical Gate Tag',
+          assignmentState: 'assigned',
+          targetCustomerId: created.customer.id,
+        },
+      });
+
+      const projectionResponse = await postAdministration(
+        token,
+        '/v1/administration/setup-projection',
+        { expectedMembershipId: syntheticIds.administratorMembership, cursor: null, limit: 20 },
+      );
+      expect(projectionResponse.status).toBe(200);
+      const projectionText = await projectionResponse.text();
+      expect(projectionText).not.toContain(payload);
+      expect(JSON.parse(projectionText)).toMatchObject({
+        status: 'succeeded',
+        customers: expect.arrayContaining([
+          expect.objectContaining({ id: created.customer.id, displayName: 'C3D Physical Gate Customer' }),
+        ]),
+        nfcTags: expect.arrayContaining([
+          expect.objectContaining({
+            displayName: 'C3D Physical Gate Tag',
+            assignmentState: 'assigned',
+            targetCustomerId: created.customer.id,
+          }),
+        ]),
+      });
+
+      expect(await environment.evidenceCounts()).toEqual({
+        adminSetupReceipts: before.adminSetupReceipts + 2,
+        auditEvents: before.auditEvents + 3,
+        canonicalDecisions: before.canonicalDecisions,
+        customers: before.customers + 1,
+        nfcAssignments: before.nfcAssignments + 1,
+        nfcTags: before.nfcTags + 1,
+        stoppedTimeEntries: before.stoppedTimeEntries,
+        syncReceipts: before.syncReceipts,
+        timeEntries: before.timeEntries,
+        workEvents: before.workEvents,
+      });
+      expect(JSON.stringify(safeEvents)).not.toContain(payload);
+      expect(safeEvents).not.toContain('api_administration_unavailable');
+    });
 });
 
 function mobileAuthAdapter(environment: SyntheticAndroidE2eEnvironment) {
@@ -454,6 +662,21 @@ function postDeferredLifecycle(accessToken: string, body: unknown): Promise<Resp
       authorization: `Bearer ${accessToken}`,
       'content-type': 'application/json',
       'x-taptime-expected-membership-id': syntheticIds.membership,
+    },
+    body: JSON.stringify(body),
+  });
+}
+
+function postAdministration(
+  accessToken: string,
+  path: string,
+  body: unknown,
+): Promise<Response> {
+  return fetch(`${environmentUrl()}${path}`, {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${accessToken}`,
+      'content-type': 'application/json',
     },
     body: JSON.stringify(body),
   });

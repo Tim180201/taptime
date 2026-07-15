@@ -2,14 +2,12 @@
 
 Status: strictly local, synthetic and non-production test infrastructure
 
-This Node-24 workspace runs the real C2 HTTP router, B4 identity resolution, B5 tenant read model,
-B6 lifecycle coordinator, Core `BusinessEngine` and PostgreSQL migrations `001`–`007`. It adds only
-a local password/JWKS fixture and a one-shot Tag-A fixture-provisioning control. It is not a
-production Auth provider, backend deployment, C3 administration API or Block-E synchronization
-implementation.
-
-The shared router contains the C3C paths, but this harness deliberately supplies no administration
-database coordinator: every such call is disabled and returns only the generic unavailable result.
+This Node-24 workspace runs the real C2/C3C HTTP router, B4 identity resolution, B5 tenant read
+model, B6 lifecycle coordinator, C3C administration coordinator, Core `BusinessEngine` and
+PostgreSQL migrations `001`–`007`. It adds only a local password/JWKS fixture, separate synthetic
+Employee/Administrator identities and the retained one-shot Tag-A fixture-provisioning control used
+by the earlier Block-D regression. It is not a production Auth provider, backend deployment or
+Block-E synchronization implementation.
 
 ## Safety boundary
 
@@ -20,8 +18,8 @@ database coordinator: every such call is disabled and returns only the generic u
   resource is used.
 - Runtime passwords, the asymmetric private key, access/refresh tokens and the operator-supplied
   password are memory-only and never printed.
-- The committed email uses the reserved `.invalid` domain. All IDs, Organization and Customer data
-  are synthetic.
+- Both committed emails use the reserved `.invalid` domain. All IDs, Organization and Customer
+  data are synthetic.
 - The physical canonical payload is never displayed or logged. PostgreSQL stores it only because
   the actual B5 lookup requires the assignment key.
 - `research/` is outside this workspace and outside the slice.
@@ -31,10 +29,10 @@ database coordinator: every such call is disabled and returns only the generic u
 - Node `24.17.0` and the repository dependencies installed from `package-lock.json`;
 - local PostgreSQL 17 with a dedicated disposable database and a local installer role allowed to
   create roles;
-- for the physical run only: local Android SDK/JDK, one USB-debug-authorized Android device, NFC
-  enabled and the two previously validated NTAG213 tags;
-- the 12-character value labelled `PRÜF-FINGERPRINT · SHA-256 GEKÜRZT` for physical Tag A from the
-  existing validation app. Do not enter or record a raw UID.
+- for the C3D physical run: local Android SDK/JDK, one USB-debug-authorized Android device, NFC
+  enabled and one synthetic-test NTAG213;
+- only for replaying the retained Block-D legacy checklist: its second validated NTAG213 and the
+  previously recorded 12-character validation fingerprint. Never enter or record a raw UID.
 
 ## Start the local server environment
 
@@ -53,6 +51,17 @@ npm start --workspace=@taptime/synthetic-android-e2e
 The password must be a newly chosen 16–256 character synthetic-test value. Do not reuse any real
 or production credential. The server prints only fixed readiness/operator events and sanitized
 counts.
+
+For the C3D browser surface, start a second terminal after the harness reports ready:
+
+```bash
+VITE_TAPTIME_SUPABASE_URL=http://127.0.0.1:54321 \
+VITE_TAPTIME_SUPABASE_PUBLISHABLE_KEY=sb_publishable_taptime_synthetic_android_e2e \
+TAPTIME_API_PROXY_TARGET=http://127.0.0.1:3000 \
+npm run dev --workspace=@taptime/admin-web -- --host 127.0.0.1 --strictPort
+```
+
+Open only `http://127.0.0.1:5173`. The browser and both backend services remain host-loopback-only.
 
 ## Build and connect the real Android product composition
 
@@ -85,31 +94,36 @@ npm run android:synthetic-e2e:disconnect --workspace=@taptime/mobile
 The disconnect helper preserves unrelated reverse mappings and fails closed if either approved
 device port points to an unexpected host port.
 
-## Human physical E2E checklist
+## Human C3D physical E2E checklist
 
-Use the synthetic email printed by the harness and the synthetic password supplied at startup.
-Do not capture the login screen or terminal while entering the password.
+Use the two synthetic `.invalid` emails printed by the harness and the single synthetic password
+supplied at startup. Do not capture the login screen or terminal while entering the password.
 
-1. Scan physical NTAG213 Tag B. The product screen must report `Tag nicht zugeordnet`; terminal
-   `status` must still show zero tags, assignments and lifecycle evidence.
-2. In the harness terminal enter `arm-tag-a <12-HEX-PRÜF-FINGERPRINT>` using Tag A's shortened
-   validation fingerprint, never its UID.
-3. Scan Tag B once more as a negative control. It remains unassigned and the arm remains active.
-4. Scan Tag A once to consume the controlled provisioning capture. The product deliberately returns
-   the same generic unassigned presentation and sends no lifecycle evidence. The terminal emits
-   only `tag_a_assigned`; `status` shows one Tag, one Assignment, two administrative AuditEvents and
-   zero WorkEvents/Decisions/Receipts/TimeEntries.
-5. Scan Tag A again. This is the first lifecycle scan and must show server-confirmed
-   `Arbeitszeit gestartet`.
-6. Wait at least six seconds, then scan Tag A again. The Core rule treats scans less than five
-   seconds apart as duplicates; after six seconds the server must show `Arbeitszeit gestoppt`.
-7. Run terminal `status`. Expected final sanitized counts are one stopped TimeEntry, two WorkEvents,
-   two Decisions, two Receipts and four AuditEvents.
-8. Confirm that the app and terminal showed no raw UID/canonical payload, access/refresh token,
-   database/provider error or real person data.
-9. Stop the harness. Normal shutdown removes the disposable schema, synthetic tenant data and its
-   generated runtime logins. Then run the mandatory disconnect helper above. After a process or
-   host crash, drop the dedicated disposable database before the next run.
+1. Sign in on Android as the synthetic Employee. Confirm that `NFC-Einrichtung` is absent, then
+   sign out. This is the Employee-denial observation; do not seed or mutate Memberships manually.
+2. Sign in to Admin Web as the synthetic Administrator. Create one uniquely named Customer and
+   confirm that only safe Organization/Customer fields are shown.
+3. Sign in on Android as the same Administrator, open `NFC-Einrichtung`, refresh and select the new
+   Customer.
+4. Start one NFC setup capture without presenting a Tag. Force-stop and restart the app. Confirm
+   that no Tag/Assignment/administration receipt was created and that the restored Administrator
+   session reloads the safe setup projection.
+5. Select the Customer again, enter a synthetic Tag label and capture/register/assign one physical
+   NTAG213. Confirm `Tag erfolgreich zugeordnet` and record only the 12-character labelled
+   validation fingerprint.
+6. Refresh Admin Web and Android. Confirm matching label, fingerprint and assigned Customer without
+   any raw UID/canonical payload.
+7. Switch Android to `Zeiterfassung` and scan the same Tag. Confirm server-backed
+   `Arbeitszeit gestartet`. Wait at least six seconds, scan again and confirm
+   `Arbeitszeit gestoppt`.
+8. Run terminal `status`. Expected fresh-run counts are two Customers, one Tag, one Assignment, two
+   administration receipts, two WorkEvents, two Decisions, two lifecycle Receipts, one stopped
+   TimeEntry and five AuditEvents.
+9. Confirm that Web, app and terminal showed no raw UID/canonical payload, access/refresh token,
+   database/provider error or real-person data. Sign out of Web and Android.
+10. Stop the harness. Normal shutdown removes the disposable schema, synthetic tenant data and its
+    generated runtime logins. Then run the mandatory disconnect helper above. After a process or
+    host crash, drop the dedicated disposable database before the next run.
 
 Only a Human Architect or delegated tester may mark the physical observations as passed. Automated
 tests and a build alone do not close the server-connected physical gate.
@@ -125,5 +139,6 @@ npm run build --workspace=@taptime/synthetic-android-e2e
 ```
 
 The integration suite uses the real Mobile email/password adapter, asymmetric tokens and the real
-C2/B4/B5/B6/Core path. It proves the unassigned/provision/Start/Stop sequence, exact role graphs,
-Administrator-RLS audit evidence and the absence of lifecycle mutation during provisioning.
+C2/C3C/B4/B5/B6/Core paths. It proves separate Employee/Administrator authority, real Customer
+creation and atomic Tag provisioning, the legacy unassigned/provision/Start/Stop regression, exact
+role graphs, Administrator-RLS audit evidence and the absence of lifecycle mutation during setup.

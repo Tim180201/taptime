@@ -7,6 +7,7 @@ import {
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { exportJWK, generateKeyPair, SignJWT, type JWK } from 'jose';
 import {
+  SYNTHETIC_ADMIN_AUTH_EMAIL,
   SYNTHETIC_AUTH_EMAIL,
   SYNTHETIC_PUBLISHABLE_KEY,
   syntheticIds,
@@ -15,7 +16,27 @@ import {
 const maximumBodyBytes = 4_096;
 const accessTokenLifetimeSeconds = 300;
 const keyId = 'taptime-synthetic-android-e2e-rs256';
+const allowedBrowserRequestHeaders = 'apikey, authorization, content-type, x-client-info';
 type SyntheticSigningKey = Awaited<ReturnType<typeof generateKeyPair>>['privateKey'];
+
+interface SyntheticAuthAccount {
+  readonly email: string;
+  readonly providerSession: string;
+  readonly providerSubject: string;
+}
+
+const syntheticAuthAccounts: readonly SyntheticAuthAccount[] = Object.freeze([
+  Object.freeze({
+    email: SYNTHETIC_AUTH_EMAIL,
+    providerSession: syntheticIds.providerSession,
+    providerSubject: syntheticIds.providerSubject,
+  }),
+  Object.freeze({
+    email: SYNTHETIC_ADMIN_AUTH_EMAIL,
+    providerSession: syntheticIds.administratorProviderSession,
+    providerSubject: syntheticIds.administratorProviderSubject,
+  }),
+]);
 
 interface PasswordDigest {
   readonly digest: Buffer;
@@ -23,24 +44,29 @@ interface PasswordDigest {
 }
 
 export interface SyntheticLocalAuthServerOptions {
+  readonly allowedBrowserOrigin?: string;
   readonly password: string;
   readonly port?: number;
 }
 
 export class SyntheticLocalAuthServer {
   private publicUrlValue: string | null = null;
-  private readonly refreshTokens = new Set<string>();
+  private readonly refreshTokens = new Map<string, SyntheticAuthAccount>();
 
   private constructor(
     private readonly passwordDigest: PasswordDigest,
     private readonly privateKey: SyntheticSigningKey,
     private readonly publicJwk: JWK,
     private readonly requestedPort: number,
+    private readonly allowedBrowserOrigin: string,
     readonly server: Server,
   ) {}
 
   static async create(options: SyntheticLocalAuthServerOptions): Promise<SyntheticLocalAuthServer> {
     validateSyntheticPassword(options.password);
+    const allowedBrowserOrigin = validateAllowedBrowserOrigin(
+      options.allowedBrowserOrigin ?? 'http://127.0.0.1:5173',
+    );
     const passwordDigest = await digestPassword(options.password);
     const keyPair = await generateKeyPair('RS256', { extractable: true });
     const publicJwk = await exportJWK(keyPair.publicKey);
@@ -55,6 +81,7 @@ export class SyntheticLocalAuthServer {
       keyPair.privateKey,
       publicJwk,
       options.port ?? 0,
+      allowedBrowserOrigin,
       server,
     );
     return instance;
@@ -97,8 +124,26 @@ export class SyntheticLocalAuthServer {
   }
 
   private async handle(request: IncomingMessage, response: ServerResponse): Promise<void> {
-    applySafeHeaders(response);
+    const requestOrigin = request.headers.origin;
+    const allowedOrigin = requestOrigin === this.allowedBrowserOrigin
+      ? this.allowedBrowserOrigin
+      : undefined;
+    applySafeHeaders(response, allowedOrigin);
     const url = new URL(request.url ?? '/', 'http://127.0.0.1');
+
+    if (request.method === 'OPTIONS' && url.pathname.startsWith('/auth/v1/')) {
+      request.resume();
+      if (allowedOrigin === undefined) {
+        respondJson(response, 403, { code: 'origin_rejected' });
+        return;
+      }
+      response.setHeader('Access-Control-Allow-Headers', allowedBrowserRequestHeaders);
+      response.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+      response.setHeader('Access-Control-Max-Age', '300');
+      response.writeHead(204);
+      response.end();
+      return;
+    }
 
     if (
       request.method === 'GET'
@@ -153,8 +198,9 @@ export class SyntheticLocalAuthServer {
 
   private async signIn(body: Record<string, unknown>, response: ServerResponse): Promise<void> {
     const password = body.password;
+    const account = syntheticAuthAccounts.find(({ email }) => body.email === email);
     if (
-      body.email !== SYNTHETIC_AUTH_EMAIL
+      account === undefined
       || typeof password !== 'string'
       || !await passwordMatches(password, this.passwordDigest)
     ) {
@@ -164,37 +210,41 @@ export class SyntheticLocalAuthServer {
       });
       return;
     }
-    respondJson(response, 200, await this.issueSession());
+    respondJson(response, 200, await this.issueSession(account));
   }
 
   private async refresh(body: Record<string, unknown>, response: ServerResponse): Promise<void> {
     const refreshToken = body.refresh_token;
-    if (typeof refreshToken !== 'string' || !this.refreshTokens.delete(refreshToken)) {
+    const account = typeof refreshToken === 'string'
+      ? this.refreshTokens.get(refreshToken)
+      : undefined;
+    if (typeof refreshToken !== 'string' || account === undefined) {
       respondJson(response, 400, {
         code: 'refresh_token_not_found',
         msg: 'Refresh token is unavailable',
       });
       return;
     }
-    respondJson(response, 200, await this.issueSession());
+    this.refreshTokens.delete(refreshToken);
+    respondJson(response, 200, await this.issueSession(account));
   }
 
-  private async issueSession(): Promise<Record<string, unknown>> {
+  private async issueSession(account: SyntheticAuthAccount): Promise<Record<string, unknown>> {
     const now = Math.floor(Date.now() / 1_000);
     const refreshToken = randomBytes(32).toString('base64url');
-    this.refreshTokens.add(refreshToken);
+    this.refreshTokens.set(refreshToken, account);
     const accessToken = await new SignJWT({
       aal: 'aal1',
-      email: SYNTHETIC_AUTH_EMAIL,
+      email: account.email,
       is_anonymous: false,
       phone: '',
       role: 'authenticated',
-      session_id: syntheticIds.providerSession,
+      session_id: account.providerSession,
     })
       .setProtectedHeader({ alg: 'RS256', kid: keyId, typ: 'JWT' })
       .setIssuer(this.issuer)
       .setAudience('authenticated')
-      .setSubject(syntheticIds.providerSubject)
+      .setSubject(account.providerSubject)
       .setJti(randomUUID())
       .setIssuedAt(now)
       .setExpirationTime(now + accessTokenLifetimeSeconds)
@@ -207,10 +257,10 @@ export class SyntheticLocalAuthServer {
       expires_at: now + accessTokenLifetimeSeconds,
       refresh_token: refreshToken,
       user: {
-        id: syntheticIds.providerSubject,
+        id: account.providerSubject,
         aud: 'authenticated',
         role: 'authenticated',
-        email: SYNTHETIC_AUTH_EMAIL,
+        email: account.email,
         phone: '',
         app_metadata: { provider: 'email', providers: ['email'] },
         user_metadata: {},
@@ -232,6 +282,26 @@ function validateSyntheticPassword(password: string): void {
   ) {
     throw new Error('Synthetic E2E password must be a 16–256 character test-only value');
   }
+}
+
+function validateAllowedBrowserOrigin(value: string): string {
+  let origin: URL;
+  try {
+    origin = new URL(value);
+  } catch {
+    throw new Error('Synthetic E2E browser origin must be an absolute loopback origin');
+  }
+  if (
+    origin.protocol !== 'http:'
+    || origin.hostname !== '127.0.0.1'
+    || origin.port !== '5173'
+    || origin.pathname !== '/'
+    || origin.search.length > 0
+    || origin.hash.length > 0
+  ) {
+    throw new Error('Synthetic E2E browser origin must be http://127.0.0.1:5173');
+  }
+  return origin.origin;
 }
 
 async function digestPassword(password: string): Promise<PasswordDigest> {
@@ -288,11 +358,15 @@ function isJsonRequest(request: IncomingMessage): boolean {
     && contentType.split(';', 1)[0]?.trim().toLowerCase() === 'application/json';
 }
 
-function applySafeHeaders(response: ServerResponse): void {
+function applySafeHeaders(response: ServerResponse, allowedOrigin?: string): void {
   response.setHeader('Cache-Control', 'no-store');
   response.setHeader('Content-Type', 'application/json; charset=utf-8');
   response.setHeader('X-Supabase-Api-Version', '2024-01-01');
   response.setHeader('X-Content-Type-Options', 'nosniff');
+  if (allowedOrigin !== undefined) {
+    response.setHeader('Access-Control-Allow-Origin', allowedOrigin);
+    response.setHeader('Vary', 'Origin');
+  }
 }
 
 function respondJson(response: ServerResponse, status: number, body: unknown): void {

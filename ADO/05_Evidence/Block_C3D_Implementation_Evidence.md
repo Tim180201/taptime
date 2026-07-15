@@ -3,7 +3,8 @@
 **Date:** 2026-07-15
 
 **Status:** Correction independently approved with zero open findings and published at an exact
-commit/tree with ten-of-ten exact-head CI; physical Human closure gate remains open
+commit/tree with ten-of-ten exact-head CI; scoped physical-validation harness locally verified;
+exact-head harness CI and physical Human closure remain open
 
 **Authorization decision baseline:** `316f017973fbba18a58c2340c9c79a28f06573e5`
 
@@ -67,3 +68,7 @@ C3D is not closed until an Administrator proves against the approved server-conn
 Web sign-in, Customer creation, Android refresh, native capture/register/assign, safe fingerprint
 visibility, then Start and Stop with that same assigned tag. Employee denial plus Android
 process/session replacement must also be observed. No production-person data is authorized.
+
+The earlier Block-D synthetic harness intentionally disabled C3C administration and could not run
+this sequence. Its scoped C3D extension, verification and still-pending Human checklist are recorded
+in `ADO/05_Evidence/Block_C3D_Physical_Validation_Evidence.md`.

@@ -22,7 +22,8 @@ try {
   });
   process.stdout.write([
     'synthetic_e2e_ready',
-    `login_email=${environment.email}`,
+    `administrator_login_email=${environment.administratorEmail}`,
+    `employee_login_email=${environment.employeeEmail}`,
     'operator_commands=arm-tag-a <12-hex-fingerprint> | status | stop',
     'sensitive_values_are_never_printed',
     '',

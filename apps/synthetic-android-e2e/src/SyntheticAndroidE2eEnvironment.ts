@@ -3,6 +3,7 @@ import {
   B5ScanContextResolver,
   createBackendHttpServer,
 } from '@taptime/backend-api';
+import { AdminWriteSessionCoordinator } from '@taptime/backend-administration';
 import {
   PostgresIdentityMembershipResolver,
   SupabaseJwtAccessTokenVerifier,
@@ -10,7 +11,11 @@ import {
 import { ServerCanonicalLifecycleIngestionCoordinator } from '@taptime/backend-lifecycle';
 import { TenantReadSessionCoordinator } from '@taptime/backend-read-model';
 import { Pool } from 'pg';
-import { SYNTHETIC_AUTH_EMAIL, SYNTHETIC_PUBLISHABLE_KEY } from './constants.js';
+import {
+  SYNTHETIC_ADMIN_AUTH_EMAIL,
+  SYNTHETIC_AUTH_EMAIL,
+  SYNTHETIC_PUBLISHABLE_KEY,
+} from './constants.js';
 import {
   cleanSyntheticDatabase,
   prepareSyntheticDatabase,
@@ -40,8 +45,10 @@ export interface SyntheticAndroidE2eEnvironmentOptions {
 
 export interface SyntheticAndroidE2eEnvironment {
   readonly apiBaseUrl: string;
+  readonly administratorEmail: typeof SYNTHETIC_ADMIN_AUTH_EMAIL;
   readonly authBaseUrl: string;
   readonly email: typeof SYNTHETIC_AUTH_EMAIL;
+  readonly employeeEmail: typeof SYNTHETIC_AUTH_EMAIL;
   readonly publishableKey: typeof SYNTHETIC_PUBLISHABLE_KEY;
   armTagA(expectedFingerprint: string): void;
   provisioningState(): 'armed' | 'disarmed' | 'provisioning';
@@ -61,6 +68,7 @@ export async function createSyntheticAndroidE2eEnvironment(
   let sessionPool: Pool | null = null;
   let readModelPool: Pool | null = null;
   let lifecyclePool: Pool | null = null;
+  let administrationPool: Pool | null = null;
   let provisionerPool: Pool | null = null;
   let apiServer: ReturnType<typeof createBackendHttpServer> | null = null;
 
@@ -74,6 +82,7 @@ export async function createSyntheticAndroidE2eEnvironment(
     sessionPool = createPool(database.connectionStrings.session);
     readModelPool = createPool(database.connectionStrings.readModel);
     lifecyclePool = createPool(database.connectionStrings.lifecycle);
+    administrationPool = createPool(database.connectionStrings.administration);
     provisionerPool = createPool(database.connectionStrings.provisioner, 1);
 
     const verifier = SupabaseJwtAccessTokenVerifier.fromRemoteJwks({
@@ -102,17 +111,7 @@ export async function createSyntheticAndroidE2eEnvironment(
         scanContextResolver: provisioningScanContext,
         lifecycleIngestor: lifecycleCoordinator,
         deferredLifecycleIngestor: lifecycleCoordinator,
-        administration: {
-          async createCustomer() {
-            throw new Error('Administration is disabled in the synthetic Android harness');
-          },
-          async provisionNfcTag() {
-            throw new Error('Administration is disabled in the synthetic Android harness');
-          },
-          async readSetupProjection() {
-            throw new Error('Administration is disabled in the synthetic Android harness');
-          },
-        },
+        administration: new AdminWriteSessionCoordinator(administrationPool, verifier),
       },
       {
         onDiagnostic(diagnostic) {
@@ -142,12 +141,20 @@ export async function createSyntheticAndroidE2eEnvironment(
       throw new Error('Synthetic C2 API did not expose a TCP port');
     }
     const activeApiServer = apiServer;
-    const pools = [sessionPool, readModelPool, lifecyclePool, provisionerPool] as const;
+    const pools = [
+      sessionPool,
+      readModelPool,
+      lifecyclePool,
+      administrationPool,
+      provisionerPool,
+    ] as const;
     let closed = false;
     return Object.freeze({
       apiBaseUrl: `http://127.0.0.1:${address.port}`,
+      administratorEmail: SYNTHETIC_ADMIN_AUTH_EMAIL,
       authBaseUrl: auth.publicUrl,
       email: SYNTHETIC_AUTH_EMAIL,
+      employeeEmail: SYNTHETIC_AUTH_EMAIL,
       publishableKey: SYNTHETIC_PUBLISHABLE_KEY,
       armTagA: (expectedFingerprint: string) => {
         provisioningScanContext.armTagA(expectedFingerprint);
@@ -177,6 +184,7 @@ export async function createSyntheticAndroidE2eEnvironment(
       sessionPool?.end() ?? Promise.resolve(),
       readModelPool?.end() ?? Promise.resolve(),
       lifecyclePool?.end() ?? Promise.resolve(),
+      administrationPool?.end() ?? Promise.resolve(),
       provisionerPool?.end() ?? Promise.resolve(),
       auth.close(),
     ]);
