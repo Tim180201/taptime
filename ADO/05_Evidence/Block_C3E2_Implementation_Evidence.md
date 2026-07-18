@@ -117,9 +117,11 @@ synthetic-harness declarations/bundles. `git diff --check` passed.
 Focused implementation commit `b783733`, tree `7c779ee`, was pushed to `main`. Its first exact-head
 run `29649322831` found one CI-only integration omission: the administration job had not built the
 new test-only B6 dependency before TypeScript resolution. No product or PostgreSQL test failed.
-Correction `672b7ac`, tree `8b4c601`, added only that dependency build and accurate C3E2 job labels.
-Exact-head run `29649388470`, attempt 1, passed all ten jobs. No independent implementation review
-or Human Physical Gate is claimed.
+Correction `672b7ac`, tree `8b4c601`, added that dependency build and C3E2 administration-step
+labels. The final publication synchronization aligns the remaining top-level API/Mobile and
+administration job labels with their executed C3E2 coverage. Exact-head run `29649388470`, attempt
+1, passed all ten implementation jobs. No independent implementation review or Human Physical Gate
+is claimed.
 
 ## 5. Technical-Lead disposition and next gate
 

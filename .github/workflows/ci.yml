@@ -344,7 +344,7 @@ jobs:
         run: npm run build --workspace=@taptime/backend-lifecycle
 
   backend-c2-api:
-    name: Backend C2/C3C/C3E1 authenticated API and Mobile transport
+    name: Backend C2/C3C/C3E1/C3E2 authenticated API and Mobile transport
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -391,7 +391,7 @@ jobs:
       - name: Install dependencies from lockfile
         run: npm ci
 
-      - name: Build required contract, Core, schema, B4, B5, B6, C3C, and C3E1 dependencies
+      - name: Build required contract, Core, schema, B4, B5, B6, C3C, C3E1, and C3E2 dependencies
         run: |
           npm run build --workspace=@taptime/administration-contract
           npm run build --workspace=@taptime/core
@@ -409,16 +409,16 @@ jobs:
           npm run migrate --workspace=@taptime/backend-schema
           npm run verify-migrations --workspace=@taptime/backend-schema
 
-      - name: Typecheck C2/C3C/C3E1 API production and test sources
+      - name: Typecheck C2/C3C/C3E1/C3E2 API production and test sources
         run: npm run typecheck --workspace=@taptime/backend-api
 
-      - name: Test C1, C2, C3C, and C3E1 API against direct PostgreSQL and local JWKS
+      - name: Test C1, C2, C3C, C3E1, and C3E2 API against direct PostgreSQL and local JWKS
         run: npm test --workspace=@taptime/backend-api
 
-      - name: Build C2/C3C/C3E1 backend API
+      - name: Build C2/C3C/C3E1/C3E2 backend API
         run: npm run build --workspace=@taptime/backend-api
 
-      - name: Typecheck and test Mobile authentication, C2 transports, and C3E1 enrollment
+      - name: Typecheck and test Mobile authentication, C2 transports, C3E1 enrollment, and C3E2 projection compatibility
         run: |
           npm run typecheck --workspace=@taptime/mobile
           npm test --workspace=@taptime/mobile
@@ -491,7 +491,7 @@ jobs:
         run: npm run verify-bin --workspace=@taptime/backend-bootstrap
 
   backend-c3c-administration:
-    name: Backend C3C/C3E1 administration and enrollment security
+    name: Backend C3C/C3E1/C3E2 administration, enrollment, and reassignment security
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
