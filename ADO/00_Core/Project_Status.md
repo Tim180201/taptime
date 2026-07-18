@@ -1,6 +1,6 @@
 # Project Status
 
-Status: CORE ROADMAP V2 BLOCK A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2, BLOCK D, E1 AND NARROW E2A COMPLETE FOR THEIR RECORDED REPOSITORY/HUMAN-GATE SCOPES — C3A HUMAN-ACCEPTED — C3D CLOSURE SYNCHRONIZATION AND EP-009 DELTA HUMAN-ACCEPTED — C3E1 AND C3E2 INDEPENDENTLY CLOSED — C3E2 CLOSURE COMMIT `a2fdebc`, TREE `1872f9f`, EXACT-HEAD RUN `29652072268` 10/10 AND INDEPENDENT FINAL REVIEW APPROVED WITH ZERO OPEN P0–P3 AFTER COMPLETE FRESH GALAXY-A33/NTAG213 HUMAN PHYSICAL GATE — DEVELOPMENT ASSIGNMENT 1 OFFLINE/SYNCHRONIZATION CANDIDATE PREPARED ON BASELINE `1bb2d7d`; INDEPENDENT PRE-IMPLEMENTATION REVIEW, HUMAN ACCEPTANCE AND SEPARATE IMPLEMENTATION RELEASE PENDING — MOBILE 356 / CORE 290 / ADMIN WEB 44 — DT-060–DT-068 AND BLOCK E REMAIN OPEN — 2 SUPAVISOR MODES UNVERIFIED — NO PRODUCTION PERSONAL DATA AUTHORIZED — CORE PROTOTYPE, NOT YET A PRODUCT — NO FULL OFFLINE/PRODUCTION CLOUD SYNC PATH
+Status: CORE ROADMAP V2 BLOCK A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2, BLOCK D, E1 AND NARROW E2A COMPLETE FOR THEIR RECORDED REPOSITORY/HUMAN-GATE SCOPES — C3A HUMAN-ACCEPTED — C3D CLOSURE SYNCHRONIZATION AND EP-009 DELTA HUMAN-ACCEPTED — C3E1 AND C3E2 INDEPENDENTLY CLOSED — C3E2 CLOSURE COMMIT `a2fdebc`, TREE `1872f9f`, EXACT-HEAD RUN `29652072268` 10/10 AND INDEPENDENT FINAL REVIEW APPROVED WITH ZERO OPEN P0–P3 AFTER COMPLETE FRESH GALAXY-A33/NTAG213 HUMAN PHYSICAL GATE — DEVELOPMENT ASSIGNMENT 1 OFFLINE/SYNCHRONIZATION CANDIDATE `5923341`, TREE `96fffb5`, EXACT-HEAD RUN `29653357355` 10/10 AND INDEPENDENT PRE-IMPLEMENTATION REVIEW APPROVED WITH ZERO OPEN P0–P3; HUMAN ACCEPTANCE AND SEPARATE IMPLEMENTATION RELEASE PENDING — MOBILE 356 / CORE 290 / ADMIN WEB 44 — DT-060–DT-068 AND BLOCK E REMAIN OPEN — 2 SUPAVISOR MODES UNVERIFIED — NO PRODUCTION PERSONAL DATA AUTHORIZED — CORE PROTOTYPE, NOT YET A PRODUCT — NO FULL OFFLINE/PRODUCTION CLOUD SYNC PATH
 Date: 2026-07-18
 Owner: Human Architect + Technical Lead
 
@@ -30,12 +30,17 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   Android same-boot monotonic proof, SQLCipher-backed Expo SQLite, a 256-event persist-first FIFO,
   exact retry/backoff, best-effort platform background sync, an isolated least-privilege offline
   ingestion/reconciliation route and
-  a complete fresh multi-event/cold-start Human gate. Independent pre-implementation review, Human
-  acceptance of every numeric/policy boundary and a separate exact-baseline implementation release
-  are mandatory. No dependency, migration `010`, product/backend/native code, APK, physical gate,
+  a complete fresh multi-event/cold-start Human gate. Independent read-only review bound candidate
+  commit `592334160655cde2f4189712eaf327c8a7edcb0e`, tree
+  `96fffb5bb5e2793041c36b8f793c38ab1c2e5428` and exact-head run `29653357355`, attempt 1,
+  10/10, and returned `APPROVED` with zero open P0/P1/P2/P3. Human acceptance of every
+  numeric/policy boundary and a separate exact-baseline implementation release remain mandatory.
+  No dependency, migration `010`, product/backend/native code, APK, physical gate,
   production resource or data is authorized by candidate preparation. DT-060–DT-062 remain open.
-  Evidence: `ADO/01_Architecture/ADR/ADR-0012-complete-offline-synchronization-platform.md` and
-  `ADO/02_Development/Development_Assignment_01_Complete_Offline_Synchronization_Authorization.md`.
+  Evidence: `ADO/01_Architecture/ADR/ADR-0012-complete-offline-synchronization-platform.md`,
+  `ADO/02_Development/Development_Assignment_01_Complete_Offline_Synchronization_Authorization.md`
+  and
+  `ADO/05_Evidence/Development_Assignment_01_Independent_Pre_Implementation_Review.md`.
 - The Business Core (NFC scan through Assignment Resolution, Assignment Validation, WorkEvent creation, Business Engine decision, TimeEntry lifecycle, offline queue, durable local persistence and error classification) is implemented and tested: 290 `packages/core` tests pass (262 existing plus 26 ADR-0009 codec cases and two explicit required-display-name contract/persistence cases); the expanded Mobile suite passes 310 tests in 19 files, including physical-validation, synthetic-E2E product-composition, E1 durable recovery and E2A session-bound cache/outbox/reconciliation boundaries; tests are included in the TypeScript check; the Core and workspace builds succeed.
 - **Core Roadmap v2 Block A is complete.** The Human Architect approved F-01's engine-driven lifecycle rule; `TimeEntry` now has typed started/stopped states and WorkEvent traceability; repositories support user-aware active lookup and updates; the Business Engine handles start, stop, duplicate suppression (`< 5 seconds`), other-target rejection and inconsistent-state escalation; GitHub Actions runs install/typecheck/test/build on pushes and pull requests to `main`. Implementation commits: `f5a0027`, `d8d3833`, `72eb03d`; enabling commits: `2493f17`, `b2004ea`. Closure evidence: `ADO/02_Development/Block_A_Core_Truth_and_Reliability_Closure.md`.
 - **ADR-0008 is approved after independent security review and renewed Technical Lead verification; phased Block B implementation is authorized.** The approved baseline is Supabase-managed PostgreSQL/Auth, managed Node as primary transactional lifecycle runtime, pooled-schema RLS/composite tenant constraints, one active Membership per User, email/password-only v1 authentication, audited operator bootstrap and identity-first pilot provisioning. Conflict, device-time and pre-revocation evidence use explicit deferred/review paths rather than silent mutation. Central EU (Frankfurt) is the intended initial region. No production personal data is authorized until legal retention/erasure/anonymization and backup requirements are approved. No production backend or cloud resource exists; the disposable B1 result is recorded below.
@@ -149,10 +154,9 @@ Two Epics are concurrently Active, per EP-009's own stated relationship to the r
 
 1. Keep the real production endpoint/CA, one-human operator IAM inventory, short-lived credential
    delivery/revocation and controlled execution evidence as explicit deployment gates.
-2. Submit the prepared Development Assignment 1 offline/synchronization candidate for independent
-   pre-implementation architecture/security review. Correct every finding and obtain renewed
-   exact-delta review before asking the Human Architect to accept ADR-0012; do not begin
-   implementation without a later separate exact-baseline release.
+2. Ask the Human Architect to accept or reject independently approved ADR-0012 and Sections 3–13
+   of the Development Assignment 1 authorization candidate, including every numeric policy. Even
+   after acceptance, do not begin implementation without a later separate exact-baseline release.
 3. Preserve the closed C3C/C3E2 least-privilege write boundaries and never expose the broad
    Administrator role or detached Core authority. Keep production/deployment, persisted multi-event
    offline work and remaining DT-060–DT-068 gated behind their own decisions and reviews.

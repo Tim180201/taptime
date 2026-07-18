@@ -330,15 +330,17 @@ evidence.
 
 The proposed policy values are 12 hours for capture-lease lifetime, five minutes for clock-anchor
 tolerance, Android same-boot monotonic proof, 72 hours for automatic evaluation after lease expiry,
-and 256 unresolved local events. They are not approved rules yet. Independent pre-implementation
-review must challenge the complete
-candidate; the Human Architect must then explicitly accept the architecture and values and issue a
-separate exact-baseline implementation release. Until then no dependency, schema, product/native
-code, APK, physical validation, production resource/data or DT-060–DT-062 completion is authorized
-or claimed.
+and 256 unresolved local events. Independent read-only review of exact candidate `5923341`, tree
+`96fffb5`, returned `APPROVED` with zero open P0/P1/P2/P3 after exact-head run `29653357355`
+passed 10/10. They are still not Human-accepted rules. The Human Architect must explicitly accept
+the architecture and values and later issue a separate exact-baseline implementation release.
+Until then no dependency, schema, product/native code, APK, physical validation, production
+resource/data or DT-060–DT-062 completion is authorized or claimed. Evidence:
+`ADO/05_Evidence/Development_Assignment_01_Independent_Pre_Implementation_Review.md`.
 
 This candidate changes no readiness-domain rating. It makes the current critical path more precise:
-Assignment 1 review/acceptance/release is next, followed by its implementation and complete gates;
+Assignment 1 Human acceptance and separate release are next, followed by its implementation and
+complete gates;
 Assignments 2–8 and the parallel elapsed-time legal/privacy/commercial track remain unchanged.
 
 ## Revision Note (Technical Lead Review Follow-up, 2026-07-07)
