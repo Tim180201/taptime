@@ -1,10 +1,15 @@
 # Block C3E2 — Explicit NFC Tag Reassignment Architecture and Authorization Candidate
 
-Status: **CANDIDATE — PACKAGE PREPARATION HUMAN-AUTHORIZED; INDEPENDENT PRE-IMPLEMENTATION REVIEW
-AND HUMAN CONTRACT ACCEPTANCE PENDING; REPOSITORY IMPLEMENTATION AND PRODUCTION UNAUTHORIZED**
+Status: **HUMAN-ACCEPTED CONTRACT — INDEPENDENT PRE-IMPLEMENTATION REVIEW APPROVED WITH ZERO OPEN
+P0–P3; SECTIONS 3–13 ACCEPTED; REPOSITORY IMPLEMENTATION AND PRODUCTION UNAUTHORIZED**
 Date: 2026-07-18
 Review Baseline Commit: `7d9aaf391aa3b0f22b160841b8942fdca8dddbe7`
 Review Baseline Tree: `b74f640eed314e6a9cf4888acf7e732e49bf2452`
+Independent Review Commit: `dbefc1cc2bab66bab87a00c3209bd8a1f926f731`
+Independent Review Tree: `3bcc1539e428d684f88af5bd2c81c9c820a970de`
+Independent Review Exact-head CI: GitHub Actions `29646684981`, attempt 1, ten of ten jobs passed
+Independent Review Verdict: **APPROVED — zero open P0/P1/P2/P3**
+Human Contract Acceptance Date: 2026-07-18
 Owner: Technical Lead
 Contract Acceptance Authority: Human Architect
 Implementation Authority: **Not granted**
@@ -19,6 +24,7 @@ Related:
 - `ADO/02_Development/Block_C3D_Admin_Web_Android_Capture_Authorization.md`
 - `ADO/02_Development/Block_C3E1_Identity_First_Employee_Membership_Authorization.md`
 - `ADO/02_Development/Block_C3_Organization_Administration_Implementation_Plan.md`
+- `ADO/05_Evidence/Block_C3E2_Independent_Architecture_Security_Review.md`
 
 ## 1. Purpose and authority boundary
 
@@ -26,14 +32,15 @@ C3E2 is the smallest explicit operation that moves one already registered, curre
 Tag from its current active Customer to a different active Customer in the same Organization while
 preserving immutable Assignment and time-attribution history.
 
-The Human Architect authorized preparation of this candidate package on the exact baseline above.
-That preparation authority permits repository inspection and ADO drafting only. It does not accept
-the proposed product rules below, authorize migration `009`, authorize code or test changes, or
-authorize any production resource, personal data, deployment or distribution.
+The Human Architect authorized preparation of this package on the exact baseline above. Independent
+read-only architecture/security review of commit `dbefc1c`, tree `3bcc153`, returned `APPROVED`
+with zero open P0/P1/P2/P3 after independently confirming the six-file ADO-only delta and exact-head
+ten-of-ten CI run `29646684981`.
 
-The next gate is an independent read-only architecture/security review of this exact candidate.
-Only after a zero-blocker review and explicit Human Architect acceptance may a separate repository
-implementation authorization be recorded.
+The Human Architect subsequently accepted Sections 3–13 on that reviewed commit and explicitly
+stated that this acceptance grants no implementation authority. Migration `009`, code, tests, UI,
+production resources/data, deployment and distribution therefore remain unauthorized until a later
+separate Human statement releases repository implementation.
 
 ## 2. Repository evidence and constraints
 
@@ -71,9 +78,10 @@ These facts rule out an in-place target update, a client-supplied Organization, 
 reassignment through the C3C provision route, and any mobile or server attempt to rewrite queued
 evidence.
 
-## 3. Candidate product decisions requiring Human acceptance
+## 3. Human-accepted product decisions
 
-The following decisions are proposed, not yet Human-accepted:
+The following independently reviewed decisions were explicitly accepted by the Human Architect on
+2026-07-18. Their acceptance fixes the contract but does not authorize implementation:
 
 1. **Operation.** C3E2 reassigns one already registered and currently assigned Tag to one different
    active Customer in the same Organization. It does not register a Tag, create a Customer, create
@@ -493,8 +501,10 @@ Current gate state:
 
 1. Exact candidate baseline recorded — **complete**.
 2. Human authorization to prepare this package — **complete**.
-3. Independent architecture/security review of this exact package — **pending**.
-4. Human Architect acceptance of Sections 3–13 — **pending**.
+3. Independent architecture/security review of commit `dbefc1c` — **complete; APPROVED with zero
+   open P0/P1/P2/P3**.
+4. Human Architect acceptance of Sections 3–13 — **complete on 2026-07-18; explicitly no
+   implementation authority**.
 5. Separate repository implementation authorization — **not granted**.
 6. Local implementation verification — **not started**.
 7. Technical-Lead implementation audit — **not started**.
@@ -503,5 +513,5 @@ Current gate state:
 10. Fresh Human Physical Gate — **not started**.
 11. Truthful closure synchronization — **not started**.
 
-Until gates 3–5 are explicitly completed, no production-code, migration, test-harness or UI
-implementation may begin.
+Until gate 5 is explicitly completed in a separate Human statement, no production-code, migration,
+test-harness or UI implementation may begin.

@@ -2,8 +2,9 @@
 
 Status: Active — C3B/C3C/C3D/C3E1 independently closed for their authorized scopes; C3D closure
 sync Human-accepted; C3E1 closure commit `fe0781b` passed exact-head ten-of-ten CI and independent
-zero-finding final review after the complete fresh Human Physical Gate; C3E2 authorization candidate
-prepared on `7d9aaf3`, independent review/Human acceptance pending and implementation unauthorized
+zero-finding final review after the complete fresh Human Physical Gate; C3E2 authorization contract
+at `dbefc1c` independently approved with zero open P0–P3 and Sections 3–13 Human-accepted;
+implementation unauthorized
 Date: 2026-07-18
 Planning Baseline: `f7d38558e9a1e6d5f7c2cfd1f4a1ec6eed3ebd44`
 Owner: Technical Lead
@@ -17,7 +18,7 @@ Architecture: Accepted ADR-0011, FB-002 v1.2 and TS-002 v1.3
 | C3C | Tenant-safe normal setup backend/API, Customer/Tag display names, atomic Customer and NFC provision commands, resumable safe projection | Very High | Completed — implementation `b90729a0a4b325f523cd98ea5a741defb00155f6`, independent exact-SHA reviews and exact-head ten-job CI passed |
 | C3D | Minimal Admin Web shell for Customer/assignment setup plus protected Android Administrator NFC capture | Extra High | Completed — final correction `e686578`, independent zero-finding review, exact-head ten-job CI and fresh Galaxy/NTAG213 Human gate passed |
 | C3E1 | Identity-first Employee Membership setup through a separately reviewed least-privilege invitation/redemption boundary | Very High | Closed — product correction `450d767`, harness correction `4338910` and closure commit `fe0781b` independently approved/CI-green; complete fresh Human Gate passed |
-| C3E2 | Explicit Tag reassignment with preserved Assignment history and future time attribution | Very High | Authorization candidate prepared on `7d9aaf3`; independent review and Human acceptance pending; implementation not authorized |
+| C3E2 | Explicit Tag reassignment with preserved Assignment history and future time attribution | Very High | Contract at `dbefc1c` independently approved with zero open P0–P3 and Sections 3–13 Human-accepted; implementation not authorized |
 
 C3B and C3C repository implementation are closed. The C3C backend prerequisite is satisfied. The
 Human Architect separately authorized C3D on exact baseline
@@ -228,14 +229,15 @@ Closure commit `fe0781b`, tree `76284e5`, passed exact-head ten-of-ten run `2964
 read-only final review returned `APPROVED` with zero open P0/P1/P2/P3 and accepted the documented
 Force-Stop timing disposition. C3E1 is closed for its authorized repository/device scope.
 
-C3E2 remains outside the completed C3E1 package. The Human Architect authorized preparation of its
-separate architecture/authorization candidate on exact baseline `7d9aaf3`; that candidate is
-`ADO/02_Development/Block_C3E2_Explicit_Tag_Reassignment_Authorization.md`. Independent review,
-explicit Human contract acceptance and separate repository implementation authority remain pending.
+C3E2 remains outside the completed C3E1 package. Its separate architecture/authorization contract is
+`ADO/02_Development/Block_C3E2_Explicit_Tag_Reassignment_Authorization.md`. Exact commit `dbefc1c`,
+tree `3bcc153`, passed independent review with zero open P0/P1/P2/P3 and exact-head ten-job run
+`29646684981`. The Human Architect accepted Sections 3–13 on 2026-07-18 while explicitly withholding
+implementation authority. Separate repository implementation authority therefore remains pending.
 
-## 6. C3E2 — explicit Tag reassignment candidate
+## 6. C3E2 — Human-accepted explicit Tag reassignment contract
 
-The candidate freezes for review:
+The independently reviewed and Human-accepted contract freezes:
 
 - one Admin-Web-only explicit reassignment command with current Membership and exact active
   Assignment narrowing;
@@ -250,9 +252,9 @@ The candidate freezes for review:
 - automated race/rollback/security coverage followed by a fresh real Admin-Web/Galaxy/NTAG213
   Human gate.
 
-This is proposal state only. No C3E2 migration, code, test, UI, harness, production or deployment
-work is authorized until the package passes independent review and the Human Architect explicitly
-accepts the contract and separately releases repository implementation.
+No C3E2 migration, code, test, UI, harness, production or deployment work is authorized until the
+Human Architect separately releases repository implementation. The completed independent review and
+Human contract acceptance do not imply that release.
 
 ## 7. Independent review and publication gates
 
