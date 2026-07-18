@@ -1,7 +1,7 @@
 # ADR-0011: Secure Organization Bootstrap and Administration Boundary
 
-Status: Accepted by Human Architect — C3B/C3C/C3D/C3E1 independently closed for their authorized
-scopes; C3E2/production gated
+Status: Accepted by Human Architect — C3B/C3C/C3D/C3E1/C3E2 independently closed for their
+authorized scopes; production gated
 Date: 2026-07-14
 Acceptance: Accepted 2026-07-14
 Roadmap: Core Roadmap v2, Block C3 and later setup slices DT-063–DT-066
@@ -427,6 +427,15 @@ The former combined C3E planning label is now separated for review:
 The separation narrows authorization and review scope. The exact C3E1 token/cap,
 historical-Membership, pre-Membership state, display-name, schema, HTTP, lock and audit contract is
 accepted only as recorded in the C3E1 authorization package. C3E2 and production remain separate.
+
+## C3E2 closure synchronization (2026-07-18)
+
+The preceding C3E2 authorization wording is historical. The separately authorized explicit
+reassignment implementation closed through final head `7050df4`, complete fresh
+Galaxy-A33/NTAG213 Human Gate and ADO-only closure commit `a2fdebc`, tree `1872f9f`. Closure run
+`29652072268` passed ten of ten and independent final review returned `APPROVED` with zero open
+P0/P1/P2/P3. C3E2 is closed for its authorized local repository/device scope without changing this
+ADR's accepted rules or granting production/deployment authority.
 
 ## Review triggers
 

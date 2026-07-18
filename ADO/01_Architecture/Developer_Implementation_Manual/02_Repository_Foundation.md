@@ -856,3 +856,16 @@ and independent zero-finding final review. C3E2, production
 data/resources and deployment/distribution remain outside this addendum. Evidence:
 `ADO/05_Evidence/Block_C3E1_Implementation_Evidence.md` and
 `ADO/05_Evidence/Block_C3E1_Physical_Validation_Evidence.md`.
+
+## 14. C3E2 Repository Closure Addendum (2026-07-18)
+
+The preceding C3E2-unauthorized wording is historical. The separately authorized C3E2 repository
+slice adds migration `009` and the distinct least-privilege reassignment capability while preserving
+existing migration bytes `001`–`008`. Final implementation head `7050df4` passed exact-head
+ten-of-ten CI and zero-finding independent implementation review; the complete fresh
+Galaxy-A33/NTAG213 Human Gate passed. Closure commit `a2fdebc`, tree `1872f9f`, passed exact-head
+ten-of-ten run `29652072268` and zero-finding independent final review.
+
+This status addendum changes no package, dependency, workflow, migration or source. Production
+data/resources, deployment/distribution and the two unverified Supavisor modes remain outside the
+closed local repository/device scope.

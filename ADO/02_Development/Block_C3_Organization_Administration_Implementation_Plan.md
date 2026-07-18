@@ -1,13 +1,9 @@
 # Block C3 — Organization Administration Implementation Plan
 
-Status: Active — C3B/C3C/C3D/C3E1 independently closed for their authorized scopes; C3D closure
-sync Human-accepted; C3E1 closure commit `fe0781b` passed exact-head ten-of-ten CI and independent
-zero-finding final review after the complete fresh Human Physical Gate; C3E2 contract at `dbefc1c`
-independently approved with zero open P0–P3 and Sections 3–13 Human-accepted; separate repository
-implementation released on baseline `5bc4951`; implementation `b783733` and CI-only correction
-`672b7ac` published; final head `7050df4`, tree `587ef8f`, exact-head run `29649683173` and
-independent implementation review zero-finding; complete fresh Human Physical Gate passed; ADO
-closure publication/CI/final review pending
+Status: Active — C3B/C3C/C3D/C3E1/C3E2 independently closed for their authorized scopes; C3D closure
+sync Human-accepted; C3E1 closure commit `fe0781b` and C3E2 closure commit `a2fdebc` passed their
+exact-head ten-of-ten CI runs and independent zero-finding final reviews after their complete fresh
+Human Physical Gates; production remains unauthorized
 Date: 2026-07-18
 Planning Baseline: `f7d38558e9a1e6d5f7c2cfd1f4a1ec6eed3ebd44`
 Owner: Technical Lead
@@ -21,7 +17,7 @@ Architecture: Accepted ADR-0011, FB-002 v1.2 and TS-002 v1.3
 | C3C | Tenant-safe normal setup backend/API, Customer/Tag display names, atomic Customer and NFC provision commands, resumable safe projection | Very High | Completed — implementation `b90729a0a4b325f523cd98ea5a741defb00155f6`, independent exact-SHA reviews and exact-head ten-job CI passed |
 | C3D | Minimal Admin Web shell for Customer/assignment setup plus protected Android Administrator NFC capture | Extra High | Completed — final correction `e686578`, independent zero-finding review, exact-head ten-job CI and fresh Galaxy/NTAG213 Human gate passed |
 | C3E1 | Identity-first Employee Membership setup through a separately reviewed least-privilege invitation/redemption boundary | Very High | Closed — product correction `450d767`, harness correction `4338910` and closure commit `fe0781b` independently approved/CI-green; complete fresh Human Gate passed |
-| C3E2 | Explicit Tag reassignment with preserved Assignment history and future time attribution | Very High | Final implementation head `7050df4` independently approved with zero open P0–P3 and ten-of-ten exact-head CI; complete fresh Human Gate passed; ADO closure publication/CI/final review pending |
+| C3E2 | Explicit Tag reassignment with preserved Assignment history and future time attribution | Very High | Closed — final implementation head `7050df4` and closure commit `a2fdebc` independently approved/CI-green; complete fresh Human Gate passed |
 
 C3B and C3C repository implementation are closed. The C3C backend prerequisite is satisfied. The
 Human Architect separately authorized C3D on exact baseline
@@ -282,9 +278,11 @@ timestamp and immutable A-before/B-after attribution. Both surfaces signed out a
 generated logins, listeners and reverse mappings were removed. Detailed evidence:
 `ADO/05_Evidence/Block_C3E2_Physical_Validation_Evidence.md`.
 
-This checkpoint is not yet independent closure. The ADO-only closure synchronization must be
-published, pass exact-head CI and receive independent final closure review. Production
-resources/data, deployment and distribution remain unauthorized.
+ADO-only closure commit `a2fdebc`, tree `1872f9f`, passed exact-head ten-of-ten run `29652072268`.
+Independent final closure review returned `APPROVED` with zero open P0/P1/P2/P3 and accepted the
+attempt separation, safe-data evidence and complete cleanup. C3E2 is independently closed for its
+authorized local repository/device scope. Production resources/data, deployment and distribution
+remain unauthorized.
 
 ## 7. Independent review and publication gates
 

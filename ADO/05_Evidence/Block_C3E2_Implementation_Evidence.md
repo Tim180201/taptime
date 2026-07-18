@@ -1,7 +1,8 @@
 # Block C3E2 — Explicit NFC Tag Reassignment Implementation Evidence
 
-Status: **IMPLEMENTATION PUBLISHED/CI-VERIFIED, INDEPENDENT IMPLEMENTATION REVIEW APPROVED AND
-COMPLETE FRESH HUMAN PHYSICAL GATE PASSED — ADO CLOSURE PUBLICATION/CI/FINAL REVIEW PENDING**
+Status: **CLOSED FOR AUTHORIZED C3E2 LOCAL SCOPE — IMPLEMENTATION, COMPLETE FRESH HUMAN PHYSICAL
+GATE AND ADO CLOSURE SYNCHRONIZATION INDEPENDENTLY APPROVED WITH ZERO OPEN P0–P3; ALL EXACT-HEAD CI
+GATES THAT CARRY THE FINAL ACCEPTED STATES ARE GREEN**
 Date: 2026-07-18
 Contract Commit: `dbefc1cc2bab66bab87a00c3209bd8a1f926f731`
 Implementation Baseline Commit: `5bc495107292d8cdd959c9c40319e8ae180099b3`
@@ -16,6 +17,10 @@ Final Reviewed Tree: `587ef8f5385d08af297a0c38322a2522cb7516a2`
 Final Reviewed Exact-head CI: GitHub Actions `29649683173`, attempt 1, ten of ten jobs passed
 Independent Implementation Review: **APPROVED — zero open P0/P1/P2/P3**
 Fresh Human Physical Gate: **PASSED**
+Closure Commit: `a2fdebc9324597f548bb05518e8ccb4e60f8684e`
+Closure Tree: `1872f9f455c380ed2145eaf1adeec4e7d1d93297`
+Closure Exact-head CI: GitHub Actions `29652072268`, attempt 1, ten of ten jobs passed
+Independent Final Closure Review: **APPROVED — zero open P0/P1/P2/P3**
 Owner: Technical Lead
 Production/Deployment Authority: **Not granted**
 
@@ -150,13 +155,19 @@ four WorkEvents, four canonical Decisions, four lifecycle Receipts, two stopped 
 AuditEvents, plus the exact closed C3E1 identity/invitation counts. Detailed evidence:
 `ADO/05_Evidence/Block_C3E2_Physical_Validation_Evidence.md`.
 
-## 6. Technical-Lead disposition and next gate
+## 6. Technical-Lead and final closure disposition
 
 The implementation matches Sections 3–13, independent implementation review is zero-finding and the
-complete fresh Human Physical Gate passed. The remaining sequence is limited to:
+complete fresh Human Physical Gate passed. ADO-only closure commit
+`a2fdebc9324597f548bb05518e8ccb4e60f8684e`, tree
+`1872f9f455c380ed2145eaf1adeec4e7d1d93297`, then passed exact-head GitHub Actions run
+`29652072268`, attempt 1, ten of ten jobs.
 
-1. publish this focused ADO-only closure synchronization;
-2. require green exact-head GitHub Actions on that closure commit; and
-3. obtain independent read-only final closure review before calling C3E2 independently closed.
+Independent read-only final closure review returned `APPROVED` with zero open P0/P1/P2/P3 and
+accepted the complete physical sequence, safe final counts, attempt separation, exact historical
+attribution, safe-data boundaries and cleanup. C3E2 is independently closed for its authorized
+local repository/device scope.
 
-Production resources/data, deployment and distribution remain unauthorized.
+Production resources/data, deployment/distribution, Web/iOS NFC, broader Membership
+administration, TimeEntry correction, reporting/export, broader Block E and the two unverified
+Supavisor operating modes remain unauthorized.
