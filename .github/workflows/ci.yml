@@ -530,12 +530,13 @@ jobs:
       - name: Install dependencies from lockfile
         run: npm ci
 
-      - name: Build C3C/C3E1 contract, Core, schema, and identity dependencies
+      - name: Build C3C/C3E1/C3E2 contract, Core, schema, identity, and B6 dependencies
         run: |
           npm run build --workspace=@taptime/administration-contract
           npm run build --workspace=@taptime/core
           npm run build --workspace=@taptime/backend-schema
           npm run build --workspace=@taptime/backend-identity
+          npm run build --workspace=@taptime/backend-lifecycle
 
       - name: Apply schema migrations 001 through 009 to clean PostgreSQL 17
         run: npm run migrate --workspace=@taptime/backend-schema
@@ -550,12 +551,12 @@ jobs:
           npm run typecheck --workspace=@taptime/administration-contract
           npm test --workspace=@taptime/administration-contract
 
-      - name: Typecheck and test C3C/C3E1 against direct PostgreSQL 17
+      - name: Typecheck and test C3C/C3E1/C3E2 against direct PostgreSQL 17
         run: |
           npm run typecheck --workspace=@taptime/backend-administration
           npm test --workspace=@taptime/backend-administration
 
-      - name: Build isolated C3C/C3E1 administration package
+      - name: Build isolated C3C/C3E1/C3E2 administration package
         run: npm run build --workspace=@taptime/backend-administration
 
   synthetic-android-e2e:
