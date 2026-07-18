@@ -16,7 +16,10 @@ Completed and independently closed C3E1 implementation, Human physical-gate and 
 `ADO/05_Evidence/Block_C3E1_Implementation_Evidence.md` and
 `ADO/05_Evidence/Block_C3E1_Physical_Validation_Evidence.md`; independent final closure review:
 `ADO/05_Evidence/Block_C3E1_Independent_Final_Closure_Review.md`.
-C3E2 remains unauthorized; no next-slice implementation package is currently released.
+C3E2 architecture/authorization candidate:
+`ADO/02_Development/Block_C3E2_Explicit_Tag_Reassignment_Authorization.md`. Package preparation is
+Human-authorized on baseline `7d9aaf3`; independent review, Human contract acceptance and separate
+repository implementation authority remain pending. No C3E2 implementation is released.
 
 This file is the official navigation entry point for the TapTim.e ADO.
 
@@ -136,6 +139,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Block C3C Normal Administration Backend/API Closure | `ADO/02_Development/Block_C3C_Normal_Administration_Backend_Closure.md` |
 | Block C3D Admin Web and Protected Android Capture Authorization | `ADO/02_Development/Block_C3D_Admin_Web_Android_Capture_Authorization.md` |
 | Block C3E1 Identity-First Employee Membership Authorization Package | `ADO/02_Development/Block_C3E1_Identity_First_Employee_Membership_Authorization.md` |
+| Block C3E2 Explicit Tag Reassignment Authorization Candidate | `ADO/02_Development/Block_C3E2_Explicit_Tag_Reassignment_Authorization.md` |
 | Block C3 Organization Administration Implementation Plan | `ADO/02_Development/Block_C3_Organization_Administration_Implementation_Plan.md` |
 | Repository Health Sprint 001 | `ADO/02_Development/Repository_Health_Sprint_001.md` |
 | Repository Maintenance Sprint 002 | `ADO/02_Development/Repository_Maintenance_Sprint_002.md` |

@@ -1,10 +1,10 @@
 # TS-002 – Organization Management Foundation Technical Specification
 
 Status: Approved by Human Architect — C3B/C3C/C3D/C3E1 independently closed for their authorized
-scopes; C3E2/production gated
+scopes; C3E2 candidate under review and implementation/production gated
 Specification ID: TS-002
 Version: 1.3
-Last Updated: 2026-07-18 (C3E1 physical closure synchronization; exact contract unchanged)
+Last Updated: 2026-07-18 (C3E1 closure correction and C3E2 candidate linkage; accepted contract unchanged)
 Acceptance: Accepted 2026-07-14
 Related Feature Blueprint: FB-002 (`ADO/01_Architecture/Feature_Blueprints/FB-002-organization-management-foundation.md`)
 Related Evidence: `ADO/05_Evidence/FB-002_Organization_Management_Scope_Assessment.md`,
@@ -17,7 +17,8 @@ Related Evidence: `ADO/05_Evidence/FB-002_Organization_Management_Scope_Assessme
 `ADO/05_Evidence/Block_C3D_Physical_Validation_Evidence.md`,
 `ADO/05_Evidence/Block_C3E1_Physical_Validation_Evidence.md`,
 `ADO/05_Evidence/Block_C3E1_Independent_Final_Closure_Review.md`,
-`ADO/02_Development/Block_C3E1_Identity_First_Employee_Membership_Authorization.md`
+`ADO/02_Development/Block_C3E1_Identity_First_Employee_Membership_Authorization.md`,
+`ADO/02_Development/Block_C3E2_Explicit_Tag_Reassignment_Authorization.md`
 Epic: EP-009 – Product Readiness Framework (Product Capability Track); EP-007 – Product Architecture Foundation (architectural continuity)
 Owner: Technical Lead
 Approval Authority: Human Architect
@@ -25,7 +26,7 @@ Related Architecture: `ADO/01_Architecture/Technical_Architecture_Profile.md` (T
 Related ADRs: ADR-0002, ADR-0003, ADR-0005, ADR-0006, ADR-0007, ADR-0008, ADR-0009, ADR-0011
 Related Technical Specification: TS-001 (`ADO/01_Architecture/Technical_Specifications/TS-001-nfc-scan-creates-work-event.md`) — extended, not replaced
 Related Development Tasks: DT-017–DT-026 completed; C3B/C3C/C3D/C3E1 completed for authorized
-scopes; C3E2 gated
+scopes; C3E2 candidate review/Human acceptance pending and implementation gated
 
 ## Purpose
 
@@ -463,8 +464,9 @@ Unchanged from FB-002, restated for this specification's own boundary:
   authority, display fields, result vocabulary, payload uniqueness and Assignment history. C3B and
   C3C passed their separate exact-baseline authorization, implementation, review and CI gates; C3D
   additionally passed its complete fresh Human physical gate. C3E1 product correction `450d767`,
-  harness correction `4338910` and its complete fresh Human physical gate passed; closure
-  synchronization review remains pending. C3E2 remains unplanned and unauthorized.
+  harness correction `4338910`, complete fresh Human physical gate and closure commit `fe0781b`
+  passed their review/CI gates. A separate C3E2 candidate is prepared on `7d9aaf3`; independent
+  review, Human contract acceptance and repository implementation authority remain pending.
 - Traceability: every new component is traced to a specific FB-002 Capability/Decision and to a specific existing repository precedent (`AssignmentValidator`, `CustomerRepository`, `NfcScanApplicationService`, `ids.ts`, ADR-0002's `NfcAssignment` identity precedent).
 - Accepted FB-002/TS-002 baseline: this document covers the implemented Core foundation and
   corrected C3A runtime contract. Independent re-review passed and Human Architect acceptance is
