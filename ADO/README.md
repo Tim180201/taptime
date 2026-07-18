@@ -16,15 +16,16 @@ Completed and independently closed C3E1 implementation, Human physical-gate and 
 `ADO/05_Evidence/Block_C3E1_Implementation_Evidence.md` and
 `ADO/05_Evidence/Block_C3E1_Physical_Validation_Evidence.md`; independent final closure review:
 `ADO/05_Evidence/Block_C3E1_Independent_Final_Closure_Review.md`.
-C3E2 architecture/authorization and published implementation evidence:
+C3E2 architecture/authorization, approved implementation review and passed Human physical evidence:
 `ADO/02_Development/Block_C3E2_Explicit_Tag_Reassignment_Authorization.md` and
-`ADO/05_Evidence/Block_C3E2_Implementation_Evidence.md`. Independent pre-implementation review of
-`dbefc1c` returned `APPROVED` with zero open P0–P3; the Human Architect accepted Sections 3–13 and
-later issued the separate repository implementation release on baseline `5bc4951`. The bounded
-implementation was published through commit `b783733` and CI-only correction `672b7ac`; exact-head
-GitHub Actions run `29649388470` passed all ten jobs. Independent implementation review and the
-fresh Human Physical Gate remain pending. Production resources/data and deployment/distribution
-remain unauthorized.
+`ADO/05_Evidence/Block_C3E2_Implementation_Evidence.md`; implementation review and physical
+evidence: `ADO/05_Evidence/Block_C3E2_Independent_Implementation_Review.md` and
+`ADO/05_Evidence/Block_C3E2_Physical_Validation_Evidence.md`. Independent implementation review of
+exact head `7050df4`, tree `587ef8f`, and ten-of-ten run `29649683173` returned `APPROVED` with zero
+open P0–P3. The complete fresh Galaxy-A33/NTAG213 Human gate then passed with active-work rejection,
+post-stop A→B reassignment, exact historical attribution and complete cleanup. ADO closure
+publication, its exact-head CI and independent final closure review remain pending. Production
+resources/data and deployment/distribution remain unauthorized.
 
 This file is the official navigation entry point for the TapTim.e ADO.
 
@@ -176,7 +177,9 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Block C3E1 Physical Validation Evidence | `ADO/05_Evidence/Block_C3E1_Physical_Validation_Evidence.md` |
 | Block C3E1 Independent Final Closure Review | `ADO/05_Evidence/Block_C3E1_Independent_Final_Closure_Review.md` |
 | Block C3E2 Independent Pre-Implementation Architecture/Security Review | `ADO/05_Evidence/Block_C3E2_Independent_Architecture_Security_Review.md` |
+| Block C3E2 Independent Final Implementation Review | `ADO/05_Evidence/Block_C3E2_Independent_Implementation_Review.md` |
 | Block C3E2 Local Implementation Evidence | `ADO/05_Evidence/Block_C3E2_Implementation_Evidence.md` |
+| Block C3E2 Physical Validation Evidence | `ADO/05_Evidence/Block_C3E2_Physical_Validation_Evidence.md` |
 | Product Readiness Reassessment — C3D Closure Delta | `ADO/05_Evidence/Product_Readiness_Reassessment_2026-07-15_C3D_Closure_Delta.md` |
 | EP-008 Evidence (incl. Repository Health Follow-up) | `ADO/05_Evidence/EP-008/` |
 | Evidence Area | `ADO/05_Evidence/` |

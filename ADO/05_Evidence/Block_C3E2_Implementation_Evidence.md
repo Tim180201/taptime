@@ -1,7 +1,7 @@
 # Block C3E2 — Explicit NFC Tag Reassignment Implementation Evidence
 
-Status: **IMPLEMENTATION PUBLISHED AND EXACT-HEAD CI VERIFIED — INDEPENDENT IMPLEMENTATION REVIEW
-AND FRESH HUMAN PHYSICAL GATE PENDING**
+Status: **IMPLEMENTATION PUBLISHED/CI-VERIFIED, INDEPENDENT IMPLEMENTATION REVIEW APPROVED AND
+COMPLETE FRESH HUMAN PHYSICAL GATE PASSED — ADO CLOSURE PUBLICATION/CI/FINAL REVIEW PENDING**
 Date: 2026-07-18
 Contract Commit: `dbefc1cc2bab66bab87a00c3209bd8a1f926f731`
 Implementation Baseline Commit: `5bc495107292d8cdd959c9c40319e8ae180099b3`
@@ -11,6 +11,11 @@ Implementation Tree: `7c779ee222cdd221b2b0ee89a954e263d0155595`
 CI Integration Correction Commit: `672b7ac35dfd676138dd6c3999366de9ce25c80e`
 CI Integration Correction Tree: `8b4c601919187dadb4a976a9a2d7c5ff6a3ec1c1`
 Exact-head CI: GitHub Actions `29649388470`, attempt 1, ten of ten jobs passed
+Final Reviewed Commit: `7050df43977fc79bba3483aada91b5f98ef0e3b0`
+Final Reviewed Tree: `587ef8f5385d08af297a0c38322a2522cb7516a2`
+Final Reviewed Exact-head CI: GitHub Actions `29649683173`, attempt 1, ten of ten jobs passed
+Independent Implementation Review: **APPROVED — zero open P0/P1/P2/P3**
+Fresh Human Physical Gate: **PASSED**
 Owner: Technical Lead
 Production/Deployment Authority: **Not granted**
 
@@ -120,20 +125,38 @@ new test-only B6 dependency before TypeScript resolution. No product or PostgreS
 Correction `672b7ac`, tree `8b4c601`, added that dependency build and C3E2 administration-step
 labels. The final publication synchronization aligns the remaining top-level API/Mobile and
 administration job labels with their executed C3E2 coverage. Exact-head run `29649388470`, attempt
-1, passed all ten implementation jobs. No independent implementation review or Human Physical Gate
-is claimed.
+1, passed all ten implementation jobs. Final reviewed head `7050df4`, tree `587ef8f`, then passed
+exact-head run `29649683173`, attempt 1, ten of ten. Independent read-only implementation review
+returned `APPROVED` with zero open P0/P1/P2/P3.
 
-## 5. Technical-Lead disposition and next gate
+## 5. Human physical disposition
 
-The local implementation diff matches Sections 3–13 and has no open Technical-Lead finding.
-Unrelated user work is excluded from the candidate.
+After the independent review opened Gate 10, the Technical Lead bound a freshly built/installed
+synthetic APK, Admin Web and harness to exact head `7050df4`, tree `587ef8f`. The Human Architect
+then completed a fresh Galaxy-A33/Android-15/NTAG213 sequence:
 
-The exact next sequence is:
+- real C3C protected Android registration/assignment to Customer A;
+- closed C3E1 Employee enrollment and normal Employee session;
+- Customer-A Start;
+- explicit Web reassignment rejection while work was active and exact zero-mutation proof;
+- Customer-A Stop;
+- explicit successful Web A→B reassignment and matching Web/Android projections;
+- Customer-B Start/Stop; and
+- exact two-row Assignment history, shared cutover timestamp, A-before/B-after lifecycle
+  attribution, exact receipt/audit counts, safe-data confirmation and complete cleanup.
 
-1. obtain independent read-only implementation architecture/security review bound to the current
-   exact commit/tree/CI;
-2. only after an `APPROVED` review may the complete fresh Human Physical Gate begin at its first
-   checklist row.
+Final sanitized counts were two Customers, one Tag, two Assignments, two administration receipts,
+four WorkEvents, four canonical Decisions, four lifecycle Receipts, two stopped TimeEntries and ten
+AuditEvents, plus the exact closed C3E1 identity/invitation counts. Detailed evidence:
+`ADO/05_Evidence/Block_C3E2_Physical_Validation_Evidence.md`.
 
-No observation from an earlier C3D/C3E1 attempt can satisfy C3E2. Production resources/data,
-deployment and distribution remain unauthorized.
+## 6. Technical-Lead disposition and next gate
+
+The implementation matches Sections 3–13, independent implementation review is zero-finding and the
+complete fresh Human Physical Gate passed. The remaining sequence is limited to:
+
+1. publish this focused ADO-only closure synchronization;
+2. require green exact-head GitHub Actions on that closure commit; and
+3. obtain independent read-only final closure review before calling C3E2 independently closed.
+
+Production resources/data, deployment and distribution remain unauthorized.

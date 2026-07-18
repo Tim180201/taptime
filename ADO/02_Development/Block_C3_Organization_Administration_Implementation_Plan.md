@@ -5,8 +5,9 @@ sync Human-accepted; C3E1 closure commit `fe0781b` passed exact-head ten-of-ten 
 zero-finding final review after the complete fresh Human Physical Gate; C3E2 contract at `dbefc1c`
 independently approved with zero open P0–P3 and Sections 3–13 Human-accepted; separate repository
 implementation released on baseline `5bc4951`; implementation `b783733` and CI-only correction
-`672b7ac` published, exact-head ten-job run `29649388470` green; independent review/Physical Gate
-pending
+`672b7ac` published; final head `7050df4`, tree `587ef8f`, exact-head run `29649683173` and
+independent implementation review zero-finding; complete fresh Human Physical Gate passed; ADO
+closure publication/CI/final review pending
 Date: 2026-07-18
 Planning Baseline: `f7d38558e9a1e6d5f7c2cfd1f4a1ec6eed3ebd44`
 Owner: Technical Lead
@@ -20,7 +21,7 @@ Architecture: Accepted ADR-0011, FB-002 v1.2 and TS-002 v1.3
 | C3C | Tenant-safe normal setup backend/API, Customer/Tag display names, atomic Customer and NFC provision commands, resumable safe projection | Very High | Completed — implementation `b90729a0a4b325f523cd98ea5a741defb00155f6`, independent exact-SHA reviews and exact-head ten-job CI passed |
 | C3D | Minimal Admin Web shell for Customer/assignment setup plus protected Android Administrator NFC capture | Extra High | Completed — final correction `e686578`, independent zero-finding review, exact-head ten-job CI and fresh Galaxy/NTAG213 Human gate passed |
 | C3E1 | Identity-first Employee Membership setup through a separately reviewed least-privilege invitation/redemption boundary | Very High | Closed — product correction `450d767`, harness correction `4338910` and closure commit `fe0781b` independently approved/CI-green; complete fresh Human Gate passed |
-| C3E2 | Explicit Tag reassignment with preserved Assignment history and future time attribution | Very High | Implementation `b783733` plus CI-only correction `672b7ac` published; exact-head ten-job run `29649388470` green; independent review/fresh Human Gate pending |
+| C3E2 | Explicit Tag reassignment with preserved Assignment history and future time attribution | Very High | Final implementation head `7050df4` independently approved with zero open P0–P3 and ten-of-ten exact-head CI; complete fresh Human Gate passed; ADO closure publication/CI/final review pending |
 
 C3B and C3C repository implementation are closed. The C3C backend prerequisite is satisfied. The
 Human Architect separately authorized C3D on exact baseline
@@ -264,9 +265,26 @@ typechecks/builds and a clean diff check. Detailed evidence:
 `ADO/05_Evidence/Block_C3E2_Implementation_Evidence.md`.
 
 Focused implementation commit `b783733`, tree `7c779ee`, was followed by CI-only dependency-build
-correction `672b7ac`, tree `8b4c601`; exact-head run `29649388470` passed all ten jobs. This
-checkpoint is not closure. Independent implementation review and the complete fresh Human Physical
-Gate remain mandatory. Production resources/data, deployment and distribution remain unauthorized.
+correction `672b7ac`, tree `8b4c601`; exact-head run `29649388470` passed all ten jobs. Final
+reviewed head `7050df4`, tree `587ef8f`, passed exact-head run `29649683173`; independent
+implementation review returned `APPROVED` with zero open P0/P1/P2/P3.
+
+### Physical closure checkpoint (2026-07-18)
+
+After exact APK/Web/harness binding, the Human Architect passed the complete fresh
+Admin-Web/Galaxy-A33/NTAG213 sequence. The accepted run proved real C3C assignment to Customer A,
+closed C3E1 Employee enrollment, Customer-A Start, active-work reassignment rejection with zero
+mutation, Customer-A Stop, explicit A→B reassignment, matching Web/Android projections and
+Customer-B Start/Stop. Final sanitized state was exactly two Customers, one Tag, two Assignments,
+two administration receipts, four WorkEvents/Decisions/lifecycle Receipts, two stopped TimeEntries
+and ten AuditEvents. Read-only evidence proved old inactive/new active, one shared database cutover
+timestamp and immutable A-before/B-after attribution. Both surfaces signed out and schema,
+generated logins, listeners and reverse mappings were removed. Detailed evidence:
+`ADO/05_Evidence/Block_C3E2_Physical_Validation_Evidence.md`.
+
+This checkpoint is not yet independent closure. The ADO-only closure synchronization must be
+published, pass exact-head CI and receive independent final closure review. Production
+resources/data, deployment and distribution remain unauthorized.
 
 ## 7. Independent review and publication gates
 

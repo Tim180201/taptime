@@ -286,6 +286,35 @@ elapsed-time Block-H/legal-commercial work. This
 addendum changes no original roadmap milestone. C3E1 implementation authority is governed only by
 its separate accepted package; no production-data authority follows.
 
+## Addendum (2026-07-18 — C3E2 Human Gate and Remaining Assignment Granularity)
+
+The preceding C3E2 wording is historical. C3E2 was subsequently separately authorized and
+implemented. Final implementation head `7050df4`, tree `587ef8f`, passed exact-head ten-of-ten run
+`29649683173` and independent implementation review with zero open P0/P1/P2/P3. The complete fresh
+Galaxy-A33/Android-15/NTAG213 Human Gate passed active-work rejection with zero mutation, Customer-A
+Stop, explicit A→B reassignment, matching Web/Android projection, Customer-B Start/Stop, exact
+two-row Assignment history with one shared server cutover timestamp and complete cleanup. ADO
+closure publication, its exact-head CI and independent final closure review remain pending.
+
+The Human Architect and Technical Lead agreed that the remaining engineering path will be managed
+as eight comprehensive Development assignments:
+
+1. complete offline/synchronization platform;
+2. setup and export backend;
+3. correction and append-only audit workflow;
+4. professional Admin Web productization;
+5. professional Mobile productization;
+6. production-like platform, security, observability, backup/recovery and operations;
+7. app build, signing and distribution; and
+8. public website plus final cross-surface hardening.
+
+This is a planning-granularity decision, not an implementation authorization or schedule guarantee.
+Every assignment preserves its own security/architecture boundary, exact baseline, full tests and
+tests-inclusive typechecks, builds, Technical-Lead review, focused publication, exact-head CI,
+independent review and applicable Human/physical gate. The reduced assignment count therefore does
+not lower the required quality or professional-release standard. The parallel elapsed-time
+legal/privacy/commercial track remains unchanged.
+
 ## Revision Note (Technical Lead Review Follow-up, 2026-07-07)
 
 This roadmap was updated once, after Technical Lead review, to: (1) add the "Strategic frame" paragraph above, connecting roadmap items to the companion assessment's Business Event Platform framing (Section 0.1) and capability hierarchy (Section 12); (2) organize every milestone's existing items into an Engineering Track, a Product Capability Track, and a Business, Legal & Go-To-Market Track, without adding, removing, or reprioritizing any item, and without moving any item to a different milestone; (3) note, within the Now and Before Pilot Customers milestones, the re-evaluated primary-bottleneck finding from the companion assessment's Section 11.1 (Organization Management as the more foundational blocker for reaching the first pilot, alongside — not instead of — the backend technology decision). No original roadmap item's wording, milestone assignment, or substance was changed; this revision only added track labels, short cross-reference notes, and this closing note.
