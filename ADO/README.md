@@ -12,8 +12,11 @@ Completed C3D implementation/physical evidence:
 `ADO/05_Evidence/Block_C3D_Physical_Validation_Evidence.md`.
 Independent review and Technical-Lead correction disposition:
 `ADO/05_Evidence/Block_C3D_Independent_Architecture_Security_Review.md`.
-Current next-slice review package:
-`ADO/02_Development/Block_C3E1_Identity_First_Employee_Membership_Authorization.md`.
+Completed C3E1 implementation and Human physical-gate evidence, with closure synchronization final
+review pending:
+`ADO/05_Evidence/Block_C3E1_Implementation_Evidence.md` and
+`ADO/05_Evidence/Block_C3E1_Physical_Validation_Evidence.md`.
+C3E2 remains unauthorized; no next-slice implementation package is currently released.
 
 This file is the official navigation entry point for the TapTim.e ADO.
 
@@ -160,6 +163,8 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Block C3D Physical Validation Evidence | `ADO/05_Evidence/Block_C3D_Physical_Validation_Evidence.md` |
 | Block C3D Closure Synchronization Evidence | `ADO/05_Evidence/Block_C3D_Closure_Synchronization_Evidence.md` |
 | C3D Closure Sync / C3E1 Independent Architecture-Security Review | `ADO/05_Evidence/Block_C3D_C3E1_Independent_Architecture_Security_Review.md` |
+| Block C3E1 Implementation Evidence | `ADO/05_Evidence/Block_C3E1_Implementation_Evidence.md` |
+| Block C3E1 Physical Validation Evidence | `ADO/05_Evidence/Block_C3E1_Physical_Validation_Evidence.md` |
 | Product Readiness Reassessment — C3D Closure Delta | `ADO/05_Evidence/Product_Readiness_Reassessment_2026-07-15_C3D_Closure_Delta.md` |
 | EP-008 Evidence (incl. Repository Health Follow-up) | `ADO/05_Evidence/EP-008/` |
 | Evidence Area | `ADO/05_Evidence/` |

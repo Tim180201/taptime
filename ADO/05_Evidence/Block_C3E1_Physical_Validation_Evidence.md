@@ -1,11 +1,10 @@
 # Block C3E1 Physical Validation Evidence
 
-**Date:** 2026-07-15
+**Date:** 2026-07-18
 
-**Status:** NOT STARTED — implementation correction independently approved and exact-head CI
-green; first physical-harness commit `ee522a5` passed exact-head CI but independent review returned
-`CHANGES REQUIRED`; focused four-finding harness correction is 16/16 locally and still requires
-publication, exact-head CI and independent delta re-review before the first Human observation
+**Status:** PASSED — implementation correction and corrected physical harness independently
+approved with zero open P0/P1/P2/P3, both exact-head CI runs green, and one complete fresh Human
+identity/device validation passed on the approved Galaxy A33/NTAG213 set
 
 **Validated implementation correction:** `450d7673431d3201dd02b2887f98ff6a1754e553`
 
@@ -24,6 +23,19 @@ passed all ten jobs
 **Harness review disposition:** `CHANGES REQUIRED` with two P2 and two P3 findings: the fault
 controller itself accepted sensitive commands, callback failure could skip cleanup, a delegate
 failure before `beforeCommit` retained stale arm state, and lifecycle regressions were missing
+
+**Approved harness correction:** commit `43389100fcf539e64053e95dab0aa57bdba919f9`, tree
+`0657f4bf2125f1a924a1b35d5ec5a8e38b8d5c8e`, direct parent
+`ee522a568f3c8dee71b8ffeac34f2dec9a905559`
+
+**Harness correction CI:** GitHub Actions `29420832927`, attempt 1 — exact correction SHA, ten of
+ten jobs passed
+
+**Harness correction review:** independent read-only delta re-review returned `APPROVED`, closed
+all four findings and reported no open P0/P1/P2/P3
+
+**Installed exact-head APK SHA-256:**
+`2bbb1f09c78ed25a044df59bb2e114d03feabe1bfa407b518e6ce76a69100116`
 
 **Authority:** Section 9 of
 `ADO/02_Development/Block_C3E1_Identity_First_Employee_Membership_Authorization.md`
@@ -81,35 +93,90 @@ two approved Supavisor-mode skips. The exact complete verification record is mai
 
 ## Controlled prerequisite
 
-After exact-head CI and independent approval of the harness commit, the Human Architect starts one
-fresh disposable run. Before checklist observation 1, the synthetic Administrator uses Android
+After exact-head CI and independent approval of the harness correction, the Human Architect
+completed the accepted observation set in one fresh disposable run. Before checklist observation 1,
+the synthetic Administrator used Android
 `NFC-Einrichtung` to assign one physical NTAG213 to the seeded `Synthetic Android Customer` with
-label `C3E1 Existing Tag`, then signs out. Sanitized status must show exactly one Customer, one Tag,
-one Assignment, one administration receipt, two AuditEvents, zero lifecycle rows and zero C3E1
-invitation/redemption rows.
+label `C3E1 Existing Tag`, safe fingerprint `B55E8B6AEB30`, then signed out. Sanitized status showed
+exactly one Customer, one Tag, one Assignment, one administration receipt, two AuditEvents, zero
+lifecycle rows and zero C3E1 invitation/redemption rows.
 
 This prerequisite supplies the “already assigned physical Tag” required by the accepted contract;
 it does not exercise or authorize C3E2 reassignment.
+
+## Completed Human physical validation
+
+The Human Architect completed the accepted sequence against product correction `450d767` and
+harness correction `4338910` on `SM-A336B`, Android 15/API 35, with one physical NTAG213. Auth and
+API were reachable from Android only through the exact two scoped numeric-loopback reverse
+mappings. Admin Web remained on `http://127.0.0.1:5173`.
+
+Three earlier disposable attempts were fully discarded and reset: one invitation expired before the
+consumed-secret reuse observation; one transferred the invitation through unauthorized clipboard
+automation; and one reached safe automatic interruption rollback before the required physical
+force-stop sequence. None of those attempts contributes an observation below. The accepted run used
+a newly generated memory-only password, a newly created invitation and no legacy `arm-tag-a`
+fixture command.
+
+- Admin Web first projected exactly the seeded Customer and assigned Tag, with zero Employees and
+  only the safe label, Customer name and fingerprint. The Administrator created one
+  `C3E1 Physical Employee` invitation. The one-time disclosure was exactly 43 characters, stayed
+  open through the reuse check and was never placed in a URL, terminal, file, screenshot,
+  persistent note, clipboard, copy action, speech input or automation.
+- The first pre-Membership identity reached only `Als Beschäftigter beitreten`. The fixed public
+  negative value returned `Diese Einladung ist nicht verfügbar`; sanitized status remained one
+  active invitation, one invitation receipt, two Users/Bindings/Memberships and three AuditEvents.
+- With the real secret entered only through the intended Web disclosure and secure Android input,
+  and manually transcribed without tooling, the armed final-pre-commit attempt reached
+  `redemption_paused`. Android was force-stopped one second later. Client cancellation completed the
+  attempt-scoped rollback and emitted `redemption_interrupted` plus the disclosure-safe unavailable
+  event before the subsequent `abort-redemption` command was processed; that command then failed
+  closed because the controller was already disarmed. Status proved zero User, Binding, Membership,
+  consumption, receipt or audit mutation.
+- Restart restored neither enrollment intent nor product authority. A fresh explicit enrollment
+  intent for the same identity redeemed the still-open invitation successfully. Normal session
+  resolution exposed the Employee scan surface, no `NFC-Einrichtung`, exactly one new Employee
+  Membership and one consumed invitation/redemption receipt.
+- The new Employee scanned the assigned physical Tag, observed `Arbeitszeit gestartet`, waited more
+  than six seconds and observed `Arbeitszeit gestoppt`. Server status proved exactly two WorkEvents,
+  two canonical Decisions, two lifecycle Receipts and one stopped TimeEntry.
+- After sign-out, the second pre-Membership identity reached only the authority-free enrollment
+  shell. Reuse of the same already consumed secret returned `Diese Einladung ist nicht verfügbar`,
+  granted no authority and left every User/Binding/Membership/receipt/audit count unchanged.
+- Admin Web then projected exactly one `C3E1 Physical Employee` and no invitation secret. The
+  remaining one-time disclosure was discarded. Final sanitized state was exactly one Customer, one
+  Tag, one Assignment, one administration receipt, two WorkEvents, two canonical Decisions, two
+  lifecycle Receipts, one stopped TimeEntry, six AuditEvents, three Users, three IdentityBindings,
+  three Memberships, two active Employee Memberships, one consumed invitation, one invitation
+  receipt, one redemption receipt and zero active invitations.
+- Human observation confirmed Android and Web sign-out and no disclosure of raw UID/canonical NFC
+  payload, access/refresh token, password, private key, database/provider error or real-person data.
+  The invitation secret appeared only in its intended one-time Web disclosure and three manually
+  entered secure Android inputs, never in a clipboard, tool, terminal, file, screenshot, note or
+  speech input.
+- Normal harness shutdown removed the disposable `taptime_server` schema, migration ledger and all
+  seven generated runtime logins. Admin Web stopped, the scoped disconnect helper removed both
+  reverse mappings, and ports 54321/3000/5173 each had zero listeners.
 
 ## Human observation checklist
 
 | Observation | Status |
 |---|---|
-| Approved Galaxy Android device connected over authorized USB; NFC enabled; exact two reverse mappings | Not started |
-| Controlled prerequisite assigns one physical NTAG213 through real C3C without raw-payload disclosure | Not started |
-| Administrator Web creates one `C3E1 Physical Employee` invitation and shows the secret only once | Not started |
-| Secret absent from URL, storage, logs, terminal status and Admin projection | Not started |
-| First pre-Membership identity reaches only the authority-free Android enrollment shell | Not started |
-| Fixed wrong canonical secret fails closed with zero database mutation | Not started |
-| Armed final-pre-commit redemption is force-stop interrupted and fully rolled back | Not started |
-| Restart restores no enrollment intent or authority | Not started |
-| Correct redemption creates exactly one Employee Membership and normal session resolves Employee | Not started |
-| New Employee has no `NFC-Einrichtung` and performs one server-confirmed Start/Stop on the assigned Tag | Not started |
-| Consumed-secret reuse by the second pre-Membership identity fails closed without a new row | Not started |
-| Admin Web projects exactly one new safe Employee and no secret | Not started |
-| Final sanitized counts match the accepted fresh-run expectation | Not started |
-| Web/Android sign-out, harness/schema/login cleanup and scoped reverse removal succeed | Not started |
-| No raw UID/payload, token, password, private key, database/provider error or real-person data disclosed | Not started |
+| Approved Galaxy Android device connected over authorized USB; NFC enabled; exact two reverse mappings | Passed |
+| Controlled prerequisite assigns one physical NTAG213 through real C3C without raw-payload disclosure | Passed |
+| Administrator Web creates one `C3E1 Physical Employee` invitation and shows the secret only once | Passed |
+| Secret absent from URL, storage, logs, terminal status and Admin projection | Passed |
+| First pre-Membership identity reaches only the authority-free Android enrollment shell | Passed |
+| Fixed wrong canonical secret fails closed with zero database mutation | Passed |
+| Armed final-pre-commit redemption is force-stop interrupted and fully rolled back | Passed |
+| Restart restores no enrollment intent or authority | Passed |
+| Correct redemption creates exactly one Employee Membership and normal session resolves Employee | Passed |
+| New Employee has no `NFC-Einrichtung` and performs one server-confirmed Start/Stop on the assigned Tag | Passed |
+| Consumed-secret reuse by the second pre-Membership identity fails closed without a new row | Passed |
+| Admin Web projects exactly one new safe Employee and no secret | Passed |
+| Final sanitized counts match the accepted fresh-run expectation | Passed |
+| Web/Android sign-out, harness/schema/login cleanup and scoped reverse removal succeed | Passed |
+| No raw UID/payload, token, password, private key, database/provider error or real-person data disclosed | Passed |
 
 Expected final sanitized counts are one Customer, one Tag, one Assignment, one administration
 receipt, two WorkEvents, two canonical Decisions, two lifecycle Receipts, one stopped TimeEntry, six
@@ -117,7 +184,10 @@ AuditEvents, three Users, three IdentityBindings, three Memberships, two active 
 Memberships, one consumed invitation, one invitation receipt, one redemption receipt and zero
 active invitations.
 
-No observation from an aborted or failed attempt may be promoted. Only the Human Architect or a
-delegated physical tester may mark an observation passed. C3E2, production, deployment/
-distribution, Web/iOS NFC, provider-account creation, email delivery and real-person data remain
-outside this gate.
+The Human Architect supplied every physical observation above and confirmed both UI sign-outs. No
+observation from any of the three discarded attempts is promoted. This closes the C3E1 Human
+physical gate for the authorized repository/device scope. This evidence/closure synchronization
+candidate still requires its own publication, exact-head CI and independent read-only final review
+before the governance synchronization is described as independently approved. C3E2, production,
+deployment/distribution, Web/iOS NFC, provider-account creation, email delivery and real-person data
+remain outside this gate.

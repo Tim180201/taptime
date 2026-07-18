@@ -1,11 +1,11 @@
 # Block C3E1 Implementation Evidence
 
-**Date:** 2026-07-15
+**Date:** 2026-07-18
 
-**Status:** IMPLEMENTATION CORRECTION `450d767` INDEPENDENTLY APPROVED WITH ZERO OPEN P0–P3 AND
-EXACT-HEAD CI 10/10 GREEN — Human Gate authorized; first local physical-harness commit `ee522a5`
-received `CHANGES REQUIRED`; focused four-finding correction is locally verified and must receive
-its own exact-head CI plus independent delta re-review before observations start
+**Status:** IMPLEMENTATION CORRECTION `450d767` AND HARNESS CORRECTION `4338910` INDEPENDENTLY
+APPROVED WITH ZERO OPEN P0–P3 AND BOTH EXACT-HEAD CI RUNS 10/10 GREEN — complete fresh Human
+Physical Gate passed; closure synchronization candidate awaits publication, exact-head CI and
+independent final review
 
 **Authorization baseline:** `70d163fa0473692f61555f1580f25382e1e807af`
 
@@ -154,17 +154,31 @@ P3 findings and no P0/P1. All four are accepted and corrected without product-sc
 4. six focused regressions cover autoabort, paused shutdown, delegate failure, callback failure,
    double abort and concurrent claim behavior.
 
-## Remaining gates and authority
+The correction was published as commit `43389100fcf539e64053e95dab0aa57bdba919f9`, tree
+`0657f4bf2125f1a924a1b35d5ec5a8e38b8d5c8e`, direct parent
+`ee522a568f3c8dee71b8ffeac34f2dec9a905559`. Independent read-only delta re-review closed every
+finding and returned `APPROVED` with no open P0/P1/P2/P3. Exact-head GitHub Actions run
+`29420832927`, attempt 1, passed all ten jobs and independently retained the 1,534-test matrix plus
+the two approved Supavisor skips.
 
-The Human Gate is authorized but no physical observation has started. The strictly local harness
-delta is validation infrastructure added after the approved product correction. The valid sequence
-is therefore:
+## Human physical closure and remaining authority
 
-1. publish the focused four-finding harness/evidence correction after final diff/claim audit;
-2. externally confirm green exact-head GitHub Actions for that correction SHA;
-3. obtain independent delta re-review of `ee522a5...<correction-sha>`; and
-4. only after both harness gates pass, start the complete fresh checklist in
-   `ADO/05_Evidence/Block_C3E1_Physical_Validation_Evidence.md` from its controlled prerequisite.
+After both product and harness gates passed, the Human Architect completed one fully fresh
+identity/device run against the exact reviewed pair. The real C3C prerequisite assigned one
+physical NTAG213; wrong-secret and final-pre-commit interruption attempts produced zero partial
+state; correct redemption created exactly one Employee grant; the same physical Tag produced one
+server-confirmed Start/Stop; and the second pre-Membership identity could not reuse the consumed
+secret. Final sanitized counts, safe Admin projection, both sign-outs, generated-login/schema
+cleanup, listener shutdown and scoped reverse removal all passed. The exact observation record is
+`ADO/05_Evidence/Block_C3E1_Physical_Validation_Evidence.md`.
+
+Three prior disposable runs were reset in full and contribute no promoted observation: an
+invitation-expiry attempt, an attempt that used unauthorized clipboard automation for the secret,
+and an interruption attempt whose safe automatic rollback completed before the required physical
+force-stop sequence. The accepted run used manual secret transcription only. The current ADO delta
+is a closure-synchronization candidate; it must be published, pass exact-head CI and receive
+independent read-only final review before the governance synchronization is described as
+independently approved.
 
 C3E2, generic Membership CRUD/revocation/reassignment, provider-account creation, production
 resources/data, deployment/distribution, Web/iOS NFC and broader Block-E work remain unauthorized.

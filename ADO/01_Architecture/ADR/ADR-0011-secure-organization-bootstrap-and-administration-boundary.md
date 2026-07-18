@@ -1,7 +1,7 @@
 # ADR-0011: Secure Organization Bootstrap and Administration Boundary
 
-Status: Accepted by Human Architect — C3B/C3C/C3D completed; C3E1 exact contract Human-accepted and
-repository implementation authorized on `70d163f`; C3E2/production gated
+Status: Accepted by Human Architect — C3B/C3C/C3D/C3E1 completed for their authorized scopes;
+C3E1 closure synchronization review pending; C3E2/production gated
 Date: 2026-07-14
 Acceptance: Accepted 2026-07-14
 Roadmap: Core Roadmap v2, Block C3 and later setup slices DT-063–DT-066
@@ -22,7 +22,8 @@ Related Artifacts: ADR-0006, ADR-0008, ADR-0009, FB-002, TS-002,
 `ADO/05_Evidence/Block_C3C_Independent_Architecture_Security_Review.md`,
 `ADO/05_Evidence/Block_C3C_Normal_Administration_Backend_Evidence.md`,
 `ADO/05_Evidence/Block_C3D_Implementation_Evidence.md`,
-`ADO/05_Evidence/Block_C3D_Physical_Validation_Evidence.md`
+`ADO/05_Evidence/Block_C3D_Physical_Validation_Evidence.md`,
+`ADO/05_Evidence/Block_C3E1_Physical_Validation_Evidence.md`
 
 ## Decision-time context (2026-07-14)
 
@@ -416,7 +417,9 @@ The former combined C3E planning label is now separated for review:
   short-lived invitation/redemption capability. Its first package review returned six P2 contract
   findings and no P0/P1/P3; corrected commit `70d163f` passed zero-finding independent re-review and
   exact-head ten-of-ten CI. The Human Architect accepted the exact contract and separately authorized
-  repository implementation on that baseline.
+  repository implementation on that baseline. Product correction `450d767`, harness correction
+  `4338910` and the complete fresh Human physical gate later passed their required review, CI and
+  observation gates; only closure synchronization review remains.
 - **C3E2** remains the later explicit Tag reassignment capability. It must lock/deactivate/append
   Assignment history atomically and remains completely unauthorized.
 

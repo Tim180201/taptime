@@ -9,7 +9,7 @@ Epic: EP-008
 Owner: Technical Lead  
 Approval Authority: Human Architect  
 Repository Scope: TapTim.e ADO  
-Integration Status: Human-accepted synchronization through C3D closure; C3E1 correction `450d767` independently approved/exact-head CI green, fresh Human Gate authorized; first harness `ee522a5` review `CHANGES REQUIRED`, four-finding correction 16/16 and awaiting publication/CI/re-review
+Integration Status: Human-accepted synchronization through C3D closure; C3E1 product correction `450d767` and harness correction `4338910` independently approved/exact-head CI green; fresh Human Gate passed; closure synchronization review pending
 Synchronization Baseline: `fda5e5b9e878311b0caa647c6b49ab14943b706e` (2026-07-15)
 Related Artifacts: ADO/README.md, Decision Log, AVR-001, Product Vision, ADRs, TTAP-001, Feature Blueprint Standard, Feature Blueprints, Technical Specifications, Development Task Profile, EOM-001, AGR-001
 
@@ -848,8 +848,10 @@ coordinators. The ten-job CI topology is expanded in scope, not job count.
 Initial implementation `42b7c7a` passed exact-head ten-of-ten run `29414515751`, but independent
 final review returned `CHANGES REQUIRED` with three P2 and three P3 findings. Its six-finding
 correction `450d767` passed independent zero-finding delta review and exact-head ten-of-ten run
-`29416554531`; the complete fresh Human Gate is authorized. First strictly local harness commit
-`ee522a5` passed exact-head CI but review returned `CHANGES REQUIRED`; its focused 16/16 correction
-still requires publication, exact-head CI and independent delta re-review before observations. C3E2,
-production data/resources and deployment/distribution remain outside this addendum. Evidence:
-`ADO/05_Evidence/Block_C3E1_Implementation_Evidence.md`.
+`29416554531`. First strictly local harness commit `ee522a5` passed exact-head CI but review returned
+`CHANGES REQUIRED`; focused correction `4338910` passed independent zero-finding delta re-review and
+exact-head ten-of-ten run `29420832927`. The complete fresh Human Gate then passed, including exact
+final counts and cleanup. Its closure synchronization review remains pending. C3E2, production
+data/resources and deployment/distribution remain outside this addendum. Evidence:
+`ADO/05_Evidence/Block_C3E1_Implementation_Evidence.md` and
+`ADO/05_Evidence/Block_C3E1_Physical_Validation_Evidence.md`.

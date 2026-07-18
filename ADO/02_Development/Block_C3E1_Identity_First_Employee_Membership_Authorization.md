@@ -1,6 +1,6 @@
 # Block C3E1 — Identity-First Employee Membership Authorization Package
 
-Status: **HUMAN-ACCEPTED — C3E1 REPOSITORY IMPLEMENTATION AUTHORIZED ON EXACT BASELINE; C3E2/PRODUCTION UNAUTHORIZED**
+Status: **HUMAN-ACCEPTED — C3E1 REPOSITORY IMPLEMENTATION AND HUMAN PHYSICAL GATE COMPLETED FOR THE AUTHORIZED SCOPE; C3E2/PRODUCTION UNAUTHORIZED**
 Package Authorization Date: 2026-07-15
 Exact Package Baseline: `a0419866c2b992ae8fc5474144064bc0652d215a`
 Independent Review Commit: `4e3ae76f4fdfad751e31b546aa4b1a63e04a67ee`
@@ -10,10 +10,13 @@ Corrected Review Tree: `33e5f7a94d49fadcab4f8f14b6fa842a55aad928`
 Corrected Exact-head CI: GitHub Actions `29410078768`, attempt 1, ten of ten jobs passed
 Corrected Independent Re-review Verdict: `APPROVED` — no open P0/P1/P2/P3
 Human Acceptance and Implementation Authorization Date: 2026-07-15
+Human Physical Gate Completion Date: 2026-07-18
 Exact Implementation Baseline: `70d163fa0473692f61555f1580f25382e1e807af`
 Human Authority: Human Architect explicitly accepted every Section-12 product/policy decision and,
 in a later separate statement, authorized the exact C3E1 repository implementation on the baseline
-above. C3E2, production resources/data and any Physical Gate remain unauthorized.
+above. Independent zero-finding product/harness reviews and their exact-head CI runs subsequently
+authorized the Physical Gate, which the Human Architect completed. C3E2 and production
+resources/data remain unauthorized.
 Owner: Technical Lead
 Governing Architecture: Accepted ADR-0008, ADR-0011, FB-002 v1.2 and TS-002 v1.3
 Proposed Effort: Very High
@@ -35,7 +38,8 @@ After independent zero-finding re-review and explicit Human acceptance, this doc
 normative authorization for the exact C3E1 repository slice described below. It authorizes migration
 `008`, the named least-privilege roles/pools, the three exact backend operations, the bounded Admin
 Web/Android changes and their tests. It does not authorize C3E2, a cloud resource, production data,
-provider-account creation, deployment/distribution or a Physical Gate.
+provider-account creation or deployment/distribution. The later Physical Gate required and received
+its own independent product/harness reviews and exact-head CI before Human observation.
 
 ## 2. Repository evidence and rejected shortcuts
 
@@ -427,6 +431,11 @@ Only after implementation review and exact-head CI may a fresh controlled synthe
 This gate uses reserved-domain synthetic identities only. It is not self-service signup, email
 delivery, production onboarding, real-person data, pilot distribution or legal acceptance.
 
+Completion disposition: product correction `450d767` and harness correction `4338910` each passed
+independent zero-finding review and exact-head ten-of-ten CI. The Human Architect then completed
+every fresh-run observation, final sanitized count and cleanup requirement. Evidence:
+`ADO/05_Evidence/Block_C3E1_Physical_Validation_Evidence.md`.
+
 ## 10. Explicit non-goals
 
 - C3E2 Tag reassignment or any Assignment mutation;
@@ -473,9 +482,9 @@ The pre-implementation gates are satisfied as follows:
 4. the Human Architect separately stated that C3E1 is released and instructed implementation to
    begin. That statement authorizes repository implementation only within this package.
 
-Current verdict: **C3E1 IMPLEMENTATION CORRECTION `450d767` INDEPENDENTLY APPROVED AND EXACT-HEAD
-CI GREEN; THE COMPLETE FRESH HUMAN PHYSICAL GATE IS AUTHORIZED. C3E2 AND PRODUCTION REMAIN
-UNAUTHORIZED**.
+Current verdict: **C3E1 IMPLEMENTATION CORRECTION `450d767` AND HARNESS CORRECTION `4338910`
+INDEPENDENTLY APPROVED WITH EXACT-HEAD CI GREEN; THE COMPLETE FRESH HUMAN PHYSICAL GATE PASSED.
+C3E2 AND PRODUCTION REMAIN UNAUTHORIZED**.
 
 ## 13. Independent review findings and corrective disposition
 
@@ -522,6 +531,9 @@ P0/P1/P2/P3 and exact-head ten-of-ten GitHub Actions run `29416554531`, attempt 
 therefore authorized. First strictly local physical-harness commit `ee522a5` passed exact-head run
 `29418851293`, but independent review returned `CHANGES REQUIRED` with two P2 and two P3 findings.
 Its credential-free-latch/lifecycle-test correction is 16/16 locally and adds no product authority;
-correction publication, exact-head CI and independent delta re-review must pass before observations.
-C3E2,
-production resources/data, deployment and distribution remain unauthorized.
+it was published as `4338910`, tree `0657f4b`, passed independent delta re-review with zero open
+P0/P1/P2/P3 and exact-head ten-of-ten run `29420832927`, attempt 1. The Human Architect then
+completed the full fresh checklist on the approved Galaxy A33/NTAG213 set, including exact final
+counts and cleanup. The closure synchronization candidate still requires publication, exact-head
+CI and independent final review. C3E2, production resources/data, deployment and distribution
+remain unauthorized.

@@ -1,10 +1,10 @@
 # TS-002 – Organization Management Foundation Technical Specification
 
-Status: Approved by Human Architect — C3B/C3C/C3D completed; C3E1 exact contract accepted and
-repository implementation authorized on `70d163f`; C3E2/production gated
+Status: Approved by Human Architect — C3B/C3C/C3D/C3E1 completed for their authorized scopes;
+C3E1 closure synchronization review pending; C3E2/production gated
 Specification ID: TS-002
 Version: 1.3
-Last Updated: 2026-07-15 (C3D closure synchronization and C3E planning split; exact contract unchanged)
+Last Updated: 2026-07-18 (C3E1 physical closure synchronization; exact contract unchanged)
 Acceptance: Accepted 2026-07-14
 Related Feature Blueprint: FB-002 (`ADO/01_Architecture/Feature_Blueprints/FB-002-organization-management-foundation.md`)
 Related Evidence: `ADO/05_Evidence/FB-002_Organization_Management_Scope_Assessment.md`,
@@ -15,6 +15,7 @@ Related Evidence: `ADO/05_Evidence/FB-002_Organization_Management_Scope_Assessme
 `ADO/02_Development/Block_C3C_Normal_Administration_Backend_Closure.md`,
 `ADO/05_Evidence/Block_C3D_Implementation_Evidence.md`,
 `ADO/05_Evidence/Block_C3D_Physical_Validation_Evidence.md`,
+`ADO/05_Evidence/Block_C3E1_Physical_Validation_Evidence.md`,
 `ADO/02_Development/Block_C3E1_Identity_First_Employee_Membership_Authorization.md`
 Epic: EP-009 – Product Readiness Framework (Product Capability Track); EP-007 – Product Architecture Foundation (architectural continuity)
 Owner: Technical Lead
@@ -22,8 +23,8 @@ Approval Authority: Human Architect
 Related Architecture: `ADO/01_Architecture/Technical_Architecture_Profile.md` (TTAP-001)
 Related ADRs: ADR-0002, ADR-0003, ADR-0005, ADR-0006, ADR-0007, ADR-0008, ADR-0009, ADR-0011
 Related Technical Specification: TS-001 (`ADO/01_Architecture/Technical_Specifications/TS-001-nfc-scan-creates-work-event.md`) — extended, not replaced
-Related Development Tasks: DT-017–DT-026 completed; C3B/C3C/C3D completed; C3E1 implementation
-authorized on `70d163f`; C3E2 gated
+Related Development Tasks: DT-017–DT-026 completed; C3B/C3C/C3D/C3E1 completed for authorized
+scopes; C3E2 gated
 
 ## Purpose
 
@@ -460,14 +461,14 @@ Unchanged from FB-002, restated for this specification's own boundary:
 - C3 readiness: ADR-0011 and the normative amendment above now decide bootstrap, normal write
   authority, display fields, result vocabulary, payload uniqueness and Assignment history. C3B and
   C3C passed their separate exact-baseline authorization, implementation, review and CI gates; C3D
-  additionally passed its complete fresh Human physical gate. Corrected C3E1 commit `70d163f`
-  passed zero-finding independent re-review and its exact contract/repository implementation were
-  Human-authorized; C3E2 remains unplanned and unauthorized.
+  additionally passed its complete fresh Human physical gate. C3E1 product correction `450d767`,
+  harness correction `4338910` and its complete fresh Human physical gate passed; closure
+  synchronization review remains pending. C3E2 remains unplanned and unauthorized.
 - Traceability: every new component is traced to a specific FB-002 Capability/Decision and to a specific existing repository precedent (`AssignmentValidator`, `CustomerRepository`, `NfcScanApplicationService`, `ids.ts`, ADR-0002's `NfcAssignment` identity precedent).
 - Accepted FB-002/TS-002 baseline: this document covers the implemented Core foundation and
   corrected C3A runtime contract. Independent re-review passed and Human Architect acceptance is
-  complete. C3B, C3C and C3D are separately completed for their recorded scopes; C3E1 repository
-  implementation is authorized on `70d163f`; C3E2 remains gated.
+  complete. C3B, C3C, C3D and C3E1 are separately completed for their recorded scopes; C3E1
+  closure synchronization review remains pending; C3E2 remains gated.
 
 ## Former Open Questions — Current Disposition
 
@@ -499,7 +500,7 @@ Product Vision
   -> DT-017–DT-026 (Core foundation complete)
   -> ADR-0011 / C3A (independently validated and Human-accepted)
   -> C3B (completed) / C3C (completed) / C3D (completed)
-  -> C3E1 identity-first Employee Membership (exact contract accepted; implementation authorized)
+  -> C3E1 identity-first Employee Membership (authorized repository/Human scope completed)
   -> C3E2 explicit reassignment (gated)
 ```
 
@@ -516,6 +517,8 @@ The former combined C3E planning label is split for authorization discipline:
   returned six P2 contract findings and no P0/P1/P3. Corrected commit `70d163f` fixes the historical
   Membership, pre-Membership state, token/cap, HTTP, lock and audit boundaries, passed zero-finding
   independent re-review and was Human-accepted with separate repository implementation authority.
+  Product correction `450d767`, harness correction `4338910` and the complete fresh Human physical
+  gate subsequently passed; only closure synchronization review remains.
 - **C3E2** is explicit Tag reassignment. It remains separately gated because Assignment history and
   future time attribution are a distinct privileged boundary from identity/Membership authority.
 

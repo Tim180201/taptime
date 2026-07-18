@@ -9,7 +9,7 @@ Epic: EP-008
 Owner: Technical Lead  
 Approval Authority: Human Architect  
 Repository Scope: TapTim.e ADO  
-Integration Status: Human-accepted synchronization through C3D closure; C3E1 exact contract Human-accepted and repository implementation authorized on `70d163f`
+Integration Status: Human-accepted synchronization through C3D closure; C3E1 product/harness independently approved and fresh Human Gate passed; closure synchronization review pending
 Synchronization Baseline: `fda5e5b9e878311b0caa647c6b49ab14943b706e` (2026-07-15)
 Related Artifacts: Product Vision, Decision Log, AVR-001, ADRs, TTAP-001, Feature Blueprints, Technical Specifications, Development Task Profile, EOM-001, AGR-001
 
@@ -1067,11 +1067,11 @@ separate review, exact-head CI and fresh Human physical gate; its ADO closure ba
 passed ten-of-ten run `29407078949`. The current administration discipline is therefore:
 
 - preserve C3C's narrow current-Administrator authority and C3D's safe Web/Android presentation;
-- implement the zero-finding reviewed and Human-accepted C3E1 invitation/redemption design only
-  within exact baseline authority `70d163f`; and
+- preserve the completed zero-finding reviewed C3E1 invitation/redemption boundary and its passed
+  Human physical evidence while the closure synchronization review remains pending; and
 - keep C3E2 reassignment, broader Membership management and production authority behind separate
   product/policy decisions.
 
 All non-C3 administration-independent gates listed in Section 11 remain. Independent review found
 this addendum acceptable and the Human Architect accepted it; the separately authorized C3E1
-package remains the only authority for its implementation.
+package remains the only authority for its completed implementation.
