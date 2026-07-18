@@ -1,11 +1,16 @@
 # Block C3E2 — Explicit NFC Tag Reassignment Implementation Evidence
 
-Status: **LOCAL IMPLEMENTATION TECHNICAL-LEAD VERIFIED — COMMIT/PUSH, EXACT-HEAD CI, INDEPENDENT
-IMPLEMENTATION REVIEW AND FRESH HUMAN PHYSICAL GATE PENDING**
+Status: **IMPLEMENTATION PUBLISHED AND EXACT-HEAD CI VERIFIED — INDEPENDENT IMPLEMENTATION REVIEW
+AND FRESH HUMAN PHYSICAL GATE PENDING**
 Date: 2026-07-18
 Contract Commit: `dbefc1cc2bab66bab87a00c3209bd8a1f926f731`
 Implementation Baseline Commit: `5bc495107292d8cdd959c9c40319e8ae180099b3`
 Implementation Baseline Tree: `0b8a2d01439af55d86696127ae1f1bc748c3a4ce`
+Implementation Commit: `b783733658f4c88ba3081737f13198afe7e719aa`
+Implementation Tree: `7c779ee222cdd221b2b0ee89a954e263d0155595`
+CI Integration Correction Commit: `672b7ac35dfd676138dd6c3999366de9ce25c80e`
+CI Integration Correction Tree: `8b4c601919187dadb4a976a9a2d7c5ff6a3ec1c1`
+Exact-head CI: GitHub Actions `29649388470`, attempt 1, ten of ten jobs passed
 Owner: Technical Lead
 Production/Deployment Authority: **Not granted**
 
@@ -109,7 +114,12 @@ All workspace TypeScript checks passed. Test sources are included by their execu
 configurations. All workspace builds passed, including Admin Web Vite production build and
 synthetic-harness declarations/bundles. `git diff --check` passed.
 
-No exact-head CI or independent implementation review is claimed by this local evidence.
+Focused implementation commit `b783733`, tree `7c779ee`, was pushed to `main`. Its first exact-head
+run `29649322831` found one CI-only integration omission: the administration job had not built the
+new test-only B6 dependency before TypeScript resolution. No product or PostgreSQL test failed.
+Correction `672b7ac`, tree `8b4c601`, added only that dependency build and accurate C3E2 job labels.
+Exact-head run `29649388470`, attempt 1, passed all ten jobs. No independent implementation review
+or Human Physical Gate is claimed.
 
 ## 5. Technical-Lead disposition and next gate
 
@@ -118,11 +128,9 @@ Unrelated user work is excluded from the candidate.
 
 The exact next sequence is:
 
-1. create and push one focused implementation commit;
-2. obtain a ten-of-ten exact-head GitHub Actions run;
-3. obtain independent read-only implementation architecture/security review bound to exact
-   commit/tree/CI;
-4. only after an `APPROVED` review may the complete fresh Human Physical Gate begin at its first
+1. obtain independent read-only implementation architecture/security review bound to the current
+   exact commit/tree/CI;
+2. only after an `APPROVED` review may the complete fresh Human Physical Gate begin at its first
    checklist row.
 
 No observation from an earlier C3D/C3E1 attempt can satisfy C3E2. Production resources/data,

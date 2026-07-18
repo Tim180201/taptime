@@ -1,8 +1,7 @@
 # Block C3E2 — Explicit NFC Tag Reassignment Architecture and Authorization Candidate
 
-Status: **REPOSITORY IMPLEMENTATION AUTHORIZED AND LOCALLY VERIFIED — IMPLEMENTATION COMMIT,
-EXACT-HEAD CI, INDEPENDENT IMPLEMENTATION REVIEW AND FRESH HUMAN GATE PENDING; PRODUCTION
-UNAUTHORIZED**
+Status: **REPOSITORY IMPLEMENTATION PUBLISHED AND EXACT-HEAD CI VERIFIED — INDEPENDENT
+IMPLEMENTATION REVIEW AND FRESH HUMAN GATE PENDING; PRODUCTION UNAUTHORIZED**
 Date: 2026-07-18
 Review Baseline Commit: `7d9aaf391aa3b0f22b160841b8942fdca8dddbe7`
 Review Baseline Tree: `b74f640eed314e6a9cf4888acf7e732e49bf2452`
@@ -13,6 +12,11 @@ Independent Review Verdict: **APPROVED — zero open P0/P1/P2/P3**
 Human Contract Acceptance Date: 2026-07-18
 Implementation Baseline Commit: `5bc495107292d8cdd959c9c40319e8ae180099b3`
 Implementation Baseline Tree: `0b8a2d01439af55d86696127ae1f1bc748c3a4ce`
+Implementation Commit: `b783733658f4c88ba3081737f13198afe7e719aa`
+Implementation Tree: `7c779ee222cdd221b2b0ee89a954e263d0155595`
+CI Integration Correction Commit: `672b7ac35dfd676138dd6c3999366de9ce25c80e`
+CI Integration Correction Tree: `8b4c601919187dadb4a976a9a2d7c5ff6a3ec1c1`
+Implementation Exact-head CI: GitHub Actions `29649388470`, attempt 1, ten of ten jobs passed
 Separate Repository Implementation Release Date: 2026-07-18
 Owner: Technical Lead
 Contract Acceptance Authority: Human Architect
@@ -517,11 +521,12 @@ Current gate state:
 6. Local implementation verification — **complete; 1,571 tests passed, two unchanged optional
    Supavisor skips, all workspace typechecks/builds and `git diff --check` passed**.
 7. Technical-Lead implementation audit — **complete for the local candidate; no open finding**.
-8. Implementation commit/push and exact-head CI — **not started**.
+8. Implementation commit/push and exact-head CI — **complete; implementation `b783733`, CI-only
+   correction `672b7ac`, exact-head run `29649388470`, ten of ten jobs passed**.
 9. Independent implementation review — **not started**.
 10. Fresh Human Physical Gate — **not started**.
 11. Truthful closure synchronization — **not started**.
 
-Gate 8 is now the next implementation gate. Gates 9 and 10 may not be claimed or started before
-their predecessors pass. Production resources/data, deployment and distribution remain outside
-C3E2 authority.
+Gate 9 is now the next implementation gate. Gate 10 may not be claimed or started before an
+independent `APPROVED` implementation review. Production resources/data, deployment and
+distribution remain outside C3E2 authority.
