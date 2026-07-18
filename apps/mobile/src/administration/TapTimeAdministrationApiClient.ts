@@ -71,12 +71,17 @@ function parseCustomer(value: unknown) {
 }
 
 function parseTag(value: unknown) {
-  if (!isObject(value) || !hasExactKeys(value, ['id', 'displayName', 'validationFingerprint', 'assignmentState', 'targetCustomerId'])
+  if (!isObject(value) || !hasExactKeys(value, ['id', 'displayName', 'validationFingerprint', 'assignmentState', 'targetCustomerId', 'activeAssignmentId'])
     || !isUuid(value.id) || typeof value.displayName !== 'string'
     || !fingerprintPattern.test(String(value.validationFingerprint))
     || (value.assignmentState !== 'assigned' && value.assignmentState !== 'unassigned')
-    || !(value.targetCustomerId === null || isUuid(value.targetCustomerId))) return null;
-  return Object.freeze({ id: value.id, displayName: value.displayName, validationFingerprint: String(value.validationFingerprint), assignmentState: value.assignmentState, targetCustomerId: value.targetCustomerId });
+    || !(value.targetCustomerId === null || isUuid(value.targetCustomerId))
+    || !(value.activeAssignmentId === null || isUuid(value.activeAssignmentId))
+    || !(
+      (value.assignmentState === 'assigned' && value.targetCustomerId !== null && value.activeAssignmentId !== null)
+      || (value.assignmentState === 'unassigned' && value.targetCustomerId === null && value.activeAssignmentId === null)
+    )) return null;
+  return Object.freeze({ id: value.id, displayName: value.displayName, validationFingerprint: String(value.validationFingerprint), assignmentState: value.assignmentState, targetCustomerId: value.targetCustomerId, activeAssignmentId: value.activeAssignmentId });
 }
 
 function parseErrorCode(body: Record<string, unknown> | null): string | null {

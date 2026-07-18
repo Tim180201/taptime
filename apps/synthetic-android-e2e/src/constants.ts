@@ -14,6 +14,7 @@ export const syntheticIds = Object.freeze({
   identityBinding: '11000000-0000-4000-8000-000000000701',
   administratorIdentityBinding: '11000000-0000-4000-8000-000000000702',
   customer: '20000000-0000-4000-8000-000000000701',
+  reassignmentCustomer: '20000000-0000-4000-8000-000000000702',
   tagA: '30000000-0000-4000-8000-000000000701',
   assignmentA: '40000000-0000-4000-8000-000000000701',
   providerSubject: '80000000-0000-4000-8000-000000000701',
@@ -33,5 +34,6 @@ export const runtimeLogins = Object.freeze({
   administration: 'taptime_synthetic_e2e_administration',
   employeeInvitation: 'taptime_synthetic_e2e_employee_invitation',
   employeeEnrollment: 'taptime_synthetic_e2e_employee_enrollment',
+  reassignment: 'taptime_synthetic_e2e_reassignment',
   provisioner: 'taptime_synthetic_e2e_provisioner',
 } as const);

@@ -25,7 +25,7 @@ B6_DATABASE_URL=postgresql://<installer>@127.0.0.1:5432/taptime_b6
 B6_RUNTIME_PASSWORD=<synthetic-test-only-password>
 ```
 
-The suite initializes a disposable schema with migrations `001` through `008` and creates a
+The suite initializes a disposable schema with migrations `001` through `009` and creates a
 separate `LOGIN NOINHERIT` runtime principal with exactly `taptime_identity_resolver` and
 `taptime_server_lifecycle`. Run:
 

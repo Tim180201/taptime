@@ -1,6 +1,7 @@
 import {
   AdminWriteSessionCoordinator,
   EmployeeMembershipEnrollmentCoordinator,
+  NfcTagReassignmentCoordinator,
 } from '@taptime/backend-administration';
 import {
   PostgresIdentityMembershipResolver,
@@ -23,6 +24,7 @@ export interface BackendApiRuntimeConfiguration {
   readonly administrationDatabaseUrl: string;
   readonly employeeInvitationDatabaseUrl: string;
   readonly employeeEnrollmentDatabaseUrl: string;
+  readonly reassignmentDatabaseUrl: string;
   readonly supabaseIssuer: string;
 }
 
@@ -55,6 +57,7 @@ export function createBackendApiRuntime(
   const administrationDatabase = validateDatabaseUrl(configuration.administrationDatabaseUrl);
   const employeeInvitationDatabase = validateDatabaseUrl(configuration.employeeInvitationDatabaseUrl);
   const employeeEnrollmentDatabase = validateDatabaseUrl(configuration.employeeEnrollmentDatabaseUrl);
+  const reassignmentDatabase = validateDatabaseUrl(configuration.reassignmentDatabaseUrl);
   assertDistinctDatabaseUsers([
     sessionDatabase,
     readModelDatabase,
@@ -62,6 +65,7 @@ export function createBackendApiRuntime(
     administrationDatabase,
     employeeInvitationDatabase,
     employeeEnrollmentDatabase,
+    reassignmentDatabase,
   ]);
 
   const issuer = configuration.supabaseIssuer.replace(/\/+$/, '');
@@ -77,6 +81,7 @@ export function createBackendApiRuntime(
   const administrationPool = createRuntimePool(administrationDatabase.connectionString);
   const employeeInvitationPool = createRuntimePool(employeeInvitationDatabase.connectionString);
   const employeeEnrollmentPool = createRuntimePool(employeeEnrollmentDatabase.connectionString);
+  const reassignmentPool = createRuntimePool(reassignmentDatabase.connectionString);
   const lifecycleCoordinator = new ServerCanonicalLifecycleIngestionCoordinator(
     lifecyclePool,
     verifier,
@@ -98,6 +103,7 @@ export function createBackendApiRuntime(
         employeeEnrollmentPool,
         verifier,
       ),
+      tagReassignment: new NfcTagReassignmentCoordinator(reassignmentPool, verifier),
     },
     options,
   );
@@ -122,6 +128,7 @@ export function createBackendApiRuntime(
         administrationPool.end(),
         employeeInvitationPool.end(),
         employeeEnrollmentPool.end(),
+        reassignmentPool.end(),
       ]);
       const failure = results.find(
         (result): result is PromiseRejectedResult => result.status === 'rejected',

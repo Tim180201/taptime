@@ -12,6 +12,7 @@ export interface AdminNfcTagSummary {
   readonly validationFingerprint: string;
   readonly assignmentState: 'assigned' | 'unassigned';
   readonly targetCustomerId: string | null;
+  readonly activeAssignmentId: string | null;
 }
 
 export interface AdminSetupProjection {

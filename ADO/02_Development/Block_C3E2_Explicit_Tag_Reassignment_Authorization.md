@@ -1,7 +1,8 @@
 # Block C3E2 — Explicit NFC Tag Reassignment Architecture and Authorization Candidate
 
-Status: **HUMAN-ACCEPTED CONTRACT — INDEPENDENT PRE-IMPLEMENTATION REVIEW APPROVED WITH ZERO OPEN
-P0–P3; SECTIONS 3–13 ACCEPTED; REPOSITORY IMPLEMENTATION AND PRODUCTION UNAUTHORIZED**
+Status: **REPOSITORY IMPLEMENTATION AUTHORIZED AND LOCALLY VERIFIED — IMPLEMENTATION COMMIT,
+EXACT-HEAD CI, INDEPENDENT IMPLEMENTATION REVIEW AND FRESH HUMAN GATE PENDING; PRODUCTION
+UNAUTHORIZED**
 Date: 2026-07-18
 Review Baseline Commit: `7d9aaf391aa3b0f22b160841b8942fdca8dddbe7`
 Review Baseline Tree: `b74f640eed314e6a9cf4888acf7e732e49bf2452`
@@ -10,9 +11,12 @@ Independent Review Tree: `3bcc1539e428d684f88af5bd2c81c9c820a970de`
 Independent Review Exact-head CI: GitHub Actions `29646684981`, attempt 1, ten of ten jobs passed
 Independent Review Verdict: **APPROVED — zero open P0/P1/P2/P3**
 Human Contract Acceptance Date: 2026-07-18
+Implementation Baseline Commit: `5bc495107292d8cdd959c9c40319e8ae180099b3`
+Implementation Baseline Tree: `0b8a2d01439af55d86696127ae1f1bc748c3a4ce`
+Separate Repository Implementation Release Date: 2026-07-18
 Owner: Technical Lead
 Contract Acceptance Authority: Human Architect
-Implementation Authority: **Not granted**
+Implementation Authority: **Granted for the bounded repository scope**
 Production/Deployment Authority: **Not granted**
 
 Related:
@@ -25,6 +29,7 @@ Related:
 - `ADO/02_Development/Block_C3E1_Identity_First_Employee_Membership_Authorization.md`
 - `ADO/02_Development/Block_C3_Organization_Administration_Implementation_Plan.md`
 - `ADO/05_Evidence/Block_C3E2_Independent_Architecture_Security_Review.md`
+- `ADO/05_Evidence/Block_C3E2_Implementation_Evidence.md`
 
 ## 1. Purpose and authority boundary
 
@@ -38,9 +43,11 @@ with zero open P0/P1/P2/P3 after independently confirming the six-file ADO-only 
 ten-of-ten CI run `29646684981`.
 
 The Human Architect subsequently accepted Sections 3–13 on that reviewed commit and explicitly
-stated that this acceptance grants no implementation authority. Migration `009`, code, tests, UI,
-production resources/data, deployment and distribution therefore remain unauthorized until a later
-separate Human statement releases repository implementation.
+stated that this acceptance itself granted no implementation authority. After that separate
+withholding statement, the Human Architect issued the distinct instruction `leg los!!!`, releasing
+the bounded repository implementation from exact baseline `5bc4951`. That later release authorizes
+migration `009`, code, tests, UI and strictly local harness work exactly as specified below. It does
+not authorize production resources/data, deployment, distribution or the Human Physical Gate.
 
 ## 2. Repository evidence and constraints
 
@@ -238,7 +245,7 @@ without resource identifiers; public output cannot distinguish cross-Organizatio
 C3E2 does not widen `taptime_admin_setup`, reuse its runtime credential or expose the existing broad
 `taptime_administrator` role.
 
-An accepted implementation adds:
+The authorized implementation adds:
 
 - one distinct reassignment runtime database login/pool;
 - one `LOGIN NOINHERIT` role graph that may assume only `taptime_identity_resolver` and the new
@@ -338,7 +345,7 @@ No Assignment row is deleted and no old target or validity start is changed.
 
 ## 8. Schema, receipt and audit contract
 
-Accepted implementation would add only migration `009`. It must:
+The authorized implementation adds only migration `009`. It must:
 
 - add the dedicated reassignment executor/function-owner roles and exact PUBLIC revokes;
 - add RLS/policies and grants for the narrow role;
@@ -505,13 +512,16 @@ Current gate state:
    open P0/P1/P2/P3**.
 4. Human Architect acceptance of Sections 3–13 — **complete on 2026-07-18; explicitly no
    implementation authority**.
-5. Separate repository implementation authorization — **not granted**.
-6. Local implementation verification — **not started**.
-7. Technical-Lead implementation audit — **not started**.
+5. Separate repository implementation authorization — **complete on 2026-07-18 through the later
+   instruction `leg los!!!`, bound to implementation baseline `5bc4951`**.
+6. Local implementation verification — **complete; 1,571 tests passed, two unchanged optional
+   Supavisor skips, all workspace typechecks/builds and `git diff --check` passed**.
+7. Technical-Lead implementation audit — **complete for the local candidate; no open finding**.
 8. Implementation commit/push and exact-head CI — **not started**.
 9. Independent implementation review — **not started**.
 10. Fresh Human Physical Gate — **not started**.
 11. Truthful closure synchronization — **not started**.
 
-Until gate 5 is explicitly completed in a separate Human statement, no production-code, migration,
-test-harness or UI implementation may begin.
+Gate 8 is now the next implementation gate. Gates 9 and 10 may not be claimed or started before
+their predecessors pass. Production resources/data, deployment and distribution remain outside
+C3E2 authority.

@@ -26,6 +26,7 @@ const LIFECYCLE_PATH = '/v1/lifecycle-events';
 const DEFERRED_LIFECYCLE_PATH = '/v1/lifecycle-events/deferred';
 const ADMIN_CUSTOMERS_PATH = '/v1/administration/customers';
 const ADMIN_NFC_PROVISION_PATH = '/v1/administration/nfc-tags/provision';
+const ADMIN_NFC_REASSIGN_PATH = '/v1/administration/nfc-tags/reassign';
 const ADMIN_SETUP_PROJECTION_PATH = '/v1/administration/setup-projection';
 const ADMIN_EMPLOYEE_INVITATIONS_PATH = '/v1/administration/employee-invitations';
 const ADMIN_EMPLOYEE_MEMBERSHIPS_PROJECTION_PATH = '/v1/administration/employee-memberships-projection';
@@ -43,6 +44,8 @@ const canonicalUuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0
 const isoTimestampPattern = /^(\d{4})-(\d{2})-(\d{2})T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})$/;
 
 type ErrorCode =
+  | 'assignment_conflict'
+  | 'assignment_in_use'
   | 'assignment_target_unavailable'
   | 'command_id_conflict'
   | 'forbidden'
@@ -61,6 +64,7 @@ type Route =
   | 'admin_create_employee_invitation'
   | 'admin_employee_memberships_projection'
   | 'admin_provision_nfc_tag'
+  | 'admin_reassign_nfc_tag'
   | 'admin_setup_projection'
   | 'deferred_lifecycle'
   | 'employee_enrollment_redeem'
@@ -272,6 +276,18 @@ async function handleRequest(
     );
     return;
   }
+  if (route === 'admin_reassign_nfc_tag') {
+    await handleReassignNfcTag(
+      response,
+      accessToken,
+      body,
+      dependencies,
+      options,
+      correlationId,
+      timeoutMilliseconds,
+    );
+    return;
+  }
   if (route === 'admin_setup_projection') {
     await handleSetupProjection(
       response,
@@ -427,6 +443,42 @@ async function handleProvisionNfcTag(
   );
 }
 
+async function handleReassignNfcTag(
+  response: ServerResponse,
+  accessToken: string,
+  body: unknown,
+  dependencies: BackendApiDependencies,
+  options: BackendHttpServerOptions,
+  correlationId: string,
+  timeoutMilliseconds: number,
+): Promise<void> {
+  const command = parseReassignNfcTagBody(body);
+  if (command === null) {
+    respondError(response, 400, 'invalid_request');
+    return;
+  }
+
+  await handleAdministrationOperation(
+    response,
+    options,
+    correlationId,
+    timeoutMilliseconds,
+    (deadlineEpochMilliseconds) => dependencies.tagReassignment.reassignNfcTag(
+      { accessToken, ...command },
+      { deadlineEpochMilliseconds },
+    ),
+    (result) => ({
+      status: 'succeeded',
+      idempotentRetry: result.idempotentRetry,
+      assignmentChanged: result.assignmentChanged,
+      resultAssignmentId: result.resultAssignmentId,
+      replacedAssignmentId: result.replacedAssignmentId,
+      targetCustomerId: result.targetCustomerId,
+      effectiveAt: result.effectiveAt,
+    }),
+  );
+}
+
 async function handleSetupProjection(
   response: ServerResponse,
   accessToken: string,
@@ -468,6 +520,7 @@ async function handleSetupProjection(
         validationFingerprint: nfcTag.validationFingerprint,
         assignmentState: nfcTag.assignmentState,
         targetCustomerId: nfcTag.targetCustomerId,
+        activeAssignmentId: nfcTag.activeAssignmentId,
       })),
       nextCursor: result.nextCursor,
     }),
@@ -618,6 +671,12 @@ async function handleAdministrationOperation<Result extends { readonly status: s
         return;
       case 'assignment_target_unavailable':
         respondError(response, 404, 'assignment_target_unavailable');
+        return;
+      case 'assignment_conflict':
+        respondError(response, 409, 'assignment_conflict');
+        return;
+      case 'assignment_in_use':
+        respondError(response, 409, 'assignment_in_use');
         return;
       case 'tag_payload_already_registered':
         respondError(response, 409, 'tag_payload_already_registered');
@@ -786,6 +845,9 @@ function requestRoute(url: string | undefined): Route | null {
   if (url === ADMIN_NFC_PROVISION_PATH) {
     return 'admin_provision_nfc_tag';
   }
+  if (url === ADMIN_NFC_REASSIGN_PATH) {
+    return 'admin_reassign_nfc_tag';
+  }
   if (url === ADMIN_SETUP_PROJECTION_PATH) {
     return 'admin_setup_projection';
   }
@@ -810,6 +872,7 @@ function diagnosticCodeForRoute(route: Route | null): BackendApiDiagnostic['code
     case 'admin_create_employee_invitation':
     case 'admin_employee_memberships_projection':
     case 'admin_provision_nfc_tag':
+    case 'admin_reassign_nfc_tag':
     case 'admin_setup_projection':
       return 'administration_failed';
     case 'employee_enrollment_redeem':
@@ -833,6 +896,7 @@ function isAdministrationRoute(route: Route): boolean {
     || route === 'admin_create_employee_invitation'
     || route === 'admin_employee_memberships_projection'
     || route === 'admin_provision_nfc_tag'
+    || route === 'admin_reassign_nfc_tag'
     || route === 'admin_setup_projection';
 }
 
@@ -1026,6 +1090,46 @@ function parseProvisionNfcTagBody(body: unknown): {
       customerId: CustomerId(body.customerId),
       displayName: body.displayName,
       canonicalPayload: body.canonicalPayload,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function parseReassignNfcTagBody(body: unknown): {
+  readonly expectedMembershipId: MembershipId;
+  readonly commandId: string;
+  readonly nfcTagId: NfcTagId;
+  readonly expectedActiveAssignmentId: NfcAssignmentId;
+  readonly targetCustomerId: CustomerId;
+} | null {
+  if (
+    !isRecord(body)
+    || !hasExactKeys(
+      body,
+      [
+        'commandId',
+        'expectedActiveAssignmentId',
+        'expectedMembershipId',
+        'nfcTagId',
+        'targetCustomerId',
+      ],
+    )
+    || !isCanonicalUuid(body.expectedMembershipId)
+    || !isCanonicalUuid(body.commandId)
+    || !isCanonicalUuid(body.nfcTagId)
+    || !isCanonicalUuid(body.expectedActiveAssignmentId)
+    || !isCanonicalUuid(body.targetCustomerId)
+  ) {
+    return null;
+  }
+  try {
+    return {
+      expectedMembershipId: MembershipId(body.expectedMembershipId),
+      commandId: body.commandId,
+      nfcTagId: NfcTagId(body.nfcTagId),
+      expectedActiveAssignmentId: NfcAssignmentId(body.expectedActiveAssignmentId),
+      targetCustomerId: CustomerId(body.targetCustomerId),
     };
   } catch {
     return null;

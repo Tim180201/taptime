@@ -16,6 +16,9 @@ export type ApiResult<Value> =
       readonly status: 'conflict';
       readonly code:
         | 'command_id_conflict'
+        | 'assignment_conflict'
+        | 'assignment_in_use'
+        | 'assignment_target_unavailable'
         | 'invitation_created_token_unavailable'
         | 'invitation_limit_reached';
     };
@@ -40,6 +43,14 @@ export interface AdminWebApiPort {
     commandId: string,
     displayName: string,
   ): Promise<ApiResult<VolatileInvitationSecret>>;
+  reassignNfcTag(
+    token: string,
+    membershipId: string,
+    commandId: string,
+    nfcTagId: string,
+    expectedActiveAssignmentId: string,
+    targetCustomerId: string,
+  ): Promise<ApiResult<{ readonly assignmentChanged: boolean }>>;
 }
 
 export class AdminWebApiClient implements AdminWebApiPort {
@@ -79,7 +90,43 @@ export class AdminWebApiClient implements AdminWebApiPort {
       true,
     );
   }
-  private async request<Value>(path: string, token: string, method: 'GET' | 'POST', body: object | undefined, parse: (value: unknown) => Value | null, exposeInvitationConflicts = false): Promise<ApiResult<Value>> {
+  async reassignNfcTag(
+    token: string,
+    membershipId: string,
+    commandId: string,
+    nfcTagId: string,
+    expectedActiveAssignmentId: string,
+    targetCustomerId: string,
+  ): Promise<ApiResult<{ readonly assignmentChanged: boolean }>> {
+    return this.request(
+      '/v1/administration/nfc-tags/reassign',
+      token,
+      'POST',
+      {
+        expectedMembershipId: membershipId,
+        commandId,
+        nfcTagId,
+        expectedActiveAssignmentId,
+        targetCustomerId,
+      },
+      (value) => parseReassignment(
+        value,
+        expectedActiveAssignmentId,
+        targetCustomerId,
+      ),
+      false,
+      true,
+    );
+  }
+  private async request<Value>(
+    path: string,
+    token: string,
+    method: 'GET' | 'POST',
+    body: object | undefined,
+    parse: (value: unknown) => Value | null,
+    exposeInvitationConflicts = false,
+    exposeReassignmentErrors = false,
+  ): Promise<ApiResult<Value>> {
     const controller = new AbortController(); const timeout = setTimeout(() => controller.abort(), 10_000);
     try {
       const response = await this.fetchRequest(path, { method, headers: { Accept: 'application/json', Authorization: `Bearer ${token}`, 'Cache-Control': 'no-store', ...(body ? { 'Content-Type': 'application/json' } : {}) }, body: body ? JSON.stringify(body) : undefined, cache: 'no-store', credentials: 'omit', redirect: 'manual', signal: controller.signal });
@@ -95,6 +142,17 @@ export class AdminWebApiClient implements AdminWebApiPort {
         const code = parseInvitationConflict(JSON.parse(conflictText));
         return code === null ? { status: 'unavailable' } : { status: 'conflict', code };
       }
+      if (exposeReassignmentErrors && (response.status === 404 || response.status === 409)) {
+        if (
+          response.redirected
+          || !isJsonContentType(response.headers.get('content-type'))
+          || !hasSafeDeclaredLength(response)
+        ) return { status: 'unavailable' };
+        const conflictText = await readBoundedResponseText(response);
+        if (conflictText === null) return { status: 'unavailable' };
+        const code = parseReassignmentError(JSON.parse(conflictText), response.status);
+        return code === null ? { status: 'unavailable' } : { status: 'conflict', code };
+      }
       if (response.status !== 200 || response.redirected || !isJsonContentType(response.headers.get('content-type'))) return { status: 'unavailable' };
       if (!hasSafeDeclaredLength(response)) return { status: 'unavailable' };
       const text = await readBoundedResponseText(response);
@@ -108,7 +166,27 @@ function parseSession(value: unknown): Session | null { if (!isRecord(value) || 
 function parseProjection(value: unknown): SafeProjection | null {
   if (!isRecord(value) || !exact(value, ['status', 'organization', 'customers', 'nfcTags', 'nextCursor']) || value.status !== 'succeeded' || !isRecord(value.organization) || !exact(value.organization, ['id', 'name']) || !uuid.test(String(value.organization.id)) || typeof value.organization.name !== 'string' || !Array.isArray(value.customers) || !Array.isArray(value.nfcTags) || !(value.nextCursor === null || (typeof value.nextCursor === 'string' && cursor.test(value.nextCursor)))) return null;
   const customers = value.customers.map((x) => isRecord(x) && exact(x, ['id', 'displayName', 'active']) && uuid.test(String(x.id)) && typeof x.displayName === 'string' && typeof x.active === 'boolean' ? { id: String(x.id), displayName: x.displayName, active: x.active } : null);
-  const tags = value.nfcTags.map((x) => isRecord(x) && exact(x, ['id', 'displayName', 'validationFingerprint', 'assignmentState', 'targetCustomerId']) && uuid.test(String(x.id)) && typeof x.displayName === 'string' && fingerprint.test(String(x.validationFingerprint)) && (x.assignmentState === 'assigned' || x.assignmentState === 'unassigned') && (x.targetCustomerId === null || uuid.test(String(x.targetCustomerId))) ? { id: String(x.id), displayName: x.displayName, validationFingerprint: String(x.validationFingerprint), assignmentState: x.assignmentState, targetCustomerId: x.targetCustomerId === null ? null : String(x.targetCustomerId) } : null);
+  const tags = value.nfcTags.map((x) => isRecord(x)
+    && exact(x, ['id', 'displayName', 'validationFingerprint', 'assignmentState', 'targetCustomerId', 'activeAssignmentId'])
+    && uuid.test(String(x.id))
+    && typeof x.displayName === 'string'
+    && fingerprint.test(String(x.validationFingerprint))
+    && (x.assignmentState === 'assigned' || x.assignmentState === 'unassigned')
+    && (x.targetCustomerId === null || uuid.test(String(x.targetCustomerId)))
+    && (x.activeAssignmentId === null || uuid.test(String(x.activeAssignmentId)))
+    && (
+      (x.assignmentState === 'assigned' && x.targetCustomerId !== null && x.activeAssignmentId !== null)
+      || (x.assignmentState === 'unassigned' && x.targetCustomerId === null && x.activeAssignmentId === null)
+    )
+    ? {
+        id: String(x.id),
+        displayName: x.displayName,
+        validationFingerprint: String(x.validationFingerprint),
+        assignmentState: x.assignmentState,
+        targetCustomerId: x.targetCustomerId === null ? null : String(x.targetCustomerId),
+        activeAssignmentId: x.activeAssignmentId === null ? null : String(x.activeAssignmentId),
+      }
+    : null);
   if (customers.some((x) => x === null) || tags.some((x) => x === null)) return null;
   return { organization: { id: String(value.organization.id), name: value.organization.name }, customers: customers as SafeProjection['customers'], nfcTags: tags as SafeProjection['nfcTags'], nextCursor: value.nextCursor };
 }
@@ -146,11 +224,67 @@ function parseInvitation(value: unknown): VolatileInvitationSecret | null {
   if (decoded.length !== 32 || encoded !== value.invitationSecret) return null;
   return { value: value.invitationSecret, expiresAt: value.expiresAt };
 }
+function parseReassignment(
+  value: unknown,
+  expectedActiveAssignmentId: string,
+  expectedTargetCustomerId: string,
+): { readonly assignmentChanged: boolean } | null {
+  if (
+    !isRecord(value)
+    || !exact(value, [
+      'status',
+      'idempotentRetry',
+      'assignmentChanged',
+      'resultAssignmentId',
+      'replacedAssignmentId',
+      'targetCustomerId',
+      'effectiveAt',
+    ])
+    || value.status !== 'succeeded'
+    || typeof value.idempotentRetry !== 'boolean'
+    || typeof value.assignmentChanged !== 'boolean'
+    || !uuid.test(String(value.resultAssignmentId))
+    || !(value.replacedAssignmentId === null || uuid.test(String(value.replacedAssignmentId)))
+    || !uuid.test(String(value.targetCustomerId))
+    || value.targetCustomerId !== expectedTargetCustomerId
+    || !(value.effectiveAt === null || (
+      typeof value.effectiveAt === 'string'
+      && canonicalTimestamp.test(value.effectiveAt)
+      && new Date(value.effectiveAt).toISOString() === value.effectiveAt
+    ))
+    || (
+      value.assignmentChanged
+        ? value.replacedAssignmentId !== expectedActiveAssignmentId
+          || value.resultAssignmentId === expectedActiveAssignmentId
+          || value.effectiveAt === null
+        : value.resultAssignmentId !== expectedActiveAssignmentId
+          || value.replacedAssignmentId !== null
+          || value.effectiveAt !== null
+    )
+  ) return null;
+  return { assignmentChanged: value.assignmentChanged };
+}
 function parseInvitationConflict(value: unknown): 'command_id_conflict' | 'invitation_created_token_unavailable' | 'invitation_limit_reached' | null {
   if (!isRecord(value) || !exact(value, ['error']) || !isRecord(value.error) || !exact(value.error, ['code'])) return null;
   return value.error.code === 'command_id_conflict'
     || value.error.code === 'invitation_created_token_unavailable'
     || value.error.code === 'invitation_limit_reached'
+    ? value.error.code
+    : null;
+}
+function parseReassignmentError(
+  value: unknown,
+  status: number,
+): 'assignment_conflict' | 'assignment_in_use' | 'assignment_target_unavailable' | 'command_id_conflict' | null {
+  if (!isRecord(value) || !exact(value, ['error']) || !isRecord(value.error) || !exact(value.error, ['code'])) return null;
+  if (status === 404) {
+    return value.error.code === 'assignment_target_unavailable'
+      ? 'assignment_target_unavailable'
+      : null;
+  }
+  return value.error.code === 'assignment_conflict'
+    || value.error.code === 'assignment_in_use'
+    || value.error.code === 'command_id_conflict'
     ? value.error.code
     : null;
 }

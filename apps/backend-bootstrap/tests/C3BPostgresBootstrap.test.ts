@@ -48,7 +48,7 @@ beforeAll(async () => {
   await installerPool.query(`DROP SCHEMA IF EXISTS ${B3_SCHEMA} CASCADE`);
   await installerPool.query(`DROP TABLE IF EXISTS ${B3_MIGRATION_TABLE}`);
   const migration = await migrate(installerPool);
-  expect(migration.applied).toEqual(['001', '002', '003', '004', '005', '006', '007', '008']);
+  expect(migration.applied).toEqual(['001', '002', '003', '004', '005', '006', '007', '008', '009']);
   jwks = await createJwksServer();
   verifier = SupabaseJwtAccessTokenVerifier.fromRemoteJwks({
     issuer: jwks.issuer,
@@ -76,12 +76,12 @@ afterAll(async () => {
 });
 
 describe('migration 006 and role graph', () => {
-  it('records exactly migrations 001 through 008 and reruns the immutable ledger', async () => {
+  it('records exactly migrations 001 through 009 and reruns the immutable ledger', async () => {
     expect((await loadMigrations()).map(({ version }) => version)).toEqual([
-      '001', '002', '003', '004', '005', '006', '007', '008',
+      '001', '002', '003', '004', '005', '006', '007', '008', '009',
     ]);
     await expect(migrate(installerPool)).resolves.toEqual({
-      applied: [], alreadyApplied: ['001', '002', '003', '004', '005', '006', '007', '008'],
+      applied: [], alreadyApplied: ['001', '002', '003', '004', '005', '006', '007', '008', '009'],
     });
   });
 

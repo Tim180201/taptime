@@ -25,6 +25,10 @@ export interface AdminNfcTagSummary {
   readonly targetCustomerId: CustomerId | null;
 }
 
+export interface AdminProjectedNfcTagSummary extends AdminNfcTagSummary {
+  readonly activeAssignmentId: NfcAssignmentId | null;
+}
+
 export interface EmployeeMembershipSummary {
   readonly id: MembershipId;
   readonly displayName: string;
@@ -113,6 +117,15 @@ export interface ReadSetupProjectionCommand {
   readonly limit: number;
 }
 
+export interface ReassignNfcTagCommand {
+  readonly accessToken: string;
+  readonly expectedMembershipId: MembershipId;
+  readonly commandId: string;
+  readonly nfcTagId: NfcTagId;
+  readonly expectedActiveAssignmentId: NfcAssignmentId;
+  readonly targetCustomerId: CustomerId;
+}
+
 export type AdminAuthorityRejection =
   | { readonly status: 'unauthorized' }
   | { readonly status: 'forbidden' };
@@ -140,12 +153,29 @@ export type ProvisionNfcTagResult =
   | { readonly status: 'command_id_conflict' }
   | { readonly status: 'invalid_request' };
 
+export type ReassignNfcTagResult =
+  | {
+      readonly status: 'succeeded';
+      readonly idempotentRetry: boolean;
+      readonly assignmentChanged: boolean;
+      readonly resultAssignmentId: NfcAssignmentId;
+      readonly replacedAssignmentId: NfcAssignmentId | null;
+      readonly targetCustomerId: CustomerId;
+      readonly effectiveAt: string | null;
+    }
+  | AdminAuthorityRejection
+  | { readonly status: 'assignment_target_unavailable' }
+  | { readonly status: 'assignment_conflict' }
+  | { readonly status: 'assignment_in_use' }
+  | { readonly status: 'command_id_conflict' }
+  | { readonly status: 'invalid_request' };
+
 export type ReadSetupProjectionResult =
   | {
       readonly status: 'succeeded';
       readonly organization: AdminOrganizationSummary;
       readonly customers: readonly AdminCustomerSummary[];
-      readonly nfcTags: readonly AdminNfcTagSummary[];
+      readonly nfcTags: readonly AdminProjectedNfcTagSummary[];
       readonly nextCursor: string | null;
     }
   | AdminAuthorityRejection
@@ -163,5 +193,20 @@ export interface AdminCoordinatorControls {
   readonly afterCommandLocked?: () => Promise<void> | void;
   readonly afterReceiptMiss?: () => Promise<void> | void;
   readonly afterWrite?: (stage: AdminWriteStage) => Promise<void> | void;
+  readonly beforeCommit?: () => Promise<void> | void;
+}
+
+export type ReassignmentWriteStage =
+  | 'old_assignment_and_audit'
+  | 'new_assignment_and_audit'
+  | 'receipt';
+
+export interface ReassignmentCoordinatorControls {
+  readonly deadlineEpochMilliseconds?: number;
+  readonly afterAuthorityLocked?: () => Promise<void> | void;
+  readonly afterCommandLocked?: () => Promise<void> | void;
+  readonly afterReceiptMiss?: () => Promise<void> | void;
+  readonly afterAssignmentLocked?: () => Promise<void> | void;
+  readonly afterWrite?: (stage: ReassignmentWriteStage) => Promise<void> | void;
   readonly beforeCommit?: () => Promise<void> | void;
 }

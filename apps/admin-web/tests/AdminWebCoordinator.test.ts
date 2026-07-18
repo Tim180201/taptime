@@ -61,6 +61,10 @@ class FakeApi implements AdminWebApiPort {
       expiresAt: '2099-07-15T12:34:56.789Z',
     },
   }));
+  readonly reassignNfcTag = vi.fn<AdminWebApiPort['reassignNfcTag']>(async () => ({
+    status: 'succeeded',
+    value: { assignmentChanged: true },
+  }));
 }
 
 function setup() {
@@ -126,7 +130,8 @@ describe('AdminWebCoordinator', () => {
     expect(api.projection).toHaveBeenCalledTimes(1);
     expect(coordinator.getState()).toEqual({
       status: 'ready', projection, employeeProjection, creating: false,
-      creatingEmployee: false, invitation: null, notice: null,
+      creatingEmployee: false, invitation: null, reassignmentIntent: null,
+      reassigning: false, notice: null,
     });
   });
 
@@ -145,7 +150,8 @@ describe('AdminWebCoordinator', () => {
     expect(api.projection).toHaveBeenCalledTimes(2);
     expect(coordinator.getState()).toEqual({
       status: 'ready', projection, employeeProjection, creating: false,
-      creatingEmployee: false, invitation: null, notice: 'Kunde wurde sicher angelegt.',
+      creatingEmployee: false, invitation: null, reassignmentIntent: null,
+      reassigning: false, notice: 'Kunde wurde sicher angelegt.',
     });
   });
 
@@ -199,7 +205,8 @@ describe('AdminWebCoordinator', () => {
     expect(api.projection).toHaveBeenLastCalledWith('memory-only-token', membershipId, cursor);
     expect(coordinator.getState()).toEqual({
       status: 'ready', creating: false, creatingEmployee: false,
-      invitation: null, notice: null, employeeProjection,
+      invitation: null, reassignmentIntent: null, reassigning: false,
+      notice: null, employeeProjection,
       projection: {
         organization: projection.organization,
         customers: [...projection.customers, { id: '40000000-0000-4000-8000-000000000002', displayName: 'Lager', active: true }],
@@ -458,5 +465,127 @@ describe('AdminWebCoordinator', () => {
       status: 'unavailable', message: 'Anmeldung derzeit nicht verfügbar.',
     });
     expect(auth.active).toBe(false);
+  });
+
+  it('creates one explicit reassignment intent and retains its command ID across ambiguous retries', async () => {
+    const { api, coordinator } = setup();
+    const reassignmentProjection: SafeProjection = {
+      ...projection,
+      customers: [
+        ...projection.customers,
+        { id: '40000000-0000-4000-8000-000000000002', displayName: 'Lager', active: true },
+      ],
+      nfcTags: [{
+        id: '50000000-0000-4000-8000-000000000001',
+        displayName: 'Eingang',
+        validationFingerprint: 'A1B2C3D4E5F6',
+        assignmentState: 'assigned',
+        targetCustomerId: projection.customers[0]!.id,
+        activeAssignmentId: '60000000-0000-4000-8000-000000000001',
+      }],
+    };
+    api.projection.mockResolvedValue({ status: 'succeeded', value: reassignmentProjection });
+    api.reassignNfcTag
+      .mockResolvedValueOnce({ status: 'unavailable' })
+      .mockResolvedValueOnce({ status: 'succeeded', value: { assignmentChanged: true } });
+    await coordinator.signIn('administrator@example.test', 'secret');
+
+    coordinator.prepareReassignment(
+      reassignmentProjection.nfcTags[0]!.id,
+      reassignmentProjection.customers[1]!.id,
+    );
+    const prepared = coordinator.getState();
+    expect(prepared).toMatchObject({
+      status: 'ready',
+      reassignmentIntent: {
+        nfcTagId: reassignmentProjection.nfcTags[0]!.id,
+        expectedActiveAssignmentId: reassignmentProjection.nfcTags[0]!.activeAssignmentId,
+        targetCustomerId: reassignmentProjection.customers[1]!.id,
+      },
+    });
+    const commandId = prepared.status === 'ready'
+      ? prepared.reassignmentIntent!.commandId
+      : '';
+
+    await coordinator.confirmReassignment();
+    expect(coordinator.getState()).toMatchObject({
+      status: 'ready',
+      reassigning: false,
+      reassignmentIntent: { commandId },
+      notice: 'Zuordnung konnte nicht sicher bestätigt werden. Erneut bestätigen verwendet dieselbe Anfrage.',
+    });
+    await coordinator.confirmReassignment();
+
+    expect(api.reassignNfcTag).toHaveBeenCalledTimes(2);
+    expect(api.reassignNfcTag.mock.calls[0]?.[2]).toBe(commandId);
+    expect(api.reassignNfcTag.mock.calls[1]?.[2]).toBe(commandId);
+    expect(coordinator.getState()).toMatchObject({
+      status: 'ready',
+      reassignmentIntent: null,
+      notice: 'NFC-Tag wurde sicher neu zugeordnet.',
+    });
+  });
+
+  it('does not create a reassignment intent for the current Customer', async () => {
+    const { api, coordinator } = setup();
+    const tagId = '50000000-0000-4000-8000-000000000001';
+    const assignmentId = '60000000-0000-4000-8000-000000000001';
+    api.projection.mockResolvedValue({
+      status: 'succeeded',
+      value: {
+        ...projection,
+        nfcTags: [{
+          id: tagId,
+          displayName: 'Eingang',
+          validationFingerprint: 'A1B2C3D4E5F6',
+          assignmentState: 'assigned',
+          targetCustomerId: projection.customers[0]!.id,
+          activeAssignmentId: assignmentId,
+        }],
+      },
+    });
+    await coordinator.signIn('administrator@example.test', 'secret');
+
+    coordinator.prepareReassignment(tagId, projection.customers[0]!.id);
+
+    expect(coordinator.getState()).toMatchObject({
+      status: 'ready',
+      reassignmentIntent: null,
+      notice: 'Die gewünschte Zuordnung ist nicht sicher verfügbar.',
+    });
+    expect(api.reassignNfcTag).not.toHaveBeenCalled();
+  });
+
+  it('destroys the reassignment intent on projection conflict and reloads authoritative data', async () => {
+    const { api, coordinator } = setup();
+    const targetCustomerId = '40000000-0000-4000-8000-000000000002';
+    const tagId = '50000000-0000-4000-8000-000000000001';
+    api.projection.mockResolvedValue({
+      status: 'succeeded',
+      value: {
+        ...projection,
+        customers: [...projection.customers, { id: targetCustomerId, displayName: 'Lager', active: true }],
+        nfcTags: [{
+          id: tagId,
+          displayName: 'Eingang',
+          validationFingerprint: 'A1B2C3D4E5F6',
+          assignmentState: 'assigned',
+          targetCustomerId: projection.customers[0]!.id,
+          activeAssignmentId: '60000000-0000-4000-8000-000000000001',
+        }],
+      },
+    });
+    api.reassignNfcTag.mockResolvedValueOnce({ status: 'conflict', code: 'assignment_conflict' });
+    await coordinator.signIn('administrator@example.test', 'secret');
+    coordinator.prepareReassignment(tagId, targetCustomerId);
+
+    await coordinator.confirmReassignment();
+
+    expect(api.projection).toHaveBeenCalledTimes(2);
+    expect(coordinator.getState()).toMatchObject({
+      status: 'ready',
+      reassignmentIntent: null,
+      notice: 'Die Zuordnung wurde zwischenzeitlich geändert. Daten wurden neu geladen.',
+    });
   });
 });

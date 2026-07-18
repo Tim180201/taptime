@@ -49,6 +49,25 @@ export function provisionNfcTagCommandDigestV1(
   ]);
 }
 
+export function reassignNfcTagCommandDigestV1(
+  organizationId: string,
+  actorUserId: string,
+  expectedMembershipId: string,
+  nfcTagId: string,
+  expectedActiveAssignmentId: string,
+  targetCustomerId: string,
+): string {
+  return tupleDigest([
+    'reassignNfcTag',
+    organizationId,
+    actorUserId,
+    expectedMembershipId,
+    nfcTagId,
+    expectedActiveAssignmentId,
+    targetCustomerId,
+  ]);
+}
+
 function tupleDigest(fields: readonly string[]): string {
   const hash = createHash('sha256').update(domain);
   for (const field of fields) {

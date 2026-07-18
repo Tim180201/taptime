@@ -8,6 +8,7 @@ const ids = {
   customer: '40000000-0000-4000-8000-000000000001',
   tag: '50000000-0000-4000-8000-000000000001',
   command: '60000000-0000-4000-8000-000000000001',
+  assignment: '80000000-0000-4000-8000-000000000001',
   employeeMembership: '70000000-0000-4000-8000-000000000001',
 };
 
@@ -26,6 +27,7 @@ function validProjection() {
       validationFingerprint: 'A1B2C3D4E5F6',
       assignmentState: 'assigned',
       targetCustomerId: ids.customer,
+      activeAssignmentId: ids.assignment,
     }],
     nextCursor: null,
   };
@@ -93,6 +95,7 @@ describe('AdminWebApiClient', () => {
           validationFingerprint: 'A1B2C3D4E5F6',
           assignmentState: 'assigned',
           targetCustomerId: ids.customer,
+          activeAssignmentId: ids.assignment,
         }],
         nextCursor: null,
       },
@@ -125,6 +128,97 @@ describe('AdminWebApiClient', () => {
       expectedMembershipId: ids.membership,
       commandId: ids.command,
       displayName: 'Werkstatt',
+    });
+  });
+
+  it('sends the exact reassignment command and strictly maps success and safe conflicts', async () => {
+    const targetCustomer = '40000000-0000-4000-8000-000000000002';
+    const fetchRequest = vi.fn<typeof fetch>(async () => json({
+      status: 'succeeded',
+      idempotentRetry: false,
+      assignmentChanged: true,
+      resultAssignmentId: '80000000-0000-4000-8000-000000000002',
+      replacedAssignmentId: ids.assignment,
+      targetCustomerId: targetCustomer,
+      effectiveAt: '2026-07-18T12:34:56.789Z',
+    }));
+    const client = new AdminWebApiClient(fetchRequest);
+
+    await expect(client.reassignNfcTag(
+      'token',
+      ids.membership,
+      ids.command,
+      ids.tag,
+      ids.assignment,
+      targetCustomer,
+    )).resolves.toEqual({ status: 'succeeded', value: { assignmentChanged: true } });
+    expect(fetchRequest.mock.calls[0]?.[0]).toBe('/v1/administration/nfc-tags/reassign');
+    expect(JSON.parse(String(fetchRequest.mock.calls[0]?.[1]?.body))).toEqual({
+      expectedMembershipId: ids.membership,
+      commandId: ids.command,
+      nfcTagId: ids.tag,
+      expectedActiveAssignmentId: ids.assignment,
+      targetCustomerId: targetCustomer,
+    });
+
+    fetchRequest.mockResolvedValueOnce(json({ error: { code: 'assignment_in_use' } }, 409));
+    await expect(client.reassignNfcTag(
+      'token',
+      ids.membership,
+      ids.command,
+      ids.tag,
+      ids.assignment,
+      targetCustomer,
+    )).resolves.toEqual({ status: 'conflict', code: 'assignment_in_use' });
+  });
+
+  it('rejects reassignment successes that do not match the submitted Assignment and target', async () => {
+    const targetCustomer = '40000000-0000-4000-8000-000000000002';
+    const validResult = {
+      status: 'succeeded',
+      idempotentRetry: false,
+      assignmentChanged: true,
+      resultAssignmentId: '80000000-0000-4000-8000-000000000002',
+      replacedAssignmentId: ids.assignment,
+      targetCustomerId: targetCustomer,
+      effectiveAt: '2026-07-18T12:34:56.789Z',
+    };
+    const fetchRequest = vi.fn<typeof fetch>();
+    const client = new AdminWebApiClient(fetchRequest);
+    const submit = () => client.reassignNfcTag(
+      'token',
+      ids.membership,
+      ids.command,
+      ids.tag,
+      ids.assignment,
+      targetCustomer,
+    );
+
+    for (const invalid of [
+      { ...validResult, targetCustomerId: ids.customer },
+      { ...validResult, replacedAssignmentId: ids.command },
+      {
+        ...validResult,
+        assignmentChanged: false,
+        resultAssignmentId: validResult.resultAssignmentId,
+        replacedAssignmentId: null,
+        effectiveAt: null,
+      },
+    ]) {
+      fetchRequest.mockResolvedValueOnce(json(invalid));
+      await expect(submit()).resolves.toEqual({ status: 'unavailable' });
+    }
+
+    fetchRequest.mockResolvedValueOnce(json({
+      ...validResult,
+      assignmentChanged: false,
+      resultAssignmentId: ids.assignment,
+      replacedAssignmentId: null,
+      effectiveAt: null,
+    }));
+    await expect(submit()).resolves.toEqual({
+      status: 'succeeded',
+      value: { assignmentChanged: false },
     });
   });
 

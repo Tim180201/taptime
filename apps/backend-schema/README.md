@@ -1,7 +1,7 @@
 # TapTim.e Backend Schema — Blocks B3–C3E1
 
 This workspace contains the versioned PostgreSQL 17 schema, migration runner and security
-integration evidence through migrations `001`–`008`. Migration `006` adds the isolated C3B
+integration evidence through migrations `001`–`009`. Migration `006` adds the isolated C3B
 bootstrap capability; migration `007` adds the narrow normal-administration role, display-name and
 safe receipt/audit contracts; migration `008` adds the isolated Employee invitation/redemption
 boundary. Migrations `001`–`007` remain immutable.

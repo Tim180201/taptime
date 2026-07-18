@@ -16,6 +16,7 @@ const applicationRoles = [
   'taptime_identity_resolver',
   'taptime_employee_invitation_creator',
   'taptime_employee_enrollment_redeemer',
+  'taptime_assignment_reassigner',
 ] as const;
 const migrationDirectory = fileURLToPath(new URL('../../backend-schema/migrations/', import.meta.url));
 
@@ -39,6 +40,10 @@ const runtimeRoleGraph = Object.freeze({
     'taptime_identity_resolver',
   ],
   [runtimeLogins.employeeEnrollment]: ['taptime_employee_enrollment_redeemer'],
+  [runtimeLogins.reassignment]: [
+    'taptime_assignment_reassigner',
+    'taptime_identity_resolver',
+  ],
   [runtimeLogins.provisioner]: ['taptime_administrator'],
 } as const);
 
@@ -107,8 +112,8 @@ export async function prepareSyntheticDatabase(
     installerPool,
     await loadMigrations(migrationDirectory),
   );
-  if (migration.applied.join(',') !== '001,002,003,004,005,006,007,008') {
-    throw new Error('Synthetic E2E requires a clean migration set 001 through 008');
+  if (migration.applied.join(',') !== '001,002,003,004,005,006,007,008,009') {
+    throw new Error('Synthetic E2E requires a clean migration set 001 through 009');
   }
 
   await normalizeApplicationRoles(installerPool);
@@ -119,6 +124,7 @@ export async function prepareSyntheticDatabase(
     administration: randomBytes(32).toString('base64url'),
     employeeInvitation: randomBytes(32).toString('base64url'),
     employeeEnrollment: randomBytes(32).toString('base64url'),
+    reassignment: randomBytes(32).toString('base64url'),
     provisioner: randomBytes(32).toString('base64url'),
   } as const;
   for (const [login, roles] of Object.entries(runtimeRoleGraph)) {
@@ -154,6 +160,11 @@ export async function prepareSyntheticDatabase(
         installerDatabaseUrl,
         runtimeLogins.employeeEnrollment,
         passwords.employeeEnrollment,
+      ),
+      reassignment: runtimeConnectionString(
+        installerDatabaseUrl,
+        runtimeLogins.reassignment,
+        passwords.reassignment,
       ),
       provisioner: runtimeConnectionString(
         installerDatabaseUrl,
@@ -386,8 +397,10 @@ async function seedSyntheticTenant(pool: Pool, issuer: string): Promise<void> {
   await pool.query(
     `INSERT INTO ${B3_SCHEMA}.customers
        (id, organization_id, display_name, active, activated_at, deactivated_at)
-     VALUES ($1, $2, 'Synthetic Android Customer', true, transaction_timestamp(), NULL)`,
-    [syntheticIds.customer, syntheticIds.organization],
+     VALUES
+       ($1, $3, 'Synthetic Android Customer', true, transaction_timestamp(), NULL),
+       ($2, $3, 'Synthetic Reassignment Target', true, transaction_timestamp(), NULL)`,
+    [syntheticIds.customer, syntheticIds.reassignmentCustomer, syntheticIds.organization],
   );
 }
 

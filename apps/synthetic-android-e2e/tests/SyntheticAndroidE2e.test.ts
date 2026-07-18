@@ -118,6 +118,10 @@ describeWithPostgres('synthetic Android product-to-server E2E', () => {
     await expect(parentRoles(installerPool, runtimeLogins.employeeEnrollment)).resolves.toEqual([
       'taptime_employee_enrollment_redeemer',
     ]);
+    await expect(parentRoles(installerPool, runtimeLogins.reassignment)).resolves.toEqual([
+      'taptime_assignment_reassigner',
+      'taptime_identity_resolver',
+    ]);
     await expect(parentRoles(installerPool, runtimeLogins.provisioner)).resolves.toEqual([
       'taptime_administrator',
     ]);
@@ -137,7 +141,7 @@ describeWithPostgres('synthetic Android product-to-server E2E', () => {
        ORDER BY rolname`,
       [Object.values(runtimeLogins)],
     );
-    expect(roles.rows).toHaveLength(7);
+    expect(roles.rows).toHaveLength(8);
     expect(roles.rows.every((role) => (
       !role.rolsuper
       && !role.rolcreaterole
@@ -227,7 +231,13 @@ describeWithPostgres('synthetic Android product-to-server E2E', () => {
       await expect(projectionResponse.json()).resolves.toMatchObject({
         status: 'succeeded',
         organization: { id: syntheticIds.organization, name: 'Synthetic Android E2E' },
-        customers: [{ id: syntheticIds.customer, displayName: 'Synthetic Android Customer' }],
+        customers: [
+          { id: syntheticIds.customer, displayName: 'Synthetic Android Customer' },
+          {
+            id: syntheticIds.reassignmentCustomer,
+            displayName: 'Synthetic Reassignment Target',
+          },
+        ],
         nfcTags: [],
         nextCursor: null,
       });
@@ -314,7 +324,7 @@ describeWithPostgres('synthetic Android product-to-server E2E', () => {
         adminSetupReceipts: 0,
         auditEvents: 2,
         canonicalDecisions: 0,
-        customers: 1,
+        customers: 2,
         nfcAssignments: 1,
         nfcTags: 1,
         stoppedTimeEntries: 0,
@@ -385,7 +395,7 @@ describeWithPostgres('synthetic Android product-to-server E2E', () => {
         adminSetupReceipts: 0,
         auditEvents: 4,
         canonicalDecisions: 2,
-        customers: 1,
+        customers: 2,
         nfcAssignments: 1,
         nfcTags: 1,
         stoppedTimeEntries: 1,
@@ -602,6 +612,80 @@ describeWithPostgres('synthetic Android product-to-server E2E', () => {
       expect(JSON.stringify(safeEvents)).not.toContain(payload);
       expect(safeEvents).not.toContain('api_administration_unavailable');
     });
+
+  it('runs real C3E2 reassignment and receipt replay after the stopped B6 lifecycle', async () => {
+    const provider = mobileAuthAdapter(environment);
+    const signIn = await provider.signInWithPassword(
+      SYNTHETIC_ADMIN_AUTH_EMAIL,
+      syntheticPassword,
+    );
+    if (signIn.status !== 'authenticated') {
+      throw new Error('Synthetic Administrator sign-in unexpectedly failed');
+    }
+    const token = signIn.tokens.accessToken;
+    const before = await environment.evidenceCounts();
+    const body = {
+      expectedMembershipId: syntheticIds.administratorMembership,
+      commandId: '70000000-0000-4000-8000-000000000003',
+      nfcTagId: syntheticIds.tagA,
+      expectedActiveAssignmentId: syntheticIds.assignmentA,
+      targetCustomerId: syntheticIds.reassignmentCustomer,
+    };
+    const response = await postAdministration(
+      token,
+      '/v1/administration/nfc-tags/reassign',
+      body,
+    );
+    expect(response.status).toBe(200);
+    const result = await response.json() as Record<string, unknown>;
+    expect(result).toMatchObject({
+      status: 'succeeded',
+      idempotentRetry: false,
+      assignmentChanged: true,
+      replacedAssignmentId: syntheticIds.assignmentA,
+      targetCustomerId: syntheticIds.reassignmentCustomer,
+      effectiveAt: expect.stringMatching(/Z$/),
+    });
+
+    const replay = await postAdministration(
+      token,
+      '/v1/administration/nfc-tags/reassign',
+      body,
+    );
+    expect(replay.status).toBe(200);
+    await expect(replay.json()).resolves.toEqual({
+      ...result,
+      idempotentRetry: true,
+    });
+    const projection = await postAdministration(
+      token,
+      '/v1/administration/setup-projection',
+      { expectedMembershipId: syntheticIds.administratorMembership, cursor: null, limit: 20 },
+    );
+    expect(projection.status).toBe(200);
+    await expect(projection.json()).resolves.toMatchObject({
+      nfcTags: expect.arrayContaining([
+        expect.objectContaining({
+          id: syntheticIds.tagA,
+          assignmentState: 'assigned',
+          targetCustomerId: syntheticIds.reassignmentCustomer,
+          activeAssignmentId: result.resultAssignmentId,
+        }),
+      ]),
+    });
+    expect(await environment.evidenceCounts()).toEqual({
+      adminSetupReceipts: before.adminSetupReceipts + 1,
+      auditEvents: before.auditEvents + 2,
+      canonicalDecisions: before.canonicalDecisions,
+      customers: before.customers,
+      nfcAssignments: before.nfcAssignments + 1,
+      nfcTags: before.nfcTags,
+      stoppedTimeEntries: before.stoppedTimeEntries,
+      syncReceipts: before.syncReceipts,
+      timeEntries: before.timeEntries,
+      workEvents: before.workEvents,
+    });
+  });
 
   it('runs real C3E1 invitation, fail-closed interruption, redemption, and reuse denial',
     async () => {

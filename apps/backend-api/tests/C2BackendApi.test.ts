@@ -45,6 +45,7 @@ import {
   C2_READ_MODEL_RUNTIME_LOGIN,
   C2_RUNTIME_ROLE_GRAPH,
   C2_SESSION_RUNTIME_LOGIN,
+  C3E2_REASSIGNMENT_RUNTIME_LOGIN,
   ids,
   parentRoles,
   postgresErrorCode,
@@ -61,6 +62,8 @@ const passwords = {
   lifecycle: process.env.C2_LIFECYCLE_RUNTIME_PASSWORD ?? 'c2-lifecycle-local-synthetic-only',
   administration: process.env.C2_ADMINISTRATION_RUNTIME_PASSWORD
     ?? 'c2-administration-local-synthetic-only',
+  reassignment: process.env.C3E2_REASSIGNMENT_RUNTIME_PASSWORD
+    ?? 'c3e2-reassignment-local-synthetic-only',
 } as const;
 const connectionStrings = {
   session: process.env.C2_SESSION_DATABASE_URL ?? runtimeConnectionString(
@@ -93,6 +96,11 @@ const connectionStrings = {
     'taptime_c3e1_enrollment_runtime',
     'c3e1-enrollment-local-synthetic-only',
   ),
+  reassignment: runtimeConnectionString(
+    installerConnectionString,
+    C3E2_REASSIGNMENT_RUNTIME_LOGIN,
+    passwords.reassignment,
+  ),
 } as const;
 
 const installerPool = new Pool({ connectionString: installerConnectionString, max: 8 });
@@ -112,6 +120,7 @@ beforeAll(async () => {
   expectRuntimeUsername(connectionStrings.readModel, C2_READ_MODEL_RUNTIME_LOGIN);
   expectRuntimeUsername(connectionStrings.lifecycle, C2_LIFECYCLE_RUNTIME_LOGIN);
   expectRuntimeUsername(connectionStrings.administration, C2_ADMINISTRATION_RUNTIME_LOGIN);
+  expectRuntimeUsername(connectionStrings.reassignment, C3E2_REASSIGNMENT_RUNTIME_LOGIN);
   jwks = await startSyntheticJwks();
   await resetMigrateAndPrepareC2(installerPool, passwords);
   await resetAndSeedC2(installerPool, jwks.issuerA);
@@ -122,6 +131,7 @@ beforeAll(async () => {
     administrationDatabaseUrl: connectionStrings.administration,
     employeeInvitationDatabaseUrl: connectionStrings.employeeInvitation,
     employeeEnrollmentDatabaseUrl: connectionStrings.employeeEnrollment,
+    reassignmentDatabaseUrl: connectionStrings.reassignment,
     supabaseIssuer: jwks.issuerA,
   }, {
     onDiagnostic: (diagnostic) => diagnostics.push(diagnostic),
@@ -142,17 +152,17 @@ afterAll(async () => {
 });
 
 describe('C2 package, runtime composition, and least privilege', () => {
-  it('uses exactly migrations 001 through 008 and reruns the ledger cleanly', async () => {
+  it('uses exactly migrations 001 through 009 and reruns the ledger cleanly', async () => {
     expect((await loadMigrations()).map(({ version }) => version)).toEqual([
-      '001', '002', '003', '004', '005', '006', '007', '008',
+      '001', '002', '003', '004', '005', '006', '007', '008', '009',
     ]);
     await expect(migrate(installerPool)).resolves.toEqual({
       applied: [],
-      alreadyApplied: ['001', '002', '003', '004', '005', '006', '007', '008'],
+      alreadyApplied: ['001', '002', '003', '004', '005', '006', '007', '008', '009'],
     });
   });
 
-  it('normalizes four distinct non-owner runtime logins with exact parent roles', async () => {
+  it('normalizes five distinct non-owner runtime logins with exact parent roles', async () => {
     for (const [login, roles] of Object.entries(C2_RUNTIME_ROLE_GRAPH)) {
       expect(await parentRoles(installerPool, login)).toEqual([...roles]);
       const result = await installerPool.query<{
@@ -241,6 +251,7 @@ describe('C2 package, runtime composition, and least privilege', () => {
       administrationDatabaseUrl: connectionStrings.administration,
       employeeInvitationDatabaseUrl: connectionStrings.employeeInvitation,
       employeeEnrollmentDatabaseUrl: connectionStrings.employeeEnrollment,
+      reassignmentDatabaseUrl: connectionStrings.reassignment,
       supabaseIssuer: 'https://synthetic.supabase.co/auth/v1',
     })).toThrow(/database URL|runtime login/);
   });
@@ -257,6 +268,7 @@ describe('C2 package, runtime composition, and least privilege', () => {
       administrationDatabaseUrl: connectionStrings.administration,
       employeeInvitationDatabaseUrl: connectionStrings.employeeInvitation,
       employeeEnrollmentDatabaseUrl: connectionStrings.employeeEnrollment,
+      reassignmentDatabaseUrl: connectionStrings.reassignment,
       supabaseIssuer: 'https://synthetic.supabase.co/auth/v1',
     })).toThrow('Backend API database runtime login names must be distinct');
   });
@@ -276,6 +288,7 @@ describe('C2 package, runtime composition, and least privilege', () => {
       administrationDatabaseUrl: connectionStrings.administration,
       employeeInvitationDatabaseUrl: connectionStrings.employeeInvitation,
       employeeEnrollmentDatabaseUrl: connectionStrings.employeeEnrollment,
+      reassignmentDatabaseUrl: connectionStrings.reassignment,
       supabaseIssuer: 'https://synthetic.supabase.co/auth/v1',
     })).toThrow('Backend API database URL contains an unsupported connection parameter');
   });
@@ -1657,6 +1670,11 @@ function testDependencies(
       return { status: 'unauthorized' };
     },
   };
+  const tagReassignment: BackendApiDependencies['tagReassignment'] = {
+    async reassignNfcTag() {
+      return { status: 'unauthorized' };
+    },
+  };
   return {
     sessionAuthority,
     scanContextResolver,
@@ -1664,6 +1682,7 @@ function testDependencies(
     deferredLifecycleIngestor,
     administration,
     employeeEnrollment,
+    tagReassignment,
     ...overrides,
   };
 }

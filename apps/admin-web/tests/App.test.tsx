@@ -15,6 +15,9 @@ function render(state: AdminWebState): string {
     createEmployeeInvitation: vi.fn(async () => undefined),
     loadMoreEmployees: vi.fn(async () => undefined),
     dismissInvitation: vi.fn(() => undefined),
+    prepareReassignment: vi.fn(() => undefined),
+    cancelReassignment: vi.fn(() => undefined),
+    confirmReassignment: vi.fn(async () => undefined),
   };
   return renderToStaticMarkup(<App administration={administration} />);
 }
@@ -41,6 +44,8 @@ describe('Admin Web rendered states', () => {
       creating: false,
       creatingEmployee: false,
       invitation: null,
+      reassignmentIntent: null,
+      reassigning: false,
       notice: 'Kunde wurde sicher angelegt.',
       employeeProjection: {
         organization: { id: '30000000-0000-4000-8000-000000000001', name: 'TapTim.e' },
@@ -56,6 +61,7 @@ describe('Admin Web rendered states', () => {
           validationFingerprint: 'A1B2C3D4E5F6',
           assignmentState: 'assigned',
           targetCustomerId: '40000000-0000-4000-8000-000000000001',
+          activeAssignmentId: '60000000-0000-4000-8000-000000000001',
         }],
         nextCursor: null,
       },
@@ -69,7 +75,8 @@ describe('Admin Web rendered states', () => {
 
   it('renders explicit empty states for both bounded setup lists', () => {
     const html = render({
-      status: 'ready', creating: false, creatingEmployee: false, invitation: null, notice: null,
+      status: 'ready', creating: false, creatingEmployee: false, invitation: null,
+      reassignmentIntent: null, reassigning: false, notice: null,
       employeeProjection: { organization: { id: '30000000-0000-4000-8000-000000000001', name: 'TapTim.e' }, employeeMemberships: [], nextCursor: null },
       projection: { organization: { id: '30000000-0000-4000-8000-000000000001', name: 'TapTim.e' }, customers: [], nfcTags: [], nextCursor: null },
     });
@@ -79,7 +86,8 @@ describe('Admin Web rendered states', () => {
 
   it('offers explicit cursor pagination only while another bounded page exists', () => {
     const html = render({
-      status: 'ready', creating: false, creatingEmployee: false, invitation: null, notice: null,
+      status: 'ready', creating: false, creatingEmployee: false, invitation: null,
+      reassignmentIntent: null, reassigning: false, notice: null,
       employeeProjection: { organization: { id: '30000000-0000-4000-8000-000000000001', name: 'TapTim.e' }, employeeMemberships: [], nextCursor: null },
       projection: {
         organization: { id: '30000000-0000-4000-8000-000000000001', name: 'TapTim.e' },
@@ -97,6 +105,8 @@ describe('Admin Web rendered states', () => {
       creating: false,
       creatingEmployee: false,
       invitation: { value: secret, expiresAt: '2099-07-15T12:34:56.789Z' },
+      reassignmentIntent: null,
+      reassigning: false,
       notice: 'Einladung wurde einmalig erzeugt.',
       projection: {
         organization: { id: '30000000-0000-4000-8000-000000000001', name: 'TapTim.e' },

@@ -243,6 +243,9 @@ function dependencies(
       async provisionNfcTag() { return { status: 'unauthorized' }; },
       async readSetupProjection() { return { status: 'unauthorized' }; },
     },
+    tagReassignment: {
+      async reassignNfcTag() { return { status: 'unauthorized' }; },
+    },
   };
 }
 

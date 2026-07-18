@@ -4,6 +4,8 @@ import { Pool } from 'pg';
 import { B3_MIGRATION_TABLE, B3_SCHEMA, migrate } from '../../backend-schema/src/index.js';
 
 export const C2_SESSION_RUNTIME_LOGIN = 'taptime_c2_session_runtime';
+export const C3E2_REASSIGNMENT_RUNTIME_LOGIN = 'taptime_c3e2_reassignment_runtime';
+export const C3E2_REASSIGNMENT_RUNTIME_PASSWORD = 'c3e2-reassignment-local-synthetic-only';
 
 export const c1Ids = {
   organizationA: '00000000-0000-4000-8000-000000000201',
@@ -53,10 +55,40 @@ export async function resetMigrateAndPrepareLogin(
   await installerPool.query(`DROP SCHEMA IF EXISTS ${B3_SCHEMA} CASCADE`);
   await installerPool.query(`DROP TABLE IF EXISTS ${B3_MIGRATION_TABLE}`);
   const result = await migrate(installerPool);
-  if (result.applied.join(',') !== '001,002,003,004,005,006,007,008') {
-    throw new Error('C1 requires a clean migration set 001 through 008');
+  if (result.applied.join(',') !== '001,002,003,004,005,006,007,008,009') {
+    throw new Error('C1 requires a clean migration set 001 through 009');
   }
   await ensureExactRuntimeLogin(installerPool, runtimePassword);
+  await ensureExactReassignmentRuntimeLogin(installerPool);
+}
+
+async function ensureExactReassignmentRuntimeLogin(installerPool: Pool): Promise<void> {
+  await installerPool.query(`
+    DO $login$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_catalog.pg_roles
+        WHERE rolname = '${C3E2_REASSIGNMENT_RUNTIME_LOGIN}'
+      ) THEN
+        CREATE ROLE ${C3E2_REASSIGNMENT_RUNTIME_LOGIN}
+          LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS;
+      END IF;
+    END
+    $login$;
+    ALTER ROLE ${C3E2_REASSIGNMENT_RUNTIME_LOGIN}
+      LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS
+      PASSWORD '${C3E2_REASSIGNMENT_RUNTIME_PASSWORD}';
+    ALTER ROLE ${C3E2_REASSIGNMENT_RUNTIME_LOGIN} RESET ALL;
+    REVOKE ALL PRIVILEGES ON SCHEMA ${B3_SCHEMA} FROM ${C3E2_REASSIGNMENT_RUNTIME_LOGIN};
+    REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA ${B3_SCHEMA}
+      FROM ${C3E2_REASSIGNMENT_RUNTIME_LOGIN};
+    REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA ${B3_SCHEMA}
+      FROM ${C3E2_REASSIGNMENT_RUNTIME_LOGIN};
+    REVOKE ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA ${B3_SCHEMA}
+      FROM ${C3E2_REASSIGNMENT_RUNTIME_LOGIN};
+    GRANT taptime_identity_resolver, taptime_assignment_reassigner
+      TO ${C3E2_REASSIGNMENT_RUNTIME_LOGIN};
+  `);
 }
 
 export async function ensureExactRuntimeLogin(

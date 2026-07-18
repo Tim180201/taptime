@@ -1,4 +1,4 @@
-# TapTim.e Backend API — C3C/C3E1 transport
+# TapTim.e Backend API — C3C/C3E1/C3E2 transport
 
 This private Node 24 workspace exposes the authenticated product API, the three fixed C3C
 administration capabilities and the three separately bounded C3E1 operations:
@@ -13,6 +13,8 @@ POST /v1/administration/customers
   { expectedMembershipId, commandId, displayName }
 POST /v1/administration/nfc-tags/provision
   { expectedMembershipId, commandId, customerId, displayName, canonicalPayload }
+POST /v1/administration/nfc-tags/reassign
+  { expectedMembershipId, commandId, nfcTagId, expectedActiveAssignmentId, targetCustomerId }
 POST /v1/administration/setup-projection
   { expectedMembershipId, cursor, limit }
 POST /v1/administration/employee-invitations
@@ -32,7 +34,7 @@ current User, Organization, Membership and Administrator role. The lifecycle
 the single narrowing source. Raw NFC payloads are accepted only by the provision request and are
 never returned or written to transport diagnostics.
 
-The process owns six PostgreSQL pools with six distinct runtime login names:
+The process owns seven PostgreSQL pools with seven distinct runtime login names:
 
 - session: exactly `taptime_identity_resolver`;
 - read model: `taptime_identity_resolver`, `taptime_employee` and `taptime_administrator`, with a
@@ -42,6 +44,7 @@ The process owns six PostgreSQL pools with six distinct runtime login names:
 - Employee invitation/projection: only `taptime_identity_resolver` and
   `taptime_employee_invitation_creator`;
 - pre-Membership redemption: only `taptime_employee_enrollment_redeemer`.
+- NFC reassignment: only `taptime_identity_resolver` and `taptime_assignment_reassigner`.
 
 The runtime rejects duplicate database usernames. To prevent `node-postgres` query parameters from
 silently replacing a login, endpoint, startup role or timeout, only TLS-related URL parameters are
@@ -59,6 +62,7 @@ TAPTIME_LIFECYCLE_DATABASE_URL
 TAPTIME_ADMINISTRATION_DATABASE_URL
 TAPTIME_EMPLOYEE_INVITATION_DATABASE_URL
 TAPTIME_EMPLOYEE_ENROLLMENT_DATABASE_URL
+TAPTIME_REASSIGNMENT_DATABASE_URL
 SUPABASE_ISSUER
 PORT                                      # optional, default 3000
 ```
@@ -69,7 +73,7 @@ authority, receipt, audit and concurrency integration matrix; this workspace own
 surface, status mapping, header/body hardening, deadline propagation and runtime composition.
 
 This is not a production deployment: production secrets/data, Supavisor validation,
-observability/rate policy and later C3E2 surfaces remain separate gates.
+observability/rate policy and production release remain separate gates.
 
 Run after building the administration contract, Core, schema, identity, read-model, lifecycle and
 administration dependencies:

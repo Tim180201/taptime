@@ -4,7 +4,7 @@ Status: strictly local, synthetic and non-production test infrastructure
 
 This Node-24 workspace runs the real C2/C3C HTTP router, B4 identity resolution, B5 tenant read
 model, B6 lifecycle coordinator, C3C administration coordinator, Core `BusinessEngine` and
-PostgreSQL migrations `001`–`008`. It composes C3E1 through two additional isolated invitation and
+PostgreSQL migrations `001`–`009`. It composes C3E1 through two additional isolated invitation and
 redemption logins, two pre-existing reserved-domain provider identities without User/Binding/
 Membership rows and a strictly local pre-commit interruption control. The earlier C3D identities,
 physical setup path and retained one-shot Tag-A fixture-provisioning regression remain available.

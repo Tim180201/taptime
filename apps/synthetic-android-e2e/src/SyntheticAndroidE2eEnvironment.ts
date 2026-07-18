@@ -7,6 +7,7 @@ import {
 import {
   AdminWriteSessionCoordinator,
   EmployeeMembershipEnrollmentCoordinator,
+  NfcTagReassignmentCoordinator,
 } from '@taptime/backend-administration';
 import {
   PostgresIdentityMembershipResolver,
@@ -92,6 +93,7 @@ export async function createSyntheticAndroidE2eEnvironment(
   let administrationPool: Pool | null = null;
   let employeeInvitationPool: Pool | null = null;
   let employeeEnrollmentPool: Pool | null = null;
+  let reassignmentPool: Pool | null = null;
   let provisionerPool: Pool | null = null;
   let redemptionInterruption: SyntheticRedemptionInterruptionController | null = null;
   let apiServer: ReturnType<typeof createBackendHttpServer> | null = null;
@@ -109,6 +111,7 @@ export async function createSyntheticAndroidE2eEnvironment(
     administrationPool = createPool(database.connectionStrings.administration);
     employeeInvitationPool = createPool(database.connectionStrings.employeeInvitation);
     employeeEnrollmentPool = createPool(database.connectionStrings.employeeEnrollment);
+    reassignmentPool = createPool(database.connectionStrings.reassignment);
     provisionerPool = createPool(database.connectionStrings.provisioner, 1);
 
     const verifier = SupabaseJwtAccessTokenVerifier.fromRemoteJwks({
@@ -150,6 +153,7 @@ export async function createSyntheticAndroidE2eEnvironment(
         deferredLifecycleIngestor: lifecycleCoordinator,
         administration: new AdminWriteSessionCoordinator(administrationPool, verifier),
         employeeEnrollment,
+        tagReassignment: new NfcTagReassignmentCoordinator(reassignmentPool, verifier),
       },
       {
         onDiagnostic(diagnostic) {
@@ -189,6 +193,7 @@ export async function createSyntheticAndroidE2eEnvironment(
       administrationPool,
       employeeInvitationPool,
       employeeEnrollmentPool,
+      reassignmentPool,
       provisionerPool,
     ] as const;
     let closed = false;
@@ -242,6 +247,7 @@ export async function createSyntheticAndroidE2eEnvironment(
       administrationPool?.end() ?? Promise.resolve(),
       employeeInvitationPool?.end() ?? Promise.resolve(),
       employeeEnrollmentPool?.end() ?? Promise.resolve(),
+      reassignmentPool?.end() ?? Promise.resolve(),
       provisionerPool?.end() ?? Promise.resolve(),
       auth.close(),
     ]);

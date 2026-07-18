@@ -6,6 +6,7 @@ import {
   normalizeNfcTagNameV1,
   normalizeOrganizationNameV1,
   provisionNfcTagCommandDigestV1,
+  reassignNfcTagCommandDigestV1,
 } from '../src/index.js';
 
 describe('neutral C3 administration contract', () => {
@@ -47,5 +48,16 @@ describe('neutral C3 administration contract', () => {
       'Eingang',
       'nfc:uid:v1:B55E8B6AEB30',
     )).toBe('170d1bf4e7bcf05ffd7ac96cc44d033289679ad05160ff2b86464bfa2a88eacc');
+  });
+
+  it('pins the C3E2 reassignment digest vector', () => {
+    expect(reassignNfcTagCommandDigestV1(
+      '00000000-0000-4000-8000-000000000001',
+      '10000000-0000-4000-8000-000000000001',
+      '12000000-0000-4000-8000-000000000001',
+      '30000000-0000-4000-8000-000000000001',
+      '40000000-0000-4000-8000-000000000001',
+      '20000000-0000-4000-8000-000000000002',
+    )).toBe('1a5d7bd2d735bcdafbd16968a44c2d2ee7ba61169b05b268498631ac4b75d80d');
   });
 });

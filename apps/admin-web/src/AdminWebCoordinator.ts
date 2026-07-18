@@ -87,7 +87,12 @@ export class AdminWebCoordinator implements AdminWebCapability {
     if (current.status !== 'ready' || membershipId === null || current.projection.nextCursor === null) return;
     const generation = this.generation;
     const requestedCursor = current.projection.nextCursor;
-    current = { ...current, invitation: null };
+    current = {
+      ...current,
+      invitation: null,
+      reassignmentIntent: null,
+      reassigning: false,
+    };
     this.setState({ status: 'loading' });
     let result;
     try {
@@ -143,15 +148,21 @@ export class AdminWebCoordinator implements AdminWebCapability {
   }
 
   async loadMoreEmployees(): Promise<void> {
-    const current = this.state;
+    let current = this.state;
     const membershipId = this.membershipId;
     if (
       current.status !== 'ready'
       || membershipId === null
       || current.employeeProjection.nextCursor === null
     ) return;
-    const generation = this.generation;
     const requestedCursor = current.employeeProjection.nextCursor;
+    current = {
+      ...current,
+      reassignmentIntent: null,
+      reassigning: false,
+    };
+    this.setState(current);
+    const generation = this.generation;
     let result;
     try {
       result = await this.auth.withAccessToken(
@@ -244,6 +255,120 @@ export class AdminWebCoordinator implements AdminWebCapability {
     const current = this.state;
     if (current.status !== 'ready' || current.invitation === null) return;
     this.setState({ ...current, invitation: null, notice: 'Einladungsgeheimnis wurde verworfen.' });
+  }
+
+  prepareReassignment(nfcTagId: string, targetCustomerId: string): void {
+    const current = this.state;
+    if (current.status !== 'ready' || current.reassigning) return;
+    const tag = current.projection.nfcTags.find((candidate) => candidate.id === nfcTagId);
+    const target = current.projection.customers.find(
+      (candidate) => candidate.id === targetCustomerId && candidate.active,
+    );
+    if (
+      tag === undefined
+      || target === undefined
+      || tag.assignmentState !== 'assigned'
+      || tag.targetCustomerId === null
+      || tag.activeAssignmentId === null
+      || tag.targetCustomerId === target.id
+    ) {
+      this.setState({
+        ...current,
+        reassignmentIntent: null,
+        notice: 'Die gewünschte Zuordnung ist nicht sicher verfügbar.',
+      });
+      return;
+    }
+    this.setState({
+      ...current,
+      invitation: null,
+      reassignmentIntent: Object.freeze({
+        commandId: crypto.randomUUID(),
+        nfcTagId: tag.id,
+        expectedActiveAssignmentId: tag.activeAssignmentId,
+        targetCustomerId: target.id,
+      }),
+      notice: null,
+    });
+  }
+
+  cancelReassignment(): void {
+    const current = this.state;
+    if (current.status !== 'ready' || current.reassignmentIntent === null || current.reassigning) return;
+    this.setState({
+      ...current,
+      reassignmentIntent: null,
+      notice: 'Änderung wurde verworfen.',
+    });
+  }
+
+  async confirmReassignment(): Promise<void> {
+    const current = this.state;
+    const membershipId = this.membershipId;
+    if (
+      current.status !== 'ready'
+      || current.reassignmentIntent === null
+      || current.reassigning
+      || membershipId === null
+    ) return;
+    const generation = this.generation;
+    const intent = current.reassignmentIntent;
+    this.setState({ ...current, invitation: null, reassigning: true, notice: null });
+    let result;
+    try {
+      result = await this.auth.withAccessToken((token) => this.api.reassignNfcTag(
+        token,
+        membershipId,
+        intent.commandId,
+        intent.nfcTagId,
+        intent.expectedActiveAssignmentId,
+        intent.targetCustomerId,
+      ));
+    } catch {
+      result = { status: 'unavailable' as const };
+    }
+    if (generation !== this.generation) return;
+    const latest = this.state;
+    if (latest.status !== 'ready' || latest.reassignmentIntent?.commandId !== intent.commandId) return;
+    if (result?.status === 'succeeded') {
+      await this.refresh();
+      if (generation !== this.generation) return;
+      const refreshed = this.state;
+      if (refreshed.status === 'ready') {
+        this.setState({
+          ...refreshed,
+          notice: result.value.assignmentChanged
+            ? 'NFC-Tag wurde sicher neu zugeordnet.'
+            : 'Die Zuordnung war bereits korrekt.',
+        });
+      }
+      return;
+    }
+    if (result === null || result.status === 'rejected') {
+      await this.rejectOutsideAuthentication(generation, 'Administrator-Sitzung ist nicht mehr gültig.');
+      return;
+    }
+    if (result.status === 'conflict' && result.code !== 'assignment_in_use') {
+      await this.refresh();
+      if (generation !== this.generation) return;
+      const refreshed = this.state;
+      if (refreshed.status === 'ready') {
+        const notice = result.code === 'assignment_target_unavailable'
+          ? 'Der Zielkunde ist nicht mehr aktiv verfügbar.'
+          : result.code === 'assignment_conflict'
+            ? 'Die Zuordnung wurde zwischenzeitlich geändert. Daten wurden neu geladen.'
+            : 'Die Änderungsanfrage steht mit einer vorhandenen Anfrage in Konflikt.';
+        this.setState({ ...refreshed, notice });
+      }
+      return;
+    }
+    this.setState({
+      ...latest,
+      reassigning: false,
+      notice: result.status === 'conflict'
+        ? 'Für diese Zuordnung läuft noch eine Arbeitszeit. Bitte zuerst stoppen und dann erneut bestätigen.'
+        : 'Zuordnung konnte nicht sicher bestätigt werden. Erneut bestätigen verwendet dieselbe Anfrage.',
+    });
   }
 
   private async completeSignIn(generation: number, email: string, password: string): Promise<void> {
@@ -389,6 +514,8 @@ function readyState(
     creating: false,
     creatingEmployee: false,
     invitation: null,
+    reassignmentIntent: null,
+    reassigning: false,
     notice: null,
   };
 }

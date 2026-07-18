@@ -39,6 +39,7 @@ function projectionResponse(body: unknown = {
     validationFingerprint: 'A1B2C3D4E5F6',
     assignmentState: 'assigned',
     targetCustomerId: ids.customer,
+    activeAssignmentId: ids.assignment,
   }],
   nextCursor: null,
 }): AuthenticatedHttpResult {
@@ -85,6 +86,7 @@ describe('TapTimeAdministrationApiClient', () => {
         validationFingerprint: 'A1B2C3D4E5F6',
         assignmentState: 'assigned',
         targetCustomerId: ids.customer,
+        activeAssignmentId: ids.assignment,
       }],
       nextCursor: null,
     });

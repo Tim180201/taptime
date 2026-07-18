@@ -12,6 +12,8 @@ export function App({ administration }: { readonly administration: AdminWebCapab
   const [password, setPassword] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [employeeName, setEmployeeName] = useState('');
+  const [reassignmentTagId, setReassignmentTagId] = useState('');
+  const [reassignmentTargetCustomerId, setReassignmentTargetCustomerId] = useState('');
 
   if (state.status === 'signed_out' || state.status === 'signing_in') {
     return <main className="login"><section className="login-card">
@@ -42,6 +44,22 @@ export function App({ administration }: { readonly administration: AdminWebCapab
   const customerNameById = new Map(
     state.projection.customers.map((customer) => [customer.id, customer.displayName]),
   );
+  const reassignmentTag = state.reassignmentIntent === null
+    ? null
+    : state.projection.nfcTags.find(
+        (tag) => tag.id === state.reassignmentIntent?.nfcTagId,
+      ) ?? null;
+  const reassignmentTarget = state.reassignmentIntent === null
+    ? null
+    : state.projection.customers.find(
+        (customer) => customer.id === state.reassignmentIntent?.targetCustomerId,
+      ) ?? null;
+  const selectedReassignmentTag = state.projection.nfcTags.find(
+    (tag) => tag.id === reassignmentTagId,
+  );
+  const canPrepareReassignment = selectedReassignmentTag?.assignmentState === 'assigned'
+    && reassignmentTargetCustomerId.length > 0
+    && selectedReassignmentTag.targetCustomerId !== reassignmentTargetCustomerId;
   return <main>
     <header>
       <div><p className="eyebrow">TAPTIM.E ADMIN</p><h1>{state.projection.organization.name}</h1></div>
@@ -77,6 +95,88 @@ export function App({ administration }: { readonly administration: AdminWebCapab
       <section className="panel">
         <h2>NFC-Tags</h2>
         <p className="muted">Neue Tags werden geschützt in der Android-App erfasst.</p>
+        <form className="reassignment-form" onSubmit={(event) => {
+          event.preventDefault();
+          administration.prepareReassignment(
+            reassignmentTagId,
+            reassignmentTargetCustomerId,
+          );
+        }}>
+          <label>Zuordnungsfähiger NFC-Tag
+            <select
+              required
+              value={reassignmentTagId}
+              onChange={(event) => setReassignmentTagId(event.target.value)}
+              disabled={state.reassigning || state.reassignmentIntent !== null}
+            >
+              <option value="">Tag auswählen</option>
+              {state.projection.nfcTags
+                .filter((tag) => tag.assignmentState === 'assigned')
+                .map((tag) => <option key={tag.id} value={tag.id}>
+                  {tag.displayName} · {tag.validationFingerprint}
+                </option>)}
+            </select>
+          </label>
+          <label>Neuer aktiver Kunde
+            <select
+              required
+              value={reassignmentTargetCustomerId}
+              onChange={(event) => setReassignmentTargetCustomerId(event.target.value)}
+              disabled={state.reassigning || state.reassignmentIntent !== null}
+            >
+              <option value="">Ziel auswählen</option>
+              {state.projection.customers
+                .filter((customer) => customer.active)
+                .map((customer) => <option
+                  key={customer.id}
+                  value={customer.id}
+                  disabled={customer.id === selectedReassignmentTag?.targetCustomerId}
+                >
+                  {customer.displayName}
+                </option>)}
+            </select>
+          </label>
+          <button disabled={
+            state.reassigning
+            || state.reassignmentIntent !== null
+            || !canPrepareReassignment
+          }>
+            Zuordnung vorbereiten
+          </button>
+        </form>
+        {state.reassignmentIntent !== null
+          && reassignmentTag !== null
+          && reassignmentTarget !== null
+          ? <aside className="reassignment-confirmation" aria-label="Zuordnung ausdrücklich bestätigen">
+              <strong>Zuordnung wirklich ändern?</strong>
+              <p>
+                <span>{reassignmentTag.displayName}</span>
+                <small>Prüf-Fingerprint {reassignmentTag.validationFingerprint}</small>
+              </p>
+              <p>
+                {reassignmentTag.targetCustomerId === null
+                  ? 'Nicht zugeordnet'
+                  : customerNameById.get(reassignmentTag.targetCustomerId) ?? 'Bisheriger Kunde'}
+                {' → '}
+                {reassignmentTarget.displayName}
+              </p>
+              <div className="confirmation-actions">
+                <button
+                  onClick={() => void administration.confirmReassignment()}
+                  disabled={state.reassigning}
+                >
+                  {state.reassigning ? 'Wird sicher geändert …' : 'Änderung ausdrücklich bestätigen'}
+                </button>
+                <button
+                  className="secondary"
+                  onClick={() => administration.cancelReassignment()}
+                  disabled={state.reassigning}
+                >
+                  Abbrechen
+                </button>
+              </div>
+            </aside>
+          : null}
         <ul>{state.projection.nfcTags.map((tag) => <li key={tag.id}>
           <div><span>{tag.displayName}</span><small>Prüf-Fingerprint {tag.validationFingerprint}</small></div>
           <small>{tag.targetCustomerId === null

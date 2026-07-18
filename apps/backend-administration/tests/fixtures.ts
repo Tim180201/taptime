@@ -7,6 +7,7 @@ export const C3C_ISSUER = 'https://synthetic.invalid/auth';
 export const C3C_RUNTIME_LOGIN = 'taptime_c3c_admin_setup_test_login';
 export const C3E1_INVITATION_RUNTIME_LOGIN = 'taptime_c3e1_invitation_test_login';
 export const C3E1_ENROLLMENT_RUNTIME_LOGIN = 'taptime_c3e1_enrollment_test_login';
+export const C3E2_REASSIGNMENT_RUNTIME_LOGIN = 'taptime_c3e2_reassignment_test_login';
 
 export const ids = {
   organizationA: '00000000-0000-4000-8000-000000000001',
@@ -28,6 +29,7 @@ export const ids = {
   customerA: '20000000-0000-4000-8000-000000000001',
   inactiveCustomerA: '20000000-0000-4000-8000-000000000002',
   customerB: '20000000-0000-4000-8000-000000000003',
+  targetCustomerA: '20000000-0000-4000-8000-000000000004',
   lowerCustomerA: '20000000-0000-4000-8000-000000000000',
   adversarialCustomerA: '20000000-0000-4000-8000-000000000090',
   tagAssignedA: '30000000-0000-4000-8000-000000000001',
@@ -50,6 +52,7 @@ export const customerIds = {
   customerA: CustomerId(ids.customerA),
   inactiveCustomerA: CustomerId(ids.inactiveCustomerA),
   customerB: CustomerId(ids.customerB),
+  targetCustomerA: CustomerId(ids.targetCustomerA),
 } as const;
 
 export const fixtureTokens = {
@@ -178,6 +181,30 @@ export async function removeC3E1RuntimeLogins(installerPool: Pool): Promise<void
   }
 }
 
+export async function ensureC3E2RuntimeLogin(
+  installerPool: Pool,
+  password: string,
+): Promise<void> {
+  await ensureRuntimeLogin(
+    installerPool,
+    C3E2_REASSIGNMENT_RUNTIME_LOGIN,
+    password,
+    ['taptime_identity_resolver', 'taptime_assignment_reassigner'],
+  );
+}
+
+export async function removeC3E2RuntimeLogin(installerPool: Pool): Promise<void> {
+  const database = await currentDatabase(installerPool);
+  await installerPool.query(`
+    REVOKE CONNECT ON DATABASE ${quoteIdentifier(database)}
+      FROM ${C3E2_REASSIGNMENT_RUNTIME_LOGIN};
+    DROP OWNED BY ${C3E2_REASSIGNMENT_RUNTIME_LOGIN};
+    REVOKE taptime_identity_resolver, taptime_assignment_reassigner
+      FROM ${C3E2_REASSIGNMENT_RUNTIME_LOGIN};
+    DROP ROLE IF EXISTS ${C3E2_REASSIGNMENT_RUNTIME_LOGIN};
+  `);
+}
+
 export function c3e1RuntimeConnectionString(
   baseConnectionString: string,
   login: typeof C3E1_INVITATION_RUNTIME_LOGIN | typeof C3E1_ENROLLMENT_RUNTIME_LOGIN,
@@ -201,6 +228,19 @@ export function runtimeConnectionString(
     throw new Error('C3C tests require a TCP PostgreSQL URL with an explicit host');
   }
   url.username = C3C_RUNTIME_LOGIN;
+  url.password = password;
+  return url.toString();
+}
+
+export function c3e2RuntimeConnectionString(
+  baseConnectionString: string,
+  password: string,
+): string {
+  const url = new URL(baseConnectionString);
+  if (!['postgresql:', 'postgres:'].includes(url.protocol) || url.hostname.length === 0) {
+    throw new Error('C3E2 tests require a TCP PostgreSQL URL with an explicit host');
+  }
+  url.username = C3E2_REASSIGNMENT_RUNTIME_LOGIN;
   url.password = password;
   return url.toString();
 }
@@ -412,6 +452,7 @@ async function ensureRuntimeLogin(
       taptime_admin_setup,
       taptime_employee_invitation_creator,
       taptime_employee_enrollment_redeemer
+      ,taptime_assignment_reassigner
     FROM ${quoteIdentifier(login)};
     ${roles.map((role) => `GRANT ${role} TO ${quoteIdentifier(login)} WITH INHERIT FALSE, SET TRUE, ADMIN FALSE;`).join('\n')}
   `);

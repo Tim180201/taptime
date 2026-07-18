@@ -20,6 +20,7 @@ import type {
   AdminCoordinatorControls,
   AdminCustomerSummary,
   AdminNfcTagSummary,
+  AdminProjectedNfcTagSummary,
   AdminWriteStage,
   CreateCustomerCommand,
   CreateCustomerResult,
@@ -73,6 +74,7 @@ interface ProjectionRow extends QueryResultRow {
   readonly active: boolean | null;
   readonly validation_fingerprint: string | null;
   readonly target_customer_id: string | null;
+  readonly active_assignment_id: string | null;
 }
 
 interface OrganizationRow extends QueryResultRow {
@@ -409,7 +411,8 @@ export class AdminWriteSessionCoordinator {
                customer.display_name,
                customer.active,
                NULL::text AS validation_fingerprint,
-               NULL::uuid AS target_customer_id
+               NULL::uuid AS target_customer_id,
+               NULL::uuid AS active_assignment_id
              FROM taptime_server.customers AS customer
              WHERE customer.organization_id = $1
              UNION ALL
@@ -419,7 +422,8 @@ export class AdminWriteSessionCoordinator {
                tag.display_name,
                NULL::boolean AS active,
                tag.validation_fingerprint,
-               assignment.target_customer_id
+               assignment.target_customer_id,
+               assignment.id AS active_assignment_id
              FROM taptime_server.nfc_tags AS tag
              LEFT JOIN taptime_server.nfc_assignments AS assignment
                ON assignment.organization_id = tag.organization_id
@@ -427,7 +431,14 @@ export class AdminWriteSessionCoordinator {
               AND assignment.active
              WHERE tag.organization_id = $1
            )
-           SELECT kind_order, id, display_name, active, validation_fingerprint, target_customer_id
+           SELECT
+             kind_order,
+             id,
+             display_name,
+             active,
+             validation_fingerprint,
+             target_customer_id,
+             active_assignment_id
            FROM setup_items
            WHERE $2::integer IS NULL
               OR kind_order > $2
@@ -440,7 +451,7 @@ export class AdminWriteSessionCoordinator {
         const hasMore = rows.rows.length > command.limit;
         const pageRows = rows.rows.slice(0, command.limit);
         const customers: AdminCustomerSummary[] = [];
-        const nfcTags: AdminNfcTagSummary[] = [];
+        const nfcTags: AdminProjectedNfcTagSummary[] = [];
         for (const row of pageRows) {
           if (row.kind_order === 0) {
             if (row.active === null) {
@@ -456,6 +467,9 @@ export class AdminWriteSessionCoordinator {
           if (row.kind_order !== 1 || row.validation_fingerprint === null) {
             throw new Error('NFC Tag projection row has an invalid shape');
           }
+          if ((row.target_customer_id === null) !== (row.active_assignment_id === null)) {
+            throw new Error('NFC Tag projection Assignment has an invalid shape');
+          }
           nfcTags.push(Object.freeze({
             id: NfcTagId(row.id),
             displayName: row.display_name,
@@ -464,6 +478,9 @@ export class AdminWriteSessionCoordinator {
             targetCustomerId: row.target_customer_id === null
               ? null
               : CustomerId(row.target_customer_id),
+            activeAssignmentId: row.active_assignment_id === null
+              ? null
+              : NfcAssignmentId(row.active_assignment_id),
           }));
         }
 

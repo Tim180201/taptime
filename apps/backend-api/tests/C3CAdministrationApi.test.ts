@@ -163,6 +163,7 @@ describe('C3C exact administration transport', () => {
       validationFingerprint: 'ABCDEF123456',
       assignmentState: 'unassigned' as const,
       targetCustomerId: null,
+      activeAssignmentId: null,
     }));
     const origin = await startServer(administrationCoordinator({
       async readSetupProjection(command) {
@@ -441,6 +442,11 @@ function dependencies(administration: AdministrationCoordinator): BackendApiDepe
         return { status: 'unauthorized' };
       },
       async readEmployeeMembershipsProjection() {
+        return { status: 'unauthorized' };
+      },
+    },
+    tagReassignment: {
+      async reassignNfcTag() {
         return { status: 'unauthorized' };
       },
     },

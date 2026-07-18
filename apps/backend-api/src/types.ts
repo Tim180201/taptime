@@ -22,10 +22,13 @@ import type {
   EmployeeEnrollmentCoordinatorControls,
   ProvisionNfcTagCommand,
   ProvisionNfcTagResult,
+  ReassignNfcTagCommand,
+  ReassignNfcTagResult,
   ReadEmployeeMembershipsProjectionCommand,
   ReadEmployeeMembershipsProjectionResult,
   ReadSetupProjectionCommand,
   ReadSetupProjectionResult,
+  ReassignmentCoordinatorControls,
   RedeemEmployeeMembershipInvitationCommand,
   RedeemEmployeeMembershipInvitationResult,
 } from '@taptime/backend-administration';
@@ -114,6 +117,13 @@ export interface EmployeeMembershipEnrollmentCoordinator {
   ): Promise<ReadEmployeeMembershipsProjectionResult>;
 }
 
+export interface NfcTagReassignmentPort {
+  reassignNfcTag(
+    command: ReassignNfcTagCommand,
+    controls?: ReassignmentCoordinatorControls,
+  ): Promise<ReassignNfcTagResult>;
+}
+
 export interface BackendApiDependencies {
   readonly sessionAuthority: SessionAuthorityResolver;
   readonly scanContextResolver: ScanContextResolver;
@@ -121,6 +131,7 @@ export interface BackendApiDependencies {
   readonly deferredLifecycleIngestor: DeferredLifecycleIngestor;
   readonly administration: AdministrationCoordinator;
   readonly employeeEnrollment: EmployeeMembershipEnrollmentCoordinator;
+  readonly tagReassignment: NfcTagReassignmentPort;
 }
 
 export interface BackendApiDiagnostic {

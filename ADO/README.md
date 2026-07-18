@@ -16,11 +16,14 @@ Completed and independently closed C3E1 implementation, Human physical-gate and 
 `ADO/05_Evidence/Block_C3E1_Implementation_Evidence.md` and
 `ADO/05_Evidence/Block_C3E1_Physical_Validation_Evidence.md`; independent final closure review:
 `ADO/05_Evidence/Block_C3E1_Independent_Final_Closure_Review.md`.
-C3E2 architecture/authorization candidate:
-`ADO/02_Development/Block_C3E2_Explicit_Tag_Reassignment_Authorization.md`. Package preparation is
-Human-authorized on baseline `7d9aaf3`; independent review of `dbefc1c` returned `APPROVED` with
-zero open P0–P3 and the Human Architect accepted Sections 3–13. Separate repository implementation
-authority remains pending. No C3E2 implementation is released.
+C3E2 architecture/authorization and local implementation checkpoint:
+`ADO/02_Development/Block_C3E2_Explicit_Tag_Reassignment_Authorization.md` and
+`ADO/05_Evidence/Block_C3E2_Implementation_Evidence.md`. Independent pre-implementation review of
+`dbefc1c` returned `APPROVED` with zero open P0–P3; the Human Architect accepted Sections 3–13 and
+later issued the separate repository implementation release on baseline `5bc4951`. The bounded
+candidate is locally implemented and Technical-Lead verified. Its implementation commit, exact-head
+CI, independent implementation review and fresh Human Physical Gate remain pending. Production
+resources/data and deployment/distribution remain unauthorized.
 
 This file is the official navigation entry point for the TapTim.e ADO.
 
@@ -172,6 +175,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Block C3E1 Physical Validation Evidence | `ADO/05_Evidence/Block_C3E1_Physical_Validation_Evidence.md` |
 | Block C3E1 Independent Final Closure Review | `ADO/05_Evidence/Block_C3E1_Independent_Final_Closure_Review.md` |
 | Block C3E2 Independent Pre-Implementation Architecture/Security Review | `ADO/05_Evidence/Block_C3E2_Independent_Architecture_Security_Review.md` |
+| Block C3E2 Local Implementation Evidence | `ADO/05_Evidence/Block_C3E2_Implementation_Evidence.md` |
 | Product Readiness Reassessment — C3D Closure Delta | `ADO/05_Evidence/Product_Readiness_Reassessment_2026-07-15_C3D_Closure_Delta.md` |
 | EP-008 Evidence (incl. Repository Health Follow-up) | `ADO/05_Evidence/EP-008/` |
 | Evidence Area | `ADO/05_Evidence/` |
