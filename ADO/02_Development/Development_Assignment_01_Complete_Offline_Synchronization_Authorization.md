@@ -1,15 +1,21 @@
 # Development Assignment 1 — Complete Offline Synchronization Architecture and Authorization Candidate
 
-Status: **INDEPENDENT PRE-IMPLEMENTATION REVIEW APPROVED WITH ZERO OPEN P0/P1/P2/P3 —
-HUMAN ACCEPTANCE AND SEPARATE IMPLEMENTATION RELEASE REQUIRED; IMPLEMENTATION NOT AUTHORIZED**
+Status: **HUMAN-ACCEPTED CONTRACT AFTER INDEPENDENT ZERO-FINDING PRE-IMPLEMENTATION REVIEW —
+SEPARATE EXACT-BASELINE IMPLEMENTATION RELEASE REQUIRED; IMPLEMENTATION NOT AUTHORIZED**
 Date: 2026-07-18
 Candidate Baseline Commit: `1bb2d7d7b38928643cfd5c86b36c500c35f73276`
 Candidate Baseline Tree: `c5c20f67155cdc0b4197908b4d1283cb7e619597`
+Independently Reviewed Candidate Commit: `592334160655cde2f4189712eaf327c8a7edcb0e`
+Independently Reviewed Candidate Tree: `96fffb5bb5e2793041c36b8f793c38ab1c2e5428`
+Independent Review Exact-head CI: GitHub Actions run `29653357355`, attempt 1, 10/10 successful
+Independent Review Verdict: **APPROVED — zero open P0/P1/P2/P3**
+Human Contract Acceptance Date: 2026-07-18
+Human Accepted Scope: ADR-0012 and Sections 3–13, including every numeric policy boundary
 Candidate Parent State: C3E2 independently closed; tracked/staged repository clean; untracked
 `research/` explicitly excluded and untouched
-Human Direction: The Human Architect authorized preparation of the first comprehensive assignment
-candidate in direct response to the stated no-implementation scope; no implementation authority
-was granted
+Human Direction: The Human Architect first authorized candidate preparation and subsequently
+accepted ADR-0012 and Sections 3–13 on the independently reviewed commit, including every numeric
+policy; the exact acceptance explicitly withheld implementation authority
 Owner: Technical Lead
 Architecture Candidate:
 `ADO/01_Architecture/ADR/ADR-0012-complete-offline-synchronization-platform.md`
@@ -17,6 +23,7 @@ Independent Review Evidence:
 `ADO/05_Evidence/Development_Assignment_01_Independent_Pre_Implementation_Review.md`
 Roadmap Scope: Comprehensive Development Assignment 1; intended completion of DT-060–DT-062 only
 after every required gate passes
+Implementation Authority: **Not granted**
 
 ## 1. Candidate objective
 
@@ -378,10 +385,12 @@ micro-sprint handoffs while preserving every quality/security gate.
 
 ## 13. Current release gate
 
-**STOP AFTER CANDIDATE PUBLICATION.**
+**STOP AFTER HUMAN CONTRACT ACCEPTANCE — SEPARATE EXACT-BASELINE IMPLEMENTATION RELEASE
+PENDING.**
 
-The present Human direction authorizes only reconciliation, drafting, focused ADO publication,
-exact-head CI and independent pre-implementation review. It does not authorize:
+Candidate publication, exact-head CI, independent zero-finding pre-implementation review and
+explicit Human acceptance of ADR-0012/Sections 3–13 are complete. The Human acceptance statement
+explicitly says `Noch keine Implementierungsfreigabe`. It does not authorize:
 
 - dependency installation;
 - migration `010`;
@@ -391,9 +400,8 @@ exact-head CI and independent pre-implementation review. It does not authorize:
 - physical testing;
 - production resources/data.
 
-Implementation may begin only after an independent `APPROVED` review with zero open P0/P1/P2/P3,
-explicit Human acceptance of ADR-0012/this candidate and a separate exact-baseline implementation
-authorization.
+Implementation may begin only after a later separate Human statement binds the exact then-current
+repository baseline and explicitly releases Workstreams A–E for implementation.
 
 ## 14. Independent review mandate
 

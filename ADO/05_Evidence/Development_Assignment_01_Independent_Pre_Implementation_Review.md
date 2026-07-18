@@ -1,7 +1,7 @@
 # Development Assignment 1 — Independent Pre-Implementation Architecture and Security Review
 
-Status: **APPROVED — ZERO OPEN P0/P1/P2/P3; HUMAN ACCEPTANCE AND SEPARATE
-IMPLEMENTATION RELEASE STILL REQUIRED**
+Status: **APPROVED — ZERO OPEN P0/P1/P2/P3; SUBSEQUENT HUMAN CONTRACT ACCEPTANCE RECORDED;
+SEPARATE IMPLEMENTATION RELEASE STILL REQUIRED**
 Review Date: 2026-07-18
 Candidate Parent: `1bb2d7d7b38928643cfd5c86b36c500c35f73276`
 Candidate Commit: `592334160655cde2f4189712eaf327c8a7edcb0e`
@@ -10,6 +10,8 @@ Candidate CI: GitHub Actions run `29653357355`, attempt 1, push to `main`, 10/10
 Review Type: Independent read-only pre-implementation architecture/security review
 Owner: Technical Lead
 Final Decision Authority: Human Architect
+Human Contract Acceptance Date: 2026-07-18
+Implementation Authority: **Not granted**
 
 ## 1. Review scope and binding
 
@@ -146,23 +148,31 @@ The independent review found no blocker in the following proposed Human-policy v
 - retry backoff: 2 seconds with full jitter, capped at 5 minutes; and
 - accepted `Retry-After`: 1 through 900 seconds.
 
-Independent technical approval does not itself make these accepted product policies. That
-transition belongs to the Human Architect.
+Independent technical approval did not itself make these accepted product policies. The subsequent
+Human decision recorded below completed that contract-acceptance transition without granting
+implementation authority.
 
-## 5. Human-Architect gate
+## 5. Human-Architect gate and subsequent acceptance
 
 The independent reviewer answered **Yes**: the Human Architect may accept ADR-0012 and Sections
 3–13 of the authorization candidate, including the numeric policies above.
 
-Such acceptance does not authorize implementation. After acceptance, the Human Architect must
-issue a separate statement bound to the exact then-current baseline before Workstreams A–E may
-begin.
+The Human Architect subsequently supplied the following exact decision:
+
+> Ich akzeptiere ADR-0012 und die Sections 3–13 des
+> Development-Assignment-1-Autorisierungskandidaten auf dem unabhängig geprüften
+> Kandidaten-Commit 592334160655cde2f4189712eaf327c8a7edcb0e einschließlich aller darin
+> festgelegten numerischen Policy-Grenzen. Noch keine Implementierungsfreigabe.
+
+ADR-0012 and Sections 3–13 are therefore Human-accepted on the independently reviewed candidate.
+The final sentence expressly withholds implementation. The Human Architect must issue a later
+separate statement bound to the exact then-current baseline before Workstreams A–E may begin.
 
 ## 6. Current release gate
 
-**STOP — HUMAN ACCEPTANCE PENDING; IMPLEMENTATION UNAUTHORIZED.**
+**STOP — HUMAN CONTRACT ACCEPTED; SEPARATE IMPLEMENTATION RELEASE PENDING.**
 
-Until both remaining Human decisions exist:
+Until the remaining separate Human implementation release exists:
 
 - ADR-0010/E1/E2A remains the only approved offline product behavior;
 - no dependency may be installed;
@@ -174,7 +184,5 @@ Until both remaining Human decisions exist:
 
 ## 7. Exact next step
 
-The Human Architect explicitly accepts or rejects ADR-0012 and Sections 3–13 of
-`Development_Assignment_01_Complete_Offline_Synchronization_Authorization.md`, including every
-numeric policy. If accepted, a later separate exact-baseline implementation release is still
-required.
+After this acceptance synchronization is published and exact-head CI is green, the Human Architect
+may separately release Workstreams A–E for repository implementation on that exact baseline.
