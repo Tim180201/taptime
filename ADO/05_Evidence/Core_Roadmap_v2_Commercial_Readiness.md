@@ -439,3 +439,37 @@ audit, focused publication, exact-head CI, independent review and applicable Hum
 The current critical path is therefore the eight assignments above plus the
 parallel elapsed-time Block-H legal/commercial track. No quality, security or professional-release
 gate is waived.
+
+## 16. Progress Update – 2026-07-18 Development Assignment 1 Candidate
+
+The Human Architect authorized preparation of the first comprehensive assignment candidate, not
+its implementation. On exact clean baseline
+`1bb2d7d7b38928643cfd5c86b36c500c35f73276`, tree
+`c5c20f67155cdc0b4197908b4d1283cb7e619597`, the Technical Lead reconciled the actual E1/E2A
+one-record Mobile outbox, volatile same-session context, defer-only server evidence, C3E2 historical
+Assignment model and the decision-bearing legacy Core demo queue.
+
+Proposed ADR-0012 and
+`Development_Assignment_01_Complete_Offline_Synchronization_Authorization.md` define the complete
+DT-060–DT-062 candidate boundary as one assignment:
+
+- a server-issued, exact-owner 12-hour offline capture lease and atomic multi-context projection;
+- five-minute clock-anchor tolerance, Android same-boot monotonic proof and a 72-hour
+  automatic-evaluation window, all requiring explicit Human acceptance;
+- SQLCipher-backed Expo SQLite with SecureStore-held key, crash-safe legacy E1/E2A import and
+  protected corruption/key-loss handling;
+- a 256-event persist-first FIFO used for every online and offline product scan;
+- single-flight foreground/manual/network-hint/background scheduling with exact backoff and no
+  false immediate-background guarantee;
+- an isolated least-privilege offline ingestion/reconciliation route that either invokes the
+  unchanged server BusinessEngine under every authority/time/order predicate or stores review
+  evidence with zero TimeEntry mutation;
+- complete automated, native Android SQLCipher/background and fresh Galaxy-A33 multi-event
+  cold-start/airplane-mode Human gates.
+
+This is candidate truth only. Independent pre-implementation review must return `APPROVED` with zero
+open P0/P1/P2/P3, the Human Architect must accept every architecture/numeric boundary, and a
+separate exact-baseline implementation release must follow before dependency, migration `010`,
+product/backend/native code, APK or physical-gate work begins. DT-060–DT-062 and Block E remain
+open; production resources/data, Assignment 2–8 scope and the legal/commercial track remain
+separately gated.

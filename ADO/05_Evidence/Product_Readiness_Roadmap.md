@@ -317,6 +317,30 @@ independent review and applicable Human/physical gate. The reduced assignment co
 not lower the required quality or professional-release standard. The parallel elapsed-time
 legal/privacy/commercial track remains unchanged.
 
+## Addendum (2026-07-18 — Development Assignment 1 Candidate)
+
+The first comprehensive assignment now has a Technical-Lead architecture/authorization candidate
+on baseline `1bb2d7d7b38928643cfd5c86b36c500c35f73276`, tree
+`c5c20f67155cdc0b4197908b4d1283cb7e619597`. Proposed ADR-0012 and the assignment candidate combine
+the remaining DT-060–DT-062 product boundary without reducing gates: exact server lease and
+multi-context cache, encrypted transactional multi-event Mobile queue, persist-first FIFO for online
+and offline scans, automatic foreground/manual/background synchronization, historical
+configuration/sequence reconciliation and server-only lifecycle decisions or durable review
+evidence.
+
+The proposed policy values are 12 hours for capture-lease lifetime, five minutes for clock-anchor
+tolerance, Android same-boot monotonic proof, 72 hours for automatic evaluation after lease expiry,
+and 256 unresolved local events. They are not approved rules yet. Independent pre-implementation
+review must challenge the complete
+candidate; the Human Architect must then explicitly accept the architecture and values and issue a
+separate exact-baseline implementation release. Until then no dependency, schema, product/native
+code, APK, physical validation, production resource/data or DT-060–DT-062 completion is authorized
+or claimed.
+
+This candidate changes no readiness-domain rating. It makes the current critical path more precise:
+Assignment 1 review/acceptance/release is next, followed by its implementation and complete gates;
+Assignments 2–8 and the parallel elapsed-time legal/privacy/commercial track remain unchanged.
+
 ## Revision Note (Technical Lead Review Follow-up, 2026-07-07)
 
 This roadmap was updated once, after Technical Lead review, to: (1) add the "Strategic frame" paragraph above, connecting roadmap items to the companion assessment's Business Event Platform framing (Section 0.1) and capability hierarchy (Section 12); (2) organize every milestone's existing items into an Engineering Track, a Product Capability Track, and a Business, Legal & Go-To-Market Track, without adding, removing, or reprioritizing any item, and without moving any item to a different milestone; (3) note, within the Now and Before Pilot Customers milestones, the re-evaluated primary-bottleneck finding from the companion assessment's Section 11.1 (Organization Management as the more foundational blocker for reaching the first pilot, alongside — not instead of — the backend technology decision). No original roadmap item's wording, milestone assignment, or substance was changed; this revision only added track labels, short cross-reference notes, and this closing note.
