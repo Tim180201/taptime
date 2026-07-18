@@ -2,10 +2,9 @@
 
 **Date:** 2026-07-18
 
-**Status:** IMPLEMENTATION CORRECTION `450d767` AND HARNESS CORRECTION `4338910` INDEPENDENTLY
-APPROVED WITH ZERO OPEN P0–P3 AND BOTH EXACT-HEAD CI RUNS 10/10 GREEN — complete fresh Human
-Physical Gate passed; closure synchronization candidate awaits publication, exact-head CI and
-independent final review
+**Status:** CLOSED FOR AUTHORIZED C3E1 SCOPE — implementation correction `450d767`, harness
+correction `4338910` and closure synchronization `fe0781b` independently approved with zero open
+P0–P3; all three exact-head CI runs 10/10 green; complete fresh Human Physical Gate passed
 
 **Authorization baseline:** `70d163fa0473692f61555f1580f25382e1e807af`
 
@@ -175,10 +174,12 @@ cleanup, listener shutdown and scoped reverse removal all passed. The exact obse
 Three prior disposable runs were reset in full and contribute no promoted observation: an
 invitation-expiry attempt, an attempt that used unauthorized clipboard automation for the secret,
 and an interruption attempt whose safe automatic rollback completed before the required physical
-force-stop sequence. The accepted run used manual secret transcription only. The current ADO delta
-is a closure-synchronization candidate; it must be published, pass exact-head CI and receive
-independent read-only final review before the governance synchronization is described as
-independently approved.
+force-stop sequence. The accepted run used manual secret transcription only. Closure commit
+`fe0781b28340cb97c9f6266723ad212549c32ad0`, tree
+`76284e521bd5003d8a12a62a4a9679530d789251`, passed exact-head ten-of-ten run `29645336694`.
+Independent read-only final review returned `APPROVED` with zero open P0/P1/P2/P3 and accepted the
+documented Force-Stop timing disposition. C3E1 is closed for its authorized repository/device
+scope.
 
 C3E2, generic Membership CRUD/revocation/reassignment, provider-account creation, production
 resources/data, deployment/distribution, Web/iOS NFC and broader Block-E work remain unauthorized.

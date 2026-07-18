@@ -1,10 +1,8 @@
 # Block C3 — Organization Administration Implementation Plan
 
-Status: Active — C3B/C3C/C3D completed for their authorized scopes; C3D closure sync Human-accepted;
-C3E1 product correction `450d767` and harness correction `4338910` independently approved with zero
-open P0–P3 and exact-head ten-of-ten CI; complete fresh Human Physical Gate passed; closure
-synchronization candidate awaits publication, exact-head CI and independent final review; C3E2
-unauthorized
+Status: Active — C3B/C3C/C3D/C3E1 independently closed for their authorized scopes; C3D closure
+sync Human-accepted; C3E1 closure commit `fe0781b` passed exact-head ten-of-ten CI and independent
+zero-finding final review after the complete fresh Human Physical Gate; C3E2 unauthorized
 Date: 2026-07-18
 Planning Baseline: `f7d38558e9a1e6d5f7c2cfd1f4a1ec6eed3ebd44`
 Owner: Technical Lead
@@ -17,7 +15,7 @@ Architecture: Accepted ADR-0011, FB-002 v1.2 and TS-002 v1.3
 | C3B | Isolated first Organization/Administrator bootstrap CLI, migration `006`, role graph, receipt/audit and security matrix | High | Completed — Technical Lead, independent review and nine-job CI passed |
 | C3C | Tenant-safe normal setup backend/API, Customer/Tag display names, atomic Customer and NFC provision commands, resumable safe projection | Very High | Completed — implementation `b90729a0a4b325f523cd98ea5a741defb00155f6`, independent exact-SHA reviews and exact-head ten-job CI passed |
 | C3D | Minimal Admin Web shell for Customer/assignment setup plus protected Android Administrator NFC capture | Extra High | Completed — final correction `e686578`, independent zero-finding review, exact-head ten-job CI and fresh Galaxy/NTAG213 Human gate passed |
-| C3E1 | Identity-first Employee Membership setup through a separately reviewed least-privilege invitation/redemption boundary | Very High | Product correction `450d767` and harness correction `4338910` independently approved/CI-green; complete fresh Human Gate passed; closure synchronization review pending |
+| C3E1 | Identity-first Employee Membership setup through a separately reviewed least-privilege invitation/redemption boundary | Very High | Closed — product correction `450d767`, harness correction `4338910` and closure commit `fe0781b` independently approved/CI-green; complete fresh Human Gate passed |
 | C3E2 | Explicit Tag reassignment with preserved Assignment history and future time attribution | Very High | Not authorized |
 
 C3B and C3C repository implementation are closed. The C3C backend prerequisite is satisfied. The
@@ -214,7 +212,7 @@ review returned `CHANGES REQUIRED` with three P2 and three P3 findings. Correcti
 zero-finding delta re-review and exact-head ten-of-ten run `29420832927`. Those gates authorized the
 complete fresh Human identity/device checklist.
 
-### Physical closure checkpoint (2026-07-15)
+### Physical closure checkpoint (2026-07-18)
 
 The Human Architect completed the full fresh C3E1 checklist on the approved Galaxy A33/NTAG213 set.
 Real C3C prerequisite setup, authority-free pre-Membership state, wrong-secret zero mutation,
@@ -225,9 +223,9 @@ contribute no observation: invitation expiry, unauthorized clipboard transfer an
 rollback before the required physical force-stop sequence. Detailed evidence is
 `ADO/05_Evidence/Block_C3E1_Physical_Validation_Evidence.md`.
 
-The current ADO delta is the closure-synchronization candidate. It still requires publication,
-exact-head CI and independent read-only final review before that synchronization is described as
-independently approved.
+Closure commit `fe0781b`, tree `76284e5`, passed exact-head ten-of-ten run `29645336694`; independent
+read-only final review returned `APPROVED` with zero open P0/P1/P2/P3 and accepted the documented
+Force-Stop timing disposition. C3E1 is closed for its authorized repository/device scope.
 
 C3E2 remains outside this package and requires its own Assignment-history and time-attribution
 policy decision before implementation planning.

@@ -1,7 +1,7 @@
 # ADR-0011: Secure Organization Bootstrap and Administration Boundary
 
-Status: Accepted by Human Architect — C3B/C3C/C3D/C3E1 completed for their authorized scopes;
-C3E1 closure synchronization review pending; C3E2/production gated
+Status: Accepted by Human Architect — C3B/C3C/C3D/C3E1 independently closed for their authorized
+scopes; C3E2/production gated
 Date: 2026-07-14
 Acceptance: Accepted 2026-07-14
 Roadmap: Core Roadmap v2, Block C3 and later setup slices DT-063–DT-066
@@ -419,7 +419,8 @@ The former combined C3E planning label is now separated for review:
   exact-head ten-of-ten CI. The Human Architect accepted the exact contract and separately authorized
   repository implementation on that baseline. Product correction `450d767`, harness correction
   `4338910` and the complete fresh Human physical gate later passed their required review, CI and
-  observation gates; only closure synchronization review remains.
+  observation gates. Closure commit `fe0781b` passed exact-head ten-of-ten run `29645336694`; its
+  independent final review returned `APPROVED` with zero open P0/P1/P2/P3.
 - **C3E2** remains the later explicit Tag reassignment capability. It must lock/deactivate/append
   Assignment history atomically and remains completely unauthorized.
 
