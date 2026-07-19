@@ -33,8 +33,9 @@ from exact authorized baseline `1800930`, tree `73e77b6`. Implementation commit 
 `617081f`, passed exact-head GitHub Actions run `29675842388`, attempt 1, ten of ten jobs. The
 independent implementation review of publication head `de89521` returned `CHANGES REQUIRED` with
 one P2, `DA1-IMPL-01`, and no other P0–P3. The byte-identical B6/Offline Organization/User advisory
-lock and real cross-route PostgreSQL serialization test are locally corrected and pass the complete
-1,626-test regression. Correction publication, exact-head CI and independent delta re-review remain
+lock and real cross-route PostgreSQL serialization test were published as correction `c71399a`,
+tree `7a159ce`, and passed exact-head GitHub Actions run `29692113159`, attempt 1, ten of ten jobs.
+The complete corrected local regression passes 1,626 tests. Independent delta re-review remains
 pending. Implementation and review evidence:
 `ADO/05_Evidence/Development_Assignment_01_Implementation_Evidence.md` and
 `ADO/05_Evidence/Development_Assignment_01_Independent_Implementation_Review.md`.
@@ -136,7 +137,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Feature Blueprint Standard | `ADO/01_Architecture/Feature_Blueprint_Standard.md` |
 | Technical Architecture Profile (TTAP-001) | `ADO/01_Architecture/Technical_Architecture_Profile.md` |
 | Development Task Profile | `ADO/01_Architecture/Development_Task_Profile.md` |
-| Architecture Decision Records (through Human-accepted ADR-0012; original repository implementation published/CI-green, DA1-IMPL-01 correction awaiting publication/CI/delta re-review, later gates separate) | `ADO/01_Architecture/ADR/` |
+| Architecture Decision Records (through Human-accepted ADR-0012; DA1-IMPL-01 correction published/exact-head-CI-green, independent delta re-review and later gates separate) | `ADO/01_Architecture/ADR/` |
 | Feature Blueprints (incl. FB-001, FB-002) | `ADO/01_Architecture/Feature_Blueprints/` |
 | Technical Specifications (incl. TS-001, TS-002) | `ADO/01_Architecture/Technical_Specifications/` |
 | Developer Implementation Manual (EP-008) | `ADO/01_Architecture/Developer_Implementation_Manual/` |

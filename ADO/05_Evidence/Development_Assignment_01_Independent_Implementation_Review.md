@@ -1,9 +1,8 @@
 # Development Assignment 1 — Independent Implementation Review and Correction Disposition
 
 Date: 2026-07-19
-Status: **CHANGES REQUIRED RECEIVED — DA1-IMPL-01 (P2) LOCALLY CORRECTED AND FULLY
-REGRESSION-VERIFIED; CORRECTION PUBLICATION, EXACT-HEAD CI AND INDEPENDENT DELTA RE-REVIEW
-PENDING**
+Status: **CHANGES REQUIRED RECEIVED — DA1-IMPL-01 (P2) CORRECTED AND PUBLISHED AS `c71399a`,
+TREE `7a159ce`; EXACT-HEAD RUN `29692113159` 10/10 GREEN; INDEPENDENT DELTA RE-REVIEW PENDING**
 Owner: Technical Lead
 
 ## 1. Exact original review binding
@@ -25,7 +24,17 @@ authority and numeric policies, the complete Workstream A–E scope, least privi
 isolation, encrypted Mobile persistence, FIFO synchronization and governance separation.
 The review and focused correction did not read, list or modify `research/`.
 
-## 2. Original verdict and finding
+## 2. Exact correction binding
+
+The focused correction is published as:
+
+- correction commit `c71399a349ec5615acee5abc13eda726bcdaa84f`;
+- correction tree `7a159ce6e21548c69dd2a77fed3e17f3e7865212`;
+- direct parent `de895215b28110b8fe7129863df17795351b5795`; and
+- exact-head GitHub Actions run `29692113159`, attempt 1, push to `main`, ten of ten jobs
+  successful.
+
+## 3. Original verdict and finding
 
 Original verdict: **CHANGES REQUIRED**.
 
@@ -43,7 +52,7 @@ the two routes could evaluate concurrently for the same Organization/User during
 window. PostgreSQL uniqueness constraints still protected hard lifecycle invariants, but the
 accepted shared serialization and deterministic duplicate-decision behavior were not proven.
 
-## 3. Focused local correction
+## 4. Focused correction
 
 The correction changes only the Offline coordinator's advisory-lock input to the byte-identical B6
 framing:
@@ -63,7 +72,7 @@ are deterministic: canonical `time_entry_started`, then Offline `duplicate_scan_
 The production change is one lock-framing line. The remaining delta is test-only dependency,
 integration evidence and truthful governance.
 
-## 4. Fresh local correction verification
+## 5. Fresh correction verification
 
 | Scope | Result |
 |---|---:|
@@ -87,16 +96,15 @@ integration evidence and truthful governance.
 All 15 Workspace TypeScript checks and all available Workspace builds passed, including
 declarations/bundles and the Admin-Web production build. `git diff --check` passed. A new Android
 release build was not repeated because the production correction is server-only and changes no
-Mobile/native source or dependency.
+Mobile/native source or dependency. Exact-head run `29692113159` independently reran the ten-job
+CI matrix against the published correction and passed every job.
 
-## 5. Gate disposition
+## 6. Gate disposition
 
-The Human Physical Gate remains closed. The local correction does not dispose the independent P2
-by itself. Required next steps are:
+The Human Physical Gate remains closed. Publication and CI do not dispose the independent P2 by
+themselves. Required next steps are:
 
-1. publish the focused correction;
-2. obtain green exact-head GitHub Actions CI;
-3. receive an independent exact-delta re-review with `APPROVED` and zero open P0–P3; and
-4. only then request the separate Human authorization for the complete fresh Physical Gate.
+1. receive an independent exact-delta re-review with `APPROVED` and zero open P0–P3; and
+2. only then request the separate Human authorization for the complete fresh Physical Gate.
 
 Production resources/data, deployment and distribution remain unauthorized.

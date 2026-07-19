@@ -2,9 +2,9 @@
 
 Status: **REPOSITORY IMPLEMENTATION PUBLISHED AND TECHNICAL-LEAD APPROVED — ORIGINAL
 IMPLEMENTATION EXACT-HEAD CI 10/10 GREEN; INDEPENDENT IMPLEMENTATION REVIEW RETURNED CHANGES
-REQUIRED FOR DA1-IMPL-01 (P2); FOCUSED CORRECTION LOCALLY VERIFIED, PUBLICATION/EXACT-HEAD
-CI/DELTA RE-REVIEW PENDING; PRODUCTION, DEPLOYMENT, DISTRIBUTION AND HUMAN PHYSICAL GATE NOT
-AUTHORIZED**
+REQUIRED FOR DA1-IMPL-01 (P2); FOCUSED CORRECTION `c71399a`, TREE `7a159ce`, PUBLISHED AND
+EXACT-HEAD RUN `29692113159` 10/10 GREEN; INDEPENDENT DELTA RE-REVIEW PENDING; PRODUCTION,
+DEPLOYMENT, DISTRIBUTION AND HUMAN PHYSICAL GATE NOT AUTHORIZED**
 Date: 2026-07-19
 Human-Accepted Contract Commit: `592334160655cde2f4189712eaf327c8a7edcb0e`
 Implementation Baseline Commit: `180093091c47a926b5871a27ea8b00fb21b9b4ac`
@@ -13,6 +13,10 @@ Implementation Commit: `4f51918993e02b7bf51a1194f8d4d750abfae7c4`
 Implementation Tree: `617081f34e34cbf5e314a26f4cc634c846c2e319`
 Implementation Exact-head CI: GitHub Actions run `29675842388`, attempt 1, push to `main`, 10/10
 jobs successful
+DA1-IMPL-01 Correction Commit: `c71399a349ec5615acee5abc13eda726bcdaa84f`
+DA1-IMPL-01 Correction Tree: `7a159ce6e21548c69dd2a77fed3e17f3e7865212`
+DA1-IMPL-01 Correction Exact-head CI: GitHub Actions run `29692113159`, attempt 1, push to `main`,
+10/10 jobs successful
 Architecture:
 `ADO/01_Architecture/ADR/ADR-0012-complete-offline-synchronization-platform.md`
 Authorization:
@@ -191,15 +195,16 @@ input used `:` while the existing B6 boundary used U+001F. The focused local cor
 the byte-identical B6 key and adds a real canonical-versus-Offline PostgreSQL concurrency test. The
 test observes the Offline session waiting at `pg_advisory_xact_lock`, then proves deterministic
 `time_entry_started` followed by `duplicate_scan_ignored`. The complete corrected local matrix is
-1,626 passed tests, all 15 Workspace TypeScript checks and all available Workspace builds.
+1,626 passed tests, all 15 Workspace TypeScript checks and all available Workspace builds. Focused
+correction `c71399a349ec5615acee5abc13eda726bcdaa84f`, tree
+`7a159ce6e21548c69dd2a77fed3e17f3e7865212`, passed exact-head GitHub Actions run
+`29692113159`, attempt 1, with all ten jobs successful.
 
 Still pending and not claimed here:
 
-1. focused correction commit and publication;
-2. green correction exact-head CI;
-3. independent exact-delta re-review with zero open P0–P3;
-4. separate Human authorization for the complete fresh Human Physical Gate;
-5. the Human observations themselves and later closure synchronization; and
-6. any production resource/data, deployment or distribution decision.
+1. independent exact-delta re-review with zero open P0–P3;
+2. separate Human authorization for the complete fresh Human Physical Gate;
+3. the Human observations themselves and later closure synchronization; and
+4. any production resource/data, deployment or distribution decision.
 
 DT-060–DT-062 remain open until every applicable later gate is complete.
