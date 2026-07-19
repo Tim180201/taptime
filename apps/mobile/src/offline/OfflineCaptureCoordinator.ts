@@ -50,6 +50,7 @@ import { decodeBase64Url32, encodeBase64Url } from './encoding';
 
 export interface OfflineCaptureSessionReader extends ProductScanSessionContextReader {
   getState(): MobileSessionState;
+  retryContext(): Promise<void>;
 }
 
 export type OfflineDatabaseFactory = (
@@ -168,11 +169,21 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
   }
 
   triggerForeground(): void {
-    void this.scheduler?.trigger('foreground');
+    this.restoreSessionAndSchedule('foreground');
   }
 
   triggerNetworkHint(): void {
-    void this.scheduler?.trigger('network_hint');
+    this.restoreSessionAndSchedule('network_hint');
+  }
+
+  private restoreSessionAndSchedule(trigger: 'foreground' | 'network_hint'): void {
+    const restore = this.session.getState().status === 'context_unavailable'
+      ? this.session.retryContext()
+      : Promise.resolve();
+    void restore
+      .catch(() => undefined)
+      .then(() => this.scheduler?.trigger(trigger))
+      .catch(() => undefined);
   }
 
   private async initializeInfrastructure(): Promise<boolean> {

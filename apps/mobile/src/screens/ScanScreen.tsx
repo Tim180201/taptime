@@ -1,10 +1,10 @@
 import { useSyncExternalStore } from 'react';
 import { Button, StyleSheet, Text, View } from 'react-native';
-import type { ProductSessionContext } from '../auth/contracts';
+import type { ProductMembershipRole } from '../auth/contracts';
 import type { ProductScanCapability, ProductScanState } from '../scan/contracts';
 
 interface ScanScreenProps {
-  readonly session: ProductSessionContext;
+  readonly actor: ProductMembershipRole | 'offline';
   readonly scan: ProductScanCapability;
   readonly signOut: () => Promise<void>;
 }
@@ -15,7 +15,7 @@ export interface ScanScreenPresentation {
   readonly tone: 'neutral' | 'success' | 'warning' | 'error';
 }
 
-export function ScanScreen({ session, scan, signOut }: ScanScreenProps) {
+export function ScanScreen({ actor, scan, signOut }: ScanScreenProps) {
   const state = useSyncExternalStore(
     (listener) => scan.subscribe(listener),
     () => scan.getState(),
@@ -27,9 +27,7 @@ export function ScanScreen({ session, scan, signOut }: ScanScreenProps) {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.brand}>TapTim.e</Text>
-        <Text style={styles.role}>
-          {session.role === 'administrator' ? 'Administrator' : 'Mitarbeiter'}
-        </Text>
+        <Text style={styles.role}>{presentActor(actor)}</Text>
       </View>
 
       <View
@@ -77,6 +75,12 @@ export function ScanScreen({ session, scan, signOut }: ScanScreenProps) {
       </View>
     </View>
   );
+}
+
+export function presentActor(actor: ProductMembershipRole | 'offline'): string {
+  if (actor === 'administrator') return 'Administrator';
+  if (actor === 'employee') return 'Mitarbeiter';
+  return 'Offline-Erfassung';
 }
 
 export function presentScanState(state: ProductScanState): ScanScreenPresentation {

@@ -254,15 +254,18 @@ export class MobileSessionCoordinator implements
     if (this.contextFlight !== null) {
       return this.contextFlight;
     }
-    if (this.state.status !== 'context_unavailable' || this.accessToken === null) {
+    if (this.state.status !== 'context_unavailable') {
       return;
     }
     const generation = this.generation;
-    const operation = this.resolveBackendContext(
-      this.accessToken,
-      generation,
-      this.tokenRevision,
-    ).then(() => undefined);
+    const accessToken = this.accessToken;
+    const operation = accessToken === null
+      ? this.refresh()
+      : this.resolveBackendContext(
+          accessToken,
+          generation,
+          this.tokenRevision,
+        ).then(() => undefined);
     this.contextFlight = operation;
     try {
       await operation;
@@ -536,9 +539,12 @@ export class MobileSessionCoordinator implements
         () => this.provider.refreshSession(storedRefreshToken),
       );
     } catch {
-      if (generation === this.generation) {
-        this.setState({ status: 'runtime_unavailable', reason: 'authentication_unavailable' });
+      if (generation !== this.generation) return;
+      if (tokenRevisionBeforeProviderRefresh !== this.tokenRevision) {
+        await this.providerEventFlight;
+        return;
       }
+      this.suspendProviderSession(storedRefreshToken);
       return;
     }
     if (generation !== this.generation) {
@@ -565,6 +571,15 @@ export class MobileSessionCoordinator implements
       return;
     }
     await this.resolveBackendContext(result.tokens.accessToken, generation, tokenRevision);
+  }
+
+  private suspendProviderSession(refreshToken: string): void {
+    this.providerSessionAllowed = false;
+    this.accessToken = null;
+    this.refreshToken = refreshToken;
+    this.tokenRevision += 1;
+    this.unauthorizedRefreshFlight = null;
+    this.setState({ status: 'context_unavailable' });
   }
 
   private async resolveBackendContext(

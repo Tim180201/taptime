@@ -7,6 +7,7 @@ import { AdminSetupScreen } from '../screens/AdminSetupScreen';
 import { LoginScreen } from '../screens/LoginScreen';
 import { EmployeeEnrollmentScreen } from '../screens/EmployeeEnrollmentScreen';
 import { ScanScreen } from '../screens/ScanScreen';
+import { canPresentOfflineCaptureShell } from './offlineCaptureShell';
 
 export function AppNavigator({
   session,
@@ -23,6 +24,11 @@ export function AppNavigator({
     () => session.getState(),
     () => session.getState(),
   );
+  const scanState = useSyncExternalStore(
+    (listener) => scan.subscribe(listener),
+    () => scan.getState(),
+    () => scan.getState(),
+  );
 
   if (state.status === 'authenticated') {
     if (state.session.role === 'administrator') {
@@ -34,13 +40,13 @@ export function AppNavigator({
           </View>
           {administratorView === 'setup'
             ? <AdminSetupScreen administration={administration} />
-            : <ScanScreen session={state.session} scan={scan} signOut={() => session.signOut()} />}
+            : <ScanScreen actor={state.session.role} scan={scan} signOut={() => session.signOut()} />}
         </View>
       );
     }
     return (
       <ScanScreen
-        session={state.session}
+        actor={state.session.role}
         scan={scan}
         signOut={() => session.signOut()}
       />
@@ -54,6 +60,15 @@ export function AppNavigator({
     />;
   }
   if (state.status === 'context_unavailable') {
+    if (canPresentOfflineCaptureShell(state, scanState)) {
+      return (
+        <ScanScreen
+          actor="offline"
+          scan={scan}
+          signOut={() => session.signOut()}
+        />
+      );
+    }
     return (
       <MessageScreen title="Sitzungskontext vorübergehend nicht verfügbar.">
         <Button title="Erneut versuchen" onPress={() => session.retryContext()} />

@@ -402,10 +402,33 @@ describe('MobileSessionCoordinator', () => {
       throw new Error('provider infrastructure detail');
     };
     await unavailable.coordinator.start();
-    expect(unavailable.coordinator.getState()).toEqual({
-      status: 'runtime_unavailable', reason: 'authentication_unavailable',
-    });
+    expect(unavailable.coordinator.getState()).toEqual({ status: 'context_unavailable' });
     expect(unavailable.store.value).toBe('stored-refresh');
+    expect(unavailable.coordinator.captureAuthenticatedSessionSnapshot()).toBeNull();
+  });
+
+  it('restores a suspended cold-start session through one shared retry', async () => {
+    const { coordinator, provider, store, backend } = setup('stored-refresh');
+    provider.refreshImplementation = async () => {
+      throw new Error('provider temporarily unavailable');
+    };
+    await coordinator.start();
+    expect(coordinator.getState()).toEqual({ status: 'context_unavailable' });
+
+    provider.refreshImplementation = async () => ({
+      status: 'refreshed',
+      tokens: { accessToken: 'recovered-access', refreshToken: 'recovered-refresh' },
+    });
+    await Promise.all([coordinator.retryContext(), coordinator.retryContext()]);
+
+    expect(provider.refreshCalls).toEqual(['stored-refresh', 'stored-refresh']);
+    expect(backend.accessTokens).toEqual(['recovered-access']);
+    expect(store.value).toBe('recovered-refresh');
+    expect(coordinator.getState()).toEqual({ status: 'authenticated', session: productSession });
+    expect(coordinator.captureAuthenticatedSessionSnapshot()).toEqual({
+      generation: 0,
+      session: productSession,
+    });
   });
 
   it('clears product/provider state when authoritative backend rejects Membership', async () => {
@@ -519,6 +542,27 @@ describe('MobileSessionCoordinator', () => {
     firstWrite.resolve();
     await vi.waitFor(() => expect(store.value).toBe('event-refresh-2'));
     expect(store.writes.slice(-2)).toEqual(['event-refresh-1', 'event-refresh-2']);
+  });
+
+  it('does not let a stale refresh failure suspend a newer provider event', async () => {
+    const { coordinator, provider, store } = setup();
+    await coordinator.start();
+    await coordinator.signIn('a@example.invalid', 'password');
+    const refresh = deferred<ProviderRefreshResult>();
+    provider.refreshImplementation = () => refresh.promise;
+    const refreshing = coordinator.refresh();
+    await vi.waitFor(() => expect(provider.refreshCalls).toEqual(['signed-in-refresh']));
+
+    provider.emit({
+      type: 'token_refreshed',
+      tokens: { accessToken: 'event-access', refreshToken: 'event-refresh' },
+    });
+    refresh.reject(new Error('stale provider failure'));
+    await refreshing;
+
+    expect(store.value).toBe('event-refresh');
+    expect(coordinator.getState()).toEqual({ status: 'authenticated', session: productSession });
+    expect(coordinator.captureAuthenticatedSessionSnapshot()).not.toBeNull();
   });
 
   it('ignores a stale backend rejection after a newer provider token was accepted', async () => {
@@ -691,9 +735,8 @@ describe('MobileSessionCoordinator', () => {
 
     expect(attempts).toBe(1);
     expect(store.value).toBe('signed-in-refresh');
-    expect(coordinator.getState()).toEqual({
-      status: 'runtime_unavailable', reason: 'authentication_unavailable',
-    });
+    expect(coordinator.getState()).toEqual({ status: 'context_unavailable' });
+    expect(coordinator.captureAuthenticatedSessionSnapshot()).toBeNull();
   });
 
   it('does not retry when renewed server context is unavailable and keeps the rotation', async () => {
@@ -902,9 +945,8 @@ describe('MobileSessionCoordinator', () => {
       return { status: 'completed', value: 'stale-result' };
     });
     await expect(first).resolves.toEqual({ status: 'unavailable' });
-    expect(coordinator.getState()).toEqual({
-      status: 'runtime_unavailable', reason: 'authentication_unavailable',
-    });
+    expect(coordinator.getState()).toEqual({ status: 'context_unavailable' });
+    expect(coordinator.captureAuthenticatedSessionSnapshot()).toBeNull();
     lateUnauthorized.resolve();
     lateCompleted.resolve();
 

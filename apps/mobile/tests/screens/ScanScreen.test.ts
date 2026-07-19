@@ -8,9 +8,15 @@ vi.mock('react-native', () => ({
   View: () => null,
 }));
 
-const { presentScanState } = await import('../../src/screens/ScanScreen');
+const { presentActor, presentScanState } = await import('../../src/screens/ScanScreen');
 
 describe('ScanScreen presentation', () => {
+  it('labels offline capture without disclosing a retained account identity', () => {
+    expect(presentActor('administrator')).toBe('Administrator');
+    expect(presentActor('employee')).toBe('Mitarbeiter');
+    expect(presentActor('offline')).toBe('Offline-Erfassung');
+  });
+
   it.each([
     [{ status: 'checking' }, 'NFC wird geprüft'],
     [{ status: 'not_supported' }, 'NFC nicht unterstützt'],

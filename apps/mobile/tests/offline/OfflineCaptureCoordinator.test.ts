@@ -162,6 +162,94 @@ describe('OfflineCaptureCoordinator', () => {
       expect(issueComplete).not.toHaveBeenCalled();
     });
 
+  it.each([
+    [{ status: 'context_unavailable' }, null],
+    [
+      { status: 'runtime_unavailable', reason: 'authentication_unavailable' },
+      activeContext(),
+    ],
+    [
+      { status: 'runtime_unavailable', reason: 'storage_unavailable' },
+      activeContext(),
+    ],
+  ] satisfies Array<[MobileSessionState, ReturnType<typeof activeContext> | null]>)(
+    'keeps cold-start capture closed for session $status without an eligible local context',
+    async (sessionState, localContext) => {
+      const database = databaseFake({
+        initialize: vi.fn(async () => ({ status: 'ready' })),
+        hasProtectedLegacy: vi.fn(async () => false),
+        readActiveCaptureContext: vi.fn(async () => localContext),
+        queueCount: vi.fn(async () => 0),
+        close: vi.fn(async () => undefined),
+      });
+      const coordinator = new OfflineCaptureCoordinator(
+        { async scan() { return { status: 'cancelled' }; } },
+        nfcLifecycle(),
+        sessionReader(sessionState, null),
+        identityStore(),
+        () => database,
+        leaseClient(),
+        new AndroidMonotonicClock({
+          async sample() {
+            return { bootMarker: 'boot-1', elapsedRealtimeMilliseconds: 600_100 };
+          },
+        }),
+        () => schedulerFake([]),
+        emptyOutbox(),
+        sequentialUuid([]),
+        { bind() {} },
+        () => new Date('2026-07-18T10:10:00.000Z'),
+      );
+
+      await coordinator.start();
+      expect(coordinator.getState()).toEqual({ status: 'inactive' });
+    },
+  );
+
+  it('retries a suspended session before scheduling work on a network hint', async () => {
+    const database = databaseFake({
+      initialize: vi.fn(async () => ({ status: 'ready' })),
+      hasProtectedLegacy: vi.fn(async () => false),
+      readActiveCaptureContext: vi.fn(async () => activeContext()),
+      queueCount: vi.fn(async () => 0),
+      close: vi.fn(async () => undefined),
+    });
+    const scheduler = schedulerFake([]);
+    const trigger = vi.mocked(scheduler.trigger);
+    const retryComplete = deferred<void>();
+    const retryContext = vi.fn(() => retryComplete.promise);
+    const coordinator = new OfflineCaptureCoordinator(
+      { async scan() { return { status: 'cancelled' }; } },
+      nfcLifecycle(),
+      {
+        ...sessionReader({ status: 'context_unavailable' }, null),
+        retryContext,
+      },
+      identityStore(),
+      () => database,
+      leaseClient(),
+      new AndroidMonotonicClock({
+        async sample() {
+          return { bootMarker: 'boot-1', elapsedRealtimeMilliseconds: 600_100 };
+        },
+      }),
+      () => scheduler,
+      emptyOutbox(),
+      sequentialUuid([]),
+      { bind() {} },
+      () => new Date('2026-07-18T10:10:00.000Z'),
+    );
+    await coordinator.start();
+    trigger.mockClear();
+
+    coordinator.triggerNetworkHint();
+    expect(retryContext).toHaveBeenCalledTimes(1);
+    expect(trigger).not.toHaveBeenCalled();
+    retryComplete.resolve();
+
+    await vi.waitFor(() => expect(trigger).toHaveBeenCalledWith('network_hint'));
+  });
+
   it('invalidates capture and removes only the active lookup key on explicit logout', async () => {
     const database = databaseFake({
       initialize: vi.fn(async () => ({ status: 'ready' })),
@@ -281,6 +369,7 @@ function sessionReader(
     capture: () => authenticatedSnapshot,
     isCurrent: (candidate) => candidate === authenticatedSnapshot,
     subscribe: () => () => undefined,
+    retryContext: vi.fn(async () => undefined),
   };
 }
 
@@ -303,6 +392,14 @@ function emptyOutbox(): LifecycleEvidenceOutbox {
 function sequentialUuid(values: readonly string[]): () => string {
   let index = 0;
   return () => values[index++] ?? 'ffffffff-ffff-4fff-8fff-ffffffffffff';
+}
+
+function deferred<Value>() {
+  let resolve!: (value: Value) => void;
+  const promise = new Promise<Value>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
 }
 
 function activeContext() {
