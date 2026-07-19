@@ -44,6 +44,7 @@ run('./gradlew', ['assembleRelease'], {
   cwd: androidDirectory,
   environment,
 });
+run('node', ['scripts/verifyOfflineStorageAndroidBoundary.mjs']);
 process.stdout.write('synthetic_e2e_android_apk_ready\n');
 
 function run(command, args, options = {}) {

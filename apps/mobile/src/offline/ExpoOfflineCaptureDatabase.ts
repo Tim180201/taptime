@@ -29,7 +29,7 @@ export function getExpoOfflineCaptureDatabase(
   }
   const database = new OfflineCaptureDatabase(
     async (databaseName) => new ExpoSqliteConnection(
-      await openDatabaseAsync(databaseName, { useNewConnection: false }),
+      await openDatabaseAsync(databaseName, { useNewConnection: true }),
     ),
     databaseKey,
   );
@@ -37,7 +37,7 @@ export function getExpoOfflineCaptureDatabase(
   return database;
 }
 
-class ExpoSqliteConnection implements OfflineDatabaseConnection {
+export class ExpoSqliteConnection implements OfflineDatabaseConnection {
   constructor(private readonly database: SQLiteDatabase) {}
 
   execAsync(source: string): Promise<void> {
@@ -69,12 +69,30 @@ class ExpoSqliteConnection implements OfflineDatabaseConnection {
   withExclusiveTransactionAsync(
     task: (transaction: OfflineDatabaseConnection) => Promise<void>,
   ): Promise<void> {
-    return this.database.withExclusiveTransactionAsync(
-      async (transaction) => task(new ExpoSqliteConnection(transaction)),
-    );
+    return this.withExclusiveTransaction(task);
   }
 
   closeAsync(): Promise<void> {
     return this.database.closeAsync();
+  }
+
+  private async withExclusiveTransaction(
+    task: (transaction: OfflineDatabaseConnection) => Promise<void>,
+  ): Promise<void> {
+    let began = false;
+    try {
+      // Expo's built-in exclusive helper opens a second connection. SQLCipher keys and the
+      // first-file salt are connection-local, so a fresh encrypted database must instead keep
+      // keying, first-page creation and every exclusive mutation on this one actor connection.
+      await this.execAsync('BEGIN EXCLUSIVE');
+      began = true;
+      await task(this);
+      await this.execAsync('COMMIT');
+    } catch (error) {
+      if (began) {
+        await this.execAsync('ROLLBACK').catch(() => undefined);
+      }
+      throw error;
+    }
   }
 }

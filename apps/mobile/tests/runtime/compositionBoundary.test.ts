@@ -173,16 +173,28 @@ describe('C1 Mobile composition boundary', () => {
     async () => {
       const [
         appSource,
+        appJsonSource,
         configSource,
         networkPolicySource,
+        backupPolicySource,
+        backupVerificationSource,
         buildSource,
         installSource,
         disconnectSource,
       ] = await Promise.all([
         readFile(fileURLToPath(new URL('../../App.tsx', import.meta.url)), 'utf8'),
+        readFile(fileURLToPath(new URL('../../app.json', import.meta.url)), 'utf8'),
         readFile(fileURLToPath(new URL('../../app.config.js', import.meta.url)), 'utf8'),
         readFile(fileURLToPath(new URL(
           '../../plugins/withSyntheticE2eNetworkSecurity.js',
+          import.meta.url,
+        )), 'utf8'),
+        readFile(fileURLToPath(new URL(
+          '../../plugins/withOfflineStorageBackupBoundary.js',
+          import.meta.url,
+        )), 'utf8'),
+        readFile(fileURLToPath(new URL(
+          '../../scripts/verifyOfflineStorageAndroidBoundary.mjs',
           import.meta.url,
         )), 'utf8'),
         readFile(fileURLToPath(new URL(
@@ -203,10 +215,22 @@ describe('C1 Mobile composition boundary', () => {
       expect(configSource).toContain('com.tim180201.mobile.synthetic');
       expect(configSource).toContain('withSyntheticE2eNetworkSecurity(configuration)');
       expect(appSource).not.toContain("=== 'synthetic-e2e'");
+      expect(appJsonSource).toContain('"allowBackup": false');
+      expect(appJsonSource).toContain('"configureAndroidBackup": false');
+      expect(appJsonSource).toContain('./plugins/withOfflineStorageBackupBoundary');
       expect(networkPolicySource).toContain('base-config cleartextTrafficPermitted="false"');
       expect(networkPolicySource).toContain('<domain includeSubdomains="false">127.0.0.1</domain>');
+      expect(backupPolicySource).toContain("application.$['android:allowBackup'] = 'false'");
+      expect(backupPolicySource).toContain('<exclude domain="file" path="SQLite" />');
+      expect(backupPolicySource).toContain('<exclude domain="database" path="." />');
+      expect(backupPolicySource).toContain('<device-transfer>');
+      expect(backupVerificationSource).toContain('android:allowBackup="false"');
+      expect(backupVerificationSource).toContain(
+        'offline_storage_android_backup_boundary_verified',
+      );
       expect(buildSource).toContain('EXPO_PUBLIC_TAPTIME_DEMO_MODE: \'false\'');
       expect(buildSource).toContain("APP_VARIANT: 'synthetic-e2e'");
+      expect(buildSource).toContain('verifyOfflineStorageAndroidBoundary.mjs');
       expect(buildSource).not.toMatch(/https?:\/\/(?!127\.0\.0\.1)/);
       expect(buildSource).toContain('existsSync(androidDirectory)');
       expect(buildSource).not.toContain("'--clean'");

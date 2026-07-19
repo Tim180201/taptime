@@ -20,6 +20,7 @@
       "permissions": [
         "android.permission.NFC"
       ],
+      "allowBackup": false,
       "package": "com.tim180201.mobile"
     },
     "web": {
@@ -34,7 +35,13 @@
           "systemCodes": []
         }
       ],
-      "expo-secure-store",
+      [
+        "expo-secure-store",
+        {
+          "configureAndroidBackup": false
+        }
+      ],
+      "./plugins/withOfflineStorageBackupBoundary",
       [
         "expo-sqlite",
         {
