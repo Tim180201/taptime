@@ -1,9 +1,9 @@
 # Development Assignment 1 — Human Physical Validation Evidence
 
 Date: 2026-07-19
-Status: **CHANGES REQUIRED — GATE A BLOCKED BEFORE LEASE ACTIVATION; DA1-PHYS-01 (P1)
-CORRECTION `04399fa` PUBLISHED AND EXACT-HEAD CI 10/10 GREEN, BUT INDEPENDENT REVIEW PENDING;
-FINDING OPEN; GATES B–E NOT STARTED**
+Status: **FAILED GATE A RETAINED AS HISTORICAL EVIDENCE; FOCUSED CORRECTION `04399fa` AND
+INDEPENDENT EXACT-DELTA REVIEW APPROVED WITH ZERO OPEN P0/P1/P2/P3; DA1-PHYS-01 CLOSED;
+GATES B–E NOT STARTED; COMPLETE FRESH GATE-A–E RESTART REQUIRES SEPARATE HUMAN AUTHORIZATION**
 Owner: Human Architect + Technical Lead
 
 ## 1. Authorization and exact binding
@@ -104,7 +104,7 @@ The installed APK hash still matched exactly. This reproduction excludes an acce
 session, a queued WorkEvent, an Employee/Admin identity switch and restored synthetic backup data
 as necessary causes.
 
-## 4. Open finding
+## 4. Historical finding
 
 ### DA1-PHYS-01 — P1 — Fresh native SQLCipher store cannot initialize on the approved Android device
 
@@ -133,6 +133,10 @@ database lifecycle. At minimum, it must prove on the exact supported Android bui
 
 No production-code correction was authorized or performed during this failed gate. The separately
 authorized focused correction is recorded in Section 7.
+
+Disposition: **Closed** by focused correction `04399fa` and the zero-finding independent
+exact-delta review recorded in Section 8. This disposition does not turn the failed Gate-A
+observation into a pass.
 
 ## 5. Gate disposition
 
@@ -202,9 +206,34 @@ This verification is correction evidence, not a restarted Gate A–E observation
 force-stopped and its synthetic package data cleared after the diagnostic. No authentication,
 lease activation, NFC scan or lifecycle mutation was performed.
 
-## 8. Exact next step
+## 8. Independent exact-delta review
 
-Obtain an independent exact-delta review of correction `bd1ad61..04399fa`, including the native
-first-run/reopen/wrong-key/missing-key/backup-boundary evidence. Only after an independent
-`APPROVED` verdict with zero open P0–P3 may the Human Architect separately authorize a complete
-fresh restart of Gates A–E.
+The independent read-only review bound:
+
+- failed-evidence baseline `bd1ad611c7f594caef70bc55308cd2155bb5735d`, tree
+  `02bb5c449c6867cb2280ee6aa912a4c9dbc4070f`;
+- correction `04399fa7ef8b3e58e44e82a81c0b0757acae1adc`, tree
+  `ecf5e6f9f5dbe83d9100deb98ab6126ef7473ead`;
+- reviewed ADO head `76be116a5b3d62298bff5d784213a6da9a446c66`, tree
+  `d320db3d77c9352422c73aaff378a4a18ff1396e`; and
+- exact-head runs `29695449737` and `29695605706`, both attempt 1 and ten of ten successful.
+
+It independently confirmed the same-connection SQLCipher transaction bracket, actor
+serialization, fail-closed wrong/missing-key behavior, Android backup/cloud/device-transfer
+exclusions and governance truth. Verdict: **APPROVED**, zero open P0/P1/P2/P3;
+`DA1-PHYS-01` closed.
+
+The review's PostgreSQL/native/device reproduction was limited by its sandbox. It classified that
+environmental limitation as transparent and non-finding because the reviewed source/tests,
+build-enforced verifier, two exact-head CI runs and recorded native evidence jointly carry the
+claim. Full device behavior will be observed again in any separately authorized fresh gate.
+
+Full review:
+`ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_01_Independent_Exact_Delta_Review.md`.
+
+## 9. Exact next step
+
+Bind the approved correction product head, the current ADO synchronization head, exact-head CI and
+the exact APK/Web/harness artifacts. The Human Architect may then separately authorize a complete
+fresh restart of Gates A–E at Gate A step 1. No observation from this failed attempt may be reused.
+Production resources/data, deployment and distribution remain unauthorized.

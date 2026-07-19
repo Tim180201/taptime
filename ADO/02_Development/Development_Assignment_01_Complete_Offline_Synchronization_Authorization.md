@@ -8,7 +8,9 @@ RE-REVIEW OF FINAL HEAD `767043d`, TREE `19c434a`, APPROVED WITH ZERO OPEN P0/P1
 DA1-IMPL-01 CLOSED; COMPLETE FRESH HUMAN PHYSICAL GATE AUTHORIZED ON ADO HEAD `72dc39e` AND
 EXACT-HEAD RUN `29692785824`, BUT GATE A FAILED BEFORE LEASE ACTIVATION WITH DA1-PHYS-01 (P1);
 FOCUSED CORRECTION `04399fa`, TREE `ecf5e6f`, AND EXACT-HEAD RUN `29695449737` 10/10 GREEN;
-INDEPENDENT EXACT-DELTA REVIEW PENDING, SO DA1-PHYS-01 REMAINS OPEN AND GATES B–E NOT STARTED;
+INDEPENDENT EXACT-DELTA REVIEW OF HEAD `76be116`, TREE `d320db3`, AND RUN `29695605706`
+APPROVED WITH ZERO OPEN P0/P1/P2/P3; DA1-PHYS-01 CLOSED; FAILED GATE A RETAINED, GATES B–E
+NOT STARTED; COMPLETE FRESH GATE-A–E RESTART REQUIRES SEPARATE HUMAN AUTHORIZATION;
 PRODUCTION, DEPLOYMENT AND DISTRIBUTION NOT AUTHORIZED**
 Date: 2026-07-19
 Candidate Baseline Commit: `1bb2d7d7b38928643cfd5c86b36c500c35f73276`
@@ -37,6 +39,8 @@ Independent Implementation Review and Correction Disposition:
 `ADO/05_Evidence/Development_Assignment_01_Independent_Implementation_Review.md`
 Physical Validation Evidence:
 `ADO/05_Evidence/Development_Assignment_01_Physical_Validation_Evidence.md`
+DA1-PHYS-01 Independent Exact-Delta Review:
+`ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_01_Independent_Exact_Delta_Review.md`
 Roadmap Scope: Comprehensive Development Assignment 1; intended completion of DT-060–DT-062 only
 after every required gate passes
 Implementation Authority: **Granted for repository Workstreams A–E on the exact baseline above**
@@ -407,9 +411,9 @@ micro-sprint handoffs while preserving every quality/security gate.
 
 ## 13. Current release gate
 
-**REPOSITORY IMPLEMENTATION INDEPENDENTLY APPROVED — AUTHORIZED HUMAN PHYSICAL GATE FAILED AT
-GATE A; DA1-PHYS-01 (P1) CORRECTION PUBLISHED AND EXACT-HEAD CI GREEN, INDEPENDENT REVIEW
-PENDING; FINDING OPEN; PRODUCTION GATES REMAIN CLOSED.**
+**REPOSITORY IMPLEMENTATION AND DA1-PHYS-01 CORRECTION INDEPENDENTLY APPROVED — PRIOR
+AUTHORIZED HUMAN PHYSICAL GATE FAILED AT GATE A; DA1-PHYS-01 CLOSED; COMPLETE FRESH GATE-A–E
+RESTART REQUIRES SEPARATE HUMAN AUTHORIZATION; PRODUCTION GATES REMAIN CLOSED.**
 
 Candidate publication, exact-head CI, independent zero-finding pre-implementation review, explicit
 Human acceptance of ADR-0012/Sections 3–13 and the separate exact-baseline repository
@@ -427,13 +431,16 @@ The Human Architect subsequently authorized the complete fresh Physical Gate bou
 `72dc39e0ce6d7d65c561b287ae36bf7fbef8a54a` and exact-head run `29692785824`. Gate A failed at
 step 2 before lease activation: the exact hash-verified APK reproduced SQLCipher page-1
 HMAC/decryption failure on a clean first start of the approved Galaxy A33/Android-15 device before
-authentication. `DA1-PHYS-01` is open as P1; no Gate-A tag scan occurred, Gates B–E were not
+authentication. `DA1-PHYS-01` was opened as P1; no Gate-A tag scan occurred, Gates B–E were not
 started and no observation from the failed attempt may be reused.
 
-Focused correction `04399fa`, tree `ecf5e6f`, now passes the required native first-run/reopen,
+Focused correction `04399fa`, tree `ecf5e6f`, passes the required native first-run/reopen,
 wrong/missing-key and backup-boundary evidence plus exact-head run `29695449737`, attempt 1, ten
-of ten jobs. Independent exact-delta approval and a later separate Human authorization remain
-mandatory before a complete fresh Gate A–E restart. Production resources/data, deployment and
+of ten jobs. Independent exact-delta review of head `76be116`, tree `d320db3`, and run
+`29695605706` returned `APPROVED` with zero open P0/P1/P2/P3 and closed `DA1-PHYS-01`.
+The failed attempt remains historical evidence and Gates B–E were not started. A complete fresh
+Gate-A–E restart may now be separately authorized by the Human Architect, but is not authorized
+by this contract synchronization or review. Production resources/data, deployment and
 distribution remain unauthorized.
 
 ## 14. Independent review mandate

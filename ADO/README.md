@@ -45,14 +45,17 @@ before authentication after package-scoped backup cleanup, app-data clear and a 
 Backup Manager disabled. Focused correction `04399fa`, tree `ecf5e6f`, now keeps SQLCipher
 keying, first-page creation and exclusive transactions on one runtime-owned connection, adds an
 explicit Android backup/transfer exclusion boundary, passes 1,628 local tests, all 15 typechecks
-and all available builds, and passed exact-head run `29695449737` ten of ten. Native Galaxy-A33 evidence
-passes clean first start, cold encrypted reopen and wrong/missing-key fail-closed checks. The
-correction still requires independent exact-delta approval; `DA1-PHYS-01` (P1) therefore remains
-open, Gates B–E were not started and a complete fresh restart remains prohibited. Implementation,
-review and physical evidence:
+and all available builds, and passed exact-head run `29695449737` ten of ten. Native Galaxy-A33
+evidence passes clean first start, cold encrypted reopen and wrong/missing-key fail-closed checks.
+Independent exact-delta review of head `76be116`, tree `d320db3`, and ten-of-ten run
+`29695605706` returned `APPROVED` with zero open P0/P1/P2/P3 and closed `DA1-PHYS-01`.
+The failed Gate-A attempt remains historical evidence; Gates B–E were not started. A complete fresh
+Gate-A–E restart now requires separate Human-Architect authorization. Implementation, review and
+physical evidence:
 `ADO/05_Evidence/Development_Assignment_01_Implementation_Evidence.md` and
 `ADO/05_Evidence/Development_Assignment_01_Independent_Implementation_Review.md` and
-`ADO/05_Evidence/Development_Assignment_01_Physical_Validation_Evidence.md`.
+`ADO/05_Evidence/Development_Assignment_01_Physical_Validation_Evidence.md` and
+`ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_01_Independent_Exact_Delta_Review.md`.
 Production, deployment and distribution remain unauthorized.
 
 This file is the official navigation entry point for the TapTim.e ADO.
@@ -151,7 +154,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Feature Blueprint Standard | `ADO/01_Architecture/Feature_Blueprint_Standard.md` |
 | Technical Architecture Profile (TTAP-001) | `ADO/01_Architecture/Technical_Architecture_Profile.md` |
 | Development Task Profile | `ADO/01_Architecture/Development_Task_Profile.md` |
-| Architecture Decision Records (through Human-accepted ADR-0012; DA1-IMPL-01 independently closed; authorized DA1 Physical Gate blocked by DA1-PHYS-01) | `ADO/01_Architecture/ADR/` |
+| Architecture Decision Records (through Human-accepted ADR-0012; DA1-IMPL-01 and DA1-PHYS-01 independently closed; replacement DA1 Physical Gate separately gated) | `ADO/01_Architecture/ADR/` |
 | Feature Blueprints (incl. FB-001, FB-002) | `ADO/01_Architecture/Feature_Blueprints/` |
 | Technical Specifications (incl. TS-001, TS-002) | `ADO/01_Architecture/Technical_Specifications/` |
 | Developer Implementation Manual (EP-008) | `ADO/01_Architecture/Developer_Implementation_Manual/` |
@@ -214,7 +217,8 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Development Assignment 1 Independent Pre-Implementation Review | `ADO/05_Evidence/Development_Assignment_01_Independent_Pre_Implementation_Review.md` |
 | Development Assignment 1 Local Implementation Evidence | `ADO/05_Evidence/Development_Assignment_01_Implementation_Evidence.md` |
 | Development Assignment 1 Independent Implementation Review and Correction Disposition | `ADO/05_Evidence/Development_Assignment_01_Independent_Implementation_Review.md` |
-| Development Assignment 1 Human Physical Validation Evidence — Gate A blocked by DA1-PHYS-01 | `ADO/05_Evidence/Development_Assignment_01_Physical_Validation_Evidence.md` |
+| Development Assignment 1 Human Physical Validation Evidence — failed Gate A retained; corrected restart not yet authorized | `ADO/05_Evidence/Development_Assignment_01_Physical_Validation_Evidence.md` |
+| Development Assignment 1 DA1-PHYS-01 Independent Exact-Delta Review — approved, finding closed | `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_01_Independent_Exact_Delta_Review.md` |
 | Product Readiness Reassessment — C3D Closure Delta | `ADO/05_Evidence/Product_Readiness_Reassessment_2026-07-15_C3D_Closure_Delta.md` |
 | EP-008 Evidence (incl. Repository Health Follow-up) | `ADO/05_Evidence/EP-008/` |
 | Evidence Area | `ADO/05_Evidence/` |
