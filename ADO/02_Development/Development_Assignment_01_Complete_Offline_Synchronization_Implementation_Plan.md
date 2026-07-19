@@ -9,8 +9,9 @@ ADO HEAD `72dc39e` AND EXACT-HEAD RUN `29692785824`, BUT GATE A FAILED BEFORE LE
 WITH DA1-PHYS-01 (P1); FOCUSED CORRECTION `04399fa`, TREE `ecf5e6f`, AND EXACT-HEAD RUN
 `29695449737` 10/10 GREEN; INDEPENDENT EXACT-DELTA REVIEW OF HEAD `76be116`, TREE `d320db3`,
 AND RUN `29695605706` APPROVED WITH ZERO OPEN P0/P1/P2/P3; DA1-PHYS-01 CLOSED; SECOND FRESH
-GATE A FAILED AT STEP 4 WITH DA1-PHYS-02 (P1); FOCUSED CORRECTION `e17fcb3`, TREE `44320bc`,
-PUBLISHED AND EXACT-HEAD RUN `29696949408` 10/10 GREEN; INDEPENDENT EXACT-DELTA REVIEW PENDING;
+GATE A FAILED AT STEP 4 WITH DA1-PHYS-02 (P1); FOCUSED CORRECTION `e17fcb3` PLUS CROSS-IDENTITY
+HARDENING `869e10f`, FINAL TREE `325fdd5`, PUBLISHED AND EXACT-HEAD RUNS `29696949408` AND
+`29697397146` EACH 10/10 GREEN; INDEPENDENT EXACT-DELTA REVIEW PENDING;
 NO NEW PHYSICAL GATE AUTHORIZED; PRODUCTION, DEPLOYMENT AND DISTRIBUTION NOT AUTHORIZED**
 Date: 2026-07-19
 Implementation Baseline Commit: `180093091c47a926b5871a27ea8b00fb21b9b4ac`
@@ -333,9 +334,14 @@ Focused correction `e17fcb3f1286095c345e6a4ce965790361901099`, tree
 `44320bc8bb5a25b71300c03d8d50c5a8561ebf0a`, suspends access credentials on transient provider
 refresh failure, retains only the stored refresh path for retry, admits the offline shell only
 behind `context_unavailable` plus an independently eligible local capture state, and orders
-foreground/network session restoration before synchronization scheduling. Mobile passes 404/404
-in 29 files, all 15 Workspace typechecks/builds and Android export/native release build pass, and
-exact-head run `29696949408` passed ten of ten jobs. `DA1-PHYS-02` remains open pending independent
+foreground/network session restoration before synchronization scheduling. Cross-identity
+hardening `869e10f7d54e1c16a60a06a4b37ccedc5d0bfac1`, tree
+`325fdd5b003e1bccaee15eeac6b0b82826316554`, additionally gates local-lease restoration on stored
+startup credentials or a previously resolved authenticated context, so explicit new login plus
+backend unavailability cannot open an old lease. Mobile passes 406/406 in 29 files with 93/93
+focused regressions, required Workspace typechecks/builds and Android export/native release build
+pass, and exact-head runs `29696949408` and `29697397146` each passed ten of ten jobs.
+`DA1-PHYS-02` remains open pending independent
 exact-delta approval. Closure still requires that review, another separate Human authorization, a
 complete fresh Gate-A–E run, truthful physical evidence synchronization and independent final
 closure review.

@@ -11,8 +11,9 @@ STARTED; FOCUSED CORRECTION `04399fa`, TREE `ecf5e6f`, AND EXACT-HEAD RUN `29695
 GREEN; INDEPENDENT EXACT-DELTA REVIEW OF HEAD `76be116`, TREE `d320db3`, AND RUN `29695605706`
 APPROVED WITH ZERO OPEN P0/P1/P2/P3; DA1-PHYS-01 CLOSED; COMPLETE FRESH GATE-A–E RESTART
 AUTHORIZED ON PRODUCT `04399fa`, ADO HEAD `fb4a4e4` AND RUN `29696026676`, BUT GATE A FAILED
-AT STEP 4 WITH DA1-PHYS-02 (P1); FOCUSED CORRECTION `e17fcb3`, TREE `44320bc`, PUBLISHED AND
-EXACT-HEAD RUN `29696949408` 10/10 GREEN; INDEPENDENT EXACT-DELTA REVIEW PENDING; NO NEW
+AT STEP 4 WITH DA1-PHYS-02 (P1); FOCUSED CORRECTION `e17fcb3` PLUS CROSS-IDENTITY HARDENING
+`869e10f`, FINAL TREE `325fdd5`, PUBLISHED AND EXACT-HEAD RUNS `29696949408` AND `29697397146`
+EACH 10/10 GREEN; INDEPENDENT EXACT-DELTA REVIEW PENDING; NO NEW
 PHYSICAL GATE AUTHORIZED; PRODUCTION, DEPLOYMENT AND DISTRIBUTION NOT AUTHORIZED**
 Date: 2026-07-19
 Human-Accepted Contract Commit: `592334160655cde2f4189712eaf327c8a7edcb0e`
@@ -50,6 +51,17 @@ not started**
 DA1-PHYS-02 Correction Commit: `e17fcb3f1286095c345e6a4ce965790361901099`
 DA1-PHYS-02 Correction Tree: `44320bc8bb5a25b71300c03d8d50c5a8561ebf0a`
 DA1-PHYS-02 Correction Exact-head CI: GitHub Actions run `29696949408`, attempt 1, push to `main`,
+10/10 jobs successful
+DA1-PHYS-02 Initial ADO Synchronization Head:
+`f7c66c834590f5ab7af87651bf7537ac1296d9cd`
+DA1-PHYS-02 Initial ADO Synchronization Tree:
+`1862fd117423b97e607d8fd412bc1a34b9fe0715`
+DA1-PHYS-02 Initial ADO Exact-head CI: GitHub Actions run `29697168956`, attempt 1, push to `main`,
+10/10 jobs successful
+DA1-PHYS-02 Cross-identity Hardening Commit:
+`869e10f7d54e1c16a60a06a4b37ccedc5d0bfac1`
+DA1-PHYS-02 Final Product Tree: `325fdd5b003e1bccaee15eeac6b0b82826316554`
+DA1-PHYS-02 Hardening Exact-head CI: GitHub Actions run `29697397146`, attempt 1, push to `main`,
 10/10 jobs successful
 Architecture:
 `ADO/01_Architecture/ADR/ADR-0012-complete-offline-synchronization-platform.md`
@@ -295,19 +307,31 @@ Focused product correction `e17fcb3f1286095c345e6a4ce965790361901099`, tree
 - missing/invalid local context, storage/runtime failure, rejection, logout and protected identity
   states remain closed.
 
+The Technical Lead's final adversarial audit then identified a cross-identity ambiguity: a new
+explicit login whose backend context could not be resolved might otherwise reach the same
+`context_unavailable` shell and consult a retained lease from the prior identity. Follow-up
+hardening `869e10f7d54e1c16a60a06a4b37ccedc5d0bfac1`, tree
+`325fdd5b003e1bccaee15eeac6b0b82826316554`, changes five Mobile source/test files and binds that
+lease consultation to either cold-start restoration from already stored credentials or a
+previously fully resolved authenticated session. New sign-in, Employee-enrollment sign-in,
+logout, rejection and storage failure clear or never establish that restoration eligibility.
+Backend-unavailable explicit login therefore remains inactive even when a structurally valid old
+local lease exists.
+
 Regression evidence covers suspended cold-start restoration, concurrent retry, stale provider
 events, valid and invalid local contexts, network restoration ordering, shell-state admission and
-disclosure-free presentation. Local Mobile verification passes 404/404 tests in 29 files and its
-tests-inclusive TypeScript check. Core remains 290/290 and Admin Web 44/44. Both neutral contract
-checks, Android export, all 15 Workspace typechecks/builds, `git diff --check`, the Android backup
-boundary verifier and the 690-task native release build pass. The generated but uninstalled
-candidate APK is 95,417,883 bytes with SHA-256
-`8e02d928e93c5d8076c05af227418ecc121634ae71fbf284000a831ff79b4629`. Exact-head GitHub
-Actions run `29696949408`, attempt 1, passed all ten jobs.
+disclosure-free presentation, including the new-login/old-lease adversarial boundary. Local Mobile
+verification passes 406/406 tests in 29 files, focused regressions 93/93 and its tests-inclusive
+TypeScript check. Core remains 290/290 and Admin Web 44/44. Both neutral contract checks, Android
+export, all required Workspace typechecks/builds, `git diff --check`, the Android backup boundary
+verifier and the 690-task native release build pass. The generated but uninstalled candidate APK
+is 95,418,203 bytes with SHA-256
+`0f2e0ea9385dd34ecd3f24da4970d11ab50df77f44debf82d5b0009e7dfa44c5`. Exact-head GitHub
+Actions runs `29696949408` and `29697397146`, each attempt 1, passed all ten jobs.
 
 Still pending and not claimed here:
 
-1. independent exact-delta approval of `c8295e5..e17fcb3` plus this ADO synchronization;
+1. independent exact-delta approval of `c8295e5..869e10f` plus both ADO synchronizations;
 2. another separately authorized complete fresh Human Gate A–E run;
 3. truthful physical closure synchronization and independent final closure review; and
 4. any production resource/data, deployment or distribution decision.

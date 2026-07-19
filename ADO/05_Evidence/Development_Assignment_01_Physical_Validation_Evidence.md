@@ -4,9 +4,10 @@ Date: 2026-07-19
 Status: **FIRST FAILED GATE A RETAINED AS HISTORICAL EVIDENCE; DA1-PHYS-01 CLOSED BY
 INDEPENDENTLY APPROVED CORRECTION `04399fa`; SECOND AUTHORIZED COMPLETE FRESH GATE-A–E RUN
 FAILED AT GATE A STEP 4 WITH DA1-PHYS-02 (P1); NO GATE-A SCAN OCCURRED; GATES B–E NOT STARTED;
-FOCUSED CORRECTION `e17fcb3`, TREE `44320bc`, PUBLISHED AND EXACT-HEAD RUN `29696949408` 10/10
-GREEN; INDEPENDENT EXACT-DELTA REVIEW AND A NEW SEPARATE HUMAN AUTHORIZATION ARE REQUIRED BEFORE
-ANOTHER COMPLETE FRESH RESTART**
+FOCUSED CORRECTION `e17fcb3` PLUS CROSS-IDENTITY HARDENING `869e10f`, FINAL TREE `325fdd5`,
+PUBLISHED AND EXACT-HEAD RUNS `29696949408` AND `29697397146` EACH 10/10 GREEN; INDEPENDENT
+EXACT-DELTA REVIEW AND A NEW SEPARATE HUMAN AUTHORIZATION ARE REQUIRED BEFORE ANOTHER COMPLETE
+FRESH RESTART**
 Owner: Human Architect + Technical Lead
 
 ## 1. Authorization and exact binding
@@ -401,26 +402,42 @@ Focused correction `e17fcb3f1286095c345e6a4ce965790361901099`, tree
 - the shell shows only `Offline-Erfassung`; storage/runtime failures, logout, rejection,
   missing/invalid lease and protected identity states remain closed.
 
+Final adversarial audit identified that an explicit new login with an unavailable backend context
+must not be able to consult a retained lease from the prior identity. Hardening
+`869e10f7d54e1c16a60a06a4b37ccedc5d0bfac1`, tree
+`325fdd5b003e1bccaee15eeac6b0b82826316554`, changes five Mobile source/test files:
+
+- offline restoration eligibility is established only by startup restoration from existing stored
+  credentials or by a previously fully resolved authenticated session;
+- explicit new login and Employee-enrollment login do not establish that eligibility until the
+  backend context resolves;
+- logout, rejection and storage failure clear the eligibility with all other in-memory authority;
+  and
+- `OfflineCaptureCoordinator` checks the eligibility before reading any local lease, so a new
+  login plus backend unavailability remains inactive even if an old lease is structurally valid.
+
 Local evidence:
 
-- Mobile: 404/404 in 29 test files, tests-inclusive typecheck green;
-- focused session/offline/navigation/screen regressions: 91/91;
+- Mobile: 406/406 in 29 test files, tests-inclusive typecheck green;
+- focused session/offline/navigation/screen regressions: 93/93;
 - Core: 290/290; Admin Web: 44/44; offline contract: 7/7;
-- all 15 Workspace typechecks and all available Workspace builds green;
+- all required Workspace typechecks and builds green;
 - Android Expo export, `git diff --check`, backup-boundary verifier and 690-task native release
   build green; and
-- candidate APK: 95,417,883 bytes, SHA-256
-  `8e02d928e93c5d8076c05af227418ecc121634ae71fbf284000a831ff79b4629`.
+- candidate APK: 95,418,203 bytes, SHA-256
+  `0f2e0ea9385dd34ecd3f24da4970d11ab50df77f44debf82d5b0009e7dfa44c5`.
 
 The candidate APK was not installed and no third physical run was attempted. Exact-head GitHub
-Actions run `29696949408`, attempt 1, push to `main`, passed all ten jobs.
+Actions runs `29696949408` and `29697397146`, each attempt 1, push to `main`, passed all ten jobs.
 
 ## 14. Exact next step
 
 An independent read-only reviewer must inspect exact parent/failure-evidence head
 `c8295e57a4450710338b37c5dd2a07346269b2b0`, product correction
-`e17fcb3f1286095c345e6a4ce965790361901099`, this ADO synchronization head and their exact trees,
-deltas and CI runs. Only an `APPROVED` verdict with zero open P0/P1/P2/P3 may close
+`e17fcb3f1286095c345e6a4ce965790361901099`, cross-identity hardening
+`869e10f7d54e1c16a60a06a4b37ccedc5d0bfac1`, initial ADO synchronization
+`f7c66c834590f5ab7af87651bf7537ac1296d9cd`, this final ADO synchronization head and all exact
+trees, deltas and CI runs. Only an `APPROVED` verdict with zero open P0/P1/P2/P3 may close
 `DA1-PHYS-02`. A third complete fresh Gate-A–E run then requires another separate Human-Architect
 authorization and must restart at Gate A step 1; no prior observation may be reused. Production
 resources/data, deployment and distribution remain unauthorized.

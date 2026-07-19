@@ -11,8 +11,9 @@ FOCUSED CORRECTION `04399fa`, TREE `ecf5e6f`, AND EXACT-HEAD RUN `29695449737` 1
 INDEPENDENT EXACT-DELTA REVIEW OF HEAD `76be116`, TREE `d320db3`, AND RUN `29695605706`
 APPROVED WITH ZERO OPEN P0/P1/P2/P3; DA1-PHYS-01 CLOSED; SECOND COMPLETE FRESH GATE-A–E RUN
 AUTHORIZED ON PRODUCT `04399fa`, ADO HEAD `fb4a4e4` AND RUN `29696026676`, BUT GATE A FAILED AT
-STEP 4 WITH DA1-PHYS-02 (P1); FOCUSED CORRECTION `e17fcb3`, TREE `44320bc`, PUBLISHED AND
-EXACT-HEAD RUN `29696949408` 10/10 GREEN; INDEPENDENT EXACT-DELTA REVIEW PENDING; NO NEW
+STEP 4 WITH DA1-PHYS-02 (P1); FOCUSED CORRECTION `e17fcb3` PLUS CROSS-IDENTITY HARDENING
+`869e10f`, FINAL TREE `325fdd5`, PUBLISHED AND EXACT-HEAD RUNS `29696949408` AND `29697397146`
+EACH 10/10 GREEN; INDEPENDENT EXACT-DELTA REVIEW PENDING; NO NEW
 PHYSICAL GATE AUTHORIZED; PRODUCTION, DEPLOYMENT AND DISTRIBUTION NOT AUTHORIZED**
 Date: 2026-07-19
 Candidate Baseline Commit: `1bb2d7d7b38928643cfd5c86b36c500c35f73276`
@@ -415,7 +416,8 @@ micro-sprint handoffs while preserving every quality/security gate.
 
 **REPOSITORY IMPLEMENTATION AND DA1-PHYS-01 CORRECTION INDEPENDENTLY APPROVED — SECOND
 AUTHORIZED COMPLETE FRESH HUMAN PHYSICAL GATE FAILED AT GATE A STEP 4 WITH DA1-PHYS-02 (P1);
-FOCUSED CORRECTION `e17fcb3`, TREE `44320bc`, AND EXACT-HEAD RUN `29696949408` 10/10 GREEN;
+FOCUSED CORRECTION `e17fcb3` PLUS CROSS-IDENTITY HARDENING `869e10f`, FINAL TREE `325fdd5`,
+AND EXACT-HEAD RUNS `29696949408` AND `29697397146` EACH 10/10 GREEN;
 INDEPENDENT EXACT-DELTA REVIEW PENDING; NO NEW PHYSICAL GATE AUTHORIZED; PRODUCTION GATES
 REMAIN CLOSED.**
 
@@ -458,13 +460,17 @@ No tag was scanned and server lifecycle counts remained zero.
 
 Gate A failed at step 4; Gates B–E were not started and no observation from either failed attempt
 may be reused. Focused correction `e17fcb3f1286095c345e6a4ce965790361901099`, tree
-`44320bc8bb5a25b71300c03d8d50c5a8561ebf0a`, now maps transient provider-refresh unavailability
+`44320bc8bb5a25b71300c03d8d50c5a8561ebf0a`, maps transient provider-refresh unavailability
 to a suspended retryable context without retaining access authority, restores through the
 existing single-flight capability, exposes a disclosure-free offline shell only for eligible
-offline coordinator states, and retries restoration before foreground/network scheduling. Local
-Mobile verification is 404/404 in 29 files; all 15 Workspace typechecks/builds, Android
-export/native release build and `git diff --check` pass. Exact-head run `29696949408`, attempt 1,
-passed ten of ten jobs. `DA1-PHYS-02` remains open until independent exact-delta approval. No
+offline coordinator states, and retries restoration before foreground/network scheduling.
+Cross-identity hardening `869e10f7d54e1c16a60a06a4b37ccedc5d0bfac1`, tree
+`325fdd5b003e1bccaee15eeac6b0b82826316554`, permits local-lease restoration only from stored
+startup credentials or a previously resolved session; explicit new login with unavailable backend
+context remains closed. Local Mobile verification is 406/406 in 29 files with 93/93 focused
+regressions; required Workspace typechecks/builds, Android export/native release build and
+`git diff --check` pass. Exact-head runs `29696949408` and `29697397146`, each attempt 1, passed
+ten of ten jobs. `DA1-PHYS-02` remains open until independent exact-delta approval. No
 corrected physical result is claimed and a new separate Human authorization remains mandatory
 before another complete fresh Gate-A–E restart. Production resources/data, deployment and
 distribution remain unauthorized.

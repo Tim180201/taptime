@@ -1,6 +1,6 @@
 # Project Status
 
-Status: CORE ROADMAP V2 BLOCK A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2, BLOCK D, E1 AND NARROW E2A COMPLETE FOR THEIR RECORDED SCOPES — C3A HUMAN-ACCEPTED — C3E1 AND C3E2 INDEPENDENTLY CLOSED — DEVELOPMENT ASSIGNMENT 1 CONTRACT AND REPOSITORY IMPLEMENTATION INDEPENDENTLY APPROVED; DA1-IMPL-01 AND DA1-PHYS-01 CLOSED — SECOND COMPLETE FRESH HUMAN GATE BOUND TO PRODUCT `04399fa`, ADO HEAD `fb4a4e4` AND RUN `29696026676` FAILED AT GATE A STEP 4 WITH DA1-PHYS-02 (P1); FOCUSED PRODUCT CORRECTION `e17fcb3`, TREE `44320bc`, PUBLISHED WITH EXACT-HEAD RUN `29696949408` 10/10 GREEN; INDEPENDENT EXACT-DELTA REVIEW PENDING; NO NEW PHYSICAL GATE AUTHORIZED — PRODUCTION, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED — MOBILE 404 / CORE 290 / ADMIN WEB 44 — DT-060–DT-068 AND BLOCK E REMAIN OPEN — 2 SUPAVISOR MODES UNVERIFIED — NO PRODUCTION PERSONAL DATA AUTHORIZED — NO PRODUCTION CLOUD SYNC DEPLOYMENT
+Status: CORE ROADMAP V2 BLOCK A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2, BLOCK D, E1 AND NARROW E2A COMPLETE FOR THEIR RECORDED SCOPES — C3A HUMAN-ACCEPTED — C3E1 AND C3E2 INDEPENDENTLY CLOSED — DEVELOPMENT ASSIGNMENT 1 CONTRACT AND REPOSITORY IMPLEMENTATION INDEPENDENTLY APPROVED; DA1-IMPL-01 AND DA1-PHYS-01 CLOSED — SECOND COMPLETE FRESH HUMAN GATE BOUND TO PRODUCT `04399fa`, ADO HEAD `fb4a4e4` AND RUN `29696026676` FAILED AT GATE A STEP 4 WITH DA1-PHYS-02 (P1); FOCUSED PRODUCT CORRECTION `e17fcb3` PLUS CROSS-IDENTITY HARDENING `869e10f`, FINAL TREE `325fdd5`, PUBLISHED WITH EXACT-HEAD RUNS `29696949408` AND `29697397146` EACH 10/10 GREEN; INDEPENDENT EXACT-DELTA REVIEW PENDING; NO NEW PHYSICAL GATE AUTHORIZED — PRODUCTION, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED — MOBILE 406 / CORE 290 / ADMIN WEB 44 — DT-060–DT-068 AND BLOCK E REMAIN OPEN — 2 SUPAVISOR MODES UNVERIFIED — NO PRODUCTION PERSONAL DATA AUTHORIZED — NO PRODUCTION CLOUD SYNC DEPLOYMENT
 Date: 2026-07-19
 Owner: Human Architect + Technical Lead
 
@@ -88,15 +88,19 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   of the mandatory explicit offline-capture state. Gate A failed at step 4 without a tag scan or
   lifecycle mutation; Gates B–E were not started and no observation from either failed attempt may
   be reused. Focused correction `e17fcb3f1286095c345e6a4ce965790361901099`, tree
-  `44320bc8bb5a25b71300c03d8d50c5a8561ebf0a`, now suspends access authority while retaining only
+  `44320bc8bb5a25b71300c03d8d50c5a8561ebf0a`, suspends access authority while retaining only
   the stored refresh path, retries that path through the existing single-flight boundary, exposes
   the scan shell only for `context_unavailable` plus an independently validated eligible offline
-  capture state, and retries session restoration before foreground/network scheduling. Local
-  verification passes Mobile 404/404 in 29 files, all 15 Workspace typechecks/builds, Android
-  export, `git diff --check` and a 690-task native release build. The uninstalled candidate APK is
-  95,417,883 bytes with SHA-256
-  `8e02d928e93c5d8076c05af227418ecc121634ae71fbf284000a831ff79b4629`. Exact-head run
-  `29696949408`, attempt 1, passed ten of ten jobs. `DA1-PHYS-02` remains open pending independent
+  capture state, and retries session restoration before foreground/network scheduling. Follow-up
+  hardening `869e10f7d54e1c16a60a06a4b37ccedc5d0bfac1`, tree
+  `325fdd5b003e1bccaee15eeac6b0b82826316554`, binds local-lease consultation to restoration from
+  stored credentials or a previously resolved session; explicit new login plus unavailable
+  backend context remains closed. Local verification passes Mobile 406/406 in 29 files, focused
+  regressions 93/93, all required typechecks/builds, Android export, `git diff --check` and a
+  690-task native release build. The uninstalled candidate APK is 95,418,203 bytes with SHA-256
+  `0f2e0ea9385dd34ecd3f24da4970d11ab50df77f44debf82d5b0009e7dfa44c5`. Exact-head runs
+  `29696949408` and `29697397146`, each attempt 1, passed ten of ten jobs. `DA1-PHYS-02` remains
+  open pending independent
   exact-delta review; no corrected physical behavior is claimed. Another complete fresh Gate-A–E
   restart requires independent approval and a new separate Human-Architect authorization.
   Production resources/data, deployment and distribution remain unauthorized. DT-060–DT-062

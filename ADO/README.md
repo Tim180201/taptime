@@ -54,12 +54,16 @@ The Human Architect then authorized a complete fresh restart on product `04399fa
 then failed at step 4 after airplane-mode force-stop/relaunch without Auth/API reachability: the
 app showed `TapTim.e ist derzeit nicht verfügbar` instead of the mandatory explicit offline state.
 No tag was scanned, lifecycle mutation counts remained zero and Gates B–E were not started.
-Focused correction `e17fcb3`, tree `44320bc`, is published and exact-head run `29696949408`
-passed ten of ten jobs. It adds the suspended/retryable provider-restoration state, the narrowly
-gated offline-capture shell and foreground/network restoration ordering while preserving
-fail-closed storage, logout, rejection, owner and lease boundaries. `DA1-PHYS-02` remains open
-pending independent exact-delta review. No corrected physical result is claimed, and a new
-separate Human authorization remains mandatory before another complete fresh Gate-A–E run.
+Focused correction `e17fcb3`, tree `44320bc`, and its cross-identity hardening
+`869e10f`, tree `325fdd5`, are published; exact-head runs `29696949408` and
+`29697397146` each passed ten of ten jobs. The correction adds the suspended/retryable
+provider-restoration state, the narrowly gated offline-capture shell and foreground/network
+restoration ordering. The hardening additionally proves that only stored-session restoration or
+a previously resolved authenticated context may consult a local lease; an explicit new login
+whose backend context is unavailable cannot open an old local lease. Storage failure, logout,
+rejection, owner/install mismatch and invalid/expired lease remain fail-closed. `DA1-PHYS-02`
+remains open pending independent exact-delta review. No corrected physical result is claimed, and
+a new separate Human authorization remains mandatory before another complete fresh Gate-A–E run.
 Implementation, review and physical evidence:
 `ADO/05_Evidence/Development_Assignment_01_Implementation_Evidence.md` and
 `ADO/05_Evidence/Development_Assignment_01_Independent_Implementation_Review.md` and
