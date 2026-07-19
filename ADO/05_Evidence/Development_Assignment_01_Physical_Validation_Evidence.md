@@ -1,14 +1,12 @@
 # Development Assignment 1 — Human Physical Validation Evidence
 
 Date: 2026-07-19
-Status: **FIRST FAILED GATE A RETAINED AS HISTORICAL EVIDENCE; DA1-PHYS-01 CLOSED BY
-INDEPENDENTLY APPROVED CORRECTION `04399fa`; SECOND AUTHORIZED COMPLETE FRESH GATE-A–E RUN
-FAILED AT GATE A STEP 4 WITH DA1-PHYS-02 (P1); NO GATE-A SCAN OCCURRED; GATES B–E NOT STARTED;
-FOCUSED CORRECTION `e17fcb3` PLUS CROSS-IDENTITY HARDENING `869e10f`, FINAL TREE `325fdd5`,
-PUBLISHED AND EXACT-HEAD RUNS `29696949408` AND `29697397146` EACH 10/10 GREEN; INDEPENDENT
-EXACT-DELTA REVIEW OF HEAD `8d1a0d8`, TREE `3464697`, APPROVED WITH ZERO OPEN P0/P1/P2/P3;
-DA1-PHYS-02 REPOSITORY FINDING CLOSED; A NEW SEPARATE HUMAN AUTHORIZATION IS REQUIRED BEFORE
-ANOTHER COMPLETE FRESH RESTART**
+Status: **FIRST TWO FAILED GATES RETAINED AS HISTORICAL EVIDENCE; DA1-PHYS-01 AND
+DA1-PHYS-02 CLOSED BY INDEPENDENT REVIEW; THIRD COMPLETE FRESH GATE AUTHORIZED AND EXECUTED;
+GATES A–C PASSED, GATE D SERVER SAFETY PASSED BUT MANDATORY MOBILE REVIEW-STATE TRUTH FAILED
+WITH DA1-PHYS-03 (P1), GATE E NOT STARTED; COMPLETE ABORT CLEANUP PASSED; FOCUSED PRODUCT
+CORRECTION `7dbda3b`, TREE `e6abc9e`, PUBLISHED AND EXACT-HEAD RUN `29700339367` 10/10 GREEN;
+INDEPENDENT EXACT-DELTA REVIEW PENDING; NO FOURTH PHYSICAL RUN AUTHORIZED**
 Owner: Human Architect + Technical Lead
 
 ## 1. Authorization and exact binding
@@ -463,11 +461,130 @@ Mobile product code, Admin Web and the synthetic harness are identical to produc
 `869e10f`. The still-uninstalled APK hash and size recorded in Section 13 therefore remain bound
 to the independently reviewed product code. This review synchronization also changes ADO only.
 
-## 15. Exact next step
+## 15. Historical next step after DA1-PHYS-02 review
 
-After this review synchronization has a green exact-head CI run, the Human Architect may
-separately authorize a third complete fresh Gate-A–E run. That authorization must bind the
+After that review synchronization received a green exact-head CI run, the Human Architect could
+separately authorize a third complete fresh Gate-A–E run. That authorization had to bind the
 approved product correction, reviewed ADO head, this synchronization head, exact CI and exact
-APK/Web/harness artifacts. The run must restart at Gate A step 1 and reuse no observation from
-either failed attempt. Until that separate authorization is recorded, no physical gate may start.
-Production resources/data, deployment and distribution remain unauthorized.
+APK/Web/harness artifacts. The run had to restart at Gate A step 1 and reuse no observation from
+either failed attempt. Sections 16–21 record the later authorization and result. Production
+resources/data, deployment and distribution remained unauthorized.
+
+## 16. Third complete fresh gate authorization and artifact binding
+
+The Human Architect explicitly authorized the complete third fresh Gate A–E run from step 1,
+reusing no observation from either failed predecessor. The authorization bound:
+
+- independently approved product correction
+  `869e10f7d54e1c16a60a06a4b37ccedc5d0bfac1`, tree
+  `325fdd5b003e1bccaee15eeac6b0b82826316554`;
+- independently reviewed ADO head `8d1a0d86539790028526e8d62c1f867c1b68fe57`, tree
+  `3464697130900ed55e68acc02e5fb5af41db90a5`;
+- review synchronization head `bc89c70bda3be78355964cd27cb462170670eeaa`, tree
+  `b7a64a9c7a94454ffd4f7cf981b788369a2d9e63`;
+- exact-head GitHub Actions run `29697976617`, attempt 1, ten of ten jobs successful; and
+- the previously uninstalled candidate APK of 95,418,203 bytes with SHA-256
+  `0f2e0ea9385dd34ecd3f24da4970d11ab50df77f44debf82d5b0009e7dfa44c5`.
+
+Only local synthetic Android/Web/API/PostgreSQL resources, the approved Galaxy A33 on Android 15
+and the two approved NTAG213 tags participated. Production resources/data, deployment and
+distribution remained unauthorized.
+
+## 17. Third-run observations through Gate C
+
+Gate A passed from a clean install. Administrator setup, Employee authentication, the complete
+two-item lease, airplane-mode cold restart and true offline A→B→A capture were observed afresh.
+The encrypted FIFO reported one, two and three pending operations in order and retained all three
+across force-stop.
+
+Gate B passed. Restoration required no manual retry. Exact server evidence showed sequence 1
+started Tag A, sequence 2 was rejected as `active_entry_for_other_target_rejected`, and sequence 3
+stopped Tag A. The queue reached zero; three WorkEvents, three Receipts and three canonical
+Decisions existed with one stopped TimeEntry.
+
+Gate C passed with the strictly local response-dropping proxy. One Tag-A event committed on the
+server while its response was withheld. Automatic recovery reconciled the exact event without a
+second WorkEvent, Receipt, Decision or TimeEntry mutation and cleared the local queue.
+
+## 18. Gate D failure: DA1-PHYS-03
+
+After controlled historical-valid setup, the decisive stale sequence was created as follows:
+
+1. while the Employee device remained offline, sequence 11 captured Tag A under
+   `SYNTHETIC ANDROID CUSTOMER`;
+2. Admin Web reassigned Tag A to `SYNTHETIC REASSIGNMENT TARGET`;
+3. sequence 12 captured stale Tag A under the old local generation; and
+4. sequence 13 captured Tag B as the later FIFO successor.
+
+After automatic restore, exact server evidence was:
+
+| Sequence | Durable result | Reason / decision |
+|---:|---|---|
+| 11 | `synchronized` | `active_entry_for_other_target_rejected` |
+| 12 | `review_pending` | `historical_configuration_not_valid`; no canonical decision |
+| 13 | `review_pending` | `predecessor_requires_review`; no canonical decision |
+
+The server cursor ended at durable sequence 13 with review predecessor 12. Sequences 11–13 created
+exactly one canonical decision and zero TimeEntries. Final sanitized counts were four
+Administration setup receipts, 21 AuditEvents, 11 canonical Decisions, two Customers, four NFC
+Assignments, two NFC Tags, 13 synchronization Receipts, three TimeEntries with two stopped, and
+13 WorkEvents. Server-canonical authority, FIFO blocking and no-duplicate safety therefore passed.
+
+The mandatory Mobile truth requirement failed: after the exact local acknowledgements removed the
+queue rows, a later authenticated session/lease refresh replaced `Sichere Prüfung erforderlich`
+with `Bereit zum Scannen`, even though sequence 12 remained an unresolved server review
+predecessor. Later captures could consequently appear normal while the server still forced them
+to review. This is `DA1-PHYS-03` (P1). The fault is user-state truthfulness and durable local
+review visibility; no unauthorized lifecycle mutation or sensitive disclosure occurred.
+
+Gate E was not started. No observation from this failed third run may be reused in a later run.
+
+## 19. Abort cleanup
+
+The synthetic Android session and Admin Web session were signed out. The app was uninstalled,
+browser closed, local Vite/harness processes stopped, disposable database dropped, generated
+synthetic roles removed, USB reverse mappings removed and clipboard cleared. The package, local
+listeners and synthetic database were absent afterward. The pre-existing B1 reference database
+and its two roles were not part of the gate and were preserved. No secret, token, provider
+subject, raw NFC UID, internal identifier or personal data was recorded.
+
+## 20. Focused DA1-PHYS-03 correction
+
+Product correction `7dbda3bc0a56009c7e6931e3ad8320514f64f4a8`, tree
+`e6abc9ebaadc70cf4b2f78caa46f332b3fb21309`, changes only seven Mobile/offline-contract
+source and test files:
+
+- local SQLCipher schema version 2 adds an owner-bound nullable
+  `review_pending_sequence`, with an exclusive version-1-to-2 migration;
+- a durable `review_pending` acknowledgement records the earliest review sequence atomically in
+  the same exclusive transaction before deleting the exact FIFO head;
+- identity mismatch or deletion mismatch rolls the marker and deletion back together;
+- scheduler empty-queue handling and coordinator session/lease restoration read the encrypted
+  marker fail-closed; the marker dominates `idle`, authenticated-ready and offline-ready states;
+  and
+- no automatic clear, remote adjudication, lifecycle decision, authority rule or numeric
+  ADR-0012 policy was added or changed.
+
+Regression evidence proves fresh schema version 2, exclusive version-1 migration, atomic
+marker/deletion rollback, persistence after queue deletion, and dominance across an empty later
+session-restored trigger and authenticated lease restoration. Local Mobile passes 409/409 in
+29 files; Offline Contract passes 7/7; both tests-inclusive TypeScript checks, all 15 Workspace
+typechecks, all available Workspace builds, Android export, dependency graph, migration ledger,
+`git diff --check`, backup-boundary verification and the 690-task native release build pass.
+The broader local matrix passed 1,642 tests with ten environment-gated synthetic tests and two
+unchanged optional Supavisor modes skipped.
+
+Exact-head GitHub Actions run `29700339367`, attempt 1, push to `main`, passed all ten jobs. The
+exact uninstalled correction artifact built from `7dbda3b` is 95,422,571 bytes with SHA-256
+`e634f03a0eedf43a3c1d2d7d94213c223ea13c627556e641e39c9d08c4f93623`.
+
+`DA1-PHYS-03` remains open pending independent exact-delta review. No corrected physical result,
+fourth-run authorization, production authority, deployment or distribution is claimed.
+
+## 21. Exact next step after the third-run failure
+
+Publish this truthful ADO synchronization, obtain its green exact-head CI and request an
+independent read-only exact-delta review of the third-run evidence and correction. Only an
+`APPROVED` verdict with zero open P0/P1/P2/P3 may close `DA1-PHYS-03` as a repository finding.
+A fourth complete fresh Gate A–E run would then still require a new, separate Human-Architect
+authorization and must reuse no observation from any failed run.

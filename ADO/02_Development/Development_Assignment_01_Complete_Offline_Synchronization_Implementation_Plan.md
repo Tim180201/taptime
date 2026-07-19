@@ -13,8 +13,10 @@ GATE A FAILED AT STEP 4 WITH DA1-PHYS-02 (P1); FOCUSED CORRECTION `e17fcb3` PLUS
 HARDENING `869e10f`, FINAL TREE `325fdd5`, PUBLISHED AND EXACT-HEAD RUNS `29696949408` AND
 `29697397146` EACH 10/10 GREEN; INDEPENDENT EXACT-DELTA REVIEW OF HEAD `8d1a0d8`, TREE
 `3464697`, APPROVED WITH ZERO OPEN P0/P1/P2/P3; DA1-PHYS-02 REPOSITORY FINDING CLOSED; THIRD
-COMPLETE FRESH PHYSICAL GATE NOT YET AUTHORIZED; PRODUCTION, DEPLOYMENT AND DISTRIBUTION NOT
-AUTHORIZED**
+COMPLETE FRESH PHYSICAL GATE AUTHORIZED AND EXECUTED; GATES A–C PASSED, GATE D FAILED
+MANDATORY MOBILE REVIEW-STATE TRUTH WITH DA1-PHYS-03 (P1), GATE E NOT STARTED; FOCUSED
+CORRECTION `7dbda3b`, TREE `e6abc9e`, PUBLISHED AND EXACT-HEAD RUN `29700339367` 10/10 GREEN;
+INDEPENDENT EXACT-DELTA REVIEW PENDING; PRODUCTION, DEPLOYMENT AND DISTRIBUTION NOT AUTHORIZED**
 Date: 2026-07-19
 Implementation Baseline Commit: `180093091c47a926b5871a27ea8b00fb21b9b4ac`
 Implementation Baseline Tree: `73e77b6ca5dfd7671cdd3d77a344168fddff3627`
@@ -241,10 +243,16 @@ and `deviceSequence`. Local deletion requires all three to match the immutable q
 
 ### 4.3 Mobile local state
 
-SQLite schema version 1 contains owner/installation, assembling and active lease generations,
+SQLite schema version 2 contains owner/installation, assembling and active lease generations,
 lease items, immutable queued events, scheduler metadata and protected quarantine. The queue state
 is one of `pending`, `in_flight`, `retry_wait`, `protected_review_predecessor`. Startup changes
 `in_flight` back to `pending` transactionally.
+
+Version 2 migrates version 1 exclusively and adds only a nullable, owner-bound
+`review_pending_sequence`. A durable review acknowledgement writes the earliest sequence and
+deletes the exact FIFO head atomically. The marker is not an authority input or local
+adjudication; it exists solely so later session/lease/foreground/restart paths cannot falsely
+replace a mandatory review warning with a ready state.
 
 Append allocates the next sequence and enforces at most 256 unresolved events, 4 KiB serialized
 event bytes and 1 MiB total unresolved bytes in the same exclusive transaction. It never edits,
@@ -349,3 +357,19 @@ tree `3464697130900ed55e68acc02e5fb5af41db90a5`, the complete five-commit chain,
 `DA1-PHYS-02` is closed as a repository finding. Closure still requires another separate Human
 authorization, a complete fresh Gate-A–E run, truthful physical evidence synchronization and
 independent final closure review.
+
+That separate third-run authorization was later granted against product `869e10f`, reviewed ADO
+head `8d1a0d8`, synchronization head `bc89c70`, exact-head run `29697976617` and the exact
+hash-bound APK. Gates A–C passed. Gate D preserved server-canonical safety but failed the mandatory
+Mobile truth requirement: after durable review acknowledgements deleted their exact queue rows,
+later session/lease restoration displayed `Bereit zum Scannen` although the server still held an
+unresolved review predecessor. `DA1-PHYS-03` was opened as P1; Gate E was not started and full
+abort cleanup passed.
+
+Focused correction `7dbda3bc0a56009c7e6931e3ad8320514f64f4a8`, tree
+`e6abc9ebaadc70cf4b2f78caa46f332b3fb21309`, implements the version-2 durable marker described
+in Section 4.3 and makes it dominate scheduler/coordinator ready states fail-closed. Mobile passes
+409/409 in 29 files; all required local verification and the 690-task native release build pass;
+exact-head run `29700339367` passed ten of ten jobs. Independent exact-delta review remains
+mandatory before the repository finding can close. No corrected physical result or fourth-run
+authorization is claimed.

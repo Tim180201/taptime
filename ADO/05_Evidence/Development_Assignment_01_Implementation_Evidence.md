@@ -15,7 +15,10 @@ AT STEP 4 WITH DA1-PHYS-02 (P1); FOCUSED CORRECTION `e17fcb3` PLUS CROSS-IDENTIT
 `869e10f`, FINAL TREE `325fdd5`, PUBLISHED AND EXACT-HEAD RUNS `29696949408` AND `29697397146`
 EACH 10/10 GREEN; INDEPENDENT EXACT-DELTA REVIEW OF HEAD `8d1a0d8`, TREE `3464697`, APPROVED
 WITH ZERO OPEN P0/P1/P2/P3; DA1-PHYS-02 REPOSITORY FINDING CLOSED; THIRD COMPLETE FRESH
-PHYSICAL GATE NOT YET AUTHORIZED; PRODUCTION, DEPLOYMENT AND DISTRIBUTION NOT AUTHORIZED**
+PHYSICAL GATE AUTHORIZED AND EXECUTED; GATES A–C PASSED, GATE D SERVER SAFETY PASSED BUT
+MANDATORY MOBILE REVIEW-STATE TRUTH FAILED WITH DA1-PHYS-03 (P1), GATE E NOT STARTED; FOCUSED
+CORRECTION `7dbda3b`, TREE `e6abc9e`, PUBLISHED AND EXACT-HEAD RUN `29700339367` 10/10 GREEN;
+INDEPENDENT EXACT-DELTA REVIEW PENDING; PRODUCTION, DEPLOYMENT AND DISTRIBUTION NOT AUTHORIZED**
 Date: 2026-07-19
 Human-Accepted Contract Commit: `592334160655cde2f4189712eaf327c8a7edcb0e`
 Implementation Baseline Commit: `180093091c47a926b5871a27ea8b00fb21b9b4ac`
@@ -71,6 +74,15 @@ DA1-PHYS-02 Independently Reviewed Tree:
 DA1-PHYS-02 Reviewed-head CI: GitHub Actions run `29697544630`, attempt 1, push to `main`, 10/10
 jobs successful
 DA1-PHYS-02 Review: **APPROVED — zero open P0/P1/P2/P3; repository finding closed**
+Third Fresh Physical-gate Binding: product `869e10f7d54e1c16a60a06a4b37ccedc5d0bfac1`,
+reviewed ADO head `8d1a0d86539790028526e8d62c1f867c1b68fe57`, review synchronization head
+`bc89c70bda3be78355964cd27cb462170670eeaa`, exact-head run `29697976617`
+Third Fresh Physical-gate Result: **Gates A–C passed; Gate D server safety passed but mandatory
+Mobile review-state truth failed; DA1-PHYS-03 opened as P1; Gate E not started**
+DA1-PHYS-03 Correction Commit: `7dbda3bc0a56009c7e6931e3ad8320514f64f4a8`
+DA1-PHYS-03 Correction Tree: `e6abc9ebaadc70cf4b2f78caa46f332b3fb21309`
+DA1-PHYS-03 Correction Exact-head CI: GitHub Actions run `29700339367`, attempt 1, push to `main`,
+10/10 jobs successful
 Architecture:
 `ADO/01_Architecture/ADR/ADR-0012-complete-offline-synchronization-platform.md`
 Authorization:
@@ -350,8 +362,57 @@ restoration-before-scheduling. Verdict: **APPROVED**, zero open P0/P1/P2/P3;
 
 Still pending and not claimed here:
 
-1. another separately authorized complete fresh Human Gate A–E run;
-2. truthful physical closure synchronization and independent final closure review; and
-3. any production resource/data, deployment or distribution decision.
+1. independent exact-delta review of `DA1-PHYS-03` and its focused correction;
+2. only after zero-finding approval, a separately authorized fourth complete fresh Human Gate A–E
+   run which reuses no prior observation;
+3. truthful physical closure synchronization and independent final closure review; and
+4. any production resource/data, deployment or distribution decision.
 
 DT-060–DT-062 remain open until every applicable later gate is complete.
+
+## 7. Third complete fresh physical run and DA1-PHYS-03
+
+The Human Architect separately authorized the third complete fresh Gate A–E run against product
+`869e10f`, reviewed ADO head `8d1a0d8`, review synchronization head `bc89c70` and exact-head run
+`29697976617`, using only the exact 95,418,203-byte candidate APK with SHA-256
+`0f2e0ea9385dd34ecd3f24da4970d11ab50df77f44debf82d5b0009e7dfa44c5`.
+
+Gates A–C passed afresh: clean setup and two-item lease, cold-start true offline A→B→A capture with
+persisted three-item FIFO, ordered automatic restore, and exact lost-response recovery without
+duplicate server mutation. Gate D proved the server boundary: stale sequence 12 became
+`review_pending` with `historical_configuration_not_valid`, sequence 13 became
+`predecessor_requires_review`, and neither received a canonical decision or TimeEntry.
+
+The Mobile presentation then violated the mandatory review-state truth. Once both durable
+review results had been acknowledged and their exact queue rows deleted, the process held
+`review_pending` only as a transient scheduler result. A later session/lease refresh published
+`Bereit zum Scannen` despite the unresolved server review predecessor. This is `DA1-PHYS-03`
+(P1). Server-canonical authority and mutation safety remained intact, but Gate D failed and Gate E
+was not started. Complete abort cleanup passed.
+
+## 8. Focused DA1-PHYS-03 correction
+
+Correction `7dbda3bc0a56009c7e6931e3ad8320514f64f4a8`, tree
+`e6abc9ebaadc70cf4b2f78caa46f332b3fb21309`, adds a minimal durable local review marker:
+
+- encrypted local schema version 2 contains only the earliest review-pending device sequence in
+  the existing singleton owner row;
+- version 1 migrates exclusively without changing owner, lease, FIFO or evidence rows;
+- a `review_pending` acknowledgement writes the marker and deletes the exact FIFO head in one
+  exclusive transaction, so mismatch rolls both back;
+- the scheduler and coordinator read the marker fail-closed and give it precedence over empty
+  queue, authenticated-ready, offline-ready and server-decision presentation; and
+- there is deliberately no automatic clear or local adjudication. Backend, API, PostgreSQL,
+  BusinessEngine, lease, assignment, sequence and numeric ADR-0012 rules are unchanged.
+
+Local verification passes Mobile 409/409 in 29 files, Offline Contract 7/7, both tests-inclusive
+typechecks, all 15 Workspace typechecks, all available Workspace builds, Android export,
+dependency graph, migration apply/ledger verification, backup-boundary verification,
+`git diff --check` and a 690-task native release build. The wider local matrix passed 1,642 tests,
+with ten environment-gated synthetic tests and two unchanged optional Supavisor modes skipped.
+Exact-head run `29700339367`, attempt 1, passed ten of ten jobs.
+
+The exact uninstalled correction APK built from commit `7dbda3b` is 95,422,571 bytes with SHA-256
+`e634f03a0eedf43a3c1d2d7d94213c223ea13c627556e641e39c9d08c4f93623`.
+Independent exact-delta review is mandatory before `DA1-PHYS-03` can close or another complete
+physical run can be considered. No corrected physical result is claimed.

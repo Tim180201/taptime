@@ -15,7 +15,10 @@ STEP 4 WITH DA1-PHYS-02 (P1); FOCUSED CORRECTION `e17fcb3` PLUS CROSS-IDENTITY H
 `869e10f`, FINAL TREE `325fdd5`, PUBLISHED AND EXACT-HEAD RUNS `29696949408` AND `29697397146`
 EACH 10/10 GREEN; INDEPENDENT EXACT-DELTA REVIEW OF HEAD `8d1a0d8`, TREE `3464697`, APPROVED
 WITH ZERO OPEN P0/P1/P2/P3; DA1-PHYS-02 REPOSITORY FINDING CLOSED; THIRD COMPLETE FRESH
-PHYSICAL GATE NOT YET AUTHORIZED; PRODUCTION, DEPLOYMENT AND DISTRIBUTION NOT AUTHORIZED**
+PHYSICAL GATE AUTHORIZED AND EXECUTED; GATES A–C PASSED, GATE D FAILED MANDATORY MOBILE
+REVIEW-STATE TRUTH WITH DA1-PHYS-03 (P1), GATE E NOT STARTED; FOCUSED CORRECTION `7dbda3b`,
+TREE `e6abc9e`, PUBLISHED AND EXACT-HEAD RUN `29700339367` 10/10 GREEN; INDEPENDENT EXACT-DELTA
+REVIEW PENDING; PRODUCTION, DEPLOYMENT AND DISTRIBUTION NOT AUTHORIZED**
 Date: 2026-07-19
 Candidate Baseline Commit: `1bb2d7d7b38928643cfd5c86b36c500c35f73276`
 Candidate Baseline Tree: `c5c20f67155cdc0b4197908b4d1283cb7e619597`
@@ -420,8 +423,10 @@ AUTHORIZED COMPLETE FRESH HUMAN PHYSICAL GATE FAILED AT GATE A STEP 4 WITH DA1-P
 FOCUSED CORRECTION `e17fcb3` PLUS CROSS-IDENTITY HARDENING `869e10f`, FINAL TREE `325fdd5`,
 AND EXACT-HEAD RUNS `29696949408` AND `29697397146` EACH 10/10 GREEN;
 INDEPENDENT EXACT-DELTA REVIEW OF HEAD `8d1a0d8`, TREE `3464697`, APPROVED WITH ZERO OPEN
-P0/P1/P2/P3; DA1-PHYS-02 REPOSITORY FINDING CLOSED; THIRD COMPLETE FRESH PHYSICAL GATE NOT
-YET AUTHORIZED; PRODUCTION GATES REMAIN CLOSED.**
+P0/P1/P2/P3; DA1-PHYS-02 REPOSITORY FINDING CLOSED; THIRD COMPLETE FRESH PHYSICAL GATE PASSED
+A–C BUT FAILED GATE D MANDATORY MOBILE REVIEW-STATE TRUTH WITH DA1-PHYS-03 (P1); GATE E NOT
+STARTED; FOCUSED CORRECTION `7dbda3b`, TREE `e6abc9e`, PUBLISHED AND EXACT-HEAD RUN
+`29700339367` 10/10 GREEN; INDEPENDENT EXACT-DELTA REVIEW PENDING; PRODUCTION GATES CLOSED.**
 
 Candidate publication, exact-head CI, independent zero-finding pre-implementation review, explicit
 Human acceptance of ADR-0012/Sections 3–13 and the separate exact-baseline repository
@@ -481,9 +486,37 @@ ten-job runs. It returned `APPROVED` with zero open P0/P1/P2/P3 and closed `DA1-
 repository finding. The review independently reproduced Mobile 406/406, focused regressions
 93/93, tests-inclusive Mobile typecheck, Core 290/290, Admin Web 44/44 and both contracts.
 
-No corrected physical result is claimed. The failed second run remains historical; a third
-complete fresh Gate-A–E restart still requires a new separate Human authorization and must reuse
-no prior observation. Production resources/data, deployment and distribution remain unauthorized.
+At that point no corrected physical result was claimed. The failed second run remained historical,
+and a third complete fresh Gate-A–E restart still required a new separate Human authorization and
+could reuse no prior observation. Production resources/data, deployment and distribution remained
+unauthorized.
+
+The Human Architect subsequently supplied that separate authorization, bound to product
+`869e10f7d54e1c16a60a06a4b37ccedc5d0bfac1`, reviewed ADO head
+`8d1a0d86539790028526e8d62c1f867c1b68fe57`, review synchronization head
+`bc89c70bda3be78355964cd27cb462170670eeaa`, exact-head run `29697976617` and the exact
+95,418,203-byte candidate APK with SHA-256
+`0f2e0ea9385dd34ecd3f24da4970d11ab50df77f44debf82d5b0009e7dfa44c5`.
+
+Gates A–C passed afresh. Gate D's server evidence passed: the stale event became
+`historical_configuration_not_valid`, its successor became `predecessor_requires_review`, neither
+received a canonical decision or TimeEntry and FIFO/authority safety remained intact. The
+mandatory Mobile presentation failed afterward because session/lease restoration replaced the
+transient `Sichere Prüfung erforderlich` state with `Bereit zum Scannen` after the queue rows had
+been durably acknowledged. `DA1-PHYS-03` is P1. Gate D failed, Gate E was not started and complete
+abort cleanup passed.
+
+Focused correction `7dbda3bc0a56009c7e6931e3ad8320514f64f4a8`, tree
+`e6abc9ebaadc70cf4b2f78caa46f332b3fb21309`, persists only the earliest review-pending device
+sequence in encrypted owner-bound local schema version 2, atomically with exact FIFO
+acknowledgement/deletion. Scheduler and coordinator reads are fail-closed and the durable marker
+dominates later ready states. It adds no client authority, adjudication, automatic clear, business
+decision or numeric-policy change. Local Mobile passes 409/409; required typechecks/builds/native
+checks pass; exact-head run `29700339367`, attempt 1, passed ten of ten jobs.
+
+`DA1-PHYS-03` remains open pending independent exact-delta review. No corrected physical result or
+fourth-run authorization is claimed. Production resources/data, deployment and distribution
+remain unauthorized.
 
 ## 14. Independent review mandate
 

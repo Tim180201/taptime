@@ -1,6 +1,6 @@
 # Project Status
 
-Status: CORE ROADMAP V2 BLOCK A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2, BLOCK D, E1 AND NARROW E2A COMPLETE FOR THEIR RECORDED SCOPES — C3A HUMAN-ACCEPTED — C3E1 AND C3E2 INDEPENDENTLY CLOSED — DEVELOPMENT ASSIGNMENT 1 CONTRACT AND REPOSITORY IMPLEMENTATION INDEPENDENTLY APPROVED; DA1-IMPL-01, DA1-PHYS-01 AND DA1-PHYS-02 REPOSITORY FINDINGS CLOSED — SECOND COMPLETE FRESH HUMAN GATE BOUND TO PRODUCT `04399fa`, ADO HEAD `fb4a4e4` AND RUN `29696026676` FAILED AT GATE A STEP 4; FOCUSED PRODUCT CORRECTION `e17fcb3` PLUS CROSS-IDENTITY HARDENING `869e10f`, FINAL PRODUCT TREE `325fdd5`, AND REVIEWED ADO HEAD `8d1a0d8`, TREE `3464697`, INDEPENDENTLY APPROVED WITH ZERO OPEN P0/P1/P2/P3 AFTER FOUR EXACT-HEAD CI RUNS EACH 10/10 GREEN; THIRD COMPLETE FRESH HUMAN GATE NOT YET AUTHORIZED — PRODUCTION, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED — MOBILE 406 / CORE 290 / ADMIN WEB 44 — DT-060–DT-068 AND BLOCK E REMAIN OPEN — 2 SUPAVISOR MODES UNVERIFIED — NO PRODUCTION PERSONAL DATA AUTHORIZED — NO PRODUCTION CLOUD SYNC DEPLOYMENT
+Status: CORE ROADMAP V2 BLOCK A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2, BLOCK D, E1 AND NARROW E2A COMPLETE FOR THEIR RECORDED SCOPES — C3A HUMAN-ACCEPTED — C3E1 AND C3E2 INDEPENDENTLY CLOSED — DEVELOPMENT ASSIGNMENT 1 CONTRACT AND REPOSITORY IMPLEMENTATION INDEPENDENTLY APPROVED; DA1-IMPL-01, DA1-PHYS-01 AND DA1-PHYS-02 CLOSED — THIRD COMPLETE FRESH HUMAN GATE PASSED A–C BUT FAILED GATE D MANDATORY MOBILE REVIEW-STATE TRUTH WITH DA1-PHYS-03 (P1); GATE E NOT STARTED — FOCUSED CORRECTION `7dbda3b`, TREE `e6abc9e`, PUBLISHED AND EXACT-HEAD RUN `29700339367` 10/10 GREEN; INDEPENDENT EXACT-DELTA REVIEW PENDING — PRODUCTION, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED — MOBILE 409 / CORE 290 / ADMIN WEB 44 — DT-060–DT-068 AND BLOCK E REMAIN OPEN — 2 SUPAVISOR MODES UNVERIFIED — NO PRODUCTION PERSONAL DATA AUTHORIZED — NO PRODUCTION CLOUD SYNC DEPLOYMENT
 Date: 2026-07-19
 Owner: Human Architect + Technical Lead
 
@@ -22,8 +22,8 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
 - **C3E2 is independently closed for its authorized local repository/device scope.** The contract reviewed at `dbefc1c`, tree `3bcc153`, received zero-finding independent approval, exact-head run `29646684981` and Human acceptance of Sections 3–13. After the distinct repository release on baseline `5bc4951`, implementation `b783733` plus CI correction `672b7ac` delivered migration `009`, the separate least-privilege reassignment boundary, exact API route, safe Web confirmation and Android parser compatibility. Final head `7050df4`, tree `587ef8f`, passed ten-of-ten run `29649683173`; independent implementation review returned `APPROVED` with zero open P0/P1/P2/P3. The Human Architect then passed the complete fresh Galaxy-A33/Android-15/NTAG213 sequence: C3C assignment to Customer A, C3E1 Employee enrollment, A Start, active-work rejection with zero mutation, A Stop, explicit A→B reassignment, matching Web/Android projections and B Start/Stop. Final sanitized state was two Customers, one Tag, two Assignments, two administration receipts, four WorkEvents/Decisions/lifecycle Receipts, two stopped TimeEntries and ten AuditEvents; read-only evidence proved one shared cutover timestamp and immutable A-before/B-after attribution. Sign-out and complete schema/login/listener/reverse cleanup passed. ADO-only closure commit `a2fdebc`, tree `1872f9f`, passed exact-head ten-of-ten run `29652072268`; independent final review returned `APPROVED` with zero open P0/P1/P2/P3 and accepted all documented attempt-separation and safe-boundary evidence. No production resource/data or deployment/distribution authority follows. Evidence: `ADO/05_Evidence/Block_C3E2_Implementation_Evidence.md`, `ADO/05_Evidence/Block_C3E2_Physical_Validation_Evidence.md` and `ADO/05_Evidence/Block_C3E2_Independent_Final_Closure_Review.md`.
 - **Development Assignment 1 has a Human-accepted complete offline/synchronization architecture and
   authorization contract; repository Workstreams A–E and the `DA1-PHYS-01` and `DA1-PHYS-02`
-  corrections are independently approved, while the second authorized complete fresh Human
-  Physical Gate remains a failed historical Gate-A-step-4 observation.** On exact clean baseline
+  corrections are independently approved, while the third authorized complete fresh Human
+  Physical Gate failed Gate D with open repository finding `DA1-PHYS-03` (P1).** On exact clean baseline
   `1bb2d7d7b38928643cfd5c86b36c500c35f73276`, tree
   `c5c20f67155cdc0b4197908b4d1283cb7e619597`, Human-accepted ADR-0012 and the comprehensive
   assignment contract reconcile E1/E2A, the one-record Mobile outbox, volatile scan-context slot, server
@@ -103,10 +103,20 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   review bound final reviewed head `8d1a0d86539790028526e8d62c1f867c1b68fe57`, tree
   `3464697130900ed55e68acc02e5fb5af41db90a5`, the complete 17-file +515/-75 delta and all four
   exact-head runs. It returned `APPROVED` with zero open P0/P1/P2/P3 and closed `DA1-PHYS-02` as
-  a repository finding. No corrected physical behavior is claimed. Another complete fresh
-  Gate-A–E restart requires a new separate Human-Architect authorization.
-  Production resources/data, deployment and distribution remain unauthorized. DT-060–DT-062
-  remain open until every later gate passes.
+  a repository finding. The Human Architect then authorized the third complete fresh Gate A–E run
+  against product `869e10f`, reviewed ADO head `8d1a0d8`, synchronization head `bc89c70`,
+  exact-head run `29697976617` and the exact hash-bound APK. Gates A–C passed. Gate D's server
+  evidence passed, including `historical_configuration_not_valid` and
+  `predecessor_requires_review` without unauthorized canonical mutation, but Mobile later replaced
+  `Sichere Prüfung erforderlich` with `Bereit zum Scannen` after exact queue acknowledgement.
+  Gate D therefore failed with `DA1-PHYS-03` (P1); Gate E was not started and abort cleanup passed.
+  Focused correction `7dbda3bc0a56009c7e6931e3ad8320514f64f4a8`, tree
+  `e6abc9ebaadc70cf4b2f78caa46f332b3fb21309`, persists the earliest review sequence atomically in
+  encrypted owner-bound schema version 2 and makes it dominate later scheduler/coordinator ready
+  states. Mobile passes 409/409; required verification and the native release build pass; exact-head
+  run `29700339367` passed ten of ten jobs. Independent exact-delta review is pending. No corrected
+  physical result or fourth-run authorization is claimed. Production resources/data, deployment and
+  distribution remain unauthorized. DT-060–DT-062 remain open until every later gate passes.
   Evidence: `ADO/01_Architecture/ADR/ADR-0012-complete-offline-synchronization-platform.md`,
   `ADO/02_Development/Development_Assignment_01_Complete_Offline_Synchronization_Authorization.md`;
   `ADO/02_Development/Development_Assignment_01_Complete_Offline_Synchronization_Implementation_Plan.md`;
@@ -227,13 +237,14 @@ Two Epics are concurrently Active, per EP-009's own stated relationship to the r
 
 ## Immediate Next Steps
 
-1. Bind the approved correction product head, current ADO synchronization head, exact-head CI and
-   exact APK/Web/harness artifacts for a possible complete fresh Gate-A–E restart.
-2. Obtain separate Human-Architect authorization before starting that complete fresh restart at
-   Gate A step 1; reuse no observation from the failed attempt.
-3. Keep the real production endpoint/CA, one-human operator IAM inventory, short-lived credential
+1. Publish this truthful third-run/`DA1-PHYS-03` ADO synchronization and obtain green exact-head CI.
+2. Obtain independent exact-delta review of product correction `7dbda3b` and this ADO head; close
+   no finding unless the verdict is `APPROVED` with zero open P0/P1/P2/P3.
+3. Only after that approval, request a separate Human-Architect authorization for a fourth complete
+   fresh Gate A–E run which reuses no observation from any failed run.
+4. Keep the real production endpoint/CA, one-human operator IAM inventory, short-lived credential
    delivery/revocation and controlled execution evidence as explicit later deployment gates.
-4. Preserve the closed C3C/C3E2 least-privilege boundaries and keep production/deployment,
+5. Preserve the closed C3C/C3E2 least-privilege boundaries and keep production/deployment,
    DT-060–DT-068 and Block-E closure behind their own decisions and reviews.
 
 ## Agreed comprehensive Development-assignment sequence
