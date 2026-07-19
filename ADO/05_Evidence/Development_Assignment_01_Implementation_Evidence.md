@@ -13,8 +13,9 @@ APPROVED WITH ZERO OPEN P0/P1/P2/P3; DA1-PHYS-01 CLOSED; COMPLETE FRESH GATE-A�
 AUTHORIZED ON PRODUCT `04399fa`, ADO HEAD `fb4a4e4` AND RUN `29696026676`, BUT GATE A FAILED
 AT STEP 4 WITH DA1-PHYS-02 (P1); FOCUSED CORRECTION `e17fcb3` PLUS CROSS-IDENTITY HARDENING
 `869e10f`, FINAL TREE `325fdd5`, PUBLISHED AND EXACT-HEAD RUNS `29696949408` AND `29697397146`
-EACH 10/10 GREEN; INDEPENDENT EXACT-DELTA REVIEW PENDING; NO NEW
-PHYSICAL GATE AUTHORIZED; PRODUCTION, DEPLOYMENT AND DISTRIBUTION NOT AUTHORIZED**
+EACH 10/10 GREEN; INDEPENDENT EXACT-DELTA REVIEW OF HEAD `8d1a0d8`, TREE `3464697`, APPROVED
+WITH ZERO OPEN P0/P1/P2/P3; DA1-PHYS-02 REPOSITORY FINDING CLOSED; THIRD COMPLETE FRESH
+PHYSICAL GATE NOT YET AUTHORIZED; PRODUCTION, DEPLOYMENT AND DISTRIBUTION NOT AUTHORIZED**
 Date: 2026-07-19
 Human-Accepted Contract Commit: `592334160655cde2f4189712eaf327c8a7edcb0e`
 Implementation Baseline Commit: `180093091c47a926b5871a27ea8b00fb21b9b4ac`
@@ -46,8 +47,8 @@ DA1-PHYS-01 Correction Reviewed-head CI: GitHub Actions run `29695605706`, attem
 DA1-PHYS-01 Correction Review: **APPROVED — zero open P0/P1/P2/P3; finding closed**
 Second Fresh Physical-gate Binding: product `04399fa7ef8b3e58e44e82a81c0b0757acae1adc`,
 ADO head `fb4a4e4b1c457112372770b9e4e6532f9dca0555`, exact-head run `29696026676`
-Second Fresh Physical-gate Result: **Gate A failed at step 4; DA1-PHYS-02 (P1) open; Gates B–E
-not started**
+Second Fresh Physical-gate Result: **Gate A failed at step 4; DA1-PHYS-02 opened as P1; Gates B–E
+not started; repository finding later closed by independent review**
 DA1-PHYS-02 Correction Commit: `e17fcb3f1286095c345e6a4ce965790361901099`
 DA1-PHYS-02 Correction Tree: `44320bc8bb5a25b71300c03d8d50c5a8561ebf0a`
 DA1-PHYS-02 Correction Exact-head CI: GitHub Actions run `29696949408`, attempt 1, push to `main`,
@@ -63,6 +64,13 @@ DA1-PHYS-02 Cross-identity Hardening Commit:
 DA1-PHYS-02 Final Product Tree: `325fdd5b003e1bccaee15eeac6b0b82826316554`
 DA1-PHYS-02 Hardening Exact-head CI: GitHub Actions run `29697397146`, attempt 1, push to `main`,
 10/10 jobs successful
+DA1-PHYS-02 Independently Reviewed Head:
+`8d1a0d86539790028526e8d62c1f867c1b68fe57`
+DA1-PHYS-02 Independently Reviewed Tree:
+`3464697130900ed55e68acc02e5fb5af41db90a5`
+DA1-PHYS-02 Reviewed-head CI: GitHub Actions run `29697544630`, attempt 1, push to `main`, 10/10
+jobs successful
+DA1-PHYS-02 Review: **APPROVED — zero open P0/P1/P2/P3; repository finding closed**
 Architecture:
 `ADO/01_Architecture/ADR/ADR-0012-complete-offline-synchronization-platform.md`
 Authorization:
@@ -290,7 +298,7 @@ run `29696026676` obtained a complete two-item Employee lease and reached `Berei
 After airplane mode, removal of both Auth/API reverse mappings and force-stop/relaunch, the app
 showed `TapTim.e ist derzeit nicht verfügbar` instead of the mandatory explicit offline-capture
 state. No tag was scanned and server WorkEvent/Receipt/Decision/TimeEntry counts remained zero.
-`DA1-PHYS-02` is open as P1; Gate A failed at step 4 and Gates B–E were not started.
+`DA1-PHYS-02` was opened as P1; Gate A failed at step 4 and Gates B–E were not started.
 
 Focused product correction `e17fcb3f1286095c345e6a4ce965790361901099`, tree
 `44320bc8bb5a25b71300c03d8d50c5a8561ebf0a`, changes only ten Mobile source/test files:
@@ -329,11 +337,21 @@ is 95,418,203 bytes with SHA-256
 `0f2e0ea9385dd34ecd3f24da4970d11ab50df77f44debf82d5b0009e7dfa44c5`. Exact-head GitHub
 Actions runs `29696949408` and `29697397146`, each attempt 1, passed all ten jobs.
 
+Independent read-only exact-delta review bound the complete `c8295e5` → `e17fcb3` → `f7c66c8`
+→ `869e10f` → `8d1a0d8` chain, final tree
+`3464697130900ed55e68acc02e5fb5af41db90a5`, exact 17-file +515/-75 delta and all four
+exact-head ten-job runs. It independently reproduced Mobile 406/406, the exact 93/93 focused
+regressions, tests-inclusive Mobile typecheck, Core 290/290, Admin Web 44/44, Offline Contract
+7/7 and Administration Contract 4/4. It confirmed the pre-read restoration binding, unchanged
+owner/install/time/completeness checks, race safety, disclosure-free shell and
+restoration-before-scheduling. Verdict: **APPROVED**, zero open P0/P1/P2/P3;
+`DA1-PHYS-02` repository finding closed. See
+`ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_02_Independent_Exact_Delta_Review.md`.
+
 Still pending and not claimed here:
 
-1. independent exact-delta approval of `c8295e5..869e10f` plus both ADO synchronizations;
-2. another separately authorized complete fresh Human Gate A–E run;
-3. truthful physical closure synchronization and independent final closure review; and
-4. any production resource/data, deployment or distribution decision.
+1. another separately authorized complete fresh Human Gate A–E run;
+2. truthful physical closure synchronization and independent final closure review; and
+3. any production resource/data, deployment or distribution decision.
 
 DT-060–DT-062 remain open until every applicable later gate is complete.

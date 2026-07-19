@@ -13,8 +13,9 @@ APPROVED WITH ZERO OPEN P0/P1/P2/P3; DA1-PHYS-01 CLOSED; SECOND COMPLETE FRESH G
 AUTHORIZED ON PRODUCT `04399fa`, ADO HEAD `fb4a4e4` AND RUN `29696026676`, BUT GATE A FAILED AT
 STEP 4 WITH DA1-PHYS-02 (P1); FOCUSED CORRECTION `e17fcb3` PLUS CROSS-IDENTITY HARDENING
 `869e10f`, FINAL TREE `325fdd5`, PUBLISHED AND EXACT-HEAD RUNS `29696949408` AND `29697397146`
-EACH 10/10 GREEN; INDEPENDENT EXACT-DELTA REVIEW PENDING; NO NEW
-PHYSICAL GATE AUTHORIZED; PRODUCTION, DEPLOYMENT AND DISTRIBUTION NOT AUTHORIZED**
+EACH 10/10 GREEN; INDEPENDENT EXACT-DELTA REVIEW OF HEAD `8d1a0d8`, TREE `3464697`, APPROVED
+WITH ZERO OPEN P0/P1/P2/P3; DA1-PHYS-02 REPOSITORY FINDING CLOSED; THIRD COMPLETE FRESH
+PHYSICAL GATE NOT YET AUTHORIZED; PRODUCTION, DEPLOYMENT AND DISTRIBUTION NOT AUTHORIZED**
 Date: 2026-07-19
 Candidate Baseline Commit: `1bb2d7d7b38928643cfd5c86b36c500c35f73276`
 Candidate Baseline Tree: `c5c20f67155cdc0b4197908b4d1283cb7e619597`
@@ -418,8 +419,9 @@ micro-sprint handoffs while preserving every quality/security gate.
 AUTHORIZED COMPLETE FRESH HUMAN PHYSICAL GATE FAILED AT GATE A STEP 4 WITH DA1-PHYS-02 (P1);
 FOCUSED CORRECTION `e17fcb3` PLUS CROSS-IDENTITY HARDENING `869e10f`, FINAL TREE `325fdd5`,
 AND EXACT-HEAD RUNS `29696949408` AND `29697397146` EACH 10/10 GREEN;
-INDEPENDENT EXACT-DELTA REVIEW PENDING; NO NEW PHYSICAL GATE AUTHORIZED; PRODUCTION GATES
-REMAIN CLOSED.**
+INDEPENDENT EXACT-DELTA REVIEW OF HEAD `8d1a0d8`, TREE `3464697`, APPROVED WITH ZERO OPEN
+P0/P1/P2/P3; DA1-PHYS-02 REPOSITORY FINDING CLOSED; THIRD COMPLETE FRESH PHYSICAL GATE NOT
+YET AUTHORIZED; PRODUCTION GATES REMAIN CLOSED.**
 
 Candidate publication, exact-head CI, independent zero-finding pre-implementation review, explicit
 Human acceptance of ADR-0012/Sections 3–13 and the separate exact-baseline repository
@@ -470,10 +472,18 @@ startup credentials or a previously resolved session; explicit new login with un
 context remains closed. Local Mobile verification is 406/406 in 29 files with 93/93 focused
 regressions; required Workspace typechecks/builds, Android export/native release build and
 `git diff --check` pass. Exact-head runs `29696949408` and `29697397146`, each attempt 1, passed
-ten of ten jobs. `DA1-PHYS-02` remains open until independent exact-delta approval. No
-corrected physical result is claimed and a new separate Human authorization remains mandatory
-before another complete fresh Gate-A–E restart. Production resources/data, deployment and
-distribution remain unauthorized.
+ten of ten jobs.
+
+Independent read-only exact-delta review bound the complete linear `c8295e5` → `e17fcb3` →
+`f7c66c8` → `869e10f` → `8d1a0d8` chain, final reviewed tree
+`3464697130900ed55e68acc02e5fb5af41db90a5`, the 17-file +515/-75 delta and all four exact-head
+ten-job runs. It returned `APPROVED` with zero open P0/P1/P2/P3 and closed `DA1-PHYS-02` as a
+repository finding. The review independently reproduced Mobile 406/406, focused regressions
+93/93, tests-inclusive Mobile typecheck, Core 290/290, Admin Web 44/44 and both contracts.
+
+No corrected physical result is claimed. The failed second run remains historical; a third
+complete fresh Gate-A–E restart still requires a new separate Human authorization and must reuse
+no prior observation. Production resources/data, deployment and distribution remain unauthorized.
 
 ## 14. Independent review mandate
 

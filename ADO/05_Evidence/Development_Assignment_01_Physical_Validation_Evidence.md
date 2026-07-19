@@ -6,8 +6,9 @@ INDEPENDENTLY APPROVED CORRECTION `04399fa`; SECOND AUTHORIZED COMPLETE FRESH GA
 FAILED AT GATE A STEP 4 WITH DA1-PHYS-02 (P1); NO GATE-A SCAN OCCURRED; GATES B–E NOT STARTED;
 FOCUSED CORRECTION `e17fcb3` PLUS CROSS-IDENTITY HARDENING `869e10f`, FINAL TREE `325fdd5`,
 PUBLISHED AND EXACT-HEAD RUNS `29696949408` AND `29697397146` EACH 10/10 GREEN; INDEPENDENT
-EXACT-DELTA REVIEW AND A NEW SEPARATE HUMAN AUTHORIZATION ARE REQUIRED BEFORE ANOTHER COMPLETE
-FRESH RESTART**
+EXACT-DELTA REVIEW OF HEAD `8d1a0d8`, TREE `3464697`, APPROVED WITH ZERO OPEN P0/P1/P2/P3;
+DA1-PHYS-02 REPOSITORY FINDING CLOSED; A NEW SEPARATE HUMAN AUTHORIZATION IS REQUIRED BEFORE
+ANOTHER COMPLETE FRESH RESTART**
 Owner: Human Architect + Technical Lead
 
 ## 1. Authorization and exact binding
@@ -324,7 +325,7 @@ the cold start. No SQLCipher, SQLite, key-loss or database-integrity failure occ
 remained at zero WorkEvents/SyncReceipts/CanonicalDecisions/TimeEntries. No Gate-A tag scan
 occurred, and Gates B–E were not started.
 
-## 11. Open finding
+## 11. Historical finding and disposition
 
 ### DA1-PHYS-02 — P1 — True offline cold start cannot expose the valid local capture lease
 
@@ -355,9 +356,9 @@ The focused correction must preserve all existing authority and numeric policies
   both local listeners unreachable; and
 - all prior Mobile/session/navigation/offline tests plus new regressions remain green.
 
-Disposition: **Correction published; finding remains open pending independent exact-delta
-review.** No production-code correction was performed during the failed gate itself, and no later
-physical observation is claimed.
+Disposition: **Repository finding closed by the independently approved correction recorded in
+Section 14.** No production-code correction was performed during the failed gate itself, the
+failed observation remains failed, and no later physical observation is claimed.
 
 ## 12. Second-run gate disposition and cleanup
 
@@ -430,14 +431,43 @@ Local evidence:
 The candidate APK was not installed and no third physical run was attempted. Exact-head GitHub
 Actions runs `29696949408` and `29697397146`, each attempt 1, push to `main`, passed all ten jobs.
 
-## 14. Exact next step
+## 14. Independent exact-delta review
 
-An independent read-only reviewer must inspect exact parent/failure-evidence head
-`c8295e57a4450710338b37c5dd2a07346269b2b0`, product correction
-`e17fcb3f1286095c345e6a4ce965790361901099`, cross-identity hardening
-`869e10f7d54e1c16a60a06a4b37ccedc5d0bfac1`, initial ADO synchronization
-`f7c66c834590f5ab7af87651bf7537ac1296d9cd`, this final ADO synchronization head and all exact
-trees, deltas and CI runs. Only an `APPROVED` verdict with zero open P0/P1/P2/P3 may close
-`DA1-PHYS-02`. A third complete fresh Gate-A–E run then requires another separate Human-Architect
-authorization and must restart at Gate A step 1; no prior observation may be reused. Production
-resources/data, deployment and distribution remain unauthorized.
+The independent read-only reviewer verified:
+
+- the exact linear chain `c8295e5` → `e17fcb3` → `f7c66c8` → `869e10f` → `8d1a0d8`,
+  including every parent and tree;
+- final reviewed head `8d1a0d86539790028526e8d62c1f867c1b68fe57`, tree
+  `3464697130900ed55e68acc02e5fb5af41db90a5`;
+- the complete 17-file +515/-75 Mobile/ADO delta;
+- exact-head runs `29696949408`, `29697168956`, `29697397146` and `29697544630`, each attempt 1
+  and ten of ten successful;
+- Mobile 406/406, the exact 93/93 focused regressions, tests-inclusive Mobile typecheck, Core
+  290/290, Admin Web 44/44, Offline Contract 7/7 and Administration Contract 4/4; and
+- transient suspension, retry/race safety, pre-read cross-identity restoration binding, unchanged
+  owner/install/time/completeness checks, disclosure-free navigation and
+  restoration-before-scheduling.
+
+Verdict: **APPROVED**, zero open P0/P1/P2/P3; `DA1-PHYS-02` repository finding closed.
+
+The review sandbox lacked the Android toolchain/device and did not independently reproduce the
+native build, backup verifier or APK hash. This transparent environment limit was accepted as a
+non-finding because the changed JavaScript orchestration was fully reproduced, all four exact-head
+CI runs were green and the missing on-device behavior remains assigned to the next complete gate.
+
+Full review:
+`ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_02_Independent_Exact_Delta_Review.md`.
+
+Tree comparison confirms that `869e10f..8d1a0d8` changes only the seven declared ADO files:
+Mobile product code, Admin Web and the synthetic harness are identical to product correction
+`869e10f`. The still-uninstalled APK hash and size recorded in Section 13 therefore remain bound
+to the independently reviewed product code. This review synchronization also changes ADO only.
+
+## 15. Exact next step
+
+After this review synchronization has a green exact-head CI run, the Human Architect may
+separately authorize a third complete fresh Gate-A–E run. That authorization must bind the
+approved product correction, reviewed ADO head, this synchronization head, exact CI and exact
+APK/Web/harness artifacts. The run must restart at Gate A step 1 and reuse no observation from
+either failed attempt. Until that separate authorization is recorded, no physical gate may start.
+Production resources/data, deployment and distribution remain unauthorized.
