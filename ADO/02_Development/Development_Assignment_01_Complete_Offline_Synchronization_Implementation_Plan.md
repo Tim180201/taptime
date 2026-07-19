@@ -8,9 +8,10 @@ ZERO OPEN P0/P1/P2/P3 AND DA1-IMPL-01 CLOSED; COMPLETE FRESH HUMAN PHYSICAL GATE
 ADO HEAD `72dc39e` AND EXACT-HEAD RUN `29692785824`, BUT GATE A FAILED BEFORE LEASE ACTIVATION
 WITH DA1-PHYS-01 (P1); FOCUSED CORRECTION `04399fa`, TREE `ecf5e6f`, AND EXACT-HEAD RUN
 `29695449737` 10/10 GREEN; INDEPENDENT EXACT-DELTA REVIEW OF HEAD `76be116`, TREE `d320db3`,
-AND RUN `29695605706` APPROVED WITH ZERO OPEN P0/P1/P2/P3; DA1-PHYS-01 CLOSED; FAILED GATE A
-RETAINED, GATES B–E NOT STARTED; COMPLETE FRESH GATE-A–E RESTART REQUIRES SEPARATE HUMAN
-AUTHORIZATION; PRODUCTION, DEPLOYMENT AND DISTRIBUTION NOT AUTHORIZED**
+AND RUN `29695605706` APPROVED WITH ZERO OPEN P0/P1/P2/P3; DA1-PHYS-01 CLOSED; SECOND FRESH
+GATE A FAILED AT STEP 4 WITH DA1-PHYS-02 (P1); FOCUSED CORRECTION `e17fcb3`, TREE `44320bc`,
+PUBLISHED AND EXACT-HEAD RUN `29696949408` 10/10 GREEN; INDEPENDENT EXACT-DELTA REVIEW PENDING;
+NO NEW PHYSICAL GATE AUTHORIZED; PRODUCTION, DEPLOYMENT AND DISTRIBUTION NOT AUTHORIZED**
 Date: 2026-07-19
 Implementation Baseline Commit: `180093091c47a926b5871a27ea8b00fb21b9b4ac`
 Implementation Baseline Tree: `73e77b6ca5dfd7671cdd3d77a344168fddff3627`
@@ -327,8 +328,14 @@ The Human Architect then authorized a complete fresh restart on product `04399fa
 `fb4a4e4` and exact-head run `29696026676`. Gate A obtained a complete two-item Employee lease,
 then failed at step 4 after airplane-mode force-stop/relaunch without Auth/API reachability: the app
 showed `TapTim.e ist derzeit nicht verfügbar` instead of the explicit offline-capture state.
-`DA1-PHYS-02` is open as P1. No tag was scanned, lifecycle mutation counts remained zero and Gates
-B–E were not started. Closure now requires a focused correction, complete verification, green
-exact-head CI, independent exact-delta approval, another separate Human authorization, a complete
-fresh Gate-A–E run, truthful physical evidence synchronization and independent final closure
-review.
+No tag was scanned, lifecycle mutation counts remained zero and Gates B–E were not started.
+Focused correction `e17fcb3f1286095c345e6a4ce965790361901099`, tree
+`44320bc8bb5a25b71300c03d8d50c5a8561ebf0a`, suspends access credentials on transient provider
+refresh failure, retains only the stored refresh path for retry, admits the offline shell only
+behind `context_unavailable` plus an independently eligible local capture state, and orders
+foreground/network session restoration before synchronization scheduling. Mobile passes 404/404
+in 29 files, all 15 Workspace typechecks/builds and Android export/native release build pass, and
+exact-head run `29696949408` passed ten of ten jobs. `DA1-PHYS-02` remains open pending independent
+exact-delta approval. Closure still requires that review, another separate Human authorization, a
+complete fresh Gate-A–E run, truthful physical evidence synchronization and independent final
+closure review.

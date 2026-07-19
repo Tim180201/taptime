@@ -1,6 +1,6 @@
 # Project Status
 
-Status: CORE ROADMAP V2 BLOCK A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2, BLOCK D, E1 AND NARROW E2A COMPLETE FOR THEIR RECORDED SCOPES — C3A HUMAN-ACCEPTED — C3E1 AND C3E2 INDEPENDENTLY CLOSED — DEVELOPMENT ASSIGNMENT 1 CONTRACT AND REPOSITORY IMPLEMENTATION INDEPENDENTLY APPROVED; DA1-IMPL-01 AND DA1-PHYS-01 CLOSED — SECOND COMPLETE FRESH HUMAN GATE BOUND TO PRODUCT `04399fa`, ADO HEAD `fb4a4e4` AND RUN `29696026676` FAILED AT GATE A STEP 4 WITH OPEN DA1-PHYS-02 (P1): TRUE OFFLINE COLD START CANNOT EXPOSE THE VALID LOCAL LEASE; NO GATE-A SCAN OCCURRED; GATES B–E NOT STARTED — PRODUCTION, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED — MOBILE 385 / CORE 290 / ADMIN WEB 44 — DT-060–DT-068 AND BLOCK E REMAIN OPEN — 2 SUPAVISOR MODES UNVERIFIED — NO PRODUCTION PERSONAL DATA AUTHORIZED — NO PRODUCTION CLOUD SYNC DEPLOYMENT
+Status: CORE ROADMAP V2 BLOCK A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2, BLOCK D, E1 AND NARROW E2A COMPLETE FOR THEIR RECORDED SCOPES — C3A HUMAN-ACCEPTED — C3E1 AND C3E2 INDEPENDENTLY CLOSED — DEVELOPMENT ASSIGNMENT 1 CONTRACT AND REPOSITORY IMPLEMENTATION INDEPENDENTLY APPROVED; DA1-IMPL-01 AND DA1-PHYS-01 CLOSED — SECOND COMPLETE FRESH HUMAN GATE BOUND TO PRODUCT `04399fa`, ADO HEAD `fb4a4e4` AND RUN `29696026676` FAILED AT GATE A STEP 4 WITH DA1-PHYS-02 (P1); FOCUSED PRODUCT CORRECTION `e17fcb3`, TREE `44320bc`, PUBLISHED WITH EXACT-HEAD RUN `29696949408` 10/10 GREEN; INDEPENDENT EXACT-DELTA REVIEW PENDING; NO NEW PHYSICAL GATE AUTHORIZED — PRODUCTION, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED — MOBILE 404 / CORE 290 / ADMIN WEB 44 — DT-060–DT-068 AND BLOCK E REMAIN OPEN — 2 SUPAVISOR MODES UNVERIFIED — NO PRODUCTION PERSONAL DATA AUTHORIZED — NO PRODUCTION CLOUD SYNC DEPLOYMENT
 Date: 2026-07-19
 Owner: Human Architect + Technical Lead
 
@@ -85,11 +85,20 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   `29696026676`. Fresh setup and a clean Employee install produced one complete Employee lease
   with two declared and two stored items. After airplane mode, removal of both Auth/API reverse
   mappings and force-stop/relaunch, the app showed `TapTim.e ist derzeit nicht verfügbar` instead
-  of the mandatory explicit offline-capture state. `DA1-PHYS-02` is open as P1. Gate A failed at
-  step 4 without a tag scan or lifecycle mutation; Gates B–E were not started and no observation
-  from either failed attempt may be reused. Another complete fresh Gate-A–E restart requires a
-  focused correction, complete verification, exact-head CI, independent exact-delta approval and
-  a new separate Human-Architect authorization.
+  of the mandatory explicit offline-capture state. Gate A failed at step 4 without a tag scan or
+  lifecycle mutation; Gates B–E were not started and no observation from either failed attempt may
+  be reused. Focused correction `e17fcb3f1286095c345e6a4ce965790361901099`, tree
+  `44320bc8bb5a25b71300c03d8d50c5a8561ebf0a`, now suspends access authority while retaining only
+  the stored refresh path, retries that path through the existing single-flight boundary, exposes
+  the scan shell only for `context_unavailable` plus an independently validated eligible offline
+  capture state, and retries session restoration before foreground/network scheduling. Local
+  verification passes Mobile 404/404 in 29 files, all 15 Workspace typechecks/builds, Android
+  export, `git diff --check` and a 690-task native release build. The uninstalled candidate APK is
+  95,417,883 bytes with SHA-256
+  `8e02d928e93c5d8076c05af227418ecc121634ae71fbf284000a831ff79b4629`. Exact-head run
+  `29696949408`, attempt 1, passed ten of ten jobs. `DA1-PHYS-02` remains open pending independent
+  exact-delta review; no corrected physical behavior is claimed. Another complete fresh Gate-A–E
+  restart requires independent approval and a new separate Human-Architect authorization.
   Production resources/data, deployment and distribution remain unauthorized. DT-060–DT-062
   remain open until every later gate passes.
   Evidence: `ADO/01_Architecture/ADR/ADR-0012-complete-offline-synchronization-platform.md`,
@@ -100,7 +109,7 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   `ADO/05_Evidence/Development_Assignment_01_Independent_Implementation_Review.md`;
   `ADO/05_Evidence/Development_Assignment_01_Physical_Validation_Evidence.md`; and
   `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_01_Independent_Exact_Delta_Review.md`.
-- The Business Core (NFC scan through Assignment Resolution, Assignment Validation, WorkEvent creation, Business Engine decision, TimeEntry lifecycle, offline queue, durable local persistence and error classification) is implemented and tested: 290 `packages/core` tests pass (262 existing plus 26 ADR-0009 codec cases and two explicit required-display-name contract/persistence cases); the expanded Mobile suite passes 385 tests in 28 files, including physical-validation, synthetic-E2E product-composition, E1/E2A compatibility, the complete offline lease/database/queue/scheduler/reconciliation boundaries and the SQLCipher actor-connection regression; tests are included in the TypeScript check; the Core and workspace builds succeed.
+- The Business Core (NFC scan through Assignment Resolution, Assignment Validation, WorkEvent creation, Business Engine decision, TimeEntry lifecycle, offline queue, durable local persistence and error classification) is implemented and tested: 290 `packages/core` tests pass (262 existing plus 26 ADR-0009 codec cases and two explicit required-display-name contract/persistence cases); the expanded Mobile suite passes 404 tests in 29 files, including physical-validation, synthetic-E2E product-composition, E1/E2A compatibility, the complete offline lease/database/queue/scheduler/reconciliation boundaries, the SQLCipher actor-connection regression and fail-closed cold-start restoration/shell boundaries; tests are included in the TypeScript check; the Core and workspace builds succeed.
 - **Core Roadmap v2 Block A is complete.** The Human Architect approved F-01's engine-driven lifecycle rule; `TimeEntry` now has typed started/stopped states and WorkEvent traceability; repositories support user-aware active lookup and updates; the Business Engine handles start, stop, duplicate suppression (`< 5 seconds`), other-target rejection and inconsistent-state escalation; GitHub Actions runs install/typecheck/test/build on pushes and pull requests to `main`. Implementation commits: `f5a0027`, `d8d3833`, `72eb03d`; enabling commits: `2493f17`, `b2004ea`. Closure evidence: `ADO/02_Development/Block_A_Core_Truth_and_Reliability_Closure.md`.
 - **ADR-0008 is approved after independent security review and renewed Technical Lead verification; phased Block B implementation is authorized.** The approved baseline is Supabase-managed PostgreSQL/Auth, managed Node as primary transactional lifecycle runtime, pooled-schema RLS/composite tenant constraints, one active Membership per User, email/password-only v1 authentication, audited operator bootstrap and identity-first pilot provisioning. Conflict, device-time and pre-revocation evidence use explicit deferred/review paths rather than silent mutation. Central EU (Frankfurt) is the intended initial region. No production personal data is authorized until legal retention/erasure/anonymization and backup requirements are approved. No production backend or cloud resource exists; the disposable B1 result is recorded below.
 - **Block B1 is completed and Technical-Lead approved.** Two review rounds corrected broad mutation rights, Organization-only visibility, privileged runtime use and cross-User referential manipulation. WorkEvent/TimeEntry unique keys and every TimeEntry/Decision/Receipt/Audit foreign key are User- and Organization-qualified; immutable evidence has operation-specific grants; runtime uses a separate non-owner/non-superuser login. Direct PostgreSQL 17.10 passes 39 tests locally and in GitHub Actions run `29220424071`, including cross-User `23503` rejection; two Supavisor modes remain explicitly unverified and are a pre-production gate. No production backend adapter, HTTP API, Auth integration or cloud resource exists.

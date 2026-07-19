@@ -11,8 +11,9 @@ STARTED; FOCUSED CORRECTION `04399fa`, TREE `ecf5e6f`, AND EXACT-HEAD RUN `29695
 GREEN; INDEPENDENT EXACT-DELTA REVIEW OF HEAD `76be116`, TREE `d320db3`, AND RUN `29695605706`
 APPROVED WITH ZERO OPEN P0/P1/P2/P3; DA1-PHYS-01 CLOSED; COMPLETE FRESH GATE-A–E RESTART
 AUTHORIZED ON PRODUCT `04399fa`, ADO HEAD `fb4a4e4` AND RUN `29696026676`, BUT GATE A FAILED
-AT STEP 4 WITH DA1-PHYS-02 (P1); NO GATE-A SCAN OCCURRED; GATES B–E NOT STARTED; PRODUCTION,
-DEPLOYMENT AND DISTRIBUTION NOT AUTHORIZED**
+AT STEP 4 WITH DA1-PHYS-02 (P1); FOCUSED CORRECTION `e17fcb3`, TREE `44320bc`, PUBLISHED AND
+EXACT-HEAD RUN `29696949408` 10/10 GREEN; INDEPENDENT EXACT-DELTA REVIEW PENDING; NO NEW
+PHYSICAL GATE AUTHORIZED; PRODUCTION, DEPLOYMENT AND DISTRIBUTION NOT AUTHORIZED**
 Date: 2026-07-19
 Human-Accepted Contract Commit: `592334160655cde2f4189712eaf327c8a7edcb0e`
 Implementation Baseline Commit: `180093091c47a926b5871a27ea8b00fb21b9b4ac`
@@ -46,6 +47,10 @@ Second Fresh Physical-gate Binding: product `04399fa7ef8b3e58e44e82a81c0b0757aca
 ADO head `fb4a4e4b1c457112372770b9e4e6532f9dca0555`, exact-head run `29696026676`
 Second Fresh Physical-gate Result: **Gate A failed at step 4; DA1-PHYS-02 (P1) open; Gates B–E
 not started**
+DA1-PHYS-02 Correction Commit: `e17fcb3f1286095c345e6a4ce965790361901099`
+DA1-PHYS-02 Correction Tree: `44320bc8bb5a25b71300c03d8d50c5a8561ebf0a`
+DA1-PHYS-02 Correction Exact-head CI: GitHub Actions run `29696949408`, attempt 1, push to `main`,
+10/10 jobs successful
 Architecture:
 `ADO/01_Architecture/ADR/ADR-0012-complete-offline-synchronization-platform.md`
 Authorization:
@@ -275,10 +280,34 @@ showed `TapTim.e ist derzeit nicht verfügbar` instead of the mandatory explicit
 state. No tag was scanned and server WorkEvent/Receipt/Decision/TimeEntry counts remained zero.
 `DA1-PHYS-02` is open as P1; Gate A failed at step 4 and Gates B–E were not started.
 
+Focused product correction `e17fcb3f1286095c345e6a4ce965790361901099`, tree
+`44320bc8bb5a25b71300c03d8d50c5a8561ebf0a`, changes only ten Mobile source/test files:
+
+- a transient provider refresh failure suspends provider authority, clears the in-memory access
+  token and authenticated snapshot, preserves the stored refresh path, and enters the typed
+  `context_unavailable` state;
+- `retryContext()` uses the existing single-flight refresh path when access authority is
+  suspended, while a stale refresh failure cannot override a newer accepted provider event;
+- the offline coordinator can validate the still-current local lease during that typed transient
+  state, and foreground/network hints restore the session before scheduling synchronization;
+- React renders `ScanScreen` only for the exact offline-ready/in-progress safe state set and labels
+  it `Offline-Erfassung`, without passing retained User/Organization/Membership identifiers; and
+- missing/invalid local context, storage/runtime failure, rejection, logout and protected identity
+  states remain closed.
+
+Regression evidence covers suspended cold-start restoration, concurrent retry, stale provider
+events, valid and invalid local contexts, network restoration ordering, shell-state admission and
+disclosure-free presentation. Local Mobile verification passes 404/404 tests in 29 files and its
+tests-inclusive TypeScript check. Core remains 290/290 and Admin Web 44/44. Both neutral contract
+checks, Android export, all 15 Workspace typechecks/builds, `git diff --check`, the Android backup
+boundary verifier and the 690-task native release build pass. The generated but uninstalled
+candidate APK is 95,417,883 bytes with SHA-256
+`8e02d928e93c5d8076c05af227418ecc121634ae71fbf284000a831ff79b4629`. Exact-head GitHub
+Actions run `29696949408`, attempt 1, passed all ten jobs.
+
 Still pending and not claimed here:
 
-1. focused `DA1-PHYS-02` correction, complete verification, exact-head CI and independent
-   exact-delta approval;
+1. independent exact-delta approval of `c8295e5..e17fcb3` plus this ADO synchronization;
 2. another separately authorized complete fresh Human Gate A–E run;
 3. truthful physical closure synchronization and independent final closure review; and
 4. any production resource/data, deployment or distribution decision.

@@ -53,9 +53,13 @@ The Human Architect then authorized a complete fresh restart on product `04399fa
 `fb4a4e4` and exact-head run `29696026676`. Gate A obtained a complete two-item Employee lease,
 then failed at step 4 after airplane-mode force-stop/relaunch without Auth/API reachability: the
 app showed `TapTim.e ist derzeit nicht verfügbar` instead of the mandatory explicit offline state.
-`DA1-PHYS-02` is open as P1. No tag was scanned, lifecycle mutation counts remained zero and Gates
-B–E were not started. A focused correction, exact-head CI, independent exact-delta approval and a
-new separate Human authorization are required before another complete fresh Gate-A–E run.
+No tag was scanned, lifecycle mutation counts remained zero and Gates B–E were not started.
+Focused correction `e17fcb3`, tree `44320bc`, is published and exact-head run `29696949408`
+passed ten of ten jobs. It adds the suspended/retryable provider-restoration state, the narrowly
+gated offline-capture shell and foreground/network restoration ordering while preserving
+fail-closed storage, logout, rejection, owner and lease boundaries. `DA1-PHYS-02` remains open
+pending independent exact-delta review. No corrected physical result is claimed, and a new
+separate Human authorization remains mandatory before another complete fresh Gate-A–E run.
 Implementation, review and physical evidence:
 `ADO/05_Evidence/Development_Assignment_01_Implementation_Evidence.md` and
 `ADO/05_Evidence/Development_Assignment_01_Independent_Implementation_Review.md` and
@@ -222,7 +226,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Development Assignment 1 Independent Pre-Implementation Review | `ADO/05_Evidence/Development_Assignment_01_Independent_Pre_Implementation_Review.md` |
 | Development Assignment 1 Local Implementation Evidence | `ADO/05_Evidence/Development_Assignment_01_Implementation_Evidence.md` |
 | Development Assignment 1 Independent Implementation Review and Correction Disposition | `ADO/05_Evidence/Development_Assignment_01_Independent_Implementation_Review.md` |
-| Development Assignment 1 Human Physical Validation Evidence — second fresh Gate A failed at step 4; DA1-PHYS-02 open | `ADO/05_Evidence/Development_Assignment_01_Physical_Validation_Evidence.md` |
+| Development Assignment 1 Human Physical Validation Evidence — second fresh Gate A failed at step 4; DA1-PHYS-02 correction published/CI green, independent review pending | `ADO/05_Evidence/Development_Assignment_01_Physical_Validation_Evidence.md` |
 | Development Assignment 1 DA1-PHYS-01 Independent Exact-Delta Review — approved, finding closed | `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_01_Independent_Exact_Delta_Review.md` |
 | Product Readiness Reassessment — C3D Closure Delta | `ADO/05_Evidence/Product_Readiness_Reassessment_2026-07-15_C3D_Closure_Delta.md` |
 | EP-008 Evidence (incl. Repository Health Follow-up) | `ADO/05_Evidence/EP-008/` |

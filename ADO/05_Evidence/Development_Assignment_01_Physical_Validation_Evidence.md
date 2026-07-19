@@ -4,8 +4,9 @@ Date: 2026-07-19
 Status: **FIRST FAILED GATE A RETAINED AS HISTORICAL EVIDENCE; DA1-PHYS-01 CLOSED BY
 INDEPENDENTLY APPROVED CORRECTION `04399fa`; SECOND AUTHORIZED COMPLETE FRESH GATE-A–E RUN
 FAILED AT GATE A STEP 4 WITH DA1-PHYS-02 (P1); NO GATE-A SCAN OCCURRED; GATES B–E NOT STARTED;
-FOCUSED CORRECTION, EXACT-HEAD CI, INDEPENDENT REVIEW AND A NEW SEPARATE HUMAN AUTHORIZATION ARE
-REQUIRED BEFORE ANOTHER COMPLETE FRESH RESTART**
+FOCUSED CORRECTION `e17fcb3`, TREE `44320bc`, PUBLISHED AND EXACT-HEAD RUN `29696949408` 10/10
+GREEN; INDEPENDENT EXACT-DELTA REVIEW AND A NEW SEPARATE HUMAN AUTHORIZATION ARE REQUIRED BEFORE
+ANOTHER COMPLETE FRESH RESTART**
 Owner: Human Architect + Technical Lead
 
 ## 1. Authorization and exact binding
@@ -353,7 +354,9 @@ The focused correction must preserve all existing authority and numeric policies
   both local listeners unreachable; and
 - all prior Mobile/session/navigation/offline tests plus new regressions remain green.
 
-Disposition: **Open**. No production-code correction was performed during the failed gate.
+Disposition: **Correction published; finding remains open pending independent exact-delta
+review.** No production-code correction was performed during the failed gate itself, and no later
+physical observation is claimed.
 
 ## 12. Second-run gate disposition and cleanup
 
@@ -381,11 +384,43 @@ Abort cleanup was verified:
 No password, token, key, provider subject, raw NFC UID, internal identifier or personal data was
 recorded.
 
-## 13. Exact next step
+## 13. Focused correction and verification
 
-Implement one focused `DA1-PHYS-02` correction inside the already Human-authorized Development
-Assignment 1 repository scope. Before any new Human Physical Gate, the correction requires complete
-relevant verification, a focused commit, green exact-head CI and independent exact-delta review
-with zero open P0/P1/P2/P3. A third complete fresh Gate-A–E run then requires another separate
-Human-Architect authorization and must restart at Gate A step 1. Production resources/data,
-deployment and distribution remain unauthorized.
+Focused correction `e17fcb3f1286095c345e6a4ce965790361901099`, tree
+`44320bc8bb5a25b71300c03d8d50c5a8561ebf0a`, changes only ten Mobile source/test files:
+
+- transient provider-refresh failure now suspends access authority, clears the access token and
+  authenticated snapshot, preserves only the stored refresh path and enters
+  `context_unavailable`;
+- `retryContext()` re-enters the existing refresh single-flight when authority is suspended, and a
+  stale failing refresh cannot override a newer provider event;
+- a foreground/network signal restores the suspended session before it schedules synchronization;
+- `AppNavigator` exposes `ScanScreen` only when the session is `context_unavailable` and the
+  offline coordinator has independently reached an eligible offline capture/in-progress state;
+  and
+- the shell shows only `Offline-Erfassung`; storage/runtime failures, logout, rejection,
+  missing/invalid lease and protected identity states remain closed.
+
+Local evidence:
+
+- Mobile: 404/404 in 29 test files, tests-inclusive typecheck green;
+- focused session/offline/navigation/screen regressions: 91/91;
+- Core: 290/290; Admin Web: 44/44; offline contract: 7/7;
+- all 15 Workspace typechecks and all available Workspace builds green;
+- Android Expo export, `git diff --check`, backup-boundary verifier and 690-task native release
+  build green; and
+- candidate APK: 95,417,883 bytes, SHA-256
+  `8e02d928e93c5d8076c05af227418ecc121634ae71fbf284000a831ff79b4629`.
+
+The candidate APK was not installed and no third physical run was attempted. Exact-head GitHub
+Actions run `29696949408`, attempt 1, push to `main`, passed all ten jobs.
+
+## 14. Exact next step
+
+An independent read-only reviewer must inspect exact parent/failure-evidence head
+`c8295e57a4450710338b37c5dd2a07346269b2b0`, product correction
+`e17fcb3f1286095c345e6a4ce965790361901099`, this ADO synchronization head and their exact trees,
+deltas and CI runs. Only an `APPROVED` verdict with zero open P0/P1/P2/P3 may close
+`DA1-PHYS-02`. A third complete fresh Gate-A–E run then requires another separate Human-Architect
+authorization and must restart at Gate A step 1; no prior observation may be reused. Production
+resources/data, deployment and distribution remain unauthorized.
