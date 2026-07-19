@@ -196,7 +196,7 @@ export class OfflineLifecycleIngestionCoordinator implements OfflineLifecycleIng
         `SELECT pg_catalog.pg_advisory_xact_lock(
            pg_catalog.hashtextextended($1::text, 0)
          )`,
-        [`${actor.organization_id}:${actor.user_id}`],
+        [`${actor.organization_id}\u001f${actor.user_id}`],
       );
 
       const requestHash = offlineEventRequestHash(request.command);

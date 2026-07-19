@@ -1,9 +1,31 @@
+import { createServer, type Server } from 'node:http';
 import type { AccessTokenVerifier } from '@taptime/backend-identity';
+import { SupabaseJwtAccessTokenVerifier } from '@taptime/backend-identity';
+import {
+  ServerCanonicalLifecycleIngestionCoordinator,
+  type LifecycleIngestionCommand,
+} from '@taptime/backend-lifecycle';
 import { migrate } from '@taptime/backend-schema';
+import {
+  CustomerId,
+  NfcAssignmentId,
+  NfcTagId,
+  OrganizationId,
+  WorkEventId,
+  createTimestamp,
+  customerAssignmentTarget,
+} from '@taptime/core';
 import type {
   OfflineCaptureLeasePage,
   OfflineLifecycleEventCommand,
 } from '@taptime/offline-sync-contract';
+import {
+  exportJWK,
+  generateKeyPair,
+  SignJWT,
+  type CryptoKey,
+  type JWK,
+} from 'jose';
 import { Pool } from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
@@ -19,6 +41,10 @@ const runtimePassword = 'offline-synthetic';
 const leaseLogin = 'taptime_offline_lease_test_login';
 const eventLogin = 'taptime_offline_event_test_login';
 const reconciliationLogin = 'taptime_offline_reconciliation_test_login';
+const canonicalLogin = 'taptime_offline_canonical_test_login';
+const eventApplicationName = 'taptime-offline-event-test';
+const canonicalKeyId = 'offline-cross-route-rs256';
+const canonicalSessionId = '90000000-0000-4000-8000-000000000011';
 
 const ids = {
   user: '10000000-0000-4000-8000-000000000011',
@@ -37,7 +63,7 @@ const ids = {
   receipt3: '65000000-0000-4000-8000-000000000013',
 } as const;
 
-const issuer = 'https://offline.synthetic.invalid/auth';
+let issuer: string;
 const subject = 'offline-employee';
 const canonicalPayload = 'nfc:uid:v1:04AABBCC';
 const installationBinding = Buffer.alloc(32, 0x11).toString('base64url');
@@ -54,25 +80,45 @@ const installerPool = new Pool({ connectionString: installerConnectionString, ma
 let leasePool: Pool;
 let eventPool: Pool;
 let reconciliationPool: Pool;
+let canonicalPool: Pool;
 let leaseCoordinator: OfflineCaptureLeaseCoordinator;
 let eventCoordinator: OfflineLifecycleIngestionCoordinator;
 let reconciliationCoordinator: OfflineEventReconciliationCoordinator;
+let canonicalCoordinator: ServerCanonicalLifecycleIngestionCoordinator;
+let canonicalSigningKey: CryptoKey;
+let canonicalJwksServer: Server;
 
 beforeAll(async () => {
+  const keyPair = await generateKeyPair('RS256');
+  canonicalSigningKey = keyPair.privateKey;
+  const jwksInfrastructure = await startJwksServer(await exportJWK(keyPair.publicKey));
+  canonicalJwksServer = jwksInfrastructure.server;
+  issuer = new URL('/offline-cross-route/auth/v1', jwksInfrastructure.origin).href;
+
   await migrate(installerPool);
-  await ensureLogin(leaseLogin, 'taptime_offline_lease_issuer');
-  await ensureLogin(eventLogin, 'taptime_offline_event_ingestor');
-  await ensureLogin(reconciliationLogin, 'taptime_offline_reconciliation_reader');
+  await ensureLogin(leaseLogin, ['taptime_offline_lease_issuer']);
+  await ensureLogin(eventLogin, ['taptime_offline_event_ingestor']);
+  await ensureLogin(reconciliationLogin, ['taptime_offline_reconciliation_reader']);
+  await ensureLogin(canonicalLogin, [
+    'taptime_identity_resolver',
+    'taptime_server_lifecycle',
+  ]);
   leasePool = new Pool({
     connectionString: runtimeConnectionString(leaseLogin),
     max: 2,
   });
   eventPool = new Pool({
     connectionString: runtimeConnectionString(eventLogin),
+    application_name: eventApplicationName,
     max: 2,
   });
   reconciliationPool = new Pool({
     connectionString: runtimeConnectionString(reconciliationLogin),
+    max: 2,
+  });
+  canonicalPool = new Pool({
+    connectionString: runtimeConnectionString(canonicalLogin),
+    application_name: 'taptime-offline-canonical-test',
     max: 2,
   });
   leaseCoordinator = new OfflineCaptureLeaseCoordinator(leasePool, verifier);
@@ -80,6 +126,15 @@ beforeAll(async () => {
   reconciliationCoordinator = new OfflineEventReconciliationCoordinator(
     reconciliationPool,
     verifier,
+  );
+  const canonicalVerifier = SupabaseJwtAccessTokenVerifier.fromRemoteJwks({
+    issuer,
+    jwksUrl: new URL(`${issuer}/.well-known/jwks.json`),
+    allowedAlgorithms: ['RS256'],
+  });
+  canonicalCoordinator = new ServerCanonicalLifecycleIngestionCoordinator(
+    canonicalPool,
+    canonicalVerifier,
   );
 });
 
@@ -160,7 +215,9 @@ afterAll(async () => {
     leasePool.end(),
     eventPool.end(),
     reconciliationPool.end(),
+    canonicalPool.end(),
   ]);
+  await closeServer(canonicalJwksServer);
   await installerPool.end();
 });
 
@@ -301,6 +358,60 @@ describe('complete offline PostgreSQL boundary', () => {
       reconciliations: '1',
     });
   });
+
+  it('serializes canonical and offline ingestion for the same Organization and User',
+    async () => {
+      const lease = await issueLease();
+      const item = lease.items[0]!;
+      const occurredAt = new Date(Date.parse(lease.issuedAt) + 1_000).toISOString();
+      const canonicalLocked = deferred();
+      const releaseCanonical = deferred();
+      const canonical = canonicalCoordinator.ingest(
+        await canonicalCommand(occurredAt),
+        undefined,
+        {
+          afterAuthorityLocked: async () => {
+            canonicalLocked.resolve();
+            await releaseCanonical.promise;
+          },
+        },
+      );
+      await canonicalLocked.promise;
+
+      const offline = eventCoordinator.ingest({
+        accessToken: 'valid',
+        command: eventCommand(
+          lease,
+          item.itemId,
+          ids.event1,
+          ids.receipt1,
+          1,
+          occurredAt,
+        ),
+      });
+      try {
+        await waitForAdvisoryLockWait(eventApplicationName);
+        const committed = await installerPool.query<{ work_events: string }>(
+          `SELECT count(*)::text AS work_events
+           FROM taptime_server.work_events
+           WHERE organization_id = $1::uuid`,
+          [ids.organization],
+        );
+        expect(committed.rows[0]?.work_events).toBe('0');
+      } finally {
+        releaseCanonical.resolve();
+      }
+
+      const [canonicalResult, offlineResult] = await Promise.all([canonical, offline]);
+      expect(canonicalResult).toMatchObject({
+        status: 'synchronized',
+        decision: { status: 'time_entry_started' },
+      });
+      expect(offlineResult).toMatchObject({
+        status: 'synchronized',
+        decision: { status: 'duplicate_scan_ignored' },
+      });
+    });
 
   it('returns closed conflicts for reused event, sequence and Receipt identities', async () => {
     const lease = await issueLease();
@@ -677,7 +788,101 @@ function eventCommand(
   };
 }
 
-async function ensureLogin(login: string, role: string): Promise<void> {
+async function canonicalCommand(occurredAt: string): Promise<LifecycleIngestionCommand> {
+  return {
+    accessToken: await canonicalAccessToken(),
+    requestedOrganizationId: OrganizationId(ids.organization),
+    workEvent: {
+      id: WorkEventId(ids.event3),
+      assignmentId: NfcAssignmentId(ids.assignment),
+      nfcTagId: NfcTagId(ids.tag),
+      target: customerAssignmentTarget(CustomerId(ids.customer)),
+      occurredAt: createTimestamp(occurredAt),
+    },
+    receipt: { id: ids.receipt3, attemptNumber: 1 },
+  };
+}
+
+async function canonicalAccessToken(): Promise<string> {
+  const now = Math.floor(Date.now() / 1_000);
+  return new SignJWT({
+    aal: 'aal1',
+    email: 'offline-cross-route@example.invalid',
+    is_anonymous: false,
+    phone: '',
+    role: 'authenticated',
+    session_id: canonicalSessionId,
+  })
+    .setProtectedHeader({ alg: 'RS256', kid: canonicalKeyId, typ: 'JWT' })
+    .setIssuer(issuer)
+    .setAudience('authenticated')
+    .setSubject(subject)
+    .setIssuedAt(now)
+    .setExpirationTime(now + 300)
+    .sign(canonicalSigningKey);
+}
+
+async function startJwksServer(
+  jwk: JWK,
+): Promise<{ readonly server: Server; readonly origin: URL }> {
+  const server = createServer((_request, response) => {
+    response.writeHead(200, { 'content-type': 'application/json' });
+    response.end(JSON.stringify({
+      keys: [{ ...jwk, alg: 'RS256', kid: canonicalKeyId, use: 'sig' }],
+    }));
+  });
+  await new Promise<void>((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(0, '127.0.0.1', resolve);
+  });
+  const address = server.address();
+  if (address === null || typeof address === 'string') {
+    throw new Error('Offline cross-route JWKS server did not expose a TCP address');
+  }
+  return { server, origin: new URL(`http://127.0.0.1:${address.port}`) };
+}
+
+async function closeServer(server: Server): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    server.close((error) => error === undefined ? resolve() : reject(error));
+  });
+}
+
+function deferred(): { readonly promise: Promise<void>; readonly resolve: () => void } {
+  let resolve!: () => void;
+  const promise = new Promise<void>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
+}
+
+async function waitForAdvisoryLockWait(applicationName: string): Promise<void> {
+  for (let attempt = 0; attempt < 300; attempt += 1) {
+    const activity = await installerPool.query<{
+      readonly wait_event_type: string | null;
+      readonly query: string;
+    }>(
+      `SELECT wait_event_type, query
+       FROM pg_catalog.pg_stat_activity
+       WHERE application_name = $1
+         AND state = 'active'`,
+      [applicationName],
+    );
+    if (activity.rows.some((row) => (
+      row.wait_event_type === 'Lock'
+      && row.query.includes('pg_advisory_xact_lock')
+    ))) {
+      return;
+    }
+    await new Promise<void>((resolve) => setTimeout(resolve, 10));
+  }
+  throw new Error('Offline ingestion did not wait on the shared advisory lock');
+}
+
+async function ensureLogin(login: string, roles: readonly string[]): Promise<void> {
+  if (roles.length === 0) {
+    throw new Error('Synthetic runtime login requires at least one role');
+  }
   await installerPool.query(`
     DO $login$
     BEGIN
@@ -691,8 +896,9 @@ async function ensureLogin(login: string, role: string): Promise<void> {
       LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS
       PASSWORD '${runtimePassword}';
     REVOKE taptime_offline_lease_issuer, taptime_offline_event_ingestor,
-      taptime_offline_reconciliation_reader FROM ${login};
-    GRANT ${role} TO ${login};
+      taptime_offline_reconciliation_reader, taptime_identity_resolver,
+      taptime_server_lifecycle FROM ${login};
+    GRANT ${roles.join(', ')} TO ${login};
   `);
 }
 

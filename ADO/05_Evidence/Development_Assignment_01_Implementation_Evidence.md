@@ -1,8 +1,10 @@
 # Development Assignment 1 — Complete Offline Synchronization Implementation Evidence
 
-Status: **REPOSITORY IMPLEMENTATION PUBLISHED AND TECHNICAL-LEAD APPROVED — IMPLEMENTATION
-EXACT-HEAD CI 10/10 GREEN; INDEPENDENT IMPLEMENTATION REVIEW PENDING; PRODUCTION, DEPLOYMENT,
-DISTRIBUTION AND HUMAN PHYSICAL GATE NOT AUTHORIZED**
+Status: **REPOSITORY IMPLEMENTATION PUBLISHED AND TECHNICAL-LEAD APPROVED — ORIGINAL
+IMPLEMENTATION EXACT-HEAD CI 10/10 GREEN; INDEPENDENT IMPLEMENTATION REVIEW RETURNED CHANGES
+REQUIRED FOR DA1-IMPL-01 (P2); FOCUSED CORRECTION LOCALLY VERIFIED, PUBLICATION/EXACT-HEAD
+CI/DELTA RE-REVIEW PENDING; PRODUCTION, DEPLOYMENT, DISTRIBUTION AND HUMAN PHYSICAL GATE NOT
+AUTHORIZED**
 Date: 2026-07-19
 Human-Accepted Contract Commit: `592334160655cde2f4189712eaf327c8a7edcb0e`
 Implementation Baseline Commit: `180093091c47a926b5871a27ea8b00fb21b9b4ac`
@@ -17,6 +19,8 @@ Authorization:
 `ADO/02_Development/Development_Assignment_01_Complete_Offline_Synchronization_Authorization.md`
 Implementation Plan:
 `ADO/02_Development/Development_Assignment_01_Complete_Offline_Synchronization_Implementation_Plan.md`
+Independent Implementation Review and Correction Disposition:
+`ADO/05_Evidence/Development_Assignment_01_Independent_Implementation_Review.md`
 Owner: Technical Lead
 
 ## 1. Authority and exact scope
@@ -139,11 +143,11 @@ Node 24, PostgreSQL 17 and Android release verification:
 | Backend Lifecycle | 88/88 |
 | Backend Bootstrap | 189/189 |
 | Backend Administration | 121/121, 3 files |
-| Backend Offline Synchronization | 12/12, 2 files |
+| Backend Offline Synchronization | 13/13, 2 files |
 | Backend API | 208/208, 6 files |
 | Synthetic Android/Auth/API/PostgreSQL harness | 18/18, 2 files |
 | B1 direct PostgreSQL harness | 39 passed, 2 unchanged optional Supavisor modes skipped |
-| Total passed | 1,625 |
+| Total passed | 1,626 |
 
 All 15 workspace TypeScript checks passed. Their package configurations include test sources where
 tests exist. All workspace builds passed, including declarations/bundles, Admin Web Vite production
@@ -172,20 +176,30 @@ major override was deliberately not retained because it is outside the upstream 
 contract. This is a documented non-exploitable toolchain disposition, not a zero-advisory claim.
 It must be rechecked when Expo/config-plugins publishes a compatible dependency update.
 
-## 6. Technical-Lead disposition and remaining gates
+## 6. Independent review correction and remaining gates
 
-The published Workstreams A–E implementation matches the accepted architecture and authorization.
-The Technical Lead finds no open implementation P0/P1/P2/P3. Focused commit
+The original Technical-Lead review found that the published Workstreams A–E implementation matched
+the accepted architecture and authorization. Focused commit
 `4f51918993e02b7bf51a1194f8d4d750abfae7c4`, tree
 `617081f34e34cbf5e314a26f4cc634c846c2e319`, was fast-forward pushed from the exact authorized
 baseline. GitHub Actions run `29675842388`, attempt 1, bound the exact implementation head and
 passed all ten jobs.
 
+The independent review of publication head `de895215b28110b8fe7129863df17795351b5795` later returned
+`CHANGES REQUIRED` with exactly one P2, `DA1-IMPL-01`: the Offline Organization/User advisory-lock
+input used `:` while the existing B6 boundary used U+001F. The focused local correction now uses
+the byte-identical B6 key and adds a real canonical-versus-Offline PostgreSQL concurrency test. The
+test observes the Offline session waiting at `pg_advisory_xact_lock`, then proves deterministic
+`time_entry_started` followed by `duplicate_scan_ignored`. The complete corrected local matrix is
+1,626 passed tests, all 15 Workspace TypeScript checks and all available Workspace builds.
+
 Still pending and not claimed here:
 
-1. independent read-only implementation review with zero open P0–P3;
-2. separate Human authorization for the complete fresh Human Physical Gate;
-3. the Human observations themselves and later closure synchronization;
-4. any production resource/data, deployment or distribution decision.
+1. focused correction commit and publication;
+2. green correction exact-head CI;
+3. independent exact-delta re-review with zero open P0–P3;
+4. separate Human authorization for the complete fresh Human Physical Gate;
+5. the Human observations themselves and later closure synchronization; and
+6. any production resource/data, deployment or distribution decision.
 
 DT-060–DT-062 remain open until every applicable later gate is complete.

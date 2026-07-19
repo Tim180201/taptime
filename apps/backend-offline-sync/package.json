@@ -22,6 +22,7 @@
     "pg": "^8.22.0"
   },
   "devDependencies": {
+    "@taptime/backend-lifecycle": "*",
     "@types/node": "^24.10.13",
     "@types/pg": "^8.20.0",
     "esbuild": "^0.28.1",
