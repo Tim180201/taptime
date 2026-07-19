@@ -137,7 +137,7 @@ describe('OfflineCaptureCoordinator', () => {
       const coordinator = new OfflineCaptureCoordinator(
         { async scan() { return { status: 'cancelled' }; } },
         nfcLifecycle(),
-        sessionReader({ status: 'context_unavailable' }, null),
+        sessionReader({ status: 'context_unavailable' }, null, true),
         identityStore(),
         () => database,
         { issueComplete },
@@ -164,6 +164,7 @@ describe('OfflineCaptureCoordinator', () => {
 
   it.each([
     [{ status: 'context_unavailable' }, null],
+    [{ status: 'context_unavailable' }, activeContext()],
     [
       { status: 'runtime_unavailable', reason: 'authentication_unavailable' },
       activeContext(),
@@ -222,7 +223,7 @@ describe('OfflineCaptureCoordinator', () => {
       { async scan() { return { status: 'cancelled' }; } },
       nfcLifecycle(),
       {
-        ...sessionReader({ status: 'context_unavailable' }, null),
+        ...sessionReader({ status: 'context_unavailable' }, null, true),
         retryContext,
       },
       identityStore(),
@@ -363,9 +364,11 @@ function leaseClient(): OfflineCaptureLeaseApiPort {
 function sessionReader(
   state: MobileSessionState,
   authenticatedSnapshot: ProductScanSessionSnapshot | null,
+  offlineCaptureRestorationAllowed = false,
 ): OfflineCaptureSessionReader {
   return {
     getState: () => state,
+    isOfflineCaptureRestorationAllowed: () => offlineCaptureRestorationAllowed,
     capture: () => authenticatedSnapshot,
     isCurrent: (candidate) => candidate === authenticatedSnapshot,
     subscribe: () => () => undefined,

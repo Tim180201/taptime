@@ -48,6 +48,7 @@ export class MobileSessionCoordinator implements
   private accessToken: string | null = null;
   private refreshToken: string | null = null;
   private providerSessionAllowed = false;
+  private offlineCaptureRestorationAllowed = false;
   private tokenRevision = 0;
   private refreshFlight: Promise<void> | null = null;
   private startFlight: Promise<void> | null = null;
@@ -90,6 +91,10 @@ export class MobileSessionCoordinator implements
       && current.session.organizationId === snapshot.session.organizationId
       && current.session.membershipId === snapshot.session.membershipId
       && current.session.role === snapshot.session.role;
+  }
+
+  isOfflineCaptureRestorationAllowed(): boolean {
+    return this.offlineCaptureRestorationAllowed;
   }
 
   subscribe(listener: () => void): () => void {
@@ -531,6 +536,9 @@ export class MobileSessionCoordinator implements
       }
       return;
     }
+    if (this.state.status === 'initializing') {
+      this.offlineCaptureRestorationAllowed = true;
+    }
 
     const tokenRevisionBeforeProviderRefresh = this.tokenRevision;
     let result;
@@ -601,6 +609,7 @@ export class MobileSessionCoordinator implements
     }
     if (result.status === 'resolved') {
       this.enrollmentIntentGeneration = null;
+      this.offlineCaptureRestorationAllowed = true;
       this.setState({ status: 'authenticated', session: result.session });
       return { status: 'authenticated' };
     }
@@ -692,6 +701,7 @@ export class MobileSessionCoordinator implements
     this.providerSessionAllowed = false;
     this.accessToken = null;
     this.refreshToken = null;
+    this.offlineCaptureRestorationAllowed = false;
     this.tokenRevision += 1;
     this.unauthorizedRefreshFlight = null;
     this.enrollmentIntentGeneration = null;

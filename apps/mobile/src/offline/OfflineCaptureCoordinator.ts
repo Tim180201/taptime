@@ -50,6 +50,7 @@ import { decodeBase64Url32, encodeBase64Url } from './encoding';
 
 export interface OfflineCaptureSessionReader extends ProductScanSessionContextReader {
   getState(): MobileSessionState;
+  isOfflineCaptureRestorationAllowed(): boolean;
   retryContext(): Promise<void>;
 }
 
@@ -249,7 +250,10 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
       return;
     }
     const sessionState = this.session.getState();
-    if (sessionState.status === 'context_unavailable') {
+    if (
+      sessionState.status === 'context_unavailable'
+      && this.session.isOfflineCaptureRestorationAllowed()
+    ) {
       const offline = await this.readValidOfflineContext();
       if (!this.isCurrent(generation)) return;
       if (offline !== null) {

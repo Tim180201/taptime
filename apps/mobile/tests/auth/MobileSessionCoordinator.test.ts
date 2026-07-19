@@ -192,8 +192,21 @@ describe('MobileSessionCoordinator', () => {
     expect(store.value).toBe('rotated-refresh');
     expect(backend.accessTokens).toEqual(['rotated-access']);
     expect(coordinator.getState()).toEqual({ status: 'authenticated', session: productSession });
+    expect(coordinator.isOfflineCaptureRestorationAllowed()).toBe(true);
     expect(JSON.stringify(store.writes)).not.toContain('rotated-access');
   });
+
+  it('allows offline restoration when stored credentials refresh but backend context is unavailable',
+    async () => {
+      const { coordinator, backend } = setup('stored-refresh');
+      backend.implementation = async () => ({ status: 'unavailable' });
+
+      await coordinator.start();
+
+      expect(coordinator.getState()).toEqual({ status: 'context_unavailable' });
+      expect(coordinator.captureAuthenticatedSessionSnapshot()).toBeNull();
+      expect(coordinator.isOfflineCaptureRestorationAllowed()).toBe(true);
+    });
 
   it('makes parallel start calls share one restore operation', async () => {
     const { coordinator, provider } = setup('stored-refresh');
@@ -285,6 +298,7 @@ describe('MobileSessionCoordinator', () => {
     await expect(coordinator.signInForEmployeeEnrollment('employee@example.invalid', 'password'))
       .resolves.toEqual({ status: 'context_unavailable' });
     expect(coordinator.getState()).toEqual({ status: 'context_unavailable' });
+    expect(coordinator.isOfflineCaptureRestorationAllowed()).toBe(false);
   });
 
   it('redeems through an ephemeral token reader, clears input responsibility, and retains only the authority-free shell on 404', async () => {
@@ -405,6 +419,7 @@ describe('MobileSessionCoordinator', () => {
     expect(unavailable.coordinator.getState()).toEqual({ status: 'context_unavailable' });
     expect(unavailable.store.value).toBe('stored-refresh');
     expect(unavailable.coordinator.captureAuthenticatedSessionSnapshot()).toBeNull();
+    expect(unavailable.coordinator.isOfflineCaptureRestorationAllowed()).toBe(true);
   });
 
   it('restores a suspended cold-start session through one shared retry', async () => {
@@ -463,6 +478,7 @@ describe('MobileSessionCoordinator', () => {
       .resolves.toEqual({ status: 'context_unavailable' });
     expect(coordinator.getState()).toEqual({ status: 'context_unavailable' });
     expect(store.value).toBe('signed-in-refresh');
+    expect(coordinator.isOfflineCaptureRestorationAllowed()).toBe(false);
 
     backend.implementation = async () => ({ status: 'resolved', session: productSession });
     await Promise.all([coordinator.retryContext(), coordinator.retryContext()]);
@@ -477,6 +493,7 @@ describe('MobileSessionCoordinator', () => {
     await expect(coordinator.signIn('a@example.invalid', 'password'))
       .resolves.toEqual({ status: 'context_unavailable' });
     expect(coordinator.getState()).toEqual({ status: 'context_unavailable' });
+    expect(coordinator.isOfflineCaptureRestorationAllowed()).toBe(false);
   });
 
   it('sign-out removes SecureStore and in-memory authority even if provider cleanup fails', async () => {
@@ -737,6 +754,7 @@ describe('MobileSessionCoordinator', () => {
     expect(store.value).toBe('signed-in-refresh');
     expect(coordinator.getState()).toEqual({ status: 'context_unavailable' });
     expect(coordinator.captureAuthenticatedSessionSnapshot()).toBeNull();
+    expect(coordinator.isOfflineCaptureRestorationAllowed()).toBe(true);
   });
 
   it('does not retry when renewed server context is unavailable and keeps the rotation', async () => {

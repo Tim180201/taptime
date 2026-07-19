@@ -98,6 +98,9 @@ export function createProductMobileRuntime(): ProductMobileRuntimeCreation {
   const offlineSessionContext = Object.freeze({
     ...scanSessionContext,
     getState: () => coordinator.getState(),
+    isOfflineCaptureRestorationAllowed: () => (
+      coordinator.isOfflineCaptureRestorationAllowed()
+    ),
     retryContext: () => coordinator.retryContext(),
   });
   const nfcAdapter = new RnNfcScanAdapter({
