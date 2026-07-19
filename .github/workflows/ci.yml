@@ -37,6 +37,14 @@ jobs:
       - name: Install dependencies from lockfile
         run: npm ci
 
+      - name: Build offline synchronization contract for workspace type resolution
+        run: npm run build --workspace=@taptime/offline-sync-contract
+
+      - name: Typecheck and test the neutral offline synchronization contract
+        run: |
+          npm run typecheck --workspace=@taptime/offline-sync-contract
+          npm test --workspace=@taptime/offline-sync-contract
+
       - name: Typecheck core, mobile, and Admin Web
         run: npm run typecheck
 
@@ -146,10 +154,10 @@ jobs:
       - name: Typecheck backend B3 schema
         run: npm run typecheck --workspace=@taptime/backend-schema
 
-      - name: Apply current schema migrations 001 through 009 to empty PostgreSQL database
+      - name: Apply current schema migrations 001 through 010 to empty PostgreSQL database
         run: npm run migrate --workspace=@taptime/backend-schema
 
-      - name: Re-run and verify migration ledger 001 through 009
+      - name: Re-run and verify migration ledger 001 through 010
         run: |
           npm run migrate --workspace=@taptime/backend-schema
           npm run verify-migrations --workspace=@taptime/backend-schema
@@ -201,7 +209,7 @@ jobs:
       - name: Install dependencies from lockfile
         run: npm ci
 
-      - name: Apply current schema migrations 001 through 009 for B4
+      - name: Apply current schema migrations 001 through 010 for B4
         run: npm run migrate --workspace=@taptime/backend-schema
 
       - name: Re-run and verify the B4 migration ledger
@@ -262,7 +270,7 @@ jobs:
       - name: Build the approved B4 identity dependency
         run: npm run build --workspace=@taptime/backend-identity
 
-      - name: Apply current schema migrations 001 through 009 for B5
+      - name: Apply current schema migrations 001 through 010 for B5
         run: npm run migrate --workspace=@taptime/backend-schema
 
       - name: Re-run and verify the migration ledger
@@ -326,10 +334,10 @@ jobs:
           npm run build --workspace=@taptime/backend-schema
           npm run build --workspace=@taptime/backend-identity
 
-      - name: Apply schema migrations 001 through 009
+      - name: Apply schema migrations 001 through 010
         run: npm run migrate --workspace=@taptime/backend-schema
 
-      - name: Re-run and verify migration ledger 001 through 009
+      - name: Re-run and verify migration ledger 001 through 010
         run: |
           npm run migrate --workspace=@taptime/backend-schema
           npm run verify-migrations --workspace=@taptime/backend-schema
@@ -344,7 +352,7 @@ jobs:
         run: npm run build --workspace=@taptime/backend-lifecycle
 
   backend-c2-api:
-    name: Backend C2/C3C/C3E1/C3E2 authenticated API and Mobile transport
+    name: Backend C2/C3C/C3E1/C3E2/offline API and Mobile transport
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -370,6 +378,7 @@ jobs:
       C2_READ_MODEL_DATABASE_URL: postgresql://taptime_c2_read_model_runtime:c2-read-ci-synthetic-only@127.0.0.1:5432/taptime_c2
       C2_LIFECYCLE_DATABASE_URL: postgresql://taptime_c2_lifecycle_runtime:c2-lifecycle-ci-synthetic-only@127.0.0.1:5432/taptime_c2
       C2_ADMINISTRATION_DATABASE_URL: postgresql://taptime_c2_administration_runtime:c2-administration-ci-synthetic-only@127.0.0.1:5432/taptime_c2
+      OFFLINE_SYNC_DATABASE_URL: postgresql://taptime_c2_installer:postgres@127.0.0.1:5432/taptime_c2
       C2_SESSION_RUNTIME_PASSWORD: c2-session-ci-synthetic-only
       C2_READ_MODEL_RUNTIME_PASSWORD: c2-read-ci-synthetic-only
       C2_LIFECYCLE_RUNTIME_PASSWORD: c2-lifecycle-ci-synthetic-only
@@ -391,34 +400,41 @@ jobs:
       - name: Install dependencies from lockfile
         run: npm ci
 
-      - name: Build required contract, Core, schema, B4, B5, B6, C3C, C3E1, and C3E2 dependencies
+      - name: Build required contract, Core, schema, identity, lifecycle, administration, and offline dependencies
         run: |
           npm run build --workspace=@taptime/administration-contract
+          npm run build --workspace=@taptime/offline-sync-contract
           npm run build --workspace=@taptime/core
           npm run build --workspace=@taptime/backend-schema
           npm run build --workspace=@taptime/backend-identity
           npm run build --workspace=@taptime/backend-read-model
           npm run build --workspace=@taptime/backend-lifecycle
           npm run build --workspace=@taptime/backend-administration
+          npm run build --workspace=@taptime/backend-offline-sync
 
-      - name: Apply schema migrations 001 through 009 to clean PostgreSQL 17
+      - name: Apply schema migrations 001 through 010 to clean PostgreSQL 17
         run: npm run migrate --workspace=@taptime/backend-schema
 
-      - name: Re-run and verify migration ledger 001 through 009
+      - name: Re-run and verify migration ledger 001 through 010
         run: |
           npm run migrate --workspace=@taptime/backend-schema
           npm run verify-migrations --workspace=@taptime/backend-schema
 
-      - name: Typecheck C2/C3C/C3E1/C3E2 API production and test sources
+      - name: Typecheck and test complete offline synchronization against direct PostgreSQL 17
+        run: |
+          npm run typecheck --workspace=@taptime/backend-offline-sync
+          npm test --workspace=@taptime/backend-offline-sync
+
+      - name: Typecheck C2/C3C/C3E1/C3E2/offline API production and test sources
         run: npm run typecheck --workspace=@taptime/backend-api
 
-      - name: Test C1, C2, C3C, C3E1, and C3E2 API against direct PostgreSQL and local JWKS
+      - name: Test C1, C2, C3C, C3E1, C3E2, and offline API against direct PostgreSQL and local JWKS
         run: npm test --workspace=@taptime/backend-api
 
-      - name: Build C2/C3C/C3E1/C3E2 backend API
+      - name: Build C2/C3C/C3E1/C3E2/offline backend API
         run: npm run build --workspace=@taptime/backend-api
 
-      - name: Typecheck and test Mobile authentication, C2 transports, C3E1 enrollment, and C3E2 projection compatibility
+      - name: Typecheck and test Mobile authentication, transport, enrollment, projection, and offline synchronization
         run: |
           npm run typecheck --workspace=@taptime/mobile
           npm test --workspace=@taptime/mobile
@@ -470,10 +486,10 @@ jobs:
           npm run build --workspace=@taptime/backend-schema
           npm run build --workspace=@taptime/backend-identity
 
-      - name: Apply schema migrations 001 through 009 to clean PostgreSQL 17
+      - name: Apply schema migrations 001 through 010 to clean PostgreSQL 17
         run: npm run migrate --workspace=@taptime/backend-schema
 
-      - name: Re-run and verify migration ledger 001 through 009
+      - name: Re-run and verify migration ledger 001 through 010
         run: |
           npm run migrate --workspace=@taptime/backend-schema
           npm run verify-migrations --workspace=@taptime/backend-schema
@@ -538,10 +554,10 @@ jobs:
           npm run build --workspace=@taptime/backend-identity
           npm run build --workspace=@taptime/backend-lifecycle
 
-      - name: Apply schema migrations 001 through 009 to clean PostgreSQL 17
+      - name: Apply schema migrations 001 through 010 to clean PostgreSQL 17
         run: npm run migrate --workspace=@taptime/backend-schema
 
-      - name: Re-run and verify migration ledger 001 through 009
+      - name: Re-run and verify migration ledger 001 through 010
         run: |
           npm run migrate --workspace=@taptime/backend-schema
           npm run verify-migrations --workspace=@taptime/backend-schema
@@ -605,12 +621,14 @@ jobs:
       - name: Build synthetic harness type dependencies
         run: |
           npm run build --workspace=@taptime/administration-contract
+          npm run build --workspace=@taptime/offline-sync-contract
           npm run build --workspace=@taptime/core
           npm run build --workspace=@taptime/backend-schema
           npm run build --workspace=@taptime/backend-identity
           npm run build --workspace=@taptime/backend-read-model
           npm run build --workspace=@taptime/backend-lifecycle
           npm run build --workspace=@taptime/backend-administration
+          npm run build --workspace=@taptime/backend-offline-sync
           npm run build --workspace=@taptime/backend-api
 
       - name: Typecheck synthetic Android E2E harness

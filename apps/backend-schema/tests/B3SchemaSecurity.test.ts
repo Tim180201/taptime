@@ -310,19 +310,23 @@ afterAll(async () => {
 });
 
 describe('B3 deterministic migration system', () => {
-  it('applies exactly nine sorted versioned migrations through the authorized C3E2 addition', async () => {
+  it('applies exactly ten sorted versioned migrations through complete offline synchronization', async () => {
     const rows = await installerPool.query<{ version: string; checksum: string }>(
       `SELECT version, checksum FROM ${B3_MIGRATION_TABLE} ORDER BY version`,
     );
 
-    expect(rows.rows.map((row) => row.version)).toEqual(['001', '002', '003', '004', '005', '006', '007', '008', '009']);
+    expect(rows.rows.map((row) => row.version)).toEqual([
+      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010',
+    ]);
     expect(rows.rows.every((row) => /^[0-9a-f]{64}$/.test(row.checksum))).toBe(true);
   });
 
   it('reruns safely without applying any migration twice', async () => {
     await expect(migrate(installerPool)).resolves.toEqual({
       applied: [],
-      alreadyApplied: ['001', '002', '003', '004', '005', '006', '007', '008', '009'],
+      alreadyApplied: [
+        '001', '002', '003', '004', '005', '006', '007', '008', '009', '010',
+      ],
     });
   });
 
@@ -398,7 +402,7 @@ describe('B3 deterministic migration system', () => {
     expect(result.rows[0]).toEqual({ table_exists: false, ledger_count: '0' });
   });
 
-  it('contains exactly the seventeen approved logical server tables', async () => {
+  it('contains exactly the twenty-three approved logical server tables', async () => {
     const result = await installerPool.query<{ table_name: string }>(
       `SELECT table_name FROM information_schema.tables WHERE table_schema = $1 ORDER BY table_name`,
       [B3_SCHEMA],
@@ -416,6 +420,12 @@ describe('B3 deterministic migration system', () => {
       'memberships',
       'nfc_assignments',
       'nfc_tags',
+      'offline_capture_lease_items',
+      'offline_capture_lease_receipts',
+      'offline_capture_leases',
+      'offline_event_reconciliations',
+      'offline_installations',
+      'offline_sync_cursors',
       'organizations',
       'sync_receipts',
       'time_entries',
@@ -434,7 +444,7 @@ describe('B3 deterministic migration system', () => {
         AND relation.relrowsecurity
         AND relation.relforcerowsecurity
     `);
-    expect(result.rows[0]?.count).toBe('17');
+    expect(result.rows[0]?.count).toBe('23');
   });
 });
 

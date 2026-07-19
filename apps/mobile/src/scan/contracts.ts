@@ -23,7 +23,8 @@ export type ProductScanOutcome =
   | { readonly status: 'active_entry_for_other_target_rejected' }
   | { readonly status: 'escalation_required' }
   | { readonly status: 'server_review_pending' }
-  | { readonly status: 'session_rejected' };
+  | { readonly status: 'session_rejected' }
+  | { readonly status: 'queue_full' };
 
 export type ProductScanState =
   | { readonly status: 'inactive' }
@@ -32,6 +33,19 @@ export type ProductScanState =
   | { readonly status: 'disabled' }
   | { readonly status: 'unavailable' }
   | { readonly status: 'ready'; readonly outcome: ProductScanOutcome | null }
+  | {
+      readonly status: 'offline_ready';
+      readonly queueCount: number;
+      readonly outcome: ProductScanOutcome | null;
+    }
+  | { readonly status: 'saved_locally'; readonly queueCount: number }
+  | { readonly status: 'synchronizing'; readonly queueCount: number }
+  | { readonly status: 'server_review_pending'; readonly queueCount: number }
+  | {
+      readonly status: 'server_decision';
+      readonly outcome: ProductScanOutcome;
+      readonly queueCount: number;
+    }
   | { readonly status: 'scanning' }
   | { readonly status: 'submitting'; readonly phase: 'scan_context' | 'lifecycle' }
   | { readonly status: 'retry_pending' }
@@ -40,7 +54,10 @@ export type ProductScanState =
   /** Pending evidence cannot be replayed under the current exact Membership context. */
   | {
       readonly status: 'protected_pending';
-      readonly reason: 'identity_mismatch' | 'legacy_membership_unknown';
+      readonly reason:
+        | 'identity_mismatch'
+        | 'legacy_membership_unknown'
+        | 'local_evidence_protected';
     };
 
 export interface ProductScanCapability {

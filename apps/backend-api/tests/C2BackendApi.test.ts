@@ -46,6 +46,9 @@ import {
   C2_RUNTIME_ROLE_GRAPH,
   C2_SESSION_RUNTIME_LOGIN,
   C3E2_REASSIGNMENT_RUNTIME_LOGIN,
+  OFFLINE_EVENT_RUNTIME_LOGIN,
+  OFFLINE_LEASE_RUNTIME_LOGIN,
+  OFFLINE_RECONCILIATION_RUNTIME_LOGIN,
   ids,
   parentRoles,
   postgresErrorCode,
@@ -53,6 +56,7 @@ import {
   resetMigrateAndPrepareC2,
   runtimeConnectionString,
 } from './C2fixtures.js';
+import { unavailableOfflineDependencies } from './offlineTestDependencies.js';
 
 const installerConnectionString = process.env.C2_DATABASE_URL
   ?? 'postgresql://timbartz@127.0.0.1:5432/taptime_c2';
@@ -64,6 +68,9 @@ const passwords = {
     ?? 'c2-administration-local-synthetic-only',
   reassignment: process.env.C3E2_REASSIGNMENT_RUNTIME_PASSWORD
     ?? 'c3e2-reassignment-local-synthetic-only',
+  offlineLease: 'offline-lease-local-synthetic-only',
+  offlineEvent: 'offline-event-local-synthetic-only',
+  offlineReconciliation: 'offline-reconciliation-local-synthetic-only',
 } as const;
 const connectionStrings = {
   session: process.env.C2_SESSION_DATABASE_URL ?? runtimeConnectionString(
@@ -101,6 +108,21 @@ const connectionStrings = {
     C3E2_REASSIGNMENT_RUNTIME_LOGIN,
     passwords.reassignment,
   ),
+  offlineLease: runtimeConnectionString(
+    installerConnectionString,
+    OFFLINE_LEASE_RUNTIME_LOGIN,
+    passwords.offlineLease,
+  ),
+  offlineEvent: runtimeConnectionString(
+    installerConnectionString,
+    OFFLINE_EVENT_RUNTIME_LOGIN,
+    passwords.offlineEvent,
+  ),
+  offlineReconciliation: runtimeConnectionString(
+    installerConnectionString,
+    OFFLINE_RECONCILIATION_RUNTIME_LOGIN,
+    passwords.offlineReconciliation,
+  ),
 } as const;
 
 const installerPool = new Pool({ connectionString: installerConnectionString, max: 8 });
@@ -121,6 +143,12 @@ beforeAll(async () => {
   expectRuntimeUsername(connectionStrings.lifecycle, C2_LIFECYCLE_RUNTIME_LOGIN);
   expectRuntimeUsername(connectionStrings.administration, C2_ADMINISTRATION_RUNTIME_LOGIN);
   expectRuntimeUsername(connectionStrings.reassignment, C3E2_REASSIGNMENT_RUNTIME_LOGIN);
+  expectRuntimeUsername(connectionStrings.offlineLease, OFFLINE_LEASE_RUNTIME_LOGIN);
+  expectRuntimeUsername(connectionStrings.offlineEvent, OFFLINE_EVENT_RUNTIME_LOGIN);
+  expectRuntimeUsername(
+    connectionStrings.offlineReconciliation,
+    OFFLINE_RECONCILIATION_RUNTIME_LOGIN,
+  );
   jwks = await startSyntheticJwks();
   await resetMigrateAndPrepareC2(installerPool, passwords);
   await resetAndSeedC2(installerPool, jwks.issuerA);
@@ -132,6 +160,9 @@ beforeAll(async () => {
     employeeInvitationDatabaseUrl: connectionStrings.employeeInvitation,
     employeeEnrollmentDatabaseUrl: connectionStrings.employeeEnrollment,
     reassignmentDatabaseUrl: connectionStrings.reassignment,
+    offlineLeaseDatabaseUrl: connectionStrings.offlineLease,
+    offlineEventDatabaseUrl: connectionStrings.offlineEvent,
+    offlineReconciliationDatabaseUrl: connectionStrings.offlineReconciliation,
     supabaseIssuer: jwks.issuerA,
   }, {
     onDiagnostic: (diagnostic) => diagnostics.push(diagnostic),
@@ -152,17 +183,17 @@ afterAll(async () => {
 });
 
 describe('C2 package, runtime composition, and least privilege', () => {
-  it('uses exactly migrations 001 through 009 and reruns the ledger cleanly', async () => {
+  it('uses exactly migrations 001 through 010 and reruns the ledger cleanly', async () => {
     expect((await loadMigrations()).map(({ version }) => version)).toEqual([
-      '001', '002', '003', '004', '005', '006', '007', '008', '009',
+      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010',
     ]);
     await expect(migrate(installerPool)).resolves.toEqual({
       applied: [],
-      alreadyApplied: ['001', '002', '003', '004', '005', '006', '007', '008', '009'],
+      alreadyApplied: ['001', '002', '003', '004', '005', '006', '007', '008', '009', '010'],
     });
   });
 
-  it('normalizes five distinct non-owner runtime logins with exact parent roles', async () => {
+  it('normalizes eight distinct non-owner runtime logins with exact parent roles', async () => {
     for (const [login, roles] of Object.entries(C2_RUNTIME_ROLE_GRAPH)) {
       expect(await parentRoles(installerPool, login)).toEqual([...roles]);
       const result = await installerPool.query<{
@@ -252,6 +283,9 @@ describe('C2 package, runtime composition, and least privilege', () => {
       employeeInvitationDatabaseUrl: connectionStrings.employeeInvitation,
       employeeEnrollmentDatabaseUrl: connectionStrings.employeeEnrollment,
       reassignmentDatabaseUrl: connectionStrings.reassignment,
+      offlineLeaseDatabaseUrl: connectionStrings.offlineLease,
+      offlineEventDatabaseUrl: connectionStrings.offlineEvent,
+      offlineReconciliationDatabaseUrl: connectionStrings.offlineReconciliation,
       supabaseIssuer: 'https://synthetic.supabase.co/auth/v1',
     })).toThrow(/database URL|runtime login/);
   });
@@ -269,6 +303,9 @@ describe('C2 package, runtime composition, and least privilege', () => {
       employeeInvitationDatabaseUrl: connectionStrings.employeeInvitation,
       employeeEnrollmentDatabaseUrl: connectionStrings.employeeEnrollment,
       reassignmentDatabaseUrl: connectionStrings.reassignment,
+      offlineLeaseDatabaseUrl: connectionStrings.offlineLease,
+      offlineEventDatabaseUrl: connectionStrings.offlineEvent,
+      offlineReconciliationDatabaseUrl: connectionStrings.offlineReconciliation,
       supabaseIssuer: 'https://synthetic.supabase.co/auth/v1',
     })).toThrow('Backend API database runtime login names must be distinct');
   });
@@ -289,6 +326,9 @@ describe('C2 package, runtime composition, and least privilege', () => {
       employeeInvitationDatabaseUrl: connectionStrings.employeeInvitation,
       employeeEnrollmentDatabaseUrl: connectionStrings.employeeEnrollment,
       reassignmentDatabaseUrl: connectionStrings.reassignment,
+      offlineLeaseDatabaseUrl: connectionStrings.offlineLease,
+      offlineEventDatabaseUrl: connectionStrings.offlineEvent,
+      offlineReconciliationDatabaseUrl: connectionStrings.offlineReconciliation,
       supabaseIssuer: 'https://synthetic.supabase.co/auth/v1',
     })).toThrow('Backend API database URL contains an unsupported connection parameter');
   });
@@ -1676,6 +1716,7 @@ function testDependencies(
     },
   };
   return {
+    ...unavailableOfflineDependencies(),
     sessionAuthority,
     scanContextResolver,
     lifecycleIngestor,

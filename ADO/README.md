@@ -28,6 +28,13 @@ evidence: `ADO/05_Evidence/Block_C3E2_Independent_Implementation_Review.md` and
 active-work rejection, post-stop A→B reassignment, exact historical attribution and cleanup.
 Production resources/data and deployment/distribution remain unauthorized.
 
+Development Assignment 1 repository Workstreams A–E are locally implemented and
+Technical-Lead approved from exact authorized baseline `1800930`, tree `73e77b6`.
+Implementation evidence:
+`ADO/05_Evidence/Development_Assignment_01_Implementation_Evidence.md`.
+Publication, exact-head CI and independent implementation review remain pending; production,
+deployment, distribution and Human Physical Gate execution remain unauthorized.
+
 This file is the official navigation entry point for the TapTim.e ADO.
 
 Every Human and AI Agent shall locate this document through repository evidence before executing ABS-001 and shall read it before AOS-001 begins.
@@ -124,7 +131,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Feature Blueprint Standard | `ADO/01_Architecture/Feature_Blueprint_Standard.md` |
 | Technical Architecture Profile (TTAP-001) | `ADO/01_Architecture/Technical_Architecture_Profile.md` |
 | Development Task Profile | `ADO/01_Architecture/Development_Task_Profile.md` |
-| Architecture Decision Records (through Human-accepted ADR-0012; implementation separately gated) | `ADO/01_Architecture/ADR/` |
+| Architecture Decision Records (through Human-accepted ADR-0012; local repository implementation complete, later gates separate) | `ADO/01_Architecture/ADR/` |
 | Feature Blueprints (incl. FB-001, FB-002) | `ADO/01_Architecture/Feature_Blueprints/` |
 | Technical Specifications (incl. TS-001, TS-002) | `ADO/01_Architecture/Technical_Specifications/` |
 | Developer Implementation Manual (EP-008) | `ADO/01_Architecture/Developer_Implementation_Manual/` |
@@ -147,7 +154,8 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Block C3D Admin Web and Protected Android Capture Authorization | `ADO/02_Development/Block_C3D_Admin_Web_Android_Capture_Authorization.md` |
 | Block C3E1 Identity-First Employee Membership Authorization Package | `ADO/02_Development/Block_C3E1_Identity_First_Employee_Membership_Authorization.md` |
 | Block C3E2 Explicit Tag Reassignment Authorization Candidate | `ADO/02_Development/Block_C3E2_Explicit_Tag_Reassignment_Authorization.md` |
-| Development Assignment 1 Human-Accepted Complete Offline Synchronization Contract (implementation separately gated) | `ADO/02_Development/Development_Assignment_01_Complete_Offline_Synchronization_Authorization.md` |
+| Development Assignment 1 Human-Accepted Complete Offline Synchronization Contract and Repository Authorization | `ADO/02_Development/Development_Assignment_01_Complete_Offline_Synchronization_Authorization.md` |
+| Development Assignment 1 Complete Offline Synchronization Implementation Plan | `ADO/02_Development/Development_Assignment_01_Complete_Offline_Synchronization_Implementation_Plan.md` |
 | Block C3 Organization Administration Implementation Plan | `ADO/02_Development/Block_C3_Organization_Administration_Implementation_Plan.md` |
 | Repository Health Sprint 001 | `ADO/02_Development/Repository_Health_Sprint_001.md` |
 | Repository Maintenance Sprint 002 | `ADO/02_Development/Repository_Maintenance_Sprint_002.md` |
@@ -184,6 +192,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Block C3E2 Physical Validation Evidence | `ADO/05_Evidence/Block_C3E2_Physical_Validation_Evidence.md` |
 | Block C3E2 Independent Final Closure Review | `ADO/05_Evidence/Block_C3E2_Independent_Final_Closure_Review.md` |
 | Development Assignment 1 Independent Pre-Implementation Review | `ADO/05_Evidence/Development_Assignment_01_Independent_Pre_Implementation_Review.md` |
+| Development Assignment 1 Local Implementation Evidence | `ADO/05_Evidence/Development_Assignment_01_Implementation_Evidence.md` |
 | Product Readiness Reassessment — C3D Closure Delta | `ADO/05_Evidence/Product_Readiness_Reassessment_2026-07-15_C3D_Closure_Delta.md` |
 | EP-008 Evidence (incl. Repository Health Follow-up) | `ADO/05_Evidence/EP-008/` |
 | Evidence Area | `ADO/05_Evidence/` |

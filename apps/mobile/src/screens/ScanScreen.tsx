@@ -45,7 +45,7 @@ export function ScanScreen({ session, scan, signOut }: ScanScreenProps) {
         <Button
           title="NFC-Tag scannen"
           onPress={() => scan.scan()}
-          disabled={state.status !== 'ready'}
+          disabled={!isScanReadyState(state)}
           accessibilityLabel="NFC-Tag jetzt scannen"
           testID="scan-button"
         />
@@ -57,7 +57,7 @@ export function ScanScreen({ session, scan, signOut }: ScanScreenProps) {
             testID="cancel-scan-button"
           />
         ) : null}
-        {state.status === 'retry_pending' ? (
+        {state.status === 'retry_pending' || state.status === 'saved_locally' ? (
           <Button
             title="Unveränderte Daten erneut senden"
             onPress={() => scan.retry()}
@@ -124,6 +124,34 @@ export function presentScanState(state: ProductScanState): ScanScreenPresentatio
         message: 'Der Scan ist sicher auf diesem Gerät vorgemerkt. Es können ausschließlich dieselben unveränderten Daten erneut gesendet werden – auch nach einem App-Neustart.',
         tone: 'warning',
       };
+    case 'offline_ready':
+      return state.outcome === null
+        ? {
+            title: 'Offline bereit',
+            message: `NFC-Erfassung ist mit der sicheren lokalen Konfiguration möglich. ${state.queueCount} Vorgänge warten auf Serverbestätigung.`,
+            tone: 'success',
+          }
+        : presentOutcome(state.outcome.status);
+    case 'saved_locally':
+      return {
+        title: 'Sicher lokal gespeichert',
+        message: `${state.queueCount} Vorgänge warten in unveränderter Reihenfolge auf die Serverbestätigung.`,
+        tone: 'warning',
+      };
+    case 'synchronizing':
+      return {
+        title: 'Synchronisierung läuft',
+        message: `${state.queueCount} Vorgänge werden der Reihe nach sicher bestätigt.`,
+        tone: 'neutral',
+      };
+    case 'server_review_pending':
+      return {
+        title: 'Sichere Prüfung erforderlich',
+        message: `Der Server hat die Evidenz dauerhaft übernommen. ${state.queueCount} Vorgänge sind noch lokal offen.`,
+        tone: 'warning',
+      };
+    case 'server_decision':
+      return presentOutcome(state.outcome.status);
     case 'secure_storage_unavailable':
       return {
         title: 'Sicherer Speicher nicht verfügbar',
@@ -185,9 +213,23 @@ function presentOutcome(
       return { title: 'Scan sicher gespeichert', message: 'Der Server hat die Scan-Evidenz gespeichert. Deine Arbeitszeit wurde noch nicht verändert und wartet auf eine sichere Prüfung.', tone: 'warning' };
     case 'session_rejected':
       return { title: 'Sitzung nicht mehr gültig', message: 'Bitte melde dich erneut an.', tone: 'error' };
+    case 'queue_full':
+      return {
+        title: 'Lokaler Speicher ist voll',
+        message: 'Der Scan wurde nicht als gespeichert bestätigt. Synchronisiere die offenen Vorgänge und versuche es anschließend erneut.',
+        tone: 'error',
+      };
     default:
       return status satisfies never;
   }
+}
+
+function isScanReadyState(state: ProductScanState): boolean {
+  return state.status === 'ready'
+    || state.status === 'offline_ready'
+    || state.status === 'saved_locally'
+    || state.status === 'server_review_pending'
+    || state.status === 'server_decision';
 }
 
 const styles = StyleSheet.create({

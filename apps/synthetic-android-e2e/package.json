@@ -10,7 +10,7 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {
-    "build": "tsc -p tsconfig.build.json --emitDeclarationOnly && esbuild src/index.ts src/main.ts --bundle --platform=node --target=node24 --format=esm --alias:@taptime/backend-administration=../backend-administration/src/index.ts --alias:@taptime/backend-api=../backend-api/src/index.ts --alias:@taptime/backend-identity=../backend-identity/src/index.ts --alias:@taptime/backend-lifecycle=../backend-lifecycle/src/index.ts --alias:@taptime/backend-read-model=../backend-read-model/src/index.ts --alias:@taptime/backend-schema=../backend-schema/src/index.ts --alias:@taptime/administration-contract=../../packages/administration-contract/src/index.ts --alias:@taptime/core=../../packages/core/src/index.ts --external:jose --external:pg --sourcemap --outdir=dist",
+    "build": "tsc -p tsconfig.build.json --emitDeclarationOnly && esbuild src/index.ts src/main.ts --bundle --platform=node --target=node24 --format=esm --alias:@taptime/backend-administration=../backend-administration/src/index.ts --alias:@taptime/backend-api=../backend-api/src/index.ts --alias:@taptime/backend-identity=../backend-identity/src/index.ts --alias:@taptime/backend-lifecycle=../backend-lifecycle/src/index.ts --alias:@taptime/backend-offline-sync=../backend-offline-sync/src/index.ts --alias:@taptime/backend-read-model=../backend-read-model/src/index.ts --alias:@taptime/backend-schema=../backend-schema/src/index.ts --alias:@taptime/administration-contract=../../packages/administration-contract/src/index.ts --alias:@taptime/core=../../packages/core/src/index.ts --alias:@taptime/offline-sync-contract=../../packages/offline-sync-contract/src/index.ts --external:jose --external:pg --sourcemap --outdir=dist",
     "start": "node dist/main.js",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit"
@@ -20,9 +20,11 @@
     "@taptime/backend-api": "*",
     "@taptime/backend-identity": "*",
     "@taptime/backend-lifecycle": "*",
+    "@taptime/backend-offline-sync": "*",
     "@taptime/backend-read-model": "*",
     "@taptime/backend-schema": "*",
     "@taptime/core": "*",
+    "@taptime/offline-sync-contract": "*",
     "jose": "^6.2.3",
     "pg": "^8.22.0"
   },

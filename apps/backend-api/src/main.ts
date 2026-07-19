@@ -7,6 +7,11 @@ const administrationDatabaseUrl = requiredEnvironmentValue('TAPTIME_ADMINISTRATI
 const employeeInvitationDatabaseUrl = requiredEnvironmentValue('TAPTIME_EMPLOYEE_INVITATION_DATABASE_URL');
 const employeeEnrollmentDatabaseUrl = requiredEnvironmentValue('TAPTIME_EMPLOYEE_ENROLLMENT_DATABASE_URL');
 const reassignmentDatabaseUrl = requiredEnvironmentValue('TAPTIME_REASSIGNMENT_DATABASE_URL');
+const offlineLeaseDatabaseUrl = requiredEnvironmentValue('TAPTIME_OFFLINE_LEASE_DATABASE_URL');
+const offlineEventDatabaseUrl = requiredEnvironmentValue('TAPTIME_OFFLINE_EVENT_DATABASE_URL');
+const offlineReconciliationDatabaseUrl = requiredEnvironmentValue(
+  'TAPTIME_OFFLINE_RECONCILIATION_DATABASE_URL',
+);
 const supabaseIssuer = requiredEnvironmentValue('SUPABASE_ISSUER');
 const port = parsePort(process.env.PORT ?? '3000');
 const runtime = createBackendApiRuntime({
@@ -17,6 +22,9 @@ const runtime = createBackendApiRuntime({
   employeeInvitationDatabaseUrl,
   employeeEnrollmentDatabaseUrl,
   reassignmentDatabaseUrl,
+  offlineLeaseDatabaseUrl,
+  offlineEventDatabaseUrl,
+  offlineReconciliationDatabaseUrl,
   supabaseIssuer,
 });
 
@@ -50,6 +58,9 @@ type RequiredRuntimeEnvironmentName =
   | 'TAPTIME_EMPLOYEE_ENROLLMENT_DATABASE_URL'
   | 'TAPTIME_EMPLOYEE_INVITATION_DATABASE_URL'
   | 'TAPTIME_LIFECYCLE_DATABASE_URL'
+  | 'TAPTIME_OFFLINE_EVENT_DATABASE_URL'
+  | 'TAPTIME_OFFLINE_LEASE_DATABASE_URL'
+  | 'TAPTIME_OFFLINE_RECONCILIATION_DATABASE_URL'
   | 'TAPTIME_READ_MODEL_DATABASE_URL'
   | 'TAPTIME_REASSIGNMENT_DATABASE_URL'
   | 'TAPTIME_SESSION_DATABASE_URL';

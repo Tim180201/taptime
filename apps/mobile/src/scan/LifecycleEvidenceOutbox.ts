@@ -33,5 +33,5 @@ export type StoredLifecycleEvidence = PendingLifecycleEvidence | ProtectedLegacy
 export interface LifecycleEvidenceOutbox {
   read(): Promise<StoredLifecycleEvidence | null>;
   write(evidence: PendingLifecycleEvidence): Promise<void>;
-  clear(evidence: PendingLifecycleEvidence): Promise<void>;
+  clear(evidence: StoredLifecycleEvidence): Promise<void>;
 }

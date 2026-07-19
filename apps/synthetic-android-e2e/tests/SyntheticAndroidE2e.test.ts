@@ -45,7 +45,7 @@ describe('synthetic E2E safety guards', () => {
 
   it('keeps Mobile lifecycle authority out of the client orchestration source', async () => {
     const orchestratorSource = await readFile(fileURLToPath(new URL(
-      '../../mobile/src/scan/ProductScanOrchestrator.ts',
+      '../../mobile/src/offline/OfflineCaptureCoordinator.ts',
       import.meta.url,
     )), 'utf8');
     expect(orchestratorSource).not.toMatch(/BusinessEngine|activeTimeEntry|five.?second/i);
@@ -122,6 +122,18 @@ describeWithPostgres('synthetic Android product-to-server E2E', () => {
       'taptime_assignment_reassigner',
       'taptime_identity_resolver',
     ]);
+    await expect(parentRoles(installerPool, runtimeLogins.offlineLease)).resolves.toEqual([
+      'taptime_offline_lease_issuer',
+    ]);
+    await expect(parentRoles(installerPool, runtimeLogins.offlineEvent)).resolves.toEqual([
+      'taptime_offline_event_ingestor',
+    ]);
+    await expect(parentRoles(
+      installerPool,
+      runtimeLogins.offlineReconciliation,
+    )).resolves.toEqual([
+      'taptime_offline_reconciliation_reader',
+    ]);
     await expect(parentRoles(installerPool, runtimeLogins.provisioner)).resolves.toEqual([
       'taptime_administrator',
     ]);
@@ -141,7 +153,7 @@ describeWithPostgres('synthetic Android product-to-server E2E', () => {
        ORDER BY rolname`,
       [Object.values(runtimeLogins)],
     );
-    expect(roles.rows).toHaveLength(8);
+    expect(roles.rows).toHaveLength(11);
     expect(roles.rows.every((role) => (
       !role.rolsuper
       && !role.rolcreaterole
@@ -515,6 +527,129 @@ describeWithPostgres('synthetic Android product-to-server E2E', () => {
       time_entry_count: '0',
     }]);
   });
+
+  it('runs a real two-event offline FIFO with exact retry and lost-response reconciliation',
+    async () => {
+      const provider = mobileAuthAdapter(environment);
+      const signIn = await provider.signInWithPassword(SYNTHETIC_AUTH_EMAIL, syntheticPassword);
+      if (signIn.status !== 'authenticated') {
+        throw new Error('Synthetic offline sign-in unexpectedly failed');
+      }
+      const token = signIn.tokens.accessToken;
+      const before = await environment.evidenceCounts();
+      const installationBinding = Buffer.alloc(32, 0x31).toString('base64url');
+      const lookupKey = Buffer.alloc(32, 0x32).toString('base64url');
+      const leaseResponse = await postJson(token, '/v1/offline-capture-leases', {
+        commandId: '81000000-0000-4000-8000-000000000701',
+        installationBinding,
+        lookupKey,
+      });
+      expect(leaseResponse.status).toBe(200);
+      const leaseResult = await leaseResponse.json() as {
+        status: 'ready';
+        page: {
+          leaseId: string;
+          issuedAt: string;
+          items: Array<{
+            itemId: string;
+            assignmentId: string;
+            nfcTagId: string;
+            targetType: 'customer';
+            targetId: string;
+          }>;
+          nextCursor: string | null;
+        };
+      };
+      expect(leaseResult.status).toBe('ready');
+      expect(leaseResult.page.nextCursor).toBeNull();
+      const item = leaseResult.page.items.find(
+        (candidate) => candidate.targetId === syntheticIds.customer,
+      );
+      expect(item).toBeDefined();
+      if (item === undefined) throw new Error('Synthetic offline lease item is missing');
+
+      const first = offlineLifecycleBody(
+        leaseResult.page,
+        item,
+        installationBinding,
+        1,
+        '51000000-0000-4000-8000-000000000701',
+        '61000000-0000-4000-8000-000000000701',
+        60_000,
+      );
+      const firstResponse = await postJson(token, '/v1/lifecycle-events/offline', first);
+      expect(firstResponse.status).toBe(200);
+      await expect(firstResponse.json()).resolves.toMatchObject({
+        status: 'synchronized',
+        idempotentRetry: false,
+        workEventId: first.workEvent.id,
+        receiptId: first.receipt.id,
+        deviceSequence: 1,
+        decision: { status: 'time_entry_started' },
+      });
+      const exactRetry = await postJson(token, '/v1/lifecycle-events/offline', first);
+      expect(exactRetry.status).toBe(200);
+      await expect(exactRetry.json()).resolves.toMatchObject({
+        status: 'synchronized',
+        idempotentRetry: true,
+        deviceSequence: 1,
+      });
+      const reconciliation = await postJson(token, '/v1/lifecycle-events/reconcile', {
+        workEventIds: [first.workEvent.id],
+      });
+      expect(reconciliation.status).toBe(200);
+      await expect(reconciliation.json()).resolves.toMatchObject({
+        status: 'ready',
+        records: [{
+          workEventId: first.workEvent.id,
+          receiptId: first.receipt.id,
+          deviceSequence: 1,
+          result: { status: 'synchronized', decision: { status: 'time_entry_started' } },
+        }],
+      });
+
+      const second = offlineLifecycleBody(
+        leaseResult.page,
+        item,
+        installationBinding,
+        2,
+        '51000000-0000-4000-8000-000000000702',
+        '61000000-0000-4000-8000-000000000702',
+        66_000,
+      );
+      const secondResponse = await postJson(token, '/v1/lifecycle-events/offline', second);
+      expect(secondResponse.status).toBe(200);
+      await expect(secondResponse.json()).resolves.toMatchObject({
+        status: 'synchronized',
+        idempotentRetry: false,
+        workEventId: second.workEvent.id,
+        receiptId: second.receipt.id,
+        deviceSequence: 2,
+        decision: { status: 'time_entry_stopped' },
+      });
+      const after = await environment.evidenceCounts();
+      expect(after).toMatchObject({
+        canonicalDecisions: before.canonicalDecisions + 2,
+        stoppedTimeEntries: before.stoppedTimeEntries + 1,
+        syncReceipts: before.syncReceipts + 2,
+        timeEntries: before.timeEntries + 1,
+        workEvents: before.workEvents + 2,
+      });
+      const offlineRows = await installerPool.query<{
+        readonly reconciliations: string;
+        readonly cursor: string;
+      }>(
+        `SELECT
+           (SELECT count(*)::text
+            FROM taptime_server.offline_event_reconciliations
+            WHERE organization_id = $1::uuid) AS reconciliations,
+           cursor.last_durable_sequence::text AS cursor
+         FROM taptime_server.offline_sync_cursors AS cursor
+         WHERE cursor.organization_id = $1::uuid`,
+        [syntheticIds.organization],
+      );
+      expect(offlineRows.rows).toEqual([{ reconciliations: '2', cursor: '2' }]);
+    });
 
   it('runs real C3C Customer creation and atomic Tag provisioning with disclosure-safe results',
     async () => {
@@ -927,6 +1062,63 @@ function postDeferredLifecycle(accessToken: string, body: unknown): Promise<Resp
     },
     body: JSON.stringify(body),
   });
+}
+
+function postJson(
+  accessToken: string,
+  path: string,
+  body: unknown,
+): Promise<Response> {
+  return fetch(`${environmentUrl()}${path}`, {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${accessToken}`,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+}
+
+function offlineLifecycleBody(
+  lease: { readonly leaseId: string; readonly issuedAt: string },
+  item: {
+    readonly itemId: string;
+    readonly assignmentId: string;
+    readonly nfcTagId: string;
+    readonly targetType: 'customer';
+    readonly targetId: string;
+  },
+  installationBinding: string,
+  deviceSequence: number,
+  workEventId: string,
+  receiptId: string,
+  deltaMilliseconds: number,
+) {
+  return {
+    organizationId: syntheticIds.organization,
+    expectedMembershipId: syntheticIds.membership,
+    leaseId: lease.leaseId,
+    leaseItemId: item.itemId,
+    installationBinding,
+    deviceSequence,
+    provenanceVersion: 1,
+    clock: {
+      bootMarker: 'synthetic-e2e-boot-1',
+      monotonicAnchorMilliseconds: 100_000,
+      monotonicDeltaMilliseconds: deltaMilliseconds,
+      wallClockAnchor: lease.issuedAt,
+      clockProofStatus: 'verified_same_boot',
+      clockProofVersion: 1,
+    },
+    workEvent: {
+      id: workEventId,
+      assignmentId: item.assignmentId,
+      nfcTagId: item.nfcTagId,
+      target: { targetType: item.targetType, targetId: item.targetId },
+      occurredAt: new Date(Date.parse(lease.issuedAt) + deltaMilliseconds).toISOString(),
+    },
+    receipt: { id: receiptId, attemptNumber: 1 },
+  };
 }
 
 function postAdministration(

@@ -21,6 +21,7 @@ export interface ProductSessionRuntimeOwner extends MobileSessionCapability {
 export interface ProductScanRuntimeOwner extends ProductScanCapability {
   start(): Promise<void>;
   stop(): Promise<void>;
+  onExplicitLogout?(): Promise<void>;
 }
 
 export interface ProductAdministrationRuntimeOwner extends AdminSetupCapability {
@@ -30,6 +31,11 @@ export interface ProductAdministrationRuntimeOwner extends AdminSetupCapability 
 
 /** @internal Runtime owner used to keep native app-state lifecycle outside React. */
 export interface ProductAppStateRuntimeOwner {
+  start(): void;
+  stop(): void;
+}
+
+export interface ProductOfflineSchedulingRuntimeOwner {
   start(): void;
   stop(): void;
 }
@@ -52,6 +58,10 @@ export class DefaultProductMobileRuntime implements ProductMobileRuntime {
     private readonly serverTransport: ProductServerTransport,
     private readonly scanOrchestrator: ProductScanRuntimeOwner,
     private readonly administrationCoordinator: ProductAdministrationRuntimeOwner,
+    private readonly offlineSchedulingLifecycle: ProductOfflineSchedulingRuntimeOwner = {
+      start() {},
+      stop() {},
+    },
   ) {
     // React receives a real narrow facade, not the coordinator object that owns C2 token access.
     this.sessionCapability = Object.freeze({
@@ -66,7 +76,10 @@ export class DefaultProductMobileRuntime implements ProductMobileRuntime {
       ),
       retryContext: () => this.coordinator.retryContext(),
       refresh: () => this.coordinator.refresh(),
-      signOut: () => this.coordinator.signOut(),
+      signOut: async () => {
+        await this.scanOrchestrator.onExplicitLogout?.();
+        await this.coordinator.signOut();
+      },
     });
     // React receives state/actions only: no native manager, C2 client, token or raw UID.
     this.scanCapability = Object.freeze({
@@ -136,6 +149,7 @@ export class DefaultProductMobileRuntime implements ProductMobileRuntime {
       return;
     }
     this.appStateLifecycle.start();
+    this.offlineSchedulingLifecycle.start();
   }
 
   stop(): void {
@@ -145,6 +159,7 @@ export class DefaultProductMobileRuntime implements ProductMobileRuntime {
     this.started = false;
     this.runtimeGeneration += 1;
     this.appStateLifecycle.stop();
+    this.offlineSchedulingLifecycle.stop();
     void this.administrationCoordinator.stop();
     void this.scanOrchestrator.stop();
     this.coordinator.stop();

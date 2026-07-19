@@ -14,6 +14,11 @@ import type {
   LifecycleIngestionResult,
 } from '@taptime/backend-lifecycle';
 import type {
+  OfflineCaptureLeaseIssuer,
+  OfflineEventReconciliationReader,
+  OfflineLifecycleIngestor,
+} from '@taptime/backend-offline-sync';
+import type {
   AdminCoordinatorControls,
   CreateEmployeeMembershipInvitationCommand,
   CreateEmployeeMembershipInvitationResult,
@@ -129,6 +134,9 @@ export interface BackendApiDependencies {
   readonly scanContextResolver: ScanContextResolver;
   readonly lifecycleIngestor: LifecycleIngestor;
   readonly deferredLifecycleIngestor: DeferredLifecycleIngestor;
+  readonly offlineCaptureLeaseIssuer: OfflineCaptureLeaseIssuer;
+  readonly offlineLifecycleIngestor: OfflineLifecycleIngestor;
+  readonly offlineEventReconciliationReader: OfflineEventReconciliationReader;
   readonly administration: AdministrationCoordinator;
   readonly employeeEnrollment: EmployeeMembershipEnrollmentCoordinator;
   readonly tagReassignment: NfcTagReassignmentPort;
@@ -139,6 +147,7 @@ export interface BackendApiDiagnostic {
     | 'administration_failed'
     | 'employee_enrollment_failed'
     | 'lifecycle_ingestion_failed'
+    | 'offline_synchronization_failed'
     | 'scan_context_resolution_failed'
     | 'session_resolution_failed';
   readonly correlationId: string;

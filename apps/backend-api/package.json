@@ -10,7 +10,7 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {
-    "build": "tsc -p tsconfig.build.json --emitDeclarationOnly && esbuild src/index.ts src/main.ts --bundle --platform=node --target=node24 --format=esm --external:@taptime/backend-administration --external:@taptime/backend-identity --external:@taptime/backend-lifecycle --external:@taptime/backend-read-model --external:@taptime/core --external:pg --sourcemap --outdir=dist",
+    "build": "tsc -p tsconfig.build.json --emitDeclarationOnly && esbuild src/index.ts src/main.ts --bundle --platform=node --target=node24 --format=esm --external:@taptime/backend-administration --external:@taptime/backend-identity --external:@taptime/backend-lifecycle --external:@taptime/backend-offline-sync --external:@taptime/backend-read-model --external:@taptime/core --external:@taptime/offline-sync-contract --external:pg --sourcemap --outdir=dist",
     "start": "node dist/main.js",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit"
@@ -19,8 +19,10 @@
     "@taptime/backend-administration": "*",
     "@taptime/backend-identity": "*",
     "@taptime/backend-lifecycle": "*",
+    "@taptime/backend-offline-sync": "*",
     "@taptime/backend-read-model": "*",
     "@taptime/core": "*",
+    "@taptime/offline-sync-contract": "*",
     "pg": "^8.22.0"
   },
   "devDependencies": {

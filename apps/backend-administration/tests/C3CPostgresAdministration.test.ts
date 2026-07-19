@@ -91,7 +91,7 @@ beforeAll(async () => {
   await installerPool.query(`DROP SCHEMA IF EXISTS ${B3_SCHEMA} CASCADE`);
   await installerPool.query(`DROP TABLE IF EXISTS ${B3_MIGRATION_TABLE}`);
   await expect(migrate(installerPool)).resolves.toEqual({
-    applied: ['001', '002', '003', '004', '005', '006', '007', '008', '009'],
+    applied: ['001', '002', '003', '004', '005', '006', '007', '008', '009', '010'],
     alreadyApplied: [],
   });
   await ensureC3CRuntimeLogin(installerPool, runtimePassword);
@@ -115,13 +115,13 @@ afterAll(async () => {
 });
 
 describe('migration 007, roles and database contracts', () => {
-  it('records exactly immutable migrations 001 through 009 and reruns without changes', async () => {
+  it('records exactly immutable migrations 001 through 010 and reruns without changes', async () => {
     expect((await loadMigrations()).map(({ version }) => version)).toEqual([
-      '001', '002', '003', '004', '005', '006', '007', '008', '009',
+      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010',
     ]);
     await expect(migrate(installerPool)).resolves.toEqual({
       applied: [],
-      alreadyApplied: ['001', '002', '003', '004', '005', '006', '007', '008', '009'],
+      alreadyApplied: ['001', '002', '003', '004', '005', '006', '007', '008', '009', '010'],
     });
   });
 
@@ -176,7 +176,7 @@ describe('migration 007, roles and database contracts', () => {
           await dirtyPool.query('DROP SCHEMA dirty_c3c CASCADE');
         }
         await expect(applyMigrationSet(dirtyPool, migrations.slice(6))).resolves.toEqual({
-          applied: ['007', '008', '009'],
+          applied: ['007', '008', '009', '010'],
           alreadyApplied: [],
         });
       } finally {
@@ -222,7 +222,7 @@ describe('migration 007, roles and database contracts', () => {
          WHERE id = '90000000-0000-4000-8000-000000000010'`,
       );
       await expect(applyMigrationSet(migrationPool, migrations.slice(6))).resolves.toEqual({
-        applied: ['007', '008', '009'],
+        applied: ['007', '008', '009', '010'],
         alreadyApplied: [],
       });
     } finally {

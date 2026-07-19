@@ -14,6 +14,11 @@ import {
   SupabaseJwtAccessTokenVerifier,
 } from '@taptime/backend-identity';
 import { ServerCanonicalLifecycleIngestionCoordinator } from '@taptime/backend-lifecycle';
+import {
+  OfflineCaptureLeaseCoordinator,
+  OfflineEventReconciliationCoordinator,
+  OfflineLifecycleIngestionCoordinator,
+} from '@taptime/backend-offline-sync';
 import { TenantReadSessionCoordinator } from '@taptime/backend-read-model';
 import { Pool } from 'pg';
 import {
@@ -48,6 +53,7 @@ export type SyntheticEnvironmentSafeEvent =
   | 'api_administration_unavailable'
   | 'api_employee_enrollment_unavailable'
   | 'api_lifecycle_unavailable'
+  | 'api_offline_synchronization_unavailable'
   | 'api_scan_context_unavailable'
   | 'api_session_unavailable';
 
@@ -94,6 +100,9 @@ export async function createSyntheticAndroidE2eEnvironment(
   let employeeInvitationPool: Pool | null = null;
   let employeeEnrollmentPool: Pool | null = null;
   let reassignmentPool: Pool | null = null;
+  let offlineLeasePool: Pool | null = null;
+  let offlineEventPool: Pool | null = null;
+  let offlineReconciliationPool: Pool | null = null;
   let provisionerPool: Pool | null = null;
   let redemptionInterruption: SyntheticRedemptionInterruptionController | null = null;
   let apiServer: ReturnType<typeof createBackendHttpServer> | null = null;
@@ -112,6 +121,9 @@ export async function createSyntheticAndroidE2eEnvironment(
     employeeInvitationPool = createPool(database.connectionStrings.employeeInvitation);
     employeeEnrollmentPool = createPool(database.connectionStrings.employeeEnrollment);
     reassignmentPool = createPool(database.connectionStrings.reassignment);
+    offlineLeasePool = createPool(database.connectionStrings.offlineLease);
+    offlineEventPool = createPool(database.connectionStrings.offlineEvent);
+    offlineReconciliationPool = createPool(database.connectionStrings.offlineReconciliation);
     provisionerPool = createPool(database.connectionStrings.provisioner, 1);
 
     const verifier = SupabaseJwtAccessTokenVerifier.fromRemoteJwks({
@@ -151,6 +163,18 @@ export async function createSyntheticAndroidE2eEnvironment(
         scanContextResolver: provisioningScanContext,
         lifecycleIngestor: lifecycleCoordinator,
         deferredLifecycleIngestor: lifecycleCoordinator,
+        offlineCaptureLeaseIssuer: new OfflineCaptureLeaseCoordinator(
+          offlineLeasePool,
+          verifier,
+        ),
+        offlineLifecycleIngestor: new OfflineLifecycleIngestionCoordinator(
+          offlineEventPool,
+          verifier,
+        ),
+        offlineEventReconciliationReader: new OfflineEventReconciliationCoordinator(
+          offlineReconciliationPool,
+          verifier,
+        ),
         administration: new AdminWriteSessionCoordinator(administrationPool, verifier),
         employeeEnrollment,
         tagReassignment: new NfcTagReassignmentCoordinator(reassignmentPool, verifier),
@@ -166,6 +190,9 @@ export async function createSyntheticAndroidE2eEnvironment(
               return;
             case 'lifecycle_ingestion_failed':
               onSafeEvent('api_lifecycle_unavailable');
+              return;
+            case 'offline_synchronization_failed':
+              onSafeEvent('api_offline_synchronization_unavailable');
               return;
             case 'scan_context_resolution_failed':
               onSafeEvent('api_scan_context_unavailable');
@@ -194,6 +221,9 @@ export async function createSyntheticAndroidE2eEnvironment(
       employeeInvitationPool,
       employeeEnrollmentPool,
       reassignmentPool,
+      offlineLeasePool,
+      offlineEventPool,
+      offlineReconciliationPool,
       provisionerPool,
     ] as const;
     let closed = false;
@@ -248,6 +278,9 @@ export async function createSyntheticAndroidE2eEnvironment(
       employeeInvitationPool?.end() ?? Promise.resolve(),
       employeeEnrollmentPool?.end() ?? Promise.resolve(),
       reassignmentPool?.end() ?? Promise.resolve(),
+      offlineLeasePool?.end() ?? Promise.resolve(),
+      offlineEventPool?.end() ?? Promise.resolve(),
+      offlineReconciliationPool?.end() ?? Promise.resolve(),
       provisionerPool?.end() ?? Promise.resolve(),
       auth.close(),
     ]);

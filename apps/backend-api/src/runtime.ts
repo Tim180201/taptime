@@ -8,6 +8,11 @@ import {
   SupabaseJwtAccessTokenVerifier,
 } from '@taptime/backend-identity';
 import { ServerCanonicalLifecycleIngestionCoordinator } from '@taptime/backend-lifecycle';
+import {
+  OfflineCaptureLeaseCoordinator,
+  OfflineEventReconciliationCoordinator,
+  OfflineLifecycleIngestionCoordinator,
+} from '@taptime/backend-offline-sync';
 import { TenantReadSessionCoordinator } from '@taptime/backend-read-model';
 import { Pool } from 'pg';
 import { B4SessionAuthorityResolver } from './B4SessionAuthorityResolver.js';
@@ -25,6 +30,9 @@ export interface BackendApiRuntimeConfiguration {
   readonly employeeInvitationDatabaseUrl: string;
   readonly employeeEnrollmentDatabaseUrl: string;
   readonly reassignmentDatabaseUrl: string;
+  readonly offlineLeaseDatabaseUrl: string;
+  readonly offlineEventDatabaseUrl: string;
+  readonly offlineReconciliationDatabaseUrl: string;
   readonly supabaseIssuer: string;
 }
 
@@ -58,6 +66,11 @@ export function createBackendApiRuntime(
   const employeeInvitationDatabase = validateDatabaseUrl(configuration.employeeInvitationDatabaseUrl);
   const employeeEnrollmentDatabase = validateDatabaseUrl(configuration.employeeEnrollmentDatabaseUrl);
   const reassignmentDatabase = validateDatabaseUrl(configuration.reassignmentDatabaseUrl);
+  const offlineLeaseDatabase = validateDatabaseUrl(configuration.offlineLeaseDatabaseUrl);
+  const offlineEventDatabase = validateDatabaseUrl(configuration.offlineEventDatabaseUrl);
+  const offlineReconciliationDatabase = validateDatabaseUrl(
+    configuration.offlineReconciliationDatabaseUrl,
+  );
   assertDistinctDatabaseUsers([
     sessionDatabase,
     readModelDatabase,
@@ -66,6 +79,9 @@ export function createBackendApiRuntime(
     employeeInvitationDatabase,
     employeeEnrollmentDatabase,
     reassignmentDatabase,
+    offlineLeaseDatabase,
+    offlineEventDatabase,
+    offlineReconciliationDatabase,
   ]);
 
   const issuer = configuration.supabaseIssuer.replace(/\/+$/, '');
@@ -82,6 +98,11 @@ export function createBackendApiRuntime(
   const employeeInvitationPool = createRuntimePool(employeeInvitationDatabase.connectionString);
   const employeeEnrollmentPool = createRuntimePool(employeeEnrollmentDatabase.connectionString);
   const reassignmentPool = createRuntimePool(reassignmentDatabase.connectionString);
+  const offlineLeasePool = createRuntimePool(offlineLeaseDatabase.connectionString);
+  const offlineEventPool = createRuntimePool(offlineEventDatabase.connectionString);
+  const offlineReconciliationPool = createRuntimePool(
+    offlineReconciliationDatabase.connectionString,
+  );
   const lifecycleCoordinator = new ServerCanonicalLifecycleIngestionCoordinator(
     lifecyclePool,
     verifier,
@@ -97,6 +118,18 @@ export function createBackendApiRuntime(
       ),
       lifecycleIngestor: lifecycleCoordinator,
       deferredLifecycleIngestor: lifecycleCoordinator,
+      offlineCaptureLeaseIssuer: new OfflineCaptureLeaseCoordinator(
+        offlineLeasePool,
+        verifier,
+      ),
+      offlineLifecycleIngestor: new OfflineLifecycleIngestionCoordinator(
+        offlineEventPool,
+        verifier,
+      ),
+      offlineEventReconciliationReader: new OfflineEventReconciliationCoordinator(
+        offlineReconciliationPool,
+        verifier,
+      ),
       administration: new AdminWriteSessionCoordinator(administrationPool, verifier),
       employeeEnrollment: new EmployeeMembershipEnrollmentCoordinator(
         employeeInvitationPool,
@@ -129,6 +162,9 @@ export function createBackendApiRuntime(
         employeeInvitationPool.end(),
         employeeEnrollmentPool.end(),
         reassignmentPool.end(),
+        offlineLeasePool.end(),
+        offlineEventPool.end(),
+        offlineReconciliationPool.end(),
       ]);
       const failure = results.find(
         (result): result is PromiseRejectedResult => result.status === 'rejected',

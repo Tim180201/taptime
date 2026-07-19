@@ -12,6 +12,9 @@ export const C2_READ_MODEL_RUNTIME_LOGIN = 'taptime_c2_read_model_runtime';
 export const C2_LIFECYCLE_RUNTIME_LOGIN = 'taptime_c2_lifecycle_runtime';
 export const C2_ADMINISTRATION_RUNTIME_LOGIN = 'taptime_c2_administration_runtime';
 export const C3E2_REASSIGNMENT_RUNTIME_LOGIN = 'taptime_c3e2_reassignment_runtime';
+export const OFFLINE_LEASE_RUNTIME_LOGIN = 'taptime_offline_lease_runtime';
+export const OFFLINE_EVENT_RUNTIME_LOGIN = 'taptime_offline_event_runtime';
+export const OFFLINE_RECONCILIATION_RUNTIME_LOGIN = 'taptime_offline_reconciliation_runtime';
 
 export const C2_RUNTIME_ROLE_GRAPH = Object.freeze({
   [C2_SESSION_RUNTIME_LOGIN]: ['taptime_identity_resolver'],
@@ -32,6 +35,18 @@ export const C2_RUNTIME_ROLE_GRAPH = Object.freeze({
     'taptime_assignment_reassigner',
     'taptime_identity_resolver',
   ],
+  [OFFLINE_LEASE_RUNTIME_LOGIN]: [
+    'taptime_identity_resolver',
+    'taptime_offline_lease_issuer',
+  ],
+  [OFFLINE_EVENT_RUNTIME_LOGIN]: [
+    'taptime_identity_resolver',
+    'taptime_offline_event_ingestor',
+  ],
+  [OFFLINE_RECONCILIATION_RUNTIME_LOGIN]: [
+    'taptime_identity_resolver',
+    'taptime_offline_reconciliation_reader',
+  ],
 } as const);
 
 export async function resetMigrateAndPrepareC2(
@@ -42,13 +57,16 @@ export async function resetMigrateAndPrepareC2(
     readonly lifecycle: string;
     readonly administration: string;
     readonly reassignment: string;
+    readonly offlineLease: string;
+    readonly offlineEvent: string;
+    readonly offlineReconciliation: string;
   },
 ): Promise<void> {
   await installerPool.query(`DROP SCHEMA IF EXISTS ${B3_SCHEMA} CASCADE`);
   await installerPool.query(`DROP TABLE IF EXISTS ${B3_MIGRATION_TABLE}`);
   const result = await migrate(installerPool);
-  if (result.applied.join(',') !== '001,002,003,004,005,006,007,008,009') {
-    throw new Error('C2 requires a clean migration set 001 through 009');
+  if (result.applied.join(',') !== '001,002,003,004,005,006,007,008,009,010') {
+    throw new Error('C2 requires a clean migration set 001 through 010');
   }
 
   await normalizeRuntimeLogin(
@@ -80,6 +98,24 @@ export async function resetMigrateAndPrepareC2(
     C3E2_REASSIGNMENT_RUNTIME_LOGIN,
     passwords.reassignment,
     C2_RUNTIME_ROLE_GRAPH[C3E2_REASSIGNMENT_RUNTIME_LOGIN],
+  );
+  await normalizeRuntimeLogin(
+    installerPool,
+    OFFLINE_LEASE_RUNTIME_LOGIN,
+    passwords.offlineLease,
+    C2_RUNTIME_ROLE_GRAPH[OFFLINE_LEASE_RUNTIME_LOGIN],
+  );
+  await normalizeRuntimeLogin(
+    installerPool,
+    OFFLINE_EVENT_RUNTIME_LOGIN,
+    passwords.offlineEvent,
+    C2_RUNTIME_ROLE_GRAPH[OFFLINE_EVENT_RUNTIME_LOGIN],
+  );
+  await normalizeRuntimeLogin(
+    installerPool,
+    OFFLINE_RECONCILIATION_RUNTIME_LOGIN,
+    passwords.offlineReconciliation,
+    C2_RUNTIME_ROLE_GRAPH[OFFLINE_RECONCILIATION_RUNTIME_LOGIN],
   );
 }
 

@@ -8,6 +8,7 @@ import type {
   BackendApiDiagnostic,
   EmployeeMembershipEnrollmentCoordinator,
 } from '../src/types.js';
+import { unavailableOfflineDependencies } from './offlineTestDependencies.js';
 
 const accessToken = 'header.payload.signature';
 const membershipId = MembershipId('12000000-0000-4000-8000-000000000001');
@@ -223,6 +224,7 @@ function dependencies(
   employeeEnrollment: EmployeeMembershipEnrollmentCoordinator,
 ): BackendApiDependencies {
   return {
+    ...unavailableOfflineDependencies(),
     employeeEnrollment,
     sessionAuthority: { async resolve() { return { status: 'rejected' }; } },
     scanContextResolver: { async resolve() { return { status: 'not_resolved' }; } },

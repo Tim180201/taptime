@@ -1,8 +1,9 @@
 # Development Assignment 1 — Complete Offline Synchronization Architecture and Authorization Candidate
 
-Status: **HUMAN-ACCEPTED CONTRACT AFTER INDEPENDENT ZERO-FINDING PRE-IMPLEMENTATION REVIEW —
-SEPARATE EXACT-BASELINE IMPLEMENTATION RELEASE REQUIRED; IMPLEMENTATION NOT AUTHORIZED**
-Date: 2026-07-18
+Status: **HUMAN-ACCEPTED CONTRACT; EXACT-BASELINE REPOSITORY WORKSTREAMS A–E LOCALLY IMPLEMENTED
+AND TECHNICAL-LEAD APPROVED — PUBLICATION, EXACT-HEAD CI AND INDEPENDENT IMPLEMENTATION REVIEW
+PENDING; PRODUCTION, DEPLOYMENT, DISTRIBUTION AND HUMAN PHYSICAL GATE NOT AUTHORIZED**
+Date: 2026-07-19
 Candidate Baseline Commit: `1bb2d7d7b38928643cfd5c86b36c500c35f73276`
 Candidate Baseline Tree: `c5c20f67155cdc0b4197908b4d1283cb7e619597`
 Independently Reviewed Candidate Commit: `592334160655cde2f4189712eaf327c8a7edcb0e`
@@ -15,15 +16,24 @@ Candidate Parent State: C3E2 independently closed; tracked/staged repository cle
 `research/` explicitly excluded and untouched
 Human Direction: The Human Architect first authorized candidate preparation and subsequently
 accepted ADR-0012 and Sections 3–13 on the independently reviewed commit, including every numeric
-policy; the exact acceptance explicitly withheld implementation authority
+policy; the Human Architect then separately authorized repository implementation of Workstreams
+A–E from exact baseline `180093091c47a926b5871a27ea8b00fb21b9b4ac`, tree
+`73e77b6ca5dfd7671cdd3d77a344168fddff3627`
 Owner: Technical Lead
 Architecture Candidate:
 `ADO/01_Architecture/ADR/ADR-0012-complete-offline-synchronization-platform.md`
 Independent Review Evidence:
 `ADO/05_Evidence/Development_Assignment_01_Independent_Pre_Implementation_Review.md`
+Implementation Evidence:
+`ADO/05_Evidence/Development_Assignment_01_Implementation_Evidence.md`
 Roadmap Scope: Comprehensive Development Assignment 1; intended completion of DT-060–DT-062 only
 after every required gate passes
-Implementation Authority: **Not granted**
+Implementation Authority: **Granted for repository Workstreams A–E on the exact baseline above**
+Implementation Release Date: 2026-07-18
+Implementation Baseline Commit: `180093091c47a926b5871a27ea8b00fb21b9b4ac`
+Implementation Baseline Tree: `73e77b6ca5dfd7671cdd3d77a344168fddff3627`
+Excluded from this release: production resources/data, deployment, distribution and Human Physical
+Gate execution
 
 ## 1. Candidate objective
 
@@ -111,9 +121,10 @@ ADR-0012 Sections 1–10 are mandatory implementation boundaries, not suggestion
 Changing one of these values or boundaries requires a reviewed candidate correction and renewed
 Human acceptance before implementation continues.
 
-## 4. Authorized implementation shape after the future implementation release
+## 4. Authorized implementation shape
 
-This section defines the implementation that may begin only after Section 13's release gate.
+This section defines the repository implementation released by the Human Architect on the exact
+baseline recorded above.
 
 ### Workstream A — contracts, migration and least privilege
 
@@ -385,23 +396,18 @@ micro-sprint handoffs while preserving every quality/security gate.
 
 ## 13. Current release gate
 
-**STOP AFTER HUMAN CONTRACT ACCEPTANCE — SEPARATE EXACT-BASELINE IMPLEMENTATION RELEASE
-PENDING.**
+**REPOSITORY IMPLEMENTATION RELEASED ON EXACT BASELINE — PHYSICAL/PRODUCTION GATES REMAIN
+CLOSED.**
 
-Candidate publication, exact-head CI, independent zero-finding pre-implementation review and
-explicit Human acceptance of ADR-0012/Sections 3–13 are complete. The Human acceptance statement
-explicitly says `Noch keine Implementierungsfreigabe`. It does not authorize:
+Candidate publication, exact-head CI, independent zero-finding pre-implementation review, explicit
+Human acceptance of ADR-0012/Sections 3–13 and the separate exact-baseline repository
+implementation release are complete. Workstreams A–E may be implemented and verified in the
+repository from commit `180093091c47a926b5871a27ea8b00fb21b9b4ac`, tree
+`73e77b6ca5dfd7671cdd3d77a344168fddff3627`.
 
-- dependency installation;
-- migration `010`;
-- product/backend/native source changes;
-- implementation commits;
-- APK/EAS build;
-- physical testing;
-- production resources/data.
-
-Implementation may begin only after a later separate Human statement binds the exact then-current
-repository baseline and explicitly releases Workstreams A–E for implementation.
+This release does not authorize production resources/data, deployment, distribution or execution
+of the Human Physical Gate. The Physical Gate may begin only after a later distinct Human
+authorization following independent implementation approval and green exact-head CI.
 
 ## 14. Independent review mandate
 
@@ -419,7 +425,9 @@ delta. At minimum, the review must answer:
 9. Is the proposed schema/role/API capability sufficiently narrow for implementation?
 10. Can later review evidence block order without being silently skipped?
 11. Are automated and physical gates sufficient to prove the claimed scope?
-12. Do governance artifacts claim only candidate preparation, not implementation/approval?
+12. Do governance artifacts distinguish the locally Technical-Lead-approved implementation
+    candidate from still-pending publication, exact-head CI, independent approval, Human Physical
+    Gate and final closure?
 
-Any P0/P1/P2/P3 finding requires correction and renewed exact-delta review before Human acceptance
-or implementation.
+Any P0/P1/P2/P3 implementation finding requires correction, renewed exact-delta review and green
+exact-head CI before the Human Physical Gate may be authorized.

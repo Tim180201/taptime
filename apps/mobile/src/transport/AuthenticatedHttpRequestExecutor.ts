@@ -1,8 +1,14 @@
 import type { AuthenticatedRequestCapability } from '../auth/contracts';
+import {
+  OFFLINE_LEASE_PAGE_RESPONSE_MAXIMUM_BYTES,
+  OFFLINE_REQUEST_MAXIMUM_BYTES,
+  OFFLINE_RESPONSE_MAXIMUM_BYTES,
+  isValidRetryAfterSeconds,
+} from '@taptime/offline-sync-contract';
 import { utf8ByteLength } from './strictJson';
 
 const DEFAULT_REQUEST_TIMEOUT_MILLISECONDS = 10_000;
-const MAXIMUM_JSON_BODY_BYTES = 16 * 1024;
+const MAXIMUM_JSON_BODY_BYTES = OFFLINE_REQUEST_MAXIMUM_BYTES;
 
 export interface AuthenticatedFetchRequestInit {
   readonly method: 'POST';
@@ -24,9 +30,10 @@ export type AuthenticatedHttpResult =
       readonly statusCode: number;
       readonly contentType: string | null;
       readonly body: string;
+      readonly retryAfterSeconds?: number;
     }
   | { readonly status: 'authority_rejected' }
-  | { readonly status: 'transient_failure' }
+  | { readonly status: 'transient_failure'; readonly retryAfterSeconds?: number }
   | { readonly status: 'unavailable' };
 
 export interface AuthenticatedJsonPostPort {
@@ -39,7 +46,9 @@ export interface AuthenticatedJsonPostPort {
 
 export interface AuthenticatedJsonPostOptions {
   /** Compare-only lifecycle expectation. No caller can inject arbitrary headers through this port. */
-  readonly expectedMembershipId: string;
+  readonly expectedMembershipId?: string;
+  /** Closed response-size exception used only by the immutable offline lease-page route. */
+  readonly maximumResponseBytes?: number;
 }
 
 export class AuthenticatedHttpRequestExecutor implements AuthenticatedJsonPostPort {
@@ -77,7 +86,7 @@ export class AuthenticatedHttpRequestExecutor implements AuthenticatedJsonPostPo
               Authorization: `Bearer ${accessToken()}`,
               'Cache-Control': 'no-store',
               'Content-Type': 'application/json',
-              ...(options === undefined
+              ...(options?.expectedMembershipId === undefined
                 ? {}
                 : { 'X-TapTime-Expected-Membership-Id': options.expectedMembershipId }),
             },
@@ -96,22 +105,46 @@ export class AuthenticatedHttpRequestExecutor implements AuthenticatedJsonPostPo
             return { status: 'completed', value: { status: 'unavailable' } };
           }
           if (response.status === 429 || response.status >= 500) {
-            return { status: 'completed', value: { status: 'transient_failure' } };
+            const retryAfter = parseRetryAfter(response.headers.get('retry-after'));
+            if (retryAfter.status === 'invalid') {
+              return { status: 'completed', value: { status: 'unavailable' } };
+            }
+            return {
+              status: 'completed',
+              value: {
+                status: 'transient_failure',
+                ...(retryAfter.status === 'valid'
+                  ? { retryAfterSeconds: retryAfter.seconds }
+                  : {}),
+              },
+            };
           }
 
+          const maximumResponseBytes = options?.maximumResponseBytes
+            ?? OFFLINE_RESPONSE_MAXIMUM_BYTES;
+          if (
+            maximumResponseBytes !== OFFLINE_RESPONSE_MAXIMUM_BYTES
+            && maximumResponseBytes !== OFFLINE_LEASE_PAGE_RESPONSE_MAXIMUM_BYTES
+          ) {
+            return { status: 'completed', value: { status: 'unavailable' } };
+          }
           const declaredLength = response.headers.get('content-length');
           if (declaredLength !== null) {
             const parsedLength = Number(declaredLength);
             if (
               !Number.isSafeInteger(parsedLength)
               || parsedLength < 0
-              || parsedLength > MAXIMUM_JSON_BODY_BYTES
+              || parsedLength > maximumResponseBytes
             ) {
               return { status: 'completed', value: { status: 'unavailable' } };
             }
           }
-          const responseBody = await readBoundedResponseText(response);
+          const responseBody = await readBoundedResponseText(response, maximumResponseBytes);
           if (responseBody === null) {
+            return { status: 'completed', value: { status: 'unavailable' } };
+          }
+          const retryAfter = parseRetryAfter(response.headers.get('retry-after'));
+          if (retryAfter.status === 'invalid') {
             return { status: 'completed', value: { status: 'unavailable' } };
           }
           return {
@@ -121,6 +154,9 @@ export class AuthenticatedHttpRequestExecutor implements AuthenticatedJsonPostPo
               statusCode: response.status,
               contentType: response.headers.get('content-type'),
               body: responseBody,
+              ...(retryAfter.status === 'valid'
+                ? { retryAfterSeconds: retryAfter.seconds }
+                : {}),
             },
           };
         } catch (error) {
@@ -145,7 +181,10 @@ export class AuthenticatedHttpRequestExecutor implements AuthenticatedJsonPostPo
   }
 }
 
-async function readBoundedResponseText(response: Response): Promise<string | null> {
+async function readBoundedResponseText(
+  response: Response,
+  maximumBytes: number,
+): Promise<string | null> {
   const body = response.body;
   if (body === null) {
     return '';
@@ -163,7 +202,7 @@ async function readBoundedResponseText(response: Response): Promise<string | nul
         return text;
       }
       bytes += chunk.value.byteLength;
-      if (bytes > MAXIMUM_JSON_BODY_BYTES) {
+      if (bytes > maximumBytes) {
         try {
           await reader.cancel('TapTim.e response body exceeded its byte limit');
         } catch {
@@ -182,6 +221,20 @@ async function readBoundedResponseText(response: Response): Promise<string | nul
       // A failed or canceled stream cannot provide application data regardless of lock cleanup.
     }
   }
+}
+
+type ParsedRetryAfter =
+  | { readonly status: 'absent' }
+  | { readonly status: 'valid'; readonly seconds: number }
+  | { readonly status: 'invalid' };
+
+function parseRetryAfter(value: string | null): ParsedRetryAfter {
+  if (value === null) return { status: 'absent' };
+  if (!/^[1-9][0-9]{0,2}$/.test(value)) return { status: 'invalid' };
+  const seconds = Number(value);
+  return isValidRetryAfterSeconds(seconds)
+    ? { status: 'valid', seconds }
+    : { status: 'invalid' };
 }
 
 function isRedirectRejection(error: unknown): boolean {

@@ -85,7 +85,7 @@ export class ExpoSecureLifecycleEvidenceOutbox implements LifecycleEvidenceOutbo
     });
   }
 
-  clear(evidence: PendingLifecycleEvidence): Promise<void> {
+  clear(evidence: StoredLifecycleEvidence): Promise<void> {
     return runSerializedNativeOutboxOperation(async () => {
       await assertSecureStoreAvailable();
       const existing = await SecureStore.getItemAsync(
@@ -98,8 +98,7 @@ export class ExpoSecureLifecycleEvidenceOutbox implements LifecycleEvidenceOutbo
       const parsed = parseStoredEvidence(existing);
       if (
         parsed === null
-        || parsed.kind !== 'replayable'
-        || serializeEvidence(parsed) !== serializeEvidence(evidence)
+        || serializeStoredEvidence(parsed) !== serializeStoredEvidence(evidence)
       ) {
         throw new Error('Lifecycle evidence outbox contains a different record');
       }
@@ -129,6 +128,16 @@ function serializeEvidence(evidence: PendingLifecycleEvidence): string {
     binding: evidence.binding,
     submission: evidence.submission,
   });
+}
+
+function serializeStoredEvidence(evidence: StoredLifecycleEvidence): string {
+  return evidence.kind === 'replayable'
+    ? serializeEvidence(evidence)
+    : JSON.stringify({
+        version: 1,
+        binding: evidence.binding,
+        command: evidence.command,
+      });
 }
 
 async function assertSecureStoreAvailable(): Promise<void> {

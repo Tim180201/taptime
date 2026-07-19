@@ -64,8 +64,12 @@ describe('C1 Mobile composition boundary', () => {
     expect(runtimeSource).toContain('React receives a real narrow facade');
     expect(runtimeSource).toContain('return this.sessionCapability');
     expect(runtimeSource).toContain('new RnNfcScanAdapter');
-    expect(runtimeSource).toContain('new ProductScanOrchestrator');
-    expect(runtimeSource).toContain('new SessionBoundScanContextResolver');
+    expect(runtimeSource).toContain('new OfflineCaptureCoordinator');
+    expect(runtimeSource).toContain('new OfflineCaptureLeaseClient');
+    expect(runtimeSource).toContain('getExpoOfflineCaptureDatabase');
+    expect(runtimeSource).toContain('new OfflineSyncScheduler');
+    expect(runtimeSource).not.toContain('new ProductScanOrchestrator');
+    expect(runtimeSource).not.toContain('new SessionBoundScanContextResolver');
     expect(runtimeSource).toContain('new ExpoSecureLifecycleEvidenceOutbox');
     expect(runtimeSource).not.toContain('waitForNextTag');
     expect(runtimeSource).toContain('randomUUID');
@@ -75,7 +79,7 @@ describe('C1 Mobile composition boundary', () => {
     expect(scanScreenSource).toContain('Scan abbrechen');
     expect(scanScreenSource).toContain('Unveränderte Daten erneut senden');
     expect(scanScreenSource).toContain('Abmelden');
-    expect(scanScreenSource).toContain("disabled={state.status !== 'ready'}");
+    expect(scanScreenSource).toContain('disabled={!isScanReadyState(state)}');
     expect(scanScreenSource).not.toMatch(
       /TextInput|payload|scan-context|lifecycle-events|NfcManager|accessToken|refreshToken/i,
     );
@@ -107,7 +111,7 @@ describe('C1 Mobile composition boundary', () => {
 
   it('keeps lifecycle decisions out of Mobile orchestration and delegates only to the server result', async () => {
     const orchestratorSource = await readFile(
-      fileURLToPath(new URL('../../src/scan/ProductScanOrchestrator.ts', import.meta.url)),
+      fileURLToPath(new URL('../../src/offline/OfflineCaptureCoordinator.ts', import.meta.url)),
       'utf8',
     );
     for (const forbidden of [
@@ -120,10 +124,11 @@ describe('C1 Mobile composition boundary', () => {
     ]) {
       expect(orchestratorSource).not.toContain(forbidden);
     }
-    expect(orchestratorSource).toContain('this.lifecycle.ingest(pending.submission)');
+    expect(orchestratorSource).toContain('database.appendEvent(draft)');
+    expect(orchestratorSource).toContain("this.scheduler?.trigger('event_append')");
     expect(orchestratorSource).toContain('this.nfcScan.scan()');
     expect(orchestratorSource).not.toContain('waitForNextTag');
-    expect(orchestratorSource).toContain('switch (result.decision.status)');
+    expect(orchestratorSource).toContain('switch (decision.status)');
   });
 
   it('loads the development demo lazily and never imports it statically', async () => {

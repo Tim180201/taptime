@@ -11,9 +11,18 @@ import { TapTimeSessionApiClient } from '../auth/TapTimeSessionApiClient';
 import { TapTimeEmployeeEnrollmentApiClient } from '../auth/TapTimeEmployeeEnrollmentApiClient';
 import { RnNfcScanAdapter } from '../nfc/RnNfcScanAdapter';
 import { ExclusiveNfcCaptureArbiter } from '../nfc/ExclusiveNfcCaptureArbiter';
+import { OfflineCaptureCoordinator } from '../offline/OfflineCaptureCoordinator';
+import { OfflineCaptureLeaseClient } from '../offline/OfflineCaptureLeaseClient';
+import { getExpoOfflineCaptureDatabase } from '../offline/ExpoOfflineCaptureDatabase';
+import { OfflineInstallationIdentityStore } from '../offline/OfflineInstallationIdentityStore';
+import { OfflineLifecycleClient } from '../offline/OfflineLifecycleClient';
+import { OfflineSchedulingLifecycle } from '../offline/OfflineSchedulingLifecycle';
+import { OfflineSyncScheduler } from '../offline/OfflineSyncScheduler';
+import { createNativeAndroidMonotonicClock } from '../offline/NativeAndroidMonotonicClock';
+import {
+  offlineBackgroundSchedulerBinding,
+} from '../offline/registerOfflineBackgroundTask';
 import { ExpoSecureLifecycleEvidenceOutbox } from '../scan/ExpoSecureLifecycleEvidenceOutbox';
-import { ProductScanOrchestrator } from '../scan/ProductScanOrchestrator';
-import { SessionBoundScanContextResolver } from '../scan/SessionBoundScanContextResolver';
 import type {
   ProductScanSessionContextReader,
   ProductScanSessionSnapshot,
@@ -86,6 +95,10 @@ export function createProductMobileRuntime(): ProductMobileRuntimeCreation {
     ),
     subscribe: (listener: () => void) => coordinator.subscribe(listener),
   });
+  const offlineSessionContext = Object.freeze({
+    ...scanSessionContext,
+    getState: () => coordinator.getState(),
+  });
   const nfcAdapter = new RnNfcScanAdapter({
     platform: Platform.OS,
     captureTimestamp: () => createTimestamp(new Date().toISOString()),
@@ -93,15 +106,32 @@ export function createProductMobileRuntime(): ProductMobileRuntimeCreation {
   const nfcArbiter = new ExclusiveNfcCaptureArbiter(nfcAdapter);
   const lifecycleNfc = nfcArbiter.scope('lifecycle');
   const administrationNfc = nfcArbiter.scope('administration');
-  const scanOrchestrator = new ProductScanOrchestrator(
-    lifecycleNfc,
-    lifecycleNfc,
-    new SessionBoundScanContextResolver(serverTransport.scanContext),
-    serverTransport.lifecycle,
-    scanSessionContext,
-    randomUUID,
-    new ExpoSecureLifecycleEvidenceOutbox(),
+  const offlineLifecycle = new OfflineLifecycleClient(
+    new URL(configuration.configuration.tapTimeApiBaseUrl),
+    authenticatedRequests,
   );
+  const scanOrchestrator = new OfflineCaptureCoordinator(
+    lifecycleNfc,
+    lifecycleNfc,
+    offlineSessionContext,
+    new OfflineInstallationIdentityStore(),
+    getExpoOfflineCaptureDatabase,
+    new OfflineCaptureLeaseClient(
+      new URL(configuration.configuration.tapTimeApiBaseUrl),
+      authenticatedRequests,
+    ),
+    createNativeAndroidMonotonicClock(),
+    (database, authorityRejection) => new OfflineSyncScheduler(
+      database,
+      offlineLifecycle,
+      serverTransport.lifecycle,
+      authorityRejection,
+    ),
+    new ExpoSecureLifecycleEvidenceOutbox(),
+    randomUUID,
+    offlineBackgroundSchedulerBinding,
+  );
+  const offlineSchedulingLifecycle = new OfflineSchedulingLifecycle(scanOrchestrator);
   const administrationCoordinator = new AdminSetupCoordinator(
     scanSessionContext,
     administrationNfc,
@@ -116,6 +146,7 @@ export function createProductMobileRuntime(): ProductMobileRuntimeCreation {
       serverTransport,
       scanOrchestrator,
       administrationCoordinator,
+      offlineSchedulingLifecycle,
     ),
   };
 }

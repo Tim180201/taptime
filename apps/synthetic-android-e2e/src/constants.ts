@@ -35,5 +35,8 @@ export const runtimeLogins = Object.freeze({
   employeeInvitation: 'taptime_synthetic_e2e_employee_invitation',
   employeeEnrollment: 'taptime_synthetic_e2e_employee_enrollment',
   reassignment: 'taptime_synthetic_e2e_reassignment',
+  offlineLease: 'taptime_synthetic_e2e_offline_lease',
+  offlineEvent: 'taptime_synthetic_e2e_offline_event',
+  offlineReconciliation: 'taptime_synthetic_e2e_offline_reconciliation',
   provisioner: 'taptime_synthetic_e2e_provisioner',
 } as const);

@@ -14,6 +14,24 @@ import {
   customerAssignmentTarget,
 } from '@taptime/core';
 import type { LifecycleIngestionCommand } from '@taptime/backend-lifecycle';
+import {
+  OFFLINE_LEASE_PAGE_MAXIMUM_ITEMS,
+  OFFLINE_LEASE_PAGE_RESPONSE_MAXIMUM_BYTES,
+  OFFLINE_PROVENANCE_VERSION,
+  OFFLINE_RECONCILIATION_MAXIMUM_EVENT_IDS,
+  OFFLINE_REQUEST_MAXIMUM_BYTES,
+  OFFLINE_RESPONSE_MAXIMUM_BYTES,
+  isCanonicalOfflineUuid,
+  isOfflineAsciiCursor,
+  isOfflineBase64Url32Bytes,
+  isOfflineIsoTimestamp,
+  isPositiveSafeInteger,
+  isValidRetryAfterSeconds,
+  type OfflineCaptureLeaseIssueCommand,
+  type OfflineCaptureLeasePageCommand,
+  type OfflineLifecycleEventCommand,
+  type OfflineReconciliationCommand,
+} from '@taptime/offline-sync-contract';
 import type {
   BackendApiDependencies,
   BackendApiDiagnostic,
@@ -24,6 +42,10 @@ const SESSION_PATH = '/v1/session';
 const SCAN_CONTEXT_PATH = '/v1/scan-context/resolve';
 const LIFECYCLE_PATH = '/v1/lifecycle-events';
 const DEFERRED_LIFECYCLE_PATH = '/v1/lifecycle-events/deferred';
+const OFFLINE_CAPTURE_LEASE_PATH = '/v1/offline-capture-leases';
+const OFFLINE_CAPTURE_LEASE_PAGE_PATH = '/v1/offline-capture-leases/page';
+const OFFLINE_LIFECYCLE_PATH = '/v1/lifecycle-events/offline';
+const OFFLINE_RECONCILIATION_PATH = '/v1/lifecycle-events/reconcile';
 const ADMIN_CUSTOMERS_PATH = '/v1/administration/customers';
 const ADMIN_NFC_PROVISION_PATH = '/v1/administration/nfc-tags/provision';
 const ADMIN_NFC_REASSIGN_PATH = '/v1/administration/nfc-tags/reassign';
@@ -33,7 +55,7 @@ const ADMIN_EMPLOYEE_MEMBERSHIPS_PROJECTION_PATH = '/v1/administration/employee-
 const EMPLOYEE_ENROLLMENT_REDEEM_PATH = '/v1/employee-enrollment/redeem';
 const EXPECTED_MEMBERSHIP_HEADER = 'x-taptime-expected-membership-id';
 const MAX_AUTHORIZATION_LENGTH = 4_096;
-const MAX_BODY_BYTES = 16 * 1_024;
+const MAX_BODY_BYTES = OFFLINE_REQUEST_MAXIMUM_BYTES;
 const MAX_HEADER_BYTES = 8_192;
 const MAX_HEADER_COUNT = 64;
 const MAX_SCAN_PAYLOAD_BYTES = 1_024;
@@ -69,6 +91,10 @@ type Route =
   | 'deferred_lifecycle'
   | 'employee_enrollment_redeem'
   | 'lifecycle'
+  | 'offline_capture_lease'
+  | 'offline_capture_lease_page'
+  | 'offline_lifecycle'
+  | 'offline_reconciliation'
   | 'scan_context'
   | 'session';
 
@@ -157,7 +183,11 @@ async function handleRequest(
     return;
   }
   if (
-    (isAdministrationRoute(route) || route === 'employee_enrollment_redeem')
+    (
+      isAdministrationRoute(route)
+      || route === 'employee_enrollment_redeem'
+      || isOfflineRoute(route)
+    )
     && rawHeaderValues(request, EXPECTED_MEMBERSHIP_HEADER).length > 0
   ) {
     request.resume();
@@ -302,6 +332,54 @@ async function handleRequest(
   }
   if (route === 'scan_context') {
     await handleScanContext(
+      response,
+      accessToken,
+      body,
+      dependencies,
+      options,
+      correlationId,
+      timeoutMilliseconds,
+    );
+    return;
+  }
+  if (route === 'offline_capture_lease') {
+    await handleOfflineCaptureLease(
+      response,
+      accessToken,
+      body,
+      dependencies,
+      options,
+      correlationId,
+      timeoutMilliseconds,
+    );
+    return;
+  }
+  if (route === 'offline_capture_lease_page') {
+    await handleOfflineCaptureLeasePage(
+      response,
+      accessToken,
+      body,
+      dependencies,
+      options,
+      correlationId,
+      timeoutMilliseconds,
+    );
+    return;
+  }
+  if (route === 'offline_lifecycle') {
+    await handleOfflineLifecycle(
+      response,
+      accessToken,
+      body,
+      dependencies,
+      options,
+      correlationId,
+      timeoutMilliseconds,
+    );
+    return;
+  }
+  if (route === 'offline_reconciliation') {
+    await handleOfflineReconciliation(
       response,
       accessToken,
       body,
@@ -829,6 +907,186 @@ async function handleDeferredLifecycle(
   }
 }
 
+async function handleOfflineCaptureLease(
+  response: ServerResponse,
+  accessToken: string,
+  body: unknown,
+  dependencies: BackendApiDependencies,
+  options: BackendHttpServerOptions,
+  correlationId: string,
+  timeoutMilliseconds: number,
+): Promise<void> {
+  const command = parseOfflineCaptureLeaseIssueBody(body);
+  if (command === null) {
+    respondError(response, 400, 'invalid_request');
+    return;
+  }
+  try {
+    const result = await withTimeout(
+      dependencies.offlineCaptureLeaseIssuer.issue({ accessToken, command }),
+      timeoutMilliseconds,
+    );
+    switch (result.status) {
+      case 'ready':
+        respondJson(
+          response,
+          200,
+          result,
+          OFFLINE_LEASE_PAGE_RESPONSE_MAXIMUM_BYTES,
+        );
+        return;
+      case 'incomplete_or_oversize':
+        respondJson(response, 409, result);
+        return;
+      case 'authority_rejected':
+        respondError(response, 401, 'unauthorized');
+        return;
+      case 'unavailable':
+        respondError(response, 503, 'service_unavailable');
+        return;
+      default:
+        return result satisfies never;
+    }
+  } catch {
+    emitOfflineDiagnostic(options.onDiagnostic, correlationId);
+    respondError(response, 503, 'service_unavailable');
+  }
+}
+
+async function handleOfflineCaptureLeasePage(
+  response: ServerResponse,
+  accessToken: string,
+  body: unknown,
+  dependencies: BackendApiDependencies,
+  options: BackendHttpServerOptions,
+  correlationId: string,
+  timeoutMilliseconds: number,
+): Promise<void> {
+  const command = parseOfflineCaptureLeasePageBody(body);
+  if (command === null) {
+    respondError(response, 400, 'invalid_request');
+    return;
+  }
+  try {
+    const result = await withTimeout(
+      dependencies.offlineCaptureLeaseIssuer.readPage({ accessToken, command }),
+      timeoutMilliseconds,
+    );
+    switch (result.status) {
+      case 'ready':
+        respondJson(
+          response,
+          200,
+          result,
+          OFFLINE_LEASE_PAGE_RESPONSE_MAXIMUM_BYTES,
+        );
+        return;
+      case 'incomplete_or_oversize':
+        respondJson(response, 409, result);
+        return;
+      case 'authority_rejected':
+        respondError(response, 401, 'unauthorized');
+        return;
+      case 'unavailable':
+        respondError(response, 503, 'service_unavailable');
+        return;
+      default:
+        return result satisfies never;
+    }
+  } catch {
+    emitOfflineDiagnostic(options.onDiagnostic, correlationId);
+    respondError(response, 503, 'service_unavailable');
+  }
+}
+
+async function handleOfflineLifecycle(
+  response: ServerResponse,
+  accessToken: string,
+  body: unknown,
+  dependencies: BackendApiDependencies,
+  options: BackendHttpServerOptions,
+  correlationId: string,
+  timeoutMilliseconds: number,
+): Promise<void> {
+  const command = parseOfflineLifecycleBody(body);
+  if (command === null) {
+    respondError(response, 400, 'invalid_request');
+    return;
+  }
+  try {
+    const result = await withTimeout(
+      dependencies.offlineLifecycleIngestor.ingest({ accessToken, command }),
+      timeoutMilliseconds,
+    );
+    switch (result.status) {
+      case 'synchronized':
+        respondJson(response, 200, result);
+        return;
+      case 'review_pending':
+        respondJson(response, 202, result);
+        return;
+      case 'pending':
+        if (
+          result.retryAfterSeconds !== undefined
+          && isValidRetryAfterSeconds(result.retryAfterSeconds)
+        ) {
+          response.setHeader('Retry-After', String(result.retryAfterSeconds));
+        }
+        respondJson(response, 202, result);
+        return;
+      case 'conflict':
+        respondJson(response, 409, result);
+        return;
+      case 'authority_rejected':
+        respondError(response, 401, 'unauthorized');
+        return;
+      default:
+        return result satisfies never;
+    }
+  } catch {
+    emitOfflineDiagnostic(options.onDiagnostic, correlationId);
+    respondError(response, 503, 'service_unavailable');
+  }
+}
+
+async function handleOfflineReconciliation(
+  response: ServerResponse,
+  accessToken: string,
+  body: unknown,
+  dependencies: BackendApiDependencies,
+  options: BackendHttpServerOptions,
+  correlationId: string,
+  timeoutMilliseconds: number,
+): Promise<void> {
+  const command = parseOfflineReconciliationBody(body);
+  if (command === null) {
+    respondError(response, 400, 'invalid_request');
+    return;
+  }
+  try {
+    const result = await withTimeout(
+      dependencies.offlineEventReconciliationReader.reconcile({ accessToken, command }),
+      timeoutMilliseconds,
+    );
+    switch (result.status) {
+      case 'ready':
+        respondJson(response, 200, result);
+        return;
+      case 'authority_rejected':
+        respondError(response, 401, 'unauthorized');
+        return;
+      case 'unavailable':
+        respondError(response, 503, 'service_unavailable');
+        return;
+      default:
+        return result satisfies never;
+    }
+  } catch {
+    emitOfflineDiagnostic(options.onDiagnostic, correlationId);
+    respondError(response, 503, 'service_unavailable');
+  }
+}
+
 function requestRoute(url: string | undefined): Route | null {
   if (url === ADMIN_EMPLOYEE_INVITATIONS_PATH) {
     return 'admin_create_employee_invitation';
@@ -863,6 +1121,18 @@ function requestRoute(url: string | undefined): Route | null {
   if (url === DEFERRED_LIFECYCLE_PATH) {
     return 'deferred_lifecycle';
   }
+  if (url === OFFLINE_CAPTURE_LEASE_PATH) {
+    return 'offline_capture_lease';
+  }
+  if (url === OFFLINE_CAPTURE_LEASE_PAGE_PATH) {
+    return 'offline_capture_lease_page';
+  }
+  if (url === OFFLINE_LIFECYCLE_PATH) {
+    return 'offline_lifecycle';
+  }
+  if (url === OFFLINE_RECONCILIATION_PATH) {
+    return 'offline_reconciliation';
+  }
   return null;
 }
 
@@ -884,6 +1154,11 @@ function diagnosticCodeForRoute(route: Route | null): BackendApiDiagnostic['code
     case 'lifecycle':
     case 'deferred_lifecycle':
       return 'lifecycle_ingestion_failed';
+    case 'offline_capture_lease':
+    case 'offline_capture_lease_page':
+    case 'offline_lifecycle':
+    case 'offline_reconciliation':
+      return 'offline_synchronization_failed';
     case null:
       return null;
     default:
@@ -898,6 +1173,13 @@ function isAdministrationRoute(route: Route): boolean {
     || route === 'admin_provision_nfc_tag'
     || route === 'admin_reassign_nfc_tag'
     || route === 'admin_setup_projection';
+}
+
+function isOfflineRoute(route: Route): boolean {
+  return route === 'offline_capture_lease'
+    || route === 'offline_capture_lease_page'
+    || route === 'offline_lifecycle'
+    || route === 'offline_reconciliation';
 }
 
 function hasForbiddenSharedHeader(request: IncomingMessage): boolean {
@@ -1256,6 +1538,166 @@ function parseScanContextBody(body: unknown): {
   }
 }
 
+function parseOfflineCaptureLeaseIssueBody(
+  body: unknown,
+): OfflineCaptureLeaseIssueCommand | null {
+  if (
+    !isRecord(body)
+    || !hasExactKeys(body, ['commandId', 'installationBinding', 'lookupKey'])
+    || !isCanonicalOfflineUuid(body.commandId)
+    || !isOfflineBase64Url32Bytes(body.installationBinding)
+    || !isOfflineBase64Url32Bytes(body.lookupKey)
+  ) {
+    return null;
+  }
+  return {
+    commandId: body.commandId,
+    installationBinding: body.installationBinding,
+    lookupKey: body.lookupKey,
+  };
+}
+
+function parseOfflineCaptureLeasePageBody(
+  body: unknown,
+): OfflineCaptureLeasePageCommand | null {
+  if (
+    !isRecord(body)
+    || !hasExactKeys(body, ['cursor', 'leaseId', 'limit'])
+    || !isCanonicalOfflineUuid(body.leaseId)
+    || !isOfflineAsciiCursor(body.cursor)
+    || !Number.isSafeInteger(body.limit)
+    || (body.limit as number) < 1
+    || (body.limit as number) > OFFLINE_LEASE_PAGE_MAXIMUM_ITEMS
+  ) {
+    return null;
+  }
+  return {
+    leaseId: body.leaseId,
+    cursor: body.cursor,
+    limit: body.limit as number,
+  };
+}
+
+function parseOfflineLifecycleBody(body: unknown): OfflineLifecycleEventCommand | null {
+  if (
+    !isRecord(body)
+    || !hasExactKeys(
+      body,
+      [
+        'clock',
+        'deviceSequence',
+        'expectedMembershipId',
+        'installationBinding',
+        'leaseId',
+        'leaseItemId',
+        'organizationId',
+        'provenanceVersion',
+        'receipt',
+        'workEvent',
+      ],
+    )
+    || !isCanonicalOfflineUuid(body.organizationId)
+    || !isCanonicalOfflineUuid(body.expectedMembershipId)
+    || !isCanonicalOfflineUuid(body.leaseId)
+    || !isCanonicalOfflineUuid(body.leaseItemId)
+    || !isOfflineBase64Url32Bytes(body.installationBinding)
+    || !isPositiveSafeInteger(body.deviceSequence)
+    || body.provenanceVersion !== OFFLINE_PROVENANCE_VERSION
+    || !isRecord(body.clock)
+    || !hasExactKeys(
+      body.clock,
+      [
+        'bootMarker',
+        'clockProofStatus',
+        'clockProofVersion',
+        'monotonicAnchorMilliseconds',
+        'monotonicDeltaMilliseconds',
+        'wallClockAnchor',
+      ],
+    )
+    || typeof body.clock.bootMarker !== 'string'
+    || body.clock.bootMarker.length < 1
+    || Buffer.byteLength(body.clock.bootMarker, 'utf8') > 256
+    || body.clock.clockProofVersion !== 1
+    || (
+      body.clock.clockProofStatus !== 'verified_same_boot'
+      && body.clock.clockProofStatus !== 'review_only'
+    )
+    || !Number.isSafeInteger(body.clock.monotonicAnchorMilliseconds)
+    || (body.clock.monotonicAnchorMilliseconds as number) < 0
+    || !Number.isSafeInteger(body.clock.monotonicDeltaMilliseconds)
+    || (body.clock.monotonicDeltaMilliseconds as number) < 0
+    || !isOfflineIsoTimestamp(body.clock.wallClockAnchor)
+    || !isRecord(body.workEvent)
+    || !hasExactKeys(
+      body.workEvent,
+      ['assignmentId', 'id', 'nfcTagId', 'occurredAt', 'target'],
+    )
+    || !isCanonicalOfflineUuid(body.workEvent.id)
+    || !isCanonicalOfflineUuid(body.workEvent.assignmentId)
+    || !isCanonicalOfflineUuid(body.workEvent.nfcTagId)
+    || !isOfflineIsoTimestamp(body.workEvent.occurredAt)
+    || !isRecord(body.workEvent.target)
+    || !hasExactKeys(body.workEvent.target, ['targetId', 'targetType'])
+    || body.workEvent.target.targetType !== 'customer'
+    || !isCanonicalOfflineUuid(body.workEvent.target.targetId)
+    || !isRecord(body.receipt)
+    || !hasExactKeys(body.receipt, ['attemptNumber', 'id'])
+    || !isCanonicalOfflineUuid(body.receipt.id)
+    || body.receipt.attemptNumber !== 1
+  ) {
+    return null;
+  }
+  return {
+    organizationId: body.organizationId,
+    expectedMembershipId: body.expectedMembershipId,
+    leaseId: body.leaseId,
+    leaseItemId: body.leaseItemId,
+    installationBinding: body.installationBinding,
+    deviceSequence: body.deviceSequence,
+    provenanceVersion: OFFLINE_PROVENANCE_VERSION,
+    clock: {
+      bootMarker: body.clock.bootMarker,
+      monotonicAnchorMilliseconds: body.clock.monotonicAnchorMilliseconds as number,
+      monotonicDeltaMilliseconds: body.clock.monotonicDeltaMilliseconds as number,
+      wallClockAnchor: body.clock.wallClockAnchor,
+      clockProofStatus: body.clock.clockProofStatus,
+      clockProofVersion: 1,
+    },
+    workEvent: {
+      id: body.workEvent.id,
+      assignmentId: body.workEvent.assignmentId,
+      nfcTagId: body.workEvent.nfcTagId,
+      target: {
+        targetType: 'customer',
+        targetId: body.workEvent.target.targetId,
+      },
+      occurredAt: body.workEvent.occurredAt,
+    },
+    receipt: {
+      id: body.receipt.id,
+      attemptNumber: 1,
+    },
+  };
+}
+
+function parseOfflineReconciliationBody(
+  body: unknown,
+): OfflineReconciliationCommand | null {
+  if (
+    !isRecord(body)
+    || !hasExactKeys(body, ['workEventIds'])
+    || !Array.isArray(body.workEventIds)
+    || body.workEventIds.length < 1
+    || body.workEventIds.length > OFFLINE_RECONCILIATION_MAXIMUM_EVENT_IDS
+    || !body.workEventIds.every(isCanonicalOfflineUuid)
+    || new Set(body.workEventIds).size !== body.workEventIds.length
+  ) {
+    return null;
+  }
+  return { workEventIds: Object.freeze([...body.workEventIds]) };
+}
+
 function parseLifecycleBody(
   accessToken: string,
   body: unknown,
@@ -1417,6 +1859,16 @@ function emitDiagnostic(
   }
 }
 
+function emitOfflineDiagnostic(
+  sink: BackendApiDiagnosticSink | undefined,
+  correlationId: string,
+): void {
+  emitDiagnostic(sink, {
+    code: 'offline_synchronization_failed',
+    correlationId,
+  });
+}
+
 function applyResponseHeaders(response: ServerResponse, correlationId: string): void {
   response.setHeader('Cache-Control', 'no-store');
   response.setHeader('Content-Type', 'application/json; charset=utf-8');
@@ -1428,10 +1880,24 @@ function respondError(response: ServerResponse, statusCode: number, code: ErrorC
   respondJson(response, statusCode, { error: { code } });
 }
 
-function respondJson(response: ServerResponse, statusCode: number, body: unknown): void {
+function respondJson(
+  response: ServerResponse,
+  statusCode: number,
+  body: unknown,
+  maximumBytes: number = OFFLINE_RESPONSE_MAXIMUM_BYTES,
+): void {
   if (response.writableEnded || response.destroyed) {
     return;
   }
+  const payload = JSON.stringify(body);
+  if (Buffer.byteLength(payload, 'utf8') > maximumBytes) {
+    const unavailable = JSON.stringify({ error: { code: 'service_unavailable' } });
+    response.statusCode = 503;
+    response.setHeader('Content-Length', String(Buffer.byteLength(unavailable, 'utf8')));
+    response.end(unavailable);
+    return;
+  }
   response.statusCode = statusCode;
-  response.end(JSON.stringify(body));
+  response.setHeader('Content-Length', String(Buffer.byteLength(payload, 'utf8')));
+  response.end(payload);
 }

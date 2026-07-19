@@ -13,6 +13,7 @@ import type {
   BackendApiDiagnostic,
   NfcTagReassignmentPort,
 } from '../src/types.js';
+import { unavailableOfflineDependencies } from './offlineTestDependencies.js';
 
 const ids = {
   membership: '12000000-0000-4000-8000-000000000001',
@@ -206,6 +207,7 @@ async function start(
   diagnostics: BackendApiDiagnostic[] = [],
 ): Promise<string> {
   const dependencies: BackendApiDependencies = {
+    ...unavailableOfflineDependencies(),
     tagReassignment,
     sessionAuthority: { async resolve() { return { status: 'rejected' }; } },
     scanContextResolver: { async resolve() { return { status: 'not_resolved' }; } },

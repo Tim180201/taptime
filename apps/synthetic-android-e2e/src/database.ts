@@ -17,6 +17,9 @@ const applicationRoles = [
   'taptime_employee_invitation_creator',
   'taptime_employee_enrollment_redeemer',
   'taptime_assignment_reassigner',
+  'taptime_offline_lease_issuer',
+  'taptime_offline_event_ingestor',
+  'taptime_offline_reconciliation_reader',
 ] as const;
 const migrationDirectory = fileURLToPath(new URL('../../backend-schema/migrations/', import.meta.url));
 
@@ -43,6 +46,15 @@ const runtimeRoleGraph = Object.freeze({
   [runtimeLogins.reassignment]: [
     'taptime_assignment_reassigner',
     'taptime_identity_resolver',
+  ],
+  [runtimeLogins.offlineLease]: [
+    'taptime_offline_lease_issuer',
+  ],
+  [runtimeLogins.offlineEvent]: [
+    'taptime_offline_event_ingestor',
+  ],
+  [runtimeLogins.offlineReconciliation]: [
+    'taptime_offline_reconciliation_reader',
   ],
   [runtimeLogins.provisioner]: ['taptime_administrator'],
 } as const);
@@ -112,8 +124,8 @@ export async function prepareSyntheticDatabase(
     installerPool,
     await loadMigrations(migrationDirectory),
   );
-  if (migration.applied.join(',') !== '001,002,003,004,005,006,007,008,009') {
-    throw new Error('Synthetic E2E requires a clean migration set 001 through 009');
+  if (migration.applied.join(',') !== '001,002,003,004,005,006,007,008,009,010') {
+    throw new Error('Synthetic E2E requires a clean migration set 001 through 010');
   }
 
   await normalizeApplicationRoles(installerPool);
@@ -125,6 +137,9 @@ export async function prepareSyntheticDatabase(
     employeeInvitation: randomBytes(32).toString('base64url'),
     employeeEnrollment: randomBytes(32).toString('base64url'),
     reassignment: randomBytes(32).toString('base64url'),
+    offlineLease: randomBytes(32).toString('base64url'),
+    offlineEvent: randomBytes(32).toString('base64url'),
+    offlineReconciliation: randomBytes(32).toString('base64url'),
     provisioner: randomBytes(32).toString('base64url'),
   } as const;
   for (const [login, roles] of Object.entries(runtimeRoleGraph)) {
@@ -165,6 +180,21 @@ export async function prepareSyntheticDatabase(
         installerDatabaseUrl,
         runtimeLogins.reassignment,
         passwords.reassignment,
+      ),
+      offlineLease: runtimeConnectionString(
+        installerDatabaseUrl,
+        runtimeLogins.offlineLease,
+        passwords.offlineLease,
+      ),
+      offlineEvent: runtimeConnectionString(
+        installerDatabaseUrl,
+        runtimeLogins.offlineEvent,
+        passwords.offlineEvent,
+      ),
+      offlineReconciliation: runtimeConnectionString(
+        installerDatabaseUrl,
+        runtimeLogins.offlineReconciliation,
+        passwords.offlineReconciliation,
       ),
       provisioner: runtimeConnectionString(
         installerDatabaseUrl,

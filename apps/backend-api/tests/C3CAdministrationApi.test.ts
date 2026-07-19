@@ -23,6 +23,7 @@ import type {
   BackendApiDependencies,
   BackendApiDiagnostic,
 } from '../src/types.js';
+import { unavailableOfflineDependencies } from './offlineTestDependencies.js';
 
 const ids = {
   membership: '12aa0000-0000-4000-8000-000000000301',
@@ -433,6 +434,7 @@ function administrationCoordinator(
 
 function dependencies(administration: AdministrationCoordinator): BackendApiDependencies {
   return {
+    ...unavailableOfflineDependencies(),
     administration,
     employeeEnrollment: {
       async createInvitation() {
