@@ -3,8 +3,10 @@
 Status: **HUMAN-ACCEPTED CONTRACT; EXACT-BASELINE REPOSITORY WORKSTREAMS A–E PUBLISHED,
 TECHNICAL-LEAD APPROVED AND ORIGINAL EXACT-HEAD CI 10/10 GREEN — INDEPENDENT IMPLEMENTATION
 REVIEW RETURNED CHANGES REQUIRED FOR DA1-IMPL-01 (P2); FOCUSED CORRECTION `c71399a`, TREE
-`7a159ce`, PUBLISHED AND EXACT-HEAD RUN `29692113159` 10/10 GREEN; INDEPENDENT DELTA RE-REVIEW
-PENDING; PRODUCTION, DEPLOYMENT, DISTRIBUTION AND HUMAN PHYSICAL GATE NOT AUTHORIZED**
+`7a159ce`, PUBLISHED AND EXACT-HEAD RUN `29692113159` 10/10 GREEN; INDEPENDENT EXACT-DELTA
+RE-REVIEW OF FINAL HEAD `767043d`, TREE `19c434a`, APPROVED WITH ZERO OPEN P0/P1/P2/P3 AND
+DA1-IMPL-01 CLOSED; SEPARATE HUMAN PHYSICAL GATE AUTHORIZATION MAY BE REQUESTED BUT IS NOT YET
+GRANTED; PRODUCTION, DEPLOYMENT AND DISTRIBUTION NOT AUTHORIZED**
 Date: 2026-07-19
 Candidate Baseline Commit: `1bb2d7d7b38928643cfd5c86b36c500c35f73276`
 Candidate Baseline Tree: `c5c20f67155cdc0b4197908b4d1283cb7e619597`
@@ -400,8 +402,8 @@ micro-sprint handoffs while preserving every quality/security gate.
 
 ## 13. Current release gate
 
-**REPOSITORY IMPLEMENTATION RELEASED ON EXACT BASELINE — PHYSICAL/PRODUCTION GATES REMAIN
-CLOSED.**
+**REPOSITORY IMPLEMENTATION INDEPENDENTLY APPROVED — SEPARATE HUMAN PHYSICAL GATE AUTHORIZATION
+MAY BE REQUESTED; PHYSICAL/PRODUCTION GATES REMAIN CLOSED.**
 
 Candidate publication, exact-head CI, independent zero-finding pre-implementation review, explicit
 Human acceptance of ADR-0012/Sections 3–13 and the separate exact-baseline repository
@@ -409,9 +411,14 @@ implementation release are complete. Workstreams A–E may be implemented and ve
 repository from commit `180093091c47a926b5871a27ea8b00fb21b9b4ac`, tree
 `73e77b6ca5dfd7671cdd3d77a344168fddff3627`.
 
-This release does not authorize production resources/data, deployment, distribution or execution
-of the Human Physical Gate. The Physical Gate may begin only after a later distinct Human
-authorization following independent implementation approval and green exact-head CI.
+The corrected repository implementation passed independent exact-delta re-review with zero open
+P0/P1/P2/P3 on final reviewed head `767043d8f91bc2806cb1bd111989cf9b741b858c`, tree
+`19c434a8ba4586aeb1344778cbe483504ce46a34`, after green exact-head runs `29692113159` and
+`29692304824`. `DA1-IMPL-01` is closed.
+
+This release and review do not authorize production resources/data, deployment, distribution or
+execution of the Human Physical Gate. The complete fresh Physical Gate may begin only after the
+Human Architect gives a later distinct explicit authorization.
 
 ## 14. Independent review mandate
 

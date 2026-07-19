@@ -1,8 +1,10 @@
 # Development Assignment 1 — Independent Implementation Review and Correction Disposition
 
 Date: 2026-07-19
-Status: **CHANGES REQUIRED RECEIVED — DA1-IMPL-01 (P2) CORRECTED AND PUBLISHED AS `c71399a`,
-TREE `7a159ce`; EXACT-HEAD RUN `29692113159` 10/10 GREEN; INDEPENDENT DELTA RE-REVIEW PENDING**
+Status: **INDEPENDENT EXACT-DELTA RE-REVIEW APPROVED WITH ZERO OPEN P0/P1/P2/P3 —
+DA1-IMPL-01 CLOSED ON REVIEWED HEAD `767043d`, TREE `19c434a`; SEPARATE HUMAN PHYSICAL GATE
+AUTHORIZATION MAY NOW BE REQUESTED BUT IS NOT YET GRANTED; PRODUCTION, DEPLOYMENT AND DISTRIBUTION
+NOT AUTHORIZED**
 Owner: Technical Lead
 
 ## 1. Exact original review binding
@@ -99,12 +101,34 @@ release build was not repeated because the production correction is server-only 
 Mobile/native source or dependency. Exact-head run `29692113159` independently reran the ten-job
 CI matrix against the published correction and passed every job.
 
-## 6. Gate disposition
+## 6. Independent exact-delta re-review
 
-The Human Physical Gate remains closed. Publication and CI do not dispose the independent P2 by
-themselves. Required next steps are:
+The renewed independent read-only review was bound to:
 
-1. receive an independent exact-delta re-review with `APPROVED` and zero open P0–P3; and
-2. only then request the separate Human authorization for the complete fresh Physical Gate.
+- final reviewed head `767043d8f91bc2806cb1bd111989cf9b741b858c`, tree
+  `19c434a8ba4586aeb1344778cbe483504ce46a34`;
+- the exact two-commit chain `de89521` → `c71399a` → `767043d`;
+- the complete `de89521..767043d` delta of 12 files, +414/-48;
+- correction run `29692113159`, attempt 1, ten of ten jobs; and
+- final reviewed-head run `29692304824`, attempt 1, ten of ten jobs.
 
-Production resources/data, deployment and distribution remain unauthorized.
+Final verdict: **APPROVED — zero open P0/P1/P2/P3**.
+
+The reviewer independently confirmed that the one-line U+001F lock framing is byte-identical to
+B6, that the real cross-route PostgreSQL test is regressionswirksam and that no authority, tenant,
+BusinessEngine, TimeEntry, lease, sequence, reconciliation or numeric ADR-0012 rule changed.
+Core 290/290, Mobile 383/383, Admin Web 44/44, Administration Contract 4/4 and Offline Contract
+7/7 plus the tests-inclusive Offline typecheck were locally reproduced. The PostgreSQL-backed
+matrix was independently bound to both green exact-head runs. `DA1-IMPL-01` is closed.
+
+The review did not change the repository and did not read or list `research/`.
+
+## 7. Gate disposition
+
+The prerequisite independent implementation approval is now complete. The Technical Lead may
+request the separate Human-Architect authorization for the complete fresh Physical Gate defined in
+Authorization Section 9, Gates A–E.
+
+The review does not itself authorize or start that gate. Until the Human Architect gives a distinct
+explicit authorization, the Human Physical Gate remains closed. Production resources/data,
+deployment and distribution remain unauthorized.
