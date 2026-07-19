@@ -42,9 +42,14 @@ authorized the complete fresh Physical Gate against ADO head `72dc39e` and exact
 `29692785824`. Gate A failed before lease activation: on the approved Galaxy A33/Android-15 device,
 the exact hash-verified APK reproduced SQLCipher page-1 HMAC/decryption failure on clean first start
 before authentication after package-scoped backup cleanup, app-data clear and a probe with Android
-Backup Manager disabled. `DA1-PHYS-01` (P1) is open; Gates B–E were not started and a complete
-fresh restart is prohibited until correction,
-independent approval and green exact-head CI. Implementation, review and physical evidence:
+Backup Manager disabled. Focused correction `04399fa`, tree `ecf5e6f`, now keeps SQLCipher
+keying, first-page creation and exclusive transactions on one runtime-owned connection, adds an
+explicit Android backup/transfer exclusion boundary, passes 1,628 local tests, all 15 typechecks
+and all available builds, and passed exact-head run `29695449737` ten of ten. Native Galaxy-A33 evidence
+passes clean first start, cold encrypted reopen and wrong/missing-key fail-closed checks. The
+correction still requires independent exact-delta approval; `DA1-PHYS-01` (P1) therefore remains
+open, Gates B–E were not started and a complete fresh restart remains prohibited. Implementation,
+review and physical evidence:
 `ADO/05_Evidence/Development_Assignment_01_Implementation_Evidence.md` and
 `ADO/05_Evidence/Development_Assignment_01_Independent_Implementation_Review.md` and
 `ADO/05_Evidence/Development_Assignment_01_Physical_Validation_Evidence.md`.

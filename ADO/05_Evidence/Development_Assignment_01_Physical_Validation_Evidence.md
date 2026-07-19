@@ -1,8 +1,9 @@
 # Development Assignment 1 — Human Physical Validation Evidence
 
 Date: 2026-07-19
-Status: **CHANGES REQUIRED — GATE A BLOCKED BEFORE LEASE ACTIVATION; DA1-PHYS-01 (P1) OPEN;
-GATES B–E NOT STARTED**
+Status: **CHANGES REQUIRED — GATE A BLOCKED BEFORE LEASE ACTIVATION; DA1-PHYS-01 (P1)
+CORRECTION `04399fa` PUBLISHED AND EXACT-HEAD CI 10/10 GREEN, BUT INDEPENDENT REVIEW PENDING;
+FINDING OPEN; GATES B–E NOT STARTED**
 Owner: Human Architect + Technical Lead
 
 ## 1. Authorization and exact binding
@@ -130,7 +131,8 @@ database lifecycle. At minimum, it must prove on the exact supported Android bui
 - the complete fresh Gate A–E can restart only after independent correction approval and green
   exact-head CI.
 
-No production-code correction was authorized or performed during this gate.
+No production-code correction was authorized or performed during this failed gate. The separately
+authorized focused correction is recorded in Section 7.
 
 ## 5. Gate disposition
 
@@ -162,10 +164,47 @@ Cleanup completed:
 - clipboard cleared; and
 - Android Backup Manager restored to enabled.
 
-## 7. Exact next step
+## 7. Focused correction and native re-verification
 
-Prepare a focused repository correction candidate for `DA1-PHYS-01`, including native Android
-first-run/reopen/backup-boundary evidence. That candidate requires complete Technical-Lead
-verification, focused publication, green exact-head CI and an independent exact-delta review.
-Only after an independent `APPROVED` verdict with zero open P0–P3 may the Human Architect
-separately authorize a complete fresh restart of Gates A–E.
+Root cause was the native connection boundary, not stale device data or a key-generation defect.
+Expo's exclusive-transaction helper opens another SQLite connection. SQLCipher key state and the
+new file's first-page salt are connection-local, so migration of a fresh encrypted store cannot
+cross that connection boundary.
+
+Correction commit `04399fa7ef8b3e58e44e82a81c0b0757acae1adc`, tree
+`ecf5e6f9f5dbe83d9100deb98ab6126ef7473ead`:
+
+- opens one non-cached runtime-owned Expo SQLite actor connection;
+- applies `PRAGMA key` and `BEGIN EXCLUSIVE`/migration/commit on that same connection;
+- retains fail-closed cipher and database integrity checks;
+- disables Android application backup and SecureStore automatic backup configuration;
+- generates explicit legacy and Android-12+ exclusions for SecureStore, Expo SQLite and database
+  data across cloud backup and device transfer; and
+- makes the synthetic release build fail if its effective manifest/resources omit this boundary.
+
+Native verification used the same approved Galaxy A33 5G on Android 15. The exact corrected product
+APK passed both a cleared-data clean first start and force-stop/cold encrypted reopen without any
+SQLCipher/SQLite/FATAL record. A controlled native diagnostic using the same connection/store path
+proved correct-key reopen succeeds, a wrong key fails protected at cipher integrity, and a missing
+SecureStore key fails protected as `missing_key`; neither negative path deleted or rebound the
+database. Effective manifest/resources passed the backup-boundary verifier.
+
+- corrected APK SHA-256:
+  `289885a6f123f070d82f79e85aaaddb87658305e3bc8caafd1def4c8158b732e`;
+- corrected APK size: 95,416,211 bytes;
+- complete local tests: 1,628/1,628;
+- Mobile: 385/385 in 28 files;
+- all 15 Workspace typechecks and all available Workspace builds: passed;
+- Android release: 690 tasks, passed; and
+- exact-head GitHub Actions run `29695449737`, attempt 1: 10/10 jobs passed.
+
+This verification is correction evidence, not a restarted Gate A–E observation. The app was
+force-stopped and its synthetic package data cleared after the diagnostic. No authentication,
+lease activation, NFC scan or lifecycle mutation was performed.
+
+## 8. Exact next step
+
+Obtain an independent exact-delta review of correction `bd1ad61..04399fa`, including the native
+first-run/reopen/wrong-key/missing-key/backup-boundary evidence. Only after an independent
+`APPROVED` verdict with zero open P0–P3 may the Human Architect separately authorize a complete
+fresh restart of Gates A–E.

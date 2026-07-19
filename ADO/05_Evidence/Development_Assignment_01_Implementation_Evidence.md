@@ -7,7 +7,9 @@ EXACT-HEAD RUN `29692113159` 10/10 GREEN; INDEPENDENT EXACT-DELTA RE-REVIEW OF F
 `767043d`, TREE `19c434a`, APPROVED WITH ZERO OPEN P0/P1/P2/P3 AND DA1-IMPL-01 CLOSED;
 COMPLETE FRESH HUMAN PHYSICAL GATE AUTHORIZED ON ADO HEAD `72dc39e` AND EXACT-HEAD RUN
 `29692785824`, BUT GATE A FAILED BEFORE LEASE ACTIVATION WITH DA1-PHYS-01 (P1); GATES B–E NOT
-STARTED; PRODUCTION, DEPLOYMENT AND DISTRIBUTION NOT AUTHORIZED**
+STARTED; FOCUSED CORRECTION `04399fa`, TREE `ecf5e6f`, AND EXACT-HEAD RUN `29695449737` 10/10
+GREEN; INDEPENDENT EXACT-DELTA REVIEW PENDING, DA1-PHYS-01 STILL OPEN; PRODUCTION, DEPLOYMENT
+AND DISTRIBUTION NOT AUTHORIZED**
 Date: 2026-07-19
 Human-Accepted Contract Commit: `592334160655cde2f4189712eaf327c8a7edcb0e`
 Implementation Baseline Commit: `180093091c47a926b5871a27ea8b00fb21b9b4ac`
@@ -26,6 +28,11 @@ Final Reviewed-head CI: GitHub Actions run `29692304824`, attempt 1, push to `ma
 successful
 Independent Exact-delta Re-review Verdict: **APPROVED — zero open P0/P1/P2/P3;
 DA1-IMPL-01 closed**
+DA1-PHYS-01 Correction Commit: `04399fa7ef8b3e58e44e82a81c0b0757acae1adc`
+DA1-PHYS-01 Correction Tree: `ecf5e6f9f5dbe83d9100deb98ab6126ef7473ead`
+DA1-PHYS-01 Correction Exact-head CI: GitHub Actions run `29695449737`, attempt 1, push to `main`,
+10/10 jobs successful
+DA1-PHYS-01 Correction Review: **PENDING — finding remains open**
 Architecture:
 `ADO/01_Architecture/ADR/ADR-0012-complete-offline-synchronization-platform.md`
 Authorization:
@@ -223,9 +230,26 @@ clear and a probe with Android Backup Manager disabled. No Gate-A tag scan occur
 were not started. See
 `ADO/05_Evidence/Development_Assignment_01_Physical_Validation_Evidence.md`.
 
+The focused `DA1-PHYS-01` correction removes Expo's second native transaction connection from the
+SQLCipher path. One non-cached runtime-owned actor connection now receives the key and performs
+`BEGIN EXCLUSIVE`, schema/data work and commit, preserving first-file salt and key continuity.
+Android backup is disabled and generated legacy/full-backup and Android-12+ cloud/device-transfer
+rules explicitly exclude SecureStore, Expo's `files/SQLite` directory and the database domain.
+
+Native Galaxy-A33/Android-15 evidence passes the exact corrected product APK on a clean first
+start and after force-stop/cold encrypted reopen. A controlled native diagnostic using the same
+connection/store path proves a wrong key returns protected cipher-integrity failure, a missing
+SecureStore key returns `missing_key`, and neither path deletes or rebinds the retained database.
+The corrected APK is 95,416,211 bytes with SHA-256
+`289885a6f123f070d82f79e85aaaddb87658305e3bc8caafd1def4c8158b732e`; its effective manifest
+and generated resources passed the build-time backup-boundary verifier. Local verification passes
+1,628/1,628 tests, all 15 Workspace typechecks, all available Workspace builds, dependency
+tree validation, `git diff --check` and the 690-task Android release build. Exact-head run
+`29695449737` passed all ten jobs.
+
 Still pending and not claimed here:
 
-1. focused correction, exact-head CI and independent exact-delta approval for `DA1-PHYS-01`;
+1. independent exact-delta approval for `DA1-PHYS-01`;
 2. a later separately authorized complete fresh Human Gate A–E run;
 3. truthful closure synchronization and independent final closure review; and
 4. any production resource/data, deployment or distribution decision.

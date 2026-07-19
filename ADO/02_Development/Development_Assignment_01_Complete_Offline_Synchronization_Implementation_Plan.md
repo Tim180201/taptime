@@ -6,8 +6,9 @@ FOCUSED CORRECTION `c71399a`, TREE `7a159ce`, PUBLISHED AND EXACT-HEAD RUN `2969
 GREEN; INDEPENDENT EXACT-DELTA RE-REVIEW OF FINAL HEAD `767043d`, TREE `19c434a`, APPROVED WITH
 ZERO OPEN P0/P1/P2/P3 AND DA1-IMPL-01 CLOSED; COMPLETE FRESH HUMAN PHYSICAL GATE AUTHORIZED ON
 ADO HEAD `72dc39e` AND EXACT-HEAD RUN `29692785824`, BUT GATE A FAILED BEFORE LEASE ACTIVATION
-WITH DA1-PHYS-01 (P1); GATES B–E NOT STARTED; PRODUCTION, DEPLOYMENT AND DISTRIBUTION NOT
-AUTHORIZED**
+WITH DA1-PHYS-01 (P1); FOCUSED CORRECTION `04399fa`, TREE `ecf5e6f`, AND EXACT-HEAD RUN
+`29695449737` 10/10 GREEN; INDEPENDENT EXACT-DELTA REVIEW PENDING, SO DA1-PHYS-01 REMAINS OPEN
+AND GATES B–E NOT STARTED; PRODUCTION, DEPLOYMENT AND DISTRIBUTION NOT AUTHORIZED**
 Date: 2026-07-19
 Implementation Baseline Commit: `180093091c47a926b5871a27ea8b00fb21b9b4ac`
 Implementation Baseline Tree: `73e77b6ca5dfd7671cdd3d77a344168fddff3627`
@@ -315,7 +316,8 @@ Stop and escalate before continuing if implementation would require:
 Repository implementation success alone will not close Development Assignment 1. The separately
 authorized fresh Human Physical Gate failed at Gate A before lease activation with
 `DA1-PHYS-01` (P1): the exact APK reproduced SQLCipher page-1 HMAC/decryption failure on clean
-first start before authentication. Gates B–E were not started. Closure now requires a focused
-correction, green exact-head CI, independent exact-delta approval, a later separately authorized
-complete fresh Gate A–E run, truthful evidence synchronization and independent final closure
-review.
+first start before authentication. Gates B–E were not started. Focused correction `04399fa`, tree
+`ecf5e6f`, passes native first start, encrypted cold reopen, protected wrong/missing-key handling,
+the explicit Android backup/transfer boundary and exact-head run `29695449737` ten of ten.
+Closure still requires independent exact-delta approval, a later separately authorized complete
+fresh Gate A–E run, truthful evidence synchronization and independent final closure review.

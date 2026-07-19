@@ -7,7 +7,9 @@ REVIEW RETURNED CHANGES REQUIRED FOR DA1-IMPL-01 (P2); FOCUSED CORRECTION `c7139
 RE-REVIEW OF FINAL HEAD `767043d`, TREE `19c434a`, APPROVED WITH ZERO OPEN P0/P1/P2/P3 AND
 DA1-IMPL-01 CLOSED; COMPLETE FRESH HUMAN PHYSICAL GATE AUTHORIZED ON ADO HEAD `72dc39e` AND
 EXACT-HEAD RUN `29692785824`, BUT GATE A FAILED BEFORE LEASE ACTIVATION WITH DA1-PHYS-01 (P1);
-GATES B–E NOT STARTED; PRODUCTION, DEPLOYMENT AND DISTRIBUTION NOT AUTHORIZED**
+FOCUSED CORRECTION `04399fa`, TREE `ecf5e6f`, AND EXACT-HEAD RUN `29695449737` 10/10 GREEN;
+INDEPENDENT EXACT-DELTA REVIEW PENDING, SO DA1-PHYS-01 REMAINS OPEN AND GATES B–E NOT STARTED;
+PRODUCTION, DEPLOYMENT AND DISTRIBUTION NOT AUTHORIZED**
 Date: 2026-07-19
 Candidate Baseline Commit: `1bb2d7d7b38928643cfd5c86b36c500c35f73276`
 Candidate Baseline Tree: `c5c20f67155cdc0b4197908b4d1283cb7e619597`
@@ -406,7 +408,8 @@ micro-sprint handoffs while preserving every quality/security gate.
 ## 13. Current release gate
 
 **REPOSITORY IMPLEMENTATION INDEPENDENTLY APPROVED — AUTHORIZED HUMAN PHYSICAL GATE FAILED AT
-GATE A; DA1-PHYS-01 (P1) OPEN; PRODUCTION GATES REMAIN CLOSED.**
+GATE A; DA1-PHYS-01 (P1) CORRECTION PUBLISHED AND EXACT-HEAD CI GREEN, INDEPENDENT REVIEW
+PENDING; FINDING OPEN; PRODUCTION GATES REMAIN CLOSED.**
 
 Candidate publication, exact-head CI, independent zero-finding pre-implementation review, explicit
 Human acceptance of ADR-0012/Sections 3–13 and the separate exact-baseline repository
@@ -427,9 +430,11 @@ HMAC/decryption failure on a clean first start of the approved Galaxy A33/Androi
 authentication. `DA1-PHYS-01` is open as P1; no Gate-A tag scan occurred, Gates B–E were not
 started and no observation from the failed attempt may be reused.
 
-A correction, green exact-head CI, independent exact-delta approval and a later separate Human
-authorization are mandatory before a complete fresh Gate A–E restart. Production resources/data,
-deployment and distribution remain unauthorized.
+Focused correction `04399fa`, tree `ecf5e6f`, now passes the required native first-run/reopen,
+wrong/missing-key and backup-boundary evidence plus exact-head run `29695449737`, attempt 1, ten
+of ten jobs. Independent exact-delta approval and a later separate Human authorization remain
+mandatory before a complete fresh Gate A–E restart. Production resources/data, deployment and
+distribution remain unauthorized.
 
 ## 14. Independent review mandate
 
