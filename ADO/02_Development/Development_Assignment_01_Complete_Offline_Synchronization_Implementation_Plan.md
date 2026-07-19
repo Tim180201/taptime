@@ -323,5 +323,12 @@ first start before authentication. Gates B–E were not started. Focused correct
 the explicit Android backup/transfer boundary and exact-head run `29695449737` ten of ten.
 Independent exact-delta review of head `76be116`, tree `d320db3`, and exact-head run
 `29695605706` returned `APPROVED` with zero open P0/P1/P2/P3 and closed `DA1-PHYS-01`.
-Closure still requires a separately authorized complete fresh Gate-A–E run, truthful physical
-evidence synchronization and independent final closure review.
+The Human Architect then authorized a complete fresh restart on product `04399fa`, ADO head
+`fb4a4e4` and exact-head run `29696026676`. Gate A obtained a complete two-item Employee lease,
+then failed at step 4 after airplane-mode force-stop/relaunch without Auth/API reachability: the app
+showed `TapTim.e ist derzeit nicht verfügbar` instead of the explicit offline-capture state.
+`DA1-PHYS-02` is open as P1. No tag was scanned, lifecycle mutation counts remained zero and Gates
+B–E were not started. Closure now requires a focused correction, complete verification, green
+exact-head CI, independent exact-delta approval, another separate Human authorization, a complete
+fresh Gate-A–E run, truthful physical evidence synchronization and independent final closure
+review.

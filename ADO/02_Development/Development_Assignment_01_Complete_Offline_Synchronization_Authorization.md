@@ -9,9 +9,11 @@ DA1-IMPL-01 CLOSED; COMPLETE FRESH HUMAN PHYSICAL GATE AUTHORIZED ON ADO HEAD `7
 EXACT-HEAD RUN `29692785824`, BUT GATE A FAILED BEFORE LEASE ACTIVATION WITH DA1-PHYS-01 (P1);
 FOCUSED CORRECTION `04399fa`, TREE `ecf5e6f`, AND EXACT-HEAD RUN `29695449737` 10/10 GREEN;
 INDEPENDENT EXACT-DELTA REVIEW OF HEAD `76be116`, TREE `d320db3`, AND RUN `29695605706`
-APPROVED WITH ZERO OPEN P0/P1/P2/P3; DA1-PHYS-01 CLOSED; FAILED GATE A RETAINED, GATES B–E
-NOT STARTED; COMPLETE FRESH GATE-A–E RESTART REQUIRES SEPARATE HUMAN AUTHORIZATION;
-PRODUCTION, DEPLOYMENT AND DISTRIBUTION NOT AUTHORIZED**
+APPROVED WITH ZERO OPEN P0/P1/P2/P3; DA1-PHYS-01 CLOSED; SECOND COMPLETE FRESH GATE-A–E RUN
+AUTHORIZED ON PRODUCT `04399fa`, ADO HEAD `fb4a4e4` AND RUN `29696026676`, BUT GATE A FAILED AT
+STEP 4 WITH DA1-PHYS-02 (P1): TRUE OFFLINE COLD START CANNOT EXPOSE THE VALID LOCAL LEASE; NO
+GATE-A SCAN OCCURRED; GATES B–E NOT STARTED; PRODUCTION, DEPLOYMENT AND DISTRIBUTION NOT
+AUTHORIZED**
 Date: 2026-07-19
 Candidate Baseline Commit: `1bb2d7d7b38928643cfd5c86b36c500c35f73276`
 Candidate Baseline Tree: `c5c20f67155cdc0b4197908b4d1283cb7e619597`
@@ -411,9 +413,9 @@ micro-sprint handoffs while preserving every quality/security gate.
 
 ## 13. Current release gate
 
-**REPOSITORY IMPLEMENTATION AND DA1-PHYS-01 CORRECTION INDEPENDENTLY APPROVED — PRIOR
-AUTHORIZED HUMAN PHYSICAL GATE FAILED AT GATE A; DA1-PHYS-01 CLOSED; COMPLETE FRESH GATE-A–E
-RESTART REQUIRES SEPARATE HUMAN AUTHORIZATION; PRODUCTION GATES REMAIN CLOSED.**
+**REPOSITORY IMPLEMENTATION AND DA1-PHYS-01 CORRECTION INDEPENDENTLY APPROVED — SECOND
+AUTHORIZED COMPLETE FRESH HUMAN PHYSICAL GATE FAILED AT GATE A STEP 4 WITH DA1-PHYS-02 (P1);
+NO GATE-A SCAN OCCURRED; GATES B–E NOT STARTED; PRODUCTION GATES REMAIN CLOSED.**
 
 Candidate publication, exact-head CI, independent zero-finding pre-implementation review, explicit
 Human acceptance of ADR-0012/Sections 3–13 and the separate exact-baseline repository
@@ -442,6 +444,24 @@ The failed attempt remains historical evidence and Gates B–E were not started.
 Gate-A–E restart may now be separately authorized by the Human Architect, but is not authorized
 by this contract synchronization or review. Production resources/data, deployment and
 distribution remain unauthorized.
+
+The Human Architect subsequently authorized that complete fresh restart, bound to product
+correction `04399fa7ef8b3e58e44e82a81c0b0757acae1adc`, ADO synchronization head
+`fb4a4e4b1c457112372770b9e4e6532f9dca0555` and exact-head run `29696026676`. Fresh
+prerequisite setup and a clean Employee install produced one complete Employee lease with two
+declared and two stored items for the two active assignments. After airplane mode, removal of both
+USB reverse mappings, force-stop and cold relaunch without Auth/API reachability, the app showed
+`TapTim.e ist derzeit nicht verfügbar` instead of the mandatory explicit offline-capture state.
+No tag was scanned and server lifecycle counts remained zero.
+
+`DA1-PHYS-02` is open as P1. Transient provider-refresh unavailability becomes
+`runtime_unavailable`, while the navigation also lacks a safe offline-capture shell for the
+transient restoration state even when the offline coordinator has validated its local lease.
+Gate A failed at step 4; Gates B–E were not started and no observation from either failed attempt
+may be reused. A focused correction, complete verification, green exact-head CI, independent
+exact-delta approval and a new separate Human authorization are mandatory before another complete
+fresh Gate-A–E restart. Production resources/data, deployment and distribution remain
+unauthorized.
 
 ## 14. Independent review mandate
 

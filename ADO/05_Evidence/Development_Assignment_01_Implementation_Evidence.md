@@ -10,7 +10,9 @@ COMPLETE FRESH HUMAN PHYSICAL GATE AUTHORIZED ON ADO HEAD `72dc39e` AND EXACT-HE
 STARTED; FOCUSED CORRECTION `04399fa`, TREE `ecf5e6f`, AND EXACT-HEAD RUN `29695449737` 10/10
 GREEN; INDEPENDENT EXACT-DELTA REVIEW OF HEAD `76be116`, TREE `d320db3`, AND RUN `29695605706`
 APPROVED WITH ZERO OPEN P0/P1/P2/P3; DA1-PHYS-01 CLOSED; COMPLETE FRESH GATE-A–E RESTART
-REQUIRES SEPARATE HUMAN AUTHORIZATION; PRODUCTION, DEPLOYMENT AND DISTRIBUTION NOT AUTHORIZED**
+AUTHORIZED ON PRODUCT `04399fa`, ADO HEAD `fb4a4e4` AND RUN `29696026676`, BUT GATE A FAILED
+AT STEP 4 WITH DA1-PHYS-02 (P1); NO GATE-A SCAN OCCURRED; GATES B–E NOT STARTED; PRODUCTION,
+DEPLOYMENT AND DISTRIBUTION NOT AUTHORIZED**
 Date: 2026-07-19
 Human-Accepted Contract Commit: `592334160655cde2f4189712eaf327c8a7edcb0e`
 Implementation Baseline Commit: `180093091c47a926b5871a27ea8b00fb21b9b4ac`
@@ -40,6 +42,10 @@ DA1-PHYS-01 Correction Reviewed Tree:
 DA1-PHYS-01 Correction Reviewed-head CI: GitHub Actions run `29695605706`, attempt 1, push to
 `main`, 10/10 jobs successful
 DA1-PHYS-01 Correction Review: **APPROVED — zero open P0/P1/P2/P3; finding closed**
+Second Fresh Physical-gate Binding: product `04399fa7ef8b3e58e44e82a81c0b0757acae1adc`,
+ADO head `fb4a4e4b1c457112372770b9e4e6532f9dca0555`, exact-head run `29696026676`
+Second Fresh Physical-gate Result: **Gate A failed at step 4; DA1-PHYS-02 (P1) open; Gates B–E
+not started**
 Architecture:
 `ADO/01_Architecture/ADR/ADR-0012-complete-offline-synchronization-platform.md`
 Authorization:
@@ -262,10 +268,19 @@ It independently reproduced Mobile 385/385 plus tests-inclusive typecheck, Core 
 `DA1-PHYS-01` closed. See
 `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_01_Independent_Exact_Delta_Review.md`.
 
+The separately authorized complete fresh restart on product `04399fa`, ADO head `fb4a4e4` and
+run `29696026676` obtained a complete two-item Employee lease and reached `Bereit zum Scannen`.
+After airplane mode, removal of both Auth/API reverse mappings and force-stop/relaunch, the app
+showed `TapTim.e ist derzeit nicht verfügbar` instead of the mandatory explicit offline-capture
+state. No tag was scanned and server WorkEvent/Receipt/Decision/TimeEntry counts remained zero.
+`DA1-PHYS-02` is open as P1; Gate A failed at step 4 and Gates B–E were not started.
+
 Still pending and not claimed here:
 
-1. a separately authorized complete fresh Human Gate A–E run;
-2. truthful physical closure synchronization and independent final closure review; and
-3. any production resource/data, deployment or distribution decision.
+1. focused `DA1-PHYS-02` correction, complete verification, exact-head CI and independent
+   exact-delta approval;
+2. another separately authorized complete fresh Human Gate A–E run;
+3. truthful physical closure synchronization and independent final closure review; and
+4. any production resource/data, deployment or distribution decision.
 
 DT-060–DT-062 remain open until every applicable later gate is complete.

@@ -1,9 +1,11 @@
 # Development Assignment 1 — Human Physical Validation Evidence
 
 Date: 2026-07-19
-Status: **FAILED GATE A RETAINED AS HISTORICAL EVIDENCE; FOCUSED CORRECTION `04399fa` AND
-INDEPENDENT EXACT-DELTA REVIEW APPROVED WITH ZERO OPEN P0/P1/P2/P3; DA1-PHYS-01 CLOSED;
-GATES B–E NOT STARTED; COMPLETE FRESH GATE-A–E RESTART REQUIRES SEPARATE HUMAN AUTHORIZATION**
+Status: **FIRST FAILED GATE A RETAINED AS HISTORICAL EVIDENCE; DA1-PHYS-01 CLOSED BY
+INDEPENDENTLY APPROVED CORRECTION `04399fa`; SECOND AUTHORIZED COMPLETE FRESH GATE-A–E RUN
+FAILED AT GATE A STEP 4 WITH DA1-PHYS-02 (P1); NO GATE-A SCAN OCCURRED; GATES B–E NOT STARTED;
+FOCUSED CORRECTION, EXACT-HEAD CI, INDEPENDENT REVIEW AND A NEW SEPARATE HUMAN AUTHORIZATION ARE
+REQUIRED BEFORE ANOTHER COMPLETE FRESH RESTART**
 Owner: Human Architect + Technical Lead
 
 ## 1. Authorization and exact binding
@@ -231,9 +233,159 @@ claim. Full device behavior will be observed again in any separately authorized 
 Full review:
 `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_01_Independent_Exact_Delta_Review.md`.
 
-## 9. Exact next step
+## 9. Second complete fresh restart authorization
 
-Bind the approved correction product head, the current ADO synchronization head, exact-head CI and
-the exact APK/Web/harness artifacts. The Human Architect may then separately authorize a complete
-fresh restart of Gates A–E at Gate A step 1. No observation from this failed attempt may be reused.
-Production resources/data, deployment and distribution remain unauthorized.
+After the independent approval recorded in Section 8 and green synchronization-head CI, the Human
+Architect explicitly authorized a second complete fresh Gate-A–E run bound to:
+
+- independently approved product correction
+  `04399fa7ef8b3e58e44e82a81c0b0757acae1adc`, tree
+  `ecf5e6f9f5dbe83d9100deb98ab6126ef7473ead`;
+- ADO synchronization head `fb4a4e4b1c457112372770b9e4e6532f9dca0555`, tree
+  `90425dec113ddf1f1569a2a986faf878cd93bfdb`; and
+- exact-head GitHub Actions run `29696026676`, attempt 1, ten of ten jobs successful.
+
+The authorization required a complete restart at Gate A step 1 and prohibited reuse of every
+observation from the first failed attempt. Production resources/data, deployment and distribution
+remained unauthorized.
+
+## 10. Second fresh run — prerequisite and Gate A observations
+
+The approved Galaxy A33 5G on Android 15 was connected over USB. The exact corrected APK was
+installed from a clean package state and verified on the device:
+
+```text
+APK SHA-256=289885a6f123f070d82f79e85aaaddb87658305e3bc8caafd1def4c8158b732e
+APK size=95416211 bytes
+AirplaneMode=off
+NfcState=on
+AuthReverseMappings=1
+ApiReverseMappings=1
+```
+
+The strictly local synthetic backend began from a newly created disposable database. The approved
+Administration path prepared both physical tags again. Safe resulting state was:
+
+```text
+Customers=2
+NfcTags=2
+ActiveNfcAssignments=2
+AdminSetupReceipts=2
+AuditEvents=4
+WorkEvents=0
+SyncReceipts=0
+CanonicalDecisions=0
+TimeEntries=0
+```
+
+Because the encrypted local database is deliberately bound to one owner, attempting to reuse the
+Admin-owned local store for the Employee failed closed as `protected_pending`. This was prerequisite
+setup behavior, not an accepted Gate-A observation. With no pending evidence, the synthetic app was
+then removed and the same hash-verified APK was reinstalled from a clean package state for the
+Employee run; the server-side two-tag setup remained intact.
+
+### 10.1 Gate A steps 1–2
+
+The enrolled synthetic Employee authenticated while the local backend was reachable. The app
+reached **Bereit zum Scannen**. Sanitized server inspection proved the complete Employee projection:
+
+```text
+EmployeeLeases=1
+EmployeeLeaseDeclaredItems=2
+EmployeeLeaseItems=2
+ActiveNfcAssignments=2
+ActiveCustomers=2
+WorkEvents=0
+```
+
+No tag was scanned.
+
+### 10.2 Gate A step 3
+
+The Human tester enabled airplane mode. System inspection confirmed airplane mode active and NFC
+still enabled. Both USB API reverse mappings were removed, leaving the application unable to reach
+either the synthetic Auth listener or the TapTim.e API. The app was force-stopped and relaunched
+from its installed release package; no Metro process participated.
+
+### 10.3 Gate A step 4 failure
+
+Instead of the mandatory explicit **Offline bereit** state with queue count zero, the exact app
+showed:
+
+```text
+Sitzung wird sicher wiederhergestellt …
+TapTim.e ist derzeit nicht verfügbar.
+```
+
+Logcat showed repeated connection refusal to the configured numeric-loopback Auth endpoint after
+the cold start. No SQLCipher, SQLite, key-loss or database-integrity failure occurred. The server
+remained at zero WorkEvents/SyncReceipts/CanonicalDecisions/TimeEntries. No Gate-A tag scan
+occurred, and Gates B–E were not started.
+
+## 11. Open finding
+
+### DA1-PHYS-02 — P1 — True offline cold start cannot expose the valid local capture lease
+
+The complete two-item Employee lease is durably activated before airplane mode, but a true cold
+start with both Auth and API unreachable cannot reach the authorized offline-capture UI:
+
+1. `MobileSessionCoordinator.performRefresh()` maps transient provider-refresh unavailability to
+   `runtime_unavailable`, not to the typed transient restoration state from which the offline
+   coordinator may validate its local lease; and
+2. `AppNavigator` renders a generic retry/sign-out message for `context_unavailable` and does not
+   render the `ScanScreen` when the offline coordinator has independently reached
+   `offline_ready`.
+
+The behavior fails closed and discloses no old-owner detail, but it blocks the primary true
+cold-start offline capability explicitly required by Authorization Section 9 and ADR-0012.
+Severity is therefore P1.
+
+The focused correction must preserve all existing authority and numeric policies while proving:
+
+- transient Auth and/or API unreachability after a persisted refresh token does not become a
+  storage/runtime failure;
+- only a valid, same-owner, same-installation, unexpired local lease may enable the offline
+  capture shell;
+- rejection, logout, missing/corrupt storage, owner mismatch and expired/invalid lease remain
+  fail-closed;
+- the safe offline shell exposes no token, identifier or old-owner detail;
+- the exact native build reaches **Offline bereit** after airplane-mode force-stop/relaunch with
+  both local listeners unreachable; and
+- all prior Mobile/session/navigation/offline tests plus new regressions remain green.
+
+Disposition: **Open**. No production-code correction was performed during the failed gate.
+
+## 12. Second-run gate disposition and cleanup
+
+| Gate | Result |
+|---|---|
+| A — lease and true cold-start offline capture | **FAILED / BLOCKED at step 4** |
+| B — automatic FIFO synchronization | Not started |
+| C — idempotency and lost response | Not started |
+| D — stale authority/configuration fail closed | Not started |
+| E — background capability truth and cleanup | Functional observations not started; abort cleanup completed |
+
+No observation from either failed attempt may be reused in a later complete Gate-A–E run.
+
+Abort cleanup was verified:
+
+- airplane mode off;
+- synthetic Mobile process stopped and package removed;
+- no Admin Web session started;
+- local harness/listeners stopped;
+- disposable database count: `0`;
+- generated synthetic PostgreSQL role count: `0`;
+- USB reverse mapping count: `0`; and
+- clipboard cleared.
+
+No password, token, key, provider subject, raw NFC UID, internal identifier or personal data was
+recorded.
+
+## 13. Exact next step
+
+Implement one focused `DA1-PHYS-02` correction inside the already Human-authorized Development
+Assignment 1 repository scope. Before any new Human Physical Gate, the correction requires complete
+relevant verification, a focused commit, green exact-head CI and independent exact-delta review
+with zero open P0/P1/P2/P3. A third complete fresh Gate-A–E run then requires another separate
+Human-Architect authorization and must restart at Gate A step 1. Production resources/data,
+deployment and distribution remain unauthorized.
