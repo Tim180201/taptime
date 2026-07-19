@@ -228,8 +228,65 @@ describe('Mobile FIFO scheduler and legacy migration', () => {
       workEventId: ids.event,
       receiptId: ids.receipt,
       deviceSequence: 1,
-    });
+    }, 'synchronized');
   });
+
+  it('persists a review result before deletion and never downgrades it on an empty later trigger',
+    async () => {
+      const command = offlineCommand();
+      let reviewPendingSequence: number | null = null;
+      const database = fakeDatabase({
+        queueCount: vi.fn()
+          .mockResolvedValueOnce(1)
+          .mockResolvedValueOnce(0)
+          .mockResolvedValueOnce(0),
+        claimLegacyHead: vi.fn(async () => null),
+        claimHead: vi.fn(async () => ({
+          state: 'in_flight',
+          attemptCount: 0,
+          nextAttemptAt: null,
+          command,
+        })),
+        acknowledgeHead: vi.fn(async (
+          identity: { readonly deviceSequence: number },
+          status: 'synchronized' | 'review_pending',
+        ) => {
+          if (status === 'review_pending') {
+            reviewPendingSequence ??= identity.deviceSequence;
+          }
+        }),
+        readReviewPendingSequence: vi.fn(async () => reviewPendingSequence),
+      });
+      const offline: OfflineLifecycleApiPort = {
+        async reconcile() { return { status: 'ready', records: [] }; },
+        async ingest() {
+          return {
+            status: 'review_pending',
+            idempotentRetry: false,
+            reason: 'historical_configuration_not_valid',
+            workEventId: ids.event,
+            receiptId: ids.receipt,
+            deviceSequence: 1,
+          };
+        },
+      };
+      const scheduler = schedulerFor(database, offline);
+
+      await expect(scheduler.trigger('network_hint')).resolves.toEqual({
+        status: 'review_pending',
+        queueCount: 0,
+      });
+      expect(database.acknowledgeHead).toHaveBeenCalledWith({
+        workEventId: ids.event,
+        receiptId: ids.receipt,
+        deviceSequence: 1,
+      }, 'review_pending');
+      await expect(scheduler.trigger('session_restored')).resolves.toEqual({
+        status: 'review_pending',
+        queueCount: 0,
+      });
+      expect(database.claimHead).toHaveBeenCalledTimes(1);
+    });
 
   it('coalesces overlapping triggers into one flight and retains the exact FIFO head', async () => {
     let release!: () => void;
@@ -423,6 +480,7 @@ function fakeDatabase(
   overrides: Record<string, unknown>,
 ): OfflineCaptureDatabase & Record<string, ReturnType<typeof vi.fn>> {
   return {
+    readReviewPendingSequence: vi.fn(async () => null),
     ...overrides,
   } as unknown as OfflineCaptureDatabase & Record<string, ReturnType<typeof vi.fn>>;
 }

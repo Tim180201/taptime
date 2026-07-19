@@ -124,6 +124,41 @@ describe('OfflineCaptureCoordinator', () => {
     expect(coordinator.getState()).toEqual({ status: 'saved_locally', queueCount: 1 });
   });
 
+  it('keeps a durable review warning dominant across authenticated lease restoration', async () => {
+    const database = databaseFake({
+      initialize: vi.fn(async () => ({ status: 'ready' })),
+      hasProtectedLegacy: vi.fn(async () => false),
+      bindOwner: vi.fn(async () => ({ status: 'ready' })),
+      activateLease: vi.fn(async () => ({ status: 'ready' })),
+      queueCount: vi.fn(async () => 0),
+      readReviewPendingSequence: vi.fn(async () => 12),
+      close: vi.fn(async () => undefined),
+    });
+    const coordinator = new OfflineCaptureCoordinator(
+      { async scan() { return { status: 'cancelled' }; } },
+      nfcLifecycle(),
+      sessionReader({ status: 'authenticated', session }, snapshot),
+      identityStore(),
+      () => database,
+      leaseClient(),
+      new AndroidMonotonicClock({
+        async sample() {
+          return { bootMarker: 'boot-1', elapsedRealtimeMilliseconds: 100 };
+        },
+      }),
+      () => schedulerFake([]),
+      emptyOutbox(),
+      sequentialUuid([ids.command]),
+    );
+
+    await coordinator.start();
+
+    expect(coordinator.getState()).toEqual({
+      status: 'server_review_pending',
+      queueCount: 0,
+    });
+  });
+
   it('opens cold-start capture only for a typed transient context failure and same-boot lease',
     async () => {
       const database = databaseFake({
@@ -285,7 +320,10 @@ describe('OfflineCaptureCoordinator', () => {
 function databaseFake(
   methods: Record<string, ReturnType<typeof vi.fn>>,
 ): OfflineCaptureDatabase & Record<string, ReturnType<typeof vi.fn>> {
-  return methods as unknown as OfflineCaptureDatabase
+  return {
+    readReviewPendingSequence: vi.fn(async () => null),
+    ...methods,
+  } as unknown as OfflineCaptureDatabase
     & Record<string, ReturnType<typeof vi.fn>>;
 }
 

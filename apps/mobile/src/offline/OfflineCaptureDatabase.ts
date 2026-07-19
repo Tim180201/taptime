@@ -114,6 +114,7 @@ interface OwnerRow {
   readonly installation_id: string | null;
   readonly identity_binding_id: string | null;
   readonly next_device_sequence: number;
+  readonly review_pending_sequence: number | null;
   readonly capture_invalidated: number;
 }
 
@@ -239,7 +240,17 @@ export class OfflineCaptureDatabase {
         if (version.user_version === 0) {
           try {
             await database.withExclusiveTransactionAsync(async (transaction) => {
-              await transaction.execAsync(OFFLINE_SCHEMA_V1);
+              await transaction.execAsync(OFFLINE_SCHEMA_V2);
+              await transaction.execAsync(`PRAGMA user_version = ${OFFLINE_LOCAL_SCHEMA_VERSION}`);
+            });
+          } catch {
+            await database.closeAsync().catch(() => undefined);
+            return { status: 'migration_failed' };
+          }
+        } else if (version.user_version === 1) {
+          try {
+            await database.withExclusiveTransactionAsync(async (transaction) => {
+              await transaction.execAsync(OFFLINE_SCHEMA_V1_TO_V2);
               await transaction.execAsync(`PRAGMA user_version = ${OFFLINE_LOCAL_SCHEMA_VERSION}`);
             });
           } catch {
@@ -290,8 +301,8 @@ export class OfflineCaptureDatabase {
             `INSERT INTO offline_owner (
                singleton_id, organization_id, user_id, membership_id,
                installation_binding_digest, installation_id, identity_binding_id,
-               next_device_sequence, capture_invalidated
-             ) VALUES (1, ?, ?, ?, ?, NULL, NULL, 0, 0)`,
+               next_device_sequence, review_pending_sequence, capture_invalidated
+             ) VALUES (1, ?, ?, ?, ?, NULL, NULL, 0, NULL, 0)`,
             [
               owner.organizationId,
               owner.userId,
@@ -1025,14 +1036,32 @@ export class OfflineCaptureDatabase {
     });
   }
 
-  acknowledgeHead(identity: {
-    readonly deviceSequence: number;
-    readonly workEventId: string;
-    readonly receiptId: string;
-  }): Promise<void> {
+  acknowledgeHead(
+    identity: {
+      readonly deviceSequence: number;
+      readonly workEventId: string;
+      readonly receiptId: string;
+    },
+    durableStatus: 'synchronized' | 'review_pending' = 'synchronized',
+  ): Promise<void> {
     return this.serialized(async () => {
       const database = this.requireReady();
       await database.withExclusiveTransactionAsync(async (transaction) => {
+        if (durableStatus === 'review_pending') {
+          const marked = await transaction.runAsync(
+            `UPDATE offline_owner
+             SET review_pending_sequence = COALESCE(review_pending_sequence, ?)
+             WHERE singleton_id = 1
+               AND (
+                 review_pending_sequence IS NULL
+                 OR review_pending_sequence <= ?
+               )`,
+            [identity.deviceSequence, identity.deviceSequence],
+          );
+          if (marked.changes !== 1) {
+            throw new Error('Offline review acknowledgement sequence mismatch');
+          }
+        }
         const deleted = await transaction.runAsync(
           `DELETE FROM offline_event_queue
            WHERE device_sequence = ? AND work_event_id = ? AND receipt_id = ?
@@ -1045,6 +1074,26 @@ export class OfflineCaptureDatabase {
           throw new Error('Offline durable acknowledgement identity mismatch');
         }
       });
+    });
+  }
+
+  readReviewPendingSequence(): Promise<number | null> {
+    return this.serialized(async () => {
+      const row = await this.requireReady().getFirstAsync<{
+        readonly review_pending_sequence: number | null;
+      }>(
+        `SELECT review_pending_sequence
+         FROM offline_owner
+         WHERE singleton_id = 1`,
+      );
+      if (row === null || row.review_pending_sequence === null) return null;
+      if (
+        !Number.isSafeInteger(row.review_pending_sequence)
+        || row.review_pending_sequence <= 0
+      ) {
+        throw new Error('Offline review acknowledgement sequence is invalid');
+      }
+      return row.review_pending_sequence;
     });
   }
 
@@ -1106,6 +1155,14 @@ export class OfflineCaptureDatabase {
         })
         || !Number.isSafeInteger(owner.next_device_sequence)
         || owner.next_device_sequence < 0
+        || (
+          owner.review_pending_sequence !== null
+          && (
+            !Number.isSafeInteger(owner.review_pending_sequence)
+            || owner.review_pending_sequence <= 0
+            || owner.review_pending_sequence > owner.next_device_sequence
+          )
+        )
       )
     ) {
       return this.protect('corrupt_row');
@@ -1449,7 +1506,7 @@ function hasExactKeys(
   return actual.length === keys.length && actual.every((key) => keys.includes(key));
 }
 
-const OFFLINE_SCHEMA_V1 = `
+const OFFLINE_SCHEMA_V2 = `
 CREATE TABLE offline_owner (
   singleton_id INTEGER PRIMARY KEY CHECK (singleton_id = 1),
   organization_id TEXT NOT NULL,
@@ -1459,6 +1516,13 @@ CREATE TABLE offline_owner (
   installation_id TEXT,
   identity_binding_id TEXT,
   next_device_sequence INTEGER NOT NULL DEFAULT 0 CHECK (next_device_sequence >= 0),
+  review_pending_sequence INTEGER CHECK (
+    review_pending_sequence IS NULL
+    OR (
+      review_pending_sequence > 0
+      AND review_pending_sequence <= next_device_sequence
+    )
+  ),
   capture_invalidated INTEGER NOT NULL DEFAULT 0 CHECK (capture_invalidated IN (0, 1))
 ) STRICT;
 
@@ -1611,4 +1675,15 @@ BEFORE DELETE ON offline_protected_quarantine
 BEGIN
   SELECT RAISE(ABORT, 'protected evidence cannot be deleted automatically');
 END;
+`;
+
+const OFFLINE_SCHEMA_V1_TO_V2 = `
+ALTER TABLE offline_owner
+ADD COLUMN review_pending_sequence INTEGER CHECK (
+  review_pending_sequence IS NULL
+  OR (
+    review_pending_sequence > 0
+    AND review_pending_sequence <= next_device_sequence
+  )
+);
 `;

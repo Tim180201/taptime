@@ -112,7 +112,14 @@ export class OfflineSyncScheduler {
       const queueCount = await this.safeQueueCount();
       if (queueCount === null) return this.publish({ status: 'protected', queueCount: 0 });
       if (queueCount === 0) {
-        if (lastDurable?.status === 'review_pending') {
+        const reviewPendingSequence = await this.safeReviewPendingSequence();
+        if (reviewPendingSequence === undefined) {
+          return this.publish({ status: 'protected', queueCount: 0 });
+        }
+        if (
+          lastDurable?.status === 'review_pending'
+          || reviewPendingSequence !== null
+        ) {
           return this.publish({ status: 'review_pending', queueCount: 0 });
         }
         if (lastDurable?.status === 'server_decision') {
@@ -251,7 +258,7 @@ export class OfflineSyncScheduler {
         };
       }
       try {
-        await this.database.acknowledgeHead(identity);
+        await this.database.acknowledgeHead(identity, recovered.result.status);
       } catch {
         return {
           status: 'stop',
@@ -284,7 +291,7 @@ export class OfflineSyncScheduler {
         };
       }
       try {
-        await this.database.acknowledgeHead(identity);
+        await this.database.acknowledgeHead(identity, result.status);
       } catch {
         return {
           status: 'stop',
@@ -388,6 +395,14 @@ export class OfflineSyncScheduler {
       return await this.database.queueCount();
     } catch {
       return null;
+    }
+  }
+
+  private async safeReviewPendingSequence(): Promise<number | null | undefined> {
+    try {
+      return await this.database.readReviewPendingSequence();
+    } catch {
+      return undefined;
     }
   }
 

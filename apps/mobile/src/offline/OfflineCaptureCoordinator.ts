@@ -480,7 +480,27 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
         : { status: capability });
       return;
     }
-    const queueCount = await this.database?.queueCount().catch(() => 0) ?? 0;
+    const database = this.database;
+    if (database === null) {
+      this.setState({ status: 'protected_pending', reason: 'local_evidence_protected' });
+      return;
+    }
+    let queueCount: number;
+    let reviewPendingSequence: number | null;
+    try {
+      [queueCount, reviewPendingSequence] = await Promise.all([
+        database.queueCount(),
+        database.readReviewPendingSequence(),
+      ]);
+    } catch {
+      this.setState({ status: 'protected_pending', reason: 'local_evidence_protected' });
+      return;
+    }
+    if (!this.started || this.captureMode !== mode) return;
+    if (reviewPendingSequence !== null) {
+      this.setState({ status: 'server_review_pending', queueCount });
+      return;
+    }
     if (mode === 'offline') {
       this.setState({ status: 'offline_ready', queueCount, outcome });
     } else {

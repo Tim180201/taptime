@@ -41,8 +41,24 @@ describe('OfflineCaptureDatabase state machine', () => {
       await expect(store.initialize()).resolves.toEqual({ status: 'ready' });
       expect(native.execLog[0]).toMatch(/^PRAGMA key = "x'[0-9a-f]{64}'"$/);
       expect(native.execLog.some((sql) => sql.includes('CREATE TABLE offline_owner'))).toBe(true);
-      expect(native.userVersion).toBe(1);
+      expect(native.userVersion).toBe(2);
       expect(native.exclusiveTransactions).toBeGreaterThanOrEqual(2);
+    });
+
+  it('migrates schema v1 exclusively and preserves its owner while adding durable review state',
+    async () => {
+      const native = new MemoryOfflineDatabase();
+      native.userVersion = 1;
+      native.owner = memoryOwner();
+      const store = new OfflineCaptureDatabase(async () => native, installationBinding);
+
+      await expect(store.initialize()).resolves.toEqual({ status: 'ready' });
+      expect(native.execLog.some((sql) => (
+        sql.includes('ADD COLUMN review_pending_sequence')
+      ))).toBe(true);
+      expect(native.userVersion).toBe(2);
+      await expect(store.readReviewPendingSequence()).resolves.toBeNull();
+      expect(native.owner).toMatchObject(memoryOwner());
     });
 
   it('fails protected before schema access when cipher integrity is not exact', async () => {
@@ -115,8 +131,9 @@ describe('OfflineCaptureDatabase state machine', () => {
         deviceSequence: 1,
         workEventId: ids.event1,
         receiptId: ids.receipt2,
-      })).rejects.toThrow('identity mismatch');
+      }, 'review_pending')).rejects.toThrow('identity mismatch');
       await expect(store.queueCount()).resolves.toBe(2);
+      await expect(store.readReviewPendingSequence()).resolves.toBeNull();
 
       await store.retainHeadForRetry({
         deviceSequence: 1,
@@ -129,7 +146,8 @@ describe('OfflineCaptureDatabase state machine', () => {
         deviceSequence: 1,
         workEventId: ids.event1,
         receiptId: ids.receipt1,
-      });
+      }, 'review_pending');
+      await expect(store.readReviewPendingSequence()).resolves.toBe(1);
       expect((await store.claimHead(30_001))?.command.deviceSequence).toBe(2);
     });
 
@@ -255,6 +273,7 @@ interface MemoryOwner {
   installation_id: string | null;
   identity_binding_id: string | null;
   next_device_sequence: number;
+  review_pending_sequence: number | null;
   capture_invalidated: number;
 }
 
@@ -325,6 +344,7 @@ class MemoryOfflineDatabase implements OfflineDatabaseConnection {
         installation_id: null,
         identity_binding_id: null,
         next_device_sequence: 0,
+        review_pending_sequence: null,
         capture_invalidated: 0,
       };
       return { changes: 1 };
@@ -408,6 +428,17 @@ class MemoryOfflineDatabase implements OfflineDatabaseConnection {
       row.state = 'retry_wait';
       row.attemptCount = Number(values[0]);
       row.nextAttemptAt = Number(values[1]);
+      return { changes: 1 };
+    }
+    if (source.includes('SET review_pending_sequence = COALESCE')) {
+      if (
+        this.owner === null
+        || (
+          this.owner.review_pending_sequence !== null
+          && this.owner.review_pending_sequence > Number(values[1])
+        )
+      ) return { changes: 0 };
+      this.owner.review_pending_sequence ??= Number(values[0]);
       return { changes: 1 };
     }
     if (source.includes('DELETE FROM offline_event_queue')) {
@@ -577,6 +608,7 @@ function memoryOwner(): MemoryOwner {
     installation_id: ids.installation,
     identity_binding_id: ids.identityBinding,
     next_device_sequence: 0,
+    review_pending_sequence: null,
     capture_invalidated: 0,
   };
 }
