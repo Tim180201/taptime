@@ -37,12 +37,18 @@ lock and real cross-route PostgreSQL serialization test were published as correc
 tree `7a159ce`, and passed exact-head GitHub Actions run `29692113159`, attempt 1, ten of ten jobs.
 The complete corrected local regression passes 1,626 tests. Independent exact-delta re-review
 bound final reviewed head `767043d`, tree `19c434a`, and final-head run `29692304824` and returned
-`APPROVED` with zero open P0/P1/P2/P3; `DA1-IMPL-01` is closed. The separate Human-Architect
-authorization for the complete fresh Physical Gate may now be requested but has not yet been
-granted. Implementation and review evidence:
+`APPROVED` with zero open P0/P1/P2/P3; `DA1-IMPL-01` is closed. The Human Architect subsequently
+authorized the complete fresh Physical Gate against ADO head `72dc39e` and exact-head run
+`29692785824`. Gate A failed before lease activation: on the approved Galaxy A33/Android-15 device,
+the exact hash-verified APK reproduced SQLCipher page-1 HMAC/decryption failure on clean first start
+before authentication after package-scoped backup cleanup, app-data clear and a probe with Android
+Backup Manager disabled. `DA1-PHYS-01` (P1) is open; Gates B–E were not started and a complete
+fresh restart is prohibited until correction,
+independent approval and green exact-head CI. Implementation, review and physical evidence:
 `ADO/05_Evidence/Development_Assignment_01_Implementation_Evidence.md` and
-`ADO/05_Evidence/Development_Assignment_01_Independent_Implementation_Review.md`.
-Production, deployment, distribution and Human Physical Gate execution remain unauthorized.
+`ADO/05_Evidence/Development_Assignment_01_Independent_Implementation_Review.md` and
+`ADO/05_Evidence/Development_Assignment_01_Physical_Validation_Evidence.md`.
+Production, deployment and distribution remain unauthorized.
 
 This file is the official navigation entry point for the TapTim.e ADO.
 
@@ -140,7 +146,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Feature Blueprint Standard | `ADO/01_Architecture/Feature_Blueprint_Standard.md` |
 | Technical Architecture Profile (TTAP-001) | `ADO/01_Architecture/Technical_Architecture_Profile.md` |
 | Development Task Profile | `ADO/01_Architecture/Development_Task_Profile.md` |
-| Architecture Decision Records (through Human-accepted ADR-0012; DA1-IMPL-01 independently closed, separate Human Physical Gate authorization pending) | `ADO/01_Architecture/ADR/` |
+| Architecture Decision Records (through Human-accepted ADR-0012; DA1-IMPL-01 independently closed; authorized DA1 Physical Gate blocked by DA1-PHYS-01) | `ADO/01_Architecture/ADR/` |
 | Feature Blueprints (incl. FB-001, FB-002) | `ADO/01_Architecture/Feature_Blueprints/` |
 | Technical Specifications (incl. TS-001, TS-002) | `ADO/01_Architecture/Technical_Specifications/` |
 | Developer Implementation Manual (EP-008) | `ADO/01_Architecture/Developer_Implementation_Manual/` |
@@ -203,6 +209,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Development Assignment 1 Independent Pre-Implementation Review | `ADO/05_Evidence/Development_Assignment_01_Independent_Pre_Implementation_Review.md` |
 | Development Assignment 1 Local Implementation Evidence | `ADO/05_Evidence/Development_Assignment_01_Implementation_Evidence.md` |
 | Development Assignment 1 Independent Implementation Review and Correction Disposition | `ADO/05_Evidence/Development_Assignment_01_Independent_Implementation_Review.md` |
+| Development Assignment 1 Human Physical Validation Evidence — Gate A blocked by DA1-PHYS-01 | `ADO/05_Evidence/Development_Assignment_01_Physical_Validation_Evidence.md` |
 | Product Readiness Reassessment — C3D Closure Delta | `ADO/05_Evidence/Product_Readiness_Reassessment_2026-07-15_C3D_Closure_Delta.md` |
 | EP-008 Evidence (incl. Repository Health Follow-up) | `ADO/05_Evidence/EP-008/` |
 | Evidence Area | `ADO/05_Evidence/` |

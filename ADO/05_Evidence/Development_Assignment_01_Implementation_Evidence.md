@@ -5,8 +5,9 @@ IMPLEMENTATION EXACT-HEAD CI 10/10 GREEN; INDEPENDENT IMPLEMENTATION REVIEW RETU
 REQUIRED FOR DA1-IMPL-01 (P2); FOCUSED CORRECTION `c71399a`, TREE `7a159ce`, PUBLISHED AND
 EXACT-HEAD RUN `29692113159` 10/10 GREEN; INDEPENDENT EXACT-DELTA RE-REVIEW OF FINAL HEAD
 `767043d`, TREE `19c434a`, APPROVED WITH ZERO OPEN P0/P1/P2/P3 AND DA1-IMPL-01 CLOSED;
-SEPARATE HUMAN PHYSICAL GATE AUTHORIZATION MAY BE REQUESTED BUT IS NOT YET GRANTED; PRODUCTION,
-DEPLOYMENT AND DISTRIBUTION NOT AUTHORIZED**
+COMPLETE FRESH HUMAN PHYSICAL GATE AUTHORIZED ON ADO HEAD `72dc39e` AND EXACT-HEAD RUN
+`29692785824`, BUT GATE A FAILED BEFORE LEASE ACTIVATION WITH DA1-PHYS-01 (P1); GATES B–E NOT
+STARTED; PRODUCTION, DEPLOYMENT AND DISTRIBUTION NOT AUTHORIZED**
 Date: 2026-07-19
 Human-Accepted Contract Commit: `592334160655cde2f4189712eaf327c8a7edcb0e`
 Implementation Baseline Commit: `180093091c47a926b5871a27ea8b00fb21b9b4ac`
@@ -214,11 +215,19 @@ The renewed independent exact-delta review bound final reviewed head
 ten-job runs `29692113159` and `29692304824`. It returned **APPROVED** with zero open
 P0/P1/P2/P3 and closed `DA1-IMPL-01`.
 
+The Human Architect subsequently authorized the complete fresh Human Physical Gate. Gate A failed
+at step 2 before lease activation with `DA1-PHYS-01` (P1): the exact hash-verified APK reproduced
+SQLCipher page-1 HMAC/decryption failure on clean first start of the approved
+Galaxy-A33/Android-15 device before authentication after package-scoped backup cleanup, app-data
+clear and a probe with Android Backup Manager disabled. No Gate-A tag scan occurred and Gates B–E
+were not started. See
+`ADO/05_Evidence/Development_Assignment_01_Physical_Validation_Evidence.md`.
+
 Still pending and not claimed here:
 
-1. separate Human authorization for the complete fresh Human Physical Gate;
-2. the Human observations themselves and later closure synchronization;
-3. independent final closure review; and
+1. focused correction, exact-head CI and independent exact-delta approval for `DA1-PHYS-01`;
+2. a later separately authorized complete fresh Human Gate A–E run;
+3. truthful closure synchronization and independent final closure review; and
 4. any production resource/data, deployment or distribution decision.
 
 DT-060–DT-062 remain open until every applicable later gate is complete.

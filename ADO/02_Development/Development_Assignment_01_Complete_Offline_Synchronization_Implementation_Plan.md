@@ -4,8 +4,10 @@ Status: **REPOSITORY IMPLEMENTATION PUBLISHED, TECHNICAL-LEAD APPROVED AND ORIGI
 10/10 GREEN — INDEPENDENT IMPLEMENTATION REVIEW RETURNED CHANGES REQUIRED FOR DA1-IMPL-01 (P2);
 FOCUSED CORRECTION `c71399a`, TREE `7a159ce`, PUBLISHED AND EXACT-HEAD RUN `29692113159` 10/10
 GREEN; INDEPENDENT EXACT-DELTA RE-REVIEW OF FINAL HEAD `767043d`, TREE `19c434a`, APPROVED WITH
-ZERO OPEN P0/P1/P2/P3 AND DA1-IMPL-01 CLOSED; SEPARATE HUMAN PHYSICAL GATE AUTHORIZATION MAY BE
-REQUESTED BUT IS NOT YET GRANTED; PRODUCTION, DEPLOYMENT AND DISTRIBUTION NOT AUTHORIZED**
+ZERO OPEN P0/P1/P2/P3 AND DA1-IMPL-01 CLOSED; COMPLETE FRESH HUMAN PHYSICAL GATE AUTHORIZED ON
+ADO HEAD `72dc39e` AND EXACT-HEAD RUN `29692785824`, BUT GATE A FAILED BEFORE LEASE ACTIVATION
+WITH DA1-PHYS-01 (P1); GATES B–E NOT STARTED; PRODUCTION, DEPLOYMENT AND DISTRIBUTION NOT
+AUTHORIZED**
 Date: 2026-07-19
 Implementation Baseline Commit: `180093091c47a926b5871a27ea8b00fb21b9b4ac`
 Implementation Baseline Tree: `73e77b6ca5dfd7671cdd3d77a344168fddff3627`
@@ -14,6 +16,8 @@ Authorization:
 `ADO/02_Development/Development_Assignment_01_Complete_Offline_Synchronization_Authorization.md`
 Independent Implementation Review and Correction Disposition:
 `ADO/05_Evidence/Development_Assignment_01_Independent_Implementation_Review.md`
+Physical Validation Evidence:
+`ADO/05_Evidence/Development_Assignment_01_Physical_Validation_Evidence.md`
 Owner: Technical Lead
 
 ## 1. Objective and non-negotiable boundary
@@ -308,7 +312,10 @@ Stop and escalate before continuing if implementation would require:
 
 ## 8. Closure truth
 
-Repository implementation success alone will not close Development Assignment 1. Closure still
-requires a separately authorized fresh Human Physical Gate, truthful evidence synchronization and
-independent final closure review. Green exact-head CI and independent zero-finding implementation
-review are complete; the separate Human authorization has not yet been granted.
+Repository implementation success alone will not close Development Assignment 1. The separately
+authorized fresh Human Physical Gate failed at Gate A before lease activation with
+`DA1-PHYS-01` (P1): the exact APK reproduced SQLCipher page-1 HMAC/decryption failure on clean
+first start before authentication. Gates B–E were not started. Closure now requires a focused
+correction, green exact-head CI, independent exact-delta approval, a later separately authorized
+complete fresh Gate A–E run, truthful evidence synchronization and independent final closure
+review.
