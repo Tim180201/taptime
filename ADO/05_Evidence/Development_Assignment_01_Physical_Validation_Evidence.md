@@ -1,14 +1,13 @@
 # Development Assignment 1 — Human Physical Validation Evidence
 
 Date: 2026-07-20
-Status: **FIRST TWO FAILED GATES RETAINED AS HISTORICAL EVIDENCE; DA1-PHYS-01 AND
-DA1-PHYS-02 CLOSED BY INDEPENDENT REVIEW; THIRD COMPLETE FRESH GATE AUTHORIZED AND EXECUTED;
-GATES A–C PASSED, GATE D SERVER SAFETY PASSED BUT MANDATORY MOBILE REVIEW-STATE TRUTH FAILED
-WITH DA1-PHYS-03 (P1), GATE E NOT STARTED; COMPLETE ABORT CLEANUP PASSED; FOCUSED PRODUCT
-CORRECTION `7dbda3b`, TREE `e6abc9e`, PUBLISHED AND EXACT-HEAD RUN `29700339367` 10/10 GREEN;
-INDEPENDENT EXACT-DELTA REVIEW OF HEAD `798bada`, TREE `d181370`, APPROVED WITH ZERO OPEN
-P0/P1/P2/P3; DA1-PHYS-03 REPOSITORY FINDING CLOSED; CORRECTED PHYSICAL EFFECT NOT YET
-OBSERVED; NO FOURTH PHYSICAL RUN AUTHORIZED**
+Status: **FIRST THREE FAILED GATES RETAINED AS HISTORICAL EVIDENCE; DA1-PHYS-01,
+DA1-PHYS-02 AND DA1-PHYS-03 REPOSITORY FINDINGS CLOSED BY INDEPENDENT REVIEW; FOURTH COMPLETE
+FRESH GATE AUTHORIZED ON PRODUCT `7dbda3b`, REVIEWED ADO `798bada`, REVIEW SYNCHRONIZATION
+`73b5105` AND EXACT-HEAD RUN `29714165784`; GATE A STEPS 1–4 PASSED BUT STEP 5 FAILED BECAUSE
+THREE NATIVE NFC CAPTURES WERE INVALIDATED BEFORE LOCAL APPEND; DA1-PHYS-04 (P1) OPEN; GATES
+B–E NOT STARTED; COMPLETE ABORT CLEANUP PASSED; PRODUCTION, DEPLOYMENT AND DISTRIBUTION NOT
+AUTHORIZED**
 Owner: Human Architect + Technical Lead
 
 ## 1. Authorization and exact binding
@@ -583,14 +582,14 @@ exact uninstalled correction artifact built from `7dbda3b` is 95,422,571 bytes w
 Independent exact-delta review of final ADO head `798bada`, tree `d181370`, returned
 `APPROVED` with zero open P0/P1/P2/P3. `DA1-PHYS-03` is closed as a repository finding.
 No corrected physical result, fourth-run authorization, production authority, deployment or
-distribution is claimed.
+distribution was claimed at that point.
 
 ## 21. Historical next step after the third-run failure
 
 The required ADO synchronization and exact-head CI were published, followed by the independent
-read-only exact-delta review recorded in Section 22. A fourth complete fresh Gate A–E run still
-requires a new, separate Human-Architect authorization and may reuse no observation from any
-failed run.
+read-only exact-delta review recorded in Section 22. At that point, a fourth complete fresh
+Gate A–E run still required a new, separate Human-Architect authorization and could reuse no
+observation from any failed run.
 
 ## 22. Independent exact-delta review
 
@@ -617,12 +616,172 @@ assigned to the next separately authorized complete gate.
 Full review:
 `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_03_Independent_Exact_Delta_Review.md`.
 
-## 23. Exact next step
+## 23. Historical next step after DA1-PHYS-03 review
 
-After this review synchronization has green exact-head CI, the Human Architect may separately
-authorize a fourth complete fresh Gate A–E run. The authorization must bind product correction
+After this review synchronization had green exact-head CI, the Human Architect could separately
+authorize a fourth complete fresh Gate A–E run. The authorization had to bind product correction
 `7dbda3b`, reviewed ADO head `798bada`, this review-synchronization head and CI, and the exact
-APK/Web/harness artifacts. The run must begin at Gate A step 1 and reuse no observation from any
-of the three failed runs. This review does not itself authorize or start the run.
+APK/Web/harness artifacts. The run had to begin at Gate A step 1 and reuse no observation from any
+of the three failed runs. That review did not itself authorize or start the run.
 
 Production resources/data, deployment and distribution remain unauthorized.
+
+## 24. Fourth complete fresh gate authorization and exact binding
+
+The Human Architect separately authorized a fourth complete fresh Gate A–E run from Gate A step 1,
+reusing no observation from any of the three failed predecessors. The authorization bound:
+
+- independently approved product correction
+  `7dbda3bc0a56009c7e6931e3ad8320514f64f4a8`, tree
+  `e6abc9ebaadc70cf4b2f78caa46f332b3fb21309`;
+- independently reviewed ADO head `798bada77a4fbc7ba235bc692afcf3bd9ffc760b`,
+  tree `d181370ca6e2199ca76d46313ad57113c52cd100`;
+- review synchronization head `73b5105ba23f667c2a6ee0f12fce171da85bb036`,
+  tree `2a87a324c1a967a8573852c5387a18ce5adcba75`;
+- exact-head GitHub Actions run `29714165784`, attempt 1, push to `main`, ten of ten jobs
+  successful; and
+- the previously uninstalled 95,422,571-byte candidate APK with SHA-256
+  `e634f03a0eedf43a3c1d2d7d94213c223ea13c627556e641e39c9d08c4f93623`,
+  plus the unchanged Web/harness artifacts from the same product state.
+
+Only the approved Galaxy A33 5G on Android 15, two stable NTAG213 tags, numeric-loopback USB
+forwarding and strictly local synthetic Android/Auth/API/PostgreSQL resources participated.
+Production resources/data, deployment and distribution remained unauthorized.
+
+## 25. Separated preflight reset
+
+An initial technical preflight installed the exact APK and began the real Administrator setup.
+Before any Employee Gate-A observation, the Technical Lead detected that the legacy fixture-only
+`arm-tag-a` operator control had been armed unnecessarily and remained `armed` after the real
+Administration path created the first Tag.
+
+That preflight was not reused. The harness, schema, generated roles, disposable database, package,
+reverse mappings and clipboard were completely cleared. Verification showed zero schema, zero
+generated runtime roles, no package, no database, no listener on ports 3000/5173/54321 and zero
+reverse mappings. A new disposable database, new memory-only synthetic password and new exact APK
+installation were then created. The fourth run observations below begin only after that complete
+reset; no preflight setup or observation contributes to them.
+
+## 26. Fourth-run prerequisite and Gate A result
+
+The counted fourth run freshly proved:
+
+- host and installed-device APK SHA-256 both exactly
+  `e634f03a0eedf43a3c1d2d7d94213c223ea13c627556e641e39c9d08c4f93623`;
+- `provisioning=disarmed`, airplane mode off, NFC on and exactly the two approved loopback reverse
+  mappings before setup;
+- the real Administrator path created `DA1 TAG A` / `B55E8B6AEB30` and `DA1 TAG B` /
+  `32A54C8F2F29` for the two synthetic Customers;
+- the safe prerequisite snapshot was two Customers, two Tags, two active Assignments, two
+  administration receipts, four AuditEvents and zero WorkEvents/SyncReceipts/CanonicalDecisions/
+  TimeEntries; and
+- the Administrator signed out, followed by a clean reinstall of the same hash-verified APK for
+  the Employee while the server setup remained unchanged.
+
+Gate A steps 1–4 passed afresh:
+
+1. the strictly local harness and exact reviewed APK started cleanly;
+2. the enrolled Employee reached `Bereit zum Scannen`; read-only aggregate proof showed one
+   Employee lease, two declared items, two stored items, one lease receipt, two active Customers,
+   two active Assignments and zero lifecycle rows;
+3. airplane mode was enabled, NFC remained on, both reverse mappings were removed, the app was
+   force-stopped and the release activity cold-started without Metro/Auth/API reachability; and
+4. Mobile truthfully displayed `Offline bereit` with zero pending operations and no Start/Stop
+   claim.
+
+Gate A step 5 failed. Three separate explicit physical capture attempts reached the Android app,
+but Mobile remained `Offline bereit` with zero pending operations. The required accepted A→B→A
+sequence and queue progression 1/2/3 therefore were not established; exact tag order is not
+inferred from diagnostic logs.
+
+Disclosure-safe filtered Android evidence independently confirmed each attempt:
+
+- `registerTagEvent`;
+- Android `TECH_DISCOVERED` delivery through `onNewIntent`;
+- `onResume`; and
+- exact native capture unregistration.
+
+There were three registrations, three physical NFC deliveries and three unregistrations, with no
+fatal error, ANR, JavaScript/native bridge error, database error or secure-storage error. The
+server remained exactly zero WorkEvents, zero SyncReceipts, zero CanonicalDecisions, zero
+TimeEntries and zero offline cursor rows. Mobile never falsely claimed local persistence.
+
+Gate A failed at step 5. Gates B–E were not started and no fourth-run observation may be reused.
+
+## 27. DA1-PHYS-04 finding and read-only root-cause diagnosis
+
+### DA1-PHYS-04 — P1 — Offline NFC foreground transition invalidates the active capture
+
+The NFC foreground-dispatch cycle itself produces an Android foreground transition. During a valid
+offline scan:
+
+1. `OfflineSchedulingLifecycle` calls `triggerForeground()`;
+2. the coordinator sees the suspended `context_unavailable` session and calls `retryContext()`;
+3. the expected offline refresh failure republishes the same suspended session state;
+4. the coordinator's session listener unconditionally advances its generation and transitions the
+   session, cancelling the active capture; and
+5. the already delivered NFC result fails the stale-generation guard and returns before
+   `lookupActiveItem()` and `appendEvent()`.
+
+The replacement transition republishes `offline_ready` with queue count zero. This matches all
+three physical attempts exactly and explains why the native event succeeded without a durable
+local row.
+
+The current regression matrix does not compose this race: the authenticated persistence test uses
+a no-op session subscription; the cold-start offline test reaches `offline_ready` but never scans;
+the foreground/network-hint test has no concurrent NFC capture; native adapter tests isolate the
+callback; and there is no `OfflineSchedulingLifecycle` integration test for the combined
+pause/resume, failed retry and delivered-tag sequence.
+
+This is P1, not P0. The primary offline capability is release-blocked, but the product failed
+closed: it created no local evidence claim, no server mutation, no authority escalation and no
+sensitive disclosure.
+
+The focused correction must preserve exactly one active capture across a semantically unchanged
+suspended/offline session notification, without weakening identity, generation, logout,
+cross-identity or stale-async-event cancellation. Equality of the public
+`context_unavailable` status alone is insufficient; unchanged identity/restoration generation must
+be established from private trusted evidence, and uncertainty must still cancel. A
+regressionswirksam test must reproduce:
+
+```text
+offline_ready
+  -> explicit NFC scan
+  -> Android pause/resume foreground hint
+  -> failed context retry with unchanged suspended identity
+  -> delivered physical capture
+  -> exactly one durable append and queue count 1
+```
+
+No product correction or corrected physical result is claimed here.
+
+## 28. Fourth-run abort cleanup
+
+Complete abort cleanup passed:
+
+- airplane mode returned to off and NFC remained on;
+- the Mobile process was force-stopped and the synthetic package uninstalled;
+- the Admin session had already signed out and no Admin Web session had been started;
+- the harness stopped normally;
+- disposable schema count, generated runtime-role count and dedicated database count were zero;
+- reverse-mapping count was zero;
+- listeners on ports 3000, 5173 and 54321 were absent;
+- the clipboard was cleared; and
+- the tracked repository remained clean.
+
+No password, token, raw NFC UID/payload, provider subject, SQLCipher/SecureStore key, internal
+database identifier or real-person data was recorded.
+
+## 29. Exact next step
+
+Publish this truthful fourth-run/`DA1-PHYS-04` synchronization and obtain green exact-head CI.
+Then obtain an independent read-only review of the exact authorization binding, attempt separation,
+physical evidence, P1 classification, root-cause diagnosis, regression gap, cleanup and proposed
+focused correction boundary.
+
+Before any later complete gate can be authorized, the previously used disclosure-safe Gate-C
+response-drop procedure must also be preserved in a durable reviewed operator runbook or helper
+rather than relying on transient session history.
+
+No fifth physical run is authorized. Production resources/data, deployment and distribution
+remain unauthorized.

@@ -74,9 +74,20 @@ owner-bound schema version 2 and makes it dominate later ready states. Mobile pa
 required local/native verification passes, and exact-head run `29700339367` passed ten of ten.
 Independent exact-delta review of head `798bada`, tree `d181370`, the exact 14-file +557/-63
 delta and exact-head runs `29700339367` and `29700546787` returned `APPROVED` with zero open
-P0/P1/P2/P3 and closed `DA1-PHYS-03` as a repository finding. No corrected physical result or
-fourth-run authorization is claimed. A fourth complete fresh Gate A–E run remains separately
-Human-gated after this review synchronization and exact-head CI.
+P0/P1/P2/P3 and closed `DA1-PHYS-03` as a repository finding. The Human Architect then separately
+authorized the fourth complete fresh Gate A–E run on exact product `7dbda3b`, reviewed ADO
+`798bada`, review synchronization `73b5105`, exact-head run `29714165784` and the
+95,422,571-byte APK SHA-256
+`e634f03a0eedf43a3c1d2d7d94213c223ea13c627556e641e39c9d08c4f93623`.
+After a fully discarded and verified-clean technical preflight, real setup, Employee lease and cold
+true-offline entry passed Gate A steps 1–4. Gate A step 5 failed: three independently verified
+native NFC deliveries left the encrypted queue at zero. Read-only diagnosis opens
+`DA1-PHYS-04` (P1): the NFC foreground transition republishes a semantically unchanged suspended
+session, advances the capture generation and invalidates the delivered result before durable
+append. The failure remained closed with no false persistence claim or server mutation. Gates B–E
+were not started, no observation may be reused and complete abort cleanup passed. Independent
+review, a separately authorized focused correction and a later separately authorized complete
+fresh gate remain pending.
 Implementation, review and physical evidence:
 `ADO/05_Evidence/Development_Assignment_01_Implementation_Evidence.md` and
 `ADO/05_Evidence/Development_Assignment_01_Independent_Implementation_Review.md` and
@@ -182,7 +193,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Feature Blueprint Standard | `ADO/01_Architecture/Feature_Blueprint_Standard.md` |
 | Technical Architecture Profile (TTAP-001) | `ADO/01_Architecture/Technical_Architecture_Profile.md` |
 | Development Task Profile | `ADO/01_Architecture/Development_Task_Profile.md` |
-| Architecture Decision Records (through Human-accepted ADR-0012; DA1-IMPL-01 and DA1-PHYS-01/02/03 repository findings independently closed; fourth DA1 Physical Gate separately gated) | `ADO/01_Architecture/ADR/` |
+| Architecture Decision Records (through Human-accepted ADR-0012; DA1-IMPL-01 and DA1-PHYS-01/02/03 repository findings independently closed; fourth DA1 Physical Gate failed Gate A step 5 with DA1-PHYS-04 P1 open) | `ADO/01_Architecture/ADR/` |
 | Feature Blueprints (incl. FB-001, FB-002) | `ADO/01_Architecture/Feature_Blueprints/` |
 | Technical Specifications (incl. TS-001, TS-002) | `ADO/01_Architecture/Technical_Specifications/` |
 | Developer Implementation Manual (EP-008) | `ADO/01_Architecture/Developer_Implementation_Manual/` |
@@ -245,7 +256,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Development Assignment 1 Independent Pre-Implementation Review | `ADO/05_Evidence/Development_Assignment_01_Independent_Pre_Implementation_Review.md` |
 | Development Assignment 1 Local Implementation Evidence | `ADO/05_Evidence/Development_Assignment_01_Implementation_Evidence.md` |
 | Development Assignment 1 Independent Implementation Review and Correction Disposition | `ADO/05_Evidence/Development_Assignment_01_Independent_Implementation_Review.md` |
-| Development Assignment 1 Human Physical Validation Evidence — third fresh run passed A–C and failed Gate D; DA1-PHYS-03 repository correction independently approved; fourth run separately gated | `ADO/05_Evidence/Development_Assignment_01_Physical_Validation_Evidence.md` |
+| Development Assignment 1 Human Physical Validation Evidence — fourth fresh run passed Gate A steps 1–4 and failed step 5 after three native NFC deliveries left the queue at zero; DA1-PHYS-04 P1 open; Gates B–E not started | `ADO/05_Evidence/Development_Assignment_01_Physical_Validation_Evidence.md` |
 | Development Assignment 1 DA1-PHYS-01 Independent Exact-Delta Review — approved, finding closed | `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_01_Independent_Exact_Delta_Review.md` |
 | Development Assignment 1 DA1-PHYS-02 Independent Exact-Delta Review — approved, repository finding closed | `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_02_Independent_Exact_Delta_Review.md` |
 | Development Assignment 1 DA1-PHYS-03 Independent Exact-Delta Review — approved, repository finding closed | `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_03_Independent_Exact_Delta_Review.md` |

@@ -19,8 +19,11 @@ PHYSICAL GATE AUTHORIZED AND EXECUTED; GATES A–C PASSED, GATE D FAILED MANDATO
 REVIEW-STATE TRUTH WITH DA1-PHYS-03 (P1), GATE E NOT STARTED; FOCUSED CORRECTION `7dbda3b`,
 TREE `e6abc9e`, PUBLISHED AND EXACT-HEAD RUN `29700339367` 10/10 GREEN; INDEPENDENT EXACT-DELTA
 REVIEW OF HEAD `798bada`, TREE `d181370`, APPROVED WITH ZERO OPEN P0/P1/P2/P3;
-DA1-PHYS-03 REPOSITORY FINDING CLOSED; CORRECTED PHYSICAL EFFECT AND FOURTH COMPLETE GATE
-STILL SEPARATELY GATED; PRODUCTION, DEPLOYMENT AND DISTRIBUTION NOT AUTHORIZED**
+DA1-PHYS-03 REPOSITORY FINDING CLOSED; FOURTH COMPLETE FRESH GATE AUTHORIZED ON PRODUCT
+`7dbda3b`, REVIEWED ADO `798bada`, SYNCHRONIZATION HEAD `73b5105` AND RUN `29714165784`;
+GATE A STEPS 1–4 PASSED BUT STEP 5 FAILED AFTER THREE NATIVE NFC DELIVERIES LEFT THE LOCAL
+QUEUE AT ZERO; DA1-PHYS-04 (P1) OPEN; GATES B–E NOT STARTED; PRODUCTION, DEPLOYMENT AND
+DISTRIBUTION NOT AUTHORIZED**
 Date: 2026-07-20
 Candidate Baseline Commit: `1bb2d7d7b38928643cfd5c86b36c500c35f73276`
 Candidate Baseline Tree: `c5c20f67155cdc0b4197908b4d1283cb7e619597`
@@ -434,7 +437,9 @@ A–C BUT FAILED GATE D MANDATORY MOBILE REVIEW-STATE TRUTH WITH DA1-PHYS-03 (P1
 STARTED; FOCUSED CORRECTION `7dbda3b`, TREE `e6abc9e`, PUBLISHED AND EXACT-HEAD RUN
 `29700339367` 10/10 GREEN; INDEPENDENT EXACT-DELTA REVIEW OF HEAD `798bada`, TREE `d181370`,
 APPROVED WITH ZERO OPEN P0/P1/P2/P3; DA1-PHYS-03 REPOSITORY FINDING CLOSED; FOURTH COMPLETE
-GATE SEPARATELY GATED; PRODUCTION GATES CLOSED.**
+FRESH GATE AUTHORIZED AND EXECUTED; GATE A STEPS 1–4 PASSED BUT STEP 5 FAILED AFTER THREE
+NATIVE NFC DELIVERIES LEFT THE LOCAL QUEUE AT ZERO; DA1-PHYS-04 (P1) OPEN; GATES B–E NOT
+STARTED; PRODUCTION GATES CLOSED.**
 
 Candidate publication, exact-head CI, independent zero-finding pre-implementation review, explicit
 Human acceptance of ADR-0012/Sections 3–13 and the separate exact-baseline repository
@@ -527,11 +532,44 @@ ADO head `798bada`, tree `d181370`, and exact-head runs `29700339367` and `29700
 attempt 1 and ten of ten green. Verdict: `APPROVED`, zero open P0/P1/P2/P3.
 `DA1-PHYS-03` is closed as a repository finding.
 
-No corrected physical result or fourth-run authorization is claimed. After this review
-synchronization has green exact-head CI, the Human Architect may separately authorize a fourth
-complete fresh Gate A–E run bound to exact commits, CI and APK/Web/harness artifacts. It must
-restart at Gate A step 1 and reuse no observation from any failed run. Production resources/data,
-deployment and distribution remain unauthorized.
+The Human Architect subsequently supplied that fourth separate authorization, bound to product
+`7dbda3bc0a56009c7e6931e3ad8320514f64f4a8`, tree
+`e6abc9ebaadc70cf4b2f78caa46f332b3fb21309`, independently reviewed ADO head
+`798bada77a4fbc7ba235bc692afcf3bd9ffc760b`, tree
+`d181370ca6e2199ca76d46313ad57113c52cd100`, review-synchronization head
+`73b5105ba23f667c2a6ee0f12fce171da85bb036`, tree
+`2a87a324c1a967a8573852c5387a18ce5adcba75`, exact-head run `29714165784`, attempt 1, ten
+of ten jobs successful, and the exact 95,422,571-byte APK SHA-256
+`e634f03a0eedf43a3c1d2d7d94213c223ea13c627556e641e39c9d08c4f93623`.
+
+An initial technical preflight unnecessarily armed a legacy fixture-only provisioning control.
+That preflight was excluded and the complete harness/schema/roles/database/package/reverse/
+clipboard environment was destroyed and verified clean before the counted run began with a new
+database, memory-only password and exact APK installation.
+
+The counted run passed fresh real Administrator setup and Gate A steps 1–4: exact artifact,
+complete two-item Employee lease and cold true-offline `Offline bereit` with zero pending
+operations. Gate A step 5 failed. Three separate physical attempts each completed native capture
+registration, Android `TECH_DISCOVERED` delivery through `onNewIntent`, resume and capture
+unregistration, but no encrypted queue row was appended and Mobile remained at zero pending.
+Server lifecycle counts also remained zero.
+
+Read-only diagnosis identifies `DA1-PHYS-04` (P1): the NFC foreground transition triggers
+foreground context retry; expected offline failure republishes the semantically unchanged
+suspended session; the coordinator unconditionally advances its generation and cancels the active
+capture; and the already delivered result fails the stale-generation guard before lookup/append.
+The focused correction must preserve exactly one active capture across only such a semantically
+unchanged suspended/offline publication while retaining logout, cross-identity, owner/install and
+stale-async cancellation. Public `context_unavailable` status equality alone is insufficient;
+unchanged identity/restoration generation must be proven from private trusted evidence and
+uncertainty must remain fail-closed. Regression evidence must compose offline-ready capture, Android
+pause/resume, failed context retry and exact one durable append.
+
+Gate A failed, Gates B–E were not started, no fourth-run observation may be reused and complete
+abort cleanup passed. No product correction or fifth run is authorized. Before any later complete
+gate, the disclosure-safe Gate-C response-drop procedure must be preserved in a durable reviewed
+operator runbook or helper. Production resources/data, deployment and distribution remain
+unauthorized.
 
 Full review:
 `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_03_Independent_Exact_Delta_Review.md`.

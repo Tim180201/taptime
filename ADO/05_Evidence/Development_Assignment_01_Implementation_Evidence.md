@@ -19,8 +19,11 @@ PHYSICAL GATE AUTHORIZED AND EXECUTED; GATES A–C PASSED, GATE D SERVER SAFETY 
 MANDATORY MOBILE REVIEW-STATE TRUTH FAILED WITH DA1-PHYS-03 (P1), GATE E NOT STARTED; FOCUSED
 CORRECTION `7dbda3b`, TREE `e6abc9e`, PUBLISHED AND EXACT-HEAD RUN `29700339367` 10/10 GREEN;
 INDEPENDENT EXACT-DELTA REVIEW OF HEAD `798bada`, TREE `d181370`, APPROVED WITH ZERO OPEN
-P0/P1/P2/P3; DA1-PHYS-03 REPOSITORY FINDING CLOSED; CORRECTED PHYSICAL EFFECT AND FOURTH
-COMPLETE GATE STILL SEPARATELY GATED; PRODUCTION, DEPLOYMENT AND DISTRIBUTION NOT AUTHORIZED**
+P0/P1/P2/P3; DA1-PHYS-03 REPOSITORY FINDING CLOSED; FOURTH COMPLETE FRESH GATE AUTHORIZED
+ON PRODUCT `7dbda3b`, REVIEWED ADO `798bada`, SYNCHRONIZATION HEAD `73b5105` AND RUN
+`29714165784`; GATE A STEPS 1–4 PASSED BUT STEP 5 FAILED AFTER THREE NATIVE NFC DELIVERIES
+LEFT THE LOCAL QUEUE AT ZERO; DA1-PHYS-04 (P1) OPEN; GATES B–E NOT STARTED; PRODUCTION,
+DEPLOYMENT AND DISTRIBUTION NOT AUTHORIZED**
 Date: 2026-07-20
 Human-Accepted Contract Commit: `592334160655cde2f4189712eaf327c8a7edcb0e`
 Implementation Baseline Commit: `180093091c47a926b5871a27ea8b00fb21b9b4ac`
@@ -92,6 +95,18 @@ DA1-PHYS-03 Independently Reviewed Tree:
 DA1-PHYS-03 Reviewed-head CI: GitHub Actions run `29700546787`, attempt 1, push to `main`, 10/10
 jobs successful
 DA1-PHYS-03 Review: **APPROVED — zero open P0/P1/P2/P3; repository finding closed**
+Fourth Fresh Physical-gate Binding: product
+`7dbda3bc0a56009c7e6931e3ad8320514f64f4a8`, tree
+`e6abc9ebaadc70cf4b2f78caa46f332b3fb21309`; reviewed ADO
+`798bada77a4fbc7ba235bc692afcf3bd9ffc760b`, tree
+`d181370ca6e2199ca76d46313ad57113c52cd100`; review synchronization
+`73b5105ba23f667c2a6ee0f12fce171da85bb036`, tree
+`2a87a324c1a967a8573852c5387a18ce5adcba75`; exact-head run `29714165784`, attempt 1, 10/10;
+APK 95,422,571 bytes, SHA-256
+`e634f03a0eedf43a3c1d2d7d94213c223ea13c627556e641e39c9d08c4f93623`
+Fourth Fresh Physical-gate Result: **Gate A steps 1–4 passed; step 5 failed after three verified
+native NFC deliveries left the encrypted queue at zero; DA1-PHYS-04 opened as P1; Gates B–E not
+started; complete abort cleanup passed**
 Architecture:
 `ADO/01_Architecture/ADR/ADR-0012-complete-offline-synchronization-platform.md`
 Authorization:
@@ -371,10 +386,10 @@ restoration-before-scheduling. Verdict: **APPROVED**, zero open P0/P1/P2/P3;
 
 Still pending and not claimed here:
 
-1. a separately authorized fourth complete fresh Human Gate A–E
-   run which reuses no prior observation;
-2. truthful physical closure synchronization and independent final closure review; and
-3. any production resource/data, deployment or distribution decision.
+1. independent read-only review and separately authorized focused correction of `DA1-PHYS-04`;
+2. a later separately authorized complete fresh Human Gate A–E which reuses no prior observation;
+3. truthful physical closure synchronization and independent final closure review; and
+4. any production resource/data, deployment or distribution decision.
 
 DT-060–DT-062 remain open until every applicable later gate is complete.
 
@@ -443,7 +458,57 @@ The failed third physical run remains failed, and no corrected on-device effect 
 Full review:
 `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_03_Independent_Exact_Delta_Review.md`.
 
-After this review synchronization has green exact-head CI, a fourth complete fresh Human Gate A–E
-may be separately authorized. It must bind exact product/ADO/review-synchronization commits, CI and
-APK/Web/harness artifacts and reuse no observation from any failed run. Production resources/data,
-deployment and distribution remain unauthorized.
+The fourth complete fresh Human Gate was later separately authorized and failed as recorded below.
+Production resources/data, deployment and distribution remain unauthorized.
+
+## 10. Fourth complete fresh physical run and DA1-PHYS-04
+
+The fourth authorization bound product `7dbda3bc0a56009c7e6931e3ad8320514f64f4a8`,
+tree `e6abc9ebaadc70cf4b2f78caa46f332b3fb21309`, independently reviewed ADO head
+`798bada77a4fbc7ba235bc692afcf3bd9ffc760b`, tree
+`d181370ca6e2199ca76d46313ad57113c52cd100`, review-synchronization head
+`73b5105ba23f667c2a6ee0f12fce171da85bb036`, tree
+`2a87a324c1a967a8573852c5387a18ce5adcba75`, exact-head run `29714165784` and the exact
+95,422,571-byte APK SHA-256
+`e634f03a0eedf43a3c1d2d7d94213c223ea13c627556e641e39c9d08c4f93623`.
+
+An initial technical preflight unnecessarily armed a legacy fixture-only control. The entire
+preflight harness/schema/roles/database/package/reverse/clipboard state was destroyed and verified
+clean before the counted run used a new database, new memory-only password and new exact APK
+installation. No preflight observation was reused.
+
+Fresh real Administrator setup and Gate A steps 1–4 passed: exact artifact, complete two-item
+Employee lease, airplane mode with Auth/API reverse mappings removed, cold relaunch and truthful
+`Offline bereit` with zero pending operations. Gate A step 5 failed. Three independent physical
+attempts each produced native capture registration, Android `TECH_DISCOVERED` delivery through
+`onNewIntent`, resume and capture unregistration. There was no crash, ANR, JavaScript/native bridge,
+database or secure-storage error, yet the encrypted queue remained zero and server WorkEvent,
+SyncReceipt, CanonicalDecision, TimeEntry and offline-cursor counts remained zero.
+
+Read-only source diagnosis identifies this sequence:
+
+1. native NFC foreground dispatch produces a foreground scheduling hint during the active scan;
+2. the coordinator retries the suspended `context_unavailable` provider session;
+3. expected offline refresh failure republishes the semantically unchanged suspended state;
+4. the session listener unconditionally advances the capture generation and transitions, cancelling
+   the active capture; and
+5. the already delivered result fails the stale-generation guard before lookup and durable append.
+
+This is `DA1-PHYS-04` (P1). It blocks the primary offline feature but failed closed: Mobile made no
+local-persistence claim and no local/server lifecycle mutation, authority escalation or sensitive
+disclosure occurred. Existing tests do not compose authenticated/offline capture with Android
+pause/resume/foreground retry and a delivered NFC result.
+
+The focused correction boundary is deliberately narrow: preserve exactly one active capture across
+a semantically unchanged suspended/offline session publication, while retaining cancellation on
+logout, cross-identity transition, owner/install mismatch, storage failure and genuinely stale
+asynchronous work. Public `context_unavailable` status equality alone is insufficient; unchanged
+identity/restoration generation must be proven from private trusted evidence, with uncertainty
+remaining fail-closed. A regressionswirksam test must prove
+`offline_ready → scan → pause/resume → failed unchanged-context retry → exactly one append and
+queue count 1`.
+
+Gate A failed, Gates B–E were not started, no fourth-run observation may be reused and complete
+abort cleanup passed. Before any later complete gate, the disclosure-safe Gate-C response-drop
+procedure must be preserved in a durable reviewed operator runbook or helper. No product
+correction, fifth gate, production resource/data, deployment or distribution is claimed.
