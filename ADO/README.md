@@ -102,8 +102,13 @@ Independent exact-delta correction review returned `APPROVED` with zero open P0�
 `DA1-PHYS-04` as a repository finding. No corrected physical result exists. The Human Architect
 later authorized a fifth complete fresh gate, but strict pre-install verification found its exact
 hash-bound APK was no longer retained. No APK was installed and Gate A did not start.
-`DA1-ARTIFACT-01` is an open operational P1; a preserved exact-source replacement APK remains
-independently unreviewed and unauthorized.
+`DA1-ARTIFACT-01` synchronization `e0fd175`, tree `fed47cf`, passed exact-head run
+`29747561139`; independent rebinding review returned `APPROVED` with zero open P0–P3 and the Human
+Architect separately authorized the exact 95,425,607-byte replacement SHA-256
+`4239f6c6…6b7c`. Immediate host/device binding passed, but the exact APK failed Gate A during
+step 1 before login: its Hermes bytecode omitted both required loopback URLs and the required
+publishable key. The failure remained closed with zero administration/lifecycle mutation and full
+cleanup. `DA1-ARTIFACT-02` is an open operational P1; Gates B–E were not started.
 Implementation, review and physical evidence:
 `ADO/05_Evidence/Development_Assignment_01_Implementation_Evidence.md` and
 `ADO/05_Evidence/Development_Assignment_01_Independent_Implementation_Review.md` and
@@ -212,7 +217,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Feature Blueprint Standard | `ADO/01_Architecture/Feature_Blueprint_Standard.md` |
 | Technical Architecture Profile (TTAP-001) | `ADO/01_Architecture/Technical_Architecture_Profile.md` |
 | Development Task Profile | `ADO/01_Architecture/Development_Task_Profile.md` |
-| Architecture Decision Records (through Human-accepted ADR-0012; DA1-IMPL-01 and DA1-PHYS-01/02/03/04 repository findings independently closed; fourth DA1 Physical Gate remains a failed historical run; fifth authorization did not start because its exact APK was unavailable; DA1-ARTIFACT-01 operational P1 open) | `ADO/01_Architecture/ADR/` |
+| Architecture Decision Records (through Human-accepted ADR-0012; DA1-IMPL-01 and DA1-PHYS-01/02/03/04 repository findings independently closed; four prior DA1 Human Gates remain failed historical runs; DA1-ARTIFACT-01 rebinding independently approved; new fifth Gate A failed at step 1 on runtime-incomplete exact APK; DA1-ARTIFACT-02 operational P1 open) | `ADO/01_Architecture/ADR/` |
 | Feature Blueprints (incl. FB-001, FB-002) | `ADO/01_Architecture/Feature_Blueprints/` |
 | Technical Specifications (incl. TS-001, TS-002) | `ADO/01_Architecture/Technical_Specifications/` |
 | Developer Implementation Manual (EP-008) | `ADO/01_Architecture/Developer_Implementation_Manual/` |
@@ -281,12 +286,12 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Development Assignment 1 Independent Pre-Implementation Review | `ADO/05_Evidence/Development_Assignment_01_Independent_Pre_Implementation_Review.md` |
 | Development Assignment 1 Implementation Evidence | `ADO/05_Evidence/Development_Assignment_01_Implementation_Evidence.md` |
 | Development Assignment 1 Independent Implementation Review and Correction Disposition | `ADO/05_Evidence/Development_Assignment_01_Independent_Implementation_Review.md` |
-| Development Assignment 1 Human Physical Validation Evidence — fourth fresh run failed historically; fifth run was authorized but did not start because its exact hash-bound APK was unavailable before installation; replacement candidate requires independent review and new authorization | `ADO/05_Evidence/Development_Assignment_01_Physical_Validation_Evidence.md` |
+| Development Assignment 1 Human Physical Validation Evidence — four prior complete runs failed historically; DA1-ARTIFACT-01 rebinding approved; new fifth complete run failed at Gate A step 1 because the exact APK omitted mandatory runtime values; DA1-ARTIFACT-02 open P1 | `ADO/05_Evidence/Development_Assignment_01_Physical_Validation_Evidence.md` |
 | Development Assignment 1 DA1-PHYS-01 Independent Exact-Delta Review — approved, finding closed | `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_01_Independent_Exact_Delta_Review.md` |
 | Development Assignment 1 DA1-PHYS-02 Independent Exact-Delta Review — approved, repository finding closed | `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_02_Independent_Exact_Delta_Review.md` |
 | Development Assignment 1 DA1-PHYS-03 Independent Exact-Delta Review — approved, repository finding closed | `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_03_Independent_Exact_Delta_Review.md` |
 | Development Assignment 1 DA1-PHYS-04 Failure-Synchronization Independent Exact-Delta Review — approved for failure truth/diagnosis/correction boundary; P1 remains open | `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_04_Failure_Synchronization_Independent_Exact_Delta_Review.md` |
-| Development Assignment 1 DA1-PHYS-04 Independent Exact-Delta Review — approved, repository finding closed; later fifth authorization blocked before start by DA1-ARTIFACT-01 | `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_04_Independent_Exact_Delta_Review.md` |
+| Development Assignment 1 DA1-PHYS-04 Independent Exact-Delta Review — approved, repository finding closed; later artifact retention and runtime-completeness failures do not reopen the product finding | `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_04_Independent_Exact_Delta_Review.md` |
 | Product Readiness Reassessment — C3D Closure Delta | `ADO/05_Evidence/Product_Readiness_Reassessment_2026-07-15_C3D_Closure_Delta.md` |
 | EP-008 Evidence (incl. Repository Health Follow-up) | `ADO/05_Evidence/EP-008/` |
 | Evidence Area | `ADO/05_Evidence/` |

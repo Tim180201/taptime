@@ -25,10 +25,13 @@ LEFT THE LOCAL QUEUE AT ZERO; FAILURE SYNCHRONIZATION `3dd7983`/`e78b526` AND RU
 TECHNICAL-LEAD APPROVED, PUBLISHED AND EXACT-HEAD RUN `29743923158` 10/10 GREEN;
 ADO PUBLICATION `2f6035b`, TREE `d5513a6`, AND RUN `29744637928` 10/10 GREEN; INDEPENDENT
 EXACT-DELTA CORRECTION REVIEW APPROVED WITH ZERO OPEN P0/P1/P2/P3; DA1-PHYS-04 REPOSITORY
-FINDING CLOSED; NO CORRECTED PHYSICAL RESULT; FIFTH GATE WAS SEPARATELY HUMAN-AUTHORIZED BUT
-DID NOT START BECAUSE ITS EXACT HASH-BOUND APK WAS UNAVAILABLE BEFORE INSTALLATION;
-DA1-ARTIFACT-01 (P1 OPERATIONAL) OPEN; REPLACEMENT APK NOT AUTHORIZED; PRODUCTION, PRODUCTION
-DATA, DEPLOYMENT AND DISTRIBUTION NOT AUTHORIZED**
+FINDING CLOSED; NO CORRECTED PHYSICAL RESULT; DA1-ARTIFACT-01 REBINDING REVIEW APPROVED AND
+NEW FIFTH COMPLETE FRESH GATE HUMAN-AUTHORIZED ON ADO/ARTIFACT HEAD `e0fd175`, EXACT-HEAD RUN
+`29747561139` AND REPLACEMENT APK SHA-256 `4239f6c6…6b7c`; EXACT PRE-INSTALL AND DEVICE
+BINDING PASSED, BUT GATE A FAILED DURING STEP 1 BEFORE LOGIN BECAUSE THE APK OMITTED THE REQUIRED
+SYNTHETIC AUTH URL, API URL AND PUBLISHABLE KEY; DA1-ARTIFACT-02 (P1 OPERATIONAL) OPEN; GATES
+B–E NOT STARTED; COMPLETE ABORT CLEANUP PASSED; PRODUCTION, PRODUCTION DATA, DEPLOYMENT AND
+DISTRIBUTION NOT AUTHORIZED**
 Date: 2026-07-20
 Implementation Baseline Commit: `180093091c47a926b5871a27ea8b00fb21b9b4ac`
 Implementation Baseline Tree: `73e77b6ca5dfd7671cdd3d77a344168fddff3627`
@@ -475,6 +478,33 @@ available, so no installation or physical observation began. The exact-size repl
 SHA-256 `4239f6c609430d3926dbfc053c7ad0688a4022903eef8a3ffe1ebeece2356b7c` is preserved
 read-only outside the repository but is not covered by that authorization.
 
-`DA1-ARTIFACT-01` is an operational P1 blocker. The plan returns to the artifact-review gate:
-publish this truthful synchronization, obtain green exact-head CI, complete independent
-exact-delta/artifact review and obtain a new Human authorization before restarting Gate A step 1.
+At that historical point, `DA1-ARTIFACT-01` was an operational P1 blocker and the plan returned to
+the artifact-review gate. Its later review, authorization and superseding result are recorded in
+Section 9.
+
+## 9. Current artifact correction gate
+
+The `DA1-ARTIFACT-01` synchronization was published as `e0fd175`, tree `fed47cf`, and passed
+exact-head run `29747561139` ten of ten. Independent rebinding review returned `APPROVED` with
+zero open P0/P1/P2/P3, and the Human Architect separately authorized the replacement-hash-bound
+fifth complete fresh gate.
+
+The exact 95,425,607-byte APK SHA-256 `4239f6c6…6b7c` passed immediate host/device identity,
+signature, package/version and backup-boundary verification. It nevertheless failed Gate A during
+step 1 before login. Its Hermes bytecode lacks both required numeric-loopback URLs and the required
+publishable key even though the unchanged repository build script declares them. The application
+failed closed, all sanitized mutable server counts remained zero and full abort cleanup passed.
+
+This opens `DA1-ARTIFACT-02` as an operational P1. No product-source correction is authorized or
+implied. The next bounded work must:
+
+1. preserve the failed artifact unchanged;
+2. identify and constrain the artifact-generation path that lost the three compile-time values;
+3. produce a new exact-source release only through an audited single invocation;
+4. fail the build or pre-install gate unless deterministic Hermes inspection proves the exact Auth
+   URL, API URL and publishable key are embedded;
+5. repeat package, signature, backup-boundary, host/device size/hash and clean-launch verification;
+6. publish focused evidence and obtain exact-head CI plus independent artifact review; and
+7. obtain a new separate Human authorization before restarting the complete Gate A–E sequence.
+
+Gates B–E remain not started. No observation from any prior run may be reused.

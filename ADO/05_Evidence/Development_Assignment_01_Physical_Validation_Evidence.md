@@ -1,19 +1,17 @@
 # Development Assignment 1 — Human Physical Validation Evidence
 
 Date: 2026-07-20
-Status: **FIRST THREE FAILED GATES RETAINED AS HISTORICAL EVIDENCE; DA1-PHYS-01,
-DA1-PHYS-02 AND DA1-PHYS-03 REPOSITORY FINDINGS CLOSED BY INDEPENDENT REVIEW; FOURTH COMPLETE
-FRESH GATE AUTHORIZED ON PRODUCT `7dbda3b`, REVIEWED ADO `798bada`, REVIEW SYNCHRONIZATION
-`73b5105` AND EXACT-HEAD RUN `29714165784`; GATE A STEPS 1–4 PASSED BUT STEP 5 FAILED BECAUSE
-THREE NATIVE NFC CAPTURES WERE INVALIDATED BEFORE LOCAL APPEND; FAILURE SYNCHRONIZATION
-`3dd7983`/`e78b526` AND RUN `29716007657` INDEPENDENTLY APPROVED; FOCUSED CORRECTION
-`48a21a7`, TREE `7c053be`, TECHNICAL-LEAD APPROVED, PUBLISHED AND EXACT-HEAD RUN
-`29743923158` 10/10 GREEN; ADO PUBLICATION `2f6035b`, TREE `d5513a6`, AND RUN `29744637928`
-10/10 GREEN; INDEPENDENT EXACT-DELTA CORRECTION REVIEW APPROVED WITH ZERO OPEN P0/P1/P2/P3;
-DA1-PHYS-04 REPOSITORY FINDING CLOSED; NO CORRECTED PHYSICAL RESULT; FIFTH GATE WAS SEPARATELY
-HUMAN-AUTHORIZED BUT DID NOT START BECAUSE ITS EXACT HASH-BOUND APK WAS NO LONGER AVAILABLE
-BEFORE INSTALLATION; REPLACEMENT CANDIDATE IS NOT AUTHORIZED; DA1-ARTIFACT-01 (P1 OPERATIONAL)
-OPEN; PRODUCTION, PRODUCTION DATA, DEPLOYMENT AND DISTRIBUTION NOT AUTHORIZED**
+Status: **DA1-PHYS-01/02/03/04 REPOSITORY FINDINGS CLOSED BY INDEPENDENT REVIEW; FOUR PRIOR
+COMPLETE HUMAN GATES REMAIN FAILED HISTORICAL RUNS; DA1-ARTIFACT-01 REBINDING REVIEW APPROVED
+WITH ZERO OPEN P0/P1/P2/P3; NEW FIFTH COMPLETE FRESH GATE HUMAN-AUTHORIZED ON PRODUCT
+`48a21a7`, ADO/ARTIFACT HEAD `e0fd175`, TREE `fed47cf`, EXACT-HEAD RUN `29747561139` 10/10 AND
+95,425,607-BYTE REPLACEMENT APK SHA-256 `4239f6c6…6b7c`; PRE-INSTALL AND INSTALLED-DEVICE
+HASH/SIZE/SIGNATURE/PACKAGE BINDING PASSED; GATE A FAILED DURING STEP 1 BEFORE LOGIN BECAUSE THE
+EXACT APK'S HERMES BYTECODE OMITTED THE REQUIRED SYNTHETIC AUTH URL, API URL AND PUBLISHABLE KEY;
+FAILURE REMAINED CLOSED WITH ZERO AUTHENTICATION, ADMINISTRATION OR LIFECYCLE MUTATION;
+DA1-ARTIFACT-02 (P1 OPERATIONAL) OPEN; GATES B–E NOT STARTED; COMPLETE ABORT CLEANUP PASSED;
+NO CORRECTED PHYSICAL RESULT; PRODUCTION, PRODUCTION DATA, DEPLOYMENT AND DISTRIBUTION NOT
+AUTHORIZED**
 Owner: Human Architect + Technical Lead
 
 ## 1. Authorization and exact binding
@@ -946,8 +944,9 @@ only the gitignored Android project and temporarily added Expo dependencies to t
 reconfirmed, and no output of that invocation was used or installed. This operator error did not
 reach a device, server or repository commit.
 
-`DA1-ARTIFACT-01` is an operational P1 gate blocker: exact hash binding correctly failed closed,
-but the reviewed binary had not been retained durably enough to execute its later authorization.
+`DA1-ARTIFACT-01` was recorded at that point as an operational P1 gate blocker: exact hash binding
+correctly failed closed, but the reviewed binary had not been retained durably enough to execute
+its later authorization.
 The fifth physical run did not start, Gate A step 1 did not pass, no synthetic harness/database or
 Web session was started, no APK was installed and no prior physical observation was reused.
 
@@ -963,11 +962,152 @@ the repository and made read-only. Fresh verification confirms:
 - valid APK Signature Scheme v2 with the expected local synthetic debug signer; and
 - the Android offline-storage backup/transfer boundary passes.
 
-The preserved replacement is not installed, not independently reviewed and not authorized by the
-fifth-run authorization, which named a different hash. It cannot be substituted by inference.
+At that historical point, the preserved replacement was not installed, independently reviewed or
+authorized by the earlier fifth-run authorization, which named a different hash. It could not be
+substituted by inference.
 
 The exact next step is to publish this artifact-blocker synchronization, obtain green exact-head
 CI and an independent read-only exact-delta/artifact review. Only after an `APPROVED` review may
 the Human Architect separately authorize a new complete fresh Gate A–E run bound to the preserved
 replacement hash and then-current ADO/CI head. Production resources/data, deployment and
 distribution remain unauthorized.
+
+That historical next step was subsequently completed as recorded in Section 37.
+
+## 37. DA1-ARTIFACT-01 independent rebinding review and new authorization
+
+Independent read-only exact-delta and artifact-rebinding review bound:
+
+- ADO/artifact synchronization commit
+  `e0fd17500bb98fcdf4242e990cec658b708be184`, tree
+  `fed47cff3db55f61a087f448b656865e154cc921`;
+- exact parent `dd2bfbeef701c2c07e5fbd0fd57ab9f2128b8204`;
+- the exact seven-ADO-file `+193/-45` delta;
+- exact-head GitHub Actions run `29747561139`, attempt 1, ten of ten jobs successful; and
+- unchanged product source commit
+  `48a21a7ed75c3ab3b15fec93669b5ca2d87d5a30`, tree
+  `7c053beeb0c9ef550216bd1dad0a59fc226866a6`.
+
+Verdict: `APPROVED`, zero open P0/P1/P2/P3. The review closed `DA1-ARTIFACT-01` for its
+retention/rebinding scope and confirmed that a new Human authorization could be issued. The
+reviewer could not independently mount or inspect the locally preserved APK and therefore accepted
+the recorded binary claims only behind mandatory fail-closed pre-install size/hash verification.
+That limitation was explicit and was not represented as an independent binary reproduction.
+
+The Human Architect then separately authorized the fifth complete fresh Gate A–E run bound to the
+product/ADO/CI chain above, unchanged Web/Harness source, the reviewed Gate-C helper/runbook and
+the preserved 95,425,607-byte replacement APK with SHA-256
+`4239f6c609430d3926dbfc053c7ad0688a4022903eef8a3ffe1ebeece2356b7c`.
+The authorization required a restart at Gate A step 1, prohibited reuse of every earlier
+observation and required immediate size/hash verification before installation.
+
+## 38. Fifth-run exact preflight and installation
+
+The fresh counted run confirmed before installation:
+
+- repository head/tree and `origin/main` exactly `e0fd175` / `fed47cf`;
+- product commit/tree exactly `48a21a7` / `7c053bee`;
+- exact-head CI run `29747561139`, attempt 1, ten of ten jobs successful;
+- the preserved artifact remained read-only, exactly 95,425,607 bytes and SHA-256
+  `4239f6c609430d3926dbfc053c7ad0688a4022903eef8a3ffe1ebeece2356b7c`;
+- APK Signature Scheme v2, package `com.tim180201.mobile.synthetic`, version 1 / `1.0.0` and the
+  offline-storage backup/transfer boundary were valid;
+- exactly one approved USB-connected Galaxy A33, airplane mode off and NFC on;
+- no installed synthetic package, no scoped reverse mappings, no listener on ports 3000, 3001,
+  5173 or 54321 and no tracked repository change.
+
+The exact APK was installed. A byte-for-byte pull of the installed device APK reproduced both the
+95,425,607-byte size and the authorized SHA-256. Exactly the approved direct loopback mappings
+`54321 -> 54321` and `3000 -> 3000` were present. The candidate had not been launched before that
+installed-device verification.
+
+PostgreSQL 17 then received a new disposable
+`taptime_synthetic_android_e2e` database. The unchanged exact-source Harness built and started on
+numeric loopback with a new memory-only synthetic password. Its fresh pre-launch status was:
+
+```text
+Customers=2
+NfcTags=0
+NfcAssignments=0
+AdminSetupReceipts=0
+AuditEvents=0
+WorkEvents=0
+SyncReceipts=0
+CanonicalDecisions=0
+TimeEntries=0
+```
+
+No prior setup, lease, tag or lifecycle observation was reused.
+
+## 39. Gate A step-1 failure
+
+On the exact candidate's first clean launch, before any email/password input or authentication, the
+Human tester observed:
+
+```text
+TapTim.e ist nicht verfügbar.
+Die sichere Laufzeitkonfiguration konnte nicht geladen werden.
+```
+
+The direct Auth/API reverse mappings remained exact and the local Harness was ready. The failure
+therefore occurred within Gate A step 1, before Administrator prerequisite setup or the Employee
+lease in step 2. No login, NFC setup, scan, airplane-mode transition or later gate action occurred.
+
+Read-only inspection of the exact authorized APK's Hermes bytecode established:
+
+- the fail-closed runtime-configuration validator and the displayed unavailable copy are present;
+- the required literal `http://127.0.0.1:54321` is absent;
+- the required literal `http://127.0.0.1:3000` is absent; and
+- the required literal `sb_publishable_taptime_synthetic_android_e2e` is absent.
+
+The unchanged repository build source still supplies all three exact values in
+`apps/mobile/scripts/buildSyntheticE2eAndroid.mjs`. This is therefore an artifact-generation or
+artifact-verification failure, not evidence that the independently approved DA1 product logic
+regressed. The exact invalid binary failed closed and granted no authority.
+
+Sanitized server status after the observation remained identical to the fresh pre-launch status:
+zero Tags, Assignments, administration receipts, AuditEvents, WorkEvents, synchronization
+receipts, canonical Decisions and TimeEntries. Gates B–E were not started.
+
+## 40. DA1-ARTIFACT-02 finding
+
+### DA1-ARTIFACT-02 — P1 operational — hash-bound replacement APK omits required runtime values
+
+The exact independently rebound and Human-authorized APK is not executable against its authorized
+strictly local synthetic runtime because the three mandatory compile-time public runtime values are
+absent from its Hermes bytecode. Package, signature, size and hash verification alone did not prove
+runtime completeness.
+
+This is P1 because it blocks the complete DA1 Human gate before authentication. It is not P0:
+the application showed only disclosure-safe unavailable copy, created no local or server authority,
+performed no lifecycle mutation and exposed no credential, token, raw NFC value, provider subject
+or internal identifier.
+
+The focused correction boundary is operational/artifact-only unless later evidence proves a
+repository defect:
+
+1. preserve the failed hash-bound APK as immutable evidence and never relabel or overwrite it;
+2. rebuild from exact product `48a21a7` using one audited build invocation that carries the exact
+   synthetic environment through prebuild and Gradle/Metro bundling;
+3. add or execute a deterministic release-artifact verifier which rejects an APK unless its Hermes
+   bytecode contains the two exact numeric-loopback URLs and exact publishable key in addition to
+   package/signature/backup-boundary checks;
+4. preserve the replacement durably and verify host/device byte identity before launch;
+5. publish truthful evidence, obtain green exact-head CI and independent exact-delta/artifact review;
+   and
+6. obtain a new separate Human authorization before any later complete fresh Gate A–E run.
+
+`DA1-PHYS-04` remains independently closed as a repository finding. No product behavior, ADR-0012
+numeric policy, server authority, production resource/data, deployment or distribution is
+authorized by this finding.
+
+## 41. Abort cleanup and current disposition
+
+The synthetic package was force-stopped and uninstalled. The Harness stopped normally. Its
+generated runtime roles and `taptime_server` schema were absent, the disposable database was
+dropped, both scoped reverse mappings were removed and ports 3000, 3001, 5173 and 54321 had no
+listener. The clipboard was cleared and the tracked repository remained unchanged.
+
+The fifth complete fresh Human gate is **FAILED at Gate A step 1**. No observation from this run or
+any predecessor may be reused. `DA1-ARTIFACT-02` is open P1; there is no corrected physical result
+and no later gate is authorized.

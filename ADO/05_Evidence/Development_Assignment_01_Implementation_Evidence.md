@@ -27,9 +27,13 @@ LEFT THE LOCAL QUEUE AT ZERO; FAILURE SYNCHRONIZATION `3dd7983`/`e78b526` AND RU
 TECHNICAL-LEAD APPROVED, PUBLISHED AND EXACT-HEAD RUN `29743923158` 10/10 GREEN; ADO
 PUBLICATION `2f6035b`, TREE `d5513a6`, AND RUN `29744637928` 10/10 GREEN; INDEPENDENT
 EXACT-DELTA CORRECTION REVIEW APPROVED WITH ZERO OPEN P0/P1/P2/P3; DA1-PHYS-04 REPOSITORY
-FINDING CLOSED; NO CORRECTED PHYSICAL RESULT; FIFTH GATE AUTHORIZED BUT NOT STARTED BECAUSE ITS
-EXACT APK WAS UNAVAILABLE; DA1-ARTIFACT-01 (P1 OPERATIONAL) OPEN; REPLACEMENT APK NOT
-AUTHORIZED; PRODUCTION, PRODUCTION DATA, DEPLOYMENT AND DISTRIBUTION NOT AUTHORIZED**
+FINDING CLOSED; NO CORRECTED PHYSICAL RESULT; DA1-ARTIFACT-01 REBINDING REVIEW APPROVED AND
+NEW FIFTH COMPLETE FRESH GATE HUMAN-AUTHORIZED ON ADO/ARTIFACT HEAD `e0fd175`, EXACT-HEAD RUN
+`29747561139` AND REPLACEMENT APK SHA-256 `4239f6c6…6b7c`; EXACT PRE-INSTALL AND DEVICE
+BINDING PASSED, BUT GATE A FAILED DURING STEP 1 BEFORE LOGIN BECAUSE THE APK OMITTED ALL THREE
+REQUIRED SYNTHETIC RUNTIME VALUES; DA1-ARTIFACT-02 (P1 OPERATIONAL) OPEN; GATES B–E NOT
+STARTED; COMPLETE ABORT CLEANUP PASSED; PRODUCTION, PRODUCTION DATA, DEPLOYMENT AND
+DISTRIBUTION NOT AUTHORIZED**
 Date: 2026-07-20
 Human-Accepted Contract Commit: `592334160655cde2f4189712eaf327c8a7edcb0e`
 Implementation Baseline Commit: `180093091c47a926b5871a27ea8b00fb21b9b4ac`
@@ -691,6 +695,48 @@ read-only outside the repository. Package identity, APK-v2 signature, exact Mobi
 and the offline-storage backup/transfer boundary pass. It remains uninstalled, independently
 unreviewed and unauthorized.
 
-This opens `DA1-ARTIFACT-01` as an operational P1 release-gate blocker without reopening the
-independently closed product finding `DA1-PHYS-04`. Publication, exact-head CI, independent
-artifact review and a new Human authorization are required before any new Gate A step 1.
+At that historical point, this opened `DA1-ARTIFACT-01` as an operational P1 release-gate blocker
+without reopening the independently closed product finding `DA1-PHYS-04`. Its later review,
+authorization and superseding physical result are recorded in Section 13.
+
+## 13. DA1-ARTIFACT-02 runtime-incomplete replacement
+
+The `DA1-ARTIFACT-01` documentation/artifact synchronization is published as
+`e0fd17500bb98fcdf4242e990cec658b708be184`, tree
+`fed47cff3db55f61a087f448b656865e154cc921`, and exact-head GitHub Actions run `29747561139`,
+attempt 1, passed ten of ten jobs. Independent rebinding review returned `APPROVED` with zero open
+P0/P1/P2/P3. Its binary limitation was transparent: the reviewer could not mount the locally
+preserved APK, so binary properties remained Technical-Lead evidence guarded by mandatory
+pre-install fail-closed verification.
+
+The Human Architect separately authorized the fifth complete fresh Gate A–E run on exact product
+`48a21a7`, the `e0fd175` ADO/CI binding, unchanged Web/Harness source, the reviewed Gate-C
+helper/runbook and replacement APK SHA-256
+`4239f6c609430d3926dbfc053c7ad0688a4022903eef8a3ffe1ebeece2356b7c`.
+
+Immediate pre-install and installed-device verification passed:
+
+| Artifact property | Result |
+|---|---:|
+| Host and device size | 95,425,607 bytes, exact |
+| Host and device SHA-256 | `4239f6c6…6b7c`, exact |
+| APK Signature Scheme v2 | valid |
+| Package/version | `com.tim180201.mobile.synthetic`, 1 / `1.0.0` |
+| Offline backup/transfer boundary | passed |
+| Approved USB device and direct loopback mappings | exact |
+
+The exact candidate then displayed the runtime-configuration unavailable state on its first clean
+launch before login. The Harness was ready and both direct loopback mappings remained exact.
+Hermes bytecode inspection of that exact APK proved the complete synthetic Auth URL, API URL and
+publishable key were all absent. The unchanged source build script still declares those values.
+
+This is `DA1-ARTIFACT-02` (P1 operational). It is artifact-generation/verification evidence, not a
+new product-code finding and not a reopening of `DA1-PHYS-04`. The application failed closed with
+zero authentication, Administration receipt, AuditEvent, WorkEvent, SyncReceipt, CanonicalDecision
+or TimeEntry mutation. No later gate action occurred.
+
+Abort cleanup removed the package, generated runtime roles, schema, disposable database, direct
+reverse mappings, listeners and clipboard content while preserving a clean tracked tree. The failed
+artifact remains immutable evidence. A new artifact build/rebinding, deterministic Hermes
+runtime-value verification, exact-head CI, independent review and new Human authorization are
+mandatory before another complete fresh physical run.

@@ -27,10 +27,13 @@ INDEPENDENTLY APPROVED; FOCUSED DA1-PHYS-04 CORRECTION `48a21a7`, TREE `7c053be`
 TECHNICAL-LEAD APPROVED, PUBLISHED AND EXACT-HEAD RUN `29743923158` 10/10 GREEN;
 ADO PUBLICATION `2f6035b`, TREE `d5513a6`, AND RUN `29744637928` 10/10 GREEN; INDEPENDENT
 EXACT-DELTA CORRECTION REVIEW APPROVED WITH ZERO OPEN P0/P1/P2/P3; DA1-PHYS-04 REPOSITORY
-FINDING CLOSED; NO CORRECTED PHYSICAL RESULT; FIFTH GATE WAS SEPARATELY HUMAN-AUTHORIZED BUT
-DID NOT START BECAUSE ITS EXACT HASH-BOUND APK WAS UNAVAILABLE BEFORE INSTALLATION;
-DA1-ARTIFACT-01 (P1 OPERATIONAL) OPEN; REPLACEMENT APK NOT AUTHORIZED; PRODUCTION, PRODUCTION
-DATA, DEPLOYMENT AND DISTRIBUTION NOT AUTHORIZED**
+FINDING CLOSED; NO CORRECTED PHYSICAL RESULT; DA1-ARTIFACT-01 REBINDING REVIEW APPROVED AND
+NEW FIFTH COMPLETE FRESH GATE HUMAN-AUTHORIZED ON ADO/ARTIFACT HEAD `e0fd175`, EXACT-HEAD RUN
+`29747561139` AND REPLACEMENT APK SHA-256 `4239f6c6…6b7c`; EXACT PRE-INSTALL AND
+INSTALLED-DEVICE BINDING PASSED, BUT GATE A FAILED DURING STEP 1 BEFORE LOGIN BECAUSE THE APK
+OMITTED ALL THREE REQUIRED SYNTHETIC RUNTIME VALUES; DA1-ARTIFACT-02 (P1 OPERATIONAL) OPEN;
+GATES B–E NOT STARTED; COMPLETE ABORT CLEANUP PASSED; PRODUCTION, PRODUCTION DATA, DEPLOYMENT
+AND DISTRIBUTION NOT AUTHORIZED**
 Date: 2026-07-20
 Candidate Baseline Commit: `1bb2d7d7b38928643cfd5c86b36c500c35f73276`
 Candidate Baseline Tree: `c5c20f67155cdc0b4197908b4d1283cb7e619597`
@@ -437,12 +440,13 @@ micro-sprint handoffs while preserving every quality/security gate.
 ## 13. Current release gate
 
 **REPOSITORY IMPLEMENTATION AND DA1-PHYS-01/02/03/04 CORRECTIONS INDEPENDENTLY APPROVED;
-ALL FOUR PRODUCT REPOSITORY FINDINGS CLOSED. THE FOURTH COMPLETE FRESH PHYSICAL GATE REMAINS
-A FAILED HISTORICAL RUN. THE FIFTH COMPLETE FRESH GATE WAS SEPARATELY HUMAN-AUTHORIZED BUT
-DID NOT START BECAUSE ITS EXACT HASH-BOUND APK WAS UNAVAILABLE BEFORE INSTALLATION.
-DA1-ARTIFACT-01 IS AN OPEN OPERATIONAL P1; THE PRESERVED REPLACEMENT APK IS NOT INDEPENDENTLY
-REVIEWED OR AUTHORIZED. NO CORRECTED PHYSICAL RESULT EXISTS. PRODUCTION, PRODUCTION DATA,
-DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED.**
+ALL FOUR PRODUCT REPOSITORY FINDINGS CLOSED. FOUR COMPLETE FRESH PHYSICAL GATES REMAIN FAILED
+HISTORICAL RUNS. DA1-ARTIFACT-01 REBINDING REVIEW APPROVED AND ITS REPLACEMENT WAS SEPARATELY
+HUMAN-AUTHORIZED FOR A NEW FIFTH COMPLETE RUN. EXACT HOST/DEVICE ARTIFACT BINDING PASSED, BUT
+GATE A FAILED DURING STEP 1 BEFORE LOGIN BECAUSE THE APK OMITTED BOTH REQUIRED LOOPBACK URLS
+AND THE REQUIRED PUBLISHABLE KEY. DA1-ARTIFACT-02 IS AN OPEN OPERATIONAL P1; GATES B–E WERE
+NOT STARTED AND COMPLETE ABORT CLEANUP PASSED. NO CORRECTED PHYSICAL RESULT EXISTS.
+PRODUCTION, PRODUCTION DATA, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED.**
 
 Candidate publication, exact-head CI, independent zero-finding pre-implementation review, explicit
 Human acceptance of ADR-0012/Sections 3–13 and the separate exact-baseline repository
@@ -651,10 +655,49 @@ binary. The exact-size 95,425,607-byte replacement with SHA-256
 `4239f6c609430d3926dbfc053c7ad0688a4022903eef8a3ffe1ebeece2356b7c` is preserved read-only
 outside the repository but remains independently unreviewed and unauthorized.
 
-`DA1-ARTIFACT-01` is an operational P1 gate blocker. A later complete gate requires publication
-and green exact-head CI for this truthful synchronization, independent exact-delta/artifact review
-and a new separate Human authorization bound to the replacement hash. The prior fifth-run
-authorization does not extend to it.
+At that historical point, `DA1-ARTIFACT-01` was an operational P1 gate blocker. The later
+publication, review, replacement authorization and superseding result are recorded below.
+
+### Rebinding review, replacement authorization and DA1-ARTIFACT-02
+
+Independent exact-delta/artifact-rebinding review subsequently bound ADO/artifact commit
+`e0fd17500bb98fcdf4242e990cec658b708be184`, tree
+`fed47cff3db55f61a087f448b656865e154cc921`, its exact seven-file `+193/-45` delta and
+exact-head GitHub Actions run `29747561139`, attempt 1, ten of ten jobs successful. Verdict:
+`APPROVED`, zero open P0/P1/P2/P3. The reviewer closed `DA1-ARTIFACT-01` for its
+retention/rebinding scope but transparently could not mount or independently inspect the local
+replacement APK; mandatory immediate pre-install size/hash verification therefore remained part of
+the approved fail-closed binding.
+
+The Human Architect then separately authorized the fifth complete fresh Gate A–E run on exact
+product `48a21a7`, tree `7c053bee`, ADO/artifact head `e0fd175`, tree `fed47cf`, exact-head run
+`29747561139`, unchanged Web/Harness source, the reviewed Gate-C helper/runbook and the
+95,425,607-byte replacement APK SHA-256
+`4239f6c609430d3926dbfc053c7ad0688a4022903eef8a3ffe1ebeece2356b7c`.
+
+Immediate host and installed-device verification reproduced the exact size and hash; APK-v2
+signature, package/version, offline-storage backup boundary, one approved USB device and the exact
+two loopback mappings also passed. The fresh PostgreSQL-17 Harness reached ready with zero
+administration/lifecycle mutations.
+
+The candidate then failed during Gate A step 1, before any login. It displayed the disclosure-safe
+runtime-configuration unavailable state. Read-only Hermes bytecode inspection proved the exact APK
+contains none of the three required literals:
+
+- `http://127.0.0.1:54321`;
+- `http://127.0.0.1:3000`; or
+- `sb_publishable_taptime_synthetic_android_e2e`.
+
+The repository build source still contains all three exact values. This opens
+`DA1-ARTIFACT-02` as P1 operational without reopening `DA1-PHYS-04`: the authorized binary was
+not runtime-complete, but it failed closed with zero authentication, setup or lifecycle mutation
+and no sensitive disclosure. Gates B–E were not started. Complete uninstall, Harness/schema/role/
+database cleanup, scoped reverse removal, listener verification and clipboard clearing passed.
+
+No later physical gate is authorized. The failed APK must remain immutable evidence. A later
+replacement requires an audited exact-source build, deterministic APK/Hermes runtime-value
+verification, durable retention, full binding evidence, green exact-head CI, independent
+exact-delta/artifact review and a new separate Human authorization.
 
 ## 14. Independent review mandate
 
