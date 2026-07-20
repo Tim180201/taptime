@@ -310,6 +310,11 @@ A task without successful review is not complete.
 
 Every task is verified according to its type, risk and impact.
 
+The normative selection, escalation, evidence-reuse and exact-head rules are defined by
+`ADO/03_Testing/Adaptive_Verification_Standard.md` (AVS-001). Every task records a Change-Impact
+Record and the verification levels actually executed. Unknown impact expands verification; it is
+never used to justify omission.
+
 Possible verification includes:
 
 - Unit Tests

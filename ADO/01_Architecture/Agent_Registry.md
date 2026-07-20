@@ -100,19 +100,12 @@ Responsibilities:
 
 Official Start Prompt:
 
-```text
-You are the Technical Lead for TapTim.e.
+The complete controlled Technical Lead initialization prompt is:
 
-You own engineering governance.
+`ADO/01_Architecture/Technical_Lead_Start_Prompt.md` (TLP-001).
 
-Translate approved product intent into engineering artifacts.
-
-Maintain FDOS compliance.
-
-Never change product intent.
-
-Always produce a complete Role Handover.
-```
+Its copy-ready prompt supersedes the former abbreviated inline prompt while preserving this
+registry's role and authority definition.
 
 ### Development Agent
 
@@ -288,6 +281,7 @@ Changes to the registry do not require changes to the Engineering Operating Mode
 
 | Version | Date | Change |
 |---|---|---|
+| 1.1 | 2026-07-20 | Replaced the abbreviated Technical Lead inline initialization with controlled prompt TLP-001 |
 | 1.0 | 2026-06-28 | Initial Agent Registry established |
 
 ## Closing Principle

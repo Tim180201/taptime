@@ -11,6 +11,16 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
 ## Current State
 
 - Dedicated GitHub repository exists, connected through Git remote `origin`.
+- **AVS-001 Adaptive Verification and CI Efficiency is Human-accepted and active as a manual
+  operating standard from 2026-07-20.** Implementation work now uses focused feedback during
+  iteration, complete affected-boundary verification before Technical-Lead approval, one complete
+  local candidate regression before independent review and complete exact-head CI at
+  product/security/artifact/Physical/release decision points. Documentation-only evidence may be
+  carried only across a proven non-executable delta. Unknown impact fails closed to broader
+  verification. Existing accepted gates, including the current DA1-ARTIFACT-02 chain, remain
+  unchanged. The current GitHub workflow still runs all ten jobs on every push/PR to `main`;
+  automatic selective CI is a separately authorized, implemented and independently reviewed
+  future Infrastructure Task, not a capability already present.
 - Product Vision and Product Principles are Approved.
 - ADR-0001 through ADR-0006 are accepted; ADR-0007 (Technology Platform Baseline) is Approved. Its original backend/cloud provider deferral was subsequently resolved for the repository architecture by accepted ADR-0008: Supabase-managed PostgreSQL/Auth with managed Node as the primary transactional lifecycle runtime. No production project/resource or production-data authority follows from that architecture decision.
 - FB-001 (NFC Scan Creates Work Event), TS-001 (its Technical Specification) and TTAP-001 (Technical Architecture Profile) are Approved — the first Feature Blueprint/Technical Specification pair has a complete, validated chain.

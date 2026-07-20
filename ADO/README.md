@@ -206,6 +206,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | ADS-001 | Agent Discovery Standard | `ADO/01_Architecture/Agent_Discovery_Standard.md` |
 | AIR-001 | Agent Inventory Report | `ADO/01_Architecture/Agent_Inventory_Report.md` |
 | OAP-001 | Official Agent Prompt Standard | `ADO/01_Architecture/Official_Agent_Prompt_Standard.md` |
+| TLP-001 | Official Technical Lead Start Prompt | `ADO/01_Architecture/Technical_Lead_Start_Prompt.md` |
 | ALF-001 | Agent Lifecycle | `ADO/01_Architecture/Agent_Lifecycle.md` |
 | RHS-001 | Repository Health Standard | `ADO/01_Architecture/Repository_Health_Standard.md` |
 | AOG-001 | Agent Operational Guidelines | `ADO/01_Architecture/Agent_Operational_Guidelines.md` |
@@ -217,6 +218,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Decision Log | `ADO/00_Core/Decision_Log.md` |
 | Product Vision | `ADO/01_Architecture/Product_Vision.md` |
 | Engineering Operating Model | `ADO/01_Architecture/Engineering_Operating_Model.md` |
+| Adaptive Verification and CI Efficiency Standard (AVS-001) | `ADO/03_Testing/Adaptive_Verification_Standard.md` |
 | Agent Registry | `ADO/01_Architecture/Agent_Registry.md` |
 
 ## Architecture
@@ -227,6 +229,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Feature Blueprint Standard | `ADO/01_Architecture/Feature_Blueprint_Standard.md` |
 | Technical Architecture Profile (TTAP-001) | `ADO/01_Architecture/Technical_Architecture_Profile.md` |
 | Development Task Profile | `ADO/01_Architecture/Development_Task_Profile.md` |
+| Official Technical Lead Start Prompt (TLP-001) | `ADO/01_Architecture/Technical_Lead_Start_Prompt.md` |
 | Architecture Decision Records (through Human-accepted ADR-0012; DA1-IMPL-01 and DA1-PHYS-01/02/03/04 repository findings independently closed; four prior DA1 Human Gates remain failed historical runs; DA1-ARTIFACT-01 rebinding independently approved; fifth Gate A failed at step 1 on a runtime-incomplete exact APK; DA1-ARTIFACT-02 correction `0fdddbc` is Technical-Lead approved/CI-green with a preserved runtime-complete replacement but independent artifact review and a new Human gate authorization remain pending) | `ADO/01_Architecture/ADR/` |
 | Feature Blueprints (incl. FB-001, FB-002) | `ADO/01_Architecture/Feature_Blueprints/` |
 | Technical Specifications (incl. TS-001, TS-002) | `ADO/01_Architecture/Technical_Specifications/` |
@@ -258,6 +261,12 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Repository Freeze Sprint | `ADO/02_Development/Repository_Freeze_Sprint.md` |
 | Development Sprint 001-010 Plans and Closures | `ADO/02_Development/Development_Sprint_001_Plan.md` through `Development_Sprint_010_Closure.md` |
 | Development Area | `ADO/02_Development/` |
+
+## Testing
+
+| Document | Location |
+|---|---|
+| AVS-001 Adaptive Verification and CI Efficiency Standard — Human-accepted manual operating rules active; automatic selective CI remains a separately gated future Infrastructure Task | `ADO/03_Testing/Adaptive_Verification_Standard.md` |
 
 ## Operations
 

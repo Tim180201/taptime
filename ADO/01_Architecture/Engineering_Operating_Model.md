@@ -196,6 +196,11 @@ Output:
 - Risk status
 - Release readiness assessment
 
+Verification depth and evidence reuse follow
+`ADO/03_Testing/Adaptive_Verification_Standard.md` (AVS-001). Focused implementation feedback does
+not replace affected-boundary verification, complete candidate regression or an exact-head gate
+where AVS-001 or the governing authorization requires them.
+
 ### Product Acceptance
 
 Responsible Role: Human Architect
