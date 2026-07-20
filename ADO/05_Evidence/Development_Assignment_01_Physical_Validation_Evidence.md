@@ -1,12 +1,14 @@
 # Development Assignment 1 — Human Physical Validation Evidence
 
-Date: 2026-07-19
+Date: 2026-07-20
 Status: **FIRST TWO FAILED GATES RETAINED AS HISTORICAL EVIDENCE; DA1-PHYS-01 AND
 DA1-PHYS-02 CLOSED BY INDEPENDENT REVIEW; THIRD COMPLETE FRESH GATE AUTHORIZED AND EXECUTED;
 GATES A–C PASSED, GATE D SERVER SAFETY PASSED BUT MANDATORY MOBILE REVIEW-STATE TRUTH FAILED
 WITH DA1-PHYS-03 (P1), GATE E NOT STARTED; COMPLETE ABORT CLEANUP PASSED; FOCUSED PRODUCT
 CORRECTION `7dbda3b`, TREE `e6abc9e`, PUBLISHED AND EXACT-HEAD RUN `29700339367` 10/10 GREEN;
-INDEPENDENT EXACT-DELTA REVIEW PENDING; NO FOURTH PHYSICAL RUN AUTHORIZED**
+INDEPENDENT EXACT-DELTA REVIEW OF HEAD `798bada`, TREE `d181370`, APPROVED WITH ZERO OPEN
+P0/P1/P2/P3; DA1-PHYS-03 REPOSITORY FINDING CLOSED; CORRECTED PHYSICAL EFFECT NOT YET
+OBSERVED; NO FOURTH PHYSICAL RUN AUTHORIZED**
 Owner: Human Architect + Technical Lead
 
 ## 1. Authorization and exact binding
@@ -578,13 +580,49 @@ Exact-head GitHub Actions run `29700339367`, attempt 1, push to `main`, passed a
 exact uninstalled correction artifact built from `7dbda3b` is 95,422,571 bytes with SHA-256
 `e634f03a0eedf43a3c1d2d7d94213c223ea13c627556e641e39c9d08c4f93623`.
 
-`DA1-PHYS-03` remains open pending independent exact-delta review. No corrected physical result,
-fourth-run authorization, production authority, deployment or distribution is claimed.
+Independent exact-delta review of final ADO head `798bada`, tree `d181370`, returned
+`APPROVED` with zero open P0/P1/P2/P3. `DA1-PHYS-03` is closed as a repository finding.
+No corrected physical result, fourth-run authorization, production authority, deployment or
+distribution is claimed.
 
-## 21. Exact next step after the third-run failure
+## 21. Historical next step after the third-run failure
 
-Publish this truthful ADO synchronization, obtain its green exact-head CI and request an
-independent read-only exact-delta review of the third-run evidence and correction. Only an
-`APPROVED` verdict with zero open P0/P1/P2/P3 may close `DA1-PHYS-03` as a repository finding.
-A fourth complete fresh Gate A–E run would then still require a new, separate Human-Architect
-authorization and must reuse no observation from any failed run.
+The required ADO synchronization and exact-head CI were published, followed by the independent
+read-only exact-delta review recorded in Section 22. A fourth complete fresh Gate A–E run still
+requires a new, separate Human-Architect authorization and may reuse no observation from any
+failed run.
+
+## 22. Independent exact-delta review
+
+The independent reviewer verified:
+
+- predecessor `bc89c70`, tree `b7a64a9`;
+- product correction `7dbda3b`, tree `e6abc9e`;
+- reviewed ADO head `798bada`, tree `d181370`;
+- the exact 14-file +557/-63 delta;
+- product run `29700339367` and ADO run `29700546787`, each attempt 1 and ten of ten green;
+- Mobile 409/409, Offline Contract 7/7, Core 290/290, Admin Web 44/44 and Administration
+  Contract 4/4;
+- tests-inclusive Mobile and Offline Contract typechecks; and
+- atomic marker/head deletion, exclusive version-1 migration, earliest-marker retention,
+  owner/identity binding and fail-closed Coordinator/Scheduler dominance.
+
+Verdict: **APPROVED**, zero open P0/P1/P2/P3. `DA1-PHYS-03` is closed as a repository finding.
+
+The reviewer transparently did not reproduce PostgreSQL/native Android checks or the host APK
+path in its sandbox. This was accepted as a non-finding because both exact-head ten-job runs are
+green, the changed behavior is regression-tested and the missing corrected on-device proof remains
+assigned to the next separately authorized complete gate.
+
+Full review:
+`ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_03_Independent_Exact_Delta_Review.md`.
+
+## 23. Exact next step
+
+After this review synchronization has green exact-head CI, the Human Architect may separately
+authorize a fourth complete fresh Gate A–E run. The authorization must bind product correction
+`7dbda3b`, reviewed ADO head `798bada`, this review-synchronization head and CI, and the exact
+APK/Web/harness artifacts. The run must begin at Gate A step 1 and reuse no observation from any
+of the three failed runs. This review does not itself authorize or start the run.
+
+Production resources/data, deployment and distribution remain unauthorized.
