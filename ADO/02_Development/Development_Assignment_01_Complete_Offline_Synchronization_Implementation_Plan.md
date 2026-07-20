@@ -21,10 +21,10 @@ P0/P1/P2/P3; DA1-PHYS-03 REPOSITORY FINDING CLOSED; FOURTH COMPLETE FRESH GATE A
 ON PRODUCT `7dbda3b`, REVIEWED ADO `798bada`, SYNCHRONIZATION HEAD `73b5105` AND RUN
 `29714165784`; GATE A STEPS 1–4 PASSED BUT STEP 5 FAILED AFTER THREE NATIVE NFC DELIVERIES
 LEFT THE LOCAL QUEUE AT ZERO; FAILURE SYNCHRONIZATION `3dd7983`/`e78b526` AND RUN
-`29716007657` INDEPENDENTLY APPROVED; FOCUSED CORRECTION SEPARATELY HUMAN-AUTHORIZED AND
-LOCALLY IMPLEMENTED AND TECHNICAL-LEAD APPROVED — PUBLICATION, CORRECTION EXACT-HEAD CI AND
-INDEPENDENT CORRECTION REVIEW PENDING; DA1-PHYS-04 (P1) OPEN; NO FIFTH
-GATE; PRODUCTION, DEPLOYMENT AND DISTRIBUTION NOT AUTHORIZED**
+`29716007657` INDEPENDENTLY APPROVED; FOCUSED CORRECTION `48a21a7`, TREE `7c053be`,
+TECHNICAL-LEAD APPROVED, PUBLISHED AND EXACT-HEAD RUN `29743923158` 10/10 GREEN;
+INDEPENDENT EXACT-DELTA CORRECTION REVIEW PENDING; DA1-PHYS-04 (P1) OPEN; NO FIFTH
+GATE; PRODUCTION, PRODUCTION DATA, DEPLOYMENT AND DISTRIBUTION NOT AUTHORIZED**
 Date: 2026-07-20
 Implementation Baseline Commit: `180093091c47a926b5871a27ea8b00fb21b9b4ac`
 Implementation Baseline Tree: `73e77b6ca5dfd7671cdd3d77a344168fddff3627`
@@ -430,7 +430,7 @@ Independent review of failure-synchronization head `3dd7983`, tree `e78b526`, an
 or correction boundary. The Human Architect then separately authorized the focused correction on
 that exact baseline; `DA1-PHYS-04` remained open.
 
-The Technical-Lead-approved local candidate adds a private offline-restoration snapshot
+The Technical-Lead-approved correction adds a private offline-restoration snapshot
 containing only session generation, restoration revision and trusted unavailable source. It
 preserves an active offline capture only across a publication for which that private snapshot is
 still exact, retains the expected complete active owner/install/lease context and revalidates
@@ -448,6 +448,10 @@ synthetic release and backup-boundary verifier pass. The uninstalled 95,425,607-
 is `b34572b9813c4fb8013b09a4a530e5bc88ed4730ceacda46f6fe682bca88c6c0`. The existing 11
 moderate transitive `uuid@7.0.3` toolchain advisory occurrences remain truthfully reported.
 
-No published correction binding, exact-head CI, independent correction approval, corrected
-physical result or fifth gate is claimed. Publication and independent review remain mandatory before
-`DA1-PHYS-04` can close as a repository finding.
+The correction is published as commit
+`48a21a7ed75c3ab3b15fec93669b5ca2d87d5a30`, tree
+`7c053beeb0c9ef550216bd1dad0a59fc226866a6`, parent
+`3dd798376180051c0dbd8d9e4ee058acff89b43f`, in an exact 24-file `+3027/-37` delta.
+GitHub Actions run `29743923158`, attempt 1, push to `main`, passed all ten exact-head jobs.
+Independent exact-delta correction approval remains mandatory before `DA1-PHYS-04` can close as a
+repository finding. No corrected physical result or fifth gate is claimed.

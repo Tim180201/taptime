@@ -7,10 +7,10 @@ FRESH GATE AUTHORIZED ON PRODUCT `7dbda3b`, REVIEWED ADO `798bada`, REVIEW SYNCH
 `73b5105` AND EXACT-HEAD RUN `29714165784`; GATE A STEPS 1–4 PASSED BUT STEP 5 FAILED BECAUSE
 THREE NATIVE NFC CAPTURES WERE INVALIDATED BEFORE LOCAL APPEND; FAILURE SYNCHRONIZATION
 `3dd7983`/`e78b526` AND RUN `29716007657` INDEPENDENTLY APPROVED; FOCUSED CORRECTION
-SEPARATELY HUMAN-AUTHORIZED, LOCALLY IMPLEMENTED AND TECHNICAL-LEAD APPROVED — PUBLICATION,
-CORRECTION EXACT-HEAD CI AND INDEPENDENT CORRECTION REVIEW PENDING; NO
-CORRECTED PHYSICAL RESULT; DA1-PHYS-04 (P1) OPEN; NO FIFTH GATE; PRODUCTION, DEPLOYMENT AND
-DISTRIBUTION NOT AUTHORIZED**
+`48a21a7`, TREE `7c053be`, TECHNICAL-LEAD APPROVED, PUBLISHED AND EXACT-HEAD RUN
+`29743923158` 10/10 GREEN; INDEPENDENT EXACT-DELTA CORRECTION REVIEW PENDING; NO
+CORRECTED PHYSICAL RESULT; DA1-PHYS-04 (P1) OPEN; NO FIFTH GATE; PRODUCTION, PRODUCTION DATA,
+DEPLOYMENT AND DISTRIBUTION NOT AUTHORIZED**
 Owner: Human Architect + Technical Lead
 
 ## 1. Authorization and exact binding
@@ -812,7 +812,7 @@ The device-bound observations were not independently reproduced and were not des
 Full review:
 `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_04_Failure_Synchronization_Independent_Exact_Delta_Review.md`.
 
-## 31. Separately authorized local correction candidate
+## 31. Separately authorized and published correction
 
 The Human Architect subsequently authorized only the focused `DA1-PHYS-04` repository correction
 on exact baseline `3dd798376180051c0dbd8d9e4ee058acff89b43f`, tree
@@ -820,7 +820,7 @@ on exact baseline `3dd798376180051c0dbd8d9e4ee058acff89b43f`, tree
 Human Physical Gate, production resources/data, deployment and distribution remained
 unauthorized.
 
-The Technical-Lead-approved local candidate:
+The Technical-Lead-approved correction:
 
 - gives the retained offline provider context a private credential-free snapshot of session
   generation, restoration revision and trusted unavailable source;
@@ -839,7 +839,7 @@ four-test lifecycle subset 4/4 in twenty runs. Core 290/290, Admin Web 44/44, bo
 001–010 apply/rerun/ledger verification, Expo export, 656-task release build and backup boundary
 pass.
 
-The local disclosure-safe Gate-C proxy/controller/runbook passes 27/27 focused tests and the fresh
+The disclosure-safe Gate-C proxy/controller/runbook passes 27/27 focused tests and the fresh
 PostgreSQL-17 Harness passes 45/45 in four files. The helper has not been operated in a new
 physical run. The uninstalled candidate APK is 95,425,607 bytes with SHA-256
 `b34572b9813c4fb8013b09a4a530e5bc88ed4730ceacda46f6fe682bca88c6c0`; it has not been
@@ -850,9 +850,14 @@ No fourth-run observation is converted into a pass and none may be reused.
 
 ## 32. Current exact next step
 
-Commit and publish only the Technical-Lead-approved focused Mobile correction, regressions,
-disclosure-safe Gate-C helper/runbook and truthful ADO, obtain green exact-head CI and request an
-independent exact-delta correction review.
+The correction is published as commit
+`48a21a7ed75c3ab3b15fec93669b5ca2d87d5a30`, tree
+`7c053beeb0c9ef550216bd1dad0a59fc226866a6`, exact parent
+`3dd798376180051c0dbd8d9e4ee058acff89b43f`, with an exact 24-file `+3027/-37` delta.
+GitHub Actions run `29743923158`, attempt 1, push to `main`, is bound to that exact head and passed
+ten of ten jobs. This is repository/CI evidence only and not a corrected physical observation.
+
+Request an independent exact-delta correction review of that exact published binding.
 
 `DA1-PHYS-04` remains P1/open until that correction review returns `APPROVED` with zero open
 P0–P3. Only after approved correction review and truthful synchronization may the Human Architect

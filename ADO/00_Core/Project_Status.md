@@ -1,6 +1,6 @@
 # Project Status
 
-Status: CORE ROADMAP V2 BLOCK A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2, BLOCK D, E1 AND NARROW E2A COMPLETE FOR THEIR RECORDED SCOPES — C3A HUMAN-ACCEPTED — C3E1 AND C3E2 INDEPENDENTLY CLOSED — DEVELOPMENT ASSIGNMENT 1 CONTRACT AND REPOSITORY IMPLEMENTATION INDEPENDENTLY APPROVED; DA1-IMPL-01 AND DA1-PHYS-01/02/03 REPOSITORY FINDINGS CLOSED — FOURTH COMPLETE FRESH HUMAN GATE FAILED AT GATE A STEP 5 AFTER THREE NATIVE NFC DELIVERIES LEFT THE LOCAL QUEUE AT ZERO — FAILURE SYNCHRONIZATION `3dd7983`, TREE `e78b526`, AND EXACT-HEAD RUN `29716007657` INDEPENDENTLY APPROVED; FOCUSED DA1-PHYS-04 CORRECTION SEPARATELY HUMAN-AUTHORIZED, LOCALLY IMPLEMENTED AND TECHNICAL-LEAD APPROVED — PUBLICATION, CORRECTION EXACT-HEAD CI AND INDEPENDENT CORRECTION REVIEW PENDING — DA1-PHYS-04 (P1) OPEN; NO FIFTH GATE AUTHORIZED — PRODUCTION, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED — LATEST LOCAL MOBILE 415 / CORE 290 / ADMIN WEB 44 — DT-060–DT-068 AND BLOCK E REMAIN OPEN — 2 SUPAVISOR MODES UNVERIFIED — NO PRODUCTION PERSONAL DATA AUTHORIZED — NO PRODUCTION CLOUD SYNC DEPLOYMENT
+Status: CORE ROADMAP V2 BLOCK A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2, BLOCK D, E1 AND NARROW E2A COMPLETE FOR THEIR RECORDED SCOPES — C3A HUMAN-ACCEPTED — C3E1 AND C3E2 INDEPENDENTLY CLOSED — DEVELOPMENT ASSIGNMENT 1 CONTRACT AND REPOSITORY IMPLEMENTATION INDEPENDENTLY APPROVED; DA1-IMPL-01 AND DA1-PHYS-01/02/03 REPOSITORY FINDINGS CLOSED — FOURTH COMPLETE FRESH HUMAN GATE FAILED AT GATE A STEP 5 AFTER THREE NATIVE NFC DELIVERIES LEFT THE LOCAL QUEUE AT ZERO — FAILURE SYNCHRONIZATION `3dd7983`, TREE `e78b526`, AND EXACT-HEAD RUN `29716007657` INDEPENDENTLY APPROVED; TECHNICAL-LEAD-APPROVED DA1-PHYS-04 CORRECTION `48a21a7`, TREE `7c053be`, PUBLISHED AND EXACT-HEAD RUN `29743923158` 10/10 GREEN — INDEPENDENT EXACT-DELTA CORRECTION REVIEW PENDING — DA1-PHYS-04 (P1) OPEN; NO CORRECTED PHYSICAL RESULT; NO FIFTH GATE AUTHORIZED — PRODUCTION, PRODUCTION DATA, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED — LATEST MOBILE 415 / CORE 290 / ADMIN WEB 44 — DT-060–DT-068 AND BLOCK E REMAIN OPEN — 2 SUPAVISOR MODES UNVERIFIED — NO PRODUCTION PERSONAL DATA AUTHORIZED — NO PRODUCTION CLOUD SYNC DEPLOYMENT
 Date: 2026-07-20
 Owner: Human Architect + Technical Lead
 
@@ -146,7 +146,7 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   the failure truth, diagnosis, P1 classification or focused boundary; `DA1-PHYS-04` remained open.
   The Human Architect then separately authorized that correction on the exact reviewed baseline.
 
-  The Technical-Lead-approved local candidate adds a private credential-free restoration
+  The Technical-Lead-approved correction adds a private credential-free restoration
   snapshot of session generation, restoration revision and trusted failure source. An unchanged
   retry publication preserves that snapshot; credential acceptance, authority/context source
   change, storage failure, logout or identity invalidation rotates it. The offline coordinator
@@ -166,8 +166,16 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   and backup-boundary verification pass. The uninstalled 95,425,607-byte APK has SHA-256
   `b34572b9813c4fb8013b09a4a530e5bc88ed4730ceacda46f6fe682bca88c6c0`. The dependency audit
   still reports the existing 11 moderate transitive `uuid@7.0.3` toolchain occurrences. None of
-  this is a corrected physical observation. Publication, exact-head CI and independent correction
-  review remain pending; no fifth gate is authorized.
+  this is a corrected physical observation.
+
+  The correction is published as commit
+  `48a21a7ed75c3ab3b15fec93669b5ca2d87d5a30`, tree
+  `7c053beeb0c9ef550216bd1dad0a59fc226866a6`, exact parent
+  `3dd798376180051c0dbd8d9e4ee058acff89b43f`, with an exact 24-file `+3027/-37` delta.
+  GitHub Actions run `29743923158`, attempt 1, push to `main`, is bound to that exact head and
+  passed ten of ten jobs. Independent exact-delta correction review remains pending;
+  `DA1-PHYS-04` remains P1/open. There is no corrected physical result and no fifth gate is
+  authorized.
   Evidence: `ADO/01_Architecture/ADR/ADR-0012-complete-offline-synchronization-platform.md`,
   `ADO/02_Development/Development_Assignment_01_Complete_Offline_Synchronization_Authorization.md`;
   `ADO/02_Development/Development_Assignment_01_Complete_Offline_Synchronization_Implementation_Plan.md`;
@@ -290,11 +298,11 @@ Two Epics are concurrently Active, per EP-009's own stated relationship to the r
 
 ## Immediate Next Steps
 
-1. Commit and publish only the Technical-Lead-approved focused local correction, tests,
-   disclosure-safe Gate-C
-   runbook/helper and truthful ADO, then obtain green exact-head CI.
-2. Obtain an independent exact-delta correction review. `DA1-PHYS-04` remains P1/open until that
-   review returns `APPROVED` with zero open P0–P3.
+1. Obtain an independent exact-delta correction review of published correction
+   `48a21a7ed75c3ab3b15fec93669b5ca2d87d5a30`, tree
+   `7c053beeb0c9ef550216bd1dad0a59fc226866a6`, after its exact-head ten-of-ten GitHub Actions run
+   `29743923158`.
+2. Keep `DA1-PHYS-04` P1/open until that review returns `APPROVED` with zero open P0–P3.
 3. Only after approved correction review and truthful synchronization may the Human Architect
    separately authorize a fifth complete fresh Gate A–E run which reuses no prior observation.
 4. Keep the real production endpoint/CA, one-human operator IAM inventory, short-lived credential

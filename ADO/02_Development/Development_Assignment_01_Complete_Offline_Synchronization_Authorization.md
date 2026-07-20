@@ -23,10 +23,10 @@ DA1-PHYS-03 REPOSITORY FINDING CLOSED; FOURTH COMPLETE FRESH GATE AUTHORIZED ON 
 `7dbda3b`, REVIEWED ADO `798bada`, SYNCHRONIZATION HEAD `73b5105` AND RUN `29714165784`;
 GATE A STEPS 1–4 PASSED BUT STEP 5 FAILED AFTER THREE NATIVE NFC DELIVERIES LEFT THE LOCAL
 QUEUE AT ZERO; FAILURE SYNCHRONIZATION `3dd7983`, TREE `e78b526`, AND RUN `29716007657`
-INDEPENDENTLY APPROVED; FOCUSED DA1-PHYS-04 CORRECTION SEPARATELY HUMAN-AUTHORIZED AND
-LOCALLY IMPLEMENTED AND TECHNICAL-LEAD APPROVED — PUBLICATION, CORRECTION EXACT-HEAD CI AND
-INDEPENDENT CORRECTION REVIEW PENDING; DA1-PHYS-04 (P1) OPEN; NO FIFTH
-GATE; PRODUCTION, DEPLOYMENT AND DISTRIBUTION NOT AUTHORIZED**
+INDEPENDENTLY APPROVED; FOCUSED DA1-PHYS-04 CORRECTION `48a21a7`, TREE `7c053be`,
+TECHNICAL-LEAD APPROVED, PUBLISHED AND EXACT-HEAD RUN `29743923158` 10/10 GREEN;
+INDEPENDENT EXACT-DELTA CORRECTION REVIEW PENDING; DA1-PHYS-04 (P1) OPEN; NO FIFTH
+GATE; PRODUCTION, PRODUCTION DATA, DEPLOYMENT AND DISTRIBUTION NOT AUTHORIZED**
 Date: 2026-07-20
 Candidate Baseline Commit: `1bb2d7d7b38928643cfd5c86b36c500c35f73276`
 Candidate Baseline Tree: `c5c20f67155cdc0b4197908b4d1283cb7e619597`
@@ -590,7 +590,7 @@ baseline `3dd798376180051c0dbd8d9e4ee058acff89b43f`, tree
 3–12, every numeric ADR-0012 policy, production resources/data, deployment, distribution and the
 fifth Human Physical Gate remain outside that release.
 
-The Technical-Lead-approved local candidate represents the retained offline provider
+The Technical-Lead-approved correction represents the retained offline provider
 context with a private credential-free snapshot of session generation, restoration revision and
 trusted failure source. Repeated publication of the exact unchanged retained context preserves the
 snapshot; credential acceptance, source/context change, logout, authority or storage invalidation
@@ -615,9 +615,14 @@ The durable Gate-C runbook and helper bind only numeric loopback, one exact offl
 ownership-checked scoped ADB reverse swap; they emit fixed disclosure-safe events and provide
 fail-closed abort/restoration. They have not been used in a new physical run.
 
-Technical-Lead verification is complete and the local candidate is `APPROVED`. No published
-correction binding, exact-head CI, independent correction review, corrected physical observation
-or fifth-gate authorization is claimed. `DA1-PHYS-04` remains P1/open.
+The correction is published as commit
+`48a21a7ed75c3ab3b15fec93669b5ca2d87d5a30`, tree
+`7c053beeb0c9ef550216bd1dad0a59fc226866a6`, exact parent
+`3dd798376180051c0dbd8d9e4ee058acff89b43f`, with an exact 24-file `+3027/-37` delta.
+GitHub Actions run `29743923158`, attempt 1, push to `main`, is bound to that exact head and
+passed ten of ten jobs. Technical-Lead approval, correction publication and exact-head CI are
+therefore complete. Independent exact-delta correction review remains pending; no corrected
+physical observation or fifth-gate authorization is claimed. `DA1-PHYS-04` remains P1/open.
 
 Failure-synchronization review:
 `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_04_Failure_Synchronization_Independent_Exact_Delta_Review.md`.
@@ -638,9 +643,9 @@ delta. At minimum, the review must answer:
 9. Is the proposed schema/role/API capability sufficiently narrow for implementation?
 10. Can later review evidence block order without being silently skipped?
 11. Are automated and physical gates sufficient to prove the claimed scope?
-12. Do governance artifacts distinguish the locally Technical-Lead-approved implementation
-    candidate from still-pending publication, exact-head CI, independent approval, Human Physical
-    Gate and final closure?
+12. Do governance artifacts distinguish the Technical-Lead-approved published correction and
+    green exact-head CI from still-pending independent correction approval, Human Physical Gate
+    and final closure?
 
 Any P0/P1/P2/P3 implementation finding requires correction, renewed exact-delta review and green
 exact-head CI before the Human Physical Gate may be authorized.

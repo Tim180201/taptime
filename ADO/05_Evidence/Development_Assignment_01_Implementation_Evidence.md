@@ -23,10 +23,10 @@ P0/P1/P2/P3; DA1-PHYS-03 REPOSITORY FINDING CLOSED; FOURTH COMPLETE FRESH GATE A
 ON PRODUCT `7dbda3b`, REVIEWED ADO `798bada`, SYNCHRONIZATION HEAD `73b5105` AND RUN
 `29714165784`; GATE A STEPS 1–4 PASSED BUT STEP 5 FAILED AFTER THREE NATIVE NFC DELIVERIES
 LEFT THE LOCAL QUEUE AT ZERO; FAILURE SYNCHRONIZATION `3dd7983`/`e78b526` AND RUN
-`29716007657` INDEPENDENTLY APPROVED; FOCUSED CORRECTION SEPARATELY HUMAN-AUTHORIZED AND
-LOCALLY IMPLEMENTED AND TECHNICAL-LEAD APPROVED — PUBLICATION, CORRECTION EXACT-HEAD CI AND
-INDEPENDENT CORRECTION REVIEW PENDING; DA1-PHYS-04 (P1) OPEN; NO FIFTH
-GATE; PRODUCTION, DEPLOYMENT AND DISTRIBUTION NOT AUTHORIZED**
+`29716007657` INDEPENDENTLY APPROVED; FOCUSED CORRECTION `48a21a7`, TREE `7c053be`,
+TECHNICAL-LEAD APPROVED, PUBLISHED AND EXACT-HEAD RUN `29743923158` 10/10 GREEN;
+INDEPENDENT EXACT-DELTA CORRECTION REVIEW PENDING; DA1-PHYS-04 (P1) OPEN; NO FIFTH
+GATE; PRODUCTION, PRODUCTION DATA, DEPLOYMENT AND DISTRIBUTION NOT AUTHORIZED**
 Date: 2026-07-20
 Human-Accepted Contract Commit: `592334160655cde2f4189712eaf327c8a7edcb0e`
 Implementation Baseline Commit: `180093091c47a926b5871a27ea8b00fb21b9b4ac`
@@ -121,8 +121,17 @@ synchronization; DA1-PHYS-04 remains open**
 DA1-PHYS-04 Focused Correction Authorization Baseline:
 `3dd798376180051c0dbd8d9e4ee058acff89b43f`, tree
 `e78b5268eb53fd5659461ee290778f7bf3bb70a0`, exact-head run `29716007657`
-DA1-PHYS-04 Focused Correction State: **Technical-Lead-approved local candidate; publication,
-correction exact-head CI and independent correction review pending**
+DA1-PHYS-04 Correction Commit:
+`48a21a7ed75c3ab3b15fec93669b5ca2d87d5a30`
+DA1-PHYS-04 Correction Tree:
+`7c053beeb0c9ef550216bd1dad0a59fc226866a6`
+DA1-PHYS-04 Correction Parent:
+`3dd798376180051c0dbd8d9e4ee058acff89b43f`
+DA1-PHYS-04 Correction Delta: **24 files, +3027/-37**
+DA1-PHYS-04 Correction Exact-head CI: GitHub Actions run `29743923158`, attempt 1, push to
+`main`, 10/10 jobs successful
+DA1-PHYS-04 Focused Correction State: **Technical-Lead approved and published; exact-head CI
+green; independent exact-delta correction review pending**
 Architecture:
 `ADO/01_Architecture/ADR/ADR-0012-complete-offline-synchronization-platform.md`
 Authorization:
@@ -402,11 +411,10 @@ restoration-before-scheduling. Verdict: **APPROVED**, zero open P0/P1/P2/P3;
 
 Still pending and not claimed here:
 
-1. publication of the Technical-Lead-approved focused `DA1-PHYS-04` correction;
-2. green correction exact-head CI and independent exact-delta correction review;
-3. a later separately authorized complete fresh Human Gate A–E which reuses no prior observation;
-4. truthful physical closure synchronization and independent final closure review; and
-5. any production resource/data, deployment or distribution decision.
+1. independent exact-delta correction review of published correction `48a21a7`;
+2. a later separately authorized complete fresh Human Gate A–E which reuses no prior observation;
+3. truthful physical closure synchronization and independent final closure review; and
+4. any production resource/data, deployment or distribution decision.
 
 DT-060–DT-062 remain open until every applicable later gate is complete.
 
@@ -530,7 +538,7 @@ abort cleanup passed. Before any later complete gate, the disclosure-safe Gate-C
 procedure must be preserved in a durable reviewed operator runbook or helper. No product
 correction, fifth gate, production resource/data, deployment or distribution is claimed.
 
-## 11. DA1-PHYS-04 failure review, authorized local correction candidate and Gate-C helper
+## 11. DA1-PHYS-04 failure review, published correction and Gate-C helper
 
 ### 11.1 Independent failure-synchronization review and correction authority
 
@@ -550,9 +558,9 @@ unauthorized.
 Full review:
 `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_04_Failure_Synchronization_Independent_Exact_Delta_Review.md`.
 
-### 11.2 Local Mobile correction boundary
+### 11.2 Published Mobile correction boundary
 
-The local candidate changes four Mobile production files and three Mobile test surfaces, including
+The published correction changes four Mobile production files and three Mobile test surfaces, including
 the new `OfflineSchedulingLifecycle` integration:
 
 - `MobileSessionCoordinator` exposes only a private credential-free offline-restoration snapshot:
@@ -593,7 +601,7 @@ encrypted product path without misdescribing the injected database boundary as n
 
 ### 11.3 Durable disclosure-safe Gate-C operator boundary
 
-The local harness candidate adds a fixed one-shot Node-24 proxy on `127.0.0.1:3001` forwarding
+The published harness correction adds a fixed one-shot Node-24 proxy on `127.0.0.1:3001` forwarding
 only to `127.0.0.1:3000`, plus an ownership-checking controller for the exact scoped Android API
 reverse swap. It claims only the first exact `POST /v1/lifecycle-events/offline`, blocks later
 requests, drains and requires a complete HTTP 200 before destroying the Mobile response, never
@@ -606,7 +614,7 @@ an unknown mapping. The durable operator procedure is:
 `ADO/04_Operations/Development_Assignment_01_Gate_C_Response_Drop_Runbook.md`.
 The helper has not been used in a new physical run.
 
-### 11.4 Current local verification
+### 11.4 Technical-Lead verification and exact-head publication
 
 | Scope | Local result |
 |---|---:|
@@ -636,7 +644,13 @@ No install or corrected on-device observation is claimed.
 `uuid@7.0.3` occurrences below Expo/config-plugins/xcode. The correction adds no dependency and
 does not claim a zero-advisory tree.
 
-Technical-Lead verification is complete and the local candidate is `APPROVED`. No published
-correction binding, exact-head CI or independent correction approval exists yet.
-`DA1-PHYS-04` remains P1/open; no fifth gate, Development Assignment 1 closure, production
-resource/data, deployment or distribution is claimed.
+Technical-Lead verification is complete and the correction is `APPROVED`. It is published as
+commit `48a21a7ed75c3ab3b15fec93669b5ca2d87d5a30`, tree
+`7c053beeb0c9ef550216bd1dad0a59fc226866a6`, exact parent
+`3dd798376180051c0dbd8d9e4ee058acff89b43f`, with an exact 24-file `+3027/-37` delta.
+GitHub Actions run `29743923158`, attempt 1, push to `main`, is bound to that exact head and
+passed ten of ten jobs.
+
+Independent exact-delta correction approval does not exist yet. `DA1-PHYS-04` remains P1/open;
+there is no corrected physical result and no fifth gate, Development Assignment 1 closure,
+production resource/data, deployment or distribution is claimed.
