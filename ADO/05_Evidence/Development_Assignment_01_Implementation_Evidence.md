@@ -27,9 +27,9 @@ LEFT THE LOCAL QUEUE AT ZERO; FAILURE SYNCHRONIZATION `3dd7983`/`e78b526` AND RU
 TECHNICAL-LEAD APPROVED, PUBLISHED AND EXACT-HEAD RUN `29743923158` 10/10 GREEN; ADO
 PUBLICATION `2f6035b`, TREE `d5513a6`, AND RUN `29744637928` 10/10 GREEN; INDEPENDENT
 EXACT-DELTA CORRECTION REVIEW APPROVED WITH ZERO OPEN P0/P1/P2/P3; DA1-PHYS-04 REPOSITORY
-FINDING CLOSED; NO CORRECTED PHYSICAL RESULT; FIFTH GATE MAY BE SEPARATELY HUMAN-AUTHORIZED
-BUT IS NOT YET AUTHORIZED; PRODUCTION, PRODUCTION DATA, DEPLOYMENT AND DISTRIBUTION NOT
-AUTHORIZED**
+FINDING CLOSED; NO CORRECTED PHYSICAL RESULT; FIFTH GATE AUTHORIZED BUT NOT STARTED BECAUSE ITS
+EXACT APK WAS UNAVAILABLE; DA1-ARTIFACT-01 (P1 OPERATIONAL) OPEN; REPLACEMENT APK NOT
+AUTHORIZED; PRODUCTION, PRODUCTION DATA, DEPLOYMENT AND DISTRIBUTION NOT AUTHORIZED**
 Date: 2026-07-20
 Human-Accepted Contract Commit: `592334160655cde2f4189712eaf327c8a7edcb0e`
 Implementation Baseline Commit: `180093091c47a926b5871a27ea8b00fb21b9b4ac`
@@ -669,7 +669,28 @@ returned `APPROVED` with zero open P0/P1/P2/P3. `DA1-PHYS-04` is closed as a rep
 Full review:
 `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_04_Independent_Exact_Delta_Review.md`.
 
-There is no corrected physical result and no fifth gate, Development Assignment 1 closure,
-production resource/data, deployment or distribution is claimed. A fifth complete fresh Gate A–E
-may be separately authorized by the Human Architect after this review synchronization has green
-exact-head CI.
+There is no corrected physical result or Development Assignment 1 closure. The later fifth-gate
+authorization did not reach Gate A because of the artifact blocker recorded in Section 12.
+Production resource/data, deployment and distribution remain unclaimed and unauthorized.
+
+## 12. Fifth-gate artifact retention blocker
+
+The Human Architect separately authorized the fifth complete fresh Gate A–E run on the
+independently approved product/ADO/review-synchronization chain and exact 95,425,607-byte APK
+SHA-256 `b34572b9813c4fb8013b09a4a530e5bc88ed4730ceacda46f6fe682bca88c6c0`.
+
+Pre-install verification found that the exact binary was no longer retained. It was absent from
+the prior isolated build location and ordinary local artifact locations, and the associated CI run
+contained no downloadable artifact. No package was installed and no physical gate observation
+began.
+
+The exact historic 656-task clean-release procedure was reproduced from product commit `48a21a7`.
+The resulting binary has the same 95,425,607-byte size but a different SHA-256:
+`4239f6c609430d3926dbfc053c7ad0688a4022903eef8a3ffe1ebeece2356b7c`. It is preserved
+read-only outside the repository. Package identity, APK-v2 signature, exact Mobile source binding
+and the offline-storage backup/transfer boundary pass. It remains uninstalled, independently
+unreviewed and unauthorized.
+
+This opens `DA1-ARTIFACT-01` as an operational P1 release-gate blocker without reopening the
+independently closed product finding `DA1-PHYS-04`. Publication, exact-head CI, independent
+artifact review and a new Human authorization are required before any new Gate A step 1.

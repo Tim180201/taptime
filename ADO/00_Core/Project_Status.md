@@ -1,6 +1,6 @@
 # Project Status
 
-Status: CORE ROADMAP V2 BLOCK A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2, BLOCK D, E1 AND NARROW E2A COMPLETE FOR THEIR RECORDED SCOPES — C3A HUMAN-ACCEPTED — C3E1 AND C3E2 INDEPENDENTLY CLOSED — DEVELOPMENT ASSIGNMENT 1 CONTRACT AND REPOSITORY IMPLEMENTATION INDEPENDENTLY APPROVED; DA1-IMPL-01 AND DA1-PHYS-01/02/03/04 REPOSITORY FINDINGS CLOSED — FOURTH COMPLETE FRESH HUMAN GATE REMAINS A FAILED HISTORICAL RUN — DA1-PHYS-04 CORRECTION `48a21a7`, TREE `7c053be`, AND ADO PUBLICATION `2f6035b`, TREE `d5513a6`, INDEPENDENTLY APPROVED WITH ZERO OPEN P0–P3; EXACT-HEAD RUNS `29743923158` AND `29744637928` EACH 10/10 GREEN — NO CORRECTED PHYSICAL RESULT; FIFTH COMPLETE FRESH GATE MAY BE SEPARATELY HUMAN-AUTHORIZED BUT IS NOT YET AUTHORIZED — PRODUCTION, PRODUCTION DATA, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED — LATEST MOBILE 415 / CORE 290 / ADMIN WEB 44 — DT-060–DT-068 AND BLOCK E REMAIN OPEN — 2 SUPAVISOR MODES UNVERIFIED — NO PRODUCTION PERSONAL DATA AUTHORIZED — NO PRODUCTION CLOUD SYNC DEPLOYMENT
+Status: CORE ROADMAP V2 BLOCK A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2, BLOCK D, E1 AND NARROW E2A COMPLETE FOR THEIR RECORDED SCOPES — C3A HUMAN-ACCEPTED — C3E1 AND C3E2 INDEPENDENTLY CLOSED — DEVELOPMENT ASSIGNMENT 1 CONTRACT AND REPOSITORY IMPLEMENTATION INDEPENDENTLY APPROVED; DA1-IMPL-01 AND DA1-PHYS-01/02/03/04 REPOSITORY FINDINGS CLOSED — FOURTH COMPLETE FRESH HUMAN GATE REMAINS A FAILED HISTORICAL RUN — DA1-PHYS-04 CORRECTION `48a21a7`, TREE `7c053be`, AND ADO PUBLICATION `2f6035b`, TREE `d5513a6`, INDEPENDENTLY APPROVED WITH ZERO OPEN PRODUCT P0–P3; EXACT-HEAD RUNS `29743923158` AND `29744637928` EACH 10/10 GREEN — FIFTH COMPLETE FRESH GATE SEPARATELY HUMAN-AUTHORIZED BUT NOT STARTED: EXACT HASH-BOUND APK UNAVAILABLE BEFORE INSTALLATION — DA1-ARTIFACT-01 (P1 OPERATIONAL) OPEN; PRESERVED REPLACEMENT APK NOT REVIEWED OR AUTHORIZED — NO CORRECTED PHYSICAL RESULT — PRODUCTION, PRODUCTION DATA, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED — LATEST MOBILE 415 / CORE 290 / ADMIN WEB 44 — DT-060–DT-068 AND BLOCK E REMAIN OPEN — 2 SUPAVISOR MODES UNVERIFIED — NO PRODUCTION PERSONAL DATA AUTHORIZED — NO PRODUCTION CLOUD SYNC DEPLOYMENT
 Date: 2026-07-20
 Owner: Human Architect + Technical Lead
 
@@ -24,7 +24,10 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   authorization contract; repository Workstreams A–E and the `DA1-PHYS-01/02/03/04` corrections
   are independently approved with their repository findings closed. The fourth authorized
   complete fresh Human Physical Gate remains a failed historical run and supplies no corrected
-  physical result; a fifth complete fresh gate is not yet authorized.** On exact clean baseline
+  physical result. A fifth complete fresh gate was separately authorized but did not start because
+  its exact hash-bound APK was unavailable before installation; `DA1-ARTIFACT-01` is an open
+  operational P1 and the preserved replacement is not yet independently reviewed or authorized.**
+  On exact clean baseline
   `1bb2d7d7b38928643cfd5c86b36c500c35f73276`, tree
   `c5c20f67155cdc0b4197908b4d1283cb7e619597`, Human-accepted ADR-0012 and the comprehensive
   assignment contract reconcile E1/E2A, the one-record Mobile outbox, volatile scan-context slot, server
@@ -182,9 +185,16 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   Independent exact-delta correction review verified both exact deltas and CI runs, reproduced
   Mobile 415/415, the lifecycle regression and Gate-C helper, and returned `APPROVED` with zero
   open P0/P1/P2/P3. `DA1-PHYS-04` is closed as a repository finding. The fourth failed physical
-  run remains historical and no corrected physical result exists. A fifth complete fresh Gate A–E
-  may be separately authorized by the Human Architect but is not authorized by this review or
-  synchronization.
+  run remains historical and no corrected physical result exists.
+
+  The Human Architect then separately authorized the fifth complete fresh Gate A–E run against
+  product `48a21a7`, ADO publication `2f6035b`, review synchronization `dd2bfbe`, exact-head run
+  `29746002252` and APK SHA-256 `b34572b9…c6c0`. Strict pre-install verification found that exact
+  binary was no longer retained, so no APK was installed and Gate A step 1 did not pass. The
+  exact-size 95,425,607-byte replacement SHA-256 `4239f6c6…6b7c` is preserved read-only outside
+  the repository, with package/signature/source/boundary checks passing, but remains independently
+  unreviewed and unauthorized. `DA1-ARTIFACT-01` is an operational P1 gate blocker; it does not
+  reopen the closed product finding `DA1-PHYS-04`.
   Evidence: `ADO/01_Architecture/ADR/ADR-0012-complete-offline-synchronization-platform.md`,
   `ADO/02_Development/Development_Assignment_01_Complete_Offline_Synchronization_Authorization.md`;
   `ADO/02_Development/Development_Assignment_01_Complete_Offline_Synchronization_Implementation_Plan.md`;
@@ -308,15 +318,16 @@ Two Epics are concurrently Active, per EP-009's own stated relationship to the r
 
 ## Immediate Next Steps
 
-1. Publish this truthful zero-finding independent-review synchronization and obtain green
+1. Publish the truthful fifth-authorization/artifact-blocker synchronization and obtain green
    exact-head CI.
-2. After that exact synchronization binding is green, the Human Architect may separately authorize
-   a fifth complete fresh Gate A–E run bound to the independently approved correction, exact APK,
-   unchanged Web/Harness artifacts and reviewed Gate-C runbook.
-3. Start any separately authorized fifth run again at Gate A step 1 and reuse no prior observation.
-4. Keep the real production endpoint/CA, one-human operator IAM inventory, short-lived credential
+2. Obtain an independent exact-delta/artifact review of `DA1-ARTIFACT-01` and the preserved
+   95,425,607-byte replacement APK SHA-256 `4239f6c6…6b7c`.
+3. Only after `APPROVED`, obtain a new separate Human authorization bound to the replacement hash
+   and then-current ADO/CI head.
+4. Start the newly authorized run at Gate A step 1 and reuse no prior observation.
+5. Keep the real production endpoint/CA, one-human operator IAM inventory, short-lived credential
    delivery/revocation and controlled execution evidence as explicit later deployment gates.
-5. Preserve the closed C3C/C3E2 least-privilege boundaries and keep production/deployment,
+6. Preserve the closed C3C/C3E2 least-privilege boundaries and keep production/deployment,
    DT-060–DT-068 and Block-E closure behind their own decisions and reviews.
 
 ## Agreed comprehensive Development-assignment sequence

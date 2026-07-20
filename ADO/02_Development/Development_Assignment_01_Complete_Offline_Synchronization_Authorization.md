@@ -27,9 +27,10 @@ INDEPENDENTLY APPROVED; FOCUSED DA1-PHYS-04 CORRECTION `48a21a7`, TREE `7c053be`
 TECHNICAL-LEAD APPROVED, PUBLISHED AND EXACT-HEAD RUN `29743923158` 10/10 GREEN;
 ADO PUBLICATION `2f6035b`, TREE `d5513a6`, AND RUN `29744637928` 10/10 GREEN; INDEPENDENT
 EXACT-DELTA CORRECTION REVIEW APPROVED WITH ZERO OPEN P0/P1/P2/P3; DA1-PHYS-04 REPOSITORY
-FINDING CLOSED; NO CORRECTED PHYSICAL RESULT; FIFTH GATE MAY BE SEPARATELY HUMAN-AUTHORIZED
-BUT IS NOT YET AUTHORIZED; PRODUCTION, PRODUCTION DATA, DEPLOYMENT AND DISTRIBUTION NOT
-AUTHORIZED**
+FINDING CLOSED; NO CORRECTED PHYSICAL RESULT; FIFTH GATE WAS SEPARATELY HUMAN-AUTHORIZED BUT
+DID NOT START BECAUSE ITS EXACT HASH-BOUND APK WAS UNAVAILABLE BEFORE INSTALLATION;
+DA1-ARTIFACT-01 (P1 OPERATIONAL) OPEN; REPLACEMENT APK NOT AUTHORIZED; PRODUCTION, PRODUCTION
+DATA, DEPLOYMENT AND DISTRIBUTION NOT AUTHORIZED**
 Date: 2026-07-20
 Candidate Baseline Commit: `1bb2d7d7b38928643cfd5c86b36c500c35f73276`
 Candidate Baseline Tree: `c5c20f67155cdc0b4197908b4d1283cb7e619597`
@@ -435,12 +436,13 @@ micro-sprint handoffs while preserving every quality/security gate.
 
 ## 13. Current release gate
 
-**REPOSITORY IMPLEMENTATION AND DA1-PHYS-01/02/03/04 CORRECTIONS INDEPENDENTLY APPROVED
-WITH ZERO OPEN P0/P1/P2/P3; ALL FOUR REPOSITORY FINDINGS CLOSED. THE FOURTH COMPLETE FRESH
-PHYSICAL GATE REMAINS A FAILED HISTORICAL RUN AND SUPPLIES NO CORRECTED PHYSICAL RESULT.
-AFTER THIS REVIEW SYNCHRONIZATION HAS GREEN EXACT-HEAD CI, A FIFTH COMPLETE FRESH GATE MAY BE
-SEPARATELY HUMAN-AUTHORIZED BUT IS NOT AUTHORIZED HERE. PRODUCTION, PRODUCTION DATA, DEPLOYMENT
-AND DISTRIBUTION REMAIN UNAUTHORIZED.**
+**REPOSITORY IMPLEMENTATION AND DA1-PHYS-01/02/03/04 CORRECTIONS INDEPENDENTLY APPROVED;
+ALL FOUR PRODUCT REPOSITORY FINDINGS CLOSED. THE FOURTH COMPLETE FRESH PHYSICAL GATE REMAINS
+A FAILED HISTORICAL RUN. THE FIFTH COMPLETE FRESH GATE WAS SEPARATELY HUMAN-AUTHORIZED BUT
+DID NOT START BECAUSE ITS EXACT HASH-BOUND APK WAS UNAVAILABLE BEFORE INSTALLATION.
+DA1-ARTIFACT-01 IS AN OPEN OPERATIONAL P1; THE PRESERVED REPLACEMENT APK IS NOT INDEPENDENTLY
+REVIEWED OR AUTHORIZED. NO CORRECTED PHYSICAL RESULT EXISTS. PRODUCTION, PRODUCTION DATA,
+DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED.**
 
 Candidate publication, exact-head CI, independent zero-finding pre-implementation review, explicit
 Human acceptance of ADR-0012/Sections 3–13 and the separate exact-baseline repository
@@ -626,14 +628,33 @@ Independent exact-delta correction review verified both published deltas and CI 
 confirmed the continuity snapshot, full active-context revalidation and fail-closed invalidation,
 and returned `APPROVED` with zero open P0/P1/P2/P3. `DA1-PHYS-04` is closed as a repository
 finding. The fourth failed run remains historical and there is no corrected physical observation.
-A fifth complete fresh Gate A–E run may be separately authorized by the Human Architect only after
-this truthful review synchronization has green exact-head CI; it is not authorized here.
+That review made a fifth complete fresh Gate A–E run eligible for separate Human authorization.
+The later authorization and its pre-install artifact disposition are recorded below.
 
 Failure-synchronization review:
 `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_04_Failure_Synchronization_Independent_Exact_Delta_Review.md`.
 
 Correction review:
 `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_04_Independent_Exact_Delta_Review.md`.
+
+### Fifth authorization and pre-install artifact disposition
+
+The Human Architect later authorized the fifth complete fresh Gate A–E run against product
+`48a21a7`, ADO publication `2f6035b`, review synchronization `dd2bfbe`, exact-head run
+`29746002252` and the exact 95,425,607-byte APK SHA-256
+`b34572b9813c4fb8013b09a4a530e5bc88ed4730ceacda46f6fe682bca88c6c0`.
+
+Strict pre-install verification found that exact reviewed binary was no longer available. No APK
+was installed, no harness/Web environment was started and Gate A step 1 did not pass. Two exact
+source-bound rebuilds had different SHA-256 values; neither was substituted for the authorized
+binary. The exact-size 95,425,607-byte replacement with SHA-256
+`4239f6c609430d3926dbfc053c7ad0688a4022903eef8a3ffe1ebeece2356b7c` is preserved read-only
+outside the repository but remains independently unreviewed and unauthorized.
+
+`DA1-ARTIFACT-01` is an operational P1 gate blocker. A later complete gate requires publication
+and green exact-head CI for this truthful synchronization, independent exact-delta/artifact review
+and a new separate Human authorization bound to the replacement hash. The prior fifth-run
+authorization does not extend to it.
 
 ## 14. Independent review mandate
 

@@ -25,9 +25,10 @@ LEFT THE LOCAL QUEUE AT ZERO; FAILURE SYNCHRONIZATION `3dd7983`/`e78b526` AND RU
 TECHNICAL-LEAD APPROVED, PUBLISHED AND EXACT-HEAD RUN `29743923158` 10/10 GREEN;
 ADO PUBLICATION `2f6035b`, TREE `d5513a6`, AND RUN `29744637928` 10/10 GREEN; INDEPENDENT
 EXACT-DELTA CORRECTION REVIEW APPROVED WITH ZERO OPEN P0/P1/P2/P3; DA1-PHYS-04 REPOSITORY
-FINDING CLOSED; NO CORRECTED PHYSICAL RESULT; FIFTH GATE MAY BE SEPARATELY HUMAN-AUTHORIZED
-BUT IS NOT YET AUTHORIZED; PRODUCTION, PRODUCTION DATA, DEPLOYMENT AND DISTRIBUTION NOT
-AUTHORIZED**
+FINDING CLOSED; NO CORRECTED PHYSICAL RESULT; FIFTH GATE WAS SEPARATELY HUMAN-AUTHORIZED BUT
+DID NOT START BECAUSE ITS EXACT HASH-BOUND APK WAS UNAVAILABLE BEFORE INSTALLATION;
+DA1-ARTIFACT-01 (P1 OPERATIONAL) OPEN; REPLACEMENT APK NOT AUTHORIZED; PRODUCTION, PRODUCTION
+DATA, DEPLOYMENT AND DISTRIBUTION NOT AUTHORIZED**
 Date: 2026-07-20
 Implementation Baseline Commit: `180093091c47a926b5871a27ea8b00fb21b9b4ac`
 Implementation Baseline Tree: `73e77b6ca5dfd7671cdd3d77a344168fddff3627`
@@ -461,9 +462,19 @@ ADO publication head `2f6035b1da9e7946cfca8d10c3d406a8c0b852ec`, tree
 ten of ten.
 
 Independent exact-delta correction review returned `APPROVED` with zero open P0/P1/P2/P3 and
-closed `DA1-PHYS-04` as a repository finding. No corrected physical result exists. After truthful
-review synchronization and green exact-head CI, a fifth complete fresh Gate A–E run may be
-separately authorized by the Human Architect but is not authorized by this plan.
+closed `DA1-PHYS-04` as a repository finding. No corrected physical result exists. That review
+made a fifth complete fresh Gate A–E run eligible for separate Human authorization; the later
+authorization and artifact blocker are recorded below.
 
 Correction review:
 `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_04_Independent_Exact_Delta_Review.md`.
+
+The Human Architect subsequently authorized the fifth complete fresh gate against the reviewed
+chain and exact APK hash. Pre-install verification found that exact binary was no longer
+available, so no installation or physical observation began. The exact-size replacement APK
+SHA-256 `4239f6c609430d3926dbfc053c7ad0688a4022903eef8a3ffe1ebeece2356b7c` is preserved
+read-only outside the repository but is not covered by that authorization.
+
+`DA1-ARTIFACT-01` is an operational P1 blocker. The plan returns to the artifact-review gate:
+publish this truthful synchronization, obtain green exact-head CI, complete independent
+exact-delta/artifact review and obtain a new Human authorization before restarting Gate A step 1.

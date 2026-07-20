@@ -10,9 +10,10 @@ THREE NATIVE NFC CAPTURES WERE INVALIDATED BEFORE LOCAL APPEND; FAILURE SYNCHRON
 `48a21a7`, TREE `7c053be`, TECHNICAL-LEAD APPROVED, PUBLISHED AND EXACT-HEAD RUN
 `29743923158` 10/10 GREEN; ADO PUBLICATION `2f6035b`, TREE `d5513a6`, AND RUN `29744637928`
 10/10 GREEN; INDEPENDENT EXACT-DELTA CORRECTION REVIEW APPROVED WITH ZERO OPEN P0/P1/P2/P3;
-DA1-PHYS-04 REPOSITORY FINDING CLOSED; NO CORRECTED PHYSICAL RESULT; FIFTH GATE MAY BE
-SEPARATELY HUMAN-AUTHORIZED BUT IS NOT YET AUTHORIZED; PRODUCTION, PRODUCTION DATA, DEPLOYMENT
-AND DISTRIBUTION NOT AUTHORIZED**
+DA1-PHYS-04 REPOSITORY FINDING CLOSED; NO CORRECTED PHYSICAL RESULT; FIFTH GATE WAS SEPARATELY
+HUMAN-AUTHORIZED BUT DID NOT START BECAUSE ITS EXACT HASH-BOUND APK WAS NO LONGER AVAILABLE
+BEFORE INSTALLATION; REPLACEMENT CANDIDATE IS NOT AUTHORIZED; DA1-ARTIFACT-01 (P1 OPERATIONAL)
+OPEN; PRODUCTION, PRODUCTION DATA, DEPLOYMENT AND DISTRIBUTION NOT AUTHORIZED**
 Owner: Human Architect + Technical Lead
 
 ## 1. Authorization and exact binding
@@ -880,7 +881,7 @@ The fourth failed physical run remains historical and supplies no corrected phys
 Full review:
 `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_04_Independent_Exact_Delta_Review.md`.
 
-## 33. Current exact next step
+## 33. Historical next step after the correction review
 
 Publish this truthful review synchronization and obtain green exact-head CI. The Human Architect
 may then separately authorize a fifth complete fresh Gate A–E run bound to the independently
@@ -891,3 +892,82 @@ Web/Harness artifacts and the reviewed Gate-C runbook/helper.
 The fifth run is not authorized by this document. If separately authorized, it starts again at
 Gate A step 1 and reuses no observation from any failed run. Production resources/data, deployment
 and distribution remain unauthorized.
+
+That publication, CI and later separate authorization subsequently occurred as recorded in
+Section 34. This section is retained as historical sequencing, not current gate status.
+
+## 34. Fifth complete fresh gate authorization
+
+The Human Architect subsequently authorized the complete fifth fresh Gate A–E run, bound to:
+
+- independently approved product commit
+  `48a21a7ed75c3ab3b15fec93669b5ca2d87d5a30`, tree
+  `7c053beeb0c9ef550216bd1dad0a59fc226866a6`;
+- independently reviewed ADO publication head
+  `2f6035b1da9e7946cfca8d10c3d406a8c0b852ec`, tree
+  `d5513a6ec2fe99c4f2b6fae9b3452004453b965b`;
+- review-synchronization head
+  `dd2bfbeef701c2c07e5fbd0fd57ab9f2128b8204`, tree
+  `fda091b7bcadb9167d7bf96624437737f98c9057`;
+- exact-head GitHub Actions run `29746002252`, attempt 1, ten of ten jobs successful;
+- the not-yet-installed 95,425,607-byte APK with SHA-256
+  `b34572b9813c4fb8013b09a4a530e5bc88ed4730ceacda46f6fe682bca88c6c0`;
+- unchanged Web/Harness artifacts from product commit `48a21a7`; and
+- the reviewed Gate-C helper and runbook.
+
+The authorization required a complete restart at Gate A step 1 and prohibited reuse of any
+observation from the four failed runs. Production resources/data, deployment and distribution
+remained unauthorized.
+
+## 35. Pre-install artifact blocker: DA1-ARTIFACT-01
+
+Before any installation or counted physical observation, the Technical Lead confirmed:
+
+- repository head/tree and every authorized commit/tree binding exactly;
+- exactly one approved USB-connected Galaxy A33 device;
+- no installed `com.tim180201.mobile.synthetic` package;
+- an empty scoped reverse table;
+- no listener on ports 3000, 3001, 5173 or 54321; and
+- a clean tracked repository.
+
+The exact authorized APK was no longer present in the prior isolated build location, the ordinary
+local artifact locations or the associated GitHub Actions run. The CI run retained no downloadable
+artifact. A first isolated rebuild from the exact product commit completed but produced
+95,425,695 bytes and SHA-256
+`5a41360dbb90ed0e0dd04c5eebdcaf874d1460a5f8a1bc4c62ac376a57ec14f5`.
+A second rebuild reproduced the original reviewed 656-task clean-release procedure and exact
+95,425,607-byte size, but its SHA-256 was
+`4239f6c609430d3926dbfc053c7ad0688a4022903eef8a3ffe1ebeece2356b7c`.
+Neither binary was treated as the authorized artifact.
+
+One prebuild command was initially invoked from the wrong local working directory. It regenerated
+only the gitignored Android project and temporarily added Expo dependencies to the tracked root
+`package.json`. The exact tracked diff was immediately removed, a clean tracked head/tree was
+reconfirmed, and no output of that invocation was used or installed. This operator error did not
+reach a device, server or repository commit.
+
+`DA1-ARTIFACT-01` is an operational P1 gate blocker: exact hash binding correctly failed closed,
+but the reviewed binary had not been retained durably enough to execute its later authorization.
+The fifth physical run did not start, Gate A step 1 did not pass, no synthetic harness/database or
+Web session was started, no APK was installed and no prior physical observation was reused.
+
+## 36. Preserved replacement candidate and disposition
+
+The second clean rebuild was copied byte-for-byte into a dedicated local artifact directory outside
+the repository and made read-only. Fresh verification confirms:
+
+- product source binding remains exact to `48a21a7`, tree `7c053bee`;
+- package `com.tim180201.mobile.synthetic`, version 1 / `1.0.0`;
+- 95,425,607 bytes;
+- SHA-256 `4239f6c609430d3926dbfc053c7ad0688a4022903eef8a3ffe1ebeece2356b7c`;
+- valid APK Signature Scheme v2 with the expected local synthetic debug signer; and
+- the Android offline-storage backup/transfer boundary passes.
+
+The preserved replacement is not installed, not independently reviewed and not authorized by the
+fifth-run authorization, which named a different hash. It cannot be substituted by inference.
+
+The exact next step is to publish this artifact-blocker synchronization, obtain green exact-head
+CI and an independent read-only exact-delta/artifact review. Only after an `APPROVED` review may
+the Human Architect separately authorize a new complete fresh Gate A–E run bound to the preserved
+replacement hash and then-current ADO/CI head. Production resources/data, deployment and
+distribution remain unauthorized.
