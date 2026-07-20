@@ -32,8 +32,11 @@ NEW FIFTH COMPLETE FRESH GATE HUMAN-AUTHORIZED ON ADO/ARTIFACT HEAD `e0fd175`, E
 `29747561139` AND REPLACEMENT APK SHA-256 `4239f6c6…6b7c`; EXACT PRE-INSTALL AND DEVICE
 BINDING PASSED, BUT GATE A FAILED DURING STEP 1 BEFORE LOGIN BECAUSE THE APK OMITTED ALL THREE
 REQUIRED SYNTHETIC RUNTIME VALUES; DA1-ARTIFACT-02 (P1 OPERATIONAL) OPEN; GATES B–E NOT
-STARTED; COMPLETE ABORT CLEANUP PASSED; PRODUCTION, PRODUCTION DATA, DEPLOYMENT AND
-DISTRIBUTION NOT AUTHORIZED**
+STARTED; COMPLETE ABORT CLEANUP PASSED; FOCUSED CORRECTION `0fdddbc`, TREE `62b5efc`,
+TECHNICAL-LEAD APPROVED, PUBLISHED AND EXACT-HEAD RUN `29751390803` 10/10 GREEN; UNINSTALLED
+RUNTIME-COMPLETE 95,425,695-BYTE APK SHA-256 `aa081fca…5ffbf` PRESERVED; INDEPENDENT
+EXACT-DELTA/ARTIFACT REVIEW AND NEW HUMAN GATE AUTHORIZATION PENDING; DA1-ARTIFACT-02 REMAINS
+OPEN; PRODUCTION, PRODUCTION DATA, DEPLOYMENT AND DISTRIBUTION NOT AUTHORIZED**
 Date: 2026-07-20
 Human-Accepted Contract Commit: `592334160655cde2f4189712eaf327c8a7edcb0e`
 Implementation Baseline Commit: `180093091c47a926b5871a27ea8b00fb21b9b4ac`
@@ -740,3 +743,106 @@ reverse mappings, listeners and clipboard content while preserving a clean track
 artifact remains immutable evidence. A new artifact build/rebinding, deterministic Hermes
 runtime-value verification, exact-head CI, independent review and new Human authorization are
 mandatory before another complete fresh physical run.
+
+## 14. DA1-ARTIFACT-02 focused correction and runtime-complete artifact
+
+### 14.1 Authorization and exact repository delta
+
+Independent review approved failure-synchronization commit
+`d6cc071f2c2e9849753bfa3e5e1cd6aa564e87b2`, tree
+`765b8a2771a6bcbf2eb07a486b96d36f4dfe0e29`, and exact-head run `29749902585`, attempt 1,
+ten of ten. The Human Architect subsequently authorized only the focused repository/artifact
+correction and explicitly withheld every Physical Gate, production, deployment and distribution
+action.
+
+Technical-Lead-approved correction commit
+`0fdddbce53369e3c73f345eee1c077226a40797f`, tree
+`62b5efc4efd36da1fbd0e6f2058a448aabd1ab1a`, exact parent `d6cc071f…`, is an exact
+nine-file Mobile build/script/test delta (`+240/-10`):
+
+- `apps/mobile/scripts/syntheticE2eRuntimeContract.mjs` and its declaration contain the single
+  exact build/verifier contract;
+- `buildSyntheticE2eAndroid.mjs` passes that contract through prebuild and a fresh
+  `--no-daemon clean assembleRelease`, then requires backup and Hermes runtime verification before
+  printing readiness;
+- `verifySyntheticE2eAndroidRuntime.mjs` requires exactly one
+  `assets/index.android.bundle`, extracts it to a temporary directory, invokes the repository's
+  platform Hermes compiler in bytecode-dump mode and fails if any exact Auth URL, API URL or
+  publishable key is absent;
+- `installSyntheticE2eAndroid.mjs` invokes the same verifier before listing devices or changing any
+  ADB reverse mapping; and
+- the new behavior test accepts the complete contract and rejects each individually omitted value,
+  while the composition-boundary test proves the release and installer enforcement remain wired.
+
+No Product Mobile runtime, UI, backend, API, database migration, business rule, numeric ADR-0012
+policy or production configuration changed.
+
+### 14.2 Regression and build evidence
+
+| Verification | Result |
+|---|---:|
+| Failed APK `4239f6c6…6b7c` through new verifier | rejected; Auth URL, API URL and publishable key all absent |
+| Focused verifier/composition tests | 20/20 |
+| Core | 290/290, 43 files |
+| Mobile | 419/419, 31 files |
+| Admin Web | 44/44, 5 files |
+| Offline synchronization contract | 7/7 |
+| Workspace and contract typechecks | passed |
+| Mobile tests included by executed TypeScript configuration | explicitly listed |
+| Core, Admin Web and contract builds | passed |
+| Pre-commit clean native release | passed; runtime/backup verifiers passed |
+| Exact-commit clean native release | passed; runtime/backup verifiers passed |
+| `git diff --check` | passed |
+
+The exact correction head passed GitHub Actions run `29751390803`, attempt 1, push to `main`,
+ten of ten jobs.
+
+### 14.3 Exact-source artifact binding
+
+Immediately before the final build:
+
+- HEAD and `origin/main` were exact
+  `0fdddbce53369e3c73f345eee1c077226a40797f`;
+- tree was exact `62b5efc4efd36da1fbd0e6f2058a448aabd1ab1a`;
+- the tracked tree was clean;
+- no generated Android directory existed; and
+- the failed evidence APK still reproduced 95,425,607 bytes and SHA-256
+  `4239f6c609430d3926dbfc053c7ad0688a4022903eef8a3ffe1ebeece2356b7c`.
+
+The one audited invocation performed a clean Expo prebuild followed by
+`--no-daemon clean assembleRelease`. Gradle reported a single-use daemon which stopped at the end;
+Metro reported an empty cache and rebuilt all 849 modules. Both enforced verification markers
+completed before the build readiness marker.
+
+The resulting candidate is preserved read-only outside the repository:
+
+| Artifact property | Exact result |
+|---|---|
+| Local evidence path | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da1/0fdddbc/app-release-aa081fca431174cf.apk` |
+| Bytes | 95,425,695 |
+| SHA-256 | `aa081fca431174cf90698b4afaaa5c1f5f28ed976c54cda7a74df72a49d5ffbf` |
+| File mode | read-only (`0444`) |
+| Package | `com.tim180201.mobile.synthetic` |
+| Version | code 1 / name `1.0.0` |
+| APK signature | v2 valid |
+| Signer certificate SHA-256 | `fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c` |
+| Hermes bundle count | exactly one |
+| Exact Auth URL | present |
+| Exact API URL | present |
+| Exact publishable key | present |
+| `android:allowBackup` | false |
+| Full-backup/data-extraction resources | bound and verified |
+
+The adjacent read-only manifest has SHA-256
+`190006bbfbda2773de3f2b1eff2cb198dd770853311b15578888284d3c30cd84`.
+The APK was not installed. The synthetic package remained absent and the ADB reverse table remained
+empty. No Human Physical Gate began and no earlier observation became reusable.
+
+### 14.4 Current disposition
+
+The focused correction is Technical-Lead `APPROVED`, published and exact-head CI-green.
+`DA1-ARTIFACT-02` nevertheless remains open until independent exact-delta/artifact review. That
+review must assess the nine-file correction, exact source/CI binding, old-artifact rejection and
+new artifact properties. Only after independent approval may the Human Architect separately decide
+artifact rebinding and authorize a new complete fresh Gate A–E run. Production resources/data,
+deployment and distribution remain unauthorized.

@@ -1,6 +1,6 @@
 # Project Status
 
-Status: CORE ROADMAP V2 BLOCK A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2, BLOCK D, E1 AND NARROW E2A COMPLETE FOR THEIR RECORDED SCOPES — C3A HUMAN-ACCEPTED — C3E1 AND C3E2 INDEPENDENTLY CLOSED — DEVELOPMENT ASSIGNMENT 1 CONTRACT AND REPOSITORY IMPLEMENTATION INDEPENDENTLY APPROVED; DA1-IMPL-01 AND DA1-PHYS-01/02/03/04 REPOSITORY FINDINGS CLOSED — FOUR PRIOR COMPLETE FRESH HUMAN GATES REMAIN FAILED HISTORICAL RUNS — DA1-PHYS-04 CORRECTION `48a21a7`, TREE `7c053be`, INDEPENDENTLY APPROVED WITH ZERO OPEN PRODUCT P0–P3 — DA1-ARTIFACT-01 REBINDING REVIEW APPROVED; ADO/ARTIFACT HEAD `e0fd175`, TREE `fed47cf`, EXACT-HEAD RUN `29747561139` 10/10 GREEN — NEW FIFTH COMPLETE FRESH GATE HUMAN-AUTHORIZED ON REPLACEMENT APK SHA-256 `4239f6c6…6b7c`; EXACT PRE-INSTALL AND INSTALLED-DEVICE BINDING PASSED, BUT GATE A FAILED DURING STEP 1 BEFORE LOGIN BECAUSE THE APK OMITTED THE REQUIRED AUTH URL, API URL AND PUBLISHABLE KEY — DA1-ARTIFACT-02 (P1 OPERATIONAL) OPEN; GATES B–E NOT STARTED; COMPLETE ABORT CLEANUP PASSED — NO CORRECTED PHYSICAL RESULT — PRODUCTION, PRODUCTION DATA, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED — LATEST MOBILE 415 / CORE 290 / ADMIN WEB 44 — DT-060–DT-068 AND BLOCK E REMAIN OPEN — 2 SUPAVISOR MODES UNVERIFIED — NO PRODUCTION PERSONAL DATA AUTHORIZED — NO PRODUCTION CLOUD SYNC DEPLOYMENT
+Status: CORE ROADMAP V2 BLOCK A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2, BLOCK D, E1 AND NARROW E2A COMPLETE FOR THEIR RECORDED SCOPES — C3A HUMAN-ACCEPTED — C3E1 AND C3E2 INDEPENDENTLY CLOSED — DEVELOPMENT ASSIGNMENT 1 CONTRACT AND REPOSITORY IMPLEMENTATION INDEPENDENTLY APPROVED; DA1-IMPL-01 AND DA1-PHYS-01/02/03/04 REPOSITORY FINDINGS CLOSED — FOUR PRIOR COMPLETE FRESH HUMAN GATES REMAIN FAILED HISTORICAL RUNS — FIFTH GATE FAILED AT GATE A STEP 1 ON RUNTIME-INCOMPLETE APK `4239f6c6…6b7c`; GATES B–E NOT STARTED; CLEANUP PASSED — DA1-ARTIFACT-02 FOCUSED CORRECTION `0fdddbc`, TREE `62b5efc`, TECHNICAL-LEAD APPROVED AND EXACT-HEAD RUN `29751390803` 10/10 GREEN — UNINSTALLED RUNTIME-COMPLETE 95,425,695-BYTE APK SHA-256 `aa081fca…5ffbf` PRESERVED WITH VALID V2 SIGNATURE, PACKAGE/VERSION AND BACKUP BOUNDARY — INDEPENDENT EXACT-DELTA/ARTIFACT REVIEW AND NEW HUMAN GATE AUTHORIZATION PENDING; DA1-ARTIFACT-02 REMAINS OPEN — NO CORRECTED PHYSICAL RESULT — PRODUCTION, PRODUCTION DATA, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED — LATEST MOBILE 419 / CORE 290 / ADMIN WEB 44 — DT-060–DT-068 AND BLOCK E REMAIN OPEN — 2 SUPAVISOR MODES UNVERIFIED — NO PRODUCTION PERSONAL DATA AUTHORIZED — NO PRODUCTION CLOUD SYNC DEPLOYMENT
 Date: 2026-07-20
 Owner: Human Architect + Technical Lead
 
@@ -206,6 +206,28 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   `DA1-PHYS-04`, but it blocks every later DA1 gate until a runtime-complete exact-source artifact
   receives deterministic binary verification, publication/CI, independent review and new Human
   authorization.
+
+  Independent review approved failure synchronization `d6cc071`, tree `765b8a2`, and its exact-head
+  run `29749902585` without closing the operational P1. The Human Architect then authorized only
+  the focused correction. Technical-Lead-approved commit
+  `0fdddbce53369e3c73f345eee1c077226a40797f`, tree
+  `62b5efc4efd36da1fbd0e6f2058a448aabd1ab1a`, centralizes the exact synthetic runtime contract,
+  forces a clean release through a single-use Gradle process and makes both build and install reject
+  an APK unless exactly one Hermes bundle contains the required Auth URL, API URL and publishable
+  key. Install verification runs before any ADB action. The correction changes exactly nine Mobile
+  build/script/test files (`+240/-10`) and no product-runtime, backend, migration, UI or policy
+  source. Core 290/290, Mobile 419/419, Admin Web 44/44, Offline Contract 7/7, applicable
+  tests-inclusive typechecks/builds and two clean native releases pass; exact-head run
+  `29751390803`, attempt 1, passed ten of ten jobs.
+
+  A final clean build from exact commit `0fdddbc` is preserved read-only outside the repository:
+  95,425,695 bytes, SHA-256
+  `aa081fca431174cf90698b4afaaa5c1f5f28ed976c54cda7a74df72a49d5ffbf`,
+  package `com.tim180201.mobile.synthetic`, version 1/1.0.0, valid APK-v2 signature and verified
+  offline backup/transfer boundaries. Deterministic Hermes inspection proves all three required
+  values. The prior failed APK remains separately immutable and is rejected by the new verifier for
+  all three missing values. The replacement is not installed. `DA1-ARTIFACT-02` remains open until
+  independent exact-delta/artifact review; no later Human Physical Gate is authorized.
   Evidence: `ADO/01_Architecture/ADR/ADR-0012-complete-offline-synchronization-platform.md`,
   `ADO/02_Development/Development_Assignment_01_Complete_Offline_Synchronization_Authorization.md`;
   `ADO/02_Development/Development_Assignment_01_Complete_Offline_Synchronization_Implementation_Plan.md`;
@@ -329,16 +351,16 @@ Two Epics are concurrently Active, per EP-009's own stated relationship to the r
 
 ## Immediate Next Steps
 
-1. Publish this truthful `DA1-ARTIFACT-02` fifth-run failure synchronization and obtain green
+1. Publish this truthful `DA1-ARTIFACT-02` correction/artifact synchronization and obtain green
    exact-head CI.
-2. Obtain an independent exact-delta review of the binding, Gate-A failure, P1 classification,
-   zero-mutation proof, cleanup and focused artifact-correction boundary.
-3. Only after review approval and separate Human authorization, rebuild from exact product
-   `48a21a7` through one audited environment-preserving invocation and deterministically verify the
-   two exact URLs plus publishable key inside the Hermes bytecode.
-4. Preserve and bind the runtime-complete replacement, repeat package/signature/backup/host-device
-   checks, publish/CI/review it and obtain another separate Human authorization.
-5. Start any later complete gate at Gate A step 1 and reuse no prior observation.
+2. Obtain an independent exact-delta/artifact review of correction `0fdddbc`, its exact-head run
+   `29751390803`, the deterministic build/pre-install verifier and the preserved 95,425,695-byte
+   APK SHA-256 `aa081fca…5ffbf`.
+3. Only after independent approval may the Human Architect separately bind that exact artifact and
+   authorize a new complete fresh Human Gate A–E run.
+4. At any later authorized run, repeat immediate host/device size/hash, package, signature,
+   backup-boundary and runtime-completeness checks before launch.
+5. Start that run at Gate A step 1 and reuse no prior observation.
 6. Keep the real production endpoint/CA, one-human operator IAM inventory, short-lived credential
    delivery/revocation and controlled execution evidence as explicit later deployment gates.
 7. Preserve the closed C3C/C3E2 least-privilege boundaries and keep production/deployment,

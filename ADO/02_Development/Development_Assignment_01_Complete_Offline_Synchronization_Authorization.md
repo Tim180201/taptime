@@ -32,8 +32,12 @@ NEW FIFTH COMPLETE FRESH GATE HUMAN-AUTHORIZED ON ADO/ARTIFACT HEAD `e0fd175`, E
 `29747561139` AND REPLACEMENT APK SHA-256 `4239f6c6…6b7c`; EXACT PRE-INSTALL AND
 INSTALLED-DEVICE BINDING PASSED, BUT GATE A FAILED DURING STEP 1 BEFORE LOGIN BECAUSE THE APK
 OMITTED ALL THREE REQUIRED SYNTHETIC RUNTIME VALUES; DA1-ARTIFACT-02 (P1 OPERATIONAL) OPEN;
-GATES B–E NOT STARTED; COMPLETE ABORT CLEANUP PASSED; PRODUCTION, PRODUCTION DATA, DEPLOYMENT
-AND DISTRIBUTION NOT AUTHORIZED**
+GATES B–E NOT STARTED; COMPLETE ABORT CLEANUP PASSED; FOCUSED DA1-ARTIFACT-02 CORRECTION
+`0fdddbc`, TREE `62b5efc`, TECHNICAL-LEAD APPROVED, PUBLISHED AND EXACT-HEAD RUN `29751390803`
+10/10 GREEN; UNINSTALLED RUNTIME-COMPLETE 95,425,695-BYTE APK SHA-256 `aa081fca…5ffbf`
+PRESERVED; INDEPENDENT EXACT-DELTA/ARTIFACT REVIEW AND NEW HUMAN GATE AUTHORIZATION PENDING;
+DA1-ARTIFACT-02 REMAINS OPEN; PRODUCTION, PRODUCTION DATA, DEPLOYMENT AND DISTRIBUTION NOT
+AUTHORIZED**
 Date: 2026-07-20
 Candidate Baseline Commit: `1bb2d7d7b38928643cfd5c86b36c500c35f73276`
 Candidate Baseline Tree: `c5c20f67155cdc0b4197908b4d1283cb7e619597`
@@ -698,6 +702,59 @@ No later physical gate is authorized. The failed APK must remain immutable evide
 replacement requires an audited exact-source build, deterministic APK/Hermes runtime-value
 verification, durable retention, full binding evidence, green exact-head CI, independent
 exact-delta/artifact review and a new separate Human authorization.
+
+### Focused DA1-ARTIFACT-02 correction authorization and publication
+
+Independent exact-delta review approved failure-synchronization commit
+`d6cc071f2c2e9849753bfa3e5e1cd6aa564e87b2`, tree
+`765b8a2771a6bcbf2eb07a486b96d36f4dfe0e29`, and exact-head run `29749902585`, attempt 1,
+ten of ten, with no finding against the synchronization. It kept `DA1-ARTIFACT-02` open and
+approved the focused correction boundary.
+
+The Human Architect then explicitly authorized only the focused repository/artifact correction on
+that exact baseline. Authorized scope was immutable retention of failed APK
+`4239f6c6…6b7c`; an audited exact-source clean release; provable Gradle/Metro/Hermes propagation
+of the exact synthetic values; a deterministic build-enforced verifier; durable size/hash/
+signature/package/bytecode evidence; relevant tests, tests-inclusive typechecks, release/native
+verification, ADO synchronization and publication after Technical-Lead approval. No Physical Gate,
+installation for a counted run, production resource/data, deployment or distribution was
+authorized.
+
+Technical-Lead-approved correction commit
+`0fdddbce53369e3c73f345eee1c077226a40797f`, tree
+`62b5efc4efd36da1fbd0e6f2058a448aabd1ab1a`, exact parent `d6cc071f…`, changes exactly nine
+Mobile build/script/test files (`+240/-10`). It:
+
+1. centralizes the exact synthetic runtime contract used by both build and verification;
+2. runs the native release as `--no-daemon clean assembleRelease`, ensuring a fresh Gradle process
+   inherits the exact audited environment and Metro creates a new bundle;
+3. extracts exactly one `assets/index.android.bundle`, validates it as Hermes bytecode and rejects
+   unless both loopback URLs and the publishable key are present;
+4. enforces that verifier after every synthetic release build and before any ADB call in the
+   installer; and
+5. adds behavior tests which accept the complete exact contract and reject each individual missing
+   value, plus composition guards for build/install enforcement.
+
+Core 290/290, Mobile 419/419 in 31 files, Admin Web 44/44, Offline Contract 7/7, applicable
+tests-inclusive typechecks/builds and two clean native releases passed. The new verifier rejects
+the retained failed APK for all three missing values. Exact-head GitHub Actions run `29751390803`,
+attempt 1, passed ten of ten jobs.
+
+A final audited clean build from exact commit `0fdddbc` produced an uninstalled artifact preserved
+read-only outside the repository:
+
+- 95,425,695 bytes;
+- SHA-256 `aa081fca431174cf90698b4afaaa5c1f5f28ed976c54cda7a74df72a49d5ffbf`;
+- package/version `com.tim180201.mobile.synthetic`, 1 / `1.0.0`;
+- APK Signature Scheme v2 valid, signer-certificate SHA-256
+  `fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c`;
+- deterministic Hermes runtime-completeness verification passed; and
+- offline backup/transfer boundary verification passed.
+
+The failed APK remains separately immutable. The runtime-complete artifact was not installed, no
+host/device physical binding was claimed and no new Human Physical Gate began. Independent
+exact-delta/artifact review remains mandatory; `DA1-ARTIFACT-02` remains open until that review
+and any later artifact rebinding/gate authorization is a separate Human decision.
 
 ## 14. Independent review mandate
 

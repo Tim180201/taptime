@@ -109,6 +109,16 @@ Architect separately authorized the exact 95,425,607-byte replacement SHA-256
 step 1 before login: its Hermes bytecode omitted both required loopback URLs and the required
 publishable key. The failure remained closed with zero administration/lifecycle mutation and full
 cleanup. `DA1-ARTIFACT-02` is an open operational P1; Gates B–E were not started.
+Independent review approved failure-synchronization head `d6cc071`, tree `765b8a2`, and the
+focused correction boundary. The Human Architect separately authorized only that correction.
+Technical-Lead-approved correction `0fdddbc`, tree `62b5efc`, passed exact-head run
+`29751390803` ten of ten. It centralizes the exact synthetic runtime contract, forces a clean
+single-use Gradle release and rejects build/install before ADB unless deterministic Hermes
+inspection proves both loopback URLs and the publishable key. The exact-source result is preserved
+read-only at 95,425,695 bytes, SHA-256 `aa081fca…5ffbf`; runtime completeness, APK-v2 signature,
+package/version and backup/transfer boundaries pass. It remains uninstalled. Independent
+exact-delta/artifact review and a new separate Human authorization remain mandatory, so
+`DA1-ARTIFACT-02` is not yet closed and no later Physical Gate is authorized.
 Implementation, review and physical evidence:
 `ADO/05_Evidence/Development_Assignment_01_Implementation_Evidence.md` and
 `ADO/05_Evidence/Development_Assignment_01_Independent_Implementation_Review.md` and
@@ -217,7 +227,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Feature Blueprint Standard | `ADO/01_Architecture/Feature_Blueprint_Standard.md` |
 | Technical Architecture Profile (TTAP-001) | `ADO/01_Architecture/Technical_Architecture_Profile.md` |
 | Development Task Profile | `ADO/01_Architecture/Development_Task_Profile.md` |
-| Architecture Decision Records (through Human-accepted ADR-0012; DA1-IMPL-01 and DA1-PHYS-01/02/03/04 repository findings independently closed; four prior DA1 Human Gates remain failed historical runs; DA1-ARTIFACT-01 rebinding independently approved; new fifth Gate A failed at step 1 on runtime-incomplete exact APK; DA1-ARTIFACT-02 operational P1 open) | `ADO/01_Architecture/ADR/` |
+| Architecture Decision Records (through Human-accepted ADR-0012; DA1-IMPL-01 and DA1-PHYS-01/02/03/04 repository findings independently closed; four prior DA1 Human Gates remain failed historical runs; DA1-ARTIFACT-01 rebinding independently approved; fifth Gate A failed at step 1 on a runtime-incomplete exact APK; DA1-ARTIFACT-02 correction `0fdddbc` is Technical-Lead approved/CI-green with a preserved runtime-complete replacement but independent artifact review and a new Human gate authorization remain pending) | `ADO/01_Architecture/ADR/` |
 | Feature Blueprints (incl. FB-001, FB-002) | `ADO/01_Architecture/Feature_Blueprints/` |
 | Technical Specifications (incl. TS-001, TS-002) | `ADO/01_Architecture/Technical_Specifications/` |
 | Developer Implementation Manual (EP-008) | `ADO/01_Architecture/Developer_Implementation_Manual/` |
@@ -286,7 +296,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Development Assignment 1 Independent Pre-Implementation Review | `ADO/05_Evidence/Development_Assignment_01_Independent_Pre_Implementation_Review.md` |
 | Development Assignment 1 Implementation Evidence | `ADO/05_Evidence/Development_Assignment_01_Implementation_Evidence.md` |
 | Development Assignment 1 Independent Implementation Review and Correction Disposition | `ADO/05_Evidence/Development_Assignment_01_Independent_Implementation_Review.md` |
-| Development Assignment 1 Human Physical Validation Evidence — four prior complete runs failed historically; DA1-ARTIFACT-01 rebinding approved; new fifth complete run failed at Gate A step 1 because the exact APK omitted mandatory runtime values; DA1-ARTIFACT-02 open P1 | `ADO/05_Evidence/Development_Assignment_01_Physical_Validation_Evidence.md` |
+| Development Assignment 1 Human Physical Validation Evidence — four prior complete runs failed historically; DA1-ARTIFACT-01 rebinding approved; fifth complete run failed at Gate A step 1 because the exact APK omitted mandatory runtime values; DA1-ARTIFACT-02 correction `0fdddbc` and runtime-complete APK are Technical-Lead approved/CI-green but independent review and a new gate authorization remain pending | `ADO/05_Evidence/Development_Assignment_01_Physical_Validation_Evidence.md` |
 | Development Assignment 1 DA1-PHYS-01 Independent Exact-Delta Review — approved, finding closed | `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_01_Independent_Exact_Delta_Review.md` |
 | Development Assignment 1 DA1-PHYS-02 Independent Exact-Delta Review — approved, repository finding closed | `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_02_Independent_Exact_Delta_Review.md` |
 | Development Assignment 1 DA1-PHYS-03 Independent Exact-Delta Review — approved, repository finding closed | `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_03_Independent_Exact_Delta_Review.md` |

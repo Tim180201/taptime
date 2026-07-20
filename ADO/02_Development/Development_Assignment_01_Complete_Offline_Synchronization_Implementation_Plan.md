@@ -30,8 +30,12 @@ NEW FIFTH COMPLETE FRESH GATE HUMAN-AUTHORIZED ON ADO/ARTIFACT HEAD `e0fd175`, E
 `29747561139` AND REPLACEMENT APK SHA-256 `4239f6c6…6b7c`; EXACT PRE-INSTALL AND DEVICE
 BINDING PASSED, BUT GATE A FAILED DURING STEP 1 BEFORE LOGIN BECAUSE THE APK OMITTED THE REQUIRED
 SYNTHETIC AUTH URL, API URL AND PUBLISHABLE KEY; DA1-ARTIFACT-02 (P1 OPERATIONAL) OPEN; GATES
-B–E NOT STARTED; COMPLETE ABORT CLEANUP PASSED; PRODUCTION, PRODUCTION DATA, DEPLOYMENT AND
-DISTRIBUTION NOT AUTHORIZED**
+B–E NOT STARTED; COMPLETE ABORT CLEANUP PASSED; FOCUSED CORRECTION `0fdddbc`, TREE
+`62b5efc`, TECHNICAL-LEAD APPROVED, PUBLISHED AND EXACT-HEAD RUN `29751390803` 10/10 GREEN;
+UNINSTALLED RUNTIME-COMPLETE 95,425,695-BYTE APK SHA-256 `aa081fca…5ffbf` PRESERVED;
+INDEPENDENT EXACT-DELTA/ARTIFACT REVIEW AND NEW HUMAN GATE AUTHORIZATION PENDING;
+DA1-ARTIFACT-02 REMAINS OPEN; PRODUCTION, PRODUCTION DATA, DEPLOYMENT AND DISTRIBUTION NOT
+AUTHORIZED**
 Date: 2026-07-20
 Implementation Baseline Commit: `180093091c47a926b5871a27ea8b00fb21b9b4ac`
 Implementation Baseline Tree: `73e77b6ca5dfd7671cdd3d77a344168fddff3627`
@@ -508,3 +512,34 @@ implied. The next bounded work must:
 7. obtain a new separate Human authorization before restarting the complete Gate A–E sequence.
 
 Gates B–E remain not started. No observation from any prior run may be reused.
+
+### Focused correction execution
+
+Independent review approved failure synchronization `d6cc071`, tree `765b8a2`, exact-head run
+`29749902585` and the focused correction boundary. The Human Architect separately authorized only
+that correction.
+
+Technical-Lead-approved commit `0fdddbc`, tree `62b5efc`, parent `d6cc071`, implements the
+bounded correction in exactly nine Mobile build/script/test files (`+240/-10`):
+
+- one frozen exact synthetic runtime contract is shared by the build and verifier;
+- the audited release uses a fresh Gradle process and clean task graph;
+- the build fails unless deterministic Hermes inspection proves both exact numeric-loopback URLs
+  and the exact publishable key inside exactly one Android bundle;
+- the installer repeats the same verification before any ADB/device action; and
+- regression tests reject every individual missing value and preserve composition enforcement.
+
+The retained failed APK is rejected for all three missing values. Core 290/290, Mobile 419/419,
+Admin Web 44/44, Offline Contract 7/7, applicable tests-inclusive typechecks/builds and two clean
+native releases pass. Exact-head run `29751390803`, attempt 1, passed ten of ten.
+
+The exact-source runtime-complete release is preserved read-only and uninstalled at 95,425,695
+bytes with SHA-256
+`aa081fca431174cf90698b4afaaa5c1f5f28ed976c54cda7a74df72a49d5ffbf`.
+Package/version, APK-v2 signature, offline backup/transfer boundaries and all three Hermes values
+pass. The failed APK remains separately unchanged.
+
+`DA1-ARTIFACT-02` remains open pending independent exact-delta/artifact review. A later artifact
+rebind and any new complete fresh Gate A–E run require a separate Human authorization. No
+installation, physical observation, production resource/data, deployment or distribution is
+authorized by this correction.

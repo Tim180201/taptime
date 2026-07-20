@@ -10,8 +10,11 @@ HASH/SIZE/SIGNATURE/PACKAGE BINDING PASSED; GATE A FAILED DURING STEP 1 BEFORE L
 EXACT APK'S HERMES BYTECODE OMITTED THE REQUIRED SYNTHETIC AUTH URL, API URL AND PUBLISHABLE KEY;
 FAILURE REMAINED CLOSED WITH ZERO AUTHENTICATION, ADMINISTRATION OR LIFECYCLE MUTATION;
 DA1-ARTIFACT-02 (P1 OPERATIONAL) OPEN; GATES B–E NOT STARTED; COMPLETE ABORT CLEANUP PASSED;
-NO CORRECTED PHYSICAL RESULT; PRODUCTION, PRODUCTION DATA, DEPLOYMENT AND DISTRIBUTION NOT
-AUTHORIZED**
+FOCUSED CORRECTION `0fdddbc`, TREE `62b5efc`, TECHNICAL-LEAD APPROVED, PUBLISHED AND
+EXACT-HEAD RUN `29751390803` 10/10 GREEN; UNINSTALLED RUNTIME-COMPLETE 95,425,695-BYTE APK
+SHA-256 `aa081fca…5ffbf` PRESERVED; INDEPENDENT EXACT-DELTA/ARTIFACT REVIEW AND NEW HUMAN GATE
+AUTHORIZATION PENDING; DA1-ARTIFACT-02 REMAINS OPEN; NO CORRECTED PHYSICAL RESULT; PRODUCTION,
+PRODUCTION DATA, DEPLOYMENT AND DISTRIBUTION NOT AUTHORIZED**
 Owner: Human Architect + Technical Lead
 
 ## 1. Authorization and exact binding
@@ -1111,3 +1114,43 @@ listener. The clipboard was cleared and the tracked repository remained unchange
 The fifth complete fresh Human gate is **FAILED at Gate A step 1**. No observation from this run or
 any predecessor may be reused. `DA1-ARTIFACT-02` is open P1; there is no corrected physical result
 and no later gate is authorized.
+
+## 42. DA1-ARTIFACT-02 focused correction — no new physical run
+
+Independent review approved failure synchronization `d6cc071`, tree `765b8a2`, exact-head run
+`29749902585` and the focused artifact-correction boundary. The Human Architect separately
+authorized only that correction; no sixth run or other Human Physical Gate was authorized.
+
+Technical-Lead-approved correction `0fdddbc`, tree `62b5efc`, passed exact-head run
+`29751390803`, attempt 1, ten of ten. The corrected build path:
+
+1. uses one frozen exact synthetic runtime contract;
+2. starts a clean single-use Gradle process which receives that environment;
+3. rebuilds the Hermes bundle from an empty Metro cache;
+4. rejects build and pre-install unless exactly one Hermes Android bundle contains the exact Auth
+   URL, API URL and publishable key; and
+5. performs pre-install verification before any ADB/device interaction.
+
+The new verifier rejects the failed fifth-run APK for all three missing values. A final clean build
+from exact correction commit `0fdddbc` produced a replacement which is preserved read-only outside
+the repository:
+
+| Artifact property | Result |
+|---|---:|
+| Size | 95,425,695 bytes |
+| SHA-256 | `aa081fca431174cf90698b4afaaa5c1f5f28ed976c54cda7a74df72a49d5ffbf` |
+| Package/version | `com.tim180201.mobile.synthetic`, 1 / `1.0.0` |
+| APK Signature Scheme v2 | valid |
+| Hermes runtime completeness | both loopback URLs and publishable key present |
+| Offline backup/transfer boundary | passed |
+| Installation | not performed |
+
+The failed 95,425,607-byte APK SHA-256 `4239f6c6…6b7c` remains separately immutable evidence.
+The corrected APK has not been host/device rebound, installed or launched. There is no new
+Administrator, Employee, setup, NFC, offline, synchronization or lifecycle observation.
+
+`DA1-ARTIFACT-02` remains open pending independent exact-delta/artifact review. Even an approved
+review will not itself start a Physical Gate: exact artifact rebinding and a new complete fresh
+Gate A–E run require another explicit Human authorization, begin at Gate A step 1 and may reuse no
+observation from any earlier run. Production resources/data, deployment and distribution remain
+unauthorized.
