@@ -208,6 +208,65 @@ describe('MobileSessionCoordinator', () => {
       expect(coordinator.isOfflineCaptureRestorationAllowed()).toBe(true);
     });
 
+  it('keeps a private offline-restoration snapshot current across a real unchanged retry publication',
+    async () => {
+      const { coordinator, provider } = setup('stored-refresh');
+      provider.refreshImplementation = async () => {
+        throw new Error('synthetic offline');
+      };
+      await coordinator.start();
+      const snapshot = coordinator.captureOfflineRestorationSnapshot();
+      expect(snapshot).toMatchObject({
+        generation: expect.any(Number),
+        restorationRevision: expect.any(Number),
+        source: 'provider_suspended',
+      });
+      const published = vi.fn();
+      coordinator.subscribe(published);
+
+      await coordinator.retryContext();
+
+      expect(published).toHaveBeenCalledTimes(1);
+      expect(coordinator.getState()).toEqual({ status: 'context_unavailable' });
+      expect(coordinator.isOfflineRestorationSnapshotCurrent(snapshot!)).toBe(true);
+    });
+
+  it('rotates the private restoration snapshot for credentials, authority and storage changes',
+    async () => {
+      const { coordinator, provider, backend, store } = setup('stored-refresh');
+      backend.implementation = async () => ({ status: 'unavailable' });
+      await coordinator.start();
+      const initial = coordinator.captureOfflineRestorationSnapshot()!;
+      expect(initial.source).toBe('backend_context_unavailable');
+
+      await coordinator.retryContext();
+      expect(coordinator.isOfflineRestorationSnapshotCurrent(initial)).toBe(true);
+
+      await coordinator.refresh();
+      expect(coordinator.getState()).toEqual({ status: 'context_unavailable' });
+      expect(coordinator.isOfflineRestorationSnapshotCurrent(initial)).toBe(false);
+      const afterCredentials = coordinator.captureOfflineRestorationSnapshot()!;
+
+      backend.implementation = async () => ({ status: 'resolved', session: productSession });
+      await coordinator.retryContext();
+      expect(coordinator.getState()).toEqual({ status: 'authenticated', session: productSession });
+      expect(coordinator.isOfflineRestorationSnapshotCurrent(afterCredentials)).toBe(false);
+
+      backend.implementation = async () => ({ status: 'unavailable' });
+      await coordinator.refresh();
+      const beforeStorageFailure = coordinator.captureOfflineRestorationSnapshot()!;
+      store.writeImplementation = async () => {
+        throw new Error('synthetic storage failure');
+      };
+      await coordinator.refresh();
+      expect(coordinator.getState()).toEqual({
+        status: 'runtime_unavailable',
+        reason: 'storage_unavailable',
+      });
+      expect(coordinator.isOfflineRestorationSnapshotCurrent(beforeStorageFailure)).toBe(false);
+      expect(provider.signOutCalls).toBeGreaterThan(0);
+    });
+
   it('makes parallel start calls share one restore operation', async () => {
     const { coordinator, provider } = setup('stored-refresh');
     const refresh = deferred<ProviderRefreshResult>();

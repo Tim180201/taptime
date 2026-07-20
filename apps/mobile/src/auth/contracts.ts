@@ -119,6 +119,17 @@ export interface InternalAuthenticatedSessionSnapshot {
 }
 
 /**
+ * Private runtime snapshot proving that offline restoration still belongs to the exact retained
+ * provider context which opened the local capture window. It intentionally contains no credential
+ * material and is absent from MobileSessionCapability.
+ */
+export interface InternalOfflineRestorationSnapshot {
+  readonly generation: number;
+  readonly restorationRevision: number;
+  readonly source: 'provider_suspended' | 'backend_context_unavailable';
+}
+
+/**
  * An access-token reader is valid only while one infrastructure attempt is running. The
  * coordinator invalidates it as soon as that attempt settles, so it cannot become a retained
  * token capability in a screen, queue or later callback.

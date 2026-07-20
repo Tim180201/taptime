@@ -5,6 +5,7 @@ import {
   type NfcScanCaptureResult,
 } from '@taptime/core';
 import type {
+  InternalOfflineRestorationSnapshot,
   MobileSessionState,
   ProductSessionContext,
 } from '../../src/auth/contracts';
@@ -404,9 +405,19 @@ function sessionReader(
   authenticatedSnapshot: ProductScanSessionSnapshot | null,
   offlineCaptureRestorationAllowed = false,
 ): OfflineCaptureSessionReader {
+  const offlineSnapshot: InternalOfflineRestorationSnapshot | null =
+    state.status === 'context_unavailable' && offlineCaptureRestorationAllowed
+      ? {
+          generation: 1,
+          restorationRevision: 1,
+          source: 'provider_suspended',
+        }
+      : null;
   return {
     getState: () => state,
     isOfflineCaptureRestorationAllowed: () => offlineCaptureRestorationAllowed,
+    captureOfflineRestorationSnapshot: () => offlineSnapshot,
+    isOfflineRestorationSnapshotCurrent: (candidate) => candidate === offlineSnapshot,
     capture: () => authenticatedSnapshot,
     isCurrent: (candidate) => candidate === authenticatedSnapshot,
     subscribe: () => () => undefined,

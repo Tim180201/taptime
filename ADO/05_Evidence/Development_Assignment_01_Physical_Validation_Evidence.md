@@ -5,9 +5,12 @@ Status: **FIRST THREE FAILED GATES RETAINED AS HISTORICAL EVIDENCE; DA1-PHYS-01,
 DA1-PHYS-02 AND DA1-PHYS-03 REPOSITORY FINDINGS CLOSED BY INDEPENDENT REVIEW; FOURTH COMPLETE
 FRESH GATE AUTHORIZED ON PRODUCT `7dbda3b`, REVIEWED ADO `798bada`, REVIEW SYNCHRONIZATION
 `73b5105` AND EXACT-HEAD RUN `29714165784`; GATE A STEPS 1–4 PASSED BUT STEP 5 FAILED BECAUSE
-THREE NATIVE NFC CAPTURES WERE INVALIDATED BEFORE LOCAL APPEND; DA1-PHYS-04 (P1) OPEN; GATES
-B–E NOT STARTED; COMPLETE ABORT CLEANUP PASSED; PRODUCTION, DEPLOYMENT AND DISTRIBUTION NOT
-AUTHORIZED**
+THREE NATIVE NFC CAPTURES WERE INVALIDATED BEFORE LOCAL APPEND; FAILURE SYNCHRONIZATION
+`3dd7983`/`e78b526` AND RUN `29716007657` INDEPENDENTLY APPROVED; FOCUSED CORRECTION
+SEPARATELY HUMAN-AUTHORIZED, LOCALLY IMPLEMENTED AND TECHNICAL-LEAD APPROVED — PUBLICATION,
+CORRECTION EXACT-HEAD CI AND INDEPENDENT CORRECTION REVIEW PENDING; NO
+CORRECTED PHYSICAL RESULT; DA1-PHYS-04 (P1) OPEN; NO FIFTH GATE; PRODUCTION, DEPLOYMENT AND
+DISTRIBUTION NOT AUTHORIZED**
 Owner: Human Architect + Technical Lead
 
 ## 1. Authorization and exact binding
@@ -772,7 +775,7 @@ Complete abort cleanup passed:
 No password, token, raw NFC UID/payload, provider subject, SQLCipher/SecureStore key, internal
 database identifier or real-person data was recorded.
 
-## 29. Exact next step
+## 29. Historical next step after the fourth-run failure
 
 Publish this truthful fourth-run/`DA1-PHYS-04` synchronization and obtain green exact-head CI.
 Then obtain an independent read-only review of the exact authorization binding, attempt separation,
@@ -785,3 +788,73 @@ rather than relying on transient session history.
 
 No fifth physical run is authorized. Production resources/data, deployment and distribution
 remain unauthorized.
+
+The failure synchronization and independent review described above were subsequently completed as
+recorded in Section 30. This historical next step does not describe a correction approval.
+
+## 30. Independent failure-synchronization review
+
+Independent read-only review bound:
+
+- failure-synchronization head
+  `3dd798376180051c0dbd8d9e4ee058acff89b43f`, tree
+  `e78b5268eb53fd5659461ee290778f7bf3bb70a0`;
+- exact parent `73b5105ba23f667c2a6ee0f12fce171da85bb036`, tree
+  `2a87a324c1a967a8573852c5387a18ce5adcba75`;
+- the exact seven-ADO-file `+383/-61` delta; and
+- exact-head GitHub Actions run `29716007657`, attempt 1, ten of ten jobs successful.
+
+Verdict: `APPROVED`, with no P0–P3 against the fourth-run binding, attempt separation, physical
+truth, P1 classification, root-cause diagnosis, cleanup or focused correction boundary.
+`DA1-PHYS-04` remained open because the review did not assess or approve a product correction.
+The device-bound observations were not independently reproduced and were not described as such.
+
+Full review:
+`ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_04_Failure_Synchronization_Independent_Exact_Delta_Review.md`.
+
+## 31. Separately authorized local correction candidate
+
+The Human Architect subsequently authorized only the focused `DA1-PHYS-04` repository correction
+on exact baseline `3dd798376180051c0dbd8d9e4ee058acff89b43f`, tree
+`e78b5268eb53fd5659461ee290778f7bf3bb70a0`, with exact-head run `29716007657`. The fifth
+Human Physical Gate, production resources/data, deployment and distribution remained
+unauthorized.
+
+The Technical-Lead-approved local candidate:
+
+- gives the retained offline provider context a private credential-free snapshot of session
+  generation, restoration revision and trusted unavailable source;
+- keeps a real unchanged retry publication on the same snapshot;
+- rotates the snapshot for credential, authority, source/context, storage, logout or identity
+  change;
+- preserves one active offline scan only while that private snapshot remains current;
+- retains and compares the complete expected owner/install/lease/activation context before durable
+  append; and
+- continues to cancel public-status-only, uncertain, cross-identity, owner/install, storage and
+  genuinely stale work fail-closed.
+
+Local regression evidence is Mobile 415/415 in 30 files, focused Mobile 63/63 and the hardened
+four-test lifecycle subset 4/4 in twenty runs. Core 290/290, Admin Web 44/44, both contracts
+7/7 and 4/4, Backend Offline 13/13, Backend API 208/208, Workspace typechecks/builds, migrations
+001–010 apply/rerun/ledger verification, Expo export, 656-task release build and backup boundary
+pass.
+
+The local disclosure-safe Gate-C proxy/controller/runbook passes 27/27 focused tests and the fresh
+PostgreSQL-17 Harness passes 45/45 in four files. The helper has not been operated in a new
+physical run. The uninstalled candidate APK is 95,425,607 bytes with SHA-256
+`b34572b9813c4fb8013b09a4a530e5bc88ed4730ceacda46f6fe682bca88c6c0`; it has not been
+installed for corrected physical observation. The dependency audit retains the existing 11
+moderate transitive `uuid@7.0.3` toolchain occurrences.
+
+No fourth-run observation is converted into a pass and none may be reused.
+
+## 32. Current exact next step
+
+Commit and publish only the Technical-Lead-approved focused Mobile correction, regressions,
+disclosure-safe Gate-C helper/runbook and truthful ADO, obtain green exact-head CI and request an
+independent exact-delta correction review.
+
+`DA1-PHYS-04` remains P1/open until that correction review returns `APPROVED` with zero open
+P0–P3. Only after approved correction review and truthful synchronization may the Human Architect
+separately authorize a fifth complete fresh Gate A–E run from step 1. No previous observation may
+be reused. Production resources/data, deployment and distribution remain unauthorized.

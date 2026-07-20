@@ -22,8 +22,11 @@ REVIEW OF HEAD `798bada`, TREE `d181370`, APPROVED WITH ZERO OPEN P0/P1/P2/P3;
 DA1-PHYS-03 REPOSITORY FINDING CLOSED; FOURTH COMPLETE FRESH GATE AUTHORIZED ON PRODUCT
 `7dbda3b`, REVIEWED ADO `798bada`, SYNCHRONIZATION HEAD `73b5105` AND RUN `29714165784`;
 GATE A STEPS 1–4 PASSED BUT STEP 5 FAILED AFTER THREE NATIVE NFC DELIVERIES LEFT THE LOCAL
-QUEUE AT ZERO; DA1-PHYS-04 (P1) OPEN; GATES B–E NOT STARTED; PRODUCTION, DEPLOYMENT AND
-DISTRIBUTION NOT AUTHORIZED**
+QUEUE AT ZERO; FAILURE SYNCHRONIZATION `3dd7983`, TREE `e78b526`, AND RUN `29716007657`
+INDEPENDENTLY APPROVED; FOCUSED DA1-PHYS-04 CORRECTION SEPARATELY HUMAN-AUTHORIZED AND
+LOCALLY IMPLEMENTED AND TECHNICAL-LEAD APPROVED — PUBLICATION, CORRECTION EXACT-HEAD CI AND
+INDEPENDENT CORRECTION REVIEW PENDING; DA1-PHYS-04 (P1) OPEN; NO FIFTH
+GATE; PRODUCTION, DEPLOYMENT AND DISTRIBUTION NOT AUTHORIZED**
 Date: 2026-07-20
 Candidate Baseline Commit: `1bb2d7d7b38928643cfd5c86b36c500c35f73276`
 Candidate Baseline Tree: `c5c20f67155cdc0b4197908b4d1283cb7e619597`
@@ -57,6 +60,8 @@ DA1-PHYS-02 Independent Exact-Delta Review:
 `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_02_Independent_Exact_Delta_Review.md`
 DA1-PHYS-03 Independent Exact-Delta Review:
 `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_03_Independent_Exact_Delta_Review.md`
+DA1-PHYS-04 Failure-Synchronization Independent Exact-Delta Review:
+`ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_04_Failure_Synchronization_Independent_Exact_Delta_Review.md`
 Roadmap Scope: Comprehensive Development Assignment 1; intended completion of DT-060–DT-062 only
 after every required gate passes
 Implementation Authority: **Granted for repository Workstreams A–E on the exact baseline above**
@@ -571,8 +576,51 @@ gate, the disclosure-safe Gate-C response-drop procedure must be preserved in a 
 operator runbook or helper. Production resources/data, deployment and distribution remain
 unauthorized.
 
-Full review:
-`ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_03_Independent_Exact_Delta_Review.md`.
+Independent read-only review subsequently bound failure-synchronization head
+`3dd798376180051c0dbd8d9e4ee058acff89b43f`, tree
+`e78b5268eb53fd5659461ee290778f7bf3bb70a0`, parent `73b5105`, the exact seven-ADO-file
+`+383/-61` delta and exact-head run `29716007657`, attempt 1, ten of ten jobs successful.
+Verdict `APPROVED` with no P0–P3 against the synchronized attempt truth, diagnosis, P1
+classification or correction boundary. The review did not approve a correction and
+`DA1-PHYS-04` remained open.
+
+The Human Architect then separately authorized only the focused repository correction on exact
+baseline `3dd798376180051c0dbd8d9e4ee058acff89b43f`, tree
+`e78b5268eb53fd5659461ee290778f7bf3bb70a0`, with run `29716007657`. The accepted Sections
+3–12, every numeric ADR-0012 policy, production resources/data, deployment, distribution and the
+fifth Human Physical Gate remain outside that release.
+
+The Technical-Lead-approved local candidate represents the retained offline provider
+context with a private credential-free snapshot of session generation, restoration revision and
+trusted failure source. Repeated publication of the exact unchanged retained context preserves the
+snapshot; credential acceptance, source/context change, logout, authority or storage invalidation
+rotates it. The offline coordinator preserves one active offline scan only while that private
+snapshot remains current and the complete expected Organization/User/Membership/role/lease/
+installation/identity/activation context still matches. It revalidates before lookup-dependent
+work and before durable append. Public `context_unavailable` equality alone grants nothing, and
+uncertainty or genuinely stale asynchronous work still cancels.
+
+Local regression evidence is Mobile 415/415 in 30 files, focused Mobile 63/63 and the hardened
+four-test lifecycle subset 4/4 in twenty consecutive runs. The fixed local Gate-C proxy/controller
+passes 27/27 focused tests; the fresh PostgreSQL-17 Harness passes 45/45 in four files and its
+tests-inclusive typecheck/build pass. Core 290/290, Admin Web 44/44, Offline Contract 7/7,
+Administration Contract 4/4, Backend Offline 13/13 and Backend API 208/208 pass. All applicable
+tests-inclusive typechecks and Workspace builds, migrations 001–010 clean apply/rerun/ledger verification,
+Android export, a 656-task synthetic release and backup-boundary verification pass. The uninstalled
+APK is 95,425,607 bytes with SHA-256
+`b34572b9813c4fb8013b09a4a530e5bc88ed4730ceacda46f6fe682bca88c6c0`. The dependency
+audit truthfully retains the existing 11 moderate transitive `uuid@7.0.3` toolchain occurrences.
+
+The durable Gate-C runbook and helper bind only numeric loopback, one exact offline route and an
+ownership-checked scoped ADB reverse swap; they emit fixed disclosure-safe events and provide
+fail-closed abort/restoration. They have not been used in a new physical run.
+
+Technical-Lead verification is complete and the local candidate is `APPROVED`. No published
+correction binding, exact-head CI, independent correction review, corrected physical observation
+or fifth-gate authorization is claimed. `DA1-PHYS-04` remains P1/open.
+
+Failure-synchronization review:
+`ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_04_Failure_Synchronization_Independent_Exact_Delta_Review.md`.
 
 ## 14. Independent review mandate
 

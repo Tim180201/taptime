@@ -10,7 +10,10 @@ import {
   isCanonicalOfflineUuid,
   type OfflineCanonicalDecision,
 } from '@taptime/offline-sync-contract';
-import type { MobileSessionState } from '../auth/contracts';
+import type {
+  InternalOfflineRestorationSnapshot,
+  MobileSessionState,
+} from '../auth/contracts';
 import type { NfcCaptureLifecyclePort } from '../nfc/RnNfcScanAdapter';
 import type {
   LifecycleEvidenceOutbox,
@@ -51,6 +54,10 @@ import { decodeBase64Url32, encodeBase64Url } from './encoding';
 export interface OfflineCaptureSessionReader extends ProductScanSessionContextReader {
   getState(): MobileSessionState;
   isOfflineCaptureRestorationAllowed(): boolean;
+  captureOfflineRestorationSnapshot(): InternalOfflineRestorationSnapshot | null;
+  isOfflineRestorationSnapshotCurrent(
+    snapshot: InternalOfflineRestorationSnapshot,
+  ): boolean;
   retryContext(): Promise<void>;
 }
 
@@ -81,6 +88,8 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
   private scheduler: OfflineSyncScheduler | null = null;
   private secrets: OfflineInstallationSecrets | null = null;
   private captureMode: CaptureMode | null = null;
+  private offlineRestorationSnapshot: InternalOfflineRestorationSnapshot | null = null;
+  private offlineCaptureContext: ActiveOfflineCaptureContext | null = null;
   private protectedLegacy = false;
 
   constructor(
@@ -115,6 +124,7 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
     const ready = await this.initializeInfrastructure();
     if (!this.isCurrent(generation) || !ready) return;
     this.unsubscribeSession = this.session.subscribe(() => {
+      if (this.canPreserveActiveOfflineCapture()) return;
       void this.transitionToSession(++this.generation);
     });
     await this.transitionToSession(generation);
@@ -127,6 +137,8 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
     this.started = false;
     this.generation += 1;
     this.captureMode = null;
+    this.offlineRestorationSnapshot = null;
+    this.offlineCaptureContext = null;
     this.unsubscribeSession?.();
     this.unsubscribeSession = null;
     this.unsubscribeScheduler?.();
@@ -237,6 +249,8 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
   private async transitionToSession(generation: number): Promise<void> {
     if (!this.started || this.database === null) return;
     this.captureMode = null;
+    this.offlineRestorationSnapshot = null;
+    this.offlineCaptureContext = null;
     await this.nfcLifecycle.cancelCapture();
     if (!this.isCurrent(generation)) return;
     if (this.protectedLegacy) {
@@ -250,13 +264,20 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
       return;
     }
     const sessionState = this.session.getState();
+    const restorationSnapshot = this.session.captureOfflineRestorationSnapshot();
     if (
       sessionState.status === 'context_unavailable'
+      && restorationSnapshot !== null
       && this.session.isOfflineCaptureRestorationAllowed()
     ) {
       const offline = await this.readValidOfflineContext();
-      if (!this.isCurrent(generation)) return;
+      if (
+        !this.isCurrent(generation)
+        || !this.session.isOfflineRestorationSnapshotCurrent(restorationSnapshot)
+      ) return;
       if (offline !== null) {
+        this.offlineRestorationSnapshot = restorationSnapshot;
+        this.offlineCaptureContext = offline;
         this.captureMode = 'offline';
         await this.publishReady('offline');
         return;
@@ -367,6 +388,16 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
     const secrets = this.secrets;
     const mode = this.captureMode;
     if (database === null || secrets === null || mode === null) return;
+    const restorationSnapshot = mode === 'offline'
+      ? this.offlineRestorationSnapshot
+      : null;
+    const expectedOfflineContext = mode === 'offline'
+      ? this.offlineCaptureContext
+      : null;
+    if (
+      mode === 'offline'
+      && (restorationSnapshot === null || expectedOfflineContext === null)
+    ) return;
     this.setState({ status: 'scanning' });
     let capture: NfcScanCaptureResult;
     try {
@@ -374,7 +405,7 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
     } catch {
       capture = { status: 'unavailable' };
     }
-    if (!this.isCurrent(generation)) return;
+    if (!this.isCaptureCurrent(generation, mode, restorationSnapshot)) return;
     if (capture.status !== 'captured') {
       await this.publishReady(mode, captureOutcome(capture.status));
       return;
@@ -386,7 +417,7 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
     const item = await database.lookupActiveItem(
       mobileLookupHmac(secrets.lookupKey, capture.payload),
     );
-    if (!this.isCurrent(generation)) return;
+    if (!this.isCaptureCurrent(generation, mode, restorationSnapshot)) return;
     if (item === null) {
       await this.publishReady(mode, { status: 'tag_not_assigned' });
       return;
@@ -418,11 +449,16 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
       return;
     }
     const context = await database.readActiveCaptureContext();
+    if (!this.isCaptureCurrent(generation, mode, restorationSnapshot)) return;
     if (
       context === null
       || context.leaseId !== item.leaseId
       || context.organizationId.length === 0
       || context.membershipId.length === 0
+      || (
+        expectedOfflineContext !== null
+        && !sameActiveCaptureContext(context, expectedOfflineContext)
+      )
     ) {
       this.setState({ status: 'protected_pending', reason: 'local_evidence_protected' });
       return;
@@ -448,6 +484,7 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
       }),
       receipt: Object.freeze({ id: receiptId, attemptNumber: 1 }),
     });
+    if (!this.isCaptureCurrent(generation, mode, restorationSnapshot)) return;
     const appended = await database.appendEvent(draft);
     if (!this.isCurrent(generation)) return;
     if (appended.status === 'full') {
@@ -595,6 +632,8 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
 
   private async invalidateCapture(removeLookupKey: boolean): Promise<void> {
     this.captureMode = null;
+    this.offlineRestorationSnapshot = null;
+    this.offlineCaptureContext = null;
     await this.nfcLifecycle.cancelCapture().catch(() => undefined);
     await this.database?.invalidateCapture().catch(() => undefined);
     if (removeLookupKey) {
@@ -607,6 +646,31 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
 
   private isCurrent(generation: number): boolean {
     return this.started && generation === this.generation;
+  }
+
+  private canPreserveActiveOfflineCapture(): boolean {
+    const snapshot = this.offlineRestorationSnapshot;
+    return this.operationFlight !== null
+      && this.state.status === 'scanning'
+      && this.captureMode === 'offline'
+      && snapshot !== null
+      && this.session.isOfflineRestorationSnapshotCurrent(snapshot);
+  }
+
+  private isCaptureCurrent(
+    generation: number,
+    mode: CaptureMode,
+    restorationSnapshot: InternalOfflineRestorationSnapshot | null,
+  ): boolean {
+    return this.isCurrent(generation)
+      && this.captureMode === mode
+      && (
+        mode === 'authenticated'
+        || (
+          restorationSnapshot !== null
+          && this.session.isOfflineRestorationSnapshotCurrent(restorationSnapshot)
+        )
+      );
   }
 
   private setReady(outcome: ProductScanOutcome): void {
@@ -632,6 +696,23 @@ function sameSessionLease(
     && page.organizationId === snapshot.session.organizationId
     && page.membershipId === snapshot.session.membershipId
     && page.role === snapshot.session.role;
+}
+
+function sameActiveCaptureContext(
+  current: ActiveOfflineCaptureContext,
+  expected: ActiveOfflineCaptureContext,
+): boolean {
+  return current.organizationId === expected.organizationId
+    && current.userId === expected.userId
+    && current.membershipId === expected.membershipId
+    && current.role === expected.role
+    && current.leaseId === expected.leaseId
+    && current.installationId === expected.installationId
+    && current.identityBindingId === expected.identityBindingId
+    && current.issuedAt === expected.issuedAt
+    && current.expiresAt === expected.expiresAt
+    && current.activationBootMarker === expected.activationBootMarker
+    && current.activationMonotonicMilliseconds === expected.activationMonotonicMilliseconds;
 }
 
 function canStartScan(state: ProductScanState): boolean {

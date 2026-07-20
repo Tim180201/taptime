@@ -7,6 +7,7 @@ import type {
   EmployeeEnrollmentResult,
   EphemeralAccessTokenReader,
   InternalAuthenticatedSessionSnapshot,
+  InternalOfflineRestorationSnapshot,
   MobileSessionCapability,
   MobileSessionState,
   ProviderAuthEvent,
@@ -49,6 +50,10 @@ export class MobileSessionCoordinator implements
   private refreshToken: string | null = null;
   private providerSessionAllowed = false;
   private offlineCaptureRestorationAllowed = false;
+  private offlineRestorationRevision = 0;
+  private contextUnavailableSource:
+    | InternalOfflineRestorationSnapshot['source']
+    | null = null;
   private tokenRevision = 0;
   private refreshFlight: Promise<void> | null = null;
   private startFlight: Promise<void> | null = null;
@@ -95,6 +100,33 @@ export class MobileSessionCoordinator implements
 
   isOfflineCaptureRestorationAllowed(): boolean {
     return this.offlineCaptureRestorationAllowed;
+  }
+
+  captureOfflineRestorationSnapshot(): InternalOfflineRestorationSnapshot | null {
+    if (
+      this.state.status !== 'context_unavailable'
+      || !this.offlineCaptureRestorationAllowed
+      || this.refreshToken === null
+      || this.refreshToken.length === 0
+      || this.contextUnavailableSource === null
+    ) {
+      return null;
+    }
+    return Object.freeze({
+      generation: this.generation,
+      restorationRevision: this.offlineRestorationRevision,
+      source: this.contextUnavailableSource,
+    });
+  }
+
+  isOfflineRestorationSnapshotCurrent(
+    snapshot: InternalOfflineRestorationSnapshot,
+  ): boolean {
+    const current = this.captureOfflineRestorationSnapshot();
+    return current !== null
+      && current.generation === snapshot.generation
+      && current.restorationRevision === snapshot.restorationRevision
+      && current.source === snapshot.source;
   }
 
   subscribe(listener: () => void): () => void {
@@ -582,9 +614,18 @@ export class MobileSessionCoordinator implements
   }
 
   private suspendProviderSession(refreshToken: string): void {
+    const sameRetainedProviderContext = !this.providerSessionAllowed
+      && this.accessToken === null
+      && this.refreshToken === refreshToken
+      && this.state.status === 'context_unavailable'
+      && this.contextUnavailableSource === 'provider_suspended';
+    if (!sameRetainedProviderContext) {
+      this.offlineRestorationRevision += 1;
+    }
     this.providerSessionAllowed = false;
     this.accessToken = null;
     this.refreshToken = refreshToken;
+    this.contextUnavailableSource = 'provider_suspended';
     this.tokenRevision += 1;
     this.unauthorizedRefreshFlight = null;
     this.setState({ status: 'context_unavailable' });
@@ -600,7 +641,7 @@ export class MobileSessionCoordinator implements
       result = await this.backendSession.resolve(accessToken);
     } catch {
       if (generation === this.generation && tokenRevision === this.tokenRevision) {
-        this.setState({ status: 'context_unavailable' });
+        this.publishBackendContextUnavailable();
       }
       return { status: 'context_unavailable' };
     }
@@ -610,11 +651,13 @@ export class MobileSessionCoordinator implements
     if (result.status === 'resolved') {
       this.enrollmentIntentGeneration = null;
       this.offlineCaptureRestorationAllowed = true;
+      this.offlineRestorationRevision += 1;
+      this.contextUnavailableSource = null;
       this.setState({ status: 'authenticated', session: result.session });
       return { status: 'authenticated' };
     }
     if (result.status === 'unavailable') {
-      this.setState({ status: 'context_unavailable' });
+      this.publishBackendContextUnavailable();
       return { status: 'context_unavailable' };
     }
     if (
@@ -689,6 +732,8 @@ export class MobileSessionCoordinator implements
   }
 
   private acceptProviderTokens(tokens: ProviderSessionTokens): number {
+    this.offlineRestorationRevision += 1;
+    this.contextUnavailableSource = null;
     this.providerSessionAllowed = true;
     this.accessToken = tokens.accessToken;
     this.refreshToken = tokens.refreshToken;
@@ -698,6 +743,8 @@ export class MobileSessionCoordinator implements
 
   private invalidateInMemorySession(): number {
     this.generation += 1;
+    this.offlineRestorationRevision += 1;
+    this.contextUnavailableSource = null;
     this.providerSessionAllowed = false;
     this.accessToken = null;
     this.refreshToken = null;
@@ -706,6 +753,14 @@ export class MobileSessionCoordinator implements
     this.unauthorizedRefreshFlight = null;
     this.enrollmentIntentGeneration = null;
     return this.generation;
+  }
+
+  private publishBackendContextUnavailable(): void {
+    if (this.contextUnavailableSource !== 'backend_context_unavailable') {
+      this.offlineRestorationRevision += 1;
+    }
+    this.contextUnavailableSource = 'backend_context_unavailable';
+    this.setState({ status: 'context_unavailable' });
   }
 
   private enqueueTokenWrite(refreshToken: string, generation: number): Promise<void> {

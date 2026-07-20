@@ -22,8 +22,11 @@ INDEPENDENT EXACT-DELTA REVIEW OF HEAD `798bada`, TREE `d181370`, APPROVED WITH 
 P0/P1/P2/P3; DA1-PHYS-03 REPOSITORY FINDING CLOSED; FOURTH COMPLETE FRESH GATE AUTHORIZED
 ON PRODUCT `7dbda3b`, REVIEWED ADO `798bada`, SYNCHRONIZATION HEAD `73b5105` AND RUN
 `29714165784`; GATE A STEPS 1–4 PASSED BUT STEP 5 FAILED AFTER THREE NATIVE NFC DELIVERIES
-LEFT THE LOCAL QUEUE AT ZERO; DA1-PHYS-04 (P1) OPEN; GATES B–E NOT STARTED; PRODUCTION,
-DEPLOYMENT AND DISTRIBUTION NOT AUTHORIZED**
+LEFT THE LOCAL QUEUE AT ZERO; FAILURE SYNCHRONIZATION `3dd7983`/`e78b526` AND RUN
+`29716007657` INDEPENDENTLY APPROVED; FOCUSED CORRECTION SEPARATELY HUMAN-AUTHORIZED AND
+LOCALLY IMPLEMENTED AND TECHNICAL-LEAD APPROVED — PUBLICATION, CORRECTION EXACT-HEAD CI AND
+INDEPENDENT CORRECTION REVIEW PENDING; DA1-PHYS-04 (P1) OPEN; NO FIFTH
+GATE; PRODUCTION, DEPLOYMENT AND DISTRIBUTION NOT AUTHORIZED**
 Date: 2026-07-20
 Human-Accepted Contract Commit: `592334160655cde2f4189712eaf327c8a7edcb0e`
 Implementation Baseline Commit: `180093091c47a926b5871a27ea8b00fb21b9b4ac`
@@ -107,6 +110,19 @@ APK 95,422,571 bytes, SHA-256
 Fourth Fresh Physical-gate Result: **Gate A steps 1–4 passed; step 5 failed after three verified
 native NFC deliveries left the encrypted queue at zero; DA1-PHYS-04 opened as P1; Gates B–E not
 started; complete abort cleanup passed**
+DA1-PHYS-04 Failure-Synchronization Head:
+`3dd798376180051c0dbd8d9e4ee058acff89b43f`
+DA1-PHYS-04 Failure-Synchronization Tree:
+`e78b5268eb53fd5659461ee290778f7bf3bb70a0`
+DA1-PHYS-04 Failure-Synchronization Exact-head CI: GitHub Actions run `29716007657`, attempt 1,
+push to `main`, 10/10 jobs successful
+DA1-PHYS-04 Failure-Synchronization Review: **APPROVED — zero P0/P1/P2/P3 against the
+synchronization; DA1-PHYS-04 remains open**
+DA1-PHYS-04 Focused Correction Authorization Baseline:
+`3dd798376180051c0dbd8d9e4ee058acff89b43f`, tree
+`e78b5268eb53fd5659461ee290778f7bf3bb70a0`, exact-head run `29716007657`
+DA1-PHYS-04 Focused Correction State: **Technical-Lead-approved local candidate; publication,
+correction exact-head CI and independent correction review pending**
 Architecture:
 `ADO/01_Architecture/ADR/ADR-0012-complete-offline-synchronization-platform.md`
 Authorization:
@@ -386,10 +402,11 @@ restoration-before-scheduling. Verdict: **APPROVED**, zero open P0/P1/P2/P3;
 
 Still pending and not claimed here:
 
-1. independent read-only review and separately authorized focused correction of `DA1-PHYS-04`;
-2. a later separately authorized complete fresh Human Gate A–E which reuses no prior observation;
-3. truthful physical closure synchronization and independent final closure review; and
-4. any production resource/data, deployment or distribution decision.
+1. publication of the Technical-Lead-approved focused `DA1-PHYS-04` correction;
+2. green correction exact-head CI and independent exact-delta correction review;
+3. a later separately authorized complete fresh Human Gate A–E which reuses no prior observation;
+4. truthful physical closure synchronization and independent final closure review; and
+5. any production resource/data, deployment or distribution decision.
 
 DT-060–DT-062 remain open until every applicable later gate is complete.
 
@@ -512,3 +529,114 @@ Gate A failed, Gates B–E were not started, no fourth-run observation may be re
 abort cleanup passed. Before any later complete gate, the disclosure-safe Gate-C response-drop
 procedure must be preserved in a durable reviewed operator runbook or helper. No product
 correction, fifth gate, production resource/data, deployment or distribution is claimed.
+
+## 11. DA1-PHYS-04 failure review, authorized local correction candidate and Gate-C helper
+
+### 11.1 Independent failure-synchronization review and correction authority
+
+Independent read-only review bound head
+`3dd798376180051c0dbd8d9e4ee058acff89b43f`, tree
+`e78b5268eb53fd5659461ee290778f7bf3bb70a0`, exact parent `73b5105`, the exact
+seven-ADO-file `+383/-61` delta and exact-head run `29716007657`, attempt 1, ten of ten jobs
+successful. It returned `APPROVED` with no P0–P3 against the fourth-run truth, diagnosis, P1
+classification or focused correction boundary. It did not approve a product correction and
+`DA1-PHYS-04` remained open.
+
+The Human Architect then separately authorized only the focused repository correction on that
+exact baseline and run. ADR-0012, every accepted numeric policy and server-only authority remain
+unchanged. The fifth Human gate, production resources/data, deployment and distribution remain
+unauthorized.
+
+Full review:
+`ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_04_Failure_Synchronization_Independent_Exact_Delta_Review.md`.
+
+### 11.2 Local Mobile correction boundary
+
+The local candidate changes four Mobile production files and three Mobile test surfaces, including
+the new `OfflineSchedulingLifecycle` integration:
+
+- `MobileSessionCoordinator` exposes only a private credential-free offline-restoration snapshot:
+  session generation, restoration revision and the trusted `provider_suspended` or
+  `backend_context_unavailable` source;
+- a real retry which republishes the exact retained context leaves that private snapshot current;
+- accepted credentials, changed source/context, resolved authority, logout, storage failure or
+  identity invalidation rotate the restoration revision or generation;
+- `OfflineCaptureCoordinator` preserves one active offline scan notification only while the
+  operation is scanning and that private snapshot is still current;
+- it retains the complete expected Organization/User/Membership/role/lease/installation/
+  identity/activation context, rechecks current restoration state throughout the scan and compares
+  the active context again before append; and
+- public `context_unavailable` status equality alone never preserves a capture. Cross-identity,
+  owner/install, storage, uncertainty and genuinely stale asynchronous results remain fail-closed.
+
+The regression integration composes the real `OfflineSchedulingLifecycle`, real
+`MobileSessionCoordinator` and real `OfflineCaptureCoordinator`. At the injected production
+database boundary it supplies the exact 32-byte database key and proves:
+
+```text
+offline_ready
+  -> explicit scan
+  -> Android pause/resume through OfflineSchedulingLifecycle
+  -> real failed unchanged provider retry publication
+  -> delivered capture
+  -> exactly one appendEvent call at the owner-bound database boundary
+  -> queue count 1
+```
+
+Additional adversarial cases prove changed restoration identity cancels before append and that
+credential, authority and storage transitions invalidate the private snapshot.
+
+This integration test does not claim a native SQLCipher E2E inside Vitest. The separate production
+`OfflineCaptureDatabase` and Expo-native boundary tests prove key-first SQLCipher initialization,
+exclusive FIFO persistence/restore and exact database-key wiring. Together these layers prove the
+encrypted product path without misdescribing the injected database boundary as native storage.
+
+### 11.3 Durable disclosure-safe Gate-C operator boundary
+
+The local harness candidate adds a fixed one-shot Node-24 proxy on `127.0.0.1:3001` forwarding
+only to `127.0.0.1:3000`, plus an ownership-checking controller for the exact scoped Android API
+reverse swap. It claims only the first exact `POST /v1/lifecycle-events/offline`, blocks later
+requests, drains and requires a complete HTTP 200 before destroying the Mobile response, never
+rearms and restores only its owned mapping. Fixed events contain no body, header, token, device
+serial, NFC value or internal identifier. Unexpected mappings, multiple/unauthorized devices,
+timeout, incomplete/non-200 response and cleanup ambiguity fail closed.
+
+The recovery entrypoint is idempotent for the expected proxy/direct states and refuses to overwrite
+an unknown mapping. The durable operator procedure is:
+`ADO/04_Operations/Development_Assignment_01_Gate_C_Response_Drop_Runbook.md`.
+The helper has not been used in a new physical run.
+
+### 11.4 Current local verification
+
+| Scope | Local result |
+|---|---:|
+| Mobile complete | 415/415, 30 files; final Technical-Lead run |
+| Focused Mobile correction | 63/63 |
+| Hardened lifecycle subset | 4/4 across 20 consecutive runs |
+| Core | 290/290 |
+| Admin Web | 44/44 |
+| Offline synchronization contract | 7/7 |
+| Administration contract | 4/4 |
+| Gate-C helper focused | 27/27 |
+| Synthetic Harness on fresh PostgreSQL 17 | 45/45, 4 files |
+| Backend Offline Synchronization | 13/13 |
+| Backend API | 208/208 |
+| Applicable tests-inclusive typechecks | passed |
+| Workspace builds, including helper bundle | passed |
+| PostgreSQL migrations 001–010 clean apply, rerun and ledger verification | passed |
+| Android Expo export | passed |
+| Synthetic Android release | passed, 656 tasks |
+| Android backup/transfer boundary | passed |
+
+The uninstalled synthetic candidate APK is 95,425,607 bytes with SHA-256
+`b34572b9813c4fb8013b09a4a530e5bc88ed4730ceacda46f6fe682bca88c6c0`.
+No install or corrected on-device observation is claimed.
+
+`npm audit --omit=dev` continues to report the already documented 11 moderate transitive
+`uuid@7.0.3` occurrences below Expo/config-plugins/xcode. The correction adds no dependency and
+does not claim a zero-advisory tree.
+
+Technical-Lead verification is complete and the local candidate is `APPROVED`. No published
+correction binding, exact-head CI or independent correction approval exists yet.
+`DA1-PHYS-04` remains P1/open; no fifth gate, Development Assignment 1 closure, production
+resource/data, deployment or distribution is claimed.

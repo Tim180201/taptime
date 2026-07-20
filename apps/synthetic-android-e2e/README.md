@@ -193,6 +193,38 @@ Only Human observations can pass this checklist. A failed or interrupted observa
 the run; restart from the controlled prerequisite on a fresh disposable database. C3E2, production,
 deployment/distribution, Web/iOS NFC and real-person data remain outside this gate.
 
+## DA1 Gate-C response-drop helper
+
+The private Node-24 helper provides the one-shot, disclosure-safe lost-response fault required by
+Development Assignment 1 Gate C. It binds only `127.0.0.1:3001`, forwards only to the existing
+`127.0.0.1:3000` synthetic API, withholds the first complete synchronized response for the exact
+`POST /v1/lifecycle-events/offline` route and blocks every later request until explicit transport
+restoration. It never prints request or response data, headers, tokens, device serials or internal
+identifiers.
+
+Build the exact reviewed harness before using either command:
+
+```bash
+npm run build --workspace=@taptime/synthetic-android-e2e
+npm run gate-c:response-drop --workspace=@taptime/synthetic-android-e2e
+```
+
+The interactive helper requires exactly one active `adb devices -l` device entry proven as USB,
+rejects TCP/Wireless ADB and emulators, and owns only the temporary Android API reverse swap from
+direct `tcp:3000 -> tcp:3000` to proxy `tcp:3000 -> tcp:3001`. Use `restore` after the fixed
+successful drop event. If the helper process terminates before normal restoration, use the
+idempotent, ownership-checking recovery command. It also restores the exact temporarily missing API
+mapping that can result if the process dies between its scoped remove and add commands:
+
+```bash
+npm run gate-c:transport-restore --workspace=@taptime/synthetic-android-e2e
+```
+
+The normative prerequisites, safe-event interpretation, abort conditions, exact-count evidence and
+cleanup sequence are in
+`ADO/04_Operations/Development_Assignment_01_Gate_C_Response_Drop_Runbook.md`. This helper grants no
+physical-gate, production, deployment or distribution authority.
+
 ## Automated verification
 
 With the dedicated PostgreSQL URL set:

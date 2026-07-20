@@ -6,6 +6,7 @@ import { ExpoRefreshTokenStore } from '../auth/ExpoRefreshTokenStore';
 import { AdminSetupCoordinator } from '../administration/AdminSetupCoordinator';
 import { TapTimeAdministrationApiClient } from '../administration/TapTimeAdministrationApiClient';
 import { MobileSessionCoordinator } from '../auth/MobileSessionCoordinator';
+import type { InternalOfflineRestorationSnapshot } from '../auth/contracts';
 import { createSupabaseEmailPasswordAuthAdapter } from '../auth/SupabaseEmailPasswordAuthAdapter';
 import { TapTimeSessionApiClient } from '../auth/TapTimeSessionApiClient';
 import { TapTimeEmployeeEnrollmentApiClient } from '../auth/TapTimeEmployeeEnrollmentApiClient';
@@ -100,6 +101,14 @@ export function createProductMobileRuntime(): ProductMobileRuntimeCreation {
     getState: () => coordinator.getState(),
     isOfflineCaptureRestorationAllowed: () => (
       coordinator.isOfflineCaptureRestorationAllowed()
+    ),
+    captureOfflineRestorationSnapshot: () => (
+      coordinator.captureOfflineRestorationSnapshot()
+    ),
+    isOfflineRestorationSnapshotCurrent: (
+      snapshot: InternalOfflineRestorationSnapshot,
+    ) => (
+      coordinator.isOfflineRestorationSnapshotCurrent(snapshot)
     ),
     retryContext: () => coordinator.retryContext(),
   });

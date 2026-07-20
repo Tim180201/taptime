@@ -1,6 +1,6 @@
 # Project Status
 
-Status: CORE ROADMAP V2 BLOCK A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2, BLOCK D, E1 AND NARROW E2A COMPLETE FOR THEIR RECORDED SCOPES — C3A HUMAN-ACCEPTED — C3E1 AND C3E2 INDEPENDENTLY CLOSED — DEVELOPMENT ASSIGNMENT 1 CONTRACT AND REPOSITORY IMPLEMENTATION INDEPENDENTLY APPROVED; DA1-IMPL-01 AND DA1-PHYS-01/02/03 REPOSITORY FINDINGS CLOSED — FOURTH COMPLETE FRESH HUMAN GATE AUTHORIZED ON PRODUCT `7dbda3b`, REVIEWED ADO `798bada`, SYNCHRONIZATION HEAD `73b5105` AND EXACT-HEAD RUN `29714165784`; GATE A STEPS 1–4 PASSED BUT STEP 5 FAILED AFTER THREE NATIVE NFC DELIVERIES LEFT THE LOCAL QUEUE AT ZERO — DA1-PHYS-04 (P1) OPEN; GATES B–E NOT STARTED — COMPLETE ABORT CLEANUP PASSED — PRODUCTION, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED — MOBILE 409 / CORE 290 / ADMIN WEB 44 — DT-060–DT-068 AND BLOCK E REMAIN OPEN — 2 SUPAVISOR MODES UNVERIFIED — NO PRODUCTION PERSONAL DATA AUTHORIZED — NO PRODUCTION CLOUD SYNC DEPLOYMENT
+Status: CORE ROADMAP V2 BLOCK A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2, BLOCK D, E1 AND NARROW E2A COMPLETE FOR THEIR RECORDED SCOPES — C3A HUMAN-ACCEPTED — C3E1 AND C3E2 INDEPENDENTLY CLOSED — DEVELOPMENT ASSIGNMENT 1 CONTRACT AND REPOSITORY IMPLEMENTATION INDEPENDENTLY APPROVED; DA1-IMPL-01 AND DA1-PHYS-01/02/03 REPOSITORY FINDINGS CLOSED — FOURTH COMPLETE FRESH HUMAN GATE FAILED AT GATE A STEP 5 AFTER THREE NATIVE NFC DELIVERIES LEFT THE LOCAL QUEUE AT ZERO — FAILURE SYNCHRONIZATION `3dd7983`, TREE `e78b526`, AND EXACT-HEAD RUN `29716007657` INDEPENDENTLY APPROVED; FOCUSED DA1-PHYS-04 CORRECTION SEPARATELY HUMAN-AUTHORIZED, LOCALLY IMPLEMENTED AND TECHNICAL-LEAD APPROVED — PUBLICATION, CORRECTION EXACT-HEAD CI AND INDEPENDENT CORRECTION REVIEW PENDING — DA1-PHYS-04 (P1) OPEN; NO FIFTH GATE AUTHORIZED — PRODUCTION, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED — LATEST LOCAL MOBILE 415 / CORE 290 / ADMIN WEB 44 — DT-060–DT-068 AND BLOCK E REMAIN OPEN — 2 SUPAVISOR MODES UNVERIFIED — NO PRODUCTION PERSONAL DATA AUTHORIZED — NO PRODUCTION CLOUD SYNC DEPLOYMENT
 Date: 2026-07-20
 Owner: Human Architect + Technical Lead
 
@@ -138,6 +138,36 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   closed with no persistence claim, server mutation, authority escalation or sensitive disclosure.
   Production resources/data, deployment and distribution remain unauthorized. DT-060–DT-062
   remain open until every later gate passes.
+
+  Independent read-only review subsequently bound failure-synchronization head
+  `3dd798376180051c0dbd8d9e4ee058acff89b43f`, tree
+  `e78b5268eb53fd5659461ee290778f7bf3bb70a0`, its seven-ADO-file delta and exact-head run
+  `29716007657`, attempt 1, ten of ten jobs successful. Verdict `APPROVED` with no P0–P3 against
+  the failure truth, diagnosis, P1 classification or focused boundary; `DA1-PHYS-04` remained open.
+  The Human Architect then separately authorized that correction on the exact reviewed baseline.
+
+  The Technical-Lead-approved local candidate adds a private credential-free restoration
+  snapshot of session generation, restoration revision and trusted failure source. An unchanged
+  retry publication preserves that snapshot; credential acceptance, authority/context source
+  change, storage failure, logout or identity invalidation rotates it. The offline coordinator
+  preserves one active offline scan only while the private snapshot remains current, retains the
+  complete expected owner/install/lease context and revalidates both before durable append.
+  Public `context_unavailable` equality cannot preserve a capture. Cross-identity, owner/install,
+  storage and genuinely stale asynchronous paths remain fail-closed.
+
+  The final Technical-Lead Mobile run passes 415/415 in 30 files. Focused Mobile tests pass 63/63
+  and the hardened four-test lifecycle subset passed 4/4 in twenty consecutive runs. Core
+  290/290, Admin Web 44/44, Offline Contract 7/7,
+  Administration Contract 4/4, Backend Offline 13/13 and Backend API 208/208 pass. The fixed
+  loopback-only Gate-C helper passes 27/27 focused tests; a fresh PostgreSQL-17 Harness run passes
+  45/45 in four files. The helper tests-inclusive typecheck/build and all applicable Workspace
+  checks/builds,
+  migrations 001–010 apply/rerun/ledger verification, Android export, a 656-task synthetic release
+  and backup-boundary verification pass. The uninstalled 95,425,607-byte APK has SHA-256
+  `b34572b9813c4fb8013b09a4a530e5bc88ed4730ceacda46f6fe682bca88c6c0`. The dependency audit
+  still reports the existing 11 moderate transitive `uuid@7.0.3` toolchain occurrences. None of
+  this is a corrected physical observation. Publication, exact-head CI and independent correction
+  review remain pending; no fifth gate is authorized.
   Evidence: `ADO/01_Architecture/ADR/ADR-0012-complete-offline-synchronization-platform.md`,
   `ADO/02_Development/Development_Assignment_01_Complete_Offline_Synchronization_Authorization.md`;
   `ADO/02_Development/Development_Assignment_01_Complete_Offline_Synchronization_Implementation_Plan.md`;
@@ -145,6 +175,7 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   `ADO/05_Evidence/Development_Assignment_01_Implementation_Evidence.md`;
   `ADO/05_Evidence/Development_Assignment_01_Independent_Implementation_Review.md`;
   `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_03_Independent_Exact_Delta_Review.md`;
+  `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_04_Failure_Synchronization_Independent_Exact_Delta_Review.md`;
   `ADO/05_Evidence/Development_Assignment_01_Physical_Validation_Evidence.md`;
   `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_02_Independent_Exact_Delta_Review.md`; and
   `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_01_Independent_Exact_Delta_Review.md`.
@@ -259,14 +290,13 @@ Two Epics are concurrently Active, per EP-009's own stated relationship to the r
 
 ## Immediate Next Steps
 
-1. Publish the truthful fourth-run/`DA1-PHYS-04` evidence synchronization and obtain green
-   exact-head CI.
-2. Obtain an independent read-only exact-delta review of the authorization binding, attempt
-   separation, physical evidence, P1 classification, root-cause diagnosis, regression gap,
-   cleanup and focused correction boundary.
-3. After independent approval and separate Human authorization, implement only the focused
-   regression-safe correction. Before any later complete gate, preserve the disclosure-safe Gate-C
-   response-drop procedure in a durable reviewed operator runbook or helper.
+1. Commit and publish only the Technical-Lead-approved focused local correction, tests,
+   disclosure-safe Gate-C
+   runbook/helper and truthful ADO, then obtain green exact-head CI.
+2. Obtain an independent exact-delta correction review. `DA1-PHYS-04` remains P1/open until that
+   review returns `APPROVED` with zero open P0–P3.
+3. Only after approved correction review and truthful synchronization may the Human Architect
+   separately authorize a fifth complete fresh Gate A–E run which reuses no prior observation.
 4. Keep the real production endpoint/CA, one-human operator IAM inventory, short-lived credential
    delivery/revocation and controlled execution evidence as explicit later deployment gates.
 5. Preserve the closed C3C/C3E2 least-privilege boundaries and keep production/deployment,

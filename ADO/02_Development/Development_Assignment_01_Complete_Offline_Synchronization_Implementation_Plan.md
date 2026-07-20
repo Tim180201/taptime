@@ -20,8 +20,11 @@ INDEPENDENT EXACT-DELTA REVIEW OF HEAD `798bada`, TREE `d181370`, APPROVED WITH 
 P0/P1/P2/P3; DA1-PHYS-03 REPOSITORY FINDING CLOSED; FOURTH COMPLETE FRESH GATE AUTHORIZED
 ON PRODUCT `7dbda3b`, REVIEWED ADO `798bada`, SYNCHRONIZATION HEAD `73b5105` AND RUN
 `29714165784`; GATE A STEPS 1–4 PASSED BUT STEP 5 FAILED AFTER THREE NATIVE NFC DELIVERIES
-LEFT THE LOCAL QUEUE AT ZERO; DA1-PHYS-04 (P1) OPEN; GATES B–E NOT STARTED; PRODUCTION,
-DEPLOYMENT AND DISTRIBUTION NOT AUTHORIZED**
+LEFT THE LOCAL QUEUE AT ZERO; FAILURE SYNCHRONIZATION `3dd7983`/`e78b526` AND RUN
+`29716007657` INDEPENDENTLY APPROVED; FOCUSED CORRECTION SEPARATELY HUMAN-AUTHORIZED AND
+LOCALLY IMPLEMENTED AND TECHNICAL-LEAD APPROVED — PUBLICATION, CORRECTION EXACT-HEAD CI AND
+INDEPENDENT CORRECTION REVIEW PENDING; DA1-PHYS-04 (P1) OPEN; NO FIFTH
+GATE; PRODUCTION, DEPLOYMENT AND DISTRIBUTION NOT AUTHORIZED**
 Date: 2026-07-20
 Implementation Baseline Commit: `180093091c47a926b5871a27ea8b00fb21b9b4ac`
 Implementation Baseline Tree: `73e77b6ca5dfd7671cdd3d77a344168fddff3627`
@@ -38,6 +41,8 @@ DA1-PHYS-02 Independent Exact-Delta Review:
 `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_02_Independent_Exact_Delta_Review.md`
 DA1-PHYS-03 Independent Exact-Delta Review:
 `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_03_Independent_Exact_Delta_Review.md`
+DA1-PHYS-04 Failure-Synchronization Independent Exact-Delta Review:
+`ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_04_Failure_Synchronization_Independent_Exact_Delta_Review.md`
 Owner: Technical Lead
 
 ## 1. Objective and non-negotiable boundary
@@ -419,3 +424,30 @@ passed. Before any later complete physical run, the previously used disclosure-s
 response-drop procedure must be committed as a durable reviewed operator runbook or helper. No
 product correction, fifth gate, production resource/data, deployment or distribution is
 authorized by this synchronization.
+
+Independent review of failure-synchronization head `3dd7983`, tree `e78b526`, and exact-head run
+`29716007657` returned `APPROVED` with no P0–P3 against the truth, diagnosis, P1 classification
+or correction boundary. The Human Architect then separately authorized the focused correction on
+that exact baseline; `DA1-PHYS-04` remained open.
+
+The Technical-Lead-approved local candidate adds a private offline-restoration snapshot
+containing only session generation, restoration revision and trusted unavailable source. It
+preserves an active offline capture only across a publication for which that private snapshot is
+still exact, retains the expected complete active owner/install/lease context and revalidates
+before durable append. Credential, source, authority, storage, logout, cross-identity,
+owner/install and genuinely stale changes still invalidate fail-closed. No public
+`context_unavailable` equality, local authority, new decision or numeric-policy change is added.
+
+Regression evidence is Mobile 415/415 in 30 files, focused Mobile 63/63 and a hardened four-test
+lifecycle subset repeated twenty times at 4/4. The fixed Gate-C one-shot proxy, scoped reverse
+controller, recovery command and operator runbook pass 27/27 focused tests; a fresh
+PostgreSQL-17 Harness passes 45/45 in four files with tests-inclusive typecheck/build. Core
+290/290, Admin Web 44/44, both contracts 7/7 and 4/4, Backend Offline 13/13, Backend API 208/208,
+Workspace checks/builds, migration apply/rerun/ledger verification, Android export, 656-task
+synthetic release and backup-boundary verifier pass. The uninstalled 95,425,607-byte APK SHA-256
+is `b34572b9813c4fb8013b09a4a530e5bc88ed4730ceacda46f6fe682bca88c6c0`. The existing 11
+moderate transitive `uuid@7.0.3` toolchain advisory occurrences remain truthfully reported.
+
+No published correction binding, exact-head CI, independent correction approval, corrected
+physical result or fifth gate is claimed. Publication and independent review remain mandatory before
+`DA1-PHYS-04` can close as a repository finding.
