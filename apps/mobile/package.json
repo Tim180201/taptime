@@ -35,6 +35,7 @@
     "android:synthetic-e2e:build": "node scripts/buildSyntheticE2eAndroid.mjs",
     "android:synthetic-e2e:disconnect": "node scripts/disconnectSyntheticE2eAndroid.mjs",
     "android:synthetic-e2e:install": "node scripts/installSyntheticE2eAndroid.mjs",
+    "android:synthetic-e2e:runtime-verify": "node scripts/verifySyntheticE2eAndroidRuntime.mjs",
     "android:offline-storage-boundary:verify": "node scripts/verifyOfflineStorageAndroidBoundary.mjs",
     "ios": "expo start --ios",
     "web": "expo start --web",

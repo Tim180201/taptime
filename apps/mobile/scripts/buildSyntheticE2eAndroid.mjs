@@ -2,6 +2,8 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
+import { SYNTHETIC_E2E_RUNTIME_ENVIRONMENT } from './syntheticE2eRuntimeContract.mjs';
+
 const mobileDirectory = fileURLToPath(new URL('..', import.meta.url));
 const androidDirectory = fileURLToPath(new URL('../android', import.meta.url));
 const packageJsonPath = fileURLToPath(new URL('../package.json', import.meta.url));
@@ -22,12 +24,7 @@ if (existsSync(androidDirectory)) {
 
 const environment = {
   ...process.env,
-  APP_VARIANT: 'synthetic-e2e',
-  EXPO_PUBLIC_TAPTIME_RUNTIME_VARIANT: 'synthetic-e2e',
-  EXPO_PUBLIC_SUPABASE_URL: 'http://127.0.0.1:54321',
-  EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_taptime_synthetic_android_e2e',
-  EXPO_PUBLIC_TAPTIME_API_BASE_URL: 'http://127.0.0.1:3000',
-  EXPO_PUBLIC_TAPTIME_DEMO_MODE: 'false',
+  ...SYNTHETIC_E2E_RUNTIME_ENVIRONMENT,
 };
 
 const packageJsonBeforePrebuild = readFileSync(packageJsonPath, 'utf8');
@@ -40,11 +37,12 @@ try {
     writeFileSync(packageJsonPath, packageJsonBeforePrebuild, 'utf8');
   }
 }
-run('./gradlew', ['assembleRelease'], {
+run('./gradlew', ['--no-daemon', 'clean', 'assembleRelease'], {
   cwd: androidDirectory,
   environment,
 });
 run('node', ['scripts/verifyOfflineStorageAndroidBoundary.mjs']);
+run('node', ['scripts/verifySyntheticE2eAndroidRuntime.mjs']);
 process.stdout.write('synthetic_e2e_android_apk_ready\n');
 
 function run(command, args, options = {}) {

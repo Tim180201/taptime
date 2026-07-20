@@ -2,6 +2,10 @@ import { existsSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
+import {
+  verifySyntheticE2eAndroidRuntime,
+} from './verifySyntheticE2eAndroidRuntime.mjs';
+
 const mobileDirectory = fileURLToPath(new URL('..', import.meta.url));
 const apk = fileURLToPath(new URL(
   '../android/app/build/outputs/apk/release/app-release.apk',
@@ -10,6 +14,7 @@ const apk = fileURLToPath(new URL(
 if (!existsSync(apk)) {
   throw new Error('Synthetic E2E APK is missing; run the local build first');
 }
+verifySyntheticE2eAndroidRuntime(apk);
 
 const devices = run('adb', ['devices'], true).stdout
   .split('\n')

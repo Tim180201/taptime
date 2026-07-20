@@ -178,6 +178,8 @@ describe('C1 Mobile composition boundary', () => {
         networkPolicySource,
         backupPolicySource,
         backupVerificationSource,
+        runtimeContractSource,
+        runtimeVerificationSource,
         buildSource,
         installSource,
         disconnectSource,
@@ -195,6 +197,14 @@ describe('C1 Mobile composition boundary', () => {
         )), 'utf8'),
         readFile(fileURLToPath(new URL(
           '../../scripts/verifyOfflineStorageAndroidBoundary.mjs',
+          import.meta.url,
+        )), 'utf8'),
+        readFile(fileURLToPath(new URL(
+          '../../scripts/syntheticE2eRuntimeContract.mjs',
+          import.meta.url,
+        )), 'utf8'),
+        readFile(fileURLToPath(new URL(
+          '../../scripts/verifySyntheticE2eAndroidRuntime.mjs',
           import.meta.url,
         )), 'utf8'),
         readFile(fileURLToPath(new URL(
@@ -228,10 +238,18 @@ describe('C1 Mobile composition boundary', () => {
       expect(backupVerificationSource).toContain(
         'offline_storage_android_backup_boundary_verified',
       );
-      expect(buildSource).toContain('EXPO_PUBLIC_TAPTIME_DEMO_MODE: \'false\'');
-      expect(buildSource).toContain("APP_VARIANT: 'synthetic-e2e'");
+      expect(runtimeContractSource).toContain('EXPO_PUBLIC_TAPTIME_DEMO_MODE: \'false\'');
+      expect(runtimeContractSource).toContain("APP_VARIANT: 'synthetic-e2e'");
+      expect(runtimeContractSource).not.toMatch(/https?:\/\/(?!127\.0\.0\.1)/);
+      expect(runtimeVerificationSource).toContain(
+        'REQUIRED_SYNTHETIC_E2E_RUNTIME_LITERALS',
+      );
+      expect(runtimeVerificationSource).toContain(
+        'synthetic_e2e_android_runtime_complete_verified',
+      );
       expect(buildSource).toContain('verifyOfflineStorageAndroidBoundary.mjs');
-      expect(buildSource).not.toMatch(/https?:\/\/(?!127\.0\.0\.1)/);
+      expect(buildSource).toContain('verifySyntheticE2eAndroidRuntime.mjs');
+      expect(buildSource).toContain("'--no-daemon', 'clean', 'assembleRelease'");
       expect(buildSource).toContain('existsSync(androidDirectory)');
       expect(buildSource).not.toContain("'--clean'");
       expect(buildSource).toContain('packageJsonBeforePrebuild');
@@ -239,6 +257,9 @@ describe('C1 Mobile composition boundary', () => {
       expect(installSource).toContain("['reverse', '--list']");
       expect(installSource).toContain('activeMappings.length !== requiredMappings.length');
       expect(installSource).toContain("['reverse', '--remove', device]");
+      expect(installSource).toContain('verifySyntheticE2eAndroidRuntime(apk)');
+      expect(installSource.indexOf('verifySyntheticE2eAndroidRuntime(apk)'))
+        .toBeLessThan(installSource.indexOf("run('adb'"));
       expect(installSource).toContain('android:synthetic-e2e:disconnect');
       expect(disconnectSource).toContain("['reverse', '--remove', device]");
       expect(disconnectSource).not.toContain("'--remove-all'");
