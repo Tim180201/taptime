@@ -8,9 +8,11 @@ FRESH GATE AUTHORIZED ON PRODUCT `7dbda3b`, REVIEWED ADO `798bada`, REVIEW SYNCH
 THREE NATIVE NFC CAPTURES WERE INVALIDATED BEFORE LOCAL APPEND; FAILURE SYNCHRONIZATION
 `3dd7983`/`e78b526` AND RUN `29716007657` INDEPENDENTLY APPROVED; FOCUSED CORRECTION
 `48a21a7`, TREE `7c053be`, TECHNICAL-LEAD APPROVED, PUBLISHED AND EXACT-HEAD RUN
-`29743923158` 10/10 GREEN; INDEPENDENT EXACT-DELTA CORRECTION REVIEW PENDING; NO
-CORRECTED PHYSICAL RESULT; DA1-PHYS-04 (P1) OPEN; NO FIFTH GATE; PRODUCTION, PRODUCTION DATA,
-DEPLOYMENT AND DISTRIBUTION NOT AUTHORIZED**
+`29743923158` 10/10 GREEN; ADO PUBLICATION `2f6035b`, TREE `d5513a6`, AND RUN `29744637928`
+10/10 GREEN; INDEPENDENT EXACT-DELTA CORRECTION REVIEW APPROVED WITH ZERO OPEN P0/P1/P2/P3;
+DA1-PHYS-04 REPOSITORY FINDING CLOSED; NO CORRECTED PHYSICAL RESULT; FIFTH GATE MAY BE
+SEPARATELY HUMAN-AUTHORIZED BUT IS NOT YET AUTHORIZED; PRODUCTION, PRODUCTION DATA, DEPLOYMENT
+AND DISTRIBUTION NOT AUTHORIZED**
 Owner: Human Architect + Technical Lead
 
 ## 1. Authorization and exact binding
@@ -848,7 +850,7 @@ moderate transitive `uuid@7.0.3` toolchain occurrences.
 
 No fourth-run observation is converted into a pass and none may be reused.
 
-## 32. Current exact next step
+## 32. Independent exact-delta correction review
 
 The correction is published as commit
 `48a21a7ed75c3ab3b15fec93669b5ca2d87d5a30`, tree
@@ -857,9 +859,35 @@ The correction is published as commit
 GitHub Actions run `29743923158`, attempt 1, push to `main`, is bound to that exact head and passed
 ten of ten jobs. This is repository/CI evidence only and not a corrected physical observation.
 
-Request an independent exact-delta correction review of that exact published binding.
+ADO publication head `2f6035b1da9e7946cfca8d10c3d406a8c0b852ec`, tree
+`d5513a6ec2fe99c4f2b6fae9b3452004453b965b`, exact parent `48a21a7`, changed only seven ADO
+files in a `+107/-68` delta and passed exact-head run `29744637928`, attempt 1, ten of ten.
 
-`DA1-PHYS-04` remains P1/open until that correction review returns `APPROVED` with zero open
-P0–P3. Only after approved correction review and truthful synchronization may the Human Architect
-separately authorize a fifth complete fresh Gate A–E run from step 1. No previous observation may
-be reused. Production resources/data, deployment and distribution remain unauthorized.
+Independent read-only exact-delta review verified the complete chain, both deltas and both
+exact-head CI runs. It confirmed the private credential-free continuity snapshot, preservation
+only for the exact retained provider-suspended context, complete active-context revalidation and
+all required fail-closed invalidations. It also confirmed the numeric-loopback one-shot Gate-C
+proxy, USB-only scoped reverse controller, recovery behavior and disclosure-safe runbook.
+
+The reviewer independently reproduced Mobile 415/415, the four-test lifecycle regression plus five
+separate repetitions, Gate-C helper 27/27 and tests-inclusive Mobile/Synthetic typechecks. The
+PostgreSQL Harness, migration, Android-export, release-build and exact APK evidence were
+transparently not independently reproduced.
+
+Verdict: `APPROVED`, zero open P0/P1/P2/P3. `DA1-PHYS-04` is closed as a repository finding.
+The fourth failed physical run remains historical and supplies no corrected physical result.
+
+Full review:
+`ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_04_Independent_Exact_Delta_Review.md`.
+
+## 33. Current exact next step
+
+Publish this truthful review synchronization and obtain green exact-head CI. The Human Architect
+may then separately authorize a fifth complete fresh Gate A–E run bound to the independently
+approved correction, the review-synchronization commit/tree and CI, the exact 95,425,607-byte APK
+SHA-256 `b34572b9813c4fb8013b09a4a530e5bc88ed4730ceacda46f6fe682bca88c6c0`, unchanged
+Web/Harness artifacts and the reviewed Gate-C runbook/helper.
+
+The fifth run is not authorized by this document. If separately authorized, it starts again at
+Gate A step 1 and reuses no observation from any failed run. Production resources/data, deployment
+and distribution remain unauthorized.

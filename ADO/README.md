@@ -95,8 +95,12 @@ repository correction on that exact baseline. Technical-Lead-approved correction
 `3dd798376180051c0dbd8d9e4ee058acff89b43f`, publishes the private
 restoration-continuity snapshot, exact active-context revalidation and durable disclosure-safe
 Gate-C helper/runbook in an exact 24-file `+3027/-37` delta. Exact-head GitHub Actions run
-`29743923158`, attempt 1, push to `main`, passed ten of ten jobs. Independent exact-delta
-correction review and any fifth complete fresh gate remain pending; `DA1-PHYS-04` remains P1/open.
+`29743923158`, attempt 1, push to `main`, passed ten of ten jobs. ADO publication head
+`2f6035b1da9e7946cfca8d10c3d406a8c0b852ec`, tree
+`d5513a6ec2fe99c4f2b6fae9b3452004453b965b`, passed exact-head run `29744637928` ten of ten.
+Independent exact-delta correction review returned `APPROVED` with zero open P0–P3 and closed
+`DA1-PHYS-04` as a repository finding. No corrected physical result exists. A fifth complete
+fresh gate may now be separately authorized by the Human Architect but is not authorized here.
 Implementation, review and physical evidence:
 `ADO/05_Evidence/Development_Assignment_01_Implementation_Evidence.md` and
 `ADO/05_Evidence/Development_Assignment_01_Independent_Implementation_Review.md` and
@@ -104,7 +108,9 @@ Implementation, review and physical evidence:
 `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_01_Independent_Exact_Delta_Review.md` and
 `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_02_Independent_Exact_Delta_Review.md` and
 `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_03_Independent_Exact_Delta_Review.md` and
-`ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_04_Failure_Synchronization_Independent_Exact_Delta_Review.md`.
+`ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_04_Failure_Synchronization_Independent_Exact_Delta_Review.md`
+and
+`ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_04_Independent_Exact_Delta_Review.md`.
 Production, production data, deployment and distribution remain unauthorized.
 
 This file is the official navigation entry point for the TapTim.e ADO.
@@ -203,7 +209,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Feature Blueprint Standard | `ADO/01_Architecture/Feature_Blueprint_Standard.md` |
 | Technical Architecture Profile (TTAP-001) | `ADO/01_Architecture/Technical_Architecture_Profile.md` |
 | Development Task Profile | `ADO/01_Architecture/Development_Task_Profile.md` |
-| Architecture Decision Records (through Human-accepted ADR-0012; DA1-IMPL-01 and DA1-PHYS-01/02/03 repository findings independently closed; fourth DA1 Physical Gate failed Gate A step 5; DA1-PHYS-04 failure synchronization independently approved; focused correction `48a21a7` published with exact-head CI green, independent correction review pending and P1 still open) | `ADO/01_Architecture/ADR/` |
+| Architecture Decision Records (through Human-accepted ADR-0012; DA1-IMPL-01 and DA1-PHYS-01/02/03/04 repository findings independently closed; fourth DA1 Physical Gate remains a failed historical run; focused DA1-PHYS-04 correction `48a21a7` and ADO publication `2f6035b` have green exact-head CI; a fifth fresh gate requires separate Human authorization) | `ADO/01_Architecture/ADR/` |
 | Feature Blueprints (incl. FB-001, FB-002) | `ADO/01_Architecture/Feature_Blueprints/` |
 | Technical Specifications (incl. TS-001, TS-002) | `ADO/01_Architecture/Technical_Specifications/` |
 | Developer Implementation Manual (EP-008) | `ADO/01_Architecture/Developer_Implementation_Manual/` |
@@ -272,11 +278,12 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Development Assignment 1 Independent Pre-Implementation Review | `ADO/05_Evidence/Development_Assignment_01_Independent_Pre_Implementation_Review.md` |
 | Development Assignment 1 Implementation Evidence | `ADO/05_Evidence/Development_Assignment_01_Implementation_Evidence.md` |
 | Development Assignment 1 Independent Implementation Review and Correction Disposition | `ADO/05_Evidence/Development_Assignment_01_Independent_Implementation_Review.md` |
-| Development Assignment 1 Human Physical Validation Evidence — fourth fresh run passed Gate A steps 1–4 and failed step 5 after three native NFC deliveries left the queue at zero; published correction `48a21a7` has green exact-head CI but no independent correction review or corrected physical result; DA1-PHYS-04 P1 remains open and no fifth gate is authorized | `ADO/05_Evidence/Development_Assignment_01_Physical_Validation_Evidence.md` |
+| Development Assignment 1 Human Physical Validation Evidence — fourth fresh run passed Gate A steps 1–4 and failed step 5 after three native NFC deliveries left the queue at zero; published correction `48a21a7` is independently approved and closes DA1-PHYS-04 as a repository finding, but supplies no corrected physical result; no fifth gate is authorized | `ADO/05_Evidence/Development_Assignment_01_Physical_Validation_Evidence.md` |
 | Development Assignment 1 DA1-PHYS-01 Independent Exact-Delta Review — approved, finding closed | `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_01_Independent_Exact_Delta_Review.md` |
 | Development Assignment 1 DA1-PHYS-02 Independent Exact-Delta Review — approved, repository finding closed | `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_02_Independent_Exact_Delta_Review.md` |
 | Development Assignment 1 DA1-PHYS-03 Independent Exact-Delta Review — approved, repository finding closed | `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_03_Independent_Exact_Delta_Review.md` |
 | Development Assignment 1 DA1-PHYS-04 Failure-Synchronization Independent Exact-Delta Review — approved for failure truth/diagnosis/correction boundary; P1 remains open | `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_04_Failure_Synchronization_Independent_Exact_Delta_Review.md` |
+| Development Assignment 1 DA1-PHYS-04 Independent Exact-Delta Review — approved, repository finding closed; separate fifth Human gate authorization pending | `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_04_Independent_Exact_Delta_Review.md` |
 | Product Readiness Reassessment — C3D Closure Delta | `ADO/05_Evidence/Product_Readiness_Reassessment_2026-07-15_C3D_Closure_Delta.md` |
 | EP-008 Evidence (incl. Repository Health Follow-up) | `ADO/05_Evidence/EP-008/` |
 | Evidence Area | `ADO/05_Evidence/` |

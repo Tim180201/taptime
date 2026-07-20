@@ -25,8 +25,11 @@ GATE A STEPS 1–4 PASSED BUT STEP 5 FAILED AFTER THREE NATIVE NFC DELIVERIES LE
 QUEUE AT ZERO; FAILURE SYNCHRONIZATION `3dd7983`, TREE `e78b526`, AND RUN `29716007657`
 INDEPENDENTLY APPROVED; FOCUSED DA1-PHYS-04 CORRECTION `48a21a7`, TREE `7c053be`,
 TECHNICAL-LEAD APPROVED, PUBLISHED AND EXACT-HEAD RUN `29743923158` 10/10 GREEN;
-INDEPENDENT EXACT-DELTA CORRECTION REVIEW PENDING; DA1-PHYS-04 (P1) OPEN; NO FIFTH
-GATE; PRODUCTION, PRODUCTION DATA, DEPLOYMENT AND DISTRIBUTION NOT AUTHORIZED**
+ADO PUBLICATION `2f6035b`, TREE `d5513a6`, AND RUN `29744637928` 10/10 GREEN; INDEPENDENT
+EXACT-DELTA CORRECTION REVIEW APPROVED WITH ZERO OPEN P0/P1/P2/P3; DA1-PHYS-04 REPOSITORY
+FINDING CLOSED; NO CORRECTED PHYSICAL RESULT; FIFTH GATE MAY BE SEPARATELY HUMAN-AUTHORIZED
+BUT IS NOT YET AUTHORIZED; PRODUCTION, PRODUCTION DATA, DEPLOYMENT AND DISTRIBUTION NOT
+AUTHORIZED**
 Date: 2026-07-20
 Candidate Baseline Commit: `1bb2d7d7b38928643cfd5c86b36c500c35f73276`
 Candidate Baseline Tree: `c5c20f67155cdc0b4197908b4d1283cb7e619597`
@@ -432,19 +435,12 @@ micro-sprint handoffs while preserving every quality/security gate.
 
 ## 13. Current release gate
 
-**REPOSITORY IMPLEMENTATION AND DA1-PHYS-01 CORRECTION INDEPENDENTLY APPROVED — SECOND
-AUTHORIZED COMPLETE FRESH HUMAN PHYSICAL GATE FAILED AT GATE A STEP 4 WITH DA1-PHYS-02 (P1);
-FOCUSED CORRECTION `e17fcb3` PLUS CROSS-IDENTITY HARDENING `869e10f`, FINAL TREE `325fdd5`,
-AND EXACT-HEAD RUNS `29696949408` AND `29697397146` EACH 10/10 GREEN;
-INDEPENDENT EXACT-DELTA REVIEW OF HEAD `8d1a0d8`, TREE `3464697`, APPROVED WITH ZERO OPEN
-P0/P1/P2/P3; DA1-PHYS-02 REPOSITORY FINDING CLOSED; THIRD COMPLETE FRESH PHYSICAL GATE PASSED
-A–C BUT FAILED GATE D MANDATORY MOBILE REVIEW-STATE TRUTH WITH DA1-PHYS-03 (P1); GATE E NOT
-STARTED; FOCUSED CORRECTION `7dbda3b`, TREE `e6abc9e`, PUBLISHED AND EXACT-HEAD RUN
-`29700339367` 10/10 GREEN; INDEPENDENT EXACT-DELTA REVIEW OF HEAD `798bada`, TREE `d181370`,
-APPROVED WITH ZERO OPEN P0/P1/P2/P3; DA1-PHYS-03 REPOSITORY FINDING CLOSED; FOURTH COMPLETE
-FRESH GATE AUTHORIZED AND EXECUTED; GATE A STEPS 1–4 PASSED BUT STEP 5 FAILED AFTER THREE
-NATIVE NFC DELIVERIES LEFT THE LOCAL QUEUE AT ZERO; DA1-PHYS-04 (P1) OPEN; GATES B–E NOT
-STARTED; PRODUCTION GATES CLOSED.**
+**REPOSITORY IMPLEMENTATION AND DA1-PHYS-01/02/03/04 CORRECTIONS INDEPENDENTLY APPROVED
+WITH ZERO OPEN P0/P1/P2/P3; ALL FOUR REPOSITORY FINDINGS CLOSED. THE FOURTH COMPLETE FRESH
+PHYSICAL GATE REMAINS A FAILED HISTORICAL RUN AND SUPPLIES NO CORRECTED PHYSICAL RESULT.
+AFTER THIS REVIEW SYNCHRONIZATION HAS GREEN EXACT-HEAD CI, A FIFTH COMPLETE FRESH GATE MAY BE
+SEPARATELY HUMAN-AUTHORIZED BUT IS NOT AUTHORIZED HERE. PRODUCTION, PRODUCTION DATA, DEPLOYMENT
+AND DISTRIBUTION REMAIN UNAUTHORIZED.**
 
 Candidate publication, exact-head CI, independent zero-finding pre-implementation review, explicit
 Human acceptance of ADR-0012/Sections 3–13 and the separate exact-baseline repository
@@ -621,11 +617,23 @@ The correction is published as commit
 `3dd798376180051c0dbd8d9e4ee058acff89b43f`, with an exact 24-file `+3027/-37` delta.
 GitHub Actions run `29743923158`, attempt 1, push to `main`, is bound to that exact head and
 passed ten of ten jobs. Technical-Lead approval, correction publication and exact-head CI are
-therefore complete. Independent exact-delta correction review remains pending; no corrected
-physical observation or fifth-gate authorization is claimed. `DA1-PHYS-04` remains P1/open.
+therefore complete. ADO publication head
+`2f6035b1da9e7946cfca8d10c3d406a8c0b852ec`, tree
+`d5513a6ec2fe99c4f2b6fae9b3452004453b965b`, passed exact-head run `29744637928`, attempt 1,
+ten of ten.
+
+Independent exact-delta correction review verified both published deltas and CI bindings,
+confirmed the continuity snapshot, full active-context revalidation and fail-closed invalidation,
+and returned `APPROVED` with zero open P0/P1/P2/P3. `DA1-PHYS-04` is closed as a repository
+finding. The fourth failed run remains historical and there is no corrected physical observation.
+A fifth complete fresh Gate A–E run may be separately authorized by the Human Architect only after
+this truthful review synchronization has green exact-head CI; it is not authorized here.
 
 Failure-synchronization review:
 `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_04_Failure_Synchronization_Independent_Exact_Delta_Review.md`.
+
+Correction review:
+`ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_04_Independent_Exact_Delta_Review.md`.
 
 ## 14. Independent review mandate
 
