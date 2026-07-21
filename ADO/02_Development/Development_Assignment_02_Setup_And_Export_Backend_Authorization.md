@@ -1,6 +1,6 @@
 # Development Assignment 2 — Setup and Export Backend Implementation Authorization
 
-- Status: **LOCAL IMPLEMENTATION CANDIDATE TECHNICAL-LEAD APPROVED — AVS V0–V3 GREEN; PUBLICATION/V4 EXACT-HEAD CI AND INDEPENDENT EXACT-SHA REVIEW PENDING; PRODUCTION/DEPLOYMENT/DISTRIBUTION UNAUTHORIZED**
+- Status: **IMPLEMENTATION PUBLISHED — TECHNICAL-LEAD/AVS V0–V4 APPROVED; EXACT-HEAD CI 11/11 GREEN; INDEPENDENT EXACT-SHA REVIEW PENDING; PRODUCTION/DEPLOYMENT/DISTRIBUTION UNAUTHORIZED**
 - Date: 2026-07-21
 - Candidate Baseline Commit: `e5978702eca7adb3de3fd85db37921b4a441ca59`
 - Candidate Baseline Tree: `98ae795bbf4e1d3eb44e12db62024272e861a279`
@@ -309,9 +309,9 @@ Current state: **the independently approved candidate was published at
 `30c4f5d1d8e6fedeb4b6c1f168d6e1f70a4fef76`, tree
 `242331b6a34cd19a16fd8a9bea993b2349cbb6dc`, and exact-head run `29843878706` passed 10/10. The
 Human Architect accepted ADR-0013/DA2-P01–DA2-P12 and explicitly authorized immediate repository
-implementation of Workstreams A–D on that exact baseline. The local implementation candidate has
-completed Workstreams A–D and AVS V0–V3 with Technical-Lead approval. Focused publication, V4
-exact-head CI and independent exact-SHA review remain pending; DA2/DT closure is not yet claimed**.
+implementation of Workstreams A–D on that exact baseline. Implementation commit `f385814`, tree
+`48b5ba8`, completed Workstreams A–D and passed Technical-Lead/AVS V0–V4 plus exact-head run
+`29847593708` 11/11. Independent exact-SHA review remains pending; DA2/DT closure is not yet claimed**.
 
 Allowed now:
 
@@ -387,10 +387,10 @@ DA2-REV-01 and returned `APPROVED FOR CANDIDATE PUBLICATION` with zero open P0�
 ## 15. Role handover
 
 - Current Role: Technical Lead
-- Status: Workstreams A–D locally implemented; Technical-Lead/AVS V0–V3 approved; V4 and independent exact-SHA review pending
+- Status: Workstreams A–D published; Technical-Lead/AVS V0–V4 and exact-head CI 11/11 approved; independent exact-SHA review pending
 - Completed Work: accepted contract, implementation authorization, neutral contract, migration `011`, isolated role/pool/coordinator/API, synthetic Setup-to-Export integration, isolated eleventh CI job and complete local R3 regression
 - Created Artifacts: ADR-0013, this authorization, pre-implementation review and DA2 implementation evidence
 - Known Risks: production personal-data/legal/retention/operational gates remain; existing 11 moderate Expo-toolchain findings remain unchanged
 - Open Questions: no implementation-contract question; independent review may still raise findings
-- Next Responsible Role: Technical Lead for focused publication/V4, then an independent Review Agent
-- Reason for Handover: the local candidate is complete, but no DA2/DT closure is allowed before exact-head CI and independent review
+- Next Responsible Role: independent Review Agent for exact implementation commit/tree `f385814`/`48b5ba8`
+- Reason for Handover: implementation and V4 are complete, but no DA2/DT closure is allowed before independent review

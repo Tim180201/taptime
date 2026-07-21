@@ -9,6 +9,9 @@
 - Published Candidate Commit: `30c4f5d1d8e6fedeb4b6c1f168d6e1f70a4fef76`
 - Published Candidate Tree: `242331b6a34cd19a16fd8a9bea993b2349cbb6dc`
 - Published Candidate CI: GitHub Actions `29843878706`, attempt 1, 10/10 successful
+- Published Implementation Commit: `f38581441b283d08c9beb38fadc6c202a79fd135`
+- Published Implementation Tree: `48b5ba8e74282141fb3aede3e53d211659351285`
+- Published Implementation CI: GitHub Actions `29847593708`, attempt 1, 11/11 successful
 - Human Decision: ADR-0013 and DA2-P01–DA2-P12 explicitly accepted on the published candidate commit/tree; Development Assignment 2 repository implementation explicitly authorized on that exact baseline
 - Initial Independent Review Verdict: `CHANGES REQUIRED` — DA2-REV-01 (P2), no P0/P1/P3
 - Final Independent Re-review Verdict: `APPROVED FOR CANDIDATE PUBLICATION` — DA2-REV-01 closed; zero open P0/P1/P2/P3

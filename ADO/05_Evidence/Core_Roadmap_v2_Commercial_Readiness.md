@@ -537,13 +537,14 @@ The Human Architect subsequently accepted ADR-0013 and DA2-P01–DA2-P12 on publ
 `30c4f5d`, tree `242331b`, and separately authorized repository implementation on that exact
 baseline.
 
-## 19. Progress Update – 2026-07-21 Development Assignment 2 Local Implementation Candidate
+## 19. Progress Update – 2026-07-21 Development Assignment 2 Published Implementation
 
-The Technical Lead locally completed Workstreams A–D: reuse-only setup integration, migration
+The Technical Lead completed and published Workstreams A–D at `f385814`, tree `48b5ba8`; exact-head
+run `29847593708` passed 11/11. The scope is reuse-only setup integration, migration
 `011`, neutral deterministic CSV contract, isolated current-Administrator role/pool/coordinator/API,
 fully disposable Setup-to-Export journey and an isolated eleventh CI job. AVS V0–V3 passes 1,681
 tests and all applicable typechecks/builds, migration/security checks and Android export.
 
-DT-063–DT-068 remain open Roadmap labels pending focused publication, V4 exact-head CI and
+DT-063–DT-068 remain open Roadmap labels pending
 independent exact-SHA implementation review. Production resources/data, deployment, distribution,
 correction, UI productization and legal/privacy approval remain separately gated.

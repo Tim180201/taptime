@@ -387,16 +387,17 @@ That candidate changed no readiness-domain rating and closed no DT label. The Hu
 subsequently accepted ADR-0013/DA2-P01–DA2-P12 on published commit `30c4f5d`, tree `242331b`, and
 separately authorized repository implementation on that exact baseline.
 
-## Addendum (2026-07-21 — Development Assignment 2 Local Implementation Candidate)
+## Addendum (2026-07-21 — Development Assignment 2 Published Implementation)
 
-The Technical Lead has locally completed DA2 Workstreams A–D. The candidate composes the existing
+The Technical Lead completed and published DA2 Workstreams A–D at implementation `f385814`, tree
+`48b5ba8`; exact-head run `29847593708` passed 11/11. The implementation composes the existing
 C3 setup/lifecycle boundaries, adds migration `011`, a neutral deterministic CSV contract, an
 isolated current-Administrator export role/pool/coordinator/API, a fully disposable Setup-to-Export
 journey and an isolated eleventh CI job. AVS V0–V3 passes 1,681 tests plus all applicable
 typechecks/builds, migration/security checks and Android export.
 
-This is a local engineering candidate, not roadmap closure. DT-063–DT-066 and DT-067/DT-068 remain
-open until focused publication, V4 exact-head CI and independent exact-SHA review. Production
+This is an engineering implementation, not roadmap closure. DT-063–DT-066 and DT-067/DT-068 remain
+open until independent exact-SHA review. Production
 resources/data, legal/privacy approval, deployment, distribution and UI productization remain
 separately gated.
 

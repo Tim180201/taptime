@@ -1,11 +1,13 @@
 # Development Assignment 2 — Local Implementation Evidence
 
-- Status: **LOCAL IMPLEMENTATION CANDIDATE TECHNICAL-LEAD APPROVED — AVS V0–V3 GREEN; V4 EXACT-HEAD CI AND INDEPENDENT EXACT-SHA REVIEW PENDING**
+- Status: **IMPLEMENTATION PUBLISHED — TECHNICAL-LEAD/AVS V0–V4 APPROVED; EXACT-HEAD CI 11/11 GREEN; INDEPENDENT EXACT-SHA REVIEW PENDING**
 - Date: 2026-07-21
 - Authorized Baseline Commit: `30c4f5d1d8e6fedeb4b6c1f168d6e1f70a4fef76`
 - Authorized Baseline Tree: `242331b6a34cd19a16fd8a9bea993b2349cbb6dc`
 - Authorized Baseline CI: GitHub Actions `29843878706`, attempt 1, 10/10 successful
-- Local Candidate Commit/Tree: pending focused publication
+- Implementation Commit: `f38581441b283d08c9beb38fadc6c202a79fd135`
+- Implementation Tree: `48b5ba8e74282141fb3aede3e53d211659351285`
+- Implementation CI: GitHub Actions `29847593708`, attempt 1, 11/11 successful
 - Owner: Technical Lead
 - Risk Class: AVS-001 R3
 - Production/Production Data/Deployment/Distribution/Physical Gate/UI Productization: **UNAUTHORIZED**
@@ -102,19 +104,18 @@ audit remediation would make an unrelated breaking Expo downgrade and is outside
 
 ## 5. Scope and closure truth
 
-- Workstreams A–D are locally implemented and Technical-Lead approved.
+- Workstreams A–D are published and Technical-Lead/AVS V0–V4 approved.
 - DT-063–DT-066 remain open until independent review confirms that the composed local setup scope
   may close without implying new UI/physical/production capability.
-- DT-067/DT-068 remain open until the export-backend implementation passes V4 and independent
-  exact-SHA review.
+- DT-067/DT-068 remain open until the export-backend implementation passes independent exact-SHA
+  review; V4 is complete.
 - DA2 is not closed by this local evidence.
 - No production resource/data, deployment, distribution, Physical Gate, legal-retention approval,
   Admin Web download UI, correction/payroll behavior or server-side export artifact is claimed.
 
 ## 6. Remaining mandatory gates
 
-1. publish one focused Technical-Lead-approved implementation commit;
-2. bind its exact SHA/tree and pass all eleven GitHub Actions jobs (AVS V4);
-3. obtain an independent exact-SHA implementation review with every P0–P3 finding dispositioned;
-4. correct and re-review if required; and
-5. only then prepare exact-scope DA2/DT closure evidence.
+1. obtain an independent review of exact implementation commit/tree `f385814`/`48b5ba8` with every
+   P0–P3 finding dispositioned;
+2. correct and re-review if required; and
+3. only then prepare exact-scope DA2/DT closure evidence.
