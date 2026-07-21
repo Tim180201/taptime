@@ -1,6 +1,6 @@
 # Development Assignment 1 — Human Physical Validation Evidence
 
-Date: 2026-07-20
+Date: 2026-07-21
 Status: **DA1-PHYS-01/02/03/04 REPOSITORY FINDINGS CLOSED BY INDEPENDENT REVIEW; FOUR PRIOR
 COMPLETE HUMAN GATES REMAIN FAILED HISTORICAL RUNS; DA1-ARTIFACT-01 REBINDING REVIEW APPROVED
 WITH ZERO OPEN P0/P1/P2/P3; NEW FIFTH COMPLETE FRESH GATE HUMAN-AUTHORIZED ON PRODUCT
@@ -12,9 +12,11 @@ FAILURE REMAINED CLOSED WITH ZERO AUTHENTICATION, ADMINISTRATION OR LIFECYCLE MU
 DA1-ARTIFACT-02 (P1 OPERATIONAL) OPEN; GATES B–E NOT STARTED; COMPLETE ABORT CLEANUP PASSED;
 FOCUSED CORRECTION `0fdddbc`, TREE `62b5efc`, TECHNICAL-LEAD APPROVED, PUBLISHED AND
 EXACT-HEAD RUN `29751390803` 10/10 GREEN; UNINSTALLED RUNTIME-COMPLETE 95,425,695-BYTE APK
-SHA-256 `aa081fca…5ffbf` PRESERVED; INDEPENDENT EXACT-DELTA/ARTIFACT REVIEW AND NEW HUMAN GATE
-AUTHORIZATION PENDING; DA1-ARTIFACT-02 REMAINS OPEN; NO CORRECTED PHYSICAL RESULT; PRODUCTION,
-PRODUCTION DATA, DEPLOYMENT AND DISTRIBUTION NOT AUTHORIZED**
+SHA-256 `aa081fca…5ffbf` PRESERVED; INDEPENDENT FINAL REVIEW OF ADO HEAD `1527855`, TREE
+`1bc2511`, APPROVED WITH ZERO OPEN P0/P1/P2/P3 AND
+CLOSED DA1-ARTIFACT-02; RUN `29752205717` ATTEMPT 2 10/10; SIXTH COMPLETE FRESH HUMAN GATE
+ELIGIBLE FOR SEPARATE HUMAN AUTHORIZATION BUT NOT AUTHORIZED; NO CORRECTED PHYSICAL RESULT;
+PRODUCTION, PRODUCTION DATA, DEPLOYMENT AND DISTRIBUTION NOT AUTHORIZED**
 Owner: Human Architect + Technical Lead
 
 ## 1. Authorization and exact binding
@@ -1149,8 +1151,29 @@ The failed 95,425,607-byte APK SHA-256 `4239f6c6…6b7c` remains separately immu
 The corrected APK has not been host/device rebound, installed or launched. There is no new
 Administrator, Employee, setup, NFC, offline, synchronization or lifecycle observation.
 
-`DA1-ARTIFACT-02` remains open pending independent exact-delta/artifact review. Even an approved
-review will not itself start a Physical Gate: exact artifact rebinding and a new complete fresh
-Gate A–E run require another explicit Human authorization, begin at Gate A step 1 and may reuse no
-observation from any earlier run. Production resources/data, deployment and distribution remain
-unauthorized.
+At correction publication, `DA1-ARTIFACT-02` remained open pending independent
+exact-delta/artifact review. Even an approved review would not itself start a Physical Gate: exact
+artifact rebinding and a new complete fresh Gate A–E run required another explicit Human
+authorization, beginning at Gate A step 1 without reuse of any earlier observation.
+
+## 43. DA1-ARTIFACT-02 independent final review — sixth run eligible, not authorized
+
+Independent final review bound correction `0fdddbc`, tree `62b5efc`, ADO publication
+`1527855b3db4bf387e4efc9e09691a15d588408b`, tree
+`1bc2511a540944901e10566fca914f1fab70ee13`, and exact-head CI runs `29751390803` attempt 1
+plus `29752205717` attempt 2. It returned `APPROVED` with zero open P0/P1/P2/P3 and closed
+`DA1-ARTIFACT-02` as an artifact-pipeline finding. Mobile 419/419 was independently reproduced.
+
+The reviewer could not mount either local external APK and therefore did not independently
+reproduce their binary properties. The Technical Lead subsequently reverified both immutable
+local files without installation: the failed APK remains 95,425,607 bytes, mode `0444`, SHA-256
+`4239f6c609430d3926dbfc053c7ad0688a4022903eef8a3ffe1ebeece2356b7c` and is rejected for all
+three missing runtime values; the corrected APK remains 95,425,695 bytes, mode `0444`, SHA-256
+`aa081fca431174cf90698b4afaaa5c1f5f28ed976c54cda7a74df72a49d5ffbf` and passes the exact
+Hermes contract, APK-v2 signer, package/version and manifest backup bindings.
+
+No corrected physical result exists. The sixth complete fresh Gate A–E run is eligible only after
+green exact-head CI for this synchronization and a new explicit Human authorization binding the
+exact artifact. It remains unauthorized, must start at Gate A step 1 and may reuse no observation
+from the five failed historical runs. Production resources/data, deployment and distribution
+remain unauthorized.

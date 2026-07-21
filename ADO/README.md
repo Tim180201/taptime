@@ -117,8 +117,13 @@ single-use Gradle release and rejects build/install before ADB unless determinis
 inspection proves both loopback URLs and the publishable key. The exact-source result is preserved
 read-only at 95,425,695 bytes, SHA-256 `aa081fca…5ffbf`; runtime completeness, APK-v2 signature,
 package/version and backup/transfer boundaries pass. It remains uninstalled. Independent
-exact-delta/artifact review and a new separate Human authorization remain mandatory, so
-`DA1-ARTIFACT-02` is not yet closed and no later Physical Gate is authorized.
+exact-delta/artifact final review of head `1527855`, tree `1bc2511`, correction `0fdddbc` and the
+two exact-head CI bindings returned `APPROVED` with zero open P0/P1/P2/P3 and closed
+`DA1-ARTIFACT-02` as an artifact-pipeline finding. The reviewer transparently could not mount the
+two external APKs; the Technical Lead subsequently reverified both exact immutable files, the new
+APK's Hermes/runtime, v2 signature, signer, package/version and manifest bindings, and the old
+APK's three-value rejection. No corrected physical result exists. A sixth complete fresh Human
+Gate A–E run is eligible only for a new separate Human authorization and is not yet authorized.
 Implementation, review and physical evidence:
 `ADO/05_Evidence/Development_Assignment_01_Implementation_Evidence.md` and
 `ADO/05_Evidence/Development_Assignment_01_Independent_Implementation_Review.md` and
@@ -128,7 +133,8 @@ Implementation, review and physical evidence:
 `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_03_Independent_Exact_Delta_Review.md` and
 `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_04_Failure_Synchronization_Independent_Exact_Delta_Review.md`
 and
-`ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_04_Independent_Exact_Delta_Review.md`.
+`ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_04_Independent_Exact_Delta_Review.md` and
+`ADO/05_Evidence/Development_Assignment_01_DA1_ARTIFACT_02_Independent_Exact_Delta_Artifact_Review.md`.
 Production, production data, deployment and distribution remain unauthorized.
 
 This file is the official navigation entry point for the TapTim.e ADO.
@@ -230,7 +236,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Technical Architecture Profile (TTAP-001) | `ADO/01_Architecture/Technical_Architecture_Profile.md` |
 | Development Task Profile | `ADO/01_Architecture/Development_Task_Profile.md` |
 | Official Technical Lead Start Prompt (TLP-001) | `ADO/01_Architecture/Technical_Lead_Start_Prompt.md` |
-| Architecture Decision Records (through Human-accepted ADR-0012; DA1-IMPL-01 and DA1-PHYS-01/02/03/04 repository findings independently closed; four prior DA1 Human Gates remain failed historical runs; DA1-ARTIFACT-01 rebinding independently approved; fifth Gate A failed at step 1 on a runtime-incomplete exact APK; DA1-ARTIFACT-02 correction `0fdddbc` is Technical-Lead approved/CI-green with a preserved runtime-complete replacement but independent artifact review and a new Human gate authorization remain pending) | `ADO/01_Architecture/ADR/` |
+| Architecture Decision Records (through Human-accepted ADR-0012; DA1-IMPL-01, DA1-PHYS-01/02/03/04 and DA1-ARTIFACT-02 repository/artifact-pipeline findings independently closed; five prior DA1 Human Gates remain failed historical runs; runtime-complete correction `0fdddbc` and APK preserved; sixth complete fresh Gate A–E run eligible for separate Human authorization but not yet authorized) | `ADO/01_Architecture/ADR/` |
 | Feature Blueprints (incl. FB-001, FB-002) | `ADO/01_Architecture/Feature_Blueprints/` |
 | Technical Specifications (incl. TS-001, TS-002) | `ADO/01_Architecture/Technical_Specifications/` |
 | Developer Implementation Manual (EP-008) | `ADO/01_Architecture/Developer_Implementation_Manual/` |
@@ -305,12 +311,13 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Development Assignment 1 Independent Pre-Implementation Review | `ADO/05_Evidence/Development_Assignment_01_Independent_Pre_Implementation_Review.md` |
 | Development Assignment 1 Implementation Evidence | `ADO/05_Evidence/Development_Assignment_01_Implementation_Evidence.md` |
 | Development Assignment 1 Independent Implementation Review and Correction Disposition | `ADO/05_Evidence/Development_Assignment_01_Independent_Implementation_Review.md` |
-| Development Assignment 1 Human Physical Validation Evidence — four prior complete runs failed historically; DA1-ARTIFACT-01 rebinding approved; fifth complete run failed at Gate A step 1 because the exact APK omitted mandatory runtime values; DA1-ARTIFACT-02 correction `0fdddbc` and runtime-complete APK are Technical-Lead approved/CI-green but independent review and a new gate authorization remain pending | `ADO/05_Evidence/Development_Assignment_01_Physical_Validation_Evidence.md` |
+| Development Assignment 1 Human Physical Validation Evidence — five prior complete runs failed historically; DA1-ARTIFACT-02 correction `0fdddbc` and runtime-complete APK independently approved; sixth complete fresh Gate A–E run eligible for separate Human authorization but not yet authorized | `ADO/05_Evidence/Development_Assignment_01_Physical_Validation_Evidence.md` |
 | Development Assignment 1 DA1-PHYS-01 Independent Exact-Delta Review — approved, finding closed | `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_01_Independent_Exact_Delta_Review.md` |
 | Development Assignment 1 DA1-PHYS-02 Independent Exact-Delta Review — approved, repository finding closed | `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_02_Independent_Exact_Delta_Review.md` |
 | Development Assignment 1 DA1-PHYS-03 Independent Exact-Delta Review — approved, repository finding closed | `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_03_Independent_Exact_Delta_Review.md` |
 | Development Assignment 1 DA1-PHYS-04 Failure-Synchronization Independent Exact-Delta Review — approved for failure truth/diagnosis/correction boundary; P1 remains open | `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_04_Failure_Synchronization_Independent_Exact_Delta_Review.md` |
 | Development Assignment 1 DA1-PHYS-04 Independent Exact-Delta Review — approved, repository finding closed; later artifact retention and runtime-completeness failures do not reopen the product finding | `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_04_Independent_Exact_Delta_Review.md` |
+| Development Assignment 1 DA1-ARTIFACT-02 Independent Exact-Delta and Artifact Final Review — approved, zero open P0–P3, artifact-pipeline finding closed; sixth complete fresh gate separately authorizable but not authorized | `ADO/05_Evidence/Development_Assignment_01_DA1_ARTIFACT_02_Independent_Exact_Delta_Artifact_Review.md` |
 | Product Readiness Reassessment — C3D Closure Delta | `ADO/05_Evidence/Product_Readiness_Reassessment_2026-07-15_C3D_Closure_Delta.md` |
 | EP-008 Evidence (incl. Repository Health Follow-up) | `ADO/05_Evidence/EP-008/` |
 | Evidence Area | `ADO/05_Evidence/` |

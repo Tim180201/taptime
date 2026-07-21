@@ -35,9 +35,11 @@ REQUIRED SYNTHETIC RUNTIME VALUES; DA1-ARTIFACT-02 (P1 OPERATIONAL) OPEN; GATES 
 STARTED; COMPLETE ABORT CLEANUP PASSED; FOCUSED CORRECTION `0fdddbc`, TREE `62b5efc`,
 TECHNICAL-LEAD APPROVED, PUBLISHED AND EXACT-HEAD RUN `29751390803` 10/10 GREEN; UNINSTALLED
 RUNTIME-COMPLETE 95,425,695-BYTE APK SHA-256 `aa081fca…5ffbf` PRESERVED; INDEPENDENT
-EXACT-DELTA/ARTIFACT REVIEW AND NEW HUMAN GATE AUTHORIZATION PENDING; DA1-ARTIFACT-02 REMAINS
-OPEN; PRODUCTION, PRODUCTION DATA, DEPLOYMENT AND DISTRIBUTION NOT AUTHORIZED**
-Date: 2026-07-20
+FINAL REVIEW OF ADO HEAD `1527855`, TREE `1bc2511`, APPROVED WITH ZERO OPEN P0/P1/P2/P3 AND
+CLOSED DA1-ARTIFACT-02; RUN `29752205717` ATTEMPT 2 10/10; SIXTH COMPLETE FRESH HUMAN GATE
+ELIGIBLE FOR SEPARATE HUMAN AUTHORIZATION BUT NOT AUTHORIZED; PRODUCTION, PRODUCTION DATA,
+DEPLOYMENT AND DISTRIBUTION NOT AUTHORIZED**
+Date: 2026-07-21
 Human-Accepted Contract Commit: `592334160655cde2f4189712eaf327c8a7edcb0e`
 Implementation Baseline Commit: `180093091c47a926b5871a27ea8b00fb21b9b4ac`
 Implementation Baseline Tree: `73e77b6ca5dfd7671cdd3d77a344168fddff3627`
@@ -838,11 +840,58 @@ The adjacent read-only manifest has SHA-256
 The APK was not installed. The synthetic package remained absent and the ADB reverse table remained
 empty. No Human Physical Gate began and no earlier observation became reusable.
 
-### 14.4 Current disposition
+### 14.4 Current disposition at correction publication
 
-The focused correction is Technical-Lead `APPROVED`, published and exact-head CI-green.
-`DA1-ARTIFACT-02` nevertheless remains open until independent exact-delta/artifact review. That
-review must assess the nine-file correction, exact source/CI binding, old-artifact rejection and
-new artifact properties. Only after independent approval may the Human Architect separately decide
-artifact rebinding and authorize a new complete fresh Gate A–E run. Production resources/data,
-deployment and distribution remain unauthorized.
+The focused correction was Technical-Lead `APPROVED`, published and exact-head CI-green. At that
+point `DA1-ARTIFACT-02` remained open until independent exact-delta/artifact review. Only after
+independent approval could the Human Architect separately decide artifact rebinding and authorize a
+new complete fresh Gate A–E run. Production resources/data, deployment and distribution remained
+unauthorized.
+
+## 15. DA1-ARTIFACT-02 independent final review and Technical-Lead artifact re-verification
+
+### 15.1 Independent review result
+
+Independent read-only review bound:
+
+- correction `0fdddbce53369e3c73f345eee1c077226a40797f`, tree
+  `62b5efc4efd36da1fbd0e6f2058a448aabd1ab1a`, exact parent `d6cc071f…`;
+- ADO publication `1527855b3db4bf387e4efc9e09691a15d588408b`, tree
+  `1bc2511a540944901e10566fca914f1fab70ee13`, exact parent `0fdddbc…`;
+- exact nine-file correction delta `+240/-10` and exact seven-ADO-file publication delta
+  `+294/-20`; and
+- exact-head runs `29751390803`, attempt 1, and `29752205717`, attempt 2, each 10/10 successful.
+
+The reviewer confirmed the frozen synthetic contract, clean single-use Gradle path, deterministic
+single-Hermes-bundle verification, build/pre-install enforcement before ADB and truthful
+non-installation boundary. Mobile 419/419 was independently reproduced. Verdict: `APPROVED`, zero
+open P0/P1/P2/P3; `DA1-ARTIFACT-02` is closed as an artifact-pipeline finding.
+
+The reviewer transparently could not mount either external APK path and therefore did not
+independently reproduce their size, hash, signature, package, backup or bytecode properties. This
+limitation is preserved and is not upgraded into an independent binary claim.
+
+### 15.2 Subsequent Technical-Lead artifact re-verification
+
+Without installing or modifying either file, the Technical Lead reverified:
+
+| Property | Failed fifth-run APK | Corrected uninstalled APK |
+|---|---|---|
+| Exact bytes | 95,425,607 | 95,425,695 |
+| SHA-256 | `4239f6c609430d3926dbfc053c7ad0688a4022903eef8a3ffe1ebeece2356b7c` | `aa081fca431174cf90698b4afaaa5c1f5f28ed976c54cda7a74df72a49d5ffbf` |
+| File mode | `0444` | `0444` |
+| Runtime verifier | rejected; all three required values missing | passed; exact Auth URL, API URL and publishable key present |
+| Package/version | preserved evidence | `com.tim180201.mobile.synthetic`, code 1 / name `1.0.0` |
+| Signature | preserved evidence | APK Signature Scheme v2 valid; signer SHA-256 `fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c` |
+| Manifest boundary | preserved evidence | `android:allowBackup=false`; full-backup and data-extraction resources bound |
+
+The corrected artifact remained uninstalled. No ADB/device physical binding, login, scan, server
+mutation or reusable Human observation occurred.
+
+### 15.3 Current disposition
+
+`DA1-ARTIFACT-02` is closed. A sixth complete fresh Gate A–E run is eligible only after this
+truthful synchronization has green exact-head CI and the Human Architect separately binds and
+authorizes the exact artifact. The run must begin at Gate A step 1 and reuse no observation from
+the five failed historical runs. Production resources/data, deployment and distribution remain
+unauthorized.
