@@ -1,0 +1,23 @@
+{
+  "name": "@taptime/time-review-contract",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Decision-free contracts for append-only time-record correction and Human review adjudication.",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json --emitDeclarationOnly && esbuild src/index.ts --bundle --platform=neutral --target=es2022 --format=esm --sourcemap --outfile=dist/index.js",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.13",
+    "esbuild": "^0.28.1",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.9"
+  }
+}

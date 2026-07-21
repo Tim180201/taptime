@@ -236,12 +236,12 @@ productization, legal/privacy approval, deployment or distribution.
 
 **Outcome:** Correction is possible; an audit trail exists; export is usable by operators; the admin surface is minimal but functional.
 
-**Current candidate state (2026-07-21):** Development Assignment 3 has a local ADO-only proposed
-ADR-0014/authorization package on baseline `560cca2`, tree `4b5f273`. It proposes one minimal
-Administrator overview/correction/review/export workflow and append-only effective/audit truth while
-preserving automatic lifecycle evidence. Independent review approved the ADO-only candidate for
-publication with zero open P0–P3. Human acceptance and separate exact-baseline implementation
-authority remain pending. No DT-069–DT-074 item is closed by the candidate.
+**Current implementation state (2026-07-21):** ADR-0014/DA3-P01–P16 are Human-accepted and DA3
+Workstreams A–D plus AVS V0–V4 are authorized on exact baseline `ff68f7a`, tree `09ef169`. The
+focused local implementation candidate supplies the minimal Administrator
+overview/correction/review/export workflow and append-only effective/audit truth while preserving
+automatic lifecycle/offline evidence. AVS V0–V3 is green with 1,757 tests. Publication, V4,
+independent exact-SHA review and DT-069–DT-074 closure remain pending.
 
 ### Block G – App Distribution and Pilot Installability
 
@@ -573,3 +573,23 @@ local reuse-only setup integration, and DT-067/DT-068 only for the local tenant-
 Pilot-grade operational onboarding, Admin Web download UI, production resources/data,
 legal/privacy approval, deployment, distribution and Physical validation are not closed or
 authorized by this engineering boundary.
+
+## 21. Progress Update – 2026-07-21 Development Assignment 3 Local Implementation Candidate
+
+The Human Architect accepted ADR-0014 and DA3-P01–DA3-P16 and separately authorized Workstreams
+A–D plus AVS V0–V4 on exact published baseline
+`ff68f7a7d0ce69a65e88846ae1cca9abd5951f5d`, tree
+`09ef169a68bb53420e07b6f3fcbbdc74e0c01d57`.
+
+The Technical Lead completed the local focused candidate: neutral time-review contract, migration
+`012`, forced-RLS append-only revision/adjudication/receipt ledgers, effective overview/export,
+isolated review read/write roles and pools, five strict API routes, minimal Admin Web correction and
+adjudication flow, exact Mobile review-marker reconciliation, a complete disposable operator
+journey and a twelfth CI job. AVS V0–V3 passes 1,757 tests plus two explicit environment-dependent
+B1 skips, all workspace typechecks/builds, clean/replay migration verification and Android export.
+The existing 11 moderate Expo/Xcode toolchain advisories remain disclosed.
+
+The implementation is not yet committed or published. Exact-head V4 CI and independent exact-SHA
+implementation review remain mandatory, so DA3 and DT-069–DT-074 remain open. V5, Physical Gate,
+production, production data, deployment, distribution, legal/privacy approval and DA4
+productization remain unauthorized or separately gated.

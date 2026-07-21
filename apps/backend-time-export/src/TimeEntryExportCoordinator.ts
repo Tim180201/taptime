@@ -143,13 +143,13 @@ export class TimeEntryExportCoordinator implements TimeEntryExporter {
 
       const snapshot = await client.query<ExportRow>(
         `SELECT
-           organization.id AS organization_id,
-           organization.name AS organization_name,
-           entry.id AS time_entry_id,
-           membership.id AS employee_membership_id,
-           membership.display_name AS employee_display_name,
-           customer.id AS customer_id,
-           customer.display_name AS customer_display_name,
+           entry.organization_id,
+           entry.organization_name,
+           entry.time_entry_id,
+           entry.employee_membership_id,
+           entry.employee_display_name,
+           entry.customer_id,
+           entry.customer_display_name,
            entry.status,
            pg_catalog.to_char(
              entry.started_at AT TIME ZONE 'UTC',
@@ -162,20 +162,9 @@ export class TimeEntryExportCoordinator implements TimeEntryExporter {
            CASE WHEN entry.status = 'stopped' THEN
              EXTRACT(EPOCH FROM (entry.stopped_at - entry.started_at))::numeric(20, 6)::text
            END AS duration_seconds
-         FROM taptime_server.time_entries AS entry
-         LEFT JOIN taptime_server.organizations AS organization
-           ON organization.id = entry.organization_id
-         LEFT JOIN taptime_server.memberships AS membership
-           ON membership.organization_id = entry.organization_id
-          AND membership.user_id = entry.user_id
-         LEFT JOIN taptime_server.customers AS customer
-           ON customer.organization_id = entry.organization_id
-          AND customer.id = entry.target_customer_id
-         WHERE entry.organization_id = $1
-           AND entry.started_at >= $2::timestamptz
-           AND entry.started_at < $3::timestamptz
-         ORDER BY entry.started_at, entry.id
-         LIMIT $4`,
+         FROM taptime_server.read_effective_time_entry_export_v1(
+           $1, $2::timestamptz, $3::timestamptz, $4
+         ) AS entry`,
         [
           actor.organization_id,
           validation.request.fromInclusive,

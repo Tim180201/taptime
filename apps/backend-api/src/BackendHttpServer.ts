@@ -16,6 +16,13 @@ import {
 import type { LifecycleIngestionCommand } from '@taptime/backend-lifecycle';
 import { validateTimeEntryExportRequest } from '@taptime/time-entry-export-contract';
 import {
+  validateMobileReviewStateRequest,
+  validateReviewAdjudicationRequest,
+  validateReviewItemQueryRequest,
+  validateTimeRecordCorrectionRequest,
+  validateTimeRecordQueryRequest,
+} from '@taptime/time-review-contract';
+import {
   OFFLINE_LEASE_PAGE_MAXIMUM_ITEMS,
   OFFLINE_LEASE_PAGE_RESPONSE_MAXIMUM_BYTES,
   OFFLINE_PROVENANCE_VERSION,
@@ -54,6 +61,11 @@ const ADMIN_SETUP_PROJECTION_PATH = '/v1/administration/setup-projection';
 const ADMIN_EMPLOYEE_INVITATIONS_PATH = '/v1/administration/employee-invitations';
 const ADMIN_EMPLOYEE_MEMBERSHIPS_PROJECTION_PATH = '/v1/administration/employee-memberships-projection';
 const ADMIN_TIME_ENTRY_EXPORT_PATH = '/v1/administration/time-entries/export';
+const ADMIN_TIME_RECORD_QUERY_PATH = '/v1/administration/time-records/query';
+const ADMIN_TIME_RECORD_CORRECTION_PATH = '/v1/administration/time-records/correct';
+const ADMIN_REVIEW_ITEM_QUERY_PATH = '/v1/administration/review-items/query';
+const ADMIN_REVIEW_ADJUDICATION_PATH = '/v1/administration/review-items/adjudicate';
+const OFFLINE_REVIEW_STATE_PATH = '/v1/offline-review-state/query';
 const EMPLOYEE_ENROLLMENT_REDEEM_PATH = '/v1/employee-enrollment/redeem';
 const EXPECTED_MEMBERSHIP_HEADER = 'x-taptime-expected-membership-id';
 const MAX_AUTHORIZATION_LENGTH = 4_096;
@@ -72,12 +84,15 @@ type ErrorCode =
   | 'assignment_in_use'
   | 'assignment_target_unavailable'
   | 'command_id_conflict'
+  | 'conflict'
   | 'forbidden'
   | 'enrollment_unavailable'
   | 'export_limit_exceeded'
   | 'invalid_request'
+  | 'invalid_evidence'
   | 'method_not_allowed'
   | 'not_found'
+  | 'not_adjustable'
   | 'service_unavailable'
   | 'invitation_created_token_unavailable'
   | 'invitation_limit_reached'
@@ -92,6 +107,10 @@ type Route =
   | 'admin_reassign_nfc_tag'
   | 'admin_setup_projection'
   | 'admin_time_entry_export'
+  | 'admin_time_record_query'
+  | 'admin_time_record_correction'
+  | 'admin_review_item_query'
+  | 'admin_review_adjudication'
   | 'deferred_lifecycle'
   | 'employee_enrollment_redeem'
   | 'lifecycle'
@@ -99,6 +118,7 @@ type Route =
   | 'offline_capture_lease_page'
   | 'offline_lifecycle'
   | 'offline_reconciliation'
+  | 'offline_review_state'
   | 'scan_context'
   | 'session';
 
@@ -346,6 +366,26 @@ async function handleRequest(
     );
     return;
   }
+  if (route === 'admin_time_record_query') {
+    await handleTimeRecordQuery(response, accessToken, body, dependencies, options,
+      correlationId, timeoutMilliseconds);
+    return;
+  }
+  if (route === 'admin_time_record_correction') {
+    await handleTimeRecordCorrection(response, accessToken, body, dependencies, options,
+      correlationId, timeoutMilliseconds);
+    return;
+  }
+  if (route === 'admin_review_item_query') {
+    await handleReviewItemQuery(response, accessToken, body, dependencies, options,
+      correlationId, timeoutMilliseconds);
+    return;
+  }
+  if (route === 'admin_review_adjudication') {
+    await handleReviewAdjudication(response, accessToken, body, dependencies, options,
+      correlationId, timeoutMilliseconds);
+    return;
+  }
   if (route === 'scan_context') {
     await handleScanContext(
       response,
@@ -404,6 +444,11 @@ async function handleRequest(
       correlationId,
       timeoutMilliseconds,
     );
+    return;
+  }
+  if (route === 'offline_review_state') {
+    await handleOfflineReviewState(response, accessToken, body, dependencies, options,
+      correlationId, timeoutMilliseconds);
     return;
   }
   if (route === 'deferred_lifecycle') {
@@ -675,6 +720,153 @@ async function handleTimeEntryExport(
       code: 'time_entry_export_failed',
       correlationId,
     });
+    respondError(response, 503, 'service_unavailable');
+  }
+}
+
+async function handleTimeRecordQuery(
+  response: ServerResponse,
+  accessToken: string,
+  body: unknown,
+  dependencies: BackendApiDependencies,
+  options: BackendHttpServerOptions,
+  correlationId: string,
+  timeoutMilliseconds: number,
+): Promise<void> {
+  const validation = validateTimeRecordQueryRequest(body);
+  if (validation.status === 'invalid_request') {
+    respondError(response, 400, 'invalid_request');
+    return;
+  }
+  await handleTimeReviewRead(
+    response, options, correlationId, timeoutMilliseconds,
+    (deadlineEpochMilliseconds) => dependencies.timeReview.queryTimeRecords(
+      { accessToken, request: validation.request }, { deadlineEpochMilliseconds },
+    ),
+  );
+}
+
+async function handleReviewItemQuery(
+  response: ServerResponse,
+  accessToken: string,
+  body: unknown,
+  dependencies: BackendApiDependencies,
+  options: BackendHttpServerOptions,
+  correlationId: string,
+  timeoutMilliseconds: number,
+): Promise<void> {
+  const validation = validateReviewItemQueryRequest(body);
+  if (validation.status === 'invalid_request') {
+    respondError(response, 400, 'invalid_request');
+    return;
+  }
+  await handleTimeReviewRead(
+    response, options, correlationId, timeoutMilliseconds,
+    (deadlineEpochMilliseconds) => dependencies.timeReview.queryReviewItems(
+      { accessToken, request: validation.request }, { deadlineEpochMilliseconds },
+    ),
+  );
+}
+
+async function handleTimeRecordCorrection(
+  response: ServerResponse,
+  accessToken: string,
+  body: unknown,
+  dependencies: BackendApiDependencies,
+  options: BackendHttpServerOptions,
+  correlationId: string,
+  timeoutMilliseconds: number,
+): Promise<void> {
+  const validation = validateTimeRecordCorrectionRequest(body);
+  if (validation.status === 'invalid_request') {
+    respondError(response, 400, 'invalid_request');
+    return;
+  }
+  await handleTimeReviewWrite(
+    response, options, correlationId, timeoutMilliseconds,
+    (deadlineEpochMilliseconds) => dependencies.timeReview.correctTimeRecord(
+      { accessToken, request: validation.request }, { deadlineEpochMilliseconds },
+    ),
+  );
+}
+
+async function handleReviewAdjudication(
+  response: ServerResponse,
+  accessToken: string,
+  body: unknown,
+  dependencies: BackendApiDependencies,
+  options: BackendHttpServerOptions,
+  correlationId: string,
+  timeoutMilliseconds: number,
+): Promise<void> {
+  const validation = validateReviewAdjudicationRequest(body);
+  if (validation.status === 'invalid_request') {
+    respondError(response, 400, 'invalid_request');
+    return;
+  }
+  await handleTimeReviewWrite(
+    response, options, correlationId, timeoutMilliseconds,
+    (deadlineEpochMilliseconds) => dependencies.timeReview.adjudicateReviewItems(
+      { accessToken, request: validation.request }, { deadlineEpochMilliseconds },
+    ),
+  );
+}
+
+async function handleTimeReviewRead<Value>(
+  response: ServerResponse,
+  options: BackendHttpServerOptions,
+  correlationId: string,
+  timeoutMilliseconds: number,
+  operation: (deadlineEpochMilliseconds: number) => Promise<
+    | { readonly status: 'ready'; readonly value: Value }
+    | { readonly status: 'authority_rejected' | 'unavailable' }
+  >,
+): Promise<void> {
+  try {
+    const result = await withTimeout(
+      operation(Date.now() + timeoutMilliseconds),
+      timeoutMilliseconds,
+    );
+    switch (result.status) {
+      case 'ready': respondJson(response, 200, { status: 'ready', ...result.value }); return;
+      case 'authority_rejected': respondError(response, 403, 'forbidden'); return;
+      case 'unavailable': respondError(response, 503, 'service_unavailable'); return;
+      default: return result satisfies never;
+    }
+  } catch {
+    emitDiagnostic(options.onDiagnostic, { code: 'time_review_failed', correlationId });
+    respondError(response, 503, 'service_unavailable');
+  }
+}
+
+async function handleTimeReviewWrite<Value>(
+  response: ServerResponse,
+  options: BackendHttpServerOptions,
+  correlationId: string,
+  timeoutMilliseconds: number,
+  operation: (deadlineEpochMilliseconds: number) => Promise<
+    | { readonly status: 'committed'; readonly value: Value }
+    | { readonly status: 'authority_rejected' | 'not_adjustable' | 'conflict'
+      | 'command_id_conflict' | 'invalid_evidence' | 'unavailable' }
+  >,
+): Promise<void> {
+  try {
+    const result = await withTimeout(
+      operation(Date.now() + timeoutMilliseconds),
+      timeoutMilliseconds,
+    );
+    switch (result.status) {
+      case 'committed': respondJson(response, 200, { status: 'committed', ...result.value }); return;
+      case 'authority_rejected': respondError(response, 403, 'forbidden'); return;
+      case 'not_adjustable': respondError(response, 422, 'not_adjustable'); return;
+      case 'invalid_evidence': respondError(response, 422, 'invalid_evidence'); return;
+      case 'conflict': respondError(response, 409, 'conflict'); return;
+      case 'command_id_conflict': respondError(response, 409, 'command_id_conflict'); return;
+      case 'unavailable': respondError(response, 503, 'service_unavailable'); return;
+      default: return result satisfies never;
+    }
+  } catch {
+    emitDiagnostic(options.onDiagnostic, { code: 'time_review_failed', correlationId });
     respondError(response, 503, 'service_unavailable');
   }
 }
@@ -1161,7 +1353,46 @@ async function handleOfflineReconciliation(
   }
 }
 
+async function handleOfflineReviewState(
+  response: ServerResponse,
+  accessToken: string,
+  body: unknown,
+  dependencies: BackendApiDependencies,
+  options: BackendHttpServerOptions,
+  correlationId: string,
+  timeoutMilliseconds: number,
+): Promise<void> {
+  const validation = validateMobileReviewStateRequest(body);
+  if (validation.status === 'invalid_request') {
+    respondError(response, 400, 'invalid_request');
+    return;
+  }
+  try {
+    const result = await withTimeout(
+      dependencies.offlineEventReconciliationReader.readReviewState({
+        accessToken,
+        request: validation.request,
+      }),
+      timeoutMilliseconds,
+    );
+    switch (result.status) {
+      case 'ready': respondJson(response, 200, result.value); return;
+      case 'authority_rejected': respondError(response, 401, 'unauthorized'); return;
+      case 'unavailable': respondError(response, 503, 'service_unavailable'); return;
+      default: return result satisfies never;
+    }
+  } catch {
+    emitOfflineDiagnostic(options.onDiagnostic, correlationId);
+    respondError(response, 503, 'service_unavailable');
+  }
+}
+
 function requestRoute(url: string | undefined): Route | null {
+  if (url === ADMIN_TIME_RECORD_QUERY_PATH) return 'admin_time_record_query';
+  if (url === ADMIN_TIME_RECORD_CORRECTION_PATH) return 'admin_time_record_correction';
+  if (url === ADMIN_REVIEW_ITEM_QUERY_PATH) return 'admin_review_item_query';
+  if (url === ADMIN_REVIEW_ADJUDICATION_PATH) return 'admin_review_adjudication';
+  if (url === OFFLINE_REVIEW_STATE_PATH) return 'offline_review_state';
   if (url === ADMIN_TIME_ENTRY_EXPORT_PATH) {
     return 'admin_time_entry_export';
   }
@@ -1224,6 +1455,11 @@ function diagnosticCodeForRoute(route: Route | null): BackendApiDiagnostic['code
       return 'administration_failed';
     case 'admin_time_entry_export':
       return 'time_entry_export_failed';
+    case 'admin_time_record_query':
+    case 'admin_time_record_correction':
+    case 'admin_review_item_query':
+    case 'admin_review_adjudication':
+      return 'time_review_failed';
     case 'employee_enrollment_redeem':
       return 'employee_enrollment_failed';
     case 'session':
@@ -1237,6 +1473,7 @@ function diagnosticCodeForRoute(route: Route | null): BackendApiDiagnostic['code
     case 'offline_capture_lease_page':
     case 'offline_lifecycle':
     case 'offline_reconciliation':
+    case 'offline_review_state':
       return 'offline_synchronization_failed';
     case null:
       return null;
@@ -1252,14 +1489,19 @@ function isAdministrationRoute(route: Route): boolean {
     || route === 'admin_provision_nfc_tag'
     || route === 'admin_reassign_nfc_tag'
     || route === 'admin_setup_projection'
-    || route === 'admin_time_entry_export';
+    || route === 'admin_time_entry_export'
+    || route === 'admin_time_record_query'
+    || route === 'admin_time_record_correction'
+    || route === 'admin_review_item_query'
+    || route === 'admin_review_adjudication';
 }
 
 function isOfflineRoute(route: Route): boolean {
   return route === 'offline_capture_lease'
     || route === 'offline_capture_lease_page'
     || route === 'offline_lifecycle'
-    || route === 'offline_reconciliation';
+    || route === 'offline_reconciliation'
+    || route === 'offline_review_state';
 }
 
 function hasForbiddenSharedHeader(request: IncomingMessage): boolean {

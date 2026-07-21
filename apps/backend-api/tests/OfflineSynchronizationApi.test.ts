@@ -214,6 +214,9 @@ describe('complete offline synchronization HTTP boundary', () => {
               records: [],
             };
           },
+          async readReviewState() {
+            return { status: 'unavailable' };
+          },
         },
       }, diagnostics);
       await expectGenericError(
@@ -254,6 +257,9 @@ describe('complete offline synchronization HTTP boundary', () => {
         offlineEventReconciliationReader: {
           async reconcile() {
             return new Promise<never>(() => undefined);
+          },
+          async readReviewState() {
+            return { status: 'unavailable' };
           },
         },
       }, diagnostics, 5);
@@ -396,6 +402,7 @@ function dependencies(
       async reassignNfcTag() { return { status: 'unauthorized' }; },
     },
     ...overrides,
+    timeReview: overrides.timeReview ?? unavailableOfflineDependencies().timeReview,
   };
 }
 

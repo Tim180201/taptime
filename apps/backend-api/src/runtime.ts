@@ -15,6 +15,7 @@ import {
 } from '@taptime/backend-offline-sync';
 import { TenantReadSessionCoordinator } from '@taptime/backend-read-model';
 import { TimeEntryExportCoordinator } from '@taptime/backend-time-export';
+import { TimeReviewCoordinator } from '@taptime/backend-time-review';
 import { Pool } from 'pg';
 import { B4SessionAuthorityResolver } from './B4SessionAuthorityResolver.js';
 import { B5ScanContextResolver } from './B5ScanContextResolver.js';
@@ -35,6 +36,8 @@ export interface BackendApiRuntimeConfiguration {
   readonly offlineEventDatabaseUrl: string;
   readonly offlineReconciliationDatabaseUrl: string;
   readonly timeEntryExportDatabaseUrl: string;
+  readonly timeReviewReadDatabaseUrl: string;
+  readonly timeReviewWriteDatabaseUrl: string;
   readonly supabaseIssuer: string;
 }
 
@@ -76,6 +79,8 @@ export function createBackendApiRuntime(
   const timeEntryExportDatabase = validateDatabaseUrl(
     configuration.timeEntryExportDatabaseUrl,
   );
+  const timeReviewReadDatabase = validateDatabaseUrl(configuration.timeReviewReadDatabaseUrl);
+  const timeReviewWriteDatabase = validateDatabaseUrl(configuration.timeReviewWriteDatabaseUrl);
   assertDistinctDatabaseUsers([
     sessionDatabase,
     readModelDatabase,
@@ -88,6 +93,8 @@ export function createBackendApiRuntime(
     offlineEventDatabase,
     offlineReconciliationDatabase,
     timeEntryExportDatabase,
+    timeReviewReadDatabase,
+    timeReviewWriteDatabase,
   ]);
 
   const issuer = configuration.supabaseIssuer.replace(/\/+$/, '');
@@ -110,6 +117,8 @@ export function createBackendApiRuntime(
     offlineReconciliationDatabase.connectionString,
   );
   const timeEntryExportPool = createRuntimePool(timeEntryExportDatabase.connectionString);
+  const timeReviewReadPool = createRuntimePool(timeReviewReadDatabase.connectionString);
+  const timeReviewWritePool = createRuntimePool(timeReviewWriteDatabase.connectionString);
   const lifecycleCoordinator = new ServerCanonicalLifecycleIngestionCoordinator(
     lifecyclePool,
     verifier,
@@ -145,6 +154,7 @@ export function createBackendApiRuntime(
       ),
       tagReassignment: new NfcTagReassignmentCoordinator(reassignmentPool, verifier),
       timeEntryExporter: new TimeEntryExportCoordinator(timeEntryExportPool, verifier),
+      timeReview: new TimeReviewCoordinator(timeReviewReadPool, timeReviewWritePool, verifier),
     },
     options,
   );
@@ -174,6 +184,8 @@ export function createBackendApiRuntime(
         offlineEventPool.end(),
         offlineReconciliationPool.end(),
         timeEntryExportPool.end(),
+        timeReviewReadPool.end(),
+        timeReviewWritePool.end(),
       ]);
       const failure = results.find(
         (result): result is PromiseRejectedResult => result.status === 'rejected',

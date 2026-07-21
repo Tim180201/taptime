@@ -1,16 +1,20 @@
 # ADR-0014: Append-only Time-Record Correction and Human Review Adjudication
 
-- Status: **INDEPENDENTLY APPROVED FOR CANDIDATE PUBLICATION — ZERO OPEN P0–P3; HUMAN ACCEPTANCE AND IMPLEMENTATION AUTHORIZATION PENDING**
+- Status: **HUMAN-ACCEPTED ON EXACT BASELINE; LOCAL IMPLEMENTATION CANDIDATE PASSES AVS V0–V3; V4 AND INDEPENDENT EXACT-SHA REVIEW PENDING**
 - Date: 2026-07-21
 - Owner: Technical Lead
 - Decision authority: Human Architect
-- Candidate baseline commit: `560cca265a6fa6c9f31873d3ed23be3276377e07`
-- Candidate baseline tree: `4b5f273288388a02a5bf6490a07392c0b9272b2e`
-- Applies to: Development Assignment 3; DT-069–DT-074 candidate scope
+- Accepted/authorized baseline commit: `ff68f7a7d0ce69a65e88846ae1cca9abd5951f5d`
+- Accepted/authorized baseline tree: `09ef169a68bb53420e07b6f3fcbbdc74e0c01d57`
+- Applies to: Development Assignment 3; DT-069–DT-074 authorized local implementation scope,
+  still open pending V4/review/closure
 - Risk class: AVS-001 **R3**
 - Supersedes: nothing
 - Amends on acceptance: ADR-0012 review-adjudication continuation and ADR-0013 export-value semantics only as stated in DA3-P12
 - Independent pre-implementation review: `APPROVED FOR CANDIDATE PUBLICATION`, zero open P0/P1/P2/P3
+- Human acceptance: DA3-P01–DA3-P16 accepted on the exact baseline above on 2026-07-21
+- Repository implementation authority: Workstreams A–D and AVS V0–V4 authorized on the exact
+  baseline above; production, production data, deployment, distribution and Physical Gate excluded
 
 ## 1. Context
 

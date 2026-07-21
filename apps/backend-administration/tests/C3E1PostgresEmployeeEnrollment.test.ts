@@ -45,7 +45,7 @@ beforeAll(async () => {
   await installerPool.query(`DROP SCHEMA IF EXISTS ${B3_SCHEMA} CASCADE`);
   await installerPool.query(`DROP TABLE IF EXISTS ${B3_MIGRATION_TABLE}`);
   await expect(migrate(installerPool)).resolves.toEqual({
-    applied: ['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011'],
+    applied: ['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012'],
     alreadyApplied: [],
   });
   await ensureC3E1RuntimeLogins(installerPool, invitationPassword, enrollmentPassword);
@@ -104,11 +104,11 @@ afterAll(async () => {
 describe('migration 008 Employee invitation and enrollment boundary', () => {
   it('records migration 008 and keeps creator and redeemer capabilities separated', async () => {
     expect((await loadMigrations()).map(({ version }) => version)).toEqual([
-      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011',
+      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012',
     ]);
     await expect(migrate(installerPool)).resolves.toEqual({
       applied: [],
-      alreadyApplied: ['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011'],
+      alreadyApplied: ['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012'],
     });
     expect(await postgresErrorCode(
       invitationPool.query('SET ROLE taptime_employee_enrollment_redeemer'),

@@ -1,12 +1,21 @@
-import type { SafeEmployeeProjection, SafeProjection, VolatileInvitationSecret } from './contracts';
+import type {
+  SafeEmployeeProjection,
+  SafeProjection,
+  SafeReviewItem,
+  SafeTimeRecord,
+  VolatileInvitationSecret,
+} from './contracts';
 import { isSafeEmployeeProjectionPage } from './employeeProjectionSafety';
 
 const maximumJsonBodyBytes = 16 * 1024;
+const maximumTimeReviewBodyBytes = 256 * 1024;
+const maximumCsvBodyBytes = 8 * 1024 * 1024;
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const cursor = /^v1:[ct]:[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const employeeCursor = /^v1:e:[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const invitationSecret = /^[A-Za-z0-9_-]{43}$/;
 const canonicalTimestamp = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
+const opaqueCursor = /^[A-Za-z0-9_-]{1,512}$/;
 const fingerprint = /^[A-F0-9]{12}$/;
 export type Session = { readonly membershipId: string; readonly role: 'administrator' | 'employee' };
 export type ApiResult<Value> =
@@ -20,7 +29,10 @@ export type ApiResult<Value> =
         | 'assignment_in_use'
         | 'assignment_target_unavailable'
         | 'invitation_created_token_unavailable'
-        | 'invitation_limit_reached';
+        | 'invitation_limit_reached'
+        | 'time_review_conflict'
+        | 'not_adjustable'
+        | 'invalid_evidence';
     };
 
 export interface AdminWebApiPort {
@@ -51,6 +63,36 @@ export interface AdminWebApiPort {
     expectedActiveAssignmentId: string,
     targetCustomerId: string,
   ): Promise<ApiResult<{ readonly assignmentChanged: boolean }>>;
+  timeRecords(
+    token: string,
+    membershipId: string,
+    fromInclusive: string,
+    toExclusive: string,
+  ): Promise<ApiResult<readonly SafeTimeRecord[]>>;
+  reviewItems(token: string, membershipId: string): Promise<ApiResult<readonly SafeReviewItem[]>>;
+  correctTimeRecord(
+    token: string,
+    membershipId: string,
+    commandId: string,
+    record: SafeTimeRecord,
+    startedAt: string,
+    stoppedAt: string,
+    reason: string,
+  ): Promise<ApiResult<true>>;
+  adjudicateReviewItem(
+    token: string,
+    membershipId: string,
+    commandId: string,
+    reviewItemId: string,
+    resolution: object,
+    reason: string,
+  ): Promise<ApiResult<true>>;
+  exportTimeEntries(
+    token: string,
+    membershipId: string,
+    fromInclusive: string,
+    toExclusive: string,
+  ): Promise<ApiResult<{ readonly blob: Blob; readonly filename: string }>>;
 }
 
 export class AdminWebApiClient implements AdminWebApiPort {
@@ -118,6 +160,124 @@ export class AdminWebApiClient implements AdminWebApiPort {
       true,
     );
   }
+  async timeRecords(
+    token: string,
+    membershipId: string,
+    fromInclusive: string,
+    toExclusive: string,
+  ): Promise<ApiResult<readonly SafeTimeRecord[]>> {
+    return this.request(
+      '/v1/administration/time-records/query', token, 'POST',
+      { expectedMembershipId: membershipId, fromInclusive, toExclusive, limit: 100, cursor: null },
+      parseTimeRecords,
+      false,
+      false,
+      false,
+      maximumTimeReviewBodyBytes,
+    );
+  }
+  async reviewItems(
+    token: string,
+    membershipId: string,
+  ): Promise<ApiResult<readonly SafeReviewItem[]>> {
+    return this.request(
+      '/v1/administration/review-items/query', token, 'POST',
+      { expectedMembershipId: membershipId, limit: 100, cursor: null },
+      parseReviewItems,
+      false,
+      false,
+      false,
+      maximumTimeReviewBodyBytes,
+    );
+  }
+  async correctTimeRecord(
+    token: string,
+    membershipId: string,
+    commandId: string,
+    record: SafeTimeRecord,
+    startedAt: string,
+    stoppedAt: string,
+    reason: string,
+  ): Promise<ApiResult<true>> {
+    return this.request(
+      '/v1/administration/time-records/correct', token, 'POST',
+      {
+        expectedMembershipId: membershipId,
+        commandId,
+        timeRecordId: record.timeRecordId,
+        expectedBaseRowVersion: record.baseRowVersion,
+        expectedRevisionNumber: record.effectiveRevisionNumber,
+        startedAt,
+        stoppedAt,
+        reason,
+      },
+      parseCommittedWrite,
+      false,
+      false,
+      true,
+    );
+  }
+  async adjudicateReviewItem(
+    token: string,
+    membershipId: string,
+    commandId: string,
+    reviewItemId: string,
+    resolution: object,
+    reason: string,
+  ): Promise<ApiResult<true>> {
+    return this.request(
+      '/v1/administration/review-items/adjudicate', token, 'POST',
+      {
+        expectedMembershipId: membershipId,
+        commandId,
+        reviewItemIds: [reviewItemId],
+        resolution,
+        reason,
+      },
+      parseCommittedWrite,
+      false,
+      false,
+      true,
+    );
+  }
+  async exportTimeEntries(
+    token: string,
+    membershipId: string,
+    fromInclusive: string,
+    toExclusive: string,
+  ): Promise<ApiResult<{ readonly blob: Blob; readonly filename: string }>> {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10_000);
+    try {
+      const response = await this.fetchRequest('/v1/administration/time-entries/export', {
+        method: 'POST',
+        headers: {
+          Accept: 'text/csv', Authorization: `Bearer ${token}`,
+          'Cache-Control': 'no-store', 'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ expectedMembershipId: membershipId, fromInclusive, toExclusive }),
+        cache: 'no-store', credentials: 'omit', redirect: 'manual', signal: controller.signal,
+      });
+      if (response.status === 401 || response.status === 403) return { status: 'rejected' };
+      const disposition = response.headers.get('content-disposition');
+      const match = /^attachment; filename="(taptime-time-entries_[0-9TZ]+_[0-9TZ]+\.csv)"$/.exec(
+        disposition ?? '',
+      );
+      if (
+        response.status !== 200 || response.redirected
+        || response.headers.get('content-type')?.split(';', 1)[0]?.trim() !== 'text/csv'
+        || !hasSafeDeclaredLength(response, maximumCsvBodyBytes)
+        || match === null
+      ) return { status: 'unavailable' };
+      const blob = await readBoundedResponseBlob(response, maximumCsvBodyBytes);
+      if (blob === null) return { status: 'unavailable' };
+      return { status: 'succeeded', value: { blob, filename: match[1]! } };
+    } catch {
+      return { status: 'unavailable' };
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
   private async request<Value>(
     path: string,
     token: string,
@@ -126,6 +286,8 @@ export class AdminWebApiClient implements AdminWebApiPort {
     parse: (value: unknown) => Value | null,
     exposeInvitationConflicts = false,
     exposeReassignmentErrors = false,
+    exposeTimeReviewErrors = false,
+    maximumResponseBytes = maximumJsonBodyBytes,
   ): Promise<ApiResult<Value>> {
     const controller = new AbortController(); const timeout = setTimeout(() => controller.abort(), 10_000);
     try {
@@ -135,9 +297,9 @@ export class AdminWebApiClient implements AdminWebApiPort {
         if (
           response.redirected
           || !isJsonContentType(response.headers.get('content-type'))
-          || !hasSafeDeclaredLength(response)
+          || !hasSafeDeclaredLength(response, maximumResponseBytes)
         ) return { status: 'unavailable' };
-        const conflictText = await readBoundedResponseText(response);
+        const conflictText = await readBoundedResponseText(response, maximumResponseBytes);
         if (conflictText === null) return { status: 'unavailable' };
         const code = parseInvitationConflict(JSON.parse(conflictText));
         return code === null ? { status: 'unavailable' } : { status: 'conflict', code };
@@ -146,16 +308,27 @@ export class AdminWebApiClient implements AdminWebApiPort {
         if (
           response.redirected
           || !isJsonContentType(response.headers.get('content-type'))
-          || !hasSafeDeclaredLength(response)
+          || !hasSafeDeclaredLength(response, maximumResponseBytes)
         ) return { status: 'unavailable' };
-        const conflictText = await readBoundedResponseText(response);
+        const conflictText = await readBoundedResponseText(response, maximumResponseBytes);
         if (conflictText === null) return { status: 'unavailable' };
         const code = parseReassignmentError(JSON.parse(conflictText), response.status);
         return code === null ? { status: 'unavailable' } : { status: 'conflict', code };
       }
+      if (exposeTimeReviewErrors && (response.status === 409 || response.status === 422)) {
+        if (
+          response.redirected
+          || !isJsonContentType(response.headers.get('content-type'))
+          || !hasSafeDeclaredLength(response, maximumResponseBytes)
+        ) return { status: 'unavailable' };
+        const conflictText = await readBoundedResponseText(response, maximumResponseBytes);
+        if (conflictText === null) return { status: 'unavailable' };
+        const code = parseTimeReviewError(JSON.parse(conflictText), response.status);
+        return code === null ? { status: 'unavailable' } : { status: 'conflict', code };
+      }
       if (response.status !== 200 || response.redirected || !isJsonContentType(response.headers.get('content-type'))) return { status: 'unavailable' };
-      if (!hasSafeDeclaredLength(response)) return { status: 'unavailable' };
-      const text = await readBoundedResponseText(response);
+      if (!hasSafeDeclaredLength(response, maximumResponseBytes)) return { status: 'unavailable' };
+      const text = await readBoundedResponseText(response, maximumResponseBytes);
       if (text === null) return { status: 'unavailable' };
       const value = parse(JSON.parse(text)); return value === null ? { status: 'unavailable' } : { status: 'succeeded', value };
     } catch { return { status: 'unavailable' }; } finally { clearTimeout(timeout); }
@@ -264,6 +437,99 @@ function parseReassignment(
   ) return null;
   return { assignmentChanged: value.assignmentChanged };
 }
+function parseTimeRecords(value: unknown): readonly SafeTimeRecord[] | null {
+  if (!isRecord(value) || !exact(value, ['status', 'records', 'nextCursor'])
+    || value.status !== 'ready' || !Array.isArray(value.records)
+    || !(value.nextCursor === null || (typeof value.nextCursor === 'string' && opaqueCursor.test(value.nextCursor)))) return null;
+  const records = value.records.map((entry) => {
+    if (!isRecord(entry) || !exact(entry, [
+      'timeRecordId', 'employeeMembershipId', 'employeeDisplayName', 'customerId',
+      'customerDisplayName', 'source', 'status', 'startedAt', 'stoppedAt',
+      'baseRowVersion', 'effectiveRevisionNumber', 'overlapsAnotherRecord',
+    ]) || !uuid.test(String(entry.timeRecordId)) || !uuid.test(String(entry.employeeMembershipId))
+      || !uuid.test(String(entry.customerId)) || typeof entry.employeeDisplayName !== 'string'
+      || typeof entry.customerDisplayName !== 'string'
+      || (entry.source !== 'canonical' && entry.source !== 'recovered')
+      || (entry.status !== 'started' && entry.status !== 'stopped')
+      || !isCanonicalTimestamp(entry.startedAt)
+      || !(entry.stoppedAt === null || isCanonicalTimestamp(entry.stoppedAt))
+      || (entry.status === 'started' ? entry.stoppedAt !== null : entry.stoppedAt === null)
+      || !isNonNegativeInteger(entry.baseRowVersion)
+      || !isNonNegativeInteger(entry.effectiveRevisionNumber)
+      || typeof entry.overlapsAnotherRecord !== 'boolean') return null;
+    return Object.freeze({
+      timeRecordId: String(entry.timeRecordId),
+      employeeDisplayName: entry.employeeDisplayName,
+      customerDisplayName: entry.customerDisplayName,
+      source: entry.source,
+      status: entry.status,
+      startedAt: entry.startedAt,
+      stoppedAt: entry.stoppedAt,
+      baseRowVersion: entry.baseRowVersion,
+      effectiveRevisionNumber: entry.effectiveRevisionNumber,
+      overlapsAnotherRecord: entry.overlapsAnotherRecord,
+    });
+  });
+  return records.some((entry) => entry === null)
+    ? null
+    : Object.freeze(records as SafeTimeRecord[]);
+}
+function parseReviewItems(value: unknown): readonly SafeReviewItem[] | null {
+  if (!isRecord(value) || !exact(value, ['status', 'items', 'nextCursor'])
+    || value.status !== 'ready' || !Array.isArray(value.items)
+    || !(value.nextCursor === null || (typeof value.nextCursor === 'string' && opaqueCursor.test(value.nextCursor)))) return null;
+  const reasons = new Set([
+    'identity_or_membership_not_current', 'capture_time_out_of_bounds',
+    'automatic_window_elapsed', 'historical_configuration_not_valid',
+    'predecessor_requires_review', 'server_lifecycle_deferred',
+  ]);
+  const items = value.items.map((entry) => {
+    if (!isRecord(entry) || !exact(entry, [
+      'reviewItemId', 'source', 'employeeUserId', 'employeeMembershipId',
+      'employeeDisplayName', 'customerId', 'customerDisplayName', 'occurredAt',
+      'recordedAt', 'reviewReason', 'deviceSequence', 'predecessorBlocked',
+    ]) || !uuid.test(String(entry.reviewItemId)) || !uuid.test(String(entry.employeeUserId))
+      || !uuid.test(String(entry.employeeMembershipId)) || !uuid.test(String(entry.customerId))
+      || typeof entry.employeeDisplayName !== 'string' || typeof entry.customerDisplayName !== 'string'
+      || (entry.source !== 'offline_v2' && entry.source !== 'server_legacy')
+      || !isCanonicalTimestamp(entry.occurredAt) || !isCanonicalTimestamp(entry.recordedAt)
+      || typeof entry.reviewReason !== 'string' || !reasons.has(entry.reviewReason)
+      || !(entry.deviceSequence === null || (Number.isSafeInteger(entry.deviceSequence) && Number(entry.deviceSequence) >= 1))
+      || typeof entry.predecessorBlocked !== 'boolean') return null;
+    return Object.freeze({
+      reviewItemId: String(entry.reviewItemId), source: entry.source,
+      employeeDisplayName: entry.employeeDisplayName,
+      customerDisplayName: entry.customerDisplayName,
+      occurredAt: entry.occurredAt, reviewReason: entry.reviewReason,
+      deviceSequence: entry.deviceSequence,
+      predecessorBlocked: entry.predecessorBlocked,
+    });
+  });
+  return items.some((entry) => entry === null)
+    ? null
+    : Object.freeze(items as SafeReviewItem[]);
+}
+function parseCommittedWrite(value: unknown): true | null {
+  if (!isRecord(value) || value.status !== 'committed' || typeof value.idempotentRetry !== 'boolean') return null;
+  if (exact(value, [
+    'status', 'timeRecordId', 'revisionNumber', 'startedAt', 'stoppedAt', 'idempotentRetry',
+  ])) {
+    return uuid.test(String(value.timeRecordId)) && isNonNegativeInteger(value.revisionNumber)
+      && isCanonicalTimestamp(value.startedAt) && isCanonicalTimestamp(value.stoppedAt)
+      ? true : null;
+  }
+  if (!exact(value, [
+    'status', 'commandId', 'resolution', 'adjudicatedReviewItemIds', 'timeRecordId',
+    'revisionNumber', 'idempotentRetry',
+  ]) || !uuid.test(String(value.commandId))
+    || !Array.isArray(value.adjudicatedReviewItemIds)
+    || value.adjudicatedReviewItemIds.length < 1
+    || value.adjudicatedReviewItemIds.some((id) => !uuid.test(String(id)))
+    || !['no_time_record_change', 'adjust_existing_time_record', 'create_recovered_time_record'].includes(String(value.resolution))
+    || !(value.timeRecordId === null || uuid.test(String(value.timeRecordId)))
+    || !(value.revisionNumber === null || isNonNegativeInteger(value.revisionNumber))) return null;
+  return true;
+}
 function parseInvitationConflict(value: unknown): 'command_id_conflict' | 'invitation_created_token_unavailable' | 'invitation_limit_reached' | null {
   if (!isRecord(value) || !exact(value, ['error']) || !isRecord(value.error) || !exact(value.error, ['code'])) return null;
   return value.error.code === 'command_id_conflict'
@@ -288,6 +554,19 @@ function parseReassignmentError(
     ? value.error.code
     : null;
 }
+function parseTimeReviewError(
+  value: unknown,
+  status: number,
+): 'command_id_conflict' | 'time_review_conflict' | 'not_adjustable' | 'invalid_evidence' | null {
+  if (!isRecord(value) || !exact(value, ['error']) || !isRecord(value.error)
+    || !exact(value.error, ['code'])) return null;
+  if (status === 409) {
+    if (value.error.code === 'command_id_conflict') return 'command_id_conflict';
+    return value.error.code === 'conflict' ? 'time_review_conflict' : null;
+  }
+  return value.error.code === 'not_adjustable' || value.error.code === 'invalid_evidence'
+    ? value.error.code : null;
+}
 function isRecord(value: unknown): value is Record<string, unknown> { return typeof value === 'object' && value !== null && !Array.isArray(value); }
 function exact(value: Record<string, unknown>, keys: readonly string[]): boolean { return Object.keys(value).sort().join(',') === [...keys].sort().join(','); }
 
@@ -295,14 +574,17 @@ function isJsonContentType(value: string | null): boolean {
   return value !== null && value.split(';', 1)[0]?.trim().toLowerCase() === 'application/json';
 }
 
-function hasSafeDeclaredLength(response: Response): boolean {
+function hasSafeDeclaredLength(response: Response, maximumBytes = maximumJsonBodyBytes): boolean {
   const declaredLength = response.headers.get('content-length');
   if (declaredLength === null) return true;
   const length = Number(declaredLength);
-  return Number.isSafeInteger(length) && length >= 0 && length <= maximumJsonBodyBytes;
+  return Number.isSafeInteger(length) && length >= 0 && length <= maximumBytes;
 }
 
-async function readBoundedResponseText(response: Response): Promise<string | null> {
+async function readBoundedResponseText(
+  response: Response,
+  maximumBytes = maximumJsonBodyBytes,
+): Promise<string | null> {
   if (response.body === null) return '';
   const reader = response.body.getReader();
   const decoder = new TextDecoder('utf-8', { fatal: true });
@@ -313,7 +595,7 @@ async function readBoundedResponseText(response: Response): Promise<string | nul
       const chunk = await reader.read();
       if (chunk.done) return text + decoder.decode();
       bytes += chunk.value.byteLength;
-      if (bytes > maximumJsonBodyBytes) {
+      if (bytes > maximumBytes) {
         try { await reader.cancel('TapTim.e response body exceeded its byte limit'); } catch { /* best-effort cleanup */ }
         return null;
       }
@@ -324,4 +606,41 @@ async function readBoundedResponseText(response: Response): Promise<string | nul
   } finally {
     try { reader.releaseLock(); } catch { /* a failed or canceled stream has no usable data */ }
   }
+}
+
+async function readBoundedResponseBlob(
+  response: Response,
+  maximumBytes: number,
+): Promise<Blob | null> {
+  if (response.body === null) return new Blob([], { type: 'text/csv' });
+  const reader = response.body.getReader();
+  const chunks: ArrayBuffer[] = [];
+  let bytes = 0;
+  try {
+    while (true) {
+      const chunk = await reader.read();
+      if (chunk.done) return new Blob(chunks, { type: 'text/csv' });
+      bytes += chunk.value.byteLength;
+      if (bytes > maximumBytes) {
+        try { await reader.cancel('TapTim.e CSV response exceeded its byte limit'); } catch { /* best-effort cleanup */ }
+        return null;
+      }
+      const copy = new Uint8Array(new ArrayBuffer(chunk.value.byteLength));
+      copy.set(chunk.value);
+      chunks.push(copy.buffer);
+    }
+  } catch {
+    return null;
+  } finally {
+    try { reader.releaseLock(); } catch { /* a failed or canceled stream has no usable data */ }
+  }
+}
+
+function isCanonicalTimestamp(value: unknown): value is string {
+  return typeof value === 'string' && canonicalTimestamp.test(value)
+    && new Date(value).toISOString() === value;
+}
+
+function isNonNegativeInteger(value: unknown): value is number {
+  return Number.isSafeInteger(value) && Number(value) >= 0;
 }

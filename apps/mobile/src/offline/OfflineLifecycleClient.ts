@@ -9,6 +9,11 @@ import {
   type OfflineReconciliationRecord,
   type OfflineReconciliationResult,
 } from '@taptime/offline-sync-contract';
+import {
+  validateMobileReviewStateRequest,
+  type MobileReviewState,
+  type MobileReviewStateRequest,
+} from '@taptime/time-review-contract';
 import type {
   AuthenticatedHttpResult,
   AuthenticatedJsonPostPort,
@@ -22,6 +27,7 @@ import {
 
 const OFFLINE_EVENT_PATH = '/v1/lifecycle-events/offline';
 const RECONCILIATION_PATH = '/v1/lifecycle-events/reconcile';
+const REVIEW_STATE_PATH = '/v1/offline-review-state/query';
 
 const reviewReasons = new Set([
   'identity_or_membership_not_current',
@@ -62,11 +68,15 @@ export type OfflineReconciliationTransportResult =
 export interface OfflineLifecycleApiPort {
   ingest(command: OfflineLifecycleEventCommand): Promise<OfflineLifecycleTransportResult>;
   reconcile(workEventIds: readonly string[]): Promise<OfflineReconciliationTransportResult>;
+  readReviewState(
+    request: MobileReviewStateRequest,
+  ): Promise<MobileReviewState | { readonly status: 'unavailable' }>;
 }
 
 export class OfflineLifecycleClient implements OfflineLifecycleApiPort {
   private readonly eventEndpoint: URL;
   private readonly reconciliationEndpoint: URL;
+  private readonly reviewStateEndpoint: URL;
 
   constructor(
     apiBaseUrl: URL,
@@ -74,6 +84,7 @@ export class OfflineLifecycleClient implements OfflineLifecycleApiPort {
   ) {
     this.eventEndpoint = new URL(OFFLINE_EVENT_PATH, apiBaseUrl);
     this.reconciliationEndpoint = new URL(RECONCILIATION_PATH, apiBaseUrl);
+    this.reviewStateEndpoint = new URL(REVIEW_STATE_PATH, apiBaseUrl);
   }
 
   async ingest(
@@ -143,6 +154,59 @@ export class OfflineLifecycleClient implements OfflineLifecycleApiPort {
       records.push(record);
     }
     return { status: 'ready', records: Object.freeze(records) };
+  }
+
+  async readReviewState(
+    request: MobileReviewStateRequest,
+  ): Promise<MobileReviewState | { readonly status: 'unavailable' }> {
+    const validation = validateMobileReviewStateRequest(request);
+    if (validation.status === 'invalid_request') return { status: 'unavailable' };
+    const response = await this.post(
+      this.reviewStateEndpoint,
+      JSON.stringify(validation.request),
+    );
+    if (
+      response.status !== 'response'
+      || response.statusCode !== 200
+      || !isJsonContentType(response.contentType)
+    ) return { status: 'unavailable' };
+    const body = parseJsonObject(response.body);
+    if (
+      body === null
+      || body.expectedMembershipId !== validation.request.expectedMembershipId
+      || body.installationId !== validation.request.installationId
+    ) return { status: 'unavailable' };
+    if (
+      body.status === 'review_pending'
+      && hasExactKeys(body, [
+        'earliestUnresolvedSequence', 'expectedMembershipId', 'installationId', 'status',
+      ])
+      && Number.isSafeInteger(body.earliestUnresolvedSequence)
+      && Number(body.earliestUnresolvedSequence) > 0
+    ) {
+      return Object.freeze({
+        status: 'review_pending',
+        expectedMembershipId: validation.request.expectedMembershipId,
+        installationId: validation.request.installationId,
+        earliestUnresolvedSequence: Number(body.earliestUnresolvedSequence),
+      });
+    }
+    if (
+      body.status === 'clear'
+      && hasExactKeys(body, [
+        'confirmedThroughSequence', 'expectedMembershipId', 'installationId', 'status',
+      ])
+      && Number.isSafeInteger(body.confirmedThroughSequence)
+      && Number(body.confirmedThroughSequence) >= 0
+    ) {
+      return Object.freeze({
+        status: 'clear',
+        expectedMembershipId: validation.request.expectedMembershipId,
+        installationId: validation.request.installationId,
+        confirmedThroughSequence: Number(body.confirmedThroughSequence),
+      });
+    }
+    return { status: 'unavailable' };
   }
 
   private async post(endpoint: URL, body: string): Promise<AuthenticatedHttpResult> {

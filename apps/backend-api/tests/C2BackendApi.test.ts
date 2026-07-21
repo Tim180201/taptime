@@ -128,6 +128,16 @@ const connectionStrings = {
     'taptime_time_export_runtime',
     'time-export-local-synthetic-only',
   ),
+  timeReviewRead: runtimeConnectionString(
+    installerConnectionString,
+    'taptime_time_review_read_runtime',
+    'time-review-read-local-synthetic-only',
+  ),
+  timeReviewWrite: runtimeConnectionString(
+    installerConnectionString,
+    'taptime_time_review_write_runtime',
+    'time-review-write-local-synthetic-only',
+  ),
 } as const;
 
 const installerPool = new Pool({ connectionString: installerConnectionString, max: 8 });
@@ -169,6 +179,8 @@ beforeAll(async () => {
     offlineEventDatabaseUrl: connectionStrings.offlineEvent,
     offlineReconciliationDatabaseUrl: connectionStrings.offlineReconciliation,
     timeEntryExportDatabaseUrl: connectionStrings.timeEntryExport,
+    timeReviewReadDatabaseUrl: connectionStrings.timeReviewRead,
+    timeReviewWriteDatabaseUrl: connectionStrings.timeReviewWrite,
     supabaseIssuer: jwks.issuerA,
   }, {
     onDiagnostic: (diagnostic) => diagnostics.push(diagnostic),
@@ -189,13 +201,13 @@ afterAll(async () => {
 });
 
 describe('C2 package, runtime composition, and least privilege', () => {
-  it('uses exactly migrations 001 through 011 and reruns the ledger cleanly', async () => {
+  it('uses exactly migrations 001 through 012 and reruns the ledger cleanly', async () => {
     expect((await loadMigrations()).map(({ version }) => version)).toEqual([
-      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011',
+      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012',
     ]);
     await expect(migrate(installerPool)).resolves.toEqual({
       applied: [],
-      alreadyApplied: ['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011'],
+      alreadyApplied: ['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012'],
     });
   });
 
@@ -293,6 +305,8 @@ describe('C2 package, runtime composition, and least privilege', () => {
       offlineEventDatabaseUrl: connectionStrings.offlineEvent,
       offlineReconciliationDatabaseUrl: connectionStrings.offlineReconciliation,
       timeEntryExportDatabaseUrl: connectionStrings.timeEntryExport,
+      timeReviewReadDatabaseUrl: connectionStrings.timeReviewRead,
+      timeReviewWriteDatabaseUrl: connectionStrings.timeReviewWrite,
       supabaseIssuer: 'https://synthetic.supabase.co/auth/v1',
     })).toThrow(/database URL|runtime login/);
   });
@@ -314,6 +328,8 @@ describe('C2 package, runtime composition, and least privilege', () => {
       offlineEventDatabaseUrl: connectionStrings.offlineEvent,
       offlineReconciliationDatabaseUrl: connectionStrings.offlineReconciliation,
       timeEntryExportDatabaseUrl: connectionStrings.timeEntryExport,
+      timeReviewReadDatabaseUrl: connectionStrings.timeReviewRead,
+      timeReviewWriteDatabaseUrl: connectionStrings.timeReviewWrite,
       supabaseIssuer: 'https://synthetic.supabase.co/auth/v1',
     })).toThrow('Backend API database runtime login names must be distinct');
   });
@@ -338,6 +354,8 @@ describe('C2 package, runtime composition, and least privilege', () => {
       offlineEventDatabaseUrl: connectionStrings.offlineEvent,
       offlineReconciliationDatabaseUrl: connectionStrings.offlineReconciliation,
       timeEntryExportDatabaseUrl: connectionStrings.timeEntryExport,
+      timeReviewReadDatabaseUrl: connectionStrings.timeReviewRead,
+      timeReviewWriteDatabaseUrl: connectionStrings.timeReviewWrite,
       supabaseIssuer: 'https://synthetic.supabase.co/auth/v1',
     })).toThrow('Backend API database URL contains an unsupported connection parameter');
   });
@@ -1734,6 +1752,7 @@ function testDependencies(
     employeeEnrollment,
     tagReassignment,
     ...overrides,
+    timeReview: overrides.timeReview ?? unavailableOfflineDependencies().timeReview,
   };
 }
 

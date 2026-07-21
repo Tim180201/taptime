@@ -414,6 +414,21 @@ does not change a readiness-domain rating and does not claim pilot-operational s
 Admin Web download UI, legal/privacy readiness, production resources/data, deployment,
 distribution or Physical validation.
 
+## Addendum (2026-07-21 — Development Assignment 3 Local Implementation Candidate)
+
+The Human Architect accepted ADR-0014/DA3-P01–DA3-P16 and separately authorized Workstreams A–D
+plus AVS V0–V4 on exact published baseline `ff68f7a`, tree `09ef169`. The Technical Lead completed
+the local append-only correction/Human-adjudication candidate with migration `012`, isolated
+roles/pools, five strict API routes, effective CSV, a minimal Admin Web operator flow, exact Mobile
+review-marker reconciliation, a complete disposable journey and a twelfth CI job.
+
+AVS V0–V3 passes 1,757 tests plus two explicit B1 environment skips, every workspace
+typecheck/build, clean/replay migration verification and Android export. The implementation is not
+yet published; exact-head V4 CI, independent exact-SHA review and the later closure publication are
+mandatory before DT-069–DT-074 or DA3 close. This local engineering candidate does not change a
+readiness-domain rating and does not authorize V5, Physical Gate, DA4 productization, legal/privacy
+approval, production, production data, deployment or distribution.
+
 ## Revision Note (Technical Lead Review Follow-up, 2026-07-07)
 
 This roadmap was updated once, after Technical Lead review, to: (1) add the "Strategic frame" paragraph above, connecting roadmap items to the companion assessment's Business Event Platform framing (Section 0.1) and capability hierarchy (Section 12); (2) organize every milestone's existing items into an Engineering Track, a Product Capability Track, and a Business, Legal & Go-To-Market Track, without adding, removing, or reprioritizing any item, and without moving any item to a different milestone; (3) note, within the Now and Before Pilot Customers milestones, the re-evaluated primary-bottleneck finding from the companion assessment's Section 11.1 (Organization Management as the more foundational blocker for reaching the first pilot, alongside — not instead of — the backend technology decision). No original roadmap item's wording, milestone assignment, or substance was changed; this revision only added track labels, short cross-reference notes, and this closing note.

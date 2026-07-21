@@ -10,7 +10,7 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {
-    "build": "tsc -p tsconfig.build.json --emitDeclarationOnly && esbuild src/index.ts --bundle --platform=node --target=node24 --format=esm --external:@taptime/backend-identity --external:@taptime/backend-schema --external:@taptime/core --external:@taptime/offline-sync-contract --external:pg --sourcemap --outfile=dist/index.js",
+    "build": "tsc -p tsconfig.build.json --emitDeclarationOnly && esbuild src/index.ts --bundle --platform=node --target=node24 --format=esm --external:@taptime/backend-identity --external:@taptime/backend-schema --external:@taptime/core --external:@taptime/offline-sync-contract --external:@taptime/time-review-contract --external:pg --sourcemap --outfile=dist/index.js",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
@@ -19,6 +19,7 @@
     "@taptime/backend-schema": "*",
     "@taptime/core": "*",
     "@taptime/offline-sync-contract": "*",
+    "@taptime/time-review-contract": "*",
     "pg": "^8.22.0"
   },
   "devDependencies": {

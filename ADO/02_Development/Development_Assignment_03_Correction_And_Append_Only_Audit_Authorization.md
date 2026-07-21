@@ -1,22 +1,24 @@
-# Development Assignment 3 — Correction and Append-only Audit Authorization Candidate
+# Development Assignment 3 — Correction and Append-only Audit Authorization
 
-- Status: **INDEPENDENTLY APPROVED FOR ADO-ONLY CANDIDATE PUBLICATION — ZERO OPEN P0–P3; HUMAN DECISIONS AND IMPLEMENTATION AUTHORITY PENDING**
+- Status: **HUMAN-ACCEPTED AND IMPLEMENTATION-AUTHORIZED ON EXACT BASELINE — LOCAL WORKSTREAMS A–D / AVS V0–V3 COMPLETE; V4 AND INDEPENDENT EXACT-SHA REVIEW PENDING**
 - Date: 2026-07-21
-- Candidate baseline commit: `560cca265a6fa6c9f31873d3ed23be3276377e07`
-- Candidate baseline tree: `4b5f273288388a02a5bf6490a07392c0b9272b2e`
-- Baseline remote: `main == origin/main`, zero ahead/behind at candidate start
+- Accepted/authorized baseline commit: `ff68f7a7d0ce69a65e88846ae1cca9abd5951f5d`
+- Accepted/authorized baseline tree: `09ef169a68bb53420e07b6f3fcbbdc74e0c01d57`
+- Baseline remote: `main == origin/main`, zero ahead/behind at implementation start
 - Parent state: DA1/DT-060–DT-062 and DA2/DT-063–DT-068 closed for their recorded local scopes;
   production, deployment, distribution and DA3 remain open
 - Owner: Technical Lead
 - Decision authority: Human Architect
-- Architecture candidate:
+- Accepted architecture:
   `ADO/01_Architecture/ADR/ADR-0014-append-only-time-record-correction-and-review-adjudication.md`
-- Roadmap scope: Development Assignment 3; DT-069–DT-074 candidate
+- Roadmap scope: Development Assignment 3; DT-069–DT-074 authorized local implementation scope,
+  still open pending V4/review/closure
 - Risk class: AVS-001 **R3**
-- Implementation authority: **NOT GRANTED**
+- Implementation authority: **GRANTED FOR WORKSTREAMS A–D AND AVS V0–V4 ON THE EXACT BASELINE ABOVE**
+- Explicitly excluded authority: **production, production data, deployment, distribution and Physical Gate**
 - Independent pre-implementation review: **APPROVED FOR CANDIDATE PUBLICATION — ZERO OPEN P0/P1/P2/P3**
 
-## 1. Candidate objective
+## 1. Authorized objective
 
 Deliver the smallest complete, trustworthy operator workflow that makes time correction and
 ADR-0012 Human review adjudication usable without destroying automatic lifecycle history:
@@ -28,9 +30,11 @@ ADR-0012 Human review adjudication usable without destroying automatic lifecycle
 5. corrected effective truth in the existing CSV v1 export; and
 6. a minimal Admin Web surface that reaches those capabilities and the existing export route.
 
-This is a candidate for Human product/architecture acceptance. It does not itself authorize code.
+The Human Architect accepted DA3-P01–DA3-P16 and separately authorized Workstreams A–D plus AVS
+V0–V4 on the exact baseline above on 2026-07-21. This authority does not include production,
+production data, deployment, distribution, Physical Gate or V5.
 
-## 2. Repository truth on the candidate baseline
+## 2. Repository truth at the pre-implementation candidate baseline
 
 ### 2.1 Closed foundations to preserve
 
@@ -46,7 +50,7 @@ This is a candidate for Human product/architecture acceptance. It does not itsel
 
 ### 2.2 Gaps DA3 must close
 
-The candidate baseline contains no:
+At the pre-implementation candidate checkpoint, the repository contained no:
 
 - TimeEntry correction/revision table or effective projection;
 - correction/adjudication role, pool, contract, coordinator or route;
@@ -94,9 +98,10 @@ require explicit Human acceptance after independent review. In summary:
 | DA3-P15 | Ledger-authoritative history plus one exact summary AuditEvent per successful command |
 | DA3-P16 | No deletion/retention/legal/payroll/production claim |
 
-## 4. Proposed implementation workstreams
+## 4. Authorized implementation workstreams
 
-No workstream is released until Section 11 is satisfied.
+Workstreams A–D are released only on the exact accepted baseline recorded above and remain bounded
+by Sections 3, 8, 9 and 10.
 
 ### Workstream A — neutral contract and effective-record model
 
@@ -165,17 +170,15 @@ Expected protected or unchanged behavior:
 
 ## 6. Change-Impact Record
 
-### 6.1 ADO-only candidate
+### 6.1 Accepted architecture and authorized implementation baseline
 
-- Baseline: `560cca265a6fa6c9f31873d3ed23be3276377e07`, tree
-  `4b5f273288388a02a5bf6490a07392c0b9272b2e`.
-- Intended change: architecture/authorization proposal and current-status/risk/navigation truth
-  only.
-- Executable/configuration/schema/dependency/workflow impact: none in this candidate.
-- Risk class of this documentation delta: R0 after exact diff confirmation.
-- Risk class of proposed implementation: R3.
-- Verification selected now: V0 only, plus independent pre-implementation architecture/security
-  review.
+- Baseline: `ff68f7a7d0ce69a65e88846ae1cca9abd5951f5d`, tree
+  `09ef169a68bb53420e07b6f3fcbbdc74e0c01d57`.
+- Accepted decisions: ADR-0014 and DA3-P01–DA3-P16.
+- Authorized executable scope: Workstreams A–D and AVS V0–V4.
+- Risk class: R3.
+- Current verification: local V0–V3 complete; focused implementation publication, exact-head V4
+  and independent exact-SHA implementation review remain pending.
 - Carried evidence: DA1/DA2 closure and their exact CI/review bindings remain evidence for their
   unchanged foundations; they are not DA3 correctness evidence.
 - Excluded path: `research/` remains unread and untouched.
@@ -319,11 +322,15 @@ Technical Lead ADO-only candidate
 
 No later arrow is implied by an earlier arrow.
 
-The independent read-only review approved the exact seven-file `+833/-5` candidate for publication
-and reported zero open P0/P1/P2/P3. The Human direction permitting the Technical Lead to proceed
-after being satisfied authorizes candidate preparation/publication and expresses intent for a later
-implementation. It does not pre-accept DA3-P01–DA3-P16 or bind the not-yet-published implementation
-baseline. Therefore implementation authority is currently **NOT GRANTED**.
+The independent read-only review approved the ADO-only candidate for publication and reported zero
+open P0/P1/P2/P3. The candidate was published as
+`ff68f7a7d0ce69a65e88846ae1cca9abd5951f5d`, tree
+`09ef169a68bb53420e07b6f3fcbbdc74e0c01d57`. The Human Architect then explicitly accepted
+DA3-P01–DA3-P16 and separately authorized Workstreams A–D plus AVS V0–V4 on exactly that baseline.
+The local implementation candidate has completed AVS V0–V3. Focused publication, exact-head V4 and
+independent exact-SHA implementation review remain mandatory before DA3 or DT-069–DT-074 closure.
+V5, Physical Gate, production, production data, deployment and distribution remain
+**NOT AUTHORIZED**.
 
 ## 12. Independent pre-implementation review mandate
 

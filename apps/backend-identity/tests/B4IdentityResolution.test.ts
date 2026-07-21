@@ -244,18 +244,18 @@ afterAll(async () => {
 });
 
 describe('versioned B4 migration', () => {
-  it('applies the current migrations 001 through 011 once and records the immutable ledger', async () => {
+  it('applies the current migrations 001 through 012 once and records the immutable ledger', async () => {
     const migrations = await loadMigrations();
-    expect(migrations.map(({ version }) => version)).toEqual(['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011']);
+    expect(migrations.map(({ version }) => version)).toEqual(['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012']);
 
     const ledger = await installerPool.query<{ version: string; checksum: string }>(
       `SELECT version, checksum FROM ${B3_MIGRATION_TABLE} ORDER BY version`,
     );
-    expect(ledger.rows.map(({ version }) => version)).toEqual(['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011']);
+    expect(ledger.rows.map(({ version }) => version)).toEqual(['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012']);
     expect(ledger.rows.every(({ checksum }) => /^[0-9a-f]{64}$/.test(checksum))).toBe(true);
 
     const rerun = await migrate(installerPool);
-    expect(rerun).toEqual({ applied: [], alreadyApplied: ['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011'] });
+    expect(rerun).toEqual({ applied: [], alreadyApplied: ['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012'] });
   });
 });
 

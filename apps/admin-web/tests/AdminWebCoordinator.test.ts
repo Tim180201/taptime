@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { AdminWebApiPort, ApiResult, Session } from '../src/AdminWebApiClient';
 import { AdminWebCoordinator, type AdminWebAuthPort } from '../src/AdminWebCoordinator';
-import type { SafeEmployeeProjection, SafeProjection } from '../src/contracts';
+import type { SafeEmployeeProjection, SafeProjection, SafeReviewItem, SafeTimeRecord } from '../src/contracts';
 
 const membershipId = '20000000-0000-4000-8000-000000000001';
 const projection: SafeProjection = {
@@ -14,6 +14,31 @@ const employeeProjection: SafeEmployeeProjection = {
   organization: projection.organization,
   employeeMemberships: [],
   nextCursor: null,
+};
+const fixedNow = Date.parse('2026-07-21T12:00:00.000Z');
+const readyTimeReviewState = {
+  timeRecords: [],
+  reviewItems: [],
+  timeWindow: {
+    fromInclusive: '2026-06-20T12:00:00.000Z',
+    toExclusive: '2026-07-21T12:00:00.000Z',
+  },
+  timeReviewBusy: false,
+  correctionIntent: null,
+  adjudicationIntent: null,
+} as const;
+const stoppedRecord: SafeTimeRecord = {
+  timeRecordId: '90000000-0000-4000-8000-000000000001',
+  employeeDisplayName: 'Employee Alpha', customerDisplayName: 'Werkstatt',
+  source: 'canonical', status: 'stopped',
+  startedAt: '2026-07-20T08:00:00.000Z', stoppedAt: '2026-07-20T10:00:00.000Z',
+  baseRowVersion: 1, effectiveRevisionNumber: 0, overlapsAnotherRecord: false,
+};
+const reviewItem: SafeReviewItem = {
+  reviewItemId: '90000000-0000-4000-8000-000000000002',
+  source: 'offline_v2', employeeDisplayName: 'Employee Alpha',
+  customerDisplayName: 'Werkstatt', occurredAt: '2026-07-20T11:00:00.000Z',
+  reviewReason: 'automatic_window_elapsed', deviceSequence: 7, predecessorBlocked: true,
 };
 
 function employeeMemberships(start: number, count: number) {
@@ -65,12 +90,27 @@ class FakeApi implements AdminWebApiPort {
     status: 'succeeded',
     value: { assignmentChanged: true },
   }));
+  readonly timeRecords = vi.fn<AdminWebApiPort['timeRecords']>(async () => ({
+    status: 'succeeded', value: [],
+  }));
+  readonly reviewItems = vi.fn<AdminWebApiPort['reviewItems']>(async () => ({
+    status: 'succeeded', value: [],
+  }));
+  readonly correctTimeRecord = vi.fn<AdminWebApiPort['correctTimeRecord']>(async () => ({
+    status: 'succeeded', value: true,
+  }));
+  readonly adjudicateReviewItem = vi.fn<AdminWebApiPort['adjudicateReviewItem']>(async () => ({
+    status: 'succeeded', value: true,
+  }));
+  readonly exportTimeEntries = vi.fn<AdminWebApiPort['exportTimeEntries']>(async () => ({
+    status: 'succeeded', value: { blob: new Blob(['csv']), filename: 'taptime-time-entries_20260721T000000Z_20260722T000000Z.csv' },
+  }));
 }
 
 function setup() {
   const auth = new FakeAuth();
   const api = new FakeApi();
-  const coordinator = new AdminWebCoordinator(auth, api);
+  const coordinator = new AdminWebCoordinator(auth, api, () => fixedNow);
   return { auth, api, coordinator };
 }
 
@@ -129,6 +169,7 @@ describe('AdminWebCoordinator', () => {
     expect(auth.active).toBe(true);
     expect(api.projection).toHaveBeenCalledTimes(1);
     expect(coordinator.getState()).toEqual({
+      ...readyTimeReviewState,
       status: 'ready', projection, employeeProjection, creating: false,
       creatingEmployee: false, invitation: null, reassignmentIntent: null,
       reassigning: false, notice: null,
@@ -149,6 +190,7 @@ describe('AdminWebCoordinator', () => {
     );
     expect(api.projection).toHaveBeenCalledTimes(2);
     expect(coordinator.getState()).toEqual({
+      ...readyTimeReviewState,
       status: 'ready', projection, employeeProjection, creating: false,
       creatingEmployee: false, invitation: null, reassignmentIntent: null,
       reassigning: false, notice: 'Kunde wurde sicher angelegt.',
@@ -204,6 +246,7 @@ describe('AdminWebCoordinator', () => {
 
     expect(api.projection).toHaveBeenLastCalledWith('memory-only-token', membershipId, cursor);
     expect(coordinator.getState()).toEqual({
+      ...readyTimeReviewState,
       status: 'ready', creating: false, creatingEmployee: false,
       invitation: null, reassignmentIntent: null, reassigning: false,
       notice: null, employeeProjection,
@@ -586,6 +629,72 @@ describe('AdminWebCoordinator', () => {
       status: 'ready',
       reassignmentIntent: null,
       notice: 'Die Zuordnung wurde zwischenzeitlich geändert. Daten wurden neu geladen.',
+    });
+  });
+
+  it('shows before/after correction intent and retains one command ID across an ambiguous retry', async () => {
+    const { api, coordinator } = setup();
+    api.timeRecords.mockResolvedValue({ status: 'succeeded', value: [stoppedRecord] });
+    api.correctTimeRecord
+      .mockResolvedValueOnce({ status: 'unavailable' })
+      .mockResolvedValueOnce({ status: 'succeeded', value: true });
+    await coordinator.signIn('administrator@example.test', 'secret');
+
+    coordinator.prepareCorrection(
+      stoppedRecord.timeRecordId,
+      '2026-07-20T08:15:00.000Z',
+      '2026-07-20T10:30:00.000Z',
+      'Kundennachweis geprüft',
+    );
+    const prepared = coordinator.getState();
+    expect(prepared).toMatchObject({
+      status: 'ready',
+      correctionIntent: {
+        timeRecord: stoppedRecord,
+        startedAt: '2026-07-20T08:15:00.000Z',
+        stoppedAt: '2026-07-20T10:30:00.000Z',
+        reason: 'Kundennachweis geprüft',
+      },
+    });
+    const commandId = prepared.status === 'ready' ? prepared.correctionIntent!.commandId : '';
+
+    await coordinator.confirmCorrection();
+    expect(coordinator.getState()).toMatchObject({
+      status: 'ready', correctionIntent: { commandId }, timeReviewBusy: false,
+    });
+    await coordinator.confirmCorrection();
+
+    expect(api.correctTimeRecord).toHaveBeenCalledTimes(2);
+    expect(api.correctTimeRecord.mock.calls.map((call) => call[2])).toEqual([commandId, commandId]);
+    expect(coordinator.getState()).toMatchObject({
+      status: 'ready', correctionIntent: null,
+      notice: 'Arbeitszeit wurde append-only korrigiert.',
+    });
+  });
+
+  it('requires an explicit review decision and submits its exact selected evidence', async () => {
+    const { api, coordinator } = setup();
+    api.reviewItems.mockResolvedValue({ status: 'succeeded', value: [reviewItem] });
+    await coordinator.signIn('administrator@example.test', 'secret');
+
+    coordinator.prepareAdjudication(
+      reviewItem.reviewItemId, 'no_time_record_change', null, null, null,
+      'Beleg geprüft; keine Arbeitszeitänderung',
+    );
+    expect(coordinator.getState()).toMatchObject({
+      status: 'ready',
+      adjudicationIntent: { reviewItem, resolution: 'no_time_record_change' },
+    });
+    await coordinator.confirmAdjudication();
+
+    expect(api.adjudicateReviewItem).toHaveBeenCalledWith(
+      'memory-only-token', membershipId, expect.stringMatching(/^[0-9a-f-]{36}$/i),
+      reviewItem.reviewItemId, { type: 'no_time_record_change' },
+      'Beleg geprüft; keine Arbeitszeitänderung',
+    );
+    expect(coordinator.getState()).toMatchObject({
+      status: 'ready', adjudicationIntent: null,
+      notice: 'Review-Entscheidung wurde append-only protokolliert.',
     });
   });
 });

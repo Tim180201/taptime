@@ -56,7 +56,8 @@ export type SyntheticEnvironmentSafeEvent =
   | 'api_offline_synchronization_unavailable'
   | 'api_scan_context_unavailable'
   | 'api_session_unavailable'
-  | 'api_time_entry_export_unavailable';
+  | 'api_time_entry_export_unavailable'
+  | 'api_time_review_unavailable';
 
 export interface SyntheticAndroidE2eEnvironmentOptions {
   readonly apiPort?: number;
@@ -184,6 +185,20 @@ export async function createSyntheticAndroidE2eEnvironment(
             return { status: 'service_unavailable' as const };
           },
         },
+        timeReview: {
+          async queryTimeRecords() {
+            return { status: 'unavailable' as const };
+          },
+          async correctTimeRecord() {
+            return { status: 'unavailable' as const };
+          },
+          async queryReviewItems() {
+            return { status: 'unavailable' as const };
+          },
+          async adjudicateReviewItems() {
+            return { status: 'unavailable' as const };
+          },
+        },
       },
       {
         onDiagnostic(diagnostic) {
@@ -208,6 +223,9 @@ export async function createSyntheticAndroidE2eEnvironment(
               return;
             case 'time_entry_export_failed':
               onSafeEvent('api_time_entry_export_unavailable');
+              return;
+            case 'time_review_failed':
+              onSafeEvent('api_time_review_unavailable');
               return;
             default:
               return diagnostic.code satisfies never;

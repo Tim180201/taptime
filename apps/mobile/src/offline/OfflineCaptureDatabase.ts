@@ -1097,6 +1097,29 @@ export class OfflineCaptureDatabase {
     });
   }
 
+  clearReviewPendingSequence(
+    expectedSequence: number,
+    confirmedThroughSequence: number,
+  ): Promise<boolean> {
+    if (
+      !Number.isSafeInteger(expectedSequence)
+      || expectedSequence <= 0
+      || !Number.isSafeInteger(confirmedThroughSequence)
+      || confirmedThroughSequence < expectedSequence
+    ) return Promise.resolve(false);
+    return this.serialized(async () => {
+      const updated = await this.requireReady().runAsync(
+        `UPDATE offline_owner
+         SET review_pending_sequence = NULL
+         WHERE singleton_id = 1
+           AND review_pending_sequence = ?
+           AND review_pending_sequence <= ?`,
+        [expectedSequence, confirmedThroughSequence],
+      );
+      return updated.changes === 1;
+    });
+  }
+
   queueCount(): Promise<number> {
     return this.serialized(async () => {
       const row = await this.requireReady().getFirstAsync<{ readonly count: number }>(

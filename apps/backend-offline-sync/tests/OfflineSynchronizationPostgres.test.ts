@@ -5,7 +5,7 @@ import {
   ServerCanonicalLifecycleIngestionCoordinator,
   type LifecycleIngestionCommand,
 } from '@taptime/backend-lifecycle';
-import { migrate } from '@taptime/backend-schema';
+import { B3_MIGRATION_TABLE, B3_SCHEMA, migrate } from '@taptime/backend-schema';
 import {
   CustomerId,
   NfcAssignmentId,
@@ -95,6 +95,8 @@ beforeAll(async () => {
   canonicalJwksServer = jwksInfrastructure.server;
   issuer = new URL('/offline-cross-route/auth/v1', jwksInfrastructure.origin).href;
 
+  await installerPool.query(`DROP SCHEMA IF EXISTS ${B3_SCHEMA} CASCADE`);
+  await installerPool.query(`DROP TABLE IF EXISTS ${B3_MIGRATION_TABLE}`);
   await migrate(installerPool);
   await ensureLogin(leaseLogin, ['taptime_offline_lease_issuer']);
   await ensureLogin(eventLogin, ['taptime_offline_event_ingestor']);
@@ -212,10 +214,10 @@ beforeEach(async () => {
 
 afterAll(async () => {
   await Promise.all([
-    leasePool.end(),
-    eventPool.end(),
-    reconciliationPool.end(),
-    canonicalPool.end(),
+    leasePool?.end(),
+    eventPool?.end(),
+    reconciliationPool?.end(),
+    canonicalPool?.end(),
   ]);
   await closeServer(canonicalJwksServer);
   await installerPool.end();
@@ -335,6 +337,26 @@ describe('complete offline PostgreSQL boundary', () => {
         result: { status: 'synchronized', decision: { status: 'time_entry_started' } },
       }],
     });
+    await expect(reconciliationCoordinator.readReviewState({
+      accessToken: 'valid',
+      request: {
+        expectedMembershipId: ids.membership,
+        installationId: lease.installationId,
+      },
+    })).resolves.toEqual({
+      status: 'ready',
+      value: {
+        status: 'clear', expectedMembershipId: ids.membership,
+        installationId: lease.installationId, confirmedThroughSequence: 1,
+      },
+    });
+    await expect(reconciliationCoordinator.readReviewState({
+      accessToken: 'valid',
+      request: {
+        expectedMembershipId: ids.membership,
+        installationId: '99000000-0000-4000-8000-000000000099',
+      },
+    })).resolves.toEqual({ status: 'authority_rejected' });
 
     const counts = await installerPool.query<{
       events: string;
@@ -685,6 +707,19 @@ describe('complete offline PostgreSQL boundary', () => {
         workEventId: ids.event1,
         receiptId: ids.receipt1,
         deviceSequence: 1,
+      });
+      await expect(reconciliationCoordinator.readReviewState({
+        accessToken: 'valid',
+        request: {
+          expectedMembershipId: ids.membership,
+          installationId: lease.installationId,
+        },
+      })).resolves.toEqual({
+        status: 'ready',
+        value: {
+          status: 'review_pending', expectedMembershipId: ids.membership,
+          installationId: lease.installationId, earliestUnresolvedSequence: 1,
+        },
       });
       const durable = await installerPool.query<{
         readonly clock_proof_status: string;

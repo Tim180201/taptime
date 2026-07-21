@@ -112,9 +112,14 @@ export class OfflineSyncScheduler {
       const queueCount = await this.safeQueueCount();
       if (queueCount === null) return this.publish({ status: 'protected', queueCount: 0 });
       if (queueCount === 0) {
-        const reviewPendingSequence = await this.safeReviewPendingSequence();
+        let reviewPendingSequence = await this.safeReviewPendingSequence();
         if (reviewPendingSequence === undefined) {
           return this.publish({ status: 'protected', queueCount: 0 });
+        }
+        if (reviewPendingSequence !== null && lastDurable?.status !== 'review_pending') {
+          reviewPendingSequence = await this.reconcileReviewPendingSequence(
+            reviewPendingSequence,
+          );
         }
         if (
           lastDurable?.status === 'review_pending'
@@ -403,6 +408,31 @@ export class OfflineSyncScheduler {
       return await this.database.readReviewPendingSequence();
     } catch {
       return undefined;
+    }
+  }
+
+  private async reconcileReviewPendingSequence(
+    expectedSequence: number,
+  ): Promise<number | null> {
+    try {
+      const context = await this.database.readActiveCaptureContext();
+      if (context === null) return expectedSequence;
+      const state = await this.offlineLifecycle.readReviewState({
+        expectedMembershipId: context.membershipId,
+        installationId: context.installationId,
+      });
+      if (
+        state.status !== 'clear'
+        || state.expectedMembershipId !== context.membershipId
+        || state.installationId !== context.installationId
+        || state.confirmedThroughSequence < expectedSequence
+      ) return expectedSequence;
+      return await this.database.clearReviewPendingSequence(
+        expectedSequence,
+        state.confirmedThroughSequence,
+      ) ? null : expectedSequence;
+    } catch {
+      return expectedSequence;
     }
   }
 

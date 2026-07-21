@@ -14,6 +14,16 @@ export function App({ administration }: { readonly administration: AdminWebCapab
   const [employeeName, setEmployeeName] = useState('');
   const [reassignmentTagId, setReassignmentTagId] = useState('');
   const [reassignmentTargetCustomerId, setReassignmentTargetCustomerId] = useState('');
+  const [correctionRecordId, setCorrectionRecordId] = useState('');
+  const [correctionStartedAt, setCorrectionStartedAt] = useState('');
+  const [correctionStoppedAt, setCorrectionStoppedAt] = useState('');
+  const [correctionReason, setCorrectionReason] = useState('');
+  const [reviewItemId, setReviewItemId] = useState('');
+  const [reviewResolution, setReviewResolution] = useState<'no_time_record_change' | 'adjust_existing_time_record' | 'create_recovered_time_record'>('no_time_record_change');
+  const [reviewRecordId, setReviewRecordId] = useState('');
+  const [reviewStartedAt, setReviewStartedAt] = useState('');
+  const [reviewStoppedAt, setReviewStoppedAt] = useState('');
+  const [reviewReason, setReviewReason] = useState('');
 
   if (state.status === 'signed_out' || state.status === 'signing_in') {
     return <main className="login"><section className="login-card">
@@ -72,6 +82,8 @@ export function App({ administration }: { readonly administration: AdminWebCapab
       <article><strong>{state.projection.customers.length}</strong><span>Kunden</span></article>
       <article><strong>{state.projection.nfcTags.length}</strong><span>NFC-Tags</span></article>
       <article><strong>{state.employeeProjection.employeeMemberships.length}</strong><span>Beschäftigte</span></article>
+      <article><strong>{state.timeRecords.length}</strong><span>Arbeitszeiten</span></article>
+      <article><strong>{state.reviewItems.length}</strong><span>Offene Reviews</span></article>
     </section>
     {state.notice ? <p role="status" className="notice">{state.notice}</p> : null}
     <div className="grid">
@@ -216,6 +228,129 @@ export function App({ administration }: { readonly administration: AdminWebCapab
               Weitere Beschäftigte laden
             </button>}
       </section>
+      <section className="panel time-review-panel">
+        <div className="panel-heading">
+          <div>
+            <h2>Arbeitszeiten</h2>
+            <p className="muted">Begrenzt von {formatDateTime(state.timeWindow.fromInclusive)} bis {formatDateTime(state.timeWindow.toExclusive)}.</p>
+          </div>
+          <button
+            className="secondary"
+            disabled={state.timeReviewBusy}
+            onClick={() => void administration.exportTimeRecords()}
+          >CSV exportieren</button>
+        </div>
+        <div className="table-scroll">
+          <table>
+            <thead><tr><th>Beschäftigt</th><th>Kunde</th><th>Zeitraum</th><th>Quelle</th><th>Revision</th><th>Status</th></tr></thead>
+            <tbody>{state.timeRecords.map((record) => <tr key={record.timeRecordId}>
+              <td>{record.employeeDisplayName}</td><td>{record.customerDisplayName}</td>
+              <td>{formatDateTime(record.startedAt)} – {record.stoppedAt === null ? 'läuft' : formatDateTime(record.stoppedAt)}</td>
+              <td>{record.source === 'canonical' ? 'Kanonisch' : 'Wiederhergestellt'}</td>
+              <td>{record.effectiveRevisionNumber}</td>
+              <td>{record.status === 'started' ? 'Gestartet' : 'Gestoppt'}{record.overlapsAnotherRecord ? ' · Überschneidung' : ''}</td>
+            </tr>)}</tbody>
+          </table>
+        </div>
+        {state.timeRecords.length === 0 ? <p className="empty">Keine Arbeitszeiten im begrenzten Zeitraum.</p> : null}
+        <form className="decision-form" onSubmit={(event) => {
+          event.preventDefault();
+          administration.prepareCorrection(
+            correctionRecordId,
+            toCanonicalTimestamp(correctionStartedAt),
+            toCanonicalTimestamp(correctionStoppedAt),
+            correctionReason,
+          );
+        }}>
+          <h3>Abgeschlossene Arbeitszeit korrigieren</h3>
+          <label>Arbeitszeit
+            <select required value={correctionRecordId} disabled={state.timeReviewBusy || state.correctionIntent !== null} onChange={(event) => {
+              const id = event.target.value;
+              setCorrectionRecordId(id);
+              const selected = state.timeRecords.find((record) => record.timeRecordId === id);
+              setCorrectionStartedAt(selected === undefined ? '' : toLocalTimestamp(selected.startedAt));
+              setCorrectionStoppedAt(selected?.stoppedAt === null || selected === undefined ? '' : toLocalTimestamp(selected.stoppedAt));
+            }}>
+              <option value="">Arbeitszeit auswählen</option>
+              {state.timeRecords.filter((record) => record.status === 'stopped').map((record) => <option key={record.timeRecordId} value={record.timeRecordId}>
+                {record.employeeDisplayName} · {record.customerDisplayName} · {formatDateTime(record.startedAt)}
+              </option>)}
+            </select>
+          </label>
+          <label>Neuer Beginn<input required type="datetime-local" step="0.001" value={correctionStartedAt} disabled={state.timeReviewBusy || state.correctionIntent !== null} onChange={(event) => setCorrectionStartedAt(event.target.value)} /></label>
+          <label>Neues Ende<input required type="datetime-local" step="0.001" value={correctionStoppedAt} disabled={state.timeReviewBusy || state.correctionIntent !== null} onChange={(event) => setCorrectionStoppedAt(event.target.value)} /></label>
+          <label>Begründung<textarea required maxLength={500} value={correctionReason} disabled={state.timeReviewBusy || state.correctionIntent !== null} onChange={(event) => setCorrectionReason(event.target.value)} /></label>
+          <button disabled={state.timeReviewBusy || state.correctionIntent !== null}>Korrektur prüfen</button>
+        </form>
+        {state.correctionIntent === null ? null : <aside className="decision-confirmation" aria-label="Korrektur ausdrücklich bestätigen">
+          <strong>Korrektur wirklich protokollieren?</strong>
+          <dl>
+            <dt>Vorher</dt><dd>{formatDateTime(state.correctionIntent.timeRecord.startedAt)} – {formatDateTime(state.correctionIntent.timeRecord.stoppedAt!)}</dd>
+            <dt>Nachher</dt><dd>{formatDateTime(state.correctionIntent.startedAt)} – {formatDateTime(state.correctionIntent.stoppedAt)}</dd>
+            <dt>Begründung</dt><dd>{state.correctionIntent.reason}</dd>
+          </dl>
+          <div className="confirmation-actions">
+            <button disabled={state.timeReviewBusy} onClick={() => void administration.confirmCorrection()}>{state.timeReviewBusy ? 'Wird protokolliert …' : 'Korrektur ausdrücklich bestätigen'}</button>
+            <button className="secondary" disabled={state.timeReviewBusy} onClick={() => administration.cancelCorrection()}>Abbrechen</button>
+          </div>
+        </aside>}
+      </section>
+      <section className="panel time-review-panel">
+        <h2>Review-Evidence</h2>
+        <ul className="review-list">{state.reviewItems.map((item) => <li key={item.reviewItemId}>
+          <div><strong>{item.employeeDisplayName} · {item.customerDisplayName}</strong><small>{formatDateTime(item.occurredAt)} · {item.source === 'offline_v2' ? 'Offline V2' : 'Server Legacy'}</small></div>
+          <span>{reviewReasonLabel(item.reviewReason)}{item.predecessorBlocked ? ' · Vorgänger blockiert' : ''}</span>
+        </li>)}</ul>
+        {state.reviewItems.length === 0 ? <p className="empty">Keine offene Review-Evidence.</p> : null}
+        <form className="decision-form" onSubmit={(event) => {
+          event.preventDefault();
+          administration.prepareAdjudication(
+            reviewItemId, reviewResolution,
+            reviewResolution === 'adjust_existing_time_record' ? reviewRecordId : null,
+            reviewResolution === 'no_time_record_change' ? null : toCanonicalTimestamp(reviewStartedAt),
+            reviewResolution === 'no_time_record_change' ? null : toCanonicalTimestamp(reviewStoppedAt),
+            reviewReason,
+          );
+        }}>
+          <h3>Evidence entscheiden</h3>
+          <label>Review-Evidence<select required value={reviewItemId} disabled={state.timeReviewBusy || state.adjudicationIntent !== null} onChange={(event) => setReviewItemId(event.target.value)}>
+            <option value="">Evidence auswählen</option>
+            {state.reviewItems.map((item) => <option key={item.reviewItemId} value={item.reviewItemId}>{item.employeeDisplayName} · {item.customerDisplayName} · {formatDateTime(item.occurredAt)}</option>)}
+          </select></label>
+          <label>Entscheidung<select value={reviewResolution} disabled={state.timeReviewBusy || state.adjudicationIntent !== null} onChange={(event) => setReviewResolution(event.target.value as typeof reviewResolution)}>
+            <option value="no_time_record_change">Keine Arbeitszeit ändern</option>
+            <option value="create_recovered_time_record">Arbeitszeit wiederherstellen</option>
+            <option value="adjust_existing_time_record">Bestehende Arbeitszeit korrigieren</option>
+          </select></label>
+          {reviewResolution === 'adjust_existing_time_record' ? <label>Bestehende Arbeitszeit<select required value={reviewRecordId} disabled={state.timeReviewBusy || state.adjudicationIntent !== null} onChange={(event) => {
+            const id = event.target.value;
+            setReviewRecordId(id);
+            const selected = state.timeRecords.find((record) => record.timeRecordId === id);
+            setReviewStartedAt(selected === undefined ? '' : toLocalTimestamp(selected.startedAt));
+            setReviewStoppedAt(selected?.stoppedAt === null || selected === undefined ? '' : toLocalTimestamp(selected.stoppedAt));
+          }}><option value="">Arbeitszeit auswählen</option>{state.timeRecords.filter((record) => record.status === 'stopped').map((record) => <option key={record.timeRecordId} value={record.timeRecordId}>{record.employeeDisplayName} · {formatDateTime(record.startedAt)}</option>)}</select></label> : null}
+          {reviewResolution === 'no_time_record_change' ? null : <>
+            <label>Beginn<input required type="datetime-local" step="0.001" value={reviewStartedAt} disabled={state.timeReviewBusy || state.adjudicationIntent !== null} onChange={(event) => setReviewStartedAt(event.target.value)} /></label>
+            <label>Ende<input required type="datetime-local" step="0.001" value={reviewStoppedAt} disabled={state.timeReviewBusy || state.adjudicationIntent !== null} onChange={(event) => setReviewStoppedAt(event.target.value)} /></label>
+          </>}
+          <label>Begründung<textarea required maxLength={500} value={reviewReason} disabled={state.timeReviewBusy || state.adjudicationIntent !== null} onChange={(event) => setReviewReason(event.target.value)} /></label>
+          <button disabled={state.timeReviewBusy || state.adjudicationIntent !== null}>Review-Entscheidung prüfen</button>
+        </form>
+        {state.adjudicationIntent === null ? null : <aside className="decision-confirmation" aria-label="Review-Entscheidung ausdrücklich bestätigen">
+          <strong>Review-Entscheidung wirklich protokollieren?</strong>
+          <dl>
+            <dt>Evidence</dt><dd>{state.adjudicationIntent.reviewItem.employeeDisplayName} · {formatDateTime(state.adjudicationIntent.reviewItem.occurredAt)}</dd>
+            <dt>Entscheidung</dt><dd>{resolutionLabel(state.adjudicationIntent.resolution)}</dd>
+            {state.adjudicationIntent.timeRecord === null ? null : <><dt>Vorher</dt><dd>{formatDateTime(state.adjudicationIntent.timeRecord.startedAt)} – {formatDateTime(state.adjudicationIntent.timeRecord.stoppedAt!)}</dd></>}
+            {state.adjudicationIntent.startedAt === null ? null : <><dt>Nachher</dt><dd>{formatDateTime(state.adjudicationIntent.startedAt)} – {formatDateTime(state.adjudicationIntent.stoppedAt!)}</dd></>}
+            <dt>Begründung</dt><dd>{state.adjudicationIntent.reason}</dd>
+          </dl>
+          <div className="confirmation-actions">
+            <button disabled={state.timeReviewBusy} onClick={() => void administration.confirmAdjudication()}>{state.timeReviewBusy ? 'Wird protokolliert …' : 'Review ausdrücklich bestätigen'}</button>
+            <button className="secondary" disabled={state.timeReviewBusy} onClick={() => administration.cancelAdjudication()}>Abbrechen</button>
+          </div>
+        </aside>}
+      </section>
     </div>
     {state.projection.nextCursor === null ? null : <div className="more">
       <button className="secondary" onClick={() => administration.loadMore()}>
@@ -223,4 +358,37 @@ export function App({ administration }: { readonly administration: AdminWebCapab
       </button>
     </div>}
   </main>;
+}
+
+function formatDateTime(value: string): string {
+  return new Date(value).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' });
+}
+
+function toLocalTimestamp(value: string): string {
+  const date = new Date(value);
+  const offset = date.getTimezoneOffset() * 60_000;
+  return new Date(date.getTime() - offset).toISOString().slice(0, 23);
+}
+
+function toCanonicalTimestamp(value: string): string {
+  const epoch = Date.parse(value);
+  return Number.isFinite(epoch) ? new Date(epoch).toISOString() : '';
+}
+
+function reviewReasonLabel(value: string): string {
+  const labels: Record<string, string> = {
+    identity_or_membership_not_current: 'Identität oder Mitgliedschaft nicht aktuell',
+    capture_time_out_of_bounds: 'Erfassungszeit außerhalb des Fensters',
+    automatic_window_elapsed: 'Automatisches Zeitfenster abgelaufen',
+    historical_configuration_not_valid: 'Historische Konfiguration ungültig',
+    predecessor_requires_review: 'Vorgänger benötigt Review',
+    server_lifecycle_deferred: 'Server-Lifecycle zurückgestellt',
+  };
+  return labels[value] ?? 'Review erforderlich';
+}
+
+function resolutionLabel(value: string): string {
+  if (value === 'no_time_record_change') return 'Keine Arbeitszeit ändern';
+  if (value === 'create_recovered_time_record') return 'Arbeitszeit wiederherstellen';
+  return 'Bestehende Arbeitszeit korrigieren';
 }

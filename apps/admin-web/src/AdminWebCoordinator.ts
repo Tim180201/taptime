@@ -1,12 +1,16 @@
 import type {
   AdminWebCapability,
   AdminWebState,
+  ReviewAdjudicationIntent,
   SafeEmployeeProjection,
   SafeProjection,
+  SafeReviewItem,
+  SafeTimeRecord,
   VolatileInvitationSecret,
 } from './contracts';
 import { AdminWebApiClient, type AdminWebApiPort } from './AdminWebApiClient';
 import { isSafeEmployeeProjectionPage } from './employeeProjectionSafety';
+import { isValidTimeReviewReason } from '@taptime/time-review-contract';
 
 export interface AdminWebAuthPort {
   signIn(email: string, password: string): Promise<boolean>;
@@ -27,6 +31,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
   constructor(
     private readonly auth: AdminWebAuthPort,
     private readonly api: AdminWebApiPort = new AdminWebApiClient(),
+    private readonly now: () => number = () => Date.now(),
   ) {}
 
   getState(): AdminWebState { return this.state; }
@@ -54,30 +59,24 @@ export class AdminWebCoordinator implements AdminWebCapability {
     const generation = this.generation;
     this.setState({ status: 'loading' });
     let result;
-    let employees;
     try {
-      result = await this.auth.withAccessToken((token) => this.api.projection(token, membershipId, null));
-      employees = result?.status === 'succeeded'
-        ? await this.auth.withAccessToken((token) => this.api.employeeProjection(token, membershipId, null))
-        : null;
+      result = await this.loadReadyData(membershipId);
     } catch {
       result = null;
-      employees = null;
     }
     if (generation !== this.generation) return;
-    if (result?.status === 'succeeded' && employees?.status === 'succeeded') {
-      this.setState(readyState(result.value, employees.value));
-    } else if (
-      result === null
-      || result.status === 'rejected'
-      || (
-        result.status === 'succeeded'
-        && (employees === null || employees.status === 'rejected')
-      )
-    ) {
+    if (result?.status === 'succeeded') {
+      this.setState(readyState(
+        result.projection,
+        result.employeeProjection,
+        result.timeRecords,
+        result.reviewItems,
+        result.timeWindow,
+      ));
+    } else if (result === null || result.status === 'rejected') {
       await this.rejectOutsideAuthentication(generation, 'Administrator-Sitzung ist nicht mehr gültig.');
     } else {
-      this.setState({ status: 'unavailable', message: 'Einrichtungsdaten sind derzeit nicht erreichbar.' });
+      this.setState({ status: 'unavailable', message: 'Administrationsdaten sind derzeit nicht erreichbar.' });
     }
   }
 
@@ -371,6 +370,241 @@ export class AdminWebCoordinator implements AdminWebCapability {
     });
   }
 
+  prepareCorrection(
+    timeRecordId: string,
+    startedAt: string,
+    stoppedAt: string,
+    reason: string,
+  ): void {
+    const current = this.state;
+    if (current.status !== 'ready' || current.timeReviewBusy) return;
+    const record = current.timeRecords.find((candidate) => candidate.timeRecordId === timeRecordId);
+    if (
+      record === undefined || record.status !== 'stopped' || record.stoppedAt === null
+      || !isClosedInterval(startedAt, stoppedAt, this.now()) || !isValidTimeReviewReason(reason)
+      || (record.startedAt === startedAt && record.stoppedAt === stoppedAt)
+    ) {
+      this.setState({ ...current, correctionIntent: null, notice: 'Die Korrekturangaben sind nicht sicher verwendbar.' });
+      return;
+    }
+    this.setState({
+      ...current,
+      invitation: null,
+      reassignmentIntent: null,
+      adjudicationIntent: null,
+      correctionIntent: Object.freeze({
+        commandId: crypto.randomUUID(), timeRecord: record, startedAt, stoppedAt, reason,
+      }),
+      notice: null,
+    });
+  }
+
+  cancelCorrection(): void {
+    const current = this.state;
+    if (current.status !== 'ready' || current.correctionIntent === null || current.timeReviewBusy) return;
+    this.setState({ ...current, correctionIntent: null, notice: 'Korrektur wurde verworfen.' });
+  }
+
+  async confirmCorrection(): Promise<void> {
+    const current = this.state;
+    const membershipId = this.membershipId;
+    if (current.status !== 'ready' || current.correctionIntent === null
+      || current.timeReviewBusy || membershipId === null) return;
+    const generation = this.generation;
+    const intent = current.correctionIntent;
+    this.setState({ ...current, invitation: null, timeReviewBusy: true, notice: null });
+    let result;
+    try {
+      result = await this.auth.withAccessToken((token) => this.api.correctTimeRecord(
+        token, membershipId, intent.commandId, intent.timeRecord,
+        intent.startedAt, intent.stoppedAt, intent.reason,
+      ));
+    } catch {
+      result = { status: 'unavailable' as const };
+    }
+    if (generation !== this.generation) return;
+    const latest = this.state;
+    if (latest.status !== 'ready' || latest.correctionIntent?.commandId !== intent.commandId) return;
+    if (result?.status === 'succeeded') {
+      await this.refresh();
+      if (generation === this.generation && this.state.status === 'ready') {
+        this.setState({ ...this.state, notice: 'Arbeitszeit wurde append-only korrigiert.' });
+      }
+    } else if (result === null || result.status === 'rejected') {
+      await this.rejectOutsideAuthentication(generation, 'Administrator-Sitzung ist nicht mehr gültig.');
+    } else if (result.status === 'conflict') {
+      await this.refresh();
+      if (generation === this.generation && this.state.status === 'ready') {
+        this.setState({ ...this.state, notice: correctionConflictNotice(result.code) });
+      }
+    } else {
+      this.setState({
+        ...latest, timeReviewBusy: false,
+        notice: 'Korrektur konnte nicht sicher bestätigt werden. Erneut bestätigen verwendet dieselbe Anfrage.',
+      });
+    }
+  }
+
+  prepareAdjudication(
+    reviewItemId: string,
+    resolution: ReviewAdjudicationIntent['resolution'],
+    timeRecordId: string | null,
+    startedAt: string | null,
+    stoppedAt: string | null,
+    reason: string,
+  ): void {
+    const current = this.state;
+    if (current.status !== 'ready' || current.timeReviewBusy) return;
+    const reviewItem = current.reviewItems.find((candidate) => candidate.reviewItemId === reviewItemId);
+    const record = timeRecordId === null
+      ? null : current.timeRecords.find((candidate) => candidate.timeRecordId === timeRecordId) ?? null;
+    const noChangeIsValid = resolution === 'no_time_record_change'
+      && timeRecordId === null && startedAt === null && stoppedAt === null;
+    const recoveredIsValid = resolution === 'create_recovered_time_record'
+      && timeRecordId === null && startedAt !== null && stoppedAt !== null
+      && isClosedInterval(startedAt, stoppedAt, this.now());
+    const adjustmentIsValid = resolution === 'adjust_existing_time_record'
+      && record?.status === 'stopped' && record.stoppedAt !== null
+      && startedAt !== null && stoppedAt !== null
+      && isClosedInterval(startedAt, stoppedAt, this.now())
+      && (record.startedAt !== startedAt || record.stoppedAt !== stoppedAt);
+    if (reviewItem === undefined || !isValidTimeReviewReason(reason)
+      || (!noChangeIsValid && !recoveredIsValid && !adjustmentIsValid)) {
+      this.setState({ ...current, adjudicationIntent: null, notice: 'Die Review-Entscheidung ist nicht sicher verwendbar.' });
+      return;
+    }
+    this.setState({
+      ...current,
+      invitation: null,
+      reassignmentIntent: null,
+      correctionIntent: null,
+      adjudicationIntent: Object.freeze({
+        commandId: crypto.randomUUID(), reviewItem, resolution,
+        timeRecord: record, startedAt, stoppedAt, reason,
+      }),
+      notice: null,
+    });
+  }
+
+  cancelAdjudication(): void {
+    const current = this.state;
+    if (current.status !== 'ready' || current.adjudicationIntent === null || current.timeReviewBusy) return;
+    this.setState({ ...current, adjudicationIntent: null, notice: 'Review-Entscheidung wurde verworfen.' });
+  }
+
+  async confirmAdjudication(): Promise<void> {
+    const current = this.state;
+    const membershipId = this.membershipId;
+    if (current.status !== 'ready' || current.adjudicationIntent === null
+      || current.timeReviewBusy || membershipId === null) return;
+    const generation = this.generation;
+    const intent = current.adjudicationIntent;
+    const resolution = buildResolution(intent);
+    if (resolution === null) return;
+    this.setState({ ...current, invitation: null, timeReviewBusy: true, notice: null });
+    let result;
+    try {
+      result = await this.auth.withAccessToken((token) => this.api.adjudicateReviewItem(
+        token, membershipId, intent.commandId, intent.reviewItem.reviewItemId,
+        resolution, intent.reason,
+      ));
+    } catch {
+      result = { status: 'unavailable' as const };
+    }
+    if (generation !== this.generation) return;
+    const latest = this.state;
+    if (latest.status !== 'ready' || latest.adjudicationIntent?.commandId !== intent.commandId) return;
+    if (result?.status === 'succeeded') {
+      await this.refresh();
+      if (generation === this.generation && this.state.status === 'ready') {
+        this.setState({ ...this.state, notice: 'Review-Entscheidung wurde append-only protokolliert.' });
+      }
+    } else if (result === null || result.status === 'rejected') {
+      await this.rejectOutsideAuthentication(generation, 'Administrator-Sitzung ist nicht mehr gültig.');
+    } else if (result.status === 'conflict') {
+      await this.refresh();
+      if (generation === this.generation && this.state.status === 'ready') {
+        this.setState({ ...this.state, notice: adjudicationConflictNotice(result.code) });
+      }
+    } else {
+      this.setState({
+        ...latest, timeReviewBusy: false,
+        notice: 'Review-Entscheidung konnte nicht sicher bestätigt werden. Erneut bestätigen verwendet dieselbe Anfrage.',
+      });
+    }
+  }
+
+  async exportTimeRecords(): Promise<void> {
+    const current = this.state;
+    const membershipId = this.membershipId;
+    if (current.status !== 'ready' || current.timeReviewBusy || membershipId === null) return;
+    const generation = this.generation;
+    this.setState({ ...current, timeReviewBusy: true, notice: null });
+    let result;
+    try {
+      result = await this.auth.withAccessToken((token) => this.api.exportTimeEntries(
+        token, membershipId, current.timeWindow.fromInclusive, current.timeWindow.toExclusive,
+      ));
+    } catch {
+      result = { status: 'unavailable' as const };
+    }
+    if (generation !== this.generation) return;
+    const latest = this.state;
+    if (latest.status !== 'ready') return;
+    if (result?.status === 'succeeded') {
+      try {
+        const href = URL.createObjectURL(result.value.blob);
+        const anchor = document.createElement('a');
+        anchor.href = href;
+        anchor.download = result.value.filename;
+        anchor.rel = 'noopener';
+        anchor.click();
+        URL.revokeObjectURL(href);
+        this.setState({ ...latest, timeReviewBusy: false, notice: 'CSV-Export wurde erzeugt.' });
+      } catch {
+        this.setState({ ...latest, timeReviewBusy: false, notice: 'CSV-Export konnte nicht sicher bereitgestellt werden.' });
+      }
+    } else if (result === null || result.status === 'rejected') {
+      await this.rejectOutsideAuthentication(generation, 'Administrator-Sitzung ist nicht mehr gültig.');
+    } else {
+      this.setState({ ...latest, timeReviewBusy: false, notice: 'CSV-Export ist derzeit nicht verfügbar.' });
+    }
+  }
+
+  private async loadReadyData(membershipId: string): Promise<
+    | {
+        readonly status: 'succeeded'; readonly projection: SafeProjection;
+        readonly employeeProjection: SafeEmployeeProjection;
+        readonly timeRecords: readonly SafeTimeRecord[];
+        readonly reviewItems: readonly SafeReviewItem[];
+        readonly timeWindow: { readonly fromInclusive: string; readonly toExclusive: string };
+      }
+    | { readonly status: 'rejected' | 'unavailable' }
+  > {
+    const timeWindow = boundedTimeWindow(this.now());
+    const projection = await this.auth.withAccessToken(
+      (token) => this.api.projection(token, membershipId, null),
+    );
+    if (projection?.status !== 'succeeded') return classifyLoadFailure(projection);
+    const employees = await this.auth.withAccessToken(
+      (token) => this.api.employeeProjection(token, membershipId, null),
+    );
+    if (employees?.status !== 'succeeded') return classifyLoadFailure(employees);
+    const records = await this.auth.withAccessToken((token) => this.api.timeRecords(
+      token, membershipId, timeWindow.fromInclusive, timeWindow.toExclusive,
+    ));
+    if (records?.status !== 'succeeded') return classifyLoadFailure(records);
+    const reviewItems = await this.auth.withAccessToken(
+      (token) => this.api.reviewItems(token, membershipId),
+    );
+    if (reviewItems?.status !== 'succeeded') return classifyLoadFailure(reviewItems);
+    return {
+      status: 'succeeded', projection: projection.value,
+      employeeProjection: employees.value, timeRecords: records.value,
+      reviewItems: reviewItems.value, timeWindow,
+    };
+  }
+
   private async completeSignIn(generation: number, email: string, password: string): Promise<void> {
     try {
       if (!await this.auth.signIn(email, password)) {
@@ -391,20 +625,13 @@ export class AdminWebCoordinator implements AdminWebCapability {
       }
       this.membershipId = session.value.membershipId;
       this.setState({ status: 'loading' });
-      const projection = await this.auth.withAccessToken((token) => this.api.projection(token, session.value.membershipId, null));
+      const projection = await this.loadReadyData(session.value.membershipId);
       if (generation !== this.generation) { await this.safeSignOut(); return; }
       if (projection?.status === 'succeeded') {
-        const employees = await this.auth.withAccessToken(
-          (token) => this.api.employeeProjection(token, session.value.membershipId, null),
-        );
-        if (generation !== this.generation) { await this.safeSignOut(); return; }
-        if (employees?.status === 'succeeded') {
-          this.setState(readyState(projection.value, employees.value));
-        } else if (employees === null || employees.status === 'rejected') {
-          await this.rejectWithinAuthentication(generation, 'Administrator-Sitzung ist nicht mehr gültig.');
-        } else {
-          this.setState({ status: 'unavailable', message: 'Beschäftigtendaten sind derzeit nicht erreichbar.' });
-        }
+        this.setState(readyState(
+          projection.projection, projection.employeeProjection, projection.timeRecords,
+          projection.reviewItems, projection.timeWindow,
+        ));
       } else if (projection === null || projection.status === 'rejected') {
         await this.rejectWithinAuthentication(generation, 'Administrator-Sitzung ist nicht mehr gültig.');
       } else {
@@ -499,6 +726,9 @@ export class AdminWebCoordinator implements AdminWebCapability {
 function readyState(
   projection: SafeProjection,
   employeeProjection: SafeEmployeeProjection,
+  timeRecords: readonly SafeTimeRecord[],
+  reviewItems: readonly SafeReviewItem[],
+  timeWindow: { readonly fromInclusive: string; readonly toExclusive: string },
 ): Extract<AdminWebState, { readonly status: 'ready' }> {
   if (
     projection.organization.id !== employeeProjection.organization.id
@@ -516,6 +746,12 @@ function readyState(
     invitation: null,
     reassignmentIntent: null,
     reassigning: false,
+    timeRecords,
+    reviewItems,
+    timeWindow,
+    timeReviewBusy: false,
+    correctionIntent: null,
+    adjudicationIntent: null,
     notice: null,
   };
 }
@@ -554,4 +790,60 @@ function mergeEmployeeProjection(
     ]),
     nextCursor: next.nextCursor,
   });
+}
+
+function boundedTimeWindow(now: number): { readonly fromInclusive: string; readonly toExclusive: string } {
+  const maximumRangeMilliseconds = 31 * 24 * 60 * 60 * 1_000;
+  return Object.freeze({
+    fromInclusive: new Date(now - maximumRangeMilliseconds).toISOString(),
+    toExclusive: new Date(now).toISOString(),
+  });
+}
+
+function isClosedInterval(startedAt: string, stoppedAt: string, now: number): boolean {
+  const canonical = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
+  if (!canonical.test(startedAt) || !canonical.test(stoppedAt)) return false;
+  const start = Date.parse(startedAt);
+  const stop = Date.parse(stoppedAt);
+  return Number.isFinite(start) && Number.isFinite(stop)
+    && new Date(start).toISOString() === startedAt
+    && new Date(stop).toISOString() === stoppedAt
+    && start <= stop && stop <= now;
+}
+
+function buildResolution(intent: ReviewAdjudicationIntent): object | null {
+  if (intent.resolution === 'no_time_record_change') return Object.freeze({ type: intent.resolution });
+  if (intent.startedAt === null || intent.stoppedAt === null) return null;
+  if (intent.resolution === 'create_recovered_time_record') {
+    return Object.freeze({
+      type: intent.resolution, startedAt: intent.startedAt, stoppedAt: intent.stoppedAt,
+    });
+  }
+  if (intent.timeRecord === null) return null;
+  return Object.freeze({
+    type: intent.resolution,
+    timeRecordId: intent.timeRecord.timeRecordId,
+    expectedBaseRowVersion: intent.timeRecord.baseRowVersion,
+    expectedRevisionNumber: intent.timeRecord.effectiveRevisionNumber,
+    startedAt: intent.startedAt,
+    stoppedAt: intent.stoppedAt,
+  });
+}
+
+function classifyLoadFailure(
+  result: { readonly status: string } | null,
+): { readonly status: 'rejected' | 'unavailable' } {
+  return { status: result === null || result.status === 'rejected' ? 'rejected' : 'unavailable' };
+}
+
+function correctionConflictNotice(code: string): string {
+  if (code === 'not_adjustable') return 'Nur abgeschlossene Arbeitszeiten können korrigiert werden.';
+  if (code === 'command_id_conflict') return 'Die Command-ID gehört bereits zu einer anderen Anfrage.';
+  return 'Die Arbeitszeit wurde zwischenzeitlich verändert. Daten wurden sicher neu geladen.';
+}
+
+function adjudicationConflictNotice(code: string): string {
+  if (code === 'invalid_evidence') return 'Die ausgewählte Review-Evidence kann nicht gemeinsam entschieden werden.';
+  if (code === 'command_id_conflict') return 'Die Command-ID gehört bereits zu einer anderen Anfrage.';
+  return 'Der Review-Stand wurde zwischenzeitlich verändert. Daten wurden sicher neu geladen.';
 }

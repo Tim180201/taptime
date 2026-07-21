@@ -384,4 +384,113 @@ describe('AdminWebApiClient', () => {
     expect(cancel).toHaveBeenCalledOnce();
     expect(chunkIndex).toBe(3);
   });
+
+  it('strictly parses bounded effective records while discarding authority-only identifiers', async () => {
+    const recordId = '90000000-0000-4000-8000-000000000001';
+    const fetchRequest = vi.fn<typeof fetch>(async () => json({
+      status: 'ready',
+      records: [{
+        timeRecordId: recordId,
+        employeeMembershipId: ids.employeeMembership,
+        employeeDisplayName: 'Employee Alpha',
+        customerId: ids.customer,
+        customerDisplayName: 'Werkstatt',
+        source: 'canonical', status: 'stopped',
+        startedAt: '2026-07-20T08:00:00.000Z', stoppedAt: '2026-07-20T10:00:00.000Z',
+        baseRowVersion: 1, effectiveRevisionNumber: 2, overlapsAnotherRecord: false,
+      }],
+      nextCursor: null,
+    }));
+    const client = new AdminWebApiClient(fetchRequest);
+
+    await expect(client.timeRecords(
+      'token', ids.membership, '2026-07-01T00:00:00.000Z', '2026-07-21T00:00:00.000Z',
+    )).resolves.toEqual({
+      status: 'succeeded',
+      value: [{
+        timeRecordId: recordId, employeeDisplayName: 'Employee Alpha',
+        customerDisplayName: 'Werkstatt', source: 'canonical', status: 'stopped',
+        startedAt: '2026-07-20T08:00:00.000Z', stoppedAt: '2026-07-20T10:00:00.000Z',
+        baseRowVersion: 1, effectiveRevisionNumber: 2, overlapsAnotherRecord: false,
+      }],
+    });
+    expect(JSON.parse(String(fetchRequest.mock.calls[0]?.[1]?.body))).toEqual({
+      expectedMembershipId: ids.membership,
+      fromInclusive: '2026-07-01T00:00:00.000Z',
+      toExclusive: '2026-07-21T00:00:00.000Z', limit: 100, cursor: null,
+    });
+  });
+
+  it('submits exact correction/adjudication commands and maps only safe write conflicts', async () => {
+    const record = {
+      timeRecordId: '90000000-0000-4000-8000-000000000001',
+      employeeDisplayName: 'Employee Alpha', customerDisplayName: 'Werkstatt',
+      source: 'canonical' as const, status: 'stopped' as const,
+      startedAt: '2026-07-20T08:00:00.000Z', stoppedAt: '2026-07-20T10:00:00.000Z',
+      baseRowVersion: 1, effectiveRevisionNumber: 2, overlapsAnotherRecord: false,
+    };
+    const fetchRequest = vi.fn<typeof fetch>(async () => json({
+      status: 'committed', timeRecordId: record.timeRecordId, revisionNumber: 3,
+      startedAt: '2026-07-20T08:15:00.000Z', stoppedAt: '2026-07-20T10:15:00.000Z',
+      idempotentRetry: false,
+    }));
+    const client = new AdminWebApiClient(fetchRequest);
+    await expect(client.correctTimeRecord(
+      'token', ids.membership, ids.command, record,
+      '2026-07-20T08:15:00.000Z', '2026-07-20T10:15:00.000Z', 'Beleg geprüft',
+    )).resolves.toEqual({ status: 'succeeded', value: true });
+    expect(JSON.parse(String(fetchRequest.mock.calls[0]?.[1]?.body))).toMatchObject({
+      expectedMembershipId: ids.membership, commandId: ids.command,
+      timeRecordId: record.timeRecordId, expectedBaseRowVersion: 1,
+      expectedRevisionNumber: 2, reason: 'Beleg geprüft',
+    });
+
+    fetchRequest.mockResolvedValueOnce(json({ error: { code: 'conflict' } }, 409));
+    await expect(client.correctTimeRecord(
+      'token', ids.membership, ids.command, record,
+      '2026-07-20T08:15:00.000Z', '2026-07-20T10:15:00.000Z', 'Beleg geprüft',
+    )).resolves.toEqual({ status: 'conflict', code: 'time_review_conflict' });
+  });
+
+  it('accepts only a bounded attachment response from the existing CSV route', async () => {
+    const fetchRequest = vi.fn<typeof fetch>(async () => new Response('schema_version\n1\n', {
+      status: 200,
+      headers: {
+        'Content-Type': 'text/csv; charset=utf-8',
+        'Content-Disposition': 'attachment; filename="taptime-time-entries_20260701T000000Z_20260721T000000Z.csv"',
+      },
+    }));
+    const client = new AdminWebApiClient(fetchRequest);
+    const result = await client.exportTimeEntries(
+      'token', ids.membership, '2026-07-01T00:00:00.000Z', '2026-07-21T00:00:00.000Z',
+    );
+    expect(result).toMatchObject({
+      status: 'succeeded',
+      value: { filename: 'taptime-time-entries_20260701T000000Z_20260721T000000Z.csv' },
+    });
+    expect(fetchRequest.mock.calls[0]?.[0]).toBe('/v1/administration/time-entries/export');
+  });
+
+  it('rejects an oversized CSV stream before returning a browser Blob', async () => {
+    let chunkIndex = 0;
+    const chunks = [new Uint8Array(8 * 1024 * 1024), new Uint8Array(1)];
+    const response = new Response(new ReadableStream<Uint8Array>({
+      pull(controller) {
+        const chunk = chunks[chunkIndex++];
+        if (chunk === undefined) controller.close(); else controller.enqueue(chunk);
+      },
+      cancel() { /* The client performs best-effort stream cancellation. */ },
+    }), {
+      status: 200,
+      headers: {
+        'Content-Type': 'text/csv; charset=utf-8',
+        'Content-Disposition': 'attachment; filename="taptime-time-entries_20260701T000000Z_20260721T000000Z.csv"',
+      },
+    });
+    const client = new AdminWebApiClient(vi.fn<typeof fetch>(async () => response));
+    await expect(client.exportTimeEntries(
+      'token', ids.membership, '2026-07-01T00:00:00.000Z', '2026-07-21T00:00:00.000Z',
+    )).resolves.toEqual({ status: 'unavailable' });
+    expect(chunkIndex).toBeGreaterThanOrEqual(2);
+  });
 });

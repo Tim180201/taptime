@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.3",
+    "@taptime/time-review-contract": "*",
     "@unicode/unicode-15.1.0": "1.6.17",
     "react": "19.2.3",
     "react-dom": "19.2.3"

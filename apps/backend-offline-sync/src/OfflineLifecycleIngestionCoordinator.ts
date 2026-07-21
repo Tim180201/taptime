@@ -38,6 +38,7 @@ import type { Pool, PoolClient, QueryResultRow } from 'pg';
 import { query, rollback, setOfflineActorContext } from './database.js';
 import type {
   AuthenticatedOfflineLifecycleEventCommand,
+  OfflineLifecycleIngestionControls,
   OfflineLifecycleIngestor,
 } from './types.js';
 
@@ -156,6 +157,7 @@ export class OfflineLifecycleIngestionCoordinator implements OfflineLifecycleIng
 
   async ingest(
     request: AuthenticatedOfflineLifecycleEventCommand,
+    controls: OfflineLifecycleIngestionControls = {},
   ): Promise<OfflineLifecycleEventResult> {
     validateCommand(request.command);
     const verification = await this.accessTokenVerifier.verify(request.accessToken);
@@ -198,6 +200,7 @@ export class OfflineLifecycleIngestionCoordinator implements OfflineLifecycleIng
          )`,
         [`${actor.organization_id}\u001f${actor.user_id}`],
       );
+      await controls.afterAuthorityLocked?.();
 
       const requestHash = offlineEventRequestHash(request.command);
       const bindingDigest = createHash('sha256')

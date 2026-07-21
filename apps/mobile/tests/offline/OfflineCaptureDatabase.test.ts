@@ -148,6 +148,11 @@ describe('OfflineCaptureDatabase state machine', () => {
         receiptId: ids.receipt1,
       }, 'review_pending');
       await expect(store.readReviewPendingSequence()).resolves.toBe(1);
+      await expect(store.clearReviewPendingSequence(1, 0)).resolves.toBe(false);
+      await expect(store.readReviewPendingSequence()).resolves.toBe(1);
+      await expect(store.clearReviewPendingSequence(2, 2)).resolves.toBe(false);
+      await expect(store.clearReviewPendingSequence(1, 1)).resolves.toBe(true);
+      await expect(store.readReviewPendingSequence()).resolves.toBeNull();
       expect((await store.claimHead(30_001))?.command.deviceSequence).toBe(2);
     });
 
@@ -439,6 +444,15 @@ class MemoryOfflineDatabase implements OfflineDatabaseConnection {
         )
       ) return { changes: 0 };
       this.owner.review_pending_sequence ??= Number(values[0]);
+      return { changes: 1 };
+    }
+    if (source.includes('SET review_pending_sequence = NULL')) {
+      if (
+        this.owner === null
+        || this.owner.review_pending_sequence !== Number(values[0])
+        || this.owner.review_pending_sequence > Number(values[1])
+      ) return { changes: 0 };
+      this.owner.review_pending_sequence = null;
       return { changes: 1 };
     }
     if (source.includes('DELETE FROM offline_event_queue')) {

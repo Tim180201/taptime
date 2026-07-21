@@ -18,9 +18,28 @@ function render(state: AdminWebState): string {
     prepareReassignment: vi.fn(() => undefined),
     cancelReassignment: vi.fn(() => undefined),
     confirmReassignment: vi.fn(async () => undefined),
+    prepareCorrection: vi.fn(() => undefined),
+    cancelCorrection: vi.fn(() => undefined),
+    confirmCorrection: vi.fn(async () => undefined),
+    prepareAdjudication: vi.fn(() => undefined),
+    cancelAdjudication: vi.fn(() => undefined),
+    confirmAdjudication: vi.fn(async () => undefined),
+    exportTimeRecords: vi.fn(async () => undefined),
   };
   return renderToStaticMarkup(<App administration={administration} />);
 }
+
+const timeReviewState = {
+  timeRecords: [],
+  reviewItems: [],
+  timeWindow: {
+    fromInclusive: '2026-06-20T12:00:00.000Z',
+    toExclusive: '2026-07-21T12:00:00.000Z',
+  },
+  timeReviewBusy: false,
+  correctionIntent: null,
+  adjudicationIntent: null,
+} as const;
 
 describe('Admin Web rendered states', () => {
   it('renders an explicitly labelled sign-in form with browser credential semantics', () => {
@@ -40,6 +59,7 @@ describe('Admin Web rendered states', () => {
 
   it('connects the hidden Customer label, exposes status notices, and labels safe fingerprints', () => {
     const html = render({
+      ...timeReviewState,
       status: 'ready',
       creating: false,
       creatingEmployee: false,
@@ -75,6 +95,7 @@ describe('Admin Web rendered states', () => {
 
   it('renders explicit empty states for both bounded setup lists', () => {
     const html = render({
+      ...timeReviewState,
       status: 'ready', creating: false, creatingEmployee: false, invitation: null,
       reassignmentIntent: null, reassigning: false, notice: null,
       employeeProjection: { organization: { id: '30000000-0000-4000-8000-000000000001', name: 'TapTim.e' }, employeeMemberships: [], nextCursor: null },
@@ -86,6 +107,7 @@ describe('Admin Web rendered states', () => {
 
   it('offers explicit cursor pagination only while another bounded page exists', () => {
     const html = render({
+      ...timeReviewState,
       status: 'ready', creating: false, creatingEmployee: false, invitation: null,
       reassignmentIntent: null, reassigning: false, notice: null,
       employeeProjection: { organization: { id: '30000000-0000-4000-8000-000000000001', name: 'TapTim.e' }, employeeMemberships: [], nextCursor: null },
@@ -101,6 +123,7 @@ describe('Admin Web rendered states', () => {
   it('renders the one-time invitation deliberately without storage or clipboard controls', () => {
     const secret = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
     const html = render({
+      ...timeReviewState,
       status: 'ready',
       creating: false,
       creatingEmployee: false,
@@ -126,5 +149,80 @@ describe('Admin Web rendered states', () => {
     expect(html).toContain('Geheimnis verwerfen');
     expect(html).toContain('Employee Alpha');
     expect(html).not.toMatch(/localStorage|sessionStorage|clipboard/i);
+  });
+
+  it('renders effective provenance, overlap, review evidence, and explicit correction confirmation', () => {
+    const record = {
+      timeRecordId: '80000000-0000-4000-8000-000000000001',
+      employeeDisplayName: 'Employee Alpha', customerDisplayName: 'Werkstatt',
+      source: 'recovered' as const, status: 'stopped' as const,
+      startedAt: '2026-07-20T08:00:00.000Z', stoppedAt: '2026-07-20T16:00:00.000Z',
+      baseRowVersion: 0, effectiveRevisionNumber: 2, overlapsAnotherRecord: true,
+    };
+    const reviewItem = {
+      reviewItemId: '90000000-0000-4000-8000-000000000001',
+      source: 'offline_v2' as const, employeeDisplayName: 'Employee Alpha',
+      customerDisplayName: 'Werkstatt', occurredAt: '2026-07-20T09:00:00.000Z',
+      reviewReason: 'predecessor_requires_review', deviceSequence: 7,
+      predecessorBlocked: true,
+    };
+    const html = render({
+      ...timeReviewState,
+      status: 'ready', creating: false, creatingEmployee: false, invitation: null,
+      reassignmentIntent: null, reassigning: false, notice: null,
+      projection: {
+        organization: { id: '30000000-0000-4000-8000-000000000001', name: 'TapTim.e' },
+        customers: [], nfcTags: [], nextCursor: null,
+      },
+      employeeProjection: {
+        organization: { id: '30000000-0000-4000-8000-000000000001', name: 'TapTim.e' },
+        employeeMemberships: [], nextCursor: null,
+      },
+      timeRecords: [record], reviewItems: [reviewItem],
+      correctionIntent: {
+        commandId: 'a0000000-0000-4000-8000-000000000001', timeRecord: record,
+        startedAt: '2026-07-20T08:15:00.000Z', stoppedAt: '2026-07-20T16:15:00.000Z',
+        reason: 'Beleg geprüft.',
+      },
+    });
+    expect(html).toContain('Wiederhergestellt');
+    expect(html).toContain('<td>2</td>');
+    expect(html).toContain('Gestoppt · Überschneidung');
+    expect(html).toContain('Vorgänger benötigt Review · Vorgänger blockiert');
+    expect(html).toContain('Korrektur wirklich protokollieren?');
+    expect(html).toContain('Korrektur ausdrücklich bestätigen');
+    expect(html).toContain('CSV exportieren');
+  });
+
+  it('renders the append-only review decision as a separate final confirmation', () => {
+    const reviewItem = {
+      reviewItemId: '90000000-0000-4000-8000-000000000001',
+      source: 'server_legacy' as const, employeeDisplayName: 'Employee Alpha',
+      customerDisplayName: 'Werkstatt', occurredAt: '2026-07-20T09:00:00.000Z',
+      reviewReason: 'server_lifecycle_deferred', deviceSequence: null,
+      predecessorBlocked: false,
+    };
+    const html = render({
+      ...timeReviewState,
+      status: 'ready', creating: false, creatingEmployee: false, invitation: null,
+      reassignmentIntent: null, reassigning: false, notice: null,
+      projection: {
+        organization: { id: '30000000-0000-4000-8000-000000000001', name: 'TapTim.e' },
+        customers: [], nfcTags: [], nextCursor: null,
+      },
+      employeeProjection: {
+        organization: { id: '30000000-0000-4000-8000-000000000001', name: 'TapTim.e' },
+        employeeMemberships: [], nextCursor: null,
+      },
+      reviewItems: [reviewItem],
+      adjudicationIntent: {
+        commandId: 'a0000000-0000-4000-8000-000000000002', reviewItem,
+        resolution: 'no_time_record_change', timeRecord: null,
+        startedAt: null, stoppedAt: null, reason: 'Keine Zeitänderung erforderlich.',
+      },
+    });
+    expect(html).toContain('Review-Entscheidung wirklich protokollieren?');
+    expect(html).toContain('Keine Arbeitszeit ändern');
+    expect(html).toContain('Review ausdrücklich bestätigen');
   });
 });

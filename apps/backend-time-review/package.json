@@ -1,0 +1,29 @@
+{
+  "name": "@taptime/backend-time-review",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Isolated least-privilege backend for append-only time correction and Human review adjudication.",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json --emitDeclarationOnly && esbuild src/index.ts --bundle --platform=node --target=node24 --format=esm --external:pg --external:jose --sourcemap --outfile=dist/index.js",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@taptime/backend-identity": "0.1.0",
+    "@taptime/time-review-contract": "0.1.0",
+    "pg": "^8.22.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.13",
+    "@types/pg": "^8.20.0",
+    "esbuild": "^0.28.1",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.9"
+  }
+}

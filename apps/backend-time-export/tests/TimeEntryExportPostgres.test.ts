@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { Pool, type PoolClient } from 'pg';
 import type { TimeEntryExportRequest } from '@taptime/time-entry-export-contract';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
-import { TimeEntryExportCoordinator } from '../src/index.js';
+import { TimeEntryExportCoordinator, type TimeEntryExportCoordinatorControls } from '../src/index.js';
 import {
   DA2_RUNTIME_LOGIN,
   ids,
@@ -99,6 +99,25 @@ describe('DA2 PostgreSQL export security and truth', () => {
        FROM taptime_server.audit_events WHERE event_type = 'TimeEntryExportGenerated'`,
     );
     expect(audit.rows[0]!.row_count).toBe(0);
+  });
+
+  it('returns one coherent old snapshot when a correction commits after snapshot read, then effective-new', async () => {
+    const raced = await coordinator.exportTimeEntries(command(tokens.adminA, request), {
+      afterSnapshotRead: async () => insertEffectiveRevision(),
+    });
+    expect(raced.status).toBe('succeeded');
+    if (raced.status !== 'succeeded') return;
+    const racedText = Buffer.from(raced.bytes).toString('utf8');
+    expect(racedText).toContain('"2026-07-21T08:00:00.123456Z"');
+    expect(racedText).not.toContain('"2026-07-21T08:15:00.000000Z"');
+
+    const after = await exportAs(tokens.adminA);
+    expect(after.status).toBe('succeeded');
+    if (after.status !== 'succeeded') return;
+    const afterText = Buffer.from(after.bytes).toString('utf8');
+    expect(afterText).toContain('"2026-07-21T08:15:00.000000Z"');
+    expect(afterText).toContain('"2026-07-21T09:15:00.000000Z"');
+    expect(afterText).not.toContain('"2026-07-21T08:00:00.123456Z"');
   });
 
   it('distinguishes rejected identity from employee and stale expected Membership authority', async () => {
@@ -280,8 +299,12 @@ function command(accessToken: string, exportRequest: TimeEntryExportRequest) {
   };
 }
 
-function exportAs(accessToken: string, exportRequest: TimeEntryExportRequest = request) {
-  return coordinator.exportTimeEntries(command(accessToken, exportRequest));
+function exportAs(
+  accessToken: string,
+  exportRequest: TimeEntryExportRequest = request,
+  controls: TimeEntryExportCoordinatorControls = {},
+) {
+  return coordinator.exportTimeEntries(command(accessToken, exportRequest), controls);
 }
 
 async function exportAuditCount(): Promise<number> {
@@ -334,6 +357,24 @@ async function stopActiveEntryA(pool: Pool): Promise<void> {
   } finally {
     client.release();
   }
+}
+
+async function insertEffectiveRevision(): Promise<void> {
+  await installerPool.query(
+    `INSERT INTO taptime_server.time_record_revisions
+      (organization_id, time_record_id, revision_number, canonical_time_entry_id,
+       user_id, target_type, target_customer_id, effective_started_at,
+       effective_stopped_at, base_row_version, actor_user_id, actor_membership_id,
+       reason, previous_revision_number, command_id, request_hash)
+     VALUES ($1, $2, 1, $2, $3, 'customer', $4,
+       '2026-07-21T08:15:00.000Z', '2026-07-21T09:15:00.000Z', 2,
+       $5, $6, 'Synthetic snapshot race', NULL,
+       '80000000-0000-4000-8000-000000000101', repeat('a', 64))`,
+    [
+      ids.organizationA, ids.stoppedEntryA, ids.employeeA, ids.customerA,
+      ids.adminA, ids.membershipAdminA,
+    ],
+  );
 }
 
 async function postgresCode(operation: Promise<unknown>): Promise<string | undefined> {

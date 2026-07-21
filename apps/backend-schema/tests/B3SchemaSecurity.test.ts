@@ -310,13 +310,13 @@ afterAll(async () => {
 });
 
 describe('B3 deterministic migration system', () => {
-  it('applies exactly eleven sorted versioned migrations through tenant-safe TimeEntry export', async () => {
+  it('applies exactly twelve sorted versioned migrations through append-only time review', async () => {
     const rows = await installerPool.query<{ version: string; checksum: string }>(
       `SELECT version, checksum FROM ${B3_MIGRATION_TABLE} ORDER BY version`,
     );
 
     expect(rows.rows.map((row) => row.version)).toEqual([
-      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011',
+      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012',
     ]);
     expect(rows.rows.every((row) => /^[0-9a-f]{64}$/.test(row.checksum))).toBe(true);
   });
@@ -325,7 +325,7 @@ describe('B3 deterministic migration system', () => {
     await expect(migrate(installerPool)).resolves.toEqual({
       applied: [],
       alreadyApplied: [
-        '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011',
+        '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012',
       ],
     });
   });
@@ -402,7 +402,61 @@ describe('B3 deterministic migration system', () => {
     expect(result.rows[0]).toEqual({ table_exists: false, ledger_count: '0' });
   });
 
-  it('contains exactly the twenty-three approved logical server tables', async () => {
+  it('upgrades an exact 001–011 database with migration 012 and reruns its ledger cleanly', async () => {
+    const database = 'taptime_da3_upgrade_check';
+    await installerPool.query(`DROP DATABASE IF EXISTS ${database} WITH (FORCE)`);
+    await installerPool.query(`CREATE DATABASE ${database}`);
+    const url = new URL(installerConnectionString);
+    url.pathname = `/${database}`;
+    const upgradePool = new Pool({ connectionString: url.toString(), max: 2 });
+    try {
+      const migrations = await loadMigrations();
+      await expect(applyMigrationSet(upgradePool, migrations.slice(0, 11))).resolves.toEqual({
+        applied: ['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011'],
+        alreadyApplied: [],
+      });
+      expect((await upgradePool.query<{ relation: string | null }>(
+        `SELECT to_regclass('taptime_server.time_record_revisions')::text AS relation`,
+      )).rows[0]!.relation).toBeNull();
+      await expect(applyMigrationSet(upgradePool, migrations.slice(11))).resolves.toEqual({
+        applied: ['012'], alreadyApplied: [],
+      });
+      await expect(applyMigrationSet(upgradePool, migrations.slice(11))).resolves.toEqual({
+        applied: [], alreadyApplied: ['012'],
+      });
+    } finally {
+      await upgradePool.end();
+      await installerPool.query(`DROP DATABASE IF EXISTS ${database} WITH (FORCE)`);
+    }
+  }, 30_000);
+
+  it('rejects pre-existing DA3 role ACL contamination atomically before creating DA3 objects', async () => {
+    const database = 'taptime_da3_dirty_check';
+    await installerPool.query(`DROP DATABASE IF EXISTS ${database} WITH (FORCE)`);
+    await installerPool.query(`CREATE DATABASE ${database}`);
+    const url = new URL(installerConnectionString);
+    url.pathname = `/${database}`;
+    const dirtyPool = new Pool({ connectionString: url.toString(), max: 2 });
+    try {
+      const migrations = await loadMigrations();
+      await applyMigrationSet(dirtyPool, migrations.slice(0, 11));
+      await dirtyPool.query('CREATE SCHEMA dirty_da3');
+      await dirtyPool.query('GRANT USAGE ON SCHEMA dirty_da3 TO taptime_time_review_reader');
+      await expect(applyMigrationSet(dirtyPool, migrations.slice(11)))
+        .rejects.toMatchObject({ code: '42501' });
+      const state = await dirtyPool.query<{ ledger: number; relation: string | null }>(`
+        SELECT
+          (SELECT count(*)::integer FROM ${B3_MIGRATION_TABLE} WHERE version = '012') AS ledger,
+          to_regclass('taptime_server.time_record_revisions')::text AS relation
+      `);
+      expect(state.rows[0]).toEqual({ ledger: 0, relation: null });
+    } finally {
+      await dirtyPool.end();
+      await installerPool.query(`DROP DATABASE IF EXISTS ${database} WITH (FORCE)`);
+    }
+  }, 30_000);
+
+  it('contains exactly the twenty-six approved tables and one effective-record view', async () => {
     const result = await installerPool.query<{ table_name: string }>(
       `SELECT table_name FROM information_schema.tables WHERE table_schema = $1 ORDER BY table_name`,
       [B3_SCHEMA],
@@ -413,6 +467,7 @@ describe('B3 deterministic migration system', () => {
       'bootstrap_receipts',
       'canonical_decisions',
       'customers',
+      'effective_time_records_v1',
       'employee_enrollment_redemption_receipts',
       'employee_invitation_command_receipts',
       'employee_membership_invitations',
@@ -425,10 +480,13 @@ describe('B3 deterministic migration system', () => {
       'offline_capture_leases',
       'offline_event_reconciliations',
       'offline_installations',
+      'offline_review_adjudications',
       'offline_sync_cursors',
       'organizations',
       'sync_receipts',
       'time_entries',
+      'time_record_revisions',
+      'time_review_command_receipts',
       'users',
       'work_events',
     ]);
@@ -444,11 +502,33 @@ describe('B3 deterministic migration system', () => {
         AND relation.relrowsecurity
         AND relation.relforcerowsecurity
     `);
-    expect(result.rows[0]?.count).toBe('23');
+    expect(result.rows[0]?.count).toBe('26');
   });
 });
 
 describe('B3 least-privilege roles and request context', () => {
+  it('keeps DA3 application roles non-login/non-bypass and isolates BYPASSRLS to function owners', async () => {
+    const roles = await installerPool.query<{
+      rolname: string; rolcanlogin: boolean; rolsuper: boolean;
+      rolcreaterole: boolean; rolbypassrls: boolean;
+    }>(`SELECT rolname, rolcanlogin, rolsuper, rolcreaterole, rolbypassrls
+        FROM pg_catalog.pg_roles
+        WHERE rolname IN (
+          'taptime_time_review_reader', 'taptime_time_review_writer',
+          'taptime_time_review_read_function_owner',
+          'taptime_time_review_write_function_owner'
+        ) ORDER BY rolname`);
+    expect(roles.rows).toEqual([
+      { rolname: 'taptime_time_review_read_function_owner', rolcanlogin: false,
+        rolsuper: false, rolcreaterole: false, rolbypassrls: true },
+      { rolname: 'taptime_time_review_reader', rolcanlogin: false,
+        rolsuper: false, rolcreaterole: false, rolbypassrls: false },
+      { rolname: 'taptime_time_review_write_function_owner', rolcanlogin: false,
+        rolsuper: false, rolcreaterole: false, rolbypassrls: true },
+      { rolname: 'taptime_time_review_writer', rolcanlogin: false,
+        rolsuper: false, rolcreaterole: false, rolbypassrls: false },
+    ]);
+  });
   it('keeps application roles NOLOGIN, non-owner, non-superuser and without BYPASSRLS', async () => {
     const result = await installerPool.query<{
       rolname: string;

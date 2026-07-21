@@ -180,9 +180,67 @@ describe('Mobile complete offline clients', () => {
     await expect(client.reconcile([ids.event, ids.event]))
       .resolves.toEqual({ status: 'unavailable' });
   });
+
+  it('accepts only an exact echoed high-water review-state clear proof', async () => {
+    const request = new FakeRequest(async () => response(200, {
+      status: 'clear',
+      expectedMembershipId: ids.membership,
+      installationId: ids.installation,
+      confirmedThroughSequence: 4,
+    }));
+    const client = new OfflineLifecycleClient(new URL('https://api.example/'), request);
+    await expect(client.readReviewState({
+      expectedMembershipId: ids.membership,
+      installationId: ids.installation,
+    })).resolves.toEqual({
+      status: 'clear',
+      expectedMembershipId: ids.membership,
+      installationId: ids.installation,
+      confirmedThroughSequence: 4,
+    });
+    request.handler = async () => response(200, {
+      status: 'clear',
+      expectedMembershipId: ids.membership,
+      installationId: ids.installation,
+      confirmedThroughSequence: -1,
+    });
+    await expect(client.readReviewState({
+      expectedMembershipId: ids.membership,
+      installationId: ids.installation,
+    })).resolves.toEqual({ status: 'unavailable' });
+  });
 });
 
 describe('Mobile FIFO scheduler and legacy migration', () => {
+  it('clears only the exact encrypted marker covered by an authenticated server high-water proof',
+    async () => {
+      const clearReviewPendingSequence = vi.fn(async () => true);
+      const database = fakeDatabase({
+        queueCount: vi.fn(async () => 0),
+        readReviewPendingSequence: vi.fn(async () => 3),
+        readActiveCaptureContext: vi.fn(async () => ({
+          membershipId: ids.membership,
+          installationId: ids.installation,
+        })),
+        clearReviewPendingSequence,
+      });
+      const offline: OfflineLifecycleApiPort = {
+        async ingest() { return { status: 'unavailable' }; },
+        async reconcile() { return { status: 'ready', records: [] }; },
+        async readReviewState() {
+          return {
+            status: 'clear',
+            expectedMembershipId: ids.membership,
+            installationId: ids.installation,
+            confirmedThroughSequence: 3,
+          };
+        },
+      };
+      await expect(schedulerFor(database, offline).trigger('session_restored'))
+        .resolves.toEqual({ status: 'idle', queueCount: 0 });
+      expect(clearReviewPendingSequence).toHaveBeenCalledWith(3, 3);
+    });
+
   it('recovers a lost response through reconciliation and never resubmits the event', async () => {
     const command = offlineCommand();
     const database = fakeDatabase({
@@ -215,6 +273,7 @@ describe('Mobile FIFO scheduler and legacy migration', () => {
           }],
         };
       },
+      async readReviewState() { return { status: 'unavailable' }; },
     };
     const scheduler = schedulerFor(database, offline);
 
@@ -259,6 +318,7 @@ describe('Mobile FIFO scheduler and legacy migration', () => {
       });
       const offline: OfflineLifecycleApiPort = {
         async reconcile() { return { status: 'ready', records: [] }; },
+        async readReviewState() { return { status: 'unavailable' }; },
         async ingest() {
           return {
             status: 'review_pending',
@@ -305,6 +365,7 @@ describe('Mobile FIFO scheduler and legacy migration', () => {
     });
     const offline: OfflineLifecycleApiPort = {
       async ingest() { return { status: 'unavailable' }; },
+      async readReviewState() { return { status: 'unavailable' }; },
       async reconcile() {
         await gate;
         return { status: 'ready', records: [] };

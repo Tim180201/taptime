@@ -1,0 +1,153 @@
+# Development Assignment 3 — Local Implementation Evidence
+
+- Status: **LOCAL IMPLEMENTATION CANDIDATE PASSES AVS V0–V3 — FOCUSED PUBLICATION, V4 AND INDEPENDENT EXACT-SHA REVIEW PENDING**
+- Date: 2026-07-21
+- Authorized Baseline Commit: `ff68f7a7d0ce69a65e88846ae1cca9abd5951f5d`
+- Authorized Baseline Tree: `09ef169a68bb53420e07b6f3fcbbdc74e0c01d57`
+- Implementation Commit/Tree: **not yet created; this evidence describes the uncommitted focused candidate against the exact baseline**
+- Owner: Technical Lead
+- Risk Class: AVS-001 R3
+- Authorized: DA3 Workstreams A–D and AVS V0–V4
+- Unauthorized: production, production data, deployment, distribution, Physical Gate and V5
+
+## 1. Implemented scope
+
+The local candidate implements the Human-accepted ADR-0014 and DA3-P01–DA3-P16:
+
+1. `@taptime/time-review-contract` freezes strict request/result unions, validation, canonical
+   request payloads and golden digest vectors. Human reasons follow PostgreSQL `btrim` semantics
+   exactly and are bounded to 1–500 Unicode code points.
+2. migration `012_append_only_time_record_correction_and_review_adjudication.sql` preserves
+   migrations `001`–`011`, adds forced-RLS append-only revision, adjudication and command-receipt
+   ledgers, stable effective-record projections, distinct NOLOGIN roles/function owners and exact
+   read/write/export capabilities.
+3. `@taptime/backend-time-review` uses isolated read/write pools, server-derived current
+   Administrator authority, exact expected-Membership narrowing, shared lifecycle advisory locks,
+   deterministic idempotency digests, deadlines and connection retirement.
+4. the backend API adds exactly five DA3 routes for overview, review items, correction,
+   adjudication and exact current-installation review state with strict bodies and disclosure-safe
+   mappings.
+5. Admin Web gains the minimal bounded overview/correction/review/export operator flow with visible
+   before/after values, mandatory reason, final confirmation, session-safe state and bounded CSV
+   response streaming. This is not DA4 productization.
+6. Mobile reconciles only its exact authenticated Installation marker and clears only the encrypted
+   review marker after fresh server proof; FIFO/evidence rows are never cleared by this path.
+7. DA2 export reads only the effective projection while retaining the accepted CSV v1 shape,
+   ordering, limits, audit and formula-safety contract.
+8. the disposable synthetic journey composes setup, enrollment, lifecycle, offline ingestion,
+   correction, adjudication, predecessor release and effective export, including both lock orders.
+9. CI adds an isolated PostgreSQL-17 DA3 job and includes the new contract/review dependencies in
+   every affected existing job.
+
+## 2. DA3-P01–DA3-P16 evidence map
+
+| Contract | Local evidence |
+|---|---|
+| P01/P14 minimal operator workflow | five strict API routes plus bounded Admin Web overview, correction, review and export surfaces |
+| P02 exact current authority | identity lock, exact expected Membership, Administrator/revocation checks, forced RLS and negative API/direct-role tests |
+| P03 immutable original evidence | append-only triggers and hostile UPDATE/DELETE tests for lifecycle, offline and DA3 ledgers |
+| P04/P05 stable records and stopped-only correction | stable logical IDs, contiguous full revisions, expected version and active-record rejection tests |
+| P06 exact reason | shared validator/golden tests and PostgreSQL-equivalent U+0020 trim plus 1–500 Unicode-code-point enforcement |
+| P07 idempotency/concurrency | UUID command receipts, SHA-256 canonical digests, exact retry/conflict tests and shared advisory-lock races |
+| P08 bounded review projection | safe current-tenant projection, strict pagination and disclosure-negative tests |
+| P09 append-only prefix adjudication | exact-prefix/mixed-source rejection and all no-change, adjust-existing and recovered-record outcomes |
+| P10 predecessor release | database-proved cursor release, hostile false-clear rejection and exact authenticated Mobile retain/clear tests |
+| P11 legacy/protected evidence | server legacy adjudication remains non-canonical; local-only legacy evidence is not browser-addressable |
+| P12 effective CSV | unchanged CSV v1 contract over one repeatable effective snapshot with correction/export race coverage |
+| P13 least privilege | distinct read/write/export roles, function owners and runtime pools with hostile direct-access and pool-reuse tests |
+| P15 ledger/audit truth | one authoritative append-only ledger plus one exact success AuditEvent per command; rollback tests cover audit failure |
+| P16 exclusions | no delete/retention/legal/payroll/production behavior or claim added |
+
+## 3. Failure, race and security evidence
+
+- missing, Employee, revoked, stale-Membership and cross-tenant requests fail closed without
+  privileged data or mutation;
+- active-record correction, stale version and changed-content idempotency retry are rejected with
+  zero duplicate ledger/audit state;
+- competing corrections serialize to one revision winner and one stale loser;
+- Stop/correction and offline-ingestion/adjudication are proved in both lock orders with observed
+  PostgreSQL lock waiting rather than timing assumptions;
+- correction/export returns one repeatable old-or-new effective snapshot;
+- non-prefix, out-of-order, mixed-user and mixed-source adjudication are rejected completely;
+- a hostile write-role helper cannot clear a cursor while unresolved evidence remains;
+- stale, lost, malformed and still-pending Mobile responses retain the encrypted marker;
+- timeouts, disconnects, audit failures and reused pools leave no partial mutation or leaked actor,
+  tenant, role or deadline context; and
+- the Admin Web client enforces declared and streamed 8-MiB CSV limits before creating a Blob.
+
+## 4. AVS V0–V3 verification
+
+All final checks below passed locally on 2026-07-21 against Node 24 and PostgreSQL 17:
+
+| Surface | Result |
+|---|---:|
+| Administration contract | 4/4 |
+| Core | 290/290 |
+| Offline synchronization contract | 7/7 |
+| TimeEntry export contract | 10/10 |
+| Time review contract | 5/5 |
+| Mobile | 421/421 |
+| Admin Web | 52/52 |
+| Backend schema/security | 128/128 |
+| B1 PostgreSQL spike | 39 passed, 2 explicit environment-dependent skips |
+| Backend identity | 55/55 |
+| Backend read model | 42/42 |
+| Backend lifecycle | 88/88 |
+| Backend bootstrap | 189/189 |
+| Backend administration | 121/121 |
+| Backend offline synchronization | 13/13 |
+| Backend time review | 10/10 |
+| Backend time export and complete DA3 journey | 14/14 |
+| Backend API | 224/224 |
+| Synthetic Android E2E | 45/45 |
+| **Total** | **1,757 passed, 2 explicit skips, 0 failed** |
+
+Additionally passed:
+
+- all build and tests-inclusive typecheck scripts exposed by all 19 workspaces; Core uses its
+  dedicated `tsconfig.typecheck.json`, which includes both `src` and `tests`;
+- clean migration `001`–`012` apply on a new database, exact ledger verification and idempotent
+  rerun; migrations `001`–`011` are unchanged from the authorized baseline;
+- Android Expo production export;
+- dependency graph validation, CI YAML parse, `git diff --check` and focused
+  source/diff/claim/security review; and
+- complete disposal of both Technical-Lead-created DA3 verification databases.
+
+An initial final-regression pass correctly exposed a missing DA3 dependency stub in the existing
+synthetic harness. The harness now supplies an explicit fail-closed unavailable stub and diagnostic;
+the complete build/typecheck and 45-test synthetic suite then passed. A preliminary synthetic test
+invocation against a noncanonical database name failed its exact-name preflight before schema/test
+mutation; the required named disposable database subsequently passed 45/45. Neither failed attempt
+is counted as successful evidence.
+
+`npm audit` reports the already disclosed 11 moderate transitive advisories in the Expo/Xcode
+toolchain. The offered forced remediation requires an unrelated breaking Expo change and was not
+applied. DA3 adds local workspace dependencies and the existing `pg`/type packages, not a new
+browser or Mobile runtime dependency.
+
+## 5. Change-Impact Record
+
+- Baseline: exact accepted/authorized commit and tree recorded above.
+- Impact: durable schema/RLS/roles, backend review/export/API, Admin Web, Mobile reconciliation,
+  synthetic journey, dependencies, tests, CI and truthful ADO status/evidence.
+- Risk: R3 because append-only employee time evidence, tenant authority, offline ordering and
+  export truth cross durable security and concurrency boundaries.
+- Verification selected: complete V0–V3; no adaptive narrowing at final regression.
+- Carried evidence: closed DA1/DA2/C3 foundations only where byte-identical or exercised through
+  their public boundaries; it is not substituted for DA3 correctness evidence.
+- Excluded path: `research/` remained unread and untouched.
+- Generated artifact: local ignored Mobile `dist/` from the successful Android export; no
+  distributable release artifact, signing or deployment was produced.
+
+## 6. Current gate and honest closure status
+
+- Technical-Lead local review finds no open P0/P1/P2/P3 in the candidate.
+- The candidate is not yet committed or published, so no implementation SHA/tree or exact-head CI
+  result exists yet.
+- AVS V4 remains pending: focused publication, exact-head GitHub Actions and independent exact-SHA
+  implementation review.
+- DA3 and DT-069–DT-074 remain open until V4, independent zero-finding review and the later exact
+  ADO closure gate are complete.
+- V5/Physical Gate remains separately unauthorized and is not required or claimed by this local
+  evidence.
+- Production, production data, deployment and distribution remain unauthorized.

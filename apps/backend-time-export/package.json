@@ -23,6 +23,8 @@
     "@taptime/backend-administration": "*",
     "@taptime/backend-bootstrap": "*",
     "@taptime/backend-lifecycle": "*",
+    "@taptime/backend-time-review": "*",
+    "@taptime/backend-offline-sync": "*",
     "@taptime/backend-schema": "*",
     "@taptime/core": "*",
     "@types/node": "^24.10.13",

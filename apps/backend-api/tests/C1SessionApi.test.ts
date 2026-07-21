@@ -85,6 +85,16 @@ const configuredTimeEntryExportConnectionString = connectionStringFor(
   'taptime_time_export_runtime',
   'time-export-local-synthetic-only',
 );
+const configuredTimeReviewReadConnectionString = connectionStringFor(
+  installerConnectionString,
+  'taptime_time_review_read_runtime',
+  'time-review-read-local-synthetic-only',
+);
+const configuredTimeReviewWriteConnectionString = connectionStringFor(
+  installerConnectionString,
+  'taptime_time_review_write_runtime',
+  'time-review-write-local-synthetic-only',
+);
 const installerPool = new Pool({ connectionString: installerConnectionString, max: 4 });
 const resolverPool = new Pool({ connectionString: configuredRuntimeConnectionString, max: 1 });
 
@@ -129,6 +139,8 @@ beforeAll(async () => {
     offlineEventDatabaseUrl: configuredOfflineEventConnectionString,
     offlineReconciliationDatabaseUrl: configuredOfflineReconciliationConnectionString,
     timeEntryExportDatabaseUrl: configuredTimeEntryExportConnectionString,
+    timeReviewReadDatabaseUrl: configuredTimeReviewReadConnectionString,
+    timeReviewWriteDatabaseUrl: configuredTimeReviewWriteConnectionString,
     supabaseIssuer: jwks.issuerA,
   }, {
     onDiagnostic: (diagnostic) => diagnostics.push(diagnostic),
@@ -150,16 +162,16 @@ afterAll(async () => {
 });
 
 describe('versioned C1 foundation', () => {
-  it('uses exactly migrations 001 through 011 and reruns the ledger cleanly', async () => {
+  it('uses exactly migrations 001 through 012 and reruns the ledger cleanly', async () => {
     const migrations = await loadMigrations();
-    expect(migrations.map(({ version }) => version)).toEqual(['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011']);
+    expect(migrations.map(({ version }) => version)).toEqual(['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012']);
     const ledger = await installerPool.query<{ version: string; checksum: string }>(
       `SELECT version, checksum FROM ${B3_MIGRATION_TABLE} ORDER BY version`,
     );
-    expect(ledger.rows.map(({ version }) => version)).toEqual(['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011']);
+    expect(ledger.rows.map(({ version }) => version)).toEqual(['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012']);
     expect(ledger.rows.every(({ checksum }) => /^[0-9a-f]{64}$/.test(checksum))).toBe(true);
     await expect(migrate(installerPool)).resolves.toEqual({
-      applied: [], alreadyApplied: ['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011'],
+      applied: [], alreadyApplied: ['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012'],
     });
   });
 });
