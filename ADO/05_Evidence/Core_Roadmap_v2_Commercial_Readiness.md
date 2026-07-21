@@ -2,7 +2,7 @@
 
 Role: Research / Implementation Support acting on behalf of Technical Lead (per AGR-001)
 Date: 2026-07-10
-Status: Active execution baseline — Block A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2, Block D, E1 and narrow E2A completed for their recorded repository/Human-gate scopes as of 2026-07-18; C3E2 closure commit `a2fdebc`, tree `1872f9f`, passed zero-finding independent final review and exact-head ten-of-ten CI after its complete fresh Galaxy-A33/NTAG213 Human Gate; E2A does not complete DT-060–DT-062 or Block E
+Status: Active execution baseline — Block A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2 and Block D completed for their recorded scopes; Development Assignment 1 and DT-060–DT-062 are independently approved for closure for the authorized local Android/repository/synthetic-server scope after exact physical evidence `8d5b2bb`, run `29836085810` 10/10 and final review `APPROVED` with zero open P0–P3; closure-publication exact-head CI remains pending; DT-063–DT-068 and the remaining Block-E setup/export scope remain open
 Scope: Core platform roadmap only. Generic platform language throughout (Organization, Membership, Role, User, AssignmentTarget, Customer, NfcTag, NfcAssignment, TimeEntry, WorkEvent, BusinessEvent, Policy, AuditEvent, Export, Backend, Auth, Tenant Isolation, Mobile App, Admin Web, Website). No customer-specific product, company, or branch assumption is named anywhere in this document. The original 2026-07-10 creation implemented no code and modified no architecture/ADR/TTAP/FB/TS/Product Vision content; later dated synchronization updates change only current status/traceability, not accepted product or architecture rules.
 Related Artifacts: `ADO/05_Evidence/External_CTO_Review_Triage_2026-07-10.md`, `ADO/05_Evidence/Product_Readiness_Assessment.md`, `ADO/05_Evidence/Product_Readiness_Roadmap.md`, `ADO/02_Development/Development_Sprint_019_Closure.md`, `ADO/02_Development/EP-007_Development_Tasks.md`, `ADO/00_Core/Project_Status.md`, `ADO/00_Core/Decision_Log.md`
 
@@ -187,13 +187,13 @@ workspace build and Android export passed; commit `4b5ecdc` passed all eight job
 `29348512506`. Controlled Galaxy A33 / Android 15 validation removed only C2 reverse `tcp:3000`,
 preserved the pending command across force-stop/restart and stored the deferred delta without another
 Decision or TimeEntry stop. Independent final review returned `APPROVED`; its publication-sync P3
-was corrected and no finding remains open. This is not airplane mode or full offline. E2A advances
-but does not complete DT-060–DT-062 or Block E. C3C/C3D prove the initial
+was corrected and no finding remains open. This is not airplane mode or full offline. E2A itself
+advanced but did not complete DT-060–DT-062 or Block E. C3C/C3D prove the initial
 Customer/Tag/Assignment backend, UI/capture and Human physical flow for their controlled synthetic
-scope. DT-063–DT-066 remain open as Roadmap candidates because identity-first Employee onboarding,
-explicit reassignment and pilot-grade operations are not complete. Durable multi-context caching,
-multiple events, scheduling/backoff, supported reconciliation, background sync and DT-063–DT-068
-remain open and separately gated.
+scope. Development Assignment 1 later completed durable multi-context caching, multiple events,
+scheduling/backoff, supported reconciliation and background synchronization, closing DT-060–DT-062
+for its independently approved local Android/repository/synthetic-server scope. DT-063–DT-068 and
+the remaining setup/export/pilot operations stay open and separately gated.
 
 **Target:** Week 6–9 · **Candidate Sprints:** 042–048
 
@@ -208,6 +208,11 @@ remain open and separately gated.
 | DT-066 | NFC Assignment Setup Flow | Assign tags to AssignmentTargets. |
 | DT-067 | Exportable Time Records | Define an exportable time-record model. |
 | DT-068 | CSV Export v1 | Implement CSV export for time entries. |
+
+**Current completion:** DT-060, DT-061 and DT-062 are independently approved for completion for the
+Development-Assignment-1 local Android/repository/synthetic-server scope; closure-publication
+exact-head CI remains pending. DT-063–DT-068 remain open. This partial Block-E closure does not
+authorize production resources/data, deployment or distribution.
 
 **Outcome:** Backend sync exists; setup no longer requires code edits; time records are exportable; the product can be operated for a technical pilot.
 
@@ -478,3 +483,20 @@ product/backend/native code, APK or physical-gate work begins. DT-060–DT-062 a
 open; production resources/data, Assignment 2–8 scope and the legal/commercial track remain
 separately gated. Evidence:
 `ADO/05_Evidence/Development_Assignment_01_Independent_Pre_Implementation_Review.md`.
+
+## 17. Progress Update – 2026-07-21 Development Assignment 1 Closure
+
+Development Assignment 1 completed its exact separately authorized implementation, correction,
+artifact and Human-gate chain. The sixth complete fresh Gate A–E run passed on product `48a21a7`,
+artifact correction `0fdddbc` and the exact runtime-complete APK. Physical-evidence publication
+`8d5b2bb`, tree `592f9da`, passed exact-head run `29836085810`, attempt 1, ten of ten.
+
+Independent final closure review verified the exact seven-file `+297/-75` evidence delta, all Gate
+A–E observations, mathematical counts, disclosure boundary, cleanup and complete governance
+chronology. Verdict: `APPROVED`, zero open P0/P1/P2/P3. DT-060–DT-062 therefore close for the
+authorized local Android/repository/synthetic-server scope after green exact-head CI for the final
+documentation-only closure publication.
+
+This does not close DT-063–DT-068 or the remaining setup/export Block-E scope and does not authorize
+production resources/data, deployment, distribution, iOS/Web NFC, review adjudication or
+Assignments 2–8. Development Assignment 2 remains a separately gated future candidate.

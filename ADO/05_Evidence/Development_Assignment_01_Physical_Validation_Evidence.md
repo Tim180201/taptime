@@ -8,8 +8,10 @@ SEPARATELY AUTHORIZED ON PRODUCT `48a21a7`, ARTIFACT CORRECTION `0fdddbc`, REVIE
 10/10 AND RUNTIME-COMPLETE 95,425,695-BYTE APK SHA-256 `aa081fca…5ffbf`; EXACT PRE-INSTALL AND
 INSTALLED-DEVICE BINDING PASSED; GATES A, B, C, D AND E PASSED AFRESH ON THE APPROVED GALAXY
 A33/ANDROID-15/TWO-NTAG213 SET; COMPLETE SIGN-OUT AND ABORT-SAFE CLEANUP PASSED; ADO
-PUBLICATION, GREEN EXACT-HEAD CI FOR THIS PHYSICAL EVIDENCE AND INDEPENDENT FINAL CLOSURE REVIEW
-PENDING; PRODUCTION, PRODUCTION DATA, DEPLOYMENT AND DISTRIBUTION NOT AUTHORIZED**
+PUBLICATION `8d5b2bb`, TREE `592f9da`, AND EXACT-HEAD RUN `29836085810` 10/10; INDEPENDENT
+FINAL CLOSURE REVIEW APPROVED WITH ZERO OPEN P0/P1/P2/P3; DA1 AND DT-060–DT-062 CLOSURE
+APPROVED FOR THE AUTHORIZED LOCAL SCOPE; CLOSURE-PUBLICATION EXACT-HEAD CI PENDING; PRODUCTION,
+PRODUCTION DATA, DEPLOYMENT AND DISTRIBUTION NOT AUTHORIZED**
 Owner: Human Architect + Technical Lead
 
 ## 1. Authorization and exact binding
@@ -1324,7 +1326,9 @@ Complete cleanup passed:
 The pre-existing local PostgreSQL service was not part of the disposable gate resources and was
 left running and unchanged.
 
-The sixth complete fresh Human Physical Gate A–E is **PASSED**. Development Assignment 1 is not
-yet claimed complete: this physical-evidence synchronization must be published, pass exact-head CI
-and receive an independent final closure review with zero open P0/P1/P2/P3. Production resources,
-production data, deployment and distribution remain unauthorized.
+The sixth complete fresh Human Physical Gate A–E is **PASSED**. Physical evidence publication
+`8d5b2bb`, tree `592f9da`, passed exact-head run `29836085810`, attempt 1, ten of ten. Independent
+final closure review returned `APPROVED` with zero open P0/P1/P2/P3 and confirmed DA1 plus
+DT-060–DT-062 closure eligibility for the authorized local Android/repository/synthetic-server
+scope. Exact-head CI for the final documentation-only closure publication remains. Production
+resources, production data, deployment and distribution remain unauthorized.

@@ -339,10 +339,11 @@ Wenn ein Lauf scheitert:
 8.9 Aktuelle Orientierung
 
 Der Stand bei Erstellung dieses Prompts ist:
-- Development Assignment 1 Repository-Implementierung ist unabhängig approved;
+- Development Assignment 1 ist für den autorisierten lokalen Android/repository/synthetic-server
+  Scope unabhängig zur Schließung approved;
 - DA1-PHYS-01/02/03/04 Repository-Findings sind geschlossen;
 - fünf frühere Physical-Gate-Versuche bleiben historische Fehlversuche;
-- DA1-ARTIFACT-02 wurde technisch korrigiert;
+- DA1-ARTIFACT-02 ist unabhängig geschlossen;
 - Produktkorrektur 0fdddbce53369e3c73f345eee1c077226a40797f, Tree
   62b5efc4efd36da1fbd0e6f2058a448aabd1ab1a, ist Technical-Lead approved und ihr Exact-Head-CI
   Run 29751390803 war 10/10 grün;
@@ -351,10 +352,14 @@ Der Stand bei Erstellung dieses Prompts ist:
 - ADO-Synchronisationsstand vor AVS-001 war
   1527855b3db4bf387e4efc9e09691a15d588408b, Tree
   1bc2511a540944901e10566fca914f1fab70ee13;
-- der letzte dokumentierte ADO-CI-Run war 29752205717, Attempt 2, 10/10;
-- unabhängiger Exact-Delta-/Artifact-Review und eine neue separate Human-Gate-Autorisierung
-  blieben ausstehend;
-- keine korrigierte physische DA1-Abnahme liegt vor; und
+- der sechste vollständige frische Human Physical Gate A–E bestand auf der exakt gebundenen APK;
+- Physical-Evidence-Commit 8d5b2bb35d59cc00b2f5f518c06f09aa0d881723, Tree
+  592f9da6a0e8bed14107975b1073d23a9dce4717, bestand Run 29836085810, Attempt 1, 10/10;
+- unabhängiger Final-Closure-Review: APPROVED, null offene P0/P1/P2/P3;
+- DT-060–DT-062 dürfen für den autorisierten lokalen Scope nach grünem Exact-Head-CI der
+  Closure-Publikation geschlossen werden;
+- Development Assignment 2 braucht einen eigenen Kandidaten, Review, eine exakte Baseline und
+  separate Human-Autorisierung; und
 - Produktion, Produktionsdaten, Deployment und Distribution sind nicht autorisiert.
 
 Diese Liste ist nur ein Einstiegshinweis. Verifiziere sie vollständig gegen den bereitgestellten

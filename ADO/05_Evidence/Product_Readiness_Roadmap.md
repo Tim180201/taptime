@@ -344,6 +344,20 @@ Assignment 1 separate exact-baseline implementation release is next, followed by
 and complete gates;
 Assignments 2–8 and the parallel elapsed-time legal/privacy/commercial track remain unchanged.
 
+## Addendum (2026-07-21 — Development Assignment 1 Closure)
+
+Development Assignment 1 subsequently completed its exact implementation, correction, artifact and
+Human-validation chain. The sixth complete fresh Gate A–E run passed. Evidence publication
+`8d5b2bb`, tree `592f9da`, passed exact-head run `29836085810`, attempt 1, ten of ten. Independent
+final closure review returned `APPROVED` with zero open P0/P1/P2/P3.
+
+DT-060–DT-062 may therefore close for the authorized local Android/repository/synthetic-server
+scope after green exact-head CI for the final documentation-only closure publication. This advances
+the roadmap without changing any readiness-domain rating: DT-063–DT-068, Assignments 2–8,
+production resources/data, deployment, distribution and the legal/privacy/commercial track remain
+separately gated. Development Assignment 2 requires a new candidate, independent
+pre-implementation review, exact baseline and separate Human authorization before implementation.
+
 ## Revision Note (Technical Lead Review Follow-up, 2026-07-07)
 
 This roadmap was updated once, after Technical Lead review, to: (1) add the "Strategic frame" paragraph above, connecting roadmap items to the companion assessment's Business Event Platform framing (Section 0.1) and capability hierarchy (Section 12); (2) organize every milestone's existing items into an Engineering Track, a Product Capability Track, and a Business, Legal & Go-To-Market Track, without adding, removing, or reprioritizing any item, and without moving any item to a different milestone; (3) note, within the Now and Before Pilot Customers milestones, the re-evaluated primary-bottleneck finding from the companion assessment's Section 11.1 (Organization Management as the more foundational blocker for reaching the first pilot, alongside — not instead of — the backend technology decision). No original roadmap item's wording, milestone assignment, or substance was changed; this revision only added track labels, short cross-reference notes, and this closing note.

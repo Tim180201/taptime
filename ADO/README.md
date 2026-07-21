@@ -128,7 +128,12 @@ fresh Gate A–E run on review-synchronization head `0e2590b`, tree `23fc9d3`, e
 Galaxy A33/Android-15/two-NTAG213 set, including cold true-offline A→B→A capture, automatic FIFO,
 lost-response idempotency, stale-cutover review truth after restart, native background single-flight,
 both sign-outs and complete cleanup. Physical-evidence publication, exact-head CI and independent
-final closure review remain pending; Development Assignment 1 is not yet claimed complete.
+final closure review then completed: publication `8d5b2bb`, tree `592f9da`, passed exact-head run
+`29836085810`, attempt 1, ten of ten; independent review returned `APPROVED` with zero open
+P0/P1/P2/P3. Development Assignment 1 and DT-060–DT-062 are independently approved for closure
+for the exact authorized local Android/repository/synthetic-server scope; final closure-publication
+exact-head CI remains pending. Production resources/data, deployment/distribution, iOS/Web NFC,
+review adjudication and Assignments 2–8 remain outside it.
 Implementation, review and physical evidence:
 `ADO/05_Evidence/Development_Assignment_01_Implementation_Evidence.md` and
 `ADO/05_Evidence/Development_Assignment_01_Independent_Implementation_Review.md` and
@@ -139,7 +144,9 @@ Implementation, review and physical evidence:
 `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_04_Failure_Synchronization_Independent_Exact_Delta_Review.md`
 and
 `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_04_Independent_Exact_Delta_Review.md` and
-`ADO/05_Evidence/Development_Assignment_01_DA1_ARTIFACT_02_Independent_Exact_Delta_Artifact_Review.md`.
+`ADO/05_Evidence/Development_Assignment_01_DA1_ARTIFACT_02_Independent_Exact_Delta_Artifact_Review.md`
+and `ADO/05_Evidence/Development_Assignment_01_Independent_Final_Closure_Review.md` and
+`ADO/05_Evidence/Development_Assignment_01_Closure_Evidence.md`.
 Production, production data, deployment and distribution remain unauthorized.
 
 This file is the official navigation entry point for the TapTim.e ADO.
@@ -241,7 +248,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Technical Architecture Profile (TTAP-001) | `ADO/01_Architecture/Technical_Architecture_Profile.md` |
 | Development Task Profile | `ADO/01_Architecture/Development_Task_Profile.md` |
 | Official Technical Lead Start Prompt (TLP-001) | `ADO/01_Architecture/Technical_Lead_Start_Prompt.md` |
-| Architecture Decision Records (through Human-accepted ADR-0012; DA1-IMPL-01, DA1-PHYS-01/02/03/04 and DA1-ARTIFACT-02 repository/artifact-pipeline findings independently closed; five prior DA1 Human Gates remain failed historical runs; sixth complete fresh Gate A–E passed; final evidence publication/CI/review pending) | `ADO/01_Architecture/ADR/` |
+| Architecture Decision Records (through Human-accepted ADR-0012; DA1-IMPL-01, DA1-PHYS-01/02/03/04 and DA1-ARTIFACT-02 findings independently closed; five prior DA1 Human Gates remain failed historical runs; sixth complete fresh Gate A–E and final independent closure review passed; DA1/DT-060–DT-062 closure approved for the authorized local scope, closure-publication CI pending) | `ADO/01_Architecture/ADR/` |
 | Feature Blueprints (incl. FB-001, FB-002) | `ADO/01_Architecture/Feature_Blueprints/` |
 | Technical Specifications (incl. TS-001, TS-002) | `ADO/01_Architecture/Technical_Specifications/` |
 | Developer Implementation Manual (EP-008) | `ADO/01_Architecture/Developer_Implementation_Manual/` |
@@ -316,7 +323,9 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Development Assignment 1 Independent Pre-Implementation Review | `ADO/05_Evidence/Development_Assignment_01_Independent_Pre_Implementation_Review.md` |
 | Development Assignment 1 Implementation Evidence | `ADO/05_Evidence/Development_Assignment_01_Implementation_Evidence.md` |
 | Development Assignment 1 Independent Implementation Review and Correction Disposition | `ADO/05_Evidence/Development_Assignment_01_Independent_Implementation_Review.md` |
-| Development Assignment 1 Human Physical Validation Evidence — five prior complete runs failed historically; sixth complete fresh Gate A–E passed on the exact authorized runtime-complete artifact; final evidence publication/CI/review pending | `ADO/05_Evidence/Development_Assignment_01_Physical_Validation_Evidence.md` |
+| Development Assignment 1 Human Physical Validation Evidence — five prior complete runs failed historically; sixth complete fresh Gate A–E passed on the exact authorized runtime-complete artifact | `ADO/05_Evidence/Development_Assignment_01_Physical_Validation_Evidence.md` |
+| Development Assignment 1 Independent Final Closure Review — approved, zero open P0–P3; DA1 and DT-060–DT-062 closure eligible for the authorized local scope | `ADO/05_Evidence/Development_Assignment_01_Independent_Final_Closure_Review.md` |
+| Development Assignment 1 Closure Evidence and Permanent Artifact Manifest | `ADO/05_Evidence/Development_Assignment_01_Closure_Evidence.md` |
 | Development Assignment 1 DA1-PHYS-01 Independent Exact-Delta Review — approved, finding closed | `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_01_Independent_Exact_Delta_Review.md` |
 | Development Assignment 1 DA1-PHYS-02 Independent Exact-Delta Review — approved, repository finding closed | `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_02_Independent_Exact_Delta_Review.md` |
 | Development Assignment 1 DA1-PHYS-03 Independent Exact-Delta Review — approved, repository finding closed | `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_03_Independent_Exact_Delta_Review.md` |
