@@ -27,18 +27,20 @@ LEFT THE LOCAL QUEUE AT ZERO; FAILURE SYNCHRONIZATION `3dd7983`/`e78b526` AND RU
 TECHNICAL-LEAD APPROVED, PUBLISHED AND EXACT-HEAD RUN `29743923158` 10/10 GREEN; ADO
 PUBLICATION `2f6035b`, TREE `d5513a6`, AND RUN `29744637928` 10/10 GREEN; INDEPENDENT
 EXACT-DELTA CORRECTION REVIEW APPROVED WITH ZERO OPEN P0/P1/P2/P3; DA1-PHYS-04 REPOSITORY
-FINDING CLOSED; NO CORRECTED PHYSICAL RESULT; DA1-ARTIFACT-01 REBINDING REVIEW APPROVED AND
+FINDING CLOSED; AT THAT POINT NO CORRECTED PHYSICAL RESULT; DA1-ARTIFACT-01 REBINDING REVIEW APPROVED AND
 NEW FIFTH COMPLETE FRESH GATE HUMAN-AUTHORIZED ON ADO/ARTIFACT HEAD `e0fd175`, EXACT-HEAD RUN
 `29747561139` AND REPLACEMENT APK SHA-256 `4239f6c6…6b7c`; EXACT PRE-INSTALL AND DEVICE
 BINDING PASSED, BUT GATE A FAILED DURING STEP 1 BEFORE LOGIN BECAUSE THE APK OMITTED ALL THREE
 REQUIRED SYNTHETIC RUNTIME VALUES; DA1-ARTIFACT-02 (P1 OPERATIONAL) OPEN; GATES B–E NOT
 STARTED; COMPLETE ABORT CLEANUP PASSED; FOCUSED CORRECTION `0fdddbc`, TREE `62b5efc`,
-TECHNICAL-LEAD APPROVED, PUBLISHED AND EXACT-HEAD RUN `29751390803` 10/10 GREEN; UNINSTALLED
+TECHNICAL-LEAD APPROVED, PUBLISHED AND EXACT-HEAD RUN `29751390803` 10/10 GREEN; AT THAT POINT UNINSTALLED
 RUNTIME-COMPLETE 95,425,695-BYTE APK SHA-256 `aa081fca…5ffbf` PRESERVED; INDEPENDENT
 FINAL REVIEW OF ADO HEAD `1527855`, TREE `1bc2511`, APPROVED WITH ZERO OPEN P0/P1/P2/P3 AND
 CLOSED DA1-ARTIFACT-02; RUN `29752205717` ATTEMPT 2 10/10; SIXTH COMPLETE FRESH HUMAN GATE
-ELIGIBLE FOR SEPARATE HUMAN AUTHORIZATION BUT NOT AUTHORIZED; PRODUCTION, PRODUCTION DATA,
-DEPLOYMENT AND DISTRIBUTION NOT AUTHORIZED**
+SEPARATELY AUTHORIZED ON REVIEW-SYNCHRONIZATION `0e2590b`, TREE `23fc9d3`, RUN `29830332699`
+AND EXACT RUNTIME-COMPLETE APK; GATES A–E PASSED AFRESH; COMPLETE CLEANUP PASSED;
+PHYSICAL-EVIDENCE PUBLICATION, EXACT-HEAD CI AND INDEPENDENT FINAL CLOSURE REVIEW PENDING;
+PRODUCTION, PRODUCTION DATA, DEPLOYMENT AND DISTRIBUTION NOT AUTHORIZED**
 Date: 2026-07-21
 Human-Accepted Contract Commit: `592334160655cde2f4189712eaf327c8a7edcb0e`
 Implementation Baseline Commit: `180093091c47a926b5871a27ea8b00fb21b9b4ac`
@@ -890,8 +892,35 @@ mutation or reusable Human observation occurred.
 
 ### 15.3 Current disposition
 
-`DA1-ARTIFACT-02` is closed. A sixth complete fresh Gate A–E run is eligible only after this
-truthful synchronization has green exact-head CI and the Human Architect separately binds and
-authorizes the exact artifact. The run must begin at Gate A step 1 and reuse no observation from
-the five failed historical runs. Production resources/data, deployment and distribution remain
-unauthorized.
+`DA1-ARTIFACT-02` is closed. The Human Architect subsequently supplied the separately gated sixth
+run authorization recorded in the physical evidence. Production resources/data, deployment and
+distribution remained unauthorized.
+
+## 16. Sixth complete fresh Human Physical Gate result
+
+The sixth run was bound to product `48a21a7`, artifact correction `0fdddbc`, independently reviewed
+ADO `1527855`, review-synchronization `0e2590b`, tree `23fc9d3`, exact-head run `29830332699`
+and the exact 95,425,695-byte runtime-complete APK SHA-256 `aa081fca…5ffbf`. Host and installed
+device matched byte-for-byte before launch. No observation from any of the five failed historical
+runs was reused.
+
+Gates A–E passed afresh on the approved Galaxy A33 5G / Android 15 / two-NTAG213 set:
+
+- exact two-item lease and cold true-offline encrypted A→B→A capture survived restart at queue 3;
+- automatic FIFO produced exact Start / other-target rejection / Stop and emptied only on durable
+  acknowledgements;
+- post-commit response loss reconciled the exact prior result without duplicate server mutation;
+- reassignment cutover produced one valid rejection followed by
+  `historical_configuration_not_valid` and `predecessor_requires_review`, with no unauthorized
+  Decision/TimeEntry and durable `Sichere Prüfung erforderlich` after queue zero and restart;
+- exact background-task registration and two immediate native triggers produced one successful
+  worker with unchanged server counts, without claiming an OS real-time SLA; and
+- both sessions signed out and all disposable app, Web/Harness, mapping, database, role and
+  clipboard state was removed.
+
+The complete sanitized observation and final server counts are recorded in
+`ADO/05_Evidence/Development_Assignment_01_Physical_Validation_Evidence.md`, Sections 44–47.
+No implementation source changed during this physical run. This ADO-only synchronization still
+requires publication, green exact-head CI and independent final closure review before Development
+Assignment 1 may be marked complete. Production resources/data, deployment and distribution
+remain unauthorized.

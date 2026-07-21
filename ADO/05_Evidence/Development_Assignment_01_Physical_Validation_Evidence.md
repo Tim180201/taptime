@@ -1,22 +1,15 @@
 # Development Assignment 1 — Human Physical Validation Evidence
 
 Date: 2026-07-21
-Status: **DA1-PHYS-01/02/03/04 REPOSITORY FINDINGS CLOSED BY INDEPENDENT REVIEW; FOUR PRIOR
-COMPLETE HUMAN GATES REMAIN FAILED HISTORICAL RUNS; DA1-ARTIFACT-01 REBINDING REVIEW APPROVED
-WITH ZERO OPEN P0/P1/P2/P3; NEW FIFTH COMPLETE FRESH GATE HUMAN-AUTHORIZED ON PRODUCT
-`48a21a7`, ADO/ARTIFACT HEAD `e0fd175`, TREE `fed47cf`, EXACT-HEAD RUN `29747561139` 10/10 AND
-95,425,607-BYTE REPLACEMENT APK SHA-256 `4239f6c6…6b7c`; PRE-INSTALL AND INSTALLED-DEVICE
-HASH/SIZE/SIGNATURE/PACKAGE BINDING PASSED; GATE A FAILED DURING STEP 1 BEFORE LOGIN BECAUSE THE
-EXACT APK'S HERMES BYTECODE OMITTED THE REQUIRED SYNTHETIC AUTH URL, API URL AND PUBLISHABLE KEY;
-FAILURE REMAINED CLOSED WITH ZERO AUTHENTICATION, ADMINISTRATION OR LIFECYCLE MUTATION;
-DA1-ARTIFACT-02 (P1 OPERATIONAL) OPEN; GATES B–E NOT STARTED; COMPLETE ABORT CLEANUP PASSED;
-FOCUSED CORRECTION `0fdddbc`, TREE `62b5efc`, TECHNICAL-LEAD APPROVED, PUBLISHED AND
-EXACT-HEAD RUN `29751390803` 10/10 GREEN; UNINSTALLED RUNTIME-COMPLETE 95,425,695-BYTE APK
-SHA-256 `aa081fca…5ffbf` PRESERVED; INDEPENDENT FINAL REVIEW OF ADO HEAD `1527855`, TREE
-`1bc2511`, APPROVED WITH ZERO OPEN P0/P1/P2/P3 AND
-CLOSED DA1-ARTIFACT-02; RUN `29752205717` ATTEMPT 2 10/10; SIXTH COMPLETE FRESH HUMAN GATE
-ELIGIBLE FOR SEPARATE HUMAN AUTHORIZATION BUT NOT AUTHORIZED; NO CORRECTED PHYSICAL RESULT;
-PRODUCTION, PRODUCTION DATA, DEPLOYMENT AND DISTRIBUTION NOT AUTHORIZED**
+Status: **DA1-PHYS-01/02/03/04 AND DA1-ARTIFACT-02 FINDINGS INDEPENDENTLY CLOSED; FIVE PRIOR
+COMPLETE HUMAN GATES REMAIN FAILED HISTORICAL RUNS; SIXTH COMPLETE FRESH HUMAN GATE A–E
+SEPARATELY AUTHORIZED ON PRODUCT `48a21a7`, ARTIFACT CORRECTION `0fdddbc`, REVIEWED ADO
+`1527855`, REVIEW-SYNCHRONIZATION HEAD `0e2590b`, TREE `23fc9d3`, EXACT-HEAD RUN `29830332699`
+10/10 AND RUNTIME-COMPLETE 95,425,695-BYTE APK SHA-256 `aa081fca…5ffbf`; EXACT PRE-INSTALL AND
+INSTALLED-DEVICE BINDING PASSED; GATES A, B, C, D AND E PASSED AFRESH ON THE APPROVED GALAXY
+A33/ANDROID-15/TWO-NTAG213 SET; COMPLETE SIGN-OUT AND ABORT-SAFE CLEANUP PASSED; ADO
+PUBLICATION, GREEN EXACT-HEAD CI FOR THIS PHYSICAL EVIDENCE AND INDEPENDENT FINAL CLOSURE REVIEW
+PENDING; PRODUCTION, PRODUCTION DATA, DEPLOYMENT AND DISTRIBUTION NOT AUTHORIZED**
 Owner: Human Architect + Technical Lead
 
 ## 1. Authorization and exact binding
@@ -1172,8 +1165,166 @@ three missing runtime values; the corrected APK remains 95,425,695 bytes, mode `
 `aa081fca431174cf90698b4afaaa5c1f5f28ed976c54cda7a74df72a49d5ffbf` and passes the exact
 Hermes contract, APK-v2 signer, package/version and manifest backup bindings.
 
-No corrected physical result exists. The sixth complete fresh Gate A–E run is eligible only after
-green exact-head CI for this synchronization and a new explicit Human authorization binding the
-exact artifact. It remains unauthorized, must start at Gate A step 1 and may reuse no observation
-from the five failed historical runs. Production resources/data, deployment and distribution
-remain unauthorized.
+At that point no corrected physical result existed. The sixth complete fresh Gate A–E run was
+eligible only after green exact-head CI for that synchronization and a new explicit Human
+authorization binding the exact artifact. The later authorization and complete fresh result are
+recorded in Sections 44–47. Production resources/data, deployment and distribution remained
+unauthorized.
+
+## 44. Sixth complete fresh gate authorization and exact binding
+
+The Human Architect separately authorized the sixth complete fresh Gate A–E run from Gate A
+step 1, with no observation reusable from any of the five failed historical runs. The authorization
+bound:
+
+- product commit `48a21a7ed75c3ab3b15fec93669b5ca2d87d5a30`, tree
+  `7c053beeb0c9ef550216bd1dad0a59fc226866a6`;
+- artifact correction `0fdddbce53369e3c73f345eee1c077226a40797f`, tree
+  `62b5efc4efd36da1fbd0e6f2058a448aabd1ab1a`, exact-head run `29751390803`, attempt 1,
+  ten of ten jobs successful;
+- independently reviewed ADO/artifact synchronization
+  `1527855b3db4bf387e4efc9e09691a15d588408b`, tree
+  `1bc2511a540944901e10566fca914f1fab70ee13`, exact-head run `29752205717`, attempt 2,
+  ten of ten jobs successful;
+- review-synchronization head `0e2590b67ad42b5aace8834090dd1412a59845c1`, tree
+  `23fc9d312341e26c973cc4941fcc6d66b0aef648`, exact-head run `29830332699`, attempt 1,
+  ten of ten jobs successful; and
+- the read-only runtime-complete APK with exactly 95,425,695 bytes and SHA-256
+  `aa081fca431174cf90698b4afaaa5c1f5f28ed976c54cda7a74df72a49d5ffbf`, package
+  `com.tim180201.mobile.synthetic`, version 1 / `1.0.0`, APK Signature Scheme v2 and signer
+  certificate SHA-256
+  `fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c`.
+
+Immediate pre-install verification reconfirmed size, hash, signature, signer, package, version,
+backup/transfer boundary and all three required Hermes runtime values. The exact installed-device
+APK was pulled before first launch and matched the authorized host artifact byte-for-byte. Only the
+approved Galaxy A33 5G on Android 15, two stable NTAG213 tags, numeric-loopback USB forwarding and
+strictly local synthetic Web/Auth/API/PostgreSQL resources participated. The failed fifth-run APK
+remained immutable and unused. Production resources/data, deployment and distribution remained
+unauthorized.
+
+## 45. Sixth-run prerequisite and Gates A–C
+
+Fresh prerequisite setup used the real approved Administrator Web and Android NFC paths. It
+created two Customers, `DA1 TAG A` / `B55E8B6AEB30` and `DA1 TAG B` / `32A54C8F2F29`, two
+active Assignments, two Administration receipts and four AuditEvents with zero lifecycle rows.
+The Administrator signed out, the exact APK was cleanly reinstalled and the Employee obtained
+exactly one active lease containing both declared and stored items.
+
+Gate A passed afresh. With airplane mode enabled, NFC enabled, both reverse mappings removed and a
+cold force-stop/relaunch, Mobile displayed `Offline bereit` with zero pending operations. Physical
+Tag A → Tag B → Tag A scans, with more than five seconds between Tag-A captures, produced encrypted
+queue counts 1 → 2 → 3. A second force-stop/relaunch retained all three events in order. The server
+remained at zero lifecycle rows while offline.
+
+Gate B passed afresh. Connectivity and the two exact reverse mappings were restored without any
+per-event retry. The foreground/event scheduler drained the queue 3 → 0 in FIFO order. Exact
+durable results were Tag-A Start, Tag-B `active_entry_for_other_target_rejected`, then Tag-A Stop.
+The safe server snapshot became:
+
+```text
+AuditEvents=7
+WorkEvents=3
+SyncReceipts=3
+CanonicalDecisions=3
+TimeEntries=1
+StoppedTimeEntries=1
+```
+
+A restart preserved queue zero and `Bereit zum Scannen` only after exact durable acknowledgements.
+
+Gate C passed afresh using the reviewed one-shot numeric-loopback response-drop helper and runbook.
+The helper dropped the Mobile response only after the server committed the Tag-A event and blocked
+later requests until explicit restore. Mobile retained exactly one pending event. After transport
+restore, the normal foreground scheduler reconciled the exact prior result without a manual
+per-event retry. The queue reached zero and the safe server snapshot remained exactly one new
+WorkEvent, Receipt, Decision and active TimeEntry beyond Gate B:
+
+```text
+AuditEvents=8
+WorkEvents=4
+SyncReceipts=4
+CanonicalDecisions=4
+TimeEntries=2
+StoppedTimeEntries=1
+```
+
+No duplicate WorkEvent, Receipt, Decision or TimeEntry mutation occurred.
+
+## 46. Sixth-run Gates D–E
+
+Gate D used a controlled historical-valid setup. An initial Web reassignment attempt while Tag A
+had an active TimeEntry was correctly blocked with zero mutation. The Employee then stopped Tag A,
+started Tag B and cold-entered the valid offline state. The decisive offline FIFO was:
+
+1. Tag A captured before cutover;
+2. Admin Web explicitly reassigned Tag A from `SYNTHETIC ANDROID CUSTOMER` to
+   `SYNTHETIC REASSIGNMENT TARGET`;
+3. stale Tag A captured after cutover under the old local lease; and
+4. Tag B captured as the successor.
+
+Automatic synchronization produced the exact durable results:
+
+| Device sequence | Durable result | Reason / decision |
+|---:|---|---|
+| 7 | `synchronized` | `active_entry_for_other_target_rejected` |
+| 8 | `review_pending` | `historical_configuration_not_valid`; no canonical decision |
+| 9 | `review_pending` | `predecessor_requires_review`; no canonical decision |
+
+The final safe server snapshot was three Administration receipts, 15 AuditEvents, nine WorkEvents,
+nine synchronization Receipts, seven canonical Decisions, three TimeEntries with two stopped, two
+Tags and three Assignment-history rows. Sequences 8 and 9 created no canonical Decision or
+TimeEntry. Mobile drained the exact queue to zero but displayed `Sichere Prüfung erforderlich`, not
+`Bereit zum Scannen`; that durable truth persisted after a complete force-stop/relaunch. Gate D
+therefore passed both server authority/FIFO safety and the corrected Mobile review-state boundary.
+
+Gate E passed afresh:
+
+- the exact installed build registered one `taptime-offline-sync-v1` background task with the
+  accepted 15-minute minimum and one Android WorkManager job;
+- with Mobile in the background, two immediate development-only native job triggers resulted in
+  exactly one worker execution, one consumer, one headless task and a successful completion;
+- all server counts remained byte-for-byte unchanged at the Gate-D final snapshot, proving no
+  duplicate mutation; this is capability/single-flight evidence and does not claim a real-time OS
+  scheduling SLA; and
+- Mobile sign-out removed scan authority and exposed only the safe login surface with no prior
+  Customer, Tag, queue or owner detail. Admin Web also signed out and its local password field was
+  cleared.
+
+Final disposition:
+
+| Gate | Result |
+|---|---|
+| A — lease and true cold-start offline capture | **PASSED** |
+| B — automatic FIFO synchronization | **PASSED** |
+| C — idempotency and lost response | **PASSED** |
+| D — stale authority/configuration fail closed | **PASSED** |
+| E — background capability truth and cleanup | **PASSED** |
+
+## 47. Sixth-run safe-data boundary, cleanup and current disposition
+
+No password, token, invitation secret, raw NFC UID/payload, provider subject, SQLCipher/SecureStore
+key, internal UUID/database identifier or real-person data was copied into ADO. Evidence is limited
+to public synthetic labels, 12-character validation fingerprints, aggregate counts and approved
+artifact/repository bindings.
+
+Complete cleanup passed:
+
+- both Mobile and Admin Web sessions signed out;
+- the Web password field and system clipboard were cleared;
+- the synthetic Android package was uninstalled;
+- Vite and Harness stopped normally;
+- listener count on ports 3000, 3001, 5173 and 54321: `0`;
+- scoped USB reverse-mapping count: `0`;
+- disposable database count: `0`;
+- generated synthetic PostgreSQL role count: `0`;
+- installed synthetic package count: `0`; and
+- the tracked repository remained clean on head `0e2590b`, exactly matching `origin/main`.
+
+The pre-existing local PostgreSQL service was not part of the disposable gate resources and was
+left running and unchanged.
+
+The sixth complete fresh Human Physical Gate A–E is **PASSED**. Development Assignment 1 is not
+yet claimed complete: this physical-evidence synchronization must be published, pass exact-head CI
+and receive an independent final closure review with zero open P0/P1/P2/P3. Production resources,
+production data, deployment and distribution remain unauthorized.

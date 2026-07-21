@@ -1,6 +1,6 @@
 # Project Status
 
-Status: CORE ROADMAP V2 BLOCK A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2, BLOCK D, E1 AND NARROW E2A COMPLETE FOR THEIR RECORDED SCOPES — C3A HUMAN-ACCEPTED — C3E1 AND C3E2 INDEPENDENTLY CLOSED — DEVELOPMENT ASSIGNMENT 1 CONTRACT AND REPOSITORY IMPLEMENTATION INDEPENDENTLY APPROVED; DA1-IMPL-01, DA1-PHYS-01/02/03/04 AND DA1-ARTIFACT-02 FINDINGS CLOSED — FIVE PRIOR COMPLETE FRESH HUMAN GATES REMAIN FAILED HISTORICAL RUNS — DA1-ARTIFACT-02 CORRECTION `0fdddbc`, TREE `62b5efc`, AND REVIEW HEAD `1527855`, TREE `1bc2511`, INDEPENDENTLY APPROVED WITH ZERO OPEN P0/P1/P2/P3; RUN `29751390803` ATTEMPT 1 AND RUN `29752205717` ATTEMPT 2 EACH 10/10 GREEN — UNINSTALLED RUNTIME-COMPLETE 95,425,695-BYTE APK SHA-256 `aa081fca…5ffbf` PRESERVED — SIXTH COMPLETE FRESH HUMAN GATE ELIGIBLE FOR SEPARATE HUMAN AUTHORIZATION BUT NOT YET AUTHORIZED — NO CORRECTED PHYSICAL RESULT — PRODUCTION, PRODUCTION DATA, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED — LATEST MOBILE 419 / CORE 290 / ADMIN WEB 44 — DT-060–DT-068 AND BLOCK E REMAIN OPEN — 2 SUPAVISOR MODES UNVERIFIED — NO PRODUCTION PERSONAL DATA AUTHORIZED — NO PRODUCTION CLOUD SYNC DEPLOYMENT
+Status: CORE ROADMAP V2 BLOCK A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2, BLOCK D, E1 AND NARROW E2A COMPLETE FOR THEIR RECORDED SCOPES — C3A HUMAN-ACCEPTED — C3E1 AND C3E2 INDEPENDENTLY CLOSED — DEVELOPMENT ASSIGNMENT 1 CONTRACT AND REPOSITORY IMPLEMENTATION INDEPENDENTLY APPROVED; DA1-IMPL-01, DA1-PHYS-01/02/03/04 AND DA1-ARTIFACT-02 FINDINGS CLOSED — FIVE PRIOR COMPLETE FRESH HUMAN GATES REMAIN FAILED HISTORICAL RUNS — SIXTH COMPLETE FRESH HUMAN GATE A–E PASSED ON PRODUCT `48a21a7`, ARTIFACT CORRECTION `0fdddbc`, REVIEW-SYNCHRONIZATION `0e2590b`, EXACT-HEAD RUN `29830332699` 10/10 AND EXACT 95,425,695-BYTE APK SHA-256 `aa081fca…5ffbf` — PHYSICAL-EVIDENCE PUBLICATION, EXACT-HEAD CI AND INDEPENDENT FINAL CLOSURE REVIEW PENDING — PRODUCTION, PRODUCTION DATA, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED — LATEST MOBILE 419 / CORE 290 / ADMIN WEB 44 — DT-060–DT-068 AND BLOCK E REMAIN OPEN — 2 SUPAVISOR MODES UNVERIFIED — NO PRODUCTION PERSONAL DATA AUTHORIZED — NO PRODUCTION CLOUD SYNC DEPLOYMENT
 Date: 2026-07-21
 Owner: Human Architect + Technical Lead
 
@@ -31,16 +31,14 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
 - **C3E1 is closed for its authorized repository and Human physical scope.** Corrected authorization `70d163f` closed all six contract findings and passed independent zero-finding re-review plus exact-head run `29410078768`; product correction `450d767`, tree `a60d306`, passed zero-finding delta re-review and exact-head ten-of-ten run `29416554531`. First harness `ee522a5` required four corrections; focused correction `4338910`, tree `0657f4b`, passed independent zero-finding delta re-review and exact-head ten-of-ten run `29420832927`. Harness 16/16 retains the 1,534-test matrix plus two approved Supavisor skips. The complete fresh Galaxy A33/NTAG213 sequence passed real C3C prerequisite setup, manual secret-only handling, authority-free pre-Membership state, wrong-secret zero mutation, force-stop rollback, exact one-grant redemption, Employee Start/Stop, consumed-secret denial to the second identity, safe one-Employee Admin projection, exact final counts, both sign-outs and complete schema/login/listener/reverse cleanup. Three prior attempts were reset and contribute no observation: invitation expiry, unauthorized clipboard transfer and an automatic rollback before the required physical force-stop sequence. ADO-only closure commit `fe0781b`, tree `76284e5`, passed exact-head ten-of-ten run `29645336694`; independent final review returned `APPROVED` with zero open P0/P1/P2/P3 and accepted the documented Force-Stop timing disposition. C3E2 later received its own bounded repository release; production resources/data and deployment/distribution remain unauthorized. Evidence: `ADO/05_Evidence/Block_C3E1_Implementation_Evidence.md`, `ADO/05_Evidence/Block_C3E1_Physical_Validation_Evidence.md` and `ADO/05_Evidence/Block_C3E1_Independent_Final_Closure_Review.md`.
 - **C3E2 is independently closed for its authorized local repository/device scope.** The contract reviewed at `dbefc1c`, tree `3bcc153`, received zero-finding independent approval, exact-head run `29646684981` and Human acceptance of Sections 3–13. After the distinct repository release on baseline `5bc4951`, implementation `b783733` plus CI correction `672b7ac` delivered migration `009`, the separate least-privilege reassignment boundary, exact API route, safe Web confirmation and Android parser compatibility. Final head `7050df4`, tree `587ef8f`, passed ten-of-ten run `29649683173`; independent implementation review returned `APPROVED` with zero open P0/P1/P2/P3. The Human Architect then passed the complete fresh Galaxy-A33/Android-15/NTAG213 sequence: C3C assignment to Customer A, C3E1 Employee enrollment, A Start, active-work rejection with zero mutation, A Stop, explicit A→B reassignment, matching Web/Android projections and B Start/Stop. Final sanitized state was two Customers, one Tag, two Assignments, two administration receipts, four WorkEvents/Decisions/lifecycle Receipts, two stopped TimeEntries and ten AuditEvents; read-only evidence proved one shared cutover timestamp and immutable A-before/B-after attribution. Sign-out and complete schema/login/listener/reverse cleanup passed. ADO-only closure commit `a2fdebc`, tree `1872f9f`, passed exact-head ten-of-ten run `29652072268`; independent final review returned `APPROVED` with zero open P0/P1/P2/P3 and accepted all documented attempt-separation and safe-boundary evidence. No production resource/data or deployment/distribution authority follows. Evidence: `ADO/05_Evidence/Block_C3E2_Implementation_Evidence.md`, `ADO/05_Evidence/Block_C3E2_Physical_Validation_Evidence.md` and `ADO/05_Evidence/Block_C3E2_Independent_Final_Closure_Review.md`.
 - **Development Assignment 1 has a Human-accepted complete offline/synchronization architecture and
-  authorization contract; repository Workstreams A–E and the `DA1-PHYS-01/02/03/04` corrections
-  are independently approved with their repository findings closed. The fourth authorized
-  complete fresh Human Physical Gate remains a failed historical run and supplies no corrected
-  physical result. `DA1-ARTIFACT-01` rebinding was independently approved and the replacement was
-  separately Human-authorized for a new fifth complete fresh gate. Exact installation binding
-  passed, but Gate A failed during step 1 before login because the hash-bound APK lacked all three
-  required synthetic runtime values. Gates B–E were not started and full cleanup passed. The
-  focused runtime-artifact correction and its ADO publication passed independent final review with
-  zero open P0/P1/P2/P3, closing `DA1-ARTIFACT-02`; a sixth complete fresh gate is eligible for a
-  separate Human authorization but remains unauthorized.**
+  authorization contract; repository Workstreams A–E and the `DA1-PHYS-01/02/03/04` and
+  `DA1-ARTIFACT-02` corrections are independently approved with their findings closed. Five prior
+  complete Human gates remain failed historical runs. The separately authorized sixth complete
+  fresh Gate A–E run passed on the exact runtime-complete APK and approved Galaxy-A33/Android-15/
+  two-NTAG213 set. Cold true-offline A→B→A capture, automatic FIFO, lost-response idempotency,
+  stale-cutover review-pending truth across restart, native background single-flight, both sign-outs
+  and complete disposable cleanup all passed. Physical-evidence publication, exact-head CI and an
+  independent final closure review remain mandatory before Development Assignment 1 is complete.**
   On exact clean baseline
   `1bb2d7d7b38928643cfd5c86b36c500c35f73276`, tree
   `c5c20f67155cdc0b4197908b4d1283cb7e619597`, Human-accepted ADR-0012 and the comprehensive
@@ -238,7 +236,7 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   package `com.tim180201.mobile.synthetic`, version 1/1.0.0, valid APK-v2 signature and verified
   offline backup/transfer boundaries. Deterministic Hermes inspection proves all three required
   values. The prior failed APK remains separately immutable and is rejected by the new verifier for
-  all three missing values. The replacement is not installed.
+  all three missing values. At that point the replacement was not installed.
 
   Independent exact-delta/artifact final review bound correction `0fdddbc`, tree `62b5efc`, ADO
   head `1527855b3db4bf387e4efc9e09691a15d588408b`, tree
@@ -248,9 +246,10 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   419/419 but transparently could not mount either external APK. The Technical Lead subsequently
   reverified both immutable files locally: exact size/hash/mode, rejection of the failed APK for all
   three values, complete Hermes contract in the new APK, v2 signature/signer, package/version and
-  manifest backup bindings. No installation or physical observation occurred. A sixth complete
-  fresh Gate A–E run is eligible only for a new explicit Human authorization and remains
-  unauthorized.
+  manifest backup bindings. The Human Architect subsequently authorized the sixth complete fresh
+  Gate A–E run on exact review-synchronization `0e2590b`, tree `23fc9d3`, run `29830332699` and
+  the exact corrected APK. All Gates A–E passed afresh and full safe cleanup passed. This physical
+  result now awaits ADO publication, exact-head CI and independent final closure review.
   Evidence: `ADO/01_Architecture/ADR/ADR-0012-complete-offline-synchronization-platform.md`,
   `ADO/02_Development/Development_Assignment_01_Complete_Offline_Synchronization_Authorization.md`;
   `ADO/02_Development/Development_Assignment_01_Complete_Offline_Synchronization_Implementation_Plan.md`;
@@ -264,7 +263,7 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   `ADO/05_Evidence/Development_Assignment_01_Physical_Validation_Evidence.md`;
   `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_02_Independent_Exact_Delta_Review.md`; and
   `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_01_Independent_Exact_Delta_Review.md`.
-- The Business Core (NFC scan through Assignment Resolution, Assignment Validation, WorkEvent creation, Business Engine decision, TimeEntry lifecycle, offline queue, durable local persistence and error classification) is implemented and tested: 290 `packages/core` tests pass (262 existing plus 26 ADR-0009 codec cases and two explicit required-display-name contract/persistence cases); the expanded Mobile suite passes 409 tests in 29 files, including physical-validation, synthetic-E2E product-composition, E1/E2A compatibility, the complete offline lease/database/queue/scheduler/reconciliation boundaries, the SQLCipher actor-connection regression, durable review-marker dominance and fail-closed cold-start restoration/shell/cross-identity boundaries; tests are included in the TypeScript check; the Core and workspace builds succeed.
+- The Business Core (NFC scan through Assignment Resolution, Assignment Validation, WorkEvent creation, Business Engine decision, TimeEntry lifecycle, offline queue, durable local persistence and error classification) is implemented and tested: 290 `packages/core` tests pass (262 existing plus 26 ADR-0009 codec cases and two explicit required-display-name contract/persistence cases); the expanded Mobile suite passes 419 tests in 31 files, including physical-validation, synthetic-E2E product-composition, E1/E2A compatibility, the complete offline lease/database/queue/scheduler/reconciliation boundaries, the SQLCipher actor-connection regression, durable review-marker dominance, fail-closed cold-start restoration/shell/cross-identity boundaries and build-enforced runtime-artifact completeness; tests are included in the TypeScript check; the Core and workspace builds succeed.
 - **Core Roadmap v2 Block A is complete.** The Human Architect approved F-01's engine-driven lifecycle rule; `TimeEntry` now has typed started/stopped states and WorkEvent traceability; repositories support user-aware active lookup and updates; the Business Engine handles start, stop, duplicate suppression (`< 5 seconds`), other-target rejection and inconsistent-state escalation; GitHub Actions runs install/typecheck/test/build on pushes and pull requests to `main`. Implementation commits: `f5a0027`, `d8d3833`, `72eb03d`; enabling commits: `2493f17`, `b2004ea`. Closure evidence: `ADO/02_Development/Block_A_Core_Truth_and_Reliability_Closure.md`.
 - **ADR-0008 is approved after independent security review and renewed Technical Lead verification; phased Block B implementation is authorized.** The approved baseline is Supabase-managed PostgreSQL/Auth, managed Node as primary transactional lifecycle runtime, pooled-schema RLS/composite tenant constraints, one active Membership per User, email/password-only v1 authentication, audited operator bootstrap and identity-first pilot provisioning. Conflict, device-time and pre-revocation evidence use explicit deferred/review paths rather than silent mutation. Central EU (Frankfurt) is the intended initial region. No production personal data is authorized until legal retention/erasure/anonymization and backup requirements are approved. No production backend or cloud resource exists; the disposable B1 result is recorded below.
 - **Block B1 is completed and Technical-Lead approved.** Two review rounds corrected broad mutation rights, Organization-only visibility, privileged runtime use and cross-User referential manipulation. WorkEvent/TimeEntry unique keys and every TimeEntry/Decision/Receipt/Audit foreign key are User- and Organization-qualified; immutable evidence has operation-specific grants; runtime uses a separate non-owner/non-superuser login. Direct PostgreSQL 17.10 passes 39 tests locally and in GitHub Actions run `29220424071`, including cross-User `23503` rejection; two Supavisor modes remain explicitly unverified and are a pre-production gate. No production backend adapter, HTTP API, Auth integration or cloud resource exists.
@@ -375,18 +374,15 @@ Two Epics are concurrently Active, per EP-009's own stated relationship to the r
 
 ## Immediate Next Steps
 
-1. Publish this truthful independent-review synchronization and obtain green exact-head CI.
-2. Only after that exact-head CI is green may the Human Architect separately bind the exact
-   95,425,695-byte APK SHA-256 `aa081fca…5ffbf` and authorize the sixth complete fresh Human Gate
-   A–E run.
-3. At any later authorized run, repeat immediate host/device size/hash, package, signature,
-   backup-boundary and runtime-completeness checks before launch.
-4. Start that run at Gate A step 1 and reuse no prior observation.
-5. If all Gates A–E pass, synchronize the complete evidence and obtain a final independent closure
-   review before claiming Development Assignment 1 complete.
-6. Keep the real production endpoint/CA, one-human operator IAM inventory, short-lived credential
+1. Publish this truthful sixth-run physical evidence and obtain green exact-head CI.
+2. Obtain an independent final closure review of the exact evidence delta, artifact/repository
+   bindings, all Gate-A–E observations and cleanup before claiming Development Assignment 1
+   complete.
+3. If the review reports any P0/P1/P2/P3 finding, correct it and repeat the required exact-delta
+   review/CI boundary before closure.
+4. Keep the real production endpoint/CA, one-human operator IAM inventory, short-lived credential
    delivery/revocation and controlled execution evidence as explicit later deployment gates.
-7. Preserve the closed C3C/C3E2 least-privilege boundaries and keep production/deployment,
+5. Preserve the closed C3C/C3E2 least-privilege boundaries and keep production/deployment,
    DT-060–DT-068 and Block-E closure behind their own decisions and reviews.
 
 ## Agreed comprehensive Development-assignment sequence

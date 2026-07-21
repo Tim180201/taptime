@@ -122,8 +122,13 @@ two exact-head CI bindings returned `APPROVED` with zero open P0/P1/P2/P3 and cl
 `DA1-ARTIFACT-02` as an artifact-pipeline finding. The reviewer transparently could not mount the
 two external APKs; the Technical Lead subsequently reverified both exact immutable files, the new
 APK's Hermes/runtime, v2 signature, signer, package/version and manifest bindings, and the old
-APK's three-value rejection. No corrected physical result exists. A sixth complete fresh Human
-Gate A–E run is eligible only for a new separate Human authorization and is not yet authorized.
+APK's three-value rejection. The Human Architect then separately authorized the sixth complete
+fresh Gate A–E run on review-synchronization head `0e2590b`, tree `23fc9d3`, exact-head run
+`29830332699` and the exact runtime-complete APK. All five gates passed afresh on the approved
+Galaxy A33/Android-15/two-NTAG213 set, including cold true-offline A→B→A capture, automatic FIFO,
+lost-response idempotency, stale-cutover review truth after restart, native background single-flight,
+both sign-outs and complete cleanup. Physical-evidence publication, exact-head CI and independent
+final closure review remain pending; Development Assignment 1 is not yet claimed complete.
 Implementation, review and physical evidence:
 `ADO/05_Evidence/Development_Assignment_01_Implementation_Evidence.md` and
 `ADO/05_Evidence/Development_Assignment_01_Independent_Implementation_Review.md` and
@@ -236,7 +241,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Technical Architecture Profile (TTAP-001) | `ADO/01_Architecture/Technical_Architecture_Profile.md` |
 | Development Task Profile | `ADO/01_Architecture/Development_Task_Profile.md` |
 | Official Technical Lead Start Prompt (TLP-001) | `ADO/01_Architecture/Technical_Lead_Start_Prompt.md` |
-| Architecture Decision Records (through Human-accepted ADR-0012; DA1-IMPL-01, DA1-PHYS-01/02/03/04 and DA1-ARTIFACT-02 repository/artifact-pipeline findings independently closed; five prior DA1 Human Gates remain failed historical runs; runtime-complete correction `0fdddbc` and APK preserved; sixth complete fresh Gate A–E run eligible for separate Human authorization but not yet authorized) | `ADO/01_Architecture/ADR/` |
+| Architecture Decision Records (through Human-accepted ADR-0012; DA1-IMPL-01, DA1-PHYS-01/02/03/04 and DA1-ARTIFACT-02 repository/artifact-pipeline findings independently closed; five prior DA1 Human Gates remain failed historical runs; sixth complete fresh Gate A–E passed; final evidence publication/CI/review pending) | `ADO/01_Architecture/ADR/` |
 | Feature Blueprints (incl. FB-001, FB-002) | `ADO/01_Architecture/Feature_Blueprints/` |
 | Technical Specifications (incl. TS-001, TS-002) | `ADO/01_Architecture/Technical_Specifications/` |
 | Developer Implementation Manual (EP-008) | `ADO/01_Architecture/Developer_Implementation_Manual/` |
@@ -311,13 +316,13 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Development Assignment 1 Independent Pre-Implementation Review | `ADO/05_Evidence/Development_Assignment_01_Independent_Pre_Implementation_Review.md` |
 | Development Assignment 1 Implementation Evidence | `ADO/05_Evidence/Development_Assignment_01_Implementation_Evidence.md` |
 | Development Assignment 1 Independent Implementation Review and Correction Disposition | `ADO/05_Evidence/Development_Assignment_01_Independent_Implementation_Review.md` |
-| Development Assignment 1 Human Physical Validation Evidence — five prior complete runs failed historically; DA1-ARTIFACT-02 correction `0fdddbc` and runtime-complete APK independently approved; sixth complete fresh Gate A–E run eligible for separate Human authorization but not yet authorized | `ADO/05_Evidence/Development_Assignment_01_Physical_Validation_Evidence.md` |
+| Development Assignment 1 Human Physical Validation Evidence — five prior complete runs failed historically; sixth complete fresh Gate A–E passed on the exact authorized runtime-complete artifact; final evidence publication/CI/review pending | `ADO/05_Evidence/Development_Assignment_01_Physical_Validation_Evidence.md` |
 | Development Assignment 1 DA1-PHYS-01 Independent Exact-Delta Review — approved, finding closed | `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_01_Independent_Exact_Delta_Review.md` |
 | Development Assignment 1 DA1-PHYS-02 Independent Exact-Delta Review — approved, repository finding closed | `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_02_Independent_Exact_Delta_Review.md` |
 | Development Assignment 1 DA1-PHYS-03 Independent Exact-Delta Review — approved, repository finding closed | `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_03_Independent_Exact_Delta_Review.md` |
 | Development Assignment 1 DA1-PHYS-04 Failure-Synchronization Independent Exact-Delta Review — approved for failure truth/diagnosis/correction boundary; P1 remains open | `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_04_Failure_Synchronization_Independent_Exact_Delta_Review.md` |
 | Development Assignment 1 DA1-PHYS-04 Independent Exact-Delta Review — approved, repository finding closed; later artifact retention and runtime-completeness failures do not reopen the product finding | `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_04_Independent_Exact_Delta_Review.md` |
-| Development Assignment 1 DA1-ARTIFACT-02 Independent Exact-Delta and Artifact Final Review — approved, zero open P0–P3, artifact-pipeline finding closed; sixth complete fresh gate separately authorizable but not authorized | `ADO/05_Evidence/Development_Assignment_01_DA1_ARTIFACT_02_Independent_Exact_Delta_Artifact_Review.md` |
+| Development Assignment 1 DA1-ARTIFACT-02 Independent Exact-Delta and Artifact Final Review — approved, zero open P0–P3, artifact-pipeline finding closed; subsequent sixth complete fresh gate passed | `ADO/05_Evidence/Development_Assignment_01_DA1_ARTIFACT_02_Independent_Exact_Delta_Artifact_Review.md` |
 | Product Readiness Reassessment — C3D Closure Delta | `ADO/05_Evidence/Product_Readiness_Reassessment_2026-07-15_C3D_Closure_Delta.md` |
 | EP-008 Evidence (incl. Repository Health Follow-up) | `ADO/05_Evidence/EP-008/` |
 | Evidence Area | `ADO/05_Evidence/` |

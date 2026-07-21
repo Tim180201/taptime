@@ -27,18 +27,20 @@ INDEPENDENTLY APPROVED; FOCUSED DA1-PHYS-04 CORRECTION `48a21a7`, TREE `7c053be`
 TECHNICAL-LEAD APPROVED, PUBLISHED AND EXACT-HEAD RUN `29743923158` 10/10 GREEN;
 ADO PUBLICATION `2f6035b`, TREE `d5513a6`, AND RUN `29744637928` 10/10 GREEN; INDEPENDENT
 EXACT-DELTA CORRECTION REVIEW APPROVED WITH ZERO OPEN P0/P1/P2/P3; DA1-PHYS-04 REPOSITORY
-FINDING CLOSED; NO CORRECTED PHYSICAL RESULT; DA1-ARTIFACT-01 REBINDING REVIEW APPROVED AND
+FINDING CLOSED; AT THAT POINT NO CORRECTED PHYSICAL RESULT; DA1-ARTIFACT-01 REBINDING REVIEW APPROVED AND
 NEW FIFTH COMPLETE FRESH GATE HUMAN-AUTHORIZED ON ADO/ARTIFACT HEAD `e0fd175`, EXACT-HEAD RUN
 `29747561139` AND REPLACEMENT APK SHA-256 `4239f6c6…6b7c`; EXACT PRE-INSTALL AND
 INSTALLED-DEVICE BINDING PASSED, BUT GATE A FAILED DURING STEP 1 BEFORE LOGIN BECAUSE THE APK
 OMITTED ALL THREE REQUIRED SYNTHETIC RUNTIME VALUES; DA1-ARTIFACT-02 (P1 OPERATIONAL) OPEN;
 GATES B–E NOT STARTED; COMPLETE ABORT CLEANUP PASSED; FOCUSED DA1-ARTIFACT-02 CORRECTION
 `0fdddbc`, TREE `62b5efc`, TECHNICAL-LEAD APPROVED, PUBLISHED AND EXACT-HEAD RUN `29751390803`
-10/10 GREEN; UNINSTALLED RUNTIME-COMPLETE 95,425,695-BYTE APK SHA-256 `aa081fca…5ffbf`
+10/10 GREEN; AT THAT POINT UNINSTALLED RUNTIME-COMPLETE 95,425,695-BYTE APK SHA-256 `aa081fca…5ffbf`
 PRESERVED; INDEPENDENT FINAL REVIEW OF ADO HEAD `1527855`, TREE `1bc2511`, RETURNED APPROVED
 WITH ZERO OPEN P0/P1/P2/P3 AND CLOSED DA1-ARTIFACT-02; RUN `29752205717` ATTEMPT 2 10/10;
-SIXTH COMPLETE FRESH HUMAN GATE ELIGIBLE FOR SEPARATE HUMAN AUTHORIZATION BUT NOT AUTHORIZED;
-PRODUCTION, PRODUCTION DATA, DEPLOYMENT AND DISTRIBUTION NOT AUTHORIZED**
+SIXTH COMPLETE FRESH HUMAN GATE SEPARATELY AUTHORIZED ON REVIEW-SYNCHRONIZATION `0e2590b`, TREE
+`23fc9d3`, RUN `29830332699` AND EXACT RUNTIME-COMPLETE APK; GATES A–E PASSED AFRESH; COMPLETE
+CLEANUP PASSED; PHYSICAL-EVIDENCE PUBLICATION, EXACT-HEAD CI AND INDEPENDENT FINAL CLOSURE
+REVIEW PENDING; PRODUCTION, PRODUCTION DATA, DEPLOYMENT AND DISTRIBUTION NOT AUTHORIZED**
 Date: 2026-07-21
 Candidate Baseline Commit: `1bb2d7d7b38928643cfd5c86b36c500c35f73276`
 Candidate Baseline Tree: `c5c20f67155cdc0b4197908b4d1283cb7e619597`
@@ -450,8 +452,8 @@ micro-sprint handoffs while preserving every quality/security gate.
 ALL FOUR PRODUCT REPOSITORY FINDINGS CLOSED. FIVE COMPLETE FRESH PHYSICAL GATES REMAIN FAILED
 HISTORICAL RUNS. DA1-ARTIFACT-02 CORRECTION `0fdddbc` AND REVIEW HEAD `1527855` PASSED
 INDEPENDENT FINAL REVIEW WITH ZERO OPEN P0/P1/P2/P3; THE ARTIFACT-PIPELINE FINDING IS CLOSED.
-THE RUNTIME-COMPLETE APK REMAINS UNINSTALLED. A SIXTH COMPLETE FRESH GATE IS ELIGIBLE FOR A
-NEW SEPARATE HUMAN AUTHORIZATION BUT IS NOT YET AUTHORIZED. NO CORRECTED PHYSICAL RESULT EXISTS.
+THE SIXTH COMPLETE FRESH HUMAN GATE A–E PASSED ON THE EXACT AUTHORIZED RUNTIME-COMPLETE APK.
+PHYSICAL-EVIDENCE PUBLICATION, EXACT-HEAD CI AND INDEPENDENT FINAL CLOSURE REVIEW REMAIN PENDING.
 PRODUCTION, PRODUCTION DATA, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED.**
 
 Candidate publication, exact-head CI, independent zero-finding pre-implementation review, explicit
@@ -767,6 +769,32 @@ failed-artifact three-value rejection, corrected Hermes contract, v2 signature/s
 package/version and manifest backup bindings. This review authorizes no installation or physical
 action. Exact artifact rebinding and any sixth complete fresh Gate A–E run require a new explicit
 Human authorization, must begin at Gate A step 1 and may reuse no earlier observation.
+
+### Sixth complete fresh Human gate authorization and result
+
+The Human Architect subsequently supplied the required distinct authorization. It bound product
+`48a21a7ed75c3ab3b15fec93669b5ca2d87d5a30`, tree `7c053beeb0c9ef550216bd1dad0a59fc226866a6`;
+artifact correction `0fdddbce53369e3c73f345eee1c077226a40797f`, tree
+`62b5efc4efd36da1fbd0e6f2058a448aabd1ab1a`; reviewed ADO `1527855…`, review-synchronization
+`0e2590b67ad42b5aace8834090dd1412a59845c1`, tree
+`23fc9d312341e26c973cc4941fcc6d66b0aef648`; exact-head run `29830332699`, attempt 1, ten of ten;
+and the exact 95,425,695-byte runtime-complete APK SHA-256 `aa081fca…5ffbf`. It required immediate
+host/device size, hash, signature/signer, package/version, backup and Hermes-value verification,
+and prohibited reuse of every prior observation.
+
+The sixth complete fresh Galaxy-A33/Android-15/two-NTAG213 run passed Gates A–E. Evidence includes
+cold true-offline encrypted A→B→A queue 1/2/3 and restart persistence; automatic FIFO
+Start/reject/Stop; exact lost-response retry without duplicate mutation; stale configuration and
+successor review results with zero unauthorized Decision/TimeEntry and durable
+`Sichere Prüfung erforderlich` after queue zero and restart; exactly one successful background
+worker from two immediate development-only native triggers with unchanged server counts; both
+sign-outs; and complete package/listener/mapping/database/role/clipboard cleanup. The background
+observation proves registered best-effort capability and single-flight behavior, not a real-time OS
+SLA.
+
+This result does not authorize production resources/data, deployment or distribution. Development
+Assignment 1 is not yet claimed complete: the physical-evidence synchronization, exact-head CI and
+an independent final closure review with zero open P0/P1/P2/P3 remain mandatory.
 
 ## 14. Independent review mandate
 
