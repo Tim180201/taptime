@@ -424,8 +424,10 @@ review-marker reconciliation, a complete disposable journey and a twelfth CI job
 
 AVS V0–V4 passes 1,757 local tests plus two explicit B1 environment skips, every workspace
 typecheck/build, clean/replay migration verification, Android export and exact-head run
-`29859522776` 12/12 on implementation `0f71aca`, tree `e3e2ed7`. Independent exact-SHA review and
-the later closure publication are mandatory before DT-069–DT-074 or DA3 close. This engineering
+`29859522776` 12/12 on implementation `0f71aca`, tree `e3e2ed7`. Independent exact-SHA review of
+that implementation and Evidence head `350503a` returned `APPROVED` with zero open P0–P3. The
+reviewer recommends retaining separately authorized V5; Human disposition and the later closure
+publication remain mandatory before DT-069–DT-074 or DA3 close. This engineering
 implementation does not change a
 readiness-domain rating and does not authorize V5, Physical Gate, DA4 productization, legal/privacy
 approval, production, production data, deployment or distribution.

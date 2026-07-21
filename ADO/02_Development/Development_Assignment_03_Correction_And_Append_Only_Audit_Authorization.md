@@ -1,6 +1,6 @@
 # Development Assignment 3 — Correction and Append-only Audit Authorization
 
-- Status: **HUMAN-ACCEPTED AND IMPLEMENTATION-AUTHORIZED — WORKSTREAMS A–D PUBLISHED AT `0f71aca`; AVS V0–V4 / CI 12/12 GREEN; INDEPENDENT EXACT-SHA REVIEW PENDING**
+- Status: **IMPLEMENTATION `0f71aca` INDEPENDENTLY APPROVED — ZERO OPEN P0–P3; HUMAN V5 DISPOSITION REQUIRED BEFORE CLOSURE**
 - Date: 2026-07-21
 - Accepted/authorized baseline commit: `ff68f7a7d0ce69a65e88846ae1cca9abd5951f5d`
 - Accepted/authorized baseline tree: `09ef169a68bb53420e07b6f3fcbbdc74e0c01d57`
@@ -177,13 +177,13 @@ Expected protected or unchanged behavior:
 - Accepted decisions: ADR-0014 and DA3-P01–DA3-P16.
 - Authorized executable scope: Workstreams A–D and AVS V0–V4.
 - Risk class: R3.
-- Current verification: local V0–V3 complete; focused implementation publication, exact-head V4
-  and independent exact-SHA implementation review remain pending.
+- Current verification: AVS V0–V4 complete; implementation/evidence exact-head CI 12/12; independent
+  exact-SHA review `APPROVED` with zero open P0–P3. Human V5 disposition remains pending.
 - Carried evidence: DA1/DA2 closure and their exact CI/review bindings remain evidence for their
   unchanged foundations; they are not DA3 correctness evidence.
 - Excluded path: `research/` remains unread and untouched.
 
-### 6.2 Proposed implementation impact
+### 6.2 Implementation impact
 
 DA3 crosses durable schema, RLS/roles, lifecycle concurrency, offline predecessor state, export,
 Admin Web and Mobile status boundaries. Unknown impact expands verification. No performance or
@@ -329,8 +329,9 @@ open P0/P1/P2/P3. The candidate was published as
 DA3-P01–DA3-P16 and separately authorized Workstreams A–D plus AVS V0–V4 on exactly that baseline.
 The focused implementation is published at `0f71aca270969866037f2e31cc05ef8730e0ecd1`, tree
 `e3e2ed780c217a520d382b98971991510bb99973`; exact-head GitHub Actions run `29859522776`, attempt
-1, passed 12/12. Independent exact-SHA implementation review remains mandatory before DA3 or
-DT-069–DT-074 closure.
+1, passed 12/12. Independent exact-SHA implementation review returned `APPROVED` with zero open
+P0/P1/P2/P3. The reviewer recommends retaining V5; the Human Architect must separately authorize
+V5 or explicitly decide that it is not required before DA3 or DT-069–DT-074 closure.
 V5, Physical Gate, production, production data, deployment and distribution remain
 **NOT AUTHORIZED**.
 

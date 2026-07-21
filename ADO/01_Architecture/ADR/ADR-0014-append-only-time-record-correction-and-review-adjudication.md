@@ -1,6 +1,6 @@
 # ADR-0014: Append-only Time-Record Correction and Human Review Adjudication
 
-- Status: **HUMAN-ACCEPTED; IMPLEMENTATION `0f71aca` TECHNICAL-LEAD/AVS V0–V4/CI 12/12 APPROVED; INDEPENDENT EXACT-SHA REVIEW PENDING**
+- Status: **HUMAN-ACCEPTED; IMPLEMENTATION `0f71aca` INDEPENDENTLY APPROVED WITH ZERO OPEN P0–P3; HUMAN V5 DISPOSITION PENDING**
 - Date: 2026-07-21
 - Owner: Technical Lead
 - Decision authority: Human Architect

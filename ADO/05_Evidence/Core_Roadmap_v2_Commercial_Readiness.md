@@ -241,7 +241,8 @@ Workstreams A–D plus AVS V0–V4 are authorized on exact baseline `ff68f7a`, t
 published implementation `0f71aca`, tree `e3e2ed7`, supplies the minimal Administrator
 overview/correction/review/export workflow and append-only effective/audit truth while preserving
 automatic lifecycle/offline evidence. AVS V0–V4 is green with 1,757 local tests and exact-head run
-`29859522776` 12/12. Independent exact-SHA review and DT-069–DT-074 closure remain pending.
+`29859522776` 12/12. Independent exact-SHA review returned `APPROVED` with zero open P0–P3 and
+recommends retaining V5. Human V5 disposition and DT-069–DT-074 closure remain pending.
 
 ### Block G – App Distribution and Pilot Installability
 
@@ -591,7 +592,20 @@ The existing 11 moderate Expo/Xcode toolchain advisories remain disclosed.
 
 Implementation `0f71aca270969866037f2e31cc05ef8730e0ecd1`, tree
 `e3e2ed780c217a520d382b98971991510bb99973`, is published; exact-head V4 run `29859522776`, attempt
-1, passed 12/12. Independent exact-SHA implementation review remains mandatory, so DA3 and
-DT-069–DT-074 remain open. V5, Physical Gate,
+1, passed 12/12. Independent exact-SHA implementation review returned `APPROVED` with zero open
+P0–P3. The reviewer recommends retaining separately authorized V5; Human disposition is pending,
+so DA3 and DT-069–DT-074 remain open. V5, Physical Gate,
 production, production data, deployment, distribution, legal/privacy approval and DA4
 productization remain unauthorized or separately gated.
+
+## 22. Progress Update – 2026-07-21 Development Assignment 3 Independent Approval
+
+Independent exact-SHA review bound baseline `ff68f7a`/tree `09ef169`, implementation
+`0f71aca`/tree `e3e2ed7`, reviewed Evidence head `350503a`/tree `015faeb` and exact-head runs
+`29859522776` and `29859875195`, both attempt 1 and 12/12 successful. Verdict: `APPROVED`, zero open
+P0/P1/P2/P3.
+
+The reviewer recommends retaining the separately authorized V5 operator/Android marker gate before
+closure. This is not an implementation finding and does not authorize V5. DA3 and DT-069–DT-074
+remain open until the Human Architect either authorizes and completes V5 or explicitly decides it is
+not required, followed by exact ADO closure evidence.
