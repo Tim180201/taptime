@@ -310,13 +310,13 @@ afterAll(async () => {
 });
 
 describe('B3 deterministic migration system', () => {
-  it('applies exactly ten sorted versioned migrations through complete offline synchronization', async () => {
+  it('applies exactly eleven sorted versioned migrations through tenant-safe TimeEntry export', async () => {
     const rows = await installerPool.query<{ version: string; checksum: string }>(
       `SELECT version, checksum FROM ${B3_MIGRATION_TABLE} ORDER BY version`,
     );
 
     expect(rows.rows.map((row) => row.version)).toEqual([
-      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010',
+      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011',
     ]);
     expect(rows.rows.every((row) => /^[0-9a-f]{64}$/.test(row.checksum))).toBe(true);
   });
@@ -325,7 +325,7 @@ describe('B3 deterministic migration system', () => {
     await expect(migrate(installerPool)).resolves.toEqual({
       applied: [],
       alreadyApplied: [
-        '001', '002', '003', '004', '005', '006', '007', '008', '009', '010',
+        '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011',
       ],
     });
   });

@@ -1,0 +1,34 @@
+{
+  "name": "@taptime/backend-time-export",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Tenant-safe bounded and audited TimeEntry CSV export coordinator.",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json --emitDeclarationOnly && esbuild src/index.ts --bundle --platform=node --target=node24 --format=esm --external:@taptime/backend-identity --external:@taptime/time-entry-export-contract --external:pg --sourcemap --outfile=dist/index.js",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@taptime/backend-identity": "*",
+    "@taptime/time-entry-export-contract": "*",
+    "pg": "^8.22.0"
+  },
+  "devDependencies": {
+    "@taptime/backend-administration": "*",
+    "@taptime/backend-bootstrap": "*",
+    "@taptime/backend-lifecycle": "*",
+    "@taptime/backend-schema": "*",
+    "@taptime/core": "*",
+    "@types/node": "^24.10.13",
+    "@types/pg": "^8.20.0",
+    "esbuild": "^0.28.1",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.9"
+  }
+}

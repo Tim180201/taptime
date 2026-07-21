@@ -80,6 +80,11 @@ const configuredOfflineReconciliationConnectionString = connectionStringFor(
   'taptime_offline_reconciliation_runtime',
   'offline-reconciliation-local-synthetic-only',
 );
+const configuredTimeEntryExportConnectionString = connectionStringFor(
+  installerConnectionString,
+  'taptime_time_export_runtime',
+  'time-export-local-synthetic-only',
+);
 const installerPool = new Pool({ connectionString: installerConnectionString, max: 4 });
 const resolverPool = new Pool({ connectionString: configuredRuntimeConnectionString, max: 1 });
 
@@ -123,6 +128,7 @@ beforeAll(async () => {
     offlineLeaseDatabaseUrl: configuredOfflineLeaseConnectionString,
     offlineEventDatabaseUrl: configuredOfflineEventConnectionString,
     offlineReconciliationDatabaseUrl: configuredOfflineReconciliationConnectionString,
+    timeEntryExportDatabaseUrl: configuredTimeEntryExportConnectionString,
     supabaseIssuer: jwks.issuerA,
   }, {
     onDiagnostic: (diagnostic) => diagnostics.push(diagnostic),
@@ -144,16 +150,16 @@ afterAll(async () => {
 });
 
 describe('versioned C1 foundation', () => {
-  it('uses exactly migrations 001 through 010 and reruns the ledger cleanly', async () => {
+  it('uses exactly migrations 001 through 011 and reruns the ledger cleanly', async () => {
     const migrations = await loadMigrations();
-    expect(migrations.map(({ version }) => version)).toEqual(['001', '002', '003', '004', '005', '006', '007', '008', '009', '010']);
+    expect(migrations.map(({ version }) => version)).toEqual(['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011']);
     const ledger = await installerPool.query<{ version: string; checksum: string }>(
       `SELECT version, checksum FROM ${B3_MIGRATION_TABLE} ORDER BY version`,
     );
-    expect(ledger.rows.map(({ version }) => version)).toEqual(['001', '002', '003', '004', '005', '006', '007', '008', '009', '010']);
+    expect(ledger.rows.map(({ version }) => version)).toEqual(['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011']);
     expect(ledger.rows.every(({ checksum }) => /^[0-9a-f]{64}$/.test(checksum))).toBe(true);
     await expect(migrate(installerPool)).resolves.toEqual({
-      applied: [], alreadyApplied: ['001', '002', '003', '004', '005', '006', '007', '008', '009', '010'],
+      applied: [], alreadyApplied: ['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011'],
     });
   });
 });

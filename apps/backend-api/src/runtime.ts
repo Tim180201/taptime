@@ -14,6 +14,7 @@ import {
   OfflineLifecycleIngestionCoordinator,
 } from '@taptime/backend-offline-sync';
 import { TenantReadSessionCoordinator } from '@taptime/backend-read-model';
+import { TimeEntryExportCoordinator } from '@taptime/backend-time-export';
 import { Pool } from 'pg';
 import { B4SessionAuthorityResolver } from './B4SessionAuthorityResolver.js';
 import { B5ScanContextResolver } from './B5ScanContextResolver.js';
@@ -33,6 +34,7 @@ export interface BackendApiRuntimeConfiguration {
   readonly offlineLeaseDatabaseUrl: string;
   readonly offlineEventDatabaseUrl: string;
   readonly offlineReconciliationDatabaseUrl: string;
+  readonly timeEntryExportDatabaseUrl: string;
   readonly supabaseIssuer: string;
 }
 
@@ -71,6 +73,9 @@ export function createBackendApiRuntime(
   const offlineReconciliationDatabase = validateDatabaseUrl(
     configuration.offlineReconciliationDatabaseUrl,
   );
+  const timeEntryExportDatabase = validateDatabaseUrl(
+    configuration.timeEntryExportDatabaseUrl,
+  );
   assertDistinctDatabaseUsers([
     sessionDatabase,
     readModelDatabase,
@@ -82,6 +87,7 @@ export function createBackendApiRuntime(
     offlineLeaseDatabase,
     offlineEventDatabase,
     offlineReconciliationDatabase,
+    timeEntryExportDatabase,
   ]);
 
   const issuer = configuration.supabaseIssuer.replace(/\/+$/, '');
@@ -103,6 +109,7 @@ export function createBackendApiRuntime(
   const offlineReconciliationPool = createRuntimePool(
     offlineReconciliationDatabase.connectionString,
   );
+  const timeEntryExportPool = createRuntimePool(timeEntryExportDatabase.connectionString);
   const lifecycleCoordinator = new ServerCanonicalLifecycleIngestionCoordinator(
     lifecyclePool,
     verifier,
@@ -137,6 +144,7 @@ export function createBackendApiRuntime(
         verifier,
       ),
       tagReassignment: new NfcTagReassignmentCoordinator(reassignmentPool, verifier),
+      timeEntryExporter: new TimeEntryExportCoordinator(timeEntryExportPool, verifier),
     },
     options,
   );
@@ -165,6 +173,7 @@ export function createBackendApiRuntime(
         offlineLeasePool.end(),
         offlineEventPool.end(),
         offlineReconciliationPool.end(),
+        timeEntryExportPool.end(),
       ]);
       const failure = results.find(
         (result): result is PromiseRejectedResult => result.status === 'rejected',

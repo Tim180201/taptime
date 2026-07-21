@@ -14,6 +14,7 @@ import {
   customerAssignmentTarget,
 } from '@taptime/core';
 import type { LifecycleIngestionCommand } from '@taptime/backend-lifecycle';
+import { validateTimeEntryExportRequest } from '@taptime/time-entry-export-contract';
 import {
   OFFLINE_LEASE_PAGE_MAXIMUM_ITEMS,
   OFFLINE_LEASE_PAGE_RESPONSE_MAXIMUM_BYTES,
@@ -52,6 +53,7 @@ const ADMIN_NFC_REASSIGN_PATH = '/v1/administration/nfc-tags/reassign';
 const ADMIN_SETUP_PROJECTION_PATH = '/v1/administration/setup-projection';
 const ADMIN_EMPLOYEE_INVITATIONS_PATH = '/v1/administration/employee-invitations';
 const ADMIN_EMPLOYEE_MEMBERSHIPS_PROJECTION_PATH = '/v1/administration/employee-memberships-projection';
+const ADMIN_TIME_ENTRY_EXPORT_PATH = '/v1/administration/time-entries/export';
 const EMPLOYEE_ENROLLMENT_REDEEM_PATH = '/v1/employee-enrollment/redeem';
 const EXPECTED_MEMBERSHIP_HEADER = 'x-taptime-expected-membership-id';
 const MAX_AUTHORIZATION_LENGTH = 4_096;
@@ -72,6 +74,7 @@ type ErrorCode =
   | 'command_id_conflict'
   | 'forbidden'
   | 'enrollment_unavailable'
+  | 'export_limit_exceeded'
   | 'invalid_request'
   | 'method_not_allowed'
   | 'not_found'
@@ -88,6 +91,7 @@ type Route =
   | 'admin_provision_nfc_tag'
   | 'admin_reassign_nfc_tag'
   | 'admin_setup_projection'
+  | 'admin_time_entry_export'
   | 'deferred_lifecycle'
   | 'employee_enrollment_redeem'
   | 'lifecycle'
@@ -320,6 +324,18 @@ async function handleRequest(
   }
   if (route === 'admin_setup_projection') {
     await handleSetupProjection(
+      response,
+      accessToken,
+      body,
+      dependencies,
+      options,
+      correlationId,
+      timeoutMilliseconds,
+    );
+    return;
+  }
+  if (route === 'admin_time_entry_export') {
+    await handleTimeEntryExport(
       response,
       accessToken,
       body,
@@ -603,6 +619,64 @@ async function handleSetupProjection(
       nextCursor: result.nextCursor,
     }),
   );
+}
+
+async function handleTimeEntryExport(
+  response: ServerResponse,
+  accessToken: string,
+  body: unknown,
+  dependencies: BackendApiDependencies,
+  options: BackendHttpServerOptions,
+  correlationId: string,
+  timeoutMilliseconds: number,
+): Promise<void> {
+  const validation = validateTimeEntryExportRequest(body);
+  if (validation.status === 'invalid_request') {
+    respondError(response, 400, 'invalid_request');
+    return;
+  }
+  try {
+    const deadlineEpochMilliseconds = Date.now() + timeoutMilliseconds;
+    const result = await withTimeout(
+      dependencies.timeEntryExporter.exportTimeEntries(
+        {
+          accessToken,
+          correlationId,
+          request: validation.request,
+        },
+        { deadlineEpochMilliseconds },
+      ),
+      timeoutMilliseconds,
+    );
+    switch (result.status) {
+      case 'succeeded':
+        respondCsv(response, result.bytes, result.filename);
+        return;
+      case 'invalid_request':
+        respondError(response, 400, 'invalid_request');
+        return;
+      case 'unauthorized':
+        respondError(response, 401, 'unauthorized');
+        return;
+      case 'forbidden':
+        respondError(response, 403, 'forbidden');
+        return;
+      case 'export_limit_exceeded':
+        respondError(response, 422, 'export_limit_exceeded');
+        return;
+      case 'service_unavailable':
+        respondError(response, 503, 'service_unavailable');
+        return;
+      default:
+        return result satisfies never;
+    }
+  } catch {
+    emitDiagnostic(options.onDiagnostic, {
+      code: 'time_entry_export_failed',
+      correlationId,
+    });
+    respondError(response, 503, 'service_unavailable');
+  }
 }
 
 async function handleCreateEmployeeInvitation(
@@ -1088,6 +1162,9 @@ async function handleOfflineReconciliation(
 }
 
 function requestRoute(url: string | undefined): Route | null {
+  if (url === ADMIN_TIME_ENTRY_EXPORT_PATH) {
+    return 'admin_time_entry_export';
+  }
   if (url === ADMIN_EMPLOYEE_INVITATIONS_PATH) {
     return 'admin_create_employee_invitation';
   }
@@ -1145,6 +1222,8 @@ function diagnosticCodeForRoute(route: Route | null): BackendApiDiagnostic['code
     case 'admin_reassign_nfc_tag':
     case 'admin_setup_projection':
       return 'administration_failed';
+    case 'admin_time_entry_export':
+      return 'time_entry_export_failed';
     case 'employee_enrollment_redeem':
       return 'employee_enrollment_failed';
     case 'session':
@@ -1172,7 +1251,8 @@ function isAdministrationRoute(route: Route): boolean {
     || route === 'admin_employee_memberships_projection'
     || route === 'admin_provision_nfc_tag'
     || route === 'admin_reassign_nfc_tag'
-    || route === 'admin_setup_projection';
+    || route === 'admin_setup_projection'
+    || route === 'admin_time_entry_export';
 }
 
 function isOfflineRoute(route: Route): boolean {
@@ -1874,6 +1954,27 @@ function applyResponseHeaders(response: ServerResponse, correlationId: string): 
   response.setHeader('Content-Type', 'application/json; charset=utf-8');
   response.setHeader('X-Content-Type-Options', 'nosniff');
   response.setHeader('X-Request-Id', correlationId);
+}
+
+function respondCsv(
+  response: ServerResponse,
+  bytes: Uint8Array,
+  filename: string,
+): void {
+  if (response.writableEnded || response.destroyed) {
+    return;
+  }
+  if (!/^taptime-time-entries_[0-9TZ]+_[0-9TZ]+\.csv$/.test(filename)) {
+    respondError(response, 503, 'service_unavailable');
+    return;
+  }
+  const payload = Buffer.from(bytes);
+  response.statusCode = 200;
+  response.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  response.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+  response.setHeader('Pragma', 'no-cache');
+  response.setHeader('Content-Length', String(payload.byteLength));
+  response.end(payload);
 }
 
 function respondError(response: ServerResponse, statusCode: number, code: ErrorCode): void {

@@ -1,18 +1,21 @@
-# Development Assignment 2 — Setup and Export Backend Architecture and Authorization Candidate
+# Development Assignment 2 — Setup and Export Backend Implementation Authorization
 
-- Status: **ADO-ONLY TECHNICAL-LEAD CANDIDATE — INDEPENDENT RE-REVIEW `APPROVED FOR CANDIDATE PUBLICATION`; DA2-REV-01 CLOSED; ZERO OPEN P0–P3; HUMAN PRODUCT/ARCHITECTURE ACCEPTANCE AND SEPARATE EXACT-BASELINE IMPLEMENTATION AUTHORIZATION PENDING; NO IMPLEMENTATION AUTHORITY**
+- Status: **LOCAL IMPLEMENTATION CANDIDATE TECHNICAL-LEAD APPROVED — AVS V0–V3 GREEN; PUBLICATION/V4 EXACT-HEAD CI AND INDEPENDENT EXACT-SHA REVIEW PENDING; PRODUCTION/DEPLOYMENT/DISTRIBUTION UNAUTHORIZED**
 - Date: 2026-07-21
 - Candidate Baseline Commit: `e5978702eca7adb3de3fd85db37921b4a441ca59`
 - Candidate Baseline Tree: `98ae795bbf4e1d3eb44e12db62024272e861a279`
+- Authorized Implementation Baseline Commit: `30c4f5d1d8e6fedeb4b6c1f168d6e1f70a4fef76`
+- Authorized Implementation Baseline Tree: `242331b6a34cd19a16fd8a9bea993b2349cbb6dc`
+- Authorized Baseline CI: GitHub Actions `29843878706`, attempt 1, 10/10 successful
 - Initial Independent Review: `CHANGES REQUIRED` — DA2-REV-01 (P2), no P0/P1/P3
 - Technical-Lead Disposition: Multiple-history/re-grant premise rejected because migration `001` permanently enforces one Membership per `(organization_id, user_id)` and C3E1 forbids historical re-onboarding; explicit join/missing-row behavior accepted and corrected in DA2-P07
 - Final Independent Re-review: `APPROVED FOR CANDIDATE PUBLICATION` — original premise withdrawn, adjusted DA2-P07 correction approved, DA2-REV-01 closed, zero open P0/P1/P2/P3
 - Candidate Parent State: Development Assignment 1 and DT-060–DT-062 closed for their authorized local Android/repository/synthetic-server scope; C3B/C3C/C3D/C3E1/C3E2 independently closed for their recorded scopes; tracked/staged repository clean outside the protected boundary; existing untracked root `app.json` preserved and unread
-- Human Direction: The Human Architect authorized ADO-only preparation of the DA2 candidate with "Lass uns starten" after the Technical Lead explicitly stated that no implementation, Physical Gate, deployment or production action was included
+- Human Direction: After candidate publication and exact-head CI, the Human Architect explicitly accepted ADR-0013 and DA2-P01–DA2-P12 on commit `30c4f5d1d8e6fedeb4b6c1f168d6e1f70a4fef76` / tree `242331b6a34cd19a16fd8a9bea993b2349cbb6dc` and separately directed the Technical Lead to begin implementation immediately
 - Owner: Technical Lead
 - Architecture Candidate: `ADO/01_Architecture/ADR/ADR-0013-tenant-safe-setup-integration-and-time-entry-export.md`
 - Roadmap Scope: Development Assignment 2; setup integration plus DT-067/DT-068 export backend candidate, with DT-063–DT-066 status disposition only after exact closure evidence
-- Implementation Authority: **NOT GRANTED**
+- Implementation Authority: **GRANTED FOR WORKSTREAMS A–D AND AVS V0–V4 ONLY**
 
 ## 1. Candidate objective
 
@@ -24,8 +27,9 @@ Deliver one cohesive backend assignment that:
 3. proves a synthetic bootstrap-to-export path that can later be consumed by professional Admin Web
    productization without moving authority into the browser.
 
-This assignment is not permission to implement. It freezes a reviewable proposal and exposes the
-Human decisions that must precede any exact-baseline release.
+This assignment authorizes implementation of the accepted exact-baseline contract. It does not
+authorize any production resource/data access, deployment, distribution, Physical Gate or UI
+productization.
 
 ## 2. Repository truth reconciled on the candidate baseline
 
@@ -40,11 +44,13 @@ Human decisions that must precede any exact-baseline release.
 - C3E2 owns explicit, active-work-safe, history-preserving Tag reassignment.
 - B4/C1 own identity and current Membership resolution; B5 is five fixed point reads only.
 - B6 and DA1 own server-canonical online/offline lifecycle decisions and canonical TimeEntries.
-- migration `010` is the latest schema migration; current CI has ten jobs.
+- on the accepted baseline, migration `010` was latest and CI had ten jobs; the local candidate adds
+  migration `011` and an isolated eleventh DA2 job.
 
-### 2.2 Missing export capability
+### 2.2 Accepted-baseline export gap now implemented locally
 
-No tracked source currently provides:
+The accepted baseline provided none of the following; the local implementation candidate now adds
+all of them within Workstreams B/C:
 
 - an export-specific contract or CSV dialect;
 - a TimeEntry list/export coordinator;
@@ -65,10 +71,11 @@ for an explicitly evidenced export-backend scope. No candidate document itself c
 
 ## 3. Architecture contract incorporated by reference
 
-ADR-0013 is the proposed implementation boundary. Its Sections 4–9 are mandatory review targets.
+ADR-0013 is the accepted implementation boundary. Its Sections 4–9 are mandatory implementation
+and review targets.
 In particular:
 
-- every DA2-P01–DA2-P12 product decision requires explicit Human acceptance;
+- DA2-P01–DA2-P12 are explicitly Human-accepted and binding;
 - existing C3 setup authority is preserved byte-for-byte unless a reviewed correction is required;
 - export receives its own least-privilege role, migration and runtime pool;
 - only a current server-derived Administrator may export;
@@ -77,9 +84,9 @@ In particular:
 - successful generation is audit/hash-bound without server-side file retention; and
 - production, UI productization, correction and deployment remain out of scope.
 
-## 4. Proposed implementation workstreams
+## 4. Authorized implementation workstreams
 
-No workstream is released by this candidate.
+Workstreams A–D are released on the exact authorized implementation baseline.
 
 ### Workstream A — setup integration and truth reconciliation
 
@@ -123,9 +130,12 @@ No workstream is released by this candidate.
 
 ## 5. Change-Impact Record
 
-### 5.1 Candidate change
+### 5.1 Local implementation candidate
 
-This preparation changes ADO only. It proposes no executable change.
+The local candidate adds the neutral export contract, migration `011`, isolated export coordinator,
+strict API route/runtime pool, synthetic Setup-to-Export journey, isolated DA2 CI job and required
+fixture/governance synchronization. It changes no Core decision, Mobile/Admin-Web product behavior,
+existing C3 authority or production resource.
 
 ### 5.2 Anticipated executable boundary after authorization
 
@@ -162,12 +172,11 @@ Reasons:
 
 Unknown or broader impact expands verification; it never reduces it.
 
-## 6. Human decisions required before implementation authorization
+## 6. Human decisions and implementation authorization — satisfied
 
-The Human Architect must explicitly accept, reject or amend ADR-0013 DA2-P01 through DA2-P12.
-The candidate recommends accepting them as one coherent v1 contract, but records none as decided.
-
-Any amendment requires Technical-Lead impact analysis and, if material, renewed independent review.
+The Human Architect accepted ADR-0013 DA2-P01 through DA2-P12 on the exact published baseline and
+separately authorized immediate implementation. Any amendment still requires Technical-Lead impact
+analysis and, if material, renewed independent and Human review.
 
 ## 7. Failure and race matrix
 
@@ -262,7 +271,7 @@ replace V2–V4.
 
 ## 10. Explicit non-goals
 
-- implementation under the current ADO-only authority;
+- implementation beyond the exact accepted Workstreams A–D and AVS V0–V4 authority;
 - changes to Product Vision, One Tap/One Decision or BusinessEngine rules;
 - setup feature duplication or generic CRUD;
 - corrections, approval, payroll, billing or rounding;
@@ -296,25 +305,29 @@ No later arrow is implied by completion of an earlier arrow.
 
 ## 12. Current release gate
 
-Current state: **initial independent review returned `CHANGES REQUIRED` with DA2-REV-01 (P2);
-Technical Lead rejects its multiple-historical-Membership premise but accepts the missing explicit
-join/integrity wording and corrects DA2-P07 accordingly; the independent re-review approved the
-candidate for publication, closed DA2-REV-01 and reported zero open P0–P3. Human acceptance and
-implementation authority remain pending**.
+Current state: **the independently approved candidate was published at
+`30c4f5d1d8e6fedeb4b6c1f168d6e1f70a4fef76`, tree
+`242331b6a34cd19a16fd8a9bea993b2349cbb6dc`, and exact-head run `29843878706` passed 10/10. The
+Human Architect accepted ADR-0013/DA2-P01–DA2-P12 and explicitly authorized immediate repository
+implementation of Workstreams A–D on that exact baseline. The local implementation candidate has
+completed Workstreams A–D and AVS V0–V3 with Technical-Lead approval. Focused publication, V4
+exact-head CI and independent exact-SHA review remain pending; DA2/DT closure is not yet claimed**.
 
 Allowed now:
 
-- focused ADO-only candidate publication and exact-head CI;
-- subsequent Human disposition of DA2-P01–DA2-P12; and
-- no executable work.
+- dependency/lockfile changes strictly required for the accepted repository scope;
+- migration `011`, neutral export contract, backend coordinator/API, synthetic integration and the
+  isolated DA2 CI job;
+- AVS V0–V4 verification, Technical-Lead approval and independent exact-SHA implementation review;
+  and
+- truthful implementation/evidence synchronization.
 
 Forbidden now:
 
-- dependency/package-lock, migration, source, test or workflow changes;
-- builds/artifacts/physical validation;
 - production resource/data access;
-- deployment/distribution; and
-- representing DA2 or DT-063–DT-068 as complete.
+- deployment/distribution and Physical Gate execution;
+- Admin Web/Mobile UI productization or correction/payroll/legal-retention scope; and
+- representing DA2 or DT-063–DT-068 as complete before V0–V4 and independent review close.
 
 ## 13. Independent pre-implementation review mandate
 
@@ -374,10 +387,10 @@ DA2-REV-01 and returned `APPROVED FOR CANDIDATE PUBLICATION` with zero open P0�
 ## 15. Role handover
 
 - Current Role: Technical Lead
-- Status: Independent re-review `APPROVED FOR CANDIDATE PUBLICATION`; DA2-REV-01 closed; zero open P0–P3; publication/CI next
-- Completed Work: Repository/code/ADO gap analysis; proposed ADR-0013; DA2 Change-Impact/AVS plan; DA2-REV-01 checked against migrations `001`–`010`/accepted C3E1, corrected narrowly in DA2-P07 and independently closed
-- Created Artifacts: ADR-0013, this authorization candidate and the independent pre-implementation review record
-- Known Risks: tenant disclosure, personal-data export, CSV injection, unbounded result, audit truth, setup duplication and future correction coupling
-- Open Questions: Human disposition of DA2-P01–DA2-P12 after focused publication and exact-head CI
-- Next Responsible Role: Technical Lead for focused publication/CI, then Human Architect
-- Reason for Handover: Independent review is complete; Human product/architecture decisions and a later separate exact-baseline implementation release remain mandatory
+- Status: Workstreams A–D locally implemented; Technical-Lead/AVS V0–V3 approved; V4 and independent exact-SHA review pending
+- Completed Work: accepted contract, implementation authorization, neutral contract, migration `011`, isolated role/pool/coordinator/API, synthetic Setup-to-Export integration, isolated eleventh CI job and complete local R3 regression
+- Created Artifacts: ADR-0013, this authorization, pre-implementation review and DA2 implementation evidence
+- Known Risks: production personal-data/legal/retention/operational gates remain; existing 11 moderate Expo-toolchain findings remain unchanged
+- Open Questions: no implementation-contract question; independent review may still raise findings
+- Next Responsible Role: Technical Lead for focused publication/V4, then an independent Review Agent
+- Reason for Handover: the local candidate is complete, but no DA2/DT closure is allowed before exact-head CI and independent review

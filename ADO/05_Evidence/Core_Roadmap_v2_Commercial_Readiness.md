@@ -533,8 +533,17 @@ No DA2-P13 or unsupported re-grant behavior is added. The independent re-review 
 the original premise, approved the adjusted correction, closed DA2-REV-01 and returned
 `APPROVED FOR CANDIDATE PUBLICATION` with zero open P0–P3.
 
-No product policy is accepted by this preparation. Focused candidate publication/exact-head CI,
-Human acceptance and a separate exact-baseline
-implementation authorization remain mandatory. DT-063–DT-068 stay open Roadmap candidate labels;
-production resources/data, deployment, distribution, correction, UI productization and legal/
-privacy approval remain separately gated.
+The Human Architect subsequently accepted ADR-0013 and DA2-P01–DA2-P12 on published candidate
+`30c4f5d`, tree `242331b`, and separately authorized repository implementation on that exact
+baseline.
+
+## 19. Progress Update – 2026-07-21 Development Assignment 2 Local Implementation Candidate
+
+The Technical Lead locally completed Workstreams A–D: reuse-only setup integration, migration
+`011`, neutral deterministic CSV contract, isolated current-Administrator role/pool/coordinator/API,
+fully disposable Setup-to-Export journey and an isolated eleventh CI job. AVS V0–V3 passes 1,681
+tests and all applicable typechecks/builds, migration/security checks and Android export.
+
+DT-063–DT-068 remain open Roadmap labels pending focused publication, V4 exact-head CI and
+independent exact-SHA implementation review. Production resources/data, deployment, distribution,
+correction, UI productization and legal/privacy approval remain separately gated.

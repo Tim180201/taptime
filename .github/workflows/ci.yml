@@ -38,12 +38,19 @@ jobs:
         run: npm ci
 
       - name: Build offline synchronization contract for workspace type resolution
-        run: npm run build --workspace=@taptime/offline-sync-contract
+        run: |
+          npm run build --workspace=@taptime/offline-sync-contract
+          npm run build --workspace=@taptime/time-entry-export-contract
 
       - name: Typecheck and test the neutral offline synchronization contract
         run: |
           npm run typecheck --workspace=@taptime/offline-sync-contract
           npm test --workspace=@taptime/offline-sync-contract
+
+      - name: Typecheck and test the neutral TimeEntry export contract
+        run: |
+          npm run typecheck --workspace=@taptime/time-entry-export-contract
+          npm test --workspace=@taptime/time-entry-export-contract
 
       - name: Typecheck core, mobile, and Admin Web
         run: npm run typecheck
@@ -154,10 +161,10 @@ jobs:
       - name: Typecheck backend B3 schema
         run: npm run typecheck --workspace=@taptime/backend-schema
 
-      - name: Apply current schema migrations 001 through 010 to empty PostgreSQL database
+      - name: Apply current schema migrations 001 through 011 to empty PostgreSQL database
         run: npm run migrate --workspace=@taptime/backend-schema
 
-      - name: Re-run and verify migration ledger 001 through 010
+      - name: Re-run and verify migration ledger 001 through 011
         run: |
           npm run migrate --workspace=@taptime/backend-schema
           npm run verify-migrations --workspace=@taptime/backend-schema
@@ -209,7 +216,7 @@ jobs:
       - name: Install dependencies from lockfile
         run: npm ci
 
-      - name: Apply current schema migrations 001 through 010 for B4
+      - name: Apply current schema migrations 001 through 011 for B4
         run: npm run migrate --workspace=@taptime/backend-schema
 
       - name: Re-run and verify the B4 migration ledger
@@ -270,7 +277,7 @@ jobs:
       - name: Build the approved B4 identity dependency
         run: npm run build --workspace=@taptime/backend-identity
 
-      - name: Apply current schema migrations 001 through 010 for B5
+      - name: Apply current schema migrations 001 through 011 for B5
         run: npm run migrate --workspace=@taptime/backend-schema
 
       - name: Re-run and verify the migration ledger
@@ -334,10 +341,10 @@ jobs:
           npm run build --workspace=@taptime/backend-schema
           npm run build --workspace=@taptime/backend-identity
 
-      - name: Apply schema migrations 001 through 010
+      - name: Apply schema migrations 001 through 011
         run: npm run migrate --workspace=@taptime/backend-schema
 
-      - name: Re-run and verify migration ledger 001 through 010
+      - name: Re-run and verify migration ledger 001 through 011
         run: |
           npm run migrate --workspace=@taptime/backend-schema
           npm run verify-migrations --workspace=@taptime/backend-schema
@@ -400,22 +407,24 @@ jobs:
       - name: Install dependencies from lockfile
         run: npm ci
 
-      - name: Build required contract, Core, schema, identity, lifecycle, administration, and offline dependencies
+      - name: Build required contract, Core, schema, identity, lifecycle, administration, export, and offline dependencies
         run: |
           npm run build --workspace=@taptime/administration-contract
           npm run build --workspace=@taptime/offline-sync-contract
+          npm run build --workspace=@taptime/time-entry-export-contract
           npm run build --workspace=@taptime/core
           npm run build --workspace=@taptime/backend-schema
           npm run build --workspace=@taptime/backend-identity
           npm run build --workspace=@taptime/backend-read-model
           npm run build --workspace=@taptime/backend-lifecycle
           npm run build --workspace=@taptime/backend-administration
+          npm run build --workspace=@taptime/backend-time-export
           npm run build --workspace=@taptime/backend-offline-sync
 
-      - name: Apply schema migrations 001 through 010 to clean PostgreSQL 17
+      - name: Apply schema migrations 001 through 011 to clean PostgreSQL 17
         run: npm run migrate --workspace=@taptime/backend-schema
 
-      - name: Re-run and verify migration ledger 001 through 010
+      - name: Re-run and verify migration ledger 001 through 011
         run: |
           npm run migrate --workspace=@taptime/backend-schema
           npm run verify-migrations --workspace=@taptime/backend-schema
@@ -486,10 +495,10 @@ jobs:
           npm run build --workspace=@taptime/backend-schema
           npm run build --workspace=@taptime/backend-identity
 
-      - name: Apply schema migrations 001 through 010 to clean PostgreSQL 17
+      - name: Apply schema migrations 001 through 011 to clean PostgreSQL 17
         run: npm run migrate --workspace=@taptime/backend-schema
 
-      - name: Re-run and verify migration ledger 001 through 010
+      - name: Re-run and verify migration ledger 001 through 011
         run: |
           npm run migrate --workspace=@taptime/backend-schema
           npm run verify-migrations --workspace=@taptime/backend-schema
@@ -554,10 +563,10 @@ jobs:
           npm run build --workspace=@taptime/backend-identity
           npm run build --workspace=@taptime/backend-lifecycle
 
-      - name: Apply schema migrations 001 through 010 to clean PostgreSQL 17
+      - name: Apply schema migrations 001 through 011 to clean PostgreSQL 17
         run: npm run migrate --workspace=@taptime/backend-schema
 
-      - name: Re-run and verify migration ledger 001 through 010
+      - name: Re-run and verify migration ledger 001 through 011
         run: |
           npm run migrate --workspace=@taptime/backend-schema
           npm run verify-migrations --workspace=@taptime/backend-schema
@@ -574,6 +583,75 @@ jobs:
 
       - name: Build isolated C3C/C3E1/C3E2 administration package
         run: npm run build --workspace=@taptime/backend-administration
+
+  backend-da2-time-export:
+    name: Backend DA2 tenant-safe TimeEntry export
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:17.10-alpine
+        env:
+          POSTGRES_DB: taptime_da2
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: taptime_da2_installer
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U taptime_da2_installer -d taptime_da2"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      B3_DATABASE_URL: postgresql://taptime_da2_installer:postgres@127.0.0.1:5432/taptime_da2
+      DA2_DATABASE_URL: postgresql://taptime_da2_installer:postgres@127.0.0.1:5432/taptime_da2
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.17.0
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies from lockfile
+        run: npm ci
+
+      - name: Build DA2 contract and backend dependencies
+        run: |
+          npm run build --workspace=@taptime/administration-contract
+          npm run build --workspace=@taptime/offline-sync-contract
+          npm run build --workspace=@taptime/time-entry-export-contract
+          npm run build --workspace=@taptime/core
+          npm run build --workspace=@taptime/backend-schema
+          npm run build --workspace=@taptime/backend-identity
+          npm run build --workspace=@taptime/backend-read-model
+          npm run build --workspace=@taptime/backend-lifecycle
+          npm run build --workspace=@taptime/backend-administration
+          npm run build --workspace=@taptime/backend-bootstrap
+          npm run build --workspace=@taptime/backend-offline-sync
+
+      - name: Typecheck DA2 export production and test sources
+        run: npm run typecheck --workspace=@taptime/backend-time-export
+
+      - name: Test DA2 export and synthetic Setup to Export journey against PostgreSQL 17
+        run: npm test --workspace=@taptime/backend-time-export
+
+      - name: Build DA2 export package
+        run: npm run build --workspace=@taptime/backend-time-export
+
+      - name: Typecheck DA2 API composition
+        run: npm run typecheck --workspace=@taptime/backend-api
+
+      - name: Test focused DA2 HTTP export boundary
+        run: npm test --workspace=@taptime/backend-api -- --run tests/TimeEntryExportApi.test.ts
 
   synthetic-android-e2e:
     name: Synthetic server-connected Android E2E harness
@@ -622,12 +700,14 @@ jobs:
         run: |
           npm run build --workspace=@taptime/administration-contract
           npm run build --workspace=@taptime/offline-sync-contract
+          npm run build --workspace=@taptime/time-entry-export-contract
           npm run build --workspace=@taptime/core
           npm run build --workspace=@taptime/backend-schema
           npm run build --workspace=@taptime/backend-identity
           npm run build --workspace=@taptime/backend-read-model
           npm run build --workspace=@taptime/backend-lifecycle
           npm run build --workspace=@taptime/backend-administration
+          npm run build --workspace=@taptime/backend-time-export
           npm run build --workspace=@taptime/backend-offline-sync
           npm run build --workspace=@taptime/backend-api
 

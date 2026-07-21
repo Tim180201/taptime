@@ -1,11 +1,15 @@
 # ADR-0013: Tenant-Safe Setup Integration and Time-Entry Export Boundary
 
-- Status: **PROPOSED — INDEPENDENT RE-REVIEW `APPROVED FOR CANDIDATE PUBLICATION`; DA2-REV-01 CLOSED; ZERO OPEN P0–P3; HUMAN ACCEPTANCE/IMPLEMENTATION AUTHORITY PENDING**
+- Status: **ACCEPTED BY HUMAN ARCHITECT — DA2-P01–DA2-P12 BINDING; IMPLEMENTATION AUTHORIZED ON EXACT PUBLISHED BASELINE; PRODUCTION/DEPLOYMENT/DISTRIBUTION UNAUTHORIZED**
 - Date: 2026-07-21
 - Owner: Technical Lead
 - Approval Authority: Human Architect
 - Candidate Baseline Commit: `e5978702eca7adb3de3fd85db37921b4a441ca59`
 - Candidate Baseline Tree: `98ae795bbf4e1d3eb44e12db62024272e861a279`
+- Published Candidate Commit: `30c4f5d1d8e6fedeb4b6c1f168d6e1f70a4fef76`
+- Published Candidate Tree: `242331b6a34cd19a16fd8a9bea993b2349cbb6dc`
+- Published Candidate CI: GitHub Actions `29843878706`, attempt 1, 10/10 successful
+- Human Decision: ADR-0013 and DA2-P01–DA2-P12 explicitly accepted on the published candidate commit/tree; Development Assignment 2 repository implementation explicitly authorized on that exact baseline
 - Initial Independent Review Verdict: `CHANGES REQUIRED` — DA2-REV-01 (P2), no P0/P1/P3
 - Final Independent Re-review Verdict: `APPROVED FOR CANDIDATE PUBLICATION` — DA2-REV-01 closed; zero open P0/P1/P2/P3
 - Finding State: DA2-REV-01 multiple-history/re-grant premise withdrawn by the independent reviewer; explicit join/fail-closed clarity correction in DA2-P07 independently approved
@@ -14,9 +18,13 @@
 
 ## 1. Decision status and authority boundary
 
-This document is an architecture proposal. It records the Technical Lead's recommended boundary for
-Development Assignment 2, but none of its product-policy proposals is accepted merely because this
-file exists.
+This document is the Human-accepted architecture boundary for Development Assignment 2. On
+2026-07-21 the Human Architect explicitly accepted ADR-0013 and DA2-P01–DA2-P12 on published commit
+`30c4f5d1d8e6fedeb4b6c1f168d6e1f70a4fef76`, tree
+`242331b6a34cd19a16fd8a9bea993b2349cbb6dc`, and immediately authorized implementation of the
+accepted DA2 scope. The authorization is limited to the repository workstreams and R3 verification
+defined here and in the DA2 authorization; it does not authorize production resources/data,
+deployment, distribution, a Physical Gate or UI productization.
 
 The first independent pre-implementation review reported exactly one P2 contract gap,
 DA2-REV-01, claiming that multiple revoked/re-granted Membership rows could exist for one
@@ -32,15 +40,15 @@ a new product policy. The Technical-Lead disposition was not itself independent 
 renewed independent review confirmed it, explicitly withdrew the original multiple-history
 premise, closed DA2-REV-01 and returned `APPROVED FOR CANDIDATE PUBLICATION` with zero open P0–P3.
 
-The independent pre-implementation review gate is satisfied. Before implementation may begin, all
-of the following remaining gates are mandatory:
+The independent pre-implementation review and pre-implementation release gates are satisfied:
 
-1. focused publication of the approved candidate with green exact-head CI;
-2. explicit Human Architect acceptance of the product decisions in Section 4; and
-3. a separate Human Architect implementation authorization bound to an exact commit and tree.
+1. the approved candidate was published at the exact commit/tree above and passed exact-head CI;
+2. the Human Architect explicitly accepted every product decision in Section 4; and
+3. the Human Architect separately and explicitly directed implementation on that exact baseline.
 
-This proposal authorizes no dependency, migration, source, test, workflow, build, physical,
-deployment, production or production-data change.
+Repository implementation, dependency/lockfile changes that are strictly required by the accepted
+scope, migration `011`, source, tests, the isolated DA2 CI job and local builds are authorized.
+Physical, deployment, production, production-data and distribution changes remain unauthorized.
 
 ## 2. Context
 
@@ -82,14 +90,15 @@ The existing B5 tenant read model is intentionally limited to five point reads. 
 setup role is intentionally unable to read TimeEntries. Neither may be widened into export
 authority.
 
-### 2.3 Product decisions are missing
+### 2.3 Product decisions resolved for DA2
 
-The repository does not currently decide the exact export actor, row set, open-entry behavior,
+The accepted baseline did not decide the exact export actor, row set, open-entry behavior,
 timestamp/filter semantics, CSV dialect, size limits, audit evidence or formula-injection handling.
-Those are product and security boundaries, not implementation details. Section 4 proposes explicit
-values for independent review and Human Architect acceptance; they must not be silently inferred.
+Those are product and security boundaries, not implementation details. The Human Architect accepted
+the explicit Section 4 values on the published candidate baseline; they are binding for DA2 and may
+not be silently reinterpreted.
 
-## 3. Proposed decision
+## 3. Accepted decision
 
 Development Assignment 2 shall have two deliberately different workstreams:
 
@@ -102,10 +111,10 @@ The export is a fixed product capability, not a public API, reporting engine, ge
 or file-storage system. The backend produces the CSV bytes. Later Admin Web productization may
 offer a download action without reimplementing CSV or authority rules.
 
-## 4. Human decision candidates
+## 4. Human-accepted product decisions
 
-The following proposals are **not accepted yet**. Each requires an explicit Human Architect
-disposition after independent review.
+The following DA2-P01–DA2-P12 decisions were explicitly accepted by the Human Architect on the
+published candidate commit/tree recorded in the header and are binding for implementation.
 
 | ID | Proposed v1 product decision |
 |---|---|
@@ -125,7 +134,7 @@ disposition after independent review.
 Changing any accepted value later is an architecture/product review trigger, not an implementation
 convenience.
 
-## 5. Proposed component boundary
+## 5. Accepted component boundary
 
 ### 5.1 Neutral export contract
 
@@ -280,7 +289,7 @@ role editor, browser NFC, raw UID entry, second setup coordinator or generic adm
 
 ## 9. Verification consequences
 
-The proposed implementation is AVS-001 risk class R3 because it changes migration/RLS/role
+The implementation is AVS-001 risk class R3 because it changes migration/RLS/role
 authority and handles personal time data. Minimum gates are:
 
 - complete contract golden vectors including Unicode, quotes, delimiters, CRLF, formula prefixes,
@@ -304,7 +313,7 @@ authority and handles personal time data. Minimum gates are:
 - independent pre-implementation and implementation reviews with every P0–P3 finding dispositioned
   before closure.
 
-Because DA2 changes no NFC/native/user-interface behavior, this proposal does not require a new
+Because DA2 changes no NFC/native/user-interface behavior, this decision does not require a new
 physical-device gate. Any Human functional validation must be separately authorized, data-free and
 cannot substitute for the R3 automated/database/security matrix.
 
@@ -327,7 +336,7 @@ cannot substitute for the R3 automated/database/security matrix.
 
 ## 11. Explicit non-goals
 
-- implementation under this candidate-preparation task;
+- implementation beyond the exact Human-authorized DA2 repository scope;
 - production Supabase/PostgreSQL/Node resources or real personal data;
 - Admin Web download UI, Mobile export, visual design or productization;
 - employee self-export, Team Lead/System Owner roles or permission management;

@@ -12,6 +12,9 @@ const offlineEventDatabaseUrl = requiredEnvironmentValue('TAPTIME_OFFLINE_EVENT_
 const offlineReconciliationDatabaseUrl = requiredEnvironmentValue(
   'TAPTIME_OFFLINE_RECONCILIATION_DATABASE_URL',
 );
+const timeEntryExportDatabaseUrl = requiredEnvironmentValue(
+  'TAPTIME_TIME_ENTRY_EXPORT_DATABASE_URL',
+);
 const supabaseIssuer = requiredEnvironmentValue('SUPABASE_ISSUER');
 const port = parsePort(process.env.PORT ?? '3000');
 const runtime = createBackendApiRuntime({
@@ -25,6 +28,7 @@ const runtime = createBackendApiRuntime({
   offlineLeaseDatabaseUrl,
   offlineEventDatabaseUrl,
   offlineReconciliationDatabaseUrl,
+  timeEntryExportDatabaseUrl,
   supabaseIssuer,
 });
 
@@ -63,7 +67,8 @@ type RequiredRuntimeEnvironmentName =
   | 'TAPTIME_OFFLINE_RECONCILIATION_DATABASE_URL'
   | 'TAPTIME_READ_MODEL_DATABASE_URL'
   | 'TAPTIME_REASSIGNMENT_DATABASE_URL'
-  | 'TAPTIME_SESSION_DATABASE_URL';
+  | 'TAPTIME_SESSION_DATABASE_URL'
+  | 'TAPTIME_TIME_ENTRY_EXPORT_DATABASE_URL';
 
 function requiredEnvironmentValue(name: RequiredRuntimeEnvironmentName): string {
   const value = process.env[name];

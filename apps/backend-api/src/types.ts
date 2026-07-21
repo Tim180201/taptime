@@ -37,6 +37,7 @@ import type {
   RedeemEmployeeMembershipInvitationCommand,
   RedeemEmployeeMembershipInvitationResult,
 } from '@taptime/backend-administration';
+import type { TimeEntryExporter } from '@taptime/backend-time-export';
 
 export interface ResolvedProductSession {
   readonly userId: UserId;
@@ -140,6 +141,7 @@ export interface BackendApiDependencies {
   readonly administration: AdministrationCoordinator;
   readonly employeeEnrollment: EmployeeMembershipEnrollmentCoordinator;
   readonly tagReassignment: NfcTagReassignmentPort;
+  readonly timeEntryExporter: TimeEntryExporter;
 }
 
 export interface BackendApiDiagnostic {
@@ -149,7 +151,8 @@ export interface BackendApiDiagnostic {
     | 'lifecycle_ingestion_failed'
     | 'offline_synchronization_failed'
     | 'scan_context_resolution_failed'
-    | 'session_resolution_failed';
+    | 'session_resolution_failed'
+    | 'time_entry_export_failed';
   readonly correlationId: string;
 }
 

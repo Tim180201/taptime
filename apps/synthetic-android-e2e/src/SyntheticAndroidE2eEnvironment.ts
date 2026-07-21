@@ -55,7 +55,8 @@ export type SyntheticEnvironmentSafeEvent =
   | 'api_lifecycle_unavailable'
   | 'api_offline_synchronization_unavailable'
   | 'api_scan_context_unavailable'
-  | 'api_session_unavailable';
+  | 'api_session_unavailable'
+  | 'api_time_entry_export_unavailable';
 
 export interface SyntheticAndroidE2eEnvironmentOptions {
   readonly apiPort?: number;
@@ -178,6 +179,11 @@ export async function createSyntheticAndroidE2eEnvironment(
         administration: new AdminWriteSessionCoordinator(administrationPool, verifier),
         employeeEnrollment,
         tagReassignment: new NfcTagReassignmentCoordinator(reassignmentPool, verifier),
+        timeEntryExporter: {
+          async exportTimeEntries() {
+            return { status: 'service_unavailable' as const };
+          },
+        },
       },
       {
         onDiagnostic(diagnostic) {
@@ -199,6 +205,9 @@ export async function createSyntheticAndroidE2eEnvironment(
               return;
             case 'session_resolution_failed':
               onSafeEvent('api_session_unavailable');
+              return;
+            case 'time_entry_export_failed':
+              onSafeEvent('api_time_entry_export_unavailable');
               return;
             default:
               return diagnostic.code satisfies never;

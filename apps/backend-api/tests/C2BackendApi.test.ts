@@ -123,6 +123,11 @@ const connectionStrings = {
     OFFLINE_RECONCILIATION_RUNTIME_LOGIN,
     passwords.offlineReconciliation,
   ),
+  timeEntryExport: runtimeConnectionString(
+    installerConnectionString,
+    'taptime_time_export_runtime',
+    'time-export-local-synthetic-only',
+  ),
 } as const;
 
 const installerPool = new Pool({ connectionString: installerConnectionString, max: 8 });
@@ -163,6 +168,7 @@ beforeAll(async () => {
     offlineLeaseDatabaseUrl: connectionStrings.offlineLease,
     offlineEventDatabaseUrl: connectionStrings.offlineEvent,
     offlineReconciliationDatabaseUrl: connectionStrings.offlineReconciliation,
+    timeEntryExportDatabaseUrl: connectionStrings.timeEntryExport,
     supabaseIssuer: jwks.issuerA,
   }, {
     onDiagnostic: (diagnostic) => diagnostics.push(diagnostic),
@@ -183,13 +189,13 @@ afterAll(async () => {
 });
 
 describe('C2 package, runtime composition, and least privilege', () => {
-  it('uses exactly migrations 001 through 010 and reruns the ledger cleanly', async () => {
+  it('uses exactly migrations 001 through 011 and reruns the ledger cleanly', async () => {
     expect((await loadMigrations()).map(({ version }) => version)).toEqual([
-      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010',
+      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011',
     ]);
     await expect(migrate(installerPool)).resolves.toEqual({
       applied: [],
-      alreadyApplied: ['001', '002', '003', '004', '005', '006', '007', '008', '009', '010'],
+      alreadyApplied: ['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011'],
     });
   });
 
@@ -286,6 +292,7 @@ describe('C2 package, runtime composition, and least privilege', () => {
       offlineLeaseDatabaseUrl: connectionStrings.offlineLease,
       offlineEventDatabaseUrl: connectionStrings.offlineEvent,
       offlineReconciliationDatabaseUrl: connectionStrings.offlineReconciliation,
+      timeEntryExportDatabaseUrl: connectionStrings.timeEntryExport,
       supabaseIssuer: 'https://synthetic.supabase.co/auth/v1',
     })).toThrow(/database URL|runtime login/);
   });
@@ -306,6 +313,7 @@ describe('C2 package, runtime composition, and least privilege', () => {
       offlineLeaseDatabaseUrl: connectionStrings.offlineLease,
       offlineEventDatabaseUrl: connectionStrings.offlineEvent,
       offlineReconciliationDatabaseUrl: connectionStrings.offlineReconciliation,
+      timeEntryExportDatabaseUrl: connectionStrings.timeEntryExport,
       supabaseIssuer: 'https://synthetic.supabase.co/auth/v1',
     })).toThrow('Backend API database runtime login names must be distinct');
   });
@@ -329,6 +337,7 @@ describe('C2 package, runtime composition, and least privilege', () => {
       offlineLeaseDatabaseUrl: connectionStrings.offlineLease,
       offlineEventDatabaseUrl: connectionStrings.offlineEvent,
       offlineReconciliationDatabaseUrl: connectionStrings.offlineReconciliation,
+      timeEntryExportDatabaseUrl: connectionStrings.timeEntryExport,
       supabaseIssuer: 'https://synthetic.supabase.co/auth/v1',
     })).toThrow('Backend API database URL contains an unsupported connection parameter');
   });

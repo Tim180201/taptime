@@ -5,6 +5,7 @@ type OfflineBackendApiDependencies = Pick<
   | 'offlineCaptureLeaseIssuer'
   | 'offlineEventReconciliationReader'
   | 'offlineLifecycleIngestor'
+  | 'timeEntryExporter'
 >;
 
 export function unavailableOfflineDependencies(): OfflineBackendApiDependencies {
@@ -28,6 +29,11 @@ export function unavailableOfflineDependencies(): OfflineBackendApiDependencies 
     offlineEventReconciliationReader: {
       async reconcile() {
         return { status: 'unavailable' };
+      },
+    },
+    timeEntryExporter: {
+      async exportTimeEntries() {
+        return { status: 'service_unavailable' };
       },
     },
   };
