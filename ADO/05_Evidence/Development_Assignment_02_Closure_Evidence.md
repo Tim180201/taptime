@@ -2,12 +2,12 @@
 
 Date: 2026-07-21
 Owner: Human Architect + Technical Lead
-Status: **CLOSURE PUBLICATION PREPARED — EXACT-HEAD CI PENDING**
+Status: **COMPLETED FOR AUTHORIZED LOCAL SCOPE — CLOSURE PUBLICATION EXACT-HEAD CI 11/11**
 
 ## 1. Closure boundary
 
-Development Assignment 2 is to be closed only for its authorized local repository and
-synthetic-server scope after this publication's exact-head CI passes:
+Development Assignment 2 is closed only for its authorized local repository and synthetic-server
+scope:
 
 - DT-063–DT-066: reuse-only setup integration through the already closed C3B/C3C/C3D/C3E1/C3E2
   boundaries, proven by the disposable Setup-to-Export journey; and
@@ -29,8 +29,8 @@ data, deployment, distribution, broader Supavisor-mode validation or a Physical 
 | Reviewed evidence head | `1e4dee29857ac7f0cc4510a753c44e6bbf1a4cba`, tree `d6c3adff4f9e323f248222bbc88a67490f8bedb5` |
 | Reviewed-evidence CI | Run `29847934091`, attempt 1, 11/11 successful |
 | Independent implementation review | `APPROVED`, zero open P0/P1/P2/P3 |
-| Closure publication | Pending this ADO-only publication |
-| Closure publication CI | Pending exact-head GitHub Actions |
+| Closure publication | `fa171a5042085e22349b54cef0eedbd4163c5ef6`, tree `be13e0cdfaa994ed3258b07fd18296978193946d` |
+| Closure publication CI | Run `29848853594`, attempt 1, push to exact head `fa171a5`, 11/11 successful |
 
 ## 3. Acceptance completion
 
@@ -51,9 +51,11 @@ No physical validation is required because DA2 changes no native NFC or product 
 
 ## 4. Closure decision
 
-Subject only to successful exact-head CI for this ADO-only closure publication, Development
-Assignment 2 and DT-063–DT-068 are completed for the exact scopes in Section 1. No additional DA2
-implementation or Human Physical Gate is required unless a new finding is raised.
+Closure publication `fa171a5042085e22349b54cef0eedbd4163c5ef6`, tree
+`be13e0cdfaa994ed3258b07fd18296978193946d`, passed exact-head GitHub Actions run `29848853594`,
+attempt 1, eleven of eleven. Development Assignment 2 and DT-063–DT-068 are completed for the exact
+scopes in Section 1. No additional DA2 implementation or Human Physical Gate is required unless a
+new finding is raised.
 
 Development Assignment 3 remains unimplemented and unauthorized. Its next safe step is a separate
 architecture and authorization candidate; no implementation authority follows from this closure.

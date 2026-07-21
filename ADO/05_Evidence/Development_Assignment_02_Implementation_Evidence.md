@@ -1,6 +1,6 @@
 # Development Assignment 2 — Local Implementation Evidence
 
-- Status: **IMPLEMENTATION PUBLISHED — TECHNICAL-LEAD/AVS V0–V4 AND INDEPENDENT EXACT-SHA REVIEW APPROVED; ZERO OPEN P0–P3; EXACT-SCOPE CLOSURE PUBLICATION PREPARED, CI PENDING**
+- Status: **IMPLEMENTATION AND INDEPENDENT EXACT-SHA REVIEW APPROVED — ZERO OPEN P0–P3; EXACT-SCOPE CLOSURE PUBLICATION CI 11/11; DA2/DT-063–DT-068 CLOSED FOR AUTHORIZED LOCAL SCOPES**
 - Date: 2026-07-21
 - Authorized Baseline Commit: `30c4f5d1d8e6fedeb4b6c1f168d6e1f70a4fef76`
 - Authorized Baseline Tree: `242331b6a34cd19a16fd8a9bea993b2349cbb6dc`
@@ -110,12 +110,13 @@ audit remediation would make an unrelated breaking Expo downgrade and is outside
 - DT-063–DT-066 are closure-eligible only for the composed local setup-integration scope, without
   implying new UI, Physical, pilot-operational or production capability.
 - DT-067/DT-068 are closure-eligible only for the local tenant-safe export-backend scope.
-- DA2 and DT-063–DT-068 remain open only until the prepared ADO closure publication passes its own
-  exact-head CI.
+- Closure publication `fa171a5`, tree `be13e0c`, passed exact-head run `29848853594`, attempt 1,
+  11/11. DA2 and DT-063–DT-068 are closed for those exact local scopes.
 - No production resource/data, deployment, distribution, Physical Gate, legal-retention approval,
   Admin Web download UI, correction/payroll behavior or server-side export artifact is claimed.
 
-## 6. Remaining mandatory gate
+## 6. Closure completion
 
-Publish the prepared exact-scope ADO-only closure and require successful exact-head CI before
-representing DA2 or DT-063–DT-068 as completed.
+No DA2 implementation, review or Physical gate remains required for the authorized local scope.
+Production, UI productization, legal/privacy, correction/adjudication, deployment and distribution
+remain separately gated.

@@ -1,6 +1,6 @@
 # Project Status
 
-Status: CORE ROADMAP V2 BLOCK A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2, BLOCK D, E1 AND NARROW E2A COMPLETE FOR THEIR RECORDED SCOPES — DEVELOPMENT ASSIGNMENT 1 AND DT-060–DT-062 CLOSED FOR THE AUTHORIZED LOCAL ANDROID/REPOSITORY/SYNTHETIC-SERVER SCOPE — DEVELOPMENT ASSIGNMENT 2 WORKSTREAMS A–D PUBLISHED AT `f385814`/TREE `48b5ba8`, TECHNICAL-LEAD/AVS V0–V4 APPROVED, EXACT-HEAD RUN `29847593708` 11/11 AND INDEPENDENT EXACT-SHA REVIEW `APPROVED` WITH ZERO OPEN P0–P3; EXACT-SCOPE ADO CLOSURE PUBLICATION PREPARED, EXACT-HEAD CI PENDING — PRODUCTION, PRODUCTION DATA, PHYSICAL GATE, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED — DT-063–DT-068 CLOSE ONLY AFTER CLOSURE-PUBLICATION CI
+Status: CORE ROADMAP V2 BLOCK A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2, BLOCK D, E1 AND NARROW E2A COMPLETE FOR THEIR RECORDED SCOPES — DEVELOPMENT ASSIGNMENT 1 AND DT-060–DT-062 CLOSED FOR THE AUTHORIZED LOCAL ANDROID/REPOSITORY/SYNTHETIC-SERVER SCOPE — DEVELOPMENT ASSIGNMENT 2 AND DT-063–DT-068 CLOSED FOR THE AUTHORIZED LOCAL SETUP-INTEGRATION/EXPORT-BACKEND SCOPE AFTER INDEPENDENT ZERO-FINDING REVIEW AND CLOSURE PUBLICATION `fa171a5`/RUN `29848853594` 11/11 — PRODUCTION, PRODUCTION DATA, PHYSICAL GATE, PILOT-OPERATIONAL ONBOARDING, UI PRODUCTIZATION, LEGAL/PRIVACY APPROVAL, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
 Date: 2026-07-21
 Owner: Human Architect + Technical Lead
 
@@ -10,9 +10,10 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
 
 ## Current State
 
-- **Development Assignment 2 is Human-accepted and repository implementation is authorized on
-  published baseline `30c4f5d1d8e6fedeb4b6c1f168d6e1f70a4fef76`, tree
-  `242331b6a34cd19a16fd8a9bea993b2349cbb6dc`.** Exact-head run `29843878706` passed 10/10 and the
+- **Development Assignment 2 and DT-063–DT-068 are independently closed for their authorized local
+  setup-integration and export-backend scopes.** The Human-accepted implementation baseline is
+  `30c4f5d1d8e6fedeb4b6c1f168d6e1f70a4fef76`, tree
+  `242331b6a34cd19a16fd8a9bea993b2349cbb6dc`. Exact-head run `29843878706` passed 10/10 and the
   independent pre-implementation re-review has zero open P0–P3. Repository/code reconciliation shows that the
   independently closed C3B/C3C/C3D/C3E1/C3E2 boundaries already provide the local/synthetic setup
   implementation and must not be duplicated. Human-accepted ADR-0013 therefore combines setup
@@ -31,8 +32,8 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   AVS V0–V3 passes 1,681 tests plus all applicable checks/builds and Android export. Implementation
   `f385814`, tree `48b5ba8`, passed V4 exact-head run `29847593708` 11/11. Independent exact-SHA
   review bound reviewed evidence head `1e4dee2`, tree `d6c3adf`, and exact-head run `29847934091`
-  11/11, returned `APPROVED` and reported zero open P0/P1/P2/P3. Exact-scope ADO closure is prepared
-  and awaits only its own exact-head CI; Physical, production,
+  11/11, returned `APPROVED` and reported zero open P0/P1/P2/P3. Exact-scope ADO closure
+  `fa171a5`, tree `be13e0c`, passed exact-head run `29848853594`, attempt 1, 11/11. Physical, production,
   production-data, deployment, distribution and UI productization remain unauthorized.
 - Dedicated GitHub repository exists, connected through Git remote `origin`.
 - **AVS-001 Adaptive Verification and CI Efficiency is Human-accepted and active as a manual
@@ -394,8 +395,8 @@ Two Epics are concurrently Active, per EP-009's own stated relationship to the r
 - Preserve the approved Block D/C3 boundaries and DA1's completed local offline/synchronization
   contract without reopening or duplicating their NFC, identity, setup, lifecycle or tenant
   authority.
-- Implement only the Human-accepted DA2 Workstreams A–D on the exact authorized baseline and retain
-  every independent review, AVS R3 and scope-exclusion gate.
+- Preserve the closed Human-accepted DA2 Workstreams A–D, every independent review, AVS R3 result
+  and scope-exclusion gate; require separate authority for any extension.
 - Maintain EP-009's Product Readiness Assessment/Roadmap as a continuously-extended baseline (not recreated) as further Development Sprints, architecture decisions, pilot customers or commercial milestones occur.
 - Preserve traceability from source code, and from Product Readiness Decisions, back to approved engineering and governance decisions.
 
@@ -406,15 +407,15 @@ Two Epics are concurrently Active, per EP-009's own stated relationship to the r
 
 ## Immediate Next Steps
 
-1. Preserve Development Assignment 1 and DT-060–DT-062 as completed only for the exact
-   independently approved local Android/repository/synthetic-server scope.
-2. Obtain independent exact-SHA implementation review of `f385814`/tree `48b5ba8`; close no DA2/DT
-   label before every P0–P3 finding is dispositioned.
+1. Preserve Development Assignment 1/DT-060–DT-062 and Development Assignment 2/DT-063–DT-068 as
+   completed only for their exact independently approved local scopes.
+2. Await explicit Human direction before preparing Development Assignment 3's separate architecture
+   and authorization candidate; DA3 implementation remains unauthorized.
 3. Keep the real production endpoint/CA, one-human operator IAM inventory, short-lived credential
    delivery/revocation and controlled execution evidence as explicit later deployment gates.
-4. Preserve every closed C3B/C3C/C3D/C3E1/C3E2/DA1 boundary and keep implementation,
-   production/deployment, DT-063–DT-068 closure and the remaining Block-E setup/export scope behind
-   the candidate's independent review and subsequent explicit Human gates.
+4. Preserve every closed C3B/C3C/C3D/C3E1/C3E2/DA1/DA2 boundary; keep correction/adjudication,
+   UI productization, production/deployment, legal/privacy and pilot-operational scope behind their
+   own later architecture, authorization, review and Human gates.
 
 ## Agreed comprehensive Development-assignment sequence
 

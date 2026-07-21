@@ -154,8 +154,9 @@ Development Assignment 2 Workstreams A–D were published at executable implemen
 tree `48b5ba8`, and passed exact-head eleven-of-eleven run `29847593708`. Reviewed evidence head
 `1e4dee2`, tree `d6c3adf`, passed exact-head run `29847934091` eleven of eleven. Independent
 exact-SHA implementation review returned `APPROVED` with zero open P0/P1/P2/P3. Exact-scope ADO
-closure is prepared for DT-063–DT-066 local setup integration and DT-067/DT-068 local export
-backend, but remains pending its own exact-head CI. Production resources/data, pilot-operational
+closure `fa171a5`, tree `be13e0c`, passed exact-head run `29848853594`, attempt 1, eleven of eleven.
+DA2 and DT-063–DT-068 are closed for the exact local setup-integration/export-backend scopes.
+Production resources/data, pilot-operational
 onboarding, UI productization, legal/privacy approval, deployment, distribution and Physical Gate
 remain unauthorized or separately gated.
 
@@ -258,7 +259,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Technical Architecture Profile (TTAP-001) | `ADO/01_Architecture/Technical_Architecture_Profile.md` |
 | Development Task Profile | `ADO/01_Architecture/Development_Task_Profile.md` |
 | Official Technical Lead Start Prompt (TLP-001) | `ADO/01_Architecture/Technical_Lead_Start_Prompt.md` |
-| Architecture Decision Records (through Human-accepted ADR-0013; DA2-P01–DA2-P12 binding and exact-baseline repository implementation authorized; production/deployment/distribution remain unauthorized) | `ADO/01_Architecture/ADR/` |
+| Architecture Decision Records (through Human-accepted ADR-0013; DA2-P01–DA2-P12 implemented and closed for the authorized local scope; production/deployment/distribution remain unauthorized) | `ADO/01_Architecture/ADR/` |
 | Feature Blueprints (incl. FB-001, FB-002) | `ADO/01_Architecture/Feature_Blueprints/` |
 | Technical Specifications (incl. TS-001, TS-002) | `ADO/01_Architecture/Technical_Specifications/` |
 | Developer Implementation Manual (EP-008) | `ADO/01_Architecture/Developer_Implementation_Manual/` |
@@ -283,7 +284,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Block C3E2 Explicit Tag Reassignment Authorization Candidate | `ADO/02_Development/Block_C3E2_Explicit_Tag_Reassignment_Authorization.md` |
 | Development Assignment 1 Human-Accepted Complete Offline Synchronization Contract and Repository Authorization | `ADO/02_Development/Development_Assignment_01_Complete_Offline_Synchronization_Authorization.md` |
 | Development Assignment 1 Complete Offline Synchronization Implementation Plan | `ADO/02_Development/Development_Assignment_01_Complete_Offline_Synchronization_Implementation_Plan.md` |
-| Development Assignment 2 Setup and Export Backend Implementation Authorization — Workstreams A–D and independent exact-SHA review approved with zero open P0–P3; exact-scope closure-publication CI pending | `ADO/02_Development/Development_Assignment_02_Setup_And_Export_Backend_Authorization.md` |
+| Development Assignment 2 Setup and Export Backend Authorization — DA2 and DT-063–DT-068 closed for authorized local scopes after independent zero-finding review and closure-publication CI 11/11 | `ADO/02_Development/Development_Assignment_02_Setup_And_Export_Backend_Authorization.md` |
 | Block C3 Organization Administration Implementation Plan | `ADO/02_Development/Block_C3_Organization_Administration_Implementation_Plan.md` |
 | Repository Health Sprint 001 | `ADO/02_Development/Repository_Health_Sprint_001.md` |
 | Repository Maintenance Sprint 002 | `ADO/02_Development/Repository_Maintenance_Sprint_002.md` |
@@ -339,8 +340,8 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Development Assignment 1 Closure Evidence and Permanent Artifact Manifest | `ADO/05_Evidence/Development_Assignment_01_Closure_Evidence.md` |
 | Development Assignment 2 Independent Pre-Implementation Review — final re-review `APPROVED FOR CANDIDATE PUBLICATION`, DA2-REV-01 closed, zero open P0–P3 | `ADO/05_Evidence/Development_Assignment_02_Independent_Pre_Implementation_Review.md` |
 | Development Assignment 2 Implementation Evidence — `f385814`/tree `48b5ba8`, 1,681 local tests and exact-head CI 11/11 green; independent exact-SHA review approved | `ADO/05_Evidence/Development_Assignment_02_Implementation_Evidence.md` |
-| Development Assignment 2 Independent Implementation Review — `APPROVED`, zero open P0–P3; exact-scope closure eligible | `ADO/05_Evidence/Development_Assignment_02_Independent_Implementation_Review.md` |
-| Development Assignment 2 Closure Evidence — local setup-integration and export-backend scopes; exact-head closure-publication CI pending | `ADO/05_Evidence/Development_Assignment_02_Closure_Evidence.md` |
+| Development Assignment 2 Independent Implementation Review — `APPROVED`, zero open P0–P3; exact-scope closure subsequently completed | `ADO/05_Evidence/Development_Assignment_02_Independent_Implementation_Review.md` |
+| Development Assignment 2 Closure Evidence — DA2 and DT-063–DT-068 completed for local setup-integration/export-backend scopes; closure-publication CI 11/11 | `ADO/05_Evidence/Development_Assignment_02_Closure_Evidence.md` |
 | Development Assignment 1 DA1-PHYS-01 Independent Exact-Delta Review — approved, finding closed | `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_01_Independent_Exact_Delta_Review.md` |
 | Development Assignment 1 DA1-PHYS-02 Independent Exact-Delta Review — approved, repository finding closed | `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_02_Independent_Exact_Delta_Review.md` |
 | Development Assignment 1 DA1-PHYS-03 Independent Exact-Delta Review — approved, repository finding closed | `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_03_Independent_Exact_Delta_Review.md` |

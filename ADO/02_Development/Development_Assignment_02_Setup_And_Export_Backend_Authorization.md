@@ -1,6 +1,6 @@
 # Development Assignment 2 — Setup and Export Backend Implementation Authorization
 
-- Status: **IMPLEMENTATION AND INDEPENDENT EXACT-SHA REVIEW APPROVED — ZERO OPEN P0–P3; EXACT-SCOPE ADO CLOSURE PUBLICATION PREPARED, EXACT-HEAD CI PENDING; PRODUCTION/DEPLOYMENT/DISTRIBUTION UNAUTHORIZED**
+- Status: **COMPLETED FOR AUTHORIZED LOCAL SETUP-INTEGRATION/EXPORT-BACKEND SCOPE — INDEPENDENT REVIEW ZERO OPEN P0–P3; CLOSURE PUBLICATION EXACT-HEAD CI 11/11; PRODUCTION/DEPLOYMENT/DISTRIBUTION UNAUTHORIZED**
 - Date: 2026-07-21
 - Candidate Baseline Commit: `e5978702eca7adb3de3fd85db37921b4a441ca59`
 - Candidate Baseline Tree: `98ae795bbf4e1d3eb44e12db62024272e861a279`
@@ -314,23 +314,21 @@ implementation of Workstreams A–D on that exact baseline. Implementation commi
 `48b5ba8`, completed Workstreams A–D and passed Technical-Lead/AVS V0–V4 plus exact-head run
 `29847593708` 11/11. Independent exact-SHA review bound evidence head `1e4dee2`/tree `d6c3adf` and
 run `29847934091` 11/11, returned `APPROVED` and reported zero open P0–P3. Exact-scope ADO closure
-publication is prepared and awaits its own exact-head CI; DA2/DT closure is not claimed before it**.
+`fa171a5`, tree `be13e0c`, passed exact-head run `29848853594`, attempt 1, 11/11. DA2 and
+DT-063–DT-068 are closed for the exact local scopes stated in the closure evidence**.
 
 Allowed now:
 
-- dependency/lockfile changes strictly required for the accepted repository scope;
-- migration `011`, neutral export contract, backend coordinator/API, synthetic integration and the
-  isolated DA2 CI job;
-- AVS V0–V4 verification, Technical-Lead approval and independent exact-SHA implementation review;
-  and
-- truthful implementation/evidence synchronization.
+- read-only use and verification of the closed local repository/synthetic-server scope;
+- truthful closure-evidence maintenance; and
+- separately authorized follow-up architecture work that does not reinterpret DA2-P01–DA2-P12.
 
 Forbidden now:
 
 - production resource/data access;
 - deployment/distribution and Physical Gate execution;
 - Admin Web/Mobile UI productization or correction/payroll/legal-retention scope; and
-- representing DA2 or DT-063–DT-068 as complete before V0–V4 and independent review close.
+- any new DA2 implementation or scope expansion without a separate authorization.
 
 ## 13. Independent pre-implementation review mandate
 

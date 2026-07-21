@@ -2,7 +2,7 @@
 
 Role: Research / Implementation Support acting on behalf of Technical Lead (per AGR-001)
 Date: 2026-07-10
-Status: Active execution baseline — Block A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2 and Block D completed for their recorded scopes; Development Assignment 1 and DT-060–DT-062 completed for the authorized local Android/repository/synthetic-server scope after physical evidence `8d5b2bb`/run `29836085810`, final review `APPROVED` with zero open P0–P3 and closure publication `715889e`/run `29837556200` 10/10; DT-063–DT-068 and the remaining Block-E setup/export scope remain open
+Status: Active execution baseline — Block A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2 and Block D completed for their recorded scopes; Development Assignment 1 and DT-060–DT-062 completed for the authorized local Android/repository/synthetic-server scope after physical evidence `8d5b2bb`/run `29836085810`, final review `APPROVED` with zero open P0–P3 and closure publication `715889e`/run `29837556200` 10/10; Development Assignment 2 and DT-063–DT-068 completed for the authorized local setup-integration/export-backend scope after independent zero-finding review and closure publication `fa171a5`/run `29848853594` 11/11; pilot-operational setup, UI, production and legal/privacy gates remain open
 Scope: Core platform roadmap only. Generic platform language throughout (Organization, Membership, Role, User, AssignmentTarget, Customer, NfcTag, NfcAssignment, TimeEntry, WorkEvent, BusinessEvent, Policy, AuditEvent, Export, Backend, Auth, Tenant Isolation, Mobile App, Admin Web, Website). No customer-specific product, company, or branch assumption is named anywhere in this document. The original 2026-07-10 creation implemented no code and modified no architecture/ADR/TTAP/FB/TS/Product Vision content; later dated synchronization updates change only current status/traceability, not accepted product or architecture rules.
 Related Artifacts: `ADO/05_Evidence/External_CTO_Review_Triage_2026-07-10.md`, `ADO/05_Evidence/Product_Readiness_Assessment.md`, `ADO/05_Evidence/Product_Readiness_Roadmap.md`, `ADO/02_Development/Development_Sprint_019_Closure.md`, `ADO/02_Development/EP-007_Development_Tasks.md`, `ADO/00_Core/Project_Status.md`, `ADO/00_Core/Decision_Log.md`
 
@@ -192,8 +192,10 @@ advanced but did not complete DT-060–DT-062 or Block E. C3C/C3D prove the init
 Customer/Tag/Assignment backend, UI/capture and Human physical flow for their controlled synthetic
 scope. Development Assignment 1 later completed durable multi-context caching, multiple events,
 scheduling/backoff, supported reconciliation and background synchronization, closing DT-060–DT-062
-for its independently approved local Android/repository/synthetic-server scope. DT-063–DT-068 and
-the remaining setup/export/pilot operations stay open and separately gated.
+for its independently approved local Android/repository/synthetic-server scope. Development
+Assignment 2 later closed DT-063–DT-068 for the independently approved local setup-integration/
+export-backend scope. Pilot-operational setup, UI, production and legal/privacy gates stay open and
+separately gated.
 
 **Target:** Week 6–9 · **Candidate Sprints:** 042–048
 
@@ -211,8 +213,11 @@ the remaining setup/export/pilot operations stay open and separately gated.
 
 **Current completion:** DT-060, DT-061 and DT-062 are completed for the independently approved
 Development-Assignment-1 local Android/repository/synthetic-server scope after closure publication
-`715889e` passed exact-head run `29837556200`, attempt 1, ten of ten. DT-063–DT-068 remain open.
-This partial Block-E closure does not authorize production resources/data, deployment or distribution.
+`715889e` passed exact-head run `29837556200`, attempt 1, ten of ten. DA2 closure publication
+`fa171a5` later passed exact-head run `29848853594`, attempt 1, eleven of eleven. DT-063–DT-068 are
+therefore completed for the authorized local setup-integration/export-backend scope. This Block-E
+engineering closure does not authorize pilot operations, production resources/data, UI
+productization, legal/privacy approval, deployment or distribution.
 
 **Outcome:** Backend sync exists; setup no longer requires code edits; time records are exportable; the product can be operated for a technical pilot.
 
@@ -555,9 +560,9 @@ Independent exact-SHA implementation review bound executable implementation `f38
 `48b5ba8`, reviewed evidence head `1e4dee2`, tree `d6c3adf`, and exact-head eleven-job runs
 `29847593708` and `29847934091`. Verdict: `APPROVED`, zero open P0/P1/P2/P3.
 
-DA2 and DT-063–DT-068 are therefore eligible for the prepared ADO-only closure publication:
-DT-063–DT-066 only for evidenced local reuse-only setup integration, and DT-067/DT-068 only for the
-local tenant-safe export backend. They remain open until that closure publication passes exact-head
-CI. Pilot-grade operational onboarding, Admin Web download UI, production resources/data,
+Closure publication `fa171a5`, tree `be13e0c`, passed exact-head run `29848853594`, attempt 1,
+eleven of eleven. DA2 and DT-063–DT-068 are therefore completed: DT-063–DT-066 only for evidenced
+local reuse-only setup integration, and DT-067/DT-068 only for the local tenant-safe export backend.
+Pilot-grade operational onboarding, Admin Web download UI, production resources/data,
 legal/privacy approval, deployment, distribution and Physical validation are not closed or
 authorized by this engineering boundary.

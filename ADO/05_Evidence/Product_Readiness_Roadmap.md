@@ -407,9 +407,10 @@ Independent exact-SHA review bound implementation `f385814`, tree `48b5ba8`, rev
 head `1e4dee2`, tree `d6c3adf`, and exact-head runs `29847593708` and `29847934091`, each eleven
 of eleven. It returned `APPROVED` with zero open P0/P1/P2/P3.
 
-The prepared ADO-only closure may close DT-063–DT-066 only for the proven local reuse-only setup
-integration scope and DT-067/DT-068 only for the local export-backend scope after its exact-head CI
-passes. This does not change a readiness-domain rating and does not claim pilot-operational setup,
+Closure publication `fa171a5`, tree `be13e0c`, passed exact-head run `29848853594`, attempt 1,
+eleven of eleven. DA2 and DT-063–DT-068 are closed: DT-063–DT-066 only for the proven local
+reuse-only setup integration scope and DT-067/DT-068 only for the local export-backend scope. This
+does not change a readiness-domain rating and does not claim pilot-operational setup,
 Admin Web download UI, legal/privacy readiness, production resources/data, deployment,
 distribution or Physical validation.
 
