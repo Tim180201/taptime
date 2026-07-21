@@ -339,8 +339,8 @@ Wenn ein Lauf scheitert:
 8.9 Aktuelle Orientierung
 
 Der Stand bei Erstellung dieses Prompts ist:
-- Development Assignment 1 ist für den autorisierten lokalen Android/repository/synthetic-server
-  Scope unabhängig zur Schließung approved;
+- Development Assignment 1 und DT-060–DT-062 sind für den autorisierten lokalen
+  Android/repository/synthetic-server Scope abgeschlossen;
 - DA1-PHYS-01/02/03/04 Repository-Findings sind geschlossen;
 - fünf frühere Physical-Gate-Versuche bleiben historische Fehlversuche;
 - DA1-ARTIFACT-02 ist unabhängig geschlossen;
@@ -356,8 +356,8 @@ Der Stand bei Erstellung dieses Prompts ist:
 - Physical-Evidence-Commit 8d5b2bb35d59cc00b2f5f518c06f09aa0d881723, Tree
   592f9da6a0e8bed14107975b1073d23a9dce4717, bestand Run 29836085810, Attempt 1, 10/10;
 - unabhängiger Final-Closure-Review: APPROVED, null offene P0/P1/P2/P3;
-- DT-060–DT-062 dürfen für den autorisierten lokalen Scope nach grünem Exact-Head-CI der
-  Closure-Publikation geschlossen werden;
+- Closure-Publikation 715889ea0e410337bc695b0277730ad585a4c5a1, Tree
+  b9fc3ac46b1e808193c4532efdc98ab5e91a5e8e, bestand Run 29837556200, Attempt 1, 10/10;
 - Development Assignment 2 braucht einen eigenen Kandidaten, Review, eine exakte Baseline und
   separate Human-Autorisierung; und
 - Produktion, Produktionsdaten, Deployment und Distribution sind nicht autorisiert.

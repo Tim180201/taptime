@@ -351,9 +351,10 @@ Human-validation chain. The sixth complete fresh Gate A–E run passed. Evidence
 `8d5b2bb`, tree `592f9da`, passed exact-head run `29836085810`, attempt 1, ten of ten. Independent
 final closure review returned `APPROVED` with zero open P0/P1/P2/P3.
 
-DT-060–DT-062 may therefore close for the authorized local Android/repository/synthetic-server
-scope after green exact-head CI for the final documentation-only closure publication. This advances
-the roadmap without changing any readiness-domain rating: DT-063–DT-068, Assignments 2–8,
+Closure publication `715889e`, tree `b9fc3ac`, passed exact-head run `29837556200`, attempt 1,
+ten of ten. DT-060–DT-062 are therefore closed for the authorized local
+Android/repository/synthetic-server scope. This advances the roadmap without changing any
+readiness-domain rating: DT-063–DT-068, Assignments 2–8,
 production resources/data, deployment, distribution and the legal/privacy/commercial track remain
 separately gated. Development Assignment 2 requires a new candidate, independent
 pre-implementation review, exact baseline and separate Human authorization before implementation.

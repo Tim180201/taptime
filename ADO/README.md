@@ -131,9 +131,10 @@ both sign-outs and complete cleanup. Physical-evidence publication, exact-head C
 final closure review then completed: publication `8d5b2bb`, tree `592f9da`, passed exact-head run
 `29836085810`, attempt 1, ten of ten; independent review returned `APPROVED` with zero open
 P0/P1/P2/P3. Development Assignment 1 and DT-060–DT-062 are independently approved for closure
-for the exact authorized local Android/repository/synthetic-server scope; final closure-publication
-exact-head CI remains pending. Production resources/data, deployment/distribution, iOS/Web NFC,
-review adjudication and Assignments 2–8 remain outside it.
+for the exact authorized local Android/repository/synthetic-server scope. Closure publication
+`715889e`, tree `b9fc3ac`, passed exact-head run `29837556200`, attempt 1, ten of ten. DA1 and
+DT-060–DT-062 are closed for that scope. Production resources/data, deployment/distribution,
+iOS/Web NFC, review adjudication and Assignments 2–8 remain outside it.
 Implementation, review and physical evidence:
 `ADO/05_Evidence/Development_Assignment_01_Implementation_Evidence.md` and
 `ADO/05_Evidence/Development_Assignment_01_Independent_Implementation_Review.md` and
@@ -248,7 +249,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Technical Architecture Profile (TTAP-001) | `ADO/01_Architecture/Technical_Architecture_Profile.md` |
 | Development Task Profile | `ADO/01_Architecture/Development_Task_Profile.md` |
 | Official Technical Lead Start Prompt (TLP-001) | `ADO/01_Architecture/Technical_Lead_Start_Prompt.md` |
-| Architecture Decision Records (through Human-accepted ADR-0012; DA1-IMPL-01, DA1-PHYS-01/02/03/04 and DA1-ARTIFACT-02 findings independently closed; five prior DA1 Human Gates remain failed historical runs; sixth complete fresh Gate A–E and final independent closure review passed; DA1/DT-060–DT-062 closure approved for the authorized local scope, closure-publication CI pending) | `ADO/01_Architecture/ADR/` |
+| Architecture Decision Records (through Human-accepted ADR-0012; DA1-IMPL-01, DA1-PHYS-01/02/03/04 and DA1-ARTIFACT-02 findings independently closed; five prior DA1 Human Gates remain failed historical runs; sixth complete fresh Gate A–E, final independent closure review and closure-publication CI passed; DA1/DT-060–DT-062 closed for the authorized local scope) | `ADO/01_Architecture/ADR/` |
 | Feature Blueprints (incl. FB-001, FB-002) | `ADO/01_Architecture/Feature_Blueprints/` |
 | Technical Specifications (incl. TS-001, TS-002) | `ADO/01_Architecture/Technical_Specifications/` |
 | Developer Implementation Manual (EP-008) | `ADO/01_Architecture/Developer_Implementation_Manual/` |

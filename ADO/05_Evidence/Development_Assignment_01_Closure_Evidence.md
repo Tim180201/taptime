@@ -2,7 +2,7 @@
 
 Date: 2026-07-21
 Owner: Human Architect + Technical Lead
-Status: **INDEPENDENTLY APPROVED — CLOSURE PUBLICATION EXACT-HEAD CI PENDING**
+Status: **COMPLETED FOR AUTHORIZED LOCAL SCOPE — CLOSURE PUBLICATION EXACT-HEAD CI 10/10**
 
 ## 1. Closure boundary
 
@@ -29,6 +29,8 @@ review adjudication, setup/export Assignment 2 or Assignments 3–8.
 | Physical evidence publication | `8d5b2bb35d59cc00b2f5f518c06f09aa0d881723`, tree `592f9da6a0e8bed14107975b1073d23a9dce4717` |
 | Physical evidence CI | Run `29836085810`, attempt 1, push to exact head `8d5b2bb`, 10/10 successful |
 | Final independent review | `APPROVED`, zero open P0/P1/P2/P3 |
+| Closure publication | `715889ea0e410337bc695b0277730ad585a4c5a1`, tree `b9fc3ac46b1e808193c4532efdc98ab5e91a5e8e` |
+| Closure publication CI | Run `29837556200`, attempt 1, push to exact head `715889e`, 10/10 successful |
 
 ## 3. Permanent artifact manifest
 
@@ -80,9 +82,11 @@ All Authorization Section 10 conditions are satisfied:
 
 ## 5. Remaining boundary
 
-Closure publication requires green exact-head CI for this ADO-only synchronization. No additional
-implementation or Human physical gate is required for DA1 unless this publication changes beyond
-the recorded documentation-only boundary or a new finding is raised.
+Closure publication `715889ea0e410337bc695b0277730ad585a4c5a1`, tree
+`b9fc3ac46b1e808193c4532efdc98ab5e91a5e8e`, passed exact-head GitHub Actions run
+`29837556200`, attempt 1, ten of ten. Development Assignment 1 and DT-060–DT-062 are completed for
+the authorized local Android/repository/synthetic-server scope. No additional implementation or
+Human physical gate is required for DA1 unless a new finding is raised.
 
 Production resources/data, deployment and distribution remain unauthorized. Development Assignment
 2 requires its own candidate, independent pre-implementation review, exact baseline and separate

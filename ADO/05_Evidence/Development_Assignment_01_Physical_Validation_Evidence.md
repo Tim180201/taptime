@@ -10,8 +10,9 @@ INSTALLED-DEVICE BINDING PASSED; GATES A, B, C, D AND E PASSED AFRESH ON THE APP
 A33/ANDROID-15/TWO-NTAG213 SET; COMPLETE SIGN-OUT AND ABORT-SAFE CLEANUP PASSED; ADO
 PUBLICATION `8d5b2bb`, TREE `592f9da`, AND EXACT-HEAD RUN `29836085810` 10/10; INDEPENDENT
 FINAL CLOSURE REVIEW APPROVED WITH ZERO OPEN P0/P1/P2/P3; DA1 AND DT-060–DT-062 CLOSURE
-APPROVED FOR THE AUTHORIZED LOCAL SCOPE; CLOSURE-PUBLICATION EXACT-HEAD CI PENDING; PRODUCTION,
-PRODUCTION DATA, DEPLOYMENT AND DISTRIBUTION NOT AUTHORIZED**
+APPROVED FOR THE AUTHORIZED LOCAL SCOPE; CLOSURE PUBLICATION `715889e`, TREE `b9fc3ac`, AND
+EXACT-HEAD RUN `29837556200` 10/10; DA1 CLOSED; PRODUCTION, PRODUCTION DATA, DEPLOYMENT AND
+DISTRIBUTION NOT AUTHORIZED**
 Owner: Human Architect + Technical Lead
 
 ## 1. Authorization and exact binding
@@ -1330,5 +1331,6 @@ The sixth complete fresh Human Physical Gate A–E is **PASSED**. Physical evide
 `8d5b2bb`, tree `592f9da`, passed exact-head run `29836085810`, attempt 1, ten of ten. Independent
 final closure review returned `APPROVED` with zero open P0/P1/P2/P3 and confirmed DA1 plus
 DT-060–DT-062 closure eligibility for the authorized local Android/repository/synthetic-server
-scope. Exact-head CI for the final documentation-only closure publication remains. Production
-resources, production data, deployment and distribution remain unauthorized.
+scope. Closure publication `715889e`, tree `b9fc3ac`, passed exact-head run `29837556200`, attempt
+1, ten of ten. DA1 and DT-060–DT-062 are closed for that scope. Production resources, production
+data, deployment and distribution remain unauthorized.
