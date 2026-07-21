@@ -401,6 +401,18 @@ open until independent exact-SHA review. Production
 resources/data, legal/privacy approval, deployment, distribution and UI productization remain
 separately gated.
 
+## Addendum (2026-07-21 — Development Assignment 2 Independent Approval)
+
+Independent exact-SHA review bound implementation `f385814`, tree `48b5ba8`, reviewed evidence
+head `1e4dee2`, tree `d6c3adf`, and exact-head runs `29847593708` and `29847934091`, each eleven
+of eleven. It returned `APPROVED` with zero open P0/P1/P2/P3.
+
+The prepared ADO-only closure may close DT-063–DT-066 only for the proven local reuse-only setup
+integration scope and DT-067/DT-068 only for the local export-backend scope after its exact-head CI
+passes. This does not change a readiness-domain rating and does not claim pilot-operational setup,
+Admin Web download UI, legal/privacy readiness, production resources/data, deployment,
+distribution or Physical validation.
+
 ## Revision Note (Technical Lead Review Follow-up, 2026-07-07)
 
 This roadmap was updated once, after Technical Lead review, to: (1) add the "Strategic frame" paragraph above, connecting roadmap items to the companion assessment's Business Event Platform framing (Section 0.1) and capability hierarchy (Section 12); (2) organize every milestone's existing items into an Engineering Track, a Product Capability Track, and a Business, Legal & Go-To-Market Track, without adding, removing, or reprioritizing any item, and without moving any item to a different milestone; (3) note, within the Now and Before Pilot Customers milestones, the re-evaluated primary-bottleneck finding from the companion assessment's Section 11.1 (Organization Management as the more foundational blocker for reaching the first pilot, alongside — not instead of — the backend technology decision). No original roadmap item's wording, milestone assignment, or substance was changed; this revision only added track labels, short cross-reference notes, and this closing note.

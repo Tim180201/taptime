@@ -1,6 +1,6 @@
 # Development Assignment 2 — Setup and Export Backend Implementation Authorization
 
-- Status: **IMPLEMENTATION PUBLISHED — TECHNICAL-LEAD/AVS V0–V4 APPROVED; EXACT-HEAD CI 11/11 GREEN; INDEPENDENT EXACT-SHA REVIEW PENDING; PRODUCTION/DEPLOYMENT/DISTRIBUTION UNAUTHORIZED**
+- Status: **IMPLEMENTATION AND INDEPENDENT EXACT-SHA REVIEW APPROVED — ZERO OPEN P0–P3; EXACT-SCOPE ADO CLOSURE PUBLICATION PREPARED, EXACT-HEAD CI PENDING; PRODUCTION/DEPLOYMENT/DISTRIBUTION UNAUTHORIZED**
 - Date: 2026-07-21
 - Candidate Baseline Commit: `e5978702eca7adb3de3fd85db37921b4a441ca59`
 - Candidate Baseline Tree: `98ae795bbf4e1d3eb44e12db62024272e861a279`
@@ -10,6 +10,7 @@
 - Initial Independent Review: `CHANGES REQUIRED` — DA2-REV-01 (P2), no P0/P1/P3
 - Technical-Lead Disposition: Multiple-history/re-grant premise rejected because migration `001` permanently enforces one Membership per `(organization_id, user_id)` and C3E1 forbids historical re-onboarding; explicit join/missing-row behavior accepted and corrected in DA2-P07
 - Final Independent Re-review: `APPROVED FOR CANDIDATE PUBLICATION` — original premise withdrawn, adjusted DA2-P07 correction approved, DA2-REV-01 closed, zero open P0/P1/P2/P3
+- Independent Implementation Review: `APPROVED` — reviewed evidence head `1e4dee29857ac7f0cc4510a753c44e6bbf1a4cba`, tree `d6c3adff4f9e323f248222bbc88a67490f8bedb5`; zero open P0/P1/P2/P3
 - Candidate Parent State: Development Assignment 1 and DT-060–DT-062 closed for their authorized local Android/repository/synthetic-server scope; C3B/C3C/C3D/C3E1/C3E2 independently closed for their recorded scopes; tracked/staged repository clean outside the protected boundary; existing untracked root `app.json` preserved and unread
 - Human Direction: After candidate publication and exact-head CI, the Human Architect explicitly accepted ADR-0013 and DA2-P01–DA2-P12 on commit `30c4f5d1d8e6fedeb4b6c1f168d6e1f70a4fef76` / tree `242331b6a34cd19a16fd8a9bea993b2349cbb6dc` and separately directed the Technical Lead to begin implementation immediately
 - Owner: Technical Lead
@@ -311,7 +312,9 @@ Current state: **the independently approved candidate was published at
 Human Architect accepted ADR-0013/DA2-P01–DA2-P12 and explicitly authorized immediate repository
 implementation of Workstreams A–D on that exact baseline. Implementation commit `f385814`, tree
 `48b5ba8`, completed Workstreams A–D and passed Technical-Lead/AVS V0–V4 plus exact-head run
-`29847593708` 11/11. Independent exact-SHA review remains pending; DA2/DT closure is not yet claimed**.
+`29847593708` 11/11. Independent exact-SHA review bound evidence head `1e4dee2`/tree `d6c3adf` and
+run `29847934091` 11/11, returned `APPROVED` and reported zero open P0–P3. Exact-scope ADO closure
+publication is prepared and awaits its own exact-head CI; DA2/DT closure is not claimed before it**.
 
 Allowed now:
 

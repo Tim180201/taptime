@@ -1,6 +1,6 @@
 # Development Assignment 2 — Local Implementation Evidence
 
-- Status: **IMPLEMENTATION PUBLISHED — TECHNICAL-LEAD/AVS V0–V4 APPROVED; EXACT-HEAD CI 11/11 GREEN; INDEPENDENT EXACT-SHA REVIEW PENDING**
+- Status: **IMPLEMENTATION PUBLISHED — TECHNICAL-LEAD/AVS V0–V4 AND INDEPENDENT EXACT-SHA REVIEW APPROVED; ZERO OPEN P0–P3; EXACT-SCOPE CLOSURE PUBLICATION PREPARED, CI PENDING**
 - Date: 2026-07-21
 - Authorized Baseline Commit: `30c4f5d1d8e6fedeb4b6c1f168d6e1f70a4fef76`
 - Authorized Baseline Tree: `242331b6a34cd19a16fd8a9bea993b2349cbb6dc`
@@ -105,17 +105,17 @@ audit remediation would make an unrelated breaking Expo downgrade and is outside
 ## 5. Scope and closure truth
 
 - Workstreams A–D are published and Technical-Lead/AVS V0–V4 approved.
-- DT-063–DT-066 remain open until independent review confirms that the composed local setup scope
-  may close without implying new UI/physical/production capability.
-- DT-067/DT-068 remain open until the export-backend implementation passes independent exact-SHA
-  review; V4 is complete.
-- DA2 is not closed by this local evidence.
+- Independent exact-SHA review of implementation `f385814` and reviewed evidence head `1e4dee2`
+  returned `APPROVED` with zero open P0/P1/P2/P3.
+- DT-063–DT-066 are closure-eligible only for the composed local setup-integration scope, without
+  implying new UI, Physical, pilot-operational or production capability.
+- DT-067/DT-068 are closure-eligible only for the local tenant-safe export-backend scope.
+- DA2 and DT-063–DT-068 remain open only until the prepared ADO closure publication passes its own
+  exact-head CI.
 - No production resource/data, deployment, distribution, Physical Gate, legal-retention approval,
   Admin Web download UI, correction/payroll behavior or server-side export artifact is claimed.
 
-## 6. Remaining mandatory gates
+## 6. Remaining mandatory gate
 
-1. obtain an independent review of exact implementation commit/tree `f385814`/`48b5ba8` with every
-   P0–P3 finding dispositioned;
-2. correct and re-review if required; and
-3. only then prepare exact-scope DA2/DT closure evidence.
+Publish the prepared exact-scope ADO-only closure and require successful exact-head CI before
+representing DA2 or DT-063–DT-068 as completed.
