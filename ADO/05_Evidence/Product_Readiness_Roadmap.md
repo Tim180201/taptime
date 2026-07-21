@@ -359,6 +359,36 @@ production resources/data, deployment, distribution and the legal/privacy/commer
 separately gated. Development Assignment 2 requires a new candidate, independent
 pre-implementation review, exact baseline and separate Human authorization before implementation.
 
+## Addendum (2026-07-21 — Development Assignment 2 Architecture Candidate)
+
+The Human Architect subsequently authorized ADO-only preparation of Development Assignment 2.
+Technical-Lead reconciliation on baseline `e5978702eca7adb3de3fd85db37921b4a441ca59`, tree
+`98ae795bbf4e1d3eb44e12db62024272e861a279`, found that C3B/C3C/C3D/C3E1/C3E2 already implement
+the local/synthetic setup path for their recorded scopes. The DA2 proposal therefore preserves
+those boundaries and treats setup as integration/evidence rather than duplicate CRUD.
+
+Proposed ADR-0013 and the DA2 authorization candidate add the still-missing architecture for a
+current-Administrator-only, tenant-safe, bounded and audited CSV export of canonical TimeEntries.
+Twelve explicit product decisions cover actor, row set, started-entry truth, UTC/range semantics,
+duration, exact columns, historical missing names, limits, CSV/formula safety, ordering, audit/hash
+evidence and no server-side artifact retention.
+
+The initial independent pre-implementation review returned `CHANGES REQUIRED` with exactly
+DA2-REV-01 (P2), no P0/P1/P3, alleging multiple historical same-Organization/User Membership rows
+could ambiguously supply exported ID/name. Technical-Lead verification rejects that premise because
+migration `001` permanently enforces `UNIQUE (organization_id, user_id)`, migrations `002`–`010`
+retain it and accepted C3E1 forbids historical re-onboarding/Organization transfer. The clarity
+portion is accepted with adjustment in DA2-P07: exact same-Organization/User join, stable retained
+Membership, nullable-name output and fail-closed missing-row integrity. No unsupported DA2-P13/
+re-grant behavior is introduced. The independent re-review explicitly withdrew the original
+premise, closed DA2-REV-01 and returned `APPROVED FOR CANDIDATE PUBLICATION` with zero open P0–P3.
+
+The candidate changes no readiness-domain rating and closes no DT label. It is independently
+approved for candidate publication but not Human-accepted and grants no implementation,
+production-data, deployment, distribution, correction or UI-productization authority. The next gate
+is focused candidate publication/exact-head CI, followed by Human product/architecture acceptance
+and a separate exact-baseline implementation decision.
+
 ## Revision Note (Technical Lead Review Follow-up, 2026-07-07)
 
 This roadmap was updated once, after Technical Lead review, to: (1) add the "Strategic frame" paragraph above, connecting roadmap items to the companion assessment's Business Event Platform framing (Section 0.1) and capability hierarchy (Section 12); (2) organize every milestone's existing items into an Engineering Track, a Product Capability Track, and a Business, Legal & Go-To-Market Track, without adding, removing, or reprioritizing any item, and without moving any item to a different milestone; (3) note, within the Now and Before Pilot Customers milestones, the re-evaluated primary-bottleneck finding from the companion assessment's Section 11.1 (Organization Management as the more foundational blocker for reaching the first pilot, alongside — not instead of — the backend technology decision). No original roadmap item's wording, milestone assignment, or substance was changed; this revision only added track labels, short cross-reference notes, and this closing note.

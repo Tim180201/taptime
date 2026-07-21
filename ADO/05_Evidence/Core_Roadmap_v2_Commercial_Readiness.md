@@ -500,3 +500,41 @@ closed for the authorized local Android/repository/synthetic-server scope.
 This does not close DT-063–DT-068 or the remaining setup/export Block-E scope and does not authorize
 production resources/data, deployment, distribution, iOS/Web NFC, review adjudication or
 Assignments 2–8. Development Assignment 2 remains a separately gated future candidate.
+
+## 18. Progress Update – 2026-07-21 Development Assignment 2 Candidate Preparation
+
+The Human Architect authorized ADO-only preparation of Development Assignment 2, not
+implementation. On exact baseline `e5978702eca7adb3de3fd85db37921b4a441ca59`, tree
+`98ae795bbf4e1d3eb44e12db62024272e861a279`, the Technical Lead reconciled the current C3B/C3C/
+C3D/C3E1/C3E2 setup implementation, DA1 lifecycle/offline closure, TimeEntry schema, role graph,
+backend API and Roadmap candidate semantics.
+
+The resulting finding is that setup is not an empty implementation area: the closed C3 boundaries
+already provide the local/synthetic bootstrap, Customer, Employee, physical Tag, first Assignment
+and explicit reassignment flow. Development Assignment 2 must integrate and evidence those
+boundaries rather than create duplicate setup authority. The material missing backend capability is
+the v1 time-record export required by ADR-0003 and this Roadmap's DT-067/DT-068 labels.
+
+Proposed ADR-0013 and
+`ADO/02_Development/Development_Assignment_02_Setup_And_Export_Backend_Authorization.md` define a
+current-Administrator-only, tenant-safe, bounded, deterministic and audited CSV backend behind its
+own role/pool, plus a synthetic setup-to-export integration chain. DA2-P01–DA2-P12 expose the exact
+actor, row, timestamp, duration, column, limit, CSV, audit and retention-within-response proposals
+that require Human acceptance.
+
+The first independent pre-implementation review returned `CHANGES REQUIRED` with exactly
+DA2-REV-01 (P2), no P0/P1/P3, alleging ambiguous exported Membership ID/name across multiple
+historical same-Organization/User rows. Technical-Lead verification rejects that premise because
+migration `001` permanently enforces `UNIQUE (organization_id, user_id)`, migrations `002`–`010`
+retain it and accepted C3E1 forbids historical re-onboarding/Organization transfer. The Technical
+Lead accepts the useful clarity part with adjustment: DA2-P07 now fixes the exact same-Organization/
+User join, stable retained Membership, nullable-name output and fail-closed missing-row integrity.
+No DA2-P13 or unsupported re-grant behavior is added. The independent re-review explicitly withdrew
+the original premise, approved the adjusted correction, closed DA2-REV-01 and returned
+`APPROVED FOR CANDIDATE PUBLICATION` with zero open P0–P3.
+
+No product policy is accepted by this preparation. Focused candidate publication/exact-head CI,
+Human acceptance and a separate exact-baseline
+implementation authorization remain mandatory. DT-063–DT-068 stay open Roadmap candidate labels;
+production resources/data, deployment, distribution, correction, UI productization and legal/
+privacy approval remain separately gated.

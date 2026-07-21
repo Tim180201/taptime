@@ -249,7 +249,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Technical Architecture Profile (TTAP-001) | `ADO/01_Architecture/Technical_Architecture_Profile.md` |
 | Development Task Profile | `ADO/01_Architecture/Development_Task_Profile.md` |
 | Official Technical Lead Start Prompt (TLP-001) | `ADO/01_Architecture/Technical_Lead_Start_Prompt.md` |
-| Architecture Decision Records (through Human-accepted ADR-0012; DA1-IMPL-01, DA1-PHYS-01/02/03/04 and DA1-ARTIFACT-02 findings independently closed; five prior DA1 Human Gates remain failed historical runs; sixth complete fresh Gate A–E, final independent closure review and closure-publication CI passed; DA1/DT-060–DT-062 closed for the authorized local scope) | `ADO/01_Architecture/ADR/` |
+| Architecture Decision Records (through Human-accepted ADR-0012 and proposed/not-Human-accepted ADR-0013; independent re-review `APPROVED FOR CANDIDATE PUBLICATION`, DA2-REV-01 closed, zero open P0–P3; DA2 implementation remains unauthorized) | `ADO/01_Architecture/ADR/` |
 | Feature Blueprints (incl. FB-001, FB-002) | `ADO/01_Architecture/Feature_Blueprints/` |
 | Technical Specifications (incl. TS-001, TS-002) | `ADO/01_Architecture/Technical_Specifications/` |
 | Developer Implementation Manual (EP-008) | `ADO/01_Architecture/Developer_Implementation_Manual/` |
@@ -274,6 +274,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Block C3E2 Explicit Tag Reassignment Authorization Candidate | `ADO/02_Development/Block_C3E2_Explicit_Tag_Reassignment_Authorization.md` |
 | Development Assignment 1 Human-Accepted Complete Offline Synchronization Contract and Repository Authorization | `ADO/02_Development/Development_Assignment_01_Complete_Offline_Synchronization_Authorization.md` |
 | Development Assignment 1 Complete Offline Synchronization Implementation Plan | `ADO/02_Development/Development_Assignment_01_Complete_Offline_Synchronization_Implementation_Plan.md` |
+| Development Assignment 2 ADO-only Setup and Export Backend Architecture/Authorization Candidate — independently approved for candidate publication, DA2-REV-01 closed, Human decisions/implementation authority pending | `ADO/02_Development/Development_Assignment_02_Setup_And_Export_Backend_Authorization.md` |
 | Block C3 Organization Administration Implementation Plan | `ADO/02_Development/Block_C3_Organization_Administration_Implementation_Plan.md` |
 | Repository Health Sprint 001 | `ADO/02_Development/Repository_Health_Sprint_001.md` |
 | Repository Maintenance Sprint 002 | `ADO/02_Development/Repository_Maintenance_Sprint_002.md` |
@@ -327,6 +328,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Development Assignment 1 Human Physical Validation Evidence — five prior complete runs failed historically; sixth complete fresh Gate A–E passed on the exact authorized runtime-complete artifact | `ADO/05_Evidence/Development_Assignment_01_Physical_Validation_Evidence.md` |
 | Development Assignment 1 Independent Final Closure Review — approved, zero open P0–P3; DA1 and DT-060–DT-062 closure eligible for the authorized local scope | `ADO/05_Evidence/Development_Assignment_01_Independent_Final_Closure_Review.md` |
 | Development Assignment 1 Closure Evidence and Permanent Artifact Manifest | `ADO/05_Evidence/Development_Assignment_01_Closure_Evidence.md` |
+| Development Assignment 2 Independent Pre-Implementation Review — final re-review `APPROVED FOR CANDIDATE PUBLICATION`, DA2-REV-01 closed, zero open P0–P3 | `ADO/05_Evidence/Development_Assignment_02_Independent_Pre_Implementation_Review.md` |
 | Development Assignment 1 DA1-PHYS-01 Independent Exact-Delta Review — approved, finding closed | `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_01_Independent_Exact_Delta_Review.md` |
 | Development Assignment 1 DA1-PHYS-02 Independent Exact-Delta Review — approved, repository finding closed | `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_02_Independent_Exact_Delta_Review.md` |
 | Development Assignment 1 DA1-PHYS-03 Independent Exact-Delta Review — approved, repository finding closed | `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_03_Independent_Exact_Delta_Review.md` |
