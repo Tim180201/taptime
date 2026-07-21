@@ -422,10 +422,11 @@ the local append-only correction/Human-adjudication candidate with migration `01
 roles/pools, five strict API routes, effective CSV, a minimal Admin Web operator flow, exact Mobile
 review-marker reconciliation, a complete disposable journey and a twelfth CI job.
 
-AVS V0–V3 passes 1,757 tests plus two explicit B1 environment skips, every workspace
-typecheck/build, clean/replay migration verification and Android export. The implementation is not
-yet published; exact-head V4 CI, independent exact-SHA review and the later closure publication are
-mandatory before DT-069–DT-074 or DA3 close. This local engineering candidate does not change a
+AVS V0–V4 passes 1,757 local tests plus two explicit B1 environment skips, every workspace
+typecheck/build, clean/replay migration verification, Android export and exact-head run
+`29859522776` 12/12 on implementation `0f71aca`, tree `e3e2ed7`. Independent exact-SHA review and
+the later closure publication are mandatory before DT-069–DT-074 or DA3 close. This engineering
+implementation does not change a
 readiness-domain rating and does not authorize V5, Physical Gate, DA4 productization, legal/privacy
 approval, production, production data, deployment or distribution.
 

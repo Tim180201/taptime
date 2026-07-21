@@ -1,10 +1,12 @@
 # Development Assignment 3 — Local Implementation Evidence
 
-- Status: **LOCAL IMPLEMENTATION CANDIDATE PASSES AVS V0–V3 — FOCUSED PUBLICATION, V4 AND INDEPENDENT EXACT-SHA REVIEW PENDING**
+- Status: **IMPLEMENTATION PUBLISHED — TECHNICAL-LEAD APPROVED; AVS V0–V4 AND EXACT-HEAD CI 12/12 GREEN; INDEPENDENT EXACT-SHA REVIEW PENDING**
 - Date: 2026-07-21
 - Authorized Baseline Commit: `ff68f7a7d0ce69a65e88846ae1cca9abd5951f5d`
 - Authorized Baseline Tree: `09ef169a68bb53420e07b6f3fcbbdc74e0c01d57`
-- Implementation Commit/Tree: **not yet created; this evidence describes the uncommitted focused candidate against the exact baseline**
+- Implementation Commit: `0f71aca270969866037f2e31cc05ef8730e0ecd1`
+- Implementation Tree: `e3e2ed780c217a520d382b98971991510bb99973`
+- Implementation CI: GitHub Actions `29859522776`, attempt 1, 12/12 successful
 - Owner: Technical Lead
 - Risk Class: AVS-001 R3
 - Authorized: DA3 Workstreams A–D and AVS V0–V4
@@ -142,10 +144,9 @@ browser or Mobile runtime dependency.
 ## 6. Current gate and honest closure status
 
 - Technical-Lead local review finds no open P0/P1/P2/P3 in the candidate.
-- The candidate is not yet committed or published, so no implementation SHA/tree or exact-head CI
-  result exists yet.
-- AVS V4 remains pending: focused publication, exact-head GitHub Actions and independent exact-SHA
-  implementation review.
+- The focused implementation is published at the exact commit/tree above and AVS V4 exact-head
+  GitHub Actions run `29859522776`, attempt 1, passed all 12 jobs.
+- Independent exact-SHA implementation review remains mandatory and is the current gate.
 - DA3 and DT-069–DT-074 remain open until V4, independent zero-finding review and the later exact
   ADO closure gate are complete.
 - V5/Physical Gate remains separately unauthorized and is not required or claimed by this local

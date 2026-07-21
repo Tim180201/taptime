@@ -1,6 +1,6 @@
 # Development Assignment 3 — Correction and Append-only Audit Authorization
 
-- Status: **HUMAN-ACCEPTED AND IMPLEMENTATION-AUTHORIZED ON EXACT BASELINE — LOCAL WORKSTREAMS A–D / AVS V0–V3 COMPLETE; V4 AND INDEPENDENT EXACT-SHA REVIEW PENDING**
+- Status: **HUMAN-ACCEPTED AND IMPLEMENTATION-AUTHORIZED — WORKSTREAMS A–D PUBLISHED AT `0f71aca`; AVS V0–V4 / CI 12/12 GREEN; INDEPENDENT EXACT-SHA REVIEW PENDING**
 - Date: 2026-07-21
 - Accepted/authorized baseline commit: `ff68f7a7d0ce69a65e88846ae1cca9abd5951f5d`
 - Accepted/authorized baseline tree: `09ef169a68bb53420e07b6f3fcbbdc74e0c01d57`
@@ -327,8 +327,10 @@ open P0/P1/P2/P3. The candidate was published as
 `ff68f7a7d0ce69a65e88846ae1cca9abd5951f5d`, tree
 `09ef169a68bb53420e07b6f3fcbbdc74e0c01d57`. The Human Architect then explicitly accepted
 DA3-P01–DA3-P16 and separately authorized Workstreams A–D plus AVS V0–V4 on exactly that baseline.
-The local implementation candidate has completed AVS V0–V3. Focused publication, exact-head V4 and
-independent exact-SHA implementation review remain mandatory before DA3 or DT-069–DT-074 closure.
+The focused implementation is published at `0f71aca270969866037f2e31cc05ef8730e0ecd1`, tree
+`e3e2ed780c217a520d382b98971991510bb99973`; exact-head GitHub Actions run `29859522776`, attempt
+1, passed 12/12. Independent exact-SHA implementation review remains mandatory before DA3 or
+DT-069–DT-074 closure.
 V5, Physical Gate, production, production data, deployment and distribution remain
 **NOT AUTHORIZED**.
 

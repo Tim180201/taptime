@@ -238,10 +238,10 @@ productization, legal/privacy approval, deployment or distribution.
 
 **Current implementation state (2026-07-21):** ADR-0014/DA3-P01–P16 are Human-accepted and DA3
 Workstreams A–D plus AVS V0–V4 are authorized on exact baseline `ff68f7a`, tree `09ef169`. The
-focused local implementation candidate supplies the minimal Administrator
+published implementation `0f71aca`, tree `e3e2ed7`, supplies the minimal Administrator
 overview/correction/review/export workflow and append-only effective/audit truth while preserving
-automatic lifecycle/offline evidence. AVS V0–V3 is green with 1,757 tests. Publication, V4,
-independent exact-SHA review and DT-069–DT-074 closure remain pending.
+automatic lifecycle/offline evidence. AVS V0–V4 is green with 1,757 local tests and exact-head run
+`29859522776` 12/12. Independent exact-SHA review and DT-069–DT-074 closure remain pending.
 
 ### Block G – App Distribution and Pilot Installability
 
@@ -589,7 +589,9 @@ journey and a twelfth CI job. AVS V0–V3 passes 1,757 tests plus two explicit e
 B1 skips, all workspace typechecks/builds, clean/replay migration verification and Android export.
 The existing 11 moderate Expo/Xcode toolchain advisories remain disclosed.
 
-The implementation is not yet committed or published. Exact-head V4 CI and independent exact-SHA
-implementation review remain mandatory, so DA3 and DT-069–DT-074 remain open. V5, Physical Gate,
+Implementation `0f71aca270969866037f2e31cc05ef8730e0ecd1`, tree
+`e3e2ed780c217a520d382b98971991510bb99973`, is published; exact-head V4 run `29859522776`, attempt
+1, passed 12/12. Independent exact-SHA implementation review remains mandatory, so DA3 and
+DT-069–DT-074 remain open. V5, Physical Gate,
 production, production data, deployment, distribution, legal/privacy approval and DA4
 productization remain unauthorized or separately gated.
