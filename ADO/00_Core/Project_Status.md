@@ -1,6 +1,6 @@
 # Project Status
 
-Status: CORE ROADMAP V2 BLOCK A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2, BLOCK D, E1 AND NARROW E2A COMPLETE FOR THEIR RECORDED SCOPES — DEVELOPMENT ASSIGNMENT 1 AND DT-060–DT-062 CLOSED FOR THE AUTHORIZED LOCAL ANDROID/REPOSITORY/SYNTHETIC-SERVER SCOPE — DEVELOPMENT ASSIGNMENT 2 AND DT-063–DT-068 CLOSED FOR THE AUTHORIZED LOCAL SETUP-INTEGRATION/EXPORT-BACKEND SCOPE AFTER INDEPENDENT ZERO-FINDING REVIEW AND CLOSURE PUBLICATION `fa171a5`/RUN `29848853594` 11/11 — PRODUCTION, PRODUCTION DATA, PHYSICAL GATE, PILOT-OPERATIONAL ONBOARDING, UI PRODUCTIZATION, LEGAL/PRIVACY APPROVAL, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
+Status: CORE ROADMAP V2 BLOCK A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2, BLOCK D, E1 AND NARROW E2A COMPLETE FOR THEIR RECORDED SCOPES — DEVELOPMENT ASSIGNMENT 1 AND DT-060–DT-062 CLOSED FOR THE AUTHORIZED LOCAL ANDROID/REPOSITORY/SYNTHETIC-SERVER SCOPE — DEVELOPMENT ASSIGNMENT 2 AND DT-063–DT-068 CLOSED FOR THE AUTHORIZED LOCAL SETUP-INTEGRATION/EXPORT-BACKEND SCOPE AFTER INDEPENDENT ZERO-FINDING REVIEW AND CLOSURE PUBLICATION `fa171a5`/RUN `29848853594` 11/11 — DEVELOPMENT ASSIGNMENT 3 ADO-ONLY ARCHITECTURE/AUTHORIZATION CANDIDATE INDEPENDENTLY APPROVED FOR PUBLICATION WITH ZERO OPEN P0–P3; HUMAN ACCEPTANCE AND IMPLEMENTATION AUTHORITY PENDING — PRODUCTION, PRODUCTION DATA, PHYSICAL GATE, PILOT-OPERATIONAL ONBOARDING, PROFESSIONAL UI PRODUCTIZATION, LEGAL/PRIVACY APPROVAL, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
 Date: 2026-07-21
 Owner: Human Architect + Technical Lead
 
@@ -10,6 +10,17 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
 
 ## Current State
 
+- **Development Assignment 3 now has a local ADO-only architecture and authorization candidate on
+  baseline `560cca265a6fa6c9f31873d3ed23be3276377e07`, tree
+  `4b5f273288388a02a5bf6490a07392c0b9272b2e`.** Proposed ADR-0014/DA3-P01–DA3-P16 define a
+  minimal current-Administrator overview/correction/review/export workflow, immutable base
+  lifecycle/offline evidence, append-only effective revisions and Human adjudications, safe
+  server/Mobile predecessor release, isolated roles/pools and corrected effective CSV values.
+  DT-069–DT-074 remain open. Independent pre-implementation review returned `APPROVED FOR
+  CANDIDATE PUBLICATION` with zero open P0/P1/P2/P3. Focused candidate publication/CI, explicit
+  Human acceptance and a separate exact-baseline implementation release remain mandatory. No
+  migration `012`, code, dependency, test, workflow, build, Physical Gate, production, deployment
+  or distribution action is authorized or claimed.
 - **Development Assignment 2 and DT-063–DT-068 are independently closed for their authorized local
   setup-integration and export-backend scopes.** The Human-accepted implementation baseline is
   `30c4f5d1d8e6fedeb4b6c1f168d6e1f70a4fef76`, tree
@@ -387,7 +398,7 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
 
 Two Epics are concurrently Active, per EP-009's own stated relationship to the rest of the repository (`EP-009_Product_Readiness_Framework.md` Section 2):
 
-- **EP-008 – Developer Implementation Manual** (guidance track, historical Sprint-001–019 narrative plus Human-accepted Block-boundary reconciliation through C3D/E2A; Chapters 04–10 not yet written) and the **Roadmap v2 implementation track** — Development Sprints 001–019 and Core Roadmap v2 Blocks A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2 and D are complete for their recorded repository/Human-gate scopes. E1 and the narrow E2A slice are complete after Technical-Lead, eight-job CI, Human physical Android and independent final-review approval. C3A passed independent re-review and Human acceptance; C3B passed Technical-Lead, exact-head nine-job CI and independent security. C3C passed Technical-Lead verification, three independent exact-SHA reviews and exact-head ten-job CI; its ADO closure-publication commit also passed exact-head ten-job CI. Every C3D correction passed independent zero-finding review and exact-head ten-job CI; its complete fresh Human physical gate passed on Galaxy A33/NTAG213. C3E1 product correction `450d767`, harness correction `4338910` and closure commit `fe0781b` each passed independent zero-finding review and exact-head ten-job CI; its complete fresh Galaxy A33/NTAG213 Human Gate passed. C3E2 final implementation head `7050df4` and closure commit `a2fdebc` passed zero-finding independent reviews and exact-head ten-job CI; its complete fresh Galaxy-A33/NTAG213 Human Gate passed. DA1 later completed DT-060–DT-062 for its authorized local Android/repository/synthetic-server scope; DA2 implementation `f385814`/tree `48b5ba8` passed exact-head run `29847593708` 11/11 while independent closure review remains open. Block D software, CI, device-local NFC, synthetic server-connected physical Android validation and independent final review are approved/passed for the recorded Galaxy A33/NTAG213 set. The DT-017–DT-026 Core sequence remains complete; its accepted C3 baseline is FB-002 v1.2/TS-002 v1.3/ADR-0011. F-01 is resolved and implemented. DT-016/DT-058's physical Android gate is closed for the approved set; ADR-0008 through ADR-0013 are accepted/approved; DA2 closure remains pending.
+- **EP-008 – Developer Implementation Manual** (guidance track, historical Sprint-001–019 narrative plus Human-accepted Block-boundary reconciliation through C3D/E2A; Chapters 04–10 not yet written) and the **Roadmap v2 implementation track** — Development Sprints 001–019 and Core Roadmap v2 Blocks A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2 and D are complete for their recorded repository/Human-gate scopes. E1 and the narrow E2A slice are complete after Technical-Lead, eight-job CI, Human physical Android and independent final-review approval. C3A passed independent re-review and Human acceptance; C3B passed Technical-Lead, exact-head nine-job CI and independent security. C3C passed Technical-Lead verification, three independent exact-SHA reviews and exact-head ten-job CI; its ADO closure-publication commit also passed exact-head ten-job CI. Every C3D correction passed independent zero-finding review and exact-head ten-job CI; its complete fresh Human physical gate passed on Galaxy A33/NTAG213. C3E1 product correction `450d767`, harness correction `4338910` and closure commit `fe0781b` each passed independent zero-finding review and exact-head ten-job CI; its complete fresh Galaxy A33/NTAG213 Human Gate passed. C3E2 final implementation head `7050df4` and closure commit `a2fdebc` passed zero-finding independent reviews and exact-head ten-job CI; its complete fresh Galaxy-A33/Android-15/NTAG213 Human Gate passed. DA1 later completed DT-060–DT-062 for its authorized local Android/repository/synthetic-server scope. DA2 completed DT-063–DT-068 for its authorized local setup-integration/export-backend scope after implementation `f385814`, exact-head run `29847593708` 11/11, independent zero-finding review and closure publication `fa171a5`/run `29848853594` 11/11. DA3 now has a local ADO-only proposed ADR-0014/authorization candidate independently approved for publication with zero open P0–P3; DT-069–DT-074, Human acceptance and implementation remain open. Block D software, CI, device-local NFC, synthetic server-connected physical Android validation and independent final review are approved/passed for the recorded Galaxy A33/NTAG213 set. The DT-017–DT-026 Core sequence remains complete; its accepted C3 baseline is FB-002 v1.2/TS-002 v1.3/ADR-0011. F-01 is resolved and implemented. DT-016/DT-058's physical Android gate is closed for the approved set; ADR-0008 through ADR-0013 are accepted/approved; ADR-0014 is proposed only.
 - **EP-009 – Product Readiness Framework** (continuous, parallel governance track) — governs Product Readiness domains outside implementation: Technical Operations, Product, Commercial, Legal & Compliance, Deployment, Go-To-Market, Customer, Support and Scaling Readiness (Business Readiness evaluated and deliberately not yet adopted as an official domain, per Product Readiness Assessment Section 13).
 
 ### Goals
@@ -409,8 +420,9 @@ Two Epics are concurrently Active, per EP-009's own stated relationship to the r
 
 1. Preserve Development Assignment 1/DT-060–DT-062 and Development Assignment 2/DT-063–DT-068 as
    completed only for their exact independently approved local scopes.
-2. Await explicit Human direction before preparing Development Assignment 3's separate architecture
-   and authorization candidate; DA3 implementation remains unauthorized.
+2. Publish the independently approved exact DA3 ADO-only candidate and obtain exact-head CI, then
+   obtain explicit Human acceptance of DA3-P01–DA3-P16 and a separate exact-baseline implementation
+   release before any executable DA3 change.
 3. Keep the real production endpoint/CA, one-human operator IAM inventory, short-lived credential
    delivery/revocation and controlled execution evidence as explicit later deployment gates.
 4. Preserve every closed C3B/C3C/C3D/C3E1/C3E2/DA1/DA2 boundary; keep correction/adjudication,

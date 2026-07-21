@@ -236,6 +236,13 @@ productization, legal/privacy approval, deployment or distribution.
 
 **Outcome:** Correction is possible; an audit trail exists; export is usable by operators; the admin surface is minimal but functional.
 
+**Current candidate state (2026-07-21):** Development Assignment 3 has a local ADO-only proposed
+ADR-0014/authorization package on baseline `560cca2`, tree `4b5f273`. It proposes one minimal
+Administrator overview/correction/review/export workflow and append-only effective/audit truth while
+preserving automatic lifecycle evidence. Independent review approved the ADO-only candidate for
+publication with zero open P0–P3. Human acceptance and separate exact-baseline implementation
+authority remain pending. No DT-069–DT-074 item is closed by the candidate.
+
 ### Block G – App Distribution and Pilot Installability
 
 **Target:** Week 9–12 · **Candidate Sprints:** 055–058
