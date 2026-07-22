@@ -1,6 +1,6 @@
 # Development Assignment 3 — Correction and Append-only Audit Authorization
 
-- Status: **IMPLEMENTATION `0f71aca` INDEPENDENTLY APPROVED; LOCAL V5 ENABLEMENT AUTHORIZED ON `0b0d040`; PHYSICAL GATE NOT AUTHORIZED**
+- Status: **IMPLEMENTATION `0f71aca` INDEPENDENTLY APPROVED; V5 CANDIDATE `6eb68a3` CI 12/12/APK BOUND, INDEPENDENT REVIEW PENDING; PHYSICAL GATE NOT AUTHORIZED**
 - Date: 2026-07-21
 - Accepted/authorized baseline commit: `ff68f7a7d0ce69a65e88846ae1cca9abd5951f5d`
 - Accepted/authorized baseline tree: `09ef169a68bb53420e07b6f3fcbbdc74e0c01d57`
@@ -184,8 +184,9 @@ Expected protected or unchanged behavior:
 - Authorized executable scope: Workstreams A–D and AVS V0–V4.
 - Risk class: R3.
 - Current verification: DA3 implementation AVS V0–V4 complete; implementation/evidence exact-head
-  CI 12/12; independent exact-SHA review `APPROVED` with zero open P0–P3. Focused local V5
-  enablement verification is in progress; the physical run remains separately gated.
+  CI 12/12; independent exact-SHA review `APPROVED` with zero open P0–P3. Focused V5 product
+  candidate `6eb68a3`, tree `bb8564f`, passed exact-head CI 12/12 and has a bound read-only
+  synthetic APK; independent V5 review remains open and the physical run remains separately gated.
 - Carried evidence: DA1/DA2 closure and their exact CI/review bindings remain evidence for their
   unchanged foundations; they are not DA3 correctness evidence.
 - Excluded path: `research/` remains unread and untouched.
@@ -340,8 +341,9 @@ The focused implementation is published at `0f71aca270969866037f2e31cc05ef8730e0
 1, passed 12/12. Independent exact-SHA implementation review returned `APPROVED` with zero open
 P0/P1/P2/P3. The reviewer recommended retaining V5. The Human Architect subsequently authorized
 only its focused local enablement preparation on `0b0d040`, tree `eee2650`, and then separately
-authorized DA3-V5-F01 on the same baseline. The exact enablement candidate must pass AVS V0–V4 and
-independent review before the Human Architect may separately authorize a physical run.
+authorized DA3-V5-F01 on the same baseline. Product candidate `6eb68a3`, tree `bb8564f`, passed
+exact-head run `29927309720` 12/12 and has a bound read-only synthetic APK. Independent exact-SHA
+V5 review remains mandatory before the Human Architect may separately authorize a physical run.
 Physical Gate, production, production data, deployment and distribution remain **NOT AUTHORIZED**.
 
 ## 12. Independent pre-implementation review mandate

@@ -48,6 +48,29 @@ Do not install or begin the gate until all of the following are recorded and ind
 Any changed source, ADO, lockfile, CI result, artifact or required configuration invalidates the
 binding and requires fresh R3 verification, independent review and Human authorization.
 
+### 3.1 Reproducible artifact construction before binding
+
+Artifact construction is preparation only and does not authorize installation or the gate. Use a
+fresh detached worktree at the exact product commit; never delete or replace a pre-existing
+`apps/mobile/android` directory. With the locked dependencies, Node 24, Java 17 and the configured
+Android SDK, run in order:
+
+```bash
+npm ci
+npm run build --workspace=@taptime/core
+npm run build --workspace=@taptime/offline-sync-contract
+npm run build --workspace=@taptime/time-review-contract
+npm run android:synthetic-e2e:build --workspace=@taptime/mobile
+```
+
+Require exit code zero plus `offline_storage_android_backup_boundary_verified`,
+`synthetic_e2e_android_runtime_complete_verified` and `synthetic_e2e_android_apk_ready`. Copy the
+APK out of the disposable worktree, make the APK and adjacent binding manifest read-only, and
+recompute size, SHA-256, package/version, signature scheme/signer digest, packaged manifest backup
+boundary and Hermes runtime completeness from the copied binary. Do not invoke ADB or install the
+package during artifact construction. A failed or partially red preparation command contributes no
+artifact evidence.
+
 ## 4. Local preflight after authorization
 
 1. Verify the checked-out commit/tree and clean tracked worktree against the authorization.

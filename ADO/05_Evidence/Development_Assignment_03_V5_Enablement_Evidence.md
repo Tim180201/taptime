@@ -1,9 +1,12 @@
 # Development Assignment 3 — V5 Enablement Evidence
 
-- Status: **LOCAL ENABLEMENT CANDIDATE — AVS V0–V3 GREEN; V4/INDEPENDENT REVIEW PENDING; PHYSICAL GATE NOT AUTHORIZED**
+- Status: **PRODUCT CANDIDATE PUBLISHED/CI 12/12; READ-ONLY APK BOUND; V4 INDEPENDENT REVIEW PENDING; PHYSICAL GATE NOT AUTHORIZED**
 - Date: 2026-07-22
 - Authorized enablement baseline commit: `0b0d04034c88829fdc5c548b057e74554d4ee197`
 - Authorized enablement baseline tree: `eee26501fd714738aa3ca106d93d5088261206e3`
+- Product candidate commit: `6eb68a3b4f9567600e12ec5a4f4b72ca4da99dca`
+- Product candidate tree: `bb8564fd0911d2b32dccb776f4a3f938621ee052`
+- Product candidate CI: GitHub Actions run `29927309720`, attempt 1, **12/12 successful**
 - Risk class: AVS-001 **R3**
 - Owner: Technical Lead
 - Authorized: focused local DA3 V5 harness/runbook enablement, DA3-V5-F01 correction, regression
@@ -23,6 +26,10 @@ implementation `0f71aca270969866037f2e31cc05ef8730e0ecd1`, tree
 `e3e2ed780c217a520d382b98971991510bb99973`, exact-head run `29859522776` 12/12 and independent
 review `APPROVED` with zero open P0–P3. The enablement starts from later review-synchronized head
 `0b0d040`, tree `eee2650`; `main == origin/main` and the tracked worktree was clean at start.
+
+The focused product candidate was published as `6eb68a3`, tree `bb8564f`, and its exact-head
+GitHub Actions run `29927309720`, attempt 1, passed all 12 jobs. This publication and its artifact
+do not complete V4 until the exact product/evidence heads pass independent review.
 
 Untracked user-owned `app.json` and `research/` were preserved. `research/` was not read, listed,
 searched or changed.
@@ -89,6 +96,47 @@ CSV shape, role, pool or export range semantics changed.
 - Synthetic harness tests-inclusive typecheck: passed.
 - Synthetic harness build: passed.
 
+### Exact candidate publication and artifact construction
+
+- The focused product commit is `6eb68a3b4f9567600e12ec5a4f4b72ca4da99dca`, tree
+  `bb8564fd0911d2b32dccb776f4a3f938621ee052`; exact-head run `29927309720`, attempt 1, passed
+  **12/12** jobs.
+- A first isolated dependency install resolved Node `v26.3.1` through the login shell and was
+  rejected before any artifact build. The accepted isolated checkout used Node `v24.17.0`,
+  OpenJDK `17.0.19` and Android Build Tools `36.0.0`.
+- The first Node-24 build stopped before APK packaging because a clean `npm ci` has no generated
+  `@taptime/offline-sync-contract/dist/index.js`. A subsequent unsequenced root workspace build
+  also returned non-zero after building some packages because npm's workspace order reached
+  backend consumers before their generated dependency types. Neither run produced or contributed
+  an accepted APK.
+- The accepted fresh run built exactly `@taptime/core`, `@taptime/offline-sync-contract` and
+  `@taptime/time-review-contract`, then ran
+  `npm run android:synthetic-e2e:build --workspace=@taptime/mobile`. Gradle passed **712 tasks**
+  (679 executed, 33 up-to-date), Metro bundled 850 modules, and the build emitted all three
+  mandatory readiness markers: `offline_storage_android_backup_boundary_verified`,
+  `synthetic_e2e_android_runtime_complete_verified` and `synthetic_e2e_android_apk_ready`.
+- Read-only APK:
+  `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da3-v5/6eb68a3/app-release-215b4c924f0b7702.apk`;
+  95,437,611 bytes; mode `0444`; SHA-256
+  `215b4c924f0b770248a36d188f341efe62278527e1cad1af6cc1babdcc1f39b1`.
+- Package/version: `com.tim180201.mobile.synthetic`, `1.0.0` (`1`), minimum SDK 24, target SDK 36.
+  `apksigner` verifies exactly one APK Signature Scheme v2 signer. Its local synthetic debug
+  certificate SHA-256 is
+  `fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c`; this is not a production
+  or distribution signer.
+- The packaged manifest has `allowBackup=false`, `usesCleartextTraffic=false` and both required
+  backup-rule references. The Hermes runtime verifier passed against the generated binary, the
+  offline-storage verifier passed against the generated and merged release manifests/rules, and
+  the copied APK's identical SHA-256 plus an independent packaged-manifest dump bind those results
+  to the read-only candidate.
+- Adjacent read-only binding manifest:
+  `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da3-v5/6eb68a3/artifact-manifest.txt`;
+  2,206 bytes; mode `0444`; SHA-256
+  `07f0e5a116e76ddd9c17dcf66aa5bf5f4fbf0e1fbd4e152db13a8065b4b747d6`.
+- No APK installation, ADB command, device interaction or Physical Gate action was performed.
+  The isolated build worktree and its intermediate files were removed after the bound artifact
+  was copied and reverified. Pre-existing workspace and user files were not removed.
+
 ### AVS completion state
 
 | Level | State | Evidence |
@@ -97,11 +145,12 @@ CSV shape, role, pool or export range semantics changed.
 | V1 | Passed | focused API 12/12; real PostgreSQL harness 46/46 with zero skips; affected tests-inclusive typechecks and builds |
 | V2 | Passed | complete schema 128, review 10, export 14, API 224, offline 13, Admin Web 52 and Mobile 421 suites plus affected contracts/harness |
 | V3 | Passed | 1,758 tests across all 19 workspaces, two explicit optional B1 skips, all 19 typechecks/builds, migration clean/replay/ledger, Admin Web build, Android export, audit and cleanup |
-| V4 | Pending | focused committed head, complete exact-head CI and independent exact-SHA review |
+| V4 | Pending independent review | product candidate `6eb68a3`/tree `bb8564f` published; exact-head run `29927309720` passed 12/12; read-only APK and manifest bound above; exact product/evidence-head independent review remains mandatory |
 | V5 | **Not authorized** | a later separate exact-artifact-bound Human authorization is mandatory |
 
-No failed or skipped run is counted as successful candidate evidence. This ledger must be updated
-with exact final totals, commits, trees, CI and artifact bindings before independent review.
+No failed or skipped run is counted as successful candidate evidence. The independent review must
+bind the exact product candidate above plus the eventual ADO evidence-sync commit/tree and its
+exact-head CI result.
 
 The V3 total is the sum of the independently reported workspace results: administration contract
 4; Core 290; offline contract 7; export contract 10; review contract 5; Admin Web 52; backend
@@ -121,8 +170,9 @@ by the harness.
 
 - The new physical procedure remains unexecuted; automated evidence cannot substitute for Human
   Web/Android/NFC observations.
-- Exact APK/Web/harness artifacts must be generated from and bound to the eventual committed,
-  CI-green candidate before any later gate authorization.
+- The exact APK is bound to the committed, CI-green product candidate, but the product/evidence
+  heads and artifact have not yet passed independent exact-SHA review.
+- The APK uses the expected local synthetic debug signer and is unsuitable for distribution.
 - Eleven existing moderate Expo/Xcode toolchain advisories remain separately disclosed; no known
   high or critical advisory is accepted silently.
 - DA3 and DT-069–DT-074 remain open. This candidate does not close a roadmap item.
