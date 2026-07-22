@@ -169,6 +169,8 @@ pre-existing untracked paths `app.json` and `research/` reported without inspect
 ## 7. Current disposition
 
 The first authorized V5 Physical Gate is **FAILED CLOSED**. DA3 and DT-069–DT-074 remain open.
-`DA3-PHYS-01` requires an independently reviewed correction candidate and a new exact-bound Human
-authorization before any replacement physical run. Production, production data, deployment and
-distribution remain unauthorized.
+Independent exact-delta review of this failure synchronization returned
+`APPROVED FOR FAILURE SYNCHRONIZATION` with zero P0–P3 findings against the publication while
+keeping `DA3-PHYS-01` P1 open. A separately approved correction candidate and a new exact-bound
+Human authorization remain mandatory before any replacement physical run. Production, production
+data, deployment and distribution remain unauthorized.

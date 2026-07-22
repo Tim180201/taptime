@@ -386,3 +386,10 @@ offline-store owner against silent cross-identity rebinding; the current V5 proc
 requires Administrator setup followed by Employee Gate A on that same installation. Resolving the
 mismatch requires a new Human decision and independent review. This document does not select an
 operational reinstall correction or authorize a product identity-transition change.
+
+Independent exact-delta review of failure-publication head
+`a66788e880022d3da14aedddba7e373b73f55eb3`, tree
+`55242152c996a0d1ef6f695b99452d43d5356a40`, and exact-head run `29933136031` returned
+`APPROVED FOR FAILURE SYNCHRONIZATION` with zero P0–P3 findings against the synchronization. That
+review confirms the diagnosis and correction decision boundary but grants neither correction nor
+replacement-run authority. `DA3-PHYS-01` remains P1 open.
