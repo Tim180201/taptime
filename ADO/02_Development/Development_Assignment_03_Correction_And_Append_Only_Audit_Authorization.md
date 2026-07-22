@@ -1,6 +1,6 @@
 # Development Assignment 3 — Correction and Append-only Audit Authorization
 
-- Status: **DA3-PHYS-02 FAILURE SYNC AND FOCUSED ADO-ONLY CORRECTION INDEPENDENTLY APPROVED; RE-REVIEW ARCHIVAL/CI, HUMAN ACCEPTANCE AND NEW EXACT-BOUND AUTHORIZATION REQUIRED; NEW RUN UNAUTHORIZED**
+- Status: **DA3-PHYS-02 FAILURE SYNC AND FOCUSED ADO-ONLY CORRECTION INDEPENDENTLY APPROVED/CI-GREEN; HUMAN ACCEPTANCE AND NEW EXACT-BOUND AUTHORIZATION REQUIRED; NEW RUN UNAUTHORIZED**
 - Date: 2026-07-21
 - Accepted/authorized baseline commit: `ff68f7a7d0ce69a65e88846ae1cca9abd5951f5d`
 - Accepted/authorized baseline tree: `09ef169a68bb53420e07b6f3fcbbdc74e0c01d57`
@@ -502,8 +502,11 @@ R0/V0, disclosure boundary and unchanged APK.
 Verdict: `APPROVED FOR DA3-PHYS-02 ADO CORRECTION`; no open P0–P3 review findings. Archived report:
 `ADO/05_Evidence/Development_Assignment_03_DA3_PHYS_02_Correction_Independent_Exact_Delta_Review.md`.
 
-This review creates no execution authority. `DA3-PHYS-01`, `DA3-PHYS-02`, DA3 and DT-069–DT-074
-remain open. Before any further V5 run, the review archive must be published and exact-head-CI
-green, followed by explicit Human acceptance and a new separate exact-bound authorization. Retry,
-Physical Gate, product code, schema, dependency, APK change, production resource/data, deployment
-and distribution remain unauthorized.
+Review archival publication `030dbf6f44a7f6c03adc089b1a2f8dae73c114eb`, tree
+`8695708f82ed98a068338ac33029151ee349f1d6`, parent `53ec139`, contains exactly 12 ADO Markdown
+files (`+248/-21`) and passed exact-head run `29942397982`, attempt 1, 12/12.
+
+This review and publication create no execution authority. `DA3-PHYS-01`, `DA3-PHYS-02`, DA3 and
+DT-069–DT-074 remain open. Before any further V5 run, explicit Human acceptance and a new separate
+exact-bound authorization are required. Retry, Physical Gate, product code, schema, dependency,
+APK change, production resource/data, deployment and distribution remain unauthorized.

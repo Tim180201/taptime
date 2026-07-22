@@ -681,8 +681,8 @@ the prohibition of additional Customer creation, Tag mapping, unchanged two-rece
 invariant and all authority exclusions. Verdict `APPROVED FOR DA3-PHYS-02 ADO CORRECTION`; no open
 P0–P3 review findings.
 
+Review archive `030dbf6`, tree `8695708`, passed exact-head run `29942397982`, attempt 1, 12/12.
 This changes no readiness-domain rating, executable artifact or physical result. `DA3-PHYS-01`,
-`DA3-PHYS-02`, DA3 and DT-069–DT-074 remain open. Review archival/CI, explicit Human acceptance
-and a new separate exact-bound authorization remain mandatory before another run. Production,
-production data, deployment, distribution, legal/privacy approval and DA4 productization remain
-separately gated.
+`DA3-PHYS-02`, DA3 and DT-069–DT-074 remain open. Explicit Human acceptance and a new separate
+exact-bound authorization remain mandatory before another run. Production, production data,
+deployment, distribution, legal/privacy approval and DA4 productization remain separately gated.

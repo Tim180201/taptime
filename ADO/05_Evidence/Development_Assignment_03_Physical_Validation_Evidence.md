@@ -368,6 +368,7 @@ Independent read-only review of the complete correction range `abd58be3..53ec139
 Verdict: `APPROVED FOR DA3-PHYS-02 ADO CORRECTION`; no open P0–P3 review findings. Full archive:
 `ADO/05_Evidence/Development_Assignment_03_DA3_PHYS_02_Correction_Independent_Exact_Delta_Review.md`.
 
+Review archive `030dbf6`, tree `8695708`, passed exact-head run `29942397982`, attempt 1, 12/12.
 This is repository/procedure evidence only, not a new physical observation. `DA3-PHYS-01` and
-`DA3-PHYS-02` remain P1 open, and no DA3 task closes. Review archival/CI, explicit Human acceptance
-and a new separate exact-bound authorization are required before another complete fresh run.
+`DA3-PHYS-02` remain P1 open, and no DA3 task closes. Explicit Human acceptance and a new separate
+exact-bound authorization are required before another complete fresh run.

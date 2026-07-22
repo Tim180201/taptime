@@ -107,3 +107,13 @@ Product, Evidence and review-publication heads and CI, the immutable APK as actu
 the install helper, the approved device and Tags, both installations, the intermediate scoped
 disconnect/uninstall/zero proof and full cleanup. Until then, no run, installation, ADB or retry is
 authorized.
+
+## 9. Review archival publication
+
+This independent review was archived through ADO-only publication
+`030dbf6f44a7f6c03adc089b1a2f8dae73c114eb`, tree
+`8695708f82ed98a068338ac33029151ee349f1d6`, parent `53ec139`, with exactly 12 ADO Markdown files
+and `+248/-21`. Exact-head GitHub Actions run `29942397982`, attempt 1, passed all 12 jobs.
+
+The publication changes no review verdict, product behavior, artifact or physical evidence. Human
+acceptance and a new separate exact-bound run authorization remain outstanding.

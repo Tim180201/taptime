@@ -217,7 +217,7 @@ four-audit assertion.
 This changes no implementation source, schema, dependency, harness, product rule, APK or historical
 test evidence. Focused ADO publication `4d54dc2`, tree `ad9b6ba`, passed exact-head run
 `29941019865`, attempt 1, 12/12. `DA3-PHYS-01` and `DA3-PHYS-02` remain open. Section 12 records
-the later independent exact-delta approval; review archival/CI, explicit Human acceptance and a new
+the later independently approved and CI-green review archive; explicit Human acceptance and a new
 separate Human authorization remain mandatory before any new run.
 Archived review:
 `ADO/05_Evidence/Development_Assignment_03_DA3_PHYS_02_Replacement_Failure_Independent_Review.md`.
@@ -230,6 +230,7 @@ setup wording and unchanged receipt/audit invariant. Verdict:
 `APPROVED FOR DA3-PHYS-02 ADO CORRECTION`; no open P0–P3 review findings. Archive:
 `ADO/05_Evidence/Development_Assignment_03_DA3_PHYS_02_Correction_Independent_Exact_Delta_Review.md`.
 
+Review archive `030dbf6`, tree `8695708`, passed exact-head run `29942397982`, attempt 1, 12/12.
 No implementation evidence changed and no executable authority follows. `DA3-PHYS-01`,
-`DA3-PHYS-02`, DA3 and DT-069–DT-074 remain open. Review archival/CI, explicit Human acceptance
-and a new exact-bound run authorization remain required.
+`DA3-PHYS-02`, DA3 and DT-069–DT-074 remain open. Explicit Human acceptance and a new exact-bound
+run authorization remain required.
