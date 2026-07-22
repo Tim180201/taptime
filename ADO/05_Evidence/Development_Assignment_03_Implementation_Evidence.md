@@ -184,6 +184,7 @@ baseline `f0c9db3`, tree `27cabe6`, and authorized Runbook/Evidence, AVS V0–V4
 review while keeping V5 closed. The ADO-only candidate does not alter this implementation, its
 test totals, the encrypted owner rule or Product `6eb68a3`. It requires a package-clean boundary
 between Administrator setup and Employee Gate A. Local correction V0–V3 passed; publication
-`f7a2b1e`, tree `a8caed6`, passed V4 exact-head run `29935693909` 12/12. Independent review remains
-pending. Evidence:
+`f7a2b1e`, tree `a8caed6`, passed V4 exact-head run `29935693909` 12/12. Independent review returned
+`APPROVED FOR DA3-PHYS-01 OPERATIONAL CORRECTION` with zero P0–P3; any replacement run remains
+separately Human-gated. Evidence:
 `ADO/05_Evidence/Development_Assignment_03_DA3_PHYS_01_Operational_Reinstall_Correction_Evidence.md`.

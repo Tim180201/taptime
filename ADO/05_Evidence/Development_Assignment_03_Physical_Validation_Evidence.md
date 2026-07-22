@@ -171,12 +171,13 @@ pre-existing untracked paths `app.json` and `research/` reported without inspect
 The first authorized V5 Physical Gate is **FAILED CLOSED**. DA3 and DT-069–DT-074 remain open.
 Independent exact-delta review of this failure synchronization returned
 `APPROVED FOR FAILURE SYNCHRONIZATION` with zero P0–P3 findings against the publication while
-keeping `DA3-PHYS-01` P1 open. A separately approved correction candidate and a new exact-bound
-Human authorization remain mandatory before any replacement physical run. Production, production
-data, deployment and distribution remain unauthorized.
+keeping `DA3-PHYS-01` P1 open. The operational correction is now independently approved; a new
+exact-bound Human authorization remains mandatory before any replacement physical run. Production,
+production data, deployment and distribution remain unauthorized.
 
 The Human Architect subsequently selected and authorized the operational clean exact-artifact
 reinstall correction on exact baseline `f0c9db3`, tree `27cabe6`. Local AVS V0–V3 passed;
 publication `f7a2b1e`, tree `a8caed6`, passed exact-head run `29935693909` 12/12.
-Independent exact-delta review remains pending. This changes no historical observation and does not
-authorize a replacement run.
+Independent exact-delta review returned `APPROVED FOR DA3-PHYS-01 OPERATIONAL CORRECTION` with zero
+P0–P3. This changes no historical observation, keeps `DA3-PHYS-01` P1 open and does not authorize a
+replacement run.

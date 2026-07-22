@@ -1,6 +1,6 @@
 # Development Assignment 3 — V5 Human Functional/Physical Gate Runbook
 
-Status: **DA3-PHYS-01 OPERATIONAL CLEAN-REINSTALL CORRECTION V4 PASSED; INDEPENDENT REVIEW AND REPLACEMENT RUN PENDING**
+Status: **DA3-PHYS-01 OPERATIONAL CLEAN-REINSTALL CORRECTION INDEPENDENTLY APPROVED; REPLACEMENT RUN REQUIRES SEPARATE EXACT-BOUND HUMAN AUTHORIZATION**
 Owner: Technical Lead
 Approval authority for any later physical run: Human Architect
 
@@ -222,10 +222,11 @@ Independent exact-delta review of the failure synchronization returned
 `ADO/05_Evidence/Development_Assignment_03_DA3_PHYS_01_Failure_Synchronization_Independent_Review.md`.
 
 This historical section changes no procedure and grants no repair. Do not execute this runbook
-again until an independently reviewed correction candidate and a new exact-bound Human
-authorization explicitly replace the failed boundary.
+again until an independently reviewed correction and a new exact-bound Human authorization
+explicitly replace the failed boundary. The correction review has now passed; the new Human
+authorization has not been granted.
 
-## 10. DA3-PHYS-01 operational correction candidate
+## 10. DA3-PHYS-01 operational correction disposition
 
 On exact baseline `f0c9db3d2fc8ed5fae3d54f147a696c56a79aec3`, tree
 `27cabe61e25a77fe73427aded735dfb4e59cbe01`, the Human Architect selected and authorized the
@@ -238,7 +239,7 @@ database, product rule or immutable APK. It deliberately preserves server-side s
 while removing only the prerequisite Administrator package/local store and installing the same
 verified artifact into a new package state for Employee Gate A.
 
-Section 4.1 is not executable until this candidate has passed its complete authorized verification,
+Section 4.1 is not executable until this correction has passed its complete authorized verification,
 exact-head CI and independent review with zero open P0–P3 findings, followed by a new separate
 Human authorization bound to the final source/ADO/CI/artifact/device/tag set. This correction itself
 performs and authorizes no ADB command, installation, Physical Gate, production action, production
@@ -246,4 +247,7 @@ data use, deployment or distribution.
 
 The correction is published at `f7a2b1e159bd4715c40e3ee32e99b76c70ca9e18`, tree
 `a8caed6ebcc6f01c4b025b0b64da5be96130542a`; exact-head GitHub Actions run `29935693909`, attempt
-1, passed 12/12 jobs. Independent correction review remains mandatory.
+1, passed 12/12 jobs. Independent exact-delta review returned
+`APPROVED FOR DA3-PHYS-01 OPERATIONAL CORRECTION` with zero P0–P3 findings. Section 4.1 remains
+non-executable until a new Human authorization binds the review-publication head/CI and every
+required source/artifact/device/tag/install/uninstall boundary.

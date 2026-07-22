@@ -1,6 +1,6 @@
 # Development Assignment 3 — Correction and Append-only Audit Authorization
 
-- Status: **IMPLEMENTATION/V5 ENABLEMENT INDEPENDENTLY APPROVED; DA3-PHYS-01 OPERATIONAL REINSTALL CORRECTION AUTHORIZED; REPLACEMENT RUN NOT AUTHORIZED**
+- Status: **IMPLEMENTATION/V5 ENABLEMENT AND DA3-PHYS-01 OPERATIONAL REINSTALL CORRECTION INDEPENDENTLY APPROVED; REPLACEMENT RUN NOT AUTHORIZED**
 - Date: 2026-07-21
 - Accepted/authorized baseline commit: `ff68f7a7d0ce69a65e88846ae1cca9abd5951f5d`
 - Accepted/authorized baseline tree: `09ef169a68bb53420e07b6f3fcbbdc74e0c01d57`
@@ -421,4 +421,21 @@ authorization after independent correction approval.
 
 The focused ADO-only correction was published as `f7a2b1e`, tree `a8caed6`, after local AVS
 V0–V3. Exact-head run `29935693909`, attempt 1, passed 12/12 and completed V4. Independent
-exact-delta review remains pending; no replacement-run authority exists.
+exact-delta review returned `APPROVED FOR DA3-PHYS-01 OPERATIONAL CORRECTION` with zero P0–P3
+findings. The correction is technically accepted as the reviewed procedural basis for a later
+fresh run; no replacement-run authority exists.
+
+## 15. DA3-PHYS-01 independent correction disposition — 2026-07-22
+
+The independent reviewer bound correction `f7a2b1e`/tree `a8caed6`, Evidence sync
+`1ed3263`/tree `dc26ae7`, their exact ADO-only deltas, exact-head 12/12 CI, the complete predecessor
+chain and unchanged immutable APK/manifest. The reviewer independently confirmed the fail-closed
+single-owner behavior and the scoped disconnect, exact-package uninstall/zero proof, same-artifact
+clean reinstall, unchanged-server-state, Employee-only authentication, abort/cleanup and disclosure
+boundaries. Verdict: `APPROVED FOR DA3-PHYS-01 OPERATIONAL CORRECTION`; P0–P3: zero.
+
+This disposition completes the independent review authorized for the operational correction. It
+authorizes no ADB, install/uninstall, device interaction or Physical Gate and does not close
+`DA3-PHYS-01`, DA3 or DT-069–DT-074. Any replacement run requires a new separate Human
+authorization bound to the final review-publication commit/tree/CI, exact artifact, approved
+device, both tags, both installations and the interim package-only uninstall.

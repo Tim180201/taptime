@@ -1,6 +1,6 @@
 # Development Assignment 3 — V5 Enablement Evidence
 
-- Status: **V5 ENABLEMENT APPROVED; FIRST RUN FAILED CLOSED; DA3-PHYS-01 OPERATIONAL REINSTALL CORRECTION V0–V4 PASSED; INDEPENDENT REVIEW PENDING**
+- Status: **V5 ENABLEMENT APPROVED; FIRST RUN FAILED CLOSED; DA3-PHYS-01 OPERATIONAL REINSTALL CORRECTION INDEPENDENTLY APPROVED; REPLACEMENT RUN SEPARATELY GATED**
 - Date: 2026-07-22
 - Authorized enablement baseline commit: `0b0d04034c88829fdc5c548b057e74554d4ee197`
 - Authorized enablement baseline tree: `eee26501fd714738aa3ca106d93d5088261206e3`
@@ -17,8 +17,8 @@
   V0–V4 and independent review
 - Later physical authority: one exact-bound run authorized and consumed by a failed Gate A
 - Current correction: operational clean exact-artifact reinstall authorized on
-  `f0c9db3`/tree `27cabe6`; publication `f7a2b1e`/tree `a8caed6` passed AVS V0–V4,
-  independent review pending
+  `f0c9db3`/tree `27cabe6`; publication `f7a2b1e`/tree `a8caed6` passed AVS V0–V4 and
+  independent review with zero P0–P3
 - Unauthorized now: replacement run, production, production data, deployment and distribution
 
 ## 1. Authority and inherited evidence
@@ -228,5 +228,6 @@ of that same artifact before Employee Gate A. Local V0–V3 passes 1,758 tests p
 skips, all typechecks/builds, Android export, PostgreSQL cleanup and artifact revalidation.
 
 Publication `f7a2b1e`, tree `a8caed6`, passed exact-head run `29935693909`, attempt 1, 12/12.
-Independent exact-delta review remains pending. `DA3-PHYS-01`, DA3 and DT-069–DT-074 remain open;
-no replacement run or V5 observation is authorized.
+Independent exact-delta review returned `APPROVED FOR DA3-PHYS-01 OPERATIONAL CORRECTION` with zero
+P0–P3. `DA3-PHYS-01`, DA3 and DT-069–DT-074 remain open; no replacement run or V5 observation is
+authorized.

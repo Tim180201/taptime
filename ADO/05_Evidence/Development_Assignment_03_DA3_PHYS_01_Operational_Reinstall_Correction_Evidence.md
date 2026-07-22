@@ -1,6 +1,6 @@
 # Development Assignment 3 — DA3-PHYS-01 Operational Reinstall Correction Evidence
 
-- Status: **PUBLISHED R3 CORRECTION; AVS V0–V4 PASSED; INDEPENDENT REVIEW PENDING**
+- Status: **INDEPENDENTLY APPROVED R3 OPERATIONAL CORRECTION; REPLACEMENT PHYSICAL RUN SEPARATELY GATED**
 - Date: 2026-07-22
 - Authorized baseline commit/tree:
   `f0c9db3d2fc8ed5fae3d54f147a696c56a79aec3`,
@@ -12,6 +12,11 @@
   `f7a2b1e159bd4715c40e3ee32e99b76c70ca9e18`,
   `a8caed6ebcc6f01c4b025b0b64da5be96130542a`
 - Correction exact-head CI: GitHub Actions run `29935693909`, attempt 1, **12/12 successful**
+- Evidence-sync commit/tree: `1ed32637f44ed07f5515614bffc1e1d331f9db08`,
+  `dc26ae74dc17997684ed712b43c019ded491da9d`
+- Evidence-sync CI: GitHub Actions run `29936204801`, attempt 1, **12/12 successful**
+- Independent correction review: **APPROVED FOR DA3-PHYS-01 OPERATIONAL CORRECTION — ZERO
+  P0/P1/P2/P3**
 - Risk class: AVS-001 **R3 — security/identity and Physical-Gate procedure**
 - Owner: Technical Lead
 - Physical Gate: **NOT AUTHORIZED**
@@ -84,7 +89,7 @@ This section is completed only from actually executed evidence. No pending row i
 | V2 | Passed | complete Mobile 421/421 and synthetic harness 46/46; exact runbook adversarial review; unchanged source/schema/dependency/workflow/artifact proof |
 | V3 | Passed | 1,758 tests across all 19 workspaces plus two disclosed optional B1 Supavisor skips; 19/19 typechecks; 18/18 applicable builds; Android export of 850 modules; PostgreSQL reruns/cleanup; artifact runtime/hash/mode revalidation; 11 moderate, zero high/critical advisories |
 | V4 | Passed | correction `f7a2b1e`/tree `a8caed6`; exact-head GitHub Actions run `29935693909`, attempt 1, 12/12 successful |
-| Independent review | Pending | exact-delta review with P0–P3 disposition |
+| Independent review | Passed | exact-delta verdict `APPROVED FOR DA3-PHYS-01 OPERATIONAL CORRECTION`; P0/P1/P2/P3: 0/0/0/0; focused 4 files and 26/26 tests reproduced |
 | V5 | Not authorized | no ADB, installation, device interaction or physical observation |
 
 ### 4.1 Executed V3 detail
@@ -114,7 +119,9 @@ installation, device interaction or V5 observation occurred.
 
 ## 5. Stop condition and next gate
 
-This publication cannot close `DA3-PHYS-01` or make a replacement run eligible until an independent
-review has passed. After that, a later complete fresh V5 run still requires a separate
-Human authorization explicitly naming both installations, the interim package-only uninstall,
-exact commits/trees/CI, immutable artifact, approved device and both approved synthetic tags.
+Independent review has passed, making this correction technically eligible as the procedural basis
+for a later complete fresh V5 replacement run. That run still requires a separate Human
+authorization explicitly naming the review-publication commit/tree/CI, both installations, the
+interim package-only uninstall, exact source/Evidence bindings, immutable artifact, approved device
+and both approved synthetic tags. Until then `DA3-PHYS-01`, DA3 and DT-069–DT-074 remain open and
+no ADB, install/uninstall or Physical Gate is authorized.

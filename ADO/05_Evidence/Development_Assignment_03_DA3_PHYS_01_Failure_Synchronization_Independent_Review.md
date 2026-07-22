@@ -106,4 +106,6 @@ Runbook/Evidence, AVS V0–V4 and independent review on that exact baseline. The
 Gate remained separately unauthorized. Current correction evidence:
 `ADO/05_Evidence/Development_Assignment_03_DA3_PHYS_01_Operational_Reinstall_Correction_Evidence.md`.
 The ADO-only correction publication `f7a2b1e`, tree `a8caed6`, subsequently passed exact-head run
-`29935693909` 12/12; its independent exact-delta review remains pending.
+`29935693909` 12/12. Its independent exact-delta review subsequently returned
+`APPROVED FOR DA3-PHYS-01 OPERATIONAL CORRECTION` with zero P0–P3; a replacement Physical Gate
+remains separately Human-gated.
