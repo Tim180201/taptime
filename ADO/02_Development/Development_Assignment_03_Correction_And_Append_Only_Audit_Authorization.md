@@ -1,6 +1,6 @@
 # Development Assignment 3 — Correction and Append-only Audit Authorization
 
-- Status: **IMPLEMENTATION/V5 ENABLEMENT INDEPENDENTLY APPROVED; FIRST AUTHORIZED PHYSICAL RUN FAILED CLOSED; DA3-PHYS-01 P1 OPEN**
+- Status: **IMPLEMENTATION/V5 ENABLEMENT INDEPENDENTLY APPROVED; DA3-PHYS-01 OPERATIONAL REINSTALL CORRECTION AUTHORIZED; REPLACEMENT RUN NOT AUTHORIZED**
 - Date: 2026-07-21
 - Accepted/authorized baseline commit: `ff68f7a7d0ce69a65e88846ae1cca9abd5951f5d`
 - Accepted/authorized baseline tree: `09ef169a68bb53420e07b6f3fcbbdc74e0c01d57`
@@ -393,3 +393,28 @@ Independent exact-delta review of failure-publication head
 `APPROVED FOR FAILURE SYNCHRONIZATION` with zero P0–P3 findings against the synchronization. That
 review confirms the diagnosis and correction decision boundary but grants neither correction nor
 replacement-run authority. `DA3-PHYS-01` remains P1 open.
+
+## 14. DA3-PHYS-01 correction decision and exact authority — 2026-07-22
+
+On exact failure-review publication baseline
+`f0c9db3d2fc8ed5fae3d54f147a696c56a79aec3`, tree
+`27cabe61e25a77fe73427aded735dfb4e59cbe01`, the Human Architect selected the operational clean
+exact-artifact reinstall boundary after Administrator setup and authorized its focused
+implementation, Runbook/Evidence, AVS V0–V4 and independent review. The Physical Gate remained
+separately unauthorized.
+
+The authorized correction scope is only:
+
+- retain the real Administrator-created synthetic server prerequisites;
+- sign out, remove only the two owned reverse mappings and uninstall only
+  `com.tim180201.mobile.synthetic`;
+- prove zero package/mapping state;
+- reinstall the same hash/signature/runtime-verified immutable APK without rebuilding it;
+- prove unchanged safe server aggregates and zero lifecycle/DA3 evidence before Employee Gate A;
+- preserve every permanent single-owner, logout, encryption, backup and fail-closed product rule;
+- run AVS V0–V4 and obtain an independent exact-delta review.
+
+No product identity-transition implementation, source/schema/dependency/workflow change, ADB run,
+installation, replacement Physical Gate, production resource/data, deployment or distribution is
+authorized by this correction task. A later physical run requires its own exact-bound Human
+authorization after independent correction approval.

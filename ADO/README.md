@@ -176,8 +176,11 @@ but failed closed at Gate A with `DA3-PHYS-01` (P1), zero server lifecycle mutat
 cleanup. Gates B/C did not start; DA3 and DT-069–DT-074 remain open. Independent
 failure-synchronization review of `a66788e`, tree `5524215`, and exact-head run `29933136031`
 returned `APPROVED FOR FAILURE SYNCHRONIZATION` with zero P0–P3 review findings while keeping
-`DA3-PHYS-01` open. Correction architecture and any replacement run remain separately gated.
-Production, production data, deployment and distribution remain unauthorized.
+`DA3-PHYS-01` open. On exact baseline `f0c9db3`, tree `27cabe6`, the Human Architect then selected
+and authorized the operational clean exact-artifact reinstall correction. Its ADO-only R3 candidate
+passes local AVS V0–V3 with 1,758 tests plus two optional B1 skips, all typechecks/builds and
+artifact revalidation; V4 and independent review remain pending. Any replacement run, production,
+production data, deployment and distribution remain unauthorized.
 
 This file is the official navigation entry point for the TapTim.e ADO.
 
@@ -304,7 +307,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Development Assignment 1 Human-Accepted Complete Offline Synchronization Contract and Repository Authorization | `ADO/02_Development/Development_Assignment_01_Complete_Offline_Synchronization_Authorization.md` |
 | Development Assignment 1 Complete Offline Synchronization Implementation Plan | `ADO/02_Development/Development_Assignment_01_Complete_Offline_Synchronization_Implementation_Plan.md` |
 | Development Assignment 2 Setup and Export Backend Authorization — DA2 and DT-063–DT-068 closed for authorized local scopes after independent zero-finding review and closure-publication CI 11/11 | `ADO/02_Development/Development_Assignment_02_Setup_And_Export_Backend_Authorization.md` |
-| Development Assignment 3 Correction and Append-only Audit Authorization — implementation/V5 enablement independently approved; first authorized physical run failed closed with `DA3-PHYS-01` P1 open | `ADO/02_Development/Development_Assignment_03_Correction_And_Append_Only_Audit_Authorization.md` |
+| Development Assignment 3 Correction and Append-only Audit Authorization — implementation/V5 enablement independently approved; operational `DA3-PHYS-01` reinstall correction authorized, replacement run closed | `ADO/02_Development/Development_Assignment_03_Correction_And_Append_Only_Audit_Authorization.md` |
 | Block C3 Organization Administration Implementation Plan | `ADO/02_Development/Block_C3_Organization_Administration_Implementation_Plan.md` |
 | Repository Health Sprint 001 | `ADO/02_Development/Repository_Health_Sprint_001.md` |
 | Repository Maintenance Sprint 002 | `ADO/02_Development/Repository_Maintenance_Sprint_002.md` |
@@ -323,7 +326,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Document | Location |
 |---|---|
 | Development Assignment 1 Gate-C Response-Drop Runbook | `ADO/04_Operations/Development_Assignment_01_Gate_C_Response_Drop_Runbook.md` |
-| Development Assignment 3 V5 Human Functional/Physical Gate Runbook — first authorized run failed closed; replacement run not authorized | `ADO/04_Operations/Development_Assignment_03_V5_Runbook.md` |
+| Development Assignment 3 V5 Human Functional/Physical Gate Runbook — clean exact-artifact reinstall correction candidate; V4/review pending and replacement run not authorized | `ADO/04_Operations/Development_Assignment_03_V5_Runbook.md` |
 
 ## Evidence
 
@@ -370,6 +373,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Development Assignment 3 Independent V5 Enablement Review — `APPROVED`, zero open P0–P3; separate exact-bound Human Physical Gate authorization required | `ADO/05_Evidence/Development_Assignment_03_Independent_V5_Enablement_Review.md` |
 | Development Assignment 3 Physical Validation Evidence — first exact-bound run failed closed at Gate A, zero server lifecycle mutation, complete cleanup; `DA3-PHYS-01` P1 open | `ADO/05_Evidence/Development_Assignment_03_Physical_Validation_Evidence.md` |
 | Development Assignment 3 DA3-PHYS-01 Failure-Synchronization Independent Review — approved with zero review findings; `DA3-PHYS-01` P1 remains open and correction architecture remains Human-gated | `ADO/05_Evidence/Development_Assignment_03_DA3_PHYS_01_Failure_Synchronization_Independent_Review.md` |
+| Development Assignment 3 DA3-PHYS-01 Operational Reinstall Correction Evidence — Human-selected ADO-only R3 candidate, local AVS V0–V3 passed; V4/independent review pending | `ADO/05_Evidence/Development_Assignment_03_DA3_PHYS_01_Operational_Reinstall_Correction_Evidence.md` |
 | Development Assignment 1 DA1-PHYS-01 Independent Exact-Delta Review — approved, finding closed | `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_01_Independent_Exact_Delta_Review.md` |
 | Development Assignment 1 DA1-PHYS-02 Independent Exact-Delta Review — approved, repository finding closed | `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_02_Independent_Exact_Delta_Review.md` |
 | Development Assignment 1 DA1-PHYS-03 Independent Exact-Delta Review — approved, repository finding closed | `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_03_Independent_Exact_Delta_Review.md` |

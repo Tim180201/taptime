@@ -635,7 +635,8 @@ the encrypted offline-store owner and the following Employee session on the same
 correctly refused as an identity mismatch. Server lifecycle and DA3 counts remained zero, Gates
 B/C did not start and complete cleanup passed.
 
-DA3 and DT-069–DT-074 remain open. No correction or replacement run is authorized. Independent
-review of the failure synchronization and a new Human correction decision are mandatory before
-further V5 work. Production, production data, deployment, distribution, legal/privacy approval and
-DA4 productization remain separately gated.
+DA3 and DT-069–DT-074 remain open. Independent review approved the failure synchronization with
+zero findings. The Human Architect then selected and authorized the operational clean exact-artifact
+reinstall correction on `f0c9db3`/tree `27cabe6`; its ADO-only R3 candidate passes local V0–V3 and
+awaits V4 plus independent review. No replacement run is authorized. Production, production data,
+deployment, distribution, legal/privacy approval and DA4 productization remain separately gated.

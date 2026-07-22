@@ -174,3 +174,8 @@ Independent exact-delta review of this failure synchronization returned
 keeping `DA3-PHYS-01` P1 open. A separately approved correction candidate and a new exact-bound
 Human authorization remain mandatory before any replacement physical run. Production, production
 data, deployment and distribution remain unauthorized.
+
+The Human Architect subsequently selected and authorized the operational clean exact-artifact
+reinstall correction on exact baseline `f0c9db3`, tree `27cabe6`. Its ADO-only R3 candidate passes
+local AVS V0–V3 and awaits V4 plus independent exact-delta review. This changes no historical
+observation and does not authorize a replacement run.

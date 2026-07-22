@@ -97,3 +97,11 @@ architecture:
 The operational reinstall is the lower-risk correction because it preserves the current permanent
 single-owner binding unchanged. Either path requires its own exact baseline/scope, R3 verification,
 independent review and later a separately authorized complete fresh physical run.
+
+## 6. Subsequent Human disposition
+
+After this review was archived at `f0c9db3`, tree `27cabe6`, the Human Architect selected the
+operational clean exact-artifact reinstall boundary and authorized its focused implementation,
+Runbook/Evidence, AVS V0–V4 and independent review on that exact baseline. The replacement Physical
+Gate remained separately unauthorized. Current correction evidence:
+`ADO/05_Evidence/Development_Assignment_03_DA3_PHYS_01_Operational_Reinstall_Correction_Evidence.md`.

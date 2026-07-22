@@ -1,6 +1,6 @@
 # Development Assignment 3 — V5 Human Functional/Physical Gate Runbook
 
-Status: **FIRST AUTHORIZED RUN FAILED CLOSED; DA3-PHYS-01 P1 OPEN; REPLACEMENT RUN NOT AUTHORIZED**
+Status: **DA3-PHYS-01 OPERATIONAL CLEAN-REINSTALL CORRECTION CANDIDATE; INDEPENDENT REVIEW AND REPLACEMENT RUN PENDING**
 Owner: Technical Lead
 Approval authority for any later physical run: Human Architect
 
@@ -83,7 +83,44 @@ artifact evidence.
    reverse mappings.
 6. Run `status`. Require zero lifecycle, correction, adjudication and export evidence before setup.
 7. Create two Customers and provision the two approved tags through the real Administrator Web /
-   Android setup paths. Record only labels, fingerprints and aggregate counts.
+   Android setup paths. Record only labels, fingerprints and aggregate counts. Sign out Android.
+8. Run sanitized `status`. Require exactly two Tags, two active Assignments, two administration
+   receipts and four setup AuditEvents, with zero lifecycle, correction, adjudication and export
+   evidence.
+
+### 4.1 Mandatory clean exact-artifact identity boundary
+
+The Administrator setup installation is prerequisite-only and must never continue into Employee
+Gate A. After step 8, perform exactly this boundary while keeping the same harness/database and
+server-side prerequisite rows:
+
+1. Recompute size, SHA-256, mode, package/version, signature/signer, backup boundary and Hermes
+   runtime completeness from the same read-only authorized APK. Require exact equality with the
+   authorization and initial-install preflight.
+2. Run the scoped synthetic disconnect helper. Require the complete reverse table to be empty;
+   any unrelated or unexpected mapping fails the complete run.
+3. Require exactly one installed `com.tim180201.mobile.synthetic` package. Uninstall only that
+   exact package with `adb uninstall com.tim180201.mobile.synthetic` on the authorized USB device
+   and require the exact successful result. Never use `pm clear` as a substitute.
+4. Require zero installed synthetic packages and an empty reverse table. Do not clear another
+   package, invoke backup/restore, reset the device or mutate the disposable database.
+5. Without rebuilding or changing the APK, run the same reviewed install helper against that exact
+   read-only file. Because the package is absent, this creates a new clean installation rather
+   than updating or retaining the Administrator-owned store.
+6. Require exactly one installed synthetic package and exactly the two approved mappings
+   `tcp:54321 -> tcp:54321` and `tcp:3000 -> tcp:3000`. Recompute the host APK SHA-256 again and
+   require the exact authorized value.
+7. Run sanitized `status`. Require the step-8 server-side setup counts to remain byte-for-byte
+   equivalent at the aggregate level and every lifecycle/DA3 count to remain zero. Do not repeat
+   Administrator setup and do not reuse any local Administrator observation after uninstall.
+8. Launch the clean installation and sign in only as the synthetic Employee. It must reach the
+   normal authenticated capture surface without `protected_pending`; otherwise fail the complete
+   run before presenting a Tag.
+
+Every uninstall, mapping removal and reinstall above is part of one later separately authorized
+fresh run and must be named explicitly in that authorization. A failed, interrupted or ambiguous
+boundary invalidates the whole run. Perform Section 8 cleanup; never repair, retry or continue
+inside that run.
 
 ## 5. Gate A — correction and effective export
 
@@ -187,3 +224,22 @@ Independent exact-delta review of the failure synchronization returned
 This historical section changes no procedure and grants no repair. Do not execute this runbook
 again until an independently reviewed correction candidate and a new exact-bound Human
 authorization explicitly replace the failed boundary.
+
+## 10. DA3-PHYS-01 operational correction candidate
+
+On exact baseline `f0c9db3d2fc8ed5fae3d54f147a696c56a79aec3`, tree
+`27cabe61e25a77fe73427aded735dfb4e59cbe01`, the Human Architect selected and authorized the
+operational clean exact-artifact reinstall boundary now specified in Section 4.1, including AVS
+V0–V4 and independent review. The alternative product identity-transition rule is rejected for
+this correction scope.
+
+This correction changes no Mobile source, owner binding, encryption, logout behavior, API,
+database, product rule or immutable APK. It deliberately preserves server-side synthetic setup
+while removing only the prerequisite Administrator package/local store and installing the same
+verified artifact into a new package state for Employee Gate A.
+
+Section 4.1 is not executable until this candidate has passed its complete authorized verification,
+exact-head CI and independent review with zero open P0–P3 findings, followed by a new separate
+Human authorization bound to the final source/ADO/CI/artifact/device/tag set. This candidate itself
+performs and authorizes no ADB command, installation, Physical Gate, production action, production
+data use, deployment or distribution.

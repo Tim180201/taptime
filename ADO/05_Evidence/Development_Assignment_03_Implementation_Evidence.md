@@ -176,3 +176,13 @@ finding does not alter the historical implementation test totals or independent 
 approval, but it blocks DA3/DT-069–DT-074 closure and any replacement run pending a new reviewed
 correction and Human authorization. Full record:
 `ADO/05_Evidence/Development_Assignment_03_Physical_Validation_Evidence.md`.
+
+## 9. Subsequent DA3-PHYS-01 operational correction — 2026-07-22
+
+The Human Architect selected the operational clean exact-artifact reinstall boundary on exact
+baseline `f0c9db3`, tree `27cabe6`, and authorized Runbook/Evidence, AVS V0–V4 and independent
+review while keeping V5 closed. The ADO-only candidate does not alter this implementation, its
+test totals, the encrypted owner rule or Product `6eb68a3`. It requires a package-clean boundary
+between Administrator setup and Employee Gate A. Local correction V0–V3 passed; V4 and independent
+review remain pending. Evidence:
+`ADO/05_Evidence/Development_Assignment_03_DA3_PHYS_01_Operational_Reinstall_Correction_Evidence.md`.
