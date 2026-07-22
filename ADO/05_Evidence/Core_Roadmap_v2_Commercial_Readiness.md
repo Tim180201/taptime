@@ -671,3 +671,18 @@ This changes no readiness-domain rating or executable artifact. `DA3-PHYS-01`, `
 and DT-069–DT-074 remain open. Independent re-review and a new separate exact-bound Human
 authorization remain mandatory before another run. Production, production data, deployment,
 distribution, legal/privacy approval and DA4 productization remain separately gated.
+
+## 27. Progress Update – 2026-07-22 DA3-PHYS-02 Correction Independent Re-Review
+
+Independent exact-delta re-review bound the complete ADO-only correction and Evidence chain at
+`4d54dc2`/tree `ad9b6ba` and `53ec139`/tree `9963960`, including exact-head runs `29941019865`
+and `29941415806`, both 12/12, plus the unchanged APK. It verified the two exact seeded Customers,
+the prohibition of additional Customer creation, Tag mapping, unchanged two-receipt/four-audit
+invariant and all authority exclusions. Verdict `APPROVED FOR DA3-PHYS-02 ADO CORRECTION`; no open
+P0–P3 review findings.
+
+This changes no readiness-domain rating, executable artifact or physical result. `DA3-PHYS-01`,
+`DA3-PHYS-02`, DA3 and DT-069–DT-074 remain open. Review archival/CI, explicit Human acceptance
+and a new separate exact-bound authorization remain mandatory before another run. Production,
+production data, deployment, distribution, legal/privacy approval and DA4 productization remain
+separately gated.

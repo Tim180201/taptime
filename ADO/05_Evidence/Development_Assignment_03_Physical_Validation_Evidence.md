@@ -1,6 +1,6 @@
 # Development Assignment 3 — V5 Physical Validation Evidence
 
-- Status: **FIRST AND REPLACEMENT RUNS FAILED CLOSED; FAILURE SYNC APPROVED; DA3-PHYS-02 ADO CORRECTION PUBLISHED/EXACT-HEAD-CI GREEN; BOTH P1 FINDINGS OPEN**
+- Status: **FIRST AND REPLACEMENT RUNS FAILED CLOSED; FAILURE SYNC AND DA3-PHYS-02 ADO CORRECTION INDEPENDENTLY APPROVED; BOTH P1 FINDINGS OPEN; NEW RUN UNAUTHORIZED**
 - Date: 2026-07-22
 - Owner: Technical Lead
 - Human observer and approval authority: Human Architect
@@ -346,5 +346,28 @@ evidence are carried, not represented as freshly executed.
 Focused publication `4d54dc2981759498de94571e2b2a4c6f134c88d5`, tree
 `ad9b6ba661dae7572a8b825fe1ceadac8c108b79`, parent `abd58be3`, contains exactly those 12 ADO
 Markdown files with `+309/-52`. Exact-head GitHub Actions run `29941019865`, attempt 1, passed all
-12 jobs. Independent exact-delta re-review remains mandatory. This publication/CI result closes no
-finding or DA3 task and grants no run authority.
+12 jobs. Independent exact-delta re-review remained mandatory at that checkpoint; Section 16
+records its later approval. This publication/CI result closes no finding or DA3 task and grants no
+run authority.
+
+## 16. DA3-PHYS-02 correction independent exact-delta re-review
+
+Independent read-only review of the complete correction range `abd58be3..53ec139` confirmed:
+
+- exact baseline/correction/Evidence commits, trees, parent chain and remote state;
+- correction delta 12 files `+309/-52`, Evidence sync 11 files `+62/-44`, and combined 12-file
+  `+326/-51` range, exclusively tracked ADO Markdown;
+- exact-head runs `29941019865` and `29941415806`, attempt 1, each 12/12;
+- unchanged 95,437,611-byte mode-`0444` APK SHA-256
+  `215b4c924f0b770248a36d188f341efe62278527e1cad1af6cc1babdcc1f39b1`;
+- both exact seed names, prohibition of additional Customer creation, exact Tag A/B mapping and
+  unchanged step-8 two-receipt/four-audit invariant; and
+- consistent open-finding and authority boundaries across status, decision, risk, authorization,
+  runbook, evidence, roadmaps and navigation.
+
+Verdict: `APPROVED FOR DA3-PHYS-02 ADO CORRECTION`; no open P0–P3 review findings. Full archive:
+`ADO/05_Evidence/Development_Assignment_03_DA3_PHYS_02_Correction_Independent_Exact_Delta_Review.md`.
+
+This is repository/procedure evidence only, not a new physical observation. `DA3-PHYS-01` and
+`DA3-PHYS-02` remain P1 open, and no DA3 task closes. Review archival/CI, explicit Human acceptance
+and a new separate exact-bound authorization are required before another complete fresh run.

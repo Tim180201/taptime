@@ -1,6 +1,6 @@
 # Development Assignment 3 — Correction and Append-only Audit Authorization
 
-- Status: **DA3-PHYS-02 FAILURE SYNC INDEPENDENTLY APPROVED; FOCUSED ADO-ONLY CORRECTION PUBLISHED/EXACT-HEAD-CI GREEN; RE-REVIEW PENDING; NEW RUN UNAUTHORIZED**
+- Status: **DA3-PHYS-02 FAILURE SYNC AND FOCUSED ADO-ONLY CORRECTION INDEPENDENTLY APPROVED; RE-REVIEW ARCHIVAL/CI, HUMAN ACCEPTANCE AND NEW EXACT-BOUND AUTHORIZATION REQUIRED; NEW RUN UNAUTHORIZED**
 - Date: 2026-07-21
 - Accepted/authorized baseline commit: `ff68f7a7d0ce69a65e88846ae1cca9abd5951f5d`
 - Accepted/authorized baseline tree: `09ef169a68bb53420e07b6f3fcbbdc74e0c01d57`
@@ -489,3 +489,21 @@ files (`+309/-52`) and passed exact-head run `29941019865`, attempt 1, 12/12. No
 schema, dependency, APK, retry, Physical Gate, production resource/data, deployment or distribution
 is authorized. `DA3-PHYS-01`, `DA3-PHYS-02`, DA3 and DT-069–DT-074 remain open. A later new run
 requires independent exact-delta re-review and a new separate exact-bound Human authorization.
+
+## 18. DA3-PHYS-02 correction independent exact-delta re-review — 2026-07-22
+
+Independent read-only re-review bound baseline `abd58be3`/tree `b2cb210`, correction
+`4d54dc2`/tree `ad9b6ba`, Evidence sync `53ec139`/tree `9963960`, their exact parent chain,
+combined 12-ADO-file `+326/-51` delta and exact-head runs `29941019865` plus `29941415806`, both
+12/12. The reviewer independently confirmed the seed names, no-additional-Customer rule, exact
+Tag-to-seed mapping, unchanged step-8 two-receipt/four-audit invariant, cross-document truth,
+R0/V0, disclosure boundary and unchanged APK.
+
+Verdict: `APPROVED FOR DA3-PHYS-02 ADO CORRECTION`; no open P0–P3 review findings. Archived report:
+`ADO/05_Evidence/Development_Assignment_03_DA3_PHYS_02_Correction_Independent_Exact_Delta_Review.md`.
+
+This review creates no execution authority. `DA3-PHYS-01`, `DA3-PHYS-02`, DA3 and DT-069–DT-074
+remain open. Before any further V5 run, the review archive must be published and exact-head-CI
+green, followed by explicit Human acceptance and a new separate exact-bound authorization. Retry,
+Physical Gate, product code, schema, dependency, APK change, production resource/data, deployment
+and distribution remain unauthorized.

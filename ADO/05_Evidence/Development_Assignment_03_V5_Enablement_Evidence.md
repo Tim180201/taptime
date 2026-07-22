@@ -1,6 +1,6 @@
 # Development Assignment 3 — V5 Enablement Evidence
 
-- Status: **V5 ENABLEMENT APPROVED; TWO RUNS FAILED CLOSED; DA3-PHYS-02 ADO CORRECTION PUBLISHED/EXACT-HEAD-CI GREEN; RE-REVIEW PENDING; NEW RUN GATED**
+- Status: **V5 ENABLEMENT APPROVED; TWO RUNS FAILED CLOSED; DA3-PHYS-02 ADO CORRECTION INDEPENDENTLY APPROVED; REVIEW ARCHIVAL/CI AND NEW HUMAN GATES PENDING; NEW RUN GATED**
 - Date: 2026-07-22
 - Authorized enablement baseline commit: `0b0d04034c88829fdc5c548b057e74554d4ee197`
 - Authorized enablement baseline tree: `eee26501fd714738aa3ca106d93d5088261206e3`
@@ -271,5 +271,20 @@ step 7 now requires exactly the two seeded Customers, creates no Customer, assig
 first/second seed respectively and leaves step 8's exact two-receipt/four-audit requirement
 unchanged. Publication `4d54dc2`, tree `ad9b6ba`, passed exact-head run `29941019865`, attempt 1,
 12/12. No Product, harness, schema, dependency or artifact changes. `DA3-PHYS-01` and
-`DA3-PHYS-02` remain open; independent exact-delta re-review is pending and no new run is
+`DA3-PHYS-02` remain open; Section 10 records the later independent approval. No new run is
 authorized.
+
+## 10. DA3-PHYS-02 correction independent re-review
+
+Independent exact-delta re-review bound correction `4d54dc2`/tree `ad9b6ba`, Evidence sync
+`53ec139`/tree `9963960`, their exact parent chain, complete ADO-only deltas and exact-head runs
+`29941019865` plus `29941415806`, both 12/12. It confirmed the two exact seeded Customers, no
+additional Customer creation, Tag A/B mapping, unchanged step-8 aggregate, disclosure-safe
+cross-document truth and unchanged APK.
+
+Verdict `APPROVED FOR DA3-PHYS-02 ADO CORRECTION`; no open P0–P3 review findings. Archive:
+`ADO/05_Evidence/Development_Assignment_03_DA3_PHYS_02_Correction_Independent_Exact_Delta_Review.md`.
+
+The review changes no product or V5 observation. `DA3-PHYS-01`, `DA3-PHYS-02`, DA3 and
+DT-069–DT-074 remain open. Review archival/CI, explicit Human acceptance and a new separate
+exact-bound Human authorization are required before another run.

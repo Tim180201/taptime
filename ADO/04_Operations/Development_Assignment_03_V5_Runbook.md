@@ -1,6 +1,6 @@
 # Development Assignment 3 — V5 Human Functional/Physical Gate Runbook
 
-Status: **DA3-PHYS-02 FOCUSED ADO-ONLY CORRECTION PUBLISHED AND EXACT-HEAD-CI GREEN; INDEPENDENT RE-REVIEW REQUIRED; NO NEW RUN AUTHORIZED**
+Status: **DA3-PHYS-02 FOCUSED ADO-ONLY CORRECTION INDEPENDENTLY APPROVED; REVIEW ARCHIVAL/CI, HUMAN ACCEPTANCE AND NEW EXACT-BOUND AUTHORIZATION REQUIRED; NO NEW RUN AUTHORIZED**
 Owner: Technical Lead
 Approval authority for any later physical run: Human Architect
 
@@ -288,3 +288,14 @@ published as `4d54dc2981759498de94571e2b2a4c6f134c88d5`, tree
 12/12. Do not execute this runbook again until this exact ADO-only delta has passed independent
 exact-delta re-review, followed by a new separate Human authorization binding the final
 publication/CI/artifact/device/tag/install/uninstall set.
+
+Independent exact-delta re-review subsequently bound the complete
+`abd58be3..53ec139` correction/Evidence range, exact parent chain, both 12/12 exact-head runs and
+unchanged APK. It independently verified step 7's two exact seed names, no-additional-Customer
+rule, Tag mapping and step 8's unchanged exact aggregate. Verdict:
+`APPROVED FOR DA3-PHYS-02 ADO CORRECTION`; no open P0–P3 review findings. Review archive:
+`ADO/05_Evidence/Development_Assignment_03_DA3_PHYS_02_Correction_Independent_Exact_Delta_Review.md`.
+
+This review does not make the runbook executable. Review archival publication and exact-head CI,
+explicit Human acceptance and a new separate exact-bound Human authorization remain required.
+`DA3-PHYS-01` and `DA3-PHYS-02` stay P1 open. No run, installation, ADB or retry is authorized.
