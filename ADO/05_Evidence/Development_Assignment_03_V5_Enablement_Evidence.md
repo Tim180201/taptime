@@ -1,6 +1,6 @@
 # Development Assignment 3 — V5 Enablement Evidence
 
-- Status: **V5 ENABLEMENT APPROVED; FIRST RUN FAILED CLOSED; DA3-PHYS-01 OPERATIONAL REINSTALL CORRECTION INDEPENDENTLY APPROVED; REPLACEMENT RUN SEPARATELY GATED**
+- Status: **V5 ENABLEMENT APPROVED; FIRST AND REPLACEMENT RUNS FAILED CLOSED; DA3-PHYS-01 AND DA3-PHYS-02 P1 OPEN; NEW RUN GATED**
 - Date: 2026-07-22
 - Authorized enablement baseline commit: `0b0d04034c88829fdc5c548b057e74554d4ee197`
 - Authorized enablement baseline tree: `eee26501fd714738aa3ca106d93d5088261206e3`
@@ -19,7 +19,8 @@
 - Current correction: operational clean exact-artifact reinstall authorized on
   `f0c9db3`/tree `27cabe6`; publication `f7a2b1e`/tree `a8caed6` passed AVS V0–V4 and
   independent review with zero P0–P3
-- Unauthorized now: replacement run, production, production data, deployment and distribution
+- Unauthorized now: procedure correction, new run, production, production data, deployment and
+  distribution
 
 ## 1. Authority and inherited evidence
 
@@ -165,7 +166,7 @@ zero open P0/P1/P2/P3. Full record:
 | V2 | Passed | complete schema 128, review 10, export 14, API 224, offline 13, Admin Web 52 and Mobile 421 suites plus affected contracts/harness |
 | V3 | Passed | 1,758 tests across all 19 workspaces, two explicit optional B1 skips, all 19 typechecks/builds, migration clean/replay/ledger, Admin Web build, Android export, audit and cleanup |
 | V4 | Passed | product `6eb68a3`/tree `bb8564f` and Evidence `f4e2eeb`/tree `20e5715`; exact-head runs `29927309720` and `29928717227` passed 12/12; read-only APK/manifest bound; independent exact-SHA review `APPROVED` with zero open P0–P3 |
-| V5 | **Failed closed** | one exact-bound run passed preflight/setup but failed Gate A with `DA3-PHYS-01` P1, zero lifecycle mutation and complete cleanup; Gates B/C not started |
+| V5 | **Failed closed twice** | first run failed Gate A with `DA3-PHYS-01`; the later replacement failed during prerequisite setup with `DA3-PHYS-02` before the corrected boundary or Gates A–C; both retained zero unauthorized lifecycle/DA3 mutation and completed cleanup |
 
 No failed or skipped run is counted as successful candidate evidence. The independent review bound
 the exact product and Evidence heads plus both exact-head CI results and the immutable artifact.
@@ -188,6 +189,9 @@ by the harness.
 
 - The first physical procedure failed closed at Gate A with `DA3-PHYS-01`; no Gate-B/C observation
   exists and automated evidence cannot substitute for a later newly authorized Human run.
+- The replacement procedure failed closed during prerequisite setup with `DA3-PHYS-02`: seeded
+  Customers plus the instruction to create two Customers contradict the exact two-receipt/four-
+  audit requirement. No clean-reinstall or Gate-A–C observation exists from that run.
 - The exact APK is bound to the committed, CI-green and independently approved product/Evidence
   heads, but its integrity must be recomputed immediately before any later authorized run.
 - The APK uses the expected local synthetic debug signer and is unsuitable for distribution.
@@ -195,10 +199,10 @@ by the harness.
   high or critical advisory is accepted silently.
 - DA3 and DT-069–DT-074 remain open. This candidate does not close a roadmap item.
 
-The authorized enablement reached V4 and independent approval. A later separately authorized first
-V5 run failed closed and consumed its one-run authority. The next step is independent review of the
-failure synchronization followed by a new Human correction decision; no fresh run is currently
-authorized.
+The authorized enablement reached V4 and independent approval. The first V5 run and the later
+replacement both failed closed and consumed their one-run authorities. The next step is independent
+review of the replacement failure synchronization and focused procedure correction; no fresh run
+is currently authorized.
 
 ## 6. Subsequent first Physical Gate — failed closed
 
@@ -229,5 +233,23 @@ skips, all typechecks/builds, Android export, PostgreSQL cleanup and artifact re
 
 Publication `f7a2b1e`, tree `a8caed6`, passed exact-head run `29935693909`, attempt 1, 12/12.
 Independent exact-delta review returned `APPROVED FOR DA3-PHYS-01 OPERATIONAL CORRECTION` with zero
-P0–P3. `DA3-PHYS-01`, DA3 and DT-069–DT-074 remain open; no replacement run or V5 observation is
+P0–P3. A later exact-bound replacement run was authorized but failed earlier at `DA3-PHYS-02`.
+`DA3-PHYS-01`, `DA3-PHYS-02`, DA3 and DT-069–DT-074 remain open; no new run or V5 observation is
 authorized.
+
+## 8. Subsequent replacement V5 run — failed closed
+
+The Human Architect bound one complete fresh replacement run to Product `6eb68a3`, Evidence
+`f4e2eeb`, review publication `b142626`, correction `f7a2b1e`, correction sync `1ed3263`,
+independent-correction-review publication `b8f1eb7`, six exact-head 12/12 runs, the immutable APK
+and approved Galaxy-A33/two-NTAG213 set. Exact preflight and first installation passed.
+
+The run stopped during prerequisite setup. The harness already seeded two Customers, while the
+runbook instructed creation of two Customers and later required exactly two administration
+receipts/four setup audits. After the two Customer writes and one correct Tag-A assignment,
+sanitized status was four Customers, one Tag/Assignment, three receipts, four AuditEvents and zero
+lifecycle/DA3 rows. The required aggregate could no longer be reached. Tag B, the clean reinstall
+and Gates A–C were not started. Scoped cleanup passed. `DA3-PHYS-02` is P1 open, the one-run
+authority is consumed and a focused ADO-only correction plus independent review and new Human
+authorization are required. Exact record:
+`ADO/05_Evidence/Development_Assignment_03_Physical_Validation_Evidence.md`.

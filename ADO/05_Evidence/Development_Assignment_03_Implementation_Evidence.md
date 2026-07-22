@@ -188,3 +188,19 @@ between Administrator setup and Employee Gate A. Local correction V0–V3 passed
 `APPROVED FOR DA3-PHYS-01 OPERATIONAL CORRECTION` with zero P0–P3; any replacement run remains
 separately Human-gated. Evidence:
 `ADO/05_Evidence/Development_Assignment_03_DA3_PHYS_01_Operational_Reinstall_Correction_Evidence.md`.
+
+## 10. Subsequent replacement V5 run — 2026-07-22
+
+The Human Architect later authorized one exact-bound complete fresh replacement run. Exact
+preflight and first installation passed, but the run failed closed during prerequisite setup with
+`DA3-PHYS-02` (P1). The harness already seeded two Customers; the runbook also instructed creation
+of two Customers while requiring an exact two-receipt/four-audit final setup aggregate that is
+reachable only without those additional writes. After one correct Tag-A assignment, status was
+four Customers, one Tag/Assignment, three administration receipts, four AuditEvents and zero
+lifecycle/DA3 rows. Tag B, clean reinstall and Gates A–C were not started; cleanup passed.
+
+This operational finding changes no product source, implementation approval or historical test
+total. `DA3-PHYS-01` and `DA3-PHYS-02` remain open and block DA3/DT-069–DT-074 closure. The consumed
+run authorizes no correction or retry; a focused ADO-only procedure correction, independent review
+and new exact-bound Human authorization are required. Full record:
+`ADO/05_Evidence/Development_Assignment_03_Physical_Validation_Evidence.md`.

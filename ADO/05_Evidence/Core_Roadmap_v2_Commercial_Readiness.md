@@ -639,5 +639,21 @@ DA3 and DT-069–DT-074 remain open. Independent review approved the failure syn
 zero findings. The Human Architect then selected and authorized the operational clean exact-artifact
 reinstall correction on `f0c9db3`/tree `27cabe6`; local V0–V3 passed and
 publication `f7a2b1e`/tree `a8caed6` passed V4 run `29935693909` 12/12. Independent review approved
-it with zero P0–P3. No replacement run is authorized. Production, production data,
+it with zero P0–P3. At that checkpoint no replacement run was authorized. Production, production data,
+deployment, distribution, legal/privacy approval and DA4 productization remain separately gated.
+
+## 25. Progress Update – 2026-07-22 Development Assignment 3 Replacement V5 Failure
+
+The Human Architect later authorized one complete fresh replacement run bound to the independently
+approved operational correction and all exact Product/Evidence/review/CI/artifact/device/tag
+bindings. Exact preflight and first installation passed. The run failed closed during prerequisite
+setup with `DA3-PHYS-02` (P1): the harness already seeded two Customers, while the runbook also
+instructed creation of two Customers even though its exact two-receipt/four-audit setup aggregate
+is reachable only without those additional writes. After one correct Tag-A assignment, status was
+four Customers, one Tag/Assignment, three administration receipts, four AuditEvents and zero
+lifecycle/DA3 rows. Tag B, clean reinstall and Gates A–C did not start; cleanup passed.
+
+This changes no readiness-domain rating. `DA3-PHYS-01`, `DA3-PHYS-02`, DA3 and DT-069–DT-074
+remain open. Failure synchronization, a focused ADO-only correction, independent review and new
+exact-bound Human authorization are required before another run. Production, production data,
 deployment, distribution, legal/privacy approval and DA4 productization remain separately gated.

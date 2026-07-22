@@ -464,6 +464,21 @@ passes AVS V0–V4, including exact-head run `29935693909` 12/12. Independent re
 with zero P0–P3. A later exact-bound Human replacement-run authorization remains mandatory. This
 correction changes no readiness-domain rating.
 
+## Addendum (2026-07-22 — Development Assignment 3 Replacement V5 Failure)
+
+The separately authorized complete fresh replacement run passed exact preflight and first
+installation but failed closed during prerequisite setup with `DA3-PHYS-02` (P1). The harness
+already seeded two Customers; the runbook also instructed creation of two Customers while
+requiring an exact two-receipt/four-audit aggregate that those additional writes make impossible.
+After one correct Tag-A assignment, lifecycle/DA3 rows remained zero. Tag B, clean reinstall and
+Gates A–C did not start; cleanup passed.
+
+This result changes no readiness-domain rating and closes no DA3 task. The one-run authority is
+consumed. Failure synchronization, a focused ADO-only procedure correction, independent review
+and new exact-bound Human authorization are required before another run. Production, production
+data, deployment, distribution, legal/privacy approval and DA4 productization remain separately
+gated.
+
 ## Revision Note (Technical Lead Review Follow-up, 2026-07-07)
 
 This roadmap was updated once, after Technical Lead review, to: (1) add the "Strategic frame" paragraph above, connecting roadmap items to the companion assessment's Business Event Platform framing (Section 0.1) and capability hierarchy (Section 12); (2) organize every milestone's existing items into an Engineering Track, a Product Capability Track, and a Business, Legal & Go-To-Market Track, without adding, removing, or reprioritizing any item, and without moving any item to a different milestone; (3) note, within the Now and Before Pilot Customers milestones, the re-evaluated primary-bottleneck finding from the companion assessment's Section 11.1 (Organization Management as the more foundational blocker for reaching the first pilot, alongside — not instead of — the backend technology decision). No original roadmap item's wording, milestone assignment, or substance was changed; this revision only added track labels, short cross-reference notes, and this closing note.

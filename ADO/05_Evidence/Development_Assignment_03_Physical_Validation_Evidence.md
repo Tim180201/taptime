@@ -1,6 +1,6 @@
 # Development Assignment 3 — V5 Physical Validation Evidence
 
-- Status: **FIRST AUTHORIZED RUN FAILED CLOSED; DA3-PHYS-01 (P1) OPEN**
+- Status: **FIRST AND REPLACEMENT RUNS FAILED CLOSED; DA3-PHYS-01 AND DA3-PHYS-02 (P1) OPEN**
 - Date: 2026-07-22
 - Owner: Technical Lead
 - Human observer and approval authority: Human Architect
@@ -15,8 +15,20 @@
   `9aa61806bc057bf71c119d1511adbbebab3a9080`
 - Independent-review publication CI: GitHub Actions run `29930922165`, attempt 1, 12/12
   successful
-- Physical result: Gate A failed before an unambiguous successful Start observation; Gates B and C
-  were not started
+- Operational-correction commit/tree: `f7a2b1e159bd4715c40e3ee32e99b76c70ca9e18`,
+  `a8caed6ebcc6f01c4b025b0b64da5be96130542a`
+- Operational-correction CI: GitHub Actions run `29935693909`, attempt 1, 12/12 successful
+- Correction-Evidence-sync commit/tree: `1ed32637f44ed07f5515614bffc1e1d331f9db08`,
+  `dc26ae74dc17997684ed712b43c019ded491da9d`
+- Correction-Evidence-sync CI: GitHub Actions run `29936204801`, attempt 1, 12/12 successful
+- Independent-correction-review publication commit/tree:
+  `b8f1eb7262258a4242a4c8268969c92a05d20c55`,
+  `71966b09f266c0cb3c1bba1eb0f71e97c1e8ea5b`
+- Independent-correction-review publication CI: GitHub Actions run `29937437746`, attempt 1,
+  12/12 successful
+- Physical result: the first run failed at Gate A; the separately authorized replacement run
+  failed during prerequisite setup before the clean reinstall boundary; Gates A–C were not started
+  in the replacement run
 - Unauthorized throughout: production, production data, deployment and distribution
 
 ## 1. Exact Human authority and boundary
@@ -181,3 +193,110 @@ publication `f7a2b1e`, tree `a8caed6`, passed exact-head run `29935693909` 12/12
 Independent exact-delta review returned `APPROVED FOR DA3-PHYS-01 OPERATIONAL CORRECTION` with zero
 P0–P3. This changes no historical observation, keeps `DA3-PHYS-01` P1 open and does not authorize a
 replacement run.
+
+## 8. Exact replacement-run authority
+
+The Human Architect subsequently authorized one complete fresh replacement run bound to every
+Product, Evidence, review, correction and correction-review commit/tree/CI listed above, the same
+read-only APK SHA-256, the approved Galaxy A33 5G and both approved safe tag fingerprints. The
+authorization explicitly included both installations, the intervening scoped disconnect, exact
+package-only uninstall, package/mapping zero proof, same-artifact reinstall, Gates A–C,
+disclosure-safe evidence and complete cleanup. It prohibited every retry, repair or resume of a
+failed or ambiguous run. Production, production data, deployment and distribution remained
+unauthorized.
+
+Repository, remote, six exact-head CI bindings, immutable artifact/manifest, package/signature,
+backup boundary, Hermes runtime, device/USB/NFC state, empty package/reverse/listener state and the
+clean disposable database were reverified before the counted run. The initial installation of the
+exact APK succeeded with exactly the two approved reverse mappings. Initial sanitized status was
+two seeded Customers and zero Tags, Assignments, administration receipts, AuditEvents, lifecycle
+rows and DA3 correction/export/review rows.
+
+## 9. Replacement-run prerequisite failure
+
+Runbook Section 4 step 7 says to create two Customers and provision the two approved tags. The real
+harness already contained the two seeded Customers named `Synthetic Android Customer` and
+`Synthetic Reassignment Target`. Following the literal create instruction through the real Admin
+Web added `DA3 V5 Ersatzlauf Kunde A` and `DA3 V5 Ersatzlauf Kunde B`. The Administrator then used
+the real Android setup path to assign Tag A to the first new Customer. The Human observed `Tag
+erfolgreich zugeordnet`; Mobile displayed safe fingerprint `B55E8B6AEB30`.
+
+The immediate mandatory sanitized status was:
+
+- four Customers;
+- one Tag and one active Assignment;
+- three administration receipts and four AuditEvents; and
+- zero WorkEvents, canonical Decisions, synchronization receipts, TimeEntries, revisions,
+  correction receipts, export audits, adjudications, review command receipts and predecessor
+  cursors.
+
+The end-of-setup requirement is exactly two administration receipts and four setup AuditEvents
+after two Tag assignments. Because three receipts already existed after only Tag A, completing Tag
+B could not satisfy that exact aggregate. Interaction therefore stopped before presenting Tag B.
+The clean exact-artifact reinstall boundary and Gates A–C were not started. No observation from
+this replacement run is reusable.
+
+## 10. DA3-PHYS-02 — procedure/baseline contradiction
+
+`DA3-PHYS-02` is **P1 OPEN** because the independently approved procedure is internally
+contradictory at its mandatory setup boundary:
+
+1. fresh harness startup deterministically seeds exactly two Customers;
+2. Section 4 step 7 nevertheless instructs the operator to create two Customers;
+3. real Customer creation appends one administration receipt and one AuditEvent per Customer;
+4. real Tag provisioning appends one administration receipt and two AuditEvents per Tag; and
+5. Section 4 step 8 requires exactly two administration receipts and four setup AuditEvents,
+   which is reachable only when the seeded Customers are used and no additional Customers are
+   created.
+
+The APK, product behavior and correction boundary did not fail. The run failed because the written
+operator instruction and its required aggregate cannot both be satisfied. A focused ADO-only
+correction must explicitly require use of the two seeded Customers, prohibit additional Customer
+creation for this V5 run and retain the exact two-receipt/four-audit assertion. That proposed
+wording is a correction candidate only; this evidence does not implement or authorize it.
+
+## 11. Replacement-run abort cleanup
+
+Mobile was explicitly signed out. The in-app Admin-Web tab was already closed before an explicit
+Web sign-out click could be observed; its authentication is configured memory-only with
+`persistSession: false`, so tab disposal retained no browser session. The system and in-app-browser
+clipboards were cleared, no CSV or screenshot had been created, and Admin Web and the harness
+stopped normally.
+The scoped helper removed only the two approved reverse mappings, and only
+`com.tim180201.mobile.synthetic` was uninstalled.
+
+Final checks passed:
+
+- reverse mapping, installed synthetic package and listeners on 3000/3001/5173/54321: 0;
+- `taptime_server` schema, migration ledger and generated synthetic runtime roles: 0;
+- temporary detached worktree: removed;
+- tracked changes before evidence synchronization: 0; and
+- repository `HEAD`/tree remained exactly `b8f1eb7262258a4242a4c8268969c92a05d20c55` /
+  `71966b09f266c0cb3c1bba1eb0f71e97c1e8ea5b`.
+
+The pre-existing PostgreSQL service, read-only artifact and unrelated repository/device state were
+preserved. User-owned untracked paths remain reported only by path/status without content access.
+
+## 12. Current disposition after replacement run
+
+The one replacement-run authority is consumed. `DA3-PHYS-01` remains open because its corrected
+operational boundary was not reached, and `DA3-PHYS-02` is P1 open against the contradictory setup
+procedure. DA3 and DT-069–DT-074 remain open. Before any new run, the failure synchronization and
+focused ADO-only correction require independent review, followed by a new separate exact-bound
+Human authorization. Production, production data, deployment and distribution remain
+unauthorized.
+
+## 13. Failure-synchronization change impact and AVS
+
+The resulting synchronization is AVS **R0**: exactly 11 tracked Markdown files change. No source,
+schema/migration, dependency/lockfile, configuration, workflow, script, generated runtime input or
+installable artifact changes. Product correctness remains carried from unchanged Product
+`6eb68a3`/tree `bb8564f`; no failed V5 observation is promoted to success.
+
+V0 passed: exact changed-file/diff review, `git diff --check`, zero missing ADO references in the
+changed files, six of six local commit/tree bindings and six of six GitHub Actions head/result/job
+bindings (`12/12` each). Product suites, builds and Android export were intentionally not repeated
+because this is unchanged documentation-only synchronization; the existing exact Product and
+correction evidence is explicitly carried, not freshly executed. Independent read-only review of
+the complete failure synchronization and proposed correction boundary remains mandatory before
+any correction publication or new Physical Gate authorization.

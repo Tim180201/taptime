@@ -1,6 +1,6 @@
 # Development Assignment 3 — Correction and Append-only Audit Authorization
 
-- Status: **IMPLEMENTATION/V5 ENABLEMENT AND DA3-PHYS-01 OPERATIONAL REINSTALL CORRECTION INDEPENDENTLY APPROVED; REPLACEMENT RUN NOT AUTHORIZED**
+- Status: **IMPLEMENTATION/V5 ENABLEMENT AND DA3-PHYS-01 CORRECTION INDEPENDENTLY APPROVED; REPLACEMENT RUN FAILED CLOSED WITH DA3-PHYS-02 P1; NEW RUN NOT AUTHORIZED**
 - Date: 2026-07-21
 - Accepted/authorized baseline commit: `ff68f7a7d0ce69a65e88846ae1cca9abd5951f5d`
 - Accepted/authorized baseline tree: `09ef169a68bb53420e07b6f3fcbbdc74e0c01d57`
@@ -436,6 +436,29 @@ boundaries. Verdict: `APPROVED FOR DA3-PHYS-01 OPERATIONAL CORRECTION`; P0–P3:
 
 This disposition completes the independent review authorized for the operational correction. It
 authorizes no ADB, install/uninstall, device interaction or Physical Gate and does not close
-`DA3-PHYS-01`, DA3 or DT-069–DT-074. Any replacement run requires a new separate Human
-authorization bound to the final review-publication commit/tree/CI, exact artifact, approved
-device, both tags, both installations and the interim package-only uninstall.
+`DA3-PHYS-01`, DA3 or DT-069–DT-074. At this correction-review checkpoint, any replacement run
+required a new separate Human authorization bound to the final review-publication commit/tree/CI,
+exact artifact, approved device, both tags, both installations and the interim package-only
+uninstall. Section 16 records the later consumed replacement-run authority and failure.
+
+## 16. Replacement-run failure and consumed authority — 2026-07-22
+
+The Human Architect issued one complete fresh replacement-run authorization bound to Product
+`6eb68a3`, V5 Evidence `f4e2eeb`, review publication `b142626`, operational correction `f7a2b1e`,
+correction sync `1ed3263`, independent-correction-review publication `b8f1eb7`, their exact trees
+and six 12/12 CI runs, the immutable APK and approved device/tag set. Exact preflight and initial
+installation passed.
+
+The run failed closed during prerequisite setup before Tag B, Section 4.1 or Gates A–C. Fresh
+harness startup already provided two seeded Customers; following Runbook Section 4 step 7 literally
+created two more. Those Customer writes appended two administration receipts/AuditEvents. After
+one correct Tag-A assignment, sanitized status was four Customers, one Tag/Assignment, three
+administration receipts, four AuditEvents and zero lifecycle/DA3 rows. The step-8 requirement of
+exactly two receipts/four setup audits after two Tag assignments was already unreachable.
+
+`DA3-PHYS-02` is P1 open against this deterministic procedure/baseline contradiction.
+`DA3-PHYS-01` also remains open because its reviewed clean-reinstall boundary was not reached.
+Scoped cleanup and final package/mapping/listener/schema/ledger/runtime-role zero checks passed.
+The replacement-run authority is consumed. This record authorizes no wording correction, retry,
+new run, production resource/data, deployment or distribution. A focused ADO-only correction,
+independent review and new exact-bound Human authorization are mandatory before another run.

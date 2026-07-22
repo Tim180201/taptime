@@ -1,6 +1,6 @@
 # Development Assignment 3 — V5 Human Functional/Physical Gate Runbook
 
-Status: **DA3-PHYS-01 OPERATIONAL CLEAN-REINSTALL CORRECTION INDEPENDENTLY APPROVED; REPLACEMENT RUN REQUIRES SEPARATE EXACT-BOUND HUMAN AUTHORIZATION**
+Status: **REPLACEMENT RUN FAILED CLOSED DURING SETUP; DA3-PHYS-01 AND DA3-PHYS-02 P1 OPEN; PROCEDURE CORRECTION AND NEW EXACT-BOUND AUTHORIZATION REQUIRED**
 Owner: Technical Lead
 Approval authority for any later physical run: Human Architect
 
@@ -223,8 +223,9 @@ Independent exact-delta review of the failure synchronization returned
 
 This historical section changes no procedure and grants no repair. Do not execute this runbook
 again until an independently reviewed correction and a new exact-bound Human authorization
-explicitly replace the failed boundary. The correction review has now passed; the new Human
-authorization has not been granted.
+explicitly replace the failed boundary. At that historical checkpoint the correction review had
+passed and the new Human authorization had not yet been granted; Section 11 records its later
+grant and consumed failed run.
 
 ## 10. DA3-PHYS-01 operational correction disposition
 
@@ -239,15 +240,38 @@ database, product rule or immutable APK. It deliberately preserves server-side s
 while removing only the prerequisite Administrator package/local store and installing the same
 verified artifact into a new package state for Employee Gate A.
 
-Section 4.1 is not executable until this correction has passed its complete authorized verification,
-exact-head CI and independent review with zero open P0–P3 findings, followed by a new separate
-Human authorization bound to the final source/ADO/CI/artifact/device/tag set. This correction itself
-performs and authorizes no ADB command, installation, Physical Gate, production action, production
-data use, deployment or distribution.
+At this correction-publication checkpoint, Section 4.1 was not executable until complete authorized
+verification, exact-head CI and independent review with zero open P0–P3 findings, followed by a
+new separate Human authorization bound to the final source/ADO/CI/artifact/device/tag set. This
+correction itself performed and authorized no ADB command, installation, Physical Gate, production
+action, production data use, deployment or distribution.
 
 The correction is published at `f7a2b1e159bd4715c40e3ee32e99b76c70ca9e18`, tree
 `a8caed6ebcc6f01c4b025b0b64da5be96130542a`; exact-head GitHub Actions run `29935693909`, attempt
 1, passed 12/12 jobs. Independent exact-delta review returned
-`APPROVED FOR DA3-PHYS-01 OPERATIONAL CORRECTION` with zero P0–P3 findings. Section 4.1 remains
-non-executable until a new Human authorization binds the review-publication head/CI and every
-required source/artifact/device/tag/install/uninstall boundary.
+`APPROVED FOR DA3-PHYS-01 OPERATIONAL CORRECTION` with zero P0–P3 findings. At that checkpoint,
+Section 4.1 remained non-executable until a new Human authorization bound the review-publication
+head/CI and every required source/artifact/device/tag/install/uninstall boundary. Section 11
+records the later authority and failed replacement run.
+
+## 11. First replacement-run historical disposition
+
+The Human Architect issued the required exact-bound replacement-run authorization on 2026-07-22,
+including both installations, the clean reinstall boundary, Gates A–C and cleanup. Exact
+repository/CI/artifact/device/database preflight and the first installation passed. The run then
+failed closed during Section 4 prerequisite setup before Tag B, the clean reinstall boundary or
+any Gate A–C action.
+
+`DA3-PHYS-02` (P1) records a deterministic contradiction in this document: a fresh harness already
+seeds exactly two Customers, step 7 says to create two Customers, while step 8 requires exactly two
+administration receipts and four setup AuditEvents after two Tag provisions. Real Customer
+creation contributes a receipt and AuditEvent, so following the literal create instruction makes
+the required aggregate unreachable. After two added Customers and one correctly assigned Tag A,
+sanitized status was four Customers, one Tag, one Assignment, three administration receipts, four
+AuditEvents and zero lifecycle/DA3 rows. Interaction stopped immediately; complete scoped cleanup
+and zero-state verification passed. Full evidence:
+`ADO/05_Evidence/Development_Assignment_03_Physical_Validation_Evidence.md`.
+
+No retry, repair or resume is authorized. Do not execute this runbook again until the failure
+synchronization and a focused ADO-only correction have passed independent review and a new
+separate Human authorization binds the final publication/CI/artifact/device/tag set.
