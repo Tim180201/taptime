@@ -1,6 +1,6 @@
 # Development Assignment 3 — Correction and Append-only Audit Authorization
 
-- Status: **IMPLEMENTATION AND V5 ENABLEMENT INDEPENDENTLY APPROVED WITH ZERO OPEN P0–P3; PHYSICAL GATE NOT AUTHORIZED**
+- Status: **IMPLEMENTATION/V5 ENABLEMENT INDEPENDENTLY APPROVED; FIRST AUTHORIZED PHYSICAL RUN FAILED CLOSED; DA3-PHYS-01 P1 OPEN**
 - Date: 2026-07-21
 - Accepted/authorized baseline commit: `ff68f7a7d0ce69a65e88846ae1cca9abd5951f5d`
 - Accepted/authorized baseline tree: `09ef169a68bb53420e07b6f3fcbbdc74e0c01d57`
@@ -22,6 +22,9 @@
 - Focused V5-enablement authority: **GRANTED FOR LOCAL HARNESS, RUNBOOK, DA3-V5-F01,
   REGRESSION TESTS, AVS V0–V4 AND INDEPENDENT REVIEW ONLY**
 - Focused V5-enablement review: **APPROVED — ZERO OPEN P0/P1/P2/P3**
+- First V5 physical-run authority: **GRANTED ONCE ON 2026-07-22 AND CONSUMED BY THE FAILED RUN**
+- First V5 physical result: **FAILED CLOSED AT GATE A; ZERO SERVER LIFECYCLE MUTATION; GATES B/C NOT STARTED; COMPLETE CLEANUP**
+- Current correction/replacement-run authority: **NOT GRANTED**
 
 ## 1. Authorized objective
 
@@ -293,12 +296,12 @@ DA3 implementation may be technically approved only when:
 
 ### V5 — Human functional/physical gate
 
-Focused local enablement preparation is separately authorized on `0b0d040`, including the harness,
-runbook, DA3-V5-F01 correction, AVS V0–V4 and independent review. The Human functional/physical run
-itself remains unauthorized. A later separate authorization SHALL bind exact independently approved
-product/Evidence/review-publication/CI/artifacts and prove the minimal Administrator Web
-correction/adjudication/export flow plus Android review-marker clear/retain behavior. It cannot use
-production data or replace V2–V4.
+Focused local enablement preparation was separately authorized on `0b0d040`, including the harness,
+runbook, DA3-V5-F01 correction, AVS V0–V4 and independent review. A later separate exact-bound Human
+authorization released one physical run. That run failed closed at Gate A with `DA3-PHYS-01` (P1),
+zero server lifecycle mutation and complete cleanup; Gates B/C did not start. The authority is
+consumed. Any correction and replacement run require new review and Human authorization. V5 cannot
+use production data or replace V2–V4.
 
 ## 10. Explicit non-goals
 
@@ -347,9 +350,14 @@ only its focused local enablement preparation on `0b0d040`, tree `eee2650`, and 
 authorized DA3-V5-F01 on the same baseline. Product candidate `6eb68a3`, tree `bb8564f`, passed
 exact-head run `29927309720` 12/12 and has a bound read-only synthetic APK. Independent exact-SHA
 V5 review bound Evidence head `f4e2eeb`, tree `20e5715`, and run `29928717227` 12/12 and returned
-`APPROVED` with zero open P0/P1/P2/P3. The Human Architect may now separately decide whether to
-authorize one exact-bound physical run; no such authorization is inferred here.
-Physical Gate, production, production data, deployment and distribution remain **NOT AUTHORIZED**.
+`APPROVED` with zero open P0/P1/P2/P3. The Human Architect then authorized exactly one physical run
+bound to Product `6eb68a3`, Evidence `f4e2eeb`, review publication `b142626`, their exact
+CI/artifact bindings and the approved Galaxy-A33/two-NTAG213 set. That authority was consumed.
+Prerequisite setup passed, but Gate A failed closed with `DA3-PHYS-01` (P1) when the same
+installation switched from the Administrator setup owner to the Employee identity. Server
+lifecycle and DA3 evidence counts remained zero; Gates B/C were not started and complete cleanup
+passed. No correction or replacement run is authorized. Production, production data, deployment
+and distribution remain **NOT AUTHORIZED**.
 
 ## 12. Independent pre-implementation review mandate
 
@@ -368,3 +376,13 @@ minimum answer:
 10. Are every material Human product decision and all non-goals explicit?
 11. Is AVS R3 V0–V5 proportionate across schema/lifecycle/offline/export/Web/Mobile?
 12. Are roadmap/status/authority claims accurate and is any P0/P1/P2/P3 finding open?
+
+## 13. First V5 physical-run disposition — 2026-07-22
+
+The exact first-run record is
+`ADO/05_Evidence/Development_Assignment_03_Physical_Validation_Evidence.md`.
+`DA3-PHYS-01` is P1 and remains open. The current architecture deliberately protects the encrypted
+offline-store owner against silent cross-identity rebinding; the current V5 procedure nevertheless
+requires Administrator setup followed by Employee Gate A on that same installation. Resolving the
+mismatch requires a new Human decision and independent review. This document does not select an
+operational reinstall correction or authorize a product identity-transition change.

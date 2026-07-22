@@ -164,3 +164,15 @@ physical-run stop boundary are recorded in
 Evidence `f4e2eeb` each passed exact-head CI 12/12; independent exact-SHA V5 review returned
 `APPROVED` with zero open P0–P3. This addendum does not alter the historical implementation totals
 or authorize the Human Physical Gate.
+
+## 8. Subsequent first V5 physical run — 2026-07-22
+
+After independent V5 enablement approval and separate exact-bound Human authorization, the first
+physical run passed artifact/device/setup preconditions but failed closed at Gate A with
+`DA3-PHYS-01` (P1). The Administrator setup identity had bound the encrypted offline store; the
+following Employee identity was correctly refused as `identity_mismatch`. Server lifecycle and DA3
+counts remained zero, Gates B/C did not start and complete cleanup passed. This later physical
+finding does not alter the historical implementation test totals or independent implementation
+approval, but it blocks DA3/DT-069–DT-074 closure and any replacement run pending a new reviewed
+correction and Human authorization. Full record:
+`ADO/05_Evidence/Development_Assignment_03_Physical_Validation_Evidence.md`.

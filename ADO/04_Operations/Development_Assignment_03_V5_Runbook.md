@@ -1,6 +1,6 @@
 # Development Assignment 3 — V5 Human Functional/Physical Gate Runbook
 
-Status: **LOCAL V5 ENABLEMENT INDEPENDENTLY APPROVED; PHYSICAL GATE NOT AUTHORIZED**
+Status: **FIRST AUTHORIZED RUN FAILED CLOSED; DA3-PHYS-01 P1 OPEN; REPLACEMENT RUN NOT AUTHORIZED**
 Owner: Technical Lead
 Approval authority for any later physical run: Human Architect
 
@@ -166,3 +166,20 @@ Final cleanup is mandatory whether the run passes or fails:
 
 Only the Human Architect or an explicitly delegated tester may mark the later physical observation
 passed. Automated tests, CI, artifacts and this runbook alone do not pass V5 or close DA3.
+
+## 9. First authorized-run historical disposition
+
+The Human Architect authorized exactly one run on 2026-07-22. Exact artifact/device preflight and
+real Administrator setup of both approved tags passed. Gate A then failed before an unambiguous
+Start result with disclosure-safe Mobile state `Ausstehender Vorgang geschützt`; sanitized server
+counts remained zero for lifecycle and DA3 correction/review/export evidence. Gates B/C were not
+started and complete abort cleanup passed.
+
+`DA3-PHYS-01` (P1) records the exact conflict: Administrator setup binds the encrypted local store
+owner, explicit logout preserves that owner by design, and the following Employee session on the
+same installation fails closed as an identity mismatch. Full evidence:
+`ADO/05_Evidence/Development_Assignment_03_Physical_Validation_Evidence.md`.
+
+This historical section changes no procedure and grants no repair. Do not execute this runbook
+again until an independently reviewed correction candidate and a new exact-bound Human
+authorization explicitly replace the failed boundary.

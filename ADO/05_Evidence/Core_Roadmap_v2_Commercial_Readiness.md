@@ -624,3 +624,18 @@ future correction/export plus Android marker retain/clear procedure. Product `6e
 zero open P0–P3 and confirmed the bound read-only APK. The physical run itself is not authorized,
 and DA3/DT-069–DT-074 remain open. Production, production data, deployment, distribution,
 legal/privacy approval and DA4 productization remain separately gated.
+
+## 24. Progress Update – 2026-07-22 Development Assignment 3 First V5 Physical Run
+
+The Human Architect separately authorized one run bound to Product `6eb68a3`, Evidence `f4e2eeb`,
+review publication `b142626`, the exact CI/artifact bindings and the approved local
+Galaxy-A33/two-NTAG213 set. Artifact/device/setup preflight passed. Gate A then failed closed with
+`DA3-PHYS-01` (P1) before an unambiguous Start result: the Administrator setup session had bound
+the encrypted offline-store owner and the following Employee session on the same installation was
+correctly refused as an identity mismatch. Server lifecycle and DA3 counts remained zero, Gates
+B/C did not start and complete cleanup passed.
+
+DA3 and DT-069–DT-074 remain open. No correction or replacement run is authorized. Independent
+review of the failure synchronization and a new Human correction decision are mandatory before
+further V5 work. Production, production data, deployment, distribution, legal/privacy approval and
+DA4 productization remain separately gated.

@@ -171,8 +171,10 @@ V5 enablement preparation and DA3-V5-F01 on exact baseline `0b0d040`, tree `eee2
 harness, runbook, AVS V0–V4 and independent review. Product candidate `6eb68a3`, tree `bb8564f`,
 passed exact-head run `29927309720` 12/12 and has a bound read-only synthetic APK. Evidence
 `f4e2eeb`, tree `20e5715`, passed run `29928717227` 12/12; independent exact-SHA V5 review returned
-`APPROVED` with zero open P0–P3. The physical run and DT-069–DT-074 closure remain pending.
-Production, production data, deployment, distribution and Physical Gate remain unauthorized.
+`APPROVED` with zero open P0–P3. One later exact-bound Human physical run passed prerequisite setup
+but failed closed at Gate A with `DA3-PHYS-01` (P1), zero server lifecycle mutation and complete
+cleanup. Gates B/C did not start; DA3 and DT-069–DT-074 remain open. No correction or replacement
+run is authorized. Production, production data, deployment and distribution remain unauthorized.
 
 This file is the official navigation entry point for the TapTim.e ADO.
 
@@ -299,7 +301,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Development Assignment 1 Human-Accepted Complete Offline Synchronization Contract and Repository Authorization | `ADO/02_Development/Development_Assignment_01_Complete_Offline_Synchronization_Authorization.md` |
 | Development Assignment 1 Complete Offline Synchronization Implementation Plan | `ADO/02_Development/Development_Assignment_01_Complete_Offline_Synchronization_Implementation_Plan.md` |
 | Development Assignment 2 Setup and Export Backend Authorization — DA2 and DT-063–DT-068 closed for authorized local scopes after independent zero-finding review and closure-publication CI 11/11 | `ADO/02_Development/Development_Assignment_02_Setup_And_Export_Backend_Authorization.md` |
-| Development Assignment 3 Correction and Append-only Audit Authorization — implementation `0f71aca` and V5 candidate `6eb68a3` independently approved with zero open P0–P3; Physical Gate not authorized | `ADO/02_Development/Development_Assignment_03_Correction_And_Append_Only_Audit_Authorization.md` |
+| Development Assignment 3 Correction and Append-only Audit Authorization — implementation/V5 enablement independently approved; first authorized physical run failed closed with `DA3-PHYS-01` P1 open | `ADO/02_Development/Development_Assignment_03_Correction_And_Append_Only_Audit_Authorization.md` |
 | Block C3 Organization Administration Implementation Plan | `ADO/02_Development/Block_C3_Organization_Administration_Implementation_Plan.md` |
 | Repository Health Sprint 001 | `ADO/02_Development/Repository_Health_Sprint_001.md` |
 | Repository Maintenance Sprint 002 | `ADO/02_Development/Repository_Maintenance_Sprint_002.md` |
@@ -318,7 +320,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Document | Location |
 |---|---|
 | Development Assignment 1 Gate-C Response-Drop Runbook | `ADO/04_Operations/Development_Assignment_01_Gate_C_Response_Drop_Runbook.md` |
-| Development Assignment 3 V5 Human Functional/Physical Gate Runbook — enablement candidate only; physical run not authorized | `ADO/04_Operations/Development_Assignment_03_V5_Runbook.md` |
+| Development Assignment 3 V5 Human Functional/Physical Gate Runbook — first authorized run failed closed; replacement run not authorized | `ADO/04_Operations/Development_Assignment_03_V5_Runbook.md` |
 
 ## Evidence
 
@@ -361,8 +363,9 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Development Assignment 3 Independent Pre-Implementation Review — ADO-only candidate approved for publication, zero open P0–P3; subsequently Human-accepted/authorized on exact published baseline | `ADO/05_Evidence/Development_Assignment_03_Independent_Pre_Implementation_Review.md` |
 | Development Assignment 3 Implementation Evidence — `0f71aca`/tree `e3e2ed7`, 1,757 local tests and exact-head CI 12/12 green; independent review approved | `ADO/05_Evidence/Development_Assignment_03_Implementation_Evidence.md` |
 | Development Assignment 3 Independent Implementation Review — `APPROVED`, zero open P0–P3; Human V5 disposition required before closure | `ADO/05_Evidence/Development_Assignment_03_Independent_Implementation_Review.md` |
-| Development Assignment 3 V5 Enablement Evidence — product `6eb68a3` and Evidence `f4e2eeb` CI 12/12, read-only APK bound, independent review approved; Physical Gate not authorized | `ADO/05_Evidence/Development_Assignment_03_V5_Enablement_Evidence.md` |
+| Development Assignment 3 V5 Enablement Evidence — product/Evidence independently approved; first physical run failed closed with `DA3-PHYS-01` P1 open | `ADO/05_Evidence/Development_Assignment_03_V5_Enablement_Evidence.md` |
 | Development Assignment 3 Independent V5 Enablement Review — `APPROVED`, zero open P0–P3; separate exact-bound Human Physical Gate authorization required | `ADO/05_Evidence/Development_Assignment_03_Independent_V5_Enablement_Review.md` |
+| Development Assignment 3 Physical Validation Evidence — first exact-bound run failed closed at Gate A, zero server lifecycle mutation, complete cleanup; `DA3-PHYS-01` P1 open | `ADO/05_Evidence/Development_Assignment_03_Physical_Validation_Evidence.md` |
 | Development Assignment 1 DA1-PHYS-01 Independent Exact-Delta Review — approved, finding closed | `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_01_Independent_Exact_Delta_Review.md` |
 | Development Assignment 1 DA1-PHYS-02 Independent Exact-Delta Review — approved, repository finding closed | `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_02_Independent_Exact_Delta_Review.md` |
 | Development Assignment 1 DA1-PHYS-03 Independent Exact-Delta Review — approved, repository finding closed | `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_03_Independent_Exact_Delta_Review.md` |
