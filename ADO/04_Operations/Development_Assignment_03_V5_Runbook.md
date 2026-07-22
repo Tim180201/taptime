@@ -1,6 +1,6 @@
 # Development Assignment 3 — V5 Human Functional/Physical Gate Runbook
 
-Status: **REPLACEMENT RUN FAILED CLOSED DURING SETUP; DA3-PHYS-01 AND DA3-PHYS-02 P1 OPEN; PROCEDURE CORRECTION AND NEW EXACT-BOUND AUTHORIZATION REQUIRED**
+Status: **DA3-PHYS-02 FOCUSED ADO-ONLY CORRECTION HUMAN-AUTHORIZED AND IMPLEMENTED; PUBLICATION/CI/INDEPENDENT RE-REVIEW REQUIRED; NO NEW RUN AUTHORIZED**
 Owner: Technical Lead
 Approval authority for any later physical run: Human Architect
 
@@ -82,8 +82,11 @@ artifact evidence.
 5. Install the exact authorized APK with the scoped helper and verify only the approved Auth/API
    reverse mappings.
 6. Run `status`. Require zero lifecycle, correction, adjudication and export evidence before setup.
-7. Create two Customers and provision the two approved tags through the real Administrator Web /
-   Android setup paths. Record only labels, fingerprints and aggregate counts. Sign out Android.
+7. In Admin Web, require exactly the two Customers already seeded by the fresh harness:
+   `Synthetic Android Customer` and `Synthetic Reassignment Target`. Create no additional Customer
+   during this V5 run. Through the real Administrator Android setup path, provision approved Tag A
+   to `Synthetic Android Customer` and approved Tag B to `Synthetic Reassignment Target`. Record
+   only labels, fingerprints and aggregate counts. Sign out Android.
 8. Run sanitized `status`. Require exactly two Tags, two active Assignments, two administration
    receipts and four setup AuditEvents, with zero lifecycle, correction, adjudication and export
    evidence.
@@ -262,16 +265,24 @@ repository/CI/artifact/device/database preflight and the first installation pass
 failed closed during Section 4 prerequisite setup before Tag B, the clean reinstall boundary or
 any Gate A–C action.
 
-`DA3-PHYS-02` (P1) records a deterministic contradiction in this document: a fresh harness already
-seeds exactly two Customers, step 7 says to create two Customers, while step 8 requires exactly two
+`DA3-PHYS-02` (P1) records the pre-correction contradiction: a fresh harness already seeded exactly
+two Customers, the former step 7 said to create two Customers, while step 8 required exactly two
 administration receipts and four setup AuditEvents after two Tag provisions. Real Customer
-creation contributes a receipt and AuditEvent, so following the literal create instruction makes
+creation contributed a receipt and AuditEvent, so following that literal create instruction made
 the required aggregate unreachable. After two added Customers and one correctly assigned Tag A,
 sanitized status was four Customers, one Tag, one Assignment, three administration receipts, four
 AuditEvents and zero lifecycle/DA3 rows. Interaction stopped immediately; complete scoped cleanup
 and zero-state verification passed. Full evidence:
 `ADO/05_Evidence/Development_Assignment_03_Physical_Validation_Evidence.md`.
 
-No retry, repair or resume is authorized. Do not execute this runbook again until the failure
-synchronization and a focused ADO-only correction have passed independent review and a new
-separate Human authorization binds the final publication/CI/artifact/device/tag set.
+No retry, repair or resume is authorized. Independent read-only review of failure synchronization
+`abd58be`/tree `b2cb210` and run `29939539390` returned
+`APPROVED FOR FAILURE SYNCHRONIZATION AND DA3-PHYS-02 CORRECTION CANDIDATE` with zero open P0–P3.
+The Human Architect accepted that review and explicitly authorized the focused ADO-only correction
+now implemented in step 7: use the two seeded Customers, create no additional Customer and retain
+step 8's exact two-receipt/four-audit invariant.
+
+This correction changes no source, harness, schema, dependency, product rule or APK. Do not execute
+this runbook again until this exact ADO-only delta has been published, passed exact-head CI and
+independent exact-delta re-review, followed by a new separate Human authorization binding the final
+publication/CI/artifact/device/tag/install/uninstall set.

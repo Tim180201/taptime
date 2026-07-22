@@ -1,6 +1,6 @@
 # Development Assignment 3 — V5 Physical Validation Evidence
 
-- Status: **FIRST AND REPLACEMENT RUNS FAILED CLOSED; DA3-PHYS-01 AND DA3-PHYS-02 (P1) OPEN**
+- Status: **FIRST AND REPLACEMENT RUNS FAILED CLOSED; FAILURE SYNC APPROVED; DA3-PHYS-02 ADO CORRECTION HUMAN-AUTHORIZED/IMPLEMENTED; BOTH P1 FINDINGS OPEN**
 - Date: 2026-07-22
 - Owner: Technical Lead
 - Human observer and approval authority: Human Architect
@@ -250,10 +250,12 @@ contradictory at its mandatory setup boundary:
    created.
 
 The APK, product behavior and correction boundary did not fail. The run failed because the written
-operator instruction and its required aggregate cannot both be satisfied. A focused ADO-only
-correction must explicitly require use of the two seeded Customers, prohibit additional Customer
-creation for this V5 run and retain the exact two-receipt/four-audit assertion. That proposed
-wording is a correction candidate only; this evidence does not implement or authorize it.
+operator instruction and its required aggregate could not both be satisfied. Independent review
+approved the focused correction candidate with zero open P0–P3, and the Human Architect then
+authorized the ADO-only correction. Runbook step 7 now explicitly requires the two seeded
+Customers, prohibits additional Customer creation and retains step 8's exact two-receipt/four-audit
+assertion. `DA3-PHYS-02` remains open pending publication, CI, independent re-review and a later
+separately authorized successful fresh run.
 
 ## 11. Replacement-run abort cleanup
 
@@ -280,11 +282,11 @@ preserved. User-owned untracked paths remain reported only by path/status withou
 ## 12. Current disposition after replacement run
 
 The one replacement-run authority is consumed. `DA3-PHYS-01` remains open because its corrected
-operational boundary was not reached, and `DA3-PHYS-02` is P1 open against the contradictory setup
-procedure. DA3 and DT-069–DT-074 remain open. Before any new run, the failure synchronization and
-focused ADO-only correction require independent review, followed by a new separate exact-bound
-Human authorization. Production, production data, deployment and distribution remain
-unauthorized.
+operational boundary was not reached, and `DA3-PHYS-02` remains P1 open until its focused ADO-only
+correction is independently re-reviewed and a later separately authorized fresh run passes. DA3
+and DT-069–DT-074 remain open. Before any new run, the correction requires focused publication,
+exact-head CI and independent exact-delta re-review, followed by a new separate exact-bound Human
+authorization. Production, production data, deployment and distribution remain unauthorized.
 
 ## 13. Failure-synchronization change impact and AVS
 
@@ -297,6 +299,47 @@ V0 passed: exact changed-file/diff review, `git diff --check`, zero missing ADO 
 changed files, six of six local commit/tree bindings and six of six GitHub Actions head/result/job
 bindings (`12/12` each). Product suites, builds and Android export were intentionally not repeated
 because this is unchanged documentation-only synchronization; the existing exact Product and
-correction evidence is explicitly carried, not freshly executed. Independent read-only review of
-the complete failure synchronization and proposed correction boundary remains mandatory before
-any correction publication or new Physical Gate authorization.
+correction evidence is explicitly carried, not freshly executed. At this failure-synchronization
+checkpoint, independent read-only review of the complete delta and proposed correction boundary
+remained mandatory before any correction publication or new Physical Gate authorization; Section
+14 records that later review and Human authorization.
+
+## 14. Independent approval and Human-authorized DA3-PHYS-02 correction
+
+Independent read-only review bound failure synchronization `abd58be3`, tree `b2cb210`, exact-head
+run `29939539390` 12/12, its exact 11-file `+302/-47` R0 delta, the complete predecessor chain and
+unchanged APK. It independently verified the two-Customer seed baseline, zero seed receipts/audits,
+Customer and Tag write arithmetic, P1 severity, stop point, cleanup/disclosure and correction
+boundary. Verdict:
+`APPROVED FOR FAILURE SYNCHRONIZATION AND DA3-PHYS-02 CORRECTION CANDIDATE`; zero open P0–P3.
+Archived review:
+`ADO/05_Evidence/Development_Assignment_03_DA3_PHYS_02_Replacement_Failure_Independent_Review.md`.
+
+The Human Architect accepted that review on exact `abd58be3`/tree `b2cb210`/run `29939539390` and
+authorized only the focused ADO correction, review archival, status/Evidence synchronization, AVS
+R0/V0, publication, exact-head CI and independent exact-delta re-review. Runbook step 7 now:
+
+- requires exactly the two fresh-harness seed Customers;
+- assigns Tag A to `Synthetic Android Customer` and Tag B to
+  `Synthetic Reassignment Target`;
+- prohibits additional Customer creation during the V5 run; and
+- leaves step 8's exact two-receipt/four-audit invariant unchanged.
+
+The correction changes no source, schema, dependency, configuration, workflow, script, product
+rule, harness or APK. Retry, Physical Gate, production, production data, deployment and
+distribution remain unauthorized. `DA3-PHYS-01` and `DA3-PHYS-02` remain open.
+
+## 15. DA3-PHYS-02 correction change impact and local AVS
+
+The correction candidate is AVS **R0**: exactly 12 `ADO/` Markdown files change, including the new
+independent-review archive. No source, schema/migration, dependency/lockfile, configuration,
+workflow, script, generated runtime input or installable artifact changes. Runbook step 8 is
+byte-unchanged; only the contradictory setup instruction in step 7 changes operational wording.
+
+Local V0 passed: exact authorized baseline/remote binding, complete staged-diff and status review,
+`git diff --cached --check`, zero missing ADO references, zero non-ADO/Markdown files, disclosure
+scan and explicit confirmation of both seed names, the no-additional-Customer rule and unchanged
+two-receipt/four-audit requirement. Product suites, builds and Android export were intentionally not
+repeated because the delta is proven documentation-only; unchanged Product/correction CI and APK
+evidence are carried, not represented as freshly executed. Focused publication, exact-head CI and
+independent exact-delta re-review remain mandatory.

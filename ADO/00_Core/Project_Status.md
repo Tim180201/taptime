@@ -1,6 +1,6 @@
 # Project Status
 
-Status: CORE ROADMAP V2 BLOCK A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2, BLOCK D, E1 AND NARROW E2A COMPLETE FOR THEIR RECORDED SCOPES — DEVELOPMENT ASSIGNMENT 1 AND DT-060–DT-062 CLOSED FOR THE AUTHORIZED LOCAL ANDROID/REPOSITORY/SYNTHETIC-SERVER SCOPE — DEVELOPMENT ASSIGNMENT 2 AND DT-063–DT-068 CLOSED FOR THE AUTHORIZED LOCAL SETUP-INTEGRATION/EXPORT-BACKEND SCOPE — DA3 IMPLEMENTATION/V5 ENABLEMENT AND THE DA3-PHYS-01 OPERATIONAL CORRECTION INDEPENDENTLY APPROVED; FIRST V5 RUN FAILED AT GATE A WITH DA3-PHYS-01 P1; THE AUTHORIZED REPLACEMENT RUN FAILED CLOSED DURING PREREQUISITE SETUP WITH DA3-PHYS-02 P1 BEFORE THE CORRECTED BOUNDARY — DA3 AND DT-069–DT-074 REMAIN OPEN; FAILURE SYNCHRONIZATION, PROCEDURE CORRECTION, INDEPENDENT REVIEW AND NEW EXACT-BOUND HUMAN AUTHORIZATION REQUIRED — PRODUCTION, PRODUCTION DATA, PILOT-OPERATIONAL ONBOARDING, PROFESSIONAL UI PRODUCTIZATION, LEGAL/PRIVACY APPROVAL, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
+Status: CORE ROADMAP V2 BLOCK A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2, BLOCK D, E1 AND NARROW E2A COMPLETE FOR THEIR RECORDED SCOPES — DEVELOPMENT ASSIGNMENT 1 AND DT-060–DT-062 CLOSED FOR THE AUTHORIZED LOCAL ANDROID/REPOSITORY/SYNTHETIC-SERVER SCOPE — DEVELOPMENT ASSIGNMENT 2 AND DT-063–DT-068 CLOSED FOR THE AUTHORIZED LOCAL SETUP-INTEGRATION/EXPORT-BACKEND SCOPE — DA3 IMPLEMENTATION/V5 ENABLEMENT AND DA3-PHYS-01 CORRECTION INDEPENDENTLY APPROVED; FIRST/REPLACEMENT V5 RUNS FAILED CLOSED WITH DA3-PHYS-01/02 P1; DA3-PHYS-02 FAILURE SYNC INDEPENDENTLY APPROVED AND FOCUSED ADO CORRECTION HUMAN-AUTHORIZED/IMPLEMENTED LOCALLY — DA3 AND DT-069–DT-074 REMAIN OPEN; CORRECTION PUBLICATION, EXACT-HEAD CI, INDEPENDENT RE-REVIEW AND NEW EXACT-BOUND HUMAN AUTHORIZATION REQUIRED — PRODUCTION, PRODUCTION DATA, PILOT-OPERATIONAL ONBOARDING, PROFESSIONAL UI PRODUCTIZATION, LEGAL/PRIVACY APPROVAL, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
 Date: 2026-07-22
 Owner: Human Architect + Technical Lead
 
@@ -48,9 +48,13 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   assignment, status was four Customers, one Tag/Assignment, three administration receipts, four
   AuditEvents and zero lifecycle/DA3 rows. Tag B, the clean reinstall and Gates A–C were not
   started; cleanup passed. `DA3-PHYS-01`, `DA3-PHYS-02`, DA3 and DT-069–DT-074 remain open. The
-  replacement authority is consumed; failure synchronization, a focused reviewed procedure
-  correction and new exact-bound Human authorization are required. Production, production data,
-  deployment and distribution remain separately unauthorized.
+  replacement authority is consumed. Independent review of `abd58be3`/tree `b2cb210`/run
+  `29939539390` returned `APPROVED FOR FAILURE SYNCHRONIZATION AND DA3-PHYS-02 CORRECTION
+  CANDIDATE` with zero open P0–P3. The Human Architect accepted it and authorized the focused ADO
+  correction. Runbook step 7 now uses exactly the two seeded Customers, prohibits additional
+  Customer creation and preserves step 8's two-receipt/four-audit invariant. Publication,
+  exact-head CI and independent re-review remain pending. Production, production data, deployment
+  and distribution remain separately unauthorized.
 - **Development Assignment 2 and DT-063–DT-068 are independently closed for their authorized local
   setup-integration and export-backend scopes.** The Human-accepted implementation baseline is
   `30c4f5d1d8e6fedeb4b6c1f168d6e1f70a4fef76`, tree
@@ -434,9 +438,11 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   review with zero P0–P3. The separately authorized replacement run then failed closed before the
   correction boundary with `DA3-PHYS-02` P1 because seeded Customers plus an instruction to create
   two Customers contradicted the exact receipt/audit aggregate. Tag B and Gates A–C did not start,
-  lifecycle/DA3 rows stayed zero and cleanup passed. `DA3-PHYS-01` and `DA3-PHYS-02` remain open;
-  production, production data, deployment, distribution, another V5 run and DT-069–DT-074 closure
-  remain unauthorized or pending their distinct gates.
+  lifecycle/DA3 rows stayed zero and cleanup passed. Independent review approved the failure sync
+  and correction candidate with zero P0–P3; the Human Architect authorized the focused ADO-only
+  wording now implemented locally. `DA3-PHYS-01` and `DA3-PHYS-02` remain open; correction
+  publication/CI/re-review, production, production data, deployment, distribution, another V5 run
+  and DT-069–DT-074 closure remain unauthorized or pending their distinct gates.
 - Repository Health Sprint 001 and Repository Maintenance Sprint 002 are completed; known repository consistency findings from that era have been closed or explicitly logged as remaining findings for Technical Lead disposition.
 - `frogs-zeiterfassung` remains technical reference evidence, not a source code baseline.
 - Root `README.md`, `CHANGELOG.md`, and `Roadmap.md` still describe a pre-Sprint-001 repository state and have not yet been refreshed — this is a known, already-tracked finding (Product Readiness Roadmap, "Now" milestone, Engineering Track), not an oversight of this update.
@@ -467,10 +473,10 @@ Two Epics are concurrently Active, per EP-009's own stated relationship to the r
 
 1. Preserve Development Assignment 1/DT-060–DT-062 and Development Assignment 2/DT-063–DT-068 as
    completed only for their exact independently approved local scopes.
-2. Independently review the replacement-run failure synchronization and a focused ADO-only
-   `DA3-PHYS-02` correction that uses the two seeded Customers and prohibits duplicate creation.
-   Obtain a new separate exact-bound Human authorization before any further complete fresh run.
-   Close no DA3 task before a complete accepted physical disposition and exact closure evidence.
+2. Publish the Human-authorized focused ADO-only `DA3-PHYS-02` correction, obtain exact-head CI and
+   independent exact-delta re-review, then obtain a new separate exact-bound Human authorization
+   before any further complete fresh run. Close no DA3 task before a complete accepted physical
+   disposition and exact closure evidence.
 3. Keep the real production endpoint/CA, one-human operator IAM inventory, short-lived credential
    delivery/revocation and controlled execution evidence as explicit later deployment gates.
 4. Preserve every closed C3B/C3C/C3D/C3E1/C3E2/DA1/DA2 boundary; keep DA4 UI productization,

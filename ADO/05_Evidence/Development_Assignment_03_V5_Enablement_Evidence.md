@@ -1,6 +1,6 @@
 # Development Assignment 3 — V5 Enablement Evidence
 
-- Status: **V5 ENABLEMENT APPROVED; FIRST AND REPLACEMENT RUNS FAILED CLOSED; DA3-PHYS-01 AND DA3-PHYS-02 P1 OPEN; NEW RUN GATED**
+- Status: **V5 ENABLEMENT APPROVED; TWO RUNS FAILED CLOSED; DA3-PHYS-02 ADO CORRECTION HUMAN-AUTHORIZED/IMPLEMENTED; PUBLICATION/CI/RE-REVIEW PENDING; NEW RUN GATED**
 - Date: 2026-07-22
 - Authorized enablement baseline commit: `0b0d04034c88829fdc5c548b057e74554d4ee197`
 - Authorized enablement baseline tree: `eee26501fd714738aa3ca106d93d5088261206e3`
@@ -19,8 +19,8 @@
 - Current correction: operational clean exact-artifact reinstall authorized on
   `f0c9db3`/tree `27cabe6`; publication `f7a2b1e`/tree `a8caed6` passed AVS V0–V4 and
   independent review with zero P0–P3
-- Unauthorized now: procedure correction, new run, production, production data, deployment and
-  distribution
+- Unauthorized now: any further correction beyond exact approved ADO wording, new run, production,
+  production data, deployment and distribution
 
 ## 1. Authority and inherited evidence
 
@@ -200,9 +200,10 @@ by the harness.
 - DA3 and DT-069–DT-074 remain open. This candidate does not close a roadmap item.
 
 The authorized enablement reached V4 and independent approval. The first V5 run and the later
-replacement both failed closed and consumed their one-run authorities. The next step is independent
-review of the replacement failure synchronization and focused procedure correction; no fresh run
-is currently authorized.
+replacement both failed closed and consumed their one-run authorities. At that failed-run
+checkpoint, the next step was independent review of the replacement failure synchronization and
+focused procedure correction; Section 9 records the later approval and Human authority. No fresh
+run is currently authorized.
 
 ## 6. Subsequent first Physical Gate — failed closed
 
@@ -249,7 +250,24 @@ runbook instructed creation of two Customers and later required exactly two admi
 receipts/four setup audits. After the two Customer writes and one correct Tag-A assignment,
 sanitized status was four Customers, one Tag/Assignment, three receipts, four AuditEvents and zero
 lifecycle/DA3 rows. The required aggregate could no longer be reached. Tag B, the clean reinstall
-and Gates A–C were not started. Scoped cleanup passed. `DA3-PHYS-02` is P1 open, the one-run
-authority is consumed and a focused ADO-only correction plus independent review and new Human
-authorization are required. Exact record:
+and Gates A–C were not started. Scoped cleanup passed. `DA3-PHYS-02` is P1 open and the one-run
+authority is consumed. At that checkpoint, a focused ADO-only correction, independent review and
+new Human authorization were required; Section 9 records the later review and correction authority.
+Exact record:
 `ADO/05_Evidence/Development_Assignment_03_Physical_Validation_Evidence.md`.
+
+## 9. DA3-PHYS-02 review and Human-authorized ADO correction
+
+Independent review of failure synchronization `abd58be3`/tree `b2cb210`, exact-head run
+`29939539390` 12/12 and its exact 11-file R0 delta returned
+`APPROVED FOR FAILURE SYNCHRONIZATION AND DA3-PHYS-02 CORRECTION CANDIDATE` with zero open P0–P3.
+The reviewer verified the seed baseline, receipt/audit arithmetic, stop/cleanup/disclosure and
+narrow correction. Archived review:
+`ADO/05_Evidence/Development_Assignment_03_DA3_PHYS_02_Replacement_Failure_Independent_Review.md`.
+
+The Human Architect accepted the review and authorized only the focused ADO correction plus
+review archival, truth synchronization, R0/V0, publication/CI and independent re-review. Runbook
+step 7 now requires exactly the two seeded Customers, creates no Customer, assigns Tag A/B to the
+first/second seed respectively and leaves step 8's exact two-receipt/four-audit requirement
+unchanged. No Product, harness, schema, dependency or artifact changes. `DA3-PHYS-01` and
+`DA3-PHYS-02` remain open; no new run is authorized.

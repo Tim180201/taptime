@@ -1,6 +1,6 @@
 # Development Assignment 3 — Correction and Append-only Audit Authorization
 
-- Status: **IMPLEMENTATION/V5 ENABLEMENT AND DA3-PHYS-01 CORRECTION INDEPENDENTLY APPROVED; REPLACEMENT RUN FAILED CLOSED WITH DA3-PHYS-02 P1; NEW RUN NOT AUTHORIZED**
+- Status: **DA3-PHYS-02 FAILURE SYNC INDEPENDENTLY APPROVED; FOCUSED ADO-ONLY CORRECTION HUMAN-AUTHORIZED/IMPLEMENTED; PUBLICATION/CI/RE-REVIEW PENDING; NEW RUN UNAUTHORIZED**
 - Date: 2026-07-21
 - Accepted/authorized baseline commit: `ff68f7a7d0ce69a65e88846ae1cca9abd5951f5d`
 - Accepted/authorized baseline tree: `09ef169a68bb53420e07b6f3fcbbdc74e0c01d57`
@@ -462,3 +462,28 @@ Scoped cleanup and final package/mapping/listener/schema/ledger/runtime-role zer
 The replacement-run authority is consumed. This record authorizes no wording correction, retry,
 new run, production resource/data, deployment or distribution. A focused ADO-only correction,
 independent review and new exact-bound Human authorization are mandatory before another run.
+
+## 17. DA3-PHYS-02 review acceptance and focused correction authority — 2026-07-22
+
+Independent read-only review of exact failure synchronization `abd58be3`, tree `b2cb210`, parent
+`b8f1eb7`, its 11-file `+302/-47` R0 delta and exact-head run `29939539390` 12/12 returned
+`APPROVED FOR FAILURE SYNCHRONIZATION AND DA3-PHYS-02 CORRECTION CANDIDATE` with zero open P0–P3.
+The reviewer independently verified the seeded two-Customer baseline, receipt/audit arithmetic,
+deterministic step-7/step-8 contradiction, P1 severity, stop point, zero lifecycle/DA3 mutation,
+cleanup/disclosure and narrow correction boundary.
+
+The Human Architect explicitly accepted that review on `abd58be3`/tree `b2cb210`/run
+`29939539390` and authorized only:
+
+- focused ADO-only correction of Runbook Section 4 step 7;
+- use of exactly `Synthetic Android Customer` and `Synthetic Reassignment Target`;
+- prohibition of any additional Customer creation during the V5 run;
+- retention of step 8's exact two-administration-receipt/four-setup-AuditEvent invariant;
+- archival of the independent review and necessary ADO truth synchronization;
+- AVS R0/V0, focused publication, exact-head CI and independent exact-delta re-review.
+
+Runbook step 7 now implements exactly that boundary. No product code, schema, dependency, APK,
+retry, Physical Gate, production resource/data, deployment or distribution is authorized.
+`DA3-PHYS-01`, `DA3-PHYS-02`, DA3 and DT-069–DT-074 remain open. A later new run requires the
+published correction, green exact-head CI, independent re-review and a new separate exact-bound
+Human authorization.

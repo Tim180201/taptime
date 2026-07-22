@@ -201,6 +201,21 @@ lifecycle/DA3 rows. Tag B, clean reinstall and Gates A–C were not started; cle
 
 This operational finding changes no product source, implementation approval or historical test
 total. `DA3-PHYS-01` and `DA3-PHYS-02` remain open and block DA3/DT-069–DT-074 closure. The consumed
-run authorizes no correction or retry; a focused ADO-only procedure correction, independent review
-and new exact-bound Human authorization are required. Full record:
+run authorized no correction or retry; at that checkpoint a focused ADO-only procedure correction,
+independent review and new exact-bound Human authorization were required. Section 11 records the
+later review and correction authority. Full record:
 `ADO/05_Evidence/Development_Assignment_03_Physical_Validation_Evidence.md`.
+
+## 11. Subsequent DA3-PHYS-02 focused ADO correction — 2026-07-22
+
+Independent review approved failure synchronization `abd58be3`/tree `b2cb210`/run `29939539390`
+and the narrow correction candidate with zero open P0–P3. The Human Architect accepted the review
+and authorized the ADO-only correction. Runbook step 7 now uses exactly the two Customers seeded by
+the fresh harness, prohibits additional Customer creation and preserves the exact two-receipt/
+four-audit assertion.
+
+This changes no implementation source, schema, dependency, harness, product rule, APK or historical
+test evidence. `DA3-PHYS-01` and `DA3-PHYS-02` remain open. Focused ADO publication, exact-head CI,
+independent exact-delta re-review and a new separate Human authorization remain mandatory before
+any new run. Archived review:
+`ADO/05_Evidence/Development_Assignment_03_DA3_PHYS_02_Replacement_Failure_Independent_Review.md`.

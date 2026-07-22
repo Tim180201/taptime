@@ -474,10 +474,23 @@ After one correct Tag-A assignment, lifecycle/DA3 rows remained zero. Tag B, cle
 Gates A–C did not start; cleanup passed.
 
 This result changes no readiness-domain rating and closes no DA3 task. The one-run authority is
-consumed. Failure synchronization, a focused ADO-only procedure correction, independent review
-and new exact-bound Human authorization are required before another run. Production, production
-data, deployment, distribution, legal/privacy approval and DA4 productization remain separately
-gated.
+consumed. At that checkpoint, failure synchronization, a focused ADO-only procedure correction,
+independent review and new exact-bound Human authorization were required before another run; the
+following addendum records the later review and correction authority. Production, production data,
+deployment, distribution, legal/privacy approval and DA4 productization remain separately gated.
+
+## Addendum (2026-07-22 — DA3-PHYS-02 Focused ADO Correction)
+
+Independent review approved the replacement-failure synchronization and narrow correction
+candidate on `abd58be3`/tree `b2cb210`/run `29939539390` with zero P0–P3. The Human Architect
+accepted the review and authorized the ADO-only wording correction. Runbook step 7 now uses exactly
+the two seeded Customers, prohibits additional Customer creation and retains the exact
+two-receipt/four-audit invariant.
+
+This changes no readiness-domain rating and closes no DA3 task. Publication/CI, independent
+re-review and new exact-bound Human authorization remain mandatory before another run. Production,
+production data, deployment, distribution, legal/privacy approval and DA4 productization remain
+separately gated.
 
 ## Revision Note (Technical Lead Review Follow-up, 2026-07-07)
 
