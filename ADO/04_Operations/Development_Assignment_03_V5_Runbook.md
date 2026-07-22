@@ -1,6 +1,6 @@
 # Development Assignment 3 — V5 Human Functional/Physical Gate Runbook
 
-Status: **DA3-PHYS-02 FOCUSED ADO-ONLY CORRECTION INDEPENDENTLY APPROVED/CI-GREEN; HUMAN ACCEPTANCE AND NEW EXACT-BOUND AUTHORIZATION REQUIRED; NO NEW RUN AUTHORIZED**
+Status: **DA3-PHYS-02 FOCUSED ADO-ONLY CORRECTION INDEPENDENTLY APPROVED/CI-GREEN AND HUMAN-ACCEPTED; NEW EXACT-BOUND AUTHORIZATION REQUIRED; NO NEW RUN AUTHORIZED**
 Owner: Technical Lead
 Approval authority for any later physical run: Human Architect
 
@@ -297,6 +297,15 @@ rule, Tag mapping and step 8's unchanged exact aggregate. Verdict:
 `ADO/05_Evidence/Development_Assignment_03_DA3_PHYS_02_Correction_Independent_Exact_Delta_Review.md`.
 
 Review archival publication `030dbf6`, tree `8695708`, passed exact-head run `29942397982`,
-attempt 1, 12/12. This review and publication do not make the runbook executable. Explicit Human
-acceptance and a new separate exact-bound Human authorization remain required. `DA3-PHYS-01` and
-`DA3-PHYS-02` stay P1 open. No run, installation, ADB or retry is authorized.
+attempt 1, 12/12. This review and publication do not make the runbook executable. At that
+publication checkpoint, explicit Human acceptance and a new separate exact-bound Human
+authorization remained required. `DA3-PHYS-01` and `DA3-PHYS-02` stayed P1 open. No run,
+installation, ADB or retry was authorized.
+
+The Human Architect subsequently accepted that exact review archive and final Evidence sync
+`22ee4636b1fec83b0693fdb6f688d3191cfa04ee`, tree
+`3d70d5dd4d2cb5257fbcf3374d82485981f8f763`, run `29942786556` 12/12, as the binding review basis
+while explicitly withholding Physical-Gate authority. The acceptance removes only the review-
+acceptance prerequisite; it does not make this runbook executable. A new separate exact-bound Human
+authorization is still mandatory. `DA3-PHYS-01` and `DA3-PHYS-02` stay P1 open. No run,
+installation/uninstall, ADB/loopback, device/Tag interaction, retry, repair or resume is authorized.

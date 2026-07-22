@@ -1,6 +1,6 @@
 # Development Assignment 3 — Correction and Append-only Audit Authorization
 
-- Status: **DA3-PHYS-02 FAILURE SYNC AND FOCUSED ADO-ONLY CORRECTION INDEPENDENTLY APPROVED/CI-GREEN; HUMAN ACCEPTANCE AND NEW EXACT-BOUND AUTHORIZATION REQUIRED; NEW RUN UNAUTHORIZED**
+- Status: **DA3-PHYS-02 FAILURE SYNC AND FOCUSED ADO-ONLY CORRECTION INDEPENDENTLY APPROVED/CI-GREEN AND HUMAN-ACCEPTED; NEW EXACT-BOUND AUTHORIZATION REQUIRED; NEW RUN UNAUTHORIZED**
 - Date: 2026-07-21
 - Accepted/authorized baseline commit: `ff68f7a7d0ce69a65e88846ae1cca9abd5951f5d`
 - Accepted/authorized baseline tree: `09ef169a68bb53420e07b6f3fcbbdc74e0c01d57`
@@ -507,6 +507,24 @@ Review archival publication `030dbf6f44a7f6c03adc089b1a2f8dae73c114eb`, tree
 files (`+248/-21`) and passed exact-head run `29942397982`, attempt 1, 12/12.
 
 This review and publication create no execution authority. `DA3-PHYS-01`, `DA3-PHYS-02`, DA3 and
-DT-069–DT-074 remain open. Before any further V5 run, explicit Human acceptance and a new separate
-exact-bound authorization are required. Retry, Physical Gate, product code, schema, dependency,
-APK change, production resource/data, deployment and distribution remain unauthorized.
+DT-069–DT-074 remain open. At that publication checkpoint, explicit Human acceptance and a new
+separate exact-bound authorization were required before any further V5 run. Retry, Physical Gate,
+product code, schema, dependency, APK change, production resource/data, deployment and
+distribution remained unauthorized. Section 19 records the later acceptance without execution
+authority.
+
+## 19. Human acceptance of the DA3-PHYS-02 correction review — 2026-07-22
+
+The Human Architect accepted the independent correction review archived at
+`030dbf6f44a7f6c03adc089b1a2f8dae73c114eb`, tree
+`8695708f82ed98a068338ac33029151ee349f1d6`, exact-head run `29942397982`, attempt 1, 12/12, and
+the final Evidence sync `22ee4636b1fec83b0693fdb6f688d3191cfa04ee`, tree
+`3d70d5dd4d2cb5257fbcf3374d82485981f8f763`, exact-head run `29942786556`, attempt 1, 12/12, as
+the binding review basis.
+
+This acceptance satisfies only the outstanding Human review-acceptance gate. The Human Architect
+explicitly did **not** authorize a Physical Gate. No run, installation, uninstall, ADB/loopback,
+device or Tag interaction, retry, repair, resume, product/schema/dependency/APK change, production
+resource/data, deployment or distribution is authorized. `DA3-PHYS-01`, `DA3-PHYS-02`, DA3 and
+DT-069–DT-074 remain open. Any later complete fresh V5 run requires a new, separate, exact-bound
+Human authorization.

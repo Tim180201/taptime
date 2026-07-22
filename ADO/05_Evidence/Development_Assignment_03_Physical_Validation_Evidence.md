@@ -1,6 +1,6 @@
 # Development Assignment 3 — V5 Physical Validation Evidence
 
-- Status: **FIRST AND REPLACEMENT RUNS FAILED CLOSED; FAILURE SYNC AND DA3-PHYS-02 ADO CORRECTION INDEPENDENTLY APPROVED; BOTH P1 FINDINGS OPEN; NEW RUN UNAUTHORIZED**
+- Status: **FIRST AND REPLACEMENT RUNS FAILED CLOSED; DA3-PHYS-02 ADO CORRECTION INDEPENDENTLY APPROVED/CI-GREEN AND HUMAN-ACCEPTED; BOTH P1 FINDINGS OPEN; NEW RUN UNAUTHORIZED**
 - Date: 2026-07-22
 - Owner: Technical Lead
 - Human observer and approval authority: Human Architect
@@ -370,5 +370,20 @@ Verdict: `APPROVED FOR DA3-PHYS-02 ADO CORRECTION`; no open P0–P3 review findi
 
 Review archive `030dbf6`, tree `8695708`, passed exact-head run `29942397982`, attempt 1, 12/12.
 This is repository/procedure evidence only, not a new physical observation. `DA3-PHYS-01` and
-`DA3-PHYS-02` remain P1 open, and no DA3 task closes. Explicit Human acceptance and a new separate
-exact-bound authorization are required before another complete fresh run.
+`DA3-PHYS-02` remain P1 open, and no DA3 task closes. At that checkpoint, explicit Human acceptance
+and a new separate exact-bound authorization were required before another complete fresh run;
+Section 17 records the later acceptance without execution authority.
+
+## 17. Human acceptance of the correction review
+
+The Human Architect accepted the exact independent review archive
+`030dbf6f44a7f6c03adc089b1a2f8dae73c114eb`, tree
+`8695708f82ed98a068338ac33029151ee349f1d6`, run `29942397982` 12/12, and final Evidence sync
+`22ee4636b1fec83b0693fdb6f688d3191cfa04ee`, tree
+`3d70d5dd4d2cb5257fbcf3374d82485981f8f763`, run `29942786556` 12/12, as the binding review basis.
+
+This acceptance is not a new physical observation and closes neither P1 finding nor any DA3 task.
+The Human Architect expressly withheld Physical-Gate authority. No run, installation/uninstall,
+ADB/loopback, device/Tag interaction, retry, repair or resume is authorized. A later complete fresh
+V5 run requires a new separate exact-bound Human authorization. Production, production data,
+deployment and distribution remain unauthorized.

@@ -683,6 +683,19 @@ P0–P3 review findings.
 
 Review archive `030dbf6`, tree `8695708`, passed exact-head run `29942397982`, attempt 1, 12/12.
 This changes no readiness-domain rating, executable artifact or physical result. `DA3-PHYS-01`,
-`DA3-PHYS-02`, DA3 and DT-069–DT-074 remain open. Explicit Human acceptance and a new separate
-exact-bound authorization remain mandatory before another run. Production, production data,
-deployment, distribution, legal/privacy approval and DA4 productization remain separately gated.
+`DA3-PHYS-02`, DA3 and DT-069–DT-074 remain open. At that checkpoint explicit Human acceptance and
+a new separate exact-bound authorization remained mandatory before another run; Section 28 records
+the later acceptance without execution authority. Production, production data, deployment,
+distribution, legal/privacy approval and DA4 productization remain separately gated.
+
+## 28. Progress Update – 2026-07-22 DA3-PHYS-02 Review Human Acceptance
+
+The Human Architect accepted exact review archive `030dbf6`, tree `8695708`, run `29942397982`
+12/12, and final Evidence sync `22ee463`, tree `3d70d5d`, run `29942786556` 12/12, as the binding
+DA3-PHYS-02 correction review basis. The acceptance explicitly granted no Physical Gate.
+
+This changes no readiness-domain rating, executable artifact or physical result. `DA3-PHYS-01`,
+`DA3-PHYS-02`, DA3 and DT-069–DT-074 remain open. A later complete fresh V5 run still requires a
+new separate exact-bound Human authorization. Installation, ADB/loopback, retry/resume,
+production, production data, deployment, distribution, legal/privacy approval and DA4
+productization remain unauthorized or separately gated.

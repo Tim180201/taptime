@@ -115,5 +115,20 @@ This independent review was archived through ADO-only publication
 `8695708f82ed98a068338ac33029151ee349f1d6`, parent `53ec139`, with exactly 12 ADO Markdown files
 and `+248/-21`. Exact-head GitHub Actions run `29942397982`, attempt 1, passed all 12 jobs.
 
-The publication changes no review verdict, product behavior, artifact or physical evidence. Human
-acceptance and a new separate exact-bound run authorization remain outstanding.
+The publication changes no review verdict, product behavior, artifact or physical evidence. At
+that publication checkpoint, Human acceptance and a new separate exact-bound run authorization
+remained outstanding.
+
+## 10. Human acceptance
+
+The Human Architect subsequently accepted this review archive at exact commit
+`030dbf6f44a7f6c03adc089b1a2f8dae73c114eb`, tree
+`8695708f82ed98a068338ac33029151ee349f1d6`, run `29942397982` 12/12, and the final Evidence sync
+at `22ee4636b1fec83b0693fdb6f688d3191cfa04ee`, tree
+`3d70d5dd4d2cb5257fbcf3374d82485981f8f763`, run `29942786556` 12/12, as the binding review basis.
+
+The Human Architect explicitly granted no Physical Gate. The review acceptance therefore creates
+no run, installation, ADB, retry/resume or other execution authority. `DA3-PHYS-01`,
+`DA3-PHYS-02`, DA3 and DT-069–DT-074 remain open. A later complete fresh V5 run still requires a
+new separate exact-bound Human authorization; production, production data, deployment and
+distribution remain unauthorized.

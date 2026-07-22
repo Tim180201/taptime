@@ -199,8 +199,9 @@ creation and leaves the exact two-receipt/four-audit invariant unchanged. Focuse
 exact-delta re-review of correction plus Evidence sync `53ec139`/tree `9963960` and run
 `29941415806` returned `APPROVED FOR DA3-PHYS-02 ADO CORRECTION` with no open P0–P3 review
 findings. Review archive `030dbf6`, tree `8695708`, passed exact-head run `29942397982`, attempt 1,
-12/12. Explicit Human acceptance and a new separate exact-bound Human authorization remain
-required before any run.
+12/12; final Evidence sync `22ee463`, tree `3d70d5d`, passed run `29942786556` 12/12. The Human
+Architect accepted both exact records as the binding review basis and explicitly granted no
+Physical Gate. A new separate exact-bound Human authorization remains required before any run.
 
 This file is the official navigation entry point for the TapTim.e ADO.
 
@@ -327,7 +328,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Development Assignment 1 Human-Accepted Complete Offline Synchronization Contract and Repository Authorization | `ADO/02_Development/Development_Assignment_01_Complete_Offline_Synchronization_Authorization.md` |
 | Development Assignment 1 Complete Offline Synchronization Implementation Plan | `ADO/02_Development/Development_Assignment_01_Complete_Offline_Synchronization_Implementation_Plan.md` |
 | Development Assignment 2 Setup and Export Backend Authorization — DA2 and DT-063–DT-068 closed for authorized local scopes after independent zero-finding review and closure-publication CI 11/11 | `ADO/02_Development/Development_Assignment_02_Setup_And_Export_Backend_Authorization.md` |
-| Development Assignment 3 Correction and Append-only Audit Authorization — `DA3-PHYS-02` focused ADO correction independently approved/CI-green; Human acceptance and new exact-bound authority required; new run unauthorized | `ADO/02_Development/Development_Assignment_03_Correction_And_Append_Only_Audit_Authorization.md` |
+| Development Assignment 3 Correction and Append-only Audit Authorization — `DA3-PHYS-02` focused ADO correction independently approved/CI-green and Human-accepted; new exact-bound authority required; new run unauthorized | `ADO/02_Development/Development_Assignment_03_Correction_And_Append_Only_Audit_Authorization.md` |
 | Block C3 Organization Administration Implementation Plan | `ADO/02_Development/Block_C3_Organization_Administration_Implementation_Plan.md` |
 | Repository Health Sprint 001 | `ADO/02_Development/Repository_Health_Sprint_001.md` |
 | Repository Maintenance Sprint 002 | `ADO/02_Development/Repository_Maintenance_Sprint_002.md` |
@@ -346,7 +347,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Document | Location |
 |---|---|
 | Development Assignment 1 Gate-C Response-Drop Runbook | `ADO/04_Operations/Development_Assignment_01_Gate_C_Response_Drop_Runbook.md` |
-| Development Assignment 3 V5 Human Functional/Physical Gate Runbook — focused Seed-Customer correction independently approved/CI-green; Human acceptance and new authority required | `ADO/04_Operations/Development_Assignment_03_V5_Runbook.md` |
+| Development Assignment 3 V5 Human Functional/Physical Gate Runbook — focused Seed-Customer correction independently approved/CI-green and Human-accepted; new authority required; no run authorized | `ADO/04_Operations/Development_Assignment_03_V5_Runbook.md` |
 
 ## Evidence
 
@@ -396,7 +397,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Development Assignment 3 DA3-PHYS-01 Operational Reinstall Correction Evidence — Human-selected ADO-only R3 correction independently approved; later replacement failed before reaching it | `ADO/05_Evidence/Development_Assignment_03_DA3_PHYS_01_Operational_Reinstall_Correction_Evidence.md` |
 | Development Assignment 3 DA3-PHYS-01 Operational Reinstall Independent Review — historical correction `APPROVED`, zero P0–P3; later replacement failed at `DA3-PHYS-02` before corrected boundary | `ADO/05_Evidence/Development_Assignment_03_DA3_PHYS_01_Operational_Reinstall_Independent_Review.md` |
 | Development Assignment 3 DA3-PHYS-02 Replacement-Failure Independent Review — `APPROVED FOR FAILURE SYNCHRONIZATION AND DA3-PHYS-02 CORRECTION CANDIDATE`, zero open P0–P3 | `ADO/05_Evidence/Development_Assignment_03_DA3_PHYS_02_Replacement_Failure_Independent_Review.md` |
-| Development Assignment 3 DA3-PHYS-02 Correction Independent Exact-Delta Review — `APPROVED FOR DA3-PHYS-02 ADO CORRECTION`, zero open P0–P3; new run remains Human-gated | `ADO/05_Evidence/Development_Assignment_03_DA3_PHYS_02_Correction_Independent_Exact_Delta_Review.md` |
+| Development Assignment 3 DA3-PHYS-02 Correction Independent Exact-Delta Review — `APPROVED FOR DA3-PHYS-02 ADO CORRECTION`, zero open P0–P3 and Human-accepted; new run remains Human-gated | `ADO/05_Evidence/Development_Assignment_03_DA3_PHYS_02_Correction_Independent_Exact_Delta_Review.md` |
 | Development Assignment 1 DA1-PHYS-01 Independent Exact-Delta Review — approved, finding closed | `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_01_Independent_Exact_Delta_Review.md` |
 | Development Assignment 1 DA1-PHYS-02 Independent Exact-Delta Review — approved, repository finding closed | `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_02_Independent_Exact_Delta_Review.md` |
 | Development Assignment 1 DA1-PHYS-03 Independent Exact-Delta Review — approved, repository finding closed | `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_03_Independent_Exact_Delta_Review.md` |

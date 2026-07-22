@@ -217,8 +217,8 @@ four-audit assertion.
 This changes no implementation source, schema, dependency, harness, product rule, APK or historical
 test evidence. Focused ADO publication `4d54dc2`, tree `ad9b6ba`, passed exact-head run
 `29941019865`, attempt 1, 12/12. `DA3-PHYS-01` and `DA3-PHYS-02` remain open. Section 12 records
-the later independently approved and CI-green review archive; explicit Human acceptance and a new
-separate Human authorization remain mandatory before any new run.
+the later independently approved and CI-green review archive; at that checkpoint explicit Human
+acceptance and a new separate Human authorization remained mandatory before any new run.
 Archived review:
 `ADO/05_Evidence/Development_Assignment_03_DA3_PHYS_02_Replacement_Failure_Independent_Review.md`.
 
@@ -232,5 +232,15 @@ setup wording and unchanged receipt/audit invariant. Verdict:
 
 Review archive `030dbf6`, tree `8695708`, passed exact-head run `29942397982`, attempt 1, 12/12.
 No implementation evidence changed and no executable authority follows. `DA3-PHYS-01`,
-`DA3-PHYS-02`, DA3 and DT-069–DT-074 remain open. Explicit Human acceptance and a new exact-bound
-run authorization remain required.
+`DA3-PHYS-02`, DA3 and DT-069–DT-074 remain open. At that checkpoint explicit Human acceptance and
+a new exact-bound run authorization remained required; Section 13 records the later acceptance
+without execution authority.
+
+## 13. Human acceptance of the DA3-PHYS-02 correction review — 2026-07-22
+
+The Human Architect accepted review archive `030dbf6`/tree `8695708`/run `29942397982` 12/12 and
+final Evidence sync `22ee463`/tree `3d70d5d`/run `29942786556` 12/12 as the binding review basis.
+This changes no implementation source, schema, dependency, artifact, historical test evidence or
+physical observation. It grants no Physical Gate, installation, ADB, retry/resume, production,
+production-data, deployment or distribution authority. `DA3-PHYS-01`, `DA3-PHYS-02`, DA3 and
+DT-069–DT-074 remain open; a later V5 run still requires new separate exact-bound Human authority.
