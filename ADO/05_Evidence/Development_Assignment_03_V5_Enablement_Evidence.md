@@ -1,12 +1,16 @@
 # Development Assignment 3 — V5 Enablement Evidence
 
-- Status: **PRODUCT CANDIDATE PUBLISHED/CI 12/12; READ-ONLY APK BOUND; V4 INDEPENDENT REVIEW PENDING; PHYSICAL GATE NOT AUTHORIZED**
+- Status: **AVS V0–V4 COMPLETE; INDEPENDENT REVIEW APPROVED WITH ZERO OPEN P0–P3; PHYSICAL GATE NOT AUTHORIZED**
 - Date: 2026-07-22
 - Authorized enablement baseline commit: `0b0d04034c88829fdc5c548b057e74554d4ee197`
 - Authorized enablement baseline tree: `eee26501fd714738aa3ca106d93d5088261206e3`
 - Product candidate commit: `6eb68a3b4f9567600e12ec5a4f4b72ca4da99dca`
 - Product candidate tree: `bb8564fd0911d2b32dccb776f4a3f938621ee052`
 - Product candidate CI: GitHub Actions run `29927309720`, attempt 1, **12/12 successful**
+- Evidence-sync commit/tree: `f4e2eeb3bb47ed1dd3b2f0cf10fd0f725650d6ba`,
+  `20e5715c448331f5d99536259743dccc7005dffb`
+- Evidence-sync CI: GitHub Actions run `29928717227`, attempt 1, **12/12 successful**
+- Independent V5 enablement review: **APPROVED — ZERO OPEN P0/P1/P2/P3**
 - Risk class: AVS-001 **R3**
 - Owner: Technical Lead
 - Authorized: focused local DA3 V5 harness/runbook enablement, DA3-V5-F01 correction, regression
@@ -29,7 +33,9 @@ review `APPROVED` with zero open P0–P3. The enablement starts from later revie
 
 The focused product candidate was published as `6eb68a3`, tree `bb8564f`, and its exact-head
 GitHub Actions run `29927309720`, attempt 1, passed all 12 jobs. This publication and its artifact
-do not complete V4 until the exact product/evidence heads pass independent review.
+were synchronized at Evidence head `f4e2eeb`, tree `20e5715`, whose exact-head run `29928717227`,
+attempt 1, also passed all 12 jobs. Independent exact-SHA review then returned `APPROVED` with zero
+open P0/P1/P2/P3 and independently confirmed the product/Evidence/CI/artifact bindings.
 
 Untracked user-owned `app.json` and `research/` were preserved. `research/` was not read, listed,
 searched or changed.
@@ -137,6 +143,16 @@ CSV shape, role, pool or export range semantics changed.
   The isolated build worktree and its intermediate files were removed after the bound artifact
   was copied and reverified. Pre-existing workspace and user files were not removed.
 
+### Independent exact-SHA review
+
+The independent read-only review bound baseline `0b0d040`/tree `eee2650`, product
+`6eb68a3`/tree `bb8564f`, Evidence `f4e2eeb`/tree `20e5715`, both 12/12 CI runs and the exact
+read-only artifact/manifest. It independently traced DA3-V5-F01, least-privilege harness roles and
+cleanup, safe status counts, real correction/adjudication/export coverage, retain/clear runbook
+semantics, artifact package/signature/manifest and Hermes completeness. Verdict: **APPROVED** with
+zero open P0/P1/P2/P3. Full record:
+`ADO/05_Evidence/Development_Assignment_03_Independent_V5_Enablement_Review.md`.
+
 ### AVS completion state
 
 | Level | State | Evidence |
@@ -145,12 +161,11 @@ CSV shape, role, pool or export range semantics changed.
 | V1 | Passed | focused API 12/12; real PostgreSQL harness 46/46 with zero skips; affected tests-inclusive typechecks and builds |
 | V2 | Passed | complete schema 128, review 10, export 14, API 224, offline 13, Admin Web 52 and Mobile 421 suites plus affected contracts/harness |
 | V3 | Passed | 1,758 tests across all 19 workspaces, two explicit optional B1 skips, all 19 typechecks/builds, migration clean/replay/ledger, Admin Web build, Android export, audit and cleanup |
-| V4 | Pending independent review | product candidate `6eb68a3`/tree `bb8564f` published; exact-head run `29927309720` passed 12/12; read-only APK and manifest bound above; exact product/evidence-head independent review remains mandatory |
+| V4 | Passed | product `6eb68a3`/tree `bb8564f` and Evidence `f4e2eeb`/tree `20e5715`; exact-head runs `29927309720` and `29928717227` passed 12/12; read-only APK/manifest bound; independent exact-SHA review `APPROVED` with zero open P0–P3 |
 | V5 | **Not authorized** | a later separate exact-artifact-bound Human authorization is mandatory |
 
-No failed or skipped run is counted as successful candidate evidence. The independent review must
-bind the exact product candidate above plus the eventual ADO evidence-sync commit/tree and its
-exact-head CI result.
+No failed or skipped run is counted as successful candidate evidence. The independent review bound
+the exact product and Evidence heads plus both exact-head CI results and the immutable artifact.
 
 The V3 total is the sum of the independently reported workspace results: administration contract
 4; Core 290; offline contract 7; export contract 10; review contract 5; Admin Web 52; backend
@@ -170,13 +185,14 @@ by the harness.
 
 - The new physical procedure remains unexecuted; automated evidence cannot substitute for Human
   Web/Android/NFC observations.
-- The exact APK is bound to the committed, CI-green product candidate, but the product/evidence
-  heads and artifact have not yet passed independent exact-SHA review.
+- The exact APK is bound to the committed, CI-green and independently approved product/Evidence
+  heads, but its integrity must be recomputed immediately before any later authorized run.
 - The APK uses the expected local synthetic debug signer and is unsuitable for distribution.
 - Eleven existing moderate Expo/Xcode toolchain advisories remain separately disclosed; no known
   high or critical advisory is accepted silently.
 - DA3 and DT-069–DT-074 remain open. This candidate does not close a roadmap item.
 
-The enablement stops after V4 and independent review. Even an `APPROVED` review does not authorize
-the Physical Gate. The next step after approval is a new Human decision quoting the exact approved
-source/ADO/CI/artifact bindings and explicitly authorizing one fresh run of the V5 runbook.
+The authorized enablement has reached its V4 and independent-review stop. The `APPROVED` review
+does not authorize the Physical Gate. The next step is a new Human decision quoting the exact
+approved source/Evidence/review-publication/CI/artifact bindings and explicitly authorizing one
+fresh run of the V5 runbook.

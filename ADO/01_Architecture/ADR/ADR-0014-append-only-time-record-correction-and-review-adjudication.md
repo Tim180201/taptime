@@ -1,13 +1,13 @@
 # ADR-0014: Append-only Time-Record Correction and Human Review Adjudication
 
-- Status: **HUMAN-ACCEPTED; IMPLEMENTATION `0f71aca` INDEPENDENTLY APPROVED WITH ZERO OPEN P0–P3; HUMAN V5 DISPOSITION PENDING**
+- Status: **HUMAN-ACCEPTED; IMPLEMENTATION AND V5 ENABLEMENT INDEPENDENTLY APPROVED WITH ZERO OPEN P0–P3; PHYSICAL GATE NOT AUTHORIZED**
 - Date: 2026-07-21
 - Owner: Technical Lead
 - Decision authority: Human Architect
 - Accepted/authorized baseline commit: `ff68f7a7d0ce69a65e88846ae1cca9abd5951f5d`
 - Accepted/authorized baseline tree: `09ef169a68bb53420e07b6f3fcbbdc74e0c01d57`
 - Applies to: Development Assignment 3; DT-069–DT-074 authorized local implementation scope,
-  still open pending V4/review/closure
+  still open pending separate Physical Gate disposition/execution and closure
 - Risk class: AVS-001 **R3**
 - Supersedes: nothing
 - Amends on acceptance: ADR-0012 review-adjudication continuation and ADR-0013 export-value semantics only as stated in DA3-P12

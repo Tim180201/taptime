@@ -619,7 +619,8 @@ Backend API export adapter. The Human Architect separately authorized its focuse
 adapter correction and regression tests on the same baseline.
 
 The candidate composes real export/review coordinators in the disposable harness and defines the
-future correction/export plus Android marker retain/clear procedure. Verification and independent
-review remain in progress. The physical run itself is not authorized, and DA3/DT-069–DT-074 remain
-open. Production, production data, deployment, distribution, legal/privacy approval and DA4
-productization remain separately gated.
+future correction/export plus Android marker retain/clear procedure. Product `6eb68a3` and Evidence
+`f4e2eeb` each passed exact-head CI 12/12; independent exact-SHA V5 review returned `APPROVED` with
+zero open P0–P3 and confirmed the bound read-only APK. The physical run itself is not authorized,
+and DA3/DT-069–DT-074 remain open. Production, production data, deployment, distribution,
+legal/privacy approval and DA4 productization remain separately gated.

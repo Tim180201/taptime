@@ -436,7 +436,9 @@ approval, production, production data, deployment or distribution.
 
 The Human Architect separately authorized focused local V5 enablement and DA3-V5-F01 on exact
 review-synchronized baseline `0b0d040`, tree `eee2650`, including harness, runbook, AVS V0–V4 and
-independent review. The candidate is in verification and does not yet close DA3 or DT-069–DT-074.
+independent review. Product `6eb68a3` and Evidence `f4e2eeb` each passed exact-head CI 12/12;
+independent exact-SHA V5 review returned `APPROVED` with zero open P0–P3 and confirmed the bound
+read-only APK. This does not close DA3 or DT-069–DT-074.
 
 This preparation changes no readiness-domain rating. The actual Human Physical Gate remains closed
 until a later exact-source/ADO/CI/artifact-bound authorization after independent approval.

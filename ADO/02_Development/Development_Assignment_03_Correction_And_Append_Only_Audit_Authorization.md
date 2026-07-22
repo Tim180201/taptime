@@ -1,6 +1,6 @@
 # Development Assignment 3 — Correction and Append-only Audit Authorization
 
-- Status: **IMPLEMENTATION `0f71aca` INDEPENDENTLY APPROVED; V5 CANDIDATE `6eb68a3` CI 12/12/APK BOUND, INDEPENDENT REVIEW PENDING; PHYSICAL GATE NOT AUTHORIZED**
+- Status: **IMPLEMENTATION AND V5 ENABLEMENT INDEPENDENTLY APPROVED WITH ZERO OPEN P0–P3; PHYSICAL GATE NOT AUTHORIZED**
 - Date: 2026-07-21
 - Accepted/authorized baseline commit: `ff68f7a7d0ce69a65e88846ae1cca9abd5951f5d`
 - Accepted/authorized baseline tree: `09ef169a68bb53420e07b6f3fcbbdc74e0c01d57`
@@ -12,7 +12,7 @@
 - Accepted architecture:
   `ADO/01_Architecture/ADR/ADR-0014-append-only-time-record-correction-and-review-adjudication.md`
 - Roadmap scope: Development Assignment 3; DT-069–DT-074 authorized local implementation scope,
-  still open pending V5-enablement V4/review, separate physical disposition and closure
+  still open pending separate Physical Gate authorization/execution, disposition and closure
 - Risk class: AVS-001 **R3**
 - Implementation authority: **GRANTED FOR WORKSTREAMS A–D AND AVS V0–V4 ON THE EXACT BASELINE ABOVE**
 - Explicitly excluded authority: **production, production data, deployment, distribution and Physical Gate**
@@ -21,6 +21,7 @@
   `eee26501fd714738aa3ca106d93d5088261206e3`
 - Focused V5-enablement authority: **GRANTED FOR LOCAL HARNESS, RUNBOOK, DA3-V5-F01,
   REGRESSION TESTS, AVS V0–V4 AND INDEPENDENT REVIEW ONLY**
+- Focused V5-enablement review: **APPROVED — ZERO OPEN P0/P1/P2/P3**
 
 ## 1. Authorized objective
 
@@ -186,7 +187,8 @@ Expected protected or unchanged behavior:
 - Current verification: DA3 implementation AVS V0–V4 complete; implementation/evidence exact-head
   CI 12/12; independent exact-SHA review `APPROVED` with zero open P0–P3. Focused V5 product
   candidate `6eb68a3`, tree `bb8564f`, passed exact-head CI 12/12 and has a bound read-only
-  synthetic APK; independent V5 review remains open and the physical run remains separately gated.
+  synthetic APK. Evidence head `f4e2eeb`, tree `20e5715`, passed exact-head CI 12/12; independent
+  V5 review returned `APPROVED` with zero open P0–P3. The physical run remains separately gated.
 - Carried evidence: DA1/DA2 closure and their exact CI/review bindings remain evidence for their
   unchanged foundations; they are not DA3 correctness evidence.
 - Excluded path: `research/` remains unread and untouched.
@@ -294,8 +296,9 @@ DA3 implementation may be technically approved only when:
 Focused local enablement preparation is separately authorized on `0b0d040`, including the harness,
 runbook, DA3-V5-F01 correction, AVS V0–V4 and independent review. The Human functional/physical run
 itself remains unauthorized. A later separate authorization SHALL bind exact independently approved
-product/ADO/CI/artifacts and prove the minimal Administrator Web correction/adjudication/export flow
-plus Android review-marker clear/retain behavior. It cannot use production data or replace V2–V4.
+product/Evidence/review-publication/CI/artifacts and prove the minimal Administrator Web
+correction/adjudication/export flow plus Android review-marker clear/retain behavior. It cannot use
+production data or replace V2–V4.
 
 ## 10. Explicit non-goals
 
@@ -343,7 +346,9 @@ P0/P1/P2/P3. The reviewer recommended retaining V5. The Human Architect subseque
 only its focused local enablement preparation on `0b0d040`, tree `eee2650`, and then separately
 authorized DA3-V5-F01 on the same baseline. Product candidate `6eb68a3`, tree `bb8564f`, passed
 exact-head run `29927309720` 12/12 and has a bound read-only synthetic APK. Independent exact-SHA
-V5 review remains mandatory before the Human Architect may separately authorize a physical run.
+V5 review bound Evidence head `f4e2eeb`, tree `20e5715`, and run `29928717227` 12/12 and returned
+`APPROVED` with zero open P0/P1/P2/P3. The Human Architect may now separately decide whether to
+authorize one exact-bound physical run; no such authorization is inferred here.
 Physical Gate, production, production data, deployment and distribution remain **NOT AUTHORIZED**.
 
 ## 12. Independent pre-implementation review mandate

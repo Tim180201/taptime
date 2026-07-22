@@ -169,10 +169,10 @@ Android export and exact-head run `29859522776` 12/12. Independent exact-SHA imp
 returned `APPROVED` with zero open P0–P3. The Human Architect subsequently authorized focused local
 V5 enablement preparation and DA3-V5-F01 on exact baseline `0b0d040`, tree `eee2650`, including
 harness, runbook, AVS V0–V4 and independent review. Product candidate `6eb68a3`, tree `bb8564f`,
-passed exact-head run `29927309720` 12/12 and has a bound read-only synthetic APK; independent V5
-review remains pending. The physical run and DT-069–DT-074 closure
-remain pending. Production, production data, deployment, distribution and Physical Gate remain
-unauthorized.
+passed exact-head run `29927309720` 12/12 and has a bound read-only synthetic APK. Evidence
+`f4e2eeb`, tree `20e5715`, passed run `29928717227` 12/12; independent exact-SHA V5 review returned
+`APPROVED` with zero open P0–P3. The physical run and DT-069–DT-074 closure remain pending.
+Production, production data, deployment, distribution and Physical Gate remain unauthorized.
 
 This file is the official navigation entry point for the TapTim.e ADO.
 
@@ -273,7 +273,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Technical Architecture Profile (TTAP-001) | `ADO/01_Architecture/Technical_Architecture_Profile.md` |
 | Development Task Profile | `ADO/01_Architecture/Development_Task_Profile.md` |
 | Official Technical Lead Start Prompt (TLP-001) | `ADO/01_Architecture/Technical_Lead_Start_Prompt.md` |
-| Architecture Decision Records (through Human-accepted ADR-0014; DA3 implementation independently approved; V5 candidate CI/APK bound, independent review pending, Physical Gate closed) | `ADO/01_Architecture/ADR/` |
+| Architecture Decision Records (through Human-accepted ADR-0014; DA3 implementation and V5 enablement independently approved; Physical Gate closed) | `ADO/01_Architecture/ADR/` |
 | Feature Blueprints (incl. FB-001, FB-002) | `ADO/01_Architecture/Feature_Blueprints/` |
 | Technical Specifications (incl. TS-001, TS-002) | `ADO/01_Architecture/Technical_Specifications/` |
 | Developer Implementation Manual (EP-008) | `ADO/01_Architecture/Developer_Implementation_Manual/` |
@@ -299,7 +299,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Development Assignment 1 Human-Accepted Complete Offline Synchronization Contract and Repository Authorization | `ADO/02_Development/Development_Assignment_01_Complete_Offline_Synchronization_Authorization.md` |
 | Development Assignment 1 Complete Offline Synchronization Implementation Plan | `ADO/02_Development/Development_Assignment_01_Complete_Offline_Synchronization_Implementation_Plan.md` |
 | Development Assignment 2 Setup and Export Backend Authorization — DA2 and DT-063–DT-068 closed for authorized local scopes after independent zero-finding review and closure-publication CI 11/11 | `ADO/02_Development/Development_Assignment_02_Setup_And_Export_Backend_Authorization.md` |
-| Development Assignment 3 Correction and Append-only Audit Authorization — implementation `0f71aca` independently approved; V5 candidate `6eb68a3` CI 12/12/APK bound; independent review pending; Physical Gate not authorized | `ADO/02_Development/Development_Assignment_03_Correction_And_Append_Only_Audit_Authorization.md` |
+| Development Assignment 3 Correction and Append-only Audit Authorization — implementation `0f71aca` and V5 candidate `6eb68a3` independently approved with zero open P0–P3; Physical Gate not authorized | `ADO/02_Development/Development_Assignment_03_Correction_And_Append_Only_Audit_Authorization.md` |
 | Block C3 Organization Administration Implementation Plan | `ADO/02_Development/Block_C3_Organization_Administration_Implementation_Plan.md` |
 | Repository Health Sprint 001 | `ADO/02_Development/Repository_Health_Sprint_001.md` |
 | Repository Maintenance Sprint 002 | `ADO/02_Development/Repository_Maintenance_Sprint_002.md` |
@@ -361,7 +361,8 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Development Assignment 3 Independent Pre-Implementation Review — ADO-only candidate approved for publication, zero open P0–P3; subsequently Human-accepted/authorized on exact published baseline | `ADO/05_Evidence/Development_Assignment_03_Independent_Pre_Implementation_Review.md` |
 | Development Assignment 3 Implementation Evidence — `0f71aca`/tree `e3e2ed7`, 1,757 local tests and exact-head CI 12/12 green; independent review approved | `ADO/05_Evidence/Development_Assignment_03_Implementation_Evidence.md` |
 | Development Assignment 3 Independent Implementation Review — `APPROVED`, zero open P0–P3; Human V5 disposition required before closure | `ADO/05_Evidence/Development_Assignment_03_Independent_Implementation_Review.md` |
-| Development Assignment 3 V5 Enablement Evidence — product candidate `6eb68a3` CI 12/12 and read-only APK bound; independent V4 review pending; Physical Gate not authorized | `ADO/05_Evidence/Development_Assignment_03_V5_Enablement_Evidence.md` |
+| Development Assignment 3 V5 Enablement Evidence — product `6eb68a3` and Evidence `f4e2eeb` CI 12/12, read-only APK bound, independent review approved; Physical Gate not authorized | `ADO/05_Evidence/Development_Assignment_03_V5_Enablement_Evidence.md` |
+| Development Assignment 3 Independent V5 Enablement Review — `APPROVED`, zero open P0–P3; separate exact-bound Human Physical Gate authorization required | `ADO/05_Evidence/Development_Assignment_03_Independent_V5_Enablement_Review.md` |
 | Development Assignment 1 DA1-PHYS-01 Independent Exact-Delta Review — approved, finding closed | `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_01_Independent_Exact_Delta_Review.md` |
 | Development Assignment 1 DA1-PHYS-02 Independent Exact-Delta Review — approved, repository finding closed | `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_02_Independent_Exact_Delta_Review.md` |
 | Development Assignment 1 DA1-PHYS-03 Independent Exact-Delta Review — approved, repository finding closed | `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_03_Independent_Exact_Delta_Review.md` |

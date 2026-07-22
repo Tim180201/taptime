@@ -160,5 +160,7 @@ After the independent implementation approval above, the Human Architect separat
 focused local V5 enablement and later DA3-V5-F01 on exact review-synchronized baseline `0b0d040`,
 tree `eee2650`. That later harness/runbook/correction candidate, its AVS V0–V4 ledger and its
 physical-run stop boundary are recorded in
-`ADO/05_Evidence/Development_Assignment_03_V5_Enablement_Evidence.md`. This addendum does not alter
-the historical implementation totals or authorize the Human Physical Gate.
+`ADO/05_Evidence/Development_Assignment_03_V5_Enablement_Evidence.md`. Product `6eb68a3` and
+Evidence `f4e2eeb` each passed exact-head CI 12/12; independent exact-SHA V5 review returned
+`APPROVED` with zero open P0–P3. This addendum does not alter the historical implementation totals
+or authorize the Human Physical Gate.

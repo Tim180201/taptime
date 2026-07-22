@@ -1,6 +1,6 @@
 # Development Assignment 3 — V5 Human Functional/Physical Gate Runbook
 
-Status: **LOCAL V5 ENABLEMENT CANDIDATE; PHYSICAL GATE NOT AUTHORIZED**
+Status: **LOCAL V5 ENABLEMENT INDEPENDENTLY APPROVED; PHYSICAL GATE NOT AUTHORIZED**
 Owner: Technical Lead
 Approval authority for any later physical run: Human Architect
 
