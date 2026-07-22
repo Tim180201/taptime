@@ -1,6 +1,6 @@
 # Development Assignment 3 — V5 Human Functional/Physical Gate Runbook
 
-Status: **DA3-PHYS-02 FOCUSED ADO-ONLY CORRECTION HUMAN-AUTHORIZED AND IMPLEMENTED; PUBLICATION/CI/INDEPENDENT RE-REVIEW REQUIRED; NO NEW RUN AUTHORIZED**
+Status: **DA3-PHYS-02 FOCUSED ADO-ONLY CORRECTION PUBLISHED AND EXACT-HEAD-CI GREEN; INDEPENDENT RE-REVIEW REQUIRED; NO NEW RUN AUTHORIZED**
 Owner: Technical Lead
 Approval authority for any later physical run: Human Architect
 
@@ -282,7 +282,9 @@ The Human Architect accepted that review and explicitly authorized the focused A
 now implemented in step 7: use the two seeded Customers, create no additional Customer and retain
 step 8's exact two-receipt/four-audit invariant.
 
-This correction changes no source, harness, schema, dependency, product rule or APK. Do not execute
-this runbook again until this exact ADO-only delta has been published, passed exact-head CI and
-independent exact-delta re-review, followed by a new separate Human authorization binding the final
+This correction changes no source, harness, schema, dependency, product rule or APK. It was
+published as `4d54dc2981759498de94571e2b2a4c6f134c88d5`, tree
+`ad9b6ba661dae7572a8b825fe1ceadac8c108b79`, and passed exact-head run `29941019865`, attempt 1,
+12/12. Do not execute this runbook again until this exact ADO-only delta has passed independent
+exact-delta re-review, followed by a new separate Human authorization binding the final
 publication/CI/artifact/device/tag/install/uninstall set.

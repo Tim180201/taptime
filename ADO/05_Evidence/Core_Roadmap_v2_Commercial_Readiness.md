@@ -664,9 +664,10 @@ Independent review of `abd58be3`/tree `b2cb210`/run `29939539390` approved the r
 synchronization and correction candidate with zero open P0–P3. The Human Architect accepted the
 review and authorized the focused ADO-only correction. The runbook now requires the two seeded
 Customers, prohibits additional Customer creation and preserves the exact two-receipt/four-audit
-invariant.
+invariant. Focused publication `4d54dc2`, tree `ad9b6ba`, passed exact-head run `29941019865`,
+attempt 1, 12/12.
 
 This changes no readiness-domain rating or executable artifact. `DA3-PHYS-01`, `DA3-PHYS-02`, DA3
-and DT-069–DT-074 remain open. Correction publication/CI, independent re-review and a new separate
-exact-bound Human authorization remain mandatory before another run. Production, production data,
-deployment, distribution, legal/privacy approval and DA4 productization remain separately gated.
+and DT-069–DT-074 remain open. Independent re-review and a new separate exact-bound Human
+authorization remain mandatory before another run. Production, production data, deployment,
+distribution, legal/privacy approval and DA4 productization remain separately gated.

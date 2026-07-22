@@ -1,6 +1,6 @@
 # Development Assignment 3 — V5 Enablement Evidence
 
-- Status: **V5 ENABLEMENT APPROVED; TWO RUNS FAILED CLOSED; DA3-PHYS-02 ADO CORRECTION HUMAN-AUTHORIZED/IMPLEMENTED; PUBLICATION/CI/RE-REVIEW PENDING; NEW RUN GATED**
+- Status: **V5 ENABLEMENT APPROVED; TWO RUNS FAILED CLOSED; DA3-PHYS-02 ADO CORRECTION PUBLISHED/EXACT-HEAD-CI GREEN; RE-REVIEW PENDING; NEW RUN GATED**
 - Date: 2026-07-22
 - Authorized enablement baseline commit: `0b0d04034c88829fdc5c548b057e74554d4ee197`
 - Authorized enablement baseline tree: `eee26501fd714738aa3ca106d93d5088261206e3`
@@ -269,5 +269,7 @@ The Human Architect accepted the review and authorized only the focused ADO corr
 review archival, truth synchronization, R0/V0, publication/CI and independent re-review. Runbook
 step 7 now requires exactly the two seeded Customers, creates no Customer, assigns Tag A/B to the
 first/second seed respectively and leaves step 8's exact two-receipt/four-audit requirement
-unchanged. No Product, harness, schema, dependency or artifact changes. `DA3-PHYS-01` and
-`DA3-PHYS-02` remain open; no new run is authorized.
+unchanged. Publication `4d54dc2`, tree `ad9b6ba`, passed exact-head run `29941019865`, attempt 1,
+12/12. No Product, harness, schema, dependency or artifact changes. `DA3-PHYS-01` and
+`DA3-PHYS-02` remain open; independent exact-delta re-review is pending and no new run is
+authorized.

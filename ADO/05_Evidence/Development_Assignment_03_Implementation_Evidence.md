@@ -215,7 +215,8 @@ the fresh harness, prohibits additional Customer creation and preserves the exac
 four-audit assertion.
 
 This changes no implementation source, schema, dependency, harness, product rule, APK or historical
-test evidence. `DA3-PHYS-01` and `DA3-PHYS-02` remain open. Focused ADO publication, exact-head CI,
-independent exact-delta re-review and a new separate Human authorization remain mandatory before
-any new run. Archived review:
+test evidence. Focused ADO publication `4d54dc2`, tree `ad9b6ba`, passed exact-head run
+`29941019865`, attempt 1, 12/12. `DA3-PHYS-01` and `DA3-PHYS-02` remain open. Independent
+exact-delta re-review and a new separate Human authorization remain mandatory before any new run.
+Archived review:
 `ADO/05_Evidence/Development_Assignment_03_DA3_PHYS_02_Replacement_Failure_Independent_Review.md`.

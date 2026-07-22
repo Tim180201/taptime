@@ -194,8 +194,9 @@ Independent review of failure synchronization `abd58be3`, tree `b2cb210`, and ex
 `29939539390` returned `APPROVED FOR FAILURE SYNCHRONIZATION AND DA3-PHYS-02 CORRECTION CANDIDATE`
 with zero open P0–P3. The Human Architect accepted the review and authorized the focused ADO-only
 correction. Runbook step 7 now uses exactly the two seeded Customers, prohibits additional Customer
-creation and leaves the exact two-receipt/four-audit invariant unchanged. Publication, exact-head
-CI and independent exact-delta re-review remain required before any new separately authorized run.
+creation and leaves the exact two-receipt/four-audit invariant unchanged. Focused publication
+`4d54dc2`, tree `ad9b6ba`, passed exact-head run `29941019865`, attempt 1, 12/12. Independent
+exact-delta re-review remains required before any new separately authorized run.
 
 This file is the official navigation entry point for the TapTim.e ADO.
 
@@ -322,7 +323,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Development Assignment 1 Human-Accepted Complete Offline Synchronization Contract and Repository Authorization | `ADO/02_Development/Development_Assignment_01_Complete_Offline_Synchronization_Authorization.md` |
 | Development Assignment 1 Complete Offline Synchronization Implementation Plan | `ADO/02_Development/Development_Assignment_01_Complete_Offline_Synchronization_Implementation_Plan.md` |
 | Development Assignment 2 Setup and Export Backend Authorization — DA2 and DT-063–DT-068 closed for authorized local scopes after independent zero-finding review and closure-publication CI 11/11 | `ADO/02_Development/Development_Assignment_02_Setup_And_Export_Backend_Authorization.md` |
-| Development Assignment 3 Correction and Append-only Audit Authorization — `DA3-PHYS-02` focused ADO correction Human-authorized/implemented; publication/CI/re-review pending; new run unauthorized | `ADO/02_Development/Development_Assignment_03_Correction_And_Append_Only_Audit_Authorization.md` |
+| Development Assignment 3 Correction and Append-only Audit Authorization — `DA3-PHYS-02` focused ADO correction published/CI-green; re-review pending; new run unauthorized | `ADO/02_Development/Development_Assignment_03_Correction_And_Append_Only_Audit_Authorization.md` |
 | Block C3 Organization Administration Implementation Plan | `ADO/02_Development/Block_C3_Organization_Administration_Implementation_Plan.md` |
 | Repository Health Sprint 001 | `ADO/02_Development/Repository_Health_Sprint_001.md` |
 | Repository Maintenance Sprint 002 | `ADO/02_Development/Repository_Maintenance_Sprint_002.md` |
@@ -341,7 +342,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Document | Location |
 |---|---|
 | Development Assignment 1 Gate-C Response-Drop Runbook | `ADO/04_Operations/Development_Assignment_01_Gate_C_Response_Drop_Runbook.md` |
-| Development Assignment 3 V5 Human Functional/Physical Gate Runbook — focused Seed-Customer correction Human-authorized/implemented; publication/CI/re-review and new authority required | `ADO/04_Operations/Development_Assignment_03_V5_Runbook.md` |
+| Development Assignment 3 V5 Human Functional/Physical Gate Runbook — focused Seed-Customer correction published/CI-green; re-review and new authority required | `ADO/04_Operations/Development_Assignment_03_V5_Runbook.md` |
 
 ## Evidence
 

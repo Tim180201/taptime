@@ -1,6 +1,6 @@
 # Development Assignment 3 — V5 Physical Validation Evidence
 
-- Status: **FIRST AND REPLACEMENT RUNS FAILED CLOSED; FAILURE SYNC APPROVED; DA3-PHYS-02 ADO CORRECTION HUMAN-AUTHORIZED/IMPLEMENTED; BOTH P1 FINDINGS OPEN**
+- Status: **FIRST AND REPLACEMENT RUNS FAILED CLOSED; FAILURE SYNC APPROVED; DA3-PHYS-02 ADO CORRECTION PUBLISHED/EXACT-HEAD-CI GREEN; BOTH P1 FINDINGS OPEN**
 - Date: 2026-07-22
 - Owner: Technical Lead
 - Human observer and approval authority: Human Architect
@@ -341,5 +341,10 @@ Local V0 passed: exact authorized baseline/remote binding, complete staged-diff 
 scan and explicit confirmation of both seed names, the no-additional-Customer rule and unchanged
 two-receipt/four-audit requirement. Product suites, builds and Android export were intentionally not
 repeated because the delta is proven documentation-only; unchanged Product/correction CI and APK
-evidence are carried, not represented as freshly executed. Focused publication, exact-head CI and
-independent exact-delta re-review remain mandatory.
+evidence are carried, not represented as freshly executed.
+
+Focused publication `4d54dc2981759498de94571e2b2a4c6f134c88d5`, tree
+`ad9b6ba661dae7572a8b825fe1ceadac8c108b79`, parent `abd58be3`, contains exactly those 12 ADO
+Markdown files with `+309/-52`. Exact-head GitHub Actions run `29941019865`, attempt 1, passed all
+12 jobs. Independent exact-delta re-review remains mandatory. This publication/CI result closes no
+finding or DA3 task and grants no run authority.

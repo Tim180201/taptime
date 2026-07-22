@@ -485,12 +485,12 @@ Independent review approved the replacement-failure synchronization and narrow c
 candidate on `abd58be3`/tree `b2cb210`/run `29939539390` with zero P0–P3. The Human Architect
 accepted the review and authorized the ADO-only wording correction. Runbook step 7 now uses exactly
 the two seeded Customers, prohibits additional Customer creation and retains the exact
-two-receipt/four-audit invariant.
+two-receipt/four-audit invariant. Focused publication `4d54dc2`, tree `ad9b6ba`, passed exact-head
+run `29941019865`, attempt 1, 12/12.
 
-This changes no readiness-domain rating and closes no DA3 task. Publication/CI, independent
-re-review and new exact-bound Human authorization remain mandatory before another run. Production,
-production data, deployment, distribution, legal/privacy approval and DA4 productization remain
-separately gated.
+This changes no readiness-domain rating and closes no DA3 task. Independent re-review and new
+exact-bound Human authorization remain mandatory before another run. Production, production data,
+deployment, distribution, legal/privacy approval and DA4 productization remain separately gated.
 
 ## Revision Note (Technical Lead Review Follow-up, 2026-07-07)
 

@@ -1,6 +1,6 @@
 # Development Assignment 3 — Correction and Append-only Audit Authorization
 
-- Status: **DA3-PHYS-02 FAILURE SYNC INDEPENDENTLY APPROVED; FOCUSED ADO-ONLY CORRECTION HUMAN-AUTHORIZED/IMPLEMENTED; PUBLICATION/CI/RE-REVIEW PENDING; NEW RUN UNAUTHORIZED**
+- Status: **DA3-PHYS-02 FAILURE SYNC INDEPENDENTLY APPROVED; FOCUSED ADO-ONLY CORRECTION PUBLISHED/EXACT-HEAD-CI GREEN; RE-REVIEW PENDING; NEW RUN UNAUTHORIZED**
 - Date: 2026-07-21
 - Accepted/authorized baseline commit: `ff68f7a7d0ce69a65e88846ae1cca9abd5951f5d`
 - Accepted/authorized baseline tree: `09ef169a68bb53420e07b6f3fcbbdc74e0c01d57`
@@ -482,8 +482,10 @@ The Human Architect explicitly accepted that review on `abd58be3`/tree `b2cb210`
 - archival of the independent review and necessary ADO truth synchronization;
 - AVS R0/V0, focused publication, exact-head CI and independent exact-delta re-review.
 
-Runbook step 7 now implements exactly that boundary. No product code, schema, dependency, APK,
-retry, Physical Gate, production resource/data, deployment or distribution is authorized.
-`DA3-PHYS-01`, `DA3-PHYS-02`, DA3 and DT-069–DT-074 remain open. A later new run requires the
-published correction, green exact-head CI, independent re-review and a new separate exact-bound
-Human authorization.
+Runbook step 7 now implements exactly that boundary. Focused correction publication
+`4d54dc2981759498de94571e2b2a4c6f134c88d5`, tree
+`ad9b6ba661dae7572a8b825fe1ceadac8c108b79`, parent `abd58be3`, contains exactly 12 ADO Markdown
+files (`+309/-52`) and passed exact-head run `29941019865`, attempt 1, 12/12. No product code,
+schema, dependency, APK, retry, Physical Gate, production resource/data, deployment or distribution
+is authorized. `DA3-PHYS-01`, `DA3-PHYS-02`, DA3 and DT-069–DT-074 remain open. A later new run
+requires independent exact-delta re-review and a new separate exact-bound Human authorization.
