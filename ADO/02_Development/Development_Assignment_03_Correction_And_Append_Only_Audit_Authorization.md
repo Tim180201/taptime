@@ -418,3 +418,7 @@ No product identity-transition implementation, source/schema/dependency/workflow
 installation, replacement Physical Gate, production resource/data, deployment or distribution is
 authorized by this correction task. A later physical run requires its own exact-bound Human
 authorization after independent correction approval.
+
+The focused ADO-only correction was published as `f7a2b1e`, tree `a8caed6`, after local AVS
+V0–V3. Exact-head run `29935693909`, attempt 1, passed 12/12 and completed V4. Independent
+exact-delta review remains pending; no replacement-run authority exists.

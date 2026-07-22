@@ -1,6 +1,6 @@
 # Development Assignment 3 — DA3-PHYS-01 Operational Reinstall Correction Evidence
 
-- Status: **LOCAL R3 CORRECTION CANDIDATE; AVS V0–V3 PASSED; V4 AND INDEPENDENT REVIEW PENDING**
+- Status: **PUBLISHED R3 CORRECTION; AVS V0–V4 PASSED; INDEPENDENT REVIEW PENDING**
 - Date: 2026-07-22
 - Authorized baseline commit/tree:
   `f0c9db3d2fc8ed5fae3d54f147a696c56a79aec3`,
@@ -8,6 +8,10 @@
 - Product/artifact source remains:
   `6eb68a3b4f9567600e12ec5a4f4b72ca4da99dca`, tree
   `bb8564fd0911d2b32dccb776f4a3f938621ee052`
+- Correction publication commit/tree:
+  `f7a2b1e159bd4715c40e3ee32e99b76c70ca9e18`,
+  `a8caed6ebcc6f01c4b025b0b64da5be96130542a`
+- Correction exact-head CI: GitHub Actions run `29935693909`, attempt 1, **12/12 successful**
 - Risk class: AVS-001 **R3 — security/identity and Physical-Gate procedure**
 - Owner: Technical Lead
 - Physical Gate: **NOT AUTHORIZED**
@@ -79,7 +83,7 @@ This section is completed only from actually executed evidence. No pending row i
 | V1 | Passed | focused Mobile offline database/scheduling, exclusive NFC and Administrator setup: 4 files, 26/26; Mobile typecheck passed |
 | V2 | Passed | complete Mobile 421/421 and synthetic harness 46/46; exact runbook adversarial review; unchanged source/schema/dependency/workflow/artifact proof |
 | V3 | Passed | 1,758 tests across all 19 workspaces plus two disclosed optional B1 Supavisor skips; 19/19 typechecks; 18/18 applicable builds; Android export of 850 modules; PostgreSQL reruns/cleanup; artifact runtime/hash/mode revalidation; 11 moderate, zero high/critical advisories |
-| V4 | Pending | correction publication and complete exact-head GitHub Actions matrix |
+| V4 | Passed | correction `f7a2b1e`/tree `a8caed6`; exact-head GitHub Actions run `29935693909`, attempt 1, 12/12 successful |
 | Independent review | Pending | exact-delta review with P0–P3 disposition |
 | V5 | Not authorized | no ADB, installation, device interaction or physical observation |
 
@@ -110,7 +114,7 @@ installation, device interaction or V5 observation occurred.
 
 ## 5. Stop condition and next gate
 
-This candidate cannot close `DA3-PHYS-01` or make a replacement run eligible until V0–V4 and an
-independent review have passed. After that, a later complete fresh V5 run still requires a separate
+This publication cannot close `DA3-PHYS-01` or make a replacement run eligible until an independent
+review has passed. After that, a later complete fresh V5 run still requires a separate
 Human authorization explicitly naming both installations, the interim package-only uninstall,
 exact commits/trees/CI, immutable artifact, approved device and both approved synthetic tags.

@@ -176,6 +176,7 @@ Human authorization remain mandatory before any replacement physical run. Produc
 data, deployment and distribution remain unauthorized.
 
 The Human Architect subsequently selected and authorized the operational clean exact-artifact
-reinstall correction on exact baseline `f0c9db3`, tree `27cabe6`. Its ADO-only R3 candidate passes
-local AVS V0–V3 and awaits V4 plus independent exact-delta review. This changes no historical
-observation and does not authorize a replacement run.
+reinstall correction on exact baseline `f0c9db3`, tree `27cabe6`. Local AVS V0–V3 passed;
+publication `f7a2b1e`, tree `a8caed6`, passed exact-head run `29935693909` 12/12.
+Independent exact-delta review remains pending. This changes no historical observation and does not
+authorize a replacement run.

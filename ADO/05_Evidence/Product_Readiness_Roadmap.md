@@ -459,9 +459,10 @@ production data, deployment, distribution, legal/privacy approval and DA4 produc
 separately gated.
 
 The Human Architect subsequently selected the operational clean exact-artifact reinstall
-correction on `f0c9db3`/tree `27cabe6`. Its ADO-only R3 candidate passes local V0–V3; V4,
-independent review and a later exact-bound Human replacement-run authorization remain mandatory.
-This correction candidate changes no readiness-domain rating.
+correction on `f0c9db3`/tree `27cabe6`. Its ADO-only R3 publication `f7a2b1e`, tree `a8caed6`,
+passes AVS V0–V4, including exact-head run `29935693909` 12/12. Independent review and a later
+exact-bound Human replacement-run authorization remain mandatory. This correction changes no
+readiness-domain rating.
 
 ## Revision Note (Technical Lead Review Follow-up, 2026-07-07)
 

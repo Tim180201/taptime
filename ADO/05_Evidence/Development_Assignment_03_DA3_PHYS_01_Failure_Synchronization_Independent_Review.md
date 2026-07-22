@@ -105,3 +105,5 @@ operational clean exact-artifact reinstall boundary and authorized its focused i
 Runbook/Evidence, AVS V0–V4 and independent review on that exact baseline. The replacement Physical
 Gate remained separately unauthorized. Current correction evidence:
 `ADO/05_Evidence/Development_Assignment_03_DA3_PHYS_01_Operational_Reinstall_Correction_Evidence.md`.
+The ADO-only correction publication `f7a2b1e`, tree `a8caed6`, subsequently passed exact-head run
+`29935693909` 12/12; its independent exact-delta review remains pending.

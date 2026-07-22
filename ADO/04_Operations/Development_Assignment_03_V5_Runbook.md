@@ -1,6 +1,6 @@
 # Development Assignment 3 — V5 Human Functional/Physical Gate Runbook
 
-Status: **DA3-PHYS-01 OPERATIONAL CLEAN-REINSTALL CORRECTION CANDIDATE; INDEPENDENT REVIEW AND REPLACEMENT RUN PENDING**
+Status: **DA3-PHYS-01 OPERATIONAL CLEAN-REINSTALL CORRECTION V4 PASSED; INDEPENDENT REVIEW AND REPLACEMENT RUN PENDING**
 Owner: Technical Lead
 Approval authority for any later physical run: Human Architect
 
@@ -240,6 +240,10 @@ verified artifact into a new package state for Employee Gate A.
 
 Section 4.1 is not executable until this candidate has passed its complete authorized verification,
 exact-head CI and independent review with zero open P0–P3 findings, followed by a new separate
-Human authorization bound to the final source/ADO/CI/artifact/device/tag set. This candidate itself
+Human authorization bound to the final source/ADO/CI/artifact/device/tag set. This correction itself
 performs and authorizes no ADB command, installation, Physical Gate, production action, production
 data use, deployment or distribution.
+
+The correction is published at `f7a2b1e159bd4715c40e3ee32e99b76c70ca9e18`, tree
+`a8caed6ebcc6f01c4b025b0b64da5be96130542a`; exact-head GitHub Actions run `29935693909`, attempt
+1, passed 12/12 jobs. Independent correction review remains mandatory.
