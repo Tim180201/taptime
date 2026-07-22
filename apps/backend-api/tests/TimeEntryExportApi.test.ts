@@ -25,7 +25,7 @@ describe('DA2 TimeEntry export API', () => {
     const bytes = new TextEncoder().encode('\uFEFF"schema_version"\r\n');
     const exportTimeEntries = vi.fn<TimeEntryExporter['exportTimeEntries']>(async (command) => {
       expect(command.accessToken).toBe('aaa.bbb.ccc');
-      expect(command.request).toMatchObject(validBody);
+      expect(command.request).toEqual(validBody);
       expect(command.correlationId).toMatch(/^[0-9a-f-]{36}$/);
       return {
         status: 'succeeded',

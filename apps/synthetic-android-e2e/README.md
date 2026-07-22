@@ -3,12 +3,13 @@
 Status: strictly local, synthetic and non-production test infrastructure
 
 This Node-24 workspace runs the real C2/C3C HTTP router, B4 identity resolution, B5 tenant read
-model, B6 lifecycle coordinator, C3C administration coordinator, Core `BusinessEngine` and
-PostgreSQL migrations `001`–`009`. It composes C3E1 through two additional isolated invitation and
-redemption logins, two pre-existing reserved-domain provider identities without User/Binding/
-Membership rows and a strictly local pre-commit interruption control. The earlier C3D identities,
-physical setup path and retained one-shot Tag-A fixture-provisioning regression remain available.
-It is not a production Auth provider, backend deployment or Block-E synchronization implementation.
+model, B6 lifecycle coordinator, C3C administration coordinator, DA1 offline coordinators, DA2
+effective TimeEntry export, DA3 time review/correction, Core `BusinessEngine` and PostgreSQL
+migrations `001`–`012`. It composes C3E1 through two additional isolated invitation and redemption
+logins, two pre-existing reserved-domain provider identities without User/Binding/Membership rows
+and a strictly local pre-commit interruption control. The earlier C3D identities, physical setup
+path and retained one-shot Tag-A fixture-provisioning regression remain available. It is not a
+production Auth provider, backend deployment or production synchronization environment.
 
 ## Safety boundary
 
@@ -225,6 +226,18 @@ cleanup sequence are in
 `ADO/04_Operations/Development_Assignment_01_Gate_C_Response_Drop_Runbook.md`. This helper grants no
 physical-gate, production, deployment or distribution authority.
 
+## DA3 V5 candidate procedure
+
+The focused local V5 enablement composes the real DA3 read/write/export coordinators and exposes
+only sanitized aggregate Time Review evidence through `status`. The future operator sequence,
+artifact binding, abort rules and cleanup requirements are defined in
+`ADO/04_Operations/Development_Assignment_03_V5_Runbook.md`.
+
+That runbook and this harness are preparation only. They do not authorize a Human Physical Gate,
+an install on a device, production resources/data, deployment or distribution. A later physical
+run requires a separate Human-Architect authorization bound to independently approved exact source,
+ADO, CI and artifact hashes.
+
 ## Automated verification
 
 With the dedicated PostgreSQL URL set:
@@ -236,8 +249,11 @@ npm run build --workspace=@taptime/synthetic-android-e2e
 ```
 
 The integration suite uses the real Mobile email/password adapter, asymmetric tokens and the real
-C2/C3C/B4/B5/B6/Core paths. It proves separate Employee/Administrator authority, real Customer
-creation and atomic Tag provisioning, the legacy unassigned/provision/Start/Stop regression, exact
-role graphs, Administrator-RLS audit evidence and the absence of lifecycle mutation during setup.
-The separate credential-free latch suite proves eight-second autoabort, paused shutdown, safe-event
-callback isolation, pre-hook delegate-failure disarm, double-abort safety and single-attempt claiming.
+C2/C3C/B4/B5/B6/DA1/DA2/DA3/Core paths. It proves separate Employee/Administrator authority, real
+Customer creation and atomic Tag provisioning, the legacy unassigned/provision/Start/Stop
+regression, exact role graphs, Administrator-RLS audit evidence and the absence of lifecycle
+mutation during setup. It also proves the real stopped-record correction, effective CSV overlay,
+legacy review adjudication and append-only ledger/audit boundary over isolated least-privilege
+runtime logins. The separate credential-free latch suite proves eight-second autoabort, paused
+shutdown, safe-event callback isolation, pre-hook delegate-failure disarm, double-abort safety and
+single-attempt claiming.

@@ -432,6 +432,17 @@ implementation does not change a
 readiness-domain rating and does not authorize V5, Physical Gate, DA4 productization, legal/privacy
 approval, production, production data, deployment or distribution.
 
+## Addendum (2026-07-22 — Development Assignment 3 V5 Enablement)
+
+The Human Architect separately authorized focused local V5 enablement and DA3-V5-F01 on exact
+review-synchronized baseline `0b0d040`, tree `eee2650`, including harness, runbook, AVS V0–V4 and
+independent review. The candidate is in verification and does not yet close DA3 or DT-069–DT-074.
+
+This preparation changes no readiness-domain rating. The actual Human Physical Gate remains closed
+until a later exact-source/ADO/CI/artifact-bound authorization after independent approval.
+Production, production data, deployment, distribution, legal/privacy approval and DA4
+productization remain separately gated.
+
 ## Revision Note (Technical Lead Review Follow-up, 2026-07-07)
 
 This roadmap was updated once, after Technical Lead review, to: (1) add the "Strategic frame" paragraph above, connecting roadmap items to the companion assessment's Business Event Platform framing (Section 0.1) and capability hierarchy (Section 12); (2) organize every milestone's existing items into an Engineering Track, a Product Capability Track, and a Business, Legal & Go-To-Market Track, without adding, removing, or reprioritizing any item, and without moving any item to a different milestone; (3) note, within the Now and Before Pilot Customers milestones, the re-evaluated primary-bottleneck finding from the companion assessment's Section 11.1 (Organization Management as the more foundational blocker for reaching the first pilot, alongside — not instead of — the backend technology decision). No original roadmap item's wording, milestone assignment, or substance was changed; this revision only added track labels, short cross-reference notes, and this closing note.

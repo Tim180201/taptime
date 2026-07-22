@@ -153,3 +153,12 @@ browser or Mobile runtime dependency.
 - The independent reviewer recommends retaining V5. V5/Physical Gate remains separately
   unauthorized; this evidence neither executes nor authorizes it.
 - Production, production data, deployment and distribution remain unauthorized.
+
+## 7. Subsequent V5 enablement authorization — 2026-07-22
+
+After the independent implementation approval above, the Human Architect separately authorized
+focused local V5 enablement and later DA3-V5-F01 on exact review-synchronized baseline `0b0d040`,
+tree `eee2650`. That later harness/runbook/correction candidate, its AVS V0–V4 ledger and its
+physical-run stop boundary are recorded in
+`ADO/05_Evidence/Development_Assignment_03_V5_Enablement_Evidence.md`. This addendum does not alter
+the historical implementation totals or authorize the Human Physical Gate.

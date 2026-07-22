@@ -1,0 +1,145 @@
+# Development Assignment 3 — V5 Human Functional/Physical Gate Runbook
+
+Status: **LOCAL V5 ENABLEMENT CANDIDATE; PHYSICAL GATE NOT AUTHORIZED**
+Owner: Technical Lead
+Approval authority for any later physical run: Human Architect
+
+## 1. Purpose and authority boundary
+
+This runbook defines one focused, fresh Human observation of the already implemented DA3 boundary:
+
+1. an Administrator corrects one stopped canonical time record and exports the effective result;
+2. a real Android offline sequence creates two durable review items;
+3. partial adjudication retains the Mobile review marker; and
+4. complete exact-prefix adjudication lets authenticated Mobile reconciliation clear that marker.
+
+Preparation, local harness code, automated verification and artifact creation are authorized only
+for the exact enablement scope recorded in the DA3 V5 evidence. **This document does not authorize
+the Physical Gate itself**, an APK install, production resources/data, deployment or distribution.
+A later run requires a new, separate Human-Architect authorization bound to the independently
+approved exact source/ADO commits, trees, CI and immutable candidate artifacts.
+
+## 2. Fixed safety boundary
+
+- Use only numeric loopback, USB `adb reverse`, the disposable database named
+  `taptime_synthetic_android_e2e`, reserved `.invalid` identities and synthetic Customers/Tags.
+- Use exactly one Human-authorized USB Android device and exactly two Human-authorized synthetic
+  NFC tags. TCP/Wireless ADB, emulators, LAN, tunnels and cloud resources are prohibited.
+- Do not record passwords, tokens, invitation secrets, raw NFC UID/canonical payloads, provider
+  subjects, device serials, local encryption keys, internal UUIDs or real-person data.
+- Evidence is limited to exact repository/artifact bindings, public synthetic labels,
+  12-character validation fingerprints, safe UI states and aggregate counts.
+- A failed, interrupted or ambiguous observation invalidates the entire run. No observation or
+  database state from that run may be reused.
+- Do not use `research/` for preparation, execution or evidence.
+
+## 3. Mandatory exact binding before a later run
+
+Do not install or begin the gate until all of the following are recorded and independently checked:
+
+1. exact product commit/tree and exact ADO/review-synchronization commit/tree;
+2. complete green GitHub Actions matrix on every binding head required by the current R3 evidence;
+3. independent exact-SHA V5-enablement review with zero open P0–P3 findings;
+4. read-only APK path, byte size, SHA-256, package, version, signature scheme and signer digest;
+5. exact Admin Web and synthetic harness source/build binding;
+6. approved device model/OS/USB transport and the two approved synthetic tag fingerprints; and
+7. a separate Human authorization quoting those exact bindings and authorizing this fresh run.
+
+Any changed source, ADO, lockfile, CI result, artifact or required configuration invalidates the
+binding and requires fresh R3 verification, independent review and Human authorization.
+
+## 4. Local preflight after authorization
+
+1. Verify the checked-out commit/tree and clean tracked worktree against the authorization.
+2. Recompute every artifact property from the read-only candidate. Do not rebuild in place.
+3. Confirm exactly one USB device, NFC enabled, no pre-existing synthetic package and an empty
+   `adb reverse` table. Stop on any unrelated or unexpected mapping.
+4. Start the disposable PostgreSQL/Auth/API harness and loopback-only Admin Web exactly as described
+   in `apps/synthetic-android-e2e/README.md`.
+5. Install the exact authorized APK with the scoped helper and verify only the approved Auth/API
+   reverse mappings.
+6. Run `status`. Require zero lifecycle, correction, adjudication and export evidence before setup.
+7. Create two Customers and provision the two approved tags through the real Administrator Web /
+   Android setup paths. Record only labels, fingerprints and aggregate counts.
+
+## 5. Gate A — correction and effective export
+
+1. Sign in on Android as the synthetic Employee. Scan Tag A to start, wait at least six seconds,
+   scan Tag A again to stop, then sign out.
+2. Sign in to Admin Web as the synthetic Administrator and refresh. Require exactly one selectable
+   stopped canonical record in the current bounded window.
+3. Select it, enter a small past, non-overlapping replacement interval and the synthetic reason
+   `DA3 V5 correction observation`. Check the displayed before/after values, then use the explicit
+   second confirmation.
+4. Require the append-only success notice and revision increment. Refresh and require the corrected
+   values to persist.
+5. Export CSV through the real Web action. Require HTTP/UI success, the unchanged CSV-v1 columns
+   and formula-safe dialect, and the corrected effective timestamps exactly once. Do not record an
+   internal ID or the CSV body; record only the safe comparison result and file hash/size if needed.
+6. Run sanitized `status`. Require exactly one added time-record revision, one correction receipt,
+   one correction AuditEvent and one export audit, with no base WorkEvent/Decision mutation caused
+   by correction or export.
+
+Any active-record correction, missing second confirmation, stale/raw value in CSV, duplicate row,
+unexpected disclosure or count mismatch fails the complete gate.
+
+## 6. Gate B — create and retain a real review predecessor
+
+Use the DA1-proven historical cutover, starting from a clean offline queue and no review marker:
+
+1. Ensure Tag A has no active time record; start Tag B online so another target is active.
+2. Enter the valid cold offline state and capture Tag A once before cutover.
+3. While Android remains offline, use Admin Web to reassign Tag A explicitly to the second Customer.
+4. Capture stale Tag A once after cutover, then capture Tag B as the successor.
+5. Restore only the approved mappings/connectivity and allow automatic FIFO synchronization; do
+   not invoke a per-event retry.
+6. Require the three durable outcomes in order:
+   `active_entry_for_other_target_rejected`,
+   `review_pending/historical_configuration_not_valid`, then
+   `review_pending/predecessor_requires_review`.
+7. Require zero canonical Decision/TimeEntry mutation for both review-pending events. Mobile must
+   drain the queue yet display `Sichere Prüfung erforderlich`.
+8. Force-stop and cold relaunch. The same review-required state must persist.
+
+## 7. Gate C — partial retain, complete adjudication and exact Mobile clear
+
+1. Refresh Admin Web. Require the two review items in their server order and no local-only evidence.
+2. Adjudicate only the oldest item with `Keine Arbeitszeit ändern` and reason
+   `DA3 V5 partial prefix observation`; inspect and explicitly confirm the decision.
+3. Foreground/restart Android. Because one successor remains unresolved, Mobile must still display
+   `Sichere Prüfung erforderlich`; a ready state here fails the gate.
+4. Adjudicate the remaining oldest item with `Keine Arbeitszeit ändern` and reason
+   `DA3 V5 complete prefix observation`, again with explicit confirmation.
+5. Foreground authenticated Android. Require exact server high-water proof to clear the encrypted
+   marker and return to `Bereit zum Scannen`; do not clear app storage or reinstall.
+6. Force-stop and cold relaunch. Require `Bereit zum Scannen` to persist with an empty queue and no
+   review marker.
+7. Run sanitized `status`. Require exactly two append-only adjudications, two command receipts,
+   their exact summary AuditEvents, no unresolved predecessor, and no mutation/deletion of the
+   original offline reconciliation evidence.
+
+## 8. Evidence, abort and cleanup
+
+Record one fresh evidence section containing the exact authorization/bindings, each Gate result,
+safe aggregate before/after counts, disclosure result and cleanup result. Screenshots are optional
+and must contain no protected values.
+
+On any failure: stop interaction, preserve only disclosure-safe diagnostics, mark the whole run
+failed, and perform the same cleanup below. Do not repair or resume inside the failed run.
+
+Final cleanup is mandatory whether the run passes or fails:
+
+1. sign out Mobile and Admin Web; clear the Web password field and system clipboard;
+2. delete the downloaded synthetic CSV and any temporary screenshot after evidence extraction;
+3. stop Admin Web and the harness normally;
+4. run the scoped synthetic disconnect helper; never use `adb reverse --remove-all`;
+5. uninstall only `com.tim180201.mobile.synthetic`;
+6. confirm listener count zero on 3000, 3001, 5173 and 54321;
+7. confirm the approved reverse-mapping count and installed synthetic-package count are zero;
+8. confirm the synthetic schema/migration ledger and generated runtime-role counts are zero;
+9. confirm the tracked repository still matches the authorized head and report unrelated user
+   files only by path/status, never by content; and
+10. leave the pre-existing local PostgreSQL service and unrelated device/repository state intact.
+
+Only the Human Architect or an explicitly delegated tester may mark the later physical observation
+passed. Automated tests, CI, artifacts and this runbook alone do not pass V5 or close DA3.

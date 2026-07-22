@@ -20,6 +20,9 @@ const applicationRoles = [
   'taptime_offline_lease_issuer',
   'taptime_offline_event_ingestor',
   'taptime_offline_reconciliation_reader',
+  'taptime_time_exporter',
+  'taptime_time_review_reader',
+  'taptime_time_review_writer',
 ] as const;
 const migrationDirectory = fileURLToPath(new URL('../../backend-schema/migrations/', import.meta.url));
 
@@ -56,6 +59,18 @@ const runtimeRoleGraph = Object.freeze({
   [runtimeLogins.offlineReconciliation]: [
     'taptime_offline_reconciliation_reader',
   ],
+  [runtimeLogins.timeEntryExport]: [
+    'taptime_identity_resolver',
+    'taptime_time_exporter',
+  ],
+  [runtimeLogins.timeReviewRead]: [
+    'taptime_identity_resolver',
+    'taptime_time_review_reader',
+  ],
+  [runtimeLogins.timeReviewWrite]: [
+    'taptime_identity_resolver',
+    'taptime_time_review_writer',
+  ],
   [runtimeLogins.provisioner]: ['taptime_administrator'],
 } as const);
 
@@ -85,6 +100,14 @@ export interface SyntheticEmployeeEnrollmentEvidenceCounts {
   readonly identityBindings: number;
   readonly memberships: number;
   readonly users: number;
+}
+
+export interface SyntheticTimeReviewEvidenceCounts {
+  readonly reviewAdjudications: number;
+  readonly reviewPredecessorCursors: number;
+  readonly timeEntryExportAudits: number;
+  readonly timeRecordRevisions: number;
+  readonly timeReviewCommandReceipts: number;
 }
 
 export function validateSyntheticInstallerDatabaseUrl(value: string): URL {
@@ -140,6 +163,9 @@ export async function prepareSyntheticDatabase(
     offlineLease: randomBytes(32).toString('base64url'),
     offlineEvent: randomBytes(32).toString('base64url'),
     offlineReconciliation: randomBytes(32).toString('base64url'),
+    timeEntryExport: randomBytes(32).toString('base64url'),
+    timeReviewRead: randomBytes(32).toString('base64url'),
+    timeReviewWrite: randomBytes(32).toString('base64url'),
     provisioner: randomBytes(32).toString('base64url'),
   } as const;
   for (const [login, roles] of Object.entries(runtimeRoleGraph)) {
@@ -195,6 +221,21 @@ export async function prepareSyntheticDatabase(
         installerDatabaseUrl,
         runtimeLogins.offlineReconciliation,
         passwords.offlineReconciliation,
+      ),
+      timeEntryExport: runtimeConnectionString(
+        installerDatabaseUrl,
+        runtimeLogins.timeEntryExport,
+        passwords.timeEntryExport,
+      ),
+      timeReviewRead: runtimeConnectionString(
+        installerDatabaseUrl,
+        runtimeLogins.timeReviewRead,
+        passwords.timeReviewRead,
+      ),
+      timeReviewWrite: runtimeConnectionString(
+        installerDatabaseUrl,
+        runtimeLogins.timeReviewWrite,
+        passwords.timeReviewWrite,
       ),
       provisioner: runtimeConnectionString(
         installerDatabaseUrl,
@@ -272,6 +313,35 @@ export async function readSyntheticEmployeeEnrollmentEvidenceCounts(
     identityBindings: Number(row.identityBindings),
     memberships: Number(row.memberships),
     users: Number(row.users),
+  });
+}
+
+export async function readSyntheticTimeReviewEvidenceCounts(
+  pool: Pool,
+): Promise<SyntheticTimeReviewEvidenceCounts> {
+  const result = await pool.query<Record<keyof SyntheticTimeReviewEvidenceCounts, string>>(`
+    SELECT
+      (SELECT count(*)::text FROM ${B3_SCHEMA}.offline_review_adjudications)
+        AS "reviewAdjudications",
+      (SELECT count(*)::text FROM ${B3_SCHEMA}.offline_sync_cursors
+       WHERE review_predecessor_sequence IS NOT NULL) AS "reviewPredecessorCursors",
+      (SELECT count(*)::text FROM ${B3_SCHEMA}.audit_events
+       WHERE event_type = 'TimeEntryExportGenerated') AS "timeEntryExportAudits",
+      (SELECT count(*)::text FROM ${B3_SCHEMA}.time_record_revisions)
+        AS "timeRecordRevisions",
+      (SELECT count(*)::text FROM ${B3_SCHEMA}.time_review_command_receipts)
+        AS "timeReviewCommandReceipts"
+  `);
+  const row = result.rows[0];
+  if (row === undefined) {
+    throw new Error('Synthetic DA3 evidence query returned no result');
+  }
+  return Object.freeze({
+    reviewAdjudications: Number(row.reviewAdjudications),
+    reviewPredecessorCursors: Number(row.reviewPredecessorCursors),
+    timeEntryExportAudits: Number(row.timeEntryExportAudits),
+    timeRecordRevisions: Number(row.timeRecordRevisions),
+    timeReviewCommandReceipts: Number(row.timeReviewCommandReceipts),
   });
 }
 

@@ -20,6 +20,8 @@ import {
   OfflineLifecycleIngestionCoordinator,
 } from '@taptime/backend-offline-sync';
 import { TenantReadSessionCoordinator } from '@taptime/backend-read-model';
+import { TimeEntryExportCoordinator } from '@taptime/backend-time-export';
+import { TimeReviewCoordinator } from '@taptime/backend-time-review';
 import { Pool } from 'pg';
 import {
   SYNTHETIC_ADMIN_AUTH_EMAIL,
@@ -33,8 +35,10 @@ import {
   prepareSyntheticDatabase,
   readSyntheticEmployeeEnrollmentEvidenceCounts,
   readSyntheticEvidenceCounts,
+  readSyntheticTimeReviewEvidenceCounts,
   type SyntheticEmployeeEnrollmentEvidenceCounts,
   type SyntheticEvidenceCounts,
+  type SyntheticTimeReviewEvidenceCounts,
 } from './database.js';
 import {
   FingerprintProvisioningScanContextResolver,
@@ -83,6 +87,7 @@ export interface SyntheticAndroidE2eEnvironment {
   redemptionInterruptionState(): SyntheticRedemptionInterruptionState;
   provisioningState(): 'armed' | 'disarmed' | 'provisioning';
   evidenceCounts(): Promise<SyntheticEvidenceCounts>;
+  timeReviewEvidenceCounts(): Promise<SyntheticTimeReviewEvidenceCounts>;
   close(): Promise<void>;
 }
 
@@ -105,6 +110,9 @@ export async function createSyntheticAndroidE2eEnvironment(
   let offlineLeasePool: Pool | null = null;
   let offlineEventPool: Pool | null = null;
   let offlineReconciliationPool: Pool | null = null;
+  let timeEntryExportPool: Pool | null = null;
+  let timeReviewReadPool: Pool | null = null;
+  let timeReviewWritePool: Pool | null = null;
   let provisionerPool: Pool | null = null;
   let redemptionInterruption: SyntheticRedemptionInterruptionController | null = null;
   let apiServer: ReturnType<typeof createBackendHttpServer> | null = null;
@@ -126,6 +134,9 @@ export async function createSyntheticAndroidE2eEnvironment(
     offlineLeasePool = createPool(database.connectionStrings.offlineLease);
     offlineEventPool = createPool(database.connectionStrings.offlineEvent);
     offlineReconciliationPool = createPool(database.connectionStrings.offlineReconciliation);
+    timeEntryExportPool = createPool(database.connectionStrings.timeEntryExport);
+    timeReviewReadPool = createPool(database.connectionStrings.timeReviewRead);
+    timeReviewWritePool = createPool(database.connectionStrings.timeReviewWrite);
     provisionerPool = createPool(database.connectionStrings.provisioner, 1);
 
     const verifier = SupabaseJwtAccessTokenVerifier.fromRemoteJwks({
@@ -180,25 +191,12 @@ export async function createSyntheticAndroidE2eEnvironment(
         administration: new AdminWriteSessionCoordinator(administrationPool, verifier),
         employeeEnrollment,
         tagReassignment: new NfcTagReassignmentCoordinator(reassignmentPool, verifier),
-        timeEntryExporter: {
-          async exportTimeEntries() {
-            return { status: 'service_unavailable' as const };
-          },
-        },
-        timeReview: {
-          async queryTimeRecords() {
-            return { status: 'unavailable' as const };
-          },
-          async correctTimeRecord() {
-            return { status: 'unavailable' as const };
-          },
-          async queryReviewItems() {
-            return { status: 'unavailable' as const };
-          },
-          async adjudicateReviewItems() {
-            return { status: 'unavailable' as const };
-          },
-        },
+        timeEntryExporter: new TimeEntryExportCoordinator(timeEntryExportPool, verifier),
+        timeReview: new TimeReviewCoordinator(
+          timeReviewReadPool,
+          timeReviewWritePool,
+          verifier,
+        ),
       },
       {
         onDiagnostic(diagnostic) {
@@ -251,6 +249,9 @@ export async function createSyntheticAndroidE2eEnvironment(
       offlineLeasePool,
       offlineEventPool,
       offlineReconciliationPool,
+      timeEntryExportPool,
+      timeReviewReadPool,
+      timeReviewWritePool,
       provisionerPool,
     ] as const;
     let closed = false;
@@ -276,6 +277,7 @@ export async function createSyntheticAndroidE2eEnvironment(
       redemptionInterruptionState: () => interruptionController.getState(),
       provisioningState: () => provisioningScanContext.getState(),
       evidenceCounts: () => readSyntheticEvidenceCounts(installerPool),
+      timeReviewEvidenceCounts: () => readSyntheticTimeReviewEvidenceCounts(installerPool),
       async close(): Promise<void> {
         if (closed) {
           return;
@@ -308,6 +310,9 @@ export async function createSyntheticAndroidE2eEnvironment(
       offlineLeasePool?.end() ?? Promise.resolve(),
       offlineEventPool?.end() ?? Promise.resolve(),
       offlineReconciliationPool?.end() ?? Promise.resolve(),
+      timeEntryExportPool?.end() ?? Promise.resolve(),
+      timeReviewReadPool?.end() ?? Promise.resolve(),
+      timeReviewWritePool?.end() ?? Promise.resolve(),
       provisionerPool?.end() ?? Promise.resolve(),
       auth.close(),
     ]);

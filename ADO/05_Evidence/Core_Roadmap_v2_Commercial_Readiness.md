@@ -609,3 +609,17 @@ The reviewer recommends retaining the separately authorized V5 operator/Android 
 closure. This is not an implementation finding and does not authorize V5. DA3 and DT-069–DT-074
 remain open until the Human Architect either authorizes and completes V5 or explicitly decides it is
 not required, followed by exact ADO closure evidence.
+
+## 23. Progress Update – 2026-07-22 Development Assignment 3 V5 Enablement
+
+The Human Architect separately authorized focused local V5 enablement on exact review-synchronized
+baseline `0b0d040`, tree `eee2650`: harness, runbook, AVS V0–V4 and independent review. The first
+real PostgreSQL operator journey exposed DA3-V5-F01, a fail-closed exact-shape mismatch in the
+Backend API export adapter. The Human Architect separately authorized its focused three-field
+adapter correction and regression tests on the same baseline.
+
+The candidate composes real export/review coordinators in the disposable harness and defines the
+future correction/export plus Android marker retain/clear procedure. Verification and independent
+review remain in progress. The physical run itself is not authorized, and DA3/DT-069–DT-074 remain
+open. Production, production data, deployment, distribution, legal/privacy approval and DA4
+productization remain separately gated.

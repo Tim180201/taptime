@@ -51,15 +51,17 @@ async function handleCommand(
 ): Promise<void> {
   const normalized = line.trim();
   if (normalized === 'status') {
-    const [counts, employeeEnrollment] = await Promise.all([
+    const [counts, employeeEnrollment, timeReview] = await Promise.all([
       activeEnvironment.evidenceCounts(),
       activeEnvironment.employeeEnrollmentEvidenceCounts(),
+      activeEnvironment.timeReviewEvidenceCounts(),
     ]);
     process.stdout.write(`synthetic_e2e_status=${JSON.stringify({
       provisioning: activeEnvironment.provisioningState(),
       redemptionInterruption: activeEnvironment.redemptionInterruptionState(),
       ...counts,
       employeeEnrollment,
+      timeReview,
     })}\n`);
     return;
   }

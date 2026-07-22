@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { createNfcPayload } from '@taptime/core';
+import { validateTimeEntryExportRequest } from '@taptime/time-entry-export-contract';
 import { createClient } from '@supabase/supabase-js';
 import { Pool } from 'pg';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -134,6 +135,18 @@ describeWithPostgres('synthetic Android product-to-server E2E', () => {
     )).resolves.toEqual([
       'taptime_offline_reconciliation_reader',
     ]);
+    await expect(parentRoles(installerPool, runtimeLogins.timeEntryExport)).resolves.toEqual([
+      'taptime_identity_resolver',
+      'taptime_time_exporter',
+    ]);
+    await expect(parentRoles(installerPool, runtimeLogins.timeReviewRead)).resolves.toEqual([
+      'taptime_identity_resolver',
+      'taptime_time_review_reader',
+    ]);
+    await expect(parentRoles(installerPool, runtimeLogins.timeReviewWrite)).resolves.toEqual([
+      'taptime_identity_resolver',
+      'taptime_time_review_writer',
+    ]);
     await expect(parentRoles(installerPool, runtimeLogins.provisioner)).resolves.toEqual([
       'taptime_administrator',
     ]);
@@ -153,7 +166,7 @@ describeWithPostgres('synthetic Android product-to-server E2E', () => {
        ORDER BY rolname`,
       [Object.values(runtimeLogins)],
     );
-    expect(roles.rows).toHaveLength(11);
+    expect(roles.rows).toHaveLength(14);
     expect(roles.rows.every((role) => (
       !role.rolsuper
       && !role.rolcreaterole
@@ -526,6 +539,158 @@ describeWithPostgres('synthetic Android product-to-server E2E', () => {
       decision_count: '0',
       time_entry_count: '0',
     }]);
+  });
+
+  it('enables the real DA3 correction, review, and effective-export operator boundary', async () => {
+    const provider = mobileAuthAdapter(environment);
+    const administrator = await provider.signInWithPassword(
+      SYNTHETIC_ADMIN_AUTH_EMAIL,
+      syntheticPassword,
+    );
+    const employee = await provider.signInWithPassword(
+      SYNTHETIC_AUTH_EMAIL,
+      syntheticPassword,
+    );
+    if (administrator.status !== 'authenticated' || employee.status !== 'authenticated') {
+      throw new Error('Synthetic DA3 identities unexpectedly failed authentication');
+    }
+    const fromInclusive = '2026-07-01T00:00:00.000Z';
+    const toExclusive = '2026-08-01T00:00:00.000Z';
+    const queryBody = {
+      expectedMembershipId: syntheticIds.administratorMembership,
+      fromInclusive,
+      toExclusive,
+      limit: 100,
+      cursor: null,
+    };
+
+    const employeeDenied = await postAdministration(
+      employee.tokens.accessToken,
+      '/v1/administration/time-records/query',
+      { ...queryBody, expectedMembershipId: syntheticIds.membership },
+    );
+    expect(employeeDenied.status).toBe(403);
+
+    const recordsResponse = await postAdministration(
+      administrator.tokens.accessToken,
+      '/v1/administration/time-records/query',
+      queryBody,
+    );
+    expect(recordsResponse.status).toBe(200);
+    const recordsPage = await recordsResponse.json() as {
+      readonly status: 'ready';
+      readonly records: ReadonlyArray<{
+        readonly timeRecordId: string;
+        readonly status: 'started' | 'stopped';
+        readonly startedAt: string;
+        readonly stoppedAt: string | null;
+        readonly baseRowVersion: number;
+        readonly effectiveRevisionNumber: number;
+      }>;
+    };
+    const record = recordsPage.records.find((candidate) => candidate.status === 'stopped');
+    expect(record).toBeDefined();
+    if (record === undefined || record.stoppedAt === null) {
+      throw new Error('Synthetic DA3 stopped record is missing');
+    }
+    const correctedStoppedAt = new Date(Date.now() - 1_000).toISOString();
+    const correctedStartedAt = new Date(Date.parse(correctedStoppedAt) - 6_000).toISOString();
+    const before = await environment.timeReviewEvidenceCounts();
+
+    const correction = await postAdministration(
+      administrator.tokens.accessToken,
+      '/v1/administration/time-records/correct',
+      {
+        expectedMembershipId: syntheticIds.administratorMembership,
+        commandId: '71000000-0000-4000-8000-000000000701',
+        timeRecordId: record.timeRecordId,
+        expectedBaseRowVersion: record.baseRowVersion,
+        expectedRevisionNumber: record.effectiveRevisionNumber,
+        startedAt: correctedStartedAt,
+        stoppedAt: correctedStoppedAt,
+        reason: 'Synthetic V5 correction evidence.',
+      },
+    );
+    expect(correction.status).toBe(200);
+    await expect(correction.json()).resolves.toMatchObject({
+      status: 'committed',
+      timeRecordId: record.timeRecordId,
+      revisionNumber: record.effectiveRevisionNumber + 1,
+      startedAt: correctedStartedAt,
+      stoppedAt: correctedStoppedAt,
+      idempotentRetry: false,
+    });
+
+    const reviewResponse = await postAdministration(
+      administrator.tokens.accessToken,
+      '/v1/administration/review-items/query',
+      {
+        expectedMembershipId: syntheticIds.administratorMembership,
+        limit: 100,
+        cursor: null,
+      },
+    );
+    expect(reviewResponse.status).toBe(200);
+    const reviewPage = await reviewResponse.json() as {
+      readonly status: 'ready';
+      readonly items: ReadonlyArray<{ readonly reviewItemId: string; readonly source: string }>;
+    };
+    const reviewItem = reviewPage.items.find((item) => item.source === 'server_legacy');
+    expect(reviewItem).toBeDefined();
+    if (reviewItem === undefined) {
+      throw new Error('Synthetic DA3 legacy review item is missing');
+    }
+
+    const adjudication = await postAdministration(
+      administrator.tokens.accessToken,
+      '/v1/administration/review-items/adjudicate',
+      {
+        expectedMembershipId: syntheticIds.administratorMembership,
+        commandId: '71000000-0000-4000-8000-000000000702',
+        reviewItemIds: [reviewItem.reviewItemId],
+        resolution: { type: 'no_time_record_change' },
+        reason: 'Synthetic V5 review evidence checked.',
+      },
+    );
+    expect(adjudication.status).toBe(200);
+    await expect(adjudication.json()).resolves.toMatchObject({
+      status: 'committed',
+      commandId: '71000000-0000-4000-8000-000000000702',
+      resolution: 'no_time_record_change',
+      adjudicatedReviewItemIds: [reviewItem.reviewItemId],
+      idempotentRetry: false,
+    });
+
+    const exportBody = {
+      expectedMembershipId: syntheticIds.administratorMembership,
+      fromInclusive,
+      toExclusive,
+    };
+    expect(validateTimeEntryExportRequest(exportBody).status).toBe('valid');
+    const exportResponse = await postAdministration(
+      administrator.tokens.accessToken,
+      '/v1/administration/time-entries/export',
+      exportBody,
+    );
+    const csv = await exportResponse.text();
+    expect({
+      status: exportResponse.status,
+      error: exportResponse.status === 200 ? null : csv,
+    }).toEqual({ status: 200, error: null });
+    expect(exportResponse.headers.get('content-type')).toBe('text/csv; charset=utf-8');
+    expect(csv).toContain(record.timeRecordId);
+    expect(csv).toContain(exportTimestamp(correctedStartedAt));
+    expect(csv).toContain(exportTimestamp(correctedStoppedAt));
+
+    expect(await environment.timeReviewEvidenceCounts()).toEqual({
+      reviewAdjudications: before.reviewAdjudications + 1,
+      reviewPredecessorCursors: before.reviewPredecessorCursors,
+      timeEntryExportAudits: before.timeEntryExportAudits + 1,
+      timeRecordRevisions: before.timeRecordRevisions + 1,
+      timeReviewCommandReceipts: before.timeReviewCommandReceipts + 2,
+    });
+    expect(safeEvents).not.toContain('api_time_entry_export_unavailable');
+    expect(safeEvents).not.toContain('api_time_review_unavailable');
   });
 
   it('runs a real two-event offline FIFO with exact retry and lost-response reconciliation',
@@ -1166,4 +1331,8 @@ async function waitForSafeEvent(
 
 function uuid(prefix: '5' | '6', sequence: number): string {
   return `${prefix}0000000-0000-4000-8000-${sequence.toString().padStart(12, '0')}`;
+}
+
+function exportTimestamp(value: string): string {
+  return value.replace(/(\.\d{3})Z$/, '$1000Z');
 }

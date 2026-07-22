@@ -38,5 +38,8 @@ export const runtimeLogins = Object.freeze({
   offlineLease: 'taptime_synthetic_e2e_offline_lease',
   offlineEvent: 'taptime_synthetic_e2e_offline_event',
   offlineReconciliation: 'taptime_synthetic_e2e_offline_reconciliation',
+  timeEntryExport: 'taptime_synthetic_e2e_time_entry_export',
+  timeReviewRead: 'taptime_synthetic_e2e_time_review_read',
+  timeReviewWrite: 'taptime_synthetic_e2e_time_review_write',
   provisioner: 'taptime_synthetic_e2e_provisioner',
 } as const);

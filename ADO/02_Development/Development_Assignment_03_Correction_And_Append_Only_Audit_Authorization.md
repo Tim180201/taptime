@@ -1,6 +1,6 @@
 # Development Assignment 3 — Correction and Append-only Audit Authorization
 
-- Status: **IMPLEMENTATION `0f71aca` INDEPENDENTLY APPROVED — ZERO OPEN P0–P3; HUMAN V5 DISPOSITION REQUIRED BEFORE CLOSURE**
+- Status: **IMPLEMENTATION `0f71aca` INDEPENDENTLY APPROVED; LOCAL V5 ENABLEMENT AUTHORIZED ON `0b0d040`; PHYSICAL GATE NOT AUTHORIZED**
 - Date: 2026-07-21
 - Accepted/authorized baseline commit: `ff68f7a7d0ce69a65e88846ae1cca9abd5951f5d`
 - Accepted/authorized baseline tree: `09ef169a68bb53420e07b6f3fcbbdc74e0c01d57`
@@ -12,11 +12,15 @@
 - Accepted architecture:
   `ADO/01_Architecture/ADR/ADR-0014-append-only-time-record-correction-and-review-adjudication.md`
 - Roadmap scope: Development Assignment 3; DT-069–DT-074 authorized local implementation scope,
-  still open pending V4/review/closure
+  still open pending V5-enablement V4/review, separate physical disposition and closure
 - Risk class: AVS-001 **R3**
 - Implementation authority: **GRANTED FOR WORKSTREAMS A–D AND AVS V0–V4 ON THE EXACT BASELINE ABOVE**
 - Explicitly excluded authority: **production, production data, deployment, distribution and Physical Gate**
 - Independent pre-implementation review: **APPROVED FOR CANDIDATE PUBLICATION — ZERO OPEN P0/P1/P2/P3**
+- Focused V5-enablement baseline: `0b0d04034c88829fdc5c548b057e74554d4ee197`, tree
+  `eee26501fd714738aa3ca106d93d5088261206e3`
+- Focused V5-enablement authority: **GRANTED FOR LOCAL HARNESS, RUNBOOK, DA3-V5-F01,
+  REGRESSION TESTS, AVS V0–V4 AND INDEPENDENT REVIEW ONLY**
 
 ## 1. Authorized objective
 
@@ -31,8 +35,10 @@ ADR-0012 Human review adjudication usable without destroying automatic lifecycle
 6. a minimal Admin Web surface that reaches those capabilities and the existing export route.
 
 The Human Architect accepted DA3-P01–DA3-P16 and separately authorized Workstreams A–D plus AVS
-V0–V4 on the exact baseline above on 2026-07-21. This authority does not include production,
-production data, deployment, distribution, Physical Gate or V5.
+V0–V4 on the exact baseline above on 2026-07-21. On 2026-07-22 the Human Architect separately
+authorized the focused local V5 enablement and DA3-V5-F01 correction on the later exact baseline
+recorded above. Neither authority includes the Human Physical Gate itself, production, production
+data, deployment or distribution.
 
 ## 2. Repository truth at the pre-implementation candidate baseline
 
@@ -177,8 +183,9 @@ Expected protected or unchanged behavior:
 - Accepted decisions: ADR-0014 and DA3-P01–DA3-P16.
 - Authorized executable scope: Workstreams A–D and AVS V0–V4.
 - Risk class: R3.
-- Current verification: AVS V0–V4 complete; implementation/evidence exact-head CI 12/12; independent
-  exact-SHA review `APPROVED` with zero open P0–P3. Human V5 disposition remains pending.
+- Current verification: DA3 implementation AVS V0–V4 complete; implementation/evidence exact-head
+  CI 12/12; independent exact-SHA review `APPROVED` with zero open P0–P3. Focused local V5
+  enablement verification is in progress; the physical run remains separately gated.
 - Carried evidence: DA1/DA2 closure and their exact CI/review bindings remain evidence for their
   unchanged foundations; they are not DA3 correctness evidence.
 - Excluded path: `research/` remains unread and untouched.
@@ -283,10 +290,11 @@ DA3 implementation may be technically approved only when:
 
 ### V5 — Human functional/physical gate
 
-Not authorized by this candidate. If retained after review, a later separate authorization SHALL bind
-exact product/ADO/CI/artifacts and prove the minimal Administrator Web correction/adjudication/export
-flow plus Android review-marker clear/retain behavior. It cannot use production data or replace
-V2–V4.
+Focused local enablement preparation is separately authorized on `0b0d040`, including the harness,
+runbook, DA3-V5-F01 correction, AVS V0–V4 and independent review. The Human functional/physical run
+itself remains unauthorized. A later separate authorization SHALL bind exact independently approved
+product/ADO/CI/artifacts and prove the minimal Administrator Web correction/adjudication/export flow
+plus Android review-marker clear/retain behavior. It cannot use production data or replace V2–V4.
 
 ## 10. Explicit non-goals
 
@@ -330,10 +338,11 @@ DA3-P01–DA3-P16 and separately authorized Workstreams A–D plus AVS V0–V4 o
 The focused implementation is published at `0f71aca270969866037f2e31cc05ef8730e0ecd1`, tree
 `e3e2ed780c217a520d382b98971991510bb99973`; exact-head GitHub Actions run `29859522776`, attempt
 1, passed 12/12. Independent exact-SHA implementation review returned `APPROVED` with zero open
-P0/P1/P2/P3. The reviewer recommends retaining V5; the Human Architect must separately authorize
-V5 or explicitly decide that it is not required before DA3 or DT-069–DT-074 closure.
-V5, Physical Gate, production, production data, deployment and distribution remain
-**NOT AUTHORIZED**.
+P0/P1/P2/P3. The reviewer recommended retaining V5. The Human Architect subsequently authorized
+only its focused local enablement preparation on `0b0d040`, tree `eee2650`, and then separately
+authorized DA3-V5-F01 on the same baseline. The exact enablement candidate must pass AVS V0–V4 and
+independent review before the Human Architect may separately authorize a physical run.
+Physical Gate, production, production data, deployment and distribution remain **NOT AUTHORIZED**.
 
 ## 12. Independent pre-implementation review mandate
 

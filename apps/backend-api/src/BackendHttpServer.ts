@@ -682,12 +682,17 @@ async function handleTimeEntryExport(
   }
   try {
     const deadlineEpochMilliseconds = Date.now() + timeoutMilliseconds;
+    const coordinatorRequest = Object.freeze({
+      expectedMembershipId: validation.request.expectedMembershipId,
+      fromInclusive: validation.request.fromInclusive,
+      toExclusive: validation.request.toExclusive,
+    });
     const result = await withTimeout(
       dependencies.timeEntryExporter.exportTimeEntries(
         {
           accessToken,
           correlationId,
-          request: validation.request,
+          request: coordinatorRequest,
         },
         { deadlineEpochMilliseconds },
       ),
