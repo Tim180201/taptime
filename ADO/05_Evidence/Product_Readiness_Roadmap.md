@@ -595,6 +595,20 @@ This changes no readiness-domain rating and closes no DA3 task or physical findi
 is required before a complete fresh V5. No retry, Physical Gate, production, production data,
 deployment, distribution, legal/privacy approval or DA4 productization is authorized.
 
+## Addendum (2026-07-23 — Development Assignment 3 Closure)
+
+The later separately authorized complete fresh V5 passed setup/reinstall and Gates A–C. Physical
+evidence publication `7cb510a`, tree `ba28d74`, passed exact-head run `29996799069`, attempt 1,
+12/12. Independent final review returned `APPROVED FOR DA3-V5 PHYSICAL CLOSURE` with zero open
+P0–P3. The Human Architect accepted that exact review and authorized focused ADO-only closure
+synchronization.
+
+DA3, DT-069–DT-074 and `DA3-PHYS-01/02/03` are completed for the exact authorized local
+repository/Admin-Web/Android/synthetic-server scope when this closure publication's required
+Exact-Head-CI succeeds. This closes no Product Readiness domain and grants no new Physical Gate,
+DA4 productization, pilot operations, production resources/data, legal/privacy approval,
+deployment or distribution authority.
+
 ## Revision Note (Technical Lead Review Follow-up, 2026-07-07)
 
 This roadmap was updated once, after Technical Lead review, to: (1) add the "Strategic frame" paragraph above, connecting roadmap items to the companion assessment's Business Event Platform framing (Section 0.1) and capability hierarchy (Section 12); (2) organize every milestone's existing items into an Engineering Track, a Product Capability Track, and a Business, Legal & Go-To-Market Track, without adding, removing, or reprioritizing any item, and without moving any item to a different milestone; (3) note, within the Now and Before Pilot Customers milestones, the re-evaluated primary-bottleneck finding from the companion assessment's Section 11.1 (Organization Management as the more foundational blocker for reaching the first pilot, alongside — not instead of — the backend technology decision). No original roadmap item's wording, milestone assignment, or substance was changed; this revision only added track labels, short cross-reference notes, and this closing note.

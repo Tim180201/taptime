@@ -1,6 +1,6 @@
 # Development Assignment 3 — V5 Human Functional/Physical Gate Runbook
 
-Status: **LATER COMPLETE FRESH HUMAN V5 PASSED; ONE-TIME AUTHORITY CONSUMED; EVIDENCE PUBLICATION/EXACT-HEAD CI/INDEPENDENT FINAL REVIEW PENDING; NO RETRY OR NEW RUN AUTHORIZED**
+Status: **COMPLETE FRESH HUMAN V5 PASSED; INDEPENDENT FINAL REVIEW APPROVED AND HUMAN ACCEPTED; DA3-PHYS-01/02/03 CLOSED FOR AUTHORIZED LOCAL SCOPE SUBJECT TO CLOSURE-PUBLICATION EXACT-HEAD CI; ONE-TIME AUTHORITY CONSUMED; NO RETRY OR NEW RUN AUTHORIZED**
 Owner: Technical Lead
 Approval authority for any later physical run: Human Architect
 
@@ -479,3 +479,16 @@ This runbook is non-executable again: no retry, repair, resume or new run is aut
 `DA3-PHYS-01/02/03` are closure candidates, while DA3 and DT-069–DT-074 remain open pending
 focused ADO publication, exact-head CI and independent final review. Production, production data,
 deployment and distribution remain unauthorized.
+
+## 18. Final closure disposition
+
+Physical evidence publication `7cb510aae4a6656e39f563c1d948746a319da0bc`, tree
+`ba28d74ac5870e5278d1351b6bf183e7958bcd12`, passed exact-head run `29996799069`, attempt 1,
+12/12. Independent final read-only review returned
+`APPROVED FOR DA3-V5 PHYSICAL CLOSURE` with zero open P0/P1/P2/P3. The Human Architect accepted
+the review and authorized focused ADO-only closure synchronization.
+
+`DA3-PHYS-01/02/03`, DA3 and DT-069–DT-074 are closed for the authorized local scope when the
+closure publication's required Exact-Head-CI succeeds. This runbook remains permanently
+non-executable absent a new, separate, exact-bound Human authorization. No retry, repair, resume,
+new Physical Gate, production resource/data, deployment or distribution is authorized.

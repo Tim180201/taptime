@@ -358,8 +358,17 @@ Der Stand bei Erstellung dieses Prompts ist:
 - unabhängiger Final-Closure-Review: APPROVED, null offene P0/P1/P2/P3;
 - Closure-Publikation 715889ea0e410337bc695b0277730ad585a4c5a1, Tree
   b9fc3ac46b1e808193c4532efdc98ab5e91a5e8e, bestand Run 29837556200, Attempt 1, 10/10;
-- Development Assignment 2 braucht einen eigenen Kandidaten, Review, eine exakte Baseline und
-  separate Human-Autorisierung; und
+- Development Assignment 2 und DT-063–DT-068 sind für ihren autorisierten lokalen
+  Setup-Integrations-/Export-Backend-Scope abgeschlossen;
+- Development Assignment 3 und DT-069–DT-074 sind nach vollständigem frischem Human V5,
+  Physical-Evidence-Commit 7cb510aae4a6656e39f563c1d948746a319da0bc, Tree
+  ba28d74ac5870e5278d1351b6bf183e7958bcd12, Run 29996799069 12/12 und Human-akzeptiertem
+  unabhängigen Final Review mit null offenen P0–P3 für den autorisierten lokalen Scope
+  abgeschlossen, sobald die Closure-Publikation ihr Exact-Head-CI besteht;
+- DA3-PHYS-01/02/03 sind für denselben lokalen Scope geschlossen; alle drei Fehlversuche bleiben
+  historische Evidenz;
+- Development Assignment 4 besitzt noch keine Implementierungs- oder Physical-Gate-Autorisierung;
+  ein Architektur-/Autorisierungskandidat erfordert eine neue ausdrückliche Human-Freigabe; und
 - Produktion, Produktionsdaten, Deployment und Distribution sind nicht autorisiert.
 
 Diese Liste ist nur ein Einstiegshinweis. Verifiziere sie vollständig gegen den bereitgestellten
@@ -432,4 +441,5 @@ Autorisierung ableitbar ist. Erfinde keine.
 
 | Version | Date | Change | Approval |
 |---|---|---|---|
+| 1.1 | 2026-07-23 | Updated current orientation through Human-accepted DA3 final closure while preserving separate DA4, Physical, production and distribution gates | Human Architect authorized focused DA3 closure synchronization |
 | 1.0 | 2026-07-20 | Created the complete German Technical Lead initialization prompt with repository-first onboarding, current DA1 orientation, AVS-001 verification, mandatory review prompts and strict authorization/Physical-Gate boundaries | Requested by Human Architect |

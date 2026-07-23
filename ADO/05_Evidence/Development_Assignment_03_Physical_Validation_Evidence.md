@@ -1,6 +1,6 @@
 # Development Assignment 3 — V5 Physical Validation Evidence
 
-- Status: **COMPLETE FRESH DA3-V5 HUMAN PHYSICAL GATE PASSED; DA3-PHYS-01/02/03 PHYSICAL CLOSURE CANDIDATE; ADO PUBLICATION, EXACT-HEAD CI AND INDEPENDENT FINAL REVIEW PENDING; NEW RUN UNAUTHORIZED**
+- Status: **COMPLETE FRESH DA3-V5 HUMAN PHYSICAL GATE PASSED; INDEPENDENT FINAL REVIEW APPROVED WITH ZERO OPEN P0–P3 AND HUMAN ACCEPTED; DA3-PHYS-01/02/03 CLOSED FOR AUTHORIZED LOCAL SCOPE SUBJECT TO CLOSURE-PUBLICATION EXACT-HEAD CI; NEW RUN UNAUTHORIZED**
 - Date: 2026-07-23
 - Owner: Technical Lead
 - Human observer and approval authority: Human Architect
@@ -863,3 +863,23 @@ Production, production data, deployment and distribution remain unauthorized.
   decision point.
 - Independent review: mandatory exact-delta/final physical review before DA3, DT-069–DT-074 or the
   three physical findings close.
+
+## 35. Independent final review and closure disposition
+
+Independent final read-only review bound this physical evidence publication at
+`7cb510aae4a6656e39f563c1d948746a319da0bc`, tree
+`ba28d74ac5870e5278d1351b6bf183e7958bcd12`, exact parent
+`d2dba78344bf5b8234d62a905d69de315d5d4e4c`, exact seven-file `+295/-27` R0 delta and exact-head
+run `29996799069`, attempt 1, 12/12.
+
+The reviewer independently verified the full 18-head chain, immutable APK/manifest, setup and
+clean reinstall, Gates A–C, exact aggregate arithmetic, all four CSV stop points, ordered
+partial/complete adjudication, Mobile marker retention/clear, unchanged original reconciliation
+evidence, disclosure safety and cleanup. Verdict:
+`APPROVED FOR DA3-V5 PHYSICAL CLOSURE`, zero open P0/P1/P2/P3.
+
+The Human Architect accepted that exact review and authorized focused ADO-only archival and
+closure synchronization. `DA3-PHYS-01/02/03`, DA3 and DT-069–DT-074 are closed for the exact
+authorized local repository/Admin-Web/Android/synthetic-server scope when the closure
+publication's required Exact-Head-CI succeeds. The one-time physical authority remains consumed;
+no new run, production resource/data, deployment or distribution is authorized.
