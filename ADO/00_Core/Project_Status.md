@@ -32,9 +32,16 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   closure. The focused ADO-only V5 enablement candidate proposes one opt-in, fail-closed synthetic
   browser profile and a non-executable Human runbook. Candidate `5774ab7`, tree `062ded6`, passed
   exact-head CI `30012402185`, attempt 1, 12/12; independent exact-SHA review returned `APPROVED`,
-  `MERGE_READY` and zero open P0–P3. Human acceptance and separate exact-baseline R3 implementation
-  authority remain pending; executable enablement and Human V5 remain unauthorized. Production,
-  production data, deployment and distribution remain unauthorized.
+  `MERGE_READY` and zero open P0–P3. Human acceptance and exact-baseline R3 implementation
+  authority were subsequently granted on `decf806a`, tree `519a1a7`, CI `30013796325` 12/12.
+  Authorized local discovery passed 17/17 new unit tests, 13/13 existing PostgreSQL tests plus one
+  optional skip, and the exact initial/setup/Employee fixture checks. It then failed closed at
+  `DA4-V5-F01`: the real 100-row TimeRecord response exceeds the Backend API's inherited 16-KiB
+  offline ceiling and returns 503; the 100-row review route shares that handler, while Admin Web
+  already permits 256 KiB for both reads. Harness work is preserved and paused. A focused ADO-only
+  response-ceiling correction candidate requires independent review before the narrow R3
+  correction and V5-enablement continuation. Human V5, production, production data, deployment
+  and distribution remain unauthorized.
 - **Development Assignment 3 is Human-accepted and implementation-authorized on exact baseline
   `ff68f7a7d0ce69a65e88846ae1cca9abd5951f5d`, tree
   `09ef169a68bb53420e07b6f3fcbbdc74e0c01d57`.** ADR-0014/DA3-P01–DA3-P16 and Workstreams A–D
@@ -603,11 +610,11 @@ Two Epics are concurrently Active, per EP-009's own stated relationship to the r
 4. Preserve every closed C3B/C3C/C3D/C3E1/C3E2/DA1/DA2/DA3 boundary and the Human-accepted
    ADR-0015/DA4-P01–P12 scope; keep Human V5, production/deployment, legal/privacy and pilot
    operations behind their separate authorization and Human gates.
-5. Decide whether to Human-accept the independently approved DA4-V5 ADO-only candidate and,
-   separately, authorize its focused R3 harness/profile implementation on an exact baseline. Only
-   after R3 V0–V4 and independent exact-SHA approval may an exact-bound Human V5 browser run be
-   separately authorized. No current DA4 artifact grants executable R3, Human V5, production,
-   production-data, deployment or distribution authority.
+5. Obtain independent zero-finding review of the focused `DA4-V5-F01` response-ceiling correction
+   candidate. Only then may the narrow R3 Backend-API correction and paused DA4-V5 enablement
+   continue under the documented standing rule. R3 V0–V4 and independent exact-SHA implementation
+   approval remain mandatory before any separately authorized Human V5. Production,
+   production-data, deployment and distribution remain unauthorized.
 
 ## Agreed comprehensive Development-assignment sequence
 

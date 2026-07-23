@@ -1,6 +1,6 @@
 # Development Assignment 4 — V5 Enablement Candidate Evidence
 
-- Status: **ADO-ONLY CANDIDATE INDEPENDENTLY APPROVED — HUMAN ACCEPTANCE AND EXECUTABLE ENABLEMENT UNAUTHORIZED**
+- Status: **R3 ENABLEMENT PAUSED FAIL-CLOSED AT DA4-V5-F01 — CORRECTION CANDIDATE REVIEW PENDING**
 - Date: 2026-07-23
 - Candidate baseline commit: `4594529667fe1570045eea03fd7132bc27e2e479`
 - Candidate baseline tree: `72338ec9b65dabdd71ab9011604817f61c13c288`
@@ -55,7 +55,7 @@ No new product-correctness claim is derived from this ADO-only delta.
 - Final status publication baseline: `4594529667fe1570045eea03fd7132bc27e2e479`, tree
   `72338ec9b65dabdd71ab9011604817f61c13c288`, CI `30009920314`, attempt 1, 12/12.
 
-## 4. Current R0 Change-Impact Record
+## 4. Original R0 Change-Impact Record
 
 - Intended behavior: documentation of a later optional V5 fixture, exact Human procedure and
   gates; no runtime behavior.
@@ -65,7 +65,8 @@ No new product-correctness claim is derived from this ADO-only delta.
 - V1–V3: not applicable to this R0 candidate.
 - Publication CI: `30012402185`, attempt 1, passed 12/12 on the exact seven-file candidate; this
   creates no fresh product-correctness claim.
-- Proposed R3 V4: not applicable and not authorized because executable enablement has not started.
+- Proposed R3 V4 at candidate publication: not applicable because executable enablement had not
+  started.
 - V5: not authorized and not run.
 - Protected state: `research/` and the pre-existing untracked `app.json` are not inspected or
   changed.
@@ -102,8 +103,32 @@ A later authorized implementation must provide:
 - Independent pre-implementation review: `APPROVED`, `MERGE_READY / EXACT-SHA APPROVED`, zero open
   P0–P3; archive:
   `ADO/05_Evidence/Development_Assignment_04_V5_Enablement_Independent_Pre_Implementation_Review.md`.
-- Human candidate acceptance and separate exact-baseline R3 implementation authority: **pending**.
-- Executable harness implementation: **unauthorized**.
+- Human candidate acceptance and separate exact-baseline R3 implementation authority:
+  **granted on `decf806a` / tree `519a1a7`**.
+- Executable harness implementation: **authorized, locally started and now paused fail-closed at
+  `DA4-V5-F01`**.
 - Human V5: **unauthorized and not run**.
 - DA4 closure: unavailable until a separately authorized V5 passes and receives final review.
 - Production, production data, deployment and distribution: **unauthorized**.
+
+## 7. Human acceptance, authorized discovery and DA4-V5-F01
+
+The Human Architect accepted the independently approved DA4-V5 candidate and separately authorized
+its R3 implementation on exact baseline `decf806aeb2fd1619252a6efd62b71202e53eefb`, tree
+`519a1a703bf4c55861b4c25e95cd651b2f7a51ee`, exact-head CI `30013796325`, attempt 1, 12/12.
+
+Local work then passed 17/17 new DA4 unit tests and 13/13 existing Synthetic PostgreSQL tests with
+one optional skip. The exact initial aggregate, setup 20/1 and projected Employee 20/1 checks
+passed. The real 100-row TimeRecord query returned HTTP 503 before its cursor assertion.
+
+`DA4-V5-F01` is the confirmed cause: both TimeReview reads share `handleTimeReviewRead()`, whose
+success response inherits the 16-KiB offline default, while the unchanged Admin Web already accepts
+256 KiB for exactly these reads. The review 100-row response is blocked by the same code path; it
+was not separately claimed as executed. The Harness WIP is preserved and paused. No proxy or
+fixture workaround was used.
+
+The focused R0 correction candidate is
+`ADO/02_Development/Development_Assignment_04_V5_F01_Response_Ceiling_Correction_Authorization.md`.
+Independent candidate review is required before the narrow R3 Backend-API correction and Harness
+continuation. Human V5, production, production data, deployment and distribution remain
+unauthorized.
