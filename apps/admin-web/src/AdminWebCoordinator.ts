@@ -1,6 +1,8 @@
 import type {
   AdminWebCapability,
+  AdminSection,
   AdminWebState,
+  CursorPage,
   ReviewAdjudicationIntent,
   SafeEmployeeProjection,
   SafeProjection,
@@ -8,7 +10,11 @@ import type {
   SafeTimeRecord,
   VolatileInvitationSecret,
 } from './contracts';
-import { AdminWebApiClient, type AdminWebApiPort } from './AdminWebApiClient';
+import {
+  AdminWebApiClient,
+  type AdminWebApiPort,
+  type ApiResult,
+} from './AdminWebApiClient';
 import { isSafeEmployeeProjectionPage } from './employeeProjectionSafety';
 import { isValidTimeReviewReason } from '@taptime/time-review-contract';
 
@@ -18,10 +24,32 @@ export interface AdminWebAuthPort {
   signOut(): Promise<void>;
 }
 
+type ApiSectionResult<Value> =
+  | { readonly status: 'succeeded'; readonly value: Value }
+  | { readonly status: 'unavailable' };
+
+type ReadyDataResult =
+  | {
+      readonly status: 'succeeded' | 'partial';
+      readonly projection: ApiSectionResult<SafeProjection>;
+      readonly employeeProjection: ApiSectionResult<SafeEmployeeProjection>;
+      readonly timeRecords: ApiSectionResult<CursorPage<SafeTimeRecord>>;
+      readonly reviewItems: ApiSectionResult<CursorPage<SafeReviewItem>>;
+      readonly timeWindow: { readonly fromInclusive: string; readonly toExclusive: string };
+    }
+  | { readonly status: 'rejected' };
+
 export class AdminWebCoordinator implements AdminWebCapability {
   private state: AdminWebState = Object.freeze({ status: 'signed_out' });
   private membershipId: string | null = null;
   private generation = 0;
+  private refreshEpoch = 0;
+  private readonly sectionEpochs: Record<AdminSection, number> = {
+    setup: 0,
+    employees: 0,
+    timeRecords: 0,
+    reviewItems: 0,
+  };
   private authenticationQueue: Promise<void> = Promise.resolve();
   private invitationExpiryTimer: ReturnType<typeof setTimeout> | null = null;
   private invitationDisclosureEpoch = 0;
@@ -39,6 +67,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
 
   async signIn(email: string, password: string): Promise<void> {
     const generation = ++this.generation;
+    this.refreshEpoch += 1;
     this.membershipId = null;
     this.clearInvitationExpiryTimer();
     this.setState({ status: 'signing_in' });
@@ -47,6 +76,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
 
   async signOut(): Promise<void> {
     this.generation += 1;
+    this.refreshEpoch += 1;
     this.membershipId = null;
     this.clearInvitationExpiryTimer();
     this.setState({ status: 'signed_out' });
@@ -55,29 +85,72 @@ export class AdminWebCoordinator implements AdminWebCapability {
 
   async refresh(): Promise<void> {
     const membershipId = this.membershipId;
-    if (membershipId === null) return;
+    const current = this.state;
+    if (membershipId === null || current.status !== 'ready') return;
     const generation = this.generation;
-    this.setState({ status: 'loading' });
-    let result;
-    try {
-      result = await this.loadReadyData(membershipId);
-    } catch {
-      result = null;
+    const refreshEpoch = ++this.refreshEpoch;
+    for (const section of Object.keys(this.sectionEpochs) as AdminSection[]) {
+      this.sectionEpochs[section] += 1;
     }
-    if (generation !== this.generation) return;
-    if (result?.status === 'succeeded') {
-      this.setState(readyState(
-        result.projection,
-        result.employeeProjection,
-        result.timeRecords,
-        result.reviewItems,
-        result.timeWindow,
-      ));
-    } else if (result === null || result.status === 'rejected') {
+    this.setState({
+      ...current,
+      invitation: null,
+      reassignmentIntent: null,
+      correctionIntent: null,
+      adjudicationIntent: null,
+      sections: allSections({ status: 'loading' }),
+      notice: null,
+    });
+    const result = await this.loadReadyData(membershipId);
+    if (generation !== this.generation || refreshEpoch !== this.refreshEpoch) return;
+    if (result.status === 'rejected') {
       await this.rejectOutsideAuthentication(generation, 'Administrator-Sitzung ist nicht mehr gültig.');
-    } else {
-      this.setState({ status: 'unavailable', message: 'Administrationsdaten sind derzeit nicht erreichbar.' });
+      return;
     }
+    const latest = this.state;
+    if (latest.status !== 'ready') return;
+    this.setState(mergeRefreshResult(latest, result));
+  }
+
+  async retrySection(section: AdminSection): Promise<void> {
+    const current = this.state;
+    const membershipId = this.membershipId;
+    if (current.status !== 'ready' || membershipId === null) return;
+    const generation = this.generation;
+    const refreshEpoch = this.refreshEpoch;
+    const sectionEpoch = ++this.sectionEpochs[section];
+    this.setState({
+      ...current,
+      invitation: null,
+      sections: { ...current.sections, [section]: { status: 'loading' } },
+      notice: null,
+    });
+    const result = await this.loadSection(section, membershipId, current.timeWindow);
+    if (
+      generation !== this.generation
+      || refreshEpoch !== this.refreshEpoch
+      || sectionEpoch !== this.sectionEpochs[section]
+    ) return;
+    if (result === null || result.status === 'rejected') {
+      await this.rejectOutsideAuthentication(generation, 'Administrator-Sitzung ist nicht mehr gültig.');
+      return;
+    }
+    const latest = this.state;
+    if (latest.status !== 'ready') return;
+    if (result.status !== 'succeeded') {
+      this.setState({
+        ...latest,
+        sections: {
+          ...latest.sections,
+          [section]: {
+            status: 'unavailable',
+            message: sectionUnavailableMessage(section),
+          },
+        },
+      });
+      return;
+    }
+    this.setState(applySectionResult(latest, section, result.value));
   }
 
   async loadMore(): Promise<void> {
@@ -85,6 +158,8 @@ export class AdminWebCoordinator implements AdminWebCapability {
     const membershipId = this.membershipId;
     if (current.status !== 'ready' || membershipId === null || current.projection.nextCursor === null) return;
     const generation = this.generation;
+    const refreshEpoch = this.refreshEpoch;
+    const sectionEpoch = ++this.sectionEpochs.setup;
     const requestedCursor = current.projection.nextCursor;
     current = {
       ...current,
@@ -92,25 +167,60 @@ export class AdminWebCoordinator implements AdminWebCapability {
       reassignmentIntent: null,
       reassigning: false,
     };
-    this.setState({ status: 'loading' });
+    this.setState({
+      ...current,
+      sections: { ...current.sections, setup: { status: 'loading' } },
+    });
     let result;
     try {
       result = await this.auth.withAccessToken((token) => this.api.projection(token, membershipId, requestedCursor));
     } catch {
       result = { status: 'unavailable' as const };
     }
-    if (generation !== this.generation) return;
+    if (
+      generation !== this.generation
+      || refreshEpoch !== this.refreshEpoch
+      || sectionEpoch !== this.sectionEpochs.setup
+    ) return;
+    const latest = this.state;
+    if (
+      latest.status !== 'ready'
+      || latest.projection.nextCursor !== requestedCursor
+    ) return;
     if (result?.status === 'succeeded') {
-      const merged = mergeProjection(current.projection, result.value, requestedCursor);
+      const merged = mergeProjection(latest.projection, result.value, requestedCursor);
       if (merged !== null) {
-        this.setState({ ...current, projection: merged, creating: false });
+        this.setState({
+          ...latest,
+          projection: merged,
+          creating: false,
+          sections: { ...latest.sections, setup: { status: 'ready' } },
+        });
       } else {
-        this.setState({ status: 'unavailable', message: 'Weitere Einrichtungsdaten konnten nicht sicher bestätigt werden.' });
+        this.setState({
+          ...latest,
+          sections: {
+            ...latest.sections,
+            setup: {
+              status: 'unavailable',
+              message: 'Weitere Einrichtungsdaten konnten nicht sicher bestätigt werden.',
+            },
+          },
+        });
       }
     } else if (result === null || result.status === 'rejected') {
       await this.rejectOutsideAuthentication(generation, 'Administrator-Sitzung ist nicht mehr gültig.');
     } else {
-      this.setState({ status: 'unavailable', message: 'Weitere Einrichtungsdaten sind derzeit nicht erreichbar.' });
+      this.setState({
+        ...latest,
+        sections: {
+          ...latest.sections,
+          setup: {
+            status: 'unavailable',
+            message: 'Weitere Einrichtungsdaten sind derzeit nicht erreichbar.',
+          },
+        },
+      });
     }
   }
 
@@ -119,6 +229,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
     const membershipId = this.membershipId;
     if (current.status !== 'ready' || membershipId === null || displayName.trim().length < 1 || Array.from(displayName.normalize('NFC').trim()).length > 120) return;
     const generation = this.generation;
+    const requestRefreshEpoch = this.refreshEpoch;
     this.setState({ ...current, creating: true, notice: null });
     let result;
     try {
@@ -126,10 +237,18 @@ export class AdminWebCoordinator implements AdminWebCapability {
     } catch {
       result = { status: 'unavailable' as const };
     }
-    if (generation !== this.generation) return;
+    if (
+      generation !== this.generation
+      || requestRefreshEpoch !== this.refreshEpoch
+    ) return;
     if (result?.status === 'succeeded') {
-      await this.refresh();
-      if (generation !== this.generation) return;
+      const refresh = this.refresh();
+      const followupRefreshEpoch = this.refreshEpoch;
+      await refresh;
+      if (
+        generation !== this.generation
+        || followupRefreshEpoch !== this.refreshEpoch
+      ) return;
       const next = this.state;
       if (next.status === 'ready') this.setState({ ...next, notice: 'Kunde wurde sicher angelegt.' });
     } else if (result === null || result.status === 'rejected') {
@@ -160,8 +279,13 @@ export class AdminWebCoordinator implements AdminWebCapability {
       reassignmentIntent: null,
       reassigning: false,
     };
-    this.setState(current);
+    this.setState({
+      ...current,
+      sections: { ...current.sections, employees: { status: 'loading' } },
+    });
     const generation = this.generation;
+    const refreshEpoch = this.refreshEpoch;
+    const sectionEpoch = ++this.sectionEpochs.employees;
     let result;
     try {
       result = await this.auth.withAccessToken(
@@ -170,7 +294,11 @@ export class AdminWebCoordinator implements AdminWebCapability {
     } catch {
       result = { status: 'unavailable' as const };
     }
-    if (generation !== this.generation) return;
+    if (
+      generation !== this.generation
+      || refreshEpoch !== this.refreshEpoch
+      || sectionEpoch !== this.sectionEpochs.employees
+    ) return;
     const latest = this.state;
     if (
       latest.status !== 'ready'
@@ -183,14 +311,36 @@ export class AdminWebCoordinator implements AdminWebCapability {
         requestedCursor,
       );
       if (merged !== null) {
-        this.setState({ ...latest, employeeProjection: merged });
+        this.setState({
+          ...latest,
+          employeeProjection: merged,
+          sections: { ...latest.sections, employees: { status: 'ready' } },
+        });
       } else {
-        this.setState({ status: 'unavailable', message: 'Weitere Beschäftigtendaten konnten nicht sicher bestätigt werden.' });
+        this.setState({
+          ...latest,
+          sections: {
+            ...latest.sections,
+            employees: {
+              status: 'unavailable',
+              message: 'Weitere Beschäftigtendaten konnten nicht sicher bestätigt werden.',
+            },
+          },
+        });
       }
     } else if (result === null || result.status === 'rejected') {
       await this.rejectOutsideAuthentication(generation, 'Administrator-Sitzung ist nicht mehr gültig.');
     } else {
-      this.setState({ ...latest, notice: 'Weitere Beschäftigtendaten sind derzeit nicht erreichbar.' });
+      this.setState({
+        ...latest,
+        sections: {
+          ...latest.sections,
+          employees: {
+            status: 'unavailable',
+            message: 'Weitere Beschäftigtendaten sind derzeit nicht erreichbar.',
+          },
+        },
+      });
     }
   }
 
@@ -204,12 +354,14 @@ export class AdminWebCoordinator implements AdminWebCapability {
       || Array.from(displayName.normalize('NFC').trim()).length > 120
     ) return;
     const generation = this.generation;
+    const requestRefreshEpoch = this.refreshEpoch;
     this.setState({
       ...current,
       creatingEmployee: true,
       invitation: null,
       notice: null,
     });
+    const disclosureEpoch = this.invitationDisclosureEpoch;
     let result;
     try {
       result = await this.auth.withAccessToken((token) => this.api.createEmployeeInvitation(
@@ -221,7 +373,11 @@ export class AdminWebCoordinator implements AdminWebCapability {
     } catch {
       result = { status: 'unavailable' as const };
     }
-    if (generation !== this.generation) return;
+    if (
+      generation !== this.generation
+      || requestRefreshEpoch !== this.refreshEpoch
+      || disclosureEpoch !== this.invitationDisclosureEpoch
+    ) return;
     const latest = this.state;
     if (latest.status !== 'ready') return;
     if (result?.status === 'succeeded') {
@@ -252,8 +408,16 @@ export class AdminWebCoordinator implements AdminWebCapability {
 
   dismissInvitation(): void {
     const current = this.state;
-    if (current.status !== 'ready' || current.invitation === null) return;
-    this.setState({ ...current, invitation: null, notice: 'Einladungsgeheimnis wurde verworfen.' });
+    if (current.status !== 'ready') return;
+    this.invitationDisclosureEpoch += 1;
+    this.setState({
+      ...current,
+      creatingEmployee: false,
+      invitation: null,
+      notice: current.invitation === null
+        ? current.notice
+        : 'Einladungsgeheimnis wurde verworfen.',
+    });
   }
 
   prepareReassignment(nfcTagId: string, targetCustomerId: string): void {
@@ -311,6 +475,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
       || membershipId === null
     ) return;
     const generation = this.generation;
+    const requestRefreshEpoch = this.refreshEpoch;
     const intent = current.reassignmentIntent;
     this.setState({ ...current, invitation: null, reassigning: true, notice: null });
     let result;
@@ -326,12 +491,20 @@ export class AdminWebCoordinator implements AdminWebCapability {
     } catch {
       result = { status: 'unavailable' as const };
     }
-    if (generation !== this.generation) return;
+    if (
+      generation !== this.generation
+      || requestRefreshEpoch !== this.refreshEpoch
+    ) return;
     const latest = this.state;
     if (latest.status !== 'ready' || latest.reassignmentIntent?.commandId !== intent.commandId) return;
     if (result?.status === 'succeeded') {
-      await this.refresh();
-      if (generation !== this.generation) return;
+      const refresh = this.refresh();
+      const followupRefreshEpoch = this.refreshEpoch;
+      await refresh;
+      if (
+        generation !== this.generation
+        || followupRefreshEpoch !== this.refreshEpoch
+      ) return;
       const refreshed = this.state;
       if (refreshed.status === 'ready') {
         this.setState({
@@ -348,8 +521,13 @@ export class AdminWebCoordinator implements AdminWebCapability {
       return;
     }
     if (result.status === 'conflict' && result.code !== 'assignment_in_use') {
-      await this.refresh();
-      if (generation !== this.generation) return;
+      const refresh = this.refresh();
+      const followupRefreshEpoch = this.refreshEpoch;
+      await refresh;
+      if (
+        generation !== this.generation
+        || followupRefreshEpoch !== this.refreshEpoch
+      ) return;
       const refreshed = this.state;
       if (refreshed.status === 'ready') {
         const notice = result.code === 'assignment_target_unavailable'
@@ -411,6 +589,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
     if (current.status !== 'ready' || current.correctionIntent === null
       || current.timeReviewBusy || membershipId === null) return;
     const generation = this.generation;
+    const requestRefreshEpoch = this.refreshEpoch;
     const intent = current.correctionIntent;
     this.setState({ ...current, invitation: null, timeReviewBusy: true, notice: null });
     let result;
@@ -422,19 +601,34 @@ export class AdminWebCoordinator implements AdminWebCapability {
     } catch {
       result = { status: 'unavailable' as const };
     }
-    if (generation !== this.generation) return;
+    if (
+      generation !== this.generation
+      || requestRefreshEpoch !== this.refreshEpoch
+    ) return;
     const latest = this.state;
     if (latest.status !== 'ready' || latest.correctionIntent?.commandId !== intent.commandId) return;
     if (result?.status === 'succeeded') {
-      await this.refresh();
-      if (generation === this.generation && this.state.status === 'ready') {
+      const refresh = this.refresh();
+      const followupRefreshEpoch = this.refreshEpoch;
+      await refresh;
+      if (
+        generation === this.generation
+        && followupRefreshEpoch === this.refreshEpoch
+        && this.state.status === 'ready'
+      ) {
         this.setState({ ...this.state, notice: 'Arbeitszeit wurde append-only korrigiert.' });
       }
     } else if (result === null || result.status === 'rejected') {
       await this.rejectOutsideAuthentication(generation, 'Administrator-Sitzung ist nicht mehr gültig.');
     } else if (result.status === 'conflict') {
-      await this.refresh();
-      if (generation === this.generation && this.state.status === 'ready') {
+      const refresh = this.refresh();
+      const followupRefreshEpoch = this.refreshEpoch;
+      await refresh;
+      if (
+        generation === this.generation
+        && followupRefreshEpoch === this.refreshEpoch
+        && this.state.status === 'ready'
+      ) {
         this.setState({ ...this.state, notice: correctionConflictNotice(result.code) });
       }
     } else {
@@ -498,6 +692,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
     if (current.status !== 'ready' || current.adjudicationIntent === null
       || current.timeReviewBusy || membershipId === null) return;
     const generation = this.generation;
+    const requestRefreshEpoch = this.refreshEpoch;
     const intent = current.adjudicationIntent;
     const resolution = buildResolution(intent);
     if (resolution === null) return;
@@ -511,19 +706,34 @@ export class AdminWebCoordinator implements AdminWebCapability {
     } catch {
       result = { status: 'unavailable' as const };
     }
-    if (generation !== this.generation) return;
+    if (
+      generation !== this.generation
+      || requestRefreshEpoch !== this.refreshEpoch
+    ) return;
     const latest = this.state;
     if (latest.status !== 'ready' || latest.adjudicationIntent?.commandId !== intent.commandId) return;
     if (result?.status === 'succeeded') {
-      await this.refresh();
-      if (generation === this.generation && this.state.status === 'ready') {
+      const refresh = this.refresh();
+      const followupRefreshEpoch = this.refreshEpoch;
+      await refresh;
+      if (
+        generation === this.generation
+        && followupRefreshEpoch === this.refreshEpoch
+        && this.state.status === 'ready'
+      ) {
         this.setState({ ...this.state, notice: 'Review-Entscheidung wurde append-only protokolliert.' });
       }
     } else if (result === null || result.status === 'rejected') {
       await this.rejectOutsideAuthentication(generation, 'Administrator-Sitzung ist nicht mehr gültig.');
     } else if (result.status === 'conflict') {
-      await this.refresh();
-      if (generation === this.generation && this.state.status === 'ready') {
+      const refresh = this.refresh();
+      const followupRefreshEpoch = this.refreshEpoch;
+      await refresh;
+      if (
+        generation === this.generation
+        && followupRefreshEpoch === this.refreshEpoch
+        && this.state.status === 'ready'
+      ) {
         this.setState({ ...this.state, notice: adjudicationConflictNotice(result.code) });
       }
     } else {
@@ -534,11 +744,20 @@ export class AdminWebCoordinator implements AdminWebCapability {
     }
   }
 
+  async loadMoreTimeRecords(): Promise<void> {
+    await this.loadMoreCursorSection('timeRecords');
+  }
+
+  async loadMoreReviewItems(): Promise<void> {
+    await this.loadMoreCursorSection('reviewItems');
+  }
+
   async exportTimeRecords(): Promise<void> {
     const current = this.state;
     const membershipId = this.membershipId;
     if (current.status !== 'ready' || current.timeReviewBusy || membershipId === null) return;
     const generation = this.generation;
+    const requestRefreshEpoch = this.refreshEpoch;
     this.setState({ ...current, timeReviewBusy: true, notice: null });
     let result;
     try {
@@ -548,7 +767,10 @@ export class AdminWebCoordinator implements AdminWebCapability {
     } catch {
       result = { status: 'unavailable' as const };
     }
-    if (generation !== this.generation) return;
+    if (
+      generation !== this.generation
+      || requestRefreshEpoch !== this.refreshEpoch
+    ) return;
     const latest = this.state;
     if (latest.status !== 'ready') return;
     if (result?.status === 'succeeded') {
@@ -571,38 +793,178 @@ export class AdminWebCoordinator implements AdminWebCapability {
     }
   }
 
-  private async loadReadyData(membershipId: string): Promise<
-    | {
-        readonly status: 'succeeded'; readonly projection: SafeProjection;
-        readonly employeeProjection: SafeEmployeeProjection;
-        readonly timeRecords: readonly SafeTimeRecord[];
-        readonly reviewItems: readonly SafeReviewItem[];
-        readonly timeWindow: { readonly fromInclusive: string; readonly toExclusive: string };
-      }
-    | { readonly status: 'rejected' | 'unavailable' }
-  > {
+  private async loadMoreCursorSection(section: 'timeRecords' | 'reviewItems'): Promise<void> {
+    const current = this.state;
+    const membershipId = this.membershipId;
+    if (current.status !== 'ready' || membershipId === null) return;
+    const requestedCursor = section === 'timeRecords'
+      ? current.timeRecordsNextCursor
+      : current.reviewItemsNextCursor;
+    if (requestedCursor === null || current.sections[section].status === 'loading') return;
+    const generation = this.generation;
+    const refreshEpoch = this.refreshEpoch;
+    const sectionEpoch = ++this.sectionEpochs[section];
+    this.setState({
+      ...current,
+      invitation: null,
+      sections: { ...current.sections, [section]: { status: 'loading' } },
+    });
+    let result;
+    try {
+      result = section === 'timeRecords'
+        ? await this.auth.withAccessToken((token) => this.api.timeRecords(
+            token,
+            membershipId,
+            current.timeWindow.fromInclusive,
+            current.timeWindow.toExclusive,
+            requestedCursor,
+          ))
+        : await this.auth.withAccessToken(
+            (token) => this.api.reviewItems(token, membershipId, requestedCursor),
+          );
+    } catch {
+      result = { status: 'unavailable' as const };
+    }
+    if (
+      generation !== this.generation
+      || refreshEpoch !== this.refreshEpoch
+      || sectionEpoch !== this.sectionEpochs[section]
+    ) return;
+    if (result === null || result.status === 'rejected') {
+      await this.rejectOutsideAuthentication(generation, 'Administrator-Sitzung ist nicht mehr gültig.');
+      return;
+    }
+    const latest = this.state;
+    if (latest.status !== 'ready') return;
+    if (result.status !== 'succeeded') {
+      this.setState({
+        ...latest,
+        sections: {
+          ...latest.sections,
+          [section]: {
+            status: 'unavailable',
+            message: sectionUnavailableMessage(section),
+          },
+        },
+      });
+      return;
+    }
+    const merged = section === 'timeRecords'
+      ? mergeCursorPage(latest.timeRecords, result.value as CursorPage<SafeTimeRecord>, requestedCursor, 'timeRecordId')
+      : mergeCursorPage(latest.reviewItems, result.value as CursorPage<SafeReviewItem>, requestedCursor, 'reviewItemId');
+    if (merged === null) {
+      this.setState({
+        ...latest,
+        sections: {
+          ...latest.sections,
+          [section]: {
+            status: 'unavailable',
+            message: 'Die nächste Seite konnte nicht in bestätigter Reihenfolge übernommen werden.',
+          },
+        },
+      });
+      return;
+    }
+    if (section === 'timeRecords') {
+      this.setState({
+        ...latest,
+        timeRecords: merged.items as readonly SafeTimeRecord[],
+        timeRecordsNextCursor: merged.nextCursor,
+        sections: { ...latest.sections, timeRecords: { status: 'ready' } },
+      });
+    } else {
+      this.setState({
+        ...latest,
+        reviewItems: merged.items as readonly SafeReviewItem[],
+        reviewItemsNextCursor: merged.nextCursor,
+        sections: { ...latest.sections, reviewItems: { status: 'ready' } },
+      });
+    }
+  }
+
+  private async loadReadyData(membershipId: string): Promise<ReadyDataResult> {
     const timeWindow = boundedTimeWindow(this.now());
-    const projection = await this.auth.withAccessToken(
-      (token) => this.api.projection(token, membershipId, null),
-    );
-    if (projection?.status !== 'succeeded') return classifyLoadFailure(projection);
-    const employees = await this.auth.withAccessToken(
-      (token) => this.api.employeeProjection(token, membershipId, null),
-    );
-    if (employees?.status !== 'succeeded') return classifyLoadFailure(employees);
-    const records = await this.auth.withAccessToken((token) => this.api.timeRecords(
-      token, membershipId, timeWindow.fromInclusive, timeWindow.toExclusive,
-    ));
-    if (records?.status !== 'succeeded') return classifyLoadFailure(records);
-    const reviewItems = await this.auth.withAccessToken(
-      (token) => this.api.reviewItems(token, membershipId),
-    );
-    if (reviewItems?.status !== 'succeeded') return classifyLoadFailure(reviewItems);
+    const [projection, employees, records, reviewItems] = await Promise.all([
+      this.safeSectionRead(
+        () => this.auth.withAccessToken((token) => this.api.projection(token, membershipId, null)),
+      ),
+      this.safeSectionRead(
+        () => this.auth.withAccessToken(
+          (token) => this.api.employeeProjection(token, membershipId, null),
+        ),
+      ),
+      this.safeSectionRead(
+        () => this.auth.withAccessToken((token) => this.api.timeRecords(
+          token, membershipId, timeWindow.fromInclusive, timeWindow.toExclusive, null,
+        )),
+      ),
+      this.safeSectionRead(
+        () => this.auth.withAccessToken(
+          (token) => this.api.reviewItems(token, membershipId, null),
+        ),
+      ),
+    ]);
+    if ([projection, employees, records, reviewItems].some(
+      (result) => result === null || result.status === 'rejected',
+    )) return { status: 'rejected' };
+    const normalizedProjection = normalizeSectionResult(projection);
+    const normalizedEmployees = normalizeSectionResult(employees);
+    const normalizedRecords = normalizeSectionResult(records);
+    const normalizedReviewItems = normalizeSectionResult(reviewItems);
     return {
-      status: 'succeeded', projection: projection.value,
-      employeeProjection: employees.value, timeRecords: records.value,
-      reviewItems: reviewItems.value, timeWindow,
+      status: [
+        normalizedProjection,
+        normalizedEmployees,
+        normalizedRecords,
+        normalizedReviewItems,
+      ].every((result) => result.status === 'succeeded') ? 'succeeded' : 'partial',
+      projection: normalizedProjection,
+      employeeProjection: normalizedEmployees,
+      timeRecords: normalizedRecords,
+      reviewItems: normalizedReviewItems,
+      timeWindow,
     };
+  }
+
+  private async safeSectionRead<Value>(
+    operation: () => Promise<ApiResult<Value> | null>,
+  ): Promise<ApiResult<Value> | null> {
+    try {
+      return await operation();
+    } catch {
+      return { status: 'unavailable' };
+    }
+  }
+
+  private async loadSection(
+    section: AdminSection,
+    membershipId: string,
+    timeWindow: { readonly fromInclusive: string; readonly toExclusive: string },
+  ): Promise<{ readonly status: 'succeeded'; readonly value: unknown } | { readonly status: 'rejected' | 'unavailable' } | null> {
+    try {
+      let result: ApiResult<unknown> | null;
+      if (section === 'setup') {
+        result = await this.auth.withAccessToken(
+          (token) => this.api.projection(token, membershipId, null),
+        );
+      } else if (section === 'employees') {
+        result = await this.auth.withAccessToken(
+          (token) => this.api.employeeProjection(token, membershipId, null),
+        );
+      } else if (section === 'timeRecords') {
+        result = await this.auth.withAccessToken((token) => this.api.timeRecords(
+          token, membershipId, timeWindow.fromInclusive, timeWindow.toExclusive, null,
+        ));
+      } else {
+        result = await this.auth.withAccessToken(
+          (token) => this.api.reviewItems(token, membershipId, null),
+        );
+      }
+      if (result === null || result.status === 'rejected') return result;
+      return result.status === 'succeeded' ? result : { status: 'unavailable' };
+    } catch {
+      return { status: 'unavailable' };
+    }
   }
 
   private async completeSignIn(generation: number, email: string, password: string): Promise<void> {
@@ -627,13 +989,49 @@ export class AdminWebCoordinator implements AdminWebCapability {
       this.setState({ status: 'loading' });
       const projection = await this.loadReadyData(session.value.membershipId);
       if (generation !== this.generation) { await this.safeSignOut(); return; }
-      if (projection?.status === 'succeeded') {
-        this.setState(readyState(
-          projection.projection, projection.employeeProjection, projection.timeRecords,
-          projection.reviewItems, projection.timeWindow,
-        ));
-      } else if (projection === null || projection.status === 'rejected') {
+      if (projection.status === 'rejected') {
         await this.rejectWithinAuthentication(generation, 'Administrator-Sitzung ist nicht mehr gültig.');
+      } else if (
+        projection.projection.status === 'succeeded'
+        || projection.employeeProjection.status === 'succeeded'
+      ) {
+        const boundOrganization = projection.projection.status === 'succeeded'
+          ? projection.projection.value.organization
+          : projection.employeeProjection.status === 'succeeded'
+            ? projection.employeeProjection.value.organization
+            : null;
+        if (boundOrganization === null) throw new Error('Organization binding unavailable');
+        const setupProjection = projection.projection.status === 'succeeded'
+          ? projection.projection.value
+          : emptyProjection(boundOrganization);
+        const employeeProjection = projection.employeeProjection.status === 'succeeded'
+          ? projection.employeeProjection.value
+          : emptyEmployeeProjection(boundOrganization);
+        this.setState(readyState(
+          setupProjection,
+          employeeProjection,
+          projection.timeRecords.status === 'succeeded'
+            ? projection.timeRecords.value
+            : { items: [], nextCursor: null },
+          projection.reviewItems.status === 'succeeded'
+            ? projection.reviewItems.value
+            : { items: [], nextCursor: null },
+          projection.timeWindow,
+          {
+            setup: projection.projection.status === 'succeeded'
+              ? { status: 'ready' }
+              : { status: 'unavailable', message: sectionUnavailableMessage('setup') },
+            employees: projection.employeeProjection.status === 'succeeded'
+              ? { status: 'ready' }
+              : { status: 'unavailable', message: sectionUnavailableMessage('employees') },
+            timeRecords: projection.timeRecords.status === 'succeeded'
+              ? { status: 'ready' }
+              : { status: 'unavailable', message: sectionUnavailableMessage('timeRecords') },
+            reviewItems: projection.reviewItems.status === 'succeeded'
+              ? { status: 'ready' }
+              : { status: 'unavailable', message: sectionUnavailableMessage('reviewItems') },
+          },
+        ));
       } else {
         this.setState({ status: 'unavailable', message: 'Einrichtungsdaten sind derzeit nicht erreichbar.' });
       }
@@ -726,9 +1124,10 @@ export class AdminWebCoordinator implements AdminWebCapability {
 function readyState(
   projection: SafeProjection,
   employeeProjection: SafeEmployeeProjection,
-  timeRecords: readonly SafeTimeRecord[],
-  reviewItems: readonly SafeReviewItem[],
+  timeRecords: CursorPage<SafeTimeRecord>,
+  reviewItems: CursorPage<SafeReviewItem>,
   timeWindow: { readonly fromInclusive: string; readonly toExclusive: string },
+  sections = allSections({ status: 'ready' } as const),
 ): Extract<AdminWebState, { readonly status: 'ready' }> {
   if (
     projection.organization.id !== employeeProjection.organization.id
@@ -746,14 +1145,225 @@ function readyState(
     invitation: null,
     reassignmentIntent: null,
     reassigning: false,
-    timeRecords,
-    reviewItems,
+    timeRecords: timeRecords.items,
+    timeRecordsNextCursor: timeRecords.nextCursor,
+    reviewItems: reviewItems.items,
+    reviewItemsNextCursor: reviewItems.nextCursor,
+    sections,
     timeWindow,
     timeReviewBusy: false,
     correctionIntent: null,
     adjudicationIntent: null,
     notice: null,
   };
+}
+
+function emptyProjection(
+  organization: SafeProjection['organization'],
+): SafeProjection {
+  return Object.freeze({
+    organization,
+    customers: Object.freeze([]),
+    nfcTags: Object.freeze([]),
+    nextCursor: null,
+  });
+}
+
+function emptyEmployeeProjection(
+  organization: SafeEmployeeProjection['organization'],
+): SafeEmployeeProjection {
+  return Object.freeze({
+    organization,
+    employeeMemberships: Object.freeze([]),
+    nextCursor: null,
+  });
+}
+
+function normalizeSectionResult<Value>(
+  result: ApiResult<Value> | null,
+): ApiSectionResult<Value> {
+  return result?.status === 'succeeded'
+    ? result
+    : { status: 'unavailable' };
+}
+
+function allSections(
+  value: Extract<AdminWebState, { readonly status: 'ready' }>['sections'][AdminSection],
+): Extract<AdminWebState, { readonly status: 'ready' }>['sections'] {
+  return Object.freeze({
+    setup: value,
+    employees: value,
+    timeRecords: value,
+    reviewItems: value,
+  });
+}
+
+function mergeRefreshResult(
+  current: Extract<AdminWebState, { readonly status: 'ready' }>,
+  result: Exclude<ReadyDataResult, { readonly status: 'rejected' }>,
+): Extract<AdminWebState, { readonly status: 'ready' }> {
+  let next = current;
+  if (
+    (result.projection.status === 'succeeded' && !sameOrganization(
+      current.projection.organization,
+      result.projection.value.organization,
+    ))
+    || (result.employeeProjection.status === 'succeeded' && !sameOrganization(
+      current.projection.organization,
+      result.employeeProjection.value.organization,
+    ))
+    || (
+      result.projection.status === 'succeeded'
+      && result.employeeProjection.status === 'succeeded'
+      && !sameOrganization(
+        result.projection.value.organization,
+        result.employeeProjection.value.organization,
+      )
+    )
+  ) {
+    return {
+      ...current,
+      sections: allSections({
+        status: 'unavailable',
+        message: 'Die Administrationsbereiche widersprechen sich und wurden nicht übernommen.',
+      }),
+    };
+  }
+  next = result.projection.status === 'succeeded'
+    ? { ...next, projection: result.projection.value }
+    : next;
+  next = result.employeeProjection.status === 'succeeded'
+    ? { ...next, employeeProjection: result.employeeProjection.value }
+    : next;
+  next = result.timeRecords.status === 'succeeded'
+    ? {
+        ...next,
+        timeRecords: result.timeRecords.value.items,
+        timeRecordsNextCursor: result.timeRecords.value.nextCursor,
+        timeWindow: result.timeWindow,
+      }
+    : next;
+  next = result.reviewItems.status === 'succeeded'
+    ? {
+        ...next,
+        reviewItems: result.reviewItems.value.items,
+        reviewItemsNextCursor: result.reviewItems.value.nextCursor,
+      }
+    : next;
+  return {
+    ...next,
+    creating: false,
+    creatingEmployee: false,
+    reassigning: false,
+    timeReviewBusy: false,
+    sections: {
+      setup: sectionStatus(result.projection, 'setup'),
+      employees: sectionStatus(result.employeeProjection, 'employees'),
+      timeRecords: sectionStatus(result.timeRecords, 'timeRecords'),
+      reviewItems: sectionStatus(result.reviewItems, 'reviewItems'),
+    },
+  };
+}
+
+function sectionStatus(
+  result: ApiSectionResult<unknown>,
+  section: AdminSection,
+): Extract<AdminWebState, { readonly status: 'ready' }>['sections'][AdminSection] {
+  return result.status === 'succeeded'
+    ? { status: 'ready' }
+    : { status: 'unavailable', message: sectionUnavailableMessage(section) };
+}
+
+function sectionUnavailableMessage(section: AdminSection): string {
+  if (section === 'setup') return 'Einrichtungsdaten sind derzeit nicht erreichbar.';
+  if (section === 'employees') return 'Beschäftigtendaten sind derzeit nicht erreichbar.';
+  if (section === 'timeRecords') return 'Arbeitszeiten sind derzeit nicht erreichbar.';
+  return 'Review-Evidence ist derzeit nicht erreichbar.';
+}
+
+function applySectionResult(
+  current: Extract<AdminWebState, { readonly status: 'ready' }>,
+  section: AdminSection,
+  value: unknown,
+): Extract<AdminWebState, { readonly status: 'ready' }> {
+  if (section === 'setup') {
+    const projection = value as SafeProjection;
+    if (!sameOrganization(current.projection.organization, projection.organization)) {
+      return {
+        ...current,
+        sections: {
+          ...current.sections,
+          setup: {
+            status: 'unavailable',
+            message: 'Einrichtungsdaten gehören nicht zur bestätigten Organisation.',
+          },
+        },
+      };
+    }
+    return {
+      ...current,
+      projection,
+      sections: { ...current.sections, setup: { status: 'ready' } },
+    };
+  }
+  if (section === 'employees') {
+    const employeeProjection = value as SafeEmployeeProjection;
+    if (!sameOrganization(current.projection.organization, employeeProjection.organization)) {
+      return {
+        ...current,
+        sections: {
+          ...current.sections,
+          employees: {
+            status: 'unavailable',
+            message: 'Beschäftigtendaten gehören nicht zur bestätigten Organisation.',
+          },
+        },
+      };
+    }
+    return {
+      ...current,
+      employeeProjection,
+      sections: { ...current.sections, employees: { status: 'ready' } },
+    };
+  }
+  if (section === 'timeRecords') {
+    const page = value as CursorPage<SafeTimeRecord>;
+    return {
+      ...current,
+      timeRecords: page.items,
+      timeRecordsNextCursor: page.nextCursor,
+      sections: { ...current.sections, timeRecords: { status: 'ready' } },
+    };
+  }
+  const page = value as CursorPage<SafeReviewItem>;
+  return {
+    ...current,
+    reviewItems: page.items,
+    reviewItemsNextCursor: page.nextCursor,
+    sections: { ...current.sections, reviewItems: { status: 'ready' } },
+  };
+}
+
+function sameOrganization(
+  left: { readonly id: string; readonly name: string },
+  right: { readonly id: string; readonly name: string },
+): boolean {
+  return left.id === right.id && left.name === right.name;
+}
+
+function mergeCursorPage<Value extends Record<Key, string>, Key extends keyof Value>(
+  current: readonly Value[],
+  next: CursorPage<Value>,
+  requestedCursor: string,
+  key: Key,
+): CursorPage<Value> | null {
+  if (next.nextCursor === requestedCursor) return null;
+  const ids = new Set(current.map((item) => item[key]));
+  if (next.items.some((item) => ids.has(item[key]))) return null;
+  return Object.freeze({
+    items: Object.freeze([...current, ...next.items]),
+    nextCursor: next.nextCursor,
+  });
 }
 
 function mergeProjection(current: SafeProjection, next: SafeProjection, requestedCursor: string): SafeProjection | null {
@@ -828,12 +1438,6 @@ function buildResolution(intent: ReviewAdjudicationIntent): object | null {
     startedAt: intent.startedAt,
     stoppedAt: intent.stoppedAt,
   });
-}
-
-function classifyLoadFailure(
-  result: { readonly status: string } | null,
-): { readonly status: 'rejected' | 'unavailable' } {
-  return { status: result === null || result.status === 'rejected' ? 'rejected' : 'unavailable' };
 }
 
 function correctionConflictNotice(code: string): string {

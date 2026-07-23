@@ -1,4 +1,5 @@
 import type {
+  CursorPage,
   SafeEmployeeProjection,
   SafeProjection,
   SafeReviewItem,
@@ -68,8 +69,13 @@ export interface AdminWebApiPort {
     membershipId: string,
     fromInclusive: string,
     toExclusive: string,
-  ): Promise<ApiResult<readonly SafeTimeRecord[]>>;
-  reviewItems(token: string, membershipId: string): Promise<ApiResult<readonly SafeReviewItem[]>>;
+    nextCursor: string | null,
+  ): Promise<ApiResult<CursorPage<SafeTimeRecord>>>;
+  reviewItems(
+    token: string,
+    membershipId: string,
+    nextCursor: string | null,
+  ): Promise<ApiResult<CursorPage<SafeReviewItem>>>;
   correctTimeRecord(
     token: string,
     membershipId: string,
@@ -165,10 +171,12 @@ export class AdminWebApiClient implements AdminWebApiPort {
     membershipId: string,
     fromInclusive: string,
     toExclusive: string,
-  ): Promise<ApiResult<readonly SafeTimeRecord[]>> {
+    nextCursor: string | null,
+  ): Promise<ApiResult<CursorPage<SafeTimeRecord>>> {
+    if (nextCursor !== null && !opaqueCursor.test(nextCursor)) return { status: 'unavailable' };
     return this.request(
       '/v1/administration/time-records/query', token, 'POST',
-      { expectedMembershipId: membershipId, fromInclusive, toExclusive, limit: 100, cursor: null },
+      { expectedMembershipId: membershipId, fromInclusive, toExclusive, limit: 100, cursor: nextCursor },
       parseTimeRecords,
       false,
       false,
@@ -179,10 +187,12 @@ export class AdminWebApiClient implements AdminWebApiPort {
   async reviewItems(
     token: string,
     membershipId: string,
-  ): Promise<ApiResult<readonly SafeReviewItem[]>> {
+    nextCursor: string | null,
+  ): Promise<ApiResult<CursorPage<SafeReviewItem>>> {
+    if (nextCursor !== null && !opaqueCursor.test(nextCursor)) return { status: 'unavailable' };
     return this.request(
       '/v1/administration/review-items/query', token, 'POST',
-      { expectedMembershipId: membershipId, limit: 100, cursor: null },
+      { expectedMembershipId: membershipId, limit: 100, cursor: nextCursor },
       parseReviewItems,
       false,
       false,
@@ -437,7 +447,7 @@ function parseReassignment(
   ) return null;
   return { assignmentChanged: value.assignmentChanged };
 }
-function parseTimeRecords(value: unknown): readonly SafeTimeRecord[] | null {
+function parseTimeRecords(value: unknown): CursorPage<SafeTimeRecord> | null {
   if (!isRecord(value) || !exact(value, ['status', 'records', 'nextCursor'])
     || value.status !== 'ready' || !Array.isArray(value.records)
     || !(value.nextCursor === null || (typeof value.nextCursor === 'string' && opaqueCursor.test(value.nextCursor)))) return null;
@@ -472,9 +482,12 @@ function parseTimeRecords(value: unknown): readonly SafeTimeRecord[] | null {
   });
   return records.some((entry) => entry === null)
     ? null
-    : Object.freeze(records as SafeTimeRecord[]);
+    : Object.freeze({
+        items: Object.freeze(records as SafeTimeRecord[]),
+        nextCursor: value.nextCursor as string | null,
+      });
 }
-function parseReviewItems(value: unknown): readonly SafeReviewItem[] | null {
+function parseReviewItems(value: unknown): CursorPage<SafeReviewItem> | null {
   if (!isRecord(value) || !exact(value, ['status', 'items', 'nextCursor'])
     || value.status !== 'ready' || !Array.isArray(value.items)
     || !(value.nextCursor === null || (typeof value.nextCursor === 'string' && opaqueCursor.test(value.nextCursor)))) return null;
@@ -507,7 +520,10 @@ function parseReviewItems(value: unknown): readonly SafeReviewItem[] | null {
   });
   return items.some((entry) => entry === null)
     ? null
-    : Object.freeze(items as SafeReviewItem[]);
+    : Object.freeze({
+        items: Object.freeze(items as SafeReviewItem[]),
+        nextCursor: value.nextCursor as string | null,
+      });
 }
 function parseCommittedWrite(value: unknown): true | null {
   if (!isRecord(value) || value.status !== 'committed' || typeof value.idempotentRetry !== 'boolean') return null;

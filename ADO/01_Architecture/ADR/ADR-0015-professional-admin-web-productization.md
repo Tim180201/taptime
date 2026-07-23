@@ -1,9 +1,12 @@
 # ADR-0015: Professional Admin Web Productization
 
-- Status: **PROPOSED — HUMAN ACCEPTANCE REQUIRED**
+- Status: **HUMAN ACCEPTED — IMPLEMENTATION AUTHORIZED ON EXACT BASELINE**
 - Date: 2026-07-23
 - Candidate baseline commit: `166de1b149a202092443e02c61761887fde8268d`
 - Candidate baseline tree: `95355924c6ea65162de80cbbefaac6facc254b08`
+- Human-accepted implementation baseline commit: `d9892435acbf7f45a96a9a01c8331afceb65f6f1`
+- Human-accepted implementation baseline tree: `693bc9a5ca1c0d414ff196f9dfa3352757e45701`
+- Baseline CI: GitHub Actions `30000921765`, attempt 1, 12/12 successful
 - Owner: Technical Lead
 - Decision authority: Human Architect
 - Related: ADR-0011, ADR-0013, ADR-0014, DA4 authorization candidate, AVS-001
@@ -208,7 +211,10 @@ Renewed architecture and Human review are required if implementation needs:
 
 ## 6. Current authority
 
-This ADR is an ADO-only proposal. Its independent pre-implementation review returned `APPROVED`
-with zero open P0–P3. It grants no implementation, dependency, source, test, workflow, browser
-gate, production, production-data, deployment or distribution authority. DA4-P01–P12 become
-binding only after focused publication and explicit Human acceptance.
+The Human Architect accepted ADR-0015 and DA4-P01–P12 on exact commit
+`d9892435acbf7f45a96a9a01c8331afceb65f6f1`, tree
+`693bc9a5ca1c0d414ff196f9dfa3352757e45701`, after exact-head CI `30000921765`, attempt 1,
+passed 12/12. The Human separately authorized DA4 Workstreams A–D and AVS V0–V4 on that exact
+baseline.
+
+Human V5, production, production data, deployment and distribution remain separately unauthorized.

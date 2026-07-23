@@ -18,7 +18,15 @@ const employeeProjection: SafeEmployeeProjection = {
 const fixedNow = Date.parse('2026-07-21T12:00:00.000Z');
 const readyTimeReviewState = {
   timeRecords: [],
+  timeRecordsNextCursor: null,
   reviewItems: [],
+  reviewItemsNextCursor: null,
+  sections: {
+    setup: { status: 'ready' as const },
+    employees: { status: 'ready' as const },
+    timeRecords: { status: 'ready' as const },
+    reviewItems: { status: 'ready' as const },
+  },
   timeWindow: {
     fromInclusive: '2026-06-20T12:00:00.000Z',
     toExclusive: '2026-07-21T12:00:00.000Z',
@@ -91,10 +99,10 @@ class FakeApi implements AdminWebApiPort {
     value: { assignmentChanged: true },
   }));
   readonly timeRecords = vi.fn<AdminWebApiPort['timeRecords']>(async () => ({
-    status: 'succeeded', value: [],
+    status: 'succeeded', value: { items: [], nextCursor: null },
   }));
   readonly reviewItems = vi.fn<AdminWebApiPort['reviewItems']>(async () => ({
-    status: 'succeeded', value: [],
+    status: 'succeeded', value: { items: [], nextCursor: null },
   }));
   readonly correctTimeRecord = vi.fn<AdminWebApiPort['correctTimeRecord']>(async () => ({
     status: 'succeeded', value: true,
@@ -272,8 +280,14 @@ describe('AdminWebCoordinator', () => {
 
     await coordinator.loadMore();
 
-    expect(coordinator.getState()).toEqual({
-      status: 'unavailable', message: 'Weitere Einrichtungsdaten konnten nicht sicher bestätigt werden.',
+    expect(coordinator.getState()).toMatchObject({
+      status: 'ready',
+      sections: {
+        setup: {
+          status: 'unavailable',
+          message: 'Weitere Einrichtungsdaten konnten nicht sicher bestätigt werden.',
+        },
+      },
     });
   });
 
@@ -302,8 +316,14 @@ describe('AdminWebCoordinator', () => {
 
       await coordinator.loadMore();
 
-      expect(coordinator.getState()).toEqual({
-        status: 'unavailable', message: 'Weitere Einrichtungsdaten konnten nicht sicher bestätigt werden.',
+      expect(coordinator.getState()).toMatchObject({
+        status: 'ready',
+        sections: {
+          setup: {
+            status: 'unavailable',
+            message: 'Weitere Einrichtungsdaten konnten nicht sicher bestätigt werden.',
+          },
+        },
       });
     }
   });
@@ -437,6 +457,40 @@ describe('AdminWebCoordinator', () => {
     expect(coordinator.getState()).toMatchObject({ status: 'ready', invitation: null });
   });
 
+  it('tombstones a pending invitation before disclosure and never restores it after return', async () => {
+    const { api, coordinator } = setup();
+    await coordinator.signIn('administrator@example.test', 'secret');
+    const pendingInvitation = deferred<ApiResult<{
+      readonly value: string;
+      readonly expiresAt: string;
+    }>>();
+    api.createEmployeeInvitation.mockImplementationOnce(() => pendingInvitation.promise);
+
+    const creating = coordinator.createEmployeeInvitation('Employee Pending');
+    await vi.waitFor(() => expect(api.createEmployeeInvitation).toHaveBeenCalledTimes(1));
+    expect(coordinator.getState()).toMatchObject({
+      status: 'ready', creatingEmployee: true, invitation: null,
+    });
+
+    coordinator.dismissInvitation();
+    pendingInvitation.resolve({
+      status: 'succeeded',
+      value: {
+        value: 'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB',
+        expiresAt: '2099-07-15T12:34:56.789Z',
+      },
+    });
+    await creating;
+
+    expect(coordinator.getState()).toMatchObject({
+      status: 'ready', creatingEmployee: false, invitation: null,
+    });
+    await coordinator.retrySection('employees');
+    expect(coordinator.getState()).toMatchObject({
+      status: 'ready', invitation: null,
+    });
+  });
+
   it('fails closed for duplicate, unordered, cursor-regressing, or discontinuous Employee pages', async () => {
     const firstPage = employeeMemberships(1, 20);
     const cursor = `v1:e:${firstPage.at(-1)!.id}`;
@@ -484,9 +538,14 @@ describe('AdminWebCoordinator', () => {
 
       await coordinator.loadMoreEmployees();
 
-      expect(coordinator.getState()).toEqual({
-        status: 'unavailable',
-        message: 'Weitere Beschäftigtendaten konnten nicht sicher bestätigt werden.',
+      expect(coordinator.getState()).toMatchObject({
+        status: 'ready',
+        sections: {
+          employees: {
+            status: 'unavailable',
+            message: 'Weitere Beschäftigtendaten konnten nicht sicher bestätigt werden.',
+          },
+        },
       });
     }
   });
@@ -634,7 +693,10 @@ describe('AdminWebCoordinator', () => {
 
   it('shows before/after correction intent and retains one command ID across an ambiguous retry', async () => {
     const { api, coordinator } = setup();
-    api.timeRecords.mockResolvedValue({ status: 'succeeded', value: [stoppedRecord] });
+    api.timeRecords.mockResolvedValue({
+      status: 'succeeded',
+      value: { items: [stoppedRecord], nextCursor: null },
+    });
     api.correctTimeRecord
       .mockResolvedValueOnce({ status: 'unavailable' })
       .mockResolvedValueOnce({ status: 'succeeded', value: true });
@@ -674,7 +736,10 @@ describe('AdminWebCoordinator', () => {
 
   it('requires an explicit review decision and submits its exact selected evidence', async () => {
     const { api, coordinator } = setup();
-    api.reviewItems.mockResolvedValue({ status: 'succeeded', value: [reviewItem] });
+    api.reviewItems.mockResolvedValue({
+      status: 'succeeded',
+      value: { items: [reviewItem], nextCursor: null },
+    });
     await coordinator.signIn('administrator@example.test', 'secret');
 
     coordinator.prepareAdjudication(
@@ -696,5 +761,354 @@ describe('AdminWebCoordinator', () => {
       status: 'ready', adjudicationIntent: null,
       notice: 'Review-Entscheidung wurde append-only protokolliert.',
     });
+  });
+
+  it('retains server order while loading TimeRecord pages and rejects duplicate or stuck pages', async () => {
+    const { api, coordinator } = setup();
+    const nextRecord: SafeTimeRecord = {
+      ...stoppedRecord,
+      timeRecordId: '90000000-0000-4000-8000-000000000003',
+      startedAt: '2026-07-20T11:00:00.000Z',
+      stoppedAt: '2026-07-20T12:00:00.000Z',
+    };
+    api.timeRecords.mockResolvedValueOnce({
+      status: 'succeeded',
+      value: { items: [stoppedRecord], nextCursor: 'time_page_2' },
+    });
+    await coordinator.signIn('administrator@example.test', 'secret');
+    api.timeRecords.mockResolvedValueOnce({
+      status: 'succeeded',
+      value: { items: [nextRecord], nextCursor: 'time_page_3' },
+    });
+
+    await coordinator.loadMoreTimeRecords();
+
+    expect(api.timeRecords).toHaveBeenLastCalledWith(
+      'memory-only-token',
+      membershipId,
+      readyTimeReviewState.timeWindow.fromInclusive,
+      readyTimeReviewState.timeWindow.toExclusive,
+      'time_page_2',
+    );
+    expect(coordinator.getState()).toMatchObject({
+      status: 'ready',
+      timeRecords: [stoppedRecord, nextRecord],
+      timeRecordsNextCursor: 'time_page_3',
+      sections: { timeRecords: { status: 'ready' } },
+    });
+
+    api.timeRecords.mockResolvedValueOnce({
+      status: 'succeeded',
+      value: { items: [nextRecord], nextCursor: 'time_page_3' },
+    });
+    await coordinator.loadMoreTimeRecords();
+    expect(coordinator.getState()).toMatchObject({
+      status: 'ready',
+      timeRecords: [stoppedRecord, nextRecord],
+      sections: {
+        timeRecords: {
+          status: 'unavailable',
+          message: 'Die nächste Seite konnte nicht in bestätigter Reihenfolge übernommen werden.',
+        },
+      },
+    });
+  });
+
+  it('loads Review pages independently and contains a page failure to Review state', async () => {
+    const { api, coordinator } = setup();
+    const nextReviewItem: SafeReviewItem = {
+      ...reviewItem,
+      reviewItemId: '90000000-0000-4000-8000-000000000004',
+      deviceSequence: 8,
+    };
+    api.reviewItems.mockResolvedValueOnce({
+      status: 'succeeded',
+      value: { items: [reviewItem], nextCursor: 'review_page_2' },
+    });
+    await coordinator.signIn('administrator@example.test', 'secret');
+    api.reviewItems.mockResolvedValueOnce({
+      status: 'succeeded',
+      value: { items: [nextReviewItem], nextCursor: null },
+    });
+
+    await coordinator.loadMoreReviewItems();
+
+    expect(api.reviewItems).toHaveBeenLastCalledWith(
+      'memory-only-token', membershipId, 'review_page_2',
+    );
+    expect(coordinator.getState()).toMatchObject({
+      status: 'ready',
+      reviewItems: [reviewItem, nextReviewItem],
+      reviewItemsNextCursor: null,
+      sections: { reviewItems: { status: 'ready' } },
+    });
+  });
+
+  it('keeps successful sections usable when one authenticated read area is unavailable', async () => {
+    const { api, coordinator } = setup();
+    api.reviewItems.mockResolvedValueOnce({ status: 'unavailable' });
+
+    await coordinator.signIn('administrator@example.test', 'secret');
+
+    expect(coordinator.getState()).toMatchObject({
+      status: 'ready',
+      projection,
+      employeeProjection,
+      sections: {
+        setup: { status: 'ready' },
+        employees: { status: 'ready' },
+        timeRecords: { status: 'ready' },
+        reviewItems: {
+          status: 'unavailable',
+          message: 'Review-Evidence ist derzeit nicht erreichbar.',
+        },
+      },
+    });
+    api.reviewItems.mockResolvedValueOnce({
+      status: 'succeeded',
+      value: { items: [reviewItem], nextCursor: null },
+    });
+    await coordinator.retrySection('reviewItems');
+    expect(coordinator.getState()).toMatchObject({
+      status: 'ready',
+      reviewItems: [reviewItem],
+      sections: { reviewItems: { status: 'ready' } },
+    });
+  });
+
+  it('discards an older refresh after a newer refresh for the same Membership completes', async () => {
+    const { api, coordinator } = setup();
+    await coordinator.signIn('administrator@example.test', 'secret');
+    const lateProjection = deferred<ApiResult<SafeProjection>>();
+    api.projection
+      .mockImplementationOnce(() => lateProjection.promise)
+      .mockResolvedValueOnce({
+        status: 'succeeded',
+        value: {
+          ...projection,
+          customers: [{
+            id: '40000000-0000-4000-8000-000000000009',
+            displayName: 'Neuester Stand',
+            active: true,
+          }],
+        },
+      });
+
+    const older = coordinator.refresh();
+    await vi.waitFor(() => expect(api.projection).toHaveBeenCalledTimes(2));
+    const newer = coordinator.refresh();
+    await newer;
+    lateProjection.resolve({
+      status: 'succeeded',
+      value: {
+        ...projection,
+        customers: [{
+          id: '40000000-0000-4000-8000-000000000008',
+          displayName: 'Veralteter Stand',
+          active: true,
+        }],
+      },
+    });
+    await older;
+
+    expect(coordinator.getState()).toMatchObject({
+      status: 'ready',
+      projection: {
+        customers: [{ displayName: 'Neuester Stand' }],
+      },
+    });
+  });
+
+  it('contains a thrown refresh area while keeping every successful section usable', async () => {
+    const { api, coordinator } = setup();
+    await coordinator.signIn('administrator@example.test', 'secret');
+    api.reviewItems.mockRejectedValueOnce(new Error('synthetic read failure'));
+
+    await coordinator.refresh();
+
+    expect(coordinator.getState()).toMatchObject({
+      status: 'ready',
+      sections: {
+        setup: { status: 'ready' },
+        employees: { status: 'ready' },
+        timeRecords: { status: 'ready' },
+        reviewItems: {
+          status: 'unavailable',
+          message: 'Review-Evidence ist derzeit nicht erreichbar.',
+        },
+      },
+    });
+  });
+
+  it.each(['setup', 'employees'] as const)(
+    'establishes a safe initial ready state when only the %s Organization projection succeeds',
+    async (succeededSection) => {
+      const { api, coordinator } = setup();
+      if (succeededSection === 'setup') {
+        api.employeeProjection.mockRejectedValueOnce(new Error('employee projection unavailable'));
+      } else {
+        api.projection.mockRejectedValueOnce(new Error('setup projection unavailable'));
+      }
+
+      await coordinator.signIn('administrator@example.test', 'secret');
+
+      expect(coordinator.getState()).toMatchObject({
+        status: 'ready',
+        projection: { organization: projection.organization },
+        employeeProjection: { organization: projection.organization },
+        sections: {
+          setup: succeededSection === 'setup'
+            ? { status: 'ready' }
+            : { status: 'unavailable', message: 'Einrichtungsdaten sind derzeit nicht erreichbar.' },
+          employees: succeededSection === 'employees'
+            ? { status: 'ready' }
+            : { status: 'unavailable', message: 'Beschäftigtendaten sind derzeit nicht erreichbar.' },
+        },
+      });
+    },
+  );
+
+  it('drops stale Customer and invitation results after a newer full refresh', async () => {
+    const { api, coordinator } = setup();
+    await coordinator.signIn('administrator@example.test', 'secret');
+    const customerResult = deferred<ApiResult<true>>();
+    api.createCustomer.mockImplementationOnce(() => customerResult.promise);
+    const creatingCustomer = coordinator.createCustomer('Veralteter Kunde');
+    await vi.waitFor(() => expect(api.createCustomer).toHaveBeenCalledTimes(1));
+    await coordinator.refresh();
+    customerResult.resolve({ status: 'succeeded', value: true });
+    await creatingCustomer;
+    expect(api.projection).toHaveBeenCalledTimes(2);
+    expect(coordinator.getState()).toMatchObject({
+      status: 'ready', creating: false, notice: null,
+    });
+
+    const invitationResult = deferred<ApiResult<{
+      readonly value: string;
+      readonly expiresAt: string;
+    }>>();
+    api.createEmployeeInvitation.mockImplementationOnce(() => invitationResult.promise);
+    const creatingInvitation = coordinator.createEmployeeInvitation('Veraltete Einladung');
+    await vi.waitFor(() => expect(api.createEmployeeInvitation).toHaveBeenCalledTimes(1));
+    await coordinator.refresh();
+    invitationResult.resolve({
+      status: 'succeeded',
+      value: {
+        value: 'CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC',
+        expiresAt: '2099-07-15T12:34:56.789Z',
+      },
+    });
+    await creatingInvitation;
+    expect(coordinator.getState()).toMatchObject({
+      status: 'ready', creatingEmployee: false, invitation: null, notice: null,
+    });
+  });
+
+  it('drops stale reassignment, correction and adjudication results after newer refreshes', async () => {
+    const targetCustomer = {
+      id: '40000000-0000-4000-8000-000000000002',
+      displayName: 'Lager',
+      active: true,
+    };
+    const assignedProjection: SafeProjection = {
+      ...projection,
+      customers: [...projection.customers, targetCustomer],
+      nfcTags: [{
+        id: '50000000-0000-4000-8000-000000000001',
+        displayName: 'Eingang',
+        validationFingerprint: 'A1B2C3D4E5F6',
+        assignmentState: 'assigned',
+        targetCustomerId: projection.customers[0]!.id,
+        activeAssignmentId: '60000000-0000-4000-8000-000000000001',
+      }],
+    };
+    const { api, coordinator } = setup();
+    api.projection.mockResolvedValue({ status: 'succeeded', value: assignedProjection });
+    api.timeRecords.mockResolvedValue({
+      status: 'succeeded',
+      value: { items: [stoppedRecord], nextCursor: null },
+    });
+    api.reviewItems.mockResolvedValue({
+      status: 'succeeded',
+      value: { items: [reviewItem], nextCursor: null },
+    });
+    await coordinator.signIn('administrator@example.test', 'secret');
+
+    coordinator.prepareReassignment(
+      assignedProjection.nfcTags[0]!.id,
+      targetCustomer.id,
+    );
+    const reassignmentResult = deferred<ApiResult<{ readonly assignmentChanged: boolean }>>();
+    api.reassignNfcTag.mockImplementationOnce(() => reassignmentResult.promise);
+    const reassigning = coordinator.confirmReassignment();
+    await vi.waitFor(() => expect(api.reassignNfcTag).toHaveBeenCalledTimes(1));
+    await coordinator.refresh();
+    reassignmentResult.resolve({ status: 'succeeded', value: { assignmentChanged: true } });
+    await reassigning;
+    expect(coordinator.getState()).toMatchObject({
+      status: 'ready', reassignmentIntent: null, reassigning: false, notice: null,
+    });
+
+    coordinator.prepareCorrection(
+      stoppedRecord.timeRecordId,
+      '2026-07-20T08:15:00.000Z',
+      '2026-07-20T10:15:00.000Z',
+      'Synthetische Korrekturbegründung',
+    );
+    const correctionResult = deferred<ApiResult<true>>();
+    api.correctTimeRecord.mockImplementationOnce(() => correctionResult.promise);
+    const correcting = coordinator.confirmCorrection();
+    await vi.waitFor(() => expect(api.correctTimeRecord).toHaveBeenCalledTimes(1));
+    await coordinator.refresh();
+    correctionResult.resolve({ status: 'succeeded', value: true });
+    await correcting;
+    expect(coordinator.getState()).toMatchObject({
+      status: 'ready', correctionIntent: null, timeReviewBusy: false, notice: null,
+    });
+
+    coordinator.prepareAdjudication(
+      reviewItem.reviewItemId,
+      'no_time_record_change',
+      null,
+      null,
+      null,
+      'Synthetische Reviewbegründung',
+    );
+    const adjudicationResult = deferred<ApiResult<true>>();
+    api.adjudicateReviewItem.mockImplementationOnce(() => adjudicationResult.promise);
+    const adjudicating = coordinator.confirmAdjudication();
+    await vi.waitFor(() => expect(api.adjudicateReviewItem).toHaveBeenCalledTimes(1));
+    await coordinator.refresh();
+    adjudicationResult.resolve({ status: 'succeeded', value: true });
+    await adjudicating;
+    expect(coordinator.getState()).toMatchObject({
+      status: 'ready', adjudicationIntent: null, timeReviewBusy: false, notice: null,
+    });
+  });
+
+  it('does not download or announce a stale export response after a newer refresh', async () => {
+    const { api, coordinator } = setup();
+    await coordinator.signIn('administrator@example.test', 'secret');
+    const exportResult = deferred<ApiResult<{ readonly blob: Blob; readonly filename: string }>>();
+    api.exportTimeEntries.mockImplementationOnce(() => exportResult.promise);
+    const createObjectUrl = vi.spyOn(URL, 'createObjectURL');
+
+    const exporting = coordinator.exportTimeRecords();
+    await vi.waitFor(() => expect(api.exportTimeEntries).toHaveBeenCalledTimes(1));
+    await coordinator.refresh();
+    exportResult.resolve({
+      status: 'succeeded',
+      value: {
+        blob: new Blob(['stale']),
+        filename: 'taptime-time-entries_20260721T000000Z_20260722T000000Z.csv',
+      },
+    });
+    await exporting;
+
+    expect(createObjectUrl).not.toHaveBeenCalled();
+    expect(coordinator.getState()).toMatchObject({
+      status: 'ready', timeReviewBusy: false, notice: null,
+    });
+    createObjectUrl.mockRestore();
   });
 });

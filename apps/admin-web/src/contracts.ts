@@ -46,6 +46,15 @@ export interface SafeReviewItem {
   readonly deviceSequence: number | null;
   readonly predecessorBlocked: boolean;
 }
+export interface CursorPage<Value> {
+  readonly items: readonly Value[];
+  readonly nextCursor: string | null;
+}
+export type AdminSection = 'setup' | 'employees' | 'timeRecords' | 'reviewItems';
+export type SectionStatus =
+  | { readonly status: 'ready' }
+  | { readonly status: 'loading' }
+  | { readonly status: 'unavailable'; readonly message: string };
 export interface TimeCorrectionIntent {
   readonly commandId: string;
   readonly timeRecord: SafeTimeRecord;
@@ -79,7 +88,10 @@ export type AdminWebState =
       readonly reassignmentIntent: ReassignmentIntent | null;
       readonly reassigning: boolean;
       readonly timeRecords: readonly SafeTimeRecord[];
+      readonly timeRecordsNextCursor: string | null;
       readonly reviewItems: readonly SafeReviewItem[];
+      readonly reviewItemsNextCursor: string | null;
+      readonly sections: Readonly<Record<AdminSection, SectionStatus>>;
       readonly timeWindow: { readonly fromInclusive: string; readonly toExclusive: string };
       readonly timeReviewBusy: boolean;
       readonly correctionIntent: TimeCorrectionIntent | null;
@@ -92,6 +104,7 @@ export interface AdminWebCapability {
   signIn(email: string, password: string): Promise<void>;
   signOut(): Promise<void>;
   refresh(): Promise<void>;
+  retrySection(section: AdminSection): Promise<void>;
   loadMore(): Promise<void>;
   createCustomer(displayName: string): Promise<void>;
   createEmployeeInvitation(displayName: string): Promise<void>;
@@ -114,4 +127,6 @@ export interface AdminWebCapability {
   cancelAdjudication(): void;
   confirmAdjudication(): Promise<void>;
   exportTimeRecords(): Promise<void>;
+  loadMoreTimeRecords(): Promise<void>;
+  loadMoreReviewItems(): Promise<void>;
 }

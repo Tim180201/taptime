@@ -405,20 +405,61 @@ describe('AdminWebApiClient', () => {
 
     await expect(client.timeRecords(
       'token', ids.membership, '2026-07-01T00:00:00.000Z', '2026-07-21T00:00:00.000Z',
+      null,
     )).resolves.toEqual({
       status: 'succeeded',
-      value: [{
-        timeRecordId: recordId, employeeDisplayName: 'Employee Alpha',
-        customerDisplayName: 'Werkstatt', source: 'canonical', status: 'stopped',
-        startedAt: '2026-07-20T08:00:00.000Z', stoppedAt: '2026-07-20T10:00:00.000Z',
-        baseRowVersion: 1, effectiveRevisionNumber: 2, overlapsAnotherRecord: false,
-      }],
+      value: {
+        items: [{
+          timeRecordId: recordId, employeeDisplayName: 'Employee Alpha',
+          customerDisplayName: 'Werkstatt', source: 'canonical', status: 'stopped',
+          startedAt: '2026-07-20T08:00:00.000Z', stoppedAt: '2026-07-20T10:00:00.000Z',
+          baseRowVersion: 1, effectiveRevisionNumber: 2, overlapsAnotherRecord: false,
+        }],
+        nextCursor: null,
+      },
     });
     expect(JSON.parse(String(fetchRequest.mock.calls[0]?.[1]?.body))).toEqual({
       expectedMembershipId: ids.membership,
       fromInclusive: '2026-07-01T00:00:00.000Z',
       toExclusive: '2026-07-21T00:00:00.000Z', limit: 100, cursor: null,
     });
+  });
+
+  it('passes only bounded opaque TimeRecord and Review continuation cursors back to the server', async () => {
+    const fetchRequest = vi.fn<typeof fetch>(async (input) => json(
+      String(input).includes('review-items')
+        ? { status: 'ready', items: [], nextCursor: null }
+        : { status: 'ready', records: [], nextCursor: null },
+    ));
+    const client = new AdminWebApiClient(fetchRequest);
+
+    await expect(client.timeRecords(
+      'token',
+      ids.membership,
+      '2026-07-01T00:00:00.000Z',
+      '2026-07-21T00:00:00.000Z',
+      'time_page_2',
+    )).resolves.toEqual({
+      status: 'succeeded',
+      value: { items: [], nextCursor: null },
+    });
+    await expect(client.reviewItems(
+      'token', ids.membership, 'review_page_2',
+    )).resolves.toEqual({
+      status: 'succeeded',
+      value: { items: [], nextCursor: null },
+    });
+    expect(JSON.parse(String(fetchRequest.mock.calls[0]?.[1]?.body)).cursor).toBe('time_page_2');
+    expect(JSON.parse(String(fetchRequest.mock.calls[1]?.[1]?.body)).cursor).toBe('review_page_2');
+
+    await expect(client.timeRecords(
+      'token',
+      ids.membership,
+      '2026-07-01T00:00:00.000Z',
+      '2026-07-21T00:00:00.000Z',
+      'contains whitespace',
+    )).resolves.toEqual({ status: 'unavailable' });
+    expect(fetchRequest).toHaveBeenCalledTimes(2);
   });
 
   it('submits exact correction/adjudication commands and maps only safe write conflicts', async () => {

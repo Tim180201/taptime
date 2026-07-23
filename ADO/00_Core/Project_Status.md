@@ -1,6 +1,6 @@
 # Project Status
 
-Status: CORE ROADMAP V2 BLOCK A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2, BLOCK D, E1 AND NARROW E2A COMPLETE FOR THEIR RECORDED SCOPES — DEVELOPMENT ASSIGNMENTS 1–3 AND DT-060–DT-074 CLOSED FOR THEIR EXACT AUTHORIZED LOCAL SCOPES — DA4 PROFESSIONAL ADMIN WEB PRODUCTIZATION HAS AN INDEPENDENTLY APPROVED ADO-ONLY CANDIDATE; HUMAN ACCEPTANCE AND IMPLEMENTATION AUTHORITY NOT GRANTED — PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
+Status: CORE ROADMAP V2 BLOCK A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2, BLOCK D, E1 AND NARROW E2A COMPLETE FOR THEIR RECORDED SCOPES — DEVELOPMENT ASSIGNMENTS 1–3 AND DT-060–DT-074 CLOSED FOR THEIR EXACT AUTHORIZED LOCAL SCOPES — DA4 PROFESSIONAL ADMIN WEB PRODUCTIZATION IS HUMAN ACCEPTED AND IMPLEMENTATION AUTHORIZED; LOCAL AVS V0–V3 CANDIDATE COMPLETE, V4 AND INDEPENDENT EXACT-SHA REVIEW PENDING — HUMAN V5, PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
 Date: 2026-07-23
 Owner: Human Architect + Technical Lead
 
@@ -10,13 +10,15 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
 
 ## Current State
 
-- **Development Assignment 4 is the next Roadmap engineering block.** ADR-0015 and the DA4
-  authorization candidate bind professional productization to the already accepted Admin Web
-  capabilities, make first-100 pagination/completeness explicit and propose a five-view accessible
-  shell without new backend or business authority. Its independent pre-implementation review
-  returned `APPROVED` with zero open P0–P3. DA4-P01–P12 are not Human-accepted and no
-  implementation, dependency, Human V5, production, deployment or distribution action is
-  authorized.
+- **Development Assignment 4 is the active Roadmap engineering block.** The Human Architect
+  accepted ADR-0015 and DA4-P01–P12 and separately authorized Workstreams A–D plus AVS V0–V4 on
+  exact baseline `d9892435acbf7f45a96a9a01c8331afceb65f6f1`, tree
+  `693bc9a5ca1c0d414ff196f9dfa3352757e45701`, CI `30000921765`, attempt 1, 12/12. The local
+  implementation candidate provides the five-view accessible shell, truthful cursor-backed
+  completeness, section-local recovery, stale-response protection and preserved privileged-action
+  boundaries. AVS V0–V3 is green; focused publication, exact-head CI and independent exact-SHA
+  review remain pending. Human V5, production, production data, deployment and distribution remain
+  separately unauthorized.
 - **Development Assignment 3 is Human-accepted and implementation-authorized on exact baseline
   `ff68f7a7d0ce69a65e88846ae1cca9abd5951f5d`, tree
   `09ef169a68bb53420e07b6f3fcbbdc74e0c01d57`.** ADR-0014/DA3-P01–DA3-P16 and Workstreams A–D

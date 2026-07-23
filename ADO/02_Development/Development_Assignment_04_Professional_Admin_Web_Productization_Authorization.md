@@ -1,16 +1,19 @@
-# Development Assignment 4 — Professional Admin Web Productization Authorization Candidate
+# Development Assignment 4 — Professional Admin Web Productization Authorization
 
-- Status: **ADO-ONLY CANDIDATE — INDEPENDENT REVIEW APPROVED; HUMAN ACCEPTANCE PENDING**
+- Status: **HUMAN ACCEPTED AND IMPLEMENTATION AUTHORIZED — LOCAL IMPLEMENTATION CANDIDATE; V4 AND INDEPENDENT REVIEW PENDING**
 - Date: 2026-07-23
 - Candidate baseline commit: `166de1b149a202092443e02c61761887fde8268d`
 - Candidate baseline tree: `95355924c6ea65162de80cbbefaac6facc254b08`
 - Baseline CI: GitHub Actions `29999268947`, attempt 2, 12/12 successful
+- Human-accepted implementation baseline commit: `d9892435acbf7f45a96a9a01c8331afceb65f6f1`
+- Human-accepted implementation baseline tree: `693bc9a5ca1c0d414ff196f9dfa3352757e45701`
+- Human-accepted baseline CI: GitHub Actions `30000921765`, attempt 1, 12/12 successful
 - Parent state: DA1–DA3 and DT-060–DT-074 closed for their exact authorized local scopes
 - Owner: Technical Lead
 - Decision authority: Human Architect
 - Proposed architecture: `ADO/01_Architecture/ADR/ADR-0015-professional-admin-web-productization.md`
 - Risk class: proposed implementation AVS-001 **R3**
-- Implementation authority: **NOT GRANTED**
+- Implementation authority: **GRANTED FOR WORKSTREAMS A–D AND AVS V0–V4 ON THE EXACT HUMAN-ACCEPTED BASELINE**
 
 ## 1. Candidate objective
 
@@ -234,9 +237,13 @@ Allowed verdicts are `APPROVED` or `CHANGES REQUIRED`, with P0–P3 findings.
 
 ## 12. Current authority
 
-Only ADO-only candidate preparation, V0, independent review and focused publication are in scope.
-No implementation, dependency, source, test, workflow, Human V5, production, production-data,
-deployment or distribution action is authorized.
-
 The independent pre-implementation review returned `APPROVED` with zero open P0–P3 and is archived
-in `ADO/05_Evidence/Development_Assignment_04_Independent_Pre_Implementation_Review.md`.
+in `ADO/05_Evidence/Development_Assignment_04_Independent_Pre_Implementation_Review.md`. The Human
+Architect then accepted ADR-0015 and DA4-P01–P12 and separately authorized Workstreams A–D plus
+AVS V0–V4 on exact commit `d9892435acbf7f45a96a9a01c8331afceb65f6f1`, tree
+`693bc9a5ca1c0d414ff196f9dfa3352757e45701`.
+
+The local implementation candidate and AVS V0–V3 evidence are recorded in
+`ADO/05_Evidence/Development_Assignment_04_Implementation_Evidence.md`. Focused publication,
+exact-head CI and independent exact-SHA implementation review remain mandatory. Human V5,
+production, production data, deployment and distribution remain separately unauthorized.

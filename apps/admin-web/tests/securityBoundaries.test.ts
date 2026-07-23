@@ -41,8 +41,11 @@ describe('C3D Admin Web security boundaries', () => {
 
   it('retains a narrow mobile layout for the production-rendered setup surface', async () => {
     const styles = await readFile(new URL('../src/styles.css', import.meta.url), 'utf8');
-    expect(styles).toContain('@media(max-width:720px)');
-    expect(styles).toContain('.grid{grid-template-columns:1fr}');
-    expect(styles).toContain('.inline{flex-direction:column}');
+    expect(styles).toContain('@media (max-width: 48rem)');
+    expect(styles).toContain('@media (max-width: 28rem)');
+    expect(styles).toContain('min-width: 20rem');
+    expect(styles).toContain('.form-grid { grid-template-columns: 1fr; }');
+    expect(styles).toContain(':focus-visible');
+    expect(styles).toContain('@media (forced-colors: active)');
   });
 });
