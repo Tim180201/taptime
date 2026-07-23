@@ -1,10 +1,13 @@
 # Development Assignment 4 — DA4-V5-F01 Response-Ceiling Correction Candidate
 
-- Status: **ADO-ONLY CANDIDATE — INDEPENDENT REVIEW REQUIRED**
+- Status: **INDEPENDENTLY APPROVED — LOCAL R3 V0–V3 GREEN; V4/REVIEW PENDING**
 - Date: 2026-07-23
 - Exact baseline commit: `decf806aeb2fd1619252a6efd62b71202e53eefb`
 - Exact baseline tree: `519a1a703bf4c55861b4c25e95cd651b2f7a51ee`
 - Exact-head CI: `30013796325`, attempt 1, 12/12 successful
+- Reviewed candidate commit: `454b751f9668c4c1d526d4f78ad09d1a16e5aba5`
+- Reviewed candidate tree: `c69717e50263cbc68da3207685f63bd8ef6b1313`
+- Candidate exact-head CI: `30016627509`, attempt 1, 12/12 successful
 - Owner: Technical Lead
 - Decision authority: Human Architect
 - Risk class: current ADO delta R0; proposed executable correction R3
@@ -94,13 +97,23 @@ The executable correction is AVS R3:
 
 The current five-file ADO candidate is R0 and receives V0 only.
 
+Independent read-only exact-SHA review bound candidate `454b751f9668c4c1d526d4f78ad09d1a16e5aba5`,
+tree `c69717e50263cbc68da3207685f63bd8ef6b1313`, and CI `30016627509`, attempt 1,
+12/12. Verdict: `APPROVED`, `MERGE_READY / EXACT-SHA APPROVED`, zero open P0–P3.
+
+The focused local correction now uses the named 256-KiB maximum only for the successful
+TimeReview-read branch. Its real-server-path suite passes 6/6, including intact realistic
+100-item responses above 16 KiB and fail-closed responses above 256 KiB for both query routes.
+The resumed complete candidate passes local R3 V0–V3; V4 and independent exact-SHA
+implementation review remain pending.
+
 ## 7. Authority and exclusions
 
-This candidate authorizes no executable change by itself. After its required independent review
-returns `APPROVED` with zero open P0–P3, the documented Human standing rule permits the Technical
-Lead to implement this exact technical correction and resume the already authorized DA4-V5 work
-without another confirmation prompt. That rule cannot supply a missing Product, Business,
-Architecture or wider Scope decision.
+This candidate did not authorize executable change by itself. Its required independent review
+returned `APPROVED` with zero open P0–P3, so the documented Human standing rule permitted the
+Technical Lead to implement this exact technical correction and resume the already authorized
+DA4-V5 work without another confirmation prompt. That rule cannot supply a missing Product,
+Business, Architecture or wider Scope decision.
 
 Schema, migrations, contracts, Admin Web, dependencies, lockfile, workflows, Mobile, Android, NFC,
 ADB, Human V5, production, production data, deployment and distribution remain unchanged or

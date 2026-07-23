@@ -1,6 +1,6 @@
 # Development Assignment 4 — V5 Enablement Authorization Candidate
 
-- Status: **INDEPENDENTLY APPROVED FOR CANDIDATE PUBLICATION — HUMAN ACCEPTANCE AND IMPLEMENTATION AUTHORITY PENDING**
+- Status: **HUMAN-ACCEPTED AND R3 IMPLEMENTATION AUTHORIZED — LOCAL V0–V3 GREEN; V4/REVIEW PENDING**
 - Date: 2026-07-23
 - Candidate baseline commit: `4594529667fe1570045eea03fd7132bc27e2e479`
 - Candidate baseline tree: `72338ec9b65dabdd71ab9011604817f61c13c288`
@@ -164,11 +164,13 @@ ADO-only candidate and V0
   -> evidence publication, final review and DA4 closure decision
 ```
 
-No arrow authorizes a later arrow. This document currently authorizes no executable change and no
-Human V5. Human V5, production, production data, deployment and distribution remain separately
-unauthorized.
+No arrow authorizes a later arrow. The Human Architect accepted this candidate and separately
+authorized its R3 implementation on `decf806aeb2fd1619252a6efd62b71202e53eefb`, tree
+`519a1a703bf4c55861b4c25e95cd651b2f7a51ee`, CI `30013796325`, attempt 1, 12/12.
+Human V5, production, production data, deployment and distribution remain separately unauthorized.
 
 The independent pre-implementation review is archived at
 `ADO/05_Evidence/Development_Assignment_04_V5_Enablement_Independent_Pre_Implementation_Review.md`.
-Its approval makes this exact ADO candidate publication-ready only. Human acceptance and a
-separate exact-baseline R3 implementation authorization remain mandatory.
+Its approval made this exact ADO candidate publication-ready only. Human acceptance and the
+separate exact-baseline R3 implementation authorization were subsequently granted as recorded
+above.

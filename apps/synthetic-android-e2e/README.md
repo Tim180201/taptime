@@ -238,6 +238,66 @@ an install on a device, production resources/data, deployment or distribution. A
 run requires a separate Human-Architect authorization bound to independently approved exact source,
 ADO, CI and artifact hashes.
 
+## DA4 V5 browser-gate preparation
+
+The opt-in `da4-v5` profile is preparation infrastructure only. It seeds the disposable browser
+fixture, serves an exact manifest-bound Admin-Web production build on `127.0.0.1:5173`, and proxies
+same-origin `/v1` traffic only to `127.0.0.1:3000`. It does not authorize a Human V5 run.
+
+Build the real Admin Web with the fixed synthetic Auth configuration, create the manifest outside
+the build directory, then build and start the harness:
+
+```bash
+VITE_TAPTIME_SUPABASE_URL=http://127.0.0.1:54321 \
+VITE_TAPTIME_SUPABASE_PUBLISHABLE_KEY=sb_publishable_taptime_synthetic_android_e2e \
+npm run build --workspace=@taptime/admin-web
+
+npm run build --workspace=@taptime/synthetic-android-e2e
+npm run da4-v5:manifest --workspace=@taptime/synthetic-android-e2e -- \
+  --root /absolute/path/to/taptime/apps/admin-web/dist \
+  --output /absolute/path/to/temporary/da4-v5-admin-web-manifest.json
+
+printf 'Fresh synthetic DA4-V5 password: '
+IFS= read -r -s TAPTIME_DA4_V5_PASSWORD
+printf '\n'
+
+TAPTIME_SYNTHETIC_E2E_PROFILE=da4-v5 \
+TAPTIME_SYNTHETIC_E2E_DATABASE_URL="postgresql://$USER@127.0.0.1:5432/taptime_synthetic_android_e2e" \
+TAPTIME_SYNTHETIC_E2E_PASSWORD="$TAPTIME_DA4_V5_PASSWORD" \
+TAPTIME_DA4_V5_ADMIN_WEB_ROOT=/absolute/path/to/taptime/apps/admin-web/dist \
+TAPTIME_DA4_V5_ADMIN_WEB_MANIFEST=/absolute/path/to/temporary/da4-v5-admin-web-manifest.json \
+npm run da4-v5:start --workspace=@taptime/synthetic-android-e2e
+
+unset TAPTIME_DA4_V5_PASSWORD
+```
+
+The profile rejects missing or unknown opt-in values before reading database configuration. It
+reports only the public fixture manifest, exact artifact inventory, safe aggregate status and
+`match`/`mismatch` controls. `credential-check` is mandatory before every password entry.
+`timezone-check` binds Safari and Chromium to the same unambiguous IANA timezone.
+
+After each real Admin-Web write, use the exact serial checkpoint:
+
+```text
+checkpoint safari create-customer
+checkpoint safari create-invitation
+checkpoint safari reassign-tag
+checkpoint chromium correct-time-record
+checkpoint chromium export-time-entries
+checkpoint chromium adjudicate-review
+```
+
+Only `da4_v5_write_checkpoint=match` permits the next write. Wrong browser, wrong order, duplicate
+operation or any extra/missing aggregate delta returns `mismatch` without advancing. The
+single-use `arm-read-fault` control accepts only `setup`, `employees`, `time-records` or
+`review-items`; it never intercepts a write.
+
+On every normal, failed or interrupted preparation, run `stop` and remove the temporary manifest,
+Admin-Web build copy and browser downloads. Clear site data for `127.0.0.1:5173`, then verify zero
+listeners on `54321`, `3000` and `5173`, zero synthetic schema/migration ledger and generated
+runtime roles. The normative Human procedure and disclosure boundary remain
+`ADO/04_Operations/Development_Assignment_04_V5_Runbook.md`.
+
 ## Automated verification
 
 With the dedicated PostgreSQL URL set:

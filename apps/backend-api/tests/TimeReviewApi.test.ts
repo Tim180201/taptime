@@ -1,5 +1,9 @@
 import type { Server } from 'node:http';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import type {
+  ReviewItemProjection,
+  TimeRecordProjection,
+} from '@taptime/time-review-contract';
 import { createBackendHttpServer } from '../src/BackendHttpServer.js';
 import type { BackendApiDependencies } from '../src/types.js';
 import { unavailableOfflineDependencies } from './offlineTestDependencies.js';
@@ -16,6 +20,8 @@ const ids = {
 } as const;
 
 const servers: Server[] = [];
+const legacyResponseMaximumBytes = 16 * 1024;
+const timeReviewReadResponseMaximumBytes = 256 * 1024;
 
 afterEach(async () => {
   await Promise.all(servers.splice(0).map(close));
@@ -74,6 +80,82 @@ describe('DA3 time-review HTTP boundary', () => {
       { 'x-taptime-expected-membership-id': ids.membership },
     ), 400, 'invalid_request');
     expect(queryTimeRecords).not.toHaveBeenCalled();
+  });
+
+  it('returns intact realistic 100-item TimeRecord and review pages above the legacy ceiling', async () => {
+    const records = realisticTimeRecords(100);
+    const items = realisticReviewItems(100);
+    const timePage = { records, nextCursor: 'time-page-2' };
+    const reviewPage = { items, nextCursor: 'review-page-2' };
+    for (const body of [
+      { status: 'ready', ...timePage },
+      { status: 'ready', ...reviewPage },
+    ]) {
+      const bytes = Buffer.byteLength(JSON.stringify(body), 'utf8');
+      expect(bytes).toBeGreaterThan(legacyResponseMaximumBytes);
+      expect(bytes).toBeLessThanOrEqual(timeReviewReadResponseMaximumBytes);
+    }
+
+    const origin = await start({
+      timeReview: {
+        ...unavailableOfflineDependencies().timeReview,
+        async queryTimeRecords() { return { status: 'ready', value: timePage }; },
+        async queryReviewItems() { return { status: 'ready', value: reviewPage }; },
+      },
+    });
+    const timeResponse = await post(origin, '/v1/administration/time-records/query', {
+      expectedMembershipId: ids.membership,
+      fromInclusive: '2026-07-01T00:00:00.000Z',
+      toExclusive: '2026-07-21T00:00:00.000Z',
+      limit: 100,
+      cursor: null,
+    });
+    const reviewResponse = await post(origin, '/v1/administration/review-items/query', {
+      expectedMembershipId: ids.membership,
+      limit: 100,
+      cursor: null,
+    });
+
+    expect(timeResponse.status).toBe(200);
+    expect(await timeResponse.json()).toEqual({ status: 'ready', ...timePage });
+    expect(reviewResponse.status).toBe(200);
+    expect(await reviewResponse.json()).toEqual({ status: 'ready', ...reviewPage });
+  });
+
+  it('fails closed when either TimeReview read dependency exceeds 256 KiB', async () => {
+    const oversizedRecords = malformedOversizedDependencyTimeRecords();
+    const oversizedItems = malformedOversizedDependencyReviewItems();
+    expect(Buffer.byteLength(JSON.stringify({
+      status: 'ready', records: oversizedRecords, nextCursor: null,
+    }), 'utf8')).toBeGreaterThan(timeReviewReadResponseMaximumBytes);
+    expect(Buffer.byteLength(JSON.stringify({
+      status: 'ready', items: oversizedItems, nextCursor: null,
+    }), 'utf8')).toBeGreaterThan(timeReviewReadResponseMaximumBytes);
+
+    const origin = await start({
+      timeReview: {
+        ...unavailableOfflineDependencies().timeReview,
+        async queryTimeRecords() {
+          return { status: 'ready', value: { records: oversizedRecords, nextCursor: null } };
+        },
+        async queryReviewItems() {
+          return { status: 'ready', value: { items: oversizedItems, nextCursor: null } };
+        },
+      },
+    });
+
+    await expectError(await post(origin, '/v1/administration/time-records/query', {
+      expectedMembershipId: ids.membership,
+      fromInclusive: '2026-07-01T00:00:00.000Z',
+      toExclusive: '2026-07-21T00:00:00.000Z',
+      limit: 100,
+      cursor: null,
+    }), 503, 'service_unavailable');
+    await expectError(await post(origin, '/v1/administration/review-items/query', {
+      expectedMembershipId: ids.membership,
+      limit: 100,
+      cursor: null,
+    }), 503, 'service_unavailable');
   });
 
   it('maps committed correction and review conflicts without leaking internal details', async () => {
@@ -135,6 +217,58 @@ describe('DA3 time-review HTTP boundary', () => {
     expect(readReviewState).toHaveBeenCalledWith({ accessToken: 'abc.def.ghi', request: body });
   });
 });
+
+function realisticTimeRecords(
+  count: number,
+  employeeDisplayName?: string,
+): readonly TimeRecordProjection[] {
+  return Object.freeze(Array.from({ length: count }, (_, index) => Object.freeze({
+    timeRecordId: canonicalId('3', index),
+    employeeMembershipId: ids.employeeMembership,
+    employeeDisplayName: employeeDisplayName ?? `Employee ${String(index + 1).padStart(3, '0')}`,
+    customerId: ids.customer,
+    customerDisplayName: `Customer ${String(index + 1).padStart(3, '0')}`,
+    source: 'canonical' as const,
+    status: 'stopped' as const,
+    startedAt: new Date(Date.UTC(2026, 6, 1, 8, index)).toISOString(),
+    stoppedAt: new Date(Date.UTC(2026, 6, 1, 9, index)).toISOString(),
+    baseRowVersion: 1,
+    effectiveRevisionNumber: 0,
+    overlapsAnotherRecord: false,
+  })));
+}
+
+function realisticReviewItems(
+  count: number,
+  employeeDisplayName?: string,
+): readonly ReviewItemProjection[] {
+  return Object.freeze(Array.from({ length: count }, (_, index) => Object.freeze({
+    reviewItemId: canonicalId('7', index),
+    source: 'offline_v2' as const,
+    employeeUserId: ids.employeeUser,
+    employeeMembershipId: ids.employeeMembership,
+    employeeDisplayName: employeeDisplayName ?? `Employee ${String(index + 1).padStart(3, '0')}`,
+    customerId: ids.customer,
+    customerDisplayName: `Customer ${String(index + 1).padStart(3, '0')}`,
+    occurredAt: new Date(Date.UTC(2026, 6, 1, 8, index)).toISOString(),
+    recordedAt: new Date(Date.UTC(2026, 6, 1, 9, index)).toISOString(),
+    reviewReason: 'predecessor_requires_review' as const,
+    deviceSequence: index + 1,
+    predecessorBlocked: index === 0,
+  })));
+}
+
+function malformedOversizedDependencyTimeRecords(): readonly TimeRecordProjection[] {
+  return realisticTimeRecords(100, 'Malformed dependency output '.repeat(100));
+}
+
+function malformedOversizedDependencyReviewItems(): readonly ReviewItemProjection[] {
+  return realisticReviewItems(100, 'Malformed dependency output '.repeat(100));
+}
+
+function canonicalId(prefix: string, index: number): string {
+  return `${prefix}0000000-0000-4000-8000-${String(index + 1).padStart(12, '0')}`;
+}
 
 async function start(overrides: Partial<BackendApiDependencies>): Promise<string> {
   const server = createBackendHttpServer(dependencies(overrides));

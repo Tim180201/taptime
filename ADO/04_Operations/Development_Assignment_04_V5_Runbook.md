@@ -1,6 +1,6 @@
 # Development Assignment 4 — V5 Human Browser Gate Runbook
 
-- Status: **PREPARATION ONLY — NOT EXECUTABLE**
+- Status: **IMPLEMENTATION PREPARATION ONLY — HUMAN V5 NOT EXECUTABLE**
 - Date: 2026-07-23
 - Owner: Technical Lead
 - Approval authority for any run: Human Architect
@@ -11,9 +11,11 @@ This runbook prepares one fresh Human functional, visual and browser observation
 independently approved DA4 Admin Web. It is browser-only. It requires no Android device, NFC Tag,
 APK, ADB or physical setup.
 
-This document does not authorize fixture implementation or execution. A later run requires an
-independently approved exact-SHA enablement, green exact-head CI and a separate Human authorization
-binding the exact product, enablement, evidence, review, Admin-Web build and browser environment.
+Fixture implementation was separately Human-authorized and remains subject to R3 V0–V4 and
+independent exact-SHA review. This document does not authorize a Human run. A later run requires
+an independently approved exact-SHA enablement, green exact-head CI and a separate Human
+authorization binding the exact product, enablement, evidence, review, Admin-Web build and browser
+environment.
 
 ## 2. Fixed local boundary
 
@@ -141,6 +143,12 @@ write, wait for the real result, refresh the affected view and require the discl
 aggregate delta for only that action. A duplicate, repeated, concurrent or ambiguous submission
 fails the run.
 
+After each write, the operator must run the matching Harness checkpoint in this exact order and
+receive only `da4_v5_write_checkpoint=match`: `checkpoint safari create-customer`,
+`checkpoint safari create-invitation`, `checkpoint safari reassign-tag`,
+`checkpoint chromium correct-time-record`, `checkpoint chromium export-time-entries`, then
+`checkpoint chromium adjudicate-review`. `mismatch` stops the run without advancing.
+
 **Safari write phase**
 
 1. Create exactly one Customer named `DA4 V5 Browser Customer`; require server-confirmed success,
@@ -233,7 +241,8 @@ Cleanup is mandatory after pass or failure:
 1. sign out, clear password fields and clear the credential clipboard;
 2. delete the synthetic CSV, screenshots and profile-owned temporary Admin-Web build/download data;
 3. clear the profile's browser site data for `127.0.0.1:5173`;
-4. stop Admin Web and harness normally;
+4. stop Admin Web and harness normally; require `da4_v5_stopped` only after successful complete
+   cleanup, while `da4_v5_cleanup_failed` fails the run and forbids retry/resume;
 5. require zero listeners on `3000`, `5173` and `54321`;
 6. require zero synthetic schema, migration-ledger rows and generated runtime roles;
 7. verify the tracked worktree with explicit `research/` exclusion and disclose unrelated user

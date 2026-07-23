@@ -1,4 +1,5 @@
 import { readFile } from 'node:fs/promises';
+import { createServer } from 'node:http';
 import { fileURLToPath } from 'node:url';
 import { createNfcPayload } from '@taptime/core';
 import { validateTimeEntryExportRequest } from '@taptime/time-entry-export-contract';
@@ -7,6 +8,9 @@ import { Pool } from 'pg';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { SupabaseEmailPasswordAuthAdapter } from '../../mobile/src/auth/SupabaseEmailPasswordAuthAdapter.js';
 import {
+  DA4_V5_INITIAL_STATUS,
+  DA4_V5_PROFILE,
+  DA4_V5_PUBLIC_MANIFEST,
   SYNTHETIC_ADMIN_AUTH_EMAIL,
   SYNTHETIC_AUTH_EMAIL,
   SYNTHETIC_DATABASE_NAME,
@@ -42,6 +46,14 @@ describe('synthetic E2E safety guards', () => {
     expect(() => validateSyntheticInstallerDatabaseUrl(
       `postgresql://installer:test@localhost:5432/${SYNTHETIC_DATABASE_NAME}`,
     )).toThrow(/numeric-loopback/);
+  });
+
+  it('rejects an unknown runtime profile before Auth, database, or listener mutation', async () => {
+    await expect(createSyntheticAndroidE2eEnvironment({
+      installerDatabaseUrl: 'not-a-database-url',
+      password: 'short',
+      profile: 'unknown-profile' as typeof DA4_V5_PROFILE,
+    })).rejects.toThrow('Unknown synthetic E2E profile');
   });
 
   it('keeps Mobile lifecycle authority out of the client orchestration source', async () => {
@@ -1151,6 +1163,274 @@ describeWithPostgres('synthetic Android product-to-server E2E', () => {
       expect(newSafeEvents).not.toContain(prospectiveEmployee.tokens.accessToken);
       expect(newSafeEvents).not.toContain(secondEmployee.tokens.accessToken);
     });
+});
+
+describeWithPostgres('DA4 V5 deterministic browser fixture', () => {
+  let da4Environment: SyntheticAndroidE2eEnvironment;
+  let cleanupPool: Pool;
+
+  beforeAll(async () => {
+    cleanupPool = new Pool({ connectionString: installerDatabaseUrl });
+    da4Environment = await createSyntheticAndroidE2eEnvironment({
+      installerDatabaseUrl: installerDatabaseUrl as string,
+      password: syntheticPassword,
+      authPort: 0,
+      apiPort: 0,
+      profile: DA4_V5_PROFILE,
+    });
+  });
+
+  afterAll(async () => {
+    await da4Environment?.close();
+    const cleanup = await cleanupPool.query<{
+      runtime_logins: string;
+      schema_exists: boolean;
+    }>(
+      `SELECT
+         count(*) FILTER (WHERE rolname = ANY($1::text[]))::text AS runtime_logins,
+         to_regnamespace('taptime_server') IS NOT NULL AS schema_exists
+       FROM pg_catalog.pg_roles`,
+      [Object.values(runtimeLogins)],
+    );
+    expect(cleanup.rows).toEqual([{ runtime_logins: '0', schema_exists: false }]);
+    await cleanupPool?.end();
+  });
+
+  it('proves exact initial aggregates, public labels, and four cursor boundaries', async () => {
+    await expect(da4Environment.da4V5Status()).resolves.toEqual(DA4_V5_INITIAL_STATUS);
+    const fixtureManifest = await da4Environment.da4V5FixtureManifest();
+    expect(fixtureManifest).toMatchObject(DA4_V5_PUBLIC_MANIFEST);
+    expect(
+      Date.parse(fixtureManifest.correctionTransformedStartedAt)
+        - Date.parse(fixtureManifest.correctionOriginalStartedAt),
+    ).toBe(60_000);
+    expect(
+      Date.parse(fixtureManifest.correctionOriginalStoppedAt)
+        - Date.parse(fixtureManifest.correctionTransformedStoppedAt),
+    ).toBe(60_000);
+    expect(
+      Date.parse(fixtureManifest.correctionOriginalStoppedAt)
+        - Date.parse(fixtureManifest.correctionOriginalStartedAt),
+    ).toBe(30 * 60_000);
+
+    const provider = mobileAuthAdapter(da4Environment);
+    const administrator = await provider.signInWithPassword(
+      SYNTHETIC_ADMIN_AUTH_EMAIL,
+      syntheticPassword,
+    );
+    if (administrator.status !== 'authenticated') {
+      throw new Error('DA4 V5 Administrator sign-in unexpectedly failed');
+    }
+    const token = administrator.tokens.accessToken;
+    const post = (path: string, body: unknown) => fetch(`${da4Environment.apiBaseUrl}${path}`, {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${token}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+    const setupFirst = await post('/v1/administration/setup-projection', {
+      expectedMembershipId: syntheticIds.administratorMembership,
+      cursor: null,
+      limit: 20,
+    });
+    expect(setupFirst.status).toBe(200);
+    const setupFirstPage = await setupFirst.json() as {
+      readonly customers: readonly unknown[];
+      readonly nextCursor: string | null;
+      readonly nfcTags: readonly unknown[];
+    };
+    expect(setupFirstPage.customers).toHaveLength(20);
+    expect(setupFirstPage.nfcTags).toHaveLength(0);
+    expect(setupFirstPage.nextCursor).toEqual(expect.any(String));
+    const setupSecond = await post('/v1/administration/setup-projection', {
+      expectedMembershipId: syntheticIds.administratorMembership,
+      cursor: setupFirstPage.nextCursor,
+      limit: 20,
+    });
+    const setupSecondPage = await setupSecond.json() as {
+      readonly customers: readonly unknown[];
+      readonly nextCursor: string | null;
+      readonly nfcTags: ReadonlyArray<{ readonly displayName: string }>;
+    };
+    expect(setupSecondPage.customers).toHaveLength(1);
+    expect(setupSecondPage.nfcTags).toEqual([
+      expect.objectContaining({ displayName: DA4_V5_PUBLIC_MANIFEST.reassignmentTagLabel }),
+    ]);
+    expect(setupSecondPage.nextCursor).toBeNull();
+
+    const employeeFirst = await post('/v1/administration/employee-memberships-projection', {
+      expectedMembershipId: syntheticIds.administratorMembership,
+      cursor: null,
+      limit: 20,
+    });
+    const employeeFirstPage = await employeeFirst.json() as {
+      readonly employeeMemberships: readonly unknown[];
+      readonly nextCursor: string | null;
+    };
+    expect(employeeFirstPage.employeeMemberships).toHaveLength(20);
+    expect(employeeFirstPage.nextCursor).toEqual(expect.any(String));
+    const employeeSecond = await post('/v1/administration/employee-memberships-projection', {
+      expectedMembershipId: syntheticIds.administratorMembership,
+      cursor: employeeFirstPage.nextCursor,
+      limit: 20,
+    });
+    const employeeSecondPage = await employeeSecond.json() as {
+      readonly employeeMemberships: readonly unknown[];
+      readonly nextCursor: string | null;
+    };
+    expect(employeeSecondPage.employeeMemberships).toHaveLength(1);
+    expect(employeeSecondPage.nextCursor).toBeNull();
+
+    const now = Date.now();
+    const directRead = await cleanupPool.connect();
+    try {
+      await directRead.query('BEGIN');
+      await directRead.query('SET LOCAL ROLE taptime_time_review_reader');
+      await directRead.query(
+        `SELECT pg_catalog.set_config('app.organization_id', $1, true),
+                pg_catalog.set_config('app.user_id', $2, true),
+                pg_catalog.set_config('app.membership_id', $3, true),
+                pg_catalog.set_config('app.membership_role', 'administrator', true)`,
+        [
+          syntheticIds.organization,
+          syntheticIds.administratorUser,
+          syntheticIds.administratorMembership,
+        ],
+      );
+      const directRows = await directRead.query(
+        `SELECT employee_membership_id, employee_display_name,
+                customer_id, customer_display_name
+         FROM taptime_server.read_effective_time_records_v1(
+           $1, $2, $3, $4::timestamptz, $5::timestamptz,
+           NULL::timestamptz, NULL::uuid, 101
+         )`,
+        [
+          syntheticIds.organization,
+          syntheticIds.administratorUser,
+          syntheticIds.administratorMembership,
+          new Date(now - 30 * 24 * 60 * 60_000).toISOString(),
+          new Date(now + 60 * 60_000).toISOString(),
+        ],
+      );
+      expect(directRows.rows).toHaveLength(101);
+      expect(directRows.rows.every((row) => (
+        row.employee_membership_id !== null
+        && row.employee_display_name !== null
+        && row.customer_id !== null
+        && row.customer_display_name !== null
+      ))).toBe(true);
+      await directRead.query('ROLLBACK');
+    } finally {
+      directRead.release();
+    }
+    const timeFirst = await post('/v1/administration/time-records/query', {
+      expectedMembershipId: syntheticIds.administratorMembership,
+      fromInclusive: new Date(now - 30 * 24 * 60 * 60_000).toISOString(),
+      toExclusive: new Date(now + 60 * 60_000).toISOString(),
+      cursor: null,
+      limit: 100,
+    });
+    expect(timeFirst.status).toBe(200);
+    const timeFirstPage = await timeFirst.json() as {
+      readonly nextCursor: string | null;
+      readonly records: readonly unknown[];
+    };
+    expect(timeFirstPage.records).toHaveLength(100);
+    expect(timeFirstPage.nextCursor).toEqual(expect.any(String));
+    const timeSecond = await post('/v1/administration/time-records/query', {
+      expectedMembershipId: syntheticIds.administratorMembership,
+      fromInclusive: new Date(now - 30 * 24 * 60 * 60_000).toISOString(),
+      toExclusive: new Date(now + 60 * 60_000).toISOString(),
+      cursor: timeFirstPage.nextCursor,
+      limit: 100,
+    });
+    expect(timeSecond.status).toBe(200);
+    const timeSecondPage = await timeSecond.json() as {
+      readonly nextCursor: string | null;
+      readonly records: readonly unknown[];
+    };
+    expect(timeSecondPage.records).toHaveLength(1);
+    expect(timeSecondPage.nextCursor).toBeNull();
+
+    const reviewFirst = await post('/v1/administration/review-items/query', {
+      expectedMembershipId: syntheticIds.administratorMembership,
+      cursor: null,
+      limit: 100,
+    });
+    expect(reviewFirst.status).toBe(200);
+    const reviewFirstPage = await reviewFirst.json() as {
+      readonly items: ReadonlyArray<{ readonly employeeDisplayName: string }>;
+      readonly nextCursor: string | null;
+    };
+    expect(reviewFirstPage.items).toHaveLength(100);
+    expect(reviewFirstPage.items[0]).toMatchObject({
+      employeeDisplayName: DA4_V5_PUBLIC_MANIFEST.oldestReviewTargetEmployeeLabel,
+    });
+    expect(reviewFirstPage.nextCursor).toEqual(expect.any(String));
+    const reviewSecond = await post('/v1/administration/review-items/query', {
+      expectedMembershipId: syntheticIds.administratorMembership,
+      cursor: reviewFirstPage.nextCursor,
+      limit: 100,
+    });
+    expect(reviewSecond.status).toBe(200);
+    const reviewSecondPage = await reviewSecond.json() as {
+      readonly items: readonly unknown[];
+      readonly nextCursor: string | null;
+    };
+    expect(reviewSecondPage.items).toHaveLength(1);
+    expect(reviewSecondPage.nextCursor).toBeNull();
+  });
+});
+
+describeWithPostgres('DA4 V5 startup failure cleanup', () => {
+  it('removes the disposable schema, ledger, roles, and listeners after API bind failure', async () => {
+    const blocker = createServer();
+    await new Promise<void>((resolve, reject) => {
+      blocker.once('error', reject);
+      blocker.listen(0, '127.0.0.1', resolve);
+    });
+    const address = blocker.address();
+    if (address === null || typeof address === 'string') {
+      throw new Error('DA4 V5 bind-failure blocker has no TCP address');
+    }
+    const cleanupPool = new Pool({ connectionString: installerDatabaseUrl });
+    try {
+      await expect(createSyntheticAndroidE2eEnvironment({
+        installerDatabaseUrl: installerDatabaseUrl as string,
+        password: syntheticPassword,
+        authPort: 0,
+        apiPort: address.port,
+        profile: DA4_V5_PROFILE,
+      })).rejects.toBeInstanceOf(Error);
+      const cleanup = await cleanupPool.query<{
+        migration_rows: string;
+        runtime_logins: string;
+        schema_exists: boolean;
+      }>(
+        `SELECT
+           (SELECT count(*)::text
+              FROM pg_catalog.pg_tables
+             WHERE schemaname = 'taptime_server'
+               AND tablename = 'schema_migrations') AS migration_rows,
+           count(*) FILTER (WHERE rolname = ANY($1::text[]))::text AS runtime_logins,
+           to_regnamespace('taptime_server') IS NOT NULL AS schema_exists
+         FROM pg_catalog.pg_roles`,
+        [Object.values(runtimeLogins)],
+      );
+      expect(cleanup.rows).toEqual([{
+        migration_rows: '0',
+        runtime_logins: '0',
+        schema_exists: false,
+      }]);
+    } finally {
+      await cleanupPool.end();
+      await new Promise<void>((resolve, reject) => {
+        blocker.close((error) => error === undefined ? resolve() : reject(error));
+      });
+    }
+  });
 });
 
 function mobileAuthAdapter(environment: SyntheticAndroidE2eEnvironment) {

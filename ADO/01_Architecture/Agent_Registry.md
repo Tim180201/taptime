@@ -233,6 +233,17 @@ authorization back to Development. Any finding requiring a new product,
 business, architecture, scope or authorization decision stops automation and
 is escalated to the Human Architect.
 
+Once the mandatory independent Review has fully approved a concrete technical
+Architecture and authorization candidate with zero open P0-P3 findings, the
+Codex Orchestrator may implement its exact technical scope on its exact
+baseline, complete risk-adaptive verification, independent Review, confirmed
+in-scope corrections and re-review without an additional confirmation prompt.
+This standing rule ends immediately before any Human, Hardware or Physical V5
+gate. It never supplies a missing Product, Business or Architecture decision,
+never resolves ambiguous scope and never authorizes production, production
+data, deployment or distribution; those decisions remain with the Human
+Architect and require their documented separate authority.
+
 The loop runs for no more than three review rounds. It may finish with
 `APPROVED` only when no P0-P3 findings remain and the required risk-adaptive
 verification is complete. A separately required Exact-Head-CI, physical gate,
@@ -299,6 +310,8 @@ Changes to the registry do not require changes to the Engineering Operating Mode
 
 | Version | Date | Change |
 |---|---|---|
+| 1.4 | 2026-07-23 | Bound autonomous implementation to a mandatory independently approved concrete technical Architecture/authorization candidate and stopped it before every Human/Hardware/Physical V5 gate |
+| 1.3 | 2026-07-23 | Made the exact-baseline Development-Review loop autonomous after explicit Human implementation authorization while preserving all escalation and operational gates |
 | 1.2 | 2026-07-23 | Assigned Technical Lead, Development and Review execution to the repository-local Codex orchestration with separate write and read-only custom agents |
 | 1.1 | 2026-07-20 | Replaced the abbreviated Technical Lead inline initialization with controlled prompt TLP-001 |
 | 1.0 | 2026-06-28 | Initial Agent Registry established |

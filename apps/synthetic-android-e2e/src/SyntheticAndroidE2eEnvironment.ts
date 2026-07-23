@@ -24,6 +24,15 @@ import { TimeEntryExportCoordinator } from '@taptime/backend-time-export';
 import { TimeReviewCoordinator } from '@taptime/backend-time-review';
 import { Pool } from 'pg';
 import {
+  readDa4V5FixtureManifest,
+  readDa4V5Status,
+  type Da4V5Status,
+} from './Da4V5Database.js';
+import {
+  DA4_V5_PROFILE,
+  type Da4V5FixtureManifest,
+} from './Da4V5Profile.js';
+import {
   SYNTHETIC_ADMIN_AUTH_EMAIL,
   SYNTHETIC_AUTH_EMAIL,
   SYNTHETIC_ENROLLMENT_AUTH_EMAIL,
@@ -68,6 +77,7 @@ export interface SyntheticAndroidE2eEnvironmentOptions {
   readonly authPort?: number;
   readonly installerDatabaseUrl: string;
   readonly password: string;
+  readonly profile?: typeof DA4_V5_PROFILE;
   readonly onSafeEvent?: (event: SyntheticEnvironmentSafeEvent) => void;
 }
 
@@ -88,12 +98,41 @@ export interface SyntheticAndroidE2eEnvironment {
   provisioningState(): 'armed' | 'disarmed' | 'provisioning';
   evidenceCounts(): Promise<SyntheticEvidenceCounts>;
   timeReviewEvidenceCounts(): Promise<SyntheticTimeReviewEvidenceCounts>;
+  da4V5FixtureManifest(): Promise<Da4V5FixtureManifest>;
+  da4V5Status(): Promise<Da4V5Status>;
   close(): Promise<void>;
+}
+
+export class Da4V5CleanupError extends Error {
+  constructor() {
+    super('DA4 V5 cleanup failed');
+    this.name = 'Da4V5CleanupError';
+  }
+}
+
+export async function runDa4V5StrictCleanup(options: {
+  readonly closeDatabase: () => Promise<void>;
+  readonly closeInstaller: () => Promise<void>;
+  readonly closeResources: readonly (() => Promise<void>)[];
+}): Promise<void> {
+  const resourceResults = await Promise.allSettled(
+    options.closeResources.map(async (closeResource) => closeResource()),
+  );
+  const databaseResult = await settle(options.closeDatabase);
+  const installerResult = await settle(options.closeInstaller);
+  if (
+    resourceResults.some((result) => result.status === 'rejected')
+    || databaseResult.status === 'rejected'
+    || installerResult.status === 'rejected'
+  ) {
+    throw new Da4V5CleanupError();
+  }
 }
 
 export async function createSyntheticAndroidE2eEnvironment(
   options: SyntheticAndroidE2eEnvironmentOptions,
 ): Promise<SyntheticAndroidE2eEnvironment> {
+  const profile = validateSyntheticEnvironmentProfile(options.profile as unknown);
   const onSafeEvent = options.onSafeEvent ?? (() => undefined);
   const auth = await SyntheticLocalAuthServer.create({
     password: options.password,
@@ -123,6 +162,7 @@ export async function createSyntheticAndroidE2eEnvironment(
       installerPool,
       options.installerDatabaseUrl,
       auth.issuer,
+      profile,
     );
     sessionPool = createPool(database.connectionStrings.session);
     readModelPool = createPool(database.connectionStrings.readModel);
@@ -278,25 +318,76 @@ export async function createSyntheticAndroidE2eEnvironment(
       provisioningState: () => provisioningScanContext.getState(),
       evidenceCounts: () => readSyntheticEvidenceCounts(installerPool),
       timeReviewEvidenceCounts: () => readSyntheticTimeReviewEvidenceCounts(installerPool),
+      da4V5FixtureManifest: () => {
+        if (profile !== DA4_V5_PROFILE) {
+          return Promise.reject(new Error('DA4 V5 profile is not active'));
+        }
+        return readDa4V5FixtureManifest(installerPool);
+      },
+      da4V5Status: () => {
+        if (profile !== DA4_V5_PROFILE) {
+          return Promise.reject(new Error('DA4 V5 profile is not active'));
+        }
+        return readDa4V5Status(installerPool);
+      },
       async close(): Promise<void> {
         if (closed) {
           return;
         }
         closed = true;
-        interruptionController.close();
-        await Promise.allSettled([
-          closeServer(activeApiServer),
-          ...pools.map((pool) => pool.end()),
-          auth.close(),
-        ]);
-        try {
-          await cleanSyntheticDatabase(installerPool);
-        } finally {
-          await installerPool.end();
+        if (profile === DA4_V5_PROFILE) {
+          await runDa4V5StrictCleanup({
+            closeResources: [
+              async () => interruptionController.close(),
+              () => closeServer(activeApiServer),
+              ...pools.map((pool) => () => pool.end()),
+              () => auth.close(),
+            ],
+            closeDatabase: () => cleanSyntheticDatabase(installerPool),
+            closeInstaller: () => installerPool.end(),
+          });
+        } else {
+          interruptionController.close();
+          await Promise.allSettled([
+            closeServer(activeApiServer),
+            ...pools.map((pool) => pool.end()),
+            auth.close(),
+          ]);
+          try {
+            await cleanSyntheticDatabase(installerPool);
+          } finally {
+            await installerPool.end();
+          }
         }
       },
     });
   } catch (error) {
+    if (profile === DA4_V5_PROFILE) {
+      await runDa4V5StrictCleanup({
+        closeResources: [
+          async () => redemptionInterruption?.close(),
+          () => apiServer === null ? Promise.resolve() : closeServer(apiServer),
+          () => sessionPool?.end() ?? Promise.resolve(),
+          () => readModelPool?.end() ?? Promise.resolve(),
+          () => lifecyclePool?.end() ?? Promise.resolve(),
+          () => administrationPool?.end() ?? Promise.resolve(),
+          () => employeeInvitationPool?.end() ?? Promise.resolve(),
+          () => employeeEnrollmentPool?.end() ?? Promise.resolve(),
+          () => reassignmentPool?.end() ?? Promise.resolve(),
+          () => offlineLeasePool?.end() ?? Promise.resolve(),
+          () => offlineEventPool?.end() ?? Promise.resolve(),
+          () => offlineReconciliationPool?.end() ?? Promise.resolve(),
+          () => timeEntryExportPool?.end() ?? Promise.resolve(),
+          () => timeReviewReadPool?.end() ?? Promise.resolve(),
+          () => timeReviewWritePool?.end() ?? Promise.resolve(),
+          () => provisionerPool?.end() ?? Promise.resolve(),
+          () => auth.close(),
+        ],
+        closeDatabase: () => cleanSyntheticDatabase(installerPool),
+        closeInstaller: () => installerPool.end(),
+      });
+      throw error;
+    }
     redemptionInterruption?.close();
     await Promise.allSettled([
       apiServer === null ? Promise.resolve() : closeServer(apiServer),
@@ -323,6 +414,24 @@ export async function createSyntheticAndroidE2eEnvironment(
     }
     await installerPool.end();
     throw error;
+  }
+}
+
+function validateSyntheticEnvironmentProfile(
+  value: unknown,
+): typeof DA4_V5_PROFILE | undefined {
+  if (value === undefined || value === DA4_V5_PROFILE) {
+    return value;
+  }
+  throw new Error('Unknown synthetic E2E profile');
+}
+
+async function settle(action: () => Promise<void>): Promise<PromiseSettledResult<void>> {
+  try {
+    await action();
+    return { status: 'fulfilled', value: undefined };
+  } catch (reason) {
+    return { status: 'rejected', reason };
   }
 }
 

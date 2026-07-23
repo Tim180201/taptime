@@ -73,6 +73,7 @@ const MAX_BODY_BYTES = OFFLINE_REQUEST_MAXIMUM_BYTES;
 const MAX_HEADER_BYTES = 8_192;
 const MAX_HEADER_COUNT = 64;
 const MAX_SCAN_PAYLOAD_BYTES = 1_024;
+const TIME_REVIEW_READ_RESPONSE_MAXIMUM_BYTES = 256 * 1024;
 const DEFAULT_OPERATION_TIMEOUT_MILLISECONDS = 10_000;
 const compactJwtPattern = /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/;
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -833,7 +834,14 @@ async function handleTimeReviewRead<Value>(
       timeoutMilliseconds,
     );
     switch (result.status) {
-      case 'ready': respondJson(response, 200, { status: 'ready', ...result.value }); return;
+      case 'ready':
+        respondJson(
+          response,
+          200,
+          { status: 'ready', ...result.value },
+          TIME_REVIEW_READ_RESPONSE_MAXIMUM_BYTES,
+        );
+        return;
       case 'authority_rejected': respondError(response, 403, 'forbidden'); return;
       case 'unavailable': respondError(response, 503, 'service_unavailable'); return;
       default: return result satisfies never;

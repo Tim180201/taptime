@@ -34,14 +34,24 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   exact-head CI `30012402185`, attempt 1, 12/12; independent exact-SHA review returned `APPROVED`,
   `MERGE_READY` and zero open P0–P3. Human acceptance and exact-baseline R3 implementation
   authority were subsequently granted on `decf806a`, tree `519a1a7`, CI `30013796325` 12/12.
-  Authorized local discovery passed 17/17 new unit tests, 13/13 existing PostgreSQL tests plus one
-  optional skip, and the exact initial/setup/Employee fixture checks. It then failed closed at
+  Authorized local discovery passed its focused fixture checks and then failed closed at
   `DA4-V5-F01`: the real 100-row TimeRecord response exceeds the Backend API's inherited 16-KiB
   offline ceiling and returns 503; the 100-row review route shares that handler, while Admin Web
-  already permits 256 KiB for both reads. Harness work is preserved and paused. A focused ADO-only
-  response-ceiling correction candidate requires independent review before the narrow R3
-  correction and V5-enablement continuation. Human V5, production, production data, deployment
-  and distribution remain unauthorized.
+  already permits 256 KiB for both reads. The focused candidate `454b751f`, tree `c69717e`, passed
+  CI `30016627509` 12/12 and independent exact-SHA review with zero open P0–P3. The standing rule
+  then permitted the narrow correction and Harness continuation. Technical-Lead Pre-V4 review
+  required seven in-scope corrections for strict cleanup truth, permanent fail-stop, exclusive
+  credential-input ownership, pre-mutation profile validation, defensive fixture naming,
+  governance truth and local error security headers. Corrected local V0–V3 is green: focused
+  TimeReview 6/6, DA4 adversarial 25/25, affected Backend API 226/226, Synthetic PostgreSQL
+  Harness 74/74 and protected Admin Web 85/85. The exact 21/21/101/101 fixture and real 20/1,
+  20/1, 100/1 and 100/1 cursor gates pass. The final corrected V3 passed 1,821 tests with two
+  optional B1 Supavisor skips, all 19 tests-inclusive typechecks, all 18 applicable builds and
+  clean migration/replay plus disposable cleanup. Its only operational interruption was the
+  initially absent disposable `taptime_da3` database; only its ten blocked tests were continued
+  after creation and passed, without duplicating the full regression, and the database/runtime
+  roles were removed afterward. R3 V4 and independent exact-SHA implementation review remain
+  pending. Human V5, production, production data, deployment and distribution remain unauthorized.
 - **Development Assignment 3 is Human-accepted and implementation-authorized on exact baseline
   `ff68f7a7d0ce69a65e88846ae1cca9abd5951f5d`, tree
   `09ef169a68bb53420e07b6f3fcbbdc74e0c01d57`.** ADR-0014/DA3-P01–DA3-P16 and Workstreams A–D
@@ -610,11 +620,10 @@ Two Epics are concurrently Active, per EP-009's own stated relationship to the r
 4. Preserve every closed C3B/C3C/C3D/C3E1/C3E2/DA1/DA2/DA3 boundary and the Human-accepted
    ADR-0015/DA4-P01–P12 scope; keep Human V5, production/deployment, legal/privacy and pilot
    operations behind their separate authorization and Human gates.
-5. Obtain independent zero-finding review of the focused `DA4-V5-F01` response-ceiling correction
-   candidate. Only then may the narrow R3 Backend-API correction and paused DA4-V5 enablement
-   continue under the documented standing rule. R3 V0–V4 and independent exact-SHA implementation
-   approval remain mandatory before any separately authorized Human V5. Production,
-   production-data, deployment and distribution remain unauthorized.
+5. Complete DA4-V5 V4 publication/exact-head CI and independent exact-SHA implementation review
+   for the locally V0–V3-green F01-corrected Harness. Only a zero-finding approval may produce a
+   separately exact-bound Human V5 authorization candidate. Production, production-data,
+   deployment and distribution remain unauthorized.
 
 ## Agreed comprehensive Development-assignment sequence
 

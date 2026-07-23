@@ -1,6 +1,6 @@
 # Development Assignment 4 — V5 Enablement Candidate Evidence
 
-- Status: **R3 ENABLEMENT PAUSED FAIL-CLOSED AT DA4-V5-F01 — CORRECTION CANDIDATE REVIEW PENDING**
+- Status: **LOCAL R3 V0–V3 GREEN AFTER DA4-V5-F01 — V4 AND INDEPENDENT IMPLEMENTATION REVIEW PENDING**
 - Date: 2026-07-23
 - Candidate baseline commit: `4594529667fe1570045eea03fd7132bc27e2e479`
 - Candidate baseline tree: `72338ec9b65dabdd71ab9011604817f61c13c288`
@@ -105,8 +105,8 @@ A later authorized implementation must provide:
   `ADO/05_Evidence/Development_Assignment_04_V5_Enablement_Independent_Pre_Implementation_Review.md`.
 - Human candidate acceptance and separate exact-baseline R3 implementation authority:
   **granted on `decf806a` / tree `519a1a7`**.
-- Executable harness implementation: **authorized, locally started and now paused fail-closed at
-  `DA4-V5-F01`**.
+- Executable harness implementation: **authorized, resumed after independent F01 approval, and
+  locally V0–V3 green**.
 - Human V5: **unauthorized and not run**.
 - DA4 closure: unavailable until a separately authorized V5 passes and receives final review.
 - Production, production data, deployment and distribution: **unauthorized**.
@@ -129,6 +129,54 @@ fixture workaround was used.
 
 The focused R0 correction candidate is
 `ADO/02_Development/Development_Assignment_04_V5_F01_Response_Ceiling_Correction_Authorization.md`.
-Independent candidate review is required before the narrow R3 Backend-API correction and Harness
-continuation. Human V5, production, production data, deployment and distribution remain
-unauthorized.
+Independent exact-SHA review bound commit `454b751f9668c4c1d526d4f78ad09d1a16e5aba5`,
+tree `c69717e50263cbc68da3207685f63bd8ef6b1313`, and CI `30016627509`, attempt 1,
+12/12. It returned `APPROVED`, `MERGE_READY / EXACT-SHA APPROVED`, with zero open P0–P3.
+The standing rule therefore allowed the narrow correction and Harness continuation.
+
+## 8. Current local R3 evidence
+
+- Backend-API TimeReview real-server-path suite: 6/6 passed. Both realistic 100-item bodies are
+  explicitly larger than 16 KiB and no larger than 256 KiB, return HTTP 200 and remain intact;
+  both defensive over-256-KiB cases return HTTP 503.
+- Focused DA4-V5 unit/adversarial suite: 25/25 passed. It covers exact opt-in and unknown-profile
+  rejection, credential digest, single-owner hidden credential input, permanent operator
+  fail-stop, strict all-resource cleanup, timezone/DST rejection, manifest/path/drift validation,
+  fixed-port production-build serving, same-origin proxy/header isolation, security headers on
+  local failures, single-use read fault, write exclusion, listener cleanup and the exact
+  Safari-three/Chromium-three aggregate checkpoint sequence.
+- Complete Synthetic Harness suite with disposable PostgreSQL: 74/74 passed. The exact fixture is
+  21/21/101/101; real API cursor boundaries are setup 20/1 with Customer-before-Tag truth,
+  Employees 20/1, TimeRecords 100/1 and review items 100/1. Normal and startup-failure cleanup
+  remove schema, migration ledger, generated roles and listeners.
+- Backend API and Synthetic Harness tests-inclusive typechecks passed; both builds passed.
+
+V2 passed the complete affected boundaries: Backend API 226/226, Synthetic Harness 74/74 and
+protected Admin Web 85/85, with tests-inclusive typechecks and builds for all three.
+
+The first 1,815-test V3 remains transparent pre-correction evidence. Technical-Lead Pre-V4 review
+then required seven in-scope corrections: strict cleanup failure truth, permanent no-retry
+fail-stop, exclusive Readline ownership, pre-mutation runtime-profile validation, defensive
+over-ceiling fixture naming, governance/status truth and local JSON security headers. No Product,
+schema, dependency, workflow or Mobile scope was added.
+
+One new final corrected-candidate V3 was then executed:
+
+- clean migrations 001–012 applied and replay/ledger verification passed;
+- all locally executable workspace suites passed 1,821 tests with two explicit optional B1
+  Supavisor environment skips;
+- all 19 workspace tests-inclusive typechecks and all 18 applicable builds passed; and
+- the disposable target ended with no `taptime_server` schema, migration ledger or DA4-created B1
+  schema; the temporarily created missing `taptime_da3` database and its two runtime roles were
+  also removed.
+
+The final workspace invocation reached only the DA3 PostgreSQL workspace without its absent
+dedicated local disposable database after all preceding suites had passed. The missing
+`taptime_da3` database was created, only the ten blocked DA3 tests were continued and passed, and
+the full workspace regression was not duplicated. This was an operational precondition failure,
+not a Product failure. Typechecks, builds and cleanup then completed once. No executable file
+changed afterward.
+
+V0 final diff/scope, whitespace, reference, authority and protected-path checks passed. V4
+publication/CI and independent exact-SHA implementation review remain pending. Human V5,
+production, production data, deployment and distribution remain unauthorized.

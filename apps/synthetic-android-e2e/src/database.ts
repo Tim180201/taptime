@@ -8,6 +8,8 @@ import {
 } from '@taptime/backend-schema';
 import type { Pool } from 'pg';
 import { runtimeLogins, SYNTHETIC_DATABASE_NAME, syntheticIds } from './constants.js';
+import { seedDa4V5Fixture } from './Da4V5Database.js';
+import { DA4_V5_PROFILE } from './Da4V5Profile.js';
 
 const applicationRoles = [
   'taptime_employee',
@@ -137,6 +139,7 @@ export async function prepareSyntheticDatabase(
   installerPool: Pool,
   installerDatabaseUrl: string,
   issuer: string,
+  profile?: typeof DA4_V5_PROFILE,
 ): Promise<SyntheticDatabaseRuntime> {
   validateSyntheticInstallerDatabaseUrl(installerDatabaseUrl);
   await assertInstallerConnection(installerPool);
@@ -173,6 +176,9 @@ export async function prepareSyntheticDatabase(
     await normalizeRuntimeLogin(installerPool, login, passwords[key], roles);
   }
   await seedSyntheticTenant(installerPool, issuer);
+  if (profile === DA4_V5_PROFILE) {
+    await seedDa4V5Fixture(installerPool);
+  }
 
   return Object.freeze({
     connectionStrings: Object.freeze({
