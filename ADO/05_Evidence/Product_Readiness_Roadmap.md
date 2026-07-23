@@ -609,6 +609,19 @@ Exact-Head-CI succeeds. This closes no Product Readiness domain and grants no ne
 DA4 productization, pilot operations, production resources/data, legal/privacy approval,
 deployment or distribution authority.
 
+## Addendum (2026-07-23 — Development Assignment 4 ADO Candidate)
+
+ADR-0015 and the DA4 authorization candidate begin only the architecture/review gate for
+professional Admin Web productization. They preserve the already accepted backend and business
+capabilities while requiring truthful cursor-backed completeness, accessible five-view navigation,
+session-safe partial recovery and a separately authorized synthetic-data browser acceptance.
+
+Independent pre-implementation review returned `APPROVED` with zero open P0–P3. This candidate
+changes no readiness-domain rating and grants no implementation authority. Human acceptance of
+DA4-P01–P12 and separate exact-baseline implementation authorization remain required. Pilot
+operations, production resources/data, legal/privacy approval, deployment and distribution remain
+separately gated.
+
 ## Revision Note (Technical Lead Review Follow-up, 2026-07-07)
 
 This roadmap was updated once, after Technical Lead review, to: (1) add the "Strategic frame" paragraph above, connecting roadmap items to the companion assessment's Business Event Platform framing (Section 0.1) and capability hierarchy (Section 12); (2) organize every milestone's existing items into an Engineering Track, a Product Capability Track, and a Business, Legal & Go-To-Market Track, without adding, removing, or reprioritizing any item, and without moving any item to a different milestone; (3) note, within the Now and Before Pilot Customers milestones, the re-evaluated primary-bottleneck finding from the companion assessment's Section 11.1 (Organization Management as the more foundational blocker for reaching the first pilot, alongside — not instead of — the backend technology decision). No original roadmap item's wording, milestone assignment, or substance was changed; this revision only added track labels, short cross-reference notes, and this closing note.

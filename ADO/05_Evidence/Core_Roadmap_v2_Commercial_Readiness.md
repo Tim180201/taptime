@@ -2,7 +2,7 @@
 
 Role: Research / Implementation Support acting on behalf of Technical Lead (per AGR-001)
 Date: 2026-07-10
-Status: Active execution baseline — Block A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2 and Block D completed for their recorded scopes; Development Assignment 1 and DT-060–DT-062 completed for the authorized local Android/repository/synthetic-server scope after physical evidence `8d5b2bb`/run `29836085810`, final review `APPROVED` with zero open P0–P3 and closure publication `715889e`/run `29837556200` 10/10; Development Assignment 2 and DT-063–DT-068 completed for the authorized local setup-integration/export-backend scope after independent zero-finding review and closure publication `fa171a5`/run `29848853594` 11/11; Development Assignment 3 and DT-069–DT-074 completed for the authorized local repository/Admin-Web/Android/synthetic-server scope after physical publication `7cb510a`/run `29996799069` 12/12 and Human-accepted independent zero-finding final review, subject to closure-publication Exact-Head-CI; pilot-operational setup, DA4 UI productization, production and legal/privacy gates remain open
+Status: Active execution baseline — Blocks and Development Assignments 1–3 are completed for their recorded exact local scopes; Development Assignment 4 professional Admin Web productization has an independently approved ADO-only candidate, with Human acceptance and implementation authority still pending; pilot operations, production, deployment/distribution and legal/privacy gates remain open
 Scope: Core platform roadmap only. Generic platform language throughout (Organization, Membership, Role, User, AssignmentTarget, Customer, NfcTag, NfcAssignment, TimeEntry, WorkEvent, BusinessEvent, Policy, AuditEvent, Export, Backend, Auth, Tenant Isolation, Mobile App, Admin Web, Website). No customer-specific product, company, or branch assumption is named anywhere in this document. The original 2026-07-10 creation implemented no code and modified no architecture/ADR/TTAP/FB/TS/Product Vision content; later dated synchronization updates change only current status/traceability, not accepted product or architecture rules.
 Related Artifacts: `ADO/05_Evidence/External_CTO_Review_Triage_2026-07-10.md`, `ADO/05_Evidence/Product_Readiness_Assessment.md`, `ADO/05_Evidence/Product_Readiness_Roadmap.md`, `ADO/02_Development/Development_Sprint_019_Closure.md`, `ADO/02_Development/EP-007_Development_Tasks.md`, `ADO/00_Core/Project_Status.md`, `ADO/00_Core/Decision_Log.md`
 
@@ -797,3 +797,16 @@ repository/Admin-Web/Android/synthetic-server scope when this closure publicatio
 Exact-Head-CI succeeds. This engineering closure does not change the readiness-domain rating and
 does not authorize DA4 productization, pilot operations, production resources/data,
 legal/privacy approval, deployment or distribution.
+
+## 35. Progress Update – 2026-07-23 Development Assignment 4 ADO Candidate
+
+ADR-0015 and the DA4 authorization candidate propose the next agreed assignment: professional
+productization of the already accepted Admin Web capability set. The candidate adds no code or
+authority. It makes the current first-100 TimeRecord/review truncation a mandatory completeness
+boundary, proposes five safe views, local design primitives, section recovery, stale-session
+protection, WCAG 2.2 AA and a separately gated synthetic-data browser acceptance.
+
+Independent pre-implementation review returned `APPROVED` with zero open P0–P3. Focused
+publication, explicit Human acceptance of DA4-P01–P12 and separate exact-baseline implementation
+authorization remain required. DA5–DA8, production, deployment/distribution, pilot operations and
+legal/privacy approval remain outside it.
