@@ -1,10 +1,13 @@
 # Development Assignment 4 — V5 Enablement Authorization Candidate
 
-- Status: **PROPOSED — IMPLEMENTATION UNAUTHORIZED**
+- Status: **INDEPENDENTLY APPROVED FOR CANDIDATE PUBLICATION — HUMAN ACCEPTANCE AND IMPLEMENTATION AUTHORITY PENDING**
 - Date: 2026-07-23
 - Candidate baseline commit: `4594529667fe1570045eea03fd7132bc27e2e479`
 - Candidate baseline tree: `72338ec9b65dabdd71ab9011604817f61c13c288`
 - Candidate baseline CI: GitHub Actions `30009920314`, attempt 1, 12/12 successful
+- Published candidate commit: `5774ab7971f1c5df6834be44ab556c8138cfcf54`
+- Published candidate tree: `062ded6af067967a3019a7d5abe42428ca58af0e`
+- Published candidate CI: GitHub Actions `30012402185`, attempt 1, 12/12 successful
 - Reviewed product commit: `f0f1e177628bd763c894a1d9c9c50a70168ffe1f`
 - Reviewed product tree: `5259887894a0b97394c748a4556707c6582c93f8`
 - Reviewed product CI: GitHub Actions `30009111061`, attempt 1, 12/12 successful
@@ -129,6 +132,9 @@ committed or emitted.
 - Classification: AVS-001 R0.
 - Required: V0 exact diff/scope, whitespace, reference, status/authority and protected-path checks.
 - Product tests: not rerun; product evidence is carried from the exact bindings above.
+- Publication: exact seven-ADO-file candidate `5774ab7971f1c5df6834be44ab556c8138cfcf54`,
+  tree `062ded6af067967a3019a7d5abe42428ca58af0e`, passed CI `30012402185`, attempt 1,
+  12/12. Independent exact-SHA review returned `APPROVED`, `MERGE_READY` and zero open P0–P3.
 
 ### Proposed executable enablement
 
@@ -161,3 +167,8 @@ ADO-only candidate and V0
 No arrow authorizes a later arrow. This document currently authorizes no executable change and no
 Human V5. Human V5, production, production data, deployment and distribution remain separately
 unauthorized.
+
+The independent pre-implementation review is archived at
+`ADO/05_Evidence/Development_Assignment_04_V5_Enablement_Independent_Pre_Implementation_Review.md`.
+Its approval makes this exact ADO candidate publication-ready only. Human acceptance and a
+separate exact-baseline R3 implementation authorization remain mandatory.

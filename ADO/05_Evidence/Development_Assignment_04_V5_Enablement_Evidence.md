@@ -1,10 +1,13 @@
 # Development Assignment 4 — V5 Enablement Candidate Evidence
 
-- Status: **ADO-ONLY CANDIDATE — EXECUTABLE ENABLEMENT AND HUMAN V5 UNAUTHORIZED**
+- Status: **ADO-ONLY CANDIDATE INDEPENDENTLY APPROVED — HUMAN ACCEPTANCE AND EXECUTABLE ENABLEMENT UNAUTHORIZED**
 - Date: 2026-07-23
 - Candidate baseline commit: `4594529667fe1570045eea03fd7132bc27e2e479`
 - Candidate baseline tree: `72338ec9b65dabdd71ab9011604817f61c13c288`
 - Candidate baseline CI: GitHub Actions `30009920314`, attempt 1, 12/12 successful
+- Published candidate commit: `5774ab7971f1c5df6834be44ab556c8138cfcf54`
+- Published candidate tree: `062ded6af067967a3019a7d5abe42428ca58af0e`
+- Published candidate CI: GitHub Actions `30012402185`, attempt 1, 12/12 successful
 - Risk class: current candidate R0; proposed executable enablement R3
 
 ## 1. Repository-confirmed gap
@@ -59,7 +62,10 @@ No new product-correctness claim is derived from this ADO-only delta.
 - Affected files: ADO Markdown only.
 - Executable/schema/dependency/configuration/workflow/artifact impact: none.
 - Selected verification: AVS V0.
-- V1–V4: not run for this R0 candidate; carried product evidence is identified above.
+- V1–V3: not applicable to this R0 candidate.
+- Publication CI: `30012402185`, attempt 1, passed 12/12 on the exact seven-file candidate; this
+  creates no fresh product-correctness claim.
+- Proposed R3 V4: not applicable and not authorized because executable enablement has not started.
 - V5: not authorized and not run.
 - Protected state: `research/` and the pre-existing untracked `app.json` are not inspected or
   changed.
@@ -90,8 +96,13 @@ A later authorized implementation must provide:
 
 ## 6. Current gates
 
-- ADO-only candidate drafting: authorized and represented by this delta.
-- Candidate publication/CI: not performed by this worktree.
+- ADO-only candidate: published at `5774ab7971f1c5df6834be44ab556c8138cfcf54`, tree
+  `062ded6af067967a3019a7d5abe42428ca58af0e`; CI `30012402185`, attempt 1, passed
+  12/12.
+- Independent pre-implementation review: `APPROVED`, `MERGE_READY / EXACT-SHA APPROVED`, zero open
+  P0–P3; archive:
+  `ADO/05_Evidence/Development_Assignment_04_V5_Enablement_Independent_Pre_Implementation_Review.md`.
+- Human candidate acceptance and separate exact-baseline R3 implementation authority: **pending**.
 - Executable harness implementation: **unauthorized**.
 - Human V5: **unauthorized and not run**.
 - DA4 closure: unavailable until a separately authorized V5 passes and receives final review.
