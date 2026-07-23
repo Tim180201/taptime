@@ -581,10 +581,19 @@ every CSV, credential-binding and protected-path control.
 
 Review archive `8545e08`/tree `3440e78` passed exact-head run `29986601053`, attempt 1, 12/12.
 This changes no readiness-domain rating and closes no DA3 task or physical finding.
-`DA3-PHYS-01/02/03`, DA3 and DT-069–DT-074 remain open. Separate Human acceptance plus a new
-exact-bound authorization are required before a complete fresh V5. No retry, Physical Gate,
-production, production data, deployment, distribution, legal/privacy approval or DA4
-productization is authorized.
+`DA3-PHYS-01/02/03`, DA3 and DT-069–DT-074 remain open. At that checkpoint separate Human
+acceptance plus a new exact-bound authorization were required before a complete fresh V5.
+
+## Addendum (2026-07-23 — DA3-PHYS-03 Review Human Acceptance)
+
+The Human Architect accepted review archive `8545e08`/tree `3440e78`/run `29986601053` and final
+Evidence sync `f726e16`/tree `6421aa5`/run `29986934600`, each 12/12, as the binding review basis
+while explicitly withholding Physical-Gate authority.
+
+This changes no readiness-domain rating and closes no DA3 task or physical finding.
+`DA3-PHYS-01/02/03`, DA3 and DT-069–DT-074 remain open. A new separate exact-bound authorization
+is required before a complete fresh V5. No retry, Physical Gate, production, production data,
+deployment, distribution, legal/privacy approval or DA4 productization is authorized.
 
 ## Revision Note (Technical Lead Review Follow-up, 2026-07-07)
 

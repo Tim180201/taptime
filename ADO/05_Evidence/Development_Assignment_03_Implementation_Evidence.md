@@ -305,5 +305,15 @@ Product, schema, dependency, workflow, helper, harness or APK.
 
 This is carried governance Evidence, not fresh implementation or Physical evidence. Review
 archive `8545e08`/tree `3440e78` passed exact-head run `29986601053`, attempt 1, 12/12. Separate
-later Human acceptance remains required. `DA3-PHYS-01/02/03`, DA3 and DT-069–DT-074 remain open;
-no retry, Physical Gate, production, production data, deployment or distribution is authorized.
+later Human acceptance remained required at that checkpoint.
+
+## 18. Human acceptance of DA3-PHYS-03 review evidence
+
+The Human Architect accepted review archive `8545e08`/tree `3440e78`/run `29986601053` and final
+Evidence sync `f726e16`/tree `6421aa5`/run `29986934600`, each 12/12, as the binding review basis
+while expressly withholding Physical-Gate authority.
+
+This acceptance changes no implementation evidence or Product state. `DA3-PHYS-01/02/03`, DA3 and
+DT-069–DT-074 remain open; no retry, Physical Gate, production, production data, deployment or
+distribution is authorized. A later complete fresh V5 requires a new separate exact-bound Human
+authorization.

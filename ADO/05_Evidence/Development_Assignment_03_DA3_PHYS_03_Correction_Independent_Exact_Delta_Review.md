@@ -1,7 +1,7 @@
 # Development Assignment 3 — DA3-PHYS-03 Correction Independent Exact-Delta Review
 
 - Status: **APPROVED FOR DA3-PHYS-03 ADO OPERATOR-CONTROL CORRECTION — ZERO OPEN
-  P0/P1/P2/P3 REVIEW FINDINGS — ARCHIVED/PUBLISHED WITH EXACT-HEAD CI 12/12**
+  P0/P1/P2/P3 REVIEW FINDINGS — ARCHIVED/CI-GREEN AND HUMAN-ACCEPTED; PHYSICAL GATE UNAUTHORIZED**
 - Review date: 2026-07-23
 - Review mode: independent read-only exact-delta re-review
 - Failure-synchronization baseline commit/tree:
@@ -140,3 +140,17 @@ Exact-head GitHub Actions run `29986601053`, push, attempt 1, passed 12/12.
 Publication does not convert the review into Human acceptance or Physical authority. A new
 complete fresh V5 remains prohibited until the Human Architect separately accepts the exact
 review/archive basis and grants a new exact-bound authorization.
+
+## 10. Human acceptance
+
+The Human Architect subsequently accepted this review archive at exact commit
+`8545e08cd118f85c0c9defccea0fac0961e9a72e`, tree
+`3440e78f379974ebf1f48ca76ad1d923ed9aeb76`, run `29986601053` 12/12, and the final Evidence sync
+at `f726e169e00d205bfc36ee9b12673e0c70aae235`, tree
+`6421aa5974f5168ce6f2631f0a56fe9f7cd6f151`, run `29986934600` 12/12, as the binding review basis.
+
+The Human Architect explicitly granted no Physical Gate. The review acceptance therefore creates
+no run, installation/uninstall, ADB/loopback, device/Tag interaction, retry/repair/resume or other
+execution authority. `DA3-PHYS-01/02/03`, DA3 and DT-069–DT-074 remain open. A later complete
+fresh V5 still requires a new separate exact-bound Human authorization; production, production
+data, deployment and distribution remain unauthorized.

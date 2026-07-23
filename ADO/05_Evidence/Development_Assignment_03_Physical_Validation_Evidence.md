@@ -1,6 +1,6 @@
 # Development Assignment 3 — V5 Physical Validation Evidence
 
-- Status: **THREE RUNS FAILED CLOSED; ALL THREE P1 FINDINGS OPEN; DA3-PHYS-03 FOCUSED ADO-ONLY CORRECTION AND ZERO-FINDING INDEPENDENT RE-REVIEW ARCHIVED/PUBLISHED WITH EXACT-HEAD CI 12/12; HUMAN ACCEPTANCE/NEW EXACT-BOUND AUTHORIZATION PENDING; NEW RUN UNAUTHORIZED**
+- Status: **THREE RUNS FAILED CLOSED; ALL THREE P1 FINDINGS OPEN; DA3-PHYS-03 FOCUSED ADO-ONLY CORRECTION AND ZERO-FINDING INDEPENDENT RE-REVIEW ARCHIVED/CI-GREEN AND HUMAN-ACCEPTED; NEW EXACT-BOUND AUTHORIZATION REQUIRED; NEW RUN UNAUTHORIZED**
 - Date: 2026-07-23
 - Owner: Technical Lead
 - Human observer and approval authority: Human Architect
@@ -665,5 +665,20 @@ The review changes no physical result and closes no physical finding. Review arc
 `3440e78f379974ebf1f48ca76ad1d923ed9aeb76`, passed exact-head run `29986601053`, attempt 1,
 12/12. `DA3-PHYS-01/02/03`, Gate A, DA3 and DT-069–DT-074 remain open. No failed-run observation
 is reusable and no retry, repair, resume, installation/ADB, Physical Gate, production, production
-data, deployment or distribution is authorized. A later complete fresh V5 requires separate
-Human acceptance and a new exact-bound authorization.
+data, deployment or distribution is authorized. At that checkpoint, a later complete fresh V5
+required separate Human acceptance and a new exact-bound authorization; Section 27 records the
+later acceptance without execution authority.
+
+## 27. Human acceptance of the DA3-PHYS-03 correction review
+
+The Human Architect accepted exact independent review archive
+`8545e08cd118f85c0c9defccea0fac0961e9a72e`, tree
+`3440e78f379974ebf1f48ca76ad1d923ed9aeb76`, run `29986601053` 12/12, and final Evidence sync
+`f726e169e00d205bfc36ee9b12673e0c70aae235`, tree
+`6421aa5974f5168ce6f2631f0a56fe9f7cd6f151`, run `29986934600` 12/12, as the binding review basis.
+
+This acceptance is not a new physical observation and closes no P1 finding or DA3 task. The Human
+Architect expressly withheld Physical-Gate authority. No run, installation/uninstall,
+ADB/loopback, device/Tag interaction, retry, repair or resume is authorized. A later complete
+fresh V5 requires a new separate exact-bound Human authorization. Production, production data,
+deployment and distribution remain unauthorized.

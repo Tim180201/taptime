@@ -1,6 +1,6 @@
 # Development Assignment 3 — V5 Enablement Evidence
 
-- Status: **V5 ENABLEMENT APPROVED; THREE RUNS FAILED CLOSED; DA3-PHYS-03 FOCUSED ADO-ONLY CORRECTION AND ZERO-FINDING INDEPENDENT RE-REVIEW ARCHIVED/PUBLISHED WITH EXACT-HEAD CI 12/12; HUMAN ACCEPTANCE/NEW EXACT-BOUND AUTHORIZATION PENDING; NEW RUN UNAUTHORIZED**
+- Status: **V5 ENABLEMENT APPROVED; THREE RUNS FAILED CLOSED; DA3-PHYS-03 FOCUSED ADO-ONLY CORRECTION AND ZERO-FINDING INDEPENDENT RE-REVIEW ARCHIVED/CI-GREEN AND HUMAN-ACCEPTED; NEW EXACT-BOUND AUTHORIZATION REQUIRED; NEW RUN UNAUTHORIZED**
 - Date: 2026-07-23
 - Authorized enablement baseline commit: `0b0d04034c88829fdc5c548b057e74554d4ee197`
 - Authorized enablement baseline tree: `eee26501fd714738aa3ca106d93d5088261206e3`
@@ -374,9 +374,10 @@ Evidence sync `e025a2f860e21f968439a239525c55f63bd258a5`, tree
 `APPROVED FOR DA3-PHYS-03 ADO OPERATOR-CONTROL CORRECTION` with zero open P0–P3 review findings.
 
 The publication/review changes no V5 observation, Product, schema, dependency, workflow, helper,
-harness or APK. Review archival/CI and later separate Human acceptance remain required.
-`DA3-PHYS-01/02/03`, DA3 and DT-069–DT-074 remain open; no new V5, retry, repair, resume,
-Physical Gate, production, production-data, deployment or distribution action is authorized.
+harness or APK. At that checkpoint review archival/CI and later separate Human acceptance
+remained required. `DA3-PHYS-01/02/03`, DA3 and DT-069–DT-074 remained open; no new V5, retry,
+repair, resume, Physical Gate, production, production-data, deployment or distribution action was
+authorized.
 
 ## 15. DA3-PHYS-03 correction independent re-review
 
@@ -388,5 +389,16 @@ findings.
 
 The review is not a Physical result or Human gate. Archive `8545e08`, tree `3440e78`, passed
 exact-head run `29986601053`, attempt 1, 12/12. `DA3-PHYS-01/02/03`, DA3 and DT-069–DT-074
-remain open, and any new complete V5 requires separate Human acceptance and exact-bound
-authorization.
+remain open. At that checkpoint any new complete V5 required separate Human acceptance and
+exact-bound authorization.
+
+## 16. Human acceptance without new-run authority
+
+The Human Architect accepted review archive `8545e08`/tree `3440e78`/run `29986601053` and final
+Evidence sync `f726e16`/tree `6421aa5`/run `29986934600`, each 12/12, as the binding review basis.
+Physical-Gate authority was explicitly withheld.
+
+The acceptance changes no V5 observation or completion state. `DA3-PHYS-01/02/03`, DA3 and
+DT-069–DT-074 remain open. Any new complete V5 requires a new separate exact-bound Human
+authorization; retry, repair, resume, production, production data, deployment and distribution
+remain unauthorized.
