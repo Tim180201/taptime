@@ -1,6 +1,6 @@
 # Development Assignment 4 — V5 Enablement Candidate Evidence
 
-- Status: **LOCAL R3 V0–V3 GREEN AFTER DA4-V5-F01 — V4 AND INDEPENDENT IMPLEMENTATION REVIEW PENDING**
+- Status: **INDEPENDENT REVIEW ROUND 1 P2 CORRECTED — LOCAL R3 V0–V3 GREEN; INDEPENDENT RE-REVIEW PENDING**
 - Date: 2026-07-23
 - Candidate baseline commit: `4594529667fe1570045eea03fd7132bc27e2e479`
 - Candidate baseline tree: `72338ec9b65dabdd71ab9011604817f61c13c288`
@@ -180,3 +180,35 @@ changed afterward.
 V0 final diff/scope, whitespace, reference, authority and protected-path checks passed. V4
 publication/CI and independent exact-SHA implementation review remain pending. Human V5,
 production, production data, deployment and distribution remain unauthorized.
+
+## 9. Independent implementation review round 1 and signal correction
+
+Independent review round 1 bound candidate
+`b63a0db86d472f4e963b8fd1948e3b2b57aed670`, tree
+`cd7ac406467214eabd35a40077981eadb2e07a2e`, and exact-head CI `30021272713`,
+attempt 1, 12/12. Verdict: `CHANGES REQUIRED` with exactly one P2 and zero P0/P1/P3.
+
+The P2 found that SIGINT/SIGTERM was installed only after readiness and could therefore miss
+startup cleanup; after readiness it could also end with exit code zero and without a permanent
+failure latch. The focused correction remains inside the Synthetic DA4-V5 scope:
+
+- handlers are installed before the first external startup mutation;
+- the first signal permanently latches `da4_v5_interrupted`, failure exit and no retry;
+- startup waits for the active resource-producing await to settle before exactly one complete
+  cleanup, so no resource can appear after an early cleanup;
+- ready-state and in-flight-normal-stop signals share one cleanup promise, suppress
+  `da4_v5_stopped` and ignore repeated signals/commands; and
+- cleanup rejection still adds only `da4_v5_cleanup_failed`.
+
+Focused V1 passes 29/29. Affected complete V2 passes Synthetic Harness 78/78 with disposable
+PostgreSQL, tests-inclusive typecheck and build.
+
+Exactly one new final corrected V3 then passed clean migrations 001–012 plus replay, 1,825 tests
+with two optional B1 Supavisor skips, all 19 tests-inclusive typechecks and all 18 applicable
+builds. The dedicated disposable `taptime_da3` database was created before the run and removed
+afterward with its two runtime roles. Final cleanup proved the Synthetic target free of
+`taptime_server`, migration ledger and `b1_spike`; the B1 target was also free of `b1_spike`.
+No executable file changed afterward.
+
+Independent exact-delta re-review remains pending. Human V5, production, production data,
+deployment and distribution remain unauthorized.

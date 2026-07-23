@@ -16,6 +16,7 @@ import {
 import {
   Da4V5InputOwnership,
   Da4V5OperatorLifecycle,
+  Da4V5SignalController,
   type Da4V5OperatorCommandOutcome,
 } from './Da4V5OperatorLifecycle.js';
 import {
@@ -50,8 +51,20 @@ let operationSession: Da4V5OperationSession | null = null;
 const inputOwnership = new Da4V5InputOwnership();
 let operatorLifecycle: Da4V5OperatorLifecycle | null = null;
 const timezones = new Map<'safari' | 'chromium', string>();
+const signalController = new Da4V5SignalController(
+  reportOperatorEvent,
+  () => {
+    process.exitCode = 1;
+  },
+);
+const handleTerminationSignal = (): void => {
+  void signalController.handleSignal();
+};
+process.on('SIGINT', handleTerminationSignal);
+process.on('SIGTERM', handleTerminationSignal);
 
 try {
+  signalController.checkpoint();
   environment = await createSyntheticAndroidE2eEnvironment({
     installerDatabaseUrl,
     password,
@@ -60,11 +73,13 @@ try {
     profile: DA4_V5_PROFILE,
     onSafeEvent: reportSafeEvent,
   });
+  signalController.checkpoint();
   password = '';
   [fixtureManifest, initialStatus] = await Promise.all([
     environment.da4V5FixtureManifest(),
     environment.da4V5Status(),
   ]);
+  signalController.checkpoint();
   assertDa4V5InitialStatus(initialStatus);
   operationSession = new Da4V5OperationSession(initialStatus);
   adminWeb = await createDa4V5AdminWebServer({
@@ -72,6 +87,15 @@ try {
     manifestPath: artifactManifest,
     onSafeEvent: (event) => process.stdout.write(`da4_v5_event=${event}\n`),
   });
+  signalController.checkpoint();
+  operatorLifecycle = new Da4V5OperatorLifecycle(
+    cleanupResources,
+    reportOperatorEvent,
+    () => {
+      process.exitCode = 1;
+    },
+  );
+  signalController.bind(operatorLifecycle);
   process.stdout.write([
     'da4_v5_ready',
     `administrator_login_email=${environment.administratorEmail}`,
@@ -83,20 +107,12 @@ try {
     'sensitive_values_are_never_printed',
     '',
   ].join('\n'));
-
-  operatorLifecycle = new Da4V5OperatorLifecycle(
-    cleanupResources,
-    reportOperatorEvent,
-    () => {
-      process.exitCode = 1;
-    },
-  );
   startCommandInput();
-  process.once('SIGINT', () => void operatorLifecycle?.stop(false));
-  process.once('SIGTERM', () => void operatorLifecycle?.stop(false));
 } catch (error) {
   password = '';
-  process.stderr.write('da4_v5_start_failed\n');
+  if (!signalController.isInterrupted()) {
+    process.stderr.write('da4_v5_start_failed\n');
+  }
   process.exitCode = 1;
   let cleanupFailureReported = false;
   try {

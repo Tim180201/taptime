@@ -50,8 +50,16 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   clean migration/replay plus disposable cleanup. Its only operational interruption was the
   initially absent disposable `taptime_da3` database; only its ten blocked tests were continued
   after creation and passed, without duplicating the full regression, and the database/runtime
-  roles were removed afterward. R3 V4 and independent exact-SHA implementation review remain
-  pending. Human V5, production, production data, deployment and distribution remain unauthorized.
+  roles were removed afterward. Published candidate `b63a0db`, tree `cd7ac40`, passed exact-head
+  CI `30021272713`, attempt 1, 12/12. Independent review round 1 returned `CHANGES REQUIRED` with
+  exactly one P2 and zero P0/P1/P3: SIGINT/SIGTERM was installed only after readiness and did not
+  guarantee failure exit or complete cleanup across startup. The focused correction installs a
+  permanent signal latch before external mutation, waits for startup resource settlement and
+  shares exactly one all-resource cleanup without `da4_v5_stopped`. Corrected V1 is 29/29,
+  affected V2 Synthetic is 78/78, and exactly one new final V3 passed 1,825 tests, two optional B1
+  Supavisor skips, all 19 typechecks, all 18 builds, clean migration/replay and complete disposable
+  cleanup. Independent exact-delta re-review remains pending. Human V5, production, production
+  data, deployment and distribution remain unauthorized.
 - **Development Assignment 3 is Human-accepted and implementation-authorized on exact baseline
   `ff68f7a7d0ce69a65e88846ae1cca9abd5951f5d`, tree
   `09ef169a68bb53420e07b6f3fcbbdc74e0c01d57`.** ADR-0014/DA3-P01–DA3-P16 and Workstreams A–D

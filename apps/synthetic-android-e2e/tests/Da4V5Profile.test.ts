@@ -15,6 +15,8 @@ import {
   Da4V5OperationSession,
   Da4V5OperatorLifecycle,
   Da4V5ReadFaultController,
+  Da4V5SignalController,
+  Da4V5StartupInterrupted,
   MemoryOnlySyntheticPasswordBinding,
   createDa4V5ArtifactManifest,
   loadAndVerifyDa4V5Artifact,
@@ -233,6 +235,103 @@ describe('DA4 V5 fail-stop and cleanup controls', () => {
     expect(events).toEqual(['da4_v5_cleanup_failed']);
   });
 
+  it('retains normal stop as the only successful stopped event', async () => {
+    const events: string[] = [];
+    const markFailed = vi.fn();
+    const cleanup = vi.fn(async () => undefined);
+    const lifecycle = new Da4V5OperatorLifecycle(
+      cleanup,
+      (event) => events.push(event),
+      markFailed,
+    );
+    await lifecycle.stop();
+    expect(events).toEqual(['da4_v5_stopped']);
+    expect(markFailed).not.toHaveBeenCalled();
+    expect(cleanup).toHaveBeenCalledTimes(1);
+  });
+
+  it('latches a pre-readiness signal and waits for startup resource settlement before cleanup', async () => {
+    const events: string[] = [];
+    const markFailed = vi.fn();
+    const cleanup = vi.fn(async () => undefined);
+    const resource = deferred<void>();
+    const signal = new Da4V5SignalController((event) => events.push(event), markFailed);
+    let resourceCreated = false;
+    const startup = (async () => {
+      await resource.promise;
+      resourceCreated = true;
+      signal.checkpoint();
+    })().catch(async (error: unknown) => {
+      expect(error).toBeInstanceOf(Da4V5StartupInterrupted);
+      expect(resourceCreated).toBe(true);
+      await cleanup();
+    });
+
+    const firstSignal = signal.handleSignal();
+    const repeatedSignal = signal.handleSignal();
+    expect(firstSignal).toBe(repeatedSignal);
+    expect(cleanup).not.toHaveBeenCalled();
+    resource.resolve();
+    await Promise.all([firstSignal, repeatedSignal, startup]);
+
+    expect(events).toEqual(['da4_v5_interrupted']);
+    expect(markFailed).toHaveBeenCalledTimes(1);
+    expect(cleanup).toHaveBeenCalledTimes(1);
+    expect(signal.isInterrupted()).toBe(true);
+  });
+
+  it('latches a post-readiness signal, exits failed, and cleans exactly once without stopped', async () => {
+    const events: string[] = [];
+    const markFailed = vi.fn();
+    const cleanupRelease = deferred<void>();
+    const cleanup = vi.fn(() => cleanupRelease.promise);
+    const lifecycle = new Da4V5OperatorLifecycle(
+      cleanup,
+      (event) => events.push(event),
+      markFailed,
+    );
+    const signal = new Da4V5SignalController((event) => events.push(event), markFailed);
+    signal.bind(lifecycle);
+
+    const firstSignal = signal.handleSignal();
+    const repeatedSignal = signal.handleSignal();
+    expect(firstSignal).toBe(repeatedSignal);
+    expect(cleanup).toHaveBeenCalledTimes(1);
+    cleanupRelease.resolve();
+    await Promise.all([firstSignal, repeatedSignal]);
+
+    const nextCommand = vi.fn(async () => ({ state: 'continue' as const }));
+    await lifecycle.submit(nextCommand);
+    expect(events).toEqual(['da4_v5_interrupted']);
+    expect(events).not.toContain('da4_v5_stopped');
+    expect(markFailed).toHaveBeenCalledTimes(1);
+    expect(cleanup).toHaveBeenCalledTimes(1);
+    expect(nextCommand).not.toHaveBeenCalled();
+  });
+
+  it('converts an in-flight normal stop to failed interruption without a stopped event', async () => {
+    const events: string[] = [];
+    const markFailed = vi.fn();
+    const cleanupRelease = deferred<void>();
+    const cleanup = vi.fn(() => cleanupRelease.promise);
+    const lifecycle = new Da4V5OperatorLifecycle(
+      cleanup,
+      (event) => events.push(event),
+      markFailed,
+    );
+    const signal = new Da4V5SignalController((event) => events.push(event), markFailed);
+    signal.bind(lifecycle);
+
+    const normalStop = lifecycle.stop();
+    const interruptedStop = signal.handleSignal();
+    cleanupRelease.resolve();
+    await Promise.all([normalStop, interruptedStop]);
+
+    expect(events).toEqual(['da4_v5_interrupted']);
+    expect(markFailed).toHaveBeenCalledTimes(1);
+    expect(cleanup).toHaveBeenCalledTimes(1);
+  });
+
   it('allows only one readline owner while transitioning command to secret mode', () => {
     const ownership = new Da4V5InputOwnership();
     const command = fakeInterface();
@@ -301,6 +400,12 @@ describe('DA4 V5 Admin Web artifact manifest', () => {
     expect(source.indexOf('requireDa4V5Profile(')).toBeGreaterThanOrEqual(0);
     expect(source.indexOf('requireDa4V5Profile(')).toBeLessThan(
       source.indexOf("requiredEnvironmentValue('TAPTIME_SYNTHETIC_E2E_DATABASE_URL')"),
+    );
+    expect(source.indexOf("process.on('SIGINT'")).toBeLessThan(
+      source.indexOf('environment = await createSyntheticAndroidE2eEnvironment('),
+    );
+    expect(source.indexOf("process.on('SIGTERM'")).toBeLessThan(
+      source.indexOf('environment = await createSyntheticAndroidE2eEnvironment('),
     );
     expect(source).not.toContain('apps/admin-web');
   });
@@ -414,6 +519,17 @@ function fakeInterface(): Interface {
     close: vi.fn(),
     removeAllListeners: vi.fn(),
   } as unknown as Interface;
+}
+
+function deferred<Value = void>(): {
+  readonly promise: Promise<Value>;
+  readonly resolve: (value: Value) => void;
+} {
+  let resolve!: (value: Value) => void;
+  const promise = new Promise<Value>((resolver) => {
+    resolve = resolver;
+  });
+  return { promise, resolve };
 }
 
 async function makeArtifact(): Promise<string> {
