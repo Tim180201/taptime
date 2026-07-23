@@ -29,7 +29,10 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   attempt 1, 12/12. Independent exact-SHA review returned `APPROVED`, `MERGE_READY` and zero open
   P0–P3. Workstreams A–D and AVS V0–V4 are technically approved for their exact local scope. DA4
   remains open because ADR-0015 requires a separately authorized Human V5 browser gate before
-  closure. Production, production data, deployment and distribution remain unauthorized.
+  closure. A focused ADO-only V5 enablement candidate now proposes one opt-in, fail-closed
+  synthetic browser profile and a non-executable Human runbook on baseline `4594529`, tree
+  `72338ec`; executable R3 enablement and Human V5 remain unauthorized. Production, production
+  data, deployment and distribution remain unauthorized.
 - **Development Assignment 3 is Human-accepted and implementation-authorized on exact baseline
   `ff68f7a7d0ce69a65e88846ae1cca9abd5951f5d`, tree
   `09ef169a68bb53420e07b6f3fcbbdc74e0c01d57`.** ADR-0014/DA3-P01–DA3-P16 and Workstreams A–D
@@ -598,9 +601,10 @@ Two Epics are concurrently Active, per EP-009's own stated relationship to the r
 4. Preserve every closed C3B/C3C/C3D/C3E1/C3E2/DA1/DA2/DA3 boundary and the Human-accepted
    ADR-0015/DA4-P01–P12 scope; keep Human V5, production/deployment, legal/privacy and pilot
    operations behind their separate authorization and Human gates.
-5. Decide and separately authorize the ADR-0015 Human V5 functional/visual/browser gate before any
-   DA4 closure claim. The independently approved implementation grants no Human V5, production,
-   production-data, deployment or distribution authority.
+5. Review the DA4-V5 ADO-only enablement candidate. If accepted, separately authorize its focused
+   R3 harness/profile implementation on an exact baseline; only after V0–V4 and independent
+   exact-SHA approval may a separately exact-bound Human V5 browser run be authorized. No current
+   DA4 artifact grants Human V5, production, production-data, deployment or distribution authority.
 
 ## Agreed comprehensive Development-assignment sequence
 
