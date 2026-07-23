@@ -152,3 +152,16 @@ authorized.
 
 Product code, schema, dependencies, workflow, helper, APK, retry, repair, resume, Physical Gate,
 production, production data, deployment and distribution remain unauthorized.
+
+## 9. Subsequent correction publication
+
+The Human-authorized correction and this review archive were subsequently published as
+`9424a588683fc78cae1d47861366eff25d501952`, tree
+`f2d9a8755be7b5ee021873a5fff6c3f5d5db8b32`, exact parent
+`a8b18d6fd3b6a36c81a49111fd0e48cdf4e54c8f`, with exactly 12 ADO Markdown files and
+`+465/-59`. Local R0/V0 passed; V1–V3 were inapplicable. Exact-head run `29985219725`, push,
+attempt 1, passed 12/12.
+
+This subsequent record does not modify the independent verdict above. Independent exact-delta
+re-review of the published correction and Evidence sync remains mandatory. No new operational or
+Physical authority follows.

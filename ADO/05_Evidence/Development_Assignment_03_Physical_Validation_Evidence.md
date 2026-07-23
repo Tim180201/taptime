@@ -1,6 +1,6 @@
 # Development Assignment 3 — V5 Physical Validation Evidence
 
-- Status: **THREE RUNS FAILED CLOSED; ALL THREE P1 FINDINGS OPEN; DA3-PHYS-03 FAILURE SYNCHRONIZATION/CANDIDATE INDEPENDENTLY APPROVED AND FOCUSED ADO-ONLY CORRECTION HUMAN-AUTHORIZED; PUBLICATION/CI/RE-REVIEW PENDING; NEW RUN UNAUTHORIZED**
+- Status: **THREE RUNS FAILED CLOSED; ALL THREE P1 FINDINGS OPEN; DA3-PHYS-03 FAILURE SYNCHRONIZATION/CANDIDATE INDEPENDENTLY APPROVED; FOCUSED ADO-ONLY CORRECTION PUBLISHED AND EXACT-HEAD-CI GREEN; INDEPENDENT RE-REVIEW PENDING; NEW RUN UNAUTHORIZED**
 - Date: 2026-07-23
 - Owner: Technical Lead
 - Human observer and approval authority: Human Architect
@@ -633,3 +633,20 @@ operator-control correction. Runbook Sections 2, 3.1, 4, 5 and 8 now require:
 creates no retry, repair, resume, Physical Gate, installation/ADB, production, production-data,
 deployment or distribution authority. A later complete fresh V5 still requires a new separate
 exact-bound Human authorization after independent approval of the published correction.
+
+## 25. DA3-PHYS-03 correction publication and V4 evidence
+
+Correction/review-archive publication `9424a588683fc78cae1d47861366eff25d501952`, tree
+`f2d9a8755be7b5ee021873a5fff6c3f5d5db8b32`, exact parent
+`a8b18d6fd3b6a36c81a49111fd0e48cdf4e54c8f`, contains exactly 12 ADO Markdown files and
+`+465/-59`. Local AVS R0/V0 passed exact scope, zero unstaged tracked delta, whitespace,
+references, authority/status, disclosure and all required Runbook-control assertions. V1–V3 were
+not run because no executable input changed.
+
+Exact-head GitHub Actions V4 run `29985219725`, push, attempt 1, passed 12/12 on the publication
+commit. The Product/APK/manifest and their carried evidence are unchanged. Independent exact-delta
+re-review of the correction plus this Evidence sync is mandatory.
+
+`DA3-PHYS-01/02/03`, Gate A, DA3 and DT-069–DT-074 remain open. No failed-run observation is
+reused. Retry, repair, resume, Physical Gate, installation/ADB, production, production data,
+deployment and distribution remain unauthorized.

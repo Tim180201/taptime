@@ -559,6 +559,18 @@ This changes no readiness-domain rating and closes no DA3 task or physical findi
 production, production data, deployment, distribution, legal/privacy approval and DA4
 productization remain unauthorized or separately gated.
 
+## Addendum (2026-07-23 — DA3-PHYS-03 Correction Publication)
+
+Focused ADO-only correction/review-archive publication `9424a588`, tree `f2d9a875`, parent
+`a8b18d6`, contains 12 ADO Markdown files and `+465/-59`. R0/V0 passed, V1–V3 were inapplicable,
+and exact-head run `29985219725`, attempt 1, passed 12/12. Independent exact-delta re-review
+remains pending.
+
+This changes no readiness-domain rating and closes no DA3 task or physical finding.
+`DA3-PHYS-01/02/03`, DA3 and DT-069–DT-074 remain open. No retry, Physical Gate, production,
+production data, deployment, distribution, legal/privacy approval or DA4 productization is
+authorized.
+
 ## Revision Note (Technical Lead Review Follow-up, 2026-07-07)
 
 This roadmap was updated once, after Technical Lead review, to: (1) add the "Strategic frame" paragraph above, connecting roadmap items to the companion assessment's Business Event Platform framing (Section 0.1) and capability hierarchy (Section 12); (2) organize every milestone's existing items into an Engineering Track, a Product Capability Track, and a Business, Legal & Go-To-Market Track, without adding, removing, or reprioritizing any item, and without moving any item to a different milestone; (3) note, within the Now and Before Pilot Customers milestones, the re-evaluated primary-bottleneck finding from the companion assessment's Section 11.1 (Organization Management as the more foundational blocker for reaching the first pilot, alongside — not instead of — the backend technology decision). No original roadmap item's wording, milestone assignment, or substance was changed; this revision only added track labels, short cross-reference notes, and this closing note.

@@ -1,6 +1,6 @@
 # Development Assignment 3 — V5 Human Functional/Physical Gate Runbook
 
-Status: **DA3-PHYS-03 ADO-ONLY OPERATOR-CONTROL CORRECTION HUMAN-AUTHORIZED; PUBLICATION/CI/INDEPENDENT RE-REVIEW PENDING; NO RETRY OR NEW RUN AUTHORIZED**
+Status: **DA3-PHYS-03 ADO-ONLY OPERATOR-CONTROL CORRECTION PUBLISHED AND EXACT-HEAD-CI GREEN; INDEPENDENT RE-REVIEW PENDING; NO RETRY OR NEW RUN AUTHORIZED**
 Owner: Technical Lead
 Approval authority for any later physical run: Human Architect
 
@@ -376,10 +376,11 @@ Independent review of failure synchronization `a8b18d6`, tree `dae80d8`, and exa
 zero open P0–P3 review findings. The Human Architect accepted that review and separately authorized
 the focused ADO-only correction now applied to Sections 2, 3.1, 4, 5 and 8.
 
-Do not execute this runbook again. The correction must first be published, pass exact-head CI and
-independent exact-delta re-review. Every later complete fresh run still requires new separate
-exact-bound Human authority. Retry, repair, resume, production, production data, deployment and
-distribution remain unauthorized.
+Do not execute this runbook again. The correction was published as `9424a588`, tree `f2d9a875`,
+and passed exact-head run `29985219725`, attempt 1, 12/12; independent exact-delta re-review remains
+mandatory. Every later complete fresh run still requires new separate exact-bound Human authority.
+Retry, repair, resume, production, production data, deployment and distribution remain
+unauthorized.
 
 ## 13. DA3-PHYS-03 review acceptance and focused correction authority
 
@@ -407,3 +408,14 @@ Retry, repair, resume, Physical Gate, installation/ADB, production, production d
 distribution remain unauthorized. This runbook remains non-executable until the correction has an
 independently approved published exact head and the Human Architect later grants a new separate
 exact-bound complete-run authority.
+
+## 14. DA3-PHYS-03 correction publication
+
+Technical-Lead-approved publication `9424a588683fc78cae1d47861366eff25d501952`, tree
+`f2d9a8755be7b5ee021873a5fff6c3f5d5db8b32`, parent
+`a8b18d6fd3b6a36c81a49111fd0e48cdf4e54c8f`, contains exactly 12 ADO Markdown files and
+`+465/-59`. AVS R0/V0 passed; V1–V3 were inapplicable because no executable input changed.
+Exact-head run `29985219725`, push, attempt 1, passed 12/12.
+
+Independent exact-delta re-review remains mandatory. No correction retry, Physical Gate or
+complete fresh V5 is authorized by this publication.

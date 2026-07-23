@@ -741,3 +741,15 @@ This changes no roadmap completion, implementation, artifact or readiness rating
 exact-bound Human authorization after publication, exact-head CI and independent approval.
 Physical Gate, production, production data, deployment, distribution, legal/privacy approval and
 DA4 productization remain unauthorized or separately gated.
+
+## 31. Progress Update – 2026-07-23 DA3-PHYS-03 Correction Publication
+
+The focused ADO-only correction and review archive were published as `9424a588`, tree `f2d9a875`,
+exact parent `a8b18d6`, with 12 ADO Markdown files and `+465/-59`. AVS R0/V0 passed; V1–V3 were
+inapplicable. Exact-head GitHub Actions run `29985219725`, attempt 1, passed 12/12.
+
+Independent exact-delta re-review remains mandatory. This changes no roadmap completion,
+implementation, artifact or readiness rating. `DA3-PHYS-01/02/03`, DA3 and DT-069–DT-074 remain
+open. A new complete fresh V5 still requires separate exact-bound Human authorization. Physical
+Gate, production, production data, deployment, distribution, legal/privacy approval and DA4
+productization remain unauthorized or separately gated.

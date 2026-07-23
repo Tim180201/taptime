@@ -220,8 +220,10 @@ ADO-only correction plus review archival/truth synchronization, AVS R0/V0, publi
 independent exact-delta re-review. The runbook now makes all required CSV proofs explicit stop
 points, binds every password injection to a live-session-only SHA-256 digest with output limited
 to `match/mismatch`, keeps fixed emails off the credential clipboard, fails before authentication
-on mismatch and explicitly excludes `research/` from worktree checks. No retry/new run, Physical
-Gate, production, production data, deployment or distribution is authorized.
+on mismatch and explicitly excludes `research/` from worktree checks. Correction/review-archive
+publication `9424a588`, tree `f2d9a875`, passed exact-head run `29985219725`, attempt 1, 12/12;
+independent exact-delta re-review remains pending. No retry/new run, Physical Gate, production,
+production data, deployment or distribution is authorized.
 
 This file is the official navigation entry point for the TapTim.e ADO.
 
@@ -367,7 +369,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Document | Location |
 |---|---|
 | Development Assignment 1 Gate-C Response-Drop Runbook | `ADO/04_Operations/Development_Assignment_01_Gate_C_Response_Drop_Runbook.md` |
-| Development Assignment 3 V5 Human Functional/Physical Gate Runbook — DA3-PHYS-03 ADO-only control correction applied; publication/CI/re-review pending; no retry or new run authorized | `ADO/04_Operations/Development_Assignment_03_V5_Runbook.md` |
+| Development Assignment 3 V5 Human Functional/Physical Gate Runbook — DA3-PHYS-03 ADO-only control correction published/CI-green; independent re-review pending; no retry or new run authorized | `ADO/04_Operations/Development_Assignment_03_V5_Runbook.md` |
 
 ## Evidence
 
@@ -410,7 +412,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Development Assignment 3 Independent Pre-Implementation Review — ADO-only candidate approved for publication, zero open P0–P3; subsequently Human-accepted/authorized on exact published baseline | `ADO/05_Evidence/Development_Assignment_03_Independent_Pre_Implementation_Review.md` |
 | Development Assignment 3 Implementation Evidence — `0f71aca`/tree `e3e2ed7`, 1,757 local tests and exact-head CI 12/12 green; independent review approved | `ADO/05_Evidence/Development_Assignment_03_Implementation_Evidence.md` |
 | Development Assignment 3 Independent Implementation Review — `APPROVED`, zero open P0–P3; Human V5 disposition required before closure | `ADO/05_Evidence/Development_Assignment_03_Independent_Implementation_Review.md` |
-| Development Assignment 3 V5 Enablement Evidence — product/Evidence independently approved; three physical runs failed closed; latest `DA3-PHYS-03` candidate approved and focused ADO correction Human-authorized | `ADO/05_Evidence/Development_Assignment_03_V5_Enablement_Evidence.md` |
+| Development Assignment 3 V5 Enablement Evidence — product/Evidence independently approved; three physical runs failed closed; latest `DA3-PHYS-03` ADO correction published/CI-green and awaits re-review | `ADO/05_Evidence/Development_Assignment_03_V5_Enablement_Evidence.md` |
 | Development Assignment 3 Independent V5 Enablement Review — historical enablement `APPROVED`, zero open P0–P3; three later runs failed under separate records | `ADO/05_Evidence/Development_Assignment_03_Independent_V5_Enablement_Review.md` |
 | Development Assignment 3 Physical Validation Evidence — three failed runs; latest reached corrected setup/reinstall and Gate-A actions but omitted CSV content proof and failed credential binding before Gate B; complete cleanup; three P1 findings open | `ADO/05_Evidence/Development_Assignment_03_Physical_Validation_Evidence.md` |
 | Development Assignment 3 DA3-PHYS-01 Failure-Synchronization Independent Review — approved with zero review findings; `DA3-PHYS-01` P1 remains open and correction architecture remains Human-gated | `ADO/05_Evidence/Development_Assignment_03_DA3_PHYS_01_Failure_Synchronization_Independent_Review.md` |

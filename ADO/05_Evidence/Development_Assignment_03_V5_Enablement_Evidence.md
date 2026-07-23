@@ -1,6 +1,6 @@
 # Development Assignment 3 — V5 Enablement Evidence
 
-- Status: **V5 ENABLEMENT APPROVED; THREE RUNS FAILED CLOSED; DA3-PHYS-03 FAILURE SYNCHRONIZATION/CANDIDATE INDEPENDENTLY APPROVED AND FOCUSED ADO-ONLY CORRECTION HUMAN-AUTHORIZED; PUBLICATION/CI/RE-REVIEW PENDING; NEW RUN UNAUTHORIZED**
+- Status: **V5 ENABLEMENT APPROVED; THREE RUNS FAILED CLOSED; DA3-PHYS-03 FAILURE SYNCHRONIZATION/CANDIDATE INDEPENDENTLY APPROVED; FOCUSED ADO-ONLY CORRECTION PUBLISHED AND EXACT-HEAD-CI GREEN; INDEPENDENT RE-REVIEW PENDING; NEW RUN UNAUTHORIZED**
 - Date: 2026-07-23
 - Authorized enablement baseline commit: `0b0d04034c88829fdc5c548b057e74554d4ee197`
 - Authorized enablement baseline tree: `eee26501fd714738aa3ca106d93d5088261206e3`
@@ -359,3 +359,16 @@ an explicit `research/`-excluding pathspec for worktree checks.
 No executable evidence changed. `DA3-PHYS-01`, `DA3-PHYS-02`, `DA3-PHYS-03`, DA3 and
 DT-069–DT-074 remain open. Retry, repair, resume, a Physical Gate, installation/ADB, production,
 production data, deployment and distribution remain unauthorized.
+
+## 14. DA3-PHYS-03 correction publication and exact-head CI
+
+Focused ADO-only publication `9424a588683fc78cae1d47861366eff25d501952`, tree
+`f2d9a8755be7b5ee021873a5fff6c3f5d5db8b32`, parent
+`a8b18d6fd3b6a36c81a49111fd0e48cdf4e54c8f`, contains exactly 12 ADO Markdown files and
+`+465/-59`. R0/V0 passed and V1–V3 were correctly omitted because no executable input changed.
+Exact-head run `29985219725`, push, attempt 1, passed all 12 jobs.
+
+Independent exact-delta re-review remains mandatory. The publication changes no V5 observation,
+Product, schema, dependency, workflow, helper, harness or APK. `DA3-PHYS-01/02/03`, DA3 and
+DT-069–DT-074 remain open; no new V5, retry, repair, resume, Physical Gate, production,
+production-data, deployment or distribution action is authorized.

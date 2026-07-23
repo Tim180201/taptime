@@ -1,6 +1,6 @@
 # Development Assignment 3 — Correction and Append-only Audit Authorization
 
-- Status: **DA3-PHYS-03 FAILURE SYNCHRONIZATION INDEPENDENTLY APPROVED; FOCUSED ADO-ONLY OPERATOR-CONTROL CORRECTION HUMAN-AUTHORIZED; PUBLICATION/CI/INDEPENDENT RE-REVIEW PENDING; RETRY/NEW RUN UNAUTHORIZED**
+- Status: **DA3-PHYS-03 FAILURE SYNCHRONIZATION INDEPENDENTLY APPROVED; FOCUSED ADO-ONLY OPERATOR-CONTROL CORRECTION PUBLISHED AND EXACT-HEAD-CI GREEN; INDEPENDENT RE-REVIEW PENDING; RETRY/NEW RUN UNAUTHORIZED**
 - Date: 2026-07-21
 - Accepted/authorized baseline commit: `ff68f7a7d0ce69a65e88846ae1cca9abd5951f5d`
 - Accepted/authorized baseline tree: `09ef169a68bb53420e07b6f3fcbbdc74e0c01d57`
@@ -31,9 +31,8 @@
 - Third V5 physical-run authority: **GRANTED ONCE ON 2026-07-22 AND CONSUMED BY THE
   2026-07-23 OPERATOR-CONTROL FAILURE**
 - Third V5 physical result: **FAILED CLOSED BEFORE GATE B; DA3-PHYS-03 P1; COMPLETE CLEANUP**
-- Current correction authority: **GRANTED ONLY FOR THE FOCUSED DA3-PHYS-03 ADO-ONLY
-  OPERATOR-CONTROL CORRECTION, REVIEW ARCHIVAL/TRUTH SYNCHRONIZATION, AVS R0/V0,
-  PUBLICATION/CI AND INDEPENDENT EXACT-DELTA RE-REVIEW**
+- Current correction state: **PUBLISHED AS `9424a588`/TREE `f2d9a875`; EXACT-HEAD RUN
+  `29985219725`, ATTEMPT 1, PASSED 12/12; INDEPENDENT EXACT-DELTA RE-REVIEW PENDING**
 - Current replacement-run authority: **NOT GRANTED**
 
 ## 1. Authorized objective
@@ -617,3 +616,21 @@ schema, dependencies, workflow, helper and APK changes are not authorized or pre
 repair, resume, Physical Gate, installation/ADB, production, production data, deployment and
 distribution remain unauthorized. `DA3-PHYS-01`, `DA3-PHYS-02`, `DA3-PHYS-03`, DA3 and
 DT-069–DT-074 remain open.
+
+## 22. DA3-PHYS-03 correction publication and exact-head CI — 2026-07-23
+
+The Technical Lead approved and published the exact 12-ADO-Markdown-file `+465/-59` correction
+delta as `9424a588683fc78cae1d47861366eff25d501952`, tree
+`f2d9a8755be7b5ee021873a5fff6c3f5d5db8b32`, parent
+`a8b18d6fd3b6a36c81a49111fd0e48cdf4e54c8f`. AVS R0/V0 passed exact scope, zero unstaged tracked
+delta, whitespace, reference, status/authority, disclosure and required-control checks. V1–V3
+were omitted because no executable input changed.
+
+Exact-head GitHub Actions run `29985219725`, push, attempt 1, completed successfully with all 12
+jobs on that commit. No Product code, schema, migration, dependency, lockfile, workflow, helper,
+harness, configuration or APK changed. Independent exact-delta re-review of the complete
+correction-plus-Evidence-sync range remains mandatory.
+
+This publication creates no retry, repair, resume, Physical Gate, installation/ADB, production,
+production-data, deployment or distribution authority. All three DA3 physical P1 findings, DA3
+and DT-069–DT-074 remain open.

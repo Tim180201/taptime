@@ -281,3 +281,16 @@ carried and not claimed as freshly executed; the ADO delta requires R0/V0 and ex
 
 `DA3-PHYS-01`, `DA3-PHYS-02`, `DA3-PHYS-03`, DA3 and DT-069–DT-074 remain open. No retry,
 Physical Gate, production, production-data, deployment or distribution authority follows.
+
+## 16. DA3-PHYS-03 ADO correction publication
+
+The non-executable correction/review archive was published as
+`9424a588683fc78cae1d47861366eff25d501952`, tree
+`f2d9a8755be7b5ee021873a5fff6c3f5d5db8b32`, parent
+`a8b18d6fd3b6a36c81a49111fd0e48cdf4e54c8f`, with exactly 12 ADO Markdown files and
+`+465/-59`. AVS R0/V0 passed; V1–V3 remained inapplicable. Exact-head run `29985219725`, push,
+attempt 1, passed 12/12.
+
+This does not change or freshly reproduce any implementation evidence. Independent exact-delta
+re-review remains pending. All three physical P1 findings, DA3 and DT-069–DT-074 remain open, and
+no Physical Gate, retry, production, production-data, deployment or distribution is authorized.
