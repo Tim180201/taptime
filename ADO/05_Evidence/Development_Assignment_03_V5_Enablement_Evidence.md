@@ -1,6 +1,6 @@
 # Development Assignment 3 — V5 Enablement Evidence
 
-- Status: **V5 ENABLEMENT APPROVED; THREE RUNS FAILED CLOSED; DA3-PHYS-03 FOCUSED ADO-ONLY CORRECTION PUBLISHED/CI-GREEN AND INDEPENDENTLY RE-REVIEWED `APPROVED` WITH ZERO OPEN P0–P3 REVIEW FINDINGS; REVIEW ARCHIVAL/CI AND HUMAN ACCEPTANCE/NEW EXACT-BOUND AUTHORIZATION PENDING; NEW RUN UNAUTHORIZED**
+- Status: **V5 ENABLEMENT APPROVED; THREE RUNS FAILED CLOSED; DA3-PHYS-03 FOCUSED ADO-ONLY CORRECTION AND ZERO-FINDING INDEPENDENT RE-REVIEW ARCHIVED/PUBLISHED WITH EXACT-HEAD CI 12/12; HUMAN ACCEPTANCE/NEW EXACT-BOUND AUTHORIZATION PENDING; NEW RUN UNAUTHORIZED**
 - Date: 2026-07-23
 - Authorized enablement baseline commit: `0b0d04034c88829fdc5c548b057e74554d4ee197`
 - Authorized enablement baseline tree: `eee26501fd714738aa3ca106d93d5088261206e3`
@@ -386,6 +386,7 @@ prior review fidelity and every authorized operator-control requirement. Verdict
 `APPROVED FOR DA3-PHYS-03 ADO OPERATOR-CONTROL CORRECTION`, zero open P0/P1/P2/P3 review
 findings.
 
-The review is not a Physical result or Human gate. Its archival/publication CI is pending.
-`DA3-PHYS-01/02/03`, DA3 and DT-069–DT-074 remain open, and any new complete V5 requires separate
-Human acceptance and exact-bound authorization.
+The review is not a Physical result or Human gate. Archive `8545e08`, tree `3440e78`, passed
+exact-head run `29986601053`, attempt 1, 12/12. `DA3-PHYS-01/02/03`, DA3 and DT-069–DT-074
+remain open, and any new complete V5 requires separate Human acceptance and exact-bound
+authorization.

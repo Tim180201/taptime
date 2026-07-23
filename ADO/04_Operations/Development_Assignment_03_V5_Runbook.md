@@ -1,6 +1,6 @@
 # Development Assignment 3 — V5 Human Functional/Physical Gate Runbook
 
-Status: **DA3-PHYS-03 ADO-ONLY OPERATOR-CONTROL CORRECTION PUBLISHED/CI-GREEN AND INDEPENDENTLY RE-REVIEWED `APPROVED` WITH ZERO OPEN P0–P3 REVIEW FINDINGS; REVIEW ARCHIVAL/CI AND HUMAN ACCEPTANCE/NEW EXACT-BOUND AUTHORIZATION PENDING; NO RETRY OR NEW RUN AUTHORIZED**
+Status: **DA3-PHYS-03 ADO-ONLY OPERATOR-CONTROL CORRECTION AND ZERO-FINDING INDEPENDENT RE-REVIEW ARCHIVED/PUBLISHED WITH EXACT-HEAD CI 12/12; HUMAN ACCEPTANCE/NEW EXACT-BOUND AUTHORIZATION PENDING; NO RETRY OR NEW RUN AUTHORIZED**
 Owner: Technical Lead
 Approval authority for any later physical run: Human Architect
 
@@ -431,6 +431,7 @@ CSV, credential-binding and protected-path control in this runbook. Verdict:
 findings.
 
 This runbook remains non-executable. The positive review is not Human acceptance and grants no
-retry, repair, resume, installation/ADB or Physical Gate. Review archival and exact-head CI must
-complete before the Human Architect can separately accept the review and issue a new exact-bound
-complete-run authority.
+retry, repair, resume, installation/ADB or Physical Gate. Review archive `8545e08`, tree
+`3440e78`, passed exact-head run `29986601053`, attempt 1, 12/12. The Human Architect must
+separately accept the review and issue a new exact-bound complete-run authority before this
+runbook can become executable.

@@ -1,6 +1,6 @@
 # Development Assignment 3 — Correction and Append-only Audit Authorization
 
-- Status: **DA3-PHYS-03 FOCUSED ADO-ONLY OPERATOR-CONTROL CORRECTION PUBLISHED/CI-GREEN AND INDEPENDENTLY RE-REVIEWED `APPROVED` WITH ZERO OPEN P0–P3 REVIEW FINDINGS; REVIEW ARCHIVAL/CI AND HUMAN ACCEPTANCE/NEW EXACT-BOUND AUTHORIZATION PENDING; RETRY/NEW RUN UNAUTHORIZED**
+- Status: **DA3-PHYS-03 FOCUSED ADO-ONLY OPERATOR-CONTROL CORRECTION AND ZERO-FINDING INDEPENDENT RE-REVIEW ARCHIVED/PUBLISHED WITH EXACT-HEAD CI 12/12; HUMAN ACCEPTANCE/NEW EXACT-BOUND AUTHORIZATION PENDING; RETRY/NEW RUN UNAUTHORIZED**
 - Date: 2026-07-21
 - Accepted/authorized baseline commit: `ff68f7a7d0ce69a65e88846ae1cca9abd5951f5d`
 - Accepted/authorized baseline tree: `09ef169a68bb53420e07b6f3fcbbdc74e0c01d57`
@@ -34,7 +34,7 @@
 - Current correction state: **PUBLISHED AS `9424a588`/TREE `f2d9a875`, EVIDENCE-SYNCED AS
   `e025a2f`/TREE `4485a43`; EXACT-HEAD RUNS `29985219725` AND `29985663622`, ATTEMPT 1, PASSED
   12/12; INDEPENDENT EXACT-DELTA RE-REVIEW APPROVED WITH ZERO OPEN P0–P3 REVIEW FINDINGS;
-  ARCHIVAL/CI AND HUMAN ACCEPTANCE PENDING**
+  ARCHIVE `8545e08`/TREE `3440e78`/RUN `29986601053` PASSED 12/12; HUMAN ACCEPTANCE PENDING**
 - Current replacement-run authority: **NOT GRANTED**
 
 ## 1. Authorized objective
@@ -653,3 +653,10 @@ authorized work. The review closes no physical finding and grants no retry, repa
 Physical Gate, installation/ADB, production, production-data, deployment or distribution
 authority. Only later separate Human acceptance plus a new exact-bound complete-run authorization
 can reopen the Physical Gate.
+
+Review archive `8545e08cd118f85c0c9defccea0fac0961e9a72e`, tree
+`3440e78f379974ebf1f48ca76ad1d923ed9aeb76`, exact parent
+`e025a2f860e21f968439a239525c55f63bd258a5`, contains exactly 12 ADO Markdown files and
+`+283/-32`. AVS R0/V0 passed; V1–V3 were inapplicable. Exact-head run `29986601053`, push,
+attempt 1, passed 12/12. Human acceptance and any new exact-bound complete-run authorization
+remain separate and pending.

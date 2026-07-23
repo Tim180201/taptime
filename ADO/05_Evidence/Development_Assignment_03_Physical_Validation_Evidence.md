@@ -1,6 +1,6 @@
 # Development Assignment 3 — V5 Physical Validation Evidence
 
-- Status: **THREE RUNS FAILED CLOSED; ALL THREE P1 FINDINGS OPEN; DA3-PHYS-03 FOCUSED ADO-ONLY CORRECTION PUBLISHED/CI-GREEN AND INDEPENDENTLY RE-REVIEWED `APPROVED` WITH ZERO OPEN P0–P3 REVIEW FINDINGS; REVIEW ARCHIVAL/CI AND HUMAN ACCEPTANCE/NEW EXACT-BOUND AUTHORIZATION PENDING; NEW RUN UNAUTHORIZED**
+- Status: **THREE RUNS FAILED CLOSED; ALL THREE P1 FINDINGS OPEN; DA3-PHYS-03 FOCUSED ADO-ONLY CORRECTION AND ZERO-FINDING INDEPENDENT RE-REVIEW ARCHIVED/PUBLISHED WITH EXACT-HEAD CI 12/12; HUMAN ACCEPTANCE/NEW EXACT-BOUND AUTHORIZATION PENDING; NEW RUN UNAUTHORIZED**
 - Date: 2026-07-23
 - Owner: Technical Lead
 - Human observer and approval authority: Human Architect
@@ -660,9 +660,10 @@ archive and every required CSV, credential-binding and protected-path control. I
 `APPROVED FOR DA3-PHYS-03 ADO OPERATOR-CONTROL CORRECTION` with zero open P0/P1/P2/P3 review
 findings.
 
-The review changes no physical result and closes no physical finding. Review archival/publication
-and exact-head CI are the only current authorized actions. `DA3-PHYS-01/02/03`, Gate A, DA3 and
-DT-069–DT-074 remain open. No failed-run observation is reusable and no retry, repair, resume,
-installation/ADB, Physical Gate, production, production data, deployment or distribution is
-authorized. A later complete fresh V5 requires separate Human acceptance and a new exact-bound
-authorization.
+The review changes no physical result and closes no physical finding. Review archive
+`8545e08cd118f85c0c9defccea0fac0961e9a72e`, tree
+`3440e78f379974ebf1f48ca76ad1d923ed9aeb76`, passed exact-head run `29986601053`, attempt 1,
+12/12. `DA3-PHYS-01/02/03`, Gate A, DA3 and DT-069–DT-074 remain open. No failed-run observation
+is reusable and no retry, repair, resume, installation/ADB, Physical Gate, production, production
+data, deployment or distribution is authorized. A later complete fresh V5 requires separate
+Human acceptance and a new exact-bound authorization.

@@ -579,11 +579,12 @@ Independent exact-delta re-review of correction `9424a588`/tree `f2d9a875`, Evid
 The reviewer independently confirmed the ADO-only scope, carried chain, unchanged artifact and
 every CSV, credential-binding and protected-path control.
 
+Review archive `8545e08`/tree `3440e78` passed exact-head run `29986601053`, attempt 1, 12/12.
 This changes no readiness-domain rating and closes no DA3 task or physical finding.
-`DA3-PHYS-01/02/03`, DA3 and DT-069–DT-074 remain open. Review archival/CI and later separate
-Human acceptance plus a new exact-bound authorization are required before a complete fresh V5.
-No retry, Physical Gate, production, production data, deployment, distribution, legal/privacy
-approval or DA4 productization is authorized.
+`DA3-PHYS-01/02/03`, DA3 and DT-069–DT-074 remain open. Separate Human acceptance plus a new
+exact-bound authorization are required before a complete fresh V5. No retry, Physical Gate,
+production, production data, deployment, distribution, legal/privacy approval or DA4
+productization is authorized.
 
 ## Revision Note (Technical Lead Review Follow-up, 2026-07-07)
 

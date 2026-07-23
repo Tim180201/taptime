@@ -304,6 +304,6 @@ It independently confirmed that the reviewed range changes only 12 ADO Markdown 
 Product, schema, dependency, workflow, helper, harness or APK.
 
 This is carried governance Evidence, not fresh implementation or Physical evidence. Review
-archival/CI and separate later Human acceptance remain required. `DA3-PHYS-01/02/03`, DA3 and
-DT-069–DT-074 remain open; no retry, Physical Gate, production, production data, deployment or
-distribution is authorized.
+archive `8545e08`/tree `3440e78` passed exact-head run `29986601053`, attempt 1, 12/12. Separate
+later Human acceptance remains required. `DA3-PHYS-01/02/03`, DA3 and DT-069–DT-074 remain open;
+no retry, Physical Gate, production, production data, deployment or distribution is authorized.
