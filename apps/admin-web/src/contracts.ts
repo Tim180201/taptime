@@ -101,6 +101,7 @@ export type AdminWebState =
 export interface AdminWebCapability {
   getState(): AdminWebState;
   subscribe(listener: () => void): () => void;
+  invalidateTimeBoundIntents(): void;
   signIn(email: string, password: string): Promise<void>;
   signOut(): Promise<void>;
   refresh(): Promise<void>;

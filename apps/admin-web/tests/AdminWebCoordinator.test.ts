@@ -734,6 +734,37 @@ describe('AdminWebCoordinator', () => {
     });
   });
 
+  it('invalidates a pending time-bound command before a changed-zone response can apply', async () => {
+    const { api, coordinator } = setup();
+    api.timeRecords.mockResolvedValue({
+      status: 'succeeded',
+      value: { items: [stoppedRecord], nextCursor: null },
+    });
+    await coordinator.signIn('administrator@example.test', 'secret');
+    coordinator.prepareCorrection(
+      stoppedRecord.timeRecordId,
+      '2026-07-20T08:15:00.000Z',
+      '2026-07-20T10:30:00.000Z',
+      'Kundennachweis geprüft',
+    );
+    const correctionResult = deferred<ApiResult<true>>();
+    api.correctTimeRecord.mockImplementationOnce(() => correctionResult.promise);
+    const confirming = coordinator.confirmCorrection();
+    await vi.waitFor(() => expect(api.correctTimeRecord).toHaveBeenCalledOnce());
+
+    coordinator.invalidateTimeBoundIntents();
+    await vi.waitFor(() => expect(api.projection).toHaveBeenCalledTimes(2));
+    correctionResult.resolve({ status: 'succeeded', value: true });
+    await confirming;
+
+    expect(coordinator.getState()).toMatchObject({
+      status: 'ready',
+      correctionIntent: null,
+      adjudicationIntent: null,
+      timeReviewBusy: false,
+    });
+  });
+
   it('requires an explicit review decision and submits its exact selected evidence', async () => {
     const { api, coordinator } = setup();
     api.reviewItems.mockResolvedValue({
@@ -1084,6 +1115,54 @@ describe('AdminWebCoordinator', () => {
     expect(coordinator.getState()).toMatchObject({
       status: 'ready', adjudicationIntent: null, timeReviewBusy: false, notice: null,
     });
+  });
+
+  it('binds retry and export to the newest attempted rolling window after a partial refresh', async () => {
+    const auth = new FakeAuth();
+    const api = new FakeApi();
+    let currentNow = fixedNow;
+    const coordinator = new AdminWebCoordinator(auth, api, () => currentNow);
+    await coordinator.signIn('administrator@example.test', 'secret');
+    currentNow += 2 * 24 * 60 * 60 * 1_000;
+    const newestWindow = {
+      fromInclusive: '2026-06-22T12:00:00.000Z',
+      toExclusive: '2026-07-23T12:00:00.000Z',
+    };
+    api.timeRecords.mockResolvedValueOnce({ status: 'unavailable' });
+
+    await coordinator.refresh();
+
+    expect(coordinator.getState()).toMatchObject({
+      status: 'ready',
+      timeWindow: newestWindow,
+      sections: {
+        timeRecords: {
+          status: 'unavailable',
+          message: 'Arbeitszeiten sind derzeit nicht erreichbar.',
+        },
+      },
+    });
+    api.timeRecords.mockResolvedValueOnce({
+      status: 'succeeded',
+      value: { items: [stoppedRecord], nextCursor: null },
+    });
+    await coordinator.retrySection('timeRecords');
+    expect(api.timeRecords).toHaveBeenLastCalledWith(
+      'memory-only-token',
+      membershipId,
+      newestWindow.fromInclusive,
+      newestWindow.toExclusive,
+      null,
+    );
+
+    api.exportTimeEntries.mockResolvedValueOnce({ status: 'unavailable' });
+    await coordinator.exportTimeRecords();
+    expect(api.exportTimeEntries).toHaveBeenLastCalledWith(
+      'memory-only-token',
+      membershipId,
+      newestWindow.fromInclusive,
+      newestWindow.toExclusive,
+    );
   });
 
   it('does not download or announce a stale export response after a newer refresh', async () => {

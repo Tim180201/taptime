@@ -44,6 +44,7 @@ const reviewItem = {
   deviceSequence: 7,
   predecessorBlocked: true,
 };
+const utcContext = { timeZone: 'UTC', usedUtcFallback: true } as const;
 
 function deferred<Value>() {
   let resolve!: (value: Value) => void;
@@ -102,6 +103,7 @@ class FakeCapability implements AdminWebCapability {
     this.state = state;
     for (const listener of this.listeners) listener();
   }
+  invalidateTimeBoundIntents = vi.fn(() => undefined);
   signIn = vi.fn(async () => undefined);
   signOut = vi.fn(async () => undefined);
   refresh = vi.fn(async () => undefined);
@@ -111,13 +113,13 @@ class FakeCapability implements AdminWebCapability {
   createEmployeeInvitation = vi.fn(async () => undefined);
   loadMoreEmployees = vi.fn(async () => undefined);
   dismissInvitation = vi.fn(() => undefined);
-  prepareReassignment = vi.fn(() => undefined);
+  prepareReassignment = vi.fn<AdminWebCapability['prepareReassignment']>(() => undefined);
   cancelReassignment = vi.fn(() => undefined);
   confirmReassignment = vi.fn(async () => undefined);
-  prepareCorrection = vi.fn(() => undefined);
+  prepareCorrection = vi.fn<AdminWebCapability['prepareCorrection']>(() => undefined);
   cancelCorrection = vi.fn(() => undefined);
   confirmCorrection = vi.fn(async () => undefined);
-  prepareAdjudication = vi.fn(() => undefined);
+  prepareAdjudication = vi.fn<AdminWebCapability['prepareAdjudication']>(() => undefined);
   cancelAdjudication = vi.fn(() => undefined);
   confirmAdjudication = vi.fn(async () => undefined);
   exportTimeRecords = vi.fn(async () => undefined);
@@ -277,6 +279,243 @@ describe('professional Admin Web shell', () => {
     expect(confirmation).toHaveTextContent('Vorher');
     expect(confirmation).toHaveTextContent('Nachher');
     expect(confirmation).toHaveTextContent('Beleg geprüft.');
+  });
+
+  it('prepares a correction with exact milliseconds and renders its reason verbatim', async () => {
+    const capability = new FakeCapability(readyState);
+    const reason = 'Erste  Zeile\nZweite   Zeile';
+    capability.prepareCorrection.mockImplementation((
+      timeRecordId,
+      startedAt,
+      stoppedAt,
+      submittedReason,
+    ) => {
+      capability.emit({
+        ...readyState,
+        correctionIntent: {
+          commandId: 'a0000000-0000-4000-8000-000000000001',
+          timeRecord: record,
+          startedAt,
+          stoppedAt,
+          reason: submittedReason,
+        },
+      });
+      expect(timeRecordId).toBe(record.timeRecordId);
+    });
+    capability.confirmCorrection.mockImplementation(async () => {
+      capability.emit({
+        ...readyState,
+        correctionIntent: null,
+        notice: 'Die Arbeitszeit wurde zwischenzeitlich geändert.',
+      });
+    });
+    window.history.replaceState(null, '', '#arbeitszeiten');
+    render(<App administration={capability} resolveTimeZone={() => utcContext} />);
+    fireEvent.change(screen.getByLabelText('Arbeitszeit'), {
+      target: { value: record.timeRecordId },
+    });
+    fireEvent.change(screen.getByLabelText('Neuer Beginn'), {
+      target: { value: '2026-07-20T08:15:30.123' },
+    });
+    fireEvent.change(screen.getByLabelText('Neues Ende'), {
+      target: { value: '2026-07-20T16:45:59.987' },
+    });
+    fireEvent.change(screen.getByLabelText('Begründung'), {
+      target: { value: reason },
+    });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Korrektur prüfen' }));
+
+    expect(capability.prepareCorrection).toHaveBeenCalledWith(
+      record.timeRecordId,
+      '2026-07-20T08:15:30.123Z',
+      '2026-07-20T16:45:59.987Z',
+      reason,
+    );
+    const confirmation = screen.getByRole('alertdialog', {
+      name: 'Korrektur ausdrücklich bestätigen',
+    });
+    expect(confirmation).toHaveTextContent('2026-07-20 08:15:30.123 GMT+0 [UTC]');
+    expect(confirmation).toHaveTextContent('2026-07-20 16:45:59.987 GMT+0 [UTC]');
+    expect(confirmation.querySelector('.verbatim-reason')?.textContent).toBe(reason);
+
+    await userEvent.click(screen.getByRole('button', {
+      name: 'Korrektur ausdrücklich bestätigen',
+    }));
+    await waitFor(() => expect(screen.getByRole('button', {
+      name: 'Korrektur prüfen',
+    })).toHaveFocus());
+  });
+
+  it('prepares adjudication timestamps exactly and preserves multiline reason formatting', async () => {
+    const capability = new FakeCapability(readyState);
+    const reason = 'Prüfung  exakt\nZweite   Aussage';
+    capability.prepareAdjudication.mockImplementation((
+      reviewItemId,
+      resolution,
+      timeRecordId,
+      startedAt,
+      stoppedAt,
+      submittedReason,
+    ) => {
+      capability.emit({
+        ...readyState,
+        adjudicationIntent: {
+          commandId: 'a0000000-0000-4000-8000-000000000002',
+          reviewItem,
+          resolution,
+          timeRecord: null,
+          startedAt,
+          stoppedAt,
+          reason: submittedReason,
+        },
+      });
+      expect(reviewItemId).toBe(reviewItem.reviewItemId);
+      expect(timeRecordId).toBeNull();
+    });
+    capability.confirmAdjudication.mockImplementation(async () => {
+      capability.emit({
+        ...readyState,
+        adjudicationIntent: null,
+        notice: 'Review-Entscheidung konnte nicht protokolliert werden.',
+      });
+    });
+    window.history.replaceState(null, '', '#pruefungen');
+    render(<App administration={capability} resolveTimeZone={() => utcContext} />);
+    fireEvent.change(screen.getByLabelText('Review-Evidence'), {
+      target: { value: reviewItem.reviewItemId },
+    });
+    fireEvent.change(screen.getByLabelText('Entscheidung'), {
+      target: { value: 'create_recovered_time_record' },
+    });
+    fireEvent.change(screen.getByLabelText('Beginn'), {
+      target: { value: '2026-07-20T07:01:02.003' },
+    });
+    fireEvent.change(screen.getByLabelText('Ende'), {
+      target: { value: '2026-07-20T08:04:05.006' },
+    });
+    fireEvent.change(screen.getByLabelText('Begründung'), {
+      target: { value: reason },
+    });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Review-Entscheidung prüfen' }));
+
+    expect(capability.prepareAdjudication).toHaveBeenCalledWith(
+      reviewItem.reviewItemId,
+      'create_recovered_time_record',
+      null,
+      '2026-07-20T07:01:02.003Z',
+      '2026-07-20T08:04:05.006Z',
+      reason,
+    );
+    const confirmation = screen.getByRole('alertdialog', {
+      name: 'Review-Entscheidung ausdrücklich bestätigen',
+    });
+    expect(confirmation).toHaveTextContent('2026-07-20 07:01:02.003 GMT+0 [UTC]');
+    expect(confirmation).toHaveTextContent('2026-07-20 08:04:05.006 GMT+0 [UTC]');
+    expect(confirmation.querySelector('.verbatim-reason')?.textContent).toBe(reason);
+
+    await userEvent.click(screen.getByRole('button', {
+      name: 'Review ausdrücklich bestätigen',
+    }));
+    await waitFor(() => expect(screen.getByRole('button', {
+      name: 'Review-Entscheidung prüfen',
+    })).toHaveFocus());
+  });
+
+  it('returns focus to reassignment preparation after successful intent removal', async () => {
+    const targetCustomer = {
+      id: '40000000-0000-4000-8000-000000000002',
+      displayName: 'Lager',
+      active: true,
+    };
+    const reassignmentState = {
+      ...readyState,
+      projection: {
+        ...readyState.projection,
+        customers: [customer, targetCustomer],
+      },
+    };
+    const capability = new FakeCapability(reassignmentState);
+    capability.prepareReassignment.mockImplementation((nfcTagId, targetCustomerId) => {
+      capability.emit({
+        ...reassignmentState,
+        reassignmentIntent: {
+          commandId: 'a0000000-0000-4000-8000-000000000004',
+          nfcTagId,
+          expectedActiveAssignmentId: tag.activeAssignmentId!,
+          targetCustomerId,
+        },
+      });
+    });
+    capability.confirmReassignment.mockImplementation(async () => {
+      capability.emit({
+        ...reassignmentState,
+        reassignmentIntent: null,
+        notice: 'NFC-Tag wurde sicher neu zugeordnet.',
+      });
+    });
+    window.history.replaceState(null, '', '#einrichtung');
+    render(<App administration={capability} />);
+    fireEvent.change(screen.getByLabelText('NFC-Tag'), {
+      target: { value: tag.id },
+    });
+    fireEvent.change(screen.getByLabelText('Neuer aktiver Kunde'), {
+      target: { value: targetCustomer.id },
+    });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Zuordnung prüfen' }));
+    await userEvent.click(screen.getByRole('button', {
+      name: 'Änderung ausdrücklich bestätigen',
+    }));
+
+    await waitFor(() => expect(screen.getByRole('button', {
+      name: 'Zuordnung prüfen',
+    })).toHaveFocus());
+  });
+
+  it('uses one central timezone and atomically discards open inputs and intents after a zone change', async () => {
+    let context = { timeZone: 'Europe/Berlin', usedUtcFallback: false };
+    const resolveTimeZone = () => context;
+    const capability = new FakeCapability(readyState);
+    capability.invalidateTimeBoundIntents.mockImplementation(() => {
+      const current = capability.getState();
+      if (current.status === 'ready') {
+        capability.emit({
+          ...current,
+          correctionIntent: null,
+          adjudicationIntent: null,
+          timeReviewBusy: false,
+        });
+      }
+    });
+    window.history.replaceState(null, '', '#arbeitszeiten');
+    render(<App administration={capability} resolveTimeZone={resolveTimeZone} />);
+    expect(screen.getByText('Zeitdarstellung: Europe/Berlin')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Arbeitszeit'), {
+      target: { value: record.timeRecordId },
+    });
+    expect(screen.getByLabelText('Neuer Beginn')).not.toHaveValue('');
+    capability.emit({
+      ...readyState,
+      correctionIntent: {
+        commandId: 'a0000000-0000-4000-8000-000000000003',
+        timeRecord: record,
+        startedAt: '2026-07-20T08:00:00.000Z',
+        stoppedAt: '2026-07-20T16:00:00.000Z',
+        reason: 'Offener Intent',
+      },
+    });
+
+    context = { timeZone: 'UTC', usedUtcFallback: true };
+    fireEvent.focus(window);
+
+    await waitFor(() => expect(capability.invalidateTimeBoundIntents).toHaveBeenCalledOnce());
+    expect(await screen.findByText(/Zeitdarstellung: UTC/)).toBeInTheDocument();
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    expect(screen.getByLabelText('Arbeitszeit')).toHaveValue('');
+    expect(screen.getByLabelText('Neuer Beginn')).toHaveValue('');
+    expect(screen.getByLabelText('Neues Ende')).toHaveValue('');
   });
 
   it('returns focus to the preparation button when a confirmation is cancelled', async () => {

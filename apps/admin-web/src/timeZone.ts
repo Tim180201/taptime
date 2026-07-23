@@ -47,6 +47,26 @@ export function formatZonedDateTime(value: string, context: TimeZoneContext): st
   }
 }
 
+export function formatExactZonedDateTime(
+  value: string,
+  context: TimeZoneContext,
+): string {
+  const epoch = Date.parse(value);
+  if (!Number.isFinite(epoch)) return 'Ungültiger Zeitpunkt';
+  try {
+    const local = toZonedLocalInput(value, context.timeZone).replace('T', ' ');
+    if (local.length === 0) throw new Error('local timestamp unavailable');
+    const offset = new Intl.DateTimeFormat('de-DE', {
+      timeZone: context.timeZone,
+      timeZoneName: 'shortOffset',
+    }).formatToParts(epoch).find((part) => part.type === 'timeZoneName')?.value;
+    if (offset === undefined) throw new Error('offset unavailable');
+    return `${local} ${offset} [${context.timeZone}]`;
+  } catch {
+    return `${new Date(epoch).toISOString()} [UTC]`;
+  }
+}
+
 export function toZonedLocalInput(value: string, timeZone: string): string {
   const epoch = Date.parse(value);
   if (!Number.isFinite(epoch)) return '';

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  formatExactZonedDateTime,
   formatZonedDateTime,
   parseZonedLocalTimestamp,
   toZonedLocalInput,
@@ -36,6 +37,10 @@ describe('Admin Web zoned timestamp boundary', () => {
       timeZone: 'Europe/Berlin',
       usedUtcFallback: false,
     })).toMatch(/10:15:30.*GMT\+2.*\[Europe\/Berlin\]/);
+    expect(formatExactZonedDateTime('2026-07-20T08:15:30.123Z', {
+      timeZone: 'Europe/Berlin',
+      usedUtcFallback: false,
+    })).toBe('2026-07-20 10:15:30.123 GMT+2 [Europe/Berlin]');
   });
 
   it('rejects an unknown time zone instead of guessing', () => {

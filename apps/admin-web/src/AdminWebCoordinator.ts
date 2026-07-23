@@ -65,6 +65,26 @@ export class AdminWebCoordinator implements AdminWebCapability {
   getState(): AdminWebState { return this.state; }
   subscribe(listener: () => void): () => void { this.listeners.add(listener); return () => this.listeners.delete(listener); }
 
+  invalidateTimeBoundIntents(): void {
+    const current = this.state;
+    if (
+      current.status !== 'ready'
+      || (
+        current.correctionIntent === null
+        && current.adjudicationIntent === null
+        && !current.timeReviewBusy
+      )
+    ) return;
+    this.setState({
+      ...current,
+      correctionIntent: null,
+      adjudicationIntent: null,
+      timeReviewBusy: false,
+      notice: 'Zeitzone wurde geändert; offene Zeitangaben wurden sicher verworfen.',
+    });
+    void this.refresh();
+  }
+
   async signIn(email: string, password: string): Promise<void> {
     const generation = ++this.generation;
     this.refreshEpoch += 1;
@@ -1252,6 +1272,7 @@ function mergeRefreshResult(
     : next;
   return {
     ...next,
+    timeWindow: result.timeWindow,
     creating: false,
     creatingEmployee: false,
     reassigning: false,

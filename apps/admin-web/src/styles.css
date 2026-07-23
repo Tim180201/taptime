@@ -16,6 +16,9 @@
   --color-error-bg: #fff0f2;
   --color-success: #176443;
   --color-success-bg: #e3f6ec;
+  --color-control-border: #657b75;
+  --color-focus: #005fcc;
+  --color-focus-on-dark: #f4d35e;
   --shadow-sm: 0 1px 2px rgb(18 60 54 / 8%);
   --shadow-md: 0 12px 32px rgb(18 60 54 / 10%);
   --radius-sm: .5rem;
@@ -35,7 +38,8 @@ html { min-width: 20rem; background: var(--color-canvas); }
 body { margin: 0; color: var(--color-ink); background: var(--color-canvas); }
 button, input, select, textarea { font: inherit; }
 button, a, input, select, textarea { outline-offset: 3px; }
-:focus-visible { outline: 3px solid #146fbb; }
+:focus-visible { outline: 3px solid var(--color-focus); }
+.sidebar :focus-visible { outline-color: var(--color-focus-on-dark); }
 button {
   min-height: 2.75rem;
   padding: .7rem 1rem;
@@ -50,7 +54,7 @@ button:hover:not(:disabled) { background: var(--color-brand-900); }
 button:disabled { cursor: not-allowed; opacity: .58; }
 button.secondary {
   color: var(--color-brand-900);
-  border-color: var(--color-line);
+  border-color: var(--color-control-border);
   background: var(--color-surface);
 }
 button.secondary:hover:not(:disabled) { background: var(--color-brand-100); }
@@ -67,7 +71,7 @@ input, select, textarea {
   width: 100%;
   min-height: 2.75rem;
   padding: .7rem .8rem;
-  border: 1px solid #aebfba;
+  border: 1px solid var(--color-control-border);
   border-radius: var(--radius-sm);
   color: var(--color-ink);
   background: white;
@@ -246,6 +250,7 @@ tbody tr:last-child td { border-bottom: 0; }
 .invitation code { overflow-wrap: anywhere; font-size: 1rem; }
 .invitation button { justify-self: start; }
 .confirmation { border-color: #d5a963; }
+.verbatim-reason { white-space: pre-wrap; overflow-wrap: anywhere; }
 .confirmation-actions { display: flex; gap: var(--space-2); flex-wrap: wrap; }
 .spinner {
   display: inline-block;

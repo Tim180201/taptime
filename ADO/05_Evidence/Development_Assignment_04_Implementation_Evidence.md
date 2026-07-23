@@ -51,18 +51,18 @@ Final fresh local verification on Node 24:
 |---|---:|
 | Core | 290/290 |
 | Mobile | 421/421 |
-| Admin Web | 75/75 |
+| Admin Web | 82/82 |
 | Offline synchronization contract | 7/7 |
 | TimeEntry export contract | 10/10 |
 | Time review contract | 5/5 |
 | Administration contract | 4/4 |
 | Backend API | 224/224 |
-| **Explicitly counted total** | **1,036 passed, 0 failed** |
+| **Explicitly counted total** | **1,043 passed, 0 failed** |
 
 Additionally passed:
 
 - every exposed workspace tests-inclusive typecheck and production build;
-- Admin Web focused correction matrix 44/44 and production build;
+- Admin Web focused correction matrix 59/59 and production build;
 - Android Expo export;
 - Admin-Web-scoped dependency audit with zero vulnerabilities;
 - lockfile dev-only classification for Testing Library, jsdom and axe-core;
@@ -81,3 +81,20 @@ The Technical Lead approves the local implementation candidate with zero open P0
 Focused publication, complete exact-head GitHub Actions and an independent read-only exact-SHA
 implementation review remain mandatory. DA4 and the related Roadmap candidates are not closed.
 Human V5, production, production data, deployment and distribution remain separately unauthorized.
+
+## Independent review round 1 and local correction
+
+Independent read-only review of publication `37d158f36375dec5e8c16c7df0f7e35e1a3963b5`,
+tree `ffc8f90dac2b2618603d6c9f33b94584fe42b151`, exact-head CI `30004127796`, attempt 1,
+12/12, returned `CHANGES_REQUESTED` with five P2 findings and no P0/P1/P3:
+
+- exact millisecond and verbatim-reason confirmation display;
+- one central declared/interpreted browser-timezone context;
+- newest attempted rolling window retained across failed refresh, section retry and export;
+- at least 3:1 non-text contrast for focus and control boundaries; and
+- logical focus return after privileged intent removal.
+
+The focused local correction changes only nine Admin Web source/test files and adds regressions for
+all five findings. Fresh V0–V3 results are reflected above. The Technical Lead finds the local
+correction complete with zero open local P0–P3; correction publication, fresh exact-head CI and a
+fresh independent exact-SHA re-review remain mandatory.

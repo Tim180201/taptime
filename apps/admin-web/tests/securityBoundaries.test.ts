@@ -48,4 +48,35 @@ describe('C3D Admin Web security boundaries', () => {
     expect(styles).toContain(':focus-visible');
     expect(styles).toContain('@media (forced-colors: active)');
   });
+
+  it('keeps control boundaries and keyboard focus indicators above 3:1 non-text contrast', async () => {
+    const styles = await readFile(new URL('../src/styles.css', import.meta.url), 'utf8');
+    expect(styles).toContain('--color-control-border: #657b75');
+    expect(styles).toContain('--color-focus: #005fcc');
+    expect(styles).toContain('--color-focus-on-dark: #f4d35e');
+    expect(styles).toMatch(/\.sidebar :focus-visible \{ outline-color: var\(--color-focus-on-dark\); \}/);
+    expect(styles).toMatch(/input, select, textarea \{[\s\S]*border: 1px solid var\(--color-control-border\);/);
+    expect(styles).toMatch(/button\.secondary \{[\s\S]*border-color: var\(--color-control-border\);/);
+    expect(styles).toMatch(/\.verbatim-reason \{[\s\S]*white-space: pre-wrap;/);
+
+    expect(contrastRatio('#657b75', '#ffffff')).toBeGreaterThanOrEqual(3);
+    expect(contrastRatio('#005fcc', '#ffffff')).toBeGreaterThanOrEqual(3);
+    expect(contrastRatio('#f4d35e', '#123c36')).toBeGreaterThanOrEqual(3);
+  });
 });
+
+function contrastRatio(first: string, second: string): number {
+  const lighter = Math.max(relativeLuminance(first), relativeLuminance(second));
+  const darker = Math.min(relativeLuminance(first), relativeLuminance(second));
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+function relativeLuminance(hex: string): number {
+  const channels = [1, 3, 5].map((index) => Number.parseInt(hex.slice(index, index + 2), 16) / 255);
+  const linear = channels.map((channel) => (
+    channel <= 0.04045
+      ? channel / 12.92
+      : ((channel + 0.055) / 1.055) ** 2.4
+  ));
+  return linear[0]! * 0.2126 + linear[1]! * 0.7152 + linear[2]! * 0.0722;
+}

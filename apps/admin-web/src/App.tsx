@@ -2,7 +2,6 @@ import {
   FormEvent,
   type RefObject,
   useEffect,
-  useMemo,
   useRef,
   useState,
   useSyncExternalStore,
@@ -19,15 +18,23 @@ import {
   viewFromHash,
 } from './navigation';
 import {
+  formatExactZonedDateTime,
   formatZonedDateTime,
   parseZonedLocalTimestamp,
   resolveBrowserTimeZone,
+  type TimeZoneContext,
   toZonedLocalInput,
 } from './timeZone';
 import { Confirmation, CountTruth, Panel, SectionBoundary } from './ui';
 import './styles.css';
 
-export function App({ administration }: { readonly administration: AdminWebCapability }) {
+export function App({
+  administration,
+  resolveTimeZone = resolveBrowserTimeZone,
+}: {
+  readonly administration: AdminWebCapability;
+  readonly resolveTimeZone?: () => TimeZoneContext;
+}) {
   const state = useSyncExternalStore(
     (listener) => administration.subscribe(listener),
     () => administration.getState(),
@@ -35,6 +42,7 @@ export function App({ administration }: { readonly administration: AdminWebCapab
   );
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const timezone = useCentralTimeZone(administration, resolveTimeZone);
   const [view, setView] = useState<AdminView>(() => currentView());
   const previousView = useRef(view);
   const mainHeading = useRef<HTMLHeadingElement>(null);
@@ -133,15 +141,15 @@ export function App({ administration }: { readonly administration: AdminWebCapab
         </div>
       </header>
       <p className="timezone-declaration">
-        Zeitdarstellung: {resolveBrowserTimeZone().timeZone}
-        {resolveBrowserTimeZone().usedUtcFallback ? ' (sicherer UTC-Fallback)' : ''}
+        Zeitdarstellung: {timezone.timeZone}
+        {timezone.usedUtcFallback ? ' (sicherer UTC-Fallback)' : ''}
       </p>
       {state.notice ? <p role="status" aria-live="polite" className="notice">{state.notice}</p> : null}
       {view === 'uebersicht' ? <Overview state={state} administration={administration} /> : null}
       {view === 'einrichtung' ? <SetupView state={state} administration={administration} /> : null}
-      {view === 'beschaeftigte' ? <EmployeesView state={state} administration={administration} /> : null}
-      {view === 'arbeitszeiten' ? <TimeRecordsView state={state} administration={administration} /> : null}
-      {view === 'pruefungen' ? <ReviewsView state={state} administration={administration} /> : null}
+      {view === 'beschaeftigte' ? <EmployeesView state={state} administration={administration} timezone={timezone} /> : null}
+      {view === 'arbeitszeiten' ? <TimeRecordsView state={state} administration={administration} timezone={timezone} /> : null}
+      {view === 'pruefungen' ? <ReviewsView state={state} administration={administration} timezone={timezone} /> : null}
     </main>
   </div>;
 }
@@ -200,6 +208,7 @@ function SetupView({
   const [tagId, setTagId] = useState('');
   const [targetId, setTargetId] = useState('');
   const prepareButton = useRef<HTMLButtonElement>(null);
+  useIntentFocusReturn(state.reassignmentIntent !== null, prepareButton);
   const customerNameById = new Map(
     state.projection.customers.map((customer) => [customer.id, customer.displayName]),
   );
@@ -322,12 +331,13 @@ function SetupView({
 function EmployeesView({
   state,
   administration,
+  timezone,
 }: {
   readonly state: ReadyState;
   readonly administration: AdminWebCapability;
+  readonly timezone: TimeZoneContext;
 }) {
   const [name, setName] = useState('');
-  const timezone = useMemo(resolveBrowserTimeZone, []);
   return <SectionBoundary state={state.sections.employees}
     onRetry={() => void administration.retrySection('employees')}>
     <Panel title="Beschäftigte" description="Aktive Beschäftigte und einmalige Einladungen.">
@@ -373,18 +383,31 @@ function EmployeesView({
 function TimeRecordsView({
   state,
   administration,
+  timezone,
 }: {
   readonly state: ReadyState;
   readonly administration: AdminWebCapability;
+  readonly timezone: TimeZoneContext;
 }) {
-  const timezone = useMemo(resolveBrowserTimeZone, []);
   const [recordId, setRecordId] = useState('');
   const [startedAt, setStartedAt] = useState('');
   const [stoppedAt, setStoppedAt] = useState('');
   const [reason, setReason] = useState('');
   const [timeError, setTimeError] = useState<string | null>(null);
   const prepareButton = useRef<HTMLButtonElement>(null);
+  const previousTimeZone = useRef(timezone.timeZone);
+  useIntentFocusReturn(state.correctionIntent !== null, prepareButton);
+  useEffect(() => {
+    if (previousTimeZone.current === timezone.timeZone) return;
+    previousTimeZone.current = timezone.timeZone;
+    setRecordId('');
+    setStartedAt('');
+    setStoppedAt('');
+    setReason('');
+    setTimeError(null);
+  }, [timezone.timeZone]);
   const format = (value: string) => formatZonedDateTime(value, timezone);
+  const formatExact = (value: string) => formatExactZonedDateTime(value, timezone);
   return <SectionBoundary state={state.sections.timeRecords}
     onRetry={() => void administration.retrySection('timeRecords')}>
     <Panel title="Arbeitszeiten"
@@ -481,9 +504,9 @@ function TimeRecordsView({
         }}
       >
         <dl>
-          <dt>Vorher</dt><dd>{format(state.correctionIntent.timeRecord.startedAt)} – {format(state.correctionIntent.timeRecord.stoppedAt!)}</dd>
-          <dt>Nachher</dt><dd>{format(state.correctionIntent.startedAt)} – {format(state.correctionIntent.stoppedAt)}</dd>
-          <dt>Begründung</dt><dd>{state.correctionIntent.reason}</dd>
+          <dt>Vorher</dt><dd>{formatExact(state.correctionIntent.timeRecord.startedAt)} – {formatExact(state.correctionIntent.timeRecord.stoppedAt!)}</dd>
+          <dt>Nachher</dt><dd>{formatExact(state.correctionIntent.startedAt)} – {formatExact(state.correctionIntent.stoppedAt)}</dd>
+          <dt>Begründung</dt><dd className="verbatim-reason">{state.correctionIntent.reason}</dd>
         </dl>
       </Confirmation>}
     </Panel>
@@ -493,11 +516,12 @@ function TimeRecordsView({
 function ReviewsView({
   state,
   administration,
+  timezone,
 }: {
   readonly state: ReadyState;
   readonly administration: AdminWebCapability;
+  readonly timezone: TimeZoneContext;
 }) {
-  const timezone = useMemo(resolveBrowserTimeZone, []);
   const [itemId, setItemId] = useState('');
   const [resolution, setResolution] = useState<'no_time_record_change' | 'adjust_existing_time_record' | 'create_recovered_time_record'>('no_time_record_change');
   const [recordId, setRecordId] = useState('');
@@ -506,7 +530,21 @@ function ReviewsView({
   const [reason, setReason] = useState('');
   const [timeError, setTimeError] = useState<string | null>(null);
   const prepareButton = useRef<HTMLButtonElement>(null);
+  const previousTimeZone = useRef(timezone.timeZone);
+  useIntentFocusReturn(state.adjudicationIntent !== null, prepareButton);
+  useEffect(() => {
+    if (previousTimeZone.current === timezone.timeZone) return;
+    previousTimeZone.current = timezone.timeZone;
+    setItemId('');
+    setResolution('no_time_record_change');
+    setRecordId('');
+    setStartedAt('');
+    setStoppedAt('');
+    setReason('');
+    setTimeError(null);
+  }, [timezone.timeZone]);
   const format = (value: string) => formatZonedDateTime(value, timezone);
+  const formatExact = (value: string) => formatExactZonedDateTime(value, timezone);
   const selectedItem = state.reviewItems.find((item) => item.reviewItemId === itemId);
   return <SectionBoundary state={state.sections.reviewItems}
     onRetry={() => void administration.retrySection('reviewItems')}>
@@ -623,12 +661,12 @@ function ReviewsView({
           <dt>Evidence</dt><dd>{selectedItem?.employeeDisplayName ?? state.adjudicationIntent.reviewItem.employeeDisplayName} · {format(state.adjudicationIntent.reviewItem.occurredAt)}</dd>
           <dt>Entscheidung</dt><dd>{resolutionLabel(state.adjudicationIntent.resolution)}</dd>
           {state.adjudicationIntent.timeRecord === null ? null : <>
-            <dt>Vorher</dt><dd>{format(state.adjudicationIntent.timeRecord.startedAt)} – {format(state.adjudicationIntent.timeRecord.stoppedAt!)}</dd>
+            <dt>Vorher</dt><dd>{formatExact(state.adjudicationIntent.timeRecord.startedAt)} – {formatExact(state.adjudicationIntent.timeRecord.stoppedAt!)}</dd>
           </>}
           {state.adjudicationIntent.startedAt === null ? null : <>
-            <dt>Nachher</dt><dd>{format(state.adjudicationIntent.startedAt)} – {format(state.adjudicationIntent.stoppedAt!)}</dd>
+            <dt>Nachher</dt><dd>{formatExact(state.adjudicationIntent.startedAt)} – {formatExact(state.adjudicationIntent.stoppedAt!)}</dd>
           </>}
-          <dt>Begründung</dt><dd>{state.adjudicationIntent.reason}</dd>
+          <dt>Begründung</dt><dd className="verbatim-reason">{state.adjudicationIntent.reason}</dd>
         </dl>
       </Confirmation>}
     </Panel>
@@ -687,4 +725,44 @@ function returnFocus(reference: RefObject<HTMLElement | null>): void {
   } else {
     reference.current?.focus();
   }
+}
+
+function useIntentFocusReturn(
+  intentPresent: boolean,
+  trigger: RefObject<HTMLButtonElement | null>,
+): void {
+  const previousIntent = useRef(intentPresent);
+  const pendingReturn = useRef(false);
+  if (previousIntent.current && !intentPresent) pendingReturn.current = true;
+  previousIntent.current = intentPresent;
+  useEffect(() => {
+    if (!pendingReturn.current || trigger.current === null || trigger.current.disabled) return;
+    trigger.current.focus();
+    pendingReturn.current = false;
+  });
+}
+
+function useCentralTimeZone(
+  administration: AdminWebCapability,
+  resolveTimeZone: () => TimeZoneContext,
+): TimeZoneContext {
+  const [context, setContext] = useState(resolveTimeZone);
+  useEffect(() => {
+    const synchronize = () => {
+      const next = resolveTimeZone();
+      if (
+        next.timeZone === context.timeZone
+        && next.usedUtcFallback === context.usedUtcFallback
+      ) return;
+      administration.invalidateTimeBoundIntents();
+      setContext(next);
+    };
+    window.addEventListener('focus', synchronize);
+    document.addEventListener('visibilitychange', synchronize);
+    return () => {
+      window.removeEventListener('focus', synchronize);
+      document.removeEventListener('visibilitychange', synchronize);
+    };
+  }, [administration, context, resolveTimeZone]);
+  return context;
 }
