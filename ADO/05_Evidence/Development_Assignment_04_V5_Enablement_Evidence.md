@@ -1,6 +1,6 @@
 # Development Assignment 4 — V5 Enablement Candidate Evidence
 
-- Status: **INDEPENDENT REVIEW ROUND 1 P2 CORRECTED — LOCAL R3 V0–V3 GREEN; INDEPENDENT RE-REVIEW PENDING**
+- Status: **INDEPENDENT IMPLEMENTATION REVIEW APPROVED — ZERO OPEN P0–P3; HUMAN V5 UNAUTHORIZED**
 - Date: 2026-07-23
 - Candidate baseline commit: `4594529667fe1570045eea03fd7132bc27e2e479`
 - Candidate baseline tree: `72338ec9b65dabdd71ab9011604817f61c13c288`
@@ -177,9 +177,10 @@ the full workspace regression was not duplicated. This was an operational precon
 not a Product failure. Typechecks, builds and cleanup then completed once. No executable file
 changed afterward.
 
-V0 final diff/scope, whitespace, reference, authority and protected-path checks passed. V4
-publication/CI and independent exact-SHA implementation review remain pending. Human V5,
-production, production data, deployment and distribution remain unauthorized.
+V0 final diff/scope, whitespace, reference, authority and protected-path checks passed. This was
+the pre-signal-review candidate state; Section 9 records the later correction and Section 10 the
+completed V4/review result. Human V5, production, production data, deployment and distribution
+remain unauthorized.
 
 ## 9. Independent implementation review round 1 and signal correction
 
@@ -210,5 +211,18 @@ afterward with its two runtime roles. Final cleanup proved the Synthetic target 
 `taptime_server`, migration ledger and `b1_spike`; the B1 target was also free of `b1_spike`.
 No executable file changed afterward.
 
-Independent exact-delta re-review remains pending. Human V5, production, production data,
-deployment and distribution remain unauthorized.
+Correction `e731a7796e0b0710f9df4647c13f03f2862e44c0`, tree
+`6c2b34d303d94957e98f39198e77e2bac1153cd9`, exact parent `b63a0db`, passed exact-head CI
+`30022981656`, attempt 1, 12/12.
+
+## 10. Independent implementation review round 2
+
+Independent exact-delta review round 2 returned `APPROVED`,
+`MERGE_READY / EXACT-SHA APPROVED` and zero open P0–P3. The round-1 P2 is closed for the
+authorized local scope. The archived review is
+`ADO/05_Evidence/Development_Assignment_04_V5_Enablement_Independent_Implementation_Review.md`.
+
+DA4 V5 enablement is technically ready. The exact next stage is only a separately exact-bound
+Human V5 Browser Gate under
+`ADO/04_Operations/Development_Assignment_04_V5_Runbook.md`; it remains unauthorized and not run.
+Production, production data, deployment and distribution remain unauthorized.

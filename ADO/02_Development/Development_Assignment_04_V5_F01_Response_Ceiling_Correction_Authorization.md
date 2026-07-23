@@ -1,6 +1,6 @@
 # Development Assignment 4 — DA4-V5-F01 Response-Ceiling Correction Candidate
 
-- Status: **INDEPENDENTLY APPROVED — LOCAL R3 V0–V3 GREEN; V4/REVIEW PENDING**
+- Status: **CLOSED FOR AUTHORIZED LOCAL SCOPE — FINAL EXACT-SHA REVIEW APPROVED; HUMAN V5 UNAUTHORIZED**
 - Date: 2026-07-23
 - Exact baseline commit: `decf806aeb2fd1619252a6efd62b71202e53eefb`
 - Exact baseline tree: `519a1a703bf4c55861b4c25e95cd651b2f7a51ee`
@@ -104,8 +104,12 @@ tree `c69717e50263cbc68da3207685f63bd8ef6b1313`, and CI `30016627509`, attempt 1
 The focused local correction now uses the named 256-KiB maximum only for the successful
 TimeReview-read branch. Its real-server-path suite passes 6/6, including intact realistic
 100-item responses above 16 KiB and fail-closed responses above 256 KiB for both query routes.
-The resumed complete candidate passes local R3 V0–V3; V4 and independent exact-SHA
-implementation review remain pending.
+The resumed candidate and its focused signal-lifecycle correction completed R3 V0–V4. Final
+correction `e731a7796e0b0710f9df4647c13f03f2862e44c0`, tree
+`6c2b34d303d94957e98f39198e77e2bac1153cd9`, passed focused V1 29/29, affected Synthetic V2
+78/78, exactly one final 1,825-test V3 and exact-head CI `30022981656`, attempt 1, 12/12.
+Independent review round 2 returned `APPROVED`, `MERGE_READY / EXACT-SHA APPROVED` and zero open
+P0–P3. `DA4-V5-F01` is closed for the authorized local scope.
 
 ## 7. Authority and exclusions
 

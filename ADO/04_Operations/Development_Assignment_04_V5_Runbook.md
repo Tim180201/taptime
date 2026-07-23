@@ -1,6 +1,6 @@
 # Development Assignment 4 — V5 Human Browser Gate Runbook
 
-- Status: **IMPLEMENTATION PREPARATION ONLY — HUMAN V5 NOT EXECUTABLE**
+- Status: **TECHNICALLY READY — HUMAN V5 NOT AUTHORIZED**
 - Date: 2026-07-23
 - Owner: Technical Lead
 - Approval authority for any run: Human Architect
@@ -11,11 +11,11 @@ This runbook prepares one fresh Human functional, visual and browser observation
 independently approved DA4 Admin Web. It is browser-only. It requires no Android device, NFC Tag,
 APK, ADB or physical setup.
 
-Fixture implementation was separately Human-authorized and remains subject to R3 V0–V4 and
-independent exact-SHA review. This document does not authorize a Human run. A later run requires
-an independently approved exact-SHA enablement, green exact-head CI and a separate Human
-authorization binding the exact product, enablement, evidence, review, Admin-Web build and browser
-environment.
+Fixture implementation completed R3 V0–V4. Correction `e731a77`, tree `6c2b34d`, passed
+exact-head CI `30022981656`, attempt 1, 12/12, and independent review round 2 returned `APPROVED`,
+`MERGE_READY / EXACT-SHA APPROVED` with zero open P0–P3. This document does not authorize a Human
+run. A later run requires a separate Human authorization binding the exact product, enablement,
+evidence, review, Admin-Web build and browser environment.
 
 ## 2. Fixed local boundary
 

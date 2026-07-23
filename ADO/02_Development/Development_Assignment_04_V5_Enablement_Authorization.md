@@ -1,6 +1,6 @@
 # Development Assignment 4 — V5 Enablement Authorization Candidate
 
-- Status: **HUMAN-ACCEPTED AND R3 IMPLEMENTATION AUTHORIZED — LOCAL V0–V3 GREEN; V4/REVIEW PENDING**
+- Status: **TECHNICALLY APPROVED — LOCAL V0–V4 AND EXACT-SHA REVIEW GREEN; HUMAN V5 UNAUTHORIZED**
 - Date: 2026-07-23
 - Candidate baseline commit: `4594529667fe1570045eea03fd7132bc27e2e479`
 - Candidate baseline tree: `72338ec9b65dabdd71ab9011604817f61c13c288`
@@ -174,3 +174,12 @@ The independent pre-implementation review is archived at
 Its approval made this exact ADO candidate publication-ready only. Human acceptance and the
 separate exact-baseline R3 implementation authorization were subsequently granted as recorded
 above.
+
+The implementation review is archived at
+`ADO/05_Evidence/Development_Assignment_04_V5_Enablement_Independent_Implementation_Review.md`.
+Round 1 bound `b63a0db`, tree `cd7ac40`, CI `30021272713` 12/12 and returned exactly one P2 with
+zero P0/P1/P3. Focused correction `e731a77`, tree `6c2b34d`, exact parent `b63a0db`, passed final
+V1 29/29, affected V2 78/78, final V3 1,825 tests and exact-head CI `30022981656`, attempt 1,
+12/12. Round 2 returned `APPROVED`, `MERGE_READY / EXACT-SHA APPROVED` and zero open P0–P3.
+The exact next stage is only a separately exact-bound Human V5 Browser Gate; it remains
+unauthorized and not run.

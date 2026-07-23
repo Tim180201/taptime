@@ -58,8 +58,13 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   shares exactly one all-resource cleanup without `da4_v5_stopped`. Corrected V1 is 29/29,
   affected V2 Synthetic is 78/78, and exactly one new final V3 passed 1,825 tests, two optional B1
   Supavisor skips, all 19 typechecks, all 18 builds, clean migration/replay and complete disposable
-  cleanup. Independent exact-delta re-review remains pending. Human V5, production, production
-  data, deployment and distribution remain unauthorized.
+  cleanup. Correction `e731a7796e0b0710f9df4647c13f03f2862e44c0`, tree
+  `6c2b34d303d94957e98f39198e77e2bac1153cd9`, exact parent `b63a0db`, passed exact-head CI
+  `30022981656`, attempt 1, 12/12. Independent review round 2 returned `APPROVED`,
+  `MERGE_READY / EXACT-SHA APPROVED` and zero open P0–P3; the round-1 P2 is closed for the
+  authorized local scope. DA4 V5 enablement is technically ready. Its exact next stage is only a
+  separately exact-bound Human V5 Browser Gate, which remains unauthorized and not run.
+  Production, production data, deployment and distribution remain unauthorized.
 - **Development Assignment 3 is Human-accepted and implementation-authorized on exact baseline
   `ff68f7a7d0ce69a65e88846ae1cca9abd5951f5d`, tree
   `09ef169a68bb53420e07b6f3fcbbdc74e0c01d57`.** ADR-0014/DA3-P01–DA3-P16 and Workstreams A–D
