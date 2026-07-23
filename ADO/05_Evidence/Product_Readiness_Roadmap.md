@@ -533,11 +533,31 @@ Gate-B tag was presented and Gate C did not start. Complete cleanup passed. Duri
 path-scoped `git status -- research` probe violated the protected-path boundary without emitting a
 protected name/content or changing state.
 
-This changes no readiness-domain rating and closes no DA3 task or prior physical finding.
-Independent failure review, separately authorized operator-control correction and a new separately
-authorized complete fresh run are required. Retry, production, production data, deployment,
+This changes no readiness-domain rating and closes no DA3 task or prior physical finding. At that
+checkpoint, independent failure review, separately authorized operator-control correction and a
+new separately authorized complete fresh run were required. The following addendum records the
+later review and correction authority. Retry, production, production data, deployment,
 distribution, legal/privacy approval and DA4 productization remain unauthorized or separately
 gated.
+
+## Addendum (2026-07-23 — DA3-PHYS-03 Review and Focused ADO Correction)
+
+Independent review of failure synchronization `a8b18d6`/tree `dae80d8`/run `29984028528` 12/12
+returned
+`APPROVED FOR FAILURE SYNCHRONIZATION AND DA3-PHYS-03 OPERATOR-CONTROL CORRECTION CANDIDATE` with
+zero open P0–P3. The Human Architect accepted the exact review basis and authorized only the
+focused ADO-only operator-control correction plus archival/synchronization, AVS R0/V0,
+publication/CI and independent exact-delta re-review.
+
+The procedure now makes all required CSV-content proofs explicit stop points, binds each password
+injection to the live session's SHA-256 password digest with output limited to `match/mismatch`,
+keeps fixed non-secret emails off the credential clipboard, fails before authentication on
+mismatch and excludes `research/` from worktree checks.
+
+This changes no readiness-domain rating and closes no DA3 task or physical finding.
+`DA3-PHYS-01/02/03`, DA3 and DT-069–DT-074 remain open. Product code, Physical Gate, retry,
+production, production data, deployment, distribution, legal/privacy approval and DA4
+productization remain unauthorized or separately gated.
 
 ## Revision Note (Technical Lead Review Follow-up, 2026-07-07)
 

@@ -716,7 +716,28 @@ and Gate C did not start. Complete cleanup passed. A cleanup-time path-scoped
 protected names/content or changing state.
 
 This changes no readiness-domain rating, executable artifact or Product finding. Failed-run
-observations cannot close `DA3-PHYS-01/02`; DA3 and DT-069–DT-074 remain open. Independent failure
-review, separately authorized operator-control correction and a new separately authorized
-complete fresh V5 are required. Retry, production, production data, deployment, distribution,
-legal/privacy approval and DA4 productization remain separately gated.
+observations cannot close `DA3-PHYS-01/02`; DA3 and DT-069–DT-074 remain open. At that checkpoint,
+independent failure review, separately authorized operator-control correction and a new separately
+authorized complete fresh V5 were required. Retry, production, production data, deployment,
+distribution, legal/privacy approval and DA4 productization remain separately gated.
+
+## 30. Progress Update – 2026-07-23 DA3-PHYS-03 Review and Operator-Control Correction
+
+Independent review bound third-run failure synchronization `a8b18d6`/tree `dae80d8`, exact
+11-file `+452/-38` ADO-only delta and exact-head run `29984028528` 12/12. Verdict
+`APPROVED FOR FAILURE SYNCHRONIZATION AND DA3-PHYS-03 OPERATOR-CONTROL CORRECTION CANDIDATE`;
+zero open P0–P3 review findings. The Human Architect accepted that basis and authorized only the
+focused ADO-only correction, review archival/truth synchronization, AVS R0/V0, focused
+publication/CI and independent exact-delta re-review.
+
+The corrected procedure blocks progress/deletion until all CSV-v1/formula-safety/exactly-once/
+effective-timestamp assertions pass, binds every password injection to a live-session-only SHA-256
+digest with output limited to `match/mismatch`, prevents fixed non-secret email entry from mutating
+the credential clipboard, fails before authentication on mismatch and explicitly excludes
+`research/` from worktree checks.
+
+This changes no roadmap completion, implementation, artifact or readiness rating.
+`DA3-PHYS-01/02/03`, DA3 and DT-069–DT-074 remain open. A new complete fresh V5 requires separate
+exact-bound Human authorization after publication, exact-head CI and independent approval.
+Physical Gate, production, production data, deployment, distribution, legal/privacy approval and
+DA4 productization remain unauthorized or separately gated.

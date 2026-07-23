@@ -1,6 +1,6 @@
 # Development Assignment 3 — V5 Human Functional/Physical Gate Runbook
 
-Status: **THIRD V5 RUN FAILED CLOSED WITH DA3-PHYS-03 P1; FAILURE REVIEW AND SEPARATELY AUTHORIZED OPERATOR-CONTROL CORRECTION REQUIRED; NO RETRY OR NEW RUN AUTHORIZED**
+Status: **DA3-PHYS-03 ADO-ONLY OPERATOR-CONTROL CORRECTION HUMAN-AUTHORIZED; PUBLICATION/CI/INDEPENDENT RE-REVIEW PENDING; NO RETRY OR NEW RUN AUTHORIZED**
 Owner: Technical Lead
 Approval authority for any later physical run: Human Architect
 
@@ -32,6 +32,9 @@ approved exact source/ADO commits, trees, CI and immutable candidate artifacts.
 - A failed, interrupted or ambiguous observation invalidates the entire run. No observation or
   database state from that run may be reused.
 - Do not use `research/` for preparation, execution or evidence.
+- Every repository worktree check must exclude the protected path explicitly, for example
+  `git status --short --untracked-files=normal -- . ':!research'`. A broad or path-targeted status,
+  list, search or content command that can enter `research/` is prohibited.
 
 ## 3. Mandatory exact binding before a later run
 
@@ -48,7 +51,30 @@ Do not install or begin the gate until all of the following are recorded and ind
 Any changed source, ADO, lockfile, CI result, artifact or required configuration invalidates the
 binding and requires fresh R3 verification, independent review and Human authorization.
 
-### 3.1 Reproducible artifact construction before binding
+### 3.1 Memory-only credential binding
+
+The single per-run synthetic password remains memory-only. Immediately when it is supplied to the
+harness, compute its SHA-256 digest from the same byte sequence and retain only that digest in the
+current live operator-session state. Do not write the password or digest to a file, repository,
+Evidence, terminal history, log, chat or screenshot. Loss of that live state invalidates the run.
+
+Before **every** password injection:
+
+1. compute the proposed input value's SHA-256 in memory;
+2. compare it to the session-held digest;
+3. emit only `synthetic_password_binding=match` or
+   `synthetic_password_binding=mismatch`, never either digest or the value; and
+4. inject and permit authentication only on exact `match`.
+
+On `mismatch`, missing digest or ambiguous comparison, do not inject, submit, repair, restore or
+retry. Fail the complete run before authentication and perform Section 8 cleanup.
+
+Fixed non-secret `.invalid` email addresses must be typed manually or injected directly as fixed
+text without copy/paste. They must never replace or otherwise mutate the credential clipboard.
+Visible field length is not credential evidence and must not be used as a substitute for digest
+binding.
+
+### 3.2 Reproducible artifact construction before binding
 
 Artifact construction is preparation only and does not authorize installation or the gate. Use a
 fresh detached worktree at the exact product commit; never delete or replace a pre-existing
@@ -73,12 +99,14 @@ artifact evidence.
 
 ## 4. Local preflight after authorization
 
-1. Verify the checked-out commit/tree and clean tracked worktree against the authorization.
+1. Verify the checked-out commit/tree and clean tracked worktree against the authorization using
+   an explicit `research/`-excluding pathspec as required by Section 2.
 2. Recompute every artifact property from the read-only candidate. Do not rebuild in place.
 3. Confirm exactly one USB device, NFC enabled, no pre-existing synthetic package and an empty
    `adb reverse` table. Stop on any unrelated or unexpected mapping.
 4. Start the disposable PostgreSQL/Auth/API harness and loopback-only Admin Web exactly as described
-   in `apps/synthetic-android-e2e/README.md`.
+   in `apps/synthetic-android-e2e/README.md`. Establish the Section 3.1 password digest in the live
+   operator-session state before any login field is populated.
 5. Install the exact authorized APK with the scoped helper and verify only the approved Auth/API
    reverse mappings.
 6. Run `status`. Require zero lifecycle, correction, adjudication and export evidence before setup.
@@ -136,9 +164,13 @@ inside that run.
    second confirmation.
 4. Require the append-only success notice and revision increment. Refresh and require the corrected
    values to persist.
-5. Export CSV through the real Web action. Require HTTP/UI success, the unchanged CSV-v1 columns
-   and formula-safe dialect, and the corrected effective timestamps exactly once. Do not record an
-   internal ID or the CSV body; record only the safe comparison result and file hash/size if needed.
+5. Export CSV through the real Web action. Each following assertion is its own mandatory stop
+   point: before progressing to step 6 or deleting the file, inspect it locally and require all:
+   `csv_v1_columns=match`, `csv_formula_safety=match`, `csv_effective_row_count=1` and
+   `csv_effective_timestamps=match`. Emit/record only those safe results plus file hash/size if
+   needed. Never emit, paste, screenshot or record an internal ID, cell value, row or CSV body.
+   HTTP/UI success or an export audit is not CSV-content evidence and cannot satisfy this step.
+   Any absent, ambiguous or non-matching assertion fails the complete run immediately.
 6. Run sanitized `status`. Require exactly one added time-record revision, one correction receipt,
    one correction AuditEvent and one export audit, with no base WorkEvent/Decision mutation caused
    by correction or export.
@@ -200,8 +232,9 @@ Final cleanup is mandatory whether the run passes or fails:
 6. confirm listener count zero on 3000, 3001, 5173 and 54321;
 7. confirm the approved reverse-mapping count and installed synthetic-package count are zero;
 8. confirm the synthetic schema/migration ledger and generated runtime-role counts are zero;
-9. confirm the tracked repository still matches the authorized head and report unrelated user
-   files only by path/status, never by content; and
+9. confirm the tracked repository still matches the authorized head using the mandatory
+   `research/`-excluding pathspec from Section 2 and report unrelated user files only by
+   path/status, never by content; and
 10. leave the pre-existing local PostgreSQL service and unrelated device/repository state intact.
 
 Only the Human Architect or an explicitly delegated tester may mark the later physical observation
@@ -337,8 +370,40 @@ consumed:
 `DA3-PHYS-03` is P1 open against operator-control/evidence execution. No partial observation from
 this failed run may close `DA3-PHYS-01`, `DA3-PHYS-02`, Gate A or any DA3 task.
 
-Do not execute this runbook again. First publish and independently review the exact failure
-synchronization and proposed narrow operator-control boundary. Any wording correction and every
-later complete fresh run require their own explicit Human authority, complete applicable
-verification and independent approval. Retry, repair, resume, production, production data,
-deployment and distribution remain unauthorized.
+Independent review of failure synchronization `a8b18d6`, tree `dae80d8`, and exact-head run
+`29984028528` returned
+`APPROVED FOR FAILURE SYNCHRONIZATION AND DA3-PHYS-03 OPERATOR-CONTROL CORRECTION CANDIDATE` with
+zero open P0–P3 review findings. The Human Architect accepted that review and separately authorized
+the focused ADO-only correction now applied to Sections 2, 3.1, 4, 5 and 8.
+
+Do not execute this runbook again. The correction must first be published, pass exact-head CI and
+independent exact-delta re-review. Every later complete fresh run still requires new separate
+exact-bound Human authority. Retry, repair, resume, production, production data, deployment and
+distribution remain unauthorized.
+
+## 13. DA3-PHYS-03 review acceptance and focused correction authority
+
+The independent read-only review archived at
+`ADO/05_Evidence/Development_Assignment_03_DA3_PHYS_03_Operator_Control_Independent_Review.md`
+verified exact failure synchronization `a8b18d6fd3b6a36c81a49111fd0e48cdf4e54c8f`, tree
+`dae80d85bd2d0cacfa77382b5a131888020301b7`, its 11-file `+452/-38` R0 delta and exact-head run
+`29984028528`, attempt 1, 12/12. Verdict:
+`APPROVED FOR FAILURE SYNCHRONIZATION AND DA3-PHYS-03 OPERATOR-CONTROL CORRECTION CANDIDATE`;
+zero open P0–P3 review findings.
+
+The Human Architect accepted that exact review basis and authorized only:
+
+- the explicit Gate-A CSV assertion stop point before progress/deletion;
+- the live-session-only SHA-256 binding before every password injection, with output limited to
+  `match/mismatch`;
+- fixed non-secret email entry without credential-clipboard mutation;
+- fail-before-authentication on any missing/mismatched binding;
+- mandatory `research/` exclusion for every worktree check;
+- review archival and necessary ADO truth synchronization; and
+- AVS R0/V0, focused publication, exact-head CI and independent exact-delta re-review.
+
+No Product code, schema, dependency, workflow, helper or APK changes are authorized or present.
+Retry, repair, resume, Physical Gate, installation/ADB, production, production data, deployment and
+distribution remain unauthorized. This runbook remains non-executable until the correction has an
+independently approved published exact head and the Human Architect later grants a new separate
+exact-bound complete-run authority.

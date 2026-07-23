@@ -1,6 +1,6 @@
 # Development Assignment 3 — Correction and Append-only Audit Authorization
 
-- Status: **THIRD V5 RUN FAILED CLOSED WITH DA3-PHYS-03 P1; FAILURE SYNCHRONIZATION/INDEPENDENT REVIEW AND NEW SEPARATE HUMAN AUTHORITY REQUIRED; RETRY/NEW RUN UNAUTHORIZED**
+- Status: **DA3-PHYS-03 FAILURE SYNCHRONIZATION INDEPENDENTLY APPROVED; FOCUSED ADO-ONLY OPERATOR-CONTROL CORRECTION HUMAN-AUTHORIZED; PUBLICATION/CI/INDEPENDENT RE-REVIEW PENDING; RETRY/NEW RUN UNAUTHORIZED**
 - Date: 2026-07-21
 - Accepted/authorized baseline commit: `ff68f7a7d0ce69a65e88846ae1cca9abd5951f5d`
 - Accepted/authorized baseline tree: `09ef169a68bb53420e07b6f3fcbbdc74e0c01d57`
@@ -31,7 +31,10 @@
 - Third V5 physical-run authority: **GRANTED ONCE ON 2026-07-22 AND CONSUMED BY THE
   2026-07-23 OPERATOR-CONTROL FAILURE**
 - Third V5 physical result: **FAILED CLOSED BEFORE GATE B; DA3-PHYS-03 P1; COMPLETE CLEANUP**
-- Current correction/replacement-run authority: **NOT GRANTED**
+- Current correction authority: **GRANTED ONLY FOR THE FOCUSED DA3-PHYS-03 ADO-ONLY
+  OPERATOR-CONTROL CORRECTION, REVIEW ARCHIVAL/TRUTH SYNCHRONIZATION, AVS R0/V0,
+  PUBLICATION/CI AND INDEPENDENT EXACT-DELTA RE-REVIEW**
+- Current replacement-run authority: **NOT GRANTED**
 
 ## 1. Authorized objective
 
@@ -577,6 +580,40 @@ This synchronization proposes, but does not authorize, the narrow next correctio
 - enter fixed non-secret synthetic emails without touching the credential clipboard; and
 - fail before authentication on any credential-source mismatch.
 
-Independent read-only review must validate the failure truth, severity and candidate boundary.
-No runbook correction, product/schema/dependency/APK change, retry/new run, production
-resource/data, deployment or distribution is authorized by this record.
+At that checkpoint, independent read-only review still had to validate the failure truth, severity
+and candidate boundary. This failure record itself authorized no runbook correction,
+product/schema/dependency/APK change, retry/new run, production resource/data, deployment or
+distribution. Section 21 records the later review and focused correction authority.
+
+## 21. DA3-PHYS-03 review acceptance and focused ADO-only authority — 2026-07-23
+
+Independent read-only review archived at
+`ADO/05_Evidence/Development_Assignment_03_DA3_PHYS_03_Operator_Control_Independent_Review.md`
+bound failure synchronization `a8b18d6fd3b6a36c81a49111fd0e48cdf4e54c8f`, tree
+`dae80d85bd2d0cacfa77382b5a131888020301b7`, parent
+`acf79ab257df6769d12bd489e27f721a0ae2d354`, its exact 11-file `+452/-38` ADO-only delta and
+exact-head run `29984028528`, attempt 1, 12/12. It independently confirmed the failure truth,
+P1 operator-control classification, complete cleanup/disclosure, protected-path deviation, R0/V0
+and narrow candidate. Verdict:
+`APPROVED FOR FAILURE SYNCHRONIZATION AND DA3-PHYS-03 OPERATOR-CONTROL CORRECTION CANDIDATE`;
+zero open P0–P3 review findings.
+
+The Human Architect accepted that exact review basis and authorized only the focused ADO-only
+correction now present in the runbook:
+
+1. each CSV-v1, formula-safety, exactly-once and effective-timestamp proof is an explicit stop point
+   before progress or deletion;
+2. the memory-only synthetic password is bound at harness start to a SHA-256 digest held only in
+   live operator-session state;
+3. every password injection requires a successful digest comparison whose only output is
+   `match/mismatch`;
+4. fixed non-secret synthetic emails never mutate the credential clipboard;
+5. mismatch, missing binding or ambiguity fails before authentication; and
+6. every worktree check explicitly excludes `research/` by pathspec.
+
+Review archival, necessary ADO status/Evidence/Decision/Risk synchronization, AVS R0/V0, focused
+publication, exact-head CI and independent exact-delta re-review are authorized. Product code,
+schema, dependencies, workflow, helper and APK changes are not authorized or present. Retry,
+repair, resume, Physical Gate, installation/ADB, production, production data, deployment and
+distribution remain unauthorized. `DA3-PHYS-01`, `DA3-PHYS-02`, `DA3-PHYS-03`, DA3 and
+DT-069–DT-074 remain open.

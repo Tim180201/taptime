@@ -1,6 +1,6 @@
 # Development Assignment 3 — V5 Enablement Evidence
 
-- Status: **V5 ENABLEMENT APPROVED; THREE RUNS FAILED CLOSED; LATEST DA3-PHYS-03 P1 REQUIRES FAILURE REVIEW AND SEPARATE CORRECTION/NEW-RUN AUTHORITY**
+- Status: **V5 ENABLEMENT APPROVED; THREE RUNS FAILED CLOSED; DA3-PHYS-03 FAILURE SYNCHRONIZATION/CANDIDATE INDEPENDENTLY APPROVED AND FOCUSED ADO-ONLY CORRECTION HUMAN-AUTHORIZED; PUBLICATION/CI/RE-REVIEW PENDING; NEW RUN UNAUTHORIZED**
 - Date: 2026-07-23
 - Authorized enablement baseline commit: `0b0d04034c88829fdc5c548b057e74554d4ee197`
 - Authorized enablement baseline tree: `eee26501fd714738aa3ca106d93d5088261206e3`
@@ -20,8 +20,10 @@
 - Current correction: operational clean exact-artifact reinstall authorized on
   `f0c9db3`/tree `27cabe6`; publication `f7a2b1e`/tree `a8caed6` passed AVS V0–V4 and
   independent review with zero P0–P3
-- Unauthorized now: DA3-PHYS-03 correction, retry/new run, production, production data,
-  deployment and distribution
+- Current DA3-PHYS-03 authority: focused ADO-only operator-control correction, review
+  archival/truth synchronization, AVS R0/V0, publication/CI and independent exact-delta re-review
+- Unauthorized now: Product/schema/dependency/workflow/helper/APK change, retry/new run, Physical
+  Gate, production, production data, deployment and distribution
 
 ## 1. Authority and inherited evidence
 
@@ -329,7 +331,31 @@ schema/ledger/role/worktree cleanup passed.
 
 `DA3-PHYS-03` is P1 open against operator control, not Product code. During cleanup a prohibited
 path-scoped `git status -- research` probe emitted no protected name/content and changed nothing,
-but the boundary violation is included in the independent-review scope. Failure synchronization,
-independent review, separate Human correction authority and a later new complete-run authority are
-required. Retry, repair, resume, production, production data, deployment and distribution remain
+but the boundary violation is included in the independent-review scope. At that checkpoint,
+failure synchronization, independent review, separate Human correction authority and a later new
+complete-run authority were required; Section 13 records the later review and correction
+authority. Retry, repair, resume, production, production data, deployment and distribution remain
 unauthorized.
+
+## 13. DA3-PHYS-03 independent approval and Human-authorized ADO correction
+
+Independent read-only review of failure synchronization `a8b18d6`, tree `dae80d8`, parent
+`acf79ab`, exact 11-file `+452/-38` ADO-only delta and exact-head run `29984028528`, attempt 1,
+12/12 returned
+`APPROVED FOR FAILURE SYNCHRONIZATION AND DA3-PHYS-03 OPERATOR-CONTROL CORRECTION CANDIDATE`;
+zero open P0–P3 review findings. The review also confirmed the complete carried chain, unchanged
+APK/manifest, failed-run aggregate, cleanup/disclosure, protected-path deviation and AVS R0/V0.
+Archive:
+`ADO/05_Evidence/Development_Assignment_03_DA3_PHYS_03_Operator_Control_Independent_Review.md`.
+
+The Human Architect accepted that exact review basis and authorized only the focused ADO-only
+correction plus archival/truth synchronization, AVS R0/V0, publication/CI and independent
+exact-delta re-review. The runbook now makes all required CSV-v1, formula-safety, exactly-once and
+effective-timestamp proofs stop points; binds the memory-only password to a live-session-only
+SHA-256 digest before every injection with output limited to `match/mismatch`; keeps fixed
+non-secret emails off the credential clipboard; fails before authentication on mismatch; and uses
+an explicit `research/`-excluding pathspec for worktree checks.
+
+No executable evidence changed. `DA3-PHYS-01`, `DA3-PHYS-02`, `DA3-PHYS-03`, DA3 and
+DT-069–DT-074 remain open. Retry, repair, resume, a Physical Gate, installation/ADB, production,
+production data, deployment and distribution remain unauthorized.

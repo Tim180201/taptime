@@ -1,6 +1,6 @@
 # Development Assignment 3 — V5 Physical Validation Evidence
 
-- Status: **THREE RUNS FAILED CLOSED; LATEST WITH DA3-PHYS-03 P1 OPERATOR-CONTROL FAILURE BEFORE GATE B; ALL THREE P1 FINDINGS OPEN; FAILURE REVIEW REQUIRED; NEW RUN UNAUTHORIZED**
+- Status: **THREE RUNS FAILED CLOSED; ALL THREE P1 FINDINGS OPEN; DA3-PHYS-03 FAILURE SYNCHRONIZATION/CANDIDATE INDEPENDENTLY APPROVED AND FOCUSED ADO-ONLY CORRECTION HUMAN-AUTHORIZED; PUBLICATION/CI/RE-REVIEW PENDING; NEW RUN UNAUTHORIZED**
 - Date: 2026-07-23
 - Owner: Technical Lead
 - Human observer and approval authority: Human Architect
@@ -519,7 +519,8 @@ not a Product, schema, APK, authentication or server-canonical correctness findi
 server state remained byte-for-byte at the Gate-A aggregate above. Gate B and Gate C did not start.
 The one-run authority is consumed; retry, repair and resume are not authorized.
 
-The proposed narrow correction candidate is not yet authorized:
+The independently approved narrow correction candidate is now Human-authorized only as an ADO
+procedure correction:
 
 1. make every mandatory CSV assertion an explicit recorded stop point before progression/deletion;
 2. bind the memory-only password to a disclosure-safe digest at harness start and compare it
@@ -527,8 +528,9 @@ The proposed narrow correction candidate is not yet authorized:
 3. inject fixed non-secret synthetic emails without using the credential clipboard; and
 4. fail before authentication on any digest mismatch.
 
-Independent review must challenge the severity, root cause, disclosure boundary and whether this
-candidate is sufficient before the Human Architect may authorize any correction or new run.
+Independent review has confirmed the severity, root cause, disclosure boundary and sufficiency of
+this candidate with zero open P0–P3 review findings. Publication, exact-head CI and independent
+exact-delta re-review are still mandatory. No new run follows from that correction authority.
 
 ## 22. Third-run abort cleanup and governance deviation
 
@@ -586,5 +588,48 @@ verification/review and a new separately authorized complete fresh V5 are requir
 - V5: failed closed; no observation from this run is reusable.
 - Independent review: mandatory before any correction publication or new Physical authorization.
 
-No correction wording has been applied to the executable procedure steps. The candidate in
-Section 21 is review input only and creates no authority.
+This section records the failure-synchronization publication baseline. The later independently
+approved review, Human authority and applied ADO-only wording are recorded in Section 24.
+
+## 24. DA3-PHYS-03 review acceptance and ADO-only operator-control correction
+
+Independent review archived at
+`ADO/05_Evidence/Development_Assignment_03_DA3_PHYS_03_Operator_Control_Independent_Review.md`
+verified baseline `acf79ab257df6769d12bd489e27f721a0ae2d354`/tree
+`f80bec9a1de0a6106f7bf71b181f6930ffa5450a`, reviewed failure synchronization
+`a8b18d6fd3b6a36c81a49111fd0e48cdf4e54c8f`/tree
+`dae80d85bd2d0cacfa77382b5a131888020301b7`, exact 11-file `+452/-38` ADO-only delta and
+exact-head run `29984028528`, attempt 1, 12/12. It also revalidated the complete predecessor chain,
+immutable APK/manifest, failed-run truth, cleanup/disclosure, protected-path deviation and AVS
+R0/V0. Verdict:
+`APPROVED FOR FAILURE SYNCHRONIZATION AND DA3-PHYS-03 OPERATOR-CONTROL CORRECTION CANDIDATE`;
+zero open P0–P3 review findings.
+
+The Human Architect accepted that exact basis and separately authorized only the focused ADO-only
+operator-control correction. Runbook Sections 2, 3.1, 4, 5 and 8 now require:
+
+- explicit, locally completed CSV-v1, formula-safety, exactly-once and effective-timestamp
+  assertions before progress or file deletion;
+- a SHA-256 binding of the memory-only password held only in current live operator-session state;
+- successful binding comparison before every password injection, emitting only
+  `synthetic_password_binding=match|mismatch`;
+- fixed non-secret `.invalid` emails entered without modifying the credential clipboard;
+- fail-before-authentication on mismatch, missing binding or ambiguity; and
+- `git status --short --untracked-files=normal -- . ':!research'` for repository worktree checks,
+  with any command capable of entering the protected path prohibited.
+
+### 24.1 AVS classification for this correction
+
+- Risk class: **R0**, because the exact delta is ADO Markdown only and changes no executable input.
+- V0: exact diff/scope, whitespace, reference, authority/status, disclosure and protected-path-
+  excluding tracked-state checks are mandatory before publication.
+- V1/V2/V3: not run; no source, schema, migration, dependency, lockfile, workflow, helper,
+  configuration, harness or artifact changed. Existing Product/V5 evidence is carried, not claimed
+  as newly executed.
+- V4: complete exact-head CI is mandatory after focused publication.
+- Independent exact-delta re-review is mandatory after CI.
+
+`DA3-PHYS-01`, `DA3-PHYS-02`, `DA3-PHYS-03`, DA3 and DT-069–DT-074 remain open. The correction
+creates no retry, repair, resume, Physical Gate, installation/ADB, production, production-data,
+deployment or distribution authority. A later complete fresh V5 still requires a new separate
+exact-bound Human authorization after independent approval of the published correction.

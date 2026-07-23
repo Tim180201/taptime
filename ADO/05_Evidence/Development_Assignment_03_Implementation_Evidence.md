@@ -258,7 +258,26 @@ assertions and later injected a mutable clipboard value whose hash did not match
 harness password. No Gate-B tag was presented and Gate C did not start. Complete cleanup passed.
 
 This is no new implementation defect and changes no source/schema/dependency/artifact evidence.
-Failed-run observations do not close `DA3-PHYS-01/02`. Independent review of the failure
-synchronization and proposed operational boundary is required before any separately authorized
-correction or new run. Production, production data, deployment and distribution remain
-unauthorized.
+Failed-run observations do not close `DA3-PHYS-01/02`. At that checkpoint, independent review of
+the failure synchronization and proposed operational boundary was required before any separately
+authorized correction or new run; Section 15 records the later review and correction authority.
+Production, production data, deployment and distribution remain unauthorized.
+
+## 15. DA3-PHYS-03 operator-control correction — non-executable evidence update
+
+Independent review of failure synchronization `a8b18d6`/tree `dae80d8` and exact-head run
+`29984028528` 12/12 returned
+`APPROVED FOR FAILURE SYNCHRONIZATION AND DA3-PHYS-03 OPERATOR-CONTROL CORRECTION CANDIDATE` with
+zero open P0–P3 review findings. The Human Architect accepted that review and authorized only a
+focused ADO-only runbook correction plus archival/synchronization, AVS R0/V0, publication/CI and
+independent exact-delta re-review.
+
+The correction adds explicit CSV assertion stop points, live-session-only SHA-256 password binding
+before every injection with output limited to `match/mismatch`, fixed email entry without
+credential-clipboard mutation, fail-before-authentication on mismatch and protected-path-excluding
+worktree checks. It changes no implementation source, schema, migration, dependency, workflow,
+helper, harness, Product behavior or APK. Therefore existing implementation V1–V4 evidence is
+carried and not claimed as freshly executed; the ADO delta requires R0/V0 and exact-head CI.
+
+`DA3-PHYS-01`, `DA3-PHYS-02`, `DA3-PHYS-03`, DA3 and DT-069–DT-074 remain open. No retry,
+Physical Gate, production, production-data, deployment or distribution authority follows.

@@ -212,9 +212,16 @@ a mutable clipboard value whose hash did not match the harness password. No Gate
 presented, Gate C did not start and complete cleanup passed. A cleanup-time path-scoped
 `git status -- research` probe also violated the protected-path boundary without emitting protected
 names/content or changing state. Failed-run observations close neither `DA3-PHYS-01/02` nor any
-DA3 task. Independent failure review, separate Human correction authority and a new separate
-complete-run authorization are required. No retry/new run, production, production data,
-deployment or distribution is authorized.
+DA3 task. Independent review of failure synchronization `a8b18d6`, tree `dae80d8`, exact-head run
+`29984028528` returned
+`APPROVED FOR FAILURE SYNCHRONIZATION AND DA3-PHYS-03 OPERATOR-CONTROL CORRECTION CANDIDATE` with
+zero open P0–P3. The Human Architect accepted that exact basis and authorized only the focused
+ADO-only correction plus review archival/truth synchronization, AVS R0/V0, publication/CI and
+independent exact-delta re-review. The runbook now makes all required CSV proofs explicit stop
+points, binds every password injection to a live-session-only SHA-256 digest with output limited
+to `match/mismatch`, keeps fixed emails off the credential clipboard, fails before authentication
+on mismatch and explicitly excludes `research/` from worktree checks. No retry/new run, Physical
+Gate, production, production data, deployment or distribution is authorized.
 
 This file is the official navigation entry point for the TapTim.e ADO.
 
@@ -341,7 +348,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Development Assignment 1 Human-Accepted Complete Offline Synchronization Contract and Repository Authorization | `ADO/02_Development/Development_Assignment_01_Complete_Offline_Synchronization_Authorization.md` |
 | Development Assignment 1 Complete Offline Synchronization Implementation Plan | `ADO/02_Development/Development_Assignment_01_Complete_Offline_Synchronization_Implementation_Plan.md` |
 | Development Assignment 2 Setup and Export Backend Authorization — DA2 and DT-063–DT-068 closed for authorized local scopes after independent zero-finding review and closure-publication CI 11/11 | `ADO/02_Development/Development_Assignment_02_Setup_And_Export_Backend_Authorization.md` |
-| Development Assignment 3 Correction and Append-only Audit Authorization — third V5 run failed with `DA3-PHYS-03` P1; failure review and separate correction/new-run authority required | `ADO/02_Development/Development_Assignment_03_Correction_And_Append_Only_Audit_Authorization.md` |
+| Development Assignment 3 Correction and Append-only Audit Authorization — `DA3-PHYS-03` candidate independently approved; focused ADO-only operator-control correction Human-authorized; no new run | `ADO/02_Development/Development_Assignment_03_Correction_And_Append_Only_Audit_Authorization.md` |
 | Block C3 Organization Administration Implementation Plan | `ADO/02_Development/Block_C3_Organization_Administration_Implementation_Plan.md` |
 | Repository Health Sprint 001 | `ADO/02_Development/Repository_Health_Sprint_001.md` |
 | Repository Maintenance Sprint 002 | `ADO/02_Development/Repository_Maintenance_Sprint_002.md` |
@@ -360,7 +367,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Document | Location |
 |---|---|
 | Development Assignment 1 Gate-C Response-Drop Runbook | `ADO/04_Operations/Development_Assignment_01_Gate_C_Response_Drop_Runbook.md` |
-| Development Assignment 3 V5 Human Functional/Physical Gate Runbook — third run failed before Gate B with `DA3-PHYS-03`; no retry or new run authorized | `ADO/04_Operations/Development_Assignment_03_V5_Runbook.md` |
+| Development Assignment 3 V5 Human Functional/Physical Gate Runbook — DA3-PHYS-03 ADO-only control correction applied; publication/CI/re-review pending; no retry or new run authorized | `ADO/04_Operations/Development_Assignment_03_V5_Runbook.md` |
 
 ## Evidence
 
@@ -403,7 +410,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Development Assignment 3 Independent Pre-Implementation Review — ADO-only candidate approved for publication, zero open P0–P3; subsequently Human-accepted/authorized on exact published baseline | `ADO/05_Evidence/Development_Assignment_03_Independent_Pre_Implementation_Review.md` |
 | Development Assignment 3 Implementation Evidence — `0f71aca`/tree `e3e2ed7`, 1,757 local tests and exact-head CI 12/12 green; independent review approved | `ADO/05_Evidence/Development_Assignment_03_Implementation_Evidence.md` |
 | Development Assignment 3 Independent Implementation Review — `APPROVED`, zero open P0–P3; Human V5 disposition required before closure | `ADO/05_Evidence/Development_Assignment_03_Independent_Implementation_Review.md` |
-| Development Assignment 3 V5 Enablement Evidence — product/Evidence independently approved; three physical runs failed closed; latest `DA3-PHYS-03` P1 awaits failure review | `ADO/05_Evidence/Development_Assignment_03_V5_Enablement_Evidence.md` |
+| Development Assignment 3 V5 Enablement Evidence — product/Evidence independently approved; three physical runs failed closed; latest `DA3-PHYS-03` candidate approved and focused ADO correction Human-authorized | `ADO/05_Evidence/Development_Assignment_03_V5_Enablement_Evidence.md` |
 | Development Assignment 3 Independent V5 Enablement Review — historical enablement `APPROVED`, zero open P0–P3; three later runs failed under separate records | `ADO/05_Evidence/Development_Assignment_03_Independent_V5_Enablement_Review.md` |
 | Development Assignment 3 Physical Validation Evidence — three failed runs; latest reached corrected setup/reinstall and Gate-A actions but omitted CSV content proof and failed credential binding before Gate B; complete cleanup; three P1 findings open | `ADO/05_Evidence/Development_Assignment_03_Physical_Validation_Evidence.md` |
 | Development Assignment 3 DA3-PHYS-01 Failure-Synchronization Independent Review — approved with zero review findings; `DA3-PHYS-01` P1 remains open and correction architecture remains Human-gated | `ADO/05_Evidence/Development_Assignment_03_DA3_PHYS_01_Failure_Synchronization_Independent_Review.md` |
@@ -411,6 +418,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Development Assignment 3 DA3-PHYS-01 Operational Reinstall Independent Review — historical correction `APPROVED`, zero P0–P3; later replacement failed at `DA3-PHYS-02` before corrected boundary | `ADO/05_Evidence/Development_Assignment_03_DA3_PHYS_01_Operational_Reinstall_Independent_Review.md` |
 | Development Assignment 3 DA3-PHYS-02 Replacement-Failure Independent Review — `APPROVED FOR FAILURE SYNCHRONIZATION AND DA3-PHYS-02 CORRECTION CANDIDATE`, zero open P0–P3 | `ADO/05_Evidence/Development_Assignment_03_DA3_PHYS_02_Replacement_Failure_Independent_Review.md` |
 | Development Assignment 3 DA3-PHYS-02 Correction Independent Exact-Delta Review — `APPROVED FOR DA3-PHYS-02 ADO CORRECTION`, zero open P0–P3 and Human-accepted; new run remains Human-gated | `ADO/05_Evidence/Development_Assignment_03_DA3_PHYS_02_Correction_Independent_Exact_Delta_Review.md` |
+| Development Assignment 3 DA3-PHYS-03 Operator-Control Independent Review — failure synchronization/candidate `APPROVED`, zero open P0–P3; focused ADO correction Human-authorized; new run remains Human-gated | `ADO/05_Evidence/Development_Assignment_03_DA3_PHYS_03_Operator_Control_Independent_Review.md` |
 | Development Assignment 1 DA1-PHYS-01 Independent Exact-Delta Review — approved, finding closed | `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_01_Independent_Exact_Delta_Review.md` |
 | Development Assignment 1 DA1-PHYS-02 Independent Exact-Delta Review — approved, repository finding closed | `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_02_Independent_Exact_Delta_Review.md` |
 | Development Assignment 1 DA1-PHYS-03 Independent Exact-Delta Review — approved, repository finding closed | `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_03_Independent_Exact_Delta_Review.md` |
