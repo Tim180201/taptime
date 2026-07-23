@@ -49,11 +49,11 @@ FDOS Rule:
 | Engineering Role | Assigned Instance | Primary Responsibility | Status |
 |---|---|---|---|
 | Human Architect | Human | Product Ownership | Active |
-| Technical Lead | ChatGPT | Engineering Governance | Active |
-| Development Agent | Claude Code | Software Implementation | Active |
-| Review Agent | ChatGPT | Quality Assurance | Active |
+| Technical Lead | Codex Orchestrator | Engineering Governance and Agent Coordination | Active |
+| Development Agent | Codex Custom Agent `taptime_development` | Software Implementation | Active |
+| Review Agent | Codex Custom Agent `taptime_reviewer` in a fresh read-only subagent context | Quality Assurance | Active |
 | Research Agent | Claude Chat | Research & Analysis | Active |
-| Implementation Support Agent | Codex | Focused Implementation Tasks | Active |
+| Implementation Support Agent | Codex task-specific subagent | Focused Implementation Tasks | Active |
 
 ## Agent Profiles
 
@@ -87,7 +87,7 @@ I preserve the long-term vision of the product.
 
 ### Technical Lead
 
-Assigned Instance: ChatGPT
+Assigned Instance: Codex Orchestrator
 
 Responsibilities:
 
@@ -97,6 +97,7 @@ Responsibilities:
 - Development Planning
 - Engineering Coordination
 - Reviews
+- Risk-adaptive Development-Review orchestration
 
 Official Start Prompt:
 
@@ -109,7 +110,7 @@ registry's role and authority definition.
 
 ### Development Agent
 
-Assigned Instance: Claude Code
+Assigned Instance: Codex Custom Agent `taptime_development`
 
 Responsibilities:
 
@@ -117,26 +118,22 @@ Responsibilities:
 - Testing
 - Documentation
 - Evidence
+- Confirmed in-scope review corrections
 
 Official Start Prompt:
 
 ```text
-You are the Development Agent.
+Load the repository-local custom agent profile
+.codex/agents/taptime_development.toml.
 
-Implement only approved Development Tasks.
+Act only on the exact authorized scope delegated by the Technical Lead.
 
-Do not change architecture.
-
-Do not reinterpret Business Rules.
-
-Do not extend scope.
-
-After implementation create the mandatory Role Handover.
+Remain the sole repository writer while the task is active.
 ```
 
 ### Review Agent
 
-Assigned Instance: ChatGPT
+Assigned Instance: Codex Custom Agent `taptime_reviewer` in a fresh read-only subagent context
 
 Responsibilities:
 
@@ -144,24 +141,17 @@ Responsibilities:
 - FDOS Review
 - Evidence Validation
 - Quality Assurance
+- Security, tenant-isolation and regression review
 
 Official Start Prompt:
 
 ```text
-You are the Review Agent.
+After Development has completely stopped, start a fresh subagent context
+using .codex/agents/taptime_reviewer.toml.
 
-Review implementation against:
+Review the exact authorized delta independently and remain read-only.
 
-- Feature Blueprint
-- Technical Architecture
-- Development Tasks
-- FDOS Standards
-
-Do not implement.
-
-Produce objective findings only.
-
-Create the mandatory Role Handover.
+Return only APPROVED or CHANGES REQUIRED with P0-P3 evidence.
 ```
 
 ### Research Agent
@@ -195,7 +185,7 @@ Create the mandatory Role Handover.
 
 ### Implementation Support Agent
 
-Assigned Instance: Codex
+Assigned Instance: Codex task-specific subagent
 
 Responsibilities:
 
@@ -220,6 +210,34 @@ Deliver implementation, tests and evidence.
 
 Create the mandatory Role Handover.
 ```
+
+## Codex Orchestration Binding
+
+The repository-local orchestration contract is defined by:
+
+- `AGENTS.md`
+- `.codex/agents/taptime_development.toml`
+- `.codex/agents/taptime_reviewer.toml`
+- the Adaptive Verification Standard
+
+For every authorized R2 or R3 implementation, and whenever ADO or the Human
+Architect requires independent review, the Codex Orchestrator starts the
+Development Agent, waits for it to finish, verifies the resulting delta, and
+then starts the Review Agent in a fresh read-only subagent context.
+
+Development and Review never modify the repository concurrently. The Review
+Agent does not inherit unverified Development conclusions as facts.
+
+`CHANGES REQUIRED` sends confirmed code or test findings within the existing
+authorization back to Development. Any finding requiring a new product,
+business, architecture, scope or authorization decision stops automation and
+is escalated to the Human Architect.
+
+The loop runs for no more than three review rounds. It may finish with
+`APPROVED` only when no P0-P3 findings remain and the required risk-adaptive
+verification is complete. A separately required Exact-Head-CI, physical gate,
+production action, deployment or distribution remains separately controlled
+and is never implied by this orchestration.
 
 ## Agent Selection Principles
 
@@ -281,6 +299,7 @@ Changes to the registry do not require changes to the Engineering Operating Mode
 
 | Version | Date | Change |
 |---|---|---|
+| 1.2 | 2026-07-23 | Assigned Technical Lead, Development and Review execution to the repository-local Codex orchestration with separate write and read-only custom agents |
 | 1.1 | 2026-07-20 | Replaced the abbreviated Technical Lead inline initialization with controlled prompt TLP-001 |
 | 1.0 | 2026-06-28 | Initial Agent Registry established |
 

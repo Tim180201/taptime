@@ -24,3 +24,16 @@ Diese Regeln gelten verbindlich für alle Codex-Tasks in diesem Repository. Vor 
 - Ein grüner Standard-Typecheck darf nicht als tests-inklusiver Typecheck bezeichnet werden. Testquellen gelten nur dann als typegeprüft, wenn die ausgeführte Konfiguration sie nachweislich einschließt.
 - Wesentliche Risiken, Scope-Abweichungen, Dokumentationswidersprüche und offene Fragen sind transparent zu melden.
 - Der Abschlussbericht nennt geänderte Dateien, ausgeführte Verifikation, verbleibende Risiken beziehungsweise offene Fragen und den empfohlenen nächsten Schritt.
+
+## Risikoadaptiver Development-Review-Kreislauf
+
+- Der Technical Lead bleibt Orchestrator und prüft vor jeder Delegation die exakte Autorität, Baseline, Risikoklasse und die nach dem Adaptive Verification Standard erforderlichen Nachweise.
+- Für Implementierungen der Risikoklassen R2 und R3 sowie immer dann, wenn ADO oder der Human Architect ein unabhängiges Review verlangen, ist der Kreislauf `Development -> Review -> gegebenenfalls Korrektur -> erneutes Review` verpflichtend. Für R0 und einfache R1-Arbeiten ist er optional, sofern keine strengere Vorgabe gilt.
+- Der Custom Agent `taptime_development` ist während seiner Aufgabe der einzige schreibende Agent. Der Technical Lead und andere Agenten verändern das Repository nicht gleichzeitig. Der Development Agent darf ohne ausdrücklichen Auftrag weder committen noch pushen oder mergen.
+- Erst nachdem Development vollständig beendet ist und der Technical Lead Arbeitsbaum sowie Delta geprüft hat, wird der Custom Agent `taptime_reviewer` gestartet.
+- `taptime_reviewer` arbeitet technisch read-only und unabhängig. Er prüft mindestens Anforderungen und Autorität, Korrektheit, Regressionen, Architektur, Sicherheit, Tenant-Isolation, Tests und Codequalität. Er darf keine Dateien ändern, nichts stagen, committen, pushen, installieren, deployen oder anderweitig externen Zustand verändern.
+- Ein interner Review-Subagent ersetzt kein separat vorgeschriebenes formales unabhängiges Review. Verlangt ADO eine exakte Bindung an Commit, Tree oder CI, muss diese Bindung zusätzlich nachgewiesen werden.
+- Zulässige Review-Ergebnisse sind ausschließlich `APPROVED` oder `CHANGES REQUIRED`. Findings werden als P0 bis P3 mit konkreter Evidenz berichtet. `APPROVED` ist nur ohne offene P0-P3-Findings und mit ausreichender Verifikation zulässig.
+- Bestätigte Code- oder Test-Findings innerhalb des bereits autorisierten Scopes gehen zurück an Development. Findings, die eine neue Produkt-, Business-, Architektur-, Scope- oder Autorisierungsentscheidung erfordern, stoppen den Kreislauf und gehen an den Human Architect.
+- Nach jeder Korrektur werden die relevanten Prüfungen erneut ausgeführt und ein neues unabhängiges Review gestartet. Nach höchstens drei Review-Runden wird bei verbleibenden Findings mit `CHANGES REQUIRED` beziehungsweise `BLOCKED` berichtet; Qualität oder Prüftiefe werden nicht reduziert.
+- `MERGE_READY` beziehungsweise technischer Abschluss darf erst nach Technical-Lead-Abnahme, allen erforderlichen Verifikationen, Remote-Prüfung sowie gegebenenfalls Exact-Head-CI und formaler Review-Freigabe gemeldet werden. Produktion, Produktionsdaten, Deployment und Distribution benötigen weiterhin jeweils eine separate ausdrückliche Autorisierung.
