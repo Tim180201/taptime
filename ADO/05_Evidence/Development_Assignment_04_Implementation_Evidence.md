@@ -1,6 +1,6 @@
 # Development Assignment 4 — Local Implementation Evidence
 
-- Status: **REVIEW ROUND 3 CHANGES REQUESTED — HUMAN-AUTHORIZED EXTRA F05 CORRECTION LOCAL; FRESH V4 AND EXACT-SHA REVIEW PENDING**
+- Status: **WORKSTREAMS A–D AND AVS V0–V4 INDEPENDENTLY APPROVED — ZERO OPEN P0–P3; HUMAN V5 REQUIRED BEFORE CLOSURE**
 - Date: 2026-07-23
 - Authorized baseline commit: `d9892435acbf7f45a96a9a01c8331afceb65f6f1`
 - Authorized baseline tree: `693bc9a5ca1c0d414ff196f9dfa3352757e45701`
@@ -9,6 +9,8 @@
   `ffc8f90dac2b2618603d6c9f33b94584fe42b151`, exact-head CI `30004127796`, attempt 1, 12/12
 - Review-round-1 correction publication: `12abb1229c8a7004a0bf75b29c9345e901df1b58`,
   tree `312820875ed14fc4a39edd072c9d68e8fd24c473`, exact-head CI `30005994943`, attempt 1, 12/12
+- Final F05 correction publication: `f0f1e177628bd763c894a1d9c9c50a70168ffe1f`,
+  tree `5259887894a0b97394c748a4556707c6582c93f8`, exact-head CI `30009111061`, attempt 1, 12/12
 - Risk class: AVS-001 R3
 - Authorized: DA4 Workstreams A–D and AVS V0–V4
 - Unauthorized: Human V5, production, production data, deployment and distribution
@@ -82,10 +84,10 @@ counted as evidence.
 
 ## Current gate
 
-The implementation and review-round-1 correction publications and their exact-head V4 runs are
-green. Independent implementation review is not yet approved; its focused correction cycle
-remains mandatory. DA4 and the related Roadmap candidates are not closed. Human V5, production,
-production data, deployment and distribution remain separately unauthorized.
+The final implementation publication and exact-head V4 run are green. Independent exact-SHA
+review returned `APPROVED` with zero open P0–P3. DA4 is not closed because ADR-0015 requires the
+separately authorized Human V5 browser gate before closure. Human V5, production, production data,
+deployment and distribution remain separately unauthorized.
 
 ## Independent review round 1 and local correction
 
@@ -127,9 +129,15 @@ authorized one additional focused DA4-F05 correction/review round limited to a s
 fallback, regressions, minimal Evidence synchronization, AVS V0–V4 and independent exact-SHA
 review. Human V5 and every production/deployment boundary remain unauthorized.
 
-The focused local exception candidate changes only `App.tsx`, `ui.tsx` and `App.test.tsx`.
+The focused exception changes only `App.tsx`, `ui.tsx` and `App.test.tsx`.
 `SectionBoundary` exposes its visible retry button as the final logical focus target. Regression
 tests cover Setup/Reassignment, Correction and Adjudication intent removal followed by an
 unavailable section and prove that the visible retry receives focus instead of `BODY`. Fresh local
-results are reflected above. Publication, exact-head CI and independent exact-SHA review remain
-mandatory; no DA4 closure is claimed.
+results are reflected above.
+
+The correction was published as `f0f1e177628bd763c894a1d9c9c50a70168ffe1f`, tree
+`5259887894a0b97394c748a4556707c6582c93f8`; exact-head run `30009111061`, attempt 1, passed
+12/12. Independent read-only exact-SHA review returned `APPROVED`, `MERGE_READY` and zero open
+P0–P3. Its archive is
+`ADO/05_Evidence/Development_Assignment_04_Independent_Implementation_Review.md`. No DA4 closure
+or Human V5/production authority is claimed.

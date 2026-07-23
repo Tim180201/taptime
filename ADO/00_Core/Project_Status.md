@@ -1,6 +1,6 @@
 # Project Status
 
-Status: CORE ROADMAP V2 BLOCK A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2, BLOCK D, E1 AND NARROW E2A COMPLETE FOR THEIR RECORDED SCOPES — DEVELOPMENT ASSIGNMENTS 1–3 AND DT-060–DT-074 CLOSED FOR THEIR EXACT AUTHORIZED LOCAL SCOPES — DA4 PROFESSIONAL ADMIN WEB PRODUCTIZATION IS HUMAN ACCEPTED, IMPLEMENTATION AUTHORIZED, PUBLISHED AND V4 GREEN; INDEPENDENT IMPLEMENTATION REVIEW CORRECTION REMAINS OPEN — HUMAN V5, PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
+Status: CORE ROADMAP V2 BLOCK A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2, BLOCK D, E1 AND NARROW E2A COMPLETE FOR THEIR RECORDED SCOPES — DEVELOPMENT ASSIGNMENTS 1–3 AND DT-060–DT-074 CLOSED FOR THEIR EXACT AUTHORIZED LOCAL SCOPES — DA4 WORKSTREAMS A–D AND AVS V0–V4 PUBLISHED AND INDEPENDENTLY APPROVED WITH ZERO OPEN P0–P3; HUMAN V5 REQUIRED BEFORE CLOSURE — PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
 Date: 2026-07-23
 Owner: Human Architect + Technical Lead
 
@@ -24,9 +24,12 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   `966d1edb9111721df6d3cff239e4854c2efc66c7`, passed exact-head V4 run `30007603463`,
   attempt 1, 12/12. Review round 3 retained one P2 section-focus fallback. After the automatic
   three-round stop, the Human Architect authorized one extra focused F05 correction/review round;
-  its three-file local candidate and AVS V0–V3 are green. Publication, fresh V4 and independent
-  exact-SHA approval remain pending. Human V5, production, production data, deployment and
-  distribution remain separately unauthorized.
+  final correction `f0f1e177628bd763c894a1d9c9c50a70168ffe1f`, tree
+  `5259887894a0b97394c748a4556707c6582c93f8`, passed exact-head V4 run `30009111061`,
+  attempt 1, 12/12. Independent exact-SHA review returned `APPROVED`, `MERGE_READY` and zero open
+  P0–P3. Workstreams A–D and AVS V0–V4 are technically approved for their exact local scope. DA4
+  remains open because ADR-0015 requires a separately authorized Human V5 browser gate before
+  closure. Production, production data, deployment and distribution remain unauthorized.
 - **Development Assignment 3 is Human-accepted and implementation-authorized on exact baseline
   `ff68f7a7d0ce69a65e88846ae1cca9abd5951f5d`, tree
   `09ef169a68bb53420e07b6f3fcbbdc74e0c01d57`.** ADR-0014/DA3-P01–DA3-P16 and Workstreams A–D
@@ -595,9 +598,9 @@ Two Epics are concurrently Active, per EP-009's own stated relationship to the r
 4. Preserve every closed C3B/C3C/C3D/C3E1/C3E2/DA1/DA2/DA3 boundary and the Human-accepted
    ADR-0015/DA4-P01–P12 scope; keep Human V5, production/deployment, legal/privacy and pilot
    operations behind their separate authorization and Human gates.
-5. Complete the focused DA4 implementation-review correction and require an independent
-   `APPROVED` re-review before any closure claim. The published implementation/V4 result grants no
-   Human V5, production, production-data, deployment or distribution authority.
+5. Decide and separately authorize the ADR-0015 Human V5 functional/visual/browser gate before any
+   DA4 closure claim. The independently approved implementation grants no Human V5, production,
+   production-data, deployment or distribution authority.
 
 ## Agreed comprehensive Development-assignment sequence
 

@@ -1,6 +1,6 @@
 # Development Assignment 4 — Professional Admin Web Productization Authorization
 
-- Status: **HUMAN ACCEPTED AND IMPLEMENTATION AUTHORIZED — LOCAL IMPLEMENTATION CANDIDATE; V4 AND INDEPENDENT REVIEW PENDING**
+- Status: **WORKSTREAMS A–D AND AVS V0–V4 INDEPENDENTLY APPROVED — HUMAN V5 REQUIRED BEFORE CLOSURE**
 - Date: 2026-07-23
 - Candidate baseline commit: `166de1b149a202092443e02c61761887fde8268d`
 - Candidate baseline tree: `95355924c6ea65162de80cbbefaac6facc254b08`
@@ -243,7 +243,12 @@ Architect then accepted ADR-0015 and DA4-P01–P12 and separately authorized Wor
 AVS V0–V4 on exact commit `d9892435acbf7f45a96a9a01c8331afceb65f6f1`, tree
 `693bc9a5ca1c0d414ff196f9dfa3352757e45701`.
 
-The local implementation candidate and AVS V0–V3 evidence are recorded in
-`ADO/05_Evidence/Development_Assignment_04_Implementation_Evidence.md`. Focused publication,
-exact-head CI and independent exact-SHA implementation review remain mandatory. Human V5,
-production, production data, deployment and distribution remain separately unauthorized.
+The final implementation is published as `f0f1e177628bd763c894a1d9c9c50a70168ffe1f`, tree
+`5259887894a0b97394c748a4556707c6582c93f8`; exact-head run `30009111061`, attempt 1, passed
+12/12. Independent exact-SHA implementation review returned `APPROVED`, `MERGE_READY` and zero
+open P0–P3; it is archived in
+`ADO/05_Evidence/Development_Assignment_04_Independent_Implementation_Review.md`.
+
+Workstreams A–D and AVS V0–V4 are technically approved for their exact authorized local scope.
+ADR-0015 still requires a separately authorized Human V5 browser gate before DA4 closure. Human
+V5, production, production data, deployment and distribution remain separately unauthorized.
