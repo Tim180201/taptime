@@ -1,6 +1,6 @@
 # Development Assignment 4 — Local Implementation Evidence
 
-- Status: **IMPLEMENTATION PUBLISHED — V4 12/12 GREEN; REVIEW ROUND 2 CHANGES REQUESTED; LOCAL CORRECTION FOR ROUND 3**
+- Status: **REVIEW ROUND 3 CHANGES REQUESTED — HUMAN-AUTHORIZED EXTRA F05 CORRECTION LOCAL; FRESH V4 AND EXACT-SHA REVIEW PENDING**
 - Date: 2026-07-23
 - Authorized baseline commit: `d9892435acbf7f45a96a9a01c8331afceb65f6f1`
 - Authorized baseline tree: `693bc9a5ca1c0d414ff196f9dfa3352757e45701`
@@ -55,18 +55,19 @@ Final fresh local verification on Node 24:
 |---|---:|
 | Core | 290/290 |
 | Mobile | 421/421 |
-| Admin Web | 82/82 |
+| Admin Web | 85/85 |
 | Offline synchronization contract | 7/7 |
 | TimeEntry export contract | 10/10 |
 | Time review contract | 5/5 |
 | Administration contract | 4/4 |
 | Backend API | 224/224 |
-| **Explicitly counted total** | **1,043 passed, 0 failed** |
+| **Explicitly counted total** | **1,046 passed, 0 failed** |
 
 Additionally passed:
 
 - every exposed workspace tests-inclusive typecheck and production build;
-- Admin Web focused correction matrix 59/59 and production build;
+- Admin Web focused correction matrices 59/59 and final App focus matrix 19/19 plus production
+  build;
 - Android Expo export;
 - Admin-Web-scoped dependency audit with zero vulnerabilities;
 - lockfile dev-only classification for Testing Library, jsdom and axe-core;
@@ -110,3 +111,25 @@ The final automatic local correction adds a logical focus fallback to the Tag se
 real updated reassignment state plus Correction/Adjudication outcomes, and minimally synchronizes
 the existing DA4 status documents. Independent review round 3 remains mandatory; no closure or
 additional authority is claimed.
+
+## Independent review round 3 and Human-authorized exception
+
+The final automatic correction was published as
+`99bc8e5946f876292759baba99546f5afda06cee`, tree
+`966d1edb9111721df6d3cff239e4854c2efc66c7`; exact-head CI `30007603463`, attempt 1, passed
+12/12. Independent review round 3 closed F01–F04 and the ADO-truth finding, but retained one P2:
+when Correction, Adjudication or Reassignment removed an intent and the mandatory follow-up
+section refresh failed, `SectionBoundary` replaced all known focus targets and focus fell to
+`BODY`.
+
+After the documented three-round limit stopped automation, the Human Architect explicitly
+authorized one additional focused DA4-F05 correction/review round limited to a stable section-focus
+fallback, regressions, minimal Evidence synchronization, AVS V0–V4 and independent exact-SHA
+review. Human V5 and every production/deployment boundary remain unauthorized.
+
+The focused local exception candidate changes only `App.tsx`, `ui.tsx` and `App.test.tsx`.
+`SectionBoundary` exposes its visible retry button as the final logical focus target. Regression
+tests cover Setup/Reassignment, Correction and Adjudication intent removal followed by an
+unavailable section and prove that the visible retry receives focus instead of `BODY`. Fresh local
+results are reflected above. Publication, exact-head CI and independent exact-SHA review remain
+mandatory; no DA4 closure is claimed.

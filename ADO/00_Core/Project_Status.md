@@ -20,9 +20,13 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   `37d158f36375dec5e8c16c7df0f7e35e1a3963b5`; its review-round-1 corrections were published at
   `12abb1229c8a7004a0bf75b29c9345e901df1b58`, tree
   `312820875ed14fc4a39edd072c9d68e8fd24c473`, and exact-head V4 run `30005994943`, attempt 1,
-  passed 12/12. Independent implementation review is not yet approved and its focused correction
-  cycle remains active. Human V5, production, production data, deployment and distribution remain
-  separately unauthorized.
+  passed 12/12. The next correction `99bc8e5946f876292759baba99546f5afda06cee`, tree
+  `966d1edb9111721df6d3cff239e4854c2efc66c7`, passed exact-head V4 run `30007603463`,
+  attempt 1, 12/12. Review round 3 retained one P2 section-focus fallback. After the automatic
+  three-round stop, the Human Architect authorized one extra focused F05 correction/review round;
+  its three-file local candidate and AVS V0–V3 are green. Publication, fresh V4 and independent
+  exact-SHA approval remain pending. Human V5, production, production data, deployment and
+  distribution remain separately unauthorized.
 - **Development Assignment 3 is Human-accepted and implementation-authorized on exact baseline
   `ff68f7a7d0ce69a65e88846ae1cca9abd5951f5d`, tree
   `09ef169a68bb53420e07b6f3fcbbdc74e0c01d57`.** ADR-0014/DA3-P01–DA3-P16 and Workstreams A–D

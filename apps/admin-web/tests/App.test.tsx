@@ -487,6 +487,127 @@ describe('professional Admin Web shell', () => {
     expect(document.activeElement).not.toBe(document.body);
   });
 
+  it('focuses setup retry after reassignment intent removal and failed refresh', async () => {
+    const targetCustomer = {
+      id: '40000000-0000-4000-8000-000000000002',
+      displayName: 'Lager',
+      active: true,
+    };
+    const intentState = {
+      ...readyState,
+      projection: {
+        ...readyState.projection,
+        customers: [customer, targetCustomer],
+      },
+      reassignmentIntent: {
+        commandId: 'a0000000-0000-4000-8000-000000000005',
+        nfcTagId: tag.id,
+        expectedActiveAssignmentId: tag.activeAssignmentId!,
+        targetCustomerId: targetCustomer.id,
+      },
+    };
+    const capability = new FakeCapability(intentState);
+    capability.confirmReassignment.mockImplementation(async () => {
+      capability.emit({
+        ...intentState,
+        reassignmentIntent: null,
+        reassigning: false,
+        sections: {
+          ...intentState.sections,
+          setup: { status: 'unavailable', message: 'Einrichtung nicht erreichbar.' },
+        },
+        notice: 'Die Zuordnung wurde zwischenzeitlich geändert.',
+      });
+    });
+    window.history.replaceState(null, '', '#einrichtung');
+    render(<App administration={capability} />);
+
+    await userEvent.click(screen.getByRole('button', {
+      name: 'Änderung ausdrücklich bestätigen',
+    }));
+
+    const retry = screen.getByRole('button', { name: 'Erneut versuchen' });
+    await waitFor(() => expect(retry).toHaveFocus());
+    expect(document.activeElement).toBe(retry);
+    expect(document.activeElement).not.toBe(document.body);
+  });
+
+  it('focuses time-record retry after correction conflict and failed refresh', async () => {
+    const intentState = {
+      ...readyState,
+      correctionIntent: {
+        commandId: 'a0000000-0000-4000-8000-000000000006',
+        timeRecord: record,
+        startedAt: '2026-07-20T08:15:00.000Z',
+        stoppedAt: '2026-07-20T16:15:00.000Z',
+        reason: 'Beleg geprüft.',
+      },
+    };
+    const capability = new FakeCapability(intentState);
+    capability.confirmCorrection.mockImplementation(async () => {
+      capability.emit({
+        ...intentState,
+        correctionIntent: null,
+        timeReviewBusy: false,
+        sections: {
+          ...intentState.sections,
+          timeRecords: { status: 'unavailable', message: 'Arbeitszeiten nicht erreichbar.' },
+        },
+        notice: 'Die Arbeitszeit wurde zwischenzeitlich geändert.',
+      });
+    });
+    window.history.replaceState(null, '', '#arbeitszeiten');
+    render(<App administration={capability} />);
+
+    await userEvent.click(screen.getByRole('button', {
+      name: 'Korrektur ausdrücklich bestätigen',
+    }));
+
+    const retry = screen.getByRole('button', { name: 'Erneut versuchen' });
+    await waitFor(() => expect(retry).toHaveFocus());
+    expect(document.activeElement).toBe(retry);
+    expect(document.activeElement).not.toBe(document.body);
+  });
+
+  it('focuses review retry after adjudication error and failed refresh', async () => {
+    const intentState = {
+      ...readyState,
+      adjudicationIntent: {
+        commandId: 'a0000000-0000-4000-8000-000000000007',
+        reviewItem,
+        resolution: 'no_time_record_change' as const,
+        timeRecord: null,
+        startedAt: null,
+        stoppedAt: null,
+        reason: 'Beleg geprüft.',
+      },
+    };
+    const capability = new FakeCapability(intentState);
+    capability.confirmAdjudication.mockImplementation(async () => {
+      capability.emit({
+        ...intentState,
+        adjudicationIntent: null,
+        timeReviewBusy: false,
+        sections: {
+          ...intentState.sections,
+          reviewItems: { status: 'unavailable', message: 'Prüfungen nicht erreichbar.' },
+        },
+        notice: 'Review-Entscheidung konnte nicht protokolliert werden.',
+      });
+    });
+    window.history.replaceState(null, '', '#pruefungen');
+    render(<App administration={capability} />);
+
+    await userEvent.click(screen.getByRole('button', {
+      name: 'Review ausdrücklich bestätigen',
+    }));
+
+    const retry = screen.getByRole('button', { name: 'Erneut versuchen' });
+    await waitFor(() => expect(retry).toHaveFocus());
+    expect(document.activeElement).toBe(retry);
+    expect(document.activeElement).not.toBe(document.body);
+  });
+
   it('uses one central timezone and atomically discards open inputs and intents after a zone change', async () => {
     let context = { timeZone: 'Europe/Berlin', usedUtcFallback: false };
     const resolveTimeZone = () => context;

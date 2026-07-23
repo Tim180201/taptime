@@ -210,11 +210,13 @@ function SetupView({
   const prepareButton = useRef<HTMLButtonElement>(null);
   const tagSelect = useRef<HTMLSelectElement>(null);
   const targetSelect = useRef<HTMLSelectElement>(null);
+  const sectionRetryButton = useRef<HTMLButtonElement>(null);
   useIntentFocusReturn(
     state.reassignmentIntent !== null,
     prepareButton,
     tagSelect,
     targetSelect,
+    sectionRetryButton,
   );
   const customerNameById = new Map(
     state.projection.customers.map((customer) => [customer.id, customer.displayName]),
@@ -228,7 +230,7 @@ function SetupView({
     : state.projection.customers.find(
         (customer) => customer.id === state.reassignmentIntent?.targetCustomerId,
       ) ?? null;
-  return <SectionBoundary state={state.sections.setup}
+  return <SectionBoundary state={state.sections.setup} retryButtonRef={sectionRetryButton}
     onRetry={() => void administration.retrySection('setup')}>
     <div className="content-grid">
       <Panel title="Kunden" description="Aktive und inaktive Kunden der geladenen Seiten.">
@@ -403,8 +405,14 @@ function TimeRecordsView({
   const [timeError, setTimeError] = useState<string | null>(null);
   const prepareButton = useRef<HTMLButtonElement>(null);
   const recordSelect = useRef<HTMLSelectElement>(null);
+  const sectionRetryButton = useRef<HTMLButtonElement>(null);
   const previousTimeZone = useRef(timezone.timeZone);
-  useIntentFocusReturn(state.correctionIntent !== null, prepareButton, recordSelect);
+  useIntentFocusReturn(
+    state.correctionIntent !== null,
+    prepareButton,
+    recordSelect,
+    sectionRetryButton,
+  );
   useEffect(() => {
     if (previousTimeZone.current === timezone.timeZone) return;
     previousTimeZone.current = timezone.timeZone;
@@ -416,7 +424,7 @@ function TimeRecordsView({
   }, [timezone.timeZone]);
   const format = (value: string) => formatZonedDateTime(value, timezone);
   const formatExact = (value: string) => formatExactZonedDateTime(value, timezone);
-  return <SectionBoundary state={state.sections.timeRecords}
+  return <SectionBoundary state={state.sections.timeRecords} retryButtonRef={sectionRetryButton}
     onRetry={() => void administration.retrySection('timeRecords')}>
     <Panel title="Arbeitszeiten"
       description={`Fest begrenzt: ${format(state.timeWindow.fromInclusive)} bis ${format(state.timeWindow.toExclusive)}.`}>
@@ -539,8 +547,14 @@ function ReviewsView({
   const [timeError, setTimeError] = useState<string | null>(null);
   const prepareButton = useRef<HTMLButtonElement>(null);
   const itemSelect = useRef<HTMLSelectElement>(null);
+  const sectionRetryButton = useRef<HTMLButtonElement>(null);
   const previousTimeZone = useRef(timezone.timeZone);
-  useIntentFocusReturn(state.adjudicationIntent !== null, prepareButton, itemSelect);
+  useIntentFocusReturn(
+    state.adjudicationIntent !== null,
+    prepareButton,
+    itemSelect,
+    sectionRetryButton,
+  );
   useEffect(() => {
     if (previousTimeZone.current === timezone.timeZone) return;
     previousTimeZone.current = timezone.timeZone;
@@ -556,6 +570,7 @@ function ReviewsView({
   const formatExact = (value: string) => formatExactZonedDateTime(value, timezone);
   const selectedItem = state.reviewItems.find((item) => item.reviewItemId === itemId);
   return <SectionBoundary state={state.sections.reviewItems}
+    retryButtonRef={sectionRetryButton}
     onRetry={() => void administration.retrySection('reviewItems')}>
     <Panel title="Offene Prüfungen" description="Server-Reihenfolge bleibt unverändert.">
       <CountTruth count={state.reviewItems.length} noun="Prüfungen"

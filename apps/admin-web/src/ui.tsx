@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ReactNode, RefObject } from 'react';
 import type { SectionStatus } from './contracts';
 
 export function Panel({
@@ -26,10 +26,12 @@ export function Panel({
 export function SectionBoundary({
   state,
   onRetry,
+  retryButtonRef,
   children,
 }: {
   readonly state: SectionStatus;
   readonly onRetry: () => void;
+  readonly retryButtonRef?: RefObject<HTMLButtonElement | null>;
   readonly children: ReactNode;
 }) {
   if (state.status === 'loading') {
@@ -41,7 +43,9 @@ export function SectionBoundary({
     return <div className="section-state section-error" role="alert">
       <strong>Bereich derzeit nicht verfügbar</strong>
       <p>{state.message}</p>
-      <button className="secondary" onClick={onRetry}>Erneut versuchen</button>
+      <button ref={retryButtonRef} className="secondary" onClick={onRetry}>
+        Erneut versuchen
+      </button>
     </div>;
   }
   return <>{children}</>;
