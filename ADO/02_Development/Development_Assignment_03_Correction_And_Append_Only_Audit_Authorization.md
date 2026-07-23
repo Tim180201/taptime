@@ -1,6 +1,6 @@
 # Development Assignment 3 — Correction and Append-only Audit Authorization
 
-- Status: **DA3-PHYS-03 FOCUSED ADO-ONLY OPERATOR-CONTROL CORRECTION AND ZERO-FINDING INDEPENDENT RE-REVIEW ARCHIVED/CI-GREEN AND HUMAN-ACCEPTED; NEW EXACT-BOUND AUTHORIZATION REQUIRED; RETRY/NEW RUN UNAUTHORIZED**
+- Status: **COMPLETE FRESH HUMAN V5 PASSED; DA3-PHYS-01/02/03 PHYSICAL CLOSURE CANDIDATE; PUBLICATION/EXACT-HEAD CI/INDEPENDENT FINAL REVIEW PENDING; RETRY/NEW RUN UNAUTHORIZED**
 - Date: 2026-07-21
 - Accepted/authorized baseline commit: `ff68f7a7d0ce69a65e88846ae1cca9abd5951f5d`
 - Accepted/authorized baseline tree: `09ef169a68bb53420e07b6f3fcbbdc74e0c01d57`
@@ -12,7 +12,7 @@
 - Accepted architecture:
   `ADO/01_Architecture/ADR/ADR-0014-append-only-time-record-correction-and-review-adjudication.md`
 - Roadmap scope: Development Assignment 3; DT-069–DT-074 authorized local implementation scope,
-  still open pending separate Physical Gate authorization/execution, disposition and closure
+  still open pending publication, exact-head CI, independent final review and closure
 - Risk class: AVS-001 **R3**
 - Implementation authority: **GRANTED FOR WORKSTREAMS A–D AND AVS V0–V4 ON THE EXACT BASELINE ABOVE**
 - Explicitly excluded authority: **production, production data, deployment, distribution and Physical Gate**
@@ -36,6 +36,10 @@
   12/12; INDEPENDENT EXACT-DELTA RE-REVIEW APPROVED WITH ZERO OPEN P0–P3 REVIEW FINDINGS;
   ARCHIVE `8545e08`/TREE `3440e78`/RUN `29986601053` AND FINAL SYNC
   `f726e16`/TREE `6421aa5`/RUN `29986934600` PASSED 12/12 AND ARE HUMAN-ACCEPTED**
+- Later complete fresh V5 authority: **SEPARATELY GRANTED ON THE FULL CHAIN THROUGH
+  `d2dba78`/TREE `ea67729`/RUN `29987351521`, THEN CONSUMED**
+- Later complete fresh V5 result: **GATES A–C PASSED; COMPLETE CLEANUP; PHYSICAL EVIDENCE
+  PUBLICATION/CI/INDEPENDENT FINAL REVIEW PENDING**
 - Current replacement-run authority: **NOT GRANTED**
 
 ## 1. Authorized objective
@@ -679,3 +683,25 @@ device or Tag interaction, retry, repair, resume, Product/schema/dependency/work
 change, production resource/data, deployment or distribution is authorized. `DA3-PHYS-01/02/03`,
 DA3 and DT-069–DT-074 remain open. Any later complete fresh V5 requires a new, separate,
 exact-bound Human authorization.
+
+## 25. Later complete fresh V5 result — 2026-07-23
+
+After publication `d2dba78344bf5b8234d62a905d69de315d5d4e4c`, tree
+`ea6772944c3fd71c1e0f1d40d71a04e441b449fd`, passed exact-head run `29987351521`, attempt 1,
+12/12, the Human Architect separately issued a new one-time complete fresh V5 authority on the
+unchanged full predecessor chain, immutable APK/manifest, Galaxy A33/Android 15 and two synthetic
+NTAG213 Tags.
+
+The final fresh run passed seed-only setup, the reviewed clean exact-artifact reinstall boundary,
+Gate A correction/effective CSV including all four mandatory content stop points, Gate B ordered
+offline cutover/review-predecessor behavior, Gate C ordered partial/complete adjudication and
+exact Mobile marker retention/clear across cold relaunch. The original six offline reconciliation
+rows remained unchanged. Both sessions signed out and cleanup proved zero package, approved
+mappings/listeners, disposable database/schema/ledger, generated roles, credential clipboard and
+task-created worktree.
+
+The Human confirmed every required physical UI observation and directed formal synchronization
+after the Technical Lead's complete pass/cleanup report. `DA3-PHYS-01/02/03` are physical-closure
+candidates. DA3 and DT-069–DT-074 remain open pending focused ADO publication, exact-head CI and
+independent final review. The one-time authority is consumed; no retry, repair, resume or new run
+is authorized. Production, production data, deployment and distribution remain unauthorized.

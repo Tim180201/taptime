@@ -1,6 +1,6 @@
 # Development Assignment 3 — V5 Human Functional/Physical Gate Runbook
 
-Status: **DA3-PHYS-03 ADO-ONLY OPERATOR-CONTROL CORRECTION AND ZERO-FINDING INDEPENDENT RE-REVIEW ARCHIVED/CI-GREEN AND HUMAN-ACCEPTED; NEW EXACT-BOUND AUTHORIZATION REQUIRED; NO RETRY OR NEW RUN AUTHORIZED**
+Status: **LATER COMPLETE FRESH HUMAN V5 PASSED; ONE-TIME AUTHORITY CONSUMED; EVIDENCE PUBLICATION/EXACT-HEAD CI/INDEPENDENT FINAL REVIEW PENDING; NO RETRY OR NEW RUN AUTHORIZED**
 Owner: Technical Lead
 Approval authority for any later physical run: Human Architect
 
@@ -450,3 +450,32 @@ non-executable because the Human Architect explicitly withheld Physical-Gate aut
 separate exact-bound authorization is mandatory. `DA3-PHYS-01/02/03` stay P1 open. No run,
 installation/uninstall, ADB/loopback, device/Tag interaction, retry, repair or resume is
 authorized.
+
+## 17. Later complete fresh-run authority and final disposition
+
+After Human-acceptance publication `d2dba78344bf5b8234d62a905d69de315d5d4e4c`, tree
+`ea6772944c3fd71c1e0f1d40d71a04e441b449fd`, passed exact-head run `29987351521`, attempt 1,
+12/12, the Human Architect separately granted a new one-time complete fresh V5 authority on the
+unchanged Product/APK/device/Tag binding and the corrected operator controls in this runbook.
+
+The final counted run started from fresh package/mapping/listener/database/mutable-row zero state
+and passed:
+
+- exact immutable artifact/device/CI preflight;
+- seed-only two-Customer/two-Tag setup and the clean same-APK reinstall boundary;
+- Gate A Start/Stop, append-only correction and all four mandatory CSV stop points;
+- Gate B online Start, true-offline A→cutover→A→B FIFO, exact durable outcomes and persisted review
+  marker; and
+- Gate C ordered partial/complete no-change adjudication, exact marker retention/clear, cold-ready
+  persistence and unchanged original reconciliation evidence.
+
+Both Human sessions signed out and complete cleanup proved zero synthetic package, approved
+mappings, four scoped listeners, disposable database/schema/ledger, generated roles, credential
+clipboard and task-created worktree. Full safe aggregates and disclosure-safe details are in
+`ADO/05_Evidence/Development_Assignment_03_Physical_Validation_Evidence.md` Sections 28–34.
+
+The complete fresh DA3-V5 Human Physical Gate is **PASSED**. The one-time authority is consumed.
+This runbook is non-executable again: no retry, repair, resume or new run is authorized.
+`DA3-PHYS-01/02/03` are closure candidates, while DA3 and DT-069–DT-074 remain open pending
+focused ADO publication, exact-head CI and independent final review. Production, production data,
+deployment and distribution remain unauthorized.

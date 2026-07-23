@@ -1,6 +1,6 @@
 # Development Assignment 3 — V5 Physical Validation Evidence
 
-- Status: **THREE RUNS FAILED CLOSED; ALL THREE P1 FINDINGS OPEN; DA3-PHYS-03 FOCUSED ADO-ONLY CORRECTION AND ZERO-FINDING INDEPENDENT RE-REVIEW ARCHIVED/CI-GREEN AND HUMAN-ACCEPTED; NEW EXACT-BOUND AUTHORIZATION REQUIRED; NEW RUN UNAUTHORIZED**
+- Status: **COMPLETE FRESH DA3-V5 HUMAN PHYSICAL GATE PASSED; DA3-PHYS-01/02/03 PHYSICAL CLOSURE CANDIDATE; ADO PUBLICATION, EXACT-HEAD CI AND INDEPENDENT FINAL REVIEW PENDING; NEW RUN UNAUTHORIZED**
 - Date: 2026-07-23
 - Owner: Technical Lead
 - Human observer and approval authority: Human Architect
@@ -26,9 +26,8 @@
   `71966b09f266c0cb3c1bba1eb0f71e97c1e8ea5b`
 - Independent-correction-review publication CI: GitHub Actions run `29937437746`, attempt 1,
   12/12 successful
-- Physical result: first run failed at Gate A; replacement failed during setup; third run reached
-  corrected setup/reinstall and Gate-A actions but omitted mandatory CSV content proof and failed
-  authentication with a mismatched clipboard credential before Gate B
+- Physical result: three historical runs failed closed; a later separately authorized complete
+  fresh run passed exact preflight, corrected setup/reinstall and Gates A–C with complete cleanup
 - Unauthorized throughout: production, production data, deployment and distribution
 
 ## 1. Exact Human authority and boundary
@@ -682,3 +681,185 @@ Architect expressly withheld Physical-Gate authority. No run, installation/unins
 ADB/loopback, device/Tag interaction, retry, repair or resume is authorized. A later complete
 fresh V5 requires a new separate exact-bound Human authorization. Production, production data,
 deployment and distribution remain unauthorized.
+
+## 28. Later complete fresh-run authority and exact binding
+
+After Human-acceptance publication
+`d2dba78344bf5b8234d62a905d69de315d5d4e4c`, tree
+`ea6772944c3fd71c1e0f1d40d71a04e441b449fd`, passed exact-head GitHub Actions run
+`29987351521`, attempt 1, 12/12, the Human Architect separately authorized one complete fresh V5
+run. The authority bound the full already documented Product/Evidence/correction/review chain,
+including Product `6eb68a3b4f9567600e12ec5a4f4b72ca4da99dca`, tree
+`bb8564fd0911d2b32dccb776f4a3f938621ee052`, and the unchanged read-only APK:
+
+- 95,437,611 bytes, mode `0444`, SHA-256
+  `215b4c924f0b770248a36d188f341efe62278527e1cad1af6cc1babdcc1f39b1`;
+- package `com.tim180201.mobile.synthetic`, version `1.0.0`/code `1`, minSdk 24, targetSdk 36;
+- exactly one v2 signer, certificate SHA-256
+  `fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c`; and
+- the 2,206-byte mode-`0444` manifest, SHA-256
+  `07f0e5a116e76ddd9c17dcf66aa5bf5f4fbf0e1fbd4e152db13a8065b4b747d6`.
+
+The approved physical set remained Galaxy A33 5G (`SM-A336B`), Android 15/API 35, USB, NFC on,
+and only the two synthetic NTAG213 fingerprints `B55E8B6AEB30` and `32A54C8F2F29`. Only the two
+seed Customers were permitted. Both installations, the intervening scoped disconnect, uninstall
+of only the synthetic package, exact same-APK reinstall, runbook-bounded ADB/loopback, Gates A–C
+and mandatory cleanup were authorized. Retry, repair, resume, production, production data,
+deployment and distribution were not.
+
+Only the final complete fresh run below supplies closure evidence. Earlier abandoned operator
+sessions after `d2dba78` are not reused; the final run started from a newly proved package,
+mapping, listener, database and mutable-row zero state under a new one-time Human authorization
+on the identical binding and boundaries.
+
+## 29. Fresh preflight, setup and clean identity boundary
+
+The Technical Lead independently revalidated every carried commit/tree/CI binding, the APK,
+manifest, signer, package/version/runtime contract and the single approved USB device. Harness and
+Admin Web were built and run from an isolated sparse detached worktree at exact Product
+`6eb68a3`; the protected `research/` path was excluded from every worktree check and was never
+read, listed, searched or changed.
+
+The two existing Customers were used without creating another Customer. Human-observed Android
+setup assigned:
+
+| Tag | Label | Customer | Safe fingerprint |
+|---|---|---|---|
+| A | `DA3 V5 TAG A` | `Synthetic Android Customer` | `B55E8B6AEB30` |
+| B | `DA3 V5 TAG B` | `Synthetic Reassignment Target` | `32A54C8F2F29` |
+
+The exact prerequisite aggregate passed: two Customers, two Tags, two active Assignments, two
+Administration Receipts, four setup AuditEvents and zero lifecycle/DA3 rows. After Administrator
+sign-out, the scoped disconnect, uninstall and package/mapping zero proof passed. The same staged
+APK was revalidated, reinstalled and produced exactly one package plus the two approved mappings;
+the server setup aggregate remained unchanged. Employee sign-in on the clean installation reached
+`Bereit zum Scannen` without a protected-pending state.
+
+The password remained memory-only. Every password injection used in this final run followed a
+live-session SHA-256 binding result of `match`; no digest or secret was emitted. Fixed synthetic
+emails did not mutate the credential clipboard.
+
+## 30. Gate A — append-only correction and exact effective export
+
+Human observation produced one real Tag-A Start and Stop. The safe aggregate then contained two
+WorkEvents, two Canonical Decisions, two Sync Receipts, one stopped TimeEntry and six AuditEvents.
+Admin Web corrected:
+
+- `2026-07-23T10:39:16.581` to `2026-07-23T10:38:16.581`;
+- `2026-07-23T10:39:50.877` to `2026-07-23T10:38:50.877`; and
+- reason `DA3 V5 correction observation`.
+
+Exactly one revision, correction command receipt and correction AuditEvent were appended; the base
+lifecycle rows remained unchanged. Before progress or deletion, the downloaded 523-byte CSV was
+checked in memory and all four mandatory stop points passed:
+
+| Assertion | Result |
+|---|---|
+| CSV-v1 columns | exact match |
+| Formula-safe dialect | exact match |
+| Effective row count | exactly 1 |
+| Effective timestamps | both corrected values exact |
+
+The file SHA-256 was
+`c97d871dbf00d4277fc398cf7d5013e75c37a6a2b5eff0a0760cb627d9214608`. It was deleted only
+after all four assertions. Post-export state was eight AuditEvents, one revision, one correction
+receipt and one export audit, with the original two WorkEvents/Decisions/Receipts and one stopped
+TimeEntry unchanged. Gate A passed.
+
+## 31. Gate B — ordered offline review predecessor
+
+An online Tag-B scan first created the second started TimeEntry. The exact safe state was then
+three WorkEvents, three Decisions, three Sync Receipts, two TimeEntries, one stopped entry and nine
+AuditEvents. Android was force-stopped, disconnected only from the two approved mappings and cold
+launched into `Offline bereit`.
+
+The Human then scanned Tag A before cutover, reassigned Tag A in Admin Web to
+`Synthetic Reassignment Target`, scanned stale Tag A and finally Tag B. The cutover appended one
+Assignment, one Administration Receipt and two AuditEvents. Restoring only the approved mappings
+drained the FIFO to zero with these durable outcomes in exact order:
+
+1. `active_entry_for_other_target_rejected`;
+2. `review_pending/historical_configuration_not_valid`; and
+3. `review_pending/predecessor_requires_review`.
+
+Only the first received a canonical Decision; neither review-pending item created a TimeEntry.
+Final Gate-B state was six WorkEvents, four Decisions, six Sync Receipts, two TimeEntries with one
+stopped, three Assignments, three Administration Receipts, fourteen AuditEvents and one unresolved
+review predecessor. Mobile displayed `Sichere Prüfung erforderlich` with zero local items, and the
+same state persisted after force-stop/cold relaunch. A disclosure-safe in-memory fingerprint of
+all six offline reconciliations was retained for the later non-mutation comparison. Gate B passed.
+
+## 32. Gate C — ordered partial retention and complete clear
+
+Admin Web returned exactly two server-ordered reviews. The Human first confirmed the oldest
+`Synthetic Android Customer` item with `historical_configuration_not_valid`, resolution
+`Keine Arbeitszeit ändern` and reason `DA3 V5 partial prefix observation`. Server state then had
+one adjudication, one unresolved predecessor, two total time-review command receipts and fifteen
+AuditEvents. Mobile correctly retained `Sichere Prüfung erforderlich` with zero local items.
+
+The remaining `Synthetic Reassignment Target` item with `predecessor_requires_review` was then
+confirmed with the same no-change resolution and reason `DA3 V5 complete prefix observation`.
+Exact final state was:
+
+| Aggregate | Count |
+|---|---:|
+| Customers / Tags / Assignments | 2 / 2 / 3 |
+| Administration Receipts / AuditEvents | 3 / 16 |
+| WorkEvents / Canonical Decisions / Sync Receipts | 6 / 4 / 6 |
+| TimeEntries / stopped TimeEntries | 2 / 1 |
+| Revisions / export audits | 1 / 1 |
+| Review adjudications / unresolved predecessors | 2 / 0 |
+| Total time-review command receipts | 3 |
+
+The original six offline reconciliation rows matched the pre-adjudication fingerprint exactly.
+Authenticated Mobile cleared only after the server high-water proof, reached
+`Bereit zum Scannen` with zero local items and no review marker, and retained that exact state
+after a verified cold relaunch. Gate C passed.
+
+## 33. Sign-out, cleanup and physical disposition
+
+The Human signed out Mobile and Admin Web and reloaded the Web page. The generated CSV had already
+been deleted. The normal Web/Harness stop request timed out only at the orchestration-response
+layer after both processes had exited; independent process and listener checks made the cleanup
+state unambiguous and no Gate action was retried.
+
+The scoped disconnect helper removed only the two approved mappings; uninstall of only
+`com.tim180201.mobile.synthetic` returned `Success`. Final proof was:
+
+- synthetic package `0`, approved reverse mappings `0`;
+- listeners on 3000, 3001, 5173 and 54321 each `0`;
+- disposable database `0`, `taptime_server` schema/migration ledger `0`, generated runtime roles
+  `0`;
+- credential clipboard bytes `0`, detached-worktree processes `0`; and
+- the exact task-created detached worktree and temporary directory removed.
+
+The pre-existing PostgreSQL service and unrelated device state remained intact. Final repository
+proof was `main == origin/main == d2dba78344bf5b8234d62a905d69de315d5d4e4c`, tree
+`ea6772944c3fd71c1e0f1d40d71a04e441b449fd`, with zero tracked delta under the mandatory
+`research/`-excluding pathspec. Existing untracked user-owned `app.json` was preserved without
+content inspection.
+
+The Human confirmed every required UI observation and, after the Technical Lead reported the
+complete pass and cleanup, directed the formal synchronization to proceed. The complete fresh
+DA3-V5 Human Physical Gate is **PASSED**. `DA3-PHYS-01/02/03` are physical-closure candidates;
+DA3 and DT-069–DT-074 remain open until focused publication, exact-head CI and independent final
+review approve this evidence. The one-time authority is consumed and no new run is authorized.
+Production, production data, deployment and distribution remain unauthorized.
+
+## 34. Change impact and AVS for this synchronization
+
+- Baseline: `d2dba78344bf5b8234d62a905d69de315d5d4e4c`, tree
+  `ea6772944c3fd71c1e0f1d40d71a04e441b449fd`.
+- Scope: only authoritative ADO Markdown truth synchronization; no Product source, schema,
+  migration, dependency, lockfile, workflow, helper, configuration, harness, generated runtime
+  input or artifact changes.
+- Risk class: AVS **R0** for the repository delta; the carried physical observation remains
+  release-critical.
+- V0: exact changed-file/scope, whitespace, reference, authority/status, disclosure, protected-path
+  exclusion and tracked-state checks are mandatory before publication.
+- V1/V2/V3: omitted because no executable input changed. Product and V5 tests/builds/artifact
+  evidence are carried under their exact existing bindings, not claimed as freshly executed.
+- V4: complete exact-head CI is required after publication because this is a Physical-Gate
+  decision point.
+- Independent review: mandatory exact-delta/final physical review before DA3, DT-069–DT-074 or the
+  three physical findings close.
