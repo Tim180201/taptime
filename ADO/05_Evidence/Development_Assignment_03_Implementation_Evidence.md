@@ -291,6 +291,19 @@ The non-executable correction/review archive was published as
 `+465/-59`. AVS R0/V0 passed; V1–V3 remained inapplicable. Exact-head run `29985219725`, push,
 attempt 1, passed 12/12.
 
-This does not change or freshly reproduce any implementation evidence. Independent exact-delta
-re-review remains pending. All three physical P1 findings, DA3 and DT-069–DT-074 remain open, and
-no Physical Gate, retry, production, production-data, deployment or distribution is authorized.
+This does not change or freshly reproduce any implementation evidence. All three physical P1
+findings, DA3 and DT-069–DT-074 remain open, and no Physical Gate, retry, production,
+production-data, deployment or distribution is authorized.
+
+## 17. DA3-PHYS-03 correction independent re-review — non-executable evidence
+
+Independent exact-delta re-review of correction `9424a588`/tree `f2d9a875`, Evidence sync
+`e025a2f`/tree `4485a43` and exact-head runs `29985219725`/`29985663622` returned
+`APPROVED FOR DA3-PHYS-03 ADO OPERATOR-CONTROL CORRECTION` with zero open P0–P3 review findings.
+It independently confirmed that the reviewed range changes only 12 ADO Markdown files and no
+Product, schema, dependency, workflow, helper, harness or APK.
+
+This is carried governance Evidence, not fresh implementation or Physical evidence. Review
+archival/CI and separate later Human acceptance remain required. `DA3-PHYS-01/02/03`, DA3 and
+DT-069–DT-074 remain open; no retry, Physical Gate, production, production data, deployment or
+distribution is authorized.

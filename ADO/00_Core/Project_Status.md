@@ -1,6 +1,6 @@
 # Project Status
 
-Status: CORE ROADMAP V2 BLOCK A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2, BLOCK D, E1 AND NARROW E2A COMPLETE FOR THEIR RECORDED SCOPES — DEVELOPMENT ASSIGNMENT 1 AND DT-060–DT-062 CLOSED FOR THE AUTHORIZED LOCAL ANDROID/REPOSITORY/SYNTHETIC-SERVER SCOPE — DEVELOPMENT ASSIGNMENT 2 AND DT-063–DT-068 CLOSED FOR THE AUTHORIZED LOCAL SETUP-INTEGRATION/EXPORT-BACKEND SCOPE — DA3 IMPLEMENTATION/V5 ENABLEMENT AND DA3-PHYS-01/02 CORRECTIONS INDEPENDENTLY APPROVED; THREE V5 RUNS FAILED CLOSED, LATEST WITH OPERATOR-CONTROL FINDING DA3-PHYS-03 P1 — DA3-PHYS-03 FAILURE SYNCHRONIZATION INDEPENDENTLY APPROVED; FOCUSED ADO-ONLY CORRECTION PUBLISHED AND EXACT-HEAD-CI GREEN; INDEPENDENT EXACT-DELTA RE-REVIEW PENDING — DA3 AND DT-069–DT-074 REMAIN OPEN; NEW EXACT-BOUND PHYSICAL AUTHORIZATION REQUIRED — PRODUCTION, PRODUCTION DATA, PILOT-OPERATIONAL ONBOARDING, PROFESSIONAL UI PRODUCTIZATION, LEGAL/PRIVACY APPROVAL, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
+Status: CORE ROADMAP V2 BLOCK A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2, BLOCK D, E1 AND NARROW E2A COMPLETE FOR THEIR RECORDED SCOPES — DEVELOPMENT ASSIGNMENT 1 AND DT-060–DT-062 CLOSED FOR THE AUTHORIZED LOCAL ANDROID/REPOSITORY/SYNTHETIC-SERVER SCOPE — DEVELOPMENT ASSIGNMENT 2 AND DT-063–DT-068 CLOSED FOR THE AUTHORIZED LOCAL SETUP-INTEGRATION/EXPORT-BACKEND SCOPE — DA3 IMPLEMENTATION/V5 ENABLEMENT AND DA3-PHYS-01/02 CORRECTIONS INDEPENDENTLY APPROVED; THREE V5 RUNS FAILED CLOSED, LATEST WITH OPERATOR-CONTROL FINDING DA3-PHYS-03 P1 — DA3-PHYS-03 FOCUSED ADO-ONLY CORRECTION PUBLISHED/CI-GREEN AND INDEPENDENTLY RE-REVIEWED `APPROVED` WITH ZERO OPEN P0–P3 REVIEW FINDINGS; REVIEW ARCHIVAL/CI AND HUMAN ACCEPTANCE/NEW EXACT-BOUND AUTHORIZATION PENDING — DA3 AND DT-069–DT-074 REMAIN OPEN — PRODUCTION, PRODUCTION DATA, PILOT-OPERATIONAL ONBOARDING, PROFESSIONAL UI PRODUCTIZATION, LEGAL/PRIVACY APPROVAL, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
 Date: 2026-07-23
 Owner: Human Architect + Technical Lead
 
@@ -87,7 +87,11 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   passed exact-head run `29985219725`, attempt 1, 12/12. The runbook now makes every required CSV
   assertion a stop point, binds each password injection to a live-session-only SHA-256 digest,
   keeps fixed emails off the credential clipboard, fails before authentication on mismatch and
-  excludes `research/` from every worktree check. No Physical Gate or new run is authorized.
+  excludes `research/` from every worktree check. Evidence sync `e025a2f`, tree `4485a43`, passed
+  exact-head run `29985663622`, attempt 1, 12/12. Independent exact-delta re-review returned
+  `APPROVED FOR DA3-PHYS-03 ADO OPERATOR-CONTROL CORRECTION` with zero open P0–P3 review
+  findings. Review archival/publication CI and subsequent separate Human acceptance plus a new
+  exact-bound authority remain required. No Physical Gate or new run is authorized.
   Production, production data, deployment and distribution remain unauthorized.
 - **Development Assignment 2 and DT-063–DT-068 are independently closed for their authorized local
   setup-integration and export-backend scopes.** The Human-accepted implementation baseline is
@@ -490,9 +494,12 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   `DA3-PHYS-01/02`. Independent review of the failure synchronization/candidate returned the exact
   approved verdict with zero open P0–P3, and the Human Architect authorized the focused ADO-only
   operator-control correction. Publication `9424a588`/tree `f2d9a875` passed exact-head run
-  `29985219725` 12/12; independent exact-delta re-review remains pending. No retry/new run is
-  authorized. Production, production data, deployment, distribution and DT-069–DT-074 closure
-  remain unauthorized or pending their distinct gates.
+  `29985219725` 12/12 and Evidence sync `e025a2f`/tree `4485a43` passed run `29985663622` 12/12.
+  Independent exact-delta re-review approved the correction with zero open P0–P3 review findings;
+  its archival/publication CI and later separate Human acceptance plus a new exact-bound
+  authorization remain required. No retry/new run is authorized. Production, production data,
+  deployment, distribution and DT-069–DT-074 closure remain unauthorized or pending their
+  distinct gates.
 - Repository Health Sprint 001 and Repository Maintenance Sprint 002 are completed; known repository consistency findings from that era have been closed or explicitly logged as remaining findings for Technical Lead disposition.
 - `frogs-zeiterfassung` remains technical reference evidence, not a source code baseline.
 - Root `README.md`, `CHANGELOG.md`, and `Roadmap.md` still describe a pre-Sprint-001 repository state and have not yet been refreshed — this is a known, already-tracked finding (Product Readiness Roadmap, "Now" milestone, Engineering Track), not an oversight of this update.
@@ -523,10 +530,11 @@ Two Epics are concurrently Active, per EP-009's own stated relationship to the r
 
 1. Preserve Development Assignment 1/DT-060–DT-062 and Development Assignment 2/DT-063–DT-068 as
    completed only for their exact independently approved local scopes.
-2. Obtain the independent exact-delta re-review of published DA3-PHYS-03 correction
-   `9424a588`/tree `f2d9a875` and exact-head run `29985219725` 12/12. Do not reuse any partial
-   observation or start another run without a new separate exact-bound Human authority. Close no
-   DA3 task before a complete accepted physical disposition and exact closure evidence.
+2. Archive and publish the approved zero-finding independent exact-delta re-review of the
+   DA3-PHYS-03 correction and its Evidence sync. After its exact-head CI, obtain separate Human
+   acceptance and a new exact-bound authority before any complete fresh run. Do not reuse any
+   partial observation or close any DA3 task before complete accepted physical disposition and
+   exact closure evidence.
 3. Keep the real production endpoint/CA, one-human operator IAM inventory, short-lived credential
    delivery/revocation and controlled execution evidence as explicit later deployment gates.
 4. Preserve every closed C3B/C3C/C3D/C3E1/C3E2/DA1/DA2 boundary; keep DA4 UI productization,

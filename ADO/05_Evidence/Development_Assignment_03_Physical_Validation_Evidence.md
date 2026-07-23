@@ -1,6 +1,6 @@
 # Development Assignment 3 — V5 Physical Validation Evidence
 
-- Status: **THREE RUNS FAILED CLOSED; ALL THREE P1 FINDINGS OPEN; DA3-PHYS-03 FAILURE SYNCHRONIZATION/CANDIDATE INDEPENDENTLY APPROVED; FOCUSED ADO-ONLY CORRECTION PUBLISHED AND EXACT-HEAD-CI GREEN; INDEPENDENT RE-REVIEW PENDING; NEW RUN UNAUTHORIZED**
+- Status: **THREE RUNS FAILED CLOSED; ALL THREE P1 FINDINGS OPEN; DA3-PHYS-03 FOCUSED ADO-ONLY CORRECTION PUBLISHED/CI-GREEN AND INDEPENDENTLY RE-REVIEWED `APPROVED` WITH ZERO OPEN P0–P3 REVIEW FINDINGS; REVIEW ARCHIVAL/CI AND HUMAN ACCEPTANCE/NEW EXACT-BOUND AUTHORIZATION PENDING; NEW RUN UNAUTHORIZED**
 - Date: 2026-07-23
 - Owner: Technical Lead
 - Human observer and approval authority: Human Architect
@@ -644,9 +644,25 @@ references, authority/status, disclosure and all required Runbook-control assert
 not run because no executable input changed.
 
 Exact-head GitHub Actions V4 run `29985219725`, push, attempt 1, passed 12/12 on the publication
-commit. The Product/APK/manifest and their carried evidence are unchanged. Independent exact-delta
-re-review of the correction plus this Evidence sync is mandatory.
+commit. Evidence sync `e025a2f860e21f968439a239525c55f63bd258a5`, tree
+`4485a43e26de6db3976bbffbd1ade62580613ea1`, passed exact-head run `29985663622`, attempt 1,
+12/12. The Product/APK/manifest and their carried evidence are unchanged.
 
 `DA3-PHYS-01/02/03`, Gate A, DA3 and DT-069–DT-074 remain open. No failed-run observation is
 reused. Retry, repair, resume, Physical Gate, installation/ADB, production, production data,
 deployment and distribution remain unauthorized.
+
+## 26. DA3-PHYS-03 correction independent exact-delta re-review
+
+Independent read-only review reproduced the exact correction and Evidence deltas, both new
+exact-head 12/12 CI runs, all 15 carried chain bindings, APK/manifest properties, the prior review
+archive and every required CSV, credential-binding and protected-path control. Its verdict is
+`APPROVED FOR DA3-PHYS-03 ADO OPERATOR-CONTROL CORRECTION` with zero open P0/P1/P2/P3 review
+findings.
+
+The review changes no physical result and closes no physical finding. Review archival/publication
+and exact-head CI are the only current authorized actions. `DA3-PHYS-01/02/03`, Gate A, DA3 and
+DT-069–DT-074 remain open. No failed-run observation is reusable and no retry, repair, resume,
+installation/ADB, Physical Gate, production, production data, deployment or distribution is
+authorized. A later complete fresh V5 requires separate Human acceptance and a new exact-bound
+authorization.

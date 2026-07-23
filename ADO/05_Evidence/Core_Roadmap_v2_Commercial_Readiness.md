@@ -753,3 +753,17 @@ implementation, artifact or readiness rating. `DA3-PHYS-01/02/03`, DA3 and DT-06
 open. A new complete fresh V5 still requires separate exact-bound Human authorization. Physical
 Gate, production, production data, deployment, distribution, legal/privacy approval and DA4
 productization remain unauthorized or separately gated.
+
+## 32. Progress Update – 2026-07-23 DA3-PHYS-03 Correction Independent Re-Review
+
+Independent read-only exact-delta re-review bound correction `9424a588`/tree `f2d9a875`, Evidence
+sync `e025a2f`/tree `4485a43`, their exact ADO-only deltas and exact-head runs `29985219725` and
+`29985663622`, each 12/12. It returned
+`APPROVED FOR DA3-PHYS-03 ADO OPERATOR-CONTROL CORRECTION` with zero open P0–P3 review findings
+and independently confirmed the carried chain, immutable artifact and all Runbook controls.
+
+This changes no roadmap completion, implementation, artifact or readiness rating.
+`DA3-PHYS-01/02/03`, DA3 and DT-069–DT-074 remain open. Review archival/CI and separate later
+Human acceptance plus a new exact-bound authority are required before any complete fresh V5.
+Physical Gate, production, production data, deployment, distribution, legal/privacy approval and
+DA4 productization remain unauthorized or separately gated.

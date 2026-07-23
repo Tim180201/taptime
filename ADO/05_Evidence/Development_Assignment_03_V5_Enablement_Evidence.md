@@ -1,6 +1,6 @@
 # Development Assignment 3 — V5 Enablement Evidence
 
-- Status: **V5 ENABLEMENT APPROVED; THREE RUNS FAILED CLOSED; DA3-PHYS-03 FAILURE SYNCHRONIZATION/CANDIDATE INDEPENDENTLY APPROVED; FOCUSED ADO-ONLY CORRECTION PUBLISHED AND EXACT-HEAD-CI GREEN; INDEPENDENT RE-REVIEW PENDING; NEW RUN UNAUTHORIZED**
+- Status: **V5 ENABLEMENT APPROVED; THREE RUNS FAILED CLOSED; DA3-PHYS-03 FOCUSED ADO-ONLY CORRECTION PUBLISHED/CI-GREEN AND INDEPENDENTLY RE-REVIEWED `APPROVED` WITH ZERO OPEN P0–P3 REVIEW FINDINGS; REVIEW ARCHIVAL/CI AND HUMAN ACCEPTANCE/NEW EXACT-BOUND AUTHORIZATION PENDING; NEW RUN UNAUTHORIZED**
 - Date: 2026-07-23
 - Authorized enablement baseline commit: `0b0d04034c88829fdc5c548b057e74554d4ee197`
 - Authorized enablement baseline tree: `eee26501fd714738aa3ca106d93d5088261206e3`
@@ -368,7 +368,24 @@ Focused ADO-only publication `9424a588683fc78cae1d47861366eff25d501952`, tree
 `+465/-59`. R0/V0 passed and V1–V3 were correctly omitted because no executable input changed.
 Exact-head run `29985219725`, push, attempt 1, passed all 12 jobs.
 
-Independent exact-delta re-review remains mandatory. The publication changes no V5 observation,
-Product, schema, dependency, workflow, helper, harness or APK. `DA3-PHYS-01/02/03`, DA3 and
-DT-069–DT-074 remain open; no new V5, retry, repair, resume, Physical Gate, production,
-production-data, deployment or distribution action is authorized.
+Evidence sync `e025a2f860e21f968439a239525c55f63bd258a5`, tree
+`4485a43e26de6db3976bbffbd1ade62580613ea1`, passed exact-head run `29985663622`, attempt 1,
+12/12. Independent exact-delta re-review returned
+`APPROVED FOR DA3-PHYS-03 ADO OPERATOR-CONTROL CORRECTION` with zero open P0–P3 review findings.
+
+The publication/review changes no V5 observation, Product, schema, dependency, workflow, helper,
+harness or APK. Review archival/CI and later separate Human acceptance remain required.
+`DA3-PHYS-01/02/03`, DA3 and DT-069–DT-074 remain open; no new V5, retry, repair, resume,
+Physical Gate, production, production-data, deployment or distribution action is authorized.
+
+## 15. DA3-PHYS-03 correction independent re-review
+
+The independent reviewer verified the exact 12-file correction, exact 12-file Evidence sync,
+combined ADO-only delta, both exact-head 12/12 CI runs, all carried bindings, unchanged artifact,
+prior review fidelity and every authorized operator-control requirement. Verdict:
+`APPROVED FOR DA3-PHYS-03 ADO OPERATOR-CONTROL CORRECTION`, zero open P0/P1/P2/P3 review
+findings.
+
+The review is not a Physical result or Human gate. Its archival/publication CI is pending.
+`DA3-PHYS-01/02/03`, DA3 and DT-069–DT-074 remain open, and any new complete V5 requires separate
+Human acceptance and exact-bound authorization.

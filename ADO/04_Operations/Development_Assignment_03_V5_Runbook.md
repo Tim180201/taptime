@@ -1,6 +1,6 @@
 # Development Assignment 3 — V5 Human Functional/Physical Gate Runbook
 
-Status: **DA3-PHYS-03 ADO-ONLY OPERATOR-CONTROL CORRECTION PUBLISHED AND EXACT-HEAD-CI GREEN; INDEPENDENT RE-REVIEW PENDING; NO RETRY OR NEW RUN AUTHORIZED**
+Status: **DA3-PHYS-03 ADO-ONLY OPERATOR-CONTROL CORRECTION PUBLISHED/CI-GREEN AND INDEPENDENTLY RE-REVIEWED `APPROVED` WITH ZERO OPEN P0–P3 REVIEW FINDINGS; REVIEW ARCHIVAL/CI AND HUMAN ACCEPTANCE/NEW EXACT-BOUND AUTHORIZATION PENDING; NO RETRY OR NEW RUN AUTHORIZED**
 Owner: Technical Lead
 Approval authority for any later physical run: Human Architect
 
@@ -417,5 +417,20 @@ Technical-Lead-approved publication `9424a588683fc78cae1d47861366eff25d501952`, 
 `+465/-59`. AVS R0/V0 passed; V1–V3 were inapplicable because no executable input changed.
 Exact-head run `29985219725`, push, attempt 1, passed 12/12.
 
-Independent exact-delta re-review remains mandatory. No correction retry, Physical Gate or
-complete fresh V5 is authorized by this publication.
+Independent exact-delta re-review of correction plus Evidence sync `e025a2f`, tree `4485a43`,
+returned `APPROVED FOR DA3-PHYS-03 ADO OPERATOR-CONTROL CORRECTION` with zero open P0–P3 review
+findings. Review archival/publication CI and separate later Human acceptance remain mandatory. No
+correction retry, Physical Gate or complete fresh V5 is authorized by this publication or review.
+
+## 15. DA3-PHYS-03 correction independent re-review
+
+The independent reviewer reproduced the correction/Evidence exact deltas, exact-head runs
+`29985219725` and `29985663622` at 12/12, all carried bindings, immutable APK/manifest and every
+CSV, credential-binding and protected-path control in this runbook. Verdict:
+`APPROVED FOR DA3-PHYS-03 ADO OPERATOR-CONTROL CORRECTION`, zero open P0/P1/P2/P3 review
+findings.
+
+This runbook remains non-executable. The positive review is not Human acceptance and grants no
+retry, repair, resume, installation/ADB or Physical Gate. Review archival and exact-head CI must
+complete before the Human Architect can separately accept the review and issue a new exact-bound
+complete-run authority.
