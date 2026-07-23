@@ -1,7 +1,7 @@
 # Development Assignment 3 — V5 Enablement Evidence
 
-- Status: **V5 ENABLEMENT APPROVED; TWO RUNS FAILED CLOSED; DA3-PHYS-02 ADO CORRECTION INDEPENDENTLY APPROVED/CI-GREEN AND HUMAN-ACCEPTED; NEW EXACT-BOUND AUTHORIZATION REQUIRED; NEW RUN GATED**
-- Date: 2026-07-22
+- Status: **V5 ENABLEMENT APPROVED; THREE RUNS FAILED CLOSED; LATEST DA3-PHYS-03 P1 REQUIRES FAILURE REVIEW AND SEPARATE CORRECTION/NEW-RUN AUTHORITY**
+- Date: 2026-07-23
 - Authorized enablement baseline commit: `0b0d04034c88829fdc5c548b057e74554d4ee197`
 - Authorized enablement baseline tree: `eee26501fd714738aa3ca106d93d5088261206e3`
 - Product candidate commit: `6eb68a3b4f9567600e12ec5a4f4b72ca4da99dca`
@@ -15,12 +15,13 @@
 - Owner: Technical Lead
 - Authorized enablement: focused local DA3 V5 harness/runbook, DA3-V5-F01, regression tests, AVS
   V0–V4 and independent review
-- Later physical authority: one exact-bound run authorized and consumed by a failed Gate A
+- Later physical authority: three separately exact-bound runs authorized and consumed by their
+  respective failed complete runs
 - Current correction: operational clean exact-artifact reinstall authorized on
   `f0c9db3`/tree `27cabe6`; publication `f7a2b1e`/tree `a8caed6` passed AVS V0–V4 and
   independent review with zero P0–P3
-- Unauthorized now: any further correction beyond exact approved ADO wording, new run, production,
-  production data, deployment and distribution
+- Unauthorized now: DA3-PHYS-03 correction, retry/new run, production, production data,
+  deployment and distribution
 
 ## 1. Authority and inherited evidence
 
@@ -166,7 +167,7 @@ zero open P0/P1/P2/P3. Full record:
 | V2 | Passed | complete schema 128, review 10, export 14, API 224, offline 13, Admin Web 52 and Mobile 421 suites plus affected contracts/harness |
 | V3 | Passed | 1,758 tests across all 19 workspaces, two explicit optional B1 skips, all 19 typechecks/builds, migration clean/replay/ledger, Admin Web build, Android export, audit and cleanup |
 | V4 | Passed | product `6eb68a3`/tree `bb8564f` and Evidence `f4e2eeb`/tree `20e5715`; exact-head runs `29927309720` and `29928717227` passed 12/12; read-only APK/manifest bound; independent exact-SHA review `APPROVED` with zero open P0–P3 |
-| V5 | **Failed closed twice** | first run failed Gate A with `DA3-PHYS-01`; the later replacement failed during prerequisite setup with `DA3-PHYS-02` before the corrected boundary or Gates A–C; both retained zero unauthorized lifecycle/DA3 mutation and completed cleanup |
+| V5 | **Failed closed three times** | first run failed Gate A with `DA3-PHYS-01`; replacement failed during setup with `DA3-PHYS-02`; third run reached corrected setup/reinstall and Gate-A actions but omitted mandatory CSV content proof and used a clipboard credential mismatching the harness before Gate B (`DA3-PHYS-03`); every run cleaned up |
 
 No failed or skipped run is counted as successful candidate evidence. The independent review bound
 the exact product and Evidence heads plus both exact-head CI results and the immutable artifact.
@@ -192,6 +193,10 @@ by the harness.
 - The replacement procedure failed closed during prerequisite setup with `DA3-PHYS-02`: seeded
   Customers plus the instruction to create two Customers contradict the exact two-receipt/four-
   audit requirement. No clean-reinstall or Gate-A–C observation exists from that run.
+- The third procedure failed closed with `DA3-PHYS-03` before Gate B. Expected Gate-A UI/audit
+  state cannot pass Gate A because CSV content assertions were omitted; the later Employee login
+  used a clipboard value whose hash mismatched the harness password. No partial observation closes
+  either earlier finding.
 - The exact APK is bound to the committed, CI-green and independently approved product/Evidence
   heads, but its integrity must be recomputed immediately before any later authorized run.
 - The APK uses the expected local synthetic debug signer and is unsuitable for distribution.
@@ -199,11 +204,10 @@ by the harness.
   high or critical advisory is accepted silently.
 - DA3 and DT-069–DT-074 remain open. This candidate does not close a roadmap item.
 
-The authorized enablement reached V4 and independent approval. The first V5 run and the later
-replacement both failed closed and consumed their one-run authorities. At that failed-run
-checkpoint, the next step was independent review of the replacement failure synchronization and
-focused procedure correction; Section 9 records the later approval and Human authority. No fresh
-run is currently authorized.
+The authorized enablement reached V4 and independent approval. All three later V5 runs failed
+closed and consumed their one-run authorities. Sections 9–11 preserve the historical
+DA3-PHYS-02 correction/review chain; Section 12 records the latest DA3-PHYS-03 stop. No correction,
+retry or fresh run is currently authorized.
 
 ## 6. Subsequent first Physical Gate — failed closed
 
@@ -304,3 +308,28 @@ installation, ADB/loopback, device/Tag interaction and retry/resume remain unaut
 `DA3-PHYS-01`, `DA3-PHYS-02`, DA3 and DT-069–DT-074 remain open. A later fresh V5 run still
 requires a new separate exact-bound Human authorization. Production, production data, deployment
 and distribution remain unauthorized.
+
+## 12. Third V5 run — operator-control failure before Gate B
+
+Human-acceptance publication `acf79ab`, tree `f80bec9`, passed exact-head run `29946654825` 12/12.
+The Human Architect then separately authorized one complete fresh V5 against the full accepted
+chain, unchanged APK/manifest, approved Galaxy A33/tags and complete cleanup.
+
+Exact preflight, seed-only two-Tag setup, clean exact-artifact reinstall and real Gate-A actions
+reached the expected disclosure-safe aggregate: two setup receipts, eight AuditEvents, two
+WorkEvents/Decisions/sync receipts, one stopped TimeEntry, one revision/correction receipt and one
+export audit. The 523-byte CSV had SHA-256
+`5e3f6a3be99dba90b0ada36303b239dcfeb087f00184fcf08bd0da573576304e`.
+
+The complete run still failed. Mandatory CSV-v1/formula/effective-value assertions were omitted on
+incorrect Technical-Lead instruction, and the next Employee sign-in used a mutable clipboard value
+without harness-password digest comparison. Post-failure hash comparison proved mismatch. No
+Gate-B tag was presented and Gate C did not start. Complete export/clipboard/app/mapping/listener/
+schema/ledger/role/worktree cleanup passed.
+
+`DA3-PHYS-03` is P1 open against operator control, not Product code. During cleanup a prohibited
+path-scoped `git status -- research` probe emitted no protected name/content and changed nothing,
+but the boundary violation is included in the independent-review scope. Failure synchronization,
+independent review, separate Human correction authority and a later new complete-run authority are
+required. Retry, repair, resume, production, production data, deployment and distribution remain
+unauthorized.

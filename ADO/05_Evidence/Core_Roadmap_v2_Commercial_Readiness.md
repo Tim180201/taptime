@@ -699,3 +699,24 @@ This changes no readiness-domain rating, executable artifact or physical result.
 new separate exact-bound Human authorization. Installation, ADB/loopback, retry/resume,
 production, production data, deployment, distribution, legal/privacy approval and DA4
 productization remain unauthorized or separately gated.
+
+## 29. Progress Update – 2026-07-23 Development Assignment 3 Third V5 Failure
+
+Human-acceptance publication `acf79ab`, tree `f80bec9`, passed exact-head run `29946654825` 12/12.
+The Human Architect then separately authorized one complete fresh V5 run against the full accepted
+chain and unchanged APK. Exact preflight, seed-only two-Tag setup, the clean exact-artifact
+reinstall boundary and Gate-A Start/Stop, correction and export generation reached their expected
+disclosure-safe aggregate.
+
+The complete run failed closed before Gate B with `DA3-PHYS-03` P1. Required CSV content assertions
+were omitted on incorrect Technical-Lead instruction, and the later Employee login used a mutable
+clipboard value whose hash did not match the running harness password. No Gate-B tag was presented
+and Gate C did not start. Complete cleanup passed. A cleanup-time path-scoped
+`git status -- research` probe additionally violated the protected-path boundary without emitting
+protected names/content or changing state.
+
+This changes no readiness-domain rating, executable artifact or Product finding. Failed-run
+observations cannot close `DA3-PHYS-01/02`; DA3 and DT-069–DT-074 remain open. Independent failure
+review, separately authorized operator-control correction and a new separately authorized
+complete fresh V5 are required. Retry, production, production data, deployment, distribution,
+legal/privacy approval and DA4 productization remain separately gated.

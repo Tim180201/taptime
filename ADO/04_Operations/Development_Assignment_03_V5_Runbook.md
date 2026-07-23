@@ -1,6 +1,6 @@
 # Development Assignment 3 — V5 Human Functional/Physical Gate Runbook
 
-Status: **DA3-PHYS-02 FOCUSED ADO-ONLY CORRECTION INDEPENDENTLY APPROVED/CI-GREEN AND HUMAN-ACCEPTED; NEW EXACT-BOUND AUTHORIZATION REQUIRED; NO NEW RUN AUTHORIZED**
+Status: **THIRD V5 RUN FAILED CLOSED WITH DA3-PHYS-03 P1; FAILURE REVIEW AND SEPARATELY AUTHORIZED OPERATOR-CONTROL CORRECTION REQUIRED; NO RETRY OR NEW RUN AUTHORIZED**
 Owner: Technical Lead
 Approval authority for any later physical run: Human Architect
 
@@ -309,3 +309,36 @@ while explicitly withholding Physical-Gate authority. The acceptance removes onl
 acceptance prerequisite; it does not make this runbook executable. A new separate exact-bound Human
 authorization is still mandatory. `DA3-PHYS-01` and `DA3-PHYS-02` stay P1 open. No run,
 installation/uninstall, ADB/loopback, device/Tag interaction, retry, repair or resume is authorized.
+
+## 12. Third-run historical disposition and stop condition
+
+After Human-acceptance publication `acf79ab`, tree `f80bec9`, and exact-head run `29946654825`
+12/12, the Human Architect separately authorized one complete fresh run bound to the complete
+approved chain, unchanged APK/manifest, approved device/tags and every install/disconnect/cleanup
+boundary.
+
+Exact preflight, use of only the two seeded Customers, both Tag assignments, the clean exact-
+artifact reinstall boundary and the real Gate-A Start/Stop, append-only correction and export
+generation executed with the expected safe aggregate counts. The run is nevertheless failed and
+consumed:
+
+- Section 5 step 5 was not completed. The Technical Lead told the Human not to open the CSV and
+  advanced on UI/audit success, so exact CSV-v1 columns, formula-safe dialect and corrected
+  effective timestamps were never asserted.
+- Before Gate B, the Technical Lead injected a mutable clipboard value without comparing it to the
+  running harness password. After the rejected Employee sign-in, disclosure-safe SHA-256
+  comparison proved mismatch. No Gate-B tag was presented; Gate C did not start.
+- Mandatory cleanup ultimately passed with zero package, approved mappings, listeners,
+  `taptime_server` schema, migration ledger and generated runtime roles. The generated CSV and
+  clipboard value were removed.
+- A cleanup-time path-scoped `git status -- research` probe violated the explicit protected-path
+  boundary. It emitted no protected filename/content and changed nothing.
+
+`DA3-PHYS-03` is P1 open against operator-control/evidence execution. No partial observation from
+this failed run may close `DA3-PHYS-01`, `DA3-PHYS-02`, Gate A or any DA3 task.
+
+Do not execute this runbook again. First publish and independently review the exact failure
+synchronization and proposed narrow operator-control boundary. Any wording correction and every
+later complete fresh run require their own explicit Human authority, complete applicable
+verification and independent approval. Retry, repair, resume, production, production data,
+deployment and distribution remain unauthorized.

@@ -244,3 +244,21 @@ This changes no implementation source, schema, dependency, artifact, historical 
 physical observation. It grants no Physical Gate, installation, ADB, retry/resume, production,
 production-data, deployment or distribution authority. `DA3-PHYS-01`, `DA3-PHYS-02`, DA3 and
 DT-069–DT-074 remain open; a later V5 run still requires new separate exact-bound Human authority.
+
+## 14. Third V5 run failed before Gate B — 2026-07-23
+
+After Human-acceptance publication `acf79ab`/tree `f80bec9` passed run `29946654825` 12/12, the
+Human Architect separately authorized one exact-bound complete fresh V5 run. The immutable Product
+and APK did not change.
+
+The run reached corrected seed-only setup, the reviewed clean exact-artifact reinstall boundary and
+real Gate-A Start/Stop, append-only correction and export generation. It failed closed before Gate
+B under `DA3-PHYS-03` P1 because operator instructions omitted the mandatory CSV-content
+assertions and later injected a mutable clipboard value whose hash did not match the running
+harness password. No Gate-B tag was presented and Gate C did not start. Complete cleanup passed.
+
+This is no new implementation defect and changes no source/schema/dependency/artifact evidence.
+Failed-run observations do not close `DA3-PHYS-01/02`. Independent review of the failure
+synchronization and proposed operational boundary is required before any separately authorized
+correction or new run. Production, production data, deployment and distribution remain
+unauthorized.

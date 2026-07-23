@@ -1,7 +1,7 @@
 # Development Assignment 3 — V5 Physical Validation Evidence
 
-- Status: **FIRST AND REPLACEMENT RUNS FAILED CLOSED; DA3-PHYS-02 ADO CORRECTION INDEPENDENTLY APPROVED/CI-GREEN AND HUMAN-ACCEPTED; BOTH P1 FINDINGS OPEN; NEW RUN UNAUTHORIZED**
-- Date: 2026-07-22
+- Status: **THREE RUNS FAILED CLOSED; LATEST WITH DA3-PHYS-03 P1 OPERATOR-CONTROL FAILURE BEFORE GATE B; ALL THREE P1 FINDINGS OPEN; FAILURE REVIEW REQUIRED; NEW RUN UNAUTHORIZED**
+- Date: 2026-07-23
 - Owner: Technical Lead
 - Human observer and approval authority: Human Architect
 - Product commit/tree: `6eb68a3b4f9567600e12ec5a4f4b72ca4da99dca`,
@@ -26,9 +26,9 @@
   `71966b09f266c0cb3c1bba1eb0f71e97c1e8ea5b`
 - Independent-correction-review publication CI: GitHub Actions run `29937437746`, attempt 1,
   12/12 successful
-- Physical result: the first run failed at Gate A; the separately authorized replacement run
-  failed during prerequisite setup before the clean reinstall boundary; Gates A–C were not started
-  in the replacement run
+- Physical result: first run failed at Gate A; replacement failed during setup; third run reached
+  corrected setup/reinstall and Gate-A actions but omitted mandatory CSV content proof and failed
+  authentication with a mismatched clipboard credential before Gate B
 - Unauthorized throughout: production, production data, deployment and distribution
 
 ## 1. Exact Human authority and boundary
@@ -387,3 +387,204 @@ The Human Architect expressly withheld Physical-Gate authority. No run, installa
 ADB/loopback, device/Tag interaction, retry, repair or resume is authorized. A later complete fresh
 V5 run requires a new separate exact-bound Human authorization. Production, production data,
 deployment and distribution remain unauthorized.
+
+## 18. Third-run exact authority and preflight — 2026-07-22/23
+
+After review-acceptance publication
+`acf79ab257df6769d12bd489e27f721a0ae2d354`, tree
+`f80bec9a1de0a6106f7bf71b181f6930ffa5450a`, passed GitHub Actions run `29946654825`, attempt 1,
+12/12, the Human Architect separately authorized one complete fresh V5 run. The exact binding was:
+
+| Record | Commit | Tree | Exact-head CI |
+|---|---|---|---:|
+| Product | `6eb68a3b4f9567600e12ec5a4f4b72ca4da99dca` | `bb8564fd0911d2b32dccb776f4a3f938621ee052` | `29927309720`, 12/12 |
+| V5 Evidence | `f4e2eeb3bb47ed1dd3b2f0cf10fd0f725650d6ba` | `20e5715c448331f5d99536259743dccc7005dffb` | `29928717227`, 12/12 |
+| V5 review publication | `b14262691753c2c5b5772558414b7f3b6e5dc9d4` | `9aa61806bc057bf71c119d1511adbbebab3a9080` | `29930922165`, 12/12 |
+| Operational correction | `f7a2b1e159bd4715c40e3ee32e99b76c70ca9e18` | `a8caed6ebcc6f01c4b025b0b64da5be96130542a` | `29935693909`, 12/12 |
+| Correction Evidence sync | `1ed32637f44ed07f5515614bffc1e1d331f9db08` | `dc26ae74dc17997684ed712b43c019ded491da9d` | `29936204801`, 12/12 |
+| Independent correction review publication | `b8f1eb7262258a4242a4c8268969c92a05d20c55` | `71966b09f266c0cb3c1bba1eb0f71e97c1e8ea5b` | `29937437746`, 12/12 |
+| Replacement-failure synchronization | `abd58be3a6231fd7d3e298f2ec111677b53de8a0` | `b2cb2109777b223794a3808bc0e821a459a5d3b8` | `29939539390`, 12/12 |
+| DA3-PHYS-02 correction | `4d54dc2981759498de94571e2b2a4c6f134c88d5` | `ad9b6ba661dae7572a8b825fe1ceadac8c108b79` | `29941019865`, 12/12 |
+| Correction Evidence sync | `53ec1396d0cb9b7b250546ad478911c1a430dea6` | `9963960662c41c99bfcdbcbffdccfe4d4d5dbe63` | `29941415806`, 12/12 |
+| Independent correction-review archive | `030dbf6f44a7f6c03adc089b1a2f8dae73c114eb` | `8695708f82ed98a068338ac33029151ee349f1d6` | `29942397982`, 12/12 |
+| Final Evidence sync | `22ee4636b1fec83b0693fdb6f688d3191cfa04ee` | `3d70d5dd4d2cb5257fbcf3374d82485981f8f763` | `29942786556`, 12/12 |
+| Human-acceptance publication | `acf79ab257df6769d12bd489e27f721a0ae2d354` | `f80bec9a1de0a6106f7bf71b181f6930ffa5450a` | `29946654825`, 12/12 |
+
+Each run was independently re-read as exact-head 12/12. `main == origin/main == acf79ab...`, the
+tracked worktree was clean, and untracked user-owned paths were preserved.
+
+The unchanged read-only APK at the authorized path remained 95,437,611 bytes, mode `0444`, SHA-256
+`215b4c924f0b770248a36d188f341efe62278527e1cad1af6cc1babdcc1f39b1`, package
+`com.tim180201.mobile.synthetic`, version `1.0.0`/`1`, target SDK 36, with exactly one v2 signer
+certificate SHA-256 `fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c`.
+Backup/cleartext/Hermes assertions passed. The unchanged 2,206-byte mode-`0444` manifest remained
+SHA-256 `07f0e5a116e76ddd9c17dcf66aa5bf5f4fbf0e1fbd4e152db13a8065b4b747d6`.
+
+The only device was the authorized USB Galaxy A33 `SM-A336B`, Android 15/API 35 with NFC enabled.
+Package, reverse mappings, four listeners, synthetic schema/ledger/runtime roles and domain rows
+all began at zero. The two approved tag fingerprints were `B55E8B6AEB30` and `32A54C8F2F29`.
+
+Two preparation-only failures occurred before database creation, device interaction or the counted
+run: the isolated worktree initially resolved Node 26 instead of required Node 24, and an early
+harness/Web build was invoked before its dependency build order. Both were discarded; dependency
+installation and exact CI build order then passed under Node `24.17.0`. They contribute no physical
+observation.
+
+## 19. Third-run prerequisite and clean identity boundary
+
+The fresh harness began with exactly two seeded Customers and zero Tag/setup/lifecycle/DA3 rows.
+Using only the accepted seed names, the Human assigned:
+
+- Tag A / `B55E8B6AEB30` / `DA3 V5 TAG A` to `Synthetic Android Customer`; and
+- Tag B / `32A54C8F2F29` / `DA3 V5 TAG B` to `Synthetic Reassignment Target`.
+
+The exact prerequisite state was Customers 2, Tags 2, Assignments 2, administration receipts 2,
+AuditEvents 4 and zero lifecycle/revision/export/review rows. No Customer was created.
+
+The Administrator signed out. The artifact was reverified, both scoped mappings were removed,
+only `com.tim180201.mobile.synthetic` was uninstalled and package/mapping counts reached zero.
+Server setup remained unchanged. The same APK was reinstalled through the reviewed helper, exact
+package and two mappings returned, the server setup aggregate remained unchanged and the clean
+Employee installation reached the normal capture surface without `protected_pending`.
+
+These are truthful historical observations, but they cannot close `DA3-PHYS-01` or
+`DA3-PHYS-02`: the later complete-run failure invalidates reuse under AVS V5 and the exact Human
+authorization.
+
+## 20. Gate-A actions and missing mandatory CSV proof
+
+The Human scanned Tag A online, observed `Arbeitszeit gestartet`, waited more than six seconds and
+scanned it again, observing the Stop result. Sanitized server state became:
+
+```text
+AdministrationReceipts=2
+AuditEvents=6
+WorkEvents=2
+SyncReceipts=2
+CanonicalDecisions=2
+TimeEntries=1
+StoppedTimeEntries=1
+```
+
+After Mobile sign-out, Admin Web selected the one stopped record. Beginning and end were shifted
+one minute earlier with reason `DA3 V5 correction observation`, explicit preview and second
+confirmation. Refresh persistence and server state proved one append-only revision, one review
+command receipt and one added AuditEvent with no base WorkEvent/Decision mutation. The real Web
+export action returned success and server state proved one export audit plus one further
+AuditEvent:
+
+```text
+AdministrationReceipts=2
+AuditEvents=8
+WorkEvents=2
+SyncReceipts=2
+CanonicalDecisions=2
+TimeEntries=1
+StoppedTimeEntries=1
+TimeRecordRevisions=1
+TimeReviewCommandReceipts=1
+TimeEntryExportAudits=1
+ReviewAdjudications=0
+ReviewPredecessorCursors=0
+```
+
+The generated CSV was 523 bytes with SHA-256
+`5e3f6a3be99dba90b0ada36303b239dcfeb087f00184fcf08bd0da573576304e`.
+However, the Technical Lead had explicitly told the Human not to open it and advanced based only on
+UI/audit success. Therefore the required CSV-v1 header, formula-safe dialect, exactly-once row and
+corrected effective timestamps were **not verified**. Section 5 step 5 did not pass, Gate A was
+never complete and the file hash alone cannot substitute for content assertions.
+
+## 21. DA3-PHYS-03 stop point and classification
+
+Before Gate B, Mobile was signed out. The Technical Lead filled the fixed Employee email and then
+used the current system clipboard as the password source. Several field-entry attempts were made;
+the final fixed email and input length matched what was supplied. One sign-in was then rejected.
+No Tag was presented and no Gate-B action began.
+
+Read-only diagnosis compared only SHA-256 values and proved:
+
+```text
+clipboard_vs_harness=mismatch
+```
+
+No password value was printed or persisted. The clipboard had been treated as a stable
+credential source even though it was mutable and had not been re-bound to the running harness
+secret before injection. The Technical Lead initially described the field as correctly populated
+based only on length; that claim was withdrawn after the exact hash mismatch.
+
+`DA3-PHYS-03` is **P1 OPEN** because the authorized complete fresh V5 could not proceed and its
+evidence was already incomplete at Gate A. This is an operator-control/evidence-execution finding,
+not a Product, schema, APK, authentication or server-canonical correctness finding. Sanitized
+server state remained byte-for-byte at the Gate-A aggregate above. Gate B and Gate C did not start.
+The one-run authority is consumed; retry, repair and resume are not authorized.
+
+The proposed narrow correction candidate is not yet authorized:
+
+1. make every mandatory CSV assertion an explicit recorded stop point before progression/deletion;
+2. bind the memory-only password to a disclosure-safe digest at harness start and compare it
+   before every injection;
+3. inject fixed non-secret synthetic emails without using the credential clipboard; and
+4. fail before authentication on any digest mismatch.
+
+Independent review must challenge the severity, root cause, disclosure boundary and whether this
+candidate is sufficient before the Human Architect may authorize any correction or new run.
+
+## 22. Third-run abort cleanup and governance deviation
+
+Mobile was already signed out at the disclosure-safe login surface; the Human signed out Admin
+Web. The system clipboard was cleared. The exact synthetic CSV was hashed/sized and deleted.
+Admin Web and the harness stopped normally. The first scoped-disconnect cleanup invocation found
+zero trusted devices because USB was disconnected; this was a mandatory-cleanup condition, not a
+Gate retry. After the Human reconnected the approved phone, the reviewed scoped helper confirmed
+zero approved mappings and only `com.tim180201.mobile.synthetic` was uninstalled successfully.
+
+Final zero-state evidence:
+
+```text
+ApprovedReverseMappings=0
+SyntheticPackage=0
+Listeners3000/3001/5173/54321=0/0/0/0
+SyntheticSchema=0
+MigrationLedger=0
+GeneratedRuntimeRoles=0
+```
+
+The detached Product worktree was tracked-clean and removed. Primary `main`, tree and `origin/main`
+remained exactly `acf79ab...` / `f80bec9...` / `acf79ab...`; tracked state was clean and the
+pre-existing untracked `app.json` remained untouched.
+
+During that repository check the Technical Lead mistakenly executed a path-scoped
+`git status -- research` probe despite the explicit prohibition on reading/listing that protected
+path. The command emitted no protected filename or file content, and no protected or repository
+state changed. It nevertheless crossed the stated boundary and is recorded for independent review.
+No further command targeted `research/`.
+
+The complete third V5 run is **FAILED CLOSED**. No DA3 task or physical finding closes. Independent
+failure-synchronization review, any separately Human-authorized correction, its applicable
+verification/review and a new separately authorized complete fresh V5 are required.
+
+## 23. Failure-synchronization change impact and AVS
+
+- Baseline: `acf79ab257df6769d12bd489e27f721a0ae2d354`, tree
+  `f80bec9a1de0a6106f7bf71b181f6930ffa5450a`, with `main == origin/main`.
+- Scope: exactly 11 tracked `ADO/` Markdown files, working delta `+452/-38`; no source,
+  schema/migration, dependency, lockfile, compiler/native/release configuration, workflow, script,
+  generated runtime input or installable artifact changes.
+- Intended behavior: record the consumed authority, exact failed-run truth, cleanup, disclosure,
+  protected-path deviation, open `DA3-PHYS-03` P1 and an explicitly non-authorized correction
+  candidate.
+- Risk class: AVS **R0** for the repository delta. The underlying failed physical observation and
+  proposed later operator-control boundary remain release-critical and independently reviewed.
+- V0: exact diff/scope, whitespace, reference, status/authority, disclosure and tracked-state checks
+  are required before Technical-Lead publication.
+- V1/V2/V3: not run because no executable input changes; exact Product/enablement/correction tests,
+  builds, APK evidence and their commit/tree/CI bindings are carried, not re-described as freshly
+  executed.
+- V4: complete exact-head CI is required after focused publication because this is a
+  Physical-Gate failure-synchronization decision point.
+- V5: failed closed; no observation from this run is reusable.
+- Independent review: mandatory before any correction publication or new Physical authorization.
+
+No correction wording has been applied to the executable procedure steps. The candidate in
+Section 21 is review input only and creates no authority.

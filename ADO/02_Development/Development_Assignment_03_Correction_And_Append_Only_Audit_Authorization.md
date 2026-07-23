@@ -1,6 +1,6 @@
 # Development Assignment 3 — Correction and Append-only Audit Authorization
 
-- Status: **DA3-PHYS-02 FAILURE SYNC AND FOCUSED ADO-ONLY CORRECTION INDEPENDENTLY APPROVED/CI-GREEN AND HUMAN-ACCEPTED; NEW EXACT-BOUND AUTHORIZATION REQUIRED; NEW RUN UNAUTHORIZED**
+- Status: **THIRD V5 RUN FAILED CLOSED WITH DA3-PHYS-03 P1; FAILURE SYNCHRONIZATION/INDEPENDENT REVIEW AND NEW SEPARATE HUMAN AUTHORITY REQUIRED; RETRY/NEW RUN UNAUTHORIZED**
 - Date: 2026-07-21
 - Accepted/authorized baseline commit: `ff68f7a7d0ce69a65e88846ae1cca9abd5951f5d`
 - Accepted/authorized baseline tree: `09ef169a68bb53420e07b6f3fcbbdc74e0c01d57`
@@ -24,6 +24,13 @@
 - Focused V5-enablement review: **APPROVED — ZERO OPEN P0/P1/P2/P3**
 - First V5 physical-run authority: **GRANTED ONCE ON 2026-07-22 AND CONSUMED BY THE FAILED RUN**
 - First V5 physical result: **FAILED CLOSED AT GATE A; ZERO SERVER LIFECYCLE MUTATION; GATES B/C NOT STARTED; COMPLETE CLEANUP**
+- Replacement V5 physical-run authority: **GRANTED ONCE ON 2026-07-22 AND CONSUMED BY
+  DA3-PHYS-02**
+- Replacement V5 physical result: **FAILED CLOSED DURING SETUP; CLEAN REINSTALL/GATES A–C NOT
+  STARTED; COMPLETE CLEANUP**
+- Third V5 physical-run authority: **GRANTED ONCE ON 2026-07-22 AND CONSUMED BY THE
+  2026-07-23 OPERATOR-CONTROL FAILURE**
+- Third V5 physical result: **FAILED CLOSED BEFORE GATE B; DA3-PHYS-03 P1; COMPLETE CLEANUP**
 - Current correction/replacement-run authority: **NOT GRANTED**
 
 ## 1. Authorized objective
@@ -528,3 +535,48 @@ device or Tag interaction, retry, repair, resume, product/schema/dependency/APK 
 resource/data, deployment or distribution is authorized. `DA3-PHYS-01`, `DA3-PHYS-02`, DA3 and
 DT-069–DT-074 remain open. Any later complete fresh V5 run requires a new, separate, exact-bound
 Human authorization.
+
+## 20. Third V5 run authority and consumed operator-control failure — 2026-07-22/23
+
+The Human Architect separately authorized one complete fresh V5 run after publication
+`acf79ab257df6769d12bd489e27f721a0ae2d354`, tree
+`f80bec9a1de0a6106f7bf71b181f6930ffa5450a`, and exact-head run `29946654825`, attempt 1, 12/12.
+The authorization bound the complete previously approved Product/Evidence/correction/review chain,
+the unchanged read-only APK/manifest, Galaxy A33/Android 15, both approved tags, both installs,
+scoped disconnect/uninstall, Gates A–C, disclosure-safe evidence and mandatory cleanup. Any failed,
+interrupted or ambiguous run consumed the authority; retry, repair and resume were excluded.
+
+The run passed exact preflight, seed-only Tag-A/Tag-B setup with two receipts/four audits, the
+reviewed clean exact-artifact reinstall boundary and real Gate-A Start/Stop, correction and export
+generation. It nevertheless failed closed before Gate B:
+
+1. the Technical Lead instructed the Human not to open the CSV, so the mandatory CSV-v1 column,
+   formula-safety and effective-timestamp assertions were not performed; and
+2. after Mobile sign-out, the Technical Lead injected a mutable clipboard value without first
+   binding it to the running harness password. Exact post-failure SHA-256 comparison returned
+   mismatch even though the fixed Employee email and clipboard-value field length were correct.
+
+No Gate-B tag was presented and Gate C did not start. The final disclosure-safe state contained
+two setup receipts, eight AuditEvents, two WorkEvents/Decisions/sync receipts, one stopped
+TimeEntry, one append-only revision/correction receipt and one export audit. No review
+adjudication/cursor existed. Mandatory cleanup removed the generated CSV, clipboard value, app,
+reverse mappings, listeners, schema, migration ledger, generated roles and temporary worktree.
+
+`DA3-PHYS-03` is P1 open against operator-control/evidence execution; it is not a Product-code
+finding. Failed-run observations cannot close `DA3-PHYS-01` or `DA3-PHYS-02`. During repository
+cleanup the Technical Lead also issued one prohibited path-scoped `git status -- research` probe.
+It emitted no protected filename/content and changed nothing, but the boundary violation is part
+of the review record.
+
+This synchronization proposes, but does not authorize, the narrow next correction boundary:
+
+- preserve every existing runbook/product/security rule;
+- make every mandatory CSV assertion an explicit recorded stop point before advancement/deletion;
+- bind the memory-only synthetic password to a disclosure-safe digest at harness start and compare
+  it before every injection;
+- enter fixed non-secret synthetic emails without touching the credential clipboard; and
+- fail before authentication on any credential-source mismatch.
+
+Independent read-only review must validate the failure truth, severity and candidate boundary.
+No runbook correction, product/schema/dependency/APK change, retry/new run, production
+resource/data, deployment or distribution is authorized by this record.

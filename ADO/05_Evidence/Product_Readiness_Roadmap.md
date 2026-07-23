@@ -519,6 +519,26 @@ exact-bound Human authorization. Installation, ADB/loopback, retry/resume, produ
 data, deployment, distribution, legal/privacy approval and DA4 productization remain unauthorized
 or separately gated.
 
+## Addendum (2026-07-23 — Development Assignment 3 Third V5 Failure)
+
+After Human-acceptance publication `acf79ab`/tree `f80bec9` passed exact-head run `29946654825`
+12/12, the Human Architect separately authorized one complete fresh V5 run. It reached corrected
+seed-only setup, the reviewed clean exact-artifact reinstall boundary and Gate-A Start/Stop,
+append-only correction and export generation.
+
+The run failed closed before Gate B with `DA3-PHYS-03` P1. Technical-Lead instructions omitted the
+runbook-mandatory CSV content assertions, then used an unbound mutable clipboard value for the next
+Employee login; exact hash comparison proved it did not match the running harness password. No
+Gate-B tag was presented and Gate C did not start. Complete cleanup passed. During cleanup one
+path-scoped `git status -- research` probe violated the protected-path boundary without emitting a
+protected name/content or changing state.
+
+This changes no readiness-domain rating and closes no DA3 task or prior physical finding.
+Independent failure review, separately authorized operator-control correction and a new separately
+authorized complete fresh run are required. Retry, production, production data, deployment,
+distribution, legal/privacy approval and DA4 productization remain unauthorized or separately
+gated.
+
 ## Revision Note (Technical Lead Review Follow-up, 2026-07-07)
 
 This roadmap was updated once, after Technical Lead review, to: (1) add the "Strategic frame" paragraph above, connecting roadmap items to the companion assessment's Business Event Platform framing (Section 0.1) and capability hierarchy (Section 12); (2) organize every milestone's existing items into an Engineering Track, a Product Capability Track, and a Business, Legal & Go-To-Market Track, without adding, removing, or reprioritizing any item, and without moving any item to a different milestone; (3) note, within the Now and Before Pilot Customers milestones, the re-evaluated primary-bottleneck finding from the companion assessment's Section 11.1 (Organization Management as the more foundational blocker for reaching the first pilot, alongside — not instead of — the backend technology decision). No original roadmap item's wording, milestone assignment, or substance was changed; this revision only added track labels, short cross-reference notes, and this closing note.
