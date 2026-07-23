@@ -1,6 +1,6 @@
 # Project Status
 
-Status: CORE ROADMAP V2 BLOCK A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2, BLOCK D, E1 AND NARROW E2A COMPLETE FOR THEIR RECORDED SCOPES — DEVELOPMENT ASSIGNMENTS 1–3 AND DT-060–DT-074 CLOSED FOR THEIR EXACT AUTHORIZED LOCAL SCOPES — DA4 PROFESSIONAL ADMIN WEB PRODUCTIZATION IS HUMAN ACCEPTED AND IMPLEMENTATION AUTHORIZED; LOCAL AVS V0–V3 CANDIDATE COMPLETE, V4 AND INDEPENDENT EXACT-SHA REVIEW PENDING — HUMAN V5, PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
+Status: CORE ROADMAP V2 BLOCK A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2, BLOCK D, E1 AND NARROW E2A COMPLETE FOR THEIR RECORDED SCOPES — DEVELOPMENT ASSIGNMENTS 1–3 AND DT-060–DT-074 CLOSED FOR THEIR EXACT AUTHORIZED LOCAL SCOPES — DA4 PROFESSIONAL ADMIN WEB PRODUCTIZATION IS HUMAN ACCEPTED, IMPLEMENTATION AUTHORIZED, PUBLISHED AND V4 GREEN; INDEPENDENT IMPLEMENTATION REVIEW CORRECTION REMAINS OPEN — HUMAN V5, PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
 Date: 2026-07-23
 Owner: Human Architect + Technical Lead
 
@@ -16,8 +16,12 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   `693bc9a5ca1c0d414ff196f9dfa3352757e45701`, CI `30000921765`, attempt 1, 12/12. The local
   implementation candidate provides the five-view accessible shell, truthful cursor-backed
   completeness, section-local recovery, stale-response protection and preserved privileged-action
-  boundaries. AVS V0–V3 is green; focused publication, exact-head CI and independent exact-SHA
-  review remain pending. Human V5, production, production data, deployment and distribution remain
+  boundaries. The implementation was published at
+  `37d158f36375dec5e8c16c7df0f7e35e1a3963b5`; its review-round-1 corrections were published at
+  `12abb1229c8a7004a0bf75b29c9345e901df1b58`, tree
+  `312820875ed14fc4a39edd072c9d68e8fd24c473`, and exact-head V4 run `30005994943`, attempt 1,
+  passed 12/12. Independent implementation review is not yet approved and its focused correction
+  cycle remains active. Human V5, production, production data, deployment and distribution remain
   separately unauthorized.
 - **Development Assignment 3 is Human-accepted and implementation-authorized on exact baseline
   `ff68f7a7d0ce69a65e88846ae1cca9abd5951f5d`, tree
@@ -584,12 +588,12 @@ Two Epics are concurrently Active, per EP-009's own stated relationship to the r
    The successful-run authority is consumed and no retry or new run is authorized.
 3. Keep the real production endpoint/CA, one-human operator IAM inventory, short-lived credential
    delivery/revocation and controlled execution evidence as explicit later deployment gates.
-4. Preserve every closed C3B/C3C/C3D/C3E1/C3E2/DA1/DA2/DA3 boundary; keep DA4 UI productization,
-   production/deployment, legal/privacy, pilot operations and any V5/Physical gate behind their own
-   later architecture, authorization, review and Human gates.
-5. Publish the independently approved ADR-0015/DA4 ADO-only candidate; then require explicit Human
-   acceptance and a separate exact-baseline implementation authorization before any Admin Web
-   source or dependency change.
+4. Preserve every closed C3B/C3C/C3D/C3E1/C3E2/DA1/DA2/DA3 boundary and the Human-accepted
+   ADR-0015/DA4-P01–P12 scope; keep Human V5, production/deployment, legal/privacy and pilot
+   operations behind their separate authorization and Human gates.
+5. Complete the focused DA4 implementation-review correction and require an independent
+   `APPROVED` re-review before any closure claim. The published implementation/V4 result grants no
+   Human V5, production, production-data, deployment or distribution authority.
 
 ## Agreed comprehensive Development-assignment sequence
 

@@ -281,7 +281,7 @@ describe('professional Admin Web shell', () => {
     expect(confirmation).toHaveTextContent('Beleg geprüft.');
   });
 
-  it('prepares a correction with exact milliseconds and renders its reason verbatim', async () => {
+  it('renders exact correction truth and restores focus after conflict intent removal', async () => {
     const capability = new FakeCapability(readyState);
     const reason = 'Erste  Zeile\nZweite   Zeile';
     capability.prepareCorrection.mockImplementation((
@@ -342,12 +342,12 @@ describe('professional Admin Web shell', () => {
     await userEvent.click(screen.getByRole('button', {
       name: 'Korrektur ausdrücklich bestätigen',
     }));
-    await waitFor(() => expect(screen.getByRole('button', {
-      name: 'Korrektur prüfen',
-    })).toHaveFocus());
+    const correctionTrigger = screen.getByRole('button', { name: 'Korrektur prüfen' });
+    await waitFor(() => expect(correctionTrigger).toHaveFocus());
+    expect(document.activeElement).toBe(correctionTrigger);
   });
 
-  it('prepares adjudication timestamps exactly and preserves multiline reason formatting', async () => {
+  it('renders exact adjudication truth and restores focus after error intent removal', async () => {
     const capability = new FakeCapability(readyState);
     const reason = 'Prüfung  exakt\nZweite   Aussage';
     capability.prepareAdjudication.mockImplementation((
@@ -418,12 +418,14 @@ describe('professional Admin Web shell', () => {
     await userEvent.click(screen.getByRole('button', {
       name: 'Review ausdrücklich bestätigen',
     }));
-    await waitFor(() => expect(screen.getByRole('button', {
+    const adjudicationTrigger = screen.getByRole('button', {
       name: 'Review-Entscheidung prüfen',
-    })).toHaveFocus());
+    });
+    await waitFor(() => expect(adjudicationTrigger).toHaveFocus());
+    expect(document.activeElement).toBe(adjudicationTrigger);
   });
 
-  it('returns focus to reassignment preparation after successful intent removal', async () => {
+  it('uses the logical reassignment fallback after success disables the original trigger', async () => {
     const targetCustomer = {
       id: '40000000-0000-4000-8000-000000000002',
       displayName: 'Lager',
@@ -451,6 +453,14 @@ describe('professional Admin Web shell', () => {
     capability.confirmReassignment.mockImplementation(async () => {
       capability.emit({
         ...reassignmentState,
+        projection: {
+          ...reassignmentState.projection,
+          nfcTags: [{
+            ...tag,
+            targetCustomerId: targetCustomer.id,
+            activeAssignmentId: '60000000-0000-4000-8000-000000000002',
+          }],
+        },
         reassignmentIntent: null,
         notice: 'NFC-Tag wurde sicher neu zugeordnet.',
       });
@@ -469,9 +479,12 @@ describe('professional Admin Web shell', () => {
       name: 'Änderung ausdrücklich bestätigen',
     }));
 
-    await waitFor(() => expect(screen.getByRole('button', {
-      name: 'Zuordnung prüfen',
-    })).toHaveFocus());
+    const reassignmentTrigger = screen.getByRole('button', { name: 'Zuordnung prüfen' });
+    const tagSelection = screen.getByLabelText('NFC-Tag');
+    await waitFor(() => expect(tagSelection).toHaveFocus());
+    expect(reassignmentTrigger).toBeDisabled();
+    expect(document.activeElement).toBe(tagSelection);
+    expect(document.activeElement).not.toBe(document.body);
   });
 
   it('uses one central timezone and atomically discards open inputs and intents after a zone change', async () => {
@@ -536,7 +549,9 @@ describe('professional Admin Web shell', () => {
     render(<App administration={capability} />);
     await userEvent.click(screen.getByRole('button', { name: 'Abbrechen' }));
     expect(capability.cancelCorrection).toHaveBeenCalledOnce();
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Korrektur prüfen' })).toHaveFocus());
+    const correctionTrigger = screen.getByRole('button', { name: 'Korrektur prüfen' });
+    await waitFor(() => expect(correctionTrigger).toHaveFocus());
+    expect(document.activeElement).toBe(correctionTrigger);
   });
 
   it('has no automatically detectable WCAG A/AA violation in the overview shell', async () => {

@@ -208,7 +208,14 @@ function SetupView({
   const [tagId, setTagId] = useState('');
   const [targetId, setTargetId] = useState('');
   const prepareButton = useRef<HTMLButtonElement>(null);
-  useIntentFocusReturn(state.reassignmentIntent !== null, prepareButton);
+  const tagSelect = useRef<HTMLSelectElement>(null);
+  const targetSelect = useRef<HTMLSelectElement>(null);
+  useIntentFocusReturn(
+    state.reassignmentIntent !== null,
+    prepareButton,
+    tagSelect,
+    targetSelect,
+  );
   const customerNameById = new Map(
     state.projection.customers.map((customer) => [customer.id, customer.displayName]),
   );
@@ -269,7 +276,7 @@ function SetupView({
           administration.prepareReassignment(tagId, targetId);
         }}>
           <label>NFC-Tag
-            <select required value={tagId}
+            <select ref={tagSelect} required value={tagId}
               disabled={state.reassigning || state.reassignmentIntent !== null}
               onChange={(event) => setTagId(event.target.value)}>
               <option value="">Tag auswählen</option>
@@ -280,7 +287,7 @@ function SetupView({
             </select>
           </label>
           <label>Neuer aktiver Kunde
-            <select required value={targetId}
+            <select ref={targetSelect} required value={targetId}
               disabled={state.reassigning || state.reassignmentIntent !== null}
               onChange={(event) => setTargetId(event.target.value)}>
               <option value="">Ziel auswählen</option>
@@ -309,7 +316,7 @@ function SetupView({
               onConfirm={() => void administration.confirmReassignment()}
               onCancel={() => {
                 administration.cancelReassignment();
-                returnFocus(prepareButton);
+                returnFocus(prepareButton, tagSelect, targetSelect);
               }}
             >
               <dl>
@@ -395,8 +402,9 @@ function TimeRecordsView({
   const [reason, setReason] = useState('');
   const [timeError, setTimeError] = useState<string | null>(null);
   const prepareButton = useRef<HTMLButtonElement>(null);
+  const recordSelect = useRef<HTMLSelectElement>(null);
   const previousTimeZone = useRef(timezone.timeZone);
-  useIntentFocusReturn(state.correctionIntent !== null, prepareButton);
+  useIntentFocusReturn(state.correctionIntent !== null, prepareButton, recordSelect);
   useEffect(() => {
     if (previousTimeZone.current === timezone.timeZone) return;
     previousTimeZone.current = timezone.timeZone;
@@ -453,7 +461,7 @@ function TimeRecordsView({
         administration.prepareCorrection(recordId, canonicalStart, canonicalStop, reason);
       }}>
         <label>Arbeitszeit
-          <select required value={recordId}
+          <select ref={recordSelect} required value={recordId}
             disabled={state.timeReviewBusy || state.correctionIntent !== null}
             onChange={(event) => {
               const id = event.target.value;
@@ -500,7 +508,7 @@ function TimeRecordsView({
         onConfirm={() => void administration.confirmCorrection()}
         onCancel={() => {
           administration.cancelCorrection();
-          returnFocus(prepareButton);
+          returnFocus(prepareButton, recordSelect);
         }}
       >
         <dl>
@@ -530,8 +538,9 @@ function ReviewsView({
   const [reason, setReason] = useState('');
   const [timeError, setTimeError] = useState<string | null>(null);
   const prepareButton = useRef<HTMLButtonElement>(null);
+  const itemSelect = useRef<HTMLSelectElement>(null);
   const previousTimeZone = useRef(timezone.timeZone);
-  useIntentFocusReturn(state.adjudicationIntent !== null, prepareButton);
+  useIntentFocusReturn(state.adjudicationIntent !== null, prepareButton, itemSelect);
   useEffect(() => {
     if (previousTimeZone.current === timezone.timeZone) return;
     previousTimeZone.current = timezone.timeZone;
@@ -586,7 +595,7 @@ function ReviewsView({
         );
       }}>
         <label>Review-Evidence
-          <select required value={itemId}
+          <select ref={itemSelect} required value={itemId}
             disabled={state.timeReviewBusy || state.adjudicationIntent !== null}
             onChange={(event) => setItemId(event.target.value)}>
             <option value="">Evidence auswählen</option>
@@ -654,7 +663,7 @@ function ReviewsView({
         onConfirm={() => void administration.confirmAdjudication()}
         onCancel={() => {
           administration.cancelAdjudication();
-          returnFocus(prepareButton);
+          returnFocus(prepareButton, itemSelect);
         }}
       >
         <dl>
@@ -719,27 +728,43 @@ function resolutionLabel(value: string): string {
   return 'Bestehende Arbeitszeit korrigieren';
 }
 
-function returnFocus(reference: RefObject<HTMLElement | null>): void {
+function returnFocus(...references: readonly RefObject<HTMLElement | null>[]): void {
   if (typeof requestAnimationFrame === 'function') {
-    requestAnimationFrame(() => reference.current?.focus());
+    requestAnimationFrame(() => focusFirstAvailable(references));
   } else {
-    reference.current?.focus();
+    focusFirstAvailable(references);
   }
 }
 
 function useIntentFocusReturn(
   intentPresent: boolean,
-  trigger: RefObject<HTMLButtonElement | null>,
+  ...targets: readonly RefObject<HTMLElement | null>[]
 ): void {
   const previousIntent = useRef(intentPresent);
   const pendingReturn = useRef(false);
   if (previousIntent.current && !intentPresent) pendingReturn.current = true;
   previousIntent.current = intentPresent;
   useEffect(() => {
-    if (!pendingReturn.current || trigger.current === null || trigger.current.disabled) return;
-    trigger.current.focus();
-    pendingReturn.current = false;
+    if (!pendingReturn.current) return;
+    pendingReturn.current = !focusFirstAvailable(targets);
   });
+}
+
+function focusFirstAvailable(
+  references: readonly RefObject<HTMLElement | null>[],
+): boolean {
+  for (const reference of references) {
+    const element = reference.current;
+    if (
+      element === null
+      || !element.isConnected
+      || element.hasAttribute('disabled')
+      || element.getAttribute('aria-disabled') === 'true'
+    ) continue;
+    element.focus();
+    if (document.activeElement === element) return true;
+  }
+  return false;
 }
 
 function useCentralTimeZone(

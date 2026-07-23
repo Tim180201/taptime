@@ -1,10 +1,14 @@
 # Development Assignment 4 — Local Implementation Evidence
 
-- Status: **LOCAL IMPLEMENTATION CANDIDATE — AVS V0–V3 GREEN; V4 AND INDEPENDENT EXACT-SHA REVIEW PENDING**
+- Status: **IMPLEMENTATION PUBLISHED — V4 12/12 GREEN; REVIEW ROUND 2 CHANGES REQUESTED; LOCAL CORRECTION FOR ROUND 3**
 - Date: 2026-07-23
 - Authorized baseline commit: `d9892435acbf7f45a96a9a01c8331afceb65f6f1`
 - Authorized baseline tree: `693bc9a5ca1c0d414ff196f9dfa3352757e45701`
 - Authorized baseline CI: GitHub Actions `30000921765`, attempt 1, 12/12 successful
+- Implementation publication: `37d158f36375dec5e8c16c7df0f7e35e1a3963b5`, tree
+  `ffc8f90dac2b2618603d6c9f33b94584fe42b151`, exact-head CI `30004127796`, attempt 1, 12/12
+- Review-round-1 correction publication: `12abb1229c8a7004a0bf75b29c9345e901df1b58`,
+  tree `312820875ed14fc4a39edd072c9d68e8fd24c473`, exact-head CI `30005994943`, attempt 1, 12/12
 - Risk class: AVS-001 R3
 - Authorized: DA4 Workstreams A–D and AVS V0–V4
 - Unauthorized: Human V5, production, production data, deployment and distribution
@@ -77,10 +81,10 @@ counted as evidence.
 
 ## Current gate
 
-The Technical Lead approves the local implementation candidate with zero open P0–P3 findings.
-Focused publication, complete exact-head GitHub Actions and an independent read-only exact-SHA
-implementation review remain mandatory. DA4 and the related Roadmap candidates are not closed.
-Human V5, production, production data, deployment and distribution remain separately unauthorized.
+The implementation and review-round-1 correction publications and their exact-head V4 runs are
+green. Independent implementation review is not yet approved; its focused correction cycle
+remains mandatory. DA4 and the related Roadmap candidates are not closed. Human V5, production,
+production data, deployment and distribution remain separately unauthorized.
 
 ## Independent review round 1 and local correction
 
@@ -94,7 +98,15 @@ tree `ffc8f90dac2b2618603d6c9f33b94584fe42b151`, exact-head CI `30004127796`, at
 - at least 3:1 non-text contrast for focus and control boundaries; and
 - logical focus return after privileged intent removal.
 
-The focused local correction changes only nine Admin Web source/test files and adds regressions for
-all five findings. Fresh V0–V3 results are reflected above. The Technical Lead finds the local
-correction complete with zero open local P0–P3; correction publication, fresh exact-head CI and a
-fresh independent exact-SHA re-review remain mandatory.
+The focused correction changed only nine Admin Web source/test files and added regressions for all
+five findings. It was published as `12abb1229c8a7004a0bf75b29c9345e901df1b58`; exact-head run
+`30005994943`, attempt 1, passed 12/12. Independent review round 2 then returned the findings below.
+
+## Independent review round 2 and local correction
+
+Review round 2 retained one P2: successful reassignment could disable the original preparation
+trigger and leave focus on `BODY`; it also reported one P3 for stale DA4 navigation/status truth.
+The final automatic local correction adds a logical focus fallback to the Tag selection, verifies
+real updated reassignment state plus Correction/Adjudication outcomes, and minimally synchronizes
+the existing DA4 status documents. Independent review round 3 remains mandatory; no closure or
+additional authority is claimed.
