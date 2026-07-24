@@ -1,6 +1,6 @@
 # Project Status
 
-Status: CORE ROADMAP V2 BLOCK A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2, BLOCK D, E1 AND NARROW E2A COMPLETE FOR THEIR RECORDED SCOPES — DEVELOPMENT ASSIGNMENTS 1–3 AND DT-060–DT-074 CLOSED FOR THEIR EXACT AUTHORIZED LOCAL SCOPES — DA4 WORKSTREAMS A–D, AVS V0–V4, H01 PROCEDURAL CORRECTION AND DA4-V5-F06 INDEPENDENTLY APPROVED; LATEST HUMAN V5 FAILED CLOSED AND ITS AUTHORITY IS CONSUMED, NEW HUMAN V5 UNAUTHORIZED — PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
+Status: CORE ROADMAP V2 BLOCK A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2, BLOCK D, E1 AND NARROW E2A COMPLETE FOR THEIR RECORDED SCOPES — DEVELOPMENT ASSIGNMENTS 1–3 AND DT-060–DT-074 CLOSED FOR THEIR EXACT AUTHORIZED LOCAL SCOPES — DA4 WORKSTREAMS A–D, AVS V0–V4, H01 PROCEDURAL CORRECTION AND DA4-V5-F06 INDEPENDENTLY APPROVED; DA4-V5-H03 FAILED CLOSED ON THE FIXED INVITATION-TTL GATE INVARIANT, F07 ADO CANDIDATE REVIEW PENDING, NEW HUMAN V5 UNAUTHORIZED — PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
 Date: 2026-07-24
 Owner: Human Architect + Technical Lead
 
@@ -113,6 +113,16 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   attempt 1, 12/12. Independent exact-SHA review returned `APPROVED` with zero open P0–P3.
   No DA4 closure or new Human run is authorized.
   Production, production data, deployment and distribution remain unauthorized.
+
+  The later fresh `DA4-V5-H03` run passed preflight, all Safari read-only checks and three Safari
+  write checkpoints, then all Chrome read-only checks. Before the first Chrome write, the single
+  invitation had naturally expired under the accepted exact 15-minute Product TTL while its
+  receipt and AuditEvent remained exact. The fixed gate invariant still required it active for the
+  longer browser matrix. No Chrome write/checkpoint occurred; normal cleanup completed. The run is
+  failed, its authority consumed and no observation reusable. `DA4-V5-F07` is P2 gate reliability,
+  not a Product defect. Its ADO-only candidate preserves the TTL and proposes exact
+  disclosure-safe active/expired-unconsumed states. Independent review is required before any
+  executable correction. No new Human V5 is authorized.
 - **Development Assignment 3 is Human-accepted and implementation-authorized on exact baseline
   `ff68f7a7d0ce69a65e88846ae1cca9abd5951f5d`, tree
   `09ef169a68bb53420e07b6f3fcbbdc74e0c01d57`.** ADR-0014/DA3-P01–DA3-P16 and Workstreams A–D
@@ -681,9 +691,12 @@ Two Epics are concurrently Active, per EP-009's own stated relationship to the r
 4. Preserve every closed C3B/C3C/C3D/C3E1/C3E2/DA1/DA2/DA3 boundary and the Human-accepted
    ADR-0015/DA4-P01–P12 scope; keep Human V5, production/deployment, legal/privacy and pilot
    operations behind their separate authorization and Human gates.
-5. Preserve the independently approved `DA4-V5-F06` correction and prepare a copy-ready,
-   separately exact-bound Human V5 authorization candidate. Do not execute another Human V5
-   without that new explicit Human authorization. No reuse, retry, repair or resume is authorized.
+5. Preserve the independently approved `DA4-V5-F06` correction and failed `DA4-V5-H03`.
+   Independently review the ADO-only `DA4-V5-F07` candidate before any executable correction or
+   new exact-bound Human V5 candidate. No reuse, retry, repair or resume is authorized.
+6. DA4's open Human gate does not itself close or authorize DA5. A separately scoped ADO-only DA5
+   professional-Mobile candidate may be prepared under Human reprioritization; DA5 implementation
+   still requires an accepted, independently reviewed exact-baseline authorization.
    Production, production data, deployment and distribution remain unauthorized.
 
 ## Agreed comprehensive Development-assignment sequence
