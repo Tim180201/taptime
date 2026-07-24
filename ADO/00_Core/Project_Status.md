@@ -1,6 +1,6 @@
 # Project Status
 
-Status: CORE ROADMAP V2 BLOCK A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2, BLOCK D, E1 AND NARROW E2A COMPLETE FOR THEIR RECORDED SCOPES — DEVELOPMENT ASSIGNMENTS 1–3 AND DT-060–DT-074 CLOSED FOR THEIR EXACT AUTHORIZED LOCAL SCOPES — DA4 WORKSTREAMS A–D, AVS V0–V4, H01 PROCEDURAL CORRECTION, DA4-V5-F06 AND DA4-V5-F07 INDEPENDENTLY APPROVED; DA4 REMAINS OPEN FOR A LATER FRESH HUMAN V5, DA5 ADO-ONLY PREPARATION IS NEXT — PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
+Status: CORE ROADMAP V2 BLOCK A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2, BLOCK D, E1 AND NARROW E2A COMPLETE FOR THEIR RECORDED SCOPES — DEVELOPMENT ASSIGNMENTS 1–3 AND DT-060–DT-074 CLOSED FOR THEIR EXACT AUTHORIZED LOCAL SCOPES — DA4 WORKSTREAMS A–D, AVS V0–V4, H01 PROCEDURAL CORRECTION, DA4-V5-F06 AND DA4-V5-F07 INDEPENDENTLY APPROVED; DA4 REMAINS OPEN FOR A LATER FRESH HUMAN V5 — DA5 ADO-ONLY ARCHITECTURE/AUTHORIZATION CANDIDATE PREPARED, INDEPENDENT REVIEW REQUIRED, IMPLEMENTATION UNAUTHORIZED — PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
 Date: 2026-07-24
 Owner: Human Architect + Technical Lead
 
@@ -10,6 +10,19 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
 
 ## Current State
 
+- **Development Assignment 5 is prepared as an ADO-only professional-Mobile candidate; no
+  executable DA5 work is yet authorized.** ADR-0016/DA5-P01–P12 bind the already accepted v1
+  own-time capability to a new self-only effective-time reader and productize the existing Android
+  Auth, enrollment, scan, offline/sync and Administrator setup surfaces. The proposed reader
+  derives the exact current Organization/User/Membership server-side, returns a window-independent
+  active record plus a bounded 31-day effective stopped history and excludes all Administrator
+  correction/audit detail. The candidate baseline is
+  `4bfbf8eb39e46b073b18c8d7ab502add44ad47f0`, tree
+  `17b7c4a6a8ec1bbdce9de6c99d0863acf6c47854`, exact-head CI `30093494886`, attempt 1,
+  12/12. A focused candidate publication/CI and independent zero-finding pre-implementation review
+  are required before the standing autonomous-work rule can release the exact R3 scope. DA4 Human
+  V5 remains separate. Human/hardware V5, production, production data, deployment and distribution
+  remain unauthorized.
 - **Development Assignment 4 is the active Roadmap engineering block.** The Human Architect
   accepted ADR-0015 and DA4-P01–P12 and separately authorized Workstreams A–D plus AVS V0–V4 on
   exact baseline `d9892435acbf7f45a96a9a01c8331afceb65f6f1`, tree
@@ -706,9 +719,9 @@ Two Epics are concurrently Active, per EP-009's own stated relationship to the r
 5. Preserve the independently approved `DA4-V5-F06` and `DA4-V5-F07` corrections plus failed
    `DA4-V5-H03`. Any later DA4 Human V5 requires a new separate exact-bound authorization; no
    reuse, retry, repair or resume is authorized.
-6. DA4's open Human gate does not itself close or authorize DA5. A separately scoped ADO-only DA5
-   professional-Mobile candidate may be prepared under Human reprioritization; DA5 implementation
-   still requires an accepted, independently reviewed exact-baseline authorization.
+6. Independently review the exact ADR-0016/DA5 ADO-only candidate. Only a zero-finding approval may
+   release its exact R3 implementation scope under the standing autonomous-work rule. DA4's open
+   Human gate and all later Human/hardware evidence remain separate.
    Production, production data, deployment and distribution remain unauthorized.
 
 ## Agreed comprehensive Development-assignment sequence
