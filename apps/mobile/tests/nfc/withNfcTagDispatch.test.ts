@@ -1,9 +1,20 @@
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { createRequire } from 'node:module';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const require = createRequire(import.meta.url);
+const { AndroidConfig } = require('expo/config-plugins');
 const {
   mutateAndroidManifest,
+  patchMainActivityAtProjectRootAsync,
   patchMainActivitySource,
   techFilterXml,
 } = require('../../plugins/withNfcTagDispatch');
@@ -85,5 +96,72 @@ class MainActivity {
     const patched = patchMainActivitySource(source);
     expect(patched.match(/TapTimeNfcIngress\.captureIntent\(intent\)/g)).toHaveLength(2);
     expect(patchMainActivitySource(patched)).toBe(patched);
+  });
+
+  it('uses the locked Expo path API to patch the exact Kotlin MainActivity idempotently', async () => {
+    const projectRoot = mkdtempSync(join(tmpdir(), 'taptime-nfc-plugin-'));
+    const mainActivityPath = join(
+      projectRoot,
+      'android',
+      'app',
+      'src',
+      'main',
+      'java',
+      'com',
+      'taptime',
+      'mobile',
+      'MainActivity.kt',
+    );
+    const source = `package com.taptime.mobile
+
+import android.os.Bundle
+
+class MainActivity {
+  override fun onCreate(savedInstanceState: Bundle?) {
+    super.onCreate(savedInstanceState)
+  }
+}
+`;
+
+    try {
+      mkdirSync(dirname(mainActivityPath), { recursive: true });
+      writeFileSync(mainActivityPath, source, 'utf8');
+
+      const discovered = await AndroidConfig.Paths.getMainActivityAsync(projectRoot);
+      expect(discovered.path).toBe(mainActivityPath);
+      expect(discovered.language).toBe('kt');
+
+      await patchMainActivityAtProjectRootAsync(projectRoot);
+      const once = readFileSync(mainActivityPath, 'utf8');
+      await patchMainActivityAtProjectRootAsync(projectRoot);
+      const twice = readFileSync(mainActivityPath, 'utf8');
+
+      expect(twice).toBe(once);
+      expect(once).toContain(
+        'override fun onCreate(savedInstanceState: Bundle?) {\n'
+        + '    TapTimeNfcIngress.captureIntent(intent)',
+      );
+      expect(once).toContain(
+        'override fun onNewIntent(intent: Intent) {\n'
+        + '    super.onNewIntent(intent)\n'
+        + '    setIntent(intent)\n'
+        + '    TapTimeNfcIngress.captureIntent(intent)',
+      );
+      expect(once.match(/TapTimeNfcIngress\.captureIntent\(intent\)/g)).toHaveLength(2);
+    } finally {
+      rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('fails closed when the locked Expo path API cannot find MainActivity', async () => {
+    const projectRoot = mkdtempSync(join(tmpdir(), 'taptime-nfc-plugin-missing-'));
+
+    try {
+      await expect(
+        patchMainActivityAtProjectRootAsync(projectRoot),
+      ).rejects.toThrow('Project file "MainActivity" does not exist');
+    } finally {
+      rmSync(projectRoot, { recursive: true, force: true });
+    }
   });
 });

@@ -16,7 +16,7 @@ function withNfcTagDispatch(config) {
     result.modResults = mutateAndroidManifest(result.modResults);
     return result;
   });
-  return withDangerousMod(config, ['android', (result) => {
+  return withDangerousMod(config, ['android', async (result) => {
     const androidRoot = result.modRequest.platformProjectRoot;
     const resourceDirectory = path.join(androidRoot, 'app', 'src', 'main', 'res', 'xml');
     fs.mkdirSync(resourceDirectory, { recursive: true });
@@ -25,11 +25,21 @@ function withNfcTagDispatch(config) {
       techFilterXml(),
       'utf8',
     );
-    const mainActivityPath = AndroidConfig.Paths.getMainActivityFilePath(androidRoot);
-    const source = fs.readFileSync(mainActivityPath, 'utf8');
-    fs.writeFileSync(mainActivityPath, patchMainActivitySource(source), 'utf8');
+    await patchMainActivityAtProjectRootAsync(result.modRequest.projectRoot);
     return result;
   }]);
+}
+
+async function patchMainActivityAtProjectRootAsync(projectRoot) {
+  const mainActivity = await AndroidConfig.Paths.getMainActivityAsync(projectRoot);
+  if (mainActivity.language !== 'kt' || path.basename(mainActivity.path) !== 'MainActivity.kt') {
+    throw new Error('Generated Android MainActivity is not Kotlin source');
+  }
+  fs.writeFileSync(
+    mainActivity.path,
+    patchMainActivitySource(mainActivity.contents),
+    'utf8',
+  );
 }
 
 function mutateAndroidManifest(manifest) {
@@ -125,5 +135,6 @@ function techFilterXml() {
 
 module.exports = withNfcTagDispatch;
 module.exports.mutateAndroidManifest = mutateAndroidManifest;
+module.exports.patchMainActivityAtProjectRootAsync = patchMainActivityAtProjectRootAsync;
 module.exports.patchMainActivitySource = patchMainActivitySource;
 module.exports.techFilterXml = techFilterXml;
