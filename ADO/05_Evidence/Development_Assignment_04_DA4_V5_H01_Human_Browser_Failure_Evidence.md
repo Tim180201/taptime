@@ -1,9 +1,10 @@
 # Development Assignment 4 — DA4-V5-H01 Human Browser Failure Evidence
 
-- Status: **FAILURE/CORRECTION INDEPENDENTLY APPROVED; GATE FAILED — NEW HUMAN V5 UNAUTHORIZED**
+- Status: **H01 CORRECTION APPROVED; H02 FAILED BEFORE AUTHENTICATION — NEW HUMAN V5 UNAUTHORIZED**
 - Date: 2026-07-24
 - Owner: Technical Lead
-- Finding: `DA4-V5-H01`, P2, operational/gate reliability
+- Findings: `DA4-V5-H01`, P2, operational/gate reliability; `DA4-V5-H02`, P2,
+  operator credential-disclosure containment
 
 ## 1. Exact binding and authority
 
@@ -119,3 +120,27 @@ exact-head CI `30078462282`, attempt 1, 12/12.
 Verdict: `APPROVED`, zero open P0–P3 review findings. The archived review is
 `ADO/05_Evidence/Development_Assignment_04_DA4_V5_H01_Correction_Independent_Exact_SHA_Review.md`.
 It authorizes no Human run, production, production data, deployment or distribution.
+
+## 8. Subsequent fresh run: pre-authentication disclosure stop
+
+A later one-time fresh run was additionally bound to H01 final synchronization
+`87e617781e5f309751a1fb1fccf5d5cdc29eca3f`, tree
+`84e76180d031e85fcf8a7c109f78e82df9670779`, exact-head CI `30079489896`, attempt 1,
+12/12. Preflight, Harness readiness and the expected initial safe aggregate passed. At the first
+credential check the Harness returned `synthetic_password_binding=match`, but the external
+operator PTY wrapper echoed the memory-only synthetic password into operator output. The run
+stopped immediately before clipboard transfer, browser submission, authentication or Product
+write. No Chrome/Firefox, CSV or export phase ran. The credential is invalid after cleanup and is
+not reproduced here.
+
+Cleanup proved zero Harness listeners, disposable schema, migration-ledger rows, generated runtime
+roles and credential-clipboard bytes; the private Safari window must be confirmed closed before a
+new run. The authority is consumed. This is `DA4-V5-H02`, P2 operational disclosure containment,
+not evidence of a Product or Harness defect.
+
+A replacement operator-wrapper pattern was validated outside tracked runtime inputs with PTY output
+suppressed from the input-ready marker through the digest result. Five harmless dummy match runs
+and one mismatch run showed no dummy-value disclosure; the credential result exposed only the
+permitted match/mismatch value. This two-file ADO-only synchronization is AVS R0/V0: no Product,
+Harness, runbook, schema, dependency, workflow, helper or artifact input changed; V1–V4 and another
+independent review are not required. No new Human V5 is authorized.
