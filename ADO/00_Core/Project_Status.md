@@ -1,6 +1,6 @@
 # Project Status
 
-Status: CORE ROADMAP V2 BLOCK A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2, BLOCK D, E1 AND NARROW E2A COMPLETE FOR THEIR RECORDED SCOPES — DEVELOPMENT ASSIGNMENTS 1–3 AND DT-060–DT-074 CLOSED FOR THEIR EXACT AUTHORIZED LOCAL SCOPES — DA4 WORKSTREAMS A–D AND AVS V0–V4 INDEPENDENTLY APPROVED; FIRST HUMAN V5 FAILED CLOSED AND ITS AUTHORITY IS CONSUMED — PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
+Status: CORE ROADMAP V2 BLOCK A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2, BLOCK D, E1 AND NARROW E2A COMPLETE FOR THEIR RECORDED SCOPES — DEVELOPMENT ASSIGNMENTS 1–3 AND DT-060–DT-074 CLOSED FOR THEIR EXACT AUTHORIZED LOCAL SCOPES — DA4 WORKSTREAMS A–D, AVS V0–V4 AND H01 PROCEDURAL CORRECTION INDEPENDENTLY APPROVED; FIRST HUMAN V5 FAILED CLOSED, NEW HUMAN V5 UNAUTHORIZED — PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
 Date: 2026-07-24
 Owner: Human Architect + Technical Lead
 
@@ -79,9 +79,13 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   CSV/export did not run. The exact database mismatch dimension is not reconstructable after
   cleanup, and no Product defect is proven. `DA4-V5-H01` is P2 operational/gate reliability, not
   a proven Security, Product or data-integrity defect. The gate failed and its authority is
-  consumed; no observation is reusable. The ADO-only runbook correction requires independent
-  review before a new separately exact-bound Human authorization may be prepared. No new run is
-  authorized.
+  consumed; no observation is reusable. Independent review bound correction candidate
+  `cd5d1e17ed9158592fc40960f9c2b343d0505350`, tree
+  `c251f7217424d02d9ead8b09033f43c4cc2eccb4`, exact parent `24ae57a`, exact seven-file
+  `+252/-42` ADO delta and exact-head CI `30078462282`, attempt 1, 12/12. Verdict `APPROVED`,
+  zero open P0–P3 review findings. The correction is approved; `DA4-V5-H01` remains historical P2
+  until a completely fresh authorized gate passes and receives final review. A copy-ready new
+  exact-bound Human authorization candidate may be prepared, but no new run is authorized.
   Production, production data, deployment and distribution remain unauthorized.
 - **Development Assignment 3 is Human-accepted and implementation-authorized on exact baseline
   `ff68f7a7d0ce69a65e88846ae1cca9abd5951f5d`, tree
@@ -651,10 +655,10 @@ Two Epics are concurrently Active, per EP-009's own stated relationship to the r
 4. Preserve every closed C3B/C3C/C3D/C3E1/C3E2/DA1/DA2/DA3 boundary and the Human-accepted
    ADR-0015/DA4-P01–P12 scope; keep Human V5, production/deployment, legal/privacy and pilot
    operations behind their separate authorization and Human gates.
-5. Independently review the R0/V0 `DA4-V5-H01` failure synchronization and checkpoint-handshake
-   correction. Only after zero-finding approval may a new separately exact-bound Human V5
-   authorization candidate be prepared. No reuse, retry, repair or resume is authorized.
-   Production, production data, deployment and distribution remain unauthorized.
+5. Prepare, if directed, a copy-ready separately exact-bound Human V5 authorization candidate
+   against the independently approved `DA4-V5-H01` correction. Do not execute a run without a new
+   explicit Human authorization. No reuse, retry, repair or resume is authorized. Production,
+   production data, deployment and distribution remain unauthorized.
 
 ## Agreed comprehensive Development-assignment sequence
 

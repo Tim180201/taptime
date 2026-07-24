@@ -1,6 +1,6 @@
 # Development Assignment 4 — V5 Human Browser Gate Runbook
 
-- Status: **FIRST HUMAN V5 FAILED — AUTHORITY CONSUMED; NEW HUMAN V5 UNAUTHORIZED**
+- Status: **CHECKPOINT CORRECTION INDEPENDENTLY APPROVED — NEW HUMAN V5 UNAUTHORIZED**
 - Date: 2026-07-24
 - Owner: Technical Lead
 - Approval authority for any run: Human Architect
@@ -16,8 +16,11 @@ exact-head CI `30022981656`, attempt 1, 12/12, and independent review round 2 re
 `MERGE_READY / EXACT-SHA APPROVED` with zero open P0–P3. The first exact-bound Human gate later
 failed closed at the Tag-reassignment checkpoint and consumed its authority; see
 `ADO/05_Evidence/Development_Assignment_04_DA4_V5_H01_Human_Browser_Failure_Evidence.md`. This
-document does not authorize another Human run. A later run requires a separate Human authorization
-binding the exact product, enablement, evidence, review, Admin-Web build and browser environment.
+runbook correction was independently approved with zero open P0–P3 review findings; see
+`ADO/05_Evidence/Development_Assignment_04_DA4_V5_H01_Correction_Independent_Exact_SHA_Review.md`.
+This document does not authorize another Human run. A copy-ready authorization candidate may be
+prepared, but execution requires a separate Human authorization binding the exact product,
+enablement, evidence, review, Admin-Web build and browser environment.
 
 ## 2. Fixed local boundary
 

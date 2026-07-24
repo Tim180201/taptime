@@ -263,9 +263,11 @@ checkpoints, then failed closed at the Tag-reassignment checkpoint after the ope
 automatically aborted the Harness; Chromium/Chrome, Firefox, later writes and CSV/export did not
 run. Cleanup passed, the exact database mismatch dimension is not reconstructable and no Product
 defect is proven. `DA4-V5-H01` is P2 operational/gate reliability. Its R0/V0 checkpoint-handshake
-correction requires independent review before any new exact-bound Human authorization is prepared.
-The run authority is consumed; no reuse, retry, production, production data, deployment or
-distribution is authorized.
+correction was independently reviewed as candidate `cd5d1e17`/tree `c251f72` with exact-head CI
+`30078462282` 12/12. Verdict `APPROVED`, zero open P0–P3 review findings. `DA4-V5-H01` remains
+historical P2 until a completely fresh authorized gate passes and receives final review. A
+copy-ready new exact-bound Human authorization candidate may be prepared, but no run, reuse,
+retry, production, production data, deployment or distribution is authorized.
 
 This file is the official navigation entry point for the TapTim.e ADO.
 
@@ -393,8 +395,8 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Development Assignment 1 Complete Offline Synchronization Implementation Plan | `ADO/02_Development/Development_Assignment_01_Complete_Offline_Synchronization_Implementation_Plan.md` |
 | Development Assignment 2 Setup and Export Backend Authorization — DA2 and DT-063–DT-068 closed for authorized local scopes after independent zero-finding review and closure-publication CI 11/11 | `ADO/02_Development/Development_Assignment_02_Setup_And_Export_Backend_Authorization.md` |
 | Development Assignment 3 Correction and Append-only Audit Authorization — DA3, DT-069–DT-074 and DA3-PHYS-01/02/03 closed for authorized local scope after complete fresh Human V5 and independent zero-finding final review | `ADO/02_Development/Development_Assignment_03_Correction_And_Append_Only_Audit_Authorization.md` |
-| Development Assignment 4 Professional Admin Web Productization — ADR-0015/DA4-P01–P12 Human-accepted; Workstreams A–D and AVS V0–V4 independently approved; first Human V5 failed closed and no closure/new run is authorized | `ADO/02_Development/Development_Assignment_04_Professional_Admin_Web_Productization_Authorization.md` |
-| Development Assignment 4 V5 Enablement — local R3 V0–V4 and exact-SHA implementation review approved; first Human V5 failed as P2 `DA4-V5-H01`, authority consumed; corrected ADO procedure awaits independent review | `ADO/02_Development/Development_Assignment_04_V5_Enablement_Authorization.md` |
+| Development Assignment 4 Professional Admin Web Productization — ADR-0015/DA4-P01–P12 Human-accepted; Workstreams A–D, AVS V0–V4 and H01 procedural correction independently approved; first Human V5 failed closed and no closure/new run is authorized | `ADO/02_Development/Development_Assignment_04_Professional_Admin_Web_Productization_Authorization.md` |
+| Development Assignment 4 V5 Enablement — local R3 V0–V4, exact-SHA implementation review and H01 ADO correction approved; new Human V5 remains separately exact-bound and unauthorized | `ADO/02_Development/Development_Assignment_04_V5_Enablement_Authorization.md` |
 | Block C3 Organization Administration Implementation Plan | `ADO/02_Development/Block_C3_Organization_Administration_Implementation_Plan.md` |
 | Repository Health Sprint 001 | `ADO/02_Development/Repository_Health_Sprint_001.md` |
 | Repository Maintenance Sprint 002 | `ADO/02_Development/Repository_Maintenance_Sprint_002.md` |
@@ -414,7 +416,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 |---|---|
 | Development Assignment 1 Gate-C Response-Drop Runbook | `ADO/04_Operations/Development_Assignment_01_Gate_C_Response_Drop_Runbook.md` |
 | Development Assignment 3 V5 Human Functional/Physical Gate Runbook — complete fresh run passed and final closure approved; permanently non-executable without new separate authority | `ADO/04_Operations/Development_Assignment_03_V5_Runbook.md` |
-| Development Assignment 4 V5 Human Browser Gate Runbook — first gate failed closed and authority is consumed; corrected checkpoint handshake is non-executable pending independent review and new exact-bound Human authority | `ADO/04_Operations/Development_Assignment_04_V5_Runbook.md` |
+| Development Assignment 4 V5 Human Browser Gate Runbook — first gate failed closed and authority is consumed; corrected checkpoint handshake independently approved, but execution requires new exact-bound Human authority | `ADO/04_Operations/Development_Assignment_04_V5_Runbook.md` |
 
 ## Evidence
 
@@ -475,6 +477,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Development Assignment 4 V5 Enablement Independent Pre-Implementation Review — historical exact-SHA `APPROVED`, `MERGE_READY`, zero open P0–P3; Human acceptance and separate R3 implementation authority later granted | `ADO/05_Evidence/Development_Assignment_04_V5_Enablement_Independent_Pre_Implementation_Review.md` |
 | Development Assignment 4 V5 Enablement Independent Implementation Review — round 1 had one P2 signal-lifecycle finding; correction `e731a77` passed exact-head CI 12/12 and round 2 returned `APPROVED`, `MERGE_READY`, zero open P0–P3 | `ADO/05_Evidence/Development_Assignment_04_V5_Enablement_Independent_Implementation_Review.md` |
 | Development Assignment 4 DA4-V5-H01 Human Browser Failure Evidence — first gate failed closed at the premature Tag-reassignment checkpoint; P2 operational/gate reliability, complete cleanup, authority consumed and new run unauthorized | `ADO/05_Evidence/Development_Assignment_04_DA4_V5_H01_Human_Browser_Failure_Evidence.md` |
+| Development Assignment 4 DA4-V5-H01 Correction Independent Exact-SHA Review — `APPROVED`, zero open P0–P3 review findings; historical P2 remains until a fresh successful gate/final review and no new run is authorized | `ADO/05_Evidence/Development_Assignment_04_DA4_V5_H01_Correction_Independent_Exact_SHA_Review.md` |
 | Development Assignment 1 DA1-PHYS-01 Independent Exact-Delta Review — approved, finding closed | `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_01_Independent_Exact_Delta_Review.md` |
 | Development Assignment 1 DA1-PHYS-02 Independent Exact-Delta Review — approved, repository finding closed | `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_02_Independent_Exact_Delta_Review.md` |
 | Development Assignment 1 DA1-PHYS-03 Independent Exact-Delta Review — approved, repository finding closed | `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_03_Independent_Exact_Delta_Review.md` |

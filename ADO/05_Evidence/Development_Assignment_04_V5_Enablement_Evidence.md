@@ -1,6 +1,6 @@
 # Development Assignment 4 — V5 Enablement Candidate Evidence
 
-- Status: **INDEPENDENT IMPLEMENTATION REVIEW APPROVED; HUMAN V5 FAILED CLOSED — AUTHORITY CONSUMED**
+- Status: **V5 ENABLEMENT AND H01 PROCEDURAL CORRECTION INDEPENDENTLY APPROVED; NEW HUMAN V5 UNAUTHORIZED**
 - Date: 2026-07-24
 - Candidate baseline commit: `4594529667fe1570045eea03fd7132bc27e2e479`
 - Candidate baseline tree: `72338ec9b65dabdd71ab9011604817f61c13c288`
@@ -255,4 +255,17 @@ not a proven Security, Product or data-integrity defect. Full evidence and the c
 checkpoint handshake are recorded in
 `ADO/05_Evidence/Development_Assignment_04_DA4_V5_H01_Human_Browser_Failure_Evidence.md`.
 A new run remains separately exact-bound and unauthorized. Independent review of this ADO-only
-R0/V0 synchronization is required before new authorization is prepared.
+R0/V0 synchronization subsequently approved the correction as recorded below.
+
+## 12. DA4-V5-H01 correction review
+
+Independent exact-SHA review bound candidate `cd5d1e17ed9158592fc40960f9c2b343d0505350`,
+tree `c251f7217424d02d9ead8b09033f43c4cc2eccb4`, parent
+`24ae57adbd6a1877b7080112cf6940864a2e3fe1`, parent tree
+`40dd1a328c48676b46934a0095680556d08ef224`, exact seven-ADO-file `+252/-42` and exact-head
+CI `30078462282`, attempt 1, 12/12. Verdict: `APPROVED`, zero open P0–P3 review findings.
+
+The correction is independently approved. `DA4-V5-H01` remains historical P2 operational/gate
+reliability until a completely fresh authorized gate passes and receives final review. A copy-ready
+new exact-bound Human authorization candidate may be prepared; no run, production, production
+data, deployment or distribution is authorized.

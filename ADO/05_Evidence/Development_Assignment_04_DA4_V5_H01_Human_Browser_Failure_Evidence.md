@@ -1,6 +1,6 @@
 # Development Assignment 4 — DA4-V5-H01 Human Browser Failure Evidence
 
-- Status: **FAILED CLOSED — AUTHORITY CONSUMED; NEW HUMAN V5 UNAUTHORIZED**
+- Status: **FAILURE/CORRECTION INDEPENDENTLY APPROVED; GATE FAILED — NEW HUMAN V5 UNAUTHORIZED**
 - Date: 2026-07-24
 - Owner: Technical Lead
 - Finding: `DA4-V5-H01`, P2, operational/gate reliability
@@ -87,9 +87,9 @@ and current result followed by the exact question `Checkpoint ausführen?`; and 
 `Ja` before sending the checkpoint. Missing or ambiguous confirmation forbids the command. An
 already returned mismatch remains an automatic, non-queryable fail-closed abort.
 
-This synchronization and correction are ADO-only AVS R0/V0. Because the correction protects a
-closure-significant Human gate, independent review is required before any new exact-bound Human
-authorization is prepared.
+This synchronization and correction are ADO-only AVS R0/V0. Independent exact-SHA review returned
+`APPROVED` with zero open P0–P3 review findings. A copy-ready new exact-bound Human authorization
+candidate may now be prepared, but no run is authorized.
 
 ## 6. Change-Impact and verification record
 
@@ -103,7 +103,19 @@ authorization is prepared.
 - V5: failed closed as recorded above; authority consumed.
 - Carried evidence: the three exact Product/enablement/review bindings in Section 1; none is
   represented as freshly executed by this documentation change.
-- Remaining risk: a future operator could prematurely commit a checkpoint until the corrected
-  procedure is independently approved and used under a new exact-bound Human authorization.
+- Remaining risk: the corrected procedure remains operator-dependent; `DA4-V5-H01` remains
+  historical P2 until a completely fresh authorized gate passes and receives final review.
 
 Production, production data, deployment and distribution remain unauthorized.
+
+## 7. Independent correction review
+
+Independent review bound candidate `cd5d1e17ed9158592fc40960f9c2b343d0505350`, tree
+`c251f7217424d02d9ead8b09033f43c4cc2eccb4`, parent
+`24ae57adbd6a1877b7080112cf6940864a2e3fe1`, parent tree
+`40dd1a328c48676b46934a0095680556d08ef224`, exact seven-file `+252/-42` ADO delta and
+exact-head CI `30078462282`, attempt 1, 12/12.
+
+Verdict: `APPROVED`, zero open P0–P3 review findings. The archived review is
+`ADO/05_Evidence/Development_Assignment_04_DA4_V5_H01_Correction_Independent_Exact_SHA_Review.md`.
+It authorizes no Human run, production, production data, deployment or distribution.
