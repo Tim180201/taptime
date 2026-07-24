@@ -48,6 +48,7 @@ export interface BackendApiRuntimeConfiguration {
   readonly manualLifecycleDatabaseUrl?: string;
   readonly mobileOwnTimeDatabaseUrl?: string;
   readonly mobileTargetDatabaseUrl?: string;
+  readonly mobileOwnTimeCursorHmacKey?: string;
   readonly projectAdministrationDatabaseUrl?: string;
   readonly supabaseIssuer: string;
 }
@@ -98,6 +99,16 @@ export function createBackendApiRuntime(
   const projectAdministrationDatabase = optionalDatabaseUrl(
     configuration.projectAdministrationDatabaseUrl,
   );
+  const mobileOwnTimeCursorHmacKey = optionalMobileOwnTimeCursorHmacKey(
+    configuration.mobileOwnTimeCursorHmacKey,
+  );
+  if (
+    mobileOwnTimeDatabase !== undefined
+    && mobileTargetDatabase !== undefined
+    && mobileOwnTimeCursorHmacKey === undefined
+  ) {
+    throw new Error('Backend API mobile own-time cursor HMAC key is required');
+  }
   assertDistinctDatabaseUsers([
     sessionDatabase,
     readModelDatabase,
@@ -150,6 +161,18 @@ export function createBackendApiRuntime(
     lifecyclePool,
     verifier,
   );
+  const mobileWorkReader = (
+    mobileOwnTimePool === undefined
+    || mobileTargetPool === undefined
+    || mobileOwnTimeCursorHmacKey === undefined
+  )
+    ? undefined
+    : new MobileWorkReadCoordinator(
+        mobileOwnTimePool,
+        mobileTargetPool,
+        verifier,
+        mobileOwnTimeCursorHmacKey,
+      );
   const server = createBackendHttpServer(
     {
       sessionAuthority: new B4SessionAuthorityResolver(
@@ -188,13 +211,7 @@ export function createBackendApiRuntime(
           verifier,
         ),
       }),
-      ...(mobileOwnTimePool === undefined || mobileTargetPool === undefined ? {} : {
-        mobileWorkReader: new MobileWorkReadCoordinator(
-          mobileOwnTimePool,
-          mobileTargetPool,
-          verifier,
-        ),
-      }),
+      ...(mobileWorkReader === undefined ? {} : { mobileWorkReader }),
       ...(projectAdministrationPool === undefined ? {} : {
         projectAdministration: new ProjectAdministrationCoordinator(
           projectAdministrationPool,
@@ -252,6 +269,22 @@ export function createBackendApiRuntime(
 
 function optionalDatabaseUrl(value: string | undefined): ValidatedDatabaseUrl | undefined {
   return value === undefined ? undefined : validateDatabaseUrl(value);
+}
+
+function optionalMobileOwnTimeCursorHmacKey(value: string | undefined): string | undefined {
+  if (value === undefined) return undefined;
+  if (!/^[A-Za-z0-9_-]{43}$/.test(value)) {
+    throw new Error(
+      'Backend API mobile own-time cursor HMAC key must be canonical unpadded base64url for 32 bytes',
+    );
+  }
+  const decoded = Buffer.from(value, 'base64url');
+  if (decoded.length !== 32 || decoded.toString('base64url') !== value) {
+    throw new Error(
+      'Backend API mobile own-time cursor HMAC key must be canonical unpadded base64url for 32 bytes',
+    );
+  }
+  return value;
 }
 
 function createOptionalPool(database: ValidatedDatabaseUrl | undefined): Pool | undefined {

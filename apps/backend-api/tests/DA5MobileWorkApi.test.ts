@@ -1,6 +1,10 @@
 import type { Server } from 'node:http';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createBackendHttpServer } from '../src/BackendHttpServer.js';
+import {
+  createBackendApiRuntime,
+  type BackendApiRuntimeConfiguration,
+} from '../src/runtime.js';
 import type { BackendApiDependencies } from '../src/types.js';
 import { unavailableOfflineDependencies } from './offlineTestDependencies.js';
 
@@ -20,6 +24,32 @@ afterEach(async () => {
 });
 
 describe('DA5 Mobile work HTTP boundaries', () => {
+  it('requires and validates the server-only own-time cursor key during runtime composition',
+    async () => {
+      const configuration = mobileRuntimeConfiguration();
+      expect(() => createBackendApiRuntime({
+        ...configuration,
+        mobileOwnTimeCursorHmacKey: undefined,
+      })).toThrow('Backend API mobile own-time cursor HMAC key is required');
+
+      const invalidKey = 'not-a-secret-key';
+      expect(() => createBackendApiRuntime({
+        ...configuration,
+        mobileOwnTimeCursorHmacKey: invalidKey,
+      })).toThrow('cursor HMAC key must be canonical unpadded base64url');
+      try {
+        createBackendApiRuntime({
+          ...configuration,
+          mobileOwnTimeCursorHmacKey: invalidKey,
+        });
+      } catch (error) {
+        expect(String(error)).not.toContain(invalidKey);
+      }
+
+      const runtime = createBackendApiRuntime(configuration);
+      await runtime.close();
+    });
+
   it('forwards only the exact self-only own-time request and returns no-store', async () => {
     const queryOwnTime = vi.fn(async () => ({
       status: 'succeeded' as const,
@@ -62,6 +92,55 @@ describe('DA5 Mobile work HTTP boundaries', () => {
       limit: 20,
       userId: ids.project,
     }), 400, 'invalid_request');
+  });
+
+  it('keeps the server-issued own-time cursor opaque across separate HTTP requests', async () => {
+    const cursor = `v1:${'a'.repeat(80)}.${'b'.repeat(43)}`;
+    const queryOwnTime = vi.fn()
+      .mockResolvedValueOnce({
+        status: 'succeeded' as const,
+        response: {
+          activeRecord: null,
+          records: [],
+          nextCursor: cursor,
+          windowStartedAt: '2026-06-23T10:00:00.000Z',
+          windowEndedAt: '2026-07-24T10:00:00.000Z',
+        },
+      })
+      .mockResolvedValueOnce({
+        status: 'succeeded' as const,
+        response: {
+          activeRecord: null,
+          records: [],
+          nextCursor: null,
+          windowStartedAt: '2026-06-23T10:00:00.000Z',
+          windowEndedAt: '2026-07-24T10:00:00.000Z',
+        },
+      });
+    const origin = await start({
+      mobileWorkReader: {
+        queryOwnTime,
+        async queryWorkTargets() {
+          return { status: 'forbidden' };
+        },
+      },
+    });
+
+    expect((await post(origin, '/v1/mobile/own-time/query', {
+      expectedMembershipId: ids.membership,
+      cursor: null,
+      limit: 1,
+    })).status).toBe(200);
+    expect((await post(origin, '/v1/mobile/own-time/query', {
+      expectedMembershipId: ids.membership,
+      cursor,
+      limit: 1,
+    })).status).toBe(200);
+
+    expect(queryOwnTime).toHaveBeenNthCalledWith(2, {
+      accessToken: 'abc.def.ghi',
+      request: { expectedMembershipId: ids.membership, cursor, limit: 1 },
+    });
   });
 
   it('maps strict Project create and active-use deactivation conflicts', async () => {
@@ -140,6 +219,29 @@ describe('DA5 Mobile work HTTP boundaries', () => {
     }), 400, 'invalid_request');
   });
 });
+
+function mobileRuntimeConfiguration(): BackendApiRuntimeConfiguration {
+  const databaseUrl = (login: string) => `postgresql://${login}@127.0.0.1/taptime`;
+  return {
+    sessionDatabaseUrl: databaseUrl('da5_cursor_session'),
+    readModelDatabaseUrl: databaseUrl('da5_cursor_read_model'),
+    lifecycleDatabaseUrl: databaseUrl('da5_cursor_lifecycle'),
+    administrationDatabaseUrl: databaseUrl('da5_cursor_administration'),
+    employeeInvitationDatabaseUrl: databaseUrl('da5_cursor_invitation'),
+    employeeEnrollmentDatabaseUrl: databaseUrl('da5_cursor_enrollment'),
+    reassignmentDatabaseUrl: databaseUrl('da5_cursor_reassignment'),
+    offlineLeaseDatabaseUrl: databaseUrl('da5_cursor_offline_lease'),
+    offlineEventDatabaseUrl: databaseUrl('da5_cursor_offline_event'),
+    offlineReconciliationDatabaseUrl: databaseUrl('da5_cursor_offline_reconciliation'),
+    timeEntryExportDatabaseUrl: databaseUrl('da5_cursor_export'),
+    timeReviewReadDatabaseUrl: databaseUrl('da5_cursor_review_read'),
+    timeReviewWriteDatabaseUrl: databaseUrl('da5_cursor_review_write'),
+    mobileOwnTimeDatabaseUrl: databaseUrl('da5_cursor_own_time'),
+    mobileTargetDatabaseUrl: databaseUrl('da5_cursor_targets'),
+    mobileOwnTimeCursorHmacKey: Buffer.alloc(32, 0x61).toString('base64url'),
+    supabaseIssuer: 'https://synthetic.supabase.co/auth/v1',
+  };
+}
 
 async function start(overrides: Partial<BackendApiDependencies>): Promise<string> {
   const server = createBackendHttpServer({

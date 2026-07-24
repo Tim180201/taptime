@@ -30,6 +30,9 @@ const mobileOwnTimeDatabaseUrl = requiredEnvironmentValue(
 const mobileTargetDatabaseUrl = requiredEnvironmentValue(
   'TAPTIME_MOBILE_TARGET_DATABASE_URL',
 );
+const mobileOwnTimeCursorHmacKey = requiredEnvironmentValue(
+  'TAPTIME_MOBILE_OWN_TIME_CURSOR_HMAC_KEY',
+);
 const projectAdministrationDatabaseUrl = requiredEnvironmentValue(
   'TAPTIME_PROJECT_ADMINISTRATION_DATABASE_URL',
 );
@@ -52,6 +55,7 @@ const runtime = createBackendApiRuntime({
   manualLifecycleDatabaseUrl,
   mobileOwnTimeDatabaseUrl,
   mobileTargetDatabaseUrl,
+  mobileOwnTimeCursorHmacKey,
   projectAdministrationDatabaseUrl,
   supabaseIssuer,
 });
@@ -97,6 +101,7 @@ type RequiredRuntimeEnvironmentName =
   | 'TAPTIME_TIME_REVIEW_WRITE_DATABASE_URL'
   | 'TAPTIME_MANUAL_LIFECYCLE_DATABASE_URL'
   | 'TAPTIME_MOBILE_OWN_TIME_DATABASE_URL'
+  | 'TAPTIME_MOBILE_OWN_TIME_CURSOR_HMAC_KEY'
   | 'TAPTIME_MOBILE_TARGET_DATABASE_URL'
   | 'TAPTIME_PROJECT_ADMINISTRATION_DATABASE_URL';
 

@@ -155,6 +155,7 @@ export function createProductMobileRuntime(): ProductMobileRuntimeCreation {
   const nativeNfcIngressLifecycle = new NativeNfcIngressLifecycle(
     nativeNfcIngress,
     scanOrchestrator,
+    scanOrchestrator,
   );
   const mobileWorkCoordinator = new MobileWorkCoordinator(
     scanSessionContext,

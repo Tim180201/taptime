@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, createHmac } from 'node:crypto';
 import type { AccessTokenVerifier } from '@taptime/backend-identity';
 import type { Pool, PoolClient, QueryResult } from 'pg';
 import { describe, expect, it, vi } from 'vitest';
@@ -15,6 +15,8 @@ const ids = {
   command: '30000000-0000-4000-8000-000000000001',
   record: '40000000-0000-4000-8000-000000000001',
 } as const;
+const cursorHmacKey = Buffer.alloc(32, 0x41).toString('base64url');
+const rotatedCursorHmacKey = Buffer.alloc(32, 0x42).toString('base64url');
 
 const verifier = {
   verify: vi.fn(async () => ({
@@ -88,7 +90,12 @@ describe('MobileWorkReadCoordinator', () => {
     const targets = scriptedPool(() => {
       throw new Error('target pool must not be used for own-time');
     });
-    const coordinator = new MobileWorkReadCoordinator(own.pool, targets.pool, verifier);
+    const coordinator = new MobileWorkReadCoordinator(
+      own.pool,
+      targets.pool,
+      verifier,
+      cursorHmacKey,
+    );
 
     const result = await coordinator.queryOwnTime({
       accessToken: 'token',
@@ -111,17 +118,228 @@ describe('MobileWorkReadCoordinator', () => {
     expect(own.release).toHaveBeenCalledOnce();
   });
 
+  it('keeps one actor-bound own-time frame across pages and rejects tamper or cross-user reuse',
+    async () => {
+      const frameStarted = new Date('2026-06-23T10:00:00.000Z');
+      const frameEnded = new Date('2026-07-24T10:00:00.000Z');
+      const firstRecord = '40000000-0000-4000-8000-000000000011';
+      const secondRecord = '40000000-0000-4000-8000-000000000012';
+      const ownTimeValues: (readonly unknown[])[] = [];
+      let page = 0;
+      const own = scriptedPool((text, values) => {
+        if (text.includes('resolve_request_actor')) return actorRows();
+        if (text.includes('read_mobile_own_time_v1')) {
+          ownTimeValues.push(values ?? []);
+          page += 1;
+          return queryResult(page === 1
+            ? [
+                ownTimeHistoryRow(firstRecord, '2026-07-24T09:00:00.000Z', frameStarted, frameEnded),
+                ownTimeHistoryRow(secondRecord, '2026-07-24T08:00:00.000Z', frameStarted, frameEnded),
+              ]
+            : [
+                ownTimeHistoryRow(secondRecord, '2026-07-24T08:00:00.000Z', frameStarted, frameEnded),
+              ]);
+        }
+        if (text.includes('transaction_timestamp()')) {
+          return queryResult([{ now: new Date('2026-07-24T11:00:00.000Z') }]);
+        }
+        return queryResult();
+      });
+      const coordinator = new MobileWorkReadCoordinator(
+        own.pool,
+        own.pool,
+        verifier,
+        cursorHmacKey,
+      );
+
+      const first = await coordinator.queryOwnTime({
+        accessToken: 'token',
+        request: { expectedMembershipId: ids.membership, cursor: null, limit: 1 },
+      });
+      expect(first.status).toBe('succeeded');
+      if (first.status !== 'succeeded') return;
+      expect(first.response.records.map((record) => record.timeRecordId)).toEqual([firstRecord]);
+      expect(first.response.nextCursor).toMatch(/^v1:[A-Za-z0-9_-]+\.[A-Za-z0-9_-]{43}$/);
+      expect(first.response.nextCursor!.length).toBeLessThanOrEqual(256);
+
+      const continuationCoordinator = new MobileWorkReadCoordinator(
+        own.pool,
+        own.pool,
+        verifier,
+        cursorHmacKey,
+      );
+      const second = await continuationCoordinator.queryOwnTime({
+        accessToken: 'token',
+        request: {
+          expectedMembershipId: ids.membership,
+          cursor: first.response.nextCursor,
+          limit: 1,
+        },
+      });
+      expect(second).toMatchObject({
+        status: 'succeeded',
+        response: {
+          records: [{ timeRecordId: secondRecord }],
+          windowStartedAt: frameStarted.toISOString(),
+          windowEndedAt: frameEnded.toISOString(),
+        },
+      });
+      expect(ownTimeValues[1]?.slice(3, 5)).toEqual([
+        frameStarted.toISOString(),
+        frameEnded.toISOString(),
+      ]);
+
+      const cursor = first.response.nextCursor!;
+      const publiclyForgeableSignature = legacyActorOnlySignature(cursor, {
+        organizationId: ids.organization,
+        userId: ids.user,
+        membershipId: ids.membership,
+      });
+      const publiclyForged = `${cursor.slice(0, cursor.lastIndexOf('.') + 1)}${publiclyForgeableSignature}`;
+      await expect(coordinator.queryOwnTime({
+        accessToken: 'token',
+        request: { expectedMembershipId: ids.membership, cursor: publiclyForged, limit: 1 },
+      })).resolves.toEqual({ status: 'invalid_request' });
+
+      const tampered = `${cursor.slice(0, -1)}${cursor.endsWith('A') ? 'B' : 'A'}`;
+      await expect(coordinator.queryOwnTime({
+        accessToken: 'token',
+        request: { expectedMembershipId: ids.membership, cursor: tampered, limit: 1 },
+      })).resolves.toEqual({ status: 'invalid_request' });
+      expect(ownTimeValues).toHaveLength(2);
+
+      const otherActor = scriptedPool((text) => {
+        if (text.includes('resolve_request_actor')) {
+          return queryResult([{
+            user_id: '10000000-0000-4000-8000-000000000099',
+            organization_id: ids.organization,
+            membership_id: ids.membership,
+            membership_role: 'employee',
+          }]);
+        }
+        return queryResult();
+      });
+      const otherCoordinator = new MobileWorkReadCoordinator(
+        otherActor.pool,
+        otherActor.pool,
+        verifier,
+        cursorHmacKey,
+      );
+      await expect(otherCoordinator.queryOwnTime({
+        accessToken: 'other-token',
+        request: { expectedMembershipId: ids.membership, cursor, limit: 1 },
+      })).resolves.toEqual({ status: 'invalid_request' });
+      expect(otherActor.queries.some((text) => text.includes('read_mobile_own_time_v1')))
+        .toBe(false);
+
+      const rotated = scriptedPool((text) => {
+        if (text.includes('resolve_request_actor')) return actorRows();
+        return queryResult();
+      });
+      const rotatedCoordinator = new MobileWorkReadCoordinator(
+        rotated.pool,
+        rotated.pool,
+        verifier,
+        rotatedCursorHmacKey,
+      );
+      await expect(rotatedCoordinator.queryOwnTime({
+        accessToken: 'token-after-rotation',
+        request: { expectedMembershipId: ids.membership, cursor, limit: 1 },
+      })).resolves.toEqual({ status: 'invalid_request' });
+      expect(rotated.queries.some((text) => text.includes('read_mobile_own_time_v1')))
+        .toBe(false);
+    });
+
   it('rejects malformed requests before token or database access', async () => {
     const pool = scriptedPool(() => queryResult());
-    const coordinator = new MobileWorkReadCoordinator(pool.pool, pool.pool, verifier);
+    const coordinator = new MobileWorkReadCoordinator(
+      pool.pool,
+      pool.pool,
+      verifier,
+      cursorHmacKey,
+    );
 
     await expect(coordinator.queryWorkTargets({
       accessToken: 'token',
       request: { expectedMembershipId: ids.membership, cursor: null, limit: 51 },
     })).resolves.toEqual({ status: 'invalid_request' });
+    const outOfDateRangePayload = Buffer.from(JSON.stringify([
+      8_640_000_000_000_001,
+      8_640_002_678_400_001,
+      8_640_000_000_000_002,
+      ids.record,
+    ]), 'utf8').toString('base64url');
+    await expect(coordinator.queryOwnTime({
+      accessToken: 'token',
+      request: {
+        expectedMembershipId: ids.membership,
+        cursor: `v1:${outOfDateRangePayload}.${'A'.repeat(43)}`,
+        limit: 1,
+      },
+    })).resolves.toEqual({ status: 'invalid_request' });
     expect(pool.queries).toEqual([]);
   });
+
+  it('requires one canonical 32-byte server-side cursor HMAC key', () => {
+    const pool = scriptedPool(() => queryResult());
+    expect(() => new MobileWorkReadCoordinator(
+      pool.pool,
+      pool.pool,
+      verifier,
+      Buffer.alloc(31).toString('base64url'),
+    )).toThrow('Mobile own-time cursor HMAC key');
+    expect(() => new MobileWorkReadCoordinator(
+      pool.pool,
+      pool.pool,
+      verifier,
+      `${cursorHmacKey}=`,
+    )).toThrow('Mobile own-time cursor HMAC key');
+  });
 });
+
+function legacyActorOnlySignature(
+  cursor: string,
+  actor: {
+    readonly organizationId: string;
+    readonly userId: string;
+    readonly membershipId: string;
+  },
+): string {
+  const payload = cursor.slice(3, cursor.lastIndexOf('.'));
+  const publiclyDerivedKey = createHash('sha256')
+    .update(JSON.stringify([
+      'taptime-mobile-own-time-cursor-v1',
+      actor.organizationId,
+      actor.userId,
+      actor.membershipId,
+    ]), 'utf8')
+    .digest();
+  return createHmac('sha256', publiclyDerivedKey)
+    .update(payload, 'ascii')
+    .digest('base64url');
+}
+
+function ownTimeHistoryRow(
+  timeRecordId: string,
+  startedAt: string,
+  windowStartedAt: Date,
+  windowEndedAt: Date,
+) {
+  return {
+    row_kind: 'history',
+    time_record_id: timeRecordId,
+    source: 'canonical',
+    target_type: 'customer',
+    target_display_name: 'Kunde',
+    status: 'stopped',
+    started_at: new Date(startedAt),
+    stopped_at: new Date(Date.parse(startedAt) + 30 * 60 * 1_000),
+    started_via: 'nfc',
+    stopped_via: 'nfc',
+    window_started_at: windowStartedAt,
+    window_ended_at: windowEndedAt,
+  };
+}
 
 describe('ProjectAdministrationCoordinator', () => {
   it('creates a Project, receipt and audit in the administrator transaction', async () => {

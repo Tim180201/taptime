@@ -48,6 +48,11 @@ export interface NativeNfcIngressScanCapability {
   scan(): Promise<void>;
 }
 
+export interface NativeNfcIngressAuthorityReader {
+  captureNativeNfcIngressAuthority(): Promise<object | null>;
+  isNativeNfcIngressAuthorityCurrent(snapshot: object): boolean;
+}
+
 /**
  * Bridges Android Tag Dispatch into the same product scan coordinator as foreground capture.
  * Polling is process-local only: no service, wake lock, background capture, or persisted raw UID.
@@ -59,6 +64,7 @@ export class NativeNfcIngressLifecycle {
   constructor(
     private readonly ingress: Pick<NativeNfcIngressCapturePort, 'hasPending' | 'clear'>,
     private readonly scan: NativeNfcIngressScanCapability,
+    private readonly authority: NativeNfcIngressAuthorityReader,
     private readonly schedule: typeof setInterval = setInterval,
     private readonly unschedule: typeof clearInterval = clearInterval,
   ) {}
@@ -80,7 +86,16 @@ export class NativeNfcIngressLifecycle {
     if (this.checking || !this.ingress.hasPending()) return;
     this.checking = true;
     try {
+      const authority = await this.authority.captureNativeNfcIngressAuthority();
+      if (
+        authority === null
+        || !this.authority.isNativeNfcIngressAuthorityCurrent(authority)
+      ) {
+        this.ingress.clear();
+        return;
+      }
       await this.scan.scan();
+      if (this.ingress.hasPending()) this.ingress.clear();
     } finally {
       this.checking = false;
     }

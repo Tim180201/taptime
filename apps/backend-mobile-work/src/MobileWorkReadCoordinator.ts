@@ -1,5 +1,7 @@
+import { createHmac, timingSafeEqual } from 'node:crypto';
 import type { AccessTokenVerifier } from '@taptime/backend-identity';
 import {
+  MOBILE_CURSOR_MAXIMUM_ASCII_CHARACTERS,
   MOBILE_OWN_TIME_LIMIT_MAXIMUM,
   MOBILE_WORK_TARGET_LIMIT_MAXIMUM,
   validateMobileOwnTimeQueryRequest,
@@ -46,8 +48,11 @@ interface TargetRow extends QueryResultRow {
 }
 
 interface OwnTimeCursor {
-  readonly startedAt: string;
+  readonly windowStartedAtMilliseconds: number;
+  readonly windowEndedAtMilliseconds: number;
+  readonly startedAtMilliseconds: number;
   readonly timeRecordId: string;
+  readonly signature: string;
 }
 
 interface TargetCursor {
@@ -57,11 +62,16 @@ interface TargetCursor {
 }
 
 export class MobileWorkReadCoordinator implements MobileWorkReader {
+  private readonly ownTimeCursorHmacKey: Buffer;
+
   constructor(
     private readonly ownTimePool: Pool,
     private readonly targetPool: Pool,
     private readonly accessTokenVerifier: AccessTokenVerifier,
-  ) {}
+    ownTimeCursorHmacKey: string,
+  ) {
+    this.ownTimeCursorHmacKey = parseOwnTimeCursorHmacKey(ownTimeCursorHmacKey);
+  }
 
   async queryOwnTime(
     command: MobileReadCommand<Parameters<MobileWorkReader['queryOwnTime']>[0]['request']>,
@@ -69,27 +79,42 @@ export class MobileWorkReadCoordinator implements MobileWorkReader {
     if (!validateMobileOwnTimeQueryRequest(command.request)) {
       return { status: 'invalid_request' };
     }
-    const cursor = decodeCursor<OwnTimeCursor>(command.request.cursor, isOwnTimeCursor);
+    const cursor = decodeOwnTimeCursor(command.request.cursor);
     if (cursor === undefined) return { status: 'invalid_request' };
 
-    return this.withActor(
+    return this.withActor<MobileOwnTimeQueryResponse>(
       this.ownTimePool,
       command.accessToken,
       command.request.expectedMembershipId,
       OWN_TIME_ROLE,
       async (client, actor) => {
+        if (
+          cursor !== null
+          && !isOwnTimeCursorAuthentic(cursor, actor, this.ownTimeCursorHmacKey)
+        ) {
+          return { status: 'invalid_request' };
+        }
         const rows = await client.query<OwnTimeRow>(
           `SELECT row_kind, time_record_id, source, target_type, target_display_name,
                   status, started_at, stopped_at, started_via, stopped_via,
                   window_started_at, window_ended_at
            FROM taptime_server.read_mobile_own_time_v1(
-             $1::uuid, $2::uuid, $3::uuid, $4::timestamptz, $5::uuid, $6
+             $1::uuid, $2::uuid, $3::uuid, $4::timestamptz, $5::timestamptz,
+             $6::timestamptz, $7::uuid, $8
            )`,
           [
             actor.organization_id,
             actor.user_id,
             actor.membership_id,
-            cursor?.startedAt ?? null,
+            cursor === null
+              ? null
+              : new Date(cursor.windowStartedAtMilliseconds).toISOString(),
+            cursor === null
+              ? null
+              : new Date(cursor.windowEndedAtMilliseconds).toISOString(),
+            cursor === null
+              ? null
+              : new Date(cursor.startedAtMilliseconds).toISOString(),
             cursor?.timeRecordId ?? null,
             command.request.limit + 1,
           ],
@@ -102,19 +127,26 @@ export class MobileWorkReadCoordinator implements MobileWorkReader {
         const fallback = await client.query<{ now: Date }>(
           'SELECT transaction_timestamp() AS now',
         );
-        const endedAt = rows.rows[0]?.window_ended_at ?? fallback.rows[0]!.now;
+        const endedAt = rows.rows[0]?.window_ended_at
+          ?? (cursor === null
+            ? fallback.rows[0]!.now
+            : new Date(cursor.windowEndedAtMilliseconds));
         const startedAt = rows.rows[0]?.window_started_at
-          ?? new Date(endedAt.getTime() - 31 * 24 * 60 * 60 * 1_000);
+          ?? (cursor === null
+            ? new Date(endedAt.getTime() - OWN_TIME_WINDOW_MILLISECONDS)
+            : new Date(cursor.windowStartedAtMilliseconds));
         return {
           status: 'succeeded',
           response: {
             activeRecord: active === undefined ? null : mapOwnTimeRecord(active),
             records: page.map(mapOwnTimeRecord),
             nextCursor: hasMore && last !== undefined
-              ? encodeCursor({
-                  startedAt: last.started_at.toISOString(),
+              ? encodeOwnTimeCursor({
+                  windowStartedAtMilliseconds: startedAt.getTime(),
+                  windowEndedAtMilliseconds: endedAt.getTime(),
+                  startedAtMilliseconds: last.started_at.getTime(),
                   timeRecordId: last.time_record_id,
-                })
+                }, actor, this.ownTimeCursorHmacKey)
               : null,
             windowStartedAt: startedAt.toISOString(),
             windowEndedAt: endedAt.toISOString(),
@@ -251,6 +283,112 @@ function targetTypeRank(type: WorkTargetType): number {
   return type === 'customer' ? 1 : type === 'project' ? 2 : 3;
 }
 
+const OWN_TIME_WINDOW_MILLISECONDS = 31 * 24 * 60 * 60 * 1_000;
+const MAXIMUM_DATE_MILLISECONDS = 8_640_000_000_000_000;
+const CANONICAL_UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+const OWN_TIME_CURSOR_HMAC_KEY_PATTERN = /^[A-Za-z0-9_-]{43}$/;
+
+function encodeOwnTimeCursor(
+  value: Omit<OwnTimeCursor, 'signature'>,
+  actor: ActorRow,
+  hmacKey: Buffer,
+): string {
+  const payload = Buffer.from(JSON.stringify([
+    value.windowStartedAtMilliseconds,
+    value.windowEndedAtMilliseconds,
+    value.startedAtMilliseconds,
+    value.timeRecordId,
+  ]), 'utf8').toString('base64url');
+  const signature = signOwnTimeCursorPayload(payload, actor, hmacKey);
+  const cursor = `v1:${payload}.${signature}`;
+  if (cursor.length > MOBILE_CURSOR_MAXIMUM_ASCII_CHARACTERS) {
+    throw new Error('Mobile own-time cursor exceeds its closed transport bound');
+  }
+  return cursor;
+}
+
+function decodeOwnTimeCursor(value: string | null): OwnTimeCursor | null | undefined {
+  if (value === null) return null;
+  const match = /^v1:([A-Za-z0-9_-]+)\.([A-Za-z0-9_-]{43})$/.exec(value);
+  if (match === null) return undefined;
+  try {
+    const parsed: unknown = JSON.parse(Buffer.from(match[1]!, 'base64url').toString('utf8'));
+    if (
+      !Array.isArray(parsed)
+      || parsed.length !== 4
+      || !parsed.slice(0, 3).every(isValidDateMilliseconds)
+      || typeof parsed[3] !== 'string'
+      || !CANONICAL_UUID_PATTERN.test(parsed[3])
+      || parsed[1] - parsed[0] !== OWN_TIME_WINDOW_MILLISECONDS
+      || parsed[2] < parsed[0]
+      || parsed[2] >= parsed[1]
+    ) return undefined;
+    return {
+      windowStartedAtMilliseconds: parsed[0] as number,
+      windowEndedAtMilliseconds: parsed[1] as number,
+      startedAtMilliseconds: parsed[2] as number,
+      timeRecordId: parsed[3],
+      signature: match[2]!,
+    };
+  } catch {
+    return undefined;
+  }
+}
+
+function isOwnTimeCursorAuthentic(
+  cursor: OwnTimeCursor,
+  actor: ActorRow,
+  hmacKey: Buffer,
+): boolean {
+  const payload = Buffer.from(JSON.stringify([
+    cursor.windowStartedAtMilliseconds,
+    cursor.windowEndedAtMilliseconds,
+    cursor.startedAtMilliseconds,
+    cursor.timeRecordId,
+  ]), 'utf8').toString('base64url');
+  const expected = Buffer.from(signOwnTimeCursorPayload(payload, actor, hmacKey), 'ascii');
+  const actual = Buffer.from(cursor.signature, 'ascii');
+  return expected.length === actual.length && timingSafeEqual(expected, actual);
+}
+
+function signOwnTimeCursorPayload(
+  payload: string,
+  actor: ActorRow,
+  hmacKey: Buffer,
+): string {
+  const actorBoundKey = createHmac('sha256', hmacKey)
+    .update(JSON.stringify([
+      'taptime-mobile-own-time-cursor-v1',
+      actor.organization_id,
+      actor.user_id,
+      actor.membership_id,
+    ]), 'utf8')
+    .digest();
+  return createHmac('sha256', actorBoundKey).update(payload, 'ascii').digest('base64url');
+}
+
+function parseOwnTimeCursorHmacKey(value: string): Buffer {
+  if (!OWN_TIME_CURSOR_HMAC_KEY_PATTERN.test(value)) {
+    throw new Error(
+      'Mobile own-time cursor HMAC key must be canonical unpadded base64url for 32 bytes',
+    );
+  }
+  const decoded = Buffer.from(value, 'base64url');
+  if (decoded.length !== 32 || decoded.toString('base64url') !== value) {
+    throw new Error(
+      'Mobile own-time cursor HMAC key must be canonical unpadded base64url for 32 bytes',
+    );
+  }
+  return Buffer.from(decoded);
+}
+
+function isValidDateMilliseconds(value: unknown): value is number {
+  return Number.isSafeInteger(value)
+    && Number(value) >= 0
+    && Number(value) <= MAXIMUM_DATE_MILLISECONDS;
+}
+
 function encodeCursor(value: unknown): string {
   return `v1:${Buffer.from(JSON.stringify(value), 'utf8').toString('base64url')}`;
 }
@@ -267,14 +405,6 @@ function decodeCursor<Value>(
   } catch {
     return undefined;
   }
-}
-
-function isOwnTimeCursor(value: unknown): value is OwnTimeCursor {
-  return isRecord(value)
-    && Object.keys(value).length === 2
-    && typeof value.startedAt === 'string'
-    && Number.isFinite(Date.parse(value.startedAt))
-    && typeof value.timeRecordId === 'string';
 }
 
 function isTargetCursor(value: unknown): value is TargetCursor {

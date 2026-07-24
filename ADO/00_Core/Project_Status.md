@@ -1,6 +1,6 @@
 # Project Status
 
-Status: CORE ROADMAP V2 BLOCK A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2, BLOCK D, E1 AND NARROW E2A COMPLETE FOR THEIR RECORDED SCOPES — DEVELOPMENT ASSIGNMENTS 1–3 AND DT-060–DT-074 CLOSED FOR THEIR EXACT AUTHORIZED LOCAL SCOPES — DA4 WORKSTREAMS A–D, AVS V0–V4, H01 PROCEDURAL CORRECTION, DA4-V5-F06 AND DA4-V5-F07 INDEPENDENTLY APPROVED; DA4 REMAINS OPEN FOR A LATER FRESH HUMAN V5 — DA5 WORKSTREAMS A–F HAVE A HUMAN-ACCEPTED UNCOMMITTED LOCAL V0–V3 CANDIDATE WITH ANDROID TAG DISPATCH PLUS MANUAL CUSTOMER/PROJECT/GENERAL WORK TRIGGERS; V4, INDEPENDENT IMPLEMENTATION REVIEW AND HUMAN V5 REMAIN OPEN — PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
+Status: CORE ROADMAP V2 BLOCK A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2, BLOCK D, E1 AND NARROW E2A COMPLETE FOR THEIR RECORDED SCOPES — DEVELOPMENT ASSIGNMENTS 1–3 AND DT-060–DT-074 CLOSED FOR THEIR EXACT AUTHORIZED LOCAL SCOPES — DA4 WORKSTREAMS A–D, AVS V0–V4, H01 PROCEDURAL CORRECTION, DA4-V5-F06 AND DA4-V5-F07 INDEPENDENTLY APPROVED; DA4 REMAINS OPEN FOR A LATER FRESH HUMAN V5 — DA5 WORKSTREAMS A–F WERE PUBLISHED AT `4cd4718`, TREE `a910522`, AND PASSED EXACT-HEAD V4 `30108718178` 12/12; INDEPENDENT REVIEW RETURNED `CHANGES REQUIRED` WITH P1 NATIVE STALE REPLAY, P2 OWN-TIME PAGINATION FRAME AND P3 ADO TRUTH; FOCUSED CORRECTION ROUND 1 INCLUDING THE SERVER-KEY SUPPLEMENT NOW HAS A GREEN FINAL LOCAL V0–V3 CANDIDATE, WHILE CORRECTED PUBLICATION/V4/RE-REVIEW AND HUMAN V5 REMAIN OPEN — PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
 Date: 2026-07-24
 Owner: Human Architect + Technical Lead
 
@@ -10,8 +10,8 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
 
 ## Current State
 
-- **Development Assignment 5 Workstreams A–F are implemented as a locally green R3
-  candidate.** The Human Architect expressly accepted ADR-0016/DA5-P01–P12 and
+- **Development Assignment 5 Workstreams A–F are published and in focused review correction
+  round 1.** The Human Architect expressly accepted ADR-0016/DA5-P01–P12 and
   ADR-0017/DA5-T01–T15 and authorized the bounded Development implementation plus subsequent
   Technical-Lead acceptance, focused publication, exact-head V4 and independent exact-SHA review
   on baseline
@@ -24,10 +24,29 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   1,896 tests passed with two optional B1 skips, all 21 workspace typechecks and all 20 applicable
   workspace builds passed,
   migrations 001–013 applied/replayed/verified on clean PostgreSQL 17.10, the Android production
-  graph exported, and disposable DA5 databases were removed. The candidate is not committed or
-  published; V4, independent exact-SHA implementation review and a separately authorized fresh
-  Human Android V5 remain mandatory. DA4 Human V5 remains separate. Production, production data,
-  deployment and distribution remain unauthorized.
+  graph exported, and disposable DA5 databases were removed. Technical-Lead publication
+  `4cd471883a2b68e709bbe34e68eb592c2b83d511`, tree
+  `a910522d826caba85dd1f14625a8f64d87e5742a`, passed exact-head V4 run
+  `30108718178`, attempt 1, 12/12. Independent exact-SHA implementation review returned
+  `CHANGES REQUIRED` with exactly three findings: P1 native Tag Dispatch could retain an
+  authority-free pending Tag and replay it after later authentication; P2 own-time continuation
+  recomputed the server-time frame and therefore failed deterministic load-more; and P3 this
+  status still described the already published/V4-reviewed candidate as uncommitted. Focused
+  correction round 1 is now limited to exact native capture-authority discard, immutable
+  actor-bound own-time pagination and truthful ADO synchronization. The corrected local V3 passed
+  1,908 tests with the two existing optional B1 Supavisor skips, all 21 tests-inclusive
+  typechecks, all 20 applicable builds, clean migration/apply/replay/ledger verification, C3B
+  binary verification and Android export. Subsequent Technical-Lead inspection found that the
+  uncommitted cursor MAC still derived its key only from public Actor UUIDs. The focused
+  supplement now requires a strictly validated server-only 32-byte key and binds the cursor to
+  both that key and the exact Actor/Membership. Affected Backend Mobile Work and Backend API
+  V1/V2 are green. The final supplemented V3 then passed all 21 workspace suites with 1,910 tests
+  and the two existing optional B1 Supavisor skips, all 21 tests-inclusive typechecks, all 20
+  applicable builds, clean migration apply/replay/ledger verification, C3B binary verification,
+  36/36 Mobile test-file inclusion and Android export of 861 modules. Corrected publication/V4
+  and independent re-review remain mandatory. No finding authorizes Human V5. DA4 Human V5
+  remains separate. Production, production data, deployment and distribution remain
+  unauthorized.
 - **Development Assignment 4 is the active Roadmap engineering block.** The Human Architect
   accepted ADR-0015 and DA4-P01–P12 and separately authorized Workstreams A–D plus AVS V0–V4 on
   exact baseline `d9892435acbf7f45a96a9a01c8331afceb65f6f1`, tree
@@ -724,9 +743,9 @@ Two Epics are concurrently Active, per EP-009's own stated relationship to the r
 5. Preserve the independently approved `DA4-V5-F06` and `DA4-V5-F07` corrections plus failed
    `DA4-V5-H03`. Any later DA4 Human V5 requires a new separate exact-bound authorization; no
    reuse, retry, repair or resume is authorized.
-6. Publish only the Technical-Lead-audited exact DA5 candidate, obtain complete exact-head V4 and
-   an independent exact-SHA implementation review with zero open
-   P0–P3. DA4's open Human gate and all later Human/hardware evidence remain separate.
+6. Technical-Lead-audit and publish only the green DA5 correction-round-1 P1/P2/P3 delta, obtain
+   corrected exact-head V4 and an independent exact-SHA re-review with zero open P0–P3. DA4's
+   open Human gate and all later Human/hardware evidence remain separate.
    Production, production data, deployment and distribution remain unauthorized.
 
 ## Agreed comprehensive Development-assignment sequence

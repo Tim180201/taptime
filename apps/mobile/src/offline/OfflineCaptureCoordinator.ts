@@ -77,6 +77,18 @@ export interface OfflineBackgroundSchedulerBinding {
 
 type CaptureMode = 'authenticated' | 'offline';
 
+interface NativeNfcIngressAuthoritySnapshot {
+  readonly generation: number;
+  readonly mode: CaptureMode;
+  readonly restorationSnapshot: InternalOfflineRestorationSnapshot | null;
+  readonly offlineCaptureContext: ActiveOfflineCaptureContext | null;
+}
+
+interface SessionTransitionFlight {
+  readonly generation: number;
+  readonly promise: Promise<void>;
+}
+
 export type ManualOfflineCaptureResult =
   | { readonly status: 'saved'; readonly workEventId: string }
   | { readonly status: 'full' | 'protected' | 'unavailable' };
@@ -115,6 +127,7 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
   private started = false;
   private generation = 0;
   private operationFlight: Promise<void> | null = null;
+  private sessionTransitionFlight: SessionTransitionFlight | null = null;
   private unsubscribeSession: (() => void) | null = null;
   private unsubscribeScheduler: (() => void) | null = null;
   private database: OfflineCaptureDatabase | null = null;
@@ -123,6 +136,7 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
   private captureMode: CaptureMode | null = null;
   private offlineRestorationSnapshot: InternalOfflineRestorationSnapshot | null = null;
   private offlineCaptureContext: ActiveOfflineCaptureContext | null = null;
+  private nativeNfcIngressAuthority: NativeNfcIngressAuthoritySnapshot | null = null;
   private protectedLegacy = false;
   private readonly manualAcknowledgements = new Map<string, ManualOfflineAcknowledgement>();
   private readonly manualAcknowledgementListeners = new Set<() => void>();
@@ -169,9 +183,9 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
     if (!this.isCurrent(generation) || !ready) return;
     this.unsubscribeSession = this.session.subscribe(() => {
       if (this.canPreserveActiveOfflineCapture()) return;
-      void this.transitionToSession(++this.generation);
+      void this.scheduleSessionTransition(++this.generation);
     });
-    await this.transitionToSession(generation);
+    await this.scheduleSessionTransition(generation);
     if (!this.isCurrent(generation)) return;
     void this.scheduler?.trigger('runtime_start');
   }
@@ -183,6 +197,8 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
     this.captureMode = null;
     this.offlineRestorationSnapshot = null;
     this.offlineCaptureContext = null;
+    this.nativeNfcIngressAuthority = null;
+    this.sessionTransitionFlight = null;
     this.manualAcknowledgements.clear();
     this.unsubscribeSession?.();
     this.unsubscribeSession = null;
@@ -208,6 +224,44 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
     });
     this.operationFlight = flight;
     return flight;
+  }
+
+  async captureNativeNfcIngressAuthority(): Promise<object | null> {
+    const generation = this.generation;
+    const transition = this.sessionTransitionFlight;
+    if (transition !== null && transition.generation === generation) {
+      await transition.promise.catch(() => undefined);
+    }
+    if (generation !== this.generation) return null;
+    const authority = this.nativeNfcIngressAuthority;
+    return authority !== null
+      && this.operationFlight === null
+      && canStartScan(this.state)
+      && this.isNativeNfcIngressAuthorityCurrent(authority)
+      ? authority
+      : null;
+  }
+
+  isNativeNfcIngressAuthorityCurrent(snapshot: object): boolean {
+    const authority = this.nativeNfcIngressAuthority;
+    return snapshot === authority
+      && authority !== null
+      && this.isCaptureCurrent(
+        authority.generation,
+        authority.mode,
+        authority.restorationSnapshot,
+      )
+      && (
+        authority.mode === 'authenticated'
+        || (
+          authority.offlineCaptureContext !== null
+          && this.offlineCaptureContext !== null
+          && sameActiveCaptureContext(
+            this.offlineCaptureContext,
+            authority.offlineCaptureContext,
+          )
+        )
+      );
   }
 
   async cancel(): Promise<void> {
@@ -291,11 +345,28 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
     return true;
   }
 
+  private scheduleSessionTransition(generation: number): Promise<void> {
+    const promise = this.transitionToSession(generation);
+    const flight = Object.freeze({ generation, promise });
+    this.sessionTransitionFlight = flight;
+    void promise.then(() => {
+      if (this.sessionTransitionFlight === flight) {
+        this.sessionTransitionFlight = null;
+      }
+    }, () => {
+      if (this.sessionTransitionFlight === flight) {
+        this.sessionTransitionFlight = null;
+      }
+    });
+    return promise;
+  }
+
   private async transitionToSession(generation: number): Promise<void> {
     if (!this.started || this.database === null) return;
     this.captureMode = null;
     this.offlineRestorationSnapshot = null;
     this.offlineCaptureContext = null;
+    this.nativeNfcIngressAuthority = null;
     await this.nfcLifecycle.cancelCapture();
     if (!this.isCurrent(generation)) return;
     if (this.protectedLegacy) {
@@ -706,6 +777,7 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
       return;
     }
     if (!this.started || this.captureMode !== mode) return;
+    this.ensureNativeNfcIngressAuthority(mode);
     if (reviewPendingSequence !== null) {
       this.setState({ status: 'server_review_pending', queueCount });
       return;
@@ -821,6 +893,7 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
     this.captureMode = null;
     this.offlineRestorationSnapshot = null;
     this.offlineCaptureContext = null;
+    this.nativeNfcIngressAuthority = null;
     if (removeLookupKey) {
       this.manualAcknowledgements.clear();
     } else {
@@ -865,7 +938,27 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
       );
   }
 
+  private ensureNativeNfcIngressAuthority(mode: CaptureMode): void {
+    const current = this.nativeNfcIngressAuthority;
+    if (
+      current !== null
+      && current.generation === this.generation
+      && current.mode === mode
+      && current.restorationSnapshot === this.offlineRestorationSnapshot
+      && current.offlineCaptureContext === this.offlineCaptureContext
+    ) return;
+    this.nativeNfcIngressAuthority = Object.freeze({
+      generation: this.generation,
+      mode,
+      restorationSnapshot: mode === 'offline' ? this.offlineRestorationSnapshot : null,
+      offlineCaptureContext: mode === 'offline' ? this.offlineCaptureContext : null,
+    });
+  }
+
   private setReady(outcome: ProductScanOutcome): void {
+    if (outcome.status === 'session_rejected') {
+      this.nativeNfcIngressAuthority = null;
+    }
     this.setState({ status: 'ready', outcome: Object.freeze(outcome) });
   }
 

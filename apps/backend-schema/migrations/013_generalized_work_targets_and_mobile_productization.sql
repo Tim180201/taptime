@@ -716,6 +716,8 @@ CREATE FUNCTION taptime_server.read_mobile_own_time_v1(
   requested_organization_id uuid,
   requested_user_id uuid,
   requested_membership_id uuid,
+  requested_window_started_at timestamptz,
+  requested_window_ended_at timestamptz,
   requested_after_started_at timestamptz,
   requested_after_time_record_id uuid,
   requested_limit integer
@@ -740,7 +742,12 @@ SECURITY DEFINER
 SET search_path = pg_catalog
 AS $own_time$
 DECLARE
-  boundary timestamptz := pg_catalog.transaction_timestamp();
+  request_time timestamptz := pg_catalog.transaction_timestamp();
+  boundary timestamptz := COALESCE(requested_window_ended_at, request_time);
+  window_start timestamptz := COALESCE(
+    requested_window_started_at,
+    boundary - interval '31 days'
+  );
 BEGIN
   IF pg_catalog.current_setting('role', true) <> 'taptime_mobile_own_time_reader'
     OR NOT taptime_server.has_current_mobile_self_v1(
@@ -748,6 +755,18 @@ BEGIN
     )
     OR requested_limit NOT BETWEEN 1 AND 21
     OR (requested_after_started_at IS NULL) <> (requested_after_time_record_id IS NULL)
+    OR (requested_window_started_at IS NULL) <> (requested_window_ended_at IS NULL)
+    OR (requested_after_started_at IS NULL) <> (requested_window_ended_at IS NULL)
+    OR (
+      requested_window_ended_at IS NOT NULL
+      AND (
+        requested_window_started_at <> requested_window_ended_at - interval '31 days'
+        OR requested_window_ended_at > request_time
+        OR requested_window_ended_at < request_time - interval '31 days'
+        OR requested_after_started_at < requested_window_started_at
+        OR requested_after_started_at >= requested_window_ended_at
+      )
+    )
   THEN
     RAISE EXCEPTION 'Mobile own-time capability rejected' USING ERRCODE = '42501';
   END IF;
@@ -757,7 +776,7 @@ BEGIN
          record.target_type, target.display_name, record.status,
          record.effective_started_at, record.effective_stopped_at,
          record.started_via, record.stopped_via,
-         boundary - interval '31 days', boundary
+         window_start, boundary
   FROM taptime_server.effective_time_records_v2 AS record
   JOIN taptime_server.work_targets AS target
     ON target.organization_id = record.organization_id
@@ -773,7 +792,7 @@ BEGIN
          record.target_type, target.display_name, record.status,
          record.effective_started_at, record.effective_stopped_at,
          record.started_via, record.stopped_via,
-         boundary - interval '31 days', boundary
+         window_start, boundary
   FROM taptime_server.effective_time_records_v2 AS record
   JOIN taptime_server.work_targets AS target
     ON target.organization_id = record.organization_id
@@ -782,7 +801,7 @@ BEGIN
   WHERE record.organization_id = requested_organization_id
     AND record.user_id = requested_user_id
     AND record.status = 'stopped'
-    AND record.effective_started_at >= boundary - interval '31 days'
+    AND record.effective_started_at >= window_start
     AND record.effective_started_at < boundary
     AND (
       requested_after_started_at IS NULL
@@ -795,13 +814,13 @@ END
 $own_time$;
 
 ALTER FUNCTION taptime_server.read_mobile_own_time_v1(
-  uuid, uuid, uuid, timestamptz, uuid, integer
+  uuid, uuid, uuid, timestamptz, timestamptz, timestamptz, uuid, integer
 ) OWNER TO taptime_mobile_read_function_owner;
 REVOKE ALL ON FUNCTION taptime_server.read_mobile_own_time_v1(
-  uuid, uuid, uuid, timestamptz, uuid, integer
+  uuid, uuid, uuid, timestamptz, timestamptz, timestamptz, uuid, integer
 ) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION taptime_server.read_mobile_own_time_v1(
-  uuid, uuid, uuid, timestamptz, uuid, integer
+  uuid, uuid, uuid, timestamptz, timestamptz, timestamptz, uuid, integer
 ) TO taptime_mobile_own_time_reader;
 
 CREATE FUNCTION taptime_server.read_mobile_work_targets_v1(
