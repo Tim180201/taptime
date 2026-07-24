@@ -357,10 +357,24 @@ finding remains open.
 After the normal three-round limit, the Human Architect authorized exactly one focused R0
 synchronization of only Project Status and this evidence record. This synchronization changes no
 executable, schema, dependency, configuration, workflow or artifact input, requires only AVS
-R0/V0 and is complete in this exact two-file candidate without requiring a self-SHA. Operationally,
-only focused publication if required and independent Exact-Delta review remain; that review is the
-sole remaining DA5 software gate. The synchronization neither repeats nor supersedes product V3/V4
-and grants no Human/hardware V5 authority.
+R0/V0 and was published as `b777f7027f436caf785f657ae9fc29795fd60bcb`, tree
+`54b257f50eb4d565a60ee6f6171921033695a1c7`. Independent R0 Exact-Delta review returned
+`APPROVED`, `MERGE_READY`, with zero open P0–P3. The synchronization neither repeats nor
+supersedes product V3/V4 and closes the DA5 V0–V4 software scope.
+
+## Final pre-hardware Workstream-F shell
+
+The final authorized pre-hardware R0 candidate adds only:
+
+- `ADO/04_Operations/Development_Assignment_05_V5_Runbook.md`; and
+- `ADO/05_Evidence/Development_Assignment_05_V5_Evidence.md`.
+
+The runbook is a concise staged operator shell for ADR-0016 DA5-P12 and ADR-0017 DA5-T15. The
+evidence record is empty and `NOT RUN`. Neither document claims its own review result, requires a
+self-SHA, binds an APK/device/Tag or authorizes installation, ADB, device/Tag interaction or Human
+V5. Before any future fresh run, exact reviewed product/review and read-only APK/manifest
+size/SHA-256/mode bindings, separately named approved device/Tags and a separate exact Human
+authorization remain mandatory.
 
 ## Remaining gates and risks
 
@@ -368,10 +382,12 @@ and grants no Human/hardware V5 authority.
   `452d8fd93aeec66560b3fa73065850d4584490d1`, tree
   `699349b0a65360da9fa63288c384b2e287d0012b`, V4 run `30115776918`, attempt 1,
   12/12.
-- Independent exact-bound review round 3 returned `CHANGES REQUIRED` solely for the P3 stale
-  status/evidence truth corrected by this Human-authorized R0 synchronization. P1/P2 are approved
-  and closed. This exact two-file candidate completes the synchronization; independent Exact-Delta
-  review remains the sole DA5 software gate.
+- Independent exact-bound review round 3's sole P3 stale-truth finding and its approved P1/P2
+  closure were synchronized at `b777f7027f436caf785f657ae9fc29795fd60bcb`, tree
+  `54b257f50eb4d565a60ee6f6171921033695a1c7`. Independent R0 Exact-Delta review returned
+  `APPROVED`, `MERGE_READY`, with zero open P0–P3; DA5 V0–V4 software is technically closed.
+- The current V5 runbook/evidence R0 shell claims no review outcome for itself. It must be
+  independently reviewed before it can form part of a future exact Human authorization.
 - Human Android V5, real-device NFC/Tag dispatch, accessibility observation, process restart and
   controlled offline/online physical paths were not run and remain separately authorized gates.
 - Exact Android vendor/Tag routing remains a Human-qualified best-effort matrix as specified by
@@ -379,7 +395,6 @@ and grants no Human/hardware V5 authority.
 - Production, production data, legal/privacy approval, signing, deployment and distribution remain
   unauthorized.
 
-The next operational action is focused publication of this exact two-file candidate if required by
-the review workflow, followed by independent Exact-Delta review. The documentation candidate does
-not require a self-SHA. Product V3/V4 is not repeated because the executable candidate and its
-exact published commit/tree remain unchanged.
+The next operational action is independent Exact-Delta review of the pre-hardware R0 runbook and
+evidence shell candidate. Product V3/V4 is not repeated because no executable or artifact input
+changed. Human V5 remains stopped until a later separate exact-bound Human authorization.

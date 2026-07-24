@@ -1,6 +1,6 @@
 # Project Status
 
-Status: CORE ROADMAP V2 BLOCK A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2, BLOCK D, E1 AND NARROW E2A COMPLETE FOR THEIR RECORDED SCOPES — DEVELOPMENT ASSIGNMENTS 1–3 AND DT-060–DT-074 CLOSED FOR THEIR EXACT AUTHORIZED LOCAL SCOPES — DA4 WORKSTREAMS A–D, AVS V0–V4, H01 PROCEDURAL CORRECTION, DA4-V5-F06 AND DA4-V5-F07 INDEPENDENTLY APPROVED; DA4 REMAINS OPEN FOR A LATER FRESH HUMAN V5 — DA5 CORRECTION ROUND 2 WAS PUBLISHED AT `452d8fd`, TREE `699349b`, AND PASSED EXACT-HEAD V4 `30115776918` 12/12; INDEPENDENT REVIEW ROUND 3 RETURNED `CHANGES REQUIRED` SOLELY FOR P3 ADO STATUS/EVIDENCE TRUTH, WITH P1 NATIVE CAPTURE-TIME AUTHORITY AND P2 EXACT 744-HOUR OWN-TIME DURATION APPROVED AND CLOSED; THE HUMAN-AUTHORIZED TWO-FILE R0 TRUTH SYNCHRONIZATION IS COMPLETE IN THIS CANDIDATE, AND INDEPENDENT EXACT-DELTA REVIEW IS THE SOLE REMAINING DA5 SOFTWARE GATE BEFORE SEPARATELY AUTHORIZED HUMAN/HARDWARE V5 — PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
+Status: CORE ROADMAP V2 BLOCK A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2, BLOCK D, E1 AND NARROW E2A COMPLETE FOR THEIR RECORDED SCOPES — DEVELOPMENT ASSIGNMENTS 1–3 AND DT-060–DT-074 CLOSED FOR THEIR EXACT AUTHORIZED LOCAL SCOPES — DA4 WORKSTREAMS A–D, AVS V0–V4, H01 PROCEDURAL CORRECTION, DA4-V5-F06 AND DA4-V5-F07 INDEPENDENTLY APPROVED; DA4 REMAINS OPEN FOR A LATER FRESH HUMAN V5 — DA5 CORRECTION ROUND 2 WAS PUBLISHED AT `452d8fd`, TREE `699349b`, AND PASSED EXACT-HEAD V4 `30115776918` 12/12; THE HUMAN-AUTHORIZED R0 TRUTH SYNCHRONIZATION AT `b777f702`, TREE `54b257f`, RECEIVED INDEPENDENT EXACT-DELTA `APPROVED`, `MERGE_READY`, WITH ZERO OPEN P0–P3, SO THE DA5 V0–V4 SOFTWARE SCOPE IS TECHNICALLY CLOSED; A PRE-HARDWARE V5 RUNBOOK/EVIDENCE SHELL EXISTS WITHOUT CLAIMING ITS OWN REVIEW OUTCOME, WHILE HUMAN/HARDWARE V5 REMAINS SEPARATE AND UNAUTHORIZED — PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
 Date: 2026-07-24
 Owner: Human Architect + Technical Lead
 
@@ -10,8 +10,8 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
 
 ## Current State
 
-- **Development Assignment 5 Workstreams A–F are published and in focused review correction
-  round 2.** The Human Architect expressly accepted ADR-0016/DA5-P01–P12 and
+- **Development Assignment 5 Workstreams A–F and V0–V4 are technically closed/MERGE_READY;
+  Human V5 remains unauthorized.** The Human Architect expressly accepted ADR-0016/DA5-P01–P12 and
   ADR-0017/DA5-T01–T15 and authorized the bounded Development implementation plus subsequent
   Technical-Lead acceptance, focused publication, exact-head V4 and independent exact-SHA review
   on baseline
@@ -65,12 +65,15 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   described publication, V4 and re-review as pending. The reviewer approved and closed P1
   capture-time authority and P2 exact 744-hour own-time duration. The Human Architect authorized
   exactly one R0 synchronization of these two ADO truth records beyond the normal three-round
-  limit; this exact two-file candidate completes that synchronization without requiring a
-  self-SHA. Operationally, only focused publication if required and independent Exact-Delta
-  review remain; that review is the sole remaining DA5 software gate. No finding or this
-  synchronization authorizes Human/hardware V5; that gate remains separate. DA4 Human V5 also
-  remains separate. Production, production data, deployment and distribution remain
-  unauthorized.
+  limit. It was published as `b777f7027f436caf785f657ae9fc29795fd60bcb`, tree
+  `54b257f50eb4d565a60ee6f6171921033695a1c7`; independent R0 Exact-Delta review returned
+  `APPROVED`, `MERGE_READY`, with zero open P0–P3. That closes the DA5 V0–V4 software scope.
+  The final pre-hardware Workstream-F R0 candidate adds only a concise V5 runbook and empty
+  evidence shell. Those documents claim no review result for themselves and authorize no
+  installation, device/Tag interaction or Human V5. A future fresh run requires exact reviewed
+  product, review, read-only APK/manifest, device and Tag bindings plus a separate Human
+  authorization. DA4 Human V5 also remains separate. Production, production data, deployment and
+  distribution remain unauthorized.
 - **Development Assignment 4 is the active Roadmap engineering block.** The Human Architect
   accepted ADR-0015 and DA4-P01–P12 and separately authorized Workstreams A–D plus AVS V0–V4 on
   exact baseline `d9892435acbf7f45a96a9a01c8331afceb65f6f1`, tree
@@ -767,13 +770,12 @@ Two Epics are concurrently Active, per EP-009's own stated relationship to the r
 5. Preserve the independently approved `DA4-V5-F06` and `DA4-V5-F07` corrections plus failed
    `DA4-V5-H03`. Any later DA4 Human V5 requires a new separate exact-bound authorization; no
    reuse, retry, repair or resume is authorized.
-6. Treat the Human-authorized DA5 R0 truth synchronization as complete in this exact two-file
-   candidate; focus-publish it if required by the review workflow and obtain an independent
-   Exact-Delta review as the sole remaining DA5 software gate. Correction-round-2 publication
-   `452d8fd`/tree `699349b` and exact-head V4 `30115776918` 12/12 are complete; independent round
-   3 approved and closed P1/P2 and retained solely the P3 truth-synchronization finding. No
-   self-SHA is required for this documentation candidate. DA4's open Human gate and all later
-   Human/hardware V5 evidence remain separate and unauthorized.
+6. Preserve DA5 V0–V4 technical closure at R0 truth synchronization `b777f702`, tree `54b257f`,
+   independently `APPROVED`, `MERGE_READY`, with zero open P0–P3. Treat the current pre-hardware
+   V5 runbook/evidence shell only as an R0 candidate that grants no run authority and claims no
+   review result for itself; obtain its independent Exact-Delta review before any separate,
+   exact-bound Human authorization. No self-SHA is required by the shell. DA4's open Human gate
+   and all Human/hardware V5 evidence remain separate and unauthorized.
    Production, production data, deployment and distribution remain unauthorized.
 
 ## Agreed comprehensive Development-assignment sequence
