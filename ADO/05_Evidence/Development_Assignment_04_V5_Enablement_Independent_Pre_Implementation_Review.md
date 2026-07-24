@@ -83,7 +83,9 @@ invariants internally consistent:
 - Employee and TimeRecord/review pagination are exactly 20/1 and 100/1;
 - Assignment history moves from total/active `1/1` to `2/1`, with the first row inactive and one
   exact target cutover;
-- the six real Admin-Web operations add exactly six general `audit_events` rows;
+- the review contemporaneously accepted the then-stated six-row invariant; DA4-V5-F06 later
+  established that the six real Admin-Web operations add seven general `audit_events` rows because
+  reassignment adds both `NfcAssignmentDeactivated` and `NfcTagAssigned`;
 - the single `TimeEntryExportGenerated` row is the export-audit subset and is not double-counted;
 - Safari performs Customer/invitation/reassignment, Chromium performs correction/export/
   adjudication, each exactly once and strictly serially, while Firefox and responsive passes remain

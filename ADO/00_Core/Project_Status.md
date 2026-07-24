@@ -1,6 +1,6 @@
 # Project Status
 
-Status: CORE ROADMAP V2 BLOCK A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2, BLOCK D, E1 AND NARROW E2A COMPLETE FOR THEIR RECORDED SCOPES — DEVELOPMENT ASSIGNMENTS 1–3 AND DT-060–DT-074 CLOSED FOR THEIR EXACT AUTHORIZED LOCAL SCOPES — DA4 WORKSTREAMS A–D, AVS V0–V4 AND H01 PROCEDURAL CORRECTION INDEPENDENTLY APPROVED; HUMAN V5 REMAINS FAILED CLOSED AFTER H02 PRE-AUTHENTICATION DISCLOSURE STOP, NEW HUMAN V5 UNAUTHORIZED — PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
+Status: CORE ROADMAP V2 BLOCK A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2, BLOCK D, E1 AND NARROW E2A COMPLETE FOR THEIR RECORDED SCOPES — DEVELOPMENT ASSIGNMENTS 1–3 AND DT-060–DT-074 CLOSED FOR THEIR EXACT AUTHORIZED LOCAL SCOPES — DA4 WORKSTREAMS A–D, AVS V0–V4 AND H01 PROCEDURAL CORRECTION INDEPENDENTLY APPROVED; LATEST HUMAN V5 FAILED CLOSED, AUTHORITY CONSUMED, DA4-V5-F06 LOCAL V0–V3 GREEN, V4/REVIEW PENDING — PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
 Date: 2026-07-24
 Owner: Human Architect + Technical Lead
 
@@ -93,7 +93,22 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   containment, not a proven Product or Harness defect; its authority is consumed. An echo-safe
   operator path passed five harmless dummy match runs and one mismatch run without value
   disclosure. This R0/V0 synchronization changes no executable or artifact input. A new exact-bound
-  Human authorization candidate may be prepared after publication, but no new run is authorized.
+  Human authorization candidate could be prepared only under the then-current state.
+
+  A later separately authorized fresh run stopped at `operator_command_rejected` before any
+  Product write and completed clean stop/cleanup. The next separately authorized fresh run passed
+  two Safari checkpoints and showed the exact reassignment success UI. Its read-only status then
+  reported the repository-correct AuditEvent count `105`, while the stale Harness invariant
+  expected `104`. No third checkpoint was sent; stop and cleanup completed cleanly without secret
+  evidence. The Human gate failed and its authority is consumed. `DA4-V5-F06` is open: focused R3
+  correction of only the Harness/accepted invariant and runbook from reassignment `+1`/final
+  `initial + 6` to the established `NfcAssignmentDeactivated` plus `NfcTagAssigned` reassignment
+  `+2`/final `initial + 7`. Local V1 passed the focused DA4 regression 31/31, the authoritative
+  C3E2 PostgreSQL reassignment boundary 19/19, tests-inclusive typecheck and build. V2 passed the
+  complete Synthetic PostgreSQL Harness 80/80. V3 passed 1,827 tests with two optional B1
+  Supavisor skips, all 19 tests-inclusive typechecks and all 18 applicable builds; disposable
+  Synthetic, B1 and DA3 state was removed. V4 publication and independent exact-SHA review remain
+  pending. No DA4 closure or new Human run is authorized.
   Production, production data, deployment and distribution remain unauthorized.
 - **Development Assignment 3 is Human-accepted and implementation-authorized on exact baseline
   `ff68f7a7d0ce69a65e88846ae1cca9abd5951f5d`, tree
@@ -663,10 +678,10 @@ Two Epics are concurrently Active, per EP-009's own stated relationship to the r
 4. Preserve every closed C3B/C3C/C3D/C3E1/C3E2/DA1/DA2/DA3 boundary and the Human-accepted
    ADR-0015/DA4-P01–P12 scope; keep Human V5, production/deployment, legal/privacy and pilot
    operations behind their separate authorization and Human gates.
-5. Publish the minimal R0/V0 `DA4-V5-H02` failure synchronization, then prepare a copy-ready
-   separately exact-bound Human V5 authorization candidate against that exact head. Do not execute
-   a run without a new explicit Human authorization. No reuse, retry, repair or resume is
-   authorized. Production, production data, deployment and distribution remain unauthorized.
+5. Complete the focused R3 `DA4-V5-F06` Harness/accepted-invariant correction and its required
+   verification/review. Do not execute another Human V5 without a new explicit exact-bound Human
+   authorization. No reuse, retry, repair or resume is authorized. Production, production data,
+   deployment and distribution remain unauthorized.
 
 ## Agreed comprehensive Development-assignment sequence
 

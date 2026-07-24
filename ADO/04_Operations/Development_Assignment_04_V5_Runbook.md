@@ -1,6 +1,6 @@
 # Development Assignment 4 — V5 Human Browser Gate Runbook
 
-- Status: **CHECKPOINT CORRECTION INDEPENDENTLY APPROVED — NEW HUMAN V5 UNAUTHORIZED**
+- Status: **F06 AUDIT-INVARIANT CORRECTION LOCAL V0–V3 GREEN; V4/EXACT-SHA REVIEW PENDING — NEW HUMAN V5 UNAUTHORIZED**
 - Date: 2026-07-24
 - Owner: Technical Lead
 - Approval authority for any run: Human Architect
@@ -18,6 +18,8 @@ failed closed at the Tag-reassignment checkpoint and consumed its authority; see
 `ADO/05_Evidence/Development_Assignment_04_DA4_V5_H01_Human_Browser_Failure_Evidence.md`. This
 runbook correction was independently approved with zero open P0–P3 review findings; see
 `ADO/05_Evidence/Development_Assignment_04_DA4_V5_H01_Correction_Independent_Exact_SHA_Review.md`.
+`DA4-V5-F06` later corrected only the stale reassignment AuditEvent expectation from one row to
+the repository-established two rows; its exact-head V4 and independent review remain pending.
 This document does not authorize another Human run. A copy-ready authorization candidate may be
 prepared, but execution requires a separate Human authorization binding the exact product,
 enablement, evidence, review, Admin-Web build and browser environment.
@@ -187,7 +189,8 @@ repaired or resumed; the whole run is failed and its authority consumed.
    second confirmation. Require the exact UI success message
    `NFC-Tag wurde sicher neu zugeordnet.` Refresh and stop on Assignment-history total `+1`,
    active Assignments unchanged at `1`, old row inactive, reassignment receipt `+1`, general
-   AuditEvents `+1`. Complete the four-step handshake before
+   AuditEvents `+2` (`NfcAssignmentDeactivated` and `NfcTagAssigned`). Complete the four-step
+   handshake before
    `checkpoint safari reassign-tag`.
 4. Sign out Safari. Do not perform any Chromium-assigned write in Safari.
 
@@ -255,9 +258,9 @@ Run disclosure-safe status and require the exact delta from Section 4:
 - one Customer setup receipt and one reassignment receipt;
 - one TimeRecord revision, one review adjudication, two time-review command receipts and one
   export audit;
-- final general `audit_events` count exactly equal to the recorded numeric initial count plus six;
-  exactly one of those six new rows is `TimeEntryExportGenerated` and is the same row counted by
-  the export-audit aggregate, never a seventh AuditEvent; and
+- final general `audit_events` count exactly equal to the recorded numeric initial count plus
+  seven; exactly one of those seven new rows is `TimeEntryExportGenerated` and is the same row
+  counted by the export-audit aggregate, never an eighth AuditEvent; and
 - no other lifecycle, receipt, revision, adjudication, export or authority delta.
 
 Every required UI success, cursor transition, confirmation, secret destruction, session boundary,

@@ -144,3 +144,26 @@ and one mismatch run showed no dummy-value disclosure; the credential result exp
 permitted match/mismatch value. This two-file ADO-only synchronization is AVS R0/V0: no Product,
 Harness, runbook, schema, dependency, workflow, helper or artifact input changed; V1–V4 and another
 independent review are not required. No new Human V5 is authorized.
+
+## 9. Subsequent fresh stops and DA4-V5-F06
+
+A later separately authorized fresh run stopped at `operator_command_rejected` before any Product
+write. Stop and cleanup completed cleanly, no observation is reusable and that run's authority is
+consumed.
+
+The next separately authorized fresh run passed two Safari write checkpoints. The reassignment UI
+then displayed exactly `NFC-Tag wurde sicher neu zugeordnet.`, and the read-only status showed the
+correct general AuditEvent count `105` while the stale Harness invariant expected `104`. No third
+checkpoint was sent. The run stopped and completed cleanup cleanly without recording a secret.
+The Human gate is failed and its authority is consumed.
+
+`DA4-V5-F06` is the open R3 Harness/accepted-invariant correction: the unchanged secure
+reassignment deactivates the prior Assignment and inserts the replacement, producing
+`NfcAssignmentDeactivated` plus `NfcTagAssigned`. The Harness and runbook must therefore require
+reassignment `+2` and final `initial + 7`; the export subset remains one already-counted general
+AuditEvent. The focused candidate passed V1 with 31/31 focused DA4 and 19/19 authoritative C3E2
+PostgreSQL tests, V2 with 80/80 complete Synthetic PostgreSQL tests and V3 with 1,827 tests, two
+optional B1 Supavisor skips, all 19 typechecks and all 18 builds, followed by complete disposable
+cleanup. V4 publication and independent exact-SHA review remain pending. No Product, Business-rule
+or schema change, no retry or new Human V5, and no production, production-data, deployment or
+distribution authority follows.

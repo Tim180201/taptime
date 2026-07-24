@@ -1,6 +1,6 @@
 # Development Assignment 4 — V5 Enablement Candidate Evidence
 
-- Status: **V5 ENABLEMENT AND H01 PROCEDURAL CORRECTION INDEPENDENTLY APPROVED; NEW HUMAN V5 UNAUTHORIZED**
+- Status: **F06 AUDIT-INVARIANT CORRECTION LOCAL V0–V3 GREEN; V4/EXACT-SHA REVIEW PENDING — NEW HUMAN V5 UNAUTHORIZED**
 - Date: 2026-07-24
 - Candidate baseline commit: `4594529667fe1570045eea03fd7132bc27e2e479`
 - Candidate baseline tree: `72338ec9b65dabdd71ab9011604817f61c13c288`
@@ -83,8 +83,9 @@ A later authorized implementation must provide:
    correction shift, uniquely oldest review target and browser-timezone/DST fail-closed boundary;
 4. tests proving initial Assignment history total/active `1/1`, reassignment final `2/1` with the
    first row inactive, exactly one target cutover and no duplicate browser write;
-5. tests proving exactly six new general AuditEvents for six operations, with the single
-   `TimeEntryExportGenerated` row also—and only—counted by the export-audit subset;
+5. tests proving the corrected invariant of exactly seven new general AuditEvents for six
+   operations: reassignment contributes `NfcAssignmentDeactivated` and `NfcTagAssigned`, while the
+   single `TimeEntryExportGenerated` row is also—and only—counted by the export-audit subset;
 6. tests proving the fixed serial Safari-three/Chromium-three allocation, refresh/aggregate stop
    points and read-only Firefox/browser-matrix boundary;
 7. tests proving no raw ID/token/password/digest/invitation secret/CSV-body disclosure and exact
@@ -269,3 +270,25 @@ The correction is independently approved. `DA4-V5-H01` remains historical P2 ope
 reliability until a completely fresh authorized gate passes and receives final review. A copy-ready
 new exact-bound Human authorization candidate may be prepared; no run, production, production
 data, deployment or distribution is authorized.
+
+## 13. DA4-V5-F06 local correction evidence
+
+The later Human run proved that one secure reassignment produces exactly the two
+repository-required general AuditEvents `NfcAssignmentDeactivated` and `NfcTagAssigned`.
+`DA4-V5-F06` changes only the DA4-V5 aggregate expectation and its direct test/runbook evidence;
+Product code, schema, dependencies, workflow, Admin Web, Mobile and the reviewed build remain
+unchanged.
+
+- V1 passed the focused DA4 regression 31/31, the authoritative C3E2 PostgreSQL reassignment
+  boundary 19/19, Synthetic tests-inclusive typecheck and build.
+- V2 passed the complete Synthetic PostgreSQL Harness 80/80 with cleanup.
+- V3 passed all workspaces with 1,827 tests and two optional B1 Supavisor skips, all 19
+  tests-inclusive typechecks and all 18 applicable builds. The first workspace invocation lacked
+  the documented local B1 installer/runtime variables; its other 18 workspaces had already passed
+  1,788 tests, and B1 then passed 39 tests plus the two optional skips with local synthetic
+  variables.
+- Cleanup removed the temporary `taptime_da3` database and two runtime roles, the disposable B1
+  schema and all Synthetic schema, ledger, role and listener state.
+
+V4 publication and independent exact-SHA review remain pending. No Human V5, production,
+production-data, deployment or distribution action is authorized.

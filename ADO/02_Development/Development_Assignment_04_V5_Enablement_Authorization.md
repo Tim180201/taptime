@@ -1,6 +1,6 @@
 # Development Assignment 4 — V5 Enablement Authorization Candidate
 
-- Status: **TECHNICALLY APPROVED — LOCAL V0–V4 AND EXACT-SHA REVIEW GREEN; HUMAN V5 UNAUTHORIZED**
+- Status: **F06 AUDIT-INVARIANT CORRECTION LOCAL V0–V3 GREEN; V4/EXACT-SHA REVIEW PENDING — HUMAN V5 UNAUTHORIZED**
 - Date: 2026-07-23
 - Candidate baseline commit: `4594529667fe1570045eea03fd7132bc27e2e479`
 - Candidate baseline tree: `72338ec9b65dabdd71ab9011604817f61c13c288`
@@ -98,15 +98,15 @@ Human run may change it only through the six real Admin-Web operations below:
 |---|---:|
 | Create one Customer | Customers `+1`, setup receipt `+1`, general `audit_events` `+1` |
 | Create one Employee invitation | Active invitations `+1`, invitation receipt `+1`, general `audit_events` `+1` |
-| Reassign the fixture Tag once | Tags unchanged; Assignment history total `+1`, active Assignments unchanged at `1`, prior row inactive, reassignment receipt `+1`, general `audit_events` `+1`, target changes exactly once |
+| Reassign the fixture Tag once | Tags unchanged; Assignment history total `+1`, active Assignments unchanged at `1`, prior row inactive, reassignment receipt `+1`, general `audit_events` `+2` (`NfcAssignmentDeactivated` and `NfcTagAssigned`), target changes exactly once |
 | Correct one stopped TimeRecord | TimeRecord total unchanged, revision `+1`, review command receipt `+1`, general `audit_events` `+1` |
 | Adjudicate the oldest review item | Unresolved review items `-1`, adjudication `+1`, review command receipt `+1`, general `audit_events` `+1` |
 | Export the effective window once | General `audit_events` `+1`; that same row is the one `TimeEntryExportGenerated` export-audit increment, not an additional row; no lifecycle/revision mutation |
 
 The final projection totals are therefore exactly 22 Customers, 21 projected Employees, 101
 TimeRecords, 100 unresolved review items, one Tag, two total Assignment-history rows and one active
-Assignment. The final operator delta contains exactly six general `audit_events` rows for the six
-operations; exactly one of those six is also counted by the filtered
+Assignment. The final operator delta contains exactly seven general `audit_events` rows for the six
+operations; exactly one of those seven is also counted by the filtered
 `TimeEntryExportGenerated` export-audit aggregate. It also contains two time-review command
 receipts and exactly one named receipt for Customer, invitation and reassignment. Any additional,
 missing or double-counted delta fails the later run.
@@ -181,5 +181,6 @@ Round 1 bound `b63a0db`, tree `cd7ac40`, CI `30021272713` 12/12 and returned exa
 zero P0/P1/P3. Focused correction `e731a77`, tree `6c2b34d`, exact parent `b63a0db`, passed final
 V1 29/29, affected V2 78/78, final V3 1,825 tests and exact-head CI `30022981656`, attempt 1,
 12/12. Round 2 returned `APPROVED`, `MERGE_READY / EXACT-SHA APPROVED` and zero open P0–P3.
-The exact next stage is only a separately exact-bound Human V5 Browser Gate; it remains
-unauthorized and not run.
+The later `DA4-V5-F06` correction of the stale reassignment AuditEvent invariant requires its own
+V4 and independent exact-SHA review before another separately exact-bound Human V5 Browser Gate.
+That Human gate remains unauthorized.

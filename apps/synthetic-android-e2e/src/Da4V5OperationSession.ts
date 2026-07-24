@@ -34,7 +34,7 @@ export const DA4_V5_WRITE_PLAN: readonly Da4V5WriteStep[] = Object.freeze([
     browser: 'safari',
     operation: 'reassign-tag',
     delta: Object.freeze({
-      auditEvents: 1,
+      auditEvents: 2,
       reassignmentReceipts: 1,
       totalAssignments: 1,
     }),

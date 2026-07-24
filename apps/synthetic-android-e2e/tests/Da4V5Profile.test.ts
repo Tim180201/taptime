@@ -121,6 +121,95 @@ describe('DA4 V5 serial write allocation', () => {
     expect(session.state()).toEqual({ state: 'complete', step: 6 });
   });
 
+  it('accepts the independent two-audit reassignment and seven-audit final invariant', () => {
+    const session = new Da4V5OperationSession(DA4_V5_INITIAL_STATUS);
+    const afterCustomer = {
+      ...DA4_V5_INITIAL_STATUS,
+      auditEvents: DA4_V5_INITIAL_STATUS.auditEvents + 1,
+      customerReceipts: 1,
+      customers: 22,
+    };
+    const afterInvitation = {
+      ...afterCustomer,
+      activeInvitations: 1,
+      auditEvents: DA4_V5_INITIAL_STATUS.auditEvents + 2,
+      employeeInvitationReceipts: 1,
+    };
+    const afterReassignment = {
+      ...afterInvitation,
+      auditEvents: DA4_V5_INITIAL_STATUS.auditEvents + 4,
+      reassignmentReceipts: 1,
+      totalAssignments: 2,
+    };
+    const afterCorrection = {
+      ...afterReassignment,
+      auditEvents: DA4_V5_INITIAL_STATUS.auditEvents + 5,
+      timeRecordRevisions: 1,
+      timeReviewCommandReceipts: 1,
+    };
+    const afterExport = {
+      ...afterCorrection,
+      auditEvents: DA4_V5_INITIAL_STATUS.auditEvents + 6,
+      exportAudits: 1,
+    };
+    const final = {
+      ...afterExport,
+      auditEvents: DA4_V5_INITIAL_STATUS.auditEvents + 7,
+      reviewAdjudications: 1,
+      timeReviewCommandReceipts: 2,
+      unresolvedReviews: 100,
+    };
+
+    expect(session.checkpoint('safari', 'create-customer', afterCustomer)).toBe('match');
+    expect(session.checkpoint('safari', 'create-invitation', afterInvitation)).toBe('match');
+    expect(afterReassignment.auditEvents - afterInvitation.auditEvents).toBe(2);
+    expect(session.checkpoint('safari', 'reassign-tag', afterReassignment)).toBe('match');
+    expect(session.checkpoint('chromium', 'correct-time-record', afterCorrection)).toBe('match');
+    expect(session.checkpoint('chromium', 'export-time-entries', afterExport)).toBe('match');
+    expect(session.checkpoint('chromium', 'adjudicate-review', final)).toBe('match');
+    expect(final.auditEvents).toBe(DA4_V5_INITIAL_STATUS.auditEvents + 7);
+    expect(session.state()).toEqual({ state: 'complete', step: 6 });
+  });
+
+  it('fails closed when reassignment reports only one new audit event', () => {
+    const session = new Da4V5OperationSession(DA4_V5_INITIAL_STATUS);
+    const afterCustomer = {
+      ...DA4_V5_INITIAL_STATUS,
+      auditEvents: DA4_V5_INITIAL_STATUS.auditEvents + 1,
+      customerReceipts: 1,
+      customers: 22,
+    };
+    const afterInvitation = {
+      ...afterCustomer,
+      activeInvitations: 1,
+      auditEvents: DA4_V5_INITIAL_STATUS.auditEvents + 2,
+      employeeInvitationReceipts: 1,
+    };
+    const staleOneAuditReassignment = {
+      ...afterInvitation,
+      auditEvents: DA4_V5_INITIAL_STATUS.auditEvents + 3,
+      reassignmentReceipts: 1,
+      totalAssignments: 2,
+    };
+    const correctedTwoAuditReassignment = {
+      ...staleOneAuditReassignment,
+      auditEvents: DA4_V5_INITIAL_STATUS.auditEvents + 4,
+    };
+
+    expect(session.checkpoint('safari', 'create-customer', afterCustomer)).toBe('match');
+    expect(session.checkpoint('safari', 'create-invitation', afterInvitation)).toBe('match');
+    expect(session.checkpoint(
+      'safari',
+      'reassign-tag',
+      staleOneAuditReassignment,
+    )).toBe('mismatch');
+    expect(session.checkpoint(
+      'safari',
+      'reassign-tag',
+      correctedTwoAuditReassignment,
+    )).toBe('mismatch');
+  });
+
   it('does not advance on wrong browser, order, duplicate, or aggregate drift', () => {
     const session = new Da4V5OperationSession(DA4_V5_INITIAL_STATUS);
     expect(session.checkpoint(
