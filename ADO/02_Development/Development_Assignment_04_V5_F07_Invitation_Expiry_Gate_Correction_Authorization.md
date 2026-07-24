@@ -1,6 +1,6 @@
 # Development Assignment 4 — DA4-V5-F07 Invitation-Expiry Gate Correction Candidate
 
-- Status: **INDEPENDENTLY APPROVED — R3 IMPLEMENTATION MAY PROCEED; HUMAN V5 UNAUTHORIZED**
+- Status: **R3 IMPLEMENTED AND LOCALLY VERIFIED V0–V3 — PUBLICATION, V4 AND INDEPENDENT IMPLEMENTATION REVIEW PENDING; HUMAN V5 UNAUTHORIZED**
 - Date: 2026-07-24
 - Owner: Technical Lead
 - Candidate baseline: `1140cc441b958d701a899a74924eac4cc41fefeb`
@@ -9,6 +9,9 @@
 - Reviewed candidate: `7d8cee690af7fcd5c2f13b54f81b7ddc2ec2b736`
 - Reviewed candidate tree: `f445d3c3151dd966f0a9ea9ab01b73b2c0c06441`
 - Reviewed candidate CI: `30090502331`, attempt 2, 12/12
+- Implementation baseline: `4b376043cbcd5739e6d32e562dd917159f86275b`
+- Implementation baseline tree: `60a3d181470dde8abc4059e36d4879ced1fbc138`
+- Implementation baseline CI: `30091439879`, attempt 1, 12/12
 - Proposed implementation risk: AVS R3
 
 ## 1. Confirmed problem
@@ -88,3 +91,37 @@ Independent read-only review returned `APPROVED` with zero open P0–P3 and is a
 The exact proposed implementation scope may proceed with AVS V0–V4 and independent Exact-SHA
 implementation review. No Human V5, production, production-data, deployment or distribution
 action is authorized.
+
+## 5. Local implementation result
+
+The focused local candidate implements the approved contract without changing Product TTL,
+schema/migrations, Backend/API, Admin Web, Mobile, dependencies, lockfile or workflow:
+
+- status now reports exact `unconsumedInvitations` and
+  `expiredUnconsumedInvitations` alongside `activeInvitations` from one materialized PostgreSQL
+  status statement;
+- the immediate invitation checkpoint remains exact at unconsumed `1`, active `1`,
+  expired-unconsumed `0`;
+- every later checkpoint accepts only a monotonic transition from that state to unconsumed `1`,
+  active `0`, expired-unconsumed `1`; and
+- missing, consumed, duplicate, unclassified, inconsistently classified or otherwise drifting
+  state permanently mismatches while every non-invitation aggregate remains exact.
+
+Local AVS evidence on Node `24.17.0` and PostgreSQL `17.10`:
+
+- V1: focused DA4 regression 40/40, focused disposable-PostgreSQL active/expired/consumed
+  classification plus consumed-state session rejection 1/1 and Synthetic tests-inclusive
+  typecheck passed;
+- V2: complete Synthetic PostgreSQL Harness 90/90, tests-inclusive typecheck and build passed;
+- V3: one complete workspace run passed 1,836 tests with two optional Supavisor skips, all 19
+  tests-inclusive typechecks, all 18 applicable builds, migration clean/replay tests and exact
+  ledger versions `001`–`012`;
+- cleanup removed the task-created `taptime_da3` database and its two runtime roles, the B1 schema
+  and roles, all Synthetic schema/ledger/runtime roles and listeners on `54321`, `3000` and `5173`;
+  and
+- the first standalone ledger command omitted its required local `B3_DATABASE_URL` and stopped
+  before querying; the same unchanged candidate then passed the exact ledger check with the
+  documented disposable B3 URL. No test assertion failed.
+
+The local candidate has no commit/tree yet. Focused publication, exact-head V4 and independent
+Exact-SHA implementation review remain required. No Human V5 may start from this local evidence.

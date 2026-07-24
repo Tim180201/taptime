@@ -28,6 +28,7 @@ export const DA4_V5_WRITE_PLAN: readonly Da4V5WriteStep[] = Object.freeze([
       activeInvitations: 1,
       auditEvents: 1,
       employeeInvitationReceipts: 1,
+      unconsumedInvitations: 1,
     }),
   }),
   Object.freeze({
@@ -76,6 +77,7 @@ export type Da4V5WritePlanState =
 
 export class Da4V5OperationSession {
   private failed = false;
+  private invitationExpired = false;
   private nextStep = 0;
 
   constructor(private readonly initial: Da4V5Status) {}
@@ -91,10 +93,24 @@ export class Da4V5OperationSession {
       || step === undefined
       || step.browser !== browser
       || step.operation !== operation
-      || !sameStatus(current, expectedStatus(this.initial, this.nextStep))
     ) {
       this.failed = true;
       return 'mismatch';
+    }
+    const invitationState = classifyCheckpointStatus(
+      current,
+      expectedStatus(this.initial, this.nextStep),
+      this.nextStep,
+    );
+    if (
+      invitationState === 'mismatch'
+      || (this.invitationExpired && invitationState === 'active')
+    ) {
+      this.failed = true;
+      return 'mismatch';
+    }
+    if (invitationState === 'expired') {
+      this.invitationExpired = true;
     }
     this.nextStep += 1;
     return 'match';
@@ -140,4 +156,42 @@ function expectedStatus(initial: Da4V5Status, throughStep: number): Da4V5Status 
 function sameStatus(left: Da4V5Status, right: Da4V5Status): boolean {
   return (Object.keys(right) as Array<keyof Da4V5Status>).every((key) => left[key] === right[key])
     && Object.keys(left).length === Object.keys(right).length;
+}
+
+function classifyCheckpointStatus(
+  current: Da4V5Status,
+  expected: Da4V5Status,
+  step: number,
+): 'active' | 'expired' | 'mismatch' {
+  if (step <= 1) {
+    return sameStatus(current, expected) ? 'active' : 'mismatch';
+  }
+  if (
+    Object.keys(current).length !== Object.keys(expected).length
+    || !(Object.keys(expected) as Array<keyof Da4V5Status>).every((key) => (
+      isInvitationStateKey(key) || current[key] === expected[key]
+    ))
+  ) {
+    return 'mismatch';
+  }
+  const invitationRemainsActive = (
+    current.unconsumedInvitations === expected.unconsumedInvitations
+    && current.activeInvitations === expected.activeInvitations
+    && current.expiredUnconsumedInvitations === expected.expiredUnconsumedInvitations
+  );
+  const invitationExpiredNaturally = (
+    current.unconsumedInvitations === expected.unconsumedInvitations
+    && current.activeInvitations === expected.activeInvitations - 1
+    && current.expiredUnconsumedInvitations === expected.expiredUnconsumedInvitations + 1
+  );
+  if (invitationRemainsActive) {
+    return 'active';
+  }
+  return invitationExpiredNaturally ? 'expired' : 'mismatch';
+}
+
+function isInvitationStateKey(key: keyof Da4V5Status): boolean {
+  return key === 'activeInvitations'
+    || key === 'expiredUnconsumedInvitations'
+    || key === 'unconsumedInvitations';
 }

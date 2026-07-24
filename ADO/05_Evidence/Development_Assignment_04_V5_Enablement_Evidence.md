@@ -1,6 +1,6 @@
 # Development Assignment 4 — V5 Enablement Candidate Evidence
 
-- Status: **F06 AUDIT-INVARIANT CORRECTION INDEPENDENTLY APPROVED — NEW HUMAN V5 UNAUTHORIZED**
+- Status: **F07 TTL-AWARE GATE CORRECTION LOCALLY VERIFIED V0–V3 — V4 AND INDEPENDENT IMPLEMENTATION REVIEW PENDING; NEW HUMAN V5 UNAUTHORIZED**
 - Date: 2026-07-24
 - Candidate baseline commit: `4594529667fe1570045eea03fd7132bc27e2e479`
 - Candidate baseline tree: `72338ec9b65dabdd71ab9011604817f61c13c288`
@@ -8,7 +8,7 @@
 - Published candidate commit: `5774ab7971f1c5df6834be44ab556c8138cfcf54`
 - Published candidate tree: `062ded6af067967a3019a7d5abe42428ca58af0e`
 - Published candidate CI: GitHub Actions `30012402185`, attempt 1, 12/12 successful
-- Risk class: current candidate R0; proposed executable enablement R3
+- Risk class: original ADO candidate R0; executable enablement and F07 correction R3
 
 ## 1. Repository-confirmed gap
 
@@ -296,3 +296,45 @@ attempt 1, 12/12. Independent exact-SHA review returned `APPROVED` with zero ope
 archived in
 `ADO/05_Evidence/Development_Assignment_04_DA4_V5_F06_Independent_Exact_SHA_Review.md`.
 No Human V5, production, production-data, deployment or distribution action is authorized.
+
+## 14. DA4-V5-F07 local correction evidence
+
+### Change-Impact Record
+
+- Exact implementation baseline: `4b376043cbcd5739e6d32e562dd917159f86275b`, tree
+  `60a3d181470dde8abc4059e36d4879ced1fbc138`, exact-head CI `30091439879`, attempt 1,
+  12/12.
+- Intended executable delta: only the Synthetic DA4-V5 status projection, write-checkpoint
+  invariant and direct unit/PostgreSQL regressions.
+- Affected boundary: the local disposable DA4 Human-gate Harness and its disclosure-safe status;
+  no Product runtime, public API, schema/migration, dependency, lockfile, workflow or built
+  Admin-Web input changes.
+- Risk: AVS R3 because this is a permanent fail-stop invariant for a privileged Human gate.
+- Selected evidence: V0–V3 locally; focused publication, exact-head V4 and independent Exact-SHA
+  implementation review remain pending. V5 is separately Human-gated and unauthorized.
+
+The implementation preserves the accepted 15-minute Product TTL. One materialized PostgreSQL
+statement now reports exact unconsumed, active and expired-unconsumed invitation counts. The
+immediate invitation checkpoint requires unconsumed `1`, active `1`, expired-unconsumed `0`.
+Every later checkpoint accepts only a monotonic transition from that state to unconsumed `1`,
+active `0`, expired-unconsumed `1`; an active reversion latches a permanent mismatch. All other
+aggregates remain exact; missing, consumed, duplicate, unclassified or inconsistent states also
+latch a permanent mismatch.
+
+Verification:
+
+- V1: focused DA4 regression 40/40; focused PostgreSQL active/expiry/consumed classification and
+  consumed-state session rejection 1/1; Synthetic tests-inclusive typecheck passed.
+- V2: complete Synthetic PostgreSQL Harness 90/90, tests-inclusive typecheck and build passed.
+- V3: one final complete local run passed 1,836 tests with two optional Supavisor skips, all 19
+  tests-inclusive typechecks, all 18 applicable builds, migration clean/replay tests and exact
+  ledger `001`–`012`.
+- Cleanup: the task-created `taptime_da3` database and two runtime roles, B1 schema/roles,
+  Synthetic schema/ledger/runtime roles and listeners `54321`/`3000`/`5173` were removed.
+- Failure/retry record: the first standalone ledger invocation omitted `B3_DATABASE_URL` and
+  exited before a query. With the required local disposable B3 URL, the unchanged candidate
+  verified `001`–`012`. No test assertion failed.
+
+The historical H03 run remains failed and cannot be reused. This local candidate has no
+commit/tree. V4, independent review and any later separately authorized fresh Human V5 remain
+open. Production, production data, deployment and distribution remain unauthorized.

@@ -11,6 +11,7 @@ import {
   DA4_V5_INITIAL_STATUS,
   DA4_V5_PROFILE,
   DA4_V5_PUBLIC_MANIFEST,
+  Da4V5OperationSession,
   SYNTHETIC_ADMIN_AUTH_EMAIL,
   SYNTHETIC_AUTH_EMAIL,
   SYNTHETIC_DATABASE_NAME,
@@ -18,6 +19,7 @@ import {
   SYNTHETIC_PUBLISHABLE_KEY,
   SYNTHETIC_SECOND_ENROLLMENT_AUTH_EMAIL,
   createSyntheticAndroidE2eEnvironment,
+  expectedDa4V5Status,
   fingerprint,
   parentRoles,
   runtimeLogins,
@@ -1382,6 +1384,97 @@ describeWithPostgres('DA4 V5 deterministic browser fixture', () => {
     expect(reviewSecondPage.items).toHaveLength(1);
     expect(reviewSecondPage.nextCursor).toBeNull();
   });
+
+  it('classifies active, expired, and consumed invitations in one exact status projection',
+    async () => {
+      await cleanupPool.query(
+        `INSERT INTO taptime_server.employee_membership_invitations (
+           id, organization_id, creator_user_id, creator_membership_id, display_name,
+           token_digest, created_at, expires_at, consumed_at,
+           consumed_identity_binding_id, consumed_user_id, consumed_membership_id,
+           redemption_command_id, row_version
+         ) VALUES (
+           '73000000-0000-4000-8000-000000000900'::uuid, $1::uuid, $2::uuid, $3::uuid,
+           'DA4 V5 Consumed Invitation', pg_catalog.decode(pg_catalog.repeat('c', 64), 'hex'),
+           pg_catalog.transaction_timestamp() - interval '2 hours',
+           pg_catalog.transaction_timestamp() + interval '1 hour',
+           pg_catalog.transaction_timestamp() - interval '1 hour',
+           $4::uuid, $5::uuid, $6::uuid,
+           '73000000-0000-4000-8000-000000000990'::uuid, 2
+         )`,
+        [
+          syntheticIds.organization,
+          syntheticIds.administratorUser,
+          syntheticIds.administratorMembership,
+          syntheticIds.identityBinding,
+          syntheticIds.user,
+          syntheticIds.membership,
+        ],
+      );
+      const consumedStatus = await da4Environment.da4V5Status();
+      expect(consumedStatus).toMatchObject({
+        activeInvitations: 0,
+        expiredUnconsumedInvitations: 0,
+        unconsumedInvitations: 0,
+      });
+
+      const session = new Da4V5OperationSession(DA4_V5_INITIAL_STATUS);
+      const afterCustomer = expectedDa4V5Status(DA4_V5_INITIAL_STATUS, 1);
+      const afterInvitation = expectedDa4V5Status(DA4_V5_INITIAL_STATUS, 2);
+      const consumedAfterReassignment = {
+        ...expectedDa4V5Status(DA4_V5_INITIAL_STATUS, 3),
+        activeInvitations: consumedStatus.activeInvitations,
+        expiredUnconsumedInvitations: consumedStatus.expiredUnconsumedInvitations,
+        unconsumedInvitations: consumedStatus.unconsumedInvitations,
+      };
+      expect(session.checkpoint('safari', 'create-customer', afterCustomer)).toBe('match');
+      expect(session.checkpoint('safari', 'create-invitation', afterInvitation)).toBe('match');
+      expect(session.checkpoint('safari', 'reassign-tag', consumedAfterReassignment))
+        .toBe('mismatch');
+
+      await cleanupPool.query(
+        `INSERT INTO taptime_server.employee_membership_invitations (
+           id, organization_id, creator_user_id, creator_membership_id, display_name,
+           token_digest, created_at, expires_at
+         ) VALUES (
+           '73000000-0000-4000-8000-000000000901'::uuid, $1::uuid, $2::uuid, $3::uuid,
+           'DA4 V5 Active Invitation', pg_catalog.decode(pg_catalog.repeat('d', 64), 'hex'),
+           pg_catalog.transaction_timestamp(), pg_catalog.transaction_timestamp() + interval '1 hour'
+         )`,
+        [
+          syntheticIds.organization,
+          syntheticIds.administratorUser,
+          syntheticIds.administratorMembership,
+        ],
+      );
+      await expect(da4Environment.da4V5Status()).resolves.toMatchObject({
+        activeInvitations: 1,
+        expiredUnconsumedInvitations: 0,
+        unconsumedInvitations: 1,
+      });
+
+      await cleanupPool.query(
+        `INSERT INTO taptime_server.employee_membership_invitations (
+           id, organization_id, creator_user_id, creator_membership_id, display_name,
+           token_digest, created_at, expires_at
+         ) VALUES (
+           '73000000-0000-4000-8000-000000000902'::uuid, $1::uuid, $2::uuid, $3::uuid,
+           'DA4 V5 Expired Invitation', pg_catalog.decode(pg_catalog.repeat('e', 64), 'hex'),
+           pg_catalog.transaction_timestamp() - interval '2 hours',
+           pg_catalog.transaction_timestamp() - interval '1 hour'
+         )`,
+        [
+          syntheticIds.organization,
+          syntheticIds.administratorUser,
+          syntheticIds.administratorMembership,
+        ],
+      );
+      await expect(da4Environment.da4V5Status()).resolves.toMatchObject({
+        activeInvitations: 1,
+        expiredUnconsumedInvitations: 1,
+        unconsumedInvitations: 2,
+      });
+    });
 });
 
 describeWithPostgres('DA4 V5 startup failure cleanup', () => {

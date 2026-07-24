@@ -19,6 +19,7 @@ import {
   Da4V5StartupInterrupted,
   MemoryOnlySyntheticPasswordBinding,
   createDa4V5ArtifactManifest,
+  expectedDa4V5Status,
   loadAndVerifyDa4V5Artifact,
   requireDa4V5Profile,
   runDa4V5StrictCleanup,
@@ -134,6 +135,7 @@ describe('DA4 V5 serial write allocation', () => {
       activeInvitations: 1,
       auditEvents: DA4_V5_INITIAL_STATUS.auditEvents + 2,
       employeeInvitationReceipts: 1,
+      unconsumedInvitations: 1,
     };
     const afterReassignment = {
       ...afterInvitation,
@@ -162,6 +164,11 @@ describe('DA4 V5 serial write allocation', () => {
 
     expect(session.checkpoint('safari', 'create-customer', afterCustomer)).toBe('match');
     expect(session.checkpoint('safari', 'create-invitation', afterInvitation)).toBe('match');
+    expect(afterInvitation).toMatchObject({
+      activeInvitations: 1,
+      expiredUnconsumedInvitations: 0,
+      unconsumedInvitations: 1,
+    });
     expect(afterReassignment.auditEvents - afterInvitation.auditEvents).toBe(2);
     expect(session.checkpoint('safari', 'reassign-tag', afterReassignment)).toBe('match');
     expect(session.checkpoint('chromium', 'correct-time-record', afterCorrection)).toBe('match');
@@ -169,6 +176,118 @@ describe('DA4 V5 serial write allocation', () => {
     expect(session.checkpoint('chromium', 'adjudicate-review', final)).toBe('match');
     expect(final.auditEvents).toBe(DA4_V5_INITIAL_STATUS.auditEvents + 7);
     expect(session.state()).toEqual({ state: 'complete', step: 6 });
+  });
+
+  it('accepts active to active to expired to expired as a monotonic invitation transition', () => {
+    const session = new Da4V5OperationSession(DA4_V5_INITIAL_STATUS);
+    const afterCustomer = expectedDa4V5Status(DA4_V5_INITIAL_STATUS, 1);
+    const afterInvitation = expectedDa4V5Status(DA4_V5_INITIAL_STATUS, 2);
+    const afterReassignment = expectedDa4V5Status(DA4_V5_INITIAL_STATUS, 3);
+
+    expect(session.checkpoint('safari', 'create-customer', afterCustomer)).toBe('match');
+    expect(session.checkpoint('safari', 'create-invitation', afterInvitation)).toBe('match');
+    expect(session.checkpoint('safari', 'reassign-tag', afterReassignment)).toBe('match');
+
+    for (let completedSteps = 4; completedSteps <= DA4_V5_WRITE_PLAN.length; completedSteps += 1) {
+      const step = DA4_V5_WRITE_PLAN[completedSteps - 1];
+      if (step === undefined) {
+        throw new Error('DA4 V5 write-plan test step is missing');
+      }
+      const expected = expectedDa4V5Status(DA4_V5_INITIAL_STATUS, completedSteps);
+      const expired = {
+        ...expected,
+        activeInvitations: 0,
+        expiredUnconsumedInvitations: 1,
+      };
+      expect(session.checkpoint(step.browser, step.operation, expired)).toBe('match');
+    }
+
+    expect(session.state()).toEqual({ state: 'complete', step: 6 });
+  });
+
+  it('fails permanently when an expired invitation reverts to active', () => {
+    const session = new Da4V5OperationSession(DA4_V5_INITIAL_STATUS);
+    const afterCustomer = expectedDa4V5Status(DA4_V5_INITIAL_STATUS, 1);
+    const afterInvitation = expectedDa4V5Status(DA4_V5_INITIAL_STATUS, 2);
+    const expectedReassignment = expectedDa4V5Status(DA4_V5_INITIAL_STATUS, 3);
+    const expiredReassignment = {
+      ...expectedReassignment,
+      activeInvitations: 0,
+      expiredUnconsumedInvitations: 1,
+    };
+    const activeCorrection = expectedDa4V5Status(DA4_V5_INITIAL_STATUS, 4);
+    const expiredCorrection = {
+      ...activeCorrection,
+      activeInvitations: 0,
+      expiredUnconsumedInvitations: 1,
+    };
+
+    expect(session.checkpoint('safari', 'create-customer', afterCustomer)).toBe('match');
+    expect(session.checkpoint('safari', 'create-invitation', afterInvitation)).toBe('match');
+    expect(session.checkpoint('safari', 'reassign-tag', expiredReassignment)).toBe('match');
+    expect(session.checkpoint('chromium', 'correct-time-record', activeCorrection))
+      .toBe('mismatch');
+    expect(session.checkpoint('chromium', 'correct-time-record', expiredCorrection))
+      .toBe('mismatch');
+  });
+
+  it('requires the invitation to be active at its immediate checkpoint and fails permanently', () => {
+    const session = new Da4V5OperationSession(DA4_V5_INITIAL_STATUS);
+    const afterCustomer = expectedDa4V5Status(DA4_V5_INITIAL_STATUS, 1);
+    const expectedInvitation = expectedDa4V5Status(DA4_V5_INITIAL_STATUS, 2);
+    const alreadyExpired = {
+      ...expectedInvitation,
+      activeInvitations: 0,
+      expiredUnconsumedInvitations: 1,
+    };
+
+    expect(session.checkpoint('safari', 'create-customer', afterCustomer)).toBe('match');
+    expect(session.checkpoint('safari', 'create-invitation', alreadyExpired)).toBe('mismatch');
+    expect(session.checkpoint('safari', 'create-invitation', expectedInvitation)).toBe('mismatch');
+  });
+
+  it.each([
+    {
+      name: 'missing invitation',
+      invitation: { activeInvitations: 0, expiredUnconsumedInvitations: 0, unconsumedInvitations: 0 },
+    },
+    {
+      name: 'consumed invitation',
+      invitation: { activeInvitations: 0, expiredUnconsumedInvitations: 0, unconsumedInvitations: 0 },
+    },
+    {
+      name: 'duplicate active invitations',
+      invitation: { activeInvitations: 2, expiredUnconsumedInvitations: 0, unconsumedInvitations: 2 },
+    },
+    {
+      name: 'duplicate mixed invitations',
+      invitation: { activeInvitations: 1, expiredUnconsumedInvitations: 1, unconsumedInvitations: 2 },
+    },
+    {
+      name: 'unclassified unconsumed invitation',
+      invitation: { activeInvitations: 0, expiredUnconsumedInvitations: 0, unconsumedInvitations: 1 },
+    },
+    {
+      name: 'inconsistently double-classified invitation',
+      invitation: { activeInvitations: 1, expiredUnconsumedInvitations: 1, unconsumedInvitations: 1 },
+    },
+  ])('fails permanently for $name at a later checkpoint', ({ invitation }) => {
+    const session = new Da4V5OperationSession(DA4_V5_INITIAL_STATUS);
+    const afterCustomer = expectedDa4V5Status(DA4_V5_INITIAL_STATUS, 1);
+    const afterInvitation = expectedDa4V5Status(DA4_V5_INITIAL_STATUS, 2);
+    const expectedReassignment = expectedDa4V5Status(DA4_V5_INITIAL_STATUS, 3);
+
+    expect(session.checkpoint('safari', 'create-customer', afterCustomer)).toBe('match');
+    expect(session.checkpoint('safari', 'create-invitation', afterInvitation)).toBe('match');
+    expect(session.checkpoint('safari', 'reassign-tag', {
+      ...expectedReassignment,
+      ...invitation,
+    })).toBe('mismatch');
+    expect(session.checkpoint(
+      'safari',
+      'reassign-tag',
+      expectedReassignment,
+    )).toBe('mismatch');
   });
 
   it('fails closed when reassignment reports only one new audit event', () => {
@@ -184,6 +303,7 @@ describe('DA4 V5 serial write allocation', () => {
       activeInvitations: 1,
       auditEvents: DA4_V5_INITIAL_STATUS.auditEvents + 2,
       employeeInvitationReceipts: 1,
+      unconsumedInvitations: 1,
     };
     const staleOneAuditReassignment = {
       ...afterInvitation,
@@ -220,7 +340,11 @@ describe('DA4 V5 serial write allocation', () => {
     expect(session.checkpoint(
       'safari',
       'create-invitation',
-      { ...DA4_V5_INITIAL_STATUS, activeInvitations: 1 },
+      {
+        ...DA4_V5_INITIAL_STATUS,
+        activeInvitations: 1,
+        unconsumedInvitations: 1,
+      },
     )).toBe('mismatch');
     expect(session.checkpoint(
       'safari',

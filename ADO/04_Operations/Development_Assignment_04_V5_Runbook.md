@@ -1,6 +1,6 @@
 # Development Assignment 4 — V5 Human Browser Gate Runbook
 
-- Status: **F06 AUDIT-INVARIANT CORRECTION INDEPENDENTLY APPROVED — NEW HUMAN V5 UNAUTHORIZED**
+- Status: **F07 TTL-AWARE GATE CORRECTION IMPLEMENTED LOCALLY — INDEPENDENT IMPLEMENTATION REVIEW PENDING; NEW HUMAN V5 UNAUTHORIZED**
 - Date: 2026-07-24
 - Owner: Technical Lead
 - Approval authority for any run: Human Architect
@@ -22,9 +22,14 @@ runbook correction was independently approved with zero open P0–P3 review find
 the repository-established two rows. Correction `d0db46f8bd2081a357bc92395507c1978cca27ba`,
 tree `9f31c78138204f79ffc5db632b01ff5ef89c1b0a`, passed exact-head CI `30085075057`,
 attempt 1, 12/12 and independent exact-SHA review with zero open P0–P3.
+The later `DA4-V5-H03` run failed closed after the accepted 15-minute Product invitation expired
+during the longer browser matrix. The independently approved `DA4-V5-F07` correction preserves
+that TTL, requires the invitation to be active at its immediate checkpoint and distinguishes the
+only valid later states: exactly one active unconsumed invitation or exactly one expired
+unconsumed invitation. Every durable receipt, AuditEvent and other aggregate remains exact.
 This document does not authorize another Human run. A copy-ready authorization candidate may be
 prepared, but execution requires a separate Human authorization binding the exact product,
-enablement, evidence, review, Admin-Web build and browser environment.
+enablement, F06/F07 correction, evidence, reviews, Admin-Web build and browser environment.
 
 ## 2. Fixed local boundary
 
@@ -80,7 +85,7 @@ credential evidence.
    - 21 projected Employee Memberships;
    - 101 stopped effective TimeRecords inside the current 31-day window;
    - 101 unresolved ordered review items;
-   - zero active invitation; and
+   - zero unconsumed invitation, therefore zero active and zero expired-unconsumed invitation; and
    - zero V5-operator receipts/audits for Customer, invitation, reassignment, correction,
      adjudication and export.
 5. Require the exact public test manifest:
@@ -173,6 +178,14 @@ operator sends no checkpoint. The state must not be repaired, resumed or advance
 that has already returned `mismatch` automatically aborts the Harness and cannot be queried,
 repaired or resumed; the whole run is failed and its authority consumed.
 
+The invitation checkpoint itself requires exactly one unconsumed invitation in the state
+active `1` and expired-unconsumed `0`. At every later checkpoint the Harness accepts only that
+unchanged state or the mutually exclusive natural-expiry state unconsumed `1`, active `0` and
+expired-unconsumed `1`. Once accepted, natural expiry is monotonic: any later active observation
+is a permanent mismatch. Missing, consumed, duplicate, unclassified or inconsistently classified
+invitations fail permanently. Expiry never authorizes replacement, retry, repair or skipped
+checkpoint.
+
 **Safari write phase**
 
 1. Create exactly one Customer named `DA4 V5 Browser Customer`; require the exact UI success
@@ -182,10 +195,11 @@ repaired or resumed; the whole run is failed and its authority consumed.
 2. Create exactly one invitation for `DA4 V5 Browser Employee`; immediately observe and confirm
    the exact UI success message `Einladung wurde einmalig erzeugt.` word for word before navigation
    or secret destruction replaces the notice. Observe the secret only in the one-time intended
-   view, navigate away, require destruction, refresh and stop on active invitations `+1`,
-   invitation receipt `+1`, general AuditEvents `+1`. Then complete the remaining read-only
-   status, expected/current-result, `Checkpoint ausführen?` and explicit-`Ja` handshake steps
-   before `checkpoint safari create-invitation`.
+   view, navigate away, require destruction, refresh and stop on unconsumed invitations `+1`,
+   active invitations `+1`, expired-unconsumed invitations `0`, invitation receipt `+1` and
+   general AuditEvents `+1`. Then complete the remaining read-only status,
+   expected/current-result, `Checkpoint ausführen?` and explicit-`Ja` handshake steps before
+   `checkpoint safari create-invitation`.
 3. Select `DA4 V5 Reassignment Tag`, verify safe fingerprint and the exact
    `Synthetic Android Customer` to `Synthetic Reassignment Target` change, then use the explicit
    second confirmation. Require the exact UI success message
@@ -199,7 +213,8 @@ repaired or resumed; the whole run is failed and its authority consumed.
 **Chromium write phase**
 
 5. Authenticate after a fresh credential `match`, refresh all sections and require the complete
-   Safari-phase aggregate before proceeding.
+   Safari-phase aggregate before proceeding. The invitation must remain unconsumed `1`; require
+   either active `1` plus expired-unconsumed `0` or active `0` plus expired-unconsumed `1`.
 6. Select only the stopped record labelled `DA4 V5 Correction Target`. From the UI-prefilled local
    millisecond values, set start to exactly one minute later and stop to exactly one minute earlier,
    enter `DA4 V5 correction observation`, inspect exact before/after/reason, explicitly confirm,
@@ -256,7 +271,8 @@ Run disclosure-safe status and require the exact delta from Section 4:
 - 22 Customers, 21 projected Employees, 101 TimeRecords, 100 unresolved review items;
 - one Tag, total Assignment-history rows `2`, active Assignments `1`, the initial row inactive and
   exactly one target cutover;
-- one active invitation and one invitation receipt;
+- exactly one unconsumed invitation and one invitation receipt; its safe final state is exactly
+  either active `1` plus expired-unconsumed `0` or active `0` plus expired-unconsumed `1`;
 - one Customer setup receipt and one reassignment receipt;
 - one TimeRecord revision, one review adjudication, two time-review command receipts and one
   export audit;
@@ -270,8 +286,9 @@ CSV assertion and aggregate must agree. Any mismatch fails the whole run.
 
 The status output must name the initial and final numeric dimensions for Customers, projected
 Employees, TimeRecords, unresolved reviews, Tags, total/active Assignments, active invitations,
-each named receipt, revisions, adjudications, time-review command receipts, general AuditEvents and
-the `TimeEntryExportGenerated` subset. It emits no CSV content, secret, digest or internal ID.
+unconsumed invitations, expired-unconsumed invitations, each named receipt, revisions,
+adjudications, time-review command receipts, general AuditEvents and the
+`TimeEntryExportGenerated` subset. It emits no CSV content, secret, digest or internal ID.
 
 ## 8. Evidence and cleanup
 

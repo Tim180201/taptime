@@ -15,6 +15,7 @@ export interface Da4V5Status {
   readonly customers: number;
   readonly employeeInvitationReceipts: number;
   readonly employees: number;
+  readonly expiredUnconsumedInvitations: number;
   readonly exportAudits: number;
   readonly reassignmentReceipts: number;
   readonly reviewAdjudications: number;
@@ -24,6 +25,7 @@ export interface Da4V5Status {
   readonly timeRecords: number;
   readonly timeReviewCommandReceipts: number;
   readonly totalAssignments: number;
+  readonly unconsumedInvitations: number;
   readonly unresolvedReviews: number;
   readonly workEvents: number;
 }
@@ -37,6 +39,7 @@ export const DA4_V5_INITIAL_STATUS = Object.freeze<Da4V5Status>({
   customers: 21,
   employeeInvitationReceipts: 0,
   employees: 21,
+  expiredUnconsumedInvitations: 0,
   exportAudits: 0,
   reassignmentReceipts: 0,
   reviewAdjudications: 0,
@@ -46,6 +49,7 @@ export const DA4_V5_INITIAL_STATUS = Object.freeze<Da4V5Status>({
   timeRecords: 101,
   timeReviewCommandReceipts: 0,
   totalAssignments: 1,
+  unconsumedInvitations: 0,
   unresolvedReviews: 101,
   workEvents: 303,
 });
@@ -281,12 +285,23 @@ export async function seedDa4V5Fixture(pool: Pool): Promise<void> {
 
 export async function readDa4V5Status(pool: Pool): Promise<Da4V5Status> {
   const result = await pool.query<Record<keyof Da4V5Status, string>>(`
+    WITH invitation_status AS MATERIALIZED (
+      SELECT
+        count(*) FILTER (WHERE consumed_at IS NULL)::text AS unconsumed_invitations,
+        count(*) FILTER (
+          WHERE consumed_at IS NULL
+            AND expires_at > pg_catalog.transaction_timestamp()
+        )::text AS active_invitations,
+        count(*) FILTER (
+          WHERE consumed_at IS NULL
+            AND expires_at <= pg_catalog.transaction_timestamp()
+        )::text AS expired_unconsumed_invitations
+      FROM ${B3_SCHEMA}.employee_membership_invitations
+    )
     SELECT
       (SELECT count(*)::text FROM ${B3_SCHEMA}.nfc_assignments WHERE active)
         AS "activeAssignments",
-      (SELECT count(*)::text FROM ${B3_SCHEMA}.employee_membership_invitations
-       WHERE consumed_at IS NULL AND expires_at > pg_catalog.transaction_timestamp())
-        AS "activeInvitations",
+      (SELECT active_invitations FROM invitation_status) AS "activeInvitations",
       (SELECT count(*)::text FROM ${B3_SCHEMA}.audit_events) AS "auditEvents",
       (SELECT count(*)::text FROM ${B3_SCHEMA}.canonical_decisions) AS "canonicalDecisions",
       (SELECT count(*)::text FROM ${B3_SCHEMA}.admin_setup_command_receipts
@@ -296,6 +311,8 @@ export async function readDa4V5Status(pool: Pool): Promise<Da4V5Status> {
         AS "employeeInvitationReceipts",
       (SELECT count(*)::text FROM ${B3_SCHEMA}.memberships
        WHERE role = 'employee' AND revoked_at IS NULL AND display_name IS NOT NULL) AS "employees",
+      (SELECT expired_unconsumed_invitations FROM invitation_status)
+        AS "expiredUnconsumedInvitations",
       (SELECT count(*)::text FROM ${B3_SCHEMA}.audit_events
        WHERE event_type = 'TimeEntryExportGenerated') AS "exportAudits",
       (SELECT count(*)::text FROM ${B3_SCHEMA}.admin_setup_command_receipts
@@ -310,6 +327,7 @@ export async function readDa4V5Status(pool: Pool): Promise<Da4V5Status> {
       (SELECT count(*)::text FROM ${B3_SCHEMA}.time_review_command_receipts)
         AS "timeReviewCommandReceipts",
       (SELECT count(*)::text FROM ${B3_SCHEMA}.nfc_assignments) AS "totalAssignments",
+      (SELECT unconsumed_invitations FROM invitation_status) AS "unconsumedInvitations",
       (SELECT count(*)::text
        FROM ${B3_SCHEMA}.work_events AS event
        WHERE EXISTS (
