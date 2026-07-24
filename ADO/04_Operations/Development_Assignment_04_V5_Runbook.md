@@ -1,7 +1,7 @@
 # Development Assignment 4 — V5 Human Browser Gate Runbook
 
-- Status: **TECHNICALLY READY — HUMAN V5 NOT AUTHORIZED**
-- Date: 2026-07-23
+- Status: **FIRST HUMAN V5 FAILED — AUTHORITY CONSUMED; NEW HUMAN V5 UNAUTHORIZED**
+- Date: 2026-07-24
 - Owner: Technical Lead
 - Approval authority for any run: Human Architect
 
@@ -13,9 +13,11 @@ APK, ADB or physical setup.
 
 Fixture implementation completed R3 V0–V4. Correction `e731a77`, tree `6c2b34d`, passed
 exact-head CI `30022981656`, attempt 1, 12/12, and independent review round 2 returned `APPROVED`,
-`MERGE_READY / EXACT-SHA APPROVED` with zero open P0–P3. This document does not authorize a Human
-run. A later run requires a separate Human authorization binding the exact product, enablement,
-evidence, review, Admin-Web build and browser environment.
+`MERGE_READY / EXACT-SHA APPROVED` with zero open P0–P3. The first exact-bound Human gate later
+failed closed at the Tag-reassignment checkpoint and consumed its authority; see
+`ADO/05_Evidence/Development_Assignment_04_DA4_V5_H01_Human_Browser_Failure_Evidence.md`. This
+document does not authorize another Human run. A later run requires a separate Human authorization
+binding the exact product, enablement, evidence, review, Admin-Web build and browser environment.
 
 ## 2. Fixed local boundary
 
@@ -147,19 +149,43 @@ After each write, the operator must run the matching Harness checkpoint in this 
 receive only `da4_v5_write_checkpoint=match`: `checkpoint safari create-customer`,
 `checkpoint safari create-invitation`, `checkpoint safari reassign-tag`,
 `checkpoint chromium correct-time-record`, `checkpoint chromium export-time-entries`, then
-`checkpoint chromium adjudicate-review`. `mismatch` stops the run without advancing.
+`checkpoint chromium adjudicate-review`.
+
+Before every irreversible checkpoint command, this four-step Human/operator handshake is
+mandatory:
+
+1. The Human confirms the exact UI success message required by the current runbook step word for
+   word; `passt`, another short form or a paraphrase is not sufficient.
+2. The operator runs only the read-only Harness status command.
+3. The operator states the expected and current disclosure-safe result to the Human and asks
+   exactly: `Checkpoint ausführen?`
+4. Only an explicit Human `Ja` permits the operator to send the fail-closed checkpoint command.
+
+If the exact message is missing, the status is unclear or the explicit `Ja` is absent, the
+operator sends no checkpoint. The state must not be repaired, resumed or advanced. A checkpoint
+that has already returned `mismatch` automatically aborts the Harness and cannot be queried,
+repaired or resumed; the whole run is failed and its authority consumed.
 
 **Safari write phase**
 
-1. Create exactly one Customer named `DA4 V5 Browser Customer`; require server-confirmed success,
-   refresh Einrichtung and stop on Customers `+1`, setup receipt `+1`, general AuditEvents `+1`.
-2. Create exactly one invitation for `DA4 V5 Browser Employee`; observe its secret only in the
-   one-time intended view, navigate away, require destruction, refresh and stop on active
-   invitations `+1`, invitation receipt `+1`, general AuditEvents `+1`.
+1. Create exactly one Customer named `DA4 V5 Browser Customer`; require the exact UI success
+   message `Kunde wurde sicher angelegt.`, refresh Einrichtung and stop on Customers `+1`, setup
+   receipt `+1`, general AuditEvents `+1`. Complete the four-step handshake before
+   `checkpoint safari create-customer`.
+2. Create exactly one invitation for `DA4 V5 Browser Employee`; immediately observe and confirm
+   the exact UI success message `Einladung wurde einmalig erzeugt.` word for word before navigation
+   or secret destruction replaces the notice. Observe the secret only in the one-time intended
+   view, navigate away, require destruction, refresh and stop on active invitations `+1`,
+   invitation receipt `+1`, general AuditEvents `+1`. Then complete the remaining read-only
+   status, expected/current-result, `Checkpoint ausführen?` and explicit-`Ja` handshake steps
+   before `checkpoint safari create-invitation`.
 3. Select `DA4 V5 Reassignment Tag`, verify safe fingerprint and the exact
    `Synthetic Android Customer` to `Synthetic Reassignment Target` change, then use the explicit
-   second confirmation. Refresh and stop on Assignment-history total `+1`, active Assignments
-   unchanged at `1`, old row inactive, reassignment receipt `+1`, general AuditEvents `+1`.
+   second confirmation. Require the exact UI success message
+   `NFC-Tag wurde sicher neu zugeordnet.` Refresh and stop on Assignment-history total `+1`,
+   active Assignments unchanged at `1`, old row inactive, reassignment receipt `+1`, general
+   AuditEvents `+1`. Complete the four-step handshake before
+   `checkpoint safari reassign-tag`.
 4. Sign out Safari. Do not perform any Chromium-assigned write in Safari.
 
 **Chromium write phase**
@@ -169,14 +195,22 @@ receive only `da4_v5_write_checkpoint=match`: `checkpoint safari create-customer
 6. Select only the stopped record labelled `DA4 V5 Correction Target`. From the UI-prefilled local
    millisecond values, set start to exactly one minute later and stop to exactly one minute earlier,
    enter `DA4 V5 correction observation`, inspect exact before/after/reason, explicitly confirm,
-   refresh and stop on revision `+1`, time-review command receipt `+1`, general AuditEvents `+1`.
-7. Export the effective 31-day window exactly once. Complete all CSV stop points below, then stop
+   require the exact UI success message `Arbeitszeit wurde append-only korrigiert.`, refresh and
+   stop on revision `+1`, time-review command receipt `+1`, general AuditEvents `+1`. Complete the
+   four-step handshake before `checkpoint chromium correct-time-record`.
+7. Export the effective 31-day window exactly once. Require and word-for-word confirm the exact UI
+   success message `CSV-Export wurde erzeugt.` Complete all four CSV stop points below, then stop
    on export-audit aggregate `+1` and general AuditEvents `+1`; these two counts refer to the same
-   `TimeEntryExportGenerated` row and must not be added as two audit rows.
+   `TimeEntryExportGenerated` row and must not be added as two audit rows. Only after all four CSV
+   results match, complete the remaining read-only status, expected/current-result,
+   `Checkpoint ausführen?` and explicit-`Ja` handshake steps before
+   `checkpoint chromium export-time-entries`.
 8. Select only the oldest item labelled `DA4 V5 Oldest Review Target`, choose
    `Keine Arbeitszeit ändern`, enter `DA4 V5 adjudication observation`, inspect the evidence and
-   verbatim reason, explicitly confirm, refresh and stop on unresolved reviews `-1`, adjudication
-   `+1`, time-review command receipt `+1`, general AuditEvents `+1`.
+   verbatim reason, explicitly confirm, require the exact UI success message
+   `Review-Entscheidung wurde append-only protokolliert.`, refresh and stop on unresolved reviews
+   `-1`, adjudication `+1`, time-review command receipt `+1`, general AuditEvents `+1`. Complete
+   the four-step handshake before `checkpoint chromium adjudicate-review`.
 9. Sign out Chromium. Do not repeat any Safari-assigned write.
 
 Firefox remains read-only for the whole run. After both write phases, perform its smoke only

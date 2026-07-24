@@ -1,7 +1,7 @@
 # Development Assignment 4 — V5 Enablement Candidate Evidence
 
-- Status: **INDEPENDENT IMPLEMENTATION REVIEW APPROVED — ZERO OPEN P0–P3; HUMAN V5 UNAUTHORIZED**
-- Date: 2026-07-23
+- Status: **INDEPENDENT IMPLEMENTATION REVIEW APPROVED; HUMAN V5 FAILED CLOSED — AUTHORITY CONSUMED**
+- Date: 2026-07-24
 - Candidate baseline commit: `4594529667fe1570045eea03fd7132bc27e2e479`
 - Candidate baseline tree: `72338ec9b65dabdd71ab9011604817f61c13c288`
 - Candidate baseline CI: GitHub Actions `30009920314`, attempt 1, 12/12 successful
@@ -107,7 +107,7 @@ A later authorized implementation must provide:
   **granted on `decf806a` / tree `519a1a7`**.
 - Executable harness implementation: **authorized, resumed after independent F01 approval, and
   locally V0–V3 green**.
-- Human V5: **unauthorized and not run**.
+- Human V5: **failed closed; its exact-bound authority is consumed**.
 - DA4 closure: unavailable until a separately authorized V5 passes and receives final review.
 - Production, production data, deployment and distribution: **unauthorized**.
 
@@ -178,9 +178,9 @@ not a Product failure. Typechecks, builds and cleanup then completed once. No ex
 changed afterward.
 
 V0 final diff/scope, whitespace, reference, authority and protected-path checks passed. This was
-the pre-signal-review candidate state; Section 9 records the later correction and Section 10 the
-completed V4/review result. Human V5, production, production data, deployment and distribution
-remain unauthorized.
+the pre-signal-review candidate state; Section 9 records the later correction, Section 10 the
+completed V4/review result and Section 11 the later consumed Human V5. Production, production
+data, deployment and distribution remain unauthorized.
 
 ## 9. Independent implementation review round 1 and signal correction
 
@@ -223,6 +223,36 @@ authorized local scope. The archived review is
 `ADO/05_Evidence/Development_Assignment_04_V5_Enablement_Independent_Implementation_Review.md`.
 
 DA4 V5 enablement is technically ready. The exact next stage is only a separately exact-bound
-Human V5 Browser Gate under
-`ADO/04_Operations/Development_Assignment_04_V5_Runbook.md`; it remains unauthorized and not run.
-Production, production data, deployment and distribution remain unauthorized.
+Human V5 Browser Gate under `ADO/04_Operations/Development_Assignment_04_V5_Runbook.md`.
+That gate was later authorized and failed closed as recorded below. Production, production data,
+deployment and distribution remain unauthorized.
+
+## 11. Human V5 failure and consumed authority
+
+The Human Browser Gate was bound to Product `f0f1e177628bd763c894a1d9c9c50a70168ffe1f` /
+tree `5259887894a0b97394c748a4556707c6582c93f8` / CI `30009111061`, enablement
+`e731a7796e0b0710f9df4647c13f03f2862e44c0` / tree
+`6c2b34d303d94957e98f39198e77e2bac1153cd9` / CI `30022981656`, and review archive
+`24ae57adbd6a1877b7080112cf6940864a2e3fe1` / tree
+`40dd1a328c48676b46934a0095680556d08ef224` / CI `30024662862`.
+
+The first authorized start attempt did not reach Harness readiness because its startup wrapper
+failed. The attempted start was therefore ambiguous, so its authority was treated fail-closed as
+consumed. The Human then authorized one fully fresh replacement run with identical bindings and
+limits. The counted replacement passed preflight and extensive Safari observations, including all
+five views at 320×800, 768 at 200%, desktop keyboard operation, exact `20/1`, `20/1`, `100/1`,
+`100/1` pagination, navigation/focus/retry, `Europe/Berlin`, Customer creation, invitation
+creation and secret destruction. Its first two write checkpoints matched.
+
+After Tag reassignment, the UI displayed exactly `NFC-Tag wurde sicher neu zugeordnet.` The
+operator nevertheless sent the irreversible checkpoint too early after the ambiguous Human
+response `passt`. The checkpoint returned `mismatch`; the Harness automatically failed closed and
+cleaned up. Chromium/Chrome, Firefox, later writes and CSV/export did not run. The exact database
+mismatch dimension is not reconstructable after cleanup, and no Product defect is proven.
+
+The gate is failed and its authority consumed. `DA4-V5-H01` is P2 operational/gate reliability,
+not a proven Security, Product or data-integrity defect. Full evidence and the corrected
+checkpoint handshake are recorded in
+`ADO/05_Evidence/Development_Assignment_04_DA4_V5_H01_Human_Browser_Failure_Evidence.md`.
+A new run remains separately exact-bound and unauthorized. Independent review of this ADO-only
+R0/V0 synchronization is required before new authorization is prepared.

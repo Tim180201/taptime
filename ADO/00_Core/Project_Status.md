@@ -1,7 +1,7 @@
 # Project Status
 
-Status: CORE ROADMAP V2 BLOCK A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2, BLOCK D, E1 AND NARROW E2A COMPLETE FOR THEIR RECORDED SCOPES — DEVELOPMENT ASSIGNMENTS 1–3 AND DT-060–DT-074 CLOSED FOR THEIR EXACT AUTHORIZED LOCAL SCOPES — DA4 WORKSTREAMS A–D AND AVS V0–V4 PUBLISHED AND INDEPENDENTLY APPROVED WITH ZERO OPEN P0–P3; HUMAN V5 REQUIRED BEFORE CLOSURE — PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
-Date: 2026-07-23
+Status: CORE ROADMAP V2 BLOCK A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2, BLOCK D, E1 AND NARROW E2A COMPLETE FOR THEIR RECORDED SCOPES — DEVELOPMENT ASSIGNMENTS 1–3 AND DT-060–DT-074 CLOSED FOR THEIR EXACT AUTHORIZED LOCAL SCOPES — DA4 WORKSTREAMS A–D AND AVS V0–V4 INDEPENDENTLY APPROVED; FIRST HUMAN V5 FAILED CLOSED AND ITS AUTHORITY IS CONSUMED — PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
+Date: 2026-07-24
 Owner: Human Architect + Technical Lead
 
 ## Product
@@ -62,8 +62,26 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   `6c2b34d303d94957e98f39198e77e2bac1153cd9`, exact parent `b63a0db`, passed exact-head CI
   `30022981656`, attempt 1, 12/12. Independent review round 2 returned `APPROVED`,
   `MERGE_READY / EXACT-SHA APPROVED` and zero open P0–P3; the round-1 P2 is closed for the
-  authorized local scope. DA4 V5 enablement is technically ready. Its exact next stage is only a
-  separately exact-bound Human V5 Browser Gate, which remains unauthorized and not run.
+  authorized local scope. DA4 V5 enablement is technically ready. Review archive
+  `24ae57adbd6a1877b7080112cf6940864a2e3fe1`, tree
+  `40dd1a328c48676b46934a0095680556d08ef224`, passed exact-head CI `30024662862`, attempt 1,
+  12/12.
+
+  The first authorized start attempt did not reach Harness readiness because its startup wrapper
+  failed. The attempted start was therefore ambiguous, so its authority was treated fail-closed as
+  consumed. The Human then authorized one fully fresh replacement run on the unchanged Product,
+  enablement and review bindings. That counted run passed preflight and extensive Safari
+  responsive, zoom, keyboard, pagination, navigation/focus/retry, timezone and first-two-write
+  observations. The Tag-reassignment UI displayed exactly
+  `NFC-Tag wurde sicher neu zugeordnet.`, but the operator sent the irreversible checkpoint too
+  early after the ambiguous Human response `passt`. The checkpoint returned `mismatch`; the
+  Harness failed closed and completed cleanup. Chromium/Chrome, Firefox, later writes and
+  CSV/export did not run. The exact database mismatch dimension is not reconstructable after
+  cleanup, and no Product defect is proven. `DA4-V5-H01` is P2 operational/gate reliability, not
+  a proven Security, Product or data-integrity defect. The gate failed and its authority is
+  consumed; no observation is reusable. The ADO-only runbook correction requires independent
+  review before a new separately exact-bound Human authorization may be prepared. No new run is
+  authorized.
   Production, production data, deployment and distribution remain unauthorized.
 - **Development Assignment 3 is Human-accepted and implementation-authorized on exact baseline
   `ff68f7a7d0ce69a65e88846ae1cca9abd5951f5d`, tree
@@ -633,10 +651,10 @@ Two Epics are concurrently Active, per EP-009's own stated relationship to the r
 4. Preserve every closed C3B/C3C/C3D/C3E1/C3E2/DA1/DA2/DA3 boundary and the Human-accepted
    ADR-0015/DA4-P01–P12 scope; keep Human V5, production/deployment, legal/privacy and pilot
    operations behind their separate authorization and Human gates.
-5. Complete DA4-V5 V4 publication/exact-head CI and independent exact-SHA implementation review
-   for the locally V0–V3-green F01-corrected Harness. Only a zero-finding approval may produce a
-   separately exact-bound Human V5 authorization candidate. Production, production-data,
-   deployment and distribution remain unauthorized.
+5. Independently review the R0/V0 `DA4-V5-H01` failure synchronization and checkpoint-handshake
+   correction. Only after zero-finding approval may a new separately exact-bound Human V5
+   authorization candidate be prepared. No reuse, retry, repair or resume is authorized.
+   Production, production data, deployment and distribution remain unauthorized.
 
 ## Agreed comprehensive Development-assignment sequence
 
