@@ -89,6 +89,21 @@ trimmed display name. Project names are immutable in DA5. Deactivation is atomic
 while any active TimeEntry in the Organization references the Project. Successful deactivation
 prevents later selection but never changes historical WorkEvents or TimeEntries.
 
+Online manual ingestion, offline reconciliation and Project deactivation use one lock order:
+
+1. resolve and lock current identity/Membership authority;
+2. lock the exact `(organization_id, project_id)` Project/WorkTarget row and validate its row
+   version/activity;
+3. for a trigger, acquire the existing Organization/User lifecycle lock and evaluate/persist while
+   retaining the Project lock through commit; or
+4. for deactivation, while retaining the Project lock, reject if any active TimeEntry references
+   it, otherwise deactivate and commit.
+
+Thus a concurrent Start that obtains the Project lock first makes later deactivation observe and
+reject the active entry; deactivation that commits first makes the later trigger reject the
+inactive target. A concurrent Stop may finish first and then permit deactivation. No pre-lock
+activity check is authoritative.
+
 Project administration adds no project planning, customer-project relation, membership assignment,
 budget, task, billing, scheduling or deletion capability.
 
@@ -148,18 +163,19 @@ Its exact closed JSON request is:
 
 ```text
 expectedMembershipId,
-workEvent { id, target { targetType, targetId }, occurredAt },
+workEvent { id, target { targetType, targetId } },
 receipt { id, attemptNumber }
 ```
 
-The client creates UUIDs for WorkEvent and Receipt. `occurredAt` is captured immediately when the
-user confirms and cannot be edited or backdated. An initial submission has `attemptNumber=1`; a
-retry resends the otherwise byte-identical command and increments only the positive attempt number
-according to the existing retry contract. Organization, User, role, trigger provenance, Start/Stop
-meaning and TimeEntry identity are absent and server-derived.
+The client creates UUIDs for WorkEvent and Receipt. `attemptNumber` is exactly `1`; every retry
+resends the entire byte-identical command, including the same IDs and attempt number. Online manual
+`occurredAt` is absent from the request and is the database transaction timestamp captured by the
+server on the first accepted insert. An exact retry loads and reuses that immutable stored
+timestamp; it never substitutes the retry time. Organization, User, role, trigger provenance,
+Start/Stop meaning, event time and TimeEntry identity are absent and server-derived.
 
 The response uses the existing synchronized/deferred/pending/conflict/authority-rejected envelope
-with trigger-neutral canonical decisions. For a validated target, one transaction and the exact
+and existing canonical decision discriminators. For a validated target, one transaction and the exact
 per-User lifecycle lock atomically persist immutable WorkEvent, Decision, applicable TimeEntry
 mutation, Receipt and AuditEvent. A pre-validation invalid or unauthorized target creates none of
 those records.
@@ -190,17 +206,20 @@ id, organizationId, targetType, targetId, triggeredBy, occurredAtUtcMilliseconds
 triggerType, assignmentIdOrNull, nfcTagIdOrNull
 ```
 
-The server derives `triggerType`. Database checks enforce the exact legal union: `nfc` requires
-Assignment and Tag; `manual` requires both to be null. The content-hash version is immutable and
-idempotent retries must match its exact bytes.
+`occurredAtUtcMilliseconds` is the canonical millisecond RFC-3339 `...Z` timestamp. For online
+manual insertion it is the first database transaction timestamp; exact retries load the existing
+row before hash comparison and reuse that stored value. The server derives `triggerType`. Database
+checks enforce the exact legal union: `nfc` requires Assignment and Tag; `manual` requires both to
+be null. The content-hash version is immutable and idempotent retries must match its exact bytes.
 
-The canonical duplicate result becomes `duplicate_trigger_ignored`. Its five-second window is per
-exact User and WorkTarget across trigger sources, so NFC then manual or manual then NFC can be a
-duplicate. Existing v1 NFC API/offline response adapters continue returning
-`duplicate_scan_ignored` for backward compatibility; new manual and generalized v2 surfaces use
-the neutral result. Every authority- and target-validated trigger persists immutable
-WorkEvent/Decision/Receipt/Audit evidence even when duplicate or another-target rejection produces
-no TimeEntry mutation.
+The existing canonical and persisted discriminator `duplicate_scan_ignored` remains byte-for-byte
+unchanged for compatibility, including on the new manual route. Its semantics are generalized to
+the same five-second per-User/WorkTarget window across trigger sources, so NFC then manual or
+manual then NFC can be a duplicate. Manual UI copy says **Doppelter Auslöser ignoriert** and does
+not expose the historical internal name. No Decision row is renamed or migrated.
+
+Every authority- and target-validated trigger persists immutable WorkEvent/Decision/Receipt/Audit
+evidence even when duplicate or another-target rejection produces no TimeEntry mutation.
 
 ### DA5-T07 — Existing NFC assignment authority
 
@@ -288,12 +307,80 @@ The additive contract fixes:
 - offline provenance version `2`; and
 - Mobile SQLite schema version `3`.
 
-An `nfc_assignment` item preserves lookup HMAC, Assignment/Tag identity and row revisions. A
-`manual_target` item carries target type, target identity, safe display name and target row revision
-and forbids lookup, Assignment, Tag or fake HMAC fields. A missing explicit lease version is
-interpreted only as the existing NFC-only v1 shape. Existing provenance-v1 queue commands and
-SQLite-v2 rows remain byte-for-byte readable/reconcilable; migration adds metadata without
-rewriting command bytes. One owner-bound FIFO, device sequence and scheduler serve both sources.
+The v1 lease routes and exact seven-field manifest remain unchanged. Additive v2 routes are:
+
+```text
+POST /v2/offline-capture-leases
+POST /v2/offline-capture-leases/page
+```
+
+Their request bodies remain respectively the exact existing issue and page commands. A v2 page has
+only these header fields plus `items` and `nextCursor`:
+
+```text
+leaseSchemaVersion=2, manifestVersion=2, leaseId, installationId, identityBindingId,
+userId, organizationId, membershipId, membershipRowVersion, role, issuedAt, expiresAt,
+configurationRevision, itemCount, serializedBytes, manifestDigest
+```
+
+Its closed item union is:
+
+```text
+nfc_assignment {
+  itemType, itemId, lookup, assignmentId, nfcTagId, targetType=customer, targetId,
+  displayName, assignmentRowVersion, targetRowVersion
+}
+manual_target {
+  itemType, itemId, targetType=customer|project|general_work, targetId,
+  displayName, targetRowVersion
+}
+```
+
+Row versions are positive safe integers. `manual_target` forbids lookup, Assignment, Tag and fake
+HMAC fields. The manifest orders items by ASCII item-ID bytes and frames every UTF-8 field with the
+existing unsigned four-byte big-endian byte-length prefix. Manifest-v2 fields are:
+
+```text
+nfc_assignment:
+  itemType, itemId, lookup, assignmentId, nfcTagId, targetType, targetId, displayName,
+  assignmentRowVersionDecimal, targetRowVersionDecimal
+manual_target:
+  itemType, itemId, targetType, targetId, displayName, targetRowVersionDecimal
+```
+
+Page boundaries and header fields are not hashed. The digest is lowercase SHA-256 over the complete
+ordered framed item stream. Duplicate item IDs, NFC lookups or `(targetType,targetId)` manual items
+make activation unavailable.
+
+The additive route `POST /v2/lifecycle-events/offline` accepts only provenance version `2` and this
+exact command shape:
+
+```text
+organizationId, expectedMembershipId, leaseId, leaseItemId, installationBinding,
+deviceSequence, provenanceVersion=2,
+clock {
+  bootMarker, monotonicAnchorMilliseconds, monotonicDeltaMilliseconds,
+  wallClockAnchor, clockProofStatus, clockProofVersion=1
+},
+workEvent {
+  id, target { targetType, targetId }, occurredAt,
+  trigger =
+    { type=nfc, assignmentId, nfcTagId }
+    | { type=manual }
+},
+receipt { id, attemptNumber=1 }
+```
+
+The trigger union must exactly match the referenced lease-item discriminant and target. Manual
+`occurredAt` is captured at button confirmation through the same native wall/monotonic clock proof
+as NFC and cannot be edited. The server applies ADR-0012's accepted time, historical-authority and
+review rules; no client timestamp alone is authoritative.
+
+Existing v1 pages, provenance-v1 queue commands and SQLite-v2 rows remain byte-for-byte
+readable/reconcilable and continue through the unchanged v1 routes. SQLite-v3 migration adds
+discriminator/version columns without rewriting stored command bytes. The scheduler chooses the
+route only from the immutable provenance version. One owner-bound FIFO, device sequence and
+scheduler serve both sources.
 
 Existing limits remain: 100 items per page, 4,096 activated items, 4 MiB activated lease, 12-hour
 lease, accepted clock-proof/tolerance/review windows, queue count/byte ceilings and fail-closed
@@ -410,15 +497,17 @@ the following exact v1 values as one product amendment:
 2. Current Employees and Administrators may use manual Customer/Project/General Work triggers.
 3. Every Organization has exactly one immutable, always-active `general_work` target labelled
    `Allgemeine Arbeitszeit`.
-4. Manual capture is offline-first under ADR-0012's exact lease, clock, FIFO, review and
-   reconciliation boundaries.
-5. NFC and manual triggers may start or stop the same target and share the five-second
+4. Online manual event time is the first server database transaction timestamp; callers cannot
+   supply or edit it, and exact retries retain it.
+5. Manual capture is offline-first; offline button-confirmation time uses ADR-0012's exact native
+   clock proof, lease, FIFO, review and reconciliation boundaries.
+6. NFC and manual triggers may start or stop the same target and share the five-second
    cross-trigger duplicate window; the user never selects Start or Stop.
-6. V1 background launch remains UID-only `ACTION_TECH_DISCOVERED`, screen-unlocked and
+7. V1 background launch remains UID-only `ACTION_TECH_DISCOVERED`, screen-unlocked and
    best-effort for the exact qualified Android/Tag matrix; tags are not rewritten with NDEF.
-7. Existing Organization-scoped Tag Assignment remains authoritative; no per-User Tag entitlement
+8. Existing Organization-scoped Tag Assignment remains authoritative; no per-User Tag entitlement
    is introduced.
-8. CSV v1 remains byte-compatible but fails the complete request with
+9. CSV v1 remains byte-compatible but fails the complete request with
    `export_schema_incompatible` when its interval contains non-Customer targets; additive CSV v2
    is the complete generalized export defined above.
 
