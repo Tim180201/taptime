@@ -16,6 +16,7 @@ import type {
   MobileSessionState,
 } from '../auth/contracts';
 import type { NfcCaptureLifecyclePort } from '../nfc/RnNfcScanAdapter';
+import type { NativeNfcIngressCaptureEvidence } from '../nfc/NativeNfcIngress';
 import type {
   LifecycleEvidenceOutbox,
 } from '../scan/LifecycleEvidenceOutbox';
@@ -82,6 +83,8 @@ interface NativeNfcIngressAuthoritySnapshot {
   readonly mode: CaptureMode;
   readonly restorationSnapshot: InternalOfflineRestorationSnapshot | null;
   readonly offlineCaptureContext: ActiveOfflineCaptureContext | null;
+  readonly validFromBootMarker: string;
+  readonly validFromElapsedRealtimeMilliseconds: number;
 }
 
 interface SessionTransitionFlight {
@@ -226,7 +229,9 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
     return flight;
   }
 
-  async captureNativeNfcIngressAuthority(): Promise<object | null> {
+  async captureNativeNfcIngressAuthority(
+    evidence: NativeNfcIngressCaptureEvidence,
+  ): Promise<object | null> {
     const generation = this.generation;
     const transition = this.sessionTransitionFlight;
     if (transition !== null && transition.generation === generation) {
@@ -237,6 +242,9 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
     return authority !== null
       && this.operationFlight === null
       && canStartScan(this.state)
+      && evidence.bootMarker === authority.validFromBootMarker
+      && evidence.elapsedRealtimeMilliseconds
+        > authority.validFromElapsedRealtimeMilliseconds
       && this.isNativeNfcIngressAuthorityCurrent(authority)
       ? authority
       : null;
@@ -777,7 +785,8 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
       return;
     }
     if (!this.started || this.captureMode !== mode) return;
-    this.ensureNativeNfcIngressAuthority(mode);
+    await this.ensureNativeNfcIngressAuthority(mode);
+    if (!this.started || this.captureMode !== mode) return;
     if (reviewPendingSequence !== null) {
       this.setState({ status: 'server_review_pending', queueCount });
       return;
@@ -938,7 +947,7 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
       );
   }
 
-  private ensureNativeNfcIngressAuthority(mode: CaptureMode): void {
+  private async ensureNativeNfcIngressAuthority(mode: CaptureMode): Promise<void> {
     const current = this.nativeNfcIngressAuthority;
     if (
       current !== null
@@ -947,11 +956,41 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
       && current.restorationSnapshot === this.offlineRestorationSnapshot
       && current.offlineCaptureContext === this.offlineCaptureContext
     ) return;
+    const generation = this.generation;
+    const restorationSnapshot =
+      mode === 'offline' ? this.offlineRestorationSnapshot : null;
+    const offlineCaptureContext =
+      mode === 'offline' ? this.offlineCaptureContext : null;
+    let validFrom;
+    try {
+      validFrom = await this.monotonicClock.sample();
+    } catch {
+      this.nativeNfcIngressAuthority = null;
+      return;
+    }
+    if (
+      !this.isCaptureCurrent(generation, mode, restorationSnapshot)
+      || (
+        mode === 'offline'
+        && (
+          offlineCaptureContext === null
+          || validFrom.bootMarker !== offlineCaptureContext.activationBootMarker
+          || validFrom.elapsedRealtimeMilliseconds
+            < offlineCaptureContext.activationMonotonicMilliseconds
+        )
+      )
+    ) {
+      this.nativeNfcIngressAuthority = null;
+      return;
+    }
     this.nativeNfcIngressAuthority = Object.freeze({
-      generation: this.generation,
+      generation,
       mode,
-      restorationSnapshot: mode === 'offline' ? this.offlineRestorationSnapshot : null,
-      offlineCaptureContext: mode === 'offline' ? this.offlineCaptureContext : null,
+      restorationSnapshot,
+      offlineCaptureContext,
+      validFromBootMarker: validFrom.bootMarker,
+      validFromElapsedRealtimeMilliseconds:
+        validFrom.elapsedRealtimeMilliseconds,
     });
   }
 

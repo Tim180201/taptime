@@ -7,6 +7,7 @@ import NativeIngress from '../../modules/taptime-nfc-ingress';
 
 export interface NativeNfcIngressSource {
   hasPending(): boolean;
+  readPendingEvidence(): NativeNfcIngressCaptureEvidence | null;
   consume(): {
     readonly uid: readonly number[];
     readonly wallClockMilliseconds: number;
@@ -15,11 +16,36 @@ export interface NativeNfcIngressSource {
   clear(): void;
 }
 
+export interface NativeNfcIngressCaptureEvidence {
+  readonly bootMarker: string;
+  readonly elapsedRealtimeMilliseconds: number;
+}
+
 export class NativeNfcIngressCapturePort {
   constructor(private readonly source: NativeNfcIngressSource = NativeIngress) {}
 
   hasPending(): boolean {
     return this.source.hasPending();
+  }
+
+  readPendingEvidence(): NativeNfcIngressCaptureEvidence | null {
+    try {
+      const evidence = this.source.readPendingEvidence();
+      if (
+        evidence === null
+        || typeof evidence.bootMarker !== 'string'
+        || evidence.bootMarker.length < 1
+        || !Number.isSafeInteger(evidence.elapsedRealtimeMilliseconds)
+        || evidence.elapsedRealtimeMilliseconds < 0
+      ) {
+        this.source.clear();
+        return null;
+      }
+      return Object.freeze({ ...evidence });
+    } catch {
+      this.source.clear();
+      return null;
+    }
   }
 
   consume(): NfcScanCaptureResult | null {
@@ -49,7 +75,9 @@ export interface NativeNfcIngressScanCapability {
 }
 
 export interface NativeNfcIngressAuthorityReader {
-  captureNativeNfcIngressAuthority(): Promise<object | null>;
+  captureNativeNfcIngressAuthority(
+    evidence: NativeNfcIngressCaptureEvidence,
+  ): Promise<object | null>;
   isNativeNfcIngressAuthorityCurrent(snapshot: object): boolean;
 }
 
@@ -62,7 +90,10 @@ export class NativeNfcIngressLifecycle {
   private checking = false;
 
   constructor(
-    private readonly ingress: Pick<NativeNfcIngressCapturePort, 'hasPending' | 'clear'>,
+    private readonly ingress: Pick<
+      NativeNfcIngressCapturePort,
+      'hasPending' | 'readPendingEvidence' | 'clear'
+    >,
     private readonly scan: NativeNfcIngressScanCapability,
     private readonly authority: NativeNfcIngressAuthorityReader,
     private readonly schedule: typeof setInterval = setInterval,
@@ -86,10 +117,20 @@ export class NativeNfcIngressLifecycle {
     if (this.checking || !this.ingress.hasPending()) return;
     this.checking = true;
     try {
-      const authority = await this.authority.captureNativeNfcIngressAuthority();
+      const evidence = this.ingress.readPendingEvidence();
+      if (evidence === null) {
+        this.ingress.clear();
+        return;
+      }
+      const authority = await this.authority.captureNativeNfcIngressAuthority(evidence);
+      const currentEvidence = this.ingress.readPendingEvidence();
       if (
         authority === null
         || !this.authority.isNativeNfcIngressAuthorityCurrent(authority)
+        || currentEvidence === null
+        || currentEvidence.bootMarker !== evidence.bootMarker
+        || currentEvidence.elapsedRealtimeMilliseconds
+          !== evidence.elapsedRealtimeMilliseconds
       ) {
         this.ingress.clear();
         return;

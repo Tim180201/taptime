@@ -83,6 +83,7 @@ describe('OfflineCaptureCoordinator', () => {
     const scheduler = schedulerFake(order);
     const monotonicSamples = [
       { bootMarker: 'boot-1', elapsedRealtimeMilliseconds: 100 },
+      { bootMarker: 'boot-1', elapsedRealtimeMilliseconds: 200 },
       { bootMarker: 'boot-2', elapsedRealtimeMilliseconds: 50 },
     ];
     const coordinator = new OfflineCaptureCoordinator(
@@ -110,7 +111,10 @@ describe('OfflineCaptureCoordinator', () => {
 
     await coordinator.start();
     expect(coordinator.getState()).toEqual({ status: 'ready', outcome: null });
-    const ingressAuthority = await coordinator.captureNativeNfcIngressAuthority();
+    const ingressAuthority = await coordinator.captureNativeNfcIngressAuthority({
+      bootMarker: 'boot-1',
+      elapsedRealtimeMilliseconds: 201,
+    });
     expect(ingressAuthority).not.toBeNull();
     expect(coordinator.isNativeNfcIngressAuthorityCurrent(ingressAuthority!)).toBe(true);
     await coordinator.scan();
@@ -133,7 +137,10 @@ describe('OfflineCaptureCoordinator', () => {
     expect(coordinator.getState()).toEqual({ status: 'saved_locally', queueCount: 1 });
     await coordinator.onExplicitLogout();
     expect(coordinator.isNativeNfcIngressAuthorityCurrent(ingressAuthority!)).toBe(false);
-    await expect(coordinator.captureNativeNfcIngressAuthority()).resolves.toBeNull();
+    await expect(coordinator.captureNativeNfcIngressAuthority({
+      bootMarker: 'boot-1',
+      elapsedRealtimeMilliseconds: 201,
+    })).resolves.toBeNull();
   });
 
   it('keeps a durable review warning dominant across authenticated lease restoration', async () => {
@@ -206,13 +213,16 @@ describe('OfflineCaptureCoordinator', () => {
         queueCount: 0,
         outcome: null,
       });
-      const ingressAuthority = await coordinator.captureNativeNfcIngressAuthority();
+      const ingressAuthority = await coordinator.captureNativeNfcIngressAuthority({
+        bootMarker: 'boot-1',
+        elapsedRealtimeMilliseconds: 600_101,
+      });
       expect(ingressAuthority).not.toBeNull();
       expect(coordinator.isNativeNfcIngressAuthorityCurrent(ingressAuthority!)).toBe(true);
       expect(issueComplete).not.toHaveBeenCalled();
     });
 
-  it('waits for the exact current cold authenticated transition before exposing ingress authority',
+  it('rejects captures before or equal to cold authority and accepts the next millisecond',
     async () => {
       let sessionState: MobileSessionState = { status: 'initializing' };
       let authenticatedSnapshot: ProductScanSessionSnapshot | null = null;
@@ -269,7 +279,10 @@ describe('OfflineCaptureCoordinator', () => {
       authenticatedSnapshot = snapshot;
       expect(sessionSubscription.listener).toBeDefined();
       sessionSubscription.listener!();
-      const authorityPromise = coordinator.captureNativeNfcIngressAuthority();
+      const authorityPromise = coordinator.captureNativeNfcIngressAuthority({
+        bootMarker: 'boot-1',
+        elapsedRealtimeMilliseconds: 50,
+      });
       let settled = false;
       void authorityPromise.then(() => { settled = true; });
       await Promise.resolve();
@@ -277,8 +290,20 @@ describe('OfflineCaptureCoordinator', () => {
 
       delayedCancel.resolve();
       const authority = await authorityPromise;
-      expect(authority).not.toBeNull();
-      expect(coordinator.isNativeNfcIngressAuthorityCurrent(authority!)).toBe(true);
+      expect(authority).toBeNull();
+
+      const boundaryAuthority = await coordinator.captureNativeNfcIngressAuthority({
+        bootMarker: 'boot-1',
+        elapsedRealtimeMilliseconds: 100,
+      });
+      expect(boundaryAuthority).toBeNull();
+
+      const eligibleAuthority = await coordinator.captureNativeNfcIngressAuthority({
+        bootMarker: 'boot-1',
+        elapsedRealtimeMilliseconds: 101,
+      });
+      expect(eligibleAuthority).not.toBeNull();
+      expect(coordinator.isNativeNfcIngressAuthorityCurrent(eligibleAuthority!)).toBe(true);
     });
 
   it.each([
@@ -323,7 +348,10 @@ describe('OfflineCaptureCoordinator', () => {
 
       await coordinator.start();
       expect(coordinator.getState()).toEqual({ status: 'inactive' });
-      await expect(coordinator.captureNativeNfcIngressAuthority()).resolves.toBeNull();
+      await expect(coordinator.captureNativeNfcIngressAuthority({
+        bootMarker: 'boot-1',
+        elapsedRealtimeMilliseconds: 600_100,
+      })).resolves.toBeNull();
     },
   );
 

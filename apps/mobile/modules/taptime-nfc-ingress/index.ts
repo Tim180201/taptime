@@ -6,8 +6,14 @@ export interface NativeNfcIngressCapture {
   readonly elapsedRealtimeMilliseconds: number;
 }
 
+export interface NativeNfcIngressCaptureEvidence {
+  readonly bootMarker: string;
+  readonly elapsedRealtimeMilliseconds: number;
+}
+
 interface NativeNfcIngressModule {
   hasPending(): boolean;
+  readPendingEvidence(): NativeNfcIngressCaptureEvidence | null;
   consume(): NativeNfcIngressCapture | null;
   clear(): void;
 }
@@ -17,6 +23,24 @@ const nativeModule = requireOptionalNativeModule<NativeNfcIngressModule>('TapTim
 export default {
   hasPending(): boolean {
     return nativeModule?.hasPending() ?? false;
+  },
+  readPendingEvidence(): NativeNfcIngressCaptureEvidence | null {
+    const evidence = nativeModule?.readPendingEvidence() ?? null;
+    if (evidence === null) return null;
+    if (
+      typeof evidence.bootMarker !== 'string'
+      || evidence.bootMarker.length < 1
+      || new TextEncoder().encode(evidence.bootMarker).length > 256
+      || !Number.isSafeInteger(evidence.elapsedRealtimeMilliseconds)
+      || evidence.elapsedRealtimeMilliseconds < 0
+    ) {
+      nativeModule?.clear();
+      return null;
+    }
+    return Object.freeze({
+      bootMarker: evidence.bootMarker,
+      elapsedRealtimeMilliseconds: evidence.elapsedRealtimeMilliseconds,
+    });
   },
   consume(): NativeNfcIngressCapture | null {
     const capture = nativeModule?.consume() ?? null;

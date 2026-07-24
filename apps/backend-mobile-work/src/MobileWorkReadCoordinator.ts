@@ -283,7 +283,7 @@ function targetTypeRank(type: WorkTargetType): number {
   return type === 'customer' ? 1 : type === 'project' ? 2 : 3;
 }
 
-const OWN_TIME_WINDOW_MILLISECONDS = 31 * 24 * 60 * 60 * 1_000;
+const OWN_TIME_WINDOW_MILLISECONDS = 744 * 60 * 60 * 1_000;
 const MAXIMUM_DATE_MILLISECONDS = 8_640_000_000_000_000;
 const CANONICAL_UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;

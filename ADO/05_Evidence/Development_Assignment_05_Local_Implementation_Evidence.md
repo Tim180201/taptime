@@ -6,7 +6,9 @@
 - Candidate phase: the Development Agent completed the original local working-tree delta without
   committing or publishing it; the Technical Lead subsequently published exact candidate
   `4cd471883a2b68e709bbe34e68eb592c2b83d511`, tree
-  `a910522d826caba85dd1f14625a8f64d87e5742a`, for V4 and independent review
+  `a910522d826caba85dd1f14625a8f64d87e5742a`, for V4 and independent review; correction round 1
+  was subsequently published as `ee13e9b149b760bccdbd43f2dc802029e0bee14d`, tree
+  `11bc7b4a102cd694ff36a2d44c139951b5a339bb`, and passed V4 run `30113794052`
 - Risk: AVS-001 R3
 - Authority: Human-accepted ADR-0016/ADR-0017 Workstreams A–F through local V0–V3, followed by
   Technical-Lead acceptance, focused publication, exact-head V4 and independent exact-SHA review
@@ -252,13 +254,96 @@ its exact temporary path was removed through the recoverable Trash operation. De
 inventory, CI YAML parsing, whitespace/diff checks and final protected-path-aware status inspection
 also passed.
 
+## Post-publication review and correction round 2
+
+Correction-round-1 publication `ee13e9b149b760bccdbd43f2dc802029e0bee14d`, tree
+`11bc7b4a102cd694ff36a2d44c139951b5a339bb`, passed exact-head V4 run `30113794052`, attempt 1,
+12/12. Independent implementation review round 2 returned `CHANGES REQUIRED` with three findings:
+
+- P1: native ingress still captured authority only at the later polling boundary, so a Tag
+  received before login/new authority could be processed when the first poll occurred after the
+  new authority became ready;
+- P2: SQL `interval '31 days'` used calendar-day arithmetic for the own-time frame and therefore
+  produced 743 or 745 elapsed hours across Europe/Berlin DST changes instead of exact 744 hours;
+  and
+- P3: Project Status and this evidence did not yet record the published correction, its exact tree,
+  V4 run and review-round-2 result.
+
+Focused correction round 2 exposes only UID-free native capture evidence consisting of the
+same-boot marker and `elapsedRealtime` capture point. The coordinator creates one immutable
+valid-from boundary for the exact current authenticated or offline-restoration authority and
+accepts only matching-boot captures strictly after that boundary. Equality is rejected
+fail-closed because millisecond evidence cannot distinguish a same-tick pre-authority Tag from a
+later capture. Missing evidence, a pre-authority
+capture, changed native-slot evidence or a stale/replaced authority clears the slot; the UID is
+read only by the existing consume-once scan path after the authority checks. The reverse race is
+covered explicitly: a Tag captured before the new authority with its first poll only after
+login-ready is discarded, while a later eligible authenticated/offline capture remains
+consumable once.
+
+The own-time SQL and TypeScript boundaries now use exact 744-hour arithmetic. Real PostgreSQL
+tests under `Europe/Berlin` prove the exact frame across both 2026 DST transitions, distinguish it
+from the 743-hour spring and 745-hour fall calendar-day results, retain the immutable continuation
+frame and reject 743-hour/745-hour requests.
+
+Focused V1/V2 passed Backend Schema 128/128, Backend Mobile Work 10/10 and Mobile 462/462. All
+three affected tests-inclusive typechecks and both applicable builds passed. The first focused
+PostgreSQL DST test run exposed only invalid test SQL syntax from qualifying the special
+`extract` expression; the corrected query and unchanged product implementation passed 3/3 on a
+freshly migrated disposable database. Both focused disposable databases and their runtime roles
+were removed.
+
+Exactly one final complete fresh V3 was then executed for the correction-round-2 executable
+candidate:
+
+- all 21 workspace suites completed with 1,912 passed tests and only the two existing optional
+  B1 Supavisor skips;
+- all 21 workspace tests-inclusive typechecks passed;
+- all 20 applicable workspace builds passed; Mobile has no build script;
+- clean migrations 001–013 applied, replayed with `applied=none` and passed ledger verification;
+- Mobile TypeScript inclusion matched all 36/36 repository Mobile test files;
+- the built C3B CLI passed `verify-bin`;
+- Android export bundled 861 modules to one isolated temporary output; and
+- all three task-owned PostgreSQL databases were removed, the Android temporary path was moved to
+  Trash, and the preserved Synthetic E2E database had no remaining `taptime_server` schema.
+
+The first test aggregate supplied four C2 runtime URLs with the installer identity instead of
+their exact runtime logins. Two Backend API files therefore collected no tests, while the other
+seven Backend API files passed 95 tests and every other workspace continued successfully. The
+focused continuation used the correct runtime identities but was first invoked from the repository
+root, which did not apply the Backend API workspace's serial file configuration: C1 passed 43/43
+while C2 failed before collection because the concurrent C1 reset had already applied the clean
+migration set. C2 alone under the correct workspace configuration then passed 98/98. No already
+completed workspace was repeated and no product assertion failed.
+
+Migration replay passed on its first invocation. The immediately chained ledger command did not
+inherit the inline database variable and exited before execution; C3B and Mobile-inclusion checks
+behind it did not start. The three unexecuted checks were continued with explicit environment and
+all passed. One Android export executed and passed.
+
+Technical-Lead pre-publication inspection then identified that the initial `>=` comparison still
+accepted capture evidence equal to the millisecond-resolution authority boundary. The focused
+correction changed eligibility to strict `>` and added one exact same-boot/current-authority
+regression: equality is rejected and the next millisecond is accepted. Focused Native/Offline
+tests passed 24/24 and the tests-inclusive Mobile typecheck passed.
+
+Because this changed the executable R3 candidate after the preceding V3, one new final complete
+V3 superseded that run. It passed the same complete matrix with 1,912 tests and the two existing
+optional B1 Supavisor skips, all 21 tests-inclusive typechecks, all 20 applicable builds, clean
+migration apply/replay/ledger verification, C3B built-CLI verification, Mobile 36/36 test-file
+inclusion and Android export of 861 modules. The test aggregate collected every workspace on its
+first invocation with the corrected runtime identities and serial Backend API configuration; no
+failure or continuation occurred. The task-owned `taptime_da3` database was removed, the
+Synthetic database was schema-free and the Android temporary output was moved recoverably to
+Trash.
+
 ## Remaining gates and risks
 
-- Original candidate V4 passed, but corrected exact-head V4 has not run. The Human-authorized
-  Technical-Lead sequence permits focused correction publication and corrected V4 after local
-  inspection and acceptance.
-- Independent implementation review returned `CHANGES REQUIRED`; independent corrected exact-SHA
-  re-review remains mandatory.
+- Correction-round-1 V4 passed, but correction-round-2 exact-head V4 has not run. The
+  Human-authorized Technical-Lead sequence permits focused correction publication and corrected
+  V4 after local inspection and acceptance.
+- Independent implementation review round 2 returned `CHANGES REQUIRED`; independent
+  correction-round-2 exact-SHA re-review remains mandatory.
 - Human Android V5, real-device NFC/Tag dispatch, accessibility observation, process restart and
   controlled offline/online physical paths were not run and remain separately authorized gates.
 - Exact Android vendor/Tag routing remains a Human-qualified best-effort matrix as specified by

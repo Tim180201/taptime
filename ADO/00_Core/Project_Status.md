@@ -1,6 +1,6 @@
 # Project Status
 
-Status: CORE ROADMAP V2 BLOCK A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2, BLOCK D, E1 AND NARROW E2A COMPLETE FOR THEIR RECORDED SCOPES — DEVELOPMENT ASSIGNMENTS 1–3 AND DT-060–DT-074 CLOSED FOR THEIR EXACT AUTHORIZED LOCAL SCOPES — DA4 WORKSTREAMS A–D, AVS V0–V4, H01 PROCEDURAL CORRECTION, DA4-V5-F06 AND DA4-V5-F07 INDEPENDENTLY APPROVED; DA4 REMAINS OPEN FOR A LATER FRESH HUMAN V5 — DA5 WORKSTREAMS A–F WERE PUBLISHED AT `4cd4718`, TREE `a910522`, AND PASSED EXACT-HEAD V4 `30108718178` 12/12; INDEPENDENT REVIEW RETURNED `CHANGES REQUIRED` WITH P1 NATIVE STALE REPLAY, P2 OWN-TIME PAGINATION FRAME AND P3 ADO TRUTH; FOCUSED CORRECTION ROUND 1 INCLUDING THE SERVER-KEY SUPPLEMENT NOW HAS A GREEN FINAL LOCAL V0–V3 CANDIDATE, WHILE CORRECTED PUBLICATION/V4/RE-REVIEW AND HUMAN V5 REMAIN OPEN — PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
+Status: CORE ROADMAP V2 BLOCK A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2, BLOCK D, E1 AND NARROW E2A COMPLETE FOR THEIR RECORDED SCOPES — DEVELOPMENT ASSIGNMENTS 1–3 AND DT-060–DT-074 CLOSED FOR THEIR EXACT AUTHORIZED LOCAL SCOPES — DA4 WORKSTREAMS A–D, AVS V0–V4, H01 PROCEDURAL CORRECTION, DA4-V5-F06 AND DA4-V5-F07 INDEPENDENTLY APPROVED; DA4 REMAINS OPEN FOR A LATER FRESH HUMAN V5 — DA5 CORRECTION ROUND 1 WAS PUBLISHED AT `ee13e9b`, TREE `11bc7b4`, AND PASSED EXACT-HEAD V4 `30113794052` 12/12; INDEPENDENT REVIEW ROUND 2 RETURNED `CHANGES REQUIRED` WITH P1 NATIVE CAPTURE-TIME AUTHORITY, P2 OWN-TIME DST DURATION AND P3 ADO EVIDENCE TRUTH; FOCUSED CORRECTION ROUND 2 NOW HAS GREEN LOCAL V0–V3, WHILE PUBLICATION/V4/RE-REVIEW AND HUMAN V5 REMAIN OPEN — PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
 Date: 2026-07-24
 Owner: Human Architect + Technical Lead
 
@@ -11,7 +11,7 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
 ## Current State
 
 - **Development Assignment 5 Workstreams A–F are published and in focused review correction
-  round 1.** The Human Architect expressly accepted ADR-0016/DA5-P01–P12 and
+  round 2.** The Human Architect expressly accepted ADR-0016/DA5-P01–P12 and
   ADR-0017/DA5-T01–T15 and authorized the bounded Development implementation plus subsequent
   Technical-Lead acceptance, focused publication, exact-head V4 and independent exact-SHA review
   on baseline
@@ -43,8 +43,22 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   V1/V2 are green. The final supplemented V3 then passed all 21 workspace suites with 1,910 tests
   and the two existing optional B1 Supavisor skips, all 21 tests-inclusive typechecks, all 20
   applicable builds, clean migration apply/replay/ledger verification, C3B binary verification,
-  36/36 Mobile test-file inclusion and Android export of 861 modules. Corrected publication/V4
-  and independent re-review remain mandatory. No finding authorizes Human V5. DA4 Human V5
+  36/36 Mobile test-file inclusion and Android export of 861 modules. Correction-round-1
+  publication `ee13e9b149b760bccdbd43f2dc802029e0bee14d`, tree
+  `11bc7b4a102cd694ff36a2d44c139951b5a339bb`, passed exact-head V4 run
+  `30113794052`, attempt 1, 12/12. Independent review round 2 returned `CHANGES REQUIRED`:
+  P1 the later ingress poll could bind a Tag captured before new authority; P2 SQL calendar-day
+  subtraction made the nominal 31×24-hour own-time frame DST-dependent; and P3 status/evidence
+  had not synchronized the published correction/V4/re-review truth. Focused correction round 2
+  binds UID-free same-boot monotonic capture evidence strictly after the exact authority
+  valid-from boundary, rejects equality fail-closed, and uses an exact 744-hour SQL/TypeScript
+  frame with Europe/Berlin spring/fall PostgreSQL
+  regressions. Affected V1/V2 and the final complete V3 are green: 1,912 tests passed with the
+  two existing optional B1 Supavisor skips, all 21 tests-inclusive typechecks and all 20
+  applicable builds passed, and migration apply/replay/ledger, C3B binary, 36/36 Mobile test
+  inclusion and Android export checks passed. This V3 was freshly repeated after the
+  Technical-Lead strict-boundary correction. Publication/V4 and independent re-review remain
+  mandatory. No finding authorizes Human V5. DA4 Human V5
   remains separate. Production, production data, deployment and distribution remain
   unauthorized.
 - **Development Assignment 4 is the active Roadmap engineering block.** The Human Architect
@@ -743,7 +757,7 @@ Two Epics are concurrently Active, per EP-009's own stated relationship to the r
 5. Preserve the independently approved `DA4-V5-F06` and `DA4-V5-F07` corrections plus failed
    `DA4-V5-H03`. Any later DA4 Human V5 requires a new separate exact-bound authorization; no
    reuse, retry, repair or resume is authorized.
-6. Technical-Lead-audit and publish only the green DA5 correction-round-1 P1/P2/P3 delta, obtain
+6. Technical-Lead-audit and publish only the green DA5 correction-round-2 P1/P2/P3 delta, obtain
    corrected exact-head V4 and an independent exact-SHA re-review with zero open P0–P3. DA4's
    open Human gate and all later Human/hardware evidence remain separate.
    Production, production data, deployment and distribution remain unauthorized.

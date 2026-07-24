@@ -3,9 +3,12 @@ package com.taptime.nfcingress
 import android.content.Intent
 import android.nfc.NfcAdapter
 import android.nfc.Tag
+import android.os.Build
 import android.os.SystemClock
+import android.provider.Settings
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
+import java.security.MessageDigest
 
 data class PendingNfcCapture(
   val uid: ByteArray,
@@ -44,6 +47,9 @@ object TapTimeNfcIngress {
   fun hasPending(): Boolean = pending != null
 
   @Synchronized
+  fun pendingElapsedRealtimeMilliseconds(): Long? = pending?.elapsedRealtimeMilliseconds
+
+  @Synchronized
   fun clear() {
     pending = null
   }
@@ -65,6 +71,32 @@ class TapTimeNfcIngressModule : Module() {
 
     Function("hasPending") {
       TapTimeNfcIngress.hasPending()
+    }
+
+    Function("readPendingEvidence") {
+      val elapsedRealtimeMilliseconds =
+        TapTimeNfcIngress.pendingElapsedRealtimeMilliseconds()
+          ?: return@Function null
+      val context = appContext.reactContext
+        ?: throw IllegalStateException("Android application context is unavailable")
+      val bootCount = Settings.Global.getInt(
+        context.contentResolver,
+        Settings.Global.BOOT_COUNT,
+        -1
+      )
+      if (bootCount < 0) {
+        throw IllegalStateException("Android boot marker is unavailable")
+      }
+      val markerInput = "${Build.FINGERPRINT}:$bootCount"
+      val bootMarker = MessageDigest.getInstance("SHA-256")
+        .digest(markerInput.toByteArray(Charsets.UTF_8))
+        .joinToString(separator = "") { byte ->
+          ((byte.toInt() and 0xff) + 0x100).toString(16).substring(1)
+        }
+      mapOf(
+        "bootMarker" to bootMarker,
+        "elapsedRealtimeMilliseconds" to elapsedRealtimeMilliseconds.toDouble()
+      )
     }
 
     Function("clear") {

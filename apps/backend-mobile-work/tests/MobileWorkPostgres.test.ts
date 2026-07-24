@@ -112,6 +112,10 @@ describe('Mobile own-time PostgreSQL pagination', () => {
       expect(second.response.activeRecord).toEqual(first.response.activeRecord);
       expect(second.response.windowStartedAt).toBe(first.response.windowStartedAt);
       expect(second.response.windowEndedAt).toBe(first.response.windowEndedAt);
+      expect(
+        Date.parse(second.response.windowEndedAt)
+          - Date.parse(second.response.windowStartedAt),
+      ).toBe(744 * 60 * 60 * 1_000);
       expect(second.response.nextCursor).not.toBeNull();
 
       await new Promise((resolve) => setTimeout(resolve, 25));
@@ -163,7 +167,83 @@ describe('Mobile own-time PostgreSQL pagination', () => {
 
     await expectRejectedFrame('32 days', '-31 days');
     await expectRejectedFrame('-1 day', '-31 days');
+    await expectRejectedFrame('0 hours', '-743 hours');
+    await expectRejectedFrame('0 hours', '-745 hours');
   });
+
+  it('uses one exact 744-hour frame across both Europe/Berlin DST transitions',
+    async () => {
+      const client = await installerPool.connect();
+      try {
+        await client.query('BEGIN READ ONLY');
+        await client.query(`SET LOCAL TIME ZONE 'Europe/Berlin'`);
+        const result = await client.query<{
+          spring_exact_started_local: string;
+          spring_exact_seconds: string;
+          spring_calendar_seconds: string;
+          fall_exact_started_local: string;
+          fall_exact_seconds: string;
+          fall_calendar_seconds: string;
+          function_definition: string;
+        }>(`
+          SELECT
+            pg_catalog.to_char(
+              TIMESTAMPTZ '2026-04-15 12:00:00 Europe/Berlin' - interval '744 hours',
+              'YYYY-MM-DD HH24:MI:SS'
+            ) AS spring_exact_started_local,
+            extract(epoch FROM (
+              TIMESTAMPTZ '2026-04-15 12:00:00 Europe/Berlin'
+              - (
+                TIMESTAMPTZ '2026-04-15 12:00:00 Europe/Berlin'
+                - interval '744 hours'
+              )
+            ))::text AS spring_exact_seconds,
+            extract(epoch FROM (
+              TIMESTAMPTZ '2026-04-15 12:00:00 Europe/Berlin'
+              - (
+                TIMESTAMPTZ '2026-04-15 12:00:00 Europe/Berlin'
+                - interval '31 days'
+              )
+            ))::text AS spring_calendar_seconds,
+            pg_catalog.to_char(
+              TIMESTAMPTZ '2026-11-10 12:00:00 Europe/Berlin' - interval '744 hours',
+              'YYYY-MM-DD HH24:MI:SS'
+            ) AS fall_exact_started_local,
+            extract(epoch FROM (
+              TIMESTAMPTZ '2026-11-10 12:00:00 Europe/Berlin'
+              - (
+                TIMESTAMPTZ '2026-11-10 12:00:00 Europe/Berlin'
+                - interval '744 hours'
+              )
+            ))::text AS fall_exact_seconds,
+            extract(epoch FROM (
+              TIMESTAMPTZ '2026-11-10 12:00:00 Europe/Berlin'
+              - (
+                TIMESTAMPTZ '2026-11-10 12:00:00 Europe/Berlin'
+                - interval '31 days'
+              )
+            ))::text AS fall_calendar_seconds,
+            pg_catalog.pg_get_functiondef(
+              'taptime_server.read_mobile_own_time_v1(
+                uuid,uuid,uuid,timestamptz,timestamptz,timestamptz,uuid,integer
+              )'::regprocedure
+            ) AS function_definition
+        `);
+        expect(result.rows).toEqual([expect.objectContaining({
+          spring_exact_started_local: '2026-03-15 11:00:00',
+          spring_exact_seconds: '2678400.000000',
+          spring_calendar_seconds: '2674800.000000',
+          fall_exact_started_local: '2026-10-10 13:00:00',
+          fall_exact_seconds: '2678400.000000',
+          fall_calendar_seconds: '2682000.000000',
+        })]);
+        expect(result.rows[0]!.function_definition).toContain("interval '744 hours'");
+        expect(result.rows[0]!.function_definition).not.toContain("interval '31 days'");
+      } finally {
+        await client.query('ROLLBACK').catch(() => undefined);
+        client.release();
+      }
+    });
 });
 
 async function prepareRuntimeLogin(): Promise<void> {
@@ -179,6 +259,7 @@ async function prepareRuntimeLogin(): Promise<void> {
     ALTER ROLE ${runtimeLogin} WITH LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE
       NOREPLICATION NOBYPASSRLS PASSWORD ${quoteLiteral(runtimePassword)};
     ALTER ROLE ${runtimeLogin} RESET ALL;
+    ALTER ROLE ${runtimeLogin} SET timezone = 'Europe/Berlin';
     DO $parents$
     DECLARE parent_name text;
     BEGIN

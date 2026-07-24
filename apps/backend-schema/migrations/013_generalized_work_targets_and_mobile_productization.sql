@@ -746,7 +746,7 @@ DECLARE
   boundary timestamptz := COALESCE(requested_window_ended_at, request_time);
   window_start timestamptz := COALESCE(
     requested_window_started_at,
-    boundary - interval '31 days'
+    boundary - interval '744 hours'
   );
 BEGIN
   IF pg_catalog.current_setting('role', true) <> 'taptime_mobile_own_time_reader'
@@ -760,9 +760,9 @@ BEGIN
     OR (
       requested_window_ended_at IS NOT NULL
       AND (
-        requested_window_started_at <> requested_window_ended_at - interval '31 days'
+        requested_window_started_at <> requested_window_ended_at - interval '744 hours'
         OR requested_window_ended_at > request_time
-        OR requested_window_ended_at < request_time - interval '31 days'
+        OR requested_window_ended_at < request_time - interval '744 hours'
         OR requested_after_started_at < requested_window_started_at
         OR requested_after_started_at >= requested_window_ended_at
       )
