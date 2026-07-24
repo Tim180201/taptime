@@ -1,15 +1,15 @@
 # ADR-0016: Professional Mobile Productization
 
-- Status: **ADO-ONLY CANDIDATE — INDEPENDENT REVIEW REQUIRED; EXECUTABLE IMPLEMENTATION UNAUTHORIZED**
+- Status: **CORRECTED ADO-ONLY CANDIDATE — INDEPENDENT REVIEW REQUIRED; EXECUTABLE IMPLEMENTATION UNAUTHORIZED**
 - Date: 2026-07-24
-- Candidate baseline commit: `4bfbf8eb39e46b073b18c8d7ab502add44ad47f0`
-- Candidate baseline tree: `17b7c4a6a8ec1bbdce9de6c99d0863acf6c47854`
-- Baseline CI: GitHub Actions `30093494886`, attempt 1, 12/12 successful
+- Candidate baseline commit: `8e0cec7f86aaf740a4fa5fbc0465235acda1b328`
+- Candidate baseline tree: `a1f57d7001b4355c6fc36b9f27c9296900eaa8cf`
+- Baseline CI: GitHub Actions `30094046612`, attempt 1, 12/12 successful
 - Owner: Technical Lead
 - Decision authority: Human Architect
 - Roadmap: Development Assignment 5; Mobile portions of DT-090, DT-093–DT-096, DT-098 and DT-103
-- Related: Product Vision, Product Principles, ADR-0003, ADR-0007–ADR-0009, ADR-0012,
-  ADR-0014, ADR-0015, AVS-001
+- Related: Product Vision, Product Principles, ADR-0002–ADR-0009, ADR-0012, ADR-0014, ADR-0015,
+  ADR-0017, AVS-001
 - Proposed implementation risk: AVS-001 **R3**
 
 ## 1. Context
@@ -44,27 +44,32 @@ approved repository work. It remains a separate gate and receives no evidence fr
 ### DA5-P01 — Assignment and Roadmap boundary
 
 DA5 SHALL productize the existing Android Mobile application and complete the Mobile-specific
-parts of Roadmap DT-090, DT-093–DT-096, DT-098 and DT-103.
+parts of Roadmap DT-090, DT-093–DT-096, DT-098 and DT-103. It also implements the Human-directed
+ADR-0017 scope: Android Tag Dispatch into the existing protected NFC path and manual
+Customer/Project/General Work triggers.
 
-It may add the narrow backend read capability required for the already accepted own-time feature.
-It SHALL NOT add a new lifecycle, correction, export, Membership, setup or authentication
-capability.
+It may add the narrow backend read capability required for the already accepted own-time feature,
+the exact generalized-target/Project setup boundary and CSV v2 required for truthful provenance.
+It SHALL NOT add a caller-selected Start/Stop lifecycle, editable time, correction, Membership or
+authentication capability.
 
 ### DA5-P02 — Server authority and One Tap remain unchanged
 
-The server remains the only authority for Membership, Organization, Assignment and
-Start/Stop/duplicate/rejection decisions. A Mobile scan is still one trigger whose meaning is
-decided by the existing Business Engine.
+The server remains the only authority for Membership, Organization, Assignment, WorkTarget and
+Start/Stop/duplicate/rejection decisions. NFC and manual actions are triggers whose meaning is
+decided by the same existing Business Engine.
 
-DA5 adds no manual Start or Stop command. An active-session surface may explain that another scan
-is required, but it may only start the existing NFC capture path. Pending, offline or local state
-must never be presented as a server-confirmed Start or Stop.
+DA5 adds no manual Start or Stop command. A manual action selects a WorkTarget and submits a
+trigger; it never selects a lifecycle outcome. An active-session surface may invoke either the
+normal NFC capture path or a manual trigger for the exact active target. Pending, offline or local
+state must never be presented as a server-confirmed Start or Stop.
 
 ### DA5-P03 — Role-safe Mobile information architecture
 
 After authoritative session resolution, the primary product destinations SHALL be:
 
 - **Erfassen** — the existing NFC scan path and latest truthful outcome;
+- **Manuell** — safe Customer, Project and General Work target selection plus one trigger action;
 - **Meine Zeiten** — the current actor's effective active record and bounded stopped history;
 - **Synchronisierung** — safe local queue/review/protection state and the existing unchanged-evidence
   retry action; and
@@ -72,8 +77,9 @@ After authoritative session resolution, the primary product destinations SHALL b
   setup capability.
 
 The authority-free enrollment shell remains separate. The offline-capture shell exposes only
-Erfassen and safe Synchronization status; it cannot expose server time history or Administrator
-setup. Navigation state is memory-only and carries no credential, raw NFC value or authority.
+Erfassen, an exact leased manual-target projection and safe Synchronization status; it cannot
+expose server time history or Administrator setup. Navigation state is memory-only and carries no
+credential, raw NFC value or authority.
 
 ### DA5-P04 — Dedicated effective own-time contract
 
@@ -102,16 +108,19 @@ One read-only transaction returns:
 Each safe record contains only:
 
 ```text
-timeRecordId, customerDisplayName, status, startedAt, stoppedAt
+timeRecordId, source, targetType, targetDisplayName, status, startedAt, stoppedAt,
+startedVia, stoppedVia
 ```
 
 The opaque `timeRecordId` is presentation/reconciliation identity, never authority. The response
-omits Organization, User, Membership and Customer IDs; source/revision/overlap, reasons, actors,
+omits Organization, User, Membership and target IDs; revision/overlap, reasons, actors,
 audit/review evidence, WorkEvent/Receipt details and NFC data. Duration is derived for display and
 is never stored or transported as an independent fact.
 
-Corrected canonical and recovered records use ADR-0014 effective values. Recovered records remain
-stopped. The existing database invariant is stated precisely: at most one `started` TimeEntry per
+Corrected canonical and recovered records use ADR-0014 effective values. `source` is the safe closed
+value `canonical | recovered`; canonical records carry exact `nfc | manual` trigger provenance and
+recovered records carry null trigger fields. Recovered records remain stopped. The existing
+database invariant is stated precisely: at most one `started` TimeEntry per
 `(organization_id, user_id)`. DA5 makes no global cross-Organization active-record claim.
 
 ### DA5-P05 — Self-only authority and isolated capability
@@ -124,22 +133,23 @@ Both existing v1 roles may read only their own effective time. A stale, absent, 
 mismatched Membership fails closed. The query predicate includes the exact server-resolved
 Organization and User.
 
-Migration `013` SHALL add a dedicated `NOLOGIN`, `NOINHERIT`, `NOBYPASSRLS` own-time reader
-capability and narrowly owned `SECURITY DEFINER` function. The runtime receives execute-only access
-through a distinct validated pool. It gains no direct revision/audit read, Administrator function,
-broad table grant or write capability. Existing raw self-RLS and Administrator DA3 functions are
-not broadened or reused as the Mobile boundary.
+The ordered additive DA5 migrations SHALL add a dedicated `NOLOGIN`, `NOINHERIT`, `NOBYPASSRLS`
+own-time reader capability and narrowly owned `SECURITY DEFINER` function. The runtime receives
+execute-only access through a distinct validated pool. It gains no direct revision/audit read,
+Administrator function, broad table grant or write capability. Existing raw self-RLS and
+Administrator DA3 functions are not broadened or reused as the Mobile boundary.
 
 ### DA5-P06 — Active-session and own-time truth
 
 The active-session card is derived only from `activeRecord`, never from the bounded history page,
-the last scan result or local queue state. It shows Customer, server-confirmed start time and the
-instruction to scan the relevant Tag again; it does not predict that a later scan will necessarily
-stop.
+the last trigger result or local queue state. It shows target, trigger provenance,
+server-confirmed start time and truthful actions for a new NFC scan or a manual trigger of the
+exact active target; it does not predict that either later trigger will necessarily stop.
 
 History shows the rolling 31-day effective stopped records newest first, distinguishes loaded from
-complete state and offers deterministic load-more while `nextCursor` is present. Corrections or
-recovered provenance are not exposed in DA5; the Employee sees the current effective result.
+complete state and offers deterministic load-more while `nextCursor` is present. Correction
+reason/revision/actor evidence is not exposed; only the safe record source and current effective
+result are shown.
 Totals, overtime, payroll, rounding, approval and editable time are excluded.
 
 ### DA5-P07 — Synchronization and protected-evidence truth
@@ -149,7 +159,7 @@ DA5 productizes the existing ADR-0012/DA3 state vocabulary without changing it:
 - locally saved and pending evidence remains visibly unconfirmed;
 - synchronization progress and safe queue count remain explicit;
 - `review_pending`, protected storage and identity-mismatch states retain their fail-closed copy;
-- manual retry can only resend the exact unchanged queue head through the existing scheduler; and
+- explicit retry can only resend the exact unchanged queue head through the existing scheduler; and
 - no UI may delete, reorder, edit, rebind, bypass or mark evidence successful.
 
 The UI SHALL NOT promise a background completion time.
@@ -188,8 +198,11 @@ Existing security boundaries remain unchanged:
 - sign-out/session replacement invalidates stale screen requests and clears privileged presentation;
 - the invitation secret remains volatile and never enters storage, logs, URLs or clipboard
   automation;
-- canonical NFC payload lifetime remains inside the protected coordinator/transport boundary; and
-- lifecycle scan and Administrator capture retain exclusive native NFC ownership and cancellation.
+- canonical NFC payload lifetime remains inside the protected coordinator/transport boundary;
+- foreground scan, Tag Dispatch and Administrator capture share exclusive native NFC ownership and
+  cancellation; and
+- a launch Tag is consumed once, bound to current runtime generation and discarded on missing,
+  replaced or signed-out authority.
 
 Own-time and synchronization presentation components receive narrow state/actions only. They do not
 receive tokens, pools, raw transport or database handles.
@@ -198,11 +211,12 @@ receive tokens, pools, raw transport or database handles.
 
 DA5 excludes:
 
-- manual time entry, manual Start/Stop, correction, export, team/Organization time and audit views;
+- caller-selected Start/Stop, editable time, correction, team/Organization time and audit views;
 - totals, overtime, payroll, rounding, breaks, approvals, scheduling or analytics;
-- new Customer/Tag/Membership operations, auth providers, signup, reset or identity linking;
+- new Customer/Tag/Membership operations beyond ADR-0017's bounded Project setup, auth providers,
+  signup, reset or identity linking;
 - remote deletion/repair/rebinding of local evidence or changed offline policy;
-- iOS/Web NFC, broad device support claims or a new trigger type;
+- iOS/Web NFC, locked-screen/force-stop bypass, background service or broad device support claims;
 - DA6 production-like operations/observability/backup, DA7 signing/distribution and DA8 website;
 - production resources/data, deployment, distribution, pilot operations or legal/privacy approval;
   and
@@ -219,30 +233,37 @@ regression, exact-head CI and independent exact-SHA implementation review with z
 
 A fresh synthetic Android Human V5 on an exact reviewed artifact is separately authorized only
 after V0–V4. It must cover authentication/enrollment, role-safe navigation, own-time/effective
-active/history truth, online and offline Scan outcomes, synchronization/protected states,
-Administrator setup preservation, TalkBack/text scaling/layout, lifecycle cancellation and complete
-cleanup. It remains a Human/hardware stop.
+active/history truth, online and offline NFC/manual outcomes, screen-unlocked cold/warm Tag
+Dispatch, unassigned/signed-out rejection, Customer/Project/General targets, provenance,
+synchronization/protected states, Administrator setup preservation, TalkBack/text scaling/layout,
+lifecycle cancellation and complete cleanup. It remains a Human/hardware stop.
 
 ## 3. Expected component boundary
 
 Expected implementation is limited to:
 
-- one neutral own-time contract package;
-- migration `013` plus isolated own-time role/function tests;
-- one own-time backend coordinator/pool and the exact API route;
+- neutral WorkTarget/trigger, own-time and manual-target contract changes;
+- ordered additive migrations plus isolated role/function/backfill/constraint tests;
+- own-time, Project/manual-target and CSV v2 backend coordinators/pools and exact API routes;
+- the ADR-0017 Android configuration plugin and consume-once native bridge;
 - Mobile runtime capability/coordinator, product shell, screens, local design primitives and tests;
 - narrowly necessary CI selection/commands for the new workspaces; and
 - concise evidence/status synchronization where repository truth materially changes.
 
-Core BusinessEngine, existing lifecycle/offline/setup/enrollment contracts, migrations `001`–`012`,
-Admin Web Product behavior and all production/deployment configuration remain unchanged.
+Core BusinessEngine decision behavior, migrations `001`–`012`, accepted append-only
+correction/review semantics and all production/deployment configuration remain unchanged.
+Existing lifecycle/offline/setup/export contracts may change only through additive,
+backward-compatible versions required by ADR-0017.
 
 ## 4. Review triggers
 
 Renewed architecture and Human review are required before:
 
 - any Employee read beyond the exact current actor or effective time result;
-- any write, correction, export, manual lifecycle action or cross-Organization historical access;
+- any editable time, correction, caller-selected lifecycle action or cross-Organization historical
+  access;
+- any target or trigger type beyond ADR-0017, per-User target entitlement or Project scope beyond
+  create/list/deactivate;
 - any new duration, overlap, payroll, rounding or active-session Business Rule;
 - any weakened offline/protected-state, credential, NFC ownership or session boundary;
 - any runtime UI/analytics dependency or shared cross-surface design-system authority; or
@@ -250,9 +271,10 @@ Renewed architecture and Human review are required before:
 
 ## 5. Current authority
 
-The Human Architect instructed the Technical Lead to continue the Roadmap autonomously through
-independently approved work and to stop at the next Human/hardware gate. This document is the
-Technical Lead's exact ADO-only candidate on the verified baseline above.
+The Human Architect instructed the Technical Lead to include Android background NFC and manual
+Customer/Project/General Work capture, continue the Roadmap autonomously through independently
+approved work and stop at the next Human/hardware gate. This corrected document and ADR-0017 are
+the Technical Lead's exact ADO-only candidate on the verified baseline above.
 
 Before an independent read-only pre-implementation review returns `APPROVED` with zero open P0–P3,
 no source, schema, dependency, workflow, build or executable change is authorized. Human V5,

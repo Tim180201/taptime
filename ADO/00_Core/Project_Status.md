@@ -1,6 +1,6 @@
 # Project Status
 
-Status: CORE ROADMAP V2 BLOCK A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2, BLOCK D, E1 AND NARROW E2A COMPLETE FOR THEIR RECORDED SCOPES — DEVELOPMENT ASSIGNMENTS 1–3 AND DT-060–DT-074 CLOSED FOR THEIR EXACT AUTHORIZED LOCAL SCOPES — DA4 WORKSTREAMS A–D, AVS V0–V4, H01 PROCEDURAL CORRECTION, DA4-V5-F06 AND DA4-V5-F07 INDEPENDENTLY APPROVED; DA4 REMAINS OPEN FOR A LATER FRESH HUMAN V5 — DA5 ADO-ONLY ARCHITECTURE/AUTHORIZATION CANDIDATE PREPARED, INDEPENDENT REVIEW REQUIRED, IMPLEMENTATION UNAUTHORIZED — PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
+Status: CORE ROADMAP V2 BLOCK A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2, BLOCK D, E1 AND NARROW E2A COMPLETE FOR THEIR RECORDED SCOPES — DEVELOPMENT ASSIGNMENTS 1–3 AND DT-060–DT-074 CLOSED FOR THEIR EXACT AUTHORIZED LOCAL SCOPES — DA4 WORKSTREAMS A–D, AVS V0–V4, H01 PROCEDURAL CORRECTION, DA4-V5-F06 AND DA4-V5-F07 INDEPENDENTLY APPROVED; DA4 REMAINS OPEN FOR A LATER FRESH HUMAN V5 — DA5 CORRECTED ADO-ONLY ARCHITECTURE/AUTHORIZATION CANDIDATE INCLUDES ANDROID TAG DISPATCH PLUS MANUAL CUSTOMER/PROJECT/GENERAL WORK TRIGGERS; INDEPENDENT REVIEW REQUIRED, IMPLEMENTATION UNAUTHORIZED — PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
 Date: 2026-07-24
 Owner: Human Architect + Technical Lead
 
@@ -10,18 +10,21 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
 
 ## Current State
 
-- **Development Assignment 5 is prepared as an ADO-only professional-Mobile candidate; no
-  executable DA5 work is yet authorized.** ADR-0016/DA5-P01–P12 bind the already accepted v1
-  own-time capability to a new self-only effective-time reader and productize the existing Android
-  Auth, enrollment, scan, offline/sync and Administrator setup surfaces. The proposed reader
-  derives the exact current Organization/User/Membership server-side, returns a window-independent
-  active record plus a bounded 31-day effective stopped history and excludes all Administrator
-  correction/audit detail. The candidate baseline is
-  `4bfbf8eb39e46b073b18c8d7ab502add44ad47f0`, tree
-  `17b7c4a6a8ec1bbdce9de6c99d0863acf6c47854`, exact-head CI `30093494886`, attempt 1,
-  12/12. A focused candidate publication/CI and independent zero-finding pre-implementation review
-  are required before the standing autonomous-work rule can release the exact R3 scope. DA4 Human
-  V5 remains separate. Human/hardware V5, production, production data, deployment and distribution
+- **Development Assignment 5 is prepared as a corrected ADO-only professional-Mobile candidate; no
+  executable DA5 work is yet authorized.** ADR-0016/DA5-P01–P12 and ADR-0017/DA5-T01–T15 bind the
+  already accepted v1 own-time capability to a dedicated self-only effective-time reader and add
+  the Human-directed screen-unlocked Android Tag Dispatch plus manual Customer/Project/General Work
+  triggers. Manual actions select a target, never Start/Stop; NFC launch evidence creates no
+  WorkEvent until exact session/lease, tenant/Membership and active Assignment validation pass.
+  The same server Business Engine remains authoritative. First-class Projects, one built-in General
+  Work target, immutable NFC/manual start/stop provenance, additive protected-offline compatibility
+  and explicit CSV v2 are inside the candidate; editable time, per-User Tag entitlement and
+  production boundaries are not. Corrected candidate baseline is
+  `8e0cec7f86aaf740a4fa5fbc0465235acda1b328`, tree
+  `a1f57d7001b4355c6fc36b9f27c9296900eaa8cf`, exact-head CI `30094046612`, attempt 1,
+  12/12. Focused publication/CI and an independent zero-finding pre-implementation review are
+  required before the standing autonomous-work rule can release the exact R3 scope. DA4 Human V5
+  remains separate. DA5 Human/hardware V5, production, production data, deployment and distribution
   remain unauthorized.
 - **Development Assignment 4 is the active Roadmap engineering block.** The Human Architect
   accepted ADR-0015 and DA4-P01–P12 and separately authorized Workstreams A–D plus AVS V0–V4 on
