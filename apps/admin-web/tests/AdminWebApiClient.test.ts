@@ -10,6 +10,7 @@ const ids = {
   command: '60000000-0000-4000-8000-000000000001',
   assignment: '80000000-0000-4000-8000-000000000001',
   employeeMembership: '70000000-0000-4000-8000-000000000001',
+  project: '90000000-0000-4000-8000-000000000001',
 };
 
 function json(value: unknown, status = 200): Response {
@@ -393,9 +394,11 @@ describe('AdminWebApiClient', () => {
         timeRecordId: recordId,
         employeeMembershipId: ids.employeeMembership,
         employeeDisplayName: 'Employee Alpha',
-        customerId: ids.customer,
-        customerDisplayName: 'Werkstatt',
+        targetType: 'project',
+        targetId: ids.customer,
+        targetDisplayName: 'Werkstatt',
         source: 'canonical', status: 'stopped',
+        startedVia: 'manual', stoppedVia: 'nfc',
         startedAt: '2026-07-20T08:00:00.000Z', stoppedAt: '2026-07-20T10:00:00.000Z',
         baseRowVersion: 1, effectiveRevisionNumber: 2, overlapsAnotherRecord: false,
       }],
@@ -411,7 +414,9 @@ describe('AdminWebApiClient', () => {
       value: {
         items: [{
           timeRecordId: recordId, employeeDisplayName: 'Employee Alpha',
-          customerDisplayName: 'Werkstatt', source: 'canonical', status: 'stopped',
+          targetType: 'project', targetDisplayName: 'Werkstatt',
+          source: 'canonical', status: 'stopped',
+          startedVia: 'manual', stoppedVia: 'nfc',
           startedAt: '2026-07-20T08:00:00.000Z', stoppedAt: '2026-07-20T10:00:00.000Z',
           baseRowVersion: 1, effectiveRevisionNumber: 2, overlapsAnotherRecord: false,
         }],
@@ -465,7 +470,8 @@ describe('AdminWebApiClient', () => {
   it('submits exact correction/adjudication commands and maps only safe write conflicts', async () => {
     const record = {
       timeRecordId: '90000000-0000-4000-8000-000000000001',
-      employeeDisplayName: 'Employee Alpha', customerDisplayName: 'Werkstatt',
+      employeeDisplayName: 'Employee Alpha', targetType: 'customer' as const,
+      targetDisplayName: 'Werkstatt', startedVia: 'nfc' as const, stoppedVia: 'nfc' as const,
       source: 'canonical' as const, status: 'stopped' as const,
       startedAt: '2026-07-20T08:00:00.000Z', stoppedAt: '2026-07-20T10:00:00.000Z',
       baseRowVersion: 1, effectiveRevisionNumber: 2, overlapsAnotherRecord: false,
@@ -493,12 +499,12 @@ describe('AdminWebApiClient', () => {
     )).resolves.toEqual({ status: 'conflict', code: 'time_review_conflict' });
   });
 
-  it('accepts only a bounded attachment response from the existing CSV route', async () => {
+  it('accepts only a bounded attachment response from the generalized CSV v2 route', async () => {
     const fetchRequest = vi.fn<typeof fetch>(async () => new Response('schema_version\n1\n', {
       status: 200,
       headers: {
         'Content-Type': 'text/csv; charset=utf-8',
-        'Content-Disposition': 'attachment; filename="taptime-time-entries_20260701T000000Z_20260721T000000Z.csv"',
+        'Content-Disposition': 'attachment; filename="taptime-time-entries_v2_20260701T000000Z_20260721T000000Z.csv"',
       },
     }));
     const client = new AdminWebApiClient(fetchRequest);
@@ -507,9 +513,48 @@ describe('AdminWebApiClient', () => {
     );
     expect(result).toMatchObject({
       status: 'succeeded',
-      value: { filename: 'taptime-time-entries_20260701T000000Z_20260721T000000Z.csv' },
+      value: { filename: 'taptime-time-entries_v2_20260701T000000Z_20260721T000000Z.csv' },
     });
-    expect(fetchRequest.mock.calls[0]?.[0]).toBe('/v1/administration/time-entries/export');
+    expect(fetchRequest.mock.calls[0]?.[0]).toBe('/v2/time-entries/export');
+  });
+
+  it('parses the closed Project projection and exposes active-use conflicts only', async () => {
+    const fetchRequest = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(json({
+        projects: [{
+          projectId: ids.project,
+          displayName: 'Innenausbau',
+          active: true,
+          rowVersion: 1,
+        }],
+        nextCursor: null,
+      }))
+      .mockResolvedValueOnce(json({ error: { code: 'project_in_use' } }, 409));
+    const client = new AdminWebApiClient(fetchRequest);
+
+    await expect(client.projects('token', ids.membership, null)).resolves.toEqual({
+      status: 'succeeded',
+      value: {
+        items: [{
+          projectId: ids.project,
+          displayName: 'Innenausbau',
+          active: true,
+          rowVersion: 1,
+        }],
+        nextCursor: null,
+      },
+    });
+    await expect(client.deactivateProject(
+      'token',
+      ids.membership,
+      ids.command,
+      {
+        projectId: ids.project,
+        displayName: 'Innenausbau',
+        active: true,
+        rowVersion: 1,
+      },
+    )).resolves.toEqual({ status: 'conflict', code: 'project_in_use' });
   });
 
   it('rejects an oversized CSV stream before returning a browser Blob', async () => {
@@ -525,7 +570,7 @@ describe('AdminWebApiClient', () => {
       status: 200,
       headers: {
         'Content-Type': 'text/csv; charset=utf-8',
-        'Content-Disposition': 'attachment; filename="taptime-time-entries_20260701T000000Z_20260721T000000Z.csv"',
+        'Content-Disposition': 'attachment; filename="taptime-time-entries_v2_20260701T000000Z_20260721T000000Z.csv"',
       },
     });
     const client = new AdminWebApiClient(vi.fn<typeof fetch>(async () => response));

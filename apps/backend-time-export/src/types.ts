@@ -18,6 +18,7 @@ export type TimeEntryExportResult =
   | { readonly status: 'invalid_request' }
   | { readonly status: 'unauthorized' }
   | { readonly status: 'forbidden' }
+  | { readonly status: 'export_schema_incompatible' }
   | { readonly status: 'export_limit_exceeded' }
   | { readonly status: 'service_unavailable' };
 
@@ -34,4 +35,8 @@ export interface TimeEntryExporter {
     command: TimeEntryExportCommand,
     controls?: TimeEntryExportCoordinatorControls,
   ): Promise<TimeEntryExportResult>;
+  readonly exportTimeEntriesV2?: (
+    command: TimeEntryExportCommand,
+    controls?: TimeEntryExportCoordinatorControls,
+  ) => Promise<TimeEntryExportResult>;
 }

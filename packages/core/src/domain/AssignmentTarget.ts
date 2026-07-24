@@ -1,12 +1,34 @@
-import type { CustomerId } from './ids';
+import type { CustomerId, ProjectId, WorkTargetId } from './ids';
 
-// Per ADR-0002, the target type must remain extensible beyond "customer" (project, room,
-// vehicle, etc.), even though v1 only implements the customer target type.
-export type AssignmentTarget = {
+export type CustomerWorkTarget = {
   readonly targetType: 'customer';
   readonly targetId: CustomerId;
 };
 
-export function customerAssignmentTarget(customerId: CustomerId): AssignmentTarget {
+export type ProjectWorkTarget = {
+  readonly targetType: 'project';
+  readonly targetId: ProjectId;
+};
+
+export type GeneralWorkTarget = {
+  readonly targetType: 'general_work';
+  readonly targetId: WorkTargetId;
+};
+
+/** Closed DA5 WorkTarget union. NFC assignments remain Customer-only. */
+export type WorkTarget = CustomerWorkTarget | ProjectWorkTarget | GeneralWorkTarget;
+
+/** Historical name retained for source compatibility with DA1–DA4. */
+export type AssignmentTarget = WorkTarget;
+
+export function customerAssignmentTarget(customerId: CustomerId): CustomerWorkTarget {
   return { targetType: 'customer', targetId: customerId };
+}
+
+export function projectWorkTarget(projectId: ProjectId): ProjectWorkTarget {
+  return { targetType: 'project', targetId: projectId };
+}
+
+export function generalWorkTarget(targetId: WorkTargetId): GeneralWorkTarget {
+  return { targetType: 'general_work', targetId };
 }

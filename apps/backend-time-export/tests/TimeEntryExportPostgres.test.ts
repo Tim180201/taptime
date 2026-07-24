@@ -101,6 +101,103 @@ describe('DA2 PostgreSQL export security and truth', () => {
     expect(audit.rows[0]!.row_count).toBe(0);
   });
 
+  it('rejects a generalized range through CSV v1 and exports exact Project/manual truth in v2', async () => {
+    const projectId = '20000000-0000-4000-8000-000000000090';
+    const startEventId = '50000000-0000-4000-8000-000000000090';
+    const stopEventId = '50000000-0000-4000-8000-000000000091';
+    const entryId = '60000000-0000-4000-8000-000000000090';
+    await installerPool.query(
+      `INSERT INTO taptime_server.projects (id, organization_id, display_name)
+       VALUES ($1::uuid, $2::uuid, 'Innenausbau')`,
+      [projectId, ids.organizationA],
+    );
+    await installerPool.query(
+      `INSERT INTO taptime_server.work_events (
+         id, organization_id, assignment_id, nfc_tag_id, target_type,
+         target_customer_id, triggered_by_user_id, occurred_at, content_hash,
+         content_hash_algorithm, content_hash_version, trigger_type
+       ) VALUES
+         ($3::uuid, $2::uuid, NULL, NULL, 'project', $1::uuid, $5::uuid,
+          '2026-07-22T08:00:00Z', repeat('1', 64), 'sha256', 2, 'manual'),
+         ($4::uuid, $2::uuid, NULL, NULL, 'project', $1::uuid, $5::uuid,
+          '2026-07-22T09:00:00Z', repeat('2', 64), 'sha256', 2, 'manual')`,
+      [projectId, ids.organizationA, startEventId, stopEventId, ids.employeeA],
+    );
+    const client = await installerPool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query('SET CONSTRAINTS ALL DEFERRED');
+      await client.query(
+        `INSERT INTO taptime_server.time_entries (
+         id, organization_id, user_id, target_type, target_customer_id, status,
+         start_work_event_id, started_at, started_via
+       ) VALUES (
+         $5::uuid, $2::uuid, $4::uuid, 'project', $1::uuid, 'started',
+         $3::uuid, '2026-07-22T08:00:00Z', 'manual'
+         )`,
+        [
+          projectId,
+          ids.organizationA,
+          startEventId,
+          ids.employeeA,
+          entryId,
+        ],
+      );
+      await client.query(
+        `INSERT INTO taptime_server.canonical_decisions (
+           work_event_id, organization_id, actor_user_id, target_type,
+           target_customer_id, decision_type, time_entry_id, engine_version,
+           decision_payload
+         ) VALUES
+           ($1::uuid, $2::uuid, $3::uuid, 'project', $4::uuid,
+            'time_entry_started', $5::uuid, 'da5-test', '{}'::jsonb)`,
+        [startEventId, ids.organizationA, ids.employeeA, projectId, entryId],
+      );
+      await client.query('COMMIT');
+      await client.query('BEGIN');
+      await client.query(
+        `UPDATE taptime_server.time_entries
+         SET status = 'stopped', stop_work_event_id = $1::uuid,
+             stopped_at = '2026-07-22T09:00:00Z', stopped_via = 'manual',
+             row_version = row_version + 1
+         WHERE id = $2::uuid`,
+        [stopEventId, entryId],
+      );
+      await client.query(
+        `INSERT INTO taptime_server.canonical_decisions (
+           work_event_id, organization_id, actor_user_id, target_type,
+           target_customer_id, decision_type, time_entry_id, engine_version,
+           decision_payload
+         ) VALUES (
+           $1::uuid, $2::uuid, $3::uuid, 'project', $4::uuid,
+           'time_entry_stopped', $5::uuid, 'da5-test', '{}'::jsonb
+         )`,
+        [stopEventId, ids.organizationA, ids.employeeA, projectId, entryId],
+      );
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+    await expect(exportAs(tokens.adminA)).resolves.toEqual({
+      status: 'export_schema_incompatible',
+    });
+    let reachedAudit = false;
+    const result = await coordinator.exportTimeEntriesV2(command(tokens.adminA, request), {
+      beforeAudit() { reachedAudit = true; },
+    });
+    expect(reachedAudit).toBe(true);
+    expect(result.status).toBe('succeeded');
+    if (result.status !== 'succeeded') return;
+    const text = Buffer.from(result.bytes).toString('utf8');
+    expect(text).toContain('"project"');
+    expect(text).toContain('"Innenausbau"');
+    expect(text).toContain('"manual";"manual"');
+    expect(text).toContain(entryId);
+  });
+
   it('returns one coherent old snapshot when a correction commits after snapshot read, then effective-new', async () => {
     const raced = await coordinator.exportTimeEntries(command(tokens.adminA, request), {
       afterSnapshotRead: async () => insertEffectiveRevision(),

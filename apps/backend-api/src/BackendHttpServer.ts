@@ -3,17 +3,28 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { TextDecoder } from 'node:util';
 import {
   CustomerId,
+  GeneralWorkTargetId,
   MembershipId,
   NfcAssignmentId,
   NfcTagId,
   OrganizationId,
+  ProjectId,
   TimeEntryId,
   WorkEventId,
   createNfcPayload,
   createTimestamp,
   customerAssignmentTarget,
+  generalWorkTarget,
+  projectWorkTarget,
 } from '@taptime/core';
 import type { LifecycleIngestionCommand } from '@taptime/backend-lifecycle';
+import {
+  validateManualLifecycleRequest,
+  validateMobileOwnTimeQueryRequest,
+  validateMobileWorkTargetQueryRequest,
+  validateProjectCreateRequest,
+  validateProjectDeactivateRequest,
+} from '@taptime/mobile-work-contract';
 import { validateTimeEntryExportRequest } from '@taptime/time-entry-export-contract';
 import {
   validateMobileReviewStateRequest,
@@ -34,10 +45,12 @@ import {
   isOfflineBase64Url32Bytes,
   isOfflineIsoTimestamp,
   isPositiveSafeInteger,
+  isOfflineLifecycleEventCommandV2,
   isValidRetryAfterSeconds,
   type OfflineCaptureLeaseIssueCommand,
   type OfflineCaptureLeasePageCommand,
   type OfflineLifecycleEventCommand,
+  type OfflineLifecycleEventCommandV2,
   type OfflineReconciliationCommand,
 } from '@taptime/offline-sync-contract';
 import type {
@@ -52,7 +65,10 @@ const LIFECYCLE_PATH = '/v1/lifecycle-events';
 const DEFERRED_LIFECYCLE_PATH = '/v1/lifecycle-events/deferred';
 const OFFLINE_CAPTURE_LEASE_PATH = '/v1/offline-capture-leases';
 const OFFLINE_CAPTURE_LEASE_PAGE_PATH = '/v1/offline-capture-leases/page';
+const OFFLINE_CAPTURE_LEASE_V2_PATH = '/v2/offline-capture-leases';
+const OFFLINE_CAPTURE_LEASE_PAGE_V2_PATH = '/v2/offline-capture-leases/page';
 const OFFLINE_LIFECYCLE_PATH = '/v1/lifecycle-events/offline';
+const OFFLINE_LIFECYCLE_V2_PATH = '/v2/lifecycle-events/offline';
 const OFFLINE_RECONCILIATION_PATH = '/v1/lifecycle-events/reconcile';
 const ADMIN_CUSTOMERS_PATH = '/v1/administration/customers';
 const ADMIN_NFC_PROVISION_PATH = '/v1/administration/nfc-tags/provision';
@@ -61,12 +77,21 @@ const ADMIN_SETUP_PROJECTION_PATH = '/v1/administration/setup-projection';
 const ADMIN_EMPLOYEE_INVITATIONS_PATH = '/v1/administration/employee-invitations';
 const ADMIN_EMPLOYEE_MEMBERSHIPS_PROJECTION_PATH = '/v1/administration/employee-memberships-projection';
 const ADMIN_TIME_ENTRY_EXPORT_PATH = '/v1/administration/time-entries/export';
+const TIME_ENTRY_EXPORT_V2_PATH = '/v2/time-entries/export';
 const ADMIN_TIME_RECORD_QUERY_PATH = '/v1/administration/time-records/query';
+const ADMIN_TIME_RECORD_QUERY_V2_PATH = '/v2/administration/time-records/query';
 const ADMIN_TIME_RECORD_CORRECTION_PATH = '/v1/administration/time-records/correct';
 const ADMIN_REVIEW_ITEM_QUERY_PATH = '/v1/administration/review-items/query';
+const ADMIN_REVIEW_ITEM_QUERY_V2_PATH = '/v2/administration/review-items/query';
 const ADMIN_REVIEW_ADJUDICATION_PATH = '/v1/administration/review-items/adjudicate';
 const OFFLINE_REVIEW_STATE_PATH = '/v1/offline-review-state/query';
 const EMPLOYEE_ENROLLMENT_REDEEM_PATH = '/v1/employee-enrollment/redeem';
+const MOBILE_OWN_TIME_PATH = '/v1/mobile/own-time/query';
+const MOBILE_WORK_TARGETS_PATH = '/v1/mobile/work-targets/query';
+const MANUAL_LIFECYCLE_PATH = '/v1/lifecycle-events/manual';
+const ADMIN_PROJECT_QUERY_PATH = '/v1/administration/projects/query';
+const ADMIN_PROJECT_CREATE_PATH = '/v1/administration/projects/create';
+const ADMIN_PROJECT_DEACTIVATE_PATH = '/v1/administration/projects/deactivate';
 const EXPECTED_MEMBERSHIP_HEADER = 'x-taptime-expected-membership-id';
 const MAX_AUTHORIZATION_LENGTH = 4_096;
 const MAX_BODY_BYTES = OFFLINE_REQUEST_MAXIMUM_BYTES;
@@ -89,15 +114,19 @@ type ErrorCode =
   | 'forbidden'
   | 'enrollment_unavailable'
   | 'export_limit_exceeded'
+  | 'export_schema_incompatible'
   | 'invalid_request'
   | 'invalid_evidence'
   | 'method_not_allowed'
   | 'not_found'
   | 'not_adjustable'
+  | 'project_in_use'
+  | 'project_unavailable'
   | 'service_unavailable'
   | 'invitation_created_token_unavailable'
   | 'invitation_limit_reached'
   | 'tag_payload_already_registered'
+  | 'stale_row_version'
   | 'unauthorized';
 
 type Route =
@@ -108,16 +137,28 @@ type Route =
   | 'admin_reassign_nfc_tag'
   | 'admin_setup_projection'
   | 'admin_time_entry_export'
+  | 'time_entry_export_v2'
   | 'admin_time_record_query'
+  | 'admin_time_record_query_v2'
   | 'admin_time_record_correction'
   | 'admin_review_item_query'
+  | 'admin_review_item_query_v2'
   | 'admin_review_adjudication'
+  | 'admin_project_query'
+  | 'admin_project_create'
+  | 'admin_project_deactivate'
   | 'deferred_lifecycle'
   | 'employee_enrollment_redeem'
   | 'lifecycle'
+  | 'manual_lifecycle'
+  | 'mobile_own_time'
+  | 'mobile_work_targets'
   | 'offline_capture_lease'
   | 'offline_capture_lease_page'
+  | 'offline_capture_lease_v2'
+  | 'offline_capture_lease_page_v2'
   | 'offline_lifecycle'
+  | 'offline_lifecycle_v2'
   | 'offline_reconciliation'
   | 'offline_review_state'
   | 'scan_context'
@@ -212,6 +253,9 @@ async function handleRequest(
       isAdministrationRoute(route)
       || route === 'employee_enrollment_redeem'
       || isOfflineRoute(route)
+      || route === 'manual_lifecycle'
+      || route === 'mobile_own_time'
+      || route === 'mobile_work_targets'
     )
     && rawHeaderValues(request, EXPECTED_MEMBERSHIP_HEADER).length > 0
   ) {
@@ -268,6 +312,37 @@ async function handleRequest(
       response.setHeader('Connection', 'close');
       respondError(response, 400, 'invalid_request');
     }
+    return;
+  }
+
+  if (route === 'mobile_own_time') {
+    await handleMobileOwnTime(response, accessToken, body, dependencies, options,
+      correlationId, timeoutMilliseconds);
+    return;
+  }
+  if (route === 'mobile_work_targets') {
+    await handleMobileWorkTargets(response, accessToken, body, dependencies, options,
+      correlationId, timeoutMilliseconds);
+    return;
+  }
+  if (route === 'manual_lifecycle') {
+    await handleManualLifecycle(response, accessToken, body, dependencies, options,
+      correlationId, timeoutMilliseconds);
+    return;
+  }
+  if (route === 'admin_project_query') {
+    await handleProjectQuery(response, accessToken, body, dependencies, options,
+      correlationId, timeoutMilliseconds);
+    return;
+  }
+  if (route === 'admin_project_create') {
+    await handleProjectCreate(response, accessToken, body, dependencies, options,
+      correlationId, timeoutMilliseconds);
+    return;
+  }
+  if (route === 'admin_project_deactivate') {
+    await handleProjectDeactivate(response, accessToken, body, dependencies, options,
+      correlationId, timeoutMilliseconds);
     return;
   }
 
@@ -367,9 +442,27 @@ async function handleRequest(
     );
     return;
   }
+  if (route === 'time_entry_export_v2') {
+    await handleTimeEntryExport(
+      response,
+      accessToken,
+      body,
+      dependencies,
+      options,
+      correlationId,
+      timeoutMilliseconds,
+      true,
+    );
+    return;
+  }
   if (route === 'admin_time_record_query') {
     await handleTimeRecordQuery(response, accessToken, body, dependencies, options,
       correlationId, timeoutMilliseconds);
+    return;
+  }
+  if (route === 'admin_time_record_query_v2') {
+    await handleTimeRecordQuery(response, accessToken, body, dependencies, options,
+      correlationId, timeoutMilliseconds, true);
     return;
   }
   if (route === 'admin_time_record_correction') {
@@ -380,6 +473,11 @@ async function handleRequest(
   if (route === 'admin_review_item_query') {
     await handleReviewItemQuery(response, accessToken, body, dependencies, options,
       correlationId, timeoutMilliseconds);
+    return;
+  }
+  if (route === 'admin_review_item_query_v2') {
+    await handleReviewItemQuery(response, accessToken, body, dependencies, options,
+      correlationId, timeoutMilliseconds, true);
     return;
   }
   if (route === 'admin_review_adjudication') {
@@ -411,6 +509,19 @@ async function handleRequest(
     );
     return;
   }
+  if (route === 'offline_capture_lease_v2') {
+    await handleOfflineCaptureLease(
+      response,
+      accessToken,
+      body,
+      dependencies,
+      options,
+      correlationId,
+      timeoutMilliseconds,
+      true,
+    );
+    return;
+  }
   if (route === 'offline_capture_lease_page') {
     await handleOfflineCaptureLeasePage(
       response,
@@ -423,6 +534,19 @@ async function handleRequest(
     );
     return;
   }
+  if (route === 'offline_capture_lease_page_v2') {
+    await handleOfflineCaptureLeasePage(
+      response,
+      accessToken,
+      body,
+      dependencies,
+      options,
+      correlationId,
+      timeoutMilliseconds,
+      true,
+    );
+    return;
+  }
   if (route === 'offline_lifecycle') {
     await handleOfflineLifecycle(
       response,
@@ -432,6 +556,19 @@ async function handleRequest(
       options,
       correlationId,
       timeoutMilliseconds,
+    );
+    return;
+  }
+  if (route === 'offline_lifecycle_v2') {
+    await handleOfflineLifecycle(
+      response,
+      accessToken,
+      body,
+      dependencies,
+      options,
+      correlationId,
+      timeoutMilliseconds,
+      true,
     );
     return;
   }
@@ -505,6 +642,247 @@ async function handleSession(
       correlationId,
     });
     respondError(response, 503, 'service_unavailable');
+  }
+}
+
+async function handleMobileOwnTime(
+  response: ServerResponse,
+  accessToken: string,
+  body: unknown,
+  dependencies: BackendApiDependencies,
+  options: BackendHttpServerOptions,
+  correlationId: string,
+  timeoutMilliseconds: number,
+): Promise<void> {
+  if (!validateMobileOwnTimeQueryRequest(body)) {
+    respondError(response, 400, 'invalid_request');
+    return;
+  }
+  const reader = dependencies.mobileWorkReader;
+  if (reader === undefined) {
+    respondError(response, 503, 'service_unavailable');
+    return;
+  }
+  try {
+    const result = await withTimeout(
+      reader.queryOwnTime({ accessToken, request: body }),
+      timeoutMilliseconds,
+    );
+    respondMobileReadResult(response, result);
+  } catch {
+    emitDiagnostic(options.onDiagnostic, { code: 'mobile_work_failed', correlationId });
+    respondError(response, 503, 'service_unavailable');
+  }
+}
+
+async function handleMobileWorkTargets(
+  response: ServerResponse,
+  accessToken: string,
+  body: unknown,
+  dependencies: BackendApiDependencies,
+  options: BackendHttpServerOptions,
+  correlationId: string,
+  timeoutMilliseconds: number,
+): Promise<void> {
+  if (!validateMobileWorkTargetQueryRequest(body)) {
+    respondError(response, 400, 'invalid_request');
+    return;
+  }
+  const reader = dependencies.mobileWorkReader;
+  if (reader === undefined) {
+    respondError(response, 503, 'service_unavailable');
+    return;
+  }
+  try {
+    const result = await withTimeout(
+      reader.queryWorkTargets({ accessToken, request: body }),
+      timeoutMilliseconds,
+    );
+    respondMobileReadResult(response, result);
+  } catch {
+    emitDiagnostic(options.onDiagnostic, { code: 'mobile_work_failed', correlationId });
+    respondError(response, 503, 'service_unavailable');
+  }
+}
+
+async function handleManualLifecycle(
+  response: ServerResponse,
+  accessToken: string,
+  body: unknown,
+  dependencies: BackendApiDependencies,
+  options: BackendHttpServerOptions,
+  correlationId: string,
+  timeoutMilliseconds: number,
+): Promise<void> {
+  if (!validateManualLifecycleRequest(body)) {
+    respondError(response, 400, 'invalid_request');
+    return;
+  }
+  const ingestor = dependencies.manualLifecycleIngestor;
+  if (ingestor === undefined) {
+    respondError(response, 503, 'service_unavailable');
+    return;
+  }
+  const target = body.workEvent.target.targetType === 'customer'
+    ? customerAssignmentTarget(CustomerId(body.workEvent.target.targetId))
+    : body.workEvent.target.targetType === 'project'
+      ? projectWorkTarget(ProjectId(body.workEvent.target.targetId))
+      : generalWorkTarget(GeneralWorkTargetId(body.workEvent.target.targetId));
+  try {
+    const result = await withTimeout(
+      ingestor.ingestManual({
+        accessToken,
+        expectedMembershipId: MembershipId(body.expectedMembershipId),
+        workEvent: {
+          id: WorkEventId(body.workEvent.id),
+          target,
+        },
+        receipt: {
+          id: body.receipt.id,
+          attemptNumber: 1,
+        },
+      }),
+      timeoutMilliseconds,
+    );
+    switch (result.status) {
+      case 'synchronized': respondJson(response, 200, result); return;
+      case 'deferred': respondJson(response, 202, result); return;
+      case 'conflict': respondJson(response, 409, result); return;
+      case 'rejected': respondError(response, 401, 'unauthorized'); return;
+      default: return result satisfies never;
+    }
+  } catch {
+    emitDiagnostic(options.onDiagnostic, {
+      code: 'lifecycle_ingestion_failed',
+      correlationId,
+    });
+    respondError(response, 503, 'service_unavailable');
+  }
+}
+
+async function handleProjectQuery(
+  response: ServerResponse,
+  accessToken: string,
+  body: unknown,
+  dependencies: BackendApiDependencies,
+  options: BackendHttpServerOptions,
+  correlationId: string,
+  timeoutMilliseconds: number,
+): Promise<void> {
+  if (!validateMobileOwnTimeQueryRequest(body)) {
+    respondError(response, 400, 'invalid_request');
+    return;
+  }
+  const administration = dependencies.projectAdministration;
+  if (administration === undefined) {
+    respondError(response, 503, 'service_unavailable');
+    return;
+  }
+  try {
+    const result = await withTimeout(
+      administration.queryProjects({ accessToken, request: body }),
+      timeoutMilliseconds,
+    );
+    respondMobileReadResult(response, result);
+  } catch {
+    emitDiagnostic(options.onDiagnostic, { code: 'administration_failed', correlationId });
+    respondError(response, 503, 'service_unavailable');
+  }
+}
+
+async function handleProjectCreate(
+  response: ServerResponse,
+  accessToken: string,
+  body: unknown,
+  dependencies: BackendApiDependencies,
+  options: BackendHttpServerOptions,
+  correlationId: string,
+  timeoutMilliseconds: number,
+): Promise<void> {
+  if (!validateProjectCreateRequest(body)) {
+    respondError(response, 400, 'invalid_request');
+    return;
+  }
+  await handleProjectMutation(
+    response,
+    options,
+    correlationId,
+    timeoutMilliseconds,
+    dependencies.projectAdministration === undefined
+      ? undefined
+      : () => dependencies.projectAdministration!.createProject({ accessToken, request: body }),
+  );
+}
+
+async function handleProjectDeactivate(
+  response: ServerResponse,
+  accessToken: string,
+  body: unknown,
+  dependencies: BackendApiDependencies,
+  options: BackendHttpServerOptions,
+  correlationId: string,
+  timeoutMilliseconds: number,
+): Promise<void> {
+  if (!validateProjectDeactivateRequest(body)) {
+    respondError(response, 400, 'invalid_request');
+    return;
+  }
+  await handleProjectMutation(
+    response,
+    options,
+    correlationId,
+    timeoutMilliseconds,
+    dependencies.projectAdministration === undefined
+      ? undefined
+      : () => dependencies.projectAdministration!.deactivateProject({ accessToken, request: body }),
+  );
+}
+
+async function handleProjectMutation(
+  response: ServerResponse,
+  options: BackendHttpServerOptions,
+  correlationId: string,
+  timeoutMilliseconds: number,
+  operation: (() => ReturnType<NonNullable<BackendApiDependencies['projectAdministration']>[
+    'createProject'
+  ]>) | undefined,
+): Promise<void> {
+  if (operation === undefined) {
+    respondError(response, 503, 'service_unavailable');
+    return;
+  }
+  try {
+    const result = await withTimeout(operation(), timeoutMilliseconds);
+    switch (result.status) {
+      case 'succeeded': respondJson(response, 200, result); return;
+      case 'invalid_request': respondError(response, 400, 'invalid_request'); return;
+      case 'unauthorized': respondError(response, 401, 'unauthorized'); return;
+      case 'forbidden': respondError(response, 403, 'forbidden'); return;
+      case 'command_id_conflict': respondError(response, 409, 'command_id_conflict'); return;
+      case 'project_in_use': respondError(response, 409, 'project_in_use'); return;
+      case 'project_unavailable': respondError(response, 404, 'project_unavailable'); return;
+      case 'stale_row_version': respondError(response, 409, 'stale_row_version'); return;
+      default: return result satisfies never;
+    }
+  } catch {
+    emitDiagnostic(options.onDiagnostic, { code: 'administration_failed', correlationId });
+    respondError(response, 503, 'service_unavailable');
+  }
+}
+
+function respondMobileReadResult<Response>(
+  response: ServerResponse,
+  result:
+    | { readonly status: 'succeeded'; readonly response: Response }
+    | { readonly status: 'unauthorized' | 'forbidden' | 'invalid_request' },
+): void {
+  switch (result.status) {
+    case 'succeeded':
+      respondJson(response, 200, result.response, TIME_REVIEW_READ_RESPONSE_MAXIMUM_BYTES);
+      return;
+    case 'invalid_request': respondError(response, 400, 'invalid_request'); return;
+    case 'unauthorized': respondError(response, 401, 'unauthorized'); return;
+    case 'forbidden': respondError(response, 403, 'forbidden'); return;
   }
 }
 
@@ -675,10 +1053,15 @@ async function handleTimeEntryExport(
   options: BackendHttpServerOptions,
   correlationId: string,
   timeoutMilliseconds: number,
+  version2 = false,
 ): Promise<void> {
   const validation = validateTimeEntryExportRequest(body);
   if (validation.status === 'invalid_request') {
     respondError(response, 400, 'invalid_request');
+    return;
+  }
+  if (version2 && dependencies.timeEntryExporter.exportTimeEntriesV2 === undefined) {
+    respondError(response, 503, 'service_unavailable');
     return;
   }
   try {
@@ -688,17 +1071,17 @@ async function handleTimeEntryExport(
       fromInclusive: validation.request.fromInclusive,
       toExclusive: validation.request.toExclusive,
     });
-    const result = await withTimeout(
-      dependencies.timeEntryExporter.exportTimeEntries(
-        {
-          accessToken,
-          correlationId,
-          request: coordinatorRequest,
-        },
-        { deadlineEpochMilliseconds },
-      ),
-      timeoutMilliseconds,
-    );
+    const exportCommand = { accessToken, correlationId, request: coordinatorRequest };
+    const controls = { deadlineEpochMilliseconds };
+    const result = version2
+      ? await withTimeout(
+          dependencies.timeEntryExporter.exportTimeEntriesV2!(exportCommand, controls),
+          timeoutMilliseconds,
+        )
+      : await withTimeout(
+          dependencies.timeEntryExporter.exportTimeEntries(exportCommand, controls),
+          timeoutMilliseconds,
+        );
     switch (result.status) {
       case 'succeeded':
         respondCsv(response, result.bytes, result.filename);
@@ -711,6 +1094,9 @@ async function handleTimeEntryExport(
         return;
       case 'forbidden':
         respondError(response, 403, 'forbidden');
+        return;
+      case 'export_schema_incompatible':
+        respondError(response, 409, 'export_schema_incompatible');
         return;
       case 'export_limit_exceeded':
         respondError(response, 422, 'export_limit_exceeded');
@@ -738,10 +1124,24 @@ async function handleTimeRecordQuery(
   options: BackendHttpServerOptions,
   correlationId: string,
   timeoutMilliseconds: number,
+  version2 = false,
 ): Promise<void> {
   const validation = validateTimeRecordQueryRequest(body);
   if (validation.status === 'invalid_request') {
     respondError(response, 400, 'invalid_request');
+    return;
+  }
+  if (version2 && dependencies.timeReview.queryTimeRecordsV2 === undefined) {
+    respondError(response, 503, 'service_unavailable');
+    return;
+  }
+  if (version2) {
+    await handleTimeReviewRead(
+      response, options, correlationId, timeoutMilliseconds,
+      (deadlineEpochMilliseconds) => dependencies.timeReview.queryTimeRecordsV2!(
+        { accessToken, request: validation.request }, { deadlineEpochMilliseconds },
+      ),
+    );
     return;
   }
   await handleTimeReviewRead(
@@ -760,10 +1160,24 @@ async function handleReviewItemQuery(
   options: BackendHttpServerOptions,
   correlationId: string,
   timeoutMilliseconds: number,
+  version2 = false,
 ): Promise<void> {
   const validation = validateReviewItemQueryRequest(body);
   if (validation.status === 'invalid_request') {
     respondError(response, 400, 'invalid_request');
+    return;
+  }
+  if (version2 && dependencies.timeReview.queryReviewItemsV2 === undefined) {
+    respondError(response, 503, 'service_unavailable');
+    return;
+  }
+  if (version2) {
+    await handleTimeReviewRead(
+      response, options, correlationId, timeoutMilliseconds,
+      (deadlineEpochMilliseconds) => dependencies.timeReview.queryReviewItemsV2!(
+        { accessToken, request: validation.request }, { deadlineEpochMilliseconds },
+      ),
+    );
     return;
   }
   await handleTimeReviewRead(
@@ -1194,17 +1608,27 @@ async function handleOfflineCaptureLease(
   options: BackendHttpServerOptions,
   correlationId: string,
   timeoutMilliseconds: number,
+  version2 = false,
 ): Promise<void> {
   const command = parseOfflineCaptureLeaseIssueBody(body);
   if (command === null) {
     respondError(response, 400, 'invalid_request');
     return;
   }
+  if (version2 && dependencies.offlineCaptureLeaseIssuer.issueV2 === undefined) {
+    respondError(response, 503, 'service_unavailable');
+    return;
+  }
   try {
-    const result = await withTimeout(
-      dependencies.offlineCaptureLeaseIssuer.issue({ accessToken, command }),
-      timeoutMilliseconds,
-    );
+    const result = version2
+      ? await withTimeout(
+          dependencies.offlineCaptureLeaseIssuer.issueV2!({ accessToken, command }),
+          timeoutMilliseconds,
+        )
+      : await withTimeout(
+          dependencies.offlineCaptureLeaseIssuer.issue({ accessToken, command }),
+          timeoutMilliseconds,
+        );
     switch (result.status) {
       case 'ready':
         respondJson(
@@ -1240,17 +1664,27 @@ async function handleOfflineCaptureLeasePage(
   options: BackendHttpServerOptions,
   correlationId: string,
   timeoutMilliseconds: number,
+  version2 = false,
 ): Promise<void> {
   const command = parseOfflineCaptureLeasePageBody(body);
   if (command === null) {
     respondError(response, 400, 'invalid_request');
     return;
   }
+  if (version2 && dependencies.offlineCaptureLeaseIssuer.readPageV2 === undefined) {
+    respondError(response, 503, 'service_unavailable');
+    return;
+  }
   try {
-    const result = await withTimeout(
-      dependencies.offlineCaptureLeaseIssuer.readPage({ accessToken, command }),
-      timeoutMilliseconds,
-    );
+    const result = version2
+      ? await withTimeout(
+          dependencies.offlineCaptureLeaseIssuer.readPageV2!({ accessToken, command }),
+          timeoutMilliseconds,
+        )
+      : await withTimeout(
+          dependencies.offlineCaptureLeaseIssuer.readPage({ accessToken, command }),
+          timeoutMilliseconds,
+        );
     switch (result.status) {
       case 'ready':
         respondJson(
@@ -1286,8 +1720,11 @@ async function handleOfflineLifecycle(
   options: BackendHttpServerOptions,
   correlationId: string,
   timeoutMilliseconds: number,
+  version2 = false,
 ): Promise<void> {
-  const command = parseOfflineLifecycleBody(body);
+  const command = version2
+    ? parseOfflineLifecycleBodyV2(body)
+    : parseOfflineLifecycleBody(body);
   if (command === null) {
     respondError(response, 400, 'invalid_request');
     return;
@@ -1401,13 +1838,24 @@ async function handleOfflineReviewState(
 }
 
 function requestRoute(url: string | undefined): Route | null {
+  if (url === MOBILE_OWN_TIME_PATH) return 'mobile_own_time';
+  if (url === MOBILE_WORK_TARGETS_PATH) return 'mobile_work_targets';
+  if (url === MANUAL_LIFECYCLE_PATH) return 'manual_lifecycle';
+  if (url === ADMIN_PROJECT_QUERY_PATH) return 'admin_project_query';
+  if (url === ADMIN_PROJECT_CREATE_PATH) return 'admin_project_create';
+  if (url === ADMIN_PROJECT_DEACTIVATE_PATH) return 'admin_project_deactivate';
   if (url === ADMIN_TIME_RECORD_QUERY_PATH) return 'admin_time_record_query';
+  if (url === ADMIN_TIME_RECORD_QUERY_V2_PATH) return 'admin_time_record_query_v2';
   if (url === ADMIN_TIME_RECORD_CORRECTION_PATH) return 'admin_time_record_correction';
   if (url === ADMIN_REVIEW_ITEM_QUERY_PATH) return 'admin_review_item_query';
+  if (url === ADMIN_REVIEW_ITEM_QUERY_V2_PATH) return 'admin_review_item_query_v2';
   if (url === ADMIN_REVIEW_ADJUDICATION_PATH) return 'admin_review_adjudication';
   if (url === OFFLINE_REVIEW_STATE_PATH) return 'offline_review_state';
   if (url === ADMIN_TIME_ENTRY_EXPORT_PATH) {
     return 'admin_time_entry_export';
+  }
+  if (url === TIME_ENTRY_EXPORT_V2_PATH) {
+    return 'time_entry_export_v2';
   }
   if (url === ADMIN_EMPLOYEE_INVITATIONS_PATH) {
     return 'admin_create_employee_invitation';
@@ -1448,8 +1896,17 @@ function requestRoute(url: string | undefined): Route | null {
   if (url === OFFLINE_CAPTURE_LEASE_PAGE_PATH) {
     return 'offline_capture_lease_page';
   }
+  if (url === OFFLINE_CAPTURE_LEASE_V2_PATH) {
+    return 'offline_capture_lease_v2';
+  }
+  if (url === OFFLINE_CAPTURE_LEASE_PAGE_V2_PATH) {
+    return 'offline_capture_lease_page_v2';
+  }
   if (url === OFFLINE_LIFECYCLE_PATH) {
     return 'offline_lifecycle';
+  }
+  if (url === OFFLINE_LIFECYCLE_V2_PATH) {
+    return 'offline_lifecycle_v2';
   }
   if (url === OFFLINE_RECONCILIATION_PATH) {
     return 'offline_reconciliation';
@@ -1465,12 +1922,18 @@ function diagnosticCodeForRoute(route: Route | null): BackendApiDiagnostic['code
     case 'admin_provision_nfc_tag':
     case 'admin_reassign_nfc_tag':
     case 'admin_setup_projection':
+    case 'admin_project_query':
+    case 'admin_project_create':
+    case 'admin_project_deactivate':
       return 'administration_failed';
     case 'admin_time_entry_export':
+    case 'time_entry_export_v2':
       return 'time_entry_export_failed';
     case 'admin_time_record_query':
+    case 'admin_time_record_query_v2':
     case 'admin_time_record_correction':
     case 'admin_review_item_query':
+    case 'admin_review_item_query_v2':
     case 'admin_review_adjudication':
       return 'time_review_failed';
     case 'employee_enrollment_redeem':
@@ -1481,10 +1944,17 @@ function diagnosticCodeForRoute(route: Route | null): BackendApiDiagnostic['code
       return 'scan_context_resolution_failed';
     case 'lifecycle':
     case 'deferred_lifecycle':
+    case 'manual_lifecycle':
       return 'lifecycle_ingestion_failed';
+    case 'mobile_own_time':
+    case 'mobile_work_targets':
+      return 'mobile_work_failed';
     case 'offline_capture_lease':
     case 'offline_capture_lease_page':
+    case 'offline_capture_lease_v2':
+    case 'offline_capture_lease_page_v2':
     case 'offline_lifecycle':
+    case 'offline_lifecycle_v2':
     case 'offline_reconciliation':
     case 'offline_review_state':
       return 'offline_synchronization_failed';
@@ -1503,16 +1973,25 @@ function isAdministrationRoute(route: Route): boolean {
     || route === 'admin_reassign_nfc_tag'
     || route === 'admin_setup_projection'
     || route === 'admin_time_entry_export'
+    || route === 'time_entry_export_v2'
     || route === 'admin_time_record_query'
+    || route === 'admin_time_record_query_v2'
     || route === 'admin_time_record_correction'
     || route === 'admin_review_item_query'
-    || route === 'admin_review_adjudication';
+    || route === 'admin_review_item_query_v2'
+    || route === 'admin_review_adjudication'
+    || route === 'admin_project_query'
+    || route === 'admin_project_create'
+    || route === 'admin_project_deactivate';
 }
 
 function isOfflineRoute(route: Route): boolean {
   return route === 'offline_capture_lease'
     || route === 'offline_capture_lease_page'
+    || route === 'offline_capture_lease_v2'
+    || route === 'offline_capture_lease_page_v2'
     || route === 'offline_lifecycle'
+    || route === 'offline_lifecycle_v2'
     || route === 'offline_reconciliation'
     || route === 'offline_review_state';
 }
@@ -2016,6 +2495,13 @@ function parseOfflineLifecycleBody(body: unknown): OfflineLifecycleEventCommand 
   };
 }
 
+function parseOfflineLifecycleBodyV2(
+  body: unknown,
+): OfflineLifecycleEventCommandV2 | null {
+  if (!isOfflineLifecycleEventCommandV2(body)) return null;
+  return body as OfflineLifecycleEventCommandV2;
+}
+
 function parseOfflineReconciliationBody(
   body: unknown,
 ): OfflineReconciliationCommand | null {
@@ -2219,7 +2705,7 @@ function respondCsv(
   if (response.writableEnded || response.destroyed) {
     return;
   }
-  if (!/^taptime-time-entries_[0-9TZ]+_[0-9TZ]+\.csv$/.test(filename)) {
+  if (!/^taptime-time-entries(?:_v2)?_[0-9TZ]+_[0-9TZ]+\.csv$/.test(filename)) {
     respondError(response, 503, 'service_unavailable');
     return;
   }

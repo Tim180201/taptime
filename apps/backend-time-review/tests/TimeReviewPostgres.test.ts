@@ -34,6 +34,63 @@ afterAll(async () => {
 });
 
 describe('DA3 PostgreSQL correction and review boundary', () => {
+  it('reads generalized Project/manual time and review provenance through v2 only', async () => {
+    const projectId = '20000000-0000-4000-8000-000000000351';
+    const startedEventId = '50000000-0000-4000-8000-000000000351';
+    const stoppedEventId = '50000000-0000-4000-8000-000000000352';
+    const reviewEventId = '50000000-0000-4000-8000-000000000353';
+    const entryId = '60000000-0000-4000-8000-000000000351';
+    await insertGeneralizedProjectManualEvidence({
+      projectId, startedEventId, stoppedEventId, reviewEventId, entryId,
+    });
+
+    const timePage = await coordinator.queryTimeRecordsV2({
+      accessToken: tokens.adminA,
+      request: {
+        expectedMembershipId: ids.membershipAdminA,
+        fromInclusive: '2026-07-01T00:00:00.000Z',
+        toExclusive: '2026-08-01T00:00:00.000Z',
+        limit: 100,
+        cursor: null,
+      },
+    });
+    expect(timePage).toMatchObject({
+      status: 'ready',
+      value: {
+        records: expect.arrayContaining([expect.objectContaining({
+          timeRecordId: entryId,
+          targetType: 'project',
+          targetId: projectId,
+          targetDisplayName: 'Montage Nord',
+          startedVia: 'manual',
+          stoppedVia: 'manual',
+        })]),
+      },
+    });
+
+    const reviewPage = await coordinator.queryReviewItemsV2({
+      accessToken: tokens.adminA,
+      request: {
+        expectedMembershipId: ids.membershipAdminA,
+        limit: 100,
+        cursor: null,
+      },
+    });
+    expect(reviewPage).toMatchObject({
+      status: 'ready',
+      value: {
+        items: expect.arrayContaining([expect.objectContaining({
+          reviewItemId: reviewEventId,
+          source: 'server_legacy',
+          targetType: 'project',
+          targetId: projectId,
+          targetDisplayName: 'Montage Nord',
+          triggerType: 'manual',
+        })]),
+      },
+    });
+  });
+
   it('queries bounded effective records and appends an idempotent correction overlay', async () => {
     const before = await queryRecords(tokens.adminA, ids.membershipAdminA);
     expect(before.status).toBe('ready');
@@ -349,6 +406,99 @@ function queryRecords(accessToken: string, expectedMembershipId: string) {
   });
 }
 
+async function insertGeneralizedProjectManualEvidence(input: {
+  readonly projectId: string;
+  readonly startedEventId: string;
+  readonly stoppedEventId: string;
+  readonly reviewEventId: string;
+  readonly entryId: string;
+}): Promise<void> {
+  const client = await installerPool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(
+      `INSERT INTO taptime_server.projects
+        (id, organization_id, display_name)
+       VALUES ($1, $2, 'Montage Nord')`,
+      [input.projectId, ids.organizationA],
+    );
+    await client.query(
+      `INSERT INTO taptime_server.work_events
+        (id, organization_id, target_type, target_customer_id, trigger_type,
+         triggered_by_user_id, occurred_at, content_hash,
+         content_hash_algorithm, content_hash_version)
+       VALUES
+        ($1, $4, 'project', $5, 'manual', $6, '2026-07-22T08:00:00Z',
+         repeat('a', 64), 'sha256', 2),
+        ($2, $4, 'project', $5, 'manual', $6, '2026-07-22T10:00:00Z',
+         repeat('b', 64), 'sha256', 2),
+        ($3, $4, 'project', $5, 'manual', $6, '2026-07-22T11:00:00Z',
+         repeat('c', 64), 'sha256', 2)`,
+      [
+        input.startedEventId, input.stoppedEventId, input.reviewEventId,
+        ids.organizationA, input.projectId, ids.adminA,
+      ],
+    );
+    await client.query(
+      `INSERT INTO taptime_server.time_entries
+        (id, organization_id, user_id, target_type, target_customer_id,
+         status, start_work_event_id, started_via, started_at)
+       VALUES ($1, $2, $3, 'project', $4, 'started',
+         $5, 'manual', '2026-07-22T08:00:00Z')`,
+      [
+        input.entryId, ids.organizationA, ids.adminA, input.projectId,
+        input.startedEventId,
+      ],
+    );
+    await client.query(
+      `INSERT INTO taptime_server.canonical_decisions
+        (work_event_id, organization_id, actor_user_id, target_type,
+         target_customer_id, decision_type, time_entry_id, engine_version,
+         decision_payload)
+       VALUES ($1, $2, $3, 'project', $4, 'time_entry_started', $5, 'da5-test', '{}')`,
+      [
+        input.startedEventId, ids.organizationA, ids.adminA,
+        input.projectId, input.entryId,
+      ],
+    );
+    await client.query('COMMIT');
+    await client.query('BEGIN');
+    await client.query(
+      `UPDATE taptime_server.time_entries
+       SET status = 'stopped', stop_work_event_id = $1, stopped_via = 'manual',
+           stopped_at = '2026-07-22T10:00:00Z', row_version = row_version + 1
+       WHERE organization_id = $2 AND id = $3`,
+      [input.stoppedEventId, ids.organizationA, input.entryId],
+    );
+    await client.query(
+      `INSERT INTO taptime_server.canonical_decisions
+        (work_event_id, organization_id, actor_user_id, target_type,
+         target_customer_id, decision_type, time_entry_id, engine_version,
+         decision_payload)
+       VALUES ($1, $2, $3, 'project', $4, 'time_entry_stopped', $5, 'da5-test', '{}')`,
+      [
+        input.stoppedEventId, ids.organizationA, ids.adminA,
+        input.projectId, input.entryId,
+      ],
+    );
+    await client.query(
+      `INSERT INTO taptime_server.audit_events
+        (id, organization_id, actor_user_id, work_event_user_id, work_event_id,
+         event_type, entity_type, entity_id, occurred_at, correlation_id, payload)
+       VALUES (pg_catalog.gen_random_uuid(), $1, $2, $2, $3,
+         'LifecycleDeferred', 'WorkEvent', $3, pg_catalog.transaction_timestamp(),
+         'da5-generalized-review', '{}')`,
+      [ids.organizationA, ids.adminA, input.reviewEventId],
+    );
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 function correctionRequest(commandId: string, startedAt: string, stoppedAt: string) {
   return {
     expectedMembershipId: ids.membershipAdminA, commandId,
@@ -417,8 +567,10 @@ async function insertOfflineReviewForLegacyEvent(): Promise<string> {
   await installerPool.query(
     `INSERT INTO taptime_server.offline_capture_lease_items
       (id, organization_id, lease_id, installation_id, lookup_value, assignment_id,
-       nfc_tag_id, target_type, target_customer_id, display_name)
-     VALUES ($1, $2, $3, $4, repeat('c', 64), $5, $6, 'customer', $7, 'Customer A')`,
+       nfc_tag_id, target_type, target_customer_id, display_name,
+       assignment_row_version, target_row_version)
+     VALUES ($1, $2, $3, $4, repeat('c', 64), $5, $6, 'customer', $7, 'Customer A',
+       1, 1)`,
     [itemId, ids.organizationA, leaseId, installationId, ids.assignmentA, ids.tagA, ids.customerA],
   );
   await installerPool.query(

@@ -408,6 +408,7 @@ function activeContext(): ActiveOfflineCaptureContext {
 
 function activeItem() {
   return {
+    itemType: 'nfc_assignment' as const,
     leaseId: ids.lease,
     leaseItemId: ids.item,
     assignmentId: ids.assignment,
@@ -451,6 +452,9 @@ const unavailableEnrollment: EmployeeEnrollmentPort = {
 
 const unavailableLeaseClient: OfflineCaptureLeaseApiPort = {
   async issueComplete() {
+    return { status: 'unavailable' };
+  },
+  async issueCompleteV2() {
     return { status: 'unavailable' };
   },
 };

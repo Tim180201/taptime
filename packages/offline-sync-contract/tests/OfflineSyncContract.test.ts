@@ -14,12 +14,14 @@ import {
   OFFLINE_QUEUE_MAXIMUM_TOTAL_BYTES,
   encodeLengthFramedUtf8,
   encodeOfflineLeaseManifest,
+  encodeOfflineLeaseManifestV2,
   isCanonicalOfflineUuid,
   isLowercaseSha256Hex,
   isOfflineAsciiCursor,
   isOfflineBase64Url32Bytes,
   isOfflineIsoTimestamp,
   isValidRetryAfterSeconds,
+  isOfflineLifecycleEventCommandV2,
 } from '../src/index.js';
 
 describe('offline synchronization contract', () => {
@@ -77,5 +79,70 @@ describe('offline synchronization contract', () => {
     expect(isValidRetryAfterSeconds(900)).toBe(true);
     expect(isValidRetryAfterSeconds(0)).toBe(false);
     expect(isValidRetryAfterSeconds(901)).toBe(false);
+  });
+
+  it('frames the v2 discriminated manifest without fake NFC fields', () => {
+    const encoded = encodeOfflineLeaseManifestV2([
+      {
+        itemType: 'nfc_assignment',
+        itemId: '11111111-1111-4111-8111-111111111111',
+        lookup: 'ab'.repeat(32),
+        assignmentId: '22222222-2222-4222-8222-222222222222',
+        nfcTagId: '33333333-3333-4333-8333-333333333333',
+        targetType: 'customer',
+        targetId: '44444444-4444-4444-8444-444444444444',
+        displayName: 'Kunde Nord',
+        assignmentRowVersion: 1,
+        targetRowVersion: 2,
+      },
+      {
+        itemType: 'manual_target',
+        itemId: '55555555-5555-4555-8555-555555555555',
+        targetType: 'general_work',
+        targetId: '66666666-6666-4666-8666-666666666666',
+        displayName: 'Allgemeine Arbeitszeit',
+        targetRowVersion: 1,
+      },
+    ]);
+    expect(encoded.byteLength).toBeGreaterThan(0);
+    expect(Buffer.from(encoded).includes(Buffer.from('manual_target'))).toBe(true);
+  });
+
+  it('accepts exact manual v2 evidence and rejects caller-selected lifecycle', () => {
+    const command = {
+      organizationId: '11111111-1111-4111-8111-111111111111',
+      expectedMembershipId: '22222222-2222-4222-8222-222222222222',
+      leaseId: '33333333-3333-4333-8333-333333333333',
+      leaseItemId: '44444444-4444-4444-8444-444444444444',
+      installationBinding: 'A'.repeat(43),
+      deviceSequence: 1,
+      provenanceVersion: 2,
+      clock: {
+        bootMarker: 'boot',
+        monotonicAnchorMilliseconds: 1,
+        monotonicDeltaMilliseconds: 2,
+        wallClockAnchor: '2026-07-24T12:00:00.000Z',
+        clockProofStatus: 'verified_same_boot',
+        clockProofVersion: 1,
+      },
+      workEvent: {
+        id: '55555555-5555-4555-8555-555555555555',
+        target: {
+          targetType: 'project',
+          targetId: '66666666-6666-4666-8666-666666666666',
+        },
+        occurredAt: '2026-07-24T12:01:00.000Z',
+        trigger: { type: 'manual' },
+      },
+      receipt: {
+        id: '77777777-7777-4777-8777-777777777777',
+        attemptNumber: 1,
+      },
+    };
+    expect(isOfflineLifecycleEventCommandV2(command)).toBe(true);
+    expect(isOfflineLifecycleEventCommandV2({
+      ...command,
+      workEvent: { ...command.workEvent, lifecycle: 'start' },
+    })).toBe(false);
   });
 });

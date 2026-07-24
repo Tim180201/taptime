@@ -39,9 +39,15 @@ jobs:
 
       - name: Build offline synchronization contract for workspace type resolution
         run: |
+          npm run build --workspace=@taptime/mobile-work-contract
           npm run build --workspace=@taptime/offline-sync-contract
           npm run build --workspace=@taptime/time-entry-export-contract
           npm run build --workspace=@taptime/time-review-contract
+
+      - name: Typecheck and test the neutral Mobile work contract
+        run: |
+          npm run typecheck --workspace=@taptime/mobile-work-contract
+          npm test --workspace=@taptime/mobile-work-contract
 
       - name: Typecheck and test the neutral offline synchronization contract
         run: |
@@ -167,10 +173,10 @@ jobs:
       - name: Typecheck backend B3 schema
         run: npm run typecheck --workspace=@taptime/backend-schema
 
-      - name: Apply current schema migrations 001 through 012 to empty PostgreSQL database
+      - name: Apply current schema migrations 001 through 013 to empty PostgreSQL database
         run: npm run migrate --workspace=@taptime/backend-schema
 
-      - name: Re-run and verify migration ledger 001 through 012
+      - name: Re-run and verify migration ledger 001 through 013
         run: |
           npm run migrate --workspace=@taptime/backend-schema
           npm run verify-migrations --workspace=@taptime/backend-schema
@@ -222,7 +228,7 @@ jobs:
       - name: Install dependencies from lockfile
         run: npm ci
 
-      - name: Apply current schema migrations 001 through 012 for B4
+      - name: Apply current schema migrations 001 through 013 for B4
         run: npm run migrate --workspace=@taptime/backend-schema
 
       - name: Re-run and verify the B4 migration ledger
@@ -283,7 +289,7 @@ jobs:
       - name: Build the approved B4 identity dependency
         run: npm run build --workspace=@taptime/backend-identity
 
-      - name: Apply current schema migrations 001 through 012 for B5
+      - name: Apply current schema migrations 001 through 013 for B5
         run: npm run migrate --workspace=@taptime/backend-schema
 
       - name: Re-run and verify the migration ledger
@@ -347,10 +353,10 @@ jobs:
           npm run build --workspace=@taptime/backend-schema
           npm run build --workspace=@taptime/backend-identity
 
-      - name: Apply schema migrations 001 through 012
+      - name: Apply schema migrations 001 through 013
         run: npm run migrate --workspace=@taptime/backend-schema
 
-      - name: Re-run and verify migration ledger 001 through 012
+      - name: Re-run and verify migration ledger 001 through 013
         run: |
           npm run migrate --workspace=@taptime/backend-schema
           npm run verify-migrations --workspace=@taptime/backend-schema
@@ -416,12 +422,14 @@ jobs:
       - name: Build required contract, Core, schema, identity, lifecycle, administration, export, review, and offline dependencies
         run: |
           npm run build --workspace=@taptime/administration-contract
+          npm run build --workspace=@taptime/mobile-work-contract
           npm run build --workspace=@taptime/offline-sync-contract
           npm run build --workspace=@taptime/time-entry-export-contract
           npm run build --workspace=@taptime/time-review-contract
           npm run build --workspace=@taptime/core
           npm run build --workspace=@taptime/backend-schema
           npm run build --workspace=@taptime/backend-identity
+          npm run build --workspace=@taptime/backend-mobile-work
           npm run build --workspace=@taptime/backend-read-model
           npm run build --workspace=@taptime/backend-lifecycle
           npm run build --workspace=@taptime/backend-administration
@@ -429,10 +437,10 @@ jobs:
           npm run build --workspace=@taptime/backend-time-review
           npm run build --workspace=@taptime/backend-offline-sync
 
-      - name: Apply schema migrations 001 through 012 to clean PostgreSQL 17
+      - name: Apply schema migrations 001 through 013 to clean PostgreSQL 17
         run: npm run migrate --workspace=@taptime/backend-schema
 
-      - name: Re-run and verify migration ledger 001 through 012
+      - name: Re-run and verify migration ledger 001 through 013
         run: |
           npm run migrate --workspace=@taptime/backend-schema
           npm run verify-migrations --workspace=@taptime/backend-schema
@@ -441,6 +449,11 @@ jobs:
         run: |
           npm run typecheck --workspace=@taptime/backend-offline-sync
           npm test --workspace=@taptime/backend-offline-sync
+
+      - name: Typecheck and test Mobile work reads and Project administration
+        run: |
+          npm run typecheck --workspace=@taptime/backend-mobile-work
+          npm test --workspace=@taptime/backend-mobile-work
 
       - name: Typecheck C2/C3C/C3E1/C3E2/offline API production and test sources
         run: npm run typecheck --workspace=@taptime/backend-api
@@ -503,10 +516,10 @@ jobs:
           npm run build --workspace=@taptime/backend-schema
           npm run build --workspace=@taptime/backend-identity
 
-      - name: Apply schema migrations 001 through 012 to clean PostgreSQL 17
+      - name: Apply schema migrations 001 through 013 to clean PostgreSQL 17
         run: npm run migrate --workspace=@taptime/backend-schema
 
-      - name: Re-run and verify migration ledger 001 through 012
+      - name: Re-run and verify migration ledger 001 through 013
         run: |
           npm run migrate --workspace=@taptime/backend-schema
           npm run verify-migrations --workspace=@taptime/backend-schema
@@ -571,10 +584,10 @@ jobs:
           npm run build --workspace=@taptime/backend-identity
           npm run build --workspace=@taptime/backend-lifecycle
 
-      - name: Apply schema migrations 001 through 012 to clean PostgreSQL 17
+      - name: Apply schema migrations 001 through 013 to clean PostgreSQL 17
         run: npm run migrate --workspace=@taptime/backend-schema
 
-      - name: Re-run and verify migration ledger 001 through 012
+      - name: Re-run and verify migration ledger 001 through 013
         run: |
           npm run migrate --workspace=@taptime/backend-schema
           npm run verify-migrations --workspace=@taptime/backend-schema
@@ -635,12 +648,14 @@ jobs:
       - name: Build DA2 contract and backend dependencies
         run: |
           npm run build --workspace=@taptime/administration-contract
+          npm run build --workspace=@taptime/mobile-work-contract
           npm run build --workspace=@taptime/offline-sync-contract
           npm run build --workspace=@taptime/time-entry-export-contract
           npm run build --workspace=@taptime/time-review-contract
           npm run build --workspace=@taptime/core
           npm run build --workspace=@taptime/backend-schema
           npm run build --workspace=@taptime/backend-identity
+          npm run build --workspace=@taptime/backend-mobile-work
           npm run build --workspace=@taptime/backend-read-model
           npm run build --workspace=@taptime/backend-lifecycle
           npm run build --workspace=@taptime/backend-administration
@@ -707,12 +722,14 @@ jobs:
       - name: Build DA3 contracts and backend dependencies
         run: |
           npm run build --workspace=@taptime/administration-contract
+          npm run build --workspace=@taptime/mobile-work-contract
           npm run build --workspace=@taptime/offline-sync-contract
           npm run build --workspace=@taptime/time-entry-export-contract
           npm run build --workspace=@taptime/time-review-contract
           npm run build --workspace=@taptime/core
           npm run build --workspace=@taptime/backend-schema
           npm run build --workspace=@taptime/backend-identity
+          npm run build --workspace=@taptime/backend-mobile-work
           npm run build --workspace=@taptime/backend-read-model
           npm run build --workspace=@taptime/backend-lifecycle
           npm run build --workspace=@taptime/backend-administration
@@ -725,7 +742,7 @@ jobs:
           npm run typecheck --workspace=@taptime/time-review-contract
           npm test --workspace=@taptime/time-review-contract
 
-      - name: Apply, replay, and verify schema migrations 001 through 012
+      - name: Apply, replay, and verify schema migrations 001 through 013
         run: |
           npm run migrate --workspace=@taptime/backend-schema
           npm run migrate --workspace=@taptime/backend-schema
@@ -795,12 +812,14 @@ jobs:
       - name: Build synthetic harness type dependencies
         run: |
           npm run build --workspace=@taptime/administration-contract
+          npm run build --workspace=@taptime/mobile-work-contract
           npm run build --workspace=@taptime/offline-sync-contract
           npm run build --workspace=@taptime/time-entry-export-contract
           npm run build --workspace=@taptime/time-review-contract
           npm run build --workspace=@taptime/core
           npm run build --workspace=@taptime/backend-schema
           npm run build --workspace=@taptime/backend-identity
+          npm run build --workspace=@taptime/backend-mobile-work
           npm run build --workspace=@taptime/backend-read-model
           npm run build --workspace=@taptime/backend-lifecycle
           npm run build --workspace=@taptime/backend-administration

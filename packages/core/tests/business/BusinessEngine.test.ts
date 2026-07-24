@@ -66,6 +66,7 @@ describe('BusinessEngine (F-01 lifecycle)', () => {
         target,
         status: 'started',
         startedAt: workEvent.occurredAt,
+        startedVia: 'nfc',
       },
       event: {
         type: 'TimeEntryStarted',
@@ -105,6 +106,7 @@ describe('BusinessEngine (F-01 lifecycle)', () => {
         status: 'stopped',
         stoppedAt: stopWorkEvent.occurredAt,
         stoppedByWorkEventId: stopWorkEvent.id,
+        stoppedVia: 'nfc',
       },
       event: {
         type: 'TimeEntryStopped',

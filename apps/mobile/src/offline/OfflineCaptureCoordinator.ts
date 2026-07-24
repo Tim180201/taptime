@@ -6,10 +6,11 @@ import {
 import {
   OFFLINE_CLOCK_PROOF_VERSION,
   OFFLINE_CLOCK_TOLERANCE_MILLISECONDS,
-  OFFLINE_PROVENANCE_VERSION,
+  OFFLINE_PROVENANCE_VERSION_V2,
   isCanonicalOfflineUuid,
   type OfflineCanonicalDecision,
 } from '@taptime/offline-sync-contract';
+import type { SafeWorkTarget } from '@taptime/mobile-work-contract';
 import type {
   InternalOfflineRestorationSnapshot,
   MobileSessionState,
@@ -76,6 +77,38 @@ export interface OfflineBackgroundSchedulerBinding {
 
 type CaptureMode = 'authenticated' | 'offline';
 
+export type ManualOfflineCaptureResult =
+  | { readonly status: 'saved'; readonly workEventId: string }
+  | { readonly status: 'full' | 'protected' | 'unavailable' };
+
+export type ManualOfflineAcknowledgement =
+  | { readonly status: 'pending' | 'review_pending' | 'protected' | 'rejected' }
+  | {
+      readonly status: 'server_decision';
+      readonly outcome:
+        | 'time_entry_started'
+        | 'time_entry_stopped'
+        | 'duplicate_scan_ignored'
+        | 'active_entry_for_other_target_rejected'
+        | 'escalation_required';
+    };
+
+export interface ManualOfflineCapturePort {
+  captureManual(target: {
+    readonly targetType: 'customer' | 'project' | 'general_work';
+    readonly targetId: string;
+  }): Promise<ManualOfflineCaptureResult>;
+  readManualAcknowledgement?(workEventId: string): ManualOfflineAcknowledgement | null;
+  subscribeManualAcknowledgements?(listener: () => void): () => void;
+}
+
+export interface OfflineManualCaptureCapability extends ManualOfflineCapturePort {
+  readOfflineManualTargets(): Promise<
+    | { readonly status: 'ready'; readonly targets: readonly SafeWorkTarget[] }
+    | { readonly status: 'unavailable' | 'protected' }
+  >;
+}
+
 export class OfflineCaptureCoordinator implements ProductScanCapability {
   private state: ProductScanState = Object.freeze({ status: 'inactive' });
   private readonly listeners = new Set<() => void>();
@@ -91,6 +124,8 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
   private offlineRestorationSnapshot: InternalOfflineRestorationSnapshot | null = null;
   private offlineCaptureContext: ActiveOfflineCaptureContext | null = null;
   private protectedLegacy = false;
+  private readonly manualAcknowledgements = new Map<string, ManualOfflineAcknowledgement>();
+  private readonly manualAcknowledgementListeners = new Set<() => void>();
 
   constructor(
     private readonly nfcScan: NfcScanPort,
@@ -116,6 +151,15 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
     return () => this.listeners.delete(listener);
   }
 
+  subscribeManualAcknowledgements(listener: () => void): () => void {
+    this.manualAcknowledgementListeners.add(listener);
+    return () => this.manualAcknowledgementListeners.delete(listener);
+  }
+
+  readManualAcknowledgement(workEventId: string): ManualOfflineAcknowledgement | null {
+    return this.manualAcknowledgements.get(workEventId) ?? null;
+  }
+
   async start(): Promise<void> {
     if (this.started) return;
     this.started = true;
@@ -139,6 +183,7 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
     this.captureMode = null;
     this.offlineRestorationSnapshot = null;
     this.offlineCaptureContext = null;
+    this.manualAcknowledgements.clear();
     this.unsubscribeSession?.();
     this.unsubscribeSession = null;
     this.unsubscribeScheduler?.();
@@ -333,11 +378,13 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
       this.setState({ status: 'unavailable' });
       return;
     }
-    const result = await this.leaseClient.issueComplete({
-      commandId,
-      installationBinding: secrets.installationBinding,
-      lookupKey: encodeBase64Url(secrets.lookupKey),
-    });
+    const result = this.leaseClient.issueCompleteV2 === undefined
+      ? { status: 'unavailable' as const }
+      : await this.leaseClient.issueCompleteV2({
+          commandId,
+          installationBinding: secrets.installationBinding,
+          lookupKey: encodeBase64Url(secrets.lookupKey),
+        });
     if (!this.isCurrent(generation) || !this.session.isCurrent(snapshot)) return;
     if (result.status === 'authority_rejected') {
       await this.rejectOfflineCapture();
@@ -418,7 +465,7 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
       mobileLookupHmac(secrets.lookupKey, capture.payload),
     );
     if (!this.isCaptureCurrent(generation, mode, restorationSnapshot)) return;
-    if (item === null) {
+    if (item === null || item.itemType !== 'nfc_assignment') {
       await this.publishReady(mode, { status: 'tag_not_assigned' });
       return;
     }
@@ -470,17 +517,20 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
       leaseId: item.leaseId,
       leaseItemId: item.leaseItemId,
       installationBinding: secrets.installationBinding,
-      provenanceVersion: OFFLINE_PROVENANCE_VERSION,
+      provenanceVersion: OFFLINE_PROVENANCE_VERSION_V2,
       clock,
       workEvent: Object.freeze({
         id: workEventId,
-        assignmentId: item.assignmentId,
-        nfcTagId: item.nfcTagId,
         target: Object.freeze({
           targetType: item.targetType,
           targetId: item.targetId,
         }),
         occurredAt: capture.capturedAt,
+        trigger: Object.freeze({
+          type: 'nfc' as const,
+          assignmentId: item.assignmentId,
+          nfcTagId: item.nfcTagId,
+        }),
       }),
       receipt: Object.freeze({ id: receiptId, attemptNumber: 1 }),
     });
@@ -498,6 +548,128 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
     const queueCount = await database.queueCount();
     this.setState({ status: 'saved_locally', queueCount });
     void this.scheduler?.trigger('event_append');
+  }
+
+  async captureManual(target: {
+    readonly targetType: 'customer' | 'project' | 'general_work';
+    readonly targetId: string;
+  }): Promise<ManualOfflineCaptureResult> {
+    const generation = this.generation;
+    const database = this.database;
+    const secrets = this.secrets;
+    const mode = this.captureMode;
+    const restorationSnapshot = mode === 'offline'
+      ? this.offlineRestorationSnapshot
+      : null;
+    const expectedOfflineContext = mode === 'offline'
+      ? this.offlineCaptureContext
+      : null;
+    if (
+      database === null
+      || secrets === null
+      || mode === null
+      || (
+        mode === 'offline'
+        && (restorationSnapshot === null || expectedOfflineContext === null)
+      )
+      || !isCanonicalOfflineUuid(target.targetId)
+    ) return { status: 'unavailable' };
+    const item = await database.lookupActiveManualTarget(target.targetType, target.targetId);
+    if (
+      !this.isCaptureCurrent(generation, mode, restorationSnapshot)
+      || item?.itemType !== 'manual_target'
+    ) {
+      return { status: 'unavailable' };
+    }
+    let sample;
+    try {
+      sample = await this.monotonicClock.sample();
+    } catch {
+      return { status: 'unavailable' };
+    }
+    if (
+      sample.wallClockMilliseconds === undefined
+      || !Number.isSafeInteger(sample.wallClockMilliseconds)
+    ) return { status: 'unavailable' };
+    const context = await database.readActiveCaptureContext();
+    if (
+      !this.isCaptureCurrent(generation, mode, restorationSnapshot)
+      || context === null
+      || context.leaseId !== item.leaseId
+      || (
+        expectedOfflineContext !== null
+        && !sameActiveCaptureContext(context, expectedOfflineContext)
+      )
+    ) return { status: 'protected' };
+    let workEventId: string;
+    let receiptId: string;
+    try {
+      workEventId = this.createUuid();
+      receiptId = this.createUuid();
+    } catch {
+      return { status: 'unavailable' };
+    }
+    if (
+      !isCanonicalOfflineUuid(workEventId)
+      || !isCanonicalOfflineUuid(receiptId)
+      || workEventId === receiptId
+    ) return { status: 'unavailable' };
+    const appended = await database.appendEvent(Object.freeze({
+      organizationId: context.organizationId,
+      expectedMembershipId: context.membershipId,
+      leaseId: item.leaseId,
+      leaseItemId: item.leaseItemId,
+      installationBinding: secrets.installationBinding,
+      provenanceVersion: OFFLINE_PROVENANCE_VERSION_V2,
+      clock: clockEvidence(item, sample),
+      workEvent: Object.freeze({
+        id: workEventId,
+        target: Object.freeze({
+          targetType: item.targetType,
+          targetId: item.targetId,
+        }),
+        occurredAt: new Date(sample.wallClockMilliseconds).toISOString(),
+        trigger: Object.freeze({ type: 'manual' as const }),
+      }),
+      receipt: Object.freeze({ id: receiptId, attemptNumber: 1 as const }),
+    }));
+    if (!this.isCaptureCurrent(generation, mode, restorationSnapshot)) {
+      return { status: 'protected' };
+    }
+    if (appended.status === 'full') return { status: 'full' };
+    if (appended.status !== 'ready') return { status: 'protected' };
+    this.setManualAcknowledgement(workEventId, { status: 'pending' });
+    void this.scheduler?.trigger('event_append');
+    return { status: 'saved', workEventId };
+  }
+
+  async readOfflineManualTargets(): Promise<
+    | { readonly status: 'ready'; readonly targets: readonly SafeWorkTarget[] }
+    | { readonly status: 'unavailable' | 'protected' }
+  > {
+    const generation = this.generation;
+    const restorationSnapshot = this.offlineRestorationSnapshot;
+    const expectedContext = this.offlineCaptureContext;
+    const database = this.database;
+    if (
+      this.captureMode !== 'offline'
+      || restorationSnapshot === null
+      || expectedContext === null
+      || database === null
+      || !this.session.isOfflineRestorationSnapshotCurrent(restorationSnapshot)
+    ) return { status: 'unavailable' };
+    const currentContext = await this.readValidOfflineContext();
+    if (
+      !this.isCaptureCurrent(generation, 'offline', restorationSnapshot)
+      || currentContext === null
+      || !sameActiveCaptureContext(currentContext, expectedContext)
+    ) return { status: 'protected' };
+    const targets = await database.listActiveManualTargets(currentContext.leaseId);
+    if (
+      !this.isCaptureCurrent(generation, 'offline', restorationSnapshot)
+      || !this.session.isOfflineRestorationSnapshotCurrent(restorationSnapshot)
+    ) return { status: 'protected' };
+    return { status: 'ready', targets };
   }
 
   private async publishReady(
@@ -604,12 +776,25 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
         });
         return;
       case 'review_pending':
+        if (schedulerState.workEventId !== undefined) {
+          this.setManualAcknowledgement(
+            schedulerState.workEventId,
+            { status: 'review_pending' },
+          );
+        }
         this.setState({
           status: 'server_review_pending',
           queueCount: schedulerState.queueCount,
         });
         return;
       case 'server_decision':
+        this.setManualAcknowledgement(schedulerState.workEventId, {
+          status: 'server_decision',
+          outcome: decisionOutcome(schedulerState.decision).status as Extract<
+            ManualOfflineAcknowledgement,
+            { status: 'server_decision' }
+          >['outcome'],
+        });
         this.setState({
           status: 'server_decision',
           outcome: decisionOutcome(schedulerState.decision),
@@ -617,12 +802,14 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
         });
         return;
       case 'protected':
+        this.updatePendingManualAcknowledgements({ status: 'protected' });
         this.setState({
           status: 'protected_pending',
           reason: 'local_evidence_protected',
         });
         return;
       case 'authority_rejected':
+        this.updatePendingManualAcknowledgements({ status: 'rejected' });
         this.setReady({ status: 'session_rejected' });
         return;
       default:
@@ -634,6 +821,11 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
     this.captureMode = null;
     this.offlineRestorationSnapshot = null;
     this.offlineCaptureContext = null;
+    if (removeLookupKey) {
+      this.manualAcknowledgements.clear();
+    } else {
+      this.updatePendingManualAcknowledgements({ status: 'rejected' });
+    }
     await this.nfcLifecycle.cancelCapture().catch(() => undefined);
     await this.database?.invalidateCapture().catch(() => undefined);
     if (removeLookupKey) {
@@ -680,6 +872,32 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
   private setState(state: ProductScanState): void {
     this.state = Object.freeze(state);
     for (const listener of this.listeners) listener();
+  }
+
+  private setManualAcknowledgement(
+    workEventId: string,
+    acknowledgement: ManualOfflineAcknowledgement,
+  ): void {
+    if (
+      !this.manualAcknowledgements.has(workEventId)
+      && acknowledgement.status !== 'pending'
+    ) return;
+    this.manualAcknowledgements.set(workEventId, Object.freeze(acknowledgement));
+    for (const listener of this.manualAcknowledgementListeners) listener();
+  }
+
+  private updatePendingManualAcknowledgements(
+    acknowledgement: ManualOfflineAcknowledgement,
+  ): void {
+    let changed = false;
+    for (const [workEventId, current] of this.manualAcknowledgements) {
+      if (current.status !== 'pending') continue;
+      this.manualAcknowledgements.set(workEventId, Object.freeze(acknowledgement));
+      changed = true;
+    }
+    if (changed) {
+      for (const listener of this.manualAcknowledgementListeners) listener();
+    }
   }
 }
 

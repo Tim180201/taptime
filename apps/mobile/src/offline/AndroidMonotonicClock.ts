@@ -1,6 +1,8 @@
 export interface AndroidMonotonicSample {
   readonly bootMarker: string;
   readonly elapsedRealtimeMilliseconds: number;
+  /** Present on the Android product module and sampled atomically with elapsed realtime. */
+  readonly wallClockMilliseconds?: number;
 }
 
 export interface AndroidMonotonicClockPort {
@@ -24,12 +26,23 @@ export function validateAndroidMonotonicSample(value: unknown): AndroidMonotonic
     || typeof sample.elapsedRealtimeMilliseconds !== 'number'
     || !Number.isSafeInteger(sample.elapsedRealtimeMilliseconds)
     || sample.elapsedRealtimeMilliseconds < 0
+    || (
+      sample.wallClockMilliseconds !== undefined
+      && (
+        typeof sample.wallClockMilliseconds !== 'number'
+        || !Number.isSafeInteger(sample.wallClockMilliseconds)
+        || sample.wallClockMilliseconds < 0
+      )
+    )
   ) {
     return null;
   }
   return {
     bootMarker: sample.bootMarker,
     elapsedRealtimeMilliseconds: sample.elapsedRealtimeMilliseconds,
+    ...(sample.wallClockMilliseconds === undefined
+      ? {}
+      : { wallClockMilliseconds: sample.wallClockMilliseconds }),
   };
 }
 

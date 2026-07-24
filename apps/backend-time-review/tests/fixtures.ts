@@ -60,8 +60,8 @@ export async function resetMigratePrepareAndSeed(
   await installerPool.query(`DROP SCHEMA IF EXISTS ${B3_SCHEMA} CASCADE`);
   await installerPool.query(`DROP TABLE IF EXISTS ${B3_MIGRATION_TABLE}`);
   const migrated = await migrate(installerPool);
-  if (migrated.applied.join(',') !== '001,002,003,004,005,006,007,008,009,010,011,012') {
-    throw new Error('DA3 requires a clean migration set 001 through 012');
+  if (migrated.applied.join(',') !== '001,002,003,004,005,006,007,008,009,010,011,012,013') {
+    throw new Error('DA3 requires a clean migration set 001 through 013');
   }
   await prepareLogin(installerPool, DA3_READ_LOGIN, runtimePassword, 'taptime_time_review_reader');
   await prepareLogin(installerPool, DA3_WRITE_LOGIN, runtimePassword, 'taptime_time_review_writer');

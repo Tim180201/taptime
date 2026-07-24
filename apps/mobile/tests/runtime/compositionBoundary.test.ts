@@ -223,7 +223,7 @@ describe('C1 Mobile composition boundary', () => {
       expect(configSource).toContain("appVariant === 'synthetic-e2e'");
       expect(configSource).toContain("runtimeVariant === 'synthetic-e2e'");
       expect(configSource).toContain('com.tim180201.mobile.synthetic');
-      expect(configSource).toContain('withSyntheticE2eNetworkSecurity(configuration)');
+      expect(configSource).toContain('withSyntheticE2eNetworkSecurity(withNfcIngress)');
       expect(appSource).not.toContain("=== 'synthetic-e2e'");
       expect(appJsonSource).toContain('"allowBackup": false');
       expect(appJsonSource).toContain('"configureAndroidBackup": false');

@@ -21,6 +21,18 @@ const timeReviewReadDatabaseUrl = requiredEnvironmentValue(
 const timeReviewWriteDatabaseUrl = requiredEnvironmentValue(
   'TAPTIME_TIME_REVIEW_WRITE_DATABASE_URL',
 );
+const manualLifecycleDatabaseUrl = requiredEnvironmentValue(
+  'TAPTIME_MANUAL_LIFECYCLE_DATABASE_URL',
+);
+const mobileOwnTimeDatabaseUrl = requiredEnvironmentValue(
+  'TAPTIME_MOBILE_OWN_TIME_DATABASE_URL',
+);
+const mobileTargetDatabaseUrl = requiredEnvironmentValue(
+  'TAPTIME_MOBILE_TARGET_DATABASE_URL',
+);
+const projectAdministrationDatabaseUrl = requiredEnvironmentValue(
+  'TAPTIME_PROJECT_ADMINISTRATION_DATABASE_URL',
+);
 const supabaseIssuer = requiredEnvironmentValue('SUPABASE_ISSUER');
 const port = parsePort(process.env.PORT ?? '3000');
 const runtime = createBackendApiRuntime({
@@ -37,6 +49,10 @@ const runtime = createBackendApiRuntime({
   timeEntryExportDatabaseUrl,
   timeReviewReadDatabaseUrl,
   timeReviewWriteDatabaseUrl,
+  manualLifecycleDatabaseUrl,
+  mobileOwnTimeDatabaseUrl,
+  mobileTargetDatabaseUrl,
+  projectAdministrationDatabaseUrl,
   supabaseIssuer,
 });
 
@@ -78,7 +94,11 @@ type RequiredRuntimeEnvironmentName =
   | 'TAPTIME_SESSION_DATABASE_URL'
   | 'TAPTIME_TIME_ENTRY_EXPORT_DATABASE_URL'
   | 'TAPTIME_TIME_REVIEW_READ_DATABASE_URL'
-  | 'TAPTIME_TIME_REVIEW_WRITE_DATABASE_URL';
+  | 'TAPTIME_TIME_REVIEW_WRITE_DATABASE_URL'
+  | 'TAPTIME_MANUAL_LIFECYCLE_DATABASE_URL'
+  | 'TAPTIME_MOBILE_OWN_TIME_DATABASE_URL'
+  | 'TAPTIME_MOBILE_TARGET_DATABASE_URL'
+  | 'TAPTIME_PROJECT_ADMINISTRATION_DATABASE_URL';
 
 function requiredEnvironmentValue(name: RequiredRuntimeEnvironmentName): string {
   const value = process.env[name];

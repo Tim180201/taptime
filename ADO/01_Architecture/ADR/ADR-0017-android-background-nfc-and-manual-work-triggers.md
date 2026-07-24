@@ -1,10 +1,10 @@
 # ADR-0017: Android Background NFC and Manual Work Triggers
 
-- Status: **ADO-ONLY CORRECTION CANDIDATE — INDEPENDENT REVIEW REQUIRED; EXECUTABLE IMPLEMENTATION UNAUTHORIZED**
+- Status: **HUMAN ACCEPTED — LOCAL IMPLEMENTATION CANDIDATE; V4, INDEPENDENT IMPLEMENTATION REVIEW AND HUMAN V5 PENDING**
 - Date: 2026-07-24
-- Candidate baseline commit: `8e0cec7f86aaf740a4fa5fbc0465235acda1b328`
-- Candidate baseline tree: `a1f57d7001b4355c6fc36b9f27c9296900eaa8cf`
-- Baseline CI: GitHub Actions `30094046612`, attempt 1, 12/12 successful
+- Implementation baseline commit: `fb32a2796e78c78ce12f856c908545de7ce7bf99`
+- Implementation baseline tree: `53d6b5d6c2c86a8a3245539d821a12fae6850673`
+- Baseline CI: 12/12 successful, as bound by the Human authorization
 - Owner: Technical Lead
 - Decision authority: Human Architect
 - Roadmap: Development Assignment 5
@@ -486,10 +486,12 @@ DA5 adds no:
 - production resource/data, deployment, distribution, signing, pilot or legal/privacy approval; or
 - access to `research/`.
 
-## 4. Human product acceptance required
+## 4. Human product acceptance
 
-The high-level features are Human-directed. Before implementation, the Human Architect must accept
-the following exact v1 values as one product amendment:
+On 2026-07-24 the Human Architect expressly accepted the following exact v1 values as one product
+amendment and authorized the bounded local DA5 implementation on baseline
+`fb32a2796e78c78ce12f856c908545de7ce7bf99`, tree
+`53d6b5d6c2c86a8a3245539d821a12fae6850673`:
 
 1. Projects are standalone Organization targets without Customer relation; Administrators may
    create/list/deactivate them, names are immutable, and deactivation is rejected while work is
@@ -511,16 +513,19 @@ the following exact v1 values as one product amendment:
    `export_schema_incompatible` when its interval contains non-Customer targets; additive CSV v2
    is the complete generalized export defined above.
 
-Until these values are expressly accepted, independent review cannot release executable scope.
+These accepted values remain binding. No later implementation or review may reinterpret them.
 
 ## 5. Current authority
 
-The Human Architect explicitly directed the Technical Lead to incorporate these product
-requirements and continue the Roadmap autonomously until a Human/hardware gate or a genuine missing
-decision. This ADR records the Technical Lead's exact technical architecture candidate; it does not
-claim implementation approval by itself.
+The Human Architect explicitly accepted the complete ADR-0016/ADR-0017 values and authorized the
+bounded DA5 sequence through local AVS V0–V3, Technical-Lead acceptance, focused publication,
+exact-head V4 and independent exact-SHA implementation review on the baseline above. The
+Development Agent itself was delegated no commit, push, publication, V4 or review action.
+Human/hardware V5, production, production data, deployment and distribution remain separately
+unauthorized.
 
-Before one independent read-only review returns `APPROVED` with zero open P0–P3 for this exact
-candidate together with corrected ADR-0016 and the DA5 authorization, no source, schema,
-dependency, workflow, build or executable change is authorized. Human/hardware V5, production,
-production data, deployment and distribution remain separately unauthorized.
+The Development-Agent local implementation delta and its V0–V3 pre-publication evidence are
+recorded in
+`ADO/05_Evidence/Development_Assignment_05_Local_Implementation_Evidence.md`. Exact-head V4 and an
+independent exact-SHA implementation review with zero open P0–P3 remain mandatory before any
+separately authorized Human/hardware V5.

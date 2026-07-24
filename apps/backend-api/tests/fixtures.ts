@@ -55,8 +55,8 @@ export async function resetMigrateAndPrepareLogin(
   await installerPool.query(`DROP SCHEMA IF EXISTS ${B3_SCHEMA} CASCADE`);
   await installerPool.query(`DROP TABLE IF EXISTS ${B3_MIGRATION_TABLE}`);
   const result = await migrate(installerPool);
-  if (result.applied.join(',') !== '001,002,003,004,005,006,007,008,009,010,011,012') {
-    throw new Error('C1 requires a clean migration set 001 through 012');
+  if (result.applied.join(',') !== '001,002,003,004,005,006,007,008,009,010,011,012,013') {
+    throw new Error('C1 requires a clean migration set 001 through 013');
   }
   await ensureExactRuntimeLogin(installerPool, runtimePassword);
   await ensureExactReassignmentRuntimeLogin(installerPool);

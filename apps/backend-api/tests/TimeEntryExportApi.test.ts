@@ -69,6 +69,7 @@ describe('DA2 TimeEntry export API', () => {
     ['invalid_request', 400],
     ['unauthorized', 401],
     ['forbidden', 403],
+    ['export_schema_incompatible', 409],
     ['export_limit_exceeded', 422],
     ['service_unavailable', 503],
   ] as const)('maps %s to exact HTTP %i without CSV fragments', async (status, expectedStatus) => {
@@ -77,6 +78,35 @@ describe('DA2 TimeEntry export API', () => {
     expect(response.status).toBe(expectedStatus);
     expect(response.headers.get('content-type')).toBe('application/json; charset=utf-8');
     expect(await response.json()).toEqual({ error: { code: status } });
+  });
+
+  it('uses the opt-in v2 coordinator on the exact additive route', async () => {
+    const bytes = new TextEncoder().encode('\uFEFF"schema_version";"target_type"\r\n');
+    const exportTimeEntriesV2 = vi.fn(async () => ({
+      status: 'succeeded' as const,
+      bytes,
+      byteCount: bytes.byteLength,
+      rowCount: 0,
+      sha256: 'b'.repeat(64),
+      filename: 'taptime-time-entries_v2_20260701T000000000Z_20260801T000000000Z.csv',
+    }));
+    const origin = await start({
+      async exportTimeEntries() { return { status: 'service_unavailable' }; },
+      exportTimeEntriesV2,
+    });
+
+    const response = await fetch(`${origin}/v2/time-entries/export`, {
+      method: 'POST',
+      headers: {
+        authorization: 'Bearer aaa.bbb.ccc',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify(validBody),
+    });
+
+    expect(response.status).toBe(200);
+    expect(Buffer.from(await response.arrayBuffer())).toEqual(Buffer.from(bytes));
+    expect(exportTimeEntriesV2).toHaveBeenCalledOnce();
   });
 
   it('rejects method, media type and legacy expected-Membership header', async () => {

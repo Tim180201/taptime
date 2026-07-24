@@ -3,12 +3,14 @@ import { describe, expect, it } from 'vitest';
 import {
   TIME_ENTRY_EXPORT_GOLDEN_ROWS,
   TIME_ENTRY_EXPORT_HEADERS,
+  TIME_ENTRY_EXPORT_HEADERS_V2,
   TIME_ENTRY_EXPORT_MAXIMUM_BYTES,
   TIME_ENTRY_EXPORT_MAXIMUM_RANGE_MILLISECONDS,
   TIME_ENTRY_EXPORT_MAXIMUM_ROWS,
   TimeEntryExportLimitError,
   neutralizeSpreadsheetFormula,
   serializeTimeEntryExportCsv,
+  serializeTimeEntryExportCsvV2,
   validateTimeEntryExportRequest,
 } from '../src/index.js';
 
@@ -67,6 +69,57 @@ describe('time-entry export contract', () => {
     const result = serializeTimeEntryExportCsv([]);
     expect(result.rowCount).toBe(0);
     expect(Buffer.from(result.bytes).toString('utf8').split('\r\n')).toHaveLength(2);
+  });
+
+  it('serializes the exact generalized v2 schema and provenance truth', () => {
+    expect(TIME_ENTRY_EXPORT_HEADERS_V2).toEqual([
+      'schema_version', 'organization_id', 'organization_name', 'time_entry_id',
+      'employee_membership_id', 'employee_display_name', 'record_source',
+      'target_type', 'target_id', 'target_display_name', 'status', 'started_via',
+      'stopped_via', 'started_at_utc', 'stopped_at_utc', 'duration_seconds',
+    ]);
+    const result = serializeTimeEntryExportCsvV2([{
+      organizationId: '11111111-1111-4111-8111-111111111111',
+      organizationName: 'TapTim.e',
+      timeEntryId: '22222222-2222-4222-8222-222222222222',
+      employeeMembershipId: '33333333-3333-4333-8333-333333333333',
+      employeeDisplayName: 'Mitarbeiter',
+      recordSource: 'canonical',
+      targetType: 'project',
+      targetId: '44444444-4444-4444-8444-444444444444',
+      targetDisplayName: '=Innenausbau',
+      status: 'stopped',
+      startedVia: 'manual',
+      stoppedVia: 'nfc',
+      startedAtUtc: '2026-07-24T08:00:00.000000Z',
+      stoppedAtUtc: '2026-07-24T09:00:00.000000Z',
+      durationSeconds: '3600',
+    }]);
+    const text = Buffer.from(result.bytes).toString('utf8');
+    expect(text).toContain('"2";');
+    expect(text).toContain('"canonical";"project"');
+    expect(text).toContain('"\'=Innenausbau"');
+    expect(text).toContain('"manual";"nfc"');
+  });
+
+  it('rejects false v2 provenance combinations', () => {
+    expect(() => serializeTimeEntryExportCsvV2([{
+      organizationId: '11111111-1111-4111-8111-111111111111',
+      organizationName: 'TapTim.e',
+      timeEntryId: '22222222-2222-4222-8222-222222222222',
+      employeeMembershipId: '33333333-3333-4333-8333-333333333333',
+      employeeDisplayName: '',
+      recordSource: 'recovered',
+      targetType: 'general_work',
+      targetId: '44444444-4444-4444-8444-444444444444',
+      targetDisplayName: 'Allgemeine Arbeitszeit',
+      status: 'stopped',
+      startedVia: 'manual',
+      stoppedVia: '',
+      startedAtUtc: '2026-07-24T08:00:00.000000Z',
+      stoppedAtUtc: '2026-07-24T09:00:00.000000Z',
+      durationSeconds: '3600',
+    }])).toThrow(/accepted contract/);
   });
 
   it.each(['=1+1', ' +SUM(A1)', '-2+3', '\t@cmd'])('neutralizes formula prefix %j', (value) => {

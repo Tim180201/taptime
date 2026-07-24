@@ -66,6 +66,7 @@ export type SyntheticEnvironmentSafeEvent =
   | 'api_administration_unavailable'
   | 'api_employee_enrollment_unavailable'
   | 'api_lifecycle_unavailable'
+  | 'api_mobile_work_unavailable'
   | 'api_offline_synchronization_unavailable'
   | 'api_scan_context_unavailable'
   | 'api_session_unavailable'
@@ -249,6 +250,9 @@ export async function createSyntheticAndroidE2eEnvironment(
               return;
             case 'lifecycle_ingestion_failed':
               onSafeEvent('api_lifecycle_unavailable');
+              return;
+            case 'mobile_work_failed':
+              onSafeEvent('api_mobile_work_unavailable');
               return;
             case 'offline_synchronization_failed':
               onSafeEvent('api_offline_synchronization_unavailable');

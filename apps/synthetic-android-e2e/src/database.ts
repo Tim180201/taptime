@@ -150,8 +150,8 @@ export async function prepareSyntheticDatabase(
     installerPool,
     await loadMigrations(migrationDirectory),
   );
-  if (migration.applied.join(',') !== '001,002,003,004,005,006,007,008,009,010,011,012') {
-    throw new Error('Synthetic E2E requires a clean migration set 001 through 012');
+  if (migration.applied.join(',') !== '001,002,003,004,005,006,007,008,009,010,011,012,013') {
+    throw new Error('Synthetic E2E requires a clean migration set 001 through 013');
   }
 
   await normalizeApplicationRoles(installerPool);

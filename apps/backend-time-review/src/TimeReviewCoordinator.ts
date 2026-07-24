@@ -12,6 +12,8 @@ import {
   type ReviewAdjudicationReceipt,
   type ReviewItemProjection,
   type TimeRecordProjection,
+  type TimeRecordProjectionV2,
+  type ReviewItemProjectionV2,
 } from '@taptime/time-review-contract';
 import type { Pool, PoolClient, QueryResultRow } from 'pg';
 import type {
@@ -49,6 +51,24 @@ interface TimeRecordRow extends QueryResultRow {
   readonly overlaps_another_record: boolean;
 }
 
+interface TimeRecordRowV2 extends QueryResultRow {
+  readonly time_record_id: string;
+  readonly employee_membership_id: string | null;
+  readonly employee_display_name: string | null;
+  readonly target_type: 'customer' | 'project' | 'general_work';
+  readonly target_id: string;
+  readonly target_display_name: string;
+  readonly source: 'canonical' | 'recovered';
+  readonly status: 'started' | 'stopped';
+  readonly started_via: 'nfc' | 'manual' | null;
+  readonly stopped_via: 'nfc' | 'manual' | null;
+  readonly started_at: Date;
+  readonly stopped_at: Date | null;
+  readonly base_row_version: string;
+  readonly effective_revision_number: string;
+  readonly overlaps_another_record: boolean;
+}
+
 interface ReviewItemRow extends QueryResultRow {
   readonly review_item_id: string;
   readonly source_family: 'offline_v2' | 'server_legacy';
@@ -60,6 +80,23 @@ interface ReviewItemRow extends QueryResultRow {
   readonly occurred_at: Date;
   readonly recorded_at: Date;
   readonly review_reason: ReviewItemProjection['reviewReason'];
+  readonly device_sequence: string | null;
+  readonly predecessor_blocked: boolean;
+}
+
+interface ReviewItemRowV2 extends QueryResultRow {
+  readonly review_item_id: string;
+  readonly source_family: 'offline_v2' | 'server_legacy';
+  readonly employee_user_id: string;
+  readonly employee_membership_id: string | null;
+  readonly employee_display_name: string | null;
+  readonly target_type: 'customer' | 'project' | 'general_work';
+  readonly target_id: string;
+  readonly target_display_name: string;
+  readonly trigger_type: 'nfc' | 'manual';
+  readonly occurred_at: Date;
+  readonly recorded_at: Date;
+  readonly review_reason: ReviewItemProjectionV2['reviewReason'];
   readonly device_sequence: string | null;
   readonly predecessor_blocked: boolean;
 }
@@ -135,6 +172,56 @@ export class TimeReviewCoordinator implements TimeReviewPort {
           status: 'ready' as const,
           value: Object.freeze({
             records: Object.freeze(visible.map(mapTimeRecord)),
+            nextCursor: result.rows.length > validation.request.limit && last !== undefined
+              ? encodeCursor(last.started_at, last.time_record_id)
+              : null,
+          }),
+        };
+      },
+    );
+  }
+
+  async queryTimeRecordsV2(
+    command: AuthenticatedTimeReviewCommand<Parameters<TimeReviewPort['queryTimeRecords']>[0]['request']>,
+    controls: TimeReviewCoordinatorControls = {},
+  ) {
+    const validation = validateTimeRecordQueryRequest(command.request);
+    if (validation.status === 'invalid_request') return { status: 'unavailable' as const };
+    const cursor = decodeCursor(validation.request.cursor);
+    if (cursor === undefined) return { status: 'unavailable' as const };
+    return this.withAdministrator(
+      this.readPool,
+      command.accessToken,
+      validation.request.expectedMembershipId,
+      TIME_REVIEW_READER_ROLE,
+      controls,
+      async (client, actor) => {
+        const result = await client.query<TimeRecordRowV2>(
+          `SELECT time_record_id, employee_membership_id, employee_display_name,
+                  target_type, target_id, target_display_name, source, status,
+                  started_via, stopped_via, started_at, stopped_at, base_row_version,
+                  effective_revision_number, overlaps_another_record
+           FROM taptime_server.read_effective_time_records_v2(
+             $1, $2, $3, $4::timestamptz, $5::timestamptz,
+             $6::timestamptz, $7::uuid, $8
+           )`,
+          [
+            actor.organization_id,
+            actor.user_id,
+            actor.membership_id,
+            validation.request.fromInclusive,
+            validation.request.toExclusive,
+            cursor?.recordedAt ?? null,
+            cursor?.id ?? null,
+            validation.request.limit + 1,
+          ],
+        );
+        const visible = result.rows.slice(0, validation.request.limit);
+        const last = visible.at(-1);
+        return {
+          status: 'ready' as const,
+          value: Object.freeze({
+            records: Object.freeze(visible.map(mapTimeRecordV2)),
             nextCursor: result.rows.length > validation.request.limit && last !== undefined
               ? encodeCursor(last.started_at, last.time_record_id)
               : null,
@@ -222,6 +309,53 @@ export class TimeReviewCoordinator implements TimeReviewPort {
           status: 'ready' as const,
           value: Object.freeze({
             items: Object.freeze(visible.map(mapReviewItem)),
+            nextCursor: result.rows.length > validation.request.limit && last !== undefined
+              ? encodeCursor(last.recorded_at, last.review_item_id)
+              : null,
+          }),
+        };
+      },
+    );
+  }
+
+  async queryReviewItemsV2(
+    command: AuthenticatedTimeReviewCommand<Parameters<TimeReviewPort['queryReviewItems']>[0]['request']>,
+    controls: TimeReviewCoordinatorControls = {},
+  ) {
+    const validation = validateReviewItemQueryRequest(command.request);
+    if (validation.status === 'invalid_request') return { status: 'unavailable' as const };
+    const cursor = decodeCursor(validation.request.cursor);
+    if (cursor === undefined) return { status: 'unavailable' as const };
+    return this.withAdministrator(
+      this.readPool,
+      command.accessToken,
+      validation.request.expectedMembershipId,
+      TIME_REVIEW_READER_ROLE,
+      controls,
+      async (client, actor) => {
+        const result = await client.query<ReviewItemRowV2>(
+          `SELECT review_item_id, source_family, employee_user_id,
+                  employee_membership_id, employee_display_name, target_type,
+                  target_id, target_display_name, trigger_type, occurred_at,
+                  recorded_at, review_reason, device_sequence, predecessor_blocked
+           FROM taptime_server.read_time_review_items_v2(
+             $1, $2, $3, $4::timestamptz, $5::uuid, $6
+           )`,
+          [
+            actor.organization_id,
+            actor.user_id,
+            actor.membership_id,
+            cursor?.recordedAt ?? null,
+            cursor?.id ?? null,
+            validation.request.limit + 1,
+          ],
+        );
+        const visible = result.rows.slice(0, validation.request.limit);
+        const last = visible.at(-1);
+        return {
+          status: 'ready' as const,
+          value: Object.freeze({
+            items: Object.freeze(visible.map(mapReviewItemV2)),
             nextCursor: result.rows.length > validation.request.limit && last !== undefined
               ? encodeCursor(last.recorded_at, last.review_item_id)
               : null,
@@ -377,6 +511,38 @@ function mapTimeRecord(row: TimeRecordRow): TimeRecordProjection {
   });
 }
 
+function mapTimeRecordV2(row: TimeRecordRowV2): TimeRecordProjectionV2 {
+  if (
+    row.employee_membership_id === null
+    || row.employee_display_name === null
+    || !isCanonicalTimeReviewUuid(row.employee_membership_id)
+    || !isCanonicalTimeReviewUuid(row.target_id)
+    || (
+      row.source === 'canonical'
+        ? row.started_via === null
+          || (row.status === 'started' ? row.stopped_via !== null : row.stopped_via === null)
+        : row.started_via !== null || row.stopped_via !== null
+    )
+  ) throw new Error('Effective time record v2 attribution is incomplete');
+  return Object.freeze({
+    timeRecordId: row.time_record_id,
+    employeeMembershipId: row.employee_membership_id,
+    employeeDisplayName: row.employee_display_name,
+    targetType: row.target_type,
+    targetId: row.target_id,
+    targetDisplayName: row.target_display_name,
+    source: row.source,
+    status: row.status,
+    startedVia: row.started_via,
+    stoppedVia: row.stopped_via,
+    startedAt: row.started_at.toISOString(),
+    stoppedAt: row.stopped_at?.toISOString() ?? null,
+    baseRowVersion: safeInteger(row.base_row_version),
+    effectiveRevisionNumber: safeInteger(row.effective_revision_number),
+    overlapsAnotherRecord: row.overlaps_another_record,
+  });
+}
+
 function mapReviewItem(row: ReviewItemRow): ReviewItemProjection {
   if (
     row.employee_membership_id === null || row.employee_display_name === null
@@ -392,6 +558,31 @@ function mapReviewItem(row: ReviewItemRow): ReviewItemProjection {
     employeeDisplayName: row.employee_display_name,
     customerId: row.customer_id,
     customerDisplayName: row.customer_display_name,
+    occurredAt: row.occurred_at.toISOString(),
+    recordedAt: row.recorded_at.toISOString(),
+    reviewReason: row.review_reason,
+    deviceSequence: row.device_sequence === null ? null : safeInteger(row.device_sequence),
+    predecessorBlocked: row.predecessor_blocked,
+  });
+}
+
+function mapReviewItemV2(row: ReviewItemRowV2): ReviewItemProjectionV2 {
+  if (
+    row.employee_membership_id === null
+    || row.employee_display_name === null
+    || !isCanonicalTimeReviewUuid(row.employee_membership_id)
+    || !isCanonicalTimeReviewUuid(row.target_id)
+  ) throw new Error('Review evidence v2 attribution is incomplete');
+  return Object.freeze({
+    reviewItemId: row.review_item_id,
+    source: row.source_family,
+    employeeUserId: row.employee_user_id,
+    employeeMembershipId: row.employee_membership_id,
+    employeeDisplayName: row.employee_display_name,
+    targetType: row.target_type,
+    targetId: row.target_id,
+    targetDisplayName: row.target_display_name,
+    triggerType: row.trigger_type,
     occurredAt: row.occurred_at.toISOString(),
     recordedAt: row.recorded_at.toISOString(),
     reviewReason: row.review_reason,

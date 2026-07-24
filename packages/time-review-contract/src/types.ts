@@ -37,6 +37,29 @@ export interface TimeRecordQueryPage {
   readonly nextCursor: string | null;
 }
 
+export interface TimeRecordProjectionV2 {
+  readonly timeRecordId: string;
+  readonly employeeMembershipId: string;
+  readonly employeeDisplayName: string;
+  readonly targetType: 'customer' | 'project' | 'general_work';
+  readonly targetId: string;
+  readonly targetDisplayName: string;
+  readonly source: TimeRecordSource;
+  readonly status: TimeRecordStatus;
+  readonly startedVia: 'nfc' | 'manual' | null;
+  readonly stoppedVia: 'nfc' | 'manual' | null;
+  readonly startedAt: string;
+  readonly stoppedAt: string | null;
+  readonly baseRowVersion: number;
+  readonly effectiveRevisionNumber: number;
+  readonly overlapsAnotherRecord: boolean;
+}
+
+export interface TimeRecordQueryPageV2 {
+  readonly records: readonly TimeRecordProjectionV2[];
+  readonly nextCursor: string | null;
+}
+
 export interface TimeRecordCorrectionRequest {
   readonly expectedMembershipId: string;
   readonly commandId: string;
@@ -79,6 +102,28 @@ export interface ReviewItemProjection {
 
 export interface ReviewItemQueryPage {
   readonly items: readonly ReviewItemProjection[];
+  readonly nextCursor: string | null;
+}
+
+export interface ReviewItemProjectionV2 {
+  readonly reviewItemId: string;
+  readonly source: ReviewItemSource;
+  readonly employeeUserId: string;
+  readonly employeeMembershipId: string;
+  readonly employeeDisplayName: string;
+  readonly targetType: 'customer' | 'project' | 'general_work';
+  readonly targetId: string;
+  readonly targetDisplayName: string;
+  readonly triggerType: 'nfc' | 'manual';
+  readonly occurredAt: string;
+  readonly recordedAt: string;
+  readonly reviewReason: TimeReviewReason;
+  readonly deviceSequence: number | null;
+  readonly predecessorBlocked: boolean;
+}
+
+export interface ReviewItemQueryPageV2 {
+  readonly items: readonly ReviewItemProjectionV2[];
   readonly nextCursor: string | null;
 }
 

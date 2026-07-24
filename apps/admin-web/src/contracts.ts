@@ -24,10 +24,19 @@ export interface ReassignmentIntent {
   readonly expectedActiveAssignmentId: string;
   readonly targetCustomerId: string;
 }
+export interface SafeProject {
+  readonly projectId: string;
+  readonly displayName: string;
+  readonly active: boolean;
+  readonly rowVersion: number;
+}
 export interface SafeTimeRecord {
   readonly timeRecordId: string;
   readonly employeeDisplayName: string;
-  readonly customerDisplayName: string;
+  readonly targetType: 'customer' | 'project' | 'general_work';
+  readonly targetDisplayName: string;
+  readonly startedVia: 'nfc' | 'manual' | null;
+  readonly stoppedVia: 'nfc' | 'manual' | null;
   readonly source: 'canonical' | 'recovered';
   readonly status: 'started' | 'stopped';
   readonly startedAt: string;
@@ -40,7 +49,9 @@ export interface SafeReviewItem {
   readonly reviewItemId: string;
   readonly source: 'offline_v2' | 'server_legacy';
   readonly employeeDisplayName: string;
-  readonly customerDisplayName: string;
+  readonly targetType: 'customer' | 'project' | 'general_work';
+  readonly targetDisplayName: string;
+  readonly triggerType: 'nfc' | 'manual';
   readonly occurredAt: string;
   readonly reviewReason: string;
   readonly deviceSequence: number | null;
@@ -87,6 +98,9 @@ export type AdminWebState =
       readonly invitation: VolatileInvitationSecret | null;
       readonly reassignmentIntent: ReassignmentIntent | null;
       readonly reassigning: boolean;
+      readonly projects?: readonly SafeProject[];
+      readonly projectsNextCursor?: string | null;
+      readonly projectBusy?: boolean;
       readonly timeRecords: readonly SafeTimeRecord[];
       readonly timeRecordsNextCursor: string | null;
       readonly reviewItems: readonly SafeReviewItem[];
@@ -130,4 +144,8 @@ export interface AdminWebCapability {
   exportTimeRecords(): Promise<void>;
   loadMoreTimeRecords(): Promise<void>;
   loadMoreReviewItems(): Promise<void>;
+  readonly refreshProjects?: () => Promise<void>;
+  readonly loadMoreProjects?: () => Promise<void>;
+  readonly createProject?: (displayName: string) => Promise<void>;
+  readonly deactivateProject?: (projectId: string) => Promise<void>;
 }

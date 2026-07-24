@@ -32,11 +32,16 @@ export type OfflineSyncSchedulerState =
   | { readonly status: 'idle'; readonly queueCount: number }
   | { readonly status: 'synchronizing'; readonly queueCount: number }
   | { readonly status: 'retry_wait'; readonly queueCount: number }
-  | { readonly status: 'review_pending'; readonly queueCount: number }
+  | {
+      readonly status: 'review_pending';
+      readonly queueCount: number;
+      readonly workEventId?: string;
+    }
   | {
       readonly status: 'server_decision';
       readonly queueCount: number;
       readonly decision: OfflineCanonicalDecision;
+      readonly workEventId: string;
     }
   | { readonly status: 'protected'; readonly queueCount: number }
   | { readonly status: 'authority_rejected'; readonly queueCount: number };
@@ -105,8 +110,12 @@ export class OfflineSyncScheduler {
 
   private async drain(): Promise<OfflineSyncSchedulerState> {
     let lastDurable:
-      | { readonly status: 'review_pending' }
-      | { readonly status: 'server_decision'; readonly decision: OfflineCanonicalDecision }
+      | { readonly status: 'review_pending'; readonly workEventId: string }
+      | {
+          readonly status: 'server_decision';
+          readonly decision: OfflineCanonicalDecision;
+          readonly workEventId: string;
+        }
       | null = null;
     while (!this.stopped) {
       const queueCount = await this.safeQueueCount();
@@ -125,13 +134,20 @@ export class OfflineSyncScheduler {
           lastDurable?.status === 'review_pending'
           || reviewPendingSequence !== null
         ) {
-          return this.publish({ status: 'review_pending', queueCount: 0 });
+          return this.publish({
+            status: 'review_pending',
+            queueCount: 0,
+            ...(lastDurable?.status === 'review_pending'
+              ? { workEventId: lastDurable.workEventId }
+              : {}),
+          });
         }
         if (lastDurable?.status === 'server_decision') {
           return this.publish({
             status: 'server_decision',
             queueCount: 0,
             decision: lastDurable.decision,
+            workEventId: lastDurable.workEventId,
           });
         }
         return this.publish({ status: 'idle', queueCount: 0 });
@@ -216,8 +232,12 @@ export class OfflineSyncScheduler {
     | {
         readonly status: 'continue';
         readonly durable:
-          | { readonly status: 'review_pending' }
-          | { readonly status: 'server_decision'; readonly decision: OfflineCanonicalDecision };
+          | { readonly status: 'review_pending'; readonly workEventId: string }
+          | {
+              readonly status: 'server_decision';
+              readonly decision: OfflineCanonicalDecision;
+              readonly workEventId: string;
+            };
       }
     | { readonly status: 'stop'; readonly state: OfflineSyncSchedulerState }
   > {
@@ -271,12 +291,16 @@ export class OfflineSyncScheduler {
         };
       }
       return recovered.result.status === 'review_pending'
-        ? { status: 'continue', durable: { status: 'review_pending' } }
+        ? {
+            status: 'continue',
+            durable: { status: 'review_pending', workEventId: identity.workEventId },
+          }
         : {
             status: 'continue',
             durable: {
               status: 'server_decision',
               decision: recovered.result.decision,
+              workEventId: identity.workEventId,
             },
           };
     }
@@ -304,10 +328,17 @@ export class OfflineSyncScheduler {
         };
       }
       return result.status === 'review_pending'
-        ? { status: 'continue', durable: { status: 'review_pending' } }
+        ? {
+            status: 'continue',
+            durable: { status: 'review_pending', workEventId: identity.workEventId },
+          }
         : {
             status: 'continue',
-            durable: { status: 'server_decision', decision: result.decision },
+            durable: {
+              status: 'server_decision',
+              decision: result.decision,
+              workEventId: identity.workEventId,
+            },
           };
     }
     if (result.status === 'authority_rejected') {

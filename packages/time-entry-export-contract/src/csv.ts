@@ -3,8 +3,14 @@ import {
   TIME_ENTRY_EXPORT_MAXIMUM_BYTES,
   TIME_ENTRY_EXPORT_MAXIMUM_ROWS,
   TIME_ENTRY_EXPORT_SCHEMA_VERSION,
+  TIME_ENTRY_EXPORT_HEADERS_V2,
+  TIME_ENTRY_EXPORT_SCHEMA_VERSION_V2,
 } from './constants.js';
-import type { SerializedTimeEntryExport, TimeEntryExportRow } from './types.js';
+import type {
+  SerializedTimeEntryExport,
+  TimeEntryExportRow,
+  TimeEntryExportRowV2,
+} from './types.js';
 import { isCanonicalTimeEntryExportUuid } from './validation.js';
 
 const outputUtcPattern =
@@ -61,6 +67,45 @@ export function serializeTimeEntryExportCsv(
   return Object.freeze({ bytes, byteCount: bytes.byteLength, rowCount: rows.length });
 }
 
+export function serializeTimeEntryExportCsvV2(
+  rows: readonly TimeEntryExportRowV2[],
+): SerializedTimeEntryExport {
+  if (rows.length > TIME_ENTRY_EXPORT_MAXIMUM_ROWS) {
+    throw new TimeEntryExportLimitError('rows');
+  }
+  for (const row of rows) assertValidRowV2(row);
+  const orderedRows = [...rows].sort((left, right) => (
+    left.startedAtUtc.localeCompare(right.startedAtUtc)
+    || left.timeEntryId.localeCompare(right.timeEntryId)
+  ));
+  const lines = [
+    serializeCells(TIME_ENTRY_EXPORT_HEADERS_V2),
+    ...orderedRows.map((row) => serializeCells([
+      TIME_ENTRY_EXPORT_SCHEMA_VERSION_V2,
+      row.organizationId,
+      neutralizeSpreadsheetFormula(row.organizationName),
+      row.timeEntryId,
+      row.employeeMembershipId,
+      neutralizeSpreadsheetFormula(row.employeeDisplayName),
+      row.recordSource,
+      row.targetType,
+      row.targetId,
+      neutralizeSpreadsheetFormula(row.targetDisplayName),
+      row.status,
+      row.startedVia,
+      row.stoppedVia,
+      row.startedAtUtc,
+      row.stoppedAtUtc,
+      row.durationSeconds,
+    ])),
+  ];
+  const bytes = new TextEncoder().encode(`\uFEFF${lines.join('\r\n')}\r\n`);
+  if (bytes.byteLength > TIME_ENTRY_EXPORT_MAXIMUM_BYTES) {
+    throw new TimeEntryExportLimitError('bytes');
+  }
+  return Object.freeze({ bytes, byteCount: bytes.byteLength, rowCount: rows.length });
+}
+
 export function neutralizeSpreadsheetFormula(value: string): string {
   return formulaPrefixPattern.test(value) ? `'${value}` : value;
 }
@@ -86,6 +131,41 @@ function assertValidRow(row: TimeEntryExportRow): void {
     || typeof row.organizationName !== 'string'
     || typeof row.employeeDisplayName !== 'string'
     || typeof row.customerDisplayName !== 'string'
+  ) {
+    throw new InvalidTimeEntryExportRowError();
+  }
+}
+
+function assertValidRowV2(row: TimeEntryExportRowV2): void {
+  const stoppedShape = row.status === 'stopped'
+    && outputUtcPattern.test(row.stoppedAtUtc)
+    && durationPattern.test(row.durationSeconds);
+  const startedShape = row.status === 'started'
+    && row.stoppedAtUtc === ''
+    && row.durationSeconds === '';
+  const provenanceShape = row.recordSource === 'recovered'
+    ? row.startedVia === '' && row.stoppedVia === ''
+    : (row.startedVia === 'nfc' || row.startedVia === 'manual')
+      && (
+        (row.status === 'started' && row.stoppedVia === '')
+        || (
+          row.status === 'stopped'
+          && (row.stoppedVia === 'nfc' || row.stoppedVia === 'manual')
+        )
+      );
+  if (
+    !isCanonicalTimeEntryExportUuid(row.organizationId)
+    || !isCanonicalTimeEntryExportUuid(row.timeEntryId)
+    || !isCanonicalTimeEntryExportUuid(row.employeeMembershipId)
+    || !isCanonicalTimeEntryExportUuid(row.targetId)
+    || !outputUtcPattern.test(row.startedAtUtc)
+    || (!stoppedShape && !startedShape)
+    || !provenanceShape
+    || !['canonical', 'recovered'].includes(row.recordSource)
+    || !['customer', 'project', 'general_work'].includes(row.targetType)
+    || typeof row.organizationName !== 'string'
+    || typeof row.employeeDisplayName !== 'string'
+    || typeof row.targetDisplayName !== 'string'
   ) {
     throw new InvalidTimeEntryExportRowError();
   }

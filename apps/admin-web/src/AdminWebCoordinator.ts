@@ -285,6 +285,213 @@ export class AdminWebCoordinator implements AdminWebCapability {
     }
   }
 
+  async refreshProjects(): Promise<void> {
+    const current = this.state;
+    const membershipId = this.membershipId;
+    if (
+      current.status !== 'ready'
+      || membershipId === null
+      || current.projectBusy === true
+      || this.api.projects === undefined
+    ) return;
+    const generation = this.generation;
+    const refreshEpoch = this.refreshEpoch;
+    this.setState({ ...current, projectBusy: true });
+    let result;
+    try {
+      result = await this.auth.withAccessToken(
+        (token) => this.api.projects!(token, membershipId, null),
+      );
+    } catch {
+      result = { status: 'unavailable' as const };
+    }
+    if (generation !== this.generation || refreshEpoch !== this.refreshEpoch) return;
+    const latest = this.state;
+    if (latest.status !== 'ready') return;
+    if (result?.status === 'succeeded') {
+      this.setState({
+        ...latest,
+        projects: Object.freeze([...result.value.items]),
+        projectsNextCursor: result.value.nextCursor,
+        projectBusy: false,
+      });
+    } else if (result === null || result.status === 'rejected') {
+      await this.rejectOutsideAuthentication(
+        generation,
+        'Administrator-Sitzung ist nicht mehr gültig.',
+      );
+    } else {
+      this.setState({
+        ...latest,
+        projectBusy: false,
+        notice: 'Projekte sind derzeit nicht erreichbar.',
+      });
+    }
+  }
+
+  async loadMoreProjects(): Promise<void> {
+    const current = this.state;
+    const membershipId = this.membershipId;
+    const requestedCursor = current.status === 'ready' ? current.projectsNextCursor : undefined;
+    if (
+      current.status !== 'ready'
+      || membershipId === null
+      || current.projectBusy === true
+      || requestedCursor === undefined
+      || requestedCursor === null
+      || this.api.projects === undefined
+    ) return;
+    const generation = this.generation;
+    const refreshEpoch = this.refreshEpoch;
+    this.setState({ ...current, projectBusy: true });
+    let result;
+    try {
+      result = await this.auth.withAccessToken(
+        (token) => this.api.projects!(token, membershipId, requestedCursor),
+      );
+    } catch {
+      result = { status: 'unavailable' as const };
+    }
+    if (generation !== this.generation || refreshEpoch !== this.refreshEpoch) return;
+    const latest = this.state;
+    if (latest.status !== 'ready' || latest.projectsNextCursor !== requestedCursor) return;
+    if (result?.status === 'succeeded') {
+      const merged = mergeCursorPage(
+        latest.projects ?? [],
+        result.value,
+        requestedCursor,
+        'projectId',
+      );
+      this.setState(merged === null
+        ? {
+            ...latest,
+            projectBusy: false,
+            notice: 'Projektseite konnte nicht sicher fortgesetzt werden.',
+          }
+        : {
+            ...latest,
+            projects: merged.items,
+            projectsNextCursor: merged.nextCursor,
+            projectBusy: false,
+          });
+    } else if (result === null || result.status === 'rejected') {
+      await this.rejectOutsideAuthentication(
+        generation,
+        'Administrator-Sitzung ist nicht mehr gültig.',
+      );
+    } else {
+      this.setState({
+        ...latest,
+        projectBusy: false,
+        notice: 'Weitere Projekte sind derzeit nicht erreichbar.',
+      });
+    }
+  }
+
+  async createProject(displayName: string): Promise<void> {
+    const current = this.state;
+    const membershipId = this.membershipId;
+    const normalized = displayName.normalize('NFC').trim();
+    if (
+      current.status !== 'ready'
+      || membershipId === null
+      || current.projectBusy === true
+      || normalized.length === 0
+      || Array.from(normalized).length > 120
+      || this.api.createProject === undefined
+    ) return;
+    const generation = this.generation;
+    const refreshEpoch = this.refreshEpoch;
+    this.setState({ ...current, projectBusy: true, notice: null });
+    let result;
+    try {
+      result = await this.auth.withAccessToken((token) => this.api.createProject!(
+        token,
+        membershipId,
+        crypto.randomUUID(),
+        crypto.randomUUID(),
+        normalized,
+      ));
+    } catch {
+      result = { status: 'unavailable' as const };
+    }
+    if (generation !== this.generation || refreshEpoch !== this.refreshEpoch) return;
+    const latest = this.state;
+    if (latest.status !== 'ready') return;
+    if (result?.status === 'succeeded') {
+      this.setState({ ...latest, projectBusy: false });
+      await this.refreshProjects();
+      const refreshed = this.state;
+      if (refreshed.status === 'ready') {
+        this.setState({ ...refreshed, notice: 'Projekt wurde sicher angelegt.' });
+      }
+    } else if (result === null || result.status === 'rejected') {
+      await this.rejectOutsideAuthentication(
+        generation,
+        'Administrator-Sitzung ist nicht mehr gültig.',
+      );
+    } else {
+      this.setState({
+        ...latest,
+        projectBusy: false,
+        notice: result.status === 'conflict'
+          ? 'Das Projekt konnte wegen eines sicheren Konflikts nicht angelegt werden.'
+          : 'Projekt konnte nicht sicher angelegt werden.',
+      });
+    }
+  }
+
+  async deactivateProject(projectId: string): Promise<void> {
+    const current = this.state;
+    const membershipId = this.membershipId;
+    const project = current.status === 'ready'
+      ? current.projects?.find((candidate) => candidate.projectId === projectId)
+      : undefined;
+    if (
+      current.status !== 'ready'
+      || membershipId === null
+      || current.projectBusy === true
+      || project === undefined
+      || !project.active
+      || this.api.deactivateProject === undefined
+    ) return;
+    const generation = this.generation;
+    const refreshEpoch = this.refreshEpoch;
+    this.setState({ ...current, projectBusy: true, notice: null });
+    let result;
+    try {
+      result = await this.auth.withAccessToken((token) => this.api.deactivateProject!(
+        token,
+        membershipId,
+        crypto.randomUUID(),
+        project,
+      ));
+    } catch {
+      result = { status: 'unavailable' as const };
+    }
+    if (generation !== this.generation || refreshEpoch !== this.refreshEpoch) return;
+    const latest = this.state;
+    if (latest.status !== 'ready') return;
+    if (result?.status === 'succeeded') {
+      this.setState({ ...latest, projectBusy: false });
+      await this.refreshProjects();
+      const refreshed = this.state;
+      if (refreshed.status === 'ready') {
+        this.setState({ ...refreshed, notice: 'Projekt wurde deaktiviert.' });
+      }
+    } else if (result === null || result.status === 'rejected') {
+      await this.rejectOutsideAuthentication(
+        generation,
+        'Administrator-Sitzung ist nicht mehr gültig.',
+      );
+    } else {
+      const notice = result.status === 'conflict' && result.code === 'project_in_use'
+        ? 'Das Projekt hat eine laufende Arbeitszeit und kann nicht deaktiviert werden.'
+        : 'Projektstatus hat sich geändert; bitte Projekte neu laden.';
+      this.setState({ ...latest, projectBusy: false, notice });
+    }
+  }
+
   async loadMoreEmployees(): Promise<void> {
     let current = this.state;
     const membershipId = this.membershipId;

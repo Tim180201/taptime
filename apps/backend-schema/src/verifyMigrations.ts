@@ -12,7 +12,7 @@ try {
     `SELECT version FROM ${B3_MIGRATION_TABLE} ORDER BY version`,
   );
   const versions = result.rows.map((row) => row.version);
-  if (versions.join(',') !== '001,002,003,004,005,006,007,008,009,010,011,012') {
+  if (versions.join(',') !== '001,002,003,004,005,006,007,008,009,010,011,012,013') {
     throw new Error(`Unexpected backend schema migration versions: ${versions.join(',') || 'none'}`);
   }
   process.stdout.write(`Backend schema migration versions verified: ${versions.join(',')}\n`);

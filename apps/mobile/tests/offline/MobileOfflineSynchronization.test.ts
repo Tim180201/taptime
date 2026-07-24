@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type {
   OfflineCaptureLeasePage,
+  OfflineCaptureLeasePageV2,
   OfflineLifecycleEventCommand,
   OfflineReconciliationResult,
 } from '@taptime/offline-sync-contract';
@@ -24,7 +25,10 @@ import {
   type OfflineLifecycleApiPort,
 } from '../../src/offline/OfflineLifecycleClient';
 import { LegacyLifecycleEvidenceImporter } from '../../src/offline/LegacyLifecycleEvidenceImporter';
-import { mobileManifestDigest } from '../../src/offline/MobileLookupHmac';
+import {
+  mobileManifestDigest,
+  mobileManifestDigestV2,
+} from '../../src/offline/MobileLookupHmac';
 import {
   OfflineSyncScheduler,
   retryDelay,
@@ -100,6 +104,31 @@ describe('Mobile complete offline clients', () => {
       installationBinding,
       lookupKey,
     })).resolves.toEqual({ status: 'incomplete_or_oversize' });
+  });
+
+  it('assembles a strict v2 mixed NFC/manual lease and uses only additive routes', async () => {
+    const complete = leasePageV2();
+    const first = { ...complete, items: complete.items.slice(0, 1), nextCursor: 'next-v2' };
+    const second = { ...complete, items: complete.items.slice(1), nextCursor: null };
+    const request = new FakeRequest(async (endpoint) => response(200, {
+      status: 'ready',
+      idempotentRetry: false,
+      page: endpoint.pathname.endsWith('/page') ? second : first,
+    }));
+    const client = new OfflineCaptureLeaseClient(new URL('https://api.example/'), request);
+    await expect(client.issueCompleteV2({
+      commandId: ids.command,
+      installationBinding,
+      lookupKey,
+    })).resolves.toEqual({
+      status: 'ready',
+      idempotentRetry: false,
+      page: complete,
+    });
+    expect(request.calls.map(({ endpoint }) => endpoint.pathname)).toEqual([
+      '/v2/offline-capture-leases',
+      '/v2/offline-capture-leases/page',
+    ]);
   });
 
   it('fails a lease generation closed on a non-adjacent pagination cursor cycle', async () => {
@@ -280,6 +309,7 @@ describe('Mobile FIFO scheduler and legacy migration', () => {
     await expect(scheduler.trigger('runtime_start')).resolves.toEqual({
       status: 'server_decision',
       queueCount: 0,
+      workEventId: ids.event,
       decision: { status: 'time_entry_started', timeEntryId: ids.timeEntry },
     });
     expect(ingest).not.toHaveBeenCalled();
@@ -335,6 +365,7 @@ describe('Mobile FIFO scheduler and legacy migration', () => {
       await expect(scheduler.trigger('network_hint')).resolves.toEqual({
         status: 'review_pending',
         queueCount: 0,
+        workEventId: ids.event,
       });
       expect(database.acknowledgeHead).toHaveBeenCalledWith({
         workEventId: ids.event,
@@ -504,6 +535,51 @@ function leasePage(): OfflineCaptureLeasePage {
     itemCount: items.length,
     serializedBytes: new TextEncoder().encode(JSON.stringify(items)).byteLength,
     manifestDigest: mobileManifestDigest(items),
+    items: Object.freeze(items),
+    nextCursor: null,
+  });
+}
+
+function leasePageV2(): OfflineCaptureLeasePageV2 {
+  const items = [
+    {
+      itemType: 'nfc_assignment' as const,
+      itemId: ids.item1,
+      lookup: '1'.repeat(64),
+      assignmentId: ids.assignment1,
+      nfcTagId: ids.tag1,
+      targetType: 'customer' as const,
+      targetId: ids.customer1,
+      displayName: 'Kunde Eins',
+      assignmentRowVersion: 1,
+      targetRowVersion: 1,
+    },
+    {
+      itemType: 'manual_target' as const,
+      itemId: ids.item2,
+      targetType: 'project' as const,
+      targetId: ids.customer2,
+      displayName: 'Projekt Zwei',
+      targetRowVersion: 2,
+    },
+  ];
+  return Object.freeze({
+    leaseSchemaVersion: 2,
+    manifestVersion: 2,
+    leaseId: ids.lease,
+    installationId: ids.installation,
+    identityBindingId: ids.identity,
+    userId: ids.user,
+    organizationId: ids.organization,
+    membershipId: ids.membership,
+    membershipRowVersion: 1,
+    role: 'employee',
+    issuedAt: '2026-07-18T10:00:00.000Z',
+    expiresAt: '2026-07-18T22:00:00.000Z',
+    configurationRevision: '3'.repeat(64),
+    itemCount: items.length,
+    serializedBytes: new TextEncoder().encode(JSON.stringify(items)).byteLength,
+    manifestDigest: mobileManifestDigestV2(items),
     items: Object.freeze(items),
     nextCursor: null,
   });

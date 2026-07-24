@@ -38,6 +38,7 @@ import {
   B6_LIFECYCLE_ROLE,
   B6_RUNTIME_LOGIN,
   InjectedB6Failure,
+  ManualLifecycleIngestionCoordinator,
   ServerCanonicalLifecycleIngestionCoordinator,
   type B6WriteStage,
   type LifecycleIngestionCommand,
@@ -69,6 +70,7 @@ let jwksServer: Server;
 let issuer: string;
 let verifier: SupabaseJwtAccessTokenVerifier;
 let coordinator: ServerCanonicalLifecycleIngestionCoordinator;
+let manualCoordinator: ManualLifecycleIngestionCoordinator;
 
 interface TokenOptions {
   readonly subject?: string;
@@ -252,6 +254,7 @@ beforeAll(async () => {
     allowedAlgorithms: ['RS256'],
   });
   coordinator = new ServerCanonicalLifecycleIngestionCoordinator(runtimePool, verifier);
+  manualCoordinator = new ManualLifecycleIngestionCoordinator(runtimePool, verifier);
 }, 30_000);
 
 beforeEach(async () => {
@@ -265,19 +268,19 @@ afterAll(async () => {
 });
 
 describe('B6 migration and least-privilege runtime boundary', () => {
-  it('applies exactly migrations 001 through 012 and reruns the immutable ledger', async () => {
+  it('applies exactly migrations 001 through 013 and reruns the immutable ledger', async () => {
     expect((await loadMigrations()).map(({ version }) => version)).toEqual([
-      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012',
+      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013',
     ]);
     const ledger = await installerPool.query<{ version: string }>(
       `SELECT version FROM ${B3_MIGRATION_TABLE} ORDER BY version`,
     );
     expect(ledger.rows.map(({ version }) => version)).toEqual([
-      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012',
+      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013',
     ]);
     await expect(migrate(installerPool)).resolves.toEqual({
       applied: [],
-      alreadyApplied: ['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012'],
+      alreadyApplied: ['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013'],
     });
   });
 
@@ -1713,5 +1716,72 @@ describe('pool cleanup, unnamed execution and error truth', () => {
       receiptNumber: 215,
     }))).rejects.toThrow();
     await brokenPool.end();
+  });
+});
+
+describe('DA5 manual trigger provenance and shared duplicate rule', () => {
+  it('uses server transaction time and treats a following NFC trigger as the same-target duplicate', async () => {
+    const manual = await manualCoordinator.ingestManual({
+      accessToken: await accessToken(),
+      expectedMembershipId: MembershipId(ids.membershipA),
+      workEvent: {
+        id: WorkEventId(uuid('5', 300)),
+        target: customerAssignmentTarget(CustomerId(ids.customerA)),
+      },
+      receipt: { id: uuid('6', 300), attemptNumber: 1 },
+    });
+    expect(manual).toMatchObject({
+      status: 'synchronized',
+      decision: { status: 'time_entry_started' },
+    });
+    const stored = await installerPool.query<{
+      occurred_at: Date;
+      trigger_type: string;
+      started_via: string;
+    }>(
+      `SELECT event.occurred_at, event.trigger_type, entry.started_via
+       FROM taptime_server.work_events AS event
+       JOIN taptime_server.time_entries AS entry
+         ON entry.start_work_event_id = event.id
+       WHERE event.id = $1::uuid`,
+      [uuid('5', 300)],
+    );
+    expect(stored.rows[0]).toMatchObject({
+      trigger_type: 'manual',
+      started_via: 'manual',
+    });
+    const nfc = await coordinator.ingest(await command({
+      eventNumber: 301,
+      receiptNumber: 301,
+      occurredAt: new Date(stored.rows[0]!.occurred_at.getTime() + 1_000).toISOString(),
+    }));
+    expect(nfc).toMatchObject({
+      status: 'synchronized',
+      decision: {
+        status: 'duplicate_scan_ignored',
+        previousWorkEventId: uuid('5', 300),
+      },
+    });
+  });
+
+  it('returns a closed conflict for a Receipt identity already owned by another event', async () => {
+    await manualCoordinator.ingestManual({
+      accessToken: await accessToken(),
+      expectedMembershipId: MembershipId(ids.membershipA),
+      workEvent: {
+        id: WorkEventId(uuid('5', 302)),
+        target: customerAssignmentTarget(CustomerId(ids.customerA)),
+      },
+      receipt: { id: uuid('6', 302), attemptNumber: 1 },
+    });
+    await expect(manualCoordinator.ingestManual({
+      accessToken: await accessToken(),
+      expectedMembershipId: MembershipId(ids.membershipA),
+      workEvent: {
+        id: WorkEventId(uuid('5', 303)),
+        target: customerAssignmentTarget(CustomerId(ids.customerA)),
+      },
+      receipt: { id: uuid('6', 302), attemptNumber: 1 },
+    })).resolves.toEqual({ status: 'conflict', reason: 'receipt_metadata_conflict' });
   });
 });

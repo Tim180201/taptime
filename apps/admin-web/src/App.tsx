@@ -191,7 +191,7 @@ function Overview({
         <dt>Organisation</dt><dd>{state.projection.organization.name}</dd>
         <dt>Zeitfenster</dt><dd>Fest begrenzt auf die vergangenen 31 Tage</dd>
         <dt>Sitzung</dt><dd>Nur im Arbeitsspeicher · Neuladen meldet ab</dd>
-        <dt>Export</dt><dd>Serverseitig erzeugtes CSV v1</dd>
+        <dt>Export</dt><dd>Serverseitig erzeugtes CSV v2 mit Zieltyp und Auslöser</dd>
       </dl>
     </Panel>
   </section>;
@@ -205,12 +205,16 @@ function SetupView({
   readonly administration: AdminWebCapability;
 }) {
   const [customerName, setCustomerName] = useState('');
+  const [projectName, setProjectName] = useState('');
   const [tagId, setTagId] = useState('');
   const [targetId, setTargetId] = useState('');
   const prepareButton = useRef<HTMLButtonElement>(null);
   const tagSelect = useRef<HTMLSelectElement>(null);
   const targetSelect = useRef<HTMLSelectElement>(null);
   const sectionRetryButton = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    void administration.refreshProjects?.();
+  }, [administration]);
   useIntentFocusReturn(
     state.reassignmentIntent !== null,
     prepareButton,
@@ -270,6 +274,53 @@ function SetupView({
         </li>)}</ul>
         {state.projection.nfcTags.length === 0 && state.projection.nextCursor === null
           ? <p className="empty">Keine Tags registriert.</p> : null}
+      </Panel>
+      <Panel title="Projekte" description="Eigenständige Arbeitsziele ohne Kundenbeziehung.">
+        <CountTruth count={state.projects?.length ?? 0} noun="Projekte"
+          complete={state.projectsNextCursor === null} />
+        <form className="inline-form" onSubmit={(event) => {
+          event.preventDefault();
+          void administration.createProject?.(projectName);
+          setProjectName('');
+        }}>
+          <label htmlFor="project-name">Neues Projekt anlegen</label>
+          <div className="input-action">
+            <input id="project-name" required maxLength={120} value={projectName}
+              onChange={(event) => setProjectName(event.target.value)} />
+            <button disabled={state.projectBusy === true}>
+              {state.projectBusy === true ? 'Wird verarbeitet …' : 'Projekt anlegen'}
+            </button>
+          </div>
+        </form>
+        <ul className="entity-list">{(state.projects ?? []).map((project) =>
+          <li key={project.projectId}>
+            <span>{project.displayName}</span>
+            <div>
+              <small className={`pill ${project.active ? 'success' : ''}`}>
+                {project.active ? 'Aktiv' : 'Inaktiv'}
+              </small>
+              {project.active
+                ? <button className="text-button" disabled={state.projectBusy === true}
+                    aria-label={`${project.displayName} deaktivieren`}
+                    onClick={() => void administration.deactivateProject?.(project.projectId)}>
+                    Deaktivieren
+                  </button>
+                : null}
+            </div>
+          </li>)}</ul>
+        {(state.projects?.length ?? 0) === 0 && state.projectBusy !== true
+          ? <p className="empty">Keine Projekte vorhanden.</p>
+          : null}
+        {state.projectsNextCursor === null || state.projectsNextCursor === undefined
+          ? null
+          : <button className="secondary load-more"
+              disabled={state.projectBusy === true}
+              onClick={() => void administration.loadMoreProjects?.()}>
+              Weitere Projekte laden
+            </button>}
+        <p className="supporting">
+          Projektnamen bleiben unverändert. Laufende Arbeitszeit blockiert die Deaktivierung.
+        </p>
       </Panel>
       <Panel title="Tag neu zuordnen" description="Eine laufende Arbeitszeit blockiert die Änderung."
         className="full-width">
@@ -438,7 +489,7 @@ function TimeRecordsView({
         <table>
           <thead><tr><th>Beschäftigt</th><th>Kunde</th><th>Zeitraum</th><th>Quelle</th><th>Revision</th><th>Status</th></tr></thead>
           <tbody>{state.timeRecords.map((record) => <tr key={record.timeRecordId}>
-            <td>{record.employeeDisplayName}</td><td>{record.customerDisplayName}</td>
+            <td>{record.employeeDisplayName}</td><td>{targetLabel(record.targetType)} · {record.targetDisplayName}</td>
             <td>{format(record.startedAt)} – {record.stoppedAt === null ? 'läuft' : format(record.stoppedAt)}</td>
             <td>{record.source === 'canonical' ? 'Kanonisch' : 'Wiederhergestellt'}</td>
             <td>{record.effectiveRevisionNumber}</td>
@@ -481,7 +532,7 @@ function TimeRecordsView({
             <option value="">Arbeitszeit auswählen</option>
             {state.timeRecords.filter((record) => record.status === 'stopped').map((record) =>
               <option key={record.timeRecordId} value={record.timeRecordId}>
-                {record.employeeDisplayName} · {record.customerDisplayName} · {format(record.startedAt)}
+                {record.employeeDisplayName} · {targetLabel(record.targetType)} · {record.targetDisplayName} · {format(record.startedAt)}
               </option>)}
           </select>
         </label>
@@ -615,7 +666,7 @@ function ReviewsView({
             onChange={(event) => setItemId(event.target.value)}>
             <option value="">Evidence auswählen</option>
             {state.reviewItems.map((item) => <option key={item.reviewItemId} value={item.reviewItemId}>
-              {item.employeeDisplayName} · {item.customerDisplayName} · {format(item.occurredAt)}
+              {item.employeeDisplayName} · {targetLabel(item.targetType)} · {item.targetDisplayName} · {triggerLabel(item.triggerType)} · {format(item.occurredAt)}
             </option>)}
           </select>
         </label>
@@ -706,8 +757,8 @@ function ReviewItem({
 }) {
   return <li>
     <div>
-      <strong>{item.employeeDisplayName} · {item.customerDisplayName}</strong>
-      <small>{format(item.occurredAt)} · {item.source === 'offline_v2' ? 'Offline V2' : 'Server Legacy'}</small>
+      <strong>{item.employeeDisplayName} · {targetLabel(item.targetType)} · {item.targetDisplayName}</strong>
+      <small>{format(item.occurredAt)} · {triggerLabel(item.triggerType)} · {item.source === 'offline_v2' ? 'Offline V2' : 'Server Legacy'}</small>
     </div>
     <span>{reviewReasonLabel(item.reviewReason)}
       {item.predecessorBlocked ? ' · Vorgänger blockiert' : ''}</span>
@@ -741,6 +792,16 @@ function resolutionLabel(value: string): string {
   if (value === 'no_time_record_change') return 'Keine Arbeitszeit ändern';
   if (value === 'create_recovered_time_record') return 'Arbeitszeit wiederherstellen';
   return 'Bestehende Arbeitszeit korrigieren';
+}
+
+function targetLabel(value: 'customer' | 'project' | 'general_work'): string {
+  if (value === 'customer') return 'Kunde';
+  if (value === 'project') return 'Projekt';
+  return 'Allgemeine Arbeit';
+}
+
+function triggerLabel(value: 'nfc' | 'manual'): string {
+  return value === 'nfc' ? 'NFC' : 'Manuell';
 }
 
 function returnFocus(...references: readonly RefObject<HTMLElement | null>[]): void {

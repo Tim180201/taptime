@@ -316,7 +316,7 @@ describe('B3 deterministic migration system', () => {
     );
 
     expect(rows.rows.map((row) => row.version)).toEqual([
-      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012',
+      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013',
     ]);
     expect(rows.rows.every((row) => /^[0-9a-f]{64}$/.test(row.checksum))).toBe(true);
   });
@@ -325,7 +325,7 @@ describe('B3 deterministic migration system', () => {
     await expect(migrate(installerPool)).resolves.toEqual({
       applied: [],
       alreadyApplied: [
-        '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012',
+        '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013',
       ],
     });
   });
@@ -418,10 +418,10 @@ describe('B3 deterministic migration system', () => {
       expect((await upgradePool.query<{ relation: string | null }>(
         `SELECT to_regclass('taptime_server.time_record_revisions')::text AS relation`,
       )).rows[0]!.relation).toBeNull();
-      await expect(applyMigrationSet(upgradePool, migrations.slice(11))).resolves.toEqual({
+      await expect(applyMigrationSet(upgradePool, migrations.slice(11, 12))).resolves.toEqual({
         applied: ['012'], alreadyApplied: [],
       });
-      await expect(applyMigrationSet(upgradePool, migrations.slice(11))).resolves.toEqual({
+      await expect(applyMigrationSet(upgradePool, migrations.slice(11, 12))).resolves.toEqual({
         applied: [], alreadyApplied: ['012'],
       });
     } finally {
@@ -456,7 +456,7 @@ describe('B3 deterministic migration system', () => {
     }
   }, 30_000);
 
-  it('contains exactly the twenty-six approved tables and one effective-record view', async () => {
+  it('contains exactly the twenty-nine approved tables and two effective-record views', async () => {
     const result = await installerPool.query<{ table_name: string }>(
       `SELECT table_name FROM information_schema.tables WHERE table_schema = $1 ORDER BY table_name`,
       [B3_SCHEMA],
@@ -468,6 +468,7 @@ describe('B3 deterministic migration system', () => {
       'canonical_decisions',
       'customers',
       'effective_time_records_v1',
+      'effective_time_records_v2',
       'employee_enrollment_redemption_receipts',
       'employee_invitation_command_receipts',
       'employee_membership_invitations',
@@ -483,12 +484,15 @@ describe('B3 deterministic migration system', () => {
       'offline_review_adjudications',
       'offline_sync_cursors',
       'organizations',
+      'project_command_receipts',
+      'projects',
       'sync_receipts',
       'time_entries',
       'time_record_revisions',
       'time_review_command_receipts',
       'users',
       'work_events',
+      'work_targets',
     ]);
   });
 
@@ -502,7 +506,7 @@ describe('B3 deterministic migration system', () => {
         AND relation.relrowsecurity
         AND relation.relforcerowsecurity
     `);
-    expect(result.rows[0]?.count).toBe('26');
+    expect(result.rows[0]?.count).toBe('29');
   });
 });
 

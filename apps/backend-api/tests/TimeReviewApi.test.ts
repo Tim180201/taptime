@@ -2,7 +2,9 @@ import type { Server } from 'node:http';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type {
   ReviewItemProjection,
+  ReviewItemProjectionV2,
   TimeRecordProjection,
+  TimeRecordProjectionV2,
 } from '@taptime/time-review-contract';
 import { createBackendHttpServer } from '../src/BackendHttpServer.js';
 import type { BackendApiDependencies } from '../src/types.js';
@@ -58,6 +60,87 @@ describe('DA3 time-review HTTP boundary', () => {
     expect(await response.json()).toMatchObject({ status: 'ready', records: [{ timeRecordId: ids.record }] });
     expect(queryTimeRecords).toHaveBeenCalledWith(
       { accessToken: 'abc.def.ghi', request: body },
+      { deadlineEpochMilliseconds: expect.any(Number) },
+    );
+  });
+
+  it('exposes generalized target and trigger provenance only through the additive v2 reads', async () => {
+    const records: readonly TimeRecordProjectionV2[] = [{
+      timeRecordId: ids.record,
+      employeeMembershipId: ids.employeeMembership,
+      employeeDisplayName: 'Employee Alpha',
+      targetType: 'project',
+      targetId: ids.customer,
+      targetDisplayName: 'Montage Nord',
+      source: 'canonical',
+      status: 'stopped',
+      startedVia: 'manual',
+      stoppedVia: 'nfc',
+      startedAt: '2026-07-20T08:00:00.000Z',
+      stoppedAt: '2026-07-20T10:00:00.000Z',
+      baseRowVersion: 1,
+      effectiveRevisionNumber: 0,
+      overlapsAnotherRecord: false,
+    }];
+    const items: readonly ReviewItemProjectionV2[] = [{
+      reviewItemId: ids.reviewItem,
+      source: 'offline_v2',
+      employeeUserId: ids.employeeUser,
+      employeeMembershipId: ids.employeeMembership,
+      employeeDisplayName: 'Employee Alpha',
+      targetType: 'general_work',
+      targetId: ids.customer,
+      targetDisplayName: 'Allgemeine Arbeit',
+      triggerType: 'manual',
+      occurredAt: '2026-07-20T08:00:00.000Z',
+      recordedAt: '2026-07-20T08:01:00.000Z',
+      reviewReason: 'capture_time_out_of_bounds',
+      deviceSequence: 8,
+      predecessorBlocked: false,
+    }];
+    const queryTimeRecordsV2 = vi.fn(async () => ({
+      status: 'ready' as const, value: { records, nextCursor: null },
+    }));
+    const queryReviewItemsV2 = vi.fn(async () => ({
+      status: 'ready' as const, value: { items, nextCursor: null },
+    }));
+    const origin = await start({
+      timeReview: {
+        ...unavailableOfflineDependencies().timeReview,
+        queryTimeRecordsV2,
+        queryReviewItemsV2,
+      },
+    });
+    const timeRequest = {
+      expectedMembershipId: ids.membership,
+      fromInclusive: '2026-07-01T00:00:00.000Z',
+      toExclusive: '2026-07-21T00:00:00.000Z',
+      limit: 100,
+      cursor: null,
+    };
+    const reviewRequest = {
+      expectedMembershipId: ids.membership,
+      limit: 100,
+      cursor: null,
+    };
+
+    const timeResponse = await post(
+      origin, '/v2/administration/time-records/query', timeRequest,
+    );
+    const reviewResponse = await post(
+      origin, '/v2/administration/review-items/query', reviewRequest,
+    );
+
+    expect(timeResponse.status).toBe(200);
+    expect(await timeResponse.json()).toEqual({ status: 'ready', records, nextCursor: null });
+    expect(reviewResponse.status).toBe(200);
+    expect(await reviewResponse.json()).toEqual({ status: 'ready', items, nextCursor: null });
+    expect(queryTimeRecordsV2).toHaveBeenCalledWith(
+      { accessToken: 'abc.def.ghi', request: timeRequest },
+      { deadlineEpochMilliseconds: expect.any(Number) },
+    );
+    expect(queryReviewItemsV2).toHaveBeenCalledWith(
+      { accessToken: 'abc.def.ghi', request: reviewRequest },
       { deadlineEpochMilliseconds: expect.any(Number) },
     );
   });

@@ -54,3 +54,97 @@ export function isValidRetryAfterSeconds(value: unknown): value is number {
     && value >= OFFLINE_RETRY_AFTER_MINIMUM_SECONDS
     && value <= OFFLINE_RETRY_AFTER_MAXIMUM_SECONDS;
 }
+
+export function isOfflineTargetTypeV2(
+  value: unknown,
+): value is 'customer' | 'project' | 'general_work' {
+  return value === 'customer' || value === 'project' || value === 'general_work';
+}
+
+export function isOfflineLifecycleEventCommandV2(value: unknown): boolean {
+  if (
+    !isRecord(value)
+    || !hasExactKeys(value, [
+      'organizationId',
+      'expectedMembershipId',
+      'leaseId',
+      'leaseItemId',
+      'installationBinding',
+      'deviceSequence',
+      'provenanceVersion',
+      'clock',
+      'workEvent',
+      'receipt',
+    ])
+    || !isCanonicalOfflineUuid(value.organizationId)
+    || !isCanonicalOfflineUuid(value.expectedMembershipId)
+    || !isCanonicalOfflineUuid(value.leaseId)
+    || !isCanonicalOfflineUuid(value.leaseItemId)
+    || !isOfflineBase64Url32Bytes(value.installationBinding)
+    || !isPositiveSafeInteger(value.deviceSequence)
+    || value.provenanceVersion !== 2
+    || !isClockProof(value.clock)
+    || !isRecord(value.receipt)
+    || !hasExactKeys(value.receipt, ['id', 'attemptNumber'])
+    || !isCanonicalOfflineUuid(value.receipt.id)
+    || value.receipt.attemptNumber !== 1
+    || !isRecord(value.workEvent)
+    || !hasExactKeys(value.workEvent, ['id', 'target', 'occurredAt', 'trigger'])
+    || !isCanonicalOfflineUuid(value.workEvent.id)
+    || !isOfflineIsoTimestamp(value.workEvent.occurredAt)
+    || !isRecord(value.workEvent.target)
+    || !hasExactKeys(value.workEvent.target, ['targetType', 'targetId'])
+    || !isOfflineTargetTypeV2(value.workEvent.target.targetType)
+    || !isCanonicalOfflineUuid(value.workEvent.target.targetId)
+    || !isRecord(value.workEvent.trigger)
+  ) {
+    return false;
+  }
+  const trigger = value.workEvent.trigger;
+  return (
+    hasExactKeys(trigger, ['type'])
+    && trigger.type === 'manual'
+  ) || (
+    hasExactKeys(trigger, ['type', 'assignmentId', 'nfcTagId'])
+    && trigger.type === 'nfc'
+    && isCanonicalOfflineUuid(trigger.assignmentId)
+    && isCanonicalOfflineUuid(trigger.nfcTagId)
+  );
+}
+
+function isClockProof(value: unknown): boolean {
+  return isRecord(value)
+    && hasExactKeys(value, [
+      'bootMarker',
+      'monotonicAnchorMilliseconds',
+      'monotonicDeltaMilliseconds',
+      'wallClockAnchor',
+      'clockProofStatus',
+      'clockProofVersion',
+    ])
+    && typeof value.bootMarker === 'string'
+    && value.bootMarker.length > 0
+    && value.bootMarker.length <= 256
+    && Number.isSafeInteger(value.monotonicAnchorMilliseconds)
+    && Number(value.monotonicAnchorMilliseconds) >= 0
+    && Number.isSafeInteger(value.monotonicDeltaMilliseconds)
+    && Number(value.monotonicDeltaMilliseconds) >= 0
+    && isOfflineIsoTimestamp(value.wallClockAnchor)
+    && (value.clockProofStatus === 'verified_same_boot'
+      || value.clockProofStatus === 'review_only')
+    && value.clockProofVersion === 1;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function hasExactKeys(
+  value: Record<string, unknown>,
+  expected: readonly string[],
+): boolean {
+  const actual = Object.keys(value).sort();
+  const sortedExpected = [...expected].sort();
+  return actual.length === sortedExpected.length
+    && actual.every((key, index) => key === sortedExpected[index]);
+}

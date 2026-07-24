@@ -1,6 +1,8 @@
 import type {
   AssignmentTarget,
+  CustomerWorkTarget,
   BusinessEngineEscalationReason,
+  MembershipId,
   NfcAssignmentId,
   NfcTagId,
   OrganizationId,
@@ -14,7 +16,7 @@ export interface LifecycleWorkEventEvidence {
   readonly id: WorkEventId;
   readonly assignmentId: NfcAssignmentId;
   readonly nfcTagId: NfcTagId;
-  readonly target: AssignmentTarget;
+  readonly target: CustomerWorkTarget;
   readonly occurredAt: Timestamp;
 }
 
@@ -29,6 +31,19 @@ export interface LifecycleIngestionCommand {
   readonly requestedOrganizationId: OrganizationId;
   readonly workEvent: LifecycleWorkEventEvidence;
   readonly receipt: LifecycleReceiptEvidence;
+}
+
+export interface ManualLifecycleIngestionCommand {
+  readonly accessToken: string;
+  readonly expectedMembershipId: MembershipId;
+  readonly workEvent: {
+    readonly id: WorkEventId;
+    readonly target: AssignmentTarget;
+  };
+  readonly receipt: {
+    readonly id: string;
+    readonly attemptNumber: 1;
+  };
 }
 
 export type PersistedLifecycleDecision =

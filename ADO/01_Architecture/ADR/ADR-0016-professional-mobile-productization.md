@@ -1,10 +1,10 @@
 # ADR-0016: Professional Mobile Productization
 
-- Status: **CORRECTED ADO-ONLY CANDIDATE — INDEPENDENT REVIEW REQUIRED; EXECUTABLE IMPLEMENTATION UNAUTHORIZED**
+- Status: **HUMAN ACCEPTED — LOCAL IMPLEMENTATION CANDIDATE; V4, INDEPENDENT IMPLEMENTATION REVIEW AND HUMAN V5 PENDING**
 - Date: 2026-07-24
-- Candidate baseline commit: `8e0cec7f86aaf740a4fa5fbc0465235acda1b328`
-- Candidate baseline tree: `a1f57d7001b4355c6fc36b9f27c9296900eaa8cf`
-- Baseline CI: GitHub Actions `30094046612`, attempt 1, 12/12 successful
+- Implementation baseline commit: `fb32a2796e78c78ce12f856c908545de7ce7bf99`
+- Implementation baseline tree: `53d6b5d6c2c86a8a3245539d821a12fae6850673`
+- Baseline CI: 12/12 successful, as bound by the Human authorization
 - Owner: Technical Lead
 - Decision authority: Human Architect
 - Roadmap: Development Assignment 5; Mobile portions of DT-090, DT-093–DT-096, DT-098 and DT-103
@@ -36,10 +36,10 @@ recovered records part of the effective time truth. The existing raw Employee RL
 effective overlay, while the existing effective reader is Administrator-only, Organization-wide
 and exposes privileged correction metadata. Neither is a safe Mobile self-read boundary.
 
-DA4's still-open Human browser gate does not block ADO-only DA5 preparation or independently
-approved repository work. It remains a separate gate and receives no evidence from DA5.
+DA4's still-open Human browser gate did not block DA5 preparation or the separately authorized
+local repository work. It remains a separate gate and receives no evidence from DA5.
 
-## 2. Decision candidate
+## 2. Decision
 
 ### DA5-P01 — Assignment and Roadmap boundary
 
@@ -271,11 +271,14 @@ Renewed architecture and Human review are required before:
 
 ## 5. Current authority
 
-The Human Architect instructed the Technical Lead to include Android background NFC and manual
-Customer/Project/General Work capture, continue the Roadmap autonomously through independently
-approved work and stop at the next Human/hardware gate. This corrected document and ADR-0017 are
-the Technical Lead's exact ADO-only candidate on the verified baseline above.
+The Human Architect expressly accepted the complete ADR-0016/ADR-0017 values and authorized the
+bounded DA5 sequence through local AVS V0–V3, Technical-Lead acceptance, focused publication,
+exact-head V4 and independent exact-SHA implementation review on the implementation baseline
+above. The Development Agent's delegated role ended before commit, push, publication and V4; the
+local implementation delta and truthful pre-publication evidence are recorded in
+`ADO/05_Evidence/Development_Assignment_05_Local_Implementation_Evidence.md`.
 
-Before an independent read-only pre-implementation review returns `APPROVED` with zero open P0–P3,
-no source, schema, dependency, workflow, build or executable change is authorized. Human V5,
-production, production data, deployment and distribution remain separately unauthorized.
+No commit, publication or V4 occurred during the Development-Agent phase. Exact-head V4 and
+independent exact-SHA review with zero open P0–P3 remain mandatory before a
+separately authorized Human V5. Production, production data, deployment and distribution remain
+separately unauthorized.

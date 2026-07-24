@@ -747,7 +747,7 @@ async function resetDatabase(pool: Pool): Promise<void> {
   await removeJourneyState(pool);
   const result = await migrate(pool);
   expect(result.applied).toEqual([
-    '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012',
+    '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013',
   ]);
 }
 

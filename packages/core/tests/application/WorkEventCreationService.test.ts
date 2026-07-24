@@ -123,6 +123,7 @@ describe('WorkEventCreationService (F-01 orchestration)', () => {
         status: 'stopped',
         stoppedAt: '2026-07-13T12:00:05.000Z',
         stoppedByWorkEventId: 'work-event-stop',
+        stoppedVia: 'nfc',
       },
     ]);
     expect(await timeEntryRepository.findActiveByUser(organizationId, userId)).toBeNull();

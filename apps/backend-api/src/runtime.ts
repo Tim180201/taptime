@@ -7,7 +7,14 @@ import {
   PostgresIdentityMembershipResolver,
   SupabaseJwtAccessTokenVerifier,
 } from '@taptime/backend-identity';
-import { ServerCanonicalLifecycleIngestionCoordinator } from '@taptime/backend-lifecycle';
+import {
+  ManualLifecycleIngestionCoordinator,
+  ServerCanonicalLifecycleIngestionCoordinator,
+} from '@taptime/backend-lifecycle';
+import {
+  MobileWorkReadCoordinator,
+  ProjectAdministrationCoordinator,
+} from '@taptime/backend-mobile-work';
 import {
   OfflineCaptureLeaseCoordinator,
   OfflineEventReconciliationCoordinator,
@@ -38,6 +45,10 @@ export interface BackendApiRuntimeConfiguration {
   readonly timeEntryExportDatabaseUrl: string;
   readonly timeReviewReadDatabaseUrl: string;
   readonly timeReviewWriteDatabaseUrl: string;
+  readonly manualLifecycleDatabaseUrl?: string;
+  readonly mobileOwnTimeDatabaseUrl?: string;
+  readonly mobileTargetDatabaseUrl?: string;
+  readonly projectAdministrationDatabaseUrl?: string;
   readonly supabaseIssuer: string;
 }
 
@@ -81,6 +92,12 @@ export function createBackendApiRuntime(
   );
   const timeReviewReadDatabase = validateDatabaseUrl(configuration.timeReviewReadDatabaseUrl);
   const timeReviewWriteDatabase = validateDatabaseUrl(configuration.timeReviewWriteDatabaseUrl);
+  const manualLifecycleDatabase = optionalDatabaseUrl(configuration.manualLifecycleDatabaseUrl);
+  const mobileOwnTimeDatabase = optionalDatabaseUrl(configuration.mobileOwnTimeDatabaseUrl);
+  const mobileTargetDatabase = optionalDatabaseUrl(configuration.mobileTargetDatabaseUrl);
+  const projectAdministrationDatabase = optionalDatabaseUrl(
+    configuration.projectAdministrationDatabaseUrl,
+  );
   assertDistinctDatabaseUsers([
     sessionDatabase,
     readModelDatabase,
@@ -95,6 +112,12 @@ export function createBackendApiRuntime(
     timeEntryExportDatabase,
     timeReviewReadDatabase,
     timeReviewWriteDatabase,
+    ...[
+      manualLifecycleDatabase,
+      mobileOwnTimeDatabase,
+      mobileTargetDatabase,
+      projectAdministrationDatabase,
+    ].filter((database): database is ValidatedDatabaseUrl => database !== undefined),
   ]);
 
   const issuer = configuration.supabaseIssuer.replace(/\/+$/, '');
@@ -119,6 +142,10 @@ export function createBackendApiRuntime(
   const timeEntryExportPool = createRuntimePool(timeEntryExportDatabase.connectionString);
   const timeReviewReadPool = createRuntimePool(timeReviewReadDatabase.connectionString);
   const timeReviewWritePool = createRuntimePool(timeReviewWriteDatabase.connectionString);
+  const manualLifecyclePool = createOptionalPool(manualLifecycleDatabase);
+  const mobileOwnTimePool = createOptionalPool(mobileOwnTimeDatabase);
+  const mobileTargetPool = createOptionalPool(mobileTargetDatabase);
+  const projectAdministrationPool = createOptionalPool(projectAdministrationDatabase);
   const lifecycleCoordinator = new ServerCanonicalLifecycleIngestionCoordinator(
     lifecyclePool,
     verifier,
@@ -155,6 +182,25 @@ export function createBackendApiRuntime(
       tagReassignment: new NfcTagReassignmentCoordinator(reassignmentPool, verifier),
       timeEntryExporter: new TimeEntryExportCoordinator(timeEntryExportPool, verifier),
       timeReview: new TimeReviewCoordinator(timeReviewReadPool, timeReviewWritePool, verifier),
+      ...(manualLifecyclePool === undefined ? {} : {
+        manualLifecycleIngestor: new ManualLifecycleIngestionCoordinator(
+          manualLifecyclePool,
+          verifier,
+        ),
+      }),
+      ...(mobileOwnTimePool === undefined || mobileTargetPool === undefined ? {} : {
+        mobileWorkReader: new MobileWorkReadCoordinator(
+          mobileOwnTimePool,
+          mobileTargetPool,
+          verifier,
+        ),
+      }),
+      ...(projectAdministrationPool === undefined ? {} : {
+        projectAdministration: new ProjectAdministrationCoordinator(
+          projectAdministrationPool,
+          verifier,
+        ),
+      }),
     },
     options,
   );
@@ -186,6 +232,10 @@ export function createBackendApiRuntime(
         timeEntryExportPool.end(),
         timeReviewReadPool.end(),
         timeReviewWritePool.end(),
+        ...(manualLifecyclePool === undefined ? [] : [manualLifecyclePool.end()]),
+        ...(mobileOwnTimePool === undefined ? [] : [mobileOwnTimePool.end()]),
+        ...(mobileTargetPool === undefined ? [] : [mobileTargetPool.end()]),
+        ...(projectAdministrationPool === undefined ? [] : [projectAdministrationPool.end()]),
       ]);
       const failure = results.find(
         (result): result is PromiseRejectedResult => result.status === 'rejected',
@@ -198,6 +248,14 @@ export function createBackendApiRuntime(
       }
     },
   });
+}
+
+function optionalDatabaseUrl(value: string | undefined): ValidatedDatabaseUrl | undefined {
+  return value === undefined ? undefined : validateDatabaseUrl(value);
+}
+
+function createOptionalPool(database: ValidatedDatabaseUrl | undefined): Pool | undefined {
+  return database === undefined ? undefined : createRuntimePool(database.connectionString);
 }
 
 function createRuntimePool(connectionString: string): Pool {

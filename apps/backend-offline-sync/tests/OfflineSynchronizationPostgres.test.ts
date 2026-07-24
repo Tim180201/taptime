@@ -17,7 +17,9 @@ import {
 } from '@taptime/core';
 import type {
   OfflineCaptureLeasePage,
+  OfflineCaptureLeasePageV2,
   OfflineLifecycleEventCommand,
+  OfflineLifecycleEventCommandV2,
 } from '@taptime/offline-sync-contract';
 import {
   exportJWK,
@@ -61,6 +63,8 @@ const ids = {
   receipt2: '65000000-0000-4000-8000-000000000012',
   event3: '50000000-0000-4000-8000-000000000013',
   receipt3: '65000000-0000-4000-8000-000000000013',
+  project: '20000000-0000-4000-8000-000000000012',
+  leaseCommandV2: '81000000-0000-4000-8000-000000000012',
 } as const;
 
 let issuer: string;
@@ -379,6 +383,77 @@ describe('complete offline PostgreSQL boundary', () => {
       entries: '1',
       reconciliations: '1',
     });
+  });
+
+  it('ingests a lease-v2 manual Project command through the same FIFO provenance boundary', async () => {
+    await installerPool.query(
+      `INSERT INTO taptime_server.projects (
+         id, organization_id, display_name, active
+       ) VALUES ($1::uuid, $2::uuid, 'Offline Project', true)`,
+      [ids.project, ids.organization],
+    );
+    const lease = await issueLeaseV2();
+    const item = lease.items.find((candidate) => (
+      candidate.itemType === 'manual_target'
+      && candidate.targetType === 'project'
+      && candidate.targetId === ids.project
+    ));
+    expect(item).toBeDefined();
+    if (item === undefined) return;
+    const occurredAt = new Date(Date.parse(lease.issuedAt) + 1_000).toISOString();
+    const command: OfflineLifecycleEventCommandV2 = {
+      organizationId: ids.organization,
+      expectedMembershipId: ids.membership,
+      leaseId: lease.leaseId,
+      leaseItemId: item.itemId,
+      installationBinding,
+      deviceSequence: 1,
+      provenanceVersion: 2,
+      clock: {
+        bootMarker: 'synthetic-boot-v2',
+        monotonicAnchorMilliseconds: 10_000,
+        monotonicDeltaMilliseconds: 1_000,
+        wallClockAnchor: lease.issuedAt,
+        clockProofStatus: 'verified_same_boot',
+        clockProofVersion: 1,
+      },
+      workEvent: {
+        id: ids.event1,
+        target: { targetType: 'project', targetId: ids.project },
+        occurredAt,
+        trigger: { type: 'manual' },
+      },
+      receipt: { id: ids.receipt1, attemptNumber: 1 },
+    };
+    await expect(eventCoordinator.ingest({ accessToken: 'valid', command }))
+      .resolves.toMatchObject({
+        status: 'synchronized',
+        decision: { status: 'time_entry_started' },
+      });
+    const truth = await installerPool.query<{
+      readonly target_type: string;
+      readonly trigger_type: string;
+      readonly content_hash_version: number;
+      readonly started_via: string;
+      readonly provenance_version: number;
+    }>(
+      `SELECT event.target_type, event.trigger_type, event.content_hash_version,
+              entry.started_via, reconciliation.provenance_version
+       FROM taptime_server.work_events AS event
+       JOIN taptime_server.time_entries AS entry
+         ON entry.organization_id = event.organization_id
+        AND entry.start_work_event_id = event.id
+       JOIN taptime_server.offline_event_reconciliations AS reconciliation
+         ON reconciliation.organization_id = event.organization_id
+        AND reconciliation.work_event_id = event.id`,
+    );
+    expect(truth.rows).toEqual([{
+      target_type: 'project',
+      trigger_type: 'manual',
+      content_hash_version: 2,
+      started_via: 'manual',
+      provenance_version: 2,
+    }]);
   });
 
   it('serializes canonical and offline ingestion for the same Organization and User',
@@ -785,6 +860,19 @@ async function issueLease(): Promise<OfflineCaptureLeasePage> {
   if (result.status !== 'ready') {
     throw new Error(`Lease issue failed with ${result.status}`);
   }
+  return result.page;
+}
+
+async function issueLeaseV2(): Promise<OfflineCaptureLeasePageV2> {
+  const result = await leaseCoordinator.issueV2({
+    accessToken: 'valid',
+    command: {
+      commandId: ids.leaseCommandV2,
+      installationBinding,
+      lookupKey,
+    },
+  });
+  if (result.status !== 'ready') throw new Error(`Lease v2 issue failed with ${result.status}`);
   return result.page;
 }
 

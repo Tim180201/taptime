@@ -2,7 +2,7 @@ import {
   OFFLINE_CAPTURE_LEASE_LIFETIME_MILLISECONDS,
   OFFLINE_LEASE_ACTIVATION_MAXIMUM_BYTES,
   OFFLINE_LEASE_ACTIVATION_MAXIMUM_ITEMS,
-  OFFLINE_LOCAL_SCHEMA_VERSION,
+  OFFLINE_LOCAL_SCHEMA_VERSION_V3,
   OFFLINE_QUEUE_MAXIMUM_EVENT_BYTES,
   OFFLINE_QUEUE_MAXIMUM_EVENTS,
   OFFLINE_QUEUE_MAXIMUM_TOTAL_BYTES,
@@ -11,15 +11,19 @@ import {
   isOfflineIsoTimestamp,
   isPositiveSafeInteger,
   type OfflineCaptureLeaseItem,
+  type OfflineCaptureLeaseItemV2,
   type OfflineCaptureLeasePage,
+  type OfflineCaptureLeasePageV2,
   type OfflineLifecycleEventCommand,
+  type OfflineLifecycleEventCommandV2,
   type OfflineLocalStoreResult,
   type OfflineProtectedReason,
   type OfflineQueueState,
 } from '@taptime/offline-sync-contract';
 import type { LifecycleEventSubmission } from '../transport/contracts';
+import type { SafeWorkTarget } from '@taptime/mobile-work-contract';
 import { bytesToLowercaseHex } from './encoding';
-import { mobileManifestDigest } from './MobileLookupHmac';
+import { mobileManifestDigest, mobileManifestDigestV2 } from './MobileLookupHmac';
 
 export type OfflineSqlValue = string | number | null | Uint8Array;
 export type OfflineSqlParams =
@@ -49,21 +53,24 @@ export interface OfflineDatabaseOwner {
 }
 
 export interface OfflineLeaseActivation {
-  readonly page: OfflineCaptureLeasePage;
+  readonly page: OfflineCaptureLeasePage | OfflineCaptureLeasePageV2;
   readonly activationBootMarker: string;
   readonly activationMonotonicMilliseconds: number;
 }
 
-export type OfflineLifecycleEventDraft = Omit<OfflineLifecycleEventCommand, 'deviceSequence'>;
+export type OfflineLifecycleEventDraft =
+  | Omit<OfflineLifecycleEventCommand, 'deviceSequence'>
+  | Omit<OfflineLifecycleEventCommandV2, 'deviceSequence'>;
 
 export interface OfflineQueueHead {
   readonly state: OfflineQueueState;
   readonly attemptCount: number;
   readonly nextAttemptAt: number | null;
-  readonly command: OfflineLifecycleEventCommand;
+  readonly command: OfflineLifecycleEventCommand | OfflineLifecycleEventCommandV2;
 }
 
-export interface ActiveOfflineLeaseItem {
+export type ActiveOfflineLeaseItem = {
+  readonly itemType: 'nfc_assignment';
   readonly leaseId: string;
   readonly leaseItemId: string;
   readonly assignmentId: string;
@@ -75,7 +82,18 @@ export interface ActiveOfflineLeaseItem {
   readonly expiresAt: string;
   readonly activationBootMarker: string;
   readonly activationMonotonicMilliseconds: number;
-}
+} | {
+  readonly itemType: 'manual_target';
+  readonly leaseId: string;
+  readonly leaseItemId: string;
+  readonly targetType: 'customer' | 'project' | 'general_work';
+  readonly targetId: string;
+  readonly displayName: string;
+  readonly issuedAt: string;
+  readonly expiresAt: string;
+  readonly activationBootMarker: string;
+  readonly activationMonotonicMilliseconds: number;
+};
 
 export interface ActiveOfflineCaptureContext {
   readonly organizationId: string;
@@ -144,6 +162,18 @@ interface LeaseLookupRow {
   readonly activation_monotonic_milliseconds: number;
 }
 
+interface ManualLeaseTargetRow {
+  readonly lease_id: string;
+  readonly item_id: string;
+  readonly target_type: 'customer' | 'project' | 'general_work';
+  readonly target_id: string;
+  readonly display_name: string;
+  readonly issued_at: string;
+  readonly expires_at: string;
+  readonly activation_boot_marker: string;
+  readonly activation_monotonic_milliseconds: number;
+}
+
 interface ActiveLeaseContextRow {
   readonly organization_id: string;
   readonly user_id: string;
@@ -174,6 +204,8 @@ interface LeaseGenerationRow {
   readonly serialized_bytes: number;
   readonly manifest_digest: string;
   readonly generation_state: 'assembling' | 'active' | 'retired';
+  readonly lease_schema_version: number;
+  readonly manifest_version: number;
 }
 
 interface LegacyQueueRow {
@@ -233,15 +265,15 @@ export class OfflineCaptureDatabase {
           await database.closeAsync().catch(() => undefined);
           return this.protect('corrupt_row');
         }
-        if (version.user_version > OFFLINE_LOCAL_SCHEMA_VERSION) {
+        if (version.user_version > OFFLINE_LOCAL_SCHEMA_VERSION_V3) {
           await database.closeAsync().catch(() => undefined);
           return this.protect('unknown_schema');
         }
         if (version.user_version === 0) {
           try {
             await database.withExclusiveTransactionAsync(async (transaction) => {
-              await transaction.execAsync(OFFLINE_SCHEMA_V2);
-              await transaction.execAsync(`PRAGMA user_version = ${OFFLINE_LOCAL_SCHEMA_VERSION}`);
+              await transaction.execAsync(OFFLINE_SCHEMA_V3);
+              await transaction.execAsync(`PRAGMA user_version = ${OFFLINE_LOCAL_SCHEMA_VERSION_V3}`);
             });
           } catch {
             await database.closeAsync().catch(() => undefined);
@@ -251,7 +283,18 @@ export class OfflineCaptureDatabase {
           try {
             await database.withExclusiveTransactionAsync(async (transaction) => {
               await transaction.execAsync(OFFLINE_SCHEMA_V1_TO_V2);
-              await transaction.execAsync(`PRAGMA user_version = ${OFFLINE_LOCAL_SCHEMA_VERSION}`);
+              await transaction.execAsync(OFFLINE_SCHEMA_V2_TO_V3);
+              await transaction.execAsync(`PRAGMA user_version = ${OFFLINE_LOCAL_SCHEMA_VERSION_V3}`);
+            });
+          } catch {
+            await database.closeAsync().catch(() => undefined);
+            return { status: 'migration_failed' };
+          }
+        } else if (version.user_version === 2) {
+          try {
+            await database.withExclusiveTransactionAsync(async (transaction) => {
+              await transaction.execAsync(OFFLINE_SCHEMA_V2_TO_V3);
+              await transaction.execAsync(`PRAGMA user_version = ${OFFLINE_LOCAL_SCHEMA_VERSION_V3}`);
             });
           } catch {
             await database.closeAsync().catch(() => undefined);
@@ -361,7 +404,7 @@ export class OfflineCaptureDatabase {
           `SELECT lease_id, installation_id, identity_binding_id, organization_id, user_id,
                   membership_id, membership_row_version, membership_role, issued_at, expires_at,
                   configuration_revision, item_count, serialized_bytes, manifest_digest,
-                  generation_state
+                  generation_state, lease_schema_version, manifest_version
            FROM offline_lease_generations
            WHERE lease_id = ?`,
           [page.leaseId],
@@ -388,8 +431,9 @@ export class OfflineCaptureDatabase {
              lease_id, installation_id, identity_binding_id, organization_id, user_id,
              membership_id, membership_row_version, membership_role, issued_at, expires_at,
              configuration_revision, item_count, serialized_bytes, manifest_digest,
-             activation_boot_marker, activation_monotonic_milliseconds, generation_state
-           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'assembling')`,
+             activation_boot_marker, activation_monotonic_milliseconds, generation_state,
+             lease_schema_version, manifest_version
+           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'assembling', ?, ?)`,
           [
             page.leaseId,
             page.installationId,
@@ -407,23 +451,30 @@ export class OfflineCaptureDatabase {
             page.manifestDigest,
             activation.activationBootMarker,
             activation.activationMonotonicMilliseconds,
+            'leaseSchemaVersion' in page ? page.leaseSchemaVersion : 1,
+            'manifestVersion' in page ? page.manifestVersion : 1,
           ],
         );
         for (const item of page.items) {
+          const version2Item = 'itemType' in item;
           await transaction.runAsync(
             `INSERT INTO offline_lease_items (
-               lease_id, item_id, lookup_value, assignment_id, nfc_tag_id,
-               target_type, target_id, display_name
-             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+               lease_id, item_id, item_type, lookup_value, assignment_id, nfc_tag_id,
+               target_type, target_id, display_name, assignment_row_version,
+               target_row_version
+             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
               page.leaseId,
               item.itemId,
-              item.lookup,
-              item.assignmentId,
-              item.nfcTagId,
+              version2Item ? item.itemType : 'nfc_assignment',
+              'lookup' in item ? item.lookup : null,
+              'assignmentId' in item ? item.assignmentId : null,
+              'nfcTagId' in item ? item.nfcTagId : null,
               item.targetType,
               item.targetId,
               item.displayName,
+              'assignmentRowVersion' in item ? item.assignmentRowVersion : null,
+              'targetRowVersion' in item ? item.targetRowVersion : null,
             ],
           );
         }
@@ -505,10 +556,12 @@ export class OfflineCaptureDatabase {
          JOIN offline_owner AS owner ON owner.singleton_id = 1
          WHERE generation.generation_state = 'active'
            AND owner.capture_invalidated = 0
+           AND item.item_type = 'nfc_assignment'
            AND item.lookup_value = ?`,
         [lookup],
       );
       return row === null ? null : Object.freeze({
+        itemType: 'nfc_assignment' as const,
         leaseId: row.lease_id,
         leaseItemId: row.item_id,
         assignmentId: row.assignment_id,
@@ -524,14 +577,100 @@ export class OfflineCaptureDatabase {
     });
   }
 
+  lookupActiveManualTarget(
+    targetType: 'customer' | 'project' | 'general_work',
+    targetId: string,
+  ): Promise<ActiveOfflineLeaseItem | null> {
+    return this.serialized(async () => {
+      if (!isCanonicalOfflineUuid(targetId)) return null;
+      const row = await this.requireReady().getFirstAsync<ManualLeaseTargetRow>(
+        `SELECT generation.lease_id, item.item_id, item.target_type, item.target_id,
+                item.display_name, generation.issued_at, generation.expires_at,
+                generation.activation_boot_marker,
+                generation.activation_monotonic_milliseconds
+         FROM offline_lease_generations AS generation
+         JOIN offline_lease_items AS item ON item.lease_id = generation.lease_id
+         JOIN offline_owner AS owner ON owner.singleton_id = 1
+         WHERE generation.generation_state = 'active'
+           AND owner.capture_invalidated = 0
+           AND item.item_type = 'manual_target'
+           AND item.target_type = ?
+           AND item.target_id = ?`,
+        [targetType, targetId],
+      );
+      return row === null ? null : Object.freeze({
+        itemType: 'manual_target' as const,
+        leaseId: row.lease_id,
+        leaseItemId: row.item_id,
+        targetType: row.target_type,
+        targetId: row.target_id,
+        displayName: row.display_name,
+        issuedAt: row.issued_at,
+        expiresAt: row.expires_at,
+        activationBootMarker: row.activation_boot_marker,
+        activationMonotonicMilliseconds: row.activation_monotonic_milliseconds,
+      });
+    });
+  }
+
+  listActiveManualTargets(leaseId: string): Promise<readonly SafeWorkTarget[]> {
+    return this.serialized(async () => {
+      if (!isCanonicalOfflineUuid(leaseId)) return Object.freeze([]);
+      const rows = await this.requireReady().getAllAsync<ManualLeaseTargetRow>(
+        `SELECT generation.lease_id, item.item_id, item.target_type, item.target_id,
+                item.display_name, generation.issued_at, generation.expires_at,
+                generation.activation_boot_marker,
+                generation.activation_monotonic_milliseconds
+         FROM offline_lease_generations AS generation
+         JOIN offline_lease_items AS item ON item.lease_id = generation.lease_id
+         JOIN offline_owner AS owner
+           ON owner.singleton_id = 1
+          AND owner.organization_id = generation.organization_id
+          AND owner.user_id = generation.user_id
+          AND owner.membership_id = generation.membership_id
+         WHERE generation.generation_state = 'active'
+           AND generation.lease_schema_version = 2
+           AND generation.lease_id = ?
+           AND owner.capture_invalidated = 0
+           AND item.item_type = 'manual_target'
+         ORDER BY item.target_type, item.display_name, item.target_id`,
+        [leaseId],
+      );
+      const identities = new Set<string>();
+      const targets: SafeWorkTarget[] = [];
+      for (const row of rows) {
+        const identity = `${row.target_type}\u001f${row.target_id}`;
+        if (
+          row.lease_id !== leaseId
+          || !isCanonicalOfflineUuid(row.target_id)
+          || row.display_name.length === 0
+          || identities.has(identity)
+        ) return Object.freeze([]);
+        identities.add(identity);
+        targets.push(Object.freeze({
+          targetType: row.target_type,
+          targetId: row.target_id,
+          displayName: row.display_name,
+        }));
+      }
+      return Object.freeze(targets);
+    });
+  }
+
   appendEvent(draft: OfflineLifecycleEventDraft): Promise<
-    | { readonly status: 'ready'; readonly command: OfflineLifecycleEventCommand }
+    | {
+        readonly status: 'ready';
+        readonly command: OfflineLifecycleEventCommand | OfflineLifecycleEventCommandV2;
+      }
     | OfflineLocalStoreResult
   > {
     return this.serialized(async () => {
       const database = this.requireReady();
       let output:
-        | { readonly status: 'ready'; readonly command: OfflineLifecycleEventCommand }
+        | {
+            readonly status: 'ready';
+            readonly command: OfflineLifecycleEventCommand | OfflineLifecycleEventCommandV2;
+          }
         | OfflineLocalStoreResult = { status: 'unavailable' };
       await database.withExclusiveTransactionAsync(async (transaction) => {
         const summary = await transaction.getFirstAsync<QueueSummaryRow>(
@@ -569,6 +708,8 @@ export class OfflineCaptureDatabase {
           output = this.protect('identity_mismatch');
           return;
         }
+        const isV2 = draft.provenanceVersion === 2;
+        const trigger = isV2 ? draft.workEvent.trigger : null;
         const leaseBinding = await transaction.getFirstAsync<{ readonly item_id: string }>(
           `SELECT item.item_id
            FROM offline_lease_generations AS generation
@@ -580,20 +721,31 @@ export class OfflineCaptureDatabase {
              AND generation.membership_id = ?
              AND generation.installation_id = ?
              AND item.item_id = ?
-             AND item.assignment_id = ?
-             AND item.nfc_tag_id = ?
              AND item.target_type = ?
-             AND item.target_id = ?`,
+             AND item.target_id = ?
+             AND (
+               (? = 1 AND item.item_type = 'nfc_assignment'
+                 AND item.assignment_id = ? AND item.nfc_tag_id = ?)
+               OR
+               (? = 1 AND item.item_type = 'manual_target'
+                 AND item.assignment_id IS NULL AND item.nfc_tag_id IS NULL)
+             )`,
           [
             draft.leaseId,
             draft.organizationId,
             draft.expectedMembershipId,
             owner.installation_id,
             draft.leaseItemId,
-            draft.workEvent.assignmentId,
-            draft.workEvent.nfcTagId,
             draft.workEvent.target.targetType,
             draft.workEvent.target.targetId,
+            !isV2 || trigger?.type === 'nfc' ? 1 : 0,
+            isV2
+              ? trigger?.type === 'nfc' ? trigger.assignmentId : null
+              : draft.workEvent.assignmentId,
+            isV2
+              ? trigger?.type === 'nfc' ? trigger.nfcTagId : null
+              : draft.workEvent.nfcTagId,
+            isV2 && trigger?.type === 'manual' ? 1 : 0,
           ],
         );
         if (leaseBinding?.item_id !== draft.leaseItemId) {
@@ -1307,7 +1459,7 @@ function validLeaseActivation(activation: OfflineLeaseActivation): boolean {
 
 function sameLeaseGeneration(
   existing: LeaseGenerationRow,
-  page: OfflineCaptureLeasePage,
+  page: OfflineCaptureLeasePage | OfflineCaptureLeasePageV2,
 ): boolean {
   return existing.lease_id === page.leaseId
     && existing.installation_id === page.installationId
@@ -1322,7 +1474,13 @@ function sameLeaseGeneration(
     && existing.configuration_revision === page.configurationRevision
     && existing.item_count === page.itemCount
     && existing.serialized_bytes === page.serializedBytes
-    && existing.manifest_digest === page.manifestDigest;
+    && existing.manifest_digest === page.manifestDigest
+    && existing.lease_schema_version === (
+      'leaseSchemaVersion' in page ? page.leaseSchemaVersion : 1
+    )
+    && existing.manifest_version === (
+      'manifestVersion' in page ? page.manifestVersion : 1
+    );
 }
 
 function validActiveCaptureContext(context: ActiveOfflineCaptureContext): boolean {
@@ -1343,15 +1501,31 @@ function validActiveCaptureContext(context: ActiveOfflineCaptureContext): boolea
     && isNonNegativeSafeInteger(context.activationMonotonicMilliseconds);
 }
 
-function validLeaseItem(item: OfflineCaptureLeaseItem): boolean {
-  return isCanonicalOfflineUuid(item.itemId)
-    && lowercaseSha256Pattern.test(item.lookup)
-    && isCanonicalOfflineUuid(item.assignmentId)
-    && isCanonicalOfflineUuid(item.nfcTagId)
-    && item.targetType === 'customer'
-    && isCanonicalOfflineUuid(item.targetId)
-    && typeof item.displayName === 'string'
-    && item.displayName.length > 0;
+function validLeaseItem(item: OfflineCaptureLeaseItem | OfflineCaptureLeaseItemV2): boolean {
+  if (
+    !isCanonicalOfflineUuid(item.itemId)
+    || !isCanonicalOfflineUuid(item.targetId)
+    || typeof item.displayName !== 'string'
+    || item.displayName.length === 0
+  ) return false;
+  if (!('itemType' in item)) {
+    return lowercaseSha256Pattern.test(item.lookup)
+      && isCanonicalOfflineUuid(item.assignmentId)
+      && isCanonicalOfflineUuid(item.nfcTagId)
+      && item.targetType === 'customer';
+  }
+  if (!isPositiveSafeInteger(item.targetRowVersion)) return false;
+  return item.itemType === 'manual_target'
+    ? (
+        item.targetType === 'customer'
+        || item.targetType === 'project'
+        || item.targetType === 'general_work'
+      )
+    : item.targetType === 'customer'
+      && lowercaseSha256Pattern.test(item.lookup)
+      && isCanonicalOfflineUuid(item.assignmentId)
+      && isCanonicalOfflineUuid(item.nfcTagId)
+      && isPositiveSafeInteger(item.assignmentRowVersion);
 }
 
 function validBootMarker(value: string): boolean {
@@ -1359,11 +1533,13 @@ function validBootMarker(value: string): boolean {
 }
 
 function manifestMatches(
-  items: readonly OfflineCaptureLeaseItem[],
+  items: readonly OfflineCaptureLeaseItem[] | readonly OfflineCaptureLeaseItemV2[],
   expectedDigest: string,
 ): boolean {
   try {
-    return mobileManifestDigest(items) === expectedDigest;
+    return items.some((item) => 'itemType' in item)
+      ? mobileManifestDigestV2(items as readonly OfflineCaptureLeaseItemV2[]) === expectedDigest
+      : mobileManifestDigest(items as readonly OfflineCaptureLeaseItem[]) === expectedDigest;
   } catch {
     return false;
   }
@@ -1420,20 +1596,34 @@ function parseLegacySubmission(serialized: string): LifecycleEventSubmission | n
 }
 
 function freezeOfflineCommand(
-  command: OfflineLifecycleEventCommand,
-): OfflineLifecycleEventCommand {
+  command: OfflineLifecycleEventCommand | OfflineLifecycleEventCommandV2,
+): OfflineLifecycleEventCommand | OfflineLifecycleEventCommandV2 {
+  if (command.provenanceVersion === 1) {
+    return Object.freeze({
+      ...command,
+      clock: Object.freeze({ ...command.clock }),
+      workEvent: Object.freeze({
+        ...command.workEvent,
+        target: Object.freeze({ ...command.workEvent.target }),
+      }),
+      receipt: Object.freeze({ ...command.receipt }),
+    });
+  }
   return Object.freeze({
     ...command,
     clock: Object.freeze({ ...command.clock }),
     workEvent: Object.freeze({
       ...command.workEvent,
       target: Object.freeze({ ...command.workEvent.target }),
+      trigger: Object.freeze({ ...command.workEvent.trigger }),
     }),
     receipt: Object.freeze({ ...command.receipt }),
   });
 }
 
-function parseOfflineCommand(serialized: string): OfflineLifecycleEventCommand | null {
+function parseOfflineCommand(
+  serialized: string,
+): OfflineLifecycleEventCommand | OfflineLifecycleEventCommandV2 | null {
   try {
     const value = JSON.parse(serialized) as unknown;
     if (!validOfflineCommand(value)) return null;
@@ -1443,7 +1633,9 @@ function parseOfflineCommand(serialized: string): OfflineLifecycleEventCommand |
   }
 }
 
-function validOfflineCommand(value: unknown): value is OfflineLifecycleEventCommand {
+function validOfflineCommand(
+  value: unknown,
+): value is OfflineLifecycleEventCommand | OfflineLifecycleEventCommandV2 {
   if (!isRecord(value) || !hasExactKeys(value, [
     'clock',
     'deviceSequence',
@@ -1465,7 +1657,7 @@ function validOfflineCommand(value: unknown): value is OfflineLifecycleEventComm
     ].every(isCanonicalOfflineUuid)
     || !isOfflineBase64Url32Bytes(value.installationBinding)
     || !isPositiveSafeInteger(value.deviceSequence)
-    || value.provenanceVersion !== 1
+    || (value.provenanceVersion !== 1 && value.provenanceVersion !== 2)
     || !isRecord(value.clock)
     || !hasExactKeys(value.clock, [
       'bootMarker',
@@ -1486,22 +1678,14 @@ function validOfflineCommand(value: unknown): value is OfflineLifecycleEventComm
     || !isNonNegativeSafeInteger(value.clock.monotonicDeltaMilliseconds)
     || !isOfflineIsoTimestamp(value.clock.wallClockAnchor)
     || !isRecord(value.workEvent)
-    || !hasExactKeys(value.workEvent, [
-      'assignmentId',
-      'id',
-      'nfcTagId',
-      'occurredAt',
-      'target',
-    ])
-    || ![
-      value.workEvent.id,
-      value.workEvent.assignmentId,
-      value.workEvent.nfcTagId,
-    ].every(isCanonicalOfflineUuid)
     || !isOfflineIsoTimestamp(value.workEvent.occurredAt)
     || !isRecord(value.workEvent.target)
     || !hasExactKeys(value.workEvent.target, ['targetId', 'targetType'])
-    || value.workEvent.target.targetType !== 'customer'
+    || (
+      value.workEvent.target.targetType !== 'customer'
+      && value.workEvent.target.targetType !== 'project'
+      && value.workEvent.target.targetType !== 'general_work'
+    )
     || !isCanonicalOfflineUuid(value.workEvent.target.targetId)
     || !isRecord(value.receipt)
     || !hasExactKeys(value.receipt, ['attemptNumber', 'id'])
@@ -1510,7 +1694,28 @@ function validOfflineCommand(value: unknown): value is OfflineLifecycleEventComm
   ) {
     return false;
   }
-  return true;
+  if (value.provenanceVersion === 1) {
+    return hasExactKeys(value.workEvent, [
+      'assignmentId', 'id', 'nfcTagId', 'occurredAt', 'target',
+    ])
+      && value.workEvent.target.targetType === 'customer'
+      && [
+        value.workEvent.id,
+        value.workEvent.assignmentId,
+        value.workEvent.nfcTagId,
+      ].every(isCanonicalOfflineUuid);
+  }
+  return hasExactKeys(value.workEvent, ['id', 'occurredAt', 'target', 'trigger'])
+    && isCanonicalOfflineUuid(value.workEvent.id)
+    && isRecord(value.workEvent.trigger)
+    && (
+      hasExactKeys(value.workEvent.trigger, ['type'])
+      && value.workEvent.trigger.type === 'manual'
+      || hasExactKeys(value.workEvent.trigger, ['assignmentId', 'nfcTagId', 'type'])
+      && value.workEvent.trigger.type === 'nfc'
+      && isCanonicalOfflineUuid(value.workEvent.trigger.assignmentId)
+      && isCanonicalOfflineUuid(value.workEvent.trigger.nfcTagId)
+    );
 }
 
 function isNonNegativeSafeInteger(value: unknown): value is number {
@@ -1529,7 +1734,7 @@ function hasExactKeys(
   return actual.length === keys.length && actual.every((key) => keys.includes(key));
 }
 
-const OFFLINE_SCHEMA_V2 = `
+const OFFLINE_SCHEMA_V3 = `
 CREATE TABLE offline_owner (
   singleton_id INTEGER PRIMARY KEY CHECK (singleton_id = 1),
   organization_id TEXT NOT NULL,
@@ -1566,6 +1771,9 @@ CREATE TABLE offline_lease_generations (
   manifest_digest TEXT NOT NULL CHECK (length(manifest_digest) = 64),
   activation_boot_marker TEXT NOT NULL CHECK (length(activation_boot_marker) BETWEEN 1 AND 256),
   activation_monotonic_milliseconds INTEGER NOT NULL CHECK (activation_monotonic_milliseconds >= 0),
+  lease_schema_version INTEGER NOT NULL DEFAULT 1 CHECK (lease_schema_version IN (1, 2)),
+  manifest_version INTEGER NOT NULL DEFAULT 1 CHECK (manifest_version IN (1, 2)),
+  CHECK (lease_schema_version = manifest_version),
   generation_state TEXT NOT NULL CHECK (generation_state IN ('assembling', 'active', 'retired'))
 ) STRICT;
 
@@ -1576,12 +1784,27 @@ CREATE UNIQUE INDEX one_active_offline_lease
 CREATE TABLE offline_lease_items (
   lease_id TEXT NOT NULL REFERENCES offline_lease_generations (lease_id),
   item_id TEXT NOT NULL,
-  lookup_value TEXT NOT NULL CHECK (length(lookup_value) = 64),
-  assignment_id TEXT NOT NULL,
-  nfc_tag_id TEXT NOT NULL,
-  target_type TEXT NOT NULL CHECK (target_type = 'customer'),
+  item_type TEXT NOT NULL DEFAULT 'nfc_assignment'
+    CHECK (item_type IN ('nfc_assignment', 'manual_target')),
+  lookup_value TEXT CHECK (lookup_value IS NULL OR length(lookup_value) = 64),
+  assignment_id TEXT,
+  nfc_tag_id TEXT,
+  target_type TEXT NOT NULL CHECK (target_type IN ('customer', 'project', 'general_work')),
   target_id TEXT NOT NULL,
   display_name TEXT NOT NULL,
+  assignment_row_version INTEGER CHECK (
+    assignment_row_version IS NULL OR assignment_row_version > 0
+  ),
+  target_row_version INTEGER CHECK (target_row_version IS NULL OR target_row_version > 0),
+  CHECK (
+    (item_type = 'nfc_assignment' AND lookup_value IS NOT NULL
+      AND assignment_id IS NOT NULL AND nfc_tag_id IS NOT NULL
+      AND target_type = 'customer')
+    OR
+    (item_type = 'manual_target' AND lookup_value IS NULL
+      AND assignment_id IS NULL AND nfc_tag_id IS NULL
+      AND target_row_version IS NOT NULL)
+  ),
   PRIMARY KEY (lease_id, item_id),
   UNIQUE (lease_id, lookup_value)
 ) STRICT;
@@ -1659,6 +1882,8 @@ WHEN NEW.lease_id <> OLD.lease_id
   OR NEW.manifest_digest <> OLD.manifest_digest
   OR NEW.activation_boot_marker <> OLD.activation_boot_marker
   OR NEW.activation_monotonic_milliseconds <> OLD.activation_monotonic_milliseconds
+  OR NEW.lease_schema_version <> OLD.lease_schema_version
+  OR NEW.manifest_version <> OLD.manifest_version
 BEGIN
   SELECT RAISE(ABORT, 'offline lease generation is immutable');
 END;
@@ -1709,4 +1934,123 @@ ADD COLUMN review_pending_sequence INTEGER CHECK (
     AND review_pending_sequence <= next_device_sequence
   )
 );
+`;
+
+const OFFLINE_SCHEMA_V2_TO_V3 = `
+ALTER TABLE offline_lease_generations
+ADD COLUMN lease_schema_version INTEGER NOT NULL DEFAULT 1
+CHECK (lease_schema_version IN (1, 2));
+ALTER TABLE offline_lease_generations
+ADD COLUMN manifest_version INTEGER NOT NULL DEFAULT 1
+CHECK (manifest_version IN (1, 2));
+
+DROP TRIGGER offline_queue_immutable_fields;
+DROP TRIGGER offline_lease_item_update_rejected;
+DROP TRIGGER offline_lease_item_delete_rejected;
+DROP TRIGGER offline_lease_generation_immutable_fields;
+ALTER TABLE offline_event_queue RENAME TO offline_event_queue_v2;
+ALTER TABLE offline_lease_items RENAME TO offline_lease_items_v2;
+
+CREATE TABLE offline_lease_items (
+  lease_id TEXT NOT NULL REFERENCES offline_lease_generations (lease_id),
+  item_id TEXT NOT NULL,
+  item_type TEXT NOT NULL CHECK (item_type IN ('nfc_assignment', 'manual_target')),
+  lookup_value TEXT CHECK (lookup_value IS NULL OR length(lookup_value) = 64),
+  assignment_id TEXT,
+  nfc_tag_id TEXT,
+  target_type TEXT NOT NULL CHECK (target_type IN ('customer', 'project', 'general_work')),
+  target_id TEXT NOT NULL,
+  display_name TEXT NOT NULL,
+  assignment_row_version INTEGER CHECK (
+    assignment_row_version IS NULL OR assignment_row_version > 0
+  ),
+  target_row_version INTEGER CHECK (target_row_version IS NULL OR target_row_version > 0),
+  CHECK (
+    (item_type = 'nfc_assignment' AND lookup_value IS NOT NULL
+      AND assignment_id IS NOT NULL AND nfc_tag_id IS NOT NULL
+      AND target_type = 'customer')
+    OR
+    (item_type = 'manual_target' AND lookup_value IS NULL
+      AND assignment_id IS NULL AND nfc_tag_id IS NULL
+      AND target_row_version IS NOT NULL)
+  ),
+  PRIMARY KEY (lease_id, item_id),
+  UNIQUE (lease_id, lookup_value)
+) STRICT;
+
+INSERT INTO offline_lease_items (
+  lease_id, item_id, item_type, lookup_value, assignment_id, nfc_tag_id,
+  target_type, target_id, display_name, assignment_row_version, target_row_version
+)
+SELECT lease_id, item_id, 'nfc_assignment', lookup_value, assignment_id, nfc_tag_id,
+       target_type, target_id, display_name, NULL, NULL
+FROM offline_lease_items_v2;
+
+CREATE TABLE offline_event_queue (
+  device_sequence INTEGER PRIMARY KEY CHECK (device_sequence > 0),
+  work_event_id TEXT NOT NULL UNIQUE,
+  receipt_id TEXT NOT NULL UNIQUE,
+  lease_id TEXT NOT NULL,
+  lease_item_id TEXT NOT NULL,
+  command_json TEXT NOT NULL,
+  serialized_bytes INTEGER NOT NULL CHECK (serialized_bytes BETWEEN 1 AND 4096),
+  queue_state TEXT NOT NULL CHECK (
+    queue_state IN ('pending', 'in_flight', 'retry_wait', 'protected_review_predecessor')
+  ),
+  attempt_count INTEGER NOT NULL DEFAULT 0 CHECK (attempt_count >= 0),
+  next_attempt_at INTEGER,
+  FOREIGN KEY (lease_id, lease_item_id)
+    REFERENCES offline_lease_items (lease_id, item_id)
+) STRICT;
+
+INSERT INTO offline_event_queue
+SELECT * FROM offline_event_queue_v2;
+DROP TABLE offline_event_queue_v2;
+DROP TABLE offline_lease_items_v2;
+
+CREATE TRIGGER offline_lease_item_update_rejected
+BEFORE UPDATE ON offline_lease_items
+BEGIN
+  SELECT RAISE(ABORT, 'offline lease items are immutable');
+END;
+CREATE TRIGGER offline_lease_item_delete_rejected
+BEFORE DELETE ON offline_lease_items
+BEGIN
+  SELECT RAISE(ABORT, 'offline lease items are immutable');
+END;
+CREATE TRIGGER offline_queue_immutable_fields
+BEFORE UPDATE ON offline_event_queue
+WHEN NEW.device_sequence <> OLD.device_sequence
+  OR NEW.work_event_id <> OLD.work_event_id
+  OR NEW.receipt_id <> OLD.receipt_id
+  OR NEW.lease_id <> OLD.lease_id
+  OR NEW.lease_item_id <> OLD.lease_item_id
+  OR NEW.command_json <> OLD.command_json
+  OR NEW.serialized_bytes <> OLD.serialized_bytes
+BEGIN
+  SELECT RAISE(ABORT, 'offline queue evidence is immutable');
+END;
+CREATE TRIGGER offline_lease_generation_immutable_fields
+BEFORE UPDATE ON offline_lease_generations
+WHEN NEW.lease_id <> OLD.lease_id
+  OR NEW.installation_id <> OLD.installation_id
+  OR NEW.identity_binding_id <> OLD.identity_binding_id
+  OR NEW.organization_id <> OLD.organization_id
+  OR NEW.user_id <> OLD.user_id
+  OR NEW.membership_id <> OLD.membership_id
+  OR NEW.membership_row_version <> OLD.membership_row_version
+  OR NEW.membership_role <> OLD.membership_role
+  OR NEW.issued_at <> OLD.issued_at
+  OR NEW.expires_at <> OLD.expires_at
+  OR NEW.configuration_revision <> OLD.configuration_revision
+  OR NEW.item_count <> OLD.item_count
+  OR NEW.serialized_bytes <> OLD.serialized_bytes
+  OR NEW.manifest_digest <> OLD.manifest_digest
+  OR NEW.activation_boot_marker <> OLD.activation_boot_marker
+  OR NEW.activation_monotonic_milliseconds <> OLD.activation_monotonic_milliseconds
+  OR NEW.lease_schema_version <> OLD.lease_schema_version
+  OR NEW.manifest_version <> OLD.manifest_version
+BEGIN
+  SELECT RAISE(ABORT, 'offline lease generation is immutable');
+END;
 `;

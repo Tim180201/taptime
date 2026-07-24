@@ -3,34 +3,44 @@ import type { AccessTokenVerifier } from '@taptime/backend-identity';
 import {
   B3_CONTENT_HASH_ALGORITHM,
   B3_CONTENT_HASH_VERSION,
+  DA5_CONTENT_HASH_VERSION,
   workEventContentHash,
+  workEventContentHashV2,
 } from '@taptime/backend-schema';
 import {
   BusinessEngine,
   CustomerId,
+  GeneralWorkTargetId,
   NfcAssignmentId,
   NfcTagId,
   OrganizationId,
+  ProjectId,
   TimeEntryId,
   UserId,
   WorkEventId,
   createTimestamp,
   customerAssignmentTarget,
+  generalWorkTarget,
+  projectWorkTarget,
   type BusinessEngineDecision,
   type StartedTimeEntry,
   type WorkEvent,
+  type NfcWorkEvent,
+  type ManualWorkEvent,
 } from '@taptime/core';
 import {
   OFFLINE_AUTOMATIC_EVALUATION_AFTER_EXPIRY_MILLISECONDS,
   OFFLINE_CLOCK_PROOF_VERSION,
   OFFLINE_CLOCK_TOLERANCE_MILLISECONDS,
   OFFLINE_PROVENANCE_VERSION,
+  OFFLINE_PROVENANCE_VERSION_V2,
   isCanonicalOfflineUuid,
   isOfflineBase64Url32Bytes,
   isOfflineIsoTimestamp,
   isPositiveSafeInteger,
   type OfflineCanonicalDecision,
   type OfflineLifecycleEventCommand,
+  type OfflineLifecycleEventCommandV2,
   type OfflineLifecycleEventResult,
   type OfflineReviewReason,
 } from '@taptime/offline-sync-contract';
@@ -71,10 +81,14 @@ interface LeaseItemRow extends QueryResultRow {
   readonly issued_at: Date;
   readonly expires_at: Date;
   readonly item_id: string;
-  readonly assignment_id: string;
-  readonly nfc_tag_id: string;
-  readonly target_type: 'customer';
+  readonly lease_schema_version: number;
+  readonly item_type: 'nfc_assignment' | 'manual_target';
+  readonly assignment_id: string | null;
+  readonly nfc_tag_id: string | null;
+  readonly target_type: 'customer' | 'project' | 'general_work';
   readonly target_customer_id: string;
+  readonly assignment_row_version: string | null;
+  readonly target_row_version: string;
 }
 
 interface CursorRow extends QueryResultRow {
@@ -100,24 +114,24 @@ interface ExistingLifecycleCollisionRow extends QueryResultRow {
 }
 
 interface ConfigurationRow extends QueryResultRow {
-  readonly assignment_id: string;
-  readonly nfc_tag_id: string;
-  readonly target_type: 'customer';
-  readonly target_customer_id: string;
-  readonly assignment_active: boolean;
-  readonly assignment_valid_from: Date;
+  readonly target_type: 'customer' | 'project' | 'general_work';
+  readonly target_id: string;
+  readonly target_active: boolean;
+  readonly target_created_at: Date;
+  readonly target_deactivated_at: Date | null;
+  readonly target_row_version: string;
+  readonly assignment_active: boolean | null;
+  readonly assignment_valid_from: Date | null;
   readonly assignment_valid_to: Date | null;
-  readonly tag_created_at: Date;
-  readonly customer_active: boolean;
-  readonly customer_activated_at: Date;
-  readonly customer_deactivated_at: Date | null;
+  readonly assignment_row_version: string | null;
+  readonly tag_created_at: Date | null;
 }
 
 interface ActiveTimeEntryRow extends QueryResultRow {
   readonly id: string;
   readonly organization_id: string;
   readonly user_id: string;
-  readonly target_type: 'customer';
+  readonly target_type: 'customer' | 'project' | 'general_work';
   readonly target_customer_id: string;
   readonly start_work_event_id: string;
   readonly started_at: Date;
@@ -126,9 +140,9 @@ interface ActiveTimeEntryRow extends QueryResultRow {
 interface WorkEventRow extends QueryResultRow {
   readonly id: string;
   readonly organization_id: string;
-  readonly assignment_id: string;
-  readonly nfc_tag_id: string;
-  readonly target_type: 'customer';
+  readonly assignment_id: string | null;
+  readonly nfc_tag_id: string | null;
+  readonly target_type: 'customer' | 'project' | 'general_work';
   readonly target_customer_id: string;
   readonly triggered_by_user_id: string;
   readonly occurred_at: Date;
@@ -247,8 +261,10 @@ export class OfflineLifecycleIngestionCoordinator implements OfflineLifecycleIng
         client,
         `SELECT lease.id AS lease_id, lease.installation_id, lease.identity_binding_id,
                 lease.membership_id, lease.membership_row_version, lease.membership_role,
+                lease.lease_schema_version,
                 lease.issued_at, lease.expires_at, item.id AS item_id, item.assignment_id,
-                item.nfc_tag_id, item.target_type, item.target_customer_id
+                item.nfc_tag_id, item.target_type, item.target_customer_id,
+                item.item_type, item.assignment_row_version, item.target_row_version
          FROM taptime_server.offline_capture_leases AS lease
          JOIN taptime_server.offline_capture_lease_items AS item
            ON item.organization_id = lease.organization_id
@@ -268,10 +284,10 @@ export class OfflineLifecycleIngestionCoordinator implements OfflineLifecycleIng
       const lease = leaseItem.rows[0];
       if (
         lease === undefined
-        || lease.assignment_id !== request.command.workEvent.assignmentId
-        || lease.nfc_tag_id !== request.command.workEvent.nfcTagId
+        || lease.lease_schema_version !== request.command.provenanceVersion
         || lease.target_type !== request.command.workEvent.target.targetType
         || lease.target_customer_id !== request.command.workEvent.target.targetId
+        || !leaseTriggerMatches(lease, request.command)
       ) {
         await rollback(client);
         transactionOpen = false;
@@ -330,22 +346,9 @@ export class OfflineLifecycleIngestionCoordinator implements OfflineLifecycleIng
         return { status: 'conflict', reason: 'sequence_content_conflict' };
       }
 
-      const configurationResult = await query<ConfigurationRow>(
-        client,
-        `SELECT assignment_id, nfc_tag_id, target_type, target_customer_id,
-                assignment_active, assignment_valid_from, assignment_valid_to,
-                tag_created_at, customer_active, customer_activated_at,
-                customer_deactivated_at
-         FROM taptime_server.lock_offline_historical_configuration_v1(
-           $1::uuid, $2::uuid, $3::uuid, $4::uuid
-         )`,
-        [
-          actor.organization_id,
-          lease.assignment_id,
-          lease.nfc_tag_id,
-          lease.target_customer_id,
-        ],
-      );
+      const configurationResult = request.command.provenanceVersion === 1
+        ? await legacyConfiguration(client, actor.organization_id, lease)
+        : await generalizedConfiguration(client, actor.organization_id, lease);
       const configuration = configurationResult.rows[0];
       if (configuration === undefined) {
         await rollback(client);
@@ -367,16 +370,7 @@ export class OfflineLifecycleIngestionCoordinator implements OfflineLifecycleIng
         serverNow: serverTime.rows[0]!.now,
       });
       const workEvent = authoritativeWorkEvent(request.command, actor, lease);
-      const workEventHash = workEventContentHash({
-        id: workEvent.id,
-        organizationId: workEvent.organizationId,
-        assignmentId: workEvent.assignmentId,
-        nfcTagId: workEvent.nfcTagId,
-        targetType: workEvent.target.targetType,
-        targetId: workEvent.target.targetId,
-        triggeredBy: workEvent.triggeredBy,
-        occurredAt: workEvent.occurredAt,
-      });
+      const workEventHash = workEventHashForVersion(workEvent, request.command.provenanceVersion);
 
       let result: OfflineLifecycleEventResult;
       if (reviewReason !== null) {
@@ -475,26 +469,29 @@ export class OfflineLifecycleIngestionCoordinator implements OfflineLifecycleIng
   }
 }
 
-function validateCommand(command: OfflineLifecycleEventCommand): void {
+function validateCommand(
+  command: OfflineLifecycleEventCommand | OfflineLifecycleEventCommandV2,
+): void {
   const ids = [
     command.organizationId,
     command.expectedMembershipId,
     command.leaseId,
     command.leaseItemId,
     command.workEvent.id,
-    command.workEvent.assignmentId,
-    command.workEvent.nfcTagId,
     command.workEvent.target.targetId,
     command.receipt.id,
   ];
   if (
     !ids.every(isCanonicalOfflineUuid)
     || !isOfflineBase64Url32Bytes(command.installationBinding)
-    || command.workEvent.target.targetType !== 'customer'
+    || !['customer', 'project', 'general_work'].includes(command.workEvent.target.targetType)
     || !isOfflineIsoTimestamp(command.workEvent.occurredAt)
     || command.receipt.attemptNumber !== 1
     || !isPositiveSafeInteger(command.deviceSequence)
-    || command.provenanceVersion !== OFFLINE_PROVENANCE_VERSION
+    || (
+      command.provenanceVersion !== OFFLINE_PROVENANCE_VERSION
+      && command.provenanceVersion !== OFFLINE_PROVENANCE_VERSION_V2
+    )
     || command.clock.clockProofVersion !== OFFLINE_CLOCK_PROOF_VERSION
     || (
       command.clock.clockProofStatus !== 'verified_same_boot'
@@ -510,6 +507,161 @@ function validateCommand(command: OfflineLifecycleEventCommand): void {
   ) {
     throw new TypeError('Invalid offline lifecycle event command');
   }
+  if (command.provenanceVersion === 1) {
+    if (
+      command.workEvent.target.targetType !== 'customer'
+      || !isCanonicalOfflineUuid(command.workEvent.assignmentId)
+      || !isCanonicalOfflineUuid(command.workEvent.nfcTagId)
+    ) throw new TypeError('Invalid offline lifecycle event command');
+  } else if (
+    command.workEvent.trigger.type === 'nfc'
+      ? (
+          command.workEvent.target.targetType !== 'customer'
+          || !isCanonicalOfflineUuid(command.workEvent.trigger.assignmentId)
+          || !isCanonicalOfflineUuid(command.workEvent.trigger.nfcTagId)
+        )
+      : command.workEvent.trigger.type !== 'manual'
+  ) {
+    throw new TypeError('Invalid offline lifecycle event command');
+  }
+}
+
+function leaseTriggerMatches(
+  lease: LeaseItemRow,
+  command: OfflineLifecycleEventCommand | OfflineLifecycleEventCommandV2,
+): boolean {
+  if (command.provenanceVersion === 1) {
+    return lease.item_type === 'nfc_assignment'
+      && lease.assignment_id === command.workEvent.assignmentId
+      && lease.nfc_tag_id === command.workEvent.nfcTagId;
+  }
+  return command.workEvent.trigger.type === 'manual'
+    ? lease.item_type === 'manual_target'
+      && lease.assignment_id === null
+      && lease.nfc_tag_id === null
+    : lease.item_type === 'nfc_assignment'
+      && lease.assignment_id === command.workEvent.trigger.assignmentId
+      && lease.nfc_tag_id === command.workEvent.trigger.nfcTagId;
+}
+
+async function legacyConfiguration(
+  client: PoolClient,
+  organizationId: string,
+  lease: LeaseItemRow,
+): Promise<{ readonly rows: readonly ConfigurationRow[] }> {
+  if (lease.assignment_id === null || lease.nfc_tag_id === null) return { rows: [] };
+  const result = await query<{
+    readonly assignment_id: string;
+    readonly nfc_tag_id: string;
+    readonly target_type: 'customer';
+    readonly target_customer_id: string;
+    readonly assignment_active: boolean;
+    readonly assignment_valid_from: Date;
+    readonly assignment_valid_to: Date | null;
+    readonly tag_created_at: Date;
+    readonly customer_active: boolean;
+    readonly customer_activated_at: Date;
+    readonly customer_deactivated_at: Date | null;
+  }>(
+    client,
+    `SELECT assignment_id, nfc_tag_id, target_type, target_customer_id,
+            assignment_active, assignment_valid_from, assignment_valid_to,
+            tag_created_at, customer_active, customer_activated_at,
+            customer_deactivated_at
+     FROM taptime_server.lock_offline_historical_configuration_v1(
+       $1::uuid, $2::uuid, $3::uuid, $4::uuid
+     )`,
+    [organizationId, lease.assignment_id, lease.nfc_tag_id, lease.target_customer_id],
+  );
+  return {
+    rows: result.rows.map((row) => ({
+      target_type: row.target_type,
+      target_id: row.target_customer_id,
+      target_active: row.customer_active,
+      target_created_at: row.customer_activated_at,
+      target_deactivated_at: row.customer_deactivated_at,
+      target_row_version: lease.target_row_version,
+      assignment_active: row.assignment_active,
+      assignment_valid_from: row.assignment_valid_from,
+      assignment_valid_to: row.assignment_valid_to,
+      assignment_row_version: lease.assignment_row_version,
+      tag_created_at: row.tag_created_at,
+    })),
+  };
+}
+
+async function generalizedConfiguration(
+  client: PoolClient,
+  organizationId: string,
+  lease: LeaseItemRow,
+): Promise<{ readonly rows: readonly ConfigurationRow[] }> {
+  return query<ConfigurationRow>(
+    client,
+    `SELECT target.target_type, target.target_id, target.target_active,
+            target.target_created_at, target.target_deactivated_at,
+            target.target_row_version, target.assignment_active,
+            target.assignment_valid_from, target.assignment_valid_to,
+            target.assignment_row_version, target.tag_created_at
+     FROM taptime_server.lock_offline_historical_configuration_v2(
+       $1::uuid, $2, $3::uuid, $4::uuid, $5::uuid
+     ) AS target`,
+    [
+      organizationId,
+      lease.target_type,
+      lease.target_customer_id,
+      lease.assignment_id,
+      lease.nfc_tag_id,
+    ],
+  );
+}
+
+function workTarget(
+  type: 'customer' | 'project' | 'general_work',
+  id: string,
+) {
+  if (type === 'customer') return customerAssignmentTarget(CustomerId(id));
+  if (type === 'project') return projectWorkTarget(ProjectId(id));
+  return generalWorkTarget(GeneralWorkTargetId(id));
+}
+
+function workEventHashForVersion(
+  event: WorkEvent,
+  provenanceVersion: 1 | 2,
+): string {
+  if (provenanceVersion === 1) {
+    if (
+      event.trigger?.type === 'manual'
+      || event.assignmentId === undefined
+      || event.nfcTagId === undefined
+    ) throw new Error('v1 WorkEvent cannot be manual');
+    return workEventContentHash({
+      id: event.id,
+      organizationId: event.organizationId,
+      assignmentId: event.assignmentId,
+      nfcTagId: event.nfcTagId,
+      targetType: event.target.targetType,
+      targetId: event.target.targetId,
+      triggeredBy: event.triggeredBy,
+      occurredAt: event.occurredAt,
+    });
+  }
+  const manual = event.trigger?.type === 'manual';
+  const assignmentId = manual ? null : event.assignmentId;
+  const nfcTagId = manual ? null : event.nfcTagId;
+  if (!manual && (assignmentId === undefined || nfcTagId === undefined)) {
+    throw new Error('NFC WorkEvent provenance is incomplete');
+  }
+  return workEventContentHashV2({
+    id: event.id,
+    organizationId: event.organizationId,
+    targetType: event.target.targetType,
+    targetId: event.target.targetId,
+    triggeredBy: event.triggeredBy,
+    occurredAt: event.occurredAt,
+    triggerType: manual ? 'manual' : 'nfc',
+    assignmentId: assignmentId ?? null,
+    nfcTagId: nfcTagId ?? null,
+  });
 }
 
 function automaticReviewReason(input: {
@@ -519,7 +671,7 @@ function automaticReviewReason(input: {
   readonly configuration: ConfigurationRow;
   readonly cursor: CursorRow;
   readonly hasReviewPredecessor: boolean;
-  readonly command: OfflineLifecycleEventCommand;
+  readonly command: OfflineLifecycleEventCommand | OfflineLifecycleEventCommandV2;
   readonly serverNow: Date;
 }): OfflineReviewReason | null {
   const {
@@ -565,16 +717,25 @@ function automaticReviewReason(input: {
     return 'automatic_window_elapsed';
   }
   if (
-    occurredAt < configuration.assignment_valid_from.getTime()
+    occurredAt < configuration.target_created_at.getTime()
     || (
-      configuration.assignment_valid_to !== null
-      && occurredAt >= configuration.assignment_valid_to.getTime()
+      configuration.target_deactivated_at !== null
+      && occurredAt >= configuration.target_deactivated_at.getTime()
     )
-    || occurredAt < configuration.tag_created_at.getTime()
-    || occurredAt < configuration.customer_activated_at.getTime()
+    || configuration.target_row_version !== lease.target_row_version
     || (
-      configuration.customer_deactivated_at !== null
-      && occurredAt >= configuration.customer_deactivated_at.getTime()
+      lease.item_type === 'nfc_assignment'
+      && (
+        configuration.assignment_valid_from === null
+        || configuration.tag_created_at === null
+        || configuration.assignment_row_version !== lease.assignment_row_version
+        || occurredAt < configuration.assignment_valid_from.getTime()
+        || (
+          configuration.assignment_valid_to !== null
+          && occurredAt >= configuration.assignment_valid_to.getTime()
+        )
+        || occurredAt < configuration.tag_created_at.getTime()
+      )
     )
   ) {
     return 'historical_configuration_not_valid';
@@ -583,7 +744,7 @@ function automaticReviewReason(input: {
 }
 
 function clockProofIsConsistent(
-  command: OfflineLifecycleEventCommand,
+  command: OfflineLifecycleEventCommand | OfflineLifecycleEventCommandV2,
   leaseIssuedAt: number,
   occurredAt: number,
 ): boolean {
@@ -597,18 +758,32 @@ function clockProofIsConsistent(
 }
 
 function authoritativeWorkEvent(
-  command: OfflineLifecycleEventCommand,
+  command: OfflineLifecycleEventCommand | OfflineLifecycleEventCommandV2,
   actor: ActorRow,
   lease: LeaseItemRow,
-): WorkEvent {
-  return {
+): NfcWorkEvent | ManualWorkEvent {
+  const base = {
     id: WorkEventId(command.workEvent.id),
     organizationId: OrganizationId(actor.organization_id),
-    assignmentId: NfcAssignmentId(lease.assignment_id),
-    nfcTagId: NfcTagId(lease.nfc_tag_id),
-    target: customerAssignmentTarget(CustomerId(lease.target_customer_id)),
+    target: workTarget(lease.target_type, lease.target_customer_id),
     triggeredBy: UserId(actor.user_id),
     occurredAt: createTimestamp(command.workEvent.occurredAt),
+  };
+  if (lease.item_type === 'manual_target') {
+    return { ...base, trigger: { type: 'manual' } };
+  }
+  if (lease.assignment_id === null || lease.nfc_tag_id === null) {
+    throw new Error('NFC lease item is incomplete');
+  }
+  return {
+    ...base,
+    assignmentId: NfcAssignmentId(lease.assignment_id),
+    nfcTagId: NfcTagId(lease.nfc_tag_id),
+    trigger: {
+      type: 'nfc',
+      assignmentId: NfcAssignmentId(lease.assignment_id),
+      nfcTagId: NfcTagId(lease.nfc_tag_id),
+    },
   };
 }
 
@@ -644,7 +819,7 @@ async function findExistingReconciliation(
 
 async function priorResult(
   client: PoolClient,
-  command: OfflineLifecycleEventCommand,
+  command: OfflineLifecycleEventCommand | OfflineLifecycleEventCommandV2,
   requestHash: string,
   prior: ExistingReconciliationRow,
 ): Promise<OfflineLifecycleEventResult> {
@@ -702,7 +877,7 @@ async function priorResult(
 async function findPersistedLifecycleConflict(
   client: PoolClient,
   actor: ActorRow,
-  command: OfflineLifecycleEventCommand,
+  command: OfflineLifecycleEventCommand | OfflineLifecycleEventCommandV2,
 ): Promise<'event_content_conflict' | 'receipt_metadata_conflict' | null> {
   const result = await query<ExistingLifecycleCollisionRow>(
     client,
@@ -757,7 +932,7 @@ async function findActiveTimeEntry(
     workEventId: WorkEventId(row.start_work_event_id),
     organizationId: OrganizationId(row.organization_id),
     userId: UserId(row.user_id),
-    target: customerAssignmentTarget(CustomerId(row.target_customer_id)),
+    target: workTarget(row.target_type, row.target_customer_id),
     status: 'started',
     startedAt: createTimestamp(row.started_at.toISOString()),
   };
@@ -791,15 +966,26 @@ async function findPreviousCanonicalWorkEvent(
     ],
   );
   const row = result.rows[0];
-  return row === undefined ? null : {
+  if (row === undefined) return null;
+  const base = {
     id: WorkEventId(row.id),
     organizationId: OrganizationId(row.organization_id),
-    assignmentId: NfcAssignmentId(row.assignment_id),
-    nfcTagId: NfcTagId(row.nfc_tag_id),
-    target: customerAssignmentTarget(CustomerId(row.target_customer_id)),
+    target: workTarget(row.target_type, row.target_customer_id),
     triggeredBy: UserId(row.triggered_by_user_id),
     occurredAt: createTimestamp(row.occurred_at.toISOString()),
   };
+  return row.assignment_id === null || row.nfc_tag_id === null
+    ? { ...base, trigger: { type: 'manual' as const } }
+    : {
+        ...base,
+        assignmentId: NfcAssignmentId(row.assignment_id),
+        nfcTagId: NfcTagId(row.nfc_tag_id),
+        trigger: {
+          type: 'nfc' as const,
+          assignmentId: NfcAssignmentId(row.assignment_id),
+          nfcTagId: NfcTagId(row.nfc_tag_id),
+        },
+      };
 }
 
 async function persistWorkEvent(
@@ -812,22 +998,25 @@ async function persistWorkEvent(
     `INSERT INTO taptime_server.work_events (
        id, organization_id, assignment_id, nfc_tag_id, target_type, target_customer_id,
        triggered_by_user_id, occurred_at, content_hash, content_hash_algorithm,
-       content_hash_version
+       content_hash_version, trigger_type
      ) VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5, $6::uuid, $7::uuid,
-       $8::timestamptz, $9, $10, $11)
+       $8::timestamptz, $9, $10, $11, $12)
      ON CONFLICT DO NOTHING`,
     [
       event.id,
       event.organizationId,
-      event.assignmentId,
-      event.nfcTagId,
+      event.trigger?.type === 'manual' ? null : event.assignmentId,
+      event.trigger?.type === 'manual' ? null : event.nfcTagId,
       event.target.targetType,
       event.target.targetId,
       event.triggeredBy,
       event.occurredAt,
       contentHash,
       B3_CONTENT_HASH_ALGORITHM,
-      B3_CONTENT_HASH_VERSION,
+      event.trigger?.type === 'manual' || event.target.targetType !== 'customer'
+        ? DA5_CONTENT_HASH_VERSION
+        : B3_CONTENT_HASH_VERSION,
+      event.trigger?.type ?? 'nfc',
     ],
   );
   if (result.rowCount !== 1) throw new Error('Offline WorkEvent conflict');
@@ -843,9 +1032,9 @@ async function persistTimeEntryMutation(
       client,
       `INSERT INTO taptime_server.time_entries (
          id, organization_id, user_id, target_type, target_customer_id, status,
-         start_work_event_id, started_at
+         start_work_event_id, started_at, started_via
        ) VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5::uuid, 'started',
-         $6::uuid, $7::timestamptz)`,
+         $6::uuid, $7::timestamptz, $8)`,
       [
         entry.id,
         entry.organizationId,
@@ -854,6 +1043,7 @@ async function persistTimeEntryMutation(
         entry.target.targetId,
         entry.workEventId,
         entry.startedAt,
+        entry.startedVia ?? 'nfc',
       ],
     );
   } else if (decision.status === 'time_entry_stopped') {
@@ -862,7 +1052,8 @@ async function persistTimeEntryMutation(
       client,
       `UPDATE taptime_server.time_entries
        SET status = 'stopped', stop_work_event_id = $4::uuid,
-           stopped_at = $5::timestamptz, row_version = row_version + 1
+           stopped_at = $5::timestamptz, stopped_via = $6,
+           row_version = row_version + 1
        WHERE organization_id = $1::uuid AND user_id = $2::uuid
          AND id = $3::uuid AND status = 'started'`,
       [
@@ -871,6 +1062,7 @@ async function persistTimeEntryMutation(
         entry.id,
         entry.stoppedByWorkEventId,
         entry.stoppedAt,
+        entry.stoppedVia ?? 'nfc',
       ],
     );
     if (result.rowCount !== 1) throw new Error('Offline Stop did not map to an active TimeEntry');
@@ -915,7 +1107,7 @@ async function persistDecision(
 
 async function persistReceipt(
   client: PoolClient,
-  command: OfflineLifecycleEventCommand,
+  command: OfflineLifecycleEventCommand | OfflineLifecycleEventCommandV2,
   event: WorkEvent,
   status: 'received' | 'synchronized',
   serverTimeEntryId: string | null,
@@ -942,7 +1134,7 @@ async function persistReceipt(
 
 async function persistAudit(
   client: PoolClient,
-  command: OfflineLifecycleEventCommand,
+  command: OfflineLifecycleEventCommand | OfflineLifecycleEventCommandV2,
   event: WorkEvent,
   eventType: string,
   payload: Readonly<Record<string, string>>,
@@ -968,7 +1160,7 @@ async function persistAudit(
 
 async function persistReconciliation(
   client: PoolClient,
-  command: OfflineLifecycleEventCommand,
+  command: OfflineLifecycleEventCommand | OfflineLifecycleEventCommandV2,
   actor: ActorRow,
   installationId: string,
   requestHash: string,
@@ -986,8 +1178,8 @@ async function persistReconciliation(
        review_reason, decision_work_event_id, server_time_entry_id
      ) VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5::uuid, $6::uuid,
        $7::uuid, $8::uuid, $9::bigint, $10, $11, $12::bigint, $13::bigint,
-       $14::timestamptz, $15, 1, 1, $16, $17,
-       CASE WHEN $16 = 'synchronized' THEN $2::uuid ELSE NULL END, $18::uuid)`,
+       $14::timestamptz, $15, 1, $16, $17, $18,
+       CASE WHEN $17 = 'synchronized' THEN $2::uuid ELSE NULL END, $19::uuid)`,
     [
       actor.organization_id,
       command.workEvent.id,
@@ -1004,6 +1196,7 @@ async function persistReconciliation(
       command.clock.monotonicDeltaMilliseconds,
       command.clock.wallClockAnchor,
       command.clock.clockProofStatus,
+      command.provenanceVersion,
       status,
       reviewReason,
       serverTimeEntryId,
@@ -1065,7 +1258,14 @@ function resultTimeEntryId(decision: OfflineCanonicalDecision): string | null {
       : null;
 }
 
-function offlineEventRequestHash(command: OfflineLifecycleEventCommand): string {
+function offlineEventRequestHash(
+  command: OfflineLifecycleEventCommand | OfflineLifecycleEventCommandV2,
+): string {
+  const triggerFields = command.provenanceVersion === 1
+    ? [command.workEvent.assignmentId, command.workEvent.nfcTagId]
+    : command.workEvent.trigger.type === 'nfc'
+      ? ['nfc', command.workEvent.trigger.assignmentId, command.workEvent.trigger.nfcTagId]
+      : ['manual', null, null];
   return createHash('sha256').update(JSON.stringify([
     command.organizationId,
     command.expectedMembershipId,
@@ -1081,8 +1281,7 @@ function offlineEventRequestHash(command: OfflineLifecycleEventCommand): string 
     command.clock.clockProofStatus,
     command.clock.clockProofVersion,
     command.workEvent.id,
-    command.workEvent.assignmentId,
-    command.workEvent.nfcTagId,
+    ...triggerFields,
     command.workEvent.target.targetType,
     command.workEvent.target.targetId,
     new Date(command.workEvent.occurredAt).toISOString(),

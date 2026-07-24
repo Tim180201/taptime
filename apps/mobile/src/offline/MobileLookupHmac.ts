@@ -4,7 +4,9 @@ import { bytesToHex, utf8ToBytes } from '@noble/hashes/utils.js';
 import {
   OFFLINE_LOOKUP_KEY_BYTES,
   encodeOfflineLeaseManifest,
+  encodeOfflineLeaseManifestV2,
   type OfflineCaptureLeaseItem,
+  type OfflineCaptureLeaseItemV2,
 } from '@taptime/offline-sync-contract';
 
 export function mobileLookupHmac(key: Uint8Array, canonicalPayload: string): string {
@@ -21,6 +23,10 @@ export function mobileHmacSha256Hex(key: Uint8Array, message: string): string {
 
 export function mobileManifestDigest(items: readonly OfflineCaptureLeaseItem[]): string {
   return bytesToHex(sha256(encodeOfflineLeaseManifest(items)));
+}
+
+export function mobileManifestDigestV2(items: readonly OfflineCaptureLeaseItemV2[]): string {
+  return bytesToHex(sha256(encodeOfflineLeaseManifestV2(items)));
 }
 
 export function mobileSha256Hex(value: Uint8Array): string {

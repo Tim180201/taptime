@@ -4,8 +4,10 @@ import {
   TIME_ENTRY_EXPORT_MAXIMUM_ROWS,
   TimeEntryExportLimitError,
   serializeTimeEntryExportCsv,
+  serializeTimeEntryExportCsvV2,
   validateTimeEntryExportRequest,
   type TimeEntryExportRow,
+  type TimeEntryExportRowV2,
 } from '@taptime/time-entry-export-contract';
 import type { Pool, PoolClient, QueryResultRow } from 'pg';
 import type {
@@ -44,6 +46,24 @@ interface ExportRow extends QueryResultRow {
   readonly duration_seconds: string | null;
 }
 
+interface ExportRowV2 extends QueryResultRow {
+  readonly organization_id: string;
+  readonly organization_name: string;
+  readonly time_entry_id: string;
+  readonly employee_membership_id: string;
+  readonly employee_display_name: string;
+  readonly record_source: 'canonical' | 'recovered';
+  readonly target_type: 'customer' | 'project' | 'general_work';
+  readonly target_id: string;
+  readonly target_display_name: string;
+  readonly status: 'started' | 'stopped';
+  readonly started_via: 'nfc' | 'manual' | null;
+  readonly stopped_via: 'nfc' | 'manual' | null;
+  readonly started_at_utc: string;
+  readonly stopped_at_utc: string | null;
+  readonly duration_seconds: string | null;
+}
+
 export class TimeEntryExportCoordinator implements TimeEntryExporter {
   constructor(
     private readonly pool: Pool,
@@ -53,6 +73,21 @@ export class TimeEntryExportCoordinator implements TimeEntryExporter {
   async exportTimeEntries(
     command: TimeEntryExportCommand,
     controls: TimeEntryExportCoordinatorControls = {},
+  ): Promise<TimeEntryExportResult> {
+    return this.exportVersion(command, controls, 1);
+  }
+
+  async exportTimeEntriesV2(
+    command: TimeEntryExportCommand,
+    controls: TimeEntryExportCoordinatorControls = {},
+  ): Promise<TimeEntryExportResult> {
+    return this.exportVersion(command, controls, 2);
+  }
+
+  private async exportVersion(
+    command: TimeEntryExportCommand,
+    controls: TimeEntryExportCoordinatorControls,
+    schemaVersion: 1 | 2,
   ): Promise<TimeEntryExportResult> {
     const validation = validateTimeEntryExportRequest(command.request);
     if (
@@ -141,49 +176,48 @@ export class TimeEntryExportCoordinator implements TimeEntryExporter {
       );
       await client.query(`SET LOCAL ROLE ${DA2_TIME_EXPORTER_ROLE}`);
 
-      const snapshot = await client.query<ExportRow>(
-        `SELECT
-           entry.organization_id,
-           entry.organization_name,
-           entry.time_entry_id,
-           entry.employee_membership_id,
-           entry.employee_display_name,
-           entry.customer_id,
-           entry.customer_display_name,
-           entry.status,
-           pg_catalog.to_char(
-             entry.started_at AT TIME ZONE 'UTC',
-             'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'
-           ) AS started_at_utc,
-           CASE WHEN entry.status = 'stopped' THEN pg_catalog.to_char(
-             entry.stopped_at AT TIME ZONE 'UTC',
-             'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'
-           ) END AS stopped_at_utc,
-           CASE WHEN entry.status = 'stopped' THEN
-             EXTRACT(EPOCH FROM (entry.stopped_at - entry.started_at))::numeric(20, 6)::text
-           END AS duration_seconds
-         FROM taptime_server.read_effective_time_entry_export_v1(
-           $1, $2::timestamptz, $3::timestamptz, $4
-         ) AS entry`,
-        [
-          actor.organization_id,
-          validation.request.fromInclusive,
-          validation.request.toExclusive,
-          TIME_ENTRY_EXPORT_MAXIMUM_ROWS + 1,
-        ],
-      );
-      await controls.afterSnapshotRead?.();
-      assertActive();
-      if (snapshot.rows.length > TIME_ENTRY_EXPORT_MAXIMUM_ROWS) {
-        await client.query('ROLLBACK');
-        transactionOpen = false;
-        return { status: 'export_limit_exceeded' };
-      }
-
-      const rows = snapshot.rows.map((row): TimeEntryExportRow => mapExportRow(row, actor));
       let serialized;
       try {
-        serialized = serializeTimeEntryExportCsv(rows);
+        if (schemaVersion === 1) {
+          const compatibility = await client.query<{ compatible: boolean }>(
+            `SELECT taptime_server.time_entry_export_v1_is_compatible(
+               $1::uuid, $2::timestamptz, $3::timestamptz
+             ) AS compatible`,
+            [
+              actor.organization_id,
+              validation.request.fromInclusive,
+              validation.request.toExclusive,
+            ],
+          );
+          if (compatibility.rows[0]?.compatible !== true) {
+            await client.query('ROLLBACK');
+            transactionOpen = false;
+            return { status: 'export_schema_incompatible' };
+          }
+          const snapshot = await readV1Snapshot(client, actor, validation.request);
+          await controls.afterSnapshotRead?.();
+          assertActive();
+          if (snapshot.length > TIME_ENTRY_EXPORT_MAXIMUM_ROWS) {
+            await client.query('ROLLBACK');
+            transactionOpen = false;
+            return { status: 'export_limit_exceeded' };
+          }
+          serialized = serializeTimeEntryExportCsv(
+            snapshot.map((row): TimeEntryExportRow => mapExportRow(row, actor)),
+          );
+        } else {
+          const snapshot = await readV2Snapshot(client, actor, validation.request);
+          await controls.afterSnapshotRead?.();
+          assertActive();
+          if (snapshot.length > TIME_ENTRY_EXPORT_MAXIMUM_ROWS) {
+            await client.query('ROLLBACK');
+            transactionOpen = false;
+            return { status: 'export_limit_exceeded' };
+          }
+          serialized = serializeTimeEntryExportCsvV2(
+            snapshot.map((row): TimeEntryExportRowV2 => mapExportRowV2(row, actor)),
+          );
+        }
       } catch (error) {
         if (error instanceof TimeEntryExportLimitError) {
           await client.query('ROLLBACK');
@@ -196,7 +230,7 @@ export class TimeEntryExportCoordinator implements TimeEntryExporter {
       await controls.beforeAudit?.();
       assertActive();
       await client.query(
-        `SELECT taptime_server.append_time_entry_export_audit_v1(
+        `SELECT taptime_server.append_time_entry_export_audit_v${schemaVersion}(
            $1, $2, $3, $4, $5::timestamptz, $6::timestamptz, $7, $8, $9
          )`,
         [
@@ -224,6 +258,7 @@ export class TimeEntryExportCoordinator implements TimeEntryExporter {
         filename: exportFilename(
           validation.request.fromInclusive,
           validation.request.toExclusive,
+          schemaVersion,
         ),
       });
     } catch {
@@ -236,6 +271,88 @@ export class TimeEntryExportCoordinator implements TimeEntryExporter {
       client.release(connectionFailure);
     }
   }
+}
+
+async function readV1Snapshot(
+  client: PoolClient,
+  actor: ResolvedActorRow,
+  request: { readonly fromInclusive: string; readonly toExclusive: string },
+): Promise<readonly ExportRow[]> {
+  const snapshot = await client.query<ExportRow>(
+    `SELECT
+       entry.organization_id,
+       entry.organization_name,
+       entry.time_entry_id,
+       entry.employee_membership_id,
+       entry.employee_display_name,
+       entry.customer_id,
+       entry.customer_display_name,
+       entry.status,
+       pg_catalog.to_char(
+         entry.started_at AT TIME ZONE 'UTC',
+         'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'
+       ) AS started_at_utc,
+       CASE WHEN entry.status = 'stopped' THEN pg_catalog.to_char(
+         entry.stopped_at AT TIME ZONE 'UTC',
+         'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'
+       ) END AS stopped_at_utc,
+       CASE WHEN entry.status = 'stopped' THEN
+         EXTRACT(EPOCH FROM (entry.stopped_at - entry.started_at))::numeric(20, 6)::text
+       END AS duration_seconds
+     FROM taptime_server.read_effective_time_entry_export_v1(
+       $1, $2::timestamptz, $3::timestamptz, $4
+     ) AS entry`,
+    [
+      actor.organization_id,
+      request.fromInclusive,
+      request.toExclusive,
+      TIME_ENTRY_EXPORT_MAXIMUM_ROWS + 1,
+    ],
+  );
+  return snapshot.rows;
+}
+
+async function readV2Snapshot(
+  client: PoolClient,
+  actor: ResolvedActorRow,
+  request: { readonly fromInclusive: string; readonly toExclusive: string },
+): Promise<readonly ExportRowV2[]> {
+  const snapshot = await client.query<ExportRowV2>(
+    `SELECT
+       entry.organization_id,
+       entry.organization_name,
+       entry.time_entry_id,
+       entry.employee_membership_id,
+       entry.employee_display_name,
+       entry.record_source,
+       entry.target_type,
+       entry.target_id,
+       entry.target_display_name,
+       entry.status,
+       entry.started_via,
+       entry.stopped_via,
+       pg_catalog.to_char(
+         entry.started_at AT TIME ZONE 'UTC',
+         'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'
+       ) AS started_at_utc,
+       CASE WHEN entry.status = 'stopped' THEN pg_catalog.to_char(
+         entry.stopped_at AT TIME ZONE 'UTC',
+         'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'
+       ) END AS stopped_at_utc,
+       CASE WHEN entry.status = 'stopped' THEN
+         EXTRACT(EPOCH FROM (entry.stopped_at - entry.started_at))::numeric(20, 6)::text
+       END AS duration_seconds
+     FROM taptime_server.read_effective_time_entry_export_v2(
+       $1, $2::timestamptz, $3::timestamptz, $4
+     ) AS entry`,
+    [
+      actor.organization_id,
+      request.fromInclusive,
+      request.toExclusive,
+      TIME_ENTRY_EXPORT_MAXIMUM_ROWS + 1,
+    ],
+  );
+  return snapshot.rows;
 }
 
 function mapExportRow(row: ExportRow, actor: ResolvedActorRow): TimeEntryExportRow {
@@ -265,9 +382,45 @@ function mapExportRow(row: ExportRow, actor: ResolvedActorRow): TimeEntryExportR
   });
 }
 
-function exportFilename(fromInclusive: string, toExclusive: string): string {
+function mapExportRowV2(
+  row: ExportRowV2,
+  actor: ResolvedActorRow,
+): TimeEntryExportRowV2 {
+  if (
+    row.organization_id !== actor.organization_id
+    || row.organization_name.length === 0
+    || row.employee_membership_id.length === 0
+    || row.target_display_name.length === 0
+  ) {
+    throw new Error('DA5 export snapshot violates tenant or attribution integrity');
+  }
+  return Object.freeze({
+    organizationId: row.organization_id,
+    organizationName: row.organization_name,
+    timeEntryId: row.time_entry_id,
+    employeeMembershipId: row.employee_membership_id,
+    employeeDisplayName: row.employee_display_name,
+    recordSource: row.record_source,
+    targetType: row.target_type,
+    targetId: row.target_id,
+    targetDisplayName: row.target_display_name,
+    status: row.status,
+    startedVia: row.started_via ?? '',
+    stoppedVia: row.stopped_via ?? '',
+    startedAtUtc: row.started_at_utc,
+    stoppedAtUtc: row.stopped_at_utc ?? '',
+    durationSeconds: row.duration_seconds ?? '',
+  });
+}
+
+function exportFilename(
+  fromInclusive: string,
+  toExclusive: string,
+  schemaVersion: 1 | 2,
+): string {
   const sanitize = (value: string): string => value.replaceAll(/[-:.]/g, '');
-  return `taptime-time-entries_${sanitize(fromInclusive)}_${sanitize(toExclusive)}.csv`;
+  const version = schemaVersion === 1 ? '' : '_v2';
+  return `taptime-time-entries${version}_${sanitize(fromInclusive)}_${sanitize(toExclusive)}.csv`;
 }
 
 function isBeforeDeadline(deadlineEpochMilliseconds: number): boolean {

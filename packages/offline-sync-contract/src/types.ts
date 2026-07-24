@@ -1,5 +1,6 @@
 export type OfflineMembershipRole = 'administrator' | 'employee';
 export type OfflineTargetType = 'customer';
+export type OfflineTargetTypeV2 = 'customer' | 'project' | 'general_work';
 
 export interface OfflineCaptureLeaseItem {
   readonly itemId: string;
@@ -32,6 +33,59 @@ export interface OfflineCaptureLeasePage extends OfflineCaptureLeaseHeader {
   readonly items: readonly OfflineCaptureLeaseItem[];
   readonly nextCursor: string | null;
 }
+
+export type OfflineCaptureLeaseItemV2 =
+  | {
+      readonly itemType: 'nfc_assignment';
+      readonly itemId: string;
+      readonly lookup: string;
+      readonly assignmentId: string;
+      readonly nfcTagId: string;
+      readonly targetType: 'customer';
+      readonly targetId: string;
+      readonly displayName: string;
+      readonly assignmentRowVersion: number;
+      readonly targetRowVersion: number;
+    }
+  | {
+      readonly itemType: 'manual_target';
+      readonly itemId: string;
+      readonly targetType: OfflineTargetTypeV2;
+      readonly targetId: string;
+      readonly displayName: string;
+      readonly targetRowVersion: number;
+    };
+
+export interface OfflineCaptureLeasePageV2 {
+  readonly leaseSchemaVersion: 2;
+  readonly manifestVersion: 2;
+  readonly leaseId: string;
+  readonly installationId: string;
+  readonly identityBindingId: string;
+  readonly userId: string;
+  readonly organizationId: string;
+  readonly membershipId: string;
+  readonly membershipRowVersion: number;
+  readonly role: OfflineMembershipRole;
+  readonly issuedAt: string;
+  readonly expiresAt: string;
+  readonly configurationRevision: string;
+  readonly itemCount: number;
+  readonly serializedBytes: number;
+  readonly manifestDigest: string;
+  readonly items: readonly OfflineCaptureLeaseItemV2[];
+  readonly nextCursor: string | null;
+}
+
+export type OfflineCaptureLeaseResultV2 =
+  | {
+      readonly status: 'ready';
+      readonly page: OfflineCaptureLeasePageV2;
+      readonly idempotentRetry: boolean;
+    }
+  | { readonly status: 'incomplete_or_oversize' }
+  | { readonly status: 'authority_rejected' }
+  | { readonly status: 'unavailable' };
 
 export interface OfflineCaptureLeaseIssueCommand {
   readonly commandId: string;
@@ -111,6 +165,35 @@ export interface OfflineLifecycleEventCommand {
   readonly clock: OfflineClockProof;
   readonly workEvent: OfflineLifecycleWorkEvent;
   readonly receipt: OfflineLifecycleReceipt;
+}
+
+export type OfflineLifecycleWorkEventV2 = {
+  readonly id: string;
+  readonly target: {
+    readonly targetType: OfflineTargetTypeV2;
+    readonly targetId: string;
+  };
+  readonly occurredAt: string;
+  readonly trigger:
+    | {
+        readonly type: 'nfc';
+        readonly assignmentId: string;
+        readonly nfcTagId: string;
+      }
+    | { readonly type: 'manual' };
+};
+
+export interface OfflineLifecycleEventCommandV2 {
+  readonly organizationId: string;
+  readonly expectedMembershipId: string;
+  readonly leaseId: string;
+  readonly leaseItemId: string;
+  readonly installationBinding: string;
+  readonly deviceSequence: number;
+  readonly provenanceVersion: 2;
+  readonly clock: OfflineClockProof;
+  readonly workEvent: OfflineLifecycleWorkEventV2;
+  readonly receipt: { readonly id: string; readonly attemptNumber: 1 };
 }
 
 export type OfflineReviewReason =

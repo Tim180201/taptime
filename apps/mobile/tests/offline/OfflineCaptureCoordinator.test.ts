@@ -62,6 +62,7 @@ describe('OfflineCaptureCoordinator', () => {
       activateLease: vi.fn(async () => ({ status: 'ready' })),
       queueCount: vi.fn(async () => 1),
       lookupActiveItem: vi.fn(async () => ({
+        itemType: 'nfc_assignment' as const,
         leaseId: ids.lease,
         leaseItemId: ids.item,
         assignmentId: ids.assignment,
@@ -118,9 +119,13 @@ describe('OfflineCaptureCoordinator', () => {
     });
     expect(draft.workEvent).toMatchObject({
       id: ids.event,
-      assignmentId: ids.assignment,
-      nfcTagId: ids.tag,
+      trigger: {
+        type: 'nfc',
+        assignmentId: ids.assignment,
+        nfcTagId: ids.tag,
+      },
     });
+    expect(draft.provenanceVersion).toBe(2);
     expect(order.indexOf('append')).toBeLessThan(order.lastIndexOf('trigger'));
     expect(coordinator.getState()).toEqual({ status: 'saved_locally', queueCount: 1 });
   });
@@ -287,6 +292,99 @@ describe('OfflineCaptureCoordinator', () => {
     await vi.waitFor(() => expect(trigger).toHaveBeenCalledWith('network_hint'));
   });
 
+  it('reads only the exact still-valid offline manual-target lease projection', async () => {
+    const context = activeContext();
+    const database = databaseFake({
+      initialize: vi.fn(async () => ({ status: 'ready' })),
+      hasProtectedLegacy: vi.fn(async () => false),
+      readActiveCaptureContext: vi.fn(async () => context),
+      listActiveManualTargets: vi.fn(async () => [{
+        targetType: 'project',
+        targetId: ids.customer,
+        displayName: 'Projekt',
+      }]),
+      queueCount: vi.fn(async () => 0),
+      close: vi.fn(async () => undefined),
+    });
+    const coordinator = new OfflineCaptureCoordinator(
+      { async scan() { return { status: 'cancelled' }; } },
+      nfcLifecycle(),
+      sessionReader({ status: 'context_unavailable' }, null, true),
+      identityStore(),
+      () => database,
+      leaseClient(),
+      new AndroidMonotonicClock({
+        async sample() {
+          return { bootMarker: 'boot-1', elapsedRealtimeMilliseconds: 600_100 };
+        },
+      }),
+      () => schedulerFake([]),
+      emptyOutbox(),
+      sequentialUuid([]),
+      { bind() {} },
+      () => new Date('2026-07-18T10:10:00.000Z'),
+    );
+    await coordinator.start();
+
+    await expect(coordinator.readOfflineManualTargets()).resolves.toEqual({
+      status: 'ready',
+      targets: [{
+        targetType: 'project',
+        targetId: ids.customer,
+        displayName: 'Projekt',
+      }],
+    });
+    expect(database.listActiveManualTargets).toHaveBeenCalledWith(ids.lease);
+  });
+
+  it.each(['stale_clock', 'mismatched_lease'] as const)(
+    'fails the offline manual-target projection closed for %s',
+    async (scenario) => {
+      let sampleCount = 0;
+      let contextCount = 0;
+      const database = databaseFake({
+        initialize: vi.fn(async () => ({ status: 'ready' })),
+        hasProtectedLegacy: vi.fn(async () => false),
+        readActiveCaptureContext: vi.fn(async () => {
+          contextCount += 1;
+          return scenario === 'mismatched_lease' && contextCount > 1
+            ? { ...activeContext(), leaseId: '70000000-0000-4000-8000-000000000099' }
+            : activeContext();
+        }),
+        listActiveManualTargets: vi.fn(async () => []),
+        queueCount: vi.fn(async () => 0),
+        close: vi.fn(async () => undefined),
+      });
+      const coordinator = new OfflineCaptureCoordinator(
+        { async scan() { return { status: 'cancelled' }; } },
+        nfcLifecycle(),
+        sessionReader({ status: 'context_unavailable' }, null, true),
+        identityStore(),
+        () => database,
+        leaseClient(),
+        new AndroidMonotonicClock({
+          async sample() {
+            sampleCount += 1;
+            return {
+              bootMarker: scenario === 'stale_clock' && sampleCount > 1 ? 'boot-2' : 'boot-1',
+              elapsedRealtimeMilliseconds: 600_100,
+            };
+          },
+        }),
+        () => schedulerFake([]),
+        emptyOutbox(),
+        sequentialUuid([]),
+        { bind() {} },
+        () => new Date('2026-07-18T10:10:00.000Z'),
+      );
+      await coordinator.start();
+      await expect(coordinator.readOfflineManualTargets()).resolves.toEqual({
+        status: 'protected',
+      });
+      expect(database.listActiveManualTargets).not.toHaveBeenCalled();
+    },
+  );
+
   it('invalidates capture and removes only the active lookup key on explicit logout', async () => {
     const database = databaseFake({
       initialize: vi.fn(async () => ({ status: 'ready' })),
@@ -363,6 +461,44 @@ function identityStore(removeActiveLookupKey = vi.fn(async () => undefined)) {
 }
 
 function leaseClient(): OfflineCaptureLeaseApiPort {
+  const issueCompleteV2 = async () => {
+    const items = [{
+      itemType: 'nfc_assignment' as const,
+      itemId: ids.item,
+      lookup: '1'.repeat(64),
+      assignmentId: ids.assignment,
+      nfcTagId: ids.tag,
+      targetType: 'customer' as const,
+      targetId: ids.customer,
+      displayName: 'Kunde',
+      assignmentRowVersion: 1,
+      targetRowVersion: 1,
+    }];
+    return {
+      status: 'ready' as const,
+      idempotentRetry: false,
+      page: {
+        leaseSchemaVersion: 2 as const,
+        manifestVersion: 2 as const,
+        leaseId: ids.lease,
+        installationId: ids.installation,
+        identityBindingId: ids.identity,
+        userId: ids.user,
+        organizationId: ids.organization,
+        membershipId: ids.membership,
+        membershipRowVersion: 1,
+        role: 'employee' as const,
+        issuedAt: '2026-07-18T10:00:00.000Z',
+        expiresAt: '2026-07-18T22:00:00.000Z',
+        configurationRevision: '2'.repeat(64),
+        itemCount: 1,
+        serializedBytes: new TextEncoder().encode(JSON.stringify(items)).byteLength,
+        manifestDigest: '3'.repeat(64),
+        items,
+        nextCursor: null,
+      },
+    };
+  };
   return {
     async issueComplete() {
       const items = [{
@@ -397,6 +533,7 @@ function leaseClient(): OfflineCaptureLeaseApiPort {
         },
       };
     },
+    issueCompleteV2,
   };
 }
 

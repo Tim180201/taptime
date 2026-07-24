@@ -29,6 +29,24 @@ export interface TimeEntryExportRow {
   readonly durationSeconds: string;
 }
 
+export interface TimeEntryExportRowV2 {
+  readonly organizationId: string;
+  readonly organizationName: string;
+  readonly timeEntryId: string;
+  readonly employeeMembershipId: string;
+  readonly employeeDisplayName: string;
+  readonly recordSource: 'canonical' | 'recovered';
+  readonly targetType: 'customer' | 'project' | 'general_work';
+  readonly targetId: string;
+  readonly targetDisplayName: string;
+  readonly status: TimeEntryExportStatus;
+  readonly startedVia: 'nfc' | 'manual' | '';
+  readonly stoppedVia: 'nfc' | 'manual' | '';
+  readonly startedAtUtc: string;
+  readonly stoppedAtUtc: string;
+  readonly durationSeconds: string;
+}
+
 export interface SerializedTimeEntryExport {
   readonly bytes: Uint8Array;
   readonly byteCount: number;

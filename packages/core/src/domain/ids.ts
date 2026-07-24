@@ -18,6 +18,13 @@ export const UserId = brandedNonEmptyString<'UserId'>('UserId');
 export type CustomerId = Brand<string, 'CustomerId'>;
 export const CustomerId = brandedNonEmptyString<'CustomerId'>('CustomerId');
 
+export type ProjectId = Brand<string, 'ProjectId'>;
+export const ProjectId = brandedNonEmptyString<'ProjectId'>('ProjectId');
+
+export type WorkTargetId = CustomerId | ProjectId | Brand<string, 'GeneralWorkTargetId'>;
+export const GeneralWorkTargetId =
+  brandedNonEmptyString<'GeneralWorkTargetId'>('GeneralWorkTargetId');
+
 export type NfcTagId = Brand<string, 'NfcTagId'>;
 export const NfcTagId = brandedNonEmptyString<'NfcTagId'>('NfcTagId');
 

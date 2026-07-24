@@ -2,6 +2,7 @@ import type { Server } from 'node:http';
 import {
   OFFLINE_LEASE_PAGE_RESPONSE_MAXIMUM_BYTES,
   type OfflineCaptureLeaseResult,
+  type OfflineCaptureLeaseResultV2,
   type OfflineLifecycleEventResult,
 } from '@taptime/offline-sync-contract';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -78,6 +79,28 @@ describe('complete offline synchronization HTTP boundary', () => {
     );
     await expectGenericError(ambiguous, 400, 'invalid_request');
     expect(issue).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the generalized lease on an explicit additive v2 route', async () => {
+    const issueV2 = vi.fn(async (): Promise<OfflineCaptureLeaseResultV2> => readyLeaseV2());
+    const origin = await start({
+      offlineCaptureLeaseIssuer: {
+        async issue() { return { status: 'unavailable' }; },
+        async readPage() { return { status: 'unavailable' }; },
+        issueV2,
+        async readPageV2() { return { status: 'unavailable' }; },
+      },
+    });
+
+    const response = await post(origin, '/v2/offline-capture-leases', {
+      commandId: ids.command,
+      installationBinding: binding,
+      lookupKey,
+    });
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual(readyLeaseV2());
+    expect(issueV2).toHaveBeenCalledOnce();
   });
 
   it('bounds lease page commands and permits the 64 KiB exception only on page responses',
@@ -198,6 +221,38 @@ describe('complete offline synchronization HTTP boundary', () => {
     expect(ingest).toHaveBeenCalledTimes(1);
   });
 
+  it('accepts only provenance-v2 trigger unions on the additive offline lifecycle route',
+    async () => {
+      const ingest = vi.fn(async (): Promise<OfflineLifecycleEventResult> => ({
+        status: 'pending',
+        reason: 'temporarily_unavailable',
+      }));
+      const origin = await start({ offlineLifecycleIngestor: { ingest } });
+      const body = offlineEventBodyV2();
+      const response = await post(origin, '/v2/lifecycle-events/offline', body);
+      expect(response.status).toBe(202);
+      expect(ingest).toHaveBeenCalledWith({
+        accessToken: 'abc.def.ghi',
+        command: body,
+      });
+      await expectGenericError(await post(origin, '/v2/lifecycle-events/offline', {
+        ...body,
+        workEvent: {
+          ...body.workEvent,
+          trigger: {
+            type: 'manual',
+            assignmentId: ids.assignment,
+          },
+        },
+      }), 400, 'invalid_request');
+      await expectGenericError(
+        await post(origin, '/v1/lifecycle-events/offline', body),
+        400,
+        'invalid_request',
+      );
+      expect(ingest).toHaveBeenCalledTimes(1);
+    });
+
   it('maps offline authority, reconciliation, timeout, and thrown failures without disclosure',
     async () => {
       const diagnostics: BackendApiDiagnostic[] = [];
@@ -297,6 +352,33 @@ function offlineEventBody() {
   };
 }
 
+function offlineEventBodyV2() {
+  return {
+    organizationId: ids.organization,
+    expectedMembershipId: ids.membership,
+    leaseId: ids.lease,
+    leaseItemId: ids.item,
+    installationBinding: binding,
+    deviceSequence: 1,
+    provenanceVersion: 2,
+    clock: {
+      bootMarker: 'boot-v2',
+      monotonicAnchorMilliseconds: 10,
+      monotonicDeltaMilliseconds: 1,
+      wallClockAnchor: '2026-07-24T10:00:00.000Z',
+      clockProofStatus: 'verified_same_boot',
+      clockProofVersion: 1,
+    },
+    workEvent: {
+      id: ids.event,
+      target: { targetType: 'project', targetId: ids.customer },
+      occurredAt: '2026-07-24T10:00:00.001Z',
+      trigger: { type: 'manual' },
+    },
+    receipt: { id: ids.receipt, attemptNumber: 1 },
+  } as const;
+}
+
 function readyLease(): OfflineCaptureLeaseResult {
   return {
     status: 'ready',
@@ -317,6 +399,40 @@ function readyLease(): OfflineCaptureLeaseResult {
       serializedBytes: 2,
       manifestDigest: '2'.repeat(64),
       items: [],
+      nextCursor: null,
+    },
+  };
+}
+
+function readyLeaseV2(): OfflineCaptureLeaseResultV2 {
+  return {
+    status: 'ready',
+    idempotentRetry: false,
+    page: {
+      leaseSchemaVersion: 2,
+      manifestVersion: 2,
+      leaseId: ids.lease,
+      installationId: ids.installation,
+      identityBindingId: ids.binding,
+      userId: ids.user,
+      organizationId: ids.organization,
+      membershipId: ids.membership,
+      membershipRowVersion: 1,
+      role: 'employee',
+      issuedAt: '2026-07-18T10:00:00.000Z',
+      expiresAt: '2026-07-18T22:00:00.000Z',
+      configurationRevision: '1'.repeat(64),
+      itemCount: 1,
+      serializedBytes: 2,
+      manifestDigest: '2'.repeat(64),
+      items: [{
+        itemType: 'manual_target',
+        itemId: ids.item,
+        targetType: 'general_work',
+        targetId: ids.customer,
+        displayName: 'Allgemeine Arbeitszeit',
+        targetRowVersion: 1,
+      }],
       nextCursor: null,
     },
   };

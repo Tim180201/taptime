@@ -5,6 +5,7 @@ import {
   isValidRetryAfterSeconds,
   type OfflineCanonicalDecision,
   type OfflineLifecycleEventCommand,
+  type OfflineLifecycleEventCommandV2,
   type OfflineLifecycleEventResult,
   type OfflineReconciliationRecord,
   type OfflineReconciliationResult,
@@ -26,6 +27,7 @@ import {
 } from '../transport/strictJson';
 
 const OFFLINE_EVENT_PATH = '/v1/lifecycle-events/offline';
+const OFFLINE_EVENT_V2_PATH = '/v2/lifecycle-events/offline';
 const RECONCILIATION_PATH = '/v1/lifecycle-events/reconcile';
 const REVIEW_STATE_PATH = '/v1/offline-review-state/query';
 
@@ -66,7 +68,9 @@ export type OfflineReconciliationTransportResult =
   | { readonly status: 'unavailable'; readonly retryAfterSeconds?: number };
 
 export interface OfflineLifecycleApiPort {
-  ingest(command: OfflineLifecycleEventCommand): Promise<OfflineLifecycleTransportResult>;
+  ingest(
+    command: OfflineLifecycleEventCommand | OfflineLifecycleEventCommandV2,
+  ): Promise<OfflineLifecycleTransportResult>;
   reconcile(workEventIds: readonly string[]): Promise<OfflineReconciliationTransportResult>;
   readReviewState(
     request: MobileReviewStateRequest,
@@ -75,6 +79,7 @@ export interface OfflineLifecycleApiPort {
 
 export class OfflineLifecycleClient implements OfflineLifecycleApiPort {
   private readonly eventEndpoint: URL;
+  private readonly eventV2Endpoint: URL;
   private readonly reconciliationEndpoint: URL;
   private readonly reviewStateEndpoint: URL;
 
@@ -83,14 +88,18 @@ export class OfflineLifecycleClient implements OfflineLifecycleApiPort {
     private readonly requests: AuthenticatedJsonPostPort,
   ) {
     this.eventEndpoint = new URL(OFFLINE_EVENT_PATH, apiBaseUrl);
+    this.eventV2Endpoint = new URL(OFFLINE_EVENT_V2_PATH, apiBaseUrl);
     this.reconciliationEndpoint = new URL(RECONCILIATION_PATH, apiBaseUrl);
     this.reviewStateEndpoint = new URL(REVIEW_STATE_PATH, apiBaseUrl);
   }
 
   async ingest(
-    command: OfflineLifecycleEventCommand,
+    command: OfflineLifecycleEventCommand | OfflineLifecycleEventCommandV2,
   ): Promise<OfflineLifecycleTransportResult> {
-    const response = await this.post(this.eventEndpoint, JSON.stringify(command));
+    const response = await this.post(
+      command.provenanceVersion === 2 ? this.eventV2Endpoint : this.eventEndpoint,
+      JSON.stringify(command),
+    );
     if (response.status !== 'response') return transportFailure(response);
     if (!isJsonContentType(response.contentType)) return { status: 'unavailable' };
     const body = parseJsonObject(response.body);
@@ -220,7 +229,7 @@ export class OfflineLifecycleClient implements OfflineLifecycleApiPort {
 
 function parseDurableResult(
   body: Record<string, unknown>,
-  command: OfflineLifecycleEventCommand,
+  command: OfflineLifecycleEventCommand | OfflineLifecycleEventCommandV2,
   expectedStatus: 'synchronized' | 'review_pending',
 ): OfflineLifecycleTransportResult {
   if (

@@ -39,6 +39,11 @@ import type {
 } from '@taptime/backend-administration';
 import type { TimeEntryExporter } from '@taptime/backend-time-export';
 import type { TimeReviewPort } from '@taptime/backend-time-review';
+import type {
+  MobileWorkReader,
+  ProjectAdministrationPort,
+} from '@taptime/backend-mobile-work';
+import type { ManualLifecycleIngestionCommand } from '@taptime/backend-lifecycle';
 
 export interface ResolvedProductSession {
   readonly userId: UserId;
@@ -88,6 +93,10 @@ export interface DeferredLifecycleIngestor {
     command: LifecycleIngestionCommand,
     expectedMembershipId: MembershipId,
   ): Promise<DeferredLifecycleIngestionResult>;
+}
+
+export interface ManualLifecycleIngestor {
+  ingestManual(command: ManualLifecycleIngestionCommand): Promise<LifecycleIngestionResult>;
 }
 
 export interface AdministrationCoordinator {
@@ -144,6 +153,9 @@ export interface BackendApiDependencies {
   readonly tagReassignment: NfcTagReassignmentPort;
   readonly timeEntryExporter: TimeEntryExporter;
   readonly timeReview: TimeReviewPort;
+  readonly manualLifecycleIngestor?: ManualLifecycleIngestor;
+  readonly mobileWorkReader?: MobileWorkReader;
+  readonly projectAdministration?: ProjectAdministrationPort;
 }
 
 export interface BackendApiDiagnostic {
@@ -155,6 +167,7 @@ export interface BackendApiDiagnostic {
     | 'scan_context_resolution_failed'
     | 'session_resolution_failed'
     | 'time_entry_export_failed'
+    | 'mobile_work_failed'
     | 'time_review_failed';
   readonly correlationId: string;
 }

@@ -1,6 +1,6 @@
 # Project Status
 
-Status: CORE ROADMAP V2 BLOCK A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2, BLOCK D, E1 AND NARROW E2A COMPLETE FOR THEIR RECORDED SCOPES — DEVELOPMENT ASSIGNMENTS 1–3 AND DT-060–DT-074 CLOSED FOR THEIR EXACT AUTHORIZED LOCAL SCOPES — DA4 WORKSTREAMS A–D, AVS V0–V4, H01 PROCEDURAL CORRECTION, DA4-V5-F06 AND DA4-V5-F07 INDEPENDENTLY APPROVED; DA4 REMAINS OPEN FOR A LATER FRESH HUMAN V5 — DA5 CORRECTED ADO-ONLY ARCHITECTURE/AUTHORIZATION CANDIDATE INCLUDES ANDROID TAG DISPATCH PLUS MANUAL CUSTOMER/PROJECT/GENERAL WORK TRIGGERS; INDEPENDENT REVIEW REQUIRED, IMPLEMENTATION UNAUTHORIZED — PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
+Status: CORE ROADMAP V2 BLOCK A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2, BLOCK D, E1 AND NARROW E2A COMPLETE FOR THEIR RECORDED SCOPES — DEVELOPMENT ASSIGNMENTS 1–3 AND DT-060–DT-074 CLOSED FOR THEIR EXACT AUTHORIZED LOCAL SCOPES — DA4 WORKSTREAMS A–D, AVS V0–V4, H01 PROCEDURAL CORRECTION, DA4-V5-F06 AND DA4-V5-F07 INDEPENDENTLY APPROVED; DA4 REMAINS OPEN FOR A LATER FRESH HUMAN V5 — DA5 WORKSTREAMS A–F HAVE A HUMAN-ACCEPTED UNCOMMITTED LOCAL V0–V3 CANDIDATE WITH ANDROID TAG DISPATCH PLUS MANUAL CUSTOMER/PROJECT/GENERAL WORK TRIGGERS; V4, INDEPENDENT IMPLEMENTATION REVIEW AND HUMAN V5 REMAIN OPEN — PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
 Date: 2026-07-24
 Owner: Human Architect + Technical Lead
 
@@ -10,22 +10,24 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
 
 ## Current State
 
-- **Development Assignment 5 is prepared as a corrected ADO-only professional-Mobile candidate; no
-  executable DA5 work is yet authorized.** ADR-0016/DA5-P01–P12 and ADR-0017/DA5-T01–T15 bind the
-  already accepted v1 own-time capability to a dedicated self-only effective-time reader and add
-  the Human-directed screen-unlocked Android Tag Dispatch plus manual Customer/Project/General Work
-  triggers. Manual actions select a target, never Start/Stop; NFC launch evidence creates no
-  WorkEvent until exact session/lease, tenant/Membership and active Assignment validation pass.
-  The same server Business Engine remains authoritative. First-class Projects, one built-in General
-  Work target, immutable NFC/manual start/stop provenance, additive protected-offline compatibility
-  and explicit CSV v2 are inside the candidate; editable time, per-User Tag entitlement and
-  production boundaries are not. Corrected candidate baseline is
-  `8e0cec7f86aaf740a4fa5fbc0465235acda1b328`, tree
-  `a1f57d7001b4355c6fc36b9f27c9296900eaa8cf`, exact-head CI `30094046612`, attempt 1,
-  12/12. Focused publication/CI and an independent zero-finding pre-implementation review are
-  required before the standing autonomous-work rule can release the exact R3 scope. DA4 Human V5
-  remains separate. DA5 Human/hardware V5, production, production data, deployment and distribution
-  remain unauthorized.
+- **Development Assignment 5 Workstreams A–F are implemented as a locally green R3
+  candidate.** The Human Architect expressly accepted ADR-0016/DA5-P01–P12 and
+  ADR-0017/DA5-T01–T15 and authorized the bounded Development implementation plus subsequent
+  Technical-Lead acceptance, focused publication, exact-head V4 and independent exact-SHA review
+  on baseline
+  `fb32a2796e78c78ce12f856c908545de7ce7bf99`, tree
+  `53d6b5d6c2c86a8a3245539d821a12fae6850673`. The candidate adds the self-only effective-time
+  and manual-target reads, first-class Project/General Work targets, online/offline manual
+  triggering, immutable NFC/manual provenance, additive protected FIFO/lease v2 plus SQLite v3,
+  CSV v2 and explicit CSV-v1 incompatibility, narrow Android `ACTION_TECH_DISCOVERED` ingress,
+  consume-once native ownership and the role-safe Mobile product shell. Local AVS V0–V3 is green:
+  1,896 tests passed with two optional B1 skips, all 21 workspace typechecks and all 20 applicable
+  workspace builds passed,
+  migrations 001–013 applied/replayed/verified on clean PostgreSQL 17.10, the Android production
+  graph exported, and disposable DA5 databases were removed. The candidate is not committed or
+  published; V4, independent exact-SHA implementation review and a separately authorized fresh
+  Human Android V5 remain mandatory. DA4 Human V5 remains separate. Production, production data,
+  deployment and distribution remain unauthorized.
 - **Development Assignment 4 is the active Roadmap engineering block.** The Human Architect
   accepted ADR-0015 and DA4-P01–P12 and separately authorized Workstreams A–D plus AVS V0–V4 on
   exact baseline `d9892435acbf7f45a96a9a01c8331afceb65f6f1`, tree
@@ -722,9 +724,9 @@ Two Epics are concurrently Active, per EP-009's own stated relationship to the r
 5. Preserve the independently approved `DA4-V5-F06` and `DA4-V5-F07` corrections plus failed
    `DA4-V5-H03`. Any later DA4 Human V5 requires a new separate exact-bound authorization; no
    reuse, retry, repair or resume is authorized.
-6. Independently review the exact ADR-0016/DA5 ADO-only candidate. Only a zero-finding approval may
-   release its exact R3 implementation scope under the standing autonomous-work rule. DA4's open
-   Human gate and all later Human/hardware evidence remain separate.
+6. Publish only the Technical-Lead-audited exact DA5 candidate, obtain complete exact-head V4 and
+   an independent exact-SHA implementation review with zero open
+   P0–P3. DA4's open Human gate and all later Human/hardware evidence remain separate.
    Production, production data, deployment and distribution remain unauthorized.
 
 ## Agreed comprehensive Development-assignment sequence

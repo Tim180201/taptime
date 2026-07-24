@@ -7,7 +7,7 @@ import type { Customer } from '../domain/Customer';
 import type { NfcTag } from '../domain/NfcTag';
 import type { NfcPayload } from '../domain/NfcPayload';
 import type { NfcAssignment } from '../domain/NfcAssignment';
-import type { AssignmentTarget } from '../domain/AssignmentTarget';
+import type { CustomerWorkTarget } from '../domain/AssignmentTarget';
 import type { Membership } from '../domain/Membership';
 import { CustomerId, NfcTagId, NfcAssignmentId, type OrganizationId } from '../domain/ids';
 import { generateId } from '../domain/generateId';
@@ -95,7 +95,7 @@ export class OrganizationAdministrationService {
     membership: Membership | null,
     organizationId: OrganizationId,
     nfcTag: NfcTag,
-    target: AssignmentTarget,
+    target: CustomerWorkTarget,
   ): Promise<AssignNfcTagResult> {
     const authorizationResult = this.membershipAuthorizationValidator.authorize(membership, organizationId);
 

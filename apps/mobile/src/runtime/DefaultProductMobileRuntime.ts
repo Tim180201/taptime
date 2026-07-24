@@ -2,11 +2,18 @@ import type { MobileSessionCapability } from '../auth/contracts';
 import type { AdminSetupCapability } from '../administration/contracts';
 import type { ProductScanCapability } from '../scan/contracts';
 import type { ProductServerTransport } from '../transport/contracts';
+import type { MobileWorkCapability, MobileWorkState } from '../work/contracts';
+import type { SafeWorkTarget } from '@taptime/mobile-work-contract';
+import type {
+  OfflineManualCaptureCapability,
+} from '../offline/OfflineCaptureCoordinator';
 
 export interface ProductMobileRuntime {
   readonly session: MobileSessionCapability;
   readonly scan: ProductScanCapability;
   readonly administration: AdminSetupCapability;
+  readonly work: MobileWorkCapability;
+  readonly offlineManual: OfflineManualCaptureCapability;
   start(): Promise<void>;
   stop(): void;
 }
@@ -39,6 +46,14 @@ export interface ProductOfflineSchedulingRuntimeOwner {
   start(): void;
   stop(): void;
 }
+export interface ProductMobileWorkRuntimeOwner extends MobileWorkCapability {
+  start(): void;
+  stop(): void;
+}
+export interface ProductNativeIngressRuntimeOwner {
+  start(): void;
+  stop(): void;
+}
 
 /**
  * Owns the product runtime lifecycle without importing native composition dependencies. Keeping
@@ -50,6 +65,8 @@ export class DefaultProductMobileRuntime implements ProductMobileRuntime {
   private readonly sessionCapability: MobileSessionCapability;
   private readonly scanCapability: ProductScanCapability;
   private readonly administrationCapability: AdminSetupCapability;
+  private readonly workCapability: MobileWorkCapability;
+  private readonly offlineManualCapability: OfflineManualCaptureCapability;
 
   constructor(
     private readonly coordinator: ProductSessionRuntimeOwner,
@@ -62,6 +79,12 @@ export class DefaultProductMobileRuntime implements ProductMobileRuntime {
       start() {},
       stop() {},
     },
+    private readonly mobileWorkCoordinator: ProductMobileWorkRuntimeOwner = inactiveMobileWork(),
+    private readonly nativeIngressLifecycle: ProductNativeIngressRuntimeOwner = {
+      start() {},
+      stop() {},
+    },
+    offlineManualCapture: OfflineManualCaptureCapability = unavailableOfflineManualCapture(),
   ) {
     // React receives a real narrow facade, not the coordinator object that owns C2 token access.
     this.sessionCapability = Object.freeze({
@@ -97,6 +120,23 @@ export class DefaultProductMobileRuntime implements ProductMobileRuntime {
       provision: (customerId: string, displayName: string) => this.administrationCoordinator.provision(customerId, displayName),
       cancel: () => this.administrationCoordinator.cancel(),
     });
+    this.workCapability = Object.freeze({
+      getState: () => this.mobileWorkCoordinator.getState(),
+      subscribe: (listener: () => void) => this.mobileWorkCoordinator.subscribe(listener),
+      refresh: () => this.mobileWorkCoordinator.refresh(),
+      loadMoreOwnTime: () => this.mobileWorkCoordinator.loadMoreOwnTime(),
+      triggerManual: (target: SafeWorkTarget) => this.mobileWorkCoordinator.triggerManual(target),
+    });
+    this.offlineManualCapability = Object.freeze({
+      readOfflineManualTargets: () => offlineManualCapture.readOfflineManualTargets(),
+      captureManual: (target: SafeWorkTarget) => offlineManualCapture.captureManual(target),
+      readManualAcknowledgement: (workEventId: string) => (
+        offlineManualCapture.readManualAcknowledgement?.(workEventId) ?? null
+      ),
+      subscribeManualAcknowledgements: (listener: () => void) => (
+        offlineManualCapture.subscribeManualAcknowledgements?.(listener) ?? (() => undefined)
+      ),
+    });
   }
 
   get session(): MobileSessionCapability {
@@ -109,6 +149,14 @@ export class DefaultProductMobileRuntime implements ProductMobileRuntime {
 
   get administration(): AdminSetupCapability {
     return this.administrationCapability;
+  }
+
+  get work(): MobileWorkCapability {
+    return this.workCapability;
+  }
+
+  get offlineManual(): OfflineManualCaptureCapability {
+    return this.offlineManualCapability;
   }
 
   async start(): Promise<void> {
@@ -150,6 +198,8 @@ export class DefaultProductMobileRuntime implements ProductMobileRuntime {
     }
     this.appStateLifecycle.start();
     this.offlineSchedulingLifecycle.start();
+    this.mobileWorkCoordinator.start();
+    this.nativeIngressLifecycle.start();
   }
 
   stop(): void {
@@ -160,6 +210,8 @@ export class DefaultProductMobileRuntime implements ProductMobileRuntime {
     this.runtimeGeneration += 1;
     this.appStateLifecycle.stop();
     this.offlineSchedulingLifecycle.stop();
+    this.mobileWorkCoordinator.stop();
+    this.nativeIngressLifecycle.stop();
     void this.administrationCoordinator.stop();
     void this.scanOrchestrator.stop();
     this.coordinator.stop();
@@ -168,4 +220,28 @@ export class DefaultProductMobileRuntime implements ProductMobileRuntime {
   private isCurrentRuntime(runtimeGeneration: number): boolean {
     return this.started && runtimeGeneration === this.runtimeGeneration;
   }
+}
+
+function inactiveMobileWork(): ProductMobileWorkRuntimeOwner {
+  const state: MobileWorkState = Object.freeze({ status: 'inactive' });
+  return {
+    getState: () => state,
+    subscribe: () => () => undefined,
+    async refresh() {},
+    async loadMoreOwnTime() {},
+    async triggerManual() {},
+    start() {},
+    stop() {},
+  };
+}
+
+function unavailableOfflineManualCapture(): OfflineManualCaptureCapability {
+  return {
+    async readOfflineManualTargets() {
+      return { status: 'unavailable' };
+    },
+    async captureManual() {
+      return { status: 'unavailable' };
+    },
+  };
 }

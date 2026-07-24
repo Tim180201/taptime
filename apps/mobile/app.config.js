@@ -1,5 +1,6 @@
 const base = require('./app.json');
 const withSyntheticE2eNetworkSecurity = require('./plugins/withSyntheticE2eNetworkSecurity');
+const withNfcTagDispatch = require('./plugins/withNfcTagDispatch');
 
 const appVariant = process.env.APP_VARIANT;
 const runtimeVariant = process.env.EXPO_PUBLIC_TAPTIME_RUNTIME_VARIANT;
@@ -38,6 +39,7 @@ const configuration = {
   },
 };
 
+const withNfcIngress = withNfcTagDispatch(configuration);
 module.exports = syntheticE2e
-  ? withSyntheticE2eNetworkSecurity(configuration)
-  : configuration;
+  ? withSyntheticE2eNetworkSecurity(withNfcIngress)
+  : withNfcIngress;

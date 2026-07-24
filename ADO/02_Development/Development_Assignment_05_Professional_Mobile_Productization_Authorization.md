@@ -1,10 +1,10 @@
-# Development Assignment 5 — Professional Mobile Productization Authorization Candidate
+# Development Assignment 5 — Professional Mobile Productization Authorization
 
-- Status: **CORRECTED ADO-ONLY CANDIDATE — INDEPENDENT REVIEW REQUIRED; IMPLEMENTATION UNAUTHORIZED**
+- Status: **HUMAN ACCEPTED — LOCAL WORKSTREAMS A–F IMPLEMENTED; V4, INDEPENDENT IMPLEMENTATION REVIEW AND HUMAN V5 PENDING**
 - Date: 2026-07-24
-- Exact candidate baseline commit: `8e0cec7f86aaf740a4fa5fbc0465235acda1b328`
-- Exact candidate baseline tree: `a1f57d7001b4355c6fc36b9f27c9296900eaa8cf`
-- Baseline CI: GitHub Actions `30094046612`, attempt 1, 12/12 successful
+- Exact implementation baseline commit: `fb32a2796e78c78ce12f856c908545de7ce7bf99`
+- Exact implementation baseline tree: `53d6b5d6c2c86a8a3245539d821a12fae6850673`
+- Baseline CI: 12/12 successful, as bound by the Human authorization
 - Owner: Technical Lead
 - Decision authority: Human Architect
 - Proposed architecture: `ADO/01_Architecture/ADR/ADR-0016-professional-mobile-productization.md`;
@@ -40,7 +40,7 @@ The raw Employee TimeEntry RLS path is insufficient because it omits effective c
 recovered records. The Administrator DA3 reader is insufficient because it is Organization-wide
 and exposes privileged fields.
 
-## 3. Authorized workstreams after candidate approval
+## 3. Authorized workstreams
 
 ### Workstream A — generalized target and trigger foundation
 
@@ -139,30 +139,23 @@ review.
 
 ## 5. Change-Impact Record
 
-### Current ADO-only candidate
-
-- Risk: R0.
-- Verification: V0, exact diff/claim/reference checks.
-- Executable impact: none.
-- Carried evidence: baseline commit/tree and exact-head CI 12/12.
-
-### Proposed implementation
+### Local implementation candidate
 
 - Risk: R3.
 - Boundaries: current identity/Membership and tenant isolation; WorkTarget/Project/General schema;
   trigger provenance and Business Engine compatibility; lifecycle/offline/export contracts;
   effective own/Admin-time reads; Project administration; backend API/pools; Mobile
   session/NFC/manual/offline state; generated Android manifest/native ingress; accessibility.
-- Verification: V0–V4 and mandatory independent review.
+- Verification: local V0–V3 complete; V4 and mandatory independent review pending.
 - V5: separate Human/hardware authorization and fresh exact-artifact evidence.
 
 ## 6. Acceptance criteria
 
 Technical approval requires:
 
-1. independent pre-implementation review of this exact ADO candidate with zero open P0–P3;
-2. exact implementation authority under the repository's standing independently-approved-candidate
-   rule;
+1. exact Human acceptance of ADR-0016/ADR-0017 and bounded local implementation authority;
+2. one sole Development writer on the exact baseline with no unauthorized publication or Human
+   gate action;
 3. no business capability beyond ADR-0016 and ADR-0017;
 4. current actor/Organization derived server-side and expected Membership compare-only;
 5. no cross-user/cross-tenant/Administrator-detail visibility;
@@ -227,7 +220,7 @@ with complete cleanup. No V5 observation is authorized or reusable by this candi
 
 The read-only reviewer must independently verify:
 
-- exact repository/baseline/CI truth and ADO-only delta;
+- exact repository/baseline/CI truth and authorized implementation delta;
 - that own-time is already accepted v1 capability and no new Business Rule is invented;
 - self-only/effective/active-record contract and every omitted privileged field;
 - generalized target/trigger semantics, Project/General scope and immutable provenance;
@@ -244,13 +237,8 @@ Allowed verdicts: `APPROVED` or `CHANGES REQUIRED`, with P0–P3 findings.
 ## 9. Required sequence and current authority
 
 ```text
-ADO-only candidate
-  -> R0/V0
-  -> focused publication and exact-head CI
-  -> independent read-only exact-SHA review
-  -> correction/re-review until zero open P0–P3
-  -> standing-rule release of the exact approved scope
-  -> sole Development writer; V1–V3
+Human acceptance and bounded implementation authority
+  -> sole Development writer; V0–V3
   -> Technical-Lead acceptance
   -> focused publication; V4
   -> independent exact-SHA implementation review
@@ -262,6 +250,14 @@ autonomous Roadmap execution through independently approved work, with a stop at
 Human/hardware gate. That standing instruction does not waive a genuine missing product decision,
 expand this candidate or authorize V5/production/deployment.
 
-Until independent pre-implementation review returns `APPROVED` with zero open P0–P3, implementation
-is unauthorized. Human V5, production, production data, deployment and distribution remain
-separately unauthorized.
+The Human Architect expressly accepted the complete ADR-0016/ADR-0017 values and authorized
+Workstreams A–F through local AVS V0–V3 plus the subsequent Technical-Lead acceptance, focused
+publication, exact-head V4 and independent exact-SHA implementation review on the exact
+implementation baseline above. The local candidate completed the Development-Agent portion of
+that bounded scope without using publication authority; its truthful evidence and remaining gates
+are recorded in
+`ADO/05_Evidence/Development_Assignment_05_Local_Implementation_Evidence.md`.
+
+The Development Agent did not commit, publish, push, run V4 or perform the independent review.
+Those authorized Technical-Lead steps and their approval have not occurred yet. Human V5,
+production, production data, deployment and distribution remain separately unauthorized.

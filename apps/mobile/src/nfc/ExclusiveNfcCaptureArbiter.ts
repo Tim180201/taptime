@@ -3,12 +3,18 @@ import type { NfcCapabilityState, NfcCaptureLifecyclePort } from './RnNfcScanAda
 
 export type NfcCaptureOwner = 'lifecycle' | 'administration';
 export type ScopedNfcCapturePort = NfcScanPort & NfcCaptureLifecyclePort;
+export interface NativeNfcIngressCapturePort {
+  consume(): NfcScanCaptureResult | null;
+}
 
 /** Ensures one native capture can belong to exactly one product flow. */
 export class ExclusiveNfcCaptureArbiter {
   private activeOwner: NfcCaptureOwner | null = null;
 
-  constructor(private readonly native: ScopedNfcCapturePort) {}
+  constructor(
+    private readonly native: ScopedNfcCapturePort,
+    private readonly ingress: NativeNfcIngressCapturePort | null = null,
+  ) {}
 
   scope(owner: NfcCaptureOwner): ScopedNfcCapturePort {
     return Object.freeze({
@@ -30,6 +36,10 @@ export class ExclusiveNfcCaptureArbiter {
     }
     this.activeOwner = owner;
     try {
+      const ingressCapture = owner === 'lifecycle'
+        ? this.ingress?.consume() ?? null
+        : null;
+      if (ingressCapture !== null) return ingressCapture;
       return await this.native.scan();
     } finally {
       if (this.activeOwner === owner) {

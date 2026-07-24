@@ -2,6 +2,7 @@ import type {
   CursorPage,
   SafeEmployeeProjection,
   SafeProjection,
+  SafeProject,
   SafeReviewItem,
   SafeTimeRecord,
   VolatileInvitationSecret,
@@ -17,6 +18,7 @@ const employeeCursor = /^v1:e:[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-
 const invitationSecret = /^[A-Za-z0-9_-]{43}$/;
 const canonicalTimestamp = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 const opaqueCursor = /^[A-Za-z0-9_-]{1,512}$/;
+const projectCursor = /^v1:[A-Za-z0-9_-]{1,252}$/;
 const fingerprint = /^[A-F0-9]{12}$/;
 export type Session = { readonly membershipId: string; readonly role: 'administrator' | 'employee' };
 export type ApiResult<Value> =
@@ -33,7 +35,10 @@ export type ApiResult<Value> =
         | 'invitation_limit_reached'
         | 'time_review_conflict'
         | 'not_adjustable'
-        | 'invalid_evidence';
+        | 'invalid_evidence'
+        | 'project_in_use'
+        | 'project_unavailable'
+        | 'stale_row_version';
     };
 
 export interface AdminWebApiPort {
@@ -99,6 +104,24 @@ export interface AdminWebApiPort {
     fromInclusive: string,
     toExclusive: string,
   ): Promise<ApiResult<{ readonly blob: Blob; readonly filename: string }>>;
+  readonly projects?: (
+    token: string,
+    membershipId: string,
+    nextCursor: string | null,
+  ) => Promise<ApiResult<CursorPage<SafeProject>>>;
+  readonly createProject?: (
+    token: string,
+    membershipId: string,
+    commandId: string,
+    projectId: string,
+    displayName: string,
+  ) => Promise<ApiResult<SafeProject>>;
+  readonly deactivateProject?: (
+    token: string,
+    membershipId: string,
+    commandId: string,
+    project: SafeProject,
+  ) => Promise<ApiResult<SafeProject>>;
 }
 
 export class AdminWebApiClient implements AdminWebApiPort {
@@ -175,7 +198,7 @@ export class AdminWebApiClient implements AdminWebApiPort {
   ): Promise<ApiResult<CursorPage<SafeTimeRecord>>> {
     if (nextCursor !== null && !opaqueCursor.test(nextCursor)) return { status: 'unavailable' };
     return this.request(
-      '/v1/administration/time-records/query', token, 'POST',
+      '/v2/administration/time-records/query', token, 'POST',
       { expectedMembershipId: membershipId, fromInclusive, toExclusive, limit: 100, cursor: nextCursor },
       parseTimeRecords,
       false,
@@ -191,7 +214,7 @@ export class AdminWebApiClient implements AdminWebApiPort {
   ): Promise<ApiResult<CursorPage<SafeReviewItem>>> {
     if (nextCursor !== null && !opaqueCursor.test(nextCursor)) return { status: 'unavailable' };
     return this.request(
-      '/v1/administration/review-items/query', token, 'POST',
+      '/v2/administration/review-items/query', token, 'POST',
       { expectedMembershipId: membershipId, limit: 100, cursor: nextCursor },
       parseReviewItems,
       false,
@@ -259,7 +282,7 @@ export class AdminWebApiClient implements AdminWebApiPort {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 10_000);
     try {
-      const response = await this.fetchRequest('/v1/administration/time-entries/export', {
+      const response = await this.fetchRequest('/v2/time-entries/export', {
         method: 'POST',
         headers: {
           Accept: 'text/csv', Authorization: `Bearer ${token}`,
@@ -270,7 +293,7 @@ export class AdminWebApiClient implements AdminWebApiPort {
       });
       if (response.status === 401 || response.status === 403) return { status: 'rejected' };
       const disposition = response.headers.get('content-disposition');
-      const match = /^attachment; filename="(taptime-time-entries_[0-9TZ]+_[0-9TZ]+\.csv)"$/.exec(
+      const match = /^attachment; filename="(taptime-time-entries_v2_[0-9TZ]+_[0-9TZ]+\.csv)"$/.exec(
         disposition ?? '',
       );
       if (
@@ -288,6 +311,70 @@ export class AdminWebApiClient implements AdminWebApiPort {
       clearTimeout(timeout);
     }
   }
+  async projects(
+    token: string,
+    membershipId: string,
+    nextCursor: string | null,
+  ): Promise<ApiResult<CursorPage<SafeProject>>> {
+    if (nextCursor !== null && !projectCursor.test(nextCursor)) {
+      return { status: 'unavailable' };
+    }
+    return this.request(
+      '/v1/administration/projects/query',
+      token,
+      'POST',
+      { expectedMembershipId: membershipId, cursor: nextCursor, limit: 20 },
+      parseProjects,
+      false,
+      false,
+      false,
+      maximumJsonBodyBytes,
+    );
+  }
+  async createProject(
+    token: string,
+    membershipId: string,
+    commandId: string,
+    projectId: string,
+    displayName: string,
+  ): Promise<ApiResult<SafeProject>> {
+    return this.request(
+      '/v1/administration/projects/create',
+      token,
+      'POST',
+      { expectedMembershipId: membershipId, commandId, projectId, displayName },
+      parseProjectMutation,
+      false,
+      false,
+      false,
+      maximumJsonBodyBytes,
+      true,
+    );
+  }
+  async deactivateProject(
+    token: string,
+    membershipId: string,
+    commandId: string,
+    project: SafeProject,
+  ): Promise<ApiResult<SafeProject>> {
+    return this.request(
+      '/v1/administration/projects/deactivate',
+      token,
+      'POST',
+      {
+        expectedMembershipId: membershipId,
+        commandId,
+        projectId: project.projectId,
+        expectedRowVersion: project.rowVersion,
+      },
+      parseProjectMutation,
+      false,
+      false,
+      false,
+      maximumJsonBodyBytes,
+      true,
+    );
+  }
   private async request<Value>(
     path: string,
     token: string,
@@ -298,6 +385,7 @@ export class AdminWebApiClient implements AdminWebApiPort {
     exposeReassignmentErrors = false,
     exposeTimeReviewErrors = false,
     maximumResponseBytes = maximumJsonBodyBytes,
+    exposeProjectErrors = false,
   ): Promise<ApiResult<Value>> {
     const controller = new AbortController(); const timeout = setTimeout(() => controller.abort(), 10_000);
     try {
@@ -334,6 +422,17 @@ export class AdminWebApiClient implements AdminWebApiPort {
         const conflictText = await readBoundedResponseText(response, maximumResponseBytes);
         if (conflictText === null) return { status: 'unavailable' };
         const code = parseTimeReviewError(JSON.parse(conflictText), response.status);
+        return code === null ? { status: 'unavailable' } : { status: 'conflict', code };
+      }
+      if (exposeProjectErrors && (response.status === 404 || response.status === 409)) {
+        if (
+          response.redirected
+          || !isJsonContentType(response.headers.get('content-type'))
+          || !hasSafeDeclaredLength(response, maximumResponseBytes)
+        ) return { status: 'unavailable' };
+        const conflictText = await readBoundedResponseText(response, maximumResponseBytes);
+        if (conflictText === null) return { status: 'unavailable' };
+        const code = parseProjectError(JSON.parse(conflictText));
         return code === null ? { status: 'unavailable' } : { status: 'conflict', code };
       }
       if (response.status !== 200 || response.redirected || !isJsonContentType(response.headers.get('content-type'))) return { status: 'unavailable' };
@@ -396,6 +495,50 @@ function parseEmployeeProjection(
   };
   return isSafeEmployeeProjectionPage(projection, requestedCursor) ? projection : null;
 }
+function parseProjects(value: unknown): CursorPage<SafeProject> | null {
+  if (
+    !isRecord(value)
+    || !exact(value, ['projects', 'nextCursor'])
+    || !Array.isArray(value.projects)
+    || !(value.nextCursor === null || (
+      typeof value.nextCursor === 'string' && projectCursor.test(value.nextCursor)
+    ))
+  ) return null;
+  const projects = value.projects.map(parseProject);
+  return projects.some((project) => project === null)
+    ? null
+    : {
+        items: projects as SafeProject[],
+        nextCursor: value.nextCursor,
+      };
+}
+function parseProjectMutation(value: unknown): SafeProject | null {
+  if (
+    !isRecord(value)
+    || !exact(value, ['status', 'idempotentRetry', 'project', 'receiptId'])
+    || value.status !== 'succeeded'
+    || typeof value.idempotentRetry !== 'boolean'
+    || !uuid.test(String(value.receiptId))
+  ) return null;
+  return parseProject(value.project);
+}
+function parseProject(value: unknown): SafeProject | null {
+  if (
+    !isRecord(value)
+    || !exact(value, ['projectId', 'displayName', 'active', 'rowVersion'])
+    || !uuid.test(String(value.projectId))
+    || typeof value.displayName !== 'string'
+    || typeof value.active !== 'boolean'
+    || !Number.isSafeInteger(value.rowVersion)
+    || Number(value.rowVersion) < 1
+  ) return null;
+  return {
+    projectId: String(value.projectId),
+    displayName: value.displayName,
+    active: value.active,
+    rowVersion: Number(value.rowVersion),
+  };
+}
 function parseInvitation(value: unknown): VolatileInvitationSecret | null {
   if (!isRecord(value) || !exact(value, ['status', 'invitationSecret', 'expiresAt'])
     || value.status !== 'succeeded' || typeof value.invitationSecret !== 'string'
@@ -453,14 +596,22 @@ function parseTimeRecords(value: unknown): CursorPage<SafeTimeRecord> | null {
     || !(value.nextCursor === null || (typeof value.nextCursor === 'string' && opaqueCursor.test(value.nextCursor)))) return null;
   const records = value.records.map((entry) => {
     if (!isRecord(entry) || !exact(entry, [
-      'timeRecordId', 'employeeMembershipId', 'employeeDisplayName', 'customerId',
-      'customerDisplayName', 'source', 'status', 'startedAt', 'stoppedAt',
+      'timeRecordId', 'employeeMembershipId', 'employeeDisplayName', 'targetType',
+      'targetId', 'targetDisplayName', 'source', 'status', 'startedVia', 'stoppedVia',
+      'startedAt', 'stoppedAt',
       'baseRowVersion', 'effectiveRevisionNumber', 'overlapsAnotherRecord',
     ]) || !uuid.test(String(entry.timeRecordId)) || !uuid.test(String(entry.employeeMembershipId))
-      || !uuid.test(String(entry.customerId)) || typeof entry.employeeDisplayName !== 'string'
-      || typeof entry.customerDisplayName !== 'string'
+      || !uuid.test(String(entry.targetId)) || typeof entry.employeeDisplayName !== 'string'
+      || typeof entry.targetDisplayName !== 'string'
+      || !['customer', 'project', 'general_work'].includes(String(entry.targetType))
       || (entry.source !== 'canonical' && entry.source !== 'recovered')
       || (entry.status !== 'started' && entry.status !== 'stopped')
+      || !(entry.startedVia === null || entry.startedVia === 'nfc' || entry.startedVia === 'manual')
+      || !(entry.stoppedVia === null || entry.stoppedVia === 'nfc' || entry.stoppedVia === 'manual')
+      || (entry.source === 'recovered'
+        ? entry.startedVia !== null || entry.stoppedVia !== null
+        : entry.startedVia === null
+          || (entry.status === 'started' ? entry.stoppedVia !== null : entry.stoppedVia === null))
       || !isCanonicalTimestamp(entry.startedAt)
       || !(entry.stoppedAt === null || isCanonicalTimestamp(entry.stoppedAt))
       || (entry.status === 'started' ? entry.stoppedAt !== null : entry.stoppedAt === null)
@@ -470,7 +621,10 @@ function parseTimeRecords(value: unknown): CursorPage<SafeTimeRecord> | null {
     return Object.freeze({
       timeRecordId: String(entry.timeRecordId),
       employeeDisplayName: entry.employeeDisplayName,
-      customerDisplayName: entry.customerDisplayName,
+      targetType: entry.targetType as SafeTimeRecord['targetType'],
+      targetDisplayName: entry.targetDisplayName,
+      startedVia: entry.startedVia as SafeTimeRecord['startedVia'],
+      stoppedVia: entry.stoppedVia as SafeTimeRecord['stoppedVia'],
       source: entry.source,
       status: entry.status,
       startedAt: entry.startedAt,
@@ -499,11 +653,13 @@ function parseReviewItems(value: unknown): CursorPage<SafeReviewItem> | null {
   const items = value.items.map((entry) => {
     if (!isRecord(entry) || !exact(entry, [
       'reviewItemId', 'source', 'employeeUserId', 'employeeMembershipId',
-      'employeeDisplayName', 'customerId', 'customerDisplayName', 'occurredAt',
+      'employeeDisplayName', 'targetType', 'targetId', 'targetDisplayName', 'triggerType', 'occurredAt',
       'recordedAt', 'reviewReason', 'deviceSequence', 'predecessorBlocked',
     ]) || !uuid.test(String(entry.reviewItemId)) || !uuid.test(String(entry.employeeUserId))
-      || !uuid.test(String(entry.employeeMembershipId)) || !uuid.test(String(entry.customerId))
-      || typeof entry.employeeDisplayName !== 'string' || typeof entry.customerDisplayName !== 'string'
+      || !uuid.test(String(entry.employeeMembershipId)) || !uuid.test(String(entry.targetId))
+      || typeof entry.employeeDisplayName !== 'string' || typeof entry.targetDisplayName !== 'string'
+      || !['customer', 'project', 'general_work'].includes(String(entry.targetType))
+      || (entry.triggerType !== 'nfc' && entry.triggerType !== 'manual')
       || (entry.source !== 'offline_v2' && entry.source !== 'server_legacy')
       || !isCanonicalTimestamp(entry.occurredAt) || !isCanonicalTimestamp(entry.recordedAt)
       || typeof entry.reviewReason !== 'string' || !reasons.has(entry.reviewReason)
@@ -512,7 +668,9 @@ function parseReviewItems(value: unknown): CursorPage<SafeReviewItem> | null {
     return Object.freeze({
       reviewItemId: String(entry.reviewItemId), source: entry.source,
       employeeDisplayName: entry.employeeDisplayName,
-      customerDisplayName: entry.customerDisplayName,
+      targetType: entry.targetType as SafeReviewItem['targetType'],
+      targetDisplayName: entry.targetDisplayName,
+      triggerType: entry.triggerType as SafeReviewItem['triggerType'],
       occurredAt: entry.occurredAt, reviewReason: entry.reviewReason,
       deviceSequence: entry.deviceSequence,
       predecessorBlocked: entry.predecessorBlocked,
@@ -582,6 +740,23 @@ function parseTimeReviewError(
   }
   return value.error.code === 'not_adjustable' || value.error.code === 'invalid_evidence'
     ? value.error.code : null;
+}
+function parseProjectError(
+  value: unknown,
+): 'command_id_conflict' | 'project_in_use' | 'project_unavailable'
+  | 'stale_row_version' | null {
+  if (
+    !isRecord(value)
+    || !exact(value, ['error'])
+    || !isRecord(value.error)
+    || !exact(value.error, ['code'])
+  ) return null;
+  return value.error.code === 'command_id_conflict'
+    || value.error.code === 'project_in_use'
+    || value.error.code === 'project_unavailable'
+    || value.error.code === 'stale_row_version'
+    ? value.error.code
+    : null;
 }
 function isRecord(value: unknown): value is Record<string, unknown> { return typeof value === 'object' && value !== null && !Array.isArray(value); }
 function exact(value: Record<string, unknown>, keys: readonly string[]): boolean { return Object.keys(value).sort().join(',') === [...keys].sort().join(','); }

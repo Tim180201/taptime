@@ -1,4 +1,5 @@
 import type { WorkEvent } from '../domain/WorkEvent';
+import { workEventTriggerType } from '../domain/WorkEvent';
 import type { StartedTimeEntry, StoppedTimeEntry } from '../domain/TimeEntry';
 import type { AssignmentTarget } from '../domain/AssignmentTarget';
 import { TimeEntryId } from '../domain/ids';
@@ -56,6 +57,7 @@ export class BusinessEngine {
           status: 'stopped',
           stoppedAt: workEvent.occurredAt,
           stoppedByWorkEventId: workEvent.id,
+          stoppedVia: workEventTriggerType(workEvent),
         };
         return {
           status: 'time_entry_stopped',
@@ -79,6 +81,7 @@ export class BusinessEngine {
       target: workEvent.target,
       status: 'started',
       startedAt: workEvent.occurredAt,
+      startedVia: workEventTriggerType(workEvent),
     };
 
     return { status: 'time_entry_started', timeEntry, event: timeEntryStarted(timeEntry) };

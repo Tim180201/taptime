@@ -7,6 +7,7 @@ interface ScanScreenProps {
   readonly actor: ProductMembershipRole | 'offline';
   readonly scan: ProductScanCapability;
   readonly signOut: () => Promise<void>;
+  readonly embedded?: boolean;
 }
 
 export interface ScanScreenPresentation {
@@ -15,7 +16,7 @@ export interface ScanScreenPresentation {
   readonly tone: 'neutral' | 'success' | 'warning' | 'error';
 }
 
-export function ScanScreen({ actor, scan, signOut }: ScanScreenProps) {
+export function ScanScreen({ actor, scan, signOut, embedded = false }: ScanScreenProps) {
   const state = useSyncExternalStore(
     (listener) => scan.subscribe(listener),
     () => scan.getState(),
@@ -24,11 +25,11 @@ export function ScanScreen({ actor, scan, signOut }: ScanScreenProps) {
   const presentation = presentScanState(state);
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
+    <View style={[styles.container, embedded && styles.embeddedContainer]}>
+      {embedded ? null : <View style={styles.header}>
         <Text style={styles.brand}>TapTim.e</Text>
         <Text style={styles.role}>{presentActor(actor)}</Text>
-      </View>
+      </View>}
 
       <View
         style={[styles.statusCard, styles[`status_${presentation.tone}`]]}
@@ -65,14 +66,14 @@ export function ScanScreen({ actor, scan, signOut }: ScanScreenProps) {
         ) : null}
       </View>
 
-      <View style={styles.signOut}>
+      {embedded ? null : <View style={styles.signOut}>
         <Button
           title="Abmelden"
           onPress={signOut}
           accessibilityLabel="Von TapTim.e abmelden"
           testID="sign-out-button"
         />
-      </View>
+      </View>}
     </View>
   );
 }
@@ -243,6 +244,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     backgroundColor: '#f4f7f5',
   },
+  embeddedContainer: { paddingTop: 20 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',

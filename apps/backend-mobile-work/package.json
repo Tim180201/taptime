@@ -1,0 +1,25 @@
+{
+  "name": "@taptime/backend-mobile-work",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json --emitDeclarationOnly && esbuild src/index.ts --bundle --platform=node --target=node24 --format=esm --external:@taptime/backend-identity --external:@taptime/mobile-work-contract --external:pg --sourcemap --outdir=dist",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@taptime/backend-identity": "*",
+    "@taptime/mobile-work-contract": "*",
+    "pg": "^8.22.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.13",
+    "@types/pg": "^8.20.0",
+    "esbuild": "^0.28.1",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.9"
+  }
+}

@@ -30,7 +30,8 @@ class TapTimeMonotonicClockModule : Module() {
         }
       mapOf(
         "bootMarker" to marker,
-        "elapsedRealtimeMilliseconds" to SystemClock.elapsedRealtime().toDouble()
+        "elapsedRealtimeMilliseconds" to SystemClock.elapsedRealtime().toDouble(),
+        "wallClockMilliseconds" to System.currentTimeMillis().toDouble()
       )
     }
   }

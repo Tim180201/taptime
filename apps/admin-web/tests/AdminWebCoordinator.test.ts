@@ -37,7 +37,8 @@ const readyTimeReviewState = {
 } as const;
 const stoppedRecord: SafeTimeRecord = {
   timeRecordId: '90000000-0000-4000-8000-000000000001',
-  employeeDisplayName: 'Employee Alpha', customerDisplayName: 'Werkstatt',
+  employeeDisplayName: 'Employee Alpha', targetType: 'customer',
+  targetDisplayName: 'Werkstatt', startedVia: 'nfc', stoppedVia: 'nfc',
   source: 'canonical', status: 'stopped',
   startedAt: '2026-07-20T08:00:00.000Z', stoppedAt: '2026-07-20T10:00:00.000Z',
   baseRowVersion: 1, effectiveRevisionNumber: 0, overlapsAnotherRecord: false,
@@ -45,7 +46,8 @@ const stoppedRecord: SafeTimeRecord = {
 const reviewItem: SafeReviewItem = {
   reviewItemId: '90000000-0000-4000-8000-000000000002',
   source: 'offline_v2', employeeDisplayName: 'Employee Alpha',
-  customerDisplayName: 'Werkstatt', occurredAt: '2026-07-20T11:00:00.000Z',
+  targetType: 'customer', targetDisplayName: 'Werkstatt', triggerType: 'nfc',
+  occurredAt: '2026-07-20T11:00:00.000Z',
   reviewReason: 'automatic_window_elapsed', deviceSequence: 7, predecessorBlocked: true,
 };
 
@@ -103,6 +105,10 @@ class FakeApi implements AdminWebApiPort {
   }));
   readonly reviewItems = vi.fn<AdminWebApiPort['reviewItems']>(async () => ({
     status: 'succeeded', value: { items: [], nextCursor: null },
+  }));
+  readonly projects = vi.fn<NonNullable<AdminWebApiPort['projects']>>(async () => ({
+    status: 'succeeded',
+    value: { items: [], nextCursor: null },
   }));
   readonly correctTimeRecord = vi.fn<AdminWebApiPort['correctTimeRecord']>(async () => ({
     status: 'succeeded', value: true,
@@ -264,6 +270,43 @@ describe('AdminWebCoordinator', () => {
         nfcTags: [],
         nextCursor: null,
       },
+    });
+  });
+
+  it('loads and merges one bounded Project page without replacing prior rows', async () => {
+    const { api, coordinator } = setup();
+    const cursor = 'v1:p:80000000-0000-4000-8000-000000000001';
+    const first = {
+      projectId: '80000000-0000-4000-8000-000000000001',
+      displayName: 'Innenausbau',
+      active: true,
+      rowVersion: 1,
+    } as const;
+    const second = {
+      projectId: '80000000-0000-4000-8000-000000000002',
+      displayName: 'Montage Nord',
+      active: true,
+      rowVersion: 1,
+    } as const;
+    api.projects.mockResolvedValueOnce({
+      status: 'succeeded',
+      value: { items: [first], nextCursor: cursor },
+    });
+    await coordinator.signIn('administrator@example.test', 'secret');
+    await coordinator.refreshProjects();
+    api.projects.mockResolvedValueOnce({
+      status: 'succeeded',
+      value: { items: [second], nextCursor: null },
+    });
+
+    await coordinator.loadMoreProjects();
+
+    expect(api.projects).toHaveBeenLastCalledWith('memory-only-token', membershipId, cursor);
+    expect(coordinator.getState()).toMatchObject({
+      status: 'ready',
+      projects: [first, second],
+      projectsNextCursor: null,
+      projectBusy: false,
     });
   });
 

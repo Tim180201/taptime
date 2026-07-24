@@ -7,6 +7,7 @@
     "@noble/hashes": "2.2.0",
     "@supabase/supabase-js": "^2.110.3",
     "@taptime/core": "*",
+    "@taptime/mobile-work-contract": "*",
     "@taptime/offline-sync-contract": "*",
     "@taptime/time-review-contract": "*",
     "expo": "~57.0.2",

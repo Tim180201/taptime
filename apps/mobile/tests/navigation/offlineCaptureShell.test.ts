@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { canPresentOfflineCaptureShell } from '../../src/navigation/offlineCaptureShell';
+import {
+  canPresentOfflineCaptureShell,
+  OFFLINE_PRODUCT_DESTINATIONS,
+} from '../../src/navigation/offlineCaptureShell';
 import type { MobileSessionState } from '../../src/auth/contracts';
 import type { ProductScanState } from '../../src/scan/contracts';
 
@@ -41,4 +44,10 @@ describe('offline capture shell', () => {
       expect(canPresentOfflineCaptureShell(session, scan)).toBe(false);
     },
   );
+
+  it('defines only Scan, leased Manual and Sync destinations for the offline shell', () => {
+    expect(OFFLINE_PRODUCT_DESTINATIONS).toEqual(['capture', 'manual', 'sync']);
+    expect(OFFLINE_PRODUCT_DESTINATIONS).not.toContain('times');
+    expect(OFFLINE_PRODUCT_DESTINATIONS).not.toContain('setup');
+  });
 });

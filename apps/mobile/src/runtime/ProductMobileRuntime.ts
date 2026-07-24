@@ -12,6 +12,10 @@ import { TapTimeSessionApiClient } from '../auth/TapTimeSessionApiClient';
 import { TapTimeEmployeeEnrollmentApiClient } from '../auth/TapTimeEmployeeEnrollmentApiClient';
 import { RnNfcScanAdapter } from '../nfc/RnNfcScanAdapter';
 import { ExclusiveNfcCaptureArbiter } from '../nfc/ExclusiveNfcCaptureArbiter';
+import {
+  NativeNfcIngressCapturePort,
+  NativeNfcIngressLifecycle,
+} from '../nfc/NativeNfcIngress';
 import { OfflineCaptureCoordinator } from '../offline/OfflineCaptureCoordinator';
 import { OfflineCaptureLeaseClient } from '../offline/OfflineCaptureLeaseClient';
 import { getExpoOfflineCaptureDatabase } from '../offline/ExpoOfflineCaptureDatabase';
@@ -41,6 +45,8 @@ import {
   DefaultProductMobileRuntime,
   type ProductMobileRuntime,
 } from './DefaultProductMobileRuntime';
+import { MobileWorkCoordinator } from '../work/MobileWorkCoordinator';
+import { TapTimeMobileWorkApiClient } from '../work/TapTimeMobileWorkApiClient';
 
 export type { ProductMobileRuntime } from './DefaultProductMobileRuntime';
 
@@ -116,7 +122,8 @@ export function createProductMobileRuntime(): ProductMobileRuntimeCreation {
     platform: Platform.OS,
     captureTimestamp: () => createTimestamp(new Date().toISOString()),
   });
-  const nfcArbiter = new ExclusiveNfcCaptureArbiter(nfcAdapter);
+  const nativeNfcIngress = new NativeNfcIngressCapturePort();
+  const nfcArbiter = new ExclusiveNfcCaptureArbiter(nfcAdapter, nativeNfcIngress);
   const lifecycleNfc = nfcArbiter.scope('lifecycle');
   const administrationNfc = nfcArbiter.scope('administration');
   const offlineLifecycle = new OfflineLifecycleClient(
@@ -145,6 +152,19 @@ export function createProductMobileRuntime(): ProductMobileRuntimeCreation {
     offlineBackgroundSchedulerBinding,
   );
   const offlineSchedulingLifecycle = new OfflineSchedulingLifecycle(scanOrchestrator);
+  const nativeNfcIngressLifecycle = new NativeNfcIngressLifecycle(
+    nativeNfcIngress,
+    scanOrchestrator,
+  );
+  const mobileWorkCoordinator = new MobileWorkCoordinator(
+    scanSessionContext,
+    new TapTimeMobileWorkApiClient(
+      new URL(configuration.configuration.tapTimeApiBaseUrl),
+      authenticatedRequests,
+      randomUUID,
+    ),
+    scanOrchestrator,
+  );
   const administrationCoordinator = new AdminSetupCoordinator(
     scanSessionContext,
     administrationNfc,
@@ -160,6 +180,9 @@ export function createProductMobileRuntime(): ProductMobileRuntimeCreation {
       scanOrchestrator,
       administrationCoordinator,
       offlineSchedulingLifecycle,
+      mobileWorkCoordinator,
+      nativeNfcIngressLifecycle,
+      scanOrchestrator,
     ),
   };
 }

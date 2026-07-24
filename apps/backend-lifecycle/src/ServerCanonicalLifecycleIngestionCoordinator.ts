@@ -8,18 +8,23 @@ import {
 import {
   BusinessEngine,
   CustomerId,
+  GeneralWorkTargetId,
   NfcAssignmentId,
   NfcTagId,
   OrganizationId,
+  ProjectId,
   TimeEntryId,
   UserId,
   WorkEventId,
   createTimestamp,
   customerAssignmentTarget,
+  generalWorkTarget,
+  projectWorkTarget,
   type BusinessEngineDecision,
   type BusinessEngineEscalationReason,
   type MembershipId,
   type StartedTimeEntry,
+  type NfcWorkEvent,
   type WorkEvent,
 } from '@taptime/core';
 import type { Pool, PoolClient, QueryResult, QueryResultRow } from 'pg';
@@ -70,21 +75,23 @@ interface ActiveTimeEntryRow extends QueryResultRow {
   readonly id: string;
   readonly organization_id: string;
   readonly user_id: string;
-  readonly target_type: 'customer';
+  readonly target_type: 'customer' | 'project' | 'general_work';
   readonly target_customer_id: string;
   readonly start_work_event_id: string;
   readonly started_at: Date;
+  readonly started_via: 'nfc' | 'manual';
 }
 
 interface WorkEventRow extends QueryResultRow {
   readonly id: string;
   readonly organization_id: string;
-  readonly assignment_id: string;
-  readonly nfc_tag_id: string;
-  readonly target_type: 'customer';
+  readonly assignment_id: string | null;
+  readonly nfc_tag_id: string | null;
+  readonly target_type: 'customer' | 'project' | 'general_work';
   readonly target_customer_id: string;
   readonly triggered_by_user_id: string;
   readonly occurred_at: Date;
+  readonly trigger_type: 'nfc' | 'manual';
 }
 
 interface DecisionRow extends QueryResultRow {
@@ -498,7 +505,7 @@ function toAuthoritativeWorkEvent(
   command: LifecycleIngestionCommand,
   actor: ResolvedActorRow,
   configuration: ConfigurationRow,
-): WorkEvent {
+): NfcWorkEvent {
   return {
     id: WorkEventId(command.workEvent.id),
     organizationId: OrganizationId(actor.organization_id),
@@ -551,7 +558,7 @@ async function findActiveTimeEntry(
   const result = await query<ActiveTimeEntryRow>(
     client,
     `SELECT id, organization_id, user_id, target_type, target_customer_id,
-            start_work_event_id, started_at
+            start_work_event_id, started_at, started_via
      FROM taptime_server.time_entries
      WHERE organization_id = $1::uuid
        AND user_id = $2::uuid
@@ -569,9 +576,10 @@ async function findActiveTimeEntry(
     workEventId: WorkEventId(row.start_work_event_id),
     organizationId: OrganizationId(row.organization_id),
     userId: UserId(row.user_id),
-    target: customerAssignmentTarget(CustomerId(row.target_customer_id)),
+    target: targetFromStored(row.target_type, row.target_customer_id),
     status: 'started',
     startedAt: createTimestamp(row.started_at.toISOString()),
+    startedVia: row.started_via,
   };
 }
 
@@ -583,7 +591,7 @@ async function findPreviousCanonicalWorkEvent(
     client,
     `SELECT event.id, event.organization_id, event.assignment_id, event.nfc_tag_id,
             event.target_type, event.target_customer_id, event.triggered_by_user_id,
-            event.occurred_at
+            event.occurred_at, event.trigger_type
      FROM taptime_server.work_events AS event
      INNER JOIN taptime_server.canonical_decisions AS decision
        ON decision.organization_id = event.organization_id
@@ -606,15 +614,35 @@ async function findPreviousCanonicalWorkEvent(
   if (row === undefined) {
     return null;
   }
-  return {
+  const base = {
     id: WorkEventId(row.id),
     organizationId: OrganizationId(row.organization_id),
-    assignmentId: NfcAssignmentId(row.assignment_id),
-    nfcTagId: NfcTagId(row.nfc_tag_id),
-    target: customerAssignmentTarget(CustomerId(row.target_customer_id)),
+    target: targetFromStored(row.target_type, row.target_customer_id),
     triggeredBy: UserId(row.triggered_by_user_id),
     occurredAt: createTimestamp(row.occurred_at.toISOString()),
   };
+  if (row.trigger_type === 'manual') {
+    return { ...base, trigger: { type: 'manual' } };
+  }
+  if (row.assignment_id === null || row.nfc_tag_id === null) {
+    throw new Error('Persisted NFC WorkEvent has no Assignment provenance');
+  }
+  return {
+    ...base,
+    assignmentId: NfcAssignmentId(row.assignment_id),
+    nfcTagId: NfcTagId(row.nfc_tag_id),
+    trigger: { type: 'nfc', assignmentId: NfcAssignmentId(row.assignment_id),
+      nfcTagId: NfcTagId(row.nfc_tag_id) },
+  };
+}
+
+function targetFromStored(
+  targetType: 'customer' | 'project' | 'general_work',
+  targetId: string,
+) {
+  if (targetType === 'customer') return customerAssignmentTarget(CustomerId(targetId));
+  if (targetType === 'project') return projectWorkTarget(ProjectId(targetId));
+  return generalWorkTarget(GeneralWorkTargetId(targetId));
 }
 
 async function insertWorkEvent(
@@ -658,9 +686,9 @@ async function persistTimeEntryMutation(
       client,
       `INSERT INTO taptime_server.time_entries (
          id, organization_id, user_id, target_type, target_customer_id, status,
-         start_work_event_id, started_at
+         start_work_event_id, started_at, started_via
        ) VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5::uuid, 'started',
-         $6::uuid, $7::timestamptz)`,
+         $6::uuid, $7::timestamptz, $8)`,
       [
         entry.id,
         entry.organizationId,
@@ -669,6 +697,7 @@ async function persistTimeEntryMutation(
         entry.target.targetId,
         entry.workEventId,
         entry.startedAt,
+        entry.startedVia ?? 'nfc',
       ],
     );
     return true;
@@ -681,6 +710,7 @@ async function persistTimeEntryMutation(
        SET status = 'stopped',
            stop_work_event_id = $4::uuid,
            stopped_at = $5::timestamptz,
+           stopped_via = $6,
            row_version = row_version + 1
        WHERE organization_id = $1::uuid
          AND user_id = $2::uuid
@@ -692,6 +722,7 @@ async function persistTimeEntryMutation(
         entry.id,
         entry.stoppedByWorkEventId,
         entry.stoppedAt,
+        entry.stoppedVia ?? 'nfc',
       ],
     );
     if (result.rowCount !== 1) {

@@ -1,6 +1,8 @@
 import type {
   OfflineCaptureLeasePage,
+  OfflineCaptureLeasePageV2,
   OfflineLifecycleEventCommand,
+  OfflineLifecycleEventCommandV2,
 } from '@taptime/offline-sync-contract';
 import { describe, expect, it } from 'vitest';
 import {
@@ -9,7 +11,10 @@ import {
   type OfflineSqlParams,
   type OfflineSqlValue,
 } from '../../src/offline/OfflineCaptureDatabase';
-import { mobileManifestDigest } from '../../src/offline/MobileLookupHmac';
+import {
+  mobileManifestDigest,
+  mobileManifestDigestV2,
+} from '../../src/offline/MobileLookupHmac';
 
 const ids = {
   organization: '00000000-0000-4000-8000-000000000001',
@@ -41,7 +46,7 @@ describe('OfflineCaptureDatabase state machine', () => {
       await expect(store.initialize()).resolves.toEqual({ status: 'ready' });
       expect(native.execLog[0]).toMatch(/^PRAGMA key = "x'[0-9a-f]{64}'"$/);
       expect(native.execLog.some((sql) => sql.includes('CREATE TABLE offline_owner'))).toBe(true);
-      expect(native.userVersion).toBe(2);
+      expect(native.userVersion).toBe(3);
       expect(native.exclusiveTransactions).toBeGreaterThanOrEqual(2);
     });
 
@@ -56,7 +61,7 @@ describe('OfflineCaptureDatabase state machine', () => {
       expect(native.execLog.some((sql) => (
         sql.includes('ADD COLUMN review_pending_sequence')
       ))).toBe(true);
-      expect(native.userVersion).toBe(2);
+      expect(native.userVersion).toBe(3);
       await expect(store.readReviewPendingSequence()).resolves.toBeNull();
       expect(native.owner).toMatchObject(memoryOwner());
     });
@@ -179,6 +184,61 @@ describe('OfflineCaptureDatabase state machine', () => {
     });
   });
 
+  it('activates schema-v3 manual targets and appends immutable provenance-v2 FIFO evidence',
+    async () => {
+      const { store } = await readyStore();
+      await store.bindOwner(owner());
+      const page = leasePageV2();
+      await expect(store.activateLease({
+        page,
+        activationBootMarker: 'boot-1',
+        activationMonotonicMilliseconds: 10_000,
+      })).resolves.toEqual({ status: 'ready' });
+      await expect(store.lookupActiveManualTarget('project', ids.customer))
+        .resolves.toMatchObject({
+          itemType: 'manual_target',
+          leaseId: ids.lease,
+          targetType: 'project',
+          targetId: ids.customer,
+        });
+      await expect(store.listActiveManualTargets(ids.lease)).resolves.toEqual([{
+        targetType: 'project',
+        targetId: ids.customer,
+        displayName: 'Projekt',
+      }]);
+      const appended = await store.appendEvent({
+        organizationId: ids.organization,
+        expectedMembershipId: ids.membership,
+        leaseId: ids.lease,
+        leaseItemId: ids.item,
+        installationBinding: installationBindingEncoded,
+        provenanceVersion: 2,
+        clock: {
+          bootMarker: 'boot-1',
+          monotonicAnchorMilliseconds: 10_000,
+          monotonicDeltaMilliseconds: 1_000,
+          wallClockAnchor: page.issuedAt,
+          clockProofStatus: 'verified_same_boot',
+          clockProofVersion: 1,
+        },
+        workEvent: {
+          id: ids.event1,
+          target: { targetType: 'project', targetId: ids.customer },
+          occurredAt: '2026-07-18T10:00:01.000Z',
+          trigger: { type: 'manual' },
+        },
+        receipt: { id: ids.receipt1, attemptNumber: 1 },
+      });
+      expect(appended).toMatchObject({
+        status: 'ready',
+        command: {
+          deviceSequence: 1,
+          provenanceVersion: 2,
+          workEvent: { trigger: { type: 'manual' } },
+        },
+      });
+    });
+
   it('fails full at the exact queue count boundary without advancing sequence', async () => {
     const { store, native } = await readyStore();
     await store.bindOwner(owner());
@@ -228,6 +288,37 @@ function leasePage(): OfflineCaptureLeasePage {
     itemCount: 1,
     serializedBytes: JSON.stringify(items).length,
     manifestDigest: mobileManifestDigest(items),
+    items,
+    nextCursor: null,
+  };
+}
+
+function leasePageV2(): OfflineCaptureLeasePageV2 {
+  const items = [{
+    itemType: 'manual_target' as const,
+    itemId: ids.item,
+    targetType: 'project' as const,
+    targetId: ids.customer,
+    displayName: 'Projekt',
+    targetRowVersion: 1,
+  }];
+  return {
+    leaseSchemaVersion: 2,
+    manifestVersion: 2,
+    leaseId: ids.lease,
+    installationId: ids.installation,
+    identityBindingId: ids.identityBinding,
+    userId: ids.user,
+    organizationId: ids.organization,
+    membershipId: ids.membership,
+    membershipRowVersion: 1,
+    role: 'employee',
+    issuedAt: '2026-07-18T10:00:00.000Z',
+    expiresAt: '2026-07-18T22:00:00.000Z',
+    configurationRevision: '3'.repeat(64),
+    itemCount: 1,
+    serializedBytes: JSON.stringify(items).length,
+    manifestDigest: mobileManifestDigestV2(items),
     items,
     nextCursor: null,
   };
@@ -294,15 +385,17 @@ interface MemoryLease {
 interface MemoryItem {
   leaseId: string;
   itemId: string;
-  lookup: string;
-  assignmentId: string;
-  tagId: string;
+  itemType: 'nfc_assignment' | 'manual_target';
+  lookup: string | null;
+  assignmentId: string | null;
+  tagId: string | null;
+  targetType: 'customer' | 'project' | 'general_work';
   targetId: string;
   displayName: string;
 }
 
 interface MemoryQueue {
-  command: OfflineLifecycleEventCommand;
+  command: OfflineLifecycleEventCommand | OfflineLifecycleEventCommandV2;
   state: 'pending' | 'in_flight' | 'retry_wait' | 'protected_review_predecessor';
   attemptCount: number;
   nextAttemptAt: number | null;
@@ -376,11 +469,13 @@ class MemoryOfflineDatabase implements OfflineDatabaseConnection {
       this.items.push({
         leaseId: String(values[0]),
         itemId: String(values[1]),
-        lookup: String(values[2]),
-        assignmentId: String(values[3]),
-        tagId: String(values[4]),
-        targetId: String(values[6]),
-        displayName: String(values[7]),
+        itemType: String(values[2]) as MemoryItem['itemType'],
+        lookup: values[3] === null ? null : String(values[3]),
+        assignmentId: values[4] === null ? null : String(values[4]),
+        tagId: values[5] === null ? null : String(values[5]),
+        targetType: String(values[6]) as MemoryItem['targetType'],
+        targetId: String(values[7]),
+        displayName: String(values[8]),
       });
       return { changes: 1 };
     }
@@ -403,7 +498,8 @@ class MemoryOfflineDatabase implements OfflineDatabaseConnection {
       return { changes: 1 };
     }
     if (source.includes('INSERT INTO offline_event_queue')) {
-      const command = JSON.parse(String(values[5])) as OfflineLifecycleEventCommand;
+      const command = JSON.parse(String(values[5])) as
+        OfflineLifecycleEventCommand | OfflineLifecycleEventCommandV2;
       this.queue.push({
         command,
         bytes: Number(values[6]),
@@ -500,9 +596,9 @@ class MemoryOfflineDatabase implements OfflineDatabaseConnection {
       const item = this.items.find((candidate) => (
         candidate.leaseId === values[0]
         && candidate.itemId === values[4]
-        && candidate.assignmentId === values[5]
-        && candidate.tagId === values[6]
-        && candidate.targetId === values[8]
+        && candidate.assignmentId === values[8]
+        && candidate.tagId === values[9]
+        && candidate.targetId === values[6]
       ));
       const lease = this.leases.find((candidate) => (
         candidate.leaseId === values[0] && candidate.state === 'active'
@@ -510,6 +606,34 @@ class MemoryOfflineDatabase implements OfflineDatabaseConnection {
       return item !== undefined && lease !== undefined
         ? { item_id: item.itemId } as Row
         : null;
+    }
+    if (
+      source.includes('FROM offline_lease_generations AS generation')
+      && source.includes("item.item_type = 'manual_target'")
+    ) {
+      const item = this.items.find((candidate) => (
+        candidate.itemType === 'manual_target'
+        && candidate.targetType === values[0]
+        && candidate.targetId === values[1]
+      ));
+      const lease = item === undefined
+        ? undefined
+        : this.leases.find((candidate) => (
+            candidate.leaseId === item.leaseId && candidate.state === 'active'
+          ));
+      return item === undefined || lease === undefined
+        ? null
+        : {
+            lease_id: lease.leaseId,
+            item_id: item.itemId,
+            target_type: item.targetType,
+            target_id: item.targetId,
+            display_name: item.displayName,
+            issued_at: lease.issuedAt,
+            expires_at: lease.expiresAt,
+            activation_boot_marker: lease.boot,
+            activation_monotonic_milliseconds: lease.monotonic,
+          } as Row;
     }
     if (source.includes('FROM offline_lease_generations AS generation')) {
       const item = this.items.find((candidate) => candidate.lookup === values[0]);
@@ -526,7 +650,7 @@ class MemoryOfflineDatabase implements OfflineDatabaseConnection {
         item_id: item.itemId,
         assignment_id: item.assignmentId,
         nfc_tag_id: item.tagId,
-        target_type: 'customer',
+        target_type: item.targetType,
         target_id: item.targetId,
         display_name: item.displayName,
         issued_at: lease.issuedAt,
@@ -551,7 +675,10 @@ class MemoryOfflineDatabase implements OfflineDatabaseConnection {
     throw new Error(`Unsupported synthetic first SQL: ${source}`);
   }
 
-  async getAllAsync<Row>(source: string): Promise<Row[]> {
+  async getAllAsync<Row>(
+    source: string,
+    params: OfflineSqlParams = [],
+  ): Promise<Row[]> {
     if (source === 'PRAGMA cipher_integrity_check') return this.cipherRows as Row[];
     if (source.includes('SELECT device_sequence FROM offline_event_queue')) {
       return this.sortedQueue().map(({ command }) => ({
@@ -562,6 +689,33 @@ class MemoryOfflineDatabase implements OfflineDatabaseConnection {
       source.includes('SELECT submission_json FROM offline_legacy_queue')
       || source.includes('FROM offline_protected_quarantine')
     ) return [];
+    if (
+      source.includes('FROM offline_lease_generations AS generation')
+      && source.includes("item.item_type = 'manual_target'")
+      && source.includes('ORDER BY item.target_type')
+    ) {
+      const leaseId = String(asArray(params)[0]);
+      const active = this.leases.some((lease) => (
+        lease.leaseId === leaseId && lease.state === 'active'
+      ));
+      if (!active || this.owner?.capture_invalidated !== 0) return [];
+      return this.items
+        .filter((item) => item.leaseId === leaseId && item.itemType === 'manual_target')
+        .map((item) => {
+          const lease = this.leases.find((candidate) => candidate.leaseId === item.leaseId)!;
+          return {
+            lease_id: item.leaseId,
+            item_id: item.itemId,
+            target_type: item.targetType,
+            target_id: item.targetId,
+            display_name: item.displayName,
+            issued_at: lease.issuedAt,
+            expires_at: lease.expiresAt,
+            activation_boot_marker: lease.boot,
+            activation_monotonic_milliseconds: lease.monotonic,
+          };
+        }) as Row[];
+    }
     throw new Error(`Unsupported synthetic all SQL: ${source}`);
   }
 
