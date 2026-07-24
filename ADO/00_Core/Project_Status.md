@@ -1,6 +1,6 @@
 # Project Status
 
-Status: CORE ROADMAP V2 BLOCK A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2, BLOCK D, E1 AND NARROW E2A COMPLETE FOR THEIR RECORDED SCOPES — DEVELOPMENT ASSIGNMENTS 1–3 AND DT-060–DT-074 CLOSED FOR THEIR EXACT AUTHORIZED LOCAL SCOPES — DA4 WORKSTREAMS A–D, AVS V0–V4, H01 PROCEDURAL CORRECTION, DA4-V5-F06 AND DA4-V5-F07 INDEPENDENTLY APPROVED; DA4 REMAINS OPEN FOR A LATER FRESH HUMAN V5 — DA5 CORRECTION ROUND 1 WAS PUBLISHED AT `ee13e9b`, TREE `11bc7b4`, AND PASSED EXACT-HEAD V4 `30113794052` 12/12; INDEPENDENT REVIEW ROUND 2 RETURNED `CHANGES REQUIRED` WITH P1 NATIVE CAPTURE-TIME AUTHORITY, P2 OWN-TIME DST DURATION AND P3 ADO EVIDENCE TRUTH; FOCUSED CORRECTION ROUND 2 NOW HAS GREEN LOCAL V0–V3, WHILE PUBLICATION/V4/RE-REVIEW AND HUMAN V5 REMAIN OPEN — PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
+Status: CORE ROADMAP V2 BLOCK A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2, BLOCK D, E1 AND NARROW E2A COMPLETE FOR THEIR RECORDED SCOPES — DEVELOPMENT ASSIGNMENTS 1–3 AND DT-060–DT-074 CLOSED FOR THEIR EXACT AUTHORIZED LOCAL SCOPES — DA4 WORKSTREAMS A–D, AVS V0–V4, H01 PROCEDURAL CORRECTION, DA4-V5-F06 AND DA4-V5-F07 INDEPENDENTLY APPROVED; DA4 REMAINS OPEN FOR A LATER FRESH HUMAN V5 — DA5 CORRECTION ROUND 2 WAS PUBLISHED AT `452d8fd`, TREE `699349b`, AND PASSED EXACT-HEAD V4 `30115776918` 12/12; INDEPENDENT REVIEW ROUND 3 RETURNED `CHANGES REQUIRED` SOLELY FOR P3 ADO STATUS/EVIDENCE TRUTH, WITH P1 NATIVE CAPTURE-TIME AUTHORITY AND P2 EXACT 744-HOUR OWN-TIME DURATION APPROVED AND CLOSED; THE HUMAN-AUTHORIZED TWO-FILE R0 TRUTH SYNCHRONIZATION IS COMPLETE IN THIS CANDIDATE, AND INDEPENDENT EXACT-DELTA REVIEW IS THE SOLE REMAINING DA5 SOFTWARE GATE BEFORE SEPARATELY AUTHORIZED HUMAN/HARDWARE V5 — PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
 Date: 2026-07-24
 Owner: Human Architect + Technical Lead
 
@@ -57,8 +57,18 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   two existing optional B1 Supavisor skips, all 21 tests-inclusive typechecks and all 20
   applicable builds passed, and migration apply/replay/ledger, C3B binary, 36/36 Mobile test
   inclusion and Android export checks passed. This V3 was freshly repeated after the
-  Technical-Lead strict-boundary correction. Publication/V4 and independent re-review remain
-  mandatory. No finding authorizes Human V5. DA4 Human V5
+  Technical-Lead strict-boundary correction. Correction-round-2 publication
+  `452d8fd93aeec66560b3fa73065850d4584490d1`, tree
+  `699349b0a65360da9fa63288c384b2e287d0012b`, passed exact-head V4 run
+  `30115776918`, attempt 1, 12/12. Independent exact-bound review round 3 returned
+  `CHANGES REQUIRED` solely for P3: this status and the DA5 implementation evidence still
+  described publication, V4 and re-review as pending. The reviewer approved and closed P1
+  capture-time authority and P2 exact 744-hour own-time duration. The Human Architect authorized
+  exactly one R0 synchronization of these two ADO truth records beyond the normal three-round
+  limit; this exact two-file candidate completes that synchronization without requiring a
+  self-SHA. Operationally, only focused publication if required and independent Exact-Delta
+  review remain; that review is the sole remaining DA5 software gate. No finding or this
+  synchronization authorizes Human/hardware V5; that gate remains separate. DA4 Human V5 also
   remains separate. Production, production data, deployment and distribution remain
   unauthorized.
 - **Development Assignment 4 is the active Roadmap engineering block.** The Human Architect
@@ -757,9 +767,13 @@ Two Epics are concurrently Active, per EP-009's own stated relationship to the r
 5. Preserve the independently approved `DA4-V5-F06` and `DA4-V5-F07` corrections plus failed
    `DA4-V5-H03`. Any later DA4 Human V5 requires a new separate exact-bound authorization; no
    reuse, retry, repair or resume is authorized.
-6. Technical-Lead-audit and publish only the green DA5 correction-round-2 P1/P2/P3 delta, obtain
-   corrected exact-head V4 and an independent exact-SHA re-review with zero open P0–P3. DA4's
-   open Human gate and all later Human/hardware evidence remain separate.
+6. Treat the Human-authorized DA5 R0 truth synchronization as complete in this exact two-file
+   candidate; focus-publish it if required by the review workflow and obtain an independent
+   Exact-Delta review as the sole remaining DA5 software gate. Correction-round-2 publication
+   `452d8fd`/tree `699349b` and exact-head V4 `30115776918` 12/12 are complete; independent round
+   3 approved and closed P1/P2 and retained solely the P3 truth-synchronization finding. No
+   self-SHA is required for this documentation candidate. DA4's open Human gate and all later
+   Human/hardware V5 evidence remain separate and unauthorized.
    Production, production data, deployment and distribution remain unauthorized.
 
 ## Agreed comprehensive Development-assignment sequence

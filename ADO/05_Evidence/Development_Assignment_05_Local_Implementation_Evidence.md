@@ -9,6 +9,10 @@
   `a910522d826caba85dd1f14625a8f64d87e5742a`, for V4 and independent review; correction round 1
   was subsequently published as `ee13e9b149b760bccdbd43f2dc802029e0bee14d`, tree
   `11bc7b4a102cd694ff36a2d44c139951b5a339bb`, and passed V4 run `30113794052`
+  12/12; correction round 2 was subsequently published as
+  `452d8fd93aeec66560b3fa73065850d4584490d1`, tree
+  `699349b0a65360da9fa63288c384b2e287d0012b`, and passed V4 run `30115776918`,
+  attempt 1, 12/12
 - Risk: AVS-001 R3
 - Authority: Human-accepted ADR-0016/ADR-0017 Workstreams A–F through local V0–V3, followed by
   Technical-Lead acceptance, focused publication, exact-head V4 and independent exact-SHA review
@@ -337,13 +341,37 @@ failure or continuation occurred. The task-owned `taptime_da3` database was remo
 Synthetic database was schema-free and the Android temporary output was moved recoverably to
 Trash.
 
+## Correction-round-2 publication and independent review round 3
+
+The Technical Lead published correction round 2 as exact commit
+`452d8fd93aeec66560b3fa73065850d4584490d1`, tree
+`699349b0a65360da9fa63288c384b2e287d0012b`. Exact-head V4 run `30115776918`,
+attempt 1, passed 12/12.
+
+Independent review round 3 was bound to that exact commit, tree and V4 run. Its verdict was
+`CHANGES REQUIRED` solely for one P3 governance-truth finding: Project Status and this evidence
+still described correction-round-2 publication, V4 and re-review as pending. The review approved
+and closed P1 capture-time authority and P2 exact 744-hour own-time duration; no P0, P1 or P2
+finding remains open.
+
+After the normal three-round limit, the Human Architect authorized exactly one focused R0
+synchronization of only Project Status and this evidence record. This synchronization changes no
+executable, schema, dependency, configuration, workflow or artifact input, requires only AVS
+R0/V0 and is complete in this exact two-file candidate without requiring a self-SHA. Operationally,
+only focused publication if required and independent Exact-Delta review remain; that review is the
+sole remaining DA5 software gate. The synchronization neither repeats nor supersedes product V3/V4
+and grants no Human/hardware V5 authority.
+
 ## Remaining gates and risks
 
-- Correction-round-1 V4 passed, but correction-round-2 exact-head V4 has not run. The
-  Human-authorized Technical-Lead sequence permits focused correction publication and corrected
-  V4 after local inspection and acceptance.
-- Independent implementation review round 2 returned `CHANGES REQUIRED`; independent
-  correction-round-2 exact-SHA re-review remains mandatory.
+- Correction-round-2 publication and exact-head V4 are complete at
+  `452d8fd93aeec66560b3fa73065850d4584490d1`, tree
+  `699349b0a65360da9fa63288c384b2e287d0012b`, V4 run `30115776918`, attempt 1,
+  12/12.
+- Independent exact-bound review round 3 returned `CHANGES REQUIRED` solely for the P3 stale
+  status/evidence truth corrected by this Human-authorized R0 synchronization. P1/P2 are approved
+  and closed. This exact two-file candidate completes the synchronization; independent Exact-Delta
+  review remains the sole DA5 software gate.
 - Human Android V5, real-device NFC/Tag dispatch, accessibility observation, process restart and
   controlled offline/online physical paths were not run and remain separately authorized gates.
 - Exact Android vendor/Tag routing remains a Human-qualified best-effort matrix as specified by
@@ -351,5 +379,7 @@ Trash.
 - Production, production data, legal/privacy approval, signing, deployment and distribution remain
   unauthorized.
 
-The next required action is Technical-Lead inspection of the exact local delta, followed by a
-focused publication, complete exact-head V4 and independent exact-SHA implementation review.
+The next operational action is focused publication of this exact two-file candidate if required by
+the review workflow, followed by independent Exact-Delta review. The documentation candidate does
+not require a self-SHA. Product V3/V4 is not repeated because the executable candidate and its
+exact published commit/tree remain unchanged.
