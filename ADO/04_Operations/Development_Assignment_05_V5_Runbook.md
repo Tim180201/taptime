@@ -65,7 +65,9 @@ before any installation, device/Tag interaction or Gate A action. This shell req
 | Device model, OS/build and approved screen-unlocked mode | `UNBOUND — DO NOT START` |
 | Approved assigned, unassigned and unrelated Tag labels/safe fingerprints | `UNBOUND — DO NOT START` |
 | Exact synthetic services, status boundary and controlled-offline switch | `UNBOUND — DO NOT START` |
-| Exact dedupe interval and lifecycle-cancellation checkpoint | `UNBOUND — DO NOT START` |
+| Admin Setup Preview 2 entry, preview/validation result and safe exit procedure | `UNBOUND — DO NOT START` |
+| DA5-T06 exact five-second dedupe boundary and lifecycle-cancellation checkpoint | `UNBOUND — DO NOT START` |
+| Separately reviewed Protected/Review induction fixture, synthetic labels, exact start state, cutover procedure, expected state sequence and scoped teardown | `UNBOUND — DO NOT START` |
 | Exact large-text setting and TalkBack version | `UNBOUND — DO NOT START` |
 
 At preflight, recompute both read-only file sizes, SHA-256 digests and modes from the preserved APK
@@ -73,6 +75,22 @@ and manifest. Independently verify package/version, signature/signer and package
 manifest/runtime values from the APK. Require exact equality with the authorization. Any changed
 source, review, CI, file, mode, dependency, configuration, device, OS, Tag or synthetic
 environment invalidates the binding and consumes the run authority.
+
+The Protected/Review fixture must bind one exact DA5-compatible historical cutover procedure. Its
+reviewed expected sequence is:
+
+```text
+clean FIFO and no review marker
+-> active_entry_for_other_target_rejected
+-> review_pending/historical_configuration_not_valid
+-> review_pending/predecessor_requires_review
+-> FIFO drained and protected/review-required UI
+-> protected/review-required UI retained after one cold relaunch
+```
+
+The fixture uses only named synthetic Customer assignments and approved Tags, never device-clock
+tampering. If its exact source/procedure, starting aggregate, cutover action, expected safe
+aggregate or fixture-scoped teardown is absent or differs, do not start.
 
 ## 4. Preflight and short Human checkpoints
 
@@ -91,6 +109,12 @@ After each staged gate, the operator states only the expected and observed safe 
 answers `PASS`, `FAIL` or `AMBIGUOUS`. Only `PASS` permits the next gate. Short acknowledgement
 never replaces a listed observation.
 
+Before every action in Gates B, C or D that is intended to produce the opposite Start/Stop for the
+same User/WorkTarget, the operator must prove that strictly more than the exact five-second DA5-T06
+window has elapsed. Record only `dedupe_window_elapsed=match`; do not record wall-clock or
+monotonic timestamps. Missing, equal-to-five-seconds or ambiguous evidence fails before the
+action.
+
 ## 5. Staged Human gate
 
 ### Gate A — Authentication, enrollment and setup exclusion
@@ -99,16 +123,22 @@ never replaces a listed observation.
    Employee and Administrator navigation disclose only role-appropriate screens and actions.
 2. In Administrator setup, present only the approved assigned Tag and complete its authorized
    synthetic Customer assignment. Require setup UI success and setup aggregates, with zero
-   lifecycle action.
-3. While setup capture remains active, present the assigned Tag once more. Require setup-only
-   handling: no Start/Stop, no queued lifecycle evidence and no later replay after leaving setup.
-4. Verify Administrator setup state remains visible and correct after refresh/relaunch.
+   lifecycle action. Require that first assignment capture to finish and release capture
+   ownership.
+3. Start the separately bound second operation named **Admin Setup Preview 2**. Within only that
+   new setup capture/preview, present the already assigned Tag. Require setup-side
+   preview/validation only, with zero lifecycle WorkEvent/Decision/Receipt/Audit, zero queue item
+   and no navigation into lifecycle handling.
+4. Safely cancel/leave Admin Setup Preview 2 through its bound exit. After returning to the normal
+   shell and again after refresh/relaunch, require zero replay and unchanged lifecycle/queue
+   aggregates. Verify Administrator setup state remains visible and correct.
 5. Sign out and present the assigned Tag. Require signed-out rejection with zero lifecycle or
    queue mutation.
 6. After Employee authentication, present the separately approved unassigned Tag and unrelated
    Tag. Require safe rejection and zero lifecycle or queue mutation for each.
 
-Checkpoint: auth/enrollment, role boundary, setup preservation, setup-capture exclusion and all
+Checkpoint: auth/enrollment, role boundary, completed first assignment capture, separately started
+and safely exited Admin Setup Preview 2, zero setup-to-lifecycle replay, setup preservation and all
 three rejection paths are unambiguous.
 
 ### Gate B — Cold launch, background resume and same-Tag dedupe
@@ -117,22 +147,27 @@ three rejection paths are unambiguous.
    authority, present the approved assigned Customer Tag. Require one cold launch and exactly one
    NFC lifecycle result.
 2. Present that same Tag again within the exact bound dedupe interval. Require no second lifecycle
-   result, no duplicate queue item and truthful unchanged own-time state.
-3. After the exact dedupe boundary, put the app in the background and present the same Tag.
+   mutation, but exactly one additional persisted WorkEvent, Decision, Receipt and Audit with
+   Decision `duplicate_scan_ignored`. Own-time and the current TimeEntry remain unchanged.
+3. Before the intended opposite lifecycle result, require
+   `dedupe_window_elapsed=match`. Then put the app in the background and present the same Tag.
    Require one background/resume dispatch and exactly one next lifecycle result.
 4. Verify active/history truth and immutable NFC provenance for both accepted results.
 
 Checkpoint: cold launch, warm/background resume, consume-once ownership and same-Tag dedupe pass
-without duplicate mutation.
+with exact duplicate evidence and without a second TimeEntry mutation.
 
 ### Gate C — Online targets, mixed provenance and own-time truth
 
 Use only valid server-decided toggles; never select Start or Stop manually.
 
 1. Exercise the online Customer path with one NFC action and the matching manual Customer action
-   so the resulting pair proves mixed NFC/manual provenance.
-2. Exercise one online manual Project Start/Stop pair.
-3. Exercise one online manual General Work Start/Stop pair.
+   so the resulting pair proves mixed NFC/manual provenance. Require
+   `dedupe_window_elapsed=match` before the intended opposite action.
+2. Exercise one online manual Project Start/Stop pair, with
+   `dedupe_window_elapsed=match` before Stop.
+3. Exercise one online manual General Work Start/Stop pair, with
+   `dedupe_window_elapsed=match` before Stop.
 4. After each pair, require the current active state, ordered own-time active/history projection,
    exact Customer/Project/General target label and immutable trigger provenance to agree.
 
@@ -142,33 +177,56 @@ General Work.
 Checkpoint: applicable NFC/manual Customer plus manual Project/General online coverage and
 own-time truth are complete.
 
-### Gate D — Controlled offline, sync/protected truth, restart and cancellation
-
-1. Activate only the exact authorized controlled-offline switch and prove loss of the bound
-   server path without changing authentication, device or app state.
-2. Exercise the applicable offline matrix once: assigned Customer NFC with matching manual
-   Customer action, one manual Project pair and one manual General Work pair. Require FIFO order,
-   target/provenance truth and explicit pending/protected UI; no server success may be claimed.
-3. Restart the app once while evidence is pending. Require durable restoration, unchanged order
-   and no false ready/cleared state.
-4. Restore only the authorized server path. Require one ordered synchronization, no duplicate
-   result, truthful protected/review state and eventual own-time active/history agreement.
-5. At the exact lifecycle-cancellation checkpoint bound in Section 3, begin only the named
-   cancellable action and perform the named background/restart transition. Require the stale or
-   cancelled result to produce zero later mutation or replay. Do not repeat the action.
-
-Checkpoint: controlled-offline parity, mixed provenance, queue/sync/protected truth, process
-restart and lifecycle cancellation are unambiguous.
-
 ### Gate E — TalkBack, text scaling and layout
 
 At the exact large-text setting, enable the bound TalkBack version and inspect the authentication,
-setup, scan/manual-target, own-time, sync/protected and error/rejection surfaces already reached.
+setup, scan/manual-target, own-time, sync/pending and error/rejection surfaces already reached.
 Require logical focus order, meaningful labels/roles, announced state changes, visible focus,
 non-color-only meaning, readable controls and no clipped, overlapping, unreachable or
 horizontally overflowing essential content. Do not repeat lifecycle writes for accessibility.
 
 Checkpoint: accessibility and layout pass on the exact bound device/settings.
+
+Gate E must pass before Gate D starts because Gate D ends at the mandatory protected-state stop.
+
+### Gate D — Controlled offline, reviewed Protected/Review fixture and final stop
+
+1. Activate only the exact authorized controlled-offline switch and prove loss of the bound
+   server path without changing authentication, device or app state.
+2. Exercise the applicable ordinary offline matrix once: assigned Customer NFC with matching
+   manual Customer action, one manual Project pair and one manual General Work pair. Before every
+   intended opposite action require `dedupe_window_elapsed=match`. Require FIFO order,
+   target/provenance truth and explicit pending UI; no server success may be claimed.
+3. Restart the app once while ordinary evidence is pending. Require durable restoration,
+   unchanged order and no false ready/cleared state. Restore only the authorized server path and
+   require one ordered synchronization, no duplicate result and eventual own-time active/history
+   agreement.
+4. At the exact lifecycle-cancellation checkpoint bound in Section 3, begin only the named
+   cancellable action and perform the named background/restart transition. Require the stale or
+   cancelled result to produce zero later mutation or replay. Do not repeat the action.
+5. Require the ordinary FIFO to be clean and no review marker to exist. Start only the separately
+   reviewed Protected/Review fixture. Require Tag A to have no active TimeEntry; after
+   `dedupe_window_elapsed=match`, start approved Tag B online so its other target is active.
+6. Enter the bound cold offline state and capture approved Tag A once before cutover. While the
+   device remains offline, execute only the fixture's reviewed synthetic reassignment of Tag A
+   from its named Customer A to named Customer B. Do not alter device clocks.
+7. Capture stale Tag A once after cutover. Before the intended Tag B successor action require
+   `dedupe_window_elapsed=match`, then capture Tag B.
+8. Restore only the approved path and allow automatic FIFO reconciliation without per-event retry.
+   Require, in order:
+   `active_entry_for_other_target_rejected`,
+   `review_pending/historical_configuration_not_valid`, then
+   `review_pending/predecessor_requires_review`. Require zero TimeEntry mutation for both
+   review-pending outcomes, a drained FIFO and the protected/review-required UI.
+9. Force-stop and cold relaunch exactly once as part of the fixture. Require the same protected/
+   review-required state to persist.
+10. Stop at `protected_review_fixture_checkpoint=match`. Do not repair, retry, adjudicate, clear,
+    resume, continue to another gate or reuse any fixture state or observation. Proceed directly
+    to Gate F cleanup.
+
+Checkpoint: ordinary offline parity/restart/cancellation and the separately reviewed historical
+cutover sequence are exact; `review_pending` and protected state persist at the final mandatory
+stop.
 
 ### Gate F — Final truth and complete cleanup
 
@@ -177,10 +235,13 @@ Checkpoint: accessibility and layout pass on the exact bound device/settings.
 2. Sign out every Mobile/Admin session and clear clipboard, downloads and temporary screenshots.
 3. Stop synthetic services normally; remove only scoped mappings/listeners and the exact synthetic
    package. Never use blanket device cleanup.
-4. Remove the task-owned synthetic database/schema/ledger and generated runtime roles through the
+4. Invoke only the Protected/Review fixture's separately reviewed scoped teardown. Do not
+   adjudicate, repair, retry or clear fixture records through product actions.
+5. Remove the task-owned synthetic database/schema/ledger and generated runtime roles through the
    reviewed scoped procedure.
-5. Require zero authorized package, mapping, listener and disposable database/role residue.
-6. Reverify the tracked repository against the authorized head using both protected exclusions
+6. Require zero authorized package, mapping, listener, fixture and disposable database/role
+   residue.
+7. Reverify the tracked repository against the authorized head using both protected exclusions
    and leave unrelated repository, device and PostgreSQL state untouched.
 
 Cleanup is mandatory after pass, failure or abort. Cleanup success does not convert a failed or

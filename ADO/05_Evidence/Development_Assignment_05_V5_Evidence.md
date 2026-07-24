@@ -23,7 +23,9 @@ artifact or Human result and grants no authority.
 | Device model/OS/build/screen-unlocked mode | `NOT BOUND` |
 | Approved Tag labels/safe fingerprints by assigned/unassigned/unrelated role | `NOT BOUND` |
 | Synthetic services/status/offline controls | `NOT BOUND` |
-| Dedupe interval/lifecycle-cancellation checkpoint | `NOT BOUND` |
+| Admin Setup Preview 2 entry/result/safe-exit procedure | `NOT BOUND` |
+| DA5-T06 five-second dedupe boundary/lifecycle-cancellation checkpoint | `NOT BOUND` |
+| Reviewed Protected/Review fixture, labels, start state, cutover, expected sequence and scoped teardown | `NOT BOUND` |
 | Large-text setting/TalkBack version | `NOT BOUND` |
 
 Do not add credentials, digests, tokens, secrets, raw UID/payload, provider subjects, device
@@ -39,17 +41,18 @@ serials, encryption keys, internal identifiers, CSV bodies or personal data.
 | Package/version/signature/signer/runtime verification | `NOT RUN` | — |
 | Named device/OS and approved Tags | `NOT RUN` | — |
 | Fresh synthetic services/accounts/data and zero state | `NOT RUN` | — |
+| Admin Setup Preview 2 and Protected/Review fixture review bindings | `NOT RUN` | — |
 | Scoped install, NFC enabled and screen unlocked | `NOT RUN` | — |
 
 ## 3. Staged Human results
 
 | Gate | Mandatory coverage | Result | Human checkpoint |
 |---|---|---|---|
-| A | Auth/enrollment, role navigation, Admin setup preservation, setup-capture exclusion, signed-out/unassigned/unrelated rejection | `NOT RUN` | — |
-| B | Cold launch, background/resume Tag Dispatch, consume-once and same-Tag dedupe | `NOT RUN` | — |
-| C | Online NFC/manual Customer, manual Project/General, mixed provenance and own-time active/history | `NOT RUN` | — |
-| D | Controlled offline matrix, FIFO/sync/protected truth, restart and lifecycle cancellation | `NOT RUN` | — |
+| A | Auth/enrollment, completed first assignment capture, separate Admin Setup Preview 2, zero lifecycle/queue/replay, setup preservation and rejection paths | `NOT RUN` | — |
+| B | Cold/background Tag Dispatch; duplicate WorkEvent/Decision/Receipt/Audit with `duplicate_scan_ignored`; zero second TimeEntry mutation | `NOT RUN` | — |
+| C | Online target/provenance/own-time truth with every opposite toggle strictly after five seconds | `NOT RUN` | — |
 | E | TalkBack, text scaling, focus/labels/announcements and layout | `NOT RUN` | — |
+| D | Ordinary offline/restart/cancellation, reviewed historical cutover, ordered `review_pending`, protected-state stop and no reuse | `NOT RUN` | — |
 | F | Final safe truth and complete cleanup | `NOT RUN` | — |
 
 ## 4. Disclosure-safe result record
@@ -62,7 +65,10 @@ Populate only after a separately authorized run. Keep values aggregate and synth
 | Accepted/rejected action sequence matched the runbook | `NOT RUN` |
 | Target and immutable provenance truth | `NOT RUN` |
 | Own-time active/history truth | `NOT RUN` |
+| Every intended opposite toggle had `dedupe_window_elapsed=match` | `NOT RUN` |
+| Duplicate persisted four evidence records and zero second TimeEntry mutation | `NOT RUN` |
 | Queue, synchronization and protected-state truth | `NOT RUN` |
+| Protected/Review fixture reached the exact ordered outcomes and mandatory stop | `NOT RUN` |
 | No duplicate, foreign or unexplained mutation | `NOT RUN` |
 | Sensitive-data disclosure check | `NOT RUN` |
 
@@ -85,6 +91,7 @@ diagnostics, mark all later gates not started and perform cleanup. No observatio
 | Mobile/Admin sign-out and clipboard/download/screenshot cleanup | `NOT RUN` |
 | Scoped service shutdown and mapping/listener cleanup | `NOT RUN` |
 | Exact synthetic package removed | `NOT RUN` |
+| Protected/Review fixture scoped teardown, without product repair/adjudication | `NOT RUN` |
 | Disposable database/schema/ledger/runtime roles removed | `NOT RUN` |
 | Repository binding reverified with protected exclusions | `NOT RUN` |
 | Unrelated device/repository/PostgreSQL state preserved | `NOT RUN` |
