@@ -1,6 +1,6 @@
 # Project Status
 
-Status: CORE ROADMAP V2 BLOCK A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2, BLOCK D, E1 AND NARROW E2A COMPLETE FOR THEIR RECORDED SCOPES — DEVELOPMENT ASSIGNMENTS 1–3 AND DT-060–DT-074 CLOSED FOR THEIR EXACT AUTHORIZED LOCAL SCOPES — DA4 WORKSTREAMS A–D, AVS V0–V4, H01 PROCEDURAL CORRECTION AND DA4-V5-F06 INDEPENDENTLY APPROVED; DA4-V5-H03 FAILED CLOSED ON THE FIXED INVITATION-TTL GATE INVARIANT, F07 R3 LOCALLY VERIFIED V0–V3 WITH PUBLICATION/V4/INDEPENDENT IMPLEMENTATION REVIEW PENDING, NEW HUMAN V5 UNAUTHORIZED — PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
+Status: CORE ROADMAP V2 BLOCK A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2, BLOCK D, E1 AND NARROW E2A COMPLETE FOR THEIR RECORDED SCOPES — DEVELOPMENT ASSIGNMENTS 1–3 AND DT-060–DT-074 CLOSED FOR THEIR EXACT AUTHORIZED LOCAL SCOPES — DA4 WORKSTREAMS A–D, AVS V0–V4, H01 PROCEDURAL CORRECTION, DA4-V5-F06 AND DA4-V5-F07 INDEPENDENTLY APPROVED; DA4 REMAINS OPEN FOR A LATER FRESH HUMAN V5, DA5 ADO-ONLY PREPARATION IS NEXT — PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
 Date: 2026-07-24
 Owner: Human Architect + Technical Lead
 
@@ -128,10 +128,13 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   while preserving every other exact aggregate and permanent fail-stop. The PostgreSQL regression
   also proves consumed invitations absent from all three safe counts and rejected by the session.
   V1 passed 40/40 plus focused PostgreSQL 1/1; V2 passed Synthetic 90/90; V3 passed 1,836 tests
-  with two optional Supavisor skips, all 19
-  tests-inclusive typechecks, all 18 builds, migration/ledger verification and disposable
-  cleanup. Focused publication, V4 and independent Exact-SHA implementation review remain pending.
-  No new Human V5 is authorized.
+  with two optional Supavisor skips, all 19 tests-inclusive typechecks, all 18 builds,
+  migration/ledger verification and disposable cleanup. Published implementation
+  `60b8f1a3d9b9ec1275b004340dbb61a017a0b90e`, tree
+  `7ab9643610c8af7d814044186cd9351b02fab808`, passed exact-head CI `30092933085`,
+  attempt 2, 12/12 after attempt 1's sole all-assertions-green C3B PostgreSQL teardown event.
+  Independent Exact-SHA review returned `APPROVED` with zero open P0–P3. No new Human V5 is
+  authorized.
 - **Development Assignment 3 is Human-accepted and implementation-authorized on exact baseline
   `ff68f7a7d0ce69a65e88846ae1cca9abd5951f5d`, tree
   `09ef169a68bb53420e07b6f3fcbbdc74e0c01d57`.** ADR-0014/DA3-P01–DA3-P16 and Workstreams A–D
@@ -700,10 +703,9 @@ Two Epics are concurrently Active, per EP-009's own stated relationship to the r
 4. Preserve every closed C3B/C3C/C3D/C3E1/C3E2/DA1/DA2/DA3 boundary and the Human-accepted
    ADR-0015/DA4-P01–P12 scope; keep Human V5, production/deployment, legal/privacy and pilot
    operations behind their separate authorization and Human gates.
-5. Preserve the independently approved `DA4-V5-F06` correction and failed `DA4-V5-H03`.
-   Publish the locally V0–V3-verified exact `DA4-V5-F07` R3 correction, obtain exact-head V4 and
-   independent Exact-SHA implementation review before any new exact-bound Human V5 candidate.
-   No reuse, retry, repair or resume is authorized.
+5. Preserve the independently approved `DA4-V5-F06` and `DA4-V5-F07` corrections plus failed
+   `DA4-V5-H03`. Any later DA4 Human V5 requires a new separate exact-bound authorization; no
+   reuse, retry, repair or resume is authorized.
 6. DA4's open Human gate does not itself close or authorize DA5. A separately scoped ADO-only DA5
    professional-Mobile candidate may be prepared under Human reprioritization; DA5 implementation
    still requires an accepted, independently reviewed exact-baseline authorization.

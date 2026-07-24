@@ -1,6 +1,6 @@
 # Development Assignment 4 — DA4-V5-F07 Invitation-Expiry Gate Correction Candidate
 
-- Status: **R3 IMPLEMENTED AND LOCALLY VERIFIED V0–V3 — PUBLICATION, V4 AND INDEPENDENT IMPLEMENTATION REVIEW PENDING; HUMAN V5 UNAUTHORIZED**
+- Status: **R3 IMPLEMENTATION INDEPENDENTLY APPROVED — ZERO OPEN P0–P3; FRESH HUMAN V5 SEPARATELY UNAUTHORIZED**
 - Date: 2026-07-24
 - Owner: Technical Lead
 - Candidate baseline: `1140cc441b958d701a899a74924eac4cc41fefeb`
@@ -12,6 +12,9 @@
 - Implementation baseline: `4b376043cbcd5739e6d32e562dd917159f86275b`
 - Implementation baseline tree: `60a3d181470dde8abc4059e36d4879ced1fbc138`
 - Implementation baseline CI: `30091439879`, attempt 1, 12/12
+- Published implementation: `60b8f1a3d9b9ec1275b004340dbb61a017a0b90e`
+- Published implementation tree: `7ab9643610c8af7d814044186cd9351b02fab808`
+- Published implementation CI: `30092933085`, attempt 2, 12/12
 - Proposed implementation risk: AVS R3
 
 ## 1. Confirmed problem
@@ -92,7 +95,7 @@ The exact proposed implementation scope may proceed with AVS V0–V4 and indepen
 implementation review. No Human V5, production, production-data, deployment or distribution
 action is authorized.
 
-## 5. Local implementation result
+## 5. Published implementation result
 
 The focused local candidate implements the approved contract without changing Product TTL,
 schema/migrations, Backend/API, Admin Web, Mobile, dependencies, lockfile or workflow:
@@ -123,5 +126,10 @@ Local AVS evidence on Node `24.17.0` and PostgreSQL `17.10`:
   before querying; the same unchanged candidate then passed the exact ledger check with the
   documented disposable B3 URL. No test assertion failed.
 
-The local candidate has no commit/tree yet. Focused publication, exact-head V4 and independent
-Exact-SHA implementation review remain required. No Human V5 may start from this local evidence.
+The implementation was published at the exact commit/tree above. Exact-head CI attempt 1 passed
+11/12 jobs; all 189 C3B assertions passed and only a PostgreSQL `57P01` teardown event failed that
+job. The unchanged failed job was rerun once under AVS; attempt 2 passed 12/12. Independent
+Exact-SHA implementation review returned `APPROVED` with zero open P0–P3 and is archived in
+`ADO/05_Evidence/Development_Assignment_04_DA4_V5_F07_Independent_Exact_SHA_Review.md`.
+
+No Human V5, production, production-data, deployment or distribution action is authorized.

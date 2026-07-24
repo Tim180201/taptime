@@ -1,6 +1,6 @@
 # Development Assignment 4 — V5 Enablement Candidate Evidence
 
-- Status: **F07 TTL-AWARE GATE CORRECTION LOCALLY VERIFIED V0–V3 — V4 AND INDEPENDENT IMPLEMENTATION REVIEW PENDING; NEW HUMAN V5 UNAUTHORIZED**
+- Status: **F07 TTL-AWARE GATE CORRECTION INDEPENDENTLY APPROVED — NEW HUMAN V5 UNAUTHORIZED**
 - Date: 2026-07-24
 - Candidate baseline commit: `4594529667fe1570045eea03fd7132bc27e2e479`
 - Candidate baseline tree: `72338ec9b65dabdd71ab9011604817f61c13c288`
@@ -297,7 +297,7 @@ archived in
 `ADO/05_Evidence/Development_Assignment_04_DA4_V5_F06_Independent_Exact_SHA_Review.md`.
 No Human V5, production, production-data, deployment or distribution action is authorized.
 
-## 14. DA4-V5-F07 local correction evidence
+## 14. DA4-V5-F07 published correction evidence
 
 ### Change-Impact Record
 
@@ -310,8 +310,8 @@ No Human V5, production, production-data, deployment or distribution action is a
   no Product runtime, public API, schema/migration, dependency, lockfile, workflow or built
   Admin-Web input changes.
 - Risk: AVS R3 because this is a permanent fail-stop invariant for a privileged Human gate.
-- Selected evidence: V0–V3 locally; focused publication, exact-head V4 and independent Exact-SHA
-  implementation review remain pending. V5 is separately Human-gated and unauthorized.
+- Selected evidence: V0–V3 locally plus focused publication, exact-head V4 and independent
+  Exact-SHA implementation review. V5 is separately Human-gated and unauthorized.
 
 The implementation preserves the accepted 15-minute Product TTL. One materialized PostgreSQL
 statement now reports exact unconsumed, active and expired-unconsumed invitation counts. The
@@ -335,6 +335,14 @@ Verification:
   exited before a query. With the required local disposable B3 URL, the unchanged candidate
   verified `001`–`012`. No test assertion failed.
 
-The historical H03 run remains failed and cannot be reused. This local candidate has no
-commit/tree. V4, independent review and any later separately authorized fresh Human V5 remain
-open. Production, production data, deployment and distribution remain unauthorized.
+Published implementation `60b8f1a3d9b9ec1275b004340dbb61a017a0b90e`, tree
+`7ab9643610c8af7d814044186cd9351b02fab808`, passed exact-head CI `30092933085`,
+attempt 2, 12/12. Attempt 1 passed every one of 189 C3B assertions and failed only on the known
+PostgreSQL `57P01` disposable-database teardown event; the unchanged failed job was rerun once.
+Independent Exact-SHA implementation review returned `APPROVED` with zero open P0–P3 and is
+archived in
+`ADO/05_Evidence/Development_Assignment_04_DA4_V5_F07_Independent_Exact_SHA_Review.md`.
+
+The historical H03 run remains failed and cannot be reused. Any later fresh Human V5 remains
+separately gated and unauthorized. Production, production data, deployment and distribution
+remain unauthorized.
