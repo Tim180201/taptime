@@ -1,6 +1,6 @@
 # Project Status
 
-Status: CORE ROADMAP V2 BLOCK A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2, BLOCK D, E1 AND NARROW E2A COMPLETE FOR THEIR RECORDED SCOPES — DEVELOPMENT ASSIGNMENTS 1–3 AND DT-060–DT-074 CLOSED FOR THEIR EXACT AUTHORIZED LOCAL SCOPES — DA4 WORKSTREAMS A–D, AVS V0–V4 AND H01 PROCEDURAL CORRECTION INDEPENDENTLY APPROVED; LATEST HUMAN V5 FAILED CLOSED, AUTHORITY CONSUMED, DA4-V5-F06 LOCAL V0–V3 GREEN, V4/REVIEW PENDING — PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
+Status: CORE ROADMAP V2 BLOCK A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2, BLOCK D, E1 AND NARROW E2A COMPLETE FOR THEIR RECORDED SCOPES — DEVELOPMENT ASSIGNMENTS 1–3 AND DT-060–DT-074 CLOSED FOR THEIR EXACT AUTHORIZED LOCAL SCOPES — DA4 WORKSTREAMS A–D, AVS V0–V4, H01 PROCEDURAL CORRECTION AND DA4-V5-F06 INDEPENDENTLY APPROVED; LATEST HUMAN V5 FAILED CLOSED AND ITS AUTHORITY IS CONSUMED, NEW HUMAN V5 UNAUTHORIZED — PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
 Date: 2026-07-24
 Owner: Human Architect + Technical Lead
 
@@ -107,8 +107,11 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   C3E2 PostgreSQL reassignment boundary 19/19, tests-inclusive typecheck and build. V2 passed the
   complete Synthetic PostgreSQL Harness 80/80. V3 passed 1,827 tests with two optional B1
   Supavisor skips, all 19 tests-inclusive typechecks and all 18 applicable builds; disposable
-  Synthetic, B1 and DA3 state was removed. V4 publication and independent exact-SHA review remain
-  pending. No DA4 closure or new Human run is authorized.
+  Synthetic, B1 and DA3 state was removed. Published correction
+  `d0db46f8bd2081a357bc92395507c1978cca27ba`, tree
+  `9f31c78138204f79ffc5db632b01ff5ef89c1b0a`, passed exact-head CI `30085075057`,
+  attempt 1, 12/12. Independent exact-SHA review returned `APPROVED` with zero open P0–P3.
+  No DA4 closure or new Human run is authorized.
   Production, production data, deployment and distribution remain unauthorized.
 - **Development Assignment 3 is Human-accepted and implementation-authorized on exact baseline
   `ff68f7a7d0ce69a65e88846ae1cca9abd5951f5d`, tree
@@ -678,10 +681,10 @@ Two Epics are concurrently Active, per EP-009's own stated relationship to the r
 4. Preserve every closed C3B/C3C/C3D/C3E1/C3E2/DA1/DA2/DA3 boundary and the Human-accepted
    ADR-0015/DA4-P01–P12 scope; keep Human V5, production/deployment, legal/privacy and pilot
    operations behind their separate authorization and Human gates.
-5. Complete the focused R3 `DA4-V5-F06` Harness/accepted-invariant correction and its required
-   verification/review. Do not execute another Human V5 without a new explicit exact-bound Human
-   authorization. No reuse, retry, repair or resume is authorized. Production, production data,
-   deployment and distribution remain unauthorized.
+5. Preserve the independently approved `DA4-V5-F06` correction and prepare a copy-ready,
+   separately exact-bound Human V5 authorization candidate. Do not execute another Human V5
+   without that new explicit Human authorization. No reuse, retry, repair or resume is authorized.
+   Production, production data, deployment and distribution remain unauthorized.
 
 ## Agreed comprehensive Development-assignment sequence
 

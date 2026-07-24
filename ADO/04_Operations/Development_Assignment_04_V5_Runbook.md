@@ -1,6 +1,6 @@
 # Development Assignment 4 — V5 Human Browser Gate Runbook
 
-- Status: **F06 AUDIT-INVARIANT CORRECTION LOCAL V0–V3 GREEN; V4/EXACT-SHA REVIEW PENDING — NEW HUMAN V5 UNAUTHORIZED**
+- Status: **F06 AUDIT-INVARIANT CORRECTION INDEPENDENTLY APPROVED — NEW HUMAN V5 UNAUTHORIZED**
 - Date: 2026-07-24
 - Owner: Technical Lead
 - Approval authority for any run: Human Architect
@@ -19,7 +19,9 @@ failed closed at the Tag-reassignment checkpoint and consumed its authority; see
 runbook correction was independently approved with zero open P0–P3 review findings; see
 `ADO/05_Evidence/Development_Assignment_04_DA4_V5_H01_Correction_Independent_Exact_SHA_Review.md`.
 `DA4-V5-F06` later corrected only the stale reassignment AuditEvent expectation from one row to
-the repository-established two rows; its exact-head V4 and independent review remain pending.
+the repository-established two rows. Correction `d0db46f8bd2081a357bc92395507c1978cca27ba`,
+tree `9f31c78138204f79ffc5db632b01ff5ef89c1b0a`, passed exact-head CI `30085075057`,
+attempt 1, 12/12 and independent exact-SHA review with zero open P0–P3.
 This document does not authorize another Human run. A copy-ready authorization candidate may be
 prepared, but execution requires a separate Human authorization binding the exact product,
 enablement, evidence, review, Admin-Web build and browser environment.

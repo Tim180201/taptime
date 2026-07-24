@@ -1,6 +1,6 @@
 # Development Assignment 4 — V5 Enablement Candidate Evidence
 
-- Status: **F06 AUDIT-INVARIANT CORRECTION LOCAL V0–V3 GREEN; V4/EXACT-SHA REVIEW PENDING — NEW HUMAN V5 UNAUTHORIZED**
+- Status: **F06 AUDIT-INVARIANT CORRECTION INDEPENDENTLY APPROVED — NEW HUMAN V5 UNAUTHORIZED**
 - Date: 2026-07-24
 - Candidate baseline commit: `4594529667fe1570045eea03fd7132bc27e2e479`
 - Candidate baseline tree: `72338ec9b65dabdd71ab9011604817f61c13c288`
@@ -290,5 +290,9 @@ unchanged.
 - Cleanup removed the temporary `taptime_da3` database and two runtime roles, the disposable B1
   schema and all Synthetic schema, ledger, role and listener state.
 
-V4 publication and independent exact-SHA review remain pending. No Human V5, production,
-production-data, deployment or distribution action is authorized.
+Correction `d0db46f8bd2081a357bc92395507c1978cca27ba`, tree
+`9f31c78138204f79ffc5db632b01ff5ef89c1b0a`, passed exact-head CI `30085075057`,
+attempt 1, 12/12. Independent exact-SHA review returned `APPROVED` with zero open P0–P3 and is
+archived in
+`ADO/05_Evidence/Development_Assignment_04_DA4_V5_F06_Independent_Exact_SHA_Review.md`.
+No Human V5, production, production-data, deployment or distribution action is authorized.

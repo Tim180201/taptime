@@ -164,6 +164,8 @@ reassignment `+2` and final `initial + 7`; the export subset remains one already
 AuditEvent. The focused candidate passed V1 with 31/31 focused DA4 and 19/19 authoritative C3E2
 PostgreSQL tests, V2 with 80/80 complete Synthetic PostgreSQL tests and V3 with 1,827 tests, two
 optional B1 Supavisor skips, all 19 typechecks and all 18 builds, followed by complete disposable
-cleanup. V4 publication and independent exact-SHA review remain pending. No Product, Business-rule
+cleanup. Published correction `d0db46f8bd2081a357bc92395507c1978cca27ba`, tree
+`9f31c78138204f79ffc5db632b01ff5ef89c1b0a`, passed exact-head CI `30085075057`,
+attempt 1, 12/12 and independent exact-SHA review with zero open P0–P3. No Product, Business-rule
 or schema change, no retry or new Human V5, and no production, production-data, deployment or
 distribution authority follows.

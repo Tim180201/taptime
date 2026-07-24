@@ -1,6 +1,6 @@
 # Development Assignment 4 — V5 Enablement Authorization Candidate
 
-- Status: **F06 AUDIT-INVARIANT CORRECTION LOCAL V0–V3 GREEN; V4/EXACT-SHA REVIEW PENDING — HUMAN V5 UNAUTHORIZED**
+- Status: **F06 AUDIT-INVARIANT CORRECTION INDEPENDENTLY APPROVED — HUMAN V5 UNAUTHORIZED**
 - Date: 2026-07-23
 - Candidate baseline commit: `4594529667fe1570045eea03fd7132bc27e2e479`
 - Candidate baseline tree: `72338ec9b65dabdd71ab9011604817f61c13c288`
@@ -181,6 +181,8 @@ Round 1 bound `b63a0db`, tree `cd7ac40`, CI `30021272713` 12/12 and returned exa
 zero P0/P1/P3. Focused correction `e731a77`, tree `6c2b34d`, exact parent `b63a0db`, passed final
 V1 29/29, affected V2 78/78, final V3 1,825 tests and exact-head CI `30022981656`, attempt 1,
 12/12. Round 2 returned `APPROVED`, `MERGE_READY / EXACT-SHA APPROVED` and zero open P0–P3.
-The later `DA4-V5-F06` correction of the stale reassignment AuditEvent invariant requires its own
-V4 and independent exact-SHA review before another separately exact-bound Human V5 Browser Gate.
-That Human gate remains unauthorized.
+The later `DA4-V5-F06` correction of the stale reassignment AuditEvent invariant was published as
+`d0db46f8bd2081a357bc92395507c1978cca27ba`, tree
+`9f31c78138204f79ffc5db632b01ff5ef89c1b0a`, and passed exact-head CI `30085075057`,
+attempt 1, 12/12. Independent exact-SHA review returned `APPROVED` with zero open P0–P3.
+Another Human V5 Browser Gate remains separately exact-bound and unauthorized.
