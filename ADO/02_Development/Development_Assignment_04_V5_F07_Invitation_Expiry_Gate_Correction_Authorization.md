@@ -1,11 +1,14 @@
 # Development Assignment 4 — DA4-V5-F07 Invitation-Expiry Gate Correction Candidate
 
-- Status: **ADO-ONLY CANDIDATE — INDEPENDENT REVIEW REQUIRED**
+- Status: **INDEPENDENTLY APPROVED — R3 IMPLEMENTATION MAY PROCEED; HUMAN V5 UNAUTHORIZED**
 - Date: 2026-07-24
 - Owner: Technical Lead
 - Candidate baseline: `1140cc441b958d701a899a74924eac4cc41fefeb`
 - Candidate baseline tree: `7a34423528b4a23753da8bc679eb5aee077dfa1d`
 - Candidate baseline CI: `30085506578`, attempt 1, 12/12
+- Reviewed candidate: `7d8cee690af7fcd5c2f13b54f81b7ddc2ec2b736`
+- Reviewed candidate tree: `f445d3c3151dd966f0a9ea9ab01b73b2c0c06441`
+- Reviewed candidate CI: `30090502331`, attempt 2, 12/12
 - Proposed implementation risk: AVS R3
 
 ## 1. Confirmed problem
@@ -53,7 +56,7 @@ Its one-time authority is consumed. Evidence is recorded in
 
 ## 3. Proposed implementation scope
 
-Authorized only after independent approval under the repository standing rule:
+Authorized under the repository standing rule after independent approval:
 
 - the DA4-V5 status projection and write-session invariant in
   `apps/synthetic-android-e2e`;
@@ -80,5 +83,8 @@ Explicitly excluded:
 - **V4:** focused publication, exact-head CI and independent Exact-SHA implementation review.
 - **V5:** separately authorized later Human Browser Gate only.
 
-This document is a correction candidate. It does not itself authorize executable changes or any
-Human, production, production-data, deployment or distribution action.
+Independent read-only review returned `APPROVED` with zero open P0–P3 and is archived in
+`ADO/05_Evidence/Development_Assignment_04_DA4_V5_F07_Independent_Pre_Implementation_Review.md`.
+The exact proposed implementation scope may proceed with AVS V0–V4 and independent Exact-SHA
+implementation review. No Human V5, production, production-data, deployment or distribution
+action is authorized.

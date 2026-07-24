@@ -1,6 +1,6 @@
 # Development Assignment 4 — DA4-V5-H03 Human Browser Failure Evidence
 
-- Status: **FAILED CLOSED — AUTHORITY CONSUMED; F07 CANDIDATE REVIEW REQUIRED**
+- Status: **FAILED CLOSED — AUTHORITY CONSUMED; F07 CANDIDATE INDEPENDENTLY APPROVED**
 - Date: 2026-07-24
 - Owner: Technical Lead
 - Finding: `DA4-V5-F07`, P2, Human-gate invariant/reliability
@@ -55,6 +55,7 @@ worktree was clean with the mandatory protected-path exclusions; unrelated untra
 `app.json` was preserved and not read.
 
 The focused ADO-only F07 candidate preserves the Product TTL and proposes a disclosure-safe,
-time-aware gate invariant. Independent pre-implementation review is required. No executable
-correction, new Human V5, production, production data, deployment or distribution is authorized
-by this evidence.
+time-aware gate invariant. Independent pre-implementation review returned `APPROVED` with zero
+open P0–P3. Under the repository standing rule, its exact R3 correction scope may proceed with
+V0–V4 and independent Exact-SHA implementation review. No new Human V5, production, production
+data, deployment or distribution is authorized by this evidence.
