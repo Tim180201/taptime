@@ -1,0 +1,842 @@
+import { readFile } from 'node:fs/promises';
+import type { Interface } from 'node:readline';
+import type { Pool } from 'pg';
+import { describe, expect, it, vi } from 'vitest';
+import {
+  DA5_V5_DEDUPE_PHASES,
+  DA5_V5_CHECKPOINT_PLAN,
+  DA5_V5_INITIAL_STATUS,
+  DA5_V5_PROFILE,
+  DA5_V5_PUBLIC_MANIFEST,
+  DA5_V5_TAG_B_REGISTRATION_ARM_STATUS,
+  DA4_V5_PROFILE,
+  Da5V5DedupeWindowController,
+  Da5V5InputOwnership,
+  Da5V5MemoryOnlyPasswordBinding,
+  Da5V5OperationSession,
+  Da5V5OperatorLifecycle,
+  Da5V5ProtectedReviewFixture,
+  Da5V5CommandExecutionGuard,
+  Da5V5SafeEventLatch,
+  Da5V5SignalController,
+  Da5V5StartupInterrupted,
+  cleanSyntheticDatabase,
+  da5V5Ids,
+  da5V5TagBRegistrationArmIsAuthorized,
+  da5V5TagBRegistrationPreconditionMatches,
+  da5V5DedupeBinding,
+  readDa5V5InvariantStatus,
+  requireDa5V5Profile,
+  runDa5V5StrictCleanup,
+  syntheticIds,
+  validateDa5V5TagBinding,
+  type Da5V5Checkpoint,
+  type Da5V5DedupePhase,
+} from '../src/index.js';
+
+describe('DA5 V5 explicit profile and disclosure boundaries', () => {
+  it('accepts only the exact opt-in profile', () => {
+    expect(requireDa5V5Profile(DA5_V5_PROFILE)).toBe('da5-v5');
+    expect(() => requireDa5V5Profile(undefined)).toThrow(/exact explicit/);
+    expect(() => requireDa5V5Profile('default')).toThrow(/exact explicit/);
+    expect(() => requireDa5V5Profile('DA5-V5')).toThrow(/exact explicit/);
+  });
+
+  it('validates only three distinct safe fingerprints and the packaged technology', () => {
+    expect(DA5_V5_PUBLIC_MANIFEST.setupPreviewLabel).toBe('DA5 V5 Preview 2');
+    expect(validateDa5V5TagBinding({
+      tagA: '0123456789AB',
+      tagB: '111111111111',
+      tagX: 'ABCDEF012345',
+      technology: 'NfcA+MifareUltralight',
+    })).toEqual({
+      tagA: '0123456789AB',
+      tagB: '111111111111',
+      tagX: 'ABCDEF012345',
+      technology: 'NfcA+MifareUltralight',
+    });
+    expect(() => validateDa5V5TagBinding({
+      tagA: '0123456789ab',
+      tagB: '111111111111',
+      tagX: 'ABCDEF012345',
+      technology: 'NfcA+MifareUltralight',
+    })).toThrow(/uppercase 12-hex/);
+    expect(() => validateDa5V5TagBinding({
+      tagA: '0123456789AB',
+      tagB: '0123456789AB',
+      tagX: 'ABCDEF012345',
+      technology: 'NfcA+MifareUltralight',
+    })).toThrow(/distinct/);
+    expect(() => validateDa5V5TagBinding({
+      tagA: '0123456789AB',
+      tagB: '111111111111',
+      tagX: 'ABCDEF012345',
+      technology: 'Ndef',
+    })).toThrow(/manifest boundary/);
+  });
+
+  it('retains only a memory digest and reports match or mismatch', () => {
+    const password = Buffer.from('a'.repeat(64), 'ascii');
+    const binding = new Da5V5MemoryOnlyPasswordBinding(password);
+    expect(binding.compare(Buffer.from(password))).toBe('match');
+    expect(binding.compare(Buffer.from('b'.repeat(64), 'ascii'))).toBe('mismatch');
+    binding.destroy();
+    expect(binding.compare(Buffer.from(password))).toBe('mismatch');
+    password.fill(0);
+  });
+
+  it('binds every terminal offline sequence to the exact target and NFC provenance',
+    async () => {
+      const binding = validateDa5V5TagBinding({
+        tagA: '0123456789AB',
+        tagB: '111111111111',
+        tagX: 'ABCDEF012345',
+        technology: 'NfcA+MifareUltralight',
+      });
+      const generalWorkTargetId = '22000000-0000-4000-8000-000000000705';
+      const actualTagAId = '33000000-0000-4000-8000-000000000705';
+      const actualAssignmentAId = '44000000-0000-4000-8000-000000000705';
+      const manual = (
+        deviceSequence: number,
+        targetType: 'customer' | 'general_work' | 'project',
+        targetId: string,
+        decisionType: string,
+      ) => ({
+        assignment_id: null,
+        decision_type: decisionType,
+        device_sequence: String(deviceSequence),
+        nfc_tag_id: null,
+        review_reason: null,
+        server_time_entry_id: '50000000-0000-4000-8000-000000000705',
+        tag_fingerprint: null,
+        target_id: targetId,
+        target_type: targetType,
+        time_entry_mutations: '1',
+        trigger_type: 'manual',
+      });
+      const nfc = (
+        deviceSequence: number,
+        targetId: string,
+        assignmentId: string,
+        nfcTagId: string,
+        tagFingerprint: string,
+        decisionType: string | null,
+        reviewReason: string | null,
+      ) => ({
+        assignment_id: assignmentId,
+        decision_type: decisionType,
+        device_sequence: String(deviceSequence),
+        nfc_tag_id: nfcTagId,
+        review_reason: reviewReason,
+        server_time_entry_id: reviewReason === null
+          ? '50000000-0000-4000-8000-000000000705'
+          : null,
+        tag_fingerprint: tagFingerprint,
+        target_id: targetId,
+        target_type: 'customer',
+        time_entry_mutations: reviewReason === null ? '1' : '0',
+        trigger_type: 'nfc',
+      });
+      const exactSequence = [
+        nfc(
+          1,
+          syntheticIds.customer,
+          actualAssignmentAId,
+          actualTagAId,
+          binding.tagA,
+          'time_entry_started',
+          null,
+        ),
+        manual(2, 'customer', syntheticIds.customer, 'time_entry_stopped'),
+        manual(3, 'project', da5V5Ids.project, 'time_entry_started'),
+        manual(4, 'project', da5V5Ids.project, 'time_entry_stopped'),
+        manual(5, 'general_work', generalWorkTargetId, 'time_entry_started'),
+        manual(6, 'general_work', generalWorkTargetId, 'time_entry_stopped'),
+        nfc(
+          7,
+          syntheticIds.customer,
+          actualAssignmentAId,
+          actualTagAId,
+          binding.tagA,
+          'active_entry_for_other_target_rejected',
+          null,
+        ),
+        nfc(
+          8,
+          syntheticIds.customer,
+          actualAssignmentAId,
+          actualTagAId,
+          binding.tagA,
+          null,
+          'historical_configuration_not_valid',
+        ),
+        nfc(
+          9,
+          syntheticIds.reassignmentCustomer,
+          da5V5Ids.assignmentB,
+          da5V5Ids.tagB,
+          binding.tagB,
+          null,
+          'predecessor_requires_review',
+        ),
+      ];
+      const read = async (sequence: readonly Record<string, unknown>[]) => {
+        const query = vi.fn()
+          .mockResolvedValueOnce({
+            rows: [{
+              installation_id: '82000000-0000-4000-8000-000000000705',
+              last_durable_sequence: '9',
+              review_predecessor_sequence: '8',
+            }],
+          })
+          .mockResolvedValueOnce({ rows: [{ target_id: generalWorkTargetId }] })
+          .mockResolvedValueOnce({
+            rows: [{
+              assignment_id: actualAssignmentAId,
+              tag_id: actualTagAId,
+            }],
+          })
+          .mockResolvedValueOnce({ rows: sequence })
+          .mockResolvedValueOnce({ rows: [{ count: '1' }] });
+        const status = await readDa5V5InvariantStatus(
+          { query } as unknown as Pick<Pool, 'query'>,
+          binding,
+        );
+        return { query, status };
+      };
+
+      await expect(read(exactSequence)).resolves.toMatchObject({
+        status: {
+          ordinaryOfflineOrder: 'match',
+          protectedReviewOrder: 'match',
+          reviewPendingHasNoTimeMutation: 'match',
+          tagBActiveEntryRetained: 'match',
+          terminalFifoDrained: 'match',
+        },
+      });
+      const targetDrift = exactSequence.map((row, index) => (
+        index === 2 ? { ...row, target_id: syntheticIds.customer } : row
+      ));
+      await expect(read(targetDrift)).resolves.toMatchObject({
+        status: { ordinaryOfflineOrder: 'mismatch' },
+      });
+      const tagDrift = exactSequence.map((row, index) => (
+        index === 8 ? { ...row, tag_fingerprint: binding.tagA } : row
+      ));
+      await expect(read(tagDrift)).resolves.toMatchObject({
+        status: { protectedReviewOrder: 'mismatch' },
+      });
+    });
+});
+
+describe('DA5 V5 serial Human checkpoints', () => {
+  it('requires Tag A to be actively assigned to exact Customer A before Tag B can be armed',
+    () => {
+      const exactRoles = {
+        activeTagAAssignments: 1,
+        activeTagACustomerAAssignments: 1,
+        activeTagBAssignments: 0,
+        tagAExactRecords: 1,
+        tagARecords: 1,
+        tagBExactRecords: 0,
+        tagBRecords: 0,
+        tagBTotalAssignments: 0,
+        tagXRecords: 0,
+      };
+      expect(da5V5TagBRegistrationPreconditionMatches(
+        DA5_V5_TAG_B_REGISTRATION_ARM_STATUS,
+        exactRoles,
+      )).toBe(true);
+      expect(da5V5TagBRegistrationPreconditionMatches(
+        DA5_V5_TAG_B_REGISTRATION_ARM_STATUS,
+        { ...exactRoles, activeTagACustomerAAssignments: 0 },
+      )).toBe(false);
+    });
+
+  it('uses the exact Main-command boundary for Tag B and permanently blocks fatal safe events',
+    () => {
+      const session = new Da5V5OperationSession(DA5_V5_INITIAL_STATUS);
+      const latch = new Da5V5SafeEventLatch();
+      expect(latch.observe('da5_v5_tag_b_registration_armed')).toBe('continue');
+      expect(latch.observe('da5_v5_tag_b_registered_unassigned')).toBe('continue');
+      expect(da5V5TagBRegistrationArmIsAuthorized({
+        commandAllowed: latch.commandAllowed(),
+        credentialsCompleted: 3,
+        credentialsRequired: 3,
+        session,
+        tagRegistrationState: 'disarmed',
+      })).toBe(true);
+      expect(da5V5TagBRegistrationArmIsAuthorized({
+        commandAllowed: latch.commandAllowed(),
+        credentialsCompleted: 2,
+        credentialsRequired: 3,
+        session,
+        tagRegistrationState: 'disarmed',
+      })).toBe(false);
+
+      expect(latch.observe('api_session_unavailable')).toBe('failed');
+      expect(latch.commandAllowed()).toBe(false);
+      expect(latch.observe('da5_v5_tag_b_registration_armed')).toBe('failed');
+      expect(da5V5TagBRegistrationArmIsAuthorized({
+        commandAllowed: latch.commandAllowed(),
+        credentialsCompleted: 3,
+        credentialsRequired: 3,
+        session,
+        tagRegistrationState: 'disarmed',
+      })).toBe(false);
+    });
+
+  it('invalidates an awaited command before it can report success after a fatal safe event',
+    async () => {
+      const latch = new Da5V5SafeEventLatch();
+      const guard = new Da5V5CommandExecutionGuard(latch);
+      let completeOperation: () => void = () => undefined;
+      const operation = new Promise<void>((resolve) => {
+        completeOperation = resolve;
+      });
+      const guarded = guard.wait(operation);
+
+      expect(latch.observe('api_session_unavailable')).toBe('failed');
+      completeOperation();
+
+      await expect(guarded).rejects.toThrow(/invalidated by a safe failure/);
+      expect(() => guard.ensure()).toThrow(/invalidated by a safe failure/);
+    });
+
+  it('observes exact aggregate/queue state before Human PASS advances every checkpoint', () => {
+    const session = new Da5V5OperationSession(DA5_V5_INITIAL_STATUS);
+    for (const step of DA5_V5_CHECKPOINT_PLAN) {
+      for (const phase of dedupeChecksBefore[step.checkpoint] ?? []) {
+        expect(session.authorizeDedupeCheck(phase)).toBe('match');
+      }
+      expect(session.state()).toMatchObject({
+        failed: false,
+        nextCheckpoint: step.checkpoint,
+      });
+      expect(session.observeCheckpoint(
+        step.checkpoint,
+        step.status,
+        step.expectedQueueItems,
+      )).toBe('match');
+      expect(session.state().observedCheckpoint).toBe(step.checkpoint);
+      expect(session.confirmCheckpoint(step.checkpoint, 'pass')).toBe('match');
+      for (const phase of dedupeBaselinesAfter[step.checkpoint] ?? []) {
+        expect(session.authorizeDedupeBaseline(phase)).toBe('match');
+      }
+    }
+    const allDedupePhases = Object.keys(DA5_V5_DEDUPE_PHASES).sort();
+    expect(session.state()).toEqual({
+      checkedDedupePhases: allDedupePhases,
+      confirmedCheckpoint: 'gate-f-final',
+      failed: false,
+      issuedDedupeBaselines: allDedupePhases,
+      observedCheckpoint: null,
+      nextCheckpoint: null,
+      step: DA5_V5_CHECKPOINT_PLAN.length,
+      terminal: true,
+    });
+  });
+
+  it('latches failure on premature confirmation, FAIL/AMBIGUOUS, queue drift or reordering', () => {
+    const missing = new Da5V5OperationSession(DA5_V5_INITIAL_STATUS);
+    const first = DA5_V5_CHECKPOINT_PLAN[0]!;
+    expect(missing.confirmCheckpoint(first.checkpoint, 'pass')).toBe('mismatch');
+    expect(missing.state().failed).toBe(true);
+
+    for (const result of ['fail', 'ambiguous'] as const) {
+      const rejected = new Da5V5OperationSession(DA5_V5_INITIAL_STATUS);
+      expect(rejected.observeCheckpoint(
+        first.checkpoint,
+        first.status,
+        first.expectedQueueItems,
+      )).toBe('match');
+      expect(rejected.confirmCheckpoint(first.checkpoint, result)).toBe('mismatch');
+      expect(rejected.state().failed).toBe(true);
+    }
+
+    const reordered = new Da5V5OperationSession(DA5_V5_INITIAL_STATUS);
+    expect(reordered.observeCheckpoint(
+      DA5_V5_CHECKPOINT_PLAN[1]!.checkpoint,
+      DA5_V5_CHECKPOINT_PLAN[1]!.status,
+      DA5_V5_CHECKPOINT_PLAN[1]!.expectedQueueItems,
+    )).toBe('mismatch');
+    expect(reordered.state().failed).toBe(true);
+
+    const queueDrift = new Da5V5OperationSession(DA5_V5_INITIAL_STATUS);
+    expect(queueDrift.observeCheckpoint(
+      first.checkpoint,
+      first.status,
+      first.expectedQueueItems + 1,
+    )).toBe('mismatch');
+    expect(queueDrift.state().failed).toBe(true);
+
+    const missingDedupe = new Da5V5OperationSession(DA5_V5_INITIAL_STATUS);
+    for (const step of DA5_V5_CHECKPOINT_PLAN.slice(0, 3)) {
+      expect(missingDedupe.observeCheckpoint(
+        step.checkpoint,
+        step.status,
+        step.expectedQueueItems,
+      )).toBe('match');
+      expect(missingDedupe.confirmCheckpoint(step.checkpoint, 'pass')).toBe('match');
+    }
+    expect(missingDedupe.observeCheckpoint(
+      DA5_V5_CHECKPOINT_PLAN[3]!.checkpoint,
+      DA5_V5_CHECKPOINT_PLAN[3]!.status,
+      DA5_V5_CHECKPOINT_PLAN[3]!.expectedQueueItems,
+    )).toBe('mismatch');
+    expect(missingDedupe.state().failed).toBe(true);
+  });
+
+  it('phase-gates each dedupe baseline/check behind the exact confirmed Product step', () => {
+    const valid = new Da5V5OperationSession(DA5_V5_INITIAL_STATUS);
+    for (const step of DA5_V5_CHECKPOINT_PLAN.slice(0, 3)) {
+      expect(valid.observeCheckpoint(
+        step.checkpoint,
+        step.status,
+        step.expectedQueueItems,
+      )).toBe('match');
+      expect(valid.confirmCheckpoint(step.checkpoint, 'pass')).toBe('match');
+    }
+    expect(valid.authorizeDedupeBaseline('gate-b-customer')).toBe('match');
+    expect(valid.authorizeDedupeCheck('gate-b-customer')).toBe('match');
+
+    const early = new Da5V5OperationSession(DA5_V5_INITIAL_STATUS);
+    expect(early.authorizeDedupeBaseline('gate-b-customer')).toBe('mismatch');
+    expect(early.state().failed).toBe(true);
+
+    const wrongPhase = new Da5V5OperationSession(DA5_V5_INITIAL_STATUS);
+    for (const step of DA5_V5_CHECKPOINT_PLAN.slice(0, 3)) {
+      wrongPhase.observeCheckpoint(step.checkpoint, step.status, step.expectedQueueItems);
+      wrongPhase.confirmCheckpoint(step.checkpoint, 'pass');
+    }
+    expect(wrongPhase.authorizeDedupeBaseline('gate-c-customer')).toBe('mismatch');
+    expect(wrongPhase.state().failed).toBe(true);
+  });
+});
+
+const dedupeBaselinesAfter: Readonly<
+  Partial<Record<Da5V5Checkpoint, readonly Da5V5DedupePhase[]>>
+> = Object.freeze({
+  'gate-b-duplicate': Object.freeze(['gate-b-customer'] as const),
+  'gate-c-customer-first': Object.freeze(['gate-c-customer'] as const),
+  'gate-c-project-first': Object.freeze(['gate-c-project'] as const),
+  'gate-c-general-first': Object.freeze(['gate-c-general'] as const),
+  'gate-d-customer-first-pending': Object.freeze(['gate-d-customer'] as const),
+  'gate-d-project-first-pending': Object.freeze(['gate-d-project'] as const),
+  'gate-d-general-first-pending': Object.freeze(['gate-d-general'] as const),
+  'gate-d-fixture-tag-b-started': Object.freeze(['gate-d-tag-b'] as const),
+  'gate-d-fixture-pre-cutover-pending': Object.freeze(['gate-d-tag-a'] as const),
+});
+
+const dedupeChecksBefore: Readonly<
+  Partial<Record<Da5V5Checkpoint, readonly Da5V5DedupePhase[]>>
+> = Object.freeze({
+  'gate-b-background': Object.freeze(['gate-b-customer'] as const),
+  'gate-c-customer-complete': Object.freeze(['gate-c-customer'] as const),
+  'gate-c-project-complete': Object.freeze(['gate-c-project'] as const),
+  'gate-c-general-complete': Object.freeze(['gate-c-general'] as const),
+  'gate-d-customer-complete-pending': Object.freeze(['gate-d-customer'] as const),
+  'gate-d-project-complete-pending': Object.freeze(['gate-d-project'] as const),
+  'gate-d-general-complete-pending': Object.freeze(['gate-d-general'] as const),
+  'gate-d-fixture-all-pending': Object.freeze(['gate-d-tag-a', 'gate-d-tag-b'] as const),
+});
+
+describe('DA5 V5 PostgreSQL-server-clock dedupe slots', () => {
+  it('supports the independent Tag-A and Tag-B slots concurrently and consumes each once',
+    async () => {
+      const query = vi.fn()
+        .mockResolvedValueOnce({ rows: [{ now: '2026-07-25 08:00:00.000001+00' }] })
+        .mockResolvedValueOnce({ rows: [{ now: '2026-07-25 08:00:01.000002+00' }] })
+        .mockResolvedValueOnce({ rows: [{ elapsed: true }] })
+        .mockResolvedValueOnce({ rows: [{ elapsed: true }] });
+      const controller = new Da5V5DedupeWindowController(
+        { query } as unknown as Pick<Pool, 'query'>,
+      );
+
+      await expect(controller.capture(
+        'gate-d-tag-b',
+        da5V5DedupeBinding('gate-d-tag-b'),
+      )).resolves.toBe('match');
+      await expect(controller.capture(
+        'gate-d-tag-a',
+        da5V5DedupeBinding('gate-d-tag-a'),
+      )).resolves.toBe('match');
+      expect(controller.state().activeSlots).toEqual([
+        'gate-d-tag-a',
+        'gate-d-tag-b',
+      ]);
+
+      await expect(controller.check(
+        'gate-d-tag-a',
+        da5V5DedupeBinding('gate-d-tag-a'),
+      )).resolves.toBe('match');
+      await expect(controller.check(
+        'gate-d-tag-b',
+        da5V5DedupeBinding('gate-d-tag-b'),
+      )).resolves.toBe('match');
+      expect(controller.state()).toMatchObject({
+        activeSlots: [],
+        consumedSlots: ['gate-d-tag-a', 'gate-d-tag-b'],
+        failed: false,
+  });
+});
+
+describe('DA5 V5 fixture, lifecycle and startup fail-stop boundaries', () => {
+  it('arms the protected fixture only from the exact ordinary-terminal aggregate once', () => {
+    const binding = validateDa5V5TagBinding({
+      tagA: '0123456789AB',
+      tagB: '111111111111',
+      tagX: 'ABCDEF012345',
+      technology: 'NfcA+MifareUltralight',
+    });
+    const ordinary = DA5_V5_CHECKPOINT_PLAN.find(
+      ({ checkpoint }) => checkpoint === 'gate-d-cancellation',
+    )!.status;
+    const fixture = new Da5V5ProtectedReviewFixture({} as Pool, binding);
+    expect(fixture.arm(ordinary, 0)).toBe('match');
+    expect(fixture.state()).toBe('armed');
+    expect(fixture.arm(ordinary, 0)).toBe('mismatch');
+    expect(fixture.state()).toBe('failed');
+
+    const drift = new Da5V5ProtectedReviewFixture({} as Pool, binding);
+    expect(drift.arm({ ...ordinary, auditEvents: ordinary.auditEvents + 1 }, 0))
+      .toBe('mismatch');
+    expect(drift.state()).toBe('failed');
+
+    const queued = new Da5V5ProtectedReviewFixture({} as Pool, binding);
+    expect(queued.arm(ordinary, 1)).toBe('mismatch');
+
+    const outOfOrder = new Da5V5ProtectedReviewFixture({} as Pool, binding);
+    expect(outOfOrder.arm(DA5_V5_INITIAL_STATUS, 0)).toBe('mismatch');
+  });
+
+  it('refuses Tag-B activation when Tag A is not actively bound to exact Customer A',
+    async () => {
+      const binding = validateDa5V5TagBinding({
+        tagA: '0123456789AB',
+        tagB: '111111111111',
+        tagX: 'ABCDEF012345',
+        technology: 'NfcA+MifareUltralight',
+      });
+      const query = vi.fn()
+        .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({
+          rows: [{
+            active_entries: '0',
+            review_markers: '0',
+            tag_a_active: '1',
+            tag_a_customer_a_active: '0',
+            tag_b_active: '0',
+            tag_b_assignments: '0',
+            tag_b_exact_records: '1',
+            tag_b_records: '1',
+            tag_x_records: '0',
+          }],
+        })
+        .mockResolvedValueOnce({ rows: [] });
+      const release = vi.fn();
+      const pool = {
+        connect: vi.fn(async () => ({ query, release })),
+      } as unknown as Pool;
+      const fixture = new Da5V5ProtectedReviewFixture(pool, binding);
+      const ordinary = DA5_V5_CHECKPOINT_PLAN.find(
+        ({ checkpoint }) => checkpoint === 'gate-d-cancellation',
+      )!.status;
+
+      expect(fixture.arm(ordinary, 0)).toBe('match');
+      await expect(fixture.activateTagB()).resolves.toBe('mismatch');
+      expect(fixture.state()).toBe('failed');
+      expect(query).toHaveBeenCalledTimes(3);
+      expect(String(query.mock.calls[1]?.[0])).toContain(
+        "assignment.target_customer_id = $5",
+      );
+      expect(release).toHaveBeenCalledTimes(1);
+    });
+
+  it('attempts every strict-cleanup stage serially and exposes only a generic failure',
+    async () => {
+      const calls: string[] = [];
+      await expect(runDa5V5StrictCleanup({
+        closeResources: [
+          async () => {
+            calls.push('resource-1');
+            throw new Error('private resource detail');
+          },
+          async () => {
+            calls.push('resource-2');
+          },
+        ],
+        closeDatabase: async () => {
+          calls.push('database');
+          throw new Error('private database detail');
+        },
+        closeInstaller: async () => {
+          calls.push('installer');
+        },
+      })).rejects.toThrow('DA5 V5 cleanup failed');
+      expect(calls).toEqual(['resource-1', 'resource-2', 'database', 'installer']);
+    });
+
+  it('rechecks the disposable installer boundary before any destructive cleanup query',
+    async () => {
+      const query = vi.fn().mockResolvedValue({
+        rows: [{
+          current_database: 'not_the_synthetic_database',
+          host: '127.0.0.1',
+          rolcreaterole: true,
+          rolsuper: false,
+        }],
+      });
+      await expect(cleanSyntheticDatabase(
+        { query } as unknown as Pool,
+        DA5_V5_PROFILE,
+      )).rejects.toThrow(/installer connection failed/);
+      expect(query).toHaveBeenCalledTimes(1);
+      expect(String(query.mock.calls[0]?.[0])).not.toMatch(/\bDROP\b/u);
+    });
+
+  it.each([
+    ['default', undefined],
+    ['da4-v5', DA4_V5_PROFILE],
+  ] as const)('preserves %s cleanup without the DA5 destructive re-guard',
+    async (_label, cleanupProfile) => {
+      const query = vi.fn().mockResolvedValue({ rows: [] });
+
+      await expect(cleanSyntheticDatabase(
+        { query } as unknown as Pool,
+        cleanupProfile,
+      )).resolves.toBeUndefined();
+
+      const statements = query.mock.calls.map(([statement]) => String(statement));
+      expect(statements[0]).toMatch(/\bDROP SCHEMA IF EXISTS\b/u);
+      expect(statements).not.toEqual(expect.arrayContaining([
+        expect.stringMatching(/\bcurrent_database\(\)/u),
+      ]));
+    });
+
+  it('latches concurrent command failure, cleans once and never runs later work', async () => {
+    const events: string[] = [];
+    const cleanupRelease = deferred<void>();
+    const cleanup = vi.fn(() => cleanupRelease.promise);
+    const markFailed = vi.fn();
+    const lifecycle = new Da5V5OperatorLifecycle(
+      cleanup,
+      (event) => events.push(event),
+      markFailed,
+    );
+    const firstCommand = deferred<{
+      readonly event: 'da5_v5_checkpoint=mismatch';
+      readonly state: 'fail';
+    }>();
+    const first = lifecycle.submit(() => firstCommand.promise);
+    const concurrent = lifecycle.submit(async () => ({ state: 'continue' }));
+    firstCommand.resolve({
+      event: 'da5_v5_checkpoint=mismatch',
+      state: 'fail',
+    });
+    cleanupRelease.resolve();
+    await Promise.all([first, concurrent]);
+
+    const later = vi.fn(async () => ({ state: 'continue' as const }));
+    await lifecycle.submit(later);
+    expect(events).toEqual(['operator_command_rejected']);
+    expect(cleanup).toHaveBeenCalledTimes(1);
+    expect(markFailed).toHaveBeenCalledTimes(1);
+    expect(later).not.toHaveBeenCalled();
+  });
+
+  it('latches startup and post-readiness signals without duplicate cleanup or stopped output',
+    async () => {
+      const startupEvents: string[] = [];
+      const startupFailed = vi.fn();
+      const startupSignal = new Da5V5SignalController(
+        (event) => startupEvents.push(event),
+        startupFailed,
+      );
+      await expect(startupSignal.handleSignal()).resolves.toBeUndefined();
+      expect(() => startupSignal.checkpoint()).toThrow(Da5V5StartupInterrupted);
+      expect(startupEvents).toEqual(['da5_v5_interrupted']);
+      expect(startupFailed).toHaveBeenCalledTimes(1);
+
+      const events: string[] = [];
+      const cleanup = vi.fn(async () => undefined);
+      const failed = vi.fn();
+      const lifecycle = new Da5V5OperatorLifecycle(
+        cleanup,
+        (event) => events.push(event),
+        failed,
+      );
+      const signal = new Da5V5SignalController((event) => events.push(event), failed);
+      signal.bind(lifecycle);
+      const first = signal.handleSignal();
+      const repeated = signal.handleSignal();
+      expect(first).toBe(repeated);
+      await Promise.all([first, repeated]);
+      expect(events).toEqual(['da5_v5_interrupted']);
+      expect(cleanup).toHaveBeenCalledTimes(1);
+      expect(failed).toHaveBeenCalledTimes(1);
+    });
+
+  it('keeps command and hidden credential input under one exclusive owner', () => {
+    const ownership = new Da5V5InputOwnership();
+    const command = fakeInterface();
+    const secret = fakeInterface();
+    ownership.attachCommand(command);
+    expect(() => ownership.attachSecret(secret)).toThrow(/already has an owner/);
+    ownership.detachCommandForSecret();
+    ownership.attachSecret(secret);
+    expect(ownership.mode()).toBe('secret');
+    expect(() => ownership.attachCommand(command)).toThrow(/already has an owner/);
+    ownership.releaseSecret(secret);
+    expect(ownership.mode()).toBe('none');
+  });
+
+  it('keeps profile and signal guards ahead of configuration and resource creation',
+    async () => {
+      const source = await readFile(new URL('../src/da5V5Main.ts', import.meta.url), 'utf8');
+      expect(source.indexOf('requireDa5V5Profile(')).toBeGreaterThanOrEqual(0);
+      expect(source.indexOf('requireDa5V5Profile(')).toBeLessThan(
+        source.indexOf("requiredEnvironmentValue('TAPTIME_SYNTHETIC_E2E_DATABASE_URL')"),
+      );
+      expect(source.indexOf("process.on('SIGINT'")).toBeLessThan(
+        source.indexOf('environment = await createSyntheticAndroidE2eEnvironment('),
+      );
+      expect(source.indexOf("process.on('SIGTERM'")).toBeLessThan(
+        source.indexOf('environment = await createSyntheticAndroidE2eEnvironment('),
+      );
+      expect(source.indexOf('if (!safeEventLatch.commandAllowed())')).toBeLessThan(
+        source.indexOf("if (normalized === 'status')"),
+      );
+      expect(source).toContain(
+        'commandExecutionGuard.wait(activeEnvironment.armDa5V5TagBRegistration())',
+      );
+      expect(source).toContain(
+        'activeEnvironment.da5V5FixtureArm(humanObservedQueueItems)',
+      );
+      expect(source).toContain(
+        '/^protected-review-arm ([0-9]+)$/u.exec(normalized)',
+      );
+      expect(source).not.toContain('activeEnvironment.da5V5FixtureArm(0)');
+      expect(source).toContain(
+        "source: 'human-visible-product-observation'",
+      );
+      expect(source).toContain('mutationAbortController.abort()');
+      expect(source.match(/serialBinding: deviceLock/gu)).toHaveLength(2);
+      expect(source).toContain(
+        'new Da5V5ApiOfflineController(\n  adb,\n  accessibilityBinding,\n  deviceLock,',
+      );
+      expect(source).toContain(
+        'new Da5V5DeviceCheckpointController(adb, accessibilityBinding, deviceLock)',
+      );
+      expect(source).not.toContain('TAPTIME_SYNTHETIC_E2E_PASSWORD=match');
+    });
+});
+
+function deferred<T>(): {
+  readonly promise: Promise<T>;
+  resolve(value: T): void;
+} {
+  let resolvePromise: (value: T) => void = () => undefined;
+  const promise = new Promise<T>((resolve) => {
+    resolvePromise = resolve;
+  });
+  return { promise, resolve: resolvePromise };
+}
+
+function fakeInterface(): Interface {
+  return {
+    close: vi.fn(),
+    removeAllListeners: vi.fn(),
+  } as unknown as Interface;
+}
+
+  it('uses only fresh server-clock queries and never a WorkEvent age query', async () => {
+    const query = vi.fn()
+      .mockResolvedValueOnce({ rows: [{ now: '2026-07-25 08:00:00.999999+00' }] })
+      .mockResolvedValueOnce({ rows: [{ elapsed: true }] });
+    const controller = new Da5V5DedupeWindowController(
+      { query } as unknown as Pick<Pool, 'query'>,
+    );
+    const binding = da5V5DedupeBinding('gate-c-project');
+
+    await expect(controller.capture('gate-c-project', binding)).resolves.toBe('match');
+    await expect(controller.check('gate-c-project', binding)).resolves.toBe('match');
+
+    expect(query).toHaveBeenCalledTimes(2);
+    expect(query.mock.calls[0]?.[0]).toContain('transaction_timestamp');
+    expect(query.mock.calls[1]?.[0]).toContain("interval '5 seconds'");
+    expect(query.mock.calls[1]?.[1]).toEqual(['2026-07-25 08:00:00.999999+00']);
+    expect(query.mock.calls.flat().join(' ')).not.toMatch(/work_events|occurred_at/i);
+  });
+
+  it.each([
+    { name: 'exactly five seconds', elapsed: false },
+    { name: 'less than five seconds', elapsed: false },
+  ])('latches $name mismatch and destroys the slot', async ({ elapsed }) => {
+    const query = vi.fn()
+      .mockResolvedValueOnce({ rows: [{ now: '2026-07-25 08:00:00.000001+00' }] })
+      .mockResolvedValueOnce({ rows: [{ elapsed }] });
+    const controller = new Da5V5DedupeWindowController(
+      { query } as unknown as Pick<Pool, 'query'>,
+    );
+    const binding = da5V5DedupeBinding('gate-b-customer');
+
+    await controller.capture('gate-b-customer', binding);
+    await expect(controller.check('gate-b-customer', binding)).resolves.toBe('mismatch');
+    expect(controller.state()).toMatchObject({ activeSlots: [], failed: true });
+    await expect(controller.capture('gate-c-customer',
+      da5V5DedupeBinding('gate-c-customer'))).resolves.toBe('mismatch');
+  });
+
+  it('fails permanently for missing, reused or wrong target slots without querying a clock',
+    async () => {
+      const query = vi.fn();
+      const controller = new Da5V5DedupeWindowController(
+        { query } as unknown as Pick<Pool, 'query'>,
+      );
+      const wrong = { user: 'employee', target: 'project' } as const;
+      await expect(controller.capture('gate-b-customer', wrong)).resolves.toBe('mismatch');
+      await expect(controller.check(
+        'gate-b-customer',
+        DA5_V5_DEDUPE_PHASES['gate-b-customer'],
+      )).resolves.toBe('mismatch');
+      expect(query).not.toHaveBeenCalled();
+    });
+
+  it('converts server-clock failures and malformed results to mismatch without disclosure',
+    async () => {
+      const captureFailure = new Da5V5DedupeWindowController({
+        query: vi.fn().mockRejectedValue(new Error('sensitive database detail')),
+      } as unknown as Pick<Pool, 'query'>);
+      await expect(captureFailure.capture(
+        'gate-c-general',
+        da5V5DedupeBinding('gate-c-general'),
+      )).resolves.toBe('mismatch');
+      expect(captureFailure.state().failed).toBe(true);
+
+      const checkFailure = new Da5V5DedupeWindowController({
+        query: vi.fn()
+          .mockResolvedValueOnce({ rows: [{ now: '2026-07-25 08:00:00.000001+00' }] })
+          .mockRejectedValueOnce(new Error('sensitive database detail')),
+      } as unknown as Pick<Pool, 'query'>);
+      await checkFailure.capture('gate-c-project', da5V5DedupeBinding('gate-c-project'));
+      await expect(checkFailure.check(
+        'gate-c-project',
+        da5V5DedupeBinding('gate-c-project'),
+      )).resolves.toBe('mismatch');
+      expect(checkFailure.state()).toMatchObject({
+        activeSlots: [],
+        consumedSlots: ['gate-c-project'],
+        failed: true,
+      });
+
+      const malformed = new Da5V5DedupeWindowController({
+        query: vi.fn().mockResolvedValue({ rows: [] }),
+      } as unknown as Pick<Pool, 'query'>);
+      await expect(malformed.capture(
+        'gate-b-customer',
+        da5V5DedupeBinding('gate-b-customer'),
+      )).resolves.toBe('mismatch');
+      expect(malformed.state().failed).toBe(true);
+    });
+});

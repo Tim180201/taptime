@@ -298,6 +298,54 @@ listeners on `54321`, `3000` and `5173`, zero synthetic schema/migration ledger 
 runtime roles. The normative Human procedure and disclosure boundary remain
 `ADO/04_Operations/Development_Assignment_04_V5_Runbook.md`.
 
+## DA5 V5 hardware-gate preparation
+
+The opt-in `da5-v5` profile prepares the real DA5 manual-work, own-time, target,
+Project-administration, NFC and v2 offline paths against the disposable local database. It is a
+serial fail-stop harness: every measured checkpoint is emitted before the Human answer, and only
+`PASS` advances. The installer URL is synchronously rejected before Auth, Pool or listener
+creation unless it is the exact numeric-loopback disposable database. Advisory ownership and the
+strict serial cleanup extension apply only to `da5-v5`; legacy and DA4 cleanup retain their
+existing behavior.
+
+The immutable APK and manifest can be revalidated without ADB, installation or device access:
+
+```bash
+TAPTIME_SYNTHETIC_E2E_PROFILE=da5-v5 \
+npm run android:da5-v5:no-install-preflight --workspace=@taptime/mobile
+```
+
+`da5-v5:start` exists only for a future separately authorized, exact-bound Human/Hardware V5
+run. Do not invoke it during software-only enablement. There are deliberately no standalone DA5
+install or cleanup commands: a real run must use this long-lived operator so one opaque memory-only
+USB serial binds device preflight, installation, device controllers, credential injection,
+rollback and cleanup. The device preflight is single-use and read-only: exact model, Android
+release/API/build, 200-percent font scale, TalkBack, package, reverse mappings and owned listeners
+must match before installation. The harness has no trusted in-process acquisition path for the
+A/B/X fingerprints and technology: it validates operator-supplied environment values and accepts
+the separate Human `physical-tag-binding-confirm PASS` command, but cannot establish their source.
+The code therefore does not technically block supplied values on its own; project authorization
+must withhold that confirmation and installation until a disclosure-safe source is independently
+reviewed and the Human/Hardware run is separately authorized.
+
+The synthetic password contract is exactly 64 hexadecimal ASCII characters. `credential-check`
+uses the just-matched Buffer immediately: Administrator transfer uses only `pbcopy` stdin and
+requires `credential-paste-confirm administrator`, which clears the local pasteboard and proves
+`pbpaste` byte count zero. Enrollment/Employee transfer requires the Human observation
+`credential-field-ready <phase> EMPTY_ACTIVE` and uses only stdin to constant ADB shell argv on
+the locked serial. Fixed synthetic email addresses never use the credential clipboard. Cleanup
+and a short watchdog clear the local macOS pasteboard; third-party clipboard managers, Universal
+Clipboard and a complete OS failure are outside the provable local boundary.
+
+`protected-review-arm <human-observed-queue-items>` accepts only the Human-visible Product FIFO
+count and requires exact zero. Missing, non-zero, repeated or out-of-order observations fail
+closed. APK and manifest metadata, canonical realpath, size, full permission/special-bit mode,
+SHA-256 and device/inode identity are rechecked after external inspection and immediately before
+install. A final OS-level file replacement race between the last check and `adb` opening the path
+cannot be eliminated by JavaScript; any detected drift fails closed. The normative operator
+sequence, physical bindings, stop points and cleanup rules remain
+`ADO/04_Operations/Development_Assignment_05_V5_Runbook.md`.
+
 ## Automated verification
 
 With the dedicated PostgreSQL URL set:

@@ -27,6 +27,13 @@ export const syntheticIds = Object.freeze({
   secondEnrollmentProviderSession: '90000000-0000-4000-8000-000000000704',
 } as const);
 
+export const da5V5Ids = Object.freeze({
+  project: '21000000-0000-4000-8000-000000000705',
+  tagB: '30000000-0000-4000-8000-000000000705',
+  assignmentB: '40000000-0000-4000-8000-000000000705',
+  assignmentAAfterCutover: '40000000-0000-4000-8000-000000000706',
+} as const);
+
 export const runtimeLogins = Object.freeze({
   session: 'taptime_synthetic_e2e_session',
   readModel: 'taptime_synthetic_e2e_read_model',
@@ -42,4 +49,11 @@ export const runtimeLogins = Object.freeze({
   timeReviewRead: 'taptime_synthetic_e2e_time_review_read',
   timeReviewWrite: 'taptime_synthetic_e2e_time_review_write',
   provisioner: 'taptime_synthetic_e2e_provisioner',
+} as const);
+
+export const da5V5RuntimeLogins = Object.freeze({
+  manualLifecycle: 'taptime_synthetic_e2e_da5_manual_lifecycle',
+  mobileOwnTime: 'taptime_synthetic_e2e_da5_mobile_own_time',
+  mobileTarget: 'taptime_synthetic_e2e_da5_mobile_target',
+  projectAdministration: 'taptime_synthetic_e2e_da5_project_administration',
 } as const);

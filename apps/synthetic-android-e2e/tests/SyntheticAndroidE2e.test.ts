@@ -11,7 +11,13 @@ import {
   DA4_V5_INITIAL_STATUS,
   DA4_V5_PROFILE,
   DA4_V5_PUBLIC_MANIFEST,
+  DA5_V5_CHECKPOINT_PLAN,
+  DA5_V5_INITIAL_STATUS,
+  DA5_V5_PROFILE,
+  DA5_V5_PUBLIC_MANIFEST,
+  DA5_V5_TAG_B_REGISTRATION_ARM_STATUS,
   Da4V5OperationSession,
+  Da5V5ProtectedReviewFixture,
   SYNTHETIC_ADMIN_AUTH_EMAIL,
   SYNTHETIC_AUTH_EMAIL,
   SYNTHETIC_DATABASE_NAME,
@@ -19,9 +25,12 @@ import {
   SYNTHETIC_PUBLISHABLE_KEY,
   SYNTHETIC_SECOND_ENROLLMENT_AUTH_EMAIL,
   createSyntheticAndroidE2eEnvironment,
+  da5V5Ids,
+  da5V5RuntimeLogins,
   expectedDa4V5Status,
   fingerprint,
   parentRoles,
+  readDa5V5TagASetupIdentity,
   runtimeLogins,
   syntheticIds,
   validateSyntheticInstallerDatabaseUrl,
@@ -33,6 +42,17 @@ vi.mock('react-native-url-polyfill/auto', () => ({}));
 
 const installerDatabaseUrl = process.env.TAPTIME_SYNTHETIC_E2E_DATABASE_URL;
 const syntheticPassword = 'Synthetic-E2E-Password-Only!';
+const da5V5TagPayloads = Object.freeze({
+  tagA: createNfcPayload('nfc:uid:v1:04DA5001'),
+  tagB: createNfcPayload('nfc:uid:v1:04DA5002'),
+  tagX: createNfcPayload('nfc:uid:v1:04DA5003'),
+});
+const da5V5TagBinding = Object.freeze({
+  tagA: fingerprint(da5V5TagPayloads.tagA),
+  tagB: fingerprint(da5V5TagPayloads.tagB),
+  tagX: fingerprint(da5V5TagPayloads.tagX),
+  technology: 'NfcA+MifareUltralight' as const,
+});
 
 describe('synthetic E2E safety guards', () => {
   it('accepts only the exact dedicated database on numeric loopback', () => {
@@ -1167,6 +1187,558 @@ describeWithPostgres('synthetic Android product-to-server E2E', () => {
     });
 });
 
+describeWithPostgres('DA5 V5 least-privilege hardware-gate environment', () => {
+  let da5Environment: SyntheticAndroidE2eEnvironment;
+  let cleanupPool: Pool;
+
+  beforeAll(async () => {
+    cleanupPool = new Pool({ connectionString: installerDatabaseUrl });
+    da5Environment = await createSyntheticAndroidE2eEnvironment({
+      installerDatabaseUrl: installerDatabaseUrl as string,
+      password: syntheticPassword,
+      authPort: 0,
+      apiPort: 0,
+      profile: DA5_V5_PROFILE,
+      da5V5TagBinding,
+    });
+  });
+
+  afterAll(async () => {
+    if (da5Environment !== undefined) {
+      await da5Environment.close();
+    }
+    if (cleanupPool === undefined) {
+      return;
+    }
+    const cleanup = await cleanupPool.query<{
+      da5_runtime_logins: string;
+      ledger_exists: boolean;
+      runtime_logins: string;
+      schema_exists: boolean;
+    }>(
+      `SELECT
+         count(*) FILTER (WHERE rolname = ANY($1::text[]))::text AS runtime_logins,
+         count(*) FILTER (WHERE rolname = ANY($2::text[]))::text AS da5_runtime_logins,
+         to_regnamespace('taptime_server') IS NOT NULL AS schema_exists,
+         to_regclass('public.taptime_server_schema_migrations') IS NOT NULL AS ledger_exists
+       FROM pg_catalog.pg_roles`,
+      [Object.values(runtimeLogins), Object.values(da5V5RuntimeLogins)],
+    );
+    expect(cleanup.rows).toEqual([{
+      da5_runtime_logins: '0',
+      ledger_exists: false,
+      runtime_logins: '0',
+      schema_exists: false,
+    }]);
+    await cleanupPool.end();
+  });
+
+  it('starts from the exact DA5 baseline with four isolated runtime role graphs', async () => {
+    await expect(da5Environment.da5V5Status()).resolves.toEqual(DA5_V5_INITIAL_STATUS);
+    await expect(da5Environment.armDa5V5TagBRegistration()).rejects.toThrow(
+      /precondition mismatch/,
+    );
+    expect(da5Environment.da5V5TagRegistrationState()).toBe('disarmed');
+    await expect(da5Environment.da5V5TagRoleState()).resolves.toEqual({
+      activeTagAAssignments: 0,
+      activeTagACustomerAAssignments: 0,
+      activeTagBAssignments: 0,
+      tagAExactRecords: 0,
+      tagARecords: 0,
+      tagBExactRecords: 0,
+      tagBRecords: 0,
+      tagBTotalAssignments: 0,
+      tagXRecords: 0,
+    });
+    await expect(parentRoles(
+      cleanupPool,
+      da5V5RuntimeLogins.manualLifecycle,
+    )).resolves.toEqual([
+      'taptime_identity_resolver',
+      'taptime_server_lifecycle',
+    ]);
+    await expect(parentRoles(
+      cleanupPool,
+      da5V5RuntimeLogins.mobileOwnTime,
+    )).resolves.toEqual([
+      'taptime_identity_resolver',
+      'taptime_mobile_own_time_reader',
+    ]);
+    await expect(parentRoles(
+      cleanupPool,
+      da5V5RuntimeLogins.mobileTarget,
+    )).resolves.toEqual([
+      'taptime_identity_resolver',
+      'taptime_mobile_target_reader',
+    ]);
+    await expect(parentRoles(
+      cleanupPool,
+      da5V5RuntimeLogins.projectAdministration,
+    )).resolves.toEqual([
+      'taptime_identity_resolver',
+      'taptime_project_administrator',
+    ]);
+
+    const enabledLogins = [
+      ...Object.values(runtimeLogins).filter((login) => login !== runtimeLogins.provisioner),
+      ...Object.values(da5V5RuntimeLogins),
+    ];
+    const roles = await cleanupPool.query<{
+      direct_routine_grant: boolean;
+      direct_table_grant: boolean;
+      rolbypassrls: boolean;
+      rolcanlogin: boolean;
+      rolcreatedb: boolean;
+      rolcreaterole: boolean;
+      rolinherit: boolean;
+      rolreplication: boolean;
+      rolsuper: boolean;
+    }>(
+      `SELECT role.rolcanlogin, role.rolinherit, role.rolsuper, role.rolcreatedb,
+              role.rolcreaterole, role.rolreplication, role.rolbypassrls,
+              EXISTS (
+                SELECT 1 FROM information_schema.role_table_grants AS grant_row
+                WHERE grant_row.grantee = role.rolname
+              ) AS direct_table_grant,
+              EXISTS (
+                SELECT 1 FROM information_schema.role_routine_grants AS grant_row
+                WHERE grant_row.grantee = role.rolname
+              ) AS direct_routine_grant
+       FROM pg_catalog.pg_roles AS role
+       WHERE role.rolname = ANY($1::text[])
+       ORDER BY role.rolname`,
+      [enabledLogins],
+    );
+    expect(roles.rows).toHaveLength(enabledLogins.length);
+    expect(roles.rows.every((role) => (
+      role.rolcanlogin
+      && !role.rolinherit
+      && !role.rolsuper
+      && !role.rolcreatedb
+      && !role.rolcreaterole
+      && !role.rolreplication
+      && !role.rolbypassrls
+      && !role.direct_table_grant
+      && !role.direct_routine_grant
+    ))).toBe(true);
+    const legacyProvisioner = await cleanupPool.query<{ exists: boolean }>(
+      'SELECT to_regrole($1) IS NOT NULL AS exists',
+      [runtimeLogins.provisioner],
+    );
+    expect(legacyProvisioner.rows).toEqual([{ exists: false }]);
+  });
+
+  it('does not mutate or clean a live environment on Auth or database ownership collision',
+    async () => {
+      const initial = await da5Environment.da5V5Status();
+      await expect(createSyntheticAndroidE2eEnvironment({
+        installerDatabaseUrl: installerDatabaseUrl as string,
+        password: syntheticPassword,
+        authPort: Number(new URL(da5Environment.authBaseUrl).port),
+        apiPort: 0,
+        profile: DA5_V5_PROFILE,
+        da5V5TagBinding,
+      })).rejects.toThrow();
+      await expect(da5Environment.da5V5Status()).resolves.toEqual(initial);
+
+      await expect(createSyntheticAndroidE2eEnvironment({
+        installerDatabaseUrl: installerDatabaseUrl as string,
+        password: syntheticPassword,
+        authPort: 0,
+        apiPort: 0,
+        profile: DA5_V5_PROFILE,
+        da5V5TagBinding,
+      })).rejects.toThrow(/already owned/);
+      await expect(da5Environment.da5V5Status()).resolves.toEqual(initial);
+    });
+
+  it('drives Tag setup, Mobile targets, manual Project work and self-only own-time via HTTP',
+    async () => {
+      const provider = mobileAuthAdapter(da5Environment);
+      const employee = await provider.signInWithPassword(
+        SYNTHETIC_AUTH_EMAIL,
+        syntheticPassword,
+      );
+      const administrator = await provider.signInWithPassword(
+        SYNTHETIC_ADMIN_AUTH_EMAIL,
+        syntheticPassword,
+      );
+      if (employee.status !== 'authenticated' || administrator.status !== 'authenticated') {
+        throw new Error('DA5 V5 synthetic authentication failed');
+      }
+      const post = (accessToken: string, path: string, body: unknown) => fetch(
+        `${da5Environment.apiBaseUrl}${path}`,
+        {
+          method: 'POST',
+          headers: {
+            authorization: `Bearer ${accessToken}`,
+            'content-type': 'application/json',
+          },
+          body: JSON.stringify(body),
+        },
+      );
+
+      const targets = await post(
+        employee.tokens.accessToken,
+        '/v1/mobile/work-targets/query',
+        { expectedMembershipId: syntheticIds.membership, cursor: null, limit: 50 },
+      );
+      expect(targets.status).toBe(200);
+      const targetPage = await targets.json() as {
+        readonly nextCursor: string | null;
+        readonly targets: ReadonlyArray<{
+          readonly displayName: string;
+          readonly targetId: string;
+          readonly targetType: string;
+        }>;
+      };
+      expect(targetPage.nextCursor).toBeNull();
+      expect(targetPage.targets).toEqual(expect.arrayContaining([
+        {
+          displayName: DA5_V5_PUBLIC_MANIFEST.customerALabel,
+          targetId: syntheticIds.customer,
+          targetType: 'customer',
+        },
+        {
+          displayName: DA5_V5_PUBLIC_MANIFEST.customerBLabel,
+          targetId: syntheticIds.reassignmentCustomer,
+          targetType: 'customer',
+        },
+        {
+          displayName: DA5_V5_PUBLIC_MANIFEST.projectLabel,
+          targetId: da5V5Ids.project,
+          targetType: 'project',
+        },
+        expect.objectContaining({
+          displayName: DA5_V5_PUBLIC_MANIFEST.generalWorkLabel,
+          targetType: 'general_work',
+        }),
+      ]));
+      expect(targetPage.targets).toHaveLength(4);
+
+      const projects = await post(
+        administrator.tokens.accessToken,
+        '/v1/administration/projects/query',
+        {
+          expectedMembershipId: syntheticIds.administratorMembership,
+          cursor: null,
+          limit: 20,
+        },
+      );
+      expect(projects.status).toBe(200);
+      await expect(projects.json()).resolves.toMatchObject({
+        nextCursor: null,
+        projects: [{
+          active: true,
+          displayName: DA5_V5_PUBLIC_MANIFEST.projectLabel,
+          projectId: da5V5Ids.project,
+          rowVersion: 1,
+        }],
+      });
+      const employeeProjectAccess = await post(
+        employee.tokens.accessToken,
+        '/v1/administration/projects/query',
+        { expectedMembershipId: syntheticIds.membership, cursor: null, limit: 20 },
+      );
+      expect(employeeProjectAccess.status).toBe(403);
+
+      const setup = await post(
+        administrator.tokens.accessToken,
+        '/v1/administration/nfc-tags/provision',
+        {
+          expectedMembershipId: syntheticIds.administratorMembership,
+          commandId: '71000000-0000-4000-8000-000000000501',
+          customerId: syntheticIds.customer,
+          displayName: DA5_V5_PUBLIC_MANIFEST.tagALabel,
+          canonicalPayload: da5V5TagPayloads.tagA,
+        },
+      );
+      expect(setup.status).toBe(200);
+      await expect(da5Environment.da5V5Status()).resolves.toEqual(
+        DA5_V5_TAG_B_REGISTRATION_ARM_STATUS,
+      );
+      const tagAContextResponse = await post(
+        employee.tokens.accessToken,
+        '/v1/scan-context/resolve',
+        {
+          organizationId: syntheticIds.organization,
+          payload: da5V5TagPayloads.tagA,
+        },
+      );
+      expect(tagAContextResponse.status).toBe(200);
+      const tagAContext = await tagAContextResponse.json() as {
+        readonly assignmentId: string;
+        readonly nfcTagId: string;
+        readonly target: {
+          readonly targetId: string;
+          readonly targetType: 'customer';
+        };
+      };
+      expect(tagAContext.target).toEqual({
+        targetId: syntheticIds.customer,
+        targetType: 'customer',
+      });
+      await expect(readDa5V5TagASetupIdentity(
+        cleanupPool,
+        da5V5TagBinding,
+      )).resolves.toEqual({
+        assignmentId: tagAContext.assignmentId,
+        tagId: tagAContext.nfcTagId,
+      });
+      expect(tagAContext.assignmentId).not.toBe(syntheticIds.assignmentA);
+      expect(tagAContext.nfcTagId).not.toBe(syntheticIds.tagA);
+      await cleanupPool.query(
+        `UPDATE taptime_server.nfc_tags
+         SET display_name = 'Drifted DA5 V5 Tag A'
+         WHERE id = $1`,
+        [tagAContext.nfcTagId],
+      );
+      await expect(readDa5V5TagASetupIdentity(
+        cleanupPool,
+        da5V5TagBinding,
+      )).resolves.toBeNull();
+      await expect(da5Environment.armDa5V5TagBRegistration()).rejects.toThrow(
+        /precondition mismatch/,
+      );
+      expect(da5Environment.da5V5TagRegistrationState()).toBe('disarmed');
+      await cleanupPool.query(
+        `UPDATE taptime_server.nfc_tags
+         SET display_name = $2
+         WHERE id = $1`,
+        [tagAContext.nfcTagId, DA5_V5_PUBLIC_MANIFEST.tagALabel],
+      );
+      await da5Environment.armDa5V5TagBRegistration();
+      const tagB = await post(
+        employee.tokens.accessToken,
+        '/v1/scan-context/resolve',
+        {
+          organizationId: syntheticIds.organization,
+          payload: da5V5TagPayloads.tagB,
+        },
+      );
+      expect(tagB.status).toBe(404);
+      const tagX = await post(
+        employee.tokens.accessToken,
+        '/v1/scan-context/resolve',
+        {
+          organizationId: syntheticIds.organization,
+          payload: da5V5TagPayloads.tagX,
+        },
+      );
+      expect(tagX.status).toBe(404);
+      await expect(da5Environment.da5V5TagRoleState()).resolves.toEqual({
+        activeTagAAssignments: 1,
+        activeTagACustomerAAssignments: 1,
+        activeTagBAssignments: 0,
+        tagAExactRecords: 1,
+        tagARecords: 1,
+        tagBExactRecords: 1,
+        tagBRecords: 1,
+        tagBTotalAssignments: 0,
+        tagXRecords: 0,
+      });
+      await expect(da5Environment.da5V5Status()).resolves.toEqual(
+        DA5_V5_CHECKPOINT_PLAN[0]!.status,
+      );
+
+      const protectedFixture = new Da5V5ProtectedReviewFixture(
+        cleanupPool,
+        da5V5TagBinding,
+      );
+      const ordinaryTerminal = DA5_V5_CHECKPOINT_PLAN.find(
+        ({ checkpoint }) => checkpoint === 'gate-d-cancellation',
+      )!.status;
+      await cleanupPool.query(
+        `UPDATE taptime_server.nfc_tags
+         SET display_name = 'Drifted DA5 V5 Tag B'
+         WHERE id = $1`,
+        [da5V5Ids.tagB],
+      );
+      const wrongTagBFixture = new Da5V5ProtectedReviewFixture(
+        cleanupPool,
+        da5V5TagBinding,
+      );
+      expect(wrongTagBFixture.arm(ordinaryTerminal, 0)).toBe('match');
+      await expect(wrongTagBFixture.activateTagB()).resolves.toBe('mismatch');
+      await cleanupPool.query(
+        `UPDATE taptime_server.nfc_tags
+         SET display_name = $2
+         WHERE id = $1`,
+        [da5V5Ids.tagB, DA5_V5_PUBLIC_MANIFEST.tagBLabel],
+      );
+      const failedActivationResidue = await cleanupPool.query<{
+        fixture_audits: string;
+        tag_b_assignments: string;
+      }>(
+        `SELECT
+           (SELECT count(*)::text FROM taptime_server.nfc_assignments
+            WHERE nfc_tag_id = $1) AS tag_b_assignments,
+           (SELECT count(*)::text FROM taptime_server.audit_events
+            WHERE payload ->> 'fixture' = 'da5-v5-protected-review') AS fixture_audits`,
+        [da5V5Ids.tagB],
+      );
+      expect(failedActivationResidue.rows).toEqual([{
+        fixture_audits: '1',
+        tag_b_assignments: '0',
+      }]);
+
+      expect(protectedFixture.arm(ordinaryTerminal, 0)).toBe('match');
+      await expect(protectedFixture.activateTagB()).resolves.toBe('match');
+      const tagBContextResponse = await post(
+        employee.tokens.accessToken,
+        '/v1/scan-context/resolve',
+        {
+          organizationId: syntheticIds.organization,
+          payload: da5V5TagPayloads.tagB,
+        },
+      );
+      expect(tagBContextResponse.status).toBe(200);
+      const tagBContext = await tagBContextResponse.json() as {
+        readonly assignmentId: string;
+        readonly nfcTagId: string;
+        readonly target: {
+          readonly targetId: string;
+          readonly targetType: 'customer';
+        };
+      };
+      expect(tagBContext).toEqual({
+        assignmentId: da5V5Ids.assignmentB,
+        nfcTagId: da5V5Ids.tagB,
+        target: {
+          targetId: syntheticIds.reassignmentCustomer,
+          targetType: 'customer',
+        },
+      });
+      const tagBStartedAt = new Date(Date.now() + 1_000);
+      const tagBStart = lifecycleBody(tagBContext, tagBStartedAt, 951);
+      const tagBStartResponse = await post(
+        employee.tokens.accessToken,
+        '/v1/lifecycle-events',
+        tagBStart,
+      );
+      expect(tagBStartResponse.status).toBe(200);
+      await expect(tagBStartResponse.json()).resolves.toMatchObject({
+        decision: { status: 'time_entry_started' },
+        idempotentRetry: false,
+        status: 'synchronized',
+      });
+      await expect(protectedFixture.cutoverTagA()).resolves.toBe('match');
+      expect(protectedFixture.state()).toBe('cutover-complete');
+
+      const cutover = await cleanupPool.query<{
+        active_tag_a_assignments: string;
+        active_tag_b_assignments: string;
+        cutover_is_atomic: boolean;
+        fixture_audits: string;
+        tag_a_assignments: string;
+        tag_b_assignments: string;
+      }>(
+        `SELECT
+           (SELECT count(*)::text FROM taptime_server.nfc_assignments
+            WHERE nfc_tag_id = $1 AND active) AS active_tag_a_assignments,
+           (SELECT count(*)::text FROM taptime_server.nfc_assignments
+            WHERE nfc_tag_id = $2 AND active) AS active_tag_b_assignments,
+           (SELECT count(*)::text FROM taptime_server.nfc_assignments
+            WHERE nfc_tag_id = $1) AS tag_a_assignments,
+           (SELECT count(*)::text FROM taptime_server.nfc_assignments
+            WHERE nfc_tag_id = $2) AS tag_b_assignments,
+           (
+             SELECT previous.valid_to = successor.valid_from
+               AND previous.active = false
+               AND previous.target_customer_id = $5
+               AND successor.active
+               AND successor.target_customer_id = $6
+             FROM taptime_server.nfc_assignments AS previous
+             JOIN taptime_server.nfc_assignments AS successor
+               ON successor.organization_id = previous.organization_id
+             WHERE previous.id = $3 AND successor.id = $4
+           ) AS cutover_is_atomic,
+           (SELECT count(*)::text FROM taptime_server.audit_events
+            WHERE payload ->> 'fixture' = 'da5-v5-protected-review') AS fixture_audits`,
+        [
+          tagAContext.nfcTagId,
+          da5V5Ids.tagB,
+          tagAContext.assignmentId,
+          da5V5Ids.assignmentAAfterCutover,
+          syntheticIds.customer,
+          syntheticIds.reassignmentCustomer,
+        ],
+      );
+      expect(cutover.rows).toEqual([{
+        active_tag_a_assignments: '1',
+        active_tag_b_assignments: '1',
+        cutover_is_atomic: true,
+        fixture_audits: '4',
+        tag_a_assignments: '2',
+        tag_b_assignments: '1',
+      }]);
+
+      const tagBStop = lifecycleBody(
+        tagBContext,
+        new Date(tagBStartedAt.getTime() + 6_000),
+        952,
+      );
+      const tagBStopResponse = await post(
+        employee.tokens.accessToken,
+        '/v1/lifecycle-events',
+        tagBStop,
+      );
+      expect(tagBStopResponse.status).toBe(200);
+      await expect(tagBStopResponse.json()).resolves.toMatchObject({
+        decision: { status: 'time_entry_stopped' },
+        idempotentRetry: false,
+        status: 'synchronized',
+      });
+
+      const manual = await post(
+        employee.tokens.accessToken,
+        '/v1/lifecycle-events/manual',
+        {
+          expectedMembershipId: syntheticIds.membership,
+          workEvent: {
+            id: '51000000-0000-4000-8000-000000000501',
+            target: { targetType: 'project', targetId: da5V5Ids.project },
+          },
+          receipt: {
+            id: '61000000-0000-4000-8000-000000000501',
+            attemptNumber: 1,
+          },
+        },
+      );
+      expect(manual.status).toBe(200);
+      await expect(manual.json()).resolves.toMatchObject({
+        status: 'synchronized',
+        idempotentRetry: false,
+        decision: { status: 'time_entry_started' },
+      });
+
+      const ownTime = await post(
+        employee.tokens.accessToken,
+        '/v1/mobile/own-time/query',
+        { expectedMembershipId: syntheticIds.membership, cursor: null, limit: 20 },
+      );
+      expect(ownTime.status).toBe(200);
+      await expect(ownTime.json()).resolves.toMatchObject({
+        activeRecord: {
+          status: 'started',
+          targetDisplayName: DA5_V5_PUBLIC_MANIFEST.projectLabel,
+          targetType: 'project',
+          startedVia: 'manual',
+        },
+      });
+      const crossMembership = await post(
+        employee.tokens.accessToken,
+        '/v1/mobile/own-time/query',
+        {
+          expectedMembershipId: syntheticIds.administratorMembership,
+          cursor: null,
+          limit: 20,
+        },
+      );
+      expect(crossMembership.status).toBe(403);
+    });
+});
+
 describeWithPostgres('DA4 V5 deterministic browser fixture', () => {
   let da4Environment: SyntheticAndroidE2eEnvironment;
   let cleanupPool: Pool;
@@ -1514,6 +2086,56 @@ describeWithPostgres('DA4 V5 startup failure cleanup', () => {
       );
       expect(cleanup.rows).toEqual([{
         migration_rows: '0',
+        runtime_logins: '0',
+        schema_exists: false,
+      }]);
+    } finally {
+      await cleanupPool.end();
+      await new Promise<void>((resolve, reject) => {
+        blocker.close((error) => error === undefined ? resolve() : reject(error));
+      });
+    }
+  });
+});
+
+describeWithPostgres('DA5 V5 startup failure cleanup', () => {
+  it('removes DA5 schema, ledger and runtime roles after API bind failure', async () => {
+    const blocker = createServer();
+    await new Promise<void>((resolve, reject) => {
+      blocker.once('error', reject);
+      blocker.listen(0, '127.0.0.1', resolve);
+    });
+    const address = blocker.address();
+    if (address === null || typeof address === 'string') {
+      throw new Error('DA5 V5 bind-failure blocker has no TCP address');
+    }
+    const cleanupPool = new Pool({ connectionString: installerDatabaseUrl });
+    try {
+      await expect(createSyntheticAndroidE2eEnvironment({
+        installerDatabaseUrl: installerDatabaseUrl as string,
+        password: syntheticPassword,
+        authPort: 0,
+        apiPort: address.port,
+        profile: DA5_V5_PROFILE,
+        da5V5TagBinding,
+      })).rejects.toBeInstanceOf(Error);
+      const cleanup = await cleanupPool.query<{
+        da5_runtime_logins: string;
+        ledger_exists: boolean;
+        runtime_logins: string;
+        schema_exists: boolean;
+      }>(
+        `SELECT
+           count(*) FILTER (WHERE rolname = ANY($1::text[]))::text AS runtime_logins,
+           count(*) FILTER (WHERE rolname = ANY($2::text[]))::text AS da5_runtime_logins,
+           to_regnamespace('taptime_server') IS NOT NULL AS schema_exists,
+           to_regclass('public.taptime_server_schema_migrations') IS NOT NULL AS ledger_exists
+         FROM pg_catalog.pg_roles`,
+        [Object.values(runtimeLogins), Object.values(da5V5RuntimeLogins)],
+      );
+      expect(cleanup.rows).toEqual([{
+        da5_runtime_logins: '0',
+        ledger_exists: false,
         runtime_logins: '0',
         schema_exists: false,
       }]);

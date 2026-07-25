@@ -83,6 +83,16 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   requires the remaining exact device, Tag, service, fixture and accessibility bindings plus a
   separate Human authorization. DA4 Human V5 also remains separate. Production, production data,
   production signing, deployment and distribution remain unauthorized.
+  The corrected DA5-V5 enablement authorization candidate `cddb66d82047284c72688cc90a7491af761b8791`,
+  tree `8cda19f8df42febb34a03a4db4911d5ea8acae79`, passed exact-head CI `30159987539`,
+  attempt 1, 12/12; independent exact-delta re-review returned `APPROVED` with zero open P0–P3.
+  On exactly that baseline, the enablement remains local and uncommitted with final R3 V0–V3
+  green: 2,013 tests with exactly two optional B1 Supavisor skips, 21/21 tests-inclusive
+  typechecks, 20/20 applicable builds, migrations 001–013, C3B binary, 861-module Android export,
+  immutable-artifact/no-install preflight and complete task-owned cleanup passed. Implementation
+  V4 and formal Exact-SHA review remain pending. No installation, ADB, device/Tag interaction or
+  Human V5 occurred; before hardware, the A/B/X provenance gap requires a separately reviewed
+  Validation-App/Binding-Preflight architecture and explicit Human authorization.
 - **Development Assignment 4 is the active Roadmap engineering block.** The Human Architect
   accepted ADR-0015 and DA4-P01–P12 and separately authorized Workstreams A–D plus AVS V0–V4 on
   exact baseline `d9892435acbf7f45a96a9a01c8331afceb65f6f1`, tree

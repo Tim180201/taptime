@@ -34,6 +34,7 @@
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
+    "android:da5-v5:no-install-preflight": "node scripts/da5V5AndroidNoInstallPreflight.mjs",
     "android:synthetic-e2e:build": "node scripts/buildSyntheticE2eAndroid.mjs",
     "android:synthetic-e2e:disconnect": "node scripts/disconnectSyntheticE2eAndroid.mjs",
     "android:synthetic-e2e:install": "node scripts/installSyntheticE2eAndroid.mjs",

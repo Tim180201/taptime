@@ -6,10 +6,17 @@ import {
   B3_SCHEMA,
   loadMigrations,
 } from '@taptime/backend-schema';
-import type { Pool } from 'pg';
-import { runtimeLogins, SYNTHETIC_DATABASE_NAME, syntheticIds } from './constants.js';
+import type { Pool, PoolClient } from 'pg';
+import {
+  da5V5RuntimeLogins,
+  runtimeLogins,
+  SYNTHETIC_DATABASE_NAME,
+  syntheticIds,
+} from './constants.js';
 import { seedDa4V5Fixture } from './Da4V5Database.js';
 import { DA4_V5_PROFILE } from './Da4V5Profile.js';
+import { seedDa5V5Fixture } from './Da5V5Database.js';
+import { DA5_V5_PROFILE, DA5_V5_PUBLIC_MANIFEST } from './Da5V5Profile.js';
 
 const applicationRoles = [
   'taptime_employee',
@@ -25,6 +32,11 @@ const applicationRoles = [
   'taptime_time_exporter',
   'taptime_time_review_reader',
   'taptime_time_review_writer',
+] as const;
+const da5V5ApplicationRoles = [
+  'taptime_mobile_own_time_reader',
+  'taptime_mobile_target_reader',
+  'taptime_project_administrator',
 ] as const;
 const migrationDirectory = fileURLToPath(new URL('../../backend-schema/migrations/', import.meta.url));
 
@@ -76,8 +88,40 @@ const runtimeRoleGraph = Object.freeze({
   [runtimeLogins.provisioner]: ['taptime_administrator'],
 } as const);
 
+const da5V5RuntimeRoleGraph = Object.freeze({
+  [da5V5RuntimeLogins.manualLifecycle]: [
+    'taptime_identity_resolver',
+    'taptime_server_lifecycle',
+  ],
+  [da5V5RuntimeLogins.mobileOwnTime]: [
+    'taptime_identity_resolver',
+    'taptime_mobile_own_time_reader',
+  ],
+  [da5V5RuntimeLogins.mobileTarget]: [
+    'taptime_identity_resolver',
+    'taptime_mobile_target_reader',
+  ],
+  [da5V5RuntimeLogins.projectAdministration]: [
+    'taptime_identity_resolver',
+    'taptime_project_administrator',
+  ],
+} as const);
+
+export interface Da5V5DatabaseConnections {
+  readonly manualLifecycle: string;
+  readonly mobileOwnTime: string;
+  readonly mobileTarget: string;
+  readonly projectAdministration: string;
+}
+
 export interface SyntheticDatabaseRuntime {
   readonly connectionStrings: Readonly<Record<keyof typeof runtimeLogins, string>>;
+  readonly da5V5ConnectionStrings?: Da5V5DatabaseConnections;
+}
+
+export interface SyntheticDatabaseOwnership {
+  cleanup(profile?: typeof DA4_V5_PROFILE | typeof DA5_V5_PROFILE): Promise<void>;
+  release(): Promise<void>;
 }
 
 export interface SyntheticEvidenceCounts {
@@ -139,7 +183,7 @@ export async function prepareSyntheticDatabase(
   installerPool: Pool,
   installerDatabaseUrl: string,
   issuer: string,
-  profile?: typeof DA4_V5_PROFILE,
+  profile?: typeof DA4_V5_PROFILE | typeof DA5_V5_PROFILE,
 ): Promise<SyntheticDatabaseRuntime> {
   validateSyntheticInstallerDatabaseUrl(installerDatabaseUrl);
   await assertInstallerConnection(installerPool);
@@ -154,7 +198,7 @@ export async function prepareSyntheticDatabase(
     throw new Error('Synthetic E2E requires a clean migration set 001 through 013');
   }
 
-  await normalizeApplicationRoles(installerPool);
+  await normalizeApplicationRoles(installerPool, profile);
   const passwords = {
     session: randomBytes(32).toString('base64url'),
     readModel: randomBytes(32).toString('base64url'),
@@ -171,13 +215,32 @@ export async function prepareSyntheticDatabase(
     timeReviewWrite: randomBytes(32).toString('base64url'),
     provisioner: randomBytes(32).toString('base64url'),
   } as const;
-  for (const [login, roles] of Object.entries(runtimeRoleGraph)) {
+  const enabledRuntimeRoleGraph = profile === DA5_V5_PROFILE
+    ? Object.entries(runtimeRoleGraph).filter(([login]) => login !== runtimeLogins.provisioner)
+    : Object.entries(runtimeRoleGraph);
+  for (const [login, roles] of enabledRuntimeRoleGraph) {
     const key = loginKey(login);
     await normalizeRuntimeLogin(installerPool, login, passwords[key], roles);
   }
-  await seedSyntheticTenant(installerPool, issuer);
+  const da5V5Passwords = profile === DA5_V5_PROFILE
+    ? {
+        manualLifecycle: randomBytes(32).toString('base64url'),
+        mobileOwnTime: randomBytes(32).toString('base64url'),
+        mobileTarget: randomBytes(32).toString('base64url'),
+        projectAdministration: randomBytes(32).toString('base64url'),
+      } as const
+    : undefined;
+  if (da5V5Passwords !== undefined) {
+    for (const [login, roles] of Object.entries(da5V5RuntimeRoleGraph)) {
+      const key = da5V5LoginKey(login);
+      await normalizeRuntimeLogin(installerPool, login, da5V5Passwords[key], roles);
+    }
+  }
+  await seedSyntheticTenant(installerPool, issuer, profile);
   if (profile === DA4_V5_PROFILE) {
     await seedDa4V5Fixture(installerPool);
+  } else if (profile === DA5_V5_PROFILE) {
+    await seedDa5V5Fixture(installerPool);
   }
 
   return Object.freeze({
@@ -248,6 +311,30 @@ export async function prepareSyntheticDatabase(
         runtimeLogins.provisioner,
         passwords.provisioner,
       ),
+    }),
+    ...(da5V5Passwords === undefined ? {} : {
+      da5V5ConnectionStrings: Object.freeze({
+        manualLifecycle: runtimeConnectionString(
+          installerDatabaseUrl,
+          da5V5RuntimeLogins.manualLifecycle,
+          da5V5Passwords.manualLifecycle,
+        ),
+        mobileOwnTime: runtimeConnectionString(
+          installerDatabaseUrl,
+          da5V5RuntimeLogins.mobileOwnTime,
+          da5V5Passwords.mobileOwnTime,
+        ),
+        mobileTarget: runtimeConnectionString(
+          installerDatabaseUrl,
+          da5V5RuntimeLogins.mobileTarget,
+          da5V5Passwords.mobileTarget,
+        ),
+        projectAdministration: runtimeConnectionString(
+          installerDatabaseUrl,
+          da5V5RuntimeLogins.projectAdministration,
+          da5V5Passwords.projectAdministration,
+        ),
+      }),
     }),
   });
 }
@@ -351,12 +438,81 @@ export async function readSyntheticTimeReviewEvidenceCounts(
   });
 }
 
-export async function cleanSyntheticDatabase(pool: Pool): Promise<void> {
+export async function cleanSyntheticDatabase(
+  pool: Pick<Pool, 'query'>,
+  profile?: typeof DA4_V5_PROFILE | typeof DA5_V5_PROFILE,
+): Promise<void> {
+  if (profile === DA5_V5_PROFILE) {
+    await assertInstallerConnection(pool);
+  }
   await pool.query(`DROP SCHEMA IF EXISTS ${B3_SCHEMA} CASCADE`);
   await pool.query(`DROP TABLE IF EXISTS ${B3_MIGRATION_TABLE}`);
   for (const login of Object.values(runtimeLogins)) {
     await pool.query(`DROP ROLE IF EXISTS ${login}`);
   }
+  if (profile === DA5_V5_PROFILE) {
+    for (const login of Object.values(da5V5RuntimeLogins)) {
+      await pool.query(`DROP ROLE IF EXISTS ${login}`);
+    }
+  }
+}
+
+export async function acquireSyntheticDatabaseOwnership(
+  pool: Pool,
+): Promise<SyntheticDatabaseOwnership> {
+  const client = await pool.connect();
+  let acquired = false;
+  let released = false;
+  try {
+    await assertInstallerConnection(client);
+    const lock = await client.query<{ acquired: boolean }>(
+      `SELECT pg_catalog.pg_try_advisory_lock(
+         pg_catalog.hashtextextended(
+           pg_catalog.current_database() || ':taptime-synthetic-e2e-owner',
+           0
+         )
+       ) AS acquired`,
+    );
+    if (lock.rows[0]?.acquired !== true) {
+      throw new Error('Synthetic E2E database is already owned by another harness');
+    }
+    acquired = true;
+  } catch (error) {
+    client.release();
+    throw error;
+  }
+  return Object.freeze({
+    cleanup: (profile?: typeof DA4_V5_PROFILE | typeof DA5_V5_PROFILE) => {
+      if (released || !acquired) {
+        return Promise.reject(new Error('Synthetic E2E database ownership is unavailable'));
+      }
+      return cleanSyntheticDatabase(client, profile);
+    },
+    async release(): Promise<void> {
+      if (released) {
+        return;
+      }
+      released = true;
+      try {
+        if (acquired) {
+          const unlock = await client.query<{ released: boolean }>(
+            `SELECT pg_catalog.pg_advisory_unlock(
+               pg_catalog.hashtextextended(
+                 pg_catalog.current_database() || ':taptime-synthetic-e2e-owner',
+                 0
+               )
+             ) AS released`,
+          );
+          if (unlock.rows[0]?.released !== true) {
+            throw new Error('Synthetic E2E database ownership release failed');
+          }
+          acquired = false;
+        }
+      } finally {
+        client.release();
+      }
+    },
+  });
 }
 
 export async function parentRoles(pool: Pool, memberName: string): Promise<readonly string[]> {
@@ -372,7 +528,9 @@ export async function parentRoles(pool: Pool, memberName: string): Promise<reado
   return result.rows.map(({ role_name }) => role_name);
 }
 
-async function assertInstallerConnection(pool: Pool): Promise<void> {
+async function assertInstallerConnection(
+  pool: Pick<Pool, 'query'> | Pick<PoolClient, 'query'>,
+): Promise<void> {
   const result = await pool.query<{
     current_database: string;
     host: string | null;
@@ -395,8 +553,14 @@ async function assertInstallerConnection(pool: Pool): Promise<void> {
   }
 }
 
-async function normalizeApplicationRoles(pool: Pool): Promise<void> {
-  for (const role of applicationRoles) {
+async function normalizeApplicationRoles(
+  pool: Pool,
+  profile?: typeof DA4_V5_PROFILE | typeof DA5_V5_PROFILE,
+): Promise<void> {
+  const roles = profile === DA5_V5_PROFILE
+    ? [...applicationRoles, ...da5V5ApplicationRoles]
+    : applicationRoles;
+  for (const role of roles) {
     await pool.query(`
       ALTER ROLE ${role} WITH
         NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
@@ -461,7 +625,11 @@ async function normalizeRuntimeLogin(
   `);
 }
 
-async function seedSyntheticTenant(pool: Pool, issuer: string): Promise<void> {
+async function seedSyntheticTenant(
+  pool: Pool,
+  issuer: string,
+  profile?: typeof DA4_V5_PROFILE | typeof DA5_V5_PROFILE,
+): Promise<void> {
   await pool.query(
     `INSERT INTO ${B3_SCHEMA}.users (id) VALUES ($1), ($2)`,
     [syntheticIds.user, syntheticIds.administratorUser],
@@ -504,9 +672,19 @@ async function seedSyntheticTenant(pool: Pool, issuer: string): Promise<void> {
     `INSERT INTO ${B3_SCHEMA}.customers
        (id, organization_id, display_name, active, activated_at, deactivated_at)
      VALUES
-       ($1, $3, 'Synthetic Android Customer', true, transaction_timestamp(), NULL),
-       ($2, $3, 'Synthetic Reassignment Target', true, transaction_timestamp(), NULL)`,
-    [syntheticIds.customer, syntheticIds.reassignmentCustomer, syntheticIds.organization],
+       ($1, $3, $4, true, transaction_timestamp(), NULL),
+       ($2, $3, $5, true, transaction_timestamp(), NULL)`,
+    [
+      syntheticIds.customer,
+      syntheticIds.reassignmentCustomer,
+      syntheticIds.organization,
+      profile === DA5_V5_PROFILE
+        ? DA5_V5_PUBLIC_MANIFEST.customerALabel
+        : 'Synthetic Android Customer',
+      profile === DA5_V5_PROFILE
+        ? DA5_V5_PUBLIC_MANIFEST.customerBLabel
+        : 'Synthetic Reassignment Target',
+    ],
   );
 }
 
@@ -527,6 +705,14 @@ function loginKey(login: string): keyof typeof runtimeLogins {
     throw new Error('Unsupported synthetic runtime login');
   }
   return entry[0] as keyof typeof runtimeLogins;
+}
+
+function da5V5LoginKey(login: string): keyof typeof da5V5RuntimeLogins {
+  const entry = Object.entries(da5V5RuntimeLogins).find(([, value]) => value === login);
+  if (entry === undefined) {
+    throw new Error('Unsupported DA5 V5 runtime login');
+  }
+  return entry[0] as keyof typeof da5V5RuntimeLogins;
 }
 
 function isNumericLoopbackHost(hostname: string): boolean {

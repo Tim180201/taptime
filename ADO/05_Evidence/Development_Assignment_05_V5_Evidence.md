@@ -38,6 +38,27 @@ synthetic runtime contract. Independent artifact review and Evidence exact-head 
 on the exact binding above with verdict `APPROVED` and zero open P0–P3. This remains
 artifact/evidence approval, not Human preflight evidence or Human-run authority.
 
+### 1.1 Local enablement preparation — no Human result
+
+Corrected ADO authorization candidate `cddb66d82047284c72688cc90a7491af761b8791`, tree
+`8cda19f8df42febb34a03a4db4911d5ea8acae79`, passed exact-head CI `30159987539`,
+attempt 1, 12/12; independent exact-delta re-review returned `APPROVED` with zero open P0–P3.
+On exactly that baseline, the R3 enablement implementation remains local and uncommitted.
+Implementation V4 and formal Exact-SHA review remain pending.
+
+Final local V3 passed all 21 workspace suites with 2,013 tests and exactly two optional B1
+Supavisor skips, 21/21 tests-inclusive typechecks, 20/20 applicable builds, migrations 001–013
+clean apply/replay/ledger verification on PostgreSQL 17.10, C3B binary verification, Android
+export of 861 modules, immutable-artifact/no-install preflight and complete cleanup of task-owned
+temporary database/export data. Focused Mobile device tests passed 21/21, Harness
+credential/profile tests passed 34/34 and both independent read-only Technical-Lead delta audits
+returned `APPROVED` with zero open P0–P3.
+
+No installation, ADB, device/Tag interaction or Human V5 occurred. The Harness can accept A/B/X
+values only from the operator and cannot independently prove their origin. Before any hardware
+action, a separate independently reviewed Validation-App/Binding-Preflight architecture and
+explicit Human authorization are required; this record selects no architecture.
+
 Do not add credentials, credential/password/identity digests, tokens, secrets, raw UID/payload,
 provider subjects, device serials, encryption keys, internal identifiers, CSV bodies or personal
 data.

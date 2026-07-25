@@ -1,8 +1,10 @@
+import { randomBytes } from 'node:crypto';
 import {
   B4SessionAuthorityResolver,
   B5ScanContextResolver,
   createBackendHttpServer,
   type EmployeeMembershipEnrollmentCoordinator as EmployeeEnrollmentPort,
+  type ScanContextResolver,
 } from '@taptime/backend-api';
 import {
   AdminWriteSessionCoordinator,
@@ -13,7 +15,14 @@ import {
   PostgresIdentityMembershipResolver,
   SupabaseJwtAccessTokenVerifier,
 } from '@taptime/backend-identity';
-import { ServerCanonicalLifecycleIngestionCoordinator } from '@taptime/backend-lifecycle';
+import {
+  ManualLifecycleIngestionCoordinator,
+  ServerCanonicalLifecycleIngestionCoordinator,
+} from '@taptime/backend-lifecycle';
+import {
+  MobileWorkReadCoordinator,
+  ProjectAdministrationCoordinator,
+} from '@taptime/backend-mobile-work';
 import {
   OfflineCaptureLeaseCoordinator,
   OfflineEventReconciliationCoordinator,
@@ -33,6 +42,31 @@ import {
   type Da4V5FixtureManifest,
 } from './Da4V5Profile.js';
 import {
+  DA5_V5_TAG_B_REGISTRATION_ARM_STATUS,
+  Da5V5ProtectedReviewFixture,
+  readDa5V5InvariantStatus,
+  readDa5V5Status,
+  sameDa5V5Status,
+  type Da5V5InvariantStatus,
+  type Da5V5ProtectedFixtureState,
+  type Da5V5Status,
+} from './Da5V5Database.js';
+import {
+  Da5V5DedupeWindowController,
+  type Da5V5DedupeBinding,
+  type Da5V5DedupePhase,
+} from './Da5V5DedupeWindow.js';
+import {
+  DA5_V5_PROFILE,
+  validateDa5V5TagBinding,
+  type Da5V5TagBinding,
+} from './Da5V5Profile.js';
+import {
+  Da5V5ScanContextResolver,
+  type Da5V5ScanSafeEvent,
+  type Da5V5TagRoleState,
+} from './Da5V5ScanContextResolver.js';
+import {
   SYNTHETIC_ADMIN_AUTH_EMAIL,
   SYNTHETIC_AUTH_EMAIL,
   SYNTHETIC_ENROLLMENT_AUTH_EMAIL,
@@ -40,12 +74,15 @@ import {
   SYNTHETIC_SECOND_ENROLLMENT_AUTH_EMAIL,
 } from './constants.js';
 import {
+  acquireSyntheticDatabaseOwnership,
   cleanSyntheticDatabase,
   prepareSyntheticDatabase,
   readSyntheticEmployeeEnrollmentEvidenceCounts,
   readSyntheticEvidenceCounts,
   readSyntheticTimeReviewEvidenceCounts,
+  validateSyntheticInstallerDatabaseUrl,
   type SyntheticEmployeeEnrollmentEvidenceCounts,
+  type SyntheticDatabaseOwnership,
   type SyntheticEvidenceCounts,
   type SyntheticTimeReviewEvidenceCounts,
 } from './database.js';
@@ -63,6 +100,7 @@ import {
 export type SyntheticEnvironmentSafeEvent =
   | SyntheticSafeEvent
   | SyntheticRedemptionInterruptionEvent
+  | Da5V5ScanSafeEvent
   | 'api_administration_unavailable'
   | 'api_employee_enrollment_unavailable'
   | 'api_lifecycle_unavailable'
@@ -78,7 +116,8 @@ export interface SyntheticAndroidE2eEnvironmentOptions {
   readonly authPort?: number;
   readonly installerDatabaseUrl: string;
   readonly password: string;
-  readonly profile?: typeof DA4_V5_PROFILE;
+  readonly profile?: typeof DA4_V5_PROFILE | typeof DA5_V5_PROFILE;
+  readonly da5V5TagBinding?: Da5V5TagBinding;
   readonly onSafeEvent?: (event: SyntheticEnvironmentSafeEvent) => void;
 }
 
@@ -101,7 +140,42 @@ export interface SyntheticAndroidE2eEnvironment {
   timeReviewEvidenceCounts(): Promise<SyntheticTimeReviewEvidenceCounts>;
   da4V5FixtureManifest(): Promise<Da4V5FixtureManifest>;
   da4V5Status(): Promise<Da4V5Status>;
+  armDa5V5TagBRegistration(): Promise<void>;
+  da5V5CaptureDedupeWindow(
+    phase: Da5V5DedupePhase,
+    binding: Da5V5DedupeBinding,
+  ): Promise<'match' | 'mismatch'>;
+  da5V5CheckDedupeWindow(
+    phase: Da5V5DedupePhase,
+    binding: Da5V5DedupeBinding,
+  ): Promise<'match' | 'mismatch'>;
+  da5V5DedupeState(): ReturnType<Da5V5DedupeWindowController['state']>;
+  da5V5FixtureArm(deviceQueueItems: number): Promise<'match' | 'mismatch'>;
+  da5V5FixtureActivateTagB(): Promise<'match' | 'mismatch'>;
+  da5V5FixtureCutoverTagA(): Promise<'match' | 'mismatch'>;
+  da5V5FixtureMarkTerminal(): Promise<'match' | 'mismatch'>;
+  da5V5FixtureState(): Da5V5ProtectedFixtureState;
+  da5V5Status(): Promise<Da5V5Status>;
+  da5V5InvariantStatus(): Promise<Da5V5InvariantStatus>;
+  da5V5TagRegistrationState(): ReturnType<Da5V5ScanContextResolver['state']>;
+  da5V5TagRoleState(): Promise<Da5V5TagRoleState>;
   close(): Promise<void>;
+}
+
+export function da5V5TagBRegistrationPreconditionMatches(
+  status: Da5V5Status,
+  tagRoles: Da5V5TagRoleState,
+): boolean {
+  return sameDa5V5Status(status, DA5_V5_TAG_B_REGISTRATION_ARM_STATUS)
+    && tagRoles.activeTagAAssignments === 1
+    && tagRoles.activeTagACustomerAAssignments === 1
+    && tagRoles.activeTagBAssignments === 0
+    && tagRoles.tagAExactRecords === 1
+    && tagRoles.tagARecords === 1
+    && tagRoles.tagBExactRecords === 0
+    && tagRoles.tagBRecords === 0
+    && tagRoles.tagBTotalAssignments === 0
+    && tagRoles.tagXRecords === 0;
 }
 
 export class Da4V5CleanupError extends Error {
@@ -130,10 +204,38 @@ export async function runDa4V5StrictCleanup(options: {
   }
 }
 
+export class Da5V5CleanupError extends Error {
+  constructor() {
+    super('DA5 V5 cleanup failed');
+    this.name = 'Da5V5CleanupError';
+  }
+}
+
+export async function runDa5V5StrictCleanup(options: {
+  readonly closeDatabase: () => Promise<void>;
+  readonly closeInstaller: () => Promise<void>;
+  readonly closeResources: readonly (() => Promise<void>)[];
+}): Promise<void> {
+  let failed = false;
+  for (const closeResource of options.closeResources) {
+    const result = await settle(closeResource);
+    failed ||= result.status === 'rejected';
+  }
+  const databaseResult = await settle(options.closeDatabase);
+  failed ||= databaseResult.status === 'rejected';
+  const installerResult = await settle(options.closeInstaller);
+  failed ||= installerResult.status === 'rejected';
+  if (failed) {
+    throw new Da5V5CleanupError();
+  }
+}
+
 export async function createSyntheticAndroidE2eEnvironment(
   options: SyntheticAndroidE2eEnvironmentOptions,
 ): Promise<SyntheticAndroidE2eEnvironment> {
   const profile = validateSyntheticEnvironmentProfile(options.profile as unknown);
+  const da5V5Binding = resolveDa5V5TagBinding(profile, options.da5V5TagBinding);
+  validateSyntheticInstallerDatabaseUrl(options.installerDatabaseUrl);
   const onSafeEvent = options.onSafeEvent ?? (() => undefined);
   const auth = await SyntheticLocalAuthServer.create({
     password: options.password,
@@ -154,11 +256,36 @@ export async function createSyntheticAndroidE2eEnvironment(
   let timeReviewReadPool: Pool | null = null;
   let timeReviewWritePool: Pool | null = null;
   let provisionerPool: Pool | null = null;
+  let manualLifecyclePool: Pool | null = null;
+  let mobileOwnTimePool: Pool | null = null;
+  let mobileTargetPool: Pool | null = null;
+  let projectAdministrationPool: Pool | null = null;
   let redemptionInterruption: SyntheticRedemptionInterruptionController | null = null;
   let apiServer: ReturnType<typeof createBackendHttpServer> | null = null;
+  let da5V5DedupeWindow: Da5V5DedupeWindowController | null = null;
+  let databaseOwnership: SyntheticDatabaseOwnership | null = null;
+  const cleanupDatabase = (): Promise<void> => profile === DA5_V5_PROFILE
+    ? databaseOwnership?.cleanup(profile) ?? Promise.resolve()
+    : cleanSyntheticDatabase(installerPool, profile);
+  const closeInstaller = async (): Promise<void> => {
+    if (profile !== DA5_V5_PROFILE) {
+      await installerPool.end();
+      return;
+    }
+    const ownership = databaseOwnership;
+    databaseOwnership = null;
+    try {
+      await ownership?.release();
+    } finally {
+      await installerPool.end();
+    }
+  };
 
   try {
     await auth.start();
+    if (profile === DA5_V5_PROFILE) {
+      databaseOwnership = await acquireSyntheticDatabaseOwnership(installerPool);
+    }
     const database = await prepareSyntheticDatabase(
       installerPool,
       options.installerDatabaseUrl,
@@ -178,7 +305,18 @@ export async function createSyntheticAndroidE2eEnvironment(
     timeEntryExportPool = createPool(database.connectionStrings.timeEntryExport);
     timeReviewReadPool = createPool(database.connectionStrings.timeReviewRead);
     timeReviewWritePool = createPool(database.connectionStrings.timeReviewWrite);
-    provisionerPool = createPool(database.connectionStrings.provisioner, 1);
+    if (profile === DA5_V5_PROFILE) {
+      const connections = database.da5V5ConnectionStrings;
+      if (connections === undefined) {
+        throw new Error('DA5 V5 least-privilege database runtimes are unavailable');
+      }
+      manualLifecyclePool = createPool(connections.manualLifecycle);
+      mobileOwnTimePool = createPool(connections.mobileOwnTime);
+      mobileTargetPool = createPool(connections.mobileTarget);
+      projectAdministrationPool = createPool(connections.projectAdministration);
+    } else {
+      provisionerPool = createPool(database.connectionStrings.provisioner, 1);
+    }
 
     const verifier = SupabaseJwtAccessTokenVerifier.fromRemoteJwks({
       issuer: auth.issuer,
@@ -188,15 +326,48 @@ export async function createSyntheticAndroidE2eEnvironment(
     const realScanContext = new B5ScanContextResolver(
       new TenantReadSessionCoordinator(readModelPool, verifier),
     );
-    const provisioningScanContext = new FingerprintProvisioningScanContextResolver(
-      realScanContext,
-      provisionerPool,
-      onSafeEvent,
-    );
+    const provisioningScanContext = provisionerPool === null
+      ? null
+      : new FingerprintProvisioningScanContextResolver(
+          realScanContext,
+          provisionerPool,
+          onSafeEvent,
+        );
+    const da5V5ScanContext = da5V5Binding === undefined
+      ? null
+      : new Da5V5ScanContextResolver(
+          realScanContext,
+          installerPool,
+          da5V5Binding,
+          onSafeEvent,
+        );
+    const scanContextResolver: ScanContextResolver = da5V5ScanContext ?? provisioningScanContext
+      ?? failMissingScanContextResolver();
     const lifecycleCoordinator = new ServerCanonicalLifecycleIngestionCoordinator(
       lifecyclePool,
       verifier,
     );
+    const manualLifecycleCoordinator = manualLifecyclePool === null
+      ? undefined
+      : new ManualLifecycleIngestionCoordinator(manualLifecyclePool, verifier);
+    const mobileOwnTimeCursorHmacKey = profile === DA5_V5_PROFILE
+      ? randomBytes(32).toString('base64url')
+      : undefined;
+    const mobileWorkReader = (
+      mobileOwnTimePool === null
+      || mobileTargetPool === null
+      || mobileOwnTimeCursorHmacKey === undefined
+    )
+      ? undefined
+      : new MobileWorkReadCoordinator(
+          mobileOwnTimePool,
+          mobileTargetPool,
+          verifier,
+          mobileOwnTimeCursorHmacKey,
+        );
+    const projectAdministration = projectAdministrationPool === null
+      ? undefined
+      : new ProjectAdministrationCoordinator(projectAdministrationPool, verifier);
     const employeeEnrollmentCoordinator = new EmployeeMembershipEnrollmentCoordinator(
       employeeInvitationPool,
       employeeEnrollmentPool,
@@ -214,7 +385,7 @@ export async function createSyntheticAndroidE2eEnvironment(
           verifier,
           new PostgresIdentityMembershipResolver(sessionPool),
         ),
-        scanContextResolver: provisioningScanContext,
+        scanContextResolver,
         lifecycleIngestor: lifecycleCoordinator,
         deferredLifecycleIngestor: lifecycleCoordinator,
         offlineCaptureLeaseIssuer: new OfflineCaptureLeaseCoordinator(
@@ -238,6 +409,11 @@ export async function createSyntheticAndroidE2eEnvironment(
           timeReviewWritePool,
           verifier,
         ),
+        ...(manualLifecycleCoordinator === undefined ? {} : {
+          manualLifecycleIngestor: manualLifecycleCoordinator,
+        }),
+        ...(mobileWorkReader === undefined ? {} : { mobileWorkReader }),
+        ...(projectAdministration === undefined ? {} : { projectAdministration }),
       },
       {
         onDiagnostic(diagnostic) {
@@ -281,6 +457,13 @@ export async function createSyntheticAndroidE2eEnvironment(
     if (address === null || typeof address === 'string') {
       throw new Error('Synthetic C2 API did not expose a TCP port');
     }
+    const dedupeWindow = profile === DA5_V5_PROFILE
+      ? new Da5V5DedupeWindowController(installerPool)
+      : null;
+    da5V5DedupeWindow = dedupeWindow;
+    const protectedReviewFixture = da5V5Binding === undefined
+      ? null
+      : new Da5V5ProtectedReviewFixture(installerPool, da5V5Binding);
     const activeApiServer = apiServer;
     const pools = [
       sessionPool,
@@ -296,7 +479,13 @@ export async function createSyntheticAndroidE2eEnvironment(
       timeEntryExportPool,
       timeReviewReadPool,
       timeReviewWritePool,
-      provisionerPool,
+      ...[
+        provisionerPool,
+        manualLifecyclePool,
+        mobileOwnTimePool,
+        mobileTargetPool,
+        projectAdministrationPool,
+      ].filter((pool): pool is Pool => pool !== null),
     ] as const;
     let closed = false;
     return Object.freeze({
@@ -310,6 +499,9 @@ export async function createSyntheticAndroidE2eEnvironment(
       secondEnrollmentEmail: SYNTHETIC_SECOND_ENROLLMENT_AUTH_EMAIL,
       abortPausedRedemption: () => interruptionController.abortPausedRedemption(),
       armTagA: (expectedFingerprint: string) => {
+        if (provisioningScanContext === null) {
+          throw new Error('DA5 V5 requires real Administrator setup for Tag A');
+        }
         provisioningScanContext.armTagA(expectedFingerprint);
       },
       armNextRedemptionInterruption: () => {
@@ -319,7 +511,12 @@ export async function createSyntheticAndroidE2eEnvironment(
         readSyntheticEmployeeEnrollmentEvidenceCounts(installerPool)
       ),
       redemptionInterruptionState: () => interruptionController.getState(),
-      provisioningState: () => provisioningScanContext.getState(),
+      provisioningState: () => {
+        if (provisioningScanContext === null) {
+          throw new Error('Legacy synthetic provisioning is not active');
+        }
+        return provisioningScanContext.getState();
+      },
       evidenceCounts: () => readSyntheticEvidenceCounts(installerPool),
       timeReviewEvidenceCounts: () => readSyntheticTimeReviewEvidenceCounts(installerPool),
       da4V5FixtureManifest: () => {
@@ -334,12 +531,122 @@ export async function createSyntheticAndroidE2eEnvironment(
         }
         return readDa4V5Status(installerPool);
       },
+      armDa5V5TagBRegistration: async () => {
+        if (da5V5ScanContext === null) {
+          throw new Error('DA5 V5 profile is not active');
+        }
+        const [status, tagRoles] = await Promise.all([
+          readDa5V5Status(installerPool),
+          da5V5ScanContext.roleState(),
+        ]);
+        if (!da5V5TagBRegistrationPreconditionMatches(status, tagRoles)) {
+          throw new Error('DA5 V5 Tag B registration precondition mismatch');
+        }
+        da5V5ScanContext.armTagBRegistration();
+      },
+      da5V5CaptureDedupeWindow: (
+        phase: Da5V5DedupePhase,
+        binding: Da5V5DedupeBinding,
+      ) => {
+        if (dedupeWindow === null) {
+          return Promise.resolve<'mismatch'>('mismatch');
+        }
+        return dedupeWindow.capture(phase, binding);
+      },
+      da5V5CheckDedupeWindow: (
+        phase: Da5V5DedupePhase,
+        binding: Da5V5DedupeBinding,
+      ) => {
+        if (dedupeWindow === null) {
+          return Promise.resolve<'mismatch'>('mismatch');
+        }
+        return dedupeWindow.check(phase, binding);
+      },
+      da5V5DedupeState: () => {
+        if (dedupeWindow === null) {
+          throw new Error('DA5 V5 profile is not active');
+        }
+        return dedupeWindow.state();
+      },
+      da5V5FixtureArm: async (deviceQueueItems: number) => {
+        if (protectedReviewFixture === null) {
+          return 'mismatch';
+        }
+        return protectedReviewFixture.arm(
+          await readDa5V5Status(installerPool),
+          deviceQueueItems,
+        );
+      },
+      da5V5FixtureActivateTagB: () => {
+        if (protectedReviewFixture === null) {
+          return Promise.resolve<'mismatch'>('mismatch');
+        }
+        return protectedReviewFixture.activateTagB();
+      },
+      da5V5FixtureCutoverTagA: () => {
+        if (protectedReviewFixture === null) {
+          return Promise.resolve<'mismatch'>('mismatch');
+        }
+        return protectedReviewFixture.cutoverTagA();
+      },
+      da5V5FixtureMarkTerminal: async () => {
+        if (protectedReviewFixture === null || da5V5Binding === undefined) {
+          return 'mismatch';
+        }
+        const [status, invariants] = await Promise.all([
+          readDa5V5Status(installerPool),
+          readDa5V5InvariantStatus(installerPool, da5V5Binding),
+        ]);
+        return protectedReviewFixture.markTerminal(status, invariants);
+      },
+      da5V5FixtureState: () => {
+        if (protectedReviewFixture === null) {
+          throw new Error('DA5 V5 profile is not active');
+        }
+        return protectedReviewFixture.state();
+      },
+      da5V5Status: () => {
+        if (profile !== DA5_V5_PROFILE) {
+          return Promise.reject(new Error('DA5 V5 profile is not active'));
+        }
+        return readDa5V5Status(installerPool);
+      },
+      da5V5InvariantStatus: () => {
+        if (profile !== DA5_V5_PROFILE || da5V5Binding === undefined) {
+          return Promise.reject(new Error('DA5 V5 profile is not active'));
+        }
+        return readDa5V5InvariantStatus(installerPool, da5V5Binding);
+      },
+      da5V5TagRegistrationState: () => {
+        if (da5V5ScanContext === null) {
+          throw new Error('DA5 V5 profile is not active');
+        }
+        return da5V5ScanContext.state();
+      },
+      da5V5TagRoleState: () => {
+        if (da5V5ScanContext === null) {
+          return Promise.reject(new Error('DA5 V5 profile is not active'));
+        }
+        return da5V5ScanContext.roleState();
+      },
       async close(): Promise<void> {
         if (closed) {
           return;
         }
         closed = true;
-        if (profile === DA4_V5_PROFILE) {
+        if (profile === DA5_V5_PROFILE) {
+          await runDa5V5StrictCleanup({
+            closeResources: [
+              async () => dedupeWindow?.destroy(),
+              async () => interruptionController.close(),
+              () => closeServer(activeApiServer),
+              ...pools.map((pool) => () => pool.end()),
+              () => auth.close(),
+            ],
+            closeDatabase: cleanupDatabase,
+            closeInstaller,
+          });
+        } else if (profile === DA4_V5_PROFILE) {
           await runDa4V5StrictCleanup({
             closeResources: [
               async () => interruptionController.close(),
@@ -347,8 +654,8 @@ export async function createSyntheticAndroidE2eEnvironment(
               ...pools.map((pool) => () => pool.end()),
               () => auth.close(),
             ],
-            closeDatabase: () => cleanSyntheticDatabase(installerPool),
-            closeInstaller: () => installerPool.end(),
+            closeDatabase: cleanupDatabase,
+            closeInstaller,
           });
         } else {
           interruptionController.close();
@@ -358,14 +665,45 @@ export async function createSyntheticAndroidE2eEnvironment(
             auth.close(),
           ]);
           try {
-            await cleanSyntheticDatabase(installerPool);
+            await cleanupDatabase();
           } finally {
-            await installerPool.end();
+            await closeInstaller();
           }
         }
       },
     });
   } catch (error) {
+    if (profile === DA5_V5_PROFILE) {
+      await runDa5V5StrictCleanup({
+        closeResources: [
+          async () => da5V5DedupeWindow?.destroy(),
+          async () => redemptionInterruption?.close(),
+          () => apiServer === null ? Promise.resolve() : closeServer(apiServer),
+          () => sessionPool?.end() ?? Promise.resolve(),
+          () => readModelPool?.end() ?? Promise.resolve(),
+          () => lifecyclePool?.end() ?? Promise.resolve(),
+          () => administrationPool?.end() ?? Promise.resolve(),
+          () => employeeInvitationPool?.end() ?? Promise.resolve(),
+          () => employeeEnrollmentPool?.end() ?? Promise.resolve(),
+          () => reassignmentPool?.end() ?? Promise.resolve(),
+          () => offlineLeasePool?.end() ?? Promise.resolve(),
+          () => offlineEventPool?.end() ?? Promise.resolve(),
+          () => offlineReconciliationPool?.end() ?? Promise.resolve(),
+          () => timeEntryExportPool?.end() ?? Promise.resolve(),
+          () => timeReviewReadPool?.end() ?? Promise.resolve(),
+          () => timeReviewWritePool?.end() ?? Promise.resolve(),
+          () => provisionerPool?.end() ?? Promise.resolve(),
+          () => manualLifecyclePool?.end() ?? Promise.resolve(),
+          () => mobileOwnTimePool?.end() ?? Promise.resolve(),
+          () => mobileTargetPool?.end() ?? Promise.resolve(),
+          () => projectAdministrationPool?.end() ?? Promise.resolve(),
+          () => auth.close(),
+        ],
+        closeDatabase: cleanupDatabase,
+        closeInstaller,
+      });
+      throw error;
+    }
     if (profile === DA4_V5_PROFILE) {
       await runDa4V5StrictCleanup({
         closeResources: [
@@ -387,8 +725,8 @@ export async function createSyntheticAndroidE2eEnvironment(
           () => provisionerPool?.end() ?? Promise.resolve(),
           () => auth.close(),
         ],
-        closeDatabase: () => cleanSyntheticDatabase(installerPool),
-        closeInstaller: () => installerPool.end(),
+        closeDatabase: cleanupDatabase,
+        closeInstaller,
       });
       throw error;
     }
@@ -409,25 +747,49 @@ export async function createSyntheticAndroidE2eEnvironment(
       timeReviewReadPool?.end() ?? Promise.resolve(),
       timeReviewWritePool?.end() ?? Promise.resolve(),
       provisionerPool?.end() ?? Promise.resolve(),
+      manualLifecyclePool?.end() ?? Promise.resolve(),
+      mobileOwnTimePool?.end() ?? Promise.resolve(),
+      mobileTargetPool?.end() ?? Promise.resolve(),
+      projectAdministrationPool?.end() ?? Promise.resolve(),
       auth.close(),
     ]);
     try {
-      await cleanSyntheticDatabase(installerPool);
+      await cleanupDatabase();
     } catch {
       // Preserve the original startup failure; cleanup is best effort only.
     }
-    await installerPool.end();
+    await closeInstaller();
     throw error;
   }
 }
 
 function validateSyntheticEnvironmentProfile(
   value: unknown,
-): typeof DA4_V5_PROFILE | undefined {
-  if (value === undefined || value === DA4_V5_PROFILE) {
+): typeof DA4_V5_PROFILE | typeof DA5_V5_PROFILE | undefined {
+  if (value === undefined || value === DA4_V5_PROFILE || value === DA5_V5_PROFILE) {
     return value;
   }
   throw new Error('Unknown synthetic E2E profile');
+}
+
+function resolveDa5V5TagBinding(
+  profile: typeof DA4_V5_PROFILE | typeof DA5_V5_PROFILE | undefined,
+  binding: Da5V5TagBinding | undefined,
+): Da5V5TagBinding | undefined {
+  if (profile !== DA5_V5_PROFILE) {
+    if (binding !== undefined) {
+      throw new Error('DA5 V5 Tag binding requires the exact DA5 V5 profile');
+    }
+    return undefined;
+  }
+  if (binding === undefined) {
+    throw new Error('DA5 V5 requires an exact disclosure-safe Tag binding');
+  }
+  return validateDa5V5TagBinding(binding);
+}
+
+function failMissingScanContextResolver(): never {
+  throw new Error('Synthetic scan-context resolver is unavailable');
 }
 
 async function settle(action: () => Promise<void>): Promise<PromiseSettledResult<void>> {
