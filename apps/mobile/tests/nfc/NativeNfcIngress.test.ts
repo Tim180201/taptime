@@ -19,6 +19,24 @@ describe('Native NFC ingress', () => {
     elapsedRealtimeMilliseconds: 42,
   });
 
+  it('keeps the tracked native module on the Expo 57 Gradle contract', () => {
+    const source = readFileSync(new URL(
+      '../../modules/taptime-nfc-ingress/android/build.gradle',
+      import.meta.url,
+    ), 'utf8');
+
+    expect(source).toMatch(
+      /plugins\s*\{\s*id 'com\.android\.library'\s*id 'expo-module-gradle-plugin'\s*\}/,
+    );
+    expect(source.match(/^group = 'com\.taptime\.nfcingress'$/gm)).toHaveLength(1);
+    expect(source.match(/^version = '1\.0\.0'$/gm)).toHaveLength(1);
+    expect(source.match(/^\s*namespace "com\.taptime\.nfcingress"$/gm)).toHaveLength(1);
+    expect(source.match(/^\s*minSdkVersion 24$/gm)).toHaveLength(1);
+    expect(source.match(/^\s*versionName "1\.0\.0"$/gm)).toHaveLength(1);
+    expect(source).not.toMatch(/safeExtGet|apply\s+plugin|kotlin-android/);
+    expect(source).not.toMatch(/\btargetSdk(?:Version)?\b/);
+  });
+
   it('converts UID bytes and consumes a cold/warm Tag Dispatch capture once', () => {
     const source = {
       hasPending: vi.fn(() => true),
