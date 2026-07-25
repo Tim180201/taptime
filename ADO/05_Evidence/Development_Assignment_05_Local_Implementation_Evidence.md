@@ -398,3 +398,57 @@ authorization remain mandatory.
 The next operational action is independent Exact-Delta review of the pre-hardware R0 runbook and
 evidence shell candidate. Product V3/V4 is not repeated because no executable or artifact input
 changed. Human V5 remains stopped until a later separate exact-bound Human authorization.
+
+## Phase H — read-only DA5 V5 synthetic artifact candidate
+
+The artifact build was bound to current Source+Lock baseline
+`a323834f51607841d0cd5f11aafdbfd3dd93ed5f`, tree
+`65c669b0a941c21d23ffca5e79fa03285323a7cf`, exact-head CI `30149165373`,
+attempt 1, 12/12. Independent implementation review round 2 returned `APPROVED` with zero open
+P0–P3. No product, schema, dependency, workflow or build-script file was changed in this phase.
+
+A fresh disposable research-free sparse checkout used Node.js `v24.17.0` and npm `11.13.0`.
+The correct checkout's `npm ci` passed. Installed dependency inspection found only PostCSS
+`8.5.18` and brace-expansion `5.0.8`, whose installed Node engine is `20 || >=22`. Full and
+runtime-only `npm audit` each returned exit 1 for 11 moderate findings, with zero high and zero
+critical findings. The required `@taptime/mobile-work-contract`,
+`@taptime/offline-sync-contract` and `@taptime/time-review-contract` builds passed.
+
+Exactly one actual
+`npm run android:synthetic-e2e:build --workspace=@taptime/mobile` invocation ran with JDK
+`17.0.19` and Android Build Tools `36.0.0`. Gradle completed successfully, and each required
+marker occurred exactly once:
+
+- `offline_storage_android_backup_boundary_verified`;
+- `synthetic_e2e_android_runtime_complete_verified`; and
+- `synthetic_e2e_android_apk_ready`.
+
+The resulting read-only files are retained under
+`/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5/a323834/`:
+
+- `app-release-385c0c46f22dcac5.apk`: 95,522,787 bytes, SHA-256
+  `385c0c46f22dcac5b935bfdc6f574558f4e74748ed4a367ef399ddbd4299c547`, mode `0444`;
+- `artifact-manifest.txt`: 1,647 bytes, SHA-256
+  `1c1f1b7a5b92fab5510cde35a439fc6f0742b7bf2666d6319cd89b9a7d4dcadb`,
+  mode `0444`.
+
+Independent checks against the final copied APK confirmed package
+`com.tim180201.mobile.synthetic`, versionCode `1`, versionName `1.0.0`, exactly one local
+synthetic non-production signer certificate with SHA-256
+`fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c`, signature scheme v2
+enabled and v1/v3/v3.1/v4 disabled. The packaged application has `allowBackup=false`, global
+cleartext disabled with only the synthetic `127.0.0.1` network-security exception, the required
+backup/extraction references and exclusions, `TECH_DISCOVERED` plus NfcA/MifareUltralight,
+exactly one Hermes Android bundle and a matching synthetic runtime contract. The adjacent
+manifest contains no synthetic runtime literal.
+
+One orchestration mistake invoked the first `npm ci` from the primary checkout rather than the
+disposable checkout. Protected-path-aware tracked status remained clean; the installation was
+then repeated successfully in the correct disposable checkout. No tracked product file was
+changed by that mistake.
+
+No APK installation, ADB, device/Tag interaction, Human V5, external-service/fixture run,
+accessibility gate, production signing, production or production-data access, deployment or
+distribution occurred. All such Human/physical gates remain `NOT RUN` and their bindings remain
+`UNBOUND`. Independent artifact review and Evidence exact-head CI remain pending; this phase
+claims no self-approval.

@@ -1,7 +1,7 @@
 # Project Status
 
-Status: CORE ROADMAP V2 BLOCK A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2, BLOCK D, E1 AND NARROW E2A COMPLETE FOR THEIR RECORDED SCOPES — DEVELOPMENT ASSIGNMENTS 1–3 AND DT-060–DT-074 CLOSED FOR THEIR EXACT AUTHORIZED LOCAL SCOPES — DA4 WORKSTREAMS A–D, AVS V0–V4, H01 PROCEDURAL CORRECTION, DA4-V5-F06 AND DA4-V5-F07 INDEPENDENTLY APPROVED; DA4 REMAINS OPEN FOR A LATER FRESH HUMAN V5 — DA5 CORRECTION ROUND 2 WAS PUBLISHED AT `452d8fd`, TREE `699349b`, AND PASSED EXACT-HEAD V4 `30115776918` 12/12; THE HUMAN-AUTHORIZED R0 TRUTH SYNCHRONIZATION AT `b777f702`, TREE `54b257f`, RECEIVED INDEPENDENT EXACT-DELTA `APPROVED`, `MERGE_READY`, WITH ZERO OPEN P0–P3, SO THE DA5 V0–V4 SOFTWARE SCOPE IS TECHNICALLY CLOSED; A PRE-HARDWARE V5 RUNBOOK/EVIDENCE SHELL EXISTS WITHOUT CLAIMING ITS OWN REVIEW OUTCOME, WHILE HUMAN/HARDWARE V5 REMAINS SEPARATE AND UNAUTHORIZED — PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
-Date: 2026-07-24
+Status: CORE ROADMAP V2 BLOCK A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2, BLOCK D, E1 AND NARROW E2A COMPLETE FOR THEIR RECORDED SCOPES — DEVELOPMENT ASSIGNMENTS 1–3 AND DT-060–DT-074 CLOSED FOR THEIR EXACT AUTHORIZED LOCAL SCOPES — DA4 WORKSTREAMS A–D, AVS V0–V4, H01 PROCEDURAL CORRECTION, DA4-V5-F06 AND DA4-V5-F07 INDEPENDENTLY APPROVED; DA4 REMAINS OPEN FOR A LATER FRESH HUMAN V5 — DA5 V0–V4 SOFTWARE IS TECHNICALLY CLOSED; CURRENT SOURCE+LOCK BASELINE `a323834`, TREE `65c669b`, PASSED EXACT-HEAD CI `30149165373` 12/12 AND INDEPENDENT IMPLEMENTATION REVIEW ROUND 2 `APPROVED` WITH ZERO OPEN P0–P3; A READ-ONLY SYNTHETIC V5 APK/MANIFEST CANDIDATE IS PREPARED, WHILE ARTIFACT REVIEW, EVIDENCE EXACT-HEAD CI AND HUMAN/HARDWARE V5 REMAIN PENDING, SEPARATE AND UNAUTHORIZED — PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
+Date: 2026-07-25
 Owner: Human Architect + Technical Lead
 
 ## Product
@@ -68,12 +68,18 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   limit. It was published as `b777f7027f436caf785f657ae9fc29795fd60bcb`, tree
   `54b257f50eb4d565a60ee6f6171921033695a1c7`; independent R0 Exact-Delta review returned
   `APPROVED`, `MERGE_READY`, with zero open P0–P3. That closes the DA5 V0–V4 software scope.
-  The final pre-hardware Workstream-F R0 candidate adds only a concise V5 runbook and empty
-  evidence shell. Those documents claim no review result for themselves and authorize no
-  installation, device/Tag interaction or Human V5. A future fresh run requires exact reviewed
-  product, review, read-only APK/manifest, device and Tag bindings plus a separate Human
-  authorization. DA4 Human V5 also remains separate. Production, production data, deployment and
-  distribution remain unauthorized.
+  The final pre-hardware Workstream-F R0 candidate added only a concise V5 runbook and empty
+  evidence shell. The current Source+Lock baseline
+  `a323834f51607841d0cd5f11aafdbfd3dd93ed5f`, tree
+  `65c669b0a941c21d23ffca5e79fa03285323a7cf`, passed exact-head CI `30149165373`,
+  attempt 1, 12/12, and independent implementation review round 2 returned `APPROVED` with zero
+  open P0–P3. One fresh local synthetic APK and adjacent disclosure-safe artifact manifest are
+  now retained read-only under the DA5 V5 local-artifact boundary. This artifact/evidence delta
+  claims no self-approval: independent artifact review and Evidence exact-head CI remain pending.
+  It authorizes no installation, ADB, device/Tag interaction or Human V5. A future fresh run still
+  requires the remaining exact device, Tag, service, fixture and accessibility bindings plus a
+  separate Human authorization. DA4 Human V5 also remains separate. Production, production data,
+  production signing, deployment and distribution remain unauthorized.
 - **Development Assignment 4 is the active Roadmap engineering block.** The Human Architect
   accepted ADR-0015 and DA4-P01–P12 and separately authorized Workstreams A–D plus AVS V0–V4 on
   exact baseline `d9892435acbf7f45a96a9a01c8331afceb65f6f1`, tree

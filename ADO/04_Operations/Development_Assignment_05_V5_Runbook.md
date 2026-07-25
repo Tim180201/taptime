@@ -1,7 +1,7 @@
 # Development Assignment 5 — V5 Human Android Gate Runbook
 
-- Status: **PRE-HARDWARE SHELL — NOT RUN — HUMAN V5 UNAUTHORIZED**
-- Date: 2026-07-24
+- Status: **READ-ONLY ARTIFACT CANDIDATE PREPARED — REVIEW/CI PENDING — HUMAN V5 UNAUTHORIZED**
+- Date: 2026-07-25
 - Owner: Technical Lead
 - Approval authority for any run: Human Architect
 
@@ -11,19 +11,17 @@ This runbook defines one fresh Human Android observation for ADR-0016 DA5-P12 an
 DA5-T15. It minimizes repetition through staged gates, but every listed boundary remains
 mandatory.
 
-The carried software closure is:
-
-- product correction `452d8fd93aeec66560b3fa73065850d4584490d1`, tree
-  `699349b0a65360da9fa63288c384b2e287d0012b`, exact-head V4 `30115776918`,
-  attempt 1, 12/12; and
-- R0 truth synchronization `b777f7027f436caf785f657ae9fc29795fd60bcb`, tree
-  `54b257f50eb4d565a60ee6f6171921033695a1c7`, independently Exact-Delta
-  `APPROVED`, `MERGE_READY`, with zero open P0–P3.
+The carried software closure is current Source+Lock baseline
+`a323834f51607841d0cd5f11aafdbfd3dd93ed5f`, tree
+`65c669b0a941c21d23ffca5e79fa03285323a7cf`, exact-head CI `30149165373`,
+attempt 1, 12/12. Independent implementation review round 2 returned `APPROVED` with zero open
+P0–P3.
 
 Those facts close the DA5 V0–V4 software scope only. **This document does not authorize V5,
 installation, ADB, device or Tag interaction.** One future fresh run requires a separate exact
-Human-Architect authorization after this runbook/evidence candidate has been independently
-reviewed. The authorization must quote every binding in Section 3.
+Human-Architect authorization after this artifact/evidence candidate has passed independent
+artifact review and Evidence exact-head CI. The authorization must quote every binding in
+Section 3.
 
 A failed, interrupted or ambiguous preflight, action, observation or checkpoint consumes that
 one-run authority. Stop, mark the entire run failed and clean up. No retry, repair, resume,
@@ -50,18 +48,19 @@ replacement action or evidence reuse is allowed.
 
 ## 3. Mandatory exact binding — fill and verify before start
 
-Every `UNBOUND` field below must be filled by the future authorization and independently verified
-before any installation, device/Tag interaction or Gate A action. This shell requires no self-SHA.
+Every still-`UNBOUND` field below must be filled by the future authorization and independently
+verified before any installation, device/Tag interaction or Gate A action. This runbook requires
+no self-SHA.
 
 | Binding | Required exact value |
 |---|---|
 | One-run Human authorization and date | `UNBOUND — DO NOT START` |
-| Product commit/tree and required V4 | `UNBOUND — DO NOT START` |
-| Product implementation-review binding/verdict | `UNBOUND — DO NOT START` |
+| Product commit/tree and required V4 | `a323834f51607841d0cd5f11aafdbfd3dd93ed5f` / `65c669b0a941c21d23ffca5e79fa03285323a7cf`; CI `30149165373`, attempt 1, 12/12 |
+| Product implementation-review binding/verdict | Round 2 `APPROVED`; zero open P0–P3 |
 | Runbook/evidence commit/tree and independent-review verdict | `UNBOUND — DO NOT START` |
-| Read-only APK path, byte size, SHA-256 and exact mode | `UNBOUND — DO NOT START` |
-| Read-only artifact manifest path, byte size, SHA-256 and exact mode | `UNBOUND — DO NOT START` |
-| Package, version, signature scheme, signer digest and packaged manifest/runtime values | `UNBOUND — DO NOT START` |
+| Read-only APK path, byte size, SHA-256 and exact mode | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5/a323834/app-release-385c0c46f22dcac5.apk`; 95,522,787 bytes; `385c0c46f22dcac5b935bfdc6f574558f4e74748ed4a367ef399ddbd4299c547`; `0444` |
+| Read-only artifact manifest path, byte size, SHA-256 and exact mode | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5/a323834/artifact-manifest.txt`; 1,647 bytes; `1c1f1b7a5b92fab5510cde35a439fc6f0742b7bf2666d6319cd89b9a7d4dcadb`; `0444` |
+| Package, version, signature scheme, signer digest and packaged manifest/runtime values | `com.tim180201.mobile.synthetic`; versionCode `1`; versionName `1.0.0`; v2 `true`, v1/v3/v3.1/v4 `false`; one local synthetic non-production signer certificate SHA-256 `fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c`; packaged boundary/runtime `match` per adjacent manifest |
 | Device model, OS/build and approved screen-unlocked mode | `UNBOUND — DO NOT START` |
 | Approved assigned, unassigned and unrelated Tag labels/safe fingerprints | `UNBOUND — DO NOT START` |
 | Exact synthetic services, status boundary and controlled-offline switch | `UNBOUND — DO NOT START` |
@@ -69,6 +68,10 @@ before any installation, device/Tag interaction or Gate A action. This shell req
 | DA5-T06 exact five-second dedupe boundary and lifecycle-cancellation checkpoint | `UNBOUND — DO NOT START` |
 | Separately reviewed Protected/Review induction fixture, synthetic labels, exact start state, cutover procedure, expected state sequence and scoped teardown | `UNBOUND — DO NOT START` |
 | Exact large-text setting and TalkBack version | `UNBOUND — DO NOT START` |
+
+The populated product and artifact rows record only this unreviewed artifact/evidence candidate.
+They are not a Human-run authorization. The runbook/evidence exact head, independent artifact
+review, Evidence exact-head CI and every remaining operational binding are still mandatory.
 
 At preflight, recompute both read-only file sizes, SHA-256 digests and modes from the preserved APK
 and manifest. Independently verify package/version, signature/signer and packaged

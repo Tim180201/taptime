@@ -1,25 +1,27 @@
 # Development Assignment 5 — V5 Human Android Evidence
 
-- Status: **NOT RUN — EMPTY EVIDENCE SHELL — HUMAN V5 UNAUTHORIZED**
+- Status: **READ-ONLY ARTIFACT CANDIDATE PREPARED — HUMAN V5 NOT RUN/UNAUTHORIZED**
 - Date: `NOT RUN`
+- Artifact preparation date: 2026-07-25
 - Owner: Technical Lead
 - Human run authority: `NOT BOUND`
 
 ## 1. Authority and exact binding
 
-This shell mirrors
-`ADO/04_Operations/Development_Assignment_05_V5_Runbook.md`. Its existence records no device,
-artifact or Human result and grants no authority.
+This record mirrors
+`ADO/04_Operations/Development_Assignment_05_V5_Runbook.md`. It records a read-only local
+synthetic artifact candidate, but no installation, ADB, device/Tag interaction or Human result
+and grants no Human-run authority.
 
 | Binding | Evidence |
 |---|---|
 | One-run Human authorization/date | `NOT BOUND` |
-| Product commit/tree and required V4 | `NOT BOUND` |
-| Product implementation-review binding/verdict | `NOT BOUND` |
+| Product commit/tree and required V4 | `a323834f51607841d0cd5f11aafdbfd3dd93ed5f` / `65c669b0a941c21d23ffca5e79fa03285323a7cf`; CI `30149165373`, attempt 1, 12/12 |
+| Product implementation-review binding/verdict | Round 2 `APPROVED`; zero open P0–P3 |
 | Runbook/evidence commit/tree and independent-review verdict | `NOT BOUND` |
-| Read-only APK path/size/SHA-256/mode | `NOT BOUND` |
-| Read-only artifact manifest path/size/SHA-256/mode | `NOT BOUND` |
-| Package/version/signature/signer/packaged runtime values | `NOT BOUND` |
+| Read-only APK path/size/SHA-256/mode | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5/a323834/app-release-385c0c46f22dcac5.apk`; 95,522,787 bytes; `385c0c46f22dcac5b935bfdc6f574558f4e74748ed4a367ef399ddbd4299c547`; `0444` |
+| Read-only artifact manifest path/size/SHA-256/mode | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5/a323834/artifact-manifest.txt`; 1,647 bytes; `1c1f1b7a5b92fab5510cde35a439fc6f0742b7bf2666d6319cd89b9a7d4dcadb`; `0444` |
+| Package/version/signature/signer/packaged runtime values | `com.tim180201.mobile.synthetic`; versionCode `1`; versionName `1.0.0`; v2 `true`, v1/v3/v3.1/v4 `false`; one local synthetic non-production signer certificate SHA-256 `fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c`; packaged boundary/runtime `match` |
 | Device model/OS/build/screen-unlocked mode | `NOT BOUND` |
 | Approved Tag labels/safe fingerprints by assigned/unassigned/unrelated role | `NOT BOUND` |
 | Synthetic services/status/offline controls | `NOT BOUND` |
@@ -28,8 +30,16 @@ artifact or Human result and grants no authority.
 | Reviewed Protected/Review fixture, labels, start state, cutover, expected sequence and scoped teardown | `NOT BOUND` |
 | Large-text setting/TalkBack version | `NOT BOUND` |
 
-Do not add credentials, digests, tokens, secrets, raw UID/payload, provider subjects, device
-serials, encryption keys, internal identifiers, CSV bodies or personal data.
+The APK and manifest were independently re-hashed and inspected at their final paths. Packaged
+checks confirmed `allowBackup=false`, base cleartext denial with only the synthetic
+`127.0.0.1` exception, both offline-storage rule references and exclusions, NFC
+`TECH_DISCOVERED` with NfcA/MifareUltralight, exactly one Hermes Android bundle and a matching
+synthetic runtime contract. Independent artifact review and Evidence exact-head CI remain
+pending; this is not Human preflight evidence.
+
+Do not add credentials, credential/password/identity digests, tokens, secrets, raw UID/payload,
+provider subjects, device serials, encryption keys, internal identifiers, CSV bodies or personal
+data.
 
 ## 2. Preflight
 
