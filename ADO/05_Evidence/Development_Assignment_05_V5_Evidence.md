@@ -1,6 +1,6 @@
 # Development Assignment 5 — V5 Human Android Evidence
 
-- Status: **READ-ONLY ARTIFACT/EVIDENCE APPROVED — HUMAN V5 NOT RUN/UNAUTHORIZED**
+- Status: **READ-ONLY ARTIFACT/EVIDENCE APPROVED; ALL SHARED-CLUSTER FOLLOW-UP BLOCKED/NOT EVIDENCE; ISOLATED-POSTGRESQL CANDIDATE `72fbd3c` REVIEWED `CHANGES REQUIRED`; CURRENT ADO-ONLY CORRECTION CANDIDATE REQUIRES EXACT-DELTA RE-REVIEW/NOT IMPLEMENTATION AUTHORITY; HUMAN V5 NOT RUN/UNAUTHORIZED**
 - Date: `NOT RUN`
 - Artifact preparation date: 2026-07-25
 - Owner: Technical Lead
@@ -38,7 +38,7 @@ synthetic runtime contract. Independent artifact review and Evidence exact-head 
 on the exact binding above with verdict `APPROVED` and zero open P0–P3. This remains
 artifact/evidence approval, not Human preflight evidence or Human-run authority.
 
-### 1.1 Current enablement correction candidate — no Human result
+### 1.1 Historical enablement corrections and current isolated-PostgreSQL candidate — no Human result
 
 Corrected ADO authorization candidate `cddb66d82047284c72688cc90a7491af761b8791`, tree
 `8cda19f8df42febb34a03a4db4911d5ea8acae79`, passed exact-head CI `30159987539`,
@@ -50,8 +50,8 @@ attempt 1, 12/12. Formal Exact-SHA review round 1 returned `CHANGES REQUIRED` wi
 P1, two P2 and one P3. Subsequent specialist audits additionally found sticky reverse-cleanup
 uncertainty (P2), productive artifact/FD, binary-digest, stdin-runner-close and
 installed-package-path verification gaps (P2), and legacy PostgreSQL provisioner
-preflight/scoped-removal/password-state defects (P1/P2). The current
-focused correction candidate keeps an aborted/error reverse-mutation outcome sticky `uncertain`
+preflight/scoped-removal/password-state defects (P1/P2). The then-current
+focused correction candidate kept an aborted/error reverse-mutation outcome sticky `uncertain`
 through compensating close and the final Android-cleanup handoff; it performs full stable-FD
 digest/lifecycle and buffer-zeroization verification, settles binary digest and stdin-runner
 failures only after child close while retaining the first error, enforces the
@@ -72,9 +72,53 @@ were included 39/39 by `tsc --listFilesOnly`, Android export completed with 861 
 immutable-artifact/no-install preflight matched. Cleanup removed task-owned `taptime_da3` and
 temporary export data; the DA5 Harness end state was `0|false|false|false` for generated roles,
 schema, ledger and Legacy Guard DB, with no listeners on ports 3000/54321. The incomplete
-invocation was an operator-environment issue, not a Product defect. Technical-Lead acceptance and
-formal Exact-SHA re-review remain pending; the correction is uncommitted, and no correction
-SHA/tree/CI binding or approval is claimed here.
+invocation was an operator-environment issue, not a Product defect.
+
+The round-1 correction was then published as
+`a73173a0abe893c80f97b151262b18aa92b5bff5`, tree
+`028e48247620c3d271f1dec04dbdcc83ab28c251`, and passed exact-head CI
+`30169277329`, attempt 1, 12/12. Formal review round 2 returned `CHANGES REQUIRED` with exactly
+two P1 findings against the Legacy PostgreSQL provisioner quarantine/session barrier and
+dependency-safe cleanup boundary, plus one P3 finding against stale ADO navigation/status truth.
+The uncommitted Shared-Cluster follow-up then specified the exact `NOLOGIN`/password-null
+quarantine before any destructive transaction, failed closed on a fresh exact-role-OID activity
+and granted-`virtualxid` census before every destructive step, and used namespace-wide dependency
+proofs with `RESTRICT` cleanup. Focused red regressions reproduced both P1 defects 2/2; the
+corrected Legacy preservation/concurrency boundary passed 7/7, the DA5 least-privilege success
+boundary passed 3/3 and complete Synthetic passed 164/164. The tests-inclusive Synthetic
+typecheck, explicit test-source inclusion proof and Synthetic build passed. Full V3,
+Technical-Lead acceptance, a committed SHA/tree and Exact-Head CI binding, and formal review
+round 3 remain pending; no follow-up approval is claimed here.
+
+A subsequent precommit PostgreSQL safety audit found additional Role-OID ABA, DA5 preparation
+TOCTOU/adoption, cleanup ownership/fingerprint/atomicity and real-PostgreSQL proof gaps in that
+uncommitted follow-up. That later Shared-Cluster WIP revalidated exact role OID/state under a fixed
+PostgreSQL-17 catalog-lock order before quarantine and destructive mutation; kept DA5 preparation
+in one migration-locked/catalog-locked transaction with exact absence proofs and explicit
+creation only; and bound cleanup to the immutable prepared profile plus a catalog-derived
+ownership fingerprint before one rollback-safe destructive transaction. A safe new red
+regression reproduced the cleanup profile mismatch 1/1 before correction. Corrected focused
+Legacy preservation/concurrency passed 14/14, ownership-bound cleanup passed 9/9, the DA5
+least-privilege success boundary passed 3/3 and complete Synthetic passed 180/180. The
+tests-inclusive Synthetic typecheck, explicit 9/9 test-source inclusion proof, Synthetic build,
+scoped diff-check and final PostgreSQL `0|false|false|false` null-state proof passed. The
+raw-protocol authentication-boundary regression is deterministic, but local PostgreSQL 17 uses
+host `trust`: its authenticated-role branch ran, while the implemented SASL/hidden-startup-VXID
+branch was not locally exercised. Full workspace V3, Technical-Lead acceptance, a committed
+SHA/tree and Exact-Head CI binding, and formal review round 3 remain pending; no follow-up
+approval is claimed here.
+
+The entire Shared-Cluster follow-up above is now `BLOCKED`, is not Candidate Evidence and is not
+the current green path. Its focused 180/180 Synthetic result remains a historical WIP observation
+only and is not Human/hardware Evidence.
+
+The isolated-PostgreSQL authorization candidate was published at
+`72fbd3c20329dfbf3e8a1509025bd630b1bb130a`, tree
+`dda615edd2e91c6b4d50bf979386937a9f3d249f`. CI `30176432929`, attempt 2, passed 12/12; attempt 1
+timed out while pulling the Docker Hub image before checkout and tested no repository source.
+Independent candidate review returned `CHANGES REQUIRED` with five P1, one P2 and one P3. The
+current ADO-only correction candidate requires independent Exact-Delta re-review and grants
+no implementation, installation, ADB, device/Tag or Human/hardware authority.
 
 No installation, ADB, device/Tag interaction or Human V5 occurred. The Harness can accept A/B/X
 values only from the operator and cannot independently prove their origin. Before any hardware

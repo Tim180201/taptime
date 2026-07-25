@@ -1,7 +1,7 @@
 # Project Status
 
-Status: CORE ROADMAP V2 BLOCK A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2, BLOCK D, E1 AND NARROW E2A COMPLETE FOR THEIR RECORDED SCOPES — DEVELOPMENT ASSIGNMENTS 1–3 AND DT-060–DT-074 CLOSED FOR THEIR EXACT AUTHORIZED LOCAL SCOPES — DA4 WORKSTREAMS A–D, AVS V0–V4, H01 PROCEDURAL CORRECTION, DA4-V5-F06 AND DA4-V5-F07 INDEPENDENTLY APPROVED; DA4 REMAINS OPEN FOR A LATER FRESH HUMAN V5 — DA5 V0–V4 SOFTWARE IS TECHNICALLY CLOSED; CURRENT SOURCE+LOCK BASELINE `a323834`, TREE `65c669b`, PASSED EXACT-HEAD CI `30149165373` 12/12 AND INDEPENDENT IMPLEMENTATION REVIEW ROUND 2 `APPROVED` WITH ZERO OPEN P0–P3; THE READ-ONLY SYNTHETIC V5 APK/MANIFEST EVIDENCE AT `e6a06e2`, TREE `6dcdce4`, PASSED EXACT-HEAD CI `30150095109` 12/12 AND FINAL INDEPENDENT ARTIFACT/EVIDENCE EXACT-SHA REVIEW `APPROVED` WITH ZERO OPEN P0–P3; DA5-V5 ENABLEMENT PUBLICATION `15f43b1b05e136e0d6643b1f10c1fc8310cfa838`, TREE `ed1e55c08dd13392f6f72bcf9265cdfaf547fa72`, PASSED EXACT-HEAD CI `30165425892` 12/12 BUT FORMAL EXACT-SHA REVIEW ROUND 1 RETURNED `CHANGES REQUIRED` WITH FOUR P1, TWO P2 AND ONE P3; THE CURRENT FOCUSED CORRECTION CANDIDATE IS LOCALLY V0–V3 GREEN AND PENDING TECHNICAL-LEAD ACCEPTANCE AND FORMAL EXACT-SHA RE-REVIEW; HUMAN/HARDWARE V5 REMAINS SEPARATE AND UNAUTHORIZED — PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
-Date: 2026-07-25
+Status: CORE ROADMAP V2 BLOCK A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2, BLOCK D, E1 AND NARROW E2A COMPLETE FOR THEIR RECORDED SCOPES — DEVELOPMENT ASSIGNMENTS 1–3 AND DT-060–DT-074 CLOSED FOR THEIR EXACT AUTHORIZED LOCAL SCOPES — DA4 WORKSTREAMS A–D, AVS V0–V4, H01 PROCEDURAL CORRECTION, DA4-V5-F06 AND DA4-V5-F07 INDEPENDENTLY APPROVED; DA4 REMAINS OPEN FOR A LATER FRESH HUMAN V5 — DA5 V0–V4 SOFTWARE IS TECHNICALLY CLOSED; CURRENT SOURCE+LOCK BASELINE `a323834`, TREE `65c669b`, PASSED EXACT-HEAD CI `30149165373` 12/12 AND INDEPENDENT IMPLEMENTATION REVIEW ROUND 2 `APPROVED` WITH ZERO OPEN P0–P3; THE READ-ONLY SYNTHETIC V5 APK/MANIFEST EVIDENCE AT `e6a06e2`, TREE `6dcdce4`, PASSED EXACT-HEAD CI `30150095109` 12/12 AND FINAL INDEPENDENT ARTIFACT/EVIDENCE EXACT-SHA REVIEW `APPROVED` WITH ZERO OPEN P0–P3; ALL SHARED-CLUSTER FOLLOW-UP IS BLOCKED AND NOT EVIDENCE; ISOLATED-POSTGRESQL CANDIDATE `72fbd3c20329dfbf3e8a1509025bd630b1bb130a`, TREE `dda615edd2e91c6b4d50bf979386937a9f3d249f`, PASSED CI `30176432929` ATTEMPT 2 12/12 AFTER ATTEMPT 1 TIMED OUT AT DOCKER HUB BEFORE CHECKOUT, BUT INDEPENDENT REVIEW RETURNED `CHANGES REQUIRED` WITH FIVE P1, ONE P2 AND ONE P3; THE CURRENT ADO-ONLY CORRECTION CANDIDATE REQUIRES INDEPENDENT EXACT-DELTA RE-REVIEW AND GRANTS NO IMPLEMENTATION OR HUMAN/HARDWARE AUTHORITY — PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
+Date: 2026-07-26
 Owner: Human Architect + Technical Lead
 
 ## Product
@@ -97,7 +97,7 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   uncertainty (P2), productive artifact/FD, binary-digest, stdin-runner-close and
   installed-package-path verification gaps (P2), and legacy PostgreSQL provisioner
   preflight/scoped-removal/password-state defects (P1/P2). The
-  focused correction candidate preserves mutation uncertainty, performs complete stable-FD
+  round-1 focused correction candidate preserved mutation uncertainty, performed complete stable-FD
   digest/lifecycle verification, settles binary digest and stdin-runner failures only after child
   close while retaining the first error, enforces the installed-package-path parser boundary, and
   completes all read-only legacy role/session/membership-option/setting/dependency checks plus
@@ -117,12 +117,49 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   immutable-artifact/no-install preflight matched. Cleanup removed task-owned `taptime_da3` and
   temporary export data; the DA5 Harness end state was `0|false|false|false` for generated roles,
   schema, ledger and Legacy Guard DB, with no listeners on ports 3000/54321. The incomplete
-  invocation was an operator-environment issue, not a Product defect. Technical-Lead acceptance
-  and formal Exact-SHA re-review remain pending; the correction is uncommitted and not approved. No
-  installation, ADB, device/Tag interaction or Human V5 occurred; before hardware, the A/B/X
+  invocation was an operator-environment issue, not a Product defect. The round-1 correction was
+  subsequently published at `a73173a0abe893c80f97b151262b18aa92b5bff5`, tree
+  `028e48247620c3d271f1dec04dbdcc83ab28c251`, and passed exact-head CI `30169277329`, attempt 1,
+  12/12. Formal Exact-SHA review round 2 returned `CHANGES REQUIRED` with exactly two P1 and one
+  P3: quarantine visibility/session-race safety, foreign-owned target-schema preservation, and
+  stale official DA5 navigation/status wording. At authoring time, the uncommitted local follow-up
+  candidate commits the credential quarantine before destructive work, uses a fresh Role-OID and
+  startup-VXID barrier before every drop/owner transfer, accepts only exact initial/transitional
+  credential states, proves the target namespace generically empty and uses DA5 `RESTRICT`.
+  Focused real-PostgreSQL TDD first failed 2/2 against the reviewed baseline; after correction,
+  legacy preservation/concurrency passed 7/7, the DA5 success boundary passed 3/3 and complete
+  Synthetic passed 164/164. The tests-inclusive Synthetic typecheck and build passed; final
+  database state was `0|false|false|false` for generated roles, schema, ledger and Legacy Guard
+  DB. Full workspace V3, Technical-Lead acceptance, commit/publication, V4 and formal review round
+  3 remain pending; no follow-up SHA/tree/CI binding or approval is claimed.
+  A subsequent precommit PostgreSQL safety audit found additional Role-OID ABA, DA5 preparation
+  TOCTOU/adoption, cleanup ownership/fingerprint/atomicity and real-PostgreSQL proof gaps in that
+  uncommitted follow-up. That later Shared-Cluster WIP revalidated exact role OID/state while
+  holding a fixed PostgreSQL-17 catalog-lock set before quarantine and destructive mutation; prepared DA5
+  only by explicit creation inside one migration-locked/catalog-locked transaction after exact
+  absence proofs; and permitted cleanup only for the immutable prepared profile and matching
+  catalog-derived ownership fingerprint inside one rollback-safe transaction. A safe new red
+  regression reproduced the cleanup profile mismatch 1/1 before correction. Corrected focused
+  Legacy preservation/concurrency passed 14/14, ownership-bound cleanup passed 9/9, the DA5
+  least-privilege success boundary passed 3/3 and complete Synthetic passed 180/180. The
+  tests-inclusive Synthetic typecheck, explicit 9/9 test-source inclusion proof, Synthetic build,
+  scoped diff-check and final PostgreSQL `0|false|false|false` null-state proof passed. Local
+  PostgreSQL 17 uses host `trust`, so the raw-protocol authentication-boundary test exercised its
+  authenticated-role branch; the implemented SASL/hidden-startup-VXID branch was not locally
+  exercised. Full workspace V3, Technical-Lead acceptance, publication/V4 and formal review round
+  3 remain pending; no follow-up SHA/tree/CI binding or approval is claimed.
+  This entire Shared-Cluster follow-up is now `BLOCKED`, is not Candidate Evidence and is not the
+  current green path. The isolated-PostgreSQL authorization candidate was published at
+  `72fbd3c20329dfbf3e8a1509025bd630b1bb130a`, tree
+  `dda615edd2e91c6b4d50bf979386937a9f3d249f`, and passed CI `30176432929`, attempt 2, 12/12;
+  attempt 1 timed out pulling from Docker Hub before checkout and tested no source. Independent
+  review returned `CHANGES REQUIRED` with five P1, one P2 and one P3. The current ADO-only
+  correction candidate requires independent Exact-Delta re-review and grants no
+  implementation or Human/hardware authority. No installation, ADB, device/Tag interaction or
+  Human V5 occurred; before hardware, the A/B/X
   provenance gap requires a separately reviewed Validation-App/Binding-Preflight architecture and
   explicit Human authorization.
-- **Development Assignment 4 is the active Roadmap engineering block.** The Human Architect
+- **Development Assignment 4 remains open only for a later separately authorized Human V5.** The Human Architect
   accepted ADR-0015 and DA4-P01–P12 and separately authorized Workstreams A–D plus AVS V0–V4 on
   exact baseline `d9892435acbf7f45a96a9a01c8331afceb65f6f1`, tree
   `693bc9a5ca1c0d414ff196f9dfa3352757e45701`, CI `30000921765`, attempt 1, 12/12. The local
@@ -822,11 +859,13 @@ Two Epics are concurrently Active, per EP-009's own stated relationship to the r
    independently `APPROVED`, `MERGE_READY`, with zero open P0–P3. Preserve the read-only V5
    artifact/evidence approval at `e6a06e2`, tree `6dcdce4`, exact-head CI `30150095109` 12/12
    and final independent Artifact/Evidence Exact-SHA review `APPROVED` with zero open P0–P3.
-   It grants no Human-run authority. Treat DA5-V5 enablement publication `15f43b1`, tree
-   `ed1e55c`, CI `30165425892` 12/12 as `CHANGES REQUIRED` after formal review round 1 (four P1,
-   two P2, one P3); complete and independently re-review the focused correction candidate before any
-   later Human proposal. DA4's open Human gate and all Human/hardware V5 evidence remain separate
-   and unauthorized.
+   It grants no Human-run authority. Treat every Shared-Cluster follow-up, including its 180/180
+   focused result, as `BLOCKED` and not Evidence. Candidate `72fbd3c`, tree `dda615e`, passed CI
+   `30176432929`, attempt 2, 12/12 after attempt 1's Docker Hub timeout before checkout, but
+   independent review returned `CHANGES REQUIRED` with five P1, one P2 and one P3. Independently
+   re-review the current ADO-only isolated-PostgreSQL correction candidate before any R3
+   implementation proposal; no implementation authority exists yet.
+   DA4's open Human gate and all Human/hardware V5 evidence remain separate and unauthorized.
    Production, production data, deployment and distribution remain unauthorized.
 
 ## Agreed comprehensive Development-assignment sequence

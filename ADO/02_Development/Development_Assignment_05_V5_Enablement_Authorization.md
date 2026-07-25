@@ -1,7 +1,7 @@
 # Development Assignment 5 — V5 Operational Enablement Authorization Candidate
 
-- Status: **CORRECTED ADO CANDIDATE `cddb66d` INDEPENDENTLY APPROVED; ENABLEMENT `15f43b1` PUBLISHED/CI-GREEN; FORMAL REVIEW ROUND 1 `CHANGES REQUIRED`; CURRENT FOCUSED CORRECTION CANDIDATE LOCALLY V0–V3 GREEN; TECHNICAL-LEAD ACCEPTANCE AND EXACT-SHA RE-REVIEW PENDING; HUMAN V5 UNAUTHORIZED**
-- Date: 2026-07-25
+- Status: **READ-ONLY PRODUCT/ARTIFACT BINDINGS PRESERVED; ALL SHARED-CLUSTER FOLLOW-UP BLOCKED/NOT EVIDENCE; ISOLATED-POSTGRESQL CANDIDATE `72fbd3c` REVIEWED `CHANGES REQUIRED` WITH FIVE P1, ONE P2 AND ONE P3; CURRENT ADO-ONLY CORRECTION CANDIDATE REQUIRES EXACT-DELTA RE-REVIEW/NOT IMPLEMENTATION AUTHORITY; HUMAN V5 UNAUTHORIZED**
+- Date: 2026-07-26
 - Candidate baseline commit: `7fe725360935a5d9587e3dfbdb2789d8309342df`
 - Candidate baseline tree: `0abaa77443a2abf81fd815ec138776155188bfc0`
 - Reviewed Product source/lock commit: `a323834f51607841d0cd5f11aafdbfd3dd93ed5f`
@@ -308,8 +308,8 @@ attempt 1, 12/12. Formal Exact-SHA review round 1 returned `CHANGES REQUIRED` wi
 P2 and one P3. Subsequent specialist audits additionally found sticky reverse-cleanup uncertainty
 (P2), productive artifact/FD, binary-digest, stdin-runner-close and installed-package-path
 verification gaps (P2), and legacy PostgreSQL provisioner preflight/scoped-removal/password-state
-defects (P1/P2). The current focused correction candidate passed Mobile focus 77/77 and complete
-Mobile 542/542; real-PostgreSQL preservation passed 4/4, the normal success path passed 3/3 and
+defects (P1/P2). The then-current round-1 correction candidate passed Mobile focus 77/77 and
+complete Mobile 542/542; real-PostgreSQL preservation passed 4/4, the normal success path passed 3/3 and
 complete Synthetic passed 161/161. Both
 tests-inclusive typechecks, the Synthetic build, changed-MJS syntax checks,
 immutable-artifact/no-install preflight, scoped diff-check and final PostgreSQL null-state proof
@@ -324,5 +324,50 @@ with 861 modules and the immutable-artifact/no-install preflight matched. Cleanu
 task-owned `taptime_da3` and temporary export data; the DA5 Harness end state was
 `0|false|false|false` for generated roles, schema, ledger and Legacy Guard DB, with no listeners
 on ports 3000/54321. The incomplete invocation was an operator-environment issue, not a Product
-defect. Technical-Lead acceptance and formal Exact-SHA re-review remain pending; the correction
-is uncommitted, and no correction SHA/tree/CI binding or approval is claimed here.
+defect.
+
+The round-1 correction was then published as
+`a73173a0abe893c80f97b151262b18aa92b5bff5`, tree
+`028e48247620c3d271f1dec04dbdcc83ab28c251`, and passed exact-head CI
+`30169277329`, attempt 1, 12/12. Formal review round 2 returned `CHANGES REQUIRED` with exactly
+two P1 findings against the Legacy PostgreSQL provisioner quarantine/session barrier and
+dependency-safe cleanup boundary, plus one P3 finding against stale ADO navigation/status truth.
+The uncommitted Shared-Cluster follow-up then specified the exact `NOLOGIN`/password-null
+quarantine before any destructive transaction, failed closed on a fresh exact-role-OID activity
+and granted-`virtualxid` census before every destructive step, and used namespace-wide dependency
+proofs with `RESTRICT` cleanup. Focused red regressions reproduced both P1 defects 2/2; the
+corrected Legacy preservation/concurrency boundary passed 7/7, the DA5 least-privilege success
+boundary passed 3/3 and complete Synthetic passed 164/164. The tests-inclusive Synthetic
+typecheck, explicit test-source inclusion proof and Synthetic build passed. Full V3,
+Technical-Lead acceptance, a committed SHA/tree and Exact-Head CI binding, and formal review
+round 3 remain pending; no follow-up approval is claimed here.
+
+A subsequent precommit PostgreSQL safety audit found additional Role-OID ABA, DA5 preparation
+TOCTOU/adoption, cleanup ownership/fingerprint/atomicity and real-PostgreSQL proof gaps in that
+uncommitted follow-up. That later Shared-Cluster WIP revalidated exact role OID/state while holding
+a fixed PostgreSQL-17 catalog-lock set before quarantine and destructive mutation; performed DA5
+preparation by explicit creation only inside one migration-locked/catalog-locked transaction
+after exact absence proofs; and permitted cleanup only for the immutable prepared profile and
+matching catalog-derived ownership fingerprint inside one rollback-safe transaction. A safe new
+red regression reproduced the cleanup profile mismatch 1/1 before correction. Corrected focused
+Legacy preservation/concurrency passed 14/14, ownership-bound cleanup passed 9/9, the DA5
+least-privilege success boundary passed 3/3 and complete Synthetic passed 180/180. The
+tests-inclusive Synthetic typecheck, explicit 9/9 test-source inclusion proof, Synthetic build,
+scoped diff-check and final PostgreSQL `0|false|false|false` null-state proof passed. Local
+PostgreSQL 17 uses host `trust`, so the raw-protocol authentication-boundary regression exercised
+its authenticated-role branch; the implemented SASL/hidden-startup-VXID branch was not locally
+exercised. Full workspace V3, Technical-Lead acceptance, a committed SHA/tree and Exact-Head CI
+binding, and formal review round 3 remain pending; no follow-up approval is claimed here.
+
+The entire Shared-Cluster follow-up above is now `BLOCKED`, is not Candidate Evidence and is not
+the current green path. Its focused 180/180 Synthetic result remains a historical WIP observation
+only.
+
+The isolated-PostgreSQL authorization candidate was published at
+`72fbd3c20329dfbf3e8a1509025bd630b1bb130a`, tree
+`dda615edd2e91c6b4d50bf979386937a9f3d249f`. CI `30176432929`, attempt 2, passed 12/12; attempt 1
+timed out while pulling the Docker Hub image before checkout and tested no repository source.
+Independent candidate review returned `CHANGES REQUIRED` with five P1, one P2 and one P3. The
+current ADO-only correction candidate requires an independent Exact-Delta re-review
+with zero open P0–P3 before it can supply any implementation authority. It grants no installation,
+ADB, device/Tag or Human/hardware authority.
