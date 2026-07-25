@@ -119,9 +119,17 @@ The executable enablement SHALL:
     network/emulator transports or mappings fail closed. No serial is emitted;
 14. restore the exact direct mapping during normal, failure, signal and startup-abort cleanup.
     Cleanup must never use `adb reverse --remove-all` or touch an unrelated mapping;
-15. provide a server-clock-based named `dedupe-window-check` that returns only `match` when the
-    latest persisted WorkEvent for the exact synthetic User/target is strictly more than five
-    seconds old. Missing, equal, ambiguous or unexpected state returns only `mismatch`;
+15. provide fixed allow-listed, phase/target-bound `dedupe-window-baseline` slots and matching
+    single-use `dedupe-window-check` commands. A baseline may be captured only immediately after
+    the Human has confirmed the preceding Product action for that exact phase, User and target. It
+    queries a fresh PostgreSQL server clock once, retains that value only in process memory and
+    emits only `dedupe_window_baseline=match|mismatch`; no timestamp is emitted or persisted. The
+    matching check queries the server clock again and emits only
+    `dedupe_window_elapsed=match|mismatch`, returning `match` only when strictly more than five
+    seconds have elapsed. It then destroys that slot. Missing, wrong-phase, wrong-target, reused,
+    equal-to-five-seconds, ambiguous or unexpected state returns only `mismatch` and latches the
+    run failed. Readiness must never be derived from persisted WorkEvent age, so an action still
+    held only in the encrypted offline FIFO is covered conservatively;
 16. provide serial read-only checkpoints that compare the current aggregate against the exact
     expected delta for setup/rejection, cold/background dispatch, duplicate evidence, online mixed
     provenance, Project/General work, ordinary offline FIFO, synchronization, cancellation and
@@ -279,3 +287,18 @@ No Human/hardware action is authorized by this candidate. The Technical Lead mus
 Architect explicitly **“Jetzt Handy anschließen”** only after every preceding arrow is complete
 and must provide one copy-ready exact-bound one-run authorization. Production, production data,
 deployment and distribution remain unauthorized.
+
+## 8. Candidate review history
+
+The independent read-only review of candidate commit
+`6112e10b49ea1f66004dc515234be8d38d12575c`, tree
+`e7622553c148f587a48b8fabe68830472e405d29`, exact-head CI `30159661549`, attempt 1,
+12/12 successful, returned `CHANGES REQUIRED` with only P2 `DA5-V5-REV-01`. This correction
+replaces persisted-WorkEvent-age readiness with the memory-only fresh-server-clock baseline above
+and removes the unreachable elapsed check before Tag B's first action. Independent exact-delta
+re-review remains required before implementation.
+
+Change impact is AVS-001 R0: only this candidate and the Human runbook change; no executable,
+schema, dependency, lockfile, configuration, workflow, script or artifact input changes. V0
+integrity checks apply, and all Product/artifact evidence above remains carried from its exact
+named source state rather than newly executed.

@@ -114,11 +114,18 @@ After each staged gate, the operator states only the expected and observed safe 
 answers `PASS`, `FAIL` or `AMBIGUOUS`. Only `PASS` permits the next gate. Short acknowledgement
 never replaces a listed observation.
 
-Before every action in Gates B, C or D that is intended to produce the opposite Start/Stop for the
-same User/WorkTarget, the operator must prove that strictly more than the exact five-second DA5-T06
-window has elapsed. Record only `dedupe_window_elapsed=match`; do not record wall-clock or
-monotonic timestamps. Missing, equal-to-five-seconds or ambiguous evidence fails before the
-action.
+Immediately after the Human confirms each first action that will later have an intended opposite
+Start/Stop for the same User/WorkTarget, the operator captures the exact named
+`dedupe-window-baseline`. The harness queries a fresh PostgreSQL server clock only after that
+action, keeps the allow-listed phase/target baseline only in process memory and records only
+`dedupe_window_baseline=match`. It must not derive this baseline from WorkEvent persistence; this
+conservatively covers an action still held only in the encrypted offline FIFO.
+
+Before the matching opposite action, the operator consumes that exact single-use baseline through
+`dedupe-window-check` and must prove that strictly more than the five-second DA5-T06 window has
+elapsed. Record only `dedupe_window_elapsed=match`; do not record wall-clock or monotonic
+timestamps. A missing, wrong-phase, wrong-target, reused, equal-to-five-seconds or ambiguous
+baseline fails before the action. No elapsed check is required before a first action.
 
 ## 5. Staged Human gate
 
@@ -154,7 +161,8 @@ three rejection paths are unambiguous.
 2. Present that same Tag again within the exact bound dedupe interval. Require no second lifecycle
    mutation, but exactly one additional persisted WorkEvent, Decision, Receipt and Audit with
    Decision `duplicate_scan_ignored`. Own-time and the current TimeEntry remain unchanged.
-3. Before the intended opposite lifecycle result, require
+   After the Human confirms that duplicate result, capture the named Gate-B Customer baseline.
+3. Before the intended opposite lifecycle result, consume that same baseline and require
    `dedupe_window_elapsed=match`. Then put the app in the background and present the same Tag.
    Require one background/resume dispatch and exactly one next lifecycle result.
 4. Verify active/history truth and immutable NFC provenance for both accepted results.
@@ -167,11 +175,14 @@ with exact duplicate evidence and without a second TimeEntry mutation.
 Use only valid server-decided toggles; never select Start or Stop manually.
 
 1. Exercise the online Customer path with one NFC action and the matching manual Customer action
-   so the resulting pair proves mixed NFC/manual provenance. Require
+   so the resulting pair proves mixed NFC/manual provenance. After Human confirmation of the
+   first action, capture the named Gate-C Customer baseline; consume it and require
    `dedupe_window_elapsed=match` before the intended opposite action.
-2. Exercise one online manual Project Start/Stop pair, with
+2. Exercise one online manual Project Start/Stop pair. After Human confirmation of Start, capture
+   the named Gate-C Project baseline; consume it and require
    `dedupe_window_elapsed=match` before Stop.
-3. Exercise one online manual General Work Start/Stop pair, with
+3. Exercise one online manual General Work Start/Stop pair. After Human confirmation of Start,
+   capture the named Gate-C General Work baseline; consume it and require
    `dedupe_window_elapsed=match` before Stop.
 4. After each pair, require the current active state, ordered own-time active/history projection,
    exact Customer/Project/General target label and immutable trigger provenance to agree.
@@ -199,9 +210,11 @@ Gate E must pass before Gate D starts because Gate D ends at the mandatory prote
 1. Activate only the exact authorized controlled-offline switch and prove loss of the bound
    server path without changing authentication, device or app state.
 2. Exercise the applicable ordinary offline matrix once: assigned Customer NFC with matching
-   manual Customer action, one manual Project pair and one manual General Work pair. Before every
-   intended opposite action require `dedupe_window_elapsed=match`. Require FIFO order,
-   target/provenance truth and explicit pending UI; no server success may be claimed.
+   manual Customer action, one manual Project pair and one manual General Work pair. Immediately
+   after Human confirmation of each first pending action, capture its named Gate-D ordinary
+   target baseline; consume that same baseline and require `dedupe_window_elapsed=match` before
+   its intended opposite action. Require FIFO order, target/provenance truth and explicit pending
+   UI; no server success may be claimed.
 3. Restart the app once while ordinary evidence is pending. Require durable restoration,
    unchanged order and no false ready/cleared state. Restore only the authorized server path and
    require one ordered synchronization, no duplicate result and eventual own-time active/history
@@ -211,12 +224,17 @@ Gate E must pass before Gate D starts because Gate D ends at the mandatory prote
    cancelled result to produce zero later mutation or replay. Do not repeat the action.
 5. Require the ordinary FIFO to be clean and no review marker to exist. Start only the separately
    reviewed Protected/Review fixture. Require Tag A to have no active TimeEntry; after
-   `dedupe_window_elapsed=match`, start approved Tag B online so its other target is active.
+   that clean checkpoint, start approved Tag B online so its other target is active. This is Tag
+   B's first action and has no preceding elapsed check. After Human confirmation of Start, capture
+   the named Gate-D Tag-B/Customer-B baseline.
 6. Enter the bound cold offline state and capture approved Tag A once before cutover. While the
-   device remains offline, execute only the fixture's reviewed synthetic reassignment of Tag A
-   from its named Customer A to named Customer B. Do not alter device clocks.
-7. Capture stale Tag A once after cutover. Before the intended Tag B successor action require
-   `dedupe_window_elapsed=match`, then capture Tag B.
+   device remains offline, require its pending UI and capture the named Gate-D Tag-A baseline.
+   Then execute only the fixture's reviewed synthetic reassignment of Tag A from its named
+   Customer A to named Customer B. Do not alter device clocks.
+7. Consume the Gate-D Tag-A baseline and require `dedupe_window_elapsed=match`, then capture stale
+   Tag A once after cutover. Consume the independently retained Gate-D Tag-B/Customer-B baseline
+   and require `dedupe_window_elapsed=match` before capturing Tag B as its intended successor
+   action.
 8. Restore only the approved path and allow automatic FIFO reconciliation without per-event retry.
    Require, in order:
    `active_entry_for_other_target_rejected`,
