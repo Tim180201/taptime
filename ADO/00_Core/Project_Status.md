@@ -1,6 +1,6 @@
 # Project Status
 
-Status: CORE ROADMAP V2 BLOCK A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2, BLOCK D, E1 AND NARROW E2A COMPLETE FOR THEIR RECORDED SCOPES — DEVELOPMENT ASSIGNMENTS 1–3 AND DT-060–DT-074 CLOSED FOR THEIR EXACT AUTHORIZED LOCAL SCOPES — DA4 WORKSTREAMS A–D, AVS V0–V4, H01 PROCEDURAL CORRECTION, DA4-V5-F06 AND DA4-V5-F07 INDEPENDENTLY APPROVED; DA4 REMAINS OPEN FOR A LATER FRESH HUMAN V5 — DA5 V0–V4 SOFTWARE IS TECHNICALLY CLOSED; CURRENT SOURCE+LOCK BASELINE `a323834`, TREE `65c669b`, PASSED EXACT-HEAD CI `30149165373` 12/12 AND INDEPENDENT IMPLEMENTATION REVIEW ROUND 2 `APPROVED` WITH ZERO OPEN P0–P3; A READ-ONLY SYNTHETIC V5 APK/MANIFEST CANDIDATE IS PREPARED, WHILE ARTIFACT REVIEW, EVIDENCE EXACT-HEAD CI AND HUMAN/HARDWARE V5 REMAIN PENDING, SEPARATE AND UNAUTHORIZED — PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
+Status: CORE ROADMAP V2 BLOCK A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2, BLOCK D, E1 AND NARROW E2A COMPLETE FOR THEIR RECORDED SCOPES — DEVELOPMENT ASSIGNMENTS 1–3 AND DT-060–DT-074 CLOSED FOR THEIR EXACT AUTHORIZED LOCAL SCOPES — DA4 WORKSTREAMS A–D, AVS V0–V4, H01 PROCEDURAL CORRECTION, DA4-V5-F06 AND DA4-V5-F07 INDEPENDENTLY APPROVED; DA4 REMAINS OPEN FOR A LATER FRESH HUMAN V5 — DA5 V0–V4 SOFTWARE IS TECHNICALLY CLOSED; CURRENT SOURCE+LOCK BASELINE `a323834`, TREE `65c669b`, PASSED EXACT-HEAD CI `30149165373` 12/12 AND INDEPENDENT IMPLEMENTATION REVIEW ROUND 2 `APPROVED` WITH ZERO OPEN P0–P3; THE READ-ONLY SYNTHETIC V5 APK/MANIFEST EVIDENCE AT `e6a06e2`, TREE `6dcdce4`, PASSED EXACT-HEAD CI `30150095109` 12/12 AND FINAL INDEPENDENT ARTIFACT/EVIDENCE EXACT-SHA REVIEW `APPROVED` WITH ZERO OPEN P0–P3, WHILE HUMAN/HARDWARE V5 REMAINS SEPARATE AND UNAUTHORIZED — PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
 Date: 2026-07-25
 Owner: Human Architect + Technical Lead
 
@@ -74,9 +74,12 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   `65c669b0a941c21d23ffca5e79fa03285323a7cf`, passed exact-head CI `30149165373`,
   attempt 1, 12/12, and independent implementation review round 2 returned `APPROVED` with zero
   open P0–P3. One fresh local synthetic APK and adjacent disclosure-safe artifact manifest are
-  now retained read-only under the DA5 V5 local-artifact boundary. This artifact/evidence delta
-  claims no self-approval: independent artifact review and Evidence exact-head CI remain pending.
-  It authorizes no installation, ADB, device/Tag interaction or Human V5. A future fresh run still
+  now retained read-only under the DA5 V5 local-artifact boundary. Exact Evidence commit
+  `e6a06e2ec8f580d6314bfe5a51378f949d524b16`, tree
+  `6dcdce405feb2eccb1462c373ab6be891152715c`, passed exact-head CI `30150095109`,
+  attempt 1, 12/12; final independent Artifact/Evidence Exact-SHA review returned `APPROVED` with
+  zero open P0–P3. This approval authorizes no installation, ADB, device/Tag interaction or Human
+  V5. A future fresh run still
   requires the remaining exact device, Tag, service, fixture and accessibility bindings plus a
   separate Human authorization. DA4 Human V5 also remains separate. Production, production data,
   production signing, deployment and distribution remain unauthorized.
@@ -777,11 +780,11 @@ Two Epics are concurrently Active, per EP-009's own stated relationship to the r
    `DA4-V5-H03`. Any later DA4 Human V5 requires a new separate exact-bound authorization; no
    reuse, retry, repair or resume is authorized.
 6. Preserve DA5 V0–V4 technical closure at R0 truth synchronization `b777f702`, tree `54b257f`,
-   independently `APPROVED`, `MERGE_READY`, with zero open P0–P3. Treat the current pre-hardware
-   V5 runbook/evidence shell only as an R0 candidate that grants no run authority and claims no
-   review result for itself; obtain its independent Exact-Delta review before any separate,
-   exact-bound Human authorization. No self-SHA is required by the shell. DA4's open Human gate
-   and all Human/hardware V5 evidence remain separate and unauthorized.
+   independently `APPROVED`, `MERGE_READY`, with zero open P0–P3. Preserve the read-only V5
+   artifact/evidence approval at `e6a06e2`, tree `6dcdce4`, exact-head CI `30150095109` 12/12
+   and final independent Artifact/Evidence Exact-SHA review `APPROVED` with zero open P0–P3.
+   It grants no Human-run authority. DA4's open Human gate and all Human/hardware V5 evidence
+   remain separate and unauthorized.
    Production, production data, deployment and distribution remain unauthorized.
 
 ## Agreed comprehensive Development-assignment sequence

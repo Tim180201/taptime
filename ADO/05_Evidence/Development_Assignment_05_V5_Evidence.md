@@ -1,6 +1,6 @@
 # Development Assignment 5 — V5 Human Android Evidence
 
-- Status: **READ-ONLY ARTIFACT CANDIDATE PREPARED — HUMAN V5 NOT RUN/UNAUTHORIZED**
+- Status: **READ-ONLY ARTIFACT/EVIDENCE APPROVED — HUMAN V5 NOT RUN/UNAUTHORIZED**
 - Date: `NOT RUN`
 - Artifact preparation date: 2026-07-25
 - Owner: Technical Lead
@@ -18,7 +18,7 @@ and grants no Human-run authority.
 | One-run Human authorization/date | `NOT BOUND` |
 | Product commit/tree and required V4 | `a323834f51607841d0cd5f11aafdbfd3dd93ed5f` / `65c669b0a941c21d23ffca5e79fa03285323a7cf`; CI `30149165373`, attempt 1, 12/12 |
 | Product implementation-review binding/verdict | Round 2 `APPROVED`; zero open P0–P3 |
-| Runbook/evidence commit/tree and independent-review verdict | `NOT BOUND` |
+| Runbook/evidence commit/tree and independent-review verdict | `e6a06e2ec8f580d6314bfe5a51378f949d524b16` / `6dcdce405feb2eccb1462c373ab6be891152715c`; CI `30150095109`, attempt 1, 12/12; final independent Artifact/Evidence Exact-SHA review `APPROVED`, zero open P0–P3 |
 | Read-only APK path/size/SHA-256/mode | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5/a323834/app-release-385c0c46f22dcac5.apk`; 95,522,787 bytes; `385c0c46f22dcac5b935bfdc6f574558f4e74748ed4a367ef399ddbd4299c547`; `0444` |
 | Read-only artifact manifest path/size/SHA-256/mode | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5/a323834/artifact-manifest.txt`; 1,647 bytes; `1c1f1b7a5b92fab5510cde35a439fc6f0742b7bf2666d6319cd89b9a7d4dcadb`; `0444` |
 | Package/version/signature/signer/packaged runtime values | `com.tim180201.mobile.synthetic`; versionCode `1`; versionName `1.0.0`; v2 `true`, v1/v3/v3.1/v4 `false`; one local synthetic non-production signer certificate SHA-256 `fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c`; packaged boundary/runtime `match` |
@@ -34,8 +34,9 @@ The APK and manifest were independently re-hashed and inspected at their final p
 checks confirmed `allowBackup=false`, base cleartext denial with only the synthetic
 `127.0.0.1` exception, both offline-storage rule references and exclusions, NFC
 `TECH_DISCOVERED` with NfcA/MifareUltralight, exactly one Hermes Android bundle and a matching
-synthetic runtime contract. Independent artifact review and Evidence exact-head CI remain
-pending; this is not Human preflight evidence.
+synthetic runtime contract. Independent artifact review and Evidence exact-head CI are complete
+on the exact binding above with verdict `APPROVED` and zero open P0–P3. This remains
+artifact/evidence approval, not Human preflight evidence or Human-run authority.
 
 Do not add credentials, credential/password/identity digests, tokens, secrets, raw UID/payload,
 provider subjects, device serials, encryption keys, internal identifiers, CSV bodies or personal

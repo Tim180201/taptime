@@ -1,6 +1,6 @@
 # Development Assignment 5 — V5 Human Android Gate Runbook
 
-- Status: **READ-ONLY ARTIFACT CANDIDATE PREPARED — REVIEW/CI PENDING — HUMAN V5 UNAUTHORIZED**
+- Status: **READ-ONLY ARTIFACT/EVIDENCE APPROVED — HUMAN V5 UNAUTHORIZED**
 - Date: 2026-07-25
 - Owner: Technical Lead
 - Approval authority for any run: Human Architect
@@ -15,13 +15,15 @@ The carried software closure is current Source+Lock baseline
 `a323834f51607841d0cd5f11aafdbfd3dd93ed5f`, tree
 `65c669b0a941c21d23ffca5e79fa03285323a7cf`, exact-head CI `30149165373`,
 attempt 1, 12/12. Independent implementation review round 2 returned `APPROVED` with zero open
-P0–P3.
+P0–P3. Exact Evidence commit `e6a06e2ec8f580d6314bfe5a51378f949d524b16`, tree
+`6dcdce405feb2eccb1462c373ab6be891152715c`, passed exact-head CI `30150095109`,
+attempt 1, 12/12; final independent Artifact/Evidence Exact-SHA review returned `APPROVED` with
+zero open P0–P3.
 
 Those facts close the DA5 V0–V4 software scope only. **This document does not authorize V5,
 installation, ADB, device or Tag interaction.** One future fresh run requires a separate exact
-Human-Architect authorization after this artifact/evidence candidate has passed independent
-artifact review and Evidence exact-head CI. The authorization must quote every binding in
-Section 3.
+Human-Architect authorization despite the completed artifact/evidence review and CI. The
+authorization must quote every binding in Section 3.
 
 A failed, interrupted or ambiguous preflight, action, observation or checkpoint consumes that
 one-run authority. Stop, mark the entire run failed and clean up. No retry, repair, resume,
@@ -57,7 +59,7 @@ no self-SHA.
 | One-run Human authorization and date | `UNBOUND — DO NOT START` |
 | Product commit/tree and required V4 | `a323834f51607841d0cd5f11aafdbfd3dd93ed5f` / `65c669b0a941c21d23ffca5e79fa03285323a7cf`; CI `30149165373`, attempt 1, 12/12 |
 | Product implementation-review binding/verdict | Round 2 `APPROVED`; zero open P0–P3 |
-| Runbook/evidence commit/tree and independent-review verdict | `UNBOUND — DO NOT START` |
+| Runbook/evidence commit/tree and independent-review verdict | `e6a06e2ec8f580d6314bfe5a51378f949d524b16` / `6dcdce405feb2eccb1462c373ab6be891152715c`; CI `30150095109`, attempt 1, 12/12; final independent Artifact/Evidence Exact-SHA review `APPROVED`, zero open P0–P3 |
 | Read-only APK path, byte size, SHA-256 and exact mode | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5/a323834/app-release-385c0c46f22dcac5.apk`; 95,522,787 bytes; `385c0c46f22dcac5b935bfdc6f574558f4e74748ed4a367ef399ddbd4299c547`; `0444` |
 | Read-only artifact manifest path, byte size, SHA-256 and exact mode | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5/a323834/artifact-manifest.txt`; 1,647 bytes; `1c1f1b7a5b92fab5510cde35a439fc6f0742b7bf2666d6319cd89b9a7d4dcadb`; `0444` |
 | Package, version, signature scheme, signer digest and packaged manifest/runtime values | `com.tim180201.mobile.synthetic`; versionCode `1`; versionName `1.0.0`; v2 `true`, v1/v3/v3.1/v4 `false`; one local synthetic non-production signer certificate SHA-256 `fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c`; packaged boundary/runtime `match` per adjacent manifest |
@@ -69,9 +71,9 @@ no self-SHA.
 | Separately reviewed Protected/Review induction fixture, synthetic labels, exact start state, cutover procedure, expected state sequence and scoped teardown | `UNBOUND — DO NOT START` |
 | Exact large-text setting and TalkBack version | `UNBOUND — DO NOT START` |
 
-The populated product and artifact rows record only this unreviewed artifact/evidence candidate.
-They are not a Human-run authorization. The runbook/evidence exact head, independent artifact
-review, Evidence exact-head CI and every remaining operational binding are still mandatory.
+The populated product and artifact/evidence rows are independently approved. They are not a
+Human-run authorization. Every remaining operational binding and a separate exact Human
+authorization are still mandatory.
 
 At preflight, recompute both read-only file sizes, SHA-256 digests and modes from the preserved APK
 and manifest. Independently verify package/version, signature/signer and packaged
