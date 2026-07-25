@@ -1,7 +1,12 @@
 import { createHash } from 'node:crypto';
 import {
+  closeSync,
+  constants,
+  fstatSync,
   lstatSync,
+  openSync,
   readFileSync,
+  readSync,
   realpathSync,
 } from 'node:fs';
 import { spawnSync } from 'node:child_process';
@@ -134,8 +139,40 @@ export function verifyDa5V5AndroidArtifact(options = {}) {
   });
   verifiedArtifacts.set(result, Object.freeze({
     apk: inspectedApk,
+    apkBinding: DA5_V5_ANDROID_ARTIFACT.apk,
     dependencies: dependencies.files,
     manifest: inspectedManifest,
+    manifestBinding: DA5_V5_ANDROID_ARTIFACT.manifest,
+  }));
+  return result;
+}
+
+export function createDa5V5AndroidArtifactVerificationForTest(options) {
+  if (
+    process.env.NODE_ENV !== 'test'
+    || process.env.VITEST !== 'true'
+  ) {
+    throw new Error('DA5 V5 synthetic artifact verification is test-only');
+  }
+  const apkBinding = Object.freeze({ ...options.apk });
+  const manifestBinding = Object.freeze({ ...options.manifest });
+  const apk = verifyDa5V5ImmutableFile(apkBinding, options.dependencies);
+  const manifest = verifyDa5V5ImmutableFile(
+    manifestBinding,
+    options.dependencies,
+  );
+  const result = Object.freeze({
+    packageName: DA5_V5_ANDROID_ARTIFACT.packageName,
+    status: 'match',
+    versionCode: DA5_V5_ANDROID_ARTIFACT.versionCode,
+    versionName: DA5_V5_ANDROID_ARTIFACT.versionName,
+  });
+  verifiedArtifacts.set(result, Object.freeze({
+    apk,
+    apkBinding,
+    dependencies: options.dependencies,
+    manifest,
+    manifestBinding,
   }));
   return result;
 }
@@ -149,11 +186,95 @@ export function reverifyDa5V5AndroidArtifactForInstall(
     throw new Error('DA5 V5 Android artifact verification is unavailable');
   }
   const files = dependencies ?? sealed.dependencies;
-  const apk = verifyDa5V5ImmutableFile(DA5_V5_ANDROID_ARTIFACT.apk, files);
-  const manifest = verifyDa5V5ImmutableFile(DA5_V5_ANDROID_ARTIFACT.manifest, files);
-  requireSameIdentity(sealed.apk, apk);
-  requireSameIdentity(sealed.manifest, manifest);
-  return Object.freeze({ status: 'match' });
+  if (
+    typeof files.openReadOnly !== 'function'
+    || typeof files.fstat !== 'function'
+    || typeof files.readFileDescriptor !== 'function'
+    || typeof files.close !== 'function'
+  ) {
+    throw new Error('DA5 V5 stable artifact file-handle support is unavailable');
+  }
+  const fileDescriptor = files.openReadOnly(sealed.apkBinding.path);
+  let snapshot;
+  try {
+    const openedBefore = files.fstat(fileDescriptor);
+    requireDa5V5FileMetadata(openedBefore, sealed.apkBinding);
+    const openedApk = Object.freeze({
+      identity: Object.freeze({ dev: openedBefore.dev, ino: openedBefore.ino }),
+      status: 'match',
+    });
+    const apkAtPath = verifyDa5V5ImmutableFile(
+      sealed.apkBinding,
+      files,
+    );
+    const manifest = verifyDa5V5ImmutableFile(
+      sealed.manifestBinding,
+      files,
+    );
+    requireSameIdentity(sealed.apk, openedApk);
+    requireSameIdentity(openedApk, apkAtPath);
+    requireSameIdentity(sealed.manifest, manifest);
+    snapshot = files.readFileDescriptor(
+      fileDescriptor,
+      sealed.apkBinding.bytes,
+    );
+    if (
+      !Buffer.isBuffer(snapshot)
+      || snapshot.length !== sealed.apkBinding.bytes
+      || createHash('sha256').update(snapshot).digest('hex')
+        !== sealed.apkBinding.sha256
+    ) {
+      throw new Error('DA5 V5 immutable file digest mismatch');
+    }
+    const openedAfter = files.fstat(fileDescriptor);
+    requireDa5V5FileMetadata(openedAfter, sealed.apkBinding);
+    requireSameIdentity(
+      openedApk,
+      {
+        identity: Object.freeze({
+          dev: openedAfter.dev,
+          ino: openedAfter.ino,
+        }),
+      },
+    );
+  } catch (error) {
+    snapshot?.fill(0);
+    try {
+      files.close(fileDescriptor);
+    } catch {
+      throw new Error('DA5 V5 immutable file close failed');
+    }
+    throw error;
+  }
+  try {
+    files.close(fileDescriptor);
+  } catch {
+    snapshot.fill(0);
+    throw new Error('DA5 V5 immutable file close failed');
+  }
+  let destroyed = false;
+  let used = false;
+  return Object.freeze({
+    destroy() {
+      if (!destroyed) {
+        destroyed = true;
+        snapshot.fill(0);
+      }
+    },
+    status: 'match',
+    async use(operation) {
+      if (destroyed || used || typeof operation !== 'function') {
+        throw new Error('DA5 V5 verified APK snapshot is unavailable');
+      }
+      used = true;
+      try {
+        return await operation(snapshot);
+      } finally {
+        destroyed = true;
+        snapshot.fill(0);
+      }
+    },
+  });
 }
 
 function requireSameIdentity(expected, actual) {
@@ -165,9 +286,56 @@ function requireSameIdentity(expected, actual) {
   }
 }
 
+function requireDa5V5FileMetadata(stat, binding) {
+  if (
+    !stat.isFile()
+    || stat.isSymbolicLink()
+    || stat.size !== binding.bytes
+    || (stat.mode & 0o7777) !== binding.mode
+    || !Number.isSafeInteger(stat.dev)
+    || !Number.isSafeInteger(stat.ino)
+  ) {
+    throw new Error('DA5 V5 immutable file metadata mismatch');
+  }
+}
+
 function systemFileDependencies() {
   return Object.freeze({
+    close: closeSync,
+    fstat: fstatSync,
     lstat: lstatSync,
+    openReadOnly(path) {
+      return openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW);
+    },
+    readFileDescriptor(fileDescriptor, expectedBytes) {
+      const snapshot = Buffer.allocUnsafe(expectedBytes);
+      const excess = Buffer.allocUnsafe(1);
+      try {
+        let offset = 0;
+        while (offset < expectedBytes) {
+          const bytesRead = readSync(
+            fileDescriptor,
+            snapshot,
+            offset,
+            expectedBytes - offset,
+            offset,
+          );
+          if (bytesRead === 0) {
+            throw new Error('DA5 V5 immutable file ended before its bound size');
+          }
+          offset += bytesRead;
+        }
+        if (readSync(fileDescriptor, excess, 0, 1, offset) !== 0) {
+          throw new Error('DA5 V5 immutable file exceeded its bound size');
+        }
+        return snapshot;
+      } catch (error) {
+        snapshot.fill(0);
+        throw error;
+      } finally {
+        excess.fill(0);
+      }
+    },
     realpath: realpathSync,
     sha256(path) {
       return createHash('sha256').update(readFileSync(path)).digest('hex');

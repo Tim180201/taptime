@@ -1,6 +1,10 @@
+import { createHash } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { performance } from 'node:perf_hooks';
 
+import {
+  createDa5V5AdbChildEnvironment,
+} from './da5V5AdbChildEnvironment.mjs';
 import {
   DA5_V5_ANDROID_ARTIFACT,
   DA5_V5_ANDROID_PACKAGE,
@@ -26,6 +30,7 @@ const uncertainInstallCleanup = Object.freeze({
   nullWindowMilliseconds: 15_000,
   pollMilliseconds: 250,
 });
+const adbServerArguments = Object.freeze(['-H', '127.0.0.1', '-P', '5037']);
 
 export class Da5V5UsbSerialBinding {
   #failed = false;
@@ -70,8 +75,19 @@ export class Da5V5UsbSerialBinding {
 }
 
 export class SystemDa5V5AndroidAdbRunner {
+  constructor(dependencies = {}) {
+    this.dependencies = Object.freeze({
+      environment: dependencies.environment ?? process.env,
+      spawn: dependencies.spawn ?? spawn,
+    });
+  }
+
   run(arguments_, options = {}) {
-    return runAdb(arguments_, options);
+    return runAdb(arguments_, options, this.dependencies);
+  }
+
+  runBinaryDigest(arguments_, options = {}) {
+    return runAdbBinaryDigest(arguments_, options, this.dependencies);
   }
 }
 
@@ -97,29 +113,27 @@ export class Da5V5AndroidPreinstallPreflight {
         this.binding,
         options.signal,
       );
-      const [release, api, fontScale, talkBack, listeners] = await Promise.all([
-        this.runner.run(
-          ['-s', serial, 'shell', 'getprop', 'ro.build.version.release'],
-          { signal: options.signal, timeoutMilliseconds: timeouts.inspect },
-        ),
-        this.runner.run(
-          ['-s', serial, 'shell', 'getprop', 'ro.build.version.sdk'],
-          { signal: options.signal, timeoutMilliseconds: timeouts.inspect },
-        ),
-        this.runner.run(
-          ['-s', serial, 'shell', 'settings', 'get', 'system', 'font_scale'],
-          { signal: options.signal, timeoutMilliseconds: timeouts.inspect },
-        ),
-        this.runner.run(
-          ['-s', serial, 'shell', 'dumpsys', 'package',
-            'com.google.android.marvin.talkback'],
-          { signal: options.signal, timeoutMilliseconds: timeouts.inspect },
-        ),
-        this.runner.run(
-          ['-s', serial, 'shell', 'ss', '-ltnH'],
-          { signal: options.signal, timeoutMilliseconds: timeouts.inspect },
-        ),
-      ]);
+      const release = await this.runner.run(
+        ['-s', serial, 'shell', 'getprop', 'ro.build.version.release'],
+        { signal: options.signal, timeoutMilliseconds: timeouts.inspect },
+      );
+      const api = await this.runner.run(
+        ['-s', serial, 'shell', 'getprop', 'ro.build.version.sdk'],
+        { signal: options.signal, timeoutMilliseconds: timeouts.inspect },
+      );
+      const fontScale = await this.runner.run(
+        ['-s', serial, 'shell', 'settings', 'get', 'system', 'font_scale'],
+        { signal: options.signal, timeoutMilliseconds: timeouts.inspect },
+      );
+      const talkBack = await this.runner.run(
+        ['-s', serial, 'shell', 'dumpsys', 'package',
+          'com.google.android.marvin.talkback'],
+        { signal: options.signal, timeoutMilliseconds: timeouts.inspect },
+      );
+      const listeners = await this.runner.run(
+        ['-s', serial, 'shell', 'ss', '-ltnH'],
+        { signal: options.signal, timeoutMilliseconds: timeouts.inspect },
+      );
       if (
         oneLine(release) !== this.binding.androidRelease
         || oneLine(api) !== this.binding.androidApi
@@ -227,6 +241,8 @@ export async function installDa5V5AndroidFromPackageZero(options) {
   const serialBinding = requireSerialBinding(options.serialBinding);
   let mutationStarted = false;
   let installCommandStarted = false;
+  let reverseMutationUncertain = false;
+  let verifiedSource = null;
   try {
     const serial = await bindCurrentDevice(
       runner,
@@ -237,29 +253,62 @@ export async function installDa5V5AndroidFromPackageZero(options) {
     await assertDa5V5PackageMappingZero(runner, serial, { signal: options.signal });
     mutationStarted = true;
     for (const mapping of requiredMappings) {
+      reverseMutationUncertain = true;
       await runner.run(['-s', serial, 'reverse', mapping.device, mapping.host], {
         signal: options.signal,
         timeoutMilliseconds: timeouts.reverse,
       });
     }
     await requireExactInstalledState(runner, serial, false, options.signal);
-    reverifyArtifact(
+    reverseMutationUncertain = false;
+    verifiedSource = reverifyArtifact(
       verification,
       options.artifactDependencies?.files,
     );
+    if (
+      verifiedSource?.status !== 'match'
+      || typeof verifiedSource.use !== 'function'
+      || typeof verifiedSource.destroy !== 'function'
+    ) {
+      throw new Error('DA5 V5 verified APK snapshot is unavailable');
+    }
     installCommandStarted = true;
     uncertainInstallRunners.add(runner);
-    await runner.run(['-s', serial, 'install', DA5_V5_ANDROID_ARTIFACT.apk.path], {
-      signal: options.signal,
-      timeoutMilliseconds: timeouts.install,
-    });
+    const installResult = await verifiedSource.use((snapshot) => runner.run(
+      [
+        '-s',
+        serial,
+        'shell',
+        '-T',
+        'cmd',
+        'package',
+        'install',
+        '-R',
+        '--pkg',
+        DA5_V5_ANDROID_PACKAGE,
+        '-S',
+        String(DA5_V5_ANDROID_ARTIFACT.apk.bytes),
+        '-',
+      ],
+      {
+        signal: options.signal,
+        stdinBytes: snapshot,
+        timeoutMilliseconds: timeouts.install,
+      },
+    ));
+    verifiedSource = null;
+    if (oneLine(installResult) !== 'Success') {
+      throw new Error('DA5 V5 Android package-manager install failed');
+    }
     await requireExactInstalledState(runner, serial, true, options.signal);
+    await requireExactInstalledArtifactBytes(runner, serial, options.signal);
     uncertainInstallRunners.delete(runner);
     return Object.freeze({
       packageName: DA5_V5_ANDROID_PACKAGE,
       status: 'match',
     });
   } catch {
+    verifiedSource?.destroy();
     if (mutationStarted) {
       const rollback = await cleanupDa5V5AndroidState({
         profile: options.profile,
@@ -267,6 +316,7 @@ export async function installDa5V5AndroidFromPackageZero(options) {
         deviceBinding: options.deviceBinding,
         serialBinding,
         installationState: installCommandStarted ? 'uncertain' : 'known',
+        reverseState: reverseMutationUncertain ? 'uncertain' : 'known',
         now: options.now,
         wait: options.wait,
       });
@@ -281,29 +331,30 @@ export async function installDa5V5AndroidFromPackageZero(options) {
 export function cleanupDa5V5AndroidState(options) {
   requireDa5V5AndroidProfile(options.profile);
   const runner = options.runner ?? new SystemDa5V5AndroidAdbRunner();
-  const requestedUncertainInstallation = (
+  const requestedUncertainMutation = (
     options.installationState === 'uncertain'
+    || options.reverseState === 'uncertain'
     || uncertainInstallRunners.has(runner)
   );
   const active = cleanupFlights.get(runner);
   if (active !== undefined) {
-    if (requestedUncertainInstallation && !active.uncertainInstallation) {
+    if (requestedUncertainMutation && !active.uncertainMutation) {
       return active.operation.then(() => Object.freeze({ status: 'mismatch' }));
     }
     return active.operation;
   }
   const serialBinding = requireSerialBinding(options.serialBinding);
-  const uncertainInstallation = requestedUncertainInstallation;
+  const uncertainMutation = requestedUncertainMutation;
   const operation = performCleanup(
     runner,
     options.deviceBinding,
     serialBinding,
     options.wait ?? wait,
-    uncertainInstallation,
+    uncertainMutation,
     options.now ?? (() => performance.now()),
     false,
   ).then((result) => {
-    if (uncertainInstallation && result.status === 'match') {
+    if (uncertainMutation && result.status === 'match') {
       uncertainInstallRunners.delete(runner);
     }
     return result;
@@ -314,7 +365,7 @@ export function cleanupDa5V5AndroidState(options) {
   });
   cleanupFlights.set(runner, Object.freeze({
     operation,
-    uncertainInstallation,
+    uncertainMutation,
   }));
   return operation;
 }
@@ -324,7 +375,7 @@ async function performCleanup(
   deviceBinding,
   serialBinding,
   waitForSettle,
-  uncertainInstallation,
+  uncertainMutation,
   now,
   bindIfUnbound,
 ) {
@@ -388,7 +439,7 @@ async function performCleanup(
     runner,
     serial,
     waitForSettle,
-    uncertainInstallation,
+    uncertainMutation,
     now,
   )) {
     failed = true;
@@ -400,10 +451,10 @@ async function proveFinalZero(
   runner,
   serial,
   waitForSettle,
-  uncertainInstallation,
+  uncertainMutation,
   now,
 ) {
-  if (uncertainInstallation) {
+  if (uncertainMutation) {
     return proveUncertainInstallNullWindow(runner, serial, waitForSettle, now);
   }
   let consecutiveZeroObservations = 0;
@@ -554,6 +605,34 @@ async function requireExactInstalledState(runner, serial, packageExpected = fals
   }
 }
 
+async function requireExactInstalledArtifactBytes(runner, serial, signal) {
+  if (typeof runner.runBinaryDigest !== 'function') {
+    throw new Error('DA5 V5 installed APK byte verification is unavailable');
+  }
+  const before = await readPackagePaths(runner, serial, signal);
+  if (before.length !== 1 || before[0] === undefined) {
+    throw new Error('DA5 V5 installed APK path is unavailable');
+  }
+  const installed = await runner.runBinaryDigest(
+    ['-s', serial, 'shell', '-T', 'cat', '--', before[0]],
+    {
+      maximumBytes: DA5_V5_ANDROID_ARTIFACT.apk.bytes,
+      signal,
+      timeoutMilliseconds: timeouts.install,
+    },
+  );
+  if (
+    installed.bytes !== DA5_V5_ANDROID_ARTIFACT.apk.bytes
+    || installed.sha256 !== DA5_V5_ANDROID_ARTIFACT.apk.sha256
+  ) {
+    throw new Error('DA5 V5 installed APK byte binding mismatch');
+  }
+  const after = await readPackagePaths(runner, serial, signal);
+  if (after.length !== 1 || after[0] !== before[0]) {
+    throw new Error('DA5 V5 installed APK path changed during byte verification');
+  }
+}
+
 async function verifyDeviceBinding(runner, serial, binding, signal) {
   if (
     binding === undefined
@@ -589,11 +668,30 @@ async function readPackagePaths(
     .map((line) => line.trim())
     .filter((line) => line.length > 0)
     .map((line) => {
-      if (!/^package:\/\S+\.apk$/u.test(line)) {
+      if (!line.startsWith('package:')) {
         throw new Error('DA5 V5 package state is ambiguous');
       }
-      return line.slice('package:'.length);
+      const path = line.slice('package:'.length);
+      if (!isStrictInstalledBaseApkPath(path)) {
+        throw new Error('DA5 V5 package state is ambiguous');
+      }
+      return path;
     });
+}
+
+function isStrictInstalledBaseApkPath(path) {
+  if (!path.startsWith('/data/app/') || !path.endsWith('/base.apk')) {
+    return false;
+  }
+  const segments = path.slice('/data/app/'.length).split('/');
+  if (segments.length < 2 || segments.at(-1) !== 'base.apk') {
+    return false;
+  }
+  return segments.slice(0, -1).every((segment) => (
+    segment !== '.'
+    && segment !== '..'
+    && /^[A-Za-z0-9._~+=-]+$/u.test(segment)
+  ));
 }
 
 async function readMappings(
@@ -660,16 +758,186 @@ function assertNoDa5V5OwnedListeners(value) {
   }
 }
 
-function runAdb(arguments_, options) {
+function runAdb(arguments_, options, dependencies) {
   return new Promise((resolvePromise, rejectPromise) => {
     if (options.signal?.aborted === true) {
       rejectPromise(new Error('DA5 V5 Android device command aborted'));
       return;
     }
-    const child = spawn('adb', [...arguments_], {
-      stdio: ['ignore', 'pipe', 'pipe'],
+    const environment = createDa5V5AdbChildEnvironment(dependencies.environment);
+    const stdinBytes = options.stdinBytes;
+    if (stdinBytes !== undefined && !Buffer.isBuffer(stdinBytes)) {
+      rejectPromise(new Error('DA5 V5 Android device input is invalid'));
+      return;
+    }
+    const child = dependencies.spawn('adb', [...adbServerArguments, ...arguments_], {
+      env: environment,
+      stdio: [stdinBytes === undefined ? 'ignore' : 'pipe', 'pipe', 'pipe'],
     });
     let stdout = '';
+    let stdoutBytes = 0;
+    let stderrBytes = 0;
+    let settled = false;
+    let terminationError;
+    let forceKillTimeout;
+    const timeout = setTimeout(() => {
+      terminate(new Error('DA5 V5 Android device command timed out'));
+    }, options.timeoutMilliseconds ?? timeouts.inspect);
+
+    function abort() {
+      terminate(new Error('DA5 V5 Android device command aborted'));
+    }
+
+    function terminate(error) {
+      if (settled || terminationError !== undefined) {
+        return;
+      }
+      terminationError = error;
+      child.kill('SIGTERM');
+      forceKillTimeout = setTimeout(() => {
+        child.kill('SIGKILL');
+      }, 1_000);
+    }
+
+    function removeListeners() {
+      options.signal?.removeEventListener('abort', abort);
+      child.removeListener('error', onChildError);
+      child.stdout.removeListener('data', onStdoutData);
+      child.stdout.removeListener('error', onStdoutError);
+      child.stderr.removeListener('data', onStderrData);
+      child.stderr.removeListener('error', onStderrError);
+      if (child.stdin !== null) {
+        child.stdin.removeListener('drain', writeStdin);
+        child.stdin.removeListener('error', onStdinError);
+      }
+    }
+
+    function finish(error, value) {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      clearTimeout(timeout);
+      clearTimeout(forceKillTimeout);
+      removeListeners();
+      if (error === undefined) {
+        resolvePromise(value ?? '');
+      } else {
+        rejectPromise(error);
+      }
+    }
+
+    function onStdoutData(chunk) {
+      if (terminationError !== undefined) {
+        return;
+      }
+      const chunkBytes = Buffer.byteLength(chunk);
+      if (stdoutBytes + chunkBytes > 4 * 1024 * 1024) {
+        terminate(new Error('DA5 V5 Android device output exceeded its bound'));
+        return;
+      }
+      stdoutBytes += chunkBytes;
+      stdout += chunk;
+    }
+
+    function onStderrData(chunk) {
+      if (terminationError !== undefined) {
+        return;
+      }
+      stderrBytes += chunk.length;
+      if (stderrBytes > 4 * 1024 * 1024) {
+        terminate(new Error('DA5 V5 Android device output exceeded its bound'));
+      }
+    }
+
+    function onStdoutError() {
+      terminate(new Error('DA5 V5 Android device command failed'));
+    }
+
+    function onStderrError() {
+      terminate(new Error('DA5 V5 Android device command failed'));
+    }
+
+    function onStdinError() {
+      terminate(new Error('DA5 V5 Android device input failed'));
+    }
+
+    function onChildError() {
+      terminate(new Error('DA5 V5 Android device command failed'));
+    }
+
+    function writeStdin() {
+      if (
+        settled
+        || terminationError !== undefined
+        || stdinBytes === undefined
+        || child.stdin === null
+      ) {
+        return;
+      }
+      try {
+        while (offset < stdinBytes.length) {
+          const end = Math.min(offset + 1024 * 1024, stdinBytes.length);
+          const writable = child.stdin.write(stdinBytes.subarray(offset, end));
+          offset = end;
+          if (!writable) {
+            return;
+          }
+        }
+        child.stdin.end();
+      } catch {
+        terminate(new Error('DA5 V5 Android device input failed'));
+      }
+    }
+
+    let offset = 0;
+    child.stdout.setEncoding('utf8');
+    child.stdout.on('data', onStdoutData);
+    child.stdout.once('error', onStdoutError);
+    child.stderr.on('data', onStderrData);
+    child.stderr.once('error', onStderrError);
+    child.once('error', onChildError);
+    child.once('close', (code) => {
+      finish(
+        terminationError ?? (
+          code === 0 ? undefined : new Error('DA5 V5 Android device command failed')
+        ),
+        stdout,
+      );
+    });
+    options.signal?.addEventListener('abort', abort, { once: true });
+    if (options.signal?.aborted === true) {
+      abort();
+    }
+    if (stdinBytes !== undefined) {
+      if (child.stdin === null) {
+        terminate(new Error('DA5 V5 Android device input failed'));
+        return;
+      }
+      child.stdin.once('error', onStdinError);
+      child.stdin.on('drain', writeStdin);
+      writeStdin();
+    }
+  });
+}
+
+function runAdbBinaryDigest(arguments_, options, dependencies) {
+  return new Promise((resolvePromise, rejectPromise) => {
+    if (options.signal?.aborted === true) {
+      rejectPromise(new Error('DA5 V5 Android device command aborted'));
+      return;
+    }
+    if (!Number.isSafeInteger(options.maximumBytes) || options.maximumBytes < 0) {
+      rejectPromise(new Error('DA5 V5 Android device output bound is invalid'));
+      return;
+    }
+    const environment = createDa5V5AdbChildEnvironment(dependencies.environment);
+    const child = dependencies.spawn('adb', [...adbServerArguments, ...arguments_], {
+      env: environment,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    const digest = createHash('sha256');
+    let stdoutBytes = 0;
     let stderrBytes = 0;
     let settled = false;
     let terminationError;
@@ -681,32 +949,36 @@ function runAdb(arguments_, options) {
       terminate(new Error('DA5 V5 Android device command aborted'));
     };
     const terminate = (error) => {
-      if (settled || terminationError !== undefined) return;
-      terminationError = error;
+      if (settled) return;
+      terminationError ??= error;
+      if (forceKillTimeout !== undefined) return;
       child.kill('SIGTERM');
       forceKillTimeout = setTimeout(() => {
         child.kill('SIGKILL');
       }, 1_000);
     };
-    const finish = (error, value) => {
+    const finish = (error) => {
       if (settled) return;
       settled = true;
       clearTimeout(timeout);
       clearTimeout(forceKillTimeout);
       options.signal?.removeEventListener('abort', abort);
       if (error === undefined) {
-        resolvePromise(value ?? '');
+        resolvePromise(Object.freeze({
+          bytes: stdoutBytes,
+          sha256: digest.digest('hex'),
+        }));
       } else {
         rejectPromise(error);
       }
     };
-    options.signal?.addEventListener('abort', abort, { once: true });
-    child.stdout.setEncoding('utf8');
     child.stdout.on('data', (chunk) => {
-      stdout += chunk;
-      if (Buffer.byteLength(stdout) > 4 * 1024 * 1024) {
+      stdoutBytes += chunk.length;
+      if (stdoutBytes > options.maximumBytes) {
         terminate(new Error('DA5 V5 Android device output exceeded its bound'));
+        return;
       }
+      digest.update(chunk);
     });
     child.stderr.on('data', (chunk) => {
       stderrBytes += chunk.length;
@@ -714,17 +986,26 @@ function runAdb(arguments_, options) {
         terminate(new Error('DA5 V5 Android device output exceeded its bound'));
       }
     });
+    child.stdout.once('error', () => {
+      terminate(new Error('DA5 V5 Android device command failed'));
+    });
+    child.stderr.once('error', () => {
+      terminate(new Error('DA5 V5 Android device command failed'));
+    });
     child.once('error', () => {
-      finish(new Error('DA5 V5 Android device command failed'));
+      terminate(new Error('DA5 V5 Android device command failed'));
     });
     child.once('close', (code) => {
       finish(
         terminationError ?? (
           code === 0 ? undefined : new Error('DA5 V5 Android device command failed')
         ),
-        stdout,
       );
     });
+    options.signal?.addEventListener('abort', abort, { once: true });
+    if (options.signal?.aborted === true) {
+      abort();
+    }
   });
 }
 

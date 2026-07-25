@@ -58,7 +58,7 @@ describe('DA5 V5 package-zero Android install', () => {
         deviceBinding,
         profile: 'da5-v5',
         runner: adb,
-        reverifyArtifact: vi.fn(),
+        reverifyArtifact: vi.fn(() => verifiedSource()),
         serialBinding: boundSerial(adb),
         verifyArtifact,
       })).resolves.toEqual({
@@ -72,15 +72,124 @@ describe('DA5 V5 package-zero Android install', () => {
         ['tcp:54321', 'tcp:54321'],
         ['tcp:3000', 'tcp:3000'],
       ]));
+      expect(adb.commands).toContainEqual(installCommand(adb.serial));
+      expect(adb.commands.flat()).not.toContain('-r');
+      expect(adb.commands.flat()).toContain('-R');
+      expect(adb.installInputObserved).toBe(true);
       expect(adb.commands).toContainEqual([
         '-s',
         adb.serial,
-        'install',
-        DA5_V5_ANDROID_ARTIFACT.apk.path,
+        'shell',
+        '-T',
+        'cat',
+        '--',
+        '/data/app/synthetic/base.apk',
       ]);
-      expect(adb.commands.flat()).not.toContain('-r');
       assertNoBroadDeviceMutation(adb);
     });
+
+  it('installs only the sealed snapshot after an adversarial late host-path swap', async () => {
+    const adb = new FakeAdb();
+    let hostPathSha256 = DA5_V5_ANDROID_ARTIFACT.apk.sha256;
+    const reverifyArtifact = vi.fn(() => verifiedSource(() => {
+      hostPathSha256 = 'f'.repeat(64);
+    }));
+
+    await expect(installDa5V5AndroidFromPackageZero({
+      deviceBinding,
+      profile: 'da5-v5',
+      runner: adb,
+      reverifyArtifact,
+      serialBinding: boundSerial(adb),
+      verifyArtifact: vi.fn(),
+    })).resolves.toEqual({
+      packageName: DA5_V5_ANDROID_PACKAGE,
+      status: 'match',
+    });
+
+    expect(hostPathSha256).toBe('f'.repeat(64));
+    expect(adb.installInputObserved).toBe(true);
+    expect(adb.installedSha256).toBe(DA5_V5_ANDROID_ARTIFACT.apk.sha256);
+    expect(adb.commands.flat()).not.toContain(DA5_V5_ANDROID_ARTIFACT.apk.path);
+  });
+
+  it('rolls back when the installed base APK is not byte-identical to the verified snapshot',
+    async () => {
+      const adb = new FakeAdb();
+      adb.installedSha256 = 'f'.repeat(64);
+
+      await expect(install(adb)).rejects.toThrow(/install failed/);
+
+      expect(adb.packageInstalled).toBe(false);
+      expect(adb.mappings).toEqual(new Map());
+      expect(adb.commands).toContainEqual([
+        '-s',
+        adb.serial,
+        'shell',
+        '-T',
+        'cat',
+        '--',
+        '/data/app/synthetic/base.apk',
+      ]);
+    });
+
+  it('rejects an installed APK path that switches around the binary digest read', async () => {
+    const adb = new FakeAdb();
+    const pathBeforeDigest = '/data/app/synthetic-before/base.apk';
+    const pathAfterDigest = '/data/app/synthetic-after/base.apk';
+    adb.expectedDigestPath = pathBeforeDigest;
+    adb.packagePathOutputs = [
+      '',
+      '',
+      `package:${pathBeforeDigest}\n`,
+      `package:${pathBeforeDigest}\n`,
+      `package:${pathAfterDigest}\n`,
+    ];
+
+    await expect(install(adb)).rejects.toThrow(/install failed/);
+
+    expect(adb.commands).toContainEqual([
+      '-s',
+      adb.serial,
+      'shell',
+      '-T',
+      'cat',
+      '--',
+      pathBeforeDigest,
+    ]);
+    expect(adb.commands).not.toContainEqual([
+      '-s',
+      adb.serial,
+      'shell',
+      '-T',
+      'cat',
+      '--',
+      pathAfterDigest,
+    ]);
+    expect(adb.packageInstalled).toBe(false);
+    expect(adb.mappings).toEqual(new Map());
+  });
+
+  it.each([
+    ['missing package prefix', '/data/app/synthetic/base.apk\n'],
+    ['relative traversal', 'package:/data/app/../synthetic/base.apk\n'],
+    ['encoded traversal', 'package:/data/app/%2e%2e/synthetic/base.apk\n'],
+    ['non-base APK', 'package:/data/app/synthetic/split_config.apk\n'],
+    [
+      'multiple package paths',
+      'package:/data/app/synthetic-a/base.apk\npackage:/data/app/synthetic-b/base.apk\n',
+    ],
+  ])('rejects real pm-path parser output with %s', async (_name, output) => {
+    const adb = new FakeAdb();
+    adb.packagePathOutputs = [output];
+    const serial = await requireSingleDa5V5UsbDevice(adb);
+
+    await expect(assertDa5V5PackageMappingZero(adb, serial)).rejects.toThrow();
+
+    expect(adb.commands.flat().join(' ')).not.toMatch(
+      /\b(?:install|uninstall|reverse tcp:|--remove)\b/u,
+    );
+  });
 
   it('rejects absent, multiple, unauthorized, network and emulator transports', async () => {
     for (const devices of [
@@ -138,7 +247,7 @@ describe('DA5 V5 package-zero Android install', () => {
         return command === 'reverse tcp:3000 tcp:3000';
       }
       if (failure === 'install') {
-        return command === `install ${DA5_V5_ANDROID_ARTIFACT.apk.path}`;
+        return isInstallCommand(arguments_);
       }
       if (command === `shell pm path ${DA5_V5_ANDROID_PACKAGE}`) {
         packageChecks += 1;
@@ -150,6 +259,7 @@ describe('DA5 V5 package-zero Android install', () => {
     await expect(install(adb)).rejects.toThrow('DA5 V5 Android install failed');
     expect(adb.packageInstalled).toBe(false);
     expect(adb.mappings).toEqual(new Map());
+    expect(adb.elapsedMilliseconds).toBeGreaterThanOrEqual(15_000);
     assertNoBroadDeviceMutation(adb);
   });
 });
@@ -195,7 +305,40 @@ describe('DA5 V5 read-only device preinstall preflight', () => {
     await expect(preflight.run()).resolves.toEqual({ status: 'mismatch' });
     expect(adb.commands.flat()).not.toContain('install');
   });
-});
+
+  it('serializes every ADB observation so a constrained server is never queried concurrently',
+    async () => {
+      const adb = new FakeAdb();
+      let active = 0;
+      let maximumActive = 0;
+      const runner: Da5V5AndroidAdbRunner = {
+        async run(arguments_, options) {
+          active += 1;
+          maximumActive = Math.max(maximumActive, active);
+          await Promise.resolve();
+          try {
+            return await adb.run(arguments_, options);
+          } finally {
+            active -= 1;
+          }
+        },
+      };
+      const preflight = new Da5V5AndroidPreinstallPreflight(
+        runner,
+        new Da5V5UsbSerialBinding(),
+        {
+          ...deviceBinding,
+          androidApi: '35',
+          androidRelease: '15',
+          fontScale: '2.0',
+          talkBackVersion: '15.1.0',
+        },
+      );
+
+      await expect(preflight.run()).resolves.toEqual({ status: 'match' });
+      expect(maximumActive).toBe(1);
+    });
+  });
 
 describe('DA5 V5 scoped Android cleanup', () => {
   it('cleans full, partial and already-null states idempotently', async () => {
@@ -343,13 +486,13 @@ describe('DA5 V5 scoped Android cleanup', () => {
   it('uses operation-specific install timeout and rolls back after abort', async () => {
     const adb = new FakeAdb();
     adb.failOnce = (arguments_) => (
-      arguments_.slice(2).join(' ') === `install ${DA5_V5_ANDROID_ARTIFACT.apk.path}`
+      isInstallCommand(arguments_)
     );
     await expect(install(adb)).rejects.toThrow(/install failed/);
     expect(adb.packageInstalled).toBe(false);
     expect(adb.mappings).toEqual(new Map());
     const installCommand = adb.commandOptions.find(({ arguments_ }) => (
-      arguments_.slice(2).join(' ') === `install ${DA5_V5_ANDROID_ARTIFACT.apk.path}`
+      isInstallCommand(arguments_)
     ));
     expect(installCommand?.timeoutMilliseconds).toBeGreaterThan(10_000);
   });
@@ -362,7 +505,7 @@ describe('DA5 V5 scoped Android cleanup', () => {
       await expect(installDa5V5AndroidFromPackageZero({
         deviceBinding,
         profile: 'da5-v5',
-        reverifyArtifact: vi.fn(),
+        reverifyArtifact: vi.fn(() => verifiedSource()),
         runner: adb,
         serialBinding: boundSerial(adb),
         signal: abort.signal,
@@ -378,7 +521,7 @@ describe('DA5 V5 scoped Android cleanup', () => {
     async () => {
       const adb = new FakeAdb();
       adb.failOnce = (arguments_) => (
-        arguments_.slice(2).join(' ') === `install ${DA5_V5_ANDROID_ARTIFACT.apk.path}`
+        isInstallCommand(arguments_)
       );
       adb.lateOwnedMappingVisibilityAtMilliseconds = [5_000];
       adb.latePackageVisibilityAtMilliseconds = [5_000];
@@ -396,11 +539,34 @@ describe('DA5 V5 scoped Android cleanup', () => {
       expect(adb.mappings).toEqual(new Map());
     });
 
+  it('uses the long null window for a reverse mapping visible after an aborted mutation',
+    async () => {
+      const adb = new FakeAdb();
+      adb.mappings.set('tcp:54321', 'tcp:54321');
+      adb.mappings.set('tcp:3000', 'tcp:3000');
+      adb.lateOwnedMappingVisibilityAtMilliseconds = [5_000];
+
+      await expect(cleanupDa5V5AndroidState({
+        deviceBinding,
+        profile: 'da5-v5',
+        reverseState: 'uncertain',
+        runner: adb,
+        serialBinding: boundSerial(adb),
+        ...virtualTiming(adb),
+      })).resolves.toEqual({ status: 'match' });
+
+      expect(adb.elapsedMilliseconds).toBeGreaterThanOrEqual(20_000);
+      expect(adb.commands.filter((command) => (
+        command.slice(2).join(' ') === 'reverse --remove tcp:3000'
+      ))).toHaveLength(2);
+      expect(adb.mappings).toEqual(new Map());
+    });
+
   it('fails closed within 60 seconds when late install residue prevents a 15-second null window',
     async () => {
     const adb = new FakeAdb();
     adb.failOnce = (arguments_) => (
-      arguments_.slice(2).join(' ') === `install ${DA5_V5_ANDROID_ARTIFACT.apk.path}`
+      isInstallCommand(arguments_)
     );
     adb.latePackageVisibilityAtMilliseconds = [5_000, 19_000, 33_000, 47_000];
 
@@ -432,18 +598,28 @@ class FakeAdb implements Da5V5AndroidAdbRunner {
   mappings = new Map<string, string>();
   listeners = '';
   packageInstalled = false;
+  installInputObserved = false;
+  installedSha256 = DA5_V5_ANDROID_ARTIFACT.apk.sha256;
+  expectedDigestPath = '/data/app/synthetic/base.apk';
   packagePathChecks = 0;
+  packagePathOutputs: string[] = [];
   rawReverseLines: string[] = [];
   serial = 'synthetic-device';
   commandOptions: Array<{
     arguments_: readonly string[];
+    maximumBytes?: number;
     signal?: AbortSignal;
+    stdinBytes?: Buffer;
     timeoutMilliseconds?: number;
   }> = [];
 
   async run(
     arguments_: readonly string[],
-    options: { signal?: AbortSignal; timeoutMilliseconds?: number } = {},
+    options: {
+      signal?: AbortSignal;
+      stdinBytes?: Buffer;
+      timeoutMilliseconds?: number;
+    } = {},
   ): Promise<string> {
     this.commands.push([...arguments_]);
     this.commandOptions.push({ arguments_: [...arguments_], ...options });
@@ -503,6 +679,10 @@ class FakeAdb implements Da5V5AndroidAdbRunner {
     }
     if (text === `shell pm path ${DA5_V5_ANDROID_PACKAGE}`) {
       this.packagePathChecks += 1;
+      const output = this.packagePathOutputs.shift();
+      if (output !== undefined) {
+        return output;
+      }
       const lateVisibility = this.latePackageVisibilityAtMilliseconds[0];
       if (lateVisibility !== undefined && this.elapsedMilliseconds >= lateVisibility) {
         this.packageInstalled = true;
@@ -510,7 +690,14 @@ class FakeAdb implements Da5V5AndroidAdbRunner {
       }
       return this.packageInstalled ? 'package:/data/app/synthetic/base.apk\n' : '';
     }
-    if (text === `install ${DA5_V5_ANDROID_ARTIFACT.apk.path}`) {
+    if (isInstallCommand(arguments_)) {
+      if (
+        !Buffer.isBuffer(options.stdinBytes)
+        || options.stdinBytes.toString('utf8') !== 'verified-apk-snapshot'
+      ) {
+        throw new Error('fake adb received an unverified install stream');
+      }
+      this.installInputObserved = true;
       if (this.abortInstall !== null) {
         this.abortInstall.abort();
         throw new Error('fake adb aborted during install');
@@ -523,6 +710,30 @@ class FakeAdb implements Da5V5AndroidAdbRunner {
       return 'Success\n';
     }
     throw new Error(`unexpected fake adb command: ${text}`);
+  }
+
+  async runBinaryDigest(
+    arguments_: readonly string[],
+    options: {
+      maximumBytes: number;
+      signal?: AbortSignal;
+      timeoutMilliseconds?: number;
+    },
+  ): Promise<Readonly<{ bytes: number; sha256: string }>> {
+    this.commands.push([...arguments_]);
+    this.commandOptions.push({ arguments_: [...arguments_], ...options });
+    if (options.signal?.aborted === true) {
+      throw new Error('fake adb aborted');
+    }
+    if (arguments_.join(' ') !== (
+      `-s ${this.serial} shell -T cat -- ${this.expectedDigestPath}`
+    )) {
+      throw new Error('unexpected fake binary adb command');
+    }
+    return Object.freeze({
+      bytes: DA5_V5_ANDROID_ARTIFACT.apk.bytes,
+      sha256: this.installedSha256,
+    });
   }
 
   replaceDevice(serial: string): void {
@@ -540,7 +751,7 @@ function install(adb: FakeAdb) {
     deviceBinding,
     profile: 'da5-v5',
     runner: adb,
-    reverifyArtifact: vi.fn(),
+    reverifyArtifact: vi.fn(() => verifiedSource()),
     serialBinding: boundSerial(adb),
     verifyArtifact: vi.fn(),
     ...virtualTiming(adb),
@@ -580,4 +791,49 @@ function assertNoBroadDeviceMutation(adb: FakeAdb): void {
   const commands = adb.commands.map((command) => command.join(' ')).join('\n');
   expect(commands).not.toMatch(/--remove-all|pm clear|factory|reset|backup|restore/);
   expect(commands).not.toMatch(/uninstall\s+(?!com\.tim180201\.mobile\.synthetic)/);
+}
+
+function verifiedSource(onUse: () => void = () => undefined) {
+  let destroyed = false;
+  let used = false;
+  return {
+    destroy: vi.fn(() => {
+      destroyed = true;
+    }),
+    status: 'match' as const,
+    async use<T>(operation: (snapshot: Buffer) => Promise<T> | T): Promise<T> {
+      if (destroyed || used) {
+        throw new Error('fake verified source unavailable');
+      }
+      used = true;
+      try {
+        onUse();
+        return await operation(Buffer.from('verified-apk-snapshot', 'utf8'));
+      } finally {
+        destroyed = true;
+      }
+    },
+  };
+}
+
+function installCommand(serial: string): string[] {
+  return [
+    '-s',
+    serial,
+    'shell',
+    '-T',
+    'cmd',
+    'package',
+    'install',
+    '-R',
+    '--pkg',
+    DA5_V5_ANDROID_PACKAGE,
+    '-S',
+    String(DA5_V5_ANDROID_ARTIFACT.apk.bytes),
+    '-',
+  ];
+}
+
+function isInstallCommand(arguments_: readonly string[]): boolean {
+  return arguments_.join(' ') === installCommand(arguments_[1] ?? '').join(' ');
 }

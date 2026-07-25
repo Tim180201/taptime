@@ -3,11 +3,15 @@ import {
   Da5V5UsbSerialBinding,
   SystemDa5V5AndroidAdbRunner,
 } from '../../mobile/scripts/da5V5AndroidDevice.mjs';
+import {
+  createDa5V5AdbChildEnvironment,
+} from '../../mobile/scripts/da5V5AdbChildEnvironment.mjs';
 
 const PACKAGE_NAME = 'com.tim180201.mobile.synthetic';
 const AUTH_MAPPING = Object.freeze({ device: 'tcp:54321', host: 'tcp:54321' });
 const API_MAPPING = Object.freeze({ device: 'tcp:3000', host: 'tcp:3000' });
 const ADB_TIMEOUT_MILLISECONDS = 5_000;
+const ADB_SERVER_ARGUMENTS = Object.freeze(['-H', '127.0.0.1', '-P', '5037']);
 
 export interface Da5V5AdbCommandRunner {
   run(arguments_: readonly string[]): string;
@@ -17,11 +21,25 @@ export interface Da5V5AdbCommandRunner {
 export class Da5V5UsbDeviceLock extends Da5V5UsbSerialBinding {}
 
 export class SystemDa5V5AdbCommandRunner implements Da5V5AdbCommandRunner {
-  private readonly mutations = new SystemDa5V5AndroidAdbRunner();
+  private readonly environment: Readonly<Record<string, string | undefined>>;
+  private readonly mutations: SystemDa5V5AndroidAdbRunner;
+  private readonly spawnSyncCommand: typeof spawnSync;
+
+  constructor(dependencies: {
+    readonly environment?: Readonly<Record<string, string | undefined>>;
+    readonly spawnSync?: typeof spawnSync;
+  } = {}) {
+    this.environment = dependencies.environment ?? process.env;
+    this.spawnSyncCommand = dependencies.spawnSync ?? spawnSync;
+    this.mutations = new SystemDa5V5AndroidAdbRunner({
+      environment: this.environment,
+    });
+  }
 
   run(arguments_: readonly string[]): string {
-    const result = spawnSync('adb', [...arguments_], {
+    const result = this.spawnSyncCommand('adb', [...ADB_SERVER_ARGUMENTS, ...arguments_], {
       encoding: 'utf8',
+      env: createDa5V5AdbChildEnvironment(this.environment),
       killSignal: 'SIGKILL',
       stdio: ['ignore', 'pipe', 'pipe'],
       timeout: ADB_TIMEOUT_MILLISECONDS,
@@ -50,6 +68,7 @@ export type Da5V5OfflinePhase = 'ordinary' | 'protected';
 export interface Da5V5ApiOfflineState {
   readonly completedCycles: number;
   readonly state:
+    | 'unarmed'
     | 'direct-ordinary'
     | 'offline-ordinary'
     | 'direct-protected'
@@ -60,10 +79,12 @@ export interface Da5V5ApiOfflineState {
 }
 
 export class Da5V5ApiOfflineController {
+  private armed = false;
   private completedCycles = 0;
   private mutationFlight: Promise<'match' | 'mismatch'> | null = null;
   private offlineSerial: string | null = null;
-  private state: Da5V5ApiOfflineState['state'] = 'direct-ordinary';
+  private reverseCleanupState: 'known' | 'uncertain' = 'known';
+  private state: Da5V5ApiOfflineState['state'] = 'unarmed';
 
   constructor(
     private readonly adb: Da5V5AdbCommandRunner,
@@ -71,6 +92,22 @@ export class Da5V5ApiOfflineController {
     private readonly deviceLock: Da5V5UsbDeviceLock = new Da5V5UsbDeviceLock(),
     private readonly mutationSignal?: AbortSignal,
   ) {}
+
+  arm(): 'match' | 'mismatch' {
+    if (this.state !== 'unarmed' || this.armed) {
+      return this.fail();
+    }
+    try {
+      const serial = this.requireBoundDevice();
+      requireMappings(this.adb, serial, true);
+      requireInstalledPackage(this.adb, serial);
+      this.armed = true;
+      this.state = 'direct-ordinary';
+      return 'match';
+    } catch {
+      return this.fail();
+    }
+  }
 
   enterOffline(phase: Da5V5OfflinePhase): Promise<'match' | 'mismatch'> {
     return this.beginMutation(() => this.performEnterOffline(phase));
@@ -83,6 +120,7 @@ export class Da5V5ApiOfflineController {
   private async performEnterOffline(
     phase: Da5V5OfflinePhase,
   ): Promise<'match' | 'mismatch'> {
+    const cleanupStateBeforeMutation = this.reverseCleanupState;
     const expectedState = phase === 'ordinary' ? 'direct-ordinary' : 'direct-protected';
     if (this.state !== expectedState) {
       return this.fail();
@@ -91,11 +129,13 @@ export class Da5V5ApiOfflineController {
       const serial = this.requireBoundDevice();
       requireMappings(this.adb, serial, true);
       this.offlineSerial = serial;
+      this.reverseCleanupState = 'uncertain';
       await this.adb.runMutation(
         ['-s', serial, 'reverse', '--remove', API_MAPPING.device],
         this.mutationSignal,
       );
       requireMappings(this.adb, serial, false);
+      this.reverseCleanupState = cleanupStateBeforeMutation;
       this.state = phase === 'ordinary' ? 'offline-ordinary' : 'offline-protected';
       return 'match';
     } catch {
@@ -106,6 +146,7 @@ export class Da5V5ApiOfflineController {
   private async performRestoreDirect(
     phase: Da5V5OfflinePhase,
   ): Promise<'match' | 'mismatch'> {
+    const cleanupStateBeforeMutation = this.reverseCleanupState;
     const expectedState = phase === 'ordinary' ? 'offline-ordinary' : 'offline-protected';
     if (this.state !== expectedState || this.offlineSerial === null) {
       return this.fail();
@@ -116,11 +157,13 @@ export class Da5V5ApiOfflineController {
         return this.fail();
       }
       requireMappings(this.adb, serial, false);
+      this.reverseCleanupState = 'uncertain';
       await this.adb.runMutation(
         ['-s', serial, 'reverse', API_MAPPING.device, API_MAPPING.host],
         this.mutationSignal,
       );
       requireMappings(this.adb, serial, true);
+      this.reverseCleanupState = cleanupStateBeforeMutation;
       this.completedCycles += 1;
       this.offlineSerial = null;
       this.state = phase === 'ordinary' ? 'direct-protected' : 'complete';
@@ -140,6 +183,11 @@ export class Da5V5ApiOfflineController {
   async close(): Promise<'match' | 'mismatch'> {
     await this.mutationFlight;
     if (this.state === 'closed') {
+      return 'match';
+    }
+    if (!this.armed) {
+      this.offlineSerial = null;
+      this.state = 'closed';
       return 'match';
     }
     if (this.state === 'offline-ordinary' || this.state === 'offline-protected') {
@@ -170,16 +218,22 @@ export class Da5V5ApiOfflineController {
     });
   }
 
+  cleanupProofState(): 'known' | 'uncertain' {
+    return this.reverseCleanupState;
+  }
+
   private async restoreAfterExit(): Promise<boolean> {
     const serial = this.offlineSerial;
     if (serial === null) {
       return false;
     }
+    const cleanupStateBeforeMutation = this.reverseCleanupState;
     try {
       const mappings = readMappings(this.adb, serial);
       requireExactMapping(mappings, AUTH_MAPPING.device, AUTH_MAPPING.host);
       const api = mappings.filter((mapping) => mapping.device === API_MAPPING.device);
       if (api.length === 0) {
+        this.reverseCleanupState = 'uncertain';
         await this.adb.runMutation(
           ['-s', serial, 'reverse', API_MAPPING.device, API_MAPPING.host],
         );
@@ -187,6 +241,7 @@ export class Da5V5ApiOfflineController {
         requireExactMapping(api, API_MAPPING.device, API_MAPPING.host);
       }
       requireMappings(this.adb, serial, true);
+      this.reverseCleanupState = cleanupStateBeforeMutation;
       this.offlineSerial = null;
       return true;
     } catch {

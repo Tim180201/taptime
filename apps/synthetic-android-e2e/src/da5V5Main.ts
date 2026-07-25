@@ -87,6 +87,7 @@ let nextCredentialPhase = 0;
 let environment: SyntheticAndroidE2eEnvironment | null = null;
 let operationSession: Da5V5OperationSession | null = null;
 let operatorLifecycle: Da5V5OperatorLifecycle | null = null;
+let cleanupResourcesPromise: Promise<void> | null = null;
 const inputOwnership = new Da5V5InputOwnership();
 const adb = new SystemDa5V5AdbCommandRunner();
 const mobileAdb = new SystemDa5V5AndroidAdbRunner();
@@ -104,7 +105,9 @@ const webCredential = new Da5V5WebCredentialTransfer(
   secretProcesses,
   () => {
     process.exitCode = 1;
-    void operatorLifecycle?.fail('da5_v5_credential_binding=mismatch');
+    mutationAbortController.abort();
+    inputOwnership.closeAll();
+    void operatorLifecycle?.abortAndFail('da5_v5_credential_binding=mismatch');
   },
 );
 const mobileCredential = new Da5V5MobileCredentialTransfer(
@@ -121,7 +124,10 @@ const offline = new Da5V5ApiOfflineController(
 );
 const device = new Da5V5DeviceCheckpointController(adb, accessibilityBinding, deviceLock);
 const safeEventLatch = new Da5V5SafeEventLatch();
-const commandExecutionGuard = new Da5V5CommandExecutionGuard(safeEventLatch);
+const commandExecutionGuard = new Da5V5CommandExecutionGuard(
+  safeEventLatch,
+  mutationAbortController.signal,
+);
 
 const signalController = new Da5V5SignalController(
   reportOperatorEvent,
@@ -166,6 +172,12 @@ try {
     reportOperatorEvent,
     () => {
       process.exitCode = 1;
+    },
+    () => {
+      mutationAbortController.abort();
+    },
+    () => {
+      inputOwnership.closeAll();
     },
   );
   signalController.bind(operatorLifecycle);
@@ -261,6 +273,9 @@ async function handleCommand(line: string): Promise<Da5V5OperatorCommandOutcome>
       serialBinding: deviceLock,
       signal: mutationAbortController.signal,
     });
+    if (offline.arm() !== 'match') {
+      throw new Error('DA5 V5 offline controller arm mismatch');
+    }
     androidInstalled = true;
     process.stdout.write('da5_v5_android_install=match\n');
     return { state: 'continue' };
@@ -930,11 +945,16 @@ function startCommandInput(): void {
     });
   });
   commandInput.once('close', () => {
-    void operatorLifecycle?.fail('operator_command_failed');
+    void operatorLifecycle?.abortAndFail('operator_command_failed');
   });
 }
 
-async function cleanupResources(): Promise<void> {
+function cleanupResources(): Promise<void> {
+  cleanupResourcesPromise ??= performCleanupResources();
+  return cleanupResourcesPromise;
+}
+
+async function performCleanupResources(): Promise<void> {
   inputOwnership.closeAll();
   passwordBinding.destroy();
   const results: PromiseSettledResult<unknown>[] = [];
@@ -952,6 +972,7 @@ async function cleanupResources(): Promise<void> {
       profile,
       runner: mobileAdb,
       serialBinding: deviceLock,
+      reverseState: offline.cleanupProofState(),
     });
     if (cleanup.status !== 'match') {
       throw new Error('DA5 V5 Android cleanup mismatch');
@@ -981,7 +1002,9 @@ function reportSafeEvent(event: SyntheticEnvironmentSafeEvent): void {
   process.stdout.write(`synthetic_e2e_event=${event}\n`);
   if (safeEventLatch.observe(event) === 'failed') {
     process.exitCode = 1;
-    void operatorLifecycle?.fail('operator_command_failed');
+    mutationAbortController.abort();
+    inputOwnership.closeAll();
+    void operatorLifecycle?.abortAndFail('operator_command_failed');
   }
 }
 

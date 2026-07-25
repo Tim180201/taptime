@@ -1,6 +1,6 @@
 # Development Assignment 5 — V5 Operational Enablement Authorization Candidate
 
-- Status: **HUMAN-DIRECTED PREPARATION CANDIDATE — EXECUTABLE ENABLEMENT REQUIRES INDEPENDENT APPROVAL; HUMAN V5 UNAUTHORIZED**
+- Status: **CORRECTED ADO CANDIDATE `cddb66d` INDEPENDENTLY APPROVED; ENABLEMENT `15f43b1` PUBLISHED/CI-GREEN; FORMAL REVIEW ROUND 1 `CHANGES REQUIRED`; CURRENT FOCUSED CORRECTION CANDIDATE LOCALLY V0–V3 GREEN; TECHNICAL-LEAD ACCEPTANCE AND EXACT-SHA RE-REVIEW PENDING; HUMAN V5 UNAUTHORIZED**
 - Date: 2026-07-25
 - Candidate baseline commit: `7fe725360935a5d9587e3dfbdb2789d8309342df`
 - Candidate baseline tree: `0abaa77443a2abf81fd815ec138776155188bfc0`
@@ -293,12 +293,36 @@ deployment and distribution remain unauthorized.
 The independent read-only review of candidate commit
 `6112e10b49ea1f66004dc515234be8d38d12575c`, tree
 `e7622553c148f587a48b8fabe68830472e405d29`, exact-head CI `30159661549`, attempt 1,
-12/12 successful, returned `CHANGES REQUIRED` with only P2 `DA5-V5-REV-01`. This correction
-replaces persisted-WorkEvent-age readiness with the memory-only fresh-server-clock baseline above
-and removes the unreachable elapsed check before Tag B's first action. Independent exact-delta
-re-review remains required before implementation.
+12/12 successful, returned `CHANGES REQUIRED` with only P2 `DA5-V5-REV-01`. The corrected
+candidate `cddb66d82047284c72688cc90a7491af761b8791`, tree
+`8cda19f8df42febb34a03a4db4911d5ea8acae79`, passed exact-head CI `30159987539`,
+attempt 1, 12/12; independent exact-delta re-review returned `APPROVED` with zero open P0–P3.
+The correction replaces persisted-WorkEvent-age readiness with the memory-only
+fresh-server-clock baseline above and removes the unreachable elapsed check before Tag B's first
+action.
 
-Change impact is AVS-001 R0: only this candidate and the Human runbook change; no executable,
-schema, dependency, lockfile, configuration, workflow, script or artifact input changes. V0
-integrity checks apply, and all Product/artifact evidence above remains carried from its exact
-named source state rather than newly executed.
+The enablement implementation was published as
+`15f43b1b05e136e0d6643b1f10c1fc8310cfa838`, tree
+`ed1e55c08dd13392f6f72bcf9265cdfaf547fa72`, and passed exact-head CI `30165425892`,
+attempt 1, 12/12. Formal Exact-SHA review round 1 returned `CHANGES REQUIRED` with four P1, two
+P2 and one P3. Subsequent specialist audits additionally found sticky reverse-cleanup uncertainty
+(P2), productive artifact/FD, binary-digest, stdin-runner-close and installed-package-path
+verification gaps (P2), and legacy PostgreSQL provisioner preflight/scoped-removal/password-state
+defects (P1/P2). The current focused correction candidate passed Mobile focus 77/77 and complete
+Mobile 542/542; real-PostgreSQL preservation passed 4/4, the normal success path passed 3/3 and
+complete Synthetic passed 161/161. Both
+tests-inclusive typechecks, the Synthetic build, changed-MJS syntax checks,
+immutable-artifact/no-install preflight, scoped diff-check and final PostgreSQL null-state proof
+passed. The first attempted complete invocation remained incomplete only because its operator
+environment pointed `backend-mobile-work` at the fresh empty task-owned `taptime_da3`. After
+correcting only that invocation environment and making no code change, a full fresh invocation
+completed green: 21/21 workspace suites passed with 2,063 tests and exactly two optional B1
+Supavisor skips, 21/21 tests-inclusive typechecks and 20/20 applicable builds passed, migrations
+001–013 passed clean apply/replay/ledger verification on PostgreSQL 17.10, C3B `verify-bin`
+passed, Mobile test sources were included 39/39 by `tsc --listFilesOnly`, Android export completed
+with 861 modules and the immutable-artifact/no-install preflight matched. Cleanup removed
+task-owned `taptime_da3` and temporary export data; the DA5 Harness end state was
+`0|false|false|false` for generated roles, schema, ledger and Legacy Guard DB, with no listeners
+on ports 3000/54321. The incomplete invocation was an operator-environment issue, not a Product
+defect. Technical-Lead acceptance and formal Exact-SHA re-review remain pending; the correction
+is uncommitted, and no correction SHA/tree/CI binding or approval is claimed here.

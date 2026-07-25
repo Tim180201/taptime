@@ -17,6 +17,7 @@ export type Da5V5OperatorCommandOutcome =
   | Readonly<{ readonly state: 'stop' }>;
 
 export class Da5V5OperatorLifecycle {
+  private activeOperationSettlement: Promise<void> | null = null;
   private cleanupPromise: Promise<void> | null = null;
   private failureLatched = false;
   private reportStoppedAfterCleanup = false;
@@ -26,6 +27,8 @@ export class Da5V5OperatorLifecycle {
     private readonly cleanup: () => Promise<void>,
     private readonly report: (event: string) => void,
     private readonly markFailed: () => void,
+    private readonly abortActiveMutation: () => void = () => undefined,
+    private readonly closeActiveInput: () => void = () => undefined,
   ) {}
 
   isActive(): boolean {
@@ -34,26 +37,36 @@ export class Da5V5OperatorLifecycle {
 
   async submit(command: () => Promise<Da5V5OperatorCommandOutcome>): Promise<void> {
     if (this.state === 'running') {
-      await this.fail('operator_command_rejected');
+      await this.abortAndFail('operator_command_rejected');
       return;
     }
     if (this.state !== 'active') {
       return;
     }
     this.state = 'running';
-    let outcome: Da5V5OperatorCommandOutcome;
+    let settleOperation = (): void => undefined;
+    const operationSettlement = new Promise<void>((resolvePromise) => {
+      settleOperation = resolvePromise;
+    });
+    this.activeOperationSettlement = operationSettlement;
+    let outcome: Da5V5OperatorCommandOutcome | undefined;
+    let commandFailed = false;
     try {
       outcome = await command();
     } catch {
-      if (this.state !== 'running') {
-        await this.cleanupPromise;
-        return;
+      commandFailed = true;
+    } finally {
+      settleOperation();
+      if (this.activeOperationSettlement === operationSettlement) {
+        this.activeOperationSettlement = null;
       }
-      await this.fail('operator_command_failed');
-      return;
     }
     if (this.state !== 'running') {
       await this.cleanupPromise;
+      return;
+    }
+    if (commandFailed || outcome === undefined) {
+      await this.fail('operator_command_failed');
       return;
     }
     if (outcome.state === 'continue') {
@@ -66,20 +79,51 @@ export class Da5V5OperatorLifecycle {
   }
 
   async fail(event: Da5V5OperatorFailureEvent): Promise<void> {
+    if (this.activeOperationSettlement !== null) {
+      await this.abortAndFail(event);
+      return;
+    }
+    this.latchFailure(event);
+    await this.finish(false);
+  }
+
+  async abortAndFail(event: Da5V5OperatorFailureEvent): Promise<void> {
+    this.latchFailure(event);
+    if (this.cleanupPromise !== null) {
+      await this.cleanupPromise;
+      return;
+    }
+    this.state = 'stopping';
+    try {
+      this.abortActiveMutation();
+    } catch {
+      this.markFailed();
+    }
+    try {
+      this.closeActiveInput();
+    } catch {
+      this.markFailed();
+    }
+    await this.finish(false, this.activeOperationSettlement);
+  }
+
+  private latchFailure(event: Da5V5OperatorFailureEvent): void {
     if (!this.failureLatched) {
       this.failureLatched = true;
       this.reportStoppedAfterCleanup = false;
       this.report(event);
       this.markFailed();
     }
-    await this.finish(false);
   }
 
   async stop(reportStopped: boolean = true): Promise<void> {
     await this.finish(reportStopped);
   }
 
-  private async finish(reportStopped: boolean): Promise<void> {
+  private async finish(
+    reportStopped: boolean,
+    operationSettlement: Promise<void> | null = null,
+  ): Promise<void> {
     if (reportStopped && !this.failureLatched) {
       this.reportStoppedAfterCleanup = true;
     }
@@ -90,6 +134,7 @@ export class Da5V5OperatorLifecycle {
     this.state = 'stopping';
     this.cleanupPromise = (async () => {
       try {
+        await operationSettlement;
         await this.cleanup();
         this.state = 'stopped';
         if (this.reportStoppedAfterCleanup && !this.failureLatched) {
@@ -145,7 +190,7 @@ export class Da5V5SignalController {
       this.report('da5_v5_interrupted');
       this.markFailed();
     } else {
-      this.completion = lifecycle.fail('da5_v5_interrupted');
+      this.completion = lifecycle.abortAndFail('da5_v5_interrupted');
     }
     return this.completion;
   }
@@ -156,6 +201,7 @@ export class Da5V5SignalController {
 }
 
 export class Da5V5InputOwnership {
+  private closedSecretInput: Interface | null = null;
   private commandInput: Interface | null = null;
   private secretInput: Interface | null = null;
 
@@ -184,10 +230,18 @@ export class Da5V5InputOwnership {
     if (this.commandInput !== null || this.secretInput !== null) {
       throw new Error('DA5 V5 input already has an owner');
     }
+    this.closedSecretInput = null;
     this.secretInput = input;
   }
 
   releaseSecret(input: Interface): void {
+    if (this.secretInput === null) {
+      if (this.closedSecretInput === input) {
+        this.closedSecretInput = null;
+        return;
+      }
+      throw new Error('DA5 V5 secret input ownership mismatch');
+    }
     if (this.secretInput !== input) {
       throw new Error('DA5 V5 secret input ownership mismatch');
     }
@@ -199,7 +253,10 @@ export class Da5V5InputOwnership {
     this.commandInput?.removeAllListeners();
     this.commandInput?.close();
     this.commandInput = null;
-    this.secretInput?.close();
+    if (this.secretInput !== null) {
+      this.closedSecretInput = this.secretInput;
+      this.secretInput.close();
+    }
     this.secretInput = null;
   }
 

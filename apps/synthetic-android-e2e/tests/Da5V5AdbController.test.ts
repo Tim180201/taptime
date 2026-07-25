@@ -1,18 +1,100 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   Da5V5ApiOfflineController,
   Da5V5DeviceCheckpointController,
   Da5V5UsbDeviceLock,
+  SystemDa5V5AdbCommandRunner,
   type Da5V5AdbCommandRunner,
 } from '../src/index.js';
+
+describe('DA5 V5 synchronous ADB child-process boundary', () => {
+  it('uses the same minimal environment and explicit loopback routing as mutations', () => {
+    let observedArguments: readonly string[] = [];
+    let observedEnvironment: Readonly<Record<string, string | undefined>> = {};
+    let spawnCount = 0;
+    const spawnCommand = (
+      _command: string,
+      arguments_: readonly string[],
+      options: { readonly env?: Readonly<Record<string, string | undefined>> },
+    ) => {
+      spawnCount += 1;
+      observedArguments = arguments_;
+      observedEnvironment = options.env ?? {};
+      return {
+        error: undefined,
+        status: 0,
+        stdout: 'List of devices attached\n',
+      };
+    };
+    const runner = new SystemDa5V5AdbCommandRunner({
+      environment: {
+        AWS_SECRET_ACCESS_KEY: 'must-not-cross',
+        DATABASE_URL: 'postgresql://secret',
+        HOME: '/private/home',
+        PATH: '/safe/bin',
+        TAPTIME_SYNTHETIC_E2E_PASSWORD: 'must-not-cross',
+      },
+      spawnSync: spawnCommand as never,
+    });
+
+    expect(runner.run(['devices', '-l'])).toBe('List of devices attached\n');
+    expect(spawnCount).toBe(1);
+    expect(observedArguments).toEqual([
+      '-H',
+      '127.0.0.1',
+      '-P',
+      '5037',
+      'devices',
+      '-l',
+    ]);
+    expect(observedEnvironment).toEqual({
+      ADB_SERVER_SOCKET: 'tcp:127.0.0.1:5037',
+      PATH: '/safe/bin',
+    });
+  });
+
+  it.each([
+    'ADB_SERVER_SOCKET',
+    'ADB_VENDOR_KEYS',
+    'ADB_MDNS_AUTO_CONNECT',
+    'ANDROID_ADB_SERVER_ADDRESS',
+    'ANDROID_ADB_SERVER_PORT',
+    'ANDROID_SERIAL',
+  ])('rejects hostile %s routing input before synchronous spawn', (name) => {
+    let spawnCount = 0;
+    const spawnCommand = () => {
+      spawnCount += 1;
+      return {
+        error: undefined,
+        status: 0,
+        stdout: '',
+      };
+    };
+    const runner = new SystemDa5V5AdbCommandRunner({
+      environment: {
+        [name]: 'hostile',
+        PATH: '/safe/bin',
+      },
+      spawnSync: spawnCommand as never,
+    });
+
+    expect(() => runner.run(['devices', '-l'])).toThrow(
+      /routing environment override is forbidden/,
+    );
+    expect(spawnCount).toBe(0);
+  });
+});
 
 describe('DA5 V5 controlled API-offline ownership', () => {
   it('owns only the API mapping for exactly two cycles', async () => {
     const adb = directAdb();
     const controller = offlineController(adb);
+    expect(controller.arm()).toBe('match');
+    expect(controller.cleanupProofState()).toBe('known');
 
     for (const [index, phase] of (['ordinary', 'protected'] as const).entries()) {
       expect(await controller.enterOffline(phase)).toBe('match');
+      expect(controller.cleanupProofState()).toBe('known');
       expect(adb.mappings).toEqual(new Map([
         ['tcp:54321', 'tcp:54321'],
       ]));
@@ -21,11 +103,13 @@ describe('DA5 V5 controlled API-offline ownership', () => {
         state: `offline-${phase}`,
       });
       expect(await controller.restoreDirect(phase)).toBe('match');
+      expect(controller.cleanupProofState()).toBe('known');
     }
 
     expect(controller.complete()).toBe('match');
     expect(await controller.close()).toBe('match');
     expect(controller.getState()).toEqual({ completedCycles: 2, state: 'closed' });
+    expect(controller.cleanupProofState()).toBe('known');
     expect(adb.mappings.get('tcp:54321')).toBe('tcp:54321');
     expect(adb.mappings.get('tcp:3000')).toBe('tcp:3000');
     expect(adb.commands.some((command) => command.includes('--remove-all'))).toBe(false);
@@ -35,11 +119,13 @@ describe('DA5 V5 controlled API-offline ownership', () => {
   it('rejects repeated, out-of-order and third-cycle operations with a permanent latch',
     async () => {
     const outOfOrder = offlineController(directAdb());
+    expect(outOfOrder.arm()).toBe('match');
     expect(await outOfOrder.restoreDirect('ordinary')).toBe('mismatch');
     expect(await outOfOrder.enterOffline('ordinary')).toBe('mismatch');
     expect(outOfOrder.getState().state).toBe('failed');
 
     const third = offlineController(directAdb());
+    expect(third.arm()).toBe('match');
     expect(await third.enterOffline('ordinary')).toBe('match');
     expect(await third.restoreDirect('ordinary')).toBe('match');
     expect(await third.enterOffline('protected')).toBe('match');
@@ -63,6 +149,7 @@ describe('DA5 V5 controlled API-offline ownership', () => {
       adb.devices = devices;
       const before = new Map(adb.mappings);
       const controller = offlineController(adb);
+      expect(controller.arm()).toBe('mismatch');
       expect(await controller.enterOffline('ordinary')).toBe('mismatch');
       expect(adb.mappings).toEqual(before);
       expect(controller.getState().state).toBe('failed');
@@ -71,12 +158,14 @@ describe('DA5 V5 controlled API-offline ownership', () => {
     const unexpected = directAdb();
     unexpected.mappings.set('tcp:3000', 'tcp:3999');
     const controller = offlineController(unexpected);
+    expect(controller.arm()).toBe('mismatch');
     expect(await controller.enterOffline('ordinary')).toBe('mismatch');
     expect(unexpected.mappings.get('tcp:3000')).toBe('tcp:3999');
 
     const extra = directAdb();
     extra.mappings.set('tcp:9911', 'tcp:9922');
     const extraController = offlineController(extra);
+    expect(extraController.arm()).toBe('mismatch');
     expect(await extraController.enterOffline('ordinary')).toBe('mismatch');
     expect(extra.mappings.get('tcp:9911')).toBe('tcp:9922');
     expect(extra.commands.some((command) => command.includes('--remove'))).toBe(false);
@@ -93,6 +182,7 @@ describe('DA5 V5 controlled API-offline ownership', () => {
       adb.rawReverseLines = [unexpectedLine];
       const before = new Map(adb.mappings);
       const controller = offlineController(adb);
+      expect(controller.arm()).toBe('mismatch');
       expect(await controller.enterOffline('ordinary')).toBe('mismatch');
       expect(adb.mappings).toEqual(before);
       expect(adb.commands.some((command) => command.includes('--remove'))).toBe(false);
@@ -113,6 +203,7 @@ describe('DA5 V5 controlled API-offline ownership', () => {
       deviceModel: adb.deviceModel,
     }, lock);
     expect(device.prepareColdDispatch()).toBe('match');
+    expect(offline.arm()).toBe('match');
     adb.serial = 'replacement-device';
     adb.devices = [{
       details: 'usb:replacement product:synthetic model:synthetic transport_id:2',
@@ -133,6 +224,7 @@ describe('DA5 V5 controlled API-offline ownership', () => {
       && !adb.mappings.has('tcp:3000')
     );
     const controller = offlineController(adb);
+    expect(controller.arm()).toBe('match');
 
     expect(await controller.enterOffline('ordinary')).toBe('mismatch');
     expect(adb.mappings.has('tcp:3000')).toBe(false);
@@ -140,6 +232,7 @@ describe('DA5 V5 controlled API-offline ownership', () => {
     expect(controller.getState()).toEqual({ completedCycles: 0, state: 'closed' });
     expect(adb.mappings.get('tcp:3000')).toBe('tcp:3000');
     expect(adb.mappings.get('tcp:54321')).toBe('tcp:54321');
+    expect(controller.cleanupProofState()).toBe('uncertain');
     expect(adb.commands.some((command) => command.includes('--remove-all'))).toBe(false);
   });
 
@@ -157,11 +250,78 @@ describe('DA5 V5 controlled API-offline ownership', () => {
       abort.signal,
     );
 
+    expect(controller.arm()).toBe('match');
     expect(await controller.enterOffline('ordinary')).toBe('mismatch');
     expect(abort.signal.aborted).toBe(true);
+    expect(controller.cleanupProofState()).toBe('uncertain');
     expect(adb.mappings.has('tcp:3000')).toBe(false);
     expect(await controller.close()).toBe('match');
     expect(adb.mappings.get('tcp:3000')).toBe('tcp:3000');
+    expect(controller.cleanupProofState()).toBe('uncertain');
+  });
+
+  it('keeps an aborted restore/add uncertain after compensation when its effect can appear late',
+    async () => {
+      const adb = directAdb();
+      const abort = new AbortController();
+      const controller = new Da5V5ApiOfflineController(
+        adb,
+        {
+          androidBuild: adb.androidBuild,
+          deviceModel: adb.deviceModel,
+        },
+        new Da5V5UsbDeviceLock(),
+        abort.signal,
+      );
+      expect(controller.arm()).toBe('match');
+      expect(await controller.enterOffline('ordinary')).toBe('match');
+      expect(controller.cleanupProofState()).toBe('known');
+
+      adb.delayNextApiReverseAdd = true;
+      adb.abortMutation = abort;
+      expect(await controller.restoreDirect('ordinary')).toBe('mismatch');
+      expect(abort.signal.aborted).toBe(true);
+      expect(adb.mappings.has('tcp:3000')).toBe(false);
+      expect(controller.cleanupProofState()).toBe('uncertain');
+
+      expect(await controller.close()).toBe('match');
+      expect(adb.mappings.get('tcp:3000')).toBe('tcp:3000');
+      expect(controller.cleanupProofState()).toBe('uncertain');
+
+      adb.run(['-s', adb.serial, 'reverse', '--remove', 'tcp:3000']);
+      expect(adb.mappings.has('tcp:3000')).toBe(false);
+      adb.releaseDelayedApiReverseAdd();
+      expect(adb.mappings.get('tcp:3000')).toBe('tcp:3000');
+  });
+
+  it('closes unarmed without assuming package or reverse mappings exist', async () => {
+    const adb = new FakeAdb();
+    adb.packageInstalled = false;
+    const controller = offlineController(adb);
+    const commandsBeforeClose = adb.commands.length;
+
+    expect(controller.getState()).toEqual({ completedCycles: 0, state: 'unarmed' });
+    expect(await controller.close()).toBe('match');
+    expect(controller.getState()).toEqual({ completedCycles: 0, state: 'closed' });
+    expect(adb.commands).toHaveLength(commandsBeforeClose);
+  });
+
+  it('arms only after the exact installed package and both mappings are proven', async () => {
+    const missingPackage = directAdb();
+    missingPackage.packageInstalled = false;
+    const packageController = offlineController(missingPackage);
+    expect(packageController.arm()).toBe('mismatch');
+    const packageCommands = missingPackage.commands.length;
+    expect(await packageController.close()).toBe('match');
+    expect(missingPackage.commands).toHaveLength(packageCommands);
+
+    const missingMapping = directAdb();
+    missingMapping.mappings.delete('tcp:3000');
+    const mappingController = offlineController(missingMapping);
+    expect(mappingController.arm()).toBe('mismatch');
+    const mappingCommands = missingMapping.commands.length;
+    expect(await mappingController.close()).toBe('match');
+    expect(missingMapping.commands).toHaveLength(mappingCommands);
   });
 });
 
@@ -297,6 +457,8 @@ class FakeAdb implements Da5V5AdbCommandRunner {
   abortMutation: AbortController | null = null;
   androidBuild = 'synthetic/vendor/device:15/BUILD/1:user/release-keys';
   commands: string[][] = [];
+  delayNextApiReverseAdd = false;
+  delayedApiReverseAdd = false;
   deviceModel = 'Synthetic Galaxy';
   devices = [{
     details: 'usb:synthetic product:synthetic model:synthetic transport_id:1',
@@ -345,6 +507,11 @@ class FakeAdb implements Da5V5AdbCommandRunner {
       return '';
     }
     if (command[0] === 'reverse' && command.length === 3) {
+      if (command[1] === 'tcp:3000' && this.delayNextApiReverseAdd) {
+        this.delayNextApiReverseAdd = false;
+        this.delayedApiReverseAdd = true;
+        return '';
+      }
       this.mappings.set(command[1] as string, command[2] as string);
       return '';
     }
@@ -395,6 +562,14 @@ class FakeAdb implements Da5V5AdbCommandRunner {
       throw new Error('fake adb mutation aborted');
     }
     return result;
+  }
+
+  releaseDelayedApiReverseAdd(): void {
+    if (!this.delayedApiReverseAdd) {
+      throw new Error('fake delayed API reverse add is unavailable');
+    }
+    this.delayedApiReverseAdd = false;
+    this.mappings.set('tcp:3000', 'tcp:3000');
   }
 }
 

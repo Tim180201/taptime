@@ -1,5 +1,7 @@
+import { createHash } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
 import {
+  createDa5V5AndroidArtifactVerificationForTest,
   DA5_V5_ANDROID_ARTIFACT,
   DA5_V5_ANDROID_PACKAGE,
   requireDa5V5AndroidProfile,
@@ -10,6 +12,28 @@ import {
   type Da5V5ArtifactDependencies,
   type Da5V5FileDependencies,
 } from '../../scripts/da5V5AndroidArtifact.mjs';
+
+const syntheticApkBytes = Buffer.from([
+  0x50, 0x4b, 0x03, 0x04, 0xff, 0x00, 0x81, 0x7f,
+  0x44, 0x41, 0x35, 0x2d, 0x56, 0x35, 0x2d, 0x41,
+  0x50, 0x4b, 0x2d, 0x53, 0x4e, 0x41, 0x50, 0x53,
+  0x48, 0x4f, 0x54, 0x0a,
+]);
+const syntheticManifestBytes = Buffer.from('synthetic-manifest\n', 'utf8');
+const syntheticBindings = Object.freeze({
+  apk: Object.freeze({
+    bytes: syntheticApkBytes.length,
+    mode: 0o444,
+    path: '/synthetic/da5-v5/test.apk',
+    sha256: createHash('sha256').update(syntheticApkBytes).digest('hex'),
+  }),
+  manifest: Object.freeze({
+    bytes: syntheticManifestBytes.length,
+    mode: 0o444,
+    path: '/synthetic/da5-v5/test-manifest.txt',
+    sha256: createHash('sha256').update(syntheticManifestBytes).digest('hex'),
+  }),
+});
 
 describe('DA5 V5 immutable external Android artifact', () => {
   it('requires the exact profile before any file, SDK or runtime inspection', () => {
@@ -146,11 +170,118 @@ describe('DA5 V5 immutable external Android artifact', () => {
       verification,
       stable.files,
     )).toThrow(/identity mismatch/);
+    expect(stable.files.close).toHaveBeenCalledTimes(1);
+    expect(stable.files.readFileDescriptor).not.toHaveBeenCalled();
   });
+
+  it('closes the stable descriptor and zeroes a rejected full-size content snapshot', () => {
+    const synthetic = syntheticArtifactVerification();
+    const rejectedSnapshot = Buffer.alloc(syntheticApkBytes.length, 0xa5);
+    vi.mocked(synthetic.files.readFileDescriptor!).mockReturnValue(
+      rejectedSnapshot,
+    );
+
+    expect(() => reverifyDa5V5AndroidArtifactForInstall(
+      synthetic.verification,
+      synthetic.files,
+    )).toThrow(/digest mismatch/);
+
+    expect(synthetic.files.close).toHaveBeenCalledTimes(1);
+    expectFullBufferZeroized(rejectedSnapshot);
+  });
+
+  it('closes the stable descriptor when the descriptor read fails', () => {
+    const synthetic = syntheticArtifactVerification();
+    vi.mocked(synthetic.files.readFileDescriptor!).mockImplementation(() => {
+      throw new Error('synthetic descriptor read failure');
+    });
+
+    expect(() => reverifyDa5V5AndroidArtifactForInstall(
+      synthetic.verification,
+      synthetic.files,
+    )).toThrow('synthetic descriptor read failure');
+    expect(synthetic.files.close).toHaveBeenCalledTimes(1);
+  });
+
+  it(
+    'uses the complete synthetic binding through the production digest, single-use and zeroization lifecycle',
+    async () => {
+      const synthetic = syntheticArtifactVerification();
+      const successfulSource = reverifyDa5V5AndroidArtifactForInstall(
+        synthetic.verification,
+        synthetic.files,
+      );
+      let successfulSnapshot: Buffer | undefined;
+      await expect(successfulSource.use((snapshot) => {
+        successfulSnapshot = snapshot;
+        expect(snapshot.length).toBe(syntheticBindings.apk.bytes);
+        expect(createHash('sha256').update(snapshot).digest('hex')).toBe(
+          syntheticBindings.apk.sha256,
+        );
+        return 'used';
+      })).resolves.toBe('used');
+      expect(successfulSnapshot).toBeDefined();
+      expectFullBufferZeroized(successfulSnapshot!);
+      await expect(successfulSource.use(() => 'reused')).rejects.toThrow(
+        /snapshot is unavailable/,
+      );
+
+      const failingSource = reverifyDa5V5AndroidArtifactForInstall(
+        synthetic.verification,
+        synthetic.files,
+      );
+      let failingSnapshot: Buffer | undefined;
+      await expect(failingSource.use((snapshot) => {
+        failingSnapshot = snapshot;
+        throw new Error('synthetic install consumer failure');
+      })).rejects.toThrow('synthetic install consumer failure');
+      expect(failingSnapshot).toBeDefined();
+      expectFullBufferZeroized(failingSnapshot!);
+      await expect(failingSource.use(() => 'reused')).rejects.toThrow(
+        /snapshot is unavailable/,
+      );
+
+      const destroyedSource = reverifyDa5V5AndroidArtifactForInstall(
+        synthetic.verification,
+        synthetic.files,
+      );
+      const destroyedSnapshot = synthetic.lastSnapshot();
+      destroyedSource.destroy();
+      destroyedSource.destroy();
+      expectFullBufferZeroized(destroyedSnapshot);
+      await expect(destroyedSource.use(() => 'used')).rejects.toThrow(
+        /snapshot is unavailable/,
+      );
+
+      expect(synthetic.files.openReadOnly).toHaveBeenCalledTimes(3);
+      expect(synthetic.files.readFileDescriptor).toHaveBeenCalledTimes(3);
+      expect(synthetic.files.close).toHaveBeenCalledTimes(3);
+      expect(synthetic.files.fstat).toHaveBeenCalledTimes(6);
+    },
+  );
+
+  it(
+    'zeroes the verified full snapshot if closing its descriptor fails',
+    () => {
+      const synthetic = syntheticArtifactVerification();
+      vi.mocked(synthetic.files.close!).mockImplementation(() => {
+        throw new Error('synthetic close failure');
+      });
+
+      expect(() => reverifyDa5V5AndroidArtifactForInstall(
+        synthetic.verification,
+        synthetic.files,
+      )).toThrow(/immutable file close failed/);
+      expect(synthetic.files.close).toHaveBeenCalledTimes(1);
+      expectFullBufferZeroized(synthetic.lastSnapshot());
+    },
+  );
 });
 
 function validDependencies(): Da5V5ArtifactDependencies {
   const files = {
+    close: vi.fn(),
+    fstat: vi.fn(() => fileStat(1)),
     lstat: vi.fn((path: string) => {
       const binding = path === DA5_V5_ANDROID_ARTIFACT.apk.path
         ? DA5_V5_ANDROID_ARTIFACT.apk
@@ -163,6 +294,10 @@ function validDependencies(): Da5V5ArtifactDependencies {
         mode: binding.mode,
         size: binding.bytes,
       };
+    }),
+    openReadOnly: vi.fn(() => 42),
+    readFileDescriptor: vi.fn(() => {
+      throw new Error('unexpected stable snapshot read');
     }),
     realpath: vi.fn((path: string) => path),
     sha256: vi.fn((path: string) => (
@@ -245,4 +380,77 @@ function fileStat(ino: number) {
       ? DA5_V5_ANDROID_ARTIFACT.manifest.bytes
       : DA5_V5_ANDROID_ARTIFACT.apk.bytes,
   };
+}
+
+function syntheticArtifactVerification(): {
+  readonly files: Da5V5FileDependencies;
+  lastSnapshot(): Buffer;
+  readonly verification: ReturnType<
+    typeof createDa5V5AndroidArtifactVerificationForTest
+  >;
+} {
+  let snapshot: Buffer | undefined;
+  const files = {
+    close: vi.fn(),
+    fstat: vi.fn(() => syntheticFileStat(syntheticBindings.apk)),
+    lstat: vi.fn((path: string) => syntheticFileStat(
+      path === syntheticBindings.apk.path
+        ? syntheticBindings.apk
+        : syntheticBindings.manifest,
+    )),
+    openReadOnly: vi.fn(() => 42),
+    readFileDescriptor: vi.fn((_fileDescriptor: number, expectedBytes: number) => {
+      expect(expectedBytes).toBe(syntheticBindings.apk.bytes);
+      snapshot = Buffer.from(syntheticApkBytes);
+      return snapshot;
+    }),
+    realpath: vi.fn((path: string) => path),
+    sha256: vi.fn((path: string) => (
+      path === syntheticBindings.apk.path
+        ? syntheticBindings.apk.sha256
+        : syntheticBindings.manifest.sha256
+    )),
+  } satisfies Da5V5FileDependencies;
+  const verification = createDa5V5AndroidArtifactVerificationForTest({
+    ...syntheticBindings,
+    dependencies: files,
+  });
+  return {
+    files,
+    lastSnapshot() {
+      if (snapshot === undefined) {
+        throw new Error('retained test snapshot is unavailable');
+      }
+      return snapshot;
+    },
+    verification,
+  };
+}
+
+function syntheticFileStat(binding: {
+  readonly bytes: number;
+  readonly path: string;
+}) {
+  return {
+    dev: 7,
+    ino: binding.path === syntheticBindings.apk.path ? 11 : 12,
+    isFile: () => true,
+    isSymbolicLink: () => false,
+    mode: 0o444,
+    size: binding.bytes,
+  };
+}
+
+function expectFullBufferZeroized(value: Buffer): void {
+  const zeroDigest = createHash('sha256');
+  const zeroChunk = Buffer.alloc(1024 * 1024);
+  let remaining = value.length;
+  while (remaining > 0) {
+    const bytes = Math.min(remaining, zeroChunk.length);
+    zeroDigest.update(zeroChunk.subarray(0, bytes));
+    remaining -= bytes;
+  }
+  expect(createHash('sha256').update(value).digest('hex')).toBe(
+    zeroDigest.digest('hex'),
+  );
 }

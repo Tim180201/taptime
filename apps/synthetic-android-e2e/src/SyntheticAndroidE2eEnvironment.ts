@@ -291,6 +291,7 @@ export async function createSyntheticAndroidE2eEnvironment(
       options.installerDatabaseUrl,
       auth.issuer,
       profile,
+      databaseOwnership ?? undefined,
     );
     sessionPool = createPool(database.connectionStrings.session);
     readModelPool = createPool(database.connectionStrings.readModel);

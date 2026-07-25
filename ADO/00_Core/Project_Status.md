@@ -1,6 +1,6 @@
 # Project Status
 
-Status: CORE ROADMAP V2 BLOCK A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2, BLOCK D, E1 AND NARROW E2A COMPLETE FOR THEIR RECORDED SCOPES — DEVELOPMENT ASSIGNMENTS 1–3 AND DT-060–DT-074 CLOSED FOR THEIR EXACT AUTHORIZED LOCAL SCOPES — DA4 WORKSTREAMS A–D, AVS V0–V4, H01 PROCEDURAL CORRECTION, DA4-V5-F06 AND DA4-V5-F07 INDEPENDENTLY APPROVED; DA4 REMAINS OPEN FOR A LATER FRESH HUMAN V5 — DA5 V0–V4 SOFTWARE IS TECHNICALLY CLOSED; CURRENT SOURCE+LOCK BASELINE `a323834`, TREE `65c669b`, PASSED EXACT-HEAD CI `30149165373` 12/12 AND INDEPENDENT IMPLEMENTATION REVIEW ROUND 2 `APPROVED` WITH ZERO OPEN P0–P3; THE READ-ONLY SYNTHETIC V5 APK/MANIFEST EVIDENCE AT `e6a06e2`, TREE `6dcdce4`, PASSED EXACT-HEAD CI `30150095109` 12/12 AND FINAL INDEPENDENT ARTIFACT/EVIDENCE EXACT-SHA REVIEW `APPROVED` WITH ZERO OPEN P0–P3, WHILE HUMAN/HARDWARE V5 REMAINS SEPARATE AND UNAUTHORIZED — PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
+Status: CORE ROADMAP V2 BLOCK A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2, BLOCK D, E1 AND NARROW E2A COMPLETE FOR THEIR RECORDED SCOPES — DEVELOPMENT ASSIGNMENTS 1–3 AND DT-060–DT-074 CLOSED FOR THEIR EXACT AUTHORIZED LOCAL SCOPES — DA4 WORKSTREAMS A–D, AVS V0–V4, H01 PROCEDURAL CORRECTION, DA4-V5-F06 AND DA4-V5-F07 INDEPENDENTLY APPROVED; DA4 REMAINS OPEN FOR A LATER FRESH HUMAN V5 — DA5 V0–V4 SOFTWARE IS TECHNICALLY CLOSED; CURRENT SOURCE+LOCK BASELINE `a323834`, TREE `65c669b`, PASSED EXACT-HEAD CI `30149165373` 12/12 AND INDEPENDENT IMPLEMENTATION REVIEW ROUND 2 `APPROVED` WITH ZERO OPEN P0–P3; THE READ-ONLY SYNTHETIC V5 APK/MANIFEST EVIDENCE AT `e6a06e2`, TREE `6dcdce4`, PASSED EXACT-HEAD CI `30150095109` 12/12 AND FINAL INDEPENDENT ARTIFACT/EVIDENCE EXACT-SHA REVIEW `APPROVED` WITH ZERO OPEN P0–P3; DA5-V5 ENABLEMENT PUBLICATION `15f43b1b05e136e0d6643b1f10c1fc8310cfa838`, TREE `ed1e55c08dd13392f6f72bcf9265cdfaf547fa72`, PASSED EXACT-HEAD CI `30165425892` 12/12 BUT FORMAL EXACT-SHA REVIEW ROUND 1 RETURNED `CHANGES REQUIRED` WITH FOUR P1, TWO P2 AND ONE P3; THE CURRENT FOCUSED CORRECTION CANDIDATE IS LOCALLY V0–V3 GREEN AND PENDING TECHNICAL-LEAD ACCEPTANCE AND FORMAL EXACT-SHA RE-REVIEW; HUMAN/HARDWARE V5 REMAINS SEPARATE AND UNAUTHORIZED — PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
 Date: 2026-07-25
 Owner: Human Architect + Technical Lead
 
@@ -86,13 +86,42 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   The corrected DA5-V5 enablement authorization candidate `cddb66d82047284c72688cc90a7491af761b8791`,
   tree `8cda19f8df42febb34a03a4db4911d5ea8acae79`, passed exact-head CI `30159987539`,
   attempt 1, 12/12; independent exact-delta re-review returned `APPROVED` with zero open P0–P3.
-  On exactly that baseline, the enablement remains local and uncommitted with final R3 V0–V3
-  green: 2,013 tests with exactly two optional B1 Supavisor skips, 21/21 tests-inclusive
+  On exactly that baseline, final R3 V0–V3 was green: 2,013 tests with exactly two optional B1
+  Supavisor skips, 21/21 tests-inclusive
   typechecks, 20/20 applicable builds, migrations 001–013, C3B binary, 861-module Android export,
   immutable-artifact/no-install preflight and complete task-owned cleanup passed. Implementation
-  V4 and formal Exact-SHA review remain pending. No installation, ADB, device/Tag interaction or
-  Human V5 occurred; before hardware, the A/B/X provenance gap requires a separately reviewed
-  Validation-App/Binding-Preflight architecture and explicit Human authorization.
+  publication `15f43b1b05e136e0d6643b1f10c1fc8310cfa838`, tree
+  `ed1e55c08dd13392f6f72bcf9265cdfaf547fa72`, passed exact-head CI `30165425892`,
+  attempt 1, 12/12. Formal Exact-SHA review round 1 returned `CHANGES REQUIRED` with exactly four
+  P1, two P2 and one P3. Subsequent specialist audits additionally found sticky reverse-cleanup
+  uncertainty (P2), productive artifact/FD, binary-digest, stdin-runner-close and
+  installed-package-path verification gaps (P2), and legacy PostgreSQL provisioner
+  preflight/scoped-removal/password-state defects (P1/P2). The
+  focused correction candidate preserves mutation uncertainty, performs complete stable-FD
+  digest/lifecycle verification, settles binary digest and stdin-runner failures only after child
+  close while retaining the first error, enforces the installed-package-path parser boundary, and
+  completes all read-only legacy role/session/membership-option/setting/dependency checks plus
+  authoritative password-state verification behind an installer-superuser proof before any exact
+  scoped mutation. Focused Mobile passed 77/77 and complete Mobile passed 542/542;
+  real-PostgreSQL preservation passed 4/4, the normal success path passed 3/3 and complete
+  Synthetic passed 161/161. Both tests-inclusive typechecks, the Synthetic build,
+  changed-MJS syntax, immutable-artifact/no-install preflight, scoped diff-check and final
+  PostgreSQL null-state proof passed. The first attempted complete invocation remained incomplete
+  only because its operator environment pointed `backend-mobile-work` at the fresh empty
+  task-owned `taptime_da3`. After correcting only that invocation environment and making no code
+  change, a full fresh invocation completed green: 21/21 workspace suites passed with 2,063 tests
+  and exactly two optional B1 Supavisor skips, 21/21 tests-inclusive typechecks and 20/20
+  applicable builds passed, migrations 001–013 passed clean apply/replay/ledger verification on
+  PostgreSQL 17.10, C3B `verify-bin` passed, Mobile test sources were included 39/39 by
+  `tsc --listFilesOnly`, Android export completed with 861 modules and the
+  immutable-artifact/no-install preflight matched. Cleanup removed task-owned `taptime_da3` and
+  temporary export data; the DA5 Harness end state was `0|false|false|false` for generated roles,
+  schema, ledger and Legacy Guard DB, with no listeners on ports 3000/54321. The incomplete
+  invocation was an operator-environment issue, not a Product defect. Technical-Lead acceptance
+  and formal Exact-SHA re-review remain pending; the correction is uncommitted and not approved. No
+  installation, ADB, device/Tag interaction or Human V5 occurred; before hardware, the A/B/X
+  provenance gap requires a separately reviewed Validation-App/Binding-Preflight architecture and
+  explicit Human authorization.
 - **Development Assignment 4 is the active Roadmap engineering block.** The Human Architect
   accepted ADR-0015 and DA4-P01–P12 and separately authorized Workstreams A–D plus AVS V0–V4 on
   exact baseline `d9892435acbf7f45a96a9a01c8331afceb65f6f1`, tree
@@ -793,8 +822,11 @@ Two Epics are concurrently Active, per EP-009's own stated relationship to the r
    independently `APPROVED`, `MERGE_READY`, with zero open P0–P3. Preserve the read-only V5
    artifact/evidence approval at `e6a06e2`, tree `6dcdce4`, exact-head CI `30150095109` 12/12
    and final independent Artifact/Evidence Exact-SHA review `APPROVED` with zero open P0–P3.
-   It grants no Human-run authority. DA4's open Human gate and all Human/hardware V5 evidence
-   remain separate and unauthorized.
+   It grants no Human-run authority. Treat DA5-V5 enablement publication `15f43b1`, tree
+   `ed1e55c`, CI `30165425892` 12/12 as `CHANGES REQUIRED` after formal review round 1 (four P1,
+   two P2, one P3); complete and independently re-review the focused correction candidate before any
+   later Human proposal. DA4's open Human gate and all Human/hardware V5 evidence remain separate
+   and unauthorized.
    Production, production data, deployment and distribution remain unauthorized.
 
 ## Agreed comprehensive Development-assignment sequence

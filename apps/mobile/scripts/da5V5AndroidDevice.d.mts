@@ -6,6 +6,7 @@ import type {
 
 export interface Da5V5AndroidCommandOptions {
   readonly signal?: AbortSignal;
+  readonly stdinBytes?: Buffer;
   readonly timeoutMilliseconds?: number;
 }
 
@@ -14,6 +15,17 @@ export interface Da5V5AndroidAdbRunner {
     arguments_: readonly string[],
     options?: Da5V5AndroidCommandOptions,
   ): Promise<string>;
+  runBinaryDigest?(
+    arguments_: readonly string[],
+    options: Readonly<{
+      maximumBytes: number;
+      signal?: AbortSignal;
+      timeoutMilliseconds?: number;
+    }>,
+  ): Promise<Readonly<{
+    bytes: number;
+    sha256: string;
+  }>>;
 }
 
 export interface Da5V5AndroidDeviceBinding {
@@ -41,10 +53,25 @@ export class Da5V5UsbSerialBinding {
 }
 
 export class SystemDa5V5AndroidAdbRunner implements Da5V5AndroidAdbRunner {
+  constructor(dependencies?: Readonly<{
+    environment?: Readonly<Record<string, string | undefined>>;
+    spawn?: typeof import('node:child_process').spawn;
+  }>);
   run(
     arguments_: readonly string[],
     options?: Da5V5AndroidCommandOptions,
   ): Promise<string>;
+  runBinaryDigest(
+    arguments_: readonly string[],
+    options: Readonly<{
+      maximumBytes: number;
+      signal?: AbortSignal;
+      timeoutMilliseconds?: number;
+    }>,
+  ): Promise<Readonly<{
+    bytes: number;
+    sha256: string;
+  }>>;
 }
 
 export class Da5V5AndroidPreinstallPreflight {
@@ -88,7 +115,11 @@ export function installDa5V5AndroidFromPackageZero(options: {
   readonly reverifyArtifact?: (
     verification: unknown,
     dependencies?: Da5V5FileDependencies,
-  ) => unknown;
+  ) => Readonly<{
+    destroy(): void;
+    status: 'match';
+    use<T>(operation: (snapshot: Buffer) => Promise<T> | T): Promise<T>;
+  }>;
   readonly runner?: Da5V5AndroidAdbRunner;
   readonly serialBinding: Da5V5UsbSerialBinding;
   readonly signal?: AbortSignal;
@@ -108,6 +139,7 @@ export function cleanupDa5V5AndroidState(options: {
   readonly runner?: Da5V5AndroidAdbRunner;
   readonly serialBinding: Da5V5UsbSerialBinding;
   readonly installationState?: 'known' | 'uncertain';
+  readonly reverseState?: 'known' | 'uncertain';
   readonly now?: () => number;
   readonly wait?: (milliseconds: number) => Promise<void>;
 }): Promise<Readonly<{ status: 'match' | 'mismatch' }>>;

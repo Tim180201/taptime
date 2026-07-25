@@ -38,21 +38,43 @@ synthetic runtime contract. Independent artifact review and Evidence exact-head 
 on the exact binding above with verdict `APPROVED` and zero open P0–P3. This remains
 artifact/evidence approval, not Human preflight evidence or Human-run authority.
 
-### 1.1 Local enablement preparation — no Human result
+### 1.1 Current enablement correction candidate — no Human result
 
 Corrected ADO authorization candidate `cddb66d82047284c72688cc90a7491af761b8791`, tree
 `8cda19f8df42febb34a03a4db4911d5ea8acae79`, passed exact-head CI `30159987539`,
 attempt 1, 12/12; independent exact-delta re-review returned `APPROVED` with zero open P0–P3.
-On exactly that baseline, the R3 enablement implementation remains local and uncommitted.
-Implementation V4 and formal Exact-SHA review remain pending.
-
-Final local V3 passed all 21 workspace suites with 2,013 tests and exactly two optional B1
-Supavisor skips, 21/21 tests-inclusive typechecks, 20/20 applicable builds, migrations 001–013
-clean apply/replay/ledger verification on PostgreSQL 17.10, C3B binary verification, Android
-export of 861 modules, immutable-artifact/no-install preflight and complete cleanup of task-owned
-temporary database/export data. Focused Mobile device tests passed 21/21, Harness
-credential/profile tests passed 34/34 and both independent read-only Technical-Lead delta audits
-returned `APPROVED` with zero open P0–P3.
+On exactly that baseline, the R3 enablement implementation was published as
+`15f43b1b05e136e0d6643b1f10c1fc8310cfa838`, tree
+`ed1e55c08dd13392f6f72bcf9265cdfaf547fa72`, and passed exact-head CI `30165425892`,
+attempt 1, 12/12. Formal Exact-SHA review round 1 returned `CHANGES REQUIRED` with exactly four
+P1, two P2 and one P3. Subsequent specialist audits additionally found sticky reverse-cleanup
+uncertainty (P2), productive artifact/FD, binary-digest, stdin-runner-close and
+installed-package-path verification gaps (P2), and legacy PostgreSQL provisioner
+preflight/scoped-removal/password-state defects (P1/P2). The current
+focused correction candidate keeps an aborted/error reverse-mutation outcome sticky `uncertain`
+through compensating close and the final Android-cleanup handoff; it performs full stable-FD
+digest/lifecycle and buffer-zeroization verification, settles binary digest and stdin-runner
+failures only after child close while retaining the first error, enforces the
+installed-package-path parser boundary, and performs all legacy role/session/membership-option/setting/dependency
+checks plus authoritative password-state verification behind an installer-superuser proof before
+any exact scoped mutation. Focused Mobile passed 77/77 and complete Mobile passed 542/542;
+real-PostgreSQL preservation passed 4/4, the normal success path passed 3/3 and complete Synthetic
+passed 161/161. Both tests-inclusive typechecks, the Synthetic build, all
+changed-MJS syntax checks, immutable-artifact/no-install preflight, scoped diff-check and final
+PostgreSQL null-state proof passed.
+The first attempted complete invocation remained incomplete only because its operator environment
+pointed `backend-mobile-work` at the fresh empty task-owned `taptime_da3`. After correcting only
+that invocation environment and making no code change, a full fresh invocation completed green:
+21/21 workspace suites passed with 2,063 tests and exactly two optional B1 Supavisor skips, 21/21
+tests-inclusive typechecks and 20/20 applicable builds passed, migrations 001–013 passed clean
+apply/replay/ledger verification on PostgreSQL 17.10, C3B `verify-bin` passed, Mobile test sources
+were included 39/39 by `tsc --listFilesOnly`, Android export completed with 861 modules and the
+immutable-artifact/no-install preflight matched. Cleanup removed task-owned `taptime_da3` and
+temporary export data; the DA5 Harness end state was `0|false|false|false` for generated roles,
+schema, ledger and Legacy Guard DB, with no listeners on ports 3000/54321. The incomplete
+invocation was an operator-environment issue, not a Product defect. Technical-Lead acceptance and
+formal Exact-SHA re-review remain pending; the correction is uncommitted, and no correction
+SHA/tree/CI binding or approval is claimed here.
 
 No installation, ADB, device/Tag interaction or Human V5 occurred. The Harness can accept A/B/X
 values only from the operator and cannot independently prove their origin. Before any hardware

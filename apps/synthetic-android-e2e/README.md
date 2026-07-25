@@ -341,9 +341,15 @@ Clipboard and a complete OS failure are outside the provable local boundary.
 count and requires exact zero. Missing, non-zero, repeated or out-of-order observations fail
 closed. APK and manifest metadata, canonical realpath, size, full permission/special-bit mode,
 SHA-256 and device/inode identity are rechecked after external inspection and immediately before
-install. A final OS-level file replacement race between the last check and `adb` opening the path
-cannot be eliminated by JavaScript; any detected drift fails closed. The normative operator
-sequence, physical bindings, stop points and cleanup rules remain
+install. The helper then opens the APK read-only with no symlink following, proves the descriptor
+identity, reads and hashes exactly the bound byte count into a private bounded snapshot, closes the
+descriptor and sends only that snapshot to Android package manager stdin; the host path is never
+reopened by `adb`. The snapshot is zeroed after the command settles. After installation, the helper
+streams the exact installed `base.apk` through a bounded SHA-256/byte-count proof and rechecks that
+the package path stayed stable. Every real ADB child receives only `PATH` plus the fixed loopback
+server socket and is additionally pinned with `-H 127.0.0.1 -P 5037`; hostile ADB routing
+environment variables fail before spawn. The normative operator sequence, physical bindings, stop
+points and cleanup rules remain
 `ADO/04_Operations/Development_Assignment_05_V5_Runbook.md`.
 
 ## Automated verification

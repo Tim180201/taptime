@@ -25,7 +25,10 @@ export class Da5V5SafeEventLatch {
 }
 
 export class Da5V5CommandExecutionGuard {
-  constructor(private readonly safeEvents: Da5V5SafeEventLatch) {}
+  constructor(
+    private readonly safeEvents: Da5V5SafeEventLatch,
+    private readonly signal?: AbortSignal,
+  ) {}
 
   async wait<T>(operation: Promise<T>): Promise<T> {
     const result = await operation;
@@ -34,7 +37,7 @@ export class Da5V5CommandExecutionGuard {
   }
 
   ensure(): void {
-    if (!this.safeEvents.commandAllowed()) {
+    if (!this.safeEvents.commandAllowed() || this.signal?.aborted === true) {
       throw new Error('DA5 V5 command invalidated by a safe failure');
     }
   }

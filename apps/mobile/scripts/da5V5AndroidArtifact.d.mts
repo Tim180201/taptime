@@ -6,6 +6,15 @@ export interface Da5V5ImmutableFileBinding {
 }
 
 export interface Da5V5FileDependencies {
+  close?(fileDescriptor: number): void;
+  fstat?(fileDescriptor: number): {
+    readonly dev: number;
+    readonly ino: number;
+    isFile(): boolean;
+    isSymbolicLink(): boolean;
+    readonly mode: number;
+    readonly size: number;
+  };
   lstat(path: string): {
     readonly dev: number;
     readonly ino: number;
@@ -14,6 +23,8 @@ export interface Da5V5FileDependencies {
     readonly mode: number;
     readonly size: number;
   };
+  openReadOnly?(path: string): number;
+  readFileDescriptor?(fileDescriptor: number, expectedBytes: number): Buffer;
   realpath(path: string): string;
   sha256(path: string): string;
 }
@@ -74,7 +85,16 @@ export function verifyDa5V5AndroidArtifact(options: {
   versionCode: '1';
   versionName: '1.0.0';
 }>;
+export function createDa5V5AndroidArtifactVerificationForTest(options: {
+  readonly apk: Da5V5ImmutableFileBinding;
+  readonly dependencies: Da5V5FileDependencies;
+  readonly manifest: Da5V5ImmutableFileBinding;
+}): ReturnType<typeof verifyDa5V5AndroidArtifact>;
 export function reverifyDa5V5AndroidArtifactForInstall(
   verification: ReturnType<typeof verifyDa5V5AndroidArtifact>,
   dependencies?: Da5V5FileDependencies,
-): Readonly<{ status: 'match' }>;
+): Readonly<{
+  destroy(): void;
+  status: 'match';
+  use<T>(operation: (snapshot: Buffer) => Promise<T> | T): Promise<T>;
+}>;

@@ -303,6 +303,26 @@ describe('DA5 V5 serial Human checkpoints', () => {
       expect(() => guard.ensure()).toThrow(/invalidated by a safe failure/);
     });
 
+  it('invalidates an awaited command after external abort even without a safe event',
+    async () => {
+      const abort = new AbortController();
+      const guard = new Da5V5CommandExecutionGuard(
+        new Da5V5SafeEventLatch(),
+        abort.signal,
+      );
+      let completeOperation = (): void => undefined;
+      const operation = new Promise<void>((resolvePromise) => {
+        completeOperation = resolvePromise;
+      });
+      const guarded = guard.wait(operation);
+
+      abort.abort();
+      completeOperation();
+
+      await expect(guarded).rejects.toThrow(/invalidated by a safe failure/);
+      expect(() => guard.ensure()).toThrow(/invalidated by a safe failure/);
+    });
+
   it('observes exact aggregate/queue state before Human PASS advances every checkpoint', () => {
     const session = new Da5V5OperationSession(DA5_V5_INITIAL_STATUS);
     for (const step of DA5_V5_CHECKPOINT_PLAN) {
@@ -616,25 +636,29 @@ describe('DA5 V5 fixture, lifecycle and startup fail-stop boundaries', () => {
 
   it('latches concurrent command failure, cleans once and never runs later work', async () => {
     const events: string[] = [];
-    const cleanupRelease = deferred<void>();
-    const cleanup = vi.fn(() => cleanupRelease.promise);
+    const firstCommand = deferred<{ readonly state: 'continue' }>();
+    let operationSettled = false;
+    const cleanup = vi.fn(async () => {
+      expect(operationSettled).toBe(true);
+    });
     const markFailed = vi.fn();
+    const abort = vi.fn(() => {
+      firstCommand.resolve({ state: 'continue' });
+    });
     const lifecycle = new Da5V5OperatorLifecycle(
       cleanup,
       (event) => events.push(event),
       markFailed,
+      abort,
     );
-    const firstCommand = deferred<{
-      readonly event: 'da5_v5_checkpoint=mismatch';
-      readonly state: 'fail';
-    }>();
-    const first = lifecycle.submit(() => firstCommand.promise);
-    const concurrent = lifecycle.submit(async () => ({ state: 'continue' }));
-    firstCommand.resolve({
-      event: 'da5_v5_checkpoint=mismatch',
-      state: 'fail',
+    const first = lifecycle.submit(async () => {
+      try {
+        return await firstCommand.promise;
+      } finally {
+        operationSettled = true;
+      }
     });
-    cleanupRelease.resolve();
+    const concurrent = lifecycle.submit(async () => ({ state: 'continue' }));
     await Promise.all([first, concurrent]);
 
     const later = vi.fn(async () => ({ state: 'continue' as const }));
@@ -642,8 +666,71 @@ describe('DA5 V5 fixture, lifecycle and startup fail-stop boundaries', () => {
     expect(events).toEqual(['operator_command_rejected']);
     expect(cleanup).toHaveBeenCalledTimes(1);
     expect(markFailed).toHaveBeenCalledTimes(1);
+    expect(abort).toHaveBeenCalledTimes(1);
     expect(later).not.toHaveBeenCalled();
   });
+
+  it('aborts and settles an active command before external failure cleanup', async () => {
+    const events: string[] = [];
+    const operation = deferred<{ readonly state: 'continue' }>();
+    let operationSettled = false;
+    const abort = vi.fn(() => {
+      operation.resolve({ state: 'continue' });
+    });
+    const closeInput = vi.fn();
+    const cleanup = vi.fn(async () => {
+      expect(operationSettled).toBe(true);
+      expect(abort).toHaveBeenCalledTimes(1);
+      expect(closeInput).toHaveBeenCalledTimes(1);
+    });
+    const lifecycle = new Da5V5OperatorLifecycle(
+      cleanup,
+      (event) => events.push(event),
+      vi.fn(),
+      abort,
+      closeInput,
+    );
+    const command = lifecycle.submit(async () => {
+      try {
+        return await operation.promise;
+      } finally {
+        operationSettled = true;
+      }
+    });
+
+    await Promise.all([
+      command,
+      lifecycle.abortAndFail('operator_command_failed'),
+    ]);
+
+    expect(events).toEqual(['operator_command_failed']);
+    expect(cleanup).toHaveBeenCalledTimes(1);
+  });
+
+  it('registers command settlement before a synchronous safe-event callback can fail it',
+    async () => {
+      const events: string[] = [];
+      let commandSettled = false;
+      const cleanup = vi.fn(async () => {
+        expect(commandSettled).toBe(true);
+      });
+      const lifecycle = new Da5V5OperatorLifecycle(
+        cleanup,
+        (event) => events.push(event),
+        vi.fn(),
+        vi.fn(),
+        vi.fn(),
+      );
+
+      await lifecycle.submit(async () => {
+        void lifecycle.abortAndFail('operator_command_failed');
+        commandSettled = true;
+        return { state: 'continue' };
+      });
+
+      expect(events).toEqual(['operator_command_failed']);
+      expect(cleanup).toHaveBeenCalledTimes(1);
+    });
 
   it('latches startup and post-readiness signals without duplicate cleanup or stopped output',
     async () => {
@@ -689,6 +776,9 @@ describe('DA5 V5 fixture, lifecycle and startup fail-stop boundaries', () => {
     expect(() => ownership.attachCommand(command)).toThrow(/already has an owner/);
     ownership.releaseSecret(secret);
     expect(ownership.mode()).toBe('none');
+    ownership.attachSecret(secret);
+    ownership.closeAll();
+    expect(() => ownership.releaseSecret(secret)).not.toThrow();
   });
 
   it('keeps profile and signal guards ahead of configuration and resource creation',
@@ -721,6 +811,20 @@ describe('DA5 V5 fixture, lifecycle and startup fail-stop boundaries', () => {
         "source: 'human-visible-product-observation'",
       );
       expect(source).toContain('mutationAbortController.abort()');
+      expect(source).toContain(
+        "operatorLifecycle?.abortAndFail('da5_v5_credential_binding=mismatch')",
+      );
+      expect(source).toContain(
+        "operatorLifecycle?.abortAndFail('operator_command_failed')",
+      );
+      expect(source).toContain('reverseState: offline.cleanupProofState()');
+      expect(source).toContain("if (offline.arm() !== 'match')");
+      expect(source.indexOf('await installDa5V5AndroidFromPackageZero({')).toBeLessThan(
+        source.indexOf("if (offline.arm() !== 'match')"),
+      );
+      expect(source.indexOf("if (offline.arm() !== 'match')")).toBeLessThan(
+        source.indexOf('androidInstalled = true'),
+      );
       expect(source.match(/serialBinding: deviceLock/gu)).toHaveLength(2);
       expect(source).toContain(
         'new Da5V5ApiOfflineController(\n  adb,\n  accessibilityBinding,\n  deviceLock,',
