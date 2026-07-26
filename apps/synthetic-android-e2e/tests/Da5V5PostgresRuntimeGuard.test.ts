@@ -1124,6 +1124,29 @@ describe('DA5 V5 closed environment and real transient PostgreSQL owner', () => 
     );
   });
 
+  it('pins owned PostgreSQL 17 role grants and membership options', async () => {
+    const source = await readFile(
+      new URL('../src/Da5V5PostgresRuntimeGuard.ts', import.meta.url),
+      'utf8',
+    );
+    const normalization = source.slice(
+      source.indexOf('async function normalizeOwnedRuntimeLogin('),
+      source.indexOf('async function attestDa5V5OwnerLifecycle('),
+    );
+    const attestation = source.slice(
+      source.indexOf('async function attestDa5V5OwnerLifecycle('),
+      source.indexOf('function runtimePostgresUrl('),
+    );
+    expect(normalization).toContain(
+      'WITH INHERIT FALSE, SET TRUE, ADMIN FALSE;',
+    );
+    expect(normalization).not.toMatch(
+      /GRANT \$\{roles\.join\(', '\)\} TO \$\{login\};/u,
+    );
+    expect(attestation).toContain('`${parent}:false:false:true`');
+    expect(attestation).not.toContain('`${parent}:false:true:true`');
+  });
+
   it.each([
     'CC',
     'CFLAGS',

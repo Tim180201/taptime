@@ -136,6 +136,29 @@ describe('DA5 V5 exact CI PostgreSQL owner adapter', () => {
     expect(workflow).toContain('.Config.Labels["com.taptime.repository"]');
   });
 
+  it('pins PostgreSQL 17 role grants and membership attestation options', async () => {
+    const source = await readFile(new URL(
+      '../src/Da5V5CiPostgresAdapter.ts',
+      import.meta.url,
+    ), 'utf8');
+    const normalization = source.slice(
+      source.indexOf('async function normalizeCiRuntimeLogin('),
+      source.indexOf('async function attestCiDatabase('),
+    );
+    const attestation = source.slice(
+      source.indexOf('async function attestCiDatabase('),
+      source.indexOf('function quoteCiLiteral('),
+    );
+    expect(normalization).toContain(
+      'WITH INHERIT FALSE, SET TRUE, ADMIN FALSE;',
+    );
+    expect(normalization).not.toMatch(
+      /GRANT \$\{roles\.join\(', '\)\} TO \$\{login\};/u,
+    );
+    expect(attestation).toContain('`${parent}:false:false:true`');
+    expect(attestation).not.toContain('`${parent}:false:true:true`');
+  });
+
   it.each([
     ['CID', { containerId: 'short' }],
     ['image', { imageId: `sha256:${'z'.repeat(64)}` }],

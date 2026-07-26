@@ -1237,7 +1237,13 @@ static int bind_cleanup_plan_bounded(
     }
     if (!S_ISREG(named_state.st_mode) && !S_ISDIR(named_state.st_mode)) {
       free_cleanup_names(names, name_count);
+#if defined(__APPLE__)
       errno = EFTYPE;
+#elif defined(__linux__)
+      errno = EINVAL;
+#else
+#error "Unsupported DA5 V5 Runtime Guard platform"
+#endif
       return -1;
     }
     if (S_ISREG(named_state.st_mode) && named_state.st_nlink != 1) {

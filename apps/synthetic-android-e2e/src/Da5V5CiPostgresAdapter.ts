@@ -720,7 +720,8 @@ async function normalizeCiRuntimeLogin(
     REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA ${B3_SCHEMA} FROM ${login};
     REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA ${B3_SCHEMA} FROM ${login};
     REVOKE ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA ${B3_SCHEMA} FROM ${login};
-    GRANT ${roles.join(', ')} TO ${login};
+    GRANT ${roles.join(', ')} TO ${login}
+      WITH INHERIT FALSE, SET TRUE, ADMIN FALSE;
   `);
 }
 
@@ -870,7 +871,7 @@ async function attestCiDatabase(
     }
     for (const runtimeRole of runtimeRoles.rows) {
       const expectedMemberships = ciRuntimeRoleGraph[runtimeRole.role]
-        ?.map((parent) => `${parent}:false:true:true`)
+        ?.map((parent) => `${parent}:false:false:true`)
         .sort()
         .join(',');
       if (

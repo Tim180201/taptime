@@ -3369,7 +3369,8 @@ async function normalizeOwnedRuntimeLogin(
     REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA ${B3_SCHEMA} FROM ${login};
     REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA ${B3_SCHEMA} FROM ${login};
     REVOKE ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA ${B3_SCHEMA} FROM ${login};
-    GRANT ${roles.join(', ')} TO ${login};
+    GRANT ${roles.join(', ')} TO ${login}
+      WITH INHERIT FALSE, SET TRUE, ADMIN FALSE;
   `);
 }
 
@@ -3554,7 +3555,7 @@ async function attestDa5V5OwnerLifecycle(
     for (const runtimeRole of runtimeRoles.rows) {
       const expectedParents = da5V5OwnedRuntimeRoleGraph[runtimeRole.role];
       const expectedMemberships = expectedParents?.map((parent) => (
-        `${parent}:false:true:true`
+        `${parent}:false:false:true`
       )).sort().join(',');
       if (
         expectedParents === undefined

@@ -389,6 +389,9 @@ describe('DA5 V5 Runtime Guard stable artifact binding', () => {
     const privateInput = join(root, 'fake-system-input');
     await writeFile(privateInput, 'same-euid', { flag: 'wx', mode: 0o500 });
     try {
+      const rootSystemInput = platform() === 'darwin'
+        ? '/usr/bin/codesign'
+        : await realpath('/usr/bin/cc');
       await expect(revalidateDa5V5ProducerInputForTest({
         kind: 'file',
         mutate: async () => undefined,
@@ -398,12 +401,30 @@ describe('DA5 V5 Runtime Guard stable artifact binding', () => {
       await expect(revalidateDa5V5ProducerInputForTest({
         kind: 'file',
         mutate: async () => undefined,
-        path: platform() === 'darwin' ? '/usr/bin/codesign' : '/usr/bin/cc',
+        path: rootSystemInput,
         trust: 'root-system',
       })).resolves.toBeUndefined();
+      expect(await realpath(rootSystemInput)).toBe(rootSystemInput);
     } finally {
       await rm(root, { force: true, recursive: true });
     }
+  });
+
+  it('keeps unsupported cleanup-entry errno portable and fail-closed', async () => {
+    const source = await readFile(sourcePath, 'utf8');
+    const unsupportedEntry = source.slice(
+      source.indexOf(
+        'if (!S_ISREG(named_state.st_mode) && !S_ISDIR(named_state.st_mode))',
+      ),
+      source.indexOf(
+        'if (S_ISREG(named_state.st_mode) && named_state.st_nlink != 1)',
+      ),
+    );
+    expect(unsupportedEntry).toContain('#if defined(__APPLE__)');
+    expect(unsupportedEntry).toContain('errno = EFTYPE;');
+    expect(unsupportedEntry).toContain('#elif defined(__linux__)');
+    expect(unsupportedEntry).toContain('errno = EINVAL;');
+    expect(unsupportedEntry).toContain('return -1;');
   });
 
   it('requires external exact digests and revalidates both stable descriptors', async () => {
