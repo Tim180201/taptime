@@ -781,6 +781,23 @@ jobs:
         id: postgres_owner
         run: |
           set -euo pipefail
+          read_linux_process_start_ticks() {
+            local expected_pid="$1"
+            local stat_record
+            local stat_tail
+            local -a stat_fields
+            [[ "${expected_pid}" =~ ^[1-9][0-9]*$ ]]
+            stat_record="$(<"/proc/${expected_pid}/stat")"
+            [[ "${stat_record}" != *$'\n'* ]]
+            [[ "${stat_record}" == "${expected_pid} ("?*") "* ]]
+            stat_tail="${stat_record##*) }"
+            test "${stat_tail}" != "${stat_record}"
+            read -r -a stat_fields <<<"${stat_tail}"
+            test "${#stat_fields[@]}" -ge 20
+            [[ "${stat_fields[0]}" =~ ^[[:alpha:]]$ ]]
+            [[ "${stat_fields[19]}" =~ ^[1-9][0-9]*$ ]]
+            printf '%s\n' "${stat_fields[19]}"
+          }
           owner_root="${RUNNER_TEMP}/taptime-da5-v5-postgres"
           install -d -m 700 "${owner_root}"
           nonce="$(openssl rand -hex 32)"
@@ -822,7 +839,7 @@ jobs:
           done
           started_at="$(docker inspect "${cid}" --format '{{.State.StartedAt}}')"
           host_pid="$(docker inspect "${cid}" --format '{{.State.Pid}}')"
-          host_process_start="$(tr -d '\\n' < "/proc/${host_pid}/stat")"
+          host_process_start_ticks="$(read_linux_process_start_ticks "${host_pid}")"
           inner_system_id="$(docker exec "${cid}" psql \
             --username postgres \
             --dbname taptime_synthetic_android_e2e \
@@ -832,7 +849,7 @@ jobs:
           jq -n \
             --arg containerId "${cid}" \
             --argjson hostInitPid "${host_pid}" \
-            --arg hostProcessStart "${host_process_start}" \
+            --arg hostProcessStartTicks "${host_process_start_ticks}" \
             --arg imageId "${image_id}" \
             --arg imageRepositoryDigest "${image_digest}" \
             --arg innerSystemIdentifier "${inner_system_id}" \
@@ -845,7 +862,7 @@ jobs:
             '{
               containerId: $containerId,
               hostInitPid: $hostInitPid,
-              hostProcessStart: $hostProcessStart,
+              hostProcessStartTicks: $hostProcessStartTicks,
               imageId: $imageId,
               imageRepositoryDigest: $imageRepositoryDigest,
               innerSystemIdentifier: $innerSystemIdentifier,
@@ -907,6 +924,23 @@ jobs:
         if: always()
         run: |
           set -euo pipefail
+          read_linux_process_start_ticks() {
+            local expected_pid="$1"
+            local stat_record
+            local stat_tail
+            local -a stat_fields
+            [[ "${expected_pid}" =~ ^[1-9][0-9]*$ ]]
+            stat_record="$(<"/proc/${expected_pid}/stat")"
+            [[ "${stat_record}" != *$'\n'* ]]
+            [[ "${stat_record}" == "${expected_pid} ("?*") "* ]]
+            stat_tail="${stat_record##*) }"
+            test "${stat_tail}" != "${stat_record}"
+            read -r -a stat_fields <<<"${stat_tail}"
+            test "${#stat_fields[@]}" -ge 20
+            [[ "${stat_fields[0]}" =~ ^[[:alpha:]]$ ]]
+            [[ "${stat_fields[19]}" =~ ^[1-9][0-9]*$ ]]
+            printf '%s\n' "${stat_fields[19]}"
+          }
           owner_root="${RUNNER_TEMP}/taptime-da5-v5-postgres"
           if ! test -f "${owner_root}/cid"; then
             residue="$(docker ps --all --quiet \
@@ -942,18 +976,18 @@ jobs:
           test "$(jq -r '.Image' <<<"${inspect}")" = "${image_id}"
           test "$(jq -r '.Config.Image' <<<"${inspect}")" = "${image_digest}"
           test "$(jq -r '.Config.Labels | length' <<<"${inspect}")" = "5"
-          test "$(jq -r '.Config.Labels[\"com.taptime.repository\"]' <<<"${inspect}")" = "taptime"
-          test "$(jq -r '.Config.Labels[\"com.taptime.run-id\"]' <<<"${inspect}")" = "${GITHUB_RUN_ID}"
-          test "$(jq -r '.Config.Labels[\"com.taptime.run-attempt\"]' <<<"${inspect}")" = "${GITHUB_RUN_ATTEMPT}"
-          test "$(jq -r '.Config.Labels[\"com.taptime.job\"]' <<<"${inspect}")" = "synthetic-android-e2e"
-          test "$(jq -r '.Config.Labels[\"com.taptime.nonce\"]' <<<"${inspect}")" = "${nonce}"
-          test "$(jq -r '.labels[\"com.taptime.nonce\"]' "${owner_root}/owner.json")" = "${nonce}"
+          test "$(jq -r '.Config.Labels["com.taptime.repository"]' <<<"${inspect}")" = "taptime"
+          test "$(jq -r '.Config.Labels["com.taptime.run-id"]' <<<"${inspect}")" = "${GITHUB_RUN_ID}"
+          test "$(jq -r '.Config.Labels["com.taptime.run-attempt"]' <<<"${inspect}")" = "${GITHUB_RUN_ATTEMPT}"
+          test "$(jq -r '.Config.Labels["com.taptime.job"]' <<<"${inspect}")" = "synthetic-android-e2e"
+          test "$(jq -r '.Config.Labels["com.taptime.nonce"]' <<<"${inspect}")" = "${nonce}"
+          test "$(jq -r '.labels["com.taptime.nonce"]' "${owner_root}/owner.json")" = "${nonce}"
           test "$(jq -r '.startedAt' "${owner_root}/owner.json")" = \
             "$(jq -r '.State.StartedAt' <<<"${inspect}")"
           host_pid="$(jq -r '.hostInitPid' "${owner_root}/owner.json")"
           test "${host_pid}" = "$(jq -r '.State.Pid' <<<"${inspect}")"
-          test "$(tr -d '\\n' < "/proc/${host_pid}/stat")" = \
-            "$(jq -r '.hostProcessStart' "${owner_root}/owner.json")"
+          test "$(read_linux_process_start_ticks "${host_pid}")" = \
+            "$(jq -r '.hostProcessStartTicks' "${owner_root}/owner.json")"
           inspected_digest="$(docker image inspect "${image_id}" \
             --format '{{range .RepoDigests}}{{println .}}{{end}}' \
             | awk -v expected="${image_digest}" '$0 == expected { print; exit }')"

@@ -123,7 +123,7 @@ const ciMigrationRoles = Object.freeze([
 export interface Da5V5CiOwnerRecord {
   readonly containerId: string;
   readonly hostInitPid: number;
-  readonly hostProcessStart: string;
+  readonly hostProcessStartTicks: string;
   readonly imageId: string;
   readonly imageRepositoryDigest: string;
   readonly innerSystemIdentifier: string;
@@ -132,7 +132,7 @@ export interface Da5V5CiOwnerRecord {
 }
 
 export interface Da5V5DockerReadRunner {
-  readHostProcessStart(pid: number): Readonly<{
+  readHostProcessStat(pid: number): Readonly<{
     readonly status: number;
     readonly stderr: string;
     readonly stdout: string;
@@ -145,7 +145,7 @@ export interface Da5V5DockerReadRunner {
 }
 
 export class SystemDa5V5DockerReadRunner implements Da5V5DockerReadRunner {
-  readHostProcessStart(pid: number): Readonly<{
+  readHostProcessStat(pid: number): Readonly<{
     readonly status: number;
     readonly stderr: string;
     readonly stdout: string;
@@ -281,7 +281,7 @@ export async function startDa5V5FullyAttestedCiPostgresOwner(options: {
       mountIdentityRecord: null,
       mountIdentity: ownerRecordDigest(record),
       ownerProcess: createHash('sha256')
-        .update(`${record.hostInitPid}\n${record.hostProcessStart}\n`)
+        .update(`${record.hostInitPid}\n${record.hostProcessStartTicks}\n`)
         .digest('hex'),
       postmasterDigest: createHash('sha256')
         .update(`${record.innerSystemIdentifier}\n${record.startedAt}\n`)
@@ -454,7 +454,7 @@ export function validateDa5V5CiOwnerRecord(value: unknown): Da5V5CiOwnerRecord {
       !== [
         'containerId',
         'hostInitPid',
-        'hostProcessStart',
+        'hostProcessStartTicks',
         'imageId',
         'imageRepositoryDigest',
         'innerSystemIdentifier',
@@ -485,10 +485,9 @@ export function validateDa5V5CiOwnerRecord(value: unknown): Da5V5CiOwnerRecord {
     || typeof value.hostInitPid !== 'number'
     || !Number.isSafeInteger(value.hostInitPid)
     || value.hostInitPid <= 1
-    || typeof value.hostProcessStart !== 'string'
-    || value.hostProcessStart.length < 20
-    || value.hostProcessStart.length > 4_096
-    || /[\r\n\u0000]/u.test(value.hostProcessStart)
+    || typeof value.hostProcessStartTicks !== 'string'
+    || !/^[1-9][0-9]*$/u.test(value.hostProcessStartTicks)
+    || value.hostProcessStartTicks.length > 32
     || typeof value.imageId !== 'string'
     || !/^sha256:[a-f0-9]{64}$/u.test(value.imageId)
     || typeof value.imageRepositoryDigest !== 'string'
@@ -503,7 +502,7 @@ export function validateDa5V5CiOwnerRecord(value: unknown): Da5V5CiOwnerRecord {
   return Object.freeze({
     containerId: value.containerId,
     hostInitPid: value.hostInitPid,
-    hostProcessStart: value.hostProcessStart,
+    hostProcessStartTicks: value.hostProcessStartTicks,
     imageId: value.imageId,
     imageRepositoryDigest: value.imageRepositoryDigest,
     innerSystemIdentifier: value.innerSystemIdentifier,
@@ -518,7 +517,7 @@ export function ownerRecordDigest(record: Da5V5CiOwnerRecord): string {
   const safeRecord = {
     containerId: record.containerId,
     hostInitPid: record.hostInitPid,
-    hostProcessStart: record.hostProcessStart,
+    hostProcessStartTicks: record.hostProcessStartTicks,
     imageId: record.imageId,
     imageRepositoryDigest: record.imageRepositoryDigest,
     innerSystemIdentifier: record.innerSystemIdentifier,
@@ -597,14 +596,64 @@ function reattestContainerOwner(
   ) {
     throw new Error('DA5 V5 CI image owner identity mismatch');
   }
-  const startIdentity = runner.readHostProcessStart(record.hostInitPid);
+  const startIdentity = runner.readHostProcessStat(record.hostInitPid);
+  let processStartTicks: string | undefined;
+  try {
+    processStartTicks = parseDa5V5LinuxProcessStartTicks(
+      startIdentity.stdout,
+      record.hostInitPid,
+    );
+  } catch {
+    processStartTicks = undefined;
+  }
   if (
     startIdentity.status !== 0
     || startIdentity.stderr.trim().length > 0
-    || startIdentity.stdout.trim() !== record.hostProcessStart
+    || processStartTicks !== record.hostProcessStartTicks
   ) {
     throw new Error('DA5 V5 CI container process-start identity mismatch');
   }
+}
+
+export function parseDa5V5LinuxProcessStartTicks(
+  processStat: string,
+  expectedPid: number,
+): string {
+  if (
+    !Number.isSafeInteger(expectedPid)
+    || expectedPid <= 1
+    || processStat.length === 0
+    || processStat.length > 4_096
+    || /[\r\u0000]/u.test(processStat)
+  ) {
+    throw new Error('DA5 V5 Linux process stat is invalid');
+  }
+  const record = processStat.endsWith('\n')
+    ? processStat.slice(0, -1)
+    : processStat;
+  if (record.includes('\n')) {
+    throw new Error('DA5 V5 Linux process stat is invalid');
+  }
+  const prefix = `${expectedPid} (`;
+  const commBoundary = record.lastIndexOf(') ');
+  if (
+    !record.startsWith(prefix)
+    || commBoundary <= prefix.length
+  ) {
+    throw new Error('DA5 V5 Linux process stat is invalid');
+  }
+  const fields = record.slice(commBoundary + 2).split(' ');
+  const processStartTicks = fields[19];
+  if (
+    fields.length < 20
+    || fields.some((field) => field.length === 0)
+    || !/^[A-Za-z]$/u.test(fields[0] as string)
+    || processStartTicks === undefined
+    || !/^[1-9][0-9]*$/u.test(processStartTicks)
+  ) {
+    throw new Error('DA5 V5 Linux process stat is invalid');
+  }
+  return processStartTicks;
 }
 
 function validateCiRuntimePoolRequest(

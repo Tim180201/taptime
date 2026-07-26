@@ -1,4 +1,10 @@
-import { mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
+import {
+  mkdtemp,
+  readFile,
+  realpath,
+  rm,
+  writeFile,
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -31,6 +37,7 @@ vi.mock('pg', () => ({
 
 import {
   ownerRecordDigest,
+  parseDa5V5LinuxProcessStartTicks,
   validateDa5V5CiOwnerRecord,
   type Da5V5CiOwnerRecord,
   type Da5V5DockerReadRunner,
@@ -44,7 +51,7 @@ import {
 const record = Object.freeze({
   containerId: 'a'.repeat(64),
   hostInitPid: 4_321,
-  hostProcessStart: '1 (postgres) S 0 1 1 0 -1 4194560',
+  hostProcessStartTicks: '4194560',
   imageId: `sha256:${'b'.repeat(64)}`,
   imageRepositoryDigest: `postgres@sha256:${'c'.repeat(64)}`,
   innerSystemIdentifier: '7561094784090731591',
@@ -77,6 +84,56 @@ describe('DA5 V5 exact CI PostgreSQL owner adapter', () => {
       ...record,
       databaseUrl,
     })).toThrow(/record binding is invalid|record is invalid/u);
+    expect(() => validateDa5V5CiOwnerRecord({
+      ...record,
+      hostProcessStart: linuxProcessStat(),
+    })).toThrow(/record binding is invalid/u);
+  });
+
+  it('parses only immutable field 22 despite spaces and parentheses in comm', () => {
+    expect(parseDa5V5LinuxProcessStartTicks(
+      linuxProcessStat('4194560', 'postgres worker (tenant 1)'),
+      record.hostInitPid,
+    )).toBe('4194560');
+    expect(parseDa5V5LinuxProcessStartTicks(
+      linuxProcessStat('4194560', 'postgres worker', {
+        flags: '999999',
+        residentPages: '4242',
+        userTicks: '12345',
+      }),
+      record.hostInitPid,
+    )).toBe('4194560');
+  });
+
+  it.each([
+    ['wrong pid', linuxProcessStat('4194560'), record.hostInitPid + 1],
+    ['empty comm', linuxProcessStat('4194560', ''), record.hostInitPid],
+    ['missing fields', `${record.hostInitPid} (postgres) S 1 2`, record.hostInitPid],
+    ['zero start ticks', linuxProcessStat('0'), record.hostInitPid],
+    ['embedded newline', `${linuxProcessStat()}\ntrailing`, record.hostInitPid],
+  ])('fails closed for malformed Linux process stat: %s', (
+    _label,
+    processStat,
+    expectedPid,
+  ) => {
+    expect(() => parseDa5V5LinuxProcessStartTicks(
+      processStat,
+      expectedPid,
+    )).toThrow(/process stat is invalid/u);
+  });
+
+  it('locks workflow owner extraction and cleanup quoting to the exact schema', async () => {
+    const workflow = await readFile(new URL(
+      '../../../.github/workflows/ci.yml',
+      import.meta.url,
+    ), 'utf8');
+    expect(workflow).not.toContain('hostProcessStart:');
+    expect(workflow).not.toContain('hostProcessStart"');
+    expect(workflow).not.toContain('.Config.Labels[\\"');
+    expect(workflow).toContain('hostProcessStartTicks: $hostProcessStartTicks');
+    expect(workflow).toContain('stat_tail="${stat_record##*) }"');
+    expect(workflow).toContain('stat_fields[19]');
+    expect(workflow).toContain('.Config.Labels["com.taptime.repository"]');
   });
 
   it.each([
@@ -127,14 +184,14 @@ describe('DA5 V5 exact CI PostgreSQL owner adapter', () => {
       source: 'ci-test-adapter',
     });
     expect(runner.run).toHaveBeenCalledTimes(4);
-    expect(runner.readHostProcessStart).toHaveBeenCalledTimes(2);
+    expect(runner.readHostProcessStat).toHaveBeenCalledTimes(2);
 
     await closeDa5V5PostgresCapability(capability);
     expect(poolQuery).toHaveBeenCalledWith(expect.stringContaining(
       'migration_tables',
     ));
     expect(runner.run).toHaveBeenCalledTimes(6);
-    expect(runner.readHostProcessStart).toHaveBeenCalledTimes(3);
+    expect(runner.readHostProcessStat).toHaveBeenCalledTimes(3);
     expect(poolEnd).toHaveBeenCalledTimes(1);
   });
 
@@ -173,7 +230,7 @@ describe('DA5 V5 exact CI PostgreSQL owner adapter', () => {
     await expect(createDa5V5CiPostgresCapability({
       databaseUrl,
       ownerRecordPath,
-      runner: exactRunner({}, 'different'),
+      runner: exactRunner({}, linuxProcessStat('4194561')),
     })).rejects.toThrow(/process-start identity mismatch/);
 
     poolQuery.mockResolvedValueOnce({
@@ -204,9 +261,9 @@ async function writeOwnerRecord(): Promise<string> {
 
 function exactRunner(
   delta: Record<string, unknown> = {},
-  processStart: string = record.hostProcessStart,
+  processStat: string = linuxProcessStat(),
 ): Da5V5DockerReadRunner & {
-  readonly readHostProcessStart: ReturnType<typeof vi.fn>;
+  readonly readHostProcessStat: ReturnType<typeof vi.fn>;
   readonly run: ReturnType<typeof vi.fn>;
 } {
   const inspection = {
@@ -236,10 +293,46 @@ function exactRunner(
           }),
     });
   });
-  const readHostProcessStart = vi.fn(() => Object.freeze({
+  const readHostProcessStat = vi.fn(() => Object.freeze({
     status: 0,
     stderr: '',
-    stdout: `${processStart}\n`,
+    stdout: `${processStat}\n`,
   }));
-  return { readHostProcessStart, run };
+  return { readHostProcessStat, run };
+}
+
+function linuxProcessStat(
+  startTicks: string = record.hostProcessStartTicks,
+  comm: string = 'postgres',
+  mutable: Readonly<{
+    readonly flags?: string;
+    readonly residentPages?: string;
+    readonly userTicks?: string;
+  }> = {},
+): string {
+  const fields = [
+    'S',
+    '1',
+    '1',
+    '1',
+    '0',
+    '-1',
+    mutable.flags ?? '4194560',
+    '10',
+    '0',
+    '1',
+    '0',
+    mutable.userTicks ?? '20',
+    '10',
+    '0',
+    '0',
+    '20',
+    '0',
+    '1',
+    '0',
+    startTicks,
+    '100000',
+    mutable.residentPages ?? '512',
+  ];
+  return `${record.hostInitPid} (${comm}) ${fields.join(' ')}`;
 }

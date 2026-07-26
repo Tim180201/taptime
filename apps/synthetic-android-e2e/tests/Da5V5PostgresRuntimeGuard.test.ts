@@ -1029,25 +1029,47 @@ describe('DA5 V5 closed environment and real transient PostgreSQL owner', () => 
       source.indexOf('export function disclosureSafeDa5V5PostgresLifecycleError('),
     );
     const failureCleanup = owner.slice(owner.lastIndexOf('} catch (error: unknown) {'));
-    const bootstrapClose = failureCleanup.indexOf('bootstrapPool?.end()');
-    const installerClose = failureCleanup.indexOf('installerPool?.end()');
+    const cleanupReattestation = failureCleanup.indexOf('cleanupReattest ??');
     const stopFast = failureCleanup.indexOf(
-      "guard?.sendAuthenticated('STOP_FAST')",
+      "failedGuard.sendAuthenticated('STOP_FAST')",
+    );
+    const heartbeatClose = failureCleanup.indexOf(
+      'clearInterval(failedHeartbeat)',
+    );
+    const bootstrapClose = failureCleanup.indexOf(
+      'closePool(failedBootstrapPool)',
+    );
+    const installerClose = failureCleanup.indexOf(
+      'closePool(failedInstallerPool)',
+    );
+    const controlClose = failureCleanup.indexOf(
+      'failedGuard.closeControlPipe()',
+    );
+    const secretClose = failureCleanup.indexOf(
+      'failedGuard.closeSecretPipe()',
     );
     const reaped = failureCleanup.indexOf(
-      "guard?.expect('POSTGRES_REAPED'",
+      "failedGuard.expect('POSTGRES_REAPED'",
     );
     const cleaned = failureCleanup.indexOf(
-      "guard?.expect('CLEANUP_OK'",
+      "failedGuard.expect('CLEANUP_OK'",
     );
-    const exited = failureCleanup.indexOf('guard?.waitForExit()');
+    const exited = failureCleanup.indexOf('failedGuard.waitForExit()');
+    const eventClose = failureCleanup.indexOf(
+      'failedGuard.closeEventPipe()',
+    );
     const cleanupOrder = [
+      cleanupReattestation,
+      stopFast,
+      heartbeatClose,
       bootstrapClose,
       installerClose,
-      stopFast,
+      controlClose,
+      secretClose,
       reaped,
       cleaned,
       exited,
+      eventClose,
     ];
     expect(cleanupOrder.every((index) => index >= 0)).toBe(true);
     expect(cleanupOrder).toEqual(
@@ -1055,22 +1077,26 @@ describe('DA5 V5 closed environment and real transient PostgreSQL owner', () => 
     );
     expect(failureCleanup).toContain('for (const binding of lifecycleFiles)');
     expect(failureCleanup).toContain(
-      'await attemptCleanup(async () => chain.close())',
+      'async () => chain.close()',
     );
     expect(failureCleanup).toContain(
-      'await attemptCleanup(async () => rmdir(failedStagingPath))',
+      'async () => rmdir(failedStagingPath)',
     );
+    expect(failureCleanup).toContain('retainedStartupCleanups.add(retained)');
+    expect(failureCleanup).toContain('await retained.retry()');
     expect(failureCleanup).not.toContain('throw error');
     const probe = owner.indexOf('await runProbeGuard({');
     const persistent = owner.indexOf('guard = await RuntimeGuardClient.launch({');
     const revalidations = [...owner.matchAll(
       /await options\.revalidateGuardArtifact\?\.\(\);/gu,
     )].map(({ index }) => index);
-    expect(revalidations).toHaveLength(5);
+    expect(revalidations).toHaveLength(6);
     expect(revalidations[0]).toBeLessThan(probe);
     expect(revalidations[1]).toBeGreaterThan(probe);
     expect(revalidations[1]).toBeLessThan(persistent);
-    expect(revalidations[2]).toBeGreaterThan(persistent);
+    expect(revalidations.slice(2).every(
+      (index) => index > persistent,
+    )).toBe(true);
 
     const sentinel = `sentinel-${randomBytes(32).toString('hex')}`;
     const unsafe = Object.assign(new Error(`database failure ${sentinel}`), {

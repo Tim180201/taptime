@@ -449,15 +449,27 @@ export async function buildDa5V5TemporaryTestGuard(options: {
     '-lpthread',
   ], {
     cwd: '/',
+    encoding: 'utf8',
     env: Object.freeze({ HOME: '/var/empty', PATH: '/usr/bin:/bin', TZ: 'UTC' }),
+    maxBuffer: 16_384,
     shell: false,
-    stdio: ['ignore', 'ignore', 'ignore'],
+    stdio: ['ignore', 'ignore', 'pipe'],
     timeout: 20_000,
     killSignal: 'SIGKILL',
   });
   if (result.error !== undefined || result.signal !== null || result.status !== 0) {
+    const diagnostic = summarizeTemporaryGuardCompilerFailure(
+      result.stderr,
+      sourcePath,
+      buildRoot,
+    );
+    await unlink(binaryPath).catch(() => undefined);
     await rmdir(buildRoot).catch(() => undefined);
-    throw new Error('DA5 V5 temporary Runtime Guard compilation failed');
+    throw new Error(
+      'DA5 V5 temporary Runtime Guard compilation failed '
+      + `(status=${String(result.status)}, signal=${result.signal ?? 'none'}; `
+      + `${diagnostic})`,
+    );
   }
   await (await open(
     binaryPath,
@@ -475,6 +487,26 @@ export async function buildDa5V5TemporaryTestGuard(options: {
       await rmdir(buildRoot);
     },
   });
+}
+
+function summarizeTemporaryGuardCompilerFailure(
+  stderr: string,
+  sourcePath: string,
+  buildRoot: string,
+): string {
+  const diagnosticLines = stderr
+    .split(/\r?\n/u)
+    .filter((line) => /(?:error:|fatal error:|undefined reference)/iu.test(line))
+    .slice(0, 6)
+    .map((line) => line
+      .replaceAll(sourcePath, '[guard-source]')
+      .replaceAll(buildRoot, '[guard-build]')
+      .replace(/(?:\/[^/\s:'"]+)+/gu, '[path]')
+      .slice(0, 240));
+  const diagnostic = diagnosticLines.join(' | ').slice(0, 1_200);
+  return diagnostic.length === 0
+    ? 'compiler diagnostic unavailable'
+    : diagnostic;
 }
 
 /**

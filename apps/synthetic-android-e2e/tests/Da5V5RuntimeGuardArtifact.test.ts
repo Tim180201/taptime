@@ -398,7 +398,7 @@ describe('DA5 V5 Runtime Guard stable artifact binding', () => {
       await expect(revalidateDa5V5ProducerInputForTest({
         kind: 'file',
         mutate: async () => undefined,
-        path: '/usr/bin/codesign',
+        path: platform() === 'darwin' ? '/usr/bin/codesign' : '/usr/bin/cc',
         trust: 'root-system',
       })).resolves.toBeUndefined();
     } finally {
@@ -418,6 +418,44 @@ describe('DA5 V5 Runtime Guard stable artifact binding', () => {
       const manifestPath = join(root, 'guard-manifest.json');
       await chmod(binaryPath, 0o555);
       const description = await describeDa5V5RuntimeGuardBinaryForTest(binaryPath);
+      if (platform() !== 'darwin') {
+        expect(description.format).toBe('ELF');
+        const invalidManifestBytes = Buffer.from('{}\n');
+        await writeFile(manifestPath, invalidManifestBytes, {
+          flag: 'wx',
+          mode: 0o444,
+        });
+        await chmod(manifestPath, 0o444);
+        await expect(verifyDa5V5RuntimeGuardArtifact({
+          binaryPath,
+          expectedBinarySha256: '0'.repeat(64),
+          expectedManifestSha256: sha256(invalidManifestBytes),
+          implementationCommit: 'a'.repeat(40),
+          implementationTree: 'b'.repeat(40),
+          manifestPath,
+        })).rejects.toThrow(/externally reviewed digest mismatch/);
+        await expect(verifyDa5V5RuntimeGuardArtifact({
+          binaryPath,
+          expectedBinarySha256: description.sha256,
+          expectedManifestSha256: '0'.repeat(64),
+          implementationCommit: 'a'.repeat(40),
+          implementationTree: 'b'.repeat(40),
+          manifestPath,
+        })).rejects.toThrow(/externally reviewed digest mismatch/);
+        await expect(revalidateDa5V5ProducerInputForTest({
+          kind: 'file',
+          mutate: async () => {
+            await rename(binaryPath, replacedPath);
+            await writeFile(binaryPath, await readFile(replacedPath), {
+              flag: 'wx',
+              mode: 0o555,
+            });
+          },
+          path: binaryPath,
+          trust: 'same-euid-private',
+        })).rejects.toThrow(/producer input changed/u);
+        return;
+      }
       const runningGuard = spawn(binaryPath, [], {
         cwd: '/',
         detached: true,
