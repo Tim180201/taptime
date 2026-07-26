@@ -11,13 +11,15 @@ import {
   readdir,
   rename,
   rm,
-  unlink,
+  rmdir,
+  stat,
   writeFile,
 } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawn, type ChildProcess } from 'node:child_process';
 import type { Readable, Writable } from 'node:stream';
+import { Pool } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   DA5_V5_ADMIN_GROUP_ANCHOR,
@@ -27,6 +29,8 @@ import {
   classifyDa5V5PostgresStartupFailureForTest,
   disclosureSafeDa5V5PostgresLifecycleError,
   rejectOperationalEnvironment,
+  runDa5V5AllPathCleanupForTest,
+  startDa5V5FullyAttestedTestPostgresOwner,
   validateDa5V5TemporaryBase,
   verifyDa5V5TrustedAdminGroupSnapshot,
   type Da5V5TrustedAdminGroupSnapshot,
@@ -89,6 +93,46 @@ describe('DA5 V5 native Runtime Guard private protocol', () => {
       await fixture.cleanup();
     }
   });
+
+  it.each([
+    ['before', 'test-crash-before-probe', 90],
+    ['after', 'test-crash-after-probe', 91],
+  ] as const)(
+    'preserves the probe namespace on a forced exit %s the probe',
+    async (_label, crashMarker, expectedExit) => {
+      const fixture = await spawnProbeGuard();
+      try {
+        const hello = await readFrame(fixture.events);
+        writeFrame(
+          fixture.control,
+          manifestFrame(hello.split('|')[5] as string, crashMarker),
+        );
+        await expect(readFrame(fixture.events)).resolves.toBe('ACK');
+        await expect(readFrame(fixture.events)).resolves.toBe(
+          `TEST_FORCED_EXIT|${expectedExit - 90}`,
+        );
+        await expect(readFrame(fixture.events)).rejects.toThrow(
+          'event pipe closed',
+        );
+        const [code, signal] = fixture.child.exitCode !== null
+          || fixture.child.signalCode !== null
+          ? [fixture.child.exitCode, fixture.child.signalCode]
+          : await once(fixture.child, 'exit') as [
+              number | null,
+              NodeJS.Signals | null,
+            ];
+        expect({ code, signal }).toEqual({
+          code: expectedExit,
+          signal: null,
+        });
+        await expect(readdirNames(fixture.stagingPath)).resolves.toEqual([
+          fixture.rootName,
+        ]);
+      } finally {
+        await fixture.cleanup();
+      }
+    },
+  );
 
   it.each(['SIGINT', 'SIGTERM', 'SIGHUP'] as const)(
     'does not convert an external %s into a protocol command',
@@ -189,6 +233,9 @@ describe('DA5 V5 native Runtime Guard private protocol', () => {
       fixture.secret.end(Buffer.from('synthetic-test-secret'));
       writeFrame(fixture.control, fixture.manifest(nonce));
       await expect(readFrame(fixture.events)).resolves.toBe('ACK');
+      await expect(readFrame(fixture.events)).resolves.toMatch(
+        /^MOUNT_BINDING\|[a-f0-9]{64}$/u,
+      );
       await expect(readFrame(fixture.events)).resolves.toBe('INITDB_OK');
       writeFrame(fixture.control, `CONFIG_READY|${fixture.capability}`);
       await expect(readFrame(fixture.events)).resolves.toMatch(
@@ -274,6 +321,9 @@ process.exit(passed ? 0 : 42);
       fixture.secret.end(Buffer.from('synthetic-test-secret'));
       writeFrame(fixture.control, fixture.manifest(nonce));
       await expect(readFrame(fixture.events)).resolves.toBe('ACK');
+      await expect(readFrame(fixture.events)).resolves.toMatch(
+        /^MOUNT_BINDING\|[a-f0-9]{64}$/u,
+      );
       await expect(readFrame(fixture.events)).resolves.toBe('INITDB_OK');
       writeFrame(fixture.control, `CONFIG_READY|${fixture.capability}`);
       await expect(readFrame(fixture.events)).resolves.toMatch(
@@ -355,18 +405,18 @@ process.exit(passed ? 0 : 42);
     [
       'rename',
       async (rootPath: string) => rename(
-        join(rootPath, 'fake-initdb'),
+        join(rootPath, 'socket'),
         join(rootPath, 'renamed-after-inventory'),
       ),
     ],
     [
       'unlink',
-      async (rootPath: string) => unlink(join(rootPath, 'fake-initdb')),
+      async (rootPath: string) => rmdir(join(rootPath, 'socket')),
     ],
     [
       'new nested entry',
       async (rootPath: string) => writeFile(
-        join(rootPath, 'data', 'added-after-inventory'),
+        join(rootPath, 'socket', 'added-after-final-stat'),
         'synthetic',
         { flag: 'wx', mode: 0o600 },
       ),
@@ -400,10 +450,13 @@ process.exit(passed ? 0 : 42);
         await expect(readFrame(fixture.events)).resolves.toMatch(
           /^CLEANUP_PRESERVED\|/u,
         );
-        const [code, signal] = await once(fixture.child, 'exit') as [
-          number | null,
-          NodeJS.Signals | null,
-        ];
+        const [code, signal] = fixture.child.exitCode !== null
+          || fixture.child.signalCode !== null
+          ? [fixture.child.exitCode, fixture.child.signalCode]
+          : await once(fixture.child, 'exit') as [
+              number | null,
+              NodeJS.Signals | null,
+            ];
         expect({ code, signal }).toEqual({ code: 89, signal: null });
       } catch (error: unknown) {
         primaryFailure = error;
@@ -502,6 +555,144 @@ process.exit(passed ? 0 : 42);
         throw primaryFailure;
       }
     });
+
+  it.each([
+    ['before rename', 'TEST_CRASH_BEFORE_RENAME', 1, 92],
+    ['after rename', 'TEST_CRASH_AFTER_RENAME', 2, 93],
+    ['after inventory', 'TEST_CRASH_AFTER_INVENTORY', 3, 94],
+    [
+      'after final validation',
+      'TEST_CRASH_AFTER_FINAL_VALIDATION',
+      4,
+      95,
+    ],
+    ['after one unlink', 'TEST_CRASH_AFTER_ONE_UNLINK', 5, 96],
+  ] as const)(
+    'reports no false cleanup success after a forced exit %s',
+    async (label, command, armedIndex, expectedExit) => {
+      const fixture = await spawnEarlyExitGuard();
+      let primaryFailure: unknown;
+      try {
+        await advanceEarlyExitGuard(fixture);
+        writeFrame(
+          fixture.control,
+          `${command}|${fixture.capability}`,
+        );
+        await expect(readFrame(fixture.events)).resolves.toBe(
+          `TEST_CLEANUP_CRASH_ARMED|${armedIndex}`,
+        );
+        writeFrame(fixture.control, `STOP_FAST|${fixture.capability}`);
+        await expect(readFrame(fixture.events)).resolves.toBe(
+          'POSTGRES_REAPED',
+        );
+        await expect(readFrame(fixture.events)).resolves.toBe(
+          `TEST_FORCED_EXIT|${armedIndex + 1}`,
+        );
+        await expect(readFrame(fixture.events)).rejects.toThrow(
+          'event pipe closed',
+        );
+        const [code, signal] = await once(fixture.child, 'exit') as [
+          number | null,
+          NodeJS.Signals | null,
+        ];
+        expect({ code, signal }).toEqual({
+          code: expectedExit,
+          signal: null,
+        });
+        if (label === 'before rename') {
+          await expect(stat(fixture.rootPath)).resolves.toMatchObject({
+            mode: expect.any(Number),
+          });
+          await expect(stat(fixture.tombstonePath)).rejects.toThrow();
+        } else {
+          await expect(stat(fixture.rootPath)).rejects.toThrow();
+          const retainedNames = await readdirNames(fixture.tombstonePath);
+          expect(retainedNames).toEqual(
+            label === 'after one unlink'
+              ? ['data', 'fake-initdb', 'postgres.log']
+              : ['data', 'fake-initdb', 'postgres.log', 'socket'],
+          );
+        }
+      } catch (error: unknown) {
+        primaryFailure = error;
+      } finally {
+        try {
+          await fixture.cleanup();
+        } catch (cleanupError: unknown) {
+          primaryFailure ??= cleanupError;
+        }
+      }
+      if (primaryFailure !== undefined) {
+        throw primaryFailure;
+      }
+    },
+  );
+
+  it.runIf(process.platform === 'darwin')(
+    'preserves the tombstone for extended and inherited ACL entries',
+    async () => {
+      for (const [relativePath, acl] of [
+        ['fake-initdb', 'everyone allow read'],
+        [
+          'data',
+          'everyone allow read,readattr,file_inherit,directory_inherit',
+        ],
+      ] as const) {
+        const fixture = await spawnEarlyExitGuard();
+        let primaryFailure: unknown;
+        try {
+          await advanceEarlyExitGuard(fixture);
+          const result = spawn('/bin/chmod', [
+            '+a',
+            acl,
+            join(fixture.rootPath, relativePath),
+          ], {
+            env: {},
+            shell: false,
+            stdio: 'ignore',
+          });
+          const [code, signal] = await once(result, 'exit') as [
+            number | null,
+            NodeJS.Signals | null,
+          ];
+          expect({ code, signal }).toEqual({ code: 0, signal: null });
+          writeFrame(fixture.control, `STOP_FAST|${fixture.capability}`);
+          await expect(readFrame(fixture.events)).resolves.toBe(
+            'POSTGRES_REAPED',
+          );
+          await expect(readFrame(fixture.events)).resolves.toMatch(
+            /^CLEANUP_PRESERVED\|/u,
+          );
+          const [guardCode, guardSignal] =
+            fixture.child.exitCode !== null
+            || fixture.child.signalCode !== null
+              ? [fixture.child.exitCode, fixture.child.signalCode]
+              : await once(
+                  fixture.child,
+                  'exit',
+                ) as [number | null, NodeJS.Signals | null];
+          expect({ code: guardCode, signal: guardSignal }).toEqual({
+            code: 89,
+            signal: null,
+          });
+          await expect(stat(fixture.tombstonePath)).resolves.toMatchObject({
+            mode: expect.any(Number),
+          });
+        } catch (error: unknown) {
+          primaryFailure = error;
+        } finally {
+          try {
+            await fixture.cleanup();
+          } catch (cleanupError: unknown) {
+            primaryFailure ??= cleanupError;
+          }
+        }
+        if (primaryFailure !== undefined) {
+          throw primaryFailure;
+        }
+      }
+    },
+  );
 });
 
 describe('DA5 V5 trusted macOS admin snapshot and PostgreSQL chain', () => {
@@ -573,6 +764,43 @@ describe('DA5 V5 trusted macOS admin snapshot and PostgreSQL chain', () => {
 });
 
 describe('DA5 V5 closed environment and real transient PostgreSQL owner', () => {
+  it.each([
+    ['first', [0, 3], 0],
+    ['middle', [2, 4], 2],
+    ['last', [4], 4],
+  ] as const)(
+    'attempts every cleanup stage and retains the %s injected failure',
+    async (_label, failureIndexes, firstFailureIndex) => {
+      const attempted: number[] = [];
+      const completed: number[] = [];
+      const failures = new Map<number, Error>(failureIndexes.map((index) => [
+        index,
+        new Error(`synthetic-cleanup-failure-${index}`),
+      ]));
+      let caught: unknown;
+      try {
+        await runDa5V5AllPathCleanupForTest(
+          Array.from({ length: 5 }, (_, index) => async () => {
+            attempted.push(index);
+            const failure = failures.get(index);
+            if (failure !== undefined) {
+              throw failure;
+            }
+            completed.push(index);
+          }),
+        );
+      } catch (error: unknown) {
+        caught = error;
+      }
+      expect(attempted).toEqual([0, 1, 2, 3, 4]);
+      expect(completed).toEqual(
+        [0, 1, 2, 3, 4].filter((index) => !failures.has(index)),
+      );
+      expect(caught).toBeInstanceOf(Error);
+      expect((caught as Error).cause).toBe(failures.get(firstFailureIndex));
+    },
+  );
+
   it('uses scalar attestations and ordered credential-safe failure cleanup', async () => {
     const source = await readFile(
       new URL('../src/Da5V5PostgresRuntimeGuard.ts', import.meta.url),
@@ -775,6 +1003,104 @@ describe('DA5 V5 closed environment and real transient PostgreSQL owner', () => 
     expect(diagnostic.normalizedTemplate).not.toContain(rawIdentifier);
     expect(diagnostic.normalizedTemplate).not.toContain('RawToken');
   });
+
+  it.runIf(process.platform === 'darwin')(
+    'preflights B1 import, environment mapping and setup inside one task-owned PostgreSQL 17.10 root',
+    async () => {
+      const runtimeBase = await mkdtemp('/private/tmp/t5-');
+      const removedEnvironment = removeRejectedEnvironment();
+      let owner: Awaited<
+        ReturnType<typeof startDa5V5FullyAttestedTestPostgresOwner>
+      > | null = null;
+      let runtimePool: Pool | null = null;
+      let primaryFailure: unknown;
+      try {
+        const b1 = await import('../../backend-b1-spike/src/index.js');
+        owner = await startDa5V5FullyAttestedTestPostgresOwner({
+          guardBinaryPath: binaryPath,
+          pgConfigPath: '/opt/homebrew/opt/postgresql@17/bin/pg_config',
+          temporaryBase: runtimeBase,
+        });
+        const syntheticRuntimePassword = randomBytes(32).toString('base64url');
+        const installerUrl = new URL(
+          'postgresql://127.0.0.1:55435/taptime_synthetic_android_e2e',
+        );
+        installerUrl.username = 'taptime_da5_v5_installer';
+        installerUrl.password = 'preflight-not-used-for-connection';
+        const runtimeUrl = new URL(installerUrl);
+        runtimeUrl.username = b1.B1_RUNTIME_ROLE;
+        runtimeUrl.password = syntheticRuntimePassword;
+        const environment = {
+          B1_DATABASE_URL: installerUrl.toString(),
+          B1_RUNTIME_DATABASE_URL: runtimeUrl.toString(),
+          B1_RUNTIME_PASSWORD: syntheticRuntimePassword,
+        };
+        expect(b1.installerConnectionTarget(environment)).toMatchObject({
+          connectionString: installerUrl.toString(),
+          mode: 'direct',
+        });
+        expect(b1.directRuntimeConnectionTarget(environment)).toMatchObject({
+          connectionString: runtimeUrl.toString(),
+          mode: 'direct',
+        });
+        expect(b1.runtimePassword(environment)).toBe(
+          syntheticRuntimePassword,
+        );
+        await owner.withInstaller(async (installer) => {
+          await b1.installB1Schema(
+            installer as unknown as Pool,
+            syntheticRuntimePassword,
+          );
+        });
+        runtimePool = new Pool({
+          connectionString: runtimeUrl.toString(),
+          connectionTimeoutMillis: 5_000,
+          max: 1,
+          query_timeout: 5_000,
+          statement_timeout: 5_000,
+        });
+        const identity = await runtimePool.query<{
+          current_database: string;
+          current_user: string;
+          server_version_num: string;
+        }>(`
+          SELECT
+            current_database(),
+            current_user,
+            current_setting('server_version_num') AS server_version_num
+        `);
+        expect(identity.rows).toEqual([{
+          current_database: 'taptime_synthetic_android_e2e',
+          current_user: b1.B1_RUNTIME_ROLE,
+          server_version_num: '170010',
+        }]);
+      } catch (error: unknown) {
+        primaryFailure = error;
+      } finally {
+        try {
+          await runtimePool?.end();
+        } catch (error: unknown) {
+          primaryFailure ??= error;
+        }
+        try {
+          await owner?.closeOwner();
+        } catch (error: unknown) {
+          primaryFailure ??= error;
+        }
+        restoreEnvironment(removedEnvironment);
+        try {
+          await expect(readdir(runtimeBase)).resolves.toEqual([]);
+        } catch (error: unknown) {
+          primaryFailure ??= error;
+        }
+        await rm(runtimeBase, { force: true, recursive: true });
+      }
+      if (primaryFailure !== undefined) {
+        throw primaryFailure;
+      }
+    },
+    60_000,
+  );
 
   it.runIf(process.platform === 'darwin')(
     'starts, attests and exactly removes one real PostgreSQL 17.10 lifecycle',
@@ -1045,6 +1371,9 @@ async function advanceEarlyExitGuard(
   fixture.secret.end(Buffer.from('synthetic-test-secret'));
   writeFrame(fixture.control, fixture.manifest(nonce));
   await expect(readFrame(fixture.events)).resolves.toBe('ACK');
+  await expect(readFrame(fixture.events)).resolves.toMatch(
+    /^MOUNT_BINDING\|[a-f0-9]{64}$/u,
+  );
   await expect(readFrame(fixture.events)).resolves.toBe('INITDB_OK');
   writeFrame(fixture.control, `CONFIG_READY|${fixture.capability}`);
   await expect(readFrame(fixture.events)).resolves.toMatch(
@@ -1063,7 +1392,10 @@ async function advanceEarlyExitGuard(
   }
 }
 
-function manifestFrame(nonce: string): string {
+function manifestFrame(
+  nonce: string,
+  rootName = 'root-unused',
+): string {
   const capability = randomBytes(32).toString('hex');
   return startManifestFrame({
     artifactDigest: 'a'.repeat(64),
@@ -1077,7 +1409,7 @@ function manifestFrame(nonce: string): string {
     mode: 'PROBE_ONLY',
     nonce,
     postgresPath: '/private/unused/postgres',
-    rootName: 'root-unused',
+    rootName,
     socketPath: '/private/unused/socket',
     tombstoneName: 'tombstone-unused',
   });

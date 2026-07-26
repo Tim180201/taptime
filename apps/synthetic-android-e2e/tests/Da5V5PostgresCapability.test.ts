@@ -261,12 +261,18 @@ function createOwner(
     lifecycleRecord: Object.freeze({
       artifactDigest: '1'.repeat(64),
       binaryChainDigest: '2'.repeat(64),
+      binaryChainManifest: Object.freeze([
+        Object.freeze({ digest: '2'.repeat(64) }),
+      ]),
       capabilityDigest: '3'.repeat(64),
       catalogDigest: '4'.repeat(64),
       configurationDigest: '5'.repeat(64),
+      dataDirectoryIdentity: '5'.repeat(64),
+      directoryIdentity: '6'.repeat(64),
       finalDigest: '6'.repeat(64),
       guardExecutableDigest: '7'.repeat(64),
       logDescriptorDigest: '8'.repeat(64),
+      mountIdentity: '9'.repeat(64),
       ownerProcess: '9'.repeat(64),
       postmasterDigest: 'a'.repeat(64),
       processIdentity: 'b'.repeat(64),

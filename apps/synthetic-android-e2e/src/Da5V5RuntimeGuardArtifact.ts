@@ -33,6 +33,7 @@ interface BoundArtifactPath {
   readonly ino: string;
   readonly mode: string;
   readonly size: string;
+  readonly trust: ArtifactTrust;
   readonly uid: number;
 }
 
@@ -40,6 +41,8 @@ interface BoundArtifactFile extends BoundArtifactPath {
   readonly platformSignature: string;
   readonly sha256: string;
 }
+
+type ArtifactTrust = 'root-system' | 'same-euid-private';
 
 export interface Da5V5RuntimeGuardManifest {
   readonly architecture: string;
@@ -59,6 +62,7 @@ export interface Da5V5RuntimeGuardManifest {
     readonly compilerArguments: readonly string[];
     readonly linkerArguments: readonly string[];
     readonly mode: 'separate-cc1-and-direct-linker';
+    readonly signatureArguments: readonly string[];
     readonly testResult: string;
     readonly umask: '0077';
   }>;
@@ -77,11 +81,14 @@ export interface Da5V5RuntimeGuardManifest {
     readonly compiler: BoundArtifactFile;
     readonly compilerResourceDirectory: BoundArtifactPath;
     readonly compilerVersion: string;
+    readonly git: BoundArtifactFile;
     readonly includeDirectories: readonly BoundArtifactPath[];
     readonly inputFiles: readonly BoundArtifactFile[];
     readonly linkInputFiles: readonly BoundArtifactFile[];
     readonly linker: BoundArtifactFile;
     readonly linkerVersion: string;
+    readonly loadDependencyInspector: BoundArtifactFile;
+    readonly operatingSystemInspector: BoundArtifactFile;
     readonly processVerifier: BoundArtifactFile;
     readonly sdk: BoundArtifactPath;
     readonly sdkBuildVersion: string;
@@ -172,8 +179,13 @@ export async function verifyDa5V5RuntimeGuardRunningProcessForTest(options: {
     throw new Error('DA5 V5 Runtime Guard process verifier is test-only');
   }
   const binaryPath = await requireAbsoluteCanonicalPath(options.binaryPath);
-  const binary = await bindArtifactFile(binaryPath);
-  const verifier = await bindArtifactFile('/usr/bin/codesign');
+  const binary = await bindArtifactFile(
+    binaryPath,
+    binaryPath.startsWith('/private/var/folders/')
+      ? 'same-euid-private'
+      : 'root-system',
+  );
+  const verifier = await bindArtifactFile('/usr/bin/codesign', 'root-system');
   const cdHash = options.expectedCdHash
     ?? requireCdHash(binary.platformSignature);
   const result = spawnSync(verifier.canonicalPath, [
@@ -254,8 +266,19 @@ export async function verifyDa5V5RuntimeGuardArtifact(options: {
     }
     await revalidateArtifactFile(manifest.toolchain.processVerifier);
     const actualFormat = executableFormat(binaryBytes);
-    const actualDependencies = loadDependencies(binaryPath);
-    const actualSignature = executableSignature(binaryPath);
+    await Promise.all([
+      revalidateArtifactFile(manifest.toolchain.loadDependencyInspector),
+      revalidateArtifactFile(manifest.toolchain.operatingSystemInspector),
+      revalidateArtifactFile(manifest.toolchain.processVerifier),
+    ]);
+    const actualDependencies = loadDependencies(
+      binaryPath,
+      manifest.toolchain.loadDependencyInspector.canonicalPath,
+    );
+    const actualSignature = executableSignature(
+      binaryPath,
+      manifest.toolchain.processVerifier.canonicalPath,
+    );
     if (
       manifest.binary.path !== binaryPath
       || manifest.binary.size !== binaryBytes.byteLength
@@ -269,7 +292,9 @@ export async function verifyDa5V5RuntimeGuardArtifact(options: {
       || manifest.implementation.commit !== options.implementationCommit
       || manifest.implementation.tree !== options.implementationTree
       || manifest.architecture !== arch()
-      || manifest.operatingSystem.build !== operatingSystemBuild()
+      || manifest.operatingSystem.build !== operatingSystemBuild(
+        manifest.toolchain.operatingSystemInspector.canonicalPath,
+      )
       || manifest.operatingSystem.platform !== platform()
       || manifest.operatingSystem.release !== release()
     ) {
@@ -316,8 +341,14 @@ export async function verifyDa5V5RuntimeGuardArtifact(options: {
           || await realpath(binaryPath) !== binaryPath
           || await realpath(manifestPath) !== manifestPath
           || executableFormat(latestBinary) !== manifest.binary.format
-          || executableSignature(binaryPath) !== manifest.binary.signature
-          || loadDependencies(binaryPath).join('\n')
+          || executableSignature(
+            binaryPath,
+            manifest.toolchain.processVerifier.canonicalPath,
+          ) !== manifest.binary.signature
+          || loadDependencies(
+            binaryPath,
+            manifest.toolchain.loadDependencyInspector.canonicalPath,
+          ).join('\n')
             !== manifest.binary.loadDependencies.join('\n')
         ) {
           throw new Error('DA5 V5 Runtime Guard artifact binding changed');
@@ -444,6 +475,7 @@ export async function produceDa5V5RuntimeGuardArtifact(options: {
   readonly implementationTree: string;
   readonly outputDirectory: string;
   readonly sourcePath: string;
+  readonly testOnlyOutputBoundary?: boolean;
   readonly testEvidencePath: string;
 }): Promise<Readonly<{
   readonly binaryPath: string;
@@ -455,9 +487,18 @@ export async function produceDa5V5RuntimeGuardArtifact(options: {
   if (platform() !== 'darwin' || arch() !== 'arm64') {
     throw new Error('DA5 V5 Runtime Guard artifact target is unsupported');
   }
+  const git = await bindArtifactFile('/usr/bin/git', 'root-system');
+  const loadDependencyInspector = await bindArtifactFile(
+    '/usr/bin/otool',
+    'root-system',
+  );
+  const operatingSystemInspector = await bindArtifactFile(
+    '/usr/bin/sw_vers',
+    'root-system',
+  );
   const sourcePath = await requireAbsoluteCanonicalPath(options.sourcePath);
   const repositoryRoot = await requireAbsoluteCanonicalPath(
-    boundedOutput('/usr/bin/git', [
+    await boundedArtifactOutput(git, [
       '-C',
       dirname(sourcePath),
       'rev-parse',
@@ -467,7 +508,7 @@ export async function produceDa5V5RuntimeGuardArtifact(options: {
   const sourceRelative = relative(repositoryRoot, sourcePath);
   if (
     sourceRelative.startsWith('..')
-    || boundedOutput('/usr/bin/git', [
+    || await boundedArtifactOutput(git, [
       '-C',
       repositoryRoot,
       'ls-files',
@@ -478,13 +519,13 @@ export async function produceDa5V5RuntimeGuardArtifact(options: {
   ) {
     throw new Error('DA5 V5 Runtime Guard source is not tracked');
   }
-  const implementationCommit = boundedOutput('/usr/bin/git', [
+  const implementationCommit = await boundedArtifactOutput(git, [
     '-C',
     repositoryRoot,
     'rev-parse',
     'HEAD',
   ]);
-  const implementationTree = boundedOutput('/usr/bin/git', [
+  const implementationTree = await boundedArtifactOutput(git, [
     '-C',
     repositoryRoot,
     'rev-parse',
@@ -502,15 +543,18 @@ export async function produceDa5V5RuntimeGuardArtifact(options: {
   const testEvidencePath = await requireAbsoluteCanonicalPath(
     options.testEvidencePath,
   );
-  const testEvidence = await bindArtifactFile(testEvidencePath);
+  const testEvidence = await bindArtifactFile(
+    testEvidencePath,
+    'same-euid-private',
+  );
   if (
     testEvidence.sha256 !== options.expectedTestEvidenceSha256
     || !JSON.parse(await readFile(testEvidencePath, 'utf8')).passed
   ) {
     throw new Error('DA5 V5 Runtime Guard focused test evidence mismatch');
   }
-  const source = await bindArtifactFile(sourcePath);
-  const committedSource = boundedBuffer('/usr/bin/git', [
+  const source = await bindArtifactFile(sourcePath, 'same-euid-private');
+  const committedSource = await boundedArtifactBuffer(git, [
     '-C',
     repositoryRoot,
     'show',
@@ -526,7 +570,14 @@ export async function produceDa5V5RuntimeGuardArtifact(options: {
       + 'da5-v5-runtime-guard',
     implementationCommit,
   );
-  if (outputDirectory !== exactOutputDirectory) {
+  const testOnlyOutputBoundary =
+    options.testOnlyOutputBoundary === true
+    && process.env.NODE_ENV === 'test'
+    && process.env.VITEST === 'true';
+  if (
+    outputDirectory !== exactOutputDirectory
+    && !testOnlyOutputBoundary
+  ) {
     throw new Error('DA5 V5 Runtime Guard artifact output boundary mismatch');
   }
   const parent = dirname(outputDirectory);
@@ -559,40 +610,49 @@ export async function produceDa5V5RuntimeGuardArtifact(options: {
   const binaryPath = join(outputDirectory, 'da5_v5_runtime_guard');
   const manifestPath = join(outputDirectory, 'guard-manifest.txt');
   const xcrunPath = '/usr/bin/xcrun';
-  const xcrun = await bindArtifactFile(xcrunPath);
+  const xcrun = await bindArtifactFile(xcrunPath, 'root-system');
   await revalidateArtifactFile(xcrun);
   const clangPath = await requireAbsoluteCanonicalPath(
     boundedOutput(xcrunPath, ['--find', 'clang']),
   );
   await revalidateArtifactFile(xcrun);
-  const compiler = await bindArtifactFile(clangPath);
+  const compiler = await bindArtifactFile(clangPath, 'root-system');
   await revalidateArtifactFile(xcrun);
   const linkerPath = await requireAbsoluteCanonicalPath(
     boundedOutput(xcrunPath, ['--find', 'ld']),
   );
   await revalidateArtifactFile(xcrun);
-  const linker = await bindArtifactFile(linkerPath);
-  const processVerifier = await bindArtifactFile('/usr/bin/codesign');
+  const linker = await bindArtifactFile(linkerPath, 'root-system');
+  const processVerifier = await bindArtifactFile(
+    '/usr/bin/codesign',
+    'root-system',
+  );
   await writeFile(compilerSourcePath, committedSource, {
     flag: 'wx',
     mode: 0o400,
   });
-  const compilerSource = await bindArtifactFile(compilerSourcePath);
+  const compilerSource = await bindArtifactFile(
+    compilerSourcePath,
+    'same-euid-private',
+  );
   if (compilerSource.sha256 !== source.sha256) {
     throw new Error('DA5 V5 Runtime Guard private compiler source mismatch');
   }
   await revalidateArtifactFile(xcrun);
-  const sdkPath = await requireAbsoluteCanonicalPath(
+  const sdkPath = await realpath(
     boundedOutput(xcrunPath, ['--sdk', 'macosx', '--show-sdk-path']),
   );
   await revalidateArtifactFile(xcrun);
-  const sdk = await bindArtifactPath(sdkPath);
+  const sdk = await bindArtifactPath(sdkPath, 'root-system');
   await revalidateArtifactFile(compiler);
   const resourceDirectory = await requireAbsoluteCanonicalPath(
     boundedOutput(clangPath, ['-print-resource-dir']),
   );
   await revalidateArtifactFile(compiler);
-  const compilerResourceDirectory = await bindArtifactPath(resourceDirectory);
+  const compilerResourceDirectory = await bindArtifactPath(
+    resourceDirectory,
+    'root-system',
+  );
   const includePaths = [
     join(resourceDirectory, 'include'),
     join(sdkPath, 'usr/include'),
@@ -603,8 +663,15 @@ export async function produceDa5V5RuntimeGuardArtifact(options: {
     if (!(await stat(includePath)).isDirectory()) {
       throw new Error('DA5 V5 Runtime Guard include boundary mismatch');
     }
-    includeDirectories.push(await bindArtifactPath(includePath));
+    includeDirectories.push(await bindArtifactPath(
+      includePath,
+      'root-system',
+    ));
   }
+  const libSystemPath = await realpath(join(
+    sdkPath,
+    'usr/lib/libSystem.tbd',
+  ));
   const compilerArguments = Object.freeze([
     '-cc1',
     '-triple',
@@ -647,7 +714,7 @@ export async function produceDa5V5RuntimeGuardArtifact(options: {
     'macos',
     '26.0',
     '26.5',
-    join(sdkPath, 'usr/lib/libSystem.tbd'),
+    libSystemPath,
     '-o',
     candidatePath,
     objectPath,
@@ -675,8 +742,11 @@ export async function produceDa5V5RuntimeGuardArtifact(options: {
     await revalidateProducerInputs({
       compiler,
       compilerResourceDirectory,
+      git,
       includeDirectories,
       linker,
+      loadDependencyInspector,
+      operatingSystemInspector,
       processVerifier,
       sdk,
       compilerSource,
@@ -698,7 +768,14 @@ export async function produceDa5V5RuntimeGuardArtifact(options: {
       sourcePath,
     );
     const inputFiles = Object.freeze(
-      await Promise.all(discoveredInputPaths.map(bindArtifactFile)),
+      await Promise.all(discoveredInputPaths.map((inputPath) => (
+        bindArtifactFile(
+          inputPath,
+          inputPath === sourcePath
+            ? 'same-euid-private'
+            : 'root-system',
+        )
+      ))),
     );
     await Promise.all([
       unlink(discoveryObjectPath),
@@ -707,8 +784,11 @@ export async function produceDa5V5RuntimeGuardArtifact(options: {
     await revalidateProducerInputs({
       compiler,
       compilerResourceDirectory,
+      git,
       includeDirectories,
       linker,
+      loadDependencyInspector,
+      operatingSystemInspector,
       processVerifier,
       sdk,
       compilerSource,
@@ -730,8 +810,8 @@ export async function produceDa5V5RuntimeGuardArtifact(options: {
     }
     await Promise.all(inputFiles.map(revalidateArtifactFile));
     const linkInputFiles = Object.freeze([
-      await bindArtifactFile(objectPath),
-      await bindArtifactFile(join(sdkPath, 'usr/lib/libSystem.tbd')),
+      await bindArtifactFile(objectPath, 'same-euid-private'),
+      await bindArtifactFile(libSystemPath, 'root-system'),
     ]);
     await Promise.all(linkInputFiles.map(revalidateArtifactFile));
     assertNoPendingProducerSignal(pendingSignal);
@@ -740,8 +820,11 @@ export async function produceDa5V5RuntimeGuardArtifact(options: {
     await revalidateProducerInputs({
       compiler,
       compilerResourceDirectory,
+      git,
       includeDirectories,
       linker,
+      loadDependencyInspector,
+      operatingSystemInspector,
       processVerifier,
       sdk,
       compilerSource,
@@ -749,13 +832,53 @@ export async function produceDa5V5RuntimeGuardArtifact(options: {
       xcrun,
     });
     assertNoPendingProducerSignal(pendingSignal);
+    const signatureArguments = Object.freeze([
+      '--force',
+      '--sign',
+      '-',
+      '--timestamp=none',
+      candidatePath,
+    ]);
+    runBuildPhase(
+      processVerifier.canonicalPath,
+      signatureArguments,
+      phaseEnvironment,
+    );
+    await revalidateArtifactFile(processVerifier);
+    assertNoPendingProducerSignal(pendingSignal);
     await chmod(candidatePath, 0o555);
     const binaryBytes = await readFile(candidatePath);
+    await Promise.all([
+      revalidateArtifactFile(loadDependencyInspector),
+      revalidateArtifactFile(operatingSystemInspector),
+      revalidateArtifactFile(processVerifier),
+    ]);
+    const compilerVersion = await boundedArtifactOutput(
+      compiler,
+      ['--version'],
+    );
+    const linkerVersion = await boundedArtifactCombinedOutput(
+      linker,
+      ['-v'],
+    );
+    const sdkBuildVersion = await boundedArtifactOutput(xcrun, [
+      '--sdk',
+      'macosx',
+      '--show-sdk-build-version',
+    ]);
+    const sdkVersion = await boundedArtifactOutput(xcrun, [
+      '--sdk',
+      'macosx',
+      '--show-sdk-version',
+    ]);
     const manifest: Da5V5RuntimeGuardManifest = Object.freeze({
       architecture: arch(),
       binary: Object.freeze({
         format: executableFormat(binaryBytes),
-        loadDependencies: Object.freeze(loadDependencies(candidatePath)),
+        loadDependencies: Object.freeze(loadDependencies(
+          candidatePath,
+          loadDependencyInspector.canonicalPath,
+        )),
         loadDependencyInputs: Object.freeze([
           linkInputFiles[1] as BoundArtifactFile,
         ]),
@@ -763,17 +886,23 @@ export async function produceDa5V5RuntimeGuardArtifact(options: {
         mode: '0555',
         path: binaryPath,
         sha256: sha256(binaryBytes),
-        signature: executableSignature(candidatePath),
+        signature: executableSignature(
+          candidatePath,
+          processVerifier.canonicalPath,
+        ),
         size: binaryBytes.byteLength,
       }),
       build: Object.freeze({
         commandSha256: sha256(Buffer.from(
           `${clangPath}\0${compilerArguments.join('\0')}\0`
-          + `${linkerPath}\0${linkerArguments.join('\0')}`,
+          + `${linkerPath}\0${linkerArguments.join('\0')}\0`
+          + `${processVerifier.canonicalPath}\0`
+          + signatureArguments.join('\0'),
         )),
         compilerArguments,
         linkerArguments,
         mode: 'separate-cc1-and-direct-linker',
+        signatureArguments,
         testResult: `passed:${testEvidence.sha256}`,
         umask: '0077',
       }),
@@ -783,7 +912,9 @@ export async function produceDa5V5RuntimeGuardArtifact(options: {
         tree: implementationTree,
       }),
       operatingSystem: Object.freeze({
-        build: operatingSystemBuild(),
+        build: operatingSystemBuild(
+          operatingSystemInspector.canonicalPath,
+        ),
         platform: platform(),
         release: release(),
       }),
@@ -791,24 +922,19 @@ export async function produceDa5V5RuntimeGuardArtifact(options: {
       toolchain: Object.freeze({
         compiler,
         compilerResourceDirectory,
-        compilerVersion: boundedOutput(clangPath, ['--version']),
+        compilerVersion,
+        git,
         includeDirectories: Object.freeze(includeDirectories),
         inputFiles,
         linkInputFiles,
         linker,
-        linkerVersion: boundedCombinedOutput(linkerPath, ['-v']),
+        linkerVersion,
+        loadDependencyInspector,
+        operatingSystemInspector,
         processVerifier,
         sdk,
-        sdkBuildVersion: boundedOutput(xcrunPath, [
-          '--sdk',
-          'macosx',
-          '--show-sdk-build-version',
-        ]),
-        sdkVersion: boundedOutput(xcrunPath, [
-          '--sdk',
-          'macosx',
-          '--show-sdk-version',
-        ]),
+        sdkBuildVersion,
+        sdkVersion,
         startObjects: Object.freeze([]),
         startObjectMode: 'platform-linker-default-none',
         sysroot: sdk,
@@ -819,8 +945,11 @@ export async function produceDa5V5RuntimeGuardArtifact(options: {
     await revalidateProducerInputs({
       compiler,
       compilerResourceDirectory,
+      git,
       includeDirectories,
       linker,
+      loadDependencyInspector,
+      operatingSystemInspector,
       processVerifier,
       sdk,
       compilerSource,
@@ -839,8 +968,11 @@ export async function produceDa5V5RuntimeGuardArtifact(options: {
     await revalidateProducerInputs({
       compiler,
       compilerResourceDirectory,
+      git,
       includeDirectories,
       linker,
+      loadDependencyInspector,
+      operatingSystemInspector,
       processVerifier,
       sdk,
       compilerSource,
@@ -856,8 +988,11 @@ export async function produceDa5V5RuntimeGuardArtifact(options: {
     await revalidateProducerInputs({
       compiler,
       compilerResourceDirectory,
+      git,
       includeDirectories,
       linker,
+      loadDependencyInspector,
+      operatingSystemInspector,
       processVerifier,
       sdk,
       compilerSource,
@@ -946,17 +1081,19 @@ export async function revalidateDa5V5ProducerInputForTest(options: {
   readonly kind: 'directory' | 'file';
   readonly mutate: () => Promise<void>;
   readonly path: string;
+  readonly trust?: ArtifactTrust;
 }): Promise<void> {
   if (process.env.NODE_ENV !== 'test' || process.env.VITEST !== 'true') {
     throw new Error('DA5 V5 producer-input test authority is invalid');
   }
+  const trust = options.trust ?? 'same-euid-private';
   if (options.kind === 'file') {
-    const binding = await bindArtifactFile(options.path);
+    const binding = await bindArtifactFile(options.path, trust);
     await options.mutate();
     await revalidateArtifactFile(binding);
     return;
   }
-  const binding = await bindArtifactPath(options.path);
+  const binding = await bindArtifactPath(options.path, trust);
   await options.mutate();
   await revalidateArtifactPath(binding);
 }
@@ -1046,41 +1183,61 @@ function boundedSpawn(
   return result.stdout;
 }
 
-async function bindArtifactFile(path: string): Promise<BoundArtifactFile> {
+async function bindArtifactFile(
+  path: string,
+  trust: ArtifactTrust,
+): Promise<BoundArtifactFile> {
   const canonicalPath = await requireAbsoluteCanonicalPath(path);
   const handle = await openNoFollow(canonicalPath);
   try {
     const before = await handle.stat({ bigint: true });
-    if (!before.isFile()) {
+    if (
+      !before.isFile()
+      || before.size <= 0n
+      || before.size > 1_073_741_824n
+    ) {
       throw new Error('DA5 V5 artifact provenance file mismatch');
     }
-    assertSafeProducerIdentity(before, false);
-    const bytes = await readExactHandle(handle, Number(before.size));
+    assertSafeProducerIdentity(before, false, trust);
+    const header = Buffer.alloc(8);
+    const headerRead = await handle.read(header, 0, header.byteLength, 0);
+    if (headerRead.bytesRead < 4) {
+      throw new Error('DA5 V5 artifact provenance file mismatch');
+    }
+    const digest = await hashExactHandle(handle, before.size);
     const after = await handle.stat({ bigint: true });
     assertStableBigIntIdentity(before, after);
     return Object.freeze({
-      ...(await boundArtifactState(canonicalPath, before)),
-      platformSignature: await platformFileSignature(canonicalPath, bytes),
-      sha256: sha256(bytes),
+      ...(await boundArtifactState(canonicalPath, before, trust)),
+      platformSignature: await platformFileSignature(
+        canonicalPath,
+        header.subarray(0, headerRead.bytesRead),
+        trust,
+      ),
+      sha256: digest,
     });
   } finally {
     await handle.close();
   }
 }
 
-async function bindArtifactPath(path: string): Promise<BoundArtifactPath> {
+async function bindArtifactPath(
+  path: string,
+  trust: ArtifactTrust,
+): Promise<BoundArtifactPath> {
   const canonicalPath = await requireAbsoluteCanonicalPath(path);
   const state = await lstat(canonicalPath, { bigint: true });
   if (!state.isDirectory()) {
     throw new Error('DA5 V5 artifact provenance directory mismatch');
   }
-  assertSafeProducerIdentity(state, true);
-  return boundArtifactState(canonicalPath, state);
+  assertSafeProducerIdentity(state, true, trust);
+  return boundArtifactState(canonicalPath, state, trust);
 }
 
 async function boundArtifactState(
   canonicalPath: string,
   state: Awaited<ReturnType<FileHandle['stat']>>,
+  trust: ArtifactTrust,
 ): Promise<BoundArtifactPath> {
   const stateRecord = {
     canonicalPath,
@@ -1089,6 +1246,7 @@ async function boundArtifactState(
     ino: state.ino.toString(),
     mode: (Number(state.mode) & 0o7777).toString(8).padStart(4, '0'),
     size: state.size.toString(),
+    trust,
     uid: Number(state.uid),
   };
   return Object.freeze({
@@ -1101,8 +1259,11 @@ async function revalidateProducerInputs(inputs: {
   readonly compiler: BoundArtifactFile;
   readonly compilerSource: BoundArtifactFile;
   readonly compilerResourceDirectory: BoundArtifactPath;
+  readonly git: BoundArtifactFile;
   readonly includeDirectories: readonly BoundArtifactPath[];
   readonly linker: BoundArtifactFile;
+  readonly loadDependencyInspector: BoundArtifactFile;
+  readonly operatingSystemInspector: BoundArtifactFile;
   readonly processVerifier: BoundArtifactFile;
   readonly sdk: BoundArtifactPath;
   readonly source: BoundArtifactFile;
@@ -1112,13 +1273,46 @@ async function revalidateProducerInputs(inputs: {
     revalidateArtifactFile(inputs.compiler),
     revalidateArtifactFile(inputs.compilerSource),
     revalidateArtifactPath(inputs.compilerResourceDirectory),
+    revalidateArtifactFile(inputs.git),
     ...inputs.includeDirectories.map(revalidateArtifactPath),
     revalidateArtifactFile(inputs.linker),
+    revalidateArtifactFile(inputs.loadDependencyInspector),
+    revalidateArtifactFile(inputs.operatingSystemInspector),
     revalidateArtifactFile(inputs.processVerifier),
     revalidateArtifactPath(inputs.sdk),
     revalidateArtifactFile(inputs.source),
     revalidateArtifactFile(inputs.xcrun),
   ]);
+}
+
+async function boundedArtifactOutput(
+  binary: BoundArtifactFile,
+  args: readonly string[],
+): Promise<string> {
+  await revalidateArtifactFile(binary);
+  const result = boundedOutput(binary.canonicalPath, args);
+  await revalidateArtifactFile(binary);
+  return result;
+}
+
+async function boundedArtifactCombinedOutput(
+  binary: BoundArtifactFile,
+  args: readonly string[],
+): Promise<string> {
+  await revalidateArtifactFile(binary);
+  const result = boundedCombinedOutput(binary.canonicalPath, args);
+  await revalidateArtifactFile(binary);
+  return result;
+}
+
+async function boundedArtifactBuffer(
+  binary: BoundArtifactFile,
+  args: readonly string[],
+): Promise<Buffer> {
+  await revalidateArtifactFile(binary);
+  const result = boundedBuffer(binary.canonicalPath, args);
+  await revalidateArtifactFile(binary);
+  return result;
 }
 
 function normalizeCompilerInputPaths(
@@ -1168,14 +1362,14 @@ async function parseDependencyManifest(path: string): Promise<readonly string[]>
 }
 
 async function revalidateArtifactFile(expected: BoundArtifactFile): Promise<void> {
-  const actual = await bindArtifactFile(expected.canonicalPath);
+  const actual = await bindArtifactFile(expected.canonicalPath, expected.trust);
   if (JSON.stringify(actual) !== JSON.stringify(expected)) {
     throw new Error('DA5 V5 artifact producer input changed');
   }
 }
 
 async function revalidateArtifactPath(expected: BoundArtifactPath): Promise<void> {
-  const actual = await bindArtifactPath(expected.canonicalPath);
+  const actual = await bindArtifactPath(expected.canonicalPath, expected.trust);
   if (JSON.stringify(actual) !== JSON.stringify(expected)) {
     throw new Error('DA5 V5 artifact producer path changed');
   }
@@ -1190,13 +1384,21 @@ function assertNoPendingProducerSignal(signal: NodeJS.Signals | null): void {
 async function platformFileSignature(
   path: string,
   bytes: Buffer,
+  trust: ArtifactTrust,
 ): Promise<string> {
   try {
     executableFormat(bytes);
   } catch {
     return 'not-executable';
   }
-  return executableSignature(path);
+  try {
+    return executableSignature(path);
+  } catch (error) {
+    if (trust === 'same-euid-private') {
+      return 'unsigned-private-build-input';
+    }
+    throw error;
+  }
 }
 
 function formatManifest(manifest: Da5V5RuntimeGuardManifest): string {
@@ -1225,10 +1427,14 @@ function parseManifest(value: string): Da5V5RuntimeGuardManifest {
     || !Array.isArray(manifest.binary.loadDependencyInputs)
     || !Array.isArray(manifest.build.compilerArguments)
     || !Array.isArray(manifest.build.linkerArguments)
+    || !Array.isArray(manifest.build.signatureArguments)
     || !Array.isArray(manifest.toolchain.includeDirectories)
     || !Array.isArray(manifest.toolchain.inputFiles)
     || !Array.isArray(manifest.toolchain.linkInputFiles)
     || !Array.isArray(manifest.toolchain.startObjects)
+    || !isRecord(manifest.toolchain.git)
+    || !isRecord(manifest.toolchain.loadDependencyInspector)
+    || !isRecord(manifest.toolchain.operatingSystemInspector)
     || !isRecord(manifest.toolchain.processVerifier)
     || !/^[a-f0-9]{64}$/u.test(String(manifest.binary.sha256))
     || !/^[a-f0-9]{64}$/u.test(String(manifest.source.sha256))
@@ -1243,10 +1449,13 @@ function parseManifest(value: string): Da5V5RuntimeGuardManifest {
   return deepFreeze(manifest);
 }
 
-function loadDependencies(path: string): readonly string[] {
+function loadDependencies(
+  path: string,
+  inspector = platform() === 'darwin' ? '/usr/bin/otool' : '/usr/bin/ldd',
+): readonly string[] {
   if (platform() === 'darwin') {
     return Object.freeze(
-      boundedOutput('/usr/bin/otool', ['-L', path])
+      boundedOutput(inspector, ['-L', path])
         .split('\n')
         .slice(1)
         .map((line) => line.trim())
@@ -1254,24 +1463,29 @@ function loadDependencies(path: string): readonly string[] {
     );
   }
   return Object.freeze(
-    boundedOutput('/usr/bin/ldd', [path])
+    boundedOutput(inspector, [path])
       .split('\n')
       .map((line) => line.trim())
       .filter(Boolean),
   );
 }
 
-function operatingSystemBuild(): string {
+function operatingSystemBuild(
+  inspector = '/usr/bin/sw_vers',
+): string {
   return platform() === 'darwin'
-    ? boundedOutput('/usr/bin/sw_vers', ['-buildVersion'])
+    ? boundedOutput(inspector, ['-buildVersion'])
     : release();
 }
 
-function executableSignature(path: string): string {
+function executableSignature(
+  path: string,
+  verifier = '/usr/bin/codesign',
+): string {
   if (platform() !== 'darwin') {
     return 'not-applicable';
   }
-  const result = spawnSync('/usr/bin/codesign', [
+  const result = spawnSync(verifier, [
     '--display',
     '--verbose=4',
     path,
@@ -1291,7 +1505,7 @@ function executableSignature(path: string): string {
   ) {
     throw new Error('DA5 V5 Runtime Guard signature mismatch');
   }
-  const verification = spawnSync('/usr/bin/codesign', [
+  const verification = spawnSync(verifier, [
     '--verify',
     '--strict',
     '--verbose=4',
@@ -1356,6 +1570,38 @@ async function readExactHandle(
     position += read.bytesRead;
   }
   return bytes;
+}
+
+async function hashExactHandle(
+  handle: FileHandle,
+  size: bigint,
+): Promise<string> {
+  if (size <= 0n || size > 1_073_741_824n) {
+    throw new Error('DA5 V5 Runtime Guard provenance size is invalid');
+  }
+  const digest = createHash('sha256');
+  const chunk = Buffer.allocUnsafe(1_048_576);
+  let offset = 0n;
+  while (offset < size) {
+    const remaining = size - offset;
+    const requested = Number(
+      remaining < BigInt(chunk.byteLength)
+        ? remaining
+        : BigInt(chunk.byteLength),
+    );
+    const result = await handle.read(
+      chunk,
+      0,
+      requested,
+      Number(offset),
+    );
+    if (result.bytesRead !== requested) {
+      throw new Error('DA5 V5 Runtime Guard provenance read is incomplete');
+    }
+    digest.update(chunk.subarray(0, requested));
+    offset += BigInt(requested);
+  }
+  return digest.digest('hex');
 }
 
 function openNoFollow(path: string): Promise<FileHandle> {
@@ -1431,10 +1677,15 @@ function requireProcessId(value: number): number {
 function assertSafeProducerIdentity(
   state: Awaited<ReturnType<FileHandle['stat']>>,
   directory: boolean,
+  trust: ArtifactTrust,
 ): void {
   const mode = Number(state.mode) & 0o7777;
   if (
-    ![0, effectiveUid()].includes(Number(state.uid))
+    (
+      trust === 'root-system'
+        ? Number(state.uid) !== 0
+        : Number(state.uid) !== effectiveUid()
+    )
     || (mode & 0o022) !== 0
     || (directory && (mode & 0o100) === 0)
   ) {

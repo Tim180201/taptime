@@ -94,6 +94,13 @@ interface BoundLifecycleFile {
   readonly path: string;
 }
 
+interface BoundLifecycleDirectory {
+  readonly handle: FileHandle;
+  readonly identity: Readonly<Record<string, string>>;
+  readonly ownsHandle: boolean;
+  readonly path: string;
+}
+
 interface BoundLifecycleSocket {
   readonly identity: Readonly<Record<string, string>>;
   readonly path: string;
@@ -109,12 +116,48 @@ export interface Da5V5PostgresBinaryChain {
   readonly postgres: string;
   readonly postgresDigest: string;
   readonly postgresFd: number;
+  readonly record: readonly Readonly<Record<string, unknown>>[];
   close(): Promise<void>;
   revalidate(snapshot: Da5V5TrustedAdminGroupSnapshot): Promise<void>;
 }
 
 const protectedSnapshots = new WeakMap<object, ProtectedGroupSnapshot>();
 const binaryChains = new WeakMap<object, readonly BoundPath[]>();
+
+interface Da5V5CleanupFailureState {
+  firstFailure?: unknown;
+}
+
+async function attemptDa5V5CleanupStage(
+  state: Da5V5CleanupFailureState,
+  action: () => Promise<void> | void,
+  completed: () => void = () => undefined,
+): Promise<boolean> {
+  try {
+    await action();
+    completed();
+    return true;
+  } catch (error: unknown) {
+    state.firstFailure ??= error;
+    return false;
+  }
+}
+
+export async function runDa5V5AllPathCleanupForTest(
+  actions: readonly (() => Promise<void> | void)[],
+): Promise<void> {
+  assertDa5V5FocusedTestProcess();
+  const state: Da5V5CleanupFailureState = {};
+  for (const action of actions) {
+    await attemptDa5V5CleanupStage(state, action);
+  }
+  if (state.firstFailure !== undefined) {
+    throw new Error('DA5 V5 test cleanup failed', {
+      cause: state.firstFailure,
+    });
+  }
+}
+
 const da5V5OwnedRuntimeRoleGraph: Readonly<
   Record<string, readonly string[]>
 > = Object.freeze({
@@ -361,7 +404,7 @@ export async function bindDa5V5PostgresBinaryChain(options: {
     }
     validateBoundChain(bound, protectedSnapshot, process.geteuid?.(), 3);
     await revalidateBoundPaths(bound);
-    const chainDigest = sha256(JSON.stringify(bound.map((entry) => ({
+    const record = Object.freeze(bound.map((entry) => Object.freeze({
       aclSha256: entry.aclSha256,
       binary: entry.binary,
       canonicalPath: entry.canonicalPath,
@@ -372,7 +415,8 @@ export async function bindDa5V5PostgresBinaryChain(options: {
       mode: entry.mode,
       size: entry.size.toString(),
       uid: entry.uid,
-    }))));
+    })));
+    const chainDigest = sha256(JSON.stringify(record));
     const pgConfigBinding = requireBoundBinary(bound, pgConfig);
     const initdbBinding = requireBoundBinary(bound, initdb);
     const postgresBinding = requireBoundBinary(bound, postgres);
@@ -386,6 +430,7 @@ export async function bindDa5V5PostgresBinaryChain(options: {
       postgres,
       postgresDigest: postgresBinding.digest as string,
       postgresFd: postgresBinding.fd.fd,
+      record,
       async close(): Promise<void> {
         await Promise.all(bound.map(async ({ fd }) => fd.close()));
         binaryChains.delete(chain);
@@ -492,12 +537,13 @@ Promise<Da5V5PostgresOwnerBackend> {
   let bootstrapPool: Pool | null = null;
   let installerPool: Pool | null = null;
   let lifecycleFiles: BoundLifecycleFile[] = [];
+  let lifecycleDirectories: BoundLifecycleDirectory[] = [];
   let heartbeat: NodeJS.Timeout | null = null;
   let postgresSpawned = false;
   try {
     await chain.revalidate(snapshot);
     await assertPortAbsent(55_435);
-    const base = resolve(options.temporaryBase ?? tmpdir());
+    const base = await realpath(resolve(options.temporaryBase ?? tmpdir()));
     await validateDa5V5TemporaryBase(base);
     baseHandle = await open(base, constants.O_RDONLY);
     stagingPath = await mkdtemp(join(base, '.t5-'));
@@ -581,9 +627,27 @@ Promise<Da5V5PostgresOwnerBackend> {
       tombstoneName,
       verifyRunningProcess: options.verifyGuardProcess,
     });
+    const guardProcessRecord = await captureProcessIdentity({
+      executableDigest: artifactDigest,
+      executablePath: options.guardBinaryPath,
+      expectedParentPid: process.pid,
+      expectedProcessGroup: guard.child.pid as number,
+      expectedSession: guard.child.pid as number,
+      pid: guard.child.pid as number,
+    });
     installerPassword.fill(0);
     if (options.signal?.aborted === true) {
       throw new Error('DA5 V5 isolated PostgreSQL startup interrupted');
+    }
+    const mountBindingEvent = await guard.expectPrefix(
+      'MOUNT_BINDING|',
+      5_000,
+    );
+    const mountBindingDigest = mountBindingEvent.slice(
+      'MOUNT_BINDING|'.length,
+    );
+    if (!/^[a-f0-9]{64}$/u.test(mountBindingDigest)) {
+      throw new Error('DA5 V5 Runtime Guard mount binding mismatch');
     }
     await guard.expect('INITDB_OK', 35_000);
     lifecyclePhase = 'config';
@@ -603,6 +667,14 @@ Promise<Da5V5PostgresOwnerBackend> {
     }
     const postgresPid = Number(postgresPidText);
     postgresSpawned = true;
+    const postgresProcessRecord = await captureProcessIdentity({
+      executableDigest: chain.postgresDigest,
+      executablePath: chain.postgres,
+      expectedParentPid: guard.child.pid as number,
+      expectedProcessGroup: guard.child.pid as number,
+      expectedSession: guard.child.pid as number,
+      pid: postgresPid,
+    });
     const logBinding = await bindLifecycleFile(logPath, false);
     lifecycleFiles.push(logBinding);
     heartbeat = setInterval(() => {
@@ -650,7 +722,15 @@ Promise<Da5V5PostgresOwnerBackend> {
     const socketBinding = await bindLifecycleSocket(
       join(socketPath, '.s.PGSQL.55435'),
     );
+    lifecycleDirectories = await Promise.all([
+      bindLifecycleDirectory(base, baseHandle, false),
+      bindLifecycleDirectory(stagingPath, stagingHandle, false),
+      bindLifecycleDirectory(rootPath, rootHandle, false),
+      bindLifecycleDirectory(dataPath),
+      bindLifecycleDirectory(socketPath),
+    ]);
     await revalidateLifecycleFiles(lifecycleFiles);
+    await revalidateLifecycleDirectories(lifecycleDirectories);
     await revalidateLifecycleSocket(socketBinding);
     await chain.revalidate(snapshot);
     const activeGuard = guard;
@@ -672,8 +752,12 @@ Promise<Da5V5PostgresOwnerBackend> {
     let stopSent = false;
     let postgresReaped = false;
     let guardCleanupConfirmed = false;
+    let guardControlClosed = false;
+    let guardSecretClosed = false;
     let guardExited = false;
+    let guardEventClosed = false;
     const closedLifecycleFiles = new Set<BoundLifecycleFile>();
+    const closedLifecycleDirectories = new Set<BoundLifecycleDirectory>();
     let rootHandleClosed = false;
     let stagingHandleClosed = false;
     let baseHandleClosed = false;
@@ -696,6 +780,18 @@ Promise<Da5V5PostgresOwnerBackend> {
     const configurationBindingDigest = sha256(JSON.stringify(
       lifecycleFiles.slice(0, 3).map(lifecycleFileRecord),
     ));
+    const directoryIdentity = sha256(JSON.stringify(
+      lifecycleDirectories.map(lifecycleDirectoryRecord),
+    ));
+    const dataDirectoryBinding = lifecycleDirectories.find(
+      ({ path }) => path === dataPath,
+    );
+    if (dataDirectoryBinding === undefined) {
+      throw new Error('DA5 V5 PostgreSQL data-directory binding is missing');
+    }
+    const dataDirectoryIdentity = sha256(JSON.stringify(
+      lifecycleDirectoryRecord(dataDirectoryBinding),
+    ));
     const logDescriptorDigest = sha256(JSON.stringify(
       lifecycleFileRecord(logBinding),
     ));
@@ -712,31 +808,21 @@ Promise<Da5V5PostgresOwnerBackend> {
     const lifecycleBindings = {
       artifactDigest,
       binaryChainDigest: activeChain.chainDigest,
+      binaryChainManifest: activeChain.record,
       capabilityDigest: sha256(capabilitySecret),
       catalogDigest: sha256(JSON.stringify(ownerAttestation)),
       configurationDigest: sha256([
         exactConfiguration.digest,
         configurationBindingDigest,
       ].join('\n')),
+      dataDirectoryIdentity,
+      directoryIdentity,
       guardExecutableDigest: artifactDigest,
       logDescriptorDigest,
-      ownerProcess: sha256(
-        [
-          `guard:${activeGuard.child.pid ?? 0}`,
-          `session:${lifecycleGeneration}`,
-          `hello:${activeGuard.helloNonce}`,
-          `artifact:${artifactDigest}`,
-        ].join('\n'),
-      ),
+      mountIdentity: mountBindingDigest,
+      ownerProcess: sha256(JSON.stringify(guardProcessRecord)),
       postmasterDigest,
-      processIdentity: sha256(
-        [
-          `postgres:${postgresPid}`,
-          `generation:${lifecycleGeneration}`,
-          `system:${attestation.systemIdentifier}`,
-          `executable:${activeChain.postgresDigest}`,
-        ].join('\n'),
-      ),
+      processIdentity: sha256(JSON.stringify(postgresProcessRecord)),
       provisionalDigest,
       rootIdentity: sha256(JSON.stringify({
         root: stableStatRecord(rootIdentityState),
@@ -754,16 +840,41 @@ Promise<Da5V5PostgresOwnerBackend> {
     });
     const revalidateLifecycleRecord = async (): Promise<void> => {
       await revalidateLifecycleFiles(lifecycleFiles);
+      await revalidateLifecycleDirectories(lifecycleDirectories);
       await revalidateLifecycleSocket(socketBinding);
       assertPostmasterPidBinding(await readLifecycleFile(postmasterBinding), {
         dataPath,
         pid: postgresPid,
         socketPath,
       });
+      const [latestGuardProcess, latestPostgresProcess] = await Promise.all([
+        captureProcessIdentity({
+          executableDigest: artifactDigest,
+          executablePath: options.guardBinaryPath,
+          expectedParentPid: process.pid,
+          expectedProcessGroup: activeGuard.child.pid as number,
+          expectedSession: activeGuard.child.pid as number,
+          pid: activeGuard.child.pid as number,
+        }),
+        captureProcessIdentity({
+          executableDigest: activeChain.postgresDigest,
+          executablePath: activeChain.postgres,
+          expectedParentPid: activeGuard.child.pid as number,
+          expectedProcessGroup: activeGuard.child.pid as number,
+          expectedSession: activeGuard.child.pid as number,
+          pid: postgresPid,
+        }),
+      ]);
       if (
         sha256(JSON.stringify(lifecycleBindings)) !== lifecycleRecord.finalDigest
         || sha256(JSON.stringify(provisionalBindings))
           !== lifecycleRecord.provisionalDigest
+        || sha256(JSON.stringify(activeChain.record))
+          !== lifecycleRecord.binaryChainDigest
+        || JSON.stringify(latestGuardProcess)
+          !== JSON.stringify(guardProcessRecord)
+        || JSON.stringify(latestPostgresProcess)
+          !== JSON.stringify(postgresProcessRecord)
       ) {
         throw new Error('DA5 V5 PostgreSQL lifecycle record mismatch');
       }
@@ -795,17 +906,16 @@ Promise<Da5V5PostgresOwnerBackend> {
         }
         ownerState = 'cleanup-incomplete';
         cleanupInFlight = (async (): Promise<void> => {
-          let firstFailure: unknown;
+          const cleanupState: Da5V5CleanupFailureState = {};
           const attempt = async (
             action: () => Promise<void> | void,
             completed: () => void,
           ): Promise<void> => {
-            try {
-              await action();
-              completed();
-            } catch (error: unknown) {
-              firstFailure ??= error;
-            }
+            await attemptDa5V5CleanupStage(
+              cleanupState,
+              action,
+              completed,
+            );
           };
           const closePool = async (pool: Pool): Promise<void> => {
             try {
@@ -842,7 +952,7 @@ Promise<Da5V5PostgresOwnerBackend> {
               },
             );
           }
-          if (!stopAttempted && !destructiveAttestationPassed) {
+          if (!destructiveAttestationPassed) {
             await attempt(
               async () => {
                 await options.revalidateGuardArtifact?.();
@@ -854,7 +964,7 @@ Promise<Da5V5PostgresOwnerBackend> {
               },
             );
           }
-          if (destructiveAttestationPassed && !stopAttempted) {
+          if (!stopAttempted) {
             stopAttempted = true;
             await attempt(
               async () => activeGuard.sendAuthenticated('STOP_FAST'),
@@ -863,7 +973,23 @@ Promise<Da5V5PostgresOwnerBackend> {
               },
             );
           }
-          if (stopSent && !postgresReaped) {
+          if (!guardControlClosed) {
+            await attempt(
+              async () => activeGuard.closeControlPipe(),
+              () => {
+                guardControlClosed = true;
+              },
+            );
+          }
+          if (!guardSecretClosed) {
+            await attempt(
+              async () => activeGuard.closeSecretPipe(),
+              () => {
+                guardSecretClosed = true;
+              },
+            );
+          }
+          if (!postgresReaped) {
             await attempt(
               async () => activeGuard.expect('POSTGRES_REAPED', 35_000),
               () => {
@@ -871,7 +997,7 @@ Promise<Da5V5PostgresOwnerBackend> {
               },
             );
           }
-          if (postgresReaped && !guardCleanupConfirmed) {
+          if (!guardCleanupConfirmed) {
             await attempt(
               async () => activeGuard.expect('CLEANUP_OK', 10_000),
               () => {
@@ -879,11 +1005,19 @@ Promise<Da5V5PostgresOwnerBackend> {
               },
             );
           }
-          if (stopSent && !guardExited) {
+          if (!guardExited) {
             await attempt(
               async () => activeGuard.waitForExit(),
               () => {
                 guardExited = true;
+              },
+            );
+          }
+          if (!guardEventClosed) {
+            await attempt(
+              async () => activeGuard.closeEventPipe(),
+              () => {
+                guardEventClosed = true;
               },
             );
           }
@@ -892,6 +1026,17 @@ Promise<Da5V5PostgresOwnerBackend> {
               await attempt(
                 async () => binding.handle.close(),
                 () => closedLifecycleFiles.add(binding),
+              );
+            }
+          }
+          for (const binding of lifecycleDirectories) {
+            if (
+              binding.ownsHandle
+              && !closedLifecycleDirectories.has(binding)
+            ) {
+              await attempt(
+                async () => binding.handle.close(),
+                () => closedLifecycleDirectories.add(binding),
               );
             }
           }
@@ -936,15 +1081,21 @@ Promise<Da5V5PostgresOwnerBackend> {
             );
           }
           if (
-            firstFailure === undefined
+            cleanupState.firstFailure === undefined
             && ownedRuntimePools.size === 0
             && heartbeatClosed
             && activePoolClosed
             && stopSent
+            && destructiveAttestationPassed
+            && guardControlClosed
+            && guardSecretClosed
             && postgresReaped
             && guardCleanupConfirmed
             && guardExited
+            && guardEventClosed
             && closedLifecycleFiles.size === lifecycleFiles.length
+            && closedLifecycleDirectories.size === lifecycleDirectories
+              .filter(({ ownsHandle }) => ownsHandle).length
             && rootHandleClosed
             && stagingHandleClosed
             && baseHandleClosed
@@ -1009,17 +1160,11 @@ Promise<Da5V5PostgresOwnerBackend> {
       && error instanceof Error
       ? error
       : disclosureSafeDa5V5PostgresLifecycleError(error, lifecyclePhase);
-    let cleanupFailure: unknown;
+    const cleanupState: Da5V5CleanupFailureState = {};
     const attemptCleanup = async (
       action: () => Promise<void> | void,
     ): Promise<boolean> => {
-      try {
-        await action();
-        return true;
-      } catch (cleanupError: unknown) {
-        cleanupFailure ??= cleanupError;
-        return false;
-      }
+      return attemptDa5V5CleanupStage(cleanupState, action);
     };
     if (heartbeat !== null) {
       clearInterval(heartbeat);
@@ -1029,31 +1174,33 @@ Promise<Da5V5PostgresOwnerBackend> {
     await attemptCleanup(async () => installerPool?.end());
     installerPool = null;
     if (guard !== null) {
-      const destructiveAttestationPassed = await attemptCleanup(async () => {
+      await attemptCleanup(async () => {
         await options.revalidateGuardArtifact?.();
         await chain.revalidate(snapshot);
       });
-      if (destructiveAttestationPassed) {
-        if (postgresSpawned) {
-          const stopSent = await attemptCleanup(
-            async () => guard?.sendAuthenticated('STOP_FAST'),
-          );
-          if (stopSent) {
-            await attemptCleanup(
-              async () => guard?.expect('POSTGRES_REAPED', 35_000),
-            );
-            await attemptCleanup(
-              async () => guard?.expect('CLEANUP_OK', 10_000),
-            );
-            await attemptCleanup(async () => guard?.waitForExit());
-          }
-        } else {
-          await attemptCleanup(async () => guard?.failClosedStop());
-        }
+      await attemptCleanup(
+        async () => guard?.sendAuthenticated('STOP_FAST'),
+      );
+      await attemptCleanup(async () => guard?.closeControlPipe());
+      await attemptCleanup(async () => guard?.closeSecretPipe());
+      if (postgresSpawned) {
+        await attemptCleanup(
+          async () => guard?.expect('POSTGRES_REAPED', 35_000),
+        );
+        await attemptCleanup(
+          async () => guard?.expect('CLEANUP_OK', 10_000),
+        );
       }
+      await attemptCleanup(async () => guard?.waitForExit());
+      await attemptCleanup(async () => guard?.closeEventPipe());
     }
     for (const binding of lifecycleFiles) {
       await attemptCleanup(async () => binding.handle.close());
+    }
+    for (const binding of lifecycleDirectories) {
+      if (binding.ownsHandle) {
+        await attemptCleanup(async () => binding.handle.close());
+      }
     }
     await attemptCleanup(async () => rootHandle?.close());
     await attemptCleanup(async () => stagingHandle?.close());
@@ -1063,7 +1210,7 @@ Promise<Da5V5PostgresOwnerBackend> {
       const failedStagingPath = stagingPath;
       await attemptCleanup(async () => rmdir(failedStagingPath));
     }
-    if (cleanupFailure !== undefined) {
+    if (cleanupState.firstFailure !== undefined) {
       throw new Error(`${primaryFailure.message};cleanup-incomplete`);
     }
     throw primaryFailure;
@@ -1403,6 +1550,9 @@ class RuntimeGuardClient {
   private controlError: Error | null = null;
   private readonly frameReader: FrameReader;
   private boundHelloNonce: string | null = null;
+  private controlClosed = false;
+  private eventClosed = false;
+  private secretClosed = false;
   private stopped = false;
 
   get helloNonce(): string {
@@ -1611,23 +1761,57 @@ class RuntimeGuardClient {
   }
 
   async failClosedStop(): Promise<void> {
+    let firstFailure: unknown;
     if (!this.stopped && this.child.exitCode === null && this.child.signalCode === null) {
-      await this.sendAuthenticated('STOP_FAST').catch(() => undefined);
+      try {
+        await this.sendAuthenticated('STOP_FAST');
+      } catch (error: unknown) {
+        firstFailure ??= error;
+      }
     }
-    this.control.end();
-    this.secret.end();
-    await this.waitForExit();
+    for (const action of [
+      () => this.closeControlPipe(),
+      () => this.closeSecretPipe(),
+      () => this.waitForExit(),
+      () => this.closeEventPipe(),
+    ]) {
+      try {
+        await action();
+      } catch (error: unknown) {
+        firstFailure ??= error;
+      }
+    }
+    if (firstFailure !== undefined) {
+      throw new Error('DA5 V5 Runtime Guard fail-closed stop failed', {
+        cause: firstFailure,
+      });
+    }
   }
 
   private async abortHandshake(): Promise<void> {
-    this.control.destroy();
-    this.secret.destroy();
-    await awaitGuardTermination(this.child, false);
+    let firstFailure: unknown;
+    for (const action of [
+      () => this.closeControlPipe(),
+      () => this.closeSecretPipe(),
+      async () => {
+        await awaitGuardTermination(this.child, false);
+      },
+      () => this.closeEventPipe(),
+    ]) {
+      try {
+        await action();
+      } catch (error: unknown) {
+        firstFailure ??= error;
+      }
+    }
+    if (firstFailure !== undefined) {
+      throw new Error('DA5 V5 Runtime Guard handshake cleanup failed', {
+        cause: firstFailure,
+      });
+    }
   }
 
   async waitForExit(): Promise<void> {
-    this.control.end();
-    this.secret.end();
     if (this.child.exitCode !== null || this.child.signalCode !== null) {
       if (this.child.exitCode !== 0 || this.child.signalCode !== null) {
         throw new Error('DA5 V5 Runtime Guard terminal result failed');
@@ -1638,6 +1822,38 @@ class RuntimeGuardClient {
     if (result[0] !== 0 || result[1] !== null) {
       throw new Error('DA5 V5 Runtime Guard terminal result failed');
     }
+  }
+
+  async closeControlPipe(): Promise<void> {
+    if (this.controlClosed) {
+      return;
+    }
+    if (this.control.destroyed || this.control.writableEnded) {
+      this.controlClosed = true;
+      return;
+    }
+    await endWritable(this.control);
+    this.controlClosed = true;
+  }
+
+  async closeSecretPipe(): Promise<void> {
+    if (this.secretClosed) {
+      return;
+    }
+    if (this.secret.destroyed || this.secret.writableEnded) {
+      this.secretClosed = true;
+      return;
+    }
+    await endWritable(this.secret);
+    this.secretClosed = true;
+  }
+
+  async closeEventPipe(): Promise<void> {
+    if (this.eventClosed) {
+      return;
+    }
+    this.frameReader.close();
+    this.eventClosed = true;
   }
 
   private async writeFrame(value: string): Promise<void> {
@@ -1667,6 +1883,26 @@ class RuntimeGuardClient {
   }
 }
 
+async function endWritable(stream: Writable): Promise<void> {
+  await new Promise<void>((resolveClosed, rejectClosed) => {
+    const onError = (error: Error): void => {
+      cleanup();
+      rejectClosed(error);
+    };
+    const onFinish = (): void => {
+      cleanup();
+      resolveClosed();
+    };
+    const cleanup = (): void => {
+      stream.off('error', onError);
+      stream.off('finish', onFinish);
+    };
+    stream.once('error', onError);
+    stream.once('finish', onFinish);
+    stream.end();
+  });
+}
+
 async function awaitGuardTermination(
   child: ChildProcess,
   requireSuccess: boolean,
@@ -1693,6 +1929,11 @@ class FrameReader {
   private buffer = Buffer.alloc(0);
 
   constructor(private readonly stream: Readable) {}
+
+  close(): void {
+    this.stream.destroy();
+    this.buffer = Buffer.alloc(0);
+  }
 
   readAvailable(): string | null {
     for (;;) {
@@ -3009,6 +3250,106 @@ function boundedSpawn(binary: string, args: readonly string[]): string {
   return result.stdout.trim();
 }
 
+async function captureProcessIdentity(options: {
+  readonly executableDigest: string;
+  readonly executablePath: string;
+  readonly expectedParentPid: number;
+  readonly expectedProcessGroup: number;
+  readonly expectedSession: number;
+  readonly pid: number;
+}): Promise<Readonly<Record<string, string>>> {
+  const inspectorPath = await realpath('/bin/ps');
+  const inspector = await open(
+    inspectorPath,
+    constants.O_RDONLY | constants.O_NOFOLLOW,
+  );
+  try {
+    const before = await inspector.stat({ bigint: true });
+    if (
+      !before.isFile()
+      || Number(before.uid) !== 0
+      || (Number(before.mode) & 0o022) !== 0
+    ) {
+      throw new Error('DA5 V5 process inspector identity mismatch');
+    }
+    const inspectorDigest = await hashFileHandle(inspector, before.size);
+    const result = spawnSync(inspectorPath, [
+      '-ww',
+      '-p',
+      String(options.pid),
+      '-o',
+      'pid=',
+      '-o',
+      'ppid=',
+      '-o',
+      'pgid=',
+      '-o',
+      'sess=',
+      '-o',
+      'lstart=',
+      '-o',
+      'command=',
+    ], {
+      cwd: '/',
+      encoding: 'utf8',
+      env: Object.freeze({ PATH: '/usr/bin:/bin', TZ: 'UTC' }),
+      maxBuffer: 4_096,
+      shell: false,
+      timeout: 5_000,
+      killSignal: 'SIGKILL',
+    });
+    const after = await inspector.stat({ bigint: true });
+    if (
+      result.error !== undefined
+      || result.signal !== null
+      || result.status !== 0
+      || result.stderr.trim().length > 0
+      || stableStatRecord(before).dev !== stableStatRecord(after).dev
+      || stableStatRecord(before).ino !== stableStatRecord(after).ino
+      || await hashFileHandle(inspector, after.size) !== inspectorDigest
+    ) {
+      throw new Error('DA5 V5 process identity inspection failed');
+    }
+    const match = /^\s*([1-9][0-9]*)\s+([1-9][0-9]*)\s+([1-9][0-9]*)\s+([0-9]+)\s+([A-Z][a-z]{2}\s+[A-Z][a-z]{2}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2}\s+\d{4})\s+(.+?)\s*$/u
+      .exec(result.stdout);
+    const mismatches = match === null
+      ? ['shape']
+      : [
+          Number(match[1]) === options.pid ? null : 'pid',
+          Number(match[2]) === options.expectedParentPid ? null : 'parent',
+          Number(match[3]) === options.expectedProcessGroup ? null : 'group',
+          (
+            Number(match[4]) === options.expectedSession
+            || (process.platform === 'darwin' && Number(match[4]) === 0)
+          ) ? null : 'session',
+          (match[6] ?? '').split(/\s+/u)[0] === options.executablePath
+            ? null
+            : 'executable',
+          /^[a-f0-9]{64}$/u.test(options.executableDigest)
+            ? null
+            : 'digest',
+        ].filter((value): value is string => value !== null);
+    if (match === null || mismatches.length > 0) {
+      throw new Error(
+        `DA5 V5 process identity mismatch (${mismatches.join(',')})`,
+      );
+    }
+    return Object.freeze({
+      command: match[6] as string,
+      executableDigest: options.executableDigest,
+      executablePath: options.executablePath,
+      inspectorDigest,
+      parentPid: match[2] as string,
+      pgid: match[3] as string,
+      pid: match[1] as string,
+      session: match[4] as string,
+      start: match[5] as string,
+    });
+  } finally {
+    await inspector.close();
+  }
+}
+
 function postgresUrl(password: string, database: string): string {
   const url = new URL('postgresql://127.0.0.1:55435/');
   url.username = 'taptime_da5_v5_installer';
@@ -3083,6 +3424,49 @@ async function bindLifecycleFile(
   }
 }
 
+async function bindLifecycleDirectory(
+  path: string,
+  existingHandle?: FileHandle,
+  ownsHandle = true,
+): Promise<BoundLifecycleDirectory> {
+  if (await realpath(path) !== path) {
+    throw new Error('DA5 V5 PostgreSQL lifecycle directory is not canonical');
+  }
+  const handle = existingHandle ?? await open(
+    path,
+    constants.O_RDONLY | constants.O_NOFOLLOW,
+  );
+  try {
+    const [pathState, handleState, mount] = await Promise.all([
+      lstat(path, { bigint: true }),
+      handle.stat({ bigint: true }),
+      statfs(path, { bigint: true }),
+    ]);
+    if (
+      !pathState.isDirectory()
+      || !handleState.isDirectory()
+      || stableStatRecord(pathState).dev !== stableStatRecord(handleState).dev
+      || stableStatRecord(pathState).ino !== stableStatRecord(handleState).ino
+    ) {
+      throw new Error('DA5 V5 PostgreSQL lifecycle directory mismatch');
+    }
+    const identity = lifecycleIdentityRecord(pathState, mount, true);
+    const binding = Object.freeze({
+      handle,
+      identity,
+      ownsHandle,
+      path,
+    });
+    await revalidateLifecycleDirectory(binding);
+    return binding;
+  } catch (error) {
+    if (ownsHandle) {
+      await handle.close().catch(() => undefined);
+    }
+    throw error;
+  }
+}
+
 async function bindLifecycleSocket(path: string): Promise<BoundLifecycleSocket> {
   const state = await lstat(path, { bigint: true });
   if (!state.isSocket() || Number(state.uid) !== process.geteuid?.()) {
@@ -3102,6 +3486,34 @@ async function revalidateLifecycleFiles(
 ): Promise<void> {
   for (const binding of bindings) {
     await revalidateLifecycleFile(binding);
+  }
+}
+
+async function revalidateLifecycleDirectories(
+  bindings: readonly BoundLifecycleDirectory[],
+): Promise<void> {
+  for (const binding of bindings) {
+    await revalidateLifecycleDirectory(binding);
+  }
+}
+
+async function revalidateLifecycleDirectory(
+  binding: BoundLifecycleDirectory,
+): Promise<void> {
+  const [pathState, handleState, mount] = await Promise.all([
+    lstat(binding.path, { bigint: true }),
+    binding.handle.stat({ bigint: true }),
+    statfs(binding.path, { bigint: true }),
+  ]);
+  if (
+    !pathState.isDirectory()
+    || !handleState.isDirectory()
+    || JSON.stringify(lifecycleIdentityRecord(pathState, mount, true))
+      !== JSON.stringify(binding.identity)
+    || JSON.stringify(lifecycleIdentityRecord(handleState, mount, true))
+      !== JSON.stringify(binding.identity)
+  ) {
+    throw new Error('DA5 V5 PostgreSQL lifecycle directory changed');
   }
 }
 
@@ -3161,6 +3573,15 @@ function lifecycleFileRecord(
     contentDigest: binding.contentDigest,
     identity: binding.identity,
     mutable: binding.mutable,
+    path: binding.path,
+  });
+}
+
+function lifecycleDirectoryRecord(
+  binding: BoundLifecycleDirectory,
+): Readonly<Record<string, unknown>> {
+  return Object.freeze({
+    identity: binding.identity,
     path: binding.path,
   });
 }

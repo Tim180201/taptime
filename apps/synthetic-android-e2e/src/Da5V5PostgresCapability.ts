@@ -55,12 +55,18 @@ export interface Da5V5PostgresOwnerBackend {
   readonly lifecycleRecord: Readonly<{
     readonly artifactDigest: string;
     readonly binaryChainDigest: string;
+    readonly binaryChainManifest: readonly Readonly<
+      Record<string, unknown>
+    >[];
     readonly capabilityDigest: string;
     readonly catalogDigest: string;
     readonly configurationDigest: string;
+    readonly dataDirectoryIdentity: string;
+    readonly directoryIdentity: string;
     readonly finalDigest: string;
     readonly guardExecutableDigest: string;
     readonly logDescriptorDigest: string;
+    readonly mountIdentity: string;
     readonly ownerProcess: string;
     readonly postmasterDigest: string;
     readonly processIdentity: string;
@@ -292,15 +298,20 @@ function validateLifecycleRecord(
 ): boolean {
   return record !== null
     && typeof record === 'object'
+    && Array.isArray(record.binaryChainManifest)
+    && record.binaryChainManifest.length > 0
     && [
       record.artifactDigest,
       record.binaryChainDigest,
       record.capabilityDigest,
       record.catalogDigest,
       record.configurationDigest,
+      record.dataDirectoryIdentity,
+      record.directoryIdentity,
       record.finalDigest,
       record.guardExecutableDigest,
       record.logDescriptorDigest,
+      record.mountIdentity,
       record.ownerProcess,
       record.postmasterDigest,
       record.processIdentity,

@@ -30,6 +30,7 @@
 #include <sys/acl.h>
 #else
 #include <linux/fs.h>
+#include <linux/stat.h>
 #include <sys/random.h>
 #include <sys/syscall.h>
 #include <sys/xattr.h>
@@ -884,9 +885,34 @@ static int rename_exclusive(int parent_fd, const char *source,
 
 enum {
   CLEANUP_ENTRY_LIMIT = 100000,
+  CLEANUP_FD_LIMIT = 2048,
   CLEANUP_DEPTH_LIMIT = 128,
   CLEANUP_NAME_LIMIT = 1024
 };
+
+typedef struct cleanup_mount_identity {
+  struct statfs state;
+#if defined(__linux__)
+  uint64_t mount_id;
+  int mount_id_kind;
+#endif
+} cleanup_mount_identity;
+
+typedef struct cleanup_plan_entry {
+  int descriptor;
+  size_t parent;
+  unsigned int depth;
+  char name[CLEANUP_NAME_LIMIT];
+  struct stat identity;
+  cleanup_mount_identity mount;
+  char acl_digest[65];
+} cleanup_plan_entry;
+
+typedef struct cleanup_plan {
+  cleanup_plan_entry *entries;
+  size_t count;
+  size_t capacity;
+} cleanup_plan;
 
 static int same_mount_state(const struct statfs *left,
                             const struct statfs *right);
@@ -970,14 +996,9 @@ static int cleanup_acl_identity(int descriptor, char digest[65]) {
     }
     errno = 0;
   } else {
-    acl_entry_t entry;
-    int entry_result = acl_get_entry(acl, ACL_FIRST_ENTRY, &entry);
-    if (entry_result < 0 || entry_result > 0) {
-      (void)acl_free(acl);
-      errno = EACCES;
-      return -1;
-    }
     (void)acl_free(acl);
+    errno = EACCES;
+    return -1;
   }
 #else
   unsigned char value[4096];
@@ -1030,13 +1051,161 @@ static int validate_cleanup_descriptor(
   return 0;
 }
 
-static int validate_tree_contents_bounded(int directory_fd,
-                                          dev_t expected_device,
-                                          const struct statfs *expected_mount,
-                                          unsigned int depth,
-                                          size_t *remaining,
-                                          sha256_context *inventory,
-                                          size_t *count) {
+static int capture_cleanup_mount_identity(
+    int descriptor, cleanup_mount_identity *identity) {
+  (void)memset(identity, 0, sizeof(*identity));
+  if (fstatfs(descriptor, &identity->state) != 0) {
+    return -1;
+  }
+#if defined(__linux__) && defined(SYS_statx)
+  struct statx state;
+  (void)memset(&state, 0, sizeof(state));
+#if defined(STATX_MNT_ID_UNIQUE)
+  int unique_result = (int)syscall(
+      SYS_statx, descriptor, "", AT_EMPTY_PATH | AT_NO_AUTOMOUNT,
+      STATX_BASIC_STATS | STATX_MNT_ID_UNIQUE, &state);
+  if (unique_result == 0) {
+    if ((state.stx_mask & STATX_MNT_ID_UNIQUE) != 0) {
+      identity->mount_id = state.stx_mnt_id;
+      identity->mount_id_kind = 2;
+      return 0;
+    }
+  } else if (errno != EINVAL && errno != ENOSYS &&
+             errno != EOPNOTSUPP && errno != EPERM) {
+    return -1;
+  }
+#endif
+#if defined(STATX_MNT_ID)
+  (void)memset(&state, 0, sizeof(state));
+  int mount_result = (int)syscall(
+      SYS_statx, descriptor, "", AT_EMPTY_PATH | AT_NO_AUTOMOUNT,
+      STATX_BASIC_STATS | STATX_MNT_ID, &state);
+  if (mount_result == 0) {
+    if ((state.stx_mask & STATX_MNT_ID) != 0) {
+      identity->mount_id = state.stx_mnt_id;
+      identity->mount_id_kind = 1;
+      return 0;
+    }
+  } else if (errno != EINVAL && errno != ENOSYS &&
+             errno != EOPNOTSUPP && errno != EPERM) {
+    return -1;
+  }
+#endif
+#endif
+  return 0;
+}
+
+static int same_cleanup_mount_identity(
+    const cleanup_mount_identity *left,
+    const cleanup_mount_identity *right) {
+  if (!same_mount_state(&left->state, &right->state)) {
+    return 0;
+  }
+#if defined(__linux__)
+  if (left->mount_id_kind != right->mount_id_kind) {
+    return 0;
+  }
+  if (left->mount_id_kind != 0 && left->mount_id != right->mount_id) {
+    return 0;
+  }
+#endif
+  return 1;
+}
+
+static int same_cleanup_named_identity(
+    const struct stat *left, const struct stat *right) {
+  return left->st_dev == right->st_dev &&
+      left->st_ino == right->st_ino &&
+      left->st_uid == right->st_uid &&
+      left->st_gid == right->st_gid &&
+      left->st_mode == right->st_mode &&
+      left->st_size == right->st_size &&
+      left->st_nlink == right->st_nlink;
+}
+
+static int same_cleanup_retained_identity(
+    const struct stat *expected, const struct stat *actual) {
+  return expected->st_dev == actual->st_dev &&
+      expected->st_ino == actual->st_ino &&
+      expected->st_uid == actual->st_uid &&
+      expected->st_gid == actual->st_gid &&
+      expected->st_mode == actual->st_mode &&
+      (!S_ISREG(expected->st_mode) ||
+       (expected->st_size == actual->st_size &&
+        expected->st_nlink == actual->st_nlink));
+}
+
+static void close_cleanup_plan(cleanup_plan *plan) {
+  if (plan == NULL) {
+    return;
+  }
+  for (size_t index = 0; index < plan->count; index += 1) {
+    if (plan->entries[index].descriptor >= 0) {
+      (void)close(plan->entries[index].descriptor);
+      plan->entries[index].descriptor = -1;
+    }
+  }
+  free(plan->entries);
+  plan->entries = NULL;
+  plan->count = 0;
+  plan->capacity = 0;
+}
+
+static int append_cleanup_plan_entry(
+    cleanup_plan *plan, const cleanup_plan_entry *entry,
+    size_t *index_out) {
+  if (plan->count >= CLEANUP_FD_LIMIT) {
+    errno = E2BIG;
+    return -1;
+  }
+  if (plan->count == plan->capacity) {
+    size_t next_capacity = plan->capacity == 0 ? 32 : plan->capacity * 2;
+    if (next_capacity > CLEANUP_FD_LIMIT) {
+      next_capacity = CLEANUP_FD_LIMIT;
+    }
+    cleanup_plan_entry *expanded = realloc(
+        plan->entries, next_capacity * sizeof(*expanded));
+    if (expanded == NULL) {
+      return -1;
+    }
+    plan->entries = expanded;
+    plan->capacity = next_capacity;
+  }
+  plan->entries[plan->count] = *entry;
+  *index_out = plan->count;
+  plan->count += 1;
+  return 0;
+}
+
+static int update_cleanup_inventory(
+    sha256_context *inventory, const cleanup_plan_entry *entry,
+    const struct stat *state, const char acl_digest[65]) {
+  char record[2048];
+  int record_length = snprintf(
+      record, sizeof(record),
+      "%u|%zu|%s|%llu|%llu|%u|%u|%u|%llu|%llu|%s\n",
+      entry->depth, strlen(entry->name), entry->name,
+      (unsigned long long)state->st_dev,
+      (unsigned long long)state->st_ino,
+      (unsigned int)state->st_mode,
+      (unsigned int)state->st_uid,
+      (unsigned int)state->st_gid,
+      (unsigned long long)state->st_size,
+      (unsigned long long)state->st_nlink,
+      acl_digest);
+  if (record_length <= 0 || (size_t)record_length >= sizeof(record)) {
+    errno = EOVERFLOW;
+    return -1;
+  }
+  sha256_update(inventory, (const unsigned char *)record,
+                (size_t)record_length);
+  return 0;
+}
+
+static int bind_cleanup_plan_bounded(
+    cleanup_plan *plan, int directory_fd, size_t parent,
+    dev_t expected_device, const cleanup_mount_identity *root_mount,
+    unsigned int depth, size_t *remaining, sha256_context *inventory) {
   if (depth > CLEANUP_DEPTH_LIMIT || remaining == NULL) {
     errno = EOVERFLOW;
     return -1;
@@ -1054,92 +1223,161 @@ static int validate_tree_contents_bounded(int directory_fd,
       return -1;
     }
     *remaining -= 1;
-    *count += 1;
-    struct stat state;
-    if (fstatat(directory_fd, entry_name, &state, AT_SYMLINK_NOFOLLOW) != 0) {
+    struct stat named_state;
+    if (fstatat(directory_fd, entry_name, &named_state,
+                AT_SYMLINK_NOFOLLOW) != 0) {
       free_cleanup_names(names, name_count);
+      return -1;
+    }
+    if (!S_ISREG(named_state.st_mode) && !S_ISDIR(named_state.st_mode)) {
+      free_cleanup_names(names, name_count);
+      errno = EFTYPE;
+      return -1;
+    }
+    if (S_ISREG(named_state.st_mode) && named_state.st_nlink != 1) {
+      free_cleanup_names(names, name_count);
+      errno = EMLINK;
       return -1;
     }
     int child = openat(
         directory_fd, entry_name,
-        S_ISDIR(state.st_mode)
+        S_ISDIR(named_state.st_mode)
             ? O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC
             : O_RDONLY | O_NOFOLLOW | O_CLOEXEC);
-    struct stat bound_state;
-    char acl_digest[65];
+    cleanup_plan_entry entry;
+    (void)memset(&entry, 0, sizeof(entry));
+    entry.descriptor = child;
+    entry.parent = parent;
+    entry.depth = depth;
     if (child < 0 ||
+        strlen(entry_name) >= sizeof(entry.name) ||
         validate_cleanup_descriptor(
-            child, expected_device, expected_mount, &state, &bound_state,
-            acl_digest) != 0) {
+            child, expected_device, &root_mount->state, &named_state,
+            &entry.identity, entry.acl_digest) != 0 ||
+        capture_cleanup_mount_identity(child, &entry.mount) != 0 ||
+        !same_cleanup_mount_identity(root_mount, &entry.mount)) {
       if (child >= 0) {
         (void)close(child);
       }
       free_cleanup_names(names, name_count);
       return -1;
     }
-    char record[2048];
-    int record_length = snprintf(
-        record, sizeof(record),
-        "%u|%zu|%s|%llu|%llu|%u|%u|%u|%llu|%llu|%s\n",
-        depth, strlen(entry_name), entry_name,
-        (unsigned long long)state.st_dev,
-        (unsigned long long)state.st_ino,
-        (unsigned int)state.st_mode,
-        (unsigned int)state.st_uid,
-        (unsigned int)state.st_gid,
-        (unsigned long long)state.st_size,
-        (unsigned long long)state.st_nlink,
-        acl_digest);
-    if (record_length <= 0 || (size_t)record_length >= sizeof(record)) {
+    (void)memcpy(entry.name, entry_name, strlen(entry_name) + 1);
+    size_t entry_index;
+    if (append_cleanup_plan_entry(plan, &entry, &entry_index) != 0) {
       (void)close(child);
       free_cleanup_names(names, name_count);
-      errno = EOVERFLOW;
       return -1;
     }
-    sha256_update(inventory, (const unsigned char *)record,
-                  (size_t)record_length);
-    if (S_ISREG(state.st_mode)) {
-      if (state.st_nlink != 1) {
-        (void)close(child);
-        free_cleanup_names(names, name_count);
-        errno = EMLINK;
-        return -1;
-      }
-    } else if (S_ISDIR(state.st_mode)) {
-      int valid = validate_tree_contents_bounded(
-          child, expected_device, expected_mount, depth + 1, remaining,
-          inventory, count) == 0;
-      if (!valid) {
-        (void)close(child);
-        free_cleanup_names(names, name_count);
-        return -1;
-      }
-    } else {
-      (void)close(child);
+    if (update_cleanup_inventory(
+            inventory, &plan->entries[entry_index],
+            &plan->entries[entry_index].identity,
+            plan->entries[entry_index].acl_digest) != 0) {
       free_cleanup_names(names, name_count);
-      errno = EFTYPE;
       return -1;
     }
-    (void)close(child);
+    if (S_ISDIR(named_state.st_mode) &&
+        bind_cleanup_plan_bounded(
+            plan, child, entry_index, expected_device, root_mount,
+            depth + 1, remaining, inventory) != 0) {
+      free_cleanup_names(names, name_count);
+      return -1;
+    }
   }
   free_cleanup_names(names, name_count);
   return 0;
 }
 
-static int inventory_tree_contents(int directory_fd, dev_t expected_device,
-                                   const struct statfs *expected_mount,
-                                   char digest[65], size_t *count) {
+static int bind_cleanup_plan(
+    cleanup_plan *plan, int directory_fd, dev_t expected_device,
+    cleanup_mount_identity *root_mount, char digest[65]) {
   size_t remaining = CLEANUP_ENTRY_LIMIT;
   sha256_context inventory;
   sha256_initialize(&inventory);
-  *count = 0;
-  int result = validate_tree_contents_bounded(
-      directory_fd, expected_device, expected_mount, 0, &remaining,
-      &inventory, count);
-  if (result == 0) {
-    sha256_finish(&inventory, digest);
+  if (capture_cleanup_mount_identity(directory_fd, root_mount) != 0 ||
+      bind_cleanup_plan_bounded(
+          plan, directory_fd, SIZE_MAX, expected_device, root_mount, 0,
+          &remaining, &inventory) != 0) {
+    return -1;
   }
-  return result;
+  sha256_finish(&inventory, digest);
+  return 0;
+}
+
+static int validate_cleanup_directory_names(
+    const cleanup_plan *plan, int directory_fd, size_t parent) {
+  char **names = NULL;
+  size_t name_count = 0;
+  if (read_sorted_cleanup_names(directory_fd, &names, &name_count) != 0) {
+    return -1;
+  }
+  size_t expected_count = 0;
+  for (size_t index = 0; index < plan->count; index += 1) {
+    if (plan->entries[index].parent == parent) {
+      if (expected_count >= name_count ||
+          strcmp(names[expected_count], plan->entries[index].name) != 0) {
+        free_cleanup_names(names, name_count);
+        errno = ESTALE;
+        return -1;
+      }
+      expected_count += 1;
+    }
+  }
+  free_cleanup_names(names, name_count);
+  if (expected_count != name_count) {
+    errno = ESTALE;
+    return -1;
+  }
+  return 0;
+}
+
+static int revalidate_cleanup_plan(
+    const cleanup_plan *plan, int root_fd, dev_t expected_device,
+    const cleanup_mount_identity *root_mount, char digest[65]) {
+  cleanup_mount_identity current_root_mount;
+  if (capture_cleanup_mount_identity(root_fd, &current_root_mount) != 0 ||
+      !same_cleanup_mount_identity(root_mount, &current_root_mount) ||
+      validate_cleanup_directory_names(plan, root_fd, SIZE_MAX) != 0) {
+    return -1;
+  }
+  for (size_t index = 0; index < plan->count; index += 1) {
+    const cleanup_plan_entry *entry = &plan->entries[index];
+    int parent_fd = entry->parent == SIZE_MAX
+        ? root_fd : plan->entries[entry->parent].descriptor;
+    struct stat named_now;
+    struct stat retained_now;
+    char acl_digest[65];
+    cleanup_mount_identity mount_now;
+    if (fstatat(parent_fd, entry->name, &named_now,
+                AT_SYMLINK_NOFOLLOW) != 0 ||
+        !same_cleanup_named_identity(&entry->identity, &named_now) ||
+        validate_cleanup_descriptor(
+            entry->descriptor, expected_device, &root_mount->state,
+            &entry->identity, &retained_now, acl_digest) != 0 ||
+        !same_cleanup_named_identity(&entry->identity, &retained_now) ||
+        strcmp(entry->acl_digest, acl_digest) != 0 ||
+        capture_cleanup_mount_identity(entry->descriptor, &mount_now) != 0 ||
+        !same_cleanup_mount_identity(root_mount, &mount_now) ||
+        !same_cleanup_mount_identity(&entry->mount, &mount_now) ||
+        (S_ISDIR(entry->identity.st_mode) &&
+         validate_cleanup_directory_names(
+             plan, entry->descriptor, index) != 0)) {
+      return -1;
+    }
+  }
+  sha256_context inventory;
+  sha256_initialize(&inventory);
+  for (size_t index = 0; index < plan->count; index += 1) {
+    const cleanup_plan_entry *entry = &plan->entries[index];
+    struct stat current;
+    if (fstat(entry->descriptor, &current) != 0 ||
+        update_cleanup_inventory(
+            &inventory, entry, &current, entry->acl_digest) != 0) {
+      return -1;
+    }
+  }
+  sha256_finish(&inventory, digest);
+  return 0;
 }
 
 static int removed_directory_nlink_matches(const struct stat *before,
@@ -1152,152 +1390,110 @@ static int removed_directory_nlink_matches(const struct stat *before,
 #endif
 }
 
-static int remove_tree_contents_bounded(int directory_fd,
-                                        dev_t expected_device,
-                                        const struct statfs *expected_mount,
-                                        unsigned int depth,
-                                        size_t *remaining) {
-  if (depth > CLEANUP_DEPTH_LIMIT || remaining == NULL) {
-    errno = EOVERFLOW;
-    return -1;
-  }
-  for (;;) {
-    char **names = NULL;
-    size_t name_count = 0;
-    if (read_sorted_cleanup_names(directory_fd, &names, &name_count) != 0) {
-      return -1;
-    }
-    char entry_name[CLEANUP_NAME_LIMIT];
-    if (name_count == 0) {
-      free_cleanup_names(names, name_count);
-      return 0;
-    }
-    size_t length = strlen(names[0]);
-    if (length == 0 || length >= sizeof(entry_name)) {
-      free_cleanup_names(names, name_count);
-      errno = ENAMETOOLONG;
-      return -1;
-    }
-    (void)memcpy(entry_name, names[0], length + 1);
-    free_cleanup_names(names, name_count);
-    if (*remaining == 0) {
-      errno = E2BIG;
-      return -1;
-    }
-    *remaining -= 1;
-    struct stat before;
-    if (fstatat(directory_fd, entry_name, &before,
-                AT_SYMLINK_NOFOLLOW) != 0) {
-      return -1;
-    }
-    if (S_ISREG(before.st_mode)) {
-      if (before.st_nlink != 1) {
-        errno = EMLINK;
-        return -1;
-      }
-      int retained = openat(directory_fd, entry_name,
-                            O_RDONLY | O_NOFOLLOW | O_CLOEXEC);
-      struct stat retained_before;
-      char acl_digest[65];
-      struct stat named_now;
-      if (retained < 0 ||
-          validate_cleanup_descriptor(
-              retained, expected_device, expected_mount, &before,
-              &retained_before, acl_digest) != 0 ||
-          fstatat(directory_fd, entry_name, &named_now,
-                  AT_SYMLINK_NOFOLLOW) != 0 ||
-          named_now.st_dev != retained_before.st_dev ||
-          named_now.st_ino != retained_before.st_ino ||
-          named_now.st_uid != retained_before.st_uid ||
-          named_now.st_gid != retained_before.st_gid ||
-          named_now.st_mode != retained_before.st_mode ||
-          named_now.st_nlink != retained_before.st_nlink ||
-          unlinkat(directory_fd, entry_name, 0) != 0) {
-        if (retained >= 0) {
-          (void)close(retained);
-        }
-        return -1;
-      }
-      struct stat after;
-      struct stat absent;
-      errno = 0;
-      int valid = fstat(retained, &after) == 0 && after.st_ino == before.st_ino &&
-                  after.st_dev == before.st_dev && after.st_nlink == 0 &&
-                  fstatat(directory_fd, entry_name, &absent,
-                          AT_SYMLINK_NOFOLLOW) != 0 && errno == ENOENT;
-      (void)close(retained);
-      if (!valid) {
-        errno = ESTALE;
-        return -1;
-      }
-    } else if (S_ISDIR(before.st_mode)) {
-      int child = openat(directory_fd, entry_name,
-                         O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
-      struct stat child_bound;
-      char child_acl_digest[65];
-      if (child < 0 || remove_tree_contents_bounded(
-          child, expected_device, expected_mount, depth + 1, remaining) != 0) {
-        if (child >= 0) {
-          (void)close(child);
-        }
-        return -1;
-      }
-      struct stat empty_before;
-      struct stat named_now;
-      if (validate_cleanup_descriptor(
-              child, expected_device, expected_mount, &before,
-              &child_bound, child_acl_digest) != 0 ||
-          fstat(child, &empty_before) != 0 ||
-          empty_before.st_ino != before.st_ino ||
-          empty_before.st_dev != before.st_dev ||
-          fstatat(directory_fd, entry_name, &named_now,
-                  AT_SYMLINK_NOFOLLOW) != 0 ||
-          named_now.st_dev != empty_before.st_dev ||
-          named_now.st_ino != empty_before.st_ino ||
-          named_now.st_uid != empty_before.st_uid ||
-          named_now.st_gid != empty_before.st_gid ||
-          named_now.st_mode != empty_before.st_mode) {
-        (void)close(child);
-        errno = ESTALE;
-        return -1;
-      }
-      if (unlinkat(directory_fd, entry_name, AT_REMOVEDIR) != 0) {
-        (void)close(child);
-        return -1;
-      }
-      struct stat removed;
-      struct stat absent;
-      errno = 0;
-      int valid = fstat(child, &removed) == 0 && removed.st_ino == before.st_ino &&
-                  removed.st_dev == before.st_dev &&
-                  removed_directory_nlink_matches(&empty_before, &removed) &&
-                  fstatat(directory_fd, entry_name, &absent,
-                          AT_SYMLINK_NOFOLLOW) != 0 && errno == ENOENT;
-      (void)close(child);
-      if (!valid) {
-        errno = ESTALE;
-        return -1;
-      }
-    } else {
-      errno = EFTYPE;
-      return -1;
-    }
-  }
-}
+static int exact_command(const char *frame, const char *name,
+                         const char *capability);
 
-static int remove_tree_contents(int directory_fd, dev_t expected_device,
-                                const struct statfs *expected_mount) {
-  size_t remaining = CLEANUP_ENTRY_LIMIT;
-  return remove_tree_contents_bounded(
-      directory_fd, expected_device, expected_mount, 0, &remaining);
+static int remove_cleanup_plan(
+    cleanup_plan *plan, int root_fd, dev_t expected_device,
+    const cleanup_mount_identity *root_mount, int test_cleanup_mode,
+    const char *lifecycle_capability) {
+#if !defined(DA5_V5_TEST_BUILD)
+  (void)test_cleanup_mode;
+  (void)lifecycle_capability;
+#else
+  int pause_consumed = 0;
+  size_t removed_count = 0;
+#endif
+  for (size_t reverse = plan->count; reverse > 0; reverse -= 1) {
+    size_t index = reverse - 1;
+    cleanup_plan_entry *entry = &plan->entries[index];
+    int parent_fd = entry->parent == SIZE_MAX
+        ? root_fd : plan->entries[entry->parent].descriptor;
+    struct stat retained_now;
+    struct stat named_now;
+    char acl_digest[65];
+    cleanup_mount_identity mount_now;
+    if (validate_cleanup_descriptor(
+            entry->descriptor, expected_device, &root_mount->state,
+            &entry->identity, &retained_now, acl_digest) != 0 ||
+        !same_cleanup_retained_identity(&entry->identity, &retained_now) ||
+        strcmp(entry->acl_digest, acl_digest) != 0 ||
+        capture_cleanup_mount_identity(entry->descriptor, &mount_now) != 0 ||
+        !same_cleanup_mount_identity(root_mount, &mount_now) ||
+        !same_cleanup_mount_identity(&entry->mount, &mount_now) ||
+        fstatat(parent_fd, entry->name, &named_now,
+                AT_SYMLINK_NOFOLLOW) != 0 ||
+        !same_cleanup_named_identity(&retained_now, &named_now)) {
+      return -1;
+    }
+    if (S_ISDIR(entry->identity.st_mode)) {
+      char **names = NULL;
+      size_t name_count = 0;
+      if (read_sorted_cleanup_names(
+              entry->descriptor, &names, &name_count) != 0) {
+        return -1;
+      }
+      free_cleanup_names(names, name_count);
+      if (name_count != 0) {
+        errno = ENOTEMPTY;
+        return -1;
+      }
+    }
+#if defined(DA5_V5_TEST_BUILD)
+    if (test_cleanup_mode == 6) {
+      (void)emit_frame("TEST_FORCED_EXIT|5");
+      _exit(95);
+    }
+    if (test_cleanup_mode == 1 && !pause_consumed) {
+      char continue_frame[FRAME_LIMIT + 1];
+      pause_consumed = 1;
+      if (emit_frame("TEST_CLEANUP_PAUSED") != 0 ||
+          read_frame(
+              continue_frame, sizeof(continue_frame),
+              monotonic_ms() + 5000) != 0 ||
+          !exact_command(
+              continue_frame, "TEST_CONTINUE_CLEANUP",
+              lifecycle_capability)) {
+        errno = EPERM;
+        return -1;
+      }
+    }
+#endif
+    if (unlinkat(
+            parent_fd, entry->name,
+            S_ISDIR(entry->identity.st_mode) ? AT_REMOVEDIR : 0) != 0) {
+      return -1;
+    }
+    struct stat removed;
+    struct stat absent;
+    errno = 0;
+    int valid = fstat(entry->descriptor, &removed) == 0 &&
+        removed.st_ino == entry->identity.st_ino &&
+        removed.st_dev == entry->identity.st_dev &&
+        (S_ISREG(entry->identity.st_mode)
+            ? removed.st_nlink == 0
+            : removed_directory_nlink_matches(&retained_now, &removed)) &&
+        fstatat(parent_fd, entry->name, &absent,
+                AT_SYMLINK_NOFOLLOW) != 0 && errno == ENOENT;
+    if (!valid) {
+      errno = ESTALE;
+      return -1;
+    }
+#if defined(DA5_V5_TEST_BUILD)
+    removed_count += 1;
+    if (test_cleanup_mode == 7 && removed_count == 1) {
+      (void)emit_frame("TEST_FORCED_EXIT|6");
+      _exit(96);
+    }
+#endif
+  }
+  return 0;
 }
 
 static int revalidate_binary_descriptors(
     const bound_binary_descriptors *binding);
 static int revalidate_mount_descriptors(
     const bound_mount_descriptors *binding);
-static int exact_command(const char *frame, const char *name,
-                         const char *capability);
 
 #if defined(DA5_V5_TEST_BUILD)
 static int cleanup_stage = 0;
@@ -1345,10 +1541,20 @@ static int cleanup_root(
   }
 #if defined(DA5_V5_TEST_BUILD)
   cleanup_stage = 3;
+  if (test_cleanup_mode == 3) {
+    (void)emit_frame("TEST_FORCED_EXIT|2");
+    _exit(92);
+  }
 #endif
   if (rename_exclusive(STAGING_FD, root_name, tombstone_name) != 0) {
     return -1;
   }
+#if defined(DA5_V5_TEST_BUILD)
+  if (test_cleanup_mode == 4) {
+    (void)emit_frame("TEST_FORCED_EXIT|3");
+    _exit(93);
+  }
+#endif
   struct stat original;
   if (fstatat(STAGING_FD, root_name, &original, AT_SYMLINK_NOFOLLOW) == 0 ||
       errno != ENOENT) {
@@ -1368,67 +1574,69 @@ static int cleanup_root(
     return -1;
   }
   char first_inventory[65], second_inventory[65];
-  size_t first_count = 0, second_count = 0;
-  const struct statfs *cleanup_mount = &mount_binding->root;
-#if defined(DA5_V5_TEST_BUILD)
-  struct statfs mismatched_mount;
-  if (test_cleanup_mode == 2) {
-    mismatched_mount = mount_binding->root;
-#if defined(__APPLE__)
-    mismatched_mount.f_fsid.val[0] ^= 1;
-#else
-    mismatched_mount.f_type ^= 1;
-#endif
-    cleanup_mount = &mismatched_mount;
-  }
-#endif
+  cleanup_mount_identity cleanup_mount;
+  cleanup_plan plan = {0};
 #if defined(DA5_V5_TEST_BUILD)
   cleanup_stage = 4;
 #endif
-  if (inventory_tree_contents(
-          tombstone, root_before.st_dev, cleanup_mount,
-          first_inventory, &first_count) != 0) {
+  if (bind_cleanup_plan(
+          &plan, tombstone, root_before.st_dev, &cleanup_mount,
+          first_inventory) != 0) {
+    close_cleanup_plan(&plan);
     (void)close(tombstone);
     return -1;
   }
 #if defined(DA5_V5_TEST_BUILD)
-  if (test_cleanup_mode == 1) {
-    char continue_frame[FRAME_LIMIT + 1];
-    if (emit_frame("TEST_CLEANUP_PAUSED") != 0 ||
-        read_frame(
-            continue_frame, sizeof(continue_frame),
-            monotonic_ms() + 5000) != 0 ||
-        !exact_command(
-            continue_frame, "TEST_CONTINUE_CLEANUP",
-            lifecycle_capability)) {
+  if (test_cleanup_mode == 2) {
+    if (plan.count == 0) {
+      close_cleanup_plan(&plan);
       (void)close(tombstone);
-      errno = EPERM;
+      errno = ESTALE;
       return -1;
     }
+#if defined(__APPLE__)
+    plan.entries[0].mount.state.f_fsid.val[0] ^= 1;
+#else
+    if (plan.entries[0].mount.mount_id_kind != 0) {
+      plan.entries[0].mount.mount_id ^= 1;
+    } else {
+      plan.entries[0].mount.state.f_type ^= 1;
+    }
+#endif
   }
 #endif
-  if (inventory_tree_contents(
-          tombstone, root_before.st_dev, cleanup_mount,
-          second_inventory, &second_count) != 0) {
+  if (revalidate_cleanup_plan(
+          &plan, tombstone, root_before.st_dev, &cleanup_mount,
+          second_inventory) != 0) {
+    close_cleanup_plan(&plan);
     (void)close(tombstone);
     return -1;
   }
-  if (first_count != second_count ||
-      strcmp(first_inventory, second_inventory) != 0) {
+  if (strcmp(first_inventory, second_inventory) != 0) {
+    close_cleanup_plan(&plan);
     (void)close(tombstone);
     errno = ESTALE;
     return -1;
   }
 #if defined(DA5_V5_TEST_BUILD)
+  if (test_cleanup_mode == 5) {
+    (void)emit_frame("TEST_FORCED_EXIT|4");
+    _exit(94);
+  }
+#endif
+#if defined(DA5_V5_TEST_BUILD)
   cleanup_stage = 5;
 #endif
   if (revalidate_mount_descriptors(mount_binding) != 0 ||
       revalidate_binary_descriptors(binary_binding) != 0 ||
-      remove_tree_contents(
-          tombstone, root_before.st_dev, cleanup_mount) != 0) {
+      remove_cleanup_plan(
+          &plan, tombstone, root_before.st_dev, &cleanup_mount,
+          test_cleanup_mode, lifecycle_capability) != 0) {
+    close_cleanup_plan(&plan);
     (void)close(tombstone);
     return -1;
   }
+  close_cleanup_plan(&plan);
   struct stat root_empty;
 #if defined(DA5_V5_TEST_BUILD)
   cleanup_stage = 6;
@@ -1626,6 +1834,37 @@ static int revalidate_mount_descriptors(
       same_mount_state(&binding->root, &current.root) ? 0 : -1;
 }
 
+static void digest_one_mount(sha256_context *digest,
+                             const struct statfs *mount) {
+  sha256_update(digest, (const unsigned char *)&mount->f_fsid,
+                sizeof(mount->f_fsid));
+#if defined(__APPLE__)
+  sha256_update(digest, (const unsigned char *)mount->f_mntonname,
+                strlen(mount->f_mntonname));
+  sha256_update(digest, (const unsigned char *)mount->f_fstypename,
+                strlen(mount->f_fstypename));
+#else
+  sha256_update(digest, (const unsigned char *)&mount->f_type,
+                sizeof(mount->f_type));
+#endif
+  sha256_update(digest, (const unsigned char *)&mount->f_bsize,
+                sizeof(mount->f_bsize));
+  const unsigned char separator = 0;
+  sha256_update(digest, &separator, 1);
+}
+
+static void mount_binding_digest(
+    const bound_mount_descriptors *binding, char output[65]) {
+  sha256_context digest;
+  sha256_initialize(&digest);
+  static const unsigned char prefix[] = "DA5-V5-MOUNT-BINDING-V1";
+  sha256_update(&digest, prefix, sizeof(prefix) - 1);
+  digest_one_mount(&digest, &binding->base);
+  digest_one_mount(&digest, &binding->staging);
+  digest_one_mount(&digest, &binding->root);
+  sha256_finish(&digest, output);
+}
+
 int main(void) {
   (void)umask(077);
   if (isatty(CONTROL_FD) || isatty(EVENT_FD) || isatty(SECRET_FD) ||
@@ -1744,7 +1983,19 @@ int main(void) {
   }
 
   if (strcmp(mode, "PROBE_ONLY") == 0) {
+#if defined(DA5_V5_TEST_BUILD)
+    if (strcmp(root_name, "test-crash-before-probe") == 0) {
+      (void)emit_frame("TEST_FORCED_EXIT|0");
+      _exit(90);
+    }
+#endif
     int result = probe_waitid_wnowait() == 0 && probe_namespace(nonce) == 0;
+#if defined(DA5_V5_TEST_BUILD)
+    if (strcmp(root_name, "test-crash-after-probe") == 0) {
+      (void)emit_frame("TEST_FORCED_EXIT|1");
+      _exit(91);
+    }
+#endif
     atomic_store(&watchdog_enabled, 0);
     (void)emit_frame(result ? "PROBE_OK" : "PROBE_FAIL");
     return result ? 0 : 79;
@@ -1768,6 +2019,14 @@ int main(void) {
       bind_mount_descriptors(&mount_binding) != 0 ||
       revalidate_binary_descriptors(&binary_binding) != 0 ||
       revalidate_mount_descriptors(&mount_binding) != 0) {
+    return 80;
+  }
+  char mount_digest[65];
+  char mount_event[96];
+  mount_binding_digest(&mount_binding, mount_digest);
+  (void)snprintf(mount_event, sizeof(mount_event), "MOUNT_BINDING|%s",
+                 mount_digest);
+  if (emit_frame(mount_event) != 0) {
     return 80;
   }
   int initdb_child = spawn_initdb(initdb, data_directory);
@@ -1889,6 +2148,36 @@ int main(void) {
         stop_received = 1;
         break;
       }
+      continue;
+    }
+    const char *test_crash_commands[] = {
+        "TEST_CRASH_BEFORE_RENAME",
+        "TEST_CRASH_AFTER_RENAME",
+        "TEST_CRASH_AFTER_INVENTORY",
+        "TEST_CRASH_AFTER_FINAL_VALIDATION",
+        "TEST_CRASH_AFTER_ONE_UNLINK"};
+    int crash_command_matched = 0;
+    for (size_t crash_index = 0;
+         crash_index < sizeof(test_crash_commands) /
+             sizeof(test_crash_commands[0]);
+         crash_index += 1) {
+      if (exact_command(
+              frame, test_crash_commands[crash_index],
+              lifecycle_capability)) {
+        test_cleanup_mode = (int)crash_index + 3;
+        crash_command_matched = 1;
+        char armed[96];
+        (void)snprintf(
+            armed, sizeof(armed), "TEST_CLEANUP_CRASH_ARMED|%zu",
+            crash_index + 1);
+        if (emit_frame(armed) != 0) {
+          protocol_valid = 0;
+          stop_received = 1;
+        }
+        break;
+      }
+    }
+    if (crash_command_matched) {
       continue;
     }
 #endif

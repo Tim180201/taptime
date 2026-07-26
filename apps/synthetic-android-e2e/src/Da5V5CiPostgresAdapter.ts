@@ -255,6 +255,13 @@ export async function startDa5V5FullyAttestedCiPostgresOwner(options: {
         .update(`${record.imageId}\n${record.imageRepositoryDigest}\n`)
         .digest('hex'),
       binaryChainDigest: ownerRecordDigest(record),
+      binaryChainManifest: Object.freeze([
+        Object.freeze({
+          containerId: record.containerId,
+          imageId: record.imageId,
+          imageRepositoryDigest: record.imageRepositoryDigest,
+        }),
+      ]),
       capabilityDigest: createHash('sha256')
         .update(`ci-capability\n${record.labels['com.taptime.nonce']}\n`)
         .digest('hex'),
@@ -264,10 +271,13 @@ export async function startDa5V5FullyAttestedCiPostgresOwner(options: {
       configurationDigest: createHash('sha256')
         .update(options.databaseUrl)
         .digest('hex'),
+      dataDirectoryIdentity: ownerRecordDigest(record),
+      directoryIdentity: ownerRecordDigest(record),
       guardExecutableDigest: createHash('sha256')
         .update(`${record.imageId}\n${record.hostInitPid}\n`)
         .digest('hex'),
       logDescriptorDigest: ownerRecordDigest(record),
+      mountIdentity: ownerRecordDigest(record),
       ownerProcess: createHash('sha256')
         .update(`${record.hostInitPid}\n${record.hostProcessStart}\n`)
         .digest('hex'),

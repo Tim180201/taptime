@@ -21,6 +21,7 @@ import {
   assertDa5V5ProducerPublicationSignalForTest,
   describeDa5V5RuntimeGuardBinaryForTest,
   revalidateDa5V5ProducerInputForTest,
+  produceDa5V5RuntimeGuardArtifact,
   runDa5V5ArtifactBuildPhaseForTest,
   verifyDa5V5RuntimeGuardArtifact,
   verifyDa5V5RuntimeGuardRunningProcessForTest,
@@ -170,7 +171,7 @@ describe('DA5 V5 Runtime Guard stable artifact binding', () => {
         "await writeFile(compilerSourcePath, committedSource",
       );
       expect(producer).toContain(
-        'const compilerSource = await bindArtifactFile(compilerSourcePath)',
+        "compilerSourcePath,\n    'same-euid-private'",
       );
       expect(producer).toContain('normalizeCompilerInputPaths(');
       const linkInputs = producer.indexOf(
@@ -187,7 +188,10 @@ describe('DA5 V5 Runtime Guard stable artifact binding', () => {
       expect(producer).toContain('loadDependencyInputs: Object.freeze([');
       expect(producer).toContain('startObjects: Object.freeze([])');
       expect(producer).toContain("startObjectMode: 'platform-linker-default-none'");
-      expect(producer).toContain('build: operatingSystemBuild()');
+      expect(producer).toContain(
+        'build: operatingSystemBuild(\n'
+        + '          operatingSystemInspector.canonicalPath',
+      );
       const binaryPublication = producer.indexOf(
         'await link(candidatePath, binaryPath)',
       );
@@ -206,6 +210,120 @@ describe('DA5 V5 Runtime Guard stable artifact binding', () => {
       expect(producer.match(/assertNoPendingProducerSignal\(pendingSignal\)/gu))
         .not.toBeNull();
     });
+
+  it.runIf(process.platform === 'darwin' && process.arch === 'arm64')(
+    'executes the complete root-bound producer through separate compile and link phases',
+    async () => {
+      const root = await realpath(await mkdtemp(
+        join(tmpdir(), 'taptime-da5-full-producer-'),
+      ));
+      const outputDirectory = join(root, 'artifact');
+      const testEvidencePath = join(root, 'focused-evidence.json');
+      const testEvidence = Buffer.from('{"passed":true}\n');
+      const repositoryRoot = join(root, 'repository');
+      const nativeRoot = join(repositoryRoot, 'native');
+      const fixtureSourcePath = join(nativeRoot, 'da5_v5_runtime_guard.c');
+      await mkdir(nativeRoot, { recursive: true, mode: 0o700 });
+      await writeFile(fixtureSourcePath, await readFile(sourcePath), {
+        flag: 'wx',
+        mode: 0o400,
+      });
+      await writeFile(testEvidencePath, testEvidence, {
+        flag: 'wx',
+        mode: 0o400,
+      });
+      for (const arguments_ of [
+        ['init', '--quiet'],
+        ['add', '--', 'native/da5_v5_runtime_guard.c'],
+        [
+          '-c',
+          'user.name=TapTim.e Test',
+          '-c',
+          'user.email=synthetic@example.invalid',
+          'commit',
+          '--quiet',
+          '-m',
+          'synthetic runtime guard fixture',
+        ],
+      ]) {
+        const result = spawnSync('/usr/bin/git', [
+          '-C',
+          repositoryRoot,
+          ...arguments_,
+        ], { encoding: 'utf8' });
+        if (result.status !== 0) {
+          throw new Error('DA5 V5 full producer Git fixture failed');
+        }
+      }
+      const implementationCommit = String(spawnSync('/usr/bin/git', [
+        '-C',
+        repositoryRoot,
+        'rev-parse',
+        'HEAD',
+      ], { encoding: 'utf8' }).stdout).trim();
+      const implementationTree = String(spawnSync('/usr/bin/git', [
+        '-C',
+        repositoryRoot,
+        'rev-parse',
+        'HEAD^{tree}',
+      ], { encoding: 'utf8' }).stdout).trim();
+      try {
+        const produced = await produceDa5V5RuntimeGuardArtifact({
+          environment: {},
+          expectedTestEvidenceSha256: sha256(testEvidence),
+          implementationCommit,
+          implementationTree,
+          outputDirectory,
+          sourcePath: fixtureSourcePath,
+          testEvidencePath,
+          testOnlyOutputBoundary: true,
+        });
+        expect(produced.manifest.build.mode)
+          .toBe('separate-cc1-and-direct-linker');
+        expect(produced.manifest.toolchain.compiler.trust).toBe('root-system');
+        expect(produced.manifest.toolchain.linker.trust).toBe('root-system');
+        expect(produced.manifest.toolchain.xcrun.trust).toBe('root-system');
+        expect(produced.manifest.toolchain.sdk.trust).toBe('root-system');
+        expect(produced.manifest.source.trust).toBe('same-euid-private');
+        expect(produced.manifest.toolchain.inputFiles.every((input) => (
+          input.canonicalPath === fixtureSourcePath
+            ? input.trust === 'same-euid-private'
+            : input.trust === 'root-system'
+        ))).toBe(true);
+        expect(produced.manifest.toolchain.linkInputFiles.map(
+          ({ trust }) => trust,
+        )).toEqual(['same-euid-private', 'root-system']);
+        expect((await stat(produced.binaryPath)).mode & 0o777).toBe(0o555);
+        expect((await stat(produced.manifestPath)).mode & 0o777).toBe(0o444);
+      } finally {
+        await rm(root, { force: true, recursive: true });
+      }
+    },
+  );
+
+  it('requires strict root ownership for system producer inputs', async () => {
+    const root = await realpath(await mkdtemp(
+      join(tmpdir(), 'taptime-da5-system-trust-'),
+    ));
+    const privateInput = join(root, 'fake-system-input');
+    await writeFile(privateInput, 'same-euid', { flag: 'wx', mode: 0o500 });
+    try {
+      await expect(revalidateDa5V5ProducerInputForTest({
+        kind: 'file',
+        mutate: async () => undefined,
+        path: privateInput,
+        trust: 'root-system',
+      })).rejects.toThrow(/owner or mode mismatch/);
+      await expect(revalidateDa5V5ProducerInputForTest({
+        kind: 'file',
+        mutate: async () => undefined,
+        path: '/usr/bin/codesign',
+        trust: 'root-system',
+      })).resolves.toBeUndefined();
+    } finally {
+      await rm(root, { force: true, recursive: true });
+    }
+  });
 
   it('requires external exact digests and revalidates both stable descriptors', async () => {
     const root = await realpath(await mkdtemp(join(tmpdir(), 'taptime-da5-artifact-')));
@@ -312,6 +430,7 @@ async function createManifest(options: {
     ino: state.ino.toString(),
     mode: (Number(state.mode) & 0o7777).toString(8).padStart(4, '0'),
     size: state.size.toString(),
+    trust: 'same-euid-private' as const,
     uid: Number(state.uid),
   });
   const boundFile = Object.freeze({
@@ -332,6 +451,7 @@ async function createManifest(options: {
       .toString(8)
       .padStart(4, '0'),
     size: processVerifierState.size.toString(),
+    trust: 'root-system' as const,
     uid: Number(processVerifierState.uid),
   };
   const processVerifier = Object.freeze({
@@ -340,6 +460,31 @@ async function createManifest(options: {
     platformSignature: processVerifierDescription.signature,
     sha256: processVerifierDescription.sha256,
   });
+  const systemTool = async (path: string) => {
+    const toolState = await stat(path, { bigint: true });
+    const description = await describeDa5V5RuntimeGuardBinaryForTest(path);
+    const record = {
+      canonicalPath: path,
+      dev: toolState.dev.toString(),
+      gid: Number(toolState.gid),
+      ino: toolState.ino.toString(),
+      mode: (Number(toolState.mode) & 0o7777)
+        .toString(8)
+        .padStart(4, '0'),
+      size: toolState.size.toString(),
+      trust: 'root-system' as const,
+      uid: Number(toolState.uid),
+    };
+    return Object.freeze({
+      ...record,
+      identitySha256: sha256(Buffer.from(JSON.stringify(record))),
+      platformSignature: description.signature,
+      sha256: description.sha256,
+    });
+  };
+  const git = await systemTool('/usr/bin/git');
+  const loadDependencyInspector = await systemTool('/usr/bin/otool');
+  const operatingSystemInspector = await systemTool('/usr/bin/sw_vers');
   return Object.freeze({
     architecture: arch(),
     binary: Object.freeze({
@@ -358,6 +503,7 @@ async function createManifest(options: {
       compilerArguments: Object.freeze(['synthetic-test-compiler']),
       linkerArguments: Object.freeze(['synthetic-test-linker']),
       mode: 'separate-cc1-and-direct-linker',
+      signatureArguments: Object.freeze(['synthetic-test-signature']),
       testResult: 'focused-pass',
       umask: '0077',
     }),
@@ -380,11 +526,14 @@ async function createManifest(options: {
       compiler: boundFile,
       compilerResourceDirectory: boundPath,
       compilerVersion: 'synthetic-test-compiler',
+      git,
       includeDirectories: Object.freeze([boundPath]),
       inputFiles: Object.freeze([boundFile]),
       linkInputFiles: Object.freeze([boundFile]),
       linker: boundFile,
       linkerVersion: 'synthetic-test-linker',
+      loadDependencyInspector,
+      operatingSystemInspector,
       processVerifier,
       sdk: boundPath,
       sdkBuildVersion: 'synthetic-test-sdk',

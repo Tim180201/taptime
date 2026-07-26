@@ -1073,10 +1073,11 @@ async function performCleanupResources(): Promise<void> {
     }
     postgresCapability = null;
   });
-  await stage('runtime-guard-artifact', async () => {
-    const artifact = runtimeGuardArtifact;
-    await artifact?.revalidate();
-    await artifact?.close();
+  await stage('runtime-guard-artifact-revalidate', async () => {
+    await runtimeGuardArtifact?.revalidate();
+  });
+  await stage('runtime-guard-artifact-close', async () => {
+    await runtimeGuardArtifact?.close();
     runtimeGuardArtifact = null;
   });
   await stage('operation-session', () => {
