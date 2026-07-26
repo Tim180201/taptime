@@ -1488,36 +1488,46 @@ describe('DA5 V5 closed environment and real transient PostgreSQL owner', () => 
   );
 
   it.runIf(process.platform === 'darwin')(
-    'blocks startup cleanup after an early lifecycle mismatch until exact process-aware reattestation succeeds',
+    'blocks startup cleanup after an early directory mismatch until exact incremental reattestation succeeds',
     async () => {
       const runtimeBase = await mkdtemp('/private/tmp/t5-');
       const removedEnvironment = removeRejectedEnvironment();
-      let lifecyclePath = '';
-      let displacedLifecyclePath = '';
-      let lifecycleDisplaced = false;
-      const restoreLifecyclePath = async (): Promise<void> => {
-        if (!lifecycleDisplaced) {
+      let directoryPath = '';
+      let displacedDirectoryPath = '';
+      let directoryDisplaced = false;
+      let postgresLogPath = '';
+      const restoreDirectoryPath = async (): Promise<void> => {
+        if (!directoryDisplaced) {
           return;
         }
-        await rm(lifecyclePath, { force: true });
-        await rename(displacedLifecyclePath, lifecyclePath);
-        lifecycleDisplaced = false;
+        const replacementEntries = await readdir(directoryPath);
+        for (const entry of replacementEntries) {
+          if (
+            entry !== '.s.PGSQL.55435'
+            && entry !== '.s.PGSQL.55435.lock'
+          ) {
+            throw new Error(
+              'DA5 V5 replacement socket directory was not isolated',
+            );
+          }
+          await rm(join(directoryPath, entry), { force: true });
+        }
+        await rmdir(directoryPath);
+        await rename(displacedDirectoryPath, directoryPath);
+        directoryDisplaced = false;
       };
       try {
         await expect(startDa5V5FullyAttestedTestPostgresOwner({
           guardBinaryPath: binaryPath,
           pgConfigPath: '/opt/homebrew/opt/postgresql@17/bin/pg_config',
           temporaryBase: runtimeBase,
-          testOnlyStartupFailureAfterProcessCapture: async (context) => {
-            lifecyclePath = context.lifecyclePath;
-            displacedLifecyclePath = `${lifecyclePath}.displaced-test`;
-            await rename(lifecyclePath, displacedLifecyclePath);
-            lifecycleDisplaced = true;
-            await writeFile(
-              lifecyclePath,
-              'synthetic early lifecycle mismatch\n',
-              { mode: 0o600 },
-            );
+          testOnlyStartupFailureAfterDirectoryBindings: async (context) => {
+            directoryPath = context.directoryPath;
+            postgresLogPath = context.logPath;
+            displacedDirectoryPath = `${directoryPath}.displaced-test`;
+            await rename(directoryPath, displacedDirectoryPath);
+            directoryDisplaced = true;
+            await mkdir(directoryPath, { mode: 0o700 });
             throw new Error('synthetic failure during early startup');
           },
         })).rejects.toThrow(/cleanup-incomplete/);
@@ -1552,17 +1562,20 @@ describe('DA5 V5 closed environment and real transient PostgreSQL owner', () => 
           .not.toThrow();
         expect(da5V5RetainedStartupProcessesForTest()).toEqual([retained]);
         expect(await readdir(runtimeBase)).toEqual(retainedRootEntries);
+        expect(await readFile(postgresLogPath, 'utf8')).not.toMatch(
+          /received fast shutdown request|database system is shut down/u,
+        );
 
-        if (!lifecycleDisplaced || lifecyclePath === '') {
+        if (!directoryDisplaced || directoryPath === '') {
           throw new Error('DA5 V5 lifecycle mismatch fixture is unavailable');
         }
-        await restoreLifecyclePath();
+        await restoreDirectoryPath();
         await expect(retryDa5V5RetainedStartupCleanupsForTest())
           .resolves.toBeUndefined();
         expect(da5V5RetainedStartupCleanupCountForTest()).toBe(0);
         await expect(readdir(runtimeBase)).resolves.toEqual([]);
       } finally {
-        await restoreLifecyclePath().catch(() => undefined);
+        await restoreDirectoryPath().catch(() => undefined);
         await retryDa5V5RetainedStartupCleanupsForTest().catch(() => undefined);
         restoreEnvironment(removedEnvironment);
         await rm(runtimeBase, { force: true, recursive: true });

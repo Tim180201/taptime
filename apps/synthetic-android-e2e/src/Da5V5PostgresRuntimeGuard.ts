@@ -641,8 +641,8 @@ export async function startDa5V5FullyAttestedTestPostgresOwner(options: {
   readonly signal?: AbortSignal;
   readonly temporaryBase?: string;
   readonly testOnlyRevalidateGuardArtifact?: () => Promise<void>;
-  readonly testOnlyStartupFailureAfterProcessCapture?: (
-    context: Readonly<{ lifecyclePath: string }>,
+  readonly testOnlyStartupFailureAfterDirectoryBindings?: (
+    context: Readonly<{ directoryPath: string; logPath: string }>,
   ) => Promise<void>;
   readonly testOnlyStartupFailureAfterOwnership?: () => void;
 }): Promise<Da5V5PostgresOwnerBackend> {
@@ -666,8 +666,8 @@ async function startDa5V5IsolatedPostgresOwner(options: {
   readonly verifyGuardProcess: (pid: number) => Promise<void>;
   readonly signal?: AbortSignal;
   readonly temporaryBase?: string;
-  readonly testOnlyStartupFailureAfterProcessCapture?: (
-    context: Readonly<{ lifecyclePath: string }>,
+  readonly testOnlyStartupFailureAfterDirectoryBindings?: (
+    context: Readonly<{ directoryPath: string; logPath: string }>,
   ) => Promise<void>;
   readonly testOnlyStartupFailureAfterOwnership?: () => void;
 }, expectedGuardBuild: 'production' | 'test'):
@@ -689,6 +689,7 @@ Promise<Da5V5PostgresOwnerBackend> {
   let installerPool: Pool | null = null;
   let lifecycleFiles: BoundLifecycleFile[] = [];
   let lifecycleDirectories: BoundLifecycleDirectory[] = [];
+  let startupSocketBinding: BoundLifecycleSocket | null = null;
   let heartbeat: NodeJS.Timeout | null = null;
   let postgresSpawned = false;
   let retainedPostgresPid: number | null = null;
@@ -831,18 +832,18 @@ Promise<Da5V5PostgresOwnerBackend> {
     await guard.sendAuthenticated('CONFIG_READY');
     lifecyclePhase = 'spawn';
     const spawned = await guard.expectPrefix('POSTGRES_SPAWNED|', 5_000);
-    const postgresPidText = spawned.slice('POSTGRES_SPAWNED|'.length);
-    if (!/^[1-9][0-9]*$/u.test(postgresPidText)) {
-      throw new Error('DA5 V5 PostgreSQL process attestation is invalid');
-    }
-    const postgresPid = Number(postgresPidText);
-    retainedPostgresPid = postgresPid;
     postgresSpawned = true;
     cleanupReattest = async (): Promise<void> => {
       throw new Error(
         'DA5 V5 PostgreSQL process identity was not successfully captured',
       );
     };
+    const postgresPidText = spawned.slice('POSTGRES_SPAWNED|'.length);
+    if (!/^[1-9][0-9]*$/u.test(postgresPidText)) {
+      throw new Error('DA5 V5 PostgreSQL process attestation is invalid');
+    }
+    const postgresPid = Number(postgresPidText);
+    retainedPostgresPid = postgresPid;
     const postgresProcessRecord = await captureProcessIdentity({
       authoritativeSessionId: guard.helloIdentity.sessionId,
       executableDigest: chain.postgresDigest,
@@ -855,6 +856,10 @@ Promise<Da5V5PostgresOwnerBackend> {
       await options.revalidateGuardArtifact?.();
       await chain.revalidate(snapshot);
       await revalidateLifecycleFiles(lifecycleFiles);
+      await revalidateLifecycleDirectories(lifecycleDirectories);
+      if (startupSocketBinding !== null) {
+        await revalidateLifecycleSocket(startupSocketBinding);
+      }
       const latestGuardProcess = await captureProcessIdentity({
         authoritativeSessionId: startupGuard.helloIdentity.sessionId,
         executableDigest: artifactDigest,
@@ -877,15 +882,30 @@ Promise<Da5V5PostgresOwnerBackend> {
         latestPostgresProcess,
       );
     };
-    const logBinding = await bindLifecycleFile(logPath, false);
+    const bindStartupBoundary = async <T>(
+      boundary: string,
+      action: () => Promise<T>,
+    ): Promise<T> => {
+      try {
+        return await action();
+      } catch (error: unknown) {
+        cleanupReattest = async (): Promise<void> => {
+          throw new Error(
+            `DA5 V5 PostgreSQL ${boundary} was not successfully bound`,
+          );
+        };
+        throw error;
+      }
+    };
+    const logBinding = await bindStartupBoundary(
+      'log lifecycle file',
+      async () => bindLifecycleFile(logPath, false),
+    );
     lifecycleFiles.push(logBinding);
     heartbeat = setInterval(() => {
       guard?.sendAuthenticated('HEARTBEAT').catch(() => undefined);
     }, 1_000);
     heartbeat.unref();
-    await options.testOnlyStartupFailureAfterProcessCapture?.({
-      lifecyclePath: logPath,
-    });
     lifecyclePhase = 'readiness';
     const bootstrapUrl = postgresUrl(password, 'postgres');
     bootstrapPool = await waitForPostgres(
@@ -913,9 +933,12 @@ Promise<Da5V5PostgresOwnerBackend> {
       statement_timeout: 5_000,
     });
     const attestation = await attestEmptyDa5Database(installerPool);
-    const postmasterBinding = await bindLifecycleFile(
-      join(dataPath, 'postmaster.pid'),
-      true,
+    const postmasterBinding = await bindStartupBoundary(
+      'postmaster lifecycle file',
+      async () => bindLifecycleFile(
+        join(dataPath, 'postmaster.pid'),
+        true,
+      ),
     );
     lifecycleFiles.push(postmasterBinding);
     const postmasterContents = await readLifecycleFile(postmasterBinding);
@@ -924,9 +947,13 @@ Promise<Da5V5PostgresOwnerBackend> {
       pid: postgresPid,
       socketPath,
     });
-    const socketBinding = await bindLifecycleSocket(
-      join(socketPath, '.s.PGSQL.55435'),
+    const socketBinding = await bindStartupBoundary(
+      'socket lifecycle identity',
+      async () => bindLifecycleSocket(
+        join(socketPath, '.s.PGSQL.55435'),
+      ),
     );
+    startupSocketBinding = socketBinding;
     for (const directoryBinding of [
       { existingHandle: baseHandle, ownsHandle: false, path: base },
       {
@@ -938,12 +965,19 @@ Promise<Da5V5PostgresOwnerBackend> {
       { existingHandle: undefined, ownsHandle: true, path: dataPath },
       { existingHandle: undefined, ownsHandle: true, path: socketPath },
     ]) {
-      lifecycleDirectories.push(await bindLifecycleDirectory(
-        directoryBinding.path,
-        directoryBinding.existingHandle,
-        directoryBinding.ownsHandle,
+      lifecycleDirectories.push(await bindStartupBoundary(
+        'lifecycle directory',
+        async () => bindLifecycleDirectory(
+          directoryBinding.path,
+          directoryBinding.existingHandle,
+          directoryBinding.ownsHandle,
+        ),
       ));
     }
+    await options.testOnlyStartupFailureAfterDirectoryBindings?.({
+      directoryPath: socketPath,
+      logPath,
+    });
     await revalidateLifecycleFiles(lifecycleFiles);
     await revalidateLifecycleDirectories(lifecycleDirectories);
     await revalidateLifecycleSocket(socketBinding);
