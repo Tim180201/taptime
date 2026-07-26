@@ -1,6 +1,6 @@
 # Development Assignment 5 — V5 Human Android Evidence
 
-- Status: **READ-ONLY ARTIFACT/EVIDENCE APPROVED; ALL SHARED-CLUSTER FOLLOW-UP BLOCKED/NOT EVIDENCE; ISOLATED-POSTGRESQL ROUND-2 `7739757` REVIEWED `CHANGES REQUIRED` WITH EXACTLY FIVE P1, ONE P2 AND ONE P3; HUMAN OPTION A SELECTED; ROUND-3 ADO DRAFT STILL REQUIRES FOCUSED PUBLICATION, EXACT-HEAD CI AND INDEPENDENT `APPROVED`/NO IMPLEMENTATION AUTHORITY; HUMAN V5 NOT RUN/UNAUTHORIZED**
+- Status: **READ-ONLY ARTIFACT/EVIDENCE APPROVED; ALL SHARED-CLUSTER FOLLOW-UP BLOCKED/NOT EVIDENCE; ISOLATED-POSTGRESQL ROUND-3 `bbcb1b5` REVIEWED `CHANGES REQUIRED` WITH EXACTLY TWO P1 AND ZERO P0/P2/P3; HUMAN OPTION A PRESERVED AND ONE ADDITIONAL FOCUSED ADO CORRECTION/REVIEW ROUND AUTHORIZED; CURRENT EXTRA-ROUND DRAFT STILL REQUIRES FOCUSED PUBLICATION, EXACT-HEAD CI AND INDEPENDENT EXACT-DELTA `APPROVED`/NO IMPLEMENTATION AUTHORITY; HUMAN V5 NOT RUN/UNAUTHORIZED**
 - Date: `NOT RUN`
 - Artifact preparation date: 2026-07-25
 - Owner: Technical Lead
@@ -19,7 +19,7 @@ and grants no Human-run authority.
 | Product commit/tree and required V4 | `a323834f51607841d0cd5f11aafdbfd3dd93ed5f` / `65c669b0a941c21d23ffca5e79fa03285323a7cf`; CI `30149165373`, attempt 1, 12/12 |
 | Product implementation-review binding/verdict | Round 2 `APPROVED`; zero open P0–P3 |
 | Runbook/evidence commit/tree and independent-review verdict | `e6a06e2ec8f580d6314bfe5a51378f949d524b16` / `6dcdce405feb2eccb1462c373ab6be891152715c`; CI `30150095109`, attempt 1, 12/12; final independent Artifact/Evidence Exact-SHA review `APPROVED`, zero open P0–P3 |
-| Isolated-PostgreSQL enablement correction | Round-2 `7739757a4855ee7bac34408941e94c25516d75f5` / tree `0398066e92fef65562526f61c9515b0ef3be0114` / parent `72fbd3c20329dfbf3e8a1509025bd630b1bb130a`; exact-head CI `30177897059`, attempt 1, 12/12; Ultra re-review `CHANGES REQUIRED`, exactly five P1/one P2/one P3; Human selected Option A — one exclusive trusted single-user operator session, with hostile/malicious same-UID processes and mount/unmount churn outside the threat model; focused publication, successful exact-head CI and independent `APPROVED` remain pending; no implementation authority |
+| Isolated-PostgreSQL enablement correction | Historical round-2 `7739757a4855ee7bac34408941e94c25516d75f5` / tree `0398066e92fef65562526f61c9515b0ef3be0114` / CI `30177897059`, attempt 1, 12/12. Round-3 `bbcb1b59703ee866539b2bc384ec9db8c2643fe4` / tree `dfb5abbca1f2ddf603d191ae3303d1336f5440c7` / parent `7739757a4855ee7bac34408941e94c25516d75f5`; exact-head CI `30185670176`, attempt 1, 12/12; independent review `CHANGES REQUIRED`, exactly two P1 and zero P0/P2/P3. Human preserved Option A — one exclusive trusted single-user operator session, with hostile/malicious same-UID processes and mount/unmount churn outside the threat model — and authorized exactly one additional focused ADO correction/review round beyond the three-round limit, limited to the two P1. Current extra-round draft remains R0/unbound; focused publication, successful exact-head CI and independent Exact-Delta `APPROVED` remain pending; no implementation authority |
 | Reviewed Runtime Guard binary/manifest path, size, SHA-256, mode, architecture, load dependencies, source/toolchain/SDK/OS and Exact-SHA verdict | `NOT BOUND` — future R3 software-phase output; an operational/hardware run must verify it and may not compile it |
 | Read-only APK path/size/SHA-256/mode | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5/a323834/app-release-385c0c46f22dcac5.apk`; 95,522,787 bytes; `385c0c46f22dcac5b935bfdc6f574558f4e74748ed4a367ef399ddbd4299c547`; `0444` |
 | Read-only artifact manifest path/size/SHA-256/mode | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5/a323834/artifact-manifest.txt`; 1,647 bytes; `1c1f1b7a5b92fab5510cde35a439fc6f0742b7bf2666d6319cd89b9a7d4dcadb`; `0444` |
@@ -142,6 +142,21 @@ correction still requires focused publication, successful exact-head CI and inde
 `APPROVED` with zero open P0–P3 before only the exact R3 scope may activate through the
 `AGENTS.md` standing rule. No implementation, installation, ADB, device/Tag or Human/hardware
 authority exists.
+
+Focused round-3 candidate `bbcb1b59703ee866539b2bc384ec9db8c2643fe4`, tree
+`dfb5abbca1f2ddf603d191ae3303d1336f5440c7`, exact parent
+`7739757a4855ee7bac34408941e94c25516d75f5`, passed exact-head CI `30185670176`, attempt 1,
+12/12. Independent read-only review returned `CHANGES REQUIRED` with exactly two P1 and zero
+P0/P2/P3: the PostgreSQL 17.10 Homebrew trust boundary needed root-or-exact-same-EUID ownership
+plus complete canonical-chain/ACL/stable-identity binding and revalidation under Option A, and
+initdb leader observation had to remain non-reaping until after its final possible negative-PGID
+signal. The Human Architect authorized exactly one additional focused ADO correction/review round
+beyond the three-round limit, limited to those findings. The current extra-round ADO draft
+specifies both corrections and their future positive/negative R3 tests without changing Product
+code, Option A, system/Homebrew state or Shared-Cluster status. This paragraph is governance
+history, not Candidate Evidence, implementation approval or Human/hardware authority; focused
+publication, exact-head CI and independent Exact-Delta `APPROVED` with zero open P0–P3 remain
+required.
 
 No installation, ADB, device/Tag interaction or Human V5 occurred. The Harness can accept A/B/X
 values only from the operator and cannot independently prove their origin. Before any hardware

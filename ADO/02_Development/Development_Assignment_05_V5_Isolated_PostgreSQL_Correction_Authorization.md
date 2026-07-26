@@ -1,30 +1,39 @@
 # Development Assignment 5 — V5 Isolated PostgreSQL Correction Authorization
 
-- Status: **ROUND-2 `CHANGES REQUIRED` — HUMAN ARCHITECT SELECTED OPTION A; ROUND-3 ADO CORRECTION DRAFT STILL REQUIRES FOCUSED PUBLICATION, EXACT-HEAD CI AND INDEPENDENT `APPROVED`; NO IMPLEMENTATION/HARDWARE AUTHORITY**
+- Status: **ROUND-3 `CHANGES REQUIRED` — EXACTLY TWO P1 AND ZERO P0/P2/P3; HUMAN ARCHITECT SELECTED OPTION A AND AUTHORIZED ONE ADDITIONAL FOCUSED ADO CORRECTION/REVIEW ROUND; CURRENT EXTRA-ROUND DRAFT STILL REQUIRES FOCUSED PUBLICATION, EXACT-HEAD CI AND INDEPENDENT EXACT-DELTA `APPROVED`; NO IMPLEMENTATION/HARDWARE AUTHORITY**
 - Date: 2026-07-26
 - Owner: Technical Lead
 - Decision authority: Human Architect
 - Exact round-2 candidate commit: `7739757a4855ee7bac34408941e94c25516d75f5`
 - Exact round-2 candidate tree: `0398066e92fef65562526f61c9515b0ef3be0114`
 - Exact round-2 candidate parent: `72fbd3c20329dfbf3e8a1509025bd630b1bb130a`
-- Exact-head CI: `30177897059`, attempt 1, 12/12
-- Independent technically enforced read-only Ultra re-review: `CHANGES REQUIRED` — exactly five
-  P1, one P2 and one P3
+- Round-2 exact-head CI: `30177897059`, attempt 1, 12/12
+- Round-2 independent technically enforced read-only Ultra re-review: `CHANGES REQUIRED` —
+  exactly five P1, one P2 and one P3
+- Exact round-3 candidate commit: `bbcb1b59703ee866539b2bc384ec9db8c2643fe4`
+- Exact round-3 candidate tree: `dfb5abbca1f2ddf603d191ae3303d1336f5440c7`
+- Exact round-3 candidate parent: `7739757a4855ee7bac34408941e94c25516d75f5`
+- Round-3 exact-head CI: `30185670176`, attempt 1, 12/12
+- Independent round-3 review: `CHANGES REQUIRED` — exactly two P1 and zero P0/P2/P3
+- Human extra-round authority: exactly one additional focused ADO correction/review round beyond
+  the three-round limit; no implementation or hardware authority
 - Current correction risk: AVS `R0` documentation only
 - Proposed implementation risk only after focused publication, exact-head CI and a later
   independent approval: AVS `R3`
 
 ## 1. Authority and repository truth
 
-This file is an ADO-only round-3 correction draft against the exact round-2 candidate above. It
-changes no Product, schema, migration, runtime, dependency, workflow, database, device or artifact
-state. It grants no implementation or Human/hardware authority. The Human Architect explicitly
-selected Option A in Section 4: one exclusive trusted single-user operator session, with hostile
-or malicious same-UID processes and mount/unmount churn outside the threat model. That selection
-resolves only the Human policy question. This working-tree draft is not a focused publication,
-has no round-3 commit/tree or exact-head CI binding and has not received independent `APPROVED`.
-Only those later gates may allow the `AGENTS.md` standing rule to activate the exact Section 8 R3
-scope.
+This file is an ADO-only extra-round correction draft against the exact round-3 candidate above.
+It changes no Product, schema, migration, runtime, dependency, workflow, database, device or
+artifact state. It grants no implementation or Human/hardware authority. The Human Architect
+explicitly selected Option A in Section 4: one exclusive trusted single-user operator session,
+with hostile or malicious same-UID processes and mount/unmount churn outside the threat model.
+That selection resolves only the Human policy question. After the round-3 review reached the
+ordinary three-round limit, the Human Architect expressly authorized exactly one additional
+focused ADO correction/review round limited to the two confirmed P1 findings below. This
+working-tree draft is not that focused publication, has no extra-round commit/tree or exact-head
+CI binding and has not received independent `APPROVED`. Only those later gates may allow the
+`AGENTS.md` standing rule to activate the exact Section 8 R3 scope.
 
 The local Shared-Cluster follow-up in the working tree is uncommitted, `BLOCKED` and explicitly
 **not Candidate Evidence**. Its focused 180/180 Synthetic result and all earlier focused results
@@ -54,6 +63,22 @@ records the Human Architect's exact Option A selection without broadening it. It
 complete review scope and official navigation truth. Product, Business, NFC, tenant, schema,
 migration and Human-gate semantics remain unchanged. The boundary stops immediately before any
 implementation and, independently, before USB, ADB, installation, device or Tag interaction.
+
+Focused round-3 candidate `bbcb1b59703ee866539b2bc384ec9db8c2643fe4`, tree
+`dfb5abbca1f2ddf603d191ae3303d1336f5440c7`, exact parent
+`7739757a4855ee7bac34408941e94c25516d75f5`, passed exact-head CI `30185670176`, attempt 1,
+12/12. Its independent read-only review returned `CHANGES REQUIRED` with exactly two P1 and zero
+P0/P2/P3:
+
+1. P1: the PostgreSQL 17.10 Homebrew trust contract required root ownership and therefore rejected
+   the exact same-EUID ownership allowed by Option A; it also did not bind and revalidate the
+   complete canonical ancestor chain strongly enough; and
+2. P1: the initdb termination design used a potentially reaping pre-final-signal child-status
+   observation that could release the leader PID/PGID before a later destructive group signal.
+
+This extra-round draft corrects only those two findings. The earlier round-2 findings and their
+round-3 dispositions remain historical review truth; none of them is reopened or converted into
+implementation Evidence.
 
 ## 2. Correction rationale
 
@@ -88,14 +113,17 @@ turn that versioned path into a permanent Product promise. It must independently
 currently existing PostgreSQL 17.10 `pg_config`, require its absolute `--bindir`, and verify all
 required executables from that one exact directory plus `server_version_num=170010` for every
 operational run. `pg_ctl` is neither required nor permitted. A later PostgreSQL security-minor
-upgrade requires its own reviewed rebind.
+upgrade requires its own reviewed rebind. The existing installation is consumed read-only: no
+`chown`, `chmod`, package-manager, Homebrew, ownership or system mutation is permitted.
 
 ### 3.1 Outer Node owner and fixed local boundary
 
 One opt-in Node process is the outer DA5 lifecycle/composition owner. It must:
 
-1. bind an existing absolute PostgreSQL 17.10 `pg_config`, require an absolute canonical
-   `pg_config --bindir`, and resolve `initdb` and `postgres` only inside that one exact directory;
+1. bind an existing absolute PostgreSQL 17.10 `pg_config` under the exact Section 3.2
+   root-or-same-EUID canonical-chain contract, require an absolute canonical
+   `pg_config --bindir`, and resolve and execute `initdb` and `postgres` only inside that one exact
+   directory;
 2. bind every required tool and input under Section 3.2 before it creates a database capability;
 3. verify a parent namespace outside the repository as either a root-owned sticky temporary base
    with only explicitly allow-listed system ACL entries or an already private same-EUID-owned
@@ -105,10 +133,14 @@ One opt-in Node process is the outer DA5 lifecycle/composition owner. It must:
    its descriptor, and before creating the task root launch the same reviewed Guard binary once in
    a bounded `PROBE_ONLY` protocol mode with a held handle, private manifest/capability pipe and
    inherited staging FD. That instance may perform only the exact sacrificial no-replace
-   rename/unlink semantics probe, must self-watchdog, emit a bounded proof and be terminally reaped.
-   `ENOSYS`, `EINVAL`, `ENOTSUP`, replacement of the pre-existing target, timeout, residue or any
-   ambiguous result fails closed. Node/JS `fs.rename` is not accepted as this probe. Only after the
-   probe Guard exits cleanly may Node create the exact `0700` task root with no
+   rename/unlink semantics probe and one task-local direct-child primitive probe proving that
+   Section 3.4's `waitid(..., WNOWAIT)` or exactly proven equivalent observes terminal state
+   without reaping before a final terminal reap. It must self-watchdog, emit a bounded proof and
+   be terminally reaped. `ENOSYS`,
+   `EINVAL`, `ENOTSUP`, replacement of the pre-existing target, timeout, residue, an unavailable
+   or reaping child-status primitive or any ambiguous result fails closed. Node/JS `fs.rename` is
+   not accepted as the namespace probe. Only after the probe Guard exits cleanly may Node create
+   the exact `0700` task root with no
    nontrivial/default-inherited ACL; retain
    base/staging/root descriptors plus canonical path, filesystem type, device, inode, owner, mode,
    ACL and platform mount identity for each;
@@ -208,17 +240,40 @@ before/after hashing, verifies size/SHA/mode/owner/architecture/OS/load dependen
 fails before task-root creation on any difference. It neither invokes nor trusts a runtime
 compiler, linker, SDK or `xcrun`.
 
-Operationally, the owner separately binds absolute canonical `pg_config`, its exact canonical
-PostgreSQL bindir, `initdb` and `postgres` by path/directory/device/inode/root owner/non-group/
-non-world-writable executable mode/SHA-256/version/platform identity. `pg_config` discovery
-invokes the bound absolute binary as one synchronous direct child with `shell:false`, fixed argv,
+Operationally, the owner captures its exact effective UID before discovery and separately binds
+the canonical resolved `pg_config`, its exact canonical PostgreSQL bindir, `initdb` and
+`postgres`. The bound binary and every component of its complete canonical ancestor chain must be
+owned by UID 0 or that one captured effective UID, must not be group/world writable and must have
+no default-inherited ACL and no ACL entry except explicitly allow-listed non-write-granting system
+entries. Any unexpected or write-granting ACL and every other UID are rejected. The owner resolves
+the discovery input once, then retains and executes only the canonical resolved binaries; an
+alias execution, a symlink introduced into the bound chain or any post-bind path substitution is
+forbidden.
+
+The owner opens every canonical ancestor and binary no-follow and retains stable descriptors. For
+each ancestor it binds canonical path, device, inode, owner, mode and ACL identity into one
+immutable chain-manifest digest. For each binary it additionally binds the stable-FD identity,
+size, SHA-256, executable mode, exact PostgreSQL version and platform-verifiable identity. It
+compares path and stable-FD identities before and after hashing/version inspection, revalidates
+the complete chain and binary bindings before capability or task-root creation, and repeats that
+revalidation immediately before every later use or `execve`. Any other owner UID, writable
+ancestor or binary, unexpected ACL, symlink/swap, path/device/inode/mode/digest/version/platform-
+identity mismatch or lost descriptor fails closed. The initial failure occurs before any
+database capability or task root exists; a later revalidation failure occurs before the
+corresponding execution and cannot authorize further mutation or signaling. The implementation
+must not repair trust by changing ownership, permissions, Homebrew or the system.
+
+The canonical `pg_config` must report the exact canonical directory already bound as its absolute
+`--bindir`; canonical `initdb` and `postgres` must be the two bound executables in that same
+directory, and `server_version_num` must equal `170010`. `pg_config` discovery invokes the bound
+canonical binary as one synchronous direct child with `shell:false`, fixed argv,
 `timeout: 5_000`, `killSignal: 'SIGKILL'` and `maxBuffer: 65_536`. Timeout may SIGKILL only that
 direct child, and the call may return only after terminal direct-child reap; any spawn error,
 signal, null/nonzero status, buffer overflow or unproved reap fails discovery. `pg_config`,
-Runtime Guard, `initdb` and `postgres` each receive a distinct closed,
-secret-free allow-listed environment, fixed CWD and `umask 077`; the initdb password FD is the
-only secret exception. Operational startup also rejects all compiler/SDK/loader/PG/PQ/locale
-poisoning variables above even though no compiler runs.
+Runtime Guard, `initdb` and `postgres` each receive a distinct closed, secret-free allow-listed
+environment, fixed CWD and `umask 077`; the initdb password FD is the only secret exception.
+Operational startup also rejects all compiler/SDK/loader/PG/PQ/locale poisoning variables above
+even though no compiler runs.
 
 ### 3.3 One native POSIX Runtime Guard
 
@@ -242,7 +297,9 @@ The Guard:
 - resets every catchable signal disposition to `SIG_DFL` and replaces the complete inherited
   signal mask with an empty mask in each forked exec child immediately before `execve`;
 - keeps each child as its exact unreaped direct child and uses only its own stored direct-child
-  state plus `waitpid`, never a later PID lookup, PID file or name search, for control;
+  state plus direct-child `waitid`/`waitpid`, never a later PID lookup, PID file or name search,
+  for control; every initdb observation before a possible group signal is the non-reaping
+  Section 3.4 operation;
 - runs a bounded poll/monotonic-deadline state machine with no unbounded protocol, readiness,
   child-close or pipe wait; and
 - emits only length-delimited disclosure-safe state/proof records on the inherited event pipe.
@@ -289,19 +346,34 @@ descriptor reaches PostgreSQL.
 
 `initdb` is the Guard's exact direct child and leader of a fresh initdb-only process group. The
 Guard performs and verifies `setpgid(child, child)` before allowing exec progress and retains the
-leader unreaped through the final signal decision so its PID/PGID cannot be recycled. The group
-has a fixed 30-second execution budget. On expiry the Guard first uses
-`waitpid(leader, ..., WNOHANG)`; only while that exact leader is unreaped it sends one SIGTERM to
-the exact negative PGID, waits a fixed two-second grace, checks again, and only if the leader/group
-remain sends one SIGKILL to that same group. It then obtains the terminal leader `waitpid` result
-and proves the process group empty (`kill(-pgid, 0)` returns `ESRCH`) before the phase can finish.
-An early leader exit with a remaining group is failure and enters the same bounded group
-termination path.
+leader, including a terminal zombie, unreaped through every possible negative-PGID signal
+decision so its PID/PGID cannot be recycled. The group has a fixed 30-second execution budget.
+Every leader-status observation before the final permitted signal uses
+`waitid(P_PID, leader, &leader_info, WEXITED | WNOHANG | WNOWAIT)` or an exactly proven equivalent
+that cannot reap or release the leader identity. `kill(-pgid, 0)` is the only permitted
+non-destructive group-presence probe.
+
+On timeout, or on an early terminal leader observation while any group member remains, the Guard
+first proves the exact leader is still unreaped and sends at most one SIGTERM to the exact
+negative PGID. After the fixed two-second grace it again observes the leader without reaping and
+probes the group without signaling. Only an unambiguous group-presence result while the exact
+leader remains unreaped permits the one final SIGKILL to that same negative PGID; a permission or
+identity ambiguity fails and preserves without another signal. After the final allowed signal or
+the decision that no signal is needed, the Guard irrevocably disables destructive group
+signaling, terminally reaps the exact leader and performs only a bounded sequence of
+non-destructive group-absence probes. Exact `ESRCH` completes the absence proof. Persistent or
+reappearing group presence, PID/PGID churn, permission ambiguity or any identity uncertainty
+fails and preserves residue; it may cause a safe false failure but can never authorize a signal
+to a possibly unrelated group. No destructive group signal is permitted after terminal leader
+reap.
 
 The accepted platforms must provide this bounded group-terminate, group-empty and leader-reap
-contract; inability to prove it is an unsupported-platform failure and no later phase starts.
-Group SIGTERM/SIGKILL exists only for `initdb`; compiler phases have only their direct-child
-SIGKILL. Neither permission is available for PostgreSQL.
+contract, including `waitid` with `WNOWAIT` or an exactly proven non-reaping equivalent. The
+pre-root `PROBE_ONLY` capability probe must fail before the persistent Guard is trusted, before
+capability/task-root creation and before any operational child spawn when that primitive or the
+proof is unavailable. Group SIGTERM/SIGKILL exists only for `initdb`; compiler phases have only
+their direct-child SIGKILL. Neither permission is available for PostgreSQL, which retains the
+at-most-one direct-child SIGINT contract below.
 
 After successful `initdb`, the Guard creates and binds the exact log with
 `O_CREAT|O_EXCL|O_WRONLY|O_NOFOLLOW|O_CLOEXEC`, mode `0600`, and passes that same bound descriptor
@@ -801,9 +873,9 @@ new finding and requires separate exact authorization.
 
 ### Candidate now — R0/V0 only
 
-- bind the starting commit/tree to `7739757a4855ee7bac34408941e94c25516d75f5` /
-  `0398066e92fef65562526f61c9515b0ef3be0114`, exact parent
-  `72fbd3c20329dfbf3e8a1509025bd630b1bb130a`;
+- bind the starting commit/tree to `bbcb1b59703ee866539b2bc384ec9db8c2643fe4` /
+  `dfb5abbca1f2ddf603d191ae3303d1336f5440c7`, exact parent
+  `7739757a4855ee7bac34408941e94c25516d75f5`;
 - validate Markdown structure, whitespace, exact status/CI/review wording and every internal path;
 - prove the correction changes only these seven ADO files:
   `ADO/02_Development/Development_Assignment_05_V5_Isolated_PostgreSQL_Correction_Authorization.md`,
@@ -812,8 +884,13 @@ new finding and requires separate exact authorization.
   `ADO/05_Evidence/Development_Assignment_05_V5_Evidence.md`,
   `ADO/00_Core/Decision_Log.md`, `ADO/00_Core/Risk_Register.md` and `ADO/README.md`;
 - report all pre-existing Shared-Cluster WIP separately as `BLOCKED` and not Evidence;
-- carry exact-head CI `30177897059`, attempt 1, 12/12 only as round-2 candidate evidence;
-- preserve the exact five P1, one P2 and one P3 `CHANGES REQUIRED` truth; and
+- carry exact-head CI `30185670176`, attempt 1, 12/12 only as round-3 candidate evidence and
+  preserve round-2 CI `30177897059`, attempt 1, 12/12 as history;
+- preserve both the historical round-2 five-P1/one-P2/one-P3 truth and the round-3
+  `CHANGES REQUIRED` truth of exactly two P1 with zero P0/P2/P3;
+- verify the Human Architect authorized exactly one additional focused ADO correction/review
+  round beyond the three-round limit, limited to those two P1 and granting no implementation or
+  hardware authority; and
 - verify that Section 4 visibly records exact Option A, with one exclusive trusted single-user
   operator session and hostile/malicious same-UID processes plus mount/unmount churn outside the
   threat model; verify that implementation remains blocked pending focused publication,
@@ -836,7 +913,11 @@ new finding and requires separate exact authorization.
   timeout/terminal reap/no-grandchild contract and exact immutable manifest; prove operational
   start has no compiler/linker child. Exercise Guard startup/protocol timeouts plus watchdog
   self-SIGKILL/held-handle reap with truthful residue; initdb normal exit, process-group
-  SIGTERM-grace exit, one-SIGKILL, group-empty proof and terminal leader reap;
+  SIGTERM-grace exit, one-SIGKILL, group-empty proof and terminal leader reap. Prove every
+  pre-final-signal leader observation uses supported non-reaping `waitid(..., WNOWAIT)` or its
+  exactly proven equivalent; cover early leader exit with a lingering member, leader-zombie
+  retention through TERM/KILL decisions, unsupported primitive fail-before-trust and the
+  prohibition on every destructive group signal after terminal leader reap;
   PostgreSQL one-SIGINT/30-second timeout with preserved residue; interruption at every phase;
   secret-FD close and buffer zeroization on each result. Assert compiler/initdb-only termination
   never targets PostgreSQL.
@@ -845,10 +926,18 @@ new finding and requires separate exact authorization.
   signature replacements. Poison every rejected variable/family, locale and loader override;
   prove separately closed allow-listed environments for artifact compiler/linker and operational
   `pg_config`, Guard, `initdb` and `postgres`; verify binary/manifest path, size, SHA, mode,
-  architecture, OS, signature and load-dependency mismatch rejection.
+  architecture, OS, signature and load-dependency mismatch rejection. For the existing
+  PostgreSQL 17.10 Homebrew toolchain, prove both a root-owned positive fixture and an exact
+  captured-same-EUID positive fixture without ownership/system/Homebrew mutation. Reject an
+  other-UID binary or ancestor, any group/world-writable binary or ancestor, unexpected or
+  write-granting ACL, noncanonical/alias execution, symlink or ancestor-chain swap and every
+  path/device/inode/mode/chain-manifest-digest/binary-digest/version/platform-identity mismatch
+  before capability/task-root creation; repeat the mismatch cases at each pre-use revalidation.
 - **V1 process identity:** direct-parent/unreaped-child state, already-exited child, manifest
-  generation/capability replay and deterministic PID-reuse simulations proving no recycled PID
-  receives control.
+  generation/capability replay and deterministic PID/PGID-reuse simulations. Include early
+  initdb-leader exit with a lingering group member and churn immediately after terminal reap;
+  any churn may only preserve residue/false-fail, and no recycled PID or unrelated group may
+  receive control.
 - **V1 configuration/cleanup:** replace/reload/truncate `postgresql.conf`, `pg_hba.conf` and
   `postgresql.auto.conf`; substitute the log inode; test Linux/macOS no-replace success,
   pre-existing tombstone rejection, bounded `PROBE_ONLY` lifecycle and unsupported
@@ -871,12 +960,17 @@ new finding and requires separate exact authorization.
   rejection without mutation, lost-port and config/HBA/auto-config/log/process/system-identifier
   substitution, artifact-producer compiler/linker hangs and operational initdb hangs, startup
   failure before/after spawn/readiness,
-  already-exited child, PostgreSQL timeout residue, runner/pool close ordering and outer
-  PTY/SIGINT/SIGTERM/SIGHUP/failure cleanup. Run the real Runtime Guard no-replace/deletion success
-  plus available cross-mount and synchronized race integration; deterministic fault tests remain
+  already-exited child, early initdb-leader exit with a lingering member, non-reaping leader
+  observation through final initdb-group signal, post-reap PID/PGID churn without destructive
+  signaling, unsupported non-reaping primitive failure before trust, PostgreSQL timeout residue,
+  runner/pool close ordering and outer PTY/SIGINT/SIGTERM/SIGHUP/failure cleanup. Exercise the
+  accepted root-owned and exact-same-EUID PostgreSQL ancestor/binary chains plus safe negative
+  owner, writability, ACL, symlink/swap and bound-identity cases without changing the real
+  Homebrew/system installation. Run the real Runtime Guard no-replace/deletion success plus
+  available cross-mount and synchronized race integration; deterministic fault tests remain
   mandatory where the host cannot create a mount/race fixture. Require a fresh cluster per serial
-  case where isolation matters, no resource fallback, and prove zero owned
-  process/listener/root residue on every claimed successful cleanup.
+  case where isolation matters, no resource fallback, and prove zero owned process/listener/root
+  residue on every claimed successful cleanup.
 - **V2 integration:** run migrations `001`–`013`, replay/ledger checks and the complete Synthetic
   suite through the capability-only runner boundary; run the exact
   `postgres:17.10-alpine` CI-owner adapter contract and negative owner tests. Its step-local
@@ -896,13 +990,16 @@ Every confirmed R3 correction repeats affected V1/V2 and one final V3/V4 before 
 
 ## 11. Approval and stop boundary
 
-The reviewed round-2 candidate `7739757a4855ee7bac34408941e94c25516d75f5`, tree
-`0398066e92fef65562526f61c9515b0ef3be0114`, is `CHANGES REQUIRED` and does not activate
-implementation. The Human Architect has selected exact Option A in Section 4, but that selection
-alone does not approve this unbound working-tree draft or activate implementation.
+The reviewed round-3 candidate `bbcb1b59703ee866539b2bc384ec9db8c2643fe4`, tree
+`dfb5abbca1f2ddf603d191ae3303d1336f5440c7`, is `CHANGES REQUIRED` with exactly two P1 and
+zero P0/P2/P3 and does not activate implementation. The Human Architect has selected exact
+Option A in Section 4 and authorized exactly one additional focused ADO correction/review round
+beyond the ordinary three-round limit. Neither that selection nor the extra-round authority
+approves this unbound working-tree draft or activates implementation.
 
-The next required gate is a focused seven-file ADO publication bound to exact commit/tree and
-successful exact-head CI, followed by independent review. Only an
+The next required gate is the authorized focused seven-file extra-round ADO publication bound to
+exact commit/tree and successful exact-head CI, followed by independent Exact-Delta review of the
+two corrections and all retained bindings. Only an
 `APPROVED` verdict with zero open P0–P3 may activate the `AGENTS.md` standing rule for the exact R3
 scope in Section 8. It authorizes no omitted file or design choice. Any proposed departure from
 Option A, including Option B system/environment isolation or Option C manual retention, returns to
@@ -927,16 +1024,25 @@ Review exactly this complete seven-file candidate delta:
 6. ADO/00_Core/Risk_Register.md
 7. ADO/README.md
 
-Bind the review to round-2 candidate commit
+Preserve the historical round-2 binding:
 7739757a4855ee7bac34408941e94c25516d75f5, tree
 0398066e92fef65562526f61c9515b0ef3be0114, exact parent
 72fbd3c20329dfbf3e8a1509025bd630b1bb130a, exact-head CI
-30177897059 attempt 1 (12/12), and the future focused correction publication:
-- commit: <ROUND_3_CORRECTION_COMMIT>
-- tree: <ROUND_3_CORRECTION_TREE>
-- exact-head CI run/attempt/result: <ROUND_3_EXACT_HEAD_CI>
+30177897059 attempt 1 (12/12).
+
+Bind the reviewed round-3 candidate to commit
+bbcb1b59703ee866539b2bc384ec9db8c2643fe4, tree
+dfb5abbca1f2ddf603d191ae3303d1336f5440c7, exact parent
+7739757a4855ee7bac34408941e94c25516d75f5, exact-head CI
+30185670176 attempt 1 (12/12), and bind the future authorized extra-round correction publication:
+- commit: <EXTRA_ROUND_CORRECTION_COMMIT>
+- tree: <EXTRA_ROUND_CORRECTION_TREE>
+- exact-head CI run/attempt/result: <EXTRA_ROUND_EXACT_HEAD_CI>
 
 Reject the package as incomplete if any placeholder is unresolved when this prompt is executed.
+The Human Architect authorized exactly one additional focused ADO correction/review round beyond
+the three-round limit, limited to the two round-3 P1 findings. That exception grants no
+implementation or hardware authority.
 
 The pre-existing local Shared-Cluster WIP is uncommitted, BLOCKED and not Candidate Evidence. Its
 180/180 Synthetic result is not the current path. Do not review it as an implementation candidate
@@ -951,7 +1057,14 @@ The technically enforced read-only round-2 Ultra re-review returned CHANGES REQU
 6. P2 the review prompt named only one candidate file.
 7. P3 Decision Log and ADO README navigation/status were stale/incomplete.
 
-Verify all seven findings and all cross-file status bindings. In particular verify:
+The independent round-3 review returned CHANGES REQUIRED with exactly two P1 and zero P0/P2/P3:
+1. P1 the existing PostgreSQL 17.10 Homebrew trust contract rejected same-EUID ownership allowed
+   by Option A and did not fully bind/revalidate the canonical ancestor chain.
+2. P1 initdb used a potentially reaping leader-status observation before its final possible
+   negative-PGID signal.
+
+Verify all seven historical round-2 dispositions, both round-3 P1 corrections and all cross-file
+status bindings. In particular verify:
 - Section 4 records the Human Architect's exact Option A selection: one exclusive trusted
   single-user operator session, with hostile/malicious same-UID processes and mount/unmount churn
   outside the threat model. Missing, ambiguous or broader wording requires CHANGES REQUIRED.
@@ -972,6 +1085,18 @@ Verify all seven findings and all cross-file status bindings. In particular veri
 - Artifact-producer compiler/linker and operational initdb have exact bounded termination/reap/
   no-grandchild-or-process-group-empty paths; their SIGKILL/SIGTERM permissions cannot target
   PostgreSQL.
+- Every initdb leader-status observation before the final possible group signal uses
+  waitid(P_PID, leader, ..., WEXITED|WNOHANG|WNOWAIT) or an exactly proven non-reaping
+  equivalent. The leader remains unreaped through all TERM/KILL decisions; after the final
+  allowed signal it is terminally reaped and only bounded non-destructive group-absence probes
+  remain. Early leader exit with a lingering member, unsupported primitives and PID/PGID churn
+  fail safely; no post-reap destructive group signal or unrelated-group signal is possible.
+- The canonical PostgreSQL 17.10 pg_config/bindir/initdb/postgres binaries and every canonical
+  ancestor accept only root or the exact captured effective UID, reject group/world writability
+  and unexpected/write-granting ACLs, and bind stable descriptors plus path/device/inode/mode/
+  chain-manifest digest/binary digest/version/platform identity. Only canonical resolved binaries
+  execute; any other UID, symlink/swap or mismatch fails before capability/task-root creation,
+  with repeated pre-use revalidation and no ownership/Homebrew/system mutation.
 - pg_config/compiler/xcrun/SDK/sysroot/includes/linker inputs/initdb/postgres/Guard identities,
   digests, versions, modes, ownership, signatures and closed allow-listed environments are exact;
   inherited compiler/loader/PG/PQ/locale poisoning fails closed.
@@ -980,13 +1105,16 @@ Verify all seven findings and all cross-file status bindings. In particular veri
   platforms fail closed, descriptor/mount walks and pre/post identity checks preserve observable
   mismatches, and no atomic safety against malicious same-UID namespace mutation is claimed.
 - Verification includes PTY/process-group, hang/timeout/termination, environment poisoning,
-  PID-reuse, rename no-replace and synchronized last-stat-before-unlink race tests whose expected
-  behavior matches the selected threat model.
+  positive root/same-EUID PostgreSQL ownership, negative ancestor/binary/ACL/symlink/swap
+  bindings, early-leader-exit/lingering-member, unsupported non-reaping primitive, PID/PGID reuse,
+  rename no-replace and synchronized last-stat-before-unlink race tests whose expected behavior
+  matches the selected threat model.
 - Uncatchable SIGKILL residue, CI owner adapter, default/DA4 preservation, exact allowed files,
   exclusions, R3 V0-V4 and the stop before hardware remain truthful.
 
 Return exactly APPROVED or CHANGES REQUIRED. Report every finding as P0–P3 with file/line
 evidence, impact and the smallest safe correction. APPROVED is allowed only with zero open
-P0–P3 findings, resolved exact placeholders, successful exact-head CI and a consistent recorded
-Option A selection. The Human selection alone is not implementation authority.
+P0–P3 findings, resolved exact placeholders, successful exact-head CI, a consistent recorded
+Option A selection and exact extra-round Human authority. The Human selection and extra-round
+exception alone are not implementation authority.
 ```

@@ -1,6 +1,6 @@
 # Project Status
 
-Status: CORE ROADMAP V2 BLOCK A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2, BLOCK D, E1 AND NARROW E2A COMPLETE FOR THEIR RECORDED SCOPES — DEVELOPMENT ASSIGNMENTS 1–3 AND DT-060–DT-074 CLOSED FOR THEIR EXACT AUTHORIZED LOCAL SCOPES — DA4 WORKSTREAMS A–D, AVS V0–V4, H01 PROCEDURAL CORRECTION, DA4-V5-F06 AND DA4-V5-F07 INDEPENDENTLY APPROVED; DA4 REMAINS OPEN FOR A LATER FRESH HUMAN V5 — DA5 V0–V4 SOFTWARE IS TECHNICALLY CLOSED; CURRENT SOURCE+LOCK BASELINE `a323834`, TREE `65c669b`, PASSED EXACT-HEAD CI `30149165373` 12/12 AND INDEPENDENT IMPLEMENTATION REVIEW ROUND 2 `APPROVED` WITH ZERO OPEN P0–P3; THE READ-ONLY SYNTHETIC V5 APK/MANIFEST EVIDENCE AT `e6a06e2`, TREE `6dcdce4`, PASSED EXACT-HEAD CI `30150095109` 12/12 AND FINAL INDEPENDENT ARTIFACT/EVIDENCE EXACT-SHA REVIEW `APPROVED` WITH ZERO OPEN P0–P3; ALL SHARED-CLUSTER FOLLOW-UP IS BLOCKED AND NOT EVIDENCE; ISOLATED-POSTGRESQL ROUND-2 CANDIDATE `7739757a4855ee7bac34408941e94c25516d75f5`, TREE `0398066e92fef65562526f61c9515b0ef3be0114`, PARENT `72fbd3c20329dfbf3e8a1509025bd630b1bb130a`, PASSED EXACT-HEAD CI `30177897059` ATTEMPT 1 12/12, BUT THE TECHNICALLY ENFORCED READ-ONLY ULTRA RE-REVIEW RETURNED `CHANGES REQUIRED` WITH EXACTLY FIVE P1, ONE P2 AND ONE P3; THE HUMAN ARCHITECT SELECTED OPTION A FOR THE ROUND-3 ADO CORRECTION — ONE EXCLUSIVE TRUSTED SINGLE-USER OPERATOR SESSION, WITH HOSTILE/MALICIOUS SAME-UID PROCESSES AND MOUNT/UNMOUNT CHURN OUTSIDE THE THREAT MODEL — BUT FOCUSED PUBLICATION, EXACT-HEAD CI AND INDEPENDENT `APPROVED` REMAIN REQUIRED BEFORE THE `AGENTS.md` STANDING RULE CAN ACTIVATE THE EXACT R3 SCOPE; NO IMPLEMENTATION OR HUMAN/HARDWARE AUTHORITY EXISTS — PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
+Status: CORE ROADMAP V2 BLOCK A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2, BLOCK D, E1 AND NARROW E2A COMPLETE FOR THEIR RECORDED SCOPES — DEVELOPMENT ASSIGNMENTS 1–3 AND DT-060–DT-074 CLOSED FOR THEIR EXACT AUTHORIZED LOCAL SCOPES — DA4 WORKSTREAMS A–D, AVS V0–V4, H01 PROCEDURAL CORRECTION, DA4-V5-F06 AND DA4-V5-F07 INDEPENDENTLY APPROVED; DA4 REMAINS OPEN FOR A LATER FRESH HUMAN V5 — DA5 V0–V4 SOFTWARE IS TECHNICALLY CLOSED; CURRENT SOURCE+LOCK BASELINE `a323834`, TREE `65c669b`, PASSED EXACT-HEAD CI `30149165373` 12/12 AND INDEPENDENT IMPLEMENTATION REVIEW ROUND 2 `APPROVED` WITH ZERO OPEN P0–P3; THE READ-ONLY SYNTHETIC V5 APK/MANIFEST EVIDENCE AT `e6a06e2`, TREE `6dcdce4`, PASSED EXACT-HEAD CI `30150095109` 12/12 AND FINAL INDEPENDENT ARTIFACT/EVIDENCE EXACT-SHA REVIEW `APPROVED` WITH ZERO OPEN P0–P3; ALL SHARED-CLUSTER FOLLOW-UP IS BLOCKED AND NOT EVIDENCE; ISOLATED-POSTGRESQL ROUND-3 CANDIDATE `bbcb1b59703ee866539b2bc384ec9db8c2643fe4`, TREE `dfb5abbca1f2ddf603d191ae3303d1336f5440c7`, PARENT `7739757a4855ee7bac34408941e94c25516d75f5`, PASSED EXACT-HEAD CI `30185670176` ATTEMPT 1 12/12, BUT INDEPENDENT READ-ONLY REVIEW RETURNED `CHANGES REQUIRED` WITH EXACTLY TWO P1 AND ZERO P0/P2/P3; THE HUMAN ARCHITECT PRESERVED OPTION A — ONE EXCLUSIVE TRUSTED SINGLE-USER OPERATOR SESSION, WITH HOSTILE/MALICIOUS SAME-UID PROCESSES AND MOUNT/UNMOUNT CHURN OUTSIDE THE THREAT MODEL — AND AUTHORIZED EXACTLY ONE ADDITIONAL FOCUSED ADO CORRECTION/REVIEW ROUND BEYOND THE THREE-ROUND LIMIT, LIMITED TO THOSE TWO P1; THE CURRENT R0 DRAFT REMAINS UNBOUND AND FOCUSED PUBLICATION, EXACT-HEAD CI AND INDEPENDENT EXACT-DELTA `APPROVED` ARE REQUIRED BEFORE THE `AGENTS.md` STANDING RULE CAN ACTIVATE THE EXACT R3 SCOPE; NO IMPLEMENTATION OR HUMAN/HARDWARE AUTHORITY EXISTS — PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
 Date: 2026-07-26
 Owner: Human Architect + Technical Lead
 
@@ -178,6 +178,21 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   V5 occurred; before hardware, the A/B/X
   provenance gap requires a separately reviewed Validation-App/Binding-Preflight architecture and
   explicit Human authorization.
+
+  Focused round-3 candidate `bbcb1b59703ee866539b2bc384ec9db8c2643fe4`, tree
+  `dfb5abbca1f2ddf603d191ae3303d1336f5440c7`, exact parent `7739757a4855ee7bac34408941e94c25516d75f5`,
+  passed exact-head CI `30185670176`, attempt 1, 12/12. Independent read-only review returned
+  `CHANGES REQUIRED` with exactly two P1 and zero P0/P2/P3: the PostgreSQL 17.10 Homebrew trust
+  contract needed root-or-exact-same-EUID ownership plus complete canonical-ancestor binding and
+  revalidation under Option A, and the initdb leader had to remain unreaped through its final
+  possible negative-PGID signal. The Human Architect authorized exactly one additional focused
+  ADO correction/review round beyond the three-round limit, limited to those findings. The current
+  extra-round R0 draft adds the exact ownership/ACL/stable-FD/path/device/inode/mode/digest/
+  version/platform-identity and non-reaping `waitid(..., WNOWAIT)` contracts plus positive and
+  negative future R3 tests. It changes no Product code, system/Homebrew ownership, Option A or
+  Shared-Cluster disposition and grants no implementation or hardware authority. Focused
+  publication, successful exact-head CI and independent Exact-Delta `APPROVED` with zero open
+  P0–P3 remain mandatory.
 - **Development Assignment 4 remains open only for a later separately authorized Human V5.** The Human Architect
   accepted ADR-0015 and DA4-P01–P12 and separately authorized Workstreams A–D plus AVS V0–V4 on
   exact baseline `d9892435acbf7f45a96a9a01c8331afceb65f6f1`, tree
@@ -881,14 +896,16 @@ Two Epics are concurrently Active, per EP-009's own stated relationship to the r
    It grants no Human-run authority. Treat every Shared-Cluster follow-up, including its 180/180
    focused result, as `BLOCKED` and not Evidence. Preserve first isolated candidate `72fbd3c` /
    tree `dda615e` / CI `30176432929` attempt 2 as historical review input. Round-2 candidate
-   `7739757`, tree `0398066`, parent `72fbd3c`, passed exact-head CI `30177897059`, attempt 1,
-   12/12, but Ultra re-review returned `CHANGES REQUIRED` with exactly five P1, one P2 and one P3.
-   Preserve the Human Architect's exact Option A selection: one exclusive trusted single-user
-   operator session, with hostile/malicious same-UID processes and mount/unmount churn outside the
-   threat model. Next focus-publish the seven-file round-3 ADO correction, bind its exact
-   commit/tree and successful exact-head CI, and obtain independent `APPROVED` with zero open
-   P0–P3. Until then no implementation authority exists; afterward only the `AGENTS.md` standing
-   rule may activate the exact reviewed R3 scope.
+   `7739757`, tree `0398066`, parent `72fbd3c`, and CI `30177897059`, attempt 1, 12/12 as
+   historical round-2 truth. Round-3 candidate `bbcb1b5`, tree `dfb5abb`, parent `7739757`,
+   passed exact-head CI `30185670176`, attempt 1, 12/12, but independent review returned
+   `CHANGES REQUIRED` with exactly two P1 and zero P0/P2/P3. Preserve the Human Architect's exact
+   Option A selection: one exclusive trusted single-user operator session, with hostile/malicious
+   same-UID processes and mount/unmount churn outside the threat model. Under the Human-authorized
+   one additional focused correction/review round, focus-publish only the seven-file two-P1 ADO
+   correction, bind its exact commit/tree and successful exact-head CI, and obtain independent
+   Exact-Delta `APPROVED` with zero open P0–P3. Until then no implementation authority exists;
+   afterward only the `AGENTS.md` standing rule may activate the exact reviewed R3 scope.
    DA4's open Human gate and all Human/hardware V5 evidence remain separate and unauthorized.
    Production, production data, deployment and distribution remain unauthorized.
 

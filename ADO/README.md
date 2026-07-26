@@ -271,16 +271,23 @@ retry, production, production data, deployment or distribution is authorized.
 
 Development Assignment 5 Product V0–V4 and its read-only artifact/evidence bindings remain
 independently approved for their exact local scopes. Every Shared-Cluster follow-up, including the
-uncommitted 180/180 observation, is `BLOCKED` and not Evidence. Isolated-PostgreSQL round-2
-candidate `7739757a4855ee7bac34408941e94c25516d75f5`, tree
-`0398066e92fef65562526f61c9515b0ef3be0114`, parent `72fbd3c`, passed exact-head CI
-`30177897059`, attempt 1, 12/12, but its technically enforced read-only Ultra re-review returned
-`CHANGES REQUIRED` with exactly five P1, one P2 and one P3. The round-3 ADO correction draft is
-now synchronized to the Human Architect's Option A selection: one exclusive trusted single-user
-operator session, with hostile/malicious same-UID processes and mount/unmount churn outside the
-threat model. The selection grants no implementation or Human/hardware authority. Focused
-publication, successful exact-head CI and independent `APPROVED` with zero open P0–P3 remain
-required before only the exact R3 scope may activate through the `AGENTS.md` standing rule.
+uncommitted 180/180 observation, is `BLOCKED` and not Evidence. Historical Isolated-PostgreSQL
+round-2 candidate `7739757a4855ee7bac34408941e94c25516d75f5`, tree
+`0398066e92fef65562526f61c9515b0ef3be0114`, passed exact-head CI `30177897059`, attempt 1,
+12/12. Round-3 candidate `bbcb1b59703ee866539b2bc384ec9db8c2643fe4`, tree
+`dfb5abbca1f2ddf603d191ae3303d1336f5440c7`, exact parent
+`7739757a4855ee7bac34408941e94c25516d75f5`, passed exact-head CI `30185670176`, attempt 1,
+12/12, but independent read-only review returned `CHANGES REQUIRED` with exactly two P1 and zero
+P0/P2/P3: the existing PostgreSQL 17.10 Homebrew canonical trust chain must accept root or exact
+same-EUID ownership under Option A with complete stable binding/revalidation, and initdb must
+retain its leader unreaped through its final possible group signal.
+The Human Architect preserved exact Option A—one exclusive trusted single-user operator session,
+with hostile/malicious same-UID processes and mount/unmount churn outside the threat model—and
+authorized exactly one additional focused ADO correction/review round beyond the three-round
+limit, limited to those findings. The current extra-round R0 draft grants no implementation or
+Human/hardware authority. Focused publication, successful exact-head CI and independent
+Exact-Delta `APPROVED` with zero open P0–P3 remain required before only the exact R3 scope may
+activate through the `AGENTS.md` standing rule.
 Current navigation:
 `ADO/02_Development/Development_Assignment_05_V5_Enablement_Authorization.md`,
 `ADO/02_Development/Development_Assignment_05_V5_Isolated_PostgreSQL_Correction_Authorization.md`,
@@ -416,8 +423,8 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Development Assignment 4 Professional Admin Web Productization — ADR-0015/DA4-P01–P12 Human-accepted; Workstreams A–D, AVS V0–V4 and H01 procedural correction independently approved; first Human V5 failed closed and no closure/new run is authorized | `ADO/02_Development/Development_Assignment_04_Professional_Admin_Web_Productization_Authorization.md` |
 | Development Assignment 4 V5 Enablement — local R3 V0–V4, exact-SHA implementation review and H01 ADO correction approved; new Human V5 remains separately exact-bound and unauthorized | `ADO/02_Development/Development_Assignment_04_V5_Enablement_Authorization.md` |
 | Development Assignment 5 Professional Mobile Productization — Workstreams A–F and AVS V0–V4 technically closed for the exact authorized local scope | `ADO/02_Development/Development_Assignment_05_Professional_Mobile_Productization_Authorization.md` |
-| Development Assignment 5 V5 Enablement — Shared-Cluster follow-up is BLOCKED/not Evidence; isolated-PostgreSQL round-2 `7739757`/tree `0398066`/CI `30177897059` 12/12 received `CHANGES REQUIRED` with five P1/one P2/one P3; Human Option A selected, but focused publication/exact-head CI/independent `APPROVED` remain pending and no implementation/Human V5 authority exists | `ADO/02_Development/Development_Assignment_05_V5_Enablement_Authorization.md` |
-| Development Assignment 5 V5 Isolated PostgreSQL Correction — one native Runtime Guard proposed for one-time R3 compilation/test/read-only Exact-SHA binding and compiler-free operation; round-2 `CHANGES REQUIRED`; Human selected Option A as an exclusive trusted single-user operator session with hostile/malicious same-UID processes and mount/unmount churn outside the threat model; focused publication/CI/review pending; no implementation/hardware authority | `ADO/02_Development/Development_Assignment_05_V5_Isolated_PostgreSQL_Correction_Authorization.md` |
+| Development Assignment 5 V5 Enablement — Shared-Cluster follow-up is BLOCKED/not Evidence; isolated-PostgreSQL round-3 `bbcb1b5`/tree `dfb5abb`/CI `30185670176` 12/12 received `CHANGES REQUIRED` with exactly two P1 and zero P0/P2/P3; Human preserved Option A and authorized one additional focused ADO correction/review round, but extra-round publication/exact-head CI/independent Exact-Delta `APPROVED` remain pending and no implementation/Human V5 authority exists | `ADO/02_Development/Development_Assignment_05_V5_Enablement_Authorization.md` |
+| Development Assignment 5 V5 Isolated PostgreSQL Correction — one native Runtime Guard proposed for one-time R3 compilation/test/read-only Exact-SHA binding and compiler-free operation; round-3 `bbcb1b5` review has exactly two P1 for root-or-same-EUID PostgreSQL canonical trust and non-reaping initdb-leader supervision; Human preserved exact Option A and authorized one extra focused ADO correction/review round; publication/CI/Exact-Delta review pending; no implementation/hardware authority | `ADO/02_Development/Development_Assignment_05_V5_Isolated_PostgreSQL_Correction_Authorization.md` |
 | Block C3 Organization Administration Implementation Plan | `ADO/02_Development/Block_C3_Organization_Administration_Implementation_Plan.md` |
 | Repository Health Sprint 001 | `ADO/02_Development/Repository_Health_Sprint_001.md` |
 | Repository Maintenance Sprint 002 | `ADO/02_Development/Repository_Maintenance_Sprint_002.md` |
@@ -438,7 +445,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Development Assignment 1 Gate-C Response-Drop Runbook | `ADO/04_Operations/Development_Assignment_01_Gate_C_Response_Drop_Runbook.md` |
 | Development Assignment 3 V5 Human Functional/Physical Gate Runbook — complete fresh run passed and final closure approved; permanently non-executable without new separate authority | `ADO/04_Operations/Development_Assignment_03_V5_Runbook.md` |
 | Development Assignment 4 V5 Human Browser Gate Runbook — first gate failed closed and authority is consumed; corrected checkpoint handshake independently approved, but execution requires new exact-bound Human authority | `ADO/04_Operations/Development_Assignment_04_V5_Runbook.md` |
-| Development Assignment 5 V5 Human Android Runbook — non-executable; Human Option A is selected, but the enablement round-3 correction still requires focused publication, exact-head CI and independent approval, followed by separate exact-bound hardware authority | `ADO/04_Operations/Development_Assignment_05_V5_Runbook.md` |
+| Development Assignment 5 V5 Human Android Runbook — non-executable; Human Option A is preserved and one extra focused ADO correction/review round is authorized, but the two-P1 extra-round correction still requires focused publication, exact-head CI and independent Exact-Delta approval, followed by separate exact-bound hardware authority | `ADO/04_Operations/Development_Assignment_05_V5_Runbook.md` |
 
 ## Evidence
 
@@ -501,7 +508,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Development Assignment 4 DA4-V5-H01 Human Browser Failure Evidence — first gate failed closed at the premature Tag-reassignment checkpoint; P2 operational/gate reliability, complete cleanup, authority consumed and new run unauthorized | `ADO/05_Evidence/Development_Assignment_04_DA4_V5_H01_Human_Browser_Failure_Evidence.md` |
 | Development Assignment 4 DA4-V5-H01 Correction Independent Exact-SHA Review — `APPROVED`, zero open P0–P3 review findings; historical P2 remains until a fresh successful gate/final review and no new run is authorized | `ADO/05_Evidence/Development_Assignment_04_DA4_V5_H01_Correction_Independent_Exact_SHA_Review.md` |
 | Development Assignment 5 Local Implementation Evidence — Workstreams A–F and AVS V0–V4 technically closed for the exact authorized local scope | `ADO/05_Evidence/Development_Assignment_05_Local_Implementation_Evidence.md` |
-| Development Assignment 5 V5 Evidence — read-only artifact/evidence approved; Shared-Cluster WIP BLOCKED/not Evidence; isolated-PostgreSQL round-2 `7739757` received `CHANGES REQUIRED`; Human Option A selected, while focused round-3 publication/exact-head CI/independent approval and all implementation/Human V5 authority remain pending | `ADO/05_Evidence/Development_Assignment_05_V5_Evidence.md` |
+| Development Assignment 5 V5 Evidence — read-only artifact/evidence approved; Shared-Cluster WIP BLOCKED/not Evidence; isolated-PostgreSQL round-3 `bbcb1b5` received `CHANGES REQUIRED` with exactly two P1/zero P0/P2/P3; Human preserved Option A and authorized one extra focused ADO correction/review round, while publication/exact-head CI/independent Exact-Delta approval and all implementation/Human V5 authority remain pending | `ADO/05_Evidence/Development_Assignment_05_V5_Evidence.md` |
 | Development Assignment 1 DA1-PHYS-01 Independent Exact-Delta Review — approved, finding closed | `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_01_Independent_Exact_Delta_Review.md` |
 | Development Assignment 1 DA1-PHYS-02 Independent Exact-Delta Review — approved, repository finding closed | `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_02_Independent_Exact_Delta_Review.md` |
 | Development Assignment 1 DA1-PHYS-03 Independent Exact-Delta Review — approved, repository finding closed | `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_03_Independent_Exact_Delta_Review.md` |

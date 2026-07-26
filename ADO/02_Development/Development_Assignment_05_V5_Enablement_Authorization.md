@@ -1,6 +1,6 @@
 # Development Assignment 5 — V5 Operational Enablement Authorization Candidate
 
-- Status: **READ-ONLY PRODUCT/ARTIFACT BINDINGS PRESERVED; ALL SHARED-CLUSTER FOLLOW-UP BLOCKED/NOT EVIDENCE; ISOLATED-POSTGRESQL ROUND-2 `7739757` REVIEWED `CHANGES REQUIRED` WITH EXACTLY FIVE P1, ONE P2 AND ONE P3; HUMAN OPTION A SELECTED; ROUND-3 ADO DRAFT STILL REQUIRES FOCUSED PUBLICATION, EXACT-HEAD CI AND INDEPENDENT `APPROVED`/NO IMPLEMENTATION AUTHORITY; HUMAN V5 UNAUTHORIZED**
+- Status: **READ-ONLY PRODUCT/ARTIFACT BINDINGS PRESERVED; ALL SHARED-CLUSTER FOLLOW-UP BLOCKED/NOT EVIDENCE; ISOLATED-POSTGRESQL ROUND-3 `bbcb1b5` REVIEWED `CHANGES REQUIRED` WITH EXACTLY TWO P1 AND ZERO P0/P2/P3; HUMAN OPTION A PRESERVED AND ONE ADDITIONAL FOCUSED ADO CORRECTION/REVIEW ROUND AUTHORIZED; CURRENT EXTRA-ROUND DRAFT STILL REQUIRES FOCUSED PUBLICATION, EXACT-HEAD CI AND INDEPENDENT EXACT-DELTA `APPROVED`/NO IMPLEMENTATION AUTHORITY; HUMAN V5 UNAUTHORIZED**
 - Date: 2026-07-26
 - Candidate baseline commit: `7fe725360935a5d9587e3dfbdb2789d8309342df`
 - Candidate baseline tree: `0abaa77443a2abf81fd815ec138776155188bfc0`
@@ -14,11 +14,18 @@
 - Isolated-PostgreSQL round-2 tree/parent: `0398066e92fef65562526f61c9515b0ef3be0114` /
   `72fbd3c20329dfbf3e8a1509025bd630b1bb130a`
 - Isolated-PostgreSQL round-2 Exact-Head CI: `30177897059`, attempt 1, 12/12
+- Isolated-PostgreSQL round-3 candidate: `bbcb1b59703ee866539b2bc384ec9db8c2643fe4`
+- Isolated-PostgreSQL round-3 tree/parent: `dfb5abbca1f2ddf603d191ae3303d1336f5440c7` /
+  `7739757a4855ee7bac34408941e94c25516d75f5`
+- Isolated-PostgreSQL round-3 Exact-Head CI: `30185670176`, attempt 1, 12/12
+- Isolated-PostgreSQL round-3 review: `CHANGES REQUIRED`, exactly two P1 and zero P0/P2/P3
+- Human extra-round authority: exactly one additional focused ADO correction/review round beyond
+  the three-round limit, limited to those two P1; no implementation/hardware authority
 - Human Same-UID cleanup-threat selection: **OPTION A — exclusive trusted single-user operator
   session; hostile/malicious same-UID processes and mount/unmount churn outside the threat model**
 - Owner: Technical Lead
 - Decision authority: Human Architect
-- Risk class: current ADO-only round-3 synchronization **R0**; proposed executable enablement
+- Risk class: current ADO-only extra-round synchronization **R0**; proposed executable enablement
   **R3** only after focused publication, exact-head CI and independent approval
 
 ## 1. Objective and verified gap
@@ -52,11 +59,13 @@ including exactly one native Runtime Guard source and exact TS wrapper/tests. Th
 selected Option A: one exclusive trusted single-user operator session, with hostile or malicious
 same-UID processes and mount/unmount churn outside the threat model.
 
-That selection resolves only the policy question and grants no implementation authority. Only
-after the seven-file synchronization is focused-published, bound to exact commit/tree and
-successful exact-head CI, and receives independent `APPROVED` with zero open P0–P3 may the
-`AGENTS.md` standing rule apply to the exact later correction scope. The broader historical
-enablement boundary remains:
+That selection resolves only the policy question and grants no implementation authority. The
+Human Architect additionally authorized exactly one focused ADO correction/review round beyond
+the three-round limit, limited to the two round-3 P1 findings; that exception also grants no
+implementation or hardware authority. Only after the seven-file extra-round synchronization is
+focused-published, bound to exact commit/tree and successful exact-head CI, and receives
+independent Exact-Delta `APPROVED` with zero open P0–P3 may the `AGENTS.md` standing rule apply to
+the exact later correction scope. The broader historical enablement boundary remains:
 
 - `apps/synthetic-android-e2e/src/**` for an explicit `da5-v5` profile, deterministic synthetic
   fixture, safe operator state machine, aggregate/status readers, bounded API-offline ownership,
@@ -247,17 +256,20 @@ inspection, diff, status, test-discovery and mutation command.
 
 ## 6. Change-Impact Record and Adaptive Verification Plan
 
-### Current ADO-only round-3 draft
+### Current ADO-only extra-round draft
 
 - Risk: AVS-001 R0.
-- Baseline: round-2 `7739757a4855ee7bac34408941e94c25516d75f5`, tree
-  `0398066e92fef65562526f61c9515b0ef3be0114`, parent `72fbd3c`, exact-head CI
-  `30177897059`, attempt 1, 12/12; review verdict `CHANGES REQUIRED`.
+- Baseline: round-3 `bbcb1b59703ee866539b2bc384ec9db8c2643fe4`, tree
+  `dfb5abbca1f2ddf603d191ae3303d1336f5440c7`, parent `7739757`, exact-head CI
+  `30185670176`, attempt 1, 12/12; review verdict `CHANGES REQUIRED` with exactly two P1 and zero
+  P0/P2/P3. Round-2 `7739757`/tree `0398066`/CI `30177897059` remains historical truth.
 - Changed boundary: exactly the seven ADO files enumerated by the isolated-PostgreSQL correction
   authorization; no executable/artifact input.
 - Required: V0 exact diff/file list, whitespace, references, authority/status and protected-path
   checks plus exact Option A truth: one exclusive trusted single-user operator session, with
-  hostile/malicious same-UID processes and mount/unmount churn outside the threat model.
+  hostile/malicious same-UID processes and mount/unmount churn outside the threat model; exact
+  Human authority for one additional focused correction/review round; root-or-exact-same-EUID
+  PostgreSQL 17.10 canonical-chain trust and non-reaping initdb leader handling.
 - Carried evidence: exact Product/artifact/CI/review bindings listed above; no Product test is
   claimed as freshly run.
 - V1–V5: not applicable/not authorized.
@@ -294,7 +306,8 @@ depth may not be reduced to save time or quota.
 Required sequence:
 
 ```text
-round-2 CHANGES REQUIRED truth + Human-selected Option A + round-3 ADO synchronization + V0
+round-3 CHANGES REQUIRED truth + Human-selected Option A + Human-authorized one extra ADO round
+  + two-P1 extra-round ADO synchronization + V0
   -> focused publication / exact candidate commit and tree binding
   -> successful exact-head CI
   -> independent read-only pre-implementation review
@@ -309,13 +322,15 @@ round-2 CHANGES REQUIRED truth + Human-selected Option A + round-3 ADO synchroni
   -> one fresh install and staged Human gate
 ```
 
-Option A is selected, but the current unbound synchronization has no independent approval and no
+Option A is selected and exactly one additional focused ADO correction/review round is
+Human-authorized, but the current unbound synchronization has no independent approval and no
 implementation authority. Focused publication, successful exact-head CI and independent
-`APPROVED` with zero open P0–P3 remain mandatory before only the exact R3 scope can activate under
-the `AGENTS.md` standing rule. No Human/hardware action is authorized by this candidate. The
-Technical Lead must tell the Human Architect explicitly **“Jetzt Handy anschließen”** only after
-every preceding arrow is complete and must provide one copy-ready exact-bound one-run
-authorization. Production, production data, deployment and distribution remain unauthorized.
+Exact-Delta `APPROVED` with zero open P0–P3 remain mandatory before only the exact R3 scope can
+activate under the `AGENTS.md` standing rule. No Human/hardware action is authorized by this
+candidate. The Technical Lead must tell the Human Architect explicitly **“Jetzt Handy
+anschließen”** only after every preceding arrow is complete and must provide one copy-ready
+exact-bound one-run authorization. Production, production data, deployment and distribution
+remain unauthorized.
 
 Before that handoff, the DA5 runbook/evidence must be synchronized to the exact reviewed Guard
 binary/manifest path, size, SHA-256, mode, architecture, load dependencies, toolchain/source/SDK/OS
@@ -423,3 +438,17 @@ session, with hostile/malicious same-UID processes and mount/unmount churn outsi
 model. The selection grants no independent `APPROVED` or implementation authority. Focused
 publication, successful exact-head CI and independent zero-finding approval remain pending; no
 installation, ADB, device/Tag or Human/hardware authority exists.
+
+Focused round-3 candidate `bbcb1b59703ee866539b2bc384ec9db8c2643fe4`, tree
+`dfb5abbca1f2ddf603d191ae3303d1336f5440c7`, exact parent
+`7739757a4855ee7bac34408941e94c25516d75f5`, passed exact-head CI `30185670176`, attempt 1,
+12/12. Independent read-only review returned `CHANGES REQUIRED` with exactly two P1 and zero
+P0/P2/P3: PostgreSQL 17.10 Homebrew binaries and their complete canonical ancestor chains must
+accept root or exact captured same-EUID ownership under Option A while rejecting writable/ACL-
+unsafe/unstable identities, and initdb must retain its leader unreaped through every possible
+negative-PGID signal. The Human Architect authorized exactly one additional focused ADO
+correction/review round beyond the three-round limit, limited to those two findings. The current
+extra-round draft supplies those contracts and their future positive/negative R3 test
+requirements without changing Option A, Product code, system/Homebrew state or Shared-Cluster
+status. It remains R0, unbound and not independently approved; no implementation, installation,
+ADB, device/Tag or Human/hardware authority exists.
