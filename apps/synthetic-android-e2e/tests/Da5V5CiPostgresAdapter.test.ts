@@ -1,5 +1,8 @@
+import { spawnSync } from 'node:child_process';
 import {
+  chmod,
   mkdtemp,
+  mkdir,
   readFile,
   realpath,
   rm,
@@ -135,6 +138,404 @@ describe('DA5 V5 exact CI PostgreSQL owner adapter', () => {
     expect(workflow).toContain('stat_fields[19]');
     expect(workflow).toContain('.Config.Labels["com.taptime.repository"]');
   });
+
+  it('binds final PostgreSQL readiness before system identity and cleans partial launch state',
+    async () => {
+      const workflow = await readFile(new URL(
+        '../../../.github/workflows/ci.yml',
+        import.meta.url,
+      ), 'utf8');
+      const startIndex = workflow.indexOf(
+        '- name: Start exact-owned loopback-only PostgreSQL 17',
+      );
+      const cleanupIndex = workflow.indexOf(
+        '- name: Stop exact-owned synthetic PostgreSQL',
+      );
+      const start = workflow.slice(
+        startIndex,
+        workflow.indexOf('- name: Set up Node.js', startIndex),
+      );
+      const cleanup = workflow.slice(cleanupIndex);
+      const dockerRun = start.indexOf('docker run --detach');
+      const launchRecord = start.indexOf(
+        '> "${owner_root}/launch.json.candidate"',
+      );
+      const boundedReadiness = start.indexOf(
+        'timeout --signal=KILL 30s bash -c',
+      );
+      const finalPidOne = start.indexOf(
+        'docker exec "${cid}" cat /proc/1/comm',
+      );
+      const ready = start.indexOf(
+        'docker exec "${cid}" pg_isready',
+      );
+      const systemIdentifier = start.indexOf(
+        "SELECT system_identifier FROM pg_catalog.pg_control_system()",
+      );
+      expect([
+        dockerRun,
+        launchRecord,
+        boundedReadiness,
+        finalPidOne,
+        ready,
+        systemIdentifier,
+      ].every((index) => index >= 0)).toBe(true);
+      expect([
+        dockerRun,
+        launchRecord,
+        boundedReadiness,
+        finalPidOne,
+        ready,
+        systemIdentifier,
+      ]).toEqual([
+        dockerRun,
+        launchRecord,
+        boundedReadiness,
+        finalPidOne,
+        ready,
+        systemIdentifier,
+      ].sort((left, right) => left - right));
+      expect(start).toContain('test "${pid_one_comm}" = "postgres"');
+      expect(start).toContain(
+        "'. + {innerSystemIdentifier: $innerSystemIdentifier}'",
+      );
+      expect(start).toContain(
+        "jq -Sc 'del(.innerSystemIdentifier)'",
+      );
+
+      const launchRequired = cleanup.indexOf(
+        'test -f "${owner_root}/launch.json"',
+      );
+      const optionalOwner = cleanup.indexOf(
+        'if test -f "${owner_root}/owner.json"; then',
+      );
+      const launchValidation = cleanup.indexOf(
+        "' \"${owner_root}/launch.json\" >/dev/null",
+      );
+      const liveInspections = [...cleanup.matchAll(
+        /docker inspect "\$\{cid\}" --format '\{\{json \.\}\}'/gu,
+      )].map(({ index }) => index);
+      const exactRemovals = [...cleanup.matchAll(
+        /docker rm --force "\$\{cid\}"/gu,
+      )].map(({ index }) => index);
+      expect([
+        launchRequired,
+        optionalOwner,
+        launchValidation,
+        ...liveInspections,
+        ...exactRemovals,
+      ].every((index) => index >= 0)).toBe(true);
+      expect(liveInspections).toHaveLength(2);
+      expect(exactRemovals).toHaveLength(2);
+      expect(launchRequired).toBeLessThan(liveInspections[0] as number);
+      expect(liveInspections[0]).toBeLessThan(exactRemovals[0] as number);
+      expect(exactRemovals[0]).toBeLessThan(launchValidation);
+      expect(launchValidation).toBeLessThan(optionalOwner);
+      expect(optionalOwner).toBeLessThan(liveInspections[1] as number);
+      expect(liveInspections[1]).toBeLessThan(exactRemovals[1] as number);
+      expect(cleanup).toContain(
+        "jq -Sc 'del(.innerSystemIdentifier)'",
+      );
+      expect(cleanup).toContain(
+        'image_id="$(jq -r \'.imageId\' "${owner_root}/launch.json")"',
+      );
+      expect(cleanup).toContain(
+        'test "$(jq -r \'.State.Status\' <<<"${inspect}")" = "exited"',
+      );
+      expect(cleanup).toContain(
+        'test "$(jq -r \'.State.Pid\' <<<"${inspect}")" = "0"',
+      );
+      expect(cleanup).toContain(
+        'test "${status}" = "created" || test "${status}" = "exited"',
+      );
+    });
+
+  it('removes only an exactly bound pre-launch container and rejects poisoned provenance',
+    async () => {
+      const workflow = await readFile(new URL(
+        '../../../.github/workflows/ci.yml',
+        import.meta.url,
+      ), 'utf8');
+      const stepStart = workflow.indexOf(
+        '- name: Stop exact-owned synthetic PostgreSQL',
+      );
+      const runStart = workflow.indexOf('        run: |\n', stepStart)
+        + '        run: |\n'.length;
+      const nextStep = workflow.indexOf('\n      - name:', runStart);
+      const cleanup = workflow
+        .slice(runStart, nextStep < 0 ? workflow.length : nextStep)
+        .replace(/^ {10}/gmu, '');
+      expect(stepStart).toBeGreaterThanOrEqual(0);
+      expect(runStart).toBeGreaterThan(stepStart);
+
+      const exactNonce = 'd'.repeat(64);
+      const scenarios = [
+        {
+          bindingNonce: exactNonce,
+          cidFile: 'valid',
+          containerStatus: 'created',
+          expectedRemoval: true,
+          expectedSuccess: true,
+          labelNonce: exactNonce,
+          name: 'created exact container',
+          residue: false,
+        },
+        {
+          bindingNonce: exactNonce,
+          cidFile: 'valid',
+          containerStatus: 'running',
+          expectedRemoval: true,
+          expectedSuccess: true,
+          labelNonce: exactNonce,
+          name: 'running exact container',
+          residue: false,
+        },
+        {
+          bindingNonce: 'invalid',
+          cidFile: 'valid',
+          containerStatus: 'running',
+          expectedRemoval: false,
+          expectedSuccess: false,
+          labelNonce: exactNonce,
+          name: 'poisoned binding',
+          residue: false,
+        },
+        {
+          bindingNonce: exactNonce,
+          cidFile: 'valid',
+          containerStatus: 'running',
+          expectedRemoval: false,
+          expectedSuccess: false,
+          labelNonce: 'e'.repeat(64),
+          name: 'poisoned label',
+          residue: false,
+        },
+        {
+          bindingNonce: exactNonce,
+          cidFile: 'valid',
+          containerStatus: 'absent',
+          expectedRemoval: false,
+          expectedSuccess: true,
+          labelNonce: exactNonce,
+          name: 'inspect absent without residue',
+          residue: false,
+        },
+        {
+          bindingNonce: exactNonce,
+          cidFile: 'valid',
+          containerStatus: 'absent',
+          expectedRemoval: false,
+          expectedSuccess: false,
+          labelNonce: exactNonce,
+          name: 'inspect absent with residue',
+          residue: true,
+        },
+        {
+          bindingNonce: exactNonce,
+          cidFile: 'missing',
+          containerStatus: 'absent',
+          expectedRemoval: false,
+          expectedSuccess: true,
+          labelNonce: exactNonce,
+          name: 'missing cid without residue',
+          residue: false,
+        },
+        {
+          bindingNonce: exactNonce,
+          cidFile: 'invalid',
+          containerStatus: 'absent',
+          expectedRemoval: false,
+          expectedSuccess: false,
+          labelNonce: exactNonce,
+          name: 'invalid cid with residue',
+          residue: true,
+        },
+      ] as const;
+
+      for (const scenario of scenarios) {
+        const root = await realpath(await mkdtemp(
+          join(tmpdir(), 'taptime-da5-ci-prelaunch-'),
+        ));
+        temporaryRoots.push(root);
+        const runnerTemp = join(root, 'runner');
+        const ownerRoot = join(runnerTemp, 'taptime-da5-v5-postgres');
+        const fakeBin = join(root, 'bin');
+        await mkdir(ownerRoot, { recursive: true, mode: 0o700 });
+        await mkdir(fakeBin, { mode: 0o700 });
+        const cid = 'a'.repeat(64);
+        const imageId = `sha256:${'b'.repeat(64)}`;
+        const imageDigest = `postgres@sha256:${'c'.repeat(64)}`;
+        const removalPath = join(root, 'removed');
+        const dockerLogPath = join(root, 'docker.log');
+        const dockerStatePath = join(root, 'docker.state');
+        const inspectPath = join(root, 'inspect.json');
+        if (scenario.cidFile !== 'missing') {
+          await writeFile(
+            join(ownerRoot, 'cid'),
+            scenario.cidFile === 'valid' ? `${cid}\n` : 'invalid\n',
+            { mode: 0o600 },
+          );
+        }
+        if (scenario.cidFile === 'valid') {
+          await writeFile(
+            join(ownerRoot, 'binding'),
+            `${scenario.bindingNonce}\n${imageDigest}\n`,
+            { mode: 0o600 },
+          );
+        }
+        await writeFile(
+          dockerStatePath,
+          `${scenario.containerStatus}\n`,
+          { mode: 0o600 },
+        );
+        const running = scenario.containerStatus === 'running';
+        await writeFile(inspectPath, JSON.stringify({
+          Config: {
+            Image: imageDigest,
+            Labels: {
+              'com.taptime.repository': 'taptime',
+              'com.taptime.run-id': '30220289648',
+              'com.taptime.run-attempt': '1',
+              'com.taptime.job': 'synthetic-android-e2e',
+              'com.taptime.nonce': scenario.labelNonce,
+            },
+          },
+          HostConfig: { RestartPolicy: { Name: 'no' } },
+          Id: cid,
+          Image: imageId,
+          State: {
+            Dead: false,
+            Paused: false,
+            Pid: running ? 4_321 : 0,
+            Restarting: false,
+            Running: running,
+            StartedAt: running
+              ? '2026-07-26T21:00:00.000000000Z'
+              : '0001-01-01T00:00:00Z',
+            Status: scenario.containerStatus,
+          },
+        }), { mode: 0o600 });
+        const dockerPath = join(fakeBin, 'docker');
+        await writeFile(dockerPath, [
+          '#!/bin/bash',
+          'set -euo pipefail',
+          'printf \'%s\\n\' "$*" >> "${FAKE_DOCKER_LOG}"',
+          'case "$1" in',
+          '  inspect)',
+          '    state="$(tr -d \'\\n\' < "${FAKE_DOCKER_STATE}")"',
+          '    if test "${state}" = "removed"; then',
+          '      test "$#" -eq 2',
+          '      test "$2" = "${FAKE_CID}"',
+          '      exit 1',
+          '    fi',
+          '    test "$#" -eq 4',
+          '    test "$2" = "${FAKE_CID}"',
+          '    test "$3" = "--format"',
+          '    test "$4" = "{{json .}}"',
+          '    test "${state}" != "absent" || exit 1',
+          '    cat "${FAKE_DOCKER_INSPECT}"',
+          '    ;;',
+          '  image)',
+          '    test "$#" -eq 5',
+          '    test "$2" = "inspect"',
+          '    test "$4" = "--format"',
+          '    if test "$3" = "${FAKE_IMAGE_DIGEST}"; then',
+          '      test "$5" = "{{.Id}}"',
+          '      printf \'%s\\n\' "${FAKE_IMAGE_ID}"',
+          '    elif test "$3" = "${FAKE_IMAGE_ID}"; then',
+          '      test "$5" = "{{range .RepoDigests}}{{println .}}{{end}}"',
+          '      printf \'%s\\n\' "${FAKE_IMAGE_DIGEST}"',
+          '    else',
+          '      exit 1',
+          '    fi',
+          '    ;;',
+          '  rm)',
+          '    test "$#" -eq 3',
+          '    test "$2" = "--force"',
+          '    test "$3" = "${FAKE_CID}"',
+          '    test "$(tr -d \'\\n\' < "${FAKE_DOCKER_STATE}")" != "absent"',
+          '    printf \'%s\\n\' "$3" > "${FAKE_DOCKER_REMOVAL}"',
+          '    printf \'removed\\n\' > "${FAKE_DOCKER_STATE}"',
+          '    printf \'%s\\n\' "$3"',
+          '    ;;',
+          '  ps)',
+          '    test "$2" = "--all"',
+          '    test "$3" = "--quiet"',
+          '    test "$4" = "--filter"',
+          '    test "$5" = "label=com.taptime.repository=taptime"',
+          '    test "$6" = "--filter"',
+          '    test "$7" = "label=com.taptime.run-id=30220289648"',
+          '    test "$8" = "--filter"',
+          '    test "$9" = "label=com.taptime.run-attempt=1"',
+          '    test "${10}" = "--filter"',
+          '    test "${11}" = "label=com.taptime.job=synthetic-android-e2e"',
+          '    if test "${FAKE_EXPECT_NONCE_FILTER}" = "true"; then',
+          '      test "$#" -eq 13',
+          '      test "${12}" = "--filter"',
+          '      test "${13}" = "label=com.taptime.nonce=${FAKE_NONCE}"',
+          '    else',
+          '      test "$#" -eq 11',
+          '    fi',
+          '    if test "${FAKE_RESIDUE}" = "true"; then',
+          '      printf \'%s\\n\' "${FAKE_CID}"',
+          '    fi',
+          '    ;;',
+          '  *) exit 2 ;;',
+          'esac',
+          '',
+        ].join('\n'), { mode: 0o700 });
+        await chmod(dockerPath, 0o700);
+        const result = spawnSync('/bin/bash', ['-c', cleanup], {
+          cwd: '/',
+          encoding: 'utf8',
+          env: {
+            ...process.env,
+            FAKE_CID: cid,
+            FAKE_DOCKER_INSPECT: inspectPath,
+            FAKE_DOCKER_LOG: dockerLogPath,
+            FAKE_DOCKER_REMOVAL: removalPath,
+            FAKE_DOCKER_STATE: dockerStatePath,
+            FAKE_EXPECT_NONCE_FILTER:
+              scenario.cidFile === 'valid' ? 'true' : 'false',
+            FAKE_IMAGE_DIGEST: imageDigest,
+            FAKE_IMAGE_ID: imageId,
+            FAKE_NONCE: exactNonce,
+            FAKE_RESIDUE: scenario.residue ? 'true' : 'false',
+            GITHUB_RUN_ATTEMPT: '1',
+            GITHUB_RUN_ID: '30220289648',
+            PATH: `${fakeBin}:${process.env.PATH ?? '/usr/bin:/bin'}`,
+            RUNNER_TEMP: runnerTemp,
+          },
+          shell: false,
+          timeout: 5_000,
+        });
+        const dockerLog = await readFile(dockerLogPath, 'utf8')
+          .catch(() => '');
+        if (scenario.expectedSuccess) {
+          expect(result.status, scenario.name).toBe(0);
+        } else {
+          expect(result.status, scenario.name).not.toBe(0);
+        }
+        if (scenario.expectedRemoval) {
+          expect((await readFile(removalPath, 'utf8')).trim()).toBe(cid);
+          expect(dockerLog).toContain(`rm --force ${cid}`);
+          expect(dockerLog).toContain(`inspect ${cid}`);
+          expect(dockerLog).toContain(
+            `image inspect ${imageDigest} --format {{.Id}}`,
+          );
+          expect(dockerLog).toContain(
+            `image inspect ${imageId} --format `
+              + '{{range .RepoDigests}}{{println .}}{{end}}',
+          );
+          expect(dockerLog).toContain(
+            `label=com.taptime.nonce=${exactNonce}`,
+          );
+        } else {
+          await expect(readFile(removalPath, 'utf8')).rejects.toThrow();
+          expect(dockerLog).not.toContain('rm --force');
+        }
+      }
+    });
 
   it('pins PostgreSQL 17 role grants and membership attestation options', async () => {
     const source = await readFile(new URL(

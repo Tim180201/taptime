@@ -829,30 +829,27 @@ jobs:
             -c listen_addresses=127.0.0.1
           cid="$(tr -d '\\n' < "${owner_root}/cid")"
           test "$(printf '%s' "${cid}" | wc -c | tr -d ' ')" = "64"
-          for attempt in {1..30}; do
-            if docker exec "${cid}" \
-              pg_isready -U postgres -d taptime_synthetic_android_e2e; then
-              break
-            fi
-            test "${attempt}" != "30"
-            sleep 1
-          done
-          started_at="$(docker inspect "${cid}" --format '{{.State.StartedAt}}')"
-          host_pid="$(docker inspect "${cid}" --format '{{.State.Pid}}')"
+          inspect="$(docker inspect "${cid}" --format '{{json .}}')"
+          test "$(jq -r '.Id' <<<"${inspect}")" = "${cid}"
+          test "$(jq -r '.Image' <<<"${inspect}")" = "${image_id}"
+          test "$(jq -r '.Config.Image' <<<"${inspect}")" = "${image_digest}"
+          test "$(jq -r '.Config.Labels | length' <<<"${inspect}")" = "5"
+          test "$(jq -r '.Config.Labels["com.taptime.repository"]' <<<"${inspect}")" = "taptime"
+          test "$(jq -r '.Config.Labels["com.taptime.run-id"]' <<<"${inspect}")" = "${GITHUB_RUN_ID}"
+          test "$(jq -r '.Config.Labels["com.taptime.run-attempt"]' <<<"${inspect}")" = "${GITHUB_RUN_ATTEMPT}"
+          test "$(jq -r '.Config.Labels["com.taptime.job"]' <<<"${inspect}")" = "synthetic-android-e2e"
+          test "$(jq -r '.Config.Labels["com.taptime.nonce"]' <<<"${inspect}")" = "${nonce}"
+          test "$(jq -r '.State.Running' <<<"${inspect}")" = "true"
+          started_at="$(jq -r '.State.StartedAt' <<<"${inspect}")"
+          host_pid="$(jq -r '.State.Pid' <<<"${inspect}")"
+          [[ "${host_pid}" =~ ^[1-9][0-9]*$ ]]
           host_process_start_ticks="$(read_linux_process_start_ticks "${host_pid}")"
-          inner_system_id="$(docker exec "${cid}" psql \
-            --username postgres \
-            --dbname taptime_synthetic_android_e2e \
-            --tuples-only --no-align \
-            --command 'SELECT system_identifier FROM pg_catalog.pg_control_system()')"
-          database_url="postgresql://postgres:${password}@127.0.0.1:5432/taptime_synthetic_android_e2e"
           jq -n \
             --arg containerId "${cid}" \
             --argjson hostInitPid "${host_pid}" \
             --arg hostProcessStartTicks "${host_process_start_ticks}" \
             --arg imageId "${image_id}" \
             --arg imageRepositoryDigest "${image_digest}" \
-            --arg innerSystemIdentifier "${inner_system_id}" \
             --arg startedAt "${started_at}" \
             --arg repository taptime \
             --arg runId "${GITHUB_RUN_ID}" \
@@ -865,7 +862,6 @@ jobs:
               hostProcessStartTicks: $hostProcessStartTicks,
               imageId: $imageId,
               imageRepositoryDigest: $imageRepositoryDigest,
-              innerSystemIdentifier: $innerSystemIdentifier,
               labels: {
                 "com.taptime.repository": $repository,
                 "com.taptime.run-id": $runId,
@@ -874,8 +870,40 @@ jobs:
                 "com.taptime.nonce": $nonce
               },
               startedAt: $startedAt
-            }' > "${owner_root}/owner.json"
-          chmod 600 "${owner_root}/owner.json"
+            }' > "${owner_root}/launch.json.candidate"
+          chmod 600 "${owner_root}/launch.json.candidate"
+          mv "${owner_root}/launch.json.candidate" "${owner_root}/launch.json"
+          timeout --signal=KILL 30s bash -c '
+            set -euo pipefail
+            cid="$1"
+            while true; do
+              pid_one_comm="$(
+                docker exec "${cid}" cat /proc/1/comm 2>/dev/null || true
+              )"
+              if test "${pid_one_comm}" = "postgres" \
+                && docker exec "${cid}" pg_isready \
+                  -U postgres -d taptime_synthetic_android_e2e; then
+                exit 0
+              fi
+              sleep 1
+            done
+          ' _ "${cid}"
+          inner_system_id="$(docker exec "${cid}" psql \
+            --username postgres \
+            --dbname taptime_synthetic_android_e2e \
+            --tuples-only --no-align \
+            --command 'SELECT system_identifier FROM pg_catalog.pg_control_system()')"
+          [[ "${inner_system_id}" =~ ^[1-9][0-9]{9,}$ ]]
+          database_url="postgresql://postgres:${password}@127.0.0.1:5432/taptime_synthetic_android_e2e"
+          jq \
+            --arg innerSystemIdentifier "${inner_system_id}" \
+            '. + {innerSystemIdentifier: $innerSystemIdentifier}' \
+            "${owner_root}/launch.json" > "${owner_root}/owner.json.candidate"
+          chmod 600 "${owner_root}/owner.json.candidate"
+          test "$(jq -Sc 'del(.innerSystemIdentifier)' \
+            "${owner_root}/owner.json.candidate")" = \
+            "$(jq -Sc '.' "${owner_root}/launch.json")"
+          mv "${owner_root}/owner.json.candidate" "${owner_root}/owner.json"
           printf 'database_url=%s\n' "${database_url}" >> "${GITHUB_OUTPUT}"
           printf 'owner_record=%s\n' "${owner_root}/owner.json" >> "${GITHUB_OUTPUT}"
 
@@ -953,14 +981,150 @@ jobs:
           fi
 
           cid="$(tr -d '\\n' < "${owner_root}/cid")"
-          test "$(printf '%s' "${cid}" | wc -c | tr -d ' ')" = "64"
+          if ! [[ "${cid}" =~ ^[a-f0-9]{64}$ ]]; then
+            residue="$(docker ps --all --quiet \
+              --filter label=com.taptime.repository=taptime \
+              --filter "label=com.taptime.run-id=${GITHUB_RUN_ID}" \
+              --filter "label=com.taptime.run-attempt=${GITHUB_RUN_ATTEMPT}" \
+              --filter label=com.taptime.job=synthetic-android-e2e)"
+            test -z "${residue}"
+            exit 0
+          fi
           test -f "${owner_root}/binding"
-          test -f "${owner_root}/owner.json"
           nonce="$(sed -n '1p' "${owner_root}/binding")"
           image_digest="$(sed -n '2p' "${owner_root}/binding")"
-          test "$(jq -r '.containerId' "${owner_root}/owner.json")" = "${cid}"
-          test "$(jq -r '.imageRepositoryDigest' "${owner_root}/owner.json")" = \
+          [[ "${nonce}" =~ ^[a-f0-9]{64}$ ]]
+          [[ "${image_digest}" =~ ^postgres@sha256:[a-f0-9]{64}$ ]]
+          if ! test -f "${owner_root}/launch.json"; then
+            if ! inspect="$(
+              docker inspect "${cid}" --format '{{json .}}' 2>/dev/null
+            )"; then
+              residue="$(docker ps --all --quiet \
+                --filter label=com.taptime.repository=taptime \
+                --filter "label=com.taptime.run-id=${GITHUB_RUN_ID}" \
+                --filter "label=com.taptime.run-attempt=${GITHUB_RUN_ATTEMPT}" \
+                --filter label=com.taptime.job=synthetic-android-e2e \
+                --filter "label=com.taptime.nonce=${nonce}")"
+              test -z "${residue}"
+              exit 0
+            fi
+            image_id="$(docker image inspect "${image_digest}" \
+              --format '{{.Id}}')"
+            [[ "${image_id}" =~ ^sha256:[a-f0-9]{64}$ ]]
+            test "$(jq -r '.Id' <<<"${inspect}")" = "${cid}"
+            test "$(jq -r '.Image' <<<"${inspect}")" = "${image_id}"
+            test "$(jq -r '.Config.Image' <<<"${inspect}")" = \
+              "${image_digest}"
+            test "$(jq -r '.Config.Labels | length' <<<"${inspect}")" = "5"
+            test "$(jq -r '.Config.Labels["com.taptime.repository"]' \
+              <<<"${inspect}")" = "taptime"
+            test "$(jq -r '.Config.Labels["com.taptime.run-id"]' \
+              <<<"${inspect}")" = "${GITHUB_RUN_ID}"
+            test "$(jq -r '.Config.Labels["com.taptime.run-attempt"]' \
+              <<<"${inspect}")" = "${GITHUB_RUN_ATTEMPT}"
+            test "$(jq -r '.Config.Labels["com.taptime.job"]' \
+              <<<"${inspect}")" = "synthetic-android-e2e"
+            test "$(jq -r '.Config.Labels["com.taptime.nonce"]' \
+              <<<"${inspect}")" = "${nonce}"
+            test "$(jq -r '.HostConfig.RestartPolicy.Name' \
+              <<<"${inspect}")" = "no"
+            test "$(jq -r '.State.Paused' <<<"${inspect}")" = "false"
+            test "$(jq -r '.State.Restarting' <<<"${inspect}")" = "false"
+            test "$(jq -r '.State.Dead' <<<"${inspect}")" = "false"
+            test "$(jq -r '.State.StartedAt | type == "string" and length > 0' \
+              <<<"${inspect}")" = "true"
+            running="$(jq -r '.State.Running' <<<"${inspect}")"
+            if test "${running}" = "true"; then
+              [[ "$(jq -r '.State.Pid' <<<"${inspect}")" =~ ^[1-9][0-9]*$ ]]
+              test "$(jq -r '.State.Status' <<<"${inspect}")" = "running"
+            else
+              test "${running}" = "false"
+              test "$(jq -r '.State.Pid' <<<"${inspect}")" = "0"
+              status="$(jq -r '.State.Status' <<<"${inspect}")"
+              test "${status}" = "created" || test "${status}" = "exited"
+            fi
+            inspected_digest="$(docker image inspect "${image_id}" \
+              --format '{{range .RepoDigests}}{{println .}}{{end}}' \
+              | awk -v expected="${image_digest}" \
+                '$0 == expected { print; exit }')"
+            test "${inspected_digest}" = "${image_digest}"
+
+            docker rm --force "${cid}"
+            if docker inspect "${cid}" >/dev/null 2>&1; then
+              exit 1
+            fi
+            residue="$(docker ps --all --quiet \
+              --filter label=com.taptime.repository=taptime \
+              --filter "label=com.taptime.run-id=${GITHUB_RUN_ID}" \
+              --filter "label=com.taptime.run-attempt=${GITHUB_RUN_ATTEMPT}" \
+              --filter label=com.taptime.job=synthetic-android-e2e \
+              --filter "label=com.taptime.nonce=${nonce}")"
+            test -z "${residue}"
+            exit 0
+          fi
+          jq -e '
+            type == "object"
+            and keys == [
+              "containerId",
+              "hostInitPid",
+              "hostProcessStartTicks",
+              "imageId",
+              "imageRepositoryDigest",
+              "labels",
+              "startedAt"
+            ]
+            and (.containerId | type == "string"
+              and test("^[a-f0-9]{64}$"))
+            and (.hostInitPid | type == "number" and . > 1)
+            and (.hostProcessStartTicks | type == "string"
+              and test("^[1-9][0-9]*$"))
+            and (.imageId | type == "string"
+              and test("^sha256:[a-f0-9]{64}$"))
+            and (.imageRepositoryDigest | type == "string"
+              and test("^postgres@sha256:[a-f0-9]{64}$"))
+            and (.startedAt | type == "string" and length > 0)
+            and (.labels | type == "object"
+              and keys == [
+                "com.taptime.job",
+                "com.taptime.nonce",
+                "com.taptime.repository",
+                "com.taptime.run-attempt",
+                "com.taptime.run-id"
+              ])
+          ' "${owner_root}/launch.json" >/dev/null
+          test "$(jq -r '.containerId' "${owner_root}/launch.json")" = "${cid}"
+          test "$(jq -r '.imageRepositoryDigest' "${owner_root}/launch.json")" = \
             "${image_digest}"
+          test "$(jq -r '.labels["com.taptime.repository"]' \
+            "${owner_root}/launch.json")" = "taptime"
+          test "$(jq -r '.labels["com.taptime.run-id"]' \
+            "${owner_root}/launch.json")" = "${GITHUB_RUN_ID}"
+          test "$(jq -r '.labels["com.taptime.run-attempt"]' \
+            "${owner_root}/launch.json")" = "${GITHUB_RUN_ATTEMPT}"
+          test "$(jq -r '.labels["com.taptime.job"]' \
+            "${owner_root}/launch.json")" = "synthetic-android-e2e"
+          test "$(jq -r '.labels["com.taptime.nonce"]' \
+            "${owner_root}/launch.json")" = "${nonce}"
+          if test -f "${owner_root}/owner.json"; then
+            jq -e '
+              type == "object"
+              and keys == [
+                "containerId",
+                "hostInitPid",
+                "hostProcessStartTicks",
+                "imageId",
+                "imageRepositoryDigest",
+                "innerSystemIdentifier",
+                "labels",
+                "startedAt"
+              ]
+              and (.innerSystemIdentifier | type == "string"
+                and test("^[1-9][0-9]{9,}$"))
+            ' "${owner_root}/owner.json" >/dev/null
+            test "$(jq -Sc 'del(.innerSystemIdentifier)' \
+              "${owner_root}/owner.json")" = \
+              "$(jq -Sc '.' "${owner_root}/launch.json")"
+          fi
           if ! inspect="$(docker inspect "${cid}" --format '{{json .}}' 2>/dev/null)"; then
             residue="$(docker ps --all --quiet \
               --filter label=com.taptime.repository=taptime \
@@ -971,7 +1135,7 @@ jobs:
             test -z "${residue}"
             exit 0
           fi
-          image_id="$(jq -r '.imageId' "${owner_root}/owner.json")"
+          image_id="$(jq -r '.imageId' "${owner_root}/launch.json")"
           test "$(jq -r '.Id' <<<"${inspect}")" = "${cid}"
           test "$(jq -r '.Image' <<<"${inspect}")" = "${image_id}"
           test "$(jq -r '.Config.Image' <<<"${inspect}")" = "${image_digest}"
@@ -981,13 +1145,23 @@ jobs:
           test "$(jq -r '.Config.Labels["com.taptime.run-attempt"]' <<<"${inspect}")" = "${GITHUB_RUN_ATTEMPT}"
           test "$(jq -r '.Config.Labels["com.taptime.job"]' <<<"${inspect}")" = "synthetic-android-e2e"
           test "$(jq -r '.Config.Labels["com.taptime.nonce"]' <<<"${inspect}")" = "${nonce}"
-          test "$(jq -r '.labels["com.taptime.nonce"]' "${owner_root}/owner.json")" = "${nonce}"
-          test "$(jq -r '.startedAt' "${owner_root}/owner.json")" = \
+          test "$(jq -r '.startedAt' "${owner_root}/launch.json")" = \
             "$(jq -r '.State.StartedAt' <<<"${inspect}")"
-          host_pid="$(jq -r '.hostInitPid' "${owner_root}/owner.json")"
-          test "${host_pid}" = "$(jq -r '.State.Pid' <<<"${inspect}")"
-          test "$(read_linux_process_start_ticks "${host_pid}")" = \
-            "$(jq -r '.hostProcessStartTicks' "${owner_root}/owner.json")"
+          test "$(jq -r '.State.Paused' <<<"${inspect}")" = "false"
+          test "$(jq -r '.State.Restarting' <<<"${inspect}")" = "false"
+          test "$(jq -r '.State.Dead' <<<"${inspect}")" = "false"
+          host_pid="$(jq -r '.hostInitPid' "${owner_root}/launch.json")"
+          running="$(jq -r '.State.Running' <<<"${inspect}")"
+          if test "${running}" = "true"; then
+            test "${host_pid}" = "$(jq -r '.State.Pid' <<<"${inspect}")"
+            test "$(read_linux_process_start_ticks "${host_pid}")" = \
+              "$(jq -r '.hostProcessStartTicks' \
+                "${owner_root}/launch.json")"
+          else
+            test "${running}" = "false"
+            test "$(jq -r '.State.Status' <<<"${inspect}")" = "exited"
+            test "$(jq -r '.State.Pid' <<<"${inspect}")" = "0"
+          fi
           inspected_digest="$(docker image inspect "${image_id}" \
             --format '{{range .RepoDigests}}{{println .}}{{end}}' \
             | awk -v expected="${image_digest}" '$0 == expected { print; exit }')"
