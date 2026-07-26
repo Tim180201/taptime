@@ -771,33 +771,96 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
-    env:
-      TAPTIME_SYNTHETIC_E2E_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/taptime_synthetic_android_e2e
-
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
         with:
           persist-credentials: false
 
-      - name: Start loopback-only PostgreSQL 17
+      - name: Start exact-owned loopback-only PostgreSQL 17
+        id: postgres_owner
         run: |
-          docker run --detach --rm \
-            --name taptime-synthetic-android-e2e-postgres \
+          set -euo pipefail
+          owner_root="${RUNNER_TEMP}/taptime-da5-v5-postgres"
+          install -d -m 700 "${owner_root}"
+          nonce="$(openssl rand -hex 32)"
+          password="$(openssl rand -hex 32)"
+          name="taptime-da5-v5-synthetic-android-e2e-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${nonce}"
+          echo "::add-mask::${password}"
+          docker pull postgres:17.10-alpine
+          image_id="$(docker image inspect postgres:17.10-alpine --format '{{.Id}}')"
+          image_digest="$(docker image inspect postgres:17.10-alpine \
+            --format '{{range .RepoDigests}}{{println .}}{{end}}' \
+            | awk '/^postgres@sha256:[a-f0-9]{64}$/ { print; exit }')"
+          test "${image_id}" != ""
+          test "${image_digest}" != ""
+          printf '%s\n%s\n' "${nonce}" "${image_digest}" > "${owner_root}/binding"
+          chmod 600 "${owner_root}/binding"
+          docker run --detach \
+            --cidfile "${owner_root}/cid" \
+            --name "${name}" \
             --network host \
             --env POSTGRES_DB=taptime_synthetic_android_e2e \
-            --env POSTGRES_PASSWORD=postgres \
+            --env "POSTGRES_PASSWORD=${password}" \
             --env POSTGRES_USER=postgres \
-            postgres:17.10-alpine \
+            --label com.taptime.repository=taptime \
+            --label "com.taptime.run-id=${GITHUB_RUN_ID}" \
+            --label "com.taptime.run-attempt=${GITHUB_RUN_ATTEMPT}" \
+            --label com.taptime.job=synthetic-android-e2e \
+            --label "com.taptime.nonce=${nonce}" \
+            "${image_digest}" \
             -c listen_addresses=127.0.0.1
+          cid="$(tr -d '\\n' < "${owner_root}/cid")"
+          test "$(printf '%s' "${cid}" | wc -c | tr -d ' ')" = "64"
           for attempt in {1..30}; do
-            if docker exec taptime-synthetic-android-e2e-postgres \
+            if docker exec "${cid}" \
               pg_isready -U postgres -d taptime_synthetic_android_e2e; then
-              exit 0
+              break
             fi
+            test "${attempt}" != "30"
             sleep 1
           done
-          exit 1
+          started_at="$(docker inspect "${cid}" --format '{{.State.StartedAt}}')"
+          host_pid="$(docker inspect "${cid}" --format '{{.State.Pid}}')"
+          host_process_start="$(tr -d '\\n' < "/proc/${host_pid}/stat")"
+          inner_system_id="$(docker exec "${cid}" psql \
+            --username postgres \
+            --dbname taptime_synthetic_android_e2e \
+            --tuples-only --no-align \
+            --command 'SELECT system_identifier FROM pg_catalog.pg_control_system()')"
+          database_url="postgresql://postgres:${password}@127.0.0.1:5432/taptime_synthetic_android_e2e"
+          jq -n \
+            --arg containerId "${cid}" \
+            --argjson hostInitPid "${host_pid}" \
+            --arg hostProcessStart "${host_process_start}" \
+            --arg imageId "${image_id}" \
+            --arg imageRepositoryDigest "${image_digest}" \
+            --arg innerSystemIdentifier "${inner_system_id}" \
+            --arg startedAt "${started_at}" \
+            --arg repository taptime \
+            --arg runId "${GITHUB_RUN_ID}" \
+            --arg runAttempt "${GITHUB_RUN_ATTEMPT}" \
+            --arg job synthetic-android-e2e \
+            --arg nonce "${nonce}" \
+            '{
+              containerId: $containerId,
+              hostInitPid: $hostInitPid,
+              hostProcessStart: $hostProcessStart,
+              imageId: $imageId,
+              imageRepositoryDigest: $imageRepositoryDigest,
+              innerSystemIdentifier: $innerSystemIdentifier,
+              labels: {
+                "com.taptime.repository": $repository,
+                "com.taptime.run-id": $runId,
+                "com.taptime.run-attempt": $runAttempt,
+                "com.taptime.job": $job,
+                "com.taptime.nonce": $nonce
+              },
+              startedAt: $startedAt
+            }' > "${owner_root}/owner.json"
+          chmod 600 "${owner_root}/owner.json"
+          printf 'database_url=%s\n' "${database_url}" >> "${GITHUB_OUTPUT}"
+          printf 'owner_record=%s\n' "${owner_root}/owner.json" >> "${GITHUB_OUTPUT}"
 
       - name: Set up Node.js
         uses: actions/setup-node@v6
@@ -832,11 +895,78 @@ jobs:
         run: npm run typecheck --workspace=@taptime/synthetic-android-e2e
 
       - name: Test synthetic Android E2E harness against clean PostgreSQL 17
+        env:
+          TAPTIME_DA5_V5_CI_OWNER_RECORD: ${{ steps.postgres_owner.outputs.owner_record }}
+          TAPTIME_SYNTHETIC_E2E_DATABASE_URL: ${{ steps.postgres_owner.outputs.database_url }}
         run: npm test --workspace=@taptime/synthetic-android-e2e
 
       - name: Build synthetic Android E2E harness
         run: npm run build --workspace=@taptime/synthetic-android-e2e
 
-      - name: Stop synthetic PostgreSQL
+      - name: Stop exact-owned synthetic PostgreSQL
         if: always()
-        run: docker rm --force taptime-synthetic-android-e2e-postgres || true
+        run: |
+          set -euo pipefail
+          owner_root="${RUNNER_TEMP}/taptime-da5-v5-postgres"
+          if ! test -f "${owner_root}/cid"; then
+            residue="$(docker ps --all --quiet \
+              --filter label=com.taptime.repository=taptime \
+              --filter "label=com.taptime.run-id=${GITHUB_RUN_ID}" \
+              --filter "label=com.taptime.run-attempt=${GITHUB_RUN_ATTEMPT}" \
+              --filter label=com.taptime.job=synthetic-android-e2e)"
+            test -z "${residue}"
+            exit 0
+          fi
+
+          cid="$(tr -d '\\n' < "${owner_root}/cid")"
+          test "$(printf '%s' "${cid}" | wc -c | tr -d ' ')" = "64"
+          test -f "${owner_root}/binding"
+          test -f "${owner_root}/owner.json"
+          nonce="$(sed -n '1p' "${owner_root}/binding")"
+          image_digest="$(sed -n '2p' "${owner_root}/binding")"
+          test "$(jq -r '.containerId' "${owner_root}/owner.json")" = "${cid}"
+          test "$(jq -r '.imageRepositoryDigest' "${owner_root}/owner.json")" = \
+            "${image_digest}"
+          if ! inspect="$(docker inspect "${cid}" --format '{{json .}}' 2>/dev/null)"; then
+            residue="$(docker ps --all --quiet \
+              --filter label=com.taptime.repository=taptime \
+              --filter "label=com.taptime.run-id=${GITHUB_RUN_ID}" \
+              --filter "label=com.taptime.run-attempt=${GITHUB_RUN_ATTEMPT}" \
+              --filter label=com.taptime.job=synthetic-android-e2e \
+              --filter "label=com.taptime.nonce=${nonce}")"
+            test -z "${residue}"
+            exit 0
+          fi
+          image_id="$(jq -r '.imageId' "${owner_root}/owner.json")"
+          test "$(jq -r '.Id' <<<"${inspect}")" = "${cid}"
+          test "$(jq -r '.Image' <<<"${inspect}")" = "${image_id}"
+          test "$(jq -r '.Config.Image' <<<"${inspect}")" = "${image_digest}"
+          test "$(jq -r '.Config.Labels | length' <<<"${inspect}")" = "5"
+          test "$(jq -r '.Config.Labels[\"com.taptime.repository\"]' <<<"${inspect}")" = "taptime"
+          test "$(jq -r '.Config.Labels[\"com.taptime.run-id\"]' <<<"${inspect}")" = "${GITHUB_RUN_ID}"
+          test "$(jq -r '.Config.Labels[\"com.taptime.run-attempt\"]' <<<"${inspect}")" = "${GITHUB_RUN_ATTEMPT}"
+          test "$(jq -r '.Config.Labels[\"com.taptime.job\"]' <<<"${inspect}")" = "synthetic-android-e2e"
+          test "$(jq -r '.Config.Labels[\"com.taptime.nonce\"]' <<<"${inspect}")" = "${nonce}"
+          test "$(jq -r '.labels[\"com.taptime.nonce\"]' "${owner_root}/owner.json")" = "${nonce}"
+          test "$(jq -r '.startedAt' "${owner_root}/owner.json")" = \
+            "$(jq -r '.State.StartedAt' <<<"${inspect}")"
+          host_pid="$(jq -r '.hostInitPid' "${owner_root}/owner.json")"
+          test "${host_pid}" = "$(jq -r '.State.Pid' <<<"${inspect}")"
+          test "$(tr -d '\\n' < "/proc/${host_pid}/stat")" = \
+            "$(jq -r '.hostProcessStart' "${owner_root}/owner.json")"
+          inspected_digest="$(docker image inspect "${image_id}" \
+            --format '{{range .RepoDigests}}{{println .}}{{end}}' \
+            | awk -v expected="${image_digest}" '$0 == expected { print; exit }')"
+          test "${inspected_digest}" = "${image_digest}"
+
+          docker rm --force "${cid}"
+          if docker inspect "${cid}" >/dev/null 2>&1; then
+            exit 1
+          fi
+          residue="$(docker ps --all --quiet \
+            --filter label=com.taptime.repository=taptime \
+            --filter "label=com.taptime.run-id=${GITHUB_RUN_ID}" \
+            --filter "label=com.taptime.run-attempt=${GITHUB_RUN_ATTEMPT}" \
+            --filter label=com.taptime.job=synthetic-android-e2e \
+            --filter "label=com.taptime.nonce=${nonce}")"
+          test -z "${residue}"

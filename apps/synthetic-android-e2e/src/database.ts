@@ -16,6 +16,12 @@ import {
 import { seedDa4V5Fixture } from './Da4V5Database.js';
 import { DA4_V5_PROFILE } from './Da4V5Profile.js';
 import { seedDa5V5Fixture } from './Da5V5Database.js';
+import {
+  consumeDa5V5PostgresCapability,
+  type Da5V5PostgresCapability,
+  type Da5V5PostgresOwnerBackend,
+  type Da5V5PostgresProvisioningAuthority,
+} from './Da5V5PostgresCapability.js';
 import { DA5_V5_PROFILE, DA5_V5_PUBLIC_MANIFEST } from './Da5V5Profile.js';
 
 const applicationRoles = [
@@ -106,11 +112,6 @@ const da5V5RuntimeRoleGraph = Object.freeze({
     'taptime_project_administrator',
   ],
 } as const);
-const activeDatabaseOwnerships = new WeakMap<
-  SyntheticDatabaseOwnership,
-  { cleanupEnabled: boolean; pool: Pool }
->();
-
 export interface Da5V5DatabaseConnections {
   readonly manualLifecycle: string;
   readonly mobileOwnTime: string;
@@ -123,9 +124,16 @@ export interface SyntheticDatabaseRuntime {
   readonly da5V5ConnectionStrings?: Da5V5DatabaseConnections;
 }
 
-export interface SyntheticDatabaseOwnership {
-  cleanup(profile?: typeof DA4_V5_PROFILE | typeof DA5_V5_PROFILE): Promise<void>;
-  release(): Promise<void>;
+export interface Da5V5PreparedDatabase {
+  readonly fixturePool: Pool;
+  readonly runtimePools: Readonly<Record<
+    Exclude<keyof typeof runtimeLogins, 'provisioner'>,
+    Pool
+  >>;
+  readonly da5V5RuntimePools: Readonly<Record<
+    keyof typeof da5V5RuntimeLogins,
+    Pool
+  >>;
 }
 
 export interface SyntheticEvidenceCounts {
@@ -187,27 +195,132 @@ export async function prepareSyntheticDatabase(
   installerPool: Pool,
   installerDatabaseUrl: string,
   issuer: string,
-  profile?: typeof DA4_V5_PROFILE | typeof DA5_V5_PROFILE,
-  ownership?: SyntheticDatabaseOwnership,
+  profile?: typeof DA4_V5_PROFILE,
 ): Promise<SyntheticDatabaseRuntime> {
   validateSyntheticInstallerDatabaseUrl(installerDatabaseUrl);
   await assertInstallerConnection(installerPool);
-  if (profile === DA5_V5_PROFILE) {
-    const activeOwnership = ownership === undefined
-      ? undefined
-      : activeDatabaseOwnerships.get(ownership);
-    if (
-      activeOwnership === undefined
-      || activeOwnership.pool !== installerPool
-    ) {
-      throw new Error('DA5 V5 database preparation requires active exclusive ownership');
-    }
-    await removeLegacyDa5V5Provisioner(installerPool);
-    activeOwnership.cleanupEnabled = true;
-  }
+  return prepareSyntheticDatabaseWithInstaller(
+    installerPool,
+    installerDatabaseUrl,
+    issuer,
+    profile,
+  );
+}
 
-  await installerPool.query(`DROP SCHEMA IF EXISTS ${B3_SCHEMA} CASCADE`);
-  await installerPool.query(`DROP TABLE IF EXISTS ${B3_MIGRATION_TABLE}`);
+export async function prepareDa5V5SyntheticDatabase(
+  capability: Da5V5PostgresCapability,
+  issuer: string,
+  expectedSource: Da5V5PostgresOwnerBackend['source'],
+): Promise<Da5V5PreparedDatabase> {
+  return consumeDa5V5PostgresCapability(capability, async (authority) => {
+    if (
+      authority.attestation.database !== SYNTHETIC_DATABASE_NAME
+      || authority.attestation.host !== '127.0.0.1'
+      || authority.attestation.serverVersionNumber !== 170_010
+      || authority.source !== expectedSource
+      || (
+        expectedSource === 'isolated-runtime-guard'
+        && (
+          authority.attestation.port !== 55_435
+          || authority.attestation.role !== 'taptime_da5_v5_installer'
+        )
+      )
+      || (
+        expectedSource === 'ci-test-adapter'
+        && (
+          authority.attestation.port !== 5_432
+          || authority.attestation.role !== 'postgres'
+        )
+      )
+    ) {
+      throw new Error('DA5 V5 PostgreSQL capability attestation mismatch');
+    }
+    const fixtureOperations = await authority.withInstaller(
+      async (installerOperations) => {
+        const installerPool = installerOperations as unknown as Pool;
+        await assertInstallerConnection(installerPool);
+        const migration = await applyMigrationSet(
+          installerPool,
+          await loadMigrations(migrationDirectory),
+        );
+        if (
+          migration.applied.join(',')
+          !== '001,002,003,004,005,006,007,008,009,010,011,012,013'
+        ) {
+          throw new Error(
+            'Synthetic E2E requires a clean migration set 001 through 013',
+          );
+        }
+        await normalizeApplicationRoles(installerPool, DA5_V5_PROFILE);
+        await seedSyntheticTenant(installerPool, issuer, DA5_V5_PROFILE);
+        await seedDa5V5Fixture(installerPool);
+        return installerOperations;
+      },
+    );
+    await authority.reattest('after-migrations');
+
+    const runtimePools = await provisionDa5V5RuntimePools(authority);
+    const da5V5Pools = await provisionDa5V5SpecificRuntimePools(authority);
+    await authority.reattest('after-role-provisioning');
+    await authority.reattest('before-product-listeners');
+    return Object.freeze({
+      da5V5RuntimePools: Object.freeze(da5V5Pools),
+      fixturePool: fixtureOperations as unknown as Pool,
+      runtimePools: Object.freeze(runtimePools),
+    });
+  });
+}
+
+async function provisionDa5V5RuntimePools(
+  authority: Da5V5PostgresProvisioningAuthority,
+): Promise<Record<Exclude<keyof typeof runtimeLogins, 'provisioner'>, Pool>> {
+  const entries = Object.entries(runtimeRoleGraph)
+    .filter(([login]) => login !== runtimeLogins.provisioner);
+  const pools = Object.create(null) as Record<
+    Exclude<keyof typeof runtimeLogins, 'provisioner'>,
+    Pool
+  >;
+  for (const [login, roles] of entries) {
+    const key = loginKey(login);
+    if (key === 'provisioner') {
+      throw new Error('DA5 V5 provisioner login is forbidden');
+    }
+    pools[key] = await authority.provisionRuntimePool({
+      login,
+      max: 4,
+      roles,
+    }) as unknown as Pool;
+  }
+  return pools;
+}
+
+async function provisionDa5V5SpecificRuntimePools(
+  authority: Da5V5PostgresProvisioningAuthority,
+): Promise<Record<keyof typeof da5V5RuntimeLogins, Pool>> {
+  const pools = Object.create(null) as Record<
+    keyof typeof da5V5RuntimeLogins,
+    Pool
+  >;
+  for (const [login, roles] of Object.entries(da5V5RuntimeRoleGraph)) {
+    pools[da5V5LoginKey(login)] = await authority.provisionRuntimePool({
+      login,
+      max: 4,
+      roles,
+    }) as unknown as Pool;
+  }
+  return pools;
+}
+
+async function prepareSyntheticDatabaseWithInstaller(
+  installerPool: Pool,
+  installerDatabaseUrl: string,
+  issuer: string,
+  profile?: typeof DA4_V5_PROFILE | typeof DA5_V5_PROFILE,
+): Promise<SyntheticDatabaseRuntime> {
+  if (profile !== DA5_V5_PROFILE) {
+    await installerPool.query(`DROP SCHEMA IF EXISTS ${B3_SCHEMA} CASCADE`);
+    await installerPool.query(`DROP TABLE IF EXISTS ${B3_MIGRATION_TABLE}`);
+  }
   const migration = await applyMigrationSet(
     installerPool,
     await loadMigrations(migrationDirectory),
@@ -458,98 +571,14 @@ export async function readSyntheticTimeReviewEvidenceCounts(
 
 export async function cleanSyntheticDatabase(
   pool: Pick<Pool, 'query'>,
-  profile?: typeof DA4_V5_PROFILE | typeof DA5_V5_PROFILE,
+  profile?: typeof DA4_V5_PROFILE,
 ): Promise<void> {
-  if (profile === DA5_V5_PROFILE) {
-    await assertInstallerConnection(pool);
-  }
+  void profile;
   await pool.query(`DROP SCHEMA IF EXISTS ${B3_SCHEMA} CASCADE`);
   await pool.query(`DROP TABLE IF EXISTS ${B3_MIGRATION_TABLE}`);
-  const runtimeLoginCleanup = profile === DA5_V5_PROFILE
-    ? Object.values(runtimeLogins).filter((login) => login !== runtimeLogins.provisioner)
-    : Object.values(runtimeLogins);
-  for (const login of runtimeLoginCleanup) {
+  for (const login of Object.values(runtimeLogins)) {
     await pool.query(`DROP ROLE IF EXISTS ${login}`);
   }
-  if (profile === DA5_V5_PROFILE) {
-    for (const login of Object.values(da5V5RuntimeLogins)) {
-      await pool.query(`DROP ROLE IF EXISTS ${login}`);
-    }
-  }
-}
-
-export async function acquireSyntheticDatabaseOwnership(
-  pool: Pool,
-): Promise<SyntheticDatabaseOwnership> {
-  const client = await pool.connect();
-  let acquired = false;
-  let released = false;
-  try {
-    await assertInstallerConnection(client);
-    const lock = await client.query<{ acquired: boolean }>(
-      `SELECT pg_catalog.pg_try_advisory_lock(
-         pg_catalog.hashtextextended(
-           pg_catalog.current_database() || ':taptime-synthetic-e2e-owner',
-           0
-         )
-       ) AS acquired`,
-    );
-    if (lock.rows[0]?.acquired !== true) {
-      throw new Error('Synthetic E2E database is already owned by another harness');
-    }
-    acquired = true;
-  } catch (error) {
-    client.release();
-    throw error;
-  }
-  let ownership: SyntheticDatabaseOwnership;
-  ownership = {
-    cleanup: (profile?: typeof DA4_V5_PROFILE | typeof DA5_V5_PROFILE) => {
-      const activeOwnership = activeDatabaseOwnerships.get(ownership);
-      if (
-        released
-        || !acquired
-        || activeOwnership === undefined
-        || activeOwnership.pool !== pool
-      ) {
-        return Promise.reject(new Error('Synthetic E2E database ownership is unavailable'));
-      }
-      if (!activeOwnership.cleanupEnabled) {
-        return Promise.resolve();
-      }
-      return cleanSyntheticDatabase(client, profile);
-    },
-    async release(): Promise<void> {
-      if (released) {
-        return;
-      }
-      released = true;
-      activeDatabaseOwnerships.delete(ownership);
-      try {
-        if (acquired) {
-          const unlock = await client.query<{ released: boolean }>(
-            `SELECT pg_catalog.pg_advisory_unlock(
-               pg_catalog.hashtextextended(
-                 pg_catalog.current_database() || ':taptime-synthetic-e2e-owner',
-                 0
-               )
-             ) AS released`,
-          );
-          if (unlock.rows[0]?.released !== true) {
-            throw new Error('Synthetic E2E database ownership release failed');
-          }
-          acquired = false;
-        }
-      } finally {
-        client.release();
-      }
-    },
-  };
-  activeDatabaseOwnerships.set(ownership, {
-    cleanupEnabled: false,
-    pool,
-  });
-  return Object.freeze(ownership);
 }
 
 export async function parentRoles(pool: Pool, memberName: string): Promise<readonly string[]> {
@@ -588,240 +617,6 @@ async function assertInstallerConnection(
   ) {
     throw new Error('Synthetic E2E installer connection failed the local disposable database guard');
   }
-}
-
-async function removeLegacyDa5V5Provisioner(pool: Pool): Promise<void> {
-  const legacyLogin = runtimeLogins.provisioner;
-  const client = await pool.connect();
-  let transactionOpen = false;
-  try {
-    await client.query('BEGIN');
-    transactionOpen = true;
-    const existing = await client.query<{ present: boolean }>(
-      `SELECT pg_catalog.to_regrole($1) IS NOT NULL AS present`,
-      [legacyLogin],
-    );
-    if (existing.rows[0]?.present !== true) {
-      await client.query('COMMIT');
-      transactionOpen = false;
-      return;
-    }
-
-    const installerAuthority = await client.query<{ rolsuper: boolean }>(
-      `SELECT role.rolsuper
-       FROM pg_catalog.pg_roles AS role
-       WHERE role.rolname = CURRENT_USER`,
-    );
-    if (installerAuthority.rows[0]?.rolsuper !== true) {
-      throw new Error('DA5 V5 legacy provisioner password state is unverifiable');
-    }
-
-    const roleState = await client.query<{
-      has_password: boolean;
-      rolbypassrls: boolean;
-      rolcanlogin: boolean;
-      rolconnlimit: number;
-      rolcreatedb: boolean;
-      rolcreaterole: boolean;
-      rolinherit: boolean;
-      rolreplication: boolean;
-      rolsuper: boolean;
-      valid_without_limit: boolean;
-    }>(
-      `SELECT
-         role.rolcanlogin,
-         role.rolinherit,
-         role.rolsuper,
-         role.rolcreatedb,
-         role.rolcreaterole,
-         role.rolreplication,
-         role.rolbypassrls,
-         role.rolconnlimit,
-         role.rolvaliduntil IS NULL AS valid_without_limit,
-         role.rolpassword IS NOT NULL AS has_password
-       FROM pg_catalog.pg_authid AS role
-       WHERE role.rolname = $1`,
-      [legacyLogin],
-    );
-    const activeSessions = await legacyProvisionerHasActiveSession(
-      client,
-      legacyLogin,
-    );
-    const memberships = await client.query<{
-      has_members: boolean;
-      parents_exact: boolean;
-    }>(
-      `SELECT
-         (
-           SELECT
-             count(*) = 1
-             AND COALESCE(
-               bool_and(
-                 parent.rolname = 'taptime_administrator'
-                 AND NOT membership.admin_option
-                 AND NOT membership.inherit_option
-                 AND membership.set_option
-               ),
-               false
-             )
-           FROM pg_catalog.pg_auth_members AS membership
-           JOIN pg_catalog.pg_roles AS member ON member.oid = membership.member
-           JOIN pg_catalog.pg_roles AS parent ON parent.oid = membership.roleid
-           WHERE member.rolname = $1
-         ) AS parents_exact,
-         EXISTS (
-           SELECT 1
-           FROM pg_catalog.pg_auth_members AS membership
-           JOIN pg_catalog.pg_roles AS member ON member.oid = membership.member
-           JOIN pg_catalog.pg_roles AS parent ON parent.oid = membership.roleid
-           WHERE parent.rolname = $1
-         ) AS has_members`,
-      [legacyLogin],
-    );
-    const settings = await client.query<{ present: boolean }>(
-      `SELECT EXISTS (
-         SELECT 1
-         FROM pg_catalog.pg_db_role_setting AS setting
-         JOIN pg_catalog.pg_roles AS role ON role.oid = setting.setrole
-         WHERE role.rolname = $1
-       ) AS present`,
-      [legacyLogin],
-    );
-    const dependencies = await client.query<{
-      blocked: boolean;
-      owns_database: boolean;
-    }>(
-      `WITH current_context AS (
-         SELECT database.oid AS database_oid
-         FROM pg_catalog.pg_database AS database
-         WHERE database.datname = pg_catalog.current_database()
-       )
-       SELECT
-         EXISTS (
-           SELECT 1
-           FROM pg_catalog.pg_shdepend AS dependency
-           JOIN pg_catalog.pg_roles AS legacy
-             ON dependency.refclassid = 'pg_catalog.pg_authid'::pg_catalog.regclass
-            AND dependency.refobjid = legacy.oid
-           CROSS JOIN current_context
-           WHERE legacy.rolname = $1
-             AND NOT (
-               dependency.deptype = 'o'
-               AND dependency.objsubid = 0
-               AND (
-                 (
-                   dependency.dbid = current_context.database_oid
-                   AND dependency.classid
-                     = 'pg_catalog.pg_namespace'::pg_catalog.regclass
-                   AND dependency.objid = pg_catalog.to_regnamespace('${B3_SCHEMA}')
-                 )
-                 OR (
-                   dependency.dbid = current_context.database_oid
-                   AND dependency.classid = 'pg_catalog.pg_class'::pg_catalog.regclass
-                   AND dependency.objid = pg_catalog.to_regclass('${B3_MIGRATION_TABLE}')
-                 )
-                 OR (
-                   dependency.dbid = 0
-                   AND dependency.classid = 'pg_catalog.pg_database'::pg_catalog.regclass
-                   AND dependency.objid = current_context.database_oid
-                 )
-               )
-             )
-         ) AS blocked,
-         EXISTS (
-           SELECT 1
-           FROM pg_catalog.pg_database AS database
-           JOIN pg_catalog.pg_roles AS owner ON owner.oid = database.datdba
-           WHERE database.datname = pg_catalog.current_database()
-             AND owner.rolname = $1
-         ) AS owns_database`,
-      [legacyLogin],
-    );
-
-    const role = roleState.rows[0];
-    const membership = memberships.rows[0];
-    const dependency = dependencies.rows[0];
-    if (
-      role === undefined
-      || !role.rolcanlogin
-      || role.rolinherit
-      || role.rolsuper
-      || role.rolcreatedb
-      || role.rolcreaterole
-      || role.rolreplication
-      || role.rolbypassrls
-      || role.rolconnlimit !== -1
-      || !role.valid_without_limit
-      || !role.has_password
-    ) {
-      throw new Error('DA5 V5 legacy provisioner role state is unsupported');
-    }
-    if (activeSessions) {
-      throw new Error('DA5 V5 legacy provisioner still has an active session');
-    }
-    if (
-      membership === undefined
-      || membership.has_members
-      || !membership.parents_exact
-    ) {
-      throw new Error('DA5 V5 legacy provisioner membership state is unsupported');
-    }
-    if (settings.rows[0]?.present !== false || dependency?.blocked !== false) {
-      throw new Error('DA5 V5 legacy provisioner has unsupported shared dependencies');
-    }
-
-    await client.query(`ALTER ROLE ${legacyLogin} NOLOGIN PASSWORD NULL`);
-    if (await legacyProvisionerHasActiveSession(client, legacyLogin)) {
-      throw new Error('DA5 V5 legacy provisioner still has an active session');
-    }
-    await client.query(`DROP SCHEMA IF EXISTS ${B3_SCHEMA} CASCADE`);
-    await client.query(`DROP TABLE IF EXISTS ${B3_MIGRATION_TABLE}`);
-    if (dependency.owns_database) {
-      await client.query(
-        `ALTER DATABASE ${SYNTHETIC_DATABASE_NAME} OWNER TO CURRENT_USER`,
-      );
-    }
-    await client.query(`DROP ROLE ${legacyLogin}`);
-    const absent = await client.query<{ absent: boolean }>(
-      `SELECT pg_catalog.to_regrole($1) IS NULL AS absent`,
-      [legacyLogin],
-    );
-    if (absent.rows[0]?.absent !== true) {
-      throw new Error('DA5 V5 legacy provisioner removal failed');
-    }
-    await client.query('COMMIT');
-    transactionOpen = false;
-  } catch (error) {
-    if (transactionOpen) {
-      try {
-        await client.query('ROLLBACK');
-      } catch {
-        throw new Error('DA5 V5 legacy provisioner rollback failed');
-      }
-    }
-    throw error;
-  } finally {
-    client.release();
-  }
-}
-
-async function legacyProvisionerHasActiveSession(
-  client: Pick<PoolClient, 'query'>,
-  legacyLogin: string,
-): Promise<boolean> {
-  const activeSessions = await client.query<{ active: boolean }>(
-    `SELECT EXISTS (
-       SELECT 1
-       FROM pg_catalog.pg_stat_activity
-       WHERE usename = $1
-         AND pid <> pg_catalog.pg_backend_pid()
-     ) AS active`,
-    [legacyLogin],
-  );
-  if (activeSessions.rows[0] === undefined) {
-    throw new Error('DA5 V5 legacy provisioner session state is unavailable');
-  }
-  return activeSessions.rows[0].active;
 }
 
 async function normalizeApplicationRoles(

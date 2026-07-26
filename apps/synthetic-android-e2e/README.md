@@ -301,12 +301,21 @@ runtime roles. The normative Human procedure and disclosure boundary remain
 ## DA5 V5 hardware-gate preparation
 
 The opt-in `da5-v5` profile prepares the real DA5 manual-work, own-time, target,
-Project-administration, NFC and v2 offline paths against the disposable local database. It is a
-serial fail-stop harness: every measured checkpoint is emitted before the Human answer, and only
-`PASS` advances. The installer URL is synchronously rejected before Auth, Pool or listener
-creation unless it is the exact numeric-loopback disposable database. Advisory ownership and the
-strict serial cleanup extension apply only to `da5-v5`; legacy and DA4 cleanup retain their
-existing behavior.
+Project-administration, NFC and v2 offline paths against a fresh private PostgreSQL 17.10 owner.
+It is a serial fail-stop harness: every measured checkpoint is emitted before the Human answer,
+and only `PASS` advances. Operator-supplied database URLs and PostgreSQL credentials are rejected.
+The operational entry verifies an externally reviewed read-only Runtime Guard artifact, starts
+the isolated owner and passes only its opaque in-process capability into the environment.
+Least-privilege Product pools close before that capability stops and reaps PostgreSQL. Default and
+DA4 profiles retain their existing exact numeric-loopback URL and cleanup contracts.
+Operational startup requires both externally reviewed full SHA-256 values in
+`TAPTIME_DA5_V5_RUNTIME_GUARD_BINARY_SHA256` and
+`TAPTIME_DA5_V5_RUNTIME_GUARD_MANIFEST_SHA256`, alongside the exact read-only artifact paths,
+implementation commit/tree and canonical `pg_config` path. The manifest cannot authorize itself:
+either digest missing or differing stops before PostgreSQL discovery and task-root creation.
+The local owner then reproduces the exact approved two-member/zero-nested-member macOS admin-group
+snapshot by its disclosure-safe anchors; it never changes accounts, groups, permissions, Homebrew
+or another system boundary.
 
 The immutable APK and manifest can be revalidated without ADB, installation or device access:
 
@@ -354,7 +363,8 @@ points and cleanup rules remain
 
 ## Automated verification
 
-With the dedicated PostgreSQL URL set:
+Default and DA4 integration tests continue to use the dedicated disposable PostgreSQL URL. DA5
+tests obtain only an isolated local capability or the exact-owned CI adapter capability:
 
 ```bash
 npm run typecheck --workspace=@taptime/synthetic-android-e2e

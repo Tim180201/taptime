@@ -21,11 +21,13 @@ import {
   Da5V5SignalController,
   Da5V5StartupInterrupted,
   cleanSyntheticDatabase,
+  da5V5StartupCleanupIncomplete,
   da5V5Ids,
   da5V5TagBRegistrationArmIsAuthorized,
   da5V5TagBRegistrationPreconditionMatches,
   da5V5DedupeBinding,
   readDa5V5InvariantStatus,
+  rejectDa5V5OperationalInputs,
   requireDa5V5Profile,
   runDa5V5StrictCleanup,
   syntheticIds,
@@ -40,6 +42,26 @@ describe('DA5 V5 explicit profile and disclosure boundaries', () => {
     expect(() => requireDa5V5Profile(undefined)).toThrow(/exact explicit/);
     expect(() => requireDa5V5Profile('default')).toThrow(/exact explicit/);
     expect(() => requireDa5V5Profile('DA5-V5')).toThrow(/exact explicit/);
+  });
+
+  it('rejects operational database credentials, URL environment and argv', () => {
+    expect(() => rejectDa5V5OperationalInputs({}, ['node', 'da5V5Main.js'])).not.toThrow();
+    expect(() => rejectDa5V5OperationalInputs(
+      { TAPTIME_SYNTHETIC_E2E_DATABASE_URL: 'hidden' },
+      ['node', 'da5V5Main.js'],
+    )).toThrow(/database input is rejected/);
+    expect(() => rejectDa5V5OperationalInputs(
+      { PGPASSWORD: 'hidden' },
+      ['node', 'da5V5Main.js'],
+    )).toThrow(/database input is rejected/);
+    expect(() => rejectDa5V5OperationalInputs(
+      { TAPTIME_DA5_V5_CI_OWNER_RECORD: '/private/ci-only-owner.json' },
+      ['node', 'da5V5Main.js'],
+    )).toThrow(/database input is rejected/);
+    expect(() => rejectDa5V5OperationalInputs(
+      {},
+      ['node', 'da5V5Main.js', '--database-url=hidden'],
+    )).toThrow(/database input is rejected/);
   });
 
   it('validates only three distinct safe fingerprints and the packaged technology', () => {
@@ -575,45 +597,74 @@ describe('DA5 V5 fixture, lifecycle and startup fail-stop boundaries', () => {
 
   it('attempts every strict-cleanup stage serially and exposes only a generic failure',
     async () => {
-      const calls: string[] = [];
-      await expect(runDa5V5StrictCleanup({
-        closeResources: [
-          async () => {
-            calls.push('resource-1');
-            throw new Error('private resource detail');
+      for (const failingStage of [0, 1, 2]) {
+        const calls: string[] = [];
+        await expect(runDa5V5StrictCleanup({
+          closeResources: [
+            async () => {
+              calls.push('resource-1');
+              if (failingStage === 0) {
+                throw new Error('private first resource detail');
+              }
+            },
+            async () => {
+              calls.push('resource-2');
+              if (failingStage === 1) {
+                throw new Error('private second resource detail');
+              }
+            },
+          ],
+          closeCapabilityOwner: async () => {
+            calls.push('capability-owner');
+            if (failingStage === 2) {
+              throw new Error('private database detail');
+            }
           },
-          async () => {
-            calls.push('resource-2');
-          },
-        ],
-        closeDatabase: async () => {
-          calls.push('database');
-          throw new Error('private database detail');
-        },
-        closeInstaller: async () => {
-          calls.push('installer');
-        },
-      })).rejects.toThrow('DA5 V5 cleanup failed');
-      expect(calls).toEqual(['resource-1', 'resource-2', 'database', 'installer']);
+        })).rejects.toThrow('DA5 V5 cleanup failed');
+        expect(calls).toEqual(['resource-1', 'resource-2', 'capability-owner']);
+      }
     });
 
-  it('rechecks the disposable installer boundary before any destructive cleanup query',
+  it('retains completed cleanup stages and clears rejected in-flight latches',
     async () => {
-      const query = vi.fn().mockResolvedValue({
-        rows: [{
-          current_database: 'not_the_synthetic_database',
-          host: '127.0.0.1',
-          rolcreaterole: true,
-          rolsuper: false,
-        }],
-      });
-      await expect(cleanSyntheticDatabase(
-        { query } as unknown as Pool,
-        DA5_V5_PROFILE,
-      )).rejects.toThrow(/installer connection failed/);
-      expect(query).toHaveBeenCalledTimes(1);
-      expect(String(query.mock.calls[0]?.[0])).not.toMatch(/\bDROP\b/u);
+      const [main, environment, owner] = await Promise.all([
+        readFile(new URL('../src/da5V5Main.ts', import.meta.url), 'utf8'),
+        readFile(
+          new URL('../src/SyntheticAndroidE2eEnvironment.ts', import.meta.url),
+          'utf8',
+        ),
+        readFile(
+          new URL('../src/Da5V5PostgresRuntimeGuard.ts', import.meta.url),
+          'utf8',
+        ),
+      ]);
+
+      expect(main).toContain('const completedCleanupStages = new Set<string>()');
+      expect(main).toContain('completedCleanupStages.add(name)');
+      expect(main.match(/cleanupResourcesPromise = null/gu)).toHaveLength(2);
+      expect(environment).toContain(
+        'const completedDa5CloseStages = new Set<string>()',
+      );
+      expect(environment).toContain('completedDa5CloseStages.add(name)');
+      expect(environment).toContain('da5ClosePromise = null');
+      expect(owner).toContain('cleanupInFlight = null');
+      expect(owner).toContain('firstFailure ??= error');
+      expect(owner).toContain('stopAttempted = true');
     });
+
+  it('preserves only the primary startup message with a generic cleanup marker', () => {
+    const cleanupDetail = 'private-cleanup-detail';
+    const result = da5V5StartupCleanupIncomplete(
+      new Error('primary-startup-failure', {
+        cause: new Error(cleanupDetail),
+      }),
+    );
+
+    expect(result.message).toBe('primary-startup-failure;cleanup-incomplete');
+    expect(result.cause).toBeUndefined();
+    expect(JSON.stringify(result, Object.getOwnPropertyNames(result)))
+      .not.toContain(cleanupDetail);
+  });
 
   it.each([
     ['default', undefined],
@@ -784,14 +835,40 @@ describe('DA5 V5 fixture, lifecycle and startup fail-stop boundaries', () => {
   it('keeps profile and signal guards ahead of configuration and resource creation',
     async () => {
       const source = await readFile(new URL('../src/da5V5Main.ts', import.meta.url), 'utf8');
-      expect(source.indexOf('requireDa5V5Profile(')).toBeGreaterThanOrEqual(0);
-      expect(source.indexOf('requireDa5V5Profile(')).toBeLessThan(
-        source.indexOf("requiredEnvironmentValue('TAPTIME_SYNTHETIC_E2E_DATABASE_URL')"),
+      const rejection = 'rejectDa5V5OperationalInputs(process.env, process.argv);';
+      const profileRequirement =
+        'const profile = requireDa5V5Profile(process.env.TAPTIME_SYNTHETIC_E2E_PROFILE);';
+      expect(source.indexOf(rejection)).toBeGreaterThanOrEqual(0);
+      expect(source.indexOf(profileRequirement)).toBeGreaterThanOrEqual(0);
+      expect(source.indexOf(rejection)).toBeLessThan(
+        source.indexOf(profileRequirement),
       );
+      expect(source.indexOf('verifyDa5V5RuntimeGuardArtifact({')).toBeLessThan(
+        source.indexOf('createDa5V5LocalPostgresCapability({'),
+      );
+      expect(source.indexOf('createDa5V5LocalPostgresCapability({')).toBeLessThan(
+        source.indexOf('environment = await createSyntheticAndroidE2eEnvironment('),
+      );
+      expect(source).toContain('guardArtifactBinding: runtimeGuardArtifact');
+      expect(source).not.toContain(
+        'guardBinaryPath: runtimeGuardArtifact.manifest.binary.path',
+      );
+      expect(source).not.toContain('TAPTIME_SYNTHETIC_E2E_DATABASE_URL');
+      expect(source).not.toContain('Da5V5CiPostgresAdapter');
+      expect(source).not.toContain('produceDa5V5RuntimeGuardArtifact');
       expect(source.indexOf("process.on('SIGINT'")).toBeLessThan(
         source.indexOf('environment = await createSyntheticAndroidE2eEnvironment('),
       );
       expect(source.indexOf("process.on('SIGTERM'")).toBeLessThan(
+        source.indexOf('environment = await createSyntheticAndroidE2eEnvironment('),
+      );
+      expect(source.indexOf("process.on('SIGHUP'")).toBeLessThan(
+        source.indexOf('environment = await createSyntheticAndroidE2eEnvironment('),
+      );
+      expect(source.indexOf("process.on('uncaughtException'")).toBeLessThan(
+        source.indexOf('environment = await createSyntheticAndroidE2eEnvironment('),
+      );
+      expect(source.indexOf("process.on('unhandledRejection'")).toBeLessThan(
         source.indexOf('environment = await createSyntheticAndroidE2eEnvironment('),
       );
       expect(source.indexOf('if (!safeEventLatch.commandAllowed())')).toBeLessThan(

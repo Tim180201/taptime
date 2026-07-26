@@ -1,5 +1,4 @@
-import { randomBytes } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rmdir } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { fileURLToPath } from 'node:url';
 import { createNfcPayload } from '@taptime/core';
@@ -25,7 +24,6 @@ import {
   SYNTHETIC_ENROLLMENT_AUTH_EMAIL,
   SYNTHETIC_PUBLISHABLE_KEY,
   SYNTHETIC_SECOND_ENROLLMENT_AUTH_EMAIL,
-  acquireSyntheticDatabaseOwnership,
   createSyntheticAndroidE2eEnvironment,
   da5V5Ids,
   da5V5RuntimeLogins,
@@ -39,6 +37,18 @@ import {
   type SyntheticAndroidE2eEnvironment,
   type SyntheticEnvironmentSafeEvent,
 } from '../src/index.js';
+import {
+  createDa5V5CiPostgresCapability,
+  createDa5V5TestPostgresCapability,
+  da5V5PostgresCapabilityState,
+  type Da5V5PostgresCapability,
+} from '../src/Da5V5PostgresCapability.js';
+import {
+  rejectOperationalEnvironment,
+} from '../src/Da5V5PostgresRuntimeGuard.js';
+import {
+  buildDa5V5TemporaryTestGuard,
+} from '../src/Da5V5RuntimeGuardArtifact.js';
 
 vi.mock('react-native-url-polyfill/auto', () => ({}));
 
@@ -55,7 +65,6 @@ const da5V5TagBinding = Object.freeze({
   tagX: fingerprint(da5V5TagPayloads.tagX),
   technology: 'NfcA+MifareUltralight' as const,
 });
-const legacyForeignDatabaseName = 'taptime_da5_v5_legacy_guard';
 
 describe('synthetic E2E safety guards', () => {
   it('accepts only the exact dedicated database on numeric loopback', () => {
@@ -1190,257 +1199,25 @@ describeWithPostgres('synthetic Android product-to-server E2E', () => {
     });
 });
 
-describeWithPostgres('DA5 V5 legacy provisioner fail-closed removal', () => {
-  let installerPool: Pool;
-
-  beforeAll(async () => {
-    installerPool = new Pool({ connectionString: installerDatabaseUrl });
-    await requireLegacyProvisionerAbsent(installerPool);
-    const foreignDatabase = await installerPool.query<{ present: boolean }>(
-      `SELECT EXISTS (
-         SELECT 1
-         FROM pg_catalog.pg_database
-         WHERE datname = $1
-       ) AS present`,
-      [legacyForeignDatabaseName],
-    );
-    if (foreignDatabase.rows[0]?.present !== false) {
-      throw new Error('DA5 V5 legacy guard test requires an absent foreign database');
-    }
-  });
-
-  afterAll(async () => {
-    await installerPool?.end();
-  });
-
-  it('preserves login, membership and known objects when a legacy session is active',
-    async () => {
-      const legacyPassword = randomBytes(32).toString('base64url');
-      await createLegacyProvisionerFixture(installerPool, legacyPassword);
-      const before = await readLegacyProvisionerState(installerPool);
-      const legacyPool = new Pool({
-        connectionString: legacyProvisionerUrl(legacyPassword),
-        connectionTimeoutMillis: 2_000,
-        max: 2,
-      });
-      const activeClient = await legacyPool.connect();
-      try {
-        await expect(activeClient.query('SELECT current_user')).resolves.toMatchObject({
-          rows: [{ current_user: runtimeLogins.provisioner }],
-        });
-
-        await expect(createSyntheticAndroidE2eEnvironment({
-          installerDatabaseUrl: installerDatabaseUrl as string,
-          password: syntheticPassword,
-          authPort: 0,
-          apiPort: 0,
-          profile: DA5_V5_PROFILE,
-          da5V5TagBinding,
-        })).rejects.toThrow(/legacy provisioner still has an active session/);
-
-        expect(await readLegacyProvisionerState(installerPool)).toEqual(before);
-        await expect(parentRoles(
-          installerPool,
-          runtimeLogins.provisioner,
-        )).resolves.toEqual(['taptime_administrator']);
-        await expect(activeClient.query('SELECT current_user')).resolves.toMatchObject({
-          rows: [{ current_user: runtimeLogins.provisioner }],
-        });
-        await expectLegacyProvisionerAuthentication(legacyPassword);
-        await expectDatabaseOwnershipReleased(installerPool);
-      } finally {
-        activeClient.release();
-        await legacyPool.end();
-        await removeLegacyProvisionerFixture(installerPool);
-      }
-    });
-
-  it('preserves foreign ownership, shared ACL and role settings before any mutation',
-    async () => {
-      const legacyPassword = randomBytes(32).toString('base64url');
-      let foreignPool: Pool | undefined;
-      try {
-        await createLegacyProvisionerFixture(installerPool, legacyPassword);
-        await installerPool.query(
-          `GRANT CONNECT ON DATABASE ${SYNTHETIC_DATABASE_NAME}
-             TO ${runtimeLogins.provisioner}`,
-        );
-        await installerPool.query(
-          `ALTER ROLE ${runtimeLogins.provisioner}
-             SET application_name = 'da5-v5-legacy-guard'`,
-        );
-        await installerPool.query(`CREATE DATABASE ${legacyForeignDatabaseName}`);
-        foreignPool = new Pool({
-          connectionString: databaseUrl(legacyForeignDatabaseName),
-        });
-        await foreignPool.query(`
-          CREATE TABLE public.taptime_da5_v5_legacy_foreign_object (
-            evidence text NOT NULL
-          );
-          INSERT INTO public.taptime_da5_v5_legacy_foreign_object (evidence)
-          VALUES ('preserve');
-          ALTER TABLE public.taptime_da5_v5_legacy_foreign_object
-            OWNER TO ${runtimeLogins.provisioner};
-        `);
-        const before = await readLegacyProvisionerState(installerPool);
-        const foreignBefore = await readLegacyForeignState(foreignPool);
-
-        await expect(createSyntheticAndroidE2eEnvironment({
-          installerDatabaseUrl: installerDatabaseUrl as string,
-          password: syntheticPassword,
-          authPort: 0,
-          apiPort: 0,
-          profile: DA5_V5_PROFILE,
-          da5V5TagBinding,
-        })).rejects.toThrow(/unsupported shared dependencies/);
-
-        expect(await readLegacyProvisionerState(installerPool)).toEqual(before);
-        expect(await readLegacyForeignState(foreignPool)).toEqual(foreignBefore);
-        await expect(parentRoles(
-          installerPool,
-          runtimeLogins.provisioner,
-        )).resolves.toEqual(['taptime_administrator']);
-        await expectLegacyProvisionerAuthentication(legacyPassword);
-        await expectDatabaseOwnershipReleased(installerPool);
-      } finally {
-        if (foreignPool !== undefined) {
-          await foreignPool.query(
-            'DROP TABLE IF EXISTS public.taptime_da5_v5_legacy_foreign_object',
-          ).catch(() => undefined);
-          await foreignPool.end().catch(() => undefined);
-        }
-        await installerPool.query(
-          `DROP DATABASE IF EXISTS ${legacyForeignDatabaseName}`,
-        ).catch(() => undefined);
-        await removeLegacyProvisionerFixture(installerPool);
-      }
-    });
-
-  it('preserves an unsupported administrative membership grant before any mutation',
-    async () => {
-      const legacyPassword = randomBytes(32).toString('base64url');
-      try {
-        await createLegacyProvisionerFixture(installerPool, legacyPassword);
-        await installerPool.query(
-          `GRANT taptime_administrator TO ${runtimeLogins.provisioner}
-             WITH ADMIN OPTION`,
-        );
-        const before = await readLegacyProvisionerState(installerPool);
-        expect(before.metadata.membership_options).toEqual([
-          'taptime_administrator|admin|no-inherit|set',
-        ]);
-
-        await expect(createSyntheticAndroidE2eEnvironment({
-          installerDatabaseUrl: installerDatabaseUrl as string,
-          password: syntheticPassword,
-          authPort: 0,
-          apiPort: 0,
-          profile: DA5_V5_PROFILE,
-          da5V5TagBinding,
-        })).rejects.toThrow(/membership state is unsupported/);
-
-        expect(await readLegacyProvisionerState(installerPool)).toEqual(before);
-        await expectLegacyProvisionerAuthentication(legacyPassword);
-        await expectDatabaseOwnershipReleased(installerPool);
-      } finally {
-        await removeLegacyProvisionerFixture(installerPool);
-      }
-    });
-
-  it('preserves a passwordless legacy role and known objects before any mutation',
-    async () => {
-      const legacyPassword = randomBytes(32).toString('base64url');
-      try {
-        await createLegacyProvisionerFixture(installerPool, legacyPassword);
-        await installerPool.query(
-          `ALTER ROLE ${runtimeLogins.provisioner} PASSWORD NULL`,
-        );
-        const before = await readLegacyProvisionerState(installerPool);
-        expect(before.metadata).toMatchObject({
-          has_password: false,
-          membership_options: ['taptime_administrator|no-admin|no-inherit|set'],
-          rolcanlogin: true,
-        });
-
-        await expect(createSyntheticAndroidE2eEnvironment({
-          installerDatabaseUrl: installerDatabaseUrl as string,
-          password: syntheticPassword,
-          authPort: 0,
-          apiPort: 0,
-          profile: DA5_V5_PROFILE,
-          da5V5TagBinding,
-        })).rejects.toThrow(/legacy provisioner role state is unsupported/);
-
-        expect(await readLegacyProvisionerState(installerPool)).toEqual(before);
-        await expect(parentRoles(
-          installerPool,
-          runtimeLogins.provisioner,
-        )).resolves.toEqual(['taptime_administrator']);
-        await expectDatabaseOwnershipReleased(installerPool);
-      } finally {
-        await removeLegacyProvisionerFixture(installerPool);
-      }
-    });
-});
 
 describeWithPostgres('DA5 V5 least-privilege hardware-gate environment', () => {
   let da5Environment: SyntheticAndroidE2eEnvironment;
+  let da5Owner: Da5V5TestOwner;
   let cleanupPool: Pool;
-  let legacyDatabaseUrl = '';
-  let legacyLoginAuthenticated = false;
 
   beforeAll(async () => {
-    cleanupPool = new Pool({ connectionString: installerDatabaseUrl });
-    const existingLegacy = await cleanupPool.query<{ exists: boolean }>(
-      'SELECT to_regrole($1) IS NOT NULL AS exists',
-      [runtimeLogins.provisioner],
-    );
-    if (existingLegacy.rows[0]?.exists !== false) {
-      throw new Error('DA5 V5 legacy provisioner test requires an absent baseline role');
-    }
-    const legacyPassword = randomBytes(32).toString('base64url');
-    await cleanupPool.query(`
-      CREATE ROLE ${runtimeLogins.provisioner}
-        LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS
-        PASSWORD '${legacyPassword}';
-      GRANT taptime_administrator TO ${runtimeLogins.provisioner};
-      CREATE SCHEMA taptime_server AUTHORIZATION ${runtimeLogins.provisioner};
-      CREATE TABLE public.taptime_server_schema_migrations (
-        version text PRIMARY KEY
-      );
-      ALTER TABLE public.taptime_server_schema_migrations
-        OWNER TO ${runtimeLogins.provisioner};
-    `);
-    await expect(parentRoles(
-      cleanupPool,
-      runtimeLogins.provisioner,
-    )).resolves.toEqual(['taptime_administrator']);
-    const legacyUrl = new URL(installerDatabaseUrl as string);
-    legacyUrl.username = runtimeLogins.provisioner;
-    legacyUrl.password = legacyPassword;
-    legacyDatabaseUrl = legacyUrl.toString();
-    const legacyPool = new Pool({
-      connectionString: legacyDatabaseUrl,
-      connectionTimeoutMillis: 2_000,
-      max: 1,
-    });
-    try {
-      const identity = await legacyPool.query<{ current_user: string }>(
-        'SELECT current_user',
-      );
-      legacyLoginAuthenticated = (
-        identity.rows[0]?.current_user === runtimeLogins.provisioner
-      );
-    } finally {
-      await legacyPool.end();
-    }
+    da5Owner = await createDa5V5TestOwner();
     da5Environment = await createSyntheticAndroidE2eEnvironment({
-      installerDatabaseUrl: installerDatabaseUrl as string,
+      da5V5PostgresCapability: da5Owner.capability,
+      da5V5PostgresSource: da5Owner.source,
       password: syntheticPassword,
       authPort: 0,
       apiPort: 0,
       profile: DA5_V5_PROFILE,
       da5V5TagBinding,
+      onDa5V5FixtureOperations: (pool) => {
+        cleanupPool = pool;
+      },
     });
   });
 
@@ -1448,30 +1225,10 @@ describeWithPostgres('DA5 V5 least-privilege hardware-gate environment', () => {
     if (da5Environment !== undefined) {
       await da5Environment.close();
     }
-    if (cleanupPool === undefined) {
-      return;
+    if (da5Owner !== undefined) {
+      expect(da5V5PostgresCapabilityState(da5Owner.capability).closed).toBe(true);
+      await da5Owner.cleanup();
     }
-    const cleanup = await cleanupPool.query<{
-      da5_runtime_logins: string;
-      ledger_exists: boolean;
-      runtime_logins: string;
-      schema_exists: boolean;
-    }>(
-      `SELECT
-         count(*) FILTER (WHERE rolname = ANY($1::text[]))::text AS runtime_logins,
-         count(*) FILTER (WHERE rolname = ANY($2::text[]))::text AS da5_runtime_logins,
-         to_regnamespace('taptime_server') IS NOT NULL AS schema_exists,
-         to_regclass('public.taptime_server_schema_migrations') IS NOT NULL AS ledger_exists
-       FROM pg_catalog.pg_roles`,
-      [Object.values(runtimeLogins), Object.values(da5V5RuntimeLogins)],
-    );
-    expect(cleanup.rows).toEqual([{
-      da5_runtime_logins: '0',
-      ledger_exists: false,
-      runtime_logins: '0',
-      schema_exists: false,
-    }]);
-    await cleanupPool.end();
   });
 
   it('starts from the exact DA5 baseline with four isolated runtime role graphs', async () => {
@@ -1562,48 +1319,22 @@ describeWithPostgres('DA5 V5 least-privilege hardware-gate environment', () => {
       && !role.direct_table_grant
       && !role.direct_routine_grant
     ))).toBe(true);
-    const legacyProvisioner = await cleanupPool.query<{ exists: boolean }>(
-      'SELECT to_regrole($1) IS NOT NULL AS exists',
-      [runtimeLogins.provisioner],
-    );
-    expect(legacyProvisioner.rows).toEqual([{ exists: false }]);
-    expect(legacyLoginAuthenticated).toBe(true);
-    const removedLogin = new Pool({
-      connectionString: legacyDatabaseUrl,
-      connectionTimeoutMillis: 2_000,
-      max: 1,
-    });
-    try {
-      await expect(removedLogin.query('SELECT current_user')).rejects.toThrow();
-    } finally {
-      await removedLogin.end().catch(() => undefined);
-      legacyDatabaseUrl = '';
-    }
   });
 
-  it('does not mutate or clean a live environment on Auth or database ownership collision',
-    async () => {
+  it('rejects every operator-supplied DA5 database URL before live-state mutation', async () => {
       const initial = await da5Environment.da5V5Status();
       await expect(createSyntheticAndroidE2eEnvironment({
         installerDatabaseUrl: installerDatabaseUrl as string,
+        da5V5PostgresCapability: da5Owner.capability,
+        da5V5PostgresSource: da5Owner.source,
         password: syntheticPassword,
         authPort: Number(new URL(da5Environment.authBaseUrl).port),
         apiPort: 0,
         profile: DA5_V5_PROFILE,
         da5V5TagBinding,
-      })).rejects.toThrow();
+      })).rejects.toThrow(/rejects operator-supplied database URLs/);
       await expect(da5Environment.da5V5Status()).resolves.toEqual(initial);
-
-      await expect(createSyntheticAndroidE2eEnvironment({
-        installerDatabaseUrl: installerDatabaseUrl as string,
-        password: syntheticPassword,
-        authPort: 0,
-        apiPort: 0,
-        profile: DA5_V5_PROFILE,
-        da5V5TagBinding,
-      })).rejects.toThrow(/already owned/);
-      await expect(da5Environment.da5V5Status()).resolves.toEqual(initial);
-    });
+  });
 
   it('drives Tag setup, Mobile targets, manual Project work and self-only own-time via HTTP',
     async () => {
@@ -2352,7 +2083,9 @@ describeWithPostgres('DA4 V5 startup failure cleanup', () => {
 });
 
 describeWithPostgres('DA5 V5 startup failure cleanup', () => {
-  it('removes DA5 schema, ledger and runtime roles after API bind failure', async () => {
+  it.runIf(process.env.TAPTIME_DA5_V5_CI_OWNER_RECORD === undefined)(
+    'closes the isolated capability owner after API bind failure',
+    async () => {
     const blocker = createServer();
     await new Promise<void>((resolve, reject) => {
       blocker.once('error', reject);
@@ -2362,265 +2095,107 @@ describeWithPostgres('DA5 V5 startup failure cleanup', () => {
     if (address === null || typeof address === 'string') {
       throw new Error('DA5 V5 bind-failure blocker has no TCP address');
     }
-    const cleanupPool = new Pool({ connectionString: installerDatabaseUrl });
+    const da5Owner = await createDa5V5TestOwner();
     try {
       await expect(createSyntheticAndroidE2eEnvironment({
-        installerDatabaseUrl: installerDatabaseUrl as string,
+        da5V5PostgresCapability: da5Owner.capability,
+        da5V5PostgresSource: da5Owner.source,
         password: syntheticPassword,
         authPort: 0,
         apiPort: address.port,
         profile: DA5_V5_PROFILE,
         da5V5TagBinding,
       })).rejects.toBeInstanceOf(Error);
-      const cleanup = await cleanupPool.query<{
-        da5_runtime_logins: string;
-        ledger_exists: boolean;
-        runtime_logins: string;
-        schema_exists: boolean;
-      }>(
-        `SELECT
-           count(*) FILTER (WHERE rolname = ANY($1::text[]))::text AS runtime_logins,
-           count(*) FILTER (WHERE rolname = ANY($2::text[]))::text AS da5_runtime_logins,
-           to_regnamespace('taptime_server') IS NOT NULL AS schema_exists,
-           to_regclass('public.taptime_server_schema_migrations') IS NOT NULL AS ledger_exists
-         FROM pg_catalog.pg_roles`,
-        [Object.values(runtimeLogins), Object.values(da5V5RuntimeLogins)],
-      );
-      expect(cleanup.rows).toEqual([{
-        da5_runtime_logins: '0',
-        ledger_exists: false,
-        runtime_logins: '0',
-        schema_exists: false,
-      }]);
+      expect(da5V5PostgresCapabilityState(da5Owner.capability).closed).toBe(true);
     } finally {
-      await cleanupPool.end();
+      await da5Owner.cleanup();
       await new Promise<void>((resolve, reject) => {
         blocker.close((error) => error === undefined ? resolve() : reject(error));
       });
     }
-  });
+    },
+  );
 });
 
-async function requireLegacyProvisionerAbsent(pool: Pool): Promise<void> {
-  const state = await pool.query<{
-    ledger_present: boolean;
-    role_present: boolean;
-    schema_present: boolean;
-  }>(
-    `SELECT
-       pg_catalog.to_regrole($1) IS NOT NULL AS role_present,
-       pg_catalog.to_regnamespace('taptime_server') IS NOT NULL AS schema_present,
-       pg_catalog.to_regclass('public.taptime_server_schema_migrations') IS NOT NULL
-         AS ledger_present`,
-    [runtimeLogins.provisioner],
-  );
-  if (
-    state.rows[0]?.role_present !== false
-    || state.rows[0]?.schema_present !== false
-    || state.rows[0]?.ledger_present !== false
-  ) {
-    throw new Error('DA5 V5 legacy provisioner test requires an exact null baseline');
-  }
+interface Da5V5TestOwner {
+  readonly capability: Da5V5PostgresCapability;
+  readonly source: 'ci-test-adapter' | 'isolated-runtime-guard';
+  cleanup(): Promise<void>;
 }
 
-async function createLegacyProvisionerFixture(
-  pool: Pool,
-  password: string,
-): Promise<void> {
-  await requireLegacyProvisionerAbsent(pool);
-  await pool.query(`
-    CREATE ROLE ${runtimeLogins.provisioner}
-      LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS
-      PASSWORD '${password}';
-    GRANT taptime_administrator TO ${runtimeLogins.provisioner};
-    CREATE SCHEMA taptime_server AUTHORIZATION ${runtimeLogins.provisioner};
-    CREATE TABLE public.taptime_server_schema_migrations (
-      version text PRIMARY KEY
-    );
-    ALTER TABLE public.taptime_server_schema_migrations
-      OWNER TO ${runtimeLogins.provisioner};
-    INSERT INTO public.taptime_server_schema_migrations (version)
-    VALUES ('legacy-001');
-  `);
-}
-
-async function removeLegacyProvisionerFixture(pool: Pool): Promise<void> {
-  await pool.query(`DROP SCHEMA IF EXISTS taptime_server CASCADE`);
-  await pool.query(
-    'DROP TABLE IF EXISTS public.taptime_server_schema_migrations',
-  );
-  const role = await pool.query<{ present: boolean }>(
-    'SELECT pg_catalog.to_regrole($1) IS NOT NULL AS present',
-    [runtimeLogins.provisioner],
-  );
-  if (role.rows[0]?.present === true) {
-    await pool.query(`ALTER ROLE ${runtimeLogins.provisioner} RESET ALL`);
-    await pool.query(
-      `REVOKE CONNECT ON DATABASE ${SYNTHETIC_DATABASE_NAME}
-         FROM ${runtimeLogins.provisioner}`,
-    );
-    await pool.query(
-      `REVOKE taptime_administrator FROM ${runtimeLogins.provisioner}`,
-    );
-    await pool.query(`DROP ROLE ${runtimeLogins.provisioner}`);
-  }
-  await requireLegacyProvisionerAbsent(pool);
-}
-
-async function readLegacyProvisionerState(pool: Pool): Promise<Readonly<{
-  ledgerRows: readonly string[];
-  metadata: Readonly<{
-    database_acl: string | null;
-    has_password: boolean;
-    ledger_owner: string | null;
-    membership_options: string[];
-    role_settings: string[];
-    rolbypassrls: boolean;
-    rolcanlogin: boolean;
-    rolcreatedb: boolean;
-    rolcreaterole: boolean;
-    rolinherit: boolean;
-    rolreplication: boolean;
-    rolsuper: boolean;
-    schema_owner: string | null;
-  }>;
-}>> {
-  const metadata = await pool.query<{
-    database_acl: string | null;
-    has_password: boolean;
-    ledger_owner: string | null;
-    membership_options: string[];
-    role_settings: string[];
-    rolbypassrls: boolean;
-    rolcanlogin: boolean;
-    rolcreatedb: boolean;
-    rolcreaterole: boolean;
-    rolinherit: boolean;
-    rolreplication: boolean;
-    rolsuper: boolean;
-    schema_owner: string | null;
-  }>(
-    `SELECT
-       role.rolcanlogin,
-       role.rolinherit,
-       role.rolsuper,
-       role.rolcreatedb,
-       role.rolcreaterole,
-       role.rolreplication,
-       role.rolbypassrls,
-       role.rolpassword IS NOT NULL AS has_password,
-       database.datacl::text AS database_acl,
-       pg_catalog.pg_get_userbyid(schema.nspowner) AS schema_owner,
-       pg_catalog.pg_get_userbyid(ledger.relowner) AS ledger_owner,
-       ARRAY(
-         SELECT concat_ws(
-           '|',
-           parent.rolname,
-           CASE WHEN membership.admin_option THEN 'admin' ELSE 'no-admin' END,
-           CASE WHEN membership.inherit_option THEN 'inherit' ELSE 'no-inherit' END,
-           CASE WHEN membership.set_option THEN 'set' ELSE 'no-set' END
-         )
-         FROM pg_catalog.pg_auth_members AS membership
-         JOIN pg_catalog.pg_roles AS parent ON parent.oid = membership.roleid
-         WHERE membership.member = role.oid
-         ORDER BY parent.rolname
-       ) AS membership_options,
-       ARRAY(
-         SELECT format(
-           '%s:%s:%s',
-           setting.setdatabase,
-           setting.setrole,
-           setting.setconfig::text
-         )
-         FROM pg_catalog.pg_db_role_setting AS setting
-         WHERE setting.setrole = role.oid
-         ORDER BY setting.setdatabase, setting.setconfig::text
-       ) AS role_settings
-     FROM pg_catalog.pg_authid AS role
-     JOIN pg_catalog.pg_database AS database
-       ON database.datname = pg_catalog.current_database()
-     LEFT JOIN pg_catalog.pg_namespace AS schema
-       ON schema.oid = pg_catalog.to_regnamespace('taptime_server')
-     LEFT JOIN pg_catalog.pg_class AS ledger
-       ON ledger.oid = pg_catalog.to_regclass(
-         'public.taptime_server_schema_migrations'
-       )
-     WHERE role.rolname = $1`,
-    [runtimeLogins.provisioner],
-  );
-  const row = metadata.rows[0];
-  if (row === undefined) {
-    throw new Error('DA5 V5 legacy provisioner preservation state is unavailable');
-  }
-  const ledger = await pool.query<{ version: string }>(
-    `SELECT version
-     FROM public.taptime_server_schema_migrations
-     ORDER BY version`,
-  );
-  return Object.freeze({
-    ledgerRows: Object.freeze(ledger.rows.map(({ version }) => version)),
-    metadata: Object.freeze(row),
-  });
-}
-
-async function readLegacyForeignState(pool: Pool): Promise<Readonly<{
-  evidence: readonly string[];
-  owner: string;
-}>> {
-  const state = await pool.query<{ evidence: string[]; owner: string }>(
-    `SELECT
-       pg_catalog.pg_get_userbyid(table_row.relowner) AS owner,
-       ARRAY(
-         SELECT evidence
-         FROM public.taptime_da5_v5_legacy_foreign_object
-         ORDER BY evidence
-       ) AS evidence
-     FROM pg_catalog.pg_class AS table_row
-     WHERE table_row.oid = pg_catalog.to_regclass(
-       'public.taptime_da5_v5_legacy_foreign_object'
-     )`,
-  );
-  const row = state.rows[0];
-  if (row === undefined) {
-    throw new Error('DA5 V5 foreign dependency preservation state is unavailable');
-  }
-  return Object.freeze({
-    evidence: Object.freeze(row.evidence),
-    owner: row.owner,
-  });
-}
-
-async function expectLegacyProvisionerAuthentication(password: string): Promise<void> {
-  const verificationPool = new Pool({
-    connectionString: legacyProvisionerUrl(password),
-    connectionTimeoutMillis: 2_000,
-    max: 1,
-  });
-  try {
-    await expect(verificationPool.query('SELECT current_user')).resolves.toMatchObject({
-      rows: [{ current_user: runtimeLogins.provisioner }],
+async function createDa5V5TestOwner(): Promise<Da5V5TestOwner> {
+  const ciOwnerRecord = process.env.TAPTIME_DA5_V5_CI_OWNER_RECORD;
+  if (ciOwnerRecord !== undefined) {
+    if (installerDatabaseUrl === undefined) {
+      throw new Error('DA5 V5 CI adapter URL is unavailable');
+    }
+    const capability = await createDa5V5CiPostgresCapability({
+      databaseUrl: installerDatabaseUrl,
+      ownerRecordPath: ciOwnerRecord,
     });
-  } finally {
-    await verificationPool.end();
+    return Object.freeze({
+      capability,
+      source: 'ci-test-adapter',
+      cleanup: async () => undefined,
+    });
+  }
+  const guard = await buildDa5V5TemporaryTestGuard({
+    sourcePath: fileURLToPath(new URL(
+      '../native/da5_v5_runtime_guard.c',
+      import.meta.url,
+    )),
+    temporaryRoot: '/private/tmp',
+  });
+  const runtimeBase = await mkdtemp('/private/tmp/t5-');
+  try {
+    const removedEnvironment = removeDa5V5RejectedTestEnvironment();
+    let capability: Da5V5PostgresCapability;
+    try {
+      capability = await createDa5V5TestPostgresCapability({
+        guardBinaryPath: guard.binaryPath,
+        pgConfigPath: '/opt/homebrew/opt/postgresql@17/bin/pg_config',
+        temporaryBase: runtimeBase,
+      });
+    } finally {
+      restoreDa5V5TestEnvironment(removedEnvironment);
+    }
+    return Object.freeze({
+      capability,
+      source: 'isolated-runtime-guard',
+      async cleanup(): Promise<void> {
+        await guard.cleanup();
+        await rmdir(runtimeBase);
+      },
+    });
+  } catch (error) {
+    await guard.cleanup();
+    await rmdir(runtimeBase);
+    throw error;
   }
 }
 
-async function expectDatabaseOwnershipReleased(pool: Pool): Promise<void> {
-  const ownership = await acquireSyntheticDatabaseOwnership(pool);
-  await ownership.release();
+function removeDa5V5RejectedTestEnvironment(): Readonly<Record<string, string>> {
+  const removed: Record<string, string> = {};
+  for (const [name, value] of Object.entries(process.env)) {
+    if (value === undefined) {
+      continue;
+    }
+    try {
+      rejectOperationalEnvironment({ [name]: value });
+    } catch {
+      removed[name] = value;
+      delete process.env[name];
+    }
+  }
+  return Object.freeze(removed);
 }
 
-function legacyProvisionerUrl(password: string): string {
-  const url = new URL(installerDatabaseUrl as string);
-  url.username = runtimeLogins.provisioner;
-  url.password = password;
-  return url.toString();
-}
-
-function databaseUrl(databaseName: string): string {
-  const url = new URL(installerDatabaseUrl as string);
-  url.pathname = `/${databaseName}`;
-  return url.toString();
+function restoreDa5V5TestEnvironment(
+  environment: Readonly<Record<string, string>>,
+): void {
+  for (const [name, value] of Object.entries(environment)) {
+    process.env[name] = value;
+  }
 }
 
 function mobileAuthAdapter(environment: SyntheticAndroidE2eEnvironment) {

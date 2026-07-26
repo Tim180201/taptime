@@ -74,18 +74,21 @@ import {
   SYNTHETIC_SECOND_ENROLLMENT_AUTH_EMAIL,
 } from './constants.js';
 import {
-  acquireSyntheticDatabaseOwnership,
   cleanSyntheticDatabase,
+  prepareDa5V5SyntheticDatabase,
   prepareSyntheticDatabase,
   readSyntheticEmployeeEnrollmentEvidenceCounts,
   readSyntheticEvidenceCounts,
   readSyntheticTimeReviewEvidenceCounts,
   validateSyntheticInstallerDatabaseUrl,
   type SyntheticEmployeeEnrollmentEvidenceCounts,
-  type SyntheticDatabaseOwnership,
   type SyntheticEvidenceCounts,
   type SyntheticTimeReviewEvidenceCounts,
 } from './database.js';
+import {
+  closeDa5V5PostgresCapability,
+  type Da5V5PostgresCapability,
+} from './Da5V5PostgresCapability.js';
 import {
   FingerprintProvisioningScanContextResolver,
   type SyntheticSafeEvent,
@@ -114,10 +117,15 @@ export type SyntheticEnvironmentSafeEvent =
 export interface SyntheticAndroidE2eEnvironmentOptions {
   readonly apiPort?: number;
   readonly authPort?: number;
-  readonly installerDatabaseUrl: string;
+  readonly installerDatabaseUrl?: string;
   readonly password: string;
   readonly profile?: typeof DA4_V5_PROFILE | typeof DA5_V5_PROFILE;
+  readonly da5V5PostgresCapability?: Da5V5PostgresCapability;
+  readonly da5V5PostgresSource?:
+    | 'ci-test-adapter'
+    | 'isolated-runtime-guard';
   readonly da5V5TagBinding?: Da5V5TagBinding;
+  readonly onDa5V5FixtureOperations?: (pool: Pool) => void;
   readonly onSafeEvent?: (event: SyntheticEnvironmentSafeEvent) => void;
 }
 
@@ -211,9 +219,22 @@ export class Da5V5CleanupError extends Error {
   }
 }
 
+export function da5V5StartupCleanupIncomplete(primaryFailure: unknown): Error {
+  let primaryMessage = 'DA5 V5 startup failed';
+  if (primaryFailure instanceof Error) {
+    try {
+      if (typeof primaryFailure.message === 'string' && primaryFailure.message.length > 0) {
+        primaryMessage = primaryFailure.message;
+      }
+    } catch {
+      primaryMessage = 'DA5 V5 startup failed';
+    }
+  }
+  return new Error(`${primaryMessage};cleanup-incomplete`);
+}
+
 export async function runDa5V5StrictCleanup(options: {
-  readonly closeDatabase: () => Promise<void>;
-  readonly closeInstaller: () => Promise<void>;
+  readonly closeCapabilityOwner: () => Promise<void>;
   readonly closeResources: readonly (() => Promise<void>)[];
 }): Promise<void> {
   let failed = false;
@@ -221,10 +242,8 @@ export async function runDa5V5StrictCleanup(options: {
     const result = await settle(closeResource);
     failed ||= result.status === 'rejected';
   }
-  const databaseResult = await settle(options.closeDatabase);
-  failed ||= databaseResult.status === 'rejected';
-  const installerResult = await settle(options.closeInstaller);
-  failed ||= installerResult.status === 'rejected';
+  const capabilityOwnerResult = await settle(options.closeCapabilityOwner);
+  failed ||= capabilityOwnerResult.status === 'rejected';
   if (failed) {
     throw new Da5V5CleanupError();
   }
@@ -235,13 +254,15 @@ export async function createSyntheticAndroidE2eEnvironment(
 ): Promise<SyntheticAndroidE2eEnvironment> {
   const profile = validateSyntheticEnvironmentProfile(options.profile as unknown);
   const da5V5Binding = resolveDa5V5TagBinding(profile, options.da5V5TagBinding);
-  validateSyntheticInstallerDatabaseUrl(options.installerDatabaseUrl);
+  const databaseInput = resolveSyntheticDatabaseInput(profile, options);
   const onSafeEvent = options.onSafeEvent ?? (() => undefined);
   const auth = await SyntheticLocalAuthServer.create({
     password: options.password,
     port: validatePort(options.authPort ?? 54_321),
   });
-  const installerPool = createPool(options.installerDatabaseUrl, 2);
+  let installerPool: Pool | null = databaseInput.installerDatabaseUrl === undefined
+    ? null
+    : createPool(databaseInput.installerDatabaseUrl, 2);
   let sessionPool: Pool | null = null;
   let readModelPool: Pool | null = null;
   let lifecyclePool: Pool | null = null;
@@ -263,60 +284,98 @@ export async function createSyntheticAndroidE2eEnvironment(
   let redemptionInterruption: SyntheticRedemptionInterruptionController | null = null;
   let apiServer: ReturnType<typeof createBackendHttpServer> | null = null;
   let da5V5DedupeWindow: Da5V5DedupeWindowController | null = null;
-  let databaseOwnership: SyntheticDatabaseOwnership | null = null;
-  const cleanupDatabase = (): Promise<void> => profile === DA5_V5_PROFILE
-    ? databaseOwnership?.cleanup(profile) ?? Promise.resolve()
-    : cleanSyntheticDatabase(installerPool, profile);
-  const closeInstaller = async (): Promise<void> => {
-    if (profile !== DA5_V5_PROFILE) {
-      await installerPool.end();
+  let da5V5CapabilityClosed = false;
+  const cleanupDatabase = async (): Promise<void> => {
+    if (profile === DA5_V5_PROFILE) {
       return;
     }
-    const ownership = databaseOwnership;
-    databaseOwnership = null;
-    try {
-      await ownership?.release();
-    } finally {
-      await installerPool.end();
+    const pool = installerPool;
+    if (pool !== null) {
+      await cleanSyntheticDatabase(
+        pool,
+        profile === DA4_V5_PROFILE ? DA4_V5_PROFILE : undefined,
+      );
     }
+  };
+  const closeInstallerOrCapability = async (): Promise<void> => {
+    if (profile === DA5_V5_PROFILE) {
+      if (!da5V5CapabilityClosed) {
+        await closeDa5V5PostgresCapability(
+          databaseInput.da5V5PostgresCapability as Da5V5PostgresCapability,
+        );
+        da5V5CapabilityClosed = true;
+      }
+      return;
+    }
+    const pool = installerPool;
+    installerPool = null;
+    await pool?.end();
   };
 
   try {
     await auth.start();
+    const database = profile === DA5_V5_PROFILE
+      ? null
+      : await prepareSyntheticDatabase(
+          installerPool as Pool,
+          databaseInput.installerDatabaseUrl as string,
+          auth.issuer,
+          profile,
+        );
     if (profile === DA5_V5_PROFILE) {
-      databaseOwnership = await acquireSyntheticDatabaseOwnership(installerPool);
-    }
-    const database = await prepareSyntheticDatabase(
-      installerPool,
-      options.installerDatabaseUrl,
-      auth.issuer,
-      profile,
-      databaseOwnership ?? undefined,
-    );
-    sessionPool = createPool(database.connectionStrings.session);
-    readModelPool = createPool(database.connectionStrings.readModel);
-    lifecyclePool = createPool(database.connectionStrings.lifecycle);
-    administrationPool = createPool(database.connectionStrings.administration);
-    employeeInvitationPool = createPool(database.connectionStrings.employeeInvitation);
-    employeeEnrollmentPool = createPool(database.connectionStrings.employeeEnrollment);
-    reassignmentPool = createPool(database.connectionStrings.reassignment);
-    offlineLeasePool = createPool(database.connectionStrings.offlineLease);
-    offlineEventPool = createPool(database.connectionStrings.offlineEvent);
-    offlineReconciliationPool = createPool(database.connectionStrings.offlineReconciliation);
-    timeEntryExportPool = createPool(database.connectionStrings.timeEntryExport);
-    timeReviewReadPool = createPool(database.connectionStrings.timeReviewRead);
-    timeReviewWritePool = createPool(database.connectionStrings.timeReviewWrite);
-    if (profile === DA5_V5_PROFILE) {
-      const connections = database.da5V5ConnectionStrings;
-      if (connections === undefined) {
-        throw new Error('DA5 V5 least-privilege database runtimes are unavailable');
+      const prepared = await prepareDa5V5SyntheticDatabase(
+        databaseInput.da5V5PostgresCapability as Da5V5PostgresCapability,
+        auth.issuer,
+        options.da5V5PostgresSource ?? 'isolated-runtime-guard',
+      );
+      installerPool = prepared.fixturePool;
+      if (options.onDa5V5FixtureOperations !== undefined) {
+        if (process.env.NODE_ENV !== 'test') {
+          throw new Error('DA5 V5 fixture operation hook is test-only');
+        }
+        options.onDa5V5FixtureOperations(prepared.fixturePool);
       }
-      manualLifecyclePool = createPool(connections.manualLifecycle);
-      mobileOwnTimePool = createPool(connections.mobileOwnTime);
-      mobileTargetPool = createPool(connections.mobileTarget);
-      projectAdministrationPool = createPool(connections.projectAdministration);
+      sessionPool = prepared.runtimePools.session;
+      readModelPool = prepared.runtimePools.readModel;
+      lifecyclePool = prepared.runtimePools.lifecycle;
+      administrationPool = prepared.runtimePools.administration;
+      employeeInvitationPool = prepared.runtimePools.employeeInvitation;
+      employeeEnrollmentPool = prepared.runtimePools.employeeEnrollment;
+      reassignmentPool = prepared.runtimePools.reassignment;
+      offlineLeasePool = prepared.runtimePools.offlineLease;
+      offlineEventPool = prepared.runtimePools.offlineEvent;
+      offlineReconciliationPool = prepared.runtimePools.offlineReconciliation;
+      timeEntryExportPool = prepared.runtimePools.timeEntryExport;
+      timeReviewReadPool = prepared.runtimePools.timeReviewRead;
+      timeReviewWritePool = prepared.runtimePools.timeReviewWrite;
+      manualLifecyclePool = prepared.da5V5RuntimePools.manualLifecycle;
+      mobileOwnTimePool = prepared.da5V5RuntimePools.mobileOwnTime;
+      mobileTargetPool = prepared.da5V5RuntimePools.mobileTarget;
+      projectAdministrationPool =
+        prepared.da5V5RuntimePools.projectAdministration;
     } else {
-      provisionerPool = createPool(database.connectionStrings.provisioner, 1);
+      const connections = database?.connectionStrings;
+      if (connections === undefined) {
+        throw new Error('Synthetic database runtimes are unavailable');
+      }
+      sessionPool = createPool(connections.session);
+      readModelPool = createPool(connections.readModel);
+      lifecyclePool = createPool(connections.lifecycle);
+      administrationPool = createPool(connections.administration);
+      employeeInvitationPool = createPool(connections.employeeInvitation);
+      employeeEnrollmentPool = createPool(connections.employeeEnrollment);
+      reassignmentPool = createPool(connections.reassignment);
+      offlineLeasePool = createPool(connections.offlineLease);
+      offlineEventPool = createPool(connections.offlineEvent);
+      offlineReconciliationPool = createPool(connections.offlineReconciliation);
+      timeEntryExportPool = createPool(connections.timeEntryExport);
+      timeReviewReadPool = createPool(connections.timeReviewRead);
+      timeReviewWritePool = createPool(connections.timeReviewWrite);
+      provisionerPool = createPool(connections.provisioner, 1);
+    }
+    const privilegedPool = installerPool;
+    if (privilegedPool === null) {
+      throw new Error('Synthetic installer capability is unavailable');
     }
 
     const verifier = SupabaseJwtAccessTokenVerifier.fromRemoteJwks({
@@ -338,7 +397,7 @@ export async function createSyntheticAndroidE2eEnvironment(
       ? null
       : new Da5V5ScanContextResolver(
           realScanContext,
-          installerPool,
+          privilegedPool,
           da5V5Binding,
           onSafeEvent,
         );
@@ -459,12 +518,12 @@ export async function createSyntheticAndroidE2eEnvironment(
       throw new Error('Synthetic C2 API did not expose a TCP port');
     }
     const dedupeWindow = profile === DA5_V5_PROFILE
-      ? new Da5V5DedupeWindowController(installerPool)
+      ? new Da5V5DedupeWindowController(privilegedPool)
       : null;
     da5V5DedupeWindow = dedupeWindow;
     const protectedReviewFixture = da5V5Binding === undefined
       ? null
-      : new Da5V5ProtectedReviewFixture(installerPool, da5V5Binding);
+      : new Da5V5ProtectedReviewFixture(privilegedPool, da5V5Binding);
     const activeApiServer = apiServer;
     const pools = [
       sessionPool,
@@ -488,7 +547,53 @@ export async function createSyntheticAndroidE2eEnvironment(
         projectAdministrationPool,
       ].filter((pool): pool is Pool => pool !== null),
     ] as const;
-    let closed = false;
+    let closeState:
+      | 'active'
+      | 'closing'
+      | 'cleanup-incomplete'
+      | 'closed' = 'active';
+    const completedDa5CloseStages = new Set<string>();
+    let da5ClosePromise: Promise<void> | null = null;
+    const closeDa5Environment = async (): Promise<void> => {
+      let firstFailure: unknown;
+      const stage = async (
+        name: string,
+        action: () => Promise<void> | void,
+      ): Promise<void> => {
+        if (completedDa5CloseStages.has(name)) {
+          return;
+        }
+        try {
+          await action();
+          completedDa5CloseStages.add(name);
+        } catch (error: unknown) {
+          firstFailure ??= error;
+        }
+      };
+      const closePool = async (pool: Pool): Promise<void> => {
+        try {
+          await pool.end();
+        } catch (error: unknown) {
+          if (
+            !(error instanceof Error)
+            || !/Called end on pool more than once/u.test(error.message)
+          ) {
+            throw error;
+          }
+        }
+      };
+      await stage('dedupe-window', async () => dedupeWindow?.destroy());
+      await stage('interruption', async () => interruptionController.close());
+      await stage('api-server', async () => closeServer(activeApiServer));
+      for (const [index, pool] of pools.entries()) {
+        await stage(`pool-${index}`, async () => closePool(pool));
+      }
+      await stage('auth', async () => auth.close());
+      await stage('capability-owner', closeInstallerOrCapability);
+      if (firstFailure !== undefined) {
+        throw new Da5V5CleanupError();
+      }
+    };
     return Object.freeze({
       apiBaseUrl: `http://127.0.0.1:${address.port}`,
       administratorEmail: SYNTHETIC_ADMIN_AUTH_EMAIL,
@@ -509,7 +614,7 @@ export async function createSyntheticAndroidE2eEnvironment(
         interruptionController.armNextRedemptionInterruption();
       },
       employeeEnrollmentEvidenceCounts: () => (
-        readSyntheticEmployeeEnrollmentEvidenceCounts(installerPool)
+        readSyntheticEmployeeEnrollmentEvidenceCounts(privilegedPool)
       ),
       redemptionInterruptionState: () => interruptionController.getState(),
       provisioningState: () => {
@@ -518,26 +623,26 @@ export async function createSyntheticAndroidE2eEnvironment(
         }
         return provisioningScanContext.getState();
       },
-      evidenceCounts: () => readSyntheticEvidenceCounts(installerPool),
-      timeReviewEvidenceCounts: () => readSyntheticTimeReviewEvidenceCounts(installerPool),
+      evidenceCounts: () => readSyntheticEvidenceCounts(privilegedPool),
+      timeReviewEvidenceCounts: () => readSyntheticTimeReviewEvidenceCounts(privilegedPool),
       da4V5FixtureManifest: () => {
         if (profile !== DA4_V5_PROFILE) {
           return Promise.reject(new Error('DA4 V5 profile is not active'));
         }
-        return readDa4V5FixtureManifest(installerPool);
+        return readDa4V5FixtureManifest(privilegedPool);
       },
       da4V5Status: () => {
         if (profile !== DA4_V5_PROFILE) {
           return Promise.reject(new Error('DA4 V5 profile is not active'));
         }
-        return readDa4V5Status(installerPool);
+        return readDa4V5Status(privilegedPool);
       },
       armDa5V5TagBRegistration: async () => {
         if (da5V5ScanContext === null) {
           throw new Error('DA5 V5 profile is not active');
         }
         const [status, tagRoles] = await Promise.all([
-          readDa5V5Status(installerPool),
+          readDa5V5Status(privilegedPool),
           da5V5ScanContext.roleState(),
         ]);
         if (!da5V5TagBRegistrationPreconditionMatches(status, tagRoles)) {
@@ -574,7 +679,7 @@ export async function createSyntheticAndroidE2eEnvironment(
           return 'mismatch';
         }
         return protectedReviewFixture.arm(
-          await readDa5V5Status(installerPool),
+          await readDa5V5Status(privilegedPool),
           deviceQueueItems,
         );
       },
@@ -595,8 +700,8 @@ export async function createSyntheticAndroidE2eEnvironment(
           return 'mismatch';
         }
         const [status, invariants] = await Promise.all([
-          readDa5V5Status(installerPool),
-          readDa5V5InvariantStatus(installerPool, da5V5Binding),
+          readDa5V5Status(privilegedPool),
+          readDa5V5InvariantStatus(privilegedPool, da5V5Binding),
         ]);
         return protectedReviewFixture.markTerminal(status, invariants);
       },
@@ -610,13 +715,13 @@ export async function createSyntheticAndroidE2eEnvironment(
         if (profile !== DA5_V5_PROFILE) {
           return Promise.reject(new Error('DA5 V5 profile is not active'));
         }
-        return readDa5V5Status(installerPool);
+        return readDa5V5Status(privilegedPool);
       },
       da5V5InvariantStatus: () => {
         if (profile !== DA5_V5_PROFILE || da5V5Binding === undefined) {
           return Promise.reject(new Error('DA5 V5 profile is not active'));
         }
-        return readDa5V5InvariantStatus(installerPool, da5V5Binding);
+        return readDa5V5InvariantStatus(privilegedPool, da5V5Binding);
       },
       da5V5TagRegistrationState: () => {
         if (da5V5ScanContext === null) {
@@ -631,51 +736,66 @@ export async function createSyntheticAndroidE2eEnvironment(
         return da5V5ScanContext.roleState();
       },
       async close(): Promise<void> {
-        if (closed) {
+        if (closeState === 'closed') {
           return;
         }
-        closed = true;
         if (profile === DA5_V5_PROFILE) {
-          await runDa5V5StrictCleanup({
-            closeResources: [
-              async () => dedupeWindow?.destroy(),
-              async () => interruptionController.close(),
-              () => closeServer(activeApiServer),
-              ...pools.map((pool) => () => pool.end()),
-              () => auth.close(),
-            ],
-            closeDatabase: cleanupDatabase,
-            closeInstaller,
-          });
-        } else if (profile === DA4_V5_PROFILE) {
-          await runDa4V5StrictCleanup({
-            closeResources: [
-              async () => interruptionController.close(),
-              () => closeServer(activeApiServer),
-              ...pools.map((pool) => () => pool.end()),
-              () => auth.close(),
-            ],
-            closeDatabase: cleanupDatabase,
-            closeInstaller,
-          });
-        } else {
-          interruptionController.close();
-          await Promise.allSettled([
-            closeServer(activeApiServer),
-            ...pools.map((pool) => pool.end()),
-            auth.close(),
-          ]);
-          try {
-            await cleanupDatabase();
-          } finally {
-            await closeInstaller();
+          if (da5ClosePromise !== null) {
+            return da5ClosePromise;
           }
+          closeState = 'closing';
+          const activeClose = closeDa5Environment();
+          da5ClosePromise = activeClose;
+          try {
+            await activeClose;
+            closeState = 'closed';
+          } catch (error: unknown) {
+            closeState = 'cleanup-incomplete';
+            throw error;
+          } finally {
+            da5ClosePromise = null;
+          }
+          return;
+        }
+        if (closeState !== 'active') {
+          throw new Da5V5CleanupError();
+        }
+        closeState = 'closing';
+        try {
+          if (profile === DA4_V5_PROFILE) {
+            await runDa4V5StrictCleanup({
+              closeResources: [
+                async () => interruptionController.close(),
+                () => closeServer(activeApiServer),
+                ...pools.map((pool) => () => pool.end()),
+                () => auth.close(),
+              ],
+              closeDatabase: cleanupDatabase,
+              closeInstaller: closeInstallerOrCapability,
+            });
+          } else {
+            interruptionController.close();
+            await Promise.allSettled([
+              closeServer(activeApiServer),
+              ...pools.map((pool) => pool.end()),
+              auth.close(),
+            ]);
+            try {
+              await cleanupDatabase();
+            } finally {
+              await closeInstallerOrCapability();
+            }
+          }
+          closeState = 'closed';
+        } catch (error) {
+          closeState = 'cleanup-incomplete';
+          throw error;
         }
       },
     });
   } catch (error) {
     if (profile === DA5_V5_PROFILE) {
-      await runDa5V5StrictCleanup({
+      const cleanupResult = await settle(() => runDa5V5StrictCleanup({
         closeResources: [
           async () => da5V5DedupeWindow?.destroy(),
           async () => redemptionInterruption?.close(),
@@ -700,9 +820,11 @@ export async function createSyntheticAndroidE2eEnvironment(
           () => projectAdministrationPool?.end() ?? Promise.resolve(),
           () => auth.close(),
         ],
-        closeDatabase: cleanupDatabase,
-        closeInstaller,
-      });
+        closeCapabilityOwner: closeInstallerOrCapability,
+      }));
+      if (cleanupResult.status === 'rejected') {
+        throw da5V5StartupCleanupIncomplete(error);
+      }
       throw error;
     }
     if (profile === DA4_V5_PROFILE) {
@@ -727,7 +849,7 @@ export async function createSyntheticAndroidE2eEnvironment(
           () => auth.close(),
         ],
         closeDatabase: cleanupDatabase,
-        closeInstaller,
+        closeInstaller: closeInstallerOrCapability,
       });
       throw error;
     }
@@ -759,9 +881,41 @@ export async function createSyntheticAndroidE2eEnvironment(
     } catch {
       // Preserve the original startup failure; cleanup is best effort only.
     }
-    await closeInstaller();
+    await closeInstallerOrCapability();
     throw error;
   }
+}
+
+interface SyntheticDatabaseInput {
+  readonly installerDatabaseUrl?: string;
+  readonly da5V5PostgresCapability?: Da5V5PostgresCapability;
+}
+
+function resolveSyntheticDatabaseInput(
+  profile: typeof DA4_V5_PROFILE | typeof DA5_V5_PROFILE | undefined,
+  options: SyntheticAndroidE2eEnvironmentOptions,
+): SyntheticDatabaseInput {
+  if (profile === DA5_V5_PROFILE) {
+    if (options.installerDatabaseUrl !== undefined) {
+      throw new Error('DA5 V5 rejects operator-supplied database URLs');
+    }
+    if (options.da5V5PostgresCapability === undefined) {
+      throw new Error('DA5 V5 requires an isolated PostgreSQL capability');
+    }
+    return Object.freeze({
+      da5V5PostgresCapability: options.da5V5PostgresCapability,
+    });
+  }
+  if (options.da5V5PostgresCapability !== undefined) {
+    throw new Error('The isolated PostgreSQL capability requires the exact DA5 V5 profile');
+  }
+  if (options.installerDatabaseUrl === undefined) {
+    throw new Error('Synthetic E2E requires an installer database URL');
+  }
+  validateSyntheticInstallerDatabaseUrl(options.installerDatabaseUrl);
+  return Object.freeze({
+    installerDatabaseUrl: options.installerDatabaseUrl,
+  });
 }
 
 function validateSyntheticEnvironmentProfile(

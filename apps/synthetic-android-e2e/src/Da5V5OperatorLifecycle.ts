@@ -1,5 +1,21 @@
 import type { Interface } from 'node:readline';
 
+export function rejectDa5V5OperationalInputs(
+  environment: NodeJS.ProcessEnv,
+  argv: readonly string[],
+): void {
+  const forbiddenEnvironment = Object.keys(environment).some((name) => (
+    name === 'DATABASE_URL'
+    || name === 'TAPTIME_SYNTHETIC_E2E_DATABASE_URL'
+    || name === 'TAPTIME_DA5_V5_CI_OWNER_RECORD'
+    || /^(?:PG|PQ)/u.test(name)
+    || /(?:DATABASE|POSTGRES)(?:_URL|_URI|_PASSWORD|_PASS|_CREDENTIALS?)$/u.test(name)
+  ));
+  if (forbiddenEnvironment || argv.length !== 2) {
+    throw new Error('DA5 V5 operational database input is rejected');
+  }
+}
+
 export type Da5V5OperatorFailureEvent =
   | 'da5_v5_checkpoint=mismatch'
   | 'da5_v5_credential_binding=mismatch'

@@ -16,6 +16,7 @@ import {
   Da5V5InputOwnership,
   Da5V5OperatorLifecycle,
   Da5V5SignalController,
+  rejectDa5V5OperationalInputs,
   type Da5V5OperatorCommandOutcome,
 } from './Da5V5OperatorLifecycle.js';
 import {
@@ -51,13 +52,38 @@ import {
   validateDa5V5TagBinding,
 } from './Da5V5Profile.js';
 import {
+  closeDa5V5PostgresCapability,
+  createDa5V5LocalPostgresCapability,
+  da5V5PostgresCapabilityState,
+  type Da5V5PostgresCapability,
+} from './Da5V5PostgresCapability.js';
+import {
+  verifyDa5V5RuntimeGuardArtifact,
+  type Da5V5RuntimeGuardArtifactBinding,
+} from './Da5V5RuntimeGuardArtifact.js';
+import {
   createSyntheticAndroidE2eEnvironment,
   type SyntheticAndroidE2eEnvironment,
   type SyntheticEnvironmentSafeEvent,
 } from './SyntheticAndroidE2eEnvironment.js';
 
+rejectDa5V5OperationalInputs(process.env, process.argv);
 const profile = requireDa5V5Profile(process.env.TAPTIME_SYNTHETIC_E2E_PROFILE);
-const installerDatabaseUrl = requiredEnvironmentValue('TAPTIME_SYNTHETIC_E2E_DATABASE_URL');
+const guardBinaryPath = requiredEnvironmentValue('TAPTIME_DA5_V5_RUNTIME_GUARD_BINARY');
+const guardManifestPath = requiredEnvironmentValue('TAPTIME_DA5_V5_RUNTIME_GUARD_MANIFEST');
+const expectedGuardBinarySha256 = requiredEnvironmentValue(
+  'TAPTIME_DA5_V5_RUNTIME_GUARD_BINARY_SHA256',
+);
+const expectedGuardManifestSha256 = requiredEnvironmentValue(
+  'TAPTIME_DA5_V5_RUNTIME_GUARD_MANIFEST_SHA256',
+);
+const implementationCommit = requiredEnvironmentValue(
+  'TAPTIME_DA5_V5_IMPLEMENTATION_COMMIT',
+);
+const implementationTree = requiredEnvironmentValue(
+  'TAPTIME_DA5_V5_IMPLEMENTATION_TREE',
+);
+const pgConfigPath = requiredEnvironmentValue('TAPTIME_DA5_V5_PG_CONFIG');
 let password = requiredEnvironmentValue('TAPTIME_SYNTHETIC_E2E_PASSWORD');
 const startupPasswordBuffer = da5V5SyntheticCredentialBuffer(password);
 const tagBinding = validateDa5V5TagBinding({
@@ -85,9 +111,12 @@ const credentialPhases = Object.freeze([
 ] as const);
 let nextCredentialPhase = 0;
 let environment: SyntheticAndroidE2eEnvironment | null = null;
+let postgresCapability: Da5V5PostgresCapability | null = null;
+let runtimeGuardArtifact: Da5V5RuntimeGuardArtifactBinding | null = null;
 let operationSession: Da5V5OperationSession | null = null;
 let operatorLifecycle: Da5V5OperatorLifecycle | null = null;
 let cleanupResourcesPromise: Promise<void> | null = null;
+const completedCleanupStages = new Set<string>();
 const inputOwnership = new Da5V5InputOwnership();
 const adb = new SystemDa5V5AdbCommandRunner();
 const mobileAdb = new SystemDa5V5AndroidAdbRunner();
@@ -136,16 +165,38 @@ const signalController = new Da5V5SignalController(
   },
 );
 const handleTerminationSignal = (): void => {
+  process.exitCode = 1;
   mutationAbortController.abort();
-  void signalController.handleSignal();
+  inputOwnership.closeAll();
+  void signalController.handleSignal().finally(() => cleanupResources());
 };
 process.on('SIGINT', handleTerminationSignal);
 process.on('SIGTERM', handleTerminationSignal);
+process.on('SIGHUP', handleTerminationSignal);
+process.on('uncaughtException', handleTerminationSignal);
+process.on('unhandledRejection', handleTerminationSignal);
 
 try {
   signalController.checkpoint();
+  runtimeGuardArtifact = await verifyDa5V5RuntimeGuardArtifact({
+    binaryPath: guardBinaryPath,
+    expectedBinarySha256: expectedGuardBinarySha256,
+    expectedManifestSha256: expectedGuardManifestSha256,
+    implementationCommit,
+    implementationTree,
+    manifestPath: guardManifestPath,
+  });
+  signalController.checkpoint();
+  postgresCapability = await createDa5V5LocalPostgresCapability({
+    guardArtifactBinding: runtimeGuardArtifact,
+    pgConfigPath,
+    signal: mutationAbortController.signal,
+    temporaryBase: '/private/tmp',
+  });
+  signalController.checkpoint();
   environment = await createSyntheticAndroidE2eEnvironment({
-    installerDatabaseUrl,
+    da5V5PostgresCapability: postgresCapability,
+    da5V5PostgresSource: 'isolated-runtime-guard',
     password,
     authPort: 54_321,
     apiPort: 3_000,
@@ -153,6 +204,7 @@ try {
     da5V5TagBinding: tagBinding,
     onSafeEvent: reportSafeEvent,
   });
+  postgresCapability = null;
   signalController.checkpoint();
   if (!safeEventLatch.commandAllowed()) {
     throw new Error('DA5 V5 safe failure latched during startup');
@@ -950,23 +1002,52 @@ function startCommandInput(): void {
 }
 
 function cleanupResources(): Promise<void> {
-  cleanupResourcesPromise ??= performCleanupResources();
-  return cleanupResourcesPromise;
+  if (cleanupResourcesPromise !== null) {
+    return cleanupResourcesPromise;
+  }
+  const activeCleanup = performCleanupResources();
+  cleanupResourcesPromise = activeCleanup;
+  void activeCleanup.then(
+    () => {
+      if (cleanupResourcesPromise === activeCleanup) {
+        cleanupResourcesPromise = null;
+      }
+    },
+    () => {
+      if (cleanupResourcesPromise === activeCleanup) {
+        cleanupResourcesPromise = null;
+      }
+    },
+  );
+  return activeCleanup;
 }
 
 async function performCleanupResources(): Promise<void> {
-  inputOwnership.closeAll();
-  passwordBinding.destroy();
-  const results: PromiseSettledResult<unknown>[] = [];
-  results.push(await settle(async () => {
-    await webCredential.close();
-  }));
-  results.push(await settle(async () => {
+  let firstFailure: unknown;
+  const stage = async (
+    name: string,
+    action: () => Promise<void> | void,
+  ): Promise<void> => {
+    if (completedCleanupStages.has(name)) {
+      return;
+    }
+    try {
+      await action();
+      completedCleanupStages.add(name);
+    } catch (error: unknown) {
+      firstFailure ??= error;
+    }
+  };
+
+  await stage('input', () => inputOwnership.closeAll());
+  await stage('password', () => passwordBinding.destroy());
+  await stage('web-credential', async () => webCredential.close());
+  await stage('offline', async () => {
     if (await offline.close() !== 'match') {
       throw new Error('DA5 V5 offline cleanup mismatch');
     }
-  }));
-  results.push(await settle(async () => {
+  });
+  await stage('android', async () => {
     const cleanup = await cleanupDa5V5AndroidState({
       deviceBinding: accessibilityBinding,
       profile,
@@ -977,20 +1058,32 @@ async function performCleanupResources(): Promise<void> {
     if (cleanup.status !== 'match') {
       throw new Error('DA5 V5 Android cleanup mismatch');
     }
-  }));
-  results.push(await settle(async () => environment?.close()));
-  environment = null;
-  operationSession = null;
-  if (results.some((result) => result.status === 'rejected')) {
+  });
+  await stage('environment', async () => {
+    await environment?.close();
+    environment = null;
+  });
+  await stage('postgres-capability', async () => {
+    const capability = postgresCapability;
+    if (
+      capability !== null
+      && da5V5PostgresCapabilityState(capability).closed === false
+    ) {
+      await closeDa5V5PostgresCapability(capability);
+    }
+    postgresCapability = null;
+  });
+  await stage('runtime-guard-artifact', async () => {
+    const artifact = runtimeGuardArtifact;
+    await artifact?.revalidate();
+    await artifact?.close();
+    runtimeGuardArtifact = null;
+  });
+  await stage('operation-session', () => {
+    operationSession = null;
+  });
+  if (firstFailure !== undefined) {
     throw new Error('DA5 V5 cleanup failed');
-  }
-}
-
-async function settle(action: () => Promise<unknown> | unknown): Promise<PromiseSettledResult<unknown>> {
-  try {
-    return { status: 'fulfilled', value: await action() };
-  } catch (reason) {
-    return { status: 'rejected', reason };
   }
 }
 
