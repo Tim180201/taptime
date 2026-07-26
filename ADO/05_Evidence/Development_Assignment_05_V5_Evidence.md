@@ -1,6 +1,6 @@
 # Development Assignment 5 — V5 Human Android Evidence
 
-- Status: **READ-ONLY ARTIFACT/EVIDENCE APPROVED; ALL SHARED-CLUSTER FOLLOW-UP BLOCKED/NOT EVIDENCE; ISOLATED-POSTGRESQL CANDIDATE `72fbd3c` REVIEWED `CHANGES REQUIRED`; CURRENT ADO-ONLY CORRECTION CANDIDATE REQUIRES EXACT-DELTA RE-REVIEW/NOT IMPLEMENTATION AUTHORITY; HUMAN V5 NOT RUN/UNAUTHORIZED**
+- Status: **READ-ONLY ARTIFACT/EVIDENCE APPROVED; ALL SHARED-CLUSTER FOLLOW-UP BLOCKED/NOT EVIDENCE; ISOLATED-POSTGRESQL ROUND-2 `7739757` REVIEWED `CHANGES REQUIRED` WITH EXACTLY FIVE P1, ONE P2 AND ONE P3; HUMAN OPTION A SELECTED; ROUND-3 ADO DRAFT STILL REQUIRES FOCUSED PUBLICATION, EXACT-HEAD CI AND INDEPENDENT `APPROVED`/NO IMPLEMENTATION AUTHORITY; HUMAN V5 NOT RUN/UNAUTHORIZED**
 - Date: `NOT RUN`
 - Artifact preparation date: 2026-07-25
 - Owner: Technical Lead
@@ -19,6 +19,8 @@ and grants no Human-run authority.
 | Product commit/tree and required V4 | `a323834f51607841d0cd5f11aafdbfd3dd93ed5f` / `65c669b0a941c21d23ffca5e79fa03285323a7cf`; CI `30149165373`, attempt 1, 12/12 |
 | Product implementation-review binding/verdict | Round 2 `APPROVED`; zero open P0–P3 |
 | Runbook/evidence commit/tree and independent-review verdict | `e6a06e2ec8f580d6314bfe5a51378f949d524b16` / `6dcdce405feb2eccb1462c373ab6be891152715c`; CI `30150095109`, attempt 1, 12/12; final independent Artifact/Evidence Exact-SHA review `APPROVED`, zero open P0–P3 |
+| Isolated-PostgreSQL enablement correction | Round-2 `7739757a4855ee7bac34408941e94c25516d75f5` / tree `0398066e92fef65562526f61c9515b0ef3be0114` / parent `72fbd3c20329dfbf3e8a1509025bd630b1bb130a`; exact-head CI `30177897059`, attempt 1, 12/12; Ultra re-review `CHANGES REQUIRED`, exactly five P1/one P2/one P3; Human selected Option A — one exclusive trusted single-user operator session, with hostile/malicious same-UID processes and mount/unmount churn outside the threat model; focused publication, successful exact-head CI and independent `APPROVED` remain pending; no implementation authority |
+| Reviewed Runtime Guard binary/manifest path, size, SHA-256, mode, architecture, load dependencies, source/toolchain/SDK/OS and Exact-SHA verdict | `NOT BOUND` — future R3 software-phase output; an operational/hardware run must verify it and may not compile it |
 | Read-only APK path/size/SHA-256/mode | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5/a323834/app-release-385c0c46f22dcac5.apk`; 95,522,787 bytes; `385c0c46f22dcac5b935bfdc6f574558f4e74748ed4a367ef399ddbd4299c547`; `0444` |
 | Read-only artifact manifest path/size/SHA-256/mode | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5/a323834/artifact-manifest.txt`; 1,647 bytes; `1c1f1b7a5b92fab5510cde35a439fc6f0742b7bf2666d6319cd89b9a7d4dcadb`; `0444` |
 | Package/version/signature/signer/packaged runtime values | `com.tim180201.mobile.synthetic`; versionCode `1`; versionName `1.0.0`; v2 `true`, v1/v3/v3.1/v4 `false`; one local synthetic non-production signer certificate SHA-256 `fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c`; packaged boundary/runtime `match` |
@@ -112,13 +114,34 @@ The entire Shared-Cluster follow-up above is now `BLOCKED`, is not Candidate Evi
 the current green path. Its focused 180/180 Synthetic result remains a historical WIP observation
 only and is not Human/hardware Evidence.
 
-The isolated-PostgreSQL authorization candidate was published at
+The first isolated-PostgreSQL authorization candidate was published at
 `72fbd3c20329dfbf3e8a1509025bd630b1bb130a`, tree
 `dda615edd2e91c6b4d50bf979386937a9f3d249f`. CI `30176432929`, attempt 2, passed 12/12; attempt 1
 timed out while pulling the Docker Hub image before checkout and tested no repository source.
-Independent candidate review returned `CHANGES REQUIRED` with five P1, one P2 and one P3. The
-current ADO-only correction candidate requires independent Exact-Delta re-review and grants
-no implementation, installation, ADB, device/Tag or Human/hardware authority.
+Independent candidate review returned `CHANGES REQUIRED` with five P1, one P2 and one P3.
+
+Round-2 correction candidate `7739757a4855ee7bac34408941e94c25516d75f5`, tree
+`0398066e92fef65562526f61c9515b0ef3be0114`, exact parent `72fbd3c`, passed exact-head CI
+`30177897059`, attempt 1, 12/12. Its technically enforced read-only Ultra re-review returned
+`CHANGES REQUIRED` with exactly five P1, one P2 and one P3: terminal/process-group signals could
+bypass PostgreSQL supervision under `detached=false`; compiler/helper/initdb lacked bounded
+terminal hang cleanup; compiler/toolchain/environment trust was incomplete; rename lacked
+source-inode/no-replace safety; final stat-to-unlink retained a destructive same-UID TOCTOU; the
+copy-ready prompt named only one candidate file; and Decision Log/ADO navigation was stale.
+
+The round-3 ADO draft specifies one native Runtime Guard compiled/tested once during the future R3
+software phase, retained read-only with an Exact-SHA manifest and only verified—not compiled—by
+later operational/hardware runs. It is the direct initdb/PostgreSQL parent in its own POSIX
+session/process group with private-pipe-only Node control, bounded artifact-producer/initdb
+termination, closed trusted toolchain/runtime environments and
+platform-no-replace/descriptor/mount checks. It does not claim atomic same-UID cleanup: POSIX has
+no portable inode-conditional unlink. The Human Architect selected Option A: one exclusive
+trusted single-user operator session, with hostile/malicious same-UID processes and mount/unmount
+churn outside the threat model. That selection is not implementation approval. The seven-file
+correction still requires focused publication, successful exact-head CI and independent
+`APPROVED` with zero open P0–P3 before only the exact R3 scope may activate through the
+`AGENTS.md` standing rule. No implementation, installation, ADB, device/Tag or Human/hardware
+authority exists.
 
 No installation, ADB, device/Tag interaction or Human V5 occurred. The Harness can accept A/B/X
 values only from the operator and cannot independently prove their origin. Before any hardware
