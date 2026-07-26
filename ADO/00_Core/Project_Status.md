@@ -1,6 +1,12 @@
 # Project Status
 
-Status: CORE ROADMAP V2 BLOCK A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2, BLOCK D, E1 AND NARROW E2A COMPLETE FOR THEIR RECORDED SCOPES — DEVELOPMENT ASSIGNMENTS 1–3 AND DT-060–DT-074 CLOSED FOR THEIR EXACT AUTHORIZED LOCAL SCOPES — DA4 WORKSTREAMS A–D, AVS V0–V4, H01 PROCEDURAL CORRECTION, DA4-V5-F06 AND DA4-V5-F07 INDEPENDENTLY APPROVED; DA4 REMAINS OPEN FOR A LATER FRESH HUMAN V5 — DA5 V0–V4 SOFTWARE IS TECHNICALLY CLOSED; CURRENT SOURCE+LOCK BASELINE `a323834`, TREE `65c669b`, PASSED EXACT-HEAD CI `30149165373` 12/12 AND INDEPENDENT IMPLEMENTATION REVIEW ROUND 2 `APPROVED` WITH ZERO OPEN P0–P3; THE READ-ONLY SYNTHETIC V5 APK/MANIFEST EVIDENCE AT `e6a06e2`, TREE `6dcdce4`, PASSED EXACT-HEAD CI `30150095109` 12/12 AND FINAL INDEPENDENT ARTIFACT/EVIDENCE EXACT-SHA REVIEW `APPROVED` WITH ZERO OPEN P0–P3; ALL SHARED-CLUSTER FOLLOW-UP IS BLOCKED AND NOT EVIDENCE; ISOLATED-POSTGRESQL ROUND-3 CANDIDATE `bbcb1b59703ee866539b2bc384ec9db8c2643fe4`, TREE `dfb5abbca1f2ddf603d191ae3303d1336f5440c7`, PARENT `7739757a4855ee7bac34408941e94c25516d75f5`, PASSED EXACT-HEAD CI `30185670176` ATTEMPT 1 12/12, BUT INDEPENDENT READ-ONLY REVIEW RETURNED `CHANGES REQUIRED` WITH EXACTLY TWO P1 AND ZERO P0/P2/P3; THE HUMAN ARCHITECT PRESERVED OPTION A — ONE EXCLUSIVE TRUSTED SINGLE-USER OPERATOR SESSION, WITH HOSTILE/MALICIOUS SAME-UID PROCESSES AND MOUNT/UNMOUNT CHURN OUTSIDE THE THREAT MODEL — AND AUTHORIZED EXACTLY ONE ADDITIONAL FOCUSED ADO CORRECTION/REVIEW ROUND BEYOND THE THREE-ROUND LIMIT, LIMITED TO THOSE TWO P1; THE CURRENT R0 DRAFT REMAINS UNBOUND AND FOCUSED PUBLICATION, EXACT-HEAD CI AND INDEPENDENT EXACT-DELTA `APPROVED` ARE REQUIRED BEFORE THE `AGENTS.md` STANDING RULE CAN ACTIVATE THE EXACT R3 SCOPE; NO IMPLEMENTATION OR HUMAN/HARDWARE AUTHORITY EXISTS — PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
+Status: CORE ROADMAP V2 BLOCK A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2, BLOCK D, E1 AND NARROW E2A COMPLETE FOR THEIR RECORDED SCOPES — DEVELOPMENT ASSIGNMENTS 1–3 AND DT-060–DT-074 CLOSED FOR THEIR EXACT AUTHORIZED LOCAL SCOPES — DA4 WORKSTREAMS A–D, AVS V0–V4, H01 PROCEDURAL CORRECTION, DA4-V5-F06 AND DA4-V5-F07 INDEPENDENTLY APPROVED; DA4 REMAINS OPEN FOR A LATER FRESH HUMAN V5 — DA5 V0–V4 SOFTWARE IS TECHNICALLY CLOSED; CURRENT SOURCE+LOCK BASELINE `a323834`, TREE `65c669b`, PASSED EXACT-HEAD CI `30149165373` 12/12 AND INDEPENDENT IMPLEMENTATION REVIEW ROUND 2 `APPROVED` WITH ZERO OPEN P0–P3; THE READ-ONLY SYNTHETIC V5 APK/MANIFEST EVIDENCE AT `e6a06e2`, TREE `6dcdce4`, PASSED EXACT-HEAD CI `30150095109` 12/12 AND FINAL INDEPENDENT ARTIFACT/EVIDENCE EXACT-SHA REVIEW `APPROVED` WITH ZERO OPEN P0–P3; ALL SHARED-CLUSTER FOLLOW-UP IS BLOCKED AND NOT EVIDENCE; ISOLATED-POSTGRESQL EXTRA-ROUND CANDIDATE `43567d256e8f633f16866448e1fb5abbd8022733`, TREE `feecced92abe9fc536a2db052b5a616d3e0f1cf7`, PARENT `bbcb1b59703ee866539b2bc384ec9db8c2643fe4`, PASSED EXACT-HEAD CI `30186846379` ATTEMPT 1 12/12, BUT INDEPENDENT EXACT-DELTA REVIEW RETURNED `CHANGES REQUIRED` WITH EXACTLY ONE P1 AND ZERO P0/P2/P3; INITDB P1-B IS CLOSED; THE HUMAN ARCHITECT CONFIRMED THE SECOND LOCAL ADMINISTRATOR AND EXACT COMPLETE DECISION-TIME LOCAL MACOS ADMIN-GROUP MEMBERSHIP SNAPSHOT ARE TRUSTED UNDER OPTION A AND AUTHORIZED EXACTLY ONE LAST FOCUSED ADO CORRECTION/REVIEW ROUND LIMITED TO THE REMAINING HOMEBREW-GROUP P1; THE CURRENT R0 LAST-ROUND DRAFT REMAINS UNBOUND AND FOCUSED PUBLICATION, EXACT-HEAD CI AND INDEPENDENT EXACT-DELTA `APPROVED` ARE REQUIRED BEFORE THE `AGENTS.md` STANDING RULE CAN ACTIVATE THE EXACT R3 SCOPE; NO IMPLEMENTATION OR HUMAN/HARDWARE AUTHORITY EXISTS — PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
+DA5 decision-time Option-A trust anchor: exactly two direct admin-group members, zero nested
+groups; full-record SHA-256 `b006276c09d8f2713f6132ea79cec167ab3a3c2887ee53e95eb00c1cc33719a5`;
+membership SHA-256 `70a683b7ebc7981533015d5d63cf12dfb2eabbfa665c34720eddb4d09e9e3064`;
+combined snapshot SHA-256 `2384b0baccd9049d820794f8ebc9419e4af0fad6831a5a91c209baa0b4a02217`.
+A later R3 run must reproduce all three and both counts before capability/task-root creation and
+every trust use; mismatch returns to the Human Architect and may not dynamically rebind.
 Date: 2026-07-26
 Owner: Human Architect + Technical Lead
 
@@ -186,13 +192,37 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   contract needed root-or-exact-same-EUID ownership plus complete canonical-ancestor binding and
   revalidation under Option A, and the initdb leader had to remain unreaped through its final
   possible negative-PGID signal. The Human Architect authorized exactly one additional focused
-  ADO correction/review round beyond the three-round limit, limited to those findings. The current
-  extra-round R0 draft adds the exact ownership/ACL/stable-FD/path/device/inode/mode/digest/
-  version/platform-identity and non-reaping `waitid(..., WNOWAIT)` contracts plus positive and
-  negative future R3 tests. It changes no Product code, system/Homebrew ownership, Option A or
-  Shared-Cluster disposition and grants no implementation or hardware authority. Focused
-  publication, successful exact-head CI and independent Exact-Delta `APPROVED` with zero open
-  P0–P3 remain mandatory.
+  ADO correction/review round beyond the three-round limit, limited to those findings. Published
+  extra-round candidate `43567d256e8f633f16866448e1fb5abbd8022733`, tree
+  `feecced92abe9fc536a2db052b5a616d3e0f1cf7`, exact parent
+  `bbcb1b59703ee866539b2bc384ec9db8c2643fe4`, passed exact-head CI `30186846379`, attempt 1,
+  12/12. Its independent Exact-Delta review returned `CHANGES REQUIRED` with exactly one P1 and
+  zero P0/P2/P3: the current same-EUID-owned Homebrew Cellar ancestor is observed at mode `0775`,
+  so blanket group-write rejection cannot run and did not bind the trusted group plus its complete
+  current membership set. The review explicitly closed initdb P1-B.
+
+  The Human Architect confirms the second local administrator and exact complete current local
+  macOS admin-group membership snapshot are trusted under Option A, and authorizes exactly one last
+  focused ADO correction/review round limited to the remaining P1. The current last-round R0 draft
+  disclosure-safely binds immutable sorted UID/GUID/group-record and membership digests; permits
+  group write only for same-EUID-owned canonical ancestors with the exact bound group, unchanged
+  membership/group record and exact manifest-bound observed mode; keeps the canonical binaries
+  exact observed `0555` and non-group/world-writable; and fails on every other group-write,
+  world-write, group/member/mode/ACL/symlink/swap or stable-identity mismatch. It performs and
+  authorizes no account/group/membership/ownership/permission/Homebrew/system mutation, changes no
+  Product code, preserves the waitid/WNOWAIT correction and Shared-Cluster disposition, and grants
+  no implementation or hardware authority. Focused publication, successful exact-head CI and
+  independent Exact-Delta `APPROVED` with zero open P0–P3 remain mandatory.
+
+  The accepted admin-group state is frozen to the decision-time V1 anchor, not to a future
+  directory-service snapshot: exactly two direct members, zero nested groups, full-record digest
+  `b006276c09d8f2713f6132ea79cec167ab3a3c2887ee53e95eb00c1cc33719a5`, sorted membership
+  digest `70a683b7ebc7981533015d5d63cf12dfb2eabbfa665c34720eddb4d09e9e3064` and combined snapshot
+  digest `2384b0baccd9049d820794f8ebc9419e4af0fad6831a5a91c209baa0b4a02217`. Future R3/preflight
+  must recompute all three and both counts before capability/task-root creation and every trust
+  use. Any mismatch stops and returns to the Human Architect; dynamic re-acceptance, anchor update
+  or rebinding to later-current group/member state is forbidden. Only these digests, counts and
+  match/mismatch are disclosure-safe ADO/Evidence values.
 - **Development Assignment 4 remains open only for a later separately authorized Human V5.** The Human Architect
   accepted ADR-0015 and DA4-P01–P12 and separately authorized Workstreams A–D plus AVS V0–V4 on
   exact baseline `d9892435acbf7f45a96a9a01c8331afceb65f6f1`, tree
@@ -899,13 +929,18 @@ Two Epics are concurrently Active, per EP-009's own stated relationship to the r
    `7739757`, tree `0398066`, parent `72fbd3c`, and CI `30177897059`, attempt 1, 12/12 as
    historical round-2 truth. Round-3 candidate `bbcb1b5`, tree `dfb5abb`, parent `7739757`,
    passed exact-head CI `30185670176`, attempt 1, 12/12, but independent review returned
-   `CHANGES REQUIRED` with exactly two P1 and zero P0/P2/P3. Preserve the Human Architect's exact
-   Option A selection: one exclusive trusted single-user operator session, with hostile/malicious
-   same-UID processes and mount/unmount churn outside the threat model. Under the Human-authorized
-   one additional focused correction/review round, focus-publish only the seven-file two-P1 ADO
-   correction, bind its exact commit/tree and successful exact-head CI, and obtain independent
-   Exact-Delta `APPROVED` with zero open P0–P3. Until then no implementation authority exists;
-   afterward only the `AGENTS.md` standing rule may activate the exact reviewed R3 scope.
+   `CHANGES REQUIRED` with exactly two P1 and zero P0/P2/P3. Extra-round candidate `43567d2`,
+   tree `feecced`, parent `bbcb1b5`, passed exact-head CI `30186846379`, attempt 1, 12/12;
+   independent Exact-Delta review returned `CHANGES REQUIRED` with exactly one P1 and zero
+   P0/P2/P3, while initdb P1-B closed. Preserve the Human Architect's exact Option A selection:
+   one exclusive trusted operator session whose exact complete decision-time local macOS admin-group
+   snapshot, including the second local administrator, is trusted; hostile/malicious same-UID or
+   exact-bound trusted-member processes and mount/unmount churn remain outside the threat model.
+   Under the Human-authorized one last focused correction/review round, focus-publish only the
+   seven-file remaining-P1 ADO correction, bind its exact commit/tree and successful exact-head
+   CI, and obtain independent Exact-Delta `APPROVED` with zero open P0–P3. Until then no
+   implementation authority exists; afterward only the `AGENTS.md` standing rule may activate
+   the exact reviewed R3 scope.
    DA4's open Human gate and all Human/hardware V5 evidence remain separate and unauthorized.
    Production, production data, deployment and distribution remain unauthorized.
 

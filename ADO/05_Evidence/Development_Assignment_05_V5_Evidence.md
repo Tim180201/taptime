@@ -1,6 +1,6 @@
 # Development Assignment 5 — V5 Human Android Evidence
 
-- Status: **READ-ONLY ARTIFACT/EVIDENCE APPROVED; ALL SHARED-CLUSTER FOLLOW-UP BLOCKED/NOT EVIDENCE; ISOLATED-POSTGRESQL ROUND-3 `bbcb1b5` REVIEWED `CHANGES REQUIRED` WITH EXACTLY TWO P1 AND ZERO P0/P2/P3; HUMAN OPTION A PRESERVED AND ONE ADDITIONAL FOCUSED ADO CORRECTION/REVIEW ROUND AUTHORIZED; CURRENT EXTRA-ROUND DRAFT STILL REQUIRES FOCUSED PUBLICATION, EXACT-HEAD CI AND INDEPENDENT EXACT-DELTA `APPROVED`/NO IMPLEMENTATION AUTHORITY; HUMAN V5 NOT RUN/UNAUTHORIZED**
+- Status: **READ-ONLY ARTIFACT/EVIDENCE APPROVED; ALL SHARED-CLUSTER FOLLOW-UP BLOCKED/NOT EVIDENCE; ISOLATED-POSTGRESQL EXTRA-ROUND `43567d2` REVIEWED `CHANGES REQUIRED` WITH EXACTLY ONE P1 AND ZERO P0/P2/P3, INITDB P1-B CLOSED; HUMAN TRUSTED THE EXACT DECISION-TIME LOCAL MACOS ADMIN-GROUP SNAPSHOT UNDER OPTION A AND AUTHORIZED ONE LAST FOCUSED ADO CORRECTION/REVIEW ROUND; CURRENT LAST-ROUND DRAFT STILL REQUIRES FOCUSED PUBLICATION, EXACT-HEAD CI AND INDEPENDENT EXACT-DELTA `APPROVED`/NO IMPLEMENTATION AUTHORITY; HUMAN V5 NOT RUN/UNAUTHORIZED**
 - Date: `NOT RUN`
 - Artifact preparation date: 2026-07-25
 - Owner: Technical Lead
@@ -19,7 +19,7 @@ and grants no Human-run authority.
 | Product commit/tree and required V4 | `a323834f51607841d0cd5f11aafdbfd3dd93ed5f` / `65c669b0a941c21d23ffca5e79fa03285323a7cf`; CI `30149165373`, attempt 1, 12/12 |
 | Product implementation-review binding/verdict | Round 2 `APPROVED`; zero open P0–P3 |
 | Runbook/evidence commit/tree and independent-review verdict | `e6a06e2ec8f580d6314bfe5a51378f949d524b16` / `6dcdce405feb2eccb1462c373ab6be891152715c`; CI `30150095109`, attempt 1, 12/12; final independent Artifact/Evidence Exact-SHA review `APPROVED`, zero open P0–P3 |
-| Isolated-PostgreSQL enablement correction | Historical round-2 `7739757a4855ee7bac34408941e94c25516d75f5` / tree `0398066e92fef65562526f61c9515b0ef3be0114` / CI `30177897059`, attempt 1, 12/12. Round-3 `bbcb1b59703ee866539b2bc384ec9db8c2643fe4` / tree `dfb5abbca1f2ddf603d191ae3303d1336f5440c7` / parent `7739757a4855ee7bac34408941e94c25516d75f5`; exact-head CI `30185670176`, attempt 1, 12/12; independent review `CHANGES REQUIRED`, exactly two P1 and zero P0/P2/P3. Human preserved Option A — one exclusive trusted single-user operator session, with hostile/malicious same-UID processes and mount/unmount churn outside the threat model — and authorized exactly one additional focused ADO correction/review round beyond the three-round limit, limited to the two P1. Current extra-round draft remains R0/unbound; focused publication, successful exact-head CI and independent Exact-Delta `APPROVED` remain pending; no implementation authority |
+| Isolated-PostgreSQL enablement correction | Historical round-2 `7739757a4855ee7bac34408941e94c25516d75f5` / tree `0398066e92fef65562526f61c9515b0ef3be0114` / CI `30177897059`, attempt 1, 12/12. Round-3 `bbcb1b59703ee866539b2bc384ec9db8c2643fe4` / tree `dfb5abbca1f2ddf603d191ae3303d1336f5440c7` / parent `7739757a4855ee7bac34408941e94c25516d75f5`; exact-head CI `30185670176`, attempt 1, 12/12; independent review `CHANGES REQUIRED`, exactly two P1 and zero P0/P2/P3. Extra-round `43567d256e8f633f16866448e1fb5abbd8022733` / tree `feecced92abe9fc536a2db052b5a616d3e0f1cf7` / parent `bbcb1b59703ee866539b2bc384ec9db8c2643fe4`; exact-head CI `30186846379`, attempt 1, 12/12; Exact-Delta review `CHANGES REQUIRED`, exactly one P1 and zero P0/P2/P3; initdb P1-B closed. Human confirms the second local administrator and exact complete decision-time local macOS admin-group membership snapshot are trusted under Option A and authorized exactly one last focused ADO correction/review round limited to the remaining P1. Decision-time V1 anchor: exactly two direct members, zero nested groups; full-record SHA-256 `b006276c09d8f2713f6132ea79cec167ab3a3c2887ee53e95eb00c1cc33719a5`; membership SHA-256 `70a683b7ebc7981533015d5d63cf12dfb2eabbfa665c34720eddb4d09e9e3064`; combined snapshot SHA-256 `2384b0baccd9049d820794f8ebc9419e4af0fad6831a5a91c209baa0b4a02217`. Later R3 must reproduce all three and both counts before capability/task-root creation and every trust use; mismatch returns to the Human Architect, with no dynamic acceptance or rebinding. Current last-round draft remains R0/unbound; it records only disclosure-safe digests, counts and match/mismatch, no protected identity/member value or secret. Focused publication, successful exact-head CI and independent Exact-Delta `APPROVED` remain pending; no implementation authority |
 | Reviewed Runtime Guard binary/manifest path, size, SHA-256, mode, architecture, load dependencies, source/toolchain/SDK/OS and Exact-SHA verdict | `NOT BOUND` — future R3 software-phase output; an operational/hardware run must verify it and may not compile it |
 | Read-only APK path/size/SHA-256/mode | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5/a323834/app-release-385c0c46f22dcac5.apk`; 95,522,787 bytes; `385c0c46f22dcac5b935bfdc6f574558f4e74748ed4a367ef399ddbd4299c547`; `0444` |
 | Read-only artifact manifest path/size/SHA-256/mode | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5/a323834/artifact-manifest.txt`; 1,647 bytes; `1c1f1b7a5b92fab5510cde35a439fc6f0742b7bf2666d6319cd89b9a7d4dcadb`; `0444` |
@@ -151,12 +151,31 @@ P0/P2/P3: the PostgreSQL 17.10 Homebrew trust boundary needed root-or-exact-same
 plus complete canonical-chain/ACL/stable-identity binding and revalidation under Option A, and
 initdb leader observation had to remain non-reaping until after its final possible negative-PGID
 signal. The Human Architect authorized exactly one additional focused ADO correction/review round
-beyond the three-round limit, limited to those findings. The current extra-round ADO draft
-specifies both corrections and their future positive/negative R3 tests without changing Product
-code, Option A, system/Homebrew state or Shared-Cluster status. This paragraph is governance
-history, not Candidate Evidence, implementation approval or Human/hardware authority; focused
-publication, exact-head CI and independent Exact-Delta `APPROVED` with zero open P0–P3 remain
-required.
+beyond the three-round limit, limited to those findings. Focused extra-round candidate
+`43567d256e8f633f16866448e1fb5abbd8022733`, tree
+`feecced92abe9fc536a2db052b5a616d3e0f1cf7`, exact parent
+`bbcb1b59703ee866539b2bc384ec9db8c2643fe4`, passed exact-head CI `30186846379`, attempt 1,
+12/12. Its independent Exact-Delta review returned `CHANGES REQUIRED` with exactly one P1 and zero
+P0/P2/P3: the current same-EUID-owned Homebrew Cellar ancestor is observed at mode `0775`, so
+blanket group-write rejection cannot run and the exact trusted group plus complete current
+membership snapshot were not bound. The review explicitly closed initdb P1-B.
+
+The Human Architect confirms the second local administrator and exact complete decision-time
+local macOS admin-group membership snapshot are trusted under Option A and authorizes exactly one last
+focused ADO correction/review round limited to the remaining P1. The current last-round R0 draft
+requires disclosure-safe immutable group-record and sorted UID/GUID membership binding to exactly
+two decision-time direct members, zero nested groups, full-record digest
+`b006276c09d8f2713f6132ea79cec167ab3a3c2887ee53e95eb00c1cc33719a5`, membership digest
+`70a683b7ebc7981533015d5d63cf12dfb2eabbfa665c34720eddb4d09e9e3064` and combined snapshot
+digest `2384b0baccd9049d820794f8ebc9419e4af0fad6831a5a91c209baa0b4a02217`. Later R3 must
+recompute all three and both counts; mismatch returns to the Human Architect, never a later-
+current rebind. Exact-group/exact-member/exact-mode revalidation, the canonical binaries' exact
+observed `0555`, and fail-closed rejection of all other group/world write, group/member/mode/ACL/
+symlink/swap drift remain mandatory. It changes no Product code or system/Homebrew/account/group/
+membership/ownership/permission state and preserves Shared-Cluster `BLOCKED`/not-Evidence truth.
+This paragraph is governance history, not Candidate Evidence, implementation approval or Human/
+hardware authority; focused publication, exact-head CI and independent Exact-Delta `APPROVED`
+with zero open P0–P3 remain required.
 
 No installation, ADB, device/Tag interaction or Human V5 occurred. The Harness can accept A/B/X
 values only from the operator and cannot independently prove their origin. Before any hardware

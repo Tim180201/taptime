@@ -1,6 +1,6 @@
 # Development Assignment 5 — V5 Operational Enablement Authorization Candidate
 
-- Status: **READ-ONLY PRODUCT/ARTIFACT BINDINGS PRESERVED; ALL SHARED-CLUSTER FOLLOW-UP BLOCKED/NOT EVIDENCE; ISOLATED-POSTGRESQL ROUND-3 `bbcb1b5` REVIEWED `CHANGES REQUIRED` WITH EXACTLY TWO P1 AND ZERO P0/P2/P3; HUMAN OPTION A PRESERVED AND ONE ADDITIONAL FOCUSED ADO CORRECTION/REVIEW ROUND AUTHORIZED; CURRENT EXTRA-ROUND DRAFT STILL REQUIRES FOCUSED PUBLICATION, EXACT-HEAD CI AND INDEPENDENT EXACT-DELTA `APPROVED`/NO IMPLEMENTATION AUTHORITY; HUMAN V5 UNAUTHORIZED**
+- Status: **READ-ONLY PRODUCT/ARTIFACT BINDINGS PRESERVED; ALL SHARED-CLUSTER FOLLOW-UP BLOCKED/NOT EVIDENCE; ISOLATED-POSTGRESQL EXTRA-ROUND `43567d2` REVIEWED `CHANGES REQUIRED` WITH EXACTLY ONE P1 AND ZERO P0/P2/P3, INITDB P1-B CLOSED; HUMAN TRUSTED THE EXACT DECISION-TIME LOCAL MACOS ADMIN-GROUP SNAPSHOT UNDER OPTION A AND AUTHORIZED ONE LAST FOCUSED ADO CORRECTION/REVIEW ROUND; CURRENT LAST-ROUND DRAFT STILL REQUIRES FOCUSED PUBLICATION, EXACT-HEAD CI AND INDEPENDENT EXACT-DELTA `APPROVED`/NO IMPLEMENTATION AUTHORITY; HUMAN V5 UNAUTHORIZED**
 - Date: 2026-07-26
 - Candidate baseline commit: `7fe725360935a5d9587e3dfbdb2789d8309342df`
 - Candidate baseline tree: `0abaa77443a2abf81fd815ec138776155188bfc0`
@@ -21,11 +21,25 @@
 - Isolated-PostgreSQL round-3 review: `CHANGES REQUIRED`, exactly two P1 and zero P0/P2/P3
 - Human extra-round authority: exactly one additional focused ADO correction/review round beyond
   the three-round limit, limited to those two P1; no implementation/hardware authority
-- Human Same-UID cleanup-threat selection: **OPTION A — exclusive trusted single-user operator
-  session; hostile/malicious same-UID processes and mount/unmount churn outside the threat model**
+- Isolated-PostgreSQL extra-round candidate: `43567d256e8f633f16866448e1fb5abbd8022733`
+- Isolated-PostgreSQL extra-round tree/parent: `feecced92abe9fc536a2db052b5a616d3e0f1cf7` /
+  `bbcb1b59703ee866539b2bc384ec9db8c2643fe4`
+- Isolated-PostgreSQL extra-round Exact-Head CI: `30186846379`, attempt 1, 12/12
+- Isolated-PostgreSQL extra-round review: `CHANGES REQUIRED`, exactly one P1 and zero P0/P2/P3;
+  initdb P1-B closed
+- Human last-round authority: the second local administrator and exact complete decision-time
+  local macOS admin-group membership snapshot are trusted under Option A; exactly one last focused ADO
+  correction/review round limited to the remaining P1; no implementation/hardware authority
+- Human-approved decision-time group snapshot: exactly two direct members, zero nested groups;
+  full-record SHA-256 `b006276c09d8f2713f6132ea79cec167ab3a3c2887ee53e95eb00c1cc33719a5`;
+  membership SHA-256 `70a683b7ebc7981533015d5d63cf12dfb2eabbfa665c34720eddb4d09e9e3064`;
+  combined snapshot SHA-256 `2384b0baccd9049d820794f8ebc9419e4af0fad6831a5a91c209baa0b4a02217`
+- Human Option-A cleanup-threat selection: **OPTION A — exclusive trusted single-user operator
+  session with the exact decision-time admin-group membership snapshot trusted; hostile/malicious
+  same-UID or exact-bound trusted-member processes and mount/unmount churn outside the threat model**
 - Owner: Technical Lead
 - Decision authority: Human Architect
-- Risk class: current ADO-only extra-round synchronization **R0**; proposed executable enablement
+- Risk class: current ADO-only last-round synchronization **R0**; proposed executable enablement
   **R3** only after focused publication, exact-head CI and independent approval
 
 ## 1. Objective and verified gap
@@ -57,12 +71,19 @@ authority. The PostgreSQL ownership/process/cleanup correction is narrowed by
 `ADO/02_Development/Development_Assignment_05_V5_Isolated_PostgreSQL_Correction_Authorization.md`,
 including exactly one native Runtime Guard source and exact TS wrapper/tests. The Human Architect
 selected Option A: one exclusive trusted single-user operator session, with hostile or malicious
-same-UID processes and mount/unmount churn outside the threat model.
+same-UID processes and mount/unmount churn outside the threat model. The Human Architect now also
+confirms that the second local administrator and exact complete decision-time local macOS admin-
+group membership snapshot are trusted for that local Option-A Harness; hostile/malicious processes of
+an exact-bound trusted member are likewise outside the threat model. That trust is frozen to the
+decision-time counts and three V1 digests above, not to a later-current directory-service state.
+Future R3/preflight must recompute all three and both counts before capability/task-root creation
+and every trust use. Any mismatch returns to the Human Architect; dynamic re-acceptance, anchor
+update or rebinding is forbidden.
 
 That selection resolves only the policy question and grants no implementation authority. The
-Human Architect additionally authorized exactly one focused ADO correction/review round beyond
-the three-round limit, limited to the two round-3 P1 findings; that exception also grants no
-implementation or hardware authority. Only after the seven-file extra-round synchronization is
+Human Architect authorized exactly one last focused ADO correction/review round limited to the
+single P1 left by the extra-round review; initdb P1-B is closed. That exception also grants no
+implementation or hardware authority. Only after the seven-file last-round synchronization is
 focused-published, bound to exact commit/tree and successful exact-head CI, and receives
 independent Exact-Delta `APPROVED` with zero open P0–P3 may the `AGENTS.md` standing rule apply to
 the exact later correction scope. The broader historical enablement boundary remains:
@@ -256,20 +277,30 @@ inspection, diff, status, test-discovery and mutation command.
 
 ## 6. Change-Impact Record and Adaptive Verification Plan
 
-### Current ADO-only extra-round draft
+### Current ADO-only last-round draft
 
 - Risk: AVS-001 R0.
-- Baseline: round-3 `bbcb1b59703ee866539b2bc384ec9db8c2643fe4`, tree
-  `dfb5abbca1f2ddf603d191ae3303d1336f5440c7`, parent `7739757`, exact-head CI
-  `30185670176`, attempt 1, 12/12; review verdict `CHANGES REQUIRED` with exactly two P1 and zero
-  P0/P2/P3. Round-2 `7739757`/tree `0398066`/CI `30177897059` remains historical truth.
+- Baseline: extra-round `43567d256e8f633f16866448e1fb5abbd8022733`, tree
+  `feecced92abe9fc536a2db052b5a616d3e0f1cf7`, parent `bbcb1b5`, exact-head CI
+  `30186846379`, attempt 1, 12/12; Exact-Delta review verdict `CHANGES REQUIRED` with exactly one
+  P1 and zero P0/P2/P3; initdb P1-B closed. Round-3 `bbcb1b5`/tree `dfb5abb`/CI `30185670176`
+  and round-2 `7739757`/tree `0398066`/CI `30177897059` remain historical truth.
 - Changed boundary: exactly the seven ADO files enumerated by the isolated-PostgreSQL correction
   authorization; no executable/artifact input.
 - Required: V0 exact diff/file list, whitespace, references, authority/status and protected-path
-  checks plus exact Option A truth: one exclusive trusted single-user operator session, with
-  hostile/malicious same-UID processes and mount/unmount churn outside the threat model; exact
-  Human authority for one additional focused correction/review round; root-or-exact-same-EUID
-  PostgreSQL 17.10 canonical-chain trust and non-reaping initdb leader handling.
+  checks plus exact Option A truth: one exclusive trusted operator session with the exact complete
+  decision-time local macOS admin-group snapshot trusted, and hostile/malicious same-UID or exact-bound
+  trusted-member processes plus mount/unmount churn outside the threat model; exact Human
+  authority for one last focused correction/review round; disclosure-safe immutable sorted UID/
+  GUID/group-record and complete-membership manifest binding to exactly two direct members, zero
+  nested groups and exact decision-time full-record
+  `b006276c09d8f2713f6132ea79cec167ab3a3c2887ee53e95eb00c1cc33719a5`, membership
+  `70a683b7ebc7981533015d5d63cf12dfb2eabbfa665c34720eddb4d09e9e3064` and combined snapshot
+  `2384b0baccd9049d820794f8ebc9419e4af0fad6831a5a91c209baa0b4a02217` SHA-256 anchors;
+  exact-decision-time-admin/Cellar-`0775` positive and later-current rebind, anchor/count mismatch,
+  group substitution/member-change/foreign-group/binary-write/world-write/mode/ACL/symlink/swap
+  negative future R3 cases; retained non-reaping initdb leader handling; no system, account, group,
+  membership, permission or Homebrew mutation.
 - Carried evidence: exact Product/artifact/CI/review bindings listed above; no Product test is
   claimed as freshly run.
 - V1–V5: not applicable/not authorized.
@@ -306,8 +337,9 @@ depth may not be reduced to save time or quota.
 Required sequence:
 
 ```text
-round-3 CHANGES REQUIRED truth + Human-selected Option A + Human-authorized one extra ADO round
-  + two-P1 extra-round ADO synchronization + V0
+extra-round CHANGES REQUIRED truth (one P1; initdb P1-B closed)
+  + Human-selected exact Option A/group snapshot + Human-authorized one last ADO round
+  + remaining-P1 last-round ADO synchronization + V0
   -> focused publication / exact candidate commit and tree binding
   -> successful exact-head CI
   -> independent read-only pre-implementation review
@@ -322,9 +354,10 @@ round-3 CHANGES REQUIRED truth + Human-selected Option A + Human-authorized one 
   -> one fresh install and staged Human gate
 ```
 
-Option A is selected and exactly one additional focused ADO correction/review round is
-Human-authorized, but the current unbound synchronization has no independent approval and no
-implementation authority. Focused publication, successful exact-head CI and independent
+Option A with the exact current local admin-group membership snapshot is selected and exactly one
+last focused ADO correction/review round is Human-authorized, but the current unbound
+synchronization has no independent approval and no implementation authority. Focused publication,
+successful exact-head CI and independent
 Exact-Delta `APPROVED` with zero open P0–P3 remain mandatory before only the exact R3 scope can
 activate under the `AGENTS.md` standing rule. No Human/hardware action is authorized by this
 candidate. The Technical Lead must tell the Human Architect explicitly **“Jetzt Handy
@@ -447,8 +480,25 @@ P0/P2/P3: PostgreSQL 17.10 Homebrew binaries and their complete canonical ancest
 accept root or exact captured same-EUID ownership under Option A while rejecting writable/ACL-
 unsafe/unstable identities, and initdb must retain its leader unreaped through every possible
 negative-PGID signal. The Human Architect authorized exactly one additional focused ADO
-correction/review round beyond the three-round limit, limited to those two findings. The current
-extra-round draft supplies those contracts and their future positive/negative R3 test
-requirements without changing Option A, Product code, system/Homebrew state or Shared-Cluster
-status. It remains R0, unbound and not independently approved; no implementation, installation,
+correction/review round beyond the three-round limit, limited to those two findings. Focused
+extra-round candidate `43567d256e8f633f16866448e1fb5abbd8022733`, tree
+`feecced92abe9fc536a2db052b5a616d3e0f1cf7`, exact parent
+`bbcb1b59703ee866539b2bc384ec9db8c2643fe4`, passed exact-head CI `30186846379`, attempt 1,
+12/12. Its Exact-Delta review returned `CHANGES REQUIRED` with exactly one P1 and zero P0/P2/P3:
+the current same-EUID-owned Homebrew Cellar ancestor is observed at `0775`, so blanket group-write
+rejection is unusable and the exact trusted group plus complete membership snapshot were not
+bound. The review explicitly closed initdb P1-B.
+
+The Human Architect confirms that the second local administrator and exact complete current local
+macOS admin-group membership snapshot are trusted under Option A and authorizes exactly one last
+focused ADO correction/review round limited to the remaining P1. The last-round draft binds that
+group and membership disclosure-safely to the decision-time V1 snapshot: exactly two direct
+members, zero nested groups, full-record digest
+`b006276c09d8f2713f6132ea79cec167ab3a3c2887ee53e95eb00c1cc33719a5`, membership digest
+`70a683b7ebc7981533015d5d63cf12dfb2eabbfa665c34720eddb4d09e9e3064` and combined snapshot
+digest `2384b0baccd9049d820794f8ebc9419e4af0fad6831a5a91c209baa0b4a02217`. It accepts only exact
+same-EUID/exact-group/exact-mode ancestor group writability, preserves canonical binary mode
+`0555`, rejects later-current rebinding and all other group/world write or group/member/mode/ACL/
+symlink/swap drift, and performs no account/group/membership/ownership/permission/Homebrew/system
+mutation. It remains R0, unbound and not independently approved; no implementation, installation,
 ADB, device/Tag or Human/hardware authority exists.
