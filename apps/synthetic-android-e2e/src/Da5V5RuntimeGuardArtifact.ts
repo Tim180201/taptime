@@ -46,11 +46,19 @@ type ArtifactTrust = 'root-system' | 'same-euid-private';
 
 export type Da5V5ProducerPoisonStage =
   | 'compiler'
-  | 'compiler-inputs'
-  | 'inspector'
-  | 'link-start-inputs'
+  | 'compiler-input'
+  | 'compiler-resource-directory'
+  | 'git-inspector'
+  | 'include-directory'
+  | 'link-libsystem-input'
+  | 'link-object-input'
+  | 'linker'
+  | 'load-dependency-inspector'
+  | 'operating-system-inspector'
+  | 'process-inspector'
   | 'sdk-sysroot'
   | 'signature'
+  | 'source'
   | 'xcrun';
 
 export interface Da5V5RuntimeGuardManifest {
@@ -518,6 +526,8 @@ export async function produceDa5V5RuntimeGuardArtifact(options: {
   readonly outputDirectory: string;
   readonly sourcePath: string;
   readonly testOnlyOutputBoundary?: boolean;
+  readonly testOnlyPoisonIndex?: number;
+  readonly testOnlyPoisonPath?: string;
   readonly testOnlyPoisonStage?: Da5V5ProducerPoisonStage;
   readonly testEvidencePath: string;
 }): Promise<Readonly<{
@@ -530,7 +540,24 @@ export async function produceDa5V5RuntimeGuardArtifact(options: {
   if (platform() !== 'darwin' || arch() !== 'arm64') {
     throw new Error('DA5 V5 Runtime Guard artifact target is unsupported');
   }
+  const testOnlyPoisonAuthorized = process.env.NODE_ENV === 'test'
+    && process.env.VITEST === 'true';
+  if (
+    (
+      options.testOnlyPoisonStage !== undefined
+      || options.testOnlyPoisonPath !== undefined
+      || options.testOnlyPoisonIndex !== undefined
+    )
+    && (
+      !testOnlyPoisonAuthorized
+      || options.testOnlyPoisonStage === undefined
+      || options.testOnlyPoisonPath === undefined
+    )
+  ) {
+    throw new Error('DA5 V5 producer poison authority is unavailable');
+  }
   const git = await bindArtifactFile('/usr/bin/git', 'root-system');
+  await injectDa5V5ProducerBindingPoison(options, 'git-inspector', git);
   const loadDependencyInspector = await bindArtifactFile(
     '/usr/bin/otool',
     'root-system',
@@ -597,6 +624,7 @@ export async function produceDa5V5RuntimeGuardArtifact(options: {
     throw new Error('DA5 V5 Runtime Guard focused test evidence mismatch');
   }
   const source = await bindArtifactFile(sourcePath, 'same-euid-private');
+  await injectDa5V5ProducerBindingPoison(options, 'source', source);
   const committedSource = await boundedArtifactBuffer(git, [
     '-C',
     repositoryRoot,
@@ -617,10 +645,7 @@ export async function produceDa5V5RuntimeGuardArtifact(options: {
     options.testOnlyOutputBoundary === true
     && process.env.NODE_ENV === 'test'
     && process.env.VITEST === 'true';
-  if (
-    options.testOnlyPoisonStage !== undefined
-    && !testOnlyOutputBoundary
-  ) {
+  if (options.testOnlyPoisonStage !== undefined && !testOnlyOutputBoundary) {
     throw new Error('DA5 V5 producer poison authority is unavailable');
   }
   if (
@@ -660,11 +685,7 @@ export async function produceDa5V5RuntimeGuardArtifact(options: {
   const manifestPath = join(outputDirectory, 'guard-manifest.txt');
   const xcrunPath = '/usr/bin/xcrun';
   const xcrun = await bindArtifactFile(xcrunPath, 'root-system');
-  await injectDa5V5ProducerBindingPoison(
-    options.testOnlyPoisonStage,
-    'xcrun',
-    xcrun,
-  );
+  await injectDa5V5ProducerBindingPoison(options, 'xcrun', xcrun);
   await revalidateArtifactFile(xcrun);
   const clangPath = await requireAbsoluteCanonicalPath(
     boundedOutput(xcrunPath, ['--find', 'clang']),
@@ -677,6 +698,7 @@ export async function produceDa5V5RuntimeGuardArtifact(options: {
   );
   await revalidateArtifactFile(xcrun);
   const linker = await bindArtifactFile(linkerPath, 'root-system');
+  await injectDa5V5ProducerBindingPoison(options, 'linker', linker);
   const processVerifier = await bindArtifactFile(
     '/usr/bin/codesign',
     'root-system',
@@ -698,6 +720,8 @@ export async function produceDa5V5RuntimeGuardArtifact(options: {
   );
   await revalidateArtifactFile(xcrun);
   const sdk = await bindArtifactPath(sdkPath, 'root-system');
+  await injectDa5V5ProducerBindingPoison(options, 'sdk-sysroot', sdk);
+  await injectDa5V5ProducerBindingPoison(options, 'compiler', compiler);
   await revalidateArtifactFile(compiler);
   const resourceDirectory = await requireAbsoluteCanonicalPath(
     boundedOutput(clangPath, ['-print-resource-dir']),
@@ -706,6 +730,11 @@ export async function produceDa5V5RuntimeGuardArtifact(options: {
   const compilerResourceDirectory = await bindArtifactPath(
     resourceDirectory,
     'root-system',
+  );
+  await injectDa5V5ProducerBindingPoison(
+    options,
+    'compiler-resource-directory',
+    compilerResourceDirectory,
   );
   const includePaths = [
     join(resourceDirectory, 'include'),
@@ -793,16 +822,14 @@ export async function produceDa5V5RuntimeGuardArtifact(options: {
   process.once('SIGTERM', handleSigterm);
   process.once('SIGHUP', handleSighup);
   try {
-    await injectDa5V5ProducerBindingPoison(
-      options.testOnlyPoisonStage,
-      'compiler',
-      compiler,
-    );
-    await injectDa5V5ProducerBindingPoison(
-      options.testOnlyPoisonStage,
-      'sdk-sysroot',
-      sdk,
-    );
+    for (const [index, includeDirectory] of includeDirectories.entries()) {
+      await injectDa5V5ProducerBindingPoison(
+        options,
+        'include-directory',
+        includeDirectory,
+        index,
+      );
+    }
     await revalidateProducerInputs({
       compiler,
       compilerResourceDirectory,
@@ -841,11 +868,14 @@ export async function produceDa5V5RuntimeGuardArtifact(options: {
         )
       ))),
     );
-    await injectDa5V5ProducerBindingPoison(
-      options.testOnlyPoisonStage,
-      'compiler-inputs',
-      inputFiles[0] as BoundArtifactFile,
-    );
+    for (const [index, inputFile] of inputFiles.entries()) {
+      await injectDa5V5ProducerBindingPoison(
+        options,
+        'compiler-input',
+        inputFile,
+        index,
+      );
+    }
     await Promise.all([
       unlink(discoveryObjectPath),
       unlink(discoveryDependencyPath),
@@ -883,9 +913,14 @@ export async function produceDa5V5RuntimeGuardArtifact(options: {
       await bindArtifactFile(libSystemPath, 'root-system'),
     ]);
     await injectDa5V5ProducerBindingPoison(
-      options.testOnlyPoisonStage,
-      'link-start-inputs',
+      options,
+      'link-object-input',
       linkInputFiles[0] as BoundArtifactFile,
+    );
+    await injectDa5V5ProducerBindingPoison(
+      options,
+      'link-libsystem-input',
+      linkInputFiles[1] as BoundArtifactFile,
     );
     await Promise.all(linkInputFiles.map(revalidateArtifactFile));
     assertNoPendingProducerSignal(pendingSignal);
@@ -914,7 +949,7 @@ export async function produceDa5V5RuntimeGuardArtifact(options: {
       candidatePath,
     ]);
     await injectDa5V5ProducerBindingPoison(
-      options.testOnlyPoisonStage,
+      options,
       'signature',
       processVerifier,
     );
@@ -928,9 +963,19 @@ export async function produceDa5V5RuntimeGuardArtifact(options: {
     await chmod(candidatePath, 0o555);
     const binaryBytes = await readFile(candidatePath);
     await injectDa5V5ProducerBindingPoison(
-      options.testOnlyPoisonStage,
-      'inspector',
+      options,
+      'load-dependency-inspector',
       loadDependencyInspector,
+    );
+    await injectDa5V5ProducerBindingPoison(
+      options,
+      'operating-system-inspector',
+      operatingSystemInspector,
+    );
+    await injectDa5V5ProducerBindingPoison(
+      options,
+      'process-inspector',
+      processVerifier,
     );
     await Promise.all([
       revalidateArtifactFile(loadDependencyInspector),
@@ -1460,21 +1505,37 @@ async function revalidateArtifactPath(expected: BoundArtifactPath): Promise<void
 }
 
 async function injectDa5V5ProducerBindingPoison(
-  selected: Da5V5ProducerPoisonStage | undefined,
+  options: {
+    readonly testOnlyPoisonIndex?: number;
+    readonly testOnlyPoisonPath?: string;
+    readonly testOnlyPoisonStage?: Da5V5ProducerPoisonStage;
+  },
   stage: Da5V5ProducerPoisonStage,
   binding: BoundArtifactFile | BoundArtifactPath,
+  index = 0,
 ): Promise<void> {
-  if (selected !== stage) {
+  if (
+    options.testOnlyPoisonStage !== stage
+    || (options.testOnlyPoisonIndex ?? 0) !== index
+  ) {
     return;
   }
-  const poisoned = Object.freeze({
-    ...binding,
-    identitySha256: '0'.repeat(64),
-  });
-  if ('platformSignature' in poisoned) {
-    await revalidateArtifactFile(poisoned);
+  if (options.testOnlyPoisonPath === undefined) {
+    throw new Error('DA5 V5 producer poison path is unavailable');
+  }
+  const resolvedPoisonPath = await requireAbsoluteCanonicalPath(
+    options.testOnlyPoisonPath,
+  );
+  if ('platformSignature' in binding) {
+    const actual = await bindArtifactFile(resolvedPoisonPath, binding.trust);
+    if (JSON.stringify(actual) !== JSON.stringify(binding)) {
+      throw new Error('DA5 V5 artifact producer input changed');
+    }
   } else {
-    await revalidateArtifactPath(poisoned);
+    const actual = await bindArtifactPath(resolvedPoisonPath, binding.trust);
+    if (JSON.stringify(actual) !== JSON.stringify(binding)) {
+      throw new Error('DA5 V5 artifact producer path changed');
+    }
   }
   throw new Error('DA5 V5 producer poison was not detected');
 }

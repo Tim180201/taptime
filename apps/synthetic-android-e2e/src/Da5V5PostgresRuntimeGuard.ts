@@ -154,6 +154,21 @@ interface Da5V5CleanupFailureState {
   firstFailure?: unknown;
 }
 
+interface Da5V5RetainedStartupCleanup {
+  readonly guardPid: number | null;
+  readonly postgresPid: number | null;
+  retry(): Promise<void>;
+}
+
+const retainedStartupCleanups = new Set<Da5V5RetainedStartupCleanup>();
+
+async function retryDa5V5RetainedStartupCleanups(): Promise<void> {
+  for (const retained of [...retainedStartupCleanups]) {
+    await retained.retry();
+    retainedStartupCleanups.delete(retained);
+  }
+}
+
 async function attemptDa5V5CleanupStage(
   state: Da5V5CleanupFailureState,
   action: () => Promise<void> | void,
@@ -223,6 +238,29 @@ export async function runDa5V5ReattestationBoundCleanupForTest(options: {
       cause: state.firstFailure,
     });
   }
+}
+
+export function da5V5RetainedStartupCleanupCountForTest(): number {
+  assertDa5V5FocusedTestProcess();
+  return retainedStartupCleanups.size;
+}
+
+export function da5V5RetainedStartupProcessesForTest(): readonly Readonly<{
+  readonly guardPid: number | null;
+  readonly postgresPid: number | null;
+}>[] {
+  assertDa5V5FocusedTestProcess();
+  return Object.freeze([...retainedStartupCleanups].map((retained) => (
+    Object.freeze({
+      guardPid: retained.guardPid,
+      postgresPid: retained.postgresPid,
+    })
+  )));
+}
+
+export async function retryDa5V5RetainedStartupCleanupsForTest(): Promise<void> {
+  assertDa5V5FocusedTestProcess();
+  await retryDa5V5RetainedStartupCleanups();
 }
 
 export async function runDa5V5HandleOpenSisterFailureForTest(options: {
@@ -602,11 +640,14 @@ export async function startDa5V5FullyAttestedTestPostgresOwner(options: {
   readonly pgConfigPath: string;
   readonly signal?: AbortSignal;
   readonly temporaryBase?: string;
+  readonly testOnlyRevalidateGuardArtifact?: () => Promise<void>;
+  readonly testOnlyStartupFailureAfterOwnership?: () => void;
 }): Promise<Da5V5PostgresOwnerBackend> {
   assertDa5V5FocusedTestProcess();
   return startDa5V5IsolatedPostgresOwner({
     ...options,
     guardArtifactBindingDigest: sha256(await readFile(options.guardBinaryPath)),
+    revalidateGuardArtifact: options.testOnlyRevalidateGuardArtifact,
     verifyGuardProcess: (pid) => verifyDa5V5RuntimeGuardRunningProcessForTest({
       binaryPath: options.guardBinaryPath,
       pid,
@@ -622,10 +663,12 @@ async function startDa5V5IsolatedPostgresOwner(options: {
   readonly verifyGuardProcess: (pid: number) => Promise<void>;
   readonly signal?: AbortSignal;
   readonly temporaryBase?: string;
+  readonly testOnlyStartupFailureAfterOwnership?: () => void;
 }, expectedGuardBuild: 'production' | 'test'):
 Promise<Da5V5PostgresOwnerBackend> {
   let lifecyclePhase: Da5V5PostgresLifecyclePhase = 'bind';
   rejectOperationalEnvironment(process.env);
+  await retryDa5V5RetainedStartupCleanups();
   const snapshot = await verifyDa5V5TrustedAdminGroupSnapshot();
   const chain = await bindDa5V5PostgresBinaryChain({
     pgConfigPath: options.pgConfigPath,
@@ -642,6 +685,7 @@ Promise<Da5V5PostgresOwnerBackend> {
   let lifecycleDirectories: BoundLifecycleDirectory[] = [];
   let heartbeat: NodeJS.Timeout | null = null;
   let postgresSpawned = false;
+  let retainedPostgresPid: number | null = null;
   let cleanupReattest: (() => Promise<void>) | null = null;
   try {
     await chain.revalidate(snapshot);
@@ -767,6 +811,7 @@ Promise<Da5V5PostgresOwnerBackend> {
       throw new Error('DA5 V5 PostgreSQL process attestation is invalid');
     }
     const postgresPid = Number(postgresPidText);
+    retainedPostgresPid = postgresPid;
     postgresSpawned = true;
     const postgresProcessRecord = await captureProcessIdentity({
       authoritativeSessionId: guard.helloIdentity.sessionId,
@@ -858,7 +903,6 @@ Promise<Da5V5PostgresOwnerBackend> {
     let cleanupInFlight: Promise<void> | null = null;
     let heartbeatClosed = false;
     let activePoolClosed = false;
-    let destructiveAuthorityRevoked = false;
     let destructiveAttestationPassed = false;
     let stopAttempted = false;
     let stopSent = false;
@@ -978,16 +1022,17 @@ Promise<Da5V5PostgresOwnerBackend> {
         expectedProcessGroup: activeGuard.helloIdentity.pgid,
         pid: postgresPid,
       });
+      assertMatchingProcessIdentity(guardProcessRecord, latestGuardProcess);
+      assertMatchingProcessIdentity(
+        postgresProcessRecord,
+        latestPostgresProcess,
+      );
       if (
         sha256(JSON.stringify(lifecycleBindings)) !== lifecycleRecord.finalDigest
         || sha256(JSON.stringify(provisionalBindings))
           !== lifecycleRecord.provisionalDigest
         || sha256(JSON.stringify(activeChain.record))
           !== lifecycleRecord.binaryChainDigest
-        || JSON.stringify(latestGuardProcess)
-          !== JSON.stringify(guardProcessRecord)
-        || JSON.stringify(latestPostgresProcess)
-          !== JSON.stringify(postgresProcessRecord)
         || sha256(mountIdentityRecord.canonicalRecord)
           !== mountIdentityRecord.canonicalSha256
         || mountIdentityRecord.canonicalSha256
@@ -1003,6 +1048,7 @@ Promise<Da5V5PostgresOwnerBackend> {
       await activeChain.revalidate(snapshot);
       await revalidateLifecycleRecord();
     };
+    options.testOnlyStartupFailureAfterOwnership?.();
     const reattestOwner = async (
       stage: Da5V5PostgresAttestationStage,
     ): Promise<void> => {
@@ -1030,9 +1076,8 @@ Promise<Da5V5PostgresOwnerBackend> {
         if (cleanupInFlight !== null) {
           return cleanupInFlight;
         }
-        destructiveAuthorityRevoked ||= (
-          closeOptions.destructiveAuthorityRevoked === true
-        );
+        let destructiveAuthorityRevoked =
+          closeOptions.destructiveAuthorityRevoked === true;
         ownerState = 'cleanup-incomplete';
         cleanupInFlight = (async (): Promise<void> => {
           const cleanupState: Da5V5CleanupFailureState = {};
@@ -1059,28 +1104,6 @@ Promise<Da5V5PostgresOwnerBackend> {
             }
           };
 
-          for (const pool of [...ownedRuntimePools]) {
-            await attempt(
-              async () => closePool(pool),
-              () => ownedRuntimePools.delete(pool),
-            );
-          }
-          if (!heartbeatClosed) {
-            await attempt(
-              () => clearInterval(activeHeartbeat),
-              () => {
-                heartbeatClosed = true;
-              },
-            );
-          }
-          if (!activePoolClosed) {
-            await attempt(
-              async () => closePool(activePool),
-              () => {
-                activePoolClosed = true;
-              },
-            );
-          }
           if (
             !destructiveAuthorityRevoked
             && !destructiveAttestationPassed
@@ -1103,6 +1126,38 @@ Promise<Da5V5PostgresOwnerBackend> {
             if (destructiveAttestationPassed && !stopCompleted) {
               stopAttempted = true;
             }
+          }
+          if (destructiveAuthorityRevoked) {
+            throw new Error(
+              'DA5 V5 isolated PostgreSQL cleanup authority was revoked; '
+              + 'live ownership was retained',
+              cleanupState.firstFailure === undefined
+                ? undefined
+                : { cause: cleanupState.firstFailure },
+            );
+          }
+
+          for (const pool of [...ownedRuntimePools]) {
+            await attempt(
+              async () => closePool(pool),
+              () => ownedRuntimePools.delete(pool),
+            );
+          }
+          if (!heartbeatClosed) {
+            await attempt(
+              () => clearInterval(activeHeartbeat),
+              () => {
+                heartbeatClosed = true;
+              },
+            );
+          }
+          if (!activePoolClosed) {
+            await attempt(
+              async () => closePool(activePool),
+              () => {
+                activePoolClosed = true;
+              },
+            );
           }
           if (!guardControlClosed) {
             await attempt(
@@ -1203,7 +1258,7 @@ Promise<Da5V5PostgresOwnerBackend> {
               },
             );
           }
-          if (!destructiveAuthorityRevoked && !stagingRemoved) {
+          if (!stagingRemoved) {
             await attempt(
               async () => rmdir(activeStagingPath),
               () => {
@@ -1291,69 +1346,223 @@ Promise<Da5V5PostgresOwnerBackend> {
       && error instanceof Error
       ? error
       : disclosureSafeDa5V5PostgresLifecycleError(error, lifecyclePhase);
-    const cleanupState: Da5V5CleanupFailureState = {};
-    const attemptCleanup = async (
-      action: () => Promise<void> | void,
-    ): Promise<boolean> => {
-      return attemptDa5V5CleanupStage(cleanupState, action);
+    const failedGuard = guard;
+    const failedBootstrapPool = bootstrapPool;
+    const failedInstallerPool = installerPool;
+    const failedHeartbeat = heartbeat;
+    const failedStagingPath = stagingPath;
+    let startupDestructiveAuthority = failedGuard === null;
+    let startupStopAttempted = failedGuard === null;
+    let startupHeartbeatClosed = failedHeartbeat === null;
+    let bootstrapPoolClosed = failedBootstrapPool === null;
+    let installerPoolClosed = failedInstallerPool === null;
+    let guardControlClosed = failedGuard === null;
+    let guardSecretClosed = failedGuard === null;
+    let postgresReaped = !postgresSpawned;
+    let guardCleanupConfirmed = !postgresSpawned;
+    let guardExited = failedGuard === null;
+    let guardEventClosed = failedGuard === null;
+    const closedFiles = new Set<BoundLifecycleFile>();
+    const closedDirectories = new Set<BoundLifecycleDirectory>();
+    let rootClosed = rootHandle === null;
+    let stagingClosed = stagingHandle === null;
+    let baseClosed = baseHandle === null;
+    let chainClosed = false;
+    let stagingRemoved = failedStagingPath === null;
+    const closePool = async (pool: Pool): Promise<void> => {
+      try {
+        await pool.end();
+      } catch (poolError: unknown) {
+        if (
+          !(poolError instanceof Error)
+          || !/Called end on pool more than once/u.test(poolError.message)
+        ) {
+          throw poolError;
+        }
+      }
     };
-    if (heartbeat !== null) {
-      clearInterval(heartbeat);
-    }
-    await attemptCleanup(async () => bootstrapPool?.end());
-    bootstrapPool = null;
-    await attemptCleanup(async () => installerPool?.end());
-    installerPool = null;
-    let startupDestructiveAuthority = false;
-    if (guard !== null) {
-      await attemptDa5V5ReattestationBoundStop(
-        cleanupState,
-        cleanupReattest ?? (async () => {
-          await options.revalidateGuardArtifact?.();
-          await chain.revalidate(snapshot);
-        }),
-        async () => guard?.sendAuthenticated('STOP_FAST'),
-        () => {
-          startupDestructiveAuthority = true;
-        },
-      );
-      await attemptCleanup(async () => guard?.closeControlPipe());
-      await attemptCleanup(async () => guard?.closeSecretPipe());
-      if (postgresSpawned) {
-        await attemptCleanup(
-          async () => guard?.expect('POSTGRES_REAPED', 35_000),
-        );
-        await attemptCleanup(
-          async () => guard?.expect('CLEANUP_OK', 10_000),
-        );
-      }
-      await attemptCleanup(async () => guard?.waitForExit());
-      await attemptCleanup(async () => guard?.closeEventPipe());
-    }
-    for (const binding of lifecycleFiles) {
-      await attemptCleanup(async () => binding.handle.close());
-    }
-    for (const binding of lifecycleDirectories) {
-      if (binding.ownsHandle) {
-        await attemptCleanup(async () => binding.handle.close());
-      }
-    }
-    await attemptCleanup(async () => rootHandle?.close());
-    await attemptCleanup(async () => stagingHandle?.close());
-    await attemptCleanup(async () => baseHandle?.close());
-    await attemptCleanup(async () => chain.close());
-    if (
-      stagingPath !== null
-      && (
-        guard === null
-        || startupDestructiveAuthority
-      )
-    ) {
-      const failedStagingPath = stagingPath;
-      await attemptCleanup(async () => rmdir(failedStagingPath));
-    }
-    if (cleanupState.firstFailure !== undefined) {
-      throw new Error(`${primaryFailure.message};cleanup-incomplete`);
+    const retained: Da5V5RetainedStartupCleanup = Object.freeze({
+      guardPid: failedGuard?.child.pid ?? null,
+      postgresPid: retainedPostgresPid,
+      async retry(): Promise<void> {
+        const cleanupState: Da5V5CleanupFailureState = {};
+        const attempt = async (
+          action: () => Promise<void> | void,
+          completed: () => void,
+        ): Promise<void> => {
+          await attemptDa5V5CleanupStage(cleanupState, action, completed);
+        };
+        if (failedGuard !== null && !startupDestructiveAuthority) {
+          await attemptDa5V5CleanupStage(
+            cleanupState,
+            cleanupReattest ?? (async () => {
+              await options.revalidateGuardArtifact?.();
+              await chain.revalidate(snapshot);
+            }),
+            () => {
+              startupDestructiveAuthority = true;
+            },
+          );
+          if (!startupDestructiveAuthority) {
+            throw new Error(
+              'DA5 V5 startup cleanup authority was revoked; '
+              + 'live ownership was retained',
+              cleanupState.firstFailure === undefined
+                ? undefined
+                : { cause: cleanupState.firstFailure },
+            );
+          }
+        }
+        if (failedGuard !== null && !startupStopAttempted) {
+          startupStopAttempted = true;
+          await attempt(
+            async () => failedGuard.sendAuthenticated('STOP_FAST'),
+            () => undefined,
+          );
+        }
+        if (!startupHeartbeatClosed && failedHeartbeat !== null) {
+          await attempt(
+            () => clearInterval(failedHeartbeat),
+            () => {
+              startupHeartbeatClosed = true;
+            },
+          );
+        }
+        if (!bootstrapPoolClosed && failedBootstrapPool !== null) {
+          await attempt(
+            async () => closePool(failedBootstrapPool),
+            () => {
+              bootstrapPoolClosed = true;
+            },
+          );
+        }
+        if (!installerPoolClosed && failedInstallerPool !== null) {
+          await attempt(
+            async () => closePool(failedInstallerPool),
+            () => {
+              installerPoolClosed = true;
+            },
+          );
+        }
+        if (failedGuard !== null && !guardControlClosed) {
+          await attempt(
+            async () => failedGuard.closeControlPipe(),
+            () => {
+              guardControlClosed = true;
+            },
+          );
+        }
+        if (failedGuard !== null && !guardSecretClosed) {
+          await attempt(
+            async () => failedGuard.closeSecretPipe(),
+            () => {
+              guardSecretClosed = true;
+            },
+          );
+        }
+        if (failedGuard !== null && !postgresReaped) {
+          await attempt(
+            async () => failedGuard.expect('POSTGRES_REAPED', 35_000),
+            () => {
+              postgresReaped = true;
+            },
+          );
+        }
+        if (failedGuard !== null && !guardCleanupConfirmed) {
+          await attempt(
+            async () => failedGuard.expect('CLEANUP_OK', 10_000),
+            () => {
+              guardCleanupConfirmed = true;
+            },
+          );
+        }
+        if (failedGuard !== null && !guardExited) {
+          await attempt(
+            async () => failedGuard.waitForExit(),
+            () => {
+              guardExited = true;
+            },
+          );
+        }
+        if (failedGuard !== null && !guardEventClosed) {
+          await attempt(
+            async () => failedGuard.closeEventPipe(),
+            () => {
+              guardEventClosed = true;
+            },
+          );
+        }
+        for (const binding of lifecycleFiles) {
+          if (!closedFiles.has(binding)) {
+            await attempt(
+              async () => binding.handle.close(),
+              () => closedFiles.add(binding),
+            );
+          }
+        }
+        for (const binding of lifecycleDirectories) {
+          if (binding.ownsHandle && !closedDirectories.has(binding)) {
+            await attempt(
+              async () => binding.handle.close(),
+              () => closedDirectories.add(binding),
+            );
+          }
+        }
+        if (!rootClosed && rootHandle !== null) {
+          await attempt(
+            async () => rootHandle?.close(),
+            () => {
+              rootClosed = true;
+            },
+          );
+        }
+        if (!stagingClosed && stagingHandle !== null) {
+          await attempt(
+            async () => stagingHandle?.close(),
+            () => {
+              stagingClosed = true;
+            },
+          );
+        }
+        if (!baseClosed && baseHandle !== null) {
+          await attempt(
+            async () => baseHandle?.close(),
+            () => {
+              baseClosed = true;
+            },
+          );
+        }
+        if (!chainClosed) {
+          await attempt(
+            async () => chain.close(),
+            () => {
+              chainClosed = true;
+            },
+          );
+        }
+        if (!stagingRemoved && failedStagingPath !== null) {
+          await attempt(
+            async () => rmdir(failedStagingPath),
+            () => {
+              stagingRemoved = true;
+            },
+          );
+        }
+        if (cleanupState.firstFailure !== undefined) {
+          throw new Error('DA5 V5 retained startup cleanup failed', {
+            cause: cleanupState.firstFailure,
+          });
+        }
+      },
+    });
+    retainedStartupCleanups.add(retained);
+    try {
+      await retained.retry();
+      retainedStartupCleanups.delete(retained);
+    } catch (cleanupError: unknown) {
+      throw new Error(`${primaryFailure.message};cleanup-incomplete`, {
+        cause: cleanupError,
+      });
     }
     throw primaryFailure;
   }
@@ -3488,6 +3697,40 @@ async function captureProcessIdentity(options: {
     });
   } finally {
     await inspector.close();
+  }
+}
+
+export async function captureDa5V5ProcessIdentityForTest(options: {
+  readonly authoritativeSessionId: number;
+  readonly executableDigest: string;
+  readonly executablePath: string;
+  readonly expectedParentPid: number;
+  readonly expectedProcessGroup: number;
+  readonly pid: number;
+}): Promise<Da5V5PostgresProcessIdentityRecord> {
+  assertDa5V5FocusedTestProcess();
+  return captureProcessIdentity(options);
+}
+
+export async function revalidateDa5V5ProcessIdentityForTest(options: {
+  readonly capture: Parameters<typeof captureProcessIdentity>[0];
+  readonly expected: Da5V5PostgresProcessIdentityRecord;
+  readonly mutateCaptured?: (
+    captured: Da5V5PostgresProcessIdentityRecord,
+  ) => Da5V5PostgresProcessIdentityRecord;
+}): Promise<void> {
+  assertDa5V5FocusedTestProcess();
+  const captured = await captureProcessIdentity(options.capture);
+  const candidate = options.mutateCaptured?.(captured) ?? captured;
+  assertMatchingProcessIdentity(options.expected, candidate);
+}
+
+function assertMatchingProcessIdentity(
+  expected: Da5V5PostgresProcessIdentityRecord,
+  captured: Da5V5PostgresProcessIdentityRecord,
+): void {
+  if (JSON.stringify(captured) !== JSON.stringify(expected)) {
+    throw new Error('DA5 V5 PostgreSQL process identity changed');
   }
 }
 

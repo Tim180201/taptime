@@ -25,10 +25,15 @@ import {
   DA5_V5_ADMIN_GROUP_ANCHOR,
   assertDa5V5UnixSocketPathBound,
   bindDa5V5PostgresBinaryChain,
+  captureDa5V5ProcessIdentityForTest,
   classifyDa5V5PostgresStartupFailure,
   classifyDa5V5PostgresStartupFailureForTest,
   disclosureSafeDa5V5PostgresLifecycleError,
+  da5V5RetainedStartupCleanupCountForTest,
+  da5V5RetainedStartupProcessesForTest,
   rejectOperationalEnvironment,
+  revalidateDa5V5ProcessIdentityForTest,
+  retryDa5V5RetainedStartupCleanupsForTest,
   runDa5V5AllPathCleanupForTest,
   runDa5V5HandleOpenSisterFailureForTest,
   runDa5V5ReattestationBoundCleanupForTest,
@@ -860,6 +865,57 @@ describe('DA5 V5 trusted macOS admin snapshot and PostgreSQL chain', () => {
 });
 
 describe('DA5 V5 closed environment and real transient PostgreSQL owner', () => {
+  it.runIf(process.platform === 'darwin')(
+    'rejects every real captured process identity field through the production revalidator',
+    async () => {
+      const child = spawn('/bin/sleep', ['20'], {
+        cwd: '/',
+        detached: true,
+        env: {},
+        shell: false,
+        stdio: 'ignore',
+      });
+      await once(child, 'spawn');
+      const pid = child.pid as number;
+      const executableDigest = createHash('sha256')
+        .update(await readFile('/bin/sleep'))
+        .digest('hex');
+      const capture = {
+        authoritativeSessionId: pid,
+        executableDigest,
+        executablePath: '/bin/sleep',
+        expectedParentPid: process.pid,
+        expectedProcessGroup: pid,
+        pid,
+      };
+      try {
+        const expected = await captureDa5V5ProcessIdentityForTest(capture);
+        const mutations = [
+          ['pid', { pid: String(pid + 1) }],
+          ['ppid', { parentPid: String(process.pid + 1) }],
+          ['pgid', { pgid: String(pid + 1) }],
+          ['authoritative-sid', { sessionId: String(pid + 1) }],
+          ['start-time', { start: `${expected.start} changed` }],
+          ['executable-path', { executablePath: '/usr/bin/false' }],
+          ['executable-digest', { executableDigest: '0'.repeat(64) }],
+        ] as const;
+        for (const [label, mutation] of mutations) {
+          await expect(revalidateDa5V5ProcessIdentityForTest({
+            capture,
+            expected,
+            mutateCaptured: (captured) => Object.freeze({
+              ...captured,
+              ...mutation,
+            }),
+          }), label).rejects.toThrow(/process identity changed/);
+        }
+      } finally {
+        child.kill('SIGTERM');
+        await once(child, 'exit');
+      }
+    },
+  );
+
   it.each([
     ['first', [0, 3], 0],
     ['middle', [2, 4], 2],
@@ -1264,6 +1320,171 @@ describe('DA5 V5 closed environment and real transient PostgreSQL owner', () => 
       }
     },
     60_000,
+  );
+
+  it.runIf(process.platform === 'darwin')(
+    'retains live Guard/PostgreSQL ownership across a failed close reattestation and cleans only after a fresh retry',
+    async () => {
+      const runtimeBase = await mkdtemp('/private/tmp/t5-');
+      const removedEnvironment = removeRejectedEnvironment();
+      let artifactTrusted = true;
+      let owner: Awaited<
+        ReturnType<typeof startDa5V5FullyAttestedTestPostgresOwner>
+      > | null = null;
+      try {
+        owner = await startDa5V5FullyAttestedTestPostgresOwner({
+          guardBinaryPath: binaryPath,
+          pgConfigPath: '/opt/homebrew/opt/postgresql@17/bin/pg_config',
+          temporaryBase: runtimeBase,
+          testOnlyRevalidateGuardArtifact: async () => {
+            if (!artifactTrusted) {
+              throw new Error('synthetic close reattestation mismatch');
+            }
+          },
+        });
+        const guardRecord = owner.lifecycleRecord.guardProcessRecord;
+        const postgresRecord = owner.lifecycleRecord.postgresProcessRecord;
+        if (guardRecord === null || postgresRecord === null) {
+          throw new Error('DA5 V5 real process records are unavailable');
+        }
+        artifactTrusted = false;
+        await expect(owner.closeOwner()).rejects.toThrow(
+          /live ownership was retained/,
+        );
+        const retainedRootEntries = await readdir(runtimeBase);
+        expect(retainedRootEntries).not.toEqual([]);
+        await new Promise((resolve) => setTimeout(resolve, 5_500));
+        await expect(revalidateDa5V5ProcessIdentityForTest({
+          capture: {
+            authoritativeSessionId: Number(guardRecord.sessionId),
+            executableDigest: guardRecord.executableDigest,
+            executablePath: guardRecord.executablePath,
+            expectedParentPid: Number(guardRecord.parentPid),
+            expectedProcessGroup: Number(guardRecord.pgid),
+            pid: Number(guardRecord.pid),
+          },
+          expected: guardRecord,
+        })).resolves.toBeUndefined();
+        await expect(revalidateDa5V5ProcessIdentityForTest({
+          capture: {
+            authoritativeSessionId: Number(postgresRecord.sessionId),
+            executableDigest: postgresRecord.executableDigest,
+            executablePath: postgresRecord.executablePath,
+            expectedParentPid: Number(postgresRecord.parentPid),
+            expectedProcessGroup: Number(postgresRecord.pgid),
+            pid: Number(postgresRecord.pid),
+          },
+          expected: postgresRecord,
+        })).resolves.toBeUndefined();
+        expect(await readdir(runtimeBase)).toEqual(retainedRootEntries);
+
+        artifactTrusted = true;
+        await expect(owner.closeOwner()).resolves.toBeUndefined();
+        await expect(readdir(runtimeBase)).resolves.toEqual([]);
+      } finally {
+        artifactTrusted = true;
+        await owner?.closeOwner().catch(() => undefined);
+        restoreEnvironment(removedEnvironment);
+        await rm(runtimeBase, { force: true, recursive: true });
+      }
+    },
+    30_000,
+  );
+
+  it.runIf(process.platform === 'darwin')(
+    'retains referenced startup ownership after cleanup reattestation fails without EOF or lease expiry',
+    async () => {
+      const runtimeBase = await mkdtemp('/private/tmp/t5-');
+      const removedEnvironment = removeRejectedEnvironment();
+      let artifactTrusted = true;
+      try {
+        await expect(startDa5V5FullyAttestedTestPostgresOwner({
+          guardBinaryPath: binaryPath,
+          pgConfigPath: '/opt/homebrew/opt/postgresql@17/bin/pg_config',
+          temporaryBase: runtimeBase,
+          testOnlyRevalidateGuardArtifact: async () => {
+            if (!artifactTrusted) {
+              throw new Error('synthetic startup cleanup mismatch');
+            }
+          },
+          testOnlyStartupFailureAfterOwnership: () => {
+            artifactTrusted = false;
+            throw new Error('synthetic startup failure after ownership');
+          },
+        })).rejects.toThrow(/cleanup-incomplete/);
+        expect(da5V5RetainedStartupCleanupCountForTest()).toBe(1);
+        const [retained] = da5V5RetainedStartupProcessesForTest();
+        if (
+          retained?.guardPid === null
+          || retained?.guardPid === undefined
+          || retained.postgresPid === null
+        ) {
+          throw new Error('DA5 V5 retained process ownership is unavailable');
+        }
+        const guardDigest = createHash('sha256')
+          .update(await readFile(binaryPath))
+          .digest('hex');
+        const postgresPath =
+          '/opt/homebrew/Cellar/postgresql@17/17.10/bin/postgres';
+        const postgresDigest = createHash('sha256')
+          .update(await readFile(postgresPath))
+          .digest('hex');
+        const guardRecord = await captureDa5V5ProcessIdentityForTest({
+          authoritativeSessionId: retained.guardPid,
+          executableDigest: guardDigest,
+          executablePath: binaryPath,
+          expectedParentPid: process.pid,
+          expectedProcessGroup: retained.guardPid,
+          pid: retained.guardPid,
+        });
+        const postgresRecord = await captureDa5V5ProcessIdentityForTest({
+          authoritativeSessionId: retained.guardPid,
+          executableDigest: postgresDigest,
+          executablePath: postgresPath,
+          expectedParentPid: retained.guardPid,
+          expectedProcessGroup: retained.guardPid,
+          pid: retained.postgresPid,
+        });
+        const retainedRootEntries = await readdir(runtimeBase);
+        expect(retainedRootEntries).not.toEqual([]);
+        await new Promise((resolve) => setTimeout(resolve, 5_500));
+        await expect(revalidateDa5V5ProcessIdentityForTest({
+          capture: {
+            authoritativeSessionId: retained.guardPid,
+            executableDigest: guardDigest,
+            executablePath: binaryPath,
+            expectedParentPid: process.pid,
+            expectedProcessGroup: retained.guardPid,
+            pid: retained.guardPid,
+          },
+          expected: guardRecord,
+        })).resolves.toBeUndefined();
+        await expect(revalidateDa5V5ProcessIdentityForTest({
+          capture: {
+            authoritativeSessionId: retained.guardPid,
+            executableDigest: postgresDigest,
+            executablePath: postgresPath,
+            expectedParentPid: retained.guardPid,
+            expectedProcessGroup: retained.guardPid,
+            pid: retained.postgresPid,
+          },
+          expected: postgresRecord,
+        })).resolves.toBeUndefined();
+        expect(await readdir(runtimeBase)).toEqual(retainedRootEntries);
+
+        artifactTrusted = true;
+        await expect(retryDa5V5RetainedStartupCleanupsForTest())
+          .resolves.toBeUndefined();
+        expect(da5V5RetainedStartupCleanupCountForTest()).toBe(0);
+        await expect(readdir(runtimeBase)).resolves.toEqual([]);
+      } finally {
+        artifactTrusted = true;
+        await retryDa5V5RetainedStartupCleanupsForTest().catch(() => undefined);
+        restoreEnvironment(removedEnvironment);
+        await rm(runtimeBase, { force: true, recursive: true });
+      }
+    },
+    30_000,
   );
 
   it.runIf(process.platform === 'darwin')(

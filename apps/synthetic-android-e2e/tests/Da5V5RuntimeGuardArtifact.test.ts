@@ -298,17 +298,64 @@ describe('DA5 V5 Runtime Guard stable artifact binding', () => {
         expect((await stat(produced.binaryPath)).mode & 0o777).toBe(0o555);
         expect((await stat(produced.manifestPath)).mode & 0o777).toBe(0o444);
 
-        const poisonStages: readonly Da5V5ProducerPoisonStage[] = [
+        const poisonFile = join(root, 'private-poison-file');
+        const poisonDirectory = join(root, 'private-poison-directory');
+        await writeFile(poisonFile, 'private poison fixture', {
+          flag: 'wx',
+          mode: 0o400,
+        });
+        await mkdir(poisonDirectory, { mode: 0o700 });
+        const fileStages: readonly Da5V5ProducerPoisonStage[] = [
+          'git-inspector',
+          'source',
           'xcrun',
           'compiler',
-          'sdk-sysroot',
-          'compiler-inputs',
-          'link-start-inputs',
+          'linker',
+          'link-object-input',
+          'link-libsystem-input',
           'signature',
-          'inspector',
+          'load-dependency-inspector',
+          'operating-system-inspector',
+          'process-inspector',
         ];
-        for (const poisonStage of poisonStages) {
-          const poisonedOutput = join(root, `poison-${poisonStage}`);
+        const poisonCases: {
+          readonly index: number;
+          readonly path: string;
+          readonly stage: Da5V5ProducerPoisonStage;
+        }[] = fileStages.map((stage) => ({
+          index: 0,
+          path: poisonFile,
+          stage,
+        }));
+        poisonCases.push(
+          {
+            index: 0,
+            path: poisonDirectory,
+            stage: 'sdk-sysroot',
+          },
+          {
+            index: 0,
+            path: poisonDirectory,
+            stage: 'compiler-resource-directory',
+          },
+          ...produced.manifest.toolchain.includeDirectories.map(
+            (_directory, index) => ({
+              index,
+              path: poisonDirectory,
+              stage: 'include-directory' as const,
+            }),
+          ),
+          ...produced.manifest.toolchain.inputFiles.map((_input, index) => ({
+            index,
+            path: poisonFile,
+            stage: 'compiler-input' as const,
+          })),
+        );
+        for (const poisonCase of poisonCases) {
+          const poisonedOutput = join(
+            root,
+            `poison-${poisonCase.stage}-${poisonCase.index}`,
+          );
           await expect(produceDa5V5RuntimeGuardArtifact({
             environment: {},
             expectedTestEvidenceSha256: sha256(testEvidence),
@@ -318,14 +365,16 @@ describe('DA5 V5 Runtime Guard stable artifact binding', () => {
             sourcePath: fixtureSourcePath,
             testEvidencePath,
             testOnlyOutputBoundary: true,
-            testOnlyPoisonStage: poisonStage,
-          })).rejects.toThrow(/artifact producer (?:input|path) changed/);
-          expect(await readdir(poisonedOutput)).not.toEqual(
-            expect.arrayContaining([
-              'da5_v5_runtime_guard',
-              'guard-manifest.txt',
-            ]),
+            testOnlyPoisonIndex: poisonCase.index,
+            testOnlyPoisonPath: poisonCase.path,
+            testOnlyPoisonStage: poisonCase.stage,
+          })).rejects.toThrow(
+            /artifact producer (?:input changed|path changed|owner or mode mismatch)/,
           );
+          await expect(stat(join(poisonedOutput, 'da5_v5_runtime_guard')))
+            .rejects.toThrow();
+          await expect(stat(join(poisonedOutput, 'guard-manifest.txt')))
+            .rejects.toThrow();
         }
       } finally {
         await rm(root, { force: true, recursive: true });
