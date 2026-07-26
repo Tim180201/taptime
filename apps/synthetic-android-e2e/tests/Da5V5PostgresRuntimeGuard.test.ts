@@ -906,10 +906,16 @@ describe('DA5 V5 closed environment and real transient PostgreSQL owner', () => 
     async (stage) => {
       const firstFailure = new Error(`synthetic-${stage}-reattest-failure`);
       const safeActions: string[] = [];
+      let destructiveCalls = 0;
       let stopCalls = 0;
       let caught: unknown;
       try {
         await runDa5V5ReattestationBoundCleanupForTest({
+          destructiveActions: [
+            () => {
+              destructiveCalls += 1;
+            },
+          ],
           reattest: async () => {
             throw firstFailure;
           },
@@ -936,6 +942,7 @@ describe('DA5 V5 closed environment and real transient PostgreSQL owner', () => 
         caught = error;
       }
       expect(stopCalls).toBe(0);
+      expect(destructiveCalls).toBe(0);
       expect(safeActions).toEqual(['control', 'secret', 'event', 'wait']);
       expect(caught).toBeInstanceOf(Error);
       expect((caught as Error).cause).toBe(firstFailure);

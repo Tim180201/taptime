@@ -198,19 +198,25 @@ export async function runDa5V5AllPathCleanupForTest(
 }
 
 export async function runDa5V5ReattestationBoundCleanupForTest(options: {
+  readonly destructiveActions?: readonly (() => Promise<void> | void)[];
   readonly reattest: () => Promise<void>;
   readonly safeActions: readonly (() => Promise<void> | void)[];
   readonly sendStop: () => Promise<void>;
 }): Promise<void> {
   assertDa5V5FocusedTestProcess();
   const state: Da5V5CleanupFailureState = {};
-  await attemptDa5V5ReattestationBoundStop(
+  const destructiveAuthority = await attemptDa5V5ReattestationBoundStop(
     state,
     options.reattest,
     options.sendStop,
   );
   for (const action of options.safeActions) {
     await attemptDa5V5CleanupStage(state, action);
+  }
+  if (destructiveAuthority) {
+    for (const action of options.destructiveActions ?? []) {
+      await attemptDa5V5CleanupStage(state, action);
+    }
   }
   if (state.firstFailure !== undefined) {
     throw new Error('DA5 V5 test cleanup failed', {
