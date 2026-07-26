@@ -9,6 +9,7 @@ import {
   open,
   readFile,
   readdir,
+  realpath,
   rename,
   rm,
   rmdir,
@@ -18,7 +19,8 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawn, type ChildProcess } from 'node:child_process';
-import type { Readable, Writable } from 'node:stream';
+import { PassThrough, type Readable, type Writable } from 'node:stream';
+import { finished } from 'node:stream/promises';
 import { Pool } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
@@ -70,6 +72,24 @@ afterAll(async () => {
 });
 
 describe('DA5 V5 native Runtime Guard private protocol', () => {
+  it('binds initdb to the UTF8 encoding required by the migration contract',
+    async () => {
+      const source = await readFile(new URL(
+        '../native/da5_v5_runtime_guard.c',
+        import.meta.url,
+      ), 'utf8');
+      const spawnStart = source.indexOf('static int spawn_initdb(');
+      const spawnEnd = source.indexOf(
+        'static int supervise_initdb(',
+        spawnStart,
+      );
+      const spawnInitdb = source.slice(spawnStart, spawnEnd);
+      expect(spawnStart).toBeGreaterThanOrEqual(0);
+      expect(spawnEnd).toBeGreaterThan(spawnStart);
+      expect(spawnInitdb).toContain('(char *)"--encoding=UTF8"');
+      expect(spawnInitdb).not.toContain('--encoding=SQL_ASCII');
+    });
+
   it('runs the bounded no-replace and non-reaping PROBE_ONLY contract', async () => {
     const fixture = await spawnProbeGuard();
     try {
@@ -144,11 +164,17 @@ describe('DA5 V5 native Runtime Guard private protocol', () => {
   it.each([0, 1, 3] as const)(
     'closes every captured handle when sister open %i fails',
     async (failureIndex) => {
+      const paths = await Promise.all([
+        '/bin/sh',
+        '/bin/ls',
+        '/usr/bin/true',
+        '/usr/bin/false',
+      ].map(async (path) => realpath(path)));
       let caught: unknown;
       try {
         await runDa5V5HandleOpenSisterFailureForTest({
           failureIndex,
-          paths: ['/bin/sh', '/bin/ls', '/usr/bin/true', '/usr/bin/false'],
+          paths,
         });
       } catch (error: unknown) {
         caught = error;
@@ -159,6 +185,53 @@ describe('DA5 V5 native Runtime Guard private protocol', () => {
       );
     },
   );
+
+  it('rejects a closed raw pipe observed before expected termination', async () => {
+    const earlyReset = new PassThrough();
+    const earlyObserver = observeRawFixtureStreams([
+      { direction: 'readable', stream: earlyReset },
+    ]);
+    const emitted = once(earlyReset, 'error');
+    earlyReset.destroy(Object.assign(new Error('early reset'), {
+      code: 'ECONNRESET',
+    }));
+    await emitted;
+    earlyObserver.markExpectedTermination();
+    await expect(
+      earlyObserver.settleAfterExpectedTermination(),
+    ).rejects.toThrow('unexpected raw fixture stream failure');
+    expect(earlyReset.listenerCount('error')).toBe(0);
+  });
+
+  it('tolerates a closed raw pipe only after expected termination', async () => {
+    const expectedReset = new PassThrough();
+    const expectedObserver = observeRawFixtureStreams([
+      { direction: 'readable', stream: expectedReset },
+    ]);
+    expectedObserver.markExpectedTermination();
+    expectedReset.destroy(Object.assign(new Error('expected reset'), {
+      code: 'ECONNRESET',
+    }));
+    await expect(
+      expectedObserver.settleAfterExpectedTermination(),
+    ).resolves.toBeUndefined();
+    expect(expectedReset.listenerCount('error')).toBe(0);
+  });
+
+  it('rejects an unexpected raw pipe failure after expected termination', async () => {
+    const unexpectedFailure = new PassThrough();
+    const unexpectedObserver = observeRawFixtureStreams([
+      { direction: 'readable', stream: unexpectedFailure },
+    ]);
+    unexpectedObserver.markExpectedTermination();
+    unexpectedFailure.destroy(Object.assign(new Error('unexpected failure'), {
+      code: 'EIO',
+    }));
+    await expect(
+      unexpectedObserver.settleAfterExpectedTermination(),
+    ).rejects.toThrow('unexpected raw fixture stream failure');
+    expect(unexpectedFailure.listenerCount('error')).toBe(0);
+  });
 
   it.each(['SIGINT', 'SIGTERM', 'SIGHUP'] as const)(
     'does not convert an external %s into a protocol command',
@@ -1316,6 +1389,22 @@ describe('DA5 V5 closed environment and real transient PostgreSQL owner', () => 
           syntheticRuntimePassword,
         );
         await owner.withInstaller(async (installer) => {
+          const client = await installer.connect();
+          const listener = (): void => undefined;
+          try {
+            expect(Object.keys(client).sort()).toEqual([
+              'off',
+              'on',
+              'query',
+              'release',
+              'toJSON',
+              'toString',
+            ]);
+            expect(client.on('error', listener)).toBeUndefined();
+            expect(client.off('error', listener)).toBeUndefined();
+          } finally {
+            client.release();
+          }
           await b1.installB1Schema(
             installer as unknown as Pool,
             syntheticRuntimePassword,
@@ -1669,6 +1758,72 @@ describe('DA5 V5 closed environment and real transient PostgreSQL owner', () => 
   );
 });
 
+interface RawFixtureStreamObserver {
+  markExpectedTermination(): void;
+  settleAfterExpectedTermination(): Promise<void>;
+}
+
+function observeRawFixtureStreams(
+  observations: readonly Readonly<{
+    readonly direction: 'readable' | 'writable';
+    readonly stream: Readable | Writable;
+  }>[],
+): RawFixtureStreamObserver {
+  let expectedTerminationMarked = false;
+  const errors: Array<Readonly<{
+    readonly afterExpectedTermination: boolean;
+    readonly error: Error;
+  }>> = [];
+  const observed = new Set<unknown>();
+  const recordError = (error: unknown): void => {
+    if (observed.has(error)) {
+      return;
+    }
+    observed.add(error);
+    errors.push(Object.freeze({
+      afterExpectedTermination: expectedTerminationMarked,
+      error: error instanceof Error
+        ? error
+        : new Error('unknown raw fixture stream failure'),
+    }));
+  };
+  const settlements = observations.map(async ({ direction, stream }) => {
+    const onError = (error: Error): void => {
+      recordError(error);
+    };
+    stream.on('error', onError);
+    try {
+      await finished(stream, {
+        cleanup: true,
+        readable: direction === 'readable',
+        writable: direction === 'writable',
+      });
+    } catch (error: unknown) {
+      recordError(error);
+    } finally {
+      stream.off('error', onError);
+    }
+  });
+  return Object.freeze({
+    markExpectedTermination(): void {
+      expectedTerminationMarked = true;
+    },
+    async settleAfterExpectedTermination(): Promise<void> {
+      await Promise.all(settlements);
+      const unexpected = errors.find((observation) => {
+        const code = (observation.error as NodeJS.ErrnoException).code;
+        return !observation.afterExpectedTermination
+          || (code !== 'ECONNRESET' && code !== 'EPIPE');
+      });
+      if (unexpected !== undefined) {
+        throw new Error('unexpected raw fixture stream failure', {
+          cause: unexpected.error,
+        });
+      }
+    },
+  });
+}
+
 async function spawnProbeGuard(): Promise<Readonly<{
   readonly child: ChildProcess;
   readonly cleanup: () => Promise<void>;
@@ -1713,6 +1868,11 @@ async function spawnProbeGuard(): Promise<Readonly<{
       || secret === null || secret === undefined) {
     throw new Error('Runtime Guard private pipes are unavailable');
   }
+  const streamObserver = observeRawFixtureStreams([
+    { direction: 'writable', stream: control },
+    { direction: 'readable', stream: events },
+    { direction: 'writable', stream: secret },
+  ]);
   let cleaned = false;
   return Object.freeze({
     child,
@@ -1734,7 +1894,17 @@ async function spawnProbeGuard(): Promise<Readonly<{
       if (child.exitCode === null && child.signalCode === null) {
         throw new Error('Runtime Guard test left a live process');
       }
+      streamObserver.markExpectedTermination();
+      let streamFailure: unknown;
+      try {
+        await streamObserver.settleAfterExpectedTermination();
+      } catch (error: unknown) {
+        streamFailure = error;
+      }
       await rm(stagingPath, { force: true, recursive: true });
+      if (streamFailure !== undefined) {
+        throw streamFailure;
+      }
     },
   });
 }
@@ -1825,6 +1995,11 @@ async function spawnEarlyExitGuard(options?: Readonly<{
   ) {
     throw new Error('Runtime Guard private pipes are unavailable');
   }
+  const streamObserver = observeRawFixtureStreams([
+    { direction: 'writable', stream: control },
+    { direction: 'readable', stream: events },
+    { direction: 'writable', stream: secret },
+  ]);
   const capability = randomBytes(32).toString('hex');
   let cleaned = false;
   return Object.freeze({
@@ -1889,7 +2064,17 @@ async function spawnEarlyExitGuard(options?: Readonly<{
       if (child.exitCode === null && child.signalCode === null) {
         throw new Error('Runtime Guard test left a live process');
       }
+      streamObserver.markExpectedTermination();
+      let streamFailure: unknown;
+      try {
+        await streamObserver.settleAfterExpectedTermination();
+      } catch (error: unknown) {
+        streamFailure = error;
+      }
       await rm(stagingPath, { force: true, recursive: true });
+      if (streamFailure !== undefined) {
+        throw streamFailure;
+      }
     },
   });
 }

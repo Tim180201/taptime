@@ -37,6 +37,8 @@ export interface Da5V5RuntimePoolRequest {
 }
 
 export interface Da5V5PostgresClientOperations {
+  off(event: 'error', listener: (error: Error) => void): void;
+  on(event: 'error', listener: (error: Error) => void): void;
   readonly query: PoolClient['query'];
   release(error?: Error | boolean): void;
 }

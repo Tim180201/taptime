@@ -535,7 +535,7 @@ static int spawn_initdb(const char *binary, const char *data_directory) {
         (char *)"--auth-host=scram-sha-256",
         (char *)"--auth-local=reject",
         (char *)"--pwfile=/dev/fd/3",
-        (char *)"--encoding=SQL_ASCII",
+        (char *)"--encoding=UTF8",
         (char *)"--no-locale",
         (char *)"--locale-provider=libc",
         (char *)"--no-sync",

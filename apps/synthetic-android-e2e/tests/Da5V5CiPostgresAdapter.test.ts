@@ -30,9 +30,42 @@ const poolQuery = vi.fn(async (statement: string) => {
     }],
   };
 });
+const poolClientRelease = vi.fn();
+const rawPoolClientErrorListeners: Array<(error: Error) => void> = [];
+const rawPoolClient = {
+  emitError(error: Error): void {
+    for (const listener of [...rawPoolClientErrorListeners]) {
+      Reflect.apply(listener, rawPoolClient, [error]);
+    }
+  },
+  errorListenerCount(): number {
+    return rawPoolClientErrorListeners.length;
+  },
+  off: vi.fn(function (
+    _event: 'error',
+    listener: (error: Error) => void,
+  ) {
+    const index = rawPoolClientErrorListeners.lastIndexOf(listener);
+    if (index !== -1) {
+      rawPoolClientErrorListeners.splice(index, 1);
+    }
+    return rawPoolClient;
+  }),
+  on: vi.fn(function (
+    _event: 'error',
+    listener: (error: Error) => void,
+  ) {
+    rawPoolClientErrorListeners.push(listener);
+    return rawPoolClient;
+  }),
+  query: poolQuery,
+  release: poolClientRelease,
+};
+const poolConnect = vi.fn(async () => rawPoolClient);
 
 vi.mock('pg', () => ({
   Pool: class {
+    connect = poolConnect;
     end = poolEnd;
     query = poolQuery;
   },
@@ -41,6 +74,7 @@ vi.mock('pg', () => ({
 import {
   ownerRecordDigest,
   parseDa5V5LinuxProcessStartTicks,
+  startDa5V5FullyAttestedCiPostgresOwner,
   validateDa5V5CiOwnerRecord,
   type Da5V5CiOwnerRecord,
   type Da5V5DockerReadRunner,
@@ -72,6 +106,11 @@ const temporaryRoots: string[] = [];
 
 afterEach(async () => {
   poolEnd.mockClear();
+  poolConnect.mockClear();
+  poolClientRelease.mockClear();
+  rawPoolClient.off.mockClear();
+  rawPoolClient.on.mockClear();
+  rawPoolClientErrorListeners.splice(0);
   poolQuery.mockClear();
   await Promise.all(temporaryRoots.splice(0).map(async (root) => {
     await rm(root, { force: true, recursive: true });
@@ -617,6 +656,68 @@ describe('DA5 V5 exact CI PostgreSQL owner adapter', () => {
     expect(runner.run).toHaveBeenCalledTimes(6);
     expect(runner.readHostProcessStat).toHaveBeenCalledTimes(3);
     expect(poolEnd).toHaveBeenCalledTimes(1);
+  });
+
+  it('delegates CI client error listeners without exposing the raw PoolClient', async () => {
+    const ownerRecordPath = await writeOwnerRecord();
+    const owner = await startDa5V5FullyAttestedCiPostgresOwner({
+      databaseUrl,
+      ownerRecordPath,
+      runner: exactRunner(),
+    });
+    try {
+      await owner.withInstaller(async (installer) => {
+        const client = await installer.connect();
+        const capturedErrors: Error[] = [];
+        const capturedReceivers: unknown[] = [];
+        function listener(this: unknown, error: Error): void {
+          capturedErrors.push(error);
+          capturedReceivers.push(this);
+        }
+        const error = new Error('synthetic client error');
+        expect(client).not.toBe(rawPoolClient);
+        expect(Object.keys(client).sort()).toEqual([
+          'off',
+          'on',
+          'query',
+          'release',
+          'toJSON',
+          'toString',
+        ]);
+        expect(client.on('error', listener)).toBeUndefined();
+        expect(client.on('error', listener)).toBeUndefined();
+        const firstProxy = rawPoolClient.on.mock.calls[0]?.[1];
+        const secondProxy = rawPoolClient.on.mock.calls[1]?.[1];
+        expect(firstProxy).not.toBe(listener);
+        expect(secondProxy).not.toBe(listener);
+        expect(firstProxy).not.toBe(secondProxy);
+        rawPoolClient.emitError(error);
+        expect(capturedErrors).toEqual([error, error]);
+        expect(capturedReceivers).toEqual([undefined, undefined]);
+        expect(client.off('error', listener)).toBeUndefined();
+        expect(rawPoolClient.off).toHaveBeenNthCalledWith(
+          1,
+          'error',
+          secondProxy,
+        );
+        rawPoolClient.emitError(error);
+        expect(capturedErrors).toEqual([error, error, error]);
+        expect(capturedReceivers).toEqual([undefined, undefined, undefined]);
+        expect(client.off('error', listener)).toBeUndefined();
+        expect(rawPoolClient.off).toHaveBeenNthCalledWith(
+          2,
+          'error',
+          firstProxy,
+        );
+        rawPoolClient.emitError(error);
+        expect(capturedErrors).toEqual([error, error, error]);
+        expect(rawPoolClient.errorListenerCount()).toBe(0);
+        client.release();
+        expect(poolClientRelease).toHaveBeenCalledTimes(1);
+      });
+    } finally {
+      await owner.closeOwner();
+    }
   });
 
   it.each([

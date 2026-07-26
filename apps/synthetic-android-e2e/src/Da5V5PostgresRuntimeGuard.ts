@@ -1668,7 +1668,35 @@ function createPostgresOperationFacade(
   return Object.freeze({
     async connect() {
       const client = await pool.connect();
+      const errorListenerProxies = new Map<
+        (error: Error) => void,
+        Array<(error: Error) => void>
+      >();
       return Object.freeze({
+        off(event: 'error', listener: (error: Error) => void): void {
+          const proxies = errorListenerProxies.get(listener);
+          const proxy = proxies?.at(-1);
+          if (proxies === undefined || proxy === undefined) {
+            return;
+          }
+          client.off(event, proxy);
+          proxies.pop();
+          if (proxies.length === 0) {
+            errorListenerProxies.delete(listener);
+          }
+        },
+        on(event: 'error', listener: (error: Error) => void): void {
+          const proxy = (error: Error): void => {
+            Reflect.apply(listener, undefined, [error]);
+          };
+          client.on(event, proxy);
+          const proxies = errorListenerProxies.get(listener);
+          if (proxies === undefined) {
+            errorListenerProxies.set(listener, [proxy]);
+          } else {
+            proxies.push(proxy);
+          }
+        },
         query: client.query.bind(client),
         release: client.release.bind(client),
         toJSON(): never {
@@ -3027,7 +3055,7 @@ async function attestUntouchedCluster(pool: Pool): Promise<void> {
   ) {
     throw new Error('DA5 V5 untouched-cluster database identity mismatch');
   }
-  if (row.database_encodings !== 'SQL_ASCII,SQL_ASCII,SQL_ASCII') {
+  if (row.database_encodings !== 'UTF8,UTF8,UTF8') {
     throw new Error('DA5 V5 untouched-cluster database encoding mismatch');
   }
   if (row.database_collations !== 'C,C,C') {

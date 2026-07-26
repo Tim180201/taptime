@@ -1,5 +1,7 @@
-import { mkdtemp, readFile, rmdir } from 'node:fs/promises';
+import { mkdtemp, readFile, realpath, rmdir } from 'node:fs/promises';
 import { createServer } from 'node:http';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createNfcPayload } from '@taptime/core';
 import { validateTimeEntryExportRequest } from '@taptime/time-entry-export-contract';
@@ -2139,14 +2141,16 @@ async function createDa5V5TestOwner(): Promise<Da5V5TestOwner> {
       cleanup: async () => undefined,
     });
   }
+  const canonicalNodeTemporaryRoot = await realpath(tmpdir());
+  const canonicalRuntimeTemporaryRoot = await realpath('/tmp');
   const guard = await buildDa5V5TemporaryTestGuard({
     sourcePath: fileURLToPath(new URL(
       '../native/da5_v5_runtime_guard.c',
       import.meta.url,
     )),
-    temporaryRoot: '/private/tmp',
+    temporaryRoot: canonicalNodeTemporaryRoot,
   });
-  const runtimeBase = await mkdtemp('/private/tmp/t5-');
+  const runtimeBase = await mkdtemp(join(canonicalRuntimeTemporaryRoot, 't5-'));
   try {
     const removedEnvironment = removeDa5V5RejectedTestEnvironment();
     let capability: Da5V5PostgresCapability;

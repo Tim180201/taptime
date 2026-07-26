@@ -384,7 +384,35 @@ function createCiPostgresOperationFacade(
   return Object.freeze({
     async connect() {
       const client = await pool.connect();
+      const errorListenerProxies = new Map<
+        (error: Error) => void,
+        Array<(error: Error) => void>
+      >();
       return Object.freeze({
+        off(event: 'error', listener: (error: Error) => void): void {
+          const proxies = errorListenerProxies.get(listener);
+          const proxy = proxies?.at(-1);
+          if (proxies === undefined || proxy === undefined) {
+            return;
+          }
+          client.off(event, proxy);
+          proxies.pop();
+          if (proxies.length === 0) {
+            errorListenerProxies.delete(listener);
+          }
+        },
+        on(event: 'error', listener: (error: Error) => void): void {
+          const proxy = (error: Error): void => {
+            Reflect.apply(listener, undefined, [error]);
+          };
+          client.on(event, proxy);
+          const proxies = errorListenerProxies.get(listener);
+          if (proxies === undefined) {
+            errorListenerProxies.set(listener, [proxy]);
+          } else {
+            proxies.push(proxy);
+          }
+        },
         query: client.query.bind(client),
         release: client.release.bind(client),
         toJSON(): never {
