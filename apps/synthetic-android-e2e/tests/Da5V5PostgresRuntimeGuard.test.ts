@@ -218,6 +218,28 @@ describe('DA5 V5 native Runtime Guard private protocol', () => {
     expect(expectedReset.listenerCount('error')).toBe(0);
   });
 
+  it('observes a late closed-pipe error after finish until definitive close', async () => {
+    const lateReset = new PassThrough({ autoDestroy: false });
+    const lateObserver = observeRawFixtureStreams([
+      { direction: 'writable', stream: lateReset },
+    ]);
+    lateObserver.markExpectedTermination();
+    lateReset.end();
+    await once(lateReset, 'finish');
+    await Promise.resolve();
+    expect(lateReset.closed).toBe(false);
+    expect(lateReset.listenerCount('error')).toBeGreaterThan(0);
+    lateReset.emit('error', Object.assign(new Error('late reset'), {
+      code: 'ECONNRESET',
+    }));
+    lateReset.destroy();
+    await expect(
+      lateObserver.settleAfterExpectedTermination(),
+    ).resolves.toBeUndefined();
+    expect(lateReset.closed).toBe(true);
+    expect(lateReset.listenerCount('error')).toBe(0);
+  });
+
   it('rejects an unexpected raw pipe failure after expected termination', async () => {
     const unexpectedFailure = new PassThrough();
     const unexpectedObserver = observeRawFixtureStreams([
@@ -1792,14 +1814,27 @@ function observeRawFixtureStreams(
       recordError(error);
     };
     stream.on('error', onError);
+    const closed = new Promise<void>((resolve) => {
+      const onClose = (): void => {
+        stream.off('close', onClose);
+        resolve();
+      };
+      stream.on('close', onClose);
+      if (stream.closed) {
+        onClose();
+      }
+    });
     try {
-      await finished(stream, {
-        cleanup: true,
-        readable: direction === 'readable',
-        writable: direction === 'writable',
-      });
-    } catch (error: unknown) {
-      recordError(error);
+      try {
+        await finished(stream, {
+          cleanup: true,
+          readable: direction === 'readable',
+          writable: direction === 'writable',
+        });
+      } catch (error: unknown) {
+        recordError(error);
+      }
+      await closed;
     } finally {
       stream.off('error', onError);
     }
