@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { createHash } from 'node:crypto';
 import type { Pool } from 'pg';
 import type {
   Da5V5PostgresOwnerBackend,
@@ -174,10 +175,48 @@ describe('DA5 V5 private PostgreSQL capability', () => {
         firstFailure,
       );
       expect(owner.closeOwner).toHaveBeenCalledTimes(1);
+      expect(owner.closeOwner).toHaveBeenCalledWith({
+        destructiveAuthorityRevoked: true,
+      });
       expect(da5V5PostgresCapabilityState(capability).cleanupIncomplete).toBe(
         true,
       );
   });
+
+  it.each([
+    ['Darwin ps zero as an authoritative session', (record: Da5V5PostgresOwnerBackend['lifecycleRecord']) => ({
+      guardProcessRecord: Object.freeze({
+        ...(record.guardProcessRecord as NonNullable<
+          typeof record.guardProcessRecord
+        >),
+        sessionObservationReliability: 'authoritative-match' as const,
+      }),
+    })],
+    ['a mount record whose full canonical bytes do not match its digest',
+      (record: Da5V5PostgresOwnerBackend['lifecycleRecord']) => ({
+        mountIdentityRecord: Object.freeze({
+          ...(record.mountIdentityRecord as NonNullable<
+            typeof record.mountIdentityRecord
+          >),
+          canonicalRecord: `${record.mountIdentityRecord?.canonicalRecord}x`,
+        }),
+      })],
+  ] as const)(
+    'rejects %s before issuing a capability',
+    async (_label, corrupt) => {
+      const valid = createOwner();
+      runtimeMocks.startTest.mockResolvedValue(createOwner({
+        lifecycleRecord: Object.freeze({
+          ...valid.lifecycleRecord,
+          ...corrupt(valid.lifecycleRecord),
+        }),
+      }));
+
+      await expect(createTestCapability()).rejects.toThrow(
+        /owner authority is invalid/,
+      );
+    },
+  );
 
   it('is one-shot and cannot be concurrently consumed or closed', async () => {
     let releaseUse = (): void => undefined;
@@ -255,6 +294,45 @@ function createOwner(
   reattest: ReturnType<typeof vi.fn>;
   withInstaller: ReturnType<typeof vi.fn>;
 } {
+  const mountCanonicalRecord = [
+    'DA5-V5-MOUNT-BINDING-V2',
+    'base:fsid=0102,type=0,bsize=4096,flags=1,mnton=2f,fstype=61706673',
+    'staging:fsid=0102,type=0,bsize=4096,flags=1,mnton=2f,fstype=61706673',
+    'root:fsid=0102,type=0,bsize=4096,flags=1,mnton=2f,fstype=61706673',
+    '',
+  ].join('\n');
+  const mountState = Object.freeze({
+    blockSize: '4096',
+    fileSystemIdHex: '0102',
+    fileSystemType: '0',
+    fileSystemTypeNameHex: '61706673',
+    flags: '1',
+    mountPointHex: '2f',
+  });
+  const processIdentityRecord = Object.freeze({
+    command: '/synthetic/runtime-guard',
+    executableDigest: '7'.repeat(64),
+    executablePath: '/synthetic/runtime-guard',
+    inspectorDigest: '8'.repeat(64),
+    parentPid: '100',
+    pgid: '101',
+    pid: '101',
+    sessionAuthority: 'guard-hello-getsid' as const,
+    sessionId: '101',
+    sessionObservation: '0',
+    sessionObservationReliability: 'darwin-ps-zero-unreliable' as const,
+    start: 'Sun Jul 26 10:00:00 2026',
+  });
+  const postgresProcessIdentityRecord = Object.freeze({
+    ...processIdentityRecord,
+    command: '/synthetic/postgres',
+    executablePath: '/synthetic/postgres',
+    parentPid: '101',
+    pid: '102',
+  });
+  const mountCanonicalSha256 = createHash('sha256')
+    .update(mountCanonicalRecord)
+    .digest('hex');
   return {
     attestation,
     closeOwner: vi.fn(async () => undefined),
@@ -271,11 +349,25 @@ function createOwner(
       directoryIdentity: '6'.repeat(64),
       finalDigest: '6'.repeat(64),
       guardExecutableDigest: '7'.repeat(64),
+      guardProcessRecord: processIdentityRecord,
       logDescriptorDigest: '8'.repeat(64),
-      mountIdentity: '9'.repeat(64),
-      ownerProcess: '9'.repeat(64),
+      mountIdentityRecord: Object.freeze({
+        base: mountState,
+        canonicalRecord: mountCanonicalRecord,
+        canonicalSha256: mountCanonicalSha256,
+        platform: 'darwin' as const,
+        root: mountState,
+        staging: mountState,
+      }),
+      mountIdentity: mountCanonicalSha256,
+      ownerProcess: createHash('sha256')
+        .update(JSON.stringify(processIdentityRecord))
+        .digest('hex'),
       postmasterDigest: 'a'.repeat(64),
-      processIdentity: 'b'.repeat(64),
+      postgresProcessRecord: postgresProcessIdentityRecord,
+      processIdentity: createHash('sha256')
+        .update(JSON.stringify(postgresProcessIdentityRecord))
+        .digest('hex'),
       provisionalDigest: 'c'.repeat(64),
       rootIdentity: 'd'.repeat(64),
       socketIdentity: 'e'.repeat(64),

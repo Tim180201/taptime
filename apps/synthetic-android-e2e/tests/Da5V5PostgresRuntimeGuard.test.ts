@@ -30,6 +30,8 @@ import {
   disclosureSafeDa5V5PostgresLifecycleError,
   rejectOperationalEnvironment,
   runDa5V5AllPathCleanupForTest,
+  runDa5V5HandleOpenSisterFailureForTest,
+  runDa5V5ReattestationBoundCleanupForTest,
   startDa5V5FullyAttestedTestPostgresOwner,
   validateDa5V5TemporaryBase,
   verifyDa5V5TrustedAdminGroupSnapshot,
@@ -134,6 +136,25 @@ describe('DA5 V5 native Runtime Guard private protocol', () => {
     },
   );
 
+  it.each([0, 1, 3] as const)(
+    'closes every captured handle when sister open %i fails',
+    async (failureIndex) => {
+      let caught: unknown;
+      try {
+        await runDa5V5HandleOpenSisterFailureForTest({
+          failureIndex,
+          paths: ['/bin/sh', '/bin/ls', '/usr/bin/true', '/usr/bin/false'],
+        });
+      } catch (error: unknown) {
+        caught = error;
+      }
+      expect(caught).toBeInstanceOf(Error);
+      expect((caught as Error).cause).toEqual(
+        new Error(`synthetic-handle-open-failure-${failureIndex}`),
+      );
+    },
+  );
+
   it.each(['SIGINT', 'SIGTERM', 'SIGHUP'] as const)(
     'does not convert an external %s into a protocol command',
     async (signal) => {
@@ -234,7 +255,7 @@ describe('DA5 V5 native Runtime Guard private protocol', () => {
       writeFrame(fixture.control, fixture.manifest(nonce));
       await expect(readFrame(fixture.events)).resolves.toBe('ACK');
       await expect(readFrame(fixture.events)).resolves.toMatch(
-        /^MOUNT_BINDING\|[a-f0-9]{64}$/u,
+        /^MOUNT_BINDING\|[a-f0-9]{64}\|(?:[a-f0-9]{2})+$/u,
       );
       await expect(readFrame(fixture.events)).resolves.toBe('INITDB_OK');
       writeFrame(fixture.control, `CONFIG_READY|${fixture.capability}`);
@@ -322,7 +343,7 @@ process.exit(passed ? 0 : 42);
       writeFrame(fixture.control, fixture.manifest(nonce));
       await expect(readFrame(fixture.events)).resolves.toBe('ACK');
       await expect(readFrame(fixture.events)).resolves.toMatch(
-        /^MOUNT_BINDING\|[a-f0-9]{64}$/u,
+        /^MOUNT_BINDING\|[a-f0-9]{64}\|(?:[a-f0-9]{2})+$/u,
       );
       await expect(readFrame(fixture.events)).resolves.toBe('INITDB_OK');
       writeFrame(fixture.control, `CONFIG_READY|${fixture.capability}`);
@@ -458,6 +479,81 @@ process.exit(passed ? 0 : 42);
               NodeJS.Signals | null,
             ];
         expect({ code, signal }).toEqual({ code: 89, signal: null });
+      } catch (error: unknown) {
+        primaryFailure = error;
+      } finally {
+        try {
+          await fixture.cleanup();
+        } catch (cleanupError: unknown) {
+          primaryFailure ??= cleanupError;
+        }
+      }
+      if (primaryFailure !== undefined) {
+        throw primaryFailure;
+      }
+    },
+  );
+
+  it.runIf(process.platform === 'darwin')(
+    'stops after deleting one sacrificial empty-directory substitute and preserves every remaining target',
+    async () => {
+      const fixture = await spawnEarlyExitGuard();
+      const retainedSocket = join(
+        fixture.tombstonePath,
+        'socket-retained-after-final-stat',
+      );
+      let primaryFailure: unknown;
+      try {
+        await advanceEarlyExitGuard(fixture);
+        writeFrame(
+          fixture.control,
+          `TEST_PAUSE_CLEANUP|${fixture.capability}`,
+        );
+        await expect(readFrame(fixture.events)).resolves.toBe(
+          'TEST_CLEANUP_PAUSE_ARMED',
+        );
+        writeFrame(fixture.control, `STOP_FAST|${fixture.capability}`);
+        await expect(readFrame(fixture.events)).resolves.toBe(
+          'POSTGRES_REAPED',
+        );
+        await expect(readFrame(fixture.events)).resolves.toBe(
+          'TEST_CLEANUP_PAUSED',
+        );
+
+        await rename(
+          join(fixture.tombstonePath, 'socket'),
+          retainedSocket,
+        );
+        await mkdir(join(fixture.tombstonePath, 'socket'), {
+          mode: 0o700,
+        });
+        writeFrame(
+          fixture.control,
+          `TEST_CONTINUE_CLEANUP|${fixture.capability}`,
+        );
+
+        await expect(readFrame(fixture.events)).resolves.toMatch(
+          /^CLEANUP_PRESERVED\|/u,
+        );
+        const [code, signal] = fixture.child.exitCode !== null
+          || fixture.child.signalCode !== null
+          ? [fixture.child.exitCode, fixture.child.signalCode]
+          : await once(fixture.child, 'exit') as [
+              number | null,
+              NodeJS.Signals | null,
+            ];
+        expect({ code, signal }).toEqual({ code: 89, signal: null });
+        await expect(stat(retainedSocket)).resolves.toMatchObject({
+          mode: expect.any(Number),
+        });
+        await expect(readdirNames(fixture.tombstonePath)).resolves.toEqual(
+          expect.arrayContaining([
+            'data',
+            'fake-initdb',
+            'postgres.log',
+            'socket-retained-after-final-stat',
+          ]),
+        );
       } catch (error: unknown) {
         primaryFailure = error;
       } finally {
@@ -801,6 +897,51 @@ describe('DA5 V5 closed environment and real transient PostgreSQL owner', () => 
     },
   );
 
+  it.each([
+    'artifact',
+    'lifecycle',
+    'destructive',
+  ] as const)(
+    'never sends STOP after failed %s reattestation and still closes all safe paths',
+    async (stage) => {
+      const firstFailure = new Error(`synthetic-${stage}-reattest-failure`);
+      const safeActions: string[] = [];
+      let stopCalls = 0;
+      let caught: unknown;
+      try {
+        await runDa5V5ReattestationBoundCleanupForTest({
+          reattest: async () => {
+            throw firstFailure;
+          },
+          safeActions: [
+            () => {
+              safeActions.push('control');
+            },
+            () => {
+              safeActions.push('secret');
+              throw new Error('synthetic sister close failure');
+            },
+            () => {
+              safeActions.push('event');
+            },
+            () => {
+              safeActions.push('wait');
+            },
+          ],
+          sendStop: async () => {
+            stopCalls += 1;
+          },
+        });
+      } catch (error: unknown) {
+        caught = error;
+      }
+      expect(stopCalls).toBe(0);
+      expect(safeActions).toEqual(['control', 'secret', 'event', 'wait']);
+      expect(caught).toBeInstanceOf(Error);
+      expect((caught as Error).cause).toBe(firstFailure);
+    },
+  );
+
   it('uses scalar attestations and ordered credential-safe failure cleanup', async () => {
     const source = await readFile(
       new URL('../src/Da5V5PostgresRuntimeGuard.ts', import.meta.url),
@@ -1021,6 +1162,22 @@ describe('DA5 V5 closed environment and real transient PostgreSQL owner', () => 
           pgConfigPath: '/opt/homebrew/opt/postgresql@17/bin/pg_config',
           temporaryBase: runtimeBase,
         });
+        expect(owner.lifecycleRecord.guardProcessRecord).toMatchObject({
+          sessionAuthority: 'guard-hello-getsid',
+          sessionId: expect.stringMatching(/^[1-9][0-9]*$/u),
+          sessionObservation: expect.stringMatching(/^(?:0|[1-9][0-9]*)$/u),
+        });
+        expect(owner.lifecycleRecord.postgresProcessRecord).toMatchObject({
+          sessionAuthority: 'guard-hello-getsid',
+          sessionId: owner.lifecycleRecord.guardProcessRecord?.sessionId,
+        });
+        expect(owner.lifecycleRecord.mountIdentityRecord).toMatchObject({
+          canonicalSha256: owner.lifecycleRecord.mountIdentity,
+          platform: 'darwin',
+        });
+        expect(createHash('sha256').update(
+          owner.lifecycleRecord.mountIdentityRecord?.canonicalRecord ?? '',
+        ).digest('hex')).toBe(owner.lifecycleRecord.mountIdentity);
         const syntheticRuntimePassword = randomBytes(32).toString('base64url');
         const installerUrl = new URL(
           'postgresql://127.0.0.1:55435/taptime_synthetic_android_e2e',
@@ -1372,7 +1529,7 @@ async function advanceEarlyExitGuard(
   writeFrame(fixture.control, fixture.manifest(nonce));
   await expect(readFrame(fixture.events)).resolves.toBe('ACK');
   await expect(readFrame(fixture.events)).resolves.toMatch(
-    /^MOUNT_BINDING\|[a-f0-9]{64}$/u,
+    /^MOUNT_BINDING\|[a-f0-9]{64}\|(?:[a-f0-9]{2})+$/u,
   );
   await expect(readFrame(fixture.events)).resolves.toBe('INITDB_OK');
   writeFrame(fixture.control, `CONFIG_READY|${fixture.capability}`);

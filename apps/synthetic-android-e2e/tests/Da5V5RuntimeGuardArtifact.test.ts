@@ -5,6 +5,7 @@ import {
   chmod,
   mkdtemp,
   mkdir,
+  readdir,
   readFile,
   realpath,
   rename,
@@ -26,6 +27,7 @@ import {
   verifyDa5V5RuntimeGuardArtifact,
   verifyDa5V5RuntimeGuardRunningProcessForTest,
   type Da5V5RuntimeGuardManifest,
+  type Da5V5ProducerPoisonStage,
 } from '../src/Da5V5RuntimeGuardArtifact.js';
 
 const sourcePath = fileURLToPath(new URL(
@@ -295,6 +297,36 @@ describe('DA5 V5 Runtime Guard stable artifact binding', () => {
         )).toEqual(['same-euid-private', 'root-system']);
         expect((await stat(produced.binaryPath)).mode & 0o777).toBe(0o555);
         expect((await stat(produced.manifestPath)).mode & 0o777).toBe(0o444);
+
+        const poisonStages: readonly Da5V5ProducerPoisonStage[] = [
+          'xcrun',
+          'compiler',
+          'sdk-sysroot',
+          'compiler-inputs',
+          'link-start-inputs',
+          'signature',
+          'inspector',
+        ];
+        for (const poisonStage of poisonStages) {
+          const poisonedOutput = join(root, `poison-${poisonStage}`);
+          await expect(produceDa5V5RuntimeGuardArtifact({
+            environment: {},
+            expectedTestEvidenceSha256: sha256(testEvidence),
+            implementationCommit,
+            implementationTree,
+            outputDirectory: poisonedOutput,
+            sourcePath: fixtureSourcePath,
+            testEvidencePath,
+            testOnlyOutputBoundary: true,
+            testOnlyPoisonStage: poisonStage,
+          })).rejects.toThrow(/artifact producer (?:input|path) changed/);
+          expect(await readdir(poisonedOutput)).not.toEqual(
+            expect.arrayContaining([
+              'da5_v5_runtime_guard',
+              'guard-manifest.txt',
+            ]),
+          );
+        }
       } finally {
         await rm(root, { force: true, recursive: true });
       }

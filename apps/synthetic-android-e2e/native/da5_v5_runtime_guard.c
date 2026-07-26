@@ -902,6 +902,7 @@ typedef struct cleanup_plan_entry {
   int descriptor;
   size_t parent;
   unsigned int depth;
+  int removed;
   char name[CLEANUP_NAME_LIMIT];
   struct stat identity;
   cleanup_mount_identity mount;
@@ -1092,7 +1093,12 @@ static int capture_cleanup_mount_identity(
   }
 #endif
 #endif
+#if defined(__linux__)
+  errno = ENOTSUP;
+  return -1;
+#else
   return 0;
+#endif
 }
 
 static int same_cleanup_mount_identity(
@@ -1331,6 +1337,36 @@ static int validate_cleanup_directory_names(
   return 0;
 }
 
+static int validate_cleanup_directory_after_removal(
+    const cleanup_plan *plan, int directory_fd, size_t parent,
+    size_t removed_index) {
+  char **names = NULL;
+  size_t name_count = 0;
+  if (read_sorted_cleanup_names(directory_fd, &names, &name_count) != 0) {
+    return -1;
+  }
+  size_t expected_count = 0;
+  for (size_t index = 0; index < plan->count; index += 1) {
+    const cleanup_plan_entry *entry = &plan->entries[index];
+    if (entry->parent == parent && entry->removed == 0 &&
+        index != removed_index) {
+      if (expected_count >= name_count ||
+          strcmp(names[expected_count], entry->name) != 0) {
+        free_cleanup_names(names, name_count);
+        errno = ESTALE;
+        return -1;
+      }
+      expected_count += 1;
+    }
+  }
+  free_cleanup_names(names, name_count);
+  if (expected_count != name_count) {
+    errno = ESTALE;
+    return -1;
+  }
+  return 0;
+}
+
 static int revalidate_cleanup_plan(
     const cleanup_plan *plan, int root_fd, dev_t expected_device,
     const cleanup_mount_identity *root_mount, char digest[65]) {
@@ -1474,11 +1510,14 @@ static int remove_cleanup_plan(
             ? removed.st_nlink == 0
             : removed_directory_nlink_matches(&retained_now, &removed)) &&
         fstatat(parent_fd, entry->name, &absent,
-                AT_SYMLINK_NOFOLLOW) != 0 && errno == ENOENT;
+                AT_SYMLINK_NOFOLLOW) != 0 && errno == ENOENT &&
+        validate_cleanup_directory_after_removal(
+            plan, parent_fd, entry->parent, index) == 0;
     if (!valid) {
       errno = ESTALE;
       return -1;
     }
+    entry->removed = 1;
 #if defined(DA5_V5_TEST_BUILD)
     removed_count += 1;
     if (test_cleanup_mode == 7 && removed_count == 1) {
@@ -1671,7 +1710,10 @@ static int cleanup_root(
       root_after.st_dev == root_before.st_dev &&
       removed_directory_nlink_matches(&root_empty, &root_after) &&
       fstatat(STAGING_FD, tombstone_name, &tombstone_absent,
-              AT_SYMLINK_NOFOLLOW) != 0 && errno == ENOENT;
+              AT_SYMLINK_NOFOLLOW) != 0 && errno == ENOENT &&
+      validate_cleanup_directory_names(
+          &(cleanup_plan){.entries = NULL, .count = 0, .capacity = 0},
+          STAGING_FD, SIZE_MAX) == 0;
   (void)close(tombstone);
   if (!root_removed) {
     errno = ESTALE;
@@ -1807,10 +1849,14 @@ static int same_mount_state(const struct statfs *left,
 #if defined(__APPLE__)
   return memcmp(&left->f_fsid, &right->f_fsid, sizeof(left->f_fsid)) == 0 &&
       strcmp(left->f_mntonname, right->f_mntonname) == 0 &&
-      strcmp(left->f_fstypename, right->f_fstypename) == 0;
+      strcmp(left->f_fstypename, right->f_fstypename) == 0 &&
+      left->f_bsize == right->f_bsize &&
+      left->f_flags == right->f_flags;
 #else
   return memcmp(&left->f_fsid, &right->f_fsid, sizeof(left->f_fsid)) == 0 &&
-      left->f_type == right->f_type;
+      left->f_type == right->f_type &&
+      left->f_bsize == right->f_bsize &&
+      left->f_flags == right->f_flags;
 #endif
 }
 
@@ -1834,35 +1880,59 @@ static int revalidate_mount_descriptors(
       same_mount_state(&binding->root, &current.root) ? 0 : -1;
 }
 
-static void digest_one_mount(sha256_context *digest,
-                             const struct statfs *mount) {
-  sha256_update(digest, (const unsigned char *)&mount->f_fsid,
-                sizeof(mount->f_fsid));
+static int mount_state_record(const struct statfs *mount, char *output,
+                              size_t output_capacity) {
+  char fsid_hex[(sizeof(mount->f_fsid) * 2) + 1];
+  hex_encode((const unsigned char *)&mount->f_fsid,
+             sizeof(mount->f_fsid), fsid_hex);
 #if defined(__APPLE__)
-  sha256_update(digest, (const unsigned char *)mount->f_mntonname,
-                strlen(mount->f_mntonname));
-  sha256_update(digest, (const unsigned char *)mount->f_fstypename,
-                strlen(mount->f_fstypename));
+  char mount_point_hex[(sizeof(mount->f_mntonname) * 2) + 1];
+  char filesystem_type_hex[(sizeof(mount->f_fstypename) * 2) + 1];
+  hex_encode((const unsigned char *)mount->f_mntonname,
+             strlen(mount->f_mntonname), mount_point_hex);
+  hex_encode((const unsigned char *)mount->f_fstypename,
+             strlen(mount->f_fstypename), filesystem_type_hex);
+  long long filesystem_type = 0;
 #else
-  sha256_update(digest, (const unsigned char *)&mount->f_type,
-                sizeof(mount->f_type));
+  const char mount_point_hex[] = "";
+  const char filesystem_type_hex[] = "";
+  long long filesystem_type = (long long)mount->f_type;
 #endif
-  sha256_update(digest, (const unsigned char *)&mount->f_bsize,
-                sizeof(mount->f_bsize));
-  const unsigned char separator = 0;
-  sha256_update(digest, &separator, 1);
+  int length = snprintf(
+      output, output_capacity,
+      "fsid=%s,type=%lld,bsize=%lld,flags=%llu,mnton=%s,fstype=%s",
+      fsid_hex, filesystem_type, (long long)mount->f_bsize,
+      (unsigned long long)mount->f_flags, mount_point_hex,
+      filesystem_type_hex);
+  if (length <= 0 || (size_t)length >= output_capacity) {
+    errno = EOVERFLOW;
+    return -1;
+  }
+  return 0;
 }
 
-static void mount_binding_digest(
-    const bound_mount_descriptors *binding, char output[65]) {
+static int mount_binding_record(
+    const bound_mount_descriptors *binding, char *record,
+    size_t record_capacity, char digest_output[65]) {
+  char base[1024], staging[1024], root[1024];
+  if (mount_state_record(&binding->base, base, sizeof(base)) != 0 ||
+      mount_state_record(&binding->staging, staging, sizeof(staging)) != 0 ||
+      mount_state_record(&binding->root, root, sizeof(root)) != 0) {
+    return -1;
+  }
+  int length = snprintf(
+      record, record_capacity,
+      "DA5-V5-MOUNT-BINDING-V2\nbase:%s\nstaging:%s\nroot:%s\n",
+      base, staging, root);
+  if (length <= 0 || (size_t)length >= record_capacity) {
+    errno = EOVERFLOW;
+    return -1;
+  }
   sha256_context digest;
   sha256_initialize(&digest);
-  static const unsigned char prefix[] = "DA5-V5-MOUNT-BINDING-V1";
-  sha256_update(&digest, prefix, sizeof(prefix) - 1);
-  digest_one_mount(&digest, &binding->base);
-  digest_one_mount(&digest, &binding->staging);
-  digest_one_mount(&digest, &binding->root);
-  sha256_finish(&digest, output);
+  sha256_update(&digest, (const unsigned char *)record, (size_t)length);
+  sha256_finish(&digest, digest_output);
+  return 0;
 }
 
 int main(void) {
@@ -2022,10 +2092,23 @@ int main(void) {
     return 80;
   }
   char mount_digest[65];
-  char mount_event[96];
-  mount_binding_digest(&mount_binding, mount_digest);
-  (void)snprintf(mount_event, sizeof(mount_event), "MOUNT_BINDING|%s",
-                 mount_digest);
+  char mount_record[FRAME_LIMIT / 2];
+  char mount_record_hex[FRAME_LIMIT];
+  char mount_event[FRAME_LIMIT + 1];
+  if (mount_binding_record(
+          &mount_binding, mount_record, sizeof(mount_record),
+          mount_digest) != 0) {
+    return 80;
+  }
+  hex_encode((const unsigned char *)mount_record, strlen(mount_record),
+             mount_record_hex);
+  int mount_event_length = snprintf(
+      mount_event, sizeof(mount_event), "MOUNT_BINDING|%s|%s",
+      mount_digest, mount_record_hex);
+  if (mount_event_length <= 0 ||
+      (size_t)mount_event_length >= sizeof(mount_event)) {
+    return 80;
+  }
   if (emit_frame(mount_event) != 0) {
     return 80;
   }

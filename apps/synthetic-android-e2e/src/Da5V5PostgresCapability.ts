@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
 import type {
   Da5V5RuntimeGuardArtifactBinding,
@@ -46,6 +47,41 @@ export interface Da5V5PostgresOperations {
   readonly query: Pool['query'];
 }
 
+export interface Da5V5PostgresProcessIdentityRecord {
+  readonly command: string;
+  readonly executableDigest: string;
+  readonly executablePath: string;
+  readonly inspectorDigest: string;
+  readonly parentPid: string;
+  readonly pgid: string;
+  readonly pid: string;
+  readonly sessionAuthority: 'guard-hello-getsid';
+  readonly sessionId: string;
+  readonly sessionObservation: string;
+  readonly sessionObservationReliability:
+    | 'authoritative-match'
+    | 'darwin-ps-zero-unreliable';
+  readonly start: string;
+}
+
+export interface Da5V5PostgresMountStateRecord {
+  readonly blockSize: string;
+  readonly fileSystemIdHex: string;
+  readonly fileSystemType: string;
+  readonly fileSystemTypeNameHex: string;
+  readonly flags: string;
+  readonly mountPointHex: string;
+}
+
+export interface Da5V5PostgresMountIdentityRecord {
+  readonly base: Da5V5PostgresMountStateRecord;
+  readonly canonicalRecord: string;
+  readonly canonicalSha256: string;
+  readonly platform: 'darwin' | 'linux';
+  readonly root: Da5V5PostgresMountStateRecord;
+  readonly staging: Da5V5PostgresMountStateRecord;
+}
+
 /**
  * The backend is returned only by a fully-attesting local or CI owner factory.
  * It deliberately exposes operations rather than a URL, password or raw mint.
@@ -65,10 +101,13 @@ export interface Da5V5PostgresOwnerBackend {
     readonly directoryIdentity: string;
     readonly finalDigest: string;
     readonly guardExecutableDigest: string;
+    readonly guardProcessRecord: Da5V5PostgresProcessIdentityRecord | null;
     readonly logDescriptorDigest: string;
+    readonly mountIdentityRecord: Da5V5PostgresMountIdentityRecord | null;
     readonly mountIdentity: string;
     readonly ownerProcess: string;
     readonly postmasterDigest: string;
+    readonly postgresProcessRecord: Da5V5PostgresProcessIdentityRecord | null;
     readonly processIdentity: string;
     readonly provisionalDigest: string;
     readonly rootIdentity: string;
@@ -78,7 +117,9 @@ export interface Da5V5PostgresOwnerBackend {
   }>;
   readonly ownerDigest: string;
   readonly source: 'ci-test-adapter' | 'isolated-runtime-guard';
-  closeOwner(): Promise<void>;
+  closeOwner(options?: {
+    readonly destructiveAuthorityRevoked?: boolean;
+  }): Promise<void>;
   provisionRuntimePool(
     request: Da5V5RuntimePoolRequest,
   ): Promise<Da5V5PostgresOperations>;
@@ -202,6 +243,7 @@ export async function closeDa5V5PostgresCapability(
     throw new Error('DA5 V5 PostgreSQL capability cannot be closed');
   }
   let firstFailure: unknown;
+  let destructiveAuthorityRevoked = false;
   try {
     if (state.lifecycle === 'active') {
       await state.owner.reattest(
@@ -210,9 +252,10 @@ export async function closeDa5V5PostgresCapability(
     }
   } catch (error: unknown) {
     firstFailure = error;
+    destructiveAuthorityRevoked = true;
   }
   try {
-    await state.owner.closeOwner();
+    await state.owner.closeOwner({ destructiveAuthorityRevoked });
   } catch (error: unknown) {
     firstFailure ??= error;
   }
@@ -287,7 +330,7 @@ function validateOwner(owner: Da5V5PostgresOwnerBackend): void {
     || typeof owner.provisionRuntimePool !== 'function'
     || typeof owner.reattest !== 'function'
     || typeof owner.withInstaller !== 'function'
-    || !validateLifecycleRecord(owner.lifecycleRecord)
+    || !validateLifecycleRecord(owner.lifecycleRecord, owner.source)
   ) {
     throw new Error('DA5 V5 PostgreSQL owner authority is invalid');
   }
@@ -295,11 +338,38 @@ function validateOwner(owner: Da5V5PostgresOwnerBackend): void {
 
 function validateLifecycleRecord(
   record: Da5V5PostgresOwnerBackend['lifecycleRecord'],
+  source: Da5V5PostgresOwnerBackend['source'],
 ): boolean {
-  return record !== null
-    && typeof record === 'object'
-    && Array.isArray(record.binaryChainManifest)
+  if (
+    record === null
+    || typeof record !== 'object'
+    || !Object.isFrozen(record)
+  ) {
+    return false;
+  }
+  const hasLocalIdentityRecords = source === 'isolated-runtime-guard'
+    ? validateProcessIdentityRecord(record.guardProcessRecord)
+      && validateProcessIdentityRecord(record.postgresProcessRecord)
+      && validateMountIdentityRecord(record.mountIdentityRecord)
+      && record.guardProcessRecord.pid === record.guardProcessRecord.pgid
+      && record.guardProcessRecord.pid === record.guardProcessRecord.sessionId
+      && record.postgresProcessRecord.parentPid === record.guardProcessRecord.pid
+      && record.postgresProcessRecord.pgid === record.guardProcessRecord.pgid
+      && record.postgresProcessRecord.sessionId
+        === record.guardProcessRecord.sessionId
+      && record.mountIdentity === record.mountIdentityRecord.canonicalSha256
+      && record.ownerProcess === createHash('sha256')
+        .update(JSON.stringify(record.guardProcessRecord))
+        .digest('hex')
+      && record.processIdentity === createHash('sha256')
+        .update(JSON.stringify(record.postgresProcessRecord))
+        .digest('hex')
+    : record.guardProcessRecord === null
+      && record.postgresProcessRecord === null
+      && record.mountIdentityRecord === null;
+  return Array.isArray(record.binaryChainManifest)
     && record.binaryChainManifest.length > 0
+    && hasLocalIdentityRecords
     && [
       record.artifactDigest,
       record.binaryChainDigest,
@@ -321,6 +391,80 @@ function validateLifecycleRecord(
       record.trustedGroupDigest,
     ].every((value) => /^[a-f0-9]{64}$/u.test(value))
     && record.version === 'DA5-V5-LIFECYCLE-V1';
+}
+
+function validateProcessIdentityRecord(
+  record: Da5V5PostgresProcessIdentityRecord | null,
+): record is Da5V5PostgresProcessIdentityRecord {
+  if (record === null || typeof record !== 'object' || !Object.isFrozen(record)) {
+    return false;
+  }
+  return /^[1-9][0-9]*$/u.test(record.pid)
+    && /^[1-9][0-9]*$/u.test(record.parentPid)
+    && /^[1-9][0-9]*$/u.test(record.pgid)
+    && /^[1-9][0-9]*$/u.test(record.sessionId)
+    && /^(?:0|[1-9][0-9]*)$/u.test(record.sessionObservation)
+    && record.sessionAuthority === 'guard-hello-getsid'
+    && (
+      record.sessionObservationReliability === 'authoritative-match'
+        ? record.sessionObservation === record.sessionId
+        : record.sessionObservationReliability
+          === 'darwin-ps-zero-unreliable'
+          && record.sessionObservation === '0'
+    )
+    && record.command.length > 0
+    && record.executablePath.startsWith('/')
+    && record.start.length > 0
+    && [
+      record.executableDigest,
+      record.inspectorDigest,
+    ].every((value) => /^[a-f0-9]{64}$/u.test(value));
+}
+
+function validateMountIdentityRecord(
+  record: Da5V5PostgresMountIdentityRecord | null,
+): record is Da5V5PostgresMountIdentityRecord {
+  if (
+    record === null
+    || typeof record !== 'object'
+    || !Object.isFrozen(record)
+    || !['darwin', 'linux'].includes(record.platform)
+    || !/^[a-f0-9]{64}$/u.test(record.canonicalSha256)
+    || !record.canonicalRecord.startsWith('DA5-V5-MOUNT-BINDING-V2\n')
+    || createHash('sha256').update(record.canonicalRecord).digest('hex')
+      !== record.canonicalSha256
+  ) {
+    return false;
+  }
+  const stateRecord = (state: Da5V5PostgresMountStateRecord): string => (
+    `fsid=${state.fileSystemIdHex},type=${state.fileSystemType},`
+    + `bsize=${state.blockSize},flags=${state.flags},`
+    + `mnton=${state.mountPointHex},fstype=${state.fileSystemTypeNameHex}`
+  );
+  if (
+    record.canonicalRecord !== [
+      'DA5-V5-MOUNT-BINDING-V2',
+      `base:${stateRecord(record.base)}`,
+      `staging:${stateRecord(record.staging)}`,
+      `root:${stateRecord(record.root)}`,
+      '',
+    ].join('\n')
+  ) {
+    return false;
+  }
+  return [
+    record.base,
+    record.staging,
+    record.root,
+  ].every((state) => (
+    Object.isFrozen(state)
+    && /^[a-f0-9]+$/u.test(state.fileSystemIdHex)
+    && /^-?[0-9]+$/u.test(state.fileSystemType)
+    && /^[0-9]+$/u.test(state.blockSize)
+    && /^[0-9]+$/u.test(state.flags)
+    && /^[a-f0-9]*$/u.test(state.mountPointHex)
+    && /^[a-f0-9]*$/u.test(state.fileSystemTypeNameHex)
+  ));
 }
 
 function validateAttestation(attestation: Da5V5PostgresAttestation): void {

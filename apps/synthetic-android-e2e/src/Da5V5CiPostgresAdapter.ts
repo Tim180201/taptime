@@ -276,7 +276,9 @@ export async function startDa5V5FullyAttestedCiPostgresOwner(options: {
       guardExecutableDigest: createHash('sha256')
         .update(`${record.imageId}\n${record.hostInitPid}\n`)
         .digest('hex'),
+      guardProcessRecord: null,
       logDescriptorDigest: ownerRecordDigest(record),
+      mountIdentityRecord: null,
       mountIdentity: ownerRecordDigest(record),
       ownerProcess: createHash('sha256')
         .update(`${record.hostInitPid}\n${record.hostProcessStart}\n`)
@@ -284,6 +286,7 @@ export async function startDa5V5FullyAttestedCiPostgresOwner(options: {
       postmasterDigest: createHash('sha256')
         .update(`${record.innerSystemIdentifier}\n${record.startedAt}\n`)
         .digest('hex'),
+      postgresProcessRecord: null,
       processIdentity: createHash('sha256')
         .update(`${record.containerId}\n${record.startedAt}\n`)
         .digest('hex'),
