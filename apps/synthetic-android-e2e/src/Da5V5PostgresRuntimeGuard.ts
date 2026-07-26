@@ -641,6 +641,9 @@ export async function startDa5V5FullyAttestedTestPostgresOwner(options: {
   readonly signal?: AbortSignal;
   readonly temporaryBase?: string;
   readonly testOnlyRevalidateGuardArtifact?: () => Promise<void>;
+  readonly testOnlyStartupFailureAfterProcessCapture?: (
+    context: Readonly<{ lifecyclePath: string }>,
+  ) => Promise<void>;
   readonly testOnlyStartupFailureAfterOwnership?: () => void;
 }): Promise<Da5V5PostgresOwnerBackend> {
   assertDa5V5FocusedTestProcess();
@@ -663,6 +666,9 @@ async function startDa5V5IsolatedPostgresOwner(options: {
   readonly verifyGuardProcess: (pid: number) => Promise<void>;
   readonly signal?: AbortSignal;
   readonly temporaryBase?: string;
+  readonly testOnlyStartupFailureAfterProcessCapture?: (
+    context: Readonly<{ lifecyclePath: string }>,
+  ) => Promise<void>;
   readonly testOnlyStartupFailureAfterOwnership?: () => void;
 }, expectedGuardBuild: 'production' | 'test'):
 Promise<Da5V5PostgresOwnerBackend> {
@@ -774,14 +780,33 @@ Promise<Da5V5PostgresOwnerBackend> {
       tombstoneName,
       verifyRunningProcess: options.verifyGuardProcess,
     });
+    const startupGuard = guard;
+    cleanupReattest = async (): Promise<void> => {
+      throw new Error(
+        'DA5 V5 Guard process identity was not successfully captured',
+      );
+    };
     const guardProcessRecord = await captureProcessIdentity({
-      authoritativeSessionId: guard.helloIdentity.sessionId,
+      authoritativeSessionId: startupGuard.helloIdentity.sessionId,
       executableDigest: artifactDigest,
       executablePath: options.guardBinaryPath,
       expectedParentPid: process.pid,
-      expectedProcessGroup: guard.helloIdentity.pgid,
-      pid: guard.child.pid as number,
+      expectedProcessGroup: startupGuard.helloIdentity.pgid,
+      pid: startupGuard.child.pid as number,
     });
+    cleanupReattest = async (): Promise<void> => {
+      await options.revalidateGuardArtifact?.();
+      await chain.revalidate(snapshot);
+      const latestGuardProcess = await captureProcessIdentity({
+        authoritativeSessionId: startupGuard.helloIdentity.sessionId,
+        executableDigest: artifactDigest,
+        executablePath: options.guardBinaryPath,
+        expectedParentPid: process.pid,
+        expectedProcessGroup: startupGuard.helloIdentity.pgid,
+        pid: startupGuard.child.pid as number,
+      });
+      assertMatchingProcessIdentity(guardProcessRecord, latestGuardProcess);
+    };
     installerPassword.fill(0);
     if (options.signal?.aborted === true) {
       throw new Error('DA5 V5 isolated PostgreSQL startup interrupted');
@@ -813,6 +838,11 @@ Promise<Da5V5PostgresOwnerBackend> {
     const postgresPid = Number(postgresPidText);
     retainedPostgresPid = postgresPid;
     postgresSpawned = true;
+    cleanupReattest = async (): Promise<void> => {
+      throw new Error(
+        'DA5 V5 PostgreSQL process identity was not successfully captured',
+      );
+    };
     const postgresProcessRecord = await captureProcessIdentity({
       authoritativeSessionId: guard.helloIdentity.sessionId,
       executableDigest: chain.postgresDigest,
@@ -821,12 +851,41 @@ Promise<Da5V5PostgresOwnerBackend> {
       expectedProcessGroup: guard.helloIdentity.pgid,
       pid: postgresPid,
     });
+    cleanupReattest = async (): Promise<void> => {
+      await options.revalidateGuardArtifact?.();
+      await chain.revalidate(snapshot);
+      await revalidateLifecycleFiles(lifecycleFiles);
+      const latestGuardProcess = await captureProcessIdentity({
+        authoritativeSessionId: startupGuard.helloIdentity.sessionId,
+        executableDigest: artifactDigest,
+        executablePath: options.guardBinaryPath,
+        expectedParentPid: process.pid,
+        expectedProcessGroup: startupGuard.helloIdentity.pgid,
+        pid: startupGuard.child.pid as number,
+      });
+      const latestPostgresProcess = await captureProcessIdentity({
+        authoritativeSessionId: startupGuard.helloIdentity.sessionId,
+        executableDigest: chain.postgresDigest,
+        executablePath: chain.postgres,
+        expectedParentPid: startupGuard.child.pid as number,
+        expectedProcessGroup: startupGuard.helloIdentity.pgid,
+        pid: postgresPid,
+      });
+      assertMatchingProcessIdentity(guardProcessRecord, latestGuardProcess);
+      assertMatchingProcessIdentity(
+        postgresProcessRecord,
+        latestPostgresProcess,
+      );
+    };
     const logBinding = await bindLifecycleFile(logPath, false);
     lifecycleFiles.push(logBinding);
     heartbeat = setInterval(() => {
       guard?.sendAuthenticated('HEARTBEAT').catch(() => undefined);
     }, 1_000);
     heartbeat.unref();
+    await options.testOnlyStartupFailureAfterProcessCapture?.({
+      lifecyclePath: logPath,
+    });
     lifecyclePhase = 'readiness';
     const bootstrapUrl = postgresUrl(password, 'postgres');
     bootstrapPool = await waitForPostgres(
@@ -1396,8 +1455,9 @@ Promise<Da5V5PostgresOwnerBackend> {
           await attemptDa5V5CleanupStage(
             cleanupState,
             cleanupReattest ?? (async () => {
-              await options.revalidateGuardArtifact?.();
-              await chain.revalidate(snapshot);
+              throw new Error(
+                'DA5 V5 startup process identity was not bound for cleanup',
+              );
             }),
             () => {
               startupDestructiveAuthority = true;

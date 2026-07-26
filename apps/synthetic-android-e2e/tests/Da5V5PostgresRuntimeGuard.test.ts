@@ -1488,6 +1488,90 @@ describe('DA5 V5 closed environment and real transient PostgreSQL owner', () => 
   );
 
   it.runIf(process.platform === 'darwin')(
+    'blocks startup cleanup after an early lifecycle mismatch until exact process-aware reattestation succeeds',
+    async () => {
+      const runtimeBase = await mkdtemp('/private/tmp/t5-');
+      const removedEnvironment = removeRejectedEnvironment();
+      let lifecyclePath = '';
+      let displacedLifecyclePath = '';
+      let lifecycleDisplaced = false;
+      const restoreLifecyclePath = async (): Promise<void> => {
+        if (!lifecycleDisplaced) {
+          return;
+        }
+        await rm(lifecyclePath, { force: true });
+        await rename(displacedLifecyclePath, lifecyclePath);
+        lifecycleDisplaced = false;
+      };
+      try {
+        await expect(startDa5V5FullyAttestedTestPostgresOwner({
+          guardBinaryPath: binaryPath,
+          pgConfigPath: '/opt/homebrew/opt/postgresql@17/bin/pg_config',
+          temporaryBase: runtimeBase,
+          testOnlyStartupFailureAfterProcessCapture: async (context) => {
+            lifecyclePath = context.lifecyclePath;
+            displacedLifecyclePath = `${lifecyclePath}.displaced-test`;
+            await rename(lifecyclePath, displacedLifecyclePath);
+            lifecycleDisplaced = true;
+            await writeFile(
+              lifecyclePath,
+              'synthetic early lifecycle mismatch\n',
+              { mode: 0o600 },
+            );
+            throw new Error('synthetic failure during early startup');
+          },
+        })).rejects.toThrow(/cleanup-incomplete/);
+        expect(da5V5RetainedStartupCleanupCountForTest()).toBe(1);
+        const [retained] = da5V5RetainedStartupProcessesForTest();
+        if (
+          retained?.guardPid === null
+          || retained?.guardPid === undefined
+          || retained.postgresPid === null
+        ) {
+          throw new Error('DA5 V5 retained process ownership is unavailable');
+        }
+        expect(() => process.kill(retained.guardPid as number, 0))
+          .not.toThrow();
+        expect(() => process.kill(retained.postgresPid as number, 0))
+          .not.toThrow();
+        const retainedRootEntries = await readdir(runtimeBase);
+        expect(retainedRootEntries).not.toEqual([]);
+
+        await expect(startDa5V5FullyAttestedTestPostgresOwner({
+          guardBinaryPath: binaryPath,
+          pgConfigPath: '/opt/homebrew/opt/postgresql@17/bin/pg_config',
+          temporaryBase: runtimeBase,
+        })).rejects.toThrow(/startup cleanup authority was revoked/);
+        expect(da5V5RetainedStartupCleanupCountForTest()).toBe(1);
+        expect(da5V5RetainedStartupProcessesForTest()).toEqual([retained]);
+
+        await new Promise((resolve) => setTimeout(resolve, 5_500));
+        expect(() => process.kill(retained.guardPid as number, 0))
+          .not.toThrow();
+        expect(() => process.kill(retained.postgresPid as number, 0))
+          .not.toThrow();
+        expect(da5V5RetainedStartupProcessesForTest()).toEqual([retained]);
+        expect(await readdir(runtimeBase)).toEqual(retainedRootEntries);
+
+        if (!lifecycleDisplaced || lifecyclePath === '') {
+          throw new Error('DA5 V5 lifecycle mismatch fixture is unavailable');
+        }
+        await restoreLifecyclePath();
+        await expect(retryDa5V5RetainedStartupCleanupsForTest())
+          .resolves.toBeUndefined();
+        expect(da5V5RetainedStartupCleanupCountForTest()).toBe(0);
+        await expect(readdir(runtimeBase)).resolves.toEqual([]);
+      } finally {
+        await restoreLifecyclePath().catch(() => undefined);
+        await retryDa5V5RetainedStartupCleanupsForTest().catch(() => undefined);
+        restoreEnvironment(removedEnvironment);
+        await rm(runtimeBase, { force: true, recursive: true });
+      }
+    },
+    30_000,
+  );
+
+  it.runIf(process.platform === 'darwin')(
     'starts, attests and exactly removes one real PostgreSQL 17.10 lifecycle',
     async () => {
       const runtimeBase = await mkdtemp('/private/tmp/t5-');
