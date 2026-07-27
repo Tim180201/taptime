@@ -3,6 +3,16 @@ export interface Da5V5ValidationBuildProcessResult {
   readonly stdout: string;
 }
 
+export class Da5V5ValidationBuildSignalLatch {
+  constructor(
+    controller: Readonly<{
+      interrupt(signal: 'SIGINT' | 'SIGTERM'): Promise<void>;
+    }>,
+  );
+  settle(): Promise<void>;
+  close(): void;
+}
+
 export class Da5V5ValidationBuildProcessController {
   constructor(dependencies?: Readonly<Record<string, unknown>>);
   run(

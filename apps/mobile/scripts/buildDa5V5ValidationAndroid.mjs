@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 
 import {
   Da5V5ValidationBuildProcessController,
+  Da5V5ValidationBuildSignalLatch,
 } from './da5V5ValidationBuildProcess.mjs';
 import {
   assertDa5V5ValidationAutolinkingResolution,
@@ -42,37 +43,26 @@ const outputDirectory = required(
 );
 const environment = createDa5V5ValidationBuildEnvironment(process.env);
 const processes = new Da5V5ValidationBuildProcessController();
+const signals = new Da5V5ValidationBuildSignalLatch(processes);
 let packageJsonBeforeBuild = null;
 let publicationReceipt = null;
-let signalFlight = Promise.resolve();
-let signalFailure = null;
-
-const signalHandlers = new Map(
-  ['SIGINT', 'SIGTERM'].map((signal) => [
-    signal,
-    () => {
-      signalFlight = processes.interrupt(signal).catch((error) => {
-        signalFailure ??= error;
-      });
-    },
-  ]),
-);
-for (const [signal, handler] of signalHandlers) {
-  process.once(signal, handler);
-}
 
 try {
   await main();
 } finally {
   let cleanupFailure = null;
   try {
-    await signalFlight;
+    await signals.settle();
   } catch (error) {
     cleanupFailure = error;
   }
-  cleanupFailure ??= signalFailure;
   try {
     await processes.settle();
+  } catch (error) {
+    cleanupFailure ??= error;
+  }
+  try {
+    await signals.settle();
   } catch (error) {
     cleanupFailure ??= error;
   }
@@ -82,9 +72,6 @@ try {
     }
   } catch (error) {
     cleanupFailure ??= error;
-  }
-  for (const [signal, handler] of signalHandlers) {
-    process.removeListener(signal, handler);
   }
   try {
     if (
@@ -103,6 +90,7 @@ try {
   } catch (error) {
     cleanupFailure ??= error;
   }
+  signals.close();
   const interruptedSignal = processes.getInterruptedSignal();
   if (interruptedSignal !== null) {
     process.exitCode = interruptedSignal === 'SIGINT' ? 130 : 143;

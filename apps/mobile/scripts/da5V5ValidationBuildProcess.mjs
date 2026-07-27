@@ -2,6 +2,64 @@ import { spawn } from 'node:child_process';
 
 const DEFAULT_TERMINATION_TIMEOUT_MILLISECONDS = 5_000;
 
+export class Da5V5ValidationBuildSignalLatch {
+  constructor(controller, target = process) {
+    if (
+      typeof controller?.interrupt !== 'function'
+      || typeof target?.on !== 'function'
+      || typeof target?.removeListener !== 'function'
+    ) {
+      throw new Error(
+        'DA5 V5 Validation signal lifecycle is unavailable',
+      );
+    }
+    this.controller = controller;
+    this.target = target;
+    this.flight = null;
+    this.failure = null;
+    this.closed = false;
+    this.handlers = new Map(
+      ['SIGINT', 'SIGTERM'].map((signal) => [
+        signal,
+        () => this.interrupt(signal),
+      ]),
+    );
+    for (const [signal, handler] of this.handlers) {
+      this.target.on(signal, handler);
+    }
+  }
+
+  interrupt(signal) {
+    if (this.closed || this.flight !== null) {
+      return;
+    }
+    this.flight = Promise.resolve()
+      .then(() => this.controller.interrupt(signal))
+      .catch((error) => {
+        this.failure ??= error;
+      });
+  }
+
+  async settle() {
+    if (this.flight !== null) {
+      await this.flight;
+    }
+    if (this.failure !== null) {
+      throw this.failure;
+    }
+  }
+
+  close() {
+    if (this.closed) {
+      return;
+    }
+    this.closed = true;
+    for (const [signal, handler] of this.handlers) {
+      this.target.removeListener(signal, handler);
+    }
+  }
+}
+
 export class Da5V5ValidationBuildProcessController {
   constructor(dependencies = {}) {
     this.spawnChild = dependencies.spawnChild ?? spawn;
