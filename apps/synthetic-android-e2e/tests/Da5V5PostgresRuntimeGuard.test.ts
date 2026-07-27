@@ -104,8 +104,9 @@ describe('DA5 V5 native Runtime Guard private protocol', () => {
 
       writeFrame(fixture.control, manifestFrame(fields[5] as string));
       await expect(readFrame(fixture.events)).resolves.toBe('ACK');
-      await expect(readFrame(fixture.events)).resolves.toBe('PROBE_OK');
-      fixture.markTerminalProtocolProof();
+      await expect(fixture.readTerminalProtocolFrame({
+        family: 'probe-ok',
+      })).resolves.toBe('PROBE_OK');
       const [code, signal] = fixture.child.exitCode !== null
         || fixture.child.signalCode !== null
         ? [fixture.child.exitCode, fixture.child.signalCode]
@@ -136,10 +137,14 @@ describe('DA5 V5 native Runtime Guard private protocol', () => {
           manifestFrame(hello.split('|')[5] as string, crashMarker),
         );
         await expect(readFrame(fixture.events)).resolves.toBe('ACK');
-        await expect(readFrame(fixture.events)).resolves.toBe(
+        const forcedExitIndex =
+          runtimeGuardTestForcedExitIndex(expectedExit - 90);
+        await expect(fixture.readTerminalProtocolFrame({
+          family: 'test-forced-exit',
+          index: forcedExitIndex,
+        })).resolves.toBe(
           `TEST_FORCED_EXIT|${expectedExit - 90}`,
         );
-        fixture.markTerminalProtocolProof();
         await expect(readFrame(fixture.events)).rejects.toThrow(
           'event pipe closed',
         );
@@ -188,58 +193,13 @@ describe('DA5 V5 native Runtime Guard private protocol', () => {
     },
   );
 
-  it('rejects a closed raw pipe observed before protocol proof', async () => {
-    const earlyReset = new PassThrough({ autoDestroy: false });
-    const earlyObserver = observeRawFixtureStreams([
-      { direction: 'readable', stream: earlyReset },
-    ]);
-    const child = spawn(
-      process.execPath,
-      ['--eval', 'setInterval(() => undefined, 1_000)'],
-      {
-        env: {},
-        shell: false,
-        stdio: 'ignore',
-      },
-    );
-    let childExitEmitted = false;
-    child.once('exit', () => {
-      childExitEmitted = true;
-    });
-    await once(child, 'spawn');
-    const exited = once(child, 'exit');
-    try {
-      expect(child.exitCode).toBeNull();
-      expect(childExitEmitted).toBe(false);
-      earlyReset.emit('error', Object.assign(new Error('early reset'), {
-        code: 'ECONNRESET',
-      }));
-      earlyObserver.markTerminalProtocolProof();
-      expect(child.exitCode).toBeNull();
-      expect(childExitEmitted).toBe(false);
-      child.kill('SIGTERM');
-      await expect(exited).resolves.toEqual([null, 'SIGTERM']);
-      earlyReset.destroy();
-      await expect(
-        earlyObserver.settleAfterTerminalProtocolProof(),
-      ).rejects.toThrow('unexpected raw fixture stream failure');
-      expect(earlyReset.listenerCount('error')).toBe(0);
-    } finally {
-      if (child.exitCode === null && child.signalCode === null) {
-        child.kill('SIGKILL');
-      }
-      await exited.catch(() => undefined);
-      earlyReset.destroy();
-    }
-  });
-
   it.each(['ECONNRESET', 'EPIPE'] as const)(
-    'tolerates %s after protocol proof while the child is still live',
+    'settles a pending %s after parsing buffered terminal bytes',
     async (code) => {
-      const expectedReset = new PassThrough({ autoDestroy: false });
-      const expectedObserver = observeRawFixtureStreams([
-        { direction: 'writable', stream: expectedReset },
-      ]);
+      const events = new PassThrough({ autoDestroy: false });
+      const observer = observeRawFixtureStreams([
+        { direction: 'readable', stream: events },
+      ], events);
       const child = spawn(
         process.execPath,
         ['--eval', 'setInterval(() => undefined, 1_000)'],
@@ -256,38 +216,100 @@ describe('DA5 V5 native Runtime Guard private protocol', () => {
       await once(child, 'spawn');
       const exited = once(child, 'exit');
       try {
-        expectedObserver.markTerminalProtocolProof();
+        let callerContinued = false;
+        const terminalProof = observer.readTerminalProtocolFrame({
+          family: 'probe-ok',
+        }).then((payload) => {
+          callerContinued = true;
+          return payload;
+        });
+        writeFrame(events, 'PROBE_OK');
+        events.emit('readable');
+        events.emit(
+          'error',
+          Object.assign(new Error('pending expected reset'), { code }),
+        );
+        expect(callerContinued).toBe(false);
         expect(child.exitCode).toBeNull();
         expect(childExitEmitted).toBe(false);
-        expectedReset.emit(
-          'error',
-          Object.assign(new Error('expected reset'), { code }),
-        );
+        await expect(terminalProof).resolves.toBe('PROBE_OK');
+        expect(callerContinued).toBe(true);
         expect(child.exitCode).toBeNull();
         expect(childExitEmitted).toBe(false);
         child.kill('SIGTERM');
         await expect(exited).resolves.toEqual([null, 'SIGTERM']);
-        expectedReset.destroy();
+        events.destroy();
         await expect(
-          expectedObserver.settleAfterTerminalProtocolProof(),
+          observer.settleRawFixtureStreams(),
         ).resolves.toBeUndefined();
-        expect(expectedReset.listenerCount('error')).toBe(0);
+        expect(events.listenerCount('error')).toBe(0);
       } finally {
         if (child.exitCode === null && child.signalCode === null) {
           child.kill('SIGKILL');
         }
         await exited.catch(() => undefined);
-        expectedReset.destroy();
+        events.destroy();
       }
     },
   );
 
+  it('rejects a raw reset when no terminal frame was parsed', async () => {
+    const events = new PassThrough({ autoDestroy: false });
+    const observer = observeRawFixtureStreams([
+      { direction: 'readable', stream: events },
+    ], events);
+    events.emit('error', Object.assign(new Error('unproven reset'), {
+      code: 'ECONNRESET',
+    }));
+    events.destroy();
+    await expect(
+      observer.settleRawFixtureStreams(),
+    ).rejects.toThrow('unexpected raw fixture stream failure');
+    expect(events.listenerCount('error')).toBe(0);
+  });
+
+  it.each([
+    ['non-terminal', 'ACK'],
+    ['malformed', 'CLEANUP_PRESERVED|01|8'],
+  ] as const)(
+    'rejects a raw reset followed by a %s terminal candidate',
+    async (_label, payload) => {
+      const events = new PassThrough({ autoDestroy: false });
+      const observer = observeRawFixtureStreams([
+        { direction: 'readable', stream: events },
+      ], events);
+      const terminalProof = observer.readTerminalProtocolFrame({
+        family: 'cleanup-preserved',
+      });
+      writeFrame(events, payload);
+      events.emit('readable');
+      events.emit('error', Object.assign(new Error('unproven reset'), {
+        code: 'EPIPE',
+      }));
+      await expect(terminalProof).rejects.toThrow(
+        'Runtime Guard terminal protocol frame mismatch',
+      );
+      events.destroy();
+      await expect(
+        observer.settleRawFixtureStreams(),
+      ).rejects.toThrow('unexpected raw fixture stream failure');
+      expect(events.listenerCount('error')).toBe(0);
+    },
+  );
+
   it('observes a late closed-pipe error after finish until definitive close', async () => {
+    const events = new PassThrough({ autoDestroy: false });
     const lateReset = new PassThrough({ autoDestroy: false });
     const lateObserver = observeRawFixtureStreams([
+      { direction: 'readable', stream: events },
       { direction: 'writable', stream: lateReset },
-    ]);
-    lateObserver.markTerminalProtocolProof();
+    ], events);
+    const terminalProof = lateObserver.readTerminalProtocolFrame({
+      family: 'cleanup-ok',
+    });
+    writeFrame(events, 'CLEANUP_OK');
+    events.emit('readable');
+    await expect(terminalProof).resolves.toBe('CLEANUP_OK');
     lateReset.end();
     await once(lateReset, 'finish');
     await Promise.resolve();
@@ -297,26 +319,67 @@ describe('DA5 V5 native Runtime Guard private protocol', () => {
       code: 'ECONNRESET',
     }));
     lateReset.destroy();
+    const eventsEnded = once(events, 'end');
+    events.end();
+    events.resume();
+    await eventsEnded;
+    events.destroy();
     await expect(
-      lateObserver.settleAfterTerminalProtocolProof(),
+      lateObserver.settleRawFixtureStreams(),
     ).resolves.toBeUndefined();
     expect(lateReset.closed).toBe(true);
     expect(lateReset.listenerCount('error')).toBe(0);
   });
 
-  it('rejects an unexpected raw pipe failure after protocol proof', async () => {
-    const unexpectedFailure = new PassThrough();
+  it('rejects EIO despite a valid terminal protocol frame', async () => {
+    const unexpectedFailure = new PassThrough({ autoDestroy: false });
     const unexpectedObserver = observeRawFixtureStreams([
       { direction: 'readable', stream: unexpectedFailure },
-    ]);
-    unexpectedObserver.markTerminalProtocolProof();
-    unexpectedFailure.destroy(Object.assign(new Error('unexpected failure'), {
-      code: 'EIO',
-    }));
+    ], unexpectedFailure);
+    const terminalProof = unexpectedObserver.readTerminalProtocolFrame({
+      family: 'cleanup-ok',
+    });
+    writeFrame(unexpectedFailure, 'CLEANUP_OK');
+    unexpectedFailure.emit('readable');
+    await expect(terminalProof).resolves.toBe('CLEANUP_OK');
+    unexpectedFailure.emit('error', Object.assign(
+      new Error('unexpected failure'),
+      {
+        code: 'EIO',
+      },
+    ));
+    unexpectedFailure.destroy();
     await expect(
-      unexpectedObserver.settleAfterTerminalProtocolProof(),
+      unexpectedObserver.settleRawFixtureStreams(),
     ).rejects.toThrow('unexpected raw fixture stream failure');
     expect(unexpectedFailure.listenerCount('error')).toBe(0);
+  });
+
+  it('rejects a second terminal protocol proof attempt', async () => {
+    const events = new PassThrough({ autoDestroy: false });
+    const observer = observeRawFixtureStreams([
+      { direction: 'readable', stream: events },
+    ], events);
+    const terminalProof = observer.readTerminalProtocolFrame({
+      family: 'cleanup-preserved',
+    });
+    writeFrame(events, 'CLEANUP_PRESERVED');
+    events.emit('readable');
+    await expect(terminalProof).resolves.toBe('CLEANUP_PRESERVED');
+    await expect(observer.readTerminalProtocolFrame({
+      family: 'cleanup-ok',
+    })).rejects.toThrow(
+      'Runtime Guard terminal protocol proof already attempted',
+    );
+    const eventsEnded = once(events, 'end');
+    events.end();
+    events.resume();
+    await eventsEnded;
+    events.destroy();
+    await expect(
+      observer.settleRawFixtureStreams(),
+    ).resolves.toBeUndefined();
+    expect(events.listenerCount('error')).toBe(0);
   });
 
   it.each(['SIGINT', 'SIGTERM', 'SIGHUP'] as const)(
@@ -332,8 +395,9 @@ describe('DA5 V5 native Runtime Guard private protocol', () => {
         expect(fixture.child.signalCode).toBeNull();
         writeFrame(fixture.control, manifestFrame(fields[5] as string));
         await expect(readFrame(fixture.events)).resolves.toBe('ACK');
-        await expect(readFrame(fixture.events)).resolves.toBe('PROBE_OK');
-        fixture.markTerminalProtocolProof();
+        await expect(fixture.readTerminalProtocolFrame({
+          family: 'probe-ok',
+        })).resolves.toBe('PROBE_OK');
         const [code, deliveredSignal] = await once(fixture.child, 'exit') as [
           number | null,
           NodeJS.Signals | null,
@@ -440,8 +504,9 @@ describe('DA5 V5 native Runtime Guard private protocol', () => {
       }
       writeFrame(fixture.control, `STOP_FAST|${fixture.capability}`);
       await expect(readFrame(fixture.events)).resolves.toBe('POSTGRES_REAPED');
-      await expect(readFrame(fixture.events)).resolves.toBe('CLEANUP_OK');
-      fixture.markTerminalProtocolProof();
+      await expect(fixture.readTerminalProtocolFrame({
+        family: 'cleanup-ok',
+      })).resolves.toBe('CLEANUP_OK');
       const [code, signal] = await once(fixture.child, 'exit') as [
         number | null,
         NodeJS.Signals | null,
@@ -533,8 +598,9 @@ process.exit(passed ? 0 : 42);
       writeFrame(fixture.control, `STOP_FAST|${fixture.capability}`);
       stopFastSent = true;
       await expect(readFrame(fixture.events)).resolves.toBe('POSTGRES_REAPED');
-      await expect(readFrame(fixture.events)).resolves.toBe('CLEANUP_OK');
-      fixture.markTerminalProtocolProof();
+      await expect(fixture.readTerminalProtocolFrame({
+        family: 'cleanup-ok',
+      })).resolves.toBe('CLEANUP_OK');
       terminalEventsRead = true;
       const [code, signal] = fixture.child.exitCode !== null
         || fixture.child.signalCode !== null
@@ -556,11 +622,12 @@ process.exit(passed ? 0 : 42);
         }
         if (!terminalEventsRead) {
           const reaped = await readFrame(fixture.events);
-          const cleaned = await readFrame(fixture.events);
-          if (reaped !== 'POSTGRES_REAPED' || cleaned !== 'CLEANUP_OK') {
+          if (reaped !== 'POSTGRES_REAPED') {
             throw new Error('Runtime Guard terminal cleanup events mismatch');
           }
-          fixture.markTerminalProtocolProof();
+          await fixture.readTerminalProtocolFrame({
+            family: 'cleanup-ok',
+          });
           terminalEventsRead = true;
         }
         if (!guardExitObserved) {
@@ -636,10 +703,11 @@ process.exit(passed ? 0 : 42);
           fixture.control,
           `TEST_CONTINUE_CLEANUP|${fixture.capability}`,
         );
-        await expect(readFrame(fixture.events)).resolves.toMatch(
+        await expect(fixture.readTerminalProtocolFrame({
+          family: 'cleanup-preserved',
+        })).resolves.toMatch(
           /^CLEANUP_PRESERVED\|/u,
         );
-        fixture.markTerminalProtocolProof();
         const [code, signal] = fixture.child.exitCode !== null
           || fixture.child.signalCode !== null
           ? [fixture.child.exitCode, fixture.child.signalCode]
@@ -701,10 +769,11 @@ process.exit(passed ? 0 : 42);
           `TEST_CONTINUE_CLEANUP|${fixture.capability}`,
         );
 
-        await expect(readFrame(fixture.events)).resolves.toMatch(
+        await expect(fixture.readTerminalProtocolFrame({
+          family: 'cleanup-preserved',
+        })).resolves.toMatch(
           /^CLEANUP_PRESERVED\|/u,
         );
-        fixture.markTerminalProtocolProof();
         const [code, signal] = fixture.child.exitCode !== null
           || fixture.child.signalCode !== null
           ? [fixture.child.exitCode, fixture.child.signalCode]
@@ -753,10 +822,11 @@ process.exit(passed ? 0 : 42);
         await expect(readFrame(fixture.events)).resolves.toBe(
           'POSTGRES_REAPED',
         );
-        await expect(readFrame(fixture.events)).resolves.toMatch(
+        await expect(fixture.readTerminalProtocolFrame({
+          family: 'cleanup-preserved',
+        })).resolves.toMatch(
           /^CLEANUP_PRESERVED\|/u,
         );
-        fixture.markTerminalProtocolProof();
         const [code, signal] = await once(fixture.child, 'exit') as [
           number | null,
           NodeJS.Signals | null,
@@ -793,10 +863,11 @@ process.exit(passed ? 0 : 42);
         await expect(readFrame(fixture.events)).resolves.toBe(
           'POSTGRES_REAPED',
         );
-        await expect(readFrame(fixture.events)).resolves.toMatch(
+        await expect(fixture.readTerminalProtocolFrame({
+          family: 'cleanup-preserved',
+        })).resolves.toMatch(
           /^CLEANUP_PRESERVED\|/u,
         );
-        fixture.markTerminalProtocolProof();
         const [code, signal] = await once(fixture.child, 'exit') as [
           number | null,
           NodeJS.Signals | null,
@@ -853,10 +924,14 @@ process.exit(passed ? 0 : 42);
         await expect(readFrame(fixture.events)).resolves.toBe(
           'POSTGRES_REAPED',
         );
-        await expect(readFrame(fixture.events)).resolves.toBe(
+        const forcedExitIndex =
+          runtimeGuardTestForcedExitIndex(armedIndex + 1);
+        await expect(fixture.readTerminalProtocolFrame({
+          family: 'test-forced-exit',
+          index: forcedExitIndex,
+        })).resolves.toBe(
           `TEST_FORCED_EXIT|${armedIndex + 1}`,
         );
-        fixture.markTerminalProtocolProof();
         await expect(readFrame(fixture.events)).rejects.toThrow(
           'event pipe closed',
         );
@@ -929,10 +1004,11 @@ process.exit(passed ? 0 : 42);
           await expect(readFrame(fixture.events)).resolves.toBe(
             'POSTGRES_REAPED',
           );
-          await expect(readFrame(fixture.events)).resolves.toMatch(
+          await expect(fixture.readTerminalProtocolFrame({
+            family: 'cleanup-preserved',
+          })).resolves.toMatch(
             /^CLEANUP_PRESERVED\|/u,
           );
-          fixture.markTerminalProtocolProof();
           const [guardCode, guardSignal] =
             fixture.child.exitCode !== null
             || fixture.child.signalCode !== null
@@ -1854,9 +1930,22 @@ describe('DA5 V5 closed environment and real transient PostgreSQL owner', () => 
   );
 });
 
+type RuntimeGuardTestForcedExitIndex = 0 | 1 | 2 | 3 | 4 | 5 | 6;
+
+type RuntimeGuardTerminalFrameExpectation =
+  | Readonly<{ readonly family: 'cleanup-ok' }>
+  | Readonly<{ readonly family: 'cleanup-preserved' }>
+  | Readonly<{ readonly family: 'probe-ok' }>
+  | Readonly<{
+      readonly family: 'test-forced-exit';
+      readonly index: RuntimeGuardTestForcedExitIndex;
+    }>;
+
 interface RawFixtureStreamObserver {
-  markTerminalProtocolProof(): void;
-  settleAfterTerminalProtocolProof(): Promise<void>;
+  readTerminalProtocolFrame(
+    expectation: RuntimeGuardTerminalFrameExpectation,
+  ): Promise<string>;
+  settleRawFixtureStreams(): Promise<void>;
 }
 
 function observeRawFixtureStreams(
@@ -1864,24 +1953,28 @@ function observeRawFixtureStreams(
     readonly direction: 'readable' | 'writable';
     readonly stream: Readable | Writable;
   }>[],
+  terminalEventStream: Readable,
 ): RawFixtureStreamObserver {
-  let terminalProtocolProofMarked = false;
-  const errors: Array<Readonly<{
-    readonly afterTerminalProtocolProof: boolean;
-    readonly error: Error;
-  }>> = [];
+  if (!observations.some(
+    ({ direction, stream }) =>
+      direction === 'readable' && stream === terminalEventStream,
+  )) {
+    throw new Error(
+      'Runtime Guard terminal event stream must be observed as readable',
+    );
+  }
+  let terminalProtocolReadStarted = false;
+  let terminalProtocolProofParsed = false;
+  const errors: Error[] = [];
   const observed = new Set<unknown>();
   const recordError = (error: unknown): void => {
     if (observed.has(error)) {
       return;
     }
     observed.add(error);
-    errors.push(Object.freeze({
-      afterTerminalProtocolProof: terminalProtocolProofMarked,
-      error: error instanceof Error
-        ? error
-        : new Error('unknown raw fixture stream failure'),
-    }));
+    errors.push(error instanceof Error
+      ? error
+      : new Error('unknown raw fixture stream failure'));
   };
   const settlements = observations.map(async ({ direction, stream }) => {
     const onError = (error: Error): void => {
@@ -1914,28 +2007,93 @@ function observeRawFixtureStreams(
     }
   });
   return Object.freeze({
-    markTerminalProtocolProof(): void {
-      if (terminalProtocolProofMarked) {
+    async readTerminalProtocolFrame(
+      expectation: RuntimeGuardTerminalFrameExpectation,
+    ): Promise<string> {
+      if (terminalProtocolReadStarted) {
         throw new Error(
-          'Runtime Guard terminal protocol proof already marked',
+          'Runtime Guard terminal protocol proof already attempted',
         );
       }
-      terminalProtocolProofMarked = true;
+      terminalProtocolReadStarted = true;
+      const payload = await readFrame(terminalEventStream);
+      assertRuntimeGuardTerminalFrame(payload, expectation);
+      terminalProtocolProofParsed = true;
+      return payload;
     },
-    async settleAfterTerminalProtocolProof(): Promise<void> {
+    async settleRawFixtureStreams(): Promise<void> {
       await Promise.all(settlements);
-      const unexpected = errors.find((observation) => {
-        const code = (observation.error as NodeJS.ErrnoException).code;
-        return !observation.afterTerminalProtocolProof
-          || (code !== 'ECONNRESET' && code !== 'EPIPE');
+      const unexpected = errors.find((error) => {
+        const code = (error as NodeJS.ErrnoException).code;
+        return (code !== 'ECONNRESET' && code !== 'EPIPE')
+          || !terminalProtocolProofParsed;
       });
       if (unexpected !== undefined) {
         throw new Error('unexpected raw fixture stream failure', {
-          cause: unexpected.error,
+          cause: unexpected,
         });
       }
     },
   });
+}
+
+function assertRuntimeGuardTerminalFrame(
+  payload: string,
+  expectation: RuntimeGuardTerminalFrameExpectation,
+): void {
+  let matches = false;
+  switch (expectation.family) {
+    case 'cleanup-ok':
+      matches = payload === 'CLEANUP_OK';
+      break;
+    case 'cleanup-preserved':
+      matches = isRuntimeGuardCleanupPreservedFrame(payload);
+      break;
+    case 'probe-ok':
+      matches = payload === 'PROBE_OK';
+      break;
+    case 'test-forced-exit':
+      matches = isRuntimeGuardTestForcedExitIndex(expectation.index)
+        && payload === `TEST_FORCED_EXIT|${expectation.index}`;
+      break;
+    default: {
+      const exhaustive: never = expectation;
+      throw new Error(
+        `Unsupported Runtime Guard terminal expectation: ${String(exhaustive)}`,
+      );
+    }
+  }
+  if (!matches) {
+    throw new Error('Runtime Guard terminal protocol frame mismatch');
+  }
+}
+
+function isRuntimeGuardCleanupPreservedFrame(payload: string): boolean {
+  if (payload === 'CLEANUP_PRESERVED') {
+    return true;
+  }
+  const match =
+    /^CLEANUP_PRESERVED\|(0|[1-9][0-9]*)\|(0|[1-7])$/u.exec(payload);
+  if (match === null) {
+    return false;
+  }
+  const nativeErrno = Number(match[1]);
+  return Number.isInteger(nativeErrno) && nativeErrno <= 2_147_483_647;
+}
+
+function isRuntimeGuardTestForcedExitIndex(
+  value: number,
+): value is RuntimeGuardTestForcedExitIndex {
+  return Number.isInteger(value) && value >= 0 && value <= 6;
+}
+
+function runtimeGuardTestForcedExitIndex(
+  value: number,
+): RuntimeGuardTestForcedExitIndex {
+  if (!isRuntimeGuardTestForcedExitIndex(value)) {
+    throw new Error('Runtime Guard forced-exit index is outside test protocol');
+  }
+  return value;
 }
 
 async function spawnProbeGuard(): Promise<Readonly<{
@@ -1943,7 +2101,9 @@ async function spawnProbeGuard(): Promise<Readonly<{
   readonly cleanup: () => Promise<void>;
   readonly control: NodeJS.WritableStream;
   readonly events: NodeJS.ReadableStream;
-  readonly markTerminalProtocolProof: () => void;
+  readonly readTerminalProtocolFrame: (
+    expectation: RuntimeGuardTerminalFrameExpectation,
+  ) => Promise<string>;
   readonly rootName: string;
   readonly stagingPath: string;
 }>> {
@@ -1987,13 +2147,14 @@ async function spawnProbeGuard(): Promise<Readonly<{
     { direction: 'writable', stream: control },
     { direction: 'readable', stream: events },
     { direction: 'writable', stream: secret },
-  ]);
+  ], events);
   let cleaned = false;
   return Object.freeze({
     child,
     control,
     events,
-    markTerminalProtocolProof: streamObserver.markTerminalProtocolProof,
+    readTerminalProtocolFrame:
+      streamObserver.readTerminalProtocolFrame,
     rootName,
     stagingPath,
     async cleanup(): Promise<void> {
@@ -2012,7 +2173,7 @@ async function spawnProbeGuard(): Promise<Readonly<{
       }
       let streamFailure: unknown;
       try {
-        await streamObserver.settleAfterTerminalProtocolProof();
+        await streamObserver.settleRawFixtureStreams();
       } catch (error: unknown) {
         streamFailure = error;
       }
@@ -2034,8 +2195,10 @@ async function spawnEarlyExitGuard(options?: Readonly<{
   readonly control: NodeJS.WritableStream;
   readonly events: NodeJS.ReadableStream;
   readonly logPath: string;
-  readonly markTerminalProtocolProof: () => void;
   readonly manifest: (nonce: string) => string;
+  readonly readTerminalProtocolFrame: (
+    expectation: RuntimeGuardTerminalFrameExpectation,
+  ) => Promise<string>;
   readonly rootPath: string;
   readonly secret: NodeJS.WritableStream;
   readonly stagingPath: string;
@@ -2115,7 +2278,7 @@ async function spawnEarlyExitGuard(options?: Readonly<{
     { direction: 'writable', stream: control },
     { direction: 'readable', stream: events },
     { direction: 'writable', stream: secret },
-  ]);
+  ], events);
   const capability = randomBytes(32).toString('hex');
   let cleaned = false;
   return Object.freeze({
@@ -2124,7 +2287,8 @@ async function spawnEarlyExitGuard(options?: Readonly<{
     control,
     events,
     logPath,
-    markTerminalProtocolProof: streamObserver.markTerminalProtocolProof,
+    readTerminalProtocolFrame:
+      streamObserver.readTerminalProtocolFrame,
     secret,
     stagingPath,
     tombstonePath: join(stagingPath, tombstoneName),
@@ -2183,7 +2347,7 @@ async function spawnEarlyExitGuard(options?: Readonly<{
       }
       let streamFailure: unknown;
       try {
-        await streamObserver.settleAfterTerminalProtocolProof();
+        await streamObserver.settleRawFixtureStreams();
       } catch (error: unknown) {
         streamFailure = error;
       }
