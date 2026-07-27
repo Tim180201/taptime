@@ -280,6 +280,7 @@ function validInspection(): Da5V5ValidationApkInspection {
     networkPolicyDenyAll: true,
     networkSecurityConfig: true,
     nfcFeatureRequired: true,
+    httpsBrowsableQueryIntentExact: true,
     packageName: 'com.tim180201.mobile.validation',
     packageVisibilityQueriesExact: true,
     permissions: [

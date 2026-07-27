@@ -26,6 +26,7 @@ export interface Da5V5ValidationApkInspection {
   readonly allowBackup: boolean;
   readonly backupPolicyDenyAll: boolean;
   readonly cleartextTraffic: boolean;
+  readonly httpsBrowsableQueryIntentExact: boolean;
   readonly networkSecurityConfig: boolean;
   readonly networkPolicyDenyAll: boolean;
   readonly packageVisibilityQueriesExact: boolean;
@@ -114,6 +115,7 @@ export function resolveDa5V5ValidationPackagedXmlPath(
 export function inspectDa5V5ValidationManifestXmlTree(
   androidManifest: string,
 ): Readonly<{
+  httpsBrowsableQueryIntentExact: boolean;
   packageVisibilityQueriesExact: boolean;
   privateReceiverPermissionGuard: boolean;
   productDeepLinks: boolean;

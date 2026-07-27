@@ -222,6 +222,7 @@ export function verifyDa5V5ValidationApkInspection(inspection) {
     || inspection.cleartextTraffic !== false
     || inspection.networkSecurityConfig !== true
     || inspection.networkPolicyDenyAll !== true
+    || inspection.httpsBrowsableQueryIntentExact !== true
     || inspection.packageVisibilityQueriesExact !== true
     || !Array.isArray(inspection.queryPackages)
     || inspection.queryPackages.length
@@ -323,14 +324,52 @@ export function inspectDa5V5ValidationManifestXmlTree(androidManifest) {
     ...xmlElementBlocks(androidManifest, 'activity-alias'),
   ].flatMap((activity) => xmlElementBlocks(activity, 'intent-filter'));
   const queryBlocks = xmlElementBlocks(androidManifest, 'queries');
-  const queryPackages = queryBlocks.flatMap((query) => (
-    xmlElementBlocks(query, 'package')
-      .map((block) => exactAndroidStringAttribute(block, 'name'))
-  ));
+  const queryPackageBlocks = queryBlocks.flatMap(
+    (query) => xmlElementBlocks(query, 'package'),
+  );
+  const queryPackages = queryPackageBlocks
+    .map((block) => exactAndroidStringAttribute(block, 'name'))
+    .filter((packageName) => packageName !== null);
+  const queryIntents = queryBlocks.flatMap(
+    (query) => xmlElementBlocks(query, 'intent'),
+  );
+  const queryProviders = queryBlocks.flatMap(
+    (query) => xmlElementBlocks(query, 'provider'),
+  );
+  const httpsBrowsableQueryIntentExact =
+    queryBlocks.length === 1
+    && queryIntents.length === 1
+    && xmlElementLineCount(queryIntents[0]) === 4
+    && xmlAttributeLineCount(queryIntents[0]) === 3
+    && hasExactQueryElement(
+      queryIntents[0],
+      'action',
+      'name',
+      'android.intent.action.VIEW',
+    )
+    && hasExactQueryElement(
+      queryIntents[0],
+      'category',
+      'name',
+      'android.intent.category.BROWSABLE',
+    )
+    && hasExactQueryElement(
+      queryIntents[0],
+      'data',
+      'scheme',
+      'https',
+    );
   const packageVisibilityQueriesExact =
     queryBlocks.length === 1
-    && xmlElementBlocks(queryBlocks[0], 'intent').length === 0
-    && xmlElementBlocks(queryBlocks[0], 'provider').length === 0
+    && xmlElementLineCount(queryBlocks[0]) === 7
+    && xmlAttributeLineCount(queryBlocks[0]) === 5
+    && queryProviders.length === 0
+    && httpsBrowsableQueryIntentExact
+    && queryPackageBlocks.length
+      === DA5_V5_VALIDATION_TALKBACK_QUERY_PACKAGES.length
+    && queryPackageBlocks.every(
+      (queryPackage) => xmlAttributeLineCount(queryPackage) === 1,
+    )
     && queryPackages.length
       === DA5_V5_VALIDATION_TALKBACK_QUERY_PACKAGES.length
     && [...queryPackages].sort().join('\n')
@@ -338,6 +377,7 @@ export function inspectDa5V5ValidationManifestXmlTree(androidManifest) {
         .sort()
         .join('\n');
   return Object.freeze({
+    httpsBrowsableQueryIntentExact,
     packageVisibilityQueriesExact,
     privateReceiverPermissionGuard,
     productDeepLinks: activityIntentFilters.some((intentFilter) => (
@@ -483,6 +523,8 @@ export function inspectDa5V5ValidationApk(
         "uses-feature-not-required: name='android.hardware.nfc'",
       ),
     packageName: packageMatch[1],
+    httpsBrowsableQueryIntentExact:
+      manifestEvidence.httpsBrowsableQueryIntentExact,
     packageVisibilityQueriesExact:
       manifestEvidence.packageVisibilityQueriesExact,
     permissions,
@@ -826,6 +868,27 @@ function xmlElementBlocks(xmlTree, elementName) {
     blocks.push(lines.slice(index, end).join('\n'));
   }
   return blocks;
+}
+
+function xmlElementLineCount(xmlTree) {
+  return xmlTree.match(/^\s*E:\s/gmu)?.length ?? 0;
+}
+
+function xmlAttributeLineCount(xmlTree) {
+  return xmlTree.match(/^\s*A:\s/gmu)?.length ?? 0;
+}
+
+function hasExactQueryElement(
+  xmlTree,
+  elementName,
+  attributeName,
+  value,
+) {
+  const elements = xmlElementBlocks(xmlTree, elementName);
+  return elements.length === 1
+    && xmlElementLineCount(elements[0]) === 1
+    && xmlAttributeLineCount(elements[0]) === 1
+    && exactAndroidStringAttribute(elements[0], attributeName) === value;
 }
 
 function androidStringAttributeValues(xmlTree, attributeName) {

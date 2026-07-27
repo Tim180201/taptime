@@ -108,6 +108,7 @@ describe('DA5 V5 Validation artifact contract', () => {
       'cleartextTraffic',
       'networkSecurityConfig',
       'networkPolicyDenyAll',
+      'httpsBrowsableQueryIntentExact',
       'packageVisibilityQueriesExact',
       'queryPackages',
       'productDeepLinks',
@@ -153,49 +154,112 @@ describe('DA5 V5 Validation artifact contract', () => {
     })).toThrow('DA5 V5 Validation APK boundary mismatch');
   });
 
-  it('extracts only the exact two package queries from the APK XML tree', () => {
-    const missing = inspectDa5V5ValidationManifestXmlTree([
-      '  E: manifest (line=2)',
-      '    E: queries (line=3)',
-      '      E: package (line=4)',
-      '        A: android:name(0x01010003)="com.google.android.marvin.talkback"',
-      '    E: application (line=5)',
-    ].join('\n'));
-    const exact = inspectDa5V5ValidationManifestXmlTree([
-      '  E: manifest (line=2)',
-      '    E: queries (line=3)',
-      '      E: package (line=4)',
-      '        A: android:name(0x01010003)="com.google.android.marvin.talkback"',
-      '      E: package (line=5)',
-      '        A: android:name(0x01010003)="com.samsung.android.accessibility.talkback"',
-      '    E: application (line=6)',
-    ].join('\n'));
-    const expanded = inspectDa5V5ValidationManifestXmlTree([
-      '  E: manifest (line=2)',
-      '    E: queries (line=3)',
-      '      E: package (line=4)',
-      '        A: android:name(0x01010003)="com.google.android.marvin.talkback"',
-      '      E: package (line=5)',
-      '        A: android:name(0x01010003)="com.samsung.android.accessibility.talkback"',
-      '      E: package (line=6)',
-      '        A: android:name(0x01010003)="com.example.accessibility"',
-      '    E: application (line=7)',
-    ].join('\n'));
+  it('binds exact TalkBack packages and the HTTPS Browsable APK query', () => {
+    const missing = inspectDa5V5ValidationManifestXmlTree(
+      queryManifestXmlTree({
+        packages: ['com.google.android.marvin.talkback'],
+      }),
+    );
+    const exact = inspectDa5V5ValidationManifestXmlTree(
+      queryManifestXmlTree(),
+    );
+    const expanded = inspectDa5V5ValidationManifestXmlTree(
+      queryManifestXmlTree({
+        packages: [
+          ...DA5_V5_VALIDATION_TALKBACK_QUERY_PACKAGES,
+          'com.example.accessibility',
+        ],
+      }),
+    );
 
     expect(missing).toMatchObject({
+      httpsBrowsableQueryIntentExact: true,
       packageVisibilityQueriesExact: false,
       queryPackages: ['com.google.android.marvin.talkback'],
     });
     expect(exact).toMatchObject({
+      httpsBrowsableQueryIntentExact: true,
       packageVisibilityQueriesExact: true,
       queryPackages: DA5_V5_VALIDATION_TALKBACK_QUERY_PACKAGES,
     });
     expect(expanded).toMatchObject({
+      httpsBrowsableQueryIntentExact: true,
       packageVisibilityQueriesExact: false,
       queryPackages: [
         ...DA5_V5_VALIDATION_TALKBACK_QUERY_PACKAGES,
         'com.example.accessibility',
       ],
+    });
+  });
+
+  it.each([
+    {
+      name: 'missing intent',
+      options: { intents: [] },
+    },
+    {
+      name: 'additional intent',
+      options: { intents: [{}, {}] },
+    },
+    {
+      name: 'drifted action',
+      options: { intents: [{ actions: ['android.intent.action.SEND'] }] },
+    },
+    {
+      name: 'additional action',
+      options: {
+        intents: [{
+          actions: [
+            'android.intent.action.VIEW',
+            'android.intent.action.SEND',
+          ],
+        }],
+      },
+    },
+    {
+      name: 'drifted category',
+      options: {
+        intents: [{
+          categories: ['android.intent.category.DEFAULT'],
+        }],
+      },
+    },
+    {
+      name: 'additional category',
+      options: {
+        intents: [{
+          categories: [
+            'android.intent.category.BROWSABLE',
+            'android.intent.category.DEFAULT',
+          ],
+        }],
+      },
+    },
+    {
+      name: 'drifted scheme',
+      options: { intents: [{ schemes: ['http'] }] },
+    },
+    {
+      name: 'additional scheme',
+      options: { intents: [{ schemes: ['https', 'http'] }] },
+    },
+  ])('rejects $name in the APK query intent', ({ options }) => {
+    expect(inspectDa5V5ValidationManifestXmlTree(
+      queryManifestXmlTree(options),
+    )).toMatchObject({
+      httpsBrowsableQueryIntentExact: false,
+      packageVisibilityQueriesExact: false,
+    });
+  });
+
+  it('rejects an additional APK query provider', () => {
+    expect(inspectDa5V5ValidationManifestXmlTree(
+      queryManifestXmlTree({
+        providers: ['com.example.documents'],
+      }),
+    )).toMatchObject({
+      httpsBrowsableQueryIntentExact: true,
+      packageVisibilityQueriesExact: false,
     });
   });
 
@@ -245,6 +309,7 @@ describe('DA5 V5 Validation artifact contract', () => {
     ].join('\n'));
 
     expect(inspection).toEqual({
+      httpsBrowsableQueryIntentExact: false,
       packageVisibilityQueriesExact: false,
       privateReceiverPermissionGuard: true,
       productDeepLinks: false,
@@ -746,6 +811,7 @@ function validInspection(): Da5V5ValidationApkInspection {
     networkPolicyDenyAll: true,
     networkSecurityConfig: true,
     nfcFeatureRequired: true,
+    httpsBrowsableQueryIntentExact: true,
     packageName: 'com.tim180201.mobile.validation',
     packageVisibilityQueriesExact: true,
     permissions: [
@@ -770,6 +836,63 @@ function validInspection(): Da5V5ValidationApkInspection {
     versionCode: '1',
     versionName: '1.0.0',
   };
+}
+
+function queryManifestXmlTree({
+  intents = [{}],
+  packages = DA5_V5_VALIDATION_TALKBACK_QUERY_PACKAGES,
+  providers = [],
+}: {
+  readonly intents?: readonly {
+    readonly actions?: readonly string[];
+    readonly categories?: readonly string[];
+    readonly schemes?: readonly string[];
+  }[];
+  readonly packages?: readonly string[];
+  readonly providers?: readonly string[];
+} = {}): string {
+  const lines = [
+    'E: manifest',
+    '  E: queries',
+  ];
+  for (const packageName of packages) {
+    lines.push(
+      '    E: package',
+      `      A: android:name(0x01010003)="${packageName}"`,
+    );
+  }
+  for (const intent of intents) {
+    lines.push('    E: intent');
+    for (const action of intent.actions ?? ['android.intent.action.VIEW']) {
+      lines.push(
+        '      E: action',
+        `        A: android:name(0x01010003)="${action}"`,
+      );
+    }
+    for (
+      const category of intent.categories
+        ?? ['android.intent.category.BROWSABLE']
+    ) {
+      lines.push(
+        '      E: category',
+        `        A: android:name(0x01010003)="${category}"`,
+      );
+    }
+    for (const scheme of intent.schemes ?? ['https']) {
+      lines.push(
+        '      E: data',
+        `        A: android:scheme(0x01010027)="${scheme}"`,
+      );
+    }
+  }
+  for (const authority of providers) {
+    lines.push(
+      '    E: provider',
+      `      A: android:authorities(0x01010018)="${authority}"`,
+    );
+  }
+  lines.push('  E: application');
+  return lines.join('\n');
 }
 
 function validDependencies(): Da5V5ValidationArtifactDependencies {
