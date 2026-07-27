@@ -17,6 +17,17 @@ export const DA5_V5_VALIDATION_BUNDLE_NATIVE_MODULE_ALLOWLIST:
     moduleName: string;
     sourcePath: string;
   }>[];
+export const DA5_V5_VALIDATION_EXPECTED_BUNDLE_SOURCE_CLOSURE:
+  Readonly<{
+    entries: number;
+    sourceBytes: number;
+    sha256: string;
+  }>;
+export const DA5_V5_VALIDATION_EXPECTED_BUNDLE_EXECUTABLE:
+  Readonly<{
+    bytes: number;
+    sha256: string;
+  }>;
 export const DA5_V5_VALIDATION_SOURCE_CLOSURE: readonly string[];
 export const DA5_V5_VALIDATION_SOURCE_SCOPES: readonly string[];
 export const DA5_V5_VALIDATION_BUILD_ENVIRONMENT: Readonly<
@@ -43,6 +54,7 @@ export function assertDa5V5ValidationReactNativeAutolinkingResolution(
 ): void;
 export function assertDa5V5ValidationBundleNativeModuleGraph(
   sourceMap: unknown,
+  bundle: Uint8Array,
 ): readonly Readonly<{
   moduleName: string;
   sourcePath: string;

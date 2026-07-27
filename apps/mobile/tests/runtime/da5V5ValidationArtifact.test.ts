@@ -16,13 +16,11 @@ import {
 } from '../../scripts/da5V5ValidationArtifact.mjs';
 import {
   assertDa5V5ValidationAutolinkingResolution,
-  assertDa5V5ValidationBundleNativeModuleGraph,
   assertDa5V5ValidationPrebuildPackageJson,
   assertDa5V5ValidationReactNativeAutolinkingResolution,
   createDa5V5ValidationAutolinkingPackageJson,
   createDa5V5ValidationBuildEnvironment,
   DA5_V5_VALIDATION_ANDROID_PACKAGE,
-  DA5_V5_VALIDATION_BUNDLE_NATIVE_MODULE_ALLOWLIST,
   DA5_V5_VALIDATION_DEVICE_MODULE,
   DA5_V5_VALIDATION_EXCLUDED_NATIVE_MODULES,
   DA5_V5_VALIDATION_EXPO_NATIVE_ALLOWLIST,
@@ -531,10 +529,7 @@ describe('DA5 V5 Validation artifact contract', () => {
     )).not.toThrow();
   });
 
-  it('accepts only the exact Validation JS/native request graph', () => {
-    expect(assertDa5V5ValidationBundleNativeModuleGraph(
-      validBundleSourceMap(),
-    )).toEqual(DA5_V5_VALIDATION_BUNDLE_NATIVE_MODULE_ALLOWLIST);
+  it('excludes ExpoAsset from every native packaging boundary', () => {
     expect(DA5_V5_VALIDATION_EXCLUDED_NATIVE_MODULES).toContain(
       'expo-asset',
     );
@@ -543,43 +538,6 @@ describe('DA5 V5 Validation artifact contract', () => {
         ({ packageName }) => packageName,
       ),
     ).not.toContain('expo-asset');
-  });
-
-  it.each([
-    {
-      mutate(graph: ReturnType<typeof validBundleSourceMap>) {
-        graph.sources.pop();
-        graph.sourcesContent.pop();
-      },
-      name: 'missing',
-    },
-    {
-      mutate(graph: ReturnType<typeof validBundleSourceMap>) {
-        graph.sources.push(
-          '/node_modules/expo-asset/build/ExpoAsset.js',
-        );
-        graph.sourcesContent.push(
-          "requireNativeModule('ExpoAsset');",
-        );
-      },
-      name: 'additional',
-    },
-    {
-      mutate(graph: ReturnType<typeof validBundleSourceMap>) {
-        const index = graph.sources.indexOf(
-          '/apps/mobile/src/validation/createDa5V5ValidationRuntime.ts',
-        );
-        graph.sources[index] =
-          '/apps/mobile/src/validation/shadowCryptoRuntime.ts';
-      },
-      name: 'drifted',
-    },
-  ])('rejects a $name Validation JS/native request graph', ({ mutate }) => {
-    const graph = validBundleSourceMap();
-    mutate(graph);
-    expect(() => assertDa5V5ValidationBundleNativeModuleGraph(
-      graph,
-    )).toThrow(/bundle native module graph mismatch/u);
   });
 
   it('accepts exactly the two deterministic Expo prebuild script normalizations', () => {
@@ -785,25 +743,6 @@ describe('DA5 V5 Validation artifact contract', () => {
     ).forbiddenNativeModules).toBe(true);
   });
 });
-
-function validBundleSourceMap(): {
-  version: number;
-  sources: string[];
-  sourcesContent: string[];
-} {
-  return {
-    version: 3,
-    sources: DA5_V5_VALIDATION_BUNDLE_NATIVE_MODULE_ALLOWLIST.map(
-      ({ sourcePath }) => `/${sourcePath}`,
-    ),
-    sourcesContent:
-      DA5_V5_VALIDATION_BUNDLE_NATIVE_MODULE_ALLOWLIST.map(
-        ({ moduleName }) => moduleName === 'NfcManager'
-          ? 'const NativeNfcManager = NativeModules.NfcManager;'
-          : `requireNativeModule('${moduleName}');`,
-      ),
-  };
-}
 
 function validExpoResolution(): {
   extraDependencies: never[];

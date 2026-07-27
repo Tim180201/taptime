@@ -12,6 +12,8 @@ import {
   assertDa5V5ValidationBundleNativeModuleGraph,
   createDa5V5ValidationBuildEnvironment,
   DA5_V5_VALIDATION_BUNDLE_NATIVE_MODULE_ALLOWLIST,
+  DA5_V5_VALIDATION_EXPECTED_BUNDLE_EXECUTABLE,
+  DA5_V5_VALIDATION_EXPECTED_BUNDLE_SOURCE_CLOSURE,
   DA5_V5_VALIDATION_SOURCE_SCOPES,
 } from '../../scripts/da5V5ValidationRuntimeContract.mjs';
 
@@ -108,13 +110,94 @@ describe('DA5 V5 Validation runtime isolation', () => {
         status: 0,
         stderr: '',
       });
+      const bundle = await readFile(bundlePath);
       const sourceMap = JSON.parse(await readFile(sourceMapPath, 'utf8'));
       expect(
-        assertDa5V5ValidationBundleNativeModuleGraph(sourceMap),
+        assertDa5V5ValidationBundleNativeModuleGraph(sourceMap, bundle),
       ).toEqual(DA5_V5_VALIDATION_BUNDLE_NATIVE_MODULE_ALLOWLIST);
+      expect(DA5_V5_VALIDATION_EXPECTED_BUNDLE_EXECUTABLE).toEqual({
+        bytes: bundle.byteLength,
+        sha256:
+          'e4caf2db73cfbcdaf779f337bf3a3f99e95d182950522323052bc31ae10c93d3',
+      });
+      expect(DA5_V5_VALIDATION_EXPECTED_BUNDLE_SOURCE_CLOSURE).toEqual({
+        entries: sourceMap.sources.length,
+        sourceBytes: sourceMap.sourcesContent.reduce(
+          (total: number, sourceContent: string) =>
+            total + Buffer.byteLength(sourceContent, 'utf8'),
+          0,
+        ),
+        sha256:
+          '29691fc137c63906e5cf0c5cd47e2df0643064ab6dbddc00e0d3ec467d492ed3',
+      });
       expect(sourceMap.sources.join('\n')).not.toMatch(
         /expo-asset|expo\/src\/Expo\.fx|expo-crypto/u,
       );
+      const validationSourceIndex = sourceMap.sources.indexOf(
+        '/apps/mobile/validation-index.ts',
+      );
+      const reactNativeSourceIndex = sourceMap.sources.findIndex(
+        (sourcePath: string) =>
+          sourcePath.startsWith('/node_modules/react-native/'),
+      );
+      expect(validationSourceIndex).toBeGreaterThanOrEqual(0);
+      expect(reactNativeSourceIndex).toBeGreaterThanOrEqual(0);
+      for (const adversarial of [
+        {
+          name: 'bracket access',
+          source:
+            "NativeModules['LinkingManager'];",
+          sourceIndex: validationSourceIndex,
+        },
+        {
+          name: 'NativeModules alias',
+          source:
+            'const BypassNativeModules = NativeModules; '
+            + 'BypassNativeModules.Networking;',
+          sourceIndex: validationSourceIndex,
+        },
+        {
+          name: 'TurboModuleRegistry',
+          source:
+            "TurboModuleRegistry.getEnforcing('Networking');",
+          sourceIndex: validationSourceIndex,
+        },
+        {
+          name: 'React Native source',
+          source:
+            "NativeModules['LinkingManager'];",
+          sourceIndex: reactNativeSourceIndex,
+        },
+        {
+          name: 'forbidden ExpoAsset request',
+          source:
+            "requireNativeModule('ExpoAsset');",
+          sourceIndex: validationSourceIndex,
+        },
+      ]) {
+        const mutatedSourceMap = {
+          ...sourceMap,
+          sources: [...sourceMap.sources],
+          sourcesContent: [...sourceMap.sourcesContent],
+        };
+        mutatedSourceMap.sourcesContent[adversarial.sourceIndex] +=
+          `\n${adversarial.source}`;
+        expect(
+          () => assertDa5V5ValidationBundleNativeModuleGraph(
+            mutatedSourceMap,
+            bundle,
+          ),
+          adversarial.name,
+        ).toThrow('DA5 V5 Validation bundle source closure mismatch');
+      }
+      const mutatedBundle = Buffer.from(bundle);
+      mutatedBundle[0] ^= 1;
+      expect(
+        () => assertDa5V5ValidationBundleNativeModuleGraph(
+          sourceMap,
+          mutatedBundle,
+        ),
+      ).toThrow('DA5 V5 Validation bundle executable mismatch');
     } finally {
       await rm(outputDirectory, { force: true, recursive: true });
     }

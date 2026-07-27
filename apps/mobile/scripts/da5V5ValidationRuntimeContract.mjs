@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import {
   isAbsolute,
   join,
@@ -103,6 +104,19 @@ export const DA5_V5_VALIDATION_BUNDLE_NATIVE_MODULE_ALLOWLIST =
         'node_modules/react-native-nfc-manager/src/NativeNfcManager.js',
     }),
   ]);
+export const DA5_V5_VALIDATION_EXPECTED_BUNDLE_SOURCE_CLOSURE =
+  Object.freeze({
+    entries: 555,
+    sourceBytes: 2_667_064,
+    sha256:
+      '29691fc137c63906e5cf0c5cd47e2df0643064ab6dbddc00e0d3ec467d492ed3',
+  });
+export const DA5_V5_VALIDATION_EXPECTED_BUNDLE_EXECUTABLE =
+  Object.freeze({
+    bytes: 2_032_807,
+    sha256:
+      'e4caf2db73cfbcdaf779f337bf3a3f99e95d182950522323052bc31ae10c93d3',
+  });
 
 export const DA5_V5_VALIDATION_SOURCE_CLOSURE = Object.freeze([
   'apps/mobile/app.config.js',
@@ -405,29 +419,45 @@ export function assertDa5V5ValidationReactNativeAutolinkingResolution(
   }
 }
 
-export function assertDa5V5ValidationBundleNativeModuleGraph(sourceMap) {
+export function assertDa5V5ValidationBundleNativeModuleGraph(
+  sourceMap,
+  bundle,
+) {
+  if (!(bundle instanceof Uint8Array)) {
+    throw new Error(
+      'DA5 V5 Validation bundle executable is unavailable',
+    );
+  }
   if (
-    typeof sourceMap !== 'object'
-    || sourceMap === null
-    || Array.isArray(sourceMap)
-    || sourceMap.version !== 3
-    || !Array.isArray(sourceMap.sources)
-    || !Array.isArray(sourceMap.sourcesContent)
-    || sourceMap.sources.length !== sourceMap.sourcesContent.length
+    bundle.byteLength
+      !== DA5_V5_VALIDATION_EXPECTED_BUNDLE_EXECUTABLE.bytes
+    || createHash('sha256').update(bundle).digest('hex')
+      !== DA5_V5_VALIDATION_EXPECTED_BUNDLE_EXECUTABLE.sha256
   ) {
     throw new Error(
-      'DA5 V5 Validation bundle native module graph is unavailable',
+      'DA5 V5 Validation bundle executable mismatch',
+    );
+  }
+  const bundleSources = readDa5V5ValidationBundleSources(sourceMap);
+  const sourceClosure = createBundleSourceClosure(bundleSources);
+  // Native modules can be reached through aliases, bracket notation,
+  // TurboModuleRegistry and React Native internals. Bind every Metro source
+  // exactly so the security boundary does not depend on recognizing all
+  // executable JavaScript reference forms.
+  if (
+    sourceClosure.entries
+      !== DA5_V5_VALIDATION_EXPECTED_BUNDLE_SOURCE_CLOSURE.entries
+    || sourceClosure.sourceBytes
+      !== DA5_V5_VALIDATION_EXPECTED_BUNDLE_SOURCE_CLOSURE.sourceBytes
+    || sourceClosure.sha256
+      !== DA5_V5_VALIDATION_EXPECTED_BUNDLE_SOURCE_CLOSURE.sha256
+  ) {
+    throw new Error(
+      'DA5 V5 Validation bundle source closure mismatch',
     );
   }
   const records = new Map();
-  for (let index = 0; index < sourceMap.sources.length; index += 1) {
-    const sourcePath = normalizeBundleSourcePath(sourceMap.sources[index]);
-    const source = sourceMap.sourcesContent[index];
-    if (typeof source !== 'string') {
-      throw new Error(
-        'DA5 V5 Validation bundle native module graph is unavailable',
-      );
-    }
+  for (const { source, sourcePath } of bundleSources) {
     if (
       sourcePath === 'node_modules/expo/src/Expo.fx.tsx'
       || DA5_V5_VALIDATION_EXCLUDED_NATIVE_MODULES.some(
@@ -462,6 +492,61 @@ export function assertDa5V5ValidationBundleNativeModuleGraph(sourceMap) {
     );
   }
   return Object.freeze(actual.map((record) => Object.freeze(record)));
+}
+
+function readDa5V5ValidationBundleSources(sourceMap) {
+  if (
+    typeof sourceMap !== 'object'
+    || sourceMap === null
+    || Array.isArray(sourceMap)
+    || sourceMap.version !== 3
+    || !Array.isArray(sourceMap.sources)
+    || !Array.isArray(sourceMap.sourcesContent)
+    || sourceMap.sources.length !== sourceMap.sourcesContent.length
+  ) {
+    throw new Error(
+      'DA5 V5 Validation bundle native module graph is unavailable',
+    );
+  }
+  const sourcePaths = new Set();
+  return sourceMap.sources.map((value, index) => {
+    const sourcePath = normalizeBundleSourcePath(value);
+    const source = sourceMap.sourcesContent[index];
+    if (typeof source !== 'string' || sourcePaths.has(sourcePath)) {
+      throw new Error(
+        'DA5 V5 Validation bundle native module graph is unavailable',
+      );
+    }
+    sourcePaths.add(sourcePath);
+    return { source, sourcePath };
+  });
+}
+
+function createBundleSourceClosure(bundleSources) {
+  const sources = bundleSources.map(({ source, sourcePath }) => ({
+    sourcePath,
+    sourceBytes: Buffer.byteLength(source, 'utf8'),
+    sourceSha256: createHash('sha256')
+      .update(source, 'utf8')
+      .digest('hex'),
+  })).sort((left, right) => left.sourcePath < right.sourcePath
+    ? -1
+    : left.sourcePath > right.sourcePath
+      ? 1
+      : 0);
+  const serialized = `${sources.map(
+    (source) => JSON.stringify(source),
+  ).join('\n')}\n`;
+  return {
+    entries: sources.length,
+    sourceBytes: sources.reduce(
+      (total, source) => total + source.sourceBytes,
+      0,
+    ),
+    sha256: createHash('sha256')
+      .update(serialized, 'utf8')
+      .digest('hex'),
+  };
 }
 
 function addBundleNativeModuleRecord(records, moduleName, sourcePath) {
