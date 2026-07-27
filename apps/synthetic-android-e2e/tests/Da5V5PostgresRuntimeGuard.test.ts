@@ -203,15 +203,24 @@ describe('DA5 V5 native Runtime Guard private protocol', () => {
     expect(earlyReset.listenerCount('error')).toBe(0);
   });
 
-  it('tolerates a closed raw pipe only after expected termination', async () => {
-    const expectedReset = new PassThrough();
+  it('tolerates a closed raw pipe after child exit and before cleanup', async () => {
+    const expectedReset = new PassThrough({ autoDestroy: false });
     const expectedObserver = observeRawFixtureStreams([
-      { direction: 'readable', stream: expectedReset },
+      { direction: 'writable', stream: expectedReset },
     ]);
-    expectedObserver.markExpectedTermination();
-    expectedReset.destroy(Object.assign(new Error('expected reset'), {
-      code: 'ECONNRESET',
+    const child = spawn(process.execPath, ['--eval', ''], {
+      env: {},
+      shell: false,
+      stdio: 'ignore',
+    });
+    const exited = once(child, 'exit');
+    bindRawFixtureTerminationToChildExit(child, expectedObserver);
+    await expect(exited).resolves.toEqual([0, null]);
+    expect(expectedReset.closed).toBe(false);
+    expectedReset.emit('error', Object.assign(new Error('expected reset'), {
+      code: 'EPIPE',
     }));
+    expectedReset.destroy();
     await expect(
       expectedObserver.settleAfterExpectedTermination(),
     ).resolves.toBeUndefined();
@@ -1859,6 +1868,20 @@ function observeRawFixtureStreams(
   });
 }
 
+function bindRawFixtureTerminationToChildExit(
+  child: ChildProcess,
+  observer: RawFixtureStreamObserver,
+): void {
+  const markExpectedTermination = (): void => {
+    observer.markExpectedTermination();
+  };
+  child.once('exit', markExpectedTermination);
+  if (child.exitCode !== null || child.signalCode !== null) {
+    child.off('exit', markExpectedTermination);
+    observer.markExpectedTermination();
+  }
+}
+
 async function spawnProbeGuard(): Promise<Readonly<{
   readonly child: ChildProcess;
   readonly cleanup: () => Promise<void>;
@@ -1908,6 +1931,7 @@ async function spawnProbeGuard(): Promise<Readonly<{
     { direction: 'readable', stream: events },
     { direction: 'writable', stream: secret },
   ]);
+  bindRawFixtureTerminationToChildExit(child, streamObserver);
   let cleaned = false;
   return Object.freeze({
     child,
@@ -1929,7 +1953,6 @@ async function spawnProbeGuard(): Promise<Readonly<{
       if (child.exitCode === null && child.signalCode === null) {
         throw new Error('Runtime Guard test left a live process');
       }
-      streamObserver.markExpectedTermination();
       let streamFailure: unknown;
       try {
         await streamObserver.settleAfterExpectedTermination();
@@ -2035,6 +2058,7 @@ async function spawnEarlyExitGuard(options?: Readonly<{
     { direction: 'readable', stream: events },
     { direction: 'writable', stream: secret },
   ]);
+  bindRawFixtureTerminationToChildExit(child, streamObserver);
   const capability = randomBytes(32).toString('hex');
   let cleaned = false;
   return Object.freeze({
@@ -2099,7 +2123,6 @@ async function spawnEarlyExitGuard(options?: Readonly<{
       if (child.exitCode === null && child.signalCode === null) {
         throw new Error('Runtime Guard test left a live process');
       }
-      streamObserver.markExpectedTermination();
       let streamFailure: unknown;
       try {
         await streamObserver.settleAfterExpectedTermination();
