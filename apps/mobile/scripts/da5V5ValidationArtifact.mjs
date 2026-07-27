@@ -40,6 +40,8 @@ export const DA5_V5_VALIDATION_LOCAL_SIGNER_SHA256 =
 export const DA5_V5_VALIDATION_TECHNOLOGY =
   'NfcA+MifareUltralight';
 
+const PRIVATE_RECEIVER_PERMISSION =
+  `${DA5_V5_VALIDATION_PACKAGE}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION`;
 const SHA256_PATTERN = /^[0-9a-f]{64}$/u;
 const GIT_OBJECT_PATTERN = /^[0-9a-f]{40}$/u;
 const REQUIRED_NATIVE_BYTECODE_MARKERS = Object.freeze([
@@ -130,7 +132,8 @@ export function createDa5V5ValidationArtifactManifest({
     nativeSourceSha256:
       DA5_V5_VALIDATION_EXPECTED_NATIVE_SOURCE_CLOSURE.sha256,
     packageName: DA5_V5_VALIDATION_PACKAGE,
-    permissions: 'android.permission.NFC-only',
+    permissions:
+      'android.permission.NFC-plus-package-private-signature-receiver-guard',
     productDeepLinks: false,
     productTagDispatch: false,
     runtimeMarker: DA5_V5_VALIDATION_RUNTIME_MARKER,
@@ -205,8 +208,10 @@ export function verifyDa5V5ValidationApkInspection(inspection) {
     || inspection.signerCertificateSha256
       !== DA5_V5_VALIDATION_LOCAL_SIGNER_SHA256
     || !Array.isArray(inspection.permissions)
-    || inspection.permissions.length !== 1
+    || inspection.permissions.length !== 2
     || inspection.permissions[0] !== 'android.permission.NFC'
+    || inspection.permissions[1] !== PRIVATE_RECEIVER_PERMISSION
+    || inspection.privateReceiverPermissionGuard !== true
     || inspection.nfcFeatureRequired !== true
     || inspection.allowBackup !== false
     || inspection.backupPolicyDenyAll !== true
@@ -270,6 +275,63 @@ export function resolveDa5V5ValidationPackagedXmlPath(
     );
   }
   return paths[0];
+}
+
+export function inspectDa5V5ValidationManifestXmlTree(androidManifest) {
+  if (typeof androidManifest !== 'string' || androidManifest.length === 0) {
+    throw new Error(
+      'DA5 V5 Validation manifest XML tree is unavailable',
+    );
+  }
+  const permissionDeclarations = xmlElementBlocks(
+    androidManifest,
+    'permission',
+  );
+  const usedPermissions = xmlElementBlocks(
+    androidManifest,
+    'uses-permission',
+  ).map((block) => exactAndroidStringAttribute(block, 'name'));
+  const privateReceiverPermissionGuard =
+    permissionDeclarations.length === 1
+    && exactAndroidStringAttribute(
+      permissionDeclarations[0],
+      'name',
+    ) === PRIVATE_RECEIVER_PERMISSION
+    && exactAndroidNumericAttribute(
+      permissionDeclarations[0],
+      'protectionLevel',
+    ) === '2'
+    && usedPermissions.length === 2
+    && [...usedPermissions].sort().join('\n') === [
+      'android.permission.NFC',
+      PRIVATE_RECEIVER_PERMISSION,
+    ].sort().join('\n');
+  const activityIntentFilters = [
+    ...xmlElementBlocks(androidManifest, 'activity'),
+    ...xmlElementBlocks(androidManifest, 'activity-alias'),
+  ].flatMap((activity) => xmlElementBlocks(activity, 'intent-filter'));
+  return Object.freeze({
+    privateReceiverPermissionGuard,
+    productDeepLinks: activityIntentFilters.some((intentFilter) => (
+      hasAndroidStringAttribute(
+        intentFilter,
+        'name',
+        'android.intent.action.VIEW',
+      )
+      && hasAndroidStringAttribute(
+        intentFilter,
+        'name',
+        'android.intent.category.BROWSABLE',
+      )
+    )),
+    productTagDispatch: activityIntentFilters.some((intentFilter) => (
+      hasAndroidStringAttribute(
+        intentFilter,
+        'name',
+        'android.nfc.action.TECH_DISCOVERED',
+      )
+    )),
+  });
 }
 
 export function inspectDa5V5ValidationApk(
@@ -346,6 +408,9 @@ export function inspectDa5V5ValidationApk(
   const permissions = [...badging.matchAll(
     /^uses-permission: name='([^']+)'/gmu,
   )].map((match) => match[1]).sort();
+  const manifestEvidence = inspectDa5V5ValidationManifestXmlTree(
+    androidManifest,
+  );
   return Object.freeze({
     allowBackup:
       !/android:allowBackup[^\n]*\(type 0x12\)0x0/u
@@ -390,13 +455,11 @@ export function inspectDa5V5ValidationApk(
       ),
     packageName: packageMatch[1],
     permissions,
-    productDeepLinks:
-      androidManifest.includes('android.intent.action.VIEW')
-      || androidManifest.includes('android.intent.category.BROWSABLE'),
+    privateReceiverPermissionGuard:
+      manifestEvidence.privateReceiverPermissionGuard,
+    productDeepLinks: manifestEvidence.productDeepLinks,
     productRuntimeMarker: hermesEvidence.productRuntimeMarker,
-    productTagDispatch:
-      androidManifest.includes('android.nfc.action.TECH_DISCOVERED')
-      || androidManifest.includes('TapTimeNfcIngress'),
+    productTagDispatch: manifestEvidence.productTagDispatch,
     requiredNativeModules: nativeEvidence.requiredNativeModules,
     forbiddenNativeModules: nativeEvidence.forbiddenNativeModules,
     signatureV1: signatureValue(signature, 'v1 scheme (JAR signing)'),
@@ -702,6 +765,69 @@ function resolveHermesCompiler() {
 
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
+}
+
+function xmlElementBlocks(xmlTree, elementName) {
+  const lines = xmlTree.split(/\r?\n/u);
+  const blocks = [];
+  const element = new RegExp(
+    `^(\\s*)E: ${escapeRegExp(elementName)}(?:\\s|$)`,
+    'u',
+  );
+  for (let index = 0; index < lines.length; index += 1) {
+    const match = element.exec(lines[index]);
+    if (match === null) {
+      continue;
+    }
+    const indentation = match[1].length;
+    let end = index + 1;
+    while (end < lines.length) {
+      const nextElement = /^(\s*)E:\s/u.exec(lines[end]);
+      if (
+        nextElement !== null
+        && nextElement[1].length <= indentation
+      ) {
+        break;
+      }
+      end += 1;
+    }
+    blocks.push(lines.slice(index, end).join('\n'));
+  }
+  return blocks;
+}
+
+function androidStringAttributeValues(xmlTree, attributeName) {
+  const attribute = new RegExp(
+    `^\\s*A: android:${escapeRegExp(attributeName)}`
+      + '\\([^\\r\\n)]*\\)='
+      + '"([^"]*)"',
+    'gmu',
+  );
+  return [...xmlTree.matchAll(attribute)].map((match) => match[1]);
+}
+
+function androidNumericAttributeValues(xmlTree, attributeName) {
+  const attribute = new RegExp(
+    `^\\s*A: android:${escapeRegExp(attributeName)}`
+      + '\\([^\\r\\n)]*\\)='
+      + '\\(type 0x[0-9a-f]+\\)0x([0-9a-f]+)',
+    'gmu',
+  );
+  return [...xmlTree.matchAll(attribute)].map((match) => match[1]);
+}
+
+function exactAndroidStringAttribute(xmlTree, attributeName) {
+  const values = androidStringAttributeValues(xmlTree, attributeName);
+  return values.length === 1 ? values[0] : null;
+}
+
+function exactAndroidNumericAttribute(xmlTree, attributeName) {
+  const values = androidNumericAttributeValues(xmlTree, attributeName);
+  return values.length === 1 ? values[0] : null;
+}
+
+function hasAndroidStringAttribute(xmlTree, attributeName, value) {
+  return androidStringAttributeValues(xmlTree, attributeName).includes(value);
 }
 
 function runText(command, arguments_) {

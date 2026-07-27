@@ -4,6 +4,7 @@ import {
   createDa5V5ValidationArtifactManifest,
   DA5_V5_VALIDATION_LOCAL_SIGNER_SHA256,
   inspectDa5V5ValidationHermesBytecode,
+  inspectDa5V5ValidationManifestXmlTree,
   inspectDa5V5ValidationNativeBytecode,
   resolveDa5V5ValidationPackagedXmlPath,
   serializeDa5V5ValidationArtifactManifest,
@@ -77,7 +78,8 @@ describe('DA5 V5 Validation artifact contract', () => {
       nativeSourceSha256:
         DA5_V5_VALIDATION_EXPECTED_NATIVE_SOURCE_CLOSURE.sha256,
       packageName: 'com.tim180201.mobile.validation',
-      permissions: 'android.permission.NFC-only',
+      permissions:
+        'android.permission.NFC-plus-package-private-signature-receiver-guard',
       productDeepLinks: false,
       productTagDispatch: false,
       runtimeMarker: 'taptime-da5-v5-validation-only-v1',
@@ -98,6 +100,7 @@ describe('DA5 V5 Validation artifact contract', () => {
     for (const field of [
       'packageName',
       'permissions',
+      'privateReceiverPermissionGuard',
       'nfcFeatureRequired',
       'allowBackup',
       'backupPolicyDenyAll',
@@ -142,6 +145,90 @@ describe('DA5 V5 Validation artifact contract', () => {
       resources,
       'taptime_da5_v5_validation_network_security',
     )).toBe('res/Mi.xml');
+  });
+
+  it('ignores query and receiver intent filters outside activities', () => {
+    const inspection = inspectDa5V5ValidationManifestXmlTree([
+      '  E: manifest (line=2)',
+      '    E: permission (line=3)',
+      '      A: android:name(0x01010003)="com.tim180201.mobile.validation.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"',
+      '      A: android:protectionLevel(0x01010009)=(type 0x10)0x2',
+      '    E: uses-permission (line=4)',
+      '      A: android:name(0x01010003)="android.permission.NFC"',
+      '    E: uses-permission (line=5)',
+      '      A: android:name(0x01010003)="com.tim180201.mobile.validation.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"',
+      '    E: queries (line=6)',
+      '      E: intent (line=7)',
+      '        E: action (line=8)',
+      '          A: android:name(0x01010003)="android.intent.action.VIEW"',
+      '        E: category (line=9)',
+      '          A: android:name(0x01010003)="android.intent.category.BROWSABLE"',
+      '    E: application (line=10)',
+      '      E: receiver (line=11)',
+      '        E: intent-filter (line=12)',
+      '          E: action (line=13)',
+      '            A: android:name(0x01010003)="android.nfc.action.TECH_DISCOVERED"',
+      '      E: activity (line=14)',
+      '        E: intent-filter (line=15)',
+      '          E: action (line=16)',
+      '            A: android:name(0x01010003)="android.intent.action.MAIN"',
+    ].join('\n'));
+
+    expect(inspection).toEqual({
+      privateReceiverPermissionGuard: true,
+      productDeepLinks: false,
+      productTagDispatch: false,
+    });
+  });
+
+  it('detects deep links and Tag dispatch only in activity filters', () => {
+    const inspection = inspectDa5V5ValidationManifestXmlTree([
+      '  E: manifest (line=2)',
+      '    E: application (line=3)',
+      '      E: activity (line=4)',
+      '        E: intent-filter (line=5)',
+      '          E: action (line=6)',
+      '            A: android:name(0x01010003)="android.intent.action.VIEW"',
+      '          E: category (line=7)',
+      '            A: android:name(0x01010003)="android.intent.category.BROWSABLE"',
+      '        E: intent-filter (line=8)',
+      '          E: action (line=9)',
+      '            A: android:name(0x01010003)="android.nfc.action.TECH_DISCOVERED"',
+    ].join('\n'));
+
+    expect(inspection.productDeepLinks).toBe(true);
+    expect(inspection.productTagDispatch).toBe(true);
+  });
+
+  it.each([
+    {
+      name: 'foreign',
+      permission:
+        'com.foreign.validation.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION',
+      protectionLevel: '0x2',
+    },
+    {
+      name: 'unprotected',
+      permission:
+        'com.tim180201.mobile.validation.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION',
+      protectionLevel: '0x0',
+    },
+  ])('rejects a $name private receiver guard', ({
+    permission,
+    protectionLevel,
+  }) => {
+    const inspection = inspectDa5V5ValidationManifestXmlTree([
+      '  E: manifest (line=2)',
+      '    E: permission (line=3)',
+      `      A: android:name(0x01010003)="${permission}"`,
+      `      A: android:protectionLevel(0x01010009)=(type 0x10)${protectionLevel}`,
+      '    E: uses-permission (line=4)',
+      '      A: android:name(0x01010003)="android.permission.NFC"',
+      '    E: uses-permission (line=5)',
+      `      A: android:name(0x01010003)="${permission}"`,
+    ].join('\n'));
+
+    expect(inspection.privateReceiverPermissionGuard).toBe(false);
   });
 
   it.each([
@@ -588,7 +675,11 @@ function validInspection(): Da5V5ValidationApkInspection {
     networkSecurityConfig: true,
     nfcFeatureRequired: true,
     packageName: 'com.tim180201.mobile.validation',
-    permissions: ['android.permission.NFC'],
+    permissions: [
+      'android.permission.NFC',
+      'com.tim180201.mobile.validation.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION',
+    ],
+    privateReceiverPermissionGuard: true,
     productDeepLinks: false,
     productRuntimeMarker: false,
     productTagDispatch: false,

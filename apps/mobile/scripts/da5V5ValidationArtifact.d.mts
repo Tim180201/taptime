@@ -21,6 +21,7 @@ export interface Da5V5ValidationApkInspection {
   readonly signerCount: number;
   readonly signerCertificateSha256: string;
   readonly permissions: readonly string[];
+  readonly privateReceiverPermissionGuard: boolean;
   readonly nfcFeatureRequired: boolean;
   readonly allowBackup: boolean;
   readonly backupPolicyDenyAll: boolean;
@@ -106,6 +107,13 @@ export function resolveDa5V5ValidationPackagedXmlPath(
   resources: string,
   resourceName: string,
 ): string;
+export function inspectDa5V5ValidationManifestXmlTree(
+  androidManifest: string,
+): Readonly<{
+  privateReceiverPermissionGuard: boolean;
+  productDeepLinks: boolean;
+  productTagDispatch: boolean;
+}>;
 export function inspectDa5V5ValidationApk(
   apkPath: string,
   environment?: NodeJS.ProcessEnv,

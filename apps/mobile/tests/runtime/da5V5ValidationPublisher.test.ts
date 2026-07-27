@@ -280,7 +280,11 @@ function validInspection(): Da5V5ValidationApkInspection {
     networkSecurityConfig: true,
     nfcFeatureRequired: true,
     packageName: 'com.tim180201.mobile.validation',
-    permissions: ['android.permission.NFC'],
+    permissions: [
+      'android.permission.NFC',
+      'com.tim180201.mobile.validation.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION',
+    ],
+    privateReceiverPermissionGuard: true,
     productDeepLinks: false,
     productRuntimeMarker: false,
     productTagDispatch: false,
