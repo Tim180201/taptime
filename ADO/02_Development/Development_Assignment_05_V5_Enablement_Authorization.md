@@ -1,6 +1,6 @@
 # Development Assignment 5 — V5 Operational Enablement Authorization Candidate
 
-- Status: **FINAL VALIDATION QUERY-VISIBILITY CORRECTION PUBLISHED/CI-GREEN AND REPLACEMENT ARTIFACT VERIFIED; INDEPENDENT EXACT-SHA RE-REVIEW PENDING; TWO PHASE-0 AUTHORITIES CONSUMED FAIL-CLOSED BEFORE ANY TAG SCAN; NO CURRENT PHASE-0/HARDWARE/ADB/INSTALLATION OR HUMAN-V5 AUTHORITY**
+- Status: **FINAL VALIDATION QUERY-VISIBILITY CORRECTION INDEPENDENTLY APPROVED WITH ZERO OPEN P0–P3; SOURCE/REVIEW CI GREEN AND REPLACEMENT ARTIFACT VERIFIED; TWO PHASE-0 AUTHORITIES CONSUMED FAIL-CLOSED BEFORE ANY TAG SCAN; NO CURRENT PHASE-0/HARDWARE/ADB/INSTALLATION OR HUMAN-V5 AUTHORITY**
 - Date: 2026-07-27
 - Candidate baseline commit: `7fe725360935a5d9587e3dfbdb2789d8309342df`
 - Candidate baseline tree: `0abaa77443a2abf81fd815ec138776155188bfc0`
@@ -17,7 +17,11 @@
 - Validation final correction source: `5c239b1c30c6263a036077460e23373b767f66df`,
   tree `53e8d4ed012ccc662f1005f895a3b6e685cf560e`
 - Validation final correction Exact-Head CI: `30276804017`, attempt 1, 12/12 successful
-- Validation final correction independent Exact-SHA re-review: **PENDING**
+- Validation final correction review base: `11a8269de145ad33c230f55a064bd18f9bb59731`,
+  tree `2292010e43d2620fbdbba6eeb6a9d77c36674144`
+- Validation final correction review-base CI: `30277641127`, attempt 1, 12/12 successful
+- Validation final correction independent Exact-SHA re-review: **APPROVED; zero open P0–P3;
+  P1/P3 closed**
 - Isolated-PostgreSQL round-2 candidate: `7739757a4855ee7bac34408941e94c25516d75f5`
 - Isolated-PostgreSQL round-2 tree/parent: `0398066e92fef65562526f61c9515b0ef3be0114` /
   `72fbd3c20329dfbf3e8a1509025bd630b1bb130a`
@@ -71,7 +75,9 @@ repository truth is later and stopped before any further hardware action:
   APK (`c87b2e2b804a3db7…24af95db`) and 6,700-byte `0444` manifest
   (`5c6ea1bc5d0f6d7d…d8fd74fb`) passed the official verifier. Exactly one provider must be
   installed and active from the Google/Samsung allowlist; none or both fail closed. Independent
-  Exact-SHA re-review remains pending and no approval is claimed.
+  Exact-SHA re-review of review base `11a8269de145ad33c230f55a064bd18f9bb59731`,
+  tree `2292010e43d2620fbdbba6eeb6a9d77c36674144`, and CI `30277641127`, attempt 1,
+  12/12, returned `APPROVED` with zero open P0–P3; P1 and P3 are closed.
 
 Two earlier one-time Phase-0 authorities are consumed. Run 1 stopped before Product action because
 a Validation package was already installed. Run 2 stopped before installation or NFC because the

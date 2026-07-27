@@ -1,6 +1,6 @@
 # Development Assignment 5 — V5 Human Android Gate Runbook
 
-- Status: **FINAL VALIDATION QUERY-VISIBILITY CORRECTION/REPLACEMENT ARTIFACT BOUND; INDEPENDENT EXACT-SHA RE-REVIEW PENDING — TWO PHASE-0 AUTHORITIES CONSUMED FAIL-CLOSED; NO CURRENT PHASE-0 OR HUMAN-V5 AUTHORITY/DO NOT START**
+- Status: **FINAL VALIDATION QUERY-VISIBILITY CORRECTION/REPLACEMENT ARTIFACT INDEPENDENTLY APPROVED WITH ZERO OPEN P0–P3 — TWO PHASE-0 AUTHORITIES CONSUMED FAIL-CLOSED; NO CURRENT PHASE-0 OR HUMAN-V5 AUTHORITY/DO NOT START**
 - Date: 2026-07-27
 - Owner: Technical Lead
 - Approval authority for any run: Human Architect
@@ -13,8 +13,10 @@ tree `980b6c57fdd71c12820f2890b640946db0d883c6`, CI `30255104609`, attempt 2,
 `5c239b1c30c6263a036077460e23373b767f66df`, tree
 `53e8d4ed012ccc662f1005f895a3b6e685cf560e`, passed exact-head CI `30276804017`,
 attempt 1, 12/12. Its replacement APK/manifest passed the official verifier. Independent
-Exact-SHA re-review remains pending; no approval is claimed. Stopped intermediate `0f7e131`
-produced no published artifact.
+Exact-SHA re-review of review base `11a8269de145ad33c230f55a064bd18f9bb59731`, tree
+`2292010e43d2620fbdbba6eeb6a9d77c36674144`, and CI `30277641127`, attempt 1,
+12/12, returned `APPROVED` with zero open P0–P3; P1 and P3 are closed. Stopped intermediate
+`0f7e131` produced no published artifact.
 
 **Phase 0 — Validation Binding Preflight** has no current authority. Two prior one-time
 authorizations are consumed: run 1 stopped before Product action because a Validation package was
@@ -33,7 +35,7 @@ uninstall and scoped cleanup are mandatory.
 | Validation APK | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-validation/da5-v5-validation-5c239b1c30c6-c87b2e2b804a3db7/app-release-c87b2e2b804a3db7.apk`; 65,734,361 bytes; mode `0444`; SHA-256 `c87b2e2b804a3db79c7a74d1e055363577a6661652b32695ff5a853324af95db` |
 | Validation manifest | Same directory, `manifest-5c239b1c30c6.json`; 6,700 bytes; mode `0444`; SHA-256 `5c6ea1bc5d0f6d7db67d8c1bf45a7eaab2d14397adf9d38afe401928d8fd74fb` |
 | Package/runtime | `com.tim180201.mobile.validation`; signer `fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c`; `local-validation-only`; `NfcA+MifareUltralight`; exact roles A/B/X; exactly one active installed provider from `com.google.android.marvin.talkback` or `com.samsung.android.accessibility.talkback`; none or both fail closed; exactly one queries block with those two package queries, one exact `VIEW` + `BROWSABLE` + `https` intent and zero providers; no Product deep link or Tag dispatch |
-| Native/source verification | Final correction `5c239b1c30c6263a036077460e23373b767f66df`, tree `53e8d4ed012ccc662f1005f895a3b6e685cf560e`; exact-head CI `30276804017`, attempt 1, 12/12; official artifact verifier `PASS`; independent Exact-SHA re-review `PENDING` |
+| Native/source verification | Final correction `5c239b1c30c6263a036077460e23373b767f66df`, tree `53e8d4ed012ccc662f1005f895a3b6e685cf560e`; exact-head CI `30276804017`, attempt 1, 12/12; official artifact verifier `PASS`; review base `11a8269de145ad33c230f55a064bd18f9bb59731`, tree `2292010e43d2620fbdbba6eeb6a9d77c36674144`, CI `30277641127`, attempt 1, 12/12; independent Exact-SHA re-review `APPROVED`, zero open P0–P3 |
 | Device, accessibility and A/B/X fingerprints | `UNBOUND — DO NOT START` |
 | One-time Phase 0 authorization/result | `RUN 1 CONSUMED — PREINSTALLED PACKAGE`; `RUN 2 CONSUMED — SAMSUNG PROVIDER UNSUPPORTED BY PRIOR BUILD`; no current authority |
 

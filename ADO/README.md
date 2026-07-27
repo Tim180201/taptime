@@ -323,7 +323,10 @@ zero open P0–P3. Final Validation App query-visibility correction
 `5c239b1c30c6263a036077460e23373b767f66df`, tree
 `53e8d4ed012ccc662f1005f895a3b6e685cf560e`, binds the exact real queries structure and passed
 exact-head CI `30276804017`, attempt 1, 12/12. Its replacement read-only APK/manifest passed the
-official verifier; independent Exact-SHA re-review remains pending and no approval is claimed.
+official verifier. Independent Exact-SHA re-review of review base
+`11a8269de145ad33c230f55a064bd18f9bb59731`, tree
+`2292010e43d2620fbdbba6eeb6a9d77c36674144`, and CI `30277641127`, attempt 1, 12/12,
+returned `APPROVED` with zero open P0–P3; P1 and P3 are closed.
 Exactly one installed and active Google or Samsung TalkBack provider is allowed; none or both
 fail closed. Two separately authorized Phase-0 attempts are consumed: the first stopped on a
 preinstalled Validation package, the second on active Samsung TalkBack unsupported by the prior
@@ -467,7 +470,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Development Assignment 4 Professional Admin Web Productization — ADR-0015/DA4-P01–P12 Human-accepted; Workstreams A–D, AVS V0–V4 and H01 procedural correction independently approved; first Human V5 failed closed and no closure/new run is authorized | `ADO/02_Development/Development_Assignment_04_Professional_Admin_Web_Productization_Authorization.md` |
 | Development Assignment 4 V5 Enablement — local R3 V0–V4, exact-SHA implementation review and H01 ADO correction approved; new Human V5 remains separately exact-bound and unauthorized | `ADO/02_Development/Development_Assignment_04_V5_Enablement_Authorization.md` |
 | Development Assignment 5 Professional Mobile Productization — Workstreams A–F and AVS V0–V4 technically closed for the exact authorized local scope | `ADO/02_Development/Development_Assignment_05_Professional_Mobile_Productization_Authorization.md` |
-| Development Assignment 5 V5 Enablement — Runtime Guard remains independently approved; final Validation App query correction `5c239b1`/CI `30276804017` 12/12 and replacement artifact verifier `PASS`, with independent Exact-SHA re-review pending; two Phase-0 authorities consumed fail-closed before any Tag scan; no current hardware/ADB/install or Human-V5 authority | `ADO/02_Development/Development_Assignment_05_V5_Enablement_Authorization.md` |
+| Development Assignment 5 V5 Enablement — Runtime Guard and final Validation App query correction `5c239b1` independently approved with zero open P0–P3; source/review CI 12/12 and replacement artifact verifier `PASS`; two Phase-0 authorities consumed fail-closed before any Tag scan; no current hardware/ADB/install or Human-V5 authority | `ADO/02_Development/Development_Assignment_05_V5_Enablement_Authorization.md` |
 | Development Assignment 5 V5 Isolated PostgreSQL Correction — Runtime Guard source `ba1b6e9`, CI `30255104609` attempt 2 12/12, immutable binary/manifest and independent Exact-SHA `APPROVED`; historical correction rounds retained; hardware authority not granted | `ADO/02_Development/Development_Assignment_05_V5_Isolated_PostgreSQL_Correction_Authorization.md` |
 | Block C3 Organization Administration Implementation Plan | `ADO/02_Development/Block_C3_Organization_Administration_Implementation_Plan.md` |
 | Repository Health Sprint 001 | `ADO/02_Development/Repository_Health_Sprint_001.md` |
@@ -552,7 +555,8 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Development Assignment 4 DA4-V5-H01 Human Browser Failure Evidence — first gate failed closed at the premature Tag-reassignment checkpoint; P2 operational/gate reliability, complete cleanup, authority consumed and new run unauthorized | `ADO/05_Evidence/Development_Assignment_04_DA4_V5_H01_Human_Browser_Failure_Evidence.md` |
 | Development Assignment 4 DA4-V5-H01 Correction Independent Exact-SHA Review — `APPROVED`, zero open P0–P3 review findings; historical P2 remains until a fresh successful gate/final review and no new run is authorized | `ADO/05_Evidence/Development_Assignment_04_DA4_V5_H01_Correction_Independent_Exact_SHA_Review.md` |
 | Development Assignment 5 Local Implementation Evidence — Workstreams A–F and AVS V0–V4 technically closed for the exact authorized local scope | `ADO/05_Evidence/Development_Assignment_05_Local_Implementation_Evidence.md` |
-| Development Assignment 5 V5 Evidence — final Validation App query correction `5c239b1`, exact-head CI 12/12 and verifier-passing read-only artifact bound; independent Exact-SHA re-review pending; two failed-clean Phase-0 attempts consumed without Tag scan; Product Human V5 remains `NOT RUN` and separately unauthorized | `ADO/05_Evidence/Development_Assignment_05_V5_Evidence.md` |
+| Development Assignment 5 V5 Evidence — final Validation App query correction `5c239b1`, source/review CI 12/12, verifier-passing read-only artifact and independent Exact-SHA `APPROVED` with zero open P0–P3; two failed-clean Phase-0 attempts consumed without Tag scan; Product Human V5 remains `NOT RUN` and separately unauthorized | `ADO/05_Evidence/Development_Assignment_05_V5_Evidence.md` |
+| Development Assignment 5 V5 Validation Query-Visibility Correction Independent Exact-SHA Review — review base `11a8269`, CI `30277641127` 12/12, `APPROVED`, zero open P0–P3; Hardware remains unauthorized | `ADO/05_Evidence/Development_Assignment_05_V5_Validation_Query_Visibility_Correction_Independent_Exact_SHA_Review.md` |
 | Development Assignment 1 DA1-PHYS-01 Independent Exact-Delta Review — approved, finding closed | `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_01_Independent_Exact_Delta_Review.md` |
 | Development Assignment 1 DA1-PHYS-02 Independent Exact-Delta Review — approved, repository finding closed | `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_02_Independent_Exact_Delta_Review.md` |
 | Development Assignment 1 DA1-PHYS-03 Independent Exact-Delta Review — approved, repository finding closed | `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_03_Independent_Exact_Delta_Review.md` |

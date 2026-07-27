@@ -1,6 +1,6 @@
 # Development Assignment 5 — V5 Human Android Evidence
 
-- Status: **FINAL VALIDATION QUERY-VISIBILITY CORRECTION/REPLACEMENT ARTIFACT BOUND; INDEPENDENT EXACT-SHA RE-REVIEW PENDING; TWO PHASE-0 AUTHORITIES CONSUMED FAIL-CLOSED BEFORE ANY TAG SCAN; PRODUCT HUMAN V5 NOT RUN/UNAUTHORIZED**
+- Status: **FINAL VALIDATION QUERY-VISIBILITY CORRECTION/REPLACEMENT ARTIFACT INDEPENDENTLY APPROVED WITH ZERO OPEN P0–P3; TWO PHASE-0 AUTHORITIES CONSUMED FAIL-CLOSED BEFORE ANY TAG SCAN; PRODUCT HUMAN V5 NOT RUN/UNAUTHORIZED**
 - Date: `NOT RUN`
 - Artifact preparation date: 2026-07-27
 - Owner: Technical Lead
@@ -16,8 +16,11 @@ no artifact was published. Final correction
 `5c239b1c30c6263a036077460e23373b767f66df`, tree
 `53e8d4ed012ccc662f1005f895a3b6e685cf560e`, passed exact-head CI `30276804017`,
 attempt 1, 12/12. Its replacement read-only APK/manifest passed the official verifier.
-Independent Exact-SHA re-review remains pending and no approval is claimed. Two separately
-authorized Phase-0 attempts are consumed fail-closed; neither scanned a Tag or supplies Product
+Independent Exact-SHA re-review of review base
+`11a8269de145ad33c230f55a064bd18f9bb59731`, tree
+`2292010e43d2620fbdbba6eeb6a9d77c36674144`, and CI `30277641127`, attempt 1, 12/12,
+returned `APPROVED` with zero open P0–P3; P1 and P3 are closed. Two separately authorized
+Phase-0 attempts are consumed fail-closed; neither scanned a Tag or supplies Product
 Human-V5 evidence. No current Phase-0/hardware/ADB/installation authority exists, and Product
 Human V5 is `NOT RUN`. No production, production-data, system-change, deployment or distribution
 result is claimed. Historical candidate and review details remain preserved below.
@@ -38,7 +41,7 @@ Human result and grants no new Human-run authority.
 | Runtime Guard source/CI | `ba1b6e922ceb7902ecedd9dc2df01d6b22d90867` / tree `980b6c57fdd71c12820f2890b640946db0d883c6`; CI `30255104609`, attempt 2, 12/12; attempt 1 was one B5 Docker-Hub pull timeout before checkout |
 | Isolated-PostgreSQL enablement correction | Historical round-2 `7739757a4855ee7bac34408941e94c25516d75f5` / tree `0398066e92fef65562526f61c9515b0ef3be0114` / CI `30177897059`, attempt 1, 12/12. Round-3 `bbcb1b59703ee866539b2bc384ec9db8c2643fe4` / tree `dfb5abbca1f2ddf603d191ae3303d1336f5440c7` / parent `7739757a4855ee7bac34408941e94c25516d75f5`; exact-head CI `30185670176`, attempt 1, 12/12; independent review `CHANGES REQUIRED`, exactly two P1 and zero P0/P2/P3. Extra-round `43567d256e8f633f16866448e1fb5abbd8022733` / tree `feecced92abe9fc536a2db052b5a616d3e0f1cf7` / parent `bbcb1b59703ee866539b2bc384ec9db8c2643fe4`; exact-head CI `30186846379`, attempt 1, 12/12; Exact-Delta review `CHANGES REQUIRED`, exactly one P1 and zero P0/P2/P3; initdb P1-B closed. Human confirms the second local administrator and exact complete decision-time local macOS admin-group membership snapshot are trusted under Option A and authorized exactly one last focused ADO correction/review round limited to the remaining P1. Decision-time V1 anchor: exactly two direct members, zero nested groups; full-record SHA-256 `b006276c09d8f2713f6132ea79cec167ab3a3c2887ee53e95eb00c1cc33719a5`; membership SHA-256 `70a683b7ebc7981533015d5d63cf12dfb2eabbfa665c34720eddb4d09e9e3064`; combined snapshot SHA-256 `2384b0baccd9049d820794f8ebc9419e4af0fad6831a5a91c209baa0b4a02217`. At that extra-round checkpoint, future R3 still had to reproduce all three digests and both counts before capability/task-root creation and every trust use; mismatch returned to the Human Architect without dynamic acceptance or rebinding. The then-current last-round draft was R0/unbound, and focused publication, exact-head CI, independent approval and implementation authority were still pending. The later Runtime Guard is independently approved; the corrected Validation App has the separate source/CI/artifact binding below without a new review claim. |
 | Runtime Guard artifact/review | Binary `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-runtime-guard/ba1b6e922ceb7902ecedd9dc2df01d6b22d90867/da5_v5_runtime_guard`; 74,336 bytes; mode `0555`; SHA-256 `4b2a7e6b15d3348dffda94f9125c20a4db82bb8eb08a03aabd35932ad0d5853c`. Same-directory `guard-manifest.txt`; 19,971 bytes; mode `0444`; SHA-256 `957d6e99c271663763945026995e7463cf2f20b385eb942fd16a152d3de5f709`. Focused evidence SHA-256 `440928371f7acc48272eff2e819c37a851d66cae4a908ffa330228982328d708`; independent Exact-SHA `APPROVED`, zero open P0–P3 |
-| Validation correction source/review/CI | Round-1 baseline `be32840`, verdict `CHANGES REQUIRED` for P1/P3; intermediate `0f7e131` stopped before publication with no artifact; final source `5c239b1c30c6263a036077460e23373b767f66df` / tree `53e8d4ed012ccc662f1005f895a3b6e685cf560e`; CI `30276804017`, attempt 1, 12/12; independent Exact-SHA re-review `PENDING` |
+| Validation correction source/review/CI | Round-1 baseline `be32840`, verdict `CHANGES REQUIRED` for P1/P3; intermediate `0f7e131` stopped before publication with no artifact; final source `5c239b1c30c6263a036077460e23373b767f66df` / tree `53e8d4ed012ccc662f1005f895a3b6e685cf560e`; CI `30276804017`, attempt 1, 12/12; review base `11a8269de145ad33c230f55a064bd18f9bb59731` / tree `2292010e43d2620fbdbba6eeb6a9d77c36674144`; CI `30277641127`, attempt 1, 12/12; independent Exact-SHA re-review `APPROVED`, zero open P0–P3; P1/P3 closed |
 | Validation provider/query policy | Exactly one installed and active provider from `com.google.android.marvin.talkback` or `com.samsung.android.accessibility.talkback`; none or both fail closed; exact package name and safe version are bound. Packaged visibility is exactly one queries block, both TalkBack package queries, one exact `VIEW` + `BROWSABLE` + `https` intent and zero providers |
 | Validation replacement APK/manifest | APK `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-validation/da5-v5-validation-5c239b1c30c6-c87b2e2b804a3db7/app-release-c87b2e2b804a3db7.apk`; 65,734,361 bytes; mode `0444`; SHA-256 `c87b2e2b804a3db79c7a74d1e055363577a6661652b32695ff5a853324af95db`. Same-directory `manifest-5c239b1c30c6.json`; 6,700 bytes; mode `0444`; SHA-256 `5c6ea1bc5d0f6d7db67d8c1bf45a7eaab2d14397adf9d38afe401928d8fd74fb`; official verifier `PASS` |
 | Read-only APK path/size/SHA-256/mode | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5/a323834/app-release-385c0c46f22dcac5.apk`; 95,522,787 bytes; `385c0c46f22dcac5b935bfdc6f574558f4e74748ed4a367ef399ddbd4299c547`; `0444` |
@@ -52,10 +55,11 @@ Human result and grants no new Human-run authority.
 | Reviewed Protected/Review fixture, labels, start state, cutover, expected sequence and scoped teardown | `NOT BOUND` |
 | Large-text setting/active allowlisted TalkBack package and version | `NOT BOUND` |
 
-Final correction exact-head CI `30276804017`, attempt 1, passed 12/12 and the official artifact
-verifier returned `PASS` for the exact replacement binding above. Independent Exact-SHA re-review
-is pending; no review approval for this correction or this ADO synchronization is claimed here.
-These automated results are not Human preflight evidence or Human-run authority.
+Final correction exact-head CI `30276804017`, attempt 1, and review-base CI `30277641127`,
+attempt 1, each passed 12/12; the official artifact verifier returned `PASS` for the exact
+replacement binding above. Independent Exact-SHA re-review returned `APPROVED` with zero open
+P0–P3 and closed P1/P3. These automated and review results are not Human preflight evidence or
+Human-run authority.
 
 ### 1.1 Historical enablement and isolated-PostgreSQL correction sequence — no Human result
 
