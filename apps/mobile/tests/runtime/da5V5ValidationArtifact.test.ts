@@ -5,6 +5,7 @@ import {
   DA5_V5_VALIDATION_LOCAL_SIGNER_SHA256,
   inspectDa5V5ValidationHermesBytecode,
   inspectDa5V5ValidationNativeBytecode,
+  resolveDa5V5ValidationPackagedXmlPath,
   serializeDa5V5ValidationArtifactManifest,
   verifyDa5V5ValidationApkInspection,
   verifyDa5V5ValidationArtifactBinding,
@@ -123,6 +124,66 @@ describe('DA5 V5 Validation artifact contract', () => {
         [field]: invalid,
       })).toThrow('DA5 V5 Validation APK boundary mismatch');
     }
+  });
+
+  it('resolves the two optimized packaged XML resource paths', () => {
+    const resources = [
+      'resource 0x7f110001 com.tim180201.mobile.validation:xml/taptime_da5_v5_validation_data_extraction_rules: t=0x03',
+      '  (string8) "res/Oy.xml"',
+      'resource 0x7f110002 com.tim180201.mobile.validation:xml/taptime_da5_v5_validation_network_security: t=0x03',
+      '  (string8) "res/Mi.xml"',
+    ].join('\n');
+
+    expect(resolveDa5V5ValidationPackagedXmlPath(
+      resources,
+      'taptime_da5_v5_validation_data_extraction_rules',
+    )).toBe('res/Oy.xml');
+    expect(resolveDa5V5ValidationPackagedXmlPath(
+      resources,
+      'taptime_da5_v5_validation_network_security',
+    )).toBe('res/Mi.xml');
+  });
+
+  it.each([
+    {
+      name: 'missing',
+      resourceName: 'taptime_da5_v5_validation_network_security',
+      resources: '',
+    },
+    {
+      name: 'multiple',
+      resourceName: 'taptime_da5_v5_validation_network_security',
+      resources: [
+        'resource 0x7f110001 com.tim180201.mobile.validation:xml/taptime_da5_v5_validation_network_security:',
+        '  (string8) "res/Mi.xml"',
+        'resource 0x7f110002 com.tim180201.mobile.validation:xml/taptime_da5_v5_validation_network_security:',
+        '  (string8) "res/Mj.xml"',
+      ].join('\n'),
+    },
+    {
+      name: 'unsafe',
+      resourceName: 'taptime_da5_v5_validation_network_security',
+      resources: [
+        'resource 0x7f110001 com.tim180201.mobile.validation:xml/taptime_da5_v5_validation_network_security:',
+        '  (string8) "res/../Mi.xml"',
+      ].join('\n'),
+    },
+    {
+      name: 'unexpected resource name',
+      resourceName: 'unbound_validation_resource',
+      resources: [
+        'resource 0x7f110001 com.tim180201.mobile.validation:xml/unbound_validation_resource:',
+        '  (string8) "res/Mi.xml"',
+      ].join('\n'),
+    },
+  ])('rejects a $name packaged XML binding', ({
+    resourceName,
+    resources,
+  }) => {
+    expect(() => resolveDa5V5ValidationPackagedXmlPath(
+      resources,
+      resourceName,
+    )).toThrow(/packaged XML resource binding mismatch/u);
   });
 
   it('verifies both immutable files, exact source and inspected APK', () => {

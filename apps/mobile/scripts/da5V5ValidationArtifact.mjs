@@ -226,6 +226,52 @@ export function verifyDa5V5ValidationApkInspection(inspection) {
   return Object.freeze({ status: 'match' });
 }
 
+export function resolveDa5V5ValidationPackagedXmlPath(
+  resources,
+  resourceName,
+) {
+  if (
+    typeof resources !== 'string'
+    || ![
+      'taptime_da5_v5_validation_data_extraction_rules',
+      'taptime_da5_v5_validation_network_security',
+    ].includes(resourceName)
+  ) {
+    throw new Error(
+      'DA5 V5 Validation packaged XML resource binding mismatch',
+    );
+  }
+  const paths = [];
+  let targetResource = false;
+  for (const line of resources.split(/\r?\n/u)) {
+    const resource = /^\s*resource\s+0x[0-9a-f]{8}\s+[A-Za-z0-9._]+:xml\/([A-Za-z0-9_]+):(?:\s+.*)?$/u
+      .exec(line);
+    if (resource !== null) {
+      targetResource = resource[1] === resourceName;
+      continue;
+    }
+    if (/^\s*(?:spec\s+)?resource\s+/u.test(line)) {
+      targetResource = false;
+      continue;
+    }
+    if (targetResource) {
+      const value = /^\s*\(string8\)\s+"([^"]+)"\s*$/u.exec(line);
+      if (value !== null) {
+        paths.push(value[1]);
+      }
+    }
+  }
+  if (
+    paths.length !== 1
+    || !/^res\/[A-Za-z0-9_]+\.xml$/u.test(paths[0])
+  ) {
+    throw new Error(
+      'DA5 V5 Validation packaged XML resource binding mismatch',
+    );
+  }
+  return paths[0];
+}
+
 export function inspectDa5V5ValidationApk(
   apkPath,
   environment = process.env,
@@ -247,14 +293,25 @@ export function inspectDa5V5ValidationApk(
     aapt,
     ['dump', 'xmltree', apkPath, 'AndroidManifest.xml'],
   );
-  const resources = runText(aapt, ['dump', 'resources', apkPath]);
+  const resources = runText(
+    aapt,
+    ['dump', '--values', 'resources', apkPath],
+  );
+  const networkPolicyPath = resolveDa5V5ValidationPackagedXmlPath(
+    resources,
+    'taptime_da5_v5_validation_network_security',
+  );
+  const backupPolicyPath = resolveDa5V5ValidationPackagedXmlPath(
+    resources,
+    'taptime_da5_v5_validation_data_extraction_rules',
+  );
   const networkPolicy = runText(
     aapt,
     [
       'dump',
       'xmltree',
       apkPath,
-      'res/xml/taptime_da5_v5_validation_network_security.xml',
+      networkPolicyPath,
     ],
   );
   const backupPolicy = runText(
@@ -263,7 +320,7 @@ export function inspectDa5V5ValidationApk(
       'dump',
       'xmltree',
       apkPath,
-      'res/xml/taptime_da5_v5_validation_data_extraction_rules.xml',
+      backupPolicyPath,
     ],
   );
   const signature = runText(

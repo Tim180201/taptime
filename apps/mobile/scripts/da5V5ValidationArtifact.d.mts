@@ -102,6 +102,10 @@ export function verifyDa5V5ValidationArtifactBinding(
 export function verifyDa5V5ValidationApkInspection(
   inspection: Da5V5ValidationApkInspection,
 ): Readonly<{ status: 'match' }>;
+export function resolveDa5V5ValidationPackagedXmlPath(
+  resources: string,
+  resourceName: string,
+): string;
 export function inspectDa5V5ValidationApk(
   apkPath: string,
   environment?: NodeJS.ProcessEnv,
