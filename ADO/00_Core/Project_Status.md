@@ -1,6 +1,6 @@
 # Project Status
 
-Status: CORE ROADMAP V2 COMPLETIONS REMAIN PRESERVED FOR THEIR RECORDED SCOPES — DA4 REMAINS OPEN FOR A LATER FRESH HUMAN V5 — DA5 V0–V4, THE LOCAL DA5-V5 RUNTIME GUARD AND FINAL VALIDATION APP QUERY-VISIBILITY CORRECTION `5c239b1` ARE INDEPENDENTLY APPROVED WITH ZERO OPEN P0–P3; SOURCE CI AND REVIEW-BASE CI PASSED 12/12 AND THE REPLACEMENT READ-ONLY ARTIFACT PASSED THE OFFICIAL VERIFIER — TWO PHASE-0 AUTHORITIES WERE CONSUMED FAIL-CLOSED BEFORE ANY TAG SCAN; NO FURTHER PHASE-0/HARDWARE/ADB/INSTALLATION OR PRODUCT-HUMAN-V5 AUTHORITY EXISTS — PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, SYSTEM CHANGES, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
+Status: CORE ROADMAP V2 COMPLETIONS REMAIN PRESERVED FOR THEIR RECORDED SCOPES — DA4 REMAINS OPEN FOR A LATER FRESH HUMAN V5 — DA5 V0–V4, THE LOCAL DA5-V5 RUNTIME GUARD AND FINAL VALIDATION RUNTIME CORRECTION `7e8c0f7` ARE INDEPENDENTLY APPROVED WITH ZERO OPEN P0–P3; EXACT-HEAD CI PASSED 12/12 AND THE FINAL READ-ONLY ARTIFACT PASSED THE OFFICIAL VERIFIER AND ARTIFACT EXACT-SHA REVIEW — FOUR PHASE-0 AUTHORITIES WERE CONSUMED FAIL-CLOSED BEFORE ANY TAG SCAN; THE RUNTIME-CORRECTED APK WAS NOT INSTALLED AND NO FURTHER PHASE-0/HARDWARE/ADB/INSTALLATION OR PRODUCT-HUMAN-V5 AUTHORITY EXISTS — PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, SYSTEM CHANGES, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
 DA5 decision-time Option-A trust anchor: exactly two direct admin-group members, zero nested
 groups; full-record SHA-256 `b006276c09d8f2713f6132ea79cec167ab3a3c2887ee53e95eb00c1cc33719a5`;
 membership SHA-256 `70a683b7ebc7981533015d5d63cf12dfb2eabbfa665c34720eddb4d09e9e3064`;
@@ -16,30 +16,48 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
 
 ## Current State
 
-- **DA5-V5 query-visibility correction is independently approved; any new Phase-0 authority
+- **DA5-V5 Validation Runtime correction is independently approved; any new Phase-0 authority
   remains separately gated.** Runtime Guard source
   `ba1b6e922ceb7902ecedd9dc2df01d6b22d90867`, tree
   `980b6c57fdd71c12820f2890b640946db0d883c6`, passed CI `30255104609`, attempt 2,
   12/12; attempt 1 had only one B5 Docker-Hub pull timeout before checkout. Its immutable
   74,336-byte `0555` binary (`4b2a7e6b…d5853c`) and 19,971-byte `0444` manifest
   (`957d6e99…5f709`) received independent Exact-SHA `APPROVED` with zero open P0–P3.
-  Final Validation App correction `5c239b1c30c6263a036077460e23373b767f66df`, tree
+  The historical query-visibility predecessor `5c239b1c30c6263a036077460e23373b767f66df`, tree
   `53e8d4ed012ccc662f1005f895a3b6e685cf560e`, binds exactly one queries block, the two
   TalkBack package queries, one exact `VIEW` + `BROWSABLE` + `https` intent and zero providers.
-  Exact-head CI `30276804017`, attempt 1, passed 12/12. The replacement immutable
-  65,734,361-byte `0444` APK (`c87b2e2b…af95db`) and 6,700-byte `0444` manifest
-  (`5c6ea1bc…fd74fb`) passed the official verifier. Independent Exact-SHA re-review of review base
+  Exact-head CI `30276804017`, attempt 1, passed 12/12. Independent Exact-SHA re-review of review base
   `11a8269de145ad33c230f55a064bd18f9bb59731`, tree
   `2292010e43d2620fbdbba6eeb6a9d77c36674144`, and CI `30277641127`, attempt 1,
   12/12, returned `APPROVED` with zero open P0–P3; P1 and P3 are closed. The provider policy still
   permits exactly one installed and active Google or Samsung TalkBack provider; none or both fail
-  closed. Two separately authorized
-  Phase-0 attempts are consumed: run 1 stopped before Product action on a preinstalled Validation
-  package; run 2 stopped before installation or NFC because the then-current app supported only
-  Google while Samsung TalkBack `15.1.01.1` was active. Cleanup confirmed package zero and zero
-  reverse mappings after both runs; no Tag was scanned. No further hardware, ADB or installation action
-  is authorized or run on the replacement artifact, and Product Human V5 remains not run and
-  separately gated.
+  closed.
+
+  Validation Runtime baseline `dbf8cfe643b56bdb3c6c371a95bfc463bbf8042f`, tree
+  `80e17f54d62d386a02af3aa7e71b152cc3edb7b5`, first produced source
+  `86c55fb17f64325046f2b25b45b84550c5a4b2bd`, tree
+  `3a771945bc34852e4de098464c6c5bb82e74540b`; CI `30282537778`, attempt 1, failed
+  only because the real Metro regression exceeded its five-second test timeout. Timeout candidate
+  `534b6d23e9391431fb4527c76347c16821ce3e18`, tree
+  `a07429424184b4cd0b10841ea3e57c872afc4c8d`, passed CI `30282863442`, attempt 1,
+  12/12, but independent review returned `CHANGES REQUIRED` for exactly one P1: the syntax-based
+  native-module graph was fail-open. Final correction
+  `7e8c0f7742e6407b8917205fd337a552f7dec714`, tree
+  `3e4d1356b859fecf70d365fecbb563e2088100f3`, passed CI `30284566289`, attempt 1,
+  12/12; independent re-review returned `APPROVED` with zero open P0–P3. It binds the exact
+  executable Metro bundle and complete source closure, keeps ExpoAsset absent and preserves
+  `com.tim180201.mobile.validation`, the local synthetic signer, exact required native modules
+  and zero forbidden modules or extra permissions. The final 65,626,753-byte `0444` APK
+  (`303bfd33…7f2f8`) and 6,700-byte `0444` manifest (`11c1664c…39388a7`) passed the
+  official verifier and independent Artifact Exact-SHA review with zero open P0–P3.
+
+  Four separately authorized Phase-0 attempts are consumed before any Tag scan: run 1 stopped on
+  a preinstalled Validation package; run 2 on the unsupported Samsung provider in the then-prior
+  build; run 3 because the generic launcher/package resolver did not uniquely start the explicit
+  Activity; and run 4 after explicit `.MainActivity` reached cold start but failed on missing
+  ExpoAsset, opening `DA5-V5-VAL-RUNTIME-01`. Cleanup ended with package, process and reverse
+  mappings at zero. The runtime-corrected APK was not installed. No current Phase-0, hardware,
+  ADB, installation or Product Human-V5 authority exists.
 - **Development Assignment 5 Workstreams A–F and V0–V4 are technically closed/MERGE_READY;
   Human V5 remains unauthorized.** The Human Architect expressly accepted ADR-0016/DA5-P01–P12 and
   ADR-0017/DA5-T01–T15 and authorized the bounded Development implementation plus subsequent
@@ -944,8 +962,8 @@ Two Epics are concurrently Active, per EP-009's own stated relationship to the r
    `DA4-V5-H03`. Any later DA4 Human V5 requires a new separate exact-bound authorization; no
    reuse, retry, repair or resume is authorized.
 6. Preserve DA5 V0–V4 closure and the independently approved local DA5-V5 Runtime Guard and
-   the exact corrected Validation App binding above. Treat Shared-Cluster work as historical
-   `BLOCKED`/not Evidence and both failed Phase-0 attempts as consumed, non-reusable history.
+   exact runtime-corrected Validation App binding above. Treat Shared-Cluster work as historical
+   `BLOCKED`/not Evidence and all four failed Phase-0 attempts as consumed, non-reusable history.
    Do not begin another Phase 0 without a fresh explicit one-time Human authorization limited to
    the corrected exact Validation APK, Galaxy A33, three read-only A/B/X Tag scans,
    device/accessibility binding and complete uninstall/cleanup. Product APK installation and

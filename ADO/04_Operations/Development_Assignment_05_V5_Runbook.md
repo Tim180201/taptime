@@ -1,6 +1,6 @@
 # Development Assignment 5 — V5 Human Android Gate Runbook
 
-- Status: **FINAL VALIDATION QUERY-VISIBILITY CORRECTION/REPLACEMENT ARTIFACT INDEPENDENTLY APPROVED WITH ZERO OPEN P0–P3 — TWO PHASE-0 AUTHORITIES CONSUMED FAIL-CLOSED; NO CURRENT PHASE-0 OR HUMAN-V5 AUTHORITY/DO NOT START**
+- Status: **FINAL VALIDATION RUNTIME CORRECTION/ARTIFACT INDEPENDENTLY APPROVED WITH ZERO OPEN P0–P3 — FOUR PHASE-0 AUTHORITIES CONSUMED FAIL-CLOSED; RUNTIME-CORRECTED APK NOT INSTALLED; NO CURRENT PHASE-0 OR HUMAN-V5 AUTHORITY/DO NOT START**
 - Date: 2026-07-27
 - Owner: Technical Lead
 - Approval authority for any run: Human Architect
@@ -9,38 +9,50 @@
 
 The Runtime Guard is bound to source `ba1b6e922ceb7902ecedd9dc2df01d6b22d90867`,
 tree `980b6c57fdd71c12820f2890b640946db0d883c6`, CI `30255104609`, attempt 2,
-12/12, and independently approved immutable binary/manifest. Final Validation App correction
+12/12, and independently approved immutable binary/manifest. Historical query-visibility correction
 `5c239b1c30c6263a036077460e23373b767f66df`, tree
 `53e8d4ed012ccc662f1005f895a3b6e685cf560e`, passed exact-head CI `30276804017`,
-attempt 1, 12/12. Its replacement APK/manifest passed the official verifier. Independent
-Exact-SHA re-review of review base `11a8269de145ad33c230f55a064bd18f9bb59731`, tree
+attempt 1, 12/12. Independent Exact-SHA re-review of review base
+`11a8269de145ad33c230f55a064bd18f9bb59731`, tree
 `2292010e43d2620fbdbba6eeb6a9d77c36674144`, and CI `30277641127`, attempt 1,
 12/12, returned `APPROVED` with zero open P0–P3; P1 and P3 are closed. Stopped intermediate
 `0f7e131` produced no published artifact.
 
-**Phase 0 — Validation Binding Preflight** has no current authority. Two prior one-time
-authorizations are consumed: run 1 stopped before Product action because a Validation package was
-already installed; run 2 stopped before installation or NFC because the prior app supported only
-Google while Samsung TalkBack `15.1.01.1` was active. Both runs cleaned to package zero and zero
-reverse mappings; no Tag was scanned. A future fresh one-time authorization must bind the Galaxy
-A33 plus still-unbound OS/build/accessibility values and three still-unbound safe Tag fingerprints
-to A/B/X. Only the exact replacement read-only Validation APK may be installed; scans are
-read-only and must perform no auth, network, database, Product action or timekeeping. Complete
+The exact Validation Runtime correction/review sequence is archived in
+`ADO/05_Evidence/Development_Assignment_05_V5_Validation_Runtime_Correction_Independent_Exact_SHA_Review.md`.
+Only final correction `7e8c0f7742e6407b8917205fd337a552f7dec714`, tree
+`3e4d1356b859fecf70d365fecbb563e2088100f3`, passed CI `30284566289`, attempt 1,
+12/12; independent re-review returned `APPROVED` with zero open P0–P3. Its exact executable Metro
+bundle/source closure, ExpoAsset absence, Validation package, local synthetic signer, exact
+required native modules and zero forbidden modules or extra permissions are bound. The final
+APK/manifest passed the official verifier and independent Artifact Exact-SHA review with zero
+open P0–P3.
+
+**Phase 0 — Validation Binding Preflight** has no current authority. Four prior one-time
+authorizations are consumed before any Tag scan: run 1 stopped on a preinstalled Validation
+package; run 2 on the unsupported Samsung provider in the then-prior build; run 3 because the
+generic launcher/package resolver did not uniquely start the explicit Activity and cleaned; run 4
+after explicit `.MainActivity` reached cold start but failed on missing ExpoAsset, opening
+`DA5-V5-VAL-RUNTIME-01`. Final cleanup confirmed package, process and reverse mappings at zero.
+The runtime-corrected APK was not installed. A future fresh one-time authorization must bind the
+Galaxy A33 plus still-unbound OS/build/accessibility values and three still-unbound safe Tag
+fingerprints to A/B/X. Only the exact final read-only Validation APK below may be installed; scans
+are read-only and must perform no auth, network, database, Product action or timekeeping. Complete
 uninstall and scoped cleanup are mandatory.
 
 | Phase 0 artifact | Exact binding |
 |---|---|
 | Runtime Guard binary | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-runtime-guard/ba1b6e922ceb7902ecedd9dc2df01d6b22d90867/da5_v5_runtime_guard`; 74,336 bytes; mode `0555`; SHA-256 `4b2a7e6b15d3348dffda94f9125c20a4db82bb8eb08a03aabd35932ad0d5853c` |
 | Runtime Guard manifest/review | Same directory, `guard-manifest.txt`; 19,971 bytes; mode `0444`; SHA-256 `957d6e99c271663763945026995e7463cf2f20b385eb942fd16a152d3de5f709`; focused evidence SHA-256 `440928371f7acc48272eff2e819c37a851d66cae4a908ffa330228982328d708`; independent Exact-SHA `APPROVED`, zero open P0–P3 |
-| Validation APK | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-validation/da5-v5-validation-5c239b1c30c6-c87b2e2b804a3db7/app-release-c87b2e2b804a3db7.apk`; 65,734,361 bytes; mode `0444`; SHA-256 `c87b2e2b804a3db79c7a74d1e055363577a6661652b32695ff5a853324af95db` |
-| Validation manifest | Same directory, `manifest-5c239b1c30c6.json`; 6,700 bytes; mode `0444`; SHA-256 `5c6ea1bc5d0f6d7db67d8c1bf45a7eaab2d14397adf9d38afe401928d8fd74fb` |
+| Validation APK | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-validation/da5-v5-validation-7e8c0f7742e6-303bfd33cf7fa000/app-release-303bfd33cf7fa000.apk`; 65,626,753 bytes; mode `0444`; SHA-256 `303bfd33cf7fa000ee808a048f91883c18dbfe85c1ba359d3f0764ac7ae7f2f8` |
+| Validation manifest | Same directory, `manifest-7e8c0f7742e6.json`; 6,700 bytes; mode `0444`; SHA-256 `11c1664cee37caa8b093a9023f571e3b8733e8bb078bf7f78b6f20d8f39388a7` |
 | Package/runtime | `com.tim180201.mobile.validation`; signer `fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c`; `local-validation-only`; `NfcA+MifareUltralight`; exact roles A/B/X; exactly one active installed provider from `com.google.android.marvin.talkback` or `com.samsung.android.accessibility.talkback`; none or both fail closed; exactly one queries block with those two package queries, one exact `VIEW` + `BROWSABLE` + `https` intent and zero providers; no Product deep link or Tag dispatch |
-| Native/source verification | Final correction `5c239b1c30c6263a036077460e23373b767f66df`, tree `53e8d4ed012ccc662f1005f895a3b6e685cf560e`; exact-head CI `30276804017`, attempt 1, 12/12; official artifact verifier `PASS`; review base `11a8269de145ad33c230f55a064bd18f9bb59731`, tree `2292010e43d2620fbdbba6eeb6a9d77c36674144`, CI `30277641127`, attempt 1, 12/12; independent Exact-SHA re-review `APPROVED`, zero open P0–P3 |
+| Native/source verification | Final correction `7e8c0f7742e6407b8917205fd337a552f7dec714`, tree `3e4d1356b859fecf70d365fecbb563e2088100f3`; exact-head CI `30284566289`, attempt 1, 12/12; exact 2,032,807-byte executable Metro bundle SHA-256 `e4caf2db73cfbcdaf779f337bf3a3f99e95d182950522323052bc31ae10c93d3`; exact 555-source/2,667,064-source-byte closure SHA-256 `29691fc137c63906e5cf0c5cd47e2df0643064ab6dbddc00e0d3ec467d492ed3`; independent correction re-review and Artifact Exact-SHA review each `APPROVED`, zero open P0–P3; official artifact verifier `PASS` |
 | Device, accessibility and A/B/X fingerprints | `UNBOUND — DO NOT START` |
-| One-time Phase 0 authorization/result | `RUN 1 CONSUMED — PREINSTALLED PACKAGE`; `RUN 2 CONSUMED — SAMSUNG PROVIDER UNSUPPORTED BY PRIOR BUILD`; no current authority |
+| One-time Phase 0 authorization/result | `RUN 1 CONSUMED — PREINSTALLED PACKAGE`; `RUN 2 CONSUMED — SAMSUNG PROVIDER UNSUPPORTED BY PRIOR BUILD`; `RUN 3 CONSUMED — GENERIC RESOLVER DID NOT UNIQUELY START EXPLICIT ACTIVITY`; `RUN 4 CONSUMED — EXPLICIT MAINACTIVITY COLD START FAILED MISSING EXPOASSET`; no Tag scanned; final cleanup package/process/reverse zero; corrected APK not installed; no current authority |
 
-**Later Product Human V5** remains the separate run described below. Neither consumed Phase 0
-supplies a Product/Human-V5 result. No further installation, ADB or hardware action is authorized
+**Later Product Human V5** remains the separate run described below. None of the four consumed
+Phase-0 attempts supplies a Product/Human-V5 result. No further installation, ADB or hardware action is authorized
 until a fresh exact Human authorization; production, production data, system changes, deployment
 and distribution remain unauthorized.
 

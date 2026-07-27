@@ -1,6 +1,6 @@
 # Development Assignment 5 — V5 Operational Enablement Authorization Candidate
 
-- Status: **FINAL VALIDATION QUERY-VISIBILITY CORRECTION INDEPENDENTLY APPROVED WITH ZERO OPEN P0–P3; SOURCE/REVIEW CI GREEN AND REPLACEMENT ARTIFACT VERIFIED; TWO PHASE-0 AUTHORITIES CONSUMED FAIL-CLOSED BEFORE ANY TAG SCAN; NO CURRENT PHASE-0/HARDWARE/ADB/INSTALLATION OR HUMAN-V5 AUTHORITY**
+- Status: **FINAL VALIDATION RUNTIME CORRECTION AND ARTIFACT INDEPENDENTLY APPROVED WITH ZERO OPEN P0–P3; EXACT-HEAD CI 12/12 AND OFFICIAL VERIFIER PASS; FOUR PHASE-0 AUTHORITIES CONSUMED FAIL-CLOSED BEFORE ANY TAG SCAN; RUNTIME-CORRECTED APK NOT INSTALLED; NO CURRENT PHASE-0/HARDWARE/ADB/INSTALLATION OR HUMAN-V5 AUTHORITY**
 - Date: 2026-07-27
 - Candidate baseline commit: `7fe725360935a5d9587e3dfbdb2789d8309342df`
 - Candidate baseline tree: `0abaa77443a2abf81fd815ec138776155188bfc0`
@@ -14,14 +14,30 @@
   `CHANGES REQUIRED` for P1 package visibility and P3 stale Runtime-Guard navigation
 - Validation intermediate correction: `0f7e131`; real build stopped before publication on the
   over-strict HTTPS-query verifier; no artifact published
-- Validation final correction source: `5c239b1c30c6263a036077460e23373b767f66df`,
+- Validation query-visibility final correction source: `5c239b1c30c6263a036077460e23373b767f66df`,
   tree `53e8d4ed012ccc662f1005f895a3b6e685cf560e`
-- Validation final correction Exact-Head CI: `30276804017`, attempt 1, 12/12 successful
-- Validation final correction review base: `11a8269de145ad33c230f55a064bd18f9bb59731`,
+- Validation query-visibility final correction Exact-Head CI: `30276804017`, attempt 1,
+  12/12 successful
+- Validation query-visibility final correction review base:
+  `11a8269de145ad33c230f55a064bd18f9bb59731`,
   tree `2292010e43d2620fbdbba6eeb6a9d77c36674144`
-- Validation final correction review-base CI: `30277641127`, attempt 1, 12/12 successful
-- Validation final correction independent Exact-SHA re-review: **APPROVED; zero open P0–P3;
-  P1/P3 closed**
+- Validation query-visibility final correction review-base CI: `30277641127`, attempt 1,
+  12/12 successful
+- Validation query-visibility final correction independent Exact-SHA re-review:
+  **APPROVED; zero open P0–P3; P1/P3 closed**
+- Validation Runtime correction baseline: `dbf8cfe643b56bdb3c6c371a95bfc463bbf8042f`,
+  tree `80e17f54d62d386a02af3aa7e71b152cc3edb7b5`
+- Validation Runtime first source: `86c55fb17f64325046f2b25b45b84550c5a4b2bd`,
+  tree `3a771945bc34852e4de098464c6c5bb82e74540b`; CI `30282537778`, attempt 1,
+  failed only on the five-second test timeout
+- Validation Runtime timeout candidate: `534b6d23e9391431fb4527c76347c16821ce3e18`,
+  tree `a07429424184b4cd0b10841ea3e57c872afc4c8d`; CI `30282863442`, attempt 1,
+  12/12; independent review `CHANGES REQUIRED`, exactly one P1 fail-open syntax graph
+- Validation Runtime final correction: `7e8c0f7742e6407b8917205fd337a552f7dec714`,
+  tree `3e4d1356b859fecf70d365fecbb563e2088100f3`; CI `30284566289`, attempt 1,
+  12/12; independent re-review **APPROVED; zero open P0–P3**
+- Validation Runtime final artifact: official verifier `PASS`; independent Artifact Exact-SHA
+  review **APPROVED; zero open P0–P3**
 - Isolated-PostgreSQL round-2 candidate: `7739757a4855ee7bac34408941e94c25516d75f5`
 - Isolated-PostgreSQL round-2 tree/parent: `0398066e92fef65562526f61c9515b0ef3be0114` /
   `72fbd3c20329dfbf3e8a1509025bd630b1bb130a`
@@ -71,19 +87,43 @@ repository truth is later and stopped before any further hardware action:
   `5c239b1c30c6263a036077460e23373b767f66df`, tree
   `53e8d4ed012ccc662f1005f895a3b6e685cf560e`, binds exactly one queries block, the two
   TalkBack package queries, one exact `VIEW` + `BROWSABLE` + `https` intent and zero providers.
-  Exact-head CI `30276804017`, attempt 1, passed 12/12. The replacement 65,734,361-byte `0444`
+  Exact-head CI `30276804017`, attempt 1, passed 12/12. That historical
+  65,734,361-byte `0444`
   APK (`c87b2e2b804a3db7…24af95db`) and 6,700-byte `0444` manifest
   (`5c6ea1bc5d0f6d7d…d8fd74fb`) passed the official verifier. Exactly one provider must be
   installed and active from the Google/Samsung allowlist; none or both fail closed. Independent
   Exact-SHA re-review of review base `11a8269de145ad33c230f55a064bd18f9bb59731`,
   tree `2292010e43d2620fbdbba6eeb6a9d77c36674144`, and CI `30277641127`, attempt 1,
   12/12, returned `APPROVED` with zero open P0–P3; P1 and P3 are closed.
+- The exact Validation Runtime correction/review sequence is bound above and archived in
+  `ADO/05_Evidence/Development_Assignment_05_V5_Validation_Runtime_Correction_Independent_Exact_SHA_Review.md`.
+  Final correction
+  `7e8c0f7742e6407b8917205fd337a552f7dec714`, tree
+  `3e4d1356b859fecf70d365fecbb563e2088100f3`, passed CI `30284566289`, attempt 1,
+  12/12; independent re-review returned `APPROVED` with zero open P0–P3. It binds the exact
+  2,032,807-byte executable Metro bundle
+  (`e4caf2db73cfbcdaf779f337bf3a3f99e95d182950522323052bc31ae10c93d3`) and exact
+  555-source/2,667,064-source-byte closure
+  (`29691fc137c63906e5cf0c5cd47e2df0643064ab6dbddc00e0d3ec467d492ed3`), keeps
+  ExpoAsset absent and preserves package `com.tim180201.mobile.validation`, the local synthetic
+  signer, exact required native modules and zero forbidden modules or extra permissions.
+- The final read-only APK
+  `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-validation/da5-v5-validation-7e8c0f7742e6-303bfd33cf7fa000/app-release-303bfd33cf7fa000.apk`
+  is 65,626,753 bytes, mode `0444`, SHA-256
+  `303bfd33cf7fa000ee808a048f91883c18dbfe85c1ba359d3f0764ac7ae7f2f8`.
+  Same-directory `manifest-7e8c0f7742e6.json` is 6,700 bytes, mode `0444`, SHA-256
+  `11c1664cee37caa8b093a9023f571e3b8733e8bb078bf7f78b6f20d8f39388a7`.
+  The official verifier returned `PASS`; independent Artifact Exact-SHA review returned
+  `APPROVED` with zero open P0–P3.
 
-Two earlier one-time Phase-0 authorities are consumed. Run 1 stopped before Product action because
-a Validation package was already installed. Run 2 stopped before installation or NFC because the
-then-current build supported only Google while Samsung TalkBack `15.1.01.1` was active. Cleanup
-confirmed package zero and zero reverse mappings after each run; no Tag was scanned. No further
-hardware, ADB or installation action is authorized or run on the corrected artifact. Another
+Four one-time Phase-0 authorities are consumed before any Tag scan. Run 1 stopped before Product
+action because a Validation package was already installed. Run 2 stopped before installation or
+NFC because the then-current build supported only Google while Samsung TalkBack `15.1.01.1` was
+active. Run 3 stopped because the generic launcher/package resolver did not uniquely start the
+explicit Activity and cleaned. Run 4 used explicit `.MainActivity`, reached cold start and failed
+on missing ExpoAsset, opening `DA5-V5-VAL-RUNTIME-01`. Final cleanup confirmed package, process
+and reverse mappings at zero. The runtime-corrected APK above was not installed. No further
+hardware, ADB or installation action is authorized. Another
 Phase 0 requires a fresh explicit one-time Human authorization limited to the exact replacement
 Validation APK, Galaxy A33, read-only A/B/X Tag binding, device/accessibility binding and complete
 uninstall/cleanup. Product APK installation and Human V5 remain later separate gates. Production,
