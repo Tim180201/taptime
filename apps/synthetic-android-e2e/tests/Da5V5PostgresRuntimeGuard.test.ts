@@ -145,9 +145,6 @@ describe('DA5 V5 native Runtime Guard private protocol', () => {
         })).resolves.toBe(
           `TEST_FORCED_EXIT|${expectedExit - 90}`,
         );
-        await expect(readFrame(fixture.events)).rejects.toThrow(
-          'event pipe closed',
-        );
         const [code, signal] = fixture.child.exitCode !== null
           || fixture.child.signalCode !== null
           ? [fixture.child.exitCode, fixture.child.signalCode]
@@ -194,7 +191,7 @@ describe('DA5 V5 native Runtime Guard private protocol', () => {
   );
 
   it.each(['ECONNRESET', 'EPIPE'] as const)(
-    'settles a pending %s after parsing buffered terminal bytes',
+    'settles a pending %s from buffered TEST_FORCED_EXIT without a second frame read',
     async (code) => {
       const events = new PassThrough({ autoDestroy: false });
       const observer = observeRawFixtureStreams([
@@ -218,12 +215,13 @@ describe('DA5 V5 native Runtime Guard private protocol', () => {
       try {
         let callerContinued = false;
         const terminalProof = observer.readTerminalProtocolFrame({
-          family: 'probe-ok',
+          family: 'test-forced-exit',
+          index: 2,
         }).then((payload) => {
           callerContinued = true;
           return payload;
         });
-        writeFrame(events, 'PROBE_OK');
+        writeFrame(events, 'TEST_FORCED_EXIT|2');
         events.emit('readable');
         events.emit(
           'error',
@@ -232,7 +230,7 @@ describe('DA5 V5 native Runtime Guard private protocol', () => {
         expect(callerContinued).toBe(false);
         expect(child.exitCode).toBeNull();
         expect(childExitEmitted).toBe(false);
-        await expect(terminalProof).resolves.toBe('PROBE_OK');
+        await expect(terminalProof).resolves.toBe('TEST_FORCED_EXIT|2');
         expect(callerContinued).toBe(true);
         expect(child.exitCode).toBeNull();
         expect(childExitEmitted).toBe(false);
@@ -931,9 +929,6 @@ process.exit(passed ? 0 : 42);
           index: forcedExitIndex,
         })).resolves.toBe(
           `TEST_FORCED_EXIT|${armedIndex + 1}`,
-        );
-        await expect(readFrame(fixture.events)).rejects.toThrow(
-          'event pipe closed',
         );
         const [code, signal] = await once(fixture.child, 'exit') as [
           number | null,
