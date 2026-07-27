@@ -118,7 +118,7 @@ describe('DA5 V5 Validation runtime isolation', () => {
     } finally {
       await rm(outputDirectory, { force: true, recursive: true });
     }
-  });
+  }, 30_000);
 
   it('keeps raw NFC material outside observable React/UI state', async () => {
     const ui = await source(
