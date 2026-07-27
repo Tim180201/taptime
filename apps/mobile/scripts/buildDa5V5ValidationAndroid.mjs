@@ -5,6 +5,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { createRequire } from 'node:module';
+import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
@@ -31,7 +32,9 @@ import {
 } from './da5V5ValidationNativeSourceBinding.mjs';
 
 const require = createRequire(import.meta.url);
-const mobileDirectory = fileURLToPath(new URL('..', import.meta.url));
+const mobileDirectory = resolve(
+  fileURLToPath(new URL('..', import.meta.url)),
+);
 const androidDirectory = fileURLToPath(new URL('../android', import.meta.url));
 const packageJsonPath = fileURLToPath(new URL('../package.json', import.meta.url));
 const releaseApkPath = fileURLToPath(new URL(

@@ -146,6 +146,11 @@ describe('DA5 V5 Validation runtime isolation', () => {
     const publisher = await source(
       '../../scripts/publishDa5V5ValidationArtifact.mjs',
     );
+    expect(build).toContain(
+      "const mobileDirectory = resolve(\n"
+      + "  fileURLToPath(new URL('..', import.meta.url)),\n"
+      + ');',
+    );
     expect(build).toContain("'--offline', '--no-daemon'");
     expect(build).toContain('createDa5V5ValidationBuildEnvironment');
     expect(build).toContain('createDa5V5ValidationSourceClosure');
