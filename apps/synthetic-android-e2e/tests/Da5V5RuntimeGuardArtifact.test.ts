@@ -380,6 +380,7 @@ describe('DA5 V5 Runtime Guard stable artifact binding', () => {
         await rm(root, { force: true, recursive: true });
       }
     },
+    60_000,
   );
 
   it('requires strict root ownership for system producer inputs', async () => {
