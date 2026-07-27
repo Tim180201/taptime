@@ -1,7 +1,7 @@
 # Development Assignment 5 — V5 Operational Enablement Authorization Candidate
 
-- Status: **READ-ONLY PRODUCT/ARTIFACT BINDINGS PRESERVED; ALL SHARED-CLUSTER FOLLOW-UP BLOCKED/NOT EVIDENCE; ISOLATED-POSTGRESQL EXTRA-ROUND `43567d2` REVIEWED `CHANGES REQUIRED` WITH EXACTLY ONE P1 AND ZERO P0/P2/P3, INITDB P1-B CLOSED; HUMAN TRUSTED THE EXACT DECISION-TIME LOCAL MACOS ADMIN-GROUP SNAPSHOT UNDER OPTION A AND AUTHORIZED ONE LAST FOCUSED ADO CORRECTION/REVIEW ROUND; CURRENT LAST-ROUND DRAFT STILL REQUIRES FOCUSED PUBLICATION, EXACT-HEAD CI AND INDEPENDENT EXACT-DELTA `APPROVED`/NO IMPLEMENTATION AUTHORITY; HUMAN V5 UNAUTHORIZED**
-- Date: 2026-07-26
+- Status: **LOCAL DA5-V5 SOFTWARE/ARTIFACT PREPARATION COMPLETE AND INDEPENDENTLY APPROVED THROUGH THE BINDING-PREFLIGHT STOP; PHASE 0 BINDING PREFLIGHT, INSTALLATION, ADB, HARDWARE AND HUMAN V5 NOT RUN/UNAUTHORIZED**
+- Date: 2026-07-27
 - Candidate baseline commit: `7fe725360935a5d9587e3dfbdb2789d8309342df`
 - Candidate baseline tree: `0abaa77443a2abf81fd815ec138776155188bfc0`
 - Reviewed Product source/lock commit: `a323834f51607841d0cd5f11aafdbfd3dd93ed5f`
@@ -39,8 +39,28 @@
   same-UID or exact-bound trusted-member processes and mount/unmount churn outside the threat model**
 - Owner: Technical Lead
 - Decision authority: Human Architect
-- Risk class: current ADO-only last-round synchronization **R0**; proposed executable enablement
-  **R3** only after focused publication, exact-head CI and independent approval
+- Risk class: current truth synchronization **R0**; completed executable preparation **R3**
+
+## 0. Current closure and stop boundary
+
+The detailed sections below preserve the pre-implementation design and review history. Current
+repository truth is later and complete through the stop immediately before hardware:
+
+- Runtime Guard source `ba1b6e922ceb7902ecedd9dc2df01d6b22d90867`, tree
+  `980b6c57fdd71c12820f2890b640946db0d883c6`, CI `30255104609`, attempt 2,
+  12/12. Attempt 1 was only a B5 Docker-Hub pull timeout before checkout. Its immutable binary
+  and manifest plus focused evidence received independent Exact-SHA `APPROVED` with zero open
+  P0–P3.
+- Validation App source `d99df60073e8034a4a65109a05269c442f068d81`, tree
+  `e39e216c5213f22cd2a22806e600bc3b7c61b374`, CI `30258214028`, attempt 1,
+  12/12. Its immutable APK/manifest passed the official verifier and independent combined
+  Exact-SHA review with zero open P0–P3.
+
+No installation, ADB, device/Tag observation or Human V5 occurred. The next safe step requires a
+fresh explicit one-time Phase 0 authorization limited to the exact Validation APK, Galaxy A33,
+read-only A/B/X Tag binding, device/accessibility binding and complete uninstall/cleanup. Product
+APK installation and Human V5 remain later separate gates. Production, production data, system
+changes, deployment and distribution remain unauthorized.
 
 ## 1. Objective and verified gap
 

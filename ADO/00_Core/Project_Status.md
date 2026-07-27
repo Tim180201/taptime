@@ -1,13 +1,13 @@
 # Project Status
 
-Status: CORE ROADMAP V2 BLOCK A, B1–B6, C1/C2, C3B, C3C, C3D, C3E1, C3E2, BLOCK D, E1 AND NARROW E2A COMPLETE FOR THEIR RECORDED SCOPES — DEVELOPMENT ASSIGNMENTS 1–3 AND DT-060–DT-074 CLOSED FOR THEIR EXACT AUTHORIZED LOCAL SCOPES — DA4 WORKSTREAMS A–D, AVS V0–V4, H01 PROCEDURAL CORRECTION, DA4-V5-F06 AND DA4-V5-F07 INDEPENDENTLY APPROVED; DA4 REMAINS OPEN FOR A LATER FRESH HUMAN V5 — DA5 V0–V4 SOFTWARE IS TECHNICALLY CLOSED; CURRENT SOURCE+LOCK BASELINE `a323834`, TREE `65c669b`, PASSED EXACT-HEAD CI `30149165373` 12/12 AND INDEPENDENT IMPLEMENTATION REVIEW ROUND 2 `APPROVED` WITH ZERO OPEN P0–P3; THE READ-ONLY SYNTHETIC V5 APK/MANIFEST EVIDENCE AT `e6a06e2`, TREE `6dcdce4`, PASSED EXACT-HEAD CI `30150095109` 12/12 AND FINAL INDEPENDENT ARTIFACT/EVIDENCE EXACT-SHA REVIEW `APPROVED` WITH ZERO OPEN P0–P3; ALL SHARED-CLUSTER FOLLOW-UP IS BLOCKED AND NOT EVIDENCE; ISOLATED-POSTGRESQL EXTRA-ROUND CANDIDATE `43567d256e8f633f16866448e1fb5abbd8022733`, TREE `feecced92abe9fc536a2db052b5a616d3e0f1cf7`, PARENT `bbcb1b59703ee866539b2bc384ec9db8c2643fe4`, PASSED EXACT-HEAD CI `30186846379` ATTEMPT 1 12/12, BUT INDEPENDENT EXACT-DELTA REVIEW RETURNED `CHANGES REQUIRED` WITH EXACTLY ONE P1 AND ZERO P0/P2/P3; INITDB P1-B IS CLOSED; THE HUMAN ARCHITECT CONFIRMED THE SECOND LOCAL ADMINISTRATOR AND EXACT COMPLETE DECISION-TIME LOCAL MACOS ADMIN-GROUP MEMBERSHIP SNAPSHOT ARE TRUSTED UNDER OPTION A AND AUTHORIZED EXACTLY ONE LAST FOCUSED ADO CORRECTION/REVIEW ROUND LIMITED TO THE REMAINING HOMEBREW-GROUP P1; THE CURRENT R0 LAST-ROUND DRAFT REMAINS UNBOUND AND FOCUSED PUBLICATION, EXACT-HEAD CI AND INDEPENDENT EXACT-DELTA `APPROVED` ARE REQUIRED BEFORE THE `AGENTS.md` STANDING RULE CAN ACTIVATE THE EXACT R3 SCOPE; NO IMPLEMENTATION OR HUMAN/HARDWARE AUTHORITY EXISTS — PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
+Status: CORE ROADMAP V2 COMPLETIONS REMAIN PRESERVED FOR THEIR RECORDED SCOPES — DA4 REMAINS OPEN FOR A LATER FRESH HUMAN V5 — DA5 V0–V4 AND THE COMPLETE LOCAL DA5-V5 SOFTWARE/ARTIFACT PREPARATION THROUGH THE BINDING-PREFLIGHT STOP ARE INDEPENDENTLY APPROVED WITH ZERO OPEN P0–P3; RUNTIME GUARD SOURCE `ba1b6e9`, VALIDATION APP SOURCE `d99df60` AND THEIR READ-ONLY ARTIFACTS ARE EXACTLY BOUND — BINDING PREFLIGHT, INSTALLATION, ADB, HARDWARE/TAG OBSERVATION AND PRODUCT HUMAN V5 ARE NOT RUN AND REQUIRE SEPARATE FRESH HUMAN AUTHORIZATION — PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, SYSTEM CHANGES, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
 DA5 decision-time Option-A trust anchor: exactly two direct admin-group members, zero nested
 groups; full-record SHA-256 `b006276c09d8f2713f6132ea79cec167ab3a3c2887ee53e95eb00c1cc33719a5`;
 membership SHA-256 `70a683b7ebc7981533015d5d63cf12dfb2eabbfa665c34720eddb4d09e9e3064`;
 combined snapshot SHA-256 `2384b0baccd9049d820794f8ebc9419e4af0fad6831a5a91c209baa0b4a02217`.
 A later R3 run must reproduce all three and both counts before capability/task-root creation and
 every trust use; mismatch returns to the Human Architect and may not dynamically rebind.
-Date: 2026-07-26
+Date: 2026-07-27
 Owner: Human Architect + Technical Lead
 
 ## Product
@@ -16,6 +16,20 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
 
 ## Current State
 
+- **DA5-V5 local preparation is complete immediately before hardware.** Runtime Guard source
+  `ba1b6e922ceb7902ecedd9dc2df01d6b22d90867`, tree
+  `980b6c57fdd71c12820f2890b640946db0d883c6`, passed CI `30255104609`, attempt 2,
+  12/12; attempt 1 had only one B5 Docker-Hub pull timeout before checkout. Its immutable
+  74,336-byte `0555` binary (`4b2a7e6b…d5853c`) and 19,971-byte `0444` manifest
+  (`957d6e99…5f709`) received independent Exact-SHA `APPROVED` with zero open P0–P3.
+  Validation App source `d99df60073e8034a4a65109a05269c442f068d81`, tree
+  `e39e216c5213f22cd2a22806e600bc3b7c61b374`, passed CI `30258214028`, attempt 1,
+  12/12. Its immutable 65,733,945-byte APK (`4b4f391d…d476a`) and 6,700-byte manifest
+  (`dd489668…f648`) passed the official verifier and independent combined Exact-SHA review with
+  zero open P0–P3. No installation, ADB, device/Tag observation or Human V5 occurred. The next
+  safe step is a fresh one-time Human authorization for Phase 0 only: install that Validation APK
+  on the Galaxy A33, read-only bind three Tags as A/B/X plus device/accessibility values, then
+  fully uninstall and clean up. Product APK installation and Human V5 remain later separate gates.
 - **Development Assignment 5 Workstreams A–F and V0–V4 are technically closed/MERGE_READY;
   Human V5 remains unauthorized.** The Human Architect expressly accepted ADR-0016/DA5-P01–P12 and
   ADR-0017/DA5-T01–T15 and authorized the bounded Development implementation plus subsequent
@@ -919,30 +933,13 @@ Two Epics are concurrently Active, per EP-009's own stated relationship to the r
 5. Preserve the independently approved `DA4-V5-F06` and `DA4-V5-F07` corrections plus failed
    `DA4-V5-H03`. Any later DA4 Human V5 requires a new separate exact-bound authorization; no
    reuse, retry, repair or resume is authorized.
-6. Preserve DA5 V0–V4 technical closure at R0 truth synchronization `b777f702`, tree `54b257f`,
-   independently `APPROVED`, `MERGE_READY`, with zero open P0–P3. Preserve the read-only V5
-   artifact/evidence approval at `e6a06e2`, tree `6dcdce4`, exact-head CI `30150095109` 12/12
-   and final independent Artifact/Evidence Exact-SHA review `APPROVED` with zero open P0–P3.
-   It grants no Human-run authority. Treat every Shared-Cluster follow-up, including its 180/180
-   focused result, as `BLOCKED` and not Evidence. Preserve first isolated candidate `72fbd3c` /
-   tree `dda615e` / CI `30176432929` attempt 2 as historical review input. Round-2 candidate
-   `7739757`, tree `0398066`, parent `72fbd3c`, and CI `30177897059`, attempt 1, 12/12 as
-   historical round-2 truth. Round-3 candidate `bbcb1b5`, tree `dfb5abb`, parent `7739757`,
-   passed exact-head CI `30185670176`, attempt 1, 12/12, but independent review returned
-   `CHANGES REQUIRED` with exactly two P1 and zero P0/P2/P3. Extra-round candidate `43567d2`,
-   tree `feecced`, parent `bbcb1b5`, passed exact-head CI `30186846379`, attempt 1, 12/12;
-   independent Exact-Delta review returned `CHANGES REQUIRED` with exactly one P1 and zero
-   P0/P2/P3, while initdb P1-B closed. Preserve the Human Architect's exact Option A selection:
-   one exclusive trusted operator session whose exact complete decision-time local macOS admin-group
-   snapshot, including the second local administrator, is trusted; hostile/malicious same-UID or
-   exact-bound trusted-member processes and mount/unmount churn remain outside the threat model.
-   Under the Human-authorized one last focused correction/review round, focus-publish only the
-   seven-file remaining-P1 ADO correction, bind its exact commit/tree and successful exact-head
-   CI, and obtain independent Exact-Delta `APPROVED` with zero open P0–P3. Until then no
-   implementation authority exists; afterward only the `AGENTS.md` standing rule may activate
-   the exact reviewed R3 scope.
-   DA4's open Human gate and all Human/hardware V5 evidence remain separate and unauthorized.
-   Production, production data, deployment and distribution remain unauthorized.
+6. Preserve DA5 V0–V4 closure and the independently approved local DA5-V5 Runtime Guard and
+   Validation App bindings above. Treat Shared-Cluster work as historical `BLOCKED`/not Evidence.
+   Do not begin Phase 0 without a fresh explicit one-time Human authorization limited to the exact
+   Validation APK, Galaxy A33, three read-only A/B/X Tag scans, device/accessibility binding and
+   complete uninstall/cleanup. Product APK installation and Human V5 remain later separately
+   gated. Production, production data, system changes, deployment and distribution remain
+   unauthorized.
 
 ## Agreed comprehensive Development-assignment sequence
 

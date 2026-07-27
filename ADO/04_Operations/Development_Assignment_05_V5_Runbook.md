@@ -1,9 +1,40 @@
 # Development Assignment 5 — V5 Human Android Gate Runbook
 
-- Status: **READ-ONLY ARTIFACT/EVIDENCE APPROVED — HUMAN V5 UNAUTHORIZED**
-- Date: 2026-07-25
+- Status: **LOCAL SOFTWARE/ARTIFACT PREPARATION COMPLETE — PHASE 0 BINDING PREFLIGHT AND HUMAN V5 UNAUTHORIZED/DO NOT START**
+- Date: 2026-07-27
 - Owner: Technical Lead
 - Approval authority for any run: Human Architect
+
+## 0. Current non-executable bindings and phase separation
+
+The Runtime Guard is bound to source `ba1b6e922ceb7902ecedd9dc2df01d6b22d90867`,
+tree `980b6c57fdd71c12820f2890b640946db0d883c6`, CI `30255104609`, attempt 2,
+12/12, and independently approved immutable binary/manifest. Validation App source
+`d99df60073e8034a4a65109a05269c442f068d81`, tree
+`e39e216c5213f22cd2a22806e600bc3b7c61b374`, passed CI `30258214028`,
+attempt 1, 12/12 and independent combined Exact-SHA review with zero open P0–P3.
+
+**Phase 0 — Validation Binding Preflight** is not authorized and not run. A fresh one-time Human
+authorization must bind the Galaxy A33 plus still-unbound OS/build/accessibility values and three
+still-unbound safe Tag fingerprints to A/B/X. Only the exact read-only Validation APK may be
+installed; scans are read-only and must perform no auth, network, database, Product action or
+timekeeping. Complete uninstall and scoped cleanup are mandatory.
+
+| Phase 0 artifact | Exact binding |
+|---|---|
+| Runtime Guard binary | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-runtime-guard/ba1b6e922ceb7902ecedd9dc2df01d6b22d90867/da5_v5_runtime_guard`; 74,336 bytes; mode `0555`; SHA-256 `4b2a7e6b15d3348dffda94f9125c20a4db82bb8eb08a03aabd35932ad0d5853c` |
+| Runtime Guard manifest/review | Same directory, `guard-manifest.txt`; 19,971 bytes; mode `0444`; SHA-256 `957d6e99c271663763945026995e7463cf2f20b385eb942fd16a152d3de5f709`; focused evidence SHA-256 `440928371f7acc48272eff2e819c37a851d66cae4a908ffa330228982328d708`; independent Exact-SHA `APPROVED`, zero open P0–P3 |
+| Validation APK | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-validation/da5-v5-validation-d99df60073e8-4b4f391d2b623729/app-release-4b4f391d2b623729.apk`; 65,733,945 bytes; mode `0444`; SHA-256 `4b4f391d2b623729c08a024e7fd8df5671c6ecb17d1748d1a585783a360d476a` |
+| Validation manifest | Same directory, `manifest-d99df60073e8.json`; 6,700 bytes; mode `0444`; SHA-256 `dd4896683af6053cda026453835073ce7cc4dd4a0a2b87e9b6d21420b6d9f648` |
+| Package/runtime | `com.tim180201.mobile.validation`; signer `fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c`; `local-validation-only`; `NfcA+MifareUltralight`; exact roles A/B/X; no Product deep link or Tag dispatch |
+| Native/source closure | 587 entries / 464 files / 123 directories / 1,176,224 bytes / SHA-256 `9194be29b96a67c47aa40a4bdea7494155695e088d769e21c77eff305b1ee259`; all 32 source-closure entries byte-exact; official verifier `PASS` |
+| Device, accessibility and A/B/X fingerprints | `UNBOUND — DO NOT START` |
+| One-time Phase 0 authorization/result | `UNBOUND / NOT RUN` |
+
+**Later Product Human V5** remains the separate run described below. Phase 0 neither installs the
+Product APK nor supplies a Product/Human-V5 result. Installation, ADB and hardware remain
+unauthorized until their respective fresh Human authorizations; production, production data,
+system changes, deployment and distribution remain unauthorized.
 
 ## 1. Purpose and authority boundary
 

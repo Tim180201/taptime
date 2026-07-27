@@ -1,7 +1,7 @@
 # Development Assignment 5 — V5 Isolated PostgreSQL Correction Authorization
 
-- Status: **EXTRA-ROUND EXACT-DELTA `CHANGES REQUIRED` — EXACTLY ONE P1 AND ZERO P0/P2/P3; INITDB P1-B CLOSED; HUMAN ARCHITECT TRUSTS THE EXACT DECISION-TIME LOCAL MACOS ADMIN-GROUP SNAPSHOT UNDER OPTION A AND AUTHORIZED ONE LAST FOCUSED ADO CORRECTION/REVIEW ROUND; CURRENT LAST-ROUND DRAFT STILL REQUIRES FOCUSED PUBLICATION, EXACT-HEAD CI AND INDEPENDENT EXACT-DELTA `APPROVED`; NO IMPLEMENTATION/HARDWARE AUTHORITY**
-- Date: 2026-07-26
+- Status: **RUNTIME GUARD R3 IMPLEMENTATION, IMMUTABLE ARTIFACT AND INDEPENDENT EXACT-SHA REVIEW COMPLETE/APPROVED WITH ZERO OPEN P0–P3; HARDWARE NOT RUN/UNAUTHORIZED**
+- Date: 2026-07-27
 - Owner: Technical Lead
 - Decision authority: Human Architect
 - Exact round-2 candidate commit: `7739757a4855ee7bac34408941e94c25516d75f5`
@@ -35,9 +35,27 @@
   `70a683b7ebc7981533015d5d63cf12dfb2eabbfa665c34720eddb4d09e9e3064`
 - Decision-time combined snapshot SHA-256:
   `2384b0baccd9049d820794f8ebc9419e4af0fad6831a5a91c209baa0b4a02217`
-- Current correction risk: AVS `R0` documentation only
-- Proposed implementation risk only after focused publication, exact-head CI and a later
-  independent approval: AVS `R3`
+- Current synchronization risk: AVS `R0` documentation only
+- Completed implementation boundary: AVS `R3`
+
+## 0. Current implementation and artifact binding
+
+Sections 1–12 retain the authorization and review history. The resulting Runtime Guard source is
+bound to `ba1b6e922ceb7902ecedd9dc2df01d6b22d90867`, tree
+`980b6c57fdd71c12820f2890b640946db0d883c6`, CI `30255104609`, attempt 2,
+12/12; attempt 1 had only one B5 Docker-Hub pull timeout before checkout.
+
+- Binary:
+  `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-runtime-guard/ba1b6e922ceb7902ecedd9dc2df01d6b22d90867/da5_v5_runtime_guard`;
+  74,336 bytes; mode `0555`; SHA-256
+  `4b2a7e6b15d3348dffda94f9125c20a4db82bb8eb08a03aabd35932ad0d5853c`.
+- Manifest: same directory, `guard-manifest.txt`; 19,971 bytes; mode `0444`; SHA-256
+  `957d6e99c271663763945026995e7463cf2f20b385eb942fd16a152d3de5f709`.
+- Focused evidence SHA-256:
+  `440928371f7acc48272eff2e819c37a851d66cae4a908ffa330228982328d708`.
+- Independent Exact-SHA artifact review: `APPROVED`, zero open P0–P3.
+
+No hardware, ADB, installation, system change or Human V5 occurred.
 
 ## 1. Authority and repository truth
 
