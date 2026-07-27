@@ -8,6 +8,22 @@ const moduleDirectory = fileURLToPath(new URL(
 ));
 
 describe('DA5 V5 Android device binding native source', () => {
+  it('declares only the exact Google and Samsung package queries', async () => {
+    const manifest = await readFile(
+      `${moduleDirectory}/android/src/main/AndroidManifest.xml`,
+      'utf8',
+    );
+    expect(manifest).toBe([
+      '<manifest xmlns:android="http://schemas.android.com/apk/res/android">',
+      '  <queries>',
+      '    <package android:name="com.google.android.marvin.talkback" />',
+      '    <package android:name="com.samsung.android.accessibility.talkback" />',
+      '  </queries>',
+      '</manifest>',
+      '',
+    ].join('\n'));
+  });
+
   it('selects one allowed provider without rejecting unrelated services', async () => {
     const kotlin = await readFile(
       `${moduleDirectory}/android/src/main/java/com/taptime/`

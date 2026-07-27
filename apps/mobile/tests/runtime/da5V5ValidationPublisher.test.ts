@@ -16,6 +16,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
   DA5_V5_VALIDATION_LOCAL_SIGNER_SHA256,
+  DA5_V5_VALIDATION_TALKBACK_QUERY_PACKAGES,
   type Da5V5ValidationApkInspection,
 } from '../../scripts/da5V5ValidationArtifact.mjs';
 import {
@@ -280,6 +281,7 @@ function validInspection(): Da5V5ValidationApkInspection {
     networkSecurityConfig: true,
     nfcFeatureRequired: true,
     packageName: 'com.tim180201.mobile.validation',
+    packageVisibilityQueriesExact: true,
     permissions: [
       'android.permission.NFC',
       'com.tim180201.mobile.validation.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION',
@@ -288,6 +290,7 @@ function validInspection(): Da5V5ValidationApkInspection {
     productDeepLinks: false,
     productRuntimeMarker: false,
     productTagDispatch: false,
+    queryPackages: [...DA5_V5_VALIDATION_TALKBACK_QUERY_PACKAGES],
     requiredNativeModules: true,
     forbiddenNativeModules: false,
     signatureV1: false,

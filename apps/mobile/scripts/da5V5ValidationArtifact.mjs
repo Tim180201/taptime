@@ -39,6 +39,10 @@ export const DA5_V5_VALIDATION_LOCAL_SIGNER_SHA256 =
   'fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c';
 export const DA5_V5_VALIDATION_TECHNOLOGY =
   'NfcA+MifareUltralight';
+export const DA5_V5_VALIDATION_TALKBACK_QUERY_PACKAGES = Object.freeze([
+  'com.google.android.marvin.talkback',
+  'com.samsung.android.accessibility.talkback',
+]);
 
 const PRIVATE_RECEIVER_PERMISSION =
   `${DA5_V5_VALIDATION_PACKAGE}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION`;
@@ -218,6 +222,14 @@ export function verifyDa5V5ValidationApkInspection(inspection) {
     || inspection.cleartextTraffic !== false
     || inspection.networkSecurityConfig !== true
     || inspection.networkPolicyDenyAll !== true
+    || inspection.packageVisibilityQueriesExact !== true
+    || !Array.isArray(inspection.queryPackages)
+    || inspection.queryPackages.length
+      !== DA5_V5_VALIDATION_TALKBACK_QUERY_PACKAGES.length
+    || [...inspection.queryPackages].sort().join('\n')
+      !== [...DA5_V5_VALIDATION_TALKBACK_QUERY_PACKAGES]
+        .sort()
+        .join('\n')
     || inspection.productDeepLinks !== false
     || inspection.productTagDispatch !== false
     || inspection.requiredNativeModules !== true
@@ -310,7 +322,23 @@ export function inspectDa5V5ValidationManifestXmlTree(androidManifest) {
     ...xmlElementBlocks(androidManifest, 'activity'),
     ...xmlElementBlocks(androidManifest, 'activity-alias'),
   ].flatMap((activity) => xmlElementBlocks(activity, 'intent-filter'));
+  const queryBlocks = xmlElementBlocks(androidManifest, 'queries');
+  const queryPackages = queryBlocks.flatMap((query) => (
+    xmlElementBlocks(query, 'package')
+      .map((block) => exactAndroidStringAttribute(block, 'name'))
+  ));
+  const packageVisibilityQueriesExact =
+    queryBlocks.length === 1
+    && xmlElementBlocks(queryBlocks[0], 'intent').length === 0
+    && xmlElementBlocks(queryBlocks[0], 'provider').length === 0
+    && queryPackages.length
+      === DA5_V5_VALIDATION_TALKBACK_QUERY_PACKAGES.length
+    && [...queryPackages].sort().join('\n')
+      === [...DA5_V5_VALIDATION_TALKBACK_QUERY_PACKAGES]
+        .sort()
+        .join('\n');
   return Object.freeze({
+    packageVisibilityQueriesExact,
     privateReceiverPermissionGuard,
     productDeepLinks: activityIntentFilters.some((intentFilter) => (
       hasAndroidStringAttribute(
@@ -331,6 +359,7 @@ export function inspectDa5V5ValidationManifestXmlTree(androidManifest) {
         'android.nfc.action.TECH_DISCOVERED',
       )
     )),
+    queryPackages,
   });
 }
 
@@ -454,12 +483,15 @@ export function inspectDa5V5ValidationApk(
         "uses-feature-not-required: name='android.hardware.nfc'",
       ),
     packageName: packageMatch[1],
+    packageVisibilityQueriesExact:
+      manifestEvidence.packageVisibilityQueriesExact,
     permissions,
     privateReceiverPermissionGuard:
       manifestEvidence.privateReceiverPermissionGuard,
     productDeepLinks: manifestEvidence.productDeepLinks,
     productRuntimeMarker: hermesEvidence.productRuntimeMarker,
     productTagDispatch: manifestEvidence.productTagDispatch,
+    queryPackages: manifestEvidence.queryPackages,
     requiredNativeModules: nativeEvidence.requiredNativeModules,
     forbiddenNativeModules: nativeEvidence.forbiddenNativeModules,
     signatureV1: signatureValue(signature, 'v1 scheme (JAR signing)'),

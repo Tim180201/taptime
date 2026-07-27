@@ -488,7 +488,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Development Assignment 1 Gate-C Response-Drop Runbook | `ADO/04_Operations/Development_Assignment_01_Gate_C_Response_Drop_Runbook.md` |
 | Development Assignment 3 V5 Human Functional/Physical Gate Runbook — complete fresh run passed and final closure approved; permanently non-executable without new separate authority | `ADO/04_Operations/Development_Assignment_03_V5_Runbook.md` |
 | Development Assignment 4 V5 Human Browser Gate Runbook — first gate failed closed and authority is consumed; corrected checkpoint handshake independently approved, but execution requires new exact-bound Human authority | `ADO/04_Operations/Development_Assignment_04_V5_Runbook.md` |
-| Development Assignment 5 V5 Human Android Runbook — non-executable; Human trusted the exact decision-time local macOS admin-group snapshot under Option A and authorized one last focused ADO correction/review round, but the remaining-P1 last-round correction still requires focused publication, exact-head CI and independent Exact-Delta approval, followed by separate exact-bound hardware authority | `ADO/04_Operations/Development_Assignment_05_V5_Runbook.md` |
+| Development Assignment 5 V5 Human Android Runbook — non-executable; Runtime Guard source `ba1b6e9`, CI `30255104609` attempt 2 12/12 and immutable binary/manifest independently Exact-SHA `APPROVED`; separate exact-bound hardware authority remains required | `ADO/04_Operations/Development_Assignment_05_V5_Runbook.md` |
 
 ## Evidence
 

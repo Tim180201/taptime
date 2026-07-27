@@ -1,5 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
   <queries>
     <package android:name="com.google.android.marvin.talkback" />
+    <package android:name="com.samsung.android.accessibility.talkback" />
   </queries>
 </manifest>

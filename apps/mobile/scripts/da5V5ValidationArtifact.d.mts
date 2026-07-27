@@ -28,6 +28,8 @@ export interface Da5V5ValidationApkInspection {
   readonly cleartextTraffic: boolean;
   readonly networkSecurityConfig: boolean;
   readonly networkPolicyDenyAll: boolean;
+  readonly packageVisibilityQueriesExact: boolean;
+  readonly queryPackages: readonly string[];
   readonly productDeepLinks: boolean;
   readonly productTagDispatch: boolean;
   readonly requiredNativeModules: boolean;
@@ -65,6 +67,8 @@ export const DA5_V5_VALIDATION_PACKAGE:
 export const DA5_V5_VALIDATION_VERSION_CODE: '1';
 export const DA5_V5_VALIDATION_VERSION_NAME: '1.0.0';
 export const DA5_V5_VALIDATION_LOCAL_SIGNER_SHA256: string;
+export const DA5_V5_VALIDATION_TALKBACK_QUERY_PACKAGES:
+  readonly string[];
 export const DA5_V5_VALIDATION_TECHNOLOGY:
   'NfcA+MifareUltralight';
 
@@ -110,9 +114,11 @@ export function resolveDa5V5ValidationPackagedXmlPath(
 export function inspectDa5V5ValidationManifestXmlTree(
   androidManifest: string,
 ): Readonly<{
+  packageVisibilityQueriesExact: boolean;
   privateReceiverPermissionGuard: boolean;
   productDeepLinks: boolean;
   productTagDispatch: boolean;
+  queryPackages: readonly string[];
 }>;
 export function inspectDa5V5ValidationApk(
   apkPath: string,

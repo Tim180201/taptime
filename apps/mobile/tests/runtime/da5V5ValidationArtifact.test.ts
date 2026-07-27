@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   createDa5V5ValidationArtifactManifest,
   DA5_V5_VALIDATION_LOCAL_SIGNER_SHA256,
+  DA5_V5_VALIDATION_TALKBACK_QUERY_PACKAGES,
   inspectDa5V5ValidationHermesBytecode,
   inspectDa5V5ValidationManifestXmlTree,
   inspectDa5V5ValidationNativeBytecode,
@@ -107,6 +108,8 @@ describe('DA5 V5 Validation artifact contract', () => {
       'cleartextTraffic',
       'networkSecurityConfig',
       'networkPolicyDenyAll',
+      'packageVisibilityQueriesExact',
+      'queryPackages',
       'productDeepLinks',
       'productTagDispatch',
       'requiredNativeModules',
@@ -127,6 +130,73 @@ describe('DA5 V5 Validation artifact contract', () => {
         [field]: invalid,
       })).toThrow('DA5 V5 Validation APK boundary mismatch');
     }
+  });
+
+  it.each([
+    {
+      name: 'missing Samsung query',
+      queryPackages: ['com.google.android.marvin.talkback'],
+    },
+    {
+      name: 'additional foreign query',
+      queryPackages: [
+        ...DA5_V5_VALIDATION_TALKBACK_QUERY_PACKAGES,
+        'com.example.accessibility',
+      ],
+    },
+  ])('rejects $name in the built APK inspection', ({
+    queryPackages,
+  }) => {
+    expect(() => verifyDa5V5ValidationApkInspection({
+      ...validInspection(),
+      queryPackages,
+    })).toThrow('DA5 V5 Validation APK boundary mismatch');
+  });
+
+  it('extracts only the exact two package queries from the APK XML tree', () => {
+    const missing = inspectDa5V5ValidationManifestXmlTree([
+      '  E: manifest (line=2)',
+      '    E: queries (line=3)',
+      '      E: package (line=4)',
+      '        A: android:name(0x01010003)="com.google.android.marvin.talkback"',
+      '    E: application (line=5)',
+    ].join('\n'));
+    const exact = inspectDa5V5ValidationManifestXmlTree([
+      '  E: manifest (line=2)',
+      '    E: queries (line=3)',
+      '      E: package (line=4)',
+      '        A: android:name(0x01010003)="com.google.android.marvin.talkback"',
+      '      E: package (line=5)',
+      '        A: android:name(0x01010003)="com.samsung.android.accessibility.talkback"',
+      '    E: application (line=6)',
+    ].join('\n'));
+    const expanded = inspectDa5V5ValidationManifestXmlTree([
+      '  E: manifest (line=2)',
+      '    E: queries (line=3)',
+      '      E: package (line=4)',
+      '        A: android:name(0x01010003)="com.google.android.marvin.talkback"',
+      '      E: package (line=5)',
+      '        A: android:name(0x01010003)="com.samsung.android.accessibility.talkback"',
+      '      E: package (line=6)',
+      '        A: android:name(0x01010003)="com.example.accessibility"',
+      '    E: application (line=7)',
+    ].join('\n'));
+
+    expect(missing).toMatchObject({
+      packageVisibilityQueriesExact: false,
+      queryPackages: ['com.google.android.marvin.talkback'],
+    });
+    expect(exact).toMatchObject({
+      packageVisibilityQueriesExact: true,
+      queryPackages: DA5_V5_VALIDATION_TALKBACK_QUERY_PACKAGES,
+    });
+    expect(expanded).toMatchObject({
+      packageVisibilityQueriesExact: false,
+      queryPackages: [
+        ...DA5_V5_VALIDATION_TALKBACK_QUERY_PACKAGES,
+        'com.example.accessibility',
+      ],
+    });
   });
 
   it('resolves the two optimized packaged XML resource paths', () => {
@@ -175,9 +245,11 @@ describe('DA5 V5 Validation artifact contract', () => {
     ].join('\n'));
 
     expect(inspection).toEqual({
+      packageVisibilityQueriesExact: false,
       privateReceiverPermissionGuard: true,
       productDeepLinks: false,
       productTagDispatch: false,
+      queryPackages: [],
     });
   });
 
@@ -675,6 +747,7 @@ function validInspection(): Da5V5ValidationApkInspection {
     networkSecurityConfig: true,
     nfcFeatureRequired: true,
     packageName: 'com.tim180201.mobile.validation',
+    packageVisibilityQueriesExact: true,
     permissions: [
       'android.permission.NFC',
       'com.tim180201.mobile.validation.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION',
@@ -683,6 +756,7 @@ function validInspection(): Da5V5ValidationApkInspection {
     productDeepLinks: false,
     productRuntimeMarker: false,
     productTagDispatch: false,
+    queryPackages: [...DA5_V5_VALIDATION_TALKBACK_QUERY_PACKAGES],
     requiredNativeModules: true,
     forbiddenNativeModules: false,
     signatureV1: false,
