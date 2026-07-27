@@ -1,6 +1,6 @@
 # Development Assignment 5 — V5 Operational Enablement Authorization Candidate
 
-- Status: **LOCAL DA5-V5 SOFTWARE/ARTIFACT PREPARATION COMPLETE AND INDEPENDENTLY APPROVED THROUGH THE BINDING-PREFLIGHT STOP; PHASE 0 BINDING PREFLIGHT, INSTALLATION, ADB, HARDWARE AND HUMAN V5 NOT RUN/UNAUTHORIZED**
+- Status: **VALIDATION PROVIDER FIX PUBLISHED/CI-GREEN AND REPLACEMENT ARTIFACT VERIFIED; TWO PHASE-0 AUTHORITIES CONSUMED FAIL-CLOSED BEFORE ANY TAG SCAN; NO CURRENT PHASE-0/HARDWARE/ADB/INSTALLATION OR HUMAN-V5 AUTHORITY**
 - Date: 2026-07-27
 - Candidate baseline commit: `7fe725360935a5d9587e3dfbdb2789d8309342df`
 - Candidate baseline tree: `0abaa77443a2abf81fd815ec138776155188bfc0`
@@ -10,6 +10,11 @@
 - Reviewed artifact/evidence commit: `e6a06e2ec8f580d6314bfe5a51378f949d524b16`
 - Reviewed artifact/evidence tree: `6dcdce405feb2eccb1462c373ab6be891152715c`
 - Artifact/evidence Exact-Head CI: `30150095109`, attempt 1, 12/12 successful
+- Validation provider-fix baseline: `e3587c4a21889774bcd10356566e02e92f7fdbc3`,
+  tree `52109540a8f12c2baa0f2e878cdb9c420d831194`
+- Validation provider-fix source: `856e598f9f2db4e472b7aae415dd2582d9ed58c0`,
+  tree `8691bf2552163fa2030298ee603c44a45f97b723`
+- Validation provider-fix Exact-Head CI: `30272680772`, attempt 1, 12/12 successful
 - Isolated-PostgreSQL round-2 candidate: `7739757a4855ee7bac34408941e94c25516d75f5`
 - Isolated-PostgreSQL round-2 tree/parent: `0398066e92fef65562526f61c9515b0ef3be0114` /
   `72fbd3c20329dfbf3e8a1509025bd630b1bb130a`
@@ -44,23 +49,32 @@
 ## 0. Current closure and stop boundary
 
 The detailed sections below preserve the pre-implementation design and review history. Current
-repository truth is later and complete through the stop immediately before hardware:
+repository truth is later and stopped before any further hardware action:
 
 - Runtime Guard source `ba1b6e922ceb7902ecedd9dc2df01d6b22d90867`, tree
   `980b6c57fdd71c12820f2890b640946db0d883c6`, CI `30255104609`, attempt 2,
   12/12. Attempt 1 was only a B5 Docker-Hub pull timeout before checkout. Its immutable binary
   and manifest plus focused evidence received independent Exact-SHA `APPROVED` with zero open
   P0–P3.
-- Validation App source `d99df60073e8034a4a65109a05269c442f068d81`, tree
-  `e39e216c5213f22cd2a22806e600bc3b7c61b374`, CI `30258214028`, attempt 1,
-  12/12. Its immutable APK/manifest passed the official verifier and independent combined
-  Exact-SHA review with zero open P0–P3.
+- Validation App provider correction `856e598f9f2db4e472b7aae415dd2582d9ed58c0`,
+  tree `8691bf2552163fa2030298ee603c44a45f97b723`, CI `30272680772`, attempt 1,
+  12/12, replaced the Google-only binding with the exact allowlist
+  `com.google.android.marvin.talkback` /
+  `com.samsung.android.accessibility.talkback`. Exactly one provider must be installed and active;
+  none or both fail closed. Mobile 688/688, Core 290/290, Admin 87/87, all 21 typechecks and
+  20 builds passed. The replacement 65,734,325-byte `0444` APK
+  (`a5a925ff01326cea…e37f08`) and 6,700-byte `0444` manifest
+  (`45954119a8a4389e…9622d99`) passed the official verifier.
 
-No installation, ADB, device/Tag observation or Human V5 occurred. The next safe step requires a
-fresh explicit one-time Phase 0 authorization limited to the exact Validation APK, Galaxy A33,
-read-only A/B/X Tag binding, device/accessibility binding and complete uninstall/cleanup. Product
-APK installation and Human V5 remain later separate gates. Production, production data, system
-changes, deployment and distribution remain unauthorized.
+Two earlier one-time Phase-0 authorities are consumed. Run 1 stopped before Product action because
+a Validation package was already installed. Run 2 stopped before installation or NFC because the
+then-current build supported only Google while Samsung TalkBack `15.1.01.1` was active. Cleanup
+confirmed package zero and zero reverse mappings after each run; no Tag was scanned. No further
+hardware, ADB or installation action is authorized or run on the corrected artifact. Another
+Phase 0 requires a fresh explicit one-time Human authorization limited to the exact replacement
+Validation APK, Galaxy A33, read-only A/B/X Tag binding, device/accessibility binding and complete
+uninstall/cleanup. Product APK installation and Human V5 remain later separate gates. Production,
+production data, system changes, deployment and distribution remain unauthorized.
 
 ## 1. Objective and verified gap
 
@@ -166,10 +180,13 @@ The executable enablement SHALL:
    authorization stages: first, a separate read-only/non-mutating device-and-Tag identification
    preflight for the physically labelled A/B/X set; second, only after its exact values and cleanup
    are known, a fresh exact-bound one-run Human V5 authorization. The preflight may produce only
-   model/OS/build, supported Tag technology, distinct safe fingerprints, font scale and TalkBack
-   version. It performs no Product action, installation, database write or gate observation and
-   ends with zero package/mapping/listener residue. Failure or ambiguity consumes only that
-   preflight authority; no result except the exact binding values is reusable;
+   model/OS/build, supported Tag technology, distinct safe fingerprints, font scale and the exact
+   installed/active TalkBack provider package plus version. The only allowed provider packages are
+   `com.google.android.marvin.talkback` and
+   `com.samsung.android.accessibility.talkback`; exactly one must be active, while none or both
+   fail closed. It performs no Product action, database write or gate observation and ends with
+   zero package/mapping/listener residue. Failure or ambiguity consumes only that preflight
+   authority; no result except the exact binding values is reusable;
 10. retain the synthetic password only in memory and bind it to a process-local SHA-256 digest.
    Before every password injection, a hidden comparison must emit only `match` or `mismatch`;
 11. expose one safe `status` command whose closed JSON schema contains only profile/operator state,
@@ -242,9 +259,10 @@ clean FIFO and no review marker
 25. tear down the protected fixture only by the profile-owned disposable database cleanup. It must
     not perform Product repair/adjudication or delete/rewrite individual append-only Product rows;
 26. expose an accessibility binding checkpoint for the exact device-reported Android build,
-    installed TalkBack package version and DA5-P09's exact `font_scale=2.0`/200-percent setting.
-    Device values are learned only during the separately authorized read-only preflight; the Human
-    must still inspect every DA5-P09 surface at the exact final-run setting;
+    installed/active allowlisted TalkBack package name and version and DA5-P09's exact
+    `font_scale=2.0`/200-percent setting. Device values are learned only during the separately
+    authorized read-only preflight; the Human must still inspect every DA5-P09 surface at the
+    exact final-run setting;
 27. validate the preserved read-only APK and adjacent manifest by exact path, size, mode and
     SHA-256 before permitting an installation command. The enablement may read but never rebuild,
     modify, sign or copy over either file; and

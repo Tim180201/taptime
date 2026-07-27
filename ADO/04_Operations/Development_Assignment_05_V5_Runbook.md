@@ -1,6 +1,6 @@
 # Development Assignment 5 — V5 Human Android Gate Runbook
 
-- Status: **LOCAL SOFTWARE/ARTIFACT PREPARATION COMPLETE — PHASE 0 BINDING PREFLIGHT AND HUMAN V5 UNAUTHORIZED/DO NOT START**
+- Status: **VALIDATION PROVIDER FIX/REPLACEMENT ARTIFACT BOUND — TWO PHASE-0 AUTHORITIES CONSUMED FAIL-CLOSED; NO CURRENT PHASE-0 OR HUMAN-V5 AUTHORITY/DO NOT START**
 - Date: 2026-07-27
 - Owner: Technical Lead
 - Approval authority for any run: Human Architect
@@ -9,32 +9,36 @@
 
 The Runtime Guard is bound to source `ba1b6e922ceb7902ecedd9dc2df01d6b22d90867`,
 tree `980b6c57fdd71c12820f2890b640946db0d883c6`, CI `30255104609`, attempt 2,
-12/12, and independently approved immutable binary/manifest. Validation App source
-`d99df60073e8034a4a65109a05269c442f068d81`, tree
-`e39e216c5213f22cd2a22806e600bc3b7c61b374`, passed CI `30258214028`,
-attempt 1, 12/12 and independent combined Exact-SHA review with zero open P0–P3.
+12/12, and independently approved immutable binary/manifest. Validation App provider correction
+`856e598f9f2db4e472b7aae415dd2582d9ed58c0`, tree
+`8691bf2552163fa2030298ee603c44a45f97b723`, passed exact-head CI `30272680772`,
+attempt 1, 12/12. Its replacement APK/manifest passed the official verifier.
 
-**Phase 0 — Validation Binding Preflight** is not authorized and not run. A fresh one-time Human
-authorization must bind the Galaxy A33 plus still-unbound OS/build/accessibility values and three
-still-unbound safe Tag fingerprints to A/B/X. Only the exact read-only Validation APK may be
-installed; scans are read-only and must perform no auth, network, database, Product action or
-timekeeping. Complete uninstall and scoped cleanup are mandatory.
+**Phase 0 — Validation Binding Preflight** has no current authority. Two prior one-time
+authorizations are consumed: run 1 stopped before Product action because a Validation package was
+already installed; run 2 stopped before installation or NFC because the prior app supported only
+Google while Samsung TalkBack `15.1.01.1` was active. Both runs cleaned to package zero and zero
+reverse mappings; no Tag was scanned. A future fresh one-time authorization must bind the Galaxy
+A33 plus still-unbound OS/build/accessibility values and three still-unbound safe Tag fingerprints
+to A/B/X. Only the exact replacement read-only Validation APK may be installed; scans are
+read-only and must perform no auth, network, database, Product action or timekeeping. Complete
+uninstall and scoped cleanup are mandatory.
 
 | Phase 0 artifact | Exact binding |
 |---|---|
 | Runtime Guard binary | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-runtime-guard/ba1b6e922ceb7902ecedd9dc2df01d6b22d90867/da5_v5_runtime_guard`; 74,336 bytes; mode `0555`; SHA-256 `4b2a7e6b15d3348dffda94f9125c20a4db82bb8eb08a03aabd35932ad0d5853c` |
 | Runtime Guard manifest/review | Same directory, `guard-manifest.txt`; 19,971 bytes; mode `0444`; SHA-256 `957d6e99c271663763945026995e7463cf2f20b385eb942fd16a152d3de5f709`; focused evidence SHA-256 `440928371f7acc48272eff2e819c37a851d66cae4a908ffa330228982328d708`; independent Exact-SHA `APPROVED`, zero open P0–P3 |
-| Validation APK | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-validation/da5-v5-validation-d99df60073e8-4b4f391d2b623729/app-release-4b4f391d2b623729.apk`; 65,733,945 bytes; mode `0444`; SHA-256 `4b4f391d2b623729c08a024e7fd8df5671c6ecb17d1748d1a585783a360d476a` |
-| Validation manifest | Same directory, `manifest-d99df60073e8.json`; 6,700 bytes; mode `0444`; SHA-256 `dd4896683af6053cda026453835073ce7cc4dd4a0a2b87e9b6d21420b6d9f648` |
-| Package/runtime | `com.tim180201.mobile.validation`; signer `fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c`; `local-validation-only`; `NfcA+MifareUltralight`; exact roles A/B/X; no Product deep link or Tag dispatch |
-| Native/source closure | 587 entries / 464 files / 123 directories / 1,176,224 bytes / SHA-256 `9194be29b96a67c47aa40a4bdea7494155695e088d769e21c77eff305b1ee259`; all 32 source-closure entries byte-exact; official verifier `PASS` |
+| Validation APK | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-validation/da5-v5-validation-856e598f9f2d-a5a925ff01326cea/app-release-a5a925ff01326cea.apk`; 65,734,325 bytes; mode `0444`; SHA-256 `a5a925ff01326cea0a8db7d0bc0d401d357d1a9e84f8b0eb7ef592241ee37f08` |
+| Validation manifest | Same directory, `manifest-856e598f9f2d.json`; 6,700 bytes; mode `0444`; SHA-256 `45954119a8a4389eec009b31b700d4d45d32126c1469ea904822d0f669622d99` |
+| Package/runtime | `com.tim180201.mobile.validation`; signer `fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c`; `local-validation-only`; `NfcA+MifareUltralight`; exact roles A/B/X; exactly one active installed provider from `com.google.android.marvin.talkback` or `com.samsung.android.accessibility.talkback`; none or both fail closed; no Product deep link or Tag dispatch |
+| Native/source verification | Mobile 688/688, Core 290/290, Admin 87/87, 21 typechecks, 20 builds and exact-head CI `30272680772`, attempt 1, 12/12; official artifact verifier `PASS` |
 | Device, accessibility and A/B/X fingerprints | `UNBOUND — DO NOT START` |
-| One-time Phase 0 authorization/result | `UNBOUND / NOT RUN` |
+| One-time Phase 0 authorization/result | `RUN 1 CONSUMED — PREINSTALLED PACKAGE`; `RUN 2 CONSUMED — SAMSUNG PROVIDER UNSUPPORTED BY PRIOR BUILD`; no current authority |
 
-**Later Product Human V5** remains the separate run described below. Phase 0 neither installs the
-Product APK nor supplies a Product/Human-V5 result. Installation, ADB and hardware remain
-unauthorized until their respective fresh Human authorizations; production, production data,
-system changes, deployment and distribution remain unauthorized.
+**Later Product Human V5** remains the separate run described below. Neither consumed Phase 0
+supplies a Product/Human-V5 result. No further installation, ADB or hardware action is authorized
+until a fresh exact Human authorization; production, production data, system changes, deployment
+and distribution remain unauthorized.
 
 ## 1. Purpose and authority boundary
 
@@ -100,7 +104,7 @@ no self-SHA.
 | Admin Setup Preview 2 entry, preview/validation result and safe exit procedure | `UNBOUND — DO NOT START` |
 | DA5-T06 exact five-second dedupe boundary and lifecycle-cancellation checkpoint | `UNBOUND — DO NOT START` |
 | Separately reviewed Protected/Review induction fixture, synthetic labels, exact start state, cutover procedure, expected state sequence and scoped teardown | `UNBOUND — DO NOT START` |
-| Exact large-text setting and TalkBack version | `UNBOUND — DO NOT START` |
+| Exact large-text setting and active allowlisted TalkBack package/version | `UNBOUND — DO NOT START` |
 
 The populated product and artifact/evidence rows are independently approved. They are not a
 Human-run authorization. Every remaining operational binding and a separate exact Human
