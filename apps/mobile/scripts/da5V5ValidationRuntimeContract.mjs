@@ -206,6 +206,33 @@ export function createDa5V5ValidationAutolinkingPackageJson(source) {
   return `${JSON.stringify(packageJson, null, 2)}\n`;
 }
 
+export function assertDa5V5ValidationPrebuildPackageJson(before, after) {
+  let packageJson;
+  try {
+    packageJson = JSON.parse(before);
+  } catch {
+    throw new Error('DA5 V5 Validation package.json is invalid');
+  }
+  if (
+    typeof packageJson.scripts !== 'object'
+    || packageJson.scripts === null
+    || Array.isArray(packageJson.scripts)
+    || packageJson.scripts.android !== 'expo start --android'
+    || packageJson.scripts.ios !== 'expo start --ios'
+  ) {
+    throw new Error(
+      'DA5 V5 Validation prebuild script boundary mismatch',
+    );
+  }
+  packageJson.scripts.android = 'expo run:android';
+  packageJson.scripts.ios = 'expo run:ios';
+  if (after !== `${JSON.stringify(packageJson, null, 2)}\n`) {
+    throw new Error(
+      'DA5 V5 Validation prebuild attempted to mutate package.json',
+    );
+  }
+}
+
 export function assertDa5V5ValidationAutolinkingResolution(
   resolution,
   repositoryRoot,

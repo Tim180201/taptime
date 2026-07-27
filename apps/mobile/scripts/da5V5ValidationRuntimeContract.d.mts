@@ -23,6 +23,10 @@ export function createDa5V5ValidationBuildEnvironment(
 export function createDa5V5ValidationAutolinkingPackageJson(
   source: string,
 ): string;
+export function assertDa5V5ValidationPrebuildPackageJson(
+  before: string,
+  after: string,
+): void;
 export function assertDa5V5ValidationAutolinkingResolution(
   resolution: unknown,
   repositoryRoot: string,

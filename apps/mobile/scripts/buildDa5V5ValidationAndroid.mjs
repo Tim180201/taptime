@@ -13,6 +13,7 @@ import {
 } from './da5V5ValidationBuildProcess.mjs';
 import {
   assertDa5V5ValidationAutolinkingResolution,
+  assertDa5V5ValidationPrebuildPackageJson,
   assertDa5V5ValidationReactNativeAutolinkingResolution,
   createDa5V5ValidationAutolinkingPackageJson,
   createDa5V5ValidationBuildEnvironment,
@@ -189,11 +190,10 @@ async function main() {
       '--no-install',
     ],
   );
-  if (readFileSync(packageJsonPath, 'utf8') !== validationPackageJson) {
-    throw new Error(
-      'DA5 V5 Validation prebuild attempted to mutate package.json',
-    );
-  }
+  assertDa5V5ValidationPrebuildPackageJson(
+    validationPackageJson,
+    readFileSync(packageJsonPath, 'utf8'),
+  );
   await assertValidationModuleGraph(repositoryRoot);
   verifyDa5V5ValidationNativeSourceClosure(repositoryRoot);
   await run(

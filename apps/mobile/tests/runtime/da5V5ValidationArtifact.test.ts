@@ -13,6 +13,7 @@ import {
 } from '../../scripts/da5V5ValidationArtifact.mjs';
 import {
   assertDa5V5ValidationAutolinkingResolution,
+  assertDa5V5ValidationPrebuildPackageJson,
   assertDa5V5ValidationReactNativeAutolinkingResolution,
   createDa5V5ValidationAutolinkingPackageJson,
   createDa5V5ValidationBuildEnvironment,
@@ -241,6 +242,54 @@ describe('DA5 V5 Validation artifact contract', () => {
       repositoryRoot,
       mobileDirectory,
     )).not.toThrow();
+  });
+
+  it('accepts exactly the two deterministic Expo prebuild script normalizations', () => {
+    const before = `${JSON.stringify({
+      name: '@taptime/mobile',
+      scripts: {
+        android: 'expo start --android',
+        ios: 'expo start --ios',
+        test: 'vitest run',
+      },
+    }, null, 2)}\n`;
+    const after = `${JSON.stringify({
+      name: '@taptime/mobile',
+      scripts: {
+        android: 'expo run:android',
+        ios: 'expo run:ios',
+        test: 'vitest run',
+      },
+    }, null, 2)}\n`;
+
+    expect(() => assertDa5V5ValidationPrebuildPackageJson(
+      before,
+      after,
+    )).not.toThrow();
+  });
+
+  it('rejects every foreign package mutation during Expo prebuild', () => {
+    const before = `${JSON.stringify({
+      name: '@taptime/mobile',
+      scripts: {
+        android: 'expo start --android',
+        ios: 'expo start --ios',
+        test: 'vitest run',
+      },
+    }, null, 2)}\n`;
+    const after = `${JSON.stringify({
+      name: '@taptime/mobile',
+      scripts: {
+        android: 'expo run:android',
+        ios: 'expo run:ios',
+        test: 'vitest run --changed',
+      },
+    }, null, 2)}\n`;
+
+    expect(() => assertDa5V5ValidationPrebuildPackageJson(
+      before,
+      after,
+    )).toThrow(/attempted to mutate package\.json/u);
   });
 
   it.each([
