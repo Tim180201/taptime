@@ -12,6 +12,11 @@ export const DA5_V5_VALIDATION_EXPO_NATIVE_ALLOWLIST:
   readonly Readonly<Record<string, string | null>>[];
 export const DA5_V5_VALIDATION_REACT_NATIVE_ALLOWLIST:
   readonly Readonly<Record<string, string>>[];
+export const DA5_V5_VALIDATION_BUNDLE_NATIVE_MODULE_ALLOWLIST:
+  readonly Readonly<{
+    moduleName: string;
+    sourcePath: string;
+  }>[];
 export const DA5_V5_VALIDATION_SOURCE_CLOSURE: readonly string[];
 export const DA5_V5_VALIDATION_SOURCE_SCOPES: readonly string[];
 export const DA5_V5_VALIDATION_BUILD_ENVIRONMENT: Readonly<
@@ -36,3 +41,9 @@ export function assertDa5V5ValidationReactNativeAutolinkingResolution(
   repositoryRoot: string,
   mobileDirectory: string,
 ): void;
+export function assertDa5V5ValidationBundleNativeModuleGraph(
+  sourceMap: unknown,
+): readonly Readonly<{
+  moduleName: string;
+  sourcePath: string;
+}>[];

@@ -79,6 +79,30 @@ export const DA5_V5_VALIDATION_REACT_NATIVE_ALLOWLIST = Object.freeze([
     sourcePath: 'node_modules/react-native-nfc-manager/android',
   }),
 ]);
+export const DA5_V5_VALIDATION_BUNDLE_NATIVE_MODULE_ALLOWLIST =
+  Object.freeze([
+    Object.freeze({
+      moduleName: 'Da5V5ValidationDeviceBinding',
+      sourcePath:
+        'apps/mobile/modules/'
+        + 'taptime-da5-v5-validation-device-binding/index.ts',
+    }),
+    Object.freeze({
+      moduleName: 'ExpoCrypto',
+      sourcePath:
+        'apps/mobile/src/validation/createDa5V5ValidationRuntime.ts',
+    }),
+    Object.freeze({
+      moduleName: 'ExpoModulesCoreJSLogger',
+      sourcePath:
+        'node_modules/expo-modules-core/src/sweet/setUpJsLogger.fx.ts',
+    }),
+    Object.freeze({
+      moduleName: 'NfcManager',
+      sourcePath:
+        'node_modules/react-native-nfc-manager/src/NativeNfcManager.js',
+    }),
+  ]);
 
 export const DA5_V5_VALIDATION_SOURCE_CLOSURE = Object.freeze([
   'apps/mobile/app.config.js',
@@ -379,6 +403,97 @@ export function assertDa5V5ValidationReactNativeAutolinkingResolution(
       );
     }
   }
+}
+
+export function assertDa5V5ValidationBundleNativeModuleGraph(sourceMap) {
+  if (
+    typeof sourceMap !== 'object'
+    || sourceMap === null
+    || Array.isArray(sourceMap)
+    || sourceMap.version !== 3
+    || !Array.isArray(sourceMap.sources)
+    || !Array.isArray(sourceMap.sourcesContent)
+    || sourceMap.sources.length !== sourceMap.sourcesContent.length
+  ) {
+    throw new Error(
+      'DA5 V5 Validation bundle native module graph is unavailable',
+    );
+  }
+  const records = new Map();
+  for (let index = 0; index < sourceMap.sources.length; index += 1) {
+    const sourcePath = normalizeBundleSourcePath(sourceMap.sources[index]);
+    const source = sourceMap.sourcesContent[index];
+    if (typeof source !== 'string') {
+      throw new Error(
+        'DA5 V5 Validation bundle native module graph is unavailable',
+      );
+    }
+    if (
+      sourcePath === 'node_modules/expo/src/Expo.fx.tsx'
+      || DA5_V5_VALIDATION_EXCLUDED_NATIVE_MODULES.some(
+        (packageName) => sourcePath.startsWith(
+          `node_modules/${packageName}/`,
+        ),
+      )
+    ) {
+      throw new Error(
+        'DA5 V5 Validation bundle native module graph mismatch',
+      );
+    }
+    for (const match of source.matchAll(
+      /\brequire(?:Optional)?NativeModule(?:\s*<[^>]+>)?\s*\(\s*['"]([A-Za-z][A-Za-z0-9]*)['"]/gu,
+    )) {
+      addBundleNativeModuleRecord(records, match[1], sourcePath);
+    }
+    if (!sourcePath.startsWith('node_modules/react-native/')) {
+      for (const match of source.matchAll(
+        /\bNativeModules\.([A-Za-z][A-Za-z0-9]*)/gu,
+      )) {
+        addBundleNativeModuleRecord(records, match[1], sourcePath);
+      }
+    }
+  }
+  const actual = [...records.values()].sort(compareBundleNativeModules);
+  const expected = [...DA5_V5_VALIDATION_BUNDLE_NATIVE_MODULE_ALLOWLIST]
+    .sort(compareBundleNativeModules);
+  if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+    throw new Error(
+      'DA5 V5 Validation bundle native module graph mismatch',
+    );
+  }
+  return Object.freeze(actual.map((record) => Object.freeze(record)));
+}
+
+function addBundleNativeModuleRecord(records, moduleName, sourcePath) {
+  const key = `${moduleName}\0${sourcePath}`;
+  records.set(key, { moduleName, sourcePath });
+}
+
+function compareBundleNativeModules(left, right) {
+  return left.moduleName.localeCompare(right.moduleName)
+    || left.sourcePath.localeCompare(right.sourcePath);
+}
+
+function normalizeBundleSourcePath(value) {
+  if ([
+    '__prelude__',
+    '\0polyfill:assets-registry',
+    '\0polyfill:environment-variables',
+    '\0polyfill:external-require',
+  ].includes(value)) {
+    return value;
+  }
+  if (
+    typeof value !== 'string'
+    || !value.startsWith('/')
+    || value.includes('\\')
+    || value.split('/').includes('..')
+  ) {
+    throw new Error(
+      'DA5 V5 Validation bundle native module graph is unavailable',
+    );
+  }
+  return value.slice(1);
 }
 
 function canonicalAbsolute(value) {

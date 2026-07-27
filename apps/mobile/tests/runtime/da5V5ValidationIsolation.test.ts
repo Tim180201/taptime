@@ -1,12 +1,24 @@
-import { readFile } from 'node:fs/promises';
+import {
+  mkdtemp,
+  readFile,
+  rm,
+} from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
+  assertDa5V5ValidationBundleNativeModuleGraph,
+  createDa5V5ValidationBuildEnvironment,
+  DA5_V5_VALIDATION_BUNDLE_NATIVE_MODULE_ALLOWLIST,
   DA5_V5_VALIDATION_SOURCE_SCOPES,
 } from '../../scripts/da5V5ValidationRuntimeContract.mjs';
 
 const mobileDirectory = fileURLToPath(new URL('../..', import.meta.url));
+const expoCli = fileURLToPath(
+  new URL('../../../../node_modules/expo/bin/cli', import.meta.url),
+);
 
 async function source(relativePath: string): Promise<string> {
   return readFile(
@@ -24,6 +36,10 @@ describe('DA5 V5 Validation runtime isolation', () => {
     expect(entry).toContain('Da5V5ValidationMobileApp');
     expect(entry).toContain("AppRegistry.registerComponent('main'");
     expect(entry).toContain('taptime-da5-v5-validation-only-v1');
+    expect(runtime).toContain(
+      "requireNativeModule<Da5V5ValidationCryptoModule>('ExpoCrypto')",
+    );
+    expect(runtime).not.toContain("from 'expo-crypto'");
     expect(`${entry}\n${runtime}`).not.toMatch(
       /registerRootComponent|react-native-url-polyfill|ProductMobile|DefaultProduct|Supabase|Authenticated|OfflineCapture|SQLite|SecureStore|fetch\(|http:|https:|Lifecycle|TimeEntry/u,
     );
@@ -44,6 +60,64 @@ describe('DA5 V5 Validation runtime isolation', () => {
     expect(graph.join('\n')).not.toMatch(
       /@taptime\/core|@supabase|expo-secure-store|expo-sqlite|expo-network|ProductMobile|OfflineCapture|LifecycleClient|TimeEntry|\/v1\/|fetch\(|https?:\/\//u,
     );
+  });
+
+  it('generates the exact native-module graph without ExpoAsset', async () => {
+    const outputDirectory = await mkdtemp(
+      join(tmpdir(), 'taptime-da5-validation-bundle-'),
+    );
+    try {
+      const bundlePath = join(outputDirectory, 'index.android.bundle');
+      const sourceMapPath = `${bundlePath}.map`;
+      const result = spawnSync(process.execPath, [
+        expoCli,
+        'export:embed',
+        '--entry-file',
+        'validation-index.ts',
+        '--platform',
+        'android',
+        '--dev',
+        'false',
+        '--minify',
+        'false',
+        '--max-workers',
+        '2',
+        '--bundle-output',
+        bundlePath,
+        '--sourcemap-output',
+        sourceMapPath,
+        '--assets-dest',
+        join(outputDirectory, 'assets'),
+      ], {
+        cwd: mobileDirectory,
+        encoding: 'utf8',
+        env: createDa5V5ValidationBuildEnvironment(
+          process.env,
+        ) as NodeJS.ProcessEnv,
+        stdio: ['ignore', 'pipe', 'pipe'],
+        timeout: 30_000,
+      });
+      expect({
+        error: result.error?.message,
+        signal: result.signal,
+        status: result.status,
+        stderr: result.stderr,
+      }).toEqual({
+        error: undefined,
+        signal: null,
+        status: 0,
+        stderr: '',
+      });
+      const sourceMap = JSON.parse(await readFile(sourceMapPath, 'utf8'));
+      expect(
+        assertDa5V5ValidationBundleNativeModuleGraph(sourceMap),
+      ).toEqual(DA5_V5_VALIDATION_BUNDLE_NATIVE_MODULE_ALLOWLIST);
+      expect(sourceMap.sources.join('\n')).not.toMatch(
+        /expo-asset|expo\/src\/Expo\.fx|expo-crypto/u,
+      );
+    } finally {
+      await rm(outputDirectory, { force: true, recursive: true });
+    }
   });
 
   it('keeps raw NFC material outside observable React/UI state', async () => {
