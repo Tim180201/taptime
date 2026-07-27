@@ -1,6 +1,6 @@
 # Project Status
 
-Status: CORE ROADMAP V2 COMPLETIONS REMAIN PRESERVED FOR THEIR RECORDED SCOPES — DA4 REMAINS OPEN FOR A LATER FRESH HUMAN V5 — DA5 V0–V4 AND THE LOCAL DA5-V5 RUNTIME GUARD REMAIN INDEPENDENTLY APPROVED; VALIDATION APP PROVIDER FIX `856e598` PASSED EXACT-HEAD CI 12/12 AND ITS REPLACEMENT READ-ONLY ARTIFACT PASSED THE OFFICIAL VERIFIER — TWO PHASE-0 AUTHORITIES WERE CONSUMED FAIL-CLOSED BEFORE ANY TAG SCAN; NO FURTHER PHASE-0/HARDWARE/ADB/INSTALLATION OR PRODUCT-HUMAN-V5 AUTHORITY EXISTS — PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, SYSTEM CHANGES, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
+Status: CORE ROADMAP V2 COMPLETIONS REMAIN PRESERVED FOR THEIR RECORDED SCOPES — DA4 REMAINS OPEN FOR A LATER FRESH HUMAN V5 — DA5 V0–V4 AND THE LOCAL DA5-V5 RUNTIME GUARD REMAIN INDEPENDENTLY APPROVED; FINAL VALIDATION APP QUERY-VISIBILITY CORRECTION `5c239b1` PASSED EXACT-HEAD CI 12/12 AND ITS REPLACEMENT READ-ONLY ARTIFACT PASSED THE OFFICIAL VERIFIER, WHILE INDEPENDENT EXACT-SHA RE-REVIEW REMAINS PENDING — TWO PHASE-0 AUTHORITIES WERE CONSUMED FAIL-CLOSED BEFORE ANY TAG SCAN; NO FURTHER PHASE-0/HARDWARE/ADB/INSTALLATION OR PRODUCT-HUMAN-V5 AUTHORITY EXISTS — PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, SYSTEM CHANGES, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
 DA5 decision-time Option-A trust anchor: exactly two direct admin-group members, zero nested
 groups; full-record SHA-256 `b006276c09d8f2713f6132ea79cec167ab3a3c2887ee53e95eb00c1cc33719a5`;
 membership SHA-256 `70a683b7ebc7981533015d5d63cf12dfb2eabbfa665c34720eddb4d09e9e3064`;
@@ -16,24 +16,25 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
 
 ## Current State
 
-- **DA5-V5 provider correction is published; no current Phase-0 authority exists.** Runtime Guard source
+- **DA5-V5 query-visibility correction is CI-green and artifact-verified; independent re-review
+  and any new Phase-0 authority remain pending.** Runtime Guard source
   `ba1b6e922ceb7902ecedd9dc2df01d6b22d90867`, tree
   `980b6c57fdd71c12820f2890b640946db0d883c6`, passed CI `30255104609`, attempt 2,
   12/12; attempt 1 had only one B5 Docker-Hub pull timeout before checkout. Its immutable
   74,336-byte `0555` binary (`4b2a7e6b…d5853c`) and 19,971-byte `0444` manifest
   (`957d6e99…5f709`) received independent Exact-SHA `APPROVED` with zero open P0–P3.
-  Validation App provider correction `856e598f9f2db4e472b7aae415dd2582d9ed58c0`, tree
-  `8691bf2552163fa2030298ee603c44a45f97b723`, passed exact-head CI `30272680772`,
-  attempt 1, 12/12. It permits exactly one installed and active provider from
-  `com.google.android.marvin.talkback` or
-  `com.samsung.android.accessibility.talkback`; none or both fail closed. Mobile 688/688,
-  Core 290/290, Admin 87/87, all 21 typechecks and 20 builds passed. The replacement immutable
-  65,734,325-byte `0444` APK (`a5a925ff…37f08`) and 6,700-byte `0444` manifest
-  (`45954119…62d99`) passed the official verifier. Two separately authorized Phase-0 attempts
-  are consumed: run 1 stopped before Product action on a preinstalled Validation package; run 2
-  stopped before installation or NFC because the then-current app supported only Google while
-  Samsung TalkBack `15.1.01.1` was active. Cleanup confirmed package zero and zero reverse
-  mappings after both runs; no Tag was scanned. No further hardware, ADB or installation action
+  Final Validation App correction `5c239b1c30c6263a036077460e23373b767f66df`, tree
+  `53e8d4ed012ccc662f1005f895a3b6e685cf560e`, binds exactly one queries block, the two
+  TalkBack package queries, one exact `VIEW` + `BROWSABLE` + `https` intent and zero providers.
+  Exact-head CI `30276804017`, attempt 1, passed 12/12. The replacement immutable
+  65,734,361-byte `0444` APK (`c87b2e2b…af95db`) and 6,700-byte `0444` manifest
+  (`5c6ea1bc…fd74fb`) passed the official verifier. Independent Exact-SHA re-review remains
+  pending; no approval is claimed. The provider policy still permits exactly one installed and
+  active Google or Samsung TalkBack provider; none or both fail closed. Two separately authorized
+  Phase-0 attempts are consumed: run 1 stopped before Product action on a preinstalled Validation
+  package; run 2 stopped before installation or NFC because the then-current app supported only
+  Google while Samsung TalkBack `15.1.01.1` was active. Cleanup confirmed package zero and zero
+  reverse mappings after both runs; no Tag was scanned. No further hardware, ADB or installation action
   is authorized or run on the replacement artifact, and Product Human V5 remains not run and
   separately gated.
 - **Development Assignment 5 Workstreams A–F and V0–V4 are technically closed/MERGE_READY;

@@ -1,6 +1,6 @@
 # Development Assignment 5 — V5 Operational Enablement Authorization Candidate
 
-- Status: **VALIDATION PROVIDER FIX PUBLISHED/CI-GREEN AND REPLACEMENT ARTIFACT VERIFIED; TWO PHASE-0 AUTHORITIES CONSUMED FAIL-CLOSED BEFORE ANY TAG SCAN; NO CURRENT PHASE-0/HARDWARE/ADB/INSTALLATION OR HUMAN-V5 AUTHORITY**
+- Status: **FINAL VALIDATION QUERY-VISIBILITY CORRECTION PUBLISHED/CI-GREEN AND REPLACEMENT ARTIFACT VERIFIED; INDEPENDENT EXACT-SHA RE-REVIEW PENDING; TWO PHASE-0 AUTHORITIES CONSUMED FAIL-CLOSED BEFORE ANY TAG SCAN; NO CURRENT PHASE-0/HARDWARE/ADB/INSTALLATION OR HUMAN-V5 AUTHORITY**
 - Date: 2026-07-27
 - Candidate baseline commit: `7fe725360935a5d9587e3dfbdb2789d8309342df`
 - Candidate baseline tree: `0abaa77443a2abf81fd815ec138776155188bfc0`
@@ -10,11 +10,14 @@
 - Reviewed artifact/evidence commit: `e6a06e2ec8f580d6314bfe5a51378f949d524b16`
 - Reviewed artifact/evidence tree: `6dcdce405feb2eccb1462c373ab6be891152715c`
 - Artifact/evidence Exact-Head CI: `30150095109`, attempt 1, 12/12 successful
-- Validation provider-fix baseline: `e3587c4a21889774bcd10356566e02e92f7fdbc3`,
-  tree `52109540a8f12c2baa0f2e878cdb9c420d831194`
-- Validation provider-fix source: `856e598f9f2db4e472b7aae415dd2582d9ed58c0`,
-  tree `8691bf2552163fa2030298ee603c44a45f97b723`
-- Validation provider-fix Exact-Head CI: `30272680772`, attempt 1, 12/12 successful
+- Validation correction review baseline: `be32840`; round-1 Exact-SHA review
+  `CHANGES REQUIRED` for P1 package visibility and P3 stale Runtime-Guard navigation
+- Validation intermediate correction: `0f7e131`; real build stopped before publication on the
+  over-strict HTTPS-query verifier; no artifact published
+- Validation final correction source: `5c239b1c30c6263a036077460e23373b767f66df`,
+  tree `53e8d4ed012ccc662f1005f895a3b6e685cf560e`
+- Validation final correction Exact-Head CI: `30276804017`, attempt 1, 12/12 successful
+- Validation final correction independent Exact-SHA re-review: **PENDING**
 - Isolated-PostgreSQL round-2 candidate: `7739757a4855ee7bac34408941e94c25516d75f5`
 - Isolated-PostgreSQL round-2 tree/parent: `0398066e92fef65562526f61c9515b0ef3be0114` /
   `72fbd3c20329dfbf3e8a1509025bd630b1bb130a`
@@ -56,15 +59,19 @@ repository truth is later and stopped before any further hardware action:
   12/12. Attempt 1 was only a B5 Docker-Hub pull timeout before checkout. Its immutable binary
   and manifest plus focused evidence received independent Exact-SHA `APPROVED` with zero open
   P0–P3.
-- Validation App provider correction `856e598f9f2db4e472b7aae415dd2582d9ed58c0`,
-  tree `8691bf2552163fa2030298ee603c44a45f97b723`, CI `30272680772`, attempt 1,
-  12/12, replaced the Google-only binding with the exact allowlist
-  `com.google.android.marvin.talkback` /
-  `com.samsung.android.accessibility.talkback`. Exactly one provider must be installed and active;
-  none or both fail closed. Mobile 688/688, Core 290/290, Admin 87/87, all 21 typechecks and
-  20 builds passed. The replacement 65,734,325-byte `0444` APK
-  (`a5a925ff01326cea…e37f08`) and 6,700-byte `0444` manifest
-  (`45954119a8a4389e…9622d99`) passed the official verifier.
+- Round-1 Exact-SHA review of `be32840` returned `CHANGES REQUIRED`: P1 required Samsung
+  package visibility and P3 required the stale Runtime-Guard navigation row to be corrected.
+  Intermediate `0f7e131` added the exact Google/Samsung source manifest and verifier and corrected
+  P3. Its real build then stopped before publication because the verifier rejected Expo's
+  existing HTTPS query intent; no artifact from that stopped publication exists. Final correction
+  `5c239b1c30c6263a036077460e23373b767f66df`, tree
+  `53e8d4ed012ccc662f1005f895a3b6e685cf560e`, binds exactly one queries block, the two
+  TalkBack package queries, one exact `VIEW` + `BROWSABLE` + `https` intent and zero providers.
+  Exact-head CI `30276804017`, attempt 1, passed 12/12. The replacement 65,734,361-byte `0444`
+  APK (`c87b2e2b804a3db7…24af95db`) and 6,700-byte `0444` manifest
+  (`5c6ea1bc5d0f6d7d…d8fd74fb`) passed the official verifier. Exactly one provider must be
+  installed and active from the Google/Samsung allowlist; none or both fail closed. Independent
+  Exact-SHA re-review remains pending and no approval is claimed.
 
 Two earlier one-time Phase-0 authorities are consumed. Run 1 stopped before Product action because
 a Validation package was already installed. Run 2 stopped before installation or NFC because the

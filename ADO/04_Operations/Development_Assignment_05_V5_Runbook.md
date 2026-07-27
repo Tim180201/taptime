@@ -1,6 +1,6 @@
 # Development Assignment 5 — V5 Human Android Gate Runbook
 
-- Status: **VALIDATION PROVIDER FIX/REPLACEMENT ARTIFACT BOUND — TWO PHASE-0 AUTHORITIES CONSUMED FAIL-CLOSED; NO CURRENT PHASE-0 OR HUMAN-V5 AUTHORITY/DO NOT START**
+- Status: **FINAL VALIDATION QUERY-VISIBILITY CORRECTION/REPLACEMENT ARTIFACT BOUND; INDEPENDENT EXACT-SHA RE-REVIEW PENDING — TWO PHASE-0 AUTHORITIES CONSUMED FAIL-CLOSED; NO CURRENT PHASE-0 OR HUMAN-V5 AUTHORITY/DO NOT START**
 - Date: 2026-07-27
 - Owner: Technical Lead
 - Approval authority for any run: Human Architect
@@ -9,10 +9,12 @@
 
 The Runtime Guard is bound to source `ba1b6e922ceb7902ecedd9dc2df01d6b22d90867`,
 tree `980b6c57fdd71c12820f2890b640946db0d883c6`, CI `30255104609`, attempt 2,
-12/12, and independently approved immutable binary/manifest. Validation App provider correction
-`856e598f9f2db4e472b7aae415dd2582d9ed58c0`, tree
-`8691bf2552163fa2030298ee603c44a45f97b723`, passed exact-head CI `30272680772`,
-attempt 1, 12/12. Its replacement APK/manifest passed the official verifier.
+12/12, and independently approved immutable binary/manifest. Final Validation App correction
+`5c239b1c30c6263a036077460e23373b767f66df`, tree
+`53e8d4ed012ccc662f1005f895a3b6e685cf560e`, passed exact-head CI `30276804017`,
+attempt 1, 12/12. Its replacement APK/manifest passed the official verifier. Independent
+Exact-SHA re-review remains pending; no approval is claimed. Stopped intermediate `0f7e131`
+produced no published artifact.
 
 **Phase 0 — Validation Binding Preflight** has no current authority. Two prior one-time
 authorizations are consumed: run 1 stopped before Product action because a Validation package was
@@ -28,10 +30,10 @@ uninstall and scoped cleanup are mandatory.
 |---|---|
 | Runtime Guard binary | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-runtime-guard/ba1b6e922ceb7902ecedd9dc2df01d6b22d90867/da5_v5_runtime_guard`; 74,336 bytes; mode `0555`; SHA-256 `4b2a7e6b15d3348dffda94f9125c20a4db82bb8eb08a03aabd35932ad0d5853c` |
 | Runtime Guard manifest/review | Same directory, `guard-manifest.txt`; 19,971 bytes; mode `0444`; SHA-256 `957d6e99c271663763945026995e7463cf2f20b385eb942fd16a152d3de5f709`; focused evidence SHA-256 `440928371f7acc48272eff2e819c37a851d66cae4a908ffa330228982328d708`; independent Exact-SHA `APPROVED`, zero open P0–P3 |
-| Validation APK | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-validation/da5-v5-validation-856e598f9f2d-a5a925ff01326cea/app-release-a5a925ff01326cea.apk`; 65,734,325 bytes; mode `0444`; SHA-256 `a5a925ff01326cea0a8db7d0bc0d401d357d1a9e84f8b0eb7ef592241ee37f08` |
-| Validation manifest | Same directory, `manifest-856e598f9f2d.json`; 6,700 bytes; mode `0444`; SHA-256 `45954119a8a4389eec009b31b700d4d45d32126c1469ea904822d0f669622d99` |
-| Package/runtime | `com.tim180201.mobile.validation`; signer `fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c`; `local-validation-only`; `NfcA+MifareUltralight`; exact roles A/B/X; exactly one active installed provider from `com.google.android.marvin.talkback` or `com.samsung.android.accessibility.talkback`; none or both fail closed; no Product deep link or Tag dispatch |
-| Native/source verification | Mobile 688/688, Core 290/290, Admin 87/87, 21 typechecks, 20 builds and exact-head CI `30272680772`, attempt 1, 12/12; official artifact verifier `PASS` |
+| Validation APK | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-validation/da5-v5-validation-5c239b1c30c6-c87b2e2b804a3db7/app-release-c87b2e2b804a3db7.apk`; 65,734,361 bytes; mode `0444`; SHA-256 `c87b2e2b804a3db79c7a74d1e055363577a6661652b32695ff5a853324af95db` |
+| Validation manifest | Same directory, `manifest-5c239b1c30c6.json`; 6,700 bytes; mode `0444`; SHA-256 `5c6ea1bc5d0f6d7db67d8c1bf45a7eaab2d14397adf9d38afe401928d8fd74fb` |
+| Package/runtime | `com.tim180201.mobile.validation`; signer `fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c`; `local-validation-only`; `NfcA+MifareUltralight`; exact roles A/B/X; exactly one active installed provider from `com.google.android.marvin.talkback` or `com.samsung.android.accessibility.talkback`; none or both fail closed; exactly one queries block with those two package queries, one exact `VIEW` + `BROWSABLE` + `https` intent and zero providers; no Product deep link or Tag dispatch |
+| Native/source verification | Final correction `5c239b1c30c6263a036077460e23373b767f66df`, tree `53e8d4ed012ccc662f1005f895a3b6e685cf560e`; exact-head CI `30276804017`, attempt 1, 12/12; official artifact verifier `PASS`; independent Exact-SHA re-review `PENDING` |
 | Device, accessibility and A/B/X fingerprints | `UNBOUND — DO NOT START` |
 | One-time Phase 0 authorization/result | `RUN 1 CONSUMED — PREINSTALLED PACKAGE`; `RUN 2 CONSUMED — SAMSUNG PROVIDER UNSUPPORTED BY PRIOR BUILD`; no current authority |
 
