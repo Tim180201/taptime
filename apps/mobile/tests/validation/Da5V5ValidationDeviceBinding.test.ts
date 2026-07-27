@@ -11,12 +11,26 @@ const valid = {
   deviceModel: 'SM-A336B',
   fontScale: 2,
   talkBackEnabled: true,
+  talkBackPackageName: 'com.google.android.marvin.talkback',
   talkBackPackageVersion: '15.1.0',
 } as const;
 
 describe('DA5 V5 device and accessibility binding', () => {
+  it.each([
+    'com.google.android.marvin.talkback',
+    'com.samsung.android.accessibility.talkback',
+  ] as const)(
+    'preserves an exact single active allow-listed provider: %s',
+    (talkBackPackageName) => {
+      const binding = { ...valid, talkBackPackageName };
+      expect(requireDa5V5ValidationDeviceBinding(binding)).toEqual(binding);
+      expect(Object.isFrozen(
+        requireDa5V5ValidationDeviceBinding(binding),
+      )).toBe(true);
+    },
+  );
+
   it('preserves only the exact closed local device evidence', () => {
-    expect(requireDa5V5ValidationDeviceBinding(valid)).toEqual(valid);
     expect(Object.isFrozen(
       requireDa5V5ValidationDeviceBinding(valid),
     )).toBe(true);
@@ -32,7 +46,18 @@ describe('DA5 V5 device and accessibility binding', () => {
     { ...valid, fontScale: Number.NaN },
     { ...valid, fontScale: 1.999 },
     { ...valid, fontScale: 2.001 },
+    { ...valid, talkBackPackageName: '' },
+    { ...valid, talkBackPackageName: 'com.example.talkback' },
+    {
+      ...valid,
+      talkBackPackageName: [
+        'com.google.android.marvin.talkback',
+        'com.samsung.android.accessibility.talkback',
+      ],
+    },
     { ...valid, talkBackPackageVersion: '' },
+    { ...valid, talkBackPackageVersion: ' 15.1.0' },
+    { ...valid, talkBackPackageVersion: '15.1.0\nsecret' },
     { ...valid, talkBackEnabled: false },
   ])('fails closed for missing, malformed or expanded evidence %#', (value) => {
     expect(() => requireDa5V5ValidationDeviceBinding(value)).toThrow(

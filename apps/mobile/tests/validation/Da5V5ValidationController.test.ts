@@ -27,6 +27,7 @@ const deviceBinding: Da5V5ValidationDeviceBinding = {
   deviceModel: 'SM-A336B',
   fontScale: 2,
   talkBackEnabled: true,
+  talkBackPackageName: 'com.google.android.marvin.talkback',
   talkBackPackageVersion: '15.1.0',
 };
 

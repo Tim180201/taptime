@@ -1,9 +1,18 @@
+export const DA5_V5_VALIDATION_TALKBACK_PACKAGES = Object.freeze([
+  'com.google.android.marvin.talkback',
+  'com.samsung.android.accessibility.talkback',
+] as const);
+
+export type Da5V5ValidationTalkBackPackage =
+  typeof DA5_V5_VALIDATION_TALKBACK_PACKAGES[number];
+
 export interface Da5V5ValidationDeviceBinding {
   readonly deviceModel: string;
   readonly androidRelease: string;
   readonly androidApiLevel: number;
   readonly androidBuild: string;
   readonly fontScale: number;
+  readonly talkBackPackageName: Da5V5ValidationTalkBackPackage;
   readonly talkBackPackageVersion: string;
   readonly talkBackEnabled: true;
 }
@@ -19,6 +28,7 @@ const EXACT_BINDING_KEYS = Object.freeze([
   'deviceModel',
   'fontScale',
   'talkBackEnabled',
+  'talkBackPackageName',
   'talkBackPackageVersion',
 ]);
 const SAFE_NATIVE_TEXT = /^[\u0020-\u007E]{1,160}$/u;
@@ -46,6 +56,7 @@ export function requireDa5V5ValidationDeviceBinding(
     || typeof candidate.fontScale !== 'number'
     || !Number.isFinite(candidate.fontScale)
     || candidate.fontScale !== 2
+    || !allowedTalkBackPackage(candidate.talkBackPackageName)
     || !safeNativeText(candidate.talkBackPackageVersion)
     || candidate.talkBackEnabled !== true
   ) {
@@ -58,8 +69,16 @@ export function requireDa5V5ValidationDeviceBinding(
     deviceModel: candidate.deviceModel as string,
     fontScale: candidate.fontScale,
     talkBackEnabled: true,
+    talkBackPackageName: candidate.talkBackPackageName,
     talkBackPackageVersion: candidate.talkBackPackageVersion as string,
   });
+}
+
+function allowedTalkBackPackage(
+  value: unknown,
+): value is Da5V5ValidationTalkBackPackage {
+  return value === DA5_V5_VALIDATION_TALKBACK_PACKAGES[0]
+    || value === DA5_V5_VALIDATION_TALKBACK_PACKAGES[1];
 }
 
 function safeNativeText(value: unknown): value is string {

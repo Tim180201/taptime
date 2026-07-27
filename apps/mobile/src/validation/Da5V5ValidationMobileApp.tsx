@@ -72,10 +72,12 @@ export function Da5V5ValidationMobileApp() {
               value={`${state.deviceBinding.fontScale * 100}%`}
             />
             <BindingValue
-              label="TALKBACK"
-              value={
-                `${state.deviceBinding.talkBackPackageVersion} · aktiviert`
-              }
+              label="TALKBACK PROVIDER-PAKET (EXAKT)"
+              value={state.deviceBinding.talkBackPackageName}
+            />
+            <BindingValue
+              label="TALKBACK PROVIDER-VERSION (EXAKT)"
+              value={`${state.deviceBinding.talkBackPackageVersion} · aktiviert`}
             />
           </View>
         )}

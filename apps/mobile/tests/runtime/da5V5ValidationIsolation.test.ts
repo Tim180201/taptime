@@ -61,7 +61,10 @@ describe('DA5 V5 Validation runtime isolation', () => {
     expect(ui).toContain('Gerätebindung exakt bestätigen');
     expect(ui).toContain('state.deviceBinding.androidApiLevel');
     expect(ui).toContain('state.deviceBinding.fontScale');
+    expect(ui).toContain('state.deviceBinding.talkBackPackageName');
     expect(ui).toContain('state.deviceBinding.talkBackPackageVersion');
+    expect(ui).toContain('TALKBACK PROVIDER-PAKET (EXAKT)');
+    expect(ui).toContain('TALKBACK PROVIDER-VERSION (EXAKT)');
     expect(ui).toContain("technology ?? 'Noch nicht geprüft'");
     expect(ui).toContain('ROLLE');
   });
