@@ -1,6 +1,6 @@
 # Development Assignment 5 — V5 Human Android Gate Runbook
 
-- Status: **FIVE PHASE-0 AUTHORITIES CONSUMED FAIL-CLOSED — DA5-V5-VAL-UI-01 CORRECTION/REVIEW PENDING — `7e8c0f7` APK/MANIFEST HISTORICAL/DO NOT INSTALL — NEW VERIFIED INDEPENDENTLY EXACT-SHA-BOUND APK/MANIFEST REQUIRED — NO CURRENT PHASE-0 OR HUMAN-V5 AUTHORITY/DO NOT START**
+- Status: **DA5-V5-VAL-UI-01 SOURCE/ARTIFACT EXACT-SHA REVIEW APPROVED — CURRENT `e97bbe9` APK/MANIFEST VERIFIED BUT INSTALLATION UNAUTHORIZED — FIVE PHASE-0 AUTHORITIES CONSUMED FAIL-CLOSED — `7e8c0f7` APK/MANIFEST HISTORICAL/DO NOT INSTALL — NO CURRENT PHASE-0 OR HUMAN-V5 AUTHORITY/DO NOT START**
 - Date: 2026-07-28
 - Owner: Technical Lead
 - Approval authority for any run: Human Architect
@@ -44,19 +44,29 @@ and no hardware defect is proven. Cleanup again confirmed package, process and r
 at zero. `DA5-V5-VAL-UI-01` tracks the repository-visible accessibility/UI reliability gap:
 identical repeated TalkBack activations require a separate one-shot/coalescing boundary while
 true concurrent, out-of-order and foreign Controller calls remain strict fail-closed. Its focused
-correction is not yet published or independently approved. Before a future fresh one-time
-authorization, a new corrected APK/manifest must be generated, verified and independently
-Exact-SHA-bound. No new artifact path, size or digest is claimed here. That authorization must
-bind the
+correction source `e97bbe9e2a281099899e2ecb3aad2588ef20f22d`, tree
+`2958f456875e8dab3f10834df280e10a8438efce`, passed exact-head CI `30370977809`,
+attempt 1, 12/12. Round-2 and Round-3 source reviews plus the formal independent Source/Artifact
+Exact-SHA review returned `APPROVED` with zero open P0–P3. The exact replacement APK/manifest
+below passed the official verifier and that independent review. This closes the repository,
+source and artifact finding only; it does not prove the run-5 cause or grant installation or
+hardware authority. A future fresh one-time authorization must bind the
 Galaxy A33 plus still-unbound OS/build/accessibility values and three still-unbound safe Tag
 fingerprints to A/B/X. No APK listed below may be installed; the values are historical audit
-bindings only. Future scans remain read-only and must perform no auth, network, database, Product
-action or timekeeping. Complete uninstall and scoped cleanup are mandatory.
+bindings or an independently reviewed but still unauthorized candidate. The historical `7e8c0f7`
+artifact remains **DO NOT INSTALL**. Future scans remain read-only and must perform no auth,
+network, database, Product action or timekeeping. Complete uninstall and scoped cleanup are
+mandatory.
 
 | Phase 0 artifact | Exact binding |
 |---|---|
 | Runtime Guard binary | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-runtime-guard/ba1b6e922ceb7902ecedd9dc2df01d6b22d90867/da5_v5_runtime_guard`; 74,336 bytes; mode `0555`; SHA-256 `4b2a7e6b15d3348dffda94f9125c20a4db82bb8eb08a03aabd35932ad0d5853c` |
 | Runtime Guard manifest/review | Same directory, `guard-manifest.txt`; 19,971 bytes; mode `0444`; SHA-256 `957d6e99c271663763945026995e7463cf2f20b385eb942fd16a152d3de5f709`; focused evidence SHA-256 `440928371f7acc48272eff2e819c37a851d66cae4a908ffa330228982328d708`; independent Exact-SHA `APPROVED`, zero open P0–P3 |
+| Current Validation source/review/CI — installation unauthorized | `e97bbe9e2a281099899e2ecb3aad2588ef20f22d`; tree `2958f456875e8dab3f10834df280e10a8438efce`; exact-head CI `30370977809`, attempt 1, 12/12; Round-2 and Round-3 source reviews and independent formal Source/Artifact Exact-SHA review `APPROVED`, zero open P0–P3 |
+| Current Validation APK — installation unauthorized | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-validation/da5-v5-validation-e97bbe9e2a28-810b856ff7113b4f/app-release-810b856ff7113b4f.apk`; 65,629,505 bytes; mode `0444`; SHA-256 `810b856ff7113b4f2a454007595e1b6c1ae5dc69c601a2120b577f124e213e28`; official verifier `PASS` |
+| Current Validation manifest — installation unauthorized | Same directory, `manifest-e97bbe9e2a28.json`; 6,700 bytes; mode `0444`; SHA-256 `af53d646558449a7a5c907fbdf59e3366c6ffd2755f6049141db8e567549e051`; official verifier `PASS` |
+| Current Validation package/security boundary | `com.tim180201.mobile.validation`; versionCode `1`; versionName `1.0.0`; signing scope `local-validation-only`; one v2 signer with certificate SHA-256 `fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c`; NFC-only; no network permission; cleartext denied; backup disabled; no Product deep links or Tag dispatch |
+| Current Validation native/source closure | Metro source closure 555 entries / 2,672,214 bytes / SHA-256 `75906c91cf382aa6b50f1846174b0d13ece28cae15f417b499eab29c263f0327`; executable 2,037,617 bytes / SHA-256 `6694a99a1388e376c253e72cdec88f879346389c0dccf683defe9805440e6bf2`; native source 123 directories / 587 entries / 464 files / 1,176,224 bytes / SHA-256 `9194be29b96a67c47aa40a4bdea7494155695e088d769e21c77eff305b1ee259` |
 | Historical Validation APK — DO NOT INSTALL | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-validation/da5-v5-validation-7e8c0f7742e6-303bfd33cf7fa000/app-release-303bfd33cf7fa000.apk`; 65,626,753 bytes; mode `0444`; SHA-256 `303bfd33cf7fa000ee808a048f91883c18dbfe85c1ba359d3f0764ac7ae7f2f8` |
 | Historical Validation manifest — DO NOT INSTALL | Same directory, `manifest-7e8c0f7742e6.json`; 6,700 bytes; mode `0444`; SHA-256 `11c1664cee37caa8b093a9023f571e3b8733e8bb078bf7f78b6f20d8f39388a7` |
 | Package/runtime | `com.tim180201.mobile.validation`; signer `fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c`; `local-validation-only`; `NfcA+MifareUltralight`; exact roles A/B/X; exactly one active installed provider from `com.google.android.marvin.talkback` or `com.samsung.android.accessibility.talkback`; none or both fail closed; exactly one queries block with those two package queries, one exact `VIEW` + `BROWSABLE` + `https` intent and zero providers; no Product deep link or Tag dispatch |

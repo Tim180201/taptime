@@ -1,6 +1,6 @@
 # Project Status
 
-Status: CORE ROADMAP V2 COMPLETIONS REMAIN PRESERVED FOR THEIR RECORDED SCOPES — DA4 REMAINS OPEN FOR A LATER FRESH HUMAN V5 — DA5 V0–V4 AND THE LOCAL DA5-V5 RUNTIME GUARD REMAIN INDEPENDENTLY APPROVED; THE `7e8c0f7` VALIDATION APK/MANIFEST IS HISTORICAL AND MUST NOT BE INSTALLED AFTER THE DA5-V5-VAL-UI-01 SOURCE CORRECTION — FIVE PHASE-0 AUTHORITIES WERE CONSUMED FAIL-CLOSED WITHOUT AN ATTRIBUTABLE TAG RESULT; RUN 5 PASSED EXACT APK/DEVICE CHECKPOINTS BEFORE A GENERIC FAIL-CLOSED SCAN PATH, NO HARDWARE DEFECT IS PROVEN AND PACKAGE/PROCESS/REVERSE CLEANUP ENDED AT ZERO — DA5-V5-VAL-UI-01 PUBLICATION/INDEPENDENT REVIEW AND A NEW VERIFIED INDEPENDENTLY EXACT-SHA-BOUND APK/MANIFEST ARE REQUIRED BEFORE ANY NEW PHASE-0 AUTHORIZATION; NO FURTHER PHASE-0/HARDWARE/ADB/INSTALLATION OR PRODUCT-HUMAN-V5 AUTHORITY EXISTS — PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, SYSTEM CHANGES, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
+Status: CORE ROADMAP V2 COMPLETIONS REMAIN PRESERVED FOR THEIR RECORDED SCOPES — DA4 REMAINS OPEN FOR A LATER FRESH HUMAN V5 — DA5 V0–V4 AND THE LOCAL DA5-V5 RUNTIME GUARD REMAIN INDEPENDENTLY APPROVED; DA5-V5-VAL-UI-01 SOURCE `e97bbe9`, TREE `2958f45`, EXACT-HEAD CI `30370977809` ATTEMPT 1 12/12, ROUND-2/ROUND-3 SOURCE REVIEWS AND FORMAL SOURCE/ARTIFACT EXACT-SHA REVIEW ARE `APPROVED` WITH ZERO OPEN P0–P3 — THE NEW 65,629,505-BYTE READ-ONLY APK `810b856f…13e28` AND 6,700-BYTE MANIFEST `af53d646…9e051` PASSED THE OFFICIAL VERIFIER; THE `7e8c0f7` ARTIFACT REMAINS HISTORICAL/DO NOT INSTALL — FIVE PHASE-0 AUTHORITIES REMAIN CONSUMED FAIL-CLOSED WITHOUT AN ATTRIBUTABLE TAG RESULT; NO NEW PHASE-0/HARDWARE/ADB/INSTALLATION OR PRODUCT-HUMAN-V5 AUTHORITY EXISTS — PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, SYSTEM CHANGES, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
 DA5 decision-time Option-A trust anchor: exactly two direct admin-group members, zero nested
 groups; full-record SHA-256 `b006276c09d8f2713f6132ea79cec167ab3a3c2887ee53e95eb00c1cc33719a5`;
 membership SHA-256 `70a683b7ebc7981533015d5d63cf12dfb2eabbfa665c34720eddb4d09e9e3064`;
@@ -16,9 +16,9 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
 
 ## Current State
 
-- **Historical DA5-V5 Validation Runtime correction is independently approved for its exact source;
-  DA5-V5-VAL-UI-01 supersedes its artifact for installation, the fifth Phase-0 attempt is consumed
-  and any new Phase-0 authority remains separately gated.** Runtime Guard source
+- **DA5-V5-VAL-UI-01 source and replacement artifact are independently approved; the fifth
+  Phase-0 attempt remains consumed and any new Phase-0 authority remains separately gated.**
+  Runtime Guard source
   `ba1b6e922ceb7902ecedd9dc2df01d6b22d90867`, tree
   `980b6c57fdd71c12820f2890b640946db0d883c6`, passed CI `30255104609`, attempt 2,
   12/12; attempt 1 had only one B5 Docker-Hub pull timeout before checkout. Its immutable
@@ -52,9 +52,9 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   (`303bfd33…7f2f8`) and 6,700-byte `0444` manifest (`11c1664c…39388a7`) passed the
   official verifier and independent Artifact Exact-SHA review with zero open P0–P3 for exact
   source `7e8c0f7`. Those artifact values are now **HISTORICAL — DO NOT INSTALL** because the
-  DA5-V5-VAL-UI-01 source correction changes the Validation Controller/UI. Before any new Phase-0
-  authorization, a new APK/manifest must be generated, verified and independently Exact-SHA-bound;
-  no replacement values are claimed here.
+  DA5-V5-VAL-UI-01 source correction changes the Validation Controller/UI. The replacement
+  source/artifact binding is recorded below and is independently approved, but it remains
+  installation-unauthorized without a fresh exact Human Phase-0 authorization.
 
   Five separately authorized Phase-0 attempts are consumed without an attributable Tag result:
   run 1 stopped on
@@ -68,9 +68,19 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   path with no distinguishable cause. No successful or attributable Tag result is Evidence and no
   hardware defect is proven. Cleanup ended with package, process and reverse mappings at zero.
   `DA5-V5-VAL-UI-01` tracks the separate repository-visible repeated-TalkBack-activation
-  reliability gap; its focused local correction candidate does not prove the run-5 cause, and
-  publication/independent review remain pending. No current Phase-0, hardware, ADB, installation
-  or Product Human-V5 authority exists.
+  reliability gap. Correction source `e97bbe9e2a281099899e2ecb3aad2588ef20f22d`, tree
+  `2958f456875e8dab3f10834df280e10a8438efce`, passed exact-head CI `30370977809`,
+  attempt 1, 12/12. Round-2 and Round-3 source reviews and the independent formal Source/Artifact
+  Exact-SHA review returned `APPROVED` with zero open P0–P3. The new read-only
+  artifact directory is
+  `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-validation/da5-v5-validation-e97bbe9e2a28-810b856ff7113b4f`:
+  its 65,629,505-byte `0444` APK has SHA-256
+  `810b856ff7113b4f2a454007595e1b6c1ae5dc69c601a2120b577f124e213e28`; its
+  6,700-byte `0444` manifest has SHA-256
+  `af53d646558449a7a5c907fbdf59e3366c6ffd2755f6049141db8e567549e051`. Both passed the official
+  verifier and exact package/signing/runtime/native/source-closure review. This closes
+  DA5-V5-VAL-UI-01 as a repository/source/artifact finding only; it does not prove the run-5 cause
+  or grant Phase-0, hardware, ADB, installation or Product Human-V5 authority.
 - **Development Assignment 5 Workstreams A–F and V0–V4 are technically closed/MERGE_READY;
   Human V5 remains unauthorized.** The Human Architect expressly accepted ADR-0016/DA5-P01–P12 and
   ADR-0017/DA5-T01–T15 and authorized the bounded Development implementation plus subsequent
@@ -977,10 +987,10 @@ Two Epics are concurrently Active, per EP-009's own stated relationship to the r
 6. Preserve DA5 V0–V4 closure and the independently approved local DA5-V5 Runtime Guard and
    exact runtime-corrected Validation App binding above. Treat Shared-Cluster work as historical
    `BLOCKED`/not Evidence and all five failed Phase-0 attempts as consumed, non-reusable history.
-   Close `DA5-V5-VAL-UI-01` only through focused publication and independent zero-finding review.
-   First generate and independently Exact-SHA-bind a new verified APK/manifest; the historical
-   `7e8c0f7` artifact must not be installed. Do not begin another Phase 0 without that new artifact
-   binding and a fresh explicit one-time Human authorization limited to the corrected exact
+   Preserve `DA5-V5-VAL-UI-01` source/artifact closure on `e97bbe9` and its independent
+   zero-finding reviews. The historical `7e8c0f7` artifact must not be installed. Do not begin
+   another Phase 0 without the new `e97bbe9` artifact binding and a fresh explicit one-time Human
+   authorization limited to the corrected exact
    Validation APK, Galaxy A33, three read-only A/B/X Tag scans, device/accessibility binding and
    complete uninstall/cleanup. Product APK installation and Human V5 remain later separately
    gated. Production, production data, system changes, deployment and distribution remain
