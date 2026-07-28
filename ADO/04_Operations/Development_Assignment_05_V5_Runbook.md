@@ -1,6 +1,6 @@
 # Development Assignment 5 — V5 Human Android Gate Runbook
 
-- Status: **PHASE-0 RUN 7 CONSUMED AT SAFE `technology_evidence` WITH PACKAGE/PROCESS/REVERSE ZERO AND NO FINGERPRINT/TAG RESULT — `DA5-V5-VAL-TECH-01` CLOSED-LIST DEFECT CONFIRMED; THIS PUBLICATION INTRODUCES THE FOCUSED R3 SUBSET CANDIDATE ON BASELINE `aebffbe`, WITH EXTERNAL BINDINGS DEFERRED TO EVIDENCE SYNCHRONIZATION — `effc57a`, `e97bbe9` AND `7e8c0f7` APK/MANIFEST HISTORICAL/DO NOT INSTALL — SEVEN PHASE-0 AUTHORITIES CONSUMED — NO CURRENT PHASE-0 OR HUMAN-V5 AUTHORITY/DO NOT START**
+- Status: **PHASE-0 RUN 7 CONSUMED AT SAFE `technology_evidence` WITH PACKAGE/PROCESS/REVERSE ZERO AND NO FINGERPRINT/TAG RESULT — `DA5-V5-VAL-TECH-01` SOURCE `03694f2`, TREE `6c60396`, CI `30386552118`, PREPUBLICATION REVIEW ROUND 2 AND INDEPENDENT SOURCE/ARTIFACT EXACT-SHA REVIEW APPROVED WITH ZERO OPEN P0–P3; EXACT REPLACEMENT APK/MANIFEST REMAINS DO NOT INSTALL — `effc57a`, `e97bbe9` AND `7e8c0f7` APK/MANIFEST HISTORICAL/DO NOT INSTALL — SEVEN PHASE-0 AUTHORITIES CONSUMED — NO CURRENT PHASE-0 OR HUMAN-V5 AUTHORITY/DO NOT START**
 - Date: 2026-07-28
 - Owner: Technical Lead
 - Approval authority for any run: Human Architect
@@ -83,20 +83,25 @@ with zero open P0–P3.
 
 These reviews close only their exact historical repository/source/artifact correction. Run 7 and
 repository inspection confirm `DA5-V5-VAL-TECH-01`: the `effc57a` helper imposed a closed
-Technology allowlist, maximum length and duplicate rejection. This publication introduces the
-focused R3 candidate on baseline `aebffbec`, requiring both fully qualified
-`android.nfc.tech.NfcA` and
-`android.nfc.tech.MifareUltralight` and ignores any additional or duplicated entries without
-returning or persisting them. Contract, output label, UID/digest handling, timeout, Controller and
-filter remain unchanged. Exact external Source/CI/Artifact/Review bindings are recorded only by
-the subsequent Evidence synchronization.
+Technology allowlist, maximum length and duplicate rejection. Focused correction source
+`03694f2d877bc323791e93473ad01ceb82af70df`, tree
+`6c6039683e067ef29f1f917a60c2628d26e38784`, passed exact-head CI `30386552118`,
+attempt 1, 12/12; prepublication review round 2 returned `APPROVED` with zero open P0–P3.
+Both fully qualified `android.nfc.tech.NfcA` and
+`android.nfc.tech.MifareUltralight` remain required, while additional or duplicated entries are
+ignored without returning or persisting them. Contract, output label, UID/digest handling,
+timeout, Controller and filter remain unchanged. The exact replacement APK/manifest below passed
+the official verifier and independent Source/Artifact Exact-SHA review with zero open P0–P3. It
+remains **DO NOT INSTALL** because no separate Phase-0, installation, ADB or hardware authority
+exists.
 
 The safe stage does not reveal the concrete physical `techTypes` and proves no fingerprint, Tag
-result or hardware defect. A future fresh one-time authorization must bind a future independently
-approved replacement artifact, the Galaxy A33 plus still-unbound OS/build/accessibility values
-and three still-unbound safe Tag fingerprints to A/B/X. No APK listed below may be installed; all
-are historical audit bindings. Future scans remain read-only and must perform no auth, network,
-database, Product action or timekeeping. Complete uninstall and scoped cleanup are mandatory.
+result or hardware defect. A future fresh one-time authorization must bind this independently
+approved exact replacement artifact, the Galaxy A33 plus still-unbound OS/build/accessibility
+values and three still-unbound safe Tag fingerprints to A/B/X. No APK listed below may be
+installed under current authority; all entries are non-executable audit bindings. Future scans
+remain read-only and must perform no auth, network, database, Product action or timekeeping.
+Complete uninstall and scoped cleanup are mandatory.
 
 | Phase 0 artifact | Exact binding |
 |---|---|
@@ -109,7 +114,10 @@ database, Product action or timekeeping. Complete uninstall and scoped cleanup a
 | Historical `effc57a` Validation package/security boundary | `com.tim180201.mobile.validation`; versionCode `1`; versionName `1.0.0`; signing scope `local-validation-only`; one v2 signer with certificate SHA-256 `fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c`; NFC-only; no network permission; cleartext denied; backup disabled; no Product deep links or Tag dispatch |
 | Historical `effc57a` Validation native/source closure | Metro source closure 555 entries / 2,675,576 bytes / SHA-256 `e9fee0629af81357e4563836f9f5ef2b404c1ef97bc135d1cb3ed410f713b593`; executable 2,040,604 bytes / SHA-256 `c24457514436a63878107e1593dc90c6de17ad2424a6b625a6f18a14f66b8cfe`; unchanged native source 123 directories / 587 entries / 464 files / 1,176,224 bytes / SHA-256 `9194be29b96a67c47aa40a4bdea7494155695e088d769e21c77eff305b1ee259` |
 | Historical `effc57a` Artifact Exact-SHA review | `APPROVED`, zero open P0–P3; all 32 manifest source-closure files byte-exact; package/signature/version, NFC-only permission, backup/transfer disabled, cleartext/network blocked and no Product dispatch/deep link; DEX 4 required present / 14 forbidden absent; Hermes Validation markers present and Product/network/database/storage markers absent |
-| `DA5-V5-VAL-TECH-01` R3 candidate | This publication introduces the focused candidate on baseline `aebffbec7c72c028ace6365ecdcc413e314526dd` / tree `9e0104229756fe223753916ace8247ee2626f4d5`; both fully qualified mandatory Technologies remain required and all extras/duplicates are ignored; exact external bindings are recorded only by the subsequent Evidence synchronization |
+| `DA5-V5-VAL-TECH-01` source/review/CI | `03694f2d877bc323791e93473ad01ceb82af70df`; tree `6c6039683e067ef29f1f917a60c2628d26e38784`; exact-head CI `30386552118`, attempt 1, 12/12; prepublication review round 2 `APPROVED`, zero open P0–P3 |
+| `DA5-V5-VAL-TECH-01` candidate APK — DO NOT INSTALL | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-validation/da5-v5-validation-03694f2d877b-d2084486b07f27bd/app-release-d2084486b07f27bd.apk`; 65,631,433 bytes; mode `0444`; SHA-256 `d2084486b07f27bdbd72f9f32e38531f8de31dad18ef4789cab2ec44135e05f5`; official verifier `PASS`; independent Source/Artifact Exact-SHA review `APPROVED`, zero open P0–P3 |
+| `DA5-V5-VAL-TECH-01` candidate manifest — DO NOT INSTALL | Same directory, `manifest-03694f2d877b.json`; 6,700 bytes; mode `0444`; SHA-256 `aa2a243cd4f81ead806c43e27d6f9c12c28e396db64fe556d8ddf02a8d52f347`; all 32 source-closure entries matched; independent Source/Artifact Exact-SHA review `APPROVED`, zero open P0–P3 |
+| `DA5-V5-VAL-TECH-01` package/security boundary | `com.tim180201.mobile.validation`; versionCode `1`; versionName `1.0.0`; `local-validation-only`; one v2 signer with certificate SHA-256 `fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c`; NFC-only; no network permission; cleartext denied; backup/transfer denied; no Product deep links or Tag dispatch; required native modules present, forbidden modules absent; Validation marker present and Product runtime marker absent |
 | Historical `e97bbe9` Validation source/review/CI — DO NOT INSTALL | `e97bbe9e2a281099899e2ecb3aad2588ef20f22d`; tree `2958f456875e8dab3f10834df280e10a8438efce`; exact-head CI `30370977809`, attempt 1, 12/12; Round-2/Round-3 source reviews and formal Source/Artifact Exact-SHA review `APPROVED`, zero open P0–P3 |
 | Historical `e97bbe9` Validation APK/manifest — DO NOT INSTALL | Directory `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-validation/da5-v5-validation-e97bbe9e2a28-810b856ff7113b4f`; APK `app-release-810b856ff7113b4f.apk`, 65,629,505 bytes, mode `0444`, SHA-256 `810b856ff7113b4f2a454007595e1b6c1ae5dc69c601a2120b577f124e213e28`; manifest `manifest-e97bbe9e2a28.json`, 6,700 bytes, mode `0444`, SHA-256 `af53d646558449a7a5c907fbdf59e3366c6ffd2755f6049141db8e567549e051` |
 | Historical Validation APK — DO NOT INSTALL | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-validation/da5-v5-validation-7e8c0f7742e6-303bfd33cf7fa000/app-release-303bfd33cf7fa000.apk`; 65,626,753 bytes; mode `0444`; SHA-256 `303bfd33cf7fa000ee808a048f91883c18dbfe85c1ba359d3f0764ac7ae7f2f8` |
