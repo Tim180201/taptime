@@ -164,24 +164,42 @@ describe('DA5 V5 ADB child-process boundary', () => {
     await expect(operation).rejects.toThrow(/output exceeded its bound/);
   });
 
-  it('keeps abort rejection pending until the child closes', async () => {
-    const child = controlledAdbChild();
-    const runner = binaryRunner(child);
-    const controller = new AbortController();
-    const operation = runner.runBinaryDigest(['devices'], {
-      maximumBytes: 4,
-      signal: controller.signal,
-      timeoutMilliseconds: 5_000,
-    });
-    const settlement = observeSettlement(operation);
+  it('force-settles binary abort after SIGKILL when the child never closes', async () => {
+    vi.useFakeTimers();
+    try {
+      const child = controlledAdbChild();
+      const runner = binaryRunner(child);
+      const controller = new AbortController();
+      const operation = runner.runBinaryDigest(['devices'], {
+        maximumBytes: 4,
+        signal: controller.signal,
+        timeoutMilliseconds: 5_000,
+      });
+      const settlement = observeSettlement(operation);
 
-    controller.abort();
-    await flushMicrotasks();
-    expect(child.kill).toHaveBeenCalledWith('SIGTERM');
-    expect(settlement.state()).toBe('pending');
+      controller.abort();
+      await flushMicrotasks();
+      expect(child.kill).toHaveBeenCalledWith('SIGTERM');
+      expect(settlement.state()).toBe('pending');
 
-    child.emit('close', null, 'SIGTERM');
-    await expect(operation).rejects.toThrow(/command aborted/);
+      await vi.advanceTimersByTimeAsync(1_000);
+      expect(child.kill).toHaveBeenLastCalledWith('SIGKILL');
+      expect(settlement.state()).toBe('pending');
+
+      await vi.advanceTimersByTimeAsync(1_000);
+      await expect(operation).rejects.toThrow(/command aborted/);
+      expect(child.unref).toHaveBeenCalledTimes(1);
+      expect(child.stdout.destroyed).toBe(true);
+      expect(child.stderr.destroyed).toBe(true);
+      expect(() => {
+        child.emit('error', new Error('late child error'));
+        child.stdout.emit('error', new Error('late stdout error'));
+        child.stderr.emit('error', new Error('late stderr error'));
+        child.emit('close', null, 'SIGKILL');
+      }).not.toThrow();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('keeps child-process errors pending until the child closes', async () => {
@@ -311,7 +329,7 @@ describe('DA5 V5 ADB child-process boundary', () => {
     expectRunnerListenersRemoved(child);
   });
 
-  it('keeps stdin timeout pending through SIGTERM and SIGKILL until child close', async () => {
+  it('force-settles stdin timeout after SIGKILL when the child never closes', async () => {
     vi.useFakeTimers();
     try {
       const child = controlledAdbChild();
@@ -319,12 +337,12 @@ describe('DA5 V5 ADB child-process boundary', () => {
       const stdinBytes = Buffer.from('verified-apk-snapshot');
       const operation = runner.run(['shell', '-T', 'cat'], {
         stdinBytes,
-        timeoutMilliseconds: 10,
+        timeoutMilliseconds: 2_000,
       });
       const settlement = observeSettlement(operation);
       const inputLifetime = observeInputLifetime(operation);
 
-      await vi.advanceTimersByTimeAsync(10);
+      await vi.advanceTimersByTimeAsync(0);
       expect(child.kill).toHaveBeenCalledTimes(1);
       expect(child.kill).toHaveBeenLastCalledWith('SIGTERM');
       expect(settlement.state()).toBe('pending');
@@ -336,10 +354,20 @@ describe('DA5 V5 ADB child-process boundary', () => {
       expect(settlement.state()).toBe('pending');
       expect(inputLifetime.released()).toBe(false);
 
-      child.emit('close', null, 'SIGKILL');
+      await vi.advanceTimersByTimeAsync(1_000);
       await expect(operation).rejects.toThrow(/command timed out/);
       expect(inputLifetime.released()).toBe(true);
-      expectRunnerListenersRemoved(child);
+      expect(child.unref).toHaveBeenCalledTimes(1);
+      expect(child.stdin.destroyed).toBe(true);
+      expect(child.stdout.destroyed).toBe(true);
+      expect(child.stderr.destroyed).toBe(true);
+      expect(() => {
+        child.emit('error', new Error('late child error'));
+        child.stdin.emit('error', new Error('late stdin error'));
+        child.stdout.emit('error', new Error('late stdout error'));
+        child.stderr.emit('error', new Error('late stderr error'));
+        child.emit('close', null, 'SIGKILL');
+      }).not.toThrow();
     } finally {
       vi.useRealTimers();
     }
@@ -352,8 +380,10 @@ function fakeAdbChild(stdoutValue: string) {
     stderr: PassThrough;
     stdin: PassThrough;
     stdout: PassThrough;
+    unref: ReturnType<typeof vi.fn>;
   };
   child.kill = vi.fn();
+  child.unref = vi.fn();
   child.stderr = new PassThrough();
   child.stdin = new PassThrough();
   child.stdout = new PassThrough();
@@ -371,8 +401,10 @@ function controlledAdbChild() {
     stderr: PassThrough;
     stdin: PassThrough;
     stdout: PassThrough;
+    unref: ReturnType<typeof vi.fn>;
   };
   child.kill = vi.fn();
+  child.unref = vi.fn();
   child.stderr = new PassThrough();
   child.stdin = new PassThrough();
   child.stdout = new PassThrough();

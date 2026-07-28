@@ -164,7 +164,7 @@ export class Da5V5AndroidPreinstallPreflight {
 export async function requireSingleDa5V5UsbDevice(runner, options = {}) {
   const rows = (await runner.run(['devices', '-l'], {
     signal: options.signal,
-    timeoutMilliseconds: timeouts.inspect,
+    timeoutMilliseconds: options.timeoutMilliseconds ?? timeouts.inspect,
   }))
     .split(/\r?\n/u)
     .slice(1)
@@ -780,9 +780,24 @@ function runAdb(arguments_, options, dependencies) {
     let settled = false;
     let terminationError;
     let forceKillTimeout;
+    let forceSettleTimeout;
+    let forceKillSent = false;
+    const timeoutMilliseconds =
+      requireCommandTimeout(options.timeoutMilliseconds);
+    const terminationBudget = Math.min(2_000, timeoutMilliseconds);
+    const terminationGrace = Math.min(
+      1_000,
+      Math.max(1, Math.floor(terminationBudget / 2)),
+    );
     const timeout = setTimeout(() => {
       terminate(new Error('DA5 V5 Android device command timed out'));
-    }, options.timeoutMilliseconds ?? timeouts.inspect);
+    }, Math.max(0, timeoutMilliseconds - terminationBudget));
+    const hardTimeout = setTimeout(() => {
+      terminationError ??=
+        new Error('DA5 V5 Android device command timed out');
+      forceKill();
+      finish(terminationError, undefined, true);
+    }, timeoutMilliseconds);
 
     function abort() {
       terminate(new Error('DA5 V5 Android device command aborted'));
@@ -793,15 +808,35 @@ function runAdb(arguments_, options, dependencies) {
         return;
       }
       terminationError = error;
-      child.kill('SIGTERM');
+      try {
+        child.kill('SIGTERM');
+      } catch {
+        // The forced terminal settlement below remains authoritative.
+      }
       forceKillTimeout = setTimeout(() => {
-        child.kill('SIGKILL');
-      }, 1_000);
+        forceKill();
+      }, terminationGrace);
+      forceSettleTimeout = setTimeout(() => {
+        forceKill();
+        finish(terminationError, undefined, true);
+      }, terminationBudget);
+    }
+
+    function forceKill() {
+      if (!forceKillSent) {
+        forceKillSent = true;
+        try {
+          child.kill('SIGKILL');
+        } catch {
+          // The Promise still settles after the bounded post-kill grace.
+        }
+      }
     }
 
     function removeListeners() {
       options.signal?.removeEventListener('abort', abort);
       child.removeListener('error', onChildError);
+      child.removeListener('close', onClose);
       child.stdout.removeListener('data', onStdoutData);
       child.stdout.removeListener('error', onStdoutError);
       child.stderr.removeListener('data', onStderrData);
@@ -812,14 +847,27 @@ function runAdb(arguments_, options, dependencies) {
       }
     }
 
-    function finish(error, value) {
+    function finish(error, value, abandoned = false) {
       if (settled) {
         return;
       }
       settled = true;
       clearTimeout(timeout);
+      clearTimeout(hardTimeout);
       clearTimeout(forceKillTimeout);
+      clearTimeout(forceSettleTimeout);
       removeListeners();
+      if (abandoned) {
+        absorbLateChildErrors(child);
+        try {
+          child.stdin?.destroy();
+          child.stdout.destroy();
+          child.stderr.destroy();
+          child.unref?.();
+        } catch {
+          // Resource abandonment cannot prevent terminal Promise settlement.
+        }
+      }
       if (error === undefined) {
         resolvePromise(value ?? '');
       } else {
@@ -866,6 +914,15 @@ function runAdb(arguments_, options, dependencies) {
       terminate(new Error('DA5 V5 Android device command failed'));
     }
 
+    function onClose(code) {
+      finish(
+        terminationError ?? (
+          code === 0 ? undefined : new Error('DA5 V5 Android device command failed')
+        ),
+        stdout,
+      );
+    }
+
     function writeStdin() {
       if (
         settled
@@ -897,14 +954,7 @@ function runAdb(arguments_, options, dependencies) {
     child.stderr.on('data', onStderrData);
     child.stderr.once('error', onStderrError);
     child.once('error', onChildError);
-    child.once('close', (code) => {
-      finish(
-        terminationError ?? (
-          code === 0 ? undefined : new Error('DA5 V5 Android device command failed')
-        ),
-        stdout,
-      );
-    });
+    child.once('close', onClose);
     options.signal?.addEventListener('abort', abort, { once: true });
     if (options.signal?.aborted === true) {
       abort();
@@ -942,9 +992,24 @@ function runAdbBinaryDigest(arguments_, options, dependencies) {
     let settled = false;
     let terminationError;
     let forceKillTimeout;
+    let forceSettleTimeout;
+    let forceKillSent = false;
+    const timeoutMilliseconds =
+      requireCommandTimeout(options.timeoutMilliseconds);
+    const terminationBudget = Math.min(2_000, timeoutMilliseconds);
+    const terminationGrace = Math.min(
+      1_000,
+      Math.max(1, Math.floor(terminationBudget / 2)),
+    );
     const timeout = setTimeout(() => {
       terminate(new Error('DA5 V5 Android device command timed out'));
-    }, options.timeoutMilliseconds ?? timeouts.inspect);
+    }, Math.max(0, timeoutMilliseconds - terminationBudget));
+    const hardTimeout = setTimeout(() => {
+      terminationError ??=
+        new Error('DA5 V5 Android device command timed out');
+      forceKill();
+      finish(terminationError, true);
+    }, timeoutMilliseconds);
     const abort = () => {
       terminate(new Error('DA5 V5 Android device command aborted'));
     };
@@ -952,17 +1017,56 @@ function runAdbBinaryDigest(arguments_, options, dependencies) {
       if (settled) return;
       terminationError ??= error;
       if (forceKillTimeout !== undefined) return;
-      child.kill('SIGTERM');
+      try {
+        child.kill('SIGTERM');
+      } catch {
+        // The forced terminal settlement below remains authoritative.
+      }
       forceKillTimeout = setTimeout(() => {
-        child.kill('SIGKILL');
-      }, 1_000);
+        forceKill();
+      }, terminationGrace);
+      forceSettleTimeout = setTimeout(() => {
+        forceKill();
+        finish(terminationError, true);
+      }, terminationBudget);
     };
-    const finish = (error) => {
+    const forceKill = () => {
+      if (!forceKillSent) {
+        forceKillSent = true;
+        try {
+          child.kill('SIGKILL');
+        } catch {
+          // The Promise still settles after the bounded post-kill grace.
+        }
+      }
+    };
+    const removeListeners = () => {
+      options.signal?.removeEventListener('abort', abort);
+      child.removeListener('error', onChildError);
+      child.removeListener('close', onClose);
+      child.stdout.removeListener('data', onStdoutData);
+      child.stdout.removeListener('error', onStdoutError);
+      child.stderr.removeListener('data', onStderrData);
+      child.stderr.removeListener('error', onStderrError);
+    };
+    const finish = (error, abandoned = false) => {
       if (settled) return;
       settled = true;
       clearTimeout(timeout);
+      clearTimeout(hardTimeout);
       clearTimeout(forceKillTimeout);
-      options.signal?.removeEventListener('abort', abort);
+      clearTimeout(forceSettleTimeout);
+      removeListeners();
+      if (abandoned) {
+        absorbLateChildErrors(child);
+        try {
+          child.stdout.destroy();
+          child.stderr.destroy();
+          child.unref?.();
+        } catch {
+          // Resource abandonment cannot prevent terminal Promise settlement.
+        }
+      }
       if (error === undefined) {
         resolvePromise(Object.freeze({
           bytes: stdoutBytes,
@@ -972,41 +1076,65 @@ function runAdbBinaryDigest(arguments_, options, dependencies) {
         rejectPromise(error);
       }
     };
-    child.stdout.on('data', (chunk) => {
+    const onStdoutData = (chunk) => {
+      if (terminationError !== undefined) return;
       stdoutBytes += chunk.length;
       if (stdoutBytes > options.maximumBytes) {
         terminate(new Error('DA5 V5 Android device output exceeded its bound'));
         return;
       }
       digest.update(chunk);
-    });
-    child.stderr.on('data', (chunk) => {
+    };
+    const onStderrData = (chunk) => {
+      if (terminationError !== undefined) return;
       stderrBytes += chunk.length;
       if (stderrBytes > 4 * 1024 * 1024) {
         terminate(new Error('DA5 V5 Android device output exceeded its bound'));
       }
-    });
-    child.stdout.once('error', () => {
+    };
+    const onStdoutError = () => {
       terminate(new Error('DA5 V5 Android device command failed'));
-    });
-    child.stderr.once('error', () => {
+    };
+    const onStderrError = () => {
       terminate(new Error('DA5 V5 Android device command failed'));
-    });
-    child.once('error', () => {
+    };
+    const onChildError = () => {
       terminate(new Error('DA5 V5 Android device command failed'));
-    });
-    child.once('close', (code) => {
+    };
+    const onClose = (code) => {
       finish(
         terminationError ?? (
           code === 0 ? undefined : new Error('DA5 V5 Android device command failed')
         ),
       );
-    });
+    };
+    child.stdout.on('data', onStdoutData);
+    child.stderr.on('data', onStderrData);
+    child.stdout.once('error', onStdoutError);
+    child.stderr.once('error', onStderrError);
+    child.once('error', onChildError);
+    child.once('close', onClose);
     options.signal?.addEventListener('abort', abort, { once: true });
     if (options.signal?.aborted === true) {
       abort();
     }
   });
+}
+
+function requireCommandTimeout(value) {
+  const timeoutMilliseconds = value ?? timeouts.inspect;
+  if (!Number.isSafeInteger(timeoutMilliseconds) || timeoutMilliseconds <= 0) {
+    throw new Error('DA5 V5 Android device timeout is invalid');
+  }
+  return timeoutMilliseconds;
+}
+
+function absorbLateChildErrors(child) {
+  const ignore = () => {};
+  child.on('error', ignore);
+  child.stdin?.on('error', ignore);
+  child.stdout.on('error', ignore);
+  child.stderr.on('error', ignore);
 }
 
 function wait(milliseconds) {

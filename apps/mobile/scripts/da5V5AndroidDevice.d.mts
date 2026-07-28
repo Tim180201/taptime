@@ -88,7 +88,10 @@ export class Da5V5AndroidPreinstallPreflight {
 
 export function requireSingleDa5V5UsbDevice(
   runner: Da5V5AndroidAdbRunner,
-  options?: Readonly<{ signal?: AbortSignal }>,
+  options?: Readonly<{
+    signal?: AbortSignal;
+    timeoutMilliseconds?: number;
+  }>,
 ): Promise<string>;
 export function parseDa5V5ReverseMappings(
   value: string,

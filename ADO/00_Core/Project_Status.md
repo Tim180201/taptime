@@ -1,6 +1,6 @@
 # Project Status
 
-Status: CORE ROADMAP V2 COMPLETIONS REMAIN PRESERVED FOR THEIR RECORDED SCOPES — DA4 REMAINS OPEN FOR A LATER FRESH HUMAN V5 — DA5 V0–V4 AND THE LOCAL DA5-V5 RUNTIME GUARD REMAIN INDEPENDENTLY APPROVED; DA5-V5-VAL-NATIVE-CAPTURE-DIAGNOSTICS SOURCE `effc57a`, TREE `758dbfa`, EXACT-HEAD CI `30377569479` ATTEMPT 1 12/12 AND ITS REVIEWS REMAIN HISTORICAL TRUTH — PHASE-0 RUN 7 ON ADO BASELINE `aebffbe` STOPPED AT THE FIRST A-SCAN WITH SAFE STAGE `technology_evidence`, CONSUMED ITS AUTHORITY AND CLEANED PACKAGE/PROCESS/REVERSE TO ZERO WITHOUT A FINGERPRINT OR TAG RESULT; PHYSICAL `techTypes` REMAIN UNKNOWN AND NO HARDWARE DEFECT IS PROVEN — `DA5-V5-VAL-TECH-01` SOURCE `03694f2`, TREE `6c60396`, EXACT-HEAD CI `30386552118` ATTEMPT 1 12/12, PREPUBLICATION REVIEW ROUND 2 AND INDEPENDENT SOURCE/ARTIFACT EXACT-SHA REVIEW ARE APPROVED WITH ZERO OPEN P0–P3; ITS EXACT REPLACEMENT APK/MANIFEST REMAINS DO NOT INSTALL — THE `effc57a`, `e97bbe9` AND `7e8c0f7` APK/MANIFEST ARTIFACTS REMAIN HISTORICAL/DO NOT INSTALL — SEVEN PHASE-0 AUTHORITIES ARE CONSUMED; NO NEW PHASE-0/HARDWARE/ADB/INSTALLATION OR PRODUCT-HUMAN-V5 AUTHORITY EXISTS — PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, SYSTEM CHANGES, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
+Status: CORE ROADMAP V2 COMPLETIONS REMAIN PRESERVED FOR THEIR RECORDED SCOPES — DA4 REMAINS OPEN FOR A LATER FRESH HUMAN V5 — DA5 V0–V4 AND THE LOCAL DA5-V5 RUNTIME GUARD REMAIN INDEPENDENTLY APPROVED; DA5-V5-VAL-NATIVE-CAPTURE-DIAGNOSTICS SOURCE `effc57a`, TREE `758dbfa`, EXACT-HEAD CI `30377569479` ATTEMPT 1 12/12 AND ITS REVIEWS REMAIN HISTORICAL TRUTH — PHASE-0 RUN 7 ON ADO BASELINE `aebffbe` STOPPED AT THE FIRST A-SCAN WITH SAFE STAGE `technology_evidence`; RUN 8 ON BASELINE `39a6ef0`, TREE `10cdf16`, INSTALLED THE EXACT `03694f2` ARTIFACT BUT STOPPED BEFORE `.MainActivity` LAUNCH BECAUSE AN AD-HOC HOST REGEX REJECTED A LEGITIMATE ANDROID-15 `~` PATH; BOTH AUTHORITIES ARE CONSUMED, RUN 8 CLEANED PACKAGE/PROCESS/GLOBAL REVERSE TO ZERO, AND NEITHER RUN PRODUCED A FINGERPRINT OR TAG RESULT — PHYSICAL `techTypes` REMAIN UNKNOWN AND NO HARDWARE DEFECT IS PROVEN — `DA5-V5-VAL-TECH-01` SOURCE `03694f2`, TREE `6c60396`, EXACT-HEAD CI `30386552118` ATTEMPT 1 12/12, PREPUBLICATION REVIEW ROUND 2 AND INDEPENDENT SOURCE/ARTIFACT EXACT-SHA REVIEW ARE APPROVED WITH ZERO OPEN P0–P3; ITS EXACT REPLACEMENT APK/MANIFEST REMAINS DO NOT INSTALL — FORMAL OPERATOR REVIEW R1 RETURNED `CHANGES REQUIRED` WITH EXACTLY TWO P1; THE LOCAL R1 CORRECTION CANDIDATE IS PENDING INDEPENDENT RE-REVIEW/CI AND REMAINS DO NOT START — EIGHT PHASE-0 AUTHORITIES ARE CONSUMED; NO NEW PHASE-0/HARDWARE/ADB/INSTALLATION OR PRODUCT-HUMAN-V5 AUTHORITY EXISTS — PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, SYSTEM CHANGES, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
 DA5 decision-time Option-A trust anchor: exactly two direct admin-group members, zero nested
 groups; full-record SHA-256 `b006276c09d8f2713f6132ea79cec167ab3a3c2887ee53e95eb00c1cc33719a5`;
 membership SHA-256 `70a683b7ebc7981533015d5d63cf12dfb2eabbfa665c34720eddb4d09e9e3064`;
@@ -17,8 +17,10 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
 ## Current State
 
 - **DA5-V5-VAL-TECH-01 source and its exact replacement artifact are independently approved
-  with zero open P0–P3 and remain DO NOT INSTALL; the seventh Phase-0 authority is consumed and
-  any new Phase-0 authority remains separately gated.**
+  with zero open P0–P3 and remain DO NOT INSTALL; eight Phase-0 authorities are consumed, the
+  formal operator R1 is `CHANGES REQUIRED` with exactly two P1, its local correction is pending
+  independent re-review/CI and remains DO NOT START, and any new Phase-0 authority remains
+  separately gated.**
   Runtime Guard source
   `ba1b6e922ceb7902ecedd9dc2df01d6b22d90867`, tree
   `980b6c57fdd71c12820f2890b640946db0d883c6`, passed CI `30255104609`, attempt 2,
@@ -64,7 +66,7 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   artifact are now **HISTORICAL — DO NOT INSTALL** because the native-capture diagnostics
   correction changes the Validation source.
 
-  Seven separately authorized Phase-0 attempts are consumed without an attributable Tag result:
+  Eight separately authorized Phase-0 attempts are consumed without an attributable Tag result:
   run 1 stopped on
   a preinstalled Validation package; run 2 on the unsupported Samsung provider in the then-prior
   build; run 3 because the generic launcher/package resolver did not uniquely start the explicit
@@ -89,6 +91,14 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   exists. The concrete physical `techTypes` were intentionally not exposed and remain unknown,
   no hardware defect is proven, and cleanup again confirmed package, process and reverse mappings
   at zero.
+
+  Run 8 used ADO/code baseline `39a6ef09fad18375af025bc8ed12cc1ea6dda964`, tree
+  `10cdf16421fe564e1961a39d79e20775c0269fc4`, and the exact `03694f2` artifact. Installation
+  succeeded, but an ad-hoc host pathname regex rejected the legitimate Android-15 installed path
+  solely because it contained `~`. `.MainActivity` was not started, the Validation process was
+  absent, and no checkpoint, scan, fingerprint or Tag result was reached. Its authority is
+  consumed; uninstall succeeded and final package, process and global reverse state were zero.
+  This is an operator-boundary failure, not a Product, NFC or hardware result.
 
   The focused diagnostics correction changes exactly seven authorized files at source
   `effc57a6780ff86784de0519a34abd6c5b7b8cd6`, tree
@@ -148,9 +158,29 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   Validation-only runtime markers passed the official verifier. The independent Source/Artifact
   Exact-SHA review returned `APPROVED` with zero open P0–P3. The candidate remains
   **DO NOT INSTALL** because no separate Phase-0, installation, ADB or hardware authority
-  exists. The run-7 safe stage plus this repository diagnosis proves no concrete physical
-  Technology list, fingerprint, Tag result or hardware defect and grants no Phase-0, hardware,
-  ADB, installation or Product Human-V5 authority.
+  exists. The run-7 safe stage, run-8 operator failure and this repository diagnosis prove no
+  concrete physical Technology list, fingerprint, Tag result or hardware defect and grant no
+  Phase-0, hardware, ADB, installation or Product Human-V5 authority.
+
+  A focused Validation-specific Phase-0 operator candidate now exists on baseline `39a6ef0` as a
+  Core, thin direct CLI, `.d.mts` and one focused runtime test. It binds the exact `03694f2`
+  APK/manifest/source closure, accepts legitimate bounded Android installed paths, installs only
+  from a stable verified host snapshot, proves the installed bytes and identity, launches only
+  `.MainActivity`, and owns fail-closed cleanup without reverse mutation. It has no package script
+  and its final safe-root V3 passed 20/20 builds, 21/21 tests-inclusive typechecks, 21/21 workspace
+  suites with 2,467 passed tests plus two documented optional skips, migration apply/replay/ledger,
+  C3B verification, the unchanged artifact verifier and Android export. Formal review R1 then
+  returned `CHANGES REQUIRED` with exactly two P1 findings: Android user/package provenance was
+  fail-open and cleanup/runner completion lacked one hard deadline. The local correction binds
+  the exact non-headless single running Owner User 0 topology, complete user-0 package null,
+  explicit `-R`/user-0 actions, post-proof provenance re-attestation and ambiguity-preserving
+  cleanup; it also applies one absolute finish/cleanup deadline to all waits/ADB calls and
+  force-settles text/binary children after SIGKILL grace. Its final post-correction safe-root V3
+  passed 20/20 builds, 21/21 tests-inclusive typechecks and 21/21 suites covering 148 test files,
+  2,484 passed tests and exactly two documented optional skips, plus migration, C3B, 52/52 Mobile
+  test-source, unchanged artifact-verifier and 861-module Android-export gates. It remains
+  **PENDING independent re-review/CI — DO NOT START** and grants no Phase-0, installation, ADB,
+  hardware or Product Human-V5 authority.
 - **Development Assignment 5 Workstreams A–F and V0–V4 are technically closed/MERGE_READY;
   Human V5 remains unauthorized.** The Human Architect expressly accepted ADR-0016/DA5-P01–P12 and
   ADR-0017/DA5-T01–T15 and authorized the bounded Development implementation plus subsequent
@@ -1056,7 +1086,7 @@ Two Epics are concurrently Active, per EP-009's own stated relationship to the r
    reuse, retry, repair or resume is authorized.
 6. Preserve DA5 V0–V4 closure and the independently approved local DA5-V5 Runtime Guard and
    exact runtime-corrected Validation App binding above. Treat Shared-Cluster work as historical
-   `BLOCKED`/not Evidence and all seven failed Phase-0 attempts as consumed, non-reusable history.
+   `BLOCKED`/not Evidence and all eight failed Phase-0 attempts as consumed, non-reusable history.
    Preserve the native-capture diagnostics source/artifact closure on `effc57a` and its independent
    zero-finding reviews as historical evidence while keeping its artifact, `e97bbe9` and `7e8c0f7`
    **DO NOT INSTALL**. Preserve exact `DA5-V5-VAL-TECH-01` source `03694f2`, tree `6c60396`,

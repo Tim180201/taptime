@@ -1,6 +1,6 @@
 # Development Assignment 5 — V5 Human Android Gate Runbook
 
-- Status: **PHASE-0 RUN 7 CONSUMED AT SAFE `technology_evidence` WITH PACKAGE/PROCESS/REVERSE ZERO AND NO FINGERPRINT/TAG RESULT — `DA5-V5-VAL-TECH-01` SOURCE `03694f2`, TREE `6c60396`, CI `30386552118`, PREPUBLICATION REVIEW ROUND 2 AND INDEPENDENT SOURCE/ARTIFACT EXACT-SHA REVIEW APPROVED WITH ZERO OPEN P0–P3; EXACT REPLACEMENT APK/MANIFEST REMAINS DO NOT INSTALL — `effc57a`, `e97bbe9` AND `7e8c0f7` APK/MANIFEST HISTORICAL/DO NOT INSTALL — SEVEN PHASE-0 AUTHORITIES CONSUMED — NO CURRENT PHASE-0 OR HUMAN-V5 AUTHORITY/DO NOT START**
+- Status: **PHASE-0 RUN 7 CONSUMED AT SAFE `technology_evidence`; RUN 8 INSTALLED THE EXACT `03694f2` ARTIFACT BUT STOPPED BEFORE `.MainActivity` LAUNCH BECAUSE AN AD-HOC HOST REGEX REJECTED A LEGITIMATE ANDROID-15 `~` PATH; RUN 8 CLEANED PACKAGE/PROCESS/GLOBAL REVERSE TO ZERO — NO FINGERPRINT/TAG RESULT OR HARDWARE DEFECT PROVEN — EIGHT PHASE-0 AUTHORITIES CONSUMED — FORMAL OPERATOR REVIEW R1 `CHANGES REQUIRED`, EXACTLY TWO P1; LOCAL R1 CORRECTION PENDING INDEPENDENT RE-REVIEW/CI — NO CURRENT PHASE-0 OR HUMAN-V5 AUTHORITY/DO NOT START**
 - Date: 2026-07-28
 - Owner: Technical Lead
 - Approval authority for any run: Human Architect
@@ -29,7 +29,7 @@ APK/manifest passed the official verifier and independent Artifact Exact-SHA rev
 open P0–P3 for that exact historical source. The DA5-V5-VAL-UI-01 Controller/UI source correction
 historically superseded it: the listed APK/manifest is **HISTORICAL — DO NOT INSTALL**.
 
-**Phase 0 — Validation Binding Preflight** has no current authority. Seven prior one-time
+**Phase 0 — Validation Binding Preflight** has no current authority. Eight prior one-time
 authorizations are consumed without an attributable Tag result: run 1 stopped on a preinstalled
 Validation package; run 2 on the unsupported Samsung provider in the then-prior build; run 3
 because the generic launcher/package resolver did not uniquely start the explicit Activity and
@@ -53,6 +53,60 @@ the first required A-scan with the fixed safe failure stage `technology_evidence
 is consumed; no fingerprint or Tag result exists. Concrete physical `techTypes` were
 intentionally not exposed and remain unknown, no hardware defect is proven, and cleanup again
 confirmed package, process and reverse mappings at zero.
+
+Run 8 used ADO/code baseline `39a6ef09fad18375af025bc8ed12cc1ea6dda964`, tree
+`10cdf16421fe564e1961a39d79e20775c0269fc4`, and the exact `03694f2` artifact. Installation
+succeeded, but an ad-hoc host pathname regex rejected the legitimate Android-15 installed path
+solely because it contained `~`. `.MainActivity` was not started, the Validation process was
+absent, and no checkpoint, scan, fingerprint or Tag result was reached. Its authority is consumed;
+uninstall succeeded and final package, process and global reverse state were zero. This is an
+operator-boundary failure, not a Product, NFC or hardware result.
+
+### 0.1 Tracked Validation Phase-0 operator candidate — non-executable
+
+The focused correction consists of
+`apps/mobile/scripts/da5V5ValidationPhase0OperatorCore.mjs`, its `.d.mts`, the thin direct CLI
+`apps/mobile/scripts/da5V5ValidationPhase0Operator.mjs` and
+`apps/mobile/tests/runtime/da5V5ValidationPhase0Operator.test.ts`, plus the minimal shared
+Android ADB-runner `.mjs`/`.d.mts` deadline correction and its already focused runner test. It has
+no package script. It
+fixes the exact `03694f2` APK/manifest/source closure, requires one exact USB device plus
+Human-bound model/build inputs and exactly one non-headless running Owner User 0, requires complete
+user-0 package null, accepts bounded legitimate Android installed paths, streams only a stable
+verified host snapshot to `cmd package install -R --user 0`, proves installed bytes, version and
+identity before latching ownership, launches only
+`com.tim180201.mobile.validation/.MainActivity` as user 0, and owns fail-closed conditional user-0
+cleanup without creating or removing reverse mappings. It re-attests the ownership token before
+force-stop and again before version-conditional uninstall; absent, ambiguous or changed
+provenance is preserved and returns mismatch.
+
+The direct future invocation shape is:
+
+```sh
+TAPTIME_DA5_V5_VALIDATION_PHASE0_PROFILE=da5-v5-validation-phase0 \
+TAPTIME_DA5_V5_VALIDATION_DEVICE_MODEL='<future exact Human-authorized model>' \
+TAPTIME_DA5_V5_VALIDATION_ANDROID_BUILD='<future exact Human-authorized build fingerprint>' \
+node apps/mobile/scripts/da5V5ValidationPhase0Operator.mjs
+```
+
+This is a protocol description, not execution authority. After automatic preflight, an authorized
+operator enters exact `install-launch`, completes any separately authorized Human UI work outside
+the operator, then enters exact `cleanup`; `abort` is the only optional early stop. Wrong,
+duplicate or out-of-order input, EOF, signal or failure goes fail-closed through cleanup. The
+first finish/abort request starts one absolute deadline shared by active-operation settlement and
+cleanup; every cleanup wait and ADB call is capped to its remaining budget, expiry cannot match,
+and the shared text/binary ADB runner force-settles after SIGKILL grace even without child close.
+The final post-R1-correction safe-root V3 passed 20/20 builds, 21/21 tests-inclusive typechecks,
+21/21 workspace suites covering 148 test files and 2,484 passed tests with exactly two documented
+optional B1 skips, migrations 001–013 apply/replay/ledger, C3B binary verification, 52/52 Mobile
+test-source inclusion, the unchanged official Validation artifact verifier and Android export of
+861 modules. One initial Synthetic invocation exposed only the sparse-runner omission of tracked
+`.github/workflows/ci.yml`; materializing that tracked directory and executing only the affected
+adapter file passed 31/31, completing the unique Synthetic matrix at 288/288 without changing
+candidate bytes.
+Formal review R1 is `CHANGES REQUIRED` with exactly the two corrected P1 findings above. The local
+candidate is **PENDING independent re-review/CI — DO NOT START** and grants no Phase-0,
+installation, ADB, hardware or Product Human-V5 authority.
 
 `DA5-V5-VAL-UI-01` tracks the repository-visible accessibility/UI reliability gap:
 identical repeated TalkBack activations require a separate one-shot/coalescing boundary while
@@ -125,9 +179,9 @@ Complete uninstall and scoped cleanup are mandatory.
 | Package/runtime | `com.tim180201.mobile.validation`; signer `fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c`; `local-validation-only`; `NfcA+MifareUltralight`; exact roles A/B/X; exactly one active installed provider from `com.google.android.marvin.talkback` or `com.samsung.android.accessibility.talkback`; none or both fail closed; exactly one queries block with those two package queries, one exact `VIEW` + `BROWSABLE` + `https` intent and zero providers; no Product deep link or Tag dispatch |
 | Historical native/source verification — DO NOT INSTALL | Correction `7e8c0f7742e6407b8917205fd337a552f7dec714`, tree `3e4d1356b859fecf70d365fecbb563e2088100f3`; exact-head CI `30284566289`, attempt 1, 12/12; exact 2,032,807-byte executable Metro bundle SHA-256 `e4caf2db73cfbcdaf779f337bf3a3f99e95d182950522323052bc31ae10c93d3`; exact 555-source/2,667,064-source-byte closure SHA-256 `29691fc137c63906e5cf0c5cd47e2df0643064ab6dbddc00e0d3ec467d492ed3`; independent correction re-review and Artifact Exact-SHA review each `APPROVED`, zero open P0–P3; official artifact verifier `PASS`; superseded for installation by DA5-V5-VAL-UI-01 source correction |
 | Device, accessibility and A/B/X fingerprints | `UNBOUND — DO NOT START` |
-| One-time Phase 0 authorization/result | `RUN 1 CONSUMED — PREINSTALLED PACKAGE`; `RUN 2 CONSUMED — SAMSUNG PROVIDER UNSUPPORTED BY PRIOR BUILD`; `RUN 3 CONSUMED — GENERIC RESOLVER DID NOT UNIQUELY START EXPLICIT ACTIVITY`; `RUN 4 CONSUMED — EXPLICIT MAINACTIVITY COLD START FAILED MISSING EXPOASSET`; `RUN 5 CONSUMED — EXACT APK/DEVICE CHECKPOINT PASSED, THEN GENERIC FAIL-CLOSED SCAN PATH`; `RUN 6 CONSUMED — EXACT e97bbe9 APK/DEVICE CHECKPOINT PASSED, THEN FIRST A-SCAN SHOWED ONLY GENERIC FAIL-CLOSED STATE`; `RUN 7 CONSUMED — EXACT effc57a APK/DEVICE CHECKPOINT PASSED, THEN FIRST A-SCAN STOPPED AT SAFE technology_evidence`; runs 5–7 have no attributable Tag result and prove no hardware defect; run-7 physical `techTypes` remain unknown; final cleanup package/process/reverse zero; no current authority |
+| One-time Phase 0 authorization/result | `RUN 1 CONSUMED — PREINSTALLED PACKAGE`; `RUN 2 CONSUMED — SAMSUNG PROVIDER UNSUPPORTED BY PRIOR BUILD`; `RUN 3 CONSUMED — GENERIC RESOLVER DID NOT UNIQUELY START EXPLICIT ACTIVITY`; `RUN 4 CONSUMED — EXPLICIT MAINACTIVITY COLD START FAILED MISSING EXPOASSET`; `RUN 5 CONSUMED — EXACT APK/DEVICE CHECKPOINT PASSED, THEN GENERIC FAIL-CLOSED SCAN PATH`; `RUN 6 CONSUMED — EXACT e97bbe9 APK/DEVICE CHECKPOINT PASSED, THEN FIRST A-SCAN SHOWED ONLY GENERIC FAIL-CLOSED STATE`; `RUN 7 CONSUMED — EXACT effc57a APK/DEVICE CHECKPOINT PASSED, THEN FIRST A-SCAN STOPPED AT SAFE technology_evidence`; `RUN 8 CONSUMED — EXACT 03694f2 APK INSTALLED, THEN LEGITIMATE ANDROID-15 ~ PATH REJECTED BEFORE MAINACTIVITY LAUNCH`; runs 5–8 have no attributable Tag result and prove no hardware defect; run-7 physical `techTypes` remain unknown; final cleanup package/process/global reverse zero; no current authority |
 
-**Later Product Human V5** remains the separate run described below. None of the seven consumed
+**Later Product Human V5** remains the separate run described below. None of the eight consumed
 Phase-0 attempts supplies a Product/Human-V5 result. No further installation, ADB or hardware action is authorized
 until a fresh exact Human authorization; production, production data, system changes, deployment
 and distribution remain unauthorized.

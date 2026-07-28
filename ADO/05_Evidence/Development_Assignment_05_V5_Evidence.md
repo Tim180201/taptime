@@ -1,6 +1,6 @@
 # Development Assignment 5 — V5 Human Android Evidence
 
-- Status: **PHASE-0 RUN 7 CONSUMED AT SAFE `technology_evidence` WITH PACKAGE/PROCESS/REVERSE ZERO AND NO FINGERPRINT/TAG RESULT; PHYSICAL `techTypes` UNKNOWN AND NO HARDWARE DEFECT PROVEN — `DA5-V5-VAL-TECH-01` SOURCE `03694f2`, TREE `6c60396`, CI `30386552118`, PREPUBLICATION REVIEW ROUND 2 AND INDEPENDENT SOURCE/ARTIFACT EXACT-SHA REVIEW APPROVED WITH ZERO OPEN P0–P3; EXACT REPLACEMENT APK/MANIFEST REMAINS DO NOT INSTALL — `effc57a`, `e97bbe9` AND `7e8c0f7` APK/MANIFEST HISTORICAL/DO NOT INSTALL — SEVEN PHASE-0 AUTHORITIES CONSUMED; PRODUCT HUMAN V5 NOT RUN/UNAUTHORIZED**
+- Status: **PHASE-0 RUN 7 CONSUMED AT SAFE `technology_evidence`; RUN 8 INSTALLED THE EXACT `03694f2` ARTIFACT BUT STOPPED BEFORE `.MainActivity` LAUNCH BECAUSE AN AD-HOC HOST REGEX REJECTED A LEGITIMATE ANDROID-15 `~` PATH; RUN 8 CLEANED PACKAGE/PROCESS/GLOBAL REVERSE TO ZERO — NO FINGERPRINT/TAG RESULT OR HARDWARE DEFECT PROVEN — EIGHT PHASE-0 AUTHORITIES CONSUMED — FORMAL OPERATOR REVIEW R1 `CHANGES REQUIRED`, EXACTLY TWO P1; LOCAL R1 CORRECTION PENDING INDEPENDENT RE-REVIEW/CI/DO NOT START; PRODUCT HUMAN V5 NOT RUN/UNAUTHORIZED**
 - Date: `NOT RUN`
 - Artifact preparation date: 2026-07-28
 - Owner: Technical Lead
@@ -43,7 +43,7 @@ This closes the exact repository/source/artifact finding only. Because the nativ
 diagnostics correction changes the Validation source, the `e97bbe9` artifact is now
 **HISTORICAL — DO NOT INSTALL**.
 
-Seven separately authorized Phase-0 attempts are consumed fail-closed without an attributable Tag
+Eight separately authorized Phase-0 attempts are consumed fail-closed without an attributable Tag
 result. Run 5 used repository baseline
 `55070aa9a74c2606668caba9dc113ae8d689bd8d`, installed and verified the then-current exact
 `7e8c0f7` Validation APK and passed the Human-confirmed device checkpoint. Its first required
@@ -64,6 +64,14 @@ the first required A-scan with fixed safe failure stage `technology_evidence`. T
 consumed; there is no fingerprint or Tag result. Concrete physical `techTypes` were intentionally
 not exposed and remain unknown, no hardware defect is proven, and cleanup again confirmed
 package, process and reverse mappings at zero.
+
+Run 8 used ADO/code baseline `39a6ef09fad18375af025bc8ed12cc1ea6dda964`, tree
+`10cdf16421fe564e1961a39d79e20775c0269fc4`, and the exact `03694f2` artifact. Installation
+succeeded, but an ad-hoc host pathname regex rejected the legitimate Android-15 installed path
+solely because it contained `~`. `.MainActivity` was not started, the Validation process was
+absent, and no checkpoint, scan, fingerprint or Tag result was reached. Its authority is consumed;
+uninstall succeeded and final package, process and global reverse state were zero. This is an
+operator-boundary failure, not a Product, NFC or hardware result.
 
 The now-historical diagnostics correction source is
 `effc57a6780ff86784de0519a34abd6c5b7b8cd6`, tree
@@ -122,7 +130,7 @@ Historical candidate and review details remain preserved below.
 This record mirrors
 `ADO/04_Operations/Development_Assignment_05_V5_Runbook.md`. It records the historical Validation
 artifacts, exact TECH-01 source/CI/source-review bindings, the independently approved exact
-replacement artifact and all seven consumed Phase-0 attempts, but no attributable Tag result or
+replacement artifact and all eight consumed Phase-0 attempts, but no attributable Tag result or
 Product Human result. It grants no new Human-run or installation authority.
 
 | Binding | Evidence |
@@ -308,7 +316,7 @@ This paragraph is governance history, not Candidate Evidence, implementation app
 hardware authority; focused publication, exact-head CI and independent Exact-Delta `APPROVED`
 with zero open P0–P3 remain required.
 
-Seven later separately authorized Phase-0 attempts occurred as recorded below; none produced an
+Eight later separately authorized Phase-0 attempts occurred as recorded below; none produced an
 attributable Tag result or reached Product Human V5. The Harness can accept A/B/X values only from
 the operator and cannot independently prove their origin. Any further hardware action requires a
 new explicit Human authorization.
@@ -328,12 +336,93 @@ data.
 | Phase 0 run 5 | Then-current exact `7e8c0f7` Validation APK installed/verified and device checkpoint Human-confirmed; first required validation scan path then showed only generic fail-closed state with no distinguishable cause | Authority consumed; no attributable Tag result and no hardware defect proven; package/process/reverse zero; artifact now historical/DO NOT INSTALL |
 | Phase 0 run 6 | On ADO baseline `96daac0b3cf1cfe98249a8c94fe927f34ee33af1` / tree `4e7ccd41a4fda0608a7e9deab7fbc258e1cf94bf`, the then-current exact `e97bbe9` artifact was installed/verified and the device checkpoint Human-confirmed; the first required A-scan showed only `Prüfung sicher gestoppt` / `Der Scan konnte nicht als gültiger lokaler Nachweis bestätigt werden` | Authority consumed; no cause or Tag result attributable and no hardware defect proven; package/process/reverse zero; artifact now historical/DO NOT INSTALL |
 | Phase 0 run 7 | On ADO baseline `aebffbec7c72c028ace6365ecdcc413e314526dd` / tree `9e0104229756fe223753916ace8247ee2626f4d5`, the exact `effc57a` artifact was installed/verified and the authorized checkpoint passed; the first required A-scan stopped at fixed safe stage `technology_evidence` | Authority consumed; no fingerprint or Tag result; concrete physical `techTypes` intentionally not exposed and unknown; no hardware defect proven; package/process/reverse zero; artifact now historical/DO NOT INSTALL |
+| Phase 0 run 8 | On ADO/code baseline `39a6ef09fad18375af025bc8ed12cc1ea6dda964` / tree `10cdf16421fe564e1961a39d79e20775c0269fc4`, the exact `03694f2` artifact installed successfully; an ad-hoc host regex then rejected its legitimate Android-15 installed path solely because it contained `~`, before `.MainActivity` launch | Authority consumed; Validation process absent; no checkpoint, scan, fingerprint or Tag result and no hardware defect proven; uninstall succeeded; package/process/global reverse zero |
 
-Final cleanup was package/process/reverse zero. The run-7 artifact is no longer installed and no
-further hardware/ADB action occurred.
+Final cleanup was package/process/global reverse zero. The run-7 and run-8 artifacts are no longer
+installed and no further hardware/ADB action occurred.
 Another Phase 0 requires a fresh exact Human authorization.
 
-### 2.1 Historical closed findings and confirmed TECH-01 correction — Human Phase 0 still gated
+### 2.1 Tracked Validation Phase-0 operator R1 correction candidate — pending re-review
+
+On baseline `39a6ef09fad18375af025bc8ed12cc1ea6dda964`, tree
+`10cdf16421fe564e1961a39d79e20775c0269fc4`, the focused local candidate adds only a Core,
+thin direct CLI, `.d.mts` and one focused runtime test. It has no package script. The candidate
+binds the exact `03694f2` APK/manifest and all 32 source-closure records, accepts bounded legitimate
+Android installed paths including `~`, streams only a stable verified host snapshot into the exact
+package install, proves the installed bytes and identity, launches only
+`com.tim180201.mobile.validation/.MainActivity`, and owns fail-closed cleanup without reverse
+mutation.
+
+Formal review R1 returned `CHANGES REQUIRED` with exactly two P1 findings: implicit User-0 package
+inspection combined with global/default install/uninstall made package provenance fail-open, and
+cleanup/finish used only a loop-entry bound while ADB calls, active-operation settlement and
+post-SIGKILL runner completion could exceed it. The local R1 correction now accepts only the exact
+non-headless single running Owner User 0 topology, proves package null with the user-0
+known/hidden/uninstalled PackageManager view, uses `-R` and explicit user-0 package actions, and
+latches ownership only after exact install success plus path/canonical/stat/version/digest proof.
+It re-attests that token before force-stop and before version-conditional uninstall; any unproved,
+ambiguous or replaced package is preserved with mismatch. One absolute deadline now begins at the
+first finish/abort request, caps every cleanup wait/ADB call and forbids a match at expiry. Both
+shared text and binary ADB paths force terminal rejection after TERM/KILL grace without depending
+on child close. Android exposes a version-conditional uninstall but no atomic
+digest/signature-conditional uninstall; the remaining same-version final race is therefore
+bounded by the existing trusted exclusive Option-A operator/session assumption and is not claimed
+as protection against a hostile same-user concurrent package actor.
+
+Focused R1-correction V1/V2 on 2026-07-28 used no ADB or hardware: all three changed operator/
+shared-runner MJS entry points passed `node --check`; the exact operator and shared child-runner
+test files passed 128/128 together; Mobile `tsc --noEmit` passed; and
+`tsc --noEmit --listFilesOnly` explicitly included both changed test sources. No V3, artifact
+verification, Android export, exact-head CI, installation or hardware action was run for this R1
+correction.
+
+The initial focused regression proof failed exactly one test because the deliberately narrow
+parser rejected the legitimate Android-15 `~` path. After correction, both operator files passed
+`node --check`, the focused suite passed 92/92, Mobile `tsc --noEmit` passed, and
+`tsc --noEmit --listFilesOnly` confirmed the focused test is included. All 32 source-closure files
+matched the immutable manifest byte-exactly, and the official read-only Validation artifact
+verifier was run exactly once and passed. These checks used no ADB or hardware.
+
+The complete Mobile suite was run once in the existing workspace: 51/52 test files and 792/793
+tests passed. Only `da5V5ValidationNativeSourceBinding.test.ts` failed because existing generated
+native `.cxx`/`build` residue expanded the enumerated native closure beyond its fixed source bound;
+the new operator paths are not members of that closure. Per Technical-Lead direction nothing was
+deleted or moved and the suite was not repeated in the contaminated workspace.
+
+The final fresh safe-root V3 used Node `24.17.0`, npm `11.13.0` and a task-owned isolated
+PostgreSQL `17.10` cluster. It passed 20/20 builds, 21/21 tests-inclusive typechecks and 21/21
+workspace suites covering 148 test files, 2,467 passed tests and exactly two documented optional
+B1 skips. Migrations 001–013 applied, replayed idempotently and passed ledger verification; the
+C3B binary check, 52/52 Mobile test-file inclusion, the unchanged official Validation artifact
+verifier and Android export of 861 modules passed. The first Backend API invocation stopped only
+because the Technical-Lead runner had bound four C2 runtime URLs to the installer identity; after
+correcting that environment binding, Backend API and the then-unexecuted remaining workspaces
+passed. The first Synthetic invocation later stopped only because its task-owned database used an
+alternate safe name while the suite requires exact `taptime_synthetic_android_e2e`; renaming that
+same isolated database and rerunning only Synthetic produced 288/288. Neither runner correction
+changed candidate bytes. The isolated server, port, worktree and export were cleaned; the three
+task-owned directories were moved recoverably to the macOS Trash. No ADB or hardware was used.
+
+The final post-R1-correction fresh safe-root V3 used the same exact toolchain and a new task-owned
+isolated PostgreSQL `17.10` cluster. It passed 20/20 builds, 21/21 tests-inclusive typechecks and
+21/21 workspace suites covering 148 test files, 2,484 passed tests and exactly two documented
+optional B1 skips. Migrations 001–013 applied, replayed idempotently and passed ledger
+verification; the C3B binary check, 52/52 Mobile test-file inclusion, the unchanged official
+Validation artifact verifier and Android export of 861 modules passed. The first Synthetic
+invocation passed 12/13 files and 285/288 tests; its three failures were exact
+`Da5V5CiPostgresAdapter` `ENOENT` results because the Technical-Lead sparse-worktree definition
+had omitted the tracked `.github/workflows/ci.yml`. Materializing only tracked `.github` and
+executing only that affected file passed 31/31; candidate bytes were unchanged and the combined
+unique Synthetic matrix is 13/13 files and 288/288 tests. The final exact 11-file candidate
+matched the source workspace byte-for-byte and passed scoped diff inspection. Task PostgreSQL,
+ports, worktree and export were cleaned, the existing local PostgreSQL listener remained
+untouched, and the three task-owned directories were moved recoverably to the macOS Trash. No ADB,
+installation or hardware was used.
+
+Exact-head CI and independent R3 re-review remain pending. The candidate is **DO NOT START** and
+grants no Phase-0, installation, ADB, hardware or Product Human-V5 authority.
+
+### 2.2 Historical closed findings and confirmed TECH-01 correction — Human Phase 0 still gated
 
 `DA5-V5-VAL-UI-01` records a repository-visible accessibility/UI reliability gap capable of
 reaching the strict Controller concurrency rejection when TalkBack repeats an otherwise identical
@@ -372,7 +461,7 @@ Exact-SHA review with zero open P0–P3, but remains **DO NOT INSTALL**. The run
 result or hardware defect. Any future Phase-0 use requires a fresh separate exact Human
 authorization binding this independently approved replacement source/artifact.
 
-### 2.2 Product Human-V5 preflight
+### 2.3 Product Human-V5 preflight
 
 | Check | Result | Safe observation |
 |---|---|---|
