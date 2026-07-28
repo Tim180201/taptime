@@ -351,17 +351,17 @@ with zero open P0–P3 for that exact source, but DA5-V5-VAL-UI-01 changes its C
 DA5-V5-VAL-UI-01 source `e97bbe9e2a281099899e2ecb3aad2588ef20f22d`, tree
 `2958f456875e8dab3f10834df280e10a8438efce`, passed exact-head CI `30370977809`,
 attempt 1, 12/12. Round-2 and Round-3 source reviews and the formal independent Source/Artifact
-Exact-SHA review returned `APPROVED` with zero open P0–P3. The new read-only artifact directory is
+Exact-SHA review returned `APPROVED` with zero open P0–P3. Its read-only artifact directory is
 `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-validation/da5-v5-validation-e97bbe9e2a28-810b856ff7113b4f`:
 the 65,629,505-byte `0444` APK has SHA-256
 `810b856ff7113b4f2a454007595e1b6c1ae5dc69c601a2120b577f124e213e28`; the
 6,700-byte `0444` manifest has SHA-256
 `af53d646558449a7a5c907fbdf59e3366c6ffd2755f6049141db8e567549e051`. The official verifier
 and independent package/signing/runtime/native/source-closure review passed. This closes the
-repository/source/artifact finding only. The replacement remains uninstalled and
-installation-unauthorized.
+repository/source/artifact finding only. Because the native-capture diagnostics correction changes
+the Validation source, the `e97bbe9` APK/manifest is now **HISTORICAL — DO NOT INSTALL**.
 
-Five separately authorized Phase-0 attempts are consumed without an attributable Tag result:
+Six separately authorized Phase-0 attempts are consumed without an attributable Tag result:
 preinstalled
 package; unsupported Samsung provider in the then-prior build; generic launcher/package resolver
 without a unique explicit-Activity start; and explicit `.MainActivity` cold start failing on
@@ -369,21 +369,56 @@ missing ExpoAsset (`DA5-V5-VAL-RUNTIME-01`). Run 5 on baseline `55070aa` install
 the then-current exact `7e8c0f7` Validation APK, passed the Human-confirmed device checkpoint and then reached only
 the generic fail-closed scan path without a distinguishable cause. No successful or attributable
 Tag result is Evidence and no hardware defect is proven. Cleanup ended with package, process and
-reverse mappings at zero. `DA5-V5-VAL-UI-01` records the separate repository-visible repeated-
-TalkBack-activation reliability gap. Its independently approved source/artifact correction does
-not prove the run-5 cause and grants no new Phase-0, hardware, ADB, installation or Product
-Human-V5 authority. Production, production data, system changes, deployment and distribution
-remain unauthorized.
+reverse mappings at zero. Run 6 on ADO baseline
+`96daac0b3cf1cfe98249a8c94fe927f34ee33af1`, tree
+`4e7ccd41a4fda0608a7e9deab7fbc258e1cf94bf`, installed and verified the then-current
+`e97bbe9` artifact and passed the Human-confirmed device checkpoint. Its first required A-scan
+showed only `Prüfung sicher gestoppt` /
+`Der Scan konnte nicht als gültiger lokaler Nachweis bestätigt werden`. No cause or Tag result is
+attributable and no hardware defect is proven; cleanup again confirmed package, process and
+reverse mappings at zero.
+
+The focused native-capture diagnostics correction is source
+`effc57a6780ff86784de0519a34abd6c5b7b8cd6`, tree
+`758dbfaa04d0968fb25122352055fbcb80f8f022`, with exactly seven authorized changed files.
+It adds six closed, typed and disclosure-safe allowlisted failure stages for Technology evidence,
+UID readability, listener/registration, digest, concurrency and cleanup. No raw UID, payload,
+Technology list, provider diagnostic, exception text or Logcat is exposed; NFC acceptance,
+timeouts and Controller fail-closed behavior remain unchanged. V3 passed 20/20 builds, 21/21
+tests-inclusive typechecks, 21 workspace suites / 147 test files / 2,373 tests and exactly two
+documented optional B1 skips, plus migrations 001–013 apply/replay/ledger, C3B CLI and Android
+export. The initial Synthetic stop was solely a Technical-Lead runner database-name configuration;
+the previously unexecuted unchanged suite passed 288/288 on a fresh exact database, with no port
+or temporary residue. Exact-head CI `30377569479`, attempt 1, passed 12/12. Independent source
+review and final prepublication review returned `APPROVED` with zero open P0–P3.
+
+The current read-only artifact directory is
+`/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-validation/da5-v5-validation-effc57a6780f-e423073e51f72a68`:
+the 65,631,681-byte `0444` `app-release-e423073e51f72a68.apk` has SHA-256
+`e423073e51f72a68421c8e4afd17a9b86c397ca83628deaf4b174543d817330f`; the 6,700-byte `0444`
+`manifest-effc57a6780f.json` has SHA-256
+`9d1238e821d92b26ed9bc9b9ee8ccd48607280ff0d0e752ec6965827c68ccc22`. Independent Artifact
+Exact-SHA review returned `APPROVED` with zero open P0–P3 after exact verification of all 32
+manifest source files, package/signing/security boundaries, DEX required/forbidden modules and
+Hermes Validation-only markers. The unchanged native closure remains 123 directories / 587
+entries / 464 files / 1,176,224 bytes / SHA-256
+`9194be29b96a67c47aa40a4bdea7494155695e088d769e21c77eff305b1ee259`. This current artifact
+remains uninstalled and installation-unauthorized. Both `e97bbe9` and `7e8c0f7` artifacts remain
+historical/DO NOT INSTALL. The correction proves no prior-run cause or Tag result and grants no
+new Phase-0, hardware, ADB, installation or Product Human-V5 authority. Production, production
+data, system changes, deployment and distribution remain unauthorized.
 
 Current navigation:
 `ADO/02_Development/Development_Assignment_05_V5_Enablement_Authorization.md`,
 `ADO/02_Development/Development_Assignment_05_V5_Isolated_PostgreSQL_Correction_Authorization.md`,
 `ADO/04_Operations/Development_Assignment_05_V5_Runbook.md` and
-`ADO/05_Evidence/Development_Assignment_05_V5_Evidence.md`; Runtime and DA5-V5-VAL-UI-01 review
-archives:
+`ADO/05_Evidence/Development_Assignment_05_V5_Evidence.md`; Runtime, DA5-V5-VAL-UI-01 and
+native-capture diagnostics review archives:
 `ADO/05_Evidence/Development_Assignment_05_V5_Validation_Runtime_Correction_Independent_Exact_SHA_Review.md`
 and
-`ADO/05_Evidence/Development_Assignment_05_DA5_V5_VAL_UI_01_Independent_Source_Artifact_Exact_SHA_Review.md`.
+`ADO/05_Evidence/Development_Assignment_05_DA5_V5_VAL_UI_01_Independent_Source_Artifact_Exact_SHA_Review.md`
+and
+`ADO/05_Evidence/Development_Assignment_05_DA5_V5_VAL_NATIVE_CAPTURE_DIAGNOSTICS_Independent_Source_Artifact_Exact_SHA_Review.md`.
 
 This file is the official navigation entry point for the TapTim.e ADO.
 
@@ -514,7 +549,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Development Assignment 4 Professional Admin Web Productization — ADR-0015/DA4-P01–P12 Human-accepted; Workstreams A–D, AVS V0–V4 and H01 procedural correction independently approved; first Human V5 failed closed and no closure/new run is authorized | `ADO/02_Development/Development_Assignment_04_Professional_Admin_Web_Productization_Authorization.md` |
 | Development Assignment 4 V5 Enablement — local R3 V0–V4, exact-SHA implementation review and H01 ADO correction approved; new Human V5 remains separately exact-bound and unauthorized | `ADO/02_Development/Development_Assignment_04_V5_Enablement_Authorization.md` |
 | Development Assignment 5 Professional Mobile Productization — Workstreams A–F and AVS V0–V4 technically closed for the exact authorized local scope | `ADO/02_Development/Development_Assignment_05_Professional_Mobile_Productization_Authorization.md` |
-| Development Assignment 5 V5 Enablement — Runtime Guard independently approved; DA5-V5-VAL-UI-01 source `e97bbe9`, CI `30370977809` 12/12 and replacement APK/manifest independently Exact-SHA `APPROVED` with zero open P0–P3; historical `7e8c0f7` artifact remains DO NOT INSTALL; five Phase-0 authorities consumed and any new Phase 0 remains separately Human-gated | `ADO/02_Development/Development_Assignment_05_V5_Enablement_Authorization.md` |
+| Development Assignment 5 V5 Enablement — Runtime Guard independently approved; native-capture diagnostics source `effc57a`, CI `30377569479` 12/12 and replacement APK/manifest independently Exact-SHA `APPROVED` with zero open P0–P3; historical `e97bbe9` and `7e8c0f7` artifacts remain DO NOT INSTALL; six Phase-0 authorities consumed and any new Phase 0 remains separately Human-gated | `ADO/02_Development/Development_Assignment_05_V5_Enablement_Authorization.md` |
 | Development Assignment 5 V5 Isolated PostgreSQL Correction — Runtime Guard source `ba1b6e9`, CI `30255104609` attempt 2 12/12, immutable binary/manifest and independent Exact-SHA `APPROVED`; historical correction rounds retained; hardware authority not granted | `ADO/02_Development/Development_Assignment_05_V5_Isolated_PostgreSQL_Correction_Authorization.md` |
 | Development Assignment 6 Production-like Platform and Operational Readiness — ADO-only candidate; Human acceptance and separate implementation/provisioning authority required | `ADO/02_Development/Development_Assignment_06_Production_Like_Platform_Authorization.md` |
 | Legal, Privacy and Commercial Readiness Start Package — internal Block-H/DT-079–DT-084 working draft; not legal advice, approved legal text or publication authority | `ADO/02_Development/Legal_Privacy_Commercial_Readiness_Start_Package.md` |
@@ -538,7 +573,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Development Assignment 1 Gate-C Response-Drop Runbook | `ADO/04_Operations/Development_Assignment_01_Gate_C_Response_Drop_Runbook.md` |
 | Development Assignment 3 V5 Human Functional/Physical Gate Runbook — complete fresh run passed and final closure approved; permanently non-executable without new separate authority | `ADO/04_Operations/Development_Assignment_03_V5_Runbook.md` |
 | Development Assignment 4 V5 Human Browser Gate Runbook — first gate failed closed and authority is consumed; corrected checkpoint handshake independently approved, but execution requires new exact-bound Human authority | `ADO/04_Operations/Development_Assignment_04_V5_Runbook.md` |
-| Development Assignment 5 V5 Human Android Runbook — non-executable; DA5-V5-VAL-UI-01 source/artifact Exact-SHA `APPROVED`; current `e97bbe9` APK/manifest installation unauthorized; historical `7e8c0f7` APK/manifest DO NOT INSTALL; five Phase-0 authorities consumed and any new exact-bound hardware authority remains separately Human-gated | `ADO/04_Operations/Development_Assignment_05_V5_Runbook.md` |
+| Development Assignment 5 V5 Human Android Runbook — non-executable; native-capture diagnostics source/artifact Exact-SHA `APPROVED`; current `effc57a` APK/manifest installation unauthorized; historical `e97bbe9` and `7e8c0f7` APK/manifest DO NOT INSTALL; six Phase-0 authorities consumed and any new exact-bound hardware authority remains separately Human-gated | `ADO/04_Operations/Development_Assignment_05_V5_Runbook.md` |
 
 ## Evidence
 
@@ -601,10 +636,11 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Development Assignment 4 DA4-V5-H01 Human Browser Failure Evidence — first gate failed closed at the premature Tag-reassignment checkpoint; P2 operational/gate reliability, complete cleanup, authority consumed and new run unauthorized | `ADO/05_Evidence/Development_Assignment_04_DA4_V5_H01_Human_Browser_Failure_Evidence.md` |
 | Development Assignment 4 DA4-V5-H01 Correction Independent Exact-SHA Review — `APPROVED`, zero open P0–P3 review findings; historical P2 remains until a fresh successful gate/final review and no new run is authorized | `ADO/05_Evidence/Development_Assignment_04_DA4_V5_H01_Correction_Independent_Exact_SHA_Review.md` |
 | Development Assignment 5 Local Implementation Evidence — Workstreams A–F and AVS V0–V4 technically closed for the exact authorized local scope | `ADO/05_Evidence/Development_Assignment_05_Local_Implementation_Evidence.md` |
-| Development Assignment 5 V5 Evidence — DA5-V5-VAL-UI-01 source `e97bbe9`, CI `30370977809` 12/12 and replacement APK/manifest independently Exact-SHA `APPROVED`; historical `7e8c0f7` artifact remains DO NOT INSTALL; five failed-clean Phase-0 attempts consumed without an attributable Tag result; Product Human V5 remains `NOT RUN`/unauthorized | `ADO/05_Evidence/Development_Assignment_05_V5_Evidence.md` |
+| Development Assignment 5 V5 Evidence — native-capture diagnostics source `effc57a`, CI `30377569479` 12/12 and replacement APK/manifest independently Exact-SHA `APPROVED`; historical `e97bbe9` and `7e8c0f7` artifacts remain DO NOT INSTALL; six failed-clean Phase-0 attempts consumed without an attributable Tag result; Product Human V5 remains `NOT RUN`/unauthorized | `ADO/05_Evidence/Development_Assignment_05_V5_Evidence.md` |
 | Development Assignment 5 V5 Validation Query-Visibility Correction Independent Exact-SHA Review — review base `11a8269`, CI `30277641127` 12/12, `APPROVED`, zero open P0–P3; Hardware remains unauthorized | `ADO/05_Evidence/Development_Assignment_05_V5_Validation_Query_Visibility_Correction_Independent_Exact_SHA_Review.md` |
 | Development Assignment 5 V5 Validation Runtime Correction Independent Exact-SHA Review — initial candidate `534b6d2` had one P1 fail-open graph; source `7e8c0f7`, CI `30284566289` 12/12 and its artifact independently `APPROVED` with zero open P0–P3 for that exact source; artifact is now historical/DO NOT INSTALL after DA5-V5-VAL-UI-01 source correction and Hardware authority remains separately gated | `ADO/05_Evidence/Development_Assignment_05_V5_Validation_Runtime_Correction_Independent_Exact_SHA_Review.md` |
-| Development Assignment 5 DA5-V5-VAL-UI-01 Independent Source/Artifact Exact-SHA Review — source `e97bbe9`, tree `2958f45`, CI `30370977809` attempt 1 12/12 and exact replacement APK/manifest `APPROVED`, zero open P0–P3; installation and Hardware remain unauthorized | `ADO/05_Evidence/Development_Assignment_05_DA5_V5_VAL_UI_01_Independent_Source_Artifact_Exact_SHA_Review.md` |
+| Development Assignment 5 DA5-V5-VAL-UI-01 Independent Source/Artifact Exact-SHA Review — source `e97bbe9`, tree `2958f45`, CI `30370977809` attempt 1 12/12 and exact replacement APK/manifest `APPROVED`, zero open P0–P3; artifact is now historical/DO NOT INSTALL | `ADO/05_Evidence/Development_Assignment_05_DA5_V5_VAL_UI_01_Independent_Source_Artifact_Exact_SHA_Review.md` |
+| Development Assignment 5 DA5-V5-VAL-NATIVE-CAPTURE-DIAGNOSTICS Independent Source/Artifact Exact-SHA Review — source `effc57a`, tree `758dbfa`, CI `30377569479` attempt 1 12/12 and exact replacement APK/manifest `APPROVED`, zero open P0–P3; installation and Hardware remain unauthorized | `ADO/05_Evidence/Development_Assignment_05_DA5_V5_VAL_NATIVE_CAPTURE_DIAGNOSTICS_Independent_Source_Artifact_Exact_SHA_Review.md` |
 | Development Assignment 6 Independent Pre-Implementation Review — ADO-only candidate publication `APPROVED`, initial EOF-whitespace P3 closed, zero open P0–P3; no implementation, legal, provider, cost or production authority | `ADO/05_Evidence/Development_Assignment_06_Independent_Pre_Implementation_Review.md` |
 | Development Assignment 1 DA1-PHYS-01 Independent Exact-Delta Review — approved, finding closed | `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_01_Independent_Exact_Delta_Review.md` |
 | Development Assignment 1 DA1-PHYS-02 Independent Exact-Delta Review — approved, repository finding closed | `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_02_Independent_Exact_Delta_Review.md` |
