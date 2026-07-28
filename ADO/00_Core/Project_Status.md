@@ -7,7 +7,7 @@ membership SHA-256 `70a683b7ebc7981533015d5d63cf12dfb2eabbfa665c34720eddb4d09e9e
 combined snapshot SHA-256 `2384b0baccd9049d820794f8ebc9419e4af0fad6831a5a91c209baa0b4a02217`.
 A later R3 run must reproduce all three and both counts before capability/task-root creation and
 every trust use; mismatch returns to the Human Architect and may not dynamically rebind.
-Date: 2026-07-27
+Date: 2026-07-28
 Owner: Human Architect + Technical Lead
 
 ## Product
@@ -969,6 +969,14 @@ Two Epics are concurrently Active, per EP-009's own stated relationship to the r
    device/accessibility binding and complete uninstall/cleanup. Product APK installation and
    Human V5 remain later separately gated. Production, production data, system changes,
    deployment and distribution remain unauthorized.
+7. Review the ADO-only ADR-0018/DA6 production-like operational-readiness candidate. Preparation
+   does not authorize Workstreams A–D implementation, cloud/provider resources, costs, public
+   endpoints, production data or deployment. Resolve provider/cost/IAM/RPO/RTO/retention values
+   only through their explicit later Human and legal gates.
+8. Continue Block H in parallel through the internal Legal, Privacy and Commercial Readiness Start
+   Package. Confirm company/B2B/controller-processor/provider/retention inputs and obtain qualified
+   German/EU legal review before publishing privacy, AVV/TOM/AGB/Impressum text or processing
+   pilot/production personal data.
 
 ## Agreed comprehensive Development-assignment sequence
 
