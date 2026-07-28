@@ -1,6 +1,6 @@
 # Development Assignment 5 — V5 Human Android Evidence
 
-- Status: **FINAL VALIDATION RUNTIME CORRECTION/ARTIFACT INDEPENDENTLY APPROVED WITH ZERO OPEN P0–P3; FOUR PHASE-0 AUTHORITIES CONSUMED FAIL-CLOSED BEFORE ANY TAG SCAN; RUNTIME-CORRECTED APK NOT INSTALLED; PRODUCT HUMAN V5 NOT RUN/UNAUTHORIZED**
+- Status: **FIVE PHASE-0 AUTHORITIES CONSUMED FAIL-CLOSED WITHOUT AN ATTRIBUTABLE TAG RESULT; DA5-V5-VAL-UI-01 CORRECTION/REVIEW PENDING; `7e8c0f7` APK/MANIFEST HISTORICAL/DO NOT INSTALL; NEW VERIFIED INDEPENDENTLY EXACT-SHA-BOUND APK/MANIFEST REQUIRED; PRODUCT HUMAN V5 NOT RUN/UNAUTHORIZED**
 - Date: `NOT RUN`
 - Artifact preparation date: 2026-07-27
 - Owner: Technical Lead
@@ -26,22 +26,29 @@ Final correction `7e8c0f7742e6407b8917205fd337a552f7dec714`, tree
 `3e4d1356b859fecf70d365fecbb563e2088100f3`, passed CI `30284566289`, attempt 1,
 12/12; independent re-review returned `APPROVED` with zero open P0–P3. Its exact executable Metro
 bundle/source closure, ExpoAsset absence, Validation package, local synthetic signer, exact
-required native modules and zero forbidden modules or extra permissions are bound. The final
-read-only APK/manifest passed the official verifier and independent Artifact Exact-SHA review
-with zero open P0–P3.
+required native modules and zero forbidden modules or extra permissions are bound. The
+`7e8c0f7` read-only APK/manifest passed the official verifier and independent Artifact Exact-SHA
+review with zero open P0–P3 for that exact source. It is now **HISTORICAL — DO NOT INSTALL**
+because DA5-V5-VAL-UI-01 changes the Validation Controller/UI. No replacement artifact values are
+claimed.
 
-Four separately authorized Phase-0 attempts are consumed fail-closed before any Tag scan. Final
-cleanup ended with package, process and reverse mappings at zero. The runtime-corrected APK was
-not installed. No current Phase-0/hardware/ADB/installation authority exists, and Product Human
-V5 is `NOT RUN`. No production, production-data, system-change, deployment or distribution result
-is claimed. Historical candidate and review details remain preserved below.
+Five separately authorized Phase-0 attempts are consumed fail-closed without an attributable Tag
+result. Run 5 used repository baseline
+`55070aa9a74c2606668caba9dc113ae8d689bd8d`, installed and verified the exact final Validation
+APK and passed the Human-confirmed device checkpoint. Its first required validation scan path then
+failed closed generically without a distinguishable cause. No successful or attributable Tag
+result can be claimed, and no hardware defect is proven. Final cleanup ended with package,
+process and reverse mappings at zero. No current Phase-0/hardware/ADB/installation authority
+exists, and Product Human V5 is `NOT RUN`. No production, production-data, system-change,
+deployment or distribution result is claimed. Historical candidate and review details remain
+preserved below.
 
 ## 1. Authority and exact binding
 
 This record mirrors
 `ADO/04_Operations/Development_Assignment_05_V5_Runbook.md`. It records the corrected read-only
-local Validation artifact and all four consumed Phase-0 attempts, but no Tag observation or Product
-Human result and grants no new Human-run authority.
+historical Validation artifact and all five consumed Phase-0 attempts, but no attributable Tag
+result or Product Human result and grants no new Human-run authority or installation candidate.
 
 | Binding | Evidence |
 |---|---|
@@ -54,9 +61,9 @@ Human result and grants no new Human-run authority.
 | Runtime Guard artifact/review | Binary `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-runtime-guard/ba1b6e922ceb7902ecedd9dc2df01d6b22d90867/da5_v5_runtime_guard`; 74,336 bytes; mode `0555`; SHA-256 `4b2a7e6b15d3348dffda94f9125c20a4db82bb8eb08a03aabd35932ad0d5853c`. Same-directory `guard-manifest.txt`; 19,971 bytes; mode `0444`; SHA-256 `957d6e99c271663763945026995e7463cf2f20b385eb942fd16a152d3de5f709`. Focused evidence SHA-256 `440928371f7acc48272eff2e819c37a851d66cae4a908ffa330228982328d708`; independent Exact-SHA `APPROVED`, zero open P0–P3 |
 | Historical query-visibility correction source/review/CI | Round-1 baseline `be32840`, verdict `CHANGES REQUIRED` for P1/P3; intermediate `0f7e131` stopped before publication with no artifact; final source `5c239b1c30c6263a036077460e23373b767f66df` / tree `53e8d4ed012ccc662f1005f895a3b6e685cf560e`; CI `30276804017`, attempt 1, 12/12; review base `11a8269de145ad33c230f55a064bd18f9bb59731` / tree `2292010e43d2620fbdbba6eeb6a9d77c36674144`; CI `30277641127`, attempt 1, 12/12; independent Exact-SHA re-review `APPROVED`, zero open P0–P3; P1/P3 closed |
 | Validation provider/query policy | Exactly one installed and active provider from `com.google.android.marvin.talkback` or `com.samsung.android.accessibility.talkback`; none or both fail closed; exact package name and safe version are bound. Packaged visibility is exactly one queries block, both TalkBack package queries, one exact `VIEW` + `BROWSABLE` + `https` intent and zero providers |
-| Validation Runtime correction source/review/CI | Baseline `dbf8cfe643b56bdb3c6c371a95bfc463bbf8042f` / tree `80e17f54d62d386a02af3aa7e71b152cc3edb7b5`; first source `86c55fb17f64325046f2b25b45b84550c5a4b2bd` / tree `3a771945bc34852e4de098464c6c5bb82e74540b`, CI `30282537778` attempt 1 failed only on five-second timeout; timeout candidate `534b6d23e9391431fb4527c76347c16821ce3e18` / tree `a07429424184b4cd0b10841ea3e57c872afc4c8d`, CI `30282863442` attempt 1 12/12, initial independent review `CHANGES REQUIRED` exactly one P1; final source `7e8c0f7742e6407b8917205fd337a552f7dec714` / tree `3e4d1356b859fecf70d365fecbb563e2088100f3`, CI `30284566289` attempt 1 12/12, independent re-review `APPROVED`, zero open P0–P3 |
-| Validation Runtime closure | Exact 2,032,807-byte executable Metro bundle SHA-256 `e4caf2db73cfbcdaf779f337bf3a3f99e95d182950522323052bc31ae10c93d3`; exact 555-source/2,667,064-source-byte closure SHA-256 `29691fc137c63906e5cf0c5cd47e2df0643064ab6dbddc00e0d3ec467d492ed3`; ExpoAsset absent; package `com.tim180201.mobile.validation`; local synthetic signer; exact required native modules; zero forbidden modules or extra permissions |
-| Validation final APK/manifest | APK `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-validation/da5-v5-validation-7e8c0f7742e6-303bfd33cf7fa000/app-release-303bfd33cf7fa000.apk`; 65,626,753 bytes; mode `0444`; SHA-256 `303bfd33cf7fa000ee808a048f91883c18dbfe85c1ba359d3f0764ac7ae7f2f8`. Same-directory `manifest-7e8c0f7742e6.json`; 6,700 bytes; mode `0444`; SHA-256 `11c1664cee37caa8b093a9023f571e3b8733e8bb078bf7f78b6f20d8f39388a7`; official verifier `PASS`; independent Artifact Exact-SHA review `APPROVED`, zero open P0–P3 |
+| Historical Validation Runtime correction source/review/CI | Baseline `dbf8cfe643b56bdb3c6c371a95bfc463bbf8042f` / tree `80e17f54d62d386a02af3aa7e71b152cc3edb7b5`; first source `86c55fb17f64325046f2b25b45b84550c5a4b2bd` / tree `3a771945bc34852e4de098464c6c5bb82e74540b`, CI `30282537778` attempt 1 failed only on five-second timeout; timeout candidate `534b6d23e9391431fb4527c76347c16821ce3e18` / tree `a07429424184b4cd0b10841ea3e57c872afc4c8d`, CI `30282863442` attempt 1 12/12, initial independent review `CHANGES REQUIRED` exactly one P1; source `7e8c0f7742e6407b8917205fd337a552f7dec714` / tree `3e4d1356b859fecf70d365fecbb563e2088100f3`, CI `30284566289` attempt 1 12/12, independent re-review `APPROVED`, zero open P0–P3; superseded for installation by DA5-V5-VAL-UI-01 source correction |
+| Historical Validation Runtime closure — DO NOT INSTALL | Exact 2,032,807-byte executable Metro bundle SHA-256 `e4caf2db73cfbcdaf779f337bf3a3f99e95d182950522323052bc31ae10c93d3`; exact 555-source/2,667,064-source-byte closure SHA-256 `29691fc137c63906e5cf0c5cd47e2df0643064ab6dbddc00e0d3ec467d492ed3`; ExpoAsset absent; package `com.tim180201.mobile.validation`; local synthetic signer; exact required native modules; zero forbidden modules or extra permissions |
+| Historical Validation APK/manifest — DO NOT INSTALL | APK `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-validation/da5-v5-validation-7e8c0f7742e6-303bfd33cf7fa000/app-release-303bfd33cf7fa000.apk`; 65,626,753 bytes; mode `0444`; SHA-256 `303bfd33cf7fa000ee808a048f91883c18dbfe85c1ba359d3f0764ac7ae7f2f8`. Same-directory `manifest-7e8c0f7742e6.json`; 6,700 bytes; mode `0444`; SHA-256 `11c1664cee37caa8b093a9023f571e3b8733e8bb078bf7f78b6f20d8f39388a7`; official verifier `PASS`; independent Artifact Exact-SHA review `APPROVED`, zero open P0–P3 for historical source only |
 | Read-only APK path/size/SHA-256/mode | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5/a323834/app-release-385c0c46f22dcac5.apk`; 95,522,787 bytes; `385c0c46f22dcac5b935bfdc6f574558f4e74748ed4a367ef399ddbd4299c547`; `0444` |
 | Read-only artifact manifest path/size/SHA-256/mode | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5/a323834/artifact-manifest.txt`; 1,647 bytes; `1c1f1b7a5b92fab5510cde35a439fc6f0742b7bf2666d6319cd89b9a7d4dcadb`; `0444` |
 | Package/version/signature/signer/packaged runtime values | `com.tim180201.mobile.synthetic`; versionCode `1`; versionName `1.0.0`; v2 `true`, v1/v3/v3.1/v4 `false`; one local synthetic non-production signer certificate SHA-256 `fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c`; packaged boundary/runtime `match` |
@@ -73,7 +80,9 @@ Historical query correction exact-head CI `30276804017`, attempt 1, and review-b
 Final Runtime correction exact-head CI `30284566289`, attempt 1, passed 12/12; its independent
 re-review and Artifact Exact-SHA review each returned `APPROVED` with zero open P0–P3, and the
 official artifact verifier returned `PASS` for the exact final binding above. These automated and
-review results are not Human preflight evidence or Human-run authority.
+review results are not Human preflight evidence, a current installation candidate or Human-run
+authority. Before any new Phase 0, a corrected APK/manifest must be freshly generated, verified
+and independently Exact-SHA-bound.
 
 ### 1.1 Historical enablement and isolated-PostgreSQL correction sequence — no Human result
 
@@ -212,10 +221,10 @@ This paragraph is governance history, not Candidate Evidence, implementation app
 hardware authority; focused publication, exact-head CI and independent Exact-Delta `APPROVED`
 with zero open P0–P3 remain required.
 
-Four later separately authorized Phase-0 attempts occurred as recorded below; none scanned a Tag
-or reached Product Human V5. The Harness can accept A/B/X values only from the operator and
-cannot independently prove their origin. Any further hardware action requires a new explicit
-Human authorization.
+Five later separately authorized Phase-0 attempts occurred as recorded below; none produced an
+attributable Tag result or reached Product Human V5. The Harness can accept A/B/X values only from
+the operator and cannot independently prove their origin. Any further hardware action requires a
+new explicit Human authorization.
 
 Do not add credentials, credential/password/identity digests, tokens, secrets, raw UID/payload,
 provider subjects, device serials, encryption keys, internal identifiers, CSV bodies or personal
@@ -229,12 +238,26 @@ data.
 | Phase 0 run 2 | Before installation/NFC: active Samsung TalkBack `15.1.01.1` unsupported by the prior Google-only app | Authority consumed; package zero and zero reverse mappings confirmed; no Tag scanned |
 | Phase 0 run 3 | Before Tag scan: generic launcher/package resolver did not uniquely start the explicit Activity | Authority consumed; cleaned; no Tag scanned |
 | Phase 0 run 4 | Explicit `.MainActivity` reached cold start, then failed on missing ExpoAsset (`DA5-V5-VAL-RUNTIME-01`) | Authority consumed; package/process/reverse zero; no Tag scanned |
+| Phase 0 run 5 | Then-current exact `7e8c0f7` Validation APK installed/verified and device checkpoint Human-confirmed; first required validation scan path then showed only generic fail-closed state with no distinguishable cause | Authority consumed; no attributable Tag result and no hardware defect proven; package/process/reverse zero; artifact now historical/DO NOT INSTALL |
 
-Final cleanup was package/process/reverse zero. The runtime-corrected artifact above was not
-installed and no further hardware/ADB action occurred.
+Final cleanup was package/process/reverse zero. The exact artifact is no longer installed and no
+further hardware/ADB action occurred.
 Another Phase 0 requires a fresh exact Human authorization.
 
-### 2.1 Product Human-V5 preflight
+### 2.1 Open Validation-gate finding
+
+`DA5-V5-VAL-UI-01` records a repository-visible accessibility/UI reliability gap capable of
+reaching the strict Controller concurrency rejection when TalkBack repeats an otherwise identical
+device-confirmation or active-scan activation. This code-level gap does not retrospectively prove
+the indistinguishable run-5 cause or a hardware defect. The focused local correction adds a
+separate UI-only explicit offer/revision boundary for identical repeated activations, keeps true
+concurrent/out-of-order/foreign Controller calls fail-closed, restricts UI failure reasons to a
+fixed disclosure-safe allowlist and removes Reset while capture owns the native operation while
+retaining explicit Cancel/cleanup. Publication and independent review are pending; it supplies no
+new Phase-0 authority. Before any such authority, a new corrected APK/manifest must be generated,
+verified and independently Exact-SHA-bound; the historical `7e8c0f7` values must not be reused.
+
+### 2.2 Product Human-V5 preflight
 
 | Check | Result | Safe observation |
 |---|---|---|

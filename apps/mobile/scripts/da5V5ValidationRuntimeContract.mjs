@@ -107,15 +107,15 @@ export const DA5_V5_VALIDATION_BUNDLE_NATIVE_MODULE_ALLOWLIST =
 export const DA5_V5_VALIDATION_EXPECTED_BUNDLE_SOURCE_CLOSURE =
   Object.freeze({
     entries: 555,
-    sourceBytes: 2_667_064,
+    sourceBytes: 2_672_214,
     sha256:
-      '29691fc137c63906e5cf0c5cd47e2df0643064ab6dbddc00e0d3ec467d492ed3',
+      '75906c91cf382aa6b50f1846174b0d13ece28cae15f417b499eab29c263f0327',
   });
 export const DA5_V5_VALIDATION_EXPECTED_BUNDLE_EXECUTABLE =
   Object.freeze({
-    bytes: 2_032_807,
+    bytes: 2_037_617,
     sha256:
-      'e4caf2db73cfbcdaf779f337bf3a3f99e95d182950522323052bc31ae10c93d3',
+      '6694a99a1388e376c253e72cdec88f879346389c0dccf683defe9805440e6bf2',
   });
 
 export const DA5_V5_VALIDATION_SOURCE_CLOSURE = Object.freeze([

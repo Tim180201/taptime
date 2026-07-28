@@ -1,7 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
+  DA5_V5_VALIDATION_FAILURE_MESSAGES,
+  DA5_V5_VALIDATION_FAILURE_REASONS,
   DA5_V5_VALIDATION_STABLE_READS,
   Da5V5ValidationController,
+  Da5V5ValidationUiActionBoundary,
   type Da5V5ValidationRole,
 } from '../../src/validation/Da5V5ValidationController';
 import type {
@@ -185,6 +188,154 @@ describe('DA5 V5 A/B/X validation controller', () => {
     expect(controller.getState().phase).toBe('failed');
   });
 
+  it('coalesces repeated device confirmation only at the UI boundary', async () => {
+    const { controller } = harness();
+    await controller.start();
+    const actions = new Da5V5ValidationUiActionBoundary(controller);
+
+    actions.confirmDeviceBinding();
+    actions.confirmDeviceBinding();
+
+    expect(controller.getState()).toMatchObject({
+      phase: 'ready',
+      failureReason: null,
+    });
+  });
+
+  it('keeps repeated direct Controller confirmation strict fail-closed', async () => {
+    const { controller } = harness();
+    await controller.start();
+
+    controller.confirmDeviceBinding();
+    controller.confirmDeviceBinding();
+
+    expect(controller.getState()).toMatchObject({
+      phase: 'failed',
+      failureReason: 'operation_order_rejected',
+    });
+  });
+
+  it('coalesces only the same active UI scan while it is in flight', async () => {
+    let release!: (result: Da5V5ValidationCaptureResult) => void;
+    const deferred = new Promise<Da5V5ValidationCaptureResult>((resolve) => {
+      release = resolve;
+    });
+    const { controller, port } = harness();
+    vi.mocked(port.capture).mockReturnValue(deferred);
+    await startReady(controller);
+    const actions = new Da5V5ValidationUiActionBoundary(controller);
+    const firstOffer = controller.getState().uiRevision;
+
+    const first = actions.captureRole('A', firstOffer);
+    const duplicate = actions.captureRole('A', firstOffer);
+
+    expect(duplicate).toBe(first);
+    expect(port.capture).toHaveBeenCalledTimes(1);
+    expect(port.cancelCapture).not.toHaveBeenCalled();
+
+    release(captured('A'));
+    await Promise.all([first, duplicate]);
+    expect(controller.getState()).toMatchObject({
+      phase: 'ready',
+      slots: { A: { progress: 1 } },
+    });
+
+    await actions.captureRole('A', firstOffer);
+    expect(port.capture).toHaveBeenCalledTimes(1);
+    expect(controller.getState().slots.A.progress).toBe(1);
+
+    vi.mocked(port.capture).mockResolvedValueOnce(captured('A'));
+    const nextOffer = controller.getState().uiRevision;
+    await actions.captureRole('A', nextOffer);
+    expect(port.capture).toHaveBeenCalledTimes(2);
+    expect(controller.getState().slots.A.progress).toBe(2);
+  });
+
+  it('permits all ten deliberate A scans through ten distinct UI offers', async () => {
+    const { controller, port } = harness(Array.from(
+      { length: DA5_V5_VALIDATION_STABLE_READS },
+      () => captured('A'),
+    ));
+    await startReady(controller);
+    const actions = new Da5V5ValidationUiActionBoundary(controller);
+
+    for (
+      let index = 0;
+      index < DA5_V5_VALIDATION_STABLE_READS;
+      index += 1
+    ) {
+      await actions.captureRole(
+        'A',
+        controller.getState().uiRevision,
+      );
+    }
+
+    expect(port.capture).toHaveBeenCalledTimes(
+      DA5_V5_VALIDATION_STABLE_READS,
+    );
+    expect(controller.getState()).toMatchObject({
+      activeRole: 'B',
+      phase: 'ready',
+      slots: {
+        A: { progress: DA5_V5_VALIDATION_STABLE_READS },
+      },
+    });
+  });
+
+  it('delegates a foreign in-flight UI scan to strict fail-closed concurrency', async () => {
+    let release!: (result: Da5V5ValidationCaptureResult) => void;
+    const deferred = new Promise<Da5V5ValidationCaptureResult>((resolve) => {
+      release = resolve;
+    });
+    const { controller, port } = harness();
+    vi.mocked(port.capture).mockReturnValue(deferred);
+    await startReady(controller);
+    const actions = new Da5V5ValidationUiActionBoundary(controller);
+    const offer = controller.getState().uiRevision;
+
+    const first = actions.captureRole('A', offer);
+    const foreign = actions.captureRole('B', offer);
+
+    expect(controller.getState()).toMatchObject({
+      phase: 'failed',
+      failureReason: 'operation_order_rejected',
+    });
+    expect(port.capture).toHaveBeenCalledTimes(1);
+    expect(port.cancelCapture).toHaveBeenCalledTimes(1);
+
+    release({ status: 'cancelled' });
+    await Promise.all([first, foreign]);
+    expect(controller.getState().phase).toBe('failed');
+  });
+
+  it('rejects a stale Reset handler during an active UI scan without reset cleanup', async () => {
+    let release!: (result: Da5V5ValidationCaptureResult) => void;
+    const deferred = new Promise<Da5V5ValidationCaptureResult>((resolve) => {
+      release = resolve;
+    });
+    const { controller, port } = harness();
+    vi.mocked(port.capture).mockReturnValue(deferred);
+    await startReady(controller);
+    const actions = new Da5V5ValidationUiActionBoundary(controller);
+    const staleResetOffer = controller.getState().uiRevision;
+
+    const scan = actions.captureRole('A', staleResetOffer);
+    const reset = actions.reset(staleResetOffer);
+
+    expect(controller.getState()).toMatchObject({
+      phase: 'failed',
+      failureReason: 'operation_order_rejected',
+    });
+    expect(port.stop).not.toHaveBeenCalled();
+    expect(port.cancelCapture).toHaveBeenCalledTimes(1);
+
+    release({ status: 'cancelled' });
+    await Promise.all([scan, reset]);
+    expect(controller.getState().phase).toBe('failed');
+    expect(controller.getState().phase).not.toBe('device_checkpoint');
+    expect(port.stop).not.toHaveBeenCalled();
+  });
+
   it('fails closed on missing or foreign Technology provenance', async () => {
     const { controller } = harness([{ status: 'technology_rejected' }]);
     await startReady(controller);
@@ -260,6 +411,7 @@ describe('DA5 V5 A/B/X validation controller', () => {
         capability: 'unavailable',
         phase: 'failed',
         outcome: 'failed_closed',
+        failureReason: 'cleanup_failed',
         slots: {
           A: { fingerprint: null, technology: null, progress: 0 },
           B: { fingerprint: null, technology: null, progress: 0 },
@@ -268,6 +420,31 @@ describe('DA5 V5 A/B/X validation controller', () => {
       });
     },
   );
+
+  it('maps failures to a fixed disclosure-safe allowlist without raw diagnostics', async () => {
+    const { controller, port } = harness();
+    vi.mocked(port.capture).mockRejectedValue(
+      new Error(
+        'raw uid 04A1B2C3 payload secret provider-id internal-identifier',
+      ),
+    );
+    await startReady(controller);
+    await controller.captureRole('A');
+
+    const state = controller.getState();
+    expect(DA5_V5_VALIDATION_FAILURE_REASONS).toContain(
+      state.failureReason,
+    );
+    expect(state.failureReason).toBe('scan_evidence_rejected');
+    expect(
+      DA5_V5_VALIDATION_FAILURE_MESSAGES[state.failureReason!],
+    ).toBe(
+      'Der Scan konnte nicht als gültiger lokaler Nachweis bestätigt werden.',
+    );
+    expect(JSON.stringify(state)).not.toMatch(
+      /04A1B2C3|payload secret|provider-id|internal-identifier/u,
+    );
+  });
 
   it('fails closed before A/B/X when the exact device binding is malformed', async () => {
     const { controller, capture } = harness([], {

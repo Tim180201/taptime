@@ -343,15 +343,24 @@ Final correction `7e8c0f7742e6407b8917205fd337a552f7dec714`, tree
 `3e4d1356b859fecf70d365fecbb563e2088100f3`, passed CI `30284566289`, attempt 1,
 12/12, and independent re-review returned `APPROVED` with zero open P0–P3. The exact executable
 Metro bundle/source closure, ExpoAsset absence, Validation package, local synthetic signer,
-required native modules and zero forbidden modules/extra permissions are bound. The final
-read-only APK/manifest passed the official verifier and independent Artifact Exact-SHA review
-with zero open P0–P3.
+required native modules and zero forbidden modules/extra permissions are bound. The historical
+`7e8c0f7` APK/manifest passed the official verifier and independent Artifact Exact-SHA review
+with zero open P0–P3 for that exact source, but DA5-V5-VAL-UI-01 changes its Controller/UI:
+**HISTORICAL — DO NOT INSTALL**. A new corrected APK/manifest must be generated, verified and
+independently Exact-SHA-bound before any new Phase-0 authorization; no replacement values are
+claimed.
 
-Four separately authorized Phase-0 attempts are consumed before any Tag scan: preinstalled
+Five separately authorized Phase-0 attempts are consumed without an attributable Tag result:
+preinstalled
 package; unsupported Samsung provider in the then-prior build; generic launcher/package resolver
 without a unique explicit-Activity start; and explicit `.MainActivity` cold start failing on
-missing ExpoAsset (`DA5-V5-VAL-RUNTIME-01`). Cleanup ended with package, process and reverse
-mappings at zero. The runtime-corrected APK was not installed. No new Phase-0, hardware, ADB,
+missing ExpoAsset (`DA5-V5-VAL-RUNTIME-01`). Run 5 on baseline `55070aa` installed and verified
+the then-current exact `7e8c0f7` Validation APK, passed the Human-confirmed device checkpoint and then reached only
+the generic fail-closed scan path without a distinguishable cause. No successful or attributable
+Tag result is Evidence and no hardware defect is proven. Cleanup ended with package, process and
+reverse mappings at zero. `DA5-V5-VAL-UI-01` records the separate repository-visible repeated-
+TalkBack-activation reliability gap; its focused local correction candidate does not prove the
+run-5 cause, and publication/independent review remain pending. No new Phase-0, hardware, ADB,
 installation or Product Human-V5 authority exists. Production, production data, system changes,
 deployment and distribution remain unauthorized.
 
@@ -491,7 +500,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Development Assignment 4 Professional Admin Web Productization — ADR-0015/DA4-P01–P12 Human-accepted; Workstreams A–D, AVS V0–V4 and H01 procedural correction independently approved; first Human V5 failed closed and no closure/new run is authorized | `ADO/02_Development/Development_Assignment_04_Professional_Admin_Web_Productization_Authorization.md` |
 | Development Assignment 4 V5 Enablement — local R3 V0–V4, exact-SHA implementation review and H01 ADO correction approved; new Human V5 remains separately exact-bound and unauthorized | `ADO/02_Development/Development_Assignment_04_V5_Enablement_Authorization.md` |
 | Development Assignment 5 Professional Mobile Productization — Workstreams A–F and AVS V0–V4 technically closed for the exact authorized local scope | `ADO/02_Development/Development_Assignment_05_Professional_Mobile_Productization_Authorization.md` |
-| Development Assignment 5 V5 Enablement — Runtime Guard and final Validation Runtime correction `7e8c0f7` independently approved with zero open P0–P3; exact-head CI 12/12 and final artifact verifier/Exact-SHA review approved; four Phase-0 authorities consumed fail-closed before any Tag scan; corrected APK not installed and no current hardware/ADB/install or Human-V5 authority | `ADO/02_Development/Development_Assignment_05_V5_Enablement_Authorization.md` |
+| Development Assignment 5 V5 Enablement — Runtime Guard independently approved; historical `7e8c0f7` Validation artifact approved only for its exact source and now DO NOT INSTALL; five Phase-0 authorities consumed without an attributable Tag result; DA5-V5-VAL-UI-01 publication/review plus a new verified independently Exact-SHA-bound APK/manifest required before any new Phase 0 | `ADO/02_Development/Development_Assignment_05_V5_Enablement_Authorization.md` |
 | Development Assignment 5 V5 Isolated PostgreSQL Correction — Runtime Guard source `ba1b6e9`, CI `30255104609` attempt 2 12/12, immutable binary/manifest and independent Exact-SHA `APPROVED`; historical correction rounds retained; hardware authority not granted | `ADO/02_Development/Development_Assignment_05_V5_Isolated_PostgreSQL_Correction_Authorization.md` |
 | Development Assignment 6 Production-like Platform and Operational Readiness — ADO-only candidate; Human acceptance and separate implementation/provisioning authority required | `ADO/02_Development/Development_Assignment_06_Production_Like_Platform_Authorization.md` |
 | Legal, Privacy and Commercial Readiness Start Package — internal Block-H/DT-079–DT-084 working draft; not legal advice, approved legal text or publication authority | `ADO/02_Development/Legal_Privacy_Commercial_Readiness_Start_Package.md` |
@@ -515,7 +524,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Development Assignment 1 Gate-C Response-Drop Runbook | `ADO/04_Operations/Development_Assignment_01_Gate_C_Response_Drop_Runbook.md` |
 | Development Assignment 3 V5 Human Functional/Physical Gate Runbook — complete fresh run passed and final closure approved; permanently non-executable without new separate authority | `ADO/04_Operations/Development_Assignment_03_V5_Runbook.md` |
 | Development Assignment 4 V5 Human Browser Gate Runbook — first gate failed closed and authority is consumed; corrected checkpoint handshake independently approved, but execution requires new exact-bound Human authority | `ADO/04_Operations/Development_Assignment_04_V5_Runbook.md` |
-| Development Assignment 5 V5 Human Android Runbook — non-executable; final Validation Runtime correction `7e8c0f7`, CI `30284566289` attempt 1 12/12 and final APK/manifest independently approved; four Phase-0 authorities consumed, corrected APK not installed and separate exact-bound hardware authority required | `ADO/04_Operations/Development_Assignment_05_V5_Runbook.md` |
+| Development Assignment 5 V5 Human Android Runbook — non-executable; historical `7e8c0f7` APK/manifest DO NOT INSTALL; five Phase-0 authorities consumed; DA5-V5-VAL-UI-01 publication/review and a new verified independently Exact-SHA-bound APK/manifest required before separate exact-bound hardware authority | `ADO/04_Operations/Development_Assignment_05_V5_Runbook.md` |
 
 ## Evidence
 
@@ -578,9 +587,9 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Development Assignment 4 DA4-V5-H01 Human Browser Failure Evidence — first gate failed closed at the premature Tag-reassignment checkpoint; P2 operational/gate reliability, complete cleanup, authority consumed and new run unauthorized | `ADO/05_Evidence/Development_Assignment_04_DA4_V5_H01_Human_Browser_Failure_Evidence.md` |
 | Development Assignment 4 DA4-V5-H01 Correction Independent Exact-SHA Review — `APPROVED`, zero open P0–P3 review findings; historical P2 remains until a fresh successful gate/final review and no new run is authorized | `ADO/05_Evidence/Development_Assignment_04_DA4_V5_H01_Correction_Independent_Exact_SHA_Review.md` |
 | Development Assignment 5 Local Implementation Evidence — Workstreams A–F and AVS V0–V4 technically closed for the exact authorized local scope | `ADO/05_Evidence/Development_Assignment_05_Local_Implementation_Evidence.md` |
-| Development Assignment 5 V5 Evidence — final Validation Runtime correction `7e8c0f7`, exact-head CI 12/12, verifier-passing read-only artifact and independent source/artifact review `APPROVED` with zero open P0–P3; four failed-clean Phase-0 attempts consumed without Tag scan; corrected APK not installed and Product Human V5 remains `NOT RUN`/unauthorized | `ADO/05_Evidence/Development_Assignment_05_V5_Evidence.md` |
+| Development Assignment 5 V5 Evidence — historical `7e8c0f7` artifact approved only for its exact source and now DO NOT INSTALL; five failed-clean Phase-0 attempts consumed without an attributable Tag result; DA5-V5-VAL-UI-01 publication/review plus a new verified independently Exact-SHA-bound APK/manifest required; Product Human V5 remains `NOT RUN`/unauthorized | `ADO/05_Evidence/Development_Assignment_05_V5_Evidence.md` |
 | Development Assignment 5 V5 Validation Query-Visibility Correction Independent Exact-SHA Review — review base `11a8269`, CI `30277641127` 12/12, `APPROVED`, zero open P0–P3; Hardware remains unauthorized | `ADO/05_Evidence/Development_Assignment_05_V5_Validation_Query_Visibility_Correction_Independent_Exact_SHA_Review.md` |
-| Development Assignment 5 V5 Validation Runtime Correction Independent Exact-SHA Review — initial candidate `534b6d2` had one P1 fail-open graph; final source `7e8c0f7`, CI `30284566289` 12/12 and final artifact independently `APPROVED` with zero open P0–P3; corrected APK not installed and Hardware remains unauthorized | `ADO/05_Evidence/Development_Assignment_05_V5_Validation_Runtime_Correction_Independent_Exact_SHA_Review.md` |
+| Development Assignment 5 V5 Validation Runtime Correction Independent Exact-SHA Review — initial candidate `534b6d2` had one P1 fail-open graph; source `7e8c0f7`, CI `30284566289` 12/12 and its artifact independently `APPROVED` with zero open P0–P3 for that exact source; artifact is now historical/DO NOT INSTALL after DA5-V5-VAL-UI-01 source correction and Hardware authority remains separately gated | `ADO/05_Evidence/Development_Assignment_05_V5_Validation_Runtime_Correction_Independent_Exact_SHA_Review.md` |
 | Development Assignment 6 Independent Pre-Implementation Review — ADO-only candidate publication `APPROVED`, initial EOF-whitespace P3 closed, zero open P0–P3; no implementation, legal, provider, cost or production authority | `ADO/05_Evidence/Development_Assignment_06_Independent_Pre_Implementation_Review.md` |
 | Development Assignment 1 DA1-PHYS-01 Independent Exact-Delta Review — approved, finding closed | `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_01_Independent_Exact_Delta_Review.md` |
 | Development Assignment 1 DA1-PHYS-02 Independent Exact-Delta Review — approved, repository finding closed | `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_02_Independent_Exact_Delta_Review.md` |

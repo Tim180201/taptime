@@ -8,14 +8,22 @@ import {
   View,
 } from 'react-native';
 import {
+  DA5_V5_VALIDATION_FAILURE_MESSAGES,
   DA5_V5_VALIDATION_ROLES,
   DA5_V5_VALIDATION_STABLE_READS,
+  Da5V5ValidationUiActionBoundary,
+  type Da5V5ValidationFailureReason,
   type Da5V5ValidationRole,
+  type Da5V5ValidationState,
 } from './Da5V5ValidationController';
 import { createDa5V5ValidationRuntime } from './createDa5V5ValidationRuntime';
 
 export function Da5V5ValidationMobileApp() {
   const controller = useMemo(createDa5V5ValidationRuntime, []);
+  const actions = useMemo(
+    () => new Da5V5ValidationUiActionBoundary(controller),
+    [controller],
+  );
   const state = useSyncExternalStore(
     controller.subscribe,
     controller.getState,
@@ -45,7 +53,11 @@ export function Da5V5ValidationMobileApp() {
         <View style={styles.status} accessibilityLiveRegion="polite">
           <Text style={styles.statusTitle}>{statusTitle(state.phase)}</Text>
           <Text style={styles.statusText}>
-            {statusText(state.phase, state.activeRole)}
+            {statusText(
+              state.phase,
+              state.activeRole,
+              state.failureReason,
+            )}
           </Text>
         </View>
 
@@ -86,7 +98,7 @@ export function Da5V5ValidationMobileApp() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Exakte Gerätebindung bestätigen"
-            onPress={() => controller.confirmDeviceBinding()}
+            onPress={() => actions.confirmDeviceBinding()}
             style={styles.primary}
           >
             <Text style={styles.primaryText}>
@@ -113,7 +125,10 @@ export function Da5V5ValidationMobileApp() {
             accessibilityRole="button"
             accessibilityLabel={`Tag ${state.activeRole} lokal prüfen`}
             disabled={!captureEnabled}
-            onPress={() => controller.captureRole(state.activeRole)}
+            onPress={() => actions.captureRole(
+              state.activeRole,
+              state.uiRevision,
+            )}
             style={({ pressed }) => [
               styles.primary,
               (!captureEnabled || pressed) && styles.dimmed,
@@ -130,20 +145,22 @@ export function Da5V5ValidationMobileApp() {
         {state.phase === 'capturing' ? (
           <Pressable
             accessibilityRole="button"
-            onPress={() => controller.cancel()}
+            onPress={() => actions.cancel()}
             style={styles.secondary}
           >
             <Text style={styles.secondaryText}>Scan abbrechen</Text>
           </Pressable>
         ) : null}
 
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => controller.reset()}
-          style={styles.reset}
-        >
-          <Text style={styles.resetText}>Lokale Nachweise löschen</Text>
-        </Pressable>
+        {shouldShowDa5V5ValidationReset(state.phase) ? (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => actions.reset(state.uiRevision)}
+            style={styles.reset}
+          >
+            <Text style={styles.resetText}>Lokale Nachweise löschen</Text>
+          </Pressable>
+        ) : null}
       </ScrollView>
     </SafeAreaView>
   );
@@ -201,7 +218,7 @@ function ValidationSlot({
   );
 }
 
-function statusTitle(phase: string): string {
+function statusTitle(phase: Da5V5ValidationState['phase']): string {
   if (phase === 'complete') return 'Alle drei Rollen stabil gebunden';
   if (phase === 'failed') return 'Prüfung sicher gestoppt';
   if (phase === 'stopped') return 'Lokale Prüfung beendet';
@@ -213,12 +230,19 @@ function statusTitle(phase: string): string {
   return 'NFC wird geprüft';
 }
 
-function statusText(phase: string, role: Da5V5ValidationRole): string {
+function statusText(
+  phase: Da5V5ValidationState['phase'],
+  role: Da5V5ValidationRole,
+  failureReason: Da5V5ValidationFailureReason | null,
+): string {
   if (phase === 'complete') {
     return 'A, B und X sind stabil, eindeutig und voneinander verschieden.';
   }
   if (phase === 'failed') {
-    return 'Lokale Nachweise löschen und den vollständigen Ablauf neu beginnen.';
+    const reason = failureReason === null
+      ? 'Die lokale Prüfung wurde sicher gestoppt.'
+      : DA5_V5_VALIDATION_FAILURE_MESSAGES[failureReason];
+    return `${reason} Lokale Nachweise löschen und vollständig neu beginnen.`;
   }
   if (phase === 'capturing') {
     return `Ausschließlich den physisch markierten Tag ${role} präsentieren.`;
@@ -227,6 +251,12 @@ function statusText(phase: string, role: Da5V5ValidationRole): string {
     return 'Alle angezeigten Werte exakt mit dem Hardware-Runbook abgleichen.';
   }
   return `Nächster verpflichtender Slot: ${role}.`;
+}
+
+export function shouldShowDa5V5ValidationReset(
+  phase: Da5V5ValidationState['phase'],
+): boolean {
+  return phase !== 'capturing';
 }
 
 const styles = StyleSheet.create({
