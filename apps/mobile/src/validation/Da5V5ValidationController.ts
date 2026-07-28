@@ -1,8 +1,9 @@
 import {
+  DA5_V5_VALIDATION_CAPTURE_FAILURE_STAGES,
   DA5_V5_VALIDATION_TECHNOLOGY,
   type Da5V5ValidationCapability,
+  type Da5V5ValidationCaptureFailureStage,
   type Da5V5ValidationCapturePort,
-  type Da5V5ValidationCaptureResult,
   type Da5V5ValidationTechnology,
 } from './Da5V5ValidationContract';
 import {
@@ -19,6 +20,11 @@ export const DA5_V5_VALIDATION_FAILURE_REASONS = [
   'device_or_nfc_binding_rejected',
   'operation_order_rejected',
   'scan_evidence_rejected',
+  'technology_evidence_rejected',
+  'uid_readability_rejected',
+  'listener_registration_failed',
+  'digest_failed',
+  'concurrency_rejected',
   'cleanup_failed',
 ] as const;
 export type Da5V5ValidationFailureReason =
@@ -33,8 +39,29 @@ export const DA5_V5_VALIDATION_FAILURE_MESSAGES: Readonly<
     'Die erwartete lokale Reihenfolge konnte nicht sicher bestätigt werden.',
   scan_evidence_rejected:
     'Der Scan konnte nicht als gültiger lokaler Nachweis bestätigt werden.',
+  technology_evidence_rejected:
+    'Der erlaubte NFC-Technologie-Nachweis konnte nicht sicher bestätigt werden.',
+  uid_readability_rejected:
+    'Die NFC-Kennung konnte nicht sicher gelesen werden.',
+  listener_registration_failed:
+    'Die lokale NFC-Erfassung konnte nicht sicher registriert werden.',
+  digest_failed:
+    'Der lokale Prüffingerprint konnte nicht sicher erzeugt werden.',
+  concurrency_rejected:
+    'Eine gleichzeitige NFC-Erfassung wurde sicher abgelehnt.',
   cleanup_failed:
     'Die lokale Bereinigung konnte nicht sicher bestätigt werden.',
+});
+
+export const DA5_V5_VALIDATION_FAILURE_REASON_BY_CAPTURE_STAGE: Readonly<
+  Record<Da5V5ValidationCaptureFailureStage, Da5V5ValidationFailureReason>
+> = Object.freeze({
+  technology_evidence: 'technology_evidence_rejected',
+  uid_readability: 'uid_readability_rejected',
+  listener_registration: 'listener_registration_failed',
+  digest: 'digest_failed',
+  concurrency: 'concurrency_rejected',
+  cleanup: 'cleanup_failed',
 });
 
 export interface Da5V5ValidationSlotState {
@@ -64,8 +91,6 @@ export interface Da5V5ValidationState {
     | 'captured'
     | 'cancelled'
     | 'timed_out'
-    | 'unreadable'
-    | 'unavailable'
     | 'failed_closed'
     | null;
   readonly failureReason: Da5V5ValidationFailureReason | null;
@@ -246,32 +271,39 @@ export class Da5V5ValidationController {
     role: Da5V5ValidationRole,
     generation: number,
   ): Promise<void> {
-    let result: Da5V5ValidationCaptureResult;
+    let result: unknown;
     try {
       result = await this.capture.capture();
     } catch {
-      result = { status: 'unavailable' };
+      result = {
+        status: 'failed',
+        failureStage: 'listener_registration',
+      };
     }
     if (generation !== this.generation) {
       return;
     }
-    if (
-      result.status === 'technology_rejected'
-      || result.status === 'concurrent_rejected'
-      || result.status === 'unavailable'
-      || result.status === 'unreadable'
-    ) {
+    if (isCaptureFailure(result)) {
       this.generation += 1;
-      this.failClosed('scan_evidence_rejected');
+      this.failClosed(
+        DA5_V5_VALIDATION_FAILURE_REASON_BY_CAPTURE_STAGE[
+          result.failureStage
+        ],
+      );
       return;
     }
-    if (result.status !== 'captured') {
+    if (isRetryableCaptureResult(result)) {
       this.update({
         ...this.state,
         phase: 'ready',
         outcome: result.status,
         failureReason: null,
       });
+      return;
+    }
+    if (!isCapturedResult(result)) {
+      this.generation += 1;
+      this.failClosed('scan_evidence_rejected');
       return;
     }
     if (
@@ -367,6 +399,46 @@ function emptySlot(): Da5V5ValidationSlotState {
     technology: null,
     progress: 0,
   };
+}
+
+function isCaptureFailure(
+  value: unknown,
+): value is Readonly<{
+  status: 'failed';
+  failureStage: Da5V5ValidationCaptureFailureStage;
+}> {
+  if (!isRecord(value) || value.status !== 'failed') {
+    return false;
+  }
+  return DA5_V5_VALIDATION_CAPTURE_FAILURE_STAGES.some(
+    (stage) => value.failureStage === stage,
+  );
+}
+
+function isRetryableCaptureResult(
+  value: unknown,
+): value is Readonly<{ status: 'cancelled' | 'timed_out' }> {
+  return isRecord(value)
+    && (value.status === 'cancelled' || value.status === 'timed_out');
+}
+
+function isCapturedResult(
+  value: unknown,
+): value is Readonly<{
+  status: 'captured';
+  fingerprint: string;
+  technology: string;
+}> {
+  return isRecord(value)
+    && value.status === 'captured'
+    && typeof value.fingerprint === 'string'
+    && typeof value.technology === 'string';
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object'
+    && value !== null
+    && !Array.isArray(value);
 }
 
 /**

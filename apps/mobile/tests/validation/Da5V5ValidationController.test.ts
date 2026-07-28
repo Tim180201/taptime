@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   DA5_V5_VALIDATION_FAILURE_MESSAGES,
+  DA5_V5_VALIDATION_FAILURE_REASON_BY_CAPTURE_STAGE,
   DA5_V5_VALIDATION_FAILURE_REASONS,
   DA5_V5_VALIDATION_STABLE_READS,
   Da5V5ValidationController,
@@ -336,27 +337,97 @@ describe('DA5 V5 A/B/X validation controller', () => {
     expect(port.stop).not.toHaveBeenCalled();
   });
 
-  it('fails closed on missing or foreign Technology provenance', async () => {
-    const { controller } = harness([{ status: 'technology_rejected' }]);
-    await startReady(controller);
-    await controller.captureRole('A');
-    expect(controller.getState()).toMatchObject({
-      phase: 'failed',
-      outcome: 'failed_closed',
-    });
-  });
+  it.each([
+    [
+      'technology_evidence',
+      'technology_evidence_rejected',
+      'Der erlaubte NFC-Technologie-Nachweis konnte nicht sicher bestätigt werden.',
+    ],
+    [
+      'uid_readability',
+      'uid_readability_rejected',
+      'Die NFC-Kennung konnte nicht sicher gelesen werden.',
+    ],
+    [
+      'listener_registration',
+      'listener_registration_failed',
+      'Die lokale NFC-Erfassung konnte nicht sicher registriert werden.',
+    ],
+    [
+      'digest',
+      'digest_failed',
+      'Der lokale Prüffingerprint konnte nicht sicher erzeugt werden.',
+    ],
+    [
+      'concurrency',
+      'concurrency_rejected',
+      'Eine gleichzeitige NFC-Erfassung wurde sicher abgelehnt.',
+    ],
+    [
+      'cleanup',
+      'cleanup_failed',
+      'Die lokale Bereinigung konnte nicht sicher bestätigt werden.',
+    ],
+  ] as const)(
+    'maps native %s failure to the fixed Controller/UI allowlist',
+    async (failureStage, failureReason, message) => {
+      const { controller } = harness([{
+        status: 'failed',
+        failureStage,
+      }]);
+      await startReady(controller);
+      await controller.captureRole('A');
+      expect(controller.getState()).toMatchObject({
+        phase: 'failed',
+        outcome: 'failed_closed',
+        failureReason,
+      });
+      expect(
+        DA5_V5_VALIDATION_FAILURE_REASON_BY_CAPTURE_STAGE[failureStage],
+      ).toBe(failureReason);
+      expect(DA5_V5_VALIDATION_FAILURE_MESSAGES[failureReason]).toBe(message);
+      expect(message).not.toMatch(
+        /uid [0-9a-f]|payload|techTypes|provider|exception|stack|logcat/iu,
+      );
+    },
+  );
+
+  it.each(['cancelled', 'timed_out'] as const)(
+    'preserves retryable %s behavior without counter mutation',
+    async (status) => {
+      const { controller } = harness([{ status }]);
+      await startReady(controller);
+      await controller.captureRole('A');
+      expect(controller.getState()).toMatchObject({
+        phase: 'ready',
+        outcome: status,
+        failureReason: null,
+        slots: {
+          A: { progress: 0 },
+          B: { progress: 0 },
+          X: { progress: 0 },
+        },
+      });
+    },
+  );
 
   it.each([
-    { status: 'unavailable' },
-    { status: 'unreadable' },
-  ] as const)('fails closed on non-retryable capture result $status', async (result) => {
-    const { controller } = harness([result]);
+    { status: 'failed', failureStage: 'foreign raw uid 04A1B2C3' },
+    { status: 'foreign', exception: 'payload secret native detail' },
+  ])('fails closed on foreign capture contract state %#', async (foreign) => {
+    const { controller } = harness([
+      foreign as unknown as Da5V5ValidationCaptureResult,
+    ]);
     await startReady(controller);
     await controller.captureRole('A');
     expect(controller.getState()).toMatchObject({
       phase: 'failed',
       outcome: 'failed_closed',
+      failureReason: 'scan_evidence_rejected',
     });
+    expect(JSON.stringify(controller.getState())).not.toMatch(
+      /04A1B2C3|payload secret|native detail/u,
+    );
   });
 
   it('reset and stop clear all safe values and stop capture ownership', async () => {
@@ -435,11 +506,11 @@ describe('DA5 V5 A/B/X validation controller', () => {
     expect(DA5_V5_VALIDATION_FAILURE_REASONS).toContain(
       state.failureReason,
     );
-    expect(state.failureReason).toBe('scan_evidence_rejected');
+    expect(state.failureReason).toBe('listener_registration_failed');
     expect(
       DA5_V5_VALIDATION_FAILURE_MESSAGES[state.failureReason!],
     ).toBe(
-      'Der Scan konnte nicht als gültiger lokaler Nachweis bestätigt werden.',
+      'Die lokale NFC-Erfassung konnte nicht sicher registriert werden.',
     );
     expect(JSON.stringify(state)).not.toMatch(
       /04A1B2C3|payload secret|provider-id|internal-identifier/u,

@@ -1,4 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type {
+  Da5V5ValidationCaptureFailureStage,
+} from '../../src/validation/Da5V5ValidationContract';
 
 const nativeManager = vi.hoisted(() => ({
   isEnabled: vi.fn(),
@@ -44,6 +47,13 @@ function capture() {
     platform: 'android',
     digestCanonicalPayload: vi.fn(async () => 'a'.repeat(64)),
   });
+}
+
+function failed(failureStage: Da5V5ValidationCaptureFailureStage) {
+  return {
+    status: 'failed',
+    failureStage,
+  } as const;
 }
 
 describe('DA5 V5 validation-only NFC capture', () => {
@@ -186,9 +196,107 @@ describe('DA5 V5 validation-only NFC capture', () => {
       ],
     });
     await expect(result).resolves.toEqual({
-      status: 'technology_rejected',
+      status: 'failed',
+      failureStage: 'technology_evidence',
     });
     expect(digest).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { id: undefined },
+    { id: '0' },
+    { id: 'not-hex' },
+  ])('maps unreadable UID evidence to one fixed stage %#', async (tag) => {
+    const runtime = capture();
+    const result = runtime.capture();
+    await vi.waitFor(() => {
+      expect(nativeManager.registerTagEvent).toHaveBeenCalledTimes(1);
+    });
+    discover({
+      ...tag,
+      techTypes: [
+        'android.nfc.tech.NfcA',
+        'android.nfc.tech.MifareUltralight',
+      ],
+    });
+    await expect(result).resolves.toEqual(failed('uid_readability'));
+  });
+
+  it('maps listener setup failure without retaining exception text', async () => {
+    nativeManager.setEventListener.mockImplementationOnce(() => {
+      throw new Error(
+        'raw uid 04A1B2C3 payload secret native listener detail',
+      );
+    });
+    const result = await capture().capture();
+    expect(result).toEqual(failed('listener_registration'));
+    expect(JSON.stringify(result)).not.toMatch(
+      /04A1B2C3|payload secret|native listener detail/u,
+    );
+  });
+
+  it('maps an asynchronous registration rejection after discovery', async () => {
+    let rejectRegistration!: (error: Error) => void;
+    nativeManager.registerTagEvent.mockImplementation(() => (
+      new Promise<void>((_resolve, reject) => {
+        rejectRegistration = reject;
+      })
+    ));
+    const runtime = capture();
+    const result = runtime.capture();
+    await vi.waitFor(() => {
+      expect(nativeManager.registerTagEvent).toHaveBeenCalledTimes(1);
+    });
+    discover({
+      id: '04A1B2C3',
+      techTypes: [
+        'android.nfc.tech.NfcA',
+        'android.nfc.tech.MifareUltralight',
+      ],
+    });
+    rejectRegistration(new Error(
+      'raw uid 04A1B2C3 payload secret registration detail',
+    ));
+    await expect(result).resolves.toEqual(
+      failed('listener_registration'),
+    );
+    expect(JSON.stringify(await result)).not.toMatch(
+      /04A1B2C3|payload secret|registration detail/u,
+    );
+  });
+
+  it('maps digest rejection and invalid digest output to one fixed stage', async () => {
+    for (const digestCanonicalPayload of [
+      vi.fn(async () => Promise.reject(
+        new Error('raw uid 04A1B2C3 digest provider detail'),
+      )),
+      vi.fn(async () => 'not-a-sha-256-digest'),
+    ]) {
+      const runtime = new Da5V5ValidationNfcCapture({
+        manager: nativeManager,
+        platform: 'android',
+        digestCanonicalPayload,
+      });
+      const result = runtime.capture();
+      await vi.waitFor(() => {
+        expect(nativeManager.registerTagEvent).toHaveBeenCalled();
+      });
+      discover({
+        id: '04A1B2C3',
+        techTypes: [
+          'android.nfc.tech.NfcA',
+          'android.nfc.tech.MifareUltralight',
+        ],
+      });
+      await expect(result).resolves.toEqual(failed('digest'));
+      expect(JSON.stringify(await result)).not.toMatch(
+        /04A1B2C3|provider detail|not-a-sha/u,
+      );
+      vi.clearAllMocks();
+      nativeManager.registerTagEvent.mockResolvedValue(undefined);
+      nativeManager.start.mockResolvedValue(undefined);
+      nativeManager.unregisterTagEvent.mockResolvedValue(undefined);
+    }
   });
 
   it('rejects a concurrent direct capture and cleans the active listener', async () => {
@@ -198,10 +306,34 @@ describe('DA5 V5 validation-only NFC capture', () => {
       expect(nativeManager.registerTagEvent).toHaveBeenCalledTimes(1);
     });
     await expect(runtime.capture()).resolves.toEqual({
-      status: 'concurrent_rejected',
+      status: 'failed',
+      failureStage: 'concurrency',
     });
     await runtime.cancelCapture();
     await expect(first).resolves.toEqual({ status: 'cancelled' });
+    expect(nativeManager.unregisterTagEvent).toHaveBeenCalledTimes(1);
+  });
+
+  it('preserves the fixed capture timeout and cleanup behavior', async () => {
+    let captureTimeout!: () => void;
+    const clearScheduledTimeout = vi.fn();
+    const runtime = new Da5V5ValidationNfcCapture({
+      manager: nativeManager,
+      platform: 'android',
+      digestCanonicalPayload: vi.fn(async () => 'a'.repeat(64)),
+      scheduleTimeout: (callback) => {
+        captureTimeout = callback;
+        return 1 as unknown as ReturnType<typeof setTimeout>;
+      },
+      clearScheduledTimeout,
+    });
+    const result = runtime.capture();
+    await vi.waitFor(() => {
+      expect(nativeManager.registerTagEvent).toHaveBeenCalledTimes(1);
+    });
+    captureTimeout();
+    await expect(result).resolves.toEqual({ status: 'timed_out' });
+    expect(clearScheduledTimeout).toHaveBeenCalledTimes(1);
     expect(nativeManager.unregisterTagEvent).toHaveBeenCalledTimes(1);
   });
 
@@ -260,15 +392,18 @@ describe('DA5 V5 validation-only NFC capture', () => {
     const stop = runtime.stop();
     cleanupTimeout();
     await expect(stop).rejects.toThrow(/cleanup failed closed/u);
-    await expect(result).resolves.toEqual({ status: 'unavailable' });
+    await expect(result).resolves.toEqual(failed('cleanup'));
     await expect(runtime.capture()).resolves.toEqual({
-      status: 'concurrent_rejected',
+      status: 'failed',
+      failureStage: 'cleanup',
     });
   });
 
-  it('reports failed-closed cleanup when native unregister rejects', async () => {
+  it('reports fixed post-result cleanup stage without exception text', async () => {
     nativeManager.unregisterTagEvent.mockRejectedValue(
-      new Error('synthetic unregister failure'),
+      new Error(
+        'raw uid 04A1B2C3 payload secret native unregister detail',
+      ),
     );
     const runtime = capture();
     const result = runtime.capture();
@@ -282,7 +417,10 @@ describe('DA5 V5 validation-only NFC capture', () => {
         'android.nfc.tech.MifareUltralight',
       ],
     });
-    await expect(result).resolves.toEqual({ status: 'unavailable' });
+    await expect(result).resolves.toEqual(failed('cleanup'));
+    expect(JSON.stringify(await result)).not.toMatch(
+      /04A1B2C3|payload secret|native unregister detail/u,
+    );
     await expect(runtime.stop()).rejects.toThrow(/cleanup failed closed/u);
   });
 });

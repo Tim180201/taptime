@@ -1,15 +1,19 @@
 import { Platform } from 'react-native';
 import NfcManager, { NfcEvents, type TagEvent } from 'react-native-nfc-manager';
 import {
+  DA5_V5_VALIDATION_CAPTURE_FAILURE_STAGES,
   DA5_V5_VALIDATION_TECHNOLOGY,
   type Da5V5ValidationCapability,
+  type Da5V5ValidationCaptureFailureStage,
   type Da5V5ValidationCapturePort,
   type Da5V5ValidationCaptureResult,
 } from './Da5V5ValidationContract';
 
 export {
+  DA5_V5_VALIDATION_CAPTURE_FAILURE_STAGES,
   DA5_V5_VALIDATION_TECHNOLOGY,
   type Da5V5ValidationCapability,
+  type Da5V5ValidationCaptureFailureStage,
   type Da5V5ValidationCapturePort,
   type Da5V5ValidationCaptureResult,
   type Da5V5ValidationTechnology,
@@ -102,7 +106,7 @@ implements Da5V5ValidationCapturePort {
   private captureFlight: Promise<Da5V5ValidationCaptureResult> | null = null;
   private registrationDrain: Promise<void> | null = null;
   private activeCapture: ActiveCapture | null = null;
-  private cleanupFailure: Error | null = null;
+  private cleanupFailed = false;
   private lifecycleGeneration = 0;
 
   constructor(
@@ -133,12 +137,11 @@ implements Da5V5ValidationCapturePort {
   }
 
   capture(): Promise<Da5V5ValidationCaptureResult> {
-    if (
-      this.captureFlight !== null
-      || this.registrationDrain !== null
-      || this.cleanupFailure !== null
-    ) {
-      return Promise.resolve({ status: 'concurrent_rejected' });
+    if (this.cleanupFailed || this.registrationDrain !== null) {
+      return Promise.resolve(captureFailure('cleanup'));
+    }
+    if (this.captureFlight !== null) {
+      return Promise.resolve(captureFailure('concurrency'));
     }
     const generation = this.lifecycleGeneration;
     const operation = this.performCapture(generation);
@@ -165,7 +168,7 @@ implements Da5V5ValidationCapturePort {
     } catch (error) {
       this.recordCleanupFailure(error);
     }
-    if (this.cleanupFailure !== null) {
+    if (this.cleanupFailed) {
       throw new Error('DA5 V5 Validation native cleanup failed closed');
     }
     const pending: Promise<unknown>[] = [];
@@ -181,7 +184,7 @@ implements Da5V5ValidationCapturePort {
           this.recordCleanupFailure(error);
         });
     }
-    if (this.cleanupFailure !== null) {
+    if (this.cleanupFailed) {
       throw new Error('DA5 V5 Validation native cleanup failed closed');
     }
   }
@@ -190,12 +193,12 @@ implements Da5V5ValidationCapturePort {
     generation: number,
   ): Promise<Da5V5ValidationCaptureResult> {
     if (this.platform !== 'android') {
-      return { status: 'unavailable' };
+      return captureFailure('listener_registration');
     }
     try {
       await this.ensureStarted();
     } catch {
-      return { status: 'unavailable' };
+      return captureFailure('listener_registration');
     }
     if (generation !== this.lifecycleGeneration) {
       return { status: 'cancelled' };
@@ -205,6 +208,7 @@ implements Da5V5ValidationCapturePort {
       let settled = false;
       let cleanupFlight: Promise<void> | null = null;
       let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+      let registrationFailed = false;
       let releaseRegistrationSettlement!: () => void;
       const registrationSettlement = new Promise<void>((release) => {
         releaseRegistrationSettlement = release;
@@ -233,12 +237,18 @@ implements Da5V5ValidationCapturePort {
           );
           cleanupFlight = this.awaitBoundedCleanup(nativeCleanup)
             .then(
-              () => this.cleanupFailure === null
-                ? result
-                : { status: 'unavailable' } as const,
+              () => {
+                if (this.cleanupFailed) {
+                  return captureFailure('cleanup');
+                }
+                if (registrationFailed) {
+                  return captureFailure('listener_registration');
+                }
+                return result;
+              },
               (error: unknown) => {
                 this.recordCleanupFailure(error);
-                return { status: 'unavailable' } as const;
+                return captureFailure('cleanup');
               },
             )
             .then((finalResult) => {
@@ -256,12 +266,14 @@ implements Da5V5ValidationCapturePort {
         this.manager.setEventListener(NfcEvents.DiscoverTag, (tag) => {
           void this.reduceNativeTag(tag)
             .then((result) => capture.finish(result))
-            .catch(() => capture.finish({ status: 'unavailable' }));
+            .catch(() => capture.finish(
+              captureFailure('listener_registration'),
+            ));
         });
       } catch {
         releaseRegistrationSettlement();
         this.activeCapture = null;
-        resolve({ status: 'unavailable' });
+        resolve(captureFailure('listener_registration'));
         return;
       }
 
@@ -273,8 +285,9 @@ implements Da5V5ValidationCapturePort {
       try {
         registration = Promise.resolve(this.manager.registerTagEvent());
       } catch {
+        registrationFailed = true;
         releaseRegistrationSettlement();
-        void capture.finish({ status: 'unavailable' });
+        void capture.finish(captureFailure('listener_registration'));
         return;
       }
       void registration.then(
@@ -282,8 +295,9 @@ implements Da5V5ValidationCapturePort {
           releaseRegistrationSettlement();
         },
         () => {
+          registrationFailed = true;
           releaseRegistrationSettlement();
-          void capture.finish({ status: 'unavailable' });
+          void capture.finish(captureFailure('listener_registration'));
         },
       );
     });
@@ -292,25 +306,40 @@ implements Da5V5ValidationCapturePort {
   private async reduceNativeTag(
     tag: TagEvent,
   ): Promise<Da5V5ValidationCaptureResult> {
-    if (!hasAllowedTechnologyEvidence(tag.techTypes)) {
-      return { status: 'technology_rejected' };
+    try {
+      if (!hasAllowedTechnologyEvidence(tag.techTypes)) {
+        return captureFailure('technology_evidence');
+      }
+    } catch {
+      return captureFailure('technology_evidence');
     }
-    if (typeof tag.id !== 'string') {
-      return { status: 'unreadable' };
+    let uid: unknown;
+    try {
+      uid = tag.id;
+    } catch {
+      return captureFailure('uid_readability');
+    }
+    if (typeof uid !== 'string') {
+      return captureFailure('uid_readability');
     }
     let canonicalPayload: string;
     try {
-      canonicalPayload = createValidationCanonicalUidPayload(tag.id);
+      canonicalPayload = createValidationCanonicalUidPayload(uid);
     } catch {
-      return { status: 'unreadable' };
+      return captureFailure('uid_readability');
     }
-    const digest = await this.options.digestCanonicalPayload(canonicalPayload);
+    let digest: string;
+    try {
+      digest = await this.options.digestCanonicalPayload(canonicalPayload);
+    } catch {
+      return captureFailure('digest');
+    }
     if (!SHA256_PATTERN.test(digest)) {
-      return { status: 'unavailable' };
+      return captureFailure('digest');
     }
     const fingerprint = digest.slice(0, 12).toUpperCase();
     if (!SAFE_FINGERPRINT_PATTERN.test(fingerprint)) {
-      return { status: 'unavailable' };
+      return captureFailure('digest');
     }
     return Object.freeze({
       status: 'captured',
@@ -396,13 +425,18 @@ implements Da5V5ValidationCapturePort {
     });
   }
 
-  private recordCleanupFailure(error: unknown): void {
-    if (this.cleanupFailure === null) {
-      this.cleanupFailure = error instanceof Error
-        ? error
-        : new Error('DA5 V5 Validation native cleanup failed');
-    }
+  private recordCleanupFailure(_error: unknown): void {
+    this.cleanupFailed = true;
   }
+}
+
+function captureFailure(
+  failureStage: Da5V5ValidationCaptureFailureStage,
+): Da5V5ValidationCaptureResult {
+  return Object.freeze({
+    status: 'failed',
+    failureStage,
+  });
 }
 
 export function createValidationCanonicalUidPayload(uidHex: string): string {

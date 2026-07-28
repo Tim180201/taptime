@@ -8,6 +8,17 @@ export type Da5V5ValidationCapability =
   | 'not_supported'
   | 'disabled';
 
+export const DA5_V5_VALIDATION_CAPTURE_FAILURE_STAGES = [
+  'technology_evidence',
+  'uid_readability',
+  'listener_registration',
+  'digest',
+  'concurrency',
+  'cleanup',
+] as const;
+export type Da5V5ValidationCaptureFailureStage =
+  typeof DA5_V5_VALIDATION_CAPTURE_FAILURE_STAGES[number];
+
 export type Da5V5ValidationCaptureResult =
   | {
     readonly status: 'captured';
@@ -15,13 +26,11 @@ export type Da5V5ValidationCaptureResult =
     readonly technology: Da5V5ValidationTechnology;
   }
   | {
-    readonly status:
-      | 'cancelled'
-      | 'concurrent_rejected'
-      | 'technology_rejected'
-      | 'timed_out'
-      | 'unavailable'
-      | 'unreadable';
+    readonly status: 'cancelled' | 'timed_out';
+  }
+  | {
+    readonly status: 'failed';
+    readonly failureStage: Da5V5ValidationCaptureFailureStage;
   };
 
 export interface Da5V5ValidationCapturePort {
