@@ -1,6 +1,6 @@
 # Project Status
 
-Status: CORE ROADMAP V2 COMPLETIONS REMAIN PRESERVED FOR THEIR RECORDED SCOPES — DA4 REMAINS OPEN FOR A LATER FRESH HUMAN V5 — DA5 V0–V4 AND THE LOCAL DA5-V5 RUNTIME GUARD REMAIN INDEPENDENTLY APPROVED; DA5-V5-VAL-NATIVE-CAPTURE-DIAGNOSTICS SOURCE `effc57a`, TREE `758dbfa`, EXACT-HEAD CI `30377569479` ATTEMPT 1 12/12, INDEPENDENT SOURCE REVIEW, FINAL PREPUBLICATION REVIEW AND ARTIFACT EXACT-SHA REVIEW ARE `APPROVED` WITH ZERO OPEN P0–P3 — THE CURRENT 65,631,681-BYTE READ-ONLY APK `e423073e…7330f` AND 6,700-BYTE MANIFEST `9d1238e8…ccc22` ARE INSTALLATION-UNAUTHORIZED; THE `e97bbe9` AND `7e8c0f7` ARTIFACTS ARE HISTORICAL/DO NOT INSTALL — SIX PHASE-0 AUTHORITIES ARE CONSUMED FAIL-CLOSED WITHOUT AN ATTRIBUTABLE TAG RESULT; NO NEW PHASE-0/HARDWARE/ADB/INSTALLATION OR PRODUCT-HUMAN-V5 AUTHORITY EXISTS — PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, SYSTEM CHANGES, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
+Status: CORE ROADMAP V2 COMPLETIONS REMAIN PRESERVED FOR THEIR RECORDED SCOPES — DA4 REMAINS OPEN FOR A LATER FRESH HUMAN V5 — DA5 V0–V4 AND THE LOCAL DA5-V5 RUNTIME GUARD REMAIN INDEPENDENTLY APPROVED; DA5-V5-VAL-NATIVE-CAPTURE-DIAGNOSTICS SOURCE `effc57a`, TREE `758dbfa`, EXACT-HEAD CI `30377569479` ATTEMPT 1 12/12 AND ITS REVIEWS REMAIN HISTORICAL TRUTH — PHASE-0 RUN 7 ON ADO BASELINE `aebffbe` STOPPED AT THE FIRST A-SCAN WITH SAFE STAGE `technology_evidence`, CONSUMED ITS AUTHORITY AND CLEANED PACKAGE/PROCESS/REVERSE TO ZERO WITHOUT A FINGERPRINT OR TAG RESULT; PHYSICAL `techTypes` REMAIN UNKNOWN AND NO HARDWARE DEFECT IS PROVEN — `DA5-V5-VAL-TECH-01` CONFIRMS THE OVER-STRICT CLOSED-LIST CHECK; THIS PUBLICATION INTRODUCES THE FOCUSED R3 SUBSET CANDIDATE ON BASELINE `aebffbe`, REQUIRING BOTH `NfcA` AND `MifareUltralight` WHILE IGNORING ALL ADDITIONAL AND DUPLICATED TECHNOLOGIES; EXTERNAL BINDINGS FOLLOW ONLY THROUGH EVIDENCE SYNCHRONIZATION — THE `effc57a`, `e97bbe9` AND `7e8c0f7` APK/MANIFEST ARTIFACTS ARE HISTORICAL/DO NOT INSTALL — SEVEN PHASE-0 AUTHORITIES ARE CONSUMED; NO NEW PHASE-0/HARDWARE/ADB/INSTALLATION OR PRODUCT-HUMAN-V5 AUTHORITY EXISTS — PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, SYSTEM CHANGES, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
 DA5 decision-time Option-A trust anchor: exactly two direct admin-group members, zero nested
 groups; full-record SHA-256 `b006276c09d8f2713f6132ea79cec167ab3a3c2887ee53e95eb00c1cc33719a5`;
 membership SHA-256 `70a683b7ebc7981533015d5d63cf12dfb2eabbfa665c34720eddb4d09e9e3064`;
@@ -16,8 +16,9 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
 
 ## Current State
 
-- **DA5-V5 native-capture diagnostics source and replacement artifact are independently approved;
-  the sixth Phase-0 attempt is consumed and any new Phase-0 authority remains separately gated.**
+- **DA5-V5-VAL-TECH-01 is confirmed; this publication introduces its focused R3 candidate on
+  baseline `aebffbec`; the seventh Phase-0 authority is consumed and any new Phase-0 authority
+  remains separately gated.**
   Runtime Guard source
   `ba1b6e922ceb7902ecedd9dc2df01d6b22d90867`, tree
   `980b6c57fdd71c12820f2890b640946db0d883c6`, passed CI `30255104609`, attempt 2,
@@ -63,7 +64,7 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   artifact are now **HISTORICAL — DO NOT INSTALL** because the native-capture diagnostics
   correction changes the Validation source.
 
-  Six separately authorized Phase-0 attempts are consumed without an attributable Tag result:
+  Seven separately authorized Phase-0 attempts are consumed without an attributable Tag result:
   run 1 stopped on
   a preinstalled Validation package; run 2 on the unsupported Samsung provider in the then-prior
   build; run 3 because the generic launcher/package resolver did not uniquely start the explicit
@@ -80,7 +81,14 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   A-scan it showed only `Prüfung sicher gestoppt` /
   `Der Scan konnte nicht als gültiger lokaler Nachweis bestätigt werden`. No cause or Tag result
   is attributable and no hardware defect is proven. Cleanup again confirmed package, process and
-  reverse mappings at zero.
+  reverse mappings at zero. Run 7 used ADO baseline
+  `aebffbec7c72c028ace6365ecdcc413e314526dd`, tree
+  `9e0104229756fe223753916ace8247ee2626f4d5`, and the exact `effc57a` Validation source/artifact.
+  It passed the authorized checkpoint and stopped at the first required A-scan with the fixed safe
+  failure stage `technology_evidence`. The authority is consumed; no fingerprint or Tag result
+  exists. The concrete physical `techTypes` were intentionally not exposed and remain unknown,
+  no hardware defect is proven, and cleanup again confirmed package, process and reverse mappings
+  at zero.
 
   The focused diagnostics correction changes exactly seven authorized files at source
   `effc57a6780ff86784de0519a34abd6c5b7b8cd6`, tree
@@ -99,7 +107,7 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   unexecuted unchanged suite then passed 288/288 on a fresh exact database. No ports or temporary
   residue remained.
 
-  The current read-only artifact directory is
+  The now-historical read-only artifact directory is
   `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-validation/da5-v5-validation-effc57a6780f-e423073e51f72a68`.
   Its 65,631,681-byte `0444` `app-release-e423073e51f72a68.apk` has SHA-256
   `e423073e51f72a68421c8e4afd17a9b86c397ca83628deaf4b174543d817330f`; its
@@ -115,9 +123,20 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   `9194be29b96a67c47aa40a4bdea7494155695e088d769e21c77eff305b1ee259`.
   Independent Artifact Exact-SHA review returned `APPROVED` with zero open P0–P3 after byte-exact
   verification of all 32 manifest source-closure files, package/signing/security boundaries,
-  required/forbidden DEX modules and Hermes Validation-only markers. The artifact remains
-  uninstalled and installation-unauthorized; the correction proves neither a prior-run cause nor
-  a Tag result and grants no Phase-0, hardware, ADB or Product Human-V5 authority.
+  required/forbidden DEX modules and Hermes Validation-only markers. After run 7 and the source
+  correction below, that artifact is no longer installed and is **HISTORICAL — DO NOT INSTALL**.
+
+  `DA5-V5-VAL-TECH-01` is a confirmed repository defect: the `effc57a` capture helper required a
+  closed four-value allowlist, rejected duplicate entries and imposed the allowlist length as a
+  maximum even though Android may report additional technologies. This publication introduces
+  the focused R3 candidate on baseline `aebffbec`: an array must contain both fully qualified
+  `android.nfc.tech.NfcA` and `android.nfc.tech.MifareUltralight`; any additional or duplicated
+  entries are ignored for the decision and remain neither returned nor persisted. Contract,
+  output label, UID/digest handling, timeout, Controller and filter remain unchanged. Exact
+  external Source/CI/Artifact/Review bindings are recorded only by the subsequent Evidence
+  synchronization. The run-7 safe stage plus this repository diagnosis proves no concrete
+  physical Technology list, fingerprint, Tag result or hardware defect and grants no Phase-0,
+  hardware, ADB, installation or Product Human-V5 authority.
 - **Development Assignment 5 Workstreams A–F and V0–V4 are technically closed/MERGE_READY;
   Human V5 remains unauthorized.** The Human Architect expressly accepted ADR-0016/DA5-P01–P12 and
   ADR-0017/DA5-T01–T15 and authorized the bounded Development implementation plus subsequent
@@ -1023,10 +1042,13 @@ Two Epics are concurrently Active, per EP-009's own stated relationship to the r
    reuse, retry, repair or resume is authorized.
 6. Preserve DA5 V0–V4 closure and the independently approved local DA5-V5 Runtime Guard and
    exact runtime-corrected Validation App binding above. Treat Shared-Cluster work as historical
-   `BLOCKED`/not Evidence and all six failed Phase-0 attempts as consumed, non-reusable history.
+   `BLOCKED`/not Evidence and all seven failed Phase-0 attempts as consumed, non-reusable history.
    Preserve the native-capture diagnostics source/artifact closure on `effc57a` and its independent
-   zero-finding reviews. The historical `e97bbe9` and `7e8c0f7` artifacts must not be installed.
-   Do not begin another Phase 0 without the new `effc57a` artifact binding and a fresh explicit
+   zero-finding reviews as historical evidence while keeping its artifact, `e97bbe9` and `7e8c0f7`
+   **DO NOT INSTALL**. Preserve the focused `DA5-V5-VAL-TECH-01` R3 subset candidate introduced
+   by this publication and record its exact external bindings only through the subsequent Evidence
+   synchronization. Do not begin another Phase 0 without a future independently approved
+   replacement artifact binding and a fresh explicit
    one-time Human
    authorization limited to the corrected exact
    Validation APK, Galaxy A33, three read-only A/B/X Tag scans, device/accessibility binding and

@@ -1,6 +1,6 @@
 # Development Assignment 5 — V5 Human Android Gate Runbook
 
-- Status: **DA5-V5-VAL-NATIVE-CAPTURE-DIAGNOSTICS SOURCE/ARTIFACT EXACT-SHA REVIEW APPROVED — CURRENT `effc57a` APK/MANIFEST VERIFIED BUT INSTALLATION UNAUTHORIZED — SIX PHASE-0 AUTHORITIES CONSUMED FAIL-CLOSED — `e97bbe9` AND `7e8c0f7` APK/MANIFEST HISTORICAL/DO NOT INSTALL — NO CURRENT PHASE-0 OR HUMAN-V5 AUTHORITY/DO NOT START**
+- Status: **PHASE-0 RUN 7 CONSUMED AT SAFE `technology_evidence` WITH PACKAGE/PROCESS/REVERSE ZERO AND NO FINGERPRINT/TAG RESULT — `DA5-V5-VAL-TECH-01` CLOSED-LIST DEFECT CONFIRMED; THIS PUBLICATION INTRODUCES THE FOCUSED R3 SUBSET CANDIDATE ON BASELINE `aebffbe`, WITH EXTERNAL BINDINGS DEFERRED TO EVIDENCE SYNCHRONIZATION — `effc57a`, `e97bbe9` AND `7e8c0f7` APK/MANIFEST HISTORICAL/DO NOT INSTALL — SEVEN PHASE-0 AUTHORITIES CONSUMED — NO CURRENT PHASE-0 OR HUMAN-V5 AUTHORITY/DO NOT START**
 - Date: 2026-07-28
 - Owner: Technical Lead
 - Approval authority for any run: Human Architect
@@ -29,7 +29,7 @@ APK/manifest passed the official verifier and independent Artifact Exact-SHA rev
 open P0–P3 for that exact historical source. The DA5-V5-VAL-UI-01 Controller/UI source correction
 historically superseded it: the listed APK/manifest is **HISTORICAL — DO NOT INSTALL**.
 
-**Phase 0 — Validation Binding Preflight** has no current authority. Six prior one-time
+**Phase 0 — Validation Binding Preflight** has no current authority. Seven prior one-time
 authorizations are consumed without an attributable Tag result: run 1 stopped on a preinstalled
 Validation package; run 2 on the unsupported Samsung provider in the then-prior build; run 3
 because the generic launcher/package resolver did not uniquely start the explicit Activity and
@@ -46,7 +46,13 @@ at zero. Run 6 used ADO baseline `96daac0b3cf1cfe98249a8c94fe927f34ee33af1`, tre
 it showed only `Prüfung sicher gestoppt` /
 `Der Scan konnte nicht als gültiger lokaler Nachweis bestätigt werden`. No cause or Tag result is
 attributable and no hardware defect is proven. Cleanup again confirmed package, process and
-reverse mappings at zero.
+reverse mappings at zero. Run 7 used ADO baseline
+`aebffbec7c72c028ace6365ecdcc413e314526dd`, tree
+`9e0104229756fe223753916ace8247ee2626f4d5`, and exact `effc57a` source/artifact. It stopped at
+the first required A-scan with the fixed safe failure stage `technology_evidence`. The authority
+is consumed; no fingerprint or Tag result exists. Concrete physical `techTypes` were
+intentionally not exposed and remain unknown, no hardware defect is proven, and cleanup again
+confirmed package, process and reverse mappings at zero.
 
 `DA5-V5-VAL-UI-01` tracks the repository-visible accessibility/UI reliability gap:
 identical repeated TalkBack activations require a separate one-shot/coalescing boundary while
@@ -59,7 +65,8 @@ passed the official verifier and that independent review. Because the following 
 diagnostics correction changes the Validation source, the `e97bbe9` APK/manifest is now
 **HISTORICAL — DO NOT INSTALL**.
 
-The current correction source is `effc57a6780ff86784de0519a34abd6c5b7b8cd6`, tree
+The now-historical diagnostics correction source is
+`effc57a6780ff86784de0519a34abd6c5b7b8cd6`, tree
 `758dbfaa04d0968fb25122352055fbcb80f8f022`, with exactly seven authorized changed files.
 It adds six closed, typed, fixed-allowlist and disclosure-safe stages for Technology evidence,
 UID readability, listener/registration, digest, concurrency and cleanup. It emits no raw UID,
@@ -74,27 +81,35 @@ database. No ports or temporary residue remained. Exact-head CI `30377569479`, a
 open P0–P3. The exact replacement APK/manifest below passed independent Artifact Exact-SHA review
 with zero open P0–P3.
 
-These reviews close the exact repository/source/artifact correction only; they do not prove a
-cause or Tag result for any consumed run and grant no installation or hardware authority. A future
-fresh one-time authorization must bind the
-Galaxy A33 plus still-unbound OS/build/accessibility values and three still-unbound safe Tag
-fingerprints to A/B/X. No APK listed below may be installed; the values are historical audit
-bindings or an independently reviewed but still unauthorized candidate. The historical `e97bbe9`
-and `7e8c0f7` artifacts remain **DO NOT INSTALL**. Future scans remain read-only and must perform no auth,
-network, database, Product action or timekeeping. Complete uninstall and scoped cleanup are
-mandatory.
+These reviews close only their exact historical repository/source/artifact correction. Run 7 and
+repository inspection confirm `DA5-V5-VAL-TECH-01`: the `effc57a` helper imposed a closed
+Technology allowlist, maximum length and duplicate rejection. This publication introduces the
+focused R3 candidate on baseline `aebffbec`, requiring both fully qualified
+`android.nfc.tech.NfcA` and
+`android.nfc.tech.MifareUltralight` and ignores any additional or duplicated entries without
+returning or persisting them. Contract, output label, UID/digest handling, timeout, Controller and
+filter remain unchanged. Exact external Source/CI/Artifact/Review bindings are recorded only by
+the subsequent Evidence synchronization.
+
+The safe stage does not reveal the concrete physical `techTypes` and proves no fingerprint, Tag
+result or hardware defect. A future fresh one-time authorization must bind a future independently
+approved replacement artifact, the Galaxy A33 plus still-unbound OS/build/accessibility values
+and three still-unbound safe Tag fingerprints to A/B/X. No APK listed below may be installed; all
+are historical audit bindings. Future scans remain read-only and must perform no auth, network,
+database, Product action or timekeeping. Complete uninstall and scoped cleanup are mandatory.
 
 | Phase 0 artifact | Exact binding |
 |---|---|
 | Runtime Guard binary | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-runtime-guard/ba1b6e922ceb7902ecedd9dc2df01d6b22d90867/da5_v5_runtime_guard`; 74,336 bytes; mode `0555`; SHA-256 `4b2a7e6b15d3348dffda94f9125c20a4db82bb8eb08a03aabd35932ad0d5853c` |
 | Runtime Guard manifest/review | Same directory, `guard-manifest.txt`; 19,971 bytes; mode `0444`; SHA-256 `957d6e99c271663763945026995e7463cf2f20b385eb942fd16a152d3de5f709`; focused evidence SHA-256 `440928371f7acc48272eff2e819c37a851d66cae4a908ffa330228982328d708`; independent Exact-SHA `APPROVED`, zero open P0–P3 |
-| Current Validation source/review/CI — installation unauthorized | `effc57a6780ff86784de0519a34abd6c5b7b8cd6`; tree `758dbfaa04d0968fb25122352055fbcb80f8f022`; exactly seven authorized changed files; exact-head CI `30377569479`, attempt 1, 12/12; independent source review and final prepublication review `APPROVED`, zero open P0–P3 |
-| Current Validation V3 | 20/20 builds; 21/21 tests-inclusive typechecks; 21 workspace suites / 147 test files / 2,373 tests; exactly two documented optional B1 skips; migrations 001–013 apply/replay/ledger, C3B CLI and Android export passed. Initial Synthetic stop solely from Technical-Lead runner database-name configuration; previously unexecuted unchanged suite passed 288/288 on a fresh exact database; no port or temporary residue |
-| Current Validation APK — installation unauthorized | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-validation/da5-v5-validation-effc57a6780f-e423073e51f72a68/app-release-e423073e51f72a68.apk`; 65,631,681 bytes; mode `0444`; SHA-256 `e423073e51f72a68421c8e4afd17a9b86c397ca83628deaf4b174543d817330f`; Artifact Exact-SHA review `APPROVED`, zero open P0–P3 |
-| Current Validation manifest — installation unauthorized | Same directory, `manifest-effc57a6780f.json`; 6,700 bytes; mode `0444`; SHA-256 `9d1238e821d92b26ed9bc9b9ee8ccd48607280ff0d0e752ec6965827c68ccc22`; Artifact Exact-SHA review `APPROVED`, zero open P0–P3 |
-| Current Validation package/security boundary | `com.tim180201.mobile.validation`; versionCode `1`; versionName `1.0.0`; signing scope `local-validation-only`; one v2 signer with certificate SHA-256 `fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c`; NFC-only; no network permission; cleartext denied; backup disabled; no Product deep links or Tag dispatch |
-| Current Validation native/source closure | Metro source closure 555 entries / 2,675,576 bytes / SHA-256 `e9fee0629af81357e4563836f9f5ef2b404c1ef97bc135d1cb3ed410f713b593`; executable 2,040,604 bytes / SHA-256 `c24457514436a63878107e1593dc90c6de17ad2424a6b625a6f18a14f66b8cfe`; unchanged native source 123 directories / 587 entries / 464 files / 1,176,224 bytes / SHA-256 `9194be29b96a67c47aa40a4bdea7494155695e088d769e21c77eff305b1ee259` |
-| Current Artifact Exact-SHA review | `APPROVED`, zero open P0–P3; all 32 manifest source-closure files byte-exact; package/signature/version, NFC-only permission, backup/transfer disabled, cleartext/network blocked and no Product dispatch/deep link; DEX 4 required present / 14 forbidden absent; Hermes Validation markers present and Product/network/database/storage markers absent |
+| Historical `effc57a` Validation source/review/CI — DO NOT INSTALL | `effc57a6780ff86784de0519a34abd6c5b7b8cd6`; tree `758dbfaa04d0968fb25122352055fbcb80f8f022`; exactly seven authorized changed files; exact-head CI `30377569479`, attempt 1, 12/12; independent source review and final prepublication review `APPROVED`, zero open P0–P3 |
+| Historical `effc57a` Validation V3 | 20/20 builds; 21/21 tests-inclusive typechecks; 21 workspace suites / 147 test files / 2,373 tests; exactly two documented optional B1 skips; migrations 001–013 apply/replay/ledger, C3B CLI and Android export passed. Initial Synthetic stop solely from Technical-Lead runner database-name configuration; previously unexecuted unchanged suite passed 288/288 on a fresh exact database; no port or temporary residue |
+| Historical `effc57a` Validation APK — DO NOT INSTALL | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-validation/da5-v5-validation-effc57a6780f-e423073e51f72a68/app-release-e423073e51f72a68.apk`; 65,631,681 bytes; mode `0444`; SHA-256 `e423073e51f72a68421c8e4afd17a9b86c397ca83628deaf4b174543d817330f`; Artifact Exact-SHA review `APPROVED`, zero open P0–P3 |
+| Historical `effc57a` Validation manifest — DO NOT INSTALL | Same directory, `manifest-effc57a6780f.json`; 6,700 bytes; mode `0444`; SHA-256 `9d1238e821d92b26ed9bc9b9ee8ccd48607280ff0d0e752ec6965827c68ccc22`; Artifact Exact-SHA review `APPROVED`, zero open P0–P3 |
+| Historical `effc57a` Validation package/security boundary | `com.tim180201.mobile.validation`; versionCode `1`; versionName `1.0.0`; signing scope `local-validation-only`; one v2 signer with certificate SHA-256 `fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c`; NFC-only; no network permission; cleartext denied; backup disabled; no Product deep links or Tag dispatch |
+| Historical `effc57a` Validation native/source closure | Metro source closure 555 entries / 2,675,576 bytes / SHA-256 `e9fee0629af81357e4563836f9f5ef2b404c1ef97bc135d1cb3ed410f713b593`; executable 2,040,604 bytes / SHA-256 `c24457514436a63878107e1593dc90c6de17ad2424a6b625a6f18a14f66b8cfe`; unchanged native source 123 directories / 587 entries / 464 files / 1,176,224 bytes / SHA-256 `9194be29b96a67c47aa40a4bdea7494155695e088d769e21c77eff305b1ee259` |
+| Historical `effc57a` Artifact Exact-SHA review | `APPROVED`, zero open P0–P3; all 32 manifest source-closure files byte-exact; package/signature/version, NFC-only permission, backup/transfer disabled, cleartext/network blocked and no Product dispatch/deep link; DEX 4 required present / 14 forbidden absent; Hermes Validation markers present and Product/network/database/storage markers absent |
+| `DA5-V5-VAL-TECH-01` R3 candidate | This publication introduces the focused candidate on baseline `aebffbec7c72c028ace6365ecdcc413e314526dd` / tree `9e0104229756fe223753916ace8247ee2626f4d5`; both fully qualified mandatory Technologies remain required and all extras/duplicates are ignored; exact external bindings are recorded only by the subsequent Evidence synchronization |
 | Historical `e97bbe9` Validation source/review/CI — DO NOT INSTALL | `e97bbe9e2a281099899e2ecb3aad2588ef20f22d`; tree `2958f456875e8dab3f10834df280e10a8438efce`; exact-head CI `30370977809`, attempt 1, 12/12; Round-2/Round-3 source reviews and formal Source/Artifact Exact-SHA review `APPROVED`, zero open P0–P3 |
 | Historical `e97bbe9` Validation APK/manifest — DO NOT INSTALL | Directory `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-validation/da5-v5-validation-e97bbe9e2a28-810b856ff7113b4f`; APK `app-release-810b856ff7113b4f.apk`, 65,629,505 bytes, mode `0444`, SHA-256 `810b856ff7113b4f2a454007595e1b6c1ae5dc69c601a2120b577f124e213e28`; manifest `manifest-e97bbe9e2a28.json`, 6,700 bytes, mode `0444`, SHA-256 `af53d646558449a7a5c907fbdf59e3366c6ffd2755f6049141db8e567549e051` |
 | Historical Validation APK — DO NOT INSTALL | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-validation/da5-v5-validation-7e8c0f7742e6-303bfd33cf7fa000/app-release-303bfd33cf7fa000.apk`; 65,626,753 bytes; mode `0444`; SHA-256 `303bfd33cf7fa000ee808a048f91883c18dbfe85c1ba359d3f0764ac7ae7f2f8` |
@@ -102,9 +117,9 @@ mandatory.
 | Package/runtime | `com.tim180201.mobile.validation`; signer `fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c`; `local-validation-only`; `NfcA+MifareUltralight`; exact roles A/B/X; exactly one active installed provider from `com.google.android.marvin.talkback` or `com.samsung.android.accessibility.talkback`; none or both fail closed; exactly one queries block with those two package queries, one exact `VIEW` + `BROWSABLE` + `https` intent and zero providers; no Product deep link or Tag dispatch |
 | Historical native/source verification — DO NOT INSTALL | Correction `7e8c0f7742e6407b8917205fd337a552f7dec714`, tree `3e4d1356b859fecf70d365fecbb563e2088100f3`; exact-head CI `30284566289`, attempt 1, 12/12; exact 2,032,807-byte executable Metro bundle SHA-256 `e4caf2db73cfbcdaf779f337bf3a3f99e95d182950522323052bc31ae10c93d3`; exact 555-source/2,667,064-source-byte closure SHA-256 `29691fc137c63906e5cf0c5cd47e2df0643064ab6dbddc00e0d3ec467d492ed3`; independent correction re-review and Artifact Exact-SHA review each `APPROVED`, zero open P0–P3; official artifact verifier `PASS`; superseded for installation by DA5-V5-VAL-UI-01 source correction |
 | Device, accessibility and A/B/X fingerprints | `UNBOUND — DO NOT START` |
-| One-time Phase 0 authorization/result | `RUN 1 CONSUMED — PREINSTALLED PACKAGE`; `RUN 2 CONSUMED — SAMSUNG PROVIDER UNSUPPORTED BY PRIOR BUILD`; `RUN 3 CONSUMED — GENERIC RESOLVER DID NOT UNIQUELY START EXPLICIT ACTIVITY`; `RUN 4 CONSUMED — EXPLICIT MAINACTIVITY COLD START FAILED MISSING EXPOASSET`; `RUN 5 CONSUMED — EXACT APK/DEVICE CHECKPOINT PASSED, THEN GENERIC FAIL-CLOSED SCAN PATH`; `RUN 6 CONSUMED — EXACT e97bbe9 APK/DEVICE CHECKPOINT PASSED, THEN FIRST A-SCAN SHOWED ONLY GENERIC FAIL-CLOSED STATE`; neither run 5 nor run 6 has an attributable Tag result or proves a hardware defect; final cleanup package/process/reverse zero; no current authority |
+| One-time Phase 0 authorization/result | `RUN 1 CONSUMED — PREINSTALLED PACKAGE`; `RUN 2 CONSUMED — SAMSUNG PROVIDER UNSUPPORTED BY PRIOR BUILD`; `RUN 3 CONSUMED — GENERIC RESOLVER DID NOT UNIQUELY START EXPLICIT ACTIVITY`; `RUN 4 CONSUMED — EXPLICIT MAINACTIVITY COLD START FAILED MISSING EXPOASSET`; `RUN 5 CONSUMED — EXACT APK/DEVICE CHECKPOINT PASSED, THEN GENERIC FAIL-CLOSED SCAN PATH`; `RUN 6 CONSUMED — EXACT e97bbe9 APK/DEVICE CHECKPOINT PASSED, THEN FIRST A-SCAN SHOWED ONLY GENERIC FAIL-CLOSED STATE`; `RUN 7 CONSUMED — EXACT effc57a APK/DEVICE CHECKPOINT PASSED, THEN FIRST A-SCAN STOPPED AT SAFE technology_evidence`; runs 5–7 have no attributable Tag result and prove no hardware defect; run-7 physical `techTypes` remain unknown; final cleanup package/process/reverse zero; no current authority |
 
-**Later Product Human V5** remains the separate run described below. None of the six consumed
+**Later Product Human V5** remains the separate run described below. None of the seven consumed
 Phase-0 attempts supplies a Product/Human-V5 result. No further installation, ADB or hardware action is authorized
 until a fresh exact Human authorization; production, production data, system changes, deployment
 and distribution remain unauthorized.

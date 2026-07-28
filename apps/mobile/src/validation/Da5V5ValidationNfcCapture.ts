@@ -65,12 +65,6 @@ const UID_HEX_PATTERN = /^[0-9A-Fa-f]+$/u;
 const CANONICAL_UID_PREFIX = 'nfc:uid:v1:';
 const MINIMUM_UID_HEX_LENGTH = 2;
 const MAXIMUM_UID_HEX_LENGTH = 64;
-const ALLOWED_NATIVE_TECHNOLOGIES = Object.freeze([
-  'android.nfc.tech.MifareUltralight',
-  'android.nfc.tech.NfcA',
-  'android.nfc.tech.Ndef',
-  'android.nfc.tech.NdefFormatable',
-]);
 const REQUIRED_NATIVE_TECHNOLOGIES = Object.freeze([
   'android.nfc.tech.MifareUltralight',
   'android.nfc.tech.NfcA',
@@ -456,18 +450,10 @@ export function createValidationCanonicalUidPayload(uidHex: string): string {
 export function hasAllowedTechnologyEvidence(
   technologyList: readonly string[] | undefined,
 ): boolean {
-  if (
-    !Array.isArray(technologyList)
-    || technologyList.length < REQUIRED_NATIVE_TECHNOLOGIES.length
-    || technologyList.length > ALLOWED_NATIVE_TECHNOLOGIES.length
-    || new Set(technologyList).size !== technologyList.length
-  ) {
+  if (!Array.isArray(technologyList)) {
     return false;
   }
-  const technologies = new Set(technologyList);
-  return technologyList.every(
-    (technology) => ALLOWED_NATIVE_TECHNOLOGIES.includes(technology),
-  ) && REQUIRED_NATIVE_TECHNOLOGIES.every(
-    (technology) => technologies.has(technology),
+  return REQUIRED_NATIVE_TECHNOLOGIES.every(
+    (technology) => technologyList.includes(technology),
   );
 }

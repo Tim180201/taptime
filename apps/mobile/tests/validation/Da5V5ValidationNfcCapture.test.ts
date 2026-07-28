@@ -94,7 +94,7 @@ describe('DA5 V5 validation-only NFC capture', () => {
     expect(nativeManager.unregisterTagEvent).toHaveBeenCalledTimes(1);
   });
 
-  it('normalizes the known Ndef superset to the closed core proof', async () => {
+  it('accepts an Android-reported Technology superset without exposing its extras', async () => {
     const runtime = capture();
     const result = runtime.capture();
     await vi.waitFor(() => {
@@ -103,9 +103,12 @@ describe('DA5 V5 validation-only NFC capture', () => {
     discover({
       id: '04a1b2c3',
       techTypes: [
+        'android.nfc.tech.NfcA',
+        'android.nfc.tech.IsoDep',
+        'android.nfc.tech.MifareUltralight',
         'android.nfc.tech.Ndef',
         'android.nfc.tech.NfcA',
-        'android.nfc.tech.MifareUltralight',
+        'android.nfc.tech.NfcB',
       ],
     });
     await expect(result).resolves.toEqual({
@@ -113,7 +116,9 @@ describe('DA5 V5 validation-only NFC capture', () => {
       fingerprint: 'AAAAAAAAAAAA',
       technology: 'NfcA+MifareUltralight',
     });
-    expect(JSON.stringify(await result)).not.toContain('Ndef');
+    expect(JSON.stringify(await result)).not.toMatch(
+      /IsoDep|Ndef|NfcB|android\.nfc\.tech/u,
+    );
   });
 
   it('matches the canonical UID v1 encoding without a Product barrel import', () => {
@@ -133,11 +138,13 @@ describe('DA5 V5 validation-only NFC capture', () => {
       'android.nfc.tech.NfcA',
       'android.nfc.tech.NfcA',
     ],
+    ['android.nfc.tech.MifareUltralight'],
+    ['android.nfc.tech.IsoDep'],
     [
       'android.nfc.tech.NfcA',
       'android.nfc.tech.IsoDep',
     ],
-  ])('rejects missing, ambiguous or foreign Technology %#', (technology) => {
+  ])('rejects Technology evidence missing either required Technology %#', (technology) => {
     expect(hasAllowedTechnologyEvidence(technology)).toBe(false);
   });
 
@@ -152,7 +159,7 @@ describe('DA5 V5 validation-only NFC capture', () => {
     ])).toBe(true);
   });
 
-  it('accepts only the known formatted or formatable-tag supersets', () => {
+  it('ignores arbitrary, duplicated and previously length-limited extras', () => {
     expect(hasAllowedTechnologyEvidence([
       'android.nfc.tech.Ndef',
       'android.nfc.tech.NfcA',
@@ -174,7 +181,15 @@ describe('DA5 V5 validation-only NFC capture', () => {
       'android.nfc.tech.MifareUltralight',
       'android.nfc.tech.NdefFormatable',
       'android.nfc.tech.IsoDep',
-    ])).toBe(false);
+    ])).toBe(true);
+    expect(hasAllowedTechnologyEvidence([
+      'android.nfc.tech.NfcA',
+      'android.nfc.tech.IsoDep',
+      'android.nfc.tech.MifareUltralight',
+      'android.nfc.tech.NfcA',
+      'android.nfc.tech.NfcB',
+      'android.nfc.tech.Ndef',
+    ])).toBe(true);
   });
 
   it('fails before hashing when Technology provenance is rejected', async () => {
