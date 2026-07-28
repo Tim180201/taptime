@@ -1,6 +1,6 @@
 # Development Assignment 5 — V5 Human Android Evidence
 
-- Status: **PHASE-0 RUN 7 CONSUMED AT SAFE `technology_evidence`; RUN 8 INSTALLED THE EXACT `03694f2` ARTIFACT BUT STOPPED BEFORE `.MainActivity` LAUNCH BECAUSE AN AD-HOC HOST REGEX REJECTED A LEGITIMATE ANDROID-15 `~` PATH; RUN 8 CLEANED PACKAGE/PROCESS/GLOBAL REVERSE TO ZERO — NO FINGERPRINT/TAG RESULT OR HARDWARE DEFECT PROVEN — EIGHT PHASE-0 AUTHORITIES CONSUMED — FORMAL OPERATOR REVIEW R1 `CHANGES REQUIRED`, EXACTLY TWO P1; LOCAL R1 CORRECTION PENDING INDEPENDENT RE-REVIEW/CI/DO NOT START; PRODUCT HUMAN V5 NOT RUN/UNAUTHORIZED**
+- Status: **PHASE-0 RUN 7 CONSUMED AT SAFE `technology_evidence`; RUN 8 INSTALLED THE EXACT `03694f2` ARTIFACT BUT STOPPED BEFORE `.MainActivity` LAUNCH BECAUSE AN AD-HOC HOST REGEX REJECTED A LEGITIMATE ANDROID-15 `~` PATH; RUN 8 CLEANED PACKAGE/PROCESS/GLOBAL REVERSE TO ZERO — NO FINGERPRINT/TAG RESULT OR HARDWARE DEFECT PROVEN — EIGHT PHASE-0 AUTHORITIES CONSUMED — OPERATOR CORRECTION `083fdfb`, TREE `24bd130`, EXACT-HEAD CI `30402655381` ATTEMPT 1 12/12 AND INDEPENDENT ROUND-2 REVIEW `APPROVED`, ZERO OPEN P0–P3/DO NOT START; PRODUCT HUMAN V5 NOT RUN/UNAUTHORIZED**
 - Date: `NOT RUN`
 - Artifact preparation date: 2026-07-28
 - Owner: Technical Lead
@@ -151,6 +151,7 @@ Product Human result. It grants no new Human-run or installation authority.
 | Historical `effc57a` Validation source/native closure | Metro source closure 555 entries / 2,675,576 bytes / SHA-256 `e9fee0629af81357e4563836f9f5ef2b404c1ef97bc135d1cb3ed410f713b593`; executable 2,040,604 bytes / SHA-256 `c24457514436a63878107e1593dc90c6de17ad2424a6b625a6f18a14f66b8cfe`; unchanged native source 123 directories / 587 entries / 464 files / 1,176,224 bytes / SHA-256 `9194be29b96a67c47aa40a4bdea7494155695e088d769e21c77eff305b1ee259` |
 | Historical `effc57a` Artifact Exact-SHA review | `APPROVED`, zero open P0–P3; all 32 manifest source-closure files byte-exact; package/signature/version, NFC-only permission, backup/transfer disabled, cleartext/network blocked and no Product dispatch/deep link; DEX 4 required present / 14 forbidden absent; Hermes Validation markers present and Product/network/database/storage markers absent |
 | `DA5-V5-VAL-TECH-01` source/review/CI | `03694f2d877bc323791e93473ad01ceb82af70df`; tree `6c6039683e067ef29f1f917a60c2628d26e38784`; exact-head CI `30386552118`, attempt 1, 12/12; prepublication review round 2 `APPROVED`, zero open P0–P3 |
+| Validation Phase-0 operator source/review/CI — DO NOT START | Baseline `39a6ef09fad18375af025bc8ed12cc1ea6dda964`, tree `10cdf16421fe564e1961a39d79e20775c0269fc4`; candidate `083fdfb259089d976e48f824e0862f10637d3290`, tree `24bd130500934c6a48fd9314fa06387d6ebdedcd`; exact-head CI `30402655381`, attempt 1, 12/12; independent Exact-SHA re-review round 2 `APPROVED`, zero open P0–P3; both round-1 P1 findings closed; no Phase-0, installation, ADB or hardware authority |
 | `DA5-V5-VAL-TECH-01` candidate APK/manifest — DO NOT INSTALL | Directory `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-validation/da5-v5-validation-03694f2d877b-d2084486b07f27bd`; APK `app-release-d2084486b07f27bd.apk`, 65,631,433 bytes, mode `0444`, SHA-256 `d2084486b07f27bdbd72f9f32e38531f8de31dad18ef4789cab2ec44135e05f5`; manifest `manifest-03694f2d877b.json`, 6,700 bytes, mode `0444`, SHA-256 `aa2a243cd4f81ead806c43e27d6f9c12c28e396db64fe556d8ddf02a8d52f347`; official verifier `PASS`; independent Source/Artifact Exact-SHA review `APPROVED`, zero open P0–P3 |
 | `DA5-V5-VAL-TECH-01` candidate package/security/source boundary | All 32 manifest source-closure entries byte-exact; `com.tim180201.mobile.validation`; versionCode `1`; versionName `1.0.0`; `local-validation-only`; one v2 signer, certificate SHA-256 `fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c`; NFC-only; no network permission; cleartext denied; backup/transfer denied; no Product deep links or Tag dispatch; required native modules present, forbidden modules absent; Validation marker present and Product runtime marker absent |
 | Historical DA5-V5-VAL-UI-01 source/review/CI — DO NOT INSTALL | Source `e97bbe9e2a281099899e2ecb3aad2588ef20f22d`; tree `2958f456875e8dab3f10834df280e10a8438efce`; exact-head CI `30370977809`, attempt 1, 12/12; Round-2 and Round-3 source reviews and independent formal Source/Artifact Exact-SHA review `APPROVED`, zero open P0–P3 |
@@ -342,12 +343,14 @@ Final cleanup was package/process/global reverse zero. The run-7 and run-8 artif
 installed and no further hardware/ADB action occurred.
 Another Phase 0 requires a fresh exact Human authorization.
 
-### 2.1 Tracked Validation Phase-0 operator R1 correction candidate — pending re-review
+### 2.1 Validation Phase-0 operator R1 correction — independently approved, non-executable
 
 On baseline `39a6ef09fad18375af025bc8ed12cc1ea6dda964`, tree
-`10cdf16421fe564e1961a39d79e20775c0269fc4`, the focused local candidate adds only a Core,
-thin direct CLI, `.d.mts` and one focused runtime test. It has no package script. The candidate
-binds the exact `03694f2` APK/manifest and all 32 source-closure records, accepts bounded legitimate
+`10cdf16421fe564e1961a39d79e20775c0269fc4`, the focused correction is published as
+`083fdfb259089d976e48f824e0862f10637d3290`, tree
+`24bd130500934c6a48fd9314fa06387d6ebdedcd`. It adds only a Core, thin direct CLI, `.d.mts` and
+one focused runtime test, with no package script. The candidate binds the exact `03694f2`
+APK/manifest and all 32 source-closure records, accepts bounded legitimate
 Android installed paths including `~`, streams only a stable verified host snapshot into the exact
 package install, proves the installed bytes and identity, launches only
 `com.tim180201.mobile.validation/.MainActivity`, and owns fail-closed cleanup without reverse
@@ -419,8 +422,12 @@ ports, worktree and export were cleaned, the existing local PostgreSQL listener 
 untouched, and the three task-owned directories were moved recoverably to the macOS Trash. No ADB,
 installation or hardware was used.
 
-Exact-head CI and independent R3 re-review remain pending. The candidate is **DO NOT START** and
-grants no Phase-0, installation, ADB, hardware or Product Human-V5 authority.
+Exact-head CI `30402655381`, attempt 1, passed 12/12 on
+`083fdfb259089d976e48f824e0862f10637d3290`. Independent Exact-SHA re-review round 2 returned
+`APPROVED` with zero open P0–P3 and closed both round-1 P1 findings. The review archive is
+`ADO/05_Evidence/Development_Assignment_05_V5_Validation_Phase_0_Operator_Correction_Independent_Exact_SHA_Review.md`.
+The candidate remains **DO NOT START** and grants no Phase-0, installation, ADB, hardware or
+Product Human-V5 authority.
 
 ### 2.2 Historical closed findings and confirmed TECH-01 correction — Human Phase 0 still gated
 

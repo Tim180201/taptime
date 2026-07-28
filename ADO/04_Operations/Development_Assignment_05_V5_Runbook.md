@@ -1,7 +1,7 @@
 # Development Assignment 5 — V5 Human Android Gate Runbook
 
-- Status: **PHASE-0 RUN 7 CONSUMED AT SAFE `technology_evidence`; RUN 8 INSTALLED THE EXACT `03694f2` ARTIFACT BUT STOPPED BEFORE `.MainActivity` LAUNCH BECAUSE AN AD-HOC HOST REGEX REJECTED A LEGITIMATE ANDROID-15 `~` PATH; RUN 8 CLEANED PACKAGE/PROCESS/GLOBAL REVERSE TO ZERO — NO FINGERPRINT/TAG RESULT OR HARDWARE DEFECT PROVEN — EIGHT PHASE-0 AUTHORITIES CONSUMED — FORMAL OPERATOR REVIEW R1 `CHANGES REQUIRED`, EXACTLY TWO P1; LOCAL R1 CORRECTION PENDING INDEPENDENT RE-REVIEW/CI — NO CURRENT PHASE-0 OR HUMAN-V5 AUTHORITY/DO NOT START**
-- Date: 2026-07-28
+- Status: **PHASE-0 RUN 7 CONSUMED AT SAFE `technology_evidence`; RUN 8 INSTALLED THE EXACT `03694f2` ARTIFACT BUT STOPPED BEFORE `.MainActivity` LAUNCH BECAUSE AN AD-HOC HOST REGEX REJECTED A LEGITIMATE ANDROID-15 `~` PATH; RUN 8 CLEANED PACKAGE/PROCESS/GLOBAL REVERSE TO ZERO — NO FINGERPRINT/TAG RESULT OR HARDWARE DEFECT PROVEN — EIGHT PHASE-0 AUTHORITIES CONSUMED — OPERATOR CORRECTION `083fdfb`, TREE `24bd130`, EXACT-HEAD CI `30402655381` ATTEMPT 1 12/12 AND INDEPENDENT ROUND-2 REVIEW `APPROVED`, ZERO OPEN P0–P3 — NO CURRENT PHASE-0 OR HUMAN-V5 AUTHORITY/DO NOT START**
+- Date: 2026-07-29
 - Owner: Technical Lead
 - Approval authority for any run: Human Architect
 
@@ -62,9 +62,12 @@ absent, and no checkpoint, scan, fingerprint or Tag result was reached. Its auth
 uninstall succeeded and final package, process and global reverse state were zero. This is an
 operator-boundary failure, not a Product, NFC or hardware result.
 
-### 0.1 Tracked Validation Phase-0 operator candidate — non-executable
+### 0.1 Approved Validation Phase-0 operator correction — non-executable
 
-The focused correction consists of
+The focused correction is published as
+`083fdfb259089d976e48f824e0862f10637d3290`, tree
+`24bd130500934c6a48fd9314fa06387d6ebdedcd`, exact parent
+`39a6ef09fad18375af025bc8ed12cc1ea6dda964`, and consists of
 `apps/mobile/scripts/da5V5ValidationPhase0OperatorCore.mjs`, its `.d.mts`, the thin direct CLI
 `apps/mobile/scripts/da5V5ValidationPhase0Operator.mjs` and
 `apps/mobile/tests/runtime/da5V5ValidationPhase0Operator.test.ts`, plus the minimal shared
@@ -104,9 +107,11 @@ test-source inclusion, the unchanged official Validation artifact verifier and A
 `.github/workflows/ci.yml`; materializing that tracked directory and executing only the affected
 adapter file passed 31/31, completing the unique Synthetic matrix at 288/288 without changing
 candidate bytes.
-Formal review R1 is `CHANGES REQUIRED` with exactly the two corrected P1 findings above. The local
-candidate is **PENDING independent re-review/CI — DO NOT START** and grants no Phase-0,
-installation, ADB, hardware or Product Human-V5 authority.
+Historical formal review R1 returned `CHANGES REQUIRED` with exactly the two corrected P1
+findings above. Exact-head CI `30402655381`, attempt 1, passed 12/12 on the correction.
+Independent Exact-SHA re-review round 2 returned `APPROVED` with zero open P0–P3 and closed both
+P1 findings. The candidate remains **DO NOT START** and grants no Phase-0, installation, ADB,
+hardware or Product Human-V5 authority.
 
 `DA5-V5-VAL-UI-01` tracks the repository-visible accessibility/UI reliability gap:
 identical repeated TalkBack activations require a separate one-shot/coalescing boundary while
@@ -169,6 +174,7 @@ Complete uninstall and scoped cleanup are mandatory.
 | Historical `effc57a` Validation native/source closure | Metro source closure 555 entries / 2,675,576 bytes / SHA-256 `e9fee0629af81357e4563836f9f5ef2b404c1ef97bc135d1cb3ed410f713b593`; executable 2,040,604 bytes / SHA-256 `c24457514436a63878107e1593dc90c6de17ad2424a6b625a6f18a14f66b8cfe`; unchanged native source 123 directories / 587 entries / 464 files / 1,176,224 bytes / SHA-256 `9194be29b96a67c47aa40a4bdea7494155695e088d769e21c77eff305b1ee259` |
 | Historical `effc57a` Artifact Exact-SHA review | `APPROVED`, zero open P0–P3; all 32 manifest source-closure files byte-exact; package/signature/version, NFC-only permission, backup/transfer disabled, cleartext/network blocked and no Product dispatch/deep link; DEX 4 required present / 14 forbidden absent; Hermes Validation markers present and Product/network/database/storage markers absent |
 | `DA5-V5-VAL-TECH-01` source/review/CI | `03694f2d877bc323791e93473ad01ceb82af70df`; tree `6c6039683e067ef29f1f917a60c2628d26e38784`; exact-head CI `30386552118`, attempt 1, 12/12; prepublication review round 2 `APPROVED`, zero open P0–P3 |
+| Validation Phase-0 operator source/review/CI — DO NOT START | Baseline `39a6ef09fad18375af025bc8ed12cc1ea6dda964`, tree `10cdf16421fe564e1961a39d79e20775c0269fc4`; candidate `083fdfb259089d976e48f824e0862f10637d3290`, tree `24bd130500934c6a48fd9314fa06387d6ebdedcd`; exact-head CI `30402655381`, attempt 1, 12/12; independent Exact-SHA re-review round 2 `APPROVED`, zero open P0–P3; both round-1 P1 findings closed; no Phase-0, installation, ADB or hardware authority |
 | `DA5-V5-VAL-TECH-01` candidate APK — DO NOT INSTALL | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-validation/da5-v5-validation-03694f2d877b-d2084486b07f27bd/app-release-d2084486b07f27bd.apk`; 65,631,433 bytes; mode `0444`; SHA-256 `d2084486b07f27bdbd72f9f32e38531f8de31dad18ef4789cab2ec44135e05f5`; official verifier `PASS`; independent Source/Artifact Exact-SHA review `APPROVED`, zero open P0–P3 |
 | `DA5-V5-VAL-TECH-01` candidate manifest — DO NOT INSTALL | Same directory, `manifest-03694f2d877b.json`; 6,700 bytes; mode `0444`; SHA-256 `aa2a243cd4f81ead806c43e27d6f9c12c28e396db64fe556d8ddf02a8d52f347`; all 32 source-closure entries matched; independent Source/Artifact Exact-SHA review `APPROVED`, zero open P0–P3 |
 | `DA5-V5-VAL-TECH-01` package/security boundary | `com.tim180201.mobile.validation`; versionCode `1`; versionName `1.0.0`; `local-validation-only`; one v2 signer with certificate SHA-256 `fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c`; NFC-only; no network permission; cleartext denied; backup/transfer denied; no Product deep links or Tag dispatch; required native modules present, forbidden modules absent; Validation marker present and Product runtime marker absent |
