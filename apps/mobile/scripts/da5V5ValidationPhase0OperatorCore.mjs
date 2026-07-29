@@ -20,6 +20,10 @@ import {
   DA5_V5_VALIDATION_PACKAGE,
   verifyDa5V5ValidationArtifactBinding,
 } from './da5V5ValidationArtifact.mjs';
+import {
+  DA5_V5_VALIDATION_INSTALL_STREAM_ERROR_CATEGORIES,
+  SystemDa5V5ValidationInstallStreamRunner,
+} from './da5V5ValidationInstallStream.mjs';
 
 export const DA5_V5_VALIDATION_PHASE0_PROFILE =
   'da5-v5-validation-phase0';
@@ -35,7 +39,18 @@ export const DA5_V5_VALIDATION_PHASE0_INSTALL_LAUNCH_STAGES =
   });
 export const DA5_V5_VALIDATION_PHASE0_ERROR_CATEGORIES =
   Object.freeze({
-    adbChildTransportMismatch: 'adb_child_transport_mismatch',
+    adbChildExitMismatch:
+      DA5_V5_VALIDATION_INSTALL_STREAM_ERROR_CATEGORIES
+        .childExitMismatch,
+    adbChildTimeoutMismatch:
+      DA5_V5_VALIDATION_INSTALL_STREAM_ERROR_CATEGORIES
+        .childTimeoutMismatch,
+    adbChildTransportMismatch:
+      DA5_V5_VALIDATION_INSTALL_STREAM_ERROR_CATEGORIES
+        .childTransportMismatch,
+    adbStdinPipeAbortMismatch:
+      DA5_V5_VALIDATION_INSTALL_STREAM_ERROR_CATEGORIES
+        .stdinPipeAbortMismatch,
     operationMismatch: 'operation_mismatch',
     packageManagerArtifactRejection:
       'package_manager_artifact_rejection',
@@ -595,6 +610,7 @@ export class Da5V5ValidationPhase0Device {
   #preflightStarted = false;
 
   constructor(options) {
+    this.installStreamRunner = options.installStreamRunner;
     this.runner = options.runner;
     this.serialBinding = options.serialBinding;
     this.deviceBinding = Object.freeze({
@@ -647,11 +663,11 @@ export class Da5V5ValidationPhase0Device {
       }
       this.#installUncertain = true;
       this.#mutationMayHaveStarted = true;
-      const installResult = await this.snapshot.use((snapshot) => {
+      const installOutcome = await this.snapshot.use((snapshot) => {
         diagnosticCategory =
           DA5_V5_VALIDATION_PHASE0_ERROR_CATEGORIES
             .adbChildTransportMismatch;
-        return this.runner.run(
+        return this.installStreamRunner.install(
           [
             '-s',
             installSerial,
@@ -677,8 +693,28 @@ export class Da5V5ValidationPhase0Device {
           },
         );
       });
+      if (
+        installOutcome?.status === 'mismatch'
+        && Object.values(
+          DA5_V5_VALIDATION_INSTALL_STREAM_ERROR_CATEGORIES,
+        ).includes(installOutcome.category)
+      ) {
+        diagnosticCategory = installOutcome.category;
+        throw new Error('DA5 V5 Validation install stream mismatch');
+      }
+      if (
+        installOutcome?.status !== 'match'
+        || (
+          installOutcome.stdinTerminal !== 'finished'
+          && installOutcome.stdinTerminal
+            !== 'all_bytes_submitted_then_pipe_closed'
+        )
+        || typeof installOutcome.stdout !== 'string'
+      ) {
+        throw new Error('DA5 V5 Validation install stream mismatch');
+      }
       const packageManagerCategory =
-        classifyPackageManagerInstallReceipt(installResult);
+        classifyPackageManagerInstallReceipt(installOutcome.stdout);
       if (packageManagerCategory !== null) {
         diagnosticCategory = packageManagerCategory;
         throw new Error('DA5 V5 Validation package install mismatch');
@@ -1046,6 +1082,8 @@ export class Da5V5ValidationPhase0Session {
         now: this.options.now,
         runner: this.options.runner
           ?? new SystemDa5V5AndroidAdbRunner(),
+        installStreamRunner: this.options.installStreamRunner
+          ?? new SystemDa5V5ValidationInstallStreamRunner(),
         serialBinding: this.options.serialBinding
           ?? new Da5V5UsbSerialBinding(),
         snapshot,

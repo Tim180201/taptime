@@ -1,6 +1,9 @@
 import type {
   Da5V5AndroidAdbRunner,
 } from './da5V5AndroidDevice.mjs';
+import type {
+  Da5V5ValidationInstallStreamRunner,
+} from './da5V5ValidationInstallStream.mjs';
 
 export const DA5_V5_VALIDATION_PHASE0_PROFILE:
   'da5-v5-validation-phase0';
@@ -14,7 +17,10 @@ export const DA5_V5_VALIDATION_PHASE0_INSTALL_LAUNCH_STAGES: Readonly<{
   postlaunch: 'postlaunch';
 }>;
 export const DA5_V5_VALIDATION_PHASE0_ERROR_CATEGORIES: Readonly<{
+  adbChildExitMismatch: 'adb_child_exit_mismatch';
+  adbChildTimeoutMismatch: 'adb_child_timeout_mismatch';
   adbChildTransportMismatch: 'adb_child_transport_mismatch';
+  adbStdinPipeAbortMismatch: 'adb_stdin_pipe_abort_mismatch';
   operationMismatch: 'operation_mismatch';
   packageManagerArtifactRejection:
     'package_manager_artifact_rejection';
@@ -124,6 +130,8 @@ export class Da5V5ValidationPhase0Device {
   constructor(options: {
     readonly androidBuild: string;
     readonly deviceModel: string;
+    readonly installStreamRunner:
+      Da5V5ValidationInstallStreamRunner;
     readonly now?: () => number;
     readonly runner: Da5V5AndroidAdbRunner;
     readonly serialBinding: import(
@@ -166,6 +174,9 @@ export interface Da5V5ValidationPhase0SessionOptions {
     status: 'match' | 'mismatch',
     category?:
       | 'adb_child_transport_mismatch'
+      | 'adb_child_exit_mismatch'
+      | 'adb_child_timeout_mismatch'
+      | 'adb_stdin_pipe_abort_mismatch'
       | 'operation_mismatch'
       | 'package_manager_artifact_rejection'
       | 'package_manager_command_contract_mismatch'
@@ -176,6 +187,8 @@ export interface Da5V5ValidationPhase0SessionOptions {
       | 'verification_mismatch',
   ) => void;
   readonly runner?: Da5V5AndroidAdbRunner;
+  readonly installStreamRunner?:
+    Da5V5ValidationInstallStreamRunner;
   readonly sealArtifact?: (options: {
     readonly profile: unknown;
   }) => Da5V5ValidationSnapshot;

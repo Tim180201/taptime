@@ -573,7 +573,10 @@ describe('DA5 V5 Validation device and protocol boundary', () => {
     expect(
       Object.values(DA5_V5_VALIDATION_PHASE0_ERROR_CATEGORIES),
     ).toEqual([
+      'adb_child_exit_mismatch',
+      'adb_child_timeout_mismatch',
       'adb_child_transport_mismatch',
+      'adb_stdin_pipe_abort_mismatch',
       'operation_mismatch',
       'package_manager_artifact_rejection',
       'package_manager_command_contract_mismatch',
@@ -979,6 +982,67 @@ describe('DA5 V5 Validation device and protocol boundary', () => {
     expect(receipts.join('\n')).not.toContain('SECRET_');
     expect(receipts.join('\n')).not.toContain('/secret/');
     expect(receipts.join('\n')).not.toContain(runner.serial);
+  });
+
+  it('routes a terminal PackageManager Failure after an all-bytes-submitted pipe close through the strict parser', async () => {
+    const runner = new FakeRunner();
+    const receipts: string[] = [];
+    runner.installPipeClosedAfterAllBytes = true;
+    runner.installResult =
+      'Failure [INSTALL_FAILED_INVALID_APK: SECRET_PM_DETAIL]';
+    const session = createSession(runner, {
+      receipt(
+        receiptStage: string,
+        status: 'match' | 'mismatch',
+        receiptCategory?: DiagnosticCategory,
+      ) {
+        receipts.push(
+          `${receiptStage}:${status}:${receiptCategory ?? 'none'}`,
+        );
+      },
+    });
+
+    await session.start();
+    await session.submit('install-launch');
+    await expect(session.done).resolves.toEqual({
+      status: 'mismatch',
+    });
+
+    expect(receipts.filter((receipt) =>
+      !receipt.endsWith(':none'))).toEqual([
+      'installation:mismatch:package_manager_artifact_rejection',
+    ]);
+    expect(receipts.join('\n')).not.toContain('SECRET_PM_DETAIL');
+  });
+
+  it('requires installed-artifact provenance after an exact Success despite an all-bytes-submitted pipe close', async () => {
+    const runner = new FakeRunner();
+    const receipts: string[] = [];
+    runner.installPipeClosedAfterAllBytes = true;
+    runner.canonicalPath = '/data/app/SECRET_DRIFT/base.apk';
+    const session = createSession(runner, {
+      receipt(
+        receiptStage: string,
+        status: 'match' | 'mismatch',
+        receiptCategory?: DiagnosticCategory,
+      ) {
+        receipts.push(
+          `${receiptStage}:${status}:${receiptCategory ?? 'none'}`,
+        );
+      },
+    });
+
+    await session.start();
+    await session.submit('install-launch');
+    await expect(session.done).resolves.toEqual({
+      status: 'mismatch',
+    });
+
+    expect(receipts.filter((receipt) =>
+      !receipt.endsWith(':none'))).toEqual([
+      'installed_provenance:mismatch:verification_mismatch',
+    ]);
+    expect(receipts.join('\n')).not.toContain('SECRET_DRIFT');
   });
 
   it.each([
@@ -1833,6 +1897,7 @@ function createSession(
   return createDa5V5ValidationPhase0Session({
     androidBuild: build,
     deviceModel: model,
+    installStreamRunner: runner,
     now: () => runner.clock,
     profile: DA5_V5_VALIDATION_PHASE0_PROFILE,
     runner,
@@ -1853,6 +1918,7 @@ function createDevice(
   return new Da5V5ValidationPhase0Device({
     androidBuild: build,
     deviceModel: model,
+    installStreamRunner: runner,
     now: () => runner.clock,
     runner,
     serialBinding: new Da5V5UsbSerialBinding(),
@@ -1935,6 +2001,7 @@ class FakeRunner {
   installReject = false;
   emulateRemoteInstallExit = false;
   installNeverSettles = false;
+  installPipeClosedAfterAllBytes = false;
   installWaitsForAbort = false;
   installSettled = false;
   launchStatus = 'ok';
@@ -1972,6 +2039,34 @@ class FakeRunner {
   });
   preflightWaitsForAbort = false;
   preflightSettled = false;
+
+  async install(
+    arguments_: readonly string[],
+    options: {
+      signal?: AbortSignal;
+      stdinBytes: Buffer;
+      timeoutMilliseconds: number;
+    },
+  ) {
+    try {
+      return {
+        status: 'match' as const,
+        stdinTerminal: this.installPipeClosedAfterAllBytes
+          ? 'all_bytes_submitted_then_pipe_closed' as const
+          : 'finished' as const,
+        stdout: await this.run(arguments_, options),
+      };
+    } catch {
+      return {
+        category:
+          DA5_V5_VALIDATION_PHASE0_ERROR_CATEGORIES
+            .adbChildTransportMismatch,
+        childTerminal: false,
+        status: 'mismatch' as const,
+        stdoutTerminal: false,
+      };
+    }
+  }
 
   async run(
     arguments_: readonly string[],
