@@ -1,6 +1,6 @@
 # Project Status
 
-Status: CORE ROADMAP V2 COMPLETIONS REMAIN PRESERVED FOR THEIR RECORDED SCOPES — DA4 REMAINS OPEN FOR A LATER FRESH HUMAN V5 — DA5 V0–V4 AND THE LOCAL DA5-V5 RUNTIME GUARD REMAIN INDEPENDENTLY APPROVED; DA5-V5-VAL-NATIVE-CAPTURE-DIAGNOSTICS SOURCE `effc57a`, TREE `758dbfa`, EXACT-HEAD CI `30377569479` ATTEMPT 1 12/12 AND ITS REVIEWS REMAIN HISTORICAL TRUTH — PHASE-0 RUNS 7–9 REMAIN CONSUMED FAIL-CLOSED HISTORY WITHOUT AN ATTRIBUTABLE TAG RESULT OR PROVEN HARDWARE DEFECT — RUN 10 ON BASELINE `b636419`, TREE `dc1b9a1`, REPORTED EXACTLY `artifact:match`, `preflight:match`, `stage=installation status=mismatch category=operation_mismatch`, `install_launch:mismatch`, `cleanup:match`, `failed:mismatch`; IT EMITTED NO `installed_provenance`, REACHED NO UI/NFC/TAG STEP, AND ITS EXACT CAUSE IS NOT RECONSTRUCTABLE BECAUSE THE THEN-CURRENT CATEGORY ALSO SUMMARIZED PRE-INSTALL VERIFICATION MISMATCHES; NO PRODUCT/APK/NFC/HARDWARE FINDING IS PROVEN, ITS AUTHORITY IS CONSUMED, AND TERMINAL CLEANUP MATCHED — `DA5-V5-VAL-TECH-01` SOURCE `03694f2`, TREE `6c60396`, EXACT-HEAD CI `30386552118` ATTEMPT 1 12/12 AND ITS APPROVED REVIEWS REMAIN HISTORICAL; ITS EXACT REPLACEMENT APK/MANIFEST REMAINS DO NOT INSTALL — VALIDATION PHASE-0 OPERATOR CORRECTION `083fdfb`, TREE `24bd130`, EXACT-HEAD CI `30402655381` ATTEMPT 1 12/12 AND INDEPENDENT ROUND-2 EXACT-SHA REVIEW REMAIN HISTORICALLY `APPROVED` WITH ZERO OPEN P0–P3 — INSTALL-/LAUNCH-DIAGNOSTIC CANDIDATE `8ce0385`, TREE `f5b914c`, EXACT-HEAD CI `30459539801` ATTEMPT 1 12/12 AND INDEPENDENT EXACT-DELTA/COMMIT/TREE/CI REVIEW ARE `APPROVED` WITH ZERO OPEN P0–P3; V1/V2 WERE EXECUTED AND GREEN, UNCHANGED GREEN V3 FROM `496ca59`/TREE `b398b89` WAS CARRIED — THE OPERATOR REMAINS DO NOT START — TEN PHASE-0 AUTHORITIES ARE CONSUMED; NO NEW PHASE-0/HARDWARE/ADB/INSTALLATION OR PRODUCT-HUMAN-V5 AUTHORITY EXISTS — PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, SYSTEM CHANGES, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
+Status: CORE ROADMAP V2 COMPLETIONS REMAIN PRESERVED FOR THEIR RECORDED SCOPES — DA4 REMAINS OPEN FOR A LATER FRESH HUMAN V5 — DA5 V0–V4 AND THE LOCAL DA5-V5 RUNTIME GUARD REMAIN INDEPENDENTLY APPROVED; DA5-V5-VAL-NATIVE-CAPTURE-DIAGNOSTICS SOURCE `effc57a`, TREE `758dbfa`, EXACT-HEAD CI `30377569479` ATTEMPT 1 12/12 AND ITS REVIEWS REMAIN HISTORICAL TRUTH — PHASE-0 RUNS 7–9 REMAIN CONSUMED FAIL-CLOSED HISTORY WITHOUT AN ATTRIBUTABLE TAG RESULT OR PROVEN HARDWARE DEFECT — RUN 10 ON BASELINE `b636419`, TREE `dc1b9a1`, REPORTED EXACTLY `artifact:match`, `preflight:match`, `stage=installation status=mismatch category=operation_mismatch`, `install_launch:mismatch`, `cleanup:match`, `failed:mismatch`; IT EMITTED NO `installed_provenance`, REACHED NO UI/NFC/TAG STEP, AND ITS EXACT CAUSE IS NOT RECONSTRUCTABLE BECAUSE THE THEN-CURRENT CATEGORY ALSO SUMMARIZED PRE-INSTALL VERIFICATION MISMATCHES; NO PRODUCT/APK/NFC/HARDWARE FINDING IS PROVEN, ITS AUTHORITY IS CONSUMED, AND TERMINAL CLEANUP MATCHED — `DA5-V5-VAL-TECH-01` SOURCE `03694f2`, TREE `6c60396`, EXACT-HEAD CI `30386552118` ATTEMPT 1 12/12 AND ITS APPROVED REVIEWS REMAIN HISTORICAL; ITS EXACT REPLACEMENT APK/MANIFEST REMAINS DO NOT INSTALL — VALIDATION PHASE-0 OPERATOR CORRECTION `083fdfb`, TREE `24bd130`, EXACT-HEAD CI `30402655381` ATTEMPT 1 12/12 AND INDEPENDENT ROUND-2 EXACT-SHA REVIEW REMAIN HISTORICALLY `APPROVED` WITH ZERO OPEN P0–P3 — FINAL INSTALL-CATEGORY CORRECTION `12d1ace`, TREE `b747b43`, PARENT `b636419`, EXACT-HEAD CI `30466798295` ATTEMPT 1 12/12, PRIOR ROUND-2 DELTA REVIEW AND FINAL INDEPENDENT EXACT-HEAD/V4 REVIEW ARE `APPROVED` WITH ZERO OPEN P0–P3; ROUND-1 P2 CLOSED; V2/V3 AND V4 ARE GREEN — THE OPERATOR REMAINS DO NOT START — TEN PHASE-0 AUTHORITIES ARE CONSUMED; NO NEW PHASE-0/HARDWARE/ADB/INSTALLATION OR PRODUCT-HUMAN-V5 AUTHORITY EXISTS — PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, SYSTEM CHANGES, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
 DA5 decision-time Option-A trust anchor: exactly two direct admin-group members, zero nested
 groups; full-record SHA-256 `b006276c09d8f2713f6132ea79cec167ab3a3c2887ee53e95eb00c1cc33719a5`;
 membership SHA-256 `70a683b7ebc7981533015d5d63cf12dfb2eabbfa665c34720eddb4d09e9e3064`;
@@ -134,7 +134,20 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   001–013 apply/replay/ledger. Fresh authorized continuation supplied suites 9–21, C3B
   `verify-bin`, the official unchanged `03694f2` verifier and one isolated 861-module Android
   export. Overall, 21/21 suites passed across 149 test files and 2,515 tests with exactly two
-  optional B1 Supavisor skips. No V4, ADB, installation or hardware action occurred.
+  optional B1 Supavisor skips. No V4 was executed locally, and no ADB, installation or hardware
+  action occurred.
+
+  The install-category correction is technically final and published as
+  `12d1ace89494851025555d1d06d45570c4fcc4cb`, tree
+  `b747b4306637d90765b33f273ad89291bd4ea9a7`, on exact parent
+  `b63641953536bb36625fcd42d850e429ddab8db3`. Its exact code/test delta is limited to
+  `apps/mobile/scripts/da5V5ValidationPhase0OperatorCore.mjs` and
+  `apps/mobile/tests/runtime/da5V5ValidationPhase0Operator.test.ts`; the published six-file delta
+  contains only the four synchronized ADO truth files in addition. V2/V3 above are green.
+  Exact-head V4 CI `30466798295`, attempt 1, completed successfully 12/12. The prior round-2
+  delta review and final independent Exact-Head/V4 review returned `APPROVED` with zero open
+  P0–P3, closing the round-1 P2. All ten Phase-0 authorities remain consumed; the operator remains
+  **DO NOT START**, with no new Phase-0, hardware, ADB, installation or Product Human-V5 authority.
 
   Non-code preparation stops remain explicit: contaminated main-workspace native dependency
   outputs exceeded the fail-closed source-closure bound; the first clean safe-root lacked required
@@ -144,7 +157,7 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   unchanged retry. Separately authorized runner-only continuations passed all remaining gates and
   cleaned every task-owned database, port and temporary root.
 
-  The exact install-/launch-diagnostic candidate
+  The historical install-/launch-diagnostic predecessor
   `8ce03852e782d541319bb852f216cf596ab1787f`, tree
   `f5b914c1b8f1243244733808beaef54f0351a563`, on parent
   `2f057cb4e5d096e34785c72c51340f589c711dd2` preserves the aggregate and all existing

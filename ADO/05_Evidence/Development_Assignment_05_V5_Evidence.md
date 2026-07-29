@@ -1,6 +1,6 @@
 # Development Assignment 5 — V5 Human Android Evidence
 
-- Status: **PHASE-0 RUNS 7–9 REMAIN CONSUMED FAIL-CLOSED HISTORY; RUN 10 ON BASELINE `b636419`, TREE `dc1b9a1`, REPORTED EXACTLY `artifact:match`, `preflight:match`, `stage=installation status=mismatch category=operation_mismatch`, `install_launch:mismatch`, `cleanup:match`, `failed:mismatch`, EMITTED NO `installed_provenance` AND REACHED NO UI/NFC/TAG STEP — ITS EXACT CAUSE IS NOT RECONSTRUCTABLE BECAUSE THE THEN-CURRENT CATEGORY ALSO SUMMARIZED PRE-INSTALL VERIFICATION MISMATCHES; NO PRODUCT/APK/NFC/HARDWARE FINDING IS PROVEN — TEN PHASE-0 AUTHORITIES CONSUMED — INSTALL-/LAUNCH-DIAGNOSTIC CANDIDATE `8ce0385`, TREE `f5b914c`, EXACT-HEAD CI `30459539801` ATTEMPT 1 12/12 AND INDEPENDENT EXACT REVIEW ARE `APPROVED` WITH ZERO OPEN P0–P3; V1/V2 EXECUTED GREEN AND UNCHANGED GREEN V3 `496ca59`/TREE `b398b89` CARRIED — DO NOT START; PRODUCT HUMAN V5 NOT RUN/UNAUTHORIZED**
+- Status: **PHASE-0 RUNS 7–10 REMAIN CONSUMED FAIL-CLOSED HISTORY WITHOUT A PROVEN PRODUCT/APK/NFC/HARDWARE FINDING — FINAL INSTALL-CATEGORY CORRECTION `12d1ace`, TREE `b747b43`, PARENT `b636419`, EXACT-HEAD CI `30466798295` ATTEMPT 1 12/12, PRIOR ROUND-2 DELTA REVIEW AND FINAL INDEPENDENT EXACT-HEAD/V4 REVIEW ARE `APPROVED` WITH ZERO OPEN P0–P3; ROUND-1 P2 CLOSED; V2/V3 AND V4 GREEN — TEN PHASE-0 AUTHORITIES CONSUMED — DO NOT START; NO CURRENT PHASE-0, HARDWARE, ADB, INSTALLATION OR PRODUCT-HUMAN-V5 AUTHORITY**
 - Date: `NOT RUN`
 - Artifact preparation date: 2026-07-28
 - Owner: Technical Lead
@@ -108,10 +108,22 @@ continuation supplied suites 9–21 covering 42 test files and 1,240 passed test
 optional B1 Supavisor skips, C3B `verify-bin`, the official unchanged `03694f2` artifact verifier
 and one isolated Android export. Overall, 21/21 suites passed across 149 test files and 2,515
 tests; Android bundled 861 modules into one 2,927,682-byte Hermes bundle plus 150-byte metadata.
-No V4, ADB, installation or hardware action occurred. The final tracked comparison matched
-950/950 before the four-file ADO-only synchronization; that synchronization changed no
-executable/test bytes. PostgreSQL stopped cleanly, ports `55439` and `55435` were absent, and all
-task roots were removed.
+No V4 was executed locally, and no ADB, installation or hardware action occurred. The final
+tracked comparison matched 950/950 before the four-file ADO-only synchronization; that
+synchronization changed no executable/test bytes. PostgreSQL stopped cleanly, ports `55439` and
+`55435` were absent, and all task roots were removed.
+
+The install-category correction is technically final and published as
+`12d1ace89494851025555d1d06d45570c4fcc4cb`, tree
+`b747b4306637d90765b33f273ad89291bd4ea9a7`, on exact parent
+`b63641953536bb36625fcd42d850e429ddab8db3`. Its exact code/test delta is limited to
+`apps/mobile/scripts/da5V5ValidationPhase0OperatorCore.mjs` and
+`apps/mobile/tests/runtime/da5V5ValidationPhase0Operator.test.ts`; the published six-file delta
+contains only the four synchronized ADO truth files in addition. V2/V3 above are green.
+Exact-head V4 CI `30466798295`, attempt 1, completed successfully 12/12. The prior round-2 delta
+review and final independent Exact-Head/V4 review returned `APPROVED` with zero open P0–P3,
+closing the round-1 P2. All ten Phase-0 authorities remain consumed; the operator remains
+**DO NOT START**, with no new Phase-0, hardware, ADB, installation or Product Human-V5 authority.
 
 Non-code preparation stops were retained rather than hidden: contaminated main-workspace native
 dependency outputs exceeded the fail-closed source-closure bound; the first clean safe-root ran
@@ -201,7 +213,8 @@ Product Human result. It grants no new Human-run or installation authority.
 | Historical `effc57a` Artifact Exact-SHA review | `APPROVED`, zero open P0–P3; all 32 manifest source-closure files byte-exact; package/signature/version, NFC-only permission, backup/transfer disabled, cleartext/network blocked and no Product dispatch/deep link; DEX 4 required present / 14 forbidden absent; Hermes Validation markers present and Product/network/database/storage markers absent |
 | `DA5-V5-VAL-TECH-01` source/review/CI | `03694f2d877bc323791e93473ad01ceb82af70df`; tree `6c6039683e067ef29f1f917a60c2628d26e38784`; exact-head CI `30386552118`, attempt 1, 12/12; prepublication review round 2 `APPROVED`, zero open P0–P3 |
 | Validation Phase-0 operator source/review/CI — DO NOT START | Baseline `39a6ef09fad18375af025bc8ed12cc1ea6dda964`, tree `10cdf16421fe564e1961a39d79e20775c0269fc4`; candidate `083fdfb259089d976e48f824e0862f10637d3290`, tree `24bd130500934c6a48fd9314fa06387d6ebdedcd`; exact-head CI `30402655381`, attempt 1, 12/12; independent Exact-SHA re-review round 2 `APPROVED`, zero open P0–P3; both round-1 P1 findings closed; no Phase-0, installation, ADB or hardware authority |
-| Install-/launch-diagnostic candidate/review — DO NOT START | Candidate `8ce03852e782d541319bb852f216cf596ab1787f`; tree `f5b914c1b8f1243244733808beaef54f0351a563`; parent `2f057cb4e5d096e34785c72c51340f589c711dd2`; exact eight-file +488/-132 delta; patch SHA-256 `c8418fe6382c8a23ada44254c2fdc35652acbb73a8f99983f5cbb4cc11b46984`; V1/V2 executed green; unchanged V3 carried from `496ca59`/tree `b398b89`; exact-head CI `30459539801`, attempt 1, 12/12; independent Exact-Delta/Commit/Tree/CI review `APPROVED`, zero open P0–P3; no Phase-0, installation, ADB or hardware authority |
+| Final install-category correction/review — DO NOT START | Candidate `12d1ace89494851025555d1d06d45570c4fcc4cb`; tree `b747b4306637d90765b33f273ad89291bd4ea9a7`; parent `b63641953536bb36625fcd42d850e429ddab8db3`; exact code/test delta limited to the Operator core and focused runtime test, plus four synchronized ADO truth files; V2/V3 green; exact-head V4 CI `30466798295`, attempt 1, 12/12; prior round-2 delta review and final independent Exact-Head/V4 review `APPROVED`, zero open P0–P3; round-1 P2 closed; no Phase-0, installation, ADB or hardware authority |
+| Historical install-/launch-diagnostic predecessor/review — DO NOT START | Candidate `8ce03852e782d541319bb852f216cf596ab1787f`; tree `f5b914c1b8f1243244733808beaef54f0351a563`; parent `2f057cb4e5d096e34785c72c51340f589c711dd2`; exact eight-file +488/-132 delta; patch SHA-256 `c8418fe6382c8a23ada44254c2fdc35652acbb73a8f99983f5cbb4cc11b46984`; V1/V2 executed green; unchanged V3 carried from `496ca59`/tree `b398b89`; exact-head CI `30459539801`, attempt 1, 12/12; independent Exact-Delta/Commit/Tree/CI review `APPROVED`, zero open P0–P3; no Phase-0, installation, ADB or hardware authority |
 | Historical published Phase-0 readiness candidate/review — DO NOT START | Candidate `496ca59f0965670b29a210b8aa2443b99bb4a386`, tree `b398b89c77f7f0b4799a7a06b11bd2daf51fd34a`; baseline `fa1aaa782415aceb85c0aa5c1233732ef9afa4dc`, tree `da69081517d2b0b9631eaef393b0a6022735061e`; safe-root V3/eight-file candidate has no code finding; exact-candidate CI `30427205223`, attempt 1, completed failure 11/12; job `90496143535` passed 3/3 files and 121/121 assertions before later unhandled PostgreSQL `57P01` on `taptime_c3e1_dirty_*`; formal review `CHANGES REQUIRED`, exactly one P2 CI/test-reliability finding, no Product/Security finding; no retry |
 | PostgreSQL test-cleanup correction — technically closed/DO NOT START | Candidate `21e518151a3f4727ebf4ce90cd1557660960ff21`, tree `8f764f9260378b631b4b026355852c324d6dc06b`; parent `d63c62de9eced5f7dd62c8c957d4c2fffce77bf9`, tree `753feedcae6724e711557e6492bbe26fa0b02083`; seven test-only files, +192/-12, delta SHA-256 `b0406bc02a085649060b3dfdb263db00694e501efbe1c247f3ba49fec3cb53e2`; V1 2/2, V2 B3 128/128 + C3B 60/60 + C3C/C3E1 102/102 and three tests-inclusive typechecks passed; unchanged green V3 carried from `496ca59`; exact-head CI `30429746848`, attempt 1, 12/12 without retry; independent source/delta and final Exact-SHA/V4 reviews `APPROVED`, zero open P0–P3; historical P2 closed; no hardware authority |
 | `DA5-V5-VAL-TECH-01` candidate APK/manifest — DO NOT INSTALL | Directory `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-validation/da5-v5-validation-03694f2d877b-d2084486b07f27bd`; APK `app-release-d2084486b07f27bd.apk`, 65,631,433 bytes, mode `0444`, SHA-256 `d2084486b07f27bdbd72f9f32e38531f8de31dad18ef4789cab2ec44135e05f5`; manifest `manifest-03694f2d877b.json`, 6,700 bytes, mode `0444`, SHA-256 `aa2a243cd4f81ead806c43e27d6f9c12c28e396db64fe556d8ddf02a8d52f347`; official verifier `PASS`; independent Source/Artifact Exact-SHA review `APPROVED`, zero open P0–P3 |
@@ -550,7 +563,7 @@ This correction and its evidence grant no Phase-0, installation, ADB, hardware, 
 Product Human-V5 authority. The operator remains **DO NOT START**, and Product Human V5 remains
 `NOT RUN`.
 
-### 2.4 Install-/launch-diagnostic correction — exact candidate/review approved; Human not run
+### 2.4 Historical install-/launch-diagnostic predecessor — exact candidate/review approved; Human not run
 
 Candidate `8ce03852e782d541319bb852f216cf596ab1787f`, tree
 `f5b914c1b8f1243244733808beaef54f0351a563`, on exact parent
@@ -575,6 +588,24 @@ Exact-Delta/Commit/Tree/CI review returned `APPROVED` with zero open P0–P3.
 No ADB, installation, App launch, hardware or network action was performed. The candidate remains
 **DO NOT START**; this approval grants no Phase-0, installation, ADB, hardware or Product Human-V5
 authority. Any run requires separate fresh exact Human authorization.
+
+### 2.5 Final install-category correction — V2/V3/V4 and reviews approved; Human not run
+
+Published candidate `12d1ace89494851025555d1d06d45570c4fcc4cb`, tree
+`b747b4306637d90765b33f273ad89291bd4ea9a7`, has exact parent
+`b63641953536bb36625fcd42d850e429ddab8db3`. Its exact code/test delta is limited to
+`apps/mobile/scripts/da5V5ValidationPhase0OperatorCore.mjs` and
+`apps/mobile/tests/runtime/da5V5ValidationPhase0Operator.test.ts`; the complete published
+six-file delta adds only the four synchronized ADO truth files. The correction keeps pre-install
+device re-attestation mismatches in `verification_mismatch` and switches to
+`operation_mismatch` immediately before the PackageManager install call.
+
+V2/V3 passed as recorded above. Exact-head V4 CI `30466798295`, attempt 1, completed
+successfully 12/12. The prior round-2 delta review and final independent Exact-Head/V4 review
+returned `APPROVED` with zero open P0–P3; the round-1 P2 is closed. This is the technically final
+install-category correction. All ten Phase-0 authorities remain consumed, the operator remains
+**DO NOT START**, and no fresh Phase-0, hardware, ADB, installation or Product Human-V5 authority
+exists.
 
 Any future separately authorized Phase-0 record must populate every row below. The automated
 operator does not attest UI truth; only the trusted Human can provide the one-time PASS handoff
