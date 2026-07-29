@@ -1,6 +1,6 @@
 # Development Assignment 5 — V5 Human Android Gate Runbook
 
-- Status: **PHASE-0 RUNS 7–13 ARE CONSUMED FAIL-CLOSED HISTORY WITHOUT A PROVEN PRODUCT/APK/NFC/HARDWARE FINDING — RUN 13 STOPPED AT `installation:adb_child_transport_mismatch` AND ENDED WITH `cleanup:match` — PRE-SYNC V3 PATCH `265bdc5b…899b4` PASSED COMPLETE RESEARCH-FREE SPARSE-SAFE-ROOT V3; ROUND-1 CANDIDATE `a038110`/TREE `b21d398` RECEIVED EXACTLY ONE P3 ADO FINDING AND NO CODE/SECURITY/TEST FINDING — ADO-ONLY P3 CORRECTION IS LOCAL; EXACT-DELTA RE-REVIEW AND V4 REMAIN PENDING — THIRTEEN PHASE-0 AUTHORITIES CONSUMED — NO RUN AUTHORITY/DO NOT START**
+- Status: **PHASE-0 RUNS 7–13 ARE CONSUMED FAIL-CLOSED HISTORY WITHOUT A PROVEN PRODUCT/APK/NFC/HARDWARE FINDING — RUN 13 STOPPED AT `installation:adb_child_transport_mismatch` AND ENDED WITH `cleanup:match` — RUN-13 CORRECTION `ac51dfd`/TREE `3d1f3dd`, EXACT-HEAD CI `30485438652` ATTEMPT 1 12/12 AND BOTH INDEPENDENT REVIEWS ARE APPROVED WITH ZERO OPEN P0–P3 — RUN-13 CORRECTION SCOPE TECHNICALLY CLOSED — THIRTEEN PHASE-0 AUTHORITIES CONSUMED — NO RUN AUTHORITY/DO NOT START**
 - Date: 2026-07-29
 - Owner: Technical Lead
 - Approval authority for any run: Human Architect
@@ -189,9 +189,17 @@ code/test diff SHA-256 `ad34c36fbfc5088252a6bd961c426ccae4fdc3b7b8e212bc25481eb1
 and full ten-file candidate diff SHA-256
 `ed0047c1311bc83f664cf67702d8150bc2575d9d88f31449704a480b2ddaa4b8`.
 Independent round 1 returned `CHANGES REQUIRED` for exactly this one P3 ADO finding and no code,
-security or test finding. This ADO-only P3 correction is local; its commit/tree, Exact-Delta
-re-review and V4 remain pending. No ADB, hardware or installation occurred. This correction does
-not authorize another Phase-0 run.
+security or test finding. The focused ADO-only correction was published as commit
+`ac51dfd338c75c4bbc0c73345e4d045924022423`, tree
+`3d1f3ddfec3d0f07a1ceea7f5ab87029b18d69a5`, parent
+`a03811011eed2d3ebde1c94e60c42f806bde7ecf`, and `origin/main` matched that commit exactly.
+V3 evidence transferred under the documented R0 byte-identity boundary and was not rerun.
+Exact-head CI `30485438652`, attempt 1, event `push`, completed successfully with 12/12 and zero
+failed checks. The independent pre-V4 Exact-Delta review and final independent Exact-Head/V4
+review both returned `APPROVED` with zero open P0–P3, closing the P3 and the Run-13 correction
+scope technically. This following closure synchronization is R0; its own `[skip ci]` commit and
+tree remain pending and are not claimed. No ADB, hardware or installation occurred. This
+correction does not authorize another Phase-0 run.
 
 The focused local Run-10 diagnostic correction preserves every stage, aggregate receipt,
 mutation, cleanup and terminal boundary. A pre-install device re-attestation mismatch remains
