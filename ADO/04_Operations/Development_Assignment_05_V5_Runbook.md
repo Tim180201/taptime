@@ -1,6 +1,6 @@
 # Development Assignment 5 — V5 Human Android Gate Runbook
 
-- Status: **PHASE-0 RUNS 7–13 ARE CONSUMED FAIL-CLOSED HISTORY WITHOUT A PROVEN PRODUCT/APK/NFC/HARDWARE FINDING — RUN 13 STOPPED AT `installation:adb_child_transport_mismatch` AND ENDED WITH `cleanup:match` — FINAL RUN-13 PATCH `265bdc5b…899b4` PASSED COMPLETE RESEARCH-FREE SPARSE-SAFE-ROOT V3; EXACT-HEAD CI AND INDEPENDENT REVIEW REMAIN PENDING — THIRTEEN PHASE-0 AUTHORITIES CONSUMED — NO CURRENT PHASE-0, HARDWARE, ADB, INSTALLATION OR PRODUCT-HUMAN-V5 AUTHORITY/DO NOT START**
+- Status: **PHASE-0 RUNS 7–13 ARE CONSUMED FAIL-CLOSED HISTORY WITHOUT A PROVEN PRODUCT/APK/NFC/HARDWARE FINDING — RUN 13 STOPPED AT `installation:adb_child_transport_mismatch` AND ENDED WITH `cleanup:match` — PRE-SYNC V3 PATCH `265bdc5b…899b4` PASSED COMPLETE RESEARCH-FREE SPARSE-SAFE-ROOT V3; ROUND-1 CANDIDATE `a038110`/TREE `b21d398` RECEIVED EXACTLY ONE P3 ADO FINDING AND NO CODE/SECURITY/TEST FINDING — ADO-ONLY P3 CORRECTION IS LOCAL; EXACT-DELTA RE-REVIEW AND V4 REMAIN PENDING — THIRTEEN PHASE-0 AUTHORITIES CONSUMED — NO RUN AUTHORITY/DO NOT START**
 - Date: 2026-07-29
 - Owner: Technical Lead
 - Approval authority for any run: Human Architect
@@ -170,7 +170,7 @@ evidence fails closed, and stderr, raw errors, device paths, serials and Package
 remain undisclosed. Focused V1/V2 passes 161/161 tests and the tests-inclusive Mobile typecheck.
 The final complete Mobile run passed 52/53 files and 887/888 tests; only the known unrelated generated
 native-output contamination exceeded the locked Validation native-source closure, and it was not
-retried or removed. Final bound patch SHA-256
+retried or removed. Pre-sync ten-file V3 patch SHA-256
 `265bdc5b6c5c31897743fdbcc1160deccc2a9c152bb3cca85c7f598ad08899b4` passed fresh,
 research-free sparse-safe-root V3 with Node `24.17.0`, npm `11.13.0`, task-owned PostgreSQL
 `17.10`, 20/20 builds, 21/21 tests-inclusive typechecks including changed Mobile tests,
@@ -180,8 +180,18 @@ optional B1 Supavisor skips, C3B `verify-bin`, unchanged Validation APK/manifest
 first lacked `rg` in `PATH` after green builds/typechecks and later omitted the already bound
 artifact-verifier environment after all suites; both stopped outside Product verification. The
 same safe root continued without code change or retry of green gates, and final exact bindings
-passed. No ADB, hardware or installation occurred. Exact-Head CI and independent review remain
-outstanding. This correction does not authorize another Phase-0 run.
+passed. That patch was captured while the four ADO files still said `V3 pending`; the subsequent
+R0 synchronization changed only those documents, while all six code/test files remained
+byte-identical. AVS evidence therefore transfers to round-1 candidate
+`a03811011eed2d3ebde1c94e60c42f806bde7ecf`, tree
+`b21d39887ea613294ed2d9612fd3fa0ff5025a0e`, parent `63feaf48…`, with six-file
+code/test diff SHA-256 `ad34c36fbfc5088252a6bd961c426ccae4fdc3b7b8e212bc25481eb17a390452`
+and full ten-file candidate diff SHA-256
+`ed0047c1311bc83f664cf67702d8150bc2575d9d88f31449704a480b2ddaa4b8`.
+Independent round 1 returned `CHANGES REQUIRED` for exactly this one P3 ADO finding and no code,
+security or test finding. This ADO-only P3 correction is local; its commit/tree, Exact-Delta
+re-review and V4 remain pending. No ADB, hardware or installation occurred. This correction does
+not authorize another Phase-0 run.
 
 The focused local Run-10 diagnostic correction preserves every stage, aggregate receipt,
 mutation, cleanup and terminal boundary. A pre-install device re-attestation mismatch remains

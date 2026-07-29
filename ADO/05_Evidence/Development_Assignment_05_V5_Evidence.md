@@ -1,6 +1,6 @@
 # Development Assignment 5 — V5 Human Android Evidence
 
-- Status: **PHASE-0 RUNS 7–13 ARE CONSUMED FAIL-CLOSED HISTORY WITHOUT A PROVEN PRODUCT/APK/NFC/HARDWARE FINDING — RUN 13 STOPPED AT `installation:adb_child_transport_mismatch` AND ENDED WITH `cleanup:match` — FINAL RUN-13 PATCH `265bdc5b…899b4` PASSED COMPLETE RESEARCH-FREE SPARSE-SAFE-ROOT V3; EXACT-HEAD CI AND INDEPENDENT REVIEW REMAIN PENDING — THIRTEEN PHASE-0 AUTHORITIES CONSUMED — DO NOT START; NO CURRENT PHASE-0, HARDWARE, ADB, INSTALLATION OR PRODUCT-HUMAN-V5 AUTHORITY**
+- Status: **PHASE-0 RUNS 7–13 ARE CONSUMED FAIL-CLOSED HISTORY WITHOUT A PROVEN PRODUCT/APK/NFC/HARDWARE FINDING — RUN 13 STOPPED AT `installation:adb_child_transport_mismatch` AND ENDED WITH `cleanup:match` — PRE-SYNC V3 PATCH `265bdc5b…899b4` PASSED COMPLETE RESEARCH-FREE SPARSE-SAFE-ROOT V3; ROUND-1 CANDIDATE `a038110`/TREE `b21d398` RECEIVED EXACTLY ONE P3 ADO FINDING AND NO CODE/SECURITY/TEST FINDING — ADO-ONLY P3 CORRECTION IS LOCAL; EXACT-DELTA RE-REVIEW AND V4 REMAIN PENDING — THIRTEEN PHASE-0 AUTHORITIES CONSUMED — NO RUN AUTHORITY/DO NOT START**
 - Date: `NOT RUN`
 - Artifact preparation date: 2026-07-28
 - Owner: Technical Lead
@@ -185,7 +185,7 @@ ambiguous terminal proof fails closed, and no stderr, raw error, device path, se
 PackageManager detail is emitted or persisted. Focused V1/V2 passes 161/161 tests and the
 tests-inclusive Mobile typecheck. The final complete Mobile run passed 52/53 files and 887/888 tests;
 only the known unrelated generated native-output contamination exceeded the locked Validation
-native-source closure, and it was not retried or removed. Final bound patch SHA-256
+native-source closure, and it was not retried or removed. Pre-sync ten-file V3 patch SHA-256
 `265bdc5b6c5c31897743fdbcc1160deccc2a9c152bb3cca85c7f598ad08899b4` passed fresh,
 research-free sparse-safe-root V3 using Node `24.17.0`, npm `11.13.0` and task-owned PostgreSQL
 `17.10`. Evidence is 20/20 builds, 21/21 tests-inclusive typechecks with changed Mobile tests
@@ -195,8 +195,19 @@ APK/manifest verifier match, an 861-module Android export and final ports `55439
 task cleanup match. Wrapper setup first lacked `rg` in `PATH` after green builds/typechecks and
 later omitted the already bound artifact-verifier environment after all suites; both stopped
 outside Product verification. The same safe root continued without code change or retry of green
-gates, and final exact bindings passed. No ADB, hardware or installation occurred. Exact-Head CI
-and independent review remain pending; this local result is not Phase-0 execution authority.
+gates, and final exact bindings passed. That patch was captured while the four ADO files still
+said `V3 pending`. R0 then changed only those four documents; the six code/test files remained
+byte-identical. This is the explicit AVS basis for transferring V3 evidence to round-1 candidate
+`a03811011eed2d3ebde1c94e60c42f806bde7ecf`, tree
+`b21d39887ea613294ed2d9612fd3fa0ff5025a0e`, parent `63feaf48…`. Its code/test
+six-file diff SHA-256 is
+`ad34c36fbfc5088252a6bd961c426ccae4fdc3b7b8e212bc25481eb17a390452`; its full
+ten-file candidate diff SHA-256 is
+`ed0047c1311bc83f664cf67702d8150bc2575d9d88f31449704a480b2ddaa4b8`.
+Independent round 1 returned `CHANGES REQUIRED` with exactly this one P3 ADO finding and null
+code, security and test findings. This ADO-only P3 correction is local; its commit/tree,
+Exact-Delta re-review and V4 remain pending. No ADB, hardware or installation occurred and no
+run authority exists.
 
 The focused local Run-10 diagnostic correction preserves every stage, aggregate receipt,
 mutation, cleanup and terminal boundary. A pre-install device re-attestation mismatch remains
@@ -319,7 +330,7 @@ Product Human result. It grants no new Human-run or installation authority.
 | Historical `effc57a` Artifact Exact-SHA review | `APPROVED`, zero open P0–P3; all 32 manifest source-closure files byte-exact; package/signature/version, NFC-only permission, backup/transfer disabled, cleartext/network blocked and no Product dispatch/deep link; DEX 4 required present / 14 forbidden absent; Hermes Validation markers present and Product/network/database/storage markers absent |
 | `DA5-V5-VAL-TECH-01` source/review/CI | `03694f2d877bc323791e93473ad01ceb82af70df`; tree `6c6039683e067ef29f1f917a60c2628d26e38784`; exact-head CI `30386552118`, attempt 1, 12/12; prepublication review round 2 `APPROVED`, zero open P0–P3 |
 | Validation Phase-0 operator source/review/CI — DO NOT START | Baseline `39a6ef09fad18375af025bc8ed12cc1ea6dda964`, tree `10cdf16421fe564e1961a39d79e20775c0269fc4`; candidate `083fdfb259089d976e48f824e0862f10637d3290`, tree `24bd130500934c6a48fd9314fa06387d6ebdedcd`; exact-head CI `30402655381`, attempt 1, 12/12; independent Exact-SHA re-review round 2 `APPROVED`, zero open P0–P3; both round-1 P1 findings closed; no Phase-0, installation, ADB or hardware authority |
-| Run-13 install-stream terminal correction — V3 GREEN/DO NOT START | Baseline `63feaf48a98e656dcceb395098bea8b260420e16`, tree `1d635956eb22c9bba99834ca831159741889e83f`; final patch SHA-256 `265bdc5b6c5c31897743fdbcc1160deccc2a9c152bb3cca85c7f598ad08899b4`; focused V1/V2 161/161 plus tests-inclusive Mobile typecheck; fresh sparse-safe-root V3 20/20 builds, 21/21 tests-inclusive typechecks, migrations 001–013 match, 21/21 suites / 150 files / 2,540 tests / exactly two optional B1 skips, C3B binary, unchanged artifact verifier, 861-module export and cleanup match; no ADB/hardware/install; Exact-Head CI and independent review pending; no run authority |
+| Run-13 install-stream terminal correction — ADO-ONLY P3 CORRECTION LOCAL/DO NOT START | Baseline `63feaf48a98e656dcceb395098bea8b260420e16`, tree `1d635956eb22c9bba99834ca831159741889e83f`; pre-sync ten-file V3 patch SHA-256 `265bdc5b6c5c31897743fdbcc1160deccc2a9c152bb3cca85c7f598ad08899b4` passed complete V3; R0 changed only four ADO files and six code/test files remained byte-identical; AVS evidence transfers to round-1 candidate `a03811011eed2d3ebde1c94e60c42f806bde7ecf`, tree `b21d39887ea613294ed2d9612fd3fa0ff5025a0e`, parent `63feaf48…`; code/test six-file diff SHA-256 `ad34c36fbfc5088252a6bd961c426ccae4fdc3b7b8e212bc25481eb17a390452`; full ten-file candidate diff SHA-256 `ed0047c1311bc83f664cf67702d8150bc2575d9d88f31449704a480b2ddaa4b8`; round-1 review `CHANGES REQUIRED` for exactly one P3 ADO finding and null code/security/test findings; correction commit/tree, Exact-Delta re-review and V4 pending; no run authority |
 | Final install-category correction/review — DO NOT START | Candidate `12d1ace89494851025555d1d06d45570c4fcc4cb`; tree `b747b4306637d90765b33f273ad89291bd4ea9a7`; parent `b63641953536bb36625fcd42d850e429ddab8db3`; exact code/test delta limited to the Operator core and focused runtime test, plus four synchronized ADO truth files; V2/V3 green; exact-head V4 CI `30466798295`, attempt 1, 12/12; prior round-2 delta review and final independent Exact-Head/V4 review `APPROVED`, zero open P0–P3; round-1 P2 closed; no Phase-0, installation, ADB or hardware authority |
 | Historical install-/launch-diagnostic predecessor/review — DO NOT START | Candidate `8ce03852e782d541319bb852f216cf596ab1787f`; tree `f5b914c1b8f1243244733808beaef54f0351a563`; parent `2f057cb4e5d096e34785c72c51340f589c711dd2`; exact eight-file +488/-132 delta; patch SHA-256 `c8418fe6382c8a23ada44254c2fdc35652acbb73a8f99983f5cbb4cc11b46984`; V1/V2 executed green; unchanged V3 carried from `496ca59`/tree `b398b89`; exact-head CI `30459539801`, attempt 1, 12/12; independent Exact-Delta/Commit/Tree/CI review `APPROVED`, zero open P0–P3; no Phase-0, installation, ADB or hardware authority |
 | Historical published Phase-0 readiness candidate/review — DO NOT START | Candidate `496ca59f0965670b29a210b8aa2443b99bb4a386`, tree `b398b89c77f7f0b4799a7a06b11bd2daf51fd34a`; baseline `fa1aaa782415aceb85c0aa5c1233732ef9afa4dc`, tree `da69081517d2b0b9631eaef393b0a6022735061e`; safe-root V3/eight-file candidate has no code finding; exact-candidate CI `30427205223`, attempt 1, completed failure 11/12; job `90496143535` passed 3/3 files and 121/121 assertions before later unhandled PostgreSQL `57P01` on `taptime_c3e1_dirty_*`; formal review `CHANGES REQUIRED`, exactly one P2 CI/test-reliability finding, no Product/Security finding; no retry |

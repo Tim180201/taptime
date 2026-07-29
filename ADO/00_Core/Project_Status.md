@@ -1,6 +1,6 @@
 # Project Status
 
-Status: CORE ROADMAP V2 COMPLETIONS REMAIN PRESERVED FOR THEIR RECORDED SCOPES — DA4 REMAINS OPEN FOR A LATER FRESH HUMAN V5 — DA5 V0–V4, THE LOCAL DA5-V5 RUNTIME GUARD AND THE EXACT VALIDATION ARTIFACT REMAIN PRESERVED FOR THEIR RECORDED SCOPES — PHASE-0 RUNS 7–13 ARE CONSUMED FAIL-CLOSED HISTORY WITHOUT A PROVEN PRODUCT/APK/NFC/HARDWARE FINDING — RUN 13 ON BASELINE `63feaf48`, TREE `1d63595`, STOPPED AT `installation:adb_child_transport_mismatch` BEFORE `installed_provenance` OR ANY UI/NFC/TAG STEP AND ENDED WITH `cleanup:match` — FINAL RUN-13 PATCH `265bdc5b…899b4` PASSED COMPLETE RESEARCH-FREE SPARSE-SAFE-ROOT V3; EXACT-HEAD CI AND INDEPENDENT REVIEW REMAIN PENDING — THE OPERATOR REMAINS DO NOT START — THIRTEEN PHASE-0 AUTHORITIES ARE CONSUMED; NO NEW PHASE-0/HARDWARE/ADB/INSTALLATION OR PRODUCT-HUMAN-V5 AUTHORITY EXISTS — PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, SYSTEM CHANGES, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
+Status: CORE ROADMAP V2 COMPLETIONS REMAIN PRESERVED FOR THEIR RECORDED SCOPES — DA4 REMAINS OPEN FOR A LATER FRESH HUMAN V5 — DA5 V0–V4, THE LOCAL DA5-V5 RUNTIME GUARD AND THE EXACT VALIDATION ARTIFACT REMAIN PRESERVED FOR THEIR RECORDED SCOPES — PHASE-0 RUNS 7–13 ARE CONSUMED FAIL-CLOSED HISTORY WITHOUT A PROVEN PRODUCT/APK/NFC/HARDWARE FINDING — RUN 13 ON BASELINE `63feaf48`, TREE `1d63595`, STOPPED AT `installation:adb_child_transport_mismatch` BEFORE `installed_provenance` OR ANY UI/NFC/TAG STEP AND ENDED WITH `cleanup:match` — PRE-SYNC V3 PATCH `265bdc5b…899b4` PASSED COMPLETE RESEARCH-FREE SPARSE-SAFE-ROOT V3; ROUND-1 CANDIDATE `a038110`/TREE `b21d398` RECEIVED EXACTLY ONE P3 ADO FINDING AND NO CODE/SECURITY/TEST FINDING — ADO-ONLY P3 CORRECTION IS LOCAL; EXACT-DELTA RE-REVIEW AND V4 REMAIN PENDING — THE OPERATOR REMAINS DO NOT START/NO RUN AUTHORITY — THIRTEEN PHASE-0 AUTHORITIES ARE CONSUMED; PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, SYSTEM CHANGES, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
 DA5 decision-time Option-A trust anchor: exactly two direct admin-group members, zero nested
 groups; full-record SHA-256 `b006276c09d8f2713f6132ea79cec167ab3a3c2887ee53e95eb00c1cc33719a5`;
 membership SHA-256 `70a683b7ebc7981533015d5d63cf12dfb2eabbfa665c34720eddb4d09e9e3064`;
@@ -213,7 +213,7 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   passes 161/161 tests and the tests-inclusive Mobile typecheck. The final complete Mobile run
   passed 52/53 files and 887/888 tests; only the known unrelated generated native-output contamination
   exceeded the locked Validation native-source closure, and it was not retried or removed.
-  Final bound patch SHA-256
+  Pre-sync ten-file V3 patch SHA-256
   `265bdc5b6c5c31897743fdbcc1160deccc2a9c152bb3cca85c7f598ad08899b4` passed fresh,
   research-free sparse-safe-root V3 with Node `24.17.0`, npm `11.13.0`, task-owned PostgreSQL
   `17.10`, 20/20 builds, 21/21 tests-inclusive typechecks including changed Mobile tests,
@@ -222,9 +222,19 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   export and final ports `55439`/`55435` plus cleanup matched. Wrapper setup first lacked `rg` in
   `PATH` after green builds/typechecks and later omitted the bound verifier environment after all
   suites; both stopped outside Product verification. The same safe root continued without code
-  change or retry of green gates, and final exact bindings passed. No ADB, hardware or installation
-  occurred. Exact-Head CI and independent review remain outstanding; this correction grants no
-  run authority.
+  change or retry of green gates, and final exact bindings passed. That patch was captured while
+  the four ADO files still said `V3 pending`. The following R0 sync changed only those documents;
+  all six code/test files remained byte-identical. AVS evidence therefore transfers to round-1
+  candidate `a03811011eed2d3ebde1c94e60c42f806bde7ecf`, tree
+  `b21d39887ea613294ed2d9612fd3fa0ff5025a0e`, parent `63feaf48…`; its code/test
+  six-file diff SHA-256 is
+  `ad34c36fbfc5088252a6bd961c426ccae4fdc3b7b8e212bc25481eb17a390452` and full
+  ten-file candidate diff SHA-256 is
+  `ed0047c1311bc83f664cf67702d8150bc2575d9d88f31449704a480b2ddaa4b8`.
+  Independent round 1 returned `CHANGES REQUIRED` for exactly this one P3 ADO finding and no
+  code, security or test finding. This ADO-only P3 correction is local; its commit/tree,
+  Exact-Delta re-review and V4 remain pending. No ADB, hardware or installation occurred and no
+  run authority exists.
 
   The focused local Run-10 diagnostic correction preserves all stages, aggregates, mutation,
   cleanup and terminal semantics. A pre-install device re-attestation mismatch now stays
