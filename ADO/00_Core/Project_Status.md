@@ -1,6 +1,6 @@
 # Project Status
 
-Status: CORE ROADMAP V2 COMPLETIONS REMAIN PRESERVED FOR THEIR RECORDED SCOPES — DA4 REMAINS OPEN FOR A LATER FRESH HUMAN V5 — DA5 V0–V4, THE LOCAL DA5-V5 RUNTIME GUARD AND THE EXACT VALIDATION ARTIFACT REMAIN PRESERVED FOR THEIR RECORDED SCOPES — PHASE-0 RUNS 7–11 ARE CONSUMED FAIL-CLOSED HISTORY WITHOUT A PROVEN PRODUCT/APK/NFC/HARDWARE FINDING — RUN 11 ON BASELINE `d8549c3`, TREE `04ea2d0`, STOPPED AT `installation:operation_mismatch` BEFORE `installed_provenance` OR ANY UI/NFC/TAG STEP AND ENDED WITH `cleanup:match`; ITS CATEGORY CANNOT DISTINGUISH A FAILED ADB/CHILD TRANSPORT FROM A RESOLVED PACKAGEMANAGER OPERATION WITH NON-ACCEPTED SUCCESS RECEIPT — THE FOCUSED INSTALLATION-DIAGNOSTIC CORRECTION `9549da9`, TREE `ced33c8`, EXACT-HEAD CI `30471511446` ATTEMPT 1 12/12 IS TECHNICALLY FINAL; PREPUBLICATION ROUND 1 P3 ADO TRUTH IS CLOSED, ROUND 2 AND FINAL INDEPENDENT EXACT-HEAD REVIEW ARE `APPROVED` WITH ZERO OPEN P0–P3 — THE OPERATOR REMAINS DO NOT START — ELEVEN PHASE-0 AUTHORITIES ARE CONSUMED; NO NEW PHASE-0/HARDWARE/ADB/INSTALLATION OR PRODUCT-HUMAN-V5 AUTHORITY EXISTS — PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, SYSTEM CHANGES, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
+Status: CORE ROADMAP V2 COMPLETIONS REMAIN PRESERVED FOR THEIR RECORDED SCOPES — DA4 REMAINS OPEN FOR A LATER FRESH HUMAN V5 — DA5 V0–V4, THE LOCAL DA5-V5 RUNTIME GUARD AND THE EXACT VALIDATION ARTIFACT REMAIN PRESERVED FOR THEIR RECORDED SCOPES — PHASE-0 RUNS 7–12 ARE CONSUMED FAIL-CLOSED HISTORY WITHOUT A PROVEN PRODUCT/APK/NFC/HARDWARE FINDING — RUN 12 ON BASELINE `3fcbcdec`, TREE `74cac3e`, STOPPED AT `installation:adb_child_transport_mismatch` BEFORE `installed_provenance` OR ANY UI/NFC/TAG STEP AND ENDED WITH `cleanup:match` — THE FOCUSED LOCAL `shell -T -x` INSTALL CORRECTION AND THE POOL-BEFORE-STOP GUARD ORDERING CORRECTION ARE V1/V2-FOCUSED GREEN — AN ISOLATED V3 ATTEMPT IS NOT RECOGNIZED AS V3: AFTER 288/288 ASSERTIONS TWO POST-TEST `57P01` EVENTS EXPOSED THE LOCAL GUARD RACE — COMBINED V3/V4/INDEPENDENT REVIEW REMAIN PENDING — THE OPERATOR REMAINS DO NOT START — TWELVE PHASE-0 AUTHORITIES ARE CONSUMED; NO NEW PHASE-0/HARDWARE/ADB/INSTALLATION OR PRODUCT-HUMAN-V5 AUTHORITY EXISTS — PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, SYSTEM CHANGES, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
 DA5 decision-time Option-A trust anchor: exactly two direct admin-group members, zero nested
 groups; full-record SHA-256 `b006276c09d8f2713f6132ea79cec167ab3a3c2887ee53e95eb00c1cc33719a5`;
 membership SHA-256 `70a683b7ebc7981533015d5d63cf12dfb2eabbfa665c34720eddb4d09e9e3064`;
@@ -20,7 +20,7 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   with zero open P0–P3 and remain DO NOT INSTALL; the Validation Phase-0 operator correction
   `083fdfb`, tree `24bd130`, exact-head CI `30402655381` attempt 1 12/12 and independent
   round-2 Exact-SHA review are approved with zero open P0–P3; both round-1 P1 findings are closed,
-  eleven Phase-0 authorities are consumed, the operator remains DO NOT START, and any new Phase-0
+  twelve Phase-0 authorities are consumed, the operator remains DO NOT START, and any new Phase-0
   authority remains separately gated.**
   Runtime Guard source
   `ba1b6e922ceb7902ecedd9dc2df01d6b22d90867`, tree
@@ -67,7 +67,7 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   artifact are now **HISTORICAL — DO NOT INSTALL** because the native-capture diagnostics
   correction changes the Validation source.
 
-  Eleven separately authorized Phase-0 attempts are consumed without an attributable Tag result:
+  Twelve separately authorized Phase-0 attempts are consumed without an attributable Tag result:
   run 1 stopped on
   a preinstalled Validation package; run 2 on the unsupported Samsung provider in the then-prior
   build; run 3 because the generic launcher/package resolver did not uniquely start the explicit
@@ -152,6 +152,39 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   code/test finding; round 2 approved and closed it. Final independent Exact-Head review returned
   `APPROVED` with zero open P0–P3. The correction is technically final and supplies no new run
   authority.
+
+  Run 12 used ADO baseline `3fcbcdec79dada8d43041a241127e52f4775e8d8`, tree
+  `74cac3e8611e39938e2c52c25df8cde38be254d2`, and exact candidate `9549da9`/tree
+  `ced33c8`. Its complete safe receipt sequence was `artifact:match`, `preflight:match`,
+  `stage=installation status=mismatch category=adb_child_transport_mismatch`,
+  `install_launch:mismatch`, `cleanup:match`, `failed:mismatch`. It emitted no
+  `installed_provenance` receipt and reached no Validation UI, NFC or Tag step. The authority is
+  consumed, terminal cleanup matched, and no Product, APK, NFC or hardware finding is established.
+
+  Static diagnosis against the official ADB shell contract confirms the remaining operator
+  boundary: without `shell -x`, the ADB client propagates a remote PackageManager nonzero exit and
+  the shared runner rejects before the strict receipt parser can classify it. The focused local
+  correction changes only the install command to `shell -T -x`; a remote PackageManager rejection
+  then reaches a strict single-line parser. Only exact `Success` succeeds. A fixed allowlist maps
+  policy/user restriction, artifact/parse/signature rejection, installed-state/version/signature
+  conflict, storage and command-contract/usage to disclosure-safe categories; unknown, malformed
+  or multiline output remains generic `package_manager_receipt_mismatch`. True spawn, stream,
+  timeout, abort and ADB-child failures still reject as `adb_child_transport_mismatch`, and no raw
+  output or detail is emitted or persisted. The shared runner, FD-/snapshot streaming, exact
+  artifact, package/user-0 binding, timeout, zeroization, provenance, fail-closed and cleanup
+  boundaries are unchanged. Focused Operator regression passes 150/150; the tests-inclusive Mobile typecheck
+  passes with the changed test source included. One complete Mobile attempt passed 51/52 files
+  and 866/867 tests; only the known generated native-output contamination exceeded the locked
+  Validation native-source closure. No retry or removal of unrelated state occurred. The Run-12
+  install candidate therefore remains V1/V2-focused green. A later isolated V3 attempt is not
+  recognized as V3: after all 288/288 Synthetic assertions passed, two post-test PostgreSQL
+  `57P01` events exposed that the local Guard stopped PostgreSQL before closing its still-live
+  pools. Preceding wrapper setup stops likewise provide no V3 evidence. The Human Architect
+  replaced that contradictory order with successful capability/DB reattestation, closure of all
+  owned Runtime pools and the active Installer pool, unchanged binary/lifecycle reattestation and
+  only then `STOP_FAST`. The focused Guard suite passes 78/78 and the Synthetic workspace
+  tests-inclusive typecheck passes. Combined V3, V4 and independent review remain pending, and
+  the operator remains **DO NOT START**.
 
   The focused local Run-10 diagnostic correction preserves all stages, aggregates, mutation,
   cleanup and terminal semantics. A pre-install device re-attestation mismatch now stays
@@ -1249,7 +1282,7 @@ Two Epics are concurrently Active, per EP-009's own stated relationship to the r
    reuse, retry, repair or resume is authorized.
 6. Preserve DA5 V0–V4 closure and the independently approved local DA5-V5 Runtime Guard and
    exact runtime-corrected Validation App binding above. Treat Shared-Cluster work as historical
-   `BLOCKED`/not Evidence and all eleven failed Phase-0 attempts as consumed, non-reusable history.
+   `BLOCKED`/not Evidence and all twelve failed Phase-0 attempts as consumed, non-reusable history.
    Preserve the native-capture diagnostics source/artifact closure on `effc57a` and its independent
    zero-finding reviews as historical evidence while keeping its artifact, `e97bbe9` and `7e8c0f7`
    **DO NOT INSTALL**. Preserve exact `DA5-V5-VAL-TECH-01` source `03694f2`, tree `6c60396`,

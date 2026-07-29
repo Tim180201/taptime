@@ -16,7 +16,17 @@ export const DA5_V5_VALIDATION_PHASE0_INSTALL_LAUNCH_STAGES: Readonly<{
 export const DA5_V5_VALIDATION_PHASE0_ERROR_CATEGORIES: Readonly<{
   adbChildTransportMismatch: 'adb_child_transport_mismatch';
   operationMismatch: 'operation_mismatch';
+  packageManagerArtifactRejection:
+    'package_manager_artifact_rejection';
+  packageManagerCommandContractMismatch:
+    'package_manager_command_contract_mismatch';
+  packageManagerInstalledStateConflict:
+    'package_manager_installed_state_conflict';
+  packageManagerPolicyRestriction:
+    'package_manager_policy_restriction';
   packageManagerReceiptMismatch: 'package_manager_receipt_mismatch';
+  packageManagerStorageRejection:
+    'package_manager_storage_rejection';
   verificationMismatch: 'verification_mismatch';
 }>;
 export const DA5_V5_VALIDATION_PHASE0_ARTIFACT: Readonly<{
@@ -157,7 +167,12 @@ export interface Da5V5ValidationPhase0SessionOptions {
     category?:
       | 'adb_child_transport_mismatch'
       | 'operation_mismatch'
+      | 'package_manager_artifact_rejection'
+      | 'package_manager_command_contract_mismatch'
+      | 'package_manager_installed_state_conflict'
+      | 'package_manager_policy_restriction'
       | 'package_manager_receipt_mismatch'
+      | 'package_manager_storage_rejection'
       | 'verification_mismatch',
   ) => void;
   readonly runner?: Da5V5AndroidAdbRunner;

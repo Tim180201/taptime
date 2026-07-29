@@ -1,6 +1,6 @@
 # Development Assignment 5 — V5 Human Android Evidence
 
-- Status: **PHASE-0 RUNS 7–11 ARE CONSUMED FAIL-CLOSED HISTORY WITHOUT A PROVEN PRODUCT/APK/NFC/HARDWARE FINDING — RUN 11 STOPPED AT `installation:operation_mismatch` AND ENDED WITH `cleanup:match`; ITS EXACT INSTALLATION CAUSE IS NOT DISTINGUISHABLE — THE FOCUSED INSTALLATION-DIAGNOSTIC CORRECTION `9549da9`, TREE `ced33c8`, EXACT-HEAD CI `30471511446` ATTEMPT 1 12/12 IS TECHNICALLY FINAL; PREPUBLICATION ROUND 1 P3 ADO TRUTH IS CLOSED, ROUND 2 AND FINAL INDEPENDENT EXACT-HEAD REVIEW ARE `APPROVED` WITH ZERO OPEN P0–P3 — ELEVEN PHASE-0 AUTHORITIES CONSUMED — DO NOT START; NO CURRENT PHASE-0, HARDWARE, ADB, INSTALLATION OR PRODUCT-HUMAN-V5 AUTHORITY**
+- Status: **PHASE-0 RUNS 7–12 ARE CONSUMED FAIL-CLOSED HISTORY WITHOUT A PROVEN PRODUCT/APK/NFC/HARDWARE FINDING — RUN 12 STOPPED AT `installation:adb_child_transport_mismatch` AND ENDED WITH `cleanup:match` — THE FOCUSED LOCAL `shell -T -x` INSTALL CORRECTION AND THE POOL-BEFORE-STOP GUARD ORDERING CORRECTION ARE V1/V2-FOCUSED GREEN — AN ISOLATED V3 ATTEMPT IS NOT V3 AFTER 288/288 ASSERTIONS BECAUSE TWO POST-TEST `57P01` EVENTS EXPOSED THE LOCAL GUARD RACE — COMBINED V3/V4/INDEPENDENT REVIEW REMAIN PENDING — TWELVE PHASE-0 AUTHORITIES CONSUMED — DO NOT START; NO CURRENT PHASE-0, HARDWARE, ADB, INSTALLATION OR PRODUCT-HUMAN-V5 AUTHORITY**
 - Date: `NOT RUN`
 - Artifact preparation date: 2026-07-28
 - Owner: Technical Lead
@@ -43,7 +43,7 @@ This closes the exact repository/source/artifact finding only. Because the nativ
 diagnostics correction changes the Validation source, the `e97bbe9` artifact is now
 **HISTORICAL — DO NOT INSTALL**.
 
-Eleven separately authorized Phase-0 attempts are consumed fail-closed without an attributable Tag
+Twelve separately authorized Phase-0 attempts are consumed fail-closed without an attributable Tag
 result. Run 5 used repository baseline
 `55070aa9a74c2606668caba9dc113ae8d689bd8d`, installed and verified the then-current exact
 `7e8c0f7` Validation APK and passed the Human-confirmed device checkpoint. Its first required
@@ -124,6 +124,40 @@ attempt 1, 12/12. Prepublication review round 1 found exactly one P3 ADO-truth g
 code/test finding; round 2 approved and closed it. Final independent Exact-Head review returned
 `APPROVED` with zero open P0–P3. The correction is technically final; no new Phase-0 authority
 exists.
+
+Run 12 used ADO baseline `3fcbcdec79dada8d43041a241127e52f4775e8d8`, tree
+`74cac3e8611e39938e2c52c25df8cde38be254d2`, and exact candidate `9549da9`/tree
+`ced33c8`. Its complete safe receipt sequence was `artifact:match`, `preflight:match`,
+`stage=installation status=mismatch category=adb_child_transport_mismatch`,
+`install_launch:mismatch`, `cleanup:match`, `failed:mismatch`. It emitted no
+`installed_provenance` receipt and reached no Validation UI, NFC or Tag step. The authority is
+consumed, terminal cleanup matched, and no Product, APK, NFC or hardware finding is established.
+
+Static diagnosis against the official ADB shell contract identifies the remaining operator
+classification defect: without `shell -x`, a remote PackageManager nonzero exit is propagated as
+the ADB child exit and is rejected before the strict receipt parser. The focused local correction
+adds only `-x` to the existing PackageManager streaming shell invocation. A remote rejection now
+settles the child and reaches a strict single-line parser. Only exact `Success` succeeds. Fixed
+allowlisted forms map to disclosure-safe policy/user, artifact/parse/signature,
+installed-state/version/signature-conflict, storage or command-contract/usage categories.
+Unknown, malformed or multiline output remains generic `package_manager_receipt_mismatch`; true
+spawn, stream, timeout, abort and ADB-child failures remain rejecting
+`adb_child_transport_mismatch`. No raw output, code or detail is emitted or persisted. The shared
+runner, streaming snapshot, exact artifact/package/user-0 binding, timeouts, zeroization,
+provenance, fail-closed behavior and cleanup are unchanged. Focused Operator regression passes
+150/150. Mobile tests-inclusive
+typecheck passes and objectively includes the changed test source. One complete Mobile attempt
+passed 51/52 files and 866/867 tests; only the known generated native-output contamination
+exceeded the locked Validation native-source closure. No retry or unrelated cleanup occurred. The
+Run-12 install candidate remains V1/V2-focused green. A later isolated V3 attempt is not
+recognized as V3: after all 288/288 Synthetic assertions passed, two post-test PostgreSQL
+`57P01` events exposed that the local Guard stopped PostgreSQL before closing its still-live
+pools. Preceding wrapper setup stops likewise provide no V3 evidence. The Human Architect
+replaced that contradictory order with successful capability/DB reattestation, closure of all
+owned Runtime pools and the active Installer pool, unchanged binary/lifecycle reattestation and
+only then `STOP_FAST`. The focused Guard suite passes 78/78 and the Synthetic workspace
+tests-inclusive typecheck passes. Combined V3, V4 and independent review remain pending; no new
+Phase-0 authority exists.
 
 The focused local Run-10 diagnostic correction preserves every stage, aggregate receipt,
 mutation, cleanup and terminal boundary. A pre-install device re-attestation mismatch remains
@@ -224,7 +258,7 @@ Historical candidate and review details remain preserved below.
 This record mirrors
 `ADO/04_Operations/Development_Assignment_05_V5_Runbook.md`. It records the historical Validation
 artifacts, exact TECH-01 source/CI/source-review bindings, the independently approved exact
-replacement artifact and all eleven consumed Phase-0 attempts, but no attributable Tag result or
+replacement artifact and all twelve consumed Phase-0 attempts, but no attributable Tag result or
 Product Human result. It grants no new Human-run or installation authority.
 
 | Binding | Evidence |
@@ -415,7 +449,7 @@ This paragraph is governance history, not Candidate Evidence, implementation app
 hardware authority; focused publication, exact-head CI and independent Exact-Delta `APPROVED`
 with zero open P0–P3 remain required.
 
-Eleven later separately authorized Phase-0 attempts occurred as recorded below; none produced an
+Twelve later separately authorized Phase-0 attempts occurred as recorded below; none produced an
 attributable Tag result or reached Product Human V5. The Harness can accept A/B/X values only from
 the operator and cannot independently prove their origin. Any further hardware action requires a
 new explicit Human authorization.
@@ -439,9 +473,10 @@ data.
 | Phase 0 run 9 | On baseline `2f057cb4e5d096e34785c72c51340f589c711dd2` / tree `6f65f44e53574921f1e8e9fdfde94f7a9a9ade2c`, the operator emitted exactly `artifact:match`, `preflight:match`, `install_launch:mismatch`, `cleanup:match`, `failed:mismatch`; no scan or UI handoff was reached and the exact install-/launch cause is not reconstructable | Authority consumed; no Product, NFC or hardware defect proven; terminal cleanup restored package/process/global reverse zero |
 | Phase 0 run 10 | On baseline `b63641953536bb36625fcd42d850e429ddab8db3` / tree `dc1b9a11e0391074b35139f5948ef6b2c45f1d26`, the operator emitted exactly `artifact:match`, `preflight:match`, `stage=installation status=mismatch category=operation_mismatch`, `install_launch:mismatch`, `cleanup:match`, `failed:mismatch`; no `installed_provenance` receipt or UI/NFC/Tag step was reached, and the exact cause is not reconstructable because the then-current category also summarized pre-install verification mismatches | Authority consumed; terminal cleanup matched; no Product, APK, NFC or hardware finding proven; another run remains DO NOT START without fresh exact Human authorization |
 | Phase 0 run 11 | On baseline `d8549c3f1d14c15846d4f81dbe7669a598626633` / tree `04ea2d0571a2e030fe99fbba27b622e68604644e`, the operator emitted exactly `artifact:match`, `preflight:match`, `stage=installation status=mismatch category=operation_mismatch`, `install_launch:mismatch`, `cleanup:match`, `failed:mismatch`; no `installed_provenance` receipt or UI/NFC/Tag step was reached | Authority consumed; terminal cleanup matched; no Product, APK, NFC or hardware finding proven; another run remains DO NOT START without fresh exact Human authorization |
+| Phase 0 run 12 | On ADO baseline `3fcbcdec79dada8d43041a241127e52f4775e8d8` / tree `74cac3e8611e39938e2c52c25df8cde38be254d2` and exact candidate `9549da9` / tree `ced33c8`, the operator emitted exactly `artifact:match`, `preflight:match`, `stage=installation status=mismatch category=adb_child_transport_mismatch`, `install_launch:mismatch`, `cleanup:match`, `failed:mismatch`; no `installed_provenance` receipt or UI/NFC/Tag step was reached | Authority consumed; terminal cleanup matched; no Product, APK, NFC or hardware finding proven; another run remains DO NOT START without fresh exact Human authorization |
 
-Runs 10 and 11 ended with terminal cleanup matched. The run-7 through run-9 artifacts are no
-longer installed, runs 10 and 11 reached no attributable installation provenance, and no further
+Runs 10, 11 and 12 ended with terminal cleanup matched. The run-7 through run-9 artifacts are no
+longer installed, runs 10–12 reached no attributable installation provenance, and no further
 hardware/ADB action occurred.
 Another Phase 0 requires a fresh exact Human authorization.
 

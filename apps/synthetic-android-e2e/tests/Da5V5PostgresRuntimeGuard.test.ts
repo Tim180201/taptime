@@ -51,6 +51,7 @@ import {
   type Da5V5PostgresCapability,
 } from '../src/Da5V5PostgresCapability.js';
 import { buildDa5V5TemporaryTestGuard } from '../src/Da5V5RuntimeGuardArtifact.js';
+import { prepareDa5V5SyntheticDatabase } from '../src/database.js';
 
 let suiteRoot = '';
 let binaryPath = '';
@@ -1193,6 +1194,94 @@ describe('DA5 V5 closed environment and real transient PostgreSQL owner', () => 
     },
   );
 
+  it('closes every database pool before lifecycle reattestation and STOP', async () => {
+    const calls: string[] = [];
+    await expect(runDa5V5ReattestationBoundCleanupForTest({
+      destructiveActions: [
+        () => {
+          calls.push('destructive-cleanup');
+        },
+      ],
+      poolClosures: [
+        () => {
+          calls.push('runtime-pool');
+        },
+        () => {
+          calls.push('installer-pool');
+        },
+      ],
+      reattest: async () => {
+        calls.push('lifecycle-reattest');
+      },
+      safeActions: [
+        () => {
+          calls.push('safe-cleanup');
+        },
+      ],
+      sendStop: async () => {
+        calls.push('stop-fast');
+      },
+    })).resolves.toBeUndefined();
+    expect(calls).toEqual([
+      'runtime-pool',
+      'installer-pool',
+      'lifecycle-reattest',
+      'stop-fast',
+      'safe-cleanup',
+      'destructive-cleanup',
+    ]);
+  });
+
+  it('retains ownership and never reattests or stops after a pool-close failure',
+    async () => {
+      const firstFailure = new Error('synthetic installer pool close failure');
+      const calls: string[] = [];
+      let destructiveCalls = 0;
+      let reattestCalls = 0;
+      let stopCalls = 0;
+      let caught: unknown;
+      try {
+        await runDa5V5ReattestationBoundCleanupForTest({
+          destructiveActions: [
+            () => {
+              destructiveCalls += 1;
+            },
+          ],
+          poolClosures: [
+            () => {
+              calls.push('runtime-pool');
+            },
+            () => {
+              calls.push('installer-pool');
+              throw firstFailure;
+            },
+            () => {
+              calls.push('remaining-runtime-pool');
+            },
+          ],
+          reattest: async () => {
+            reattestCalls += 1;
+          },
+          safeActions: [],
+          sendStop: async () => {
+            stopCalls += 1;
+          },
+        });
+      } catch (error: unknown) {
+        caught = error;
+      }
+      expect(calls).toEqual([
+        'runtime-pool',
+        'installer-pool',
+        'remaining-runtime-pool',
+      ]);
+      expect(reattestCalls).toBe(0);
+      expect(stopCalls).toBe(0);
+      expect(destructiveCalls).toBe(0);
+      expect(caught).toBeInstanceOf(Error);
+      expect((caught as Error).cause).toBe(firstFailure);
+    });
+
   it.each([
     'artifact',
     'lifecycle',
@@ -1890,7 +1979,7 @@ describe('DA5 V5 closed environment and real transient PostgreSQL owner', () => 
   );
 
   it.runIf(process.platform === 'darwin')(
-    'starts, attests and exactly removes one real PostgreSQL 17.10 lifecycle',
+    'closes two idle installer connections before stopping one real PostgreSQL 17.10 lifecycle',
     async () => {
       const runtimeBase = await mkdtemp('/private/tmp/t5-');
       const removedEnvironment = removeRejectedEnvironment();
@@ -1907,7 +1996,17 @@ describe('DA5 V5 closed environment and real transient PostgreSQL owner', () => 
           closed: false,
           source: 'isolated-runtime-guard',
         });
+        const prepared = await prepareDa5V5SyntheticDatabase(
+          capability,
+          'https://synthetic.invalid',
+          'isolated-runtime-guard',
+        );
+        await Promise.all([
+          prepared.fixturePool.query('SELECT pg_sleep(0.05)'),
+          prepared.fixturePool.query('SELECT pg_sleep(0.05)'),
+        ]);
         await closeDa5V5PostgresCapability(capability);
+        await new Promise<void>((resolve) => setImmediate(resolve));
         expect(da5V5PostgresCapabilityState(capability).closed).toBe(true);
         await expect(readdir(runtimeBase)).resolves.toEqual([]);
       } finally {

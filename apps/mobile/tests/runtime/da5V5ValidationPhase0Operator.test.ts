@@ -575,7 +575,12 @@ describe('DA5 V5 Validation device and protocol boundary', () => {
     ).toEqual([
       'adb_child_transport_mismatch',
       'operation_mismatch',
+      'package_manager_artifact_rejection',
+      'package_manager_command_contract_mismatch',
+      'package_manager_installed_state_conflict',
+      'package_manager_policy_restriction',
       'package_manager_receipt_mismatch',
+      'package_manager_storage_rejection',
       'verification_mismatch',
     ]);
     expect(
@@ -737,6 +742,7 @@ describe('DA5 V5 Validation device and protocol boundary', () => {
       runner.serial,
       'shell',
       '-T',
+      '-x',
       'cmd',
       'package',
       'install',
@@ -931,6 +937,165 @@ describe('DA5 V5 Validation device and protocol boundary', () => {
         ).some((category) =>
           receipt.endsWith(`:mismatch:${category}`))))
         .toHaveLength(1);
+    },
+  );
+
+  it('keeps a remote PackageManager rejection out of the ADB child-transport category', async () => {
+    const runner = new FakeRunner();
+    const receipts: string[] = [];
+    runner.installResult =
+      'Failure [SECRET_REMOTE_PACKAGE_MANAGER_OUTPUT /secret/install]';
+    runner.emulateRemoteInstallExit = true;
+    const session = createSession(runner, {
+      receipt(
+        receiptStage: string,
+        status: 'match' | 'mismatch',
+        receiptCategory?: DiagnosticCategory,
+      ) {
+        receipts.push(
+          `${receiptStage}:${status}:${receiptCategory ?? 'none'}`,
+        );
+      },
+    });
+
+    await session.start();
+    await session.submit('install-launch');
+    await expect(session.done).resolves.toEqual({
+      status: 'mismatch',
+    });
+
+    const install = runner.calls.find((call) =>
+      call.arguments_.includes('install'));
+    expect(install?.arguments_.slice(2, 6)).toEqual([
+      'shell',
+      '-T',
+      '-x',
+      'cmd',
+    ]);
+    expect(receipts.filter((receipt) =>
+      !receipt.endsWith(':none'))).toEqual([
+      'installation:mismatch:package_manager_receipt_mismatch',
+    ]);
+    expect(receipts.join('\n')).not.toContain('SECRET_');
+    expect(receipts.join('\n')).not.toContain('/secret/');
+    expect(receipts.join('\n')).not.toContain(runner.serial);
+  });
+
+  it.each([
+    [
+      'policy/user restriction',
+      'Failure [INSTALL_FAILED_USER_RESTRICTED: SECRET_POLICY_DETAIL]',
+      'package_manager_policy_restriction',
+    ],
+    [
+      'artifact/parse/signature rejection',
+      'Failure [INSTALL_PARSE_FAILED_BAD_MANIFEST: SECRET_ARTIFACT_DETAIL /secret/artifact]',
+      'package_manager_artifact_rejection',
+    ],
+    [
+      'installed-state/version/signature conflict',
+      'Failure [INSTALL_FAILED_UPDATE_INCOMPATIBLE: SECRET_CONFLICT_DETAIL]',
+      'package_manager_installed_state_conflict',
+    ],
+    [
+      'storage rejection',
+      'Failure [INSTALL_FAILED_INSUFFICIENT_STORAGE: SECRET_STORAGE_DETAIL]',
+      'package_manager_storage_rejection',
+    ],
+    [
+      'command contract/usage',
+      'Error: must either specify a package size or an APK file',
+      'package_manager_command_contract_mismatch',
+    ],
+  ])(
+    'maps a bound PackageManager %s to only its safe category',
+    async (_label, output, expectedCategory) => {
+      const runner = new FakeRunner();
+      const receipts: string[] = [];
+      runner.installResult = output;
+      runner.emulateRemoteInstallExit = true;
+      const session = createSession(runner, {
+        receipt(
+          receiptStage: string,
+          status: 'match' | 'mismatch',
+          receiptCategory?: DiagnosticCategory,
+        ) {
+          receipts.push(
+            `${receiptStage}:${status}:${receiptCategory ?? 'none'}`,
+          );
+        },
+      });
+
+      await session.start();
+      await session.submit('install-launch');
+      await expect(session.done).resolves.toEqual({
+        status: 'mismatch',
+      });
+
+      expect(receipts.filter((receipt) =>
+        !receipt.endsWith(':none'))).toEqual([
+        `installation:mismatch:${expectedCategory}`,
+      ]);
+      expect(receipts.join('\n')).not.toContain(output);
+      expect(receipts.join('\n')).not.toContain('INSTALL_');
+      expect(receipts.join('\n')).not.toContain('SECRET_');
+      expect(receipts.join('\n')).not.toContain('/secret/');
+      expect(receipts.join('\n')).not.toContain(runner.serial);
+    },
+  );
+
+  it.each([
+    [
+      'unknown code',
+      'Failure [INSTALL_FAILED_FUTURE_SECRET: SECRET_UNKNOWN /secret/future]',
+    ],
+    [
+      'unknown parse code',
+      'Failure [INSTALL_PARSE_FAILED_FUTURE_SECRET: SECRET_UNKNOWN_PARSE]',
+    ],
+    [
+      'malformed receipt',
+      'Failure [INSTALL_FAILED_INVALID_APK: SECRET_MALFORMED',
+    ],
+    [
+      'multiline receipt',
+      'Failure [INSTALL_FAILED_INVALID_APK]\nSECRET_SECOND_LINE',
+    ],
+    ['near-success receipt', 'Success '],
+  ])(
+    'keeps a %s fail-closed in the generic PackageManager category',
+    async (_label, output) => {
+      const runner = new FakeRunner();
+      const receipts: string[] = [];
+      runner.installResult = output;
+      runner.emulateRemoteInstallExit = true;
+      const session = createSession(runner, {
+        receipt(
+          receiptStage: string,
+          status: 'match' | 'mismatch',
+          receiptCategory?: DiagnosticCategory,
+        ) {
+          receipts.push(
+            `${receiptStage}:${status}:${receiptCategory ?? 'none'}`,
+          );
+        },
+      });
+
+      await session.start();
+      await session.submit('install-launch');
+      await expect(session.done).resolves.toEqual({
+        status: 'mismatch',
+      });
+
+      expect(receipts.filter((receipt) =>
+        !receipt.endsWith(':none'))).toEqual([
+        'installation:mismatch:package_manager_receipt_mismatch',
+      ]);
+      expect(receipts.join('\n')).not.toContain(output);
+      expect(receipts.join('\n')).not.toContain('INSTALL_');
+      expect(receipts.join('\n')).not.toContain('SECRET_');
+      expect(receipts.join('\n')).not.toContain('/secret/');
+      expect(receipts.join('\n')).not.toContain(runner.serial);
     },
   );
 
@@ -1768,6 +1933,7 @@ class FakeRunner {
   installFailureLeavesPackage = false;
   installRaceLeavesForeignPackage = false;
   installReject = false;
+  emulateRemoteInstallExit = false;
   installNeverSettles = false;
   installWaitsForAbort = false;
   installSettled = false;
@@ -1958,6 +2124,13 @@ class FakeRunner {
         this.cleanupPackageReads = 0;
         this.lateOutcomeArmed = true;
         throw new Error('timeout');
+      }
+      if (
+        this.emulateRemoteInstallExit
+        && this.installResult !== 'Success'
+        && !arguments_.includes('-x')
+      ) {
+        throw new Error('synthetic propagated remote exit');
       }
       if (this.installRaceLeavesForeignPackage) {
         this.installSettled = true;

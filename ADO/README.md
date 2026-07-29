@@ -361,7 +361,7 @@ and independent package/signing/runtime/native/source-closure review passed. Thi
 repository/source/artifact finding only. Because the native-capture diagnostics correction changes
 the Validation source, the `e97bbe9` APK/manifest is now **HISTORICAL — DO NOT INSTALL**.
 
-Eleven separately authorized Phase-0 attempts are consumed without an attributable Tag result:
+Twelve separately authorized Phase-0 attempts are consumed without an attributable Tag result:
 preinstalled
 package; unsupported Samsung provider in the then-prior build; generic launcher/package resolver
 without a unique explicit-Activity start; and explicit `.MainActivity` cold start failing on
@@ -437,6 +437,37 @@ attempt 1, 12/12. Prepublication review round 1 found exactly one P3 ADO-truth g
 code/test finding; round 2 approved and closed it. Final independent Exact-Head review returned
 `APPROVED` with zero open P0–P3. The correction is technically final; the operator remains
 **DO NOT START**.
+
+Run 12 used ADO baseline `3fcbcdec79dada8d43041a241127e52f4775e8d8`, tree
+`74cac3e8611e39938e2c52c25df8cde38be254d2`, and exact candidate `9549da9`/tree
+`ced33c8`. It emitted exactly `artifact:match`, `preflight:match`,
+`stage=installation status=mismatch category=adb_child_transport_mismatch`,
+`install_launch:mismatch`, `cleanup:match`, `failed:mismatch`. It reached no
+`installed_provenance`, Validation UI, NFC or Tag step. The authority is consumed, terminal
+cleanup matched, and no Product, APK, NFC or hardware finding is established.
+
+The focused local Run-12 correction binds only the PackageManager streaming call to ADB
+`shell -T -x`. Per the ADB shell contract, `-x` disables propagation of the remote exit code, so
+a remote PackageManager rejection reaches a strict single-line parser. Only exact `Success`
+succeeds. Fixed allowlisted forms map to disclosure-safe policy/user, artifact/parse/signature,
+installed-state/version/signature-conflict, storage or command-contract/usage categories;
+unknown, malformed or multiline output remains generic `package_manager_receipt_mismatch`.
+Real spawn, stream, timeout, abort or ADB-child failures still reject and remain
+`adb_child_transport_mismatch`; no raw output, code or detail is emitted or persisted. The shared
+ADB runner, streaming snapshot, APK/package/user-0 binding, timeouts, zeroization, provenance,
+fail-closed behavior and cleanup are unchanged. Focused Operator regression passes 150/150 and the tests-inclusive Mobile
+typecheck passes with the changed test source included. One complete Mobile attempt passed
+51/52 files and 866/867 tests; only the known existing generated native-output contamination
+exceeded the locked Validation native-source closure. No retry, deletion or cleanup of that
+unrelated state occurred. The Run-12 install candidate remains V1/V2-focused green. A later
+isolated V3 attempt is not recognized as V3: after all 288/288 Synthetic assertions passed, two
+post-test PostgreSQL `57P01` events exposed that the local Guard stopped PostgreSQL before closing
+its still-live pools. Preceding wrapper setup stops likewise provide no V3 evidence. The Human
+Architect replaced that contradictory order with successful capability/DB reattestation, closure
+of all owned Runtime pools and the active Installer pool, unchanged binary/lifecycle
+reattestation and only then `STOP_FAST`. The focused Guard suite passes 78/78 and the Synthetic
+workspace tests-inclusive typecheck passes. Combined V3, V4 and independent review remain
+pending; the operator remains **DO NOT START**.
 
 The focused local Run-10 diagnostic correction keeps every stage, aggregate receipt, mutation,
 cleanup and terminal boundary unchanged. A pre-install device re-attestation mismatch now remains
@@ -749,7 +780,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Development Assignment 4 Professional Admin Web Productization — ADR-0015/DA4-P01–P12 Human-accepted; Workstreams A–D, AVS V0–V4 and H01 procedural correction independently approved; first Human V5 failed closed and no closure/new run is authorized | `ADO/02_Development/Development_Assignment_04_Professional_Admin_Web_Productization_Authorization.md` |
 | Development Assignment 4 V5 Enablement — local R3 V0–V4, exact-SHA implementation review and H01 ADO correction approved; new Human V5 remains separately exact-bound and unauthorized | `ADO/02_Development/Development_Assignment_04_V5_Enablement_Authorization.md` |
 | Development Assignment 5 Professional Mobile Productization — Workstreams A–F and AVS V0–V4 technically closed for the exact authorized local scope | `ADO/02_Development/Development_Assignment_05_Professional_Mobile_Productization_Authorization.md` |
-| Development Assignment 5 V5 Enablement — runs 7–11 are consumed history without a proven Product/APK/NFC/hardware finding; focused installation-diagnostic correction `9549da9`/tree `ced33c8` passed exact-head CI `30471511446` attempt 1 12/12; prepublication round-1 P3 ADO truth closed, round 2 and final independent Exact-Head review `APPROVED` with zero open P0–P3; technically final/DO NOT START; eleven Phase-0 authorities are consumed and Phase 0 remains separately Human-gated | `ADO/02_Development/Development_Assignment_05_V5_Enablement_Authorization.md` |
+| Development Assignment 5 V5 Enablement — runs 7–12 are consumed history without a proven Product/APK/NFC/hardware finding; run 12 stopped at `installation:adb_child_transport_mismatch` and cleaned; the focused `shell -T -x` install and Pool-before-STOP ordering corrections are V1/V2-focused green, the isolated 288/288 plus two post-test `57P01` attempt is not V3, and combined V3/V4/review remain pending/DO NOT START; twelve Phase-0 authorities are consumed and Phase 0 remains separately Human-gated | `ADO/02_Development/Development_Assignment_05_V5_Enablement_Authorization.md` |
 | Development Assignment 5 V5 Isolated PostgreSQL Correction — Runtime Guard source `ba1b6e9`, CI `30255104609` attempt 2 12/12, immutable binary/manifest and independent Exact-SHA `APPROVED`; historical correction rounds retained; hardware authority not granted | `ADO/02_Development/Development_Assignment_05_V5_Isolated_PostgreSQL_Correction_Authorization.md` |
 | Development Assignment 6 Production-like Platform and Operational Readiness — ADO-only candidate; Human acceptance and separate implementation/provisioning authority required | `ADO/02_Development/Development_Assignment_06_Production_Like_Platform_Authorization.md` |
 | Legal, Privacy and Commercial Readiness Start Package — internal Block-H/DT-079–DT-084 working draft; not legal advice, approved legal text or publication authority | `ADO/02_Development/Legal_Privacy_Commercial_Readiness_Start_Package.md` |
@@ -773,7 +804,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Development Assignment 1 Gate-C Response-Drop Runbook | `ADO/04_Operations/Development_Assignment_01_Gate_C_Response_Drop_Runbook.md` |
 | Development Assignment 3 V5 Human Functional/Physical Gate Runbook — complete fresh run passed and final closure approved; permanently non-executable without new separate authority | `ADO/04_Operations/Development_Assignment_03_V5_Runbook.md` |
 | Development Assignment 4 V5 Human Browser Gate Runbook — first gate failed closed and authority is consumed; corrected checkpoint handshake independently approved, but execution requires new exact-bound Human authority | `ADO/04_Operations/Development_Assignment_04_V5_Runbook.md` |
-| Development Assignment 5 V5 Human Android Runbook — non-executable; runs 7–11 are consumed history without a proven Product/APK/NFC/hardware finding; focused installation-diagnostic correction `9549da9`/tree `ced33c8` passed exact-head CI `30471511446` attempt 1 12/12; prepublication round-1 P3 ADO truth closed, round 2 and final independent Exact-Head review `APPROVED` with zero open P0–P3; technically final/DO NOT START; eleven Phase-0 authorities are consumed and exact-bound hardware authority remains separately Human-gated | `ADO/04_Operations/Development_Assignment_05_V5_Runbook.md` |
+| Development Assignment 5 V5 Human Android Runbook — non-executable; runs 7–12 are consumed history without a proven Product/APK/NFC/hardware finding; run 12 stopped at `installation:adb_child_transport_mismatch` and cleaned; the focused `shell -T -x` install and Pool-before-STOP ordering corrections are V1/V2-focused green, the isolated 288/288 plus two post-test `57P01` attempt is not V3, and combined V3/V4/review remain pending/DO NOT START; twelve Phase-0 authorities are consumed and exact-bound hardware authority remains separately Human-gated | `ADO/04_Operations/Development_Assignment_05_V5_Runbook.md` |
 
 ## Evidence
 
@@ -836,7 +867,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Development Assignment 4 DA4-V5-H01 Human Browser Failure Evidence — first gate failed closed at the premature Tag-reassignment checkpoint; P2 operational/gate reliability, complete cleanup, authority consumed and new run unauthorized | `ADO/05_Evidence/Development_Assignment_04_DA4_V5_H01_Human_Browser_Failure_Evidence.md` |
 | Development Assignment 4 DA4-V5-H01 Correction Independent Exact-SHA Review — `APPROVED`, zero open P0–P3 review findings; historical P2 remains until a fresh successful gate/final review and no new run is authorized | `ADO/05_Evidence/Development_Assignment_04_DA4_V5_H01_Correction_Independent_Exact_SHA_Review.md` |
 | Development Assignment 5 Local Implementation Evidence — Workstreams A–F and AVS V0–V4 technically closed for the exact authorized local scope | `ADO/05_Evidence/Development_Assignment_05_Local_Implementation_Evidence.md` |
-| Development Assignment 5 V5 Evidence — runs 7–11 are consumed history without a proven Product/APK/NFC/hardware finding; focused installation-diagnostic correction `9549da9`/tree `ced33c8` passed exact-head CI `30471511446` attempt 1 12/12; prepublication round-1 P3 ADO truth closed, round 2 and final independent Exact-Head review `APPROVED` with zero open P0–P3; technically final/DO NOT START; eleven Phase-0 authorities are consumed and Product Human V5 remains `NOT RUN`/unauthorized | `ADO/05_Evidence/Development_Assignment_05_V5_Evidence.md` |
+| Development Assignment 5 V5 Evidence — runs 7–12 are consumed history without a proven Product/APK/NFC/hardware finding; run 12 stopped at `installation:adb_child_transport_mismatch` and cleaned; the focused `shell -T -x` install and Pool-before-STOP ordering corrections are V1/V2-focused green, the isolated 288/288 plus two post-test `57P01` attempt is not V3, and combined V3/V4/review remain pending/DO NOT START; twelve Phase-0 authorities are consumed and Product Human V5 remains `NOT RUN`/unauthorized | `ADO/05_Evidence/Development_Assignment_05_V5_Evidence.md` |
 | Development Assignment 5 V5 Validation Query-Visibility Correction Independent Exact-SHA Review — review base `11a8269`, CI `30277641127` 12/12, `APPROVED`, zero open P0–P3; Hardware remains unauthorized | `ADO/05_Evidence/Development_Assignment_05_V5_Validation_Query_Visibility_Correction_Independent_Exact_SHA_Review.md` |
 | Development Assignment 5 V5 Validation Runtime Correction Independent Exact-SHA Review — initial candidate `534b6d2` had one P1 fail-open graph; source `7e8c0f7`, CI `30284566289` 12/12 and its artifact independently `APPROVED` with zero open P0–P3 for that exact source; artifact is now historical/DO NOT INSTALL after DA5-V5-VAL-UI-01 source correction and Hardware authority remains separately gated | `ADO/05_Evidence/Development_Assignment_05_V5_Validation_Runtime_Correction_Independent_Exact_SHA_Review.md` |
 | Development Assignment 5 DA5-V5-VAL-UI-01 Independent Source/Artifact Exact-SHA Review — source `e97bbe9`, tree `2958f45`, CI `30370977809` attempt 1 12/12 and exact replacement APK/manifest `APPROVED`, zero open P0–P3; artifact is now historical/DO NOT INSTALL | `ADO/05_Evidence/Development_Assignment_05_DA5_V5_VAL_UI_01_Independent_Source_Artifact_Exact_SHA_Review.md` |

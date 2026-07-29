@@ -37,9 +37,74 @@ export const DA5_V5_VALIDATION_PHASE0_ERROR_CATEGORIES =
   Object.freeze({
     adbChildTransportMismatch: 'adb_child_transport_mismatch',
     operationMismatch: 'operation_mismatch',
+    packageManagerArtifactRejection:
+      'package_manager_artifact_rejection',
+    packageManagerCommandContractMismatch:
+      'package_manager_command_contract_mismatch',
+    packageManagerInstalledStateConflict:
+      'package_manager_installed_state_conflict',
+    packageManagerPolicyRestriction:
+      'package_manager_policy_restriction',
     packageManagerReceiptMismatch: 'package_manager_receipt_mismatch',
+    packageManagerStorageRejection:
+      'package_manager_storage_rejection',
     verificationMismatch: 'verification_mismatch',
   });
+const packageManagerArtifactRejections = Object.freeze([
+  'INSTALL_FAILED_BAD_DEX_METADATA',
+  'INSTALL_FAILED_BAD_SIGNATURE',
+  'INSTALL_FAILED_CPU_ABI_INCOMPATIBLE',
+  'INSTALL_FAILED_DEXOPT',
+  'INSTALL_FAILED_INVALID_APK',
+  'INSTALL_FAILED_INVALID_URI',
+  'INSTALL_FAILED_MISSING_FEATURE',
+  'INSTALL_FAILED_MISSING_SHARED_LIBRARY',
+  'INSTALL_FAILED_MISSING_SPLIT',
+  'INSTALL_FAILED_NEWER_SDK',
+  'INSTALL_FAILED_NO_MATCHING_ABIS',
+  'INSTALL_FAILED_OLDER_SDK',
+  'INSTALL_FAILED_PACKAGE_CHANGED',
+  'INSTALL_FAILED_PROCESS_NOT_DEFINED',
+  'INSTALL_FAILED_TEST_ONLY',
+  'INSTALL_FAILED_VERIFICATION_FAILURE',
+  'INSTALL_FAILED_VERIFICATION_TIMEOUT',
+  'INSTALL_PARSE_FAILED_BAD_MANIFEST',
+  'INSTALL_PARSE_FAILED_BAD_PACKAGE_NAME',
+  'INSTALL_PARSE_FAILED_BAD_SHARED_USER_ID',
+  'INSTALL_PARSE_FAILED_CERTIFICATE_ENCODING',
+  'INSTALL_PARSE_FAILED_INCONSISTENT_CERTIFICATES',
+  'INSTALL_PARSE_FAILED_MANIFEST_EMPTY',
+  'INSTALL_PARSE_FAILED_MANIFEST_MALFORMED',
+  'INSTALL_PARSE_FAILED_NO_CERTIFICATES',
+  'INSTALL_PARSE_FAILED_NOT_APK',
+  'INSTALL_PARSE_FAILED_ONLY_COREAPP_ALLOWED',
+  'INSTALL_PARSE_FAILED_RESOURCES_ARSC_COMPRESSED',
+  'INSTALL_PARSE_FAILED_SKIPPED',
+  'INSTALL_PARSE_FAILED_UNEXPECTED_EXCEPTION',
+]);
+const packageManagerInstalledStateConflicts = Object.freeze([
+  'INSTALL_FAILED_ALREADY_EXISTS',
+  'INSTALL_FAILED_BAD_PERMISSION_GROUP',
+  'INSTALL_FAILED_CONFLICTING_PROVIDER',
+  'INSTALL_FAILED_DUPLICATE_PACKAGE',
+  'INSTALL_FAILED_DUPLICATE_PERMISSION',
+  'INSTALL_FAILED_DUPLICATE_PERMISSION_GROUP',
+  'INSTALL_FAILED_NO_SHARED_USER',
+  'INSTALL_FAILED_PERMISSION_MODEL_DOWNGRADE',
+  'INSTALL_FAILED_REPLACE_COULDNT_DELETE',
+  'INSTALL_FAILED_SANDBOX_VERSION_DOWNGRADE',
+  'INSTALL_FAILED_SHARED_USER_INCOMPATIBLE',
+  'INSTALL_FAILED_UID_CHANGED',
+  'INSTALL_FAILED_UPDATE_INCOMPATIBLE',
+  'INSTALL_FAILED_VERSION_DOWNGRADE',
+  'INSTALL_FAILED_WRONG_INSTALLED_VERSION',
+]);
+const packageManagerStorageRejections = Object.freeze([
+  'INSTALL_FAILED_CONTAINER_ERROR',
+  'INSTALL_FAILED_INSUFFICIENT_STORAGE',
+  'INSTALL_FAILED_INVALID_INSTALL_LOCATION',
+  'INSTALL_FAILED_MEDIA_UNAVAILABLE',
+]);
 export const DA5_V5_VALIDATION_PHASE0_ARTIFACT = Object.freeze({
   apk: Object.freeze({
     bytes: 65_631_433,
@@ -592,6 +657,7 @@ export class Da5V5ValidationPhase0Device {
             installSerial,
             'shell',
             '-T',
+            '-x',
             'cmd',
             'package',
             'install',
@@ -611,10 +677,10 @@ export class Da5V5ValidationPhase0Device {
           },
         );
       });
-      diagnosticCategory =
-        DA5_V5_VALIDATION_PHASE0_ERROR_CATEGORIES
-          .packageManagerReceiptMismatch;
-      if (exactSingleLine(installResult) !== 'Success') {
+      const packageManagerCategory =
+        classifyPackageManagerInstallReceipt(installResult);
+      if (packageManagerCategory !== null) {
+        diagnosticCategory = packageManagerCategory;
         throw new Error('DA5 V5 Validation package install mismatch');
       }
 
@@ -1637,6 +1703,63 @@ function exactSingleLine(value) {
     throw new Error('DA5 V5 Validation command output mismatch');
   }
   return match[1];
+}
+
+function classifyPackageManagerInstallReceipt(value) {
+  const generic =
+    DA5_V5_VALIDATION_PHASE0_ERROR_CATEGORIES
+      .packageManagerReceiptMismatch;
+  let line;
+  try {
+    line = exactSingleLine(value);
+  } catch {
+    return generic;
+  }
+  if (line === 'Success') {
+    return null;
+  }
+  if (line.length > 2_048) {
+    return generic;
+  }
+  if (
+    line === 'Error: must either specify a package size or an APK file'
+    || /^Error: Unknown option(?::)? -{1,2}[A-Za-z][A-Za-z0-9-]*$/u
+      .test(line)
+  ) {
+    return DA5_V5_VALIDATION_PHASE0_ERROR_CATEGORIES
+      .packageManagerCommandContractMismatch;
+  }
+  if (/^Failure \[user (?:0|[1-9][0-9]*) doesn't exist\]$/u.test(line)) {
+    return DA5_V5_VALIDATION_PHASE0_ERROR_CATEGORIES
+      .packageManagerPolicyRestriction;
+  }
+  const failure = /^Failure \[(INSTALL_(?:FAILED|PARSE_FAILED)_[A-Z0-9_]+)(?:: [^\u0000-\u001f\u007f\]]{1,1536})?\]$/u
+    .exec(line);
+  const code = failure?.[1];
+  if (code === undefined) {
+    return generic;
+  }
+  if (code === 'INSTALL_FAILED_USER_RESTRICTED') {
+    return DA5_V5_VALIDATION_PHASE0_ERROR_CATEGORIES
+      .packageManagerPolicyRestriction;
+  }
+  if (packageManagerArtifactRejections.includes(code)) {
+    return DA5_V5_VALIDATION_PHASE0_ERROR_CATEGORIES
+      .packageManagerArtifactRejection;
+  }
+  if (packageManagerInstalledStateConflicts.includes(code)) {
+    return DA5_V5_VALIDATION_PHASE0_ERROR_CATEGORIES
+      .packageManagerInstalledStateConflict;
+  }
+  if (packageManagerStorageRejections.includes(code)) {
+    return DA5_V5_VALIDATION_PHASE0_ERROR_CATEGORIES
+      .packageManagerStorageRejection;
+  }
+  if (code === 'INSTALL_FAILED_SESSION_INVALID') {
+    return DA5_V5_VALIDATION_PHASE0_ERROR_CATEGORIES
+      .packageManagerCommandContractMismatch;
+  }
+  return generic;
 }
 
 function exactLines(value) {

@@ -154,6 +154,11 @@ interface Da5V5CleanupFailureState {
   firstFailure?: unknown;
 }
 
+interface Da5V5CleanupStage {
+  readonly action: () => Promise<void> | void;
+  readonly completed?: () => void;
+}
+
 interface Da5V5RetainedStartupCleanup {
   readonly guardPid: number | null;
   readonly postgresPid: number | null;
@@ -197,6 +202,35 @@ async function attemptDa5V5ReattestationBoundStop(
   return attemptDa5V5CleanupStage(state, sendStop, stopped);
 }
 
+async function attemptDa5V5PoolClosureBoundStop(
+  state: Da5V5CleanupFailureState,
+  poolClosures: readonly Da5V5CleanupStage[],
+  reattest: () => Promise<void>,
+  sendStop: () => Promise<void>,
+  attested: () => void = () => undefined,
+  stopped: () => void = () => undefined,
+): Promise<boolean> {
+  let everyPoolClosed = state.firstFailure === undefined;
+  for (const closure of poolClosures) {
+    const closed = await attemptDa5V5CleanupStage(
+      state,
+      closure.action,
+      closure.completed,
+    );
+    everyPoolClosed = everyPoolClosed && closed;
+  }
+  if (!everyPoolClosed) {
+    return false;
+  }
+  return attemptDa5V5ReattestationBoundStop(
+    state,
+    reattest,
+    sendStop,
+    attested,
+    stopped,
+  );
+}
+
 export async function runDa5V5AllPathCleanupForTest(
   actions: readonly (() => Promise<void> | void)[],
 ): Promise<void> {
@@ -214,14 +248,16 @@ export async function runDa5V5AllPathCleanupForTest(
 
 export async function runDa5V5ReattestationBoundCleanupForTest(options: {
   readonly destructiveActions?: readonly (() => Promise<void> | void)[];
+  readonly poolClosures?: readonly (() => Promise<void> | void)[];
   readonly reattest: () => Promise<void>;
   readonly safeActions: readonly (() => Promise<void> | void)[];
   readonly sendStop: () => Promise<void>;
 }): Promise<void> {
   assertDa5V5FocusedTestProcess();
   const state: Da5V5CleanupFailureState = {};
-  const destructiveAuthority = await attemptDa5V5ReattestationBoundStop(
+  const destructiveAuthority = await attemptDa5V5PoolClosureBoundStop(
     state,
+    (options.poolClosures ?? []).map((action) => ({ action })),
     options.reattest,
     options.sendStop,
   );
@@ -1201,8 +1237,24 @@ Promise<Da5V5PostgresOwnerBackend> {
             !destructiveAuthorityRevoked
             && !destructiveAttestationPassed
           ) {
-            const stopCompleted = await attemptDa5V5ReattestationBoundStop(
+            const poolClosures: Da5V5CleanupStage[] = [];
+            for (const pool of [...ownedRuntimePools]) {
+              poolClosures.push({
+                action: async () => closePool(pool),
+                completed: () => ownedRuntimePools.delete(pool),
+              });
+            }
+            if (!activePoolClosed) {
+              poolClosures.push({
+                action: async () => closePool(activePool),
+                completed: () => {
+                  activePoolClosed = true;
+                },
+              });
+            }
+            const stopCompleted = await attemptDa5V5PoolClosureBoundStop(
               cleanupState,
+              poolClosures,
               cleanupReattest as () => Promise<void>,
               async () => activeGuard.sendAuthenticated('STOP_FAST'),
               () => {
@@ -1230,25 +1282,11 @@ Promise<Da5V5PostgresOwnerBackend> {
             );
           }
 
-          for (const pool of [...ownedRuntimePools]) {
-            await attempt(
-              async () => closePool(pool),
-              () => ownedRuntimePools.delete(pool),
-            );
-          }
           if (!heartbeatClosed) {
             await attempt(
               () => clearInterval(activeHeartbeat),
               () => {
                 heartbeatClosed = true;
-              },
-            );
-          }
-          if (!activePoolClosed) {
-            await attempt(
-              async () => closePool(activePool),
-              () => {
-                activePoolClosed = true;
               },
             );
           }

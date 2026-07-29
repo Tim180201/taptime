@@ -1,6 +1,6 @@
 # Development Assignment 5 — V5 Human Android Gate Runbook
 
-- Status: **PHASE-0 RUNS 7–11 ARE CONSUMED FAIL-CLOSED HISTORY WITHOUT A PROVEN PRODUCT/APK/NFC/HARDWARE FINDING — RUN 11 STOPPED AT `installation:operation_mismatch` AND ENDED WITH `cleanup:match`; ITS EXACT INSTALLATION CAUSE IS NOT DISTINGUISHABLE — THE FOCUSED INSTALLATION-DIAGNOSTIC CORRECTION `9549da9`, TREE `ced33c8`, EXACT-HEAD CI `30471511446` ATTEMPT 1 12/12 IS TECHNICALLY FINAL; PREPUBLICATION ROUND 1 P3 ADO TRUTH IS CLOSED, ROUND 2 AND FINAL INDEPENDENT EXACT-HEAD REVIEW ARE `APPROVED` WITH ZERO OPEN P0–P3 — ELEVEN PHASE-0 AUTHORITIES CONSUMED — NO CURRENT PHASE-0, HARDWARE, ADB, INSTALLATION OR PRODUCT-HUMAN-V5 AUTHORITY/DO NOT START**
+- Status: **PHASE-0 RUNS 7–12 ARE CONSUMED FAIL-CLOSED HISTORY WITHOUT A PROVEN PRODUCT/APK/NFC/HARDWARE FINDING — RUN 12 STOPPED AT `installation:adb_child_transport_mismatch` AND ENDED WITH `cleanup:match` — THE FOCUSED LOCAL `shell -T -x` INSTALL CORRECTION AND THE POOL-BEFORE-STOP GUARD ORDERING CORRECTION ARE V1/V2-FOCUSED GREEN — AN ISOLATED V3 ATTEMPT IS NOT V3 AFTER 288/288 ASSERTIONS BECAUSE TWO POST-TEST `57P01` EVENTS EXPOSED THE LOCAL GUARD RACE — COMBINED V3/V4/INDEPENDENT REVIEW REMAIN PENDING — TWELVE PHASE-0 AUTHORITIES CONSUMED — NO CURRENT PHASE-0, HARDWARE, ADB, INSTALLATION OR PRODUCT-HUMAN-V5 AUTHORITY/DO NOT START**
 - Date: 2026-07-29
 - Owner: Technical Lead
 - Approval authority for any run: Human Architect
@@ -29,7 +29,7 @@ APK/manifest passed the official verifier and independent Artifact Exact-SHA rev
 open P0–P3 for that exact historical source. The DA5-V5-VAL-UI-01 Controller/UI source correction
 historically superseded it: the listed APK/manifest is **HISTORICAL — DO NOT INSTALL**.
 
-**Phase 0 — Validation Binding Preflight** has no current authority. Eleven prior one-time
+**Phase 0 — Validation Binding Preflight** has no current authority. Twelve prior one-time
 authorizations are consumed without an attributable Tag result: run 1 stopped on a preinstalled
 Validation package; run 2 on the unsupported Samsung provider in the then-prior build; run 3
 because the generic launcher/package resolver did not uniquely start the explicit Activity and
@@ -111,6 +111,38 @@ attempt 1, 12/12. Prepublication review round 1 found exactly one P3 ADO-truth g
 code/test finding; round 2 approved and closed it. Final independent Exact-Head review returned
 `APPROVED` with zero open P0–P3. The correction is technically final; the operator remains
 **DO NOT START**.
+
+Run 12 used ADO baseline `3fcbcdec79dada8d43041a241127e52f4775e8d8`, tree
+`74cac3e8611e39938e2c52c25df8cde38be254d2`, and exact candidate `9549da9`/tree
+`ced33c8`. It emitted exactly `artifact:match`, `preflight:match`,
+`stage=installation status=mismatch category=adb_child_transport_mismatch`,
+`install_launch:mismatch`, `cleanup:match`, `failed:mismatch`. It emitted no
+`installed_provenance` receipt and reached no Validation UI, NFC or Tag step. Its authority is
+consumed, terminal cleanup matched, and no Product, APK, NFC or hardware finding is established.
+
+The focused local Run-12 correction changes only the PackageManager streaming invocation from
+`shell -T` to `shell -T -x`. The official ADB shell contract defines `-x` as disabling remote
+exit-code propagation and stdout/stderr separation. A remote PackageManager rejection therefore
+settles the ADB child and reaches the strict single-line parser. Only exact `Success` succeeds.
+Fixed allowlisted output forms map to disclosure-safe policy/user, artifact/parse/signature,
+installed-state/version/signature-conflict, storage or command-contract/usage categories.
+Unknown, malformed or multiline output remains generic `package_manager_receipt_mismatch`; a
+real spawn, stream, timeout, abort or ADB-child failure still rejects and maps to
+`adb_child_transport_mismatch`. No raw output, code or detail is emitted or persisted. The shared
+ADB runner, streaming snapshot, exact artifact/package/user-0 binding, timeouts, zeroization,
+provenance, fail-closed behavior and cleanup remain unchanged. Focused Operator regression passes
+150/150 and the tests-inclusive Mobile typecheck passes with the test
+source included. A complete Mobile attempt passed 51/52 files and 866/867 tests; the sole failure
+was the known generated native-output contamination exceeding the locked Validation native-source
+closure. It was not retried or removed. The Run-12 install candidate remains V1/V2-focused green.
+A later isolated V3 attempt is not recognized as V3: after all 288/288 Synthetic assertions
+passed, two post-test PostgreSQL `57P01` events exposed that the local Guard stopped PostgreSQL
+before closing its still-live pools. Preceding wrapper setup stops likewise provide no V3
+evidence. The Human Architect replaced that contradictory order with successful capability/DB
+reattestation, closure of all owned Runtime pools and the active Installer pool, unchanged
+binary/lifecycle reattestation and only then `STOP_FAST`. The focused Guard suite passes 78/78 and
+the Synthetic workspace tests-inclusive typecheck passes. Combined V3, V4 and independent review
+remain pending; the operator remains **DO NOT START**.
 
 The focused local Run-10 diagnostic correction preserves every stage, aggregate receipt,
 mutation, cleanup and terminal boundary. A pre-install device re-attestation mismatch remains
@@ -275,8 +307,13 @@ operator enters exact `install-launch`. Receipt `waiting:match` is only the hand
 separately authorized Human sequence below; it is not a UI attestation.
 
 Any future independently approved install-launch failure must emit exactly one of the five fixed
-stage/category receipts above immediately before the aggregate `install_launch:mismatch`. Raw
-errors, installed paths, device serials and PackageManager output remain prohibited.
+stage/category receipts above immediately before the aggregate `install_launch:mismatch`. The
+PackageManager install uses exact `shell -T -x` so a remote rejection reaches only the strict
+single-line parser. Only exact `Success` succeeds. Fixed allowlisted forms may emit only the safe
+policy/user, artifact/parse/signature, installed-state/version/signature-conflict, storage,
+command-contract/usage or generic receipt category; unknown, malformed and multiline output is
+generic. True local ADB/child failures continue to reject before it. Raw errors, codes, details,
+installed paths, device serials and PackageManager output remain prohibited.
 
 After `waiting:match`, the future Human and operator must perform exactly this sequence:
 
@@ -425,9 +462,9 @@ Complete uninstall and scoped cleanup are mandatory.
 | Package/runtime | `com.tim180201.mobile.validation`; signer `fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c`; `local-validation-only`; `NfcA+MifareUltralight`; exact roles A/B/X; exactly one active installed provider from `com.google.android.marvin.talkback` or `com.samsung.android.accessibility.talkback`; none or both fail closed; exactly one queries block with those two package queries, one exact `VIEW` + `BROWSABLE` + `https` intent and zero providers; no Product deep link or Tag dispatch |
 | Historical native/source verification — DO NOT INSTALL | Correction `7e8c0f7742e6407b8917205fd337a552f7dec714`, tree `3e4d1356b859fecf70d365fecbb563e2088100f3`; exact-head CI `30284566289`, attempt 1, 12/12; exact 2,032,807-byte executable Metro bundle SHA-256 `e4caf2db73cfbcdaf779f337bf3a3f99e95d182950522323052bc31ae10c93d3`; exact 555-source/2,667,064-source-byte closure SHA-256 `29691fc137c63906e5cf0c5cd47e2df0643064ab6dbddc00e0d3ec467d492ed3`; independent correction re-review and Artifact Exact-SHA review each `APPROVED`, zero open P0–P3; official artifact verifier `PASS`; superseded for installation by DA5-V5-VAL-UI-01 source correction |
 | Device, accessibility and A/B/X fingerprints | `UNBOUND — DO NOT START` |
-| One-time Phase 0 authorization/result | `RUN 1 CONSUMED — PREINSTALLED PACKAGE`; `RUN 2 CONSUMED — SAMSUNG PROVIDER UNSUPPORTED BY PRIOR BUILD`; `RUN 3 CONSUMED — GENERIC RESOLVER DID NOT UNIQUELY START EXPLICIT ACTIVITY`; `RUN 4 CONSUMED — EXPLICIT MAINACTIVITY COLD START FAILED MISSING EXPOASSET`; `RUN 5 CONSUMED — EXACT APK/DEVICE CHECKPOINT PASSED, THEN GENERIC FAIL-CLOSED SCAN PATH`; `RUN 6 CONSUMED — EXACT e97bbe9 APK/DEVICE CHECKPOINT PASSED, THEN FIRST A-SCAN SHOWED ONLY GENERIC FAIL-CLOSED STATE`; `RUN 7 CONSUMED — EXACT effc57a APK/DEVICE CHECKPOINT PASSED, THEN FIRST A-SCAN STOPPED AT SAFE technology_evidence`; `RUN 8 CONSUMED — EXACT 03694f2 APK INSTALLED, THEN LEGITIMATE ANDROID-15 ~ PATH REJECTED BEFORE MAINACTIVITY LAUNCH`; `RUN 9 CONSUMED — artifact:match, preflight:match, install_launch:mismatch, cleanup:match, failed:mismatch; NO SCAN/UI HANDOFF AND EXACT CAUSE NOT RECONSTRUCTABLE`; `RUN 10 CONSUMED — artifact:match, preflight:match, installation/operation_mismatch, install_launch:mismatch, cleanup:match, failed:mismatch; NO installed_provenance OR UI/NFC/TAG STEP; EXACT CAUSE NOT RECONSTRUCTABLE BECAUSE PRE-INSTALL VERIFICATION WAS SUMMARIZED BY THE SAME CATEGORY`; `RUN 11 CONSUMED — BASELINE d8549c3/TREE 04ea2d0; artifact:match, preflight:match, stage=installation status=mismatch category=operation_mismatch, install_launch:mismatch, cleanup:match, failed:mismatch; NO installed_provenance OR UI/NFC/TAG STEP`; runs 5–11 have no attributable Tag result and prove no hardware defect; runs 10–11 establish no Product/APK finding; run-7 physical `techTypes` remain unknown; no current authority |
+| One-time Phase 0 authorization/result | `RUN 1 CONSUMED — PREINSTALLED PACKAGE`; `RUN 2 CONSUMED — SAMSUNG PROVIDER UNSUPPORTED BY PRIOR BUILD`; `RUN 3 CONSUMED — GENERIC RESOLVER DID NOT UNIQUELY START EXPLICIT ACTIVITY`; `RUN 4 CONSUMED — EXPLICIT MAINACTIVITY COLD START FAILED MISSING EXPOASSET`; `RUN 5 CONSUMED — EXACT APK/DEVICE CHECKPOINT PASSED, THEN GENERIC FAIL-CLOSED SCAN PATH`; `RUN 6 CONSUMED — EXACT e97bbe9 APK/DEVICE CHECKPOINT PASSED, THEN FIRST A-SCAN SHOWED ONLY GENERIC FAIL-CLOSED STATE`; `RUN 7 CONSUMED — EXACT effc57a APK/DEVICE CHECKPOINT PASSED, THEN FIRST A-SCAN STOPPED AT SAFE technology_evidence`; `RUN 8 CONSUMED — EXACT 03694f2 APK INSTALLED, THEN LEGITIMATE ANDROID-15 ~ PATH REJECTED BEFORE MAINACTIVITY LAUNCH`; `RUN 9 CONSUMED — artifact:match, preflight:match, install_launch:mismatch, cleanup:match, failed:mismatch; NO SCAN/UI HANDOFF AND EXACT CAUSE NOT RECONSTRUCTABLE`; `RUN 10 CONSUMED — artifact:match, preflight:match, installation/operation_mismatch, install_launch:mismatch, cleanup:match, failed:mismatch; NO installed_provenance OR UI/NFC/TAG STEP; EXACT CAUSE NOT RECONSTRUCTABLE BECAUSE PRE-INSTALL VERIFICATION WAS SUMMARIZED BY THE SAME CATEGORY`; `RUN 11 CONSUMED — BASELINE d8549c3/TREE 04ea2d0; artifact:match, preflight:match, stage=installation status=mismatch category=operation_mismatch, install_launch:mismatch, cleanup:match, failed:mismatch; NO installed_provenance OR UI/NFC/TAG STEP`; `RUN 12 CONSUMED — BASELINE 3fcbcdec/TREE 74cac3e; artifact:match, preflight:match, stage=installation status=mismatch category=adb_child_transport_mismatch, install_launch:mismatch, cleanup:match, failed:mismatch; NO installed_provenance OR UI/NFC/TAG STEP`; runs 5–12 have no attributable Tag result and prove no hardware defect; runs 10–12 establish no Product/APK finding; run-7 physical `techTypes` remain unknown; no current authority |
 
-**Later Product Human V5** remains the separate run described below. None of the eleven consumed
+**Later Product Human V5** remains the separate run described below. None of the twelve consumed
 Phase-0 attempts supplies a Product/Human-V5 result. No further installation, ADB or hardware action is authorized
 until a fresh exact Human authorization; production, production data, system changes, deployment
 and distribution remain unauthorized.
