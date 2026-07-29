@@ -779,6 +779,52 @@ describe('DA5 V5 Validation device and protocol boundary', () => {
     expect(runner.uninstallCount).toBe(1);
   });
 
+  it('classifies a pre-install device re-attestation mismatch as verification-only', async () => {
+    const runner = new FakeRunner();
+    const receipts: string[] = [];
+    const session = createSession(runner, {
+      receipt(
+        receiptStage: string,
+        status: 'match' | 'mismatch',
+        receiptCategory?: 'operation_mismatch'
+          | 'verification_mismatch',
+      ) {
+        receipts.push(
+          `${receiptStage}:${status}:${receiptCategory ?? 'none'}`,
+        );
+      },
+    });
+
+    await session.start();
+    runner.userListOutput =
+      'Users:\n\tUserInfo{0:Owner:c13} running\n'
+      + '\tUserInfo{10:SECRET_PREINSTALL_PROFILE:30} running\n';
+    await session.submit('install-launch');
+    await expect(session.done).resolves.toEqual({
+      status: 'mismatch',
+    });
+
+    expect(runner.mutations).toHaveLength(0);
+    expect(runner.calls.some((call) =>
+      call.arguments_.includes('install'))).toBe(false);
+    expect(receipts.filter((receipt) =>
+      !receipt.endsWith(':none'))).toEqual([
+      'installation:mismatch:verification_mismatch',
+    ]);
+    const diagnosticIndex = receipts.indexOf(
+      'installation:mismatch:verification_mismatch',
+    );
+    expect(receipts.slice(diagnosticIndex, diagnosticIndex + 2))
+      .toEqual([
+        'installation:mismatch:verification_mismatch',
+        'install_launch:mismatch:none',
+      ]);
+    expect(receipts.at(-1)).toBe('failed:mismatch:none');
+    expect(receipts.join('\n')).not.toContain(
+      'SECRET_PREINSTALL_PROFILE',
+    );
+  });
+
   it.each([
     [
       'installation',

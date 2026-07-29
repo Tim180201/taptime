@@ -555,7 +555,7 @@ export class Da5V5ValidationPhase0Device {
     let diagnosticStage =
       DA5_V5_VALIDATION_PHASE0_INSTALL_LAUNCH_STAGES.installation;
     let diagnosticCategory =
-      DA5_V5_VALIDATION_PHASE0_ERROR_CATEGORIES.operationMismatch;
+      DA5_V5_VALIDATION_PHASE0_ERROR_CATEGORIES.verificationMismatch;
     try {
       if (!this.#preflightMatched || this.#mutationMayHaveStarted) {
         throw new Error('DA5 V5 Validation install order mismatch');
@@ -580,8 +580,10 @@ export class Da5V5ValidationPhase0Device {
       }
       this.#installUncertain = true;
       this.#mutationMayHaveStarted = true;
-      const installResult = await this.snapshot.use((snapshot) =>
-        this.runner.run(
+      const installResult = await this.snapshot.use((snapshot) => {
+        diagnosticCategory =
+          DA5_V5_VALIDATION_PHASE0_ERROR_CATEGORIES.operationMismatch;
+        return this.runner.run(
           [
             '-s',
             installSerial,
@@ -604,7 +606,8 @@ export class Da5V5ValidationPhase0Device {
             stdinBytes: snapshot,
             timeoutMilliseconds: timeouts.install,
           },
-        ));
+        );
+      });
       if (exactSingleLine(installResult) !== 'Success') {
         throw new Error('DA5 V5 Validation package install mismatch');
       }
