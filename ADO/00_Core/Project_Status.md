@@ -1,6 +1,6 @@
 # Project Status
 
-Status: CORE ROADMAP V2 COMPLETIONS REMAIN PRESERVED FOR THEIR RECORDED SCOPES — DA4 REMAINS OPEN FOR A LATER FRESH HUMAN V5 — DA5 V0–V4 AND THE LOCAL DA5-V5 RUNTIME GUARD REMAIN INDEPENDENTLY APPROVED; DA5-V5-VAL-NATIVE-CAPTURE-DIAGNOSTICS SOURCE `effc57a`, TREE `758dbfa`, EXACT-HEAD CI `30377569479` ATTEMPT 1 12/12 AND ITS REVIEWS REMAIN HISTORICAL TRUTH — PHASE-0 RUN 7 ON ADO BASELINE `aebffbe` STOPPED AT THE FIRST A-SCAN WITH SAFE STAGE `technology_evidence`; RUN 8 ON BASELINE `39a6ef0`, TREE `10cdf16`, INSTALLED THE EXACT `03694f2` ARTIFACT BUT STOPPED BEFORE `.MainActivity` LAUNCH BECAUSE AN AD-HOC HOST REGEX REJECTED A LEGITIMATE ANDROID-15 `~` PATH; BOTH AUTHORITIES ARE CONSUMED, RUN 8 CLEANED PACKAGE/PROCESS/GLOBAL REVERSE TO ZERO, AND NEITHER RUN PRODUCED A FINGERPRINT OR TAG RESULT — PHYSICAL `techTypes` REMAIN UNKNOWN AND NO HARDWARE DEFECT IS PROVEN — `DA5-V5-VAL-TECH-01` SOURCE `03694f2`, TREE `6c60396`, EXACT-HEAD CI `30386552118` ATTEMPT 1 12/12, PREPUBLICATION REVIEW ROUND 2 AND INDEPENDENT SOURCE/ARTIFACT EXACT-SHA REVIEW ARE APPROVED WITH ZERO OPEN P0–P3; ITS EXACT REPLACEMENT APK/MANIFEST REMAINS DO NOT INSTALL — VALIDATION PHASE-0 OPERATOR CORRECTION `083fdfb`, TREE `24bd130`, EXACT-HEAD CI `30402655381` ATTEMPT 1 12/12 AND INDEPENDENT ROUND-2 EXACT-SHA REVIEW ARE `APPROVED` WITH ZERO OPEN P0–P3; BOTH ROUND-1 P1 FINDINGS ARE CLOSED AND THE OPERATOR REMAINS DO NOT START — EIGHT PHASE-0 AUTHORITIES ARE CONSUMED; NO NEW PHASE-0/HARDWARE/ADB/INSTALLATION OR PRODUCT-HUMAN-V5 AUTHORITY EXISTS — PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, SYSTEM CHANGES, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
+Status: CORE ROADMAP V2 COMPLETIONS REMAIN PRESERVED FOR THEIR RECORDED SCOPES — DA4 REMAINS OPEN FOR A LATER FRESH HUMAN V5 — DA5 V0–V4 AND THE LOCAL DA5-V5 RUNTIME GUARD REMAIN INDEPENDENTLY APPROVED; DA5-V5-VAL-NATIVE-CAPTURE-DIAGNOSTICS SOURCE `effc57a`, TREE `758dbfa`, EXACT-HEAD CI `30377569479` ATTEMPT 1 12/12 AND ITS REVIEWS REMAIN HISTORICAL TRUTH — PHASE-0 RUN 7 ON ADO BASELINE `aebffbe` STOPPED AT THE FIRST A-SCAN WITH SAFE STAGE `technology_evidence`; RUN 8 ON BASELINE `39a6ef0`, TREE `10cdf16`, INSTALLED THE EXACT `03694f2` ARTIFACT BUT STOPPED BEFORE `.MainActivity` LAUNCH BECAUSE AN AD-HOC HOST REGEX REJECTED A LEGITIMATE ANDROID-15 `~` PATH; BOTH AUTHORITIES ARE CONSUMED, RUN 8 CLEANED PACKAGE/PROCESS/GLOBAL REVERSE TO ZERO, AND NEITHER RUN PRODUCED A FINGERPRINT OR TAG RESULT — PHYSICAL `techTypes` REMAIN UNKNOWN AND NO HARDWARE DEFECT IS PROVEN — `DA5-V5-VAL-TECH-01` SOURCE `03694f2`, TREE `6c60396`, EXACT-HEAD CI `30386552118` ATTEMPT 1 12/12, PREPUBLICATION REVIEW ROUND 2 AND INDEPENDENT SOURCE/ARTIFACT EXACT-SHA REVIEW ARE APPROVED WITH ZERO OPEN P0–P3; ITS EXACT REPLACEMENT APK/MANIFEST REMAINS DO NOT INSTALL — VALIDATION PHASE-0 OPERATOR CORRECTION `083fdfb`, TREE `24bd130`, EXACT-HEAD CI `30402655381` ATTEMPT 1 12/12 AND INDEPENDENT ROUND-2 EXACT-SHA REVIEW REMAIN HISTORICALLY `APPROVED` WITH ZERO OPEN P0–P3; BOTH ROUND-1 P1 FINDINGS ARE CLOSED — LATER READINESS CANDIDATE `496ca59`, TREE `b398b89`, RETAINS GREEN SAFE-ROOT V3 BUT EXACT-CANDIDATE CI `30427205223` ATTEMPT 1 FAILED 11/12 AND FORMAL REVIEW RETURNED `CHANGES REQUIRED` WITH EXACTLY ONE OUT-OF-SCOPE P2 CI/TEST-RELIABILITY FINDING AND NO PRODUCT OR SECURITY FINDING; NO RETRY IS AUTHORIZED OR EXECUTED — THE OPERATOR REMAINS DO NOT START — EIGHT PHASE-0 AUTHORITIES ARE CONSUMED; NO NEW PHASE-0/HARDWARE/ADB/INSTALLATION OR PRODUCT-HUMAN-V5 AUTHORITY EXISTS — PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, SYSTEM CHANGES, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
 DA5 decision-time Option-A trust anchor: exactly two direct admin-group members, zero nested
 groups; full-record SHA-256 `b006276c09d8f2713f6132ea79cec167ab3a3c2887ee53e95eb00c1cc33719a5`;
 membership SHA-256 `70a683b7ebc7981533015d5d63cf12dfb2eabbfa665c34720eddb4d09e9e3064`;
@@ -187,7 +187,9 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   **DO NOT START** and grants no Phase-0, installation, ADB, hardware or Product Human-V5
   authority.
 
-  The current local DA5-V5 Phase-0 readiness correction is an uncommitted candidate on baseline
+  The published eight-file DA5-V5 Phase-0 readiness candidate is
+  `496ca59f0965670b29a210b8aa2443b99bb4a386`, tree
+  `b398b89c77f7f0b4799a7a06b11bd2daf51fd34a`, on exact baseline
   `fa1aaa782415aceb85c0aa5c1233732ef9afa4dc`, tree
   `da69081517d2b0b9631eaef393b0a6022735061e`. It binds Android-15/Toybox process inspection to
   untruncated exact process names, makes Human-PASS an explicit one-shot state before cleanup,
@@ -203,10 +205,19 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   two optional B1 Supavisor skips. Migrations 001–013 apply/replay/ledger, C3B binary,
   52/52 Mobile test-source inclusion, the unchanged artifact verifier and the 861-module Android
   export passed. PostgreSQL and both task ports were stopped/absent and the complete task root was
-  moved recoverably to Trash. This subsequent four-file ADO synchronization is R0 over unchanged
-  executable/test bytes. There is still no candidate commit/tree, exact-head V4 or independent
-  review; the candidate remains **DO NOT START** and changes neither Validation/App code nor the
-  bound APK/manifest/source closure.
+  moved recoverably to Trash. The candidate's four-file ADO synchronization was R0 over unchanged
+  executable/test bytes, and the safe-root V3/eight-file candidate itself has no code finding.
+  Exact-candidate CI `30427205223`, attempt 1, completed failure with 11/12 jobs. Job
+  `90496143535` was red after its 3/3 files and 121/121 assertions had passed because a subsequent
+  unhandled PostgreSQL `57P01` occurred on `taptime_c3e1_dirty_*`. The C3E1 test, backend and
+  workflow were unchanged; the test blob is identical to green `083fdfb` and five previous green
+  CI runs. The cause is the `dirtyPool.end()` to immediate
+  `DROP DATABASE ... WITH (FORCE)` sequence racing asynchronous client-end handling in
+  `pg-pool@3.14.0`. Independent formal review returned `CHANGES REQUIRED` with exactly one P2
+  outside the candidate scope for CI/test reliability and no Product or Security finding. No
+  retry was authorized or executed. A focused harness correction and new CI require new Human
+  authority. The candidate remains **DO NOT START** and changes neither Validation/App code nor
+  the bound APK/manifest/source closure.
 - **Development Assignment 5 Workstreams A–F and V0–V4 are technically closed/MERGE_READY;
   Human V5 remains unauthorized.** The Human Architect expressly accepted ADR-0016/DA5-P01–P12 and
   ADR-0017/DA5-T01–T15 and authorized the bounded Development implementation plus subsequent
@@ -1119,6 +1130,9 @@ Two Epics are concurrently Active, per EP-009's own stated relationship to the r
    CI `30386552118` and its independently approved exact replacement APK/manifest with zero open
    P0–P3 as **DO NOT INSTALL**. Preserve the independently approved Validation Phase-0 operator
    correction `083fdfb`, tree `24bd130`, and CI `30402655381` 12/12 as **DO NOT START**.
+   Treat later readiness candidate `496ca59`, tree `b398b89`, as `CHANGES REQUIRED` after failed
+   exact-candidate CI `30427205223` 11/12 and exactly one out-of-scope P2 CI/test-reliability
+   finding. Do not retry it; a focused harness correction and new CI require new Human authority.
    Do not begin another Phase 0 without binding this independently
    approved exact replacement artifact in a
    fresh explicit

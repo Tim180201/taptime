@@ -1,6 +1,6 @@
 # Development Assignment 5 — V5 Human Android Gate Runbook
 
-- Status: **PHASE-0 RUN 7 CONSUMED AT SAFE `technology_evidence`; RUN 8 INSTALLED THE EXACT `03694f2` ARTIFACT BUT STOPPED BEFORE `.MainActivity` LAUNCH BECAUSE AN AD-HOC HOST REGEX REJECTED A LEGITIMATE ANDROID-15 `~` PATH; RUN 8 CLEANED PACKAGE/PROCESS/GLOBAL REVERSE TO ZERO — NO FINGERPRINT/TAG RESULT OR HARDWARE DEFECT PROVEN — EIGHT PHASE-0 AUTHORITIES CONSUMED — OPERATOR CORRECTION `083fdfb`, TREE `24bd130`, EXACT-HEAD CI `30402655381` ATTEMPT 1 12/12 AND INDEPENDENT ROUND-2 REVIEW `APPROVED`, ZERO OPEN P0–P3 — CURRENT LOCAL PHASE-0 READINESS CORRECTION ON BASELINE `fa1aaa7` PASSED FRESH SAFE-ROOT V3 BUT HAS NO CANDIDATE SHA/TREE, V4 OR REVIEW BINDING — NO CURRENT PHASE-0 OR HUMAN-V5 AUTHORITY/DO NOT START**
+- Status: **PHASE-0 RUN 7 CONSUMED AT SAFE `technology_evidence`; RUN 8 INSTALLED THE EXACT `03694f2` ARTIFACT BUT STOPPED BEFORE `.MainActivity` LAUNCH BECAUSE AN AD-HOC HOST REGEX REJECTED A LEGITIMATE ANDROID-15 `~` PATH; RUN 8 CLEANED PACKAGE/PROCESS/GLOBAL REVERSE TO ZERO — NO FINGERPRINT/TAG RESULT OR HARDWARE DEFECT PROVEN — EIGHT PHASE-0 AUTHORITIES CONSUMED — OPERATOR CORRECTION `083fdfb`, TREE `24bd130`, EXACT-HEAD CI `30402655381` ATTEMPT 1 12/12 AND INDEPENDENT ROUND-2 REVIEW REMAIN HISTORICALLY `APPROVED`, ZERO OPEN P0–P3 — PUBLISHED READINESS CANDIDATE `496ca59`, TREE `b398b89`, RETAINS GREEN SAFE-ROOT V3 BUT EXACT-CANDIDATE CI `30427205223` ATTEMPT 1 FAILED 11/12; FORMAL REVIEW `CHANGES REQUIRED` WITH EXACTLY ONE OUT-OF-SCOPE P2 CI/TEST-RELIABILITY FINDING, NO PRODUCT OR SECURITY FINDING AND NO AUTHORIZED/EXECUTED RETRY — NO CURRENT PHASE-0 OR HUMAN-V5 AUTHORITY/DO NOT START**
 - Date: 2026-07-29
 - Owner: Technical Lead
 - Approval authority for any run: Human Architect
@@ -83,14 +83,15 @@ cleanup without creating or removing reverse mappings. It re-attests the ownersh
 force-stop and again before version-conditional uninstall; absent, ambiguous or changed
 provenance is preserved and returns mismatch.
 
-#### Current local readiness delta
+#### Published readiness candidate and consumed V4/review
 
-The current focused local candidate starts from exact baseline
+The published eight-file candidate
+`496ca59f0965670b29a210b8aa2443b99bb4a386`, tree
+`b398b89c77f7f0b4799a7a06b11bd2daf51fd34a`, starts from exact baseline
 `fa1aaa782415aceb85c0aa5c1233732ef9afa4dc`, tree
-`da69081517d2b0b9631eaef393b0a6022735061e`. It has no candidate commit/tree, V4 or
-independent-review binding and remains **DO NOT START**. It changes no Validation App, APK,
-manifest, artifact, NFC acceptance rule, dependency, lockfile, schema, Product rule or later
-Product-Human-V5 workflow.
+`da69081517d2b0b9631eaef393b0a6022735061e`. It remains **DO NOT START**. It changes no
+Validation App, APK, manifest, artifact, NFC acceptance rule, dependency, lockfile, schema,
+Product rule or later Product-Human-V5 workflow.
 
 The final fresh detached sparse safe-root V3 bound executable-patch SHA-256
 `5dea48121b62fe7ebb4894f72425aa5ef5f759e113c3dd349f9fd48bb29fe9b4` and exact Node
@@ -103,7 +104,18 @@ passed across 148 test files, 2,505 tests and exactly two optional B1 Supavisor 
 52/52 Mobile test-source inclusion, the unchanged official artifact verifier and one isolated
 861-module Android export passed. The exact task PostgreSQL was stopped, ports 55437 and 55435
 were absent, and the complete task root was moved recoverably to Trash. The subsequent four-file
-ADO synchronization is R0 over unchanged executable/test bytes.
+ADO synchronization was R0 over unchanged executable/test bytes. The safe-root V3/eight-file
+candidate itself has no code finding.
+
+Exact-candidate CI `30427205223`, attempt 1, completed failure with 11/12 jobs. Job
+`90496143535` became red after its 3/3 files and 121/121 assertions passed because a subsequent
+unhandled PostgreSQL `57P01` occurred on `taptime_c3e1_dirty_*`. The C3E1 test, backend and
+workflow are unchanged; the test blob is identical to green `083fdfb` and five previous green CI
+runs. The cause is the `dirtyPool.end()` to immediate `DROP DATABASE ... WITH (FORCE)` sequence
+racing asynchronous client-end handling in `pg-pool@3.14.0`. Independent formal review returned
+`CHANGES REQUIRED` with exactly one P2 outside the candidate scope for CI/test reliability and no
+Product or Security finding. No retry was authorized or executed. A focused harness correction
+and new CI require new Human authority.
 
 The readiness delta uses the Android-Toybox-compatible exact process query
 `ps -A -w -o NAME:4`. Only the exact unpadded header `NAME` and unpadded, whitespace-free process
@@ -269,7 +281,7 @@ Complete uninstall and scoped cleanup are mandatory.
 | Historical `effc57a` Artifact Exact-SHA review | `APPROVED`, zero open P0–P3; all 32 manifest source-closure files byte-exact; package/signature/version, NFC-only permission, backup/transfer disabled, cleartext/network blocked and no Product dispatch/deep link; DEX 4 required present / 14 forbidden absent; Hermes Validation markers present and Product/network/database/storage markers absent |
 | `DA5-V5-VAL-TECH-01` source/review/CI | `03694f2d877bc323791e93473ad01ceb82af70df`; tree `6c6039683e067ef29f1f917a60c2628d26e38784`; exact-head CI `30386552118`, attempt 1, 12/12; prepublication review round 2 `APPROVED`, zero open P0–P3 |
 | Validation Phase-0 operator source/review/CI — DO NOT START | Baseline `39a6ef09fad18375af025bc8ed12cc1ea6dda964`, tree `10cdf16421fe564e1961a39d79e20775c0269fc4`; candidate `083fdfb259089d976e48f824e0862f10637d3290`, tree `24bd130500934c6a48fd9314fa06387d6ebdedcd`; exact-head CI `30402655381`, attempt 1, 12/12; independent Exact-SHA re-review round 2 `APPROVED`, zero open P0–P3; both round-1 P1 findings closed; no Phase-0, installation, ADB or hardware authority |
-| Current local Phase-0 readiness candidate — DO NOT START | Exact baseline `fa1aaa782415aceb85c0aa5c1233732ef9afa4dc`, tree `da69081517d2b0b9631eaef393b0a6022735061e`; Toybox process parsing, explicit one-time `human-pass`, deterministic terminal receipt ordering, four catchable signals and exact 30-presentation Human protocol; fresh safe-root V3 passed 20/20 builds, 21/21 typechecks and 21/21 suites / 148 files / 2,505 tests plus two optional skips and all migration/C3B/Mobile-inclusion/artifact/export gates; no candidate SHA/tree, V4, independent review or hardware authority |
+| Published Phase-0 readiness candidate — DO NOT START | Candidate `496ca59f0965670b29a210b8aa2443b99bb4a386`, tree `b398b89c77f7f0b4799a7a06b11bd2daf51fd34a`; exact baseline `fa1aaa782415aceb85c0aa5c1233732ef9afa4dc`, tree `da69081517d2b0b9631eaef393b0a6022735061e`; Toybox process parsing, explicit one-time `human-pass`, deterministic terminal receipt ordering, four catchable signals and exact 30-presentation Human protocol; safe-root V3/eight-file candidate has no code finding; exact-candidate CI `30427205223`, attempt 1, failed 11/12 after job `90496143535` passed 3/3 files and 121/121 assertions but emitted later unhandled PostgreSQL `57P01` on `taptime_c3e1_dirty_*`; formal review `CHANGES REQUIRED`, exactly one out-of-scope P2 CI/test-reliability finding, no Product/Security finding; no retry or hardware authority |
 | `DA5-V5-VAL-TECH-01` candidate APK — DO NOT INSTALL | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-validation/da5-v5-validation-03694f2d877b-d2084486b07f27bd/app-release-d2084486b07f27bd.apk`; 65,631,433 bytes; mode `0444`; SHA-256 `d2084486b07f27bdbd72f9f32e38531f8de31dad18ef4789cab2ec44135e05f5`; official verifier `PASS`; independent Source/Artifact Exact-SHA review `APPROVED`, zero open P0–P3 |
 | `DA5-V5-VAL-TECH-01` candidate manifest — DO NOT INSTALL | Same directory, `manifest-03694f2d877b.json`; 6,700 bytes; mode `0444`; SHA-256 `aa2a243cd4f81ead806c43e27d6f9c12c28e396db64fe556d8ddf02a8d52f347`; all 32 source-closure entries matched; independent Source/Artifact Exact-SHA review `APPROVED`, zero open P0–P3 |
 | `DA5-V5-VAL-TECH-01` package/security boundary | `com.tim180201.mobile.validation`; versionCode `1`; versionName `1.0.0`; `local-validation-only`; one v2 signer with certificate SHA-256 `fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c`; NFC-only; no network permission; cleartext denied; backup/transfer denied; no Product deep links or Tag dispatch; required native modules present, forbidden modules absent; Validation marker present and Product runtime marker absent |

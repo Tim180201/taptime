@@ -1,10 +1,12 @@
 # Development Assignment 5 — V5 Validation Phase-0 Operator Correction Independent Exact-SHA Review
 
-- Status: **APPROVED**
+- Status: **HISTORICAL ROUND-2 `083fdfb` APPROVED; LATER READINESS `496ca59` CHANGES REQUIRED**
 - Review date: 2026-07-29
-- Review mode: independent read-only Exact-SHA re-review, round 2
-- Verdict: `APPROVED`
-- Open findings: P0 `0`; P1 `0`; P2 `0`; P3 `0`
+- Review mode: historical independent read-only Exact-SHA re-review, round 2; separate later
+  independent formal-readiness review record
+- Verdict: historical `083fdfb` `APPROVED`; later `496ca59` `CHANGES REQUIRED`
+- Open findings: historical P0 `0`, P1 `0`, P2 `0`, P3 `0`; later P0 `0`, P1 `0`, P2 `1`,
+  P3 `0`
 
 ## 1. Authority and exact review binding
 
@@ -111,3 +113,35 @@ The ADO-only archival synchronization that adds this record is R0/V0 and carries
 candidate V3/V4 evidence without repeating it. This record binds only the reviewed candidate and
 its CI; it does not and cannot certify its own future publication commit, tree, remote state, CI
 or review.
+
+## 7. Separate later Phase-0 readiness candidate V4 and formal-review disposition
+
+This later record does not amend or reopen the historical round-2 `APPROVED` verdict for
+`083fdfb` above. It records the separately published readiness candidate and the consumed result
+of its exact-candidate V4 and formal review.
+
+| Later binding | Consumed value |
+|---|---|
+| Baseline/parent | `fa1aaa782415aceb85c0aa5c1233732ef9afa4dc`; tree `da69081517d2b0b9631eaef393b0a6022735061e` |
+| Published eight-file readiness candidate | `496ca59f0965670b29a210b8aa2443b99bb4a386`; tree `b398b89c77f7f0b4799a7a06b11bd2daf51fd34a` |
+| Safe-root V3 disposition | Green; the eight-file candidate itself has no code finding |
+| Exact-candidate V4 | GitHub Actions run `30427205223`, attempt 1, completed failure, 11/12 |
+| Red job | `90496143535`; 3/3 files and 121/121 assertions passed before a subsequent unhandled PostgreSQL `57P01` on `taptime_c3e1_dirty_*` |
+| Formal-review verdict | `CHANGES REQUIRED`; P0 `0`, P1 `0`, P2 `1`, P3 `0` |
+
+The C3E1 test, backend and workflow were unchanged. The test blob is identical to green
+`083fdfb` and five previous green CI runs. The failure cause is the `dirtyPool.end()` to immediate
+`DROP DATABASE ... WITH (FORCE)` sequence racing asynchronous client-end handling in
+`pg-pool@3.14.0`.
+
+The sole later finding is an out-of-scope P2 for CI/test reliability. It is not a Product or
+Security finding and does not add a code finding to the safe-root V3/eight-file candidate. The
+failed exact-candidate CI consumes V4; no retry was authorized or executed. A focused harness
+correction and a new CI run require new Human authority.
+
+The candidate and operator remain **DO NOT START**. No Phase-0, installation, ADB, hardware,
+device/Tag or Product Human-V5 authority follows. No hardware action occurred.
+
+This five-file ADO-only truth synchronization is R0/V0 over unchanged code, test and workflow
+bytes. It carries the consumed V4/review truth without executing tests or CI and cannot certify
+its own future publication commit, tree, remote state, CI or review.
