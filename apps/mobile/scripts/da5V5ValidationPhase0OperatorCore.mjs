@@ -35,7 +35,9 @@ export const DA5_V5_VALIDATION_PHASE0_INSTALL_LAUNCH_STAGES =
   });
 export const DA5_V5_VALIDATION_PHASE0_ERROR_CATEGORIES =
   Object.freeze({
+    adbChildTransportMismatch: 'adb_child_transport_mismatch',
     operationMismatch: 'operation_mismatch',
+    packageManagerReceiptMismatch: 'package_manager_receipt_mismatch',
     verificationMismatch: 'verification_mismatch',
   });
 export const DA5_V5_VALIDATION_PHASE0_ARTIFACT = Object.freeze({
@@ -582,7 +584,8 @@ export class Da5V5ValidationPhase0Device {
       this.#mutationMayHaveStarted = true;
       const installResult = await this.snapshot.use((snapshot) => {
         diagnosticCategory =
-          DA5_V5_VALIDATION_PHASE0_ERROR_CATEGORIES.operationMismatch;
+          DA5_V5_VALIDATION_PHASE0_ERROR_CATEGORIES
+            .adbChildTransportMismatch;
         return this.runner.run(
           [
             '-s',
@@ -608,6 +611,9 @@ export class Da5V5ValidationPhase0Device {
           },
         );
       });
+      diagnosticCategory =
+        DA5_V5_VALIDATION_PHASE0_ERROR_CATEGORIES
+          .packageManagerReceiptMismatch;
       if (exactSingleLine(installResult) !== 'Success') {
         throw new Error('DA5 V5 Validation package install mismatch');
       }

@@ -14,7 +14,9 @@ export const DA5_V5_VALIDATION_PHASE0_INSTALL_LAUNCH_STAGES: Readonly<{
   postlaunch: 'postlaunch';
 }>;
 export const DA5_V5_VALIDATION_PHASE0_ERROR_CATEGORIES: Readonly<{
+  adbChildTransportMismatch: 'adb_child_transport_mismatch';
   operationMismatch: 'operation_mismatch';
+  packageManagerReceiptMismatch: 'package_manager_receipt_mismatch';
   verificationMismatch: 'verification_mismatch';
 }>;
 export const DA5_V5_VALIDATION_PHASE0_ARTIFACT: Readonly<{
@@ -152,7 +154,11 @@ export interface Da5V5ValidationPhase0SessionOptions {
   readonly receipt?: (
     stage: string,
     status: 'match' | 'mismatch',
-    category?: 'operation_mismatch' | 'verification_mismatch',
+    category?:
+      | 'adb_child_transport_mismatch'
+      | 'operation_mismatch'
+      | 'package_manager_receipt_mismatch'
+      | 'verification_mismatch',
   ) => void;
   readonly runner?: Da5V5AndroidAdbRunner;
   readonly sealArtifact?: (options: {

@@ -54,6 +54,10 @@ const handledSignalNames = [
   'SIGQUIT',
   'SIGTERM',
 ] as const;
+type DiagnosticCategory =
+  (typeof DA5_V5_VALIDATION_PHASE0_ERROR_CATEGORIES)[
+    keyof typeof DA5_V5_VALIDATION_PHASE0_ERROR_CATEGORIES
+  ];
 const temporaryDirectories: string[] = [];
 
 afterEach(() => {
@@ -88,13 +92,13 @@ describe('DA5 V5 Validation Phase-0 CLI signals', () => {
         receipt(
           stage: string,
           status: 'match' | 'mismatch',
-          category?: 'operation_mismatch' | 'verification_mismatch',
+          category?: DiagnosticCategory,
         ): void;
       }) {
         options.receipt(
           'installation',
           'mismatch',
-          'operation_mismatch',
+          'adb_child_transport_mismatch',
         );
         options.receipt('install_launch', 'mismatch');
         return session;
@@ -107,7 +111,7 @@ describe('DA5 V5 Validation Phase-0 CLI signals', () => {
 
     expect(disclosed).toBe(
       'da5_v5_validation_phase0 stage=installation'
-      + ' status=mismatch category=operation_mismatch\n'
+      + ' status=mismatch category=adb_child_transport_mismatch\n'
       + 'da5_v5_validation_phase0 stage=install_launch'
       + ' status=mismatch\n',
     );
@@ -569,7 +573,9 @@ describe('DA5 V5 Validation device and protocol boundary', () => {
     expect(
       Object.values(DA5_V5_VALIDATION_PHASE0_ERROR_CATEGORIES),
     ).toEqual([
+      'adb_child_transport_mismatch',
       'operation_mismatch',
+      'package_manager_receipt_mismatch',
       'verification_mismatch',
     ]);
     expect(
@@ -786,8 +792,7 @@ describe('DA5 V5 Validation device and protocol boundary', () => {
       receipt(
         receiptStage: string,
         status: 'match' | 'mismatch',
-        receiptCategory?: 'operation_mismatch'
-          | 'verification_mismatch',
+        receiptCategory?: DiagnosticCategory,
       ) {
         receipts.push(
           `${receiptStage}:${status}:${receiptCategory ?? 'none'}`,
@@ -827,9 +832,17 @@ describe('DA5 V5 Validation device and protocol boundary', () => {
 
   it.each([
     [
+      'ADB/child transport',
       'installation',
+      'adb_child_transport_mismatch',
+      (runner: FakeRunner) => {
+        runner.installReject = true;
+      },
+    ],
+    [
+      'PackageManager receipt',
       'installation',
-      'operation_mismatch',
+      'package_manager_receipt_mismatch',
       (runner: FakeRunner) => {
         runner.installResult =
           'Failure [SECRET_PACKAGE_MANAGER_OUTPUT /secret/install]';
@@ -881,8 +894,7 @@ describe('DA5 V5 Validation device and protocol boundary', () => {
         receipt(
           receiptStage: string,
           status: 'match' | 'mismatch',
-          receiptCategory?: 'operation_mismatch'
-            | 'verification_mismatch',
+          receiptCategory?: DiagnosticCategory,
         ) {
           receipts.push(
             `${receiptStage}:${status}:${receiptCategory ?? 'none'}`,
@@ -914,8 +926,10 @@ describe('DA5 V5 Validation device and protocol boundary', () => {
       expect(receipts.join('\n')).not.toContain('/secret/');
       expect(receipts.join('\n')).not.toContain(runner.serial);
       expect(receipts.filter((receipt) =>
-        receipt.includes(':mismatch:operation_mismatch')
-        || receipt.includes(':mismatch:verification_mismatch')))
+        Object.values(
+          DA5_V5_VALIDATION_PHASE0_ERROR_CATEGORIES,
+        ).some((category) =>
+          receipt.endsWith(`:mismatch:${category}`))))
         .toHaveLength(1);
     },
   );
