@@ -965,6 +965,9 @@ export class Da5V5ValidationPhase0Session {
 
   submit(command) {
     if (this.#finishFlight !== undefined) {
+      if (this.#state === 'complete' || this.#state === 'failed') {
+        return Promise.resolve(Object.freeze({ status: 'mismatch' }));
+      }
       this.#failureRequested = true;
       return this.#finishFlight;
     }
@@ -1005,12 +1008,20 @@ export class Da5V5ValidationPhase0Session {
       );
       return operation.catch(() => undefined);
     }
-    if (command === 'cleanup' && this.#state === 'waiting') {
+    if (command === 'human-pass' && this.#state === 'waiting') {
+      this.#state = 'human_passed';
+      if (!this.#emitReceipt('human_pass', 'match')) {
+        return this.fail();
+      }
+      return Promise.resolve(Object.freeze({ status: 'match' }));
+    }
+    if (command === 'cleanup' && this.#state === 'human_passed') {
       return this.#finish(true);
     }
     if (
       command === 'abort'
-      && (this.#state === 'ready' || this.#state === 'waiting')
+      && this.#state !== 'complete'
+      && this.#state !== 'failed'
     ) {
       return this.fail();
     }
@@ -1098,16 +1109,7 @@ export class Da5V5ValidationPhase0Session {
         && cleanup.status === 'match'
         && hasDeadlineBudget(this.#finishDeadline, this.now)
       );
-      if (
-        success
-        && !this.#emitReceipt('complete', 'match')
-      ) {
-        success = false;
-      }
-      if (
-        success
-        && !hasDeadlineBudget(this.#finishDeadline, this.now)
-      ) {
+      if (success && !this.#emitReceipt('complete', 'match')) {
         success = false;
       }
       this.#state = success ? 'complete' : 'failed';
@@ -1143,7 +1145,9 @@ async function requirePackageProcessReverseZero(runner, serial, signal) {
 
 async function readMatchingProcesses(runner, serial, signal, budget) {
   const value = await runner.run(
-    ['-s', serial, 'shell', 'ps', '-A', '-o', 'NAME'],
+    [
+      '-s', serial, 'shell', 'ps', '-A', '-w', '-o', 'NAME:4',
+    ],
     commandOptions(budget, timeouts.inspect, signal),
   );
   const lines = exactLines(value);

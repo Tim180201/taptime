@@ -129,7 +129,7 @@ export class Da5V5ValidationPhase0Session {
   signal(): Promise<Readonly<{ status: 'match' | 'mismatch' }>>;
   start(): Promise<Readonly<{ status: 'match' | 'mismatch' }>>;
   state(): 'cleaning' | 'complete' | 'created' | 'failed' | 'installing'
-    | 'preflighting' | 'ready' | 'waiting';
+    | 'human_passed' | 'preflighting' | 'ready' | 'waiting';
   submit(command: string): Promise<unknown>;
 }
 

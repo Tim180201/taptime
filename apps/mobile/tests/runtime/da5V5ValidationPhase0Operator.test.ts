@@ -46,6 +46,12 @@ const replacementPath =
   `/data/app/~~replacement/${packageName}-replacement/base.apk`;
 const model = 'BOUND-MODEL';
 const build = 'BOUND-BUILD';
+const handledSignalNames = [
+  'SIGHUP',
+  'SIGINT',
+  'SIGQUIT',
+  'SIGTERM',
+] as const;
 const temporaryDirectories: string[] = [];
 
 afterEach(() => {
@@ -56,7 +62,7 @@ afterEach(() => {
 });
 
 describe('DA5 V5 Validation Phase-0 CLI signals', () => {
-  it.each(['SIGINT', 'SIGTERM'] as const)(
+  it.each(handledSignalNames)(
     'keeps %s handled and idempotent through a deterministic double signal',
     async (signalName) => {
       const processTarget = new EventEmitter();
@@ -89,8 +95,9 @@ describe('DA5 V5 Validation Phase-0 CLI signals', () => {
         processTarget,
       });
 
-      expect(processTarget.listenerCount('SIGINT')).toBe(1);
-      expect(processTarget.listenerCount('SIGTERM')).toBe(1);
+      for (const handledSignal of handledSignalNames) {
+        expect(processTarget.listenerCount(handledSignal)).toBe(1);
+      }
       processTarget.emit(signalName);
       processTarget.emit(signalName);
       expect(signal).toHaveBeenCalledTimes(1);
@@ -98,14 +105,63 @@ describe('DA5 V5 Validation Phase-0 CLI signals', () => {
 
       resolveDone({ status: 'mismatch' });
       await expect(running).resolves.toEqual({ status: 'mismatch' });
-      expect(processTarget.listenerCount('SIGINT')).toBe(0);
-      expect(processTarget.listenerCount('SIGTERM')).toBe(0);
+      for (const handledSignal of handledSignalNames) {
+        expect(processTarget.listenerCount(handledSignal)).toBe(0);
+      }
       expect(processTarget.listenerCount('uncaughtException')).toBe(0);
       expect(processTarget.listenerCount('unhandledRejection')).toBe(0);
       input.destroy();
       output.destroy();
     },
   );
+
+  it('routes different catchable signals through one persistent termination flight', async () => {
+    const processTarget = new EventEmitter();
+    const input = new PassThrough();
+    const output = new PassThrough();
+    let resolveDone!: (
+      result: Readonly<{ status: 'match' | 'mismatch' }>,
+    ) => void;
+    const done = new Promise<Readonly<{
+      status: 'match' | 'mismatch';
+    }>>((resolvePromise) => {
+      resolveDone = resolvePromise;
+    });
+    const signal = vi.fn(() => done);
+    const session = {
+      done,
+      end: vi.fn(() => done),
+      fail: vi.fn(() => done),
+      signal,
+      start: vi.fn(async () => ({ status: 'match' as const })),
+      submit: vi.fn(async () => undefined),
+    };
+
+    const running = runDa5V5ValidationPhase0Operator({
+      arguments_: [],
+      createSession: () => session,
+      environment: {},
+      input,
+      output,
+      processTarget,
+    });
+
+    for (const handledSignal of handledSignalNames) {
+      processTarget.emit(handledSignal);
+    }
+    expect(signal).toHaveBeenCalledTimes(1);
+    for (const handledSignal of handledSignalNames) {
+      expect(processTarget.listenerCount(handledSignal)).toBe(1);
+    }
+
+    resolveDone({ status: 'mismatch' });
+    await expect(running).resolves.toEqual({ status: 'mismatch' });
+    for (const handledSignal of handledSignalNames) {
+      expect(processTarget.listenerCount(handledSignal)).toBe(0);
+    }
+    input.destroy();
+    output.destroy();
+  });
 
   it.each(['uncaughtException', 'unhandledRejection'] as const)(
     'keeps %s handled, idempotent and disclosure-safe through a double fatal event',
@@ -495,6 +551,11 @@ describe('DA5 V5 Validation device and protocol boundary', () => {
     ['empty process output', ''],
     ['headerless process output', `${packageName}\n`],
     ['malformed process header', 'PID\n'],
+    ['right-padded process header', 'NAME \n'],
+    ['left-padded process header', ' NAME\n'],
+    ['right-padded process row', 'NAME\ninit \n'],
+    ['left-padded process row', 'NAME\n init\n'],
+    ['additional process column', 'NAME PID\n'],
   ])('rejects %s before mutation', async (_label, processOutput) => {
     const runner = new FakeRunner();
     runner.processOutput = processOutput;
@@ -503,10 +564,35 @@ describe('DA5 V5 Validation device and protocol boundary', () => {
     expect(runner.mutations).toHaveLength(0);
   });
 
+  it('accepts realistic unpadded Android-15 Toybox NAME:4 output without truncation', async () => {
+    const runner = new FakeRunner();
+    runner.processOutput = [
+      'NAME',
+      'init',
+      'com.android.systemui',
+      'com.google.android.gms.persistent',
+      'com.samsung.android.accessibility.talkback:remote_service',
+      '',
+    ].join('\n');
+    const device = createDevice(runner);
+
+    await expect(device.preflight()).resolves.toEqual({
+      status: 'match',
+    });
+    expect(runner.calls.some((call) =>
+      call.arguments_.join(' ') === [
+        '-s', runner.serial, 'shell', 'ps', '-A', '-w', '-o', 'NAME:4',
+      ].join(' '))).toBe(true);
+  });
+
   it.each([
     ['package residue', { packagePath: validPath }],
     ['main process', { processes: [packageName] }],
-    ['secondary process', { processes: [`${packageName}:worker`] }],
+    ['long secondary process', {
+      processes: [
+        `${packageName}:accessibility_remote_service`,
+      ],
+    }],
     ['reverse residue', {
       reverseOutput: 'SECRET-SERIAL tcp:3000 tcp:3000\n',
     }],
@@ -672,6 +758,7 @@ describe('DA5 V5 Validation device and protocol boundary', () => {
     const session = createSession(runner);
     await session.start();
     await session.submit('install-launch');
+    await session.submit('human-pass');
     runner.cleanupObservationFailures = 1;
     await expect(session.submit('cleanup')).resolves.toEqual({
       status: 'mismatch',
@@ -706,6 +793,7 @@ describe('DA5 V5 Validation device and protocol boundary', () => {
       const session = createSession(runner);
       await session.start();
       await session.submit('install-launch');
+      await session.submit('human-pass');
       if (observation === 'package') {
         runner.processes = [];
         runner.cleanupPackageOutputs = [output];
@@ -730,6 +818,7 @@ describe('DA5 V5 Validation device and protocol boundary', () => {
     const session = createSession(runner);
     await session.start();
     await session.submit('install-launch');
+    await session.submit('human-pass');
     runner.uninstallResults = ['Failure [transient]', 'Success'];
     await expect(session.submit('cleanup')).resolves.toEqual({
       status: 'match',
@@ -747,6 +836,7 @@ describe('DA5 V5 Validation device and protocol boundary', () => {
     const session = createSession(runner);
     await session.start();
     await session.submit('install-launch');
+    await session.submit('human-pass');
     runner.packagePath = replacementPath;
     await expect(session.submit('cleanup')).resolves.toEqual({
       status: 'mismatch',
@@ -761,6 +851,7 @@ describe('DA5 V5 Validation device and protocol boundary', () => {
     const session = createSession(runner);
     await session.start();
     await session.submit('install-launch');
+    await session.submit('human-pass');
     runner.packagePathAfterForceStop = replacementPath;
     await expect(session.submit('cleanup')).resolves.toEqual({
       status: 'mismatch',
@@ -775,6 +866,7 @@ describe('DA5 V5 Validation device and protocol boundary', () => {
     const session = createSession(runner);
     await session.start();
     await session.submit('install-launch');
+    await session.submit('human-pass');
     runner.versionCodeAfterForceStop = '2';
     await expect(session.submit('cleanup')).resolves.toEqual({
       status: 'mismatch',
@@ -789,6 +881,7 @@ describe('DA5 V5 Validation device and protocol boundary', () => {
     const session = createSession(runner);
     await session.start();
     await session.submit('install-launch');
+    await session.submit('human-pass');
     runner.cleanupObservationAlwaysFails = true;
     await expect(session.submit('cleanup')).resolves.toEqual({
       status: 'mismatch',
@@ -807,6 +900,7 @@ describe('DA5 V5 Validation device and protocol boundary', () => {
     const session = createSession(runner);
     await session.start();
     await session.submit('install-launch');
+    await session.submit('human-pass');
     await session.submit('cleanup');
     await expect(session.done).resolves.toEqual({ status: 'mismatch' });
     expect(runner.uninstallCount).toBeGreaterThan(1);
@@ -816,6 +910,7 @@ describe('DA5 V5 Validation device and protocol boundary', () => {
 
   it.each([
     ['wrong first command', 'cleanup'],
+    ['early Human PASS', 'human-pass'],
     ['unknown command', 'retry'],
     ['duplicate install', 'install-launch'],
   ])('fails closed on %s', async (_label, command) => {
@@ -830,7 +925,63 @@ describe('DA5 V5 Validation device and protocol boundary', () => {
     expect(runner.cleanupFlights).toBe(1);
   });
 
-  it.each(['EOF', 'SIGINT', 'SIGTERM'])(
+  it('accepts abort before start as a terminal fail-closed cleanup request', async () => {
+    const runner = new FakeRunner();
+    const session = createSession(runner);
+
+    await expect(session.submit('abort')).resolves.toEqual({
+      status: 'mismatch',
+    });
+    expect(session.state()).toBe('failed');
+    expect(runner.calls).toHaveLength(0);
+  });
+
+  it('rejects cleanup from waiting even when device cleanup itself matches', async () => {
+    const runner = new FakeRunner();
+    const receipts: string[] = [];
+    const session = createSession(runner, {
+      receipt(stage: string, status: 'match' | 'mismatch') {
+        receipts.push(`${stage}:${status}`);
+      },
+    });
+    await session.start();
+    await session.submit('install-launch');
+
+    await expect(session.submit('cleanup')).resolves.toEqual({
+      status: 'mismatch',
+    });
+    expect(receipts).not.toContain('human_pass:match');
+    expect(receipts).not.toContain('complete:match');
+    expect(receipts.filter((receipt) =>
+      receipt === 'failed:mismatch')).toEqual(['failed:mismatch']);
+  });
+
+  it('accepts Human PASS exactly once and fails closed on a duplicate', async () => {
+    const runner = new FakeRunner();
+    const receipts: string[] = [];
+    const session = createSession(runner, {
+      receipt(stage: string, status: 'match' | 'mismatch') {
+        receipts.push(`${stage}:${status}`);
+      },
+    });
+    await session.start();
+    await session.submit('install-launch');
+    await expect(session.submit('human-pass')).resolves.toEqual({
+      status: 'match',
+    });
+    expect(session.state()).toBe('human_passed');
+
+    await expect(session.submit('human-pass')).resolves.toEqual({
+      status: 'mismatch',
+    });
+    expect(receipts.filter((receipt) =>
+      receipt === 'human_pass:match')).toEqual(['human_pass:match']);
+    expect(receipts).not.toContain('complete:match');
+    expect(receipts.filter((receipt) =>
+      receipt === 'failed:mismatch')).toEqual(['failed:mismatch']);
+  });
+
+  it.each(['EOF', ...handledSignalNames])(
     'fails closed and cleans exactly once on %s while waiting',
     async (termination) => {
       const runner = new FakeRunner();
@@ -847,6 +998,42 @@ describe('DA5 V5 Validation device and protocol boundary', () => {
       expect(runner.uninstallCount).toBe(1);
     },
   );
+
+  it.each(['ready', 'waiting', 'human_passed'] as const)(
+    'accepts abort as fail-closed cleanup in %s state',
+    async (state) => {
+      const runner = new FakeRunner();
+      const session = createSession(runner);
+      await session.start();
+      if (state !== 'ready') {
+        await session.submit('install-launch');
+      }
+      if (state === 'human_passed') {
+        await session.submit('human-pass');
+      }
+      expect(session.state()).toBe(state);
+
+      await expect(session.submit('abort')).resolves.toEqual({
+        status: 'mismatch',
+      });
+      expect(runner.cleanupFlights).toBe(1);
+      expect(runner.packagePath).toBeNull();
+    },
+  );
+
+  it('aborts an active install by command and waits before one cleanup flight', async () => {
+    const runner = new FakeRunner();
+    runner.installWaitsForAbort = true;
+    const session = createSession(runner);
+    await session.start();
+    const active = session.submit('install-launch');
+    await runner.installStarted;
+    void session.submit('abort');
+    await active;
+    await expect(session.done).resolves.toEqual({ status: 'mismatch' });
+    expect(runner.installSettled).toBe(true);
+    expect(runner.cleanupFlights).toBe(1);
+  });
 
   it('cleans disclosure-safely when signaled before mutation', async () => {
     const runner = new FakeRunner();
@@ -920,7 +1107,7 @@ describe('DA5 V5 Validation device and protocol boundary', () => {
     expect(runner.mutations).toHaveLength(0);
   });
 
-  it('aborts an active preflight and proves two complete zero observations', async () => {
+  it('aborts an active preflight by command and proves two complete zero observations', async () => {
     const runner = new FakeRunner();
     const receipts: string[] = [];
     runner.preflightWaitsForAbort = true;
@@ -932,7 +1119,7 @@ describe('DA5 V5 Validation device and protocol boundary', () => {
     const starting = session.start();
     await runner.preflightStarted;
     const cleanupCallStart = runner.calls.length;
-    void session.signal();
+    void session.submit('abort');
     await starting;
     await expect(session.done).resolves.toEqual({ status: 'mismatch' });
     expect(runner.preflightSettled).toBe(true);
@@ -1038,7 +1225,7 @@ describe('DA5 V5 Validation device and protocol boundary', () => {
     },
   );
 
-  it('completes only install-launch then cleanup and proves two final zero observations', async () => {
+  it('completes only after the Human-PASS handshake and cleanup', async () => {
     const runner = new FakeRunner();
     const receipts: string[] = [];
     const session = createSession(runner, {
@@ -1048,12 +1235,20 @@ describe('DA5 V5 Validation device and protocol boundary', () => {
     });
     await session.start();
     await session.submit('install-launch');
+    await expect(session.submit('human-pass')).resolves.toEqual({
+      status: 'match',
+    });
     await session.submit('cleanup');
     await expect(session.done).resolves.toEqual({ status: 'match' });
     expect(runner.finalZeroObservationsAfterCleanup).toBeGreaterThanOrEqual(2);
     expect(runner.cleanupFlights).toBe(1);
     expect(receipts).toContain('waiting:match');
-    expect(receipts).toContain('complete:match');
+    expect(receipts.slice(-3)).toEqual([
+      'human_pass:match',
+      'cleanup:match',
+      'complete:match',
+    ]);
+    expect(receipts).not.toContain('failed:mismatch');
     expect(receipts.join('\n')).not.toContain(runner.serial);
     expect(receipts.join('\n')).not.toContain(model);
     expect(receipts.join('\n')).not.toContain(build);
@@ -1096,6 +1291,7 @@ describe('DA5 V5 Validation device and protocol boundary', () => {
       } else {
         await session.start();
         await session.submit('install-launch');
+        await session.submit('human-pass');
         await session.submit('cleanup');
       }
 
@@ -1104,26 +1300,94 @@ describe('DA5 V5 Validation device and protocol boundary', () => {
     },
   );
 
-  it.each(['cleanup', 'complete'] as const)(
-    'never returns match when the %s receipt reaches the finish deadline',
-    async (deadlineStage) => {
-      const runner = new FakeRunner();
-      const session = createSession(runner, {
-        receipt(stage: string) {
-          if (stage === deadlineStage) {
-            runner.clock += 30_000;
-          }
-        },
-      });
-      await session.start();
-      await session.submit('install-launch');
-      await expect(session.submit('cleanup')).resolves.toEqual({
-        status: 'mismatch',
-      });
-      await expect(session.done).resolves.toEqual({ status: 'mismatch' });
-      expect(session.state()).toBe('failed');
-    },
-  );
+  it('emits only terminal failure when the cleanup receipt exhausts the deadline', async () => {
+    const runner = new FakeRunner();
+    const receipts: string[] = [];
+    const session = createSession(runner, {
+      receipt(stage: string, status: 'match' | 'mismatch') {
+        receipts.push(`${stage}:${status}`);
+        if (stage === 'cleanup') {
+          runner.clock += 30_000;
+        }
+      },
+    });
+    await session.start();
+    await session.submit('install-launch');
+    await session.submit('human-pass');
+    await expect(session.submit('cleanup')).resolves.toEqual({
+      status: 'mismatch',
+    });
+    await expect(session.done).resolves.toEqual({ status: 'mismatch' });
+    expect(session.state()).toBe('failed');
+    expect(receipts.filter((receipt) =>
+      receipt === 'complete:match'
+      || receipt === 'failed:mismatch')).toEqual(['failed:mismatch']);
+  });
+
+  it('treats complete:match as the terminal commitment point', async () => {
+    const runner = new FakeRunner();
+    const receipts: string[] = [];
+    const session = createSession(runner, {
+      receipt(stage: string, status: 'match' | 'mismatch') {
+        receipts.push(`${stage}:${status}`);
+        if (stage === 'complete') {
+          runner.clock += 30_000;
+        }
+      },
+    });
+    await session.start();
+    await session.submit('install-launch');
+    await session.submit('human-pass');
+    await expect(session.submit('cleanup')).resolves.toEqual({
+      status: 'match',
+    });
+    expect(session.state()).toBe('complete');
+    expect(receipts.filter((receipt) =>
+      receipt === 'complete:match'
+      || receipt === 'failed:mismatch')).toEqual(['complete:match']);
+  });
+
+  it('turns a late command during cleanup into one terminal failure receipt', async () => {
+    const runner = new FakeRunner();
+    const receipts: string[] = [];
+    const session = createSession(runner, {
+      receipt(stage: string, status: 'match' | 'mismatch') {
+        receipts.push(`${stage}:${status}`);
+      },
+    });
+    await session.start();
+    await session.submit('install-launch');
+    await session.submit('human-pass');
+    const cleanup = session.submit('cleanup');
+    void session.submit('human-pass');
+
+    await expect(cleanup).resolves.toEqual({ status: 'mismatch' });
+    expect(receipts.filter((receipt) =>
+      receipt === 'complete:match'
+      || receipt === 'failed:mismatch')).toEqual(['failed:mismatch']);
+  });
+
+  it('rejects input after terminal success without a contradictory receipt', async () => {
+    const runner = new FakeRunner();
+    const receipts: string[] = [];
+    const session = createSession(runner, {
+      receipt(stage: string, status: 'match' | 'mismatch') {
+        receipts.push(`${stage}:${status}`);
+      },
+    });
+    await session.start();
+    await session.submit('install-launch');
+    await session.submit('human-pass');
+    await session.submit('cleanup');
+    await expect(session.done).resolves.toEqual({ status: 'match' });
+
+    await expect(session.submit('human-pass')).resolves.toEqual({
+      status: 'mismatch',
+    });
+    expect(receipts.filter((receipt) =>
+      receipt === 'complete:match'
+      || receipt === 'failed:mismatch')).toEqual(['complete:match']);
+  });
 
   it('settles fail-closed when an unexpected cleanup wait rejects', async () => {
     const runner = new FakeRunner();
@@ -1135,6 +1399,7 @@ describe('DA5 V5 Validation device and protocol boundary', () => {
 
     await session.start();
     await session.submit('install-launch');
+    await session.submit('human-pass');
     await expect(session.submit('cleanup')).resolves.toEqual({
       status: 'mismatch',
     });
@@ -1148,6 +1413,7 @@ describe('DA5 V5 Validation device and protocol boundary', () => {
     const session = createSession(runner);
     await session.start();
     await session.submit('install-launch');
+    await session.submit('human-pass');
     const reverseResidue = 'SECRET-SERIAL tcp:7777 tcp:7777\n';
     runner.reverseOutput = reverseResidue;
     await session.submit('cleanup');
@@ -1427,7 +1693,7 @@ class FakeRunner {
       }
       return `package:${this.packagePath}\n`;
     }
-    if (command.endsWith('shell ps -A -o NAME')) {
+    if (command.endsWith('shell ps -A -w -o NAME:4')) {
       if (this.cleanupProcessOutputs.length > 0) {
         return this.cleanupProcessOutputs.shift() ?? '';
       }

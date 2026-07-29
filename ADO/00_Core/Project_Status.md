@@ -186,6 +186,27 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   `APPROVED` with zero open P0–P3 and closed both round-1 P1 findings. The operator remains
   **DO NOT START** and grants no Phase-0, installation, ADB, hardware or Product Human-V5
   authority.
+
+  The current local DA5-V5 Phase-0 readiness correction is an uncommitted candidate on baseline
+  `fa1aaa782415aceb85c0aa5c1233732ef9afa4dc`, tree
+  `da69081517d2b0b9631eaef393b0a6022735061e`. It binds Android-15/Toybox process inspection to
+  untruncated exact process names, makes Human-PASS an explicit one-shot state before cleanup,
+  handles `SIGHUP`, `SIGINT`, `SIGQUIT` and `SIGTERM` through the same fail-closed completion
+  flight, and keeps exactly one terminal `complete:match` or `failed:mismatch` outcome. The future
+  one-time run protocol requires the exact device/accessibility checkpoint, fixed-order
+  10×A then 10×B then 10×X stable Tag presentations, three pairwise-distinct safe fingerprints,
+  the exact Technology-list boundary and the exact final Validation state before Human-PASS.
+  Its final fresh sparse safe-root V3 bound executable-patch SHA-256
+  `5dea48121b62fe7ebb4894f72425aa5ef5f759e113c3dd349f9fd48bb29fe9b4` with Node
+  `24.17.0`, npm `11.13.0` and task-owned PostgreSQL `17.10`: 20/20 unique builds, 21/21
+  tests-inclusive typechecks and 21/21 suites passed across 148 test files, 2,505 tests and exactly
+  two optional B1 Supavisor skips. Migrations 001–013 apply/replay/ledger, C3B binary,
+  52/52 Mobile test-source inclusion, the unchanged artifact verifier and the 861-module Android
+  export passed. PostgreSQL and both task ports were stopped/absent and the complete task root was
+  moved recoverably to Trash. This subsequent four-file ADO synchronization is R0 over unchanged
+  executable/test bytes. There is still no candidate commit/tree, exact-head V4 or independent
+  review; the candidate remains **DO NOT START** and changes neither Validation/App code nor the
+  bound APK/manifest/source closure.
 - **Development Assignment 5 Workstreams A–F and V0–V4 are technically closed/MERGE_READY;
   Human V5 remains unauthorized.** The Human Architect expressly accepted ADR-0016/DA5-P01–P12 and
   ADR-0017/DA5-T01–T15 and authorized the bounded Development implementation plus subsequent
@@ -1103,8 +1124,9 @@ Two Epics are concurrently Active, per EP-009's own stated relationship to the r
    fresh explicit
    one-time Human
    authorization limited to the corrected exact
-   Validation APK, Galaxy A33, three read-only A/B/X Tag scans, device/accessibility binding and
-   complete uninstall/cleanup. Product APK installation and Human V5 remain later separately
+   Validation APK, Galaxy A33, 30 successful stable read-only Tag presentations in fixed order
+   10×A then 10×B then 10×X, device/accessibility binding and complete uninstall/cleanup.
+   Product APK installation and Human V5 remain later separately
    gated. Production, production data, system changes, deployment and distribution remain
    unauthorized.
 7. Review the ADO-only ADR-0018/DA6 production-like operational-readiness candidate. Preparation

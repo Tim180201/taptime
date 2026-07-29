@@ -1,6 +1,6 @@
 # Development Assignment 5 — V5 Human Android Evidence
 
-- Status: **PHASE-0 RUN 7 CONSUMED AT SAFE `technology_evidence`; RUN 8 INSTALLED THE EXACT `03694f2` ARTIFACT BUT STOPPED BEFORE `.MainActivity` LAUNCH BECAUSE AN AD-HOC HOST REGEX REJECTED A LEGITIMATE ANDROID-15 `~` PATH; RUN 8 CLEANED PACKAGE/PROCESS/GLOBAL REVERSE TO ZERO — NO FINGERPRINT/TAG RESULT OR HARDWARE DEFECT PROVEN — EIGHT PHASE-0 AUTHORITIES CONSUMED — OPERATOR CORRECTION `083fdfb`, TREE `24bd130`, EXACT-HEAD CI `30402655381` ATTEMPT 1 12/12 AND INDEPENDENT ROUND-2 REVIEW `APPROVED`, ZERO OPEN P0–P3/DO NOT START; PRODUCT HUMAN V5 NOT RUN/UNAUTHORIZED**
+- Status: **PHASE-0 RUN 7 CONSUMED AT SAFE `technology_evidence`; RUN 8 INSTALLED THE EXACT `03694f2` ARTIFACT BUT STOPPED BEFORE `.MainActivity` LAUNCH BECAUSE AN AD-HOC HOST REGEX REJECTED A LEGITIMATE ANDROID-15 `~` PATH; RUN 8 CLEANED PACKAGE/PROCESS/GLOBAL REVERSE TO ZERO — NO FINGERPRINT/TAG RESULT OR HARDWARE DEFECT PROVEN — EIGHT PHASE-0 AUTHORITIES CONSUMED — OPERATOR CORRECTION `083fdfb`, TREE `24bd130`, EXACT-HEAD CI `30402655381` ATTEMPT 1 12/12 AND INDEPENDENT ROUND-2 REVIEW `APPROVED`, ZERO OPEN P0–P3 — CURRENT LOCAL PHASE-0 READINESS CORRECTION ON BASELINE `fa1aaa7` PASSED FRESH SAFE-ROOT V3 BUT HAS NO CANDIDATE SHA/TREE, V4 OR REVIEW BINDING/DO NOT START; PRODUCT HUMAN V5 NOT RUN/UNAUTHORIZED**
 - Date: `NOT RUN`
 - Artifact preparation date: 2026-07-28
 - Owner: Technical Lead
@@ -429,7 +429,61 @@ Exact-head CI `30402655381`, attempt 1, passed 12/12 on
 The candidate remains **DO NOT START** and grants no Phase-0, installation, ADB, hardware or
 Product Human-V5 authority.
 
-### 2.2 Historical closed findings and confirmed TECH-01 correction — Human Phase 0 still gated
+### 2.2 Current local Phase-0 readiness correction — V3 passed; not reviewed; Human not run
+
+The focused local candidate starts from exact baseline
+`fa1aaa782415aceb85c0aa5c1233732ef9afa4dc`, tree
+`da69081517d2b0b9631eaef393b0a6022735061e`. It replaces only the incompatible process-query
+boundary with strict Android-Toybox `ps -A -w -o NAME:4` parsing, adds the one-time
+`human-pass`/separate Human-passed state, extends the persistent idempotent signal set to exactly
+`SIGHUP`, `SIGINT`, `SIGQUIT` and `SIGTERM`, and makes terminal receipt/deadline ordering
+deterministic. It changes no Validation App or artifact input. No candidate SHA/tree, V4,
+independent review, Phase-0, installation, ADB or hardware authority exists.
+
+The final fresh detached sparse safe-root V3 bound executable-patch SHA-256
+`5dea48121b62fe7ebb4894f72425aa5ef5f759e113c3dd349f9fd48bb29fe9b4`, Node
+`24.17.0`, npm `11.13.0` and task-owned PostgreSQL `17.10`. Its unique build evidence is
+20/20: the first alphabetical invocation passed 15/20, then only the five dependency-sensitive
+not-yet-successful builds ran topologically and passed 5/5 without candidate-byte changes.
+Typechecks passed 21/21. All 21/21 workspace suites passed across 148 test files and 2,505 tests
+with exactly two optional B1 Supavisor skips; Mobile passed 52/52 files and 857/857 tests, and
+Synthetic passed 13/13 files and 288/288 tests. Migrations 001–013 applied, replayed with
+`applied=none` and passed ledger verification. C3B `verify-bin`, 52/52 Mobile test-source
+inclusion, the unchanged official `03694f2` artifact verifier and one isolated Android export of
+861 modules passed. One pre-mutation migration-runner assertion stopped only on the macOS
+`/tmp`/`/private/tmp` lexical alias before the canonical-path continuation passed; the Mobile
+inclusion `tsc --listFilesOnly` succeeded before two comparison-only PATH corrections and its
+single final comparison matched 52/52. No product assertion was retried. PostgreSQL was
+reattested and stopped, ports 55437/55435 were absent, and the complete task root containing the
+safe clone, npm cache, PGDATA and export was moved recoverably to Trash. This subsequent four-file
+ADO synchronization is R0 over unchanged executable/test bytes.
+
+Any future separately authorized Phase-0 record must populate every row below. The automated
+operator does not attest UI truth; only the trusted Human can provide the one-time PASS handoff
+after all UI rows match.
+
+| Future Phase-0 Human observation | Result |
+|---|---|
+| Exact displayed model, Android release/API/build and **200 %** font scale match the authorization | `NOT RUN` |
+| Exactly one installed and active authorized Google-or-Samsung TalkBack package/version | `NOT RUN` |
+| Role A: ten separate successful stable presentations using only physical Tag A | `NOT RUN` |
+| Role B: ten separate successful stable presentations using only physical Tag B, after A | `NOT RUN` |
+| Role X: ten separate successful stable presentations using only physical Tag X, after B | `NOT RUN` |
+| Three pairwise-distinct disclosure-safe 12-uppercase-hex fingerprints | `NOT RUN` |
+| Every role displays `NfcA+MifareUltralight` under the unchanged required-subset boundary | `NOT RUN` |
+| Final title `Alle drei Rollen stabil gebunden` | `NOT RUN` |
+| Final text `A, B und X sind stabil, eindeutig und voneinander verschieden.` | `NOT RUN` |
+| Explicit trusted Human `PASS`, then unique operator receipt `human_pass:match` | `NOT RUN` |
+| Cleanup after Human-passed state | `NOT RUN` |
+| Terminal `complete:match` with no later `failed:mismatch` | `NOT RUN` |
+
+Cancel, timeout, any safe failure stage/text, ambiguity, wrong Tag/role/order, reset desire or any
+early, duplicate, late or foreign command consumes a future authority and requires immediate
+`abort`/cleanup without reset, retry, resume or evidence reuse. `complete:match` would prove only
+the combined Human-PASS handshake plus operator/cleanup success, never APK approval or Product
+Human V5.
+
+### 2.3 Historical closed findings and confirmed TECH-01 correction — Human Phase 0 still gated
 
 `DA5-V5-VAL-UI-01` records a repository-visible accessibility/UI reliability gap capable of
 reaching the strict Controller concurrency rejection when TalkBack repeats an otherwise identical
@@ -468,7 +522,7 @@ Exact-SHA review with zero open P0–P3, but remains **DO NOT INSTALL**. The run
 result or hardware defect. Any future Phase-0 use requires a fresh separate exact Human
 authorization binding this independently approved replacement source/artifact.
 
-### 2.3 Product Human-V5 preflight
+### 2.4 Product Human-V5 preflight
 
 | Check | Result | Safe observation |
 |---|---|---|

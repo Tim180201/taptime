@@ -1,6 +1,6 @@
 # Development Assignment 5 — V5 Human Android Gate Runbook
 
-- Status: **PHASE-0 RUN 7 CONSUMED AT SAFE `technology_evidence`; RUN 8 INSTALLED THE EXACT `03694f2` ARTIFACT BUT STOPPED BEFORE `.MainActivity` LAUNCH BECAUSE AN AD-HOC HOST REGEX REJECTED A LEGITIMATE ANDROID-15 `~` PATH; RUN 8 CLEANED PACKAGE/PROCESS/GLOBAL REVERSE TO ZERO — NO FINGERPRINT/TAG RESULT OR HARDWARE DEFECT PROVEN — EIGHT PHASE-0 AUTHORITIES CONSUMED — OPERATOR CORRECTION `083fdfb`, TREE `24bd130`, EXACT-HEAD CI `30402655381` ATTEMPT 1 12/12 AND INDEPENDENT ROUND-2 REVIEW `APPROVED`, ZERO OPEN P0–P3 — NO CURRENT PHASE-0 OR HUMAN-V5 AUTHORITY/DO NOT START**
+- Status: **PHASE-0 RUN 7 CONSUMED AT SAFE `technology_evidence`; RUN 8 INSTALLED THE EXACT `03694f2` ARTIFACT BUT STOPPED BEFORE `.MainActivity` LAUNCH BECAUSE AN AD-HOC HOST REGEX REJECTED A LEGITIMATE ANDROID-15 `~` PATH; RUN 8 CLEANED PACKAGE/PROCESS/GLOBAL REVERSE TO ZERO — NO FINGERPRINT/TAG RESULT OR HARDWARE DEFECT PROVEN — EIGHT PHASE-0 AUTHORITIES CONSUMED — OPERATOR CORRECTION `083fdfb`, TREE `24bd130`, EXACT-HEAD CI `30402655381` ATTEMPT 1 12/12 AND INDEPENDENT ROUND-2 REVIEW `APPROVED`, ZERO OPEN P0–P3 — CURRENT LOCAL PHASE-0 READINESS CORRECTION ON BASELINE `fa1aaa7` PASSED FRESH SAFE-ROOT V3 BUT HAS NO CANDIDATE SHA/TREE, V4 OR REVIEW BINDING — NO CURRENT PHASE-0 OR HUMAN-V5 AUTHORITY/DO NOT START**
 - Date: 2026-07-29
 - Owner: Technical Lead
 - Approval authority for any run: Human Architect
@@ -83,6 +83,46 @@ cleanup without creating or removing reverse mappings. It re-attests the ownersh
 force-stop and again before version-conditional uninstall; absent, ambiguous or changed
 provenance is preserved and returns mismatch.
 
+#### Current local readiness delta
+
+The current focused local candidate starts from exact baseline
+`fa1aaa782415aceb85c0aa5c1233732ef9afa4dc`, tree
+`da69081517d2b0b9631eaef393b0a6022735061e`. It has no candidate commit/tree, V4 or
+independent-review binding and remains **DO NOT START**. It changes no Validation App, APK,
+manifest, artifact, NFC acceptance rule, dependency, lockfile, schema, Product rule or later
+Product-Human-V5 workflow.
+
+The final fresh detached sparse safe-root V3 bound executable-patch SHA-256
+`5dea48121b62fe7ebb4894f72425aa5ef5f759e113c3dd349f9fd48bb29fe9b4` and exact Node
+`24.17.0`/npm `11.13.0`/task-owned PostgreSQL `17.10`. The first alphabetical build aggregate
+passed 15/20 and stopped five dependency-sensitive builds before their fresh internal declarations
+existed; only those five were continued topologically and passed 5/5 with candidate bytes
+unchanged, completing 20/20 unique builds. All 21/21 tests-inclusive typechecks and 21/21 suites
+passed across 148 test files, 2,505 tests and exactly two optional B1 Supavisor skips. Migrations
+001–013 applied, replayed with `applied=none` and passed ledger verification; C3B `verify-bin`,
+52/52 Mobile test-source inclusion, the unchanged official artifact verifier and one isolated
+861-module Android export passed. The exact task PostgreSQL was stopped, ports 55437 and 55435
+were absent, and the complete task root was moved recoverably to Trash. The subsequent four-file
+ADO synchronization is R0 over unchanged executable/test bytes.
+
+The readiness delta uses the Android-Toybox-compatible exact process query
+`ps -A -w -o NAME:4`. Only the exact unpadded header `NAME` and unpadded, whitespace-free process
+rows are accepted; `-w` preserves full package and `package:process` names instead of silently
+truncating them. Any header, padding, column or row deviation fails closed.
+
+The following checks are **INFO-only pre-authority readiness**, not a Helper, wrapper, start or
+hardware authorization:
+
+1. Use the canonical repository CWD
+   `/Users/timbartz/Dokumente/GitHub/taptime` and require its canonical real path to be identical.
+2. Bind the exact future-authorized `HEAD` and tree, `main`, `origin/main` and remote state, plus a
+   clean tracked scope, while retaining the explicit `research/**` and root-`app.json` exclusions.
+3. Resolve and bind the canonical absolute Node and `adb` executable paths and their exact
+   versions. Do not rely on aliases, shell functions or a later PATH substitution.
+4. Start the future operator only from a cleaned environment with `NODE_OPTIONS` unset and without
+   `ADB_SERVER_SOCKET`, `ANDROID_ADB_SERVER_PORT`, `ANDROID_SERIAL`, `ADB_VENDOR_KEYS` or any other
+   ADB override. These checks may not install, launch, contact hardware or change system state.
+
 The direct future invocation shape is:
 
 ```sh
@@ -93,12 +133,66 @@ node apps/mobile/scripts/da5V5ValidationPhase0Operator.mjs
 ```
 
 This is a protocol description, not execution authority. After automatic preflight, an authorized
-operator enters exact `install-launch`, completes any separately authorized Human UI work outside
-the operator, then enters exact `cleanup`; `abort` is the only optional early stop. Wrong,
-duplicate or out-of-order input, EOF, signal or failure goes fail-closed through cleanup. The
-first finish/abort request starts one absolute deadline shared by active-operation settlement and
-cleanup; every cleanup wait and ADB call is capped to its remaining budget, expiry cannot match,
-and the shared text/binary ADB runner force-settles after SIGKILL grace even without child close.
+operator enters exact `install-launch`. Receipt `waiting:match` is only the handoff to the
+separately authorized Human sequence below; it is not a UI attestation.
+
+After `waiting:match`, the future Human and operator must perform exactly this sequence:
+
+1. On the Validation UI require the exact title
+   `Geräte- und Bedienungshilfen-Bindung prüfen` and exact text
+   `Alle angezeigten Werte exakt mit dem Hardware-Runbook abgleichen.` Compare the displayed
+   model, Android release/API/build, exact **200 %** font scale and TalkBack package/version with
+   the future authorization. Exactly one installed and active provider is permitted:
+   `com.google.android.marvin.talkback` at the authorized version or
+   `com.samsung.android.accessibility.talkback` at the authorized version. None, both, a different
+   package or a different version fails closed. Only after exact equality may the Human activate
+   `Gerätebindung exakt bestätigen`.
+2. Perform exactly 30 separate successful stable physical presentations in the fixed order:
+   ten Tag-A presentations for role A, then ten Tag-B presentations for role B, then ten Tag-X
+   presentations for role X. This is **10 A + 10 B + 10 X**, not three scans. At every
+   presentation use only the physically matching marked Tag for the active role; no substitution,
+   interleaving or out-of-order role is allowed.
+3. Require each role to finish at `10 / 10`, require three pairwise-distinct disclosure-safe
+   12-uppercase-hex SHA-256 fingerprints and require the displayed Technology value
+   `NfcA+MifareUltralight` for every role. The unchanged `03694f2` boundary requires the fully
+   qualified `android.nfc.tech.NfcA` and
+   `android.nfc.tech.MifareUltralight` subset; additional or duplicated Android entries are
+   ignored for the decision and are neither displayed nor persisted. No raw UID, payload or raw
+   Technology list may be recorded.
+4. After the thirtieth successful presentation require the exact final title
+   `Alle drei Rollen stabil gebunden` and exact final text
+   `A, B und X sind stabil, eindeutig und voneinander verschieden.`
+5. Only after personally confirming every preceding UI observation does the trusted Human state
+   exact `PASS`. The operator then enters exact `human-pass` once, requires the unique receipt
+   `human_pass:match`, and only then enters exact `cleanup`.
+
+The operator does not infer or independently attest UI truth. `human-pass` is the explicit
+one-time trusted Human handoff after the runbook-bound UI sequence. It is valid only once in
+`waiting`; it moves the session into a separate Human-passed state. `cleanup` from `waiting` is a
+failure, and cleanup can satisfy success only from that Human-passed state. Early, duplicate,
+late, foreign or out-of-order input fails closed. Exact `abort` starts the same one-time
+fail/cleanup flight from every pre-completion state.
+
+Any Cancel, timeout, safe failure stage, failure title/text, ambiguity, wrong Tag/role/order,
+non-distinct fingerprint, Technology mismatch or desire to reset consumes the authority. Do not
+press `Lokale Nachweise löschen`, retry, repair, resume or reuse an observation; enter exact
+`abort` immediately and complete cleanup.
+
+The catchable signals are exactly `SIGHUP`, `SIGINT`, `SIGQUIT` and `SIGTERM`. Repeated or mixed
+delivery uses the same idempotent fail/cleanup flight, and all four handlers remain active until
+cleanup and terminal settlement finish. `SIGKILL` and `SIGSTOP` are not catchable and are
+therefore explicitly excluded from the protocol; they cannot produce a valid terminal receipt or
+successful evidence.
+
+The first finish/abort request starts one absolute deadline shared by active-operation settlement
+and cleanup; every cleanup wait and ADB call is capped to its remaining budget, expiry cannot
+match, and the shared text/binary ADB runner force-settles after SIGKILL grace even without child
+close. `complete:match` is emitted only after Human-PASS receipt, cleanup, deadline and all prior
+receipt preconditions succeed. It is terminal and can never be followed by `failed:mismatch`.
+A failed path emits only terminal `failed:mismatch`, and the CLI exits nonzero. Conversely,
+`complete:match` makes the CLI exit zero. This terminal result proves only the combined
+Human-PASS handshake plus operator/cleanup success; it is not APK approval, a Product-Human-V5
+pass or production authority.
 The final post-R1-correction safe-root V3 passed 20/20 builds, 21/21 tests-inclusive typechecks,
 21/21 workspace suites covering 148 test files and 2,484 passed tests with exactly two documented
 optional B1 skips, migrations 001–013 apply/replay/ledger, C3B binary verification, 52/52 Mobile
@@ -175,6 +269,7 @@ Complete uninstall and scoped cleanup are mandatory.
 | Historical `effc57a` Artifact Exact-SHA review | `APPROVED`, zero open P0–P3; all 32 manifest source-closure files byte-exact; package/signature/version, NFC-only permission, backup/transfer disabled, cleartext/network blocked and no Product dispatch/deep link; DEX 4 required present / 14 forbidden absent; Hermes Validation markers present and Product/network/database/storage markers absent |
 | `DA5-V5-VAL-TECH-01` source/review/CI | `03694f2d877bc323791e93473ad01ceb82af70df`; tree `6c6039683e067ef29f1f917a60c2628d26e38784`; exact-head CI `30386552118`, attempt 1, 12/12; prepublication review round 2 `APPROVED`, zero open P0–P3 |
 | Validation Phase-0 operator source/review/CI — DO NOT START | Baseline `39a6ef09fad18375af025bc8ed12cc1ea6dda964`, tree `10cdf16421fe564e1961a39d79e20775c0269fc4`; candidate `083fdfb259089d976e48f824e0862f10637d3290`, tree `24bd130500934c6a48fd9314fa06387d6ebdedcd`; exact-head CI `30402655381`, attempt 1, 12/12; independent Exact-SHA re-review round 2 `APPROVED`, zero open P0–P3; both round-1 P1 findings closed; no Phase-0, installation, ADB or hardware authority |
+| Current local Phase-0 readiness candidate — DO NOT START | Exact baseline `fa1aaa782415aceb85c0aa5c1233732ef9afa4dc`, tree `da69081517d2b0b9631eaef393b0a6022735061e`; Toybox process parsing, explicit one-time `human-pass`, deterministic terminal receipt ordering, four catchable signals and exact 30-presentation Human protocol; fresh safe-root V3 passed 20/20 builds, 21/21 typechecks and 21/21 suites / 148 files / 2,505 tests plus two optional skips and all migration/C3B/Mobile-inclusion/artifact/export gates; no candidate SHA/tree, V4, independent review or hardware authority |
 | `DA5-V5-VAL-TECH-01` candidate APK — DO NOT INSTALL | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-validation/da5-v5-validation-03694f2d877b-d2084486b07f27bd/app-release-d2084486b07f27bd.apk`; 65,631,433 bytes; mode `0444`; SHA-256 `d2084486b07f27bdbd72f9f32e38531f8de31dad18ef4789cab2ec44135e05f5`; official verifier `PASS`; independent Source/Artifact Exact-SHA review `APPROVED`, zero open P0–P3 |
 | `DA5-V5-VAL-TECH-01` candidate manifest — DO NOT INSTALL | Same directory, `manifest-03694f2d877b.json`; 6,700 bytes; mode `0444`; SHA-256 `aa2a243cd4f81ead806c43e27d6f9c12c28e396db64fe556d8ddf02a8d52f347`; all 32 source-closure entries matched; independent Source/Artifact Exact-SHA review `APPROVED`, zero open P0–P3 |
 | `DA5-V5-VAL-TECH-01` package/security boundary | `com.tim180201.mobile.validation`; versionCode `1`; versionName `1.0.0`; `local-validation-only`; one v2 signer with certificate SHA-256 `fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c`; NFC-only; no network permission; cleartext denied; backup/transfer denied; no Product deep links or Tag dispatch; required native modules present, forbidden modules absent; Validation marker present and Product runtime marker absent |

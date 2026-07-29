@@ -5,6 +5,13 @@ import {
   createDa5V5ValidationPhase0Session,
 } from './da5V5ValidationPhase0OperatorCore.mjs';
 
+const handledSignals = Object.freeze([
+  'SIGHUP',
+  'SIGINT',
+  'SIGQUIT',
+  'SIGTERM',
+]);
+
 export async function runDa5V5ValidationPhase0Operator(options = {}) {
   const input = options.input ?? process.stdin;
   const output = options.output ?? process.stdout;
@@ -48,8 +55,9 @@ export async function runDa5V5ValidationPhase0Operator(options = {}) {
   };
   lineReader.on('line', onLine);
   lineReader.once('close', onClose);
-  processTarget.on('SIGINT', onSignal);
-  processTarget.on('SIGTERM', onSignal);
+  for (const signal of handledSignals) {
+    processTarget.on(signal, onSignal);
+  }
   processTarget.on('uncaughtException', onFatal);
   processTarget.on('unhandledRejection', onFatal);
   if (arguments_.length !== 0) {
@@ -61,8 +69,9 @@ export async function runDa5V5ValidationPhase0Operator(options = {}) {
   lineReader.removeListener('line', onLine);
   lineReader.removeListener('close', onClose);
   if (!lineReader.closed) lineReader.close();
-  processTarget.removeListener('SIGINT', onSignal);
-  processTarget.removeListener('SIGTERM', onSignal);
+  for (const signal of handledSignals) {
+    processTarget.removeListener(signal, onSignal);
+  }
   processTarget.removeListener('uncaughtException', onFatal);
   processTarget.removeListener('unhandledRejection', onFatal);
   return result;
