@@ -1,6 +1,6 @@
 # Development Assignment 5 — V5 Human Android Evidence
 
-- Status: **PHASE-0 RUNS 7 AND 8 REMAIN CONSUMED FAIL-CLOSED HISTORY; RUN 9 ON BASELINE `2f057cb`, TREE `6f65f44`, REPORTED EXACTLY `artifact:match`, `preflight:match`, `install_launch:mismatch`, `cleanup:match`, `failed:mismatch`, REACHED NO SCAN/UI HANDOFF AND CLEANED PACKAGE/PROCESS/GLOBAL REVERSE TO ZERO — ITS EXACT INSTALL-/LAUNCH CAUSE IS NOT RECONSTRUCTABLE AND NO PRODUCT/NFC/HARDWARE DEFECT IS PROVEN — NINE PHASE-0 AUTHORITIES CONSUMED — CURRENT LOCAL R3 CORRECTION ADDS FIVE CLOSED INSTALL-/LAUNCH STAGES AND TWO CLOSED CATEGORIES; FOCUSED 137/137 PLUS MOBILE TESTS-INCLUSIVE TYPECHECK PASS, UNCHANGED GREEN V3 `496ca59`/TREE `b398b89` CARRIED BY EXACT HUMAN AUTHORITY, NO NEW V3/V4/V5 — DO NOT START; PRODUCT HUMAN V5 NOT RUN/UNAUTHORIZED**
+- Status: **PHASE-0 RUNS 7 AND 8 REMAIN CONSUMED FAIL-CLOSED HISTORY; RUN 9 ON BASELINE `2f057cb`, TREE `6f65f44`, REPORTED EXACTLY `artifact:match`, `preflight:match`, `install_launch:mismatch`, `cleanup:match`, `failed:mismatch`, REACHED NO SCAN/UI HANDOFF AND CLEANED PACKAGE/PROCESS/GLOBAL REVERSE TO ZERO — ITS EXACT INSTALL-/LAUNCH CAUSE IS NOT RECONSTRUCTABLE AND NO PRODUCT/NFC/HARDWARE DEFECT IS PROVEN — NINE PHASE-0 AUTHORITIES CONSUMED — INSTALL-/LAUNCH-DIAGNOSTIC CANDIDATE `8ce0385`, TREE `f5b914c`, EXACT-HEAD CI `30459539801` ATTEMPT 1 12/12 AND INDEPENDENT EXACT REVIEW ARE `APPROVED` WITH ZERO OPEN P0–P3; V1/V2 EXECUTED GREEN AND UNCHANGED GREEN V3 `496ca59`/TREE `b398b89` CARRIED — DO NOT START; PRODUCT HUMAN V5 NOT RUN/UNAUTHORIZED**
 - Date: `NOT RUN`
 - Artifact preparation date: 2026-07-28
 - Owner: Technical Lead
@@ -160,7 +160,7 @@ Product Human result. It grants no new Human-run or installation authority.
 | Historical `effc57a` Artifact Exact-SHA review | `APPROVED`, zero open P0–P3; all 32 manifest source-closure files byte-exact; package/signature/version, NFC-only permission, backup/transfer disabled, cleartext/network blocked and no Product dispatch/deep link; DEX 4 required present / 14 forbidden absent; Hermes Validation markers present and Product/network/database/storage markers absent |
 | `DA5-V5-VAL-TECH-01` source/review/CI | `03694f2d877bc323791e93473ad01ceb82af70df`; tree `6c6039683e067ef29f1f917a60c2628d26e38784`; exact-head CI `30386552118`, attempt 1, 12/12; prepublication review round 2 `APPROVED`, zero open P0–P3 |
 | Validation Phase-0 operator source/review/CI — DO NOT START | Baseline `39a6ef09fad18375af025bc8ed12cc1ea6dda964`, tree `10cdf16421fe564e1961a39d79e20775c0269fc4`; candidate `083fdfb259089d976e48f824e0862f10637d3290`, tree `24bd130500934c6a48fd9314fa06387d6ebdedcd`; exact-head CI `30402655381`, attempt 1, 12/12; independent Exact-SHA re-review round 2 `APPROVED`, zero open P0–P3; both round-1 P1 findings closed; no Phase-0, installation, ADB or hardware authority |
-| Current local install-/launch-diagnostic correction — DO NOT START | Baseline `2f057cb4e5d096e34785c72c51340f589c711dd2`, tree `6f65f44e53574921f1e8e9fdfde94f7a9a9ade2c`; five fixed stages, two fixed categories, no raw diagnostics; focused Operator 137/137, two MJS syntax checks and Mobile tests-inclusive typecheck pass; unchanged green V3 carried from `496ca59`/tree `b398b89` by exact Human authority; no new V3/V4/V5; independent R3 review pending |
+| Install-/launch-diagnostic candidate/review — DO NOT START | Candidate `8ce03852e782d541319bb852f216cf596ab1787f`; tree `f5b914c1b8f1243244733808beaef54f0351a563`; parent `2f057cb4e5d096e34785c72c51340f589c711dd2`; exact eight-file +488/-132 delta; patch SHA-256 `c8418fe6382c8a23ada44254c2fdc35652acbb73a8f99983f5cbb4cc11b46984`; V1/V2 executed green; unchanged V3 carried from `496ca59`/tree `b398b89`; exact-head CI `30459539801`, attempt 1, 12/12; independent Exact-Delta/Commit/Tree/CI review `APPROVED`, zero open P0–P3; no Phase-0, installation, ADB or hardware authority |
 | Historical published Phase-0 readiness candidate/review — DO NOT START | Candidate `496ca59f0965670b29a210b8aa2443b99bb4a386`, tree `b398b89c77f7f0b4799a7a06b11bd2daf51fd34a`; baseline `fa1aaa782415aceb85c0aa5c1233732ef9afa4dc`, tree `da69081517d2b0b9631eaef393b0a6022735061e`; safe-root V3/eight-file candidate has no code finding; exact-candidate CI `30427205223`, attempt 1, completed failure 11/12; job `90496143535` passed 3/3 files and 121/121 assertions before later unhandled PostgreSQL `57P01` on `taptime_c3e1_dirty_*`; formal review `CHANGES REQUIRED`, exactly one P2 CI/test-reliability finding, no Product/Security finding; no retry |
 | PostgreSQL test-cleanup correction — technically closed/DO NOT START | Candidate `21e518151a3f4727ebf4ce90cd1557660960ff21`, tree `8f764f9260378b631b4b026355852c324d6dc06b`; parent `d63c62de9eced5f7dd62c8c957d4c2fffce77bf9`, tree `753feedcae6724e711557e6492bbe26fa0b02083`; seven test-only files, +192/-12, delta SHA-256 `b0406bc02a085649060b3dfdb263db00694e501efbe1c247f3ba49fec3cb53e2`; V1 2/2, V2 B3 128/128 + C3B 60/60 + C3C/C3E1 102/102 and three tests-inclusive typechecks passed; unchanged green V3 carried from `496ca59`; exact-head CI `30429746848`, attempt 1, 12/12 without retry; independent source/delta and final Exact-SHA/V4 reviews `APPROVED`, zero open P0–P3; historical P2 closed; no hardware authority |
 | `DA5-V5-VAL-TECH-01` candidate APK/manifest — DO NOT INSTALL | Directory `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-validation/da5-v5-validation-03694f2d877b-d2084486b07f27bd`; APK `app-release-d2084486b07f27bd.apk`, 65,631,433 bytes, mode `0444`, SHA-256 `d2084486b07f27bdbd72f9f32e38531f8de31dad18ef4789cab2ec44135e05f5`; manifest `manifest-03694f2d877b.json`, 6,700 bytes, mode `0444`, SHA-256 `aa2a243cd4f81ead806c43e27d6f9c12c28e396db64fe556d8ddf02a8d52f347`; official verifier `PASS`; independent Source/Artifact Exact-SHA review `APPROVED`, zero open P0–P3 |
@@ -508,27 +508,31 @@ This correction and its evidence grant no Phase-0, installation, ADB, hardware, 
 Product Human-V5 authority. The operator remains **DO NOT START**, and Product Human V5 remains
 `NOT RUN`.
 
-### 2.4 Current focused install-/launch-diagnostic correction — local, not reviewed
+### 2.4 Install-/launch-diagnostic correction — exact candidate/review approved; Human not run
 
-On exact baseline `2f057cb4e5d096e34785c72c51340f589c711dd2`, tree
-`6f65f44e53574921f1e8e9fdfde94f7a9a9ade2c`, the current local R3 correction changes only the
-Validation Phase-0 Operator Core/declaration/receipt formatting, its focused runtime test and this
-minimal ADO truth. It preserves the aggregate `install_launch`, fail-closed cleanup, ownership,
-absolute deadline, Human-PASS and terminal semantics. A failure now emits exactly one matching
-fixed stage from `installation`, `installed_provenance`, `prelaunch`, `activity_start` and
-`postlaunch`, plus exactly one category from `operation_mismatch` and
-`verification_mismatch`, immediately before `install_launch:mismatch`. The mapping is selected
-only by local closed control flow. No `Error.message`, raw command output, installed path, device
-serial or PackageManager output is emitted.
+Candidate `8ce03852e782d541319bb852f216cf596ab1787f`, tree
+`f5b914c1b8f1243244733808beaef54f0351a563`, on exact parent
+`2f057cb4e5d096e34785c72c51340f589c711dd2` contains the exact eight-file +488/-132 delta with
+patch SHA-256 `c8418fe6382c8a23ada44254c2fdc35652acbb73a8f99983f5cbb4cc11b46984`.
+It preserves the aggregate `install_launch`, fail-closed cleanup, ownership, absolute deadline,
+Human-PASS and terminal semantics. A failure emits exactly one matching fixed stage from
+`installation`, `installed_provenance`, `prelaunch`, `activity_start` and `postlaunch`, plus
+exactly one category from `operation_mismatch` and `verification_mismatch`, immediately before
+`install_launch:mismatch`. The mapping is selected only by local closed control flow. No
+`Error.message`, raw command output, installed path, device serial or PackageManager output is
+emitted.
 
-No ADB, installation, App launch, hardware or network action was performed for the correction.
-Both changed MJS files pass `node --check`; the complete affected Mobile Operator test file passes
-137/137, the Mobile `tsc --noEmit` passes and its `--listFilesOnly` result includes the changed
-test source. The first typecheck exposed only a new test-callback implicit-`any` (`TS7006`); that
-test typing was corrected and the repeated focused test/typecheck sequence passed. The unchanged
-green V3 from `496ca59`/tree `b398b89` is carried only under the exact Human authority; no new V3,
-V4 or V5 was run. Independent R3 review remains mandatory. The local candidate remains
-**DO NOT START**.
+V1/V2 executed green: both changed MJS files passed `node --check`; the complete affected Mobile
+Operator test file passed 137/137; Mobile `tsc --noEmit` passed and its `--listFilesOnly` result
+included the changed test source. The first typecheck exposed only a new test-callback
+implicit-`any` (`TS7006`); that test typing was corrected and the repeated focused
+test/typecheck sequence passed. Unchanged green V3 from `496ca59`/tree `b398b89` was carried.
+Exact-head CI `30459539801`, attempt 1, passed 12/12. Independent
+Exact-Delta/Commit/Tree/CI review returned `APPROVED` with zero open P0–P3.
+
+No ADB, installation, App launch, hardware or network action was performed. The candidate remains
+**DO NOT START**; this approval grants no Phase-0, installation, ADB, hardware or Product Human-V5
+authority. Any run requires separate fresh exact Human authorization.
 
 Any future separately authorized Phase-0 record must populate every row below. The automated
 operator does not attest UI truth; only the trusted Human can provide the one-time PASS handoff

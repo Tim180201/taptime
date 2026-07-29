@@ -1,6 +1,6 @@
 # Project Status
 
-Status: CORE ROADMAP V2 COMPLETIONS REMAIN PRESERVED FOR THEIR RECORDED SCOPES — DA4 REMAINS OPEN FOR A LATER FRESH HUMAN V5 — DA5 V0–V4 AND THE LOCAL DA5-V5 RUNTIME GUARD REMAIN INDEPENDENTLY APPROVED; DA5-V5-VAL-NATIVE-CAPTURE-DIAGNOSTICS SOURCE `effc57a`, TREE `758dbfa`, EXACT-HEAD CI `30377569479` ATTEMPT 1 12/12 AND ITS REVIEWS REMAIN HISTORICAL TRUTH — PHASE-0 RUNS 7 AND 8 REMAIN CONSUMED FAIL-CLOSED HISTORY WITHOUT A FINGERPRINT/TAG RESULT OR PROVEN HARDWARE DEFECT — RUN 9 ON BASELINE `2f057cb`, TREE `6f65f44`, REPORTED EXACTLY `artifact:match`, `preflight:match`, `install_launch:mismatch`, `cleanup:match`, `failed:mismatch`; IT REACHED NO SCAN OR UI HANDOFF, ITS EXACT INSTALL-/LAUNCH CAUSE IS NOT RECONSTRUCTABLE FROM THAT OUTPUT, ITS AUTHORITY IS CONSUMED, AND TERMINAL CLEANUP RESTORED PACKAGE/PROCESS/GLOBAL REVERSE ZERO — `DA5-V5-VAL-TECH-01` SOURCE `03694f2`, TREE `6c60396`, EXACT-HEAD CI `30386552118` ATTEMPT 1 12/12 AND ITS APPROVED REVIEWS REMAIN HISTORICAL; ITS EXACT REPLACEMENT APK/MANIFEST REMAINS DO NOT INSTALL — VALIDATION PHASE-0 OPERATOR CORRECTION `083fdfb`, TREE `24bd130`, EXACT-HEAD CI `30402655381` ATTEMPT 1 12/12 AND INDEPENDENT ROUND-2 EXACT-SHA REVIEW REMAIN HISTORICALLY `APPROVED` WITH ZERO OPEN P0–P3 — THE CURRENT LOCAL R3 INSTALL-/LAUNCH-DIAGNOSTIC CORRECTION ON BASELINE `2f057cb` ADDS FIVE CLOSED STAGES AND TWO CLOSED CATEGORIES WITHOUT RAW OUTPUT; FOCUSED 137/137 AND MOBILE TESTS-INCLUSIVE TYPECHECK PASS — UNCHANGED GREEN V3 FROM `496ca59`/TREE `b398b89` IS CARRIED ONLY UNDER THE EXACT HUMAN AUTHORITY; NO NEW V3/V4/V5 WAS RUN — THE OPERATOR REMAINS DO NOT START — NINE PHASE-0 AUTHORITIES ARE CONSUMED; NO NEW PHASE-0/HARDWARE/ADB/INSTALLATION OR PRODUCT-HUMAN-V5 AUTHORITY EXISTS — PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, SYSTEM CHANGES, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
+Status: CORE ROADMAP V2 COMPLETIONS REMAIN PRESERVED FOR THEIR RECORDED SCOPES — DA4 REMAINS OPEN FOR A LATER FRESH HUMAN V5 — DA5 V0–V4 AND THE LOCAL DA5-V5 RUNTIME GUARD REMAIN INDEPENDENTLY APPROVED; DA5-V5-VAL-NATIVE-CAPTURE-DIAGNOSTICS SOURCE `effc57a`, TREE `758dbfa`, EXACT-HEAD CI `30377569479` ATTEMPT 1 12/12 AND ITS REVIEWS REMAIN HISTORICAL TRUTH — PHASE-0 RUNS 7 AND 8 REMAIN CONSUMED FAIL-CLOSED HISTORY WITHOUT A FINGERPRINT/TAG RESULT OR PROVEN HARDWARE DEFECT — RUN 9 ON BASELINE `2f057cb`, TREE `6f65f44`, REPORTED EXACTLY `artifact:match`, `preflight:match`, `install_launch:mismatch`, `cleanup:match`, `failed:mismatch`; IT REACHED NO SCAN OR UI HANDOFF, ITS EXACT INSTALL-/LAUNCH CAUSE IS NOT RECONSTRUCTABLE FROM THAT OUTPUT, ITS AUTHORITY IS CONSUMED, AND TERMINAL CLEANUP RESTORED PACKAGE/PROCESS/GLOBAL REVERSE ZERO — `DA5-V5-VAL-TECH-01` SOURCE `03694f2`, TREE `6c60396`, EXACT-HEAD CI `30386552118` ATTEMPT 1 12/12 AND ITS APPROVED REVIEWS REMAIN HISTORICAL; ITS EXACT REPLACEMENT APK/MANIFEST REMAINS DO NOT INSTALL — VALIDATION PHASE-0 OPERATOR CORRECTION `083fdfb`, TREE `24bd130`, EXACT-HEAD CI `30402655381` ATTEMPT 1 12/12 AND INDEPENDENT ROUND-2 EXACT-SHA REVIEW REMAIN HISTORICALLY `APPROVED` WITH ZERO OPEN P0–P3 — INSTALL-/LAUNCH-DIAGNOSTIC CANDIDATE `8ce0385`, TREE `f5b914c`, EXACT-HEAD CI `30459539801` ATTEMPT 1 12/12 AND INDEPENDENT EXACT-DELTA/COMMIT/TREE/CI REVIEW ARE `APPROVED` WITH ZERO OPEN P0–P3; V1/V2 WERE EXECUTED AND GREEN, UNCHANGED GREEN V3 FROM `496ca59`/TREE `b398b89` WAS CARRIED — THE OPERATOR REMAINS DO NOT START — NINE PHASE-0 AUTHORITIES ARE CONSUMED; NO NEW PHASE-0/HARDWARE/ADB/INSTALLATION OR PRODUCT-HUMAN-V5 AUTHORITY EXISTS — PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, SYSTEM CHANGES, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
 DA5 decision-time Option-A trust anchor: exactly two direct admin-group members, zero nested
 groups; full-record SHA-256 `b006276c09d8f2713f6132ea79cec167ab3a3c2887ee53e95eb00c1cc33719a5`;
 membership SHA-256 `70a683b7ebc7981533015d5d63cf12dfb2eabbfa665c34720eddb4d09e9e3064`;
@@ -109,15 +109,23 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   postlaunch verification failed. It proves no Product, NFC or hardware defect. The authority is
   consumed, and terminal cleanup restored package, process and global reverse state to zero.
 
-  The current local R3 correction on that exact baseline preserves the aggregate and all existing
-  fail-closed, ownership, deadline, cleanup and terminal semantics. It adds exactly the five
+  The exact install-/launch-diagnostic candidate
+  `8ce03852e782d541319bb852f216cf596ab1787f`, tree
+  `f5b914c1b8f1243244733808beaef54f0351a563`, on parent
+  `2f057cb4e5d096e34785c72c51340f589c711dd2` preserves the aggregate and all existing
+  fail-closed, ownership, deadline, cleanup and terminal semantics. Its exact eight-file
+  +488/-132 delta has patch SHA-256
+  `c8418fe6382c8a23ada44254c2fdc35652acbb73a8f99983f5cbb4cc11b46984`. It adds exactly the five
   closed diagnostic stages `installation`, `installed_provenance`, `prelaunch`,
   `activity_start` and `postlaunch`, with categories limited to `operation_mismatch` and
   `verification_mismatch`. A failing install-launch emits exactly one such stage/category receipt
   immediately before `install_launch:mismatch`; neither raw command output nor `Error.message`
-  participates. Focused 137/137 and the Mobile tests-inclusive typecheck pass. Per exact Human
-  authority, no new V3/V4/V5 was run; unchanged green V3 is carried from
-  `496ca59`/tree `b398b89`.
+  participates. V1/V2 executed green with both MJS syntax checks, the complete affected Operator
+  test file at 137/137 and the Mobile tests-inclusive typecheck including the changed test source.
+  Unchanged green V3 is carried from `496ca59`/tree `b398b89`. Exact-head CI `30459539801`,
+  attempt 1, passed 12/12; independent Exact-Delta/Commit/Tree/CI review returned `APPROVED` with
+  zero open P0–P3. This technical approval grants no Phase-0, installation, ADB, hardware or
+  Product Human-V5 authority.
 
   The focused diagnostics correction changes exactly seven authorized files at source
   `effc57a6780ff86784de0519a34abd6c5b7b8cd6`, tree
@@ -1170,8 +1178,11 @@ Two Epics are concurrently Active, per EP-009's own stated relationship to the r
    Preserve later readiness candidate `496ca59`, tree `b398b89`, and failed exact-candidate CI
    `30427205223` 11/12 as historical `CHANGES REQUIRED` evidence with exactly one P2
    CI/test-reliability finding and no retry. Treat focused test-only cleanup correction
-   `21e5181`, tree `8f764f9`, and exact-head CI `30429746848`, attempt 1, 12/12 as the current
+   `21e5181`, tree `8f764f9`, and exact-head CI `30429746848`, attempt 1, 12/12 as a historical
    independently `APPROVED` technical closure with zero open P0–P3; the historical P2 is closed.
+   Preserve install-/launch-diagnostic candidate `8ce0385`, tree `f5b914c`, exact-head CI
+   `30459539801`, attempt 1, 12/12 and independent exact review as `APPROVED` with zero open
+   P0–P3 and **DO NOT START**.
    Do not begin another Phase 0 without binding this independently
    approved exact replacement artifact in a
    fresh explicit
