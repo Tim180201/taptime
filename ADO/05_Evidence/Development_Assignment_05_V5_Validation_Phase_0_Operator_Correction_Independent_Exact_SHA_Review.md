@@ -1,12 +1,14 @@
 # Development Assignment 5 — V5 Validation Phase-0 Operator Correction Independent Exact-SHA Review
 
-- Status: **HISTORICAL ROUND-2 `083fdfb` APPROVED; LATER READINESS `496ca59` CHANGES REQUIRED**
+- Status: **HISTORICAL ROUND-2 `083fdfb` APPROVED; LATER READINESS `496ca59` CHANGES REQUIRED; FOCUSED TEST-CLEANUP CORRECTION `21e5181` APPROVED**
 - Review date: 2026-07-29
 - Review mode: historical independent read-only Exact-SHA re-review, round 2; separate later
-  independent formal-readiness review record
-- Verdict: historical `083fdfb` `APPROVED`; later `496ca59` `CHANGES REQUIRED`
+  independent formal-readiness review record; separate focused correction source/delta and final
+  Exact-SHA/V4 review record
+- Verdict: historical `083fdfb` `APPROVED`; later `496ca59` `CHANGES REQUIRED`; correction
+  `21e5181` `APPROVED`
 - Open findings: historical P0 `0`, P1 `0`, P2 `0`, P3 `0`; later P0 `0`, P1 `0`, P2 `1`,
-  P3 `0`
+  P3 `0`; correction P0 `0`, P1 `0`, P2 `0`, P3 `0`
 
 ## 1. Authority and exact review binding
 
@@ -136,8 +138,8 @@ The C3E1 test, backend and workflow were unchanged. The test blob is identical t
 
 The sole later finding is an out-of-scope P2 for CI/test reliability. It is not a Product or
 Security finding and does not add a code finding to the safe-root V3/eight-file candidate. The
-failed exact-candidate CI consumes V4; no retry was authorized or executed. A focused harness
-correction and a new CI run require new Human authority.
+failed exact-candidate CI consumes V4; no retry was authorized or executed. At that historical
+checkpoint, a focused harness correction and a new CI run required new Human authority.
 
 The candidate and operator remain **DO NOT START**. No Phase-0, installation, ADB, hardware,
 device/Tag or Product Human-V5 authority follows. No hardware action occurred.
@@ -145,3 +147,29 @@ device/Tag or Product Human-V5 authority follows. No hardware action occurred.
 This five-file ADO-only truth synchronization is R0/V0 over unchanged code, test and workflow
 bytes. It carries the consumed V4/review truth without executing tests or CI and cannot certify
 its own future publication commit, tree, remote state, CI or review.
+
+## 8. Focused PostgreSQL test-cleanup correction and final disposition
+
+This separate record preserves both historical dispositions above. It records the subsequently
+authorized correction of the single P2 test-reliability finding and its exact verification.
+
+| Correction binding | Verified value |
+|---|---|
+| Exact parent | `d63c62de9eced5f7dd62c8c957d4c2fffce77bf9`; tree `753feedcae6724e711557e6492bbe26fa0b02083` |
+| Focused test-only correction | `21e518151a3f4727ebf4ce90cd1557660960ff21`; tree `8f764f9260378b631b4b026355852c324d6dc06b` |
+| Exact delta | Seven test-only files, +192/-12; SHA-256 `b0406bc02a085649060b3dfdb263db00694e501efbe1c247f3ba49fec3cb53e2` |
+| Correction boundary | Known B3, C3B, C3C and C3E1 dirty-database finalizers wait boundedly for zero sessions of the exact bound test database after `Pool.end()`, then drop without `FORCE`; pre-test cleanup and C3E2 unchanged |
+| Focused V1/V2 | Helper regression 2/2; B3 128/128; C3B 60/60; C3C+C3E1 102/102; schema/bootstrap/administration tests-inclusive typechecks passed |
+| V3 disposition | Unchanged green safe-root V3 from `496ca59`/tree `b398b89` carried forward under unchanged product, operator, artifact, workflow, dependencies and lockfile |
+| Exact-head V4 | GitHub Actions run `30429746848`, attempt 1, 12/12; exactly one new full run, no retry |
+| Independent review | Source/delta and final Exact-SHA/V4 reviews `APPROVED`; P0 `0`, P1 `0`, P2 `0`, P3 `0` |
+
+The seven-file correction changes no Product code, operator, Validation App/APK/manifest, schema,
+dependency, lockfile, workflow, Product rule or NFC semantics. The prior P2 is closed; it was not
+a Product or Security finding. No Phase-0, installation, ADB, hardware, device/Tag or Product
+Human-V5 authority follows, and the operator remains **DO NOT START**.
+
+This current five-file ADO-only synchronization is R0/V0 over unchanged executable, test and
+workflow bytes. It carries the exact correction/V4/review evidence without repeating tests or CI;
+it does not and cannot certify its own future publication commit, tree, remote state, CI or
+review.

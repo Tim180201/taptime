@@ -1,6 +1,6 @@
 # Project Status
 
-Status: CORE ROADMAP V2 COMPLETIONS REMAIN PRESERVED FOR THEIR RECORDED SCOPES — DA4 REMAINS OPEN FOR A LATER FRESH HUMAN V5 — DA5 V0–V4 AND THE LOCAL DA5-V5 RUNTIME GUARD REMAIN INDEPENDENTLY APPROVED; DA5-V5-VAL-NATIVE-CAPTURE-DIAGNOSTICS SOURCE `effc57a`, TREE `758dbfa`, EXACT-HEAD CI `30377569479` ATTEMPT 1 12/12 AND ITS REVIEWS REMAIN HISTORICAL TRUTH — PHASE-0 RUN 7 ON ADO BASELINE `aebffbe` STOPPED AT THE FIRST A-SCAN WITH SAFE STAGE `technology_evidence`; RUN 8 ON BASELINE `39a6ef0`, TREE `10cdf16`, INSTALLED THE EXACT `03694f2` ARTIFACT BUT STOPPED BEFORE `.MainActivity` LAUNCH BECAUSE AN AD-HOC HOST REGEX REJECTED A LEGITIMATE ANDROID-15 `~` PATH; BOTH AUTHORITIES ARE CONSUMED, RUN 8 CLEANED PACKAGE/PROCESS/GLOBAL REVERSE TO ZERO, AND NEITHER RUN PRODUCED A FINGERPRINT OR TAG RESULT — PHYSICAL `techTypes` REMAIN UNKNOWN AND NO HARDWARE DEFECT IS PROVEN — `DA5-V5-VAL-TECH-01` SOURCE `03694f2`, TREE `6c60396`, EXACT-HEAD CI `30386552118` ATTEMPT 1 12/12, PREPUBLICATION REVIEW ROUND 2 AND INDEPENDENT SOURCE/ARTIFACT EXACT-SHA REVIEW ARE APPROVED WITH ZERO OPEN P0–P3; ITS EXACT REPLACEMENT APK/MANIFEST REMAINS DO NOT INSTALL — VALIDATION PHASE-0 OPERATOR CORRECTION `083fdfb`, TREE `24bd130`, EXACT-HEAD CI `30402655381` ATTEMPT 1 12/12 AND INDEPENDENT ROUND-2 EXACT-SHA REVIEW REMAIN HISTORICALLY `APPROVED` WITH ZERO OPEN P0–P3; BOTH ROUND-1 P1 FINDINGS ARE CLOSED — LATER READINESS CANDIDATE `496ca59`, TREE `b398b89`, RETAINS GREEN SAFE-ROOT V3 BUT EXACT-CANDIDATE CI `30427205223` ATTEMPT 1 FAILED 11/12 AND FORMAL REVIEW RETURNED `CHANGES REQUIRED` WITH EXACTLY ONE OUT-OF-SCOPE P2 CI/TEST-RELIABILITY FINDING AND NO PRODUCT OR SECURITY FINDING; NO RETRY IS AUTHORIZED OR EXECUTED — THE OPERATOR REMAINS DO NOT START — EIGHT PHASE-0 AUTHORITIES ARE CONSUMED; NO NEW PHASE-0/HARDWARE/ADB/INSTALLATION OR PRODUCT-HUMAN-V5 AUTHORITY EXISTS — PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, SYSTEM CHANGES, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
+Status: CORE ROADMAP V2 COMPLETIONS REMAIN PRESERVED FOR THEIR RECORDED SCOPES — DA4 REMAINS OPEN FOR A LATER FRESH HUMAN V5 — DA5 V0–V4 AND THE LOCAL DA5-V5 RUNTIME GUARD REMAIN INDEPENDENTLY APPROVED; DA5-V5-VAL-NATIVE-CAPTURE-DIAGNOSTICS SOURCE `effc57a`, TREE `758dbfa`, EXACT-HEAD CI `30377569479` ATTEMPT 1 12/12 AND ITS REVIEWS REMAIN HISTORICAL TRUTH — PHASE-0 RUN 7 ON ADO BASELINE `aebffbe` STOPPED AT THE FIRST A-SCAN WITH SAFE STAGE `technology_evidence`; RUN 8 ON BASELINE `39a6ef0`, TREE `10cdf16`, INSTALLED THE EXACT `03694f2` ARTIFACT BUT STOPPED BEFORE `.MainActivity` LAUNCH BECAUSE AN AD-HOC HOST REGEX REJECTED A LEGITIMATE ANDROID-15 `~` PATH; BOTH AUTHORITIES ARE CONSUMED, RUN 8 CLEANED PACKAGE/PROCESS/GLOBAL REVERSE TO ZERO, AND NEITHER RUN PRODUCED A FINGERPRINT OR TAG RESULT — PHYSICAL `techTypes` REMAIN UNKNOWN AND NO HARDWARE DEFECT IS PROVEN — `DA5-V5-VAL-TECH-01` SOURCE `03694f2`, TREE `6c60396`, EXACT-HEAD CI `30386552118` ATTEMPT 1 12/12, PREPUBLICATION REVIEW ROUND 2 AND INDEPENDENT SOURCE/ARTIFACT EXACT-SHA REVIEW ARE APPROVED WITH ZERO OPEN P0–P3; ITS EXACT REPLACEMENT APK/MANIFEST REMAINS DO NOT INSTALL — VALIDATION PHASE-0 OPERATOR CORRECTION `083fdfb`, TREE `24bd130`, EXACT-HEAD CI `30402655381` ATTEMPT 1 12/12 AND INDEPENDENT ROUND-2 EXACT-SHA REVIEW REMAIN HISTORICALLY `APPROVED` WITH ZERO OPEN P0–P3; BOTH ROUND-1 P1 FINDINGS ARE CLOSED — LATER READINESS CANDIDATE `496ca59`, TREE `b398b89`, RETAINS GREEN SAFE-ROOT V3 BUT EXACT-CANDIDATE CI `30427205223` ATTEMPT 1 FAILED 11/12 AND FORMAL REVIEW RETURNED `CHANGES REQUIRED` WITH EXACTLY ONE OUT-OF-SCOPE P2 CI/TEST-RELIABILITY FINDING AND NO PRODUCT OR SECURITY FINDING; NO RETRY WAS AUTHORIZED OR EXECUTED — FOCUSED TEST-ONLY CLEANUP CORRECTION `21e5181`, TREE `8f764f9`, EXACT-HEAD CI `30429746848` ATTEMPT 1 12/12 AND INDEPENDENT SOURCE/DELTA PLUS FINAL EXACT-SHA/V4 REVIEWS ARE `APPROVED` WITH ZERO OPEN P0–P3; THE HISTORICAL P2 IS CLOSED — THE OPERATOR REMAINS DO NOT START — EIGHT PHASE-0 AUTHORITIES ARE CONSUMED; NO NEW PHASE-0/HARDWARE/ADB/INSTALLATION OR PRODUCT-HUMAN-V5 AUTHORITY EXISTS — PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, SYSTEM CHANGES, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
 DA5 decision-time Option-A trust anchor: exactly two direct admin-group members, zero nested
 groups; full-record SHA-256 `b006276c09d8f2713f6132ea79cec167ab3a3c2887ee53e95eb00c1cc33719a5`;
 membership SHA-256 `70a683b7ebc7981533015d5d63cf12dfb2eabbfa665c34720eddb4d09e9e3064`;
@@ -215,9 +215,28 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   `DROP DATABASE ... WITH (FORCE)` sequence racing asynchronous client-end handling in
   `pg-pool@3.14.0`. Independent formal review returned `CHANGES REQUIRED` with exactly one P2
   outside the candidate scope for CI/test reliability and no Product or Security finding. No
-  retry was authorized or executed. A focused harness correction and new CI require new Human
-  authority. The candidate remains **DO NOT START** and changes neither Validation/App code nor
+  retry was authorized or executed. At that historical checkpoint, a focused harness correction
+  and new CI required new Human authority. The candidate remains **DO NOT START** and changes
+  neither Validation/App code nor
   the bound APK/manifest/source closure.
+
+  The subsequently authorized focused test-only PostgreSQL cleanup correction is
+  `21e518151a3f4727ebf4ce90cd1557660960ff21`, tree
+  `8f764f9260378b631b4b026355852c324d6dc06b`, on exact parent
+  `d63c62de9eced5f7dd62c8c957d4c2fffce77bf9`, tree
+  `753feedcae6724e711557e6492bbe26fa0b02083`. Its seven-file test-only delta is
+  +192/-12 with SHA-256
+  `b0406bc02a085649060b3dfdb263db00694e501efbe1c247f3ba49fec3cb53e2`. The known
+  B3, C3B, C3C and C3E1 dirty-database finalizers now wait boundedly for zero sessions of the
+  exact bound test database after `Pool.end()` and then drop it without `FORCE`; the separate
+  pre-test cleanup and C3E2 remain unchanged. Focused V1 passed 2/2, V2 passed B3 128/128,
+  C3B 60/60 and C3C+C3E1 102/102, and the three tests-inclusive typechecks passed. Unchanged
+  safe-root V3 evidence from `496ca59`/tree `b398b89` was carried forward under unchanged
+  product, operator, artifact, workflow, dependencies and lockfile. Exact-head CI
+  `30429746848`, attempt 1, passed 12/12 without retry. Independent source/delta and final
+  Exact-SHA/V4 reviews returned `APPROVED` with zero open P0–P3, closing the historical P2.
+  This is no Product or Security finding and grants no Phase-0, installation, ADB, hardware or
+  Product Human-V5 authority.
 - **Development Assignment 5 Workstreams A–F and V0–V4 are technically closed/MERGE_READY;
   Human V5 remains unauthorized.** The Human Architect expressly accepted ADR-0016/DA5-P01–P12 and
   ADR-0017/DA5-T01–T15 and authorized the bounded Development implementation plus subsequent
@@ -1130,9 +1149,11 @@ Two Epics are concurrently Active, per EP-009's own stated relationship to the r
    CI `30386552118` and its independently approved exact replacement APK/manifest with zero open
    P0–P3 as **DO NOT INSTALL**. Preserve the independently approved Validation Phase-0 operator
    correction `083fdfb`, tree `24bd130`, and CI `30402655381` 12/12 as **DO NOT START**.
-   Treat later readiness candidate `496ca59`, tree `b398b89`, as `CHANGES REQUIRED` after failed
-   exact-candidate CI `30427205223` 11/12 and exactly one out-of-scope P2 CI/test-reliability
-   finding. Do not retry it; a focused harness correction and new CI require new Human authority.
+   Preserve later readiness candidate `496ca59`, tree `b398b89`, and failed exact-candidate CI
+   `30427205223` 11/12 as historical `CHANGES REQUIRED` evidence with exactly one P2
+   CI/test-reliability finding and no retry. Treat focused test-only cleanup correction
+   `21e5181`, tree `8f764f9`, and exact-head CI `30429746848`, attempt 1, 12/12 as the current
+   independently `APPROVED` technical closure with zero open P0–P3; the historical P2 is closed.
    Do not begin another Phase 0 without binding this independently
    approved exact replacement artifact in a
    fresh explicit
