@@ -24,6 +24,7 @@ import {
   syntheticPassword,
   truncateC3C,
 } from './fixtures.js';
+import { closePoolAndDropTestDatabase } from '../../backend-schema/tests/support/postgresTestDatabaseCleanup.mjs';
 
 const installerDatabaseUrl = process.env.C3C_DATABASE_URL
   ?? 'postgresql://timbartz@127.0.0.1:5432/taptime_c3c';
@@ -781,8 +782,11 @@ describe('migration 008 Employee invitation and enrollment boundary', () => {
       );
       expect(ledger.rows[0]!.count).toBe(0);
     } finally {
-      await dirtyPool.end();
-      await installerPool.query(`DROP DATABASE "${database}" WITH (FORCE)`);
+      await closePoolAndDropTestDatabase({
+        targetPool: dirtyPool,
+        installerPool,
+        databaseName: database,
+      });
       await ensureC3E1RuntimeLogins(installerPool, invitationPassword, enrollmentPassword);
     }
   }, 30_000);

@@ -23,6 +23,7 @@ import { bootstrapRequestDigestV1 } from '../src/digest.js';
 import { OrganizationBootstrapCoordinator } from '../src/OrganizationBootstrapCoordinator.js';
 import { PostgresBootstrapCapability } from '../src/PostgresBootstrapCapability.js';
 import type { BootstrapOrganizationResult, VerifiedBootstrapRequest } from '../src/types.js';
+import { closePoolAndDropTestDatabase } from '../../backend-schema/tests/support/postgresTestDatabaseCleanup.mjs';
 
 type SigningKey = Awaited<ReturnType<typeof generateKeyPair>>['privateKey'];
 
@@ -491,8 +492,11 @@ describe('migration 006 and role graph', () => {
       await pool.query(contaminate);
       await expect(applyMigrationSet(pool, migrations.slice(5))).rejects.toMatchObject({ code: '42501' });
     } finally {
-      await pool.end();
-      await installerPool.query(`DROP DATABASE IF EXISTS ${database} WITH (FORCE)`);
+      await closePoolAndDropTestDatabase({
+        targetPool: pool,
+        installerPool,
+        databaseName: database,
+      });
     }
   });
 });

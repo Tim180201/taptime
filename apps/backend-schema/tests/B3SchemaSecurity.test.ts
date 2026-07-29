@@ -30,6 +30,7 @@ import {
   seedB3,
   truncateB3,
 } from './fixtures.js';
+import { closePoolAndDropTestDatabase } from './support/postgresTestDatabaseCleanup.mjs';
 
 const installerConnectionString = process.env.B3_DATABASE_URL
   ?? 'postgresql://timbartz@127.0.0.1:5432/taptime_b3';
@@ -425,8 +426,11 @@ describe('B3 deterministic migration system', () => {
         applied: [], alreadyApplied: ['012'],
       });
     } finally {
-      await upgradePool.end();
-      await installerPool.query(`DROP DATABASE IF EXISTS ${database} WITH (FORCE)`);
+      await closePoolAndDropTestDatabase({
+        targetPool: upgradePool,
+        installerPool,
+        databaseName: database,
+      });
     }
   }, 30_000);
 
@@ -451,8 +455,11 @@ describe('B3 deterministic migration system', () => {
       `);
       expect(state.rows[0]).toEqual({ ledger: 0, relation: null });
     } finally {
-      await dirtyPool.end();
-      await installerPool.query(`DROP DATABASE IF EXISTS ${database} WITH (FORCE)`);
+      await closePoolAndDropTestDatabase({
+        targetPool: dirtyPool,
+        installerPool,
+        databaseName: database,
+      });
     }
   }, 30_000);
 

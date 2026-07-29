@@ -48,6 +48,7 @@ import {
   truncateC3C,
   withAdminSetupContext,
 } from './fixtures.js';
+import { closePoolAndDropTestDatabase } from '../../backend-schema/tests/support/postgresTestDatabaseCleanup.mjs';
 
 const installerDatabaseUrl = process.env.C3C_DATABASE_URL
   ?? 'postgresql://timbartz@127.0.0.1:5432/taptime_c3c';
@@ -180,8 +181,11 @@ describe('migration 007, roles and database contracts', () => {
           alreadyApplied: [],
         });
       } finally {
-        await dirtyPool.end();
-        await installerPool.query(`DROP DATABASE IF EXISTS ${quoteIdentifier(database)} WITH (FORCE)`);
+        await closePoolAndDropTestDatabase({
+          targetPool: dirtyPool,
+          installerPool,
+          databaseName: database,
+        });
         await ensureC3CRuntimeLogin(installerPool, runtimePassword);
       }
     },
@@ -226,8 +230,11 @@ describe('migration 007, roles and database contracts', () => {
         alreadyApplied: [],
       });
     } finally {
-      await migrationPool.end();
-      await installerPool.query(`DROP DATABASE IF EXISTS ${quoteIdentifier(database)} WITH (FORCE)`);
+      await closePoolAndDropTestDatabase({
+        targetPool: migrationPool,
+        installerPool,
+        databaseName: database,
+      });
       await ensureC3CRuntimeLogin(installerPool, runtimePassword);
     }
   }, 30_000);
