@@ -1,6 +1,6 @@
 # Development Assignment 5 — V5 Human Android Evidence
 
-- Status: **PHASE-0 RUNS 7–12 ARE CONSUMED FAIL-CLOSED HISTORY WITHOUT A PROVEN PRODUCT/APK/NFC/HARDWARE FINDING — RUN 12 STOPPED AT `installation:adb_child_transport_mismatch` AND ENDED WITH `cleanup:match` — THE FOCUSED LOCAL `shell -T -x` INSTALL CORRECTION AND THE POOL-BEFORE-STOP GUARD ORDERING CORRECTION ARE V1/V2-FOCUSED GREEN — AN ISOLATED V3 ATTEMPT IS NOT V3 AFTER 288/288 ASSERTIONS BECAUSE TWO POST-TEST `57P01` EVENTS EXPOSED THE LOCAL GUARD RACE — COMBINED V3/V4/INDEPENDENT REVIEW REMAIN PENDING — TWELVE PHASE-0 AUTHORITIES CONSUMED — DO NOT START; NO CURRENT PHASE-0, HARDWARE, ADB, INSTALLATION OR PRODUCT-HUMAN-V5 AUTHORITY**
+- Status: **PHASE-0 RUNS 7–12 ARE CONSUMED FAIL-CLOSED HISTORY WITHOUT A PROVEN PRODUCT/APK/NFC/HARDWARE FINDING — RUN 12 STOPPED AT `installation:adb_child_transport_mismatch` AND ENDED WITH `cleanup:match` — THE RUN-12 DIAGNOSTIC AND LOCAL GUARD CLEANUP CORRECTION IS TECHNICALLY CLOSED ON CANDIDATE `3a776038`, TREE `3996b4c`, PARENT `3fcbcdec`; V3 PASSED 20/20 BUILDS, 21/21 TESTS-INCLUSIVE TYPECHECKS AND 21/21 SUITES WITH 2,529 TESTS AND TWO EXPECTED SKIPS PLUS MIGRATION/BIN/ARTIFACT/EXPORT/CLEANUP; EXACT-HEAD CI `30479752844`, ATTEMPT 1, PASSED 12/12 WITHOUT RETRY; INDEPENDENT PREPUBLICATION AND FINAL EXACT-SHA REVIEWS ARE `APPROVED` WITH ZERO OPEN P0–P3 — TWELVE PHASE-0 AUTHORITIES CONSUMED — DO NOT START; NO CURRENT PHASE-0, HARDWARE, ADB, INSTALLATION OR PRODUCT-HUMAN-V5 AUTHORITY**
 - Date: `NOT RUN`
 - Artifact preparation date: 2026-07-28
 - Owner: Technical Lead
@@ -156,8 +156,15 @@ pools. Preceding wrapper setup stops likewise provide no V3 evidence. The Human 
 replaced that contradictory order with successful capability/DB reattestation, closure of all
 owned Runtime pools and the active Installer pool, unchanged binary/lifecycle reattestation and
 only then `STOP_FAST`. The focused Guard suite passes 78/78 and the Synthetic workspace
-tests-inclusive typecheck passes. Combined V3, V4 and independent review remain pending; no new
-Phase-0 authority exists.
+tests-inclusive typecheck passes. Final combined candidate
+`3a77603825db573bdabb2d4202fe7cca5383c1ed`, tree
+`3996b4c27d2970b99e1b407217dd269e62be72ce`, parent
+`3fcbcdec79dada8d43041a241127e52f4775e8d8`, passed V3 with 20/20 builds, 21/21
+tests-inclusive typechecks and 21/21 suites / 2,529 passed tests / two expected skips, plus
+migration, binary, artifact, export and cleanup verification. Exact-head CI `30479752844`,
+attempt 1, passed 12/12 without retry. Independent prepublication and final Exact-SHA reviews
+each returned `APPROVED` with zero open P0–P3. The Run-12 diagnostic and local Guard cleanup
+correction is technically closed; no new Phase-0 authority exists.
 
 The focused local Run-10 diagnostic correction preserves every stage, aggregate receipt,
 mutation, cleanup and terminal boundary. A pre-install device re-attestation mismatch remains

@@ -1,6 +1,6 @@
 # Project Status
 
-Status: CORE ROADMAP V2 COMPLETIONS REMAIN PRESERVED FOR THEIR RECORDED SCOPES — DA4 REMAINS OPEN FOR A LATER FRESH HUMAN V5 — DA5 V0–V4, THE LOCAL DA5-V5 RUNTIME GUARD AND THE EXACT VALIDATION ARTIFACT REMAIN PRESERVED FOR THEIR RECORDED SCOPES — PHASE-0 RUNS 7–12 ARE CONSUMED FAIL-CLOSED HISTORY WITHOUT A PROVEN PRODUCT/APK/NFC/HARDWARE FINDING — RUN 12 ON BASELINE `3fcbcdec`, TREE `74cac3e`, STOPPED AT `installation:adb_child_transport_mismatch` BEFORE `installed_provenance` OR ANY UI/NFC/TAG STEP AND ENDED WITH `cleanup:match` — THE FOCUSED LOCAL `shell -T -x` INSTALL CORRECTION AND THE POOL-BEFORE-STOP GUARD ORDERING CORRECTION ARE V1/V2-FOCUSED GREEN — AN ISOLATED V3 ATTEMPT IS NOT RECOGNIZED AS V3: AFTER 288/288 ASSERTIONS TWO POST-TEST `57P01` EVENTS EXPOSED THE LOCAL GUARD RACE — COMBINED V3/V4/INDEPENDENT REVIEW REMAIN PENDING — THE OPERATOR REMAINS DO NOT START — TWELVE PHASE-0 AUTHORITIES ARE CONSUMED; NO NEW PHASE-0/HARDWARE/ADB/INSTALLATION OR PRODUCT-HUMAN-V5 AUTHORITY EXISTS — PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, SYSTEM CHANGES, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
+Status: CORE ROADMAP V2 COMPLETIONS REMAIN PRESERVED FOR THEIR RECORDED SCOPES — DA4 REMAINS OPEN FOR A LATER FRESH HUMAN V5 — DA5 V0–V4, THE LOCAL DA5-V5 RUNTIME GUARD AND THE EXACT VALIDATION ARTIFACT REMAIN PRESERVED FOR THEIR RECORDED SCOPES — PHASE-0 RUNS 7–12 ARE CONSUMED FAIL-CLOSED HISTORY WITHOUT A PROVEN PRODUCT/APK/NFC/HARDWARE FINDING — RUN 12 ON BASELINE `3fcbcdec`, TREE `74cac3e`, STOPPED AT `installation:adb_child_transport_mismatch` BEFORE `installed_provenance` OR ANY UI/NFC/TAG STEP AND ENDED WITH `cleanup:match` — THE RUN-12 DIAGNOSTIC AND LOCAL GUARD CLEANUP CORRECTION IS TECHNICALLY CLOSED ON CANDIDATE `3a776038`, TREE `3996b4c`, PARENT `3fcbcdec`; V3 PASSED 20/20 BUILDS, 21/21 TESTS-INCLUSIVE TYPECHECKS AND 21/21 SUITES WITH 2,529 TESTS AND TWO EXPECTED SKIPS PLUS MIGRATION/BIN/ARTIFACT/EXPORT/CLEANUP; EXACT-HEAD CI `30479752844`, ATTEMPT 1, PASSED 12/12 WITHOUT RETRY; INDEPENDENT PREPUBLICATION AND FINAL EXACT-SHA REVIEWS ARE `APPROVED` WITH ZERO OPEN P0–P3 — THE OPERATOR REMAINS DO NOT START — TWELVE PHASE-0 AUTHORITIES ARE CONSUMED; NO NEW PHASE-0/HARDWARE/ADB/INSTALLATION OR PRODUCT-HUMAN-V5 AUTHORITY EXISTS — PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, SYSTEM CHANGES, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
 DA5 decision-time Option-A trust anchor: exactly two direct admin-group members, zero nested
 groups; full-record SHA-256 `b006276c09d8f2713f6132ea79cec167ab3a3c2887ee53e95eb00c1cc33719a5`;
 membership SHA-256 `70a683b7ebc7981533015d5d63cf12dfb2eabbfa665c34720eddb4d09e9e3064`;
@@ -183,8 +183,15 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   replaced that contradictory order with successful capability/DB reattestation, closure of all
   owned Runtime pools and the active Installer pool, unchanged binary/lifecycle reattestation and
   only then `STOP_FAST`. The focused Guard suite passes 78/78 and the Synthetic workspace
-  tests-inclusive typecheck passes. Combined V3, V4 and independent review remain pending, and
-  the operator remains **DO NOT START**.
+  tests-inclusive typecheck passes. Final combined candidate
+  `3a77603825db573bdabb2d4202fe7cca5383c1ed`, tree
+  `3996b4c27d2970b99e1b407217dd269e62be72ce`, parent
+  `3fcbcdec79dada8d43041a241127e52f4775e8d8`, passed V3 with 20/20 builds, 21/21
+  tests-inclusive typechecks and 21/21 suites / 2,529 passed tests / two expected skips, plus
+  migration, binary, artifact, export and cleanup verification. Exact-head CI `30479752844`,
+  attempt 1, passed 12/12 without retry. Independent prepublication and final Exact-SHA reviews
+  each returned `APPROVED` with zero open P0–P3. The Run-12 diagnostic and local Guard cleanup
+  correction is technically closed; the operator remains **DO NOT START**.
 
   The focused local Run-10 diagnostic correction preserves all stages, aggregates, mutation,
   cleanup and terminal semantics. A pre-install device re-attestation mismatch now stays
@@ -1297,6 +1304,9 @@ Two Epics are concurrently Active, per EP-009's own stated relationship to the r
    Preserve install-/launch-diagnostic candidate `8ce0385`, tree `f5b914c`, exact-head CI
    `30459539801`, attempt 1, 12/12 and independent exact review as `APPROVED` with zero open
    P0–P3 and **DO NOT START**.
+   Preserve final Run-12 diagnostic/Guard correction `3a776038`, tree `3996b4c`, exact-head CI
+   `30479752844`, attempt 1, 12/12 and both independent zero-finding reviews as technically closed
+   and **DO NOT START**.
    Do not begin another Phase 0 without binding this independently
    approved exact replacement artifact in a
    fresh explicit
