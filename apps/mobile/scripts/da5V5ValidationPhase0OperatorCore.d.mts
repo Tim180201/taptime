@@ -6,6 +6,17 @@ export const DA5_V5_VALIDATION_PHASE0_PROFILE:
   'da5-v5-validation-phase0';
 export const DA5_V5_VALIDATION_PHASE0_ACTIVITY:
   'com.tim180201.mobile.validation/.MainActivity';
+export const DA5_V5_VALIDATION_PHASE0_INSTALL_LAUNCH_STAGES: Readonly<{
+  installation: 'installation';
+  installedProvenance: 'installed_provenance';
+  prelaunch: 'prelaunch';
+  activityStart: 'activity_start';
+  postlaunch: 'postlaunch';
+}>;
+export const DA5_V5_VALIDATION_PHASE0_ERROR_CATEGORIES: Readonly<{
+  operationMismatch: 'operation_mismatch';
+  verificationMismatch: 'verification_mismatch';
+}>;
 export const DA5_V5_VALIDATION_PHASE0_ARTIFACT: Readonly<{
   apk: Readonly<{
     bytes: 65631433;
@@ -141,6 +152,7 @@ export interface Da5V5ValidationPhase0SessionOptions {
   readonly receipt?: (
     stage: string,
     status: 'match' | 'mismatch',
+    category?: 'operation_mismatch' | 'verification_mismatch',
   ) => void;
   readonly runner?: Da5V5AndroidAdbRunner;
   readonly sealArtifact?: (options: {

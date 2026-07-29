@@ -25,6 +25,19 @@ export const DA5_V5_VALIDATION_PHASE0_PROFILE =
   'da5-v5-validation-phase0';
 export const DA5_V5_VALIDATION_PHASE0_ACTIVITY =
   `${DA5_V5_VALIDATION_PACKAGE}/.MainActivity`;
+export const DA5_V5_VALIDATION_PHASE0_INSTALL_LAUNCH_STAGES =
+  Object.freeze({
+    installation: 'installation',
+    installedProvenance: 'installed_provenance',
+    prelaunch: 'prelaunch',
+    activityStart: 'activity_start',
+    postlaunch: 'postlaunch',
+  });
+export const DA5_V5_VALIDATION_PHASE0_ERROR_CATEGORIES =
+  Object.freeze({
+    operationMismatch: 'operation_mismatch',
+    verificationMismatch: 'verification_mismatch',
+  });
 export const DA5_V5_VALIDATION_PHASE0_ARTIFACT = Object.freeze({
   apk: Object.freeze({
     bytes: 65_631_433,
@@ -539,127 +552,160 @@ export class Da5V5ValidationPhase0Device {
   }
 
   async installAndLaunch(options = {}) {
-    if (!this.#preflightMatched || this.#mutationMayHaveStarted) {
-      throw new Error('DA5 V5 Validation install order mismatch');
-    }
-    const serial = await this.#requireCurrentDevice(options.signal);
-    await requirePackageProcessReverseZero(
-      this.runner,
-      serial,
-      options.signal,
-    );
-    const installSerial = await this.#requireCurrentDevice(options.signal);
-    if (
-      installSerial !== serial
-      || await readOwnerPackageRegistration(
+    let diagnosticStage =
+      DA5_V5_VALIDATION_PHASE0_INSTALL_LAUNCH_STAGES.installation;
+    let diagnosticCategory =
+      DA5_V5_VALIDATION_PHASE0_ERROR_CATEGORIES.operationMismatch;
+    try {
+      if (!this.#preflightMatched || this.#mutationMayHaveStarted) {
+        throw new Error('DA5 V5 Validation install order mismatch');
+      }
+      const serial = await this.#requireCurrentDevice(options.signal);
+      await requirePackageProcessReverseZero(
         this.runner,
-        installSerial,
+        serial,
+        options.signal,
+      );
+      const installSerial =
+        await this.#requireCurrentDevice(options.signal);
+      if (
+        installSerial !== serial
+        || await readOwnerPackageRegistration(
+          this.runner,
+          installSerial,
+          { signal: options.signal },
+        ) !== 'absent'
+      ) {
+        throw new Error('DA5 V5 Validation package preinstall changed');
+      }
+      this.#installUncertain = true;
+      this.#mutationMayHaveStarted = true;
+      const installResult = await this.snapshot.use((snapshot) =>
+        this.runner.run(
+          [
+            '-s',
+            installSerial,
+            'shell',
+            '-T',
+            'cmd',
+            'package',
+            'install',
+            '-R',
+            '--user',
+            androidOwnerUser,
+            '--pkg',
+            DA5_V5_VALIDATION_PACKAGE,
+            '-S',
+            String(DA5_V5_VALIDATION_PHASE0_ARTIFACT.apk.bytes),
+            '-',
+          ],
+          {
+            signal: options.signal,
+            stdinBytes: snapshot,
+            timeoutMilliseconds: timeouts.install,
+          },
+        ));
+      if (exactSingleLine(installResult) !== 'Success') {
+        throw new Error('DA5 V5 Validation package install mismatch');
+      }
+
+      diagnosticStage =
+        DA5_V5_VALIDATION_PHASE0_INSTALL_LAUNCH_STAGES
+          .installedProvenance;
+      diagnosticCategory =
+        DA5_V5_VALIDATION_PHASE0_ERROR_CATEGORIES.verificationMismatch;
+      const proofSerial =
+        await this.#requireCurrentDevice(options.signal);
+      if (proofSerial !== installSerial) {
+        throw new Error('DA5 V5 Validation install device mismatch');
+      }
+      const provenance = await verifyDa5V5ValidationInstalledArtifact({
+        runner: this.runner,
+        serial: proofSerial,
+        signal: options.signal,
+      });
+      this.#ownedProvenance = provenance;
+      this.#installUncertain = false;
+
+      diagnosticStage =
+        DA5_V5_VALIDATION_PHASE0_INSTALL_LAUNCH_STAGES.prelaunch;
+      await requireReverseZero(this.runner, proofSerial, options.signal);
+      const processesBefore = await readMatchingProcesses(
+        this.runner,
+        proofSerial,
+        options.signal,
+      );
+      if (processesBefore.length !== 0) {
+        throw new Error('DA5 V5 Validation process prelaunch mismatch');
+      }
+      const launchSerial =
+        await this.#requireCurrentDevice(options.signal);
+      await requireOwnedProvenance(
+        this.runner,
+        launchSerial,
+        this.#ownedProvenance,
         { signal: options.signal },
-      ) !== 'absent'
-    ) {
-      throw new Error('DA5 V5 Validation package preinstall changed');
-    }
-    this.#installUncertain = true;
-    this.#mutationMayHaveStarted = true;
-    const installResult = await this.snapshot.use((snapshot) =>
-      this.runner.run(
+      );
+
+      diagnosticStage =
+        DA5_V5_VALIDATION_PHASE0_INSTALL_LAUNCH_STAGES.activityStart;
+      diagnosticCategory =
+        DA5_V5_VALIDATION_PHASE0_ERROR_CATEGORIES.operationMismatch;
+      const launch = await this.runner.run(
         [
           '-s',
-          installSerial,
+          launchSerial,
           'shell',
-          '-T',
-          'cmd',
-          'package',
-          'install',
-          '-R',
+          'am',
+          'start',
+          '-W',
           '--user',
           androidOwnerUser,
-          '--pkg',
-          DA5_V5_VALIDATION_PACKAGE,
-          '-S',
-          String(DA5_V5_VALIDATION_PHASE0_ARTIFACT.apk.bytes),
-          '-',
+          '-n',
+          DA5_V5_VALIDATION_PHASE0_ACTIVITY,
         ],
         {
           signal: options.signal,
-          stdinBytes: snapshot,
-          timeoutMilliseconds: timeouts.install,
+          timeoutMilliseconds: timeouts.launch,
         },
-      ));
-    if (exactSingleLine(installResult) !== 'Success') {
-      throw new Error('DA5 V5 Validation package install mismatch');
-    }
-    const proofSerial = await this.#requireCurrentDevice(options.signal);
-    if (proofSerial !== installSerial) {
-      throw new Error('DA5 V5 Validation install device mismatch');
-    }
-    const provenance = await verifyDa5V5ValidationInstalledArtifact({
-      runner: this.runner,
-      serial: proofSerial,
-      signal: options.signal,
-    });
-    this.#ownedProvenance = provenance;
-    this.#installUncertain = false;
-    await requireReverseZero(this.runner, proofSerial, options.signal);
-    const processesBefore = await readMatchingProcesses(
-      this.runner,
-      proofSerial,
-      options.signal,
-    );
-    if (processesBefore.length !== 0) {
-      throw new Error('DA5 V5 Validation process prelaunch mismatch');
-    }
-    const launchSerial = await this.#requireCurrentDevice(options.signal);
-    await requireOwnedProvenance(
-      this.runner,
-      launchSerial,
-      this.#ownedProvenance,
-      { signal: options.signal },
-    );
-    const launch = await this.runner.run(
-      [
-        '-s',
+      );
+      requireExactLaunchReceipt(launch);
+
+      diagnosticStage =
+        DA5_V5_VALIDATION_PHASE0_INSTALL_LAUNCH_STAGES.postlaunch;
+      diagnosticCategory =
+        DA5_V5_VALIDATION_PHASE0_ERROR_CATEGORIES.verificationMismatch;
+      const processesAfter = await readMatchingProcesses(
+        this.runner,
         launchSerial,
-        'shell',
-        'am',
-        'start',
-        '-W',
-        '--user',
-        androidOwnerUser,
-        '-n',
-        DA5_V5_VALIDATION_PHASE0_ACTIVITY,
-      ],
-      {
-        signal: options.signal,
-        timeoutMilliseconds: timeouts.launch,
-      },
-    );
-    requireExactLaunchReceipt(launch);
-    const processesAfter = await readMatchingProcesses(
-      this.runner,
-      launchSerial,
-      options.signal,
-    );
-    if (
-      processesAfter.length !== 1
-      || processesAfter[0] !== DA5_V5_VALIDATION_PACKAGE
-    ) {
-      throw new Error('DA5 V5 Validation launched process mismatch');
+        options.signal,
+      );
+      if (
+        processesAfter.length !== 1
+        || processesAfter[0] !== DA5_V5_VALIDATION_PACKAGE
+      ) {
+        throw new Error('DA5 V5 Validation launched process mismatch');
+      }
+      await requireReverseZero(
+        this.runner,
+        launchSerial,
+        options.signal,
+      );
+      const postLaunchSerial =
+        await this.#requireCurrentDevice(options.signal);
+      await requireOwnedProvenance(
+        this.runner,
+        postLaunchSerial,
+        this.#ownedProvenance,
+        { signal: options.signal },
+      );
+      return Object.freeze({ status: 'match' });
+    } catch {
+      throw new Da5V5ValidationInstallLaunchFailure(
+        diagnosticStage,
+        diagnosticCategory,
+      );
     }
-    await requireReverseZero(
-      this.runner,
-      launchSerial,
-      options.signal,
-    );
-    const postLaunchSerial =
-      await this.#requireCurrentDevice(options.signal);
-    await requireOwnedProvenance(
-      this.runner,
-      postLaunchSerial,
-      this.#ownedProvenance,
-      { signal: options.signal },
-    );
-    return Object.freeze({ status: 'match' });
   }
 
   finishMaximumMilliseconds() {
@@ -997,11 +1043,18 @@ export class Da5V5ValidationPhase0Session {
             }
           }
         },
-        () => {
+        (error) => {
           if (this.#activeOperation === operation) {
             this.#activeOperation = undefined;
             this.#abortController = undefined;
           }
+          const diagnostic =
+            requireDa5V5ValidationInstallLaunchFailure(error);
+          this.#emitReceipt(
+            diagnostic.stage,
+            'mismatch',
+            diagnostic.category,
+          );
           this.#emitReceipt('install_launch', 'mismatch');
           void this.fail();
         },
@@ -1044,9 +1097,9 @@ export class Da5V5ValidationPhase0Session {
     return this.#finish(false);
   }
 
-  #emitReceipt(stage, status) {
+  #emitReceipt(stage, status, category) {
     try {
-      this.receipt(stage, status);
+      this.receipt(stage, status, category);
       return true;
     } catch {
       this.#failureRequested = true;
@@ -1128,6 +1181,37 @@ export class Da5V5ValidationPhase0Session {
 
 export function createDa5V5ValidationPhase0Session(options) {
   return new Da5V5ValidationPhase0Session(options);
+}
+
+class Da5V5ValidationInstallLaunchFailure extends Error {
+  constructor(stage, category) {
+    super('DA5 V5 Validation install-launch diagnostic mismatch');
+    this.category = category;
+    this.stage = stage;
+  }
+}
+
+function requireDa5V5ValidationInstallLaunchFailure(error) {
+  if (
+    !(error instanceof Da5V5ValidationInstallLaunchFailure)
+    || !Object.values(
+      DA5_V5_VALIDATION_PHASE0_INSTALL_LAUNCH_STAGES,
+    ).includes(error.stage)
+    || !Object.values(
+      DA5_V5_VALIDATION_PHASE0_ERROR_CATEGORIES,
+    ).includes(error.category)
+  ) {
+    return Object.freeze({
+      category:
+        DA5_V5_VALIDATION_PHASE0_ERROR_CATEGORIES.operationMismatch,
+      stage:
+        DA5_V5_VALIDATION_PHASE0_INSTALL_LAUNCH_STAGES.installation,
+    });
+  }
+  return Object.freeze({
+    category: error.category,
+    stage: error.stage,
+  });
 }
 
 async function requirePackageProcessReverseZero(runner, serial, signal) {

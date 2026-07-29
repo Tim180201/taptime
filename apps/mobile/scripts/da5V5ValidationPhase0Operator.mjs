@@ -27,9 +27,10 @@ export async function runDa5V5ValidationPhase0Operator(options = {}) {
       environment.TAPTIME_DA5_V5_VALIDATION_DEVICE_MODEL,
     profile:
       environment.TAPTIME_DA5_V5_VALIDATION_PHASE0_PROFILE,
-    receipt(stage, status) {
+    receipt(stage, status, category) {
       output.write(
-        `da5_v5_validation_phase0 stage=${stage} status=${status}\n`,
+        `da5_v5_validation_phase0 stage=${stage} status=${status}`
+        + `${category === undefined ? '' : ` category=${category}`}\n`,
       );
     },
   });

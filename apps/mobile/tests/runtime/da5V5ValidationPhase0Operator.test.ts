@@ -28,6 +28,8 @@ import {
 import {
   DA5_V5_VALIDATION_PHASE0_ACTIVITY,
   DA5_V5_VALIDATION_PHASE0_ARTIFACT,
+  DA5_V5_VALIDATION_PHASE0_ERROR_CATEGORIES,
+  DA5_V5_VALIDATION_PHASE0_INSTALL_LAUNCH_STAGES,
   DA5_V5_VALIDATION_PHASE0_PROFILE,
   Da5V5ValidationPhase0Device,
   createDa5V5ValidationPhase0Session,
@@ -62,6 +64,58 @@ afterEach(() => {
 });
 
 describe('DA5 V5 Validation Phase-0 CLI signals', () => {
+  it('renders only the closed optional diagnostic category', async () => {
+    const processTarget = new EventEmitter();
+    const input = new PassThrough();
+    const output = new PassThrough();
+    let disclosed = '';
+    output.on('data', (chunk: Buffer) => {
+      disclosed += chunk.toString('utf8');
+    });
+    const done = Promise.resolve({ status: 'mismatch' as const });
+    const session = {
+      done,
+      end: vi.fn(() => done),
+      fail: vi.fn(() => done),
+      signal: vi.fn(() => done),
+      start: vi.fn(async () => ({ status: 'match' as const })),
+      submit: vi.fn(async () => undefined),
+    };
+
+    await expect(runDa5V5ValidationPhase0Operator({
+      arguments_: [],
+      createSession(options: {
+        receipt(
+          stage: string,
+          status: 'match' | 'mismatch',
+          category?: 'operation_mismatch' | 'verification_mismatch',
+        ): void;
+      }) {
+        options.receipt(
+          'installation',
+          'mismatch',
+          'operation_mismatch',
+        );
+        options.receipt('install_launch', 'mismatch');
+        return session;
+      },
+      environment: {},
+      input,
+      output,
+      processTarget,
+    })).resolves.toEqual({ status: 'mismatch' });
+
+    expect(disclosed).toBe(
+      'da5_v5_validation_phase0 stage=installation'
+      + ' status=mismatch category=operation_mismatch\n'
+      + 'da5_v5_validation_phase0 stage=install_launch'
+      + ' status=mismatch\n',
+    );
+    expect(disclosed).not.toContain('SECRET');
+    input.destroy();
+    output.destroy();
+  });
+
   it.each(handledSignalNames)(
     'keeps %s handled and idempotent through a deterministic double signal',
     async (signalName) => {
@@ -502,6 +556,32 @@ describe('DA5 V5 Validation installed byte proof', () => {
 });
 
 describe('DA5 V5 Validation device and protocol boundary', () => {
+  it('binds the complete install-launch diagnostic allowlists', () => {
+    expect(
+      Object.values(DA5_V5_VALIDATION_PHASE0_INSTALL_LAUNCH_STAGES),
+    ).toEqual([
+      'installation',
+      'installed_provenance',
+      'prelaunch',
+      'activity_start',
+      'postlaunch',
+    ]);
+    expect(
+      Object.values(DA5_V5_VALIDATION_PHASE0_ERROR_CATEGORIES),
+    ).toEqual([
+      'operation_mismatch',
+      'verification_mismatch',
+    ]);
+    expect(
+      Object.isFrozen(
+        DA5_V5_VALIDATION_PHASE0_INSTALL_LAUNCH_STAGES,
+      ),
+    ).toBe(true);
+    expect(
+      Object.isFrozen(DA5_V5_VALIDATION_PHASE0_ERROR_CATEGORIES),
+    ).toBe(true);
+  });
+
   it('verifies the artifact before the first possible ADB spawn', async () => {
     const runner = new FakeRunner();
     const session = createSession(runner, {
@@ -698,6 +778,101 @@ describe('DA5 V5 Validation device and protocol boundary', () => {
     expect(runner.processes).toEqual([]);
     expect(runner.uninstallCount).toBe(1);
   });
+
+  it.each([
+    [
+      'installation',
+      'installation',
+      'operation_mismatch',
+      (runner: FakeRunner) => {
+        runner.installResult =
+          'Failure [SECRET_PACKAGE_MANAGER_OUTPUT /secret/install]';
+      },
+    ],
+    [
+      'installed provenance',
+      'installed_provenance',
+      'verification_mismatch',
+      (runner: FakeRunner) => {
+        runner.canonicalPath = '/data/app/SECRET_PROVENANCE/base.apk';
+      },
+    ],
+    [
+      'prelaunch',
+      'prelaunch',
+      'verification_mismatch',
+      (runner: FakeRunner) => {
+        runner.reverseAfterDigest =
+          'SECRET-DEVICE tcp:1234 localabstract:SECRET_PRELAUNCH\n';
+      },
+    ],
+    [
+      'explicit Activity start',
+      'activity_start',
+      'operation_mismatch',
+      (runner: FakeRunner) => {
+        runner.launchStatus = 'SECRET_ACTIVITY_START_OUTPUT';
+      },
+    ],
+    [
+      'postlaunch',
+      'postlaunch',
+      'verification_mismatch',
+      (runner: FakeRunner) => {
+        runner.launchedProcesses = [
+          packageName,
+          `${packageName}:SECRET_POSTLAUNCH_PROCESS`,
+        ];
+      },
+    ],
+  ])(
+    'emits exactly one closed %s diagnostic before the aggregate failure',
+    async (_label, stage, category, configure) => {
+      const runner = new FakeRunner();
+      const receipts: string[] = [];
+      configure(runner);
+      const session = createSession(runner, {
+        receipt(
+          receiptStage: string,
+          status: 'match' | 'mismatch',
+          receiptCategory?: 'operation_mismatch'
+            | 'verification_mismatch',
+        ) {
+          receipts.push(
+            `${receiptStage}:${status}:${receiptCategory ?? 'none'}`,
+          );
+        },
+      });
+
+      await session.start();
+      await session.submit('install-launch');
+      await expect(session.done).resolves.toEqual({
+        status: 'mismatch',
+      });
+
+      const diagnosticReceipts = receipts.filter((receipt) =>
+        !receipt.endsWith(':none'));
+      expect(diagnosticReceipts).toEqual([
+        `${stage}:mismatch:${category}`,
+      ]);
+      const diagnosticIndex = receipts.indexOf(
+        `${stage}:mismatch:${category}`,
+      );
+      expect(receipts.slice(diagnosticIndex, diagnosticIndex + 2))
+        .toEqual([
+          `${stage}:mismatch:${category}`,
+          'install_launch:mismatch:none',
+        ]);
+      expect(receipts.at(-1)).toBe('failed:mismatch:none');
+      expect(receipts.join('\n')).not.toContain('SECRET_');
+      expect(receipts.join('\n')).not.toContain('/secret/');
+      expect(receipts.join('\n')).not.toContain(runner.serial);
+      expect(receipts.filter((receipt) =>
+        receipt.includes(':mismatch:operation_mismatch')
+        || receipt.includes(':mismatch:verification_mismatch')))
+        .toHaveLength(1);
+    },
+  );
 
   it('preserves package residue when install failed before provenance was proved', async () => {
     const runner = new FakeRunner();
@@ -1521,6 +1696,7 @@ class FakeRunner {
   processOutput?: string;
   reverseOutput = '';
   reverseAfterLaunch?: string;
+  reverseAfterDigest?: string;
   canonicalPath?: string;
   statSize = DA5_V5_VALIDATION_PHASE0_ARTIFACT.apk.bytes;
   statMode = '81a4';
@@ -1816,6 +1992,9 @@ class FakeRunner {
       arguments_: [...arguments_],
       maximumBytes: options.maximumBytes,
     });
+    if (this.reverseAfterDigest !== undefined) {
+      this.reverseOutput = this.reverseAfterDigest;
+    }
     return {
       bytes: this.digestBytes,
       sha256: this.digestSha256,
