@@ -1,6 +1,6 @@
 # Development Assignment 5 — V5 Human Android Gate Runbook
 
-- Status: **PHASE-0 RUNS 7–11 ARE CONSUMED FAIL-CLOSED HISTORY WITHOUT A PROVEN PRODUCT/APK/NFC/HARDWARE FINDING — RUN 11 STOPPED AT `installation:operation_mismatch` AND ENDED WITH `cleanup:match`; ITS EXACT INSTALLATION CAUSE IS NOT DISTINGUISHABLE — THE FOCUSED LOCAL ADB/CHILD-TRANSPORT VERSUS PACKAGEMANAGER-RECEIPT DIAGNOSTIC CORRECTION HAS GREEN FOCUSED TEST/TESTS-INCLUSIVE TYPECHECK AND COMPLETE SAFE-ROOT V3 EVIDENCE; PUBLICATION, V4 AND INDEPENDENT REVIEW REMAIN PENDING — ELEVEN PHASE-0 AUTHORITIES CONSUMED — NO CURRENT PHASE-0, HARDWARE, ADB, INSTALLATION OR PRODUCT-HUMAN-V5 AUTHORITY/DO NOT START**
+- Status: **PHASE-0 RUNS 7–11 ARE CONSUMED FAIL-CLOSED HISTORY WITHOUT A PROVEN PRODUCT/APK/NFC/HARDWARE FINDING — RUN 11 STOPPED AT `installation:operation_mismatch` AND ENDED WITH `cleanup:match`; ITS EXACT INSTALLATION CAUSE IS NOT DISTINGUISHABLE — THE FOCUSED INSTALLATION-DIAGNOSTIC CORRECTION `9549da9`, TREE `ced33c8`, EXACT-HEAD CI `30471511446` ATTEMPT 1 12/12 IS TECHNICALLY FINAL; PREPUBLICATION ROUND 1 P3 ADO TRUTH IS CLOSED, ROUND 2 AND FINAL INDEPENDENT EXACT-HEAD REVIEW ARE `APPROVED` WITH ZERO OPEN P0–P3 — ELEVEN PHASE-0 AUTHORITIES CONSUMED — NO CURRENT PHASE-0, HARDWARE, ADB, INSTALLATION OR PRODUCT-HUMAN-V5 AUTHORITY/DO NOT START**
 - Date: 2026-07-29
 - Owner: Technical Lead
 - Approval authority for any run: Human Architect
@@ -103,8 +103,14 @@ safe-root V3 used Node `24.17.0`, npm `11.13.0` and PostgreSQL `17.10`; it passe
 21/21 tests-inclusive typechecks and 21/21 workspace suites with 2,516 passed tests and exactly
 two optional B1 skips. Migrations 001–013 apply/replay/ledger, C3B `verify-bin`, the unchanged
 official `03694f2` artifact verifier and an 861-module Android export passed; candidate bytes
-matched, and ports `55439`/`55435` plus process state ended at zero. Publication, exact-head V4
-and independent review remain pending. The operator remains **DO NOT START**.
+matched, and ports `55439`/`55435` plus process state ended at zero. Published candidate
+`9549da9cda578c60ca11144221e8030fb95697d3`, tree
+`ced33c8d9d9cdef7d628a47147427ed6147b898a`, parent
+`d8549c3f1d14c15846d4f81dbe7669a598626633`, passed exact-head CI `30471511446`,
+attempt 1, 12/12. Prepublication review round 1 found exactly one P3 ADO-truth gap and no
+code/test finding; round 2 approved and closed it. Final independent Exact-Head review returned
+`APPROVED` with zero open P0–P3. The correction is technically final; the operator remains
+**DO NOT START**.
 
 The focused local Run-10 diagnostic correction preserves every stage, aggregate receipt,
 mutation, cleanup and terminal boundary. A pre-install device re-attestation mismatch remains
