@@ -17,7 +17,7 @@ import type {
   Da5V5ValidationDeviceBindingPort,
 } from '../../src/validation/Da5V5ValidationDeviceBinding';
 
-const technology = 'NfcA+MifareUltralight' as const;
+const technology = 'NfcA' as const;
 const fingerprints = {
   A: 'AAAAAAAAAAAA',
   B: 'BBBBBBBBBBBB',
@@ -147,6 +147,9 @@ describe('DA5 V5 A/B/X validation controller', () => {
     await controller.captureRole('A');
     await controller.captureRole('A');
     expect(controller.getState().phase).toBe('failed');
+    expect(controller.getState().failureReason).toBe(
+      'intra_role_drift_rejected',
+    );
     expect(controller.getState().slots.A.progress).toBe(1);
   });
 
@@ -169,6 +172,9 @@ describe('DA5 V5 A/B/X validation controller', () => {
     }
     await controller.captureRole('B');
     expect(controller.getState().phase).toBe('failed');
+    expect(controller.getState().failureReason).toBe(
+      'cross_role_duplicate_rejected',
+    );
     expect(controller.getState().slots.B.progress).toBe(0);
   });
 
@@ -188,6 +194,128 @@ describe('DA5 V5 A/B/X validation controller', () => {
     await Promise.all([first, second]);
     expect(controller.getState().phase).toBe('failed');
   });
+
+  it('makes the visible cancel action terminal even before a late capture resolves', async () => {
+    let release!: (result: Da5V5ValidationCaptureResult) => void;
+    const deferred = new Promise<Da5V5ValidationCaptureResult>((resolve) => {
+      release = resolve;
+    });
+    const { controller, port } = harness();
+    vi.mocked(port.capture).mockReturnValue(deferred);
+    vi.mocked(port.cancelCapture).mockImplementation(async () => {
+      release({ status: 'cancelled' });
+    });
+    await startReady(controller);
+    void controller.captureRole('A');
+    await controller.cancel();
+    expect(controller.getState()).toMatchObject({
+      failureReason: 'capture_cancelled',
+      outcome: 'failed_closed',
+      phase: 'failed',
+    });
+  });
+
+  it('prioritizes native cleanup failure for direct cancellation without wedging capture', async () => {
+    let release!: (result: Da5V5ValidationCaptureResult) => void;
+    const deferred = new Promise<Da5V5ValidationCaptureResult>((resolve) => {
+      release = resolve;
+    });
+    const { controller, port } = harness();
+    vi.mocked(port.capture).mockReturnValue(deferred);
+    vi.mocked(port.cancelCapture).mockImplementation(async () => {
+      release({ status: 'cancelled' });
+      throw new Error('synthetic native cleanup failure');
+    });
+    await startReady(controller);
+    const captureOperation = controller.captureRole('A');
+
+    await controller.cancel();
+    await expect(captureOperation).resolves.toBeUndefined();
+
+    expect(controller.getState()).toMatchObject({
+      failureReason: 'cleanup_failed',
+      outcome: 'failed_closed',
+      phase: 'failed',
+    });
+  });
+
+  it('coalesces the same exact visible cancel offer to one Promise', async () => {
+    let releaseCapture!: (result: Da5V5ValidationCaptureResult) => void;
+    const capture = new Promise<Da5V5ValidationCaptureResult>((resolve) => {
+      releaseCapture = resolve;
+    });
+    let releaseCancel!: () => void;
+    const cancel = new Promise<void>((resolve) => {
+      releaseCancel = resolve;
+    });
+    const { controller, port } = harness();
+    vi.mocked(port.capture).mockReturnValue(capture);
+    vi.mocked(port.cancelCapture).mockImplementation(async () => {
+      releaseCapture({ status: 'cancelled' });
+      await cancel;
+    });
+    await startReady(controller);
+    const actions = new Da5V5ValidationUiActionBoundary(controller);
+    void actions.captureRole('A', controller.getState().uiRevision);
+    const visibleCancelOffer = controller.getState().uiRevision;
+
+    const first = actions.cancel(visibleCancelOffer);
+    const duplicate = actions.cancel(visibleCancelOffer);
+
+    expect(duplicate).toBe(first);
+    expect(port.cancelCapture).toHaveBeenCalledTimes(1);
+    releaseCancel();
+    await Promise.all([first, duplicate]);
+    expect(controller.getState()).toMatchObject({
+      failureReason: 'capture_cancelled',
+      phase: 'failed',
+    });
+
+    await actions.cancel(visibleCancelOffer);
+    expect(port.cancelCapture).toHaveBeenCalledTimes(1);
+    expect(controller.getState()).toMatchObject({
+      failureReason: 'operation_order_rejected',
+      phase: 'failed',
+    });
+  });
+
+  it.each(['stale', 'foreign'] as const)(
+    'fails closed for a %s cancel offer during active capture',
+    async (kind) => {
+      let release!: (result: Da5V5ValidationCaptureResult) => void;
+      const deferred = new Promise<Da5V5ValidationCaptureResult>(
+        (resolve) => {
+          release = resolve;
+        },
+      );
+      const { controller, port } = harness();
+      vi.mocked(port.capture).mockReturnValue(deferred);
+      vi.mocked(port.cancelCapture).mockRejectedValue(
+        new Error('synthetic native cleanup failure'),
+      );
+      await startReady(controller);
+      const actions = new Da5V5ValidationUiActionBoundary(controller);
+      const scanOffer = controller.getState().uiRevision;
+      const scan = actions.captureRole('A', scanOffer);
+      const currentOffer = controller.getState().uiRevision;
+
+      const cancellation = actions.cancel(
+        kind === 'stale' ? scanOffer : currentOffer + 10,
+      );
+
+      expect(controller.getState()).toMatchObject({
+        failureReason: 'operation_order_rejected',
+        phase: 'failed',
+      });
+      expect(port.cancelCapture).toHaveBeenCalledTimes(1);
+      release({ status: 'cancelled' });
+      await Promise.all([scan, cancellation]);
+      expect(controller.getState()).toMatchObject({
+        failureReason: 'cleanup_failed',
+        phase: 'failed',
+      });
+    },
+  );
 
   it('coalesces repeated device confirmation only at the UI boundary', async () => {
     const { controller } = harness();
@@ -244,12 +372,10 @@ describe('DA5 V5 A/B/X validation controller', () => {
     await actions.captureRole('A', firstOffer);
     expect(port.capture).toHaveBeenCalledTimes(1);
     expect(controller.getState().slots.A.progress).toBe(1);
-
-    vi.mocked(port.capture).mockResolvedValueOnce(captured('A'));
-    const nextOffer = controller.getState().uiRevision;
-    await actions.captureRole('A', nextOffer);
-    expect(port.capture).toHaveBeenCalledTimes(2);
-    expect(controller.getState().slots.A.progress).toBe(2);
+    expect(controller.getState()).toMatchObject({
+      failureReason: 'operation_order_rejected',
+      phase: 'failed',
+    });
   });
 
   it('permits all ten deliberate A scans through ten distinct UI offers', async () => {
@@ -309,32 +435,11 @@ describe('DA5 V5 A/B/X validation controller', () => {
     expect(controller.getState().phase).toBe('failed');
   });
 
-  it('rejects a stale Reset handler during an active UI scan without reset cleanup', async () => {
-    let release!: (result: Da5V5ValidationCaptureResult) => void;
-    const deferred = new Promise<Da5V5ValidationCaptureResult>((resolve) => {
-      release = resolve;
-    });
-    const { controller, port } = harness();
-    vi.mocked(port.capture).mockReturnValue(deferred);
-    await startReady(controller);
+  it('does not expose a reset or retry operation after terminal evidence', async () => {
+    const { controller } = harness();
     const actions = new Da5V5ValidationUiActionBoundary(controller);
-    const staleResetOffer = controller.getState().uiRevision;
-
-    const scan = actions.captureRole('A', staleResetOffer);
-    const reset = actions.reset(staleResetOffer);
-
-    expect(controller.getState()).toMatchObject({
-      phase: 'failed',
-      failureReason: 'operation_order_rejected',
-    });
-    expect(port.stop).not.toHaveBeenCalled();
-    expect(port.cancelCapture).toHaveBeenCalledTimes(1);
-
-    release({ status: 'cancelled' });
-    await Promise.all([scan, reset]);
-    expect(controller.getState().phase).toBe('failed');
-    expect(controller.getState().phase).not.toBe('device_checkpoint');
-    expect(port.stop).not.toHaveBeenCalled();
+    expect(controller).not.toHaveProperty('reset');
+    expect(actions).not.toHaveProperty('reset');
   });
 
   it.each([
@@ -393,15 +498,17 @@ describe('DA5 V5 A/B/X validation controller', () => {
   );
 
   it.each(['cancelled', 'timed_out'] as const)(
-    'preserves retryable %s behavior without counter mutation',
+    'makes %s terminal fail-closed without counter mutation',
     async (status) => {
       const { controller } = harness([{ status }]);
       await startReady(controller);
       await controller.captureRole('A');
       expect(controller.getState()).toMatchObject({
-        phase: 'ready',
-        outcome: status,
-        failureReason: null,
+        phase: 'failed',
+        outcome: 'failed_closed',
+        failureReason: status === 'cancelled'
+          ? 'capture_cancelled'
+          : 'capture_timed_out',
         slots: {
           A: { progress: 0 },
           B: { progress: 0 },
@@ -423,31 +530,80 @@ describe('DA5 V5 A/B/X validation controller', () => {
     expect(controller.getState()).toMatchObject({
       phase: 'failed',
       outcome: 'failed_closed',
-      failureReason: 'scan_evidence_rejected',
+      failureReason: 'malformed_capture_result_rejected',
     });
     expect(JSON.stringify(controller.getState())).not.toMatch(
       /04A1B2C3|payload secret|native detail/u,
     );
   });
 
-  it('reset and stop clear all safe values and stop capture ownership', async () => {
+  it('normalizes hostile post-capture values without escaping or leaking them', async () => {
+    const hostileResults: readonly Readonly<{
+      secret: string;
+      value: unknown;
+    }>[] = [
+      {
+        secret: 'proxy ownKeys secret',
+        value: new Proxy({}, {
+          ownKeys() {
+            throw new Error('proxy ownKeys secret');
+          },
+        }),
+      },
+      {
+        secret: 'throwing getter secret',
+        value: Object.defineProperty({}, 'status', {
+          enumerable: true,
+          get() {
+            throw new Error('throwing getter secret');
+          },
+        }),
+      },
+      {
+        secret: 'proxy descriptor secret',
+        value: new Proxy({}, {
+          getOwnPropertyDescriptor() {
+            throw new Error('proxy descriptor secret');
+          },
+          ownKeys() {
+            return ['status'];
+          },
+        }),
+      },
+    ];
+
+    for (const hostile of hostileResults) {
+      const { controller, port } = harness();
+      vi.mocked(port.capture).mockResolvedValueOnce(
+        hostile.value as Da5V5ValidationCaptureResult,
+      );
+      await startReady(controller);
+
+      await expect(controller.captureRole('A')).resolves.toBeUndefined();
+
+      expect(controller.getState()).toMatchObject({
+        phase: 'failed',
+        outcome: 'failed_closed',
+        failureReason: 'malformed_capture_result_rejected',
+        slots: {
+          A: { fingerprint: null, technology: null, progress: 0 },
+          B: { fingerprint: null, technology: null, progress: 0 },
+          X: { fingerprint: null, technology: null, progress: 0 },
+        },
+      });
+      expect(JSON.stringify(controller.getState())).not.toContain(
+        hostile.secret,
+      );
+    }
+  });
+
+  it('stop clears all safe values and stops capture ownership', async () => {
     const { controller, port } = harness([captured('A')]);
     const listener = vi.fn();
     controller.subscribe(listener);
     await startReady(controller);
     await controller.captureRole('A');
     expect(controller.getState().slots.A.fingerprint).toBe(fingerprints.A);
-
-    await controller.reset();
-    expect(controller.getState()).toMatchObject({
-      deviceBinding,
-      phase: 'device_checkpoint',
-      slots: {
-        A: { fingerprint: null, technology: null, progress: 0 },
-        B: { fingerprint: null, technology: null, progress: 0 },
-        X: { fingerprint: null, technology: null, progress: 0 },
-      },
-    });
 
     await controller.stop();
     const callsAfterStop = listener.mock.calls.length;
@@ -462,12 +618,12 @@ describe('DA5 V5 A/B/X validation controller', () => {
     const unsubscribe = controller.subscribe(listener);
     unsubscribe();
     expect(listener).toHaveBeenCalledTimes(callsAfterStop);
-    expect(port.stop).toHaveBeenCalledTimes(2);
+    expect(port.stop).toHaveBeenCalledTimes(1);
   });
 
-  it.each(['reset', 'stop'] as const)(
-    '%s clears every safe value and reports fail-closed cleanup failure',
-    async (operation) => {
+  it(
+    'stop clears every safe value and reports fail-closed cleanup failure',
+    async () => {
       const { controller, port } = harness([captured('A')]);
       vi.mocked(port.stop).mockRejectedValue(
         new Error('synthetic cleanup failure'),
@@ -476,7 +632,7 @@ describe('DA5 V5 A/B/X validation controller', () => {
       await controller.captureRole('A');
       expect(controller.getState().slots.A.fingerprint).toBe(fingerprints.A);
 
-      await controller[operation]();
+      await controller.stop();
 
       expect(controller.getState()).toMatchObject({
         capability: 'unavailable',
@@ -489,6 +645,49 @@ describe('DA5 V5 A/B/X validation controller', () => {
           X: { fingerprint: null, technology: null, progress: 0 },
         },
       });
+    },
+  );
+
+  it.each([
+    [
+      {
+        status: 'captured',
+        fingerprint: 'short',
+        technology,
+      },
+      'fingerprint_format_rejected',
+    ],
+    [
+      {
+        status: 'captured',
+        fingerprint: fingerprints.A,
+        technology: 'MifareUltralight',
+      },
+      'technology_label_rejected',
+    ],
+    [
+      {
+        status: 'captured',
+        fingerprint: fingerprints.A,
+        technology,
+        rawUid: '04A1B2C3',
+      },
+      'malformed_capture_result_rejected',
+    ],
+  ] as const)(
+    'maps malformed, fingerprint and technology drift to %s',
+    async (result, failureReason) => {
+      const { controller } = harness([
+        result as unknown as Da5V5ValidationCaptureResult,
+      ]);
+      await startReady(controller);
+      await controller.captureRole('A');
+      expect(controller.getState()).toMatchObject({
+        failureReason,
+        outcome: 'failed_closed',
+        phase: 'failed',
+      });
+      expect(JSON.stringify(controller.getState())).not.toContain('04A1B2C3');
     },
   );
 

@@ -33,6 +33,15 @@ export interface Da5V5AndroidDeviceBinding {
   readonly deviceModel: string;
 }
 
+export class Da5V5AndroidCommandAbortError extends Error {}
+export function isDa5V5AndroidCommandAbortError(
+  error: unknown,
+): error is Da5V5AndroidCommandAbortError;
+export class Da5V5AndroidCommandTimeoutError extends Error {}
+export function isDa5V5AndroidCommandTimeoutError(
+  error: unknown,
+): error is Da5V5AndroidCommandTimeoutError;
+
 export interface Da5V5AndroidPreflightBinding extends Da5V5AndroidDeviceBinding {
   readonly androidApi: string;
   readonly androidRelease: string;
@@ -54,6 +63,7 @@ export class Da5V5UsbSerialBinding {
 
 export class SystemDa5V5AndroidAdbRunner implements Da5V5AndroidAdbRunner {
   constructor(dependencies?: Readonly<{
+    adbPath?: string;
     environment?: Readonly<Record<string, string | undefined>>;
     spawn?: typeof import('node:child_process').spawn;
   }>);

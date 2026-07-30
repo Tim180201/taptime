@@ -65,7 +65,7 @@ const da5V5TagBinding = Object.freeze({
   tagA: fingerprint(da5V5TagPayloads.tagA),
   tagB: fingerprint(da5V5TagPayloads.tagB),
   tagX: fingerprint(da5V5TagPayloads.tagX),
-  technology: 'NfcA+MifareUltralight' as const,
+  technology: 'NfcA' as const,
 });
 
 describe('synthetic E2E safety guards', () => {

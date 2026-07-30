@@ -61,6 +61,17 @@ export interface Da5V5ValidationArtifactDependencies {
   ) => Da5V5ValidationApkInspection;
 }
 
+export interface Da5V5ValidationAndroidSdkAuthority {
+  readonly androidHome?: string;
+  readonly androidSdkRoot?: string;
+}
+export interface Da5V5ValidationInspectionTools {
+  readonly aapt: Readonly<Da5V5ValidationToolIdentity>;
+  readonly apksigner: Readonly<Da5V5ValidationToolIdentity>;
+  readonly hermesc: Readonly<Da5V5ValidationToolIdentity>;
+  readonly unzip: Readonly<Da5V5ValidationToolIdentity>;
+}
+
 export const DA5_V5_VALIDATION_ARTIFACT_CONTRACT:
   'taptime-da5-v5-validation-artifact-v1';
 export const DA5_V5_VALIDATION_PACKAGE:
@@ -68,10 +79,11 @@ export const DA5_V5_VALIDATION_PACKAGE:
 export const DA5_V5_VALIDATION_VERSION_CODE: '1';
 export const DA5_V5_VALIDATION_VERSION_NAME: '1.0.0';
 export const DA5_V5_VALIDATION_LOCAL_SIGNER_SHA256: string;
+export const DA5_V5_VALIDATION_UNZIP_PATH: '/usr/bin/unzip';
 export const DA5_V5_VALIDATION_TALKBACK_QUERY_PACKAGES:
   readonly string[];
 export const DA5_V5_VALIDATION_TECHNOLOGY:
-  'NfcA+MifareUltralight';
+  'NfcA';
 
 export function createDa5V5ValidationArtifactManifest(options: {
   readonly apkBytes: number;
@@ -91,11 +103,15 @@ export function serializeDa5V5ValidationArtifactManifest(
 ): string;
 export function verifyDa5V5ValidationArtifactBinding(
   options: {
+    readonly androidSdkAuthority?: Da5V5ValidationAndroidSdkAuthority;
     readonly apk: Da5V5ValidationFileBinding;
     readonly manifest: Da5V5ValidationFileBinding;
     readonly expectedSourceCommit: string;
     readonly expectedSourceClosure: readonly Da5V5ValidationSourceRecord[];
     readonly expectedSourceTree: string;
+    readonly inspectionTools?: Da5V5ValidationInspectionTools;
+    readonly toolIdentityDependencies?:
+      Da5V5ValidationToolIdentityDependencies;
   },
   dependencies?: Da5V5ValidationArtifactDependencies,
 ): Readonly<{
@@ -124,8 +140,14 @@ export function inspectDa5V5ValidationManifestXmlTree(
 }>;
 export function inspectDa5V5ValidationApk(
   apkPath: string,
-  environment?: NodeJS.ProcessEnv,
+  androidSdkAuthority: Da5V5ValidationAndroidSdkAuthority,
+  inspectionTools?: Da5V5ValidationInspectionTools,
+  toolIdentityDependencies?: Da5V5ValidationToolIdentityDependencies,
 ): Da5V5ValidationApkInspection;
+export function resolveDa5V5ValidationHermesCompilerPath(): string;
+export function requireDa5V5ValidationAndroidSdkAuthority(
+  value: unknown,
+): Readonly<Da5V5ValidationAndroidSdkAuthority & { path: string }>;
 export function inspectDa5V5ValidationHermesBytecode(
   bytecodeDump: string,
 ): Readonly<{
@@ -138,3 +160,7 @@ export function inspectDa5V5ValidationNativeBytecode(
   forbiddenNativeModules: boolean;
   requiredNativeModules: boolean;
 }>;
+import type {
+  Da5V5ValidationToolIdentity,
+  Da5V5ValidationToolIdentityDependencies,
+} from './da5V5ValidationRuntimeContract.mjs';

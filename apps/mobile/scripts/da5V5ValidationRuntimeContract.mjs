@@ -1,5 +1,10 @@
 import { createHash } from 'node:crypto';
 import {
+  lstatSync,
+  readFileSync,
+  realpathSync,
+} from 'node:fs';
+import {
   isAbsolute,
   join,
   normalize,
@@ -107,15 +112,15 @@ export const DA5_V5_VALIDATION_BUNDLE_NATIVE_MODULE_ALLOWLIST =
 export const DA5_V5_VALIDATION_EXPECTED_BUNDLE_SOURCE_CLOSURE =
   Object.freeze({
     entries: 555,
-    sourceBytes: 2_675_047,
+    sourceBytes: 2_676_975,
     sha256:
-      'f4e1faa636c1e9640cc3523975f39ad977279e69350c6a1697ca956634b6e8e6',
+      '6a949682e105cd2e7621f4d57a6e6072920a9b1caa16cbcd85aad7485a411764',
   });
 export const DA5_V5_VALIDATION_EXPECTED_BUNDLE_EXECUTABLE =
   Object.freeze({
-    bytes: 2_040_117,
+    bytes: 2_041_982,
     sha256:
-      '85121dd503ac2cfdf5a3264f44fd62a1a350b49c9ad18b31d5712e3b817da9a6',
+      '5d637b9e66b27a44464a9abde4efa25c10bd1825c2d7f8f6b29c2a89b65939f9',
   });
 
 export const DA5_V5_VALIDATION_SOURCE_CLOSURE = Object.freeze([
@@ -136,6 +141,7 @@ export const DA5_V5_VALIDATION_SOURCE_CLOSURE = Object.freeze([
   'apps/mobile/scripts/da5V5ValidationArtifact.mjs',
   'apps/mobile/scripts/da5V5ValidationBuildProcess.mjs',
   'apps/mobile/scripts/da5V5ValidationNativeSourceBinding.mjs',
+  'apps/mobile/scripts/da5V5ValidationNoHardwareReadiness.mjs',
   'apps/mobile/scripts/da5V5ValidationRuntimeContract.mjs',
   'apps/mobile/scripts/da5V5ValidationSourceBinding.mjs',
   'apps/mobile/scripts/publishDa5V5ValidationArtifact.mjs',
@@ -151,6 +157,22 @@ export const DA5_V5_VALIDATION_SOURCE_CLOSURE = Object.freeze([
   'apps/mobile/validation-index.ts',
   'package-lock.json',
   'package.json',
+]);
+
+export const DA5_V5_VALIDATION_EXECUTION_SCOPES = Object.freeze([
+  'apps/mobile/scripts/da5V5AdbChildEnvironment.mjs',
+  'apps/mobile/scripts/da5V5AndroidArtifact.mjs',
+  'apps/mobile/scripts/da5V5AndroidDevice.mjs',
+  'apps/mobile/scripts/da5V5ValidationArtifact.mjs',
+  'apps/mobile/scripts/da5V5ValidationInstallStream.mjs',
+  'apps/mobile/scripts/da5V5ValidationNativeSourceBinding.mjs',
+  'apps/mobile/scripts/da5V5ValidationNoHardwareReadiness.mjs',
+  'apps/mobile/scripts/da5V5ValidationPhase0Operator.mjs',
+  'apps/mobile/scripts/da5V5ValidationPhase0OperatorCore.mjs',
+  'apps/mobile/scripts/da5V5ValidationRuntimeContract.mjs',
+  'apps/mobile/scripts/syntheticE2eRuntimeContract.mjs',
+  'apps/mobile/scripts/verifyDa5V5ValidationAndroidArtifact.mjs',
+  'apps/mobile/scripts/verifySyntheticE2eAndroidRuntime.mjs',
 ]);
 
 export const DA5_V5_VALIDATION_SOURCE_SCOPES = Object.freeze([
@@ -171,6 +193,7 @@ export const DA5_V5_VALIDATION_SOURCE_SCOPES = Object.freeze([
   'apps/mobile/scripts/da5V5ValidationArtifact.mjs',
   'apps/mobile/scripts/da5V5ValidationBuildProcess.mjs',
   'apps/mobile/scripts/da5V5ValidationNativeSourceBinding.mjs',
+  'apps/mobile/scripts/da5V5ValidationNoHardwareReadiness.mjs',
   'apps/mobile/scripts/da5V5ValidationRuntimeContract.mjs',
   'apps/mobile/scripts/da5V5ValidationSourceBinding.mjs',
   'apps/mobile/scripts/publishDa5V5ValidationArtifact.mjs',
@@ -195,6 +218,127 @@ export const DA5_V5_VALIDATION_BUILD_ENVIRONMENT = Object.freeze({
   npm_config_offline: 'true',
   npm_config_update_notifier: 'false',
 });
+
+export function createCurrentDa5V5ValidationToolIdentity(
+  path,
+  dependencies = systemToolIdentityDependencies(),
+) {
+  const canonical = requireCanonicalToolPath(path);
+  const stat = dependencies.lstat(canonical);
+  return verifyDa5V5ValidationToolIdentity(
+    Object.freeze({
+      bytes: stat.size,
+      mode: stat.mode & 0o7777,
+      path: canonical,
+      sha256: dependencies.sha256(canonical),
+    }),
+    dependencies,
+  );
+}
+
+export function verifyDa5V5ValidationToolIdentity(
+  binding,
+  dependencies = systemToolIdentityDependencies(),
+) {
+  if (
+    typeof binding !== 'object'
+    || binding === null
+    || Array.isArray(binding)
+    || !Number.isSafeInteger(binding.bytes)
+    || binding.bytes <= 0
+    || !Number.isSafeInteger(binding.mode)
+    || binding.mode < 0
+    || binding.mode > 0o7777
+    || typeof binding.sha256 !== 'string'
+    || !/^[0-9a-f]{64}$/u.test(binding.sha256)
+  ) {
+    throw new Error('DA5 V5 Validation tool binding mismatch');
+  }
+  const path = requireCanonicalToolPath(binding.path);
+  const before = dependencies.lstat(path);
+  const mode = before.mode & 0o7777;
+  if (
+    !before.isFile()
+    || before.isSymbolicLink()
+    || mode !== binding.mode
+    || (mode & 0o111) === 0
+    || before.size !== binding.bytes
+    || (
+      binding.dev !== undefined
+      && binding.dev !== before.dev
+    )
+    || (
+      binding.ino !== undefined
+      && binding.ino !== before.ino
+    )
+    || normalize(dependencies.realpath(path)) !== path
+    || dependencies.sha256(path) !== binding.sha256
+  ) {
+    throw new Error('DA5 V5 Validation tool authority mismatch');
+  }
+  const identity = Object.freeze({
+    bytes: before.size,
+    dev: before.dev,
+    ino: before.ino,
+    mode,
+    path,
+    sha256: binding.sha256,
+  });
+  assertDa5V5ValidationToolIdentityMetadata(identity, dependencies);
+  return identity;
+}
+
+export function assertDa5V5ValidationToolIdentityMetadata(
+  identity,
+  dependencies = systemToolIdentityDependencies(),
+) {
+  if (
+    typeof identity !== 'object'
+    || identity === null
+    || Array.isArray(identity)
+    || !Number.isSafeInteger(identity.dev)
+    || !Number.isSafeInteger(identity.ino)
+  ) {
+    throw new Error('DA5 V5 Validation tool identity mismatch');
+  }
+  const path = requireCanonicalToolPath(identity.path);
+  const stat = dependencies.lstat(path);
+  if (
+    !stat.isFile()
+    || stat.isSymbolicLink()
+    || stat.dev !== identity.dev
+    || stat.ino !== identity.ino
+    || (stat.mode & 0o7777) !== identity.mode
+    || stat.size !== identity.bytes
+    || normalize(dependencies.realpath(path)) !== path
+  ) {
+    throw new Error('DA5 V5 Validation tool identity mismatch');
+  }
+  return Object.freeze({ status: 'match' });
+}
+
+function requireCanonicalToolPath(path) {
+  if (
+    typeof path !== 'string'
+    || path.length === 0
+    || normalize(resolve(path)) !== path
+  ) {
+    throw new Error('DA5 V5 Validation tool authority mismatch');
+  }
+  return path;
+}
+
+function systemToolIdentityDependencies() {
+  return Object.freeze({
+    lstat: lstatSync,
+    realpath: realpathSync,
+    sha256(path) {
+      return createHash('sha256')
+        .update(readFileSync(path))
+        .digest('hex');
+    },
+  });
+}
 
 const BUILD_ENVIRONMENT_ALLOWLIST = Object.freeze([
   'ANDROID_HOME',

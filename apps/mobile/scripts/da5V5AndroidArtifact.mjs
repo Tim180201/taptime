@@ -113,9 +113,12 @@ export function verifyDa5V5AndroidArtifact(options = {}) {
     || inspection.networkSecurityConfig !== true
     || inspection.backupRules !== true
     || inspection.dataExtractionRules !== true
-    || inspection.nfcTechDiscovered !== true
-    || inspection.nfcA !== true
-    || inspection.mifareUltralight !== true
+    || inspection.nfcDispatchManifestExact !== true
+    || inspection.nfcTechListCount !== 1
+    || inspection.nfcTechElementCount !== 1
+    || !Array.isArray(inspection.nfcTechnologies)
+    || inspection.nfcTechnologies.length !== 1
+    || inspection.nfcTechnologies[0] !== 'android.nfc.tech.NfcA'
     || inspection.hermesBundleCount !== 1
   ) {
     throw new Error('DA5 V5 APK inspection mismatch');
@@ -355,7 +358,28 @@ function systemArtifactDependencies() {
     inspectApk(apkPath) {
       const badging = runText(aapt, ['dump', 'badging', apkPath]);
       const manifest = runText(aapt, ['dump', 'xmltree', apkPath, 'AndroidManifest.xml']);
-      const resources = runText(aapt, ['dump', 'resources', apkPath]);
+      const resources = runText(
+        aapt,
+        ['dump', '--values', 'resources', apkPath],
+      );
+      const nfcTechFilterBinding =
+        resolveDa5V5NfcTechFilterResourceBinding(resources);
+      const nfcTechFilter = inspectDa5V5NfcTechFilterXmlTree(
+        runText(
+          aapt,
+          [
+            'dump',
+            'xmltree',
+            apkPath,
+            nfcTechFilterBinding.path,
+          ],
+        ),
+      );
+      const nfcDispatchManifest =
+        inspectDa5V5ProductManifestXmlTree(
+          manifest,
+          nfcTechFilterBinding.resourceId,
+        );
       const signature = runText(apksigner, ['verify', '--verbose', '--print-certs', apkPath]);
       const entries = runText('unzip', ['-Z1', apkPath])
         .split(/\r?\n/u)
@@ -384,20 +408,17 @@ function systemArtifactDependencies() {
         hermesBundleCount: entries.filter(
           (entry) => entry === 'assets/index.android.bundle',
         ).length,
-        mifareUltralight: compiledXmlStrings.includes(
-          'android.nfc.tech.MifareUltralight',
-        ),
         networkSecurityConfig: (
           manifest.includes('android:networkSecurityConfig')
           && resources.includes(':xml/taptime_synthetic_e2e_network_security_config')
           && compiledXmlStrings.includes('127.0.0.1')
           && compiledXmlStrings.includes('cleartextTrafficPermitted')
         ),
-        nfcA: compiledXmlStrings.includes('android.nfc.tech.NfcA'),
-        nfcTechDiscovered: (
-          manifest.includes('android.nfc.action.TECH_DISCOVERED')
-          && resources.includes(':xml/taptime_nfc_tech_filter')
-        ),
+        nfcTechElementCount: nfcTechFilter.techElementCount,
+        nfcTechListCount: nfcTechFilter.techListCount,
+        nfcTechnologies: nfcTechFilter.technologies,
+        nfcDispatchManifestExact:
+          nfcDispatchManifest.nfcDispatchManifestExact,
         packageName: packageMatch[1],
         signatureV1: signatureValue(signature, 'v1 scheme (JAR signing)'),
         signatureV2: signatureValue(signature, 'v2 scheme (APK Signature Scheme v2)'),
@@ -416,6 +437,333 @@ function systemArtifactDependencies() {
       });
     },
     verifyRuntime: verifySyntheticE2eAndroidRuntime,
+  });
+}
+
+export function resolveDa5V5NfcTechFilterResourceBinding(resources) {
+  if (typeof resources !== 'string') {
+    throw new Error('DA5 V5 NFC technology filter resource binding mismatch');
+  }
+  const paths = [];
+  let resourceId;
+  let targetResource = false;
+  let targetResourceCount = 0;
+  for (const line of resources.split(/\r?\n/u)) {
+    const resource = /^\s*resource\s+(0x[0-9a-f]{8})\s+([A-Za-z0-9._]+):xml\/([A-Za-z0-9_]+):(?:\s+.*)?$/u
+      .exec(line);
+    if (resource !== null) {
+      targetResource = (
+        resource[2] === DA5_V5_ANDROID_PACKAGE
+        && resource[3] === 'taptime_nfc_tech_filter'
+      );
+      if (targetResource) {
+        targetResourceCount += 1;
+        resourceId = resource[1];
+      }
+      continue;
+    }
+    if (/^\s*(?:spec\s+)?resource\s+/u.test(line)) {
+      targetResource = false;
+      continue;
+    }
+    if (targetResource) {
+      const value = /^\s*\(string8\)\s+"([^"]+)"\s*$/u.exec(line);
+      if (value !== null) {
+        paths.push(value[1]);
+      }
+    }
+  }
+  if (
+    targetResourceCount !== 1
+    || resourceId === undefined
+    || paths.length !== 1
+    || !/^res\/[A-Za-z0-9_-]+\.xml$/u.test(paths[0])
+  ) {
+    throw new Error('DA5 V5 NFC technology filter resource binding mismatch');
+  }
+  return Object.freeze({
+    path: paths[0],
+    resourceId,
+  });
+}
+
+export function resolveDa5V5NfcTechFilterResourcePath(resources) {
+  return resolveDa5V5NfcTechFilterResourceBinding(resources).path;
+}
+
+export function inspectDa5V5ProductManifestXmlTree(
+  xmlTree,
+  expectedResourceId,
+) {
+  if (
+    typeof xmlTree !== 'string'
+    || xmlTree.length === 0
+    || typeof expectedResourceId !== 'string'
+    || !/^0x[0-9a-f]{8}$/u.test(expectedResourceId)
+  ) {
+    throw new Error('DA5 V5 Product NFC manifest binding is unavailable');
+  }
+  const roots = parseDa5V5AaptXmlTree(xmlTree);
+  const manifests = roots.filter((node) => node.name === 'manifest');
+  const applications = manifests.length === 1
+    ? manifests[0].children.filter((node) => node.name === 'application')
+    : [];
+  const application = applications[0];
+  const owners = application?.children.filter((node) => (
+    node.name === 'activity' || node.name === 'activity-alias'
+  )) ?? [];
+  const mainActivityName = `${DA5_V5_ANDROID_PACKAGE}.MainActivity`;
+  const mainActivities = owners.filter((node) => (
+    node.name === 'activity'
+    && exactDa5V5AaptStringAttribute(node, 'android:name')
+      === mainActivityName
+  ));
+  const mainActivity = mainActivities[0];
+  const nfcActions = owners.flatMap((owner) =>
+    da5V5AaptDescendants(owner)
+      .filter((node) => (
+        node.name === 'action'
+        && da5V5AaptStringAttributeValues(node, 'android:name')
+          .some((value) => value.startsWith('android.nfc.action.'))
+      ))
+      .map((action) => Object.freeze({ action, owner })));
+  const metadataBindings = owners.flatMap((owner) =>
+    da5V5AaptDescendants(owner)
+      .filter((node) => {
+        if (node.name !== 'meta-data') return false;
+        return (
+          da5V5AaptStringAttributeValues(node, 'android:name')
+            .some((value) => value.startsWith('android.nfc.action.'))
+          || da5V5AaptResourceAttributeValues(
+            node,
+            'android:resource',
+          ).includes(expectedResourceId)
+        );
+      })
+      .map((metadata) => Object.freeze({ metadata, owner })));
+  const nfcAction = nfcActions[0];
+  const filter = nfcAction?.action.parent;
+  const metadata = metadataBindings[0];
+  const exact = (
+    roots.length === 1
+    && manifests.length === 1
+    && applications.length === 1
+    && mainActivities.length === 1
+    && nfcActions.length === 1
+    && nfcAction.owner === mainActivity
+    && filter?.name === 'intent-filter'
+    && filter.parent === mainActivity
+    && isExactDa5V5CompiledNfcFilter(filter)
+    && metadataBindings.length === 1
+    && metadata.owner === mainActivity
+    && metadata.metadata.parent === mainActivity
+    && isExactDa5V5CompiledNfcMetadata(
+      metadata.metadata,
+      expectedResourceId,
+    )
+  );
+  return Object.freeze({
+    nfcDispatchManifestExact: exact,
+  });
+}
+
+function parseDa5V5AaptXmlTree(xmlTree) {
+  const roots = [];
+  const stack = [];
+  for (const line of xmlTree.split(/\r?\n/u)) {
+    const element = /^( *)E:\s+([A-Za-z0-9_-]+)(?:\s|$)/u.exec(line);
+    if (element !== null) {
+      const indent = element[1].length;
+      while (stack.at(-1)?.indent >= indent) {
+        stack.pop();
+      }
+      const parent = stack.at(-1) ?? null;
+      const node = {
+        attributes: [],
+        children: [],
+        indent,
+        name: element[2],
+        parent,
+      };
+      if (parent === null) {
+        roots.push(node);
+      } else {
+        parent.children.push(node);
+      }
+      stack.push(node);
+      continue;
+    }
+    const attribute =
+      /^( *)A:\s+([A-Za-z0-9_.:-]+)(?:\([^)\r\n]*\))?=(.*)$/u
+        .exec(line);
+    const owner = stack.at(-1);
+    if (
+      attribute === null
+      || owner === undefined
+      || attribute[1].length <= owner.indent
+    ) {
+      continue;
+    }
+    const rawValue = attribute[3];
+    const stringValue = /^"([^"]*)"/u.exec(rawValue)?.[1];
+    const resourceValue = /^@(0x[0-9a-f]{8})(?:\s|$)/u
+      .exec(rawValue)?.[1];
+    owner.attributes.push({
+      kind: stringValue !== undefined
+        ? 'string'
+        : resourceValue !== undefined
+          ? 'resource'
+          : 'other',
+      name: attribute[2],
+      value: stringValue ?? resourceValue ?? rawValue,
+    });
+  }
+  return roots;
+}
+
+function da5V5AaptDescendants(node) {
+  const descendants = [];
+  const pending = [...node.children];
+  while (pending.length > 0) {
+    const candidate = pending.shift();
+    descendants.push(candidate);
+    pending.unshift(...candidate.children);
+  }
+  return descendants;
+}
+
+function da5V5AaptStringAttributeValues(node, name) {
+  return node.attributes
+    .filter((attribute) => (
+      attribute.name === name && attribute.kind === 'string'
+    ))
+    .map((attribute) => attribute.value);
+}
+
+function da5V5AaptResourceAttributeValues(node, name) {
+  return node.attributes
+    .filter((attribute) => (
+      attribute.name === name && attribute.kind === 'resource'
+    ))
+    .map((attribute) => attribute.value);
+}
+
+function exactDa5V5AaptStringAttribute(node, name) {
+  const values = da5V5AaptStringAttributeValues(node, name);
+  return values.length === 1 ? values[0] : null;
+}
+
+function isExactDa5V5CompiledNfcFilter(filter) {
+  const actions = filter.children.filter((node) => node.name === 'action');
+  const categories = filter.children.filter(
+    (node) => node.name === 'category',
+  );
+  return (
+    filter.attributes.length === 0
+    && filter.children.length === 2
+    && actions.length === 1
+    && isExactDa5V5CompiledNamedElement(
+      actions[0],
+      'android.nfc.action.TECH_DISCOVERED',
+    )
+    && categories.length === 1
+    && isExactDa5V5CompiledNamedElement(
+      categories[0],
+      'android.intent.category.DEFAULT',
+    )
+  );
+}
+
+function isExactDa5V5CompiledNamedElement(node, value) {
+  return (
+    node.children.length === 0
+    && node.attributes.length === 1
+    && exactDa5V5AaptStringAttribute(node, 'android:name') === value
+  );
+}
+
+function isExactDa5V5CompiledNfcMetadata(metadata, expectedResourceId) {
+  return (
+    metadata.children.length === 0
+    && metadata.attributes.length === 2
+    && exactDa5V5AaptStringAttribute(metadata, 'android:name')
+      === 'android.nfc.action.TECH_DISCOVERED'
+    && da5V5AaptResourceAttributeValues(
+      metadata,
+      'android:resource',
+    ).length === 1
+    && da5V5AaptResourceAttributeValues(
+      metadata,
+      'android:resource',
+    )[0] === expectedResourceId
+  );
+}
+
+export function inspectDa5V5NfcTechFilterXmlTree(xmlTree) {
+  if (typeof xmlTree !== 'string' || xmlTree.length === 0) {
+    throw new Error('DA5 V5 NFC technology filter is unavailable');
+  }
+  const elements = [];
+  const contents = [];
+  const stack = [];
+  for (const line of xmlTree.split(/\r?\n/u)) {
+    const element = /^( *)E:\s+([A-Za-z0-9_-]+)(?:\s|$)/u.exec(line);
+    if (element !== null) {
+      const indent = element[1].length;
+      while (stack.at(-1)?.indent >= indent) {
+        stack.pop();
+      }
+      const node = {
+        children: [],
+        indent,
+        name: element[2],
+        parent: stack.at(-1) ?? null,
+      };
+      node.parent?.children.push(node);
+      elements.push(node);
+      stack.push(node);
+      continue;
+    }
+    const content = /^( *)C:\s+"([^"]*)"\s*$/u.exec(line);
+    if (content !== null) {
+      const indent = content[1].length;
+      while (stack.at(-1)?.indent >= indent) {
+        stack.pop();
+      }
+      contents.push({
+        parent: stack.at(-1) ?? null,
+        value: content[2],
+      });
+    }
+  }
+  const roots = elements.filter((element) => element.parent === null);
+  const techLists = elements.filter((element) => element.name === 'tech-list');
+  const techElements = elements.filter((element) => element.name === 'tech');
+  const techList = techLists[0];
+  const tech = techElements[0];
+  const techContents = contents.filter((content) => content.parent === tech);
+  const exactHierarchy = (
+    roots.length === 1
+    && roots[0].name === 'resources'
+    && roots[0].children.length === 1
+    && roots[0].children[0] === techList
+    && techLists.length === 1
+    && techList?.parent === roots[0]
+    && techList.children.length === 1
+    && techList.children[0] === tech
+    && techElements.length === 1
+    && tech?.parent === techList
+    && tech.children.length === 0
+    && contents.length === 1
+    && techContents.length === 1
+  );
+  const technologies = exactHierarchy
+    ? [techContents[0].value]
+    : [];
+  return Object.freeze({
+    techElementCount: techElements.length,
+    techListCount: techLists.length,
+    technologies: Object.freeze(technologies),
   });
 }
 

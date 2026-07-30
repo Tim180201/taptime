@@ -1,6 +1,6 @@
 # Project Status
 
-Status: CORE ROADMAP V2 COMPLETIONS REMAIN PRESERVED FOR THEIR RECORDED SCOPES — DA4 REMAINS OPEN FOR A LATER FRESH HUMAN V5 — DA5 V0–V4, THE LOCAL DA5-V5 RUNTIME GUARD AND THE EXACT VALIDATION ARTIFACT REMAIN PRESERVED FOR THEIR RECORDED SCOPES — PHASE-0 RUNS 7–15 ARE CONSUMED FAIL-CLOSED HISTORY WITHOUT A PROVEN PRODUCT/APK/NFC/HARDWARE FINDING — RUN 14 OPERATOR-SESSION STOPPED AT `artifact:mismatch` BEFORE PREFLIGHT/ADB/INSTALLATION; RUN 15 STOPPED AT `installation:adb_stdin_pipe_abort_mismatch` BEFORE `installed_provenance` OR ANY UI/NFC/TAG STEP; BOTH ENDED WITH `cleanup:match` — HISTORICAL PREDECESSOR `352b2d1`/TREE `d27432b`, CI `30547584412` AND ITS ONE-P3 `CHANGES REQUIRED` REVIEW REMAIN HISTORY — PUBLISHED SIX-PATH `DA5-V5-INSTALL-SESSION-01` CORRECTION `4067f62`/TREE `10629b8` PASSED EXACT-HEAD V4 `30552233999`, ATTEMPT 1, 12/12 WITHOUT RETRY; FINAL INDEPENDENT EXACT-HEAD/V4 REVIEW IS `APPROVED` WITH ZERO P0–P3 — THE CORRECTION IS TECHNICALLY CLOSED/`MERGE_READY` BUT NOT HUMAN-RUN-READY — THE OPERATOR REMAINS DO NOT START/NO RUN AUTHORITY — FIFTEEN PHASE-0 AUTHORITIES ARE CONSUMED; PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, SYSTEM CHANGES, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
+Status: CORE ROADMAP V2 COMPLETIONS REMAIN PRESERVED FOR THEIR RECORDED SCOPES — DA4 REMAINS OPEN FOR A LATER FRESH HUMAN V5 — DA5 V0–V4 AND THE HISTORICAL LOCAL DA5-V5 RUNTIME-GUARD/VALIDATION/OPERATOR CLOSURES REMAIN PRESERVED ONLY FOR THEIR RECORDED SCOPES — PHASE-0 RUN 16 IS CONSUMED FAIL-CLOSED AT FIRST TAG-A `technology_evidence`; NO B/X, HUMAN PASS, RETRY OR HARDWARE DEFECT — PRODUCT/VALIDATION/OPERATOR REPLACEMENT BINDINGS ARE PENDING AN UNCOMMITTED NFCA-ONLY R3 CORRECTION — NO INSTALL/RUN AUTHORITY; V3, COMMIT, CI, REVIEW, REPLACEMENT ARTIFACT, PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, SYSTEM CHANGES, DEPLOYMENT AND DISTRIBUTION REMAIN PENDING OR UNAUTHORIZED
 DA5 decision-time Option-A trust anchor: exactly two direct admin-group members, zero nested
 groups; full-record SHA-256 `b006276c09d8f2713f6132ea79cec167ab3a3c2887ee53e95eb00c1cc33719a5`;
 membership SHA-256 `70a683b7ebc7981533015d5d63cf12dfb2eabbfa665c34720eddb4d09e9e3064`;
@@ -9,6 +9,35 @@ A later R3 run must reproduce all three and both counts before capability/task-r
 every trust use; mismatch returns to the Human Architect and may not dynamically rebind.
 Date: 2026-07-30
 Owner: Human Architect + Technical Lead
+
+## DA5 V5 run-16 and NfcA-only correction checkpoint
+
+Phase-0 run 16 matched the offline artifact, preflight, install-launch and waiting receipts and the
+Human confirmed the displayed device binding. The first physical Tag-A scan then failed closed at
+`technology_evidence`. Roles B and X, Human PASS and retry were not reached. The operator accepted
+`abort`, produced `cleanup:match` and terminated `failed:mismatch`. No raw technology list, UID or
+fingerprint was recorded; no hardware defect is proven.
+
+The previous Product artifact with an NfcA/MifareUltralight dispatch filter and the then-current
+Validation/Operator bindings are now historical **DO NOT INSTALL** or pending supersession. The
+uncommitted R3 working-tree correction narrows Product dispatch and the closed Validation label to
+NfcA, keeps UID-only behavior, accepts Android NfcA evidence despite harmless extra/duplicate
+reported technologies, hardens capture/operator races and adds one explicit read-only readiness
+path that does not execute ADB. That path binds full Node/Git/ADB/aapt/apksigner/hermesc/unzip
+identities. Ordinary Git status retains staged/unstaged/untracked coverage and protected
+exclusions; a second `--ignored=matching` status is limited to the positive deduplicated Validation
+source scopes plus the exact 13-file transitive execution closure. Product manifest generation
+rejects duplicate, broader, TAG/NDEF and foreign activity/alias NFC bindings; compiled inspection
+ties the sole MainActivity TECH+DEFAULT metadata reference by numeric ID to the unique exact-NfcA
+XML resource. Native cancel cleanup failure settles the capture and remains higher priority than
+cancel/order results, while only the same active UI offer coalesces and settled replay fails closed.
+The actual ADB runners and APK inspector reattest their bound tools; after operator-abort
+arbitration every winning typed ADB timeout maps to the fixed timeout category at all
+install/launch stages. No replacement artifact, commit/tree, CI, independent approval, V3 or new
+Human authority is claimed. R-035 remains open.
+The Human Architect explicitly decided the NfcA-only Product scope; the Technical Lead delegated
+only its focused R3 implementation on baseline `17f4b47b8429d3862789b7e13a23f8da9d28c449`,
+tree `4bbfe9e3fdcdf474f1f506135560e4e111122fb5`.
 
 ## Product
 
@@ -20,7 +49,7 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   with zero open P0–P3 and remain DO NOT INSTALL; the Validation Phase-0 operator correction
   `083fdfb`, tree `24bd130`, exact-head CI `30402655381` attempt 1 12/12 and independent
   round-2 Exact-SHA review are approved with zero open P0–P3; both round-1 P1 findings are closed,
-  fifteen Phase-0 authorities are consumed, the operator remains DO NOT START, and any new Phase-0
+  sixteen Phase-0 authorities are consumed, the operator remains DO NOT START, and any new Phase-0
   authority remains separately gated.**
   Runtime Guard source
   `ba1b6e922ceb7902ecedd9dc2df01d6b22d90867`, tree
@@ -67,7 +96,9 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   artifact are now **HISTORICAL — DO NOT INSTALL** because the native-capture diagnostics
   correction changes the Validation source.
 
-  Fifteen separately authorized Phase-0 attempts are consumed without an attributable Tag result:
+  Sixteen separately authorized Phase-0 attempts are consumed without a successful attributable
+  Tag result. Run 16 reached the first Tag-A scan and failed closed at `technology_evidence`;
+  B/X, Human PASS and retry were not reached, and terminal cleanup matched. Earlier attempts:
   run 1 stopped on
   a preinstalled Validation package; run 2 on the unsupported Samsung provider in the then-prior
   build; run 3 because the generic launcher/package resolver did not uniquely start the explicit
@@ -416,10 +447,10 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   `03694f2d877bc323791e93473ad01ceb82af70df`, tree
   `6c6039683e067ef29f1f917a60c2628d26e38784`, passed exact-head CI `30386552118`,
   attempt 1, 12/12; prepublication review round 2 returned `APPROVED` with zero open P0–P3.
-  The correction requires both fully qualified `android.nfc.tech.NfcA` and
-  `android.nfc.tech.MifareUltralight`; additional or duplicated entries are ignored for the
-  decision and remain neither returned nor persisted. Contract, output label, UID/digest
-  handling, timeout, Controller and filter remain unchanged.
+  That historical correction required both fully qualified `android.nfc.tech.NfcA` and
+  `android.nfc.tech.MifareUltralight`; additional or duplicated entries were ignored. This
+  historical contract is superseded by the Human-decided NfcA-only correction above and supplies
+  no active installation or run requirement.
 
   One fresh research-free build published
   `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-validation/da5-v5-validation-03694f2d877b-d2084486b07f27bd`.
@@ -1415,7 +1446,7 @@ Two Epics are concurrently Active, per EP-009's own stated relationship to the r
    reuse, retry, repair or resume is authorized.
 6. Preserve DA5 V0–V4 closure and the independently approved local DA5-V5 Runtime Guard and
    exact runtime-corrected Validation App binding above. Treat Shared-Cluster work as historical
-   `BLOCKED`/not Evidence and all fifteen failed Phase-0 attempts as consumed, non-reusable history.
+   `BLOCKED`/not Evidence and all sixteen failed Phase-0 attempts as consumed, non-reusable history.
    Preserve the native-capture diagnostics source/artifact closure on `effc57a` and its independent
    zero-finding reviews as historical evidence while keeping its artifact, `e97bbe9` and `7e8c0f7`
    **DO NOT INSTALL**. Preserve exact `DA5-V5-VAL-TECH-01` source `03694f2`, tree `6c60396`,

@@ -70,30 +70,30 @@ describe('DA5 V5 explicit profile and disclosure boundaries', () => {
       tagA: '0123456789AB',
       tagB: '111111111111',
       tagX: 'ABCDEF012345',
-      technology: 'NfcA+MifareUltralight',
+      technology: 'NfcA',
     })).toEqual({
       tagA: '0123456789AB',
       tagB: '111111111111',
       tagX: 'ABCDEF012345',
-      technology: 'NfcA+MifareUltralight',
+      technology: 'NfcA',
     });
     expect(() => validateDa5V5TagBinding({
       tagA: '0123456789ab',
       tagB: '111111111111',
       tagX: 'ABCDEF012345',
-      technology: 'NfcA+MifareUltralight',
+      technology: 'NfcA',
     })).toThrow(/uppercase 12-hex/);
     expect(() => validateDa5V5TagBinding({
       tagA: '0123456789AB',
       tagB: '0123456789AB',
       tagX: 'ABCDEF012345',
-      technology: 'NfcA+MifareUltralight',
+      technology: 'NfcA',
     })).toThrow(/distinct/);
     expect(() => validateDa5V5TagBinding({
       tagA: '0123456789AB',
       tagB: '111111111111',
       tagX: 'ABCDEF012345',
-      technology: 'Ndef',
+      technology: 'MifareUltralight',
     })).toThrow(/manifest boundary/);
   });
 
@@ -113,7 +113,7 @@ describe('DA5 V5 explicit profile and disclosure boundaries', () => {
         tagA: '0123456789AB',
         tagB: '111111111111',
         tagX: 'ABCDEF012345',
-        technology: 'NfcA+MifareUltralight',
+        technology: 'NfcA',
       });
       const generalWorkTargetId = '22000000-0000-4000-8000-000000000705';
       const actualTagAId = '33000000-0000-4000-8000-000000000705';
@@ -529,7 +529,7 @@ describe('DA5 V5 fixture, lifecycle and startup fail-stop boundaries', () => {
       tagA: '0123456789AB',
       tagB: '111111111111',
       tagX: 'ABCDEF012345',
-      technology: 'NfcA+MifareUltralight',
+      technology: 'NfcA',
     });
     const ordinary = DA5_V5_CHECKPOINT_PLAN.find(
       ({ checkpoint }) => checkpoint === 'gate-d-cancellation',
@@ -558,7 +558,7 @@ describe('DA5 V5 fixture, lifecycle and startup fail-stop boundaries', () => {
         tagA: '0123456789AB',
         tagB: '111111111111',
         tagX: 'ABCDEF012345',
-        technology: 'NfcA+MifareUltralight',
+        technology: 'NfcA',
       });
       const query = vi.fn()
         .mockResolvedValueOnce({ rows: [] })

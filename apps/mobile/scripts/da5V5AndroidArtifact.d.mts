@@ -34,10 +34,11 @@ export interface Da5V5ApkInspection {
   readonly backupRules: boolean;
   readonly dataExtractionRules: boolean;
   readonly hermesBundleCount: number;
-  readonly mifareUltralight: boolean;
   readonly networkSecurityConfig: boolean;
-  readonly nfcA: boolean;
-  readonly nfcTechDiscovered: boolean;
+  readonly nfcTechElementCount: number;
+  readonly nfcTechListCount: number;
+  readonly nfcTechnologies: readonly string[];
+  readonly nfcDispatchManifestExact: boolean;
   readonly packageName: string;
   readonly signatureV1: boolean;
   readonly signatureV2: boolean;
@@ -98,3 +99,25 @@ export function reverifyDa5V5AndroidArtifactForInstall(
   status: 'match';
   use<T>(operation: (snapshot: Buffer) => Promise<T> | T): Promise<T>;
 }>;
+export function inspectDa5V5NfcTechFilterXmlTree(
+  xmlTree: string,
+): Readonly<{
+  techElementCount: number;
+  techListCount: number;
+  technologies: readonly string[];
+}>;
+export function inspectDa5V5ProductManifestXmlTree(
+  xmlTree: string,
+  expectedResourceId: string,
+): Readonly<{
+  nfcDispatchManifestExact: boolean;
+}>;
+export function resolveDa5V5NfcTechFilterResourceBinding(
+  resources: string,
+): Readonly<{
+  path: string;
+  resourceId: string;
+}>;
+export function resolveDa5V5NfcTechFilterResourcePath(
+  resources: string,
+): string;

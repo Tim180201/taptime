@@ -529,3 +529,49 @@ recorded in
 `ADO/05_Evidence/Development_Assignment_05_Local_Implementation_Evidence.md`. Exact-head V4 and an
 independent exact-SHA implementation review with zero open P0–P3 remain mandatory before any
 separately authorized Human/hardware V5.
+
+## 6. 2026-07-30 NfcA-only validation correction
+
+Phase-0 run 16 consumed its authority after the exact offline operator path and Human-confirmed
+device checkpoint reached the first Tag-A scan and failed closed at `technology_evidence`. No B/X,
+Human PASS or retry followed; `abort`, `cleanup:match` and `failed:mismatch` closed the session.
+No raw technology list, UID or fingerprint was disclosed and no hardware defect is proven.
+
+The Human Architect is the explicit decider and source of this Product decision: for v1 Android
+Product dispatch and Validation, NfcA is the sole required technology. The Technical Lead
+delegated its exact R3 implementation on baseline commit
+`17f4b47b8429d3862789b7e13a23f8da9d28c449`, tree
+`4bbfe9e3fdcdf474f1f506135560e4e111122fb5`. The Product
+still uses UID-only `ACTION_TECH_DISCOVERED` with exactly one tech-list containing exactly
+`android.nfc.tech.NfcA`; NDEF and authentication semantics do not change. Validation requires NfcA
+but ignores harmless additional or duplicate technologies reported by Android and never exposes
+the native technology list. MifareUltralight alone is insufficient. This correction does not
+change Tag Assignment, tenant authority, lifecycle, manual-trigger Business rules, production or
+distribution. Manifest generation accepts or creates exactly one MainActivity filter containing
+one `TECH_DISCOVERED` action, one `DEFAULT` category and no data, plus exactly one metadata
+reference to `@xml/taptime_nfc_tech_filter`; duplicate/conflicting NFC filters or metadata,
+TAG/NDEF/broader NFC actions and foreign activity/activity-alias bindings fail closed. Compiled APK
+inspection resolves the unique concrete resource-table record and proves that the sole compiled
+MainActivity metadata numeric resource ID references that same exact-NfcA XML tree.
+
+The correction's no-hardware boundary binds full path/mode/size/SHA-256 plus stable filesystem
+identity for Node, Git, ADB, aapt, apksigner, repository-resolved hermesc and `/usr/bin/unzip`.
+Repository cleanliness is the deduplicated union of the Validation source scopes and the exact
+13-file transitive local runtime-import closure of both executable entries. One Git status retains
+staged, unstaged and untracked detection with root `app.json` and `research/**` as explicit
+exclusions; a separate `status --ignored=matching` receives only the positive scopes and therefore
+detects ignored in-scope residue without traversing or listing the protected paths. The two ADB
+runners and APK inspector use and reattest those exact identities; successful completion rechecks
+stable dev/inode/path metadata. Native cancellation always settles its capture and signals
+unregister or bounded-cleanup timeout failure; `cleanup_failed` has precedence over
+`capture_cancelled` and `operation_order_rejected`. Only the exact same still-active UI offer
+coalesces; offer records are removed at settlement and stale replay fails closed. After
+operator-abort arbitration, every winning typed ADB command timeout maps to
+`adb_child_timeout_mismatch` at reattestation, installed provenance, prelaunch, activity start and
+postlaunch as well as installation transport boundaries.
+
+The prior NfcA/MifareUltralight Product artifact and the then-current Validation/Operator bindings
+are historical **DO NOT INSTALL** or pending supersession. The R3 implementation remains
+uncommitted and needs remaining verification, Technical-Lead acceptance, independent review and
+new exact bindings. No replacement artifact, SHA/tree, CI, approval or Human-run authority is
+created by this addendum.

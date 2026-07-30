@@ -21,6 +21,7 @@ import {
 } from '../../scripts/da5V5ValidationArtifact.mjs';
 import {
   publishDa5V5ValidationArtifact,
+  type Da5V5ValidationPublisherDependencies,
 } from '../../scripts/publishDa5V5ValidationArtifact.mjs';
 import {
   Da5V5ValidationBuildProcessController,
@@ -44,6 +45,46 @@ afterEach(() => {
 });
 
 describe('DA5 V5 Validation atomic artifact publisher', () => {
+  it('passes only the explicit Android SDK authority to its inspector', async () => {
+    const fixture = createFixture();
+    const authorities: Parameters<
+      Da5V5ValidationPublisherDependencies['inspectApk']
+    >[1][] = [];
+    const inspectApk:
+      Da5V5ValidationPublisherDependencies['inspectApk'] =
+        (_path, androidSdkAuthority) => {
+          authorities.push(androidSdkAuthority);
+          return validInspection();
+        };
+    const receipt = await publishDa5V5ValidationArtifact({
+      environment: {
+        ANDROID_HOME: '/synthetic/android-sdk',
+        ANDROID_SDK_ROOT: '/synthetic/android-sdk',
+        FOREIGN_SECRET: 'must-not-reach-inspector',
+        NODE_ENV: 'test',
+      },
+      interruption: uninterrupted(),
+      outputDirectory: fixture.outputDirectory,
+      repositoryRoot: fixture.repositoryRoot,
+      sourceApkPath: fixture.sourceApkPath,
+      sourceCommit,
+      sourceClosure,
+      sourceTree,
+    }, { inspectApk });
+
+    expect(authorities).toEqual(Array.from(
+      { length: 3 },
+      () => ({
+        androidHome: '/synthetic/android-sdk',
+        androidSdkRoot: '/synthetic/android-sdk',
+      }),
+    ));
+    expect(JSON.stringify(authorities)).not.toContain(
+      'must-not-reach-inspector',
+    );
+    receipt.rollback();
+  });
+
   it('publishes one immutable bound directory and never overwrites it', async () => {
     const fixture = createFixture();
     const inspectApk = vi.fn(() => validInspection());

@@ -19,10 +19,13 @@ import {
 } from 'node:path';
 
 import {
+  assertDa5V5ValidationToolIdentityMetadata,
+  createCurrentDa5V5ValidationToolIdentity,
   DA5_V5_VALIDATION_ENTRY_FILE,
   DA5_V5_VALIDATION_RUNTIME_MARKER,
   DA5_V5_VALIDATION_RUNTIME_VARIANT,
   DA5_V5_VALIDATION_SOURCE_CLOSURE,
+  verifyDa5V5ValidationToolIdentity,
 } from './da5V5ValidationRuntimeContract.mjs';
 import {
   DA5_V5_VALIDATION_EXPECTED_NATIVE_SOURCE_CLOSURE,
@@ -37,8 +40,9 @@ export const DA5_V5_VALIDATION_VERSION_CODE = '1';
 export const DA5_V5_VALIDATION_VERSION_NAME = '1.0.0';
 export const DA5_V5_VALIDATION_LOCAL_SIGNER_SHA256 =
   'fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c';
+export const DA5_V5_VALIDATION_UNZIP_PATH = '/usr/bin/unzip';
 export const DA5_V5_VALIDATION_TECHNOLOGY =
-  'NfcA+MifareUltralight';
+  'NfcA';
 export const DA5_V5_VALIDATION_TALKBACK_QUERY_PACKAGES = Object.freeze([
   'com.google.android.marvin.talkback',
   'com.samsung.android.accessibility.talkback',
@@ -161,7 +165,11 @@ export function serializeDa5V5ValidationArtifactManifest(manifest) {
 
 export function verifyDa5V5ValidationArtifactBinding(
   options,
-  dependencies = systemDependencies(),
+  dependencies = systemDependencies(
+    options?.androidSdkAuthority,
+    options?.inspectionTools,
+    options?.toolIdentityDependencies,
+  ),
 ) {
   requireGitObject(options?.expectedSourceCommit, 'expected source commit');
   requireGitObject(options?.expectedSourceTree, 'expected source tree');
@@ -405,27 +413,28 @@ export function inspectDa5V5ValidationManifestXmlTree(androidManifest) {
 
 export function inspectDa5V5ValidationApk(
   apkPath,
-  environment = process.env,
+  androidSdkAuthority,
+  inspectionTools,
+  toolIdentityDependencies,
 ) {
-  const androidHome = environment.ANDROID_HOME
-    ?? environment.ANDROID_SDK_ROOT;
-  if (typeof androidHome !== 'string' || androidHome.length === 0) {
-    throw new Error('DA5 V5 Validation Android SDK path is unavailable');
-  }
-  const aapt = join(androidHome, 'build-tools', '35.0.0', 'aapt');
-  const apksigner = join(
-    androidHome,
-    'build-tools',
-    '35.0.0',
-    'apksigner',
+  const authority = requireDa5V5ValidationAndroidSdkAuthority(
+    androidSdkAuthority,
   );
-  const badging = runText(aapt, ['dump', 'badging', apkPath]);
+  const tools = requireDa5V5ValidationInspectionTools(
+    inspectionTools,
+    authority,
+    toolIdentityDependencies,
+  );
+  const badging = runText(
+    tools.aapt.path,
+    ['dump', 'badging', apkPath],
+  );
   const androidManifest = runText(
-    aapt,
+    tools.aapt.path,
     ['dump', 'xmltree', apkPath, 'AndroidManifest.xml'],
   );
   const resources = runText(
-    aapt,
+    tools.aapt.path,
     ['dump', '--values', 'resources', apkPath],
   );
   const networkPolicyPath = resolveDa5V5ValidationPackagedXmlPath(
@@ -437,7 +446,7 @@ export function inspectDa5V5ValidationApk(
     'taptime_da5_v5_validation_data_extraction_rules',
   );
   const networkPolicy = runText(
-    aapt,
+    tools.aapt.path,
     [
       'dump',
       'xmltree',
@@ -446,7 +455,7 @@ export function inspectDa5V5ValidationApk(
     ],
   );
   const backupPolicy = runText(
-    aapt,
+    tools.aapt.path,
     [
       'dump',
       'xmltree',
@@ -455,18 +464,23 @@ export function inspectDa5V5ValidationApk(
     ],
   );
   const signature = runText(
-    apksigner,
+    tools.apksigner.path,
     ['verify', '--verbose', '--print-certs', apkPath],
   );
-  const entries = runText('unzip', ['-Z1', apkPath])
+  const entries = runText(tools.unzip.path, ['-Z1', apkPath])
     .split(/\r?\n/u)
     .filter((entry) => entry.length !== 0);
   const hermesEvidence = inspectDa5V5ValidationHermesApkBundle(
     apkPath,
     entries,
+    tools,
   );
   const nativeEvidence = inspectDa5V5ValidationNativeBytecode(
-    extractDa5V5ValidationDexBytecode(apkPath, entries),
+    extractDa5V5ValidationDexBytecode(
+      apkPath,
+      entries,
+      tools.unzip.path,
+    ),
   );
   const packageMatch =
     /^package: name='([^']+)' versionCode='([^']+)' versionName='([^']+)'/m
@@ -480,7 +494,7 @@ export function inspectDa5V5ValidationApk(
   const manifestEvidence = inspectDa5V5ValidationManifestXmlTree(
     androidManifest,
   );
-  return Object.freeze({
+  const inspection = Object.freeze({
     allowBackup:
       !/android:allowBackup[^\n]*\(type 0x12\)0x0/u
         .test(androidManifest),
@@ -565,6 +579,13 @@ export function inspectDa5V5ValidationApk(
     versionCode: packageMatch[2],
     versionName: packageMatch[3],
   });
+  for (const tool of Object.values(tools)) {
+    assertDa5V5ValidationToolIdentityMetadata(
+      tool,
+      toolIdentityDependencies,
+    );
+  }
+  return inspection;
 }
 
 export function inspectDa5V5ValidationHermesBytecode(bytecodeDump) {
@@ -708,7 +729,44 @@ function verifyImmutableFile(binding, dependencies, expectedIdentity) {
   return Object.freeze({ identity, status: 'match' });
 }
 
-function systemDependencies() {
+export function requireDa5V5ValidationAndroidSdkAuthority(value) {
+  if (
+    typeof value !== 'object'
+    || value === null
+    || Array.isArray(value)
+  ) {
+    throw new Error('DA5 V5 Validation Android SDK authority is unavailable');
+  }
+  const paths = [
+    value.androidHome,
+    value.androidSdkRoot,
+  ].filter((path) => path !== undefined);
+  if (
+    paths.length === 0
+    || paths.some((path) => (
+      typeof path !== 'string'
+      || path.length === 0
+      || normalize(resolve(path)) !== path
+    ))
+    || (paths.length === 2 && paths[0] !== paths[1])
+  ) {
+    throw new Error('DA5 V5 Validation Android SDK authority mismatch');
+  }
+  return Object.freeze({
+    androidHome: value.androidHome,
+    androidSdkRoot: value.androidSdkRoot,
+    path: paths[0],
+  });
+}
+
+function systemDependencies(
+  androidSdkAuthority,
+  inspectionTools,
+  toolIdentityDependencies,
+) {
+  const authority = requireDa5V5ValidationAndroidSdkAuthority(
+    androidSdkAuthority,
+  );
   return Object.freeze({
     files: Object.freeze({
       lstat: lstatSync,
@@ -722,7 +780,14 @@ function systemDependencies() {
           .digest('hex');
       },
     }),
-    inspectApk: inspectDa5V5ValidationApk,
+    inspectApk(path) {
+      return inspectDa5V5ValidationApk(
+        path,
+        authority,
+        inspectionTools,
+        toolIdentityDependencies,
+      );
+    },
   });
 }
 
@@ -766,7 +831,11 @@ function requiredMatch(value, pattern) {
   return result;
 }
 
-function inspectDa5V5ValidationHermesApkBundle(apkPath, entries) {
+function inspectDa5V5ValidationHermesApkBundle(
+  apkPath,
+  entries,
+  tools,
+) {
   const bundleEntry = 'assets/index.android.bundle';
   if (entries.filter((entry) => entry === bundleEntry).length !== 1) {
     throw new Error(
@@ -781,10 +850,10 @@ function inspectDa5V5ValidationHermesApkBundle(apkPath, entries) {
   try {
     writeFileSync(
       bundlePath,
-      runBinary('unzip', ['-p', apkPath, bundleEntry]),
+      runBinary(tools.unzip.path, ['-p', apkPath, bundleEntry]),
     );
     return inspectDa5V5ValidationHermesBytecode(runText(
-      resolveHermesCompiler(),
+      tools.hermesc.path,
       ['-b', '-dump-bytecode', '-pretty', bundlePath],
     ));
   } finally {
@@ -792,7 +861,11 @@ function inspectDa5V5ValidationHermesApkBundle(apkPath, entries) {
   }
 }
 
-function extractDa5V5ValidationDexBytecode(apkPath, entries) {
+function extractDa5V5ValidationDexBytecode(
+  apkPath,
+  entries,
+  unzipPath,
+) {
   const dexEntries = entries.filter(
     (entry) => /^classes(?:[0-9]+)?\.dex$/u.test(entry),
   );
@@ -802,11 +875,11 @@ function extractDa5V5ValidationDexBytecode(apkPath, entries) {
     );
   }
   return Buffer.concat(dexEntries.map(
-    (entry) => runBinary('unzip', ['-p', apkPath, entry]),
+    (entry) => runBinary(unzipPath, ['-p', apkPath, entry]),
   ));
 }
 
-function resolveHermesCompiler() {
+export function resolveDa5V5ValidationHermesCompilerPath() {
   const require = createRequire(import.meta.url);
   const packageDirectory = dirname(
     require.resolve('hermes-compiler/package.json'),
@@ -835,6 +908,73 @@ function resolveHermesCompiler() {
     );
   }
   return executable;
+}
+
+function requireDa5V5ValidationInspectionTools(
+  value,
+  authority,
+  dependencies,
+) {
+  const expected = Object.freeze({
+    aapt: join(authority.path, 'build-tools', '35.0.0', 'aapt'),
+    apksigner: join(
+      authority.path,
+      'build-tools',
+      '35.0.0',
+      'apksigner',
+    ),
+    hermesc: resolveDa5V5ValidationHermesCompilerPath(),
+    unzip: DA5_V5_VALIDATION_UNZIP_PATH,
+  });
+  if (value === undefined) {
+    return Object.freeze({
+      aapt: createCurrentDa5V5ValidationToolIdentity(
+        expected.aapt,
+        dependencies,
+      ),
+      apksigner: createCurrentDa5V5ValidationToolIdentity(
+        expected.apksigner,
+        dependencies,
+      ),
+      hermesc: createCurrentDa5V5ValidationToolIdentity(
+        expected.hermesc,
+        dependencies,
+      ),
+      unzip: createCurrentDa5V5ValidationToolIdentity(
+        expected.unzip,
+        dependencies,
+      ),
+    });
+  }
+  const actual = Object.freeze({
+    aapt: verifyDa5V5ValidationToolIdentity(
+      value.aapt,
+      dependencies,
+    ),
+    apksigner: verifyDa5V5ValidationToolIdentity(
+      value.apksigner,
+      dependencies,
+    ),
+    hermesc: verifyDa5V5ValidationToolIdentity(
+      value.hermesc,
+      dependencies,
+    ),
+    unzip: verifyDa5V5ValidationToolIdentity(
+      value.unzip,
+      dependencies,
+    ),
+  });
+  if (
+    actual.aapt.path !== expected.aapt
+    || actual.apksigner.path !== expected.apksigner
+    || actual.hermesc.path !== expected.hermesc
+    || actual.unzip.path !== expected.unzip
+  ) {
+    throw new Error(
+      'DA5 V5 Validation inspection tool authority mismatch',
+    );
+  }
+  return actual;
 }
 
 function escapeRegExp(value) {

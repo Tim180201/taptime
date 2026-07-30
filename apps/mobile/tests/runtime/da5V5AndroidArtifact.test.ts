@@ -4,8 +4,12 @@ import {
   createDa5V5AndroidArtifactVerificationForTest,
   DA5_V5_ANDROID_ARTIFACT,
   DA5_V5_ANDROID_PACKAGE,
+  inspectDa5V5ProductManifestXmlTree,
+  inspectDa5V5NfcTechFilterXmlTree,
   requireDa5V5AndroidProfile,
   reverifyDa5V5AndroidArtifactForInstall,
+  resolveDa5V5NfcTechFilterResourceBinding,
+  resolveDa5V5NfcTechFilterResourcePath,
   verifyDa5V5AndroidArtifact,
   verifyDa5V5ImmutableFile,
   type Da5V5ApkInspection,
@@ -85,9 +89,9 @@ describe('DA5 V5 immutable external Android artifact', () => {
     'networkSecurityConfig',
     'backupRules',
     'dataExtractionRules',
-    'nfcTechDiscovered',
-    'nfcA',
-    'mifareUltralight',
+    'nfcDispatchManifestExact',
+    'nfcTechElementCount',
+    'nfcTechListCount',
     'hermesBundleCount',
   ] as const)('rejects independent APK inspection drift in %s', (field) => {
     const dependencies = validDependencies();
@@ -109,6 +113,307 @@ describe('DA5 V5 immutable external Android artifact', () => {
       dependencies,
     })).toThrow('DA5 V5 APK inspection mismatch');
     expect(dependencies.verifyRuntime).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { nfcTechnologies: [] },
+    { nfcTechnologies: ['android.nfc.tech.MifareUltralight'] },
+    {
+      nfcTechnologies: [
+        'android.nfc.tech.NfcA',
+        'android.nfc.tech.MifareUltralight',
+      ],
+    },
+    {
+      nfcTechnologies: [
+        'android.nfc.tech.NfcA',
+        'android.nfc.tech.NfcA',
+      ],
+    },
+  ])('rejects packaged technology-list drift %#', ({ nfcTechnologies }) => {
+    const dependencies = validDependencies();
+    vi.mocked(dependencies.inspectApk).mockReturnValue({
+      ...validInspection(),
+      nfcTechnologies,
+    });
+    expect(() => verifyDa5V5AndroidArtifact({
+      profile: 'da5-v5',
+      dependencies,
+    })).toThrow('DA5 V5 APK inspection mismatch');
+  });
+
+  it('parses exactly one compiled NfcA technology list', () => {
+    expect(inspectDa5V5NfcTechFilterXmlTree([
+      'E: resources (line=1)',
+      '  E: tech-list (line=2)',
+      '    E: tech (line=3)',
+      '      C: "android.nfc.tech.NfcA"',
+    ].join('\n'))).toEqual({
+      techElementCount: 1,
+      techListCount: 1,
+      technologies: ['android.nfc.tech.NfcA'],
+    });
+  });
+
+  it('resolves the exact optimized Product NFC technology filter path', () => {
+    const resources = [
+      'Package Groups (1)',
+      '  Package Group 0 id=0x7f packageCount=1 name=com.tim180201.mobile.synthetic',
+      '    spec resource 0x7f110001 com.tim180201.mobile.synthetic:xml/taptime_nfc_tech_filter: flags=0x00000000',
+      '    resource 0x7f110001 com.tim180201.mobile.synthetic:xml/taptime_nfc_tech_filter: t=0x03',
+      '      (string8) "res/9-3.xml"',
+      '    resource 0x7f110002 com.tim180201.mobile.synthetic:xml/unrelated: t=0x03',
+      '      (string8) "res/94.xml"',
+    ].join('\n');
+    expect(resolveDa5V5NfcTechFilterResourceBinding(resources)).toEqual({
+      path: 'res/9-3.xml',
+      resourceId: '0x7f110001',
+    });
+    expect(resolveDa5V5NfcTechFilterResourcePath(resources))
+      .toBe('res/9-3.xml');
+  });
+
+  it.each([
+    {
+      name: 'missing target',
+      resources: [
+        'resource 0x7f110001 com.tim180201.mobile.synthetic:xml/unrelated: t=0x03',
+        '  (string8) "res/93.xml"',
+      ].join('\n'),
+    },
+    {
+      name: 'duplicate target records',
+      resources: [
+        'resource 0x7f110001 com.tim180201.mobile.synthetic:xml/taptime_nfc_tech_filter: t=0x03',
+        '  (string8) "res/93.xml"',
+        'resource 0x7f110002 com.tim180201.mobile.synthetic:xml/taptime_nfc_tech_filter: t=0x03',
+        '  (string8) "res/94.xml"',
+      ].join('\n'),
+    },
+    {
+      name: 'extra target value',
+      resources: [
+        'resource 0x7f110001 com.tim180201.mobile.synthetic:xml/taptime_nfc_tech_filter: t=0x03',
+        '  (string8) "res/93.xml"',
+        '  (string8) "res/94.xml"',
+      ].join('\n'),
+    },
+    {
+      name: 'unsafe target path',
+      resources: [
+        'resource 0x7f110001 com.tim180201.mobile.synthetic:xml/taptime_nfc_tech_filter: t=0x03',
+        '  (string8) "res/../93.xml"',
+      ].join('\n'),
+    },
+    {
+      name: 'foreign package target',
+      resources: [
+        'resource 0x7f110001 com.example.foreign:xml/taptime_nfc_tech_filter: t=0x03',
+        '  (string8) "res/93.xml"',
+      ].join('\n'),
+    },
+  ])('rejects $name in the optimized Product resource table', ({
+    resources,
+  }) => {
+    expect(() => resolveDa5V5NfcTechFilterResourcePath(resources))
+      .toThrow(/resource binding mismatch/u);
+  });
+
+  it.each([
+    {
+      name: 'deceptive sibling content',
+      tree: [
+        'E: resources (line=1)',
+        '  E: tech-list (line=2)',
+        '    E: tech (line=3)',
+        '      C: "android.nfc.tech.MifareUltralight"',
+        '  E: unrelated (line=4)',
+        '    C: "android.nfc.tech.NfcA"',
+      ].join('\n'),
+    },
+    {
+      name: 'technology outside the list',
+      tree: [
+        'E: resources (line=1)',
+        '  E: tech-list (line=2)',
+        '  E: tech (line=3)',
+        '    C: "android.nfc.tech.NfcA"',
+      ].join('\n'),
+    },
+    {
+      name: 'nested technology',
+      tree: [
+        'E: resources (line=1)',
+        '  E: tech-list (line=2)',
+        '    E: wrapper (line=3)',
+        '      E: tech (line=4)',
+        '        C: "android.nfc.tech.NfcA"',
+      ].join('\n'),
+    },
+    {
+      name: 'duplicate technology content',
+      tree: [
+        'E: resources (line=1)',
+        '  E: tech-list (line=2)',
+        '    E: tech (line=3)',
+        '      C: "android.nfc.tech.NfcA"',
+        '      C: "android.nfc.tech.NfcA"',
+      ].join('\n'),
+    },
+    {
+      name: 'duplicate list',
+      tree: [
+        'E: resources (line=1)',
+        '  E: tech-list (line=2)',
+        '    E: tech (line=3)',
+        '      C: "android.nfc.tech.NfcA"',
+        '  E: tech-list (line=4)',
+      ].join('\n'),
+    },
+    {
+      name: 'malformed content indentation',
+      tree: [
+        'E: resources (line=1)',
+        '  E: tech-list (line=2)',
+        '    E: tech (line=3)',
+        '    C: "android.nfc.tech.NfcA"',
+      ].join('\n'),
+    },
+  ])('does not accept $name as the bound NfcA tree', ({ tree }) => {
+    expect(inspectDa5V5NfcTechFilterXmlTree(tree).technologies).toEqual([]);
+  });
+
+  it('binds the exact MainActivity dispatch metadata to the resolved NfcA resource id', () => {
+    expect(inspectDa5V5ProductManifestXmlTree(
+      productNfcManifestXmlTree(),
+      '0x7f130008',
+    )).toEqual({
+      nfcDispatchManifestExact: true,
+    });
+  });
+
+  it.each([
+    {
+      name: 'unused exact NfcA resource with wrong manifest reference',
+      tree: productNfcManifestXmlTree({
+        mainMetadata: [compiledMetadata('0x7f130009')],
+      }),
+    },
+    {
+      name: 'duplicate MainActivity',
+      tree: productNfcManifestXmlTree({ mainActivityCount: 2 }),
+    },
+    {
+      name: 'duplicate TECH filters',
+      tree: productNfcManifestXmlTree({
+        mainFilters: [compiledFilter(), compiledFilter()],
+      }),
+    },
+    {
+      name: 'duplicate TECH metadata',
+      tree: productNfcManifestXmlTree({
+        mainMetadata: [
+          compiledMetadata(),
+          compiledMetadata(),
+        ],
+      }),
+    },
+    {
+      name: 'TECH plus TAG actions',
+      tree: productNfcManifestXmlTree({
+        mainFilters: [compiledFilter({
+          actions: [
+            'android.nfc.action.TECH_DISCOVERED',
+            'android.nfc.action.TAG_DISCOVERED',
+          ],
+        })],
+      }),
+    },
+    {
+      name: 'TAG action',
+      tree: productNfcManifestXmlTree({
+        mainFilters: [compiledFilter({
+          actions: ['android.nfc.action.TAG_DISCOVERED'],
+        })],
+      }),
+    },
+    {
+      name: 'NDEF action',
+      tree: productNfcManifestXmlTree({
+        mainFilters: [compiledFilter({
+          actions: ['android.nfc.action.NDEF_DISCOVERED'],
+        })],
+      }),
+    },
+    {
+      name: 'wrong category',
+      tree: productNfcManifestXmlTree({
+        mainFilters: [compiledFilter({
+          categories: ['android.intent.category.BROWSABLE'],
+        })],
+      }),
+    },
+    {
+      name: 'additional category',
+      tree: productNfcManifestXmlTree({
+        mainFilters: [compiledFilter({
+          categories: [
+            'android.intent.category.DEFAULT',
+            'android.intent.category.BROWSABLE',
+          ],
+        })],
+      }),
+    },
+    {
+      name: 'data element',
+      tree: productNfcManifestXmlTree({
+        mainFilters: [compiledFilter({ data: true })],
+      }),
+    },
+    {
+      name: 'foreign activity dispatch',
+      tree: productNfcManifestXmlTree({
+        foreignOwners: [{
+          filters: [compiledFilter()],
+          kind: 'activity',
+          metadata: [compiledMetadata()],
+          name: `${DA5_V5_ANDROID_PACKAGE}.ForeignActivity`,
+        }],
+        mainFilters: [],
+        mainMetadata: [],
+      }),
+    },
+    {
+      name: 'foreign activity metadata',
+      tree: productNfcManifestXmlTree({
+        foreignOwners: [{
+          filters: [],
+          kind: 'activity',
+          metadata: [compiledMetadata()],
+          name: `${DA5_V5_ANDROID_PACKAGE}.ForeignActivity`,
+        }],
+      }),
+    },
+    {
+      name: 'activity-alias dispatch',
+      tree: productNfcManifestXmlTree({
+        foreignOwners: [{
+          filters: [compiledFilter()],
+          kind: 'activity-alias',
+          metadata: [compiledMetadata()],
+          name: `${DA5_V5_ANDROID_PACKAGE}.ForeignAlias`,
+        }],
+        mainFilters: [],
+        mainMetadata: [],
+      }),
+    },
+  ])('rejects compiled Product manifest drift for $name', ({ tree }) => {
+    expect(inspectDa5V5ProductManifestXmlTree(
+      tree,
+      '0x7f130008',
+    )).toEqual({
+      nfcDispatchManifestExact: false,
+    });
   });
 
   it('rejects path, type, symlink, mode, size, realpath and digest drift', () => {
@@ -278,6 +583,111 @@ describe('DA5 V5 immutable external Android artifact', () => {
   );
 });
 
+interface CompiledFilterFixture {
+  readonly actions: readonly string[];
+  readonly categories: readonly string[];
+  readonly data: boolean;
+}
+
+interface CompiledMetadataFixture {
+  readonly name: string;
+  readonly resourceId: string;
+}
+
+interface CompiledOwnerFixture {
+  readonly filters: readonly CompiledFilterFixture[];
+  readonly kind: 'activity' | 'activity-alias';
+  readonly metadata: readonly CompiledMetadataFixture[];
+  readonly name: string;
+}
+
+function compiledFilter(options: Readonly<{
+  actions?: readonly string[];
+  categories?: readonly string[];
+  data?: boolean;
+}> = {}): CompiledFilterFixture {
+  return {
+    actions: options.actions
+      ?? ['android.nfc.action.TECH_DISCOVERED'],
+    categories: options.categories
+      ?? ['android.intent.category.DEFAULT'],
+    data: options.data ?? false,
+  };
+}
+
+function compiledMetadata(
+  resourceId = '0x7f130008',
+  name = 'android.nfc.action.TECH_DISCOVERED',
+): CompiledMetadataFixture {
+  return { name, resourceId };
+}
+
+function productNfcManifestXmlTree(options: Readonly<{
+  foreignOwners?: readonly CompiledOwnerFixture[];
+  mainActivityCount?: number;
+  mainFilters?: readonly CompiledFilterFixture[];
+  mainMetadata?: readonly CompiledMetadataFixture[];
+}> = {}): string {
+  const lines = [
+    'E: manifest (line=1)',
+    '  E: application (line=2)',
+  ];
+  for (
+    let index = 0;
+    index < (options.mainActivityCount ?? 1);
+    index += 1
+  ) {
+    appendCompiledOwner(lines, {
+      filters: options.mainFilters ?? [compiledFilter()],
+      kind: 'activity',
+      metadata: options.mainMetadata ?? [compiledMetadata()],
+      name: `${DA5_V5_ANDROID_PACKAGE}.MainActivity`,
+    });
+  }
+  for (const owner of options.foreignOwners ?? []) {
+    appendCompiledOwner(lines, owner);
+  }
+  return lines.join('\n');
+}
+
+function appendCompiledOwner(
+  lines: string[],
+  owner: CompiledOwnerFixture,
+): void {
+  lines.push(
+    `    E: ${owner.kind}`,
+    `      A: android:name(0x01010003)="${owner.name}"`,
+  );
+  for (const filter of owner.filters) {
+    lines.push('      E: intent-filter');
+    for (const action of filter.actions) {
+      lines.push(
+        '        E: action',
+        `          A: android:name(0x01010003)="${action}"`,
+      );
+    }
+    for (const category of filter.categories) {
+      lines.push(
+        '        E: category',
+        `          A: android:name(0x01010003)="${category}"`,
+      );
+    }
+    if (filter.data) {
+      lines.push(
+        '        E: data',
+        '          A: android:mimeType(0x01010026)="text/plain"',
+      );
+    }
+  }
+  for (const metadata of owner.metadata) {
+    lines.push(
+      '      E: meta-data',
+      `        A: android:name(0x01010003)="${metadata.name}"`,
+      `        A: android:resource(0x01010025)=@${metadata.resourceId}`,
+    );
+  }
+}
+
 function validDependencies(): Da5V5ArtifactDependencies {
   const files = {
     close: vi.fn(),
@@ -319,10 +729,11 @@ function validInspection(): Da5V5ApkInspection {
     backupRules: true,
     dataExtractionRules: true,
     hermesBundleCount: 1,
-    mifareUltralight: true,
     networkSecurityConfig: true,
-    nfcA: true,
-    nfcTechDiscovered: true,
+    nfcTechElementCount: 1,
+    nfcTechListCount: 1,
+    nfcTechnologies: ['android.nfc.tech.NfcA'],
+    nfcDispatchManifestExact: true,
     packageName: DA5_V5_ANDROID_PACKAGE,
     signatureV1: false,
     signatureV2: true,

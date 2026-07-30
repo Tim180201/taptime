@@ -74,9 +74,32 @@ export class Da5V5UsbSerialBinding {
   }
 }
 
+export class Da5V5AndroidCommandAbortError extends Error {
+  constructor() {
+    super('DA5 V5 Android device command aborted');
+    this.name = 'Da5V5AndroidCommandAbortError';
+  }
+}
+
+export function isDa5V5AndroidCommandAbortError(error) {
+  return error instanceof Da5V5AndroidCommandAbortError;
+}
+
+export class Da5V5AndroidCommandTimeoutError extends Error {
+  constructor() {
+    super('DA5 V5 Android device command timed out');
+    this.name = 'Da5V5AndroidCommandTimeoutError';
+  }
+}
+
+export function isDa5V5AndroidCommandTimeoutError(error) {
+  return error instanceof Da5V5AndroidCommandTimeoutError;
+}
+
 export class SystemDa5V5AndroidAdbRunner {
   constructor(dependencies = {}) {
     this.dependencies = Object.freeze({
+      adbPath: dependencies.adbPath ?? 'adb',
       environment: dependencies.environment ?? process.env,
       spawn: dependencies.spawn ?? spawn,
     });
@@ -761,7 +784,7 @@ function assertNoDa5V5OwnedListeners(value) {
 function runAdb(arguments_, options, dependencies) {
   return new Promise((resolvePromise, rejectPromise) => {
     if (options.signal?.aborted === true) {
-      rejectPromise(new Error('DA5 V5 Android device command aborted'));
+      rejectPromise(new Da5V5AndroidCommandAbortError());
       return;
     }
     const environment = createDa5V5AdbChildEnvironment(dependencies.environment);
@@ -770,10 +793,18 @@ function runAdb(arguments_, options, dependencies) {
       rejectPromise(new Error('DA5 V5 Android device input is invalid'));
       return;
     }
-    const child = dependencies.spawn('adb', [...adbServerArguments, ...arguments_], {
-      env: environment,
-      stdio: [stdinBytes === undefined ? 'ignore' : 'pipe', 'pipe', 'pipe'],
-    });
+    const child = dependencies.spawn(
+      dependencies.adbPath,
+      [...adbServerArguments, ...arguments_],
+      {
+        env: environment,
+        stdio: [
+          stdinBytes === undefined ? 'ignore' : 'pipe',
+          'pipe',
+          'pipe',
+        ],
+      },
+    );
     let stdout = '';
     let stdoutBytes = 0;
     let stderrBytes = 0;
@@ -790,17 +821,17 @@ function runAdb(arguments_, options, dependencies) {
       Math.max(1, Math.floor(terminationBudget / 2)),
     );
     const timeout = setTimeout(() => {
-      terminate(new Error('DA5 V5 Android device command timed out'));
+      terminate(new Da5V5AndroidCommandTimeoutError());
     }, Math.max(0, timeoutMilliseconds - terminationBudget));
     const hardTimeout = setTimeout(() => {
       terminationError ??=
-        new Error('DA5 V5 Android device command timed out');
+        new Da5V5AndroidCommandTimeoutError();
       forceKill();
       finish(terminationError, undefined, true);
     }, timeoutMilliseconds);
 
     function abort() {
-      terminate(new Error('DA5 V5 Android device command aborted'));
+      terminate(new Da5V5AndroidCommandAbortError());
     }
 
     function terminate(error) {
@@ -974,7 +1005,7 @@ function runAdb(arguments_, options, dependencies) {
 function runAdbBinaryDigest(arguments_, options, dependencies) {
   return new Promise((resolvePromise, rejectPromise) => {
     if (options.signal?.aborted === true) {
-      rejectPromise(new Error('DA5 V5 Android device command aborted'));
+      rejectPromise(new Da5V5AndroidCommandAbortError());
       return;
     }
     if (!Number.isSafeInteger(options.maximumBytes) || options.maximumBytes < 0) {
@@ -982,10 +1013,14 @@ function runAdbBinaryDigest(arguments_, options, dependencies) {
       return;
     }
     const environment = createDa5V5AdbChildEnvironment(dependencies.environment);
-    const child = dependencies.spawn('adb', [...adbServerArguments, ...arguments_], {
-      env: environment,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
+    const child = dependencies.spawn(
+      dependencies.adbPath,
+      [...adbServerArguments, ...arguments_],
+      {
+        env: environment,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      },
+    );
     const digest = createHash('sha256');
     let stdoutBytes = 0;
     let stderrBytes = 0;
@@ -1002,16 +1037,16 @@ function runAdbBinaryDigest(arguments_, options, dependencies) {
       Math.max(1, Math.floor(terminationBudget / 2)),
     );
     const timeout = setTimeout(() => {
-      terminate(new Error('DA5 V5 Android device command timed out'));
+      terminate(new Da5V5AndroidCommandTimeoutError());
     }, Math.max(0, timeoutMilliseconds - terminationBudget));
     const hardTimeout = setTimeout(() => {
       terminationError ??=
-        new Error('DA5 V5 Android device command timed out');
+        new Da5V5AndroidCommandTimeoutError();
       forceKill();
       finish(terminationError, true);
     }, timeoutMilliseconds);
     const abort = () => {
-      terminate(new Error('DA5 V5 Android device command aborted'));
+      terminate(new Da5V5AndroidCommandAbortError());
     };
     const terminate = (error) => {
       if (settled) return;

@@ -1,10 +1,79 @@
 # Development Assignment 5 — V5 Human Android Evidence
 
-- Status: **PHASE-0 RUNS 7–15 ARE CONSUMED FAIL-CLOSED HISTORY WITHOUT A PROVEN PRODUCT/APK/NFC/HARDWARE FINDING — RUN 14 OPERATOR-SESSION STOPPED AT `artifact:mismatch` BEFORE PREFLIGHT/ADB/INSTALLATION; RUN 15 STOPPED AT `installation:adb_stdin_pipe_abort_mismatch`; BOTH ENDED WITH `cleanup:match` — HISTORICAL PREDECESSOR `352b2d1`/TREE `d27432b`, CI `30547584412` AND ITS ONE-P3 `CHANGES REQUIRED` REVIEW REMAIN HISTORY — PUBLISHED SIX-PATH `DA5-V5-INSTALL-SESSION-01` CORRECTION `4067f62`/TREE `10629b8` PASSED EXACT-HEAD V4 `30552233999`, ATTEMPT 1, 12/12 WITHOUT RETRY; FINAL INDEPENDENT EXACT-HEAD/V4 REVIEW IS `APPROVED` WITH ZERO P0–P3 — TECHNICALLY CLOSED/`MERGE_READY`, NOT HUMAN-RUN-READY — FIFTEEN PHASE-0 AUTHORITIES CONSUMED — NO RUN AUTHORITY/DO NOT START**
-- Date: `NOT RUN`
+- Status: **PHASE-0 RUN 16 CONSUMED FAIL-CLOSED AT FIRST TAG-A `technology_evidence`; NO B/X, HUMAN PASS, RETRY OR HARDWARE DEFECT — UNCOMMITTED NFCA-ONLY R3 CORRECTION HAS PARTIAL LOCAL V1/V2 EVIDENCE ONLY — NO REPLACEMENT ARTIFACT/SHA/CI/REVIEW/RUN AUTHORITY**
+- Date: 2026-07-30
 - Artifact preparation date: 2026-07-28
 - Owner: Technical Lead
 - Human run authority: `NOT BOUND`
+
+## 0A. Run-16 evidence and current V0 impact
+
+Run 16 produced the disclosure-safe sequence `artifact:match`, `preflight:match`,
+`install_launch:match`, `waiting:match`; the Human confirmed the displayed device binding; and the
+first physical Tag-A scan failed at `technology_evidence`. No B/X capture, Human PASS or retry
+occurred. `abort` was accepted, followed by `cleanup:match` and terminal `failed:mismatch`. No raw
+technology list, UID or fingerprint is Evidence. No hardware defect is proven.
+
+V0 classifies the correction as R3 because it changes Product NFC dispatch, Validation evidence
+arbitration/UI, immutable artifact inspection and the mutation-capable Phase-0 operator. Tenant,
+database, Business Engine and production boundaries are unchanged. The code candidate makes NfcA
+the sole Product dispatch tech and closed Validation label; accepts NfcA plus harmless
+extra/duplicate Android-reported technologies; rejects Mifare-only evidence; claims the first
+native event synchronously; settles cancellation before signaling unregister/bounded-cleanup
+failure and gives `cleanup_failed` precedence over cancel/order outcomes; removes settled UI
+offers so only the exact same active offer coalesces and replay fails closed; removes reset/retry;
+and binds visible and accessibility action text. Product manifest generation rejects
+duplicate/broader/TAG/NDEF or foreign activity/alias NFC state, while compiled inspection binds the
+sole exact MainActivity TECH+DEFAULT metadata resource ID to the unique resolved exact-NfcA XML
+tree. Explicit SDK/ADB authority, operator abort, install-session settlement and scoped cleanup
+fail closed. One read-only no-hardware readiness path binds Node/ADB/SDK/repository/artifact without
+ADB execution.
+
+The Human Architect is the explicit source of the NfcA-only Product decision. The Technical Lead
+delegated this focused R3 implementation on baseline commit
+`17f4b47b8429d3862789b7e13a23f8da9d28c449`, tree
+`4bbfe9e3fdcdf474f1f506135560e4e111122fb5`; no wider Product, Business, production or
+distribution decision is Evidence.
+
+The readiness contract keeps two independent provenance axes: Execution Repository
+`DA5_V5_VALIDATION_EXECUTION_COMMIT`/`_TREE` plus
+`DA5_V5_VALIDATION_REPOSITORY_ROOT`, and Artifact Source
+`DA5_V5_VALIDATION_SOURCE_COMMIT`/`_TREE` plus the artifact source closure. They may differ and
+are compared only with their own authorities. Node, Git, ADB, aapt, apksigner, hermesc and unzip
+each require explicit `_PATH`, `_BYTES`, `_MODE` and `_SHA256` inputs under their
+`DA5_V5_VALIDATION_<TOOL>` prefix; `ANDROID_HOME`/`ANDROID_SDK_ROOT` bind the SDK-derived Android
+tools, hermesc must equal the repository-resolved compiler and unzip must equal `/usr/bin/unzip`.
+No concrete new tool or replacement-artifact binding is Evidence. Ordinary scoped Git status
+includes staged, unstaged and untracked state under the root `app.json` and `research/**`
+exclusions. A separate `status --ignored=matching` receives only the positive deduplicated
+Validation source scopes plus the exact 13-file transitive local execution closure, detects ignored
+`.env*` and module-build residue and does not traverse or list the protected paths. The operator
+invokes the same boundary before session creation or any ADB-capable object. The two ADB runners
+and APK inspector reattest their full bound identities and use those exact paths; terminal success
+rechecks stable dev/inode/path metadata. After operator-abort arbitration every winning typed ADB
+timeout maps to `adb_child_timeout_mismatch`, including reattestation, installed provenance,
+prelaunch, activity start and postlaunch.
+
+Local evidence at this uncommitted checkpoint includes a passing Mobile tests-inclusive typecheck,
+passing focused Mobile suites through 277/277 and 103/103, and passing Synthetic tests-inclusive
+typecheck plus 34 passing tests with 18 documented skips. The final focused correction round passed
+6/6 Mobile test files and 400/400 tests; the corrected deterministic ignored-residue Temp-Git
+regression also passed 1/1 with 62 tests intentionally filtered out. Coverage includes exact
+compiled Product dispatch/resource binding and malformed/foreign rejection, cancellation cleanup
+precedence without promise wedge, active-only offer coalescing and stale replay rejection, ignored
+readiness residue under protected controls, typed timeout classification across all install/launch
+stages, active-input abort and exact checkpoint/final/10-of-10/NfcA UI text. Mobile `tsc --noEmit`
+passed; `--listFilesOnly` proved inclusion of all six focused changed test sources; and all ten
+changed/new `.mjs` files passed `node --check`. Earlier, after the delta-related
+expectations were corrected, the broad Mobile run passed 925/926; the same suite with only the
+blocked closure test explicitly excluded passed 913/913. The remaining native-source-closure test
+cannot currently run from the retained dependency tree because pre-existing native build residue
+under `node_modules/expo-modules-core/android` exceeds its bound; that user/dependency state was
+not deleted. No V3, artifact/APK build, commit/tree, CI, independent review or replacement artifact
+success is claimed.
+
+The prior Product NfcA/MifareUltralight artifact and current Validation/Operator bindings are
+historical **DO NOT INSTALL** or pending supersession. R-035 remains open.
 
 ## 0. Current Validation Runtime truth — no Product Human result
 
@@ -43,7 +112,7 @@ This closes the exact repository/source/artifact finding only. Because the nativ
 diagnostics correction changes the Validation source, the `e97bbe9` artifact is now
 **HISTORICAL — DO NOT INSTALL**.
 
-Fifteen separately authorized Phase-0 attempts are consumed fail-closed without an attributable Tag
+Sixteen separately authorized Phase-0 attempts are consumed fail-closed without a successful attributable Tag
 result. Run 5 used repository baseline
 `55070aa9a74c2606668caba9dc113ae8d689bd8d`, installed and verified the then-current exact
 `7e8c0f7` Validation APK and passed the Human-confirmed device checkpoint. Its first required
@@ -362,10 +431,9 @@ closed Technology allowlist, rejected duplicate entries and imposed the allowlis
 maximum. Focused correction source `03694f2d877bc323791e93473ad01ceb82af70df`, tree
 `6c6039683e067ef29f1f917a60c2628d26e38784`, passed exact-head CI `30386552118`,
 attempt 1, 12/12; prepublication review round 2 returned `APPROVED` with zero open P0–P3.
-An array must contain both fully qualified `android.nfc.tech.NfcA` and
-`android.nfc.tech.MifareUltralight`; additional or duplicated entries are ignored for the
-decision and are neither returned nor persisted. Contract, output label, UID/digest handling,
-timeout, Controller and filter remain unchanged.
+That historical array contract required both fully qualified `android.nfc.tech.NfcA` and
+`android.nfc.tech.MifareUltralight`; additional or duplicated entries were ignored. It is
+superseded by the Human-decided NfcA-only correction and is not active future evidence.
 
 One fresh research-free build published the read-only candidate directory
 `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-validation/da5-v5-validation-03694f2d877b-d2084486b07f27bd`.
@@ -390,7 +458,7 @@ Historical candidate and review details remain preserved below.
 This record mirrors
 `ADO/04_Operations/Development_Assignment_05_V5_Runbook.md`. It records the historical Validation
 artifacts, exact TECH-01 source/CI/source-review bindings, the independently approved exact
-replacement artifact and all fifteen consumed Phase-0 attempts, but no attributable Tag result or
+replacement artifact and all sixteen consumed Phase-0 attempts, but no successful attributable Tag result or
 Product Human result. It grants no new Human-run or installation authority.
 
 | Binding | Evidence |
@@ -582,7 +650,7 @@ This paragraph is governance history, not Candidate Evidence, implementation app
 hardware authority; focused publication, exact-head CI and independent Exact-Delta `APPROVED`
 with zero open P0–P3 remain required.
 
-Fifteen later separately authorized Phase-0 attempts occurred as recorded below; none produced an
+Sixteen later separately authorized Phase-0 attempts occurred as recorded below; none produced a successful
 attributable Tag result or reached Product Human V5. The Harness can accept A/B/X values only from
 the operator and cannot independently prove their origin. Any further hardware action requires a
 new explicit Human authorization.
@@ -611,9 +679,11 @@ data.
 | Phase 0 run 14 | On baseline `887801943064d686da40785d64cd1105431c44ac` / tree `5c15f0fae9c14844b604addf1c38b3bd5203647e`, the Operator session emitted exactly `artifact:mismatch`, `cleanup:match`, `failed:mismatch` and stopped internally at artifact verification because the cleaned environment did not retain the exact Android SDK binding; no preflight, ADB or installation occurred | Authority consumed; terminal cleanup matched; no device/install mutation, Product, APK, NFC or hardware finding proven |
 | Phase 0 run 15 | On the same exact baseline after binding `ANDROID_HOME` and `ANDROID_SDK_ROOT` to the authorized SDK, offline artifact verification matched and the Operator emitted exactly `artifact:match`, `preflight:match`, `stage=installation status=mismatch category=adb_stdin_pipe_abort_mismatch`, `install_launch:mismatch`, `cleanup:match`, `failed:mismatch`; no `installed_provenance`, `waiting`, UI/NFC or Tag step was reached | Authority consumed; terminal cleanup matched; no Product, APK, NFC or hardware finding proven; another run remains DO NOT START without fresh exact Human authorization |
 
-Runs 10 through 15 ended with terminal cleanup matched. The run-7 through run-9 artifacts are no
-longer installed, runs 10–15 reached no attributable installation provenance, and no further
-hardware/ADB action occurred.
+| Phase 0 run 16 | The offline Operator emitted `artifact:match`, `preflight:match`, `install_launch:match`, `waiting:match`; the Human confirmed the displayed device binding; the first physical Tag-A scan stopped at `technology_evidence`; accepted `abort` then produced `cleanup:match`, `failed:mismatch` | Authority consumed; no accepted fingerprint, B/X, Human PASS or retry; no raw technology list, UID or fingerprint; no hardware defect proven; Product/Validation/Operator bindings require independently reviewed supersession |
+
+Runs 10 through 16 ended with terminal cleanup matched. The run-7 through run-9 artifacts are no
+longer installed; runs 10–15 reached no attributable installation provenance; run 16 reached only
+the first rejected Tag-A evidence boundary and no accepted fingerprint.
 Another Phase 0 requires a fresh exact Human authorization.
 
 ### 2.1 Validation Phase-0 operator R1 correction — independently approved, non-executable
@@ -826,7 +896,7 @@ after all UI rows match.
 | Role B: ten separate successful stable presentations using only physical Tag B, after A | `NOT RUN` |
 | Role X: ten separate successful stable presentations using only physical Tag X, after B | `NOT RUN` |
 | Three pairwise-distinct disclosure-safe 12-uppercase-hex fingerprints | `NOT RUN` |
-| Every role displays `NfcA+MifareUltralight` under the unchanged required-subset boundary | `NOT RUN` |
+| Every role displays `NfcA`; fully qualified NfcA is required, harmless extra/duplicate Android technologies are ignored, and MifareUltralight alone is insufficient | `NOT RUN` |
 | Final title `Alle drei Rollen stabil gebunden` | `NOT RUN` |
 | Final text `A, B und X sind stabil, eindeutig und voneinander verschieden.` | `NOT RUN` |
 | Explicit trusted Human `PASS`, then unique operator receipt `human_pass:match` | `NOT RUN` |
@@ -868,15 +938,14 @@ prepublication review and Artifact Exact-SHA review are `APPROVED` with zero ope
 `DA5-V5-VAL-TECH-01` is confirmed as an over-strict closed-list repository check. Source
 `03694f2d877bc323791e93473ad01ceb82af70df`, tree
 `6c6039683e067ef29f1f917a60c2628d26e38784`, exact-head CI `30386552118`, attempt 1,
-12/12, and prepublication review round 2 are `APPROVED` with zero open P0–P3. `NfcA` and
-`MifareUltralight` remain mandatory as a required subset of any Android-reported Technology
-array, while every additional or duplicated entry is ignored without disclosure or storage.
-Contract, output label, UID/digest semantics, timeout, Controller and filter remain unchanged.
-The exact replacement APK/manifest passed the official verifier and independent Source/Artifact
-Exact-SHA review with zero open P0–P3, but remains **DO NOT INSTALL**. The run-7
+12/12, and prepublication review round 2 are `APPROVED` with zero open P0–P3. Historically,
+`NfcA` and `MifareUltralight` were mandatory as a required subset while additional or duplicated
+entries were ignored. That historical contract and its exact APK/manifest passed the official
+verifier and independent Source/Artifact Exact-SHA review with zero open P0–P3, but are now
+superseded and remain **DO NOT INSTALL**. The run-7
 `technology_evidence` stage does not disclose the physical list and proves no fingerprint, Tag
-result or hardware defect. Any future Phase-0 use requires a fresh separate exact Human
-authorization binding this independently approved replacement source/artifact.
+result or hardware defect. Any future Phase-0 use requires a superseding independently reviewed
+NfcA-only source/artifact/operator set and a fresh separate exact Human authorization binding it.
 
 ### 2.6 Product Human-V5 preflight
 

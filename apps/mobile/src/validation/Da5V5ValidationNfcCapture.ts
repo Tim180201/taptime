@@ -54,7 +54,9 @@ export interface Da5V5ValidationNfcCaptureOptions {
 }
 
 interface ActiveCapture {
-  readonly finish: (result: Da5V5ValidationCaptureResult) => Promise<void>;
+  readonly finish: (
+    result: Da5V5ValidationCaptureResult,
+  ) => Promise<void>;
 }
 
 const DEFAULT_CAPTURE_TIMEOUT_MILLISECONDS = 20_000;
@@ -66,7 +68,6 @@ const CANONICAL_UID_PREFIX = 'nfc:uid:v1:';
 const MINIMUM_UID_HEX_LENGTH = 2;
 const MAXIMUM_UID_HEX_LENGTH = 64;
 const REQUIRED_NATIVE_TECHNOLOGIES = Object.freeze([
-  'android.nfc.tech.MifareUltralight',
   'android.nfc.tech.NfcA',
 ]);
 
@@ -149,7 +150,17 @@ implements Da5V5ValidationCapturePort {
   }
 
   async cancelCapture(): Promise<void> {
-    await this.activeCapture?.finish({ status: 'cancelled' });
+    this.lifecycleGeneration += 1;
+    const capture = this.activeCapture;
+    if (capture === null) {
+      return;
+    }
+    await capture.finish({ status: 'cancelled' });
+    if (this.cleanupFailed) {
+      throw new Error(
+        'DA5 V5 Validation native cancellation cleanup failed closed',
+      );
+    }
   }
 
   async stop(): Promise<void> {
@@ -203,6 +214,7 @@ implements Da5V5ValidationCapturePort {
       let cleanupFlight: Promise<void> | null = null;
       let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
       let registrationFailed = false;
+      let nativeEventClaimed = false;
       let releaseRegistrationSettlement!: () => void;
       const registrationSettlement = new Promise<void>((release) => {
         releaseRegistrationSettlement = release;
@@ -226,31 +238,29 @@ implements Da5V5ValidationCapturePort {
           } catch (error) {
             this.recordCleanupFailure(error);
           }
-          const nativeCleanup = this.holdRegistrationDrain(
-            registrationSettlement,
-          );
-          cleanupFlight = this.awaitBoundedCleanup(nativeCleanup)
-            .then(
-              () => {
-                if (this.cleanupFailed) {
-                  return captureFailure('cleanup');
-                }
-                if (registrationFailed) {
-                  return captureFailure('listener_registration');
-                }
-                return result;
-              },
-              (error: unknown) => {
-                this.recordCleanupFailure(error);
-                return captureFailure('cleanup');
-              },
-            )
-            .then((finalResult) => {
-              if (this.activeCapture === capture) {
-                this.activeCapture = null;
+          const nativeCleanup =
+            this.holdRegistrationDrain(registrationSettlement);
+          cleanupFlight = (async () => {
+            let finalResult = result;
+            try {
+              await this.awaitBoundedCleanup(nativeCleanup);
+              if (this.cleanupFailed) {
+                finalResult = captureFailure('cleanup');
+              } else if (
+                registrationFailed
+                && result.status === 'captured'
+              ) {
+                finalResult = captureFailure('listener_registration');
               }
-              resolve(finalResult);
-            });
+            } catch (error) {
+              this.recordCleanupFailure(error);
+              finalResult = captureFailure('cleanup');
+            }
+            if (this.activeCapture === capture) {
+              this.activeCapture = null;
+            }
+            resolve(finalResult);
+          })();
           return cleanupFlight;
         },
       };
@@ -258,6 +268,11 @@ implements Da5V5ValidationCapturePort {
 
       try {
         this.manager.setEventListener(NfcEvents.DiscoverTag, (tag) => {
+          if (nativeEventClaimed) {
+            void capture.finish(captureFailure('concurrency'));
+            return;
+          }
+          nativeEventClaimed = true;
           void this.reduceNativeTag(tag)
             .then((result) => capture.finish(result))
             .catch(() => capture.finish(

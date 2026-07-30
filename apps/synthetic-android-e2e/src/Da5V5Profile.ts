@@ -29,7 +29,7 @@ export interface Da5V5TagBinding {
   readonly tagA: string;
   readonly tagB: string;
   readonly tagX: string;
-  readonly technology: 'NfcA+MifareUltralight';
+  readonly technology: 'NfcA';
 }
 
 export function requireDa5V5Profile(value: string | undefined): typeof DA5_V5_PROFILE {
@@ -52,7 +52,7 @@ export function validateDa5V5TagBinding(input: {
   if (new Set(fingerprints).size !== fingerprints.length) {
     throw new Error('DA5 V5 Tag fingerprints must be distinct');
   }
-  if (input.technology !== 'NfcA+MifareUltralight') {
+  if (input.technology !== 'NfcA') {
     throw new Error('DA5 V5 Tag technology is outside the packaged manifest boundary');
   }
   return Object.freeze({

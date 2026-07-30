@@ -7,6 +7,7 @@ import {
   inspectDa5V5ValidationHermesBytecode,
   inspectDa5V5ValidationManifestXmlTree,
   inspectDa5V5ValidationNativeBytecode,
+  requireDa5V5ValidationAndroidSdkAuthority,
   resolveDa5V5ValidationPackagedXmlPath,
   serializeDa5V5ValidationArtifactManifest,
   verifyDa5V5ValidationApkInspection,
@@ -58,6 +59,34 @@ const manifestSha256 = createHash('sha256')
   .digest('hex');
 
 describe('DA5 V5 Validation artifact contract', () => {
+  it('requires one explicit canonical and internally identical Android SDK authority', () => {
+    expect(requireDa5V5ValidationAndroidSdkAuthority({
+      androidHome: '/synthetic/android-sdk',
+    })).toEqual({
+      androidHome: '/synthetic/android-sdk',
+      androidSdkRoot: undefined,
+      path: '/synthetic/android-sdk',
+    });
+    expect(requireDa5V5ValidationAndroidSdkAuthority({
+      androidHome: '/synthetic/android-sdk',
+      androidSdkRoot: '/synthetic/android-sdk',
+    }).path).toBe('/synthetic/android-sdk');
+    for (const authority of [
+      undefined,
+      {},
+      { androidHome: 'relative/sdk' },
+      { androidHome: '/synthetic/sdk/../other' },
+      {
+        androidHome: '/synthetic/android-sdk',
+        androidSdkRoot: '/different/android-sdk',
+      },
+    ]) {
+      expect(() =>
+        requireDa5V5ValidationAndroidSdkAuthority(authority),
+      ).toThrow(/Android SDK authority/u);
+    }
+  });
+
   it('binds exact source, local-only signer, runtime and immutable APK metadata', () => {
     expect(manifest).toMatchObject({
       allowBackup: false,
@@ -90,7 +119,7 @@ describe('DA5 V5 Validation artifact contract', () => {
       sourceCommit,
       sourceClosure,
       sourceTree,
-      technology: 'NfcA+MifareUltralight',
+      technology: 'NfcA',
     });
   });
 

@@ -19,7 +19,13 @@ export const DA5_V5_VALIDATION_STABLE_READS = 10;
 export const DA5_V5_VALIDATION_FAILURE_REASONS = [
   'device_or_nfc_binding_rejected',
   'operation_order_rejected',
-  'scan_evidence_rejected',
+  'capture_cancelled',
+  'capture_timed_out',
+  'malformed_capture_result_rejected',
+  'fingerprint_format_rejected',
+  'technology_label_rejected',
+  'intra_role_drift_rejected',
+  'cross_role_duplicate_rejected',
   'technology_evidence_rejected',
   'uid_readability_rejected',
   'listener_registration_failed',
@@ -37,8 +43,20 @@ export const DA5_V5_VALIDATION_FAILURE_MESSAGES: Readonly<
     'Geräte- oder NFC-Bindung konnte nicht sicher bestätigt werden.',
   operation_order_rejected:
     'Die erwartete lokale Reihenfolge konnte nicht sicher bestätigt werden.',
-  scan_evidence_rejected:
-    'Der Scan konnte nicht als gültiger lokaler Nachweis bestätigt werden.',
+  capture_cancelled:
+    'Die laufende NFC-Erfassung wurde abgebrochen.',
+  capture_timed_out:
+    'Die laufende NFC-Erfassung wurde wegen Zeitüberschreitung gestoppt.',
+  malformed_capture_result_rejected:
+    'Das lokale Scan-Ergebnis hatte keine erlaubte Form.',
+  fingerprint_format_rejected:
+    'Der lokale Prüffingerprint hatte keine erlaubte Form.',
+  technology_label_rejected:
+    'Die lokale NFC-Technologie-Beschriftung war nicht erlaubt.',
+  intra_role_drift_rejected:
+    'Für dieselbe Rolle wurde ein abweichender Prüffingerprint erkannt.',
+  cross_role_duplicate_rejected:
+    'Derselbe Prüffingerprint wurde für verschiedene Rollen erkannt.',
   technology_evidence_rejected:
     'Der erlaubte NFC-Technologie-Nachweis konnte nicht sicher bestätigt werden.',
   uid_readability_rejected:
@@ -89,8 +107,6 @@ export interface Da5V5ValidationState {
   >>;
   readonly outcome:
     | 'captured'
-    | 'cancelled'
-    | 'timed_out'
     | 'failed_closed'
     | null;
   readonly failureReason: Da5V5ValidationFailureReason | null;
@@ -205,48 +221,48 @@ export class Da5V5ValidationController {
    * Strict rejection hook for stale UI offers. It deliberately shares the
    * Controller's existing concurrent-operation cancellation semantics.
    */
-  rejectOperationOrder(): Promise<void> {
+  async rejectOperationOrder(): Promise<void> {
     const previous = this.captureFlight;
     this.generation += 1;
     this.failClosed('operation_order_rejected');
     if (previous === null) {
-      return Promise.resolve();
+      return;
     }
-    return this.capture.cancelCapture()
-      .then(() => previous.catch(() => undefined));
-  }
-
-  async cancel(): Promise<void> {
+    let cleanupFailed = false;
     try {
       await this.capture.cancelCapture();
     } catch {
-      this.generation += 1;
+      cleanupFailed = true;
+    }
+    await previous.catch(() => undefined);
+    if (cleanupFailed) {
       this.failClosed('cleanup_failed');
     }
   }
 
-  async reset(): Promise<void> {
+  async cancel(): Promise<void> {
+    if (this.state.phase !== 'capturing' || this.captureFlight === null) {
+      this.generation += 1;
+      this.failClosed('operation_order_rejected');
+      return;
+    }
+    const captureFlight = this.captureFlight;
     this.generation += 1;
+    const cancellationGeneration = this.generation;
     let cleanupFailed = false;
     try {
-      await this.capture.stop();
+      await this.capture.cancelCapture();
     } catch {
       cleanupFailed = true;
     }
-    const capability = this.state.capability;
-    const deviceBinding = this.state.deviceBinding;
-    this.update({
-      ...initialState(),
-      capability: cleanupFailed ? 'unavailable' : capability,
-      deviceBinding: cleanupFailed ? null : deviceBinding,
-      phase: cleanupFailed
-        ? 'failed'
-        : capability === 'ready'
-          ? 'device_checkpoint'
-          : 'checking',
-      outcome: cleanupFailed ? 'failed_closed' : null,
-      failureReason: cleanupFailed ? 'cleanup_failed' : null,
-    });
+    await captureFlight.catch(() => undefined);
+    if (cleanupFailed) {
+      this.failClosed('cleanup_failed');
+      return;
+    }
+    if (cancellationGeneration === this.generation) {
+      this.failClosed('capture_cancelled');
+    }
   }
 
   async stop(): Promise<void> {
@@ -280,56 +296,60 @@ export class Da5V5ValidationController {
         failureStage: 'listener_registration',
       };
     }
+    const normalizedResult = normalizeCaptureResult(result);
     if (generation !== this.generation) {
       return;
     }
-    if (isCaptureFailure(result)) {
+    if (normalizedResult === null) {
+      this.generation += 1;
+      this.failClosed('malformed_capture_result_rejected');
+      return;
+    }
+    if (normalizedResult.status === 'failed') {
       this.generation += 1;
       this.failClosed(
         DA5_V5_VALIDATION_FAILURE_REASON_BY_CAPTURE_STAGE[
-          result.failureStage
+          normalizedResult.failureStage
         ],
       );
       return;
     }
-    if (isRetryableCaptureResult(result)) {
-      this.update({
-        ...this.state,
-        phase: 'ready',
-        outcome: result.status,
-        failureReason: null,
-      });
+    if (normalizedResult.status !== 'captured') {
+      this.generation += 1;
+      this.failClosed(
+        normalizedResult.status === 'cancelled'
+          ? 'capture_cancelled'
+          : 'capture_timed_out',
+      );
       return;
     }
-    if (!isCapturedResult(result)) {
+    if (!SAFE_FINGERPRINT_PATTERN.test(normalizedResult.fingerprint)) {
       this.generation += 1;
-      this.failClosed('scan_evidence_rejected');
+      this.failClosed('fingerprint_format_rejected');
       return;
     }
-    if (
-      !SAFE_FINGERPRINT_PATTERN.test(result.fingerprint)
-      || result.technology !== DA5_V5_VALIDATION_TECHNOLOGY
-    ) {
+    if (normalizedResult.technology !== DA5_V5_VALIDATION_TECHNOLOGY) {
       this.generation += 1;
-      this.failClosed('scan_evidence_rejected');
+      this.failClosed('technology_label_rejected');
       return;
     }
 
     const current = this.state.slots[role];
     if (
       current.fingerprint !== null
-      && current.fingerprint !== result.fingerprint
+      && current.fingerprint !== normalizedResult.fingerprint
     ) {
       this.generation += 1;
-      this.failClosed('scan_evidence_rejected');
+      this.failClosed('intra_role_drift_rejected');
       return;
     }
     if (DA5_V5_VALIDATION_ROLES.some(
       (candidate) => candidate !== role
-        && this.state.slots[candidate].fingerprint === result.fingerprint,
+        && this.state.slots[candidate].fingerprint
+          === normalizedResult.fingerprint,
     )) {
       this.generation += 1;
-      this.failClosed('scan_evidence_rejected');
+      this.failClosed('cross_role_duplicate_rejected');
       return;
     }
 
@@ -337,8 +357,8 @@ export class Da5V5ValidationController {
     const slots = {
       ...this.state.slots,
       [role]: Object.freeze({
-        fingerprint: result.fingerprint,
-        technology: result.technology,
+        fingerprint: normalizedResult.fingerprint,
+        technology: normalizedResult.technology,
         progress,
       }),
     };
@@ -359,11 +379,14 @@ export class Da5V5ValidationController {
   }
 
   private failClosed(reason: Da5V5ValidationFailureReason): void {
+    const effectiveReason = this.state.failureReason === 'cleanup_failed'
+      ? 'cleanup_failed'
+      : reason;
     this.update({
       ...this.state,
       phase: 'failed',
       outcome: 'failed_closed',
-      failureReason: reason,
+      failureReason: effectiveReason,
     });
   }
 
@@ -401,44 +424,93 @@ function emptySlot(): Da5V5ValidationSlotState {
   };
 }
 
-function isCaptureFailure(
+type NormalizedCaptureResult =
+  | Readonly<{
+    status: 'failed';
+    failureStage: Da5V5ValidationCaptureFailureStage;
+  }>
+  | Readonly<{ status: 'cancelled' | 'timed_out' }>
+  | Readonly<{
+    status: 'captured';
+    fingerprint: string;
+    technology: string;
+  }>;
+
+function normalizeCaptureResult(
   value: unknown,
-): value is Readonly<{
-  status: 'failed';
-  failureStage: Da5V5ValidationCaptureFailureStage;
-}> {
-  if (!isRecord(value) || value.status !== 'failed') {
-    return false;
+): NormalizedCaptureResult | null {
+  try {
+    if (
+      typeof value !== 'object'
+      || value === null
+      || Array.isArray(value)
+    ) {
+      return null;
+    }
+    const descriptors = Object.getOwnPropertyDescriptors(value);
+    const keys = Reflect.ownKeys(descriptors);
+    if (keys.some((key) => typeof key !== 'string')) {
+      return null;
+    }
+    const stringKeys = keys as string[];
+    stringKeys.sort();
+    const readDataProperty = (key: string): unknown => {
+      const descriptor = descriptors[key];
+      if (
+        descriptor === undefined
+        || descriptor.enumerable !== true
+        || !Object.hasOwn(descriptor, 'value')
+      ) {
+        throw new TypeError('capture result property is not plain data');
+      }
+      return descriptor.value;
+    };
+    const exactKeys = (expected: readonly string[]): boolean =>
+      stringKeys.join('\n') === [...expected].sort().join('\n');
+
+    if (exactKeys(['failureStage', 'status'])) {
+      const status = readDataProperty('status');
+      const failureStage = readDataProperty('failureStage');
+      const normalizedFailureStage =
+        DA5_V5_VALIDATION_CAPTURE_FAILURE_STAGES.find(
+          (stage) => stage === failureStage,
+        );
+      if (status !== 'failed' || normalizedFailureStage === undefined) {
+        return null;
+      }
+      return Object.freeze({
+        status,
+        failureStage: normalizedFailureStage,
+      });
+    }
+    if (exactKeys(['status'])) {
+      const status = readDataProperty('status');
+      if (status !== 'cancelled' && status !== 'timed_out') {
+        return null;
+      }
+      return Object.freeze({ status });
+    }
+    if (exactKeys(['fingerprint', 'status', 'technology'])) {
+      const status = readDataProperty('status');
+      const fingerprint = readDataProperty('fingerprint');
+      const technology = readDataProperty('technology');
+      if (
+        status !== 'captured'
+        || typeof fingerprint !== 'string'
+        || typeof technology !== 'string'
+      ) {
+        return null;
+      }
+      return Object.freeze({
+        status,
+        fingerprint,
+        technology,
+      });
+    }
+    return null;
+  } catch {
+    return null;
   }
-  return DA5_V5_VALIDATION_CAPTURE_FAILURE_STAGES.some(
-    (stage) => value.failureStage === stage,
-  );
-}
-
-function isRetryableCaptureResult(
-  value: unknown,
-): value is Readonly<{ status: 'cancelled' | 'timed_out' }> {
-  return isRecord(value)
-    && (value.status === 'cancelled' || value.status === 'timed_out');
-}
-
-function isCapturedResult(
-  value: unknown,
-): value is Readonly<{
-  status: 'captured';
-  fingerprint: string;
-  technology: string;
-}> {
-  return isRecord(value)
-    && value.status === 'captured'
-    && typeof value.fingerprint === 'string'
-    && typeof value.technology === 'string';
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object'
-    && value !== null
-    && !Array.isArray(value);
 }
 
 /**
@@ -448,11 +520,15 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  */
 export class Da5V5ValidationUiActionBoundary {
   private deviceConfirmationConsumed = false;
-  private activeScanPromise: Promise<void> | null = null;
-  private readonly consumedScanOffers = new Map<number, Readonly<{
+  private activeCancelOffer: Readonly<{
+    revision: number;
+    promise: Promise<void>;
+  }> | null = null;
+  private activeScanOffer: Readonly<{
+    revision: number;
     role: Da5V5ValidationRole;
     promise: Promise<void>;
-  }>>();
+  }> | null = null;
 
   constructor(
     private readonly controller: Da5V5ValidationController,
@@ -470,10 +546,13 @@ export class Da5V5ValidationUiActionBoundary {
     role: Da5V5ValidationRole,
     uiOfferRevision: number,
   ): Promise<void> {
-    const consumed = this.consumedScanOffers.get(uiOfferRevision);
-    if (consumed !== undefined) {
-      return consumed.role === role
-        ? consumed.promise
+    const active = this.activeScanOffer;
+    if (active !== null) {
+      const state = this.controller.getState();
+      return state.phase === 'capturing'
+        && active.revision === uiOfferRevision
+        && active.role === role
+        ? active.promise
         : this.controller.rejectOperationOrder();
     }
 
@@ -489,35 +568,47 @@ export class Da5V5ValidationUiActionBoundary {
 
     const operation = this.controller.captureRole(role);
     const promise = operation.finally(() => {
-      if (this.activeScanPromise === promise) {
-        this.activeScanPromise = null;
+      if (this.activeScanOffer?.promise === promise) {
+        this.activeScanOffer = null;
       }
     });
-    this.activeScanPromise = promise;
-    this.consumedScanOffers.set(
-      uiOfferRevision,
-      Object.freeze({ role, promise }),
-    );
+    this.activeScanOffer = Object.freeze({
+      revision: uiOfferRevision,
+      role,
+      promise,
+    });
     return promise;
   }
 
-  cancel(): Promise<void> {
-    return this.controller.cancel();
-  }
-
-  reset(uiOfferRevision: number): Promise<void> {
+  cancel(uiOfferRevision: number): Promise<void> {
+    const active = this.activeCancelOffer;
+    if (active !== null) {
+      const state = this.controller.getState();
+      return state.phase === 'capturing'
+        && state.uiRevision === uiOfferRevision
+        && active.revision === uiOfferRevision
+        ? active.promise
+        : this.controller.rejectOperationOrder();
+    }
     const state = this.controller.getState();
     if (
-      this.activeScanPromise !== null
-      || state.phase === 'capturing'
+      state.phase !== 'capturing'
       || state.uiRevision !== uiOfferRevision
+      || this.activeScanOffer === null
     ) {
       return this.controller.rejectOperationOrder();
     }
-    return this.controller.reset().finally(() => {
-      this.deviceConfirmationConsumed = false;
-      this.activeScanPromise = null;
-      this.consumedScanOffers.clear();
+    const operation = this.controller.cancel();
+    const promise = operation.finally(() => {
+      if (this.activeCancelOffer?.promise === promise) {
+        this.activeCancelOffer = null;
+      }
     });
+    this.activeCancelOffer = Object.freeze({
+      revision: uiOfferRevision,
+      promise,
+    });
+    return promise;
   }
+
 }

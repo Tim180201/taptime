@@ -7,7 +7,9 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const ACTION = 'android.nfc.action.TECH_DISCOVERED';
+const DEFAULT_CATEGORY = 'android.intent.category.DEFAULT';
 const METADATA_NAME = 'android.nfc.action.TECH_DISCOVERED';
+const NFC_ACTION_PREFIX = 'android.nfc.action.';
 const TECH_RESOURCE = '@xml/taptime_nfc_tech_filter';
 const KOTLIN_IMPORT = 'import com.taptime.nfcingress.TapTimeNfcIngress';
 
@@ -43,39 +45,138 @@ async function patchMainActivityAtProjectRootAsync(projectRoot) {
 }
 
 function mutateAndroidManifest(manifest) {
+  const application = manifest.manifest.application?.[0];
+  if (application === undefined) throw new Error('Android application manifest entry is missing');
+  const activities = application.activity ?? [];
+  const mainActivities = activities.filter((candidate) => (
+    candidate.$?.['android:name'] === '.MainActivity'
+    || candidate.$?.['android:name']?.endsWith('.MainActivity')
+  ));
+  if (mainActivities.length !== 1) {
+    throw new Error('TapTim.e MainActivity manifest entry mismatch');
+  }
+  const activity = mainActivities[0];
+  const owners = [
+    ...activities.map((entry) => ({ entry, kind: 'activity' })),
+    ...(application['activity-alias'] ?? [])
+      .map((entry) => ({ entry, kind: 'activity-alias' })),
+  ];
+  const nfcFilters = owners.flatMap((owner) =>
+    (owner.entry['intent-filter'] ?? [])
+      .filter((filter) => touchesNfcDispatchFilter(filter))
+      .map((filter) => ({ ...owner, filter })));
+  if (nfcFilters.length > 1) {
+    throw new Error('TapTim.e NFC intent-filter manifest entry mismatch');
+  }
+  if (
+    nfcFilters.length === 1
+    && (
+      nfcFilters[0].kind !== 'activity'
+      || nfcFilters[0].entry !== activity
+      || !isExactNfcDispatchFilter(nfcFilters[0].filter)
+    )
+  ) {
+    throw new Error('TapTim.e NFC intent-filter manifest entry mismatch');
+  }
+  const nfcMetadata = owners.flatMap((owner) =>
+    (owner.entry['meta-data'] ?? [])
+      .filter((entry) => touchesNfcDispatchMetadata(entry))
+      .map((metadata) => ({ ...owner, metadata })));
+  if (
+    nfcMetadata.length > 1
+    || (
+      nfcMetadata.length === 1
+      && (
+        nfcMetadata[0].kind !== 'activity'
+        || nfcMetadata[0].entry !== activity
+        || !isExactNfcDispatchMetadata(nfcMetadata[0].metadata)
+      )
+    )
+  ) {
+    throw new Error('TapTim.e NFC metadata manifest entry mismatch');
+  }
+
   const permissions = manifest.manifest['uses-permission'] ?? [];
   if (!permissions.some((entry) => entry.$?.['android:name'] === 'android.permission.NFC')) {
     permissions.push({ $: { 'android:name': 'android.permission.NFC' } });
   }
   manifest.manifest['uses-permission'] = permissions;
-  const application = manifest.manifest.application?.[0];
-  if (application === undefined) throw new Error('Android application manifest entry is missing');
-  const activity = application.activity?.find((candidate) => (
-    candidate.$?.['android:name'] === '.MainActivity'
-    || candidate.$?.['android:name']?.endsWith('.MainActivity')
-  ));
-  if (activity === undefined) throw new Error('TapTim.e MainActivity manifest entry is missing');
-  const filters = activity['intent-filter'] ?? [];
-  if (!filters.some((filter) => filter.action?.some(
-    (entry) => entry.$?.['android:name'] === ACTION,
-  ))) {
+  if (nfcFilters.length === 0) {
+    const filters = activity['intent-filter'] ?? [];
     filters.push({
       action: [{ $: { 'android:name': ACTION } }],
-      category: [{ $: { 'android:name': 'android.intent.category.DEFAULT' } }],
+      category: [{ $: { 'android:name': DEFAULT_CATEGORY } }],
     });
+    activity['intent-filter'] = filters;
   }
-  activity['intent-filter'] = filters;
-  const metadata = activity['meta-data'] ?? [];
-  if (!metadata.some((entry) => entry.$?.['android:name'] === METADATA_NAME)) {
+  if (nfcMetadata.length === 0) {
+    const metadata = activity['meta-data'] ?? [];
     metadata.push({
       $: {
         'android:name': METADATA_NAME,
         'android:resource': TECH_RESOURCE,
       },
     });
+    activity['meta-data'] = metadata;
   }
-  activity['meta-data'] = metadata;
   return manifest;
+}
+
+function touchesNfcDispatchFilter(filter) {
+  return (filter.action ?? []).some((entry) => (
+    typeof entry.$?.['android:name'] === 'string'
+    && entry.$['android:name'].startsWith(NFC_ACTION_PREFIX)
+  ));
+}
+
+function isExactNfcDispatchFilter(filter) {
+  return (
+    exactKeys(filter, ['action', 'category'])
+    && Array.isArray(filter.action)
+    && filter.action.length === 1
+    && isExactNamedEntry(filter.action[0], ACTION)
+    && Array.isArray(filter.category)
+    && filter.category.length === 1
+    && isExactNamedEntry(filter.category[0], DEFAULT_CATEGORY)
+  );
+}
+
+function touchesNfcDispatchMetadata(metadata) {
+  const name = metadata.$?.['android:name'];
+  return (
+    (
+      typeof name === 'string'
+      && name.startsWith(NFC_ACTION_PREFIX)
+    )
+    || metadata.$?.['android:resource'] === TECH_RESOURCE
+  );
+}
+
+function isExactNfcDispatchMetadata(metadata) {
+  return (
+    exactKeys(metadata, ['$'])
+    && exactKeys(metadata.$, ['android:name', 'android:resource'])
+    && metadata.$['android:name'] === METADATA_NAME
+    && metadata.$['android:resource'] === TECH_RESOURCE
+  );
+}
+
+function isExactNamedEntry(entry, name) {
+  return (
+    exactKeys(entry, ['$'])
+    && exactKeys(entry.$, ['android:name'])
+    && entry.$['android:name'] === name
+  );
+}
+
+function exactKeys(value, expected) {
+  return (
+    typeof value === 'object'
+    && value !== null
+    && !Array.isArray(value)
+    && Object.keys(value).sort().join('\n')
+      === [...expected].sort().join('\n')
+  );
 }
 
 function patchMainActivitySource(source) {
@@ -127,7 +228,6 @@ function techFilterXml() {
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
   <tech-list>
     <tech>android.nfc.tech.NfcA</tech>
-    <tech>android.nfc.tech.MifareUltralight</tech>
   </tech-list>
 </resources>
 `;

@@ -18,6 +18,10 @@ import {
 } from './Da5V5ValidationController';
 import { createDa5V5ValidationRuntime } from './createDa5V5ValidationRuntime';
 
+export const DA5_V5_VALIDATION_CONFIRM_DEVICE_ACTION =
+  'Gerätebindung exakt bestätigen';
+export const DA5_V5_VALIDATION_CANCEL_ACTION = 'Scan abbrechen';
+
 export function Da5V5ValidationMobileApp() {
   const controller = useMemo(createDa5V5ValidationRuntime, []);
   const actions = useMemo(
@@ -39,6 +43,10 @@ export function Da5V5ValidationMobileApp() {
 
   const captureEnabled = state.phase === 'ready'
     && state.capability === 'ready';
+  const scanButtonText = da5V5ValidationScanButtonText(
+    state.phase,
+    state.activeRole,
+  );
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -51,9 +59,11 @@ export function Da5V5ValidationMobileApp() {
         </Text>
 
         <View style={styles.status} accessibilityLiveRegion="polite">
-          <Text style={styles.statusTitle}>{statusTitle(state.phase)}</Text>
+          <Text style={styles.statusTitle}>
+            {da5V5ValidationStatusTitle(state.phase)}
+          </Text>
           <Text style={styles.statusText}>
-            {statusText(
+            {da5V5ValidationStatusText(
               state.phase,
               state.activeRole,
               state.failureReason,
@@ -81,7 +91,9 @@ export function Da5V5ValidationMobileApp() {
             />
             <BindingValue
               label="SCHRIFTSKALIERUNG (EXAKT)"
-              value={`${state.deviceBinding.fontScale * 100}%`}
+              value={da5V5ValidationFontScaleText(
+                state.deviceBinding.fontScale,
+              )}
             />
             <BindingValue
               label="TALKBACK PROVIDER-PAKET (EXAKT)"
@@ -89,7 +101,9 @@ export function Da5V5ValidationMobileApp() {
             />
             <BindingValue
               label="TALKBACK PROVIDER-VERSION (EXAKT)"
-              value={`${state.deviceBinding.talkBackPackageVersion} · aktiviert`}
+              value={da5V5ValidationTalkBackVersionText(
+                state.deviceBinding.talkBackPackageVersion,
+              )}
             />
           </View>
         )}
@@ -97,12 +111,12 @@ export function Da5V5ValidationMobileApp() {
         {state.phase === 'device_checkpoint' ? (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Exakte Gerätebindung bestätigen"
+            accessibilityLabel={DA5_V5_VALIDATION_CONFIRM_DEVICE_ACTION}
             onPress={() => actions.confirmDeviceBinding()}
             style={styles.primary}
           >
             <Text style={styles.primaryText}>
-              Gerätebindung exakt bestätigen
+              {DA5_V5_VALIDATION_CONFIRM_DEVICE_ACTION}
             </Text>
           </Pressable>
         ) : null}
@@ -123,7 +137,7 @@ export function Da5V5ValidationMobileApp() {
         {state.phase === 'device_checkpoint' ? null : (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={`Tag ${state.activeRole} lokal prüfen`}
+            accessibilityLabel={scanButtonText}
             disabled={!captureEnabled}
             onPress={() => actions.captureRole(
               state.activeRole,
@@ -134,33 +148,23 @@ export function Da5V5ValidationMobileApp() {
               (!captureEnabled || pressed) && styles.dimmed,
             ]}
           >
-            <Text style={styles.primaryText}>
-              {state.phase === 'capturing'
-                ? `Tag ${state.activeRole} an das Gerät halten …`
-                : `Tag ${state.activeRole} scannen`}
-            </Text>
+            <Text style={styles.primaryText}>{scanButtonText}</Text>
           </Pressable>
         )}
 
         {state.phase === 'capturing' ? (
           <Pressable
             accessibilityRole="button"
-            onPress={() => actions.cancel()}
+            accessibilityLabel={DA5_V5_VALIDATION_CANCEL_ACTION}
+            onPress={() => actions.cancel(state.uiRevision)}
             style={styles.secondary}
           >
-            <Text style={styles.secondaryText}>Scan abbrechen</Text>
+            <Text style={styles.secondaryText}>
+              {DA5_V5_VALIDATION_CANCEL_ACTION}
+            </Text>
           </Pressable>
         ) : null}
 
-        {shouldShowDa5V5ValidationReset(state.phase) ? (
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => actions.reset(state.uiRevision)}
-            style={styles.reset}
-          >
-            <Text style={styles.resetText}>Lokale Nachweise löschen</Text>
-          </Pressable>
-        ) : null}
       </ScrollView>
     </SafeAreaView>
   );
@@ -205,20 +209,22 @@ function ValidationSlot({
       <View style={styles.slotHeader}>
         <Text style={styles.role}>ROLLE {role}</Text>
         <Text style={styles.progress}>
-          {progress} / {DA5_V5_VALIDATION_STABLE_READS}
+          {da5V5ValidationProgressText(progress)}
         </Text>
       </View>
       <Text style={styles.label}>12-HEX SHA-256 FINGERPRINT</Text>
       <Text style={styles.value}>{fingerprint ?? '—'}</Text>
       <Text style={styles.label}>ERLAUBTE TECHNOLOGY</Text>
       <Text style={styles.value}>
-        {technology ?? 'Noch nicht geprüft'}
+        {da5V5ValidationTechnologyText(technology)}
       </Text>
     </View>
   );
 }
 
-function statusTitle(phase: Da5V5ValidationState['phase']): string {
+export function da5V5ValidationStatusTitle(
+  phase: Da5V5ValidationState['phase'],
+): string {
   if (phase === 'complete') return 'Alle drei Rollen stabil gebunden';
   if (phase === 'failed') return 'Prüfung sicher gestoppt';
   if (phase === 'stopped') return 'Lokale Prüfung beendet';
@@ -230,7 +236,17 @@ function statusTitle(phase: Da5V5ValidationState['phase']): string {
   return 'NFC wird geprüft';
 }
 
-function statusText(
+export function da5V5ValidationProgressText(progress: number): string {
+  return `${progress} / ${DA5_V5_VALIDATION_STABLE_READS}`;
+}
+
+export function da5V5ValidationTechnologyText(
+  technology: string | null,
+): string {
+  return technology ?? 'Noch nicht geprüft';
+}
+
+export function da5V5ValidationStatusText(
   phase: Da5V5ValidationState['phase'],
   role: Da5V5ValidationRole,
   failureReason: Da5V5ValidationFailureReason | null,
@@ -242,7 +258,8 @@ function statusText(
     const reason = failureReason === null
       ? 'Die lokale Prüfung wurde sicher gestoppt.'
       : DA5_V5_VALIDATION_FAILURE_MESSAGES[failureReason];
-    return `${reason} Lokale Nachweise löschen und vollständig neu beginnen.`;
+    return `${reason} Prüfung beenden und den Operator-Cleanup ausführen. `
+      + 'Keine weitere Erfassung starten.';
   }
   if (phase === 'capturing') {
     return `Ausschließlich den physisch markierten Tag ${role} präsentieren.`;
@@ -253,10 +270,21 @@ function statusText(
   return `Nächster verpflichtender Slot: ${role}.`;
 }
 
-export function shouldShowDa5V5ValidationReset(
+export function da5V5ValidationScanButtonText(
   phase: Da5V5ValidationState['phase'],
-): boolean {
-  return phase !== 'capturing';
+  role: Da5V5ValidationRole,
+): string {
+  return phase === 'capturing'
+    ? `Tag ${role} an das Gerät halten …`
+    : `Tag ${role} scannen`;
+}
+
+export function da5V5ValidationFontScaleText(fontScale: number): string {
+  return `${fontScale * 100} %`;
+}
+
+export function da5V5ValidationTalkBackVersionText(version: string): string {
+  return version;
 }
 
 const styles = StyleSheet.create({
@@ -369,7 +397,5 @@ const styles = StyleSheet.create({
     minHeight: 50,
   },
   secondaryText: { color: '#25493B', fontSize: 15, fontWeight: '700' },
-  reset: { alignItems: 'center', marginTop: 20, padding: 10 },
-  resetText: { color: '#48675B', fontSize: 14, fontWeight: '700' },
   dimmed: { opacity: 0.5 },
 });

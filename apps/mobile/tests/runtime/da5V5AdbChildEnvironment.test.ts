@@ -8,6 +8,8 @@ import {
   createDa5V5AdbChildEnvironment,
 } from '../../scripts/da5V5AdbChildEnvironment.mjs';
 import {
+  Da5V5AndroidCommandAbortError,
+  Da5V5AndroidCommandTimeoutError,
   SystemDa5V5AndroidAdbRunner,
 } from '../../scripts/da5V5AndroidDevice.mjs';
 
@@ -15,19 +17,22 @@ describe('DA5 V5 ADB child-process boundary', () => {
   it('passes only PATH and the fixed loopback socket and also pins routing with CLI arguments',
     async () => {
       let observedArguments: readonly string[] = [];
+      let observedCommand = '';
       let observedEnvironment: Readonly<Record<string, string | undefined>> = {};
       let spawnCount = 0;
       const spawnCommand = (
-        _command: string,
+        command: string,
         arguments_: readonly string[],
         options: { readonly env?: Readonly<Record<string, string | undefined>> },
       ) => {
         spawnCount += 1;
+        observedCommand = command;
         observedArguments = arguments_;
         observedEnvironment = options.env ?? {};
         return fakeAdbChild('List of devices attached\n');
       };
       const runner = new SystemDa5V5AndroidAdbRunner({
+        adbPath: '/verified/android-sdk/platform-tools/adb',
         environment: {
           AWS_SECRET_ACCESS_KEY: 'must-not-cross',
           DATABASE_URL: 'postgresql://secret',
@@ -43,6 +48,9 @@ describe('DA5 V5 ADB child-process boundary', () => {
         'List of devices attached\n',
       );
       expect(spawnCount).toBe(1);
+      expect(observedCommand).toBe(
+        '/verified/android-sdk/platform-tools/adb',
+      );
       expect(observedArguments).toEqual([
         '-H',
         '127.0.0.1',
@@ -187,7 +195,9 @@ describe('DA5 V5 ADB child-process boundary', () => {
       expect(settlement.state()).toBe('pending');
 
       await vi.advanceTimersByTimeAsync(1_000);
-      await expect(operation).rejects.toThrow(/command aborted/);
+      await expect(operation).rejects.toBeInstanceOf(
+        Da5V5AndroidCommandAbortError,
+      );
       expect(child.unref).toHaveBeenCalledTimes(1);
       expect(child.stdout.destroyed).toBe(true);
       expect(child.stderr.destroyed).toBe(true);
@@ -201,6 +211,30 @@ describe('DA5 V5 ADB child-process boundary', () => {
       vi.useRealTimers();
     }
   });
+
+  it('attributes a binary child deadline to the typed timeout cause',
+    async () => {
+      vi.useFakeTimers();
+      try {
+        const child = controlledAdbChild();
+        const operation = binaryRunner(child).runBinaryDigest(
+          ['devices'],
+          {
+            maximumBytes: 4,
+            timeoutMilliseconds: 2_000,
+          },
+        );
+
+        await vi.advanceTimersByTimeAsync(0);
+        expect(child.kill).toHaveBeenCalledWith('SIGTERM');
+        child.emit('close', null, 'SIGTERM');
+        await expect(operation).rejects.toBeInstanceOf(
+          Da5V5AndroidCommandTimeoutError,
+        );
+      } finally {
+        vi.useRealTimers();
+      }
+    });
 
   it('keeps child-process errors pending until the child closes', async () => {
     const child = controlledAdbChild();
@@ -300,9 +334,30 @@ describe('DA5 V5 ADB child-process boundary', () => {
     expect(inputLifetime.released()).toBe(false);
 
     child.emit('close', null, 'SIGTERM');
-    await expect(operation).rejects.toThrow(/command aborted/);
+    await expect(operation).rejects.toBeInstanceOf(
+      Da5V5AndroidCommandAbortError,
+    );
     expect(inputLifetime.released()).toBe(true);
     expectRunnerListenersRemoved(child);
+  });
+
+  it('keeps a transport failure when it wins before a later abort', async () => {
+    const child = controlledAdbChild();
+    const runner = stdinRunner(child);
+    const controller = new AbortController();
+    const operation = runner.run(['shell', '-T', 'cat'], {
+      signal: controller.signal,
+      stdinBytes: Buffer.from('verified-apk-snapshot'),
+      timeoutMilliseconds: 5_000,
+    });
+
+    child.stdout.emit('error', new Error('winning transport failure'));
+    controller.abort();
+    child.emit('close', 1, null);
+    const error = await operation.catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(Error);
+    expect(error).not.toBeInstanceOf(Da5V5AndroidCommandAbortError);
   });
 
   it('keeps stdin output overflow and input lifetime pending until child close', async () => {
@@ -355,7 +410,9 @@ describe('DA5 V5 ADB child-process boundary', () => {
       expect(inputLifetime.released()).toBe(false);
 
       await vi.advanceTimersByTimeAsync(1_000);
-      await expect(operation).rejects.toThrow(/command timed out/);
+      await expect(operation).rejects.toBeInstanceOf(
+        Da5V5AndroidCommandTimeoutError,
+      );
       expect(inputLifetime.released()).toBe(true);
       expect(child.unref).toHaveBeenCalledTimes(1);
       expect(child.stdin.destroyed).toBe(true);
@@ -372,6 +429,31 @@ describe('DA5 V5 ADB child-process boundary', () => {
       vi.useRealTimers();
     }
   });
+
+  it('keeps timeout when it wins before a later operator abort',
+    async () => {
+      vi.useFakeTimers();
+      try {
+        const child = controlledAdbChild();
+        const runner = stdinRunner(child);
+        const controller = new AbortController();
+        const operation = runner.run(['shell', '-T', 'cat'], {
+          signal: controller.signal,
+          stdinBytes: Buffer.from('verified-apk-snapshot'),
+          timeoutMilliseconds: 2_000,
+        });
+
+        await vi.advanceTimersByTimeAsync(0);
+        controller.abort();
+        child.emit('close', null, 'SIGTERM');
+
+        await expect(operation).rejects.toBeInstanceOf(
+          Da5V5AndroidCommandTimeoutError,
+        );
+      } finally {
+        vi.useRealTimers();
+      }
+    });
 });
 
 function fakeAdbChild(stdoutValue: string) {

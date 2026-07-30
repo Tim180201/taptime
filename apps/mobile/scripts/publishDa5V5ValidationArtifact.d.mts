@@ -1,4 +1,5 @@
 import type {
+  Da5V5ValidationAndroidSdkAuthority,
   Da5V5ValidationApkInspection,
   Da5V5ValidationFileBinding,
   Da5V5ValidationSourceRecord,
@@ -7,7 +8,7 @@ import type {
 export interface Da5V5ValidationPublisherDependencies {
   readonly inspectApk: (
     path: string,
-    environment?: NodeJS.ProcessEnv,
+    androidSdkAuthority: Da5V5ValidationAndroidSdkAuthority,
   ) => Da5V5ValidationApkInspection;
 }
 export interface Da5V5ValidationPublicationInterruption {

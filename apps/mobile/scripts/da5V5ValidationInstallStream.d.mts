@@ -5,6 +5,10 @@ export const DA5_V5_VALIDATION_INSTALL_STREAM_ERROR_CATEGORIES:
     childTransportMismatch: 'adb_child_transport_mismatch';
     stdinPipeAbortMismatch: 'adb_stdin_pipe_abort_mismatch';
   }>;
+export const DA5_V5_VALIDATION_INSTALL_STREAM_TERMINAL_CAUSES:
+  Readonly<{
+    signalAbort: 'signal_abort';
+  }>;
 
 export type Da5V5ValidationInstallStreamOutcome =
   | Readonly<{
@@ -24,6 +28,7 @@ export type Da5V5ValidationInstallStreamOutcome =
     childTerminal: boolean;
     status: 'mismatch';
     stdoutTerminal: boolean;
+    terminalCause?: 'signal_abort';
   }>;
 
 export interface Da5V5ValidationInstallStreamRunner {
@@ -40,6 +45,7 @@ export interface Da5V5ValidationInstallStreamRunner {
 export class SystemDa5V5ValidationInstallStreamRunner
 implements Da5V5ValidationInstallStreamRunner {
   constructor(dependencies?: Readonly<{
+    adbPath?: string;
     environment?: Readonly<Record<string, string | undefined>>;
     spawn?: typeof import('node:child_process').spawn;
   }>);

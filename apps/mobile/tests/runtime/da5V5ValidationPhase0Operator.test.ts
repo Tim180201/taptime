@@ -21,7 +21,14 @@ import { PassThrough } from 'node:stream';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { Da5V5UsbSerialBinding } from '../../scripts/da5V5AndroidDevice.mjs';
+import {
+  Da5V5AndroidCommandAbortError,
+  Da5V5AndroidCommandTimeoutError,
+  Da5V5UsbSerialBinding,
+} from '../../scripts/da5V5AndroidDevice.mjs';
+import {
+  DA5_V5_VALIDATION_INSTALL_STREAM_TERMINAL_CAUSES,
+} from '../../scripts/da5V5ValidationInstallStream.mjs';
 import {
   runDa5V5ValidationPhase0Operator,
 } from '../../scripts/da5V5ValidationPhase0Operator.mjs';
@@ -48,6 +55,35 @@ const replacementPath =
   `/data/app/~~replacement/${packageName}-replacement/base.apk`;
 const model = 'BOUND-MODEL';
 const build = 'BOUND-BUILD';
+const androidSdkAuthority = Object.freeze({
+  androidHome: '/synthetic/android-sdk',
+  androidSdkRoot: '/synthetic/android-sdk',
+});
+const toolSha256 = 'e'.repeat(64);
+const verifiedTools = Object.freeze({
+  aapt: toolIdentity(
+    '/synthetic/android-sdk/build-tools/35.0.0/aapt',
+    11,
+  ),
+  adb: toolIdentity('/synthetic/android-sdk/platform-tools/adb', 12),
+  apksigner: toolIdentity(
+    '/synthetic/android-sdk/build-tools/35.0.0/apksigner',
+    13,
+  ),
+  hermesc: toolIdentity(
+    '/synthetic/repository/node_modules/hermesc',
+    14,
+  ),
+  unzip: toolIdentity('/usr/bin/unzip', 15),
+});
+const verifiedReadiness = () => Object.freeze({
+  artifactSourceCommit:
+    DA5_V5_VALIDATION_PHASE0_ARTIFACT.sourceCommit,
+  artifactSourceTree:
+    DA5_V5_VALIDATION_PHASE0_ARTIFACT.sourceTree,
+  status: 'match' as const,
+  tools: verifiedTools,
+});
 const handledSignalNames = [
   'SIGHUP',
   'SIGINT',
@@ -65,6 +101,19 @@ type InstallStreamMismatchCategory =
     | 'adbChildExitMismatch'
     | 'adbStdinPipeAbortMismatch'
   ];
+type AbortBoundary =
+  | 'install-create'
+  | 'post-create-reattest'
+  | 'install-write'
+  | 'post-write-reattest'
+  | 'install-commit'
+  | 'installed-provenance';
+type TypedTimeoutBoundary =
+  | 'reattestation'
+  | 'installed-provenance'
+  | 'prelaunch'
+  | 'activity-start'
+  | 'postlaunch';
 const temporaryDirectories: string[] = [];
 
 afterEach(() => {
@@ -101,7 +150,9 @@ describe('DA5 V5 Validation Phase-0 CLI signals', () => {
           status: 'match' | 'mismatch',
           category?: DiagnosticCategory,
         ): void;
+        tools: typeof verifiedTools;
       }) {
+        expect(options.tools).toEqual(verifiedTools);
         options.receipt(
           'installation',
           'mismatch',
@@ -114,6 +165,7 @@ describe('DA5 V5 Validation Phase-0 CLI signals', () => {
       input,
       output,
       processTarget,
+      verifyReadiness: verifiedReadiness,
     })).resolves.toEqual({ status: 'mismatch' });
 
     expect(disclosed).toBe(
@@ -158,6 +210,7 @@ describe('DA5 V5 Validation Phase-0 CLI signals', () => {
         input,
         output,
         processTarget,
+        verifyReadiness: verifiedReadiness,
       });
 
       for (const handledSignal of handledSignalNames) {
@@ -209,6 +262,7 @@ describe('DA5 V5 Validation Phase-0 CLI signals', () => {
       input,
       output,
       processTarget,
+      verifyReadiness: verifiedReadiness,
     });
 
     for (const handledSignal of handledSignalNames) {
@@ -263,6 +317,7 @@ describe('DA5 V5 Validation Phase-0 CLI signals', () => {
         input,
         output,
         processTarget,
+        verifyReadiness: verifiedReadiness,
       });
 
       expect(processTarget.listenerCount(eventName)).toBe(1);
@@ -282,6 +337,40 @@ describe('DA5 V5 Validation Phase-0 CLI signals', () => {
       output.destroy();
     },
   );
+
+  it('fails readiness before creating a session or enabling any ADB path', async () => {
+    const processTarget = new EventEmitter();
+    const input = new PassThrough();
+    const output = new PassThrough();
+    const createSession = vi.fn();
+    let disclosed = '';
+    output.on('data', (chunk: Buffer) => {
+      disclosed += chunk.toString('utf8');
+    });
+
+    await expect(runDa5V5ValidationPhase0Operator({
+      arguments_: [],
+      createSession,
+      environment: {},
+      input,
+      output,
+      processTarget,
+      verifyReadiness() {
+        throw new Error('SECRET_DIGEST_OR_PATH');
+      },
+    })).resolves.toEqual({ status: 'mismatch' });
+
+    expect(createSession).not.toHaveBeenCalled();
+    expect(disclosed).toBe(
+      'da5_v5_validation_phase0 stage=readiness status=mismatch\n',
+    );
+    expect(disclosed).not.toContain('SECRET_DIGEST_OR_PATH');
+    for (const handledSignal of handledSignalNames) {
+      expect(processTarget.listenerCount(handledSignal)).toBe(0);
+    }
+    input.destroy();
+    output.destroy();
+  });
 });
 
 describe('DA5 V5 Validation Phase-0 installed artifact path', () => {
@@ -375,16 +464,26 @@ describe('DA5 V5 Validation stable-FD install snapshot', () => {
   it('binds the operator verifier to the exact 32-record source closure', () => {
     expect(() =>
       verifyAndSealDa5V5ValidationPhase0Artifact({
+        androidSdkAuthority,
+        inspectionTools: verifiedTools,
         profile: DA5_V5_VALIDATION_PHASE0_PROFILE,
         verifyArtifact(verification: unknown) {
           const binding = verification as {
+            androidSdkAuthority: typeof androidSdkAuthority & {
+              path: string;
+            };
             expectedSourceClosure: readonly {
               path: string;
               sha256: string;
             }[];
             expectedSourceCommit: string;
             expectedSourceTree: string;
+            inspectionTools: typeof verifiedTools;
           };
+          expect(binding.androidSdkAuthority).toEqual({
+            ...androidSdkAuthority,
+            path: '/synthetic/android-sdk',
+          });
           expect(binding.expectedSourceClosure).toHaveLength(32);
           expect(new Set(
             binding.expectedSourceClosure.map((record) => record.path),
@@ -405,6 +504,7 @@ describe('DA5 V5 Validation stable-FD install snapshot', () => {
           expect(binding.expectedSourceTree).toBe(
             DA5_V5_VALIDATION_PHASE0_ARTIFACT.sourceTree,
           );
+          expect(binding.inspectionTools).toEqual(verifiedTools);
           throw new Error('source closure observed before snapshot');
         },
       }),
@@ -584,6 +684,7 @@ describe('DA5 V5 Validation device and protocol boundary', () => {
       'adb_child_timeout_mismatch',
       'adb_child_transport_mismatch',
       'adb_stdin_pipe_abort_mismatch',
+      'operator_abort_mismatch',
       'operation_mismatch',
       'package_manager_artifact_rejection',
       'package_manager_command_contract_mismatch',
@@ -1089,7 +1190,9 @@ describe('DA5 V5 Validation device and protocol boundary', () => {
         || (
           call.arguments_.includes('package')
           && call.arguments_.includes('-a')
-        ))).toBe(false);
+        ))).toBe(true);
+      expect(runner.forceStopCount).toBe(0);
+      expect(runner.uninstallCount).toBe(0);
     },
   );
 
@@ -1558,7 +1661,7 @@ describe('DA5 V5 Validation device and protocol boundary', () => {
     },
   );
 
-  it('preserves package residue when install failed before provenance was proved', async () => {
+  it('proves and removes exact package residue when install failed before provenance was proved', async () => {
     const runner = new FakeRunner();
     runner.installResult = 'Failure [blocked]';
     runner.installFailureLeavesPackage = true;
@@ -1566,9 +1669,9 @@ describe('DA5 V5 Validation device and protocol boundary', () => {
     await session.start();
     await session.submit('install-launch');
     await expect(session.done).resolves.toEqual({ status: 'mismatch' });
-    expect(runner.packagePath).toBe(validPath);
-    expect(runner.forceStopCount).toBe(0);
-    expect(runner.uninstallCount).toBe(0);
+    expect(runner.packagePath).toBeNull();
+    expect(runner.forceStopCount).toBe(1);
+    expect(runner.uninstallCount).toBe(1);
   });
 
   it('uses -R and preserves a package that races package-zero to install', async () => {
@@ -1599,7 +1702,7 @@ describe('DA5 V5 Validation device and protocol boundary', () => {
     expect(runner.uninstallCount).toBe(0);
   });
 
-  it('preserves a late package outcome after a timed-out install', async () => {
+  it('converges a late exact package outcome after a timed-out install', async () => {
     const runner = new FakeRunner();
     runner.installReject = true;
     runner.latePackageAfterCleanupReads = 2;
@@ -1607,9 +1710,9 @@ describe('DA5 V5 Validation device and protocol boundary', () => {
     await session.start();
     await session.submit('install-launch');
     await expect(session.done).resolves.toEqual({ status: 'mismatch' });
-    expect(runner.uninstallCount).toBe(0);
-    expect(runner.packagePath).toBe(validPath);
-    expect(runner.forceStopCount).toBe(0);
+    expect(runner.uninstallCount).toBe(1);
+    expect(runner.packagePath).toBeNull();
+    expect(runner.forceStopCount).toBe(1);
   });
 
   it('preserves owned residue after an ambiguous cleanup observation', async () => {
@@ -1882,8 +1985,17 @@ describe('DA5 V5 Validation device and protocol boundary', () => {
 
   it('aborts an active install by command and waits before one cleanup flight', async () => {
     const runner = new FakeRunner();
+    const receipts: string[] = [];
     runner.installWaitsForAbort = true;
-    const session = createSession(runner);
+    const session = createSession(runner, {
+      receipt(
+        stage: string,
+        status: 'match' | 'mismatch',
+        category?: DiagnosticCategory,
+      ) {
+        receipts.push(`${stage}:${status}:${category ?? 'none'}`);
+      },
+    });
     await session.start();
     const active = session.submit('install-launch');
     await runner.installStarted;
@@ -1893,7 +2005,258 @@ describe('DA5 V5 Validation device and protocol boundary', () => {
     expect(runner.installSettled).toBe(true);
     expect(runner.abandonCount).toBe(1);
     expect(runner.cleanupFlights).toBe(1);
+    expect(receipts).toContain(
+      'installation:mismatch:operator_abort_mismatch',
+    );
   });
+
+  it.each([
+    ['install-create', 'installation', 0],
+    ['post-create-reattest', 'installation', 1],
+    ['install-write', 'installation', 1],
+    ['post-write-reattest', 'installation', 1],
+    ['install-commit', 'installation', 1],
+    ['installed-provenance', 'installed_provenance', 0],
+  ] as const)(
+    'classifies an accepted abort during %s from its winning cause',
+    async (boundary, stage, expectedAbandonCount) => {
+      const runner = new FakeRunner();
+      const receipts: string[] = [];
+      runner.abortBoundary = boundary;
+      const session = createSession(runner, {
+        receipt(
+          receiptStage: string,
+          status: 'match' | 'mismatch',
+          category?: DiagnosticCategory,
+        ) {
+          receipts.push(
+            `${receiptStage}:${status}:${category ?? 'none'}`,
+          );
+        },
+      });
+      await session.start();
+
+      const active = session.submit('install-launch');
+      await runner.abortBoundaryStarted;
+      const finishing = session.submit('abort');
+      await active;
+      await expect(finishing).resolves.toEqual({ status: 'mismatch' });
+      await expect(session.done).resolves.toEqual({ status: 'mismatch' });
+
+      expect(receipts.filter((receipt) =>
+        receipt === `${stage}:mismatch:operator_abort_mismatch`,
+      )).toHaveLength(1);
+      expect(runner.abandonCount).toBe(expectedAbandonCount);
+      expect(runner.cleanupFlights).toBe(1);
+      expect(JSON.stringify(receipts)).not.toMatch(
+        /SECRET-SERIAL|\\[42\\]|SECRET .* DETAIL/u,
+      );
+    },
+  );
+
+  it.each([
+    {
+      configure(runner: FakeRunner) {
+        runner.createReject = true;
+      },
+      expected:
+        DA5_V5_VALIDATION_PHASE0_ERROR_CATEGORIES
+          .adbChildTransportMismatch,
+      name: 'transport',
+    },
+    {
+      configure(runner: FakeRunner) {
+        runner.installMismatchCategory =
+          DA5_V5_VALIDATION_PHASE0_ERROR_CATEGORIES
+            .adbChildTimeoutMismatch;
+      },
+      expected:
+        DA5_V5_VALIDATION_PHASE0_ERROR_CATEGORIES
+          .adbChildTimeoutMismatch,
+      name: 'timeout',
+    },
+    {
+      configure(runner: FakeRunner) {
+        runner.userListOutputAfterCreate =
+          'Users:\n\tUserInfo{10:Foreign:c13} running\n';
+      },
+      expected:
+        DA5_V5_VALIDATION_PHASE0_ERROR_CATEGORIES
+          .verificationMismatch,
+      name: 'verification',
+    },
+  ])(
+    'does not relabel a winning $name failure from a visible abort flag',
+    async ({ configure, expected }) => {
+      const runner = new FakeRunner();
+      configure(runner);
+      const device = createDevice(runner);
+      await device.preflight();
+
+      const error = await device.installAndLaunch({
+        operatorAbortRequested: () => true,
+      }).catch((caught: unknown) => caught);
+
+      expect(error).toMatchObject({
+        category: expected,
+        stage: 'installation',
+      });
+      await device.cleanup();
+    },
+  );
+
+  it.each([
+    ['install-create', 'createTimeout', 0],
+    ['install-commit', 'commitTimeout', 1],
+  ] as const)(
+    'maps a typed %s child timeout to the fixed timeout receipt',
+    async (_boundary, property, expectedAbandonCount) => {
+      const runner = new FakeRunner();
+      runner[property] = true;
+      const device = createDevice(runner);
+      await device.preflight();
+
+      await expect(device.installAndLaunch()).rejects.toMatchObject({
+        category: 'adb_child_timeout_mismatch',
+        stage: 'installation',
+      });
+      await device.cleanup();
+      expect(runner.abandonCount).toBe(expectedAbandonCount);
+    },
+  );
+
+  it.each([
+    ['reattestation', 'installation', 1, 0],
+    ['installed-provenance', 'installed_provenance', 0, 1],
+    ['prelaunch', 'prelaunch', 0, 1],
+    ['activity-start', 'activity_start', 0, 1],
+    ['postlaunch', 'postlaunch', 0, 1],
+  ] as const)(
+    'maps a winning typed timeout at %s independently of ambient category',
+    async (
+      timeoutBoundary,
+      stage,
+      expectedAbandonCount,
+      expectedUninstallCount,
+    ) => {
+      const runner = new FakeRunner();
+      runner.timeoutBoundary = timeoutBoundary;
+      const device = createDevice(runner);
+      await device.preflight();
+
+      await expect(device.installAndLaunch()).rejects.toMatchObject({
+        category: 'adb_child_timeout_mismatch',
+        stage,
+      });
+      await device.cleanup();
+      expect(runner.abandonCount).toBe(expectedAbandonCount);
+      expect(runner.uninstallCount).toBe(expectedUninstallCount);
+    },
+  );
+
+  it.each([
+    {
+      expectedAbandonCount: 0,
+      expectedMutations: [] as string[],
+      nowValues: [0, 238_000],
+      phase: 'install-create',
+    },
+    {
+      expectedAbandonCount: 1,
+      expectedMutations: ['install-create', 'install-write'],
+      nowValues: [0, 0, 0, 238_000],
+      phase: 'install-commit',
+    },
+  ])(
+    'maps local aggregate deadline exhaustion before $phase to timeout',
+    async ({
+      expectedAbandonCount,
+      expectedMutations,
+      nowValues,
+    }) => {
+      const runner = new FakeRunner();
+      let nowIndex = 0;
+      const device = createDevice(runner, {
+        now() {
+          const value = nowValues[nowIndex];
+          nowIndex += 1;
+          return value ?? runner.clock;
+        },
+      });
+      await device.preflight();
+
+      await expect(device.installAndLaunch()).rejects.toMatchObject({
+        category: 'adb_child_timeout_mismatch',
+        stage: 'installation',
+      });
+      expect(runner.mutations).toEqual(expectedMutations);
+      await device.cleanup();
+      expect(runner.abandonCount).toBe(expectedAbandonCount);
+    },
+  );
+
+  it.each(['', '   ', 'unexpected'])(
+    'classifies active-install local input %j as operator termination',
+    async (command) => {
+      const runner = new FakeRunner();
+      const receipts: string[] = [];
+      runner.installWaitsForAbort = true;
+      const session = createSession(runner, {
+        receipt(
+          stage: string,
+          status: 'match' | 'mismatch',
+          category?: DiagnosticCategory,
+        ) {
+          receipts.push(`${stage}:${status}:${category ?? 'none'}`);
+        },
+      });
+      await session.start();
+      const active = session.submit('install-launch');
+      await runner.installStarted;
+      const finishing = session.submit(command);
+      await active;
+      await expect(finishing).resolves.toEqual({ status: 'mismatch' });
+      await expect(session.done).resolves.toEqual({ status: 'mismatch' });
+      expect(receipts.filter((receipt) =>
+        receipt ===
+          'installation:mismatch:operator_abort_mismatch',
+      )).toHaveLength(1);
+      expect(receipts).not.toContain(
+        'installation:mismatch:adb_child_transport_mismatch',
+      );
+      expect(runner.cleanupFlights).toBe(1);
+    },
+  );
+
+  it('classifies active-install EOF as local operator termination',
+    async () => {
+      const runner = new FakeRunner();
+      const receipts: string[] = [];
+      runner.installWaitsForAbort = true;
+      const session = createSession(runner, {
+        receipt(
+          stage: string,
+          status: 'match' | 'mismatch',
+          category?: DiagnosticCategory,
+        ) {
+          receipts.push(`${stage}:${status}:${category ?? 'none'}`);
+        },
+      });
+      await session.start();
+      const active = session.submit('install-launch');
+      await runner.installStarted;
+      const finishing = session.end();
+      await active;
+      await expect(finishing).resolves.toEqual({ status: 'mismatch' });
+      expect(receipts.filter((receipt) =>
+        receipt ===
+          'installation:mismatch:operator_abort_mismatch',
+      )).toHaveLength(1);
+      expect(receipts).not.toContain(
+        'installation:mismatch:adb_child_transport_mismatch',
+      );
+      expect(runner.cleanupFlights).toBe(1);
+    });
 
   it('cleans disclosure-safely when signaled before mutation', async () => {
     const runner = new FakeRunner();
@@ -1910,8 +2273,17 @@ describe('DA5 V5 Validation device and protocol boundary', () => {
 
   it('aborts an active install on signal, waits for settlement, then cleans exactly once', async () => {
     const runner = new FakeRunner();
+    const receipts: string[] = [];
     runner.installWaitsForAbort = true;
-    const session = createSession(runner);
+    const session = createSession(runner, {
+      receipt(
+        stage: string,
+        status: 'match' | 'mismatch',
+        category?: DiagnosticCategory,
+      ) {
+        receipts.push(`${stage}:${status}:${category ?? 'none'}`);
+      },
+    });
     await session.start();
     const active = session.submit('install-launch');
     await runner.installStarted;
@@ -1922,6 +2294,9 @@ describe('DA5 V5 Validation device and protocol boundary', () => {
     expect(runner.installSettled).toBe(true);
     expect(runner.abandonCount).toBe(1);
     expect(runner.cleanupFlights).toBe(1);
+    expect(receipts).toContain(
+      'installation:mismatch:operator_abort_mismatch',
+    );
     const abandonIndex = runner.calls.findIndex((call) =>
       call.arguments_.includes('install-abandon'));
     const firstCleanupObservation = runner.calls.findIndex(
@@ -2227,7 +2602,7 @@ describe('DA5 V5 Validation device and protocol boundary', () => {
       || receipt === 'failed:mismatch')).toEqual(['complete:match']);
   });
 
-  it('turns a late command during cleanup into one terminal failure receipt', async () => {
+  it('does not let later input revalue an accepted terminal cleanup command', async () => {
     const runner = new FakeRunner();
     const receipts: string[] = [];
     const session = createSession(runner, {
@@ -2239,12 +2614,17 @@ describe('DA5 V5 Validation device and protocol boundary', () => {
     await session.submit('install-launch');
     await session.submit('human-pass');
     const cleanup = session.submit('cleanup');
-    void session.submit('human-pass');
+    const laterInput = session.submit('human-pass');
+    const laterBlank = session.submit('');
+    const laterEof = session.end();
 
-    await expect(cleanup).resolves.toEqual({ status: 'mismatch' });
+    await expect(cleanup).resolves.toEqual({ status: 'match' });
+    await expect(laterInput).resolves.toEqual({ status: 'match' });
+    await expect(laterBlank).resolves.toEqual({ status: 'match' });
+    await expect(laterEof).resolves.toEqual({ status: 'match' });
     expect(receipts.filter((receipt) =>
       receipt === 'complete:match'
-      || receipt === 'failed:mismatch')).toEqual(['failed:mismatch']);
+      || receipt === 'failed:mismatch')).toEqual(['complete:match']);
   });
 
   it('rejects input after terminal success without a contradictory receipt', async () => {
@@ -2312,6 +2692,7 @@ function createSession(
 ) {
   return createDa5V5ValidationPhase0Session({
     androidBuild: build,
+    androidSdkAuthority,
     deviceModel: model,
     installStreamRunner: runner,
     now: () => runner.clock,
@@ -2319,11 +2700,51 @@ function createSession(
     runner,
     sealArtifact: () => fakeSnapshot(),
     serialBinding: new Da5V5UsbSerialBinding(),
+    toolIdentityDependencies: createToolIdentityDependencies(),
+    tools: verifiedTools,
     wait: async (milliseconds) => {
       runner.clock += milliseconds;
       runner.onWait();
     },
     ...changes,
+  });
+}
+
+function toolIdentity(path: string, ino: number) {
+  return Object.freeze({
+    bytes: 100,
+    dev: 1,
+    ino,
+    mode: 0o755,
+    path,
+    sha256: toolSha256,
+  });
+}
+
+function createToolIdentityDependencies() {
+  const identities = new Map(
+    Object.values(verifiedTools).map((identity) => [
+      identity.path,
+      identity,
+    ]),
+  );
+  return Object.freeze({
+    lstat(path: string) {
+      const identity = identities.get(path);
+      if (identity === undefined) {
+        throw new Error('unexpected synthetic tool');
+      }
+      return {
+        dev: identity.dev,
+        ino: identity.ino,
+        mode: 0o100000 | identity.mode,
+        size: identity.bytes,
+        isFile: () => true,
+        isSymbolicLink: () => false,
+      };
+    },
+    realpath: (path: string) => path,
+    sha256: () => toolSha256,
   });
 }
 
@@ -2415,6 +2836,7 @@ class FakeRunner {
   digestSha256 = DA5_V5_VALIDATION_PHASE0_ARTIFACT.apk.sha256;
   createResult = 'Success: created install session [42]';
   createReject = false;
+  createTimeout = false;
   installResult =
     `Success: streamed ${DA5_V5_VALIDATION_PHASE0_ARTIFACT.apk.bytes} bytes`;
   installFailureLeavesPackage = false;
@@ -2425,9 +2847,12 @@ class FakeRunner {
   installPipePartial = false;
   installPipeClosedAfterAllBytes = false;
   installWaitsForAbort = false;
+  abortBoundary?: AbortBoundary;
+  timeoutBoundary?: TypedTimeoutBoundary;
   installSettled = false;
   commitResult = 'Success';
   commitReject = false;
+  commitTimeout = false;
   abandonResult = 'Success';
   abandonReject = false;
   abandonCount = 0;
@@ -2460,6 +2885,12 @@ class FakeRunner {
   clock = 0;
   runDurationMilliseconds = 0;
   private resolveInstallStarted!: () => void;
+  private resolveAbortBoundaryStarted!: () => void;
+  private abortBoundaryConsumed = false;
+  private timeoutBoundaryConsumed = false;
+  readonly abortBoundaryStarted = new Promise<void>((resolvePromise) => {
+    this.resolveAbortBoundaryStarted = resolvePromise;
+  });
   private resolvePreflightStarted!: () => void;
   readonly installStarted = new Promise<void>((resolvePromise) => {
     this.resolveInstallStarted = resolvePromise;
@@ -2496,7 +2927,7 @@ class FakeRunner {
             : 'finished' as const,
         stdout: await this.run(arguments_, options),
       };
-    } catch {
+    } catch (error) {
       return {
         category:
           DA5_V5_VALIDATION_PHASE0_ERROR_CATEGORIES
@@ -2504,6 +2935,13 @@ class FakeRunner {
         childTerminal: false,
         status: 'mismatch' as const,
         stdoutTerminal: false,
+        ...(error instanceof Da5V5AndroidCommandAbortError
+          ? {
+              terminalCause:
+                DA5_V5_VALIDATION_INSTALL_STREAM_TERMINAL_CAUSES
+                  .signalAbort,
+            }
+          : {}),
       };
     }
   }
@@ -2527,7 +2965,26 @@ class FakeRunner {
         : { timeoutMilliseconds: options.timeoutMilliseconds }),
     });
     this.clock += this.runDurationMilliseconds;
+    const command = arguments_.join(' ');
     if (arguments_[0] === 'devices') {
+      if (
+        this.createCount > 0
+        && !this.mutations.includes('install-write')
+      ) {
+        this.throwTypedTimeoutAt('reattestation');
+        await this.waitForAbortBoundary(
+          'post-create-reattest',
+          options.signal,
+        );
+      } else if (
+        this.mutations.includes('install-write')
+        && this.commitCount === 0
+      ) {
+        await this.waitForAbortBoundary(
+          'post-write-reattest',
+          options.signal,
+        );
+      }
       return [
         'List of devices attached',
         ...this.devices.map((device) =>
@@ -2535,7 +2992,6 @@ class FakeRunner {
         '',
       ].join('\n');
     }
-    const command = arguments_.join(' ');
     if (command.endsWith('shell getprop ro.product.model')) {
       if (this.preflightWaitsForAbort && !this.preflightSettled) {
         this.resolvePreflightStarted();
@@ -2633,6 +3089,9 @@ class FakeRunner {
       return `package:${this.packagePath}\n`;
     }
     if (command.endsWith('shell ps -A -w -o NAME:4')) {
+      if (this.processes.length > 0) {
+        this.throwTypedTimeoutAt('postlaunch');
+      }
       if (this.cleanupProcessOutputs.length > 0) {
         return this.cleanupProcessOutputs.shift() ?? '';
       }
@@ -2640,13 +3099,23 @@ class FakeRunner {
         ?? ['NAME', ...this.processes, ''].join('\n');
     }
     if (command.endsWith('reverse --list')) {
+      if (this.packagePath !== null && this.processes.length === 0) {
+        this.throwTypedTimeoutAt('prelaunch');
+      }
       return this.reverseOutput;
     }
     if (command.includes('cmd package install-create')) {
       this.mutations.push('install-create');
       this.createCount += 1;
+      await this.waitForAbortBoundary(
+        'install-create',
+        options.signal,
+      );
       if (this.createReject) {
         throw new Error('SECRET CREATE TRANSPORT DETAIL');
+      }
+      if (this.createTimeout) {
+        throw new Da5V5AndroidCommandTimeoutError();
       }
       this.nextUserListOutput = this.userListOutputAfterCreate;
       return `${this.createResult}\n`;
@@ -2654,14 +3123,19 @@ class FakeRunner {
     if (command.includes('cmd package install-write')) {
       this.mutations.push('install-write');
       this.resolveInstallStarted();
-      if (this.installNeverSettles) {
+      if (this.abortBoundary === 'install-write') {
+        await this.waitForAbortBoundary(
+          'install-write',
+          options.signal,
+        );
+      } else if (this.installNeverSettles) {
         await new Promise<void>(() => {});
       }
       if (this.installWaitsForAbort) {
         await new Promise<void>((_resolvePromise, rejectPromise) => {
           options.signal?.addEventListener('abort', () => {
             this.installSettled = true;
-            rejectPromise(new Error('aborted'));
+            rejectPromise(new Da5V5AndroidCommandAbortError());
           }, { once: true });
         });
       }
@@ -2681,8 +3155,15 @@ class FakeRunner {
     if (command.includes('cmd package install-commit')) {
       this.mutations.push('install-commit');
       this.commitCount += 1;
+      await this.waitForAbortBoundary(
+        'install-commit',
+        options.signal,
+      );
       if (this.commitReject) {
         throw new Error('SECRET COMMIT TRANSPORT DETAIL');
+      }
+      if (this.commitTimeout) {
+        throw new Da5V5AndroidCommandTimeoutError();
       }
       if (this.installRaceLeavesForeignPackage) {
         this.packagePath = replacementPath;
@@ -2718,6 +3199,7 @@ class FakeRunner {
       )
     ) {
       this.mutations.push('launch');
+      this.throwTypedTimeoutAt('activity-start');
       if (!this.omitLaunchedProcess) {
         this.processes = this.launchedProcesses ?? [packageName];
       }
@@ -2774,12 +3256,20 @@ class FakeRunner {
 
   async runBinaryDigest(
     arguments_: readonly string[],
-    options: { maximumBytes: number },
+    options: {
+      maximumBytes: number;
+      signal?: AbortSignal;
+    },
   ) {
     this.binaryCalls.push({
       arguments_: [...arguments_],
       maximumBytes: options.maximumBytes,
     });
+    this.throwTypedTimeoutAt('installed-provenance');
+    await this.waitForAbortBoundary(
+      'installed-provenance',
+      options.signal,
+    );
     if (this.reverseAfterDigest !== undefined) {
       this.reverseOutput = this.reverseAfterDigest;
     }
@@ -2787,6 +3277,38 @@ class FakeRunner {
       bytes: this.digestBytes,
       sha256: this.digestSha256,
     };
+  }
+
+  private async waitForAbortBoundary(
+    boundary: AbortBoundary,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    if (
+      this.abortBoundary !== boundary
+      || this.abortBoundaryConsumed
+    ) {
+      return;
+    }
+    this.abortBoundaryConsumed = true;
+    this.resolveAbortBoundaryStarted();
+    if (signal?.aborted === true) {
+      throw new Da5V5AndroidCommandAbortError();
+    }
+    await new Promise<void>((_resolvePromise, rejectPromise) => {
+      signal?.addEventListener('abort', () => {
+        rejectPromise(new Da5V5AndroidCommandAbortError());
+      }, { once: true });
+    });
+  }
+
+  private throwTypedTimeoutAt(boundary: TypedTimeoutBoundary): void {
+    if (
+      this.timeoutBoundary === boundary
+      && !this.timeoutBoundaryConsumed
+    ) {
+      this.timeoutBoundaryConsumed = true;
+      throw new Da5V5AndroidCommandTimeoutError();
+    }
   }
 
   onWait() {

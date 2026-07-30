@@ -1,5 +1,5 @@
 export const DA5_V5_VALIDATION_TECHNOLOGY =
-  'NfcA+MifareUltralight' as const;
+  'NfcA' as const;
 export type Da5V5ValidationTechnology =
   typeof DA5_V5_VALIDATION_TECHNOLOGY;
 

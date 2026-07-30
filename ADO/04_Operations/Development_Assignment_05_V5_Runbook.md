@@ -1,9 +1,60 @@
 # Development Assignment 5 — V5 Human Android Gate Runbook
 
-- Status: **PHASE-0 RUNS 7–15 ARE CONSUMED FAIL-CLOSED HISTORY WITHOUT A PROVEN PRODUCT/APK/NFC/HARDWARE FINDING — RUN 14 OPERATOR-SESSION STOPPED AT `artifact:mismatch` BEFORE PREFLIGHT/ADB/INSTALLATION; RUN 15 STOPPED AT `installation:adb_stdin_pipe_abort_mismatch`; BOTH ENDED WITH `cleanup:match` — HISTORICAL PREDECESSOR `352b2d1`/TREE `d27432b`, CI `30547584412` AND ITS ONE-P3 `CHANGES REQUIRED` REVIEW REMAIN HISTORY — PUBLISHED SIX-PATH `DA5-V5-INSTALL-SESSION-01` CORRECTION `4067f62`/TREE `10629b8` PASSED EXACT-HEAD V4 `30552233999`, ATTEMPT 1, 12/12 WITHOUT RETRY; FINAL INDEPENDENT EXACT-HEAD/V4 REVIEW IS `APPROVED` WITH ZERO P0–P3 — TECHNICALLY CLOSED/`MERGE_READY`, NOT HUMAN-RUN-READY — FIFTEEN PHASE-0 AUTHORITIES CONSUMED — NO RUN AUTHORITY/DO NOT START**
+- Status: **PHASE-0 RUN 16 CONSUMED FAIL-CLOSED AT FIRST TAG-A `technology_evidence`; NO B/X, HUMAN PASS, RETRY OR HARDWARE DEFECT — NFCA-ONLY PRODUCT/VALIDATION/OPERATOR SUPERSESSION PENDING — NO RUN AUTHORITY/DO NOT START**
 - Date: 2026-07-30
 - Owner: Technical Lead
 - Approval authority for any run: Human Architect
+
+## 0A. Run-16 terminal record and current non-executable correction
+
+Run 16 matched `artifact`, `preflight`, `install_launch` and `waiting` in the offline operator
+session. After the Human confirmed the exact displayed device binding, the first physical Tag-A
+scan stopped at the fixed safe stage `technology_evidence`. No B/X scan, Human PASS or retry
+occurred. The accepted terminal command was `abort`; final receipts were `cleanup:match` and
+`failed:mismatch`. Raw technologies, UID and fingerprint were not disclosed. This is not a
+hardware-defect finding.
+
+The Human Architect explicitly decided NfcA-only v1 Product dispatch/Validation. The Technical
+Lead delegated only its focused R3 implementation on baseline
+`17f4b47b8429d3862789b7e13a23f8da9d28c449`, tree
+`4bbfe9e3fdcdf474f1f506135560e4e111122fb5`; this record grants no run authority.
+
+The Product NfcA/MifareUltralight artifact and the then-current Validation/Operator bindings are
+historical **DO NOT INSTALL** or pending supersession. The current uncommitted correction and every
+future replacement remain non-executable until separately reviewed and authorized. Its sole
+read-only no-hardware readiness entry is
+`npm run android:da5-v5-validation:verify --workspace=@taptime/mobile`. Its inputs are separate and
+must never be collapsed:
+
+| Readiness input class | Explicit variables; exact future values remain unbound |
+|---|---|
+| Execution Repository | `DA5_V5_VALIDATION_REPOSITORY_ROOT`, `DA5_V5_VALIDATION_EXECUTION_COMMIT`, `DA5_V5_VALIDATION_EXECUTION_TREE`; these bind the repository in which the closure/readiness code executes |
+| Artifact Source | `DA5_V5_VALIDATION_SOURCE_COMMIT`, `DA5_V5_VALIDATION_SOURCE_TREE`, and for artifact verification `DA5_V5_VALIDATION_SOURCE_CLOSURE`; these bind the source represented by the immutable APK/manifest and may legitimately differ from Execution Repository commit/tree |
+| Immutable tools | For each of `NODE`, `GIT`, `ADB`, `AAPT`, `APKSIGNER`, `HERMESC`, `UNZIP`: `DA5_V5_VALIDATION_<TOOL>_PATH`, `_BYTES`, `_MODE`, `_SHA256`; hermesc must equal the repository-resolved compiler and unzip must equal `/usr/bin/unzip`; no digest, byte count or mode is authorized by this draft |
+| Android SDK | `ANDROID_HOME` and/or `ANDROID_SDK_ROOT`; if both are supplied they must be identical. ADB, aapt and apksigner must equal their exact SDK-derived paths |
+| Artifact files | Existing exact `DA5_V5_VALIDATION_APK_*` and `DA5_V5_VALIDATION_MANIFEST_*` bindings |
+
+The readiness path requires current Node to equal `process.execPath`; verifies every tool as a
+canonical symlink-free regular executable with exact path/mode/size/SHA-256 and stable identity;
+and requires clean state in the Validation source scopes. Its ordinary status call covers staged,
+unstaged and untracked state with root `app.json` and `research/**` as explicit top-level
+exclusions. A second `status --ignored=matching` call receives only the positive deduplicated
+source scopes plus the exact 13-file transitive local `.mjs` import closure, detecting ignored
+`.env*` and module-build residue without traversing or listing protected paths;
+`apps/mobile/app.json` remains in scope. The mutation-capable operator executes the same readiness
+boundary before session creation and before any ADB-capable object exists. Readiness executes Git
+only, never ADB. The Product manifest must have exactly one MainActivity TECH+DEFAULT/no-data
+filter and one exact metadata reference; compiled APK inspection must bind its numeric resource ID
+to the uniquely resolved exact-NfcA XML tree. Duplicate/broader/TAG/NDEF or foreign
+activity/activity-alias NFC bindings stop verification. The two ADB runners and APK inspector then
+reattest and use their exact bound tool identities; successful completion rechecks stable
+dev/inode/path metadata. After operator-abort arbitration, every winning typed child timeout at
+reattestation, installed provenance, prelaunch, activity start, postlaunch or installation maps
+only to `adb_child_timeout_mismatch`. Blank/foreign input or EOF during an active install is an
+operator abort and converges through one cleanup. Native cancel unregister/cleanup-timeout failure
+settles capture and remains `cleanup_failed` ahead of cancel/order outcomes. The UI coalesces only
+the same active offer, removes it at settlement and rejects stale replay. This is not permission
+to build, install or run.
 
 ## 0. Current non-executable bindings and phase separation
 
@@ -29,7 +80,7 @@ APK/manifest passed the official verifier and independent Artifact Exact-SHA rev
 open P0–P3 for that exact historical source. The DA5-V5-VAL-UI-01 Controller/UI source correction
 historically superseded it: the listed APK/manifest is **HISTORICAL — DO NOT INSTALL**.
 
-**Phase 0 — Validation Binding Preflight** has no current authority. Fifteen prior one-time
+**Phase 0 — Validation Binding Preflight** has no current authority. Sixteen prior one-time
 authorizations are consumed without an attributable Tag result: run 1 stopped on a preinstalled
 Validation package; run 2 on the unsupported Samsung provider in the then-prior build; run 3
 because the generic launcher/package resolver did not uniquely start the explicit Activity and
@@ -416,10 +467,12 @@ hardware authorization:
 
 1. Use the canonical repository CWD
    `/Users/timbartz/Dokumente/GitHub/taptime` and require its canonical real path to be identical.
-2. Bind the exact future-authorized `HEAD` and tree, `main`, `origin/main` and remote state, plus a
-   clean tracked scope, while retaining the explicit `research/**` and root-`app.json` exclusions.
-3. Resolve and bind the canonical absolute Node and `adb` executable paths and their exact
-   versions. Do not rely on aliases, shell functions or a later PATH substitution.
+2. Bind the separately named Execution Repository commit/tree and require clean staged, unstaged
+   and untracked Validation source scopes, retaining the explicit `research/**` and root-`app.json`
+   exclusions without listing either protected path.
+3. Resolve and bind canonical absolute Node, Git, ADB, aapt and apksigner paths plus exact regular
+   executable mode, byte size and SHA-256; Node must equal `process.execPath`, and Android tools
+   must equal the SDK-derived paths. Do not rely on aliases, shell functions or PATH substitution.
 4. Start the future operator only from a cleaned environment with `NODE_OPTIONS` unset and without
    `ADB_SERVER_SOCKET`, `ANDROID_ADB_SERVER_PORT`, `ANDROID_SERIAL`, `ADB_VENDOR_KEYS` or any other
    ADB override. These checks may not install, launch, contact hardware or change system state.
@@ -463,12 +516,11 @@ After `waiting:match`, the future Human and operator must perform exactly this s
    presentation use only the physically matching marked Tag for the active role; no substitution,
    interleaving or out-of-order role is allowed.
 3. Require each role to finish at `10 / 10`, require three pairwise-distinct disclosure-safe
-   12-uppercase-hex SHA-256 fingerprints and require the displayed Technology value
-   `NfcA+MifareUltralight` for every role. The unchanged `03694f2` boundary requires the fully
-   qualified `android.nfc.tech.NfcA` and
-   `android.nfc.tech.MifareUltralight` subset; additional or duplicated Android entries are
-   ignored for the decision and are neither displayed nor persisted. No raw UID, payload or raw
-   Technology list may be recorded.
+   12-uppercase-hex SHA-256 fingerprints and require the displayed Technology value `NfcA` for
+   every role. The future superseding boundary requires fully qualified
+   `android.nfc.tech.NfcA`; additional or duplicated Android technologies are ignored for the
+   decision and are neither displayed nor persisted. MifareUltralight alone is insufficient. No
+   raw UID, payload or raw Technology list may be recorded.
 4. After the thirtieth successful presentation require the exact final title
    `Alle drei Rollen stabil gebunden` and exact final text
    `A, B und X sind stabil, eindeutig und voneinander verschieden.`
@@ -551,9 +603,9 @@ Technology allowlist, maximum length and duplicate rejection. Focused correction
 `6c6039683e067ef29f1f917a60c2628d26e38784`, passed exact-head CI `30386552118`,
 attempt 1, 12/12; prepublication review round 2 returned `APPROVED` with zero open P0–P3.
 Both fully qualified `android.nfc.tech.NfcA` and
-`android.nfc.tech.MifareUltralight` remain required, while additional or duplicated entries are
-ignored without returning or persisting them. Contract, output label, UID/digest handling,
-timeout, Controller and filter remain unchanged. The exact replacement APK/manifest below passed
+`android.nfc.tech.MifareUltralight` were required by that historical contract, while additional
+or duplicated entries were ignored. This is superseded by the NfcA-only correction and is not a
+future instruction. The exact historical replacement APK/manifest below passed
 the official verifier and independent Source/Artifact Exact-SHA review with zero open P0–P3. It
 remains **DO NOT INSTALL** because no separate Phase-0, installation, ADB or hardware authority
 exists.
@@ -591,14 +643,14 @@ Complete uninstall and scoped cleanup are mandatory.
 | Historical `e97bbe9` Validation APK/manifest — DO NOT INSTALL | Directory `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-validation/da5-v5-validation-e97bbe9e2a28-810b856ff7113b4f`; APK `app-release-810b856ff7113b4f.apk`, 65,629,505 bytes, mode `0444`, SHA-256 `810b856ff7113b4f2a454007595e1b6c1ae5dc69c601a2120b577f124e213e28`; manifest `manifest-e97bbe9e2a28.json`, 6,700 bytes, mode `0444`, SHA-256 `af53d646558449a7a5c907fbdf59e3366c6ffd2755f6049141db8e567549e051` |
 | Historical Validation APK — DO NOT INSTALL | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-validation/da5-v5-validation-7e8c0f7742e6-303bfd33cf7fa000/app-release-303bfd33cf7fa000.apk`; 65,626,753 bytes; mode `0444`; SHA-256 `303bfd33cf7fa000ee808a048f91883c18dbfe85c1ba359d3f0764ac7ae7f2f8` |
 | Historical Validation manifest — DO NOT INSTALL | Same directory, `manifest-7e8c0f7742e6.json`; 6,700 bytes; mode `0444`; SHA-256 `11c1664cee37caa8b093a9023f571e3b8733e8bb078bf7f78b6f20d8f39388a7` |
-| Package/runtime | `com.tim180201.mobile.validation`; signer `fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c`; `local-validation-only`; `NfcA+MifareUltralight`; exact roles A/B/X; exactly one active installed provider from `com.google.android.marvin.talkback` or `com.samsung.android.accessibility.talkback`; none or both fail closed; exactly one queries block with those two package queries, one exact `VIEW` + `BROWSABLE` + `https` intent and zero providers; no Product deep link or Tag dispatch |
+| Historical `03694f2` package/runtime — DO NOT INSTALL | `com.tim180201.mobile.validation`; signer `fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c`; `local-validation-only`; historical `NfcA+MifareUltralight`; exact roles A/B/X; exactly one active installed provider from `com.google.android.marvin.talkback` or `com.samsung.android.accessibility.talkback`; none or both fail closed; exactly one queries block with those two package queries, one exact `VIEW` + `BROWSABLE` + `https` intent and zero providers; no Product deep link or Tag dispatch |
 | Historical native/source verification — DO NOT INSTALL | Correction `7e8c0f7742e6407b8917205fd337a552f7dec714`, tree `3e4d1356b859fecf70d365fecbb563e2088100f3`; exact-head CI `30284566289`, attempt 1, 12/12; exact 2,032,807-byte executable Metro bundle SHA-256 `e4caf2db73cfbcdaf779f337bf3a3f99e95d182950522323052bc31ae10c93d3`; exact 555-source/2,667,064-source-byte closure SHA-256 `29691fc137c63906e5cf0c5cd47e2df0643064ab6dbddc00e0d3ec467d492ed3`; independent correction re-review and Artifact Exact-SHA review each `APPROVED`, zero open P0–P3; official artifact verifier `PASS`; superseded for installation by DA5-V5-VAL-UI-01 source correction |
 | Device, accessibility and A/B/X fingerprints | `UNBOUND — DO NOT START` |
 | One-time Phase 0 authorization/result | `RUN 1 CONSUMED — PREINSTALLED PACKAGE`; `RUN 2 CONSUMED — SAMSUNG PROVIDER UNSUPPORTED BY PRIOR BUILD`; `RUN 3 CONSUMED — GENERIC RESOLVER DID NOT UNIQUELY START EXPLICIT ACTIVITY`; `RUN 4 CONSUMED — EXPLICIT MAINACTIVITY COLD START FAILED MISSING EXPOASSET`; `RUN 5 CONSUMED — EXACT APK/DEVICE CHECKPOINT PASSED, THEN GENERIC FAIL-CLOSED SCAN PATH`; `RUN 6 CONSUMED — EXACT e97bbe9 APK/DEVICE CHECKPOINT PASSED, THEN FIRST A-SCAN SHOWED ONLY GENERIC FAIL-CLOSED STATE`; `RUN 7 CONSUMED — EXACT effc57a APK/DEVICE CHECKPOINT PASSED, THEN FIRST A-SCAN STOPPED AT SAFE technology_evidence`; `RUN 8 CONSUMED — EXACT 03694f2 APK INSTALLED, THEN LEGITIMATE ANDROID-15 ~ PATH REJECTED BEFORE MAINACTIVITY LAUNCH`; `RUN 9 CONSUMED — artifact:match, preflight:match, install_launch:mismatch, cleanup:match, failed:mismatch; NO SCAN/UI HANDOFF AND EXACT CAUSE NOT RECONSTRUCTABLE`; `RUN 10 CONSUMED — artifact:match, preflight:match, installation/operation_mismatch, install_launch:mismatch, cleanup:match, failed:mismatch; NO installed_provenance OR UI/NFC/TAG STEP; EXACT CAUSE NOT RECONSTRUCTABLE BECAUSE PRE-INSTALL VERIFICATION WAS SUMMARIZED BY THE SAME CATEGORY`; `RUN 11 CONSUMED — BASELINE d8549c3/TREE 04ea2d0; artifact:match, preflight:match, stage=installation status=mismatch category=operation_mismatch, install_launch:mismatch, cleanup:match, failed:mismatch; NO installed_provenance OR UI/NFC/TAG STEP`; `RUN 12 CONSUMED — BASELINE 3fcbcdec/TREE 74cac3e; artifact:match, preflight:match, stage=installation status=mismatch category=adb_child_transport_mismatch, install_launch:mismatch, cleanup:match, failed:mismatch; NO installed_provenance OR UI/NFC/TAG STEP`; `RUN 13 CONSUMED — BASELINE 63feaf48/TREE 1d63595; artifact:match, preflight:match, stage=installation status=mismatch category=adb_child_transport_mismatch, install_launch:mismatch, cleanup:match, failed:mismatch; NO installed_provenance/WAITING/UI/NFC/TAG STEP`; runs 5–13 have no attributable Tag result and prove no hardware defect; runs 10–13 establish no Product/APK finding; run-7 physical `techTypes` remain unknown; no current authority |
 
-| Later Phase 0 results | `RUN 14 CONSUMED — BASELINE 8878019/TREE 5c15f0f; OPERATOR-SESSION artifact:mismatch, cleanup:match, failed:mismatch BEFORE PREFLIGHT/ADB/INSTALLATION`; `RUN 15 CONSUMED — SAME BASELINE; OFFLINE ARTIFACT MATCH, THEN artifact:match, preflight:match, stage=installation status=mismatch category=adb_stdin_pipe_abort_mismatch, install_launch:mismatch, cleanup:match, failed:mismatch; NO installed_provenance/WAITING/UI/NFC/TAG STEP`; runs 5–15 have no attributable Tag result and prove no hardware defect; runs 10–15 establish no Product/APK finding; no current authority |
+| Later Phase 0 results | `RUN 14 CONSUMED — BASELINE 8878019/TREE 5c15f0f; OPERATOR-SESSION artifact:mismatch, cleanup:match, failed:mismatch BEFORE PREFLIGHT/ADB/INSTALLATION`; `RUN 15 CONSUMED — SAME BASELINE; OFFLINE ARTIFACT MATCH, THEN artifact:match, preflight:match, stage=installation status=mismatch category=adb_stdin_pipe_abort_mismatch, install_launch:mismatch, cleanup:match, failed:mismatch; NO installed_provenance/WAITING/UI/NFC/TAG STEP`; `RUN 16 CONSUMED — artifact:match, preflight:match, install_launch:match, waiting:match, HUMAN-CONFIRMED DEVICE BINDING, FIRST TAG-A technology_evidence, abort, cleanup:match, failed:mismatch; NO ACCEPTED FINGERPRINT/B/X/HUMAN PASS/RETRY`; runs 5–16 have no successful attributable Tag result and prove no hardware defect; run 16 supersedes the old Product/Validation/Operator installability assumptions; no current authority |
 
-**Later Product Human V5** remains the separate run described below. None of the fifteen consumed
+**Later Product Human V5** remains the separate run described below. None of the sixteen consumed
 Phase-0 attempts supplies a Product/Human-V5 result. No further installation, ADB or hardware action is authorized
 until a fresh exact Human authorization; production, production data, system changes, deployment
 and distribution remain unauthorized.

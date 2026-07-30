@@ -11,6 +11,10 @@ export const DA5_V5_VALIDATION_INSTALL_STREAM_ERROR_CATEGORIES =
     childTransportMismatch: 'adb_child_transport_mismatch',
     stdinPipeAbortMismatch: 'adb_stdin_pipe_abort_mismatch',
   });
+export const DA5_V5_VALIDATION_INSTALL_STREAM_TERMINAL_CAUSES =
+  Object.freeze({
+    signalAbort: 'signal_abort',
+  });
 
 const adbServerArguments = Object.freeze([
   '-H',
@@ -24,6 +28,7 @@ const writeChunkBytes = 1024 * 1024;
 export class SystemDa5V5ValidationInstallStreamRunner {
   constructor(dependencies = {}) {
     this.dependencies = Object.freeze({
+      adbPath: dependencies.adbPath ?? 'adb',
       environment: dependencies.environment ?? process.env,
       spawn: dependencies.spawn ?? spawn,
     });
@@ -40,11 +45,13 @@ function runInstallWriteStream(arguments_, options, dependencies) {
       category,
       childTerminal = false,
       stdoutTerminal = false,
+      terminalCause,
     ) => Object.freeze({
       category,
       childTerminal,
       status: 'mismatch',
       stdoutTerminal,
+      ...(terminalCause === undefined ? {} : { terminalCause }),
     });
     const transportMismatch = () => mismatch(
       DA5_V5_VALIDATION_INSTALL_STREAM_ERROR_CATEGORIES
@@ -61,9 +68,18 @@ function runInstallWriteStream(arguments_, options, dependencies) {
       || options.stdinBytes.length === 0
       || !Number.isSafeInteger(options.timeoutMilliseconds)
       || options.timeoutMilliseconds <= 0
-      || options.signal?.aborted === true
     ) {
       resolvePromise(transportMismatch());
+      return;
+    }
+    if (options.signal?.aborted === true) {
+      resolvePromise(mismatch(
+        DA5_V5_VALIDATION_INSTALL_STREAM_ERROR_CATEGORIES
+          .childTransportMismatch,
+        false,
+        false,
+        DA5_V5_VALIDATION_INSTALL_STREAM_TERMINAL_CAUSES.signalAbort,
+      ));
       return;
     }
 
@@ -74,7 +90,7 @@ function runInstallWriteStream(arguments_, options, dependencies) {
         dependencies.environment,
       );
       child = dependencies.spawn(
-        'adb',
+        dependencies.adbPath,
         [...adbServerArguments, ...arguments_],
         {
           env: environment,
@@ -100,6 +116,7 @@ function runInstallWriteStream(arguments_, options, dependencies) {
     let childCode;
     let childSignal;
     let firstFailureCategory;
+    let firstTerminalCause;
     let forceKillSent = false;
     let forceKillTimeout;
     let forceSettleTimeout;
@@ -130,12 +147,14 @@ function runInstallWriteStream(arguments_, options, dependencies) {
       terminate(
         DA5_V5_VALIDATION_INSTALL_STREAM_ERROR_CATEGORIES
           .childTransportMismatch,
+        DA5_V5_VALIDATION_INSTALL_STREAM_TERMINAL_CAUSES.signalAbort,
       );
     }
 
-    function terminate(category) {
+    function terminate(category, terminalCause) {
       if (settled || firstFailureCategory !== undefined) return;
       firstFailureCategory = category;
+      firstTerminalCause = terminalCause;
       try {
         child.kill('SIGTERM');
       } catch {
@@ -204,6 +223,7 @@ function runInstallWriteStream(arguments_, options, dependencies) {
               .childTransportMismatch,
           childClosed,
           stdoutEnded,
+          firstTerminalCause,
         ),
         abandoned,
       );

@@ -67,7 +67,10 @@ export async function publishDa5V5ValidationArtifact(
   const sourceBytes = readFileSync(sourceApkPath);
   const apkSha256 = sha256(sourceBytes);
   verifyDa5V5ValidationApkInspection(
-    dependencies.inspectApk(sourceApkPath, options?.environment),
+    dependencies.inspectApk(
+      sourceApkPath,
+      validationAndroidSdkAuthority(options?.environment),
+    ),
   );
   await interruption.checkpoint('after-initial-inspection');
 
@@ -345,10 +348,20 @@ function verifyPublishedPair(options, dependencies) {
       },
     },
     inspectApk(path) {
-      return dependencies.inspectApk(path, options.environment);
+      return dependencies.inspectApk(
+        path,
+        validationAndroidSdkAuthority(options.environment),
+      );
     },
   });
   return Object.freeze({ apk, manifest });
+}
+
+function validationAndroidSdkAuthority(environment) {
+  return Object.freeze({
+    androidHome: environment?.ANDROID_HOME,
+    androidSdkRoot: environment?.ANDROID_SDK_ROOT,
+  });
 }
 
 function immutableBinding(path) {

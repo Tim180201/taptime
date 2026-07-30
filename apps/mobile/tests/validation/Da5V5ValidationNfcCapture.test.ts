@@ -75,7 +75,6 @@ describe('DA5 V5 validation-only NFC capture', () => {
     discover({
       id: '04a1b2c3',
       techTypes: [
-        'android.nfc.tech.MifareUltralight',
         'android.nfc.tech.NfcA',
       ],
     });
@@ -114,7 +113,7 @@ describe('DA5 V5 validation-only NFC capture', () => {
     await expect(result).resolves.toEqual({
       status: 'captured',
       fingerprint: 'AAAAAAAAAAAA',
-      technology: 'NfcA+MifareUltralight',
+      technology: 'NfcA',
     });
     expect(JSON.stringify(await result)).not.toMatch(
       /IsoDep|Ndef|NfcB|android\.nfc\.tech/u,
@@ -133,29 +132,24 @@ describe('DA5 V5 validation-only NFC capture', () => {
   it.each([
     undefined,
     [],
-    ['android.nfc.tech.NfcA'],
-    [
-      'android.nfc.tech.NfcA',
-      'android.nfc.tech.NfcA',
-    ],
     ['android.nfc.tech.MifareUltralight'],
     ['android.nfc.tech.IsoDep'],
     [
-      'android.nfc.tech.NfcA',
+      'android.nfc.tech.MifareUltralight',
       'android.nfc.tech.IsoDep',
     ],
-  ])('rejects Technology evidence missing either required Technology %#', (technology) => {
+  ])('rejects Technology evidence missing NfcA %#', (technology) => {
     expect(hasAllowedTechnologyEvidence(technology)).toBe(false);
   });
 
-  it('accepts the required core Technology pair independent of order', () => {
+  it('accepts NfcA plus duplicated or additional Android technologies', () => {
     expect(hasAllowedTechnologyEvidence([
       'android.nfc.tech.NfcA',
-      'android.nfc.tech.MifareUltralight',
     ])).toBe(true);
     expect(hasAllowedTechnologyEvidence([
-      'android.nfc.tech.MifareUltralight',
       'android.nfc.tech.NfcA',
+      'android.nfc.tech.NfcA',
+      'android.nfc.tech.MifareUltralight',
     ])).toBe(true);
   });
 
@@ -206,7 +200,7 @@ describe('DA5 V5 validation-only NFC capture', () => {
     discover({
       id: '04A1B2C3',
       techTypes: [
-        'android.nfc.tech.NfcA',
+        'android.nfc.tech.MifareUltralight',
         'android.nfc.tech.Ndef',
       ],
     });
@@ -327,6 +321,155 @@ describe('DA5 V5 validation-only NFC capture', () => {
     await runtime.cancelCapture();
     await expect(first).resolves.toEqual({ status: 'cancelled' });
     expect(nativeManager.unregisterTagEvent).toHaveBeenCalledTimes(1);
+  });
+
+  it('signals unregister failure to cancellation while settling capture as cleanup failure', async () => {
+    nativeManager.unregisterTagEvent.mockRejectedValue(
+      new Error('synthetic unregister failure'),
+    );
+    const runtime = capture();
+    const result = runtime.capture();
+    await vi.waitFor(() => {
+      expect(nativeManager.registerTagEvent).toHaveBeenCalledTimes(1);
+    });
+
+    await expect(runtime.cancelCapture()).rejects.toThrow(
+      /cancellation cleanup failed closed/u,
+    );
+    await expect(result).resolves.toEqual(failed('cleanup'));
+  });
+
+  it('signals bounded cleanup timeout to cancellation without wedging capture', async () => {
+    let cleanupTimeout: (() => void) | undefined;
+    nativeManager.unregisterTagEvent.mockImplementation(
+      () => new Promise<void>(() => undefined),
+    );
+    const runtime = new Da5V5ValidationNfcCapture({
+      manager: nativeManager,
+      platform: 'android',
+      digestCanonicalPayload: vi.fn(async () => 'a'.repeat(64)),
+      scheduleCleanupTimeout: (callback) => {
+        cleanupTimeout = callback;
+        return 1 as unknown as ReturnType<typeof setTimeout>;
+      },
+      clearScheduledCleanupTimeout: vi.fn(),
+    });
+    const result = runtime.capture();
+    await vi.waitFor(() => {
+      expect(nativeManager.registerTagEvent).toHaveBeenCalledTimes(1);
+    });
+    const cancellation = runtime.cancelCapture();
+    await vi.waitFor(() => {
+      expect(cleanupTimeout).toBeTypeOf('function');
+    });
+
+    cleanupTimeout!();
+    await expect(cancellation).rejects.toThrow(
+      /cancellation cleanup failed closed/u,
+    );
+    await expect(result).resolves.toEqual(failed('cleanup'));
+  });
+
+  it('claims the first native event synchronously and rejects a second before the first digest settles', async () => {
+    let releaseFirstDigest!: (digest: string) => void;
+    const digestCanonicalPayload = vi.fn(() => (
+      new Promise<string>((resolve) => {
+        releaseFirstDigest = resolve;
+      })
+    ));
+    const runtime = new Da5V5ValidationNfcCapture({
+      manager: nativeManager,
+      platform: 'android',
+      digestCanonicalPayload,
+    });
+    const result = runtime.capture();
+    await vi.waitFor(() => {
+      expect(nativeManager.registerTagEvent).toHaveBeenCalledTimes(1);
+    });
+    discover({
+      id: '04A1B2C3',
+      techTypes: ['android.nfc.tech.NfcA'],
+    });
+    discover({
+      id: '04FFFFFFFF',
+      techTypes: ['android.nfc.tech.NfcA'],
+    });
+
+    await expect(result).resolves.toEqual(failed('concurrency'));
+    expect(digestCanonicalPayload).toHaveBeenCalledTimes(1);
+    releaseFirstDigest('b'.repeat(64));
+    await Promise.resolve();
+    await expect(result).resolves.toEqual(failed('concurrency'));
+  });
+
+  it('preserves cancellation when registration rejects after the terminal result', async () => {
+    let rejectRegistration!: (error: Error) => void;
+    nativeManager.registerTagEvent.mockImplementation(() => (
+      new Promise<void>((_resolve, reject) => {
+        rejectRegistration = reject;
+      })
+    ));
+    const runtime = capture();
+    const result = runtime.capture();
+    await vi.waitFor(() => {
+      expect(nativeManager.registerTagEvent).toHaveBeenCalledTimes(1);
+    });
+    const cancellation = runtime.cancelCapture();
+    rejectRegistration(new Error('late registration rejection'));
+    await expect(cancellation).resolves.toBeUndefined();
+    await expect(result).resolves.toEqual({ status: 'cancelled' });
+  });
+
+  it('cancels while native startup is pending without registering a late listener', async () => {
+    let releaseStart!: () => void;
+    nativeManager.start.mockImplementation(() => (
+      new Promise<void>((resolve) => {
+        releaseStart = resolve;
+      })
+    ));
+    const runtime = capture();
+    const result = runtime.capture();
+    await vi.waitFor(() => {
+      expect(nativeManager.start).toHaveBeenCalledTimes(1);
+    });
+    await expect(runtime.cancelCapture()).resolves.toBeUndefined();
+    releaseStart();
+    await expect(result).resolves.toEqual({ status: 'cancelled' });
+    expect(nativeManager.registerTagEvent).not.toHaveBeenCalled();
+  });
+
+  it('keeps second-event concurrency terminal when registration rejects later', async () => {
+    let rejectRegistration!: (error: Error) => void;
+    let releaseFirstDigest!: (digest: string) => void;
+    nativeManager.registerTagEvent.mockImplementation(() => (
+      new Promise<void>((_resolve, reject) => {
+        rejectRegistration = reject;
+      })
+    ));
+    const runtime = new Da5V5ValidationNfcCapture({
+      manager: nativeManager,
+      platform: 'android',
+      digestCanonicalPayload: vi.fn(() => (
+        new Promise<string>((resolve) => {
+          releaseFirstDigest = resolve;
+        })
+      )),
+    });
+    const result = runtime.capture();
+    await vi.waitFor(() => {
+      expect(nativeManager.registerTagEvent).toHaveBeenCalledTimes(1);
+    });
+    discover({
+      id: '04A1B2C3',
+      techTypes: ['android.nfc.tech.NfcA'],
+    });
+    discover({
+      id: '04FFFFFFFF',
+      techTypes: ['android.nfc.tech.NfcA'],
+    });
+    rejectRegistration(new Error('late registration rejection'));
+    await expect(result).resolves.toEqual(failed('concurrency'));
+    releaseFirstDigest('c'.repeat(64));
   });
 
   it('preserves the fixed capture timeout and cleanup behavior', async () => {

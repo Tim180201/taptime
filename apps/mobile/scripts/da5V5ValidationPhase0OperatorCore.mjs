@@ -9,21 +9,32 @@ import {
   realpathSync,
 } from 'node:fs';
 import { performance } from 'node:perf_hooks';
-import { normalize, resolve } from 'node:path';
+import { join, normalize, resolve } from 'node:path';
 
 import {
+  Da5V5AndroidCommandAbortError,
+  Da5V5AndroidCommandTimeoutError,
   Da5V5UsbSerialBinding,
   SystemDa5V5AndroidAdbRunner,
+  isDa5V5AndroidCommandAbortError,
+  isDa5V5AndroidCommandTimeoutError,
   requireSingleDa5V5UsbDevice,
 } from './da5V5AndroidDevice.mjs';
 import {
   DA5_V5_VALIDATION_PACKAGE,
+  DA5_V5_VALIDATION_UNZIP_PATH,
+  requireDa5V5ValidationAndroidSdkAuthority,
   verifyDa5V5ValidationArtifactBinding,
 } from './da5V5ValidationArtifact.mjs';
 import {
   DA5_V5_VALIDATION_INSTALL_STREAM_ERROR_CATEGORIES,
+  DA5_V5_VALIDATION_INSTALL_STREAM_TERMINAL_CAUSES,
   SystemDa5V5ValidationInstallStreamRunner,
 } from './da5V5ValidationInstallStream.mjs';
+import {
+  assertDa5V5ValidationToolIdentityMetadata,
+  verifyDa5V5ValidationToolIdentity,
+} from './da5V5ValidationRuntimeContract.mjs';
 
 export const DA5_V5_VALIDATION_PHASE0_PROFILE =
   'da5-v5-validation-phase0';
@@ -51,6 +62,7 @@ export const DA5_V5_VALIDATION_PHASE0_ERROR_CATEGORIES =
     adbStdinPipeAbortMismatch:
       DA5_V5_VALIDATION_INSTALL_STREAM_ERROR_CATEGORIES
         .stdinPipeAbortMismatch,
+    operatorAbortMismatch: 'operator_abort_mismatch',
     operationMismatch: 'operation_mismatch',
     packageManagerArtifactRejection:
       'package_manager_artifact_rejection',
@@ -294,6 +306,14 @@ const safeSegmentPattern = /^[A-Za-z0-9._~+=-]{1,192}$/u;
 const packageDirectoryPrefix = `${DA5_V5_VALIDATION_PACKAGE}-`;
 
 export function requireDa5V5ValidationPhase0Inputs(value) {
+  const androidSdkAuthority =
+    requireDa5V5ValidationAndroidSdkAuthority(
+      value?.androidSdkAuthority,
+    );
+  const tools = requireDa5V5ValidationPhase0Tools(
+    value?.tools,
+    androidSdkAuthority,
+  );
   if (
     value?.profile !== DA5_V5_VALIDATION_PHASE0_PROFILE
     || !isBoundInput(value.deviceModel)
@@ -303,9 +323,65 @@ export function requireDa5V5ValidationPhase0Inputs(value) {
   }
   return Object.freeze({
     androidBuild: value.androidBuild,
+    androidSdkAuthority,
     deviceModel: value.deviceModel,
     profile: DA5_V5_VALIDATION_PHASE0_PROFILE,
+    tools,
   });
+}
+
+function requireDa5V5ValidationPhase0Tools(value, authority) {
+  const tools = Object.freeze({
+    aapt: requireToolIdentity(value?.aapt),
+    adb: requireToolIdentity(value?.adb),
+    apksigner: requireToolIdentity(value?.apksigner),
+    hermesc: requireToolIdentity(value?.hermesc),
+    unzip: requireToolIdentity(value?.unzip),
+  });
+  if (
+    tools.adb.path
+      !== join(authority.path, 'platform-tools', 'adb')
+    || tools.aapt.path
+      !== join(authority.path, 'build-tools', '35.0.0', 'aapt')
+    || tools.apksigner.path
+      !== join(
+        authority.path,
+        'build-tools',
+        '35.0.0',
+        'apksigner',
+      )
+    || tools.unzip.path !== DA5_V5_VALIDATION_UNZIP_PATH
+  ) {
+    throw new Error(
+      'DA5 V5 Validation Phase-0 tool authority mismatch',
+    );
+  }
+  return tools;
+}
+
+function requireToolIdentity(value) {
+  if (
+    typeof value !== 'object'
+    || value === null
+    || Array.isArray(value)
+    || !Number.isSafeInteger(value.bytes)
+    || value.bytes <= 0
+    || !Number.isSafeInteger(value.dev)
+    || !Number.isSafeInteger(value.ino)
+    || !Number.isSafeInteger(value.mode)
+    || value.mode < 0
+    || value.mode > 0o7777
+    || typeof value.sha256 !== 'string'
+    || !/^[0-9a-f]{64}$/u.test(value.sha256)
+    || typeof value.path !== 'string'
+    || value.path.length === 0
+    || normalize(resolve(value.path)) !== value.path
+  ) {
+    throw new Error(
+      'DA5 V5 Validation Phase-0 tool authority mismatch',
+    );
+  }
+  return value;
 }
 
 export function parseDa5V5ValidationInstalledBaseApkPath(value) {
@@ -469,13 +545,25 @@ export function verifyAndSealDa5V5ValidationPhase0Artifact(options = {}) {
   }
   const verifyArtifact =
     options.verifyArtifact ?? verifyDa5V5ValidationArtifactBinding;
+  const androidSdkAuthority =
+    requireDa5V5ValidationAndroidSdkAuthority(
+      options.androidSdkAuthority,
+    );
+  const inspectionTools =
+    requireDa5V5ValidationPhase0Tools(
+      options.inspectionTools,
+      androidSdkAuthority,
+    );
   const verificationOptions = {
+    androidSdkAuthority,
     apk: DA5_V5_VALIDATION_PHASE0_ARTIFACT.apk,
     expectedSourceClosure: exactSourceClosure,
     expectedSourceCommit:
       DA5_V5_VALIDATION_PHASE0_ARTIFACT.sourceCommit,
     expectedSourceTree: DA5_V5_VALIDATION_PHASE0_ARTIFACT.sourceTree,
+    inspectionTools,
     manifest: DA5_V5_VALIDATION_PHASE0_ARTIFACT.manifest,
+    toolIdentityDependencies: options.toolIdentityDependencies,
   };
   const verified = options.artifactVerificationDependencies === undefined
     ? verifyArtifact(verificationOptions)
@@ -503,37 +591,52 @@ export async function verifyDa5V5ValidationInstalledArtifact(options) {
   if (typeof options.runner?.runBinaryDigest !== 'function') {
     throw new Error('DA5 V5 Validation installed digest unavailable');
   }
+  if (
+    options.deadline !== undefined
+    && (!isDeadline(options.deadline) || typeof options.now !== 'function')
+  ) {
+    throw new Error('DA5 V5 Validation installed deadline unavailable');
+  }
+  const budget = options.deadline === undefined
+    ? undefined
+    : { deadline: options.deadline, now: options.now };
   await requireOwnerUserTopology(
     options.runner,
     options.serial,
     options.signal,
+    budget,
   );
   await requireOwnerPackagePresent(
     options.runner,
     options.serial,
     options.signal,
+    budget,
   );
   await requireOwnerInstalledVersion(
     options.runner,
     options.serial,
     options.signal,
+    budget,
   );
   const beforePath = await readInstalledPackagePath(
     options.runner,
     options.serial,
     options.signal,
+    budget,
   );
   const beforeCanonical = await readInstalledCanonical(
     options.runner,
     options.serial,
     beforePath,
     options.signal,
+    budget,
   );
   const beforeStat = await readInstalledStat(
     options.runner,
     options.serial,
     beforePath,
     options.signal,
+    budget,
   );
   if (
     beforeCanonical !== beforePath
@@ -546,7 +649,13 @@ export async function verifyDa5V5ValidationInstalledArtifact(options) {
     {
       maximumBytes: DA5_V5_VALIDATION_PHASE0_ARTIFACT.apk.bytes,
       signal: options.signal,
-      timeoutMilliseconds: timeouts.install,
+      timeoutMilliseconds: budget === undefined
+        ? timeouts.install
+        : remainingTimeout(
+          budget.deadline,
+          budget.now,
+          timeouts.install,
+        ),
     },
   );
   if (
@@ -559,33 +668,39 @@ export async function verifyDa5V5ValidationInstalledArtifact(options) {
     options.runner,
     options.serial,
     options.signal,
+    budget,
   );
   await requireOwnerPackagePresent(
     options.runner,
     options.serial,
     options.signal,
+    budget,
   );
   await requireOwnerInstalledVersion(
     options.runner,
     options.serial,
     options.signal,
+    budget,
   );
   const afterPath = await readInstalledPackagePath(
     options.runner,
     options.serial,
     options.signal,
+    budget,
   );
   const afterCanonical = await readInstalledCanonical(
     options.runner,
     options.serial,
     afterPath,
     options.signal,
+    budget,
   );
   const afterStat = await readInstalledStat(
     options.runner,
     options.serial,
     afterPath,
     options.signal,
+    budget,
   );
   if (
     afterPath !== beforePath
@@ -696,7 +811,7 @@ export class Da5V5ValidationPhase0Device {
           ],
           {
             signal: options.signal,
-            timeoutMilliseconds: remainingTimeout(
+            timeoutMilliseconds: remainingInstallTimeout(
               installDeadline,
               this.now,
               timeouts.install,
@@ -745,7 +860,7 @@ export class Da5V5ValidationPhase0Device {
           {
             signal: options.signal,
             stdinBytes: snapshot,
-            timeoutMilliseconds: remainingTimeout(
+            timeoutMilliseconds: remainingInstallTimeout(
               installDeadline,
               this.now,
               timeouts.install,
@@ -759,6 +874,12 @@ export class Da5V5ValidationPhase0Device {
         ).includes(installOutcome.category)
       ) {
         diagnosticCategory = installOutcome.category;
+        if (
+          installOutcome.terminalCause
+          === DA5_V5_VALIDATION_INSTALL_STREAM_TERMINAL_CAUSES.signalAbort
+        ) {
+          throw new Da5V5AndroidCommandAbortError();
+        }
         throw new Error('DA5 V5 Validation install stream mismatch');
       }
       if (
@@ -784,7 +905,6 @@ export class Da5V5ValidationPhase0Device {
         diagnosticCategory = packageManagerCategory;
         throw new Error('DA5 V5 Validation package write mismatch');
       }
-
       diagnosticCategory =
         DA5_V5_VALIDATION_PHASE0_ERROR_CATEGORIES.verificationMismatch;
       const commitSerial =
@@ -810,7 +930,7 @@ export class Da5V5ValidationPhase0Device {
           ],
           {
             signal: options.signal,
-            timeoutMilliseconds: remainingTimeout(
+            timeoutMilliseconds: remainingInstallTimeout(
               installDeadline,
               this.now,
               timeouts.install,
@@ -916,7 +1036,21 @@ export class Da5V5ValidationPhase0Device {
         { signal: options.signal },
       );
       return Object.freeze({ status: 'match' });
-    } catch {
+    } catch (error) {
+      if (
+        isDa5V5AndroidCommandAbortError(error)
+        && options.operatorAbortRequested?.() === true
+      ) {
+        diagnosticCategory =
+          DA5_V5_VALIDATION_PHASE0_ERROR_CATEGORIES
+            .operatorAbortMismatch;
+      } else if (
+        isDa5V5AndroidCommandTimeoutError(error)
+      ) {
+        diagnosticCategory =
+          DA5_V5_VALIDATION_PHASE0_ERROR_CATEGORIES
+            .adbChildTimeoutMismatch;
+      }
       throw new Da5V5ValidationInstallLaunchFailure(
         diagnosticStage,
         diagnosticCategory,
@@ -946,11 +1080,11 @@ export class Da5V5ValidationPhase0Device {
       return Object.freeze({ status: 'mismatch' });
     }
     const sessionCleanup = await this.#settleInstallSession(deadline);
-    if (sessionCleanup.status !== 'match') {
-      return Object.freeze({ status: 'mismatch' });
-    }
+    const installSessionSettled = sessionCleanup.status === 'match';
     if (!this.#preflightStarted && !this.#mutationMayHaveStarted) {
-      return Object.freeze({ status: 'match' });
+      return Object.freeze({
+        status: installSessionSettled ? 'match' : 'mismatch',
+      });
     }
     const uncertain = this.#installUncertain;
     let consecutiveZero = 0;
@@ -973,24 +1107,40 @@ export class Da5V5ValidationPhase0Device {
         ) {
           if (
             !this.#mutationMayHaveStarted
-            || this.#ownedProvenance === undefined
             || !observation.exact
-            || !observation.packagePresent
           ) {
             return Object.freeze({ status: 'mismatch' });
           }
           consecutiveZero = 0;
           zeroSince = null;
+          if (
+            observation.packagePresent
+            && this.#ownedProvenance === undefined
+          ) {
+            const provenanceSerial = await this.#requireCurrentDevice(
+              undefined,
+              deadline,
+            );
+            this.#ownedProvenance =
+              await verifyDa5V5ValidationInstalledArtifact({
+                deadline,
+                now: this.now,
+                runner: this.runner,
+                serial: provenanceSerial,
+              });
+          }
           const stopSerial = await this.#requireCurrentDevice(
             undefined,
             deadline,
           );
-          await requireOwnedProvenance(
-            this.runner,
-            stopSerial,
-            this.#ownedProvenance,
-            { deadline, now: this.now },
-          );
+          if (observation.packagePresent) {
+            await requireOwnedProvenance(
+              this.runner,
+              stopSerial,
+              this.#ownedProvenance,
+              { deadline, now: this.now },
+            );
+          }
           requireDeadlineBudget(deadline, this.now);
           await this.runner.run(
             ['-s', stopSerial, 'shell', 'am', 'force-stop',
@@ -1004,35 +1154,37 @@ export class Da5V5ValidationPhase0Device {
               ),
             },
           );
-          const uninstallSerial = await this.#requireCurrentDevice(
-            undefined,
-            deadline,
-          );
-          await requireOwnedProvenance(
-            this.runner,
-            uninstallSerial,
-            this.#ownedProvenance,
-            { deadline, now: this.now },
-          );
-          requireDeadlineBudget(deadline, this.now);
-          const uninstall = await this.runner.run(
-            ['-s', uninstallSerial, 'shell', 'cmd', 'package', 'uninstall',
-              '--user', androidOwnerUser, '--versionCode',
-              validationVersionCode,
-              DA5_V5_VALIDATION_PACKAGE],
-            {
-              timeoutMilliseconds: remainingTimeout(
-                deadline,
-                this.now,
-                timeouts.uninstall,
-              ),
-            },
-          );
-          requireDeadlineBudget(deadline, this.now);
-          if (exactSingleLine(uninstall) !== 'Success') {
-            throw new Error('DA5 V5 Validation package uninstall mismatch');
+          if (observation.packagePresent) {
+            const uninstallSerial = await this.#requireCurrentDevice(
+              undefined,
+              deadline,
+            );
+            await requireOwnedProvenance(
+              this.runner,
+              uninstallSerial,
+              this.#ownedProvenance,
+              { deadline, now: this.now },
+            );
+            requireDeadlineBudget(deadline, this.now);
+            const uninstall = await this.runner.run(
+              ['-s', uninstallSerial, 'shell', 'cmd', 'package', 'uninstall',
+                '--user', androidOwnerUser, '--versionCode',
+                validationVersionCode,
+                DA5_V5_VALIDATION_PACKAGE],
+              {
+                timeoutMilliseconds: remainingTimeout(
+                  deadline,
+                  this.now,
+                  timeouts.uninstall,
+                ),
+              },
+            );
+            requireDeadlineBudget(deadline, this.now);
+            if (exactSingleLine(uninstall) !== 'Success') {
+              throw new Error('DA5 V5 Validation package uninstall mismatch');
+            }
+            this.#ownedProvenance = undefined;
           }
-          this.#ownedProvenance = undefined;
         } else if (!observation.exact || !observation.reverseZero) {
           consecutiveZero = 0;
           zeroSince = null;
@@ -1066,7 +1218,9 @@ export class Da5V5ValidationPhase0Device {
             ) {
               return Object.freeze({ status: 'mismatch' });
             }
-            return Object.freeze({ status: 'match' });
+            return Object.freeze({
+              status: installSessionSettled ? 'match' : 'mismatch',
+            });
           }
         }
       } catch {
@@ -1216,11 +1370,14 @@ export class Da5V5ValidationPhase0Device {
 export class Da5V5ValidationPhase0Session {
   #abortController;
   #activeOperation;
+  #adbToolIdentities;
   #device;
   #failureRequested = false;
   #finishDeadline;
   #finishFlight;
   #state = 'created';
+  #terminalCommandAccepted = false;
+  #operatorAbortRequested = false;
 
   constructor(options) {
     this.options = options;
@@ -1244,16 +1401,37 @@ export class Da5V5ValidationPhase0Session {
       const inputs = requireDa5V5ValidationPhase0Inputs(this.options);
       const snapshot = (this.options.sealArtifact
         ?? verifyAndSealDa5V5ValidationPhase0Artifact)({
+        androidSdkAuthority: inputs.androidSdkAuthority,
+        inspectionTools: inputs.tools,
         profile: inputs.profile,
+        toolIdentityDependencies:
+          this.options.toolIdentityDependencies,
       });
+      const adbRunnerTool = verifyDa5V5ValidationToolIdentity(
+        inputs.tools.adb,
+        this.options.toolIdentityDependencies,
+      );
+      const installStreamRunnerTool =
+        verifyDa5V5ValidationToolIdentity(
+          inputs.tools.adb,
+          this.options.toolIdentityDependencies,
+        );
+      this.#adbToolIdentities = Object.freeze([
+        adbRunnerTool,
+        installStreamRunnerTool,
+      ]);
       this.#device = new Da5V5ValidationPhase0Device({
         androidBuild: inputs.androidBuild,
         deviceModel: inputs.deviceModel,
         now: this.options.now,
         runner: this.options.runner
-          ?? new SystemDa5V5AndroidAdbRunner(),
+          ?? new SystemDa5V5AndroidAdbRunner({
+            adbPath: adbRunnerTool.path,
+          }),
         installStreamRunner: this.options.installStreamRunner
-          ?? new SystemDa5V5ValidationInstallStreamRunner(),
+          ?? new SystemDa5V5ValidationInstallStreamRunner({
+            adbPath: installStreamRunnerTool.path,
+          }),
         serialBinding: this.options.serialBinding
           ?? new Da5V5UsbSerialBinding(),
         snapshot,
@@ -1297,16 +1475,30 @@ export class Da5V5ValidationPhase0Session {
       if (this.#state === 'complete' || this.#state === 'failed') {
         return Promise.resolve(Object.freeze({ status: 'mismatch' }));
       }
+      if (this.#terminalCommandAccepted) {
+        return this.#finishFlight;
+      }
       this.#failureRequested = true;
       return this.#finishFlight;
     }
+    if (
+      command === 'abort'
+      && this.#state !== 'complete'
+      && this.#state !== 'failed'
+    ) {
+      this.#terminalCommandAccepted = true;
+      this.#operatorAbortRequested = true;
+      return this.fail();
+    }
     if (this.#activeOperation !== undefined) {
+      this.#operatorAbortRequested = true;
       return this.fail();
     }
     if (command === 'install-launch' && this.#state === 'ready') {
       this.#state = 'installing';
       this.#abortController = new AbortController();
       const operation = this.#device.installAndLaunch({
+        operatorAbortRequested: () => this.#operatorAbortRequested,
         signal: this.#abortController.signal,
       });
       this.#activeOperation = operation;
@@ -1352,26 +1544,27 @@ export class Da5V5ValidationPhase0Session {
       return Promise.resolve(Object.freeze({ status: 'match' }));
     }
     if (command === 'cleanup' && this.#state === 'human_passed') {
+      this.#terminalCommandAccepted = true;
       return this.#finish(true);
-    }
-    if (
-      command === 'abort'
-      && this.#state !== 'complete'
-      && this.#state !== 'failed'
-    ) {
-      return this.fail();
     }
     return this.fail();
   }
 
   end() {
+    if (this.#terminalCommandAccepted && this.#finishFlight !== undefined) {
+      return this.#finishFlight;
+    }
     if (this.#state === 'complete' || this.#state === 'failed') {
       return this.done;
+    }
+    if (this.#activeOperation !== undefined) {
+      this.#operatorAbortRequested = true;
     }
     return this.fail();
   }
 
   signal() {
+    this.#operatorAbortRequested = true;
     return this.fail();
   }
 
@@ -1437,6 +1630,21 @@ export class Da5V5ValidationPhase0Session {
         && !hasDeadlineBudget(this.#finishDeadline, this.now)
       ) {
         cleanup = Object.freeze({ status: 'mismatch' });
+      }
+      if (
+        cleanup.status === 'match'
+        && this.#adbToolIdentities !== undefined
+      ) {
+        try {
+          for (const identity of this.#adbToolIdentities) {
+            assertDa5V5ValidationToolIdentityMetadata(
+              identity,
+              this.options.toolIdentityDependencies,
+            );
+          }
+        } catch {
+          cleanup = Object.freeze({ status: 'mismatch' });
+        }
       }
       this.#emitReceipt('cleanup', cleanup.status);
       let success = (
@@ -2095,6 +2303,14 @@ function remainingTimeout(deadline, now, maximumMilliseconds) {
   const remaining = Math.floor(deadline - now());
   if (remaining < 2_001) {
     throw new Error('DA5 V5 Validation cleanup deadline exhausted');
+  }
+  return Math.min(maximumMilliseconds, remaining);
+}
+
+function remainingInstallTimeout(deadline, now, maximumMilliseconds) {
+  const remaining = Math.floor(deadline - now());
+  if (remaining < 2_001) {
+    throw new Da5V5AndroidCommandTimeoutError();
   }
   return Math.min(maximumMilliseconds, remaining);
 }

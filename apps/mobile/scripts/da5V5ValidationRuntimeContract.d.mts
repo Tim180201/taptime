@@ -29,10 +29,43 @@ export const DA5_V5_VALIDATION_EXPECTED_BUNDLE_EXECUTABLE:
     sha256: string;
   }>;
 export const DA5_V5_VALIDATION_SOURCE_CLOSURE: readonly string[];
+export const DA5_V5_VALIDATION_EXECUTION_SCOPES: readonly string[];
 export const DA5_V5_VALIDATION_SOURCE_SCOPES: readonly string[];
 export const DA5_V5_VALIDATION_BUILD_ENVIRONMENT: Readonly<
   Record<string, string>
 >;
+export interface Da5V5ValidationToolIdentity {
+  readonly bytes: number;
+  readonly dev: number;
+  readonly ino: number;
+  readonly mode: number;
+  readonly path: string;
+  readonly sha256: string;
+}
+export interface Da5V5ValidationToolIdentityDependencies {
+  lstat(path: string): {
+    readonly dev: number;
+    readonly ino: number;
+    readonly mode: number;
+    readonly size: number;
+    isFile(): boolean;
+    isSymbolicLink(): boolean;
+  };
+  realpath(path: string): string;
+  sha256(path: string): string;
+}
+export function createCurrentDa5V5ValidationToolIdentity(
+  path: string,
+  dependencies?: Da5V5ValidationToolIdentityDependencies,
+): Readonly<Da5V5ValidationToolIdentity>;
+export function verifyDa5V5ValidationToolIdentity(
+  binding: unknown,
+  dependencies?: Da5V5ValidationToolIdentityDependencies,
+): Readonly<Da5V5ValidationToolIdentity>;
+export function assertDa5V5ValidationToolIdentityMetadata(
+  identity: unknown,
+  dependencies?: Da5V5ValidationToolIdentityDependencies,
+): Readonly<{ status: 'match' }>;
 export function createDa5V5ValidationBuildEnvironment(
   environment: Readonly<Record<string, string | undefined>>,
 ): Readonly<Record<string, string>>;

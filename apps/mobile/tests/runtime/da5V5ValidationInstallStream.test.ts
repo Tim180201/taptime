@@ -9,6 +9,7 @@ import {
 } from '../../scripts/da5V5AndroidDevice.mjs';
 import {
   DA5_V5_VALIDATION_INSTALL_STREAM_ERROR_CATEGORIES,
+  DA5_V5_VALIDATION_INSTALL_STREAM_TERMINAL_CAUSES,
   SystemDa5V5ValidationInstallStreamRunner,
 } from '../../scripts/da5V5ValidationInstallStream.mjs';
 
@@ -33,9 +34,13 @@ const childEnvironment = Object.freeze({
 
 describe('DA5 V5 Validation package install stream terminal evidence', () => {
   it('reports a child-start failure only as the fixed transport category', async () => {
+    const adbPath = '/synthetic/android-sdk/platform-tools/adb';
+    let spawnedCommand: string | undefined;
     const runner = new SystemDa5V5ValidationInstallStreamRunner({
+      adbPath,
       environment: childEnvironment,
-      spawn: (() => {
+      spawn: ((command: string) => {
+        spawnedCommand = command;
         throw new Error('SECRET CHILD START DETAIL');
       }) as unknown as typeof spawn,
     });
@@ -51,6 +56,64 @@ describe('DA5 V5 Validation package install stream terminal evidence', () => {
       status: 'mismatch',
       stdoutTerminal: false,
     });
+    expect(spawnedCommand).toBe(adbPath);
+  });
+
+  it('retains signal abort when it is the first terminal cause', async () => {
+    const stdout = new PassThrough();
+    const child = createControlledChild(stdout);
+    const runner = new SystemDa5V5ValidationInstallStreamRunner({
+      environment: childEnvironment,
+      spawn: (() => child) as unknown as typeof spawn,
+    });
+    const controller = new AbortController();
+    const outcome = runner.write(installWriteArguments, {
+      signal: controller.signal,
+      stdinBytes: Buffer.from('complete'),
+      timeoutMilliseconds: 2_000,
+    });
+
+    controller.abort();
+    child.emit('error', new Error('later transport failure'));
+    stdout.end();
+    child.emit('close', null, 'SIGTERM');
+
+    await expect(outcome).resolves.toMatchObject({
+      category:
+        DA5_V5_VALIDATION_INSTALL_STREAM_ERROR_CATEGORIES
+          .childTransportMismatch,
+      status: 'mismatch',
+      terminalCause:
+        DA5_V5_VALIDATION_INSTALL_STREAM_TERMINAL_CAUSES.signalAbort,
+    });
+  });
+
+  it('does not relabel transport when it wins before a later signal', async () => {
+    const stdout = new PassThrough();
+    const child = createControlledChild(stdout);
+    const runner = new SystemDa5V5ValidationInstallStreamRunner({
+      environment: childEnvironment,
+      spawn: (() => child) as unknown as typeof spawn,
+    });
+    const controller = new AbortController();
+    const outcome = runner.write(installWriteArguments, {
+      signal: controller.signal,
+      stdinBytes: Buffer.from('complete'),
+      timeoutMilliseconds: 2_000,
+    });
+
+    child.emit('error', new Error('winning transport failure'));
+    controller.abort();
+    stdout.end();
+    child.emit('close', 1, null);
+
+    await expect(outcome).resolves.toMatchObject({
+      category:
+        DA5_V5_VALIDATION_INSTALL_STREAM_ERROR_CATEGORIES
+          .childTransportMismatch,
+      status: 'mismatch',
+    });
+    expect(await outcome).not.toHaveProperty('terminalCause');
   });
 
   it('accepts only a fully written stream with actual child/stdout completion', async () => {
