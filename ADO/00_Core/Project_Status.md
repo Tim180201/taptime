@@ -1,6 +1,6 @@
 # Project Status
 
-Status: CORE ROADMAP V2 COMPLETIONS REMAIN PRESERVED FOR THEIR RECORDED SCOPES — DA4 REMAINS OPEN FOR A LATER FRESH HUMAN V5 — DA5 V0–V4, THE LOCAL DA5-V5 RUNTIME GUARD AND THE EXACT VALIDATION ARTIFACT REMAIN PRESERVED FOR THEIR RECORDED SCOPES — PHASE-0 RUNS 7–15 ARE CONSUMED FAIL-CLOSED HISTORY WITHOUT A PROVEN PRODUCT/APK/NFC/HARDWARE FINDING — RUN 14 OPERATOR-SESSION STOPPED AT `artifact:mismatch` BEFORE PREFLIGHT/ADB/INSTALLATION; RUN 15 STOPPED AT `installation:adb_stdin_pipe_abort_mismatch` BEFORE `installed_provenance` OR ANY UI/NFC/TAG STEP; BOTH ENDED WITH `cleanup:match` — PUBLISHED `DA5-V5-INSTALL-SESSION-01` CANDIDATE `352b2d1`/TREE `d27432b` PASSED HISTORICAL EXACT-HEAD CI `30547584412`, ATTEMPT 1, 12/12, BUT FINAL EXACT-HEAD REVIEW RETURNED `CHANGES REQUIRED` WITH EXACTLY ONE P3 DIAGNOSTIC-CATEGORY FINDING; THE CANDIDATE IS NOT CLOSED — THE AUTHORIZED UNCOMMITTED SIX-PATH CORRECTION IS LOCALLY V1/V2 AND FINAL V3 GREEN; INDEPENDENT EXACT-DELTA REVIEW, PUBLICATION/NEW V4 CI AND FINAL REVIEW ARE PENDING — THE OPERATOR REMAINS DO NOT START/NO RUN AUTHORITY — FIFTEEN PHASE-0 AUTHORITIES ARE CONSUMED; PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, SYSTEM CHANGES, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
+Status: CORE ROADMAP V2 COMPLETIONS REMAIN PRESERVED FOR THEIR RECORDED SCOPES — DA4 REMAINS OPEN FOR A LATER FRESH HUMAN V5 — DA5 V0–V4, THE LOCAL DA5-V5 RUNTIME GUARD AND THE EXACT VALIDATION ARTIFACT REMAIN PRESERVED FOR THEIR RECORDED SCOPES — PHASE-0 RUNS 7–15 ARE CONSUMED FAIL-CLOSED HISTORY WITHOUT A PROVEN PRODUCT/APK/NFC/HARDWARE FINDING — RUN 14 OPERATOR-SESSION STOPPED AT `artifact:mismatch` BEFORE PREFLIGHT/ADB/INSTALLATION; RUN 15 STOPPED AT `installation:adb_stdin_pipe_abort_mismatch` BEFORE `installed_provenance` OR ANY UI/NFC/TAG STEP; BOTH ENDED WITH `cleanup:match` — HISTORICAL PREDECESSOR `352b2d1`/TREE `d27432b`, CI `30547584412` AND ITS ONE-P3 `CHANGES REQUIRED` REVIEW REMAIN HISTORY — PUBLISHED SIX-PATH `DA5-V5-INSTALL-SESSION-01` CORRECTION `4067f62`/TREE `10629b8` PASSED EXACT-HEAD V4 `30552233999`, ATTEMPT 1, 12/12 WITHOUT RETRY; FINAL INDEPENDENT EXACT-HEAD/V4 REVIEW IS `APPROVED` WITH ZERO P0–P3 — THE CORRECTION IS TECHNICALLY CLOSED/`MERGE_READY` BUT NOT HUMAN-RUN-READY — THE OPERATOR REMAINS DO NOT START/NO RUN AUTHORITY — FIFTEEN PHASE-0 AUTHORITIES ARE CONSUMED; PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, SYSTEM CHANGES, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
 DA5 decision-time Option-A trust anchor: exactly two direct admin-group members, zero nested
 groups; full-record SHA-256 `b006276c09d8f2713f6132ea79cec167ab3a3c2887ee53e95eb00c1cc33719a5`;
 membership SHA-256 `70a683b7ebc7981533015d5d63cf12dfb2eabbfa665c34720eddb4d09e9e3064`;
@@ -305,9 +305,19 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   because it named the wrong absolute `jq` path; with `/usr/bin/jq`, the first actual verifier run
   passed and no green stage was repeated. C3B `verify-bin`, unchanged Validation APK/manifest
   verification and an Expo Android export of 861 modules passed. Ports `55439`/`55435` were clear,
-  task/Guard cleanup matched and the Safe Root was recoverably moved to Trash. Independent
-  Exact-Delta review, publication/new V4 CI and final review remain pending. The Operator remains
-  **DO NOT START**; no new Phase-0, ADB, installation or hardware authority exists.
+  task/Guard cleanup matched and the Safe Root was recoverably moved to Trash. The exact six-path
+  implementation diff SHA-256
+  `e11b9a0a7aaad54c7416d680feffdbdefce793d298e320a70dd5868c96d99927` was published as
+  `4067f629f12ee0fa2994de0e4b64946924dc5e6f`, tree
+  `10629b848a7ad6435a2f9683d6f700d327d28f8d`, on parent
+  `352b2d164bf4c8f0703fe50ef7746c7cbcfa9ab0`. Exact-head push V4
+  `30552233999`, attempt 1, passed 12/12 without retry. Final independent Exact-Head/V4 review
+  returned `APPROVED` with zero P0–P3; the correction is technically closed and `MERGE_READY`,
+  but not Human-run-ready. Historical CI `30547584412` remains predecessor history. This
+  four-document closure sync is R0: executable/test blobs remain byte-identical to `4067f62`,
+  V3/V4 carry forward, and a second CI is neither required nor authorized. The closure-sync
+  commit/tree remain pending and unclaimed. The Operator remains **DO NOT START**; no new
+  Phase-0, Human-run, ADB, installation or hardware authority exists.
 
   The focused local Run-10 diagnostic correction preserves all stages, aggregates, mutation,
   cleanup and terminal semantics. A pre-install device re-attestation mismatch now stays
@@ -1423,12 +1433,12 @@ Two Epics are concurrently Active, per EP-009's own stated relationship to the r
    Preserve final Run-12 diagnostic/Guard correction `3a776038`, tree `3996b4c`, exact-head CI
    `30479752844`, attempt 1, 12/12 and both independent zero-finding reviews as technically closed
    and **DO NOT START**.
-   Treat published `DA5-V5-INSTALL-SESSION-01` candidate `352b2d1`/tree `d27432b` as not closed.
-   Historical exact-head CI `30547584412`, attempt 1, remains 12/12 green, but final Exact-Head
-   review returned `CHANGES REQUIRED` with exactly one P3 diagnostic-category finding. The
-   authorized uncommitted six-path correction is locally V1/V2 and final V3 green; independent
-   Exact-Delta review, publication/new V4 CI and final review remain pending, and it grants no run
-   authority.
+   Preserve `352b2d1`/tree `d27432b`, historical CI `30547584412` and its one-P3
+   `CHANGES REQUIRED` review as predecessor history. Treat published six-path correction
+   `4067f62`/tree `10629b8`, exact-head V4 `30552233999` attempt 1 12/12 and final independent
+   zero-finding `APPROVED` review as technically closed/`MERGE_READY`, but not Human-run-ready.
+   This R0 closure sync carries V3/V4, requires and authorizes no second CI, and grants no run
+   authority; its own commit/tree remain pending and unclaimed.
    Do not begin another Phase 0 without binding this independently
    approved exact replacement artifact in a
    fresh explicit

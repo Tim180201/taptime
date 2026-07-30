@@ -1,6 +1,6 @@
 # Development Assignment 5 — V5 Human Android Gate Runbook
 
-- Status: **PHASE-0 RUNS 7–15 ARE CONSUMED FAIL-CLOSED HISTORY WITHOUT A PROVEN PRODUCT/APK/NFC/HARDWARE FINDING — RUN 14 OPERATOR-SESSION STOPPED AT `artifact:mismatch` BEFORE PREFLIGHT/ADB/INSTALLATION; RUN 15 STOPPED AT `installation:adb_stdin_pipe_abort_mismatch`; BOTH ENDED WITH `cleanup:match` — PUBLISHED `DA5-V5-INSTALL-SESSION-01` CANDIDATE `352b2d1`/TREE `d27432b` PASSED HISTORICAL EXACT-HEAD CI `30547584412`, ATTEMPT 1, 12/12, BUT FINAL EXACT-HEAD REVIEW RETURNED `CHANGES REQUIRED` WITH EXACTLY ONE P3 DIAGNOSTIC-CATEGORY FINDING; THE CANDIDATE IS NOT CLOSED — THE AUTHORIZED UNCOMMITTED SIX-PATH CORRECTION IS LOCALLY V1/V2 AND FINAL V3 GREEN; INDEPENDENT EXACT-DELTA REVIEW, PUBLICATION/NEW V4 CI AND FINAL REVIEW ARE PENDING — FIFTEEN PHASE-0 AUTHORITIES CONSUMED — NO RUN AUTHORITY/DO NOT START**
+- Status: **PHASE-0 RUNS 7–15 ARE CONSUMED FAIL-CLOSED HISTORY WITHOUT A PROVEN PRODUCT/APK/NFC/HARDWARE FINDING — RUN 14 OPERATOR-SESSION STOPPED AT `artifact:mismatch` BEFORE PREFLIGHT/ADB/INSTALLATION; RUN 15 STOPPED AT `installation:adb_stdin_pipe_abort_mismatch`; BOTH ENDED WITH `cleanup:match` — HISTORICAL PREDECESSOR `352b2d1`/TREE `d27432b`, CI `30547584412` AND ITS ONE-P3 `CHANGES REQUIRED` REVIEW REMAIN HISTORY — PUBLISHED SIX-PATH `DA5-V5-INSTALL-SESSION-01` CORRECTION `4067f62`/TREE `10629b8` PASSED EXACT-HEAD V4 `30552233999`, ATTEMPT 1, 12/12 WITHOUT RETRY; FINAL INDEPENDENT EXACT-HEAD/V4 REVIEW IS `APPROVED` WITH ZERO P0–P3 — TECHNICALLY CLOSED/`MERGE_READY`, NOT HUMAN-RUN-READY — FIFTEEN PHASE-0 AUTHORITIES CONSUMED — NO RUN AUTHORITY/DO NOT START**
 - Date: 2026-07-30
 - Owner: Technical Lead
 - Approval authority for any run: Human Architect
@@ -262,9 +262,18 @@ was repeated. The artifact-verifier wrapper stopped before the verifier because 
 wrong absolute `jq` path; with `/usr/bin/jq`, the first actual verifier run passed and no green
 stage was repeated. C3B `verify-bin`, unchanged Validation APK/manifest verification and an Expo
 Android export of 861 modules passed. Ports `55439`/`55435` were clear, task/Guard cleanup matched
-and the Safe Root was recoverably moved to Trash. Independent Exact-Delta review, publication/new
-V4 CI and final review remain pending. It grants no new Phase-0, ADB, installation or hardware
-authority and remains **DO NOT START**.
+and the Safe Root was recoverably moved to Trash. The exact six-path implementation diff SHA-256
+`e11b9a0a7aaad54c7416d680feffdbdefce793d298e320a70dd5868c96d99927` was published as
+`4067f629f12ee0fa2994de0e4b64946924dc5e6f`, tree
+`10629b848a7ad6435a2f9683d6f700d327d28f8d`, on parent
+`352b2d164bf4c8f0703fe50ef7746c7cbcfa9ab0`. Exact-head push V4 `30552233999`, attempt 1,
+passed 12/12 without retry. Final independent Exact-Head/V4 review returned `APPROVED` with zero
+P0–P3; the correction is technically closed and `MERGE_READY`, but not Human-run-ready.
+Historical CI `30547584412` remains predecessor history. This four-document closure sync is R0:
+executable/test blobs remain byte-identical to `4067f62`, V3/V4 carry forward, and a second CI is
+neither required nor authorized. The closure-sync commit/tree remain pending and unclaimed. It
+grants no new Phase-0, Human-run, ADB, installation or hardware authority and remains **DO NOT
+START**.
 
 The focused local Run-10 diagnostic correction preserves every stage, aggregate receipt,
 mutation, cleanup and terminal boundary. A pre-install device re-attestation mismatch remains
