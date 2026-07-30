@@ -1,6 +1,6 @@
 # Development Assignment 5 — V5 Human Android Gate Runbook
 
-- Status: **PHASE-0 RUNS 7–15 ARE CONSUMED FAIL-CLOSED HISTORY WITHOUT A PROVEN PRODUCT/APK/NFC/HARDWARE FINDING — RUN 14 OPERATOR-SESSION STOPPED AT `artifact:mismatch` BEFORE PREFLIGHT/ADB/INSTALLATION; RUN 15 STOPPED AT `installation:adb_stdin_pipe_abort_mismatch`; BOTH ENDED WITH `cleanup:match` — CONFIRMED `DA5-V5-INSTALL-SESSION-01` IS LOCALLY V1/V2/V3 GREEN; PREPUBLICATION REVIEW RETURNED `CHANGES REQUIRED` SOLELY FOR THE P3 ADO SYNC AND NO CODE/SECURITY/TENANT/SESSION/CLEANUP FINDING; THIS R0 SYNC IS THE CORRECTION — EXACT-HEAD CI AND FINAL EXACT-SHA REVIEW REMAIN PENDING — FIFTEEN PHASE-0 AUTHORITIES CONSUMED — NO RUN AUTHORITY/DO NOT START**
+- Status: **PHASE-0 RUNS 7–15 ARE CONSUMED FAIL-CLOSED HISTORY WITHOUT A PROVEN PRODUCT/APK/NFC/HARDWARE FINDING — RUN 14 OPERATOR-SESSION STOPPED AT `artifact:mismatch` BEFORE PREFLIGHT/ADB/INSTALLATION; RUN 15 STOPPED AT `installation:adb_stdin_pipe_abort_mismatch`; BOTH ENDED WITH `cleanup:match` — PUBLISHED `DA5-V5-INSTALL-SESSION-01` CANDIDATE `352b2d1`/TREE `d27432b` PASSED HISTORICAL EXACT-HEAD CI `30547584412`, ATTEMPT 1, 12/12, BUT FINAL EXACT-HEAD REVIEW RETURNED `CHANGES REQUIRED` WITH EXACTLY ONE P3 DIAGNOSTIC-CATEGORY FINDING; THE CANDIDATE IS NOT CLOSED — THE AUTHORIZED UNCOMMITTED SIX-PATH CORRECTION IS LOCALLY V1/V2 AND FINAL V3 GREEN; INDEPENDENT EXACT-DELTA REVIEW, PUBLICATION/NEW V4 CI AND FINAL REVIEW ARE PENDING — FIFTEEN PHASE-0 AUTHORITIES CONSUMED — NO RUN AUTHORITY/DO NOT START**
 - Date: 2026-07-30
 - Owner: Technical Lead
 - Approval authority for any run: Human Architect
@@ -237,9 +237,34 @@ Validation APK/manifest verifier and an Expo Android export of 861 modules passe
 `55439`/`55435` were absent and Guard/task cleanup matched. Prepublication review returned
 `CHANGES REQUIRED` with exactly one P3 against the stale ADO V3 binding and no code, test,
 security, tenant-isolation, install-session or cleanup finding. This four-file R0 sync is the
-correction. The candidate remains uncommitted; Exact-Head V4 CI and final independent Exact-SHA
-review remain pending and no candidate commit, tree or CI result is claimed. It grants no new
-Phase-0, ADB, installation or hardware authority and remains **DO NOT START**.
+historical correction. It and the candidate were published as
+`352b2d164bf4c8f0703fe50ef7746c7cbcfa9ab0`, tree
+`d27432bc6c934a83842c8ca661723f4dd15aaf5b`. Exact-head CI `30547584412`,
+attempt 1, passed 12/12 and remains historical green evidence for that exact source. Final
+Exact-Head review nevertheless returned `CHANGES REQUIRED` with exactly one P3: after a
+successful `install-create` or `install-write`, device re-attestation drift still inherited
+`adb_child_transport_mismatch` before the next PackageManager mutation. The published candidate
+is not closed, and that CI remains predecessor-only evidence. This authorized focused additional
+round keeps both re-attestation boundaries at `verification_mismatch` and switches to
+`adb_child_transport_mismatch` only immediately before `install-write` or `install-commit`.
+Focused V1/V2 passes the changed MJS syntax check, the complete Operator file at 171/171 and the
+tests-inclusive Mobile typecheck with the changed test source included. The only new final V3 is
+complete for the uncommitted six-path candidate on baseline
+`352b2d164bf4c8f0703fe50ef7746c7cbcfa9ab0`, tree
+`d27432bc6c934a83842c8ca661723f4dd15aaf5b`; its pre-sync diff SHA-256
+`d5c99d072415198e28c6fd2bf97d4b81869ed6fcff5a759606ba6bd56b415683` remained exact
+throughout V3. A research-free sparse Safe Root with a narrow ADB-free `PATH` passed `npm ci`,
+20/20 builds, 21/21 tests-inclusive typechecks, Mobile source inclusion 53/53, migrations 001–013
+apply/replay/ledger and 21/21 workspace suites across 150 test files with 2,560 passed and exactly
+two expected B1 skips; Mobile passed 53/53 files and 908 tests. The protection check first stopped
+before `npm ci` because global `adb` was visible; narrowing `PATH` meant no V3 gate had started or
+was repeated. The artifact-verifier wrapper stopped before the verifier because it named the
+wrong absolute `jq` path; with `/usr/bin/jq`, the first actual verifier run passed and no green
+stage was repeated. C3B `verify-bin`, unchanged Validation APK/manifest verification and an Expo
+Android export of 861 modules passed. Ports `55439`/`55435` were clear, task/Guard cleanup matched
+and the Safe Root was recoverably moved to Trash. Independent Exact-Delta review, publication/new
+V4 CI and final review remain pending. It grants no new Phase-0, ADB, installation or hardware
+authority and remains **DO NOT START**.
 
 The focused local Run-10 diagnostic correction preserves every stage, aggregate receipt,
 mutation, cleanup and terminal boundary. A pre-install device re-attestation mismatch remains

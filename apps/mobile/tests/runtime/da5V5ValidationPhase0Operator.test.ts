@@ -1164,6 +1164,81 @@ describe('DA5 V5 Validation device and protocol boundary', () => {
 
   it.each([
     [
+      'install-create',
+      'SECRET_POST_CREATE_PROFILE',
+      (runner: FakeRunner, output: string) => {
+        runner.userListOutputAfterCreate = output;
+      },
+      ['install-create', 'install-abandon'],
+      ['install-write', 'install-commit'],
+    ],
+    [
+      'install-write',
+      'SECRET_POST_WRITE_PROFILE',
+      (runner: FakeRunner, output: string) => {
+        runner.userListOutputAfterWrite = output;
+      },
+      ['install-create', 'install-write', 'install-abandon'],
+      ['install-commit'],
+    ],
+  ] as const)(
+    'keeps post-%s re-attestation drift verification-only and abandons once',
+    async (
+      _boundary,
+      secret,
+      armDrift,
+      expectedMutations,
+      forbiddenCommands,
+    ) => {
+      const runner = new FakeRunner();
+      const receipts: string[] = [];
+      armDrift(
+        runner,
+        'Users:\n\tUserInfo{0:Owner:c13} running\n'
+          + `\tUserInfo{10:${secret}:30} running\n`,
+      );
+      const session = createSession(runner, {
+        receipt(
+          receiptStage: string,
+          status: 'match' | 'mismatch',
+          receiptCategory?: DiagnosticCategory,
+        ) {
+          receipts.push(
+            `${receiptStage}:${status}:${receiptCategory ?? 'none'}`,
+          );
+        },
+      });
+
+      await session.start();
+      await session.submit('install-launch');
+      await expect(session.done).resolves.toEqual({
+        status: 'mismatch',
+      });
+
+      expect(runner.mutations).toEqual(expectedMutations);
+      expect(runner.abandonCount).toBe(1);
+      expect(runner.forceStopCount).toBe(0);
+      expect(runner.uninstallCount).toBe(0);
+      for (const command of forbiddenCommands) {
+        expect(runner.calls.some((call) =>
+          call.arguments_.includes(command))).toBe(false);
+      }
+      expect(receipts).toEqual([
+        'artifact:match:none',
+        'preflight:match:none',
+        'installation:mismatch:verification_mismatch',
+        'install_launch:mismatch:none',
+        'cleanup:match:none',
+        'failed:mismatch:none',
+      ]);
+      expect(receipts.join('\n')).not.toContain(secret);
+      expect(receipts.join('\n')).not.toContain(runner.serial);
+      expect(receipts.join('\n')).not.toContain('[42]');
+    },
+  );
+
+  it.each([
+    [
       'ADB/child transport',
       'installation',
       'adb_child_transport_mismatch',
@@ -2319,6 +2394,8 @@ class FakeRunner {
   packagePath: string | null = null;
   versionCode = '1';
   userListOutput = 'Users:\n\tUserInfo{0:Owner:c13} running\n';
+  userListOutputAfterCreate?: string;
+  userListOutputAfterWrite?: string;
   mainUser = '0';
   currentUser = '0';
   headlessSystemUserMode = 'false';
@@ -2379,6 +2456,7 @@ class FakeRunner {
   private installedProofPathReads = 0;
   private statReads = 0;
   private cleanupStarted = false;
+  private nextUserListOutput?: string;
   clock = 0;
   runDurationMilliseconds = 0;
   private resolveInstallStarted!: () => void;
@@ -2474,7 +2552,9 @@ class FakeRunner {
       return `${build}\n`;
     }
     if (command.endsWith('shell cmd user list --all')) {
-      return this.userListOutput;
+      const output = this.nextUserListOutput ?? this.userListOutput;
+      this.nextUserListOutput = undefined;
+      return output;
     }
     if (command.endsWith('shell cmd user get-main-user')) {
       return `${this.mainUser}\n`;
@@ -2568,6 +2648,7 @@ class FakeRunner {
       if (this.createReject) {
         throw new Error('SECRET CREATE TRANSPORT DETAIL');
       }
+      this.nextUserListOutput = this.userListOutputAfterCreate;
       return `${this.createResult}\n`;
     }
     if (command.includes('cmd package install-write')) {
@@ -2594,6 +2675,7 @@ class FakeRunner {
       if (this.installFailureLeavesPackage) {
         this.packagePath = validPath;
       }
+      this.nextUserListOutput = this.userListOutputAfterWrite;
       return `${this.installResult}\n`;
     }
     if (command.includes('cmd package install-commit')) {

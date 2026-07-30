@@ -715,11 +715,16 @@ export class Da5V5ValidationPhase0Device {
       this.#installSessionId = createReceipt.sessionId;
       this.#installSessionState = 'pending';
 
+      diagnosticCategory =
+        DA5_V5_VALIDATION_PHASE0_ERROR_CATEGORIES.verificationMismatch;
       const writeSerial =
         await this.#requireCurrentDevice(options.signal);
       if (writeSerial !== installSerial) {
         throw new Error('DA5 V5 Validation write device mismatch');
       }
+      diagnosticCategory =
+        DA5_V5_VALIDATION_PHASE0_ERROR_CATEGORIES
+          .adbChildTransportMismatch;
       const installOutcome = await this.snapshot.use((snapshot) =>
         this.installStreamRunner.write(
           [
@@ -780,11 +785,16 @@ export class Da5V5ValidationPhase0Device {
         throw new Error('DA5 V5 Validation package write mismatch');
       }
 
+      diagnosticCategory =
+        DA5_V5_VALIDATION_PHASE0_ERROR_CATEGORIES.verificationMismatch;
       const commitSerial =
         await this.#requireCurrentDevice(options.signal);
       if (commitSerial !== installSerial) {
         throw new Error('DA5 V5 Validation commit device mismatch');
       }
+      diagnosticCategory =
+        DA5_V5_VALIDATION_PHASE0_ERROR_CATEGORIES
+          .adbChildTransportMismatch;
       const commitCategory = classifyPackageManagerInstallReceipt(
         await this.runner.run(
           [

@@ -1,6 +1,6 @@
 # Project Status
 
-Status: CORE ROADMAP V2 COMPLETIONS REMAIN PRESERVED FOR THEIR RECORDED SCOPES — DA4 REMAINS OPEN FOR A LATER FRESH HUMAN V5 — DA5 V0–V4, THE LOCAL DA5-V5 RUNTIME GUARD AND THE EXACT VALIDATION ARTIFACT REMAIN PRESERVED FOR THEIR RECORDED SCOPES — PHASE-0 RUNS 7–15 ARE CONSUMED FAIL-CLOSED HISTORY WITHOUT A PROVEN PRODUCT/APK/NFC/HARDWARE FINDING — RUN 14 OPERATOR-SESSION STOPPED AT `artifact:mismatch` BEFORE PREFLIGHT/ADB/INSTALLATION; RUN 15 STOPPED AT `installation:adb_stdin_pipe_abort_mismatch` BEFORE `installed_provenance` OR ANY UI/NFC/TAG STEP; BOTH ENDED WITH `cleanup:match` — CONFIRMED `DA5-V5-INSTALL-SESSION-01` IS LOCALLY V1/V2/V3 GREEN; PREPUBLICATION REVIEW RETURNED `CHANGES REQUIRED` SOLELY FOR THE P3 ADO SYNC AND NO CODE/SECURITY/TENANT/SESSION/CLEANUP FINDING; THIS R0 SYNC IS THE CORRECTION — EXACT-HEAD CI AND FINAL EXACT-SHA REVIEW REMAIN PENDING — THE OPERATOR REMAINS DO NOT START/NO RUN AUTHORITY — FIFTEEN PHASE-0 AUTHORITIES ARE CONSUMED; PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, SYSTEM CHANGES, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
+Status: CORE ROADMAP V2 COMPLETIONS REMAIN PRESERVED FOR THEIR RECORDED SCOPES — DA4 REMAINS OPEN FOR A LATER FRESH HUMAN V5 — DA5 V0–V4, THE LOCAL DA5-V5 RUNTIME GUARD AND THE EXACT VALIDATION ARTIFACT REMAIN PRESERVED FOR THEIR RECORDED SCOPES — PHASE-0 RUNS 7–15 ARE CONSUMED FAIL-CLOSED HISTORY WITHOUT A PROVEN PRODUCT/APK/NFC/HARDWARE FINDING — RUN 14 OPERATOR-SESSION STOPPED AT `artifact:mismatch` BEFORE PREFLIGHT/ADB/INSTALLATION; RUN 15 STOPPED AT `installation:adb_stdin_pipe_abort_mismatch` BEFORE `installed_provenance` OR ANY UI/NFC/TAG STEP; BOTH ENDED WITH `cleanup:match` — PUBLISHED `DA5-V5-INSTALL-SESSION-01` CANDIDATE `352b2d1`/TREE `d27432b` PASSED HISTORICAL EXACT-HEAD CI `30547584412`, ATTEMPT 1, 12/12, BUT FINAL EXACT-HEAD REVIEW RETURNED `CHANGES REQUIRED` WITH EXACTLY ONE P3 DIAGNOSTIC-CATEGORY FINDING; THE CANDIDATE IS NOT CLOSED — THE AUTHORIZED UNCOMMITTED SIX-PATH CORRECTION IS LOCALLY V1/V2 AND FINAL V3 GREEN; INDEPENDENT EXACT-DELTA REVIEW, PUBLICATION/NEW V4 CI AND FINAL REVIEW ARE PENDING — THE OPERATOR REMAINS DO NOT START/NO RUN AUTHORITY — FIFTEEN PHASE-0 AUTHORITIES ARE CONSUMED; PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, SYSTEM CHANGES, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
 DA5 decision-time Option-A trust anchor: exactly two direct admin-group members, zero nested
 groups; full-record SHA-256 `b006276c09d8f2713f6132ea79cec167ab3a3c2887ee53e95eb00c1cc33719a5`;
 membership SHA-256 `70a683b7ebc7981533015d5d63cf12dfb2eabbfa665c34720eddb4d09e9e3064`;
@@ -280,10 +280,34 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   861 modules passed; ports `55439`/`55435` were absent and Guard/task cleanup matched.
   Prepublication review returned `CHANGES REQUIRED` with exactly one P3 against the stale ADO
   V3 binding and no code, test, security, tenant-isolation, install-session or cleanup finding.
-  This four-file R0 sync is the correction. The candidate remains uncommitted; Exact-Head V4 CI
-  and final independent Exact-SHA review remain pending and no candidate commit, tree or CI result
-  is claimed. The Operator remains **DO NOT START**; no new Phase-0, ADB, installation or hardware
-  authority exists.
+  That four-file R0 synchronization and the candidate were published as
+  `352b2d164bf4c8f0703fe50ef7746c7cbcfa9ab0`, tree
+  `d27432bc6c934a83842c8ca661723f4dd15aaf5b`. Exact-head CI `30547584412`,
+  attempt 1, passed 12/12 and remains historical green evidence for that exact source. Final
+  Exact-Head review nevertheless returned `CHANGES REQUIRED` with exactly one P3: after a
+  successful `install-create` or `install-write`, device re-attestation drift still inherited
+  `adb_child_transport_mismatch` before the next PackageManager mutation. The published candidate
+  is not closed, and that CI remains predecessor-only evidence. This authorized focused additional
+  round keeps both re-attestation boundaries at `verification_mismatch` and switches to
+  `adb_child_transport_mismatch` only immediately before `install-write` or `install-commit`.
+  Focused V1/V2 passes the changed MJS syntax check, the complete Operator file at 171/171 and the
+  tests-inclusive Mobile typecheck with the changed test source included. The only new final V3
+  is complete for the uncommitted six-path candidate on baseline
+  `352b2d164bf4c8f0703fe50ef7746c7cbcfa9ab0`, tree
+  `d27432bc6c934a83842c8ca661723f4dd15aaf5b`; its pre-sync diff SHA-256
+  `d5c99d072415198e28c6fd2bf97d4b81869ed6fcff5a759606ba6bd56b415683` remained exact
+  throughout V3. A research-free sparse Safe Root with a narrow ADB-free `PATH` passed `npm ci`,
+  20/20 builds, 21/21 tests-inclusive typechecks, Mobile source inclusion 53/53, migrations
+  001–013 apply/replay/ledger and 21/21 workspace suites across 150 test files with 2,560 passed
+  and exactly two expected B1 skips; Mobile passed 53/53 files and 908 tests. The protection check
+  first stopped before `npm ci` because global `adb` was visible; narrowing `PATH` meant no V3
+  gate had started or was repeated. The artifact-verifier wrapper stopped before the verifier
+  because it named the wrong absolute `jq` path; with `/usr/bin/jq`, the first actual verifier run
+  passed and no green stage was repeated. C3B `verify-bin`, unchanged Validation APK/manifest
+  verification and an Expo Android export of 861 modules passed. Ports `55439`/`55435` were clear,
+  task/Guard cleanup matched and the Safe Root was recoverably moved to Trash. Independent
+  Exact-Delta review, publication/new V4 CI and final review remain pending. The Operator remains
+  **DO NOT START**; no new Phase-0, ADB, installation or hardware authority exists.
 
   The focused local Run-10 diagnostic correction preserves all stages, aggregates, mutation,
   cleanup and terminal semantics. A pre-install device re-attestation mismatch now stays
@@ -1399,10 +1423,12 @@ Two Epics are concurrently Active, per EP-009's own stated relationship to the r
    Preserve final Run-12 diagnostic/Guard correction `3a776038`, tree `3996b4c`, exact-head CI
    `30479752844`, attempt 1, 12/12 and both independent zero-finding reviews as technically closed
    and **DO NOT START**.
-   Treat the focused uncommitted `DA5-V5-INSTALL-SESSION-01` candidate as locally V1/V2/V3 green.
-   Its prepublication review returned `CHANGES REQUIRED` solely for the P3 ADO sync and no code
-   finding; this R0 sync is the correction. Exact-Head V4 CI and final independent Exact-SHA
-   review remain pending, and it grants no run authority.
+   Treat published `DA5-V5-INSTALL-SESSION-01` candidate `352b2d1`/tree `d27432b` as not closed.
+   Historical exact-head CI `30547584412`, attempt 1, remains 12/12 green, but final Exact-Head
+   review returned `CHANGES REQUIRED` with exactly one P3 diagnostic-category finding. The
+   authorized uncommitted six-path correction is locally V1/V2 and final V3 green; independent
+   Exact-Delta review, publication/new V4 CI and final review remain pending, and it grants no run
+   authority.
    Do not begin another Phase 0 without binding this independently
    approved exact replacement artifact in a
    fresh explicit
