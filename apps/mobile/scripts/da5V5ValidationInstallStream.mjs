@@ -29,12 +29,12 @@ export class SystemDa5V5ValidationInstallStreamRunner {
     });
   }
 
-  install(arguments_, options = {}) {
-    return runInstallStream(arguments_, options, this.dependencies);
+  write(arguments_, options = {}) {
+    return runInstallWriteStream(arguments_, options, this.dependencies);
   }
 }
 
-function runInstallStream(arguments_, options, dependencies) {
+function runInstallWriteStream(arguments_, options, dependencies) {
   return new Promise((resolvePromise) => {
     const mismatch = (
       category,
@@ -227,19 +227,14 @@ function runInstallStream(arguments_, options, dependencies) {
       if (!stdinFinished && !stdinPipeAborted) {
         return;
       }
-      if (stdinPipeAborted && offset < stdinBytes.length) {
-        finish(mismatch(
-          DA5_V5_VALIDATION_INSTALL_STREAM_ERROR_CATEGORIES
-            .stdinPipeAbortMismatch,
-          true,
-          true,
-        ));
-        return;
-      }
       finish(Object.freeze({
         status: 'match',
         stdinTerminal: stdinPipeAborted
-          ? 'all_bytes_submitted_then_pipe_closed'
+          ? (
+              offset === stdinBytes.length
+                ? 'all_bytes_submitted_then_pipe_closed'
+                : 'partial_then_pipe_closed'
+            )
           : 'finished',
         stdout,
       }));

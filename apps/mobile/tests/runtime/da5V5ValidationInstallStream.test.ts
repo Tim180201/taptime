@@ -12,7 +12,7 @@ import {
   SystemDa5V5ValidationInstallStreamRunner,
 } from '../../scripts/da5V5ValidationInstallStream.mjs';
 
-const installArguments = [
+const installWriteArguments = [
   '-s',
   'SAFE-SERIAL',
   'shell',
@@ -20,14 +20,11 @@ const installArguments = [
   '-x',
   'cmd',
   'package',
-  'install',
-  '-R',
-  '--user',
-  '0',
-  '--pkg',
-  'com.tim180201.mobile.validation',
+  'install-write',
   '-S',
   '262144',
+  '42',
+  'base.apk',
   '-',
 ] as const;
 const childEnvironment = Object.freeze({
@@ -43,7 +40,7 @@ describe('DA5 V5 Validation package install stream terminal evidence', () => {
       }) as unknown as typeof spawn,
     });
 
-    await expect(runner.install(installArguments, {
+    await expect(runner.write(installWriteArguments, {
       stdinBytes: Buffer.from('complete'),
       timeoutMilliseconds: 2_000,
     })).resolves.toEqual({
@@ -64,18 +61,20 @@ describe('DA5 V5 Validation package install stream terminal evidence', () => {
       });
       process.stdin.on('end', () => {
         process.stdout.write(
-          bytes === 262144 ? 'Success\\n' : 'Failure [size]\\n',
+          bytes === 262144
+            ? 'Success: streamed 262144 bytes\\n'
+            : 'Failure [size]\\n',
         );
       });
     `);
 
-    await expect(runner.install(installArguments, {
+    await expect(runner.write(installWriteArguments, {
       stdinBytes: Buffer.alloc(262_144, 0x41),
       timeoutMilliseconds: 2_000,
     })).resolves.toEqual({
       status: 'match',
       stdinTerminal: 'finished',
-      stdout: 'Success\n',
+      stdout: 'Success: streamed 262144 bytes\n',
     });
   });
 
@@ -84,32 +83,54 @@ describe('DA5 V5 Validation package install stream terminal evidence', () => {
       const { closeSync } = require('node:fs');
       closeSync(0);
       setTimeout(() => {
-        process.stdout.write('Success\\n', () => process.exit(0));
+        process.stdout.write(
+          'Success: streamed 262144 bytes\\n',
+          () => process.exit(0),
+        );
       }, 40);
     `;
     const input = Buffer.alloc(8 * 1024 * 1024, 0x42);
     const runner = createRunner(childSource);
 
-    await expect(runner.install(installArguments, {
+    await expect(runner.write(installWriteArguments, {
       stdinBytes: input,
       timeoutMilliseconds: 2_000,
     })).resolves.toEqual({
-      category:
-        DA5_V5_VALIDATION_INSTALL_STREAM_ERROR_CATEGORIES
-          .stdinPipeAbortMismatch,
-      childTerminal: true,
-      status: 'mismatch',
-      stdoutTerminal: true,
+      status: 'match',
+      stdinTerminal: 'partial_then_pipe_closed',
+      stdout: 'Success: streamed 262144 bytes\n',
     });
 
     const oldRunner = new SystemDa5V5AndroidAdbRunner({
       environment: childEnvironment,
       spawn: spawnNodeChild(childSource),
     });
-    await expect(oldRunner.run(installArguments, {
+    await expect(oldRunner.run(installWriteArguments, {
       stdinBytes: Buffer.from(input),
       timeoutMilliseconds: 5_000,
     })).rejects.toThrow('DA5 V5 Android device input failed');
+  });
+
+  it('preserves a terminal Failure receipt after a partial EPIPE for the strict parser boundary', async () => {
+    const runner = createRunner(`
+      const { closeSync } = require('node:fs');
+      closeSync(0);
+      setTimeout(() => {
+        process.stdout.write(
+          'Failure [INSTALL_FAILED_INVALID_APK: bounded]\\n',
+          () => process.exit(0),
+        );
+      }, 40);
+    `);
+
+    await expect(runner.write(installWriteArguments, {
+      stdinBytes: Buffer.alloc(8 * 1024 * 1024, 0x43),
+      timeoutMilliseconds: 2_000,
+    })).resolves.toEqual({
+      status: 'match',
+      stdinTerminal: 'partial_then_pipe_closed',
+      stdout: 'Failure [INSTALL_FAILED_INVALID_APK: bounded]\n',
+    });
   });
 
   it('passes a terminal PackageManager Failure after a fully submitted EPIPE only to the strict parser boundary', async () => {
@@ -124,7 +145,7 @@ describe('DA5 V5 Validation package install stream terminal evidence', () => {
       }, 40);
     `);
 
-    await expect(runner.install(installArguments, {
+    await expect(runner.write(installWriteArguments, {
       stdinBytes: Buffer.alloc(1024 * 1024, 0x43),
       timeoutMilliseconds: 2_000,
     })).resolves.toEqual({
@@ -144,7 +165,7 @@ describe('DA5 V5 Validation package install stream terminal evidence', () => {
       });
     `);
 
-    const result = await runner.install(installArguments, {
+    const result = await runner.write(installWriteArguments, {
       stdinBytes: Buffer.from('complete'),
       timeoutMilliseconds: 200,
     });
@@ -167,7 +188,7 @@ describe('DA5 V5 Validation package install stream terminal evidence', () => {
       spawn: (() => child) as unknown as typeof spawn,
     });
     let settled = false;
-    const outcome = runner.install(installArguments, {
+    const outcome = runner.write(installWriteArguments, {
       stdinBytes: Buffer.from('complete'),
       timeoutMilliseconds: 2_000,
     }).then((value) => {
@@ -177,7 +198,7 @@ describe('DA5 V5 Validation package install stream terminal evidence', () => {
 
     await new Promise<void>((resolvePromise) => {
       setImmediate(() => {
-        stdout.write('Success\n');
+        stdout.write('Success: streamed 262144 bytes\n');
         child.emit('close', 0, null);
         child.emit('close', 0, null);
         resolvePromise();
@@ -195,7 +216,7 @@ describe('DA5 V5 Validation package install stream terminal evidence', () => {
     await expect(outcome).resolves.toEqual({
       status: 'match',
       stdinTerminal: 'finished',
-      stdout: 'Success\n',
+      stdout: 'Success: streamed 262144 bytes\n',
     });
   });
 
@@ -206,7 +227,7 @@ describe('DA5 V5 Validation package install stream terminal evidence', () => {
       setInterval(() => {}, 1000);
     `);
 
-    const result = await runner.install(installArguments, {
+    const result = await runner.write(installWriteArguments, {
       stdinBytes: Buffer.from('bounded'),
       timeoutMilliseconds: 250,
     });
@@ -225,13 +246,13 @@ describe('DA5 V5 Validation package install stream terminal evidence', () => {
     const runner = createRunner(`
       process.stdin.resume();
       process.stdin.on('end', () => {
-        process.stdout.write('Success\\n', () => {
+        process.stdout.write('Success: streamed 262144 bytes\\n', () => {
           process.exitCode = 17;
         });
       });
     `);
 
-    await expect(runner.install(installArguments, {
+    await expect(runner.write(installWriteArguments, {
       stdinBytes: Buffer.from('complete'),
       timeoutMilliseconds: 2_000,
     })).resolves.toEqual({
@@ -252,7 +273,7 @@ describe('DA5 V5 Validation package install stream terminal evidence', () => {
       });
     `);
 
-    await expect(runner.install(installArguments, {
+    await expect(runner.write(installWriteArguments, {
       stdinBytes: Buffer.from('complete'),
       timeoutMilliseconds: 2_000,
     })).resolves.toEqual({

@@ -1,13 +1,13 @@
 # Project Status
 
-Status: CORE ROADMAP V2 COMPLETIONS REMAIN PRESERVED FOR THEIR RECORDED SCOPES — DA4 REMAINS OPEN FOR A LATER FRESH HUMAN V5 — DA5 V0–V4, THE LOCAL DA5-V5 RUNTIME GUARD AND THE EXACT VALIDATION ARTIFACT REMAIN PRESERVED FOR THEIR RECORDED SCOPES — PHASE-0 RUNS 7–13 ARE CONSUMED FAIL-CLOSED HISTORY WITHOUT A PROVEN PRODUCT/APK/NFC/HARDWARE FINDING — RUN 13 ON BASELINE `63feaf48`, TREE `1d63595`, STOPPED AT `installation:adb_child_transport_mismatch` BEFORE `installed_provenance` OR ANY UI/NFC/TAG STEP AND ENDED WITH `cleanup:match` — RUN-13 CORRECTION `ac51dfd`/TREE `3d1f3dd`, EXACT-HEAD CI `30485438652` ATTEMPT 1 12/12 AND BOTH INDEPENDENT REVIEWS ARE APPROVED WITH ZERO OPEN P0–P3 — RUN-13 CORRECTION SCOPE IS TECHNICALLY CLOSED; THE OPERATOR REMAINS DO NOT START/NO RUN AUTHORITY — THIRTEEN PHASE-0 AUTHORITIES ARE CONSUMED; PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, SYSTEM CHANGES, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
+Status: CORE ROADMAP V2 COMPLETIONS REMAIN PRESERVED FOR THEIR RECORDED SCOPES — DA4 REMAINS OPEN FOR A LATER FRESH HUMAN V5 — DA5 V0–V4, THE LOCAL DA5-V5 RUNTIME GUARD AND THE EXACT VALIDATION ARTIFACT REMAIN PRESERVED FOR THEIR RECORDED SCOPES — PHASE-0 RUNS 7–15 ARE CONSUMED FAIL-CLOSED HISTORY WITHOUT A PROVEN PRODUCT/APK/NFC/HARDWARE FINDING — RUN 14 OPERATOR-SESSION STOPPED AT `artifact:mismatch` BEFORE PREFLIGHT/ADB/INSTALLATION; RUN 15 STOPPED AT `installation:adb_stdin_pipe_abort_mismatch` BEFORE `installed_provenance` OR ANY UI/NFC/TAG STEP; BOTH ENDED WITH `cleanup:match` — CONFIRMED `DA5-V5-INSTALL-SESSION-01` IS LOCALLY V1/V2/V3 GREEN; PREPUBLICATION REVIEW RETURNED `CHANGES REQUIRED` SOLELY FOR THE P3 ADO SYNC AND NO CODE/SECURITY/TENANT/SESSION/CLEANUP FINDING; THIS R0 SYNC IS THE CORRECTION — EXACT-HEAD CI AND FINAL EXACT-SHA REVIEW REMAIN PENDING — THE OPERATOR REMAINS DO NOT START/NO RUN AUTHORITY — FIFTEEN PHASE-0 AUTHORITIES ARE CONSUMED; PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, SYSTEM CHANGES, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED OR SEPARATELY GATED
 DA5 decision-time Option-A trust anchor: exactly two direct admin-group members, zero nested
 groups; full-record SHA-256 `b006276c09d8f2713f6132ea79cec167ab3a3c2887ee53e95eb00c1cc33719a5`;
 membership SHA-256 `70a683b7ebc7981533015d5d63cf12dfb2eabbfa665c34720eddb4d09e9e3064`;
 combined snapshot SHA-256 `2384b0baccd9049d820794f8ebc9419e4af0fad6831a5a91c209baa0b4a02217`.
 A later R3 run must reproduce all three and both counts before capability/task-root creation and
 every trust use; mismatch returns to the Human Architect and may not dynamically rebind.
-Date: 2026-07-29
+Date: 2026-07-30
 Owner: Human Architect + Technical Lead
 
 ## Product
@@ -20,7 +20,7 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   with zero open P0–P3 and remain DO NOT INSTALL; the Validation Phase-0 operator correction
   `083fdfb`, tree `24bd130`, exact-head CI `30402655381` attempt 1 12/12 and independent
   round-2 Exact-SHA review are approved with zero open P0–P3; both round-1 P1 findings are closed,
-  thirteen Phase-0 authorities are consumed, the operator remains DO NOT START, and any new Phase-0
+  fifteen Phase-0 authorities are consumed, the operator remains DO NOT START, and any new Phase-0
   authority remains separately gated.**
   Runtime Guard source
   `ba1b6e922ceb7902ecedd9dc2df01d6b22d90867`, tree
@@ -67,7 +67,7 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   artifact are now **HISTORICAL — DO NOT INSTALL** because the native-capture diagnostics
   correction changes the Validation source.
 
-  Thirteen separately authorized Phase-0 attempts are consumed without an attributable Tag result:
+  Fifteen separately authorized Phase-0 attempts are consumed without an attributable Tag result:
   run 1 stopped on
   a preinstalled Validation package; run 2 on the unsupported Samsung provider in the then-prior
   build; run 3 because the generic launcher/package resolver did not uniquely start the explicit
@@ -243,6 +243,47 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   Run-13 correction scope technically. This following closure synchronization is R0; its own
   `[skip ci]` commit and tree remain pending and are not claimed. No ADB, hardware or
   installation occurred and no run authority exists.
+
+  Run 14 used baseline `887801943064d686da40785d64cd1105431c44ac`, tree
+  `5c15f0fae9c14844b604addf1c38b3bd5203647e`. The Operator session started and emitted exactly
+  `artifact:mismatch`, `cleanup:match`, `failed:mismatch`. It stopped internally at artifact
+  verification before preflight, ADB or installation because the cleaned Operator environment did
+  not retain the exact Android SDK binding. No device/install mutation occurred and the authority
+  is consumed.
+
+  Run 15 used the same exact baseline after binding `ANDROID_HOME` and `ANDROID_SDK_ROOT` to the
+  already authorized SDK. Offline artifact verification matched, then the Operator emitted
+  `artifact:match`, `preflight:match`,
+  `stage=installation status=mismatch category=adb_stdin_pipe_abort_mismatch`,
+  `install_launch:mismatch`, `cleanup:match`, `failed:mismatch`. It emitted no
+  `installed_provenance` or `waiting` receipt and reached no Validation UI, NFC or Tag step. The
+  authority is consumed, cleanup matched and no Product, APK, NFC or hardware finding is established.
+
+  Confirmed `DA5-V5-INSTALL-SESSION-01` is addressed by a focused non-executable candidate that
+  replaces the combined one-shot stream with exact `install-create`, `install-write` and
+  `install-commit` stages under one install deadline. The exact canonical session ID remains
+  memory-only; the sealed snapshot, `-R`, package/User-0/size binding, exact write-byte and
+  PackageManager receipts, and installed SHA/provenance proof remain mandatory. Every known
+  uncommitted session failure triggers one bounded idempotent `install-abandon` before ordinary
+  cleanup, and cleanup cannot match without proven session absence or settlement. A partial
+  `EPIPE`/`ECONNRESET` reaches only the strict existing parser after terminal child/stdout evidence;
+  partial success, empty, malformed or multiline evidence remains fail-closed. On exact baseline
+  `887801943064d686da40785d64cd1105431c44ac`, tree
+  `5c15f0fae9c14844b604addf1c38b3bd5203647e`, the uncommitted nine-path candidate had original
+  pre-sync diff SHA-256
+  `1ca772260b64d402b19af6012c15074d2c801c3a63c52790319db056977dc084`. Focused scope passed
+  179/179. Fresh research-free safe-root V3 passed `npm ci`, 20/20 builds, 21/21
+  tests-inclusive typechecks, Mobile test-source inclusion 53/53, migrations 001–013
+  apply/replay/ledger and 21/21 workspace suites across 150 test files with 2,558 passed and
+  exactly two expected optional B1 Supavisor skips. Mobile passed 53/53 files and 906 tests.
+  C3B `verify-bin`, the unchanged Validation APK/manifest verifier and an Expo Android export of
+  861 modules passed; ports `55439`/`55435` were absent and Guard/task cleanup matched.
+  Prepublication review returned `CHANGES REQUIRED` with exactly one P3 against the stale ADO
+  V3 binding and no code, test, security, tenant-isolation, install-session or cleanup finding.
+  This four-file R0 sync is the correction. The candidate remains uncommitted; Exact-Head V4 CI
+  and final independent Exact-SHA review remain pending and no candidate commit, tree or CI result
+  is claimed. The Operator remains **DO NOT START**; no new Phase-0, ADB, installation or hardware
+  authority exists.
 
   The focused local Run-10 diagnostic correction preserves all stages, aggregates, mutation,
   cleanup and terminal semantics. A pre-install device re-attestation mismatch now stays
@@ -1340,7 +1381,7 @@ Two Epics are concurrently Active, per EP-009's own stated relationship to the r
    reuse, retry, repair or resume is authorized.
 6. Preserve DA5 V0–V4 closure and the independently approved local DA5-V5 Runtime Guard and
    exact runtime-corrected Validation App binding above. Treat Shared-Cluster work as historical
-   `BLOCKED`/not Evidence and all thirteen failed Phase-0 attempts as consumed, non-reusable history.
+   `BLOCKED`/not Evidence and all fifteen failed Phase-0 attempts as consumed, non-reusable history.
    Preserve the native-capture diagnostics source/artifact closure on `effc57a` and its independent
    zero-finding reviews as historical evidence while keeping its artifact, `e97bbe9` and `7e8c0f7`
    **DO NOT INSTALL**. Preserve exact `DA5-V5-VAL-TECH-01` source `03694f2`, tree `6c60396`,
@@ -1358,6 +1399,10 @@ Two Epics are concurrently Active, per EP-009's own stated relationship to the r
    Preserve final Run-12 diagnostic/Guard correction `3a776038`, tree `3996b4c`, exact-head CI
    `30479752844`, attempt 1, 12/12 and both independent zero-finding reviews as technically closed
    and **DO NOT START**.
+   Treat the focused uncommitted `DA5-V5-INSTALL-SESSION-01` candidate as locally V1/V2/V3 green.
+   Its prepublication review returned `CHANGES REQUIRED` solely for the P3 ADO sync and no code
+   finding; this R0 sync is the correction. Exact-Head V4 CI and final independent Exact-SHA
+   review remain pending, and it grants no run authority.
    Do not begin another Phase 0 without binding this independently
    approved exact replacement artifact in a
    fresh explicit

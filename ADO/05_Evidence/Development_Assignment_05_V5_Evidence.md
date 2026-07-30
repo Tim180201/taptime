@@ -1,6 +1,6 @@
 # Development Assignment 5 — V5 Human Android Evidence
 
-- Status: **PHASE-0 RUNS 7–13 ARE CONSUMED FAIL-CLOSED HISTORY WITHOUT A PROVEN PRODUCT/APK/NFC/HARDWARE FINDING — RUN 13 STOPPED AT `installation:adb_child_transport_mismatch` AND ENDED WITH `cleanup:match` — RUN-13 CORRECTION `ac51dfd`/TREE `3d1f3dd`, EXACT-HEAD CI `30485438652` ATTEMPT 1 12/12 AND BOTH INDEPENDENT REVIEWS ARE APPROVED WITH ZERO OPEN P0–P3 — RUN-13 CORRECTION SCOPE TECHNICALLY CLOSED — THIRTEEN PHASE-0 AUTHORITIES CONSUMED — NO RUN AUTHORITY/DO NOT START**
+- Status: **PHASE-0 RUNS 7–15 ARE CONSUMED FAIL-CLOSED HISTORY WITHOUT A PROVEN PRODUCT/APK/NFC/HARDWARE FINDING — RUN 14 OPERATOR-SESSION STOPPED AT `artifact:mismatch` BEFORE PREFLIGHT/ADB/INSTALLATION; RUN 15 STOPPED AT `installation:adb_stdin_pipe_abort_mismatch`; BOTH ENDED WITH `cleanup:match` — CONFIRMED `DA5-V5-INSTALL-SESSION-01` IS LOCALLY V1/V2/V3 GREEN; PREPUBLICATION REVIEW RETURNED `CHANGES REQUIRED` SOLELY FOR THE P3 ADO SYNC AND NO CODE/SECURITY/TENANT/SESSION/CLEANUP FINDING; THIS R0 SYNC IS THE CORRECTION — EXACT-HEAD CI AND FINAL EXACT-SHA REVIEW REMAIN PENDING — FIFTEEN PHASE-0 AUTHORITIES CONSUMED — NO RUN AUTHORITY/DO NOT START**
 - Date: `NOT RUN`
 - Artifact preparation date: 2026-07-28
 - Owner: Technical Lead
@@ -43,7 +43,7 @@ This closes the exact repository/source/artifact finding only. Because the nativ
 diagnostics correction changes the Validation source, the `e97bbe9` artifact is now
 **HISTORICAL — DO NOT INSTALL**.
 
-Thirteen separately authorized Phase-0 attempts are consumed fail-closed without an attributable Tag
+Fifteen separately authorized Phase-0 attempts are consumed fail-closed without an attributable Tag
 result. Run 5 used repository baseline
 `55070aa9a74c2606668caba9dc113ae8d689bd8d`, installed and verified the then-current exact
 `7e8c0f7` Validation APK and passed the Human-confirmed device checkpoint. Its first required
@@ -217,6 +217,47 @@ scope technically. This following closure synchronization is R0; its own `[skip 
 tree remain pending and are not claimed. No ADB, hardware or installation occurred and no run
 authority exists.
 
+Run 14 used baseline `887801943064d686da40785d64cd1105431c44ac`, tree
+`5c15f0fae9c14844b604addf1c38b3bd5203647e`. The Operator session started and emitted exactly
+`artifact:mismatch`, `cleanup:match`, `failed:mismatch`. It stopped internally at artifact
+verification before preflight, ADB or installation because the cleaned Operator environment did
+not retain the exact Android SDK binding. No device/install mutation occurred and the authority is
+consumed.
+
+Run 15 used the same exact baseline after binding `ANDROID_HOME` and `ANDROID_SDK_ROOT` to the
+already authorized SDK. Offline artifact verification matched, then the Operator emitted
+`artifact:match`, `preflight:match`,
+`stage=installation status=mismatch category=adb_stdin_pipe_abort_mismatch`,
+`install_launch:mismatch`, `cleanup:match`, `failed:mismatch`. It emitted no
+`installed_provenance` or `waiting` receipt and reached no Validation UI, NFC or Tag step. The
+authority is consumed, cleanup matched and no Product, APK, NFC or hardware finding is established.
+
+Confirmed `DA5-V5-INSTALL-SESSION-01` is addressed by a focused non-executable candidate that
+replaces the combined one-shot stream with exact `install-create`, `install-write` and
+`install-commit` stages under one install deadline. The exact canonical session ID remains
+memory-only; the sealed snapshot, `-R`, package/User-0/size binding, exact write-byte and
+PackageManager receipts, and installed SHA/provenance proof remain mandatory. Every known
+uncommitted session failure triggers one bounded idempotent `install-abandon` before ordinary
+cleanup, and cleanup cannot match without proven session absence or settlement. A partial
+`EPIPE`/`ECONNRESET` reaches only the strict existing parser after terminal child/stdout evidence;
+partial success, empty, malformed or multiline evidence remains fail-closed. On exact baseline
+`887801943064d686da40785d64cd1105431c44ac`, tree
+`5c15f0fae9c14844b604addf1c38b3bd5203647e`, the uncommitted nine-path candidate had original
+pre-sync diff SHA-256
+`1ca772260b64d402b19af6012c15074d2c801c3a63c52790319db056977dc084`. Focused scope passed
+179/179. Fresh research-free safe-root V3 passed `npm ci`, 20/20 builds, 21/21 tests-inclusive
+typechecks, Mobile test-source inclusion 53/53, migrations 001–013 apply/replay/ledger and 21/21
+workspace suites across 150 test files with 2,558 passed and exactly two expected optional B1
+Supavisor skips. Mobile passed 53/53 files and 906 tests. C3B `verify-bin`, the unchanged
+Validation APK/manifest verifier and an Expo Android export of 861 modules passed; ports
+`55439`/`55435` were absent and Guard/task cleanup matched. Prepublication review returned
+`CHANGES REQUIRED` with exactly one P3 against the stale ADO V3 binding and no code, test,
+security, tenant-isolation, install-session or cleanup finding. This four-file R0 sync is the
+correction. The candidate remains uncommitted; Exact-Head V4 CI and final independent Exact-SHA
+review remain pending and no candidate commit, tree or CI result is claimed. No new ADB,
+installation or hardware action occurred or is authorized; the candidate remains **DO NOT
+START**.
+
 The focused local Run-10 diagnostic correction preserves every stage, aggregate receipt,
 mutation, cleanup and terminal boundary. A pre-install device re-attestation mismatch remains
 `installation` + `verification_mismatch`; the category changes to `operation_mismatch` only
@@ -316,7 +357,7 @@ Historical candidate and review details remain preserved below.
 This record mirrors
 `ADO/04_Operations/Development_Assignment_05_V5_Runbook.md`. It records the historical Validation
 artifacts, exact TECH-01 source/CI/source-review bindings, the independently approved exact
-replacement artifact and all thirteen consumed Phase-0 attempts, but no attributable Tag result or
+replacement artifact and all fifteen consumed Phase-0 attempts, but no attributable Tag result or
 Product Human result. It grants no new Human-run or installation authority.
 
 | Binding | Evidence |
@@ -508,7 +549,7 @@ This paragraph is governance history, not Candidate Evidence, implementation app
 hardware authority; focused publication, exact-head CI and independent Exact-Delta `APPROVED`
 with zero open P0–P3 remain required.
 
-Thirteen later separately authorized Phase-0 attempts occurred as recorded below; none produced an
+Fifteen later separately authorized Phase-0 attempts occurred as recorded below; none produced an
 attributable Tag result or reached Product Human V5. The Harness can accept A/B/X values only from
 the operator and cannot independently prove their origin. Any further hardware action requires a
 new explicit Human authorization.
@@ -534,9 +575,11 @@ data.
 | Phase 0 run 11 | On baseline `d8549c3f1d14c15846d4f81dbe7669a598626633` / tree `04ea2d0571a2e030fe99fbba27b622e68604644e`, the operator emitted exactly `artifact:match`, `preflight:match`, `stage=installation status=mismatch category=operation_mismatch`, `install_launch:mismatch`, `cleanup:match`, `failed:mismatch`; no `installed_provenance` receipt or UI/NFC/Tag step was reached | Authority consumed; terminal cleanup matched; no Product, APK, NFC or hardware finding proven; another run remains DO NOT START without fresh exact Human authorization |
 | Phase 0 run 12 | On ADO baseline `3fcbcdec79dada8d43041a241127e52f4775e8d8` / tree `74cac3e8611e39938e2c52c25df8cde38be254d2` and exact candidate `9549da9` / tree `ced33c8`, the operator emitted exactly `artifact:match`, `preflight:match`, `stage=installation status=mismatch category=adb_child_transport_mismatch`, `install_launch:mismatch`, `cleanup:match`, `failed:mismatch`; no `installed_provenance` receipt or UI/NFC/Tag step was reached | Authority consumed; terminal cleanup matched; no Product, APK, NFC or hardware finding proven; another run remains DO NOT START without fresh exact Human authorization |
 | Phase 0 run 13 | On baseline `63feaf48a98e656dcceb395098bea8b260420e16` / tree `1d635956eb22c9bba99834ca831159741889e83f`, the read-only device binding matched and the operator emitted exactly `artifact:match`, `preflight:match`, `stage=installation status=mismatch category=adb_child_transport_mismatch`, `install_launch:mismatch`, `cleanup:match`, `failed:mismatch`; no `installed_provenance`, `waiting`, UI/NFC or Tag step was reached | Authority consumed; terminal cleanup matched; no Product, APK, NFC or hardware finding proven; another run remains DO NOT START without fresh exact Human authorization |
+| Phase 0 run 14 | On baseline `887801943064d686da40785d64cd1105431c44ac` / tree `5c15f0fae9c14844b604addf1c38b3bd5203647e`, the Operator session emitted exactly `artifact:mismatch`, `cleanup:match`, `failed:mismatch` and stopped internally at artifact verification because the cleaned environment did not retain the exact Android SDK binding; no preflight, ADB or installation occurred | Authority consumed; terminal cleanup matched; no device/install mutation, Product, APK, NFC or hardware finding proven |
+| Phase 0 run 15 | On the same exact baseline after binding `ANDROID_HOME` and `ANDROID_SDK_ROOT` to the authorized SDK, offline artifact verification matched and the Operator emitted exactly `artifact:match`, `preflight:match`, `stage=installation status=mismatch category=adb_stdin_pipe_abort_mismatch`, `install_launch:mismatch`, `cleanup:match`, `failed:mismatch`; no `installed_provenance`, `waiting`, UI/NFC or Tag step was reached | Authority consumed; terminal cleanup matched; no Product, APK, NFC or hardware finding proven; another run remains DO NOT START without fresh exact Human authorization |
 
-Runs 10 through 13 ended with terminal cleanup matched. The run-7 through run-9 artifacts are no
-longer installed, runs 10–13 reached no attributable installation provenance, and no further
+Runs 10 through 15 ended with terminal cleanup matched. The run-7 through run-9 artifacts are no
+longer installed, runs 10–15 reached no attributable installation provenance, and no further
 hardware/ADB action occurred.
 Another Phase 0 requires a fresh exact Human authorization.
 

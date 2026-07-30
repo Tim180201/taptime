@@ -58,6 +58,13 @@ type DiagnosticCategory =
   (typeof DA5_V5_VALIDATION_PHASE0_ERROR_CATEGORIES)[
     keyof typeof DA5_V5_VALIDATION_PHASE0_ERROR_CATEGORIES
   ];
+type InstallStreamMismatchCategory =
+  (typeof DA5_V5_VALIDATION_PHASE0_ERROR_CATEGORIES)[
+    | 'adbChildTransportMismatch'
+    | 'adbChildTimeoutMismatch'
+    | 'adbChildExitMismatch'
+    | 'adbStdinPipeAbortMismatch'
+  ];
 const temporaryDirectories: string[] = [];
 
 afterEach(() => {
@@ -730,7 +737,7 @@ describe('DA5 V5 Validation device and protocol boundary', () => {
     expect(runner.mutations).toHaveLength(0);
   });
 
-  it('installs only the snapshot via package-manager stdin and launches exact MainActivity', async () => {
+  it('creates, writes and commits one bound session before launching exact MainActivity', async () => {
     const runner = new FakeRunner();
     const snapshot = fakeSnapshot();
     const device = createDevice(runner, { snapshot });
@@ -738,9 +745,13 @@ describe('DA5 V5 Validation device and protocol boundary', () => {
     await expect(device.installAndLaunch()).resolves.toEqual({
       status: 'match',
     });
-    const install = runner.calls.find((call) =>
-      call.arguments_.includes('install'));
-    expect(install?.arguments_).toEqual([
+    const create = runner.calls.find((call) =>
+      call.arguments_.includes('install-create'));
+    const write = runner.calls.find((call) =>
+      call.arguments_.includes('install-write'));
+    const commit = runner.calls.find((call) =>
+      call.arguments_.includes('install-commit'));
+    expect(create?.arguments_).toEqual([
       '-s',
       runner.serial,
       'shell',
@@ -748,7 +759,7 @@ describe('DA5 V5 Validation device and protocol boundary', () => {
       '-x',
       'cmd',
       'package',
-      'install',
+      'install-create',
       '-R',
       '--user',
       '0',
@@ -756,12 +767,38 @@ describe('DA5 V5 Validation device and protocol boundary', () => {
       packageName,
       '-S',
       String(DA5_V5_VALIDATION_PHASE0_ARTIFACT.apk.bytes),
+    ]);
+    expect(write?.arguments_).toEqual([
+      '-s',
+      runner.serial,
+      'shell',
+      '-T',
+      '-x',
+      'cmd',
+      'package',
+      'install-write',
+      '-S',
+      String(DA5_V5_VALIDATION_PHASE0_ARTIFACT.apk.bytes),
+      '42',
+      'base.apk',
       '-',
     ]);
-    expect(install?.arguments_).toContain('-R');
-    expect(install?.arguments_.join(' ')).not.toContain(
+    expect(commit?.arguments_).toEqual([
+      '-s',
+      runner.serial,
+      'shell',
+      '-T',
+      '-x',
+      'cmd',
+      'package',
+      'install-commit',
+      '42',
+    ]);
+    expect(create?.arguments_).toContain('-R');
+    expect(write?.arguments_.join(' ')).not.toContain(
       DA5_V5_VALIDATION_PHASE0_ARTIFACT.apk.path,
     );
+    expect(runner.abandonCount).toBe(0);
     expect(runner.calls.some((call) =>
       call.arguments_.join(' ') === [
         '-s', runner.serial, 'shell', 'am', 'start', '-W',
@@ -770,6 +807,291 @@ describe('DA5 V5 Validation device and protocol boundary', () => {
       ].join(' '))).toBe(true);
     expect(snapshot.state()).toBe('destroyed');
   });
+
+  it.each([
+    [
+      'exact allowlisted create failure',
+      'Failure [INSTALL_FAILED_USER_RESTRICTED: SECRET_CREATE_DETAIL]',
+      'package_manager_policy_restriction',
+      'match',
+    ],
+    [
+      'non-canonical create session',
+      'Success: created install session [042]',
+      'package_manager_receipt_mismatch',
+      'mismatch',
+    ],
+    [
+      'duplicate create receipt',
+      'Success: created install session [42]\n'
+        + 'Success: created install session [43]',
+      'package_manager_receipt_mismatch',
+      'mismatch',
+    ],
+  ])(
+    'fails closed for %s without disclosing or guessing a session',
+    async (_label, output, expectedCategory, cleanupStatus) => {
+      const runner = new FakeRunner();
+      const receipts: string[] = [];
+      runner.createResult = output;
+      const session = createSession(runner, {
+        receipt(
+          stage: string,
+          status: 'match' | 'mismatch',
+          category?: DiagnosticCategory,
+        ) {
+          receipts.push(`${stage}:${status}:${category ?? 'none'}`);
+        },
+      });
+
+      await session.start();
+      await session.submit('install-launch');
+      await expect(session.done).resolves.toEqual({
+        status: 'mismatch',
+      });
+
+      expect(runner.createCount).toBe(1);
+      expect(runner.commitCount).toBe(0);
+      expect(runner.abandonCount).toBe(0);
+      expect(receipts.filter((receipt) =>
+        !receipt.endsWith(':none'))).toEqual([
+        `installation:mismatch:${expectedCategory}`,
+      ]);
+      expect(receipts).toContain(`cleanup:${cleanupStatus}:none`);
+      expect(receipts.join('\n')).not.toContain('SECRET_');
+      expect(receipts.join('\n')).not.toContain('[42]');
+      expect(receipts.join('\n')).not.toContain('[43]');
+      expect(receipts.join('\n')).not.toContain(runner.serial);
+    },
+  );
+
+  it('requires the exact device-confirmed install-write byte receipt', async () => {
+    const runner = new FakeRunner();
+    const receipts: string[] = [];
+    runner.installResult =
+      `Success: streamed ${
+        DA5_V5_VALIDATION_PHASE0_ARTIFACT.apk.bytes - 1
+      } bytes`;
+    const session = createSession(runner, {
+      receipt(
+        stage: string,
+        status: 'match' | 'mismatch',
+        category?: DiagnosticCategory,
+      ) {
+        receipts.push(`${stage}:${status}:${category ?? 'none'}`);
+      },
+    });
+
+    await session.start();
+    await session.submit('install-launch');
+    await expect(session.done).resolves.toEqual({
+      status: 'mismatch',
+    });
+
+    expect(runner.commitCount).toBe(0);
+    expect(runner.abandonCount).toBe(1);
+    expect(receipts.filter((receipt) =>
+      !receipt.endsWith(':none'))).toEqual([
+      'installation:mismatch:package_manager_receipt_mismatch',
+    ]);
+  });
+
+  it.each([
+    [
+      'allowlisted Failure',
+      'Failure [INSTALL_FAILED_INVALID_APK: SECRET_PARTIAL_DETAIL]',
+      'package_manager_artifact_rejection',
+    ],
+    [
+      'contradictory Success',
+      `Success: streamed ${
+        DA5_V5_VALIDATION_PHASE0_ARTIFACT.apk.bytes
+      } bytes`,
+      'adb_stdin_pipe_abort_mismatch',
+    ],
+    ['empty response', '', 'adb_stdin_pipe_abort_mismatch'],
+    [
+      'malformed Failure',
+      'Failure [INSTALL_FAILED_INVALID_APK: SECRET_MALFORMED',
+      'adb_stdin_pipe_abort_mismatch',
+    ],
+    [
+      'multiline response',
+      'Failure [INSTALL_FAILED_INVALID_APK]\nSECRET_SECOND_LINE',
+      'adb_stdin_pipe_abort_mismatch',
+    ],
+  ])(
+    'classifies a partial install-write pipe with %s fail-closed',
+    async (_label, output, expectedCategory) => {
+      const runner = new FakeRunner();
+      const receipts: string[] = [];
+      runner.installPipePartial = true;
+      runner.installResult = output;
+      const session = createSession(runner, {
+        receipt(
+          stage: string,
+          status: 'match' | 'mismatch',
+          category?: DiagnosticCategory,
+        ) {
+          receipts.push(`${stage}:${status}:${category ?? 'none'}`);
+        },
+      });
+
+      await session.start();
+      await session.submit('install-launch');
+      await expect(session.done).resolves.toEqual({
+        status: 'mismatch',
+      });
+
+      expect(runner.commitCount).toBe(0);
+      expect(runner.abandonCount).toBe(1);
+      expect(receipts.filter((receipt) =>
+        !receipt.endsWith(':none'))).toEqual([
+        `installation:mismatch:${expectedCategory}`,
+      ]);
+      expect(receipts.join('\n')).not.toContain('SECRET_');
+      expect(receipts.join('\n')).not.toContain('[42]');
+    },
+  );
+
+  it.each([
+    ['timeout', 'adb_child_timeout_mismatch'],
+    ['nonzero exit', 'adb_child_exit_mismatch'],
+  ] as const)(
+    'abandons once after an install-write %s',
+    async (_label, expectedCategory) => {
+      const runner = new FakeRunner();
+      const receipts: string[] = [];
+      runner.installMismatchCategory = expectedCategory;
+      const session = createSession(runner, {
+        receipt(
+          stage: string,
+          status: 'match' | 'mismatch',
+          category?: DiagnosticCategory,
+        ) {
+          receipts.push(`${stage}:${status}:${category ?? 'none'}`);
+        },
+      });
+
+      await session.start();
+      await session.submit('install-launch');
+      await expect(session.done).resolves.toEqual({
+        status: 'mismatch',
+      });
+
+      expect(runner.commitCount).toBe(0);
+      expect(runner.abandonCount).toBe(1);
+      expect(receipts.filter((receipt) =>
+        !receipt.endsWith(':none'))).toEqual([
+        `installation:mismatch:${expectedCategory}`,
+      ]);
+    },
+  );
+
+  it.each([
+    [
+      'allowlisted failure',
+      'Failure [INSTALL_FAILED_USER_RESTRICTED: SECRET_COMMIT_DETAIL]',
+      false,
+      'package_manager_policy_restriction',
+    ],
+    [
+      'near-success ambiguity',
+      'Success ',
+      false,
+      'package_manager_receipt_mismatch',
+    ],
+    [
+      'multiline ambiguity',
+      'Success\nSECRET_COMMIT_SECOND_LINE',
+      false,
+      'package_manager_receipt_mismatch',
+    ],
+    [
+      'transport failure',
+      'Success',
+      true,
+      'adb_child_transport_mismatch',
+    ],
+  ])(
+    'abandons once after commit %s',
+    async (_label, output, rejectCommit, expectedCategory) => {
+      const runner = new FakeRunner();
+      const receipts: string[] = [];
+      runner.commitResult = output;
+      runner.commitReject = rejectCommit;
+      const session = createSession(runner, {
+        receipt(
+          stage: string,
+          status: 'match' | 'mismatch',
+          category?: DiagnosticCategory,
+        ) {
+          receipts.push(`${stage}:${status}:${category ?? 'none'}`);
+        },
+      });
+
+      await session.start();
+      await session.submit('install-launch');
+      await expect(session.done).resolves.toEqual({
+        status: 'mismatch',
+      });
+
+      expect(runner.commitCount).toBe(1);
+      expect(runner.abandonCount).toBe(1);
+      expect(receipts.filter((receipt) =>
+        !receipt.endsWith(':none'))).toEqual([
+        `installation:mismatch:${expectedCategory}`,
+      ]);
+      expect(receipts.join('\n')).not.toContain('SECRET_');
+      expect(receipts.join('\n')).not.toContain('[42]');
+    },
+  );
+
+  it.each([
+    ['non-success receipt', false],
+    ['transport failure', true],
+  ])(
+    'refuses cleanup match when session abandonment has %s',
+    async (_label, rejectAbandon) => {
+      const runner = new FakeRunner();
+      const receipts: string[] = [];
+      runner.installResult =
+        'Failure [INSTALL_FAILED_INVALID_APK: SECRET_WRITE_DETAIL]';
+      runner.abandonResult =
+        'Failure [INSTALL_FAILED_SESSION_INVALID: SECRET_ABANDON_DETAIL]';
+      runner.abandonReject = rejectAbandon;
+      const session = createSession(runner, {
+        receipt(
+          stage: string,
+          status: 'match' | 'mismatch',
+          category?: DiagnosticCategory,
+        ) {
+          receipts.push(`${stage}:${status}:${category ?? 'none'}`);
+        },
+      });
+
+      await session.start();
+      await session.submit('install-launch');
+      await expect(session.done).resolves.toEqual({
+        status: 'mismatch',
+      });
+
+      expect(runner.abandonCount).toBe(1);
+      expect(receipts).toContain('cleanup:mismatch:none');
+      expect(receipts.join('\n')).not.toContain('SECRET_');
+      expect(receipts.join('\n')).not.toContain('[42]');
+      const abandonIndex = runner.calls.findIndex((call) =>
+        call.arguments_.includes('install-abandon'));
+      expect(abandonIndex).toBeGreaterThan(-1);
+      expect(runner.calls.slice(abandonIndex + 1).some((call) =>
+        call.arguments_.includes('ps')
+        || call.arguments_.includes('reverse')
+        || (
+          call.arguments_.includes('package')
+          && call.arguments_.includes('-a')
+        ))).toBe(false);
+    },
+  );
 
   it.each([
     ['launch status', { launchStatus: 'error' }],
@@ -820,7 +1142,8 @@ describe('DA5 V5 Validation device and protocol boundary', () => {
 
     expect(runner.mutations).toHaveLength(0);
     expect(runner.calls.some((call) =>
-      call.arguments_.includes('install'))).toBe(false);
+      call.arguments_.some((argument) =>
+        argument.startsWith('install-')))).toBe(false);
     expect(receipts.filter((receipt) =>
       !receipt.endsWith(':none'))).toEqual([
       'installation:mismatch:verification_mismatch',
@@ -948,7 +1271,6 @@ describe('DA5 V5 Validation device and protocol boundary', () => {
     const receipts: string[] = [];
     runner.installResult =
       'Failure [SECRET_REMOTE_PACKAGE_MANAGER_OUTPUT /secret/install]';
-    runner.emulateRemoteInstallExit = true;
     const session = createSession(runner, {
       receipt(
         receiptStage: string,
@@ -967,9 +1289,9 @@ describe('DA5 V5 Validation device and protocol boundary', () => {
       status: 'mismatch',
     });
 
-    const install = runner.calls.find((call) =>
-      call.arguments_.includes('install'));
-    expect(install?.arguments_.slice(2, 6)).toEqual([
+    const installWrite = runner.calls.find((call) =>
+      call.arguments_.includes('install-write'));
+    expect(installWrite?.arguments_.slice(2, 6)).toEqual([
       'shell',
       '-T',
       '-x',
@@ -1077,7 +1399,6 @@ describe('DA5 V5 Validation device and protocol boundary', () => {
       const runner = new FakeRunner();
       const receipts: string[] = [];
       runner.installResult = output;
-      runner.emulateRemoteInstallExit = true;
       const session = createSession(runner, {
         receipt(
           receiptStage: string,
@@ -1132,7 +1453,6 @@ describe('DA5 V5 Validation device and protocol boundary', () => {
       const runner = new FakeRunner();
       const receipts: string[] = [];
       runner.installResult = output;
-      runner.emulateRemoteInstallExit = true;
       const session = createSession(runner, {
         receipt(
           receiptStage: string,
@@ -1183,9 +1503,9 @@ describe('DA5 V5 Validation device and protocol boundary', () => {
     await session.start();
     await session.submit('install-launch');
     await expect(session.done).resolves.toEqual({ status: 'mismatch' });
-    const install = runner.calls.find((call) =>
-      call.arguments_.includes('install'));
-    expect(install?.arguments_).toContain('-R');
+    const installCreate = runner.calls.find((call) =>
+      call.arguments_.includes('install-create'));
+    expect(installCreate?.arguments_).toContain('-R');
     expect(runner.packagePath).toBe(replacementPath);
     expect(runner.versionCode).toBe('2');
     expect(runner.forceStopCount).toBe(0);
@@ -1496,6 +1816,7 @@ describe('DA5 V5 Validation device and protocol boundary', () => {
     await active;
     await expect(session.done).resolves.toEqual({ status: 'mismatch' });
     expect(runner.installSettled).toBe(true);
+    expect(runner.abandonCount).toBe(1);
     expect(runner.cleanupFlights).toBe(1);
   });
 
@@ -1520,10 +1841,29 @@ describe('DA5 V5 Validation device and protocol boundary', () => {
     const active = session.submit('install-launch');
     await runner.installStarted;
     void session.signal();
+    void session.signal();
     await active;
     await expect(session.done).resolves.toEqual({ status: 'mismatch' });
     expect(runner.installSettled).toBe(true);
+    expect(runner.abandonCount).toBe(1);
     expect(runner.cleanupFlights).toBe(1);
+    const abandonIndex = runner.calls.findIndex((call) =>
+      call.arguments_.includes('install-abandon'));
+    const firstCleanupObservation = runner.calls.findIndex(
+      (call, index) => (
+        index > abandonIndex
+        && (
+          call.arguments_.includes('ps')
+          || call.arguments_.includes('reverse')
+          || (
+            call.arguments_.includes('package')
+            && call.arguments_.includes('-a')
+          )
+        )
+      ),
+    );
+    expect(abandonIndex).toBeGreaterThan(-1);
+    expect(firstCleanupObservation).toBeGreaterThan(abandonIndex);
   });
 
   it('settles at the first finish deadline when an active child never settles', async () => {
@@ -1717,8 +2057,9 @@ describe('DA5 V5 Validation device and protocol boundary', () => {
     expect(receipts.join('\n')).not.toContain(model);
     expect(receipts.join('\n')).not.toContain(build);
     expect(receipts.join('\n')).not.toContain(validPath);
+    expect(receipts.join('\n')).not.toContain('[42]');
     const install = runner.calls.find((call) =>
-      call.arguments_.includes('install'));
+      call.arguments_.includes('install-create'));
     const launch = runner.calls.find((call) =>
       call.arguments_.includes('start'));
     const forceStop = runner.calls.find((call) =>
@@ -1995,15 +2336,26 @@ class FakeRunner {
   pathSequence?: string[];
   digestBytes = DA5_V5_VALIDATION_PHASE0_ARTIFACT.apk.bytes;
   digestSha256 = DA5_V5_VALIDATION_PHASE0_ARTIFACT.apk.sha256;
-  installResult = 'Success';
+  createResult = 'Success: created install session [42]';
+  createReject = false;
+  installResult =
+    `Success: streamed ${DA5_V5_VALIDATION_PHASE0_ARTIFACT.apk.bytes} bytes`;
   installFailureLeavesPackage = false;
   installRaceLeavesForeignPackage = false;
   installReject = false;
-  emulateRemoteInstallExit = false;
+  installMismatchCategory?: InstallStreamMismatchCategory;
   installNeverSettles = false;
+  installPipePartial = false;
   installPipeClosedAfterAllBytes = false;
   installWaitsForAbort = false;
   installSettled = false;
+  commitResult = 'Success';
+  commitReject = false;
+  abandonResult = 'Success';
+  abandonReject = false;
+  abandonCount = 0;
+  commitCount = 0;
+  createCount = 0;
   launchStatus = 'ok';
   launchActivity = DA5_V5_VALIDATION_PHASE0_ACTIVITY;
   omitLaunchedProcess = false;
@@ -2040,7 +2392,7 @@ class FakeRunner {
   preflightWaitsForAbort = false;
   preflightSettled = false;
 
-  async install(
+  async write(
     arguments_: readonly string[],
     options: {
       signal?: AbortSignal;
@@ -2049,11 +2401,21 @@ class FakeRunner {
     },
   ) {
     try {
+      if (this.installMismatchCategory !== undefined) {
+        return {
+          category: this.installMismatchCategory,
+          childTerminal: true,
+          status: 'mismatch' as const,
+          stdoutTerminal: true,
+        };
+      }
       return {
         status: 'match' as const,
-        stdinTerminal: this.installPipeClosedAfterAllBytes
-          ? 'all_bytes_submitted_then_pipe_closed' as const
-          : 'finished' as const,
+        stdinTerminal: this.installPipePartial
+          ? 'partial_then_pipe_closed' as const
+          : this.installPipeClosedAfterAllBytes
+            ? 'all_bytes_submitted_then_pipe_closed' as const
+            : 'finished' as const,
         stdout: await this.run(arguments_, options),
       };
     } catch {
@@ -2200,8 +2562,16 @@ class FakeRunner {
     if (command.endsWith('reverse --list')) {
       return this.reverseOutput;
     }
-    if (command.includes('cmd package install')) {
-      this.mutations.push('install');
+    if (command.includes('cmd package install-create')) {
+      this.mutations.push('install-create');
+      this.createCount += 1;
+      if (this.createReject) {
+        throw new Error('SECRET CREATE TRANSPORT DETAIL');
+      }
+      return `${this.createResult}\n`;
+    }
+    if (command.includes('cmd package install-write')) {
+      this.mutations.push('install-write');
       this.resolveInstallStarted();
       if (this.installNeverSettles) {
         await new Promise<void>(() => {});
@@ -2220,27 +2590,35 @@ class FakeRunner {
         this.lateOutcomeArmed = true;
         throw new Error('timeout');
       }
-      if (
-        this.emulateRemoteInstallExit
-        && this.installResult !== 'Success'
-        && !arguments_.includes('-x')
-      ) {
-        throw new Error('synthetic propagated remote exit');
+      this.installSettled = true;
+      if (this.installFailureLeavesPackage) {
+        this.packagePath = validPath;
+      }
+      return `${this.installResult}\n`;
+    }
+    if (command.includes('cmd package install-commit')) {
+      this.mutations.push('install-commit');
+      this.commitCount += 1;
+      if (this.commitReject) {
+        throw new Error('SECRET COMMIT TRANSPORT DETAIL');
       }
       if (this.installRaceLeavesForeignPackage) {
-        this.installSettled = true;
         this.packagePath = replacementPath;
         this.versionCode = '2';
         return 'Failure [INSTALL_FAILED_ALREADY_EXISTS]\n';
       }
-      this.installSettled = true;
-      if (
-        this.installResult === 'Success'
-        || this.installFailureLeavesPackage
-      ) {
+      if (this.commitResult === 'Success') {
         this.packagePath = validPath;
       }
-      return `${this.installResult}\n`;
+      return `${this.commitResult}\n`;
+    }
+    if (command.includes('cmd package install-abandon')) {
+      this.mutations.push('install-abandon');
+      this.abandonCount += 1;
+      if (this.abandonReject) {
+        throw new Error('SECRET ABANDON TRANSPORT DETAIL');
+      }
+      return `${this.abandonResult}\n`;
     }
     if (command.includes('shell readlink -f --')) {
       return `${this.canonicalPath ?? this.packagePath}\n`;

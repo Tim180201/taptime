@@ -120,6 +120,8 @@ const packageManagerStorageRejections = Object.freeze([
   'INSTALL_FAILED_INVALID_INSTALL_LOCATION',
   'INSTALL_FAILED_MEDIA_UNAVAILABLE',
 ]);
+const packageManagerFailureReceiptPattern =
+  /^Failure \[(INSTALL_(?:FAILED|PARSE_FAILED)_[A-Z0-9_]+)(?:: [^\u0000-\u001f\u007f\]]{1,1536})?\]$/u;
 export const DA5_V5_VALIDATION_PHASE0_ARTIFACT = Object.freeze({
   apk: Object.freeze({
     bytes: 65_631_433,
@@ -285,6 +287,8 @@ const cleanupPolicy = Object.freeze({
     timeouts.install + 15_000 + timeouts.inspect,
 });
 const androidOwnerUser = '0';
+const maximumPackageInstallerSessionId = 2_147_483_647;
+const validationInstallSplitName = 'base.apk';
 const validationVersionCode = '1';
 const safeSegmentPattern = /^[A-Za-z0-9._~+=-]{1,192}$/u;
 const packageDirectoryPrefix = `${DA5_V5_VALIDATION_PACKAGE}-`;
@@ -601,8 +605,11 @@ export async function verifyDa5V5ValidationInstalledArtifact(options) {
 }
 
 export class Da5V5ValidationPhase0Device {
+  #abandonFlight;
   #cleanupFlight;
   #cleanupDeadline;
+  #installSessionId;
+  #installSessionState = 'none';
   #installUncertain = false;
   #mutationMayHaveStarted = false;
   #ownedProvenance;
@@ -663,11 +670,13 @@ export class Da5V5ValidationPhase0Device {
       }
       this.#installUncertain = true;
       this.#mutationMayHaveStarted = true;
-      const installOutcome = await this.snapshot.use((snapshot) => {
-        diagnosticCategory =
-          DA5_V5_VALIDATION_PHASE0_ERROR_CATEGORIES
-            .adbChildTransportMismatch;
-        return this.installStreamRunner.install(
+      this.#installSessionState = 'uncertain';
+      diagnosticCategory =
+        DA5_V5_VALIDATION_PHASE0_ERROR_CATEGORIES
+          .adbChildTransportMismatch;
+      const installDeadline = this.now() + timeouts.install;
+      const createReceipt = parsePackageManagerCreateReceipt(
+        await this.runner.run(
           [
             '-s',
             installSerial,
@@ -676,7 +685,7 @@ export class Da5V5ValidationPhase0Device {
             '-x',
             'cmd',
             'package',
-            'install',
+            'install-create',
             '-R',
             '--user',
             androidOwnerUser,
@@ -684,15 +693,60 @@ export class Da5V5ValidationPhase0Device {
             DA5_V5_VALIDATION_PACKAGE,
             '-S',
             String(DA5_V5_VALIDATION_PHASE0_ARTIFACT.apk.bytes),
+          ],
+          {
+            signal: options.signal,
+            timeoutMilliseconds: remainingTimeout(
+              installDeadline,
+              this.now,
+              timeouts.install,
+            ),
+          },
+        ),
+      );
+      if (createReceipt.status !== 'match') {
+        diagnosticCategory = createReceipt.category;
+        if (createReceipt.sessionAbsent) {
+          this.#installSessionState = 'absent';
+          this.#installUncertain = false;
+        }
+        throw new Error('DA5 V5 Validation session create mismatch');
+      }
+      this.#installSessionId = createReceipt.sessionId;
+      this.#installSessionState = 'pending';
+
+      const writeSerial =
+        await this.#requireCurrentDevice(options.signal);
+      if (writeSerial !== installSerial) {
+        throw new Error('DA5 V5 Validation write device mismatch');
+      }
+      const installOutcome = await this.snapshot.use((snapshot) =>
+        this.installStreamRunner.write(
+          [
+            '-s',
+            writeSerial,
+            'shell',
+            '-T',
+            '-x',
+            'cmd',
+            'package',
+            'install-write',
+            '-S',
+            String(DA5_V5_VALIDATION_PHASE0_ARTIFACT.apk.bytes),
+            this.#installSessionId,
+            validationInstallSplitName,
             '-',
           ],
           {
             signal: options.signal,
             stdinBytes: snapshot,
-            timeoutMilliseconds: timeouts.install,
+            timeoutMilliseconds: remainingTimeout(
+              installDeadline,
+              this.now,
+              timeouts.install,
+            ),
           },
-        );
-      });
+        ));
       if (
         installOutcome?.status === 'mismatch'
         && Object.values(
@@ -708,17 +762,58 @@ export class Da5V5ValidationPhase0Device {
           installOutcome.stdinTerminal !== 'finished'
           && installOutcome.stdinTerminal
             !== 'all_bytes_submitted_then_pipe_closed'
+          && installOutcome.stdinTerminal
+            !== 'partial_then_pipe_closed'
         )
         || typeof installOutcome.stdout !== 'string'
       ) {
         throw new Error('DA5 V5 Validation install stream mismatch');
       }
       const packageManagerCategory =
-        classifyPackageManagerInstallReceipt(installOutcome.stdout);
+        classifyPackageManagerWriteReceipt(
+          installOutcome.stdout,
+          installOutcome.stdinTerminal,
+          DA5_V5_VALIDATION_PHASE0_ARTIFACT.apk.bytes,
+        );
       if (packageManagerCategory !== null) {
         diagnosticCategory = packageManagerCategory;
-        throw new Error('DA5 V5 Validation package install mismatch');
+        throw new Error('DA5 V5 Validation package write mismatch');
       }
+
+      const commitSerial =
+        await this.#requireCurrentDevice(options.signal);
+      if (commitSerial !== installSerial) {
+        throw new Error('DA5 V5 Validation commit device mismatch');
+      }
+      const commitCategory = classifyPackageManagerInstallReceipt(
+        await this.runner.run(
+          [
+            '-s',
+            commitSerial,
+            'shell',
+            '-T',
+            '-x',
+            'cmd',
+            'package',
+            'install-commit',
+            this.#installSessionId,
+          ],
+          {
+            signal: options.signal,
+            timeoutMilliseconds: remainingTimeout(
+              installDeadline,
+              this.now,
+              timeouts.install,
+            ),
+          },
+        ),
+      );
+      if (commitCategory !== null) {
+        diagnosticCategory = commitCategory;
+        throw new Error('DA5 V5 Validation package commit mismatch');
+      }
+      this.#installSessionState = 'committed';
+      this.#installSessionId = undefined;
 
       diagnosticStage =
         DA5_V5_VALIDATION_PHASE0_INSTALL_LAUNCH_STAGES
@@ -838,6 +933,10 @@ export class Da5V5ValidationPhase0Device {
   async #performCleanup(deadline) {
     this.snapshot.destroy();
     if (!isDeadline(deadline) || this.now() >= deadline) {
+      return Object.freeze({ status: 'mismatch' });
+    }
+    const sessionCleanup = await this.#settleInstallSession(deadline);
+    if (sessionCleanup.status !== 'match') {
       return Object.freeze({ status: 'mismatch' });
     }
     if (!this.#preflightStarted && !this.#mutationMayHaveStarted) {
@@ -977,6 +1076,67 @@ export class Da5V5ValidationPhase0Device {
       }
     }
     return Object.freeze({ status: 'mismatch' });
+  }
+
+  #settleInstallSession(deadline) {
+    if (this.#abandonFlight !== undefined) {
+      return this.#abandonFlight;
+    }
+    if (
+      this.#installSessionState === 'none'
+      || this.#installSessionState === 'absent'
+      || this.#installSessionState === 'abandoned'
+      || this.#installSessionState === 'committed'
+    ) {
+      return Promise.resolve(Object.freeze({ status: 'match' }));
+    }
+    if (
+      this.#installSessionState !== 'pending'
+      || typeof this.#installSessionId !== 'string'
+    ) {
+      return Promise.resolve(Object.freeze({ status: 'mismatch' }));
+    }
+    const sessionId = this.#installSessionId;
+    this.#abandonFlight = (async () => {
+      try {
+        const serial = await this.#requireCurrentDevice(
+          undefined,
+          deadline,
+        );
+        requireDeadlineBudget(deadline, this.now);
+        const receipt = await this.runner.run(
+          [
+            '-s',
+            serial,
+            'shell',
+            '-T',
+            '-x',
+            'cmd',
+            'package',
+            'install-abandon',
+            sessionId,
+          ],
+          {
+            timeoutMilliseconds: remainingTimeout(
+              deadline,
+              this.now,
+              timeouts.uninstall,
+            ),
+          },
+        );
+        requireDeadlineBudget(deadline, this.now);
+        if (exactSingleLine(receipt) !== 'Success') {
+          return Object.freeze({ status: 'mismatch' });
+        }
+        this.#installSessionId = undefined;
+        this.#installSessionState = 'abandoned';
+        this.#installUncertain = false;
+        return Object.freeze({ status: 'match' });
+      } catch {
+        return Object.freeze({ status: 'mismatch' });
+      }
+    })();
+    return this.#abandonFlight;
   }
 
   async #requireCurrentDevice(signal, deadline) {
@@ -1743,6 +1903,71 @@ function exactSingleLine(value) {
   return match[1];
 }
 
+function parsePackageManagerCreateReceipt(value) {
+  const generic =
+    DA5_V5_VALIDATION_PHASE0_ERROR_CATEGORIES
+      .packageManagerReceiptMismatch;
+  let line;
+  try {
+    line = exactSingleLine(value);
+  } catch {
+    return Object.freeze({
+      category: generic,
+      sessionAbsent: false,
+      status: 'mismatch',
+    });
+  }
+  const created =
+    /^Success: created install session \[([1-9][0-9]{0,9})\]$/u
+      .exec(line);
+  if (created?.[1] !== undefined) {
+    const sessionId = Number(created[1]);
+    if (
+      Number.isSafeInteger(sessionId)
+      && sessionId <= maximumPackageInstallerSessionId
+    ) {
+      return Object.freeze({
+        sessionId: created[1],
+        status: 'match',
+      });
+    }
+  }
+  return Object.freeze({
+    category: classifyPackageManagerInstallReceipt(line),
+    sessionAbsent: isExactPackageManagerNonSuccessLine(line),
+    status: 'mismatch',
+  });
+}
+
+function classifyPackageManagerWriteReceipt(
+  value,
+  stdinTerminal,
+  expectedBytes,
+) {
+  const partial = stdinTerminal === 'partial_then_pipe_closed';
+  let line;
+  try {
+    line = exactSingleLine(value);
+  } catch {
+    return partial
+      ? DA5_V5_VALIDATION_PHASE0_ERROR_CATEGORIES
+        .adbStdinPipeAbortMismatch
+      : DA5_V5_VALIDATION_PHASE0_ERROR_CATEGORIES
+        .packageManagerReceiptMismatch;
+  }
+  if (
+    !partial
+    && line === `Success: streamed ${expectedBytes} bytes`
+  ) {
+    return null;
+  }
+  if (partial && !isExactPackageManagerNonSuccessLine(line)) {
+    return DA5_V5_VALIDATION_PHASE0_ERROR_CATEGORIES
+      .adbStdinPipeAbortMismatch;
+  }
+  return classifyPackageManagerInstallReceipt(line);
+}
+
 function classifyPackageManagerInstallReceipt(value) {
   const generic =
     DA5_V5_VALIDATION_PHASE0_ERROR_CATEGORIES
@@ -1771,8 +1996,7 @@ function classifyPackageManagerInstallReceipt(value) {
     return DA5_V5_VALIDATION_PHASE0_ERROR_CATEGORIES
       .packageManagerPolicyRestriction;
   }
-  const failure = /^Failure \[(INSTALL_(?:FAILED|PARSE_FAILED)_[A-Z0-9_]+)(?:: [^\u0000-\u001f\u007f\]]{1,1536})?\]$/u
-    .exec(line);
+  const failure = packageManagerFailureReceiptPattern.exec(line);
   const code = failure?.[1];
   if (code === undefined) {
     return generic;
@@ -1798,6 +2022,17 @@ function classifyPackageManagerInstallReceipt(value) {
       .packageManagerCommandContractMismatch;
   }
   return generic;
+}
+
+function isExactPackageManagerNonSuccessLine(line) {
+  return (
+    line === 'Error: must either specify a package size or an APK file'
+    || /^Error: Unknown option(?::)? -{1,2}[A-Za-z][A-Za-z0-9-]*$/u
+      .test(line)
+    || /^Failure \[user (?:0|[1-9][0-9]*) doesn't exist\]$/u
+      .test(line)
+    || packageManagerFailureReceiptPattern.test(line)
+  );
 }
 
 function exactLines(value) {

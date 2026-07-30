@@ -11,7 +11,8 @@ export type Da5V5ValidationInstallStreamOutcome =
     status: 'match';
     stdinTerminal:
       | 'all_bytes_submitted_then_pipe_closed'
-      | 'finished';
+      | 'finished'
+      | 'partial_then_pipe_closed';
     stdout: string;
   }>
   | Readonly<{
@@ -26,7 +27,7 @@ export type Da5V5ValidationInstallStreamOutcome =
   }>;
 
 export interface Da5V5ValidationInstallStreamRunner {
-  install(
+  write(
     arguments_: readonly string[],
     options: Readonly<{
       signal?: AbortSignal;
@@ -42,7 +43,7 @@ implements Da5V5ValidationInstallStreamRunner {
     environment?: Readonly<Record<string, string | undefined>>;
     spawn?: typeof import('node:child_process').spawn;
   }>);
-  install(
+  write(
     arguments_: readonly string[],
     options: Readonly<{
       signal?: AbortSignal;
