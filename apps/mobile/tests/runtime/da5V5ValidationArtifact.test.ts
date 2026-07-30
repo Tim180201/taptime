@@ -1,19 +1,23 @@
+import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   createDa5V5ValidationArtifactManifest,
   DA5_V5_VALIDATION_LOCAL_SIGNER_SHA256,
   DA5_V5_VALIDATION_TALKBACK_QUERY_PACKAGES,
+  inspectDa5V5ValidationApk,
   inspectDa5V5ValidationHermesBytecode,
   inspectDa5V5ValidationManifestXmlTree,
   inspectDa5V5ValidationNativeBytecode,
   requireDa5V5ValidationAndroidSdkAuthority,
+  resolveDa5V5ValidationHermesCompilerPath,
   resolveDa5V5ValidationPackagedXmlPath,
   serializeDa5V5ValidationArtifactManifest,
   verifyDa5V5ValidationApkInspection,
   verifyDa5V5ValidationArtifactBinding,
   type Da5V5ValidationApkInspection,
   type Da5V5ValidationArtifactDependencies,
+  type Da5V5ValidationInspectionTools,
 } from '../../scripts/da5V5ValidationArtifact.mjs';
 import {
   assertDa5V5ValidationAutolinkingResolution,
@@ -27,11 +31,16 @@ import {
   DA5_V5_VALIDATION_EXPO_NATIVE_ALLOWLIST,
   DA5_V5_VALIDATION_REACT_NATIVE_ALLOWLIST,
   DA5_V5_VALIDATION_SOURCE_CLOSURE,
+  type Da5V5ValidationToolIdentityDependencies,
 } from '../../scripts/da5V5ValidationRuntimeContract.mjs';
 import {
   DA5_V5_VALIDATION_EXPECTED_NATIVE_SOURCE_CLOSURE,
   DA5_V5_VALIDATION_NATIVE_SOURCE_CONTRACT,
 } from '../../scripts/da5V5ValidationNativeSourceBinding.mjs';
+
+vi.mock('node:child_process', () => ({
+  spawnSync: vi.fn(),
+}));
 
 const sourceCommit = 'a'.repeat(40);
 const sourceTree = 'b'.repeat(40);
@@ -57,6 +66,10 @@ const manifestBytes = Buffer.from(
 const manifestSha256 = createHash('sha256')
   .update(manifestBytes)
   .digest('hex');
+
+afterEach(() => {
+  vi.mocked(spawnSync).mockReset();
+});
 
 describe('DA5 V5 Validation artifact contract', () => {
   it('requires one explicit canonical and internally identical Android SDK authority', () => {
@@ -85,6 +98,46 @@ describe('DA5 V5 Validation artifact contract', () => {
         requireDa5V5ValidationAndroidSdkAuthority(authority),
       ).toThrow(/Android SDK authority/u);
     }
+  });
+
+  it('rejects equal-size in-place tool tamper after APK inspection', () => {
+    const fixture = inspectionToolFixture();
+    const unzipPath = fixture.tools.unzip.path;
+    const before = fixture.dependencies.lstat(unzipPath);
+    const beforeSha256 = fixture.dependencies.sha256(unzipPath);
+    mockValidInspectionCommands(fixture.tools, () => {
+      const bytes = fixture.contents.get(unzipPath);
+      if (bytes === undefined) throw new Error('missing unzip fixture');
+      const tampered = Buffer.from(bytes);
+      tampered[tampered.length - 1] ^= 0x01;
+      fixture.contents.set(unzipPath, tampered);
+    });
+
+    expect(() => inspectDa5V5ValidationApk(
+      '/synthetic/validation.apk',
+      {
+        androidHome: '/synthetic/android-sdk',
+        androidSdkRoot: '/synthetic/android-sdk',
+      },
+      fixture.tools,
+      fixture.dependencies,
+    )).toThrow(/tool identity mismatch/u);
+
+    expect(vi.mocked(spawnSync)).toHaveBeenCalledTimes(10);
+    const after = fixture.dependencies.lstat(unzipPath);
+    expect({
+      dev: after.dev,
+      ino: after.ino,
+      mode: after.mode,
+      size: after.size,
+    }).toEqual({
+      dev: before.dev,
+      ino: before.ino,
+      mode: before.mode,
+      size: before.size,
+    });
+    expect(fixture.dependencies.sha256(unzipPath))
+      .not.toBe(beforeSha256);
   });
 
   it('binds exact source, local-only signer, runtime and immutable APK metadata', () => {
@@ -840,6 +893,200 @@ function validReactNativeResolution(): {
     reactNativePath: `${repositoryRoot}/node_modules/react-native`,
     root: mobileDirectory,
   };
+}
+
+function inspectionToolFixture(): Readonly<{
+  contents: Map<string, Buffer>;
+  dependencies: Da5V5ValidationToolIdentityDependencies;
+  tools: Da5V5ValidationInspectionTools;
+}> {
+  const paths = Object.freeze({
+    aapt: '/synthetic/android-sdk/build-tools/35.0.0/aapt',
+    apksigner:
+      '/synthetic/android-sdk/build-tools/35.0.0/apksigner',
+    hermesc: resolveDa5V5ValidationHermesCompilerPath(),
+    unzip: '/usr/bin/unzip',
+  });
+  const contents = new Map<string, Buffer>();
+  Object.values(paths).forEach((path, index) => {
+    contents.set(path, Buffer.from(`inspection-tool-${index}-A`));
+  });
+  const identity = (
+    path: string,
+    index: number,
+  ) => Object.freeze({
+    bytes: contents.get(path)!.length,
+    dev: String(index + 1),
+    ino: String(index + 101),
+    mode: 0o755,
+    path,
+    sha256: createHash('sha256').update(contents.get(path)!).digest('hex'),
+  });
+  const tools = Object.freeze({
+    aapt: identity(paths.aapt, 0),
+    apksigner: identity(paths.apksigner, 1),
+    hermesc: identity(paths.hermesc, 2),
+    unzip: identity(paths.unzip, 3),
+  });
+  const toolPaths = Object.values(paths);
+  const dependencies: Da5V5ValidationToolIdentityDependencies = {
+    lstat(path: string) {
+      const bytes = contents.get(path);
+      const index = toolPaths.indexOf(path);
+      if (bytes === undefined || index < 0) {
+        throw new Error('unexpected inspection tool');
+      }
+      return {
+        dev: BigInt(index + 1),
+        ino: BigInt(index + 101),
+        mode: 0o100755n,
+        size: BigInt(bytes.length),
+        isFile: () => true,
+        isSymbolicLink: () => false,
+      };
+    },
+    realpath: (path: string) => path,
+    sha256(path: string) {
+      const bytes = contents.get(path);
+      if (bytes === undefined) {
+        throw new Error('unexpected inspection tool');
+      }
+      return createHash('sha256').update(bytes).digest('hex');
+    },
+  };
+  return Object.freeze({ contents, dependencies, tools });
+}
+
+function mockValidInspectionCommands(
+  tools: Da5V5ValidationInspectionTools,
+  tamperUnzip: () => void,
+) {
+  const privatePermission =
+    'com.tim180201.mobile.validation'
+    + '.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION';
+  const badging = [
+    "package: name='com.tim180201.mobile.validation'"
+      + " versionCode='1' versionName='1.0.0'",
+    "uses-feature: name='android.hardware.nfc'",
+    "uses-permission: name='android.permission.NFC'",
+    `uses-permission: name='${privatePermission}'`,
+  ].join('\n');
+  const androidManifest = [
+    'E: manifest',
+    '  E: permission',
+    `    A: android:name(0x01010003)="${privatePermission}"`,
+    '    A: android:protectionLevel(0x01010009)=(type 0x10)0x2',
+    '  E: uses-permission',
+    '    A: android:name(0x01010003)="android.permission.NFC"',
+    '  E: uses-permission',
+    `    A: android:name(0x01010003)="${privatePermission}"`,
+    '  E: queries',
+    ...DA5_V5_VALIDATION_TALKBACK_QUERY_PACKAGES.flatMap(
+      (packageName) => [
+        '    E: package',
+        `      A: android:name(0x01010003)="${packageName}"`,
+      ],
+    ),
+    '    E: intent',
+    '      E: action',
+    '        A: android:name(0x01010003)="android.intent.action.VIEW"',
+    '      E: category',
+    '        A: android:name(0x01010003)="android.intent.category.BROWSABLE"',
+    '      E: data',
+    '        A: android:scheme(0x01010027)="https"',
+    '  E: application',
+    '    A: android:allowBackup(0x01010280)=(type 0x12)0x0',
+    '    A: android:usesCleartextTraffic(0x010106ec)=(type 0x12)0x0',
+    '    A: android:networkSecurityConfig(0x01010527)="@xml/taptime_da5_v5_validation_network_security"',
+  ].join('\n');
+  const resources = [
+    'resource 0x7f110001 com.tim180201.mobile.validation:xml/taptime_da5_v5_validation_data_extraction_rules: t=0x03',
+    '  (string8) "res/Oy.xml"',
+    'resource 0x7f110002 com.tim180201.mobile.validation:xml/taptime_da5_v5_validation_network_security: t=0x03',
+    '  (string8) "res/Mi.xml"',
+  ].join('\n');
+  const networkPolicy = [
+    'E: network-security-config',
+    '  E: base-config',
+    '    A: cleartextTrafficPermitted(0x01010000)=(type 0x12)0x0',
+  ].join('\n');
+  const backupPolicy = [
+    'cloud-backup',
+    'device-transfer',
+    'database',
+    'device_database',
+    'device_file',
+    'device_root',
+    'device_sharedpref',
+    'external',
+    'file',
+    'root',
+    'sharedpref',
+  ].join('\n');
+  const signature = [
+    'Verified using v1 scheme (JAR signing): false',
+    'Verified using v2 scheme (APK Signature Scheme v2): true',
+    'Verified using v3 scheme (APK Signature Scheme v3): false',
+    'Verified using v3.1 scheme (APK Signature Scheme v3.1): false',
+    'Verified using v4 scheme (APK Signature Scheme v4): false',
+    'Number of signers: 1',
+    `Signer #1 certificate SHA-256 digest: ${DA5_V5_VALIDATION_LOCAL_SIGNER_SHA256}`,
+  ].join('\n');
+  const nativeBytecode = Buffer.from([
+    'com/taptime/da5validationbinding/Da5V5ValidationDeviceBindingModule',
+    'community/revteltech/nfc/NfcManagerPackage',
+    'expo/modules/ExpoModulesPackage',
+    'expo/modules/crypto/CryptoModule',
+  ].join('\0'));
+
+  vi.mocked(spawnSync).mockImplementation((
+    command,
+    argumentsOrOptions,
+  ) => {
+    const commandPath = String(command);
+    const arguments_ = Array.isArray(argumentsOrOptions)
+      ? argumentsOrOptions.map(String)
+      : [];
+    let stdout: Buffer | string;
+    if (commandPath === tools.aapt.path) {
+      if (arguments_[1] === 'badging') {
+        stdout = badging;
+      } else if (arguments_[1] === '--values') {
+        stdout = resources;
+      } else if (arguments_.at(-1) === 'AndroidManifest.xml') {
+        stdout = androidManifest;
+      } else if (arguments_.at(-1) === 'res/Mi.xml') {
+        stdout = networkPolicy;
+      } else if (arguments_.at(-1) === 'res/Oy.xml') {
+        stdout = backupPolicy;
+      } else {
+        throw new Error('unexpected aapt invocation');
+      }
+    } else if (commandPath === tools.apksigner.path) {
+      stdout = signature;
+    } else if (commandPath === tools.unzip.path) {
+      if (arguments_[0] === '-Z1') {
+        stdout = 'assets/index.android.bundle\nclasses.dex\n';
+      } else if (arguments_.at(-1) === 'assets/index.android.bundle') {
+        stdout = Buffer.from('synthetic-hermes-bundle');
+      } else if (arguments_.at(-1) === 'classes.dex') {
+        tamperUnzip();
+        stdout = nativeBytecode;
+      } else {
+        throw new Error('unexpected unzip invocation');
+      }
+    } else if (commandPath === tools.hermesc.path) {
+      stdout = 'taptime-da5-v5-validation-only-v1';
+    } else {
+      throw new Error('unexpected inspection command');
+    }
+    return {
+      error: undefined,
+      status: 0,
+      stderr: Buffer.isBuffer(stdout) ? Buffer.alloc(0) : '',
+      stdout,
+    } as never;
+  });
 }
 
 function validInspection(): Da5V5ValidationApkInspection {

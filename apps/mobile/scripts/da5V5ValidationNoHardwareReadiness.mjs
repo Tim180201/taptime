@@ -310,7 +310,9 @@ function optional(environment, name) {
 function systemDependencies() {
   return Object.freeze({
     currentNodePath: process.execPath,
-    lstat: lstatSync,
+    lstat(path) {
+      return lstatSync(path, { bigint: true });
+    },
     readRepositoryBinding(gitPath, repositoryRoot, sourceScopes) {
       return readDa5V5ValidationRepositoryBinding(
         gitPath,

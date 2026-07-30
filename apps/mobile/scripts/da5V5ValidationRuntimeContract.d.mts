@@ -36,18 +36,21 @@ export const DA5_V5_VALIDATION_BUILD_ENVIRONMENT: Readonly<
 >;
 export interface Da5V5ValidationToolIdentity {
   readonly bytes: number;
-  readonly dev: number;
-  readonly ino: number;
+  readonly dev: string;
+  readonly ino: string;
   readonly mode: number;
   readonly path: string;
   readonly sha256: string;
 }
+export type Da5V5ValidationToolIdentityComponent =
+  bigint | number | string;
+export type Da5V5ValidationToolStatNumber = bigint | number;
 export interface Da5V5ValidationToolIdentityDependencies {
   lstat(path: string): {
-    readonly dev: number;
-    readonly ino: number;
-    readonly mode: number;
-    readonly size: number;
+    readonly dev: Da5V5ValidationToolIdentityComponent;
+    readonly ino: Da5V5ValidationToolIdentityComponent;
+    readonly mode: Da5V5ValidationToolStatNumber;
+    readonly size: Da5V5ValidationToolStatNumber;
     isFile(): boolean;
     isSymbolicLink(): boolean;
   };

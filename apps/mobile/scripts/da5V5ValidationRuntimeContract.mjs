@@ -224,10 +224,15 @@ export function createCurrentDa5V5ValidationToolIdentity(
   dependencies = systemToolIdentityDependencies(),
 ) {
   const canonical = requireCanonicalToolPath(path);
-  const stat = dependencies.lstat(canonical);
+  const stat = requireToolStatMetadata(
+    dependencies.lstat(canonical),
+    'DA5 V5 Validation tool authority mismatch',
+  );
   return verifyDa5V5ValidationToolIdentity(
     Object.freeze({
       bytes: stat.size,
+      dev: stat.dev,
+      ino: stat.ino,
       mode: stat.mode & 0o7777,
       path: canonical,
       sha256: dependencies.sha256(canonical),
@@ -255,21 +260,32 @@ export function verifyDa5V5ValidationToolIdentity(
     throw new Error('DA5 V5 Validation tool binding mismatch');
   }
   const path = requireCanonicalToolPath(binding.path);
-  const before = dependencies.lstat(path);
+  const bindingDev = optionalCanonicalToolIdentityComponent(
+    binding.dev,
+    'DA5 V5 Validation tool binding mismatch',
+  );
+  const bindingIno = optionalCanonicalToolIdentityComponent(
+    binding.ino,
+    'DA5 V5 Validation tool binding mismatch',
+  );
+  const before = requireToolStatMetadata(
+    dependencies.lstat(path),
+    'DA5 V5 Validation tool authority mismatch',
+  );
   const mode = before.mode & 0o7777;
   if (
-    !before.isFile()
-    || before.isSymbolicLink()
+    !before.file
+    || before.symbolicLink
     || mode !== binding.mode
     || (mode & 0o111) === 0
     || before.size !== binding.bytes
     || (
-      binding.dev !== undefined
-      && binding.dev !== before.dev
+      bindingDev !== undefined
+      && bindingDev !== before.dev
     )
     || (
-      binding.ino !== undefined
-      && binding.ino !== before.ino
+      bindingIno !== undefined
+      && bindingIno !== before.ino
     )
     || normalize(dependencies.realpath(path)) !== path
     || dependencies.sha256(path) !== binding.sha256
@@ -296,25 +312,114 @@ export function assertDa5V5ValidationToolIdentityMetadata(
     typeof identity !== 'object'
     || identity === null
     || Array.isArray(identity)
-    || !Number.isSafeInteger(identity.dev)
-    || !Number.isSafeInteger(identity.ino)
+    || !Number.isSafeInteger(identity.bytes)
+    || identity.bytes <= 0
+    || !Number.isSafeInteger(identity.mode)
+    || identity.mode < 0
+    || identity.mode > 0o7777
+    || typeof identity.sha256 !== 'string'
+    || !/^[0-9a-f]{64}$/u.test(identity.sha256)
   ) {
     throw new Error('DA5 V5 Validation tool identity mismatch');
   }
+  const identityDev = requireCanonicalToolIdentityComponent(
+    identity.dev,
+    'DA5 V5 Validation tool identity mismatch',
+  );
+  const identityIno = requireCanonicalToolIdentityComponent(
+    identity.ino,
+    'DA5 V5 Validation tool identity mismatch',
+  );
   const path = requireCanonicalToolPath(identity.path);
-  const stat = dependencies.lstat(path);
+  const stat = requireToolStatMetadata(
+    dependencies.lstat(path),
+    'DA5 V5 Validation tool identity mismatch',
+  );
   if (
-    !stat.isFile()
-    || stat.isSymbolicLink()
-    || stat.dev !== identity.dev
-    || stat.ino !== identity.ino
+    !stat.file
+    || stat.symbolicLink
+    || stat.dev !== identityDev
+    || stat.ino !== identityIno
     || (stat.mode & 0o7777) !== identity.mode
     || stat.size !== identity.bytes
     || normalize(dependencies.realpath(path)) !== path
+    || dependencies.sha256(path) !== identity.sha256
   ) {
     throw new Error('DA5 V5 Validation tool identity mismatch');
   }
   return Object.freeze({ status: 'match' });
+}
+
+function optionalCanonicalToolIdentityComponent(value, mismatchMessage) {
+  return value === undefined
+    ? undefined
+    : requireCanonicalToolIdentityComponent(value, mismatchMessage);
+}
+
+function requireCanonicalToolIdentityComponent(value, mismatchMessage) {
+  if (
+    typeof value === 'string'
+    && /^(?:0|[1-9][0-9]*)$/u.test(value)
+  ) {
+    return value;
+  }
+  throw new Error(mismatchMessage);
+}
+
+function requireToolStatIdentityComponent(value, mismatchMessage) {
+  if (typeof value === 'bigint') {
+    if (value >= 0n) return value.toString(10);
+  } else if (
+    typeof value === 'number'
+    && Number.isSafeInteger(value)
+    && value >= 0
+  ) {
+    return String(value);
+  } else if (typeof value === 'string') {
+    return requireCanonicalToolIdentityComponent(value, mismatchMessage);
+  }
+  throw new Error(mismatchMessage);
+}
+
+function requireToolStatMetadata(stat, mismatchMessage) {
+  try {
+    if (
+      typeof stat !== 'object'
+      || stat === null
+      || typeof stat.isFile !== 'function'
+      || typeof stat.isSymbolicLink !== 'function'
+    ) {
+      throw new Error(mismatchMessage);
+    }
+    return Object.freeze({
+      dev: requireToolStatIdentityComponent(stat.dev, mismatchMessage),
+      file: stat.isFile(),
+      ino: requireToolStatIdentityComponent(stat.ino, mismatchMessage),
+      mode: requireSafeToolStatNumber(stat.mode, mismatchMessage),
+      size: requireSafeToolStatNumber(stat.size, mismatchMessage),
+      symbolicLink: stat.isSymbolicLink(),
+    });
+  } catch {
+    throw new Error(mismatchMessage);
+  }
+}
+
+function requireSafeToolStatNumber(value, mismatchMessage) {
+  if (
+    typeof value === 'number'
+    && Number.isSafeInteger(value)
+    && value >= 0
+  ) {
+    return value;
+  }
+  if (
+    typeof value === 'bigint'
+    && value >= 0n
+    && value <= BigInt(Number.MAX_SAFE_INTEGER)
+  ) {
+    return Number(value);
+  }
+  throw new Error(mismatchMessage);
 }
 
 function requireCanonicalToolPath(path) {
@@ -330,7 +435,9 @@ function requireCanonicalToolPath(path) {
 
 function systemToolIdentityDependencies() {
   return Object.freeze({
-    lstat: lstatSync,
+    lstat(path) {
+      return lstatSync(path, { bigint: true });
+    },
     realpath: realpathSync,
     sha256(path) {
       return createHash('sha256')

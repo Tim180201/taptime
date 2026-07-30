@@ -1,8 +1,8 @@
 # Development Assignment 5 — V5 Human Android Evidence
 
-- Status: **PHASE-0 RUN 16 CONSUMED FAIL-CLOSED AT FIRST TAG-A `technology_evidence`; NO B/X, HUMAN PASS, RETRY OR HARDWARE DEFECT — UNCOMMITTED NFCA-ONLY R3 CORRECTION HAS PARTIAL LOCAL V1/V2 EVIDENCE ONLY — NO REPLACEMENT ARTIFACT/SHA/CI/REVIEW/RUN AUTHORITY**
+- Status: **PHASE-0 RUN 16 CONSUMED FAIL-CLOSED AT FIRST TAG-A `technology_evidence`; NO B/X, HUMAN PASS, RETRY OR HARDWARE DEFECT — ONE LOCAL PRODUCT SYNTHETIC ARTIFACT CANDIDATE EXISTS; FIRST VALIDATION PUBLICATION FAILED BEFORE STAGING AND WAS NOT RETRIED — UNCOMMITTED TOOL-IDENTITY CORRECTION HAS FOCUSED V1/V2 EVIDENCE ONLY — NO VALIDATION ARTIFACT/CI/REVIEW/RUN AUTHORITY**
 - Date: 2026-07-30
-- Artifact preparation date: 2026-07-28
+- Artifact preparation date: 2026-07-30
 - Owner: Technical Lead
 - Human run authority: `NOT BOUND`
 
@@ -35,6 +35,28 @@ delegated this focused R3 implementation on baseline commit
 `4bbfe9e3fdcdf474f1f506135560e4e111122fb5`; no wider Product, Business, production or
 distribution decision is Evidence.
 
+Fresh artifact preparation used independently approved source
+`814cb9013be7da98e46a4c36c5d4e716eef4cf46`, tree
+`0181c50faf6936ea1236f4454d536bf734334c91`. One task-owned atomic publication produced
+the local read-only Product candidate under `taptime-local-artifacts/da5-v5/814cb90`: APK
+`app-release-fd0886dc1c393d3b.apk`, 95,522,751 bytes, mode `0444`, SHA-256
+`fd0886dc1c393d3b09b5ce575215e4767c84335362ec7cbe5f1948877c714d96`; manifest
+`artifact-manifest.txt`, 1,964 bytes, mode `0444`, SHA-256
+`c0645dda543394cba9d6029b41a23aff5bcb5d0d805e3e944d9f8f880d1d5639`. It remains
+unreviewed and **DO NOT INSTALL**. The first official Validation build completed, but the official
+publisher failed closed before staging/publication because Number-based `lstat` could not safely
+represent the APFS System-volume inode of `/usr/bin/unzip`. Publication and verification markers
+were zero; no Validation APK/manifest was published or retained and no retry occurred.
+
+The authorized minimal correction obtains BigInt system stats, represents `dev`/`ino` as exact
+canonical decimal strings and retains fail-closed path/realpath/symlink/mode/size/SHA and stable
+identity checks. Focused affected verification passes 3/3 files and 387/387 tests; Mobile
+tests-inclusive `tsc --noEmit`, changed-test inclusion, all three changed-MJS syntax checks, the
+real above-`MAX_SAFE_INTEGER` `/usr/bin/unzip` identity check and `git diff --check` pass. No V3,
+build after this correction, Validation artifact retry, ADB, installation, hardware, commit, push
+or CI was run. Independent review remains pending. After `APPROVED`, the existing Human authority
+covers exactly one new Validation rebuild; execution remains pending.
+
 The readiness contract keeps two independent provenance axes: Execution Repository
 `DA5_V5_VALIDATION_EXECUTION_COMMIT`/`_TREE` plus
 `DA5_V5_VALIDATION_REPOSITORY_ROOT`, and Artifact Source
@@ -43,7 +65,8 @@ are compared only with their own authorities. Node, Git, ADB, aapt, apksigner, h
 each require explicit `_PATH`, `_BYTES`, `_MODE` and `_SHA256` inputs under their
 `DA5_V5_VALIDATION_<TOOL>` prefix; `ANDROID_HOME`/`ANDROID_SDK_ROOT` bind the SDK-derived Android
 tools, hermesc must equal the repository-resolved compiler and unzip must equal `/usr/bin/unzip`.
-No concrete new tool or replacement-artifact binding is Evidence. Ordinary scoped Git status
+The Product candidate binding above is Evidence; no Validation replacement-artifact binding is
+Evidence. Ordinary scoped Git status
 includes staged, unstaged and untracked state under the root `app.json` and `research/**`
 exclusions. A separate `status --ignored=matching` receives only the positive deduplicated
 Validation source scopes plus the exact 13-file transitive local execution closure, detects ignored
@@ -69,8 +92,8 @@ expectations were corrected, the broad Mobile run passed 925/926; the same suite
 blocked closure test explicitly excluded passed 913/913. The remaining native-source-closure test
 cannot currently run from the retained dependency tree because pre-existing native build residue
 under `node_modules/expo-modules-core/android` exceeds its bound; that user/dependency state was
-not deleted. No V3, artifact/APK build, commit/tree, CI, independent review or replacement artifact
-success is claimed.
+not deleted. No V3, commit/tree, CI, independent review, Validation artifact success or run
+authority is claimed.
 
 The prior Product NfcA/MifareUltralight artifact and current Validation/Operator bindings are
 historical **DO NOT INSTALL** or pending supersession. R-035 remains open.

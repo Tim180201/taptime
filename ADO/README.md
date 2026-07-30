@@ -29,8 +29,12 @@ and untracked state under the protected exclusions, while a separate
 the exact 13-file transitive local execution closure. Native cancel cleanup failure settles the
 capture and has precedence over cancelled/order outcomes; completed UI offers are removed and
 replay fails closed. After operator-abort arbitration, every winning typed ADB timeout maps to the
-fixed timeout category at every install/launch stage. The candidate has no replacement artifact,
-commit/tree, CI, independent approval, V3 or Human-run authority. Current details are in ADR-0017,
+fixed timeout category at every install/launch stage. One unreviewed local Product Synthetic
+artifact candidate now exists. The first Validation publication failed closed before staging on
+the APFS tool-identity boundary, published nothing and was not retried; its minimal BigInt identity
+correction is pending independent review. After `APPROVED`, the existing Human authority covers
+exactly one new Validation rebuild; execution remains pending. No commit/tree, CI, V3 or Human-run
+authority is claimed. Current details are in ADR-0017,
 `Project_Status.md`, R-034, the DA5 V5 Runbook and DA5 V5 Evidence. R-035 remains open.
 
 The Human Architect explicitly made the NfcA-only Product decision. The Technical Lead delegated

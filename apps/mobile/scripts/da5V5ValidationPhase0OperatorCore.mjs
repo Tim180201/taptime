@@ -366,8 +366,10 @@ function requireToolIdentity(value) {
     || Array.isArray(value)
     || !Number.isSafeInteger(value.bytes)
     || value.bytes <= 0
-    || !Number.isSafeInteger(value.dev)
-    || !Number.isSafeInteger(value.ino)
+    || typeof value.dev !== 'string'
+    || !/^(?:0|[1-9][0-9]*)$/u.test(value.dev)
+    || typeof value.ino !== 'string'
+    || !/^(?:0|[1-9][0-9]*)$/u.test(value.ino)
     || !Number.isSafeInteger(value.mode)
     || value.mode < 0
     || value.mode > 0o7777

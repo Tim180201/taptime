@@ -25,6 +25,9 @@ import {
 import {
   DA5_V5_VALIDATION_EXECUTION_SCOPES,
   DA5_V5_VALIDATION_SOURCE_SCOPES,
+  assertDa5V5ValidationToolIdentityMetadata,
+  createCurrentDa5V5ValidationToolIdentity,
+  verifyDa5V5ValidationToolIdentity,
 } from '../../scripts/da5V5ValidationRuntimeContract.mjs';
 
 const executionCommit = 'a'.repeat(40);
@@ -441,6 +444,197 @@ describe('DA5 V5 Validation no-hardware readiness', () => {
     )).toThrow(/identity/u);
   });
 
+  it('preserves APFS-scale BigInt tool identities exactly', () => {
+    const dependencies = validDependencies();
+    const dev = 16_777_232n;
+    const ino = 1_152_921_500_312_573_001n;
+    vi.mocked(dependencies.lstat).mockImplementation((path) =>
+      stat(path, {
+        dev,
+        ino,
+        mode: 0o100755n,
+        size: 100n,
+      }));
+
+    const identity = createCurrentDa5V5ValidationToolIdentity(
+      paths.unzip,
+      dependencies,
+    );
+
+    expect(identity).toMatchObject({
+      bytes: 100,
+      dev: dev.toString(10),
+      ino: ino.toString(10),
+      mode: 0o755,
+      path: paths.unzip,
+    });
+    expect(assertDa5V5ValidationToolIdentityMetadata(
+      identity,
+      dependencies,
+    )).toEqual({ status: 'match' });
+  });
+
+  it('rejects equal-size in-place digest drift and digest read failure', () => {
+    const dependencies = validDependencies();
+    const identity = createCurrentDa5V5ValidationToolIdentity(
+      paths.unzip,
+      dependencies,
+    );
+
+    vi.mocked(dependencies.sha256).mockReturnValue('f'.repeat(64));
+    expect(() => assertDa5V5ValidationToolIdentityMetadata(
+      identity,
+      dependencies,
+    )).toThrow(/identity/u);
+
+    vi.mocked(dependencies.sha256).mockImplementation(() => {
+      throw new Error('digest unavailable');
+    });
+    expect(() => assertDa5V5ValidationToolIdentityMetadata(
+      identity,
+      dependencies,
+    )).toThrow('digest unavailable');
+  });
+
+  it.each([
+    undefined,
+    '',
+    'e'.repeat(63),
+    'E'.repeat(64),
+    'g'.repeat(64),
+  ])('rejects malformed reattestation digest %s', (sha256) => {
+    const dependencies = validDependencies();
+    const identity = createCurrentDa5V5ValidationToolIdentity(
+      paths.unzip,
+      dependencies,
+    );
+
+    expect(() => assertDa5V5ValidationToolIdentityMetadata({
+      ...identity,
+      sha256,
+    }, dependencies)).toThrow(/identity/u);
+  });
+
+  it('rejects adjacent BigInt inodes that collide as Numbers', () => {
+    const dependencies = validDependencies();
+    const collidingAsNumber = [
+      9_007_199_254_740_992n,
+      9_007_199_254_740_993n,
+    ] as const;
+    expect(Number(collidingAsNumber[0])).toBe(
+      Number(collidingAsNumber[1]),
+    );
+    let toolStatCalls = 0;
+    vi.mocked(dependencies.lstat).mockImplementation((path) => {
+      if (path !== paths.unzip) return stat(path);
+      const ino = collidingAsNumber[Math.min(toolStatCalls, 1)];
+      toolStatCalls += 1;
+      return stat(path, {
+        dev: 16_777_232n,
+        ino,
+        mode: 0o100755n,
+        size: 100n,
+      });
+    });
+
+    expect(() => createCurrentDa5V5ValidationToolIdentity(
+      paths.unzip,
+      dependencies,
+    )).toThrow(/authority/u);
+  });
+
+  it('rejects exact BigInt identity drift during stable reattestation', () => {
+    const dependencies = validDependencies();
+    let toolStatCalls = 0;
+    vi.mocked(dependencies.lstat).mockImplementation((path) => {
+      if (path !== paths.unzip) return stat(path);
+      toolStatCalls += 1;
+      return stat(path, {
+        dev: 16_777_232n,
+        ino: toolStatCalls < 3
+          ? 1_152_921_500_312_573_001n
+          : 1_152_921_500_312_573_002n,
+        mode: 0o100755n,
+        size: 100n,
+      });
+    });
+
+    expect(() => createCurrentDa5V5ValidationToolIdentity(
+      paths.unzip,
+      dependencies,
+    )).toThrow(/identity/u);
+  });
+
+  it.each(['dev', 'ino'].flatMap((field) => [
+    -1n,
+    -1,
+    1,
+    Number.MAX_SAFE_INTEGER + 1,
+    '',
+    '-1',
+    '+1',
+    '01',
+    '1.0',
+    '9e15',
+  ].map((value) => [field, value] as const)))(
+    'rejects malformed tool binding %s component %s',
+    (field, value) => {
+      expect(() => verifyDa5V5ValidationToolIdentity({
+        ...binding(paths.unzip),
+        dev: '1',
+        ino: '11',
+        [field]: value,
+      }, validDependencies())).toThrow(/binding/u);
+    },
+  );
+
+  it.each(['dev', 'ino'].flatMap((field) => [
+    -1n,
+    -1,
+    Number.MAX_SAFE_INTEGER + 1,
+    '',
+    '-1',
+    '+1',
+    '01',
+    '1.0',
+    '9e15',
+  ].map((value) => [field, value] as const)))(
+    'rejects malformed lstat %s component %s',
+    (field, value) => {
+      const dependencies = validDependencies();
+      vi.mocked(dependencies.lstat).mockImplementation((path) =>
+        stat(path, { [field]: value }));
+
+      expect(() => verifyDa5V5ValidationToolIdentity(
+        binding(paths.unzip),
+        dependencies,
+      )).toThrow(/authority/u);
+    },
+  );
+
+  it.each([
+    ['mode', -1n],
+    ['mode', BigInt(Number.MAX_SAFE_INTEGER) + 1n],
+    ['mode', Number.MAX_SAFE_INTEGER + 1],
+    ['mode', '33261'],
+    ['size', -1n],
+    ['size', BigInt(Number.MAX_SAFE_INTEGER) + 1n],
+    ['size', Number.MAX_SAFE_INTEGER + 1],
+    ['size', '100'],
+  ] as const)(
+    'rejects non-safe lstat %s value %s',
+    (field, value) => {
+      const dependencies = validDependencies();
+      vi.mocked(dependencies.lstat).mockImplementation((path) =>
+        stat(path, { [field]: value }));
+
+      expect(() => verifyDa5V5ValidationToolIdentity(
+        binding(paths.unzip),
+        dependencies,
+      )).toThrow(/authority/u);
+    },
+  );
+
   it('rejects an ancestor symlink through canonical-path revalidation', () => {
     const dependencies = validDependencies();
     vi.mocked(dependencies.realpath).mockImplementation((path) =>
@@ -535,18 +729,23 @@ Da5V5ValidationNoHardwareReadinessDependencies {
 function stat(
   path: string,
   overrides: Readonly<{
-    ino?: number;
+    dev?: bigint | number | string;
+    ino?: bigint | number | string;
+    mode?: bigint | number | string;
+    size?: bigint | number | string;
     symbolicLink?: boolean;
   }> = {},
 ) {
   const directory = path === paths.sdk || path === paths.repository;
   return {
-    dev: 1,
+    dev: overrides.dev ?? 1,
     ino: overrides.ino ?? 11,
-    mode: directory ? 0o40755 : 0o100755,
-    size: directory ? 200 : 100,
+    mode: overrides.mode ?? (directory ? 0o40755 : 0o100755),
+    size: overrides.size ?? (directory ? 200 : 100),
     isDirectory: () => directory,
     isFile: () => toolPaths.has(path),
     isSymbolicLink: () => overrides.symbolicLink ?? false,
-  };
+  } as ReturnType<
+    Da5V5ValidationNoHardwareReadinessDependencies['lstat']
+  >;
 }

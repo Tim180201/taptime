@@ -1,6 +1,6 @@
 # Project Status
 
-Status: CORE ROADMAP V2 COMPLETIONS REMAIN PRESERVED FOR THEIR RECORDED SCOPES — DA4 REMAINS OPEN FOR A LATER FRESH HUMAN V5 — DA5 V0–V4 AND THE HISTORICAL LOCAL DA5-V5 RUNTIME-GUARD/VALIDATION/OPERATOR CLOSURES REMAIN PRESERVED ONLY FOR THEIR RECORDED SCOPES — PHASE-0 RUN 16 IS CONSUMED FAIL-CLOSED AT FIRST TAG-A `technology_evidence`; NO B/X, HUMAN PASS, RETRY OR HARDWARE DEFECT — PRODUCT/VALIDATION/OPERATOR REPLACEMENT BINDINGS ARE PENDING AN UNCOMMITTED NFCA-ONLY R3 CORRECTION — NO INSTALL/RUN AUTHORITY; V3, COMMIT, CI, REVIEW, REPLACEMENT ARTIFACT, PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, SYSTEM CHANGES, DEPLOYMENT AND DISTRIBUTION REMAIN PENDING OR UNAUTHORIZED
+Status: CORE ROADMAP V2 COMPLETIONS REMAIN PRESERVED FOR THEIR RECORDED SCOPES — DA4 REMAINS OPEN FOR A LATER FRESH HUMAN V5 — DA5 V0–V4 AND THE HISTORICAL LOCAL DA5-V5 RUNTIME-GUARD/VALIDATION/OPERATOR CLOSURES REMAIN PRESERVED ONLY FOR THEIR RECORDED SCOPES — PHASE-0 RUN 16 IS CONSUMED FAIL-CLOSED AT FIRST TAG-A `technology_evidence`; NO B/X, HUMAN PASS, RETRY OR HARDWARE DEFECT — ONE LOCAL PRODUCT SYNTHETIC ARTIFACT CANDIDATE EXISTS; FIRST VALIDATION PUBLICATION FAILED CLOSED BEFORE STAGING AND WAS NOT RETRIED — VALIDATION REBUILD/PUBLICATION AND IDENTITY-CORRECTION REVIEW REMAIN PENDING — NO INSTALL/RUN AUTHORITY; V3, COMMIT, CI, REVIEW, VALIDATION ARTIFACT, PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, SYSTEM CHANGES, DEPLOYMENT AND DISTRIBUTION REMAIN PENDING OR UNAUTHORIZED
 DA5 decision-time Option-A trust anchor: exactly two direct admin-group members, zero nested
 groups; full-record SHA-256 `b006276c09d8f2713f6132ea79cec167ab3a3c2887ee53e95eb00c1cc33719a5`;
 membership SHA-256 `70a683b7ebc7981533015d5d63cf12dfb2eabbfa665c34720eddb4d09e9e3064`;
@@ -18,6 +18,17 @@ Human confirmed the displayed device binding. The first physical Tag-A scan then
 `abort`, produced `cleanup:match` and terminated `failed:mismatch`. No raw technology list, UID or
 fingerprint was recorded; no hardware defect is proven.
 
+Artifact preparation on independently approved source
+`814cb9013be7da98e46a4c36c5d4e716eef4cf46`, tree
+`0181c50faf6936ea1236f4454d536bf734334c91`, produced one local read-only Product
+Synthetic artifact candidate. The first Validation build completed, but its official publisher
+failed closed before staging/publication because Number-based `lstat` could not safely bind the
+APFS System-volume inode of `/usr/bin/unzip`; no Validation APK/manifest was published or retained
+and no retry occurred. The minimal uncommitted correction now captures system tool identity with
+BigInt stats and exact canonical decimal `dev`/`ino`. It has focused V1/V2 evidence only;
+independent review remains pending. After `APPROVED`, the existing Human authority covers exactly
+one new Validation rebuild; execution remains pending.
+
 The previous Product artifact with an NfcA/MifareUltralight dispatch filter and the then-current
 Validation/Operator bindings are now historical **DO NOT INSTALL** or pending supersession. The
 uncommitted R3 working-tree correction narrows Product dispatch and the closed Validation label to
@@ -33,8 +44,9 @@ XML resource. Native cancel cleanup failure settles the capture and remains high
 cancel/order results, while only the same active UI offer coalesces and settled replay fails closed.
 The actual ADB runners and APK inspector reattest their bound tools; after operator-abort
 arbitration every winning typed ADB timeout maps to the fixed timeout category at all
-install/launch stages. No replacement artifact, commit/tree, CI, independent approval, V3 or new
-Human authority is claimed. R-035 remains open.
+install/launch stages. The local Product candidate is not independently approved and grants no
+install/run authority. No Validation replacement artifact, commit/tree, CI, independent approval,
+V3 or new Human authority is claimed. R-035 remains open.
 The Human Architect explicitly decided the NfcA-only Product scope; the Technical Lead delegated
 only its focused R3 implementation on baseline `17f4b47b8429d3862789b7e13a23f8da9d28c449`,
 tree `4bbfe9e3fdcdf474f1f506135560e4e111122fb5`.

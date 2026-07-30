@@ -26,10 +26,10 @@ export interface Da5V5ValidationNoHardwareReadinessOptions {
 export interface Da5V5ValidationNoHardwareReadinessDependencies {
   readonly currentNodePath: string;
   lstat(path: string): {
-    readonly dev: number;
-    readonly ino: number;
-    readonly mode: number;
-    readonly size: number;
+    readonly dev: bigint | number | string;
+    readonly ino: bigint | number | string;
+    readonly mode: bigint | number;
+    readonly size: bigint | number;
     isDirectory(): boolean;
     isFile(): boolean;
     isSymbolicLink(): boolean;
@@ -51,8 +51,8 @@ export interface Da5V5ValidationNoHardwareReadinessDependencies {
 
 export interface Da5V5ValidationReadinessToolIdentity {
   readonly bytes: number;
-  readonly dev: number;
-  readonly ino: number;
+  readonly dev: string;
+  readonly ino: string;
   readonly mode: number;
   readonly path: string;
   readonly sha256: string;

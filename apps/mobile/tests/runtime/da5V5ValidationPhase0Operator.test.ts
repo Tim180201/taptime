@@ -47,6 +47,9 @@ import {
   verifyAndSealDa5V5ValidationPhase0Artifact,
   verifyDa5V5ValidationInstalledArtifact,
 } from '../../scripts/da5V5ValidationPhase0OperatorCore.mjs';
+import type {
+  Da5V5ValidationToolIdentity,
+} from '../../scripts/da5V5ValidationRuntimeContract.mjs';
 
 const packageName = 'com.tim180201.mobile.validation';
 const validPath =
@@ -74,7 +77,10 @@ const verifiedTools = Object.freeze({
     '/synthetic/repository/node_modules/hermesc',
     14,
   ),
-  unzip: toolIdentity('/usr/bin/unzip', 15),
+  unzip: toolIdentity(
+    '/usr/bin/unzip',
+    1_152_921_500_312_573_001n,
+  ),
 });
 const verifiedReadiness = () => Object.freeze({
   artifactSourceCommit:
@@ -2528,6 +2534,72 @@ describe('DA5 V5 Validation device and protocol boundary', () => {
       call.arguments_[2] === 'uninstall')).toBe(false);
   });
 
+  it('reattests canonical Phase-0 identities above MAX_SAFE_INTEGER', async () => {
+    const largeDev = 9_007_199_254_740_993n;
+    const largeIno = 1_152_921_500_312_573_001n;
+    const tools = Object.freeze({
+      ...verifiedTools,
+      adb: Object.freeze({
+        ...verifiedTools.adb,
+        dev: largeDev.toString(10),
+        ino: largeIno.toString(10),
+      }),
+    });
+    const toolIdentityDependencies =
+      createToolIdentityDependencies(tools);
+    const adbLstatCalls = () => vi.mocked(
+      toolIdentityDependencies.lstat,
+    ).mock.calls.filter(([path]) => path === tools.adb.path).length;
+    const runner = new FakeRunner();
+    const session = createSession(runner, {
+      toolIdentityDependencies,
+      tools,
+    });
+
+    await session.start();
+    expect(adbLstatCalls()).toBe(4);
+    await session.submit('install-launch');
+    await session.submit('human-pass');
+    await session.submit('cleanup');
+
+    await expect(session.done).resolves.toEqual({ status: 'match' });
+    expect(adbLstatCalls()).toBe(6);
+  });
+
+  it('fails completion after equal-size in-place ADB digest drift', async () => {
+    const runner = new FakeRunner();
+    const toolIdentityDependencies = createToolIdentityDependencies(
+      verifiedTools,
+      () => runner.finalZeroObservationsAfterCleanup >= 2
+        ? 'f'.repeat(64)
+        : toolSha256,
+    );
+    const receipts: string[] = [];
+    const session = createSession(runner, {
+      receipt(stage: string, status: 'match' | 'mismatch') {
+        receipts.push(`${stage}:${status}`);
+      },
+      toolIdentityDependencies,
+    });
+
+    await session.start();
+    await session.submit('install-launch');
+    await expect(session.submit('human-pass')).resolves.toEqual({
+      status: 'match',
+    });
+    await expect(session.submit('cleanup')).resolves.toEqual({
+      status: 'mismatch',
+    });
+
+    await expect(session.done).resolves.toEqual({ status: 'mismatch' });
+    expect(runner.cleanupFlights).toBe(1);
+    expect(receipts.slice(-2)).toEqual([
+      'cleanup:mismatch',
+      'failed:mismatch',
+    ]);
+    expect(receipts).not.toContain('complete:match');
+  });
+
   it.each(['artifact', 'cleanup', 'complete'])(
     'settles fail-closed when the %s receipt throws',
     async (failingStage) => {
@@ -2710,41 +2782,47 @@ function createSession(
   });
 }
 
-function toolIdentity(path: string, ino: number) {
+function toolIdentity(path: string, ino: bigint | number) {
   return Object.freeze({
     bytes: 100,
-    dev: 1,
-    ino,
+    dev: '1',
+    ino: String(ino),
     mode: 0o755,
     path,
     sha256: toolSha256,
   });
 }
 
-function createToolIdentityDependencies() {
+function createToolIdentityDependencies(
+  tools: Readonly<Record<
+    string,
+    Readonly<Da5V5ValidationToolIdentity>
+  >> = verifiedTools,
+  sha256: (path: string) => string = () => toolSha256,
+) {
   const identities = new Map(
-    Object.values(verifiedTools).map((identity) => [
+    Object.values(tools).map((identity) => [
       identity.path,
       identity,
     ]),
   );
   return Object.freeze({
-    lstat(path: string) {
+    lstat: vi.fn((path: string) => {
       const identity = identities.get(path);
       if (identity === undefined) {
         throw new Error('unexpected synthetic tool');
       }
       return {
-        dev: identity.dev,
-        ino: identity.ino,
+        dev: BigInt(identity.dev),
+        ino: BigInt(identity.ino),
         mode: 0o100000 | identity.mode,
         size: identity.bytes,
         isFile: () => true,
         isSymbolicLink: () => false,
       };
-    },
+    }),
     realpath: (path: string) => path,
-    sha256: () => toolSha256,
+    sha256: vi.fn(sha256),
   });
 }
 

@@ -1,6 +1,6 @@
 # Development Assignment 5 — V5 Human Android Gate Runbook
 
-- Status: **PHASE-0 RUN 16 CONSUMED FAIL-CLOSED AT FIRST TAG-A `technology_evidence`; NO B/X, HUMAN PASS, RETRY OR HARDWARE DEFECT — NFCA-ONLY PRODUCT/VALIDATION/OPERATOR SUPERSESSION PENDING — NO RUN AUTHORITY/DO NOT START**
+- Status: **PHASE-0 RUN 16 CONSUMED FAIL-CLOSED AT FIRST TAG-A `technology_evidence`; NO B/X, HUMAN PASS, RETRY OR HARDWARE DEFECT — LOCAL PRODUCT SYNTHETIC ARTIFACT CANDIDATE EXISTS; FIRST VALIDATION PUBLICATION FAILED BEFORE STAGING AND WAS NOT RETRIED — VALIDATION REBUILD/REVIEW PENDING — NO RUN AUTHORITY/DO NOT START**
 - Date: 2026-07-30
 - Owner: Technical Lead
 - Approval authority for any run: Human Architect
@@ -19,9 +19,19 @@ Lead delegated only its focused R3 implementation on baseline
 `17f4b47b8429d3862789b7e13a23f8da9d28c449`, tree
 `4bbfe9e3fdcdf474f1f506135560e4e111122fb5`; this record grants no run authority.
 
+Artifact preparation on approved source `814cb9013be7da98e46a4c36c5d4e716eef4cf46`,
+tree `0181c50faf6936ea1236f4454d536bf734334c91`, produced one local read-only Product
+Synthetic artifact candidate. The first Validation build completed, but its official atomic
+publisher failed closed before staging/publication on the unsafe Number representation of the
+APFS System-volume inode for `/usr/bin/unzip`; no Validation APK/manifest was published or
+retained and no retry occurred. The minimal BigInt/canonical-decimal Tool-Identity correction is
+uncommitted and pending independent review. It authorizes no rebuild before `APPROVED`; after
+`APPROVED`, the existing Human authority covers exactly one new Validation rebuild.
+
 The Product NfcA/MifareUltralight artifact and the then-current Validation/Operator bindings are
 historical **DO NOT INSTALL** or pending supersession. The current uncommitted correction and every
-future replacement remain non-executable until separately reviewed and authorized. Its sole
+Validation replacement remain non-executable until independently `APPROVED`; the one already
+Human-authorized rebuild remains pending execution. Its sole
 read-only no-hardware readiness entry is
 `npm run android:da5-v5-validation:verify --workspace=@taptime/mobile`. Its inputs are separate and
 must never be collapsed:
