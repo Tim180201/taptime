@@ -1,6 +1,6 @@
 # Project Status
 
-Status: CORE ROADMAP V2 COMPLETIONS REMAIN PRESERVED FOR THEIR RECORDED SCOPES — DA4 REMAINS OPEN FOR A LATER FRESH HUMAN V5 — DA5 V0–V4 AND THE HISTORICAL LOCAL DA5-V5 RUNTIME-GUARD/VALIDATION/OPERATOR CLOSURES REMAIN PRESERVED ONLY FOR THEIR RECORDED SCOPES — PHASE-0 RUN 17 PASSED THE EXACT VALIDATION DEVICE/UI/30-PRESENTATION/HUMAN-PASS/TERMINAL-CLEANUP PROTOCOL WITH EXIT 0; THE VALIDATION APP WAS REMOVED — THE THREE PAIRWISE-DISTINCT SAFE A/B/X FINGERPRINT VALUES WERE HUMAN-CONFIRMED BUT NOT TRANSFERRED OR RECORDED BEFORE CLEANUP, SO A SEPARATELY AUTHORIZED MINIMAL READ-ONLY FINGERPRINT-TRANSFER ACTION REMAINS REQUIRED AND R-035 STAYS OPEN — PRODUCT HUMAN V5 DID NOT RUN; THE PRODUCT APP WAS NOT INSTALLED; R-034 AND DA5 REMAIN OPEN; NO COMPLETE PHASE-0 RETRY, PRODUCT ACTION, AUTH/NETWORK/DATABASE/TIMEKEEPING ACTION, PRODUCTION, PRODUCTION DATA, PILOT OPERATION, LEGAL/PRIVACY APPROVAL, DEPLOYMENT OR DISTRIBUTION IS AUTHORIZED
+Status: CORE ROADMAP V2 COMPLETIONS REMAIN PRESERVED FOR THEIR RECORDED SCOPES — DA4 REMAINS OPEN FOR A LATER FRESH HUMAN V5 — DA5 V0–V4 AND THE HISTORICAL LOCAL DA5-V5 RUNTIME-GUARD/VALIDATION/OPERATOR CLOSURES REMAIN PRESERVED ONLY FOR THEIR RECORDED SCOPES — PHASE-0 RUN 18 ESTABLISHED THE DISCLOSURE-SAFE TRANSFER BINDING A `B55E8B6AEB30`, B `32A54C8F2F29`, X `F61C9F702CFE`; FORMAT AND PAIRWISE DISTINCTNESS PASSED, THE EXACT AUTHORITY WAS CONSUMED SUCCESSFULLY, AND R-035 IS LOCALLY MITIGATED — DEVICE/UI/10×A+10×B+10×X/NFCA/FINAL PASS/TERMINAL CLEANUP MATCHED WITH EXIT 0; THE VALIDATION APP WAS REMOVED — PRODUCT HUMAN V5 DID NOT RUN; THE PRODUCT APP WAS NOT INSTALLED; R-034 AND DA5 REMAIN OPEN; NO PRODUCT CORRECTNESS, PRODUCT ACTION, AUTH/NETWORK/DATABASE/TIMEKEEPING ACTION, PRODUCTION, PRODUCTION DATA, PILOT OPERATION, LEGAL/PRIVACY APPROVAL, DEPLOYMENT OR DISTRIBUTION IS AUTHORIZED
 DA5 decision-time Option-A trust anchor: exactly two direct admin-group members, zero nested
 groups; full-record SHA-256 `b006276c09d8f2713f6132ea79cec167ab3a3c2887ee53e95eb00c1cc33719a5`;
 membership SHA-256 `70a683b7ebc7981533015d5d63cf12dfb2eabbfa665c34720eddb4d09e9e3064`;
@@ -10,7 +10,32 @@ every trust use; mismatch returns to the Human Architect and may not dynamically
 Date: 2026-07-31
 Owner: Human Architect + Technical Lead
 
-## DA5 V5 Phase-0 run-17 success and fingerprint-transfer checkpoint
+## DA5 V5 Phase-0 run-18 fingerprint-transfer success and Product boundary
+
+Phase-0 run 18 used exact ADO baseline `5a0d59c2b1767192d3d261cede7a2c2b11732d30`, tree
+`e2970d1851ab55f99ff7a027e6268ec4b7622643`, Validation Artifact Source
+`5675297dab94258e50d7371a95e07fe7a77fc51c`, tree
+`b32af38c8ac769965ab062762004312d96d0de25`, and Validation Execution
+`be76ce4a69c8a971ad73b5232082a9e500d8d471`, tree
+`56abec5e7f2752f5004fe3e8667f47a917429c52`. The APK SHA-256 was
+`3d5450f257eda716bbda0a133a7630d3a2d8bb1f5095fdb1986e85aa0277d144`; the manifest SHA-256
+was `1397f0504bbbf88e776ececb9796918586724a16c69a885c8e23631c2465e86a`.
+
+The operator emitted exactly `artifact:match`, `preflight:match`, `install_launch:match`,
+`waiting:match`, `human_pass:match`, `cleanup:match` and `complete:match`, then exited 0. The
+authorized device matched; the UI passed 10×A, then 10×B, then 10×X with 10/10 for every role,
+`NfcA`, the exact final UI and `PASS`. Terminal cleanup matched and the Validation App was removed.
+The transferred disclosure-safe 12-uppercase-hex fingerprints are A `B55E8B6AEB30`, B
+`32A54C8F2F29` and X `F61C9F702CFE`; format and pairwise distinctness were validated. Run-18
+authority is consumed successfully and R-035 is locally mitigated with the transfer binding
+established. No raw UID, payload, Technology list, device serial or secret is Evidence.
+
+Product Human V5 did not run and the Product App was not installed. Run 18 therefore makes no
+Product correctness claim. R-034 and DA5 remain open, and the next safe action requires separate
+exact Product-Human-V5 authorization. No authentication, network, database, Product, timekeeping,
+production, deployment or distribution action occurred.
+
+Run 17 remains the historical successful Phase-0 stability/UI/cleanup record:
 
 Phase-0 run 17 used exact authorized Validation Artifact Source
 `5675297dab94258e50d7371a95e07fe7a77fc51c`, tree
@@ -34,13 +59,8 @@ fingerprints, the exact final title/text and `PASS`. No raw UID, payload, Techno
 serial or secret is Evidence. Terminal operator evidence confirms the Validation App was removed.
 
 The Technical Lead did not receive or record the three concrete safe fingerprint values before
-cleanup. Run 17 therefore successfully proves the Phase-0 stability/UI/cleanup boundary, but the
-exact A/B/X values are unavailable as later Harness inputs. This is an operational process
-finding, not a Product, Validation or hardware defect. R-035 remains open until a new separately
-authorized minimal read-only fingerprint-transfer action captures only those safe values; this
-status does not authorize a complete Phase-0 retry. Product Human V5 did not run, the Product App
-was not installed, and R-034 remains open. No authentication, network, database, Product,
-timekeeping, production, deployment or distribution action occurred.
+run-17 cleanup. That historical operational transfer gap, which was not a Product, Validation or
+hardware defect, is now locally mitigated by the separately authorized run-18 transfer above.
 
 Run 16 remains historical: it matched the offline artifact, preflight, install-launch and waiting
 receipts and the Human confirmed the displayed device binding. The first physical Tag-A scan then
@@ -92,10 +112,12 @@ cleanup. The verifier only bound the ADB file identity read-only; no ADB command
 12/12. Correction
 `9c6eec7`/tree `0aaa6de` closed the two docs-only P3 findings, and both independent Exact-Delta
 re-reviews returned `APPROVED` with zero open P0–P3. This R0 synchronization carries V3/V4
-without a second V3 or CI. Run 17 subsequently consumed its separate exact Phase-0 authority and
-passed the Validation protocol as recorded above. The Product App remains uninstalled and Product
-Human V5 remains unrun; DA5 and R-034 stay open. R-035 also stays open solely because the three
-concrete safe A/B/X fingerprint values were not transferred before terminal cleanup.
+without a second V3 or CI. That CI remains bound only to the stated `f45f49a` head/tree and is not
+exact-head CI for run-18 ADO baseline `5a0d59c` or this R0 synchronization. Run 17 subsequently
+consumed its separate exact Phase-0 authority and passed the Validation protocol; run 18 then
+consumed its separate exact authority and established the transfer binding recorded above. The
+Product App remains uninstalled and Product Human V5 remains unrun; DA5 and R-034 stay open while
+R-035 is locally mitigated.
 The Human Architect explicitly decided the NfcA-only Product scope; the Technical Lead delegated
 only its focused R3 implementation on baseline `17f4b47b8429d3862789b7e13a23f8da9d28c449`,
 tree `4bbfe9e3fdcdf474f1f506135560e4e111122fb5`.
@@ -111,9 +133,10 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   `083fdfb`, tree `24bd130`, exact-head CI `30402655381` attempt 1 12/12 and independent
   round-2 Exact-SHA review are approved with zero open P0–P3; both round-1 P1 findings are closed,
   runs 1–16 remain consumed fail-closed history; separately authorized run 17 passed the complete
-  Validation Phase-0 protocol and terminal cleanup, but its three concrete safe A/B/X fingerprint
-  values were not transferred before cleanup. A minimal read-only transfer requires separate
-  authority; no complete retry or Product Human V5 is authorized.**
+  Validation Phase-0 protocol and terminal cleanup. Separately authorized run 18 established the
+  exact safe transfer binding A `B55E8B6AEB30`, B `32A54C8F2F29`, X `F61C9F702CFE`; format and
+  pairwise distinctness passed, and R-035 is locally mitigated. Product Human V5 remains
+  separately unauthorized and `NOT RUN`.**
   Runtime Guard source
   `ba1b6e922ceb7902ecedd9dc2df01d6b22d90867`, tree
   `980b6c57fdd71c12820f2890b640946db0d883c6`, passed CI `30255104609`, attempt 2,
@@ -162,9 +185,10 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   Runs 1–16 are consumed without a successful attributable Tag result. Run 16 reached the first
   Tag-A scan and failed closed at `technology_evidence`; B/X, Human PASS and retry were not
   reached, and terminal cleanup matched. Separately authorized run 17 later passed 10×A, then
-  10×B, then 10×X, Human PASS and terminal cleanup with exit 0. Its three distinct safe
-  fingerprint values were not transferred before cleanup, so R-035 stays open without proving a
-  Product or hardware defect. Earlier failed attempts:
+  10×B, then 10×X, Human PASS and terminal cleanup with exit 0. Its three distinct safe values
+  were not transferred before cleanup; separately authorized run 18 subsequently established the
+  exact transfer binding and locally mitigated R-035 without proving Product correctness. Earlier
+  failed attempts:
   run 1 stopped on
   a preinstalled Validation package; run 2 on the unsupported Samsung provider in the then-prior
   build; run 3 because the generic launcher/package resolver did not uniquely start the explicit
@@ -1547,22 +1571,23 @@ Two Epics are concurrently Active, per EP-009's own stated relationship to the r
    `APPROVED` with zero open P0–P3. Carry this evidence through the R0 `[skip ci]` synchronization
    at closure head `3b544c731d15428334bbadc8e70a3492ef60b886`/tree
    `52eb3a2bd4f9676a22dbfbb5eaacf9fccb474e02` without a second V3 or CI; that closure carries
-   the evidence only and is not the Exact-Head-CI SHA. Run 17 subsequently passed under its
-   separate exact authority and
-   removed the Validation App. Product Human V5 remains unrun, the Product App remains
-   uninstalled, and DA5 plus R-034/R-035 stay open. Artifact Source stays fixed;
+   the evidence only and is not the Exact-Head-CI SHA. This carried CI is not exact-head CI for
+   run-18 ADO baseline `5a0d59c` or this R0 synchronization. Run 17 subsequently passed under its
+   separate exact authority. Run 18 then established the exact transfer binding A
+   `B55E8B6AEB30`, B `32A54C8F2F29`, X `F61C9F702CFE`, removed the Validation App and consumed
+   its exact authority. Product Human V5 remains unrun, the Product App remains uninstalled, DA5
+   plus R-034 stay open, and R-035 is locally mitigated. Artifact Source stays fixed;
    Execution commit/tree bind to the canonical loaded-module root's actual `be76ce4`/`56abec5`.
    Preserve the
    first retained-build-checkout Validation
    readiness stop as an operational wrong-location record before artifact inspection and the
    corrected fresh-clean-checkout verifier marker as successful no-hardware evidence only; it
    attested ADB file identity but executed no ADB command.
-   Before later Harness input binding, obtain a new separate authorization for only the minimal
-   read-only transfer of the three concrete safe A/B/X fingerprint values that the Human observed
-   but the Technical Lead did not receive before run-17 cleanup. Do not infer or reconstruct them,
-   expose raw UID/payload/Technology list, or authorize a complete Phase-0 retry. Product APK
-   installation and Product Human V5 remain later separately gated. Production, production data,
-   system changes, deployment and distribution remain unauthorized.
+   Preserve the disclosure-safe run-18 fingerprint transfer as the established later Harness input
+   binding; do not expose raw UID/payload/Technology list or infer any additional Tag data. Obtain
+   a new separate exact authorization before Product APK installation or Product Human V5. Product
+   correctness remains unproven; production, production data, system changes, deployment and
+   distribution remain unauthorized.
 7. Review the ADO-only ADR-0018/DA6 production-like operational-readiness candidate. Preparation
    does not authorize Workstreams A–D implementation, cloud/provider resources, costs, public
    endpoints, production data or deployment. Resolve provider/cost/IAM/RPO/RTO/retention values
