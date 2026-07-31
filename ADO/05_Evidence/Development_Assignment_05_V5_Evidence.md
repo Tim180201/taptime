@@ -1,18 +1,51 @@
 # Development Assignment 5 — V5 Human Android Evidence
 
-- Status: **PHASE-0 RUN 16 CONSUMED FAIL-CLOSED AT FIRST TAG-A `technology_evidence`; CURRENT NFCA-ONLY SET PASSED FINAL V3; ADO `f45f49a`/TREE `714300d` PASSED CI `30612797541` ATTEMPT 1 12/12; `9c6eec7`/TREE `0aaa6de` CLOSED TWO DOCS-ONLY P3 AND BOTH EXACT-DELTA RE-REVIEWS APPROVED WITH ZERO OPEN P0–P3 — R0 TRANSFER WITHOUT SECOND V3/CI; NON-HARDWARE PREPARATION APPROVED/MERGE_READY; BOTH DO NOT INSTALL; OPERATOR DO NOT START; HUMAN/HARDWARE UNAUTHORIZED; DA5/R-034/R-035 OPEN**
+- Status: **PHASE-0 RUN 17 PASSED VALIDATION DEVICE/UI/10×A+10×B+10×X/HUMAN-PASS/TERMINAL CLEANUP WITH EXIT 0; VALIDATION APP REMOVED; CONCRETE SAFE A/B/X FINGERPRINT VALUES NOT TRANSFERRED BEFORE CLEANUP — R-035 OPEN AND SEPARATE MINIMAL READ-ONLY TRANSFER AUTHORITY REQUIRED; PRODUCT HUMAN V5 NOT RUN; PRODUCT APP NOT INSTALLED; R-034/DA5 OPEN**
 - Date: 2026-07-31
 - Artifact preparation date: 2026-07-30 through 2026-07-31
 - Owner: Technical Lead
-- Human run authority: `NOT BOUND`
+- Human run authority: `PHASE-0 RUN 17 CONSUMED SUCCESSFULLY; PRODUCT HUMAN V5 NOT BOUND`
 
-## 0A. Run-16 evidence and current non-executable candidate
+## 0A. Run-17 evidence, fingerprint-transfer gap and Product boundary
 
-Run 16 produced the disclosure-safe sequence `artifact:match`, `preflight:match`,
-`install_launch:match`, `waiting:match`; the Human confirmed the displayed device binding; and the
-first physical Tag-A scan failed at `technology_evidence`. No B/X capture, Human PASS or retry
-occurred. `abort` was accepted, followed by `cleanup:match` and terminal `failed:mismatch`. No raw
-technology list, UID or fingerprint is Evidence. No hardware defect is proven.
+Run 17 used exact authorized Validation Artifact Source
+`5675297dab94258e50d7371a95e07fe7a77fc51c` / tree
+`b32af38c8ac769965ab062762004312d96d0de25` and Execution Repository
+`be76ce4a69c8a971ad73b5232082a9e500d8d471` / tree
+`56abec5e7f2752f5004fe3e8667f47a917429c52`. ADO CI head
+`f45f49aa6c56c70a503322a043bec3d2360c2176` / tree
+`714300da7656822dd9b7a2a42fe1be85ab33aa6c` passed exact-head CI `30612797541`,
+attempt 1, 12/12. Later R0 `[skip ci]` closure head
+`3b544c731d15428334bbadc8e70a3492ef60b886` / tree
+`52eb3a2bd4f9676a22dbfbb5eaacf9fccb474e02` carries that evidence only and is not the
+Exact-Head-CI SHA.
+
+The disclosure-safe operator sequence was exactly `artifact:match`, `preflight:match`,
+`install_launch:match`, `waiting:match`, `human_pass:match`, `cleanup:match`,
+`complete:match`; exit was 0. The displayed binding matched `SM-A336B`, Android 15/API 35,
+build `samsung/a33xnseea/a33x:15/AP3A.240905.015.A2/A336BXXUDFYE3:user/release-keys`, Owner
+User 0, 200 % text scale and Samsung TalkBack `15.1.01.1`. Package, process and reverse null state
+matched. The Human confirmed exactly 10 A, then 10 B, then 10 X presentations, every role 10/10,
+`NfcA`, three pairwise-distinct 12-uppercase-hex safe fingerprints, exact title
+`Alle drei Rollen stabil gebunden`, exact text
+`A, B und X sind stabil, eindeutig und voneinander verschieden.` and `PASS`. Terminal operator
+evidence confirms the Validation App was removed.
+
+The Technical Lead did not receive or record the three concrete safe fingerprint values before
+cleanup. The Phase-0 stability/UI/cleanup result is successful, but those exact values are not
+available as later Harness inputs. This is an operational process finding, not a Product,
+Validation or hardware defect. R-035 remains open pending a new separately authorized minimal
+read-only fingerprint-transfer action; this record does not authorize a complete Phase-0 retry.
+No raw UID, payload, Technology list, device serial or secret is Evidence.
+
+Product Human V5 did not run, the Product App was not installed and R-034 remains open. No
+authentication, network, database, Product, timekeeping, production, deployment or distribution
+action occurred.
+
+Run 16 remains historical: it produced `artifact:match`, `preflight:match`,
+`install_launch:match`, `waiting:match`, then stopped on first Tag-A at
+`technology_evidence`; `abort`, `cleanup:match` and `failed:mismatch` closed it without B/X,
+Human PASS, retry or a hardware-defect finding.
 
 V0 classifies the correction as R3 because it changes Product NFC dispatch, Validation evidence
 arbitration/UI, immutable artifact inspection and the mutation-capable Phase-0 operator. Tenant,
@@ -118,13 +151,18 @@ Before that complete successful run, the setup wrapper stopped because `npm ci` 
 main checkout rather than the safe root; no gate had started. A later premature Admin-Web build
 stopped before its dependency build; no green build was claimed or selectively repeated, and the
 complete CI dependency ordering produced the final green run. No ADB command was executed; the
-Validation verifier only checked the bound ADB file identity read-only. ADO head
-`f45f49a`/tree `714300d` passed exact-head CI `30612797541`, attempt 1, 12/12. Correction
+Validation verifier only checked the bound ADB file identity read-only. ADO CI head
+`f45f49aa6c56c70a503322a043bec3d2360c2176`/tree
+`714300da7656822dd9b7a2a42fe1be85ab33aa6c` passed exact-head CI `30612797541`, attempt 1,
+12/12. Correction
 `9c6eec7`/tree `0aaa6de` closed the two docs-only P3 findings, and both independent Exact-Delta
-re-reviews returned `APPROVED` with zero open P0–P3. This R0 synchronization carries V3/V4
-without a second V3 or CI. The non-hardware preparation is technically
-`APPROVED`/`MERGE_READY`; both artifacts remain **DO NOT INSTALL**, the operator **DO NOT START**,
-Human Phase 0/hardware remains unauthorized, and DA5 plus R-034/R-035 remain open.
+re-reviews returned `APPROVED` with zero open P0–P3. At that historical pre-run checkpoint, this
+R0 synchronization carried V3/V4 without a second V3 or CI; the non-hardware preparation was
+technically `APPROVED`/`MERGE_READY`, both artifacts were **DO NOT INSTALL**, the operator was
+**DO NOT START** and Human Phase 0/hardware was unauthorized. Run 17 later passed under its
+separate exact authorization and consumed that authority. Post-run, both artifacts are again
+**DO NOT INSTALL** and the operator **DO NOT START** for every new action; DA5 plus R-034/R-035
+remain open.
 
 The corrected readiness contract keeps two explicit provenance axes: Execution Repository
 `DA5_V5_VALIDATION_EXECUTION_COMMIT`/`_TREE` plus
@@ -190,8 +228,9 @@ This closes the exact repository/source/artifact finding only. Because the nativ
 diagnostics correction changes the Validation source, the `e97bbe9` artifact is now
 **HISTORICAL — DO NOT INSTALL**.
 
-Sixteen separately authorized Phase-0 attempts are consumed fail-closed without a successful attributable Tag
-result. Run 5 used repository baseline
+Runs 1–16 are consumed fail-closed without a successful attributable Tag result. Separately
+authorized run 17 later passed the complete Validation Phase-0 protocol recorded in Section 0A.
+Run 5 used repository baseline
 `55070aa9a74c2606668caba9dc113ae8d689bd8d`, installed and verified the then-current exact
 `7e8c0f7` Validation APK and passed the Human-confirmed device checkpoint. Its first required
 validation scan path then
@@ -527,9 +566,10 @@ separate Phase-0, installation, ADB or hardware authority exists.
 The safe run-7 stage and repository diagnosis expose no concrete physical Technology list,
 fingerprint or Tag result and prove no hardware defect.
 
-No current Phase-0/hardware/ADB/installation authority exists, and Product Human V5 is `NOT RUN`.
-No production, production-data, system-change, deployment or distribution result is claimed.
-Historical candidate and review details remain preserved below.
+Run 17 succeeded and consumed its exact Phase-0 authority. No new Phase-0/hardware/ADB/installation
+authority exists, and Product Human V5 is `NOT RUN`. No production, production-data,
+system-change, deployment or distribution result is claimed. Historical candidate and review
+details remain preserved below.
 
 ## 1. Authority and exact binding
 
@@ -537,19 +577,19 @@ This record mirrors
 `ADO/04_Operations/Development_Assignment_05_V5_Runbook.md`. It records the current read-only
 Product/Validation artifacts plus operator Execution candidate, its final V3, ADO/V4 and both
 independent zero-finding Exact-Delta re-reviews, the historical Validation artifacts and exact
-TECH-01 source/CI/source-review bindings, and all sixteen consumed Phase-0 attempts, but no
-successful attributable Tag result or Product Human result. It grants no new Human-run or
-installation authority.
+TECH-01 source/CI/source-review bindings, failed runs 1–16 and successful Validation Phase-0 run
+17. It records no Product Human result and grants no new Human-run or installation authority.
 
 | Binding | Evidence |
 |---|---|
-| One-run Human authorization/date | `NOT BOUND` |
+| Validation Phase-0 run-17 Human authorization/date | Explicit exact-bound Human authorization on `2026-07-31`; consumed successfully |
+| Product Human V5 authorization/date | `NOT BOUND` |
 | Current Product source/review state — DO NOT INSTALL | `814cb9013be7da98e46a4c36c5d4e716eef4cf46` / tree `0181c50faf6936ea1236f4454d536bf734334c91`; source/prepublication reviews `APPROVED`, zero open P0–P3; current operator candidate final V3 passed |
 | Current Product APK/manifest — DO NOT INSTALL | Directory `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5/814cb90`; APK `app-release-fd0886dc1c393d3b.apk`, 95,522,751 bytes, mode `0444`, SHA-256 `fd0886dc1c393d3b09b5ce575215e4767c84335362ec7cbe5f1948877c714d96`; manifest `artifact-manifest.txt`, 1,964 bytes, mode `0444`, SHA-256 `c0645dda543394cba9d6029b41a23aff5bcb5d0d805e3e944d9f8f880d1d5639` |
 | Current Product package/runtime | `com.tim180201.mobile.synthetic`; versionCode `1`; versionName `1.0.0`; v2 true and v1/v3/v3.1/v4 false; one signer certificate SHA-256 `fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c`; compiled unique exact-NfcA binding and packaged runtime matched |
 | Current Validation Artifact Source — DO NOT INSTALL | `5675297dab94258e50d7371a95e07fe7a77fc51c`; tree `b32af38c8ac769965ab062762004312d96d0de25`; exact 33-record closure |
 | Current Validation Execution/review state — DO NOT START | `be76ce4a69c8a971ad73b5232082a9e500d8d471` / tree `56abec5e7f2752f5004fe3e8667f47a917429c52`; parent `cda51c81255dfd7b8944e7d19efb7d209eae7001` / tree `e2ee3bc6cef96c33e9cce692309891577767f1a7`; canonical loaded-module root and actual HEAD/tree matched in final V3 |
-| Current ADO/V4/re-review closure | `f45f49a`/tree `714300d`; CI `30612797541`, attempt 1, 12/12; docs-only correction `9c6eec7`/tree `0aaa6de`; both Exact-Delta re-reviews `APPROVED`, zero open P0–P3; R0 transfer without second V3/CI; non-hardware preparation `APPROVED`/`MERGE_READY`; no Human/hardware authority |
+| Pre-run ADO/V4/re-review closure | ADO CI head `f45f49aa6c56c70a503322a043bec3d2360c2176`/tree `714300da7656822dd9b7a2a42fe1be85ab33aa6c`; exact-head CI `30612797541`, attempt 1, 12/12; docs-only correction `9c6eec7`/tree `0aaa6de`; both Exact-Delta re-reviews `APPROVED`, zero open P0–P3; later R0 `[skip ci]` closure `3b544c731d15428334bbadc8e70a3492ef60b886`/tree `52eb3a2bd4f9676a22dbfbb5eaacf9fccb474e02` carries the evidence only and is not the Exact-Head-CI SHA; non-hardware preparation `APPROVED`/`MERGE_READY`; at that checkpoint no Human/hardware authority. Run 17 later passed under separate exact authorization, now consumed |
 | Current Validation APK/manifest — DO NOT INSTALL | Directory `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-validation/da5-v5-validation-5675297dab94-3d5450f257eda716`; APK `app-release-3d5450f257eda716.apk`, 65,634,553 bytes, mode `0444`, SHA-256 `3d5450f257eda716bbda0a133a7630d3a2d8bb1f5095fdb1986e85aa0277d144`; manifest `manifest-5675297dab94.json`, 6,855 bytes, mode `0444`, SHA-256 `1397f0504bbbf88e776ececb9796918586724a16c69a885c8e23631c2465e86a` |
 | Current Validation bundle/source closure | Executable Metro bundle 2,044,686 bytes / SHA-256 `f33e4ecdf0e0d34e39220be9a96d952f3f9718692e766a6e57bdddd28b3b2a88`; 555 entries / 2,679,201 source bytes / SHA-256 `93224940aeab41a86bef9bf3fc959d85f8d7cbdc69876cf94c900abd5d9c6bdd`; focused 8/8 verification and independent bundle re-review `APPROVED`, zero open P0–P3 |
 | Current Validation closure/publication/verification | 33 ordered Artifact Source records; compact-JSON SHA-256 `62aaa737428ef90b52fc9790ab1cc268537e8d5f5add1fce785bdb501bade763`; publisher initial/staged/final `PASS`; fresh-clean-execution-checkout marker `da5_v5_validation_artifact_verified` on `be76ce4a69c8a971ad73b5232082a9e500d8d471` / tree `56abec5e7f2752f5004fe3e8667f47a917429c52`; Artifact Source remained `5675297dab94258e50d7371a95e07fe7a77fc51c` / tree `b32af38c8ac769965ab062762004312d96d0de25`; no ADB command was executed; prior retained-build-checkout readiness stop was before artifact inspection and is not an Artifact finding |
@@ -584,13 +624,13 @@ installation authority.
 | Historical Product APK path/size/SHA-256/mode — DO NOT INSTALL | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5/a323834/app-release-385c0c46f22dcac5.apk`; 95,522,787 bytes; `385c0c46f22dcac5b935bfdc6f574558f4e74748ed4a367ef399ddbd4299c547`; `0444` |
 | Historical Product manifest path/size/SHA-256/mode — DO NOT INSTALL | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5/a323834/artifact-manifest.txt`; 1,647 bytes; `1c1f1b7a5b92fab5510cde35a439fc6f0742b7bf2666d6319cd89b9a7d4dcadb`; `0444` |
 | Historical Product package/version/signature/signer/runtime | `com.tim180201.mobile.synthetic`; versionCode `1`; versionName `1.0.0`; v2 `true`, v1/v3/v3.1/v4 `false`; one local synthetic non-production signer certificate SHA-256 `fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c`; packaged boundary/runtime `match` |
-| Device model/OS/build/screen-unlocked mode | `NOT BOUND` |
-| Approved Tag labels/safe fingerprints by assigned/unassigned/unrelated role | `NOT BOUND` |
-| Synthetic services/status/offline controls | `NOT BOUND` |
-| Admin Setup Preview 2 entry/result/safe-exit procedure | `NOT BOUND` |
-| DA5-T06 five-second dedupe boundary/lifecycle-cancellation checkpoint | `NOT BOUND` |
-| Reviewed Protected/Review fixture, labels, start state, cutover, expected sequence and scoped teardown | `NOT BOUND` |
-| Large-text setting/active allowlisted TalkBack package and version | `NOT BOUND` |
+| Product Human V5 device model/OS/build/screen-unlocked mode | `NOT BOUND` |
+| Product Human V5 approved Tag labels/safe fingerprints by assigned/unassigned/unrelated role | `NOT BOUND` |
+| Product Human V5 synthetic services/status/offline controls | `NOT BOUND` |
+| Product Human V5 Admin Setup Preview 2 entry/result/safe-exit procedure | `NOT BOUND` |
+| Product Human V5 DA5-T06 five-second dedupe boundary/lifecycle-cancellation checkpoint | `NOT BOUND` |
+| Product Human V5 reviewed Protected/Review fixture, labels, start state, cutover, expected sequence and scoped teardown | `NOT BOUND` |
+| Product Human V5 large-text setting/active allowlisted TalkBack package and version | `NOT BOUND` |
 
 Historical query correction exact-head CI `30276804017`, attempt 1, and review-base CI
 `30277641127`, attempt 1, each passed 12/12 and its independent Exact-SHA re-review closed P1/P3.
@@ -598,10 +638,9 @@ Final Runtime correction exact-head CI `30284566289`, attempt 1, passed 12/12; i
 re-review and Artifact Exact-SHA review each returned `APPROVED` with zero open P0–P3, and the
 official artifact verifier returned `PASS` for the exact final binding above. These automated and
 review results are not Human preflight evidence or Human-run authority. The `effc57a`, `e97bbe9`
-and `7e8c0f7` APK/manifest artifacts are historical/DO NOT INSTALL.
-Any future Phase 0 requires a separate fresh exact Human authorization binding only the current
-independently approved superseding NfcA-only Product/Validation/operator set plus the exact device,
-accessibility state and A/B/X Tag bindings; the historical `effc57a`,
+and `7e8c0f7` APK/manifest artifacts are historical/DO NOT INSTALL. No complete Phase-0 retry is
+currently authorized. The separately required minimal read-only transfer of the three concrete
+safe A/B/X values requires its own new exact Human authorization; the historical `effc57a`,
 `e97bbe9` and `7e8c0f7` artifacts remain **DO NOT INSTALL** and must not be future bindings.
 
 ### 1.1 Historical enablement and isolated-PostgreSQL correction sequence — no Human result
@@ -741,10 +780,11 @@ This paragraph is governance history, not Candidate Evidence, implementation app
 hardware authority; focused publication, exact-head CI and independent Exact-Delta `APPROVED`
 with zero open P0–P3 remain required.
 
-Sixteen later separately authorized Phase-0 attempts occurred as recorded below; none produced a successful
-attributable Tag result or reached Product Human V5. The Harness can accept A/B/X values only from
-the operator and cannot independently prove their origin. Any further hardware action requires a
-new explicit Human authorization.
+Runs 1–16 occurred as recorded below without a successful attributable Tag result. Run 17
+subsequently passed the Validation Phase-0 protocol but did not reach Product Human V5. The Harness
+can accept A/B/X values only from the operator and cannot independently prove their origin; the
+three concrete safe run-17 values were not transferred before cleanup. Only a new explicit Human
+authorization may permit the minimal read-only transfer action.
 
 Do not add credentials, credential/password/identity digests, tokens, secrets, raw UID/payload,
 provider subjects, device serials, encryption keys, internal identifiers, CSV bodies or personal
@@ -771,11 +811,14 @@ data.
 | Phase 0 run 15 | On the same exact baseline after binding `ANDROID_HOME` and `ANDROID_SDK_ROOT` to the authorized SDK, offline artifact verification matched and the Operator emitted exactly `artifact:match`, `preflight:match`, `stage=installation status=mismatch category=adb_stdin_pipe_abort_mismatch`, `install_launch:mismatch`, `cleanup:match`, `failed:mismatch`; no `installed_provenance`, `waiting`, UI/NFC or Tag step was reached | Authority consumed; terminal cleanup matched; no Product, APK, NFC or hardware finding proven; another run remains DO NOT START without fresh exact Human authorization |
 
 | Phase 0 run 16 | The offline Operator emitted `artifact:match`, `preflight:match`, `install_launch:match`, `waiting:match`; the Human confirmed the displayed device binding; the first physical Tag-A scan stopped at `technology_evidence`; accepted `abort` then produced `cleanup:match`, `failed:mismatch` | Authority consumed; no accepted fingerprint, B/X, Human PASS or retry; no raw technology list, UID or fingerprint; no hardware defect proven; Product/Validation/Operator bindings require independently reviewed supersession |
+| Phase 0 run 17 | Exact source `5675297` / tree `b32af38`, execution `be76ce4` / tree `56abec5`; exact-head CI `30612797541`, attempt 1, 12/12 ran on ADO CI head `f45f49aa6c56c70a503322a043bec3d2360c2176` / tree `714300da7656822dd9b7a2a42fe1be85ab33aa6c`; later R0 `[skip ci]` closure `3b544c731d15428334bbadc8e70a3492ef60b886` / tree `52eb3a2bd4f9676a22dbfbb5eaacf9fccb474e02` carries that evidence only and is not the Exact-Head-CI SHA; exact receipts `artifact:match`, `preflight:match`, `install_launch:match`, `waiting:match`, `human_pass:match`, `cleanup:match`, `complete:match`; Human confirmed exact device/accessibility binding, 10×A then 10×B then 10×X, every role 10/10, `NfcA`, three distinct safe fingerprints, final title/text and `PASS` | Authority consumed successfully; exit 0; Validation App removed and package/process/reverse null state matched. Concrete safe A/B/X values were not transferred before cleanup, so R-035 remains open pending separate minimal read-only transfer authority; no complete retry or Product Human V5 authority |
 
-Runs 10 through 16 ended with terminal cleanup matched. The run-7 through run-9 artifacts are no
+Runs 10 through 17 ended with terminal cleanup matched. The run-7 through run-9 artifacts are no
 longer installed; runs 10–15 reached no attributable installation provenance; run 16 reached only
-the first rejected Tag-A evidence boundary and no accepted fingerprint.
-Another Phase 0 requires a fresh exact Human authorization.
+the first rejected Tag-A evidence boundary; run 17 passed the complete Validation protocol and
+removed the Validation App. A new separately authorized minimal read-only action is required only
+to transfer the three unavailable concrete safe A/B/X values. No complete Phase-0 retry is
+authorized by this evidence.
 
 ### 2.1 Validation Phase-0 operator R1 correction — independently approved, non-executable
 
@@ -863,7 +906,7 @@ Exact-head CI `30402655381`, attempt 1, passed 12/12 on
 The candidate remains **DO NOT START** and grants no Phase-0, installation, ADB, hardware or
 Product Human-V5 authority.
 
-### 2.2 Historical published Phase-0 readiness candidate — V3 passed; V4 failed; review changes required; Human not run
+### 2.2 Historical published Phase-0 readiness candidate — V3 passed; V4 failed; review changes required; Product Human V5 not run
 
 The published eight-file candidate
 `496ca59f0965670b29a210b8aa2443b99bb4a386`, tree
@@ -905,7 +948,7 @@ Product or Security finding. No retry was authorized or executed. At that histor
 a focused harness correction and new CI required new Human authority; no Phase-0, installation,
 ADB or hardware authority existed.
 
-### 2.3 PostgreSQL test-cleanup correction — V4/review approved; Human not run
+### 2.3 Historical PostgreSQL test-cleanup correction — V4/review approved; Product Human V5 not run
 
 The subsequently authorized focused test-only correction is
 `21e518151a3f4727ebf4ce90cd1557660960ff21`, tree
@@ -930,7 +973,7 @@ This correction and its evidence grant no Phase-0, installation, ADB, hardware, 
 Product Human-V5 authority. The operator remains **DO NOT START**, and Product Human V5 remains
 `NOT RUN`.
 
-### 2.4 Historical install-/launch-diagnostic predecessor — exact candidate/review approved; Human not run
+### 2.4 Historical install-/launch-diagnostic predecessor — exact candidate/review approved; Product Human V5 not run
 
 Candidate `8ce03852e782d541319bb852f216cf596ab1787f`, tree
 `f5b914c1b8f1243244733808beaef54f0351a563`, on exact parent
@@ -956,7 +999,7 @@ No ADB, installation, App launch, hardware or network action was performed. The 
 **DO NOT START**; this approval grants no Phase-0, installation, ADB, hardware or Product Human-V5
 authority. Any run requires separate fresh exact Human authorization.
 
-### 2.5 Final install-category correction — V2/V3/V4 and reviews approved; Human not run
+### 2.5 Historical final install-category correction — V2/V3/V4 and reviews approved; Product Human V5 not run
 
 Published candidate `12d1ace89494851025555d1d06d45570c4fcc4cb`, tree
 `b747b4306637d90765b33f273ad89291bd4ea9a7`, has exact parent
@@ -975,24 +1018,23 @@ consumed, the operator remains
 **DO NOT START**, and no fresh Phase-0, hardware, ADB, installation or Product Human-V5 authority
 exists.
 
-Any future separately authorized Phase-0 record must populate every row below. The automated
-operator does not attest UI truth; only the trusted Human can provide the one-time PASS handoff
-after all UI rows match.
+Run 17 populated every UI/result row below through the trusted Human handoff. The automated
+operator did not independently attest UI truth.
 
-| Future Phase-0 Human observation | Result |
+| Run-17 Phase-0 Human observation | Result |
 |---|---|
-| Exact displayed model, Android release/API/build and **200 %** font scale match the authorization | `NOT RUN` |
-| Exactly one installed and active authorized Google-or-Samsung TalkBack package/version | `NOT RUN` |
-| Role A: ten separate successful stable presentations using only physical Tag A | `NOT RUN` |
-| Role B: ten separate successful stable presentations using only physical Tag B, after A | `NOT RUN` |
-| Role X: ten separate successful stable presentations using only physical Tag X, after B | `NOT RUN` |
-| Three pairwise-distinct disclosure-safe 12-uppercase-hex fingerprints | `NOT RUN` |
-| Every role displays `NfcA`; fully qualified NfcA is required, harmless extra/duplicate Android technologies are ignored, and MifareUltralight alone is insufficient | `NOT RUN` |
-| Final title `Alle drei Rollen stabil gebunden` | `NOT RUN` |
-| Final text `A, B und X sind stabil, eindeutig und voneinander verschieden.` | `NOT RUN` |
-| Explicit trusted Human `PASS`, then unique operator receipt `human_pass:match` | `NOT RUN` |
-| Cleanup after Human-passed state | `NOT RUN` |
-| Terminal `complete:match` with no later `failed:mismatch` | `NOT RUN` |
+| Exact displayed model, Android release/API/build and **200 %** font scale match the authorization | `MATCH` — `SM-A336B`; Android 15/API 35; exact expected build matched; Owner User 0 |
+| Exactly one installed and active authorized Google-or-Samsung TalkBack package/version | `MATCH` — Samsung TalkBack `15.1.01.1` |
+| Role A: ten separate successful stable presentations using only physical Tag A | `MATCH` — 10/10 |
+| Role B: ten separate successful stable presentations using only physical Tag B, after A | `MATCH` — 10/10 |
+| Role X: ten separate successful stable presentations using only physical Tag X, after B | `MATCH` — 10/10 |
+| Three pairwise-distinct disclosure-safe 12-uppercase-hex fingerprints | `MATCH` by Human observation; concrete safe values were not transferred or recorded before cleanup |
+| Every role displays `NfcA`; fully qualified NfcA is required, harmless extra/duplicate Android technologies are ignored, and MifareUltralight alone is insufficient | `MATCH` |
+| Final title `Alle drei Rollen stabil gebunden` | `MATCH` |
+| Final text `A, B und X sind stabil, eindeutig und voneinander verschieden.` | `MATCH` |
+| Explicit trusted Human `PASS`, then unique operator receipt `human_pass:match` | `MATCH` |
+| Cleanup after Human-passed state | `MATCH` |
+| Terminal `complete:match` with no later `failed:mismatch` | `MATCH`; exit 0 |
 
 Cancel, timeout, any safe failure stage/text, ambiguity, wrong Tag/role/order, reset desire or any
 early, duplicate, late or foreign command consumes a future authority and requires immediate
@@ -1000,7 +1042,7 @@ early, duplicate, late or foreign command consumes a future authority and requir
 the combined Human-PASS handshake plus operator/cleanup success, never APK approval or Product
 Human V5.
 
-### 2.5 Historical closed findings and confirmed TECH-01 correction — Human Phase 0 still gated
+### 2.5 Historical closed findings and confirmed TECH-01 correction — Human Phase 0 was still gated at that checkpoint
 
 `DA5-V5-VAL-UI-01` records a repository-visible accessibility/UI reliability gap capable of
 reaching the strict Controller concurrency rejection when TalkBack repeats an otherwise identical
@@ -1051,7 +1093,7 @@ NfcA-only source/artifact/operator set and a fresh separate exact Human authoriz
 | Admin Setup Preview 2 and Protected/Review fixture review bindings | `NOT RUN` | — |
 | Scoped install, NFC enabled and screen unlocked | `NOT RUN` | — |
 
-## 3. Staged Human results
+## 3. Product Human V5 staged results
 
 | Gate | Mandatory coverage | Result | Human checkpoint |
 |---|---|---|---|
@@ -1062,7 +1104,7 @@ NfcA-only source/artifact/operator set and a fresh separate exact Human authoriz
 | D | Ordinary offline/restart/cancellation, reviewed historical cutover, ordered `review_pending`, protected-state stop and no reuse | `NOT RUN` | — |
 | F | Final safe truth and complete cleanup | `NOT RUN` | — |
 
-## 4. Disclosure-safe result record
+## 4. Product Human V5 disclosure-safe result record
 
 Populate only after a separately authorized run. Keep values aggregate and synthetic.
 
@@ -1079,7 +1121,7 @@ Populate only after a separately authorized run. Keep values aggregate and synth
 | No duplicate, foreign or unexplained mutation | `NOT RUN` |
 | Sensitive-data disclosure check | `NOT RUN` |
 
-## 5. Failure, interruption or ambiguity
+## 5. Product Human V5 failure, interruption or ambiguity
 
 - Disposition: `NOT RUN`
 - Gate/step: —
@@ -1091,7 +1133,7 @@ Populate only after a separately authorized run. Keep values aggregate and synth
 Any `FAIL` or `AMBIGUOUS` result consumes the complete one-run authority. Preserve only safe
 diagnostics, mark all later gates not started and perform cleanup. No observation is reusable.
 
-## 6. Cleanup
+## 6. Product Human V5 cleanup
 
 | Check | Result |
 |---|---|
@@ -1103,10 +1145,10 @@ diagnostics, mark all later gates not started and perform cleanup. No observatio
 | Repository binding reverified with protected exclusions | `NOT RUN` |
 | Unrelated device/repository/PostgreSQL state preserved | `NOT RUN` |
 
-## 7. Final Human disposition
+## 7. Final Product Human V5 disposition
 
 - Overall result: `NOT RUN`
-- Human checkpoint authority: `NOT BOUND`
+- Product Human V5 checkpoint authority: `NOT BOUND`
 - DA5 V5 closure decision: `NOT RUN`
 
 This shell, automated evidence, software `MERGE_READY` status or cleanup alone cannot pass V5.
