@@ -7,6 +7,9 @@ import {
   type Da5V5AdbCommandRunner,
 } from '../src/index.js';
 
+const googleTalkBackPackage = 'com.google.android.marvin.talkback' as const;
+const samsungTalkBackPackage = 'com.samsung.android.accessibility.talkback' as const;
+
 describe('DA5 V5 synchronous ADB child-process boundary', () => {
   it('uses the same minimal environment and explicit loopback routing as mutations', () => {
     let observedArguments: readonly string[] = [];
@@ -196,6 +199,7 @@ describe('DA5 V5 controlled API-offline ownership', () => {
       androidBuild: adb.androidBuild,
       deviceModel: adb.deviceModel,
       fontScale: '2.0',
+      talkBackPackage: adb.talkBackPackage,
       talkBackVersion: adb.talkBackVersion,
     }, lock);
     const offline = new Da5V5ApiOfflineController(adb, {
@@ -332,6 +336,7 @@ describe('DA5 V5 device-bound cancellation and accessibility checks', () => {
       androidBuild: adb.androidBuild,
       deviceModel: adb.deviceModel,
       fontScale: '2.0',
+      talkBackPackage: adb.talkBackPackage,
       talkBackVersion: adb.talkBackVersion,
     });
 
@@ -341,12 +346,87 @@ describe('DA5 V5 device-bound cancellation and accessibility checks', () => {
     expect(JSON.stringify(controller.getState())).not.toContain(adb.serial);
   });
 
+  it.each([googleTalkBackPackage, samsungTalkBackPackage])(
+    'matches the exact active allowlisted provider package %s and version',
+    (talkBackPackage) => {
+      const adb = directAdb();
+      adb.talkBackPackage = talkBackPackage;
+      adb.enabledAccessibilityServices = `${talkBackPackage}/.TalkBackService`;
+      const controller = new Da5V5DeviceCheckpointController(adb, {
+        androidBuild: adb.androidBuild,
+        deviceModel: adb.deviceModel,
+        fontScale: '2.0',
+        talkBackPackage,
+        talkBackVersion: adb.talkBackVersion,
+      });
+
+      expect(controller.prepareColdDispatch()).toBe('match');
+      expect(controller.verifyAccessibilityBinding()).toBe('match');
+      expect(adb.commands).toContainEqual([
+        '-s', adb.serial, 'shell', 'dumpsys', 'package', talkBackPackage,
+      ]);
+    },
+  );
+
+  it.each([
+    ['none', '1', 'null'],
+    ['deactivated', '0', `${googleTalkBackPackage}/.TalkBackService`],
+    ['both', '1', `${googleTalkBackPackage}/.TalkBackService:${samsungTalkBackPackage}/.TalkBackService`],
+    ['unexpected', '1', 'com.example.accessibility/.ForeignService'],
+  ])('fails closed for %s accessibility-provider state', (
+    _scenario,
+    accessibilityEnabled,
+    enabledAccessibilityServices,
+  ) => {
+    const adb = directAdb();
+    adb.accessibilityEnabled = accessibilityEnabled;
+    adb.enabledAccessibilityServices = enabledAccessibilityServices;
+    const controller = new Da5V5DeviceCheckpointController(adb, {
+      androidBuild: adb.androidBuild,
+      deviceModel: adb.deviceModel,
+      fontScale: '2.0',
+      talkBackPackage: googleTalkBackPackage,
+      talkBackVersion: adb.talkBackVersion,
+    });
+
+    expect(controller.prepareColdDispatch()).toBe('match');
+    expect(controller.verifyAccessibilityBinding()).toBe('mismatch');
+    expect(controller.getState()).toBe('failed');
+  });
+
+  it('fails closed when the active provider package or version differs from the binding', () => {
+    const packageAdb = directAdb();
+    packageAdb.talkBackPackage = samsungTalkBackPackage;
+    packageAdb.enabledAccessibilityServices = `${samsungTalkBackPackage}/.TalkBackService`;
+    const packageMismatch = new Da5V5DeviceCheckpointController(packageAdb, {
+      androidBuild: packageAdb.androidBuild,
+      deviceModel: packageAdb.deviceModel,
+      fontScale: '2.0',
+      talkBackPackage: googleTalkBackPackage,
+      talkBackVersion: packageAdb.talkBackVersion,
+    });
+    expect(packageMismatch.prepareColdDispatch()).toBe('match');
+    expect(packageMismatch.verifyAccessibilityBinding()).toBe('mismatch');
+
+    const versionAdb = directAdb();
+    const versionMismatch = new Da5V5DeviceCheckpointController(versionAdb, {
+      androidBuild: versionAdb.androidBuild,
+      deviceModel: versionAdb.deviceModel,
+      fontScale: '2.0',
+      talkBackPackage: googleTalkBackPackage,
+      talkBackVersion: 'different-version',
+    });
+    expect(versionMismatch.prepareColdDispatch()).toBe('match');
+    expect(versionMismatch.verifyAccessibilityBinding()).toBe('mismatch');
+  });
+
   it('uses only am kill after confirmed Scan-abgebrochen UI and proves process absence', () => {
     const adb = directAdb();
     const controller = new Da5V5DeviceCheckpointController(adb, {
       androidBuild: adb.androidBuild,
       deviceModel: adb.deviceModel,
       fontScale: '2.0',
+      talkBackPackage: adb.talkBackPackage,
       talkBackVersion: adb.talkBackVersion,
     });
 
@@ -375,6 +455,7 @@ describe('DA5 V5 device-bound cancellation and accessibility checks', () => {
       androidBuild: 'different-build',
       deviceModel: adb.deviceModel,
       fontScale: '2.0',
+      talkBackPackage: adb.talkBackPackage,
       talkBackVersion: adb.talkBackVersion,
     });
     expect(mismatch.prepareColdDispatch()).toBe('mismatch');
@@ -388,6 +469,7 @@ describe('DA5 V5 device-bound cancellation and accessibility checks', () => {
       androidBuild: adb.androidBuild,
       deviceModel: adb.deviceModel,
       fontScale: '2.0',
+      talkBackPackage: adb.talkBackPackage,
       talkBackVersion: adb.talkBackVersion,
     });
     expect(ambiguous.prepareColdDispatch()).toBe('match');
@@ -414,6 +496,7 @@ describe('DA5 V5 device-bound cancellation and accessibility checks', () => {
       androidBuild: adb.androidBuild,
       deviceModel: adb.deviceModel,
       fontScale: '2.0',
+      talkBackPackage: adb.talkBackPackage,
       talkBackVersion: adb.talkBackVersion,
     });
 
@@ -428,6 +511,7 @@ describe('DA5 V5 device-bound cancellation and accessibility checks', () => {
         androidBuild: adb.androidBuild,
         deviceModel: adb.deviceModel,
         fontScale: '2.0',
+        talkBackPackage: adb.talkBackPackage,
         talkBackVersion: adb.talkBackVersion,
       });
       expect(controller.prepareColdDispatch()).toBe('match');
@@ -454,6 +538,7 @@ describe('DA5 V5 device-bound cancellation and accessibility checks', () => {
 });
 
 class FakeAdb implements Da5V5AdbCommandRunner {
+  accessibilityEnabled = '1';
   abortMutation: AbortController | null = null;
   androidBuild = 'synthetic/vendor/device:15/BUILD/1:user/release-keys';
   commands: string[][] = [];
@@ -465,6 +550,7 @@ class FakeAdb implements Da5V5AdbCommandRunner {
     serial: 'synthetic-device',
     state: 'device',
   }];
+  enabledAccessibilityServices = `${googleTalkBackPackage}/.TalkBackService`;
   extraProcessNames: string[] = [];
   failOnce: ((arguments_: readonly string[]) => boolean) | null = null;
   mappings = new Map<string, string>();
@@ -472,6 +558,9 @@ class FakeAdb implements Da5V5AdbCommandRunner {
   processRunning = true;
   rawReverseLines: string[] = [];
   serial = 'synthetic-device';
+  talkBackPackage: typeof googleTalkBackPackage | typeof samsungTalkBackPackage = (
+    googleTalkBackPackage
+  );
   talkBackVersion = '15.1.0';
 
   run(arguments_: readonly string[]): string {
@@ -524,7 +613,13 @@ class FakeAdb implements Da5V5AdbCommandRunner {
     if (command.join(' ') === 'shell settings get system font_scale') {
       return '2.0\n';
     }
-    if (command.join(' ') === 'shell dumpsys package com.google.android.marvin.talkback') {
+    if (command.join(' ') === 'shell settings get secure accessibility_enabled') {
+      return `${this.accessibilityEnabled}\n`;
+    }
+    if (command.join(' ') === 'shell settings get secure enabled_accessibility_services') {
+      return `${this.enabledAccessibilityServices}\n`;
+    }
+    if (command.join(' ') === `shell dumpsys package ${this.talkBackPackage}`) {
       return `Packages:\n  versionName=${this.talkBackVersion}\n`;
     }
     if (command.join(' ') === 'shell pm path com.tim180201.mobile.synthetic') {

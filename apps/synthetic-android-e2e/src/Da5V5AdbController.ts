@@ -1,7 +1,9 @@
 import { spawnSync } from 'node:child_process';
 import {
   Da5V5UsbSerialBinding,
+  requireDa5V5ActiveTalkBackProvider,
   SystemDa5V5AndroidAdbRunner,
+  type Da5V5TalkBackPackage,
 } from '../../mobile/scripts/da5V5AndroidDevice.mjs';
 import {
   createDa5V5AdbChildEnvironment,
@@ -283,6 +285,7 @@ export class Da5V5ApiOfflineController {
 
 export interface Da5V5AccessibilityBinding extends Da5V5DeviceIdentityBinding {
   readonly fontScale: '2.0';
+  readonly talkBackPackage: Da5V5TalkBackPackage;
   readonly talkBackVersion: string;
 }
 
@@ -333,9 +336,16 @@ export class Da5V5DeviceCheckpointController {
       const fontScale = oneLine(
         this.adb.run(['-s', serial, 'shell', 'settings', 'get', 'system', 'font_scale']),
       );
+      const talkBackPackage = requireDa5V5ActiveTalkBackProvider(
+        this.adb.run(['-s', serial, 'shell', 'settings', 'get', 'secure',
+          'accessibility_enabled']),
+        this.adb.run(['-s', serial, 'shell', 'settings', 'get', 'secure',
+          'enabled_accessibility_services']),
+        this.accessibility.talkBackPackage,
+      );
       const talkBack = readTalkBackVersion(
         this.adb.run(['-s', serial, 'shell', 'dumpsys', 'package',
-          'com.google.android.marvin.talkback']),
+          talkBackPackage]),
       );
       if (
         fontScale !== this.accessibility.fontScale

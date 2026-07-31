@@ -33,6 +33,17 @@ export interface Da5V5AndroidDeviceBinding {
   readonly deviceModel: string;
 }
 
+export type Da5V5TalkBackPackage =
+  | 'com.google.android.marvin.talkback'
+  | 'com.samsung.android.accessibility.talkback';
+
+export function requireDa5V5TalkBackPackage(value: string): Da5V5TalkBackPackage;
+export function requireDa5V5ActiveTalkBackProvider(
+  accessibilityEnabled: string,
+  enabledServices: string,
+  expectedPackage: string,
+): Da5V5TalkBackPackage;
+
 export class Da5V5AndroidCommandAbortError extends Error {}
 export function isDa5V5AndroidCommandAbortError(
   error: unknown,
@@ -46,6 +57,7 @@ export interface Da5V5AndroidPreflightBinding extends Da5V5AndroidDeviceBinding 
   readonly androidApi: string;
   readonly androidRelease: string;
   readonly fontScale: '2.0';
+  readonly talkBackPackage: Da5V5TalkBackPackage;
   readonly talkBackVersion: string;
 }
 

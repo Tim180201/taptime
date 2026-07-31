@@ -31,6 +31,44 @@ const uncertainInstallCleanup = Object.freeze({
   pollMilliseconds: 250,
 });
 const adbServerArguments = Object.freeze(['-H', '127.0.0.1', '-P', '5037']);
+const allowedTalkBackPackages = Object.freeze([
+  'com.google.android.marvin.talkback',
+  'com.samsung.android.accessibility.talkback',
+]);
+
+export function requireDa5V5TalkBackPackage(value) {
+  if (!allowedTalkBackPackages.includes(value)) {
+    throw new Error('DA5 V5 TalkBack package binding is unavailable');
+  }
+  return value;
+}
+
+export function requireDa5V5ActiveTalkBackProvider(
+  accessibilityEnabled,
+  enabledServices,
+  expectedPackage,
+) {
+  const talkBackPackage = requireDa5V5TalkBackPackage(expectedPackage);
+  if (oneLine(accessibilityEnabled) !== '1') {
+    throw new Error('DA5 V5 accessibility provider is inactive');
+  }
+  const activePackages = new Set(
+    enabledServices.trim().split(':').map((component) => {
+      const match = /^([A-Za-z0-9_]+(?:\.[A-Za-z0-9_]+)+)\/[A-Za-z0-9_.$]+$/u.exec(component);
+      if (match?.[1] === undefined) {
+        throw new Error('DA5 V5 accessibility provider binding is unavailable');
+      }
+      return match[1];
+    }),
+  );
+  if (
+    activePackages.size !== 1
+    || !activePackages.has(talkBackPackage)
+  ) {
+    throw new Error('DA5 V5 accessibility provider binding mismatch');
+  }
+  return talkBackPackage;
+}
 
 export class Da5V5UsbSerialBinding {
   #failed = false;
@@ -148,9 +186,23 @@ export class Da5V5AndroidPreinstallPreflight {
         ['-s', serial, 'shell', 'settings', 'get', 'system', 'font_scale'],
         { signal: options.signal, timeoutMilliseconds: timeouts.inspect },
       );
+      const accessibilityEnabled = await this.runner.run(
+        ['-s', serial, 'shell', 'settings', 'get', 'secure', 'accessibility_enabled'],
+        { signal: options.signal, timeoutMilliseconds: timeouts.inspect },
+      );
+      const enabledAccessibilityServices = await this.runner.run(
+        ['-s', serial, 'shell', 'settings', 'get', 'secure',
+          'enabled_accessibility_services'],
+        { signal: options.signal, timeoutMilliseconds: timeouts.inspect },
+      );
+      const talkBackPackage = requireDa5V5ActiveTalkBackProvider(
+        accessibilityEnabled,
+        enabledAccessibilityServices,
+        this.binding.talkBackPackage,
+      );
       const talkBack = await this.runner.run(
         ['-s', serial, 'shell', 'dumpsys', 'package',
-          'com.google.android.marvin.talkback'],
+          talkBackPackage],
         { signal: options.signal, timeoutMilliseconds: timeouts.inspect },
       );
       const listeners = await this.runner.run(

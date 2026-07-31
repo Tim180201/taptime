@@ -909,6 +909,13 @@ describe('DA5 V5 fixture, lifecycle and startup fail-stop boundaries', () => {
       expect(source).toContain(
         'new Da5V5DeviceCheckpointController(adb, accessibilityBinding, deviceLock)',
       );
+      expect(source).toContain(
+        "requiredEnvironmentValue('TAPTIME_DA5_V5_TALKBACK_PACKAGE')",
+      );
+      expect(source).toContain('requireDa5V5TalkBackPackage(');
+      expect(source).toContain(
+        "requiredEnvironmentValue('TAPTIME_DA5_V5_TALKBACK_VERSION')",
+      );
       expect(source).not.toContain('TAPTIME_SYNTHETIC_E2E_PASSWORD=match');
     });
 });

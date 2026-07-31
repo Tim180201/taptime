@@ -18,6 +18,8 @@ const deviceBinding = Object.freeze({
   androidBuild: 'synthetic/vendor/device:15/BUILD/1:user/release-keys',
   deviceModel: 'Synthetic Galaxy',
 });
+const googleTalkBackPackage = 'com.google.android.marvin.talkback' as const;
+const samsungTalkBackPackage = 'com.samsung.android.accessibility.talkback' as const;
 
 describe('DA5 V5 package-zero Android install', () => {
   it('checks the exact profile and immutable artifact before the first ADB call', async () => {
@@ -276,6 +278,7 @@ describe('DA5 V5 read-only device preinstall preflight', () => {
           androidApi: '35',
           androidRelease: '15',
           fontScale: '2.0',
+          talkBackPackage: googleTalkBackPackage,
           talkBackVersion: '15.1.0',
         },
       );
@@ -299,6 +302,7 @@ describe('DA5 V5 read-only device preinstall preflight', () => {
         androidApi: '35',
         androidRelease: '15',
         fontScale: '2.0',
+        talkBackPackage: googleTalkBackPackage,
         talkBackVersion: '15.1.0',
       },
     );
@@ -331,6 +335,7 @@ describe('DA5 V5 read-only device preinstall preflight', () => {
           androidApi: '35',
           androidRelease: '15',
           fontScale: '2.0',
+          talkBackPackage: googleTalkBackPackage,
           talkBackVersion: '15.1.0',
         },
       );
@@ -338,6 +343,98 @@ describe('DA5 V5 read-only device preinstall preflight', () => {
       await expect(preflight.run()).resolves.toEqual({ status: 'match' });
       expect(maximumActive).toBe(1);
     });
+
+  it.each([googleTalkBackPackage, samsungTalkBackPackage])(
+    'binds the exact active allowlisted provider package %s and version',
+    async (talkBackPackage) => {
+      const adb = new FakeAdb();
+      adb.talkBackPackage = talkBackPackage;
+      adb.enabledAccessibilityServices = `${talkBackPackage}/.TalkBackService`;
+      const preflight = new Da5V5AndroidPreinstallPreflight(
+        adb,
+        new Da5V5UsbSerialBinding(),
+        {
+          ...deviceBinding,
+          androidApi: '35',
+          androidRelease: '15',
+          fontScale: '2.0',
+          talkBackPackage,
+          talkBackVersion: adb.talkBackVersion,
+        },
+      );
+
+      await expect(preflight.run()).resolves.toEqual({ status: 'match' });
+      expect(adb.commands).toContainEqual([
+        '-s', adb.serial, 'shell', 'dumpsys', 'package', talkBackPackage,
+      ]);
+    },
+  );
+
+  it.each([
+    ['none', '1', 'null'],
+    ['deactivated', '0', `${googleTalkBackPackage}/.TalkBackService`],
+    ['both', '1', `${googleTalkBackPackage}/.TalkBackService:${samsungTalkBackPackage}/.TalkBackService`],
+    ['unexpected', '1', 'com.example.accessibility/.ForeignService'],
+  ])('fails closed for %s accessibility-provider state', async (
+    _scenario,
+    accessibilityEnabled,
+    enabledAccessibilityServices,
+  ) => {
+    const adb = new FakeAdb();
+    adb.accessibilityEnabled = accessibilityEnabled;
+    adb.enabledAccessibilityServices = enabledAccessibilityServices;
+    const preflight = new Da5V5AndroidPreinstallPreflight(
+      adb,
+      new Da5V5UsbSerialBinding(),
+      {
+        ...deviceBinding,
+        androidApi: '35',
+        androidRelease: '15',
+        fontScale: '2.0',
+        talkBackPackage: googleTalkBackPackage,
+        talkBackVersion: adb.talkBackVersion,
+      },
+    );
+
+    await expect(preflight.run()).resolves.toEqual({ status: 'mismatch' });
+    expect(preflight.state()).toBe('failed');
+  });
+
+  it('fails closed when the active package or its version differs from the binding', async () => {
+    const packageMismatch = new FakeAdb();
+    packageMismatch.talkBackPackage = samsungTalkBackPackage;
+    packageMismatch.enabledAccessibilityServices = (
+      `${samsungTalkBackPackage}/.TalkBackService`
+    );
+    const wrongPackage = new Da5V5AndroidPreinstallPreflight(
+      packageMismatch,
+      new Da5V5UsbSerialBinding(),
+      {
+        ...deviceBinding,
+        androidApi: '35',
+        androidRelease: '15',
+        fontScale: '2.0',
+        talkBackPackage: googleTalkBackPackage,
+        talkBackVersion: packageMismatch.talkBackVersion,
+      },
+    );
+    await expect(wrongPackage.run()).resolves.toEqual({ status: 'mismatch' });
+
+    const versionMismatch = new FakeAdb();
+    const wrongVersion = new Da5V5AndroidPreinstallPreflight(
+      versionMismatch,
+      new Da5V5UsbSerialBinding(),
+      {
+        ...deviceBinding,
+        androidApi: '35',
+        androidRelease: '15',
+        fontScale: '2.0',
+        talkBackPackage: googleTalkBackPackage,
+        talkBackVersion: 'different-version',
+      },
+    );
+    await expect(wrongVersion.run()).resolves.toEqual({ status: 'mismatch' });
+  });
   });
 
 describe('DA5 V5 scoped Android cleanup', () => {
@@ -582,6 +679,7 @@ describe('DA5 V5 scoped Android cleanup', () => {
 });
 
 class FakeAdb implements Da5V5AndroidAdbRunner {
+  accessibilityEnabled = '1';
   abortInstall: AbortController | null = null;
   readonly androidBuild = deviceBinding.androidBuild;
   commands: string[][] = [];
@@ -591,6 +689,7 @@ class FakeAdb implements Da5V5AndroidAdbRunner {
     serial: 'synthetic-device',
     state: 'device',
   }];
+  enabledAccessibilityServices = `${googleTalkBackPackage}/.TalkBackService`;
   failOnce: ((arguments_: readonly string[]) => boolean) | null = null;
   elapsedMilliseconds = 0;
   lateOwnedMappingVisibilityAtMilliseconds: number[] = [];
@@ -605,6 +704,10 @@ class FakeAdb implements Da5V5AndroidAdbRunner {
   packagePathOutputs: string[] = [];
   rawReverseLines: string[] = [];
   serial = 'synthetic-device';
+  talkBackPackage: typeof googleTalkBackPackage | typeof samsungTalkBackPackage = (
+    googleTalkBackPackage
+  );
+  talkBackVersion = '15.1.0';
   commandOptions: Array<{
     arguments_: readonly string[];
     maximumBytes?: number;
@@ -652,8 +755,14 @@ class FakeAdb implements Da5V5AndroidAdbRunner {
     if (text === 'shell getprop ro.build.version.release') return '15\n';
     if (text === 'shell getprop ro.build.version.sdk') return '35\n';
     if (text === 'shell settings get system font_scale') return '2.0\n';
-    if (text === 'shell dumpsys package com.google.android.marvin.talkback') {
-      return 'Packages:\n  versionName=15.1.0\n';
+    if (text === 'shell settings get secure accessibility_enabled') {
+      return `${this.accessibilityEnabled}\n`;
+    }
+    if (text === 'shell settings get secure enabled_accessibility_services') {
+      return `${this.enabledAccessibilityServices}\n`;
+    }
+    if (text === `shell dumpsys package ${this.talkBackPackage}`) {
+      return `Packages:\n  versionName=${this.talkBackVersion}\n`;
     }
     if (text === 'shell ss -ltnH') return this.listeners;
     if (text === 'reverse --list') {

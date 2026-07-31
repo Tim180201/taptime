@@ -4,6 +4,7 @@ import {
   cleanupDa5V5AndroidState,
   Da5V5AndroidPreinstallPreflight,
   installDa5V5AndroidFromPackageZero,
+  requireDa5V5TalkBackPackage,
   SystemDa5V5AndroidAdbRunner,
   type Da5V5AndroidPreflightBinding,
 } from '../../mobile/scripts/da5V5AndroidDevice.mjs';
@@ -99,6 +100,9 @@ const accessibilityBinding: Da5V5AccessibilityBinding & Da5V5AndroidPreflightBin
     androidRelease: requiredEnvironmentValue('TAPTIME_DA5_V5_ANDROID_RELEASE'),
     deviceModel: requiredEnvironmentValue('TAPTIME_DA5_V5_DEVICE_MODEL'),
     fontScale: '2.0',
+    talkBackPackage: requireDa5V5TalkBackPackage(
+      requiredEnvironmentValue('TAPTIME_DA5_V5_TALKBACK_PACKAGE'),
+    ),
     talkBackVersion: requiredEnvironmentValue('TAPTIME_DA5_V5_TALKBACK_VERSION'),
   });
 delete process.env.TAPTIME_SYNTHETIC_E2E_PASSWORD;
