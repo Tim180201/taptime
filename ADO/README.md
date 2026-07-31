@@ -15,12 +15,12 @@ Human-confirmed device binding, then failed closed on the first physical Tag-A s
 `failed:mismatch` closed the run. No raw technologies, UID or fingerprint were recorded and no
 hardware defect is proven.
 
-The Product NfcA/MifareUltralight artifact and its then-current Validation/Operator bindings are
-historical **DO NOT INSTALL/DO NOT START**. The NfcA-only Product candidate from source
+The predecessor Product/Validation/Operator artifacts are historical
+**DO NOT INSTALL/DO NOT START**. The NfcA-only Product candidate from source
 `814cb9013be7da98e46a4c36c5d4e716eef4cf46`, tree
 `0181c50faf6936ea1236f4454d536bf734334c91`, is published read-only and its compiled dispatch
-resolves to the unique exact-NfcA resource. A new Validation candidate from source and execution
-commit `5675297dab94258e50d7371a95e07fe7a77fc51c`, tree
+resolves to the unique exact-NfcA resource. The Validation artifact from source
+`5675297dab94258e50d7371a95e07fe7a77fc51c`, tree
 `b32af38c8ac769965ab062762004312d96d0de25`, is also published read-only. Its publisher initial,
 staged and final checks passed; after one retained-build-checkout readiness stop caused by ignored
 module-build residue before artifact inspection, the authorized corrected standalone verifier ran
@@ -28,16 +28,17 @@ from a fresh clean execution checkout and returned
 `da5_v5_validation_artifact_verified`. Its ordered 33-record source closure has compact-JSON
 SHA-256 `62aaa737428ef90b52fc9790ab1cc268537e8d5f5add1fce785bdb501bade763`.
 Artifact Binding Review R1 returned `CHANGES REQUIRED` with one P1 and three P2 findings. The
-current authorized uncommitted correction keeps both immutable candidates, removes circular
-Execution literals, derives Validation Execution Repository authority from the loaded module root,
-cross-checks the Product manifest semantically and attests every Product inspection tool before
-and after use. Artifact Source remains exact; the correction's Execution commit/tree are unbound
-until publication and must then match the actual clean module-root checkout. Both candidates
-remain **DO NOT INSTALL** and the operator remains **DO NOT START** pending V3, commit, CI and
-independent re-review. Focused correction verification passes 5/5 files and 500/500 tests plus
-tests-inclusive typecheck/source inclusion, changed-MJS syntax and diff-check; real preflights are
-deferred to the final published clean candidate. No Human run, installation, ADB, hardware,
-production or distribution authority is claimed. Current details are in ADR-0017,
+corrected superseding NfcA-only Product/Validation/current-Operator candidate is committed as
+`be76ce4a69c8a971ad73b5232082a9e500d8d471`, tree
+`56abec5e7f2752f5004fe3e8667f47a917429c52`, on parent `cda51c8`/tree `e2ee3bc`.
+Binding-correction source/prepublication reviews and the focused stale-bundle re-review returned
+`APPROVED` with zero open P0–P3. The one complete final V3 passed 20/20 builds, 21/21
+tests-inclusive typechecks, 21/21 suites across 151 files and 2,821 tests with exactly two optional
+B1 skips, Mobile 54/54 files and 1,169/1,169 tests, both exact read-only preflights and the
+861-module Android export. No ADB command ran. V4/exact-head CI and the required formal Exact-SHA
+reviews remain pending. Both artifacts remain **DO NOT INSTALL**, the operator **DO NOT START**
+and Human Phase 0 unbound. No installation, hardware, production or distribution authority is
+claimed. Current details are in ADR-0017,
 `Project_Status.md`, R-034, the DA5 V5 Runbook and DA5 V5 Evidence. R-035 remains open.
 
 The Human Architect explicitly made the NfcA-only Product decision. The Technical Lead delegated
@@ -951,7 +952,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Development Assignment 4 Professional Admin Web Productization — ADR-0015/DA4-P01–P12 Human-accepted; Workstreams A–D, AVS V0–V4 and H01 procedural correction independently approved; first Human V5 failed closed and no closure/new run is authorized | `ADO/02_Development/Development_Assignment_04_Professional_Admin_Web_Productization_Authorization.md` |
 | Development Assignment 4 V5 Enablement — local R3 V0–V4, exact-SHA implementation review and H01 ADO correction approved; new Human V5 remains separately exact-bound and unauthorized | `ADO/02_Development/Development_Assignment_04_V5_Enablement_Authorization.md` |
 | Development Assignment 5 Professional Mobile Productization — Workstreams A–F and AVS V0–V4 technically closed for the exact authorized local scope | `ADO/02_Development/Development_Assignment_05_Professional_Mobile_Productization_Authorization.md` |
-| Development Assignment 5 V5 Enablement — Run 16 failed closed at first Tag-A `technology_evidence`; exact read-only Product/Validation artifacts exist and initial V2 preflights passed. Artifact Binding Review R1 returned `CHANGES REQUIRED` (1 P1, 3 P2); the authorized correction is uncommitted and pending V3, commit, CI and independent re-review. **DO NOT INSTALL/DO NOT START**; no run authority | `ADO/02_Development/Development_Assignment_05_V5_Enablement_Authorization.md` |
+| Development Assignment 5 V5 Enablement — Run 16 remains consumed fail-closed; superseding NfcA-only candidate `be76ce4`/tree `56abec5` passed final V3, while V4/exact-head CI, formal Exact-SHA reviews and separate Human authority remain pending. **DO NOT INSTALL/DO NOT START** | `ADO/02_Development/Development_Assignment_05_V5_Enablement_Authorization.md` |
 | Development Assignment 5 V5 Isolated PostgreSQL Correction — Runtime Guard source `ba1b6e9`, CI `30255104609` attempt 2 12/12, immutable binary/manifest and independent Exact-SHA `APPROVED`; historical correction rounds retained; hardware authority not granted | `ADO/02_Development/Development_Assignment_05_V5_Isolated_PostgreSQL_Correction_Authorization.md` |
 | Development Assignment 6 Production-like Platform and Operational Readiness — ADO-only candidate; Human acceptance and separate implementation/provisioning authority required | `ADO/02_Development/Development_Assignment_06_Production_Like_Platform_Authorization.md` |
 | Legal, Privacy and Commercial Readiness Start Package — internal Block-H/DT-079–DT-084 working draft; not legal advice, approved legal text or publication authority | `ADO/02_Development/Legal_Privacy_Commercial_Readiness_Start_Package.md` |
@@ -975,7 +976,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Development Assignment 1 Gate-C Response-Drop Runbook | `ADO/04_Operations/Development_Assignment_01_Gate_C_Response_Drop_Runbook.md` |
 | Development Assignment 3 V5 Human Functional/Physical Gate Runbook — complete fresh run passed and final closure approved; permanently non-executable without new separate authority | `ADO/04_Operations/Development_Assignment_03_V5_Runbook.md` |
 | Development Assignment 4 V5 Human Browser Gate Runbook — first gate failed closed and authority is consumed; corrected checkpoint handshake independently approved, but execution requires new exact-bound Human authority | `ADO/04_Operations/Development_Assignment_04_V5_Runbook.md` |
-| Development Assignment 5 V5 Human Android Runbook — exact read-only Product/Validation artifacts exist and initial V2 preflights passed; Artifact Binding Review R1 returned `CHANGES REQUIRED` (1 P1, 3 P2). The correction is uncommitted and pending V3, commit, CI and independent re-review. **DO NOT INSTALL/DO NOT START**; no run authority | `ADO/04_Operations/Development_Assignment_05_V5_Runbook.md` |
+| Development Assignment 5 V5 Human Android Runbook — superseding NfcA-only candidate `be76ce4`/tree `56abec5` passed final V3; V4/exact-head CI, formal Exact-SHA reviews and separate Human authority remain pending. **DO NOT INSTALL/DO NOT START** | `ADO/04_Operations/Development_Assignment_05_V5_Runbook.md` |
 
 ## Evidence
 
@@ -1038,7 +1039,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Development Assignment 4 DA4-V5-H01 Human Browser Failure Evidence — first gate failed closed at the premature Tag-reassignment checkpoint; P2 operational/gate reliability, complete cleanup, authority consumed and new run unauthorized | `ADO/05_Evidence/Development_Assignment_04_DA4_V5_H01_Human_Browser_Failure_Evidence.md` |
 | Development Assignment 4 DA4-V5-H01 Correction Independent Exact-SHA Review — `APPROVED`, zero open P0–P3 review findings; historical P2 remains until a fresh successful gate/final review and no new run is authorized | `ADO/05_Evidence/Development_Assignment_04_DA4_V5_H01_Correction_Independent_Exact_SHA_Review.md` |
 | Development Assignment 5 Local Implementation Evidence — Workstreams A–F and AVS V0–V4 technically closed for the exact authorized local scope | `ADO/05_Evidence/Development_Assignment_05_Local_Implementation_Evidence.md` |
-| Development Assignment 5 V5 Evidence — exact read-only Product/Validation artifacts exist and initial V2 preflights passed; Artifact Binding Review R1 returned `CHANGES REQUIRED` (1 P1, 3 P2). The correction is uncommitted and pending V3, commit, CI and independent re-review. **DO NOT INSTALL/DO NOT START**; no run authority | `ADO/05_Evidence/Development_Assignment_05_V5_Evidence.md` |
+| Development Assignment 5 V5 Evidence — superseding NfcA-only candidate `be76ce4`/tree `56abec5` passed final V3; V4/exact-head CI, formal Exact-SHA reviews and separate Human authority remain pending. **DO NOT INSTALL/DO NOT START** | `ADO/05_Evidence/Development_Assignment_05_V5_Evidence.md` |
 | Development Assignment 5 V5 Validation Query-Visibility Correction Independent Exact-SHA Review — review base `11a8269`, CI `30277641127` 12/12, `APPROVED`, zero open P0–P3; Hardware remains unauthorized | `ADO/05_Evidence/Development_Assignment_05_V5_Validation_Query_Visibility_Correction_Independent_Exact_SHA_Review.md` |
 | Development Assignment 5 V5 Validation Runtime Correction Independent Exact-SHA Review — initial candidate `534b6d2` had one P1 fail-open graph; source `7e8c0f7`, CI `30284566289` 12/12 and its artifact independently `APPROVED` with zero open P0–P3 for that exact source; artifact is now historical/DO NOT INSTALL after DA5-V5-VAL-UI-01 source correction and Hardware authority remains separately gated | `ADO/05_Evidence/Development_Assignment_05_V5_Validation_Runtime_Correction_Independent_Exact_SHA_Review.md` |
 | Development Assignment 5 DA5-V5-VAL-UI-01 Independent Source/Artifact Exact-SHA Review — source `e97bbe9`, tree `2958f45`, CI `30370977809` attempt 1 12/12 and exact replacement APK/manifest `APPROVED`, zero open P0–P3; artifact is now historical/DO NOT INSTALL | `ADO/05_Evidence/Development_Assignment_05_DA5_V5_VAL_UI_01_Independent_Source_Artifact_Exact_SHA_Review.md` |
