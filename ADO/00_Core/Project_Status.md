@@ -30,6 +30,20 @@ The transferred disclosure-safe 12-uppercase-hex fingerprints are A `B55E8B6AEB3
 authority is consumed successfully and R-035 is locally mitigated with the transfer binding
 established. No raw UID, payload, Technology list, device serial or secret is Evidence.
 
+The Product-Human-V5 Harness technical pre-run closure is now bound to exact head
+`a0359a87fd1738c8493929a1661cbbc7adb3c07c`, tree
+`102c913e264bd0ccce1d085db1c50bd407f7d4a4`, parent
+`3f8eb8f582a2458e628ab8c76240a291aaba27f5`. Its exact seven-file TalkBack delta is +294/-5 with
+SHA-256 `30a7b90bd59de29af0c6bd97b4a809df933b230baa69508cea0ca189a78e27fb`;
+exact-head CI `30638926835`, attempt 1, passed 11/11 and independent Exact-Head review returned
+`APPROVED` with zero open P0–P3. Local evidence passed Mobile 38/38, Synthetic 60/60, both
+tests-inclusive typechecks and the Guard closure with 4/4 files, 123 passed and 18 expected skips.
+At Product preinstall and Gate E the Harness now accepts and binds exactly one authorized Google
+or Samsung TalkBack package at its exact version; none, an installed-but-inactive provider, both,
+a foreign provider or package/version drift fails closed. This technical closure grants no run
+authority and does not bind the future Human one-run, device, service, preview, fixture or exact
+accessibility values.
+
 Product Human V5 did not run and the Product App was not installed. Run 18 therefore makes no
 Product correctness claim. R-034 and DA5 remain open, and the next safe action requires separate
 exact Product-Human-V5 authorization. No authentication, network, database, Product, timekeeping,
