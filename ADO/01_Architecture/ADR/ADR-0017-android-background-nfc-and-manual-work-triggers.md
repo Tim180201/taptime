@@ -1,6 +1,6 @@
 # ADR-0017: Android Background NFC and Manual Work Triggers
 
-- Status: **HUMAN ACCEPTED — LOCAL IMPLEMENTATION CANDIDATE; V4, INDEPENDENT IMPLEMENTATION REVIEW AND HUMAN V5 PENDING**
+- Status: **HUMAN ACCEPTED — LOCAL IMPLEMENTATION AND NON-HARDWARE NFCA-ONLY V5 PREPARATION TECHNICALLY APPROVED/MERGE_READY; HUMAN/HARDWARE V5 PENDING**
 - Date: 2026-07-24
 - Implementation baseline commit: `fb32a2796e78c78ce12f856c908545de7ce7bf99`
 - Implementation baseline tree: `53d6b5d6c2c86a8a3245539d821a12fae6850673`
@@ -575,8 +575,12 @@ historical **DO NOT INSTALL/DO NOT START**. The superseding NfcA-only candidate 
 `be76ce4a69c8a971ad73b5232082a9e500d8d471`, tree
 `56abec5e7f2752f5004fe3e8667f47a917429c52`; final V3 and exact-head CI for the current published
 ADO head `f45f49aa6c56c70a503322a043bec3d2360c2176`, tree
-`714300da7656822dd9b7a2a42fe1be85ab33aa6c`, are green. The formal review returned
-`CHANGES REQUIRED` solely for the two ADO-only P3 findings corrected by this focused delta;
-approval remains pending independent re-review. Both current artifacts remain **DO NOT INSTALL**,
-the operator remains **DO NOT START**, and Human-run, installation, ADB and hardware authority
-remain unbound.
+`714300da7656822dd9b7a2a42fe1be85ab33aa6c`, are green; exact-head CI `30612797541`, attempt
+1, passed 12/12. Formal round 1 returned `CHANGES REQUIRED` solely for two docs-only P3 findings:
+this ADR's stale uncommitted/unbound wording and the Runbook's collapsed Artifact
+Source/Execution binding. Correction `9c6eec7`/tree `0aaa6de` closed both, and both independent
+Exact-Delta re-reviews returned `APPROVED` with zero open P0–P3. This R0 synchronization carries
+V3/V4 without a second V3 or CI. The non-hardware preparation is technically
+`APPROVED`/`MERGE_READY`. Both current artifacts remain **DO NOT INSTALL**, the operator remains
+**DO NOT START**, Human-run, installation, ADB and hardware authority remains unbound, and DA5
+plus R-034/R-035 remain open.

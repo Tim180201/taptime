@@ -1,6 +1,6 @@
 # Project Status
 
-Status: CORE ROADMAP V2 COMPLETIONS REMAIN PRESERVED FOR THEIR RECORDED SCOPES — DA4 REMAINS OPEN FOR A LATER FRESH HUMAN V5 — DA5 V0–V4 AND THE HISTORICAL LOCAL DA5-V5 RUNTIME-GUARD/VALIDATION/OPERATOR CLOSURES REMAIN PRESERVED ONLY FOR THEIR RECORDED SCOPES — PHASE-0 RUN 16 IS CONSUMED FAIL-CLOSED AT FIRST TAG-A `technology_evidence`; NO B/X, HUMAN PASS, RETRY OR HARDWARE DEFECT — THE SUPERSEDING NFCA-ONLY PRODUCT/VALIDATION/CURRENT-OPERATOR CANDIDATE IS COMMITTED AS `be76ce4`/TREE `56abec5` AND FINAL V3 PASSED — BINDING SOURCE/PREPUBLICATION REVIEWS AND FOCUSED BUNDLE RE-REVIEW APPROVED WITH ZERO OPEN P0–P3; V4/EXACT-HEAD CI AND FORMAL EXACT-SHA REVIEWS REMAIN PENDING — BOTH ARTIFACTS ARE DO NOT INSTALL; OPERATOR DO NOT START; HUMAN RUN AUTHORITY REMAINS UNBOUND; PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, SYSTEM CHANGES, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED
+Status: CORE ROADMAP V2 COMPLETIONS REMAIN PRESERVED FOR THEIR RECORDED SCOPES — DA4 REMAINS OPEN FOR A LATER FRESH HUMAN V5 — DA5 V0–V4 AND THE HISTORICAL LOCAL DA5-V5 RUNTIME-GUARD/VALIDATION/OPERATOR CLOSURES REMAIN PRESERVED ONLY FOR THEIR RECORDED SCOPES — PHASE-0 RUN 16 IS CONSUMED FAIL-CLOSED AT FIRST TAG-A `technology_evidence`; NO B/X, HUMAN PASS, RETRY OR HARDWARE DEFECT — THE SUPERSEDING NFCA-ONLY PRODUCT/VALIDATION/CURRENT-OPERATOR CANDIDATE `be76ce4`/TREE `56abec5` PASSED FINAL V3; ADO HEAD `f45f49a`/TREE `714300d` PASSED EXACT-HEAD CI `30612797541` ATTEMPT 1 12/12; CORRECTION `9c6eec7`/TREE `0aaa6de` CLOSED THE TWO DOCS-ONLY P3 FINDINGS AND BOTH EXACT-DELTA RE-REVIEWS APPROVED WITH ZERO OPEN P0–P3 — R0 TRANSFER WITHOUT SECOND V3/CI; NON-HARDWARE PREPARATION TECHNICALLY APPROVED/MERGE_READY; BOTH ARTIFACTS DO NOT INSTALL; OPERATOR DO NOT START; HUMAN/HARDWARE UNAUTHORIZED; DA5 AND R-034/R-035 REMAIN OPEN; PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, SYSTEM CHANGES, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED
 DA5 decision-time Option-A trust anchor: exactly two direct admin-group members, zero nested
 groups; full-record SHA-256 `b006276c09d8f2713f6132ea79cec167ab3a3c2887ee53e95eb00c1cc33719a5`;
 membership SHA-256 `70a683b7ebc7981533015d5d63cf12dfb2eabbfa665c34720eddb4d09e9e3064`;
@@ -56,10 +56,14 @@ migrations 001–013 apply/replay/ledger, 21/21 suites / 151 files / 2,821 passe
 optional B1 skips, Mobile 54/54 and 1,169/1,169, Synthetic 13/13 and 290/290, C3B `verify-bin`,
 Product no-install preflight, the existing exact Validation artifact standalone verifier and
 861-module Android export. Ports `55439`/`55435` and tracked safe-root state were clean after
-cleanup. The verifier only bound the ADB file identity read-only; no ADB command ran. V4/exact-head
-CI and formal Exact-SHA reviews remain pending. Both current artifacts remain **DO NOT INSTALL**,
-the operator **DO NOT START**, and Human Phase 0 unbound. No installation or hardware execution is
-claimed. R-035 remains open.
+cleanup. The verifier only bound the ADB file identity read-only; no ADB command ran. ADO head
+`f45f49a`/tree `714300d` passed exact-head CI `30612797541`, attempt 1, 12/12. Correction
+`9c6eec7`/tree `0aaa6de` closed the two docs-only P3 findings, and both independent Exact-Delta
+re-reviews returned `APPROVED` with zero open P0–P3. This R0 synchronization carries V3/V4
+without a second V3 or CI. The non-hardware preparation is technically
+`APPROVED`/`MERGE_READY`; both current artifacts remain **DO NOT INSTALL**, the operator
+**DO NOT START**, Human Phase 0/hardware remains unauthorized, and DA5 plus R-034/R-035 remain
+open. No installation or hardware execution is claimed.
 The Human Architect explicitly decided the NfcA-only Product scope; the Technical Lead delegated
 only its focused R3 implementation on baseline `17f4b47b8429d3862789b7e13a23f8da9d28c449`,
 tree `4bbfe9e3fdcdf474f1f506135560e4e111122fb5`.
@@ -1498,7 +1502,12 @@ Two Epics are concurrently Active, per EP-009's own stated relationship to the r
    Treat the exact Product `814cb90` and Validation `5675297` read-only artifacts plus current
    Operator execution `be76ce4`/tree `56abec5` only as the superseding NfcA-only non-executable
    candidate. Final V3 and the binding source/prepublication plus focused bundle reviews passed;
-   V4/exact-head CI and formal Exact-SHA reviews remain pending. Artifact Source stays fixed;
+   ADO head `f45f49a`/tree `714300d` passed exact-head CI `30612797541`, attempt 1, 12/12, and
+   both Exact-Delta re-reviews of docs-only correction `9c6eec7`/tree `0aaa6de` returned
+   `APPROVED` with zero open P0–P3. Carry this evidence through the R0 `[skip ci]` synchronization
+   without a second V3 or CI. The non-hardware preparation is technically
+   `APPROVED`/`MERGE_READY`; keep **DO NOT INSTALL/DO NOT START**, Human/hardware unauthorized,
+   and DA5 plus R-034/R-035 open. Artifact Source stays fixed;
    Execution commit/tree bind to the canonical loaded-module root's actual `be76ce4`/`56abec5`.
    Preserve the
    first retained-build-checkout Validation
