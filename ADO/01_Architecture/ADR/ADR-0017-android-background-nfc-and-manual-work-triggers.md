@@ -570,8 +570,13 @@ operator-abort arbitration, every winning typed ADB command timeout maps to
 `adb_child_timeout_mismatch` at reattestation, installed provenance, prelaunch, activity start and
 postlaunch as well as installation transport boundaries.
 
-The prior NfcA/MifareUltralight Product artifact and the then-current Validation/Operator bindings
-are historical **DO NOT INSTALL** or pending supersession. The R3 implementation remains
-uncommitted and needs remaining verification, Technical-Lead acceptance, independent review and
-new exact bindings. No replacement artifact, SHA/tree, CI, approval or Human-run authority is
-created by this addendum.
+The prior NfcA/MifareUltralight Product artifact and its Validation/Operator bindings are
+historical **DO NOT INSTALL/DO NOT START**. The superseding NfcA-only candidate is committed as
+`be76ce4a69c8a971ad73b5232082a9e500d8d471`, tree
+`56abec5e7f2752f5004fe3e8667f47a917429c52`; final V3 and exact-head CI for the current published
+ADO head `f45f49aa6c56c70a503322a043bec3d2360c2176`, tree
+`714300da7656822dd9b7a2a42fe1be85ab33aa6c`, are green. The formal review returned
+`CHANGES REQUIRED` solely for the two ADO-only P3 findings corrected by this focused delta;
+approval remains pending independent re-review. Both current artifacts remain **DO NOT INSTALL**,
+the operator remains **DO NOT START**, and Human-run, installation, ADB and hardware authority
+remain unbound.
