@@ -1,3 +1,8 @@
+import type {
+  Da5V5ValidationToolIdentity,
+  Da5V5ValidationToolIdentityDependencies,
+} from './da5V5ValidationRuntimeContract.mjs';
+
 export interface Da5V5ImmutableFileBinding {
   readonly bytes: number;
   readonly mode: number;
@@ -25,6 +30,7 @@ export interface Da5V5FileDependencies {
   };
   openReadOnly?(path: string): number;
   readFileDescriptor?(fileDescriptor: number, expectedBytes: number): Buffer;
+  readUtf8?(path: string): string;
   realpath(path: string): string;
   sha256(path: string): string;
 }
@@ -54,8 +60,37 @@ export interface Da5V5ApkInspection {
 
 export interface Da5V5ArtifactDependencies {
   readonly files: Da5V5FileDependencies;
-  inspectApk(path: string): Da5V5ApkInspection;
-  verifyRuntime(path: string): void;
+  inspectApk(
+    path: string,
+    tools: Da5V5AndroidApkInspectionTools,
+  ): Da5V5ApkInspection;
+  reportRuntimeVerified?(): void;
+  resolveHermesCompilerPath(): string;
+  readonly toolAuthority: Da5V5AndroidInspectionToolAuthority;
+  readonly toolIdentity?: Da5V5ValidationToolIdentityDependencies;
+  verifyRuntime(
+    path: string,
+    tools: Da5V5AndroidRuntimeInspectionTools,
+  ): void;
+}
+
+export interface Da5V5AndroidInspectionToolAuthority {
+  readonly aapt: Da5V5ImmutableFileBinding;
+  readonly androidSdkPath: string;
+  readonly apksigner: Da5V5ImmutableFileBinding;
+  readonly hermesc: Da5V5ImmutableFileBinding;
+  readonly unzip: Da5V5ImmutableFileBinding;
+}
+
+export interface Da5V5AndroidApkInspectionTools {
+  readonly aapt: Readonly<Da5V5ValidationToolIdentity>;
+  readonly apksigner: Readonly<Da5V5ValidationToolIdentity>;
+  readonly unzip: Readonly<Da5V5ValidationToolIdentity>;
+}
+
+export interface Da5V5AndroidRuntimeInspectionTools {
+  readonly hermesc: Readonly<Da5V5ValidationToolIdentity>;
+  readonly unzip: Readonly<Da5V5ValidationToolIdentity>;
 }
 
 export const DA5_V5_ANDROID_PROFILE: 'da5-v5';
@@ -65,11 +100,22 @@ export const DA5_V5_ANDROID_ARTIFACT: Readonly<{
   manifest: Da5V5ImmutableFileBinding;
   packageName: typeof DA5_V5_ANDROID_PACKAGE;
   signerCertificateSha256: string;
+  sourceCommit: '814cb9013be7da98e46a4c36c5d4e716eef4cf46';
+  sourceTree: '0181c50faf6936ea1236f4454d536bf734334c91';
   versionCode: '1';
   versionName: '1.0.0';
 }>;
 
 export function requireDa5V5AndroidProfile(value: unknown): typeof DA5_V5_ANDROID_PROFILE;
+export function createDa5V5AndroidInspectionToolAuthority(
+  options?: Readonly<{
+    environment?: NodeJS.ProcessEnv;
+    resolveHermesCompilerPath?(): string;
+  }>,
+): Readonly<Da5V5AndroidInspectionToolAuthority>;
+export function verifyDa5V5AndroidArtifactManifest(
+  source: string,
+): Readonly<Record<string, string>>;
 export function verifyDa5V5ImmutableFile(
   binding: Da5V5ImmutableFileBinding,
   dependencies?: Da5V5FileDependencies,
@@ -80,6 +126,7 @@ export function verifyDa5V5ImmutableFile(
 export function verifyDa5V5AndroidArtifact(options: {
   readonly profile: unknown;
   readonly dependencies?: Da5V5ArtifactDependencies;
+  readonly toolAuthority?: Da5V5AndroidInspectionToolAuthority;
 }): Readonly<{
   packageName: typeof DA5_V5_ANDROID_PACKAGE;
   status: 'match';

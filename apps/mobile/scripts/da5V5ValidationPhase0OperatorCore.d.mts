@@ -42,19 +42,21 @@ export const DA5_V5_VALIDATION_PHASE0_ERROR_CATEGORIES: Readonly<{
 }>;
 export const DA5_V5_VALIDATION_PHASE0_ARTIFACT: Readonly<{
   apk: Readonly<{
-    bytes: 65631433;
+    bytes: 65634553;
     mode: number;
     path: string;
     sha256: string;
   }>;
   manifest: Readonly<{
-    bytes: 6700;
+    bytes: 6855;
     mode: number;
     path: string;
     sha256: string;
   }>;
-  sourceCommit: string;
-  sourceTree: string;
+  sourceClosureJsonSha256: '62aaa737428ef90b52fc9790ab1cc268537e8d5f5add1fce785bdb501bade763';
+  sourceClosureRecords: 33;
+  sourceCommit: '5675297dab94258e50d7371a95e07fe7a77fc51c';
+  sourceTree: 'b32af38c8ac769965ab062762004312d96d0de25';
 }>;
 
 export interface Da5V5ValidationSnapshot {

@@ -10,11 +10,21 @@ import {
   realpathSync,
 } from 'node:fs';
 import { spawnSync } from 'node:child_process';
-import { join, normalize, resolve } from 'node:path';
+import {
+  basename,
+  join,
+  normalize,
+  resolve,
+} from 'node:path';
 
 import {
+  resolveSyntheticE2eHermesCompilerPath,
   verifySyntheticE2eAndroidRuntime,
 } from './verifySyntheticE2eAndroidRuntime.mjs';
+import {
+  assertDa5V5ValidationToolIdentityMetadata,
+  verifyDa5V5ValidationToolIdentity,
+} from './da5V5ValidationRuntimeContract.mjs';
 
 export const DA5_V5_ANDROID_PROFILE = 'da5-v5';
 export const DA5_V5_ANDROID_PACKAGE = 'com.tim180201.mobile.synthetic';
@@ -22,29 +32,330 @@ const verifiedArtifacts = new WeakMap();
 
 export const DA5_V5_ANDROID_ARTIFACT = Object.freeze({
   apk: Object.freeze({
-    bytes: 95_522_787,
+    bytes: 95_522_751,
     mode: 0o444,
-    path: '/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5/a323834/app-release-385c0c46f22dcac5.apk',
-    sha256: '385c0c46f22dcac5b935bfdc6f574558f4e74748ed4a367ef399ddbd4299c547',
+    path: '/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5/814cb90/app-release-fd0886dc1c393d3b.apk',
+    sha256: 'fd0886dc1c393d3b09b5ce575215e4767c84335362ec7cbe5f1948877c714d96',
   }),
   manifest: Object.freeze({
-    bytes: 1_647,
+    bytes: 1_964,
     mode: 0o444,
-    path: '/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5/a323834/artifact-manifest.txt',
-    sha256: '1c1f1b7a5b92fab5510cde35a439fc6f0742b7bf2666d6319cd89b9a7d4dcadb',
+    path: '/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5/814cb90/artifact-manifest.txt',
+    sha256: 'c0645dda543394cba9d6029b41a23aff5bcb5d0d805e3e944d9f8f880d1d5639',
   }),
   packageName: DA5_V5_ANDROID_PACKAGE,
   signerCertificateSha256:
     'fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c',
+  sourceCommit: '814cb9013be7da98e46a4c36c5d4e716eef4cf46',
+  sourceTree: '0181c50faf6936ea1236f4454d536bf734334c91',
   versionCode: '1',
   versionName: '1.0.0',
 });
+const DA5_V5_ANDROID_TOOL_SPECIFICATIONS = Object.freeze({
+  aapt: Object.freeze({
+    bytes: 2_609_040,
+    mode: 0o755,
+    sha256:
+      'c0b5427aeabbbe05023ee2a55e3a9877c99ce57245bb15c21d4802326b86d099',
+  }),
+  apksigner: Object.freeze({
+    bytes: 2_959,
+    mode: 0o755,
+    sha256:
+      'b47549e373b895ce6ca620d0c7887e674d9615ffa837a86ac601dcfd04adb0f0',
+  }),
+  hermesc: Object.freeze({
+    bytes: 8_862_552,
+    mode: 0o755,
+    sha256:
+      'c7450cc82978f67052a46dbf8e29ccc4b71107e042154c38907829bf046025be',
+  }),
+  unzip: Object.freeze({
+    bytes: 454_560,
+    mode: 0o755,
+    sha256:
+      'a07e8b49ac7c1f1fffd8b45544dc69a9cd71a7015f63e6e139c582cff2a56f33',
+  }),
+});
+const DA5_V5_ANDROID_TOOL_NAMES = Object.freeze([
+  'aapt',
+  'apksigner',
+  'hermesc',
+  'unzip',
+]);
 
 export function requireDa5V5AndroidProfile(value) {
   if (value !== DA5_V5_ANDROID_PROFILE) {
     throw new Error('DA5 V5 Android helper requires the exact explicit profile');
   }
   return value;
+}
+
+export function createDa5V5AndroidInspectionToolAuthority(options = {}) {
+  const environment = options.environment ?? process.env;
+  if (
+    typeof environment !== 'object'
+    || environment === null
+    || Array.isArray(environment)
+  ) {
+    throw new Error('DA5 V5 Android inspection tool authority mismatch');
+  }
+  const androidHome = environment.ANDROID_HOME;
+  const androidSdkRoot = environment.ANDROID_SDK_ROOT;
+  if (
+    (typeof androidHome !== 'string' || androidHome.length === 0)
+    && (typeof androidSdkRoot !== 'string' || androidSdkRoot.length === 0)
+  ) {
+    throw new Error('DA5 V5 Android inspection tool authority mismatch');
+  }
+  if (
+    typeof androidHome === 'string'
+    && androidHome.length > 0
+    && typeof androidSdkRoot === 'string'
+    && androidSdkRoot.length > 0
+    && androidHome !== androidSdkRoot
+  ) {
+    throw new Error('DA5 V5 Android inspection tool authority mismatch');
+  }
+  const androidSdkPath = requireCanonicalAndroidToolPath(
+    typeof androidHome === 'string' && androidHome.length > 0
+      ? androidHome
+      : androidSdkRoot,
+  );
+  const resolveHermesCompilerPath = options.resolveHermesCompilerPath
+    ?? resolveSyntheticE2eHermesCompilerPath;
+  const hermescPath = requireCanonicalAndroidToolPath(
+    resolveHermesCompilerPath(),
+  );
+  return Object.freeze({
+    aapt: createAndroidToolBinding(
+      join(androidSdkPath, 'build-tools', '35.0.0', 'aapt'),
+      DA5_V5_ANDROID_TOOL_SPECIFICATIONS.aapt,
+    ),
+    androidSdkPath,
+    apksigner: createAndroidToolBinding(
+      join(androidSdkPath, 'build-tools', '35.0.0', 'apksigner'),
+      DA5_V5_ANDROID_TOOL_SPECIFICATIONS.apksigner,
+    ),
+    hermesc: createAndroidToolBinding(
+      hermescPath,
+      DA5_V5_ANDROID_TOOL_SPECIFICATIONS.hermesc,
+    ),
+    unzip: createAndroidToolBinding(
+      '/usr/bin/unzip',
+      DA5_V5_ANDROID_TOOL_SPECIFICATIONS.unzip,
+    ),
+  });
+}
+
+export function verifyDa5V5AndroidArtifactManifest(source) {
+  if (
+    typeof source !== 'string'
+    || source.length === 0
+    || source.includes('\r')
+    || !source.endsWith('\n')
+    || source.endsWith('\n\n')
+  ) {
+    throw new Error('DA5 V5 Android artifact manifest mismatch');
+  }
+  const expectedEntries = da5V5AndroidArtifactManifestEntries();
+  const expected = new Map(expectedEntries);
+  const parsed = Object.create(null);
+  const lines = source.slice(0, -1).split('\n');
+  if (lines.length !== expectedEntries.length) {
+    throw new Error('DA5 V5 Android artifact manifest mismatch');
+  }
+  for (const line of lines) {
+    const match = /^([a-z][a-z0-9.-]*)=([^\u0000-\u001f\u007f=]+)$/u
+      .exec(line);
+    if (
+      match === null
+      || Object.hasOwn(parsed, match[1])
+      || !expected.has(match[1])
+      || expected.get(match[1]) !== match[2]
+    ) {
+      throw new Error('DA5 V5 Android artifact manifest mismatch');
+    }
+    parsed[match[1]] = match[2];
+  }
+  if (
+    Object.keys(parsed).length !== expectedEntries.length
+    || expectedEntries.some(([key]) => !Object.hasOwn(parsed, key))
+  ) {
+    throw new Error('DA5 V5 Android artifact manifest mismatch');
+  }
+  return Object.freeze({ ...parsed });
+}
+
+function da5V5AndroidArtifactManifestEntries() {
+  return Object.freeze([
+    ['artifact-manifest-version', '1'],
+    ['artifact-purpose', 'da5-v5-read-only-synthetic-android-candidate'],
+    ['product-commit', DA5_V5_ANDROID_ARTIFACT.sourceCommit],
+    ['product-tree', DA5_V5_ANDROID_ARTIFACT.sourceTree],
+    ['source-review', 'APPROVED'],
+    ['source-review-open-p0-p3', '0'],
+    ['node-version', '24.17.0'],
+    ['npm-version', '11.13.0'],
+    ['java-version', '"17.0.19" 2026-04-21'],
+    ['gradle-version', '9.3.1'],
+    ['android-build-tools', '36.0.0'],
+    ['artifact-inspector', 'Android Asset Packaging Tool, v0.2-11948202'],
+    ['dependency-install', 'npm-ci-offline'],
+    ['expo-network-mode', 'offline-no-telemetry'],
+    ['gradle-network-mode', 'offline-init-script'],
+    ['apk-filename', basename(DA5_V5_ANDROID_ARTIFACT.apk.path)],
+    ['apk-sha256', DA5_V5_ANDROID_ARTIFACT.apk.sha256],
+    ['apk-bytes', String(DA5_V5_ANDROID_ARTIFACT.apk.bytes)],
+    [
+      'apk-mode',
+      DA5_V5_ANDROID_ARTIFACT.apk.mode.toString(8).padStart(4, '0'),
+    ],
+    ['package-name', DA5_V5_ANDROID_ARTIFACT.packageName],
+    ['version-code', DA5_V5_ANDROID_ARTIFACT.versionCode],
+    ['version-name', DA5_V5_ANDROID_ARTIFACT.versionName],
+    ['signature-scheme-v1', 'false'],
+    ['signature-scheme-v2', 'true'],
+    ['signature-scheme-v3', 'false'],
+    ['signature-scheme-v3.1', 'false'],
+    ['signature-scheme-v4', 'false'],
+    ['signer-count', '1'],
+    ['signer-kind', 'local-synthetic-non-production'],
+    [
+      'signer-certificate-sha256',
+      DA5_V5_ANDROID_ARTIFACT.signerCertificateSha256,
+    ],
+    ['allow-backup', 'false'],
+    ['uses-cleartext-traffic', 'false'],
+    [
+      'network-security-config',
+      'taptime_synthetic_e2e_network_security_config',
+    ],
+    ['cleartext-boundary', 'base-deny-with-127.0.0.1-only-exception'],
+    ['full-backup-content', 'taptime_offline_backup_rules'],
+    ['data-extraction-rules', 'taptime_offline_data_extraction_rules'],
+    ['offline-backup-exclusions', 'SecureStore,SQLite,all-databases'],
+    ['nfc-action', 'android.nfc.action.TECH_DISCOVERED'],
+    ['nfc-category', 'android.intent.category.DEFAULT'],
+    ['nfc-data', 'none'],
+    ['nfc-tech-filter', 'NfcA'],
+    ['nfc-resource-binding', 'unique-exact'],
+    ['hermes-bundle-count', '1'],
+    ['runtime-contract', 'match'],
+    ['build-marker-offline-storage', '1'],
+    ['build-marker-runtime-complete', '1'],
+    ['build-marker-apk-ready', '1'],
+    ['installation', 'NOT_RUN'],
+    ['adb', 'NOT_RUN'],
+    ['human-v5', 'NOT_RUN'],
+    ['physical-tags', 'NOT_RUN'],
+    ['external-services', 'NOT_RUN'],
+    ['accessibility', 'NOT_RUN'],
+    ['production-signing', 'NOT_RUN'],
+    ['production', 'UNAUTHORIZED'],
+    ['production-data', 'UNAUTHORIZED'],
+    ['deployment', 'NOT_RUN'],
+    ['distribution', 'NOT_RUN'],
+    ['artifact-review', 'PENDING'],
+  ]);
+}
+
+function createAndroidToolBinding(path, specification) {
+  return Object.freeze({
+    bytes: specification.bytes,
+    mode: specification.mode,
+    path: requireCanonicalAndroidToolPath(path),
+    sha256: specification.sha256,
+  });
+}
+
+function requireCanonicalAndroidToolPath(path) {
+  if (
+    typeof path !== 'string'
+    || path.length === 0
+    || normalize(resolve(path)) !== path
+  ) {
+    throw new Error('DA5 V5 Android inspection tool authority mismatch');
+  }
+  return path;
+}
+
+function requireDa5V5AndroidToolAuthority(
+  authority,
+  resolveHermesCompilerPath,
+) {
+  if (
+    typeof authority !== 'object'
+    || authority === null
+    || Array.isArray(authority)
+    || Object.keys(authority).sort().join('\n')
+      !== [
+        'aapt',
+        'androidSdkPath',
+        'apksigner',
+        'hermesc',
+        'unzip',
+      ].join('\n')
+    || typeof resolveHermesCompilerPath !== 'function'
+  ) {
+    throw new Error('DA5 V5 Android inspection tool authority mismatch');
+  }
+  const androidSdkPath = requireCanonicalAndroidToolPath(
+    authority.androidSdkPath,
+  );
+  const expectedPaths = Object.freeze({
+    aapt: join(androidSdkPath, 'build-tools', '35.0.0', 'aapt'),
+    apksigner: join(
+      androidSdkPath,
+      'build-tools',
+      '35.0.0',
+      'apksigner',
+    ),
+    hermesc: requireCanonicalAndroidToolPath(
+      resolveHermesCompilerPath(),
+    ),
+    unzip: '/usr/bin/unzip',
+  });
+  for (const name of DA5_V5_ANDROID_TOOL_NAMES) {
+    const binding = authority[name];
+    const specification = DA5_V5_ANDROID_TOOL_SPECIFICATIONS[name];
+    if (
+      typeof binding !== 'object'
+      || binding === null
+      || Array.isArray(binding)
+      || Object.keys(binding).sort().join('\n')
+        !== ['bytes', 'mode', 'path', 'sha256'].join('\n')
+      || binding.bytes !== specification.bytes
+      || binding.mode !== specification.mode
+      || binding.path !== expectedPaths[name]
+      || binding.sha256 !== specification.sha256
+    ) {
+      throw new Error('DA5 V5 Android inspection tool authority mismatch');
+    }
+  }
+  return authority;
+}
+
+function verifyAndroidToolIdentity(binding, dependencies) {
+  try {
+    return verifyDa5V5ValidationToolIdentity(binding, dependencies);
+  } catch {
+    throw new Error('DA5 V5 Android inspection tool authority mismatch');
+  }
+}
+
+function reattestAndroidToolIdentities(identities, dependencies) {
+  let mismatch = false;
+  for (const identity of identities) {
+    try {
+      assertDa5V5ValidationToolIdentityMetadata(identity, dependencies);
+    } catch {
+      mismatch = true;
+    }
+  }
+  if (mismatch) {
+    throw new Error('DA5 V5 Android inspection tool identity mismatch');
+  }
 }
 
 export function verifyDa5V5ImmutableFile(binding, dependencies = systemFileDependencies()) {
@@ -87,6 +398,7 @@ export function verifyDa5V5ImmutableFile(binding, dependencies = systemFileDepen
 export function verifyDa5V5AndroidArtifact(options = {}) {
   requireDa5V5AndroidProfile(options.profile);
   const dependencies = options.dependencies ?? systemArtifactDependencies();
+  const toolAuthority = options.toolAuthority ?? dependencies.toolAuthority;
   const initialApk = verifyDa5V5ImmutableFile(
     DA5_V5_ANDROID_ARTIFACT.apk,
     dependencies.files,
@@ -95,7 +407,46 @@ export function verifyDa5V5AndroidArtifact(options = {}) {
     DA5_V5_ANDROID_ARTIFACT.manifest,
     dependencies.files,
   );
-  const inspection = dependencies.inspectApk(DA5_V5_ANDROID_ARTIFACT.apk.path);
+  if (typeof dependencies.files.readUtf8 !== 'function') {
+    throw new Error('DA5 V5 Android artifact manifest reader is unavailable');
+  }
+  verifyDa5V5AndroidArtifactManifest(
+    dependencies.files.readUtf8(DA5_V5_ANDROID_ARTIFACT.manifest.path),
+  );
+  requireDa5V5AndroidToolAuthority(
+    toolAuthority,
+    dependencies.resolveHermesCompilerPath,
+  );
+  const inspectionTools = Object.freeze({
+    aapt: verifyAndroidToolIdentity(
+      toolAuthority.aapt,
+      dependencies.toolIdentity,
+    ),
+    apksigner: verifyAndroidToolIdentity(
+      toolAuthority.apksigner,
+      dependencies.toolIdentity,
+    ),
+    unzip: verifyAndroidToolIdentity(
+      toolAuthority.unzip,
+      dependencies.toolIdentity,
+    ),
+  });
+  let inspection;
+  try {
+    inspection = dependencies.inspectApk(
+      DA5_V5_ANDROID_ARTIFACT.apk.path,
+      inspectionTools,
+    );
+  } finally {
+    reattestAndroidToolIdentities(
+      [
+        inspectionTools.aapt,
+        inspectionTools.apksigner,
+        inspectionTools.unzip,
+      ],
+      dependencies.toolIdentity,
+    );
+  }
   if (
     inspection.packageName !== DA5_V5_ANDROID_ARTIFACT.packageName
     || inspection.versionCode !== DA5_V5_ANDROID_ARTIFACT.versionCode
@@ -123,7 +474,27 @@ export function verifyDa5V5AndroidArtifact(options = {}) {
   ) {
     throw new Error('DA5 V5 APK inspection mismatch');
   }
-  dependencies.verifyRuntime(DA5_V5_ANDROID_ARTIFACT.apk.path);
+  const runtimeTools = Object.freeze({
+    hermesc: verifyAndroidToolIdentity(
+      toolAuthority.hermesc,
+      dependencies.toolIdentity,
+    ),
+    unzip: verifyAndroidToolIdentity(
+      toolAuthority.unzip,
+      dependencies.toolIdentity,
+    ),
+  });
+  try {
+    dependencies.verifyRuntime(
+      DA5_V5_ANDROID_ARTIFACT.apk.path,
+      runtimeTools,
+    );
+  } finally {
+    reattestAndroidToolIdentities(
+      [runtimeTools.unzip, runtimeTools.hermesc],
+      dependencies.toolIdentity,
+    );
+  }
   const inspectedApk = verifyDa5V5ImmutableFile(
     DA5_V5_ANDROID_ARTIFACT.apk,
     dependencies.files,
@@ -134,6 +505,7 @@ export function verifyDa5V5AndroidArtifact(options = {}) {
   );
   requireSameIdentity(initialApk, inspectedApk);
   requireSameIdentity(initialManifest, inspectedManifest);
+  dependencies.reportRuntimeVerified?.();
   const result = Object.freeze({
     packageName: DA5_V5_ANDROID_ARTIFACT.packageName,
     status: 'match',
@@ -339,6 +711,9 @@ function systemFileDependencies() {
         excess.fill(0);
       }
     },
+    readUtf8(path) {
+      return readFileSync(path, 'utf8');
+    },
     realpath: realpathSync,
     sha256(path) {
       return createHash('sha256').update(readFileSync(path)).digest('hex');
@@ -347,26 +722,27 @@ function systemFileDependencies() {
 }
 
 function systemArtifactDependencies() {
-  const androidHome = process.env.ANDROID_HOME;
-  if (androidHome === undefined || androidHome.length === 0) {
-    throw new Error('DA5 V5 Android SDK path is unavailable');
-  }
-  const aapt = join(androidHome, 'build-tools', '35.0.0', 'aapt');
-  const apksigner = join(androidHome, 'build-tools', '35.0.0', 'apksigner');
+  const toolAuthority = createDa5V5AndroidInspectionToolAuthority();
   return Object.freeze({
     files: systemFileDependencies(),
-    inspectApk(apkPath) {
-      const badging = runText(aapt, ['dump', 'badging', apkPath]);
-      const manifest = runText(aapt, ['dump', 'xmltree', apkPath, 'AndroidManifest.xml']);
+    inspectApk(apkPath, tools) {
+      const badging = runText(
+        tools.aapt.path,
+        ['dump', 'badging', apkPath],
+      );
+      const manifest = runText(
+        tools.aapt.path,
+        ['dump', 'xmltree', apkPath, 'AndroidManifest.xml'],
+      );
       const resources = runText(
-        aapt,
+        tools.aapt.path,
         ['dump', '--values', 'resources', apkPath],
       );
       const nfcTechFilterBinding =
         resolveDa5V5NfcTechFilterResourceBinding(resources);
       const nfcTechFilter = inspectDa5V5NfcTechFilterXmlTree(
         runText(
-          aapt,
+          tools.aapt.path,
           [
             'dump',
             'xmltree',
@@ -380,12 +756,15 @@ function systemArtifactDependencies() {
           manifest,
           nfcTechFilterBinding.resourceId,
         );
-      const signature = runText(apksigner, ['verify', '--verbose', '--print-certs', apkPath]);
-      const entries = runText('unzip', ['-Z1', apkPath])
+      const signature = runText(
+        tools.apksigner.path,
+        ['verify', '--verbose', '--print-certs', apkPath],
+      );
+      const entries = runText(tools.unzip.path, ['-Z1', apkPath])
         .split(/\r?\n/u)
         .filter((entry) => entry.length !== 0);
       const compiledXmlStrings = asciiStrings(
-        runBinary('unzip', ['-p', apkPath, 'res/*.xml']),
+        runBinary(tools.unzip.path, ['-p', apkPath, 'res/*.xml']),
       );
       const packageMatch =
         /^package: name='([^']+)' versionCode='([^']+)' versionName='([^']+)'/m.exec(badging);
@@ -436,7 +815,21 @@ function systemArtifactDependencies() {
         versionName: packageMatch[3],
       });
     },
-    verifyRuntime: verifySyntheticE2eAndroidRuntime,
+    reportRuntimeVerified() {
+      process.stdout.write(
+        'synthetic_e2e_android_runtime_complete_verified\n',
+      );
+    },
+    resolveHermesCompilerPath:
+      resolveSyntheticE2eHermesCompilerPath,
+    toolAuthority,
+    verifyRuntime(apkPath, tools) {
+      verifySyntheticE2eAndroidRuntime(apkPath, {
+        emitSuccess: false,
+        hermesCompilerPath: tools.hermesc.path,
+        unzipPath: tools.unzip.path,
+      });
+    },
   });
 }
 

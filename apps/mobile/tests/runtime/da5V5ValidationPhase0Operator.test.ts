@@ -87,6 +87,8 @@ const verifiedReadiness = () => Object.freeze({
     DA5_V5_VALIDATION_PHASE0_ARTIFACT.sourceCommit,
   artifactSourceTree:
     DA5_V5_VALIDATION_PHASE0_ARTIFACT.sourceTree,
+  executionCommit: '0'.repeat(40),
+  executionTree: '1'.repeat(40),
   status: 'match' as const,
   tools: verifiedTools,
 });
@@ -377,6 +379,44 @@ describe('DA5 V5 Validation Phase-0 CLI signals', () => {
     input.destroy();
     output.destroy();
   });
+
+  it.each([
+    'artifactSourceCommit',
+    'artifactSourceTree',
+  ] as const)('rejects artifact-source drift in %s before creating a session', async (
+    field,
+  ) => {
+    const processTarget = new EventEmitter();
+    const input = new PassThrough();
+    const output = new PassThrough();
+    const createSession = vi.fn();
+    let disclosed = '';
+    output.on('data', (chunk: Buffer) => {
+      disclosed += chunk.toString('utf8');
+    });
+
+    await expect(runDa5V5ValidationPhase0Operator({
+      arguments_: [],
+      createSession,
+      environment: {},
+      input,
+      output,
+      processTarget,
+      verifyReadiness() {
+        return {
+          ...verifiedReadiness(),
+          [field]: '0'.repeat(40),
+        };
+      },
+    })).resolves.toEqual({ status: 'mismatch' });
+
+    expect(createSession).not.toHaveBeenCalled();
+    expect(disclosed).toBe(
+      'da5_v5_validation_phase0 stage=readiness status=mismatch\n',
+    );
+    input.destroy();
+    output.destroy();
+  });
 });
 
 describe('DA5 V5 Validation Phase-0 installed artifact path', () => {
@@ -467,7 +507,33 @@ describe('DA5 V5 Validation Phase-0 installed artifact path', () => {
 });
 
 describe('DA5 V5 Validation stable-FD install snapshot', () => {
-  it('binds the operator verifier to the exact 32-record source closure', () => {
+  it('hard-binds the Validation candidate identity', () => {
+    expect(DA5_V5_VALIDATION_PHASE0_ARTIFACT).toEqual({
+      apk: {
+        bytes: 65_634_553,
+        mode: 0o444,
+        path:
+          '/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-validation/da5-v5-validation-5675297dab94-3d5450f257eda716/app-release-3d5450f257eda716.apk',
+        sha256:
+          '3d5450f257eda716bbda0a133a7630d3a2d8bb1f5095fdb1986e85aa0277d144',
+      },
+      manifest: {
+        bytes: 6_855,
+        mode: 0o444,
+        path:
+          '/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-validation/da5-v5-validation-5675297dab94-3d5450f257eda716/manifest-5675297dab94.json',
+        sha256:
+          '1397f0504bbbf88e776ececb9796918586724a16c69a885c8e23631c2465e86a',
+      },
+      sourceClosureJsonSha256:
+        '62aaa737428ef90b52fc9790ab1cc268537e8d5f5add1fce785bdb501bade763',
+      sourceClosureRecords: 33,
+      sourceCommit: '5675297dab94258e50d7371a95e07fe7a77fc51c',
+      sourceTree: 'b32af38c8ac769965ab062762004312d96d0de25',
+    });
+  });
+
+  it('binds the operator verifier to the exact 33-record source closure', () => {
     expect(() =>
       verifyAndSealDa5V5ValidationPhase0Artifact({
         androidSdkAuthority,
@@ -490,14 +556,29 @@ describe('DA5 V5 Validation stable-FD install snapshot', () => {
             ...androidSdkAuthority,
             path: '/synthetic/android-sdk',
           });
-          expect(binding.expectedSourceClosure).toHaveLength(32);
+          expect(binding.expectedSourceClosure).toHaveLength(
+            DA5_V5_VALIDATION_PHASE0_ARTIFACT.sourceClosureRecords,
+          );
           expect(new Set(
             binding.expectedSourceClosure.map((record) => record.path),
-          ).size).toBe(32);
+          ).size).toBe(
+            DA5_V5_VALIDATION_PHASE0_ARTIFACT.sourceClosureRecords,
+          );
+          expect(createHash('sha256')
+            .update(JSON.stringify(binding.expectedSourceClosure))
+            .digest('hex')).toBe(
+            DA5_V5_VALIDATION_PHASE0_ARTIFACT.sourceClosureJsonSha256,
+          );
           expect(binding.expectedSourceClosure[0]).toEqual({
             path: 'apps/mobile/app.config.js',
             sha256:
               '1ca63463e07b0c7c7111a653f1549bdad1011219300db771e740537d9908811b',
+          });
+          expect(binding.expectedSourceClosure).toContainEqual({
+            path:
+              'apps/mobile/scripts/da5V5ValidationNoHardwareReadiness.mjs',
+            sha256:
+              '8bf8198b3d13a55490d9276c2d74ae73c52a63783785aece848e2116841baeb2',
           });
           expect(binding.expectedSourceClosure.at(-1)).toEqual({
             path: 'package.json',

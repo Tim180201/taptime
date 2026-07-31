@@ -34,6 +34,7 @@ export interface Da5V5ValidationNoHardwareReadinessDependencies {
     isFile(): boolean;
     isSymbolicLink(): boolean;
   };
+  readonly moduleUrl: string;
   readRepositoryBinding(
     gitPath: string,
     repositoryRoot: string,
@@ -49,6 +50,16 @@ export interface Da5V5ValidationNoHardwareReadinessDependencies {
   sha256(path: string): string;
 }
 
+export interface Da5V5ValidationExecutionRepositoryRootDependencies {
+  lstat(path: string): {
+    isDirectory(): boolean;
+    isFile(): boolean;
+    isSymbolicLink(): boolean;
+  };
+  readonly moduleUrl: string;
+  realpath(path: string): string;
+}
+
 export interface Da5V5ValidationReadinessToolIdentity {
   readonly bytes: number;
   readonly dev: string;
@@ -60,7 +71,13 @@ export interface Da5V5ValidationReadinessToolIdentity {
 
 export function createDa5V5ValidationNoHardwareReadinessOptions(
   environment: NodeJS.ProcessEnv,
+  dependencies?: Da5V5ValidationExecutionRepositoryRootDependencies,
 ): Da5V5ValidationNoHardwareReadinessOptions;
+
+export function resolveDa5V5ValidationExecutionRepositoryRoot(
+  moduleUrl: string,
+  dependencies?: Da5V5ValidationExecutionRepositoryRootDependencies,
+): string;
 
 export function readDa5V5ValidationRepositoryBinding(
   gitPath: string,

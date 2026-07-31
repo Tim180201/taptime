@@ -5,7 +5,12 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import {
+  dirname,
+  join,
+  normalize,
+  resolve,
+} from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -36,13 +41,27 @@ export function assertSyntheticE2eRuntimeCompleteness(bytecodeDump) {
   }
 }
 
-export function verifySyntheticE2eAndroidRuntime(apkPath = defaultApkPath) {
+export function verifySyntheticE2eAndroidRuntime(
+  apkPath = defaultApkPath,
+  options = {},
+) {
+  const dependencies = options.dependencies ?? systemDependencies();
+  const unzipPath = requireExactToolPath(
+    options.unzipPath ?? '/usr/bin/unzip',
+  );
+  const hermesCompilerPath = requireExactToolPath(
+    options.hermesCompilerPath ?? resolveSyntheticE2eHermesCompilerPath(),
+  );
   const resolvedApkPath = resolve(apkPath);
-  if (!existsSync(resolvedApkPath)) {
+  if (!dependencies.exists(resolvedApkPath)) {
     throw new Error('Synthetic E2E release APK is missing');
   }
 
-  const entries = run('unzip', ['-Z1', resolvedApkPath], { capture: true })
+  const entries = dependencies.run(
+    unzipPath,
+    ['-Z1', resolvedApkPath],
+    { capture: true },
+  )
     .stdout
     .split(/\r?\n/u)
     .filter((entry) => entry === bundleEntry);
@@ -52,30 +71,36 @@ export function verifySyntheticE2eAndroidRuntime(apkPath = defaultApkPath) {
     );
   }
 
-  const temporaryDirectory = mkdtempSync(join(tmpdir(), 'taptime-hermes-runtime-'));
+  const temporaryDirectory = dependencies.mkdtemp(
+    join(dependencies.tmpdir(), 'taptime-hermes-runtime-'),
+  );
   const bundlePath = join(temporaryDirectory, 'index.android.bundle');
   try {
-    const extractedBundle = run(
-      'unzip',
+    const extractedBundle = dependencies.run(
+      unzipPath,
       ['-p', resolvedApkPath, bundleEntry],
       { capture: true, encoding: null },
     ).stdout;
-    writeFileSync(bundlePath, extractedBundle);
+    dependencies.writeFile(bundlePath, extractedBundle);
 
-    const bytecodeDump = run(
-      resolveHermesCompiler(),
+    const bytecodeDump = dependencies.run(
+      hermesCompilerPath,
       ['-b', '-dump-bytecode', '-pretty', bundlePath],
       { capture: true, maxBuffer: 256 * 1024 * 1024 },
     ).stdout;
     assertSyntheticE2eRuntimeCompleteness(bytecodeDump);
   } finally {
-    rmSync(temporaryDirectory, { recursive: true, force: true });
+    dependencies.remove(temporaryDirectory);
   }
 
-  process.stdout.write('synthetic_e2e_android_runtime_complete_verified\n');
+  if (options.emitSuccess !== false) {
+    dependencies.writeOutput(
+      'synthetic_e2e_android_runtime_complete_verified\n',
+    );
+  }
 }
 
-function resolveHermesCompiler() {
+export function resolveSyntheticE2eHermesCompilerPath() {
   const require = createRequire(import.meta.url);
   const packageDirectory = dirname(require.resolve('hermes-compiler/package.json'));
   const executableDirectory = process.platform === 'darwin'
@@ -100,6 +125,19 @@ function resolveHermesCompiler() {
   return executable;
 }
 
+function requireExactToolPath(path) {
+  if (
+    typeof path !== 'string'
+    || path.length === 0
+    || normalize(resolve(path)) !== path
+  ) {
+    throw new Error(
+      'Synthetic E2E runtime verification tool path is not canonical',
+    );
+  }
+  return path;
+}
+
 function run(command, args, options = {}) {
   const result = spawnSync(command, args, {
     cwd: mobileDirectory,
@@ -111,6 +149,22 @@ function run(command, args, options = {}) {
     throw new Error(`Synthetic E2E runtime verification command failed: ${command}`);
   }
   return result;
+}
+
+function systemDependencies() {
+  return Object.freeze({
+    exists: existsSync,
+    mkdtemp: mkdtempSync,
+    remove(path) {
+      rmSync(path, { recursive: true, force: true });
+    },
+    run,
+    tmpdir,
+    writeFile: writeFileSync,
+    writeOutput(value) {
+      process.stdout.write(value);
+    },
+  });
 }
 
 const invokedPath = process.argv[1] === undefined

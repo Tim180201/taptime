@@ -136,23 +136,26 @@ const packageManagerFailureReceiptPattern =
   /^Failure \[(INSTALL_(?:FAILED|PARSE_FAILED)_[A-Z0-9_]+)(?:: [^\u0000-\u001f\u007f\]]{1,1536})?\]$/u;
 export const DA5_V5_VALIDATION_PHASE0_ARTIFACT = Object.freeze({
   apk: Object.freeze({
-    bytes: 65_631_433,
+    bytes: 65_634_553,
     mode: 0o444,
     path:
-      '/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-validation/da5-v5-validation-03694f2d877b-d2084486b07f27bd/app-release-d2084486b07f27bd.apk',
+      '/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-validation/da5-v5-validation-5675297dab94-3d5450f257eda716/app-release-3d5450f257eda716.apk',
     sha256:
-      'd2084486b07f27bdbd72f9f32e38531f8de31dad18ef4789cab2ec44135e05f5',
+      '3d5450f257eda716bbda0a133a7630d3a2d8bb1f5095fdb1986e85aa0277d144',
   }),
   manifest: Object.freeze({
-    bytes: 6_700,
+    bytes: 6_855,
     mode: 0o444,
     path:
-      '/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-validation/da5-v5-validation-03694f2d877b-d2084486b07f27bd/manifest-03694f2d877b.json',
+      '/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-validation/da5-v5-validation-5675297dab94-3d5450f257eda716/manifest-5675297dab94.json',
     sha256:
-      'aa2a243cd4f81ead806c43e27d6f9c12c28e396db64fe556d8ddf02a8d52f347',
+      '1397f0504bbbf88e776ececb9796918586724a16c69a885c8e23631c2465e86a',
   }),
-  sourceCommit: '03694f2d877bc323791e93473ad01ceb82af70df',
-  sourceTree: '6c6039683e067ef29f1f917a60c2628d26e38784',
+  sourceClosureJsonSha256:
+    '62aaa737428ef90b52fc9790ab1cc268537e8d5f5add1fce785bdb501bade763',
+  sourceClosureRecords: 33,
+  sourceCommit: '5675297dab94258e50d7371a95e07fe7a77fc51c',
+  sourceTree: 'b32af38c8ac769965ab062762004312d96d0de25',
 });
 const exactSourceClosure = Object.freeze([
   Object.freeze({
@@ -213,7 +216,7 @@ const exactSourceClosure = Object.freeze([
   }),
   Object.freeze({
     path: 'apps/mobile/scripts/da5V5ValidationArtifact.mjs',
-    sha256: 'd109748f8d4a23b9ce6c761e91783fe6d4696d6717c3485ac5f8476e71b83371',
+    sha256: '7d1c5c7e316a09f7222f76c35b1b67eed414150cfe57dd8ddcbcbd4bf0a317e2',
   }),
   Object.freeze({
     path: 'apps/mobile/scripts/da5V5ValidationBuildProcess.mjs',
@@ -224,8 +227,12 @@ const exactSourceClosure = Object.freeze([
     sha256: 'afbf1c3fc8983f5c83f00ed4c66b8ea311a677e3060e43419860fe2d933a85ab',
   }),
   Object.freeze({
+    path: 'apps/mobile/scripts/da5V5ValidationNoHardwareReadiness.mjs',
+    sha256: '8bf8198b3d13a55490d9276c2d74ae73c52a63783785aece848e2116841baeb2',
+  }),
+  Object.freeze({
     path: 'apps/mobile/scripts/da5V5ValidationRuntimeContract.mjs',
-    sha256: '8de7838940526188335f1b4d1cebfc350fb5924b9c64bc1779e0a598a94fe8e3',
+    sha256: '58bd20ece4bb670e64af3f411fbc50b585af753522e2dc291a822b68467754f2',
   }),
   Object.freeze({
     path: 'apps/mobile/scripts/da5V5ValidationSourceBinding.mjs',
@@ -233,19 +240,19 @@ const exactSourceClosure = Object.freeze([
   }),
   Object.freeze({
     path: 'apps/mobile/scripts/publishDa5V5ValidationArtifact.mjs',
-    sha256: '934cabc6245a72a90a7e8024017615a0296cd079fbf1358c24e3d83f77c7389f',
+    sha256: '051e328083deb8a8bea4b5ba1119378f8dd2209cafa92886e2f36a02a33f7536',
   }),
   Object.freeze({
     path: 'apps/mobile/scripts/verifyDa5V5ValidationAndroidArtifact.mjs',
-    sha256: 'f9b56d44e4d87ab6d356b1d56429372cdc3cca349d82fc64e4cbcf385487b235',
+    sha256: 'c1c0f38e7a44caa9c3ddae10cbddefce7c271b1818a61ff4904f30dda59aaee2',
   }),
   Object.freeze({
     path: 'apps/mobile/src/validation/Da5V5ValidationContract.ts',
-    sha256: '3278b10ae55937c8de3dcc6cdcb40aa011ccc5aa5ed307dcc01a589e5b3bb9fa',
+    sha256: 'dfd977e00f06c11ed5a1f749a353f90fa107af9598ee419ce163dc8ae9149c8c',
   }),
   Object.freeze({
     path: 'apps/mobile/src/validation/Da5V5ValidationController.ts',
-    sha256: '1030ca86dbe39c0b144d1fa49567b95fddf657db8fb41c2e15326a8af855a112',
+    sha256: '037f1926bd37b240285d81a398317dc413ca6a223f37e7a1ee4b402ff4fd45ac',
   }),
   Object.freeze({
     path: 'apps/mobile/src/validation/Da5V5ValidationDeviceBinding.ts',
@@ -253,11 +260,11 @@ const exactSourceClosure = Object.freeze([
   }),
   Object.freeze({
     path: 'apps/mobile/src/validation/Da5V5ValidationMobileApp.tsx',
-    sha256: 'fded3a4b71a619f5748324d16f31a19789d0c8d093ddccf29c0c969a77c0c2fd',
+    sha256: '52993984c9921975a252ed5ab858c0dd7f3f34cdaaf7b8121c2bc4b8ca04730d',
   }),
   Object.freeze({
     path: 'apps/mobile/src/validation/Da5V5ValidationNfcCapture.ts',
-    sha256: 'a02389b0c498833b392c77523ea9e0df360538380c5d1c76b56ebac69c646c6c',
+    sha256: '2c42b2d4df227767e1f7e650025e25de2e83b39d8746c36dc14f4d8c5697e53f',
   }),
   Object.freeze({
     path: 'apps/mobile/src/validation/NativeDa5V5ValidationDeviceBinding.ts',
@@ -544,6 +551,16 @@ export function sealDa5V5ValidationInstallSnapshot(
 export function verifyAndSealDa5V5ValidationPhase0Artifact(options = {}) {
   if (options.profile !== DA5_V5_VALIDATION_PHASE0_PROFILE) {
     throw new Error('DA5 V5 Validation Phase-0 profile mismatch');
+  }
+  if (
+    exactSourceClosure.length
+      !== DA5_V5_VALIDATION_PHASE0_ARTIFACT.sourceClosureRecords
+    || createHash('sha256')
+      .update(JSON.stringify(exactSourceClosure))
+      .digest('hex')
+      !== DA5_V5_VALIDATION_PHASE0_ARTIFACT.sourceClosureJsonSha256
+  ) {
+    throw new Error('DA5 V5 Validation source closure binding mismatch');
   }
   const verifyArtifact =
     options.verifyArtifact ?? verifyDa5V5ValidationArtifactBinding;

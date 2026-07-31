@@ -1,7 +1,7 @@
 # Development Assignment 5 — V5 Human Android Gate Runbook
 
-- Status: **PHASE-0 RUN 16 CONSUMED FAIL-CLOSED AT FIRST TAG-A `technology_evidence`; NO B/X, HUMAN PASS, RETRY OR HARDWARE DEFECT — LOCAL PRODUCT SYNTHETIC ARTIFACT CANDIDATE EXISTS; FIRST VALIDATION PUBLICATION FAILED BEFORE STAGING AND WAS NOT RETRIED — VALIDATION REBUILD/REVIEW PENDING — NO RUN AUTHORITY/DO NOT START**
-- Date: 2026-07-30
+- Status: **PHASE-0 RUN 16 CONSUMED FAIL-CLOSED AT FIRST TAG-A `technology_evidence`; EXACT READ-ONLY PRODUCT/VALIDATION ARTIFACTS EXIST AND INITIAL V2 PREFLIGHTS PASSED — ARTIFACT BINDING REVIEW R1: CHANGES REQUIRED (1 P1, 3 P2); CORRECTION UNCOMMITTED/PENDING RE-REVIEW, V3, COMMIT AND CI — BOTH DO NOT INSTALL; OPERATOR DO NOT START; HUMAN RUN AUTHORITY UNBOUND**
+- Date: 2026-07-31
 - Owner: Technical Lead
 - Approval authority for any run: Human Architect
 
@@ -21,28 +21,40 @@ Lead delegated only its focused R3 implementation on baseline
 
 Artifact preparation on approved source `814cb9013be7da98e46a4c36c5d4e716eef4cf46`,
 tree `0181c50faf6936ea1236f4454d536bf734334c91`, produced one local read-only Product
-Synthetic artifact candidate. The first Validation build completed, but its official atomic
-publisher failed closed before staging/publication on the unsafe Number representation of the
-APFS System-volume inode for `/usr/bin/unzip`; no Validation APK/manifest was published or
-retained and no retry occurred. The minimal BigInt/canonical-decimal Tool-Identity correction is
-uncommitted and pending independent review. It authorizes no rebuild before `APPROVED`; after
-`APPROVED`, the existing Human authority covers exactly one new Validation rebuild.
+Synthetic artifact candidate. After the separately approved APFS Tool-Identity correction, the
+authorized rebuild from source and execution commit
+`5675297dab94258e50d7371a95e07fe7a77fc51c`, tree
+`b32af38c8ac769965ab062762004312d96d0de25`, published one read-only Validation candidate.
+Publisher initial, staged and final checks passed. The first standalone verifier invocation from
+the retained build checkout stopped at repository readiness because ignored module-build residue
+was present; no artifact inspection had begun. The authorized corrected invocation from a fresh
+clean execution checkout passed with `da5_v5_validation_artifact_verified`. This first stop is an
+operational wrong-location record, not a Contract or Artifact finding.
 
 The Product NfcA/MifareUltralight artifact and the then-current Validation/Operator bindings are
-historical **DO NOT INSTALL** or pending supersession. The current uncommitted correction and every
-Validation replacement remain non-executable until independently `APPROVED`; the one already
-Human-authorized rebuild remains pending execution. Its sole
+historical **DO NOT INSTALL/DO NOT START**. Artifact Binding Review R1 of the first hardbinding
+candidate returned `CHANGES REQUIRED` with one P1 and three P2. The authorized uncommitted
+correction retains both exact artifacts and binds Validation Artifact Source to the ordered
+33-record source closure, whose compact-JSON SHA-256 is
+`62aaa737428ef90b52fc9790ab1cc268537e8d5f5add1fce785bdb501bade763`.
+It removes Execution self-literals, derives the Execution Repository from the loaded readiness
+module, cross-checks the exact 59-field Product manifest and attests aapt, apksigner, unzip and
+hermesc before and after use. Its Execution commit/tree are unbound until publication; V3, CI and
+independent re-review have not run. Both artifacts remain **DO NOT INSTALL** and the operator
+remains **DO NOT START**. Focused correction verification passes 5/5 files and 500/500 tests,
+Mobile tests-inclusive typecheck/source inclusion, five changed-MJS syntax checks and diff-check.
+Real Product/Validation preflights are deferred to the final published clean candidate. Its sole
 read-only no-hardware readiness entry is
 `npm run android:da5-v5-validation:verify --workspace=@taptime/mobile`. Its inputs are separate and
 must never be collapsed:
 
-| Readiness input class | Explicit variables; exact future values remain unbound |
+| Readiness input class | Explicit variables and current non-executable binding |
 |---|---|
-| Execution Repository | `DA5_V5_VALIDATION_REPOSITORY_ROOT`, `DA5_V5_VALIDATION_EXECUTION_COMMIT`, `DA5_V5_VALIDATION_EXECUTION_TREE`; these bind the repository in which the closure/readiness code executes |
-| Artifact Source | `DA5_V5_VALIDATION_SOURCE_COMMIT`, `DA5_V5_VALIDATION_SOURCE_TREE`, and for artifact verification `DA5_V5_VALIDATION_SOURCE_CLOSURE`; these bind the source represented by the immutable APK/manifest and may legitimately differ from Execution Repository commit/tree |
+| Execution Repository | `DA5_V5_VALIDATION_REPOSITORY_ROOT`, `DA5_V5_VALIDATION_EXECUTION_COMMIT`, `DA5_V5_VALIDATION_EXECUTION_TREE`; root must equal the canonical symlink-free root derived from the loaded readiness module and commit/tree must equal that root's actual HEAD/tree. Current correction: `UNBOUND UNTIL PUBLICATION — DO NOT START` |
+| Artifact Source | `DA5_V5_VALIDATION_SOURCE_COMMIT`, `DA5_V5_VALIDATION_SOURCE_TREE`, and for artifact verification `DA5_V5_VALIDATION_SOURCE_CLOSURE`; current candidate uses the same commit/tree and the exact 33-record closure |
 | Immutable tools | For each of `NODE`, `GIT`, `ADB`, `AAPT`, `APKSIGNER`, `HERMESC`, `UNZIP`: `DA5_V5_VALIDATION_<TOOL>_PATH`, `_BYTES`, `_MODE`, `_SHA256`; hermesc must equal the repository-resolved compiler and unzip must equal `/usr/bin/unzip`; no digest, byte count or mode is authorized by this draft |
 | Android SDK | `ANDROID_HOME` and/or `ANDROID_SDK_ROOT`; if both are supplied they must be identical. ADB, aapt and apksigner must equal their exact SDK-derived paths |
-| Artifact files | Existing exact `DA5_V5_VALIDATION_APK_*` and `DA5_V5_VALIDATION_MANIFEST_*` bindings |
+| Artifact files | Exact `DA5_V5_VALIDATION_APK_*` and `DA5_V5_VALIDATION_MANIFEST_*` values from the current candidate rows below |
 
 The readiness path requires current Node to equal `process.execPath`; verifies every tool as a
 canonical symlink-free regular executable with exact path/mode/size/SHA-256 and stable identity;
@@ -621,9 +633,11 @@ remains **DO NOT INSTALL** because no separate Phase-0, installation, ADB or har
 exists.
 
 The safe stage does not reveal the concrete physical `techTypes` and proves no fingerprint, Tag
-result or hardware defect. A future fresh one-time authorization must bind this independently
-approved exact replacement artifact, the Galaxy A33 plus still-unbound OS/build/accessibility
-values and three still-unbound safe Tag fingerprints to A/B/X. No APK listed below may be
+result or hardware defect. A future fresh one-time authorization must bind only the then-current
+exact Product/Validation/operator candidate after independent `APPROVED` review with zero open
+P0–P3, plus the Galaxy A33, the then-bound OS/build/accessibility values and three then-bound safe
+Tag fingerprints for A/B/X. The current Product/Validation candidates remain reviewed with
+`CHANGES REQUIRED`, not approved and **DO NOT INSTALL** until closure. No APK listed below may be
 installed under current authority; all entries are non-executable audit bindings. Future scans
 remain read-only and must perform no auth, network, database, Product action or timekeeping.
 Complete uninstall and scoped cleanup are mandatory.
@@ -632,6 +646,15 @@ Complete uninstall and scoped cleanup are mandatory.
 |---|---|
 | Runtime Guard binary | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-runtime-guard/ba1b6e922ceb7902ecedd9dc2df01d6b22d90867/da5_v5_runtime_guard`; 74,336 bytes; mode `0555`; SHA-256 `4b2a7e6b15d3348dffda94f9125c20a4db82bb8eb08a03aabd35932ad0d5853c` |
 | Runtime Guard manifest/review | Same directory, `guard-manifest.txt`; 19,971 bytes; mode `0444`; SHA-256 `957d6e99c271663763945026995e7463cf2f20b385eb942fd16a152d3de5f709`; focused evidence SHA-256 `440928371f7acc48272eff2e819c37a851d66cae4a908ffa330228982328d708`; independent Exact-SHA `APPROVED`, zero open P0–P3 |
+| Current NfcA-only Product source — DO NOT INSTALL | `814cb9013be7da98e46a4c36c5d4e716eef4cf46`; tree `0181c50faf6936ea1236f4454d536bf734334c91`; Artifact Binding Review R1 `CHANGES REQUIRED` (1 P1, 3 P2), correction pending re-review |
+| Current NfcA-only Product APK — DO NOT INSTALL | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5/814cb90/app-release-fd0886dc1c393d3b.apk`; 95,522,751 bytes; mode `0444`; SHA-256 `fd0886dc1c393d3b09b5ce575215e4767c84335362ec7cbe5f1948877c714d96` |
+| Current NfcA-only Product manifest — DO NOT INSTALL | Same directory, `artifact-manifest.txt`; 1,964 bytes; mode `0444`; SHA-256 `c0645dda543394cba9d6029b41a23aff5bcb5d0d805e3e944d9f8f880d1d5639` |
+| Current Product package/runtime boundary | `com.tim180201.mobile.synthetic`; versionCode `1`; versionName `1.0.0`; one v2 signer, v1/v3/v3.1/v4 false; certificate SHA-256 `fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c`; compiled unique exact-NfcA resource and packaged runtime matched |
+| Current Validation Artifact Source — DO NOT INSTALL | `5675297dab94258e50d7371a95e07fe7a77fc51c`; tree `b32af38c8ac769965ab062762004312d96d0de25`; exact 33-record closure |
+| Current Validation Execution Repository — DO NOT START | Commit/tree `UNBOUND UNTIL PUBLICATION`; canonical loaded-module root and its actual HEAD/tree must match; uncommitted correction pending V3, CI and independent re-review |
+| Current Validation APK — DO NOT INSTALL | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-validation/da5-v5-validation-5675297dab94-3d5450f257eda716/app-release-3d5450f257eda716.apk`; 65,634,553 bytes; mode `0444`; SHA-256 `3d5450f257eda716bbda0a133a7630d3a2d8bb1f5095fdb1986e85aa0277d144` |
+| Current Validation manifest/closure — DO NOT INSTALL | Same directory, `manifest-5675297dab94.json`; 6,855 bytes; mode `0444`; SHA-256 `1397f0504bbbf88e776ececb9796918586724a16c69a885c8e23631c2465e86a`; 33 ordered source records; compact-JSON SHA-256 `62aaa737428ef90b52fc9790ab1cc268537e8d5f5add1fce785bdb501bade763` |
+| Current Validation artifact publication/verification | Publisher initial/staged/final `PASS`; historical artifact-production checkout `5675297` returned `da5_v5_validation_artifact_verified`; this is not the uncommitted correction's Execution binding or review. The earlier retained-build-checkout readiness stop occurred before artifact inspection and is not an Artifact finding |
 | Historical `effc57a` Validation source/review/CI — DO NOT INSTALL | `effc57a6780ff86784de0519a34abd6c5b7b8cd6`; tree `758dbfaa04d0968fb25122352055fbcb80f8f022`; exactly seven authorized changed files; exact-head CI `30377569479`, attempt 1, 12/12; independent source review and final prepublication review `APPROVED`, zero open P0–P3 |
 | Historical `effc57a` Validation V3 | 20/20 builds; 21/21 tests-inclusive typechecks; 21 workspace suites / 147 test files / 2,373 tests; exactly two documented optional B1 skips; migrations 001–013 apply/replay/ledger, C3B CLI and Android export passed. Initial Synthetic stop solely from Technical-Lead runner database-name configuration; previously unexecuted unchanged suite passed 288/288 on a fresh exact database; no port or temporary residue |
 | Historical `effc57a` Validation APK — DO NOT INSTALL | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-validation/da5-v5-validation-effc57a6780f-e423073e51f72a68/app-release-e423073e51f72a68.apk`; 65,631,681 bytes; mode `0444`; SHA-256 `e423073e51f72a68421c8e4afd17a9b86c397ca83628deaf4b174543d817330f`; Artifact Exact-SHA review `APPROVED`, zero open P0–P3 |
@@ -639,16 +662,16 @@ Complete uninstall and scoped cleanup are mandatory.
 | Historical `effc57a` Validation package/security boundary | `com.tim180201.mobile.validation`; versionCode `1`; versionName `1.0.0`; signing scope `local-validation-only`; one v2 signer with certificate SHA-256 `fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c`; NFC-only; no network permission; cleartext denied; backup disabled; no Product deep links or Tag dispatch |
 | Historical `effc57a` Validation native/source closure | Metro source closure 555 entries / 2,675,576 bytes / SHA-256 `e9fee0629af81357e4563836f9f5ef2b404c1ef97bc135d1cb3ed410f713b593`; executable 2,040,604 bytes / SHA-256 `c24457514436a63878107e1593dc90c6de17ad2424a6b625a6f18a14f66b8cfe`; unchanged native source 123 directories / 587 entries / 464 files / 1,176,224 bytes / SHA-256 `9194be29b96a67c47aa40a4bdea7494155695e088d769e21c77eff305b1ee259` |
 | Historical `effc57a` Artifact Exact-SHA review | `APPROVED`, zero open P0–P3; all 32 manifest source-closure files byte-exact; package/signature/version, NFC-only permission, backup/transfer disabled, cleartext/network blocked and no Product dispatch/deep link; DEX 4 required present / 14 forbidden absent; Hermes Validation markers present and Product/network/database/storage markers absent |
-| `DA5-V5-VAL-TECH-01` source/review/CI | `03694f2d877bc323791e93473ad01ceb82af70df`; tree `6c6039683e067ef29f1f917a60c2628d26e38784`; exact-head CI `30386552118`, attempt 1, 12/12; prepublication review round 2 `APPROVED`, zero open P0–P3 |
+| Historical `DA5-V5-VAL-TECH-01` source/review/CI | `03694f2d877bc323791e93473ad01ceb82af70df`; tree `6c6039683e067ef29f1f917a60c2628d26e38784`; exact-head CI `30386552118`, attempt 1, 12/12; prepublication review round 2 `APPROVED`, zero open P0–P3 |
 | Validation Phase-0 operator source/review/CI — DO NOT START | Baseline `39a6ef09fad18375af025bc8ed12cc1ea6dda964`, tree `10cdf16421fe564e1961a39d79e20775c0269fc4`; candidate `083fdfb259089d976e48f824e0862f10637d3290`, tree `24bd130500934c6a48fd9314fa06387d6ebdedcd`; exact-head CI `30402655381`, attempt 1, 12/12; independent Exact-SHA re-review round 2 `APPROVED`, zero open P0–P3; both round-1 P1 findings closed; no Phase-0, installation, ADB or hardware authority |
 | Final install-category correction/review — DO NOT START | Candidate `12d1ace89494851025555d1d06d45570c4fcc4cb`; tree `b747b4306637d90765b33f273ad89291bd4ea9a7`; parent `b63641953536bb36625fcd42d850e429ddab8db3`; exact code/test delta limited to the Operator core and focused runtime test, plus four synchronized ADO truth files; V2/V3 green; exact-head V4 CI `30466798295`, attempt 1, 12/12; prior round-2 delta review and final independent Exact-Head/V4 review `APPROVED`, zero open P0–P3; round-1 P2 closed; no Phase-0, installation, ADB or hardware authority |
 | Run-12 diagnostic/local Guard cleanup correction — technically closed/DO NOT START | Candidate `3a77603825db573bdabb2d4202fe7cca5383c1ed`; tree `3996b4c27d2970b99e1b407217dd269e62be72ce`; parent `3fcbcdec79dada8d43041a241127e52f4775e8d8`; V3 20/20 builds, 21/21 tests-inclusive typechecks, 21/21 suites / 2,529 passed / two expected skips plus migration/bin/artifact/export/cleanup match; exact-head CI `30479752844`, attempt 1, 12/12 without retry; independent prepublication and final Exact-SHA reviews `APPROVED`, zero open P0–P3; no Phase-0, installation, ADB, hardware or Product Human-V5 authority |
 | Historical install-/launch-diagnostic predecessor/review — DO NOT START | Candidate `8ce03852e782d541319bb852f216cf596ab1787f`; tree `f5b914c1b8f1243244733808beaef54f0351a563`; parent `2f057cb4e5d096e34785c72c51340f589c711dd2`; exact eight-file +488/-132 delta; patch SHA-256 `c8418fe6382c8a23ada44254c2fdc35652acbb73a8f99983f5cbb4cc11b46984`; V1/V2 executed green; unchanged V3 carried from `496ca59`/tree `b398b89`; exact-head CI `30459539801`, attempt 1, 12/12; independent Exact-Delta/Commit/Tree/CI review `APPROVED`, zero open P0–P3; no Phase-0, installation, ADB or hardware authority |
 | Historical published Phase-0 readiness candidate — DO NOT START | Candidate `496ca59f0965670b29a210b8aa2443b99bb4a386`, tree `b398b89c77f7f0b4799a7a06b11bd2daf51fd34a`; exact baseline `fa1aaa782415aceb85c0aa5c1233732ef9afa4dc`, tree `da69081517d2b0b9631eaef393b0a6022735061e`; Toybox process parsing, explicit one-time `human-pass`, deterministic terminal receipt ordering, four catchable signals and exact 30-presentation Human protocol; safe-root V3/eight-file candidate has no code finding; exact-candidate CI `30427205223`, attempt 1, failed 11/12 after job `90496143535` passed 3/3 files and 121/121 assertions but emitted later unhandled PostgreSQL `57P01` on `taptime_c3e1_dirty_*`; formal review `CHANGES REQUIRED`, exactly one P2 CI/test-reliability finding, no Product/Security finding; no retry |
 | PostgreSQL test-cleanup correction — technically closed/DO NOT START | Candidate `21e518151a3f4727ebf4ce90cd1557660960ff21`, tree `8f764f9260378b631b4b026355852c324d6dc06b`; parent `d63c62de9eced5f7dd62c8c957d4c2fffce77bf9`, tree `753feedcae6724e711557e6492bbe26fa0b02083`; seven test-only files, +192/-12, delta SHA-256 `b0406bc02a085649060b3dfdb263db00694e501efbe1c247f3ba49fec3cb53e2`; V1 2/2, V2 B3 128/128 + C3B 60/60 + C3C/C3E1 102/102 and three tests-inclusive typechecks passed; unchanged green V3 carried from `496ca59`; exact-head CI `30429746848`, attempt 1, 12/12 without retry; independent source/delta and final Exact-SHA/V4 reviews `APPROVED`, zero open P0–P3; historical P2 closed; no hardware authority |
-| `DA5-V5-VAL-TECH-01` candidate APK — DO NOT INSTALL | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-validation/da5-v5-validation-03694f2d877b-d2084486b07f27bd/app-release-d2084486b07f27bd.apk`; 65,631,433 bytes; mode `0444`; SHA-256 `d2084486b07f27bdbd72f9f32e38531f8de31dad18ef4789cab2ec44135e05f5`; official verifier `PASS`; independent Source/Artifact Exact-SHA review `APPROVED`, zero open P0–P3 |
-| `DA5-V5-VAL-TECH-01` candidate manifest — DO NOT INSTALL | Same directory, `manifest-03694f2d877b.json`; 6,700 bytes; mode `0444`; SHA-256 `aa2a243cd4f81ead806c43e27d6f9c12c28e396db64fe556d8ddf02a8d52f347`; all 32 source-closure entries matched; independent Source/Artifact Exact-SHA review `APPROVED`, zero open P0–P3 |
-| `DA5-V5-VAL-TECH-01` package/security boundary | `com.tim180201.mobile.validation`; versionCode `1`; versionName `1.0.0`; `local-validation-only`; one v2 signer with certificate SHA-256 `fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c`; NFC-only; no network permission; cleartext denied; backup/transfer denied; no Product deep links or Tag dispatch; required native modules present, forbidden modules absent; Validation marker present and Product runtime marker absent |
+| Historical `DA5-V5-VAL-TECH-01` candidate APK — DO NOT INSTALL | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-validation/da5-v5-validation-03694f2d877b-d2084486b07f27bd/app-release-d2084486b07f27bd.apk`; 65,631,433 bytes; mode `0444`; SHA-256 `d2084486b07f27bdbd72f9f32e38531f8de31dad18ef4789cab2ec44135e05f5`; official verifier `PASS`; independent Source/Artifact Exact-SHA review `APPROVED`, zero open P0–P3 |
+| Historical `DA5-V5-VAL-TECH-01` candidate manifest — DO NOT INSTALL | Same directory, `manifest-03694f2d877b.json`; 6,700 bytes; mode `0444`; SHA-256 `aa2a243cd4f81ead806c43e27d6f9c12c28e396db64fe556d8ddf02a8d52f347`; all 32 source-closure entries matched; independent Source/Artifact Exact-SHA review `APPROVED`, zero open P0–P3 |
+| Historical `DA5-V5-VAL-TECH-01` package/security boundary — DO NOT INSTALL | `com.tim180201.mobile.validation`; versionCode `1`; versionName `1.0.0`; `local-validation-only`; one v2 signer with certificate SHA-256 `fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c`; NFC-only; no network permission; cleartext denied; backup/transfer denied; no Product deep links or Tag dispatch; required native modules present, forbidden modules absent; Validation marker present and Product runtime marker absent |
 | Historical `e97bbe9` Validation source/review/CI — DO NOT INSTALL | `e97bbe9e2a281099899e2ecb3aad2588ef20f22d`; tree `2958f456875e8dab3f10834df280e10a8438efce`; exact-head CI `30370977809`, attempt 1, 12/12; Round-2/Round-3 source reviews and formal Source/Artifact Exact-SHA review `APPROVED`, zero open P0–P3 |
 | Historical `e97bbe9` Validation APK/manifest — DO NOT INSTALL | Directory `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-validation/da5-v5-validation-e97bbe9e2a28-810b856ff7113b4f`; APK `app-release-810b856ff7113b4f.apk`, 65,629,505 bytes, mode `0444`, SHA-256 `810b856ff7113b4f2a454007595e1b6c1ae5dc69c601a2120b577f124e213e28`; manifest `manifest-e97bbe9e2a28.json`, 6,700 bytes, mode `0444`, SHA-256 `af53d646558449a7a5c907fbdf59e3366c6ffd2755f6049141db8e567549e051` |
 | Historical Validation APK — DO NOT INSTALL | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-validation/da5-v5-validation-7e8c0f7742e6-303bfd33cf7fa000/app-release-303bfd33cf7fa000.apk`; 65,626,753 bytes; mode `0444`; SHA-256 `303bfd33cf7fa000ee808a048f91883c18dbfe85c1ba359d3f0764ac7ae7f2f8` |
@@ -671,7 +694,7 @@ This runbook defines one fresh Human Android observation for ADR-0016 DA5-P12 an
 DA5-T15. It minimizes repetition through staged gates, but every listed boundary remains
 mandatory.
 
-The carried software closure is current Source+Lock baseline
+The historical carried V0–V4 software closure used Source+Lock baseline
 `a323834f51607841d0cd5f11aafdbfd3dd93ed5f`, tree
 `65c669b0a941c21d23ffca5e79fa03285323a7cf`, exact-head CI `30149165373`,
 attempt 1, 12/12. Independent implementation review round 2 returned `APPROVED` with zero open
@@ -717,12 +740,15 @@ no self-SHA.
 | Binding | Required exact value |
 |---|---|
 | One-run Human authorization and date | `UNBOUND — DO NOT START` |
-| Product commit/tree and required V4 | `a323834f51607841d0cd5f11aafdbfd3dd93ed5f` / `65c669b0a941c21d23ffca5e79fa03285323a7cf`; CI `30149165373`, attempt 1, 12/12 |
-| Product implementation-review binding/verdict | Round 2 `APPROVED`; zero open P0–P3 |
-| Runbook/evidence commit/tree and independent-review verdict | `e6a06e2ec8f580d6314bfe5a51378f949d524b16` / `6dcdce405feb2eccb1462c373ab6be891152715c`; CI `30150095109`, attempt 1, 12/12; final independent Artifact/Evidence Exact-SHA review `APPROVED`, zero open P0–P3 |
-| Read-only APK path, byte size, SHA-256 and exact mode | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5/a323834/app-release-385c0c46f22dcac5.apk`; 95,522,787 bytes; `385c0c46f22dcac5b935bfdc6f574558f4e74748ed4a367ef399ddbd4299c547`; `0444` |
-| Read-only artifact manifest path, byte size, SHA-256 and exact mode | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5/a323834/artifact-manifest.txt`; 1,647 bytes; `1c1f1b7a5b92fab5510cde35a439fc6f0742b7bf2666d6319cd89b9a7d4dcadb`; `0444` |
+| Product source commit/tree and review state | `814cb9013be7da98e46a4c36c5d4e716eef4cf46` / `0181c50faf6936ea1236f4454d536bf734334c91`; Artifact Binding Review R1 `CHANGES REQUIRED` (1 P1, 3 P2), correction pending re-review |
+| Historical runbook/evidence commit/tree and review — not current binding | `e6a06e2ec8f580d6314bfe5a51378f949d524b16` / `6dcdce405feb2eccb1462c373ab6be891152715c`; CI `30150095109`, attempt 1, 12/12; historical Artifact/Evidence Exact-SHA review `APPROVED`, zero open P0–P3 |
+| Read-only Product APK path, byte size, SHA-256 and exact mode | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5/814cb90/app-release-fd0886dc1c393d3b.apk`; 95,522,751 bytes; `fd0886dc1c393d3b09b5ce575215e4767c84335362ec7cbe5f1948877c714d96`; `0444` |
+| Read-only Product manifest path, byte size, SHA-256 and exact mode | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5/814cb90/artifact-manifest.txt`; 1,964 bytes; `c0645dda543394cba9d6029b41a23aff5bcb5d0d805e3e944d9f8f880d1d5639`; `0444` |
 | Package, version, signature scheme, signer digest and packaged manifest/runtime values | `com.tim180201.mobile.synthetic`; versionCode `1`; versionName `1.0.0`; v2 `true`, v1/v3/v3.1/v4 `false`; one local synthetic non-production signer certificate SHA-256 `fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c`; packaged boundary/runtime `match` per adjacent manifest |
+| Read-only Validation Artifact Source commit/tree | `5675297dab94258e50d7371a95e07fe7a77fc51c` / `b32af38c8ac769965ab062762004312d96d0de25`; exact 33-record closure |
+| Validation Execution Repository commit/tree | `UNBOUND UNTIL PUBLICATION — DO NOT START`; must equal the canonical loaded-module root's actual HEAD/tree; correction uncommitted, V3/CI/re-review pending |
+| Read-only Validation APK path, byte size, SHA-256 and exact mode | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-validation/da5-v5-validation-5675297dab94-3d5450f257eda716/app-release-3d5450f257eda716.apk`; 65,634,553 bytes; `3d5450f257eda716bbda0a133a7630d3a2d8bb1f5095fdb1986e85aa0277d144`; `0444` |
+| Read-only Validation manifest/closure | Same directory, `manifest-5675297dab94.json`; 6,855 bytes; `1397f0504bbbf88e776ececb9796918586724a16c69a885c8e23631c2465e86a`; `0444`; 33 records; compact-JSON SHA-256 `62aaa737428ef90b52fc9790ab1cc268537e8d5f5add1fce785bdb501bade763` |
 | Device model, OS/build and approved screen-unlocked mode | `UNBOUND — DO NOT START` |
 | Approved assigned, unassigned and unrelated Tag labels/safe fingerprints | `UNBOUND — DO NOT START` |
 | Exact synthetic services, status boundary and controlled-offline switch | `UNBOUND — DO NOT START` |
@@ -731,9 +757,10 @@ no self-SHA.
 | Separately reviewed Protected/Review induction fixture, synthetic labels, exact start state, cutover procedure, expected state sequence and scoped teardown | `UNBOUND — DO NOT START` |
 | Exact large-text setting and active allowlisted TalkBack package/version | `UNBOUND — DO NOT START` |
 
-The populated product and artifact/evidence rows are independently approved. They are not a
-Human-run authorization. Every remaining operational binding and a separate exact Human
-authorization are still mandatory.
+The populated historical artifact/evidence rows retain their recorded independent approvals. The
+current Product/Validation rows were reviewed with `CHANGES REQUIRED` and are not approved; the
+Human gate remains unbound. None of these rows is a Human-run authorization. Every remaining
+operational binding and a separate exact Human authorization are still mandatory.
 
 At preflight, recompute both read-only file sizes, SHA-256 digests and modes from the preserved APK
 and manifest. Independently verify package/version, signature/signer and packaged

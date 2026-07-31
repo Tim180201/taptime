@@ -1,13 +1,13 @@
 # Project Status
 
-Status: CORE ROADMAP V2 COMPLETIONS REMAIN PRESERVED FOR THEIR RECORDED SCOPES — DA4 REMAINS OPEN FOR A LATER FRESH HUMAN V5 — DA5 V0–V4 AND THE HISTORICAL LOCAL DA5-V5 RUNTIME-GUARD/VALIDATION/OPERATOR CLOSURES REMAIN PRESERVED ONLY FOR THEIR RECORDED SCOPES — PHASE-0 RUN 16 IS CONSUMED FAIL-CLOSED AT FIRST TAG-A `technology_evidence`; NO B/X, HUMAN PASS, RETRY OR HARDWARE DEFECT — ONE LOCAL PRODUCT SYNTHETIC ARTIFACT CANDIDATE EXISTS; FIRST VALIDATION PUBLICATION FAILED CLOSED BEFORE STAGING AND WAS NOT RETRIED — VALIDATION REBUILD/PUBLICATION AND IDENTITY-CORRECTION REVIEW REMAIN PENDING — NO INSTALL/RUN AUTHORITY; V3, COMMIT, CI, REVIEW, VALIDATION ARTIFACT, PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, SYSTEM CHANGES, DEPLOYMENT AND DISTRIBUTION REMAIN PENDING OR UNAUTHORIZED
+Status: CORE ROADMAP V2 COMPLETIONS REMAIN PRESERVED FOR THEIR RECORDED SCOPES — DA4 REMAINS OPEN FOR A LATER FRESH HUMAN V5 — DA5 V0–V4 AND THE HISTORICAL LOCAL DA5-V5 RUNTIME-GUARD/VALIDATION/OPERATOR CLOSURES REMAIN PRESERVED ONLY FOR THEIR RECORDED SCOPES — PHASE-0 RUN 16 IS CONSUMED FAIL-CLOSED AT FIRST TAG-A `technology_evidence`; NO B/X, HUMAN PASS, RETRY OR HARDWARE DEFECT — EXACT READ-ONLY PRODUCT AND VALIDATION ARTIFACTS EXIST AND INITIAL V2 PREFLIGHTS PASSED — ARTIFACT BINDING REVIEW R1 RETURNED CHANGES REQUIRED WITH 1 P1 AND 3 P2; THE AUTHORIZED CORRECTION IS UNCOMMITTED AND PENDING INDEPENDENT RE-REVIEW, V3, COMMIT AND CI — BOTH ARTIFACTS ARE DO NOT INSTALL; OPERATOR DO NOT START; HUMAN RUN AUTHORITY REMAINS UNBOUND; PRODUCTION, PRODUCTION DATA, PILOT OPERATIONS, LEGAL/PRIVACY APPROVAL, SYSTEM CHANGES, DEPLOYMENT AND DISTRIBUTION REMAIN UNAUTHORIZED
 DA5 decision-time Option-A trust anchor: exactly two direct admin-group members, zero nested
 groups; full-record SHA-256 `b006276c09d8f2713f6132ea79cec167ab3a3c2887ee53e95eb00c1cc33719a5`;
 membership SHA-256 `70a683b7ebc7981533015d5d63cf12dfb2eabbfa665c34720eddb4d09e9e3064`;
 combined snapshot SHA-256 `2384b0baccd9049d820794f8ebc9419e4af0fad6831a5a91c209baa0b4a02217`.
 A later R3 run must reproduce all three and both counts before capability/task-root creation and
 every trust use; mismatch returns to the Human Architect and may not dynamically rebind.
-Date: 2026-07-30
+Date: 2026-07-31
 Owner: Human Architect + Technical Lead
 
 ## DA5 V5 run-16 and NfcA-only correction checkpoint
@@ -21,32 +21,31 @@ fingerprint was recorded; no hardware defect is proven.
 Artifact preparation on independently approved source
 `814cb9013be7da98e46a4c36c5d4e716eef4cf46`, tree
 `0181c50faf6936ea1236f4454d536bf734334c91`, produced one local read-only Product
-Synthetic artifact candidate. The first Validation build completed, but its official publisher
-failed closed before staging/publication because Number-based `lstat` could not safely bind the
-APFS System-volume inode of `/usr/bin/unzip`; no Validation APK/manifest was published or retained
-and no retry occurred. The minimal uncommitted correction now captures system tool identity with
-BigInt stats and exact canonical decimal `dev`/`ino`. It has focused V1/V2 evidence only;
-independent review remains pending. After `APPROVED`, the existing Human authority covers exactly
-one new Validation rebuild; execution remains pending.
+Synthetic artifact candidate whose compiled dispatch resolves to the unique exact-NfcA resource.
+After the separately reviewed APFS tool-identity correction, one authorized rebuild from source
+and execution commit `5675297dab94258e50d7371a95e07fe7a77fc51c`, tree
+`b32af38c8ac769965ab062762004312d96d0de25`, produced a new read-only Validation APK and
+manifest. Publisher initial, staged and final checks passed. A first standalone-verifier invocation
+from the retained build checkout stopped at readiness on ignored module-build residue before
+artifact inspection; this was an operational wrong-location stop, not a Contract or Artifact
+finding. The authorized corrected verifier then ran once from a fresh clean execution checkout and
+returned `da5_v5_validation_artifact_verified`. The exact ordered source closure contains 33
+records and compact-JSON SHA-256
+`62aaa737428ef90b52fc9790ab1cc268537e8d5f5add1fce785bdb501bade763`.
 
 The previous Product artifact with an NfcA/MifareUltralight dispatch filter and the then-current
-Validation/Operator bindings are now historical **DO NOT INSTALL** or pending supersession. The
-uncommitted R3 working-tree correction narrows Product dispatch and the closed Validation label to
-NfcA, keeps UID-only behavior, accepts Android NfcA evidence despite harmless extra/duplicate
-reported technologies, hardens capture/operator races and adds one explicit read-only readiness
-path that does not execute ADB. That path binds full Node/Git/ADB/aapt/apksigner/hermesc/unzip
-identities. Ordinary Git status retains staged/unstaged/untracked coverage and protected
-exclusions; a second `--ignored=matching` status is limited to the positive deduplicated Validation
-source scopes plus the exact 13-file transitive execution closure. Product manifest generation
-rejects duplicate, broader, TAG/NDEF and foreign activity/alias NFC bindings; compiled inspection
-ties the sole MainActivity TECH+DEFAULT metadata reference by numeric ID to the unique exact-NfcA
-XML resource. Native cancel cleanup failure settles the capture and remains higher priority than
-cancel/order results, while only the same active UI offer coalesces and settled replay fails closed.
-The actual ADB runners and APK inspector reattest their bound tools; after operator-abort
-arbitration every winning typed ADB timeout maps to the fixed timeout category at all
-install/launch stages. The local Product candidate is not independently approved and grants no
-install/run authority. No Validation replacement artifact, commit/tree, CI, independent approval,
-V3 or new Human authority is claimed. R-035 remains open.
+Validation/Operator bindings are historical **DO NOT INSTALL/DO NOT START**. Artifact Binding
+Review R1 of the first uncommitted hardbinding returned `CHANGES REQUIRED` with one P1 and three P2
+findings. The authorized correction retains the exact new Product and Validation tuples, keeps
+Validation Artifact Source fixed at `5675297` / `b32af38`, derives Execution Repository authority
+from the actually loaded readiness module root, cross-checks the complete Product manifest and
+attests aapt, apksigner, unzip and hermesc before and after use. The correction has no published
+Execution commit/tree, V3, CI or independent re-review result. Both new candidates remain
+**DO NOT INSTALL** and the operator **DO NOT START**. No Human-run authority, ADB, installation or
+hardware execution is claimed. R-035 remains open.
+Focused correction verification passes 5/5 files and 500/500 tests, Mobile tests-inclusive
+typecheck/source inclusion, five changed-MJS syntax checks and diff-check. The real Product and
+Validation preflights are deferred to the final published clean candidate.
 The Human Architect explicitly decided the NfcA-only Product scope; the Technical Lead delegated
 only its focused R3 implementation on baseline `17f4b47b8429d3862789b7e13a23f8da9d28c449`,
 tree `4bbfe9e3fdcdf474f1f506135560e4e111122fb5`.
@@ -1482,9 +1481,16 @@ Two Epics are concurrently Active, per EP-009's own stated relationship to the r
    zero-finding `APPROVED` review as technically closed/`MERGE_READY`, but not Human-run-ready.
    This R0 closure sync carries V3/V4, requires and authorizes no second CI, and grants no run
    authority; its own commit/tree remain pending and unclaimed.
-   Do not begin another Phase 0 without binding this independently
-   approved exact replacement artifact in a
-   fresh explicit
+   Treat the exact Product `814cb90` and Validation `5675297` read-only artifacts as
+   **DO NOT INSTALL/DO NOT START**. Artifact Binding Review R1 returned `CHANGES REQUIRED` with one
+   P1 and three P2; keep the authorized correction uncommitted/non-executable until independent
+   re-review, V3, commit and CI are complete. Artifact Source stays fixed; bind Execution
+   commit/tree only to the published canonical loaded-module root's actual HEAD/tree. Preserve the
+   first retained-build-checkout Validation
+   readiness stop as an operational wrong-location record before artifact inspection and the
+   corrected fresh-clean-checkout verifier marker as successful no-hardware evidence only.
+   Do not begin another Phase 0 until an independently approved exact Product/Validation/operator
+   set is bound in a fresh explicit
    one-time Human
    authorization limited to the corrected exact
    Validation APK, Galaxy A33, 30 successful stable read-only Tag presentations in fixed order

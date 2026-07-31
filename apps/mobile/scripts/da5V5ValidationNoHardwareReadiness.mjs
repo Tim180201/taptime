@@ -6,10 +6,12 @@ import {
 } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import {
+  dirname,
   join,
   normalize,
   resolve,
 } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import {
   DA5_V5_VALIDATION_UNZIP_PATH,
@@ -23,6 +25,8 @@ import {
 } from './da5V5ValidationRuntimeContract.mjs';
 
 const GIT_OBJECT_PATTERN = /^[0-9a-f]{40}$/u;
+const readinessModuleRepositoryPath =
+  'apps/mobile/scripts/da5V5ValidationNoHardwareReadiness.mjs';
 const protectedExclusions = Object.freeze([
   ':(top,exclude,glob)research/**',
   ':(top,exclude,literal)app.json',
@@ -36,6 +40,7 @@ const readinessScopes = Object.freeze([
 
 export function createDa5V5ValidationNoHardwareReadinessOptions(
   environment,
+  dependencies = systemRepositoryRootDependencies(),
 ) {
   if (
     typeof environment !== 'object'
@@ -43,6 +48,23 @@ export function createDa5V5ValidationNoHardwareReadinessOptions(
     || Array.isArray(environment)
   ) {
     throw new Error('DA5 V5 Validation environment authority mismatch');
+  }
+  const executionRepositoryRoot =
+    resolveDa5V5ValidationExecutionRepositoryRoot(
+      dependencies.moduleUrl,
+      dependencies,
+    );
+  const suppliedRepositoryRoot = required(
+    environment,
+    'DA5_V5_VALIDATION_REPOSITORY_ROOT',
+  );
+  if (
+    requireCanonicalPath(suppliedRepositoryRoot)
+      !== executionRepositoryRoot
+  ) {
+    throw new Error(
+      'DA5 V5 Validation execution repository authority mismatch',
+    );
   }
   return Object.freeze({
     androidSdkAuthority: Object.freeze({
@@ -65,10 +87,7 @@ export function createDa5V5ValidationNoHardwareReadinessOptions(
       environment,
       'DA5_V5_VALIDATION_EXECUTION_TREE',
     ),
-    repositoryRoot: required(
-      environment,
-      'DA5_V5_VALIDATION_REPOSITORY_ROOT',
-    ),
+    repositoryRoot: executionRepositoryRoot,
     tools: Object.freeze({
       aapt: fileBinding(environment, 'DA5_V5_VALIDATION_AAPT'),
       adb: fileBinding(environment, 'DA5_V5_VALIDATION_ADB'),
@@ -84,10 +103,58 @@ export function createDa5V5ValidationNoHardwareReadinessOptions(
   });
 }
 
+export function resolveDa5V5ValidationExecutionRepositoryRoot(
+  moduleUrl,
+  dependencies = systemRepositoryRootDependencies(),
+) {
+  let modulePath;
+  try {
+    modulePath = fileURLToPath(moduleUrl);
+  } catch {
+    throw new Error(
+      'DA5 V5 Validation execution repository authority mismatch',
+    );
+  }
+  const canonicalModulePath = requireCanonicalPath(modulePath);
+  const repositoryRoot = requireCanonicalPath(
+    resolve(dirname(canonicalModulePath), '../../..'),
+  );
+  if (
+    join(repositoryRoot, readinessModuleRepositoryPath)
+      !== canonicalModulePath
+  ) {
+    throw new Error(
+      'DA5 V5 Validation execution repository authority mismatch',
+    );
+  }
+  const moduleStat = dependencies.lstat(canonicalModulePath);
+  if (
+    !moduleStat.isFile()
+    || moduleStat.isSymbolicLink()
+    || normalize(dependencies.realpath(canonicalModulePath))
+      !== canonicalModulePath
+  ) {
+    throw new Error(
+      'DA5 V5 Validation execution repository authority mismatch',
+    );
+  }
+  return requireDirectory(repositoryRoot, dependencies);
+}
+
 export function verifyDa5V5ValidationNoHardwareReadiness(
   options,
   dependencies = systemDependencies(),
 ) {
+  const executionRepositoryRoot =
+    resolveDa5V5ValidationExecutionRepositoryRoot(
+      dependencies.moduleUrl,
+      dependencies,
+    );
+  if (options?.repositoryRoot !== executionRepositoryRoot) {
+    throw new Error(
+      'DA5 V5 Validation execution repository authority mismatch',
+    );
+  }
   const authority = requireDa5V5ValidationAndroidSdkAuthority(
     options?.androidSdkAuthority,
   );
@@ -151,7 +218,7 @@ export function verifyDa5V5ValidationNoHardwareReadiness(
     'unzip',
   );
   const repositoryRoot = requireDirectory(
-    options?.repositoryRoot,
+    executionRepositoryRoot,
     dependencies,
   );
   requireGitObject(options?.executionCommit);
@@ -313,6 +380,7 @@ function systemDependencies() {
     lstat(path) {
       return lstatSync(path, { bigint: true });
     },
+    moduleUrl: import.meta.url,
     readRepositoryBinding(gitPath, repositoryRoot, sourceScopes) {
       return readDa5V5ValidationRepositoryBinding(
         gitPath,
@@ -326,6 +394,16 @@ function systemDependencies() {
     sha256(path) {
       return createHash('sha256').update(readFileSync(path)).digest('hex');
     },
+  });
+}
+
+function systemRepositoryRootDependencies() {
+  return Object.freeze({
+    lstat(path) {
+      return lstatSync(path, { bigint: true });
+    },
+    moduleUrl: import.meta.url,
+    realpath: realpathSync,
   });
 }
 

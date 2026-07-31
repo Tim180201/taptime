@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
   REQUIRED_SYNTHETIC_E2E_RUNTIME_LITERALS,
@@ -6,6 +6,7 @@ import {
 } from '../../scripts/syntheticE2eRuntimeContract.mjs';
 import {
   assertSyntheticE2eRuntimeCompleteness,
+  verifySyntheticE2eAndroidRuntime,
 } from '../../scripts/verifySyntheticE2eAndroidRuntime.mjs';
 
 describe('synthetic Android E2E runtime-completeness verifier', () => {
@@ -36,6 +37,80 @@ describe('synthetic Android E2E runtime-completeness verifier', () => {
 
       expect(() => assertSyntheticE2eRuntimeCompleteness(incompleteDump))
         .toThrow(name);
+    },
+  );
+
+  it('uses only the injected exact unzip and hermesc paths', () => {
+    const unzipPath = '/synthetic/tools/unzip';
+    const hermesCompilerPath = '/synthetic/tools/hermesc';
+    const runtimeDump = REQUIRED_SYNTHETIC_E2E_RUNTIME_LITERALS
+      .map(({ value }) => `String ${JSON.stringify(value)}`)
+      .join('\n');
+    const run = vi.fn((
+      command: string,
+      arguments_: readonly string[],
+    ) => {
+      if (command === unzipPath && arguments_[0] === '-Z1') {
+        return { stdout: 'assets/index.android.bundle\n' };
+      }
+      if (command === unzipPath && arguments_[0] === '-p') {
+        return { stdout: Buffer.from('synthetic-hermes-bundle') };
+      }
+      if (command === hermesCompilerPath) {
+        return { stdout: runtimeDump };
+      }
+      throw new Error(`unexpected command: ${command}`);
+    });
+    const dependencies = {
+      exists: vi.fn(() => true),
+      mkdtemp: vi.fn(() => '/synthetic/runtime-temp'),
+      remove: vi.fn(),
+      run,
+      tmpdir: vi.fn(() => '/synthetic'),
+      writeFile: vi.fn(),
+      writeOutput: vi.fn(),
+    };
+
+    expect(() => verifySyntheticE2eAndroidRuntime(
+      '/synthetic/candidate.apk',
+      {
+        dependencies,
+        hermesCompilerPath,
+        unzipPath,
+      },
+    )).not.toThrow();
+    expect(run.mock.calls.map(([command]) => command)).toEqual([
+      unzipPath,
+      unzipPath,
+      hermesCompilerPath,
+    ]);
+    expect(dependencies.remove).toHaveBeenCalledWith(
+      '/synthetic/runtime-temp',
+    );
+  });
+
+  it.each(['unzipPath', 'hermesCompilerPath'] as const)(
+    'rejects a non-canonical injected %s before command execution',
+    (field) => {
+      const run = vi.fn();
+      expect(() => verifySyntheticE2eAndroidRuntime(
+        '/synthetic/candidate.apk',
+        {
+          dependencies: {
+            exists: vi.fn(() => true),
+            mkdtemp: vi.fn(),
+            remove: vi.fn(),
+            run,
+            tmpdir: vi.fn(),
+            writeFile: vi.fn(),
+            writeOutput: vi.fn(),
+          },
+          hermesCompilerPath: '/synthetic/tools/hermesc',
+          unzipPath: '/synthetic/tools/unzip',
+          [field]: 'unzip',
+        },
+      )).toThrow(/not canonical/u);
+      expect(run).not.toHaveBeenCalled();
     },
   );
 });

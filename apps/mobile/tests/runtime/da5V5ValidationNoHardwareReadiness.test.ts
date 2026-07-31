@@ -13,13 +13,15 @@ import {
   relative,
   resolve,
 } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { describe, expect, it, vi } from 'vitest';
 
 import {
   createDa5V5ValidationNoHardwareReadinessOptions,
   readDa5V5ValidationRepositoryBinding,
+  resolveDa5V5ValidationExecutionRepositoryRoot,
   verifyDa5V5ValidationNoHardwareReadiness,
+  type Da5V5ValidationExecutionRepositoryRootDependencies,
   type Da5V5ValidationNoHardwareReadinessDependencies,
 } from '../../scripts/da5V5ValidationNoHardwareReadiness.mjs';
 import {
@@ -78,6 +80,10 @@ const toolPaths = new Set<string>([
   paths.node,
   paths.unzip,
 ]);
+const readinessModulePath = join(
+  paths.repository,
+  'apps/mobile/scripts/da5V5ValidationNoHardwareReadiness.mjs',
+);
 
 describe('DA5 V5 Validation no-hardware readiness', () => {
   it('keeps execution and older artifact-source bindings separate', () => {
@@ -155,11 +161,94 @@ describe('DA5 V5 Validation no-hardware readiness', () => {
     const environment = validEnvironment();
     environment.UNRELATED_SECRET = 'must-not-be-forwarded';
 
-    expect(createDa5V5ValidationNoHardwareReadinessOptions(environment))
+    const rootDependencies = validExecutionRootDependencies();
+    expect(createDa5V5ValidationNoHardwareReadinessOptions(
+      environment,
+      rootDependencies,
+    ))
       .toEqual(validOptions());
     expect(JSON.stringify(
-      createDa5V5ValidationNoHardwareReadinessOptions(environment),
+      createDa5V5ValidationNoHardwareReadinessOptions(
+        environment,
+        rootDependencies,
+      ),
     )).not.toContain('must-not-be-forwarded');
+  });
+
+  it('binds the supplied repository root to the loaded module root', () => {
+    const environment = validEnvironment();
+    environment.DA5_V5_VALIDATION_REPOSITORY_ROOT =
+      '/synthetic/foreign-repository';
+    expect(() => createDa5V5ValidationNoHardwareReadinessOptions(
+      environment,
+      validExecutionRootDependencies(),
+    )).toThrow(/execution repository authority/u);
+  });
+
+  it('rejects a direct foreign repository root before any Git inspection', () => {
+    const options = validOptions();
+    Object.defineProperty(options, 'repositoryRoot', {
+      value: '/synthetic/foreign-repository',
+    });
+    const dependencies = validDependencies();
+    expect(() => verifyDa5V5ValidationNoHardwareReadiness(
+      options,
+      dependencies,
+    )).toThrow(/execution repository authority/u);
+    expect(dependencies.readRepositoryBinding).not.toHaveBeenCalled();
+  });
+
+  it.each(['symlink', 'realpath'] as const)(
+    'rejects derived repository-root %s drift before Git inspection',
+    (drift) => {
+      const dependencies = validDependencies();
+      if (drift === 'symlink') {
+        vi.mocked(dependencies.lstat).mockImplementation((path) =>
+          stat(path, { symbolicLink: path === paths.repository }));
+      } else {
+        vi.mocked(dependencies.realpath).mockImplementation((path) => (
+          path === paths.repository
+            ? '/synthetic/foreign-repository'
+            : path
+        ));
+      }
+      expect(() => verifyDa5V5ValidationNoHardwareReadiness(
+        validOptions(),
+        dependencies,
+      )).toThrow(/authority/u);
+      expect(dependencies.readRepositoryBinding).not.toHaveBeenCalled();
+    },
+  );
+
+  it('rejects a noncanonical supplied repository root in option parsing', () => {
+    const environment = validEnvironment();
+    environment.DA5_V5_VALIDATION_REPOSITORY_ROOT =
+      '/synthetic/../synthetic/repository';
+    expect(() => createDa5V5ValidationNoHardwareReadinessOptions(
+      environment,
+      validExecutionRootDependencies(),
+    )).toThrow(/canonical authority/u);
+  });
+
+  it('rejects a symlinked or foreign loaded readiness module root', () => {
+    const symlinked = validExecutionRootDependencies();
+    vi.mocked(symlinked.lstat).mockImplementation((path) =>
+      executionRootStat(path, { symbolicLink: path === readinessModulePath }));
+    expect(() => resolveDa5V5ValidationExecutionRepositoryRoot(
+      symlinked.moduleUrl,
+      symlinked,
+    )).toThrow(/execution repository authority/u);
+
+    const foreign = validExecutionRootDependencies();
+    vi.mocked(foreign.realpath).mockImplementation((path) => (
+      path === readinessModulePath
+        ? '/synthetic/foreign-repository/apps/mobile/scripts/da5V5ValidationNoHardwareReadiness.mjs'
+        : path
+    ));
+    expect(() => resolveDa5V5ValidationExecutionRepositoryRoot(
+      foreign.moduleUrl,
+      foreign,
+    )).toThrow(/execution repository authority/u);
   });
 
   it.each(executionScopes.flatMap((scope) => [
@@ -700,6 +789,26 @@ function validEnvironment(): NodeJS.ProcessEnv {
   return environment;
 }
 
+function validExecutionRootDependencies():
+Da5V5ValidationExecutionRepositoryRootDependencies {
+  return {
+    lstat: vi.fn((path: string) => executionRootStat(path)),
+    moduleUrl: pathToFileURL(readinessModulePath).href,
+    realpath: vi.fn((path: string) => path),
+  };
+}
+
+function executionRootStat(
+  path: string,
+  overrides: Readonly<{ symbolicLink?: boolean }> = {},
+) {
+  return {
+    isDirectory: () => path === paths.repository,
+    isFile: () => path === readinessModulePath,
+    isSymbolicLink: () => overrides.symbolicLink ?? false,
+  };
+}
+
 function binding(path: string) {
   return {
     bytes: 100,
@@ -714,6 +823,7 @@ Da5V5ValidationNoHardwareReadinessDependencies {
   return {
     currentNodePath: paths.node,
     lstat: vi.fn((path: string) => stat(path)),
+    moduleUrl: pathToFileURL(readinessModulePath).href,
     readRepositoryBinding: vi.fn(() => ({
       clean: true,
       executionCommit,
@@ -743,7 +853,7 @@ function stat(
     mode: overrides.mode ?? (directory ? 0o40755 : 0o100755),
     size: overrides.size ?? (directory ? 200 : 100),
     isDirectory: () => directory,
-    isFile: () => toolPaths.has(path),
+    isFile: () => toolPaths.has(path) || path === readinessModulePath,
     isSymbolicLink: () => overrides.symbolicLink ?? false,
   } as ReturnType<
     Da5V5ValidationNoHardwareReadinessDependencies['lstat']
