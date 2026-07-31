@@ -118,7 +118,7 @@ describe('DA5 V5 Validation runtime isolation', () => {
       expect(DA5_V5_VALIDATION_EXPECTED_BUNDLE_EXECUTABLE).toEqual({
         bytes: bundle.byteLength,
         sha256:
-          '5d637b9e66b27a44464a9abde4efa25c10bd1825c2d7f8f6b29c2a89b65939f9',
+          'f33e4ecdf0e0d34e39220be9a96d952f3f9718692e766a6e57bdddd28b3b2a88',
       });
       expect(DA5_V5_VALIDATION_EXPECTED_BUNDLE_SOURCE_CLOSURE).toEqual({
         entries: sourceMap.sources.length,
@@ -128,7 +128,7 @@ describe('DA5 V5 Validation runtime isolation', () => {
           0,
         ),
         sha256:
-          '6a949682e105cd2e7621f4d57a6e6072920a9b1caa16cbcd85aad7485a411764',
+          '93224940aeab41a86bef9bf3fc959d85f8d7cbdc69876cf94c900abd5d9c6bdd',
       });
       expect(sourceMap.sources.join('\n')).not.toMatch(
         /expo-asset|expo\/src\/Expo\.fx|expo-crypto/u,
