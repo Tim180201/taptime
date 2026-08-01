@@ -1754,3 +1754,50 @@ independent review and applicable Human/physical gate:
 The grouping reduces coordination overhead only. It does not combine privileged boundaries without
 review, lower test depth, bypass security gates or turn production/deployment/personal-data work
 into implicit authority.
+
+## Current DA5 V5 Harness Attempt-11 terminal override — 2026-08-01
+
+This section supersedes only the older Attempt-11 candidate-state statements in this file. Exact
+publication `32272ca8e1155839380797cadb64fbc454bf2133` / tree
+`4f11d9a86f7a060a3a2cfccda4eb7520c2145aa1` activated one R3 execution against unchanged source
+`a0359a87fd1738c8493929a1661cbbc7adb3c07c` / tree
+`102c913e264bd0ccce1d085db1c50bd407f7d4a4`; that authority is now consumed fail-closed.
+Receipt records 1–31 passed. The corrected Typecheck evidence is complete: Mobile listed 868
+unique normalized files with set SHA-256
+`800bde4fdcec0b449da50e9cffd430f7215f4c4f40f0897a3cfca0447b25c8bf` and included
+`apps/mobile/tests/runtime/da5V5AndroidDevice.test.ts`; Synthetic listed 569 with set SHA-256
+`0a88003f7aa7dd34d1cb6dd058f25444c35e0621f8b6ef4f0a976df413f7ec99` and included
+`apps/synthetic-android-e2e/tests/Da5V5AdbController.test.ts`. Both mapped Typecheck processes in
+each gate exited 0 and no raw list was preserved.
+
+Record 32 `V2_SYNTHETIC_TEST` failed because its exact mapped process exited 1. Raw command output
+was not preserved; the cause remains undiagnosed and no Product, Harness or test defect is
+inferred. Records 33–41 are omitted, so no V2 Synthetic build, Node check, Metafile/TalkBack
+closure or artifact preservation occurred. Records 42–44 passed and record 45 is
+`FAIL_CLOSED`. Cleanup is `cleanup_complete`; all ten cleanup flags are true, all temporary roots
+and the worktree registration/mapping are absent, the artifact root is absent and the external
+npm-log set remains count 11 / SHA-256
+`80a1dc655812427ae4541df6e2bd9ece4834efa17bfa9d5e2dec2370a74f79af`.
+
+The immutable evidence-only directory
+`/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5-harness/attempt11-a0359a87-fdf09c30`
+is mode `0555` and contains only mode-`0444` receipt 187,477 bytes /
+`9b555534c18ca90fb1a4c18f377bb5f488d04f8805db3692564ff4d08f9916ef`, snapshot 158,811 bytes /
+`6f0a840d22a17fcc6b77a1f447bf6e1f23ef6f15fecf96b77a7dde491da58abc` and manifest 2,790 bytes /
+`b1e198bd18e3c5eb71e4374f4114e3620f79929732bc87083dc834275cad5653`. Independent
+failure/evidence review returned `CHANGES REQUIRED` with exactly one P2. The immutable Gate-32
+evidence establishes only exact mapped Vitest exit 1, `raw_output_preserved:false` and
+`mapped_process_exit_nonzero`; assertion, collection, transform, hook, configuration,
+worker/process and infrastructure causes remain indistinguishable. No Product, Harness or test
+defect is proven, while fail-closed behavior and cleanup remain safe.
+
+Both passed Typecheck records contain exactly their required nine fields with
+`raw_list_preserved:false`: Mobile recorded 103,561 bytes/868 final normalized entries and
+Synthetic 68,700 bytes/569; each exact expected member is included. A possible later candidate
+would first need an explicitly authorized bounded closed Vitest pass/failure result schema,
+source-allowlisted expected-test set with normalized repository-relative count/digest/membership,
+test/file counts, and closed failure category plus stable canonical signature. Messages, stacks,
+raw stdout/stderr, arbitrary paths and secrets remain forbidden. Any later-selected JSON output
+root would also require exact mapping, bounds, schema and cleanup. These are non-authorizing open
+requirements only: Attempt 11 is consumed, no Attempt-12 candidate exists, and no retry, resume,
+Attempt-12 execution, Hardware or Human/Product V5 is authorized. R-034 and DA5 remain open.

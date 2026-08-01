@@ -87,6 +87,42 @@ counts only the final deduplicated set. Candidate review returned `CHANGES REQUI
 two P2 corrected here; independent re-review/publication remain gates. Cleanup V2 and all
 log/omission/finalization gates remain otherwise unchanged.
 
+## R-034 Attempt-11 terminal update — 2026-08-01
+
+This update supersedes only the older Attempt-11 candidate-state text above. Exact publication
+`32272ca8e1155839380797cadb64fbc454bf2133` / tree
+`4f11d9a86f7a060a3a2cfccda4eb7520c2145aa1` activated one R3 execution; it is consumed
+fail-closed. Records 1–31 passed, including both focused tests and both corrected tests-inclusive
+Typecheck membership gates. Record 32 `V2_SYNTHETIC_TEST` recorded exact mapped process exit 1.
+Because raw output was contractually not retained and no second invocation is authorized, its
+cause remains undiagnosed; no Product, Harness, test, security or tenant-isolation defect is
+inferred. Records 33–41 are omitted and no Harness artifact exists.
+
+Cleanup reached `cleanup_complete`; all ten cleanup flags are true, every Attempt-11 temporary or
+artifact root and the exact worktree registration/list mapping are absent, and the external
+npm-log set stayed at count 11 / SHA-256
+`80a1dc655812427ae4541df6e2bd9ece4834efa17bfa9d5e2dec2370a74f79af`. Immutable
+receipt/snapshot/manifest SHA-256 values are respectively
+`9b555534c18ca90fb1a4c18f377bb5f488d04f8805db3692564ff4d08f9916ef`,
+`6f0a840d22a17fcc6b77a1f447bf6e1f23ef6f15fecf96b77a7dde491da58abc` and
+`b1e198bd18e3c5eb71e4374f4114e3620f79929732bc87083dc834275cad5653`. Independent
+failure/evidence review returned `CHANGES REQUIRED` with exactly one P2. Gate 32 proves only exact
+mapped Vitest exit 1, `raw_output_preserved:false` and `mapped_process_exit_nonzero`; assertion,
+collection, transform, hook, configuration, worker/process and infrastructure causes are
+indistinguishable. No Product, Harness, test, security or tenant-isolation defect is proven;
+fail-closed behavior and cleanup remain safe.
+
+Both passed Typecheck records preserve exactly nine result fields and
+`raw_list_preserved:false`: Mobile recorded 103,561 bytes/868 final normalized entries and
+Synthetic 68,700 bytes/569, with each exact expected member included. The non-authorizing open
+need for any possible later candidate is a bounded closed Vitest pass/failure result schema, a
+source-allowlisted expected-test set with normalized repository-relative count/digest/membership,
+test/file counts, and a closed failure category plus stable canonical signature. Messages, stacks,
+raw stdout/stderr, arbitrary paths and secrets remain excluded. A later-selected JSON output root
+would need exact mapping, bounds, schema and cleanup before authorization. R-034 remains open;
+Attempt 11 is consumed, no Attempt-12 candidate exists, and no retry, resume, Attempt-12
+execution, Hardware, Human/Product V5, production, deployment or distribution is authorized.
+
 ## Risk Handling Rule
 
 Risks are not backlog noise. A risk must either be accepted, mitigated, transferred or closed with evidence.

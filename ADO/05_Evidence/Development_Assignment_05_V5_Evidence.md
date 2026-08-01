@@ -1362,3 +1362,70 @@ diagnostics, mark all later gates not started and perform cleanup. No observatio
 
 This shell, automated evidence, software `MERGE_READY` status or cleanup alone cannot pass V5.
 Production, production data, signing, deployment and distribution remain unauthorized.
+
+## 8. Attempt-11 Harness-artifact closure evidence — terminal fail-closed
+
+- Publication: `32272ca8e1155839380797cadb64fbc454bf2133` / tree
+  `4f11d9a86f7a060a3a2cfccda4eb7520c2145aa1`
+- Executable source: `a0359a87fd1738c8493929a1661cbbc7adb3c07c` / tree
+  `102c913e264bd0ccce1d085db1c50bd407f7d4a4`
+- Receipt schema/map: `DA5-V5-HARNESS-ATTEMPT11-RECEIPT-1` /
+  `DA5_V5_ATTEMPT11_COMMAND_MAP_V1`
+- Terminal result: `FAIL_CLOSED`; single R3 authority consumed; independent failure/evidence
+  review `CHANGES REQUIRED` with exactly one P2
+
+The immutable 45-record receipt reports records 1–31 `PASS`. In particular, Mobile Typecheck
+process exits are `[0,0]` and its exact result is complete, 103,561 stdout bytes, 868 unique final
+normalized paths, set SHA-256
+`800bde4fdcec0b449da50e9cffd430f7215f4c4f40f0897a3cfca0447b25c8bf`, required/observed path
+`apps/mobile/tests/runtime/da5V5AndroidDevice.test.ts`, inclusion true and raw-list preservation
+false. Synthetic Typecheck exits are `[0,0]` and its result is complete, 68,700 stdout bytes, 569
+unique final paths, set SHA-256
+`0a88003f7aa7dd34d1cb6dd058f25444c35e0621f8b6ef4f0a976df413f7ec99`, required/observed path
+`apps/synthetic-android-e2e/tests/Da5V5AdbController.test.ts`, inclusion true and raw-list
+preservation false. Both failure codes are null.
+
+Record 32 `V2_SYNTHETIC_TEST` is `FAIL`; its one exact mapped process exited 1. No raw stdout or
+stderr is Evidence, so no failure cause and no Product/Harness/test defect are claimed. Records
+33–41 are individually `omitted`. Therefore V2 Synthetic build, the carried V2 gates, aggregate
+build, Node check, Metafile/TalkBack closure and artifact preservation did not run; the Artifact
+output is absent. Record 42 snapshot, record 43 cleanup and record 44 postcleanup are `PASS`.
+Record 45 and the manifest are `FAIL_CLOSED` because record 32 failed.
+
+Final cleanup state is `cleanup_complete`. All ten flags—checkout/cache/logs/config absent,
+artifact absent-or-preserved, registration absent, worktree mapping absent, evidence preserved,
+cleanup complete and postcleanup complete—are true. The external npm-log set remained count 11 /
+SHA-256 `80a1dc655812427ae4541df6e2bd9ece4834efa17bfa9d5e2dec2370a74f79af`; no name or content is
+preserved. The checkout, cache, logs, config, artifact and exact registration paths are absent.
+
+The evidence directory
+`/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5-harness/attempt11-a0359a87-fdf09c30`
+is mode `0555` and contains exactly:
+
+| Evidence file | Mode | Size | SHA-256 |
+|---|---:|---:|---|
+| `attempt11-command-receipt.jsonl` | `0444` | 187,477 bytes | `9b555534c18ca90fb1a4c18f377bb5f488d04f8805db3692564ff4d08f9916ef` |
+| `attempt11-precleanup-receipt.jsonl` | `0444` | 158,811 bytes | `6f0a840d22a17fcc6b77a1f447bf6e1f23ef6f15fecf96b77a7dde491da58abc` |
+| `attempt11-evidence-manifest.json` | `0444` | 2,790 bytes | `b1e198bd18e3c5eb71e4374f4114e3620f79929732bc87083dc834275cad5653` |
+
+Independent review confirms that the immutable Gate-32 evidence establishes only the exact mapped
+Vitest run exit 1, `raw_output_preserved:false` and `mapped_process_exit_nonzero`. Assertion,
+collection, transform, hook, configuration, worker/process and infrastructure causes remain
+indistinguishable. No Product, Harness or test defect is proven. The fail-closed stop, ordered
+omissions and cleanup remain safe.
+
+The two Typecheck result objects each contain exactly the required nine fields with
+`raw_list_preserved:false`. Mobile records 103,561 stdout bytes, 868 final normalized set members
+and inclusion of its exact expected member. Synthetic records 68,700 bytes, 569 members and
+inclusion of its exact expected member. No raw list is Evidence.
+
+The sole future-facing statement is a non-authorizing open evidence need. Any possible later
+candidate would require a bounded closed Vitest result schema for pass and failure; a
+source-allowlisted expected-test set with normalized repository-relative count/digest/membership;
+test and file counts; and a closed failure category plus stable canonical signature. Messages,
+stacks, raw stdout/stderr, arbitrary paths and secrets must remain excluded. If JSON output were
+later selected, its output root would need exact command mapping, bounds, schema and cleanup.
+Nothing here binds an Attempt-12 candidate, token, digest, command map or path or authorizes its
+implementation/execution. Attempt 11 remains consumed with no retry or resume. No Hardware,
+Human/Product V5, production, production-data, deployment or distribution authority follows.
+Product Human V5 remains `NOT RUN / NOT BOUND / DO NOT START`.

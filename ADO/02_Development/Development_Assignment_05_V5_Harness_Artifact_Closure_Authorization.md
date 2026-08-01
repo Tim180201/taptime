@@ -1578,3 +1578,73 @@ Independent read-only re-review must verify the exact six-file Round-2 delta, de
 bytes and hashes, closed membership schema and mechanical Cleanup V2 inheritance. Until a
 zero-open-P0–P3 `APPROVED` result and exact publication exist, Attempt 11 remains **REVIEW PENDING / NOT EXECUTED
 / DO NOT EXECUTE**. Publication does not authorize Hardware or Human/Product V5.
+
+## 10. Attempt-11 terminal execution — consumed fail-closed
+
+This section supersedes the pre-execution candidate status in §9. Independent candidate review
+returned `APPROVED` with zero open P0–P3 and the exact six-file authorization was published as
+`32272ca8e1155839380797cadb64fbc454bf2133` / tree
+`4f11d9a86f7a060a3a2cfccda4eb7520c2145aa1`, parent
+`a08e2e89a2aa3962b1bc4ddeb0f77e480f1f4f85` / tree
+`dbec8fb277b1a915153c765cad4c5a060e0626b4`, exact six-file delta SHA-256
+`241fb5fee2e682baef13e860cf83e0d62a75c3cd9d9393578a71b77949e5a1fa`. Remote divergence and
+protected-exclusion working-tree status were both zero before execution. The single exact R3
+authority is consumed fail-closed and grants no retry or later attempt.
+
+Records 1–31 passed. This includes evidence-first creation, exact worktree/source/tool binding,
+all three exact npm invocations, dependency/workspace/log/lifecycle closure, V0, all 16
+prerequisite builds, generated-output closure, both focused tests and both Typecheck gates. Mobile
+membership was complete with 103,561 stdout bytes, 868 final unique normalized paths, set SHA-256
+`800bde4fdcec0b449da50e9cffd430f7215f4c4f40f0897a3cfca0447b25c8bf` and exact required-test
+membership. Synthetic membership was complete with 68,700 stdout bytes, 569 final unique paths,
+set SHA-256 `0a88003f7aa7dd34d1cb6dd058f25444c35e0621f8b6ef4f0a976df413f7ec99` and exact required-test
+membership. Both processes in each Typecheck exited 0; both records use `failure_code:null`, exact
+observed matches and `raw_list_preserved:false`.
+
+Record 32 `V2_SYNTHETIC_TEST` failed after its exact mapped process exited 1. The command map
+contract preserved no raw stdout/stderr; the receipt therefore supports no diagnosis beyond that
+exit and no Harness, TypeScript, test or Product defect is inferred. Records 33–41 are each
+`omitted`; no carried V2 gates, Synthetic V2 build, aggregate build, Node check,
+Metafile/TalkBack closure or artifact preservation ran. The artifact root remains absent.
+
+Records 42–44 passed. The final cleanup state is `cleanup_complete`; all ten cleanup manifest
+flags are true. Checkout, cache, logs, config, artifact root, worktree registration and exact
+worktree-list mapping are absent. The external npm-log entry set remained count 11 / SHA-256
+`80a1dc655812427ae4541df6e2bd9ece4834efa17bfa9d5e2dec2370a74f79af` without preserving names
+or content. Record 45 `FINALIZE` and the evidence manifest are `FAIL_CLOSED` because Gate 32
+failed.
+
+The immutable evidence directory is mode `0555` and contains only these mode-`0444` files:
+
+| Evidence file | Size | SHA-256 |
+|---|---:|---|
+| `attempt11-command-receipt.jsonl` | 187,477 bytes | `9b555534c18ca90fb1a4c18f377bb5f488d04f8805db3692564ff4d08f9916ef` |
+| `attempt11-precleanup-receipt.jsonl` | 158,811 bytes | `6f0a840d22a17fcc6b77a1f447bf6e1f23ef6f15fecf96b77a7dde491da58abc` |
+| `attempt11-evidence-manifest.json` | 2,790 bytes | `b1e198bd18e3c5eb71e4374f4114e3620f79929732bc87083dc834275cad5653` |
+
+Their directory is
+`/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5-harness/attempt11-a0359a87-fdf09c30`.
+Independent failure/evidence review returned `CHANGES REQUIRED` with exactly one P2. The immutable
+Gate-32 record establishes only that the exact mapped Vitest run exited 1, that
+`raw_output_preserved:false`, and that the runner classified it as
+`mapped_process_exit_nonzero`. Assertion failure, collection failure, transform failure, hook
+failure, configuration failure, worker/process failure and infrastructure failure are
+indistinguishable. No Product, Harness or test defect is proven. The reviewer confirmed the
+fail-closed stop, omissions and complete cleanup remained safe.
+
+The passed Typecheck evidence remains independently usable within its exact scope. Each gate has
+the required nine-field result object and `raw_list_preserved:false`: Mobile records 103,561
+stdout bytes, 868 final normalized set members and inclusion of its exact expected member;
+Synthetic records 68,700 bytes, 569 members and inclusion of its exact expected member.
+
+Only this non-authorizing open requirement is recorded for a possible future authorization
+decision: a later candidate would need a bounded closed Vitest result schema for both pass and
+failure; a source-allowlisted expected-test set with normalized repository-relative
+count/digest/membership; test and file counts; and a closed failure category plus stable canonical
+signature. Messages, stacks, raw stdout/stderr, arbitrary paths and secrets must not be retained.
+If JSON output were later chosen, its output root would additionally require exact command
+mapping, bounds, schema and cleanup. This text binds no Attempt-12 candidate, token, digest, map or
+path and grants no implementation or execution authority. Attempt 11 is consumed with no retry or
+resume. No source, lockfile, dependency, Product, workflow or protected-area change occurred
+during execution. Installation, ADB, device, Tag, Hardware, Human/Product V5, production,
+production data, deployment and distribution remain unauthorized.

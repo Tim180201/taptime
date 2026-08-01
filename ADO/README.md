@@ -1216,6 +1216,47 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | EP-008 Evidence (incl. Repository Health Follow-up) | `ADO/05_Evidence/EP-008/` |
 | Evidence Area | `ADO/05_Evidence/` |
 
+## Current DA5 V5 Harness Attempt-11 terminal truth — 2026-08-01
+
+This section supersedes only the older Attempt-11 candidate-state statements in this file. The
+exact six-file authorization was published as `32272ca8e1155839380797cadb64fbc454bf2133` / tree
+`4f11d9a86f7a060a3a2cfccda4eb7520c2145aa1`; executable source remained
+`a0359a87fd1738c8493929a1661cbbc7adb3c07c` / tree
+`102c913e264bd0ccce1d085db1c50bd407f7d4a4`. The single authorized Attempt-11 R3 execution is
+consumed fail-closed. Records 1–31 passed, including both focused tests and both closed,
+tests-inclusive Typecheck membership gates. Record 32 `V2_SYNTHETIC_TEST` failed after its exact
+mapped process exited 1. Raw output was not preserved, no cause is diagnosed, and no Harness,
+TypeScript or Product defect is inferred. Records 33–41 are individually omitted; no Synthetic
+V2 build, Node check, Metafile/TalkBack closure or artifact preservation ran, and no Harness
+artifact exists.
+
+Snapshot, Cleanup and Postcleanup passed; final cleanup state is `cleanup_complete` and all ten
+cleanup flags are true. The checkout/cache/log/config/artifact roots and worktree
+registration/mapping are absent. The immutable mode-`0555` evidence directory contains only
+mode-`0444` receipt 187,477 bytes / SHA-256
+`9b555534c18ca90fb1a4c18f377bb5f488d04f8805db3692564ff4d08f9916ef`, snapshot 158,811 bytes /
+`6f0a840d22a17fcc6b77a1f447bf6e1f23ef6f15fecf96b77a7dde491da58abc` and manifest 2,790 bytes /
+`b1e198bd18e3c5eb71e4374f4114e3620f79929732bc87083dc834275cad5653` under
+`/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5-harness/attempt11-a0359a87-fdf09c30`.
+`FINALIZE` is `FAIL_CLOSED`. Independent failure/evidence review returned `CHANGES REQUIRED` with
+exactly one P2. Gate 32 proves only that the exact mapped Vitest run exited 1, preserves
+`raw_output_preserved:false` and reports `mapped_process_exit_nonzero`. Assertion, collection,
+transform, hook, configuration, worker/process and infrastructure causes are therefore
+indistinguishable; no Product, Harness or test defect is proven. The review confirms that the
+fail-closed stop and cleanup remained safe.
+
+The two passed Typecheck records each preserve exactly the required nine-field membership result
+with `raw_list_preserved:false`: Mobile recorded 103,561 bytes and 868 final normalized entries;
+Synthetic recorded 68,700 bytes and 569. Each exact expected member is included. The only open
+future need is non-authorizing: any later candidate would require a bounded closed Vitest result
+schema for pass and failure, a source-allowlisted expected-test set with normalized
+repository-relative count/digest/membership, test/file counts, and a closed failure category plus
+stable canonical signature. Messages, stacks, raw stdout/stderr, arbitrary paths and secrets must
+remain excluded. If a JSON output root were later selected, its exact command mapping, bounds,
+schema and cleanup would first need explicit authorization. Attempt 11 remains consumed; this is
+not an Attempt-12 candidate and grants no retry, resume, Attempt-12 execution, Hardware,
+Human/Product V5, production, deployment or distribution authority.
+
 ## Navigation Rule
 
 Agents shall not guess mandatory startup document paths. Agents shall locate this ADO navigation entry point through repository evidence, read it and then follow the documented startup sequence.

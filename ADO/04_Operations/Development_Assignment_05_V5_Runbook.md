@@ -1180,3 +1180,42 @@ Record only in
 explicitly delegated Human tester may mark a separately authorized fresh V5 `PASSED`. Automated
 tests, V4, software review, this shell or a clean preflight do not pass V5 or authorize production,
 signing, deployment or distribution.
+
+## 7. Attempt-11 terminal operator record — 2026-08-01
+
+The earlier Attempt-11 candidate-state text is historical. Exact authorization publication
+`32272ca8e1155839380797cadb64fbc454bf2133` / tree
+`4f11d9a86f7a060a3a2cfccda4eb7520c2145aa1` activated one run against executable source
+`a0359a87fd1738c8493929a1661cbbc7adb3c07c` / tree
+`102c913e264bd0ccce1d085db1c50bd407f7d4a4`. That run is consumed fail-closed.
+
+Records 1–31 passed in exact order. Both Typecheck records retained the corrected disclosure-safe
+membership objects and included their exact required tests; no raw list was retained. Record 32
+`V2_SYNTHETIC_TEST` recorded process exit 1. Do not infer a cause: raw output was not preserved and
+the command may not be rerun under this authority. Records 33–41 are omitted, so there is no
+startable/preserved Harness artifact. Records 42–44 passed and cleanup state is
+`cleanup_complete`; every temporary/output root and the worktree registration/list mapping are
+absent. Record 45 is `FAIL_CLOSED`.
+
+Preserved evidence is only the immutable mode-`0444` receipt/snapshot/manifest under
+`/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5-harness/attempt11-a0359a87-fdf09c30`,
+with SHA-256 respectively
+`9b555534c18ca90fb1a4c18f377bb5f488d04f8805db3692564ff4d08f9916ef`,
+`6f0a840d22a17fcc6b77a1f447bf6e1f23ef6f15fecf96b77a7dde491da58abc` and
+`b1e198bd18e3c5eb71e4374f4114e3620f79929732bc87083dc834275cad5653`; directory mode is `0555`.
+Independent failure/evidence review returned `CHANGES REQUIRED` with exactly one P2. Gate 32
+proves only the exact mapped Vitest run exited 1, with `raw_output_preserved:false` and
+`mapped_process_exit_nonzero`. Assertion, collection, transform, hook, configuration,
+worker/process and infrastructure causes cannot be distinguished; no Product, Harness or test
+defect is proven. The fail-closed stop and cleanup remain safe.
+
+Both passed Typecheck records preserve exactly nine result fields and
+`raw_list_preserved:false`: Mobile recorded 103,561 bytes/868 final normalized entries and
+Synthetic 68,700 bytes/569; each exact expected member is included. For any possible future
+authorization, the open need is a bounded closed Vitest pass/failure result schema, a
+source-allowlisted expected-test set with normalized repository-relative count/digest/membership,
+test/file counts, and a closed failure category plus stable canonical signature. Messages, stacks,
+raw stdout/stderr, arbitrary paths and secrets remain excluded. If JSON output were later chosen,
+its output root would need exact command mapping, bounds, schema and cleanup. This runbook binds no
+Attempt-12 candidate, token, digest, map or path and grants no later execution authority. Do not
+retry or resume Attempt 11, install, use ADB/device/Tags or start Hardware/Human/Product V5.
