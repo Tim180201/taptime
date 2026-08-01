@@ -88,19 +88,30 @@ records 9–41 are individually omitted and records 42–45 completed cleanup/fi
 external npm log was mutated or raw name/content preserved; no build/test/Typecheck/artifact ran.
 Failure/evidence review returned `CHANGES REQUIRED` with exactly one P2, corrected here.
 
-Attempt 9 is an exact ADO-only **REVIEW PENDING / NOT EXECUTED / DO NOT EXECUTE** candidate. Fresh
-token `6d4e27b9`, schema `DA5-V5-HARNESS-ATTEMPT9-RECEIPT-1`, embedded descriptor SHA-256
-`be2f1c655fac23adcc4f3d6a0110619b25e03ef9d816834427dc12881e649d18` and all paths are bound in
-the Authorization. Final review Round 3 returned exactly two P2 findings, corrected here. The
-candidate baseline is HEAD `90b90ba0e9c87fb8ebf22145399630ea4dfc46ae` / tree
-`02c657dbeccf2da6866f66bd25a7c3b16182587f` plus the exact six-file delta. It preserves all 45
-individual IDs. Only `ci --ignore-scripts`, global `ls` and workspace `ls` use npm; `logs-max=0`,
-silent/no-timing, a fresh empty task-log directory and same-record external/task before/after
-evidence are mandatory. Every build/test/Typecheck/listFiles/final bundle uses the exact direct
-Node argv from command map SHA-256
-`1f155e62b123df3555bdbf503a32e9dea99da035836db6f27a4956e672e77d12`, without shell/npm
-indirection. Any mismatch stops before the next gate. No Attempt-9 file or state exists.
-Hardware/Human/Product V5 remains **DO NOT START**.
+Attempt 9 was independently `APPROVED` with zero open P0–P3 on published candidate
+`9d9aa10242231d85afd5a9b018c0652f60b90de2` / tree
+`7aa1bcd0026372b196b0fc7d39cd6fbf8b2233ee`; its single execution is consumed fail-closed.
+`EVIDENCE_INIT` passed. The first exact no-checkout worktree process exited 0, then the runner
+rejected macOS `/tmp` -> `/private/tmp` normalization as `noncanonical_cwd`; `WORKTREE_ADD`
+failed and records 3–41 are omitted. No npm, install, build, test, Typecheck, Metafile, TalkBack or
+artifact gate ran. The immutable receipt records `CLEANUP` failed with
+`Cannot read properties of undefined (reading 'root')`, `POSTCLEANUP` failed with
+`worktree_registration_residue`, and `FINALIZE` failed closed. A later separate
+Development-reported cleanup operation cannot alter those records. Independent review verified
+only current absence of the literal/canonical checkout, cache, log, config and artifact roots and
+the exact worktree registration/list mapping. Immutable receipt/snapshot/manifest SHA-256 values are
+`8b1b6669e7f55df2d93773e1c8d8446ee7c4ea4a552ba261d39679ee958de5ba`,
+`55398e75e02544df79be62b8ac72be739ff5a725d159847fa49e4d1a0cf49b6b` and
+`1653d957e6af823388792e049a0b87356dc2ac1fe14b4f8219aaed4a946ad677`. No artifact or retry exists.
+Exact Attempt 10 is an ADO-only `REVIEW PENDING / NOT EXECUTED / DO NOT EXECUTE` candidate with
+fresh token `dc6c2645`, canonical `/private/tmp` temporary roots and explicit partial-Gate-2
+cleanup-state handling. Its corrected exact compact 45-gate map is 58,860 bytes with SHA-256
+`b5edd0a175532c110f8c36c52825d9285fce554062c379bade1e8e6dce0223ba`.
+`DA5_V5_ATTEMPT10_CLEANUP_RECEIPT_SCHEMA_V2` requires initial and index-0 before/timing/after
+state fields, closed result objects and deterministic FINALIZE/manifest equality. Independent
+candidate review returned `CHANGES REQUIRED` with one P2; this correction is re-review pending.
+It grants no execution authority. Hardware/Human/Product V5 remains
+**DO NOT START**.
 
 Run 17 remains the historical successful stability/UI/cleanup record:
 

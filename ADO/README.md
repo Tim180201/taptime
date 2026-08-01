@@ -101,20 +101,35 @@ The mode-`0444` receipt/snapshot/manifest SHA-256 values are respectively
 `1362d4b31eabac446c7422ada510f17442f0bea5215cff1e567e2d7c018a5958` and
 `98081ea10da768f93f4c08790406259049e331f5e02d8c30f831b12247a3dc30`. Attempt-8 failure/evidence
 review returned `CHANGES REQUIRED` with exactly one P2; this six-file candidate corrects that
-claim. Exact Attempt 9 is **REVIEW PENDING / NOT EXECUTED / DO NOT EXECUTE**, using fresh token
-`6d4e27b9`, schema `DA5-V5-HARNESS-ATTEMPT9-RECEIPT-1` and 1,435-byte embedded descriptor SHA-256
-`be2f1c655fac23adcc4f3d6a0110619b25e03ef9d816834427dc12881e649d18`. Final review Round 3
-returned exactly two P2 findings, corrected in the current candidate. It is bound to HEAD
-`90b90ba0e9c87fb8ebf22145399630ea4dfc46ae` / tree
-`02c657dbeccf2da6866f66bd25a7c3b16182587f` plus the exact six-file delta. The 272-byte npmrc is
-SHA-256 `ac6f0eaba58b3cdb341f58fd4d2afdc1f063617eab502a81cb886646e085bad1`; only three npm
-invocations remain, with `logs-max=0`, `silent`, `timing=false`, `ignore-scripts=true`, empty task
-logs and per-command external/task before/after evidence. Every build/test/Typecheck uses the
-direct no-shell command map, 41,133 bytes, SHA-256
-`1f155e62b123df3555bdbf503a32e9dea99da035836db6f27a4956e672e77d12`. Exact paths and contract
-are in the Authorization; no candidate file exists.
-Hardware/Human/Product V5 remains **DO NOT START**. A later
-exact closure and its independent artifact review must precede any
+claim. The exact Attempt-9 candidate was independently `APPROVED` with zero open P0–P3 and
+published as `9d9aa10242231d85afd5a9b018c0652f60b90de2` / tree
+`7aa1bcd0026372b196b0fc7d39cd6fbf8b2233ee`. Its single execution is consumed fail-closed.
+`EVIDENCE_INIT` passed, then the first mapped `git worktree add --no-checkout` exited 0 but the
+runner rejected macOS `/tmp` -> `/private/tmp` realpath normalization as `noncanonical_cwd`.
+`WORKTREE_ADD` therefore failed; records 3–41 are individually omitted and no npm, dependency,
+build, test, Typecheck, Metafile or artifact gate ran. The receipt's first cleanup/postcleanup
+attempts failed because the partial Gate-2 path had no stored checkout identity. The immutable
+receipt records `CLEANUP` failed with `Cannot read properties of undefined (reading 'root')`,
+`POSTCLEANUP` failed with `worktree_registration_residue`, and `FINALIZE` failed closed. A
+later separate Development-reported cleanup operation cannot amend or supersede those immutable
+records. Independent review verified only current absence of the literal/canonical checkout,
+cache, log, config and artifact roots plus absence of the exact worktree registration/list
+mapping; it did not verify that later cleanup operation as terminal receipt cleanup. No artifact
+exists. The 45-record immutable receipt, snapshot and evidence manifest are
+15,065 / 13,688 / 1,369 bytes with SHA-256 `8b1b6669e7f55df2d93773e1c8d8446ee7c4ea4a552ba261d39679ee958de5ba`,
+`55398e75e02544df79be62b8ac72be739ff5a725d159847fa49e4d1a0cf49b6b` and
+`1653d957e6af823388792e049a0b87356dc2ac1fe14b4f8219aaed4a946ad677`.
+The exact Attempt-10 ADO-only candidate is `REVIEW PENDING / NOT EXECUTED / DO NOT EXECUTE` on
+current HEAD `9d9aa10242231d85afd5a9b018c0652f60b90de2` / tree
+`7aa1bcd0026372b196b0fc7d39cd6fbf8b2233ee` plus the six-file ADO delta. It uses fresh token
+`dc6c2645`, canonical `/private/tmp` temporary roots and explicit partial-Gate-2 cleanup-state
+binding. Its corrected exact compact 45-gate map is 58,860 bytes with SHA-256
+`b5edd0a175532c110f8c36c52825d9285fce554062c379bade1e8e6dce0223ba`;
+`DA5_V5_ATTEMPT10_CLEANUP_RECEIPT_SCHEMA_V2` makes WORKTREE_ADD-index-0 persistence, closed
+state/result enums and deterministic FINALIZE/manifest equality machine-checkable. Independent
+candidate review returned `CHANGES REQUIRED` with one P2; this correction is re-review pending.
+The candidate grants no execution or later-gate authority. Hardware/Human/Product V5 remains
+**DO NOT START**. A later exact closure and its independent artifact review must precede any
 later separate exact Product-Human-V5 authorization. No Product correctness, authentication,
 network, database, timekeeping, production, deployment or distribution claim or authority follows
 from run 18.
@@ -1072,7 +1087,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Development Assignment 4 V5 Enablement — local R3 V0–V4, exact-SHA implementation review and H01 ADO correction approved; new Human V5 remains separately exact-bound and unauthorized | `ADO/02_Development/Development_Assignment_04_V5_Enablement_Authorization.md` |
 | Development Assignment 5 Professional Mobile Productization — Workstreams A–F and AVS V0–V4 technically closed for the exact authorized local scope | `ADO/02_Development/Development_Assignment_05_Professional_Mobile_Productization_Authorization.md` |
 | Development Assignment 5 V5 Enablement — Validation Phase-0 run 18 established the exact safe transfer binding A `B55E8B6AEB30`, B `32A54C8F2F29`, X `F61C9F702CFE`; format and pairwise distinctness passed, its authority is consumed, and R-035 is locally mitigated. Product Human V5 is `NOT RUN`; DA5 and R-034 remain open. CI `30612797541` attempt 1 passed 12/12 only on ADO CI head `f45f49aa6c56c70a503322a043bec3d2360c2176` / tree `714300da7656822dd9b7a2a42fe1be85ab33aa6c`; it is carried evidence, not exact-head CI for run-18 ADO baseline `5a0d59c2b1767192d3d261cede7a2c2b11732d30` or this synchronization. **DO NOT INSTALL/DO NOT START for every new action** | `ADO/02_Development/Development_Assignment_05_V5_Enablement_Authorization.md` |
-| Development Assignment 5 V5 Harness Artifact Closure — Attempt-8 consumed fail-closed at `EXTERNAL_LOG_CHECK`; exact Attempt-9 candidate on HEAD `90b90ba` corrects two Round-3 P2s with deterministic no-log npm and direct no-shell command map; review pending, not executed and DO NOT EXECUTE | `ADO/02_Development/Development_Assignment_05_V5_Harness_Artifact_Closure_Authorization.md` |
+| Development Assignment 5 V5 Harness Artifact Closure — approved Attempt-9 `9d9aa10` was consumed fail-closed at `WORKTREE_ADD`; immutable cleanup/finalize records remain failed. Exact Attempt-10 remains `REVIEW PENDING / NOT EXECUTED / DO NOT EXECUTE`; one P2 was corrected with the 58,860-byte map SHA-256 `b5edd0a1…` and closed V2 cleanup-receipt schema; re-review pending, no artifact or retry | `ADO/02_Development/Development_Assignment_05_V5_Harness_Artifact_Closure_Authorization.md` |
 | Development Assignment 5 V5 Isolated PostgreSQL Correction — Runtime Guard source `ba1b6e9`, CI `30255104609` attempt 2 12/12, immutable binary/manifest and independent Exact-SHA `APPROVED`; historical correction rounds retained; hardware authority not granted | `ADO/02_Development/Development_Assignment_05_V5_Isolated_PostgreSQL_Correction_Authorization.md` |
 | Development Assignment 6 Production-like Platform and Operational Readiness — ADO-only candidate; Human acceptance and separate implementation/provisioning authority required | `ADO/02_Development/Development_Assignment_06_Production_Like_Platform_Authorization.md` |
 | Legal, Privacy and Commercial Readiness Start Package — internal Block-H/DT-079–DT-084 working draft; not legal advice, approved legal text or publication authority | `ADO/02_Development/Legal_Privacy_Commercial_Readiness_Start_Package.md` |

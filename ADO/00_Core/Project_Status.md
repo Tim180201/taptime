@@ -120,18 +120,32 @@ records 9–41 are individually omitted and records 42–45 completed snapshot, 
 post-cleanup and finalization. No external npm log was mutated or raw name/content preserved. No
 lifecycle/V0/build/test/Typecheck/artifact gate ran and no Harness artifact exists. Attempt-8
 failure/evidence review returned `CHANGES REQUIRED` with exactly one P2, corrected in this
-six-file candidate. Exact Attempt 9 is **REVIEW PENDING / NOT EXECUTED / DO NOT EXECUTE**, with
-fresh token `6d4e27b9`, schema `DA5-V5-HARNESS-ATTEMPT9-RECEIPT-1`, embedded descriptor SHA-256
-`be2f1c655fac23adcc4f3d6a0110619b25e03ef9d816834427dc12881e649d18`. Final review Round 3
-returned exactly two P2 findings, corrected in this candidate. The candidate baseline is HEAD
-`90b90ba0e9c87fb8ebf22145399630ea4dfc46ae` / tree
-`02c657dbeccf2da6866f66bd25a7c3b16182587f` plus the exact six-file delta. Its 272-byte npmrc SHA
-is `ac6f0eaba58b3cdb341f58fd4d2afdc1f063617eab502a81cb886646e085bad1`; three npm invocations
-use no-log/ignore-scripts confinement, and every build/test/Typecheck uses the exact no-shell
-41,133-byte command map SHA-256
-`1f155e62b123df3555bdbf503a32e9dea99da035836db6f27a4956e672e77d12`. No Attempt-9 state
-exists. Hardware/Human/Product V5 remains
-**DO NOT START**.
+six-file candidate. The exact Attempt-9 candidate was independently `APPROVED` with zero open
+P0–P3 and published as `9d9aa10242231d85afd5a9b018c0652f60b90de2` / tree
+`7aa1bcd0026372b196b0fc7d39cd6fbf8b2233ee`. Its one execution is consumed fail-closed:
+`EVIDENCE_INIT` passed; the first mapped no-checkout worktree process exited 0; the runner then
+rejected `/tmp` versus its macOS realpath `/private/tmp` as `noncanonical_cwd`, so
+`WORKTREE_ADD` failed and records 3–41 are omitted. No npm, dependency, build, test, Typecheck,
+Metafile or artifact gate ran. Its immutable `CLEANUP` record failed with
+`Cannot read properties of undefined (reading 'root')`, `POSTCLEANUP` failed with
+`worktree_registration_residue`, and `FINALIZE` failed closed. A later separate
+Development-reported cleanup operation cannot modify those immutable records. Independent review
+verified only current absence of the literal/canonical checkout, cache, log, config and artifact
+roots and the exact worktree registration/list mapping. The immutable receipt/snapshot/manifest hashes
+are `8b1b6669e7f55df2d93773e1c8d8446ee7c4ea4a552ba261d39679ee958de5ba`,
+`55398e75e02544df79be62b8ac72be739ff5a725d159847fa49e4d1a0cf49b6b` and
+`1653d957e6af823388792e049a0b87356dc2ac1fe14b4f8219aaed4a946ad677`. No Harness artifact exists
+and no retry is authorized. Exact Attempt 10 is an ADO-only candidate with status
+`REVIEW PENDING / NOT EXECUTED / DO NOT EXECUTE` on current HEAD
+`9d9aa10242231d85afd5a9b018c0652f60b90de2` / tree
+`7aa1bcd0026372b196b0fc7d39cd6fbf8b2233ee` plus the six-file ADO delta, with fresh token
+`dc6c2645`, canonical `/private/tmp` temporary roots and explicit partial-Gate-2 cleanup-state
+handling. Its corrected exact compact 45-gate map is 58,860 bytes with SHA-256
+`b5edd0a175532c110f8c36c52825d9285fce554062c379bade1e8e6dce0223ba`;
+`DA5_V5_ATTEMPT10_CLEANUP_RECEIPT_SCHEMA_V2` binds index-0 identity persistence, closed
+state/root/registration results and deterministic FINALIZE/manifest equality. Independent
+candidate review returned `CHANGES REQUIRED` with one P2; this correction is re-review pending.
+It grants no execution authority. Hardware/Human/Product V5 remains **DO NOT START**.
 A later exact closure and
 independent artifact review must precede any later separate exact
 Product-Human-V5 authorization. No authentication, network, database, Product, timekeeping,

@@ -143,17 +143,33 @@ is:
 | `attempt8-evidence-manifest.json` | 1,827 bytes | `98081ea10da768f93f4c08790406259049e331f5e02d8c30f831b12247a3dc30` |
 
 The evidence directory is mode `0555`. Attempt-8 failure/evidence review returned `CHANGES
-REQUIRED` with exactly one P2, corrected by this truth sync. Attempt 9 is an exact ADO-only
-**REVIEW PENDING / NOT EXECUTED / DO NOT EXECUTE** candidate with fresh token `6d4e27b9`, schema
-`DA5-V5-HARNESS-ATTEMPT9-RECEIPT-1` and embedded 1,435-byte descriptor SHA-256
-`be2f1c655fac23adcc4f3d6a0110619b25e03ef9d816834427dc12881e649d18`. Final review Round 3
-returned exactly two P2 findings, corrected here. The candidate baseline is HEAD
-`90b90ba0e9c87fb8ebf22145399630ea4dfc46ae` / tree
-`02c657dbeccf2da6866f66bd25a7c3b16182587f` plus the exact six-file delta. Its deterministic
-no-log/ignore-scripts npm contract and 41,133-byte direct no-shell command map SHA-256
-`1f155e62b123df3555bdbf503a32e9dea99da035836db6f27a4956e672e77d12` are recorded in the
-Authorization. No Attempt-9 evidence, config, dependency, build, test, Typecheck or artifact state
-exists.
+REQUIRED` with exactly one P2, corrected by this truth sync. Attempt 9 was independently
+`APPROVED` with zero open P0–P3 on published `9d9aa10242231d85afd5a9b018c0652f60b90de2` / tree
+`7aa1bcd0026372b196b0fc7d39cd6fbf8b2233ee`; its one execution is consumed fail-closed.
+`EVIDENCE_INIT` passed and bound the external log set only as count `11` / SHA-256
+`90605c91ec4f0a3ab96ddaa2eb12af41e30b35bb3c1688c9945a11ca65746599`. The first no-checkout
+worktree process exited 0, then literal `/tmp` versus canonical `/private/tmp` caused
+`WORKTREE_ADD` `noncanonical_cwd`; records 3–41 are omitted. No npm, dependency, build, test,
+Typecheck, Metafile or artifact gate ran. Snapshot passed. Immutable `CLEANUP` failed with
+`Cannot read properties of undefined (reading 'root')`, `POSTCLEANUP` failed with
+`worktree_registration_residue`, and `FINALIZE` failed closed. A later separate
+Development-reported cleanup operation cannot change or supersede those records. Independent
+review verified only current absence of literal/canonical checkout, cache, logs, config and
+artifact roots and of the exact registration/list mapping. The mode-`0555` evidence
+directory contains only mode-`0444` receipt 15,065 bytes/SHA-256
+`8b1b6669e7f55df2d93773e1c8d8446ee7c4ea4a552ba261d39679ee958de5ba`, snapshot 13,688 bytes/
+`55398e75e02544df79be62b8ac72be739ff5a725d159847fa49e4d1a0cf49b6b` and manifest 1,369 bytes/
+`1653d957e6af823388792e049a0b87356dc2ac1fe14b4f8219aaed4a946ad677`. No retry is authorized.
+Exact Attempt 10 is an ADO-only `REVIEW PENDING / NOT EXECUTED / DO NOT EXECUTE` candidate on
+current HEAD `9d9aa10242231d85afd5a9b018c0652f60b90de2` / tree
+`7aa1bcd0026372b196b0fc7d39cd6fbf8b2233ee` plus the six-file ADO delta. Fresh token `dc6c2645`,
+canonical `/private/tmp` temporary roots and explicit partial-Gate-2 cleanup-state handling are
+candidate contract only. The corrected exact compact 45-gate map is 58,860 bytes with SHA-256
+`b5edd0a175532c110f8c36c52825d9285fce554062c379bade1e8e6dce0223ba`.
+`DA5_V5_ATTEMPT10_CLEANUP_RECEIPT_SCHEMA_V2` makes initial/index-0 binding evidence, fixed-order
+root and exact registration/list results, FINALIZE copies and manifest derivation mandatory.
+Independent candidate review returned `CHANGES REQUIRED` with one P2; this correction is
+re-review pending and grants no execution or later-gate authority.
 
 Run 17 remains the historical successful stability/UI/cleanup record:
 
