@@ -25,9 +25,68 @@ R-035 is locally mitigated with the transfer binding established. Raw UID, paylo
 list, device serial and secrets remain prohibited.
 
 Product Human V5 did not run and the Product App was not installed. Run 18 establishes no Product
-correctness. R-034 and DA5 remain open; the next safe action requires separate exact
-Product-Human-V5 authorization. Production, production data, deployment and distribution remain
-unauthorized.
+correctness. R-034 and DA5 remain open. The R3 Harness-artifact closure and its independent
+source/artifact Exact-SHA review must complete with zero open P0–P3 before any later separate exact
+Product-Human-V5 authorization. Attempt 1 failed closed before build/test/artifact because the
+isolated dependency step selected unauthorized Node `26.3.1` / npm `11.16.0`. `npm ci` exited 0
+and installed the locked 695-package tree only into task-owned `node_modules`; cleanup completely
+removed the worktree, `node_modules` and every dependency output, with no registered worktree
+remaining. No Product/APK or system installation occurred. No retry is authorized by that failure
+record. The separately approved attempt-2 authorization matched fresh paths, source/tree, hashes,
+Node/npm and lifecycle proof, and bound `npm ci` exited 0. Dependency closure then failed closed
+before build/test/artifact because `npm ls --all --json` returned `ELSPROBLEMS` for two
+extraneous Expo packages and invalid `expo-modules-core`; it also wrote one debug log outside the
+bound cache. Cleanup removed checkout, cache, `node_modules`, dependency output, debug log and
+worktree registration completely. The attempt-3 authorization then received independent
+`APPROVED` review with zero open P0–P3, but its execution was not independently verified. Every
+attempt-3 path/source/hash/tool binding, npm exit, gate-order, omission and external-log-set claim
+is **Development-reported/unverified** because no disclosure-safe raw/receipt artifact was
+preserved and task logs were cleaned. Development reported a predicate-1 fail-closed stop and
+cleanup; the failure-evidence gap remains open. Independent review confirmed only the four bound
+paths and worktree registration absent, current package-lock hash exact and the six-file ADO-only
+delta without executable delta. Attempt 4 received independent authorization review `APPROVED`
+with zero open P0–P3 and ran only within the exact technical boundary. Fresh-path/source/tool,
+bound install, globally recursive clean exit-0 npm closure, dependency/workspace/lifecycle/
+external-log and V0 gates passed; Mobile focused tests passed 38/38. V1 failed closed before any
+Synthetic test executed because `@taptime/backend-schema` could not resolve from its package
+entry. The receipt explicitly proves only `V2`, `BUILD`, `NODE_CHECK`, `METAFILE_RUNTIME` and
+`ARTIFACT_PRESERVE` omitted. It contains no Mobile/Synthetic typecheck command IDs or omission decisions;
+Development reported both tests-inclusive typechecks omitted, but that claim is unverified and a
+separate fail-closed evidence gap. No output artifact exists. Cleanup removed all task execution state and preserved only
+the `0444` receipt/snapshot/manifest evidence under
+`/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5-harness/attempt4-a0359a87`.
+Independent review identified this P2 evidence-claim gap; correction re-review is pending and
+Attempt 4 grants no retry. Attempt-5 candidate review returned `APPROVED` with zero open P0–P3.
+Execution passed the evidence-first preflight, bound install, strict global/affected npm closure,
+dependency-file/tool/source and external-log predicates, then stopped at
+`DEPENDENCY_BINDINGS` when the lifecycle-binding verification exited 2. V0, all 16 prerequisite
+builds and every focus/typecheck/V2/Node/metafile/artifact step are explicitly omitted. No build
+output or artifact exists. Cleanup removed checkout/cache/logs/`node_modules` and registration;
+immutable evidence remains under
+`/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5-harness/attempt5-a0359a87`.
+Attempt 5 is `NOT_VERIFIED`; independent execution/evidence review is pending and no retry is
+authorized. Hardware, Human, Product installation, ADB and
+Product Human V5 remain **DO NOT START**. Production, production data, deployment and
+distribution remain unauthorized.
+
+Attempt-6 candidate review returned `APPROVED` with zero open P0–P3. Attempt 6 started, recorded
+only green `EVIDENCE_INIT` and `SOURCE_BINDING`, was interrupted and is consumed. Its only
+evidence is the unchanged 2,716-byte mode-`0444` receipt, SHA-256
+`6a5b23db67bbe1ff6715f377e3f0f041942d8e8b447b5e3e45cb7aa224ad5402`; no checkout, install,
+build, test, Typecheck or artifact exists.
+
+Attempt 7 is consumed fail-closed, but its authorization is **UNVERIFIED** because no exact
+candidate/digest/review preceded execution. Its receipt uses aggregate dependency/build/V1/V2
+records and lacks V0, individual build IDs and separate Typecheck IDs; those results are therefore
+Development-reported/unverified. Verified facts are the immutable receipt, `METAFILE_RUNTIME`
+exit 2, completed cleanup/path absence and no artifact. Attempt 8 is only an exact ADO candidate:
+**REVIEW PENDING / NOT EXECUTED / DO NOT EXECUTE**. It binds fresh paths, receipt schema
+`DA5-V5-HARNESS-ATTEMPT8-RECEIPT-1`, Metafile descriptor SHA-256
+`fd2dd34aee53ebbefcfe7e4bdc7ff4d063053abbd5d6457adca057cfc24d5431`, canonical cwd/checkout
+resolution before repository-relative comparison, the complete ordered 45-ID receipt set and all
+exact Metafile/receipt/snapshot/evidence/artifact filenames bound in the Authorization. No
+aggregate may carry an individual gate claim.
+Hardware/Human/Product V5 remains **DO NOT START**.
 
 Run 17 remains the historical successful stability/UI/cleanup record:
 
@@ -518,7 +577,8 @@ The published eight-file candidate
 `fa1aaa782415aceb85c0aa5c1233732ef9afa4dc`, tree
 `da69081517d2b0b9631eaef393b0a6022735061e`. It remains **DO NOT START**. It changes no
 Validation App, APK, manifest, artifact, NFC acceptance rule, dependency, lockfile, schema,
-Product rule or later Product-Human-V5 workflow.
+Product rule or later Product-Human-V5 workflow. It also does not supersede the mandatory R3
+Harness-artifact closure and independent review prerequisite.
 
 The final fresh detached sparse safe-root V3 bound executable-patch SHA-256
 `5dea48121b62fe7ebb4894f72425aa5ef5f759e113c3dd349f9fd48bb29fe9b4` and exact Node
@@ -733,8 +793,9 @@ Exact-Head-CI SHA. This is carried evidence only and is not exact-head CI for ru
 the transfer binding A `B55E8B6AEB30`, B `32A54C8F2F29`, X `F61C9F702CFE` and consumed its
 exact authority. Both artifacts are **DO NOT INSTALL** and the operator is **DO NOT START** for
 every new action. No APK listed below may be installed under current authority; all entries are
-non-executable audit bindings. Product Human V5 requires separate exact authorization; no auth,
-network, database, Product action or timekeeping is authorized.
+non-executable audit bindings. The R3 Harness-artifact closure and independent review must pass
+before Product Human V5 may receive separate exact authorization; no auth, network, database,
+Product action or timekeeping is authorized.
 
 | Phase 0 artifact | Exact binding |
 |---|---|
@@ -783,7 +844,8 @@ network, database, Product action or timekeeping is authorized.
 **Later Product Human V5** remains the separate run described below. Successful Validation
 Phase-0 runs 17 and 18 supply no Product/Human-V5 result. The Product App was not installed. The
 run-18 transfer binding locally mitigates R-035 but authorizes no Product installation, Product
-action or other hardware action. Product Human V5 requires separate exact authorization.
+action or other hardware action. The R3 Harness-artifact closure and independent review must pass
+before Product Human V5 may receive separate exact authorization.
 Production, production data, system changes, deployment and distribution remain unauthorized.
 
 ## 1. Purpose and authority boundary
@@ -837,7 +899,7 @@ no self-SHA.
 
 | Binding | Required exact value |
 |---|---|
-| Product Human V5 one-run authorization and date | `UNBOUND — DO NOT START`; successful Validation Phase-0 run-17 and transfer run-18 authorities are separate and consumed |
+| Product Human V5 one-run authorization and date | `UNBOUND — DO NOT START`; may not be bound before the R3 Harness-artifact closure and independent source/artifact Exact-SHA review pass with zero open P0–P3; successful Validation Phase-0 run-17 and transfer run-18 authorities are separate and consumed |
 | Product source commit/tree and review state | `814cb9013be7da98e46a4c36c5d4e716eef4cf46` / `0181c50faf6936ea1236f4454d536bf734334c91`; source/prepublication reviews `APPROVED`, zero open P0–P3; current execution candidate final V3 passed |
 | Historical runbook/evidence commit/tree and review — not current binding | `e6a06e2ec8f580d6314bfe5a51378f949d524b16` / `6dcdce405feb2eccb1462c373ab6be891152715c`; CI `30150095109`, attempt 1, 12/12; historical Artifact/Evidence Exact-SHA review `APPROVED`, zero open P0–P3 |
 | Read-only Product APK path, byte size, SHA-256 and exact mode | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5/814cb90/app-release-fd0886dc1c393d3b.apk`; 95,522,751 bytes; `fd0886dc1c393d3b09b5ce575215e4767c84335362ec7cbe5f1948877c714d96`; `0444` |
@@ -845,7 +907,7 @@ no self-SHA.
 | Package, version, signature scheme, signer digest and packaged manifest/runtime values | `com.tim180201.mobile.synthetic`; versionCode `1`; versionName `1.0.0`; v2 `true`, v1/v3/v3.1/v4 `false`; one local synthetic non-production signer certificate SHA-256 `fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c`; packaged boundary/runtime `match` per adjacent manifest |
 | Read-only Validation Artifact Source commit/tree | `5675297dab94258e50d7371a95e07fe7a77fc51c` / `b32af38c8ac769965ab062762004312d96d0de25`; exact 33-record closure |
 | Validation Execution Repository commit/tree | `be76ce4a69c8a971ad73b5232082a9e500d8d471` / `56abec5e7f2752f5004fe3e8667f47a917429c52` — **DO NOT START**; matched the canonical loaded-module root's actual HEAD/tree in final V3 |
-| Pre-run ADO/V4/re-review closure | Historical Validation/Phase-0 binding remains ADO CI head `f45f49aa6c56c70a503322a043bec3d2360c2176`/tree `714300da7656822dd9b7a2a42fe1be85ab33aa6c`, exact-head CI `30612797541`, attempt 1, 12/12, `9c6eec7`/tree `0aaa6de`, both Exact-Delta re-reviews `APPROVED`, and carried R0 `[skip ci]` closure `3b544c731d15428334bbadc8e70a3492ef60b886`/tree `52eb3a2bd4f9676a22dbfbb5eaacf9fccb474e02`; none is reinterpreted as exact-head CI for run 18 or this synchronization. Current Product-Harness TalkBack technical closure: `a0359a87fd1738c8493929a1661cbbc7adb3c07c`/tree `102c913e264bd0ccce1d085db1c50bd407f7d4a4`, parent `3f8eb8f582a2458e628ab8c76240a291aaba27f5`; exact seven-file +294/-5 delta SHA-256 `30a7b90bd59de29af0c6bd97b4a809df933b230baa69508cea0ca189a78e27fb`; exact-head CI `30638926835`, attempt 1, 11/11; independent Exact-Head review `APPROVED`, zero open P0–P3; Mobile 38/38, Synthetic 60/60, both tests-inclusive typechecks and Guard closure 4/4 files / 123 passed / 18 expected skips green. Product preinstall and Gate E bind exactly one authorized Google or Samsung package/version and fail closed for none, inactive, both, foreign or drift. Runs 17 and 18 remain separately consumed; R-035 is locally mitigated; DA5/R-034 and Product Human V5 remain open; this row grants no Human-run authority |
+| Pre-run ADO/V4/re-review closure | Historical Validation/Phase-0 binding remains ADO CI head `f45f49aa6c56c70a503322a043bec3d2360c2176`/tree `714300da7656822dd9b7a2a42fe1be85ab33aa6c`, exact-head CI `30612797541`, attempt 1, 12/12, `9c6eec7`/tree `0aaa6de`, both Exact-Delta re-reviews `APPROVED`, and carried R0 `[skip ci]` closure `3b544c731d15428334bbadc8e70a3492ef60b886`/tree `52eb3a2bd4f9676a22dbfbb5eaacf9fccb474e02`; none is reinterpreted as exact-head CI for run 18 or this synchronization. Current Product-Harness TalkBack tracked-source evidence: `a0359a87fd1738c8493929a1661cbbc7adb3c07c`/tree `102c913e264bd0ccce1d085db1c50bd407f7d4a4`, parent `3f8eb8f582a2458e628ab8c76240a291aaba27f5`; exact seven-file +294/-5 delta SHA-256 `30a7b90bd59de29af0c6bd97b4a809df933b230baa69508cea0ca189a78e27fb`; exact-head CI `30638926835`, attempt 1, 12/12; independent Exact-Head review `APPROVED`, zero open P0–P3; Mobile 38/38, Synthetic 60/60, both tests-inclusive typechecks and Guard closure 4/4 files / 123 passed / 18 expected skips green. `DA5-V5-HARNESS-ARTIFACT-01` remains open because the startable ignored bundle predates that source and is not authorized execution evidence. Its R3 closure and independent source/artifact Exact-SHA review must pass before any separate Product-Human-V5 authorization. Runs 17 and 18 remain separately consumed; R-035 is locally mitigated; DA5/R-034 and Product Human V5 remain open; this row grants no Human-run authority |
 | Read-only Validation APK path, byte size, SHA-256 and exact mode | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-validation/da5-v5-validation-5675297dab94-3d5450f257eda716/app-release-3d5450f257eda716.apk`; 65,634,553 bytes; `3d5450f257eda716bbda0a133a7630d3a2d8bb1f5095fdb1986e85aa0277d144`; `0444` |
 | Read-only Validation manifest/closure | Same directory, `manifest-5675297dab94.json`; 6,855 bytes; `1397f0504bbbf88e776ececb9796918586724a16c69a885c8e23631c2465e86a`; `0444`; 33 records; compact-JSON SHA-256 `62aaa737428ef90b52fc9790ab1cc268537e8d5f5add1fce785bdb501bade763` |
 | Device model, OS/build and approved screen-unlocked mode | `UNBOUND — DO NOT START` |

@@ -35,7 +35,7 @@ The Product-Human-V5 Harness technical pre-run closure is now bound to exact hea
 `102c913e264bd0ccce1d085db1c50bd407f7d4a4`, parent
 `3f8eb8f582a2458e628ab8c76240a291aaba27f5`. Its exact seven-file TalkBack delta is +294/-5 with
 SHA-256 `30a7b90bd59de29af0c6bd97b4a809df933b230baa69508cea0ca189a78e27fb`;
-exact-head CI `30638926835`, attempt 1, passed 11/11 and independent Exact-Head review returned
+exact-head CI `30638926835`, attempt 1, passed 12/12 and independent Exact-Head review returned
 `APPROVED` with zero open P0–P3. Local evidence passed Mobile 38/38, Synthetic 60/60, both
 tests-inclusive typechecks and the Guard closure with 4/4 files, 123 passed and 18 expected skips.
 At Product preinstall and Gate E the Harness now accepts and binds exactly one authorized Google
@@ -45,9 +45,84 @@ authority and does not bind the future Human one-run, device, service, preview, 
 accessibility values.
 
 Product Human V5 did not run and the Product App was not installed. Run 18 therefore makes no
-Product correctness claim. R-034 and DA5 remain open, and the next safe action requires separate
-exact Product-Human-V5 authorization. No authentication, network, database, Product, timekeeping,
-production, deployment or distribution action occurred.
+Product correctness claim. `DA5-V5-HARNESS-ARTIFACT-01` is confirmed: the startable ignored
+800,623-byte bundle (SHA-256
+`f0f4fdde80f7cf8cc1869aaa4b2267dbf22539e240beacbddf51cd3591e59cac`) predates the
+Google+Samsung source correction and is not an authorized execution artifact. R-034 and DA5 remain
+open. Independent candidate review round 2 returned `APPROVED` with zero open P0–P3. R3 closure
+attempt 1 then failed closed at locked-dependency reconstruction because the isolated worktree
+selected unauthorized Node `26.3.1` / npm `11.16.0` instead of Node `24.17.0` / npm `11.13.0`.
+Source/tree and the five input hashes matched, but no build, test or artifact occurred.
+`npm ci` Exit 0 installed the locked 695-package dependency tree only into the isolated task-owned
+`node_modules`; cleanup completely removed that worktree, `node_modules` and every dependency
+output, and no worktree registration remained. No Product/APK or system installation occurred.
+Under continuous Human authority, the exact attempt-2 authorization received independent
+`APPROVED` review with zero open P0–P3. Fresh paths, source/tree, five hashes, Node/npm
+paths/hashes, `process.execPath` and lifecycle proof matched, and bound `npm ci` exited 0.
+Dependency closure then failed closed before build/test/artifact when `npm ls --all --json`
+returned `ELSPROBLEMS` for two extraneous Expo packages and invalid `expo-modules-core`; it also
+wrote one debug log outside the bound cache. Cleanup removed checkout, cache, `node_modules`,
+dependency output, debug log and worktree registration completely. The attempt-3 authorization
+then received independent `APPROVED` review with zero open P0–P3; execution was not independently
+verified. Exact path/source/hash/tool bindings, npm exits, gate order, omitted steps and external
+log-set equality are **Development-reported/unverified** because no disclosure-safe raw/receipt
+artifact was preserved and task logs were cleaned. Development reported a predicate-1 fail-closed
+stop and cleanup, but the failure-evidence gap remains open. Independently verified current state
+is limited to absent bound checkout/cache/log/output paths and worktree registration, exact current
+package-lock SHA-256, and the six-file ADO-only delta with no executable delta. Under continuous
+Human authority, the attempt-4 candidate received independent `APPROVED` review with zero open
+P0–P3. Its exact R3 execution passed the strict fresh-path/source/tool, bound-install, globally
+clean exit-0 npm closure, dependency/workspace/lifecycle/external-log and V0 gates. Mobile focused
+tests passed 38/38. V1 failed closed before any Synthetic test executed because
+`@taptime/backend-schema` could not resolve from its package entry. The immutable receipt proves
+only the explicit omissions `V2`, `BUILD`, `NODE_CHECK`, `METAFILE_RUNTIME` and
+`ARTIFACT_PRESERVE`.
+It has no Mobile/Synthetic typecheck command IDs or omission decisions; Development reported both
+tests-inclusive typechecks omitted, but that claim is unverified and remains a separate fail-closed
+evidence gap. No artifact output exists. Cleanup removed checkout/cache/logs/`node_modules`/worktree registration and proved
+external npm logs unchanged plus no protected executable delta. The preserved `0444` evidence
+directory is `/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5-harness/attempt4-a0359a87`;
+receipt/snapshot/manifest SHA-256 values are respectively `ae6e9181a83187a8affa358649437f37104f359581b137fca07be036b41d8cf6`,
+`bc3d60818b6e20cfe4eecbe26917857ce9c7d9a5bf4f39c0323d351197f12077` and
+`61e30ff4e81f301873607b8f5978f0b1e675d73bb3f2b757f0d1937dbe3562c9`. Independent review
+identified this P2 evidence-claim gap; correction re-review is pending, and Attempt 4 grants no
+retry. Attempt-5 candidate review returned `APPROVED` with zero open P0–P3. Exact execution passed
+evidence-first fresh-path/source/tool, bound-install, globally and affected-workspace recursive-
+clean npm closure, dependency-file and external-log gates. The lifecycle-binding verification
+exited 2; `DEPENDENCY_BINDINGS` failed closed before V0 and all 16 prerequisite builds. All later
+focus/typecheck/V2/Node/metafile/artifact records are explicit omissions; no generated build output
+or artifact exists. Cleanup removed all task execution state and left protected executable delta
+empty. Preserved receipt/snapshot/manifest SHA-256 values are `4e08e3765ba2ee2813ab0a7f44463986abf0fc0a3c592c4fda40e40d34f2ee45`,
+`efb4f2b649b94d1707a759dab870e13ef0de6316b8e4f601382ca756cd3a6114` and
+`558111bfdc8ffc5acdabd6c56fe76324a1b87ce6a9e0c0329854237428d0fc4b`. Attempt 5 is
+`NOT_VERIFIED`; independent execution/evidence review is pending and no retry is authorized.
+Attempt-6 candidate review returned `APPROVED` with zero open P0–P3. Attempt 6 then started,
+recorded only green `EVIDENCE_INIT` and `SOURCE_BINDING`, was interrupted and is consumed. It has
+no checkout/cache/log/output/worktree state and no install, build, test, Typecheck or artifact.
+Its only evidence is the unchanged 2,716-byte mode-`0444` receipt with SHA-256
+`6a5b23db67bbe1ff6715f377e3f0f041942d8e8b447b5e3e45cb7aa224ad5402`.
+
+No exact Attempt-7 candidate, digest or independent review was bound before execution, so its
+authorization is **UNVERIFIED**. Its immutable receipt aggregates dependency/lifecycle,
+prerequisite-build, V1 and V2 claims and lacks V0, 16 individual build IDs and separate Typecheck
+IDs. Those build/test/Typecheck results are therefore Development-reported/unverified. Verified
+facts are the bound receipt, `METAFILE_RUNTIME` exit 2, completed cleanup and absence of checkout,
+generated output, worktree registration and artifact. Mode-`0444` receipt/snapshot/manifest hashes are
+`5d940416b1dd4e26432e462f41144cced33950d9501ff3bd9017278bf354e6a4`,
+`ba56a79ea65d859ddc19475788417917eebafaeddbcbc118b6e82a0285ebfb23` and
+`a6c2cf280ec9dcc598c489060816b6cd6c1d0085e3ef3eb6b200b94a6cb89500`. No authorized Harness
+artifact exists. Attempt-8 is an ADO-only **REVIEW PENDING / NOT EXECUTED / DO NOT EXECUTE**
+candidate with fresh paths, receipt schema `DA5-V5-HARNESS-ATTEMPT8-RECEIPT-1` and Metafile
+descriptor SHA-256
+`fd2dd34aee53ebbefcfe7e4bdc7ff4d063053abbd5d6457adca057cfc24d5431`; exact details are in the
+Harness Artifact Closure Authorization, including the complete ordered 45-ID set and exact
+Metafile/receipt/snapshot/evidence/artifact filenames. No aggregate may carry an individual gate
+claim. Hardware/Human/Product V5 remains
+**DO NOT START**.
+A later exact closure and
+independent artifact review must precede any later separate exact
+Product-Human-V5 authorization. No authentication, network, database, Product, timekeeping,
+production, deployment or distribution action is authorized by Attempts 4 or 5.
 
 Run 17 remains the historical successful Phase-0 stability/UI/cleanup record:
 

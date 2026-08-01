@@ -21,9 +21,85 @@ The transferred 12-uppercase-hex fingerprints are A `B55E8B6AEB30`, B `32A54C8F2
 `F61C9F702CFE`; format and pairwise distinctness were validated. The exact run-18 authority is
 consumed successfully and R-035 is locally mitigated with the transfer binding established.
 Product Human V5 did not run, the Product App was not installed, and R-034 plus DA5 remain open.
-The next safe step requires separate exact Product-Human-V5 authorization; no Product correctness,
-authentication, network, database, timekeeping, production, deployment or distribution claim or
-authority follows from run 18.
+`DA5-V5-HARNESS-ARTIFACT-01` is confirmed: the startable ignored bundle predates the
+Google+Samsung source correction and is not an authorized execution artifact. Independent review
+approved the focused ADO candidate with zero open P0–P3, but R3 closure attempt 1 failed closed at
+locked-dependency reconstruction because the isolated worktree selected unauthorized Node
+`26.3.1` / npm `11.16.0` instead of Node `24.17.0` / npm `11.13.0`. No build, test or artifact
+exists. `npm ci` did exit 0 and installed the locked 695-package dependency tree only into the
+isolated task-owned `node_modules`; cleanup then removed that worktree, `node_modules` and every
+dependency output completely, leaving no registered worktree. No Product/APK or system
+installation occurred. Under continuous Human authority, the exact attempt-2 candidate received
+independent `APPROVED` review with zero open P0–P3. Fresh paths, source/tree, five hashes,
+Node/npm paths/hashes, `process.execPath` and lifecycle proof matched, and bound `npm ci` exited
+0. Dependency closure then failed closed before build/test/artifact when `npm ls --all --json`
+returned `ELSPROBLEMS` for two extraneous Expo packages and invalid `expo-modules-core`; it also
+wrote one debug log outside the bound cache. Cleanup removed checkout, cache, `node_modules`,
+dependency output, debug log and worktree registration completely. The attempt-3 authorization
+then received independent `APPROVED` review with zero open P0–P3; that review did not verify its
+execution. All attempt-3 execution claims—including exact path/source/hash/tool binding, npm
+exits, gate order, omitted steps and external-log-set equality—are
+**Development-reported/unverified** because no disclosure-safe raw/receipt artifact was preserved
+and task logs were cleaned. Development reported a predicate-1 fail-closed stop and cleanup, but
+the failure-evidence gap remains open. Independent review confirmed only current state: the four
+bound checkout/cache/log/output paths and worktree registration are absent, current package-lock
+SHA-256 is exact, and the delta is six ADO files with no executable change. Under continuous Human
+authority, the attempt-4 candidate received independent `APPROVED` review with zero open P0–P3.
+Its exact R3 execution passed fresh-path/source/tool binding, bound `npm ci`, globally recursive
+clean exit-0 `npm ls --all --json`, lock/install/workspace/lifecycle/external-log predicates and
+V0. The focused Mobile test passed 38/38. V1 then failed closed before any Synthetic test executed
+because `@taptime/backend-schema` could not resolve from its package entry. The immutable receipt
+explicitly records only `V2`, `BUILD`, `NODE_CHECK`, `METAFILE_RUNTIME` and
+`ARTIFACT_PRESERVE` as omitted. It contains no separate Mobile/Synthetic typecheck command IDs or
+omission decisions; Development reported both tests-inclusive typechecks omitted, but that claim
+is unverified and remains a separate fail-closed evidence gap. No artifact output exists. Checkout, cache, task logs,
+`node_modules` and worktree registration were removed, while the unchanged external npm-log set
+and protected executable delta were proved. Disclosure-safe evidence is preserved `0444` at
+`/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5-harness/attempt4-a0359a87`:
+receipt SHA-256 `ae6e9181a83187a8affa358649437f37104f359581b137fca07be036b41d8cf6`
+(10,003 bytes), pre-cleanup snapshot SHA-256
+`bc3d60818b6e20cfe4eecbe26917857ce9c7d9a5bf4f39c0323d351197f12077` (7,747 bytes), and
+evidence-manifest SHA-256 `61e30ff4e81f301873607b8f5978f0b1e675d73bb3f2b757f0d1937dbe3562c9`
+(1,589 bytes). Independent review identified this P2 evidence-claim gap; correction re-review is
+pending, and Attempt 4 grants no retry. Attempt-5 candidate review returned `APPROVED` with zero
+open P0–P3. Its exact R3 execution passed evidence-first preflight, fresh worktree, bound `npm ci`,
+global and affected-workspace recursive-clean npm closure, lock/install/tool/source predicates and
+external-log confinement. The lifecycle-binding verification then exited 2, so
+`DEPENDENCY_BINDINGS` failed closed before V0 or any of the 16 prerequisite builds. Every later
+focus/typecheck/V2/Node/metafile/artifact ID has an explicit omission; no generated build output or
+artifact exists. Cleanup removed checkout/cache/logs/`node_modules`/worktree registration.
+Mode-`0444` receipt/snapshot/manifest hashes are respectively
+`4e08e3765ba2ee2813ab0a7f44463986abf0fc0a3c592c4fda40e40d34f2ee45`,
+`efb4f2b649b94d1707a759dab870e13ef0de6316b8e4f601382ca756cd3a6114` and
+`558111bfdc8ffc5acdabd6c56fe76324a1b87ce6a9e0c0329854237428d0fc4b`. Attempt 5 is
+`NOT_VERIFIED`; independent execution/evidence review is pending and no retry is authorized.
+Attempt-6 candidate review returned `APPROVED` with zero open P0–P3. Attempt 6 then started,
+passed only `EVIDENCE_INIT` and `SOURCE_BINDING`, was interrupted and is consumed; it produced no
+checkout, cache, log, output, install, build, test, Typecheck or artifact. Its only byte-exact
+mode-`0444` receipt is 2,716 bytes, SHA-256
+`6a5b23db67bbe1ff6715f377e3f0f041942d8e8b447b5e3e45cb7aa224ad5402`.
+
+The Human “Dann abfahrt” did not bind an exact Attempt-7 candidate, digest or independent review;
+Attempt-7 authorization is therefore **UNVERIFIED**. Its immutable receipt also uses aggregate
+dependency/build/V1/V2 records instead of the required per-command IDs, so its build/test/
+Typecheck results are Development-reported/unverified. Verified facts remain the receipt binding,
+`METAFILE_RUNTIME` exit 2, completed cleanup/path absence and no artifact publication. Immutable
+receipt/snapshot/manifest SHA-256 values are respectively
+`5d940416b1dd4e26432e462f41144cced33950d9501ff3bd9017278bf354e6a4`,
+`ba56a79ea65d859ddc19475788417917eebafaeddbcbc118b6e82a0285ebfb23` and
+`a6c2cf280ec9dcc598c489060816b6cd6c1d0085e3ef3eb6b200b94a6cb89500`. Attempt 7 is consumed.
+The exact Attempt-8 ADO-only candidate is **REVIEW PENDING / NOT EXECUTED / DO NOT EXECUTE**. It
+binds fresh paths, receipt schema `DA5-V5-HARNESS-ATTEMPT8-RECEIPT-1` and Metafile descriptor
+SHA-256 `fd2dd34aee53ebbefcfe7e4bdc7ff4d063053abbd5d6457adca057cfc24d5431`; it canonicalizes every
+key against the symlink-free Synthetic cwd and checkout before repository-relative comparison and
+binds the complete ordered 45-ID receipt set plus exact Metafile, live-receipt, precleanup-snapshot,
+evidence-manifest, bundle, source-map and artifact-manifest paths in the Authorization. No
+aggregate may carry an individual gate claim.
+Hardware/Human/Product V5 remains **DO NOT START**. A later
+exact closure and its independent artifact review must precede any
+later separate exact Product-Human-V5 authorization. No Product correctness, authentication,
+network, database, timekeeping, production, deployment or distribution claim or authority follows
+from run 18.
 
 Run 16 remains historical: it matched the offline artifact/preflight/install-launch/waiting path
 and Human-confirmed device binding, then failed closed on the first physical Tag-A scan at
@@ -978,6 +1054,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Development Assignment 4 V5 Enablement — local R3 V0–V4, exact-SHA implementation review and H01 ADO correction approved; new Human V5 remains separately exact-bound and unauthorized | `ADO/02_Development/Development_Assignment_04_V5_Enablement_Authorization.md` |
 | Development Assignment 5 Professional Mobile Productization — Workstreams A–F and AVS V0–V4 technically closed for the exact authorized local scope | `ADO/02_Development/Development_Assignment_05_Professional_Mobile_Productization_Authorization.md` |
 | Development Assignment 5 V5 Enablement — Validation Phase-0 run 18 established the exact safe transfer binding A `B55E8B6AEB30`, B `32A54C8F2F29`, X `F61C9F702CFE`; format and pairwise distinctness passed, its authority is consumed, and R-035 is locally mitigated. Product Human V5 is `NOT RUN`; DA5 and R-034 remain open. CI `30612797541` attempt 1 passed 12/12 only on ADO CI head `f45f49aa6c56c70a503322a043bec3d2360c2176` / tree `714300da7656822dd9b7a2a42fe1be85ab33aa6c`; it is carried evidence, not exact-head CI for run-18 ADO baseline `5a0d59c2b1767192d3d261cede7a2c2b11732d30` or this synchronization. **DO NOT INSTALL/DO NOT START for every new action** | `ADO/02_Development/Development_Assignment_05_V5_Enablement_Authorization.md` |
+| Development Assignment 5 V5 Harness Artifact Closure — Attempt 6 consumed after source binding; Attempt-7 authorization and aggregate execution claims unverified, while receipt/Exit-2/cleanup/no-artifact facts are verified; Attempt-8 ADO-only candidate review pending and DO NOT EXECUTE | `ADO/02_Development/Development_Assignment_05_V5_Harness_Artifact_Closure_Authorization.md` |
 | Development Assignment 5 V5 Isolated PostgreSQL Correction — Runtime Guard source `ba1b6e9`, CI `30255104609` attempt 2 12/12, immutable binary/manifest and independent Exact-SHA `APPROVED`; historical correction rounds retained; hardware authority not granted | `ADO/02_Development/Development_Assignment_05_V5_Isolated_PostgreSQL_Correction_Authorization.md` |
 | Development Assignment 6 Production-like Platform and Operational Readiness — ADO-only candidate; Human acceptance and separate implementation/provisioning authority required | `ADO/02_Development/Development_Assignment_06_Production_Like_Platform_Authorization.md` |
 | Legal, Privacy and Commercial Readiness Start Package — internal Block-H/DT-079–DT-084 working draft; not legal advice, approved legal text or publication authority | `ADO/02_Development/Legal_Privacy_Commercial_Readiness_Start_Package.md` |
