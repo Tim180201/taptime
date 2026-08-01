@@ -5,6 +5,10 @@
 - Owner: Technical Lead
 - Approval authority for any run: Human Architect
 
+Current Harness override: Attempt 11 is consumed fail-closed. Attempt 12 absorbing `cleanup_residue` P2
+correction is **REVIEW PENDING / NOT EXECUTED / DO NOT EXECUTE**; no run, Hardware or
+Human/Product V5 authority exists.
+
 ## 0A. Run-18 fingerprint-transfer success and current Product boundary
 
 Run 18 used exact ADO baseline `5a0d59c2b1767192d3d261cede7a2c2b11732d30` / tree
@@ -1216,6 +1220,100 @@ authorization, the open need is a bounded closed Vitest pass/failure result sche
 source-allowlisted expected-test set with normalized repository-relative count/digest/membership,
 test/file counts, and a closed failure category plus stable canonical signature. Messages, stacks,
 raw stdout/stderr, arbitrary paths and secrets remain excluded. If JSON output were later chosen,
-its output root would need exact command mapping, bounds, schema and cleanup. This runbook binds no
-Attempt-12 candidate, token, digest, map or path and grants no later execution authority. Do not
+its output root would need exact command mapping, bounds, schema and cleanup. That Attempt-11
+terminal runbook section itself binds no Attempt-12 candidate, token, digest, map or path and
+grants no later execution authority. Do not
 retry or resume Attempt 11, install, use ADB/device/Tags or start Hardware/Human/Product V5.
+
+## Attempt-12 candidate operating contract — do not execute
+
+Status is `REVIEW PENDING / NOT EXECUTED / DO NOT EXECUTE`. Attempt 11 is consumed and its single
+P2 review finding is evidence undecidability at Gate 32, not a diagnosed Product, Harness or test
+defect. This R0 ADO-only candidate creates no paths, worktree, installation, process, receipt or
+other Attempt state.
+
+Independent Attempt-12 Round-1 review returned `CHANGES REQUIRED` with exactly one P2: the
+29-result/13-binding schema was not fully closed for type/null/default, lifecycle tuples,
+category precedence and signature state. Round 2 corrected that point. Round-2 review returned
+`CHANGES REQUIRED` with exactly two P2 and one P3 for incomplete within-bucket simultaneous-fault
+precedence, absent disclosure-safe signal termination and stale document-head truth. Round 3
+corrected those findings. Round-3 review then returned `CHANGES REQUIRED` with exactly one P2:
+signal-terminated `WORKTREE_ADD[0]` was not fully integrated into Cleanup V2 timing,
+reattestation and removal authority. The first focused correction closed that coupling. Its
+re-review returned `CHANGES REQUIRED` with exactly one P2 because terminal `cleanup_residue` lacked
+schema-legal absorbing receipt retention for all 56 mismatch/ambiguity tuples. This correction
+closes only that point and remains independent-re-review pending.
+
+If and only if independent review returns `APPROVED` and this exact candidate is then published,
+the standing Human authorization may activate one exact R3 Attempt-12 run. That conditional run
+uses token `710d46dc`, exact unchanged source
+`a0359a87fd1738c8493929a1661cbbc7adb3c07c` / tree
+`102c913e264bd0ccce1d085db1c50bd407f7d4a4`, the inherited direct no-shell 45-gate order and
+three npm groups, Membership Receipt Schema V1 and Cleanup Receipt Schema/Contract V2. The exact
+descriptor/npmrc/map SHA-256 values are
+`dffb1647781084f9e81ff34447d603ebbfaad1c2b1d595109b1eebc6cbd9210a`,
+`7308ea83d13da67fa75178f530444db9649f371cd79266363d1f2d7f49f64c82`, and
+`5bc7e519d4a942f4ceed7e5a4b3a5e6dc5ecbf6d8b7ac8648616d0e0a2291a03`.
+The command map is exactly 222,596 compact UTF-8 bytes. Cleanup Receipt Schema V2 is exactly
+84,102 compact UTF-8 bytes / SHA-256
+`4caa1b43e2b99b22400ce16213bff4b890dd855b13e4caafae8829fe7ff82d94`. The embedded reporter
+schema remains exactly 73,538 compact UTF-8 bytes / SHA-256
+`c78b307bb5003e1d81a97dd909b9ddaeeabda4c98d1475f1a185e680cfb304a7`.
+
+Before Gate 32, `DEPENDENCY_BINDINGS` must verify the exact locked reporter implementation files
+and package-lock resolved/integrity. At Gate 32 the exact existing process receives only
+`--reporter=json` and the exact checkout-internal `--outputFile`. Stdout/stderr use non-forwarded
+1 MiB bounded pipes whose content/digest is discarded; overflow fails closed. Before spawn,
+reporter root/file must be absent. After spawn,
+the runner bounds the file at 16 MiB, verifies `lstat`/realpath/device/inode/regular-file and exact
+single-entry containment, parses strict UTF-8 JSON in memory, rejects unknown/unbounded fields,
+normalizes only canonical checkout-contained test paths, and checks exact counter, status,
+membership and exit consistency. Expected membership is the embedded exact 13-file tracked
+allowlist; compact set SHA-256 is
+`6d3d0d28585a65d8e1357716285896176549416262b3fdba5e5a88ff4966716f`.
+
+Persist only the exact 31-field sanitized result plus 13-field reporter-binding receipt. Every
+direct child process record includes only closed `termination_kind`, `exit_code` and
+`signal_category`; raw signal names/numbers and synthetic signal exit codes are forbidden. Raw JSON,
+stdout/stderr, names, titles, messages, failure messages, stacks, timestamps, metadata, tags,
+arbitrary paths and secrets must not enter any receipt, snapshot, manifest or artifact. Reported
+failure classes remain explicitly ambiguous when the JSON cannot safely narrow them. Stable
+signatures cover only the closed canonical sanitized values and identifier hashes.
+
+Construct all 31 result and 13 binding defaults before the first fallible preflight step. Follow
+only the embedded twelve-state lifecycle and terminal tuples. Before full normalization the
+status matrix mandates null process/reporter/observed/count/signature fields as applicable; a
+started process has exactly an exit/integer/null or signal/null/closed-category tuple, and a
+normalized result always has all safe counts, exact membership and a nonnull signature. Select
+the one validation code using the 46 strictly ranked checks; `unknown_field` precedes
+`schema_type_mismatch`, and all 12 multi-fault fixtures must match. Then select category/code by
+the exact first-match exhaustive algorithm; do not infer or combine categories.
+
+For `WORKTREE_ADD[0]`, copy outer `termination_kind`, nullable `exit_code` and nullable closed
+`signal_category` exactly into `identity_binding_timing` and reject any inequality. On signal,
+reattest checkout, registration and worktree mapping once; classify every observation exactly as
+`absent|exact|mismatch|ambiguous`. All absent is unbound, all exact is bound, other absent/exact
+mixtures are partial, and any mismatch/ambiguity is cleanup residue. Do not launch deletion from
+unbound, partial or residue. A fully exact signal-bound state may enter Cleanup only through the
+existing identity-/mapping-revalidation rules; signal still fails the process gate and never
+authorizes a later fallible spawn. The eight signal fixtures and six termination fixtures are
+normative; removal-without-full-binding is rejected.
+
+For each of the 56 mismatch/ambiguity tuples, persist `cleanup_residue` at binding. At `CLEANUP`
+and `POSTCLEANUP`, retain residue only under the exact named boundary rule: increment the sequence
+once, preserve every other cleanup-state fact, set every root/registration removal attempt false,
+and do not repair, rebind, reobserve-to-bound, resume or promote. Do not interpret this as a
+general residue self-transition. At `FINALIZE`, perform no transition or removal; copy the named
+gate records exactly, keep residue, set both completion flags false and record `FAIL_CLOSED`.
+
+Remove the exact reporter file/root by recorded identity before writing the Gate-32 receipt. If
+identity-safe removal is impossible, record only the bounded deferred disposition, do not copy the
+raw reporter, fail the gate, and leave removal solely to the already bound Gate-43 checkout
+cleanup; `FINALIZE` cannot pass until Cleanup V2 proves complete absence. Never rerun Vitest for
+diagnosis. Do not start any of these steps before approval plus publication, and do not use this
+candidate for Hardware, device/ADB/Tags or Human/Product V5.
+
+If cleanup residue follows normalization, keep normalized counts, override category/code to
+reporter-contract/cleanup-failed and recompute the canonical signature before receipt append.
+Before normalization, signature is always null. A missing, null or stale signature in a purported
+normalized tuple is invalid evidence and fails closed.

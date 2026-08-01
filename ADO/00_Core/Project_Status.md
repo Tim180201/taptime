@@ -1,5 +1,10 @@
 # Project Status
 
+Current DA5 V5 Harness override: **ATTEMPT 11 CONSUMED FAIL-CLOSED; ATTEMPT 12 ABSORBING
+CLEANUP_RESIDUE P2 CORRECTION REVIEW PENDING / NOT EXECUTED / DO NOT EXECUTE; HARDWARE/HUMAN/PRODUCT V5 DO NOT
+START**. This line supersedes older Attempt-10/11 candidate-state text below without changing its
+historical evidence.
+
 Status: CORE ROADMAP V2 COMPLETIONS REMAIN PRESERVED FOR THEIR RECORDED SCOPES — DA4 REMAINS OPEN FOR A LATER FRESH HUMAN V5 — DA5 V0–V4 AND THE HISTORICAL LOCAL DA5-V5 RUNTIME-GUARD/VALIDATION/OPERATOR CLOSURES REMAIN PRESERVED ONLY FOR THEIR RECORDED SCOPES — PHASE-0 RUN 18 ESTABLISHED THE DISCLOSURE-SAFE TRANSFER BINDING A `B55E8B6AEB30`, B `32A54C8F2F29`, X `F61C9F702CFE`; FORMAT AND PAIRWISE DISTINCTNESS PASSED, THE EXACT AUTHORITY WAS CONSUMED SUCCESSFULLY, AND R-035 IS LOCALLY MITIGATED — DEVICE/UI/10×A+10×B+10×X/NFCA/FINAL PASS/TERMINAL CLEANUP MATCHED WITH EXIT 0; THE VALIDATION APP WAS REMOVED — PRODUCT HUMAN V5 DID NOT RUN; THE PRODUCT APP WAS NOT INSTALLED; R-034 AND DA5 REMAIN OPEN; NO PRODUCT CORRECTNESS, PRODUCT ACTION, AUTH/NETWORK/DATABASE/TIMEKEEPING ACTION, PRODUCTION, PRODUCTION DATA, PILOT OPERATION, LEGAL/PRIVACY APPROVAL, DEPLOYMENT OR DISTRIBUTION IS AUTHORIZED
 DA5 decision-time Option-A trust anchor: exactly two direct admin-group members, zero nested
 groups; full-record SHA-256 `b006276c09d8f2713f6132ea79cec167ab3a3c2887ee53e95eb00c1cc33719a5`;
@@ -1798,6 +1803,65 @@ would first need an explicitly authorized bounded closed Vitest pass/failure res
 source-allowlisted expected-test set with normalized repository-relative count/digest/membership,
 test/file counts, and closed failure category plus stable canonical signature. Messages, stacks,
 raw stdout/stderr, arbitrary paths and secrets remain forbidden. Any later-selected JSON output
-root would also require exact mapping, bounds, schema and cleanup. These are non-authorizing open
-requirements only: Attempt 11 is consumed, no Attempt-12 candidate exists, and no retry, resume,
-Attempt-12 execution, Hardware or Human/Product V5 is authorized. R-034 and DA5 remain open.
+root would also require exact mapping, bounds, schema and cleanup. At that terminal checkpoint,
+these were non-authorizing open requirements only: Attempt 11 was consumed, no Attempt-12
+candidate was yet bound, and no retry, resume, Attempt-12 execution, Hardware or Human/Product V5
+was authorized. R-034 and DA5 remain open.
+
+### Attempt-12 ADO-only candidate — `REVIEW PENDING / NOT EXECUTED / DO NOT EXECUTE`
+
+The exact candidate is bound to publication baseline commit
+`f029bdab6e7a92f74b38903ee8ee5ecc21ca6a11`, tree
+`ee741a0f58e9c5fde2e11774a44bc3346a2b1755`, fresh token `710d46dc`, and unchanged executable
+source `a0359a87fd1738c8493929a1661cbbc7adb3c07c`, tree
+`102c913e264bd0ccce1d085db1c50bd407f7d4a4`. It is an R0 documentation candidate only: no
+Product/dependency/lock/schema/workflow change and no Attempt state. Attempt 11 remains consumed.
+
+Independent Attempt-12 Round-1 review returned `CHANGES REQUIRED` with exactly one P2: incomplete
+type/null/default, lifecycle, category-precedence and signature closure for the named 29 result
+and 13 binding fields. Round 2 corrected that contract. Round-2 review then returned `CHANGES
+REQUIRED` with exactly two P2 and one P3 for incomplete within-bucket simultaneous-fault
+precedence, absent disclosure-safe signal-termination closure and stale document-head truth. This
+Round-3 candidate corrected those findings. Round-3 review then returned `CHANGES REQUIRED` with
+exactly one P2: signal-terminated `WORKTREE_ADD[0]` was not fully integrated into Cleanup V2
+identity timing and removal authority. The first focused correction closed that coupling. Its
+re-review returned `CHANGES REQUIRED` with exactly one P2 because terminal `cleanup_residue` lacked
+schema-legal absorbing retention for all 56 mismatch/ambiguity tuples. This correction closes only
+that P2 and awaits independent re-review.
+
+The candidate inherits the Attempt-11 direct no-shell 45-gate order, all three npm groups, exact
+Typecheck Membership Receipt Schema V1 and Cleanup Receipt Schema/Contract V2. Every direct child
+receipt now records the closed termination kind/exit/signal-category tuple without raw signals;
+argv and gate count remain unchanged. Gate `V2_SYNTHETIC_TEST` adds bounded Vitest 4.1.9
+JSON-result normalization: exact checkout-internal output
+root/file, 16 MiB bound, file identity/containment checks, closed JSON schema, exact
+source-allowlisted 13-file membership and count consistency, process-termination/result consistency,
+closed safely ambiguous failure categories, and stable disclosure-safe signatures. The exact
+expected-file-set serialization is 883 bytes / SHA-256
+`6d3d0d28585a65d8e1357716285896176549416262b3fdba5e5a88ff4966716f`.
+
+Raw reporter JSON, raw stdout/stderr, names, messages, stacks, arbitrary paths and secrets are
+never persisted. Reporter cleanup is identity-bound before the Gate-32 receipt or, if that cannot
+be done safely, deferred only to bound checkout cleanup and forced fail-closed. Exact descriptor,
+npmrc and compact command-map SHA-256 values are respectively
+`dffb1647781084f9e81ff34447d603ebbfaad1c2b1d595109b1eebc6cbd9210a`,
+`7308ea83d13da67fa75178f530444db9649f371cd79266363d1f2d7f49f64c82`, and
+`5bc7e519d4a942f4ceed7e5a4b3a5e6dc5ecbf6d8b7ac8648616d0e0a2291a03`.
+The command map is 222,596 compact bytes. Cleanup Receipt Schema V2 is 84,102 compact bytes /
+SHA-256 `4caa1b43e2b99b22400ce16213bff4b890dd855b13e4caafae8829fe7ff82d94`.
+The embedded reporter schema remains 73,538 compact bytes / SHA-256
+`c78b307bb5003e1d81a97dd909b9ddaeeabda4c98d1475f1a185e680cfb304a7`.
+It closes all 31 result-field defaults/nulls, five normalization statuses, twelve lifecycle
+states, terminal binding tuples, 46 total first-failure checks, 12 multi-fault fixtures,
+not-started/exit/signal tuples without raw signal persistence, mutually exclusive/exhaustive
+category predicates, and normalized signature/re-signing rules.
+Signal-terminated `WORKTREE_ADD[0]` additionally deep-equals its outer and timing termination
+tuples, exhaustively classifies all 64 checkout/registration/mapping observations, and permits
+removal only from a fully exact bound state after unchanged Cleanup-V2 revalidation. Eight signal
+fixtures and six termination fixtures bind Cleanup/POSTCLEANUP terminals and reject unbound
+removal. The 56 mismatch/ambiguity fixtures retain absorbing residue only at the named CLEANUP and
+POSTCLEANUP boundaries with no removal, repair, resume or promotion; FINALIZE deterministically
+copies residue, sets both completion flags false and remains `FAIL_CLOSED`. Independent approval
+and exact publication are still required before the standing Human authorization can activate
+one exact R3 run. No current retry, resume, Attempt-12 execution, Hardware, Human/Product V5,
+production, deployment or distribution authority exists. R-034 and DA5 remain open.

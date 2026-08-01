@@ -6,6 +6,10 @@
 - Owner: Technical Lead
 - Human run authority: `PHASE-0 RUNS 17 AND 18 CONSUMED SUCCESSFULLY; PRODUCT HUMAN V5 NOT BOUND`
 
+Current Harness evidence override: Attempt 11 is consumed fail-closed. Attempt 12 absorbing
+`cleanup_residue` P2 correction is **REVIEW PENDING / NOT EXECUTED / DO NOT EXECUTE** and has no receipt,
+state or artifact.
+
 ## 0A. Run-18 fingerprint-transfer evidence and Product boundary
 
 Run 18 used exact ADO baseline `5a0d59c2b1767192d3d261cede7a2c2b11732d30` / tree
@@ -1425,7 +1429,85 @@ source-allowlisted expected-test set with normalized repository-relative count/d
 test and file counts; and a closed failure category plus stable canonical signature. Messages,
 stacks, raw stdout/stderr, arbitrary paths and secrets must remain excluded. If JSON output were
 later selected, its output root would need exact command mapping, bounds, schema and cleanup.
-Nothing here binds an Attempt-12 candidate, token, digest, command map or path or authorizes its
-implementation/execution. Attempt 11 remains consumed with no retry or resume. No Hardware,
+That Attempt-11 terminal evidence section itself binds no Attempt-12 candidate, token, digest,
+command map or path or authorizes its implementation/execution. Attempt 11 remains consumed with
+no retry or resume. No Hardware,
 Human/Product V5, production, production-data, deployment or distribution authority follows.
 Product Human V5 remains `NOT RUN / NOT BOUND / DO NOT START`.
+
+## Attempt-12 prospective evidence contract — review pending, no evidence yet
+
+Attempt 11 remains consumed. Its independent review returned `CHANGES REQUIRED` with exactly one
+P2 because the immutable Gate-32 evidence can establish only exact mapped Vitest exit 1 and cannot
+decide a narrower failure cause. It proves no Product, Harness or test defect. Attempt 12 is only
+an R0 ADO candidate with status `REVIEW PENDING / NOT EXECUTED / DO NOT EXECUTE`; there is no
+Attempt-12 receipt, snapshot, manifest, artifact, path or execution state.
+
+Independent review of Attempt-12 Round 1 returned `CHANGES REQUIRED` with exactly one P2: the
+29-field result and 13-field binding evidence objects were not closed for every type/null/default,
+lifecycle tuple, exclusive category and signature state. Round 2 corrected that prospective
+evidence contract. Round-2 review returned `CHANGES REQUIRED` with exactly two P2 and one P3 for
+incomplete simultaneous-fault precedence, missing disclosure-safe signal termination and stale
+document-head truth. Round 3 corrected those findings. Round-3 review returned `CHANGES REQUIRED`
+with exactly one P2 in signal-terminated `WORKTREE_ADD[0]` Cleanup-V2 binding. The first focused
+correction closed that coupling. Its re-review returned `CHANGES REQUIRED` with exactly one P2:
+terminal `cleanup_residue` lacked schema-legal absorbing evidence for all 56 mismatch/ambiguity
+tuples. This correction closes only that point; independent re-review remains pending.
+
+The candidate binds future evidence to token `710d46dc`, exact unchanged source
+`a0359a87fd1738c8493929a1661cbbc7adb3c07c` / tree
+`102c913e264bd0ccce1d085db1c50bd407f7d4a4`, inherited 45-gate direct no-shell ordering, all
+three npm groups, Membership Receipt Schema V1, and Cleanup Receipt Schema/Contract V2. Its exact
+descriptor/npmrc/map hashes are
+`dffb1647781084f9e81ff34447d603ebbfaad1c2b1d595109b1eebc6cbd9210a`,
+`7308ea83d13da67fa75178f530444db9649f371cd79266363d1f2d7f49f64c82`, and
+`5bc7e519d4a942f4ceed7e5a4b3a5e6dc5ecbf6d8b7ac8648616d0e0a2291a03`.
+The exact command map is 222,596 compact UTF-8 bytes. Cleanup Receipt Schema V2 is 84,102 compact
+UTF-8 bytes / SHA-256 `4caa1b43e2b99b22400ce16213bff4b890dd855b13e4caafae8829fe7ff82d94`.
+The embedded reporter schema remains 73,538 compact UTF-8 bytes / SHA-256
+`c78b307bb5003e1d81a97dd909b9ddaeeabda4c98d1475f1a185e680cfb304a7`.
+
+Gate 32 retains its prospective evidence: the locked Vitest 4.1.9 reporter file is bounded to 16
+MiB, identity-/containment-checked and parsed under the closed embedded schema. Its reported file
+membership must equal the exact 13 tracked source-allowlisted test paths; the canonical compact
+set is 883 bytes / SHA-256
+`6d3d0d28585a65d8e1357716285896176549416262b3fdba5e5a88ff4966716f`. The receipt may preserve
+only sanitized reporter byte count/success, expected/observed membership counts and digests,
+missing/unexpected and file/suite/test counters, process exit, closed failure code/category, stable
+canonical failure signature, and reporter cleanup/identity facts.
+
+The prospective 31-result/13-binding evidence is now an exact-key, no-`undefined`, no-extra
+contract. Five normalization statuses and twelve lifecycle states determine every
+null/boolean/identity and terminal cleanup tuple. Forty-six unique ranks choose one deterministic
+pre-normalized failure, with `unknown_field` before `schema_type_mismatch`; 12 multi-fault
+fixtures bind exact outputs. Every started child is exactly exit/integer/null or
+signal/null/closed-category, while raw signals never persist. Categories are first-match,
+mutually exclusive and exhaustive. The legacy-named signature is required for every fully
+normalized tuple including PASS, signal termination and contradiction, null before normalization,
+and recomputed with the exact cleanup override if normalized cleanup leaves residue.
+
+The prospective Cleanup-V2 timing evidence for `WORKTREE_ADD[0]` contains 13 exact fields and
+deep-equals outer/inner termination tuples. On signal, the 64 checkout/registration/mapping
+observation tuples are classified exactly once as unbound, partial, bound or cleanup residue.
+Eight signal fixtures cover no materialization, checkout only, registration/mapping only, fully
+bound, identity mismatch, mapping mismatch, ambiguity and invalid removal; six termination
+fixtures cover not-started, exit-zero, exit-nonzero, signal and invalid collisions. Only fully
+exact bound evidence may enter unchanged revalidated Cleanup-V2 removal; all other signal paths
+authorize no deletion and end cleanup/POSTCLEANUP as cleanup residue.
+
+All 56 mismatch/ambiguity tuples now have exact prospective gate fixtures. Binding persists
+`cleanup_residue`; `CLEANUP` and `POSTCLEANUP` retain it only at their named evidence boundaries,
+each with sequence +1, immutable state facts and no root/registration removal. `FINALIZE` copies
+the named immutable records, retains residue, records both completion flags false and remains
+`FAIL_CLOSED`. There is no general residue transition, repair, rebind, resume or promotion path.
+
+Raw JSON, stdout/stderr, names, titles, messages, failure messages, stacks, timestamps, durations,
+metadata, tags, arbitrary paths and secrets are never Evidence and never enter receipt, snapshot,
+manifest or artifact. The raw reporter is never copied. It must be identity-safely removed before
+receipt, or its exact cleanup is deferred only to bound checkout removal and all success claims
+fail closed. Ambiguous categories are intentional evidence boundaries, not diagnoses.
+
+Independent `APPROVED` review and exact publication are prerequisites before the standing Human
+authorization can activate exactly one future R3 Attempt-12 run. Until both occur, nothing in
+this section is executable evidence authority. No Hardware, Human/Product V5, production,
+production-data, deployment or distribution authority follows.

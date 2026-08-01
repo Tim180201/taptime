@@ -119,9 +119,68 @@ need for any possible later candidate is a bounded closed Vitest pass/failure re
 source-allowlisted expected-test set with normalized repository-relative count/digest/membership,
 test/file counts, and a closed failure category plus stable canonical signature. Messages, stacks,
 raw stdout/stderr, arbitrary paths and secrets remain excluded. A later-selected JSON output root
-would need exact mapping, bounds, schema and cleanup before authorization. R-034 remains open;
-Attempt 11 is consumed, no Attempt-12 candidate exists, and no retry, resume, Attempt-12
-execution, Hardware, Human/Product V5, production, deployment or distribution is authorized.
+would need exact mapping, bounds, schema and cleanup before authorization. At that terminal
+checkpoint R-034 remained open, Attempt 11 was consumed, no Attempt-12 candidate was yet bound,
+and no retry, resume, Attempt-12 execution, Hardware, Human/Product V5, production, deployment or
+distribution was authorized.
+
+### Attempt-12 mitigation candidate — review pending, no execution authority
+
+The exact R0 ADO-only candidate is `REVIEW PENDING / NOT EXECUTED / DO NOT EXECUTE` on baseline
+`f029bdab6e7a92f74b38903ee8ee5ecc21ca6a11` / tree
+`ee741a0f58e9c5fde2e11774a44bc3346a2b1755`, with fresh token `710d46dc` and unchanged source
+`a0359a87fd1738c8493929a1661cbbc7adb3c07c` / tree
+`102c913e264bd0ccce1d085db1c50bd407f7d4a4`. Attempt 11 remains consumed; no Attempt-12 state
+exists.
+
+Independent review of Attempt-12 Round 1 returned `CHANGES REQUIRED` with exactly one P2 because
+the 29-field result and 13-field binding contracts did not fully close type/null/default,
+lifecycle, category precedence and signature state. Round 2 corrected that evidence-contract gap.
+Round-2 review returned `CHANGES REQUIRED` with exactly two P2 and one P3 for incomplete
+within-bucket precedence, missing signal-termination closure and stale document-head truth. Round
+3 corrected those findings. Round-3 review returned `CHANGES REQUIRED` with exactly one P2 in
+signal-terminated `WORKTREE_ADD[0]` Cleanup-V2 identity timing/removal authority. The first focused
+correction closed that coupling. Its re-review returned `CHANGES REQUIRED` with exactly one P2:
+terminal `cleanup_residue` lacked schema-legal absorbing receipt retention for the 56
+mismatch/ambiguity tuples. This correction closes only that P2 and remains pending independent
+re-review.
+
+The candidate mitigates only the Attempt-11 P2 evidence-decidability gap. Attempt 11's direct
+no-shell 45-gate order, three npm groups and exact Typecheck membership contract remain unchanged.
+Direct argv are unchanged; Cleanup Schema/Contract V2 is strengthened only for signal-terminated
+`WORKTREE_ADD[0]`, and every child receipt retains the
+closed not-started/exit/signal tuple without persisting raw signal values. The reporter extension
+binds locked Vitest 4.1.9 JSON output to
+one checkout-internal root/file, caps it at 16 MiB, validates closed structure, file identity,
+canonical path, exact counter and termination/result consistency, and requires membership equal to the exact 13
+tracked source-allowlisted test files (set digest
+`6d3d0d28585a65d8e1357716285896176549416262b3fdba5e5a88ff4966716f`). Only sanitized counts,
+digests, membership, closed deliberately ambiguous category and stable signature may persist.
+Raw reporter JSON/stdout/stderr, names, messages, stacks, arbitrary paths and secrets remain
+excluded. Identity-safe cleanup occurs before receipt or is deferred only to bound checkout
+cleanup with fail-closed finalization.
+
+Cleanup Receipt Schema V2 is 84,102 compact UTF-8 bytes / SHA-256
+`4caa1b43e2b99b22400ce16213bff4b890dd855b13e4caafae8829fe7ff82d94`; the reporter schema remains
+73,538 bytes / SHA-256 `c78b307bb5003e1d81a97dd909b9ddaeeabda4c98d1475f1a185e680cfb304a7`.
+The containing command map is 222,596 bytes / SHA-256
+`5bc7e519d4a942f4ceed7e5a4b3a5e6dc5ecbf6d8b7ac8648616d0e0a2291a03`. Exact 31-field
+materialization, five normalization statuses, twelve lifecycle states, terminal tuples, 46 ranked
+first-failure checks, 12 multi-fault fixtures, signal-safe termination, exhaustive categories and
+normalized cleanup-override re-signing now fail closed.
+The 13 timing fields deep-equal outer/inner termination data, all 64 signal
+reattestation tuples are disjoint/exhaustive, eight signal fixtures bind Cleanup/POSTCLEANUP
+terminals, and removal is rejected unless checkout, registration and mapping are fully exact and
+then revalidated by the existing Cleanup-V2 rules. The 56 mismatch/ambiguity fixtures keep
+`cleanup_residue` absorbing through only the named Cleanup/Postcleanup receipt boundaries; no
+removal, repair, rebind, resume or promotion is legal, and FINALIZE remains deterministic
+`FAIL_CLOSED` with both completion flags false.
+
+This reduces evidence ambiguity for a possible future exact run; it does not establish that any
+Attempt-11 failure class occurred and does not close R-034. Independent `APPROVED` review and
+exact publication remain prerequisites for the standing Human authorization to activate one
+future R3 run. No current execution, Hardware, Human/Product V5, production, deployment or
+distribution authority follows.
 
 ## Risk Handling Rule
 

@@ -7,7 +7,21 @@ Approval Authority: Human Architect
 
 ## Purpose
 
-### Current DA5 V5 run-18 fingerprint-transfer success and Product boundary
+### Current DA5 V5 Harness truth — Attempt 11 consumed; Attempt 12 absorbing cleanup_residue P2 re-review pending
+
+Attempt 11 is consumed fail-closed with no retry or artifact. The exact Attempt-12 ADO-only
+candidate on baseline `f029bdab6e7a92f74b38903ee8ee5ecc21ca6a11` / tree
+`ee741a0f58e9c5fde2e11774a44bc3346a2b1755` remains **REVIEW PENDING / NOT EXECUTED / DO NOT
+EXECUTE**. Round 3 closed the Round-2 findings. Round-3 review found one P2 in signal-terminated
+`WORKTREE_ADD[0]` Cleanup-V2 binding; the first focused correction closed that coupling. Its
+re-review found exactly one P2: terminal `cleanup_residue` lacked schema-legal absorbing retention
+through `CLEANUP`, `POSTCLEANUP` and `FINALIZE` for the 56 mismatch/ambiguity tuples. This
+correction closes only that point without weakening identity/mapping removal rules. Independent
+re-review and exact publication
+remain mandatory before the standing Human authority can activate one run. Hardware and
+Human/Product V5 remain **DO NOT START**.
+
+### Historical DA5 V5 run-18 fingerprint-transfer success and Product boundary
 
 Separately authorized Phase-0 run 18 successfully established the disclosure-safe fingerprint
 transfer binding on ADO baseline `5a0d59c2b1767192d3d261cede7a2c2b11732d30`, tree
@@ -1111,7 +1125,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Development Assignment 4 V5 Enablement — local R3 V0–V4, exact-SHA implementation review and H01 ADO correction approved; new Human V5 remains separately exact-bound and unauthorized | `ADO/02_Development/Development_Assignment_04_V5_Enablement_Authorization.md` |
 | Development Assignment 5 Professional Mobile Productization — Workstreams A–F and AVS V0–V4 technically closed for the exact authorized local scope | `ADO/02_Development/Development_Assignment_05_Professional_Mobile_Productization_Authorization.md` |
 | Development Assignment 5 V5 Enablement — Validation Phase-0 run 18 established the exact safe transfer binding A `B55E8B6AEB30`, B `32A54C8F2F29`, X `F61C9F702CFE`; format and pairwise distinctness passed, its authority is consumed, and R-035 is locally mitigated. Product Human V5 is `NOT RUN`; DA5 and R-034 remain open. CI `30612797541` attempt 1 passed 12/12 only on ADO CI head `f45f49aa6c56c70a503322a043bec3d2360c2176` / tree `714300da7656822dd9b7a2a42fe1be85ab33aa6c`; it is carried evidence, not exact-head CI for run-18 ADO baseline `5a0d59c2b1767192d3d261cede7a2c2b11732d30` or this synchronization. **DO NOT INSTALL/DO NOT START for every new action** | `ADO/02_Development/Development_Assignment_05_V5_Enablement_Authorization.md` |
-| Development Assignment 5 V5 Harness Artifact Closure — approved Attempt-10 `a08e2e8` was consumed fail-closed at `SYNTHETIC_TYPECHECK` after records 1–30 passed and both mapped TypeScript processes exited 0; records 32–41 omitted, terminal cleanup complete and `FINALIZE` fail-closed. Independent failure/evidence review completed `CHANGES REQUIRED` with exactly one P2: Gate-31 cause is undecidable from the immutable evidence. The current exact Attempt-11 correction is re-review pending / not executed / do not execute; no artifact or retry | `ADO/02_Development/Development_Assignment_05_V5_Harness_Artifact_Closure_Authorization.md` |
+| Development Assignment 5 V5 Harness Artifact Closure — Attempt 11 is consumed fail-closed with no artifact or retry. The exact Attempt-12 absorbing-`cleanup_residue` P2 correction is review pending / not executed / do not execute; its 56 mismatch/ambiguity tuples retain residue only at the named Cleanup/Postcleanup boundaries and finalize fail-closed | `ADO/02_Development/Development_Assignment_05_V5_Harness_Artifact_Closure_Authorization.md` |
 | Development Assignment 5 V5 Isolated PostgreSQL Correction — Runtime Guard source `ba1b6e9`, CI `30255104609` attempt 2 12/12, immutable binary/manifest and independent Exact-SHA `APPROVED`; historical correction rounds retained; hardware authority not granted | `ADO/02_Development/Development_Assignment_05_V5_Isolated_PostgreSQL_Correction_Authorization.md` |
 | Development Assignment 6 Production-like Platform and Operational Readiness — ADO-only candidate; Human acceptance and separate implementation/provisioning authority required | `ADO/02_Development/Development_Assignment_06_Production_Like_Platform_Authorization.md` |
 | Legal, Privacy and Commercial Readiness Start Package — internal Block-H/DT-079–DT-084 working draft; not legal advice, approved legal text or publication authority | `ADO/02_Development/Legal_Privacy_Commercial_Readiness_Start_Package.md` |
@@ -1253,9 +1267,72 @@ schema for pass and failure, a source-allowlisted expected-test set with normali
 repository-relative count/digest/membership, test/file counts, and a closed failure category plus
 stable canonical signature. Messages, stacks, raw stdout/stderr, arbitrary paths and secrets must
 remain excluded. If a JSON output root were later selected, its exact command mapping, bounds,
-schema and cleanup would first need explicit authorization. Attempt 11 remains consumed; this is
-not an Attempt-12 candidate and grants no retry, resume, Attempt-12 execution, Hardware,
+schema and cleanup would first need explicit authorization. At the Attempt-11 terminal checkpoint,
+that section bound no Attempt-12 candidate and granted no retry, resume, Attempt-12 execution, Hardware,
 Human/Product V5, production, deployment or distribution authority.
+
+## DA5 Attempt-12 ADO-only candidate — review pending
+
+Attempt 11 is consumed fail-closed. Its independent failure/evidence review returned
+`CHANGES REQUIRED` with exactly one P2 because the retained Gate-32 result proves only exact
+mapped Vitest exit 1 and cannot distinguish assertion, hook, collection, transform,
+configuration, worker/process or infrastructure failure. No Product, Harness or test defect is
+proven.
+
+Independent review of Attempt-12 Round 1 returned `CHANGES REQUIRED` with exactly one P2: the
+named 29 result and 13 reporter-binding fields were not closed for every type/null/default,
+lifecycle tuple, category precedence and signature state. Round 2 corrected that schema gap.
+Round-2 review returned `CHANGES REQUIRED` with exactly two P2 and one P3 for incomplete
+within-bucket precedence, missing signal-termination closure and stale document-head truth. Round
+3 corrected those findings. Round-3 review then returned `CHANGES REQUIRED` with exactly one P2:
+signal-terminated `WORKTREE_ADD[0]` was not fully coupled to Cleanup V2 identity binding. The first
+focused correction closed that coupling. Its re-review returned `CHANGES REQUIRED` with exactly
+one P2 because terminal `cleanup_residue` lacked schema-legal absorbing retention for all 56
+mismatch/ambiguity tuples. This correction closes only that point and remains pending independent
+re-review.
+
+An exact Attempt-12 ADO-only R0 candidate now exists on publication baseline
+`f029bdab6e7a92f74b38903ee8ee5ecc21ca6a11` / tree
+`ee741a0f58e9c5fde2e11774a44bc3346a2b1755`; status is
+`REVIEW PENDING / NOT EXECUTED / DO NOT EXECUTE`. It uses fresh token `710d46dc`, retains source
+`a0359a87fd1738c8493929a1661cbbc7adb3c07c` / tree
+`102c913e264bd0ccce1d085db1c50bd407f7d4a4`, and inherits Attempt 11's exact direct no-shell
+45-gate map, three npm groups, Typecheck Membership Receipt Schema V1, and Cleanup Receipt
+Schema/Contract V2. Descriptor, npmrc and map are respectively 1,437 / 290 / 222,596 bytes with
+SHA-256 `dffb1647781084f9e81ff34447d603ebbfaad1c2b1d595109b1eebc6cbd9210a`,
+`7308ea83d13da67fa75178f530444db9649f371cd79266363d1f2d7f49f64c82`, and
+`5bc7e519d4a942f4ceed7e5a4b3a5e6dc5ecbf6d8b7ac8648616d0e0a2291a03`.
+The embedded Cleanup Receipt Schema V2 is 84,102 compact UTF-8 bytes / SHA-256
+`4caa1b43e2b99b22400ce16213bff4b890dd855b13e4caafae8829fe7ff82d94`.
+The embedded reporter schema remains 73,538 compact UTF-8 bytes / SHA-256
+`c78b307bb5003e1d81a97dd909b9ddaeeabda4c98d1475f1a185e680cfb304a7`.
+
+The Gate-32 reporter extension remains unchanged: locked Vitest 4.1.9 writes one checkout-internal,
+identity-bound JSON reporter file. A closed 16 MiB schema validates UTF-8/JSON/paths/statuses,
+exact counters, exit consistency and membership against 13 tracked source-allowlisted test files
+(compact set 883 bytes, SHA-256
+`6d3d0d28585a65d8e1357716285896176549416262b3fdba5e5a88ff4966716f`). Only sanitized
+counts/digests/membership, closed deliberately ambiguous category and stable signature persist.
+Raw JSON/stdout/stderr, names, messages, stacks, arbitrary paths and secrets never persist. The
+reporter is removed before receipt or, only on unsafe identity cleanup, deferred to bound checkout
+cleanup and forced fail-closed. This candidate creates no Attempt state and grants no execution.
+For signal-terminated `WORKTREE_ADD[0]`, outer and inner termination tuples deep-equal; the exact
+64-case checkout/registration/mapping reattestation matrix yields only unbound, partial, bound or
+cleanup residue. Only fully exact bound state may enter unchanged identity-/mapping-revalidated
+removal. Eight signal and six termination-partition fixtures bind Cleanup/POSTCLEANUP outcomes;
+removal without full binding is rejected. All 56 mismatch/ambiguity tuples additionally retain
+absorbing residue only at the named CLEANUP/POSTCLEANUP boundaries with sequence +1 and zero
+removal. FINALIZE copies both records, keeps both completion flags false and remains `FAIL_CLOSED`;
+no general self-transition, repair, rebind, resume or promotion exists.
+Round 3 retains all five normalization statuses, all twelve lifecycle states and every legal
+terminal tuple while adding a 46-check total first-failure order, explicit `unknown_field` before
+`schema_type_mismatch`, 12 multi-fault fixtures and exact not-started/exit/signal tuples. The
+31-result/13-binding contract never persists raw signal values. Its legacy-named signature is
+nonnull for every normalized tuple including PASS and sanitized signal termination, null before
+normalization, and recomputed with a cleanup-failure override after normalized cleanup residue.
+Only independent `APPROVED` review plus exact publication may activate the standing Human
+authorization for exactly one future R3 Attempt-12 run. Hardware and Human/Product V5 remain
+separate and unauthorized.
 
 ## Navigation Rule
 
