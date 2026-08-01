@@ -160,16 +160,50 @@ directory contains only mode-`0444` receipt 15,065 bytes/SHA-256
 `8b1b6669e7f55df2d93773e1c8d8446ee7c4ea4a552ba261d39679ee958de5ba`, snapshot 13,688 bytes/
 `55398e75e02544df79be62b8ac72be739ff5a725d159847fa49e4d1a0cf49b6b` and manifest 1,369 bytes/
 `1653d957e6af823388792e049a0b87356dc2ac1fe14b4f8219aaed4a946ad677`. No retry is authorized.
-Exact Attempt 10 is an ADO-only `REVIEW PENDING / NOT EXECUTED / DO NOT EXECUTE` candidate on
-current HEAD `9d9aa10242231d85afd5a9b018c0652f60b90de2` / tree
-`7aa1bcd0026372b196b0fc7d39cd6fbf8b2233ee` plus the six-file ADO delta. Fresh token `dc6c2645`,
-canonical `/private/tmp` temporary roots and explicit partial-Gate-2 cleanup-state handling are
-candidate contract only. The corrected exact compact 45-gate map is 58,860 bytes with SHA-256
-`b5edd0a175532c110f8c36c52825d9285fce554062c379bade1e8e6dce0223ba`.
-`DA5_V5_ATTEMPT10_CLEANUP_RECEIPT_SCHEMA_V2` makes initial/index-0 binding evidence, fixed-order
-root and exact registration/list results, FINALIZE copies and manifest derivation mandatory.
-Independent candidate review returned `CHANGES REQUIRED` with one P2; this correction is
-re-review pending and grants no execution or later-gate authority.
+Exact Attempt 10 was independently `APPROVED` with zero open P0–P3 on published
+`a08e2e89a2aa3962b1bc4ddeb0f77e480f1f4f85` / tree
+`dbec8fb277b1a915153c765cad4c5a060e0626b4`; its single R3 execution is consumed fail-closed.
+Records 1–30 passed, including all dependency/lifecycle/V0/prerequisite-build/focused-test gates
+and Mobile Typecheck. Record 31 `SYNTHETIC_TYPECHECK` failed with predicate code
+`synthetic_typecheck_test_not_listed` after both exact mapped processes exited 0. The raw
+`--listFilesOnly` output was not preserved by contract, and the immutable record contains no result
+object, normalized list count/digest, required path, observed match or membership boolean.
+Independent review cannot determine whether config exclusion or matcher/path normalization caused
+the failure. Config exclusion is unproved and statically unlikely because the tracked Synthetic
+tsconfig includes `tests` and the expected tracked test exists; a Harness defect is likewise
+unproved. The tests-inclusive Gate-31 evidence remains open, and no TypeScript or Product defect is
+inferred. Records 32–41 are individually omitted; no V2,
+Node, Metafile, TalkBack closure or artifact gate ran, and no Harness artifact exists.
+
+Records 42–44 passed. Final cleanup state is `cleanup_complete`; checkout, cache, logs, config,
+artifact root, registration and exact worktree-list mapping are absent, all ten cleanup manifest
+flags are true, and the external npm-log set remained count `11` / SHA-256
+`80a1dc655812427ae4541df6e2bd9ece4834efa17bfa9d5e2dec2370a74f79af` without preserving a name
+or content. `FINALIZE` is `FAIL_CLOSED` because record 31 failed. The mode-`0555` evidence
+directory contains only mode-`0444` receipt 111,980 bytes / SHA-256
+`d4bd5c9566a213abfcd1872bce92cb745414f8f6c682a52ed00f278e74f6f99f`, snapshot 64,793 bytes /
+`c323f3d6c59936f6c489497e4689d1b44562a26e979717323417d35ebacd914d` and manifest 3,980 bytes /
+`081d3c77fa5b044eefd4fa8c0fb1d623af1fb14fcf5ac0c585d28223cbc1b64e`. Independent
+failure/evidence review returned `CHANGES REQUIRED` with exactly one P2. This six-file R0 candidate
+corrects the overclaim and defines an exact Attempt-11 membership receipt; it remains **REVIEW
+PENDING / NOT EXECUTED / DO NOT EXECUTE**. No retry, resume or later-gate authority exists.
+
+No Attempt-11 evidence exists. The exact R0 candidate is **REVIEW PENDING / NOT EXECUTED / DO NOT
+EXECUTE** and binds fresh token `fdf09c30`, wholly new checkout/cache/log/config/artifact/evidence/
+registration paths and unchanged executable source/tree `a0359a87fd1738c8493929a1661cbbc7adb3c07c` /
+`102c913e264bd0ccce1d085db1c50bd407f7d4a4`. Candidate descriptor/npmrc/map hashes are
+`ac819b20cbc26ebb650216012c81a8c9ed76e5468e883e37c8bbd25926e9c9f4`,
+`459d76447f1fbd04d46628f7a97e1f69281e3e38eb9b970bfddb480b6c0379c0` and
+`9bc2cb1c4bac854126a16b2047cd875537eb32399322cd2212de8587f4236168`. Its Round-2 closed schema
+requires both Typecheck records to retain final-set count, normalized-set SHA-256, exact required
+path, observed match, membership boolean and `raw_list_preserved:false`, or a deterministic
+parser-failure result with safe null/false fields. The byte and logical-line counters follow the
+closed saturation rules; the latter is memory-only, while `listed_file_count` counts only the final
+deduplicated canonical set. Raw file lists and raw/split/pre-deduplication line/path counts are
+forbidden; only the bounded `stdout_bytes` and final-set `listed_file_count` evidence fields persist.
+Candidate review returned `CHANGES REQUIRED` with exactly two P2 corrected here; re-review and
+publication must precede
+execution.
 
 Run 17 remains the historical successful stability/UI/cleanup record:
 

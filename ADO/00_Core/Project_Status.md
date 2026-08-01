@@ -135,21 +135,42 @@ roots and the exact worktree registration/list mapping. The immutable receipt/sn
 are `8b1b6669e7f55df2d93773e1c8d8446ee7c4ea4a552ba261d39679ee958de5ba`,
 `55398e75e02544df79be62b8ac72be739ff5a725d159847fa49e4d1a0cf49b6b` and
 `1653d957e6af823388792e049a0b87356dc2ac1fe14b4f8219aaed4a946ad677`. No Harness artifact exists
-and no retry is authorized. Exact Attempt 10 is an ADO-only candidate with status
-`REVIEW PENDING / NOT EXECUTED / DO NOT EXECUTE` on current HEAD
-`9d9aa10242231d85afd5a9b018c0652f60b90de2` / tree
-`7aa1bcd0026372b196b0fc7d39cd6fbf8b2233ee` plus the six-file ADO delta, with fresh token
-`dc6c2645`, canonical `/private/tmp` temporary roots and explicit partial-Gate-2 cleanup-state
-handling. Its corrected exact compact 45-gate map is 58,860 bytes with SHA-256
-`b5edd0a175532c110f8c36c52825d9285fce554062c379bade1e8e6dce0223ba`;
-`DA5_V5_ATTEMPT10_CLEANUP_RECEIPT_SCHEMA_V2` binds index-0 identity persistence, closed
-state/root/registration results and deterministic FINALIZE/manifest equality. Independent
-candidate review returned `CHANGES REQUIRED` with one P2; this correction is re-review pending.
-It grants no execution authority. Hardware/Human/Product V5 remains **DO NOT START**.
-A later exact closure and
-independent artifact review must precede any later separate exact
-Product-Human-V5 authorization. No authentication, network, database, Product, timekeeping,
-production, deployment or distribution action is authorized by Attempts 4 or 5.
+and no retry is authorized. Exact Attempt 10 was independently `APPROVED` with zero open P0–P3
+on published `a08e2e89a2aa3962b1bc4ddeb0f77e480f1f4f85` / tree
+`dbec8fb277b1a915153c765cad4c5a060e0626b4`; its single R3 execution is consumed fail-closed.
+Records 1–30 passed. Record 31 `SYNTHETIC_TYPECHECK` failed with predicate code
+`synthetic_typecheck_test_not_listed` after both mapped processes exited 0; records 32–41 are
+omitted. The immutable evidence has no Gate-31 result object, normalized list count/digest,
+required path, observed match or membership boolean. Independent review therefore cannot decide
+between config exclusion and matcher/path-normalization failure. Config exclusion is unproved and
+statically unlikely because the tracked Synthetic tsconfig includes `tests` and the expected tracked
+test exists; no Harness, TypeScript-configuration or Product defect is inferred. Records 42–44
+passed, final cleanup state is `cleanup_complete`, all ten cleanup flags are true and `FINALIZE`
+remains `FAIL_CLOSED`. No Harness artifact exists. Immutable receipt/snapshot/manifest
+are 111,980 / 64,793 / 3,980 bytes with SHA-256
+`d4bd5c9566a213abfcd1872bce92cb745414f8f6c682a52ed00f278e74f6f99f`,
+`c323f3d6c59936f6c489497e4689d1b44562a26e979717323417d35ebacd914d` and
+`081d3c77fa5b044eefd4fa8c0fb1d623af1fb14fcf5ac0c585d28223cbc1b64e`. Independent
+failure/evidence review returned `CHANGES REQUIRED` with exactly one P2. The current six-file R0
+candidate corrects that overclaim and defines exact Attempt-11 membership evidence, but is **REVIEW
+PENDING / NOT EXECUTED / DO NOT EXECUTE**; no retry or resume is authorized. Hardware/Human/Product
+V5 remains **DO NOT START**. No authentication, network, database, Product, timekeeping, production,
+deployment or distribution action is authorized by Attempt 10 or this candidate.
+
+The exact Attempt-11 AVS-001 R0 candidate is **REVIEW PENDING / NOT EXECUTED / DO NOT EXECUTE**.
+It keeps executable source `a0359a87fd1738c8493929a1661cbbc7adb3c07c` / tree
+`102c913e264bd0ccce1d085db1c50bd407f7d4a4`, binds fresh token `fdf09c30` and wholly new canonical
+checkout/cache/log/config/artifact/evidence/registration paths, and mechanically inherits the
+approved direct no-shell 45-gate and Cleanup V2 contracts. Exact descriptor/npmrc/map hashes are
+`ac819b20cbc26ebb650216012c81a8c9ed76e5468e883e37c8bbd25926e9c9f4`,
+`459d76447f1fbd04d46628f7a97e1f69281e3e38eb9b970bfddb480b6c0379c0` and
+`9bc2cb1c4bac854126a16b2047cd875537eb32399322cd2212de8587f4236168`. The Round-2 closed
+membership schema deterministically orders byte capture, fatal decode/BOM handling, LF/CR and
+terminal-LF handling, a memory-only line-limit counter and canonical set construction.
+`listed_file_count` is exactly the final deduplicated set cardinality; raw/split/pre-deduplication
+line and path counts never persist. Candidate review returned `CHANGES REQUIRED` with exactly two
+P2 corrected in Round 2;
+independent re-review and exact publication are required before any Attempt-11 execution.
 
 Run 17 remains the historical successful Phase-0 stability/UI/cleanup record:
 

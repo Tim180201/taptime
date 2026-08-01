@@ -119,20 +119,44 @@ exists. The 45-record immutable receipt, snapshot and evidence manifest are
 15,065 / 13,688 / 1,369 bytes with SHA-256 `8b1b6669e7f55df2d93773e1c8d8446ee7c4ea4a552ba261d39679ee958de5ba`,
 `55398e75e02544df79be62b8ac72be739ff5a725d159847fa49e4d1a0cf49b6b` and
 `1653d957e6af823388792e049a0b87356dc2ac1fe14b4f8219aaed4a946ad677`.
-The exact Attempt-10 ADO-only candidate is `REVIEW PENDING / NOT EXECUTED / DO NOT EXECUTE` on
-current HEAD `9d9aa10242231d85afd5a9b018c0652f60b90de2` / tree
-`7aa1bcd0026372b196b0fc7d39cd6fbf8b2233ee` plus the six-file ADO delta. It uses fresh token
-`dc6c2645`, canonical `/private/tmp` temporary roots and explicit partial-Gate-2 cleanup-state
-binding. Its corrected exact compact 45-gate map is 58,860 bytes with SHA-256
-`b5edd0a175532c110f8c36c52825d9285fce554062c379bade1e8e6dce0223ba`;
-`DA5_V5_ATTEMPT10_CLEANUP_RECEIPT_SCHEMA_V2` makes WORKTREE_ADD-index-0 persistence, closed
-state/result enums and deterministic FINALIZE/manifest equality machine-checkable. Independent
-candidate review returned `CHANGES REQUIRED` with one P2; this correction is re-review pending.
-The candidate grants no execution or later-gate authority. Hardware/Human/Product V5 remains
-**DO NOT START**. A later exact closure and its independent artifact review must precede any
-later separate exact Product-Human-V5 authorization. No Product correctness, authentication,
-network, database, timekeeping, production, deployment or distribution claim or authority follows
-from run 18.
+Exact Attempt 10 was independently `APPROVED` with zero open P0–P3 on published
+`a08e2e89a2aa3962b1bc4ddeb0f77e480f1f4f85` / tree
+`dbec8fb277b1a915153c765cad4c5a060e0626b4`; its single R3 execution is consumed fail-closed.
+Records 1–30 passed. Record 31 `SYNTHETIC_TYPECHECK` failed with predicate code
+`synthetic_typecheck_test_not_listed` after both mapped processes exited 0; records 32–41 are
+omitted. The immutable evidence contains no Gate-31 result object, normalized list count or digest,
+bound required path, observed match or membership boolean. Independent review therefore cannot
+determine whether Gate 31 failed because of config exclusion or a matcher/path-normalization defect;
+config exclusion is unproved and statically unlikely because the tracked Synthetic tsconfig includes
+`tests` and the expected tracked test exists. The tests-inclusive Gate-31 evidence remains open, and
+no Harness, TypeScript-configuration or Product defect is inferred. Snapshot, cleanup and postcleanup
+passed with final state `cleanup_complete` and all ten cleanup flags true; `FINALIZE` remains
+`FAIL_CLOSED`. No Harness artifact exists. Immutable receipt/snapshot/manifest
+SHA-256 values are `d4bd5c9566a213abfcd1872bce92cb745414f8f6c682a52ed00f278e74f6f99f`,
+`c323f3d6c59936f6c489497e4689d1b44562a26e979717323417d35ebacd914d` and
+`081d3c77fa5b044eefd4fa8c0fb1d623af1fb14fcf5ac0c585d28223cbc1b64e`. Independent
+failure/evidence review returned `CHANGES REQUIRED` with exactly one P2; this six-file R0 candidate
+corrects the overclaim and defines an exact Attempt-11 membership receipt, but remains **REVIEW
+PENDING / NOT EXECUTED / DO NOT EXECUTE**. No retry or resume is authorized. Hardware/Human/Product
+V5 remains **DO NOT START**. No Product correctness, authentication, network, database, timekeeping,
+production, deployment or distribution claim or authority follows from run 18 or Attempt 10.
+
+The exact Attempt-11 AVS-001 R0 candidate is **REVIEW PENDING / NOT EXECUTED / DO NOT EXECUTE**
+on publication baseline `a08e2e89a2aa3962b1bc4ddeb0f77e480f1f4f85` / tree
+`dbec8fb277b1a915153c765cad4c5a060e0626b4`, with executable source/tree unchanged at
+`a0359a87fd1738c8493929a1661cbbc7adb3c07c` / `102c913e264bd0ccce1d085db1c50bd407f7d4a4`.
+Fresh token `fdf09c30` binds new canonical `/private/tmp` checkout/cache/log/config roots,
+new `attempt11-a0359a87-fdf09c30` artifact/evidence roots and exact worktree registration. Descriptor
+1,437 bytes / `ac819b20cbc26ebb650216012c81a8c9ed76e5468e883e37c8bbd25926e9c9f4`, npmrc 290 bytes /
+`459d76447f1fbd04d46628f7a97e1f69281e3e38eb9b970bfddb480b6c0379c0` and direct no-shell
+45-gate map 72,103 bytes / `9bc2cb1c4bac854126a16b2047cd875537eb32399322cd2212de8587f4236168`
+are exact in the authorization. The new closed membership schema records deterministic normalized
+count/digest/path/match/inclusion for both tests without raw lists. Its Round-2 correction orders
+byte capture, fatal decode/BOM handling, LF/CR validation, terminal-LF handling, a memory-only
+line limit and final canonical-set construction; `listed_file_count` counts only that deduplicated
+set. Cleanup Schema/Contract V2 and all log/omission gates are otherwise mechanically inherited.
+Candidate review returned `CHANGES REQUIRED` with exactly two P2 corrected in Round 2;
+independent re-review is pending, and the candidate grants no execution authority.
 
 Run 16 remains historical: it matched the offline artifact/preflight/install-launch/waiting path
 and Human-confirmed device binding, then failed closed on the first physical Tag-A scan at
@@ -1087,7 +1111,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Development Assignment 4 V5 Enablement — local R3 V0–V4, exact-SHA implementation review and H01 ADO correction approved; new Human V5 remains separately exact-bound and unauthorized | `ADO/02_Development/Development_Assignment_04_V5_Enablement_Authorization.md` |
 | Development Assignment 5 Professional Mobile Productization — Workstreams A–F and AVS V0–V4 technically closed for the exact authorized local scope | `ADO/02_Development/Development_Assignment_05_Professional_Mobile_Productization_Authorization.md` |
 | Development Assignment 5 V5 Enablement — Validation Phase-0 run 18 established the exact safe transfer binding A `B55E8B6AEB30`, B `32A54C8F2F29`, X `F61C9F702CFE`; format and pairwise distinctness passed, its authority is consumed, and R-035 is locally mitigated. Product Human V5 is `NOT RUN`; DA5 and R-034 remain open. CI `30612797541` attempt 1 passed 12/12 only on ADO CI head `f45f49aa6c56c70a503322a043bec3d2360c2176` / tree `714300da7656822dd9b7a2a42fe1be85ab33aa6c`; it is carried evidence, not exact-head CI for run-18 ADO baseline `5a0d59c2b1767192d3d261cede7a2c2b11732d30` or this synchronization. **DO NOT INSTALL/DO NOT START for every new action** | `ADO/02_Development/Development_Assignment_05_V5_Enablement_Authorization.md` |
-| Development Assignment 5 V5 Harness Artifact Closure — approved Attempt-9 `9d9aa10` was consumed fail-closed at `WORKTREE_ADD`; immutable cleanup/finalize records remain failed. Exact Attempt-10 remains `REVIEW PENDING / NOT EXECUTED / DO NOT EXECUTE`; one P2 was corrected with the 58,860-byte map SHA-256 `b5edd0a1…` and closed V2 cleanup-receipt schema; re-review pending, no artifact or retry | `ADO/02_Development/Development_Assignment_05_V5_Harness_Artifact_Closure_Authorization.md` |
+| Development Assignment 5 V5 Harness Artifact Closure — approved Attempt-10 `a08e2e8` was consumed fail-closed at `SYNTHETIC_TYPECHECK` after records 1–30 passed and both mapped TypeScript processes exited 0; records 32–41 omitted, terminal cleanup complete and `FINALIZE` fail-closed. Independent failure/evidence review completed `CHANGES REQUIRED` with exactly one P2: Gate-31 cause is undecidable from the immutable evidence. The current exact Attempt-11 correction is re-review pending / not executed / do not execute; no artifact or retry | `ADO/02_Development/Development_Assignment_05_V5_Harness_Artifact_Closure_Authorization.md` |
 | Development Assignment 5 V5 Isolated PostgreSQL Correction — Runtime Guard source `ba1b6e9`, CI `30255104609` attempt 2 12/12, immutable binary/manifest and independent Exact-SHA `APPROVED`; historical correction rounds retained; hardware authority not granted | `ADO/02_Development/Development_Assignment_05_V5_Isolated_PostgreSQL_Correction_Authorization.md` |
 | Development Assignment 6 Production-like Platform and Operational Readiness — ADO-only candidate; Human acceptance and separate implementation/provisioning authority required | `ADO/02_Development/Development_Assignment_06_Production_Like_Platform_Authorization.md` |
 | Legal, Privacy and Commercial Readiness Start Package — internal Block-H/DT-079–DT-084 working draft; not legal advice, approved legal text or publication authority | `ADO/02_Development/Legal_Privacy_Commercial_Readiness_Start_Package.md` |
