@@ -111,13 +111,26 @@ generated output, worktree registration and artifact. Mode-`0444` receipt/snapsh
 `5d940416b1dd4e26432e462f41144cced33950d9501ff3bd9017278bf354e6a4`,
 `ba56a79ea65d859ddc19475788417917eebafaeddbcbc118b6e82a0285ebfb23` and
 `a6c2cf280ec9dcc598c489060816b6cd6c1d0085e3ef3eb6b200b94a6cb89500`. No authorized Harness
-artifact exists. Attempt-8 is an ADO-only **REVIEW PENDING / NOT EXECUTED / DO NOT EXECUTE**
-candidate with fresh paths, receipt schema `DA5-V5-HARNESS-ATTEMPT8-RECEIPT-1` and Metafile
-descriptor SHA-256
-`fd2dd34aee53ebbefcfe7e4bdc7ff4d063053abbd5d6457adca057cfc24d5431`; exact details are in the
-Harness Artifact Closure Authorization, including the complete ordered 45-ID set and exact
-Metafile/receipt/snapshot/evidence/artifact filenames. No aggregate may carry an individual gate
-claim. Hardware/Human/Product V5 remains
+artifact exists. Attempt-8 candidate review Round 3 returned `APPROVED` with zero open P0–P3; its
+single execution is consumed fail-closed. Records 1–7 preserve their stated decisions and npm
+exit/count evidence, but the required per-command external-log isolation is insufficient and
+unverified: the first two npm records have only before hashes and the workspace npm record has
+neither side. Record 8 `EXTERNAL_LOG_CHECK` detected cumulative drift that cannot be attributed;
+records 9–41 are individually omitted and records 42–45 completed snapshot, cleanup,
+post-cleanup and finalization. No external npm log was mutated or raw name/content preserved. No
+lifecycle/V0/build/test/Typecheck/artifact gate ran and no Harness artifact exists. Attempt-8
+failure/evidence review returned `CHANGES REQUIRED` with exactly one P2, corrected in this
+six-file candidate. Exact Attempt 9 is **REVIEW PENDING / NOT EXECUTED / DO NOT EXECUTE**, with
+fresh token `6d4e27b9`, schema `DA5-V5-HARNESS-ATTEMPT9-RECEIPT-1`, embedded descriptor SHA-256
+`be2f1c655fac23adcc4f3d6a0110619b25e03ef9d816834427dc12881e649d18`. Final review Round 3
+returned exactly two P2 findings, corrected in this candidate. The candidate baseline is HEAD
+`90b90ba0e9c87fb8ebf22145399630ea4dfc46ae` / tree
+`02c657dbeccf2da6866f66bd25a7c3b16182587f` plus the exact six-file delta. Its 272-byte npmrc SHA
+is `ac6f0eaba58b3cdb341f58fd4d2afdc1f063617eab502a81cb886646e085bad1`; three npm invocations
+use no-log/ignore-scripts confinement, and every build/test/Typecheck uses the exact no-shell
+41,133-byte command map SHA-256
+`1f155e62b123df3555bdbf503a32e9dea99da035836db6f27a4956e672e77d12`. No Attempt-9 state
+exists. Hardware/Human/Product V5 remains
 **DO NOT START**.
 A later exact closure and
 independent artifact review must precede any later separate exact

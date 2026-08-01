@@ -88,13 +88,31 @@ receipt/snapshot/manifest SHA-256 values are respectively
 `5d940416b1dd4e26432e462f41144cced33950d9501ff3bd9017278bf354e6a4`,
 `ba56a79ea65d859ddc19475788417917eebafaeddbcbc118b6e82a0285ebfb23` and
 `a6c2cf280ec9dcc598c489060816b6cd6c1d0085e3ef3eb6b200b94a6cb89500`. Attempt 7 is consumed.
-The exact Attempt-8 ADO-only candidate is **REVIEW PENDING / NOT EXECUTED / DO NOT EXECUTE**. It
-binds fresh paths, receipt schema `DA5-V5-HARNESS-ATTEMPT8-RECEIPT-1` and Metafile descriptor
-SHA-256 `fd2dd34aee53ebbefcfe7e4bdc7ff4d063053abbd5d6457adca057cfc24d5431`; it canonicalizes every
-key against the symlink-free Synthetic cwd and checkout before repository-relative comparison and
-binds the complete ordered 45-ID receipt set plus exact Metafile, live-receipt, precleanup-snapshot,
-evidence-manifest, bundle, source-map and artifact-manifest paths in the Authorization. No
-aggregate may carry an individual gate claim.
+Independent Attempt-8 candidate review Round 3 returned `APPROVED` with zero open P0–P3. The
+single execution is consumed fail-closed. Records 1–7 preserve their stated decisions and npm
+exit/count evidence, but do not prove the normative per-command external-log isolation:
+`NPM_CI`/`GLOBAL_NPM_LS` have only before hashes and `WORKSPACE_NPM_LS` has neither side. Record 8
+`EXTERNAL_LOG_CHECK` detected cumulative drift that cannot be attributed to one npm invocation;
+records 9–41 are individually omitted and records 42–45 prove snapshot, cleanup, post-cleanup and
+finalization. No external npm log was mutated or raw name/content preserved. No
+lifecycle/V0/build/test/Typecheck/artifact gate ran and no Harness artifact exists.
+The mode-`0444` receipt/snapshot/manifest SHA-256 values are respectively
+`81105a0ebf66324aee55507e7970dafe3e58c5540178e0a071757a301ce53b06`,
+`1362d4b31eabac446c7422ada510f17442f0bea5215cff1e567e2d7c018a5958` and
+`98081ea10da768f93f4c08790406259049e331f5e02d8c30f831b12247a3dc30`. Attempt-8 failure/evidence
+review returned `CHANGES REQUIRED` with exactly one P2; this six-file candidate corrects that
+claim. Exact Attempt 9 is **REVIEW PENDING / NOT EXECUTED / DO NOT EXECUTE**, using fresh token
+`6d4e27b9`, schema `DA5-V5-HARNESS-ATTEMPT9-RECEIPT-1` and 1,435-byte embedded descriptor SHA-256
+`be2f1c655fac23adcc4f3d6a0110619b25e03ef9d816834427dc12881e649d18`. Final review Round 3
+returned exactly two P2 findings, corrected in the current candidate. It is bound to HEAD
+`90b90ba0e9c87fb8ebf22145399630ea4dfc46ae` / tree
+`02c657dbeccf2da6866f66bd25a7c3b16182587f` plus the exact six-file delta. The 272-byte npmrc is
+SHA-256 `ac6f0eaba58b3cdb341f58fd4d2afdc1f063617eab502a81cb886646e085bad1`; only three npm
+invocations remain, with `logs-max=0`, `silent`, `timing=false`, `ignore-scripts=true`, empty task
+logs and per-command external/task before/after evidence. Every build/test/Typecheck uses the
+direct no-shell command map, 41,133 bytes, SHA-256
+`1f155e62b123df3555bdbf503a32e9dea99da035836db6f27a4956e672e77d12`. Exact paths and contract
+are in the Authorization; no candidate file exists.
 Hardware/Human/Product V5 remains **DO NOT START**. A later
 exact closure and its independent artifact review must precede any
 later separate exact Product-Human-V5 authorization. No Product correctness, authentication,
@@ -1054,7 +1072,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Development Assignment 4 V5 Enablement — local R3 V0–V4, exact-SHA implementation review and H01 ADO correction approved; new Human V5 remains separately exact-bound and unauthorized | `ADO/02_Development/Development_Assignment_04_V5_Enablement_Authorization.md` |
 | Development Assignment 5 Professional Mobile Productization — Workstreams A–F and AVS V0–V4 technically closed for the exact authorized local scope | `ADO/02_Development/Development_Assignment_05_Professional_Mobile_Productization_Authorization.md` |
 | Development Assignment 5 V5 Enablement — Validation Phase-0 run 18 established the exact safe transfer binding A `B55E8B6AEB30`, B `32A54C8F2F29`, X `F61C9F702CFE`; format and pairwise distinctness passed, its authority is consumed, and R-035 is locally mitigated. Product Human V5 is `NOT RUN`; DA5 and R-034 remain open. CI `30612797541` attempt 1 passed 12/12 only on ADO CI head `f45f49aa6c56c70a503322a043bec3d2360c2176` / tree `714300da7656822dd9b7a2a42fe1be85ab33aa6c`; it is carried evidence, not exact-head CI for run-18 ADO baseline `5a0d59c2b1767192d3d261cede7a2c2b11732d30` or this synchronization. **DO NOT INSTALL/DO NOT START for every new action** | `ADO/02_Development/Development_Assignment_05_V5_Enablement_Authorization.md` |
-| Development Assignment 5 V5 Harness Artifact Closure — Attempt 6 consumed after source binding; Attempt-7 authorization and aggregate execution claims unverified, while receipt/Exit-2/cleanup/no-artifact facts are verified; Attempt-8 ADO-only candidate review pending and DO NOT EXECUTE | `ADO/02_Development/Development_Assignment_05_V5_Harness_Artifact_Closure_Authorization.md` |
+| Development Assignment 5 V5 Harness Artifact Closure — Attempt-8 consumed fail-closed at `EXTERNAL_LOG_CHECK`; exact Attempt-9 candidate on HEAD `90b90ba` corrects two Round-3 P2s with deterministic no-log npm and direct no-shell command map; review pending, not executed and DO NOT EXECUTE | `ADO/02_Development/Development_Assignment_05_V5_Harness_Artifact_Closure_Authorization.md` |
 | Development Assignment 5 V5 Isolated PostgreSQL Correction — Runtime Guard source `ba1b6e9`, CI `30255104609` attempt 2 12/12, immutable binary/manifest and independent Exact-SHA `APPROVED`; historical correction rounds retained; hardware authority not granted | `ADO/02_Development/Development_Assignment_05_V5_Isolated_PostgreSQL_Correction_Authorization.md` |
 | Development Assignment 6 Production-like Platform and Operational Readiness — ADO-only candidate; Human acceptance and separate implementation/provisioning authority required | `ADO/02_Development/Development_Assignment_06_Production_Like_Platform_Authorization.md` |
 | Legal, Privacy and Commercial Readiness Start Package — internal Block-H/DT-079–DT-084 working draft; not legal advice, approved legal text or publication authority | `ADO/02_Development/Legal_Privacy_Commercial_Readiness_Start_Package.md` |

@@ -79,13 +79,27 @@ Attempt 7 is consumed fail-closed, but its authorization is **UNVERIFIED** becau
 candidate/digest/review preceded execution. Its receipt uses aggregate dependency/build/V1/V2
 records and lacks V0, individual build IDs and separate Typecheck IDs; those results are therefore
 Development-reported/unverified. Verified facts are the immutable receipt, `METAFILE_RUNTIME`
-exit 2, completed cleanup/path absence and no artifact. Attempt 8 is only an exact ADO candidate:
-**REVIEW PENDING / NOT EXECUTED / DO NOT EXECUTE**. It binds fresh paths, receipt schema
-`DA5-V5-HARNESS-ATTEMPT8-RECEIPT-1`, Metafile descriptor SHA-256
-`fd2dd34aee53ebbefcfe7e4bdc7ff4d063053abbd5d6457adca057cfc24d5431`, canonical cwd/checkout
-resolution before repository-relative comparison, the complete ordered 45-ID receipt set and all
-exact Metafile/receipt/snapshot/evidence/artifact filenames bound in the Authorization. No
-aggregate may carry an individual gate claim.
+exit 2, completed cleanup/path absence and no artifact. Attempt-8 candidate review Round 3 returned
+`APPROVED` with zero open P0–P3. Its single execution is consumed fail-closed. Records 1–7 retain
+their stated decisions and npm exit/count evidence, but the normative per-command external-log
+isolation is insufficient/unverified: `NPM_CI` and `GLOBAL_NPM_LS` have only before hashes and
+`WORKSPACE_NPM_LS` has neither side. Record 8 detected cumulative drift that cannot be attributed;
+records 9–41 are individually omitted and records 42–45 completed cleanup/finalization. No
+external npm log was mutated or raw name/content preserved; no build/test/Typecheck/artifact ran.
+Failure/evidence review returned `CHANGES REQUIRED` with exactly one P2, corrected here.
+
+Attempt 9 is an exact ADO-only **REVIEW PENDING / NOT EXECUTED / DO NOT EXECUTE** candidate. Fresh
+token `6d4e27b9`, schema `DA5-V5-HARNESS-ATTEMPT9-RECEIPT-1`, embedded descriptor SHA-256
+`be2f1c655fac23adcc4f3d6a0110619b25e03ef9d816834427dc12881e649d18` and all paths are bound in
+the Authorization. Final review Round 3 returned exactly two P2 findings, corrected here. The
+candidate baseline is HEAD `90b90ba0e9c87fb8ebf22145399630ea4dfc46ae` / tree
+`02c657dbeccf2da6866f66bd25a7c3b16182587f` plus the exact six-file delta. It preserves all 45
+individual IDs. Only `ci --ignore-scripts`, global `ls` and workspace `ls` use npm; `logs-max=0`,
+silent/no-timing, a fresh empty task-log directory and same-record external/task before/after
+evidence are mandatory. Every build/test/Typecheck/listFiles/final bundle uses the exact direct
+Node argv from command map SHA-256
+`1f155e62b123df3555bdbf503a32e9dea99da035836db6f27a4956e672e77d12`, without shell/npm
+indirection. Any mismatch stops before the next gate. No Attempt-9 file or state exists.
 Hardware/Human/Product V5 remains **DO NOT START**.
 
 Run 17 remains the historical successful stability/UI/cleanup record:

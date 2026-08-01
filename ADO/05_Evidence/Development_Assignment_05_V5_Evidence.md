@@ -125,12 +125,35 @@ All three are under
 Checkout/generated output/worktree registration are absent; cache/logs were moved to exact
 recoverable Trash paths. No artifact output exists.
 
-Attempt 8 is only an ADO candidate and is **REVIEW PENDING / NOT EXECUTED / DO NOT EXECUTE**. Its
-fresh paths, receipt schema `DA5-V5-HARNESS-ATTEMPT8-RECEIPT-1`, exact 1,435-byte Metafile
-descriptor SHA-256 `fd2dd34aee53ebbefcfe7e4bdc7ff4d063053abbd5d6457adca057cfc24d5431`, canonical path rule
-and complete ordered 45-ID receipt set are defined in the Harness Artifact Closure Authorization,
-together with exact Metafile/live-receipt/precleanup-snapshot/evidence-manifest/bundle/source-map/
-artifact-manifest paths. No aggregate may carry an individual gate claim.
+Attempt-8 candidate review Round 3 returned `APPROVED` with zero open P0–P3. The single execution
+produced all 45 records in order and is consumed fail-closed. Records 1–7 preserve their stated
+decisions and npm exit/count evidence, but the normative per-command external-log isolation is
+insufficient/unverified: `NPM_CI`/`GLOBAL_NPM_LS` have only before hashes and
+`WORKSPACE_NPM_LS` has neither side. Record 8 detected cumulative drift that cannot be attributed;
+records 9–41 are individually omitted and records 42–45 completed cleanup/finalization. No
+external npm log was mutated or raw name/content preserved. No lifecycle/V0/build/test/Typecheck/
+artifact gate ran and no Harness artifact exists. Preserved mode-`0444` evidence under
+`/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5-harness/attempt8-a0359a87-f3c81d6a`
+is:
+
+| Evidence file | Size | SHA-256 |
+|---|---:|---|
+| `attempt8-command-receipt.jsonl` | 16,424 bytes | `81105a0ebf66324aee55507e7970dafe3e58c5540178e0a071757a301ce53b06` |
+| `attempt8-precleanup-receipt.jsonl` | 14,335 bytes | `1362d4b31eabac446c7422ada510f17442f0bea5215cff1e567e2d7c018a5958` |
+| `attempt8-evidence-manifest.json` | 1,827 bytes | `98081ea10da768f93f4c08790406259049e331f5e02d8c30f831b12247a3dc30` |
+
+The evidence directory is mode `0555`. Attempt-8 failure/evidence review returned `CHANGES
+REQUIRED` with exactly one P2, corrected by this truth sync. Attempt 9 is an exact ADO-only
+**REVIEW PENDING / NOT EXECUTED / DO NOT EXECUTE** candidate with fresh token `6d4e27b9`, schema
+`DA5-V5-HARNESS-ATTEMPT9-RECEIPT-1` and embedded 1,435-byte descriptor SHA-256
+`be2f1c655fac23adcc4f3d6a0110619b25e03ef9d816834427dc12881e649d18`. Final review Round 3
+returned exactly two P2 findings, corrected here. The candidate baseline is HEAD
+`90b90ba0e9c87fb8ebf22145399630ea4dfc46ae` / tree
+`02c657dbeccf2da6866f66bd25a7c3b16182587f` plus the exact six-file delta. Its deterministic
+no-log/ignore-scripts npm contract and 41,133-byte direct no-shell command map SHA-256
+`1f155e62b123df3555bdbf503a32e9dea99da035836db6f27a4956e672e77d12` are recorded in the
+Authorization. No Attempt-9 evidence, config, dependency, build, test, Typecheck or artifact state
+exists.
 
 Run 17 remains the historical successful stability/UI/cleanup record:
 

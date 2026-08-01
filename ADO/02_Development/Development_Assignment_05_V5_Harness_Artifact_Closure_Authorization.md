@@ -1,15 +1,17 @@
 # Development Assignment 5 — V5 Harness Artifact Closure Architecture and Authorization Candidate
 
-- Status: **ATTEMPT 6 STARTED/INTERRUPTED/CONSUMED AFTER SOURCE BINDING; ATTEMPT-7 AUTHORIZATION AND AGGREGATED EXECUTION CLAIMS ARE UNVERIFIED, WHILE RECEIPT/EXIT-2/CLEANUP/NO-ARTIFACT FACTS ARE VERIFIED; ATTEMPT-8 ADO-ONLY CANDIDATE REVIEW PENDING / DO NOT EXECUTE; PRODUCT HUMAN V5 DO NOT START**
+- Status: **ATTEMPT-8 REVIEW APPROVED WITH ZERO P0–P3; EXACT EXECUTION CONSUMED FAIL-CLOSED AT EXTERNAL_LOG_CHECK BEFORE LIFECYCLE/V0/BUILD/TEST/ARTIFACT; PRODUCT HUMAN V5 DO NOT START**
 - Date: 2026-08-01
 - Exact preparation baseline commit: `ac568be39d455951488dbeb4a49ae23018fa111b`
 - Exact preparation baseline tree: `655632c883643819f1bdc44b08979bd83e03f718`
+- Current Attempt-9 ADO candidate baseline commit: `90b90ba0e9c87fb8ebf22145399630ea4dfc46ae`
+- Current Attempt-9 ADO candidate baseline tree: `02c657dbeccf2da6866f66bd25a7c3b16182587f`
 - Corrected executable-source commit: `a0359a87fd1738c8493929a1661cbbc7adb3c07c`
 - Corrected executable-source tree: `102c913e264bd0ccce1d085db1c50bd407f7d4a4`
 - Owner: Technical Lead
 - Decision authority: Human Architect
 - Current change risk: AVS-001 **R0**
-- Proposed later artifact-closure risk: AVS-001 **R3**
+- Attempt-8 artifact-closure risk: AVS-001 **R3** — authority consumed fail-closed
 - Independent authorization review: **attempts 1–3 `APPROVED`; zero open P0–P3; this does not verify attempt-3 execution**
 - Attempt-3 failure-evidence review: **`CHANGES REQUIRED` P2 correction applied; re-review pending**
 - Attempt-4 candidate review: **`APPROVED`; zero open P0–P3**
@@ -20,15 +22,21 @@
 - Attempt-6 execution: **started, interrupted and consumed after `SOURCE_BINDING`; no terminal records or artifact**
 - Attempt-7 authorization: **UNVERIFIED — no exact Attempt-7 candidate, digest or independent review was bound before execution**
 - Attempt-7 execution: **aggregated build/test/Typecheck claims Development-reported/unverified; immutable receipt, `METAFILE_RUNTIME` exit 2, cleanup/absence and no artifact are verified**
-- Attempt-8 candidate review: **pending — NOT EXECUTED / DO NOT EXECUTE**
+- Attempt-8 candidate review: **`APPROVED`; zero open P0–P3**
+- Attempt-8 failure/evidence review: **`CHANGES REQUIRED`; exactly one P2 corrected in this candidate; re-review pending**
+- Attempt-8 execution: **consumed fail-closed at `EXTERNAL_LOG_CHECK`; npm exits/counts recorded, per-command external-log isolation insufficient/unverified; no build, test, Typecheck or artifact**
+- Attempt-9 final-review Round-3 correction: **`CHANGES REQUIRED`; exactly two P2 findings corrected in this candidate; re-review pending**
+- Attempt-9 candidate: **`REVIEW PENDING / NOT EXECUTED / DO NOT EXECUTE` on the exact current baseline above**
 
 ## 1. Purpose and current authority
 
-This candidate closes one pre-run governance gap only: the command used to start the DA5 Product
-Human-V5 Harness is not currently bound to the corrected reviewed source. The Human Architect
-authorized preparation and independent review of this ADO-only candidate. That authority does not
-permit a build, source change, dependency installation, package installation, ADB command, device
-or Tag interaction, Product Human V5, production, deployment or distribution.
+This document records the pre-run governance gap and the now-consumed Attempt-8 closure authority:
+the command used to start the DA5 Product Human-V5 Harness is not currently bound to the corrected
+reviewed source. Independent candidate review Round 3 approved the exact Attempt-8 scope; its one
+execution failed closed at `EXTERNAL_LOG_CHECK`. The result authorizes no retry, resume, Attempt 9,
+source change, package installation, ADB command, device or Tag interaction, Product Human V5,
+production, deployment or distribution. Sections 3–7 retain the approved Attempt-8 contract as
+historical evidence, not reusable execution authority.
 
 Product behavior, NFC semantics, authentication, tenant isolation, database behavior, schema,
 dependencies, lockfiles, APKs and Human-gate acceptance criteria remain unchanged.
@@ -747,10 +755,11 @@ unchanged. Preserved evidence files are mode `0444` under
 | `attempt7-precleanup-receipt.jsonl` | 6,685 bytes | `ba56a79ea65d859ddc19475788417917eebafaeddbcbc118b6e82a0285ebfb23` |
 | `attempt7-evidence-manifest.json` | 1,440 bytes | `a6c2cf280ec9dcc598c489060816b6cd6c1d0085e3ef3eb6b200b94a6cb89500` |
 
-### Exact Attempt-8 ADO-only candidate — review pending, not executed
+### Exact Attempt-8 candidate and execution — approved, consumed fail-closed
 
-Attempt 8 is only a review candidate. It is **NOT EXECUTED / DO NOT EXECUTE** and grants no build,
-test, Typecheck, artifact, installation, ADB, Hardware or Human/Product-V5 authority.
+Independent review Round 3 returned `APPROVED` with zero open P0–P3 and activated only this exact
+technical scope. The single execution result below consumed that authority. No retry, resume,
+Attempt 9, installation, ADB, Hardware or Human/Product-V5 authority follows.
 
 The complete fresh path binding is:
 
@@ -769,9 +778,10 @@ The complete fresh path binding is:
 | Precleanup snapshot | `/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5-harness/attempt8-a0359a87-f3c81d6a/attempt8-precleanup-receipt.jsonl` |
 | Evidence manifest | `/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5-harness/attempt8-a0359a87-f3c81d6a/attempt8-evidence-manifest.json` |
 
-The receipt schema is exactly `DA5-V5-HARNESS-ATTEMPT8-RECEIPT-1`. All five fresh state roots
-(checkout, cache, logs, artifact output and evidence directory), the worktree registration and all
-bound files are currently absent. No Attempt-6/7 literal path or execution state is inherited.
+The receipt schema is exactly `DA5-V5-HARNESS-ATTEMPT8-RECEIPT-1`. Before execution, all five
+fresh state roots (checkout, cache, logs, artifact output and evidence directory), the worktree
+registration and all bound files were absent. No Attempt-6/7 literal path or execution state was
+inherited.
 
 Command-form ID `DA5_V5_ATTEMPT8_METAFILE_RUNTIME_V1` has canonical descriptor length 1,435 bytes
 and SHA-256 `fd2dd34aee53ebbefcfe7e4bdc7ff4d063053abbd5d6457adca057cfc24d5431`.
@@ -855,6 +865,212 @@ snapshot and evidence-manifest paths above. Attempt-7 execution state may not be
 Independent candidate review with zero open P0–P3 is required before any later exact execution
 authority can be considered.
 
+#### Attempt-8 execution result — fail-closed at `EXTERNAL_LOG_CHECK`
+
+The historical Attempt-8 execution was separately bound to ADO commit
+`90b90ba0e9c87fb8ebf22145399630ea4dfc46ae` / tree
+`02c657dbeccf2da6866f66bd25a7c3b16182587f`. That historical binding is evidence only and does
+not itself bind or authorize Attempt 9.
+
+The one authorized execution produced all 45 individually identified records in normative order.
+Records 1–7 contain their stated `decision=pass` values and preserve the npm exit/count evidence:
+`NPM_CI` exit 0 with 695 packages, `GLOBAL_NPM_LS` exit 0 with 1,556 nodes/zero problems and
+`WORKSPACE_NPM_LS` exit 0 with 424 nodes/zero problems. They do **not** establish the normative
+per-command external-log-isolation contract: `NPM_CI` and `GLOBAL_NPM_LS` record only a before
+set hash, while `WORKSPACE_NPM_LS` records neither a before nor after external set. Record 8,
+`EXTERNAL_LOG_CHECK`, then failed closed on cumulative external npm-log entry-name-set drift, which
+cannot be attributed to an individual npm invocation, because the external npm-log entry-name set
+changed from count 10 / SHA-256
+`dafb152bbacdbe3ed33469f594f5f1fda3d8de4804c17e897f49b437bbb8b8e8` to count 11 / SHA-256
+`eb6db27ff83d9975d60d0451912a5c62095fb4a009b101ef536cad3e483e0ebe`.
+Only entry names and stat metadata were observed; no external log content or raw entry name was
+preserved. Because the exact changed entry or entries could not be safely attributed from the
+hashed before-set, cleanup did not mutate external npm logs.
+
+Records 9–41 each explicitly record `execution_state=omitted`, null exit and the prior
+`EXTERNAL_LOG_CHECK` failure reason. Consequently no lifecycle/V0 gate, prerequisite build,
+focused test, tests-inclusive Typecheck, V2 component, build, Node check, Metafile-runtime check,
+TalkBack closure or artifact preservation ran. Records 42–45 completed the pre-cleanup snapshot,
+cleanup, post-cleanup proof and fail-closed finalization. Checkout, task npm cache/logs, generated
+output, worktree registration and artifact-output directory are absent; no bundle, source map or
+artifact manifest exists. The external npm-log drift remains unmodified.
+
+Preserved evidence is read-only under
+`/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5-harness/attempt8-a0359a87-f3c81d6a`:
+
+| Evidence file | Size | SHA-256 |
+|---|---:|---|
+| `attempt8-command-receipt.jsonl` | 16,424 bytes | `81105a0ebf66324aee55507e7970dafe3e58c5540178e0a071757a301ce53b06` |
+| `attempt8-precleanup-receipt.jsonl` | 14,335 bytes | `1362d4b31eabac446c7422ada510f17442f0bea5215cff1e567e2d7c018a5958` |
+| `attempt8-evidence-manifest.json` | 1,827 bytes | `98081ea10da768f93f4c08790406259049e331f5e02d8c30f831b12247a3dc30` |
+
+The three files are mode `0444` and their directory is mode `0555`. Attempt 8 is consumed and
+grants no retry, resume or Attempt-9 authority. Hardware/Human/Product V5 remains **DO NOT START**.
+
+### Exact Attempt-9 ADO-only candidate — review pending, not executed
+
+Attempt 9 is only a correction candidate. It is **REVIEW PENDING / NOT EXECUTED / DO NOT
+EXECUTE**. It creates no file or directory and grants no execution, dependency installation,
+build, test, Typecheck, artifact, ADB, Hardware or Human/Product-V5 authority. Independent review
+must return `APPROVED` with zero open P0–P3 before the `AGENTS.md` standing rule can activate this
+exact R3 scope. Attempt-8 state, receipt facts, external baseline or task paths may not be reused.
+This exact ADO candidate is based on HEAD `90b90ba0e9c87fb8ebf22145399630ea4dfc46ae` / tree
+`02c657dbeccf2da6866f66bd25a7c3b16182587f`; review must bind that baseline plus the exact current
+six-file ADO delta. It is distinct from the historical Attempt-8 execution binding above even
+though both currently name the same published commit/tree.
+The executable source remains exactly `a0359a87fd1738c8493929a1661cbbc7adb3c07c` / tree
+`102c913e264bd0ccce1d085db1c50bd407f7d4a4`, with the five source/lock hashes and exact Node/npm
+paths, versions and hashes already listed below unchanged; future preflight must re-prove them.
+
+The fresh binding is:
+
+| Binding | Exact Attempt-9 path |
+|---|---|
+| Checkout | `/tmp/taptime-da5-harness-a035-attempt9-20260801-6d4e27b9` |
+| npm cache | `/tmp/taptime-da5-harness-a035-attempt9-cache-20260801-6d4e27b9` |
+| npm logs | `/tmp/taptime-da5-harness-a035-attempt9-logs-20260801-6d4e27b9` |
+| npm config root | `/tmp/taptime-da5-harness-a035-attempt9-config-20260801-6d4e27b9` |
+| npm userconfig | `/tmp/taptime-da5-harness-a035-attempt9-config-20260801-6d4e27b9/npmrc` |
+| empty npm globalconfig | `/tmp/taptime-da5-harness-a035-attempt9-config-20260801-6d4e27b9/global-npmrc` |
+| esbuild Metafile | `/tmp/taptime-da5-harness-a035-attempt9-20260801-6d4e27b9/da5-v5-esbuild-metafile.json` |
+| Artifact output directory | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-harness/attempt9-a0359a87-6d4e27b9` |
+| Preserved bundle | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-harness/attempt9-a0359a87-6d4e27b9/da5V5Main.js` |
+| Preserved source map | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-harness/attempt9-a0359a87-6d4e27b9/da5V5Main.js.map` |
+| Artifact manifest | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-harness/attempt9-a0359a87-6d4e27b9/attempt9-artifact-manifest.json` |
+| Evidence directory | `/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5-harness/attempt9-a0359a87-6d4e27b9` |
+| Live receipt | `/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5-harness/attempt9-a0359a87-6d4e27b9/attempt9-command-receipt.jsonl` |
+| Precleanup snapshot | `/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5-harness/attempt9-a0359a87-6d4e27b9/attempt9-precleanup-receipt.jsonl` |
+| Evidence manifest | `/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5-harness/attempt9-a0359a87-6d4e27b9/attempt9-evidence-manifest.json` |
+
+The receipt schema is exactly `DA5-V5-HARNESS-ATTEMPT9-RECEIPT-1`. The Metafile command-form ID
+is `DA5_V5_ATTEMPT9_METAFILE_RUNTIME_V1`; its exact no-newline descriptor is 1,435 bytes with
+SHA-256 `be2f1c655fac23adcc4f3d6a0110619b25e03ef9d816834427dc12881e649d18`:
+
+```json
+{"id":"DA5_V5_ATTEMPT9_METAFILE_RUNTIME_V1","receipt_schema":"DA5-V5-HARNESS-ATTEMPT9-RECEIPT-1","canonical_checkout":"realpath(<CHECKOUT>)","canonical_cwd":"realpath(<CHECKOUT>/apps/synthetic-android-e2e)","key_resolution":"realpath(join(canonical_cwd,key))","boundary":"resolved_path_is_canonical_checkout_or_descendant","comparison":"repository_relative_only_after_boundary","allowed_input_policy":"tracked file at exact source commit or lock-backed file under node_modules; forbidden Expo roots rejected","required_inputs":["apps/synthetic-android-e2e/src/da5V5Main.ts","apps/synthetic-android-e2e/src/Da5V5AdbController.ts","apps/mobile/scripts/da5V5AndroidDevice.mjs"],"allowed_outputs":["apps/synthetic-android-e2e/dist/index.js","apps/synthetic-android-e2e/dist/index.js.map","apps/synthetic-android-e2e/dist/main.js","apps/synthetic-android-e2e/dist/main.js.map","apps/synthetic-android-e2e/dist/gateCResponseDropMain.js","apps/synthetic-android-e2e/dist/gateCResponseDropMain.js.map","apps/synthetic-android-e2e/dist/gateCTransportRestoreMain.js","apps/synthetic-android-e2e/dist/gateCTransportRestoreMain.js.map","apps/synthetic-android-e2e/dist/da4V5Main.js","apps/synthetic-android-e2e/dist/da4V5Main.js.map","apps/synthetic-android-e2e/dist/da4V5ManifestMain.js","apps/synthetic-android-e2e/dist/da4V5ManifestMain.js.map","apps/synthetic-android-e2e/dist/da5V5Main.js","apps/synthetic-android-e2e/dist/da5V5Main.js.map"]}
+```
+
+Attempt 9 retains exactly the same ordered 45 individual command IDs listed for Attempt 8 above.
+That cross-reference adopts only the ID names, order and per-gate architecture: it adopts no
+Attempt-8 path, state, result, receipt or baseline. Every command retains its own ID and receipt
+record; no `V1`, `V2`, prerequisite-build or other aggregate may replace an individual claim.
+Every unreached ID through `ARTIFACT_PRESERVE` is individually omitted with null exit and exact
+prior-failure reason; cleanup and finalization retain their own executed records.
+
+#### Attempt-9 npm configuration and per-command log-isolation contract
+
+At future evidence-first preflight, the current external npm-log entry-name set must be newly
+observed and bound only as `entry_count` plus SHA-256 of the UTF-8 compact JSON array of direct
+entry names sorted lexicographically, with no trailing newline. It is an unattributed, immutable
+comparison baseline: no raw name or content may be recorded, no external log file may be opened,
+deleted, moved, adopted or used as task evidence, and no Attempt-8 count/hash may be reused.
+
+Before the first npm invocation, execution must create fresh canonical config, cache and task-log
+directories, each mode `0700`, plus userconfig mode `0600`, zero-byte globalconfig mode `0600`
+and cache child `tmp` mode `0700`. The globalconfig SHA-256 is
+`e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`. The UTF-8 userconfig has
+exactly the following 272 bytes including its final newline, SHA-256
+`ac6f0eaba58b3cdb341f58fd4d2afdc1f063617eab502a81cb886646e085bad1`:
+
+```ini
+cache=/tmp/taptime-da5-harness-a035-attempt9-cache-20260801-6d4e27b9
+logs-dir=/tmp/taptime-da5-harness-a035-attempt9-logs-20260801-6d4e27b9
+logs-max=0
+loglevel=silent
+timing=false
+ignore-scripts=true
+audit=false
+fund=false
+update-notifier=false
+progress=false
+color=false
+```
+
+Only three npm invocations exist: `NPM_CI` uses `ci --ignore-scripts`, `GLOBAL_NPM_LS` uses
+`ls --all --json`, and `WORKSPACE_NPM_LS` uses
+`ls --all --json --workspace=@taptime/synthetic-android-e2e`. Each is one ordered
+`npm_invocations[]` element with exact canonical cwd, absolute Node/npm argv, allowlisted env,
+system-only `PATH`, allowed outputs and exit. No npm `run`, `exec`, test, Typecheck or build command
+exists. `HOME` is absent rather than rebound and no user/global/system npm config is changed.
+
+npm `11.13.0` source `lib/utils/log-file.js`, SHA-256
+`0545402f1a53075726505829f4dc6b0ec2f43e857fd559b8868c60feae1c46a4`, opens no logfile when
+`logsMax` is zero; its bundled logging documentation, SHA-256
+`1b851f0ef48a7925b665b4b61888619e6ce63ef92325877473de5d193d909785`, states that
+`loglevel=silent` plus `logs-max=0` prevents terminal and filesystem logs. The task-log directory
+must therefore remain exactly empty before and after every npm invocation: count `0` and SHA-256
+`4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945` of compact JSON `[]`.
+Any entry, hash drift or noncanonical/mode/type mismatch stops before the next gate.
+
+`npm ci --ignore-scripts` blocks both and only lock-recorded install scripts: nonoptional
+`esbuild@0.28.1` and optional `fsevents@2.3.3`. No npm lifecycle child may run. `fsevents` remains
+optional and every Vitest argv uses `run`, never watch mode.
+
+Immediately before and immediately after every individual npm command, the same receipt record
+must contain mandatory `external_log_entry_count_before`, `external_log_entry_set_sha256_before`,
+`external_log_entry_count_after`, `external_log_entry_set_sha256_after`,
+`task_log_entry_count_before`, `task_log_entry_set_sha256_before`,
+`task_log_entry_count_after` and `task_log_entry_set_sha256_after`, together with canonical cwd,
+exact argv/environment binding and exit. External count and hash must equal the newly bound
+preflight baseline on both sides; any mismatch stops before the next gate. Task-log enumeration is
+confined to the canonical task log directory, rejects symlinks/non-regular entries/escape and
+uses the same compact-JSON sorted-name encoding while recording only count/set hash, never raw
+names or contents. Any write outside the task
+cache/log/config roots or any unbound task-log transition fails closed. The pre-lifecycle
+`EXTERNAL_LOG_CHECK` remains a cumulative equality check for commands already completed and cannot
+substitute for any command's mandatory before/after fields.
+
+Every non-npm build, focused test, complete test, Typecheck, list-files proof, final Synthetic
+bundle and Node syntax check uses an absolute Node argv against the lock-backed `typescript/bin/tsc`,
+`vitest/vitest.mjs` or `esbuild/bin/esbuild` entrypoint. The environment is an exact allowlist with
+`PATH=/usr/bin:/bin:/usr/sbin:/sbin`, contains no npm/npx path, and has `npm_execpath`,
+`npm_node_execpath` and every `NPM_CONFIG_*` absent. esbuild invocations alone add exact
+`ESBUILD_BINARY_PATH=<CHECKOUT>/node_modules/@esbuild/darwin-arm64/bin/esbuild`; preflight must
+bind version `0.28.1`, mode `0755`, size 10,573,778 bytes, SHA-256
+`e2dc9a52440a2a34f09434a2f4843cb1e30f84e40dcf238976ec61ef8cd7f36a`, Darwin and arm64 before
+use. The orchestrator executes immutable argv arrays directly without a shell and records every
+ordered invocation, canonical cwd, exact argv/env, allowed output roots and exit in that gate's
+`process_invocations[]`. A scalar gate result cannot cover multiple invocations. The orchestrator
+rejects every requested process launch outside the closed map before spawn; shell indirection or
+npm/npx/npm-CLI reference in a non-npm gate fails closed. Lock-backed tool-internal workers are not
+separately runtime-traced; their boundary is the exact entrypoint/argv/env plus before/after result.
+In-process stat/hash/JSON/copy checks launch no child, so no unenforceable tracing claim is made.
+
+The closed command-map ID is `DA5_V5_ATTEMPT9_COMMAND_MAP_V1`. Its exact no-newline compact JSON
+is 41,133 bytes with SHA-256
+`1f155e62b123df3555bdbf503a32e9dea99da035836db6f27a4956e672e77d12`:
+
+```json
+{"id":"DA5_V5_ATTEMPT9_COMMAND_MAP_V1","receipt_schema":"DA5-V5-HARNESS-ATTEMPT9-RECEIPT-1","source_commit":"a0359a87fd1738c8493929a1661cbbc7adb3c07c","source_tree":"102c913e264bd0ccce1d085db1c50bd407f7d4a4","gate_order":["EVIDENCE_INIT","WORKTREE_ADD","SOURCE_TOOL_BINDING","NPM_CI","GLOBAL_NPM_LS","DEPENDENCY_BINDINGS","WORKSPACE_NPM_LS","EXTERNAL_LOG_CHECK","LIFECYCLE_BINDING","V0","PREREQ_BUILD_ADMINISTRATION_CONTRACT","PREREQ_BUILD_MOBILE_WORK_CONTRACT","PREREQ_BUILD_OFFLINE_SYNC_CONTRACT","PREREQ_BUILD_TIME_ENTRY_EXPORT_CONTRACT","PREREQ_BUILD_TIME_REVIEW_CONTRACT","PREREQ_BUILD_CORE","PREREQ_BUILD_BACKEND_SCHEMA","PREREQ_BUILD_BACKEND_IDENTITY","PREREQ_BUILD_BACKEND_MOBILE_WORK","PREREQ_BUILD_BACKEND_READ_MODEL","PREREQ_BUILD_BACKEND_LIFECYCLE","PREREQ_BUILD_BACKEND_ADMINISTRATION","PREREQ_BUILD_BACKEND_TIME_EXPORT","PREREQ_BUILD_BACKEND_OFFLINE_SYNC","PREREQ_BUILD_BACKEND_TIME_REVIEW","PREREQ_BUILD_BACKEND_API","GENERATED_OUTPUT_CLOSURE","MOBILE_FOCUS_TEST","SYNTHETIC_FOCUS_TEST","MOBILE_TYPECHECK","SYNTHETIC_TYPECHECK","V2_SYNTHETIC_TEST","V2_SYNTHETIC_TYPECHECK","V2_SYNTHETIC_BUILD","V2_MOBILE_RUNTIME_TEST","V2_MOBILE_TYPECHECK","BUILD","NODE_CHECK","METAFILE_RUNTIME","TALKBACK_CLOSURE","ARTIFACT_PRESERVE","PRECLEANUP_SNAPSHOT","CLEANUP","POSTCLEANUP","FINALIZE"],"paths":{"checkout":"<CHECKOUT>","cache":"<CACHE>","logs":"<LOGS>","config":"<CONFIG>","evidence":"<EVIDENCE>","artifact":"<ARTIFACT>"},"tools":{"node":{"path":"/Users/timbartz/.nvm/versions/node/v24.17.0/bin/node","version":"v24.17.0","sha256":"f5f9b9db4d95f5e0340982685f083de654c21eef9d9122cab5321081ccaa2601"},"npm":{"path":"/Users/timbartz/.nvm/versions/node/v24.17.0/lib/node_modules/npm/bin/npm-cli.js","version":"11.13.0","sha256":"8e5f6f3429f8cdbe693cdc29904e9d5a7b127a494bd15c804bd54c7403bfcbe7"},"git":{"path":"/usr/bin/git","mode":"0755","size":118928,"sha256":"179301dcb41ea78accc3fa0048a7e6f6710d891945a751a34addd622020c1818"},"tsc":{"path":"<CHECKOUT>/node_modules/typescript/bin/tsc","version":"6.0.3"},"vitest":{"path":"<CHECKOUT>/node_modules/vitest/vitest.mjs","version":"4.1.9","mode":"run_no_watch"},"esbuild_js":{"path":"<CHECKOUT>/node_modules/esbuild/bin/esbuild","version":"0.28.1"},"esbuild_binary":{"path":"<CHECKOUT>/node_modules/@esbuild/darwin-arm64/bin/esbuild","version":"0.28.1","mode":"0755","size":10573778,"sha256":"e2dc9a52440a2a34f09434a2f4843cb1e30f84e40dcf238976ec61ef8cd7f36a","os":"darwin","arch":"arm64"}},"env_policy":{"npm":"exact allowlist in each npm invocation; HOME absent and not rebound","non_npm":"exact allowlist in each process invocation; npm_execpath,npm_node_execpath and every NPM_CONFIG_* absent","path":"/usr/bin:/bin:/usr/sbin:/sbin","shell":false},"npm_install_scripts_blocked":[{"package":"esbuild","version":"0.28.1","optional":false},{"package":"fsevents","version":"2.3.3","optional":true}],"npm_invocations":{"NPM_CI":[{"cwd":"<CHECKOUT>","argv":["/Users/timbartz/.nvm/versions/node/v24.17.0/bin/node","/Users/timbartz/.nvm/versions/node/v24.17.0/lib/node_modules/npm/bin/npm-cli.js","ci","--ignore-scripts"],"env":{"PATH":"/usr/bin:/bin:/usr/sbin:/sbin","TMPDIR":"<CACHE>/tmp","NPM_CONFIG_USERCONFIG":"<CONFIG>/npmrc","NPM_CONFIG_GLOBALCONFIG":"<CONFIG>/global-npmrc","NPM_CONFIG_CACHE":"<CACHE>","NPM_CONFIG_LOGS_DIR":"<LOGS>","NPM_CONFIG_LOGS_MAX":"0","NPM_CONFIG_LOGLEVEL":"silent","NPM_CONFIG_TIMING":"false","NPM_CONFIG_IGNORE_SCRIPTS":"true","NPM_CONFIG_AUDIT":"false","NPM_CONFIG_FUND":"false","NPM_CONFIG_UPDATE_NOTIFIER":"false","NPM_CONFIG_PROGRESS":"false","NPM_CONFIG_COLOR":"false"},"allowed_output_roots":["<CHECKOUT>/node_modules","<CACHE>"],"allowed_output_policy":"locked install and task cache only","required_exit":0,"required_receipt_fields":["array_index","canonical_cwd","argv","env","exit_code","external_log_entry_count_before","external_log_entry_set_sha256_before","external_log_entry_count_after","external_log_entry_set_sha256_after","task_log_entry_count_before","task_log_entry_set_sha256_before","task_log_entry_count_after","task_log_entry_set_sha256_after"],"external_log_requirement":"before and after equal newly bound Attempt-9 preflight count/hash","task_log_requirement":{"count_before":0,"sha256_before":"4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945","count_after":0,"sha256_after":"4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"}}],"GLOBAL_NPM_LS":[{"cwd":"<CHECKOUT>","argv":["/Users/timbartz/.nvm/versions/node/v24.17.0/bin/node","/Users/timbartz/.nvm/versions/node/v24.17.0/lib/node_modules/npm/bin/npm-cli.js","ls","--all","--json"],"env":{"PATH":"/usr/bin:/bin:/usr/sbin:/sbin","TMPDIR":"<CACHE>/tmp","NPM_CONFIG_USERCONFIG":"<CONFIG>/npmrc","NPM_CONFIG_GLOBALCONFIG":"<CONFIG>/global-npmrc","NPM_CONFIG_CACHE":"<CACHE>","NPM_CONFIG_LOGS_DIR":"<LOGS>","NPM_CONFIG_LOGS_MAX":"0","NPM_CONFIG_LOGLEVEL":"silent","NPM_CONFIG_TIMING":"false","NPM_CONFIG_IGNORE_SCRIPTS":"true","NPM_CONFIG_AUDIT":"false","NPM_CONFIG_FUND":"false","NPM_CONFIG_UPDATE_NOTIFIER":"false","NPM_CONFIG_PROGRESS":"false","NPM_CONFIG_COLOR":"false"},"allowed_output_roots":[],"allowed_output_policy":"none","required_exit":0,"required_receipt_fields":["array_index","canonical_cwd","argv","env","exit_code","external_log_entry_count_before","external_log_entry_set_sha256_before","external_log_entry_count_after","external_log_entry_set_sha256_after","task_log_entry_count_before","task_log_entry_set_sha256_before","task_log_entry_count_after","task_log_entry_set_sha256_after"],"external_log_requirement":"before and after equal newly bound Attempt-9 preflight count/hash","task_log_requirement":{"count_before":0,"sha256_before":"4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945","count_after":0,"sha256_after":"4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"}}],"WORKSPACE_NPM_LS":[{"cwd":"<CHECKOUT>","argv":["/Users/timbartz/.nvm/versions/node/v24.17.0/bin/node","/Users/timbartz/.nvm/versions/node/v24.17.0/lib/node_modules/npm/bin/npm-cli.js","ls","--all","--json","--workspace=@taptime/synthetic-android-e2e"],"env":{"PATH":"/usr/bin:/bin:/usr/sbin:/sbin","TMPDIR":"<CACHE>/tmp","NPM_CONFIG_USERCONFIG":"<CONFIG>/npmrc","NPM_CONFIG_GLOBALCONFIG":"<CONFIG>/global-npmrc","NPM_CONFIG_CACHE":"<CACHE>","NPM_CONFIG_LOGS_DIR":"<LOGS>","NPM_CONFIG_LOGS_MAX":"0","NPM_CONFIG_LOGLEVEL":"silent","NPM_CONFIG_TIMING":"false","NPM_CONFIG_IGNORE_SCRIPTS":"true","NPM_CONFIG_AUDIT":"false","NPM_CONFIG_FUND":"false","NPM_CONFIG_UPDATE_NOTIFIER":"false","NPM_CONFIG_PROGRESS":"false","NPM_CONFIG_COLOR":"false"},"allowed_output_roots":[],"allowed_output_policy":"none","required_exit":0,"required_receipt_fields":["array_index","canonical_cwd","argv","env","exit_code","external_log_entry_count_before","external_log_entry_set_sha256_before","external_log_entry_count_after","external_log_entry_set_sha256_after","task_log_entry_count_before","task_log_entry_set_sha256_before","task_log_entry_count_after","task_log_entry_set_sha256_after"],"external_log_requirement":"before and after equal newly bound Attempt-9 preflight count/hash","task_log_requirement":{"count_before":0,"sha256_before":"4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945","count_after":0,"sha256_after":"4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"}}]},"process_invocations":{"WORKTREE_ADD":[{"cwd":"/Users/timbartz/Dokumente/GitHub/taptime","argv":["/usr/bin/git","-C","/Users/timbartz/Dokumente/GitHub/taptime","worktree","add","--detach","--no-checkout","<CHECKOUT>","a0359a87fd1738c8493929a1661cbbc7adb3c07c"],"env":{"PATH":"/usr/bin:/bin:/usr/sbin:/sbin","TMPDIR":"<CACHE>/tmp","NO_COLOR":"1"},"allowed_output_roots":["<CHECKOUT>","/Users/timbartz/Dokumente/GitHub/taptime/.git/worktrees/taptime-da5-harness-a035-attempt9-20260801-6d4e27b9"],"allowed_output_policy":"fresh exact worktree and its exact registration only","required_exit":0,"required_receipt_fields":["array_index","canonical_cwd","argv","env","exit_code"]},{"cwd":"<CHECKOUT>","argv":["/usr/bin/git","-C","<CHECKOUT>","sparse-checkout","init","--no-cone"],"env":{"PATH":"/usr/bin:/bin:/usr/sbin:/sbin","TMPDIR":"<CACHE>/tmp","NO_COLOR":"1"},"allowed_output_roots":["<CHECKOUT>","/Users/timbartz/Dokumente/GitHub/taptime/.git/worktrees/taptime-da5-harness-a035-attempt9-20260801-6d4e27b9"],"allowed_output_policy":"sparse metadata only","required_exit":0,"required_receipt_fields":["array_index","canonical_cwd","argv","env","exit_code"]},{"cwd":"<CHECKOUT>","argv":["/usr/bin/git","-C","<CHECKOUT>","sparse-checkout","set","/*","!/research/","!/app.json"],"env":{"PATH":"/usr/bin:/bin:/usr/sbin:/sbin","TMPDIR":"<CACHE>/tmp","NO_COLOR":"1"},"allowed_output_roots":["<CHECKOUT>","/Users/timbartz/Dokumente/GitHub/taptime/.git/worktrees/taptime-da5-harness-a035-attempt9-20260801-6d4e27b9"],"allowed_output_policy":"sparse metadata only","required_exit":0,"required_receipt_fields":["array_index","canonical_cwd","argv","env","exit_code"]},{"cwd":"<CHECKOUT>","argv":["/usr/bin/git","-C","<CHECKOUT>","checkout","--detach","a0359a87fd1738c8493929a1661cbbc7adb3c07c"],"env":{"PATH":"/usr/bin:/bin:/usr/sbin:/sbin","TMPDIR":"<CACHE>/tmp","NO_COLOR":"1"},"allowed_output_roots":["<CHECKOUT>","/Users/timbartz/Dokumente/GitHub/taptime/.git/worktrees/taptime-da5-harness-a035-attempt9-20260801-6d4e27b9"],"allowed_output_policy":"initial tracked source materialization excluding protected paths","required_exit":0,"required_receipt_fields":["array_index","canonical_cwd","argv","env","exit_code"]}],"SOURCE_TOOL_BINDING":[{"cwd":"<CHECKOUT>","argv":["/usr/bin/git","-C","<CHECKOUT>","rev-parse","HEAD^{commit}"],"env":{"PATH":"/usr/bin:/bin:/usr/sbin:/sbin","TMPDIR":"<CACHE>/tmp","NO_COLOR":"1"},"allowed_output_roots":[],"allowed_output_policy":"none","required_exit":0,"required_receipt_fields":["array_index","canonical_cwd","argv","env","exit_code"]},{"cwd":"<CHECKOUT>","argv":["/usr/bin/git","-C","<CHECKOUT>","rev-parse","HEAD^{tree}"],"env":{"PATH":"/usr/bin:/bin:/usr/sbin:/sbin","TMPDIR":"<CACHE>/tmp","NO_COLOR":"1"},"allowed_output_roots":[],"allowed_output_policy":"none","required_exit":0,"required_receipt_fields":["array_index","canonical_cwd","argv","env","exit_code"]},{"cwd":"<CHECKOUT>","argv":["/usr/bin/git","-C","<CHECKOUT>","status","--porcelain=v1","--untracked-files=all","--",".",":(exclude)research/**",":(exclude)app.json"],"env":{"PATH":"/usr/bin:/bin:/usr/sbin:/sbin","TMPDIR":"<CACHE>/tmp","NO_COLOR":"1"},"allowed_output_roots":[],"allowed_output_policy":"none","required_exit":0,"required_receipt_fields":["array_index","canonical_cwd","argv","env","exit_code"]}],"PREREQ_BUILD_ADMINISTRATION_CONTRACT":[{"cwd":"<CHECKOUT>/packages/administration-contract","argv":["/Users/timbartz/.nvm/versions/node/v24.17.0/bin/node","<CHECKOUT>/node_modules/typescript/bin/tsc","-p","tsconfig.build.json","--emitDeclarationOnly"],"env":{"PATH":"/usr/bin:/bin:/usr/sbin:/sbin","TMPDIR":"<CACHE>/tmp","NO_COLOR":"1"},"allowed_output_roots":["<CHECKOUT>/packages/administration-contract/dist"],"allowed_output_policy":"tracked-source-derived TypeScript outputs declared by the selected tsconfig only","required_exit":0,"required_receipt_fields":["array_index","canonical_cwd","argv","env","exit_code"]},{"cwd":"<CHECKOUT>/packages/administration-contract","argv":["/Users/timbartz/.nvm/versions/node/v24.17.0/bin/node","<CHECKOUT>/node_modules/esbuild/bin/esbuild","src/index.ts","--bundle","--platform=node","--target=node24","--format=esm","--sourcemap","--outfile=dist/index.js"],"env":{"PATH":"/usr/bin:/bin:/usr/sbin:/sbin","TMPDIR":"<CACHE>/tmp","NO_COLOR":"1","ESBUILD_BINARY_PATH":"<CHECKOUT>/node_modules/@esbuild/darwin-arm64/bin/esbuild"},"allowed_output_roots":["<CHECKOUT>/packages/administration-contract/dist"],"allowed_output_policy":"exact esbuild outfile/outdir products and maps declared by argv only","required_exit":0,"required_receipt_fields":["array_index","canonical_cwd","argv","env","exit_code"]}],"PREREQ_BUILD_MOBILE_WORK_CONTRACT":[{"cwd":"<CHECKOUT>/packages/mobile-work-contract","argv":["/Users/timbartz/.nvm/versions/node/v24.17.0/bin/node","<CHECKOUT>/node_modules/typescript/bin/tsc","-p","tsconfig.build.json"],"env":{"PATH":"/usr/bin:/bin:/usr/sbin:/sbin","TMPDIR":"<CACHE>/tmp","NO_COLOR":"1"},"allowed_output_roots":["<CHECKOUT>/packages/mobile-work-contract/dist"],"allowed_output_policy":"tracked-source-derived TypeScript outputs declared by the selected tsconfig only","required_exit":0,"required_receipt_fields":["array_index","canonical_cwd","argv","env","exit_code"]}],"PREREQ_BUILD_OFFLINE_SYNC_CONTRACT":[{"cwd":"<CHECKOUT>/packages/offline-sync-contract","argv":["/Users/timbartz/.nvm/versions/node/v24.17.0/bin/node","<CHECKOUT>/node_modules/typescript/bin/tsc","-p","tsconfig.build.json","--emitDeclarationOnly"],"env":{"PATH":"/usr/bin:/bin:/usr/sbin:/sbin","TMPDIR":"<CACHE>/tmp","NO_COLOR":"1"},"allowed_output_roots":["<CHECKOUT>/packages/offline-sync-contract/dist"],"allowed_output_policy":"tracked-source-derived TypeScript outputs declared by the selected tsconfig only","required_exit":0,"required_receipt_fields":["array_index","canonical_cwd","argv","env","exit_code"]},{"cwd":"<CHECKOUT>/packages/offline-sync-contract","argv":["/Users/timbartz/.nvm/versions/node/v24.17.0/bin/node","<CHECKOUT>/node_modules/esbuild/bin/esbuild","src/index.ts","--bundle","--platform=neutral","--target=es2022","--format=esm","--sourcemap","--outfile=dist/index.js"],"env":{"PATH":"/usr/bin:/bin:/usr/sbin:/sbin","TMPDIR":"<CACHE>/tmp","NO_COLOR":"1","ESBUILD_BINARY_PATH":"<CHECKOUT>/node_modules/@esbuild/darwin-arm64/bin/esbuild"},"allowed_output_roots":["<CHECKOUT>/packages/offline-sync-contract/dist"],"allowed_output_policy":"exact esbuild outfile/outdir products and maps declared by argv only","required_exit":0,"required_receipt_fields":["array_index","canonical_cwd","argv","env","exit_code"]}],"PREREQ_BUILD_TIME_ENTRY_EXPORT_CONTRACT":[{"cwd":"<CHECKOUT>/packages/time-entry-export-contract","argv":["/Users/timbartz/.nvm/versions/node/v24.17.0/bin/node","<CHECKOUT>/node_modules/typescript/bin/tsc","-p","tsconfig.build.json","--emitDeclarationOnly"],"env":{"PATH":"/usr/bin:/bin:/usr/sbin:/sbin","TMPDIR":"<CACHE>/tmp","NO_COLOR":"1"},"allowed_output_roots":["<CHECKOUT>/packages/time-entry-export-contract/dist"],"allowed_output_policy":"tracked-source-derived TypeScript outputs declared by the selected tsconfig only","required_exit":0,"required_receipt_fields":["array_index","canonical_cwd","argv","env","exit_code"]},{"cwd":"<CHECKOUT>/packages/time-entry-export-contract","argv":["/Users/timbartz/.nvm/versions/node/v24.17.0/bin/node","<CHECKOUT>/node_modules/esbuild/bin/esbuild","src/index.ts","--bundle","--platform=neutral","--target=es2022","--format=esm","--sourcemap","--outfile=dist/index.js"],"env":{"PATH":"/usr/bin:/bin:/usr/sbin:/sbin","TMPDIR":"<CACHE>/tmp","NO_COLOR":"1","ESBUILD_BINARY_PATH":"<CHECKOUT>/node_modules/@esbuild/darwin-arm64/bin/esbuild"},"allowed_output_roots":["<CHECKOUT>/packages/time-entry-export-contract/dist"],"allowed_output_policy":"exact esbuild outfile/outdir products and maps declared by argv only","required_exit":0,"required_receipt_fields":["array_index","canonical_cwd","argv","env","exit_code"]}],"PREREQ_BUILD_TIME_REVIEW_CONTRACT":[{"cwd":"<CHECKOUT>/packages/time-review-contract","argv":["/Users/timbartz/.nvm/versions/node/v24.17.0/bin/node","<CHECKOUT>/node_modules/typescript/bin/tsc","-p","tsconfig.build.json","--emitDeclarationOnly"],"env":{"PATH":"/usr/bin:/bin:/usr/sbin:/sbin","TMPDIR":"<CACHE>/tmp","NO_COLOR":"1"},"allowed_output_roots":["<CHECKOUT>/packages/time-review-contract/dist"],"allowed_output_policy":"tracked-source-derived TypeScript outputs declared by the selected tsconfig only","required_exit":0,"required_receipt_fields":["array_index","canonical_cwd","argv","env","exit_code"]},{"cwd":"<CHECKOUT>/packages/time-review-contract","argv":["/Users/timbartz/.nvm/versions/node/v24.17.0/bin/node","<CHECKOUT>/node_modules/esbuild/bin/esbuild","src/index.ts","--bundle","--platform=neutral","--target=es2022","--format=esm","--sourcemap","--outfile=dist/index.js"],"env":{"PATH":"/usr/bin:/bin:/usr/sbin:/sbin","TMPDIR":"<CACHE>/tmp","NO_COLOR":"1","ESBUILD_BINARY_PATH":"<CHECKOUT>/node_modules/@esbuild/darwin-arm64/bin/esbuild"},"allowed_output_roots":["<CHECKOUT>/packages/time-review-contract/dist"],"allowed_output_policy":"exact esbuild outfile/outdir products and maps declared by argv only","required_exit":0,"required_receipt_fields":["array_index","canonical_cwd","argv","env","exit_code"]}],"PREREQ_BUILD_CORE":[{"cwd":"<CHECKOUT>/packages/core","argv":["/Users/timbartz/.nvm/versions/node/v24.17.0/bin/node","<CHECKOUT>/node_modules/typescript/bin/tsc","-p","tsconfig.json"],"env":{"PATH":"/usr/bin:/bin:/usr/sbin:/sbin","TMPDIR":"<CACHE>/tmp","NO_COLOR":"1"},"allowed_output_roots":["<CHECKOUT>/packages/core/dist"],"allowed_output_policy":"tracked-source-derived TypeScript outputs declared by the selected tsconfig only","required_exit":0,"required_receipt_fields":["array_index","canonical_cwd","argv","env","exit_code"]}],"PREREQ_BUILD_BACKEND_SCHEMA":[{"cwd":"<CHECKOUT>/apps/backend-schema","argv":["/Users/timbartz/.nvm/versions/node/v24.17.0/bin/node","<CHECKOUT>/node_modules/typescript/bin/tsc","-p","tsconfig.build.json","--emitDeclarationOnly"],"env":{"PATH":"/usr/bin:/bin:/usr/sbin:/sbin","TMPDIR":"<CACHE>/tmp","NO_COLOR":"1"},"allowed_output_roots":["<CHECKOUT>/apps/backend-schema/dist"],"allowed_output_policy":"tracked-source-derived TypeScript outputs declared by the selected tsconfig only","required_exit":0,"required_receipt_fields":["array_index","canonical_cwd","argv","env","exit_code"]},{"cwd":"<CHECKOUT>/apps/backend-schema","argv":["/Users/timbartz/.nvm/versions/node/v24.17.0/bin/node","<CHECKOUT>/node_modules/esbuild/bin/esbuild","src/index.ts","--bundle","--platform=node","--target=node24","--format=esm","--external:pg","--sourcemap","--outfile=dist/index.js"],"env":{"PATH":"/usr/bin:/bin:/usr/sbin:/sbin","TMPDIR":"<CACHE>/tmp","NO_COLOR":"1","ESBUILD_BINARY_PATH":"<CHECKOUT>/node_modules/@esbuild/darwin-arm64/bin/esbuild"},"allowed_output_roots":["<CHECKOUT>/apps/backend-schema/dist"],"allowed_output_policy":"exact esbuild outfile/outdir products and maps declared by argv only","required_exit":0,"required_receipt_fields":["array_index","canonical_cwd","argv","env","exit_code"]}],"PREREQ_BUILD_BACKEND_IDENTITY":[{"cwd":"<CHECKOUT>/apps/backend-identity","argv":["/Users/timbartz/.nvm/versions/node/v24.17.0/bin/node","<CHECKOUT>/node_modules/typescript/bin/tsc","-p","tsconfig.build.json","--emitDeclarationOnly"],"env":{"PATH":"/usr/bin:/bin:/usr/sbin:/sbin","TMPDIR":"<CACHE>/tmp","NO_COLOR":"1"},"allowed_output_roots":["<CHECKOUT>/apps/backend-identity/dist"],"allowed_output_policy":"tracked-source-derived TypeScript outputs declared by the selected tsconfig only","required_exit":0,"required_receipt_fields":["array_index","canonical_cwd","argv","env","exit_code"]},{"cwd":"<CHECKOUT>/apps/backend-identity","argv":["/Users/timbartz/.nvm/versions/node/v24.17.0/bin/node","<CHECKOUT>/node_modules/esbuild/bin/esbuild","src/index.ts","--bundle","--platform=node","--target=node24","--format=esm","--external:jose","--external:pg","--sourcemap","--outfile=dist/index.js"],"env":{"PATH":"/usr/bin:/bin:/usr/sbin:/sbin","TMPDIR":"<CACHE>/tmp","NO_COLOR":"1","ESBUILD_BINARY_PATH":"<CHECKOUT>/node_modules/@esbuild/darwin-arm64/bin/esbuild"},"allowed_output_roots":["<CHECKOUT>/apps/backend-identity/dist"],"allowed_output_policy":"exact esbuild outfile/outdir products and maps declared by argv only","required_exit":0,"required_receipt_fields":["array_index","canonical_cwd","argv","env","exit_code"]}],"PREREQ_BUILD_BACKEND_MOBILE_WORK":[{"cwd":"<CHECKOUT>/apps/backend-mobile-work","argv":["/Users/timbartz/.nvm/versions/node/v24.17.0/bin/node","<CHECKOUT>/node_modules/typescript/bin/tsc","-p","tsconfig.build.json","--emitDeclarationOnly"],"env":{"PATH":"/usr/bin:/bin:/usr/sbin:/sbin","TMPDIR":"<CACHE>/tmp","NO_COLOR":"1"},"allowed_output_roots":["<CHECKOUT>/apps/backend-mobile-work/dist"],"allowed_output_policy":"tracked-source-derived TypeScript outputs declared by the selected tsconfig only","required_exit":0,"required_receipt_fields":["array_index","canonical_cwd","argv","env","exit_code"]},{"cwd":"<CHECKOUT>/apps/backend-mobile-work","argv":["/Users/timbartz/.nvm/versions/node/v24.17.0/bin/node","<CHECKOUT>/node_modules/esbuild/bin/esbuild","src/index.ts","--bundle","--platform=node","--target=node24","--format=esm","--external:@taptime/backend-identity","--external:@taptime/mobile-work-contract","--external:pg","--sourcemap","--outdir=dist"],"env":{"PATH":"/usr/bin:/bin:/usr/sbin:/sbin","TMPDIR":"<CACHE>/tmp","NO_COLOR":"1","ESBUILD_BINARY_PATH":"<CHECKOUT>/node_modules/@esbuild/darwin-arm64/bin/esbuild"},"allowed_output_roots":["<CHECKOUT>/apps/backend-mobile-work/dist"],"allowed_output_policy":"exact esbuild outfile/outdir products and maps declared by argv only","required_exit":0,"required_receipt_fields":["array_index","canonical_cwd","argv","env","exit_code"]}],"PREREQ_BUILD_BACKEND_READ_MODEL":[{"cwd":"<CHECKOUT>/apps/backend-read-model","argv":["/Users/timbartz/.nvm/versions/node/v24.17.0/bin/node","<CHECKOUT>/node_modules/typescript/bin/tsc","-p","tsconfig.build.json","--emitDeclarationOnly"],"env":{"PATH":"/usr/bin:/bin:/usr/sbin:/sbin","TMPDIR":"<CACHE>/tmp","NO_COLOR":"1"},"allowed_output_roots":["<CHECKOUT>/apps/backend-read-model/dist"],"allowed_output_policy":"tracked-source-derived TypeScript outputs declared by the selected tsconfig only","required_exit":0,"required_receipt_fields":["array_index","canonical_cwd","argv","env","exit_code"]},{"cwd":"<CHECKOUT>/apps/backend-read-model","argv":["/Users/timbartz/.nvm/versions/node/v24.17.0/bin/node","<CHECKOUT>/node_modules/esbuild/bin/esbuild","src/index.ts","--bundle","--platform=node","--target=node24","--format=esm","--external:@taptime/backend-identity","--external:@taptime/core","--external:pg","--sourcemap","--outfile=dist/index.js"],"env":{"PATH":"/usr/bin:/bin:/usr/sbin:/sbin","TMPDIR":"<CACHE>/tmp","NO_COLOR":"1","ESBUILD_BINARY_PATH":"<CHECKOUT>/node_modules/@esbuild/darwin-arm64/bin/esbuild"},"allowed_output_roots":["<CHECKOUT>/apps/backend-read-model/dist"],"allowed_output_policy":"exact esbuild outfile/outdir products and maps declared by argv only","required_exit":0,"required_receipt_fields":["array_index","canonical_cwd","argv","env","exit_code"]}],"PREREQ_BUILD_BACKEND_LIFECYCLE":[{"cwd":"<CHECKOUT>/apps/backend-lifecycle","argv":["/Users/timbartz/.nvm/versions/node/v24.17.0/bin/node","<CHECKOUT>/node_modules/typescript/bin/tsc","-p","tsconfig.build.json","--emitDeclarationOnly"],"env":{"PATH":"/usr/bin:/bin:/usr/sbin:/sbin","TMPDIR":"<CACHE>/tmp","NO_COLOR":"1"},"allowed_output_roots":["<CHECKOUT>/apps/backend-lifecycle/dist"],"allowed_output_policy":"tracked-source-derived TypeScript outputs declared by the selected tsconfig only","required_exit":0,"required_receipt_fields":["array_index","canonical_cwd","argv","env","exit_code"]},{"cwd":"<CHECKOUT>/apps/backend-lifecycle","argv":["/Users/timbartz/.nvm/versions/node/v24.17.0/bin/node","<CHECKOUT>/node_modules/esbuild/bin/esbuild","src/index.ts","--bundle","--platform=node","--target=node24","--format=esm","--external:@taptime/backend-identity","--external:@taptime/backend-schema","--external:@taptime/core","--external:pg","--sourcemap","--outfile=dist/index.js"],"env":{"PATH":"/usr/bin:/bin:/usr/sbin:/sbin","TMPDIR":"<CACHE>/tmp","NO_COLOR":"1","ESBUILD_BINARY_PATH":"<CHECKOUT>/node_modules/@esbuild/darwin-arm64/bin/esbuild"},"allowed_output_roots":["<CHECKOUT>/apps/backend-lifecycle/dist"],"allowed_output_policy":"exact esbuild outfile/outdir products and maps declared by argv only","required_exit":0,"required_receipt_fields":["array_index","canonical_cwd","argv","env","exit_code"]}],"PREREQ_BUILD_BACKEND_ADMINISTRATION":[{"cwd":"<CHECKOUT>/apps/backend-administration","argv":["/Users/timbartz/.nvm/versions/node/v24.17.0/bin/node","<CHECKOUT>/node_modules/typescript/bin/tsc","-p","tsconfig.build.json","--emitDeclarationOnly"],"env":{"PATH":"/usr/bin:/bin:/usr/sbin:/sbin","TMPDIR":"<CACHE>/tmp","NO_COLOR":"1"},"allowed_output_roots":["<CHECKOUT>/apps/backend-administration/dist"],"allowed_output_policy":"tracked-source-derived TypeScript outputs declared by the selected tsconfig only","required_exit":0,"required_receipt_fields":["array_index","canonical_cwd","argv","env","exit_code"]},{"cwd":"<CHECKOUT>/apps/backend-administration","argv":["/Users/timbartz/.nvm/versions/node/v24.17.0/bin/node","<CHECKOUT>/node_modules/esbuild/bin/esbuild","src/index.ts","--bundle","--platform=node","--target=node24","--format=esm","--external:@taptime/administration-contract","--external:@taptime/backend-identity","--external:@taptime/core","--external:pg","--sourcemap","--outfile=dist/index.js"],"env":{"PATH":"/usr/bin:/bin:/usr/sbin:/sbin","TMPDIR":"<CACHE>/tmp","NO_COLOR":"1","ESBUILD_BINARY_PATH":"<CHECKOUT>/node_modules/@esbuild/darwin-arm64/bin/esbuild"},"allowed_output_roots":["<CHECKOUT>/apps/backend-administration/dist"],"allowed_output_policy":"exact esbuild outfile/outdir products and maps declared by argv only","required_exit":0,"required_receipt_fields":["array_index","canonical_cwd","argv","env","exit_code"]}],"PREREQ_BUILD_BACKEND_TIME_EXPORT":[{"cwd":"<CHECKOUT>/apps/backend-time-export","argv":["/Users/timbartz/.nvm/versions/node/v24.17.0/bin/node","<CHECKOUT>/node_modules/typescript/bin/tsc","-p","tsconfig.build.json","--emitDeclarationOnly"],"env":{"PATH":"/usr/bin:/bin:/usr/sbin:/sbin","TMPDIR":"<CACHE>/tmp","NO_COLOR":"1"},"allowed_output_roots":["<CHECKOUT>/apps/backend-time-export/dist"],"allowed_output_policy":"tracked-source-derived TypeScript outputs declared by the selected tsconfig only","required_exit":0,"required_receipt_fields":["array_index","canonical_cwd","argv","env","exit_code"]},{"cwd":"<CHECKOUT>/apps/backend-time-export","argv":["/Users/timbartz/.nvm/versions/node/v24.17.0/bin/node","<CHECKOUT>/node_modules/esbuild/bin/esbuild","src/index.ts","--bundle","--platform=node","--target=node24","--format=esm","--external:@taptime/backend-identity","--external:@taptime/time-entry-export-contract","--external:pg","--sourcemap","--outfile=dist/index.js"],"env":{"PATH":"/usr/bin:/bin:/usr/sbin:/sbin","TMPDIR":"<CACHE>/tmp","NO_COLOR":"1","ESBUILD_BINARY_PATH":"<CHECKOUT>/node_modules/@esbuild/darwin-arm64/bin/esbuild"},"allowed_output_roots":["<CHECKOUT>/apps/backend-time-export/dist"],"allowed_output_policy":"exact esbuild outfile/outdir products and maps declared by argv only","required_exit":0,"required_receipt_fields":["array_index","canonical_cwd","argv","env","exit_code"]}],"PREREQ_BUILD_BACKEND_OFFLINE_SYNC":[{"cwd":"<CHECKOUT>/apps/backend-offline-sync","argv":["/Users/timbartz/.nvm/versions/node/v24.17.0/bin/node","<CHECKOUT>/node_modules/typescript/bin/tsc","-p","tsconfig.build.json","--emitDeclarationOnly"],"env":{"PATH":"/usr/bin:/bin:/usr/sbin:/sbin","TMPDIR":"<CACHE>/tmp","NO_COLOR":"1"},"allowed_output_roots":["<CHECKOUT>/apps/backend-offline-sync/dist"],"allowed_output_policy":"tracked-source-derived TypeScript outputs declared by the selected tsconfig only","required_exit":0,"required_receipt_fields":["array_index","canonical_cwd","argv","env","exit_code"]},{"cwd":"<CHECKOUT>/apps/backend-offline-sync","argv":["/Users/timbartz/.nvm/versions/node/v24.17.0/bin/node","<CHECKOUT>/node_modules/esbuild/bin/esbuild","src/index.ts","--bundle","--platform=node","--target=node24","--format=esm","--external:@taptime/backend-identity","--external:@taptime/backend-schema","--external:@taptime/core","--external:@taptime/offline-sync-contract","--external:@taptime/time-review-contract","--external:pg","--sourcemap","--outfile=dist/index.js"],"env":{"PATH":"/usr/bin:/bin:/usr/sbin:/sbin","TMPDIR":"<CACHE>/tmp","NO_COLOR":"1","ESBUILD_BINARY_PATH":"<CHECKOUT>/node_modules/@esbuild/darwin-arm64/bin/esbuild"},"allowed_output_roots":["<CHECKOUT>/apps/backend-offline-sync/dist"],"allowed_output_policy":"exact esbuild outfile/outdir products and maps declared by argv only","required_exit":0,"required_receipt_fields":["array_index","canonical_cwd","argv","env","exit_code"]}],"PREREQ_BUILD_BACKEND_TIME_REVIEW":[{"cwd":"<CHECKOUT>/apps/backend-time-review","argv":["/Users/timbartz/.nvm/versions/node/v24.17.0/bin/node","<CHECKOUT>/node_modules/typescript/bin/tsc","-p","tsconfig.build.json","--emitDeclarationOnly"],"env":{"PATH":"/usr/bin:/bin:/usr/sbin:/sbin","TMPDIR":"<CACHE>/tmp","NO_COLOR":"1"},"allowed_output_roots":["<CHECKOUT>/apps/backend-time-review/dist"],"allowed_output_policy":"tracked-source-derived TypeScript outputs declared by the selected tsconfig only","required_exit":0,"required_receipt_fields":["array_index","canonical_cwd","argv","env","exit_code"]},{"cwd":"<CHECKOUT>/apps/backend-time-review","argv":["/Users/timbartz/.nvm/versions/node/v24.17.0/bin/node","<CHECKOUT>/node_modules/esbuild/bin/esbuild","src/index.ts","--bundle","--platform=node","--target=node24","--format=esm","--external:pg","--external:jose","--sourcemap","--outfile=dist/index.js"],"env":{"PATH":"/usr/bin:/bin:/usr/sbin:/sbin","TMPDIR":"<CACHE>/tmp","NO_COLOR":"1","ESBUILD_BINARY_PATH":"<CHECKOUT>/node_modules/@esbuild/darwin-arm64/bin/esbuild"},"allowed_output_roots":["<CHECKOUT>/apps/backend-time-review/dist"],"allowed_output_policy":"exact esbuild outfile/outdir products and maps declared by argv only","required_exit":0,"required_receipt_fields":["array_index","canonical_cwd","argv","env","exit_code"]}],"PREREQ_BUILD_BACKEND_API":[{"cwd":"<CHECKOUT>/apps/backend-api","argv":["/Users/timbartz/.nvm/versions/node/v24.17.0/bin/node","<CHECKOUT>/node_modules/typescript/bin/tsc","-p","tsconfig.build.json","--emitDeclarationOnly"],"env":{"PATH":"/usr/bin:/bin:/usr/sbin:/sbin","TMPDIR":"<CACHE>/tmp","NO_COLOR":"1"},"allowed_output_roots":["<CHECKOUT>/apps/backend-api/dist"],"allowed_output_policy":"tracked-source-derived TypeScript outputs declared by the selected tsconfig only","required_exit":0,"required_receipt_fields":["array_index","canonical_cwd","argv","env","exit_code"]},{"cwd":"<CHECKOUT>/apps/backend-api","argv":["/Users/timbartz/.nvm/versions/node/v24.17.0/bin/node","<CHECKOUT>/node_modules/esbuild/bin/esbuild","src/index.ts","src/main.ts","--bundle","--platform=node","--target=node24","--format=esm","--external:@taptime/backend-administration","--external:@taptime/backend-identity","--external:@taptime/backend-lifecycle","--external:@taptime/backend-mobile-work","--external:@taptime/backend-offline-sync","--external:@taptime/backend-read-model","--external:@taptime/backend-time-export","--external:@taptime/backend-time-review","--external:@taptime/core","--external:@taptime/mobile-work-contract","--external:@taptime/offline-sync-contract","--external:@taptime/time-entry-export-contract","--external:@taptime/time-review-contract","--external:pg","--sourcemap","--outdir=dist"],"env":{"PATH":"/usr/bin:/bin:/usr/sbin:/sbin","TMPDIR":"<CACHE>/tmp","NO_COLOR":"1","ESBUILD_BINARY_PATH":"<CHECKOUT>/node_modules/@esbuild/darwin-arm64/bin/esbuild"},"allowed_output_roots":["<CHECKOUT>/apps/backend-api/dist"],"allowed_output_policy":"exact esbuild outfile/outdir products and maps declared by argv only","required_exit":0,"required_receipt_fields":["array_index","canonical_cwd","argv","env","exit_code"]}],"MOBILE_FOCUS_TEST":[{"cwd":"<CHECKOUT>/apps/mobile","argv":["/Users/timbartz/.nvm/versions/node/v24.17.0/bin/node","<CHECKOUT>/node_modules/vitest/vitest.mjs","run","tests/runtime/da5V5AndroidDevice.test.ts"],"env":{"PATH":"/usr/bin:/bin:/usr/sbin:/sbin","TMPDIR":"<CACHE>/tmp","NO_COLOR":"1"},"allowed_output_roots":["<CHECKOUT>/node_modules"],"allowed_output_policy":"lock-backed tool cache only; no watch mode","required_exit":0,"required_receipt_fields":["array_index","canonical_cwd","argv","env","exit_code"]}],"SYNTHETIC_FOCUS_TEST":[{"cwd":"<CHECKOUT>/apps/synthetic-android-e2e","argv":["/Users/timbartz/.nvm/versions/node/v24.17.0/bin/node","<CHECKOUT>/node_modules/vitest/vitest.mjs","run","tests/Da5V5AdbController.test.ts"],"env":{"PATH":"/usr/bin:/bin:/usr/sbin:/sbin","TMPDIR":"<CACHE>/tmp","NO_COLOR":"1"},"allowed_output_roots":["<CHECKOUT>/node_modules"],"allowed_output_policy":"lock-backed tool cache only; no watch mode","required_exit":0,"required_receipt_fields":["array_index","canonical_cwd","argv","env","exit_code"]}],"MOBILE_TYPECHECK":[{"cwd":"<CHECKOUT>/apps/mobile","argv":["/Users/timbartz/.nvm/versions/node/v24.17.0/bin/node","<CHECKOUT>/node_modules/typescript/bin/tsc","--noEmit"],"env":{"PATH":"/usr/bin:/bin:/usr/sbin:/sbin","TMPDIR":"<CACHE>/tmp","NO_COLOR":"1"},"allowed_output_roots":[],"allowed_output_policy":"none","required_exit":0,"required_receipt_fields":["array_index","canonical_cwd","argv","env","exit_code"]},{"cwd":"<CHECKOUT>/apps/mobile","argv":["/Users/timbartz/.nvm/versions/node/v24.17.0/bin/node","<CHECKOUT>/node_modules/typescript/bin/tsc","-p","tsconfig.json","--noEmit","--listFilesOnly"],"env":{"PATH":"/usr/bin:/bin:/usr/sbin:/sbin","TMPDIR":"<CACHE>/tmp","NO_COLOR":"1"},"allowed_output_roots":[],"allowed_output_policy":"none","required_exit":0,"required_receipt_fields":["array_index","canonical_cwd","argv","env","exit_code"]}],"SYNTHETIC_TYPECHECK":[{"cwd":"<CHECKOUT>/apps/synthetic-android-e2e","argv":["/Users/timbartz/.nvm/versions/node/v24.17.0/bin/node","<CHECKOUT>/node_modules/typescript/bin/tsc","-p","tsconfig.json","--noEmit"],"env":{"PATH":"/usr/bin:/bin:/usr/sbin:/sbin","TMPDIR":"<CACHE>/tmp","NO_COLOR":"1"},"allowed_output_roots":[],"allowed_output_policy":"none","required_exit":0,"required_receipt_fields":["array_index","canonical_cwd","argv","env","exit_code"]},{"cwd":"<CHECKOUT>/apps/synthetic-android-e2e","argv":["/Users/timbartz/.nvm/versions/node/v24.17.0/bin/node","<CHECKOUT>/node_modules/typescript/bin/tsc","-p","tsconfig.json","--noEmit","--listFilesOnly"],"env":{"PATH":"/usr/bin:/bin:/usr/sbin:/sbin","TMPDIR":"<CACHE>/tmp","NO_COLOR":"1"},"allowed_output_roots":[],"allowed_output_policy":"none","required_exit":0,"required_receipt_fields":["array_index","canonical_cwd","argv","env","exit_code"]}],"V2_SYNTHETIC_TEST":[{"cwd":"<CHECKOUT>/apps/synthetic-android-e2e","argv":["/Users/timbartz/.nvm/versions/node/v24.17.0/bin/node","<CHECKOUT>/node_modules/vitest/vitest.mjs","run"],"env":{"PATH":"/usr/bin:/bin:/usr/sbin:/sbin","TMPDIR":"<CACHE>/tmp","NO_COLOR":"1"},"allowed_output_roots":["<CHECKOUT>/node_modules"],"allowed_output_policy":"lock-backed tool cache only; no watch mode","required_exit":0,"required_receipt_fields":["array_index","canonical_cwd","argv","env","exit_code"]}],"V2_SYNTHETIC_BUILD":[{"cwd":"<CHECKOUT>/apps/synthetic-android-e2e","argv":["/Users/timbartz/.nvm/versions/node/v24.17.0/bin/node","<CHECKOUT>/node_modules/typescript/bin/tsc","-p","tsconfig.build.json","--emitDeclarationOnly"],"env":{"PATH":"/usr/bin:/bin:/usr/sbin:/sbin","TMPDIR":"<CACHE>/tmp","NO_COLOR":"1"},"allowed_output_roots":["<CHECKOUT>/apps/synthetic-android-e2e/dist"],"allowed_output_policy":"tracked-source-derived TypeScript outputs declared by the selected tsconfig only","required_exit":0,"required_receipt_fields":["array_index","canonical_cwd","argv","env","exit_code"]},{"cwd":"<CHECKOUT>/apps/synthetic-android-e2e","argv":["/Users/timbartz/.nvm/versions/node/v24.17.0/bin/node","<CHECKOUT>/node_modules/esbuild/bin/esbuild","src/index.ts","src/main.ts","src/gateCResponseDropMain.ts","src/gateCTransportRestoreMain.ts","src/da4V5Main.ts","src/da4V5ManifestMain.ts","src/da5V5Main.ts","--bundle","--platform=node","--target=node24","--format=esm","--alias:@taptime/backend-administration=../backend-administration/src/index.ts","--alias:@taptime/backend-api=../backend-api/src/index.ts","--alias:@taptime/backend-identity=../backend-identity/src/index.ts","--alias:@taptime/backend-lifecycle=../backend-lifecycle/src/index.ts","--alias:@taptime/backend-mobile-work=../backend-mobile-work/src/index.ts","--alias:@taptime/backend-offline-sync=../backend-offline-sync/src/index.ts","--alias:@taptime/backend-read-model=../backend-read-model/src/index.ts","--alias:@taptime/backend-schema=../backend-schema/src/index.ts","--alias:@taptime/backend-time-export=../backend-time-export/src/index.ts","--alias:@taptime/backend-time-review=../backend-time-review/src/index.ts","--alias:@taptime/administration-contract=../../packages/administration-contract/src/index.ts","--alias:@taptime/core=../../packages/core/src/index.ts","--alias:@taptime/mobile-work-contract=../../packages/mobile-work-contract/src/index.ts","--alias:@taptime/offline-sync-contract=../../packages/offline-sync-contract/src/index.ts","--alias:@taptime/time-entry-export-contract=../../packages/time-entry-export-contract/src/index.ts","--alias:@taptime/time-review-contract=../../packages/time-review-contract/src/index.ts","--external:jose","--external:pg","--sourcemap","--outdir=dist","--metafile=<CHECKOUT>/da5-v5-esbuild-metafile.json"],"env":{"PATH":"/usr/bin:/bin:/usr/sbin:/sbin","TMPDIR":"<CACHE>/tmp","NO_COLOR":"1","ESBUILD_BINARY_PATH":"<CHECKOUT>/node_modules/@esbuild/darwin-arm64/bin/esbuild"},"allowed_output_roots":["<CHECKOUT>/apps/synthetic-android-e2e/dist","<CHECKOUT>/da5-v5-esbuild-metafile.json"],"allowed_output_policy":"exact esbuild outfile/outdir products and maps declared by argv only","required_exit":0,"required_receipt_fields":["array_index","canonical_cwd","argv","env","exit_code"]}],"NODE_CHECK":[{"cwd":"<CHECKOUT>/apps/synthetic-android-e2e","argv":["/Users/timbartz/.nvm/versions/node/v24.17.0/bin/node","--check","<CHECKOUT>/apps/synthetic-android-e2e/dist/da5V5Main.js"],"env":{"PATH":"/usr/bin:/bin:/usr/sbin:/sbin","TMPDIR":"<CACHE>/tmp","NO_COLOR":"1"},"allowed_output_roots":[],"allowed_output_policy":"none","required_exit":0,"required_receipt_fields":["array_index","canonical_cwd","argv","env","exit_code"]}],"V0":[{"cwd":"<CHECKOUT>","argv":["/usr/bin/git","-C","<CHECKOUT>","rev-parse","HEAD^{commit}"],"env":{"PATH":"/usr/bin:/bin:/usr/sbin:/sbin","TMPDIR":"<CACHE>/tmp","NO_COLOR":"1"},"allowed_output_roots":[],"allowed_output_policy":"none","required_exit":0,"required_receipt_fields":["array_index","canonical_cwd","argv","env","exit_code"]},{"cwd":"<CHECKOUT>","argv":["/usr/bin/git","-C","<CHECKOUT>","rev-parse","HEAD^{tree}"],"env":{"PATH":"/usr/bin:/bin:/usr/sbin:/sbin","TMPDIR":"<CACHE>/tmp","NO_COLOR":"1"},"allowed_output_roots":[],"allowed_output_policy":"none","required_exit":0,"required_receipt_fields":["array_index","canonical_cwd","argv","env","exit_code"]},{"cwd":"<CHECKOUT>","argv":["/usr/bin/git","-C","<CHECKOUT>","status","--porcelain=v1","--untracked-files=all","--",".",":(exclude)research/**",":(exclude)app.json"],"env":{"PATH":"/usr/bin:/bin:/usr/sbin:/sbin","TMPDIR":"<CACHE>/tmp","NO_COLOR":"1"},"allowed_output_roots":[],"allowed_output_policy":"none","required_exit":0,"required_receipt_fields":["array_index","canonical_cwd","argv","env","exit_code"]},{"cwd":"<CHECKOUT>","argv":["/usr/bin/git","-C","<CHECKOUT>","diff","--check","--",".",":(exclude)research/**",":(exclude)app.json"],"env":{"PATH":"/usr/bin:/bin:/usr/sbin:/sbin","TMPDIR":"<CACHE>/tmp","NO_COLOR":"1"},"allowed_output_roots":[],"allowed_output_policy":"none","required_exit":0,"required_receipt_fields":["array_index","canonical_cwd","argv","env","exit_code"]}],"CLEANUP":[{"cwd":"/Users/timbartz/Dokumente/GitHub/taptime","argv":["/usr/bin/git","-C","/Users/timbartz/Dokumente/GitHub/taptime","worktree","remove","--force","<CHECKOUT>"],"env":{"PATH":"/usr/bin:/bin:/usr/sbin:/sbin","TMPDIR":"<CACHE>/tmp","NO_COLOR":"1"},"allowed_output_roots":["<CHECKOUT>","/Users/timbartz/Dokumente/GitHub/taptime/.git/worktrees/taptime-da5-harness-a035-attempt9-20260801-6d4e27b9"],"allowed_output_policy":"only after identity-bound realpath/device/inode validation of exact task worktree","required_exit":0,"required_receipt_fields":["array_index","canonical_cwd","argv","env","exit_code"]}],"POSTCLEANUP":[{"cwd":"/Users/timbartz/Dokumente/GitHub/taptime","argv":["/usr/bin/git","-C","/Users/timbartz/Dokumente/GitHub/taptime","worktree","list","--porcelain"],"env":{"PATH":"/usr/bin:/bin:/usr/sbin:/sbin","TMPDIR":"<CACHE>/tmp","NO_COLOR":"1"},"allowed_output_roots":[],"allowed_output_policy":"none","required_exit":0,"required_receipt_fields":["array_index","canonical_cwd","argv","env","exit_code"]}]},"in_process_only_gates":["EVIDENCE_INIT","DEPENDENCY_BINDINGS","EXTERNAL_LOG_CHECK","LIFECYCLE_BINDING","GENERATED_OUTPUT_CLOSURE","V2_SYNTHETIC_TYPECHECK","V2_MOBILE_RUNTIME_TEST","V2_MOBILE_TYPECHECK","BUILD","METAFILE_RUNTIME","TALKBACK_CLOSURE","ARTIFACT_PRESERVE","PRECLEANUP_SNAPSHOT","FINALIZE"],"enforcement":"orchestrator executes only these argv arrays directly without shell and rejects every requested process launch outside this map before spawn; canonical cwd, exact argv/env, exit and ordered array index are recorded; lock-backed tool-internal workers are not separately runtime-traced"}
+```
+
+The command map translates the exact `a0359a8` package scripts without npm or shell indirection.
+Its 45-entry gate order is normative. Every gate receipt contains ordered `npm_invocations[]`
+and/or `process_invocations[]` exactly as mapped, or empty arrays for a named in-process/carried
+gate; a scalar or aggregate cannot replace an array element. `V2_SYNTHETIC_TYPECHECK`,
+`V2_MOBILE_RUNTIME_TEST`, `V2_MOBILE_TYPECHECK` and `BUILD` remain carried gates with no child.
+
+Allowed mutation is closed to: receipt/snapshot/manifest creation under `<EVIDENCE>`; exact config
+files under `<CONFIG>`; npm cache plus `<CACHE>/tmp`; the always-empty `<LOGS>` directory; initial
+tracked-source materialization and exact worktree registration during `WORKTREE_ADD`; then only
+`<CHECKOUT>/node_modules`, compiler-declared tracked-source-derived declaration/JS/map outputs
+under the mapped `dist` roots, lock-backed tool cache beneath `node_modules`, and the exact
+Metafile. TSC output paths must be the deterministic selected-tsconfig projection of tracked
+included sources; esbuild outputs must equal the exact `outfile`/`outdir` argv products and maps.
+The artifact root may first be created only by green `ARTIFACT_PRESERVE` for the exact bundle,
+source map and manifest. Everything else, including tracked source/lock/config, is immutable.
+
+Before cleanup, every removable root and worktree registration must still match its bound
+canonical realpath, device and inode. Cleanup may address only those exact identity-bound task
+roots; mismatch stops deletion and leaves residue reported. No external npm log, unrelated
+worktree or repository path may be opened, adopted, moved or deleted.
+
+All fresh roots and bound files must be absent before evidence initialization; the config,
+checkout, cache, logs, generated output and worktree registration must be removed during cleanup.
+Only a disclosure-safe mode-`0444` receipt/snapshot/evidence manifest and, after all gates pass,
+the exact read-only artifact tuple may remain. This candidate performs no external mutation and
+does not authorize Attempt-9 execution.
+
 ## 2. Confirmed finding `DA5-V5-HARNESS-ARTIFACT-01`
 
 Repository truth on the exact preparation baseline is:
@@ -885,10 +1101,11 @@ GitHub Actions run `30638926835`, attempt 1, is correctly bound to `a0359a8` and
 successfully with 12/12 jobs. It proves the tracked source candidate, not the later ignored local
 bundle. Earlier ADO references to 11/11 are corrected by this R0 synchronization.
 
-## 3. Exact proposed later R3 scope
+## 3. Exact Attempt-8 R3 scope — historical, authority consumed
 
-Only after this candidate receives independent `APPROVED` with zero open P0–P3 may the
-`AGENTS.md` standing rule activate the following exact technical scope:
+Independent review Round 3 returned `APPROVED` with zero open P0–P3 and activated the following
+exact technical scope for the single Attempt-8 execution. The authority is now consumed; this
+historical scope cannot authorize a retry, resume or Attempt 9:
 
 1. Use a fresh task-owned clean checkout of exact source `a0359a8` / tree `102c913` or a later
    accepted ADO-only descendant proven byte-identical for all executable inputs.
@@ -915,7 +1132,7 @@ The current input hashes to reverify before the later build are:
 | `apps/synthetic-android-e2e/src/Da5V5AdbController.ts` | `f20c2c36e324aa6c2031be0699e5b5b4caac63c0268c1b7c2d77d5e00138b80b` |
 | `apps/mobile/scripts/da5V5AndroidDevice.mjs` | `5b34cfdfb5426b7a16b28dce5108767286f83e2f253b89f0f19c4c3098e850d1` |
 
-## 4. Required source, bundle, dependency and Node binding
+## 4. Attempt-8 required source, bundle, dependency and Node binding — historical
 
 The later artifact manifest and verification record must bind all of the following in one closure:
 
@@ -935,7 +1152,7 @@ The later artifact manifest and verification record must bind all of the followi
 
 Any mismatch, missing input, additional executable input or unbound tool fails closed.
 
-## 5. Minimal adaptive verification for the later closure
+## 5. Attempt-8 adaptive verification contract — historical
 
 Because the bundle controls a release-critical Human gate, the later closure is R3 even without a
 Product-source change.
@@ -974,7 +1191,7 @@ all Product Human V5 fields `UNBOUND — DO NOT START` until a separate Human au
 
 ## 7. Gates that remain separate
 
-The required sequence is:
+The historical expected sequence was:
 
 ```text
 ADO-only candidate V0
@@ -987,11 +1204,14 @@ ADO-only candidate V0
 
 No arrow authorizes a later arrow. Human, installation, ADB, device, Tag, hardware, Product V5,
 production, production-data, deployment and distribution gates remain separate.
+Attempt 8 stopped before the artifact closure completed; no later arrow was reached and no Attempt
+9 is authorized.
 
 ## 8. Current R0 Change-Impact Record
 
-- Baseline: `ac568be39d455951488dbeb4a49ae23018fa111b` / tree
-  `655632c883643819f1bdc44b08979bd83e03f718`.
+- Baseline: current HEAD `90b90ba0e9c87fb8ebf22145399630ea4dfc46ae` / tree
+  `02c657dbeccf2da6866f66bd25a7c3b16182587f` plus this exact six-file ADO delta. The historical
+  Attempt-8 execution binding is recorded separately above and is not reused as Attempt-9 state.
 - Exact changed-file scope: `ADO/README.md`, `ADO/00_Core/Project_Status.md`,
   `ADO/00_Core/Risk_Register.md`,
   `ADO/02_Development/Development_Assignment_05_V5_Harness_Artifact_Closure_Authorization.md`,
@@ -1005,11 +1225,14 @@ production, production-data, deployment and distribution gates remain separate.
   build/V1/V2 results are unverified; only receipt binding, Exit-2 failure, cleanup/absence and no
   artifact are verified.
 - Product tests/builds/typechecks: Attempt-7 aggregate values remain Development-reported/
-  unverified because required per-command IDs are missing. No standalone `NODE_CHECK` gate is
-  claimed. Attempt 8 is not executed; no V3/V4/V5 ran.
+  unverified because required per-command IDs are missing. Attempt 8 stopped at record 8
+  `EXTERNAL_LOG_CHECK`; npm exit/count evidence exists, but records 4–7 do not prove the normative
+  per-command external-log isolation and the cumulative drift cannot be attributed. Records 9–41
+  prove the lifecycle/V0/build/test/Typecheck/Node/Metafile/TalkBack/artifact gates omitted. No
+  V3/V4/V5 ran.
 - Carried evidence: source/CI evidence remains bound to `a0359a8`; no Product correctness or local
   bundle validity is inferred from it.
-- Next gate: independent read-only review of this six-file ADO correction and exact Attempt-8
-  candidate. Attempt 8 remains `DO NOT EXECUTE` before `APPROVED` with zero open P0–P3 and a later
-  exact authority. Hardware/Human/Product V5 remains separate and unauthorized. No commit, push or
+- Next gate: independent read-only re-review of these two P2 corrections and exact Attempt-9
+  ADO-only candidate. Attempt 8 is consumed; Attempt 9 remains `REVIEW PENDING / NOT EXECUTED /
+  DO NOT EXECUTE`. Hardware/Human/Product V5 remains separate and unauthorized. No commit, push or
   CI occurred.
