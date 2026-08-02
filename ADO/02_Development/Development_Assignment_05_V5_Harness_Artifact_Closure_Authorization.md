@@ -1,6 +1,6 @@
 # Development Assignment 5 — V5 Harness Artifact Closure Architecture and Authorization
 
-- Status: **ATTEMPT-12 CONSUMED FAIL-CLOSED; ATTEMPT-13 ROUND-5 `APPROVED`, PUBLISHED, LOCAL AVS R3 GREEN; ORIGINAL V4 `30745607263` FAILED CLOSED 11/12 WITHOUT RETRY; `DA5-V5-CI-TIMEWINDOW-01` CORRECTION PUBLISHED/REMOTE-BOUND AS `4dad93bdbc3ccd3e09e2bcfba3680130a90e2799` / TREE `d44bc534c16866dbc16cd889098e6ca33d75d1f5`; REPLACEMENT V4 `30748749632` PASSED 12/12; FINAL INDEPENDENT EXACT-HEAD REVIEW `APPROVED`, ZERO OPEN P0–P3; ATTEMPT-13 NOT EXECUTED / DO NOT EXECUTE; PRODUCT HUMAN V5 DO NOT START**
+- Status: **ATTEMPT-13 EXECUTION-BINDING/SOURCE-ANCHOR CORRECTION IS AN INDEPENDENTLY REVIEWED PUBLICATION CANDIDATE; PREPUBLICATION EXACT-DELTA/ARTIFACT REVIEW ROUND 1 RETURNED ONE P3 FOR STALE HISTORIC LABELS AND ROUND 2 CLOSURE RETURNED `APPROVED` WITH ZERO OPEN P0–P3; THIS EMBEDDED DOCUMENT CLAIMS NO EXTERNAL V4 OR FINAL-REVIEW EVIDENCE; ATTEMPT-12 CONSUMED FAIL-CLOSED; HISTORICAL ATTEMPT-13 ROUND-5 AND TIME-WINDOW CORRECTION CLOSURES PRESERVED; ATTEMPT-13 NOT EXECUTED / DO NOT EXECUTE; PRODUCT HUMAN V5 DO NOT START**
 - Date: 2026-08-02
 - Exact preparation baseline commit: `db1fc8891d03753b2266957d45137e1817e46156`
 - Exact preparation baseline tree: `4fa39b6261e5f856d8f982bedee1ec843b371ed6`
@@ -11,8 +11,11 @@
 - Published `DA5-V5-CI-TIMEWINDOW-01` correction parent: `387421b3caeed988b159c93ff217fb78a0bee60c`
 - Published Attempt-10 authorization commit: `a08e2e89a2aa3962b1bc4ddeb0f77e480f1f4f85`
 - Published Attempt-10 authorization tree: `dbec8fb277b1a915153c765cad4c5a060e0626b4`
-- Corrected executable-source commit: `a0359a87fd1738c8493929a1661cbbc7adb3c07c`
-- Corrected executable-source tree: `102c913e264bd0ccce1d085db1c50bd407f7d4a4`
+- Corrected Attempt-13 execution-source commit: `4dad93bdbc3ccd3e09e2bcfba3680130a90e2799`
+- Corrected Attempt-13 execution-source tree: `d44bc534c16866dbc16cd889098e6ca33d75d1f5`
+- Corrected Synthetic test blob: `183b82674ed92e51375fad41e9efb034976ff5e3`
+- Execution-publication direct-parent commit: `2a5f32b2d29d03f26e53eee07dfe3d0658192b49`
+- Execution-publication direct-parent tree: `29a8485f2a19e20ae0c483e701b4a0e36a1ad4a7`
 - Owner: Technical Lead
 - Decision authority: Human Architect
 - Current change risk: AVS-001 **R3**
@@ -51,7 +54,48 @@
 - `DA5-V5-CI-TIMEWINDOW-01`: **confirmed fixed-window test defect; deterministic record-bound/window-bound correction locally verified, published and remote-bound as `4dad93bdbc3ccd3e09e2bcfba3680130a90e2799` / tree `d44bc534c16866dbc16cd889098e6ca33d75d1f5`; unchanged failed-head retry forbidden**
 - `DA5-V5-CI-TIMEWINDOW-01` replacement V4: **exactly one run `30748749632`, attempt 1, exact head, passed 12/12; Synthetic job `91498873248` passed 13/13 files, 283 passed, 14 platform-dependent skips, Typecheck/Build/Cleanup green**
 - `DA5-V5-CI-TIMEWINDOW-01` final review: **independent Exact-Head review `APPROVED`; zero open P0–P3**
+- Attempt-13 execution-binding/source-anchor correction: **independently reviewed publication candidate; prepublication exact-delta/artifact Round 1 returned one P3 for stale historic labels and Round 2 closure returned `APPROVED` with zero open P0–P3; external V4 and final-review evidence are not asserted by this embedded document**
 - Attempt-13 execution: **NOT EXECUTED / DO NOT EXECUTE; this technical correction closure grants no run authority; separate exact Human run authorization remains mandatory**
+
+The independently reviewed superseding publication-candidate root is
+`/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-harness/attempt13-executor-4dad93bd-483fcf40-r6-execbind`,
+mode `0555`, with exactly two mode-`0444` entries: executor 376,105 bytes / SHA-256
+`810090e78b247820a2ffb24a97846d74c76768db22c2e3d5f77c68084c7e50b6` and manifest 2,648 bytes /
+SHA-256 `b60ecb41200c4cbc5010fba22af63ab919ee373ae0b6f80fa1cc5628a7778717`.
+Its manifest supersedes exactly the unchanged Round-5 root and both Round-5 entries. It binds four
+separate fail-closed domains:
+
+1. candidate `387421b3caeed988b159c93ff217fb78a0bee60c` / tree
+   `ace680660468e0374004869f205e6a1e0af0ac7f`, single parent
+   `db1fc8891d03753b2266957d45137e1817e46156` / tree
+   `4fa39b6261e5f856d8f982bedee1ec843b371ed6`, exactly six ADO paths and canonical git-probe
+   delta SHA-256 `301e74d813cff2648c0009a575df703ce886d21de8d23d18b8a8badb9a917024`;
+2. closure chain `4dad93bdbc3ccd3e09e2bcfba3680130a90e2799` /
+   `d44bc534c16866dbc16cd889098e6ca33d75d1f5` / parent `387421b3caeed988b159c93ff217fb78a0bee60c`,
+   then `2a5f32b2d29d03f26e53eee07dfe3d0658192b49` /
+   `29a8485f2a19e20ae0c483e701b4a0e36a1ad4a7` / parent
+   `4dad93bdbc3ccd3e09e2bcfba3680130a90e2799`;
+3. corrected source `4dad93bdbc3ccd3e09e2bcfba3680130a90e2799` / tree
+   `d44bc534c16866dbc16cd889098e6ca33d75d1f5`, exact Synthetic test blob
+   `183b82674ed92e51375fad41e9efb034976ff5e3`, 94,403 bytes, file SHA-256
+   `f47409fa4135e45c04ac63b00dc02cd636375cd7728b6a5d1d9b67f6ad6cc198`; and
+4. an execution-publication commit with the single direct parent
+   `2a5f32b2d29d03f26e53eee07dfe3d0658192b49` / tree
+   `29a8485f2a19e20ae0c483e701b4a0e36a1ad4a7`, exact caller-bound commit/tree/canonical delta,
+   HEAD and local `origin/main` equality, exact six-path scope and clean scoped ADO worktree.
+
+The source command map remains the byte-exact Attempt-12 map with SHA-256
+`5bc7e519d4a942f4ceed7e5a4b3a5e6dc5ecbf6d8b7ac8648616d0e0a2291a03`; runtime adaptation
+changes only the already authorized Attempt-13 paths/tokens/schema and the corrected source
+commit/tree/test identity. Any anchor, parent, tree, scope, digest, remote or scoped-worktree
+mismatch stops before `EVIDENCE_INIT` and before any Attempt path. The execution-publication
+commit, tree and canonical delta are intentionally not embedded or self-referentially asserted by
+this document or the manifest; a caller must bind them exactly for executor verification at an
+authorized execution. The normative gate order is the approved prepublication exact-delta/artifact
+review, focused exact publication, one local AVS R3 verification of the publication, one V4
+exact-head CI, final independent exact-head/artifact review `APPROVED` with zero open P0–P3, and
+only then a separate exact Human authorization for one Attempt-13 run. This embedded document
+makes no claim that the external V4 or final-review evidence occurred.
 
 The V4 failure changes no Product, Business, lifecycle, correction or export semantics. The DA3
 test's fixed `[2026-07-01T00:00:00.000Z, 2026-08-01T00:00:00.000Z)` window excluded the
@@ -2024,7 +2068,7 @@ Its exact directory entries are:
 | `attempt13-executor.mjs` | 337,952 | `0444` | `d0dc66f61e802e2a67fdd561734eb06b7053a7cceedd0afdbb1334d60f0f864d` |
 | `attempt13-executor-manifest.json` | 1,099 | `0444` | `e5760ade7836bc44453a7e0941e0a31a9094fd8b1514d213748fd998f91f7dee` |
 
-The current prepublished read-only Round-5 executor root is
+The historical read-only Round-5 executor root, now superseded unchanged, is
 `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-harness/attempt13-executor-a0359a87-483fcf40-r5-plcym5sw`.
 Its exact directory entries are:
 
@@ -2033,7 +2077,7 @@ Its exact directory entries are:
 | `attempt13-executor.mjs` | 352,258 | `0444` | `f5cad177fc8efaefcb0d8d1b52f626c809be9cb3f46e9446a62cd6b60a74b4ec` |
 | `attempt13-executor-manifest.json` | 1,111 | `0444` | `8d6416d99717efe8929d3f6dcb639fa10a9dd8ab14dd452eabc6d23ca9d23fab` |
 
-All three directory modes are `0555`; none has a third entry or mutable helper. The current
+All three directory modes are `0555`; none has a third entry or mutable helper. The Round-5
 manifest binds the superseded Round-4 root plus both Round-4 entry digests; that manifest in turn
 binds Round 3. Before any future
 `EVIDENCE_INIT`, the executor self-attests its own exact path, realpath, regular-file type, mode,
@@ -2247,9 +2291,10 @@ pending. The prior V3 claim remains revoked; V3 is `PENDING` until the Technical
 repeats the final exact checks. Product source is unchanged. No Product or Attempt execution
 occurred and no Product correctness is proved.
 
-No Attempt-13 run is currently authorized. The exact mandatory order is: current Round-5 exact-delta and
-artifact review `APPROVED` with zero open P0–P3; exact publication; exactly one local AVS R3
-verification of the published candidate; one V4 exact-head CI; final independent
+No Attempt-13 run is currently authorized. The exact mandatory order is: superseding
+execution-binding candidate exact-delta and artifact review `APPROVED` with zero open P0–P3;
+exact publication; exactly one local AVS R3 verification of the published execution-binding
+candidate; one new V4 exact-head CI; final independent
 exact-head/artifact review `APPROVED` with zero open P0–P3; and only then a separate exact Human
 authorization for one Attempt-13 run. The local R3 verification is not an Attempt execution. No
 earlier gate, standing rule or Technical-Lead action activates the run automatically. Until that

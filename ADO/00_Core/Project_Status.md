@@ -1,6 +1,44 @@
 # Project Status
 
-Current DA5 V5 Harness override: **ATTEMPT 12 CONSUMED FAIL-CLOSED; ATTEMPT 13 ROUND-5
+DA5 V5 execution-binding override: **THE SUPERSEDING READ-ONLY EXECUTOR IS AN INDEPENDENTLY
+REVIEWED PUBLICATION CANDIDATE AND GRANTS NO ATTEMPT AUTHORITY.** Independent prepublication
+exact-delta/artifact review Round 1 returned exactly one P3 for stale historic labels; Round 2
+closure returned `APPROVED` with zero open P0–P3.
+The immutable candidate remains `387421b3caeed988b159c93ff217fb78a0bee60c` / tree
+`ace680660468e0374004869f205e6a1e0af0ac7f`, direct parent
+`db1fc8891d03753b2266957d45137e1817e46156` / tree
+`4fa39b6261e5f856d8f982bedee1ec843b371ed6`, exact six-path canonical delta SHA-256
+`301e74d813cff2648c0009a575df703ce886d21de8d23d18b8a8badb9a917024`. The closure chain remains
+exactly `4dad93bdbc3ccd3e09e2bcfba3680130a90e2799` / tree
+`d44bc534c16866dbc16cd889098e6ca33d75d1f5` / parent
+`387421b3caeed988b159c93ff217fb78a0bee60c`, then
+`2a5f32b2d29d03f26e53eee07dfe3d0658192b49` / tree
+`29a8485f2a19e20ae0c483e701b4a0e36a1ad4a7` / parent
+`4dad93bdbc3ccd3e09e2bcfba3680130a90e2799`. Corrected execution source is
+the first closure commit/tree with Synthetic test blob `183b82674ed92e51375fad41e9efb034976ff5e3`
+and file SHA-256 `f47409fa4135e45c04ac63b00dc02cd636375cd7728b6a5d1d9b67f6ad6cc198`.
+
+The unchanged Round-5 root `attempt13-executor-a0359a87-483fcf40-r5-plcym5sw` is superseded by
+independently reviewed publication candidate `attempt13-executor-4dad93bd-483fcf40-r6-execbind`
+(executor 376,105 bytes,
+SHA-256 `810090e78b247820a2ffb24a97846d74c76768db22c2e3d5f77c68084c7e50b6`; manifest 2,648 bytes,
+SHA-256 `b60ecb41200c4cbc5010fba22af63ab919ee373ae0b6f80fa1cc5628a7778717`). It preserves command-map
+SHA-256 `5bc7e519d4a942f4ceed7e5a4b3a5e6dc5ecbf6d8b7ac8648616d0e0a2291a03` and requires a
+single-parent execution-publication commit directly after exact
+`2a5f32b2d29d03f26e53eee07dfe3d0658192b49` /
+`29a8485f2a19e20ae0c483e701b4a0e36a1ad4a7`, with
+HEAD, local `origin/main`, tree, exact six-path scope and canonical delta all matching. The
+execution-publication commit, tree and canonical delta are intentionally not embedded or
+self-referentially asserted by this document or the manifest; a caller must bind them exactly for
+executor verification at an authorized execution. The normative gate order is the approved
+prepublication exact-delta/artifact review, focused exact publication, one local AVS R3
+verification of the publication, one V4 exact-head CI, final independent exact-head/artifact
+review `APPROVED` with zero open P0–P3, and only then a separate exact Human authorization for one
+Attempt-13 run. This embedded document makes no claim that the external V4 or final-review evidence
+occurred. Attempt 13 remains **NOT EXECUTED / DO NOT EXECUTE**; Hardware and Human/Product V5 remain
+**DO NOT START**.
+
+Historical DA5 V5 CI-closure context: **ATTEMPT 12 CONSUMED FAIL-CLOSED; ATTEMPT 13 ROUND-5
 `APPROVED` WITH ZERO OPEN P0–P3 AND PUBLISHED AS
 `387421b3caeed988b159c93ff217fb78a0bee60c` / TREE
 `ace680660468e0374004869f205e6a1e0af0ac7f`; ONE AUTHORIZED LOCAL AVS R3 VERIFICATION GREEN;
@@ -1899,8 +1937,9 @@ previously stated 35/1/9 distribution was also corrected to 34/2/9. Attempt 12 h
 Attempt 13 is an AVS R3 pre-execution candidate on exact preparation baseline
 `db1fc8891d03753b2266957d45137e1817e46156` / tree
 `4fa39b6261e5f856d8f982bedee1ec843b371ed6`, with fresh token `483fcf40`. Its read-only external
-Round-3 and Round-4 executors remain immutable and are superseded by read-only root
-`attempt13-executor-a0359a87-483fcf40-r5-plcym5sw`. The current executor is exactly 352,258 bytes /
+Round-3 and Round-4 executors remain immutable and are superseded. The historical, superseded
+read-only Round-5 root `attempt13-executor-a0359a87-483fcf40-r5-plcym5sw` remains immutable.
+That Round-5 executor is exactly 352,258 bytes /
 SHA-256 `f5cad177fc8efaefcb0d8d1b52f626c809be9cb3f46e9446a62cd6b60a74b4ec`; its 1,111-byte manifest
 is SHA-256 `8d6416d99717efe8929d3f6dcb639fa10a9dd8ab14dd452eabc6d23ca9d23fab` and binds the superseded
 Round-4 root and both entry digests.
@@ -1948,9 +1987,11 @@ re-review remains pending. The prior V3 claim remains revoked; V3 is `PENDING` u
 Lead independently repeats the final exact checks. Product source is unchanged. No Product or
 Attempt execution occurred and no Product correctness is proved.
 
-The remaining order is mandatory: current Round-5 exact-delta/artifact review `APPROVED` with zero open
-P0–P3; exact publication; exactly one local AVS R3 verification of the published candidate; one
-V4 exact-head CI; final independent exact-head/artifact review `APPROVED` with zero open P0–P3;
+The normative gate order for the superseding execution-binding candidate is: independent
+prepublication exact-delta/artifact review `APPROVED` with zero open P0–P3; exact publication;
+exactly one local AVS R3 verification
+of the published execution-binding candidate; one new V4 exact-head CI; final independent
+exact-head/artifact review `APPROVED` with zero open P0–P3;
 then a separate exact Human authorization for an Attempt-13 run. The local R3 verification is not
 an Attempt-13 execution. No standing or automatic run authority exists. No Hardware, ADB,
 installation, Human/Product V5, production, production-data, deployment or distribution authority

@@ -5,7 +5,22 @@
 - Owner: Technical Lead
 - Approval authority for any run: Human Architect
 
-Current Harness override (2026-08-02): Attempt 12 is consumed fail-closed. Attempt-13 Round-5
+Current Harness execution-binding override: the unchanged Round-5 executor is superseded by local
+independently reviewed read-only publication candidate
+`attempt13-executor-4dad93bd-483fcf40-r6-execbind`. Independent prepublication
+exact-delta/artifact review Round 1 returned exactly one P3 for stale historic labels; Round 2
+closure returned `APPROVED` with zero open P0–P3. It binds
+the immutable Round-5 candidate, exact two-commit closure chain, corrected
+`4dad93bdbc3ccd3e09e2bcfba3680130a90e2799` source and
+Synthetic blob `183b82674ed92e51375fad41e9efb034976ff5e3`, and a single-parent execution publication
+directly after `2a5f32b2d29d03f26e53eee07dfe3d0658192b49` / tree
+`29a8485f2a19e20ae0c483e701b4a0e36a1ad4a7`. The publication commit/tree/delta are intentionally
+not embedded or self-referentially asserted; they must be caller-bound and exactly verified at an
+authorized execution. External V4 and final-review evidence are not asserted by this embedded
+document. Attempt 13 remains **NOT EXECUTED / DO NOT EXECUTE**;
+no run, Hardware or Human/Product V5 authority exists.
+
+Historical Harness CI-closure context (2026-08-02): Attempt 12 is consumed fail-closed. Attempt-13 Round-5
 review returned `APPROVED` with zero open P0–P3; the candidate was published as
 `387421b3caeed988b159c93ff217fb78a0bee60c` / tree
 `ace680660468e0374004869f205e6a1e0af0ac7f`, and its one authorized local AVS R3 verification
@@ -1330,7 +1345,57 @@ reporter-contract/cleanup-failed and recompute the canonical signature before re
 Before normalization, signature is always null. A missing, null or stale signature in a purported
 normalized tuple is invalid evidence and fails closed.
 
-## Attempt-13 candidate operating procedure — do not execute before approval/publication
+## Attempt-13 superseding execution-binding candidate — do not execute
+
+The independently reviewed read-only publication-candidate root is
+`/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-harness/attempt13-executor-4dad93bd-483fcf40-r6-execbind`,
+mode `0555`, with exactly two mode-`0444` entries: executor 376,105 bytes / SHA-256
+`810090e78b247820a2ffb24a97846d74c76768db22c2e3d5f77c68084c7e50b6` and manifest 2,648 bytes /
+SHA-256 `b60ecb41200c4cbc5010fba22af63ab919ee373ae0b6f80fa1cc5628a7778717`. Candidate review may use
+only these non-mutating artifact commands:
+
+```text
+/Users/timbartz/.nvm/versions/node/v24.17.0/bin/node --check /Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-harness/attempt13-executor-4dad93bd-483fcf40-r6-execbind/attempt13-executor.mjs
+/Users/timbartz/.nvm/versions/node/v24.17.0/bin/node /Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-harness/attempt13-executor-4dad93bd-483fcf40-r6-execbind/attempt13-executor.mjs --self-test
+```
+
+The executor separately verifies, before `EVIDENCE_INIT`, the immutable Round-5 candidate and its
+single parent/tree/exact six-path canonical delta; both exact correction/closure commits, trees and
+single parents; corrected source `4dad93bdbc3ccd3e09e2bcfba3680130a90e2799` /
+`d44bc534c16866dbc16cd889098e6ca33d75d1f5` with Synthetic test blob
+`183b82674ed92e51375fad41e9efb034976ff5e3`, 94,403 bytes and SHA-256
+`f47409fa4135e45c04ac63b00dc02cd636375cd7728b6a5d1d9b67f6ad6cc198`; and the
+execution-publication domain. The byte-exact Attempt-12 command-map SHA-256 remains
+`5bc7e519d4a942f4ceed7e5a4b3a5e6dc5ecbf6d8b7ac8648616d0e0a2291a03`.
+
+The execution publication must be a single-parent commit directly after
+`2a5f32b2d29d03f26e53eee07dfe3d0658192b49` / tree
+`29a8485f2a19e20ae0c483e701b4a0e36a1ad4a7`; caller-bound commit, tree and canonical delta must
+match HEAD and local `origin/main`, exactly the six scoped ADO files and a clean scoped worktree.
+Its commit, tree and canonical delta are intentionally not embedded or self-referentially asserted
+by this document or the manifest; the caller must bind them exactly at invocation. The invocation
+shape is:
+
+```text
+/Users/timbartz/.nvm/versions/node/v24.17.0/bin/node /Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-harness/attempt13-executor-4dad93bd-483fcf40-r6-execbind/attempt13-executor.mjs --execute \
+  --approval-token APPROVED_ZERO_OPEN_P0_P3_EXACTLY_ONE_ATTEMPT13_R3 \
+  --expected-manifest-sha256 b60ecb41200c4cbc5010fba22af63ab919ee373ae0b6f80fa1cc5628a7778717 \
+  --execution-publication-repository /Users/timbartz/Dokumente/GitHub/taptime \
+  --execution-publication-commit <exact-future-published-commit> \
+  --execution-publication-tree <exact-future-published-tree> \
+  --execution-publication-delta-sha256 <canonical-direct-six-path-delta-sha256>
+```
+
+This command is reference-only and forbidden without a separate exact Human single-run
+authorization. The normative gate order is the approved prepublication exact-delta/artifact
+review, focused exact publication, one local AVS R3 verification of the publication, one V4
+exact-head CI, final independent exact-head/artifact review `APPROVED` with zero open P0–P3, and
+only then that Human authorization. This embedded document makes no claim that the external V4 or
+final-review evidence occurred. No step activates the next automatically. Attempt 13 is **NOT
+EXECUTED / DO NOT EXECUTE**. Hardware, ADB, installation, Human/Product V5,
+production, production data, deployment and distribution remain unauthorized.
+
+## Historical Round-5 candidate procedure — superseded unchanged
 
 Attempt 12 is consumed with immutable 34/2/9 gate distribution, no artifact and no retry. Do not
 rerun or diagnose it. Attempt 13 uses fresh token `483fcf40` and the exact paths and external
@@ -1343,7 +1408,7 @@ permitted:
 ```
 
 Neither command may create an Attempt path. The retained Round-3 and Round-4 artifacts remain
-immutable and are superseded by this current candidate. The current external candidate is
+immutable and were superseded by this now-historical Round-5 candidate. The Round-5 artifact is
 352,258 bytes with executor SHA-256
 `f5cad177fc8efaefcb0d8d1b52f626c809be9cb3f46e9446a62cd6b60a74b4ec`; its 1,111-byte manifest
 SHA-256 is `8d6416d99717efe8929d3f6dcb639fa10a9dd8ab14dd452eabc6d23ca9d23fab` and binds the superseded
@@ -1373,12 +1438,15 @@ claim remains revoked; V3 is `PENDING` until the Technical Lead independently re
 exact checks. Product source remains unchanged. This was not Product or Attempt execution, created
 no Attempt path and proves no Product correctness.
 
-The mandatory order is: current Round-5 exact-delta/artifact review `APPROVED` with zero open P0–P3;
-exact publication; exactly one local AVS R3 verification of the published candidate; one V4
+The historical Round-5 order printed here is superseded by the execution-binding procedure above.
+The normative gate order is independent prepublication exact-delta/artifact review of the
+superseding candidate `APPROVED` with zero open P0–P3; exact publication; exactly one local AVS R3
+verification of that publication; one new V4
 exact-head CI; final independent exact-head/artifact review `APPROVED` with zero open P0–P3; then
 a separate exact Human authorization for one Attempt-13 run. The local R3 verification is not an
-Attempt execution. No step activates the next automatically. The command below is reference-only
-and remains forbidden now. Only a later separate Human authorization may bind its exact published
+Attempt execution. No step activates the next automatically. The obsolete Round-5 command below
+is retained as historical text only, is not valid for the superseding candidate and remains
+forbidden. Only a later separate Human authorization may bind its exact published
 commit, tree, delta and single-run scope before the Technical Lead invokes it:
 
 ```text

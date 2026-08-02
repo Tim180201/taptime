@@ -7,7 +7,7 @@ Approval Authority: Human Architect
 
 ## Purpose
 
-### Current DA5 V5 Harness truth — Attempt 13 published; CI time-window correction closed
+### Current DA5 V5 Harness truth — execution-binding candidate independently reviewed; no run authority
 
 Attempt 12 is consumed fail-closed with no retry and no Harness artifact. Its immutable 45-record
 evidence contains 34 `passed`, two `failed` (`V2_SYNTHETIC_TEST`, `FINALIZE`) and nine `omitted`
@@ -15,13 +15,40 @@ records. Gate 32 safely proves only a fully normalized exit-1 Vitest result with
 membership, 273 passed, six failed and 18 skipped tests, categorized as
 `assertion_result_or_test_hook_failure_ambiguous`; it proves no Product or test cause.
 
-Attempt-13 Round-5 independent review returned `APPROVED` with zero open P0–P3. The approved
-candidate was published as `387421b3caeed988b159c93ff217fb78a0bee60c` / tree
-`ace680660468e0374004869f205e6a1e0af0ac7f`; its one authorized local AVS R3 verification passed.
-The bound read-only executor remains
-`attempt13-executor-a0359a87-483fcf40-r5-plcym5sw`: executor 352,258 bytes / SHA-256
-`f5cad177fc8efaefcb0d8d1b52f626c809be9cb3f46e9446a62cd6b60a74b4ec`, manifest 1,111 bytes /
-SHA-256 `8d6416d99717efe8929d3f6dcb639fa10a9dd8ab14dd452eabc6d23ca9d23fab`.
+Attempt-13 Round-5 independent review returned `APPROVED` with zero open P0–P3. Its immutable
+candidate anchor remains `387421b3caeed988b159c93ff217fb78a0bee60c` / tree
+`ace680660468e0374004869f205e6a1e0af0ac7f`, direct parent
+`db1fc8891d03753b2266957d45137e1817e46156` / tree
+`4fa39b6261e5f856d8f982bedee1ec843b371ed6`, with exactly the six ADO paths and canonical
+git-probe delta SHA-256 `301e74d813cff2648c0009a575df703ce886d21de8d23d18b8a8badb9a917024`.
+The historical Round-5 executor root
+`attempt13-executor-a0359a87-483fcf40-r5-plcym5sw` is unchanged and superseded because it binds
+execution publication to that historical candidate head and still selects source
+`a0359a87fd1738c8493929a1661cbbc7adb3c07c`.
+
+The superseding read-only independently reviewed publication candidate is
+`attempt13-executor-4dad93bd-483fcf40-r6-execbind`: executor 376,105 bytes / SHA-256
+`810090e78b247820a2ffb24a97846d74c76768db22c2e3d5f77c68084c7e50b6`, manifest 2,648 bytes /
+SHA-256 `b60ecb41200c4cbc5010fba22af63ab919ee373ae0b6f80fa1cc5628a7778717`.
+Independent prepublication exact-delta/artifact review Round 1 returned exactly one P3 for stale
+historic labels; Round 2 closure returned `APPROVED` with zero open P0–P3.
+It separately binds the immutable candidate; closure chain `4dad93bdbc3ccd3e09e2bcfba3680130a90e2799`
+→ `2a5f32b2d29d03f26e53eee07dfe3d0658192b49`; corrected execution source
+`4dad93bdbc3ccd3e09e2bcfba3680130a90e2799` / tree
+`d44bc534c16866dbc16cd889098e6ca33d75d1f5` with Synthetic test blob
+`183b82674ed92e51375fad41e9efb034976ff5e3`; and an execution-publication commit whose
+single direct parent must be `2a5f32b2d29d03f26e53eee07dfe3d0658192b49` / tree
+`29a8485f2a19e20ae0c483e701b4a0e36a1ad4a7`.
+The inherited Attempt-12 command-map SHA-256 remains
+`5bc7e519d4a942f4ceed7e5a4b3a5e6dc5ecbf6d8b7ac8648616d0e0a2291a03`.
+The execution-publication commit, tree and canonical delta are intentionally not embedded or
+self-referentially asserted by this document or the manifest; a caller must bind them exactly for
+executor verification at an authorized execution. The normative gate order is the approved
+prepublication exact-delta/artifact review, focused exact publication, one local AVS R3
+verification of the publication, one V4 exact-head CI, final independent exact-head/artifact
+review `APPROVED` with zero open P0–P3, and only then a separate exact Human authorization for one
+Attempt-13 run. This embedded document makes no claim that the external V4 or final-review evidence
+occurred. Attempt 13 remains **NOT EXECUTED / DO NOT EXECUTE**.
 
 V4 exact-head CI run `30745607263`, attempt 1, failed closed with 11/12 jobs passing. The only
 failed job was `Synthetic server-connected Android E2E harness` (`91490562435`): the DA3 test's
@@ -1351,10 +1378,10 @@ Only independent `APPROVED` review plus exact publication may activate the stand
 authorization for exactly one future R3 Attempt-12 run. Hardware and Human/Product V5 remain
 separate and unauthorized.
 
-## DA5 Attempt-13 collect-safe pre-execution candidate — review pending
+## Historical, superseded DA5 Attempt-13 Round-5 collect-safe pre-execution candidate
 
-Attempt 13 retains the exact 45-gate order and direct no-shell argv from the published Attempt-12
-map. Gates 1–10, Gate 27, every binding/provenance/schema/raw-disclosure/signal/worker-infrastructure
+The historical Round-5 candidate retained the exact 45-gate order and direct no-shell argv from the
+published Attempt-12 map. Gates 1–10, Gate 27, every binding/provenance/schema/raw-disclosure/signal/worker-infrastructure
 or output-integrity anomaly, and every Cleanup anomaly hard-stop. Fully attestable nonzero
 build/test/Typecheck/Node and closed Metafile/TalkBack predicate results at Gates 11–26, 28–32,
 34 and 38–40 are collected at most once per gate, to a maximum of 25, while independent gates
@@ -1363,7 +1390,7 @@ continue. Direct dependents alone become `dependency_omitted`; a hard stop uses 
 earlier required gates green or validly carried, an empty quality ledger, no hard stop, exact
 Cleanup/Postcleanup and successful Finalize.
 
-The external executor directory is
+The historical, superseded Round-5 external executor directory is
 `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-harness/attempt13-executor-a0359a87-483fcf40-r5-plcym5sw`.
 It contains exactly two mode-`0444` files under a mode-`0555` directory. Executor
 `attempt13-executor.mjs` is 352,258 bytes, SHA-256
@@ -1413,8 +1440,10 @@ Lead independently repeats the final exact checks. Product source remains unchan
 or Attempt execution occurred and no checkout, cache, config, log, evidence or output-artifact
 path was created.
 
-The mandatory order is: current Round-5 exact-delta/artifact review `APPROVED` with zero open P0–P3;
-exact publication; exactly one local AVS R3 verification of the published candidate; one V4
+The normative gate order for the superseding execution-binding candidate is independent
+prepublication exact-delta/artifact review `APPROVED` with zero open P0–P3; exact publication;
+exactly one local AVS R3 verification
+of the published execution-binding candidate; one new V4
 exact-head CI; final independent exact-head/artifact review `APPROVED` with zero open P0–P3; and
 only then a separate exact Human authorization for an Attempt-13 run. The local R3 verification
 is not an Attempt-13 execution. No earlier gate activates a run automatically. Attempt 13 remains

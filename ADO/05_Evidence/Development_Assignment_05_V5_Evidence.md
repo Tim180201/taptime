@@ -6,7 +6,43 @@
 - Owner: Technical Lead
 - Human run authority: `PHASE-0 RUNS 17 AND 18 CONSUMED SUCCESSFULLY; PRODUCT HUMAN V5 NOT BOUND`
 
-Current Harness evidence override (2026-08-02): Attempt 12 is consumed fail-closed with immutable
+Current execution-binding evidence boundary: the independently reviewed read-only publication
+candidate is
+`/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-harness/attempt13-executor-4dad93bd-483fcf40-r6-execbind`.
+Its root mode is `0555`; its only entries are the mode-`0444` 376,105-byte executor with SHA-256
+`810090e78b247820a2ffb24a97846d74c76768db22c2e3d5f77c68084c7e50b6` and 2,648-byte manifest
+with SHA-256 `b60ecb41200c4cbc5010fba22af63ab919ee373ae0b6f80fa1cc5628a7778717`. The manifest supersedes
+the unchanged Round-5 root and its exact two entries. Independent prepublication
+exact-delta/artifact review Round 1 returned exactly one P3 for stale historic labels; Round 2
+closure returned `APPROVED` with zero open P0–P3. This is candidate-artifact and prepublication
+review identity, not Attempt evidence or run authority. External publication, V4 and final-review
+evidence are not asserted by this embedded document.
+
+The candidate independently separates these bindings: immutable candidate
+`387421b3caeed988b159c93ff217fb78a0bee60c` / tree
+`ace680660468e0374004869f205e6a1e0af0ac7f`, parent `db1fc8891d03753b2266957d45137e1817e46156`
+/ tree `4fa39b6261e5f856d8f982bedee1ec843b371ed6`, six-path canonical delta SHA-256
+`301e74d813cff2648c0009a575df703ce886d21de8d23d18b8a8badb9a917024`; closure chain
+`4dad93bdbc3ccd3e09e2bcfba3680130a90e2799` →
+`2a5f32b2d29d03f26e53eee07dfe3d0658192b49`; corrected source
+`4dad93bdbc3ccd3e09e2bcfba3680130a90e2799` / tree
+`d44bc534c16866dbc16cd889098e6ca33d75d1f5`, Synthetic blob
+`183b82674ed92e51375fad41e9efb034976ff5e3`, 94,403 bytes, file SHA-256
+`f47409fa4135e45c04ac63b00dc02cd636375cd7728b6a5d1d9b67f6ad6cc198`; and an exact
+execution-publication commit directly after `2a5f32b2d29d03f26e53eee07dfe3d0658192b49` / tree
+`29a8485f2a19e20ae0c483e701b4a0e36a1ad4a7`. The inherited command-map SHA-256 remains
+`5bc7e519d4a942f4ceed7e5a4b3a5e6dc5ecbf6d8b7ac8648616d0e0a2291a03`. The execution-publication
+commit, tree and canonical delta are intentionally not embedded or self-referentially asserted by
+this document or the manifest; a caller must bind them exactly for executor verification at an
+authorized execution. The normative gate order is the approved prepublication exact-delta/artifact
+review, focused exact publication, one local AVS R3 verification of the publication, one V4
+exact-head CI, final independent exact-head/artifact review `APPROVED` with zero open P0–P3, and
+only then a separate exact Human authorization for one Attempt-13 run. This embedded document
+makes no claim that the external V4 or final-review evidence occurred. Attempt 13 is **NOT EXECUTED
+/ DO NOT EXECUTE**; the executor requires its six paths and matching registration to be absent
+before any separately authorized run.
+
+Historical Harness evidence context (2026-08-02): Attempt 12 is consumed fail-closed with immutable
 evidence and no artifact or retry. Attempt-13 Round-5 review returned `APPROVED` with zero open
 P0–P3; the candidate was published as `387421b3caeed988b159c93ff217fb78a0bee60c` / tree
 `ace680660468e0374004869f205e6a1e0af0ac7f`, and its one authorized local AVS R3 verification
@@ -1618,8 +1654,9 @@ is consumed and grants no retry.
 
 ## Attempt-13 prospective evidence contract — no execution evidence yet
 
-The retained Round-3 and Round-4 pre-execution artifacts remain immutable and are superseded. The
-only current Attempt-13 material is the read-only Round-5 pre-execution executor artifact:
+The retained Round-3 and Round-4 pre-execution artifacts remain immutable and are superseded. At
+the historical Round-5 candidate state, the only Attempt-13 material was this now-superseded
+read-only pre-execution executor artifact:
 
 - executor root:
   `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-harness/attempt13-executor-a0359a87-483fcf40-r5-plcym5sw`,
@@ -1712,9 +1749,11 @@ ambiguous closed outcome performs zero removal. The common transaction commits t
 and rolls back staged artifacts/evidence/modes for each caught write/chmod failure; it makes no
 crash-atomic claim. None of this prospective schema proves an execution.
 
-No Attempt-13 run is authorized. Required next, in order, are current exact-delta/artifact review
-`APPROVED` with zero P0–P3, exact publication, exactly one local AVS R3 verification of the
-published candidate, one V4 exact-head CI, final independent exact-head/artifact review `APPROVED`
+No Attempt-13 run is authorized. The normative gate order for the superseding execution-binding
+candidate is independent prepublication exact-delta/artifact review `APPROVED` with zero P0–P3,
+exact publication, exactly one
+local AVS R3 verification of the published execution-binding candidate, one new V4 exact-head CI,
+final independent exact-head/artifact review `APPROVED`
 with zero P0–P3, and a separate exact Human authorization for one Attempt-13 run. The local R3
 verification is not an Attempt execution. No earlier verification or standing rule activates a
 run automatically.
