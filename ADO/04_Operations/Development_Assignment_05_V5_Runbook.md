@@ -1,6 +1,67 @@
 # Development Assignment 5 — V5 Human Android Gate Runbook
 
-## Current Harness override — Attempt 14 read-only execution/publication candidate
+## Current Harness override — Attempt 14 consumed; Attempt 15 prospective read-only candidate
+
+Attempt 14 is consumed fail-closed on exact publication `7f6c94886b4dff263e364ea8860b5de1b98b3b53`
+/ tree `c6df9d7b05374f2baba369d3ca163ea83048b68a` and cannot be retried, repaired, resumed or
+executed again. Its immutable 45-record distribution is six passed, two failed and 37 hard-stop
+omissions. Gate 4 `NPM_CI` failed at `unexpected_output_root`; the mapped child nevertheless
+exited 0 with stdout/stderr both 0 bytes. Quality count is zero, Cleanup/Postcleanup are complete,
+artifact is `null` and raw output is false. Exact receipt/snapshot/manifest are 110,812 / 2,490 /
+1,147 bytes with SHA-256 respectively
+`6001c9786038acc8d76e08f9842ccd3b84dc714017134f3aad8df1e5ac779f88`,
+`b75dd8ae0f973171f3806c03f963a4f500901e968ef8b2b99ab3cda60b0219bb` and
+`53987c9676748016e7e1d16cfac8306266622d6e9a25102e86bb5c834cf5588c`, all mode `0444` under
+the immutable mode-`0555` Attempt-14 Evidence root.
+
+The prospective Attempt-15 root is
+`/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-harness/attempt15-executor-4dad93bd-cfea2c8a-r1-outputbind`,
+mode `0555`, with only mode-`0444` executor 410,449 bytes / SHA-256
+`19fe8fe403c230ea0bd914d7e7beb54552954b161bf92033483d92c9a17b6769` and manifest 4,782 bytes /
+SHA-256 `ecc5c2ced55db323bc02af9cf225161171b3bc59f0ed96c95da821422ef2c440`. Permitted non-mutating
+candidate inspection is limited to:
+
+```text
+/Users/timbartz/.nvm/versions/node/v24.17.0/bin/node --check /Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-harness/attempt15-executor-4dad93bd-cfea2c8a-r1-outputbind/attempt15-executor.mjs
+/Users/timbartz/.nvm/versions/node/v24.17.0/bin/node /Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-harness/attempt15-executor-4dad93bd-cfea2c8a-r1-outputbind/attempt15-executor.mjs --self-test
+```
+
+The exact original map remains unchanged. The adapted map adds only NPM_CI output roots derived
+from exact `4dad93b…:package-lock.json` blob `77555096088f864860f2b6c75f51d364a7349d65`, 356,795
+bytes / SHA-256 `62b8eb3f80ab31b683b263631ccfa915f25a9743d4d7430cbb05f81c9e8e1470`. It requires 34 install
+nodes and the exact 17-root list/SHA
+`13457aaa6dbfe55870b5dcc813eb3fd602d9bf0c3939378b89282c0ac087131f`; root `node_modules` makes
+18 internal roots/SHA `8f2294960bc1db56e066acc987705918f914a5dd628ee3ff2f60c371ce4ce856`.
+The only additional allowed output is the exact unchanged task cache. No broad checkout/apps/
+packages/workspace/glob root is legal. All lockfile identity/parser/path/boundary/count/digest
+checks occur before NPM_CI starts; every ambiguity hard-stops later nonterminal gates while the
+unchanged terminal cleanup runs.
+
+Fresh token `cfea2c8a` prospectively binds:
+
+```text
+/private/tmp/taptime-da5-harness-4dad-attempt15-20260802-cfea2c8a
+/private/tmp/taptime-da5-harness-4dad-attempt15-cache-20260802-cfea2c8a
+/private/tmp/taptime-da5-harness-4dad-attempt15-logs-20260802-cfea2c8a
+/private/tmp/taptime-da5-harness-4dad-attempt15-config-20260802-cfea2c8a
+/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5-harness/attempt15-4dad93bd-cfea2c8a
+/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-harness/attempt15-4dad93bd-cfea2c8a
+/Users/timbartz/Dokumente/GitHub/taptime/.git/worktrees/taptime-da5-harness-4dad-attempt15-20260802-cfea2c8a
+```
+
+All seven paths are absent; self-test must leave them absent. Development syntax passed and the
+bounded no-mutation self-test passed 387/387 with zero failures and fixture-name-set SHA-256
+`7e77005f392e87a93937e823d4452b99f24538593dec55add66b6d9d135743a5`.
+
+Attempt 15 is **PROSPECTIVE / READ-ONLY / NOT EXECUTED / DO NOT EXECUTE**. There is deliberately
+no currently valid reference `--execute` command. A future exact execution publication must be a
+caller-bound single child of `7f6c948…` / tree `c6df9d7…`; prepublication review, focused
+publication, local AVS R3, V4 exact-head CI, final independent zero-finding approval and separate
+exact Human one-run authority must all occur first and be bound by that later caller. This embedded
+runbook claims none of those gates complete. Hardware, ADB, installation, Human/Product V5,
+production, production data, deployment and distribution remain **DO NOT START**.
+
+## Historical superseded Harness override — Attempt 14 candidate
 
 Attempt 13 is consumed fail-closed and cannot be retried, repaired, resumed or executed. Its
 immutable evidence is five passed, two failed and 38 hard-stop omissions; Gate 3 stopped at

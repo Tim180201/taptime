@@ -1,6 +1,83 @@
 # Development Assignment 5 — V5 Human Android Evidence
 
-## Attempt-13 terminal evidence and Attempt-14 read-only execution/publication candidate evidence
+## Attempt-14 terminal evidence and prospective Attempt-15 output-binding candidate
+
+Attempt 14 executed once on publication `7f6c94886b4dff263e364ea8860b5de1b98b3b53` / tree
+`c6df9d7b05374f2baba369d3ca163ea83048b68a` and is consumed fail-closed. The immutable mode-`0555`
+root `/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5-harness/attempt14-4dad93bd-3cc91245`
+contains exactly:
+
+| File | Mode | Bytes | SHA-256 |
+|---|---:|---:|---|
+| `attempt14-command-receipt.jsonl` | `0444` | 110,812 | `6001c9786038acc8d76e08f9842ccd3b84dc714017134f3aad8df1e5ac779f88` |
+| `attempt14-precleanup-snapshot.json` | `0444` | 2,490 | `b75dd8ae0f973171f3806c03f963a4f500901e968ef8b2b99ab3cda60b0219bb` |
+| `attempt14-evidence-manifest.json` | `0444` | 1,147 | `53987c9676748016e7e1d16cfac8306266622d6e9a25102e86bb5c834cf5588c` |
+
+All 45 records exist: six passed, two failed and 37 `not_run_hard_stop`. Gate 4 `NPM_CI` failed
+with `unexpected_output_root` after its mapped process exited 0 with stdout 0 bytes and stderr 0
+bytes. Quality-failure count is zero. Cleanup and Postcleanup completed, artifact is `null`, and
+`raw_output_preserved` is false. Attempt 14 has no retry, repair, resume or execution path; this
+evidence proves no Product, test, Hardware or Human-V5 cause or result.
+
+The fresh prospective candidate root is
+`/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-harness/attempt15-executor-4dad93bd-cfea2c8a-r1-outputbind`:
+
+| Entry | Mode | Bytes | SHA-256 |
+|---|---:|---:|---|
+| root | `0555` | — | — |
+| `attempt15-executor.mjs` | `0444` | 410,449 | `19fe8fe403c230ea0bd914d7e7beb54552954b161bf92033483d92c9a17b6769` |
+| `attempt15-executor-manifest.json` | `0444` | 4,782 | `ecc5c2ced55db323bc02af9cf225161171b3bc59f0ed96c95da821422ef2c440` |
+
+The manifest byte-binds the consumed Attempt-14 Evidence and unchanged readonly Attempt-14
+candidate. Source remains `4dad93bdbc3ccd3e09e2bcfba3680130a90e2799` / tree
+`d44bc534c16866dbc16cd889098e6ca33d75d1f5`; Synthetic and Node remain exact. The original
+Attempt-12 command map remains 222,596 bytes / SHA-256
+`5bc7e519d4a942f4ceed7e5a4b3a5e6dc5ecbf6d8b7ac8648616d0e0a2291a03`. Only its adapted
+Attempt-15 copy adds the bounded NPM_CI root derivation.
+
+Source-lock evidence is exact commit `4dad93bdbc3ccd3e09e2bcfba3680130a90e2799`, blob
+`77555096088f864860f2b6c75f51d364a7349d65`, 356,795 bytes and SHA-256
+`62b8eb3f80ab31b683b263631ccfa915f25a9743d4d7430cbb05f81c9e8e1470`. Parsing that exact blob
+against the exact 21-workspace boundary yields exactly 34 direct workspace install nodes and 17
+workspace `node_modules` roots. The sorted compact root list has SHA-256
+`13457aaa6dbfe55870b5dcc813eb3fd602d9bf0c3939378b89282c0ac087131f`. Adding only unchanged root
+`node_modules` yields exactly 18 internal roots and SHA-256
+`8f2294960bc1db56e066acc987705918f914a5dd628ee3ff2f60c371ce4ce856`; the exact cache remains the
+sole external root. Fixtures prove every individual workspace root and root/cache acceptance,
+unknown `node_modules` and adjacent dist/source rejection, absolute/traversal rejection,
+missing/malformed/oversize/identity drift, workspace/count/digest drift, unchanged gate order,
+hard stop before later gates and terminal zero-state cleanup.
+
+Development verification actually executed:
+
+- V0 baseline check: `HEAD` and local `origin/main` both
+  `7f6c94886b4dff263e364ea8860b5de1b98b3b53`, tree
+  `c6df9d7b05374f2baba369d3ca163ea83048b68a`;
+- V1 `/Users/timbartz/.nvm/versions/node/v24.17.0/bin/node --check`: passed with no output;
+- V2 bounded no-mutation self-test: `PASS`, 387/387 fixtures, zero failures, 45 gates and 25
+  collectable gates;
+- fixture-name-set SHA-256:
+  `7e77005f392e87a93937e823d4452b99f24538593dec55add66b6d9d135743a5`;
+- empty failure-set and empty quality-ledger SHA-256:
+  `4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945`;
+- maximum quality-ledger SHA-256:
+  `4c082e9cf0d48396804087281624303efaa441b855dbfad71f94250a81edc9b3`;
+- exact Node identity, Attempt-14 Evidence identity, superseded-candidate identity and source
+  lockfile identity all matched; and
+- fresh Attempt-15 checkout/cache/log/config/evidence/artifact/registration state was absent
+  before and after self-test.
+
+No development fixture failed and no correction retry was needed. No Attempt-15 receipt,
+snapshot, Evidence root, execution artifact, checkout, dependency install, build, test suite, CI,
+ADB, installation, Hardware or Product state was created.
+
+Attempt 15 remains **PROSPECTIVE / READ-ONLY / NOT EXECUTED / DO NOT EXECUTE WITHOUT A FUTURE
+SEPARATE EXACT RUN AUTHORIZATION**. This Evidence entry is Development-reported and does not claim
+independent review, publication, CI, final review or run completion. The future publication must
+be one caller-bound child of `7f6c948…` / tree `c6df9d7…`; the complete external review,
+publication, local R3, V4, final independent approval and Human one-run chain remains pending.
+
+## Historical superseded Attempt-13 terminal evidence and Attempt-14 candidate evidence
 
 Attempt 13 is consumed fail-closed. Its mode-`0555` evidence root
 `/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5-harness/attempt13-a0359a87-483fcf40`

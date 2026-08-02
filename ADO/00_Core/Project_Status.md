@@ -1,6 +1,49 @@
 # Project Status
 
-DA5 V5 current override: **ATTEMPT 13 IS CONSUMED FAIL-CLOSED; ATTEMPT 14 IS A READ-ONLY
+DA5 V5 current override: **ATTEMPT 14 IS CONSUMED FAIL-CLOSED; ATTEMPT 15 IS A PROSPECTIVE
+READ-ONLY CANDIDATE, NOT EXECUTED, AND MUST NOT EXECUTE WITHOUT A FUTURE SEPARATE EXACT RUN
+AUTHORIZATION.** Attempt 14 ran once on publication
+`7f6c94886b4dff263e364ea8860b5de1b98b3b53` / tree
+`c6df9d7b05374f2baba369d3ca163ea83048b68a`. Its immutable 45-record distribution is six passed,
+two failed and 37 hard-stop omissions. Gate 4 `NPM_CI` failed with `unexpected_output_root` after
+process exit 0 / stdout 0 bytes / stderr 0 bytes; quality-failure count is zero,
+Cleanup/Postcleanup completed, artifact is `null` and raw output is false. Immutable mode-`0555`
+Evidence root `attempt14-4dad93bd-3cc91245` contains only mode-`0444` receipt 110,812 bytes /
+`6001c9786038acc8d76e08f9842ccd3b84dc714017134f3aad8df1e5ac779f88`, snapshot 2,490 bytes /
+`b75dd8ae0f973171f3806c03f963a4f500901e968ef8b2b99ab3cda60b0219bb`, and manifest 1,147 bytes /
+`53987c9676748016e7e1d16cfac8306266622d6e9a25102e86bb5c834cf5588c`. Attempt 14 has no retry,
+repair, resume or further execution path and establishes no Product, test, Hardware or Human-V5
+result.
+
+Fresh token `cfea2c8a` binds the prospective Attempt-15 checkout/cache/log/config/evidence/artifact
+and exact worktree-registration paths; none exists. The readonly executor root
+`attempt15-executor-4dad93bd-cfea2c8a-r1-outputbind` is mode `0555` and contains only mode-`0444`
+executor 410,449 bytes / SHA-256
+`19fe8fe403c230ea0bd914d7e7beb54552954b161bf92033483d92c9a17b6769` and manifest 4,782 bytes /
+SHA-256 `ecc5c2ced55db323bc02af9cf225161171b3bc59f0ed96c95da821422ef2c440`. Original Attempt-12 map
+size/SHA and all unchanged Attempt-14 bindings, including exact Node, remain byte-exact. The sole
+adapted-map addition binds NPM_CI output to exact lockfile
+`4dad93bdbc3ccd3e09e2bcfba3680130a90e2799:package-lock.json`, blob
+`77555096088f864860f2b6c75f51d364a7349d65`, 356,795 bytes / SHA-256
+`62b8eb3f80ab31b683b263631ccfa915f25a9743d4d7430cbb05f81c9e8e1470`: 34 locked install nodes
+derive exactly 17 workspace roots / SHA-256
+`13457aaa6dbfe55870b5dcc813eb3fd602d9bf0c3939378b89282c0ac087131f`; with root `node_modules`,
+18 internal roots / SHA-256 `8f2294960bc1db56e066acc987705918f914a5dd628ee3ff2f60c371ce4ce856`.
+The task cache remains exact and unchanged; broad checkout/apps/packages/workspace/glob allowances
+are forbidden. Every lockfile/path/boundary/count/digest or output-root ambiguity hard-stops before
+progress and before later gates.
+
+Development V1 `node --check` passed and the final V2 bounded no-mutation self-test passed 387/387
+with zero failures and fixture-name-set SHA-256
+`7e77005f392e87a93937e823d4452b99f24538593dec55add66b6d9d135743a5`. This is not independent
+review, publication, CI, final review or execution evidence. A future execution publication must
+be a caller-bound direct child of `7f6c94886b4dff263e364ea8860b5de1b98b3b53` / tree
+`c6df9d7b05374f2baba369d3ca163ea83048b68a`; independent prepublication review, exact publication,
+one local AVS R3, one V4 exact-head CI, final independent zero-finding approval and separate exact
+Human one-run authority all remain pending. Hardware/Human/Product V5 remains **DO NOT START**.
+This override supersedes older Attempt-14 preparation-state text below, not historical evidence.
+
+Historical superseded DA5 V5 override: **ATTEMPT 13 IS CONSUMED FAIL-CLOSED; ATTEMPT 14 IS A READ-ONLY
 EXECUTION/PUBLICATION CANDIDATE AND MAY NOT RUN WITHOUT SEPARATE EXACT RUN AUTHORIZATION.**
 Attempt-13 immutable evidence
 is mode `0555` with exactly three mode-`0444` files: receipt 108,071 bytes /

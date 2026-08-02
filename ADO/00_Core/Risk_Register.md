@@ -2,7 +2,46 @@
 
 Status: Active
 
-Current R-034 Attempt-14 override: Attempt 13 is consumed fail-closed with no retry, repair,
+Current R-034 Attempt-15 override: Attempt 14 is consumed fail-closed on publication
+`7f6c94886b4dff263e364ea8860b5de1b98b3b53` / tree
+`c6df9d7b05374f2baba369d3ca163ea83048b68a` with no retry, repair, resume or further execution.
+Its immutable 45 records are six passed, two failed and 37 hard-stop omissions. Gate 4 `NPM_CI`
+failed with `unexpected_output_root` although the mapped process exited 0 with zero stdout/stderr
+bytes; quality-failure count is zero, Cleanup/Postcleanup are complete, artifact is `null` and raw
+output is false. The immutable mode-`0555` Attempt-14 Evidence root contains only three
+mode-`0444` entries: receipt 110,812 bytes /
+`6001c9786038acc8d76e08f9842ccd3b84dc714017134f3aad8df1e5ac779f88`, snapshot 2,490 bytes /
+`b75dd8ae0f973171f3806c03f963a4f500901e968ef8b2b99ab3cda60b0219bb`, and manifest 1,147 bytes /
+`53987c9676748016e7e1d16cfac8306266622d6e9a25102e86bb5c834cf5588c`. No Product, test,
+Hardware or Human-V5 conclusion follows.
+
+Residual status remains **Open / R3**. The prospective read-only Attempt-15 candidate root
+`attempt15-executor-4dad93bd-cfea2c8a-r1-outputbind` is mode `0555`; its only mode-`0444` entries
+are executor 410,449 bytes / `19fe8fe403c230ea0bd914d7e7beb54552954b161bf92033483d92c9a17b6769`
+and manifest 4,782 bytes / `ecc5c2ced55db323bc02af9cf225161171b3bc59f0ed96c95da821422ef2c440`.
+It preserves the exact original map and all unchanged Attempt-14 bindings. The bounded correction
+derives allowed NPM_CI output solely from exact source lockfile blob
+`77555096088f864860f2b6c75f51d364a7349d65`, 356,795 bytes / SHA-256
+`62b8eb3f80ab31b683b263631ccfa915f25a9743d4d7430cbb05f81c9e8e1470`, plus the exact known
+workspace boundary: 34 direct install nodes, 17 workspace roots / compact-list SHA
+`13457aaa6dbfe55870b5dcc813eb3fd602d9bf0c3939378b89282c0ac087131f`, and with root
+`node_modules` 18 internal roots / SHA
+`8f2294960bc1db56e066acc987705918f914a5dd628ee3ff2f60c371ce4ce856`. Only the exact unchanged
+cache is additionally allowed. Missing/malformed/oversize/drift lockfile, absolute/traversal path,
+unknown workspace, count/digest drift or any adjacent/unallowlisted checkout output hard-stops
+before progress; no broad root or glob is accepted. Development syntax and 387/387 bounded
+no-mutation fixtures passed, but no independent review, publication, CI, final review or Attempt
+execution occurred.
+
+Attempt 15 is **PROSPECTIVE / READ-ONLY / NOT EXECUTED / DO NOT EXECUTE WITHOUT FUTURE SEPARATE
+EXACT RUN AUTHORIZATION**. Its fresh token `cfea2c8a` paths and registration remain absent. Any
+future execution publication must be one exact caller-bound child of `7f6c948…` / tree `c6df9d7…`.
+All prepublication review, publication, local R3, V4, final independent approval and Human run
+authority gates remain pending and caller-bound. R-034, Hardware/Human/Product V5 and production,
+deployment and distribution prohibitions remain open. This block supersedes the older current
+Attempt-14 candidate text below without rewriting history.
+
+Historical superseded R-034 Attempt-14 override: Attempt 13 is consumed fail-closed with no retry, repair,
 resume or execution. Its immutable 45-record evidence is five passed, two failed and 38 hard-stop
 omissions; Gate 3 `SOURCE_TOOL_BINDING` stopped at `identity_byte_limit`, quality count is zero,
 Cleanup/Postcleanup completed, artifact is `null` and raw output is false. Exact receipt/snapshot/

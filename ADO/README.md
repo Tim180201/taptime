@@ -7,7 +7,60 @@ Approval Authority: Human Architect
 
 ## Purpose
 
-### Current DA5 V5 Harness truth — Attempt 13 consumed; Attempt 14 read-only execution/publication candidate
+### Current DA5 V5 Harness truth — Attempt 14 consumed; Attempt 15 prospective read-only candidate
+
+Attempt 14 ran once on publication `7f6c94886b4dff263e364ea8860b5de1b98b3b53` / tree
+`c6df9d7b05374f2baba369d3ca163ea83048b68a` and is consumed fail-closed. Its 45 immutable records
+are six `passed`, two `failed` and 37 `not_run_hard_stop`. Gate 4 `NPM_CI` failed closed with
+`unexpected_output_root` after the exact mapped process exited 0 with zero stdout and zero stderr
+bytes. Quality-failure count is zero, Cleanup/Postcleanup are complete, artifact is `null` and
+`raw_output_preserved` is false. The mode-`0555` Evidence root
+`/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5-harness/attempt14-4dad93bd-3cc91245`
+contains only mode-`0444` receipt 110,812 bytes / SHA-256
+`6001c9786038acc8d76e08f9842ccd3b84dc714017134f3aad8df1e5ac779f88`, snapshot 2,490 bytes /
+`b75dd8ae0f973171f3806c03f963a4f500901e968ef8b2b99ab3cda60b0219bb`, and manifest 1,147 bytes /
+`53987c9676748016e7e1d16cfac8306266622d6e9a25102e86bb5c834cf5588c`. It has no retry, repair,
+resume or further execution path and proves no Product, test, Hardware or Human-V5 outcome.
+
+The superseding prospective Attempt-15 candidate is read-only root
+`/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-harness/attempt15-executor-4dad93bd-cfea2c8a-r1-outputbind`,
+mode `0555`, containing only mode-`0444` executor 410,449 bytes / SHA-256
+`19fe8fe403c230ea0bd914d7e7beb54552954b161bf92033483d92c9a17b6769` and manifest 4,782 bytes /
+SHA-256 `ecc5c2ced55db323bc02af9cf225161171b3bc59f0ed96c95da821422ef2c440`. It preserves the
+byte-exact original Attempt-12 map, 222,596 bytes / SHA-256
+`5bc7e519d4a942f4ceed7e5a4b3a5e6dc5ecbf6d8b7ac8648616d0e0a2291a03`, and every unchanged
+Attempt-14 binding including exact Node. Its only adapted-map addition is the bounded NPM_CI
+output-root binding derived from exact source lockfile commit `4dad93bdbc3ccd3e09e2bcfba3680130a90e2799`,
+blob `77555096088f864860f2b6c75f51d364a7349d65`, 356,795 bytes and SHA-256
+`62b8eb3f80ab31b683b263631ccfa915f25a9743d4d7430cbb05f81c9e8e1470`. Exactly 34 legitimate
+install nodes derive 17 concrete workspace `node_modules` roots (compact-list SHA-256
+`13457aaa6dbfe55870b5dcc813eb3fd602d9bf0c3939378b89282c0ac087131f`); together with unchanged
+root `node_modules`, exactly 18 checkout-internal roots have compact-list SHA-256
+`8f2294960bc1db56e066acc987705918f914a5dd628ee3ff2f60c371ce4ce856`. The exact task cache
+remains the sole checkout-external allowed root. No `checkout`, `apps`, `packages`, workspace or
+glob-wide allowance exists.
+
+Development `node --check` passed. The bounded no-mutation self-test passed 387/387 fixtures with
+zero failures; fixture-name-set SHA-256 is
+`7e77005f392e87a93937e823d4452b99f24538593dec55add66b6d9d135743a5`, and empty failure-set SHA-256
+is `4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945`. Missing, malformed,
+oversize or drifting lockfiles, absolute/traversal paths, unknown workspace roots, count/digest
+drift and unallowlisted output all fail closed before NPM_CI progress or later gates. Gate order,
+hard stop and terminal zero-state cleanup remain unchanged.
+
+Attempt 15 is **PROSPECTIVE / READ-ONLY / NOT EXECUTED / DO NOT EXECUTE WITHOUT A FUTURE SEPARATE
+EXACT RUN AUTHORIZATION**. Fresh token `cfea2c8a` binds new checkout/cache/log/config/evidence/
+artifact/registration paths, all currently absent. Any future execution publication must be one
+caller-bound direct child of `7f6c94886b4dff263e364ea8860b5de1b98b3b53` / tree
+`c6df9d7b05374f2baba369d3ca163ea83048b68a`. This ADO preparation claims no independent review,
+publication, CI, final review or run completion. Independent prepublication exact-delta/artifact
+review, focused publication, local AVS R3, V4 exact-head CI, final independent exact-head/artifact
+`APPROVED` with zero open P0–P3, and separate exact Human one-run authority remain future
+caller-bound gates. Hardware/Human/Product V5, production, production data, deployment and
+distribution remain unauthorized. This section supersedes the older current Attempt-14 candidate
+text below without altering historical truth.
+
+### Historical superseded DA5 V5 Harness truth — Attempt 13 consumed; Attempt 14 candidate
 
 Attempt 13 is consumed fail-closed and may not be retried, repaired, resumed or executed again.
 Its immutable mode-`0555` evidence root

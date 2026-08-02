@@ -1,6 +1,109 @@
 # Development Assignment 5 — V5 Harness Artifact Closure Architecture and Authorization
 
-## Current override — Attempt 13 consumed; Attempt 14 read-only execution/publication candidate
+## Current override — Attempt 14 consumed; Attempt 15 prospective output-binding candidate
+
+Attempt 14 executed once on exact publication `7f6c94886b4dff263e364ea8860b5de1b98b3b53` / tree
+`c6df9d7b05374f2baba369d3ca163ea83048b68a` and is consumed fail-closed. It may not be retried,
+repaired, resumed or executed further. Its immutable 45 records are six passed, two failed and 37
+`not_run_hard_stop`. Gate 4 `NPM_CI` failed with `unexpected_output_root`; its mapped child exited
+0 with stdout 0 bytes and stderr 0 bytes. Quality-failure count is zero, Cleanup/Postcleanup are
+complete, artifact is `null` and `raw_output_preserved` is false. The exact immutable Evidence
+root `/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5-harness/attempt14-4dad93bd-3cc91245`
+is mode `0555` with exactly these mode-`0444` entries:
+
+| File | Bytes | SHA-256 |
+|---|---:|---|
+| `attempt14-command-receipt.jsonl` | 110,812 | `6001c9786038acc8d76e08f9842ccd3b84dc714017134f3aad8df1e5ac779f88` |
+| `attempt14-precleanup-snapshot.json` | 2,490 | `b75dd8ae0f973171f3806c03f963a4f500901e968ef8b2b99ab3cda60b0219bb` |
+| `attempt14-evidence-manifest.json` | 1,147 | `53987c9676748016e7e1d16cfac8306266622d6e9a25102e86bb5c834cf5588c` |
+
+The focused Attempt-15 correction has fresh token `cfea2c8a` and binds these prospective paths,
+all absent and unregistered:
+
+- checkout/registration: `/private/tmp/taptime-da5-harness-4dad-attempt15-20260802-cfea2c8a`;
+- cache: `/private/tmp/taptime-da5-harness-4dad-attempt15-cache-20260802-cfea2c8a`;
+- logs: `/private/tmp/taptime-da5-harness-4dad-attempt15-logs-20260802-cfea2c8a`;
+- config: `/private/tmp/taptime-da5-harness-4dad-attempt15-config-20260802-cfea2c8a`;
+- evidence: `/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5-harness/attempt15-4dad93bd-cfea2c8a`;
+- success-only artifact: `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-harness/attempt15-4dad93bd-cfea2c8a`; and
+- exact registration: `/Users/timbartz/Dokumente/GitHub/taptime/.git/worktrees/taptime-da5-harness-4dad-attempt15-20260802-cfea2c8a`.
+
+The candidate root
+`/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-harness/attempt15-executor-4dad93bd-cfea2c8a-r1-outputbind`
+is mode `0555` and contains exactly:
+
+| Entry | Mode | Bytes | SHA-256 |
+|---|---:|---:|---|
+| `attempt15-executor.mjs` | `0444` | 410,449 | `19fe8fe403c230ea0bd914d7e7beb54552954b161bf92033483d92c9a17b6769` |
+| `attempt15-executor-manifest.json` | `0444` | 4,782 | `ecc5c2ced55db323bc02af9cf225161171b3bc59f0ed96c95da821422ef2c440` |
+
+The corrected source remains `4dad93bdbc3ccd3e09e2bcfba3680130a90e2799` / tree
+`d44bc534c16866dbc16cd889098e6ca33d75d1f5`; Synthetic and exact Node bindings remain unchanged.
+The original Attempt-12 command map remains byte-exact at 222,596 bytes / SHA-256
+`5bc7e519d4a942f4ceed7e5a4b3a5e6dc5ecbf6d8b7ac8648616d0e0a2291a03`. The adapted Attempt-15
+map adds only this bounded NPM_CI output-root derivation.
+
+The sole lockfile authority is source commit `4dad93bdbc3ccd3e09e2bcfba3680130a90e2799`, path
+`package-lock.json`, Git blob `77555096088f864860f2b6c75f51d364a7349d65`, 356,795 bytes and
+SHA-256 `62b8eb3f80ab31b683b263631ccfa915f25a9743d4d7430cbb05f81c9e8e1470`. From that exact
+lockfile and the exact 21-workspace boundary, only the following sorted workspace roots derive:
+
+```text
+apps/backend-administration/node_modules
+apps/backend-api/node_modules
+apps/backend-b1-spike/node_modules
+apps/backend-bootstrap/node_modules
+apps/backend-identity/node_modules
+apps/backend-lifecycle/node_modules
+apps/backend-mobile-work/node_modules
+apps/backend-offline-sync/node_modules
+apps/backend-read-model/node_modules
+apps/backend-schema/node_modules
+apps/backend-time-export/node_modules
+apps/backend-time-review/node_modules
+apps/synthetic-android-e2e/node_modules
+packages/administration-contract/node_modules
+packages/offline-sync-contract/node_modules
+packages/time-entry-export-contract/node_modules
+packages/time-review-contract/node_modules
+```
+
+Exactly 34 direct lockfile install nodes establish those 17 roots. Their compact sorted JSON list
+has SHA-256 `13457aaa6dbfe55870b5dcc813eb3fd602d9bf0c3939378b89282c0ac087131f`. Adding only unchanged
+checkout-root `node_modules` yields exactly 18 internal roots and compact-list SHA-256
+`8f2294960bc1db56e066acc987705918f914a5dd628ee3ff2f60c371ce4ce856`. The exact cache above is
+the only checkout-external allowance and is unchanged. The executor grants no checkout-wide,
+`apps`-wide, `packages`-wide, workspace-wide or glob-based output root.
+
+Before any NPM_CI child starts, the executor requires the lockfile to be present, regular,
+nonsymlink, canonical, stable across read, within the exact size, exact-size/equal-SHA and valid
+bounded JSON. Every package path must be relative and traversal-free; the workspace boundary,
+install-node count, root counts and both digests must match. Missing, malformed, oversize or
+drifting lockfile, absolute/traversal path, unknown workspace root, count/digest drift or any
+unallowlisted output fails closed. Gate 4 then hard-stops all later nonterminal gates while the
+unchanged four terminal gates preserve complete zero-state cleanup. Adjacent `dist`/source output
+is not allowed.
+
+Development V1 `node --check` passed. Final bounded V2 self-test passed 387/387 fixtures with zero
+failures, including exact green derivation, every 17 workspace root, root/cache, unknown
+`node_modules`, adjacent dist/source, traversal, lockfile/count/digest drift, unchanged gate order,
+hard stop before later gates and full zero-state cleanup. Fixture-name-set SHA-256 is
+`7e77005f392e87a93937e823d4452b99f24538593dec55add66b6d9d135743a5`; empty failure-set SHA-256
+is `4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945`. No Attempt-15 execution
+state was created.
+
+Attempt 15 is **PROSPECTIVE / READ-ONLY / NOT EXECUTED / DO NOT EXECUTE WITHOUT A FUTURE SEPARATE
+EXACT RUN AUTHORIZATION**. The required execution-publication direct parent is
+`7f6c94886b4dff263e364ea8860b5de1b98b3b53` / tree
+`c6df9d7b05374f2baba369d3ca163ea83048b68a`; future commit/tree/canonical delta must remain
+caller-bound. This document asserts no independent review, publication, local R3, CI, final review
+or run completion. Independent prepublication exact-delta/artifact review, exact publication,
+one local AVS R3, one V4 exact-head CI, final independent exact-head/artifact `APPROVED` with zero
+open P0–P3, then separate exact Human one-run authority remain mandatory. No actual executor
+`--execute`, Hardware, ADB, installation, Human/Product V5, production, production-data,
+deployment or distribution action is authorized.
+
+## Historical superseded override — Attempt 13 consumed; Attempt 14 candidate
 
 This section supersedes older Attempt-13 preparation-state text below without changing its
 historical candidate/closure/source facts. Attempt 13 is consumed fail-closed; retry, repair,
