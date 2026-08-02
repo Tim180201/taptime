@@ -15,6 +15,14 @@ passed. V4 exact-head CI `30745607263`, attempt 1, passed 11/12 jobs and failed 
 DA3 test's fixed `[2026-07-01T00:00:00.000Z, 2026-08-01T00:00:00.000Z)` query/export window,
 which excluded the lifecycle record generated from current time. An unchanged retry is forbidden.
 
+The correction was published and remote-bound as exact head
+`4dad93bdbc3ccd3e09e2bcfba3680130a90e2799` / tree
+`d44bc534c16866dbc16cd889098e6ca33d75d1f5`, parent
+`387421b3caeed988b159c93ff217fb78a0bee60c`. Exactly one replacement V4 exact-head CI,
+`30748749632`, attempt 1, passed 12/12. Synthetic job `91498873248` passed 13/13 files with 283
+passed and 14 platform-dependent skips; its tests-inclusive Typecheck, Build and Cleanup passed.
+Final independent Exact-Head review returned `APPROVED` with zero open P0–P3.
+
 `DA5-V5-CI-TIMEWINDOW-01` locally binds the exact server-verified lifecycle TimeEntry ID and its
 original start/stop timestamps, selects the stopped row by exact ID plus status, derives correction
 timestamps only from those originals, and reuses one canonical UTC `[fromInclusive,
@@ -41,7 +49,8 @@ declaration maps, seven JavaScript bundles and seven source maps; `node --check`
 seven bundles. PostgreSQL stopped, port 55439 had no listener and the temporary `/private/tmp`
 source root was absent after its recoverable Trash move.
 
-AVS carry-forward is limited to the eleven unchanged green jobs from exact-head CI
+Before the successful replacement V4, AVS carry-forward was limited to the eleven unchanged green
+jobs from exact-head CI
 `30745607263`, attempt 1, on commit `387421b3caeed988b159c93ff217fb78a0bee60c` / tree
 `ace680660468e0374004869f205e6a1e0af0ac7f`. Every listed job result is `success`:
 
@@ -73,12 +82,11 @@ job's PostgreSQL/container boundary. The unchanged root/package inputs are `pack
 `fb0a3deb294c9508858fbe3bd7c7ee9c0748e752` and `vitest.config.ts`
 `db05963d4d164781b43b8c801d65b5b298939992`. All non-Synthetic source/test inputs are
 blob-identical; the changed executable/test scope is only the current Synthetic test, which none
-of these eleven jobs consumes. This is carried baseline evidence, not fresh candidate execution.
-This prepublication candidate records completed local verification and makes no self-claim of its
-own publication, remote binding, replacement V4 or final review. Any such outcome must be bound
-after it actually occurs in a downstream closure synchronization. This is not success evidence
-for V4 or Attempt 13. Attempt 13 is **NOT EXECUTED / DO NOT EXECUTE**; separate final technical
-and Human gates remain mandatory.
+of these eleven jobs consumes. This remains carried baseline evidence from the failed run, not the
+fresh candidate execution supplied by replacement V4 `30748749632`. The correction publication,
+remote binding, replacement V4 and final independent Exact-Head review are bound above. They are
+not execution evidence or run authority for Attempt 13. Attempt 13 is **NOT EXECUTED / DO NOT
+EXECUTE**; Hardware and Human V5 remain unauthorized and separately gated.
 
 ## 0A. Run-18 fingerprint-transfer evidence and Product boundary
 

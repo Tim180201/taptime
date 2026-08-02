@@ -12,11 +12,14 @@ review returned `APPROVED` with zero open P0–P3; the candidate was published a
 passed. V4 exact-head CI `30745607263`, attempt 1, failed closed 11/12 only in `Synthetic
 server-connected Android E2E harness` job `91490562435` because its fixed July query/export
 window excluded the current-date lifecycle row. `DA5-V5-CI-TIMEWINDOW-01` is confirmed. The
-focused deterministic record-bound/window-bound test correction is applied and locally verified.
-This prepublication candidate makes no self-claim of its own publication, remote binding,
-replacement V4 or final review; any such outcome must be bound after it actually occurs in a
-downstream closure synchronization. Do not rerun the unchanged failed head. Attempt 13 remains
-**NOT EXECUTED / DO NOT EXECUTE**; no run, Hardware or Human/Product V5 authority exists.
+focused deterministic record-bound/window-bound test correction was locally verified, published
+and remote-bound as `4dad93bdbc3ccd3e09e2bcfba3680130a90e2799` / tree
+`d44bc534c16866dbc16cd889098e6ca33d75d1f5`. Exactly one replacement V4 exact-head CI,
+`30748749632`, attempt 1, passed 12/12; Synthetic job `91498873248` passed 13/13 files with 283
+passed and 14 platform-dependent skips, with Typecheck, Build and Cleanup green. Final independent
+Exact-Head review returned `APPROVED` with zero open P0–P3. Do not rerun the unchanged failed
+head. Attempt 13 remains **NOT EXECUTED / DO NOT EXECUTE**; no run, Hardware or Human/Product V5
+authority exists.
 
 ## 0A. Run-18 fingerprint-transfer success and current Product boundary
 

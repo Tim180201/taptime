@@ -7,7 +7,7 @@ Approval Authority: Human Architect
 
 ## Purpose
 
-### Current DA5 V5 Harness truth — Attempt 13 published; CI time-window correction local
+### Current DA5 V5 Harness truth — Attempt 13 published; CI time-window correction closed
 
 Attempt 12 is consumed fail-closed with no retry and no Harness artifact. Its immutable 45-record
 evidence contains 34 `passed`, two `failed` (`V2_SYNTHETIC_TEST`, `FINALIZE`) and nine `omitted`
@@ -29,10 +29,14 @@ fixed UTC query/export window `[2026-07-01T00:00:00.000Z, 2026-08-01T00:00:00.00
 the lifecycle record generated after that window. `DA5-V5-CI-TIMEWINDOW-01` is confirmed; an
 unchanged retry is forbidden. The focused local correction binds the exact server-verified
 lifecycle record and derives one canonical bounded UTC window deterministically from its original
-and corrected timestamps; its local verification is complete. This prepublication candidate makes
-no self-claim of its own publication, remote binding, replacement V4 or final review. Any such
-outcome must be bound after it actually occurs in a downstream closure synchronization. Attempt 13
-remains **NOT EXECUTED / DO NOT EXECUTE**; Hardware and Human/Product V5 remain **DO NOT START**.
+and corrected timestamps; its local verification is complete. The correction was published and
+remote-bound as `4dad93bdbc3ccd3e09e2bcfba3680130a90e2799` / tree
+`d44bc534c16866dbc16cd889098e6ca33d75d1f5`, parent
+`387421b3caeed988b159c93ff217fb78a0bee60c`. Exactly one replacement V4 exact-head CI,
+`30748749632`, attempt 1, passed 12/12. Synthetic job `91498873248` passed 13/13 files with 283
+passed and 14 platform-dependent skips; its tests-inclusive Typecheck, Build and Cleanup passed.
+Final independent Exact-Head review returned `APPROVED` with zero open P0–P3. Attempt 13 remains
+**NOT EXECUTED / DO NOT EXECUTE**; Hardware and Human/Product V5 remain **DO NOT START**.
 
 ### Historical DA5 V5 run-18 fingerprint-transfer success and Product boundary
 
