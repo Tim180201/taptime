@@ -1,5 +1,68 @@
 # Development Assignment 5 — V5 Human Android Gate Runbook
 
+## Current Harness override — Attempt 14 read-only execution/publication candidate
+
+Attempt 13 is consumed fail-closed and cannot be retried, repaired, resumed or executed. Its
+immutable evidence is five passed, two failed and 38 hard-stop omissions; Gate 3 stopped at
+`identity_byte_limit`, quality count is zero, Cleanup/Postcleanup completed, artifact is `null`
+and raw output is false. Receipt/snapshot/manifest are 108,071 / 2,503 / 1,160 bytes with SHA-256
+`6dacaad7db7bcec61f591724b3bcf6ce30aad88ecd2d60e05e301c3ca79285ae`,
+`ea6b71d50122aefce343055cdef00422331c05247191beef1042ab6a6a39d74e` and
+`2a2a19965a0708051dff7a7eda86eb4416c60b3f4dacb162d7590b2e9bd0a474`. Its accepted P2/P3 review
+findings authorize no run and prove no Product or test cause.
+
+The R6 executor remains immutable and is superseded by readonly root
+`/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-harness/attempt14-executor-4dad93bd-3cc91245-r1-nodebind`,
+mode `0555`, containing only mode-`0444` executor 388,219 bytes / SHA-256
+`89c283b211456a1cf7ae20ee4ae551d7ef8a6a17dd443f541dd0cd2e314cfbb9` and manifest 3,729 bytes /
+SHA-256 `c118bd24fe455f944bf81ccf10faeef7dea89f41f2b3490ee9470ad2228f69f1`. The correction preserves
+source `4dad93bdbc3ccd3e09e2bcfba3680130a90e2799` / tree
+`d44bc534c16866dbc16cd889098e6ca33d75d1f5`, Synthetic blob
+`183b82674ed92e51375fad41e9efb034976ff5e3` and the exact inherited map SHA. It binds Node to
+`/Users/timbartz/.nvm/versions/node/v24.17.0/bin/node`, `v24.17.0`, 120,591,840 bytes and SHA-256
+`f5f9b9db4d95f5e0340982685f083de654c21eef9d9122cab5321081ccaa2601`; missing explicit size
+retains the exact 32,000,000-byte generic limit.
+
+Permitted non-mutating candidate inspection is limited to:
+
+```text
+/Users/timbartz/.nvm/versions/node/v24.17.0/bin/node --check /Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-harness/attempt14-executor-4dad93bd-3cc91245-r1-nodebind/attempt14-executor.mjs
+/Users/timbartz/.nvm/versions/node/v24.17.0/bin/node /Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-harness/attempt14-executor-4dad93bd-3cc91245-r1-nodebind/attempt14-executor.mjs --self-test
+```
+
+Both commands must leave checkout, cache, logs, config, evidence, success-artifact and exact
+registration absent. The final development self-test passed 354/354 fixtures, zero failures,
+fixture-name-set SHA-256 `17e6b685be359459916b7970f58857eab7f14996017ec07f22164a65a12a3c7d`,
+empty failure-set SHA-256 `4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945`
+and real Node identity match. One earlier development self-test exposed only an incorrectly
+initialized new Gate-3 sequence fixture (`gate_sequence_invalid`); the fixture was corrected and
+the final bounded run passed. This was not an Attempt execution.
+
+The following reference CLI shape is **FORBIDDEN TO RUN WITHOUT SEPARATE EXACT RUN
+AUTHORIZATION THAT BINDS ALL REQUIRED EXTERNAL EVIDENCE**:
+
+```text
+/Users/timbartz/.nvm/versions/node/v24.17.0/bin/node /Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-harness/attempt14-executor-4dad93bd-3cc91245-r1-nodebind/attempt14-executor.mjs --execute \
+  --approval-token APPROVED_ZERO_OPEN_P0_P3_EXACTLY_ONE_ATTEMPT14_R3 \
+  --expected-manifest-sha256 c118bd24fe455f944bf81ccf10faeef7dea89f41f2b3490ee9470ad2228f69f1 \
+  --execution-publication-repository /Users/timbartz/Dokumente/GitHub/taptime \
+  --execution-publication-commit FUTURE_CALLER_BOUND_40_HEX_COMMIT \
+  --execution-publication-tree FUTURE_CALLER_BOUND_40_HEX_TREE \
+  --execution-publication-delta-sha256 FUTURE_CALLER_BOUND_64_HEX_CANONICAL_DELTA
+```
+
+The execution publication presented by the caller must be a single child of
+`da64ae31648166184739b056a917ea2762bc9f23` / tree
+`a20721ad15c5c824f3bf32987449ffa08569bede`; HEAD, local `origin/main`, exact six-path scope,
+caller-supplied commit/tree/delta, all anchors and fresh state must match before `EVIDENCE_INIT`.
+Before any execution: independent prepublication review, exact publication, one local AVS R3,
+one V4 exact-head CI, final independent zero-finding approval and separate exact Human one-run
+authorization are mandatory. This embedded runbook does not itself establish completion of those
+external gates; the exact run authorization must bind their evidence. Attempt 14 is **NOT
+EXECUTED / DO NOT EXECUTE WITHOUT SEPARATE EXACT RUN AUTHORIZATION**; Hardware and Human/Product
+V5 remain **DO NOT START**. This section supersedes older Attempt-13 preparation procedure
+below without erasing history.
+
 - Status: **PHASE-0 RUN 18 ESTABLISHED SAFE TRANSFER BINDING A `B55E8B6AEB30`, B `32A54C8F2F29`, X `F61C9F702CFE`; FORMAT/DISTINCTNESS AND DEVICE/UI/10×A+10×B+10×X/NFCA/FINAL PASS/TERMINAL CLEANUP MATCHED WITH EXIT 0; VALIDATION APP REMOVED; AUTHORITY CONSUMED; R-035 LOCALLY MITIGATED; PRODUCT HUMAN V5 NOT RUN; PRODUCT APP NOT INSTALLED; R-034/DA5 OPEN; NO PRODUCT CORRECTNESS/PRODUCTION/DEPLOYMENT/DISTRIBUTION AUTHORITY**
 - Date: 2026-07-31
 - Owner: Technical Lead

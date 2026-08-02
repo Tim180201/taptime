@@ -7,6 +7,49 @@ Approval Authority: Human Architect
 
 ## Purpose
 
+### Current DA5 V5 Harness truth — Attempt 13 consumed; Attempt 14 read-only execution/publication candidate
+
+Attempt 13 is consumed fail-closed and may not be retried, repaired, resumed or executed again.
+Its immutable mode-`0555` evidence root
+`/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5-harness/attempt13-a0359a87-483fcf40`
+contains exactly three mode-`0444` files: receipt 108,071 bytes / SHA-256
+`6dacaad7db7bcec61f591724b3bcf6ce30aad88ecd2d60e05e301c3ca79285ae`, snapshot 2,503 bytes /
+`ea6b71d50122aefce343055cdef00422331c05247191beef1042ab6a6a39d74e`, and manifest 1,160 bytes /
+`2a2a19965a0708051dff7a7eda86eb4416c60b3f4dacb162d7590b2e9bd0a474`. Its 45 records are five
+passed, two failed and 38 hard-stop omissions. Gate 3 `SOURCE_TOOL_BINDING` failed closed with
+`identity_byte_limit`; quality failures are zero, Cleanup/Postcleanup completed, artifact is
+`null`, and raw output was not preserved. The accepted independent P2/P3 findings establish no
+Product, test, Hardware or Human-V5 result.
+
+The prior read-only R6 executor root `attempt13-executor-4dad93bd-483fcf40-r6-execbind` remains
+byte-exact and immutable but is superseded by the read-only Attempt-14 execution/publication
+candidate root
+`attempt14-executor-4dad93bd-3cc91245-r1-nodebind`: mode `0555`, executor 388,219 bytes / SHA-256
+`89c283b211456a1cf7ae20ee4ae551d7ef8a6a17dd443f541dd0cd2e314cfbb9`, and manifest 3,729 bytes /
+SHA-256 `c118bd24fe455f944bf81ccf10faeef7dea89f41f2b3490ee9470ad2228f69f1`, both mode `0444`.
+Attempt 14 preserves corrected source `4dad93bdbc3ccd3e09e2bcfba3680130a90e2799` / tree
+`d44bc534c16866dbc16cd889098e6ca33d75d1f5`, Synthetic blob
+`183b82674ed92e51375fad41e9efb034976ff5e3`, and inherited serialized Attempt-12 map SHA-256
+`5bc7e519d4a942f4ceed7e5a4b3a5e6dc5ecbf6d8b7ac8648616d0e0a2291a03`. Its adapted map adds only
+the exact Node size binding: path `/Users/timbartz/.nvm/versions/node/v24.17.0/bin/node`, version
+`v24.17.0`, 120,591,840 bytes and SHA-256
+`f5f9b9db4d95f5e0340982685f083de654c21eef9d9122cab5321081ccaa2601`; the generic unbound-tool
+limit remains exactly 32,000,000 bytes.
+
+Attempt 14 is **NOT EXECUTED / DO NOT EXECUTE WITHOUT SEPARATE EXACT RUN AUTHORIZATION**. Any
+execution publication presented to the executor must be a caller-bound single child of baseline
+`da64ae31648166184739b056a917ea2762bc9f23` / tree
+`a20721ad15c5c824f3bf32987449ffa08569bede`, with HEAD and local `origin/main` equal, exactly these
+six ADO paths and an exact caller-supplied commit/tree/canonical delta, all verified before
+`EVIDENCE_INIT`. Required order is independent prepublication exact-delta/artifact review,
+focused exact publication, one local AVS R3 verification, one V4 exact-head CI, final independent
+exact-head/artifact `APPROVED` with zero open P0–P3, and only then separate exact Human authority
+for one Attempt-14 run. This embedded document does not itself establish completion of those
+external gates; the separate exact run authorization must bind their external evidence.
+Hardware/Human/Product V5, production, deployment and distribution remain unauthorized. This
+section supersedes older
+Attempt-13 preparation-state text below without altering its historical record.
+
 ### Current DA5 V5 Harness truth — execution-binding candidate independently reviewed; no run authority
 
 Attempt 12 is consumed fail-closed with no retry and no Harness artifact. Its immutable 45-record

@@ -2,6 +2,42 @@
 
 Status: Active
 
+Current R-034 Attempt-14 override: Attempt 13 is consumed fail-closed with no retry, repair,
+resume or execution. Its immutable 45-record evidence is five passed, two failed and 38 hard-stop
+omissions; Gate 3 `SOURCE_TOOL_BINDING` stopped at `identity_byte_limit`, quality count is zero,
+Cleanup/Postcleanup completed, artifact is `null` and raw output is false. Exact receipt/snapshot/
+manifest identities are respectively 108,071 / 2,503 / 1,160 bytes and SHA-256
+`6dacaad7db7bcec61f591724b3bcf6ce30aad88ecd2d60e05e301c3ca79285ae`,
+`ea6b71d50122aefce343055cdef00422331c05247191beef1042ab6a6a39d74e` and
+`2a2a19965a0708051dff7a7eda86eb4416c60b3f4dacb162d7590b2e9bd0a474`. Accepted independent P2/P3
+findings establish the missing explicit Node byte-size binding and documentation correction
+boundary; they establish no Product or test defect.
+
+The immutable R6 executor is superseded by the read-only Attempt-14 execution/publication
+candidate root
+`attempt14-executor-4dad93bd-3cc91245-r1-nodebind` (mode `0555`; mode-`0444` executor 388,219 bytes /
+`89c283b211456a1cf7ae20ee4ae551d7ef8a6a17dd443f541dd0cd2e314cfbb9`; manifest 3,729 bytes /
+`c118bd24fe455f944bf81ccf10faeef7dea89f41f2b3490ee9470ad2228f69f1`). It preserves the original
+candidate, closure chain, corrected source/tree/Synthetic blob and inherited serialized map hash,
+but binds Node exactly to `/Users/timbartz/.nvm/versions/node/v24.17.0/bin/node`, `v24.17.0`,
+120,591,840 bytes and SHA-256
+`f5f9b9db4d95f5e0340982685f083de654c21eef9d9122cab5321081ccaa2601`. Explicit size is its exact
+read limit and post-read equality; missing size retains the exact 32,000,000-byte generic limit.
+Focused regressions cover size ±1, SHA drift, Node→npm→git order, pre-later-gate hard stop and
+the unchanged cleanup/null-state closure.
+
+Residual status remains **Open / R3**. Attempt 14 is **NOT EXECUTED / DO NOT EXECUTE WITHOUT
+SEPARATE EXACT RUN AUTHORIZATION**. Any execution publication presented to the executor must be a
+caller-bound direct child of
+`da64ae31648166184739b056a917ea2762bc9f23` / tree
+`a20721ad15c5c824f3bf32987449ffa08569bede`; independent review, exact publication, one local R3,
+one V4 exact-head CI, final independent zero-finding approval and separate exact Human run
+authorization remain mandatory. This embedded block does not itself establish completion of
+those external gates; the separate exact run authorization must bind their external evidence.
+This block supersedes only stale current
+Attempt-13 preparation text below; R-034, Hardware/Human/Product V5 and all production/deployment/
+distribution prohibitions remain open.
+
 Current R-034 execution-binding override: the unchanged Round-5 executor is superseded by the
 independently reviewed read-only publication candidate
 `attempt13-executor-4dad93bd-483fcf40-r6-execbind` (376,105-byte executor SHA-256

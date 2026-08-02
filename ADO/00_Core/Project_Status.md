@@ -1,5 +1,42 @@
 # Project Status
 
+DA5 V5 current override: **ATTEMPT 13 IS CONSUMED FAIL-CLOSED; ATTEMPT 14 IS A READ-ONLY
+EXECUTION/PUBLICATION CANDIDATE AND MAY NOT RUN WITHOUT SEPARATE EXACT RUN AUTHORIZATION.**
+Attempt-13 immutable evidence
+is mode `0555` with exactly three mode-`0444` files: receipt 108,071 bytes /
+`6dacaad7db7bcec61f591724b3bcf6ce30aad88ecd2d60e05e301c3ca79285ae`, snapshot 2,503 bytes /
+`ea6b71d50122aefce343055cdef00422331c05247191beef1042ab6a6a39d74e`, and manifest 1,160 bytes /
+`2a2a19965a0708051dff7a7eda86eb4416c60b3f4dacb162d7590b2e9bd0a474`. The 45 records are five
+passed, two failed and 38 hard-stop omissions; Gate 3 failed with `identity_byte_limit`, quality
+failure count is zero, cleanup/postcleanup are complete, artifact is `null` and no raw output is
+preserved. Attempt 13 has no retry, repair, resume or further execution path. Its accepted P2/P3
+review findings prove no Product, test, Hardware or Human-V5 outcome.
+
+The immutable R6 root `attempt13-executor-4dad93bd-483fcf40-r6-execbind` is superseded, not
+modified, by mode-`0555` root `attempt14-executor-4dad93bd-3cc91245-r1-nodebind`, containing only
+mode-`0444` executor 388,219 bytes / SHA-256
+`89c283b211456a1cf7ae20ee4ae551d7ef8a6a17dd443f541dd0cd2e314cfbb9` and manifest 3,729 bytes /
+`c118bd24fe455f944bf81ccf10faeef7dea89f41f2b3490ee9470ad2228f69f1`. Source/tree, Synthetic
+blob and original candidate/closure history remain immutable. The inherited 222,596-byte map and
+SHA-256 `5bc7e519d4a942f4ceed7e5a4b3a5e6dc5ecbf6d8b7ac8648616d0e0a2291a03` remain exact; only the
+adapted Node tool gains explicit 120,591,840-byte binding for exact path/version/SHA, while the
+generic fallback stays 32,000,000 bytes. Development `node --check` passed; the bounded no-mutation
+self-test passed 354/354 with zero failures after one development fixture setup correction, and
+the real Node identity matched the exact authorized bytes/SHA. No Attempt state was created.
+
+Any execution publication presented to the executor must be a caller-bound single child of
+baseline
+`da64ae31648166184739b056a917ea2762bc9f23` / tree
+`a20721ad15c5c824f3bf32987449ffa08569bede`, with exact HEAD/`origin/main`, six-path scope and
+caller-supplied commit/tree/canonical delta verified before `EVIDENCE_INIT`. Independent
+prepublication exact-delta/artifact review, exact publication, one local AVS R3, one V4 exact-head
+CI, final independent exact-head/artifact `APPROVED` with zero open P0–P3, then separate exact
+Human one-run authority remain mandatory. This embedded status does not itself establish their
+external completion; the separate exact run authorization must bind that external evidence.
+Attempt 14 is **NOT EXECUTED / DO NOT EXECUTE WITHOUT SEPARATE EXACT RUN AUTHORIZATION**;
+Hardware/Human/Product V5 remains **DO NOT START**. This override supersedes older
+Attempt-13 preparation state below, not its historical evidence.
+
 DA5 V5 execution-binding override: **THE SUPERSEDING READ-ONLY EXECUTOR IS AN INDEPENDENTLY
 REVIEWED PUBLICATION CANDIDATE AND GRANTS NO ATTEMPT AUTHORITY.** Independent prepublication
 exact-delta/artifact review Round 1 returned exactly one P3 for stale historic labels; Round 2

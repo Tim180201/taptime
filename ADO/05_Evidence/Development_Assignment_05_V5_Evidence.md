@@ -1,5 +1,76 @@
 # Development Assignment 5 — V5 Human Android Evidence
 
+## Attempt-13 terminal evidence and Attempt-14 read-only execution/publication candidate evidence
+
+Attempt 13 is consumed fail-closed. Its mode-`0555` evidence root
+`/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5-harness/attempt13-a0359a87-483fcf40`
+contains exactly:
+
+| File | Mode | Bytes | SHA-256 |
+|---|---:|---:|---|
+| `attempt13-command-receipt.jsonl` | `0444` | 108,071 | `6dacaad7db7bcec61f591724b3bcf6ce30aad88ecd2d60e05e301c3ca79285ae` |
+| `attempt13-precleanup-snapshot.json` | `0444` | 2,503 | `ea6b71d50122aefce343055cdef00422331c05247191beef1042ab6a6a39d74e` |
+| `attempt13-evidence-manifest.json` | `0444` | 1,160 | `2a2a19965a0708051dff7a7eda86eb4416c60b3f4dacb162d7590b2e9bd0a474` |
+
+The 45 records are five passed, two failed and 38 hard-stop omissions. Gate 3
+`SOURCE_TOOL_BINDING` failed with `identity_byte_limit`; quality-failure count is zero,
+Cleanup/Postcleanup completed, artifact is `null` and raw output was not preserved. Independent
+review reported the accepted P2/P3 correction findings. No retry, repair, resume, Product result,
+test cause, Hardware result or Human-V5 result follows.
+
+The unchanged R6 executor root remains mode `0555` with exactly its two original mode-`0444`
+entries and hashes. It is superseded by the read-only Attempt-14 execution/publication candidate
+root
+`/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-harness/attempt14-executor-4dad93bd-3cc91245-r1-nodebind`:
+
+| Entry | Mode | Bytes | SHA-256 |
+|---|---:|---:|---|
+| `attempt14-executor.mjs` | `0444` | 388,219 | `89c283b211456a1cf7ae20ee4ae551d7ef8a6a17dd443f541dd0cd2e314cfbb9` |
+| `attempt14-executor-manifest.json` | `0444` | 3,729 | `c118bd24fe455f944bf81ccf10faeef7dea89f41f2b3490ee9470ad2228f69f1` |
+
+The new manifest binds the consumed evidence, R6 supersession, immutable original
+candidate/closure history, corrected source/tree, 94,403-byte Synthetic blob and exact inherited
+222,596-byte map SHA-256
+`5bc7e519d4a942f4ceed7e5a4b3a5e6dc5ecbf6d8b7ac8648616d0e0a2291a03`. Its adapted map binds
+Node path `/Users/timbartz/.nvm/versions/node/v24.17.0/bin/node`, version `v24.17.0`, size
+120,591,840 and SHA-256 `f5f9b9db4d95f5e0340982685f083de654c21eef9d9122cab5321081ccaa2601`;
+generic missing-size verification remains limited to exactly 32,000,000 bytes.
+
+Development verification actually executed:
+
+- `node --check`: passed;
+- final bounded no-mutation self-test: passed 354/354, zero failures, 45 gates, 25 collectable;
+- fixture-name-set SHA-256:
+  `17e6b685be359459916b7970f58857eab7f14996017ec07f22164a65a12a3c7d`;
+- empty failure-set and empty-ledger SHA-256:
+  `4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945`;
+- maximum-ledger SHA-256:
+  `9601865b662409aade696f02c60ed59dced26cbc5b6acdcc8608de06b217f005`;
+- real Node read-only integration attestation: exact path, mode `0755`, 120,591,840 bytes and
+  authorized SHA-256 matched;
+- consumed Attempt-13 evidence and superseded R6 identities matched;
+- all fresh Attempt-14 execution paths and exact registration were absent before and after.
+
+The nine focused tool fixtures prove explicit metadata above 32 MB is accepted only under exact
+size, missing size retains the generic limit, size minus/plus one and SHA drift reject, Gate-3
+tool order remains Node→npm→git, and mismatch hard-stops before later tools/gates. Existing
+cleanup/null-state and carry-forward fixtures remain in the final green set. One earlier bounded
+development self-test returned `FAIL_CLOSED` solely because the newly added Gate-3 sequence
+fixture initialized at Gate 3 while exercising the full sequence; it reported one
+`gate_sequence_invalid` fixture failure. The fixture setup was corrected to begin at Gate 1 and
+the final run passed. No Attempt path, receipt, artifact, install or Harness execution occurred.
+
+Attempt 14 remains **NOT EXECUTED / DO NOT EXECUTE WITHOUT SEPARATE EXACT RUN AUTHORIZATION**.
+Any execution publication presented to the executor must be a caller-bound direct child of
+`da64ae31648166184739b056a917ea2762bc9f23` / tree
+`a20721ad15c5c824f3bf32987449ffa08569bede`; independent review, exact publication, one local AVS
+R3, one V4 exact-head CI, final independent zero-finding approval and separate Human one-run
+authority remain the normative chain. This embedded evidence document does not itself establish
+completion of those external gates; the separate exact run authorization must bind their
+evidence. This section supersedes older current Attempt-13 preparation
+claims below without changing historical evidence. Hardware/Human/Product V5 and production,
+deployment or distribution remain unauthorized.
+
 - Status: **PHASE-0 RUN 18 ESTABLISHED SAFE TRANSFER BINDING A `B55E8B6AEB30`, B `32A54C8F2F29`, X `F61C9F702CFE`; FORMAT/DISTINCTNESS AND DEVICE/UI/10×A+10×B+10×X/NFCA/FINAL PASS/TERMINAL CLEANUP MATCHED WITH EXIT 0; VALIDATION APP REMOVED; AUTHORITY CONSUMED; R-035 LOCALLY MITIGATED; PRODUCT HUMAN V5 NOT RUN; PRODUCT APP NOT INSTALLED; R-034/DA5 OPEN**
 - Date: 2026-07-31
 - Artifact preparation date: 2026-07-30 through 2026-07-31

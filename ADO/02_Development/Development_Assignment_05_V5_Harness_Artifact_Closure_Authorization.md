@@ -1,5 +1,82 @@
 # Development Assignment 5 — V5 Harness Artifact Closure Architecture and Authorization
 
+## Current override — Attempt 13 consumed; Attempt 14 read-only execution/publication candidate
+
+This section supersedes older Attempt-13 preparation-state text below without changing its
+historical candidate/closure/source facts. Attempt 13 is consumed fail-closed; retry, repair,
+resume and further execution are forbidden. Its immutable mode-`0555` evidence root
+`/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5-harness/attempt13-a0359a87-483fcf40`
+contains exactly three mode-`0444` entries:
+
+| File | Bytes | SHA-256 |
+|---|---:|---|
+| `attempt13-command-receipt.jsonl` | 108,071 | `6dacaad7db7bcec61f591724b3bcf6ce30aad88ecd2d60e05e301c3ca79285ae` |
+| `attempt13-precleanup-snapshot.json` | 2,503 | `ea6b71d50122aefce343055cdef00422331c05247191beef1042ab6a6a39d74e` |
+| `attempt13-evidence-manifest.json` | 1,160 | `2a2a19965a0708051dff7a7eda86eb4416c60b3f4dacb162d7590b2e9bd0a474` |
+
+The 45 records are five passed, two failed and 38 `not_run_hard_stop`; Gate 3
+`SOURCE_TOOL_BINDING` failed with `identity_byte_limit`, quality-failure count is zero,
+Cleanup/Postcleanup are complete, artifact is `null` and `raw_output_preserved` is false. The
+accepted independent P2/P3 review findings define this correction boundary only and prove no
+Product, test, Hardware or Human-V5 behavior.
+
+Attempt 14 uses fresh token `3cc91245` and exact new prospective state:
+
+- checkout/registration: `/private/tmp/taptime-da5-harness-4dad-attempt14-20260802-3cc91245`;
+- cache: `/private/tmp/taptime-da5-harness-4dad-attempt14-cache-20260802-3cc91245`;
+- logs: `/private/tmp/taptime-da5-harness-4dad-attempt14-logs-20260802-3cc91245`;
+- config: `/private/tmp/taptime-da5-harness-4dad-attempt14-config-20260802-3cc91245`;
+- evidence: `/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5-harness/attempt14-4dad93bd-3cc91245`;
+- success-only artifact: `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-harness/attempt14-4dad93bd-3cc91245`.
+
+All fresh execution paths and the exact worktree registration were absent before and after the
+bounded self-test. The new readonly executor root is
+`/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-harness/attempt14-executor-4dad93bd-3cc91245-r1-nodebind`,
+mode `0555`, with exactly two mode-`0444` entries:
+
+| Entry | Bytes | SHA-256 |
+|---|---:|---|
+| `attempt14-executor.mjs` | 388,219 | `89c283b211456a1cf7ae20ee4ae551d7ef8a6a17dd443f541dd0cd2e314cfbb9` |
+| `attempt14-executor-manifest.json` | 3,729 | `c118bd24fe455f944bf81ccf10faeef7dea89f41f2b3490ee9470ad2228f69f1` |
+
+The manifest supersedes and byte-binds the unchanged R6 root and binds the consumed Attempt-13
+evidence above. Original candidate `387421b3caeed988b159c93ff217fb78a0bee60c` / tree
+`ace680660468e0374004869f205e6a1e0af0ac7f`, closure chain `4dad93b...` → `2a5f32b...`, corrected
+source `4dad93bdbc3ccd3e09e2bcfba3680130a90e2799` / tree
+`d44bc534c16866dbc16cd889098e6ca33d75d1f5`, Synthetic blob
+`183b82674ed92e51375fad41e9efb034976ff5e3` and its 94,403 bytes / SHA-256
+`f47409fa4135e45c04ac63b00dc02cd636375cd7728b6a5d1d9b67f6ad6cc198` remain immutable.
+
+The inherited compact Attempt-12 map remains exactly 222,596 bytes / SHA-256
+`5bc7e519d4a942f4ceed7e5a4b3a5e6dc5ecbf6d8b7ac8648616d0e0a2291a03`. Its adapted copy adds
+`tools.node.size = 120591840` for exact Node path
+`/Users/timbartz/.nvm/versions/node/v24.17.0/bin/node`, version `v24.17.0` and SHA-256
+`f5f9b9db4d95f5e0340982685f083de654c21eef9d9122cab5321081ccaa2601`; the inherited serialized
+map verification and SHA remain unchanged. `verifyTool` uses this explicit size as its read limit
+and requires exact post-read equality. A tool without explicit size retains the exact
+32,000,000-byte generic limit. Gate 3 verifies Node, then npm, then git; any mismatch hard-stops
+before later tools/gates. Existing direct no-shell map, cleanup/null-state, carry, evidence and
+artifact closure remain otherwise inherited.
+
+Any execution-publication identity accepted by the executor must have direct parent baseline
+`da64ae31648166184739b056a917ea2762bc9f23` / tree
+`a20721ad15c5c824f3bf32987449ffa08569bede`. A caller must supply the publication
+commit/tree/canonical delta; the executor requires exact HEAD and local `origin/main`, a single
+direct parent, exactly the six ADO paths and clean scoped state before `EVIDENCE_INIT`. The closed
+approval token names Attempt 14:
+`APPROVED_ZERO_OPEN_P0_P3_EXACTLY_ONE_ATTEMPT14_R3`.
+
+Attempt 14 remains **NOT EXECUTED / DO NOT EXECUTE WITHOUT SEPARATE EXACT RUN AUTHORIZATION**.
+Required order is
+independent exact-delta/artifact review, focused exact publication, one local AVS R3 verification,
+one V4 exact-head CI, final independent exact-head/artifact `APPROVED` with zero open P0–P3, then
+separate exact Human authority for one Attempt-14 run. This embedded document does not itself
+establish completion of those external gates; the separate exact run authorization must bind
+their evidence. No reference `--execute` command is valid before all those gates and that
+separate Human authorization. This candidate grants no Hardware,
+ADB, installation, Human/Product V5, production, production-data, deployment or distribution
+authority.
+
 - Status: **ATTEMPT-13 EXECUTION-BINDING/SOURCE-ANCHOR CORRECTION IS AN INDEPENDENTLY REVIEWED PUBLICATION CANDIDATE; PREPUBLICATION EXACT-DELTA/ARTIFACT REVIEW ROUND 1 RETURNED ONE P3 FOR STALE HISTORIC LABELS AND ROUND 2 CLOSURE RETURNED `APPROVED` WITH ZERO OPEN P0–P3; THIS EMBEDDED DOCUMENT CLAIMS NO EXTERNAL V4 OR FINAL-REVIEW EVIDENCE; ATTEMPT-12 CONSUMED FAIL-CLOSED; HISTORICAL ATTEMPT-13 ROUND-5 AND TIME-WINDOW CORRECTION CLOSURES PRESERVED; ATTEMPT-13 NOT EXECUTED / DO NOT EXECUTE; PRODUCT HUMAN V5 DO NOT START**
 - Date: 2026-08-02
 - Exact preparation baseline commit: `db1fc8891d03753b2266957d45137e1817e46156`
