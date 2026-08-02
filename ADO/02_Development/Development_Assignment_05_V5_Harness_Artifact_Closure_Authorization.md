@@ -1,16 +1,16 @@
 # Development Assignment 5 — V5 Harness Artifact Closure Architecture and Authorization
 
-- Status: **ATTEMPT-11 CONSUMED FAIL-CLOSED; ATTEMPT-12 ABSORBING CLEANUP_RESIDUE P2 CORRECTION REVIEW PENDING / NOT EXECUTED / DO NOT EXECUTE; PRODUCT HUMAN V5 DO NOT START**
-- Date: 2026-08-01
-- Exact preparation baseline commit: `ac568be39d455951488dbeb4a49ae23018fa111b`
-- Exact preparation baseline tree: `655632c883643819f1bdc44b08979bd83e03f718`
+- Status: **ATTEMPT-12 CONSUMED FAIL-CLOSED; ATTEMPT-13 COLLECT-SAFE ROUND-5 DEVELOPMENT CORRECTION COMPLETE / INDEPENDENT RE-REVIEW PENDING / V3 REVOKED AND PENDING / NOT EXECUTED / DO NOT EXECUTE; PRODUCT HUMAN V5 DO NOT START**
+- Date: 2026-08-02
+- Exact preparation baseline commit: `db1fc8891d03753b2266957d45137e1817e46156`
+- Exact preparation baseline tree: `4fa39b6261e5f856d8f982bedee1ec843b371ed6`
 - Published Attempt-10 authorization commit: `a08e2e89a2aa3962b1bc4ddeb0f77e480f1f4f85`
 - Published Attempt-10 authorization tree: `dbec8fb277b1a915153c765cad4c5a060e0626b4`
 - Corrected executable-source commit: `a0359a87fd1738c8493929a1661cbbc7adb3c07c`
 - Corrected executable-source tree: `102c913e264bd0ccce1d085db1c50bd407f7d4a4`
 - Owner: Technical Lead
 - Decision authority: Human Architect
-- Current change risk: AVS-001 **R0**
+- Current change risk: AVS-001 **R3**
 - Attempt-9 artifact-closure risk: AVS-001 **R3** — authority consumed fail-closed
 - Attempt-10 artifact-closure risk: AVS-001 **R3** — authority consumed fail-closed
 - Independent authorization review: **attempts 1–3 `APPROVED`; zero open P0–P3; this does not verify attempt-3 execution**
@@ -36,7 +36,11 @@
 - Attempt-12 candidate review Round 2: **`CHANGES REQUIRED`; exactly two P2 and one P3 corrected in Round 3; independent re-review pending**
 - Attempt-12 candidate review Round 3: **`CHANGES REQUIRED`; exactly one P2 in signal-terminated `WORKTREE_ADD[0]` Cleanup-V2 binding corrected in the prior focused round**
 - Attempt-12 focused correction re-review: **`CHANGES REQUIRED`; exactly one P2 in absorbing `cleanup_residue` gate evidence corrected here; independent re-review pending**
-- Attempt-12 candidate: **REVIEW PENDING / NOT EXECUTED / DO NOT EXECUTE; no execution authority before exact publication and independent approval**
+- Attempt-12 execution: **consumed fail-closed at `V2_SYNTHETIC_TEST`; immutable 34/2/9 distribution; no artifact and no retry**
+- Attempt-12 execution/evidence review: **`CHANGES REQUIRED`; three P2 and one P3 synchronization item feed the Attempt-13 candidate**
+- Attempt-13 candidate Round-2 review: **`CHANGES REQUIRED`; three P1 and four P2 corrected in Round 3**
+- Attempt-13 candidate Round-4 review: **`CHANGES REQUIRED`; exactly two P1 corrected in focused Round 5; independent exact-delta/artifact re-review pending**
+- Attempt-13 candidate: **ROUND-5 DEVELOPMENT CORRECTION COMPLETE / INDEPENDENT RE-REVIEW PENDING / V3 REVOKED AND PENDING / NOT EXECUTED / DO NOT EXECUTE; V4, final review and separate exact Human run authorization remain mandatory**
 
 ## 1. Purpose and current authority
 
@@ -1919,3 +1923,315 @@ exact candidate and the approved six-file ADO delta is published exactly. Review
 correction and renewed independent review. The conditional standing authorization reaches at most
 one exact R3 Attempt-12 run after those gates; it does not reach Hardware or any Product/Human V5
 gate.
+
+## 12. Attempt-12 terminal synchronization
+
+Attempt 12 executed once and is consumed fail-closed. Executable source/tree remained
+`a0359a87fd1738c8493929a1661cbbc7adb3c07c` /
+`102c913e264bd0ccce1d085db1c50bd407f7d4a4`; publication commit/tree were
+`db1fc8891d03753b2266957d45137e1817e46156` /
+`4fa39b6261e5f856d8f982bedee1ec843b371ed6`. The immutable evidence directory is
+`/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5-harness/attempt12-a0359a87-710d46dc`.
+It contains exactly three mode-`0444` files under mode `0555`:
+
+- receipt: 73,329 bytes, SHA-256
+  `eae30ed497d64392c26dbd670b2118b5396bfbf6d63da4e7fffea59b45f26f21`;
+- precleanup snapshot: 45,249 bytes, SHA-256
+  `e6c040d2db7943b3f8782b0734bdcacc836b2a28d610ce6dde1ee54e4926b864`;
+- evidence manifest: 966 bytes, SHA-256
+  `7acc9cd3848e80a760edc77f2aa005b38329b62136a92ebb1bd29153374707d8`.
+
+The exact 45-record distribution is 34 `passed`, two `failed` and nine `omitted`. Gate 32
+`V2_SYNTHETIC_TEST` is the first failure; `FINALIZE` is the second. Gate 32 has one exact mapped
+exit-1 process and a fully normalized 118,443-byte reporter. Expected and observed file
+membership are exactly 13/13 with digest
+`6d3d0d28585a65d8e1357716285896176549416262b3fdba5e5a88ff4966716f`.
+It records 13 files (11 passed, two failed), 42 suites (38 passed, four failed), and 297 tests
+(273 passed, six failed, 18 skipped). The only justified category is
+`assertion_result_or_test_hook_failure_ambiguous`, code `vitest_reported_failure`. Raw reporter,
+stdout and stderr are absent. No narrower test, hook or Product cause may be inferred.
+
+Independent execution/evidence review returned `CHANGES REQUIRED`:
+
+1. P2: mapped `CLEANUP[0]` lacked `cleanup_state_before`, `actual_root_results`,
+   `actual_registration_result` and `cleanup_state_after`; mapped `POSTCLEANUP[0]` was absent.
+2. P2: the actual 51,266-byte in-memory executor had no prepublished independently verifiable
+   artifact anchor; its self-reported hash is insufficient.
+3. P2: Gate 32 did not persist the canonical `failing_files` inputs — allowlisted path,
+   `failed_assertion_count` and `failed_identifier_sha256` — so its legacy failure signature cannot
+   be independently recomputed after raw reporter removal.
+4. P3: the earlier 35/1/9 distribution was wrong and is corrected here to 34/2/9.
+
+Attempt 12 authorizes no retry, resume or reinterpretation. Complete cleanup flags and current
+path absence do not erase the evidence-contract findings.
+
+## 13. Attempt-13 exact pre-execution candidate
+
+### Baseline, freshness and external executor anchor
+
+The exact preparation baseline is commit
+`db1fc8891d03753b2266957d45137e1817e46156`, tree
+`4fa39b6261e5f856d8f982bedee1ec843b371ed6`. Executable source/tree remain unchanged. Fresh token
+`483fcf40` binds these prospective paths:
+
+- checkout: `/private/tmp/taptime-da5-harness-a035-attempt13-20260802-483fcf40`;
+- cache: `/private/tmp/taptime-da5-harness-a035-attempt13-cache-20260802-483fcf40`;
+- logs: `/private/tmp/taptime-da5-harness-a035-attempt13-logs-20260802-483fcf40`;
+- config: `/private/tmp/taptime-da5-harness-a035-attempt13-config-20260802-483fcf40`;
+- evidence:
+  `/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5-harness/attempt13-a0359a87-483fcf40`;
+- success-only artifact:
+  `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-harness/attempt13-a0359a87-483fcf40`.
+
+All six paths and the matching worktree registration were verified absent during candidate
+preparation. They remain uncreated. The retained immutable Round-3 executor root, now superseded,
+is
+`/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-harness/attempt13-executor-a0359a87-483fcf40`.
+Its exact directory entries are:
+
+| Entry | Bytes | Mode | SHA-256 |
+|---|---:|---:|---|
+| `attempt13-executor.mjs` | 300,883 | `0444` | `3b6513196fe1b378fc123920dc3577b6759275ca1a39697e6d31dc0962eb28ab` |
+| `attempt13-executor-manifest.json` | 782 | `0444` | `4f59647a68255f99cba86b75325e6271c32acc369be9a9bf5dc0e73703c103f3` |
+
+The retained immutable read-only Round-4 executor root, now superseded, is
+`/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-harness/attempt13-executor-a0359a87-483fcf40-r4-165c30bc`.
+Its exact directory entries are:
+
+| Entry | Bytes | Mode | SHA-256 |
+|---|---:|---:|---|
+| `attempt13-executor.mjs` | 337,952 | `0444` | `d0dc66f61e802e2a67fdd561734eb06b7053a7cceedd0afdbb1334d60f0f864d` |
+| `attempt13-executor-manifest.json` | 1,099 | `0444` | `e5760ade7836bc44453a7e0941e0a31a9094fd8b1514d213748fd998f91f7dee` |
+
+The current prepublished read-only Round-5 executor root is
+`/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-harness/attempt13-executor-a0359a87-483fcf40-r5-plcym5sw`.
+Its exact directory entries are:
+
+| Entry | Bytes | Mode | SHA-256 |
+|---|---:|---:|---|
+| `attempt13-executor.mjs` | 352,258 | `0444` | `f5cad177fc8efaefcb0d8d1b52f626c809be9cb3f46e9446a62cd6b60a74b4ec` |
+| `attempt13-executor-manifest.json` | 1,111 | `0444` | `8d6416d99717efe8929d3f6dcb639fa10a9dd8ab14dd452eabc6d23ca9d23fab` |
+
+All three directory modes are `0555`; none has a third entry or mutable helper. The current
+manifest binds the superseded Round-4 root plus both Round-4 entry digests; that manifest in turn
+binds Round 3. Before any future
+`EVIDENCE_INIT`, the executor self-attests its own exact path, realpath, regular-file type, mode,
+byte count and digest against the adjacent manifest, and independently binds the manifest digest
+shown above. It then requires exact published HEAD/tree, local `origin/main` equality, parent
+baseline/tree, exactly the six authorized ADO paths and the caller-supplied exact canonical delta
+SHA. The activation token is the closed literal
+`APPROVED_ZERO_OPEN_P0_P3_EXACTLY_ONE_ATTEMPT13_R3`. Supplying it is valid only after the formal
+candidate gate below; it is not present execution authority.
+
+The executor obtains the exact existing Attempt-12 compact map only from the published
+authorization, verifies its exact 222,596 bytes and SHA-256
+`5bc7e519d4a942f4ceed7e5a4b3a5e6dc5ecbf6d8b7ac8648616d0e0a2291a03`, retains its 45-gate
+order and direct no-shell argv, and deterministically replaces only named Attempt-13 path/token,
+receipt-schema and reporter-root bindings. No arbitrary process request is accepted.
+
+### Collect-safe, hard-stop and omission model
+
+All 45 gate records remain explicit and ordered. `PRECLEANUP_SNAPSHOT`, `CLEANUP`, `POSTCLEANUP`
+and `FINALIZE` always execute. The decision classes are disjoint:
+
+- **hard stop:** Gates 1–10 and Gate 27; any non-start/signal; worker/process/infrastructure
+  anomaly; provenance, identity, mapping, argv, env, tool, source, publication, schema, bounds,
+  parser, raw-disclosure, reporter-contract, symlink, special-file, output-root, output-integrity,
+  cleanup or postcleanup anomaly at any gate. At most one closed hard-stop object is stored.
+  Remaining Gates through 41 become `not_run_hard_stop`.
+- **collectable quality failure:** only a fully attestable exit/nonzero or closed predicate failure
+  at Gates 11–26, 28–32, 34, 38, 39 or 40 after exact output/provenance attestation. Exactly one
+  entry per gate and at most 25 entries are allowed. A second entry, overflow, duplicate, wrong
+  order, invalid enum, stale signature or extra field is a hard stop.
+- **dependency omission:** only a named direct prerequisite or required input that is non-green,
+  unavailable or ambiguous makes its dependent `dependency_omitted`. The record has null exit,
+  an empty process list, sorted direct dependency IDs and their exact gate-result signatures.
+  Unrelated downstream gates still run.
+- **pass/carry:** a carry repeats the original green gate-result signature and proves the exact
+  tracked input/source binding unchanged. Carry drift is a hard stop.
+
+Each quality entry has exactly `gate_number`, `gate_id`, closed `quality_kind`, closed
+`failure_code`, nullable `process_index`, the closed termination tuple and
+`gate_result_signature`. The list is unique and gate-number sorted. Final evidence records
+`entry_count`, SHA-256 of compact canonical list, at most one hard-stop object, omission count and
+digest, and `raw_output_preserved:false`. Closed quality kinds are `build_nonzero`,
+`test_nonzero`, `typecheck_nonzero`, `typecheck_membership_false`, `node_check_nonzero`,
+`metafile_predicate_false` and `talkback_predicate_false`.
+
+The closed termination tuple is exactly `not_started|exit|signal`. `process_exit_code` is nonnull
+only for `exit`; `signal_category` is nonnull only for `signal`. Raw signal name/number and a
+synthesized `128+signal` exit are forbidden. A signal is always a hard stop, never a collectable
+quality result.
+
+### Exact dependency decisions for Gates 32–41
+
+- Gate 32 execution-depends only on green Gate 27; earlier independent quality results do not omit
+  it.
+- Gate 33 carries Gate 31 only when Gate 31 is green and its inputs remain unchanged.
+- Gate 34 is independent of Gate 32 and Gate 33 and execution-depends only on green Gate 27. Its
+  second mapped child runs only after the first child is green; first-child quality failure omits
+  that child without blocking independent Gates 35 and 36.
+- Gates 35 and 36 carry Gates 28 and 30 respectively under unchanged-input proof.
+- Gate 37 carries Gate 34 only when the complete Gate-34 result is green.
+- Gate 38 requires green Gate 34 and Gate 37 plus the exact `dist/da5V5Main.js` identity.
+- Gate 39 is independent of Gate 38. It runs only if Gate-34 esbuild ran successfully after its
+  green first child and the exact metafile/output identity is proven.
+- Gate 40 requires the exact Gate-34 output and green Gate-39 verified graph. It preserves the
+  current TalkBack-closure predicate unchanged.
+- Gate 41 requires every required Gate 1–40 result green or validly carried, zero collected
+  failures, no hard stop, Gates 38–40 green, and no deferred reporter cleanup or residue.
+
+Gate 39 requires exactly the existing 14 allowlisted Synthetic `dist` outputs and exact graph
+inputs `apps/synthetic-android-e2e/src/da5V5Main.ts`,
+`apps/synthetic-android-e2e/src/Da5V5AdbController.ts` and
+`apps/mobile/scripts/da5V5AndroidDevice.mjs`. It rejects all runtime references to
+`@expo/expo-modules-macros-plugin`, `expo-modules-jsi` and `expo-modules-core`. Gate 40 additionally
+binds the exact reviewed source hashes, graph edges from main to controller to mobile device
+module, both authorized TalkBack package literals, the unavailable-package predicate and the
+single-active-provider mismatch predicate in the exact output. Any forbidden runtime reference,
+source/hash drift or graph ambiguity hard-stops.
+
+### Gate-32 reproducible safe failure evidence
+
+The bounded Attempt-12 reporter/schema/allowlist contract remains authoritative, with one
+addition: every normalized result persists canonical `failing_files`. Each entry contains only an
+exact source-allowlisted repository-relative path, `failed_assertion_count`, and
+`failed_identifier_sha256`. The identifier digest hashes the UTF-8 compact JSON multiset of
+unsigned-byte-sorted individual SHA-256 values for NFC `[ancestorTitles...,title]`; duplicates
+remain. File entries are exact allowlist-byte sorted. The executor derives the signature schema
+from the loaded adapted map and requires the exact V1 literal
+`DA5_V5_ATTEMPT13_VITEST_FAILURE_SIGNATURE_V1`; it does not substitute a locally invented schema.
+The normalized signature hashes the closed category/code, termination tuple,
+expected/observed membership digests, exact counts and these persisted entries. Messages, failure
+text, stack, timestamps, durations, metadata, tags, arbitrary paths, reporter bytes and
+stdout/stderr never enter evidence.
+
+The complete normalized object is closed as exactly 31 result fields plus a separate canonical
+`failing_files` envelope and exactly 13 binding fields. File/suite/test partitions, failing
+assertion sums, status/code/category precedence, gate/kind/process index, source membership,
+signature lifecycle and terminal binding rules are validated cross-field. A source byte-count or
+digest mismatch maps to the existing closed `unexpected_file_path` failure code. A preflight
+failure remains schema-legal `not_started`; a process that never starts has `processes:[]` and an
+explicit gate termination tuple. The inventory attests exactly two allowed roots,
+`node_modules` and the reporter root, while allowing mutation only in the exact identity-bound
+reporter root and restoring its before-state.
+
+Only a completely normalized assertion/test-hook or suite/hook/collection/transform/config result
+may be collected. Process-not-started, signal, worker/process/infrastructure result, exit/result
+contradiction, reporter/contract error, bounds/parser/schema failure or reporter cleanup residue is
+a hard stop. Reporter raw content is removed by exact identity before receipt; failure to do so
+hard-stops and defers only to the already exact-bound checkout cleanup.
+
+### Cleanup and artifact closure
+
+`CLEANUP[0]` and `POSTCLEANUP[0]` each retain their one mapped process record, including a
+safely forbidden launch with closed `not_started` termination. No additional Git probe child is
+permitted. Both child records carry `cleanup_state_before`, `actual_root_results`,
+`actual_registration_result` and `cleanup_state_after`; POSTCLEANUP additionally carries
+`successful_artifact_preservation` and `evidence_preservation`. Each cleanup state has exactly
+eight fields; nullable identities have exactly four fields and worktree mappings exactly six.
+The fixed root-result array contains exactly five exact nine-field objects in order `checkout`,
+`cache`, `logs`, `config`, `failure_only_artifact`; the registration result has exactly 13 fields.
+
+Worktree removal occurs only after exact checkout, registration and singleton worktree-list
+mapping revalidation. A vanished captured root is deferred to cleanup and is not rewritten as
+`not_created`. Missing, mismatched or ambiguous identity never authorizes removal. Bound success
+is exactly `bound -> cleanup_applied -> cleanup_complete`. Unbound, partial and all 56
+mismatch/ambiguity tuples launch zero removal and enter or retain `cleanup_residue`.
+`cleanup_residue` remains absorbing: CLEANUP and POSTCLEANUP may only retain it as named terminal
+evidence with sequence plus one and zero removal attempts; FINALIZE makes no transition, copies
+both exact committed records, sets both completion flags false and remains `FAIL_CLOSED`.
+POSTCLEANUP derives fresh root, registration and mapping observations from its mapped output and
+filesystem state rather than aliasing Cleanup observations.
+
+Gate 41 stages the two exact success files in memory only. The external success artifact is
+materialized only in `FINALIZE`, after complete Cleanup/Postcleanup, an empty failure ledger, no
+hard stop and all required gates green/carried. An ordinary failure requires artifact `null` and
+exact artifact-path absence. Artifact observation and rollback are total: null or partial
+transaction state, a thrown observation, or a parent/creation/removal mismatch authorizes zero
+removal and records truthful residue. A creation-bound descriptor is legal only for a proved
+created object with nonnull creation identity. If a caught Finalize publication fault leaves an
+artifact whose exact parent/creation binding cannot be revalidated, removal is forbidden and
+Finalize records only the closed residue descriptor; no success artifact is claimed. Before
+Finalize, committed receipt records are deep-copied and frozen;
+Finalize derives and validates its cleanup copies, final state, completion flags and manifest
+status from those immutable records. Its common PASS/FAIL transaction stages artifact/evidence
+and modes, commits the receipt last, and rolls back the staged/truncated prefix for each caught
+write or chmod failure. This is catchable-exception rollback, not a crash-atomic guarantee.
+Prejournal initialization likewise records the receipt file identity before fallible realpath or
+readback operations. A failed rollback is never suppressed and never clears the identity/handle
+bindings still needed for terminal disposition; only exact root, receipt and entry state may be
+removed, otherwise the closed outcome remains disclosure-safe and authorizes zero removal.
+
+Evidence remains exactly receipt and evidence manifest plus the fixed-name snapshot when that
+entry is present. The snapshot manifest field is exactly one of: `null` only after proved absence;
+the existing fully bound `{name,bytes,sha256}` object; or the closed residue
+`{name,status,removal_attempted:false}` with status exactly
+`present_unbound|present_ambiguous`. A residue may disclose no bytes, digest, content, raw path or
+identity details; it is never chmodded or removed, forces `evidence_preserved:false`, zero removal
+and `FAIL_CLOSED`, and is retained in the truthful exact three-entry Gate-45 set. A failed Gate-42
+write rolls back only by exact identity. The final two- or three-entry set is frozen only to the
+extent safely bound with the 45th record.
+
+### Focused Round-5 candidate validation and formal gate
+
+Round-2 independent review returned `CHANGES REQUIRED` with three P1 findings in Gate-42
+finalization, receipt durability and artifact publication rollback, plus four P2 findings in fresh
+Postcleanup identity, quality-record linkage, Gate-32 preflight/failing-file closure and exact
+source size/digest binding. Round 3 closes those seven findings without changing Product code,
+schema, dependencies, lockfile or workflow. The focused Human-authorized Round-4 correction adds
+only the closed snapshot-residue branch, total truthful artifact rollback under null/ambiguous
+state, non-suppressed prejournal rollback failure handling, the exact header-baseline correction
+and their adversarial fixtures.
+
+Formal Round-4 review returned `CHANGES REQUIRED` with exactly two P1 findings. First, exclusive
+receipt creation and descriptor/lstat agreement were not persisted into the prejournal identity
+and stage before fallible initial realpath/readback. Round 5 now records that exact identity and
+`receipt_identity_recorded` stage first and retains the handle/binding across either failure.
+Second, artifact state, transaction, parent, creation and root identities were not all strict
+exact schemas before equality, absence and removal decisions. Round 5 requires those closed
+shapes; only exact `{exists:false,stat:null}` proves absence, malformed/falsy/partial values retain
+truthful residue with zero removal, and empty identities cannot compare equal or claim
+`creation_identity_bound`. Twenty-one focused fixtures bind persistent and recoverable
+realpath/readback failure, disclosure closure, malformed state/transaction/identity, exact absence
+and zero-removal behavior.
+
+The pure-fixture runner is bounded to 512 unique allowlisted fixture names and 512 closed safe
+failure tuples. It executes every isolated fixture, sorts the sanitized name/code list, hashes it,
+and returns PASS only with zero failures; runner setup, bound overflow, artifact/map IO and
+non-fixture infrastructure failures hard-stop. Development truthfully recorded a legacy fail-fast
+red at `vitest-preflight-accepts-null-null`, a pre-fixture registration-grammar hard-stop, and a
+complete diagnostic collect-all run with nine preflight-matrix reds / SHA-256
+`5d7b102b667868672313e0fec026be5e4d496e1b182e1f076de46d9eef8327ee`. The common correction
+derives the preflight-code set from the loaded map: eight tuples remain legal with
+`reporter_realpath_failure`, while only `true/true` rejects.
+
+Round-3 Development Node syntax passed, and its exact read-only `--self-test` passed 264/264
+no-mutation fixtures with zero failure tuples. After the focused correction, the necessary final
+Round-5 Node syntax passed and the exact current read-only `--self-test` passed 314/314 fixtures
+with zero failure tuples. Fixture-name-set SHA-256 is
+`8d69314f7a703cfe5c44011033e3325e505667c33f9d631618172ff72e9262c4`; empty failure-set and
+empty-ledger SHA-256 are `4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945`;
+maximum-ledger SHA-256 is `8b3f59e179040dcb3d30611abb1ef55fc679b4fe807ac9ce721d678fc122055d`.
+The exact current category counts are artifact-transaction 37, carry-handler 1, cleanup-handler 6,
+cleanup-residue-matrix 56, contract 2, dependency 2, executor-root 6, finalize-derivation 4,
+finalize-transaction 6, gate32-handler 11, gate42-handler 1, gate42-transaction 20,
+journal-transaction 21, postcleanup-handler 5, quality-handler-link 29, quality-ledger 19,
+receipt-transaction 7, sequence-handler 1, signal 36, vitest-contract 29,
+vitest-preflight-matrix 9 and vitest-source-identity 6. The result reports 45 gates, 25 collectable
+slots, `raw_output_preserved:false` and `mutation_performed:false`.
+
+These development checks are not an independent approval. Independent exact-delta/artifact re-review remains
+pending. The prior V3 claim remains revoked; V3 is `PENDING` until the Technical Lead independently
+repeats the final exact checks. Product source is unchanged. No Product or Attempt execution
+occurred and no Product correctness is proved.
+
+No Attempt-13 run is currently authorized. The exact mandatory order is: current Round-5 exact-delta and
+artifact review `APPROVED` with zero open P0–P3; exact publication; exactly one local AVS R3
+verification of the published candidate; one V4 exact-head CI; final independent
+exact-head/artifact review `APPROVED` with zero open P0–P3; and only then a separate exact Human
+authorization for one Attempt-13 run. The local R3 verification is not an Attempt execution. No
+earlier gate, standing rule or Technical-Lead action activates the run automatically. Until that
+separate authorization, no fresh Attempt path or receipt may be created. Hardware, ADB,
+installation, Human/Product V5, production, production data, deployment and distribution remain
+unauthorized.

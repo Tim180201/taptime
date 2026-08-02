@@ -5,9 +5,10 @@
 - Owner: Technical Lead
 - Approval authority for any run: Human Architect
 
-Current Harness override: Attempt 11 is consumed fail-closed. Attempt 12 absorbing `cleanup_residue` P2
-correction is **REVIEW PENDING / NOT EXECUTED / DO NOT EXECUTE**; no run, Hardware or
-Human/Product V5 authority exists.
+Current Harness override: Attempt 12 is consumed fail-closed. Attempt 13 collect-safe
+pre-execution candidate is **ROUND-5 DEVELOPMENT CORRECTION COMPLETE / INDEPENDENT RE-REVIEW PENDING / V3 REVOKED AND PENDING / NOT EXECUTED / DO NOT
+EXECUTE**; V4, final review and a separate exact Human run authorization remain mandatory. No run,
+Hardware or Human/Product V5 authority exists.
 
 ## 0A. Run-18 fingerprint-transfer success and current Product boundary
 
@@ -1317,3 +1318,123 @@ If cleanup residue follows normalization, keep normalized counts, override categ
 reporter-contract/cleanup-failed and recompute the canonical signature before receipt append.
 Before normalization, signature is always null. A missing, null or stale signature in a purported
 normalized tuple is invalid evidence and fails closed.
+
+## Attempt-13 candidate operating procedure — do not execute before approval/publication
+
+Attempt 12 is consumed with immutable 34/2/9 gate distribution, no artifact and no retry. Do not
+rerun or diagnose it. Attempt 13 uses fresh token `483fcf40` and the exact paths and external
+executor hashes in the authorization. During candidate review only these non-mutating commands are
+permitted:
+
+```text
+/Users/timbartz/.nvm/versions/node/v24.17.0/bin/node --check /Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-harness/attempt13-executor-a0359a87-483fcf40-r5-plcym5sw/attempt13-executor.mjs
+/Users/timbartz/.nvm/versions/node/v24.17.0/bin/node /Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-harness/attempt13-executor-a0359a87-483fcf40-r5-plcym5sw/attempt13-executor.mjs --self-test
+```
+
+Neither command may create an Attempt path. The retained Round-3 and Round-4 artifacts remain
+immutable and are superseded by this current candidate. The current external candidate is
+352,258 bytes with executor SHA-256
+`f5cad177fc8efaefcb0d8d1b52f626c809be9cb3f46e9446a62cd6b60a74b4ec`; its 1,111-byte manifest
+SHA-256 is `8d6416d99717efe8929d3f6dcb639fa10a9dd8ab14dd452eabc6d23ca9d23fab` and binds the superseded
+Round-4 root plus both Round-4 entry digests.
+Round-2 review returned three P1 and four P2 findings; Round 3 corrects receipt/Gate-42/artifact
+transactions, fresh Postcleanup observation, committed-record quality links, Gate-32 matrix and
+failing-file closure, and exact source identity. The focused Round-4 correction closes the local
+snapshot-residue branch, total truthful artifact rollback under state ambiguity, prejournal
+rollback-failure retention and the stale authorization header. Formal Round-4 review returned
+`CHANGES REQUIRED` with exactly two P1 findings. Focused Round 5
+persists the descriptor/lstat-bound receipt creation identity before fallible initial
+realpath/readback while retaining the handle and binding on failure. It also requires strict exact
+artifact state, transaction and nested identity shapes before equality, absence or removal: only
+exact `{exists:false,stat:null}` proves absence; malformed, falsy or partial values retain residue
+with zero removal, and empty identities never compare equal or establish creation binding.
+Development syntax passed, and the necessary final bounded collect-all no-mutation self-test
+passed 314/314 fixtures, 45 gates and 25
+collectable gates with zero fixture failures. Fixture-name-set SHA-256 is
+`8d69314f7a703cfe5c44011033e3325e505667c33f9d631618172ff72e9262c4`; empty failure-set and
+empty-ledger SHA-256 are `4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945`;
+maximum-ledger SHA-256 is `8b3f59e179040dcb3d30611abb1ef55fc679b4fe807ac9ce721d678fc122055d`, with
+`raw_output_preserved:false` and `mutation_performed:false`. Intermediate development runs failed
+closed at one legacy fail-fast fixture, one pre-fixture name guard and the complete nine-item
+preflight matrix before their common map-derived correction. Independent exact-delta/artifact
+re-review remains pending. The prior V3
+claim remains revoked; V3 is `PENDING` until the Technical Lead independently repeats the final
+exact checks. Product source remains unchanged. This was not Product or Attempt execution, created
+no Attempt path and proves no Product correctness.
+
+The mandatory order is: current Round-5 exact-delta/artifact review `APPROVED` with zero open P0–P3;
+exact publication; exactly one local AVS R3 verification of the published candidate; one V4
+exact-head CI; final independent exact-head/artifact review `APPROVED` with zero open P0–P3; then
+a separate exact Human authorization for one Attempt-13 run. The local R3 verification is not an
+Attempt execution. No step activates the next automatically. The command below is reference-only
+and remains forbidden now. Only a later separate Human authorization may bind its exact published
+commit, tree, delta and single-run scope before the Technical Lead invokes it:
+
+```text
+/Users/timbartz/.nvm/versions/node/v24.17.0/bin/node <exact-executor> --execute \
+  --approval-token APPROVED_ZERO_OPEN_P0_P3_EXACTLY_ONE_ATTEMPT13_R3 \
+  --expected-manifest-sha256 8d6416d99717efe8929d3f6dcb639fa10a9dd8ab14dd452eabc6d23ca9d23fab \
+  --publication-repository /Users/timbartz/Dokumente/GitHub/taptime \
+  --publication-commit <exact-published-commit> \
+  --publication-tree <exact-published-tree> \
+  --publication-delta-sha256 <SHA-256-of-exact-git-diff-output>
+```
+
+The delta digest is SHA-256 of the executor's exact direct `git diff --binary --full-index
+--no-ext-diff <preparation> <publication> -- <six sorted ADO paths>` UTF-8 stdout after removal of
+its single final LF. Never substitute a different digest convention.
+
+Operational interpretation is deterministic:
+
+- The pure-fixture `--self-test` is bounded collect-all: it executes every isolated allowlisted
+  fixture, returns sorted closed failure tuples and their digest, and is PASS only with zero
+  failures. Runner setup, overflow, artifact/map IO and non-fixture infrastructure errors hard-stop.
+- Gate 42 permits exactly three snapshot outcomes: `snapshot:null` only after proved absence; the
+  unchanged fully bound `{name,bytes,sha256}` object; or the fixed safe-name residue
+  `{name,status,removal_attempted:false}` with status `present_unbound|present_ambiguous`. Residue
+  exposes no bytes, digest, content, raw path or identity details, authorizes zero removal, forces
+  `evidence_preserved:false` and `FAIL_CLOSED`, and remains in the exact three-entry Evidence set.
+- Artifact rollback requires exact parent and creation identity. Null/partial transaction state,
+  an observation failure or missing/ambiguous binding authorizes no removal and finalizes only a
+  truthful residue with no success claim. A creation-bound descriptor requires a proved created
+  object and nonnull creation identity.
+- Prejournal rollback failures are never suppressed and never clear the receipt/root bindings
+  still required for exact terminal recovery. Incomplete or ambiguous recovery records only the
+  closed safe outcome and performs zero unbound removal.
+
+- A collectable quality failure does not stop unrelated gates. Record it once, continue only DAG
+  nodes whose direct prerequisites remain available, and mark direct dependents
+  `dependency_omitted`.
+- A signal, non-start, infrastructure/worker anomaly, parser/schema/bounds problem, raw-output
+  risk, path/symlink/special-file/output-root mutation, source/tool/publication/identity/mapping
+  mismatch or Cleanup anomaly hard-stops; remaining Gates through 41 are
+  `not_run_hard_stop`.
+- Gate-32 preflight failure remains a legal `not_started` result. If the mapped process never
+  starts, persist `processes:[]` plus the explicit gate termination tuple. Its pre/post inventory
+  has exactly two allowed roots, `node_modules` and the reporter root; only the exact
+  identity-bound reporter root may change and must be restored.
+- Gates 42–45 always run. CLEANUP and POSTCLEANUP must each retain their mapped child record and
+  the four exact cleanup objects. Never remove a checkout or registration unless all exact
+  identities and the worktree-list mapping revalidate.
+- Do not add a Git probe around Cleanup or Postcleanup. Use only their mapped children and fresh
+  bounded filesystem/mapped-output observations. Missing, partial, mismatched or ambiguous binding
+  performs zero removal and ends in absorbing `cleanup_residue`; only exact bound state may proceed
+  `bound -> cleanup_applied -> cleanup_complete`.
+- Gate 32 may be collected only after complete normalized 13/13 membership and safe persisted
+  `failing_files`. Validate the exact 31-field result, 13-field binding and all cross-field
+  partitions against the loaded map's
+  `DA5_V5_ATTEMPT13_VITEST_FAILURE_SIGNATURE_V1`. Source size/digest drift uses the existing
+  `unexpected_file_path` code. Reporter/signature/cleanup uncertainty hard-stops.
+- Gate 39 remains independent of Gate 38, but requires the successful exact Gate-34 esbuild and
+  metafile after a green first Gate-34 child. Gate 40 requires Gate 39. Gate 41 requires zero
+  failures and no residue.
+- Do not create the success artifact at Gate 41. The executor stages two bounded files in memory
+  and publishes them only during successful Finalize after exact Cleanup/Postcleanup. Any failure
+  requires artifact-path absence.
+- Finalize must derive from frozen copies of already committed records. Its common transaction
+  stages artifact/evidence/modes and commits the receipt last; any caught write/chmod fault rolls
+  back the staged prefix. Do not claim crash atomicity.
+
+Do not manually repair, resume, remove ambiguous residue, repeat only failed tests, or invoke a
+second Attempt. Stop after the one terminal receipt. Hardware, ADB, install, device/Tag and
+Human/Product V5 operations are outside this procedure.

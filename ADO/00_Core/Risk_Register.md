@@ -182,6 +182,76 @@ exact publication remain prerequisites for the standing Human authorization to a
 future R3 run. No current execution, Hardware, Human/Product V5, production, deployment or
 distribution authority follows.
 
+### DA5 Harness Attempt-12 terminal risk and Attempt-13 mitigation candidate
+
+Attempt 12 is consumed fail-closed with no artifact or retry. Immutable evidence proves 34 passed,
+two failed and nine omitted gates, not the previously reported 35/1/9. Gate 32 safely proves only
+an exact exit-1 normalized Vitest result with 13/13 file membership and the closed ambiguous
+assertion/test-hook category; no Product or test cause is established. Independent review leaves
+three P2 evidence/executor-contract findings and the corrected P3 distribution as the mitigation
+input: incomplete CLEANUP/POSTCLEANUP child evidence, no prepublished exact executor anchor, and
+missing canonical Gate-32 per-file failure-signature components.
+
+The Attempt-13 candidate mitigates those gaps by exact external executor/manifest SHA binding,
+persisted canonical `failing_files` inputs, and mapped child records carrying
+`cleanup_state_before`, `actual_root_results`, `actual_registration_result` and
+`cleanup_state_after` at both CLEANUP and POSTCLEANUP. Its collect-safe rule reduces repeat-run
+pressure without weakening fail-closed boundaries: at most 25 closed, unique and gate-sorted
+quality failures may accumulate; all safety, provenance, identity/mapping, schema, disclosure,
+signal, worker/infrastructure, output-integrity and cleanup anomalies hard-stop. Only independent
+nodes continue, direct dependents are omitted, terminal cleanup always runs and an artifact is
+forbidden on any failure.
+
+The exact preparation baseline is `db1fc8891d03753b2266957d45137e1817e46156` / tree
+`4fa39b6261e5f856d8f982bedee1ec843b371ed6`. The prior read-only Round-3 and Round-4 artifacts
+remain immutable and are superseded. Current root
+`attempt13-executor-a0359a87-483fcf40-r5-plcym5sw` contains only the 352,258-byte executor,
+SHA-256 `f5cad177fc8efaefcb0d8d1b52f626c809be9cb3f46e9446a62cd6b60a74b4ec`, and its 1,111-byte
+manifest, SHA-256 `8d6416d99717efe8929d3f6dcb639fa10a9dd8ab14dd452eabc6d23ca9d23fab`.
+
+Round-2 review returned three P1 and four P2 findings. Round 3 closes them with exact receipt
+full-write/sync/readback and rollback, null-safe Gate-42 finalization plus bound snapshot rollback,
+parent/creation-bound artifact rollback or truthful residue, fresh Postcleanup identities,
+immutable committed-record quality signatures, complete Gate-32 preflight/failing-file validation,
+and exact bounded source lstat/fstat/size/digest checks. The success artifact is never claimed on
+failure; ambiguous rollback authorizes no removal and remains a `FAIL_CLOSED` residue. The model
+still claims caught-exception rollback, not crash atomicity. Focused Round 4 closes the remaining
+snapshot/artifact/prejournal transaction risk: snapshot absence must be proved; otherwise a
+present but unbound or ambiguous fixed-name snapshot is disclosed only by the closed
+`{name,status,removal_attempted:false}` residue, remains in the exact Evidence set, forces zero
+removal and `FAIL_CLOSED`; null/partial artifact state and every rollback-observation failure also
+retain truthful residue; prejournal rollback failures are surfaced and keep the bindings needed
+for safe terminal disposition.
+
+Formal Round-4 review returned `CHANGES REQUIRED` with exactly two P1 findings. Focused Round 5
+persists the descriptor/lstat-bound prejournal creation identity before initial realpath/readback
+and retains its handle/binding on failure. It also rejects malformed, falsy or partial artifact
+state, transaction and nested identity shapes before equality, absence or removal decisions.
+Only exact `{exists:false,stat:null}` proves absence; all ambiguous shapes retain truthful residue
+and authorize zero removal, and empty identities never compare equal or establish creation
+binding.
+
+The pure-fixture runner is now bounded collect-all. It records only unique allowlisted fixture
+names and closed safe failure codes, with count and digest; setup, bound overflow and non-fixture
+failures hard-stop. Intermediate development runs truthfully exposed one legacy fail-fast red, one
+pre-fixture name-guard hard-stop and then nine complete preflight-matrix reds. Their single
+map-derived correction produced Round-3 V1 syntax and V2 no-mutation self-test PASS 264/264 with
+zero failures. The necessary final Round-5 syntax/no-mutation check passed 314/314 fixtures with
+zero failures. Fixture-name-set SHA-256 is
+`8d69314f7a703cfe5c44011033e3325e505667c33f9d631618172ff72e9262c4`; empty failure-set and
+empty-ledger SHA-256 are `4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945`;
+maximum-ledger SHA-256 is `8b3f59e179040dcb3d30611abb1ef55fc679b4fe807ac9ce721d678fc122055d`. Independent
+exact-delta/artifact re-review is pending. The prior V3 claim remains revoked; V3 is `PENDING`
+until the Technical Lead independently repeats the final exact checks. Product source is unchanged.
+No Product or Attempt execution occurred and no Product correctness is proved.
+
+Residual risk remains **Open / R3**. Required next are, in order: current Round-5 exact-delta/artifact
+review `APPROVED` with zero P0–P3; exact publication; exactly one local AVS R3 verification of the
+published candidate; one V4 exact-head CI; final independent exact-head/artifact review `APPROVED`
+with zero P0–P3; and a separate exact Human authorization before any Attempt-13 run. The local R3
+verification is not an Attempt execution. No standing or automatic run authority exists, and
+current verification changes no Product or Human gate authority.
+
 ## Risk Handling Rule
 
 Risks are not backlog noise. A risk must either be accepted, mitigated, transferred or closed with evidence.

@@ -1,8 +1,8 @@
 # Project Status
 
-Current DA5 V5 Harness override: **ATTEMPT 11 CONSUMED FAIL-CLOSED; ATTEMPT 12 ABSORBING
-CLEANUP_RESIDUE P2 CORRECTION REVIEW PENDING / NOT EXECUTED / DO NOT EXECUTE; HARDWARE/HUMAN/PRODUCT V5 DO NOT
-START**. This line supersedes older Attempt-10/11 candidate-state text below without changing its
+Current DA5 V5 Harness override: **ATTEMPT 12 CONSUMED FAIL-CLOSED; ATTEMPT 13 COLLECT-SAFE
+ROUND-5 DEVELOPMENT CORRECTION COMPLETE / INDEPENDENT RE-REVIEW PENDING / V3 REVOKED AND PENDING / NOT EXECUTED / DO NOT EXECUTE; HARDWARE/HUMAN/PRODUCT V5 DO NOT
+START**. This line supersedes older Attempt-10/11/12 candidate-state text below without changing its
 historical evidence.
 
 Status: CORE ROADMAP V2 COMPLETIONS REMAIN PRESERVED FOR THEIR RECORDED SCOPES — DA4 REMAINS OPEN FOR A LATER FRESH HUMAN V5 — DA5 V0–V4 AND THE HISTORICAL LOCAL DA5-V5 RUNTIME-GUARD/VALIDATION/OPERATOR CLOSURES REMAIN PRESERVED ONLY FOR THEIR RECORDED SCOPES — PHASE-0 RUN 18 ESTABLISHED THE DISCLOSURE-SAFE TRANSFER BINDING A `B55E8B6AEB30`, B `32A54C8F2F29`, X `F61C9F702CFE`; FORMAT AND PAIRWISE DISTINCTNESS PASSED, THE EXACT AUTHORITY WAS CONSUMED SUCCESSFULLY, AND R-035 IS LOCALLY MITIGATED — DEVICE/UI/10×A+10×B+10×X/NFCA/FINAL PASS/TERMINAL CLEANUP MATCHED WITH EXIT 0; THE VALIDATION APP WAS REMOVED — PRODUCT HUMAN V5 DID NOT RUN; THE PRODUCT APP WAS NOT INSTALLED; R-034 AND DA5 REMAIN OPEN; NO PRODUCT CORRECTNESS, PRODUCT ACTION, AUTH/NETWORK/DATABASE/TIMEKEEPING ACTION, PRODUCTION, PRODUCTION DATA, PILOT OPERATION, LEGAL/PRIVACY APPROVAL, DEPLOYMENT OR DISTRIBUTION IS AUTHORIZED
@@ -12,7 +12,7 @@ membership SHA-256 `70a683b7ebc7981533015d5d63cf12dfb2eabbfa665c34720eddb4d09e9e
 combined snapshot SHA-256 `2384b0baccd9049d820794f8ebc9419e4af0fad6831a5a91c209baa0b4a02217`.
 A later R3 run must reproduce all three and both counts before capability/task-root creation and
 every trust use; mismatch returns to the Human Architect and may not dynamically rebind.
-Date: 2026-07-31
+Date: 2026-08-02
 Owner: Human Architect + Technical Lead
 
 ## DA5 V5 Phase-0 run-18 fingerprint-transfer success and Product boundary
@@ -1865,3 +1865,81 @@ copies residue, sets both completion flags false and remains `FAIL_CLOSED`. Inde
 and exact publication are still required before the standing Human authorization can activate
 one exact R3 run. No current retry, resume, Attempt-12 execution, Hardware, Human/Product V5,
 production, deployment or distribution authority exists. R-034 and DA5 remain open.
+
+### Attempt-12 terminal truth and Attempt-13 pre-execution candidate
+
+Attempt 12 ran once and is consumed. Its immutable evidence root is
+`/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5-harness/attempt12-a0359a87-710d46dc`.
+The receipt, snapshot and manifest SHA-256 values are respectively
+`eae30ed497d64392c26dbd670b2118b5396bfbf6d63da4e7fffea59b45f26f21`,
+`e6c040d2db7943b3f8782b0734bdcacc836b2a28d610ce6dde1ee54e4926b864` and
+`7acc9cd3848e80a760edc77f2aa005b38329b62136a92ebb1bd29153374707d8`. The exact distribution is
+34 passed, two failed and nine omitted. Gate 32 is a fully normalized, disclosure-safe exit-1
+result with exact 13/13 membership, 42 suites and 297 tests: 273 passed, six failed and 18
+skipped. The safe category remains `assertion_result_or_test_hook_failure_ambiguous`. Raw report,
+stdout and stderr are absent; no narrower cause and no Product defect are proved.
+
+Independent review returned `CHANGES REQUIRED`: CLEANUP lacked four mapped child fields and
+POSTCLEANUP lacked its mapped child; the actual in-memory executor had no prepublished exact
+anchor; and the Gate-32 signature's canonical per-file failure inputs were not preserved. The
+previously stated 35/1/9 distribution was also corrected to 34/2/9. Attempt 12 has no retry.
+
+Attempt 13 is an AVS R3 pre-execution candidate on exact preparation baseline
+`db1fc8891d03753b2266957d45137e1817e46156` / tree
+`4fa39b6261e5f856d8f982bedee1ec843b371ed6`, with fresh token `483fcf40`. Its read-only external
+Round-3 and Round-4 executors remain immutable and are superseded by read-only root
+`attempt13-executor-a0359a87-483fcf40-r5-plcym5sw`. The current executor is exactly 352,258 bytes /
+SHA-256 `f5cad177fc8efaefcb0d8d1b52f626c809be9cb3f46e9446a62cd6b60a74b4ec`; its 1,111-byte manifest
+is SHA-256 `8d6416d99717efe8929d3f6dcb639fa10a9dd8ab14dd452eabc6d23ca9d23fab` and binds the superseded
+Round-4 root and both entry digests.
+The candidate collects at most one fully attestable quality failure for each of 25 named quality
+gates, continues only independent DAG nodes, distinguishes dependency omission from hard-stop
+omission, and always executes snapshot, Cleanup, Postcleanup and Finalize. Safety, identity,
+mapping, infrastructure, schema, raw-disclosure, signal, output-root and Cleanup anomalies remain
+immediate hard stops. No success artifact may be claimed on failure; a caught publication rollback
+with lost identity binding records residue and authorizes no removal.
+
+Round-2 independent review returned `CHANGES REQUIRED` with three P1 and four P2 findings. Round 3
+closes the Gate-42 null/partial-snapshot, full-write/sync/readback receipt, bound artifact rollback,
+fresh Postcleanup identity, committed-record quality link, complete Gate-32 failing-file/preflight,
+and exact lstat/fstat source-identity gaps. Artifact or snapshot removal now requires the recorded
+identity transaction; ambiguity records residue and never removes. Receipt prefix rollback is
+verified before any fallback record, and Finalize binds the exact two- or three-file evidence set.
+The focused Round-4 amendment additionally closes the local snapshot-residue branch, total
+artifact rollback under null/ambiguous transaction state, prejournal rollback failure retention
+and the stale authorization-header baseline. A snapshot descriptor is either null after proved
+absence, fully bound, or the exact disclosure-safe `{name,status,removal_attempted:false}` residue
+with status `present_unbound|present_ambiguous`; residue authorizes zero removal, forces
+`evidence_preserved:false` and `FAIL_CLOSED`, and remains in the exact Evidence entry set. No schema
+or Product code changed and no crash-atomic guarantee is claimed.
+
+Formal Round-4 review returned `CHANGES REQUIRED` with exactly two P1 findings: prejournal
+creation identity was not persisted before fallible initial realpath/readback, and artifact
+state/transaction/nested identities were not strictly schema-validated before absence, equality
+or removal decisions. Focused Round 5 persists the descriptor/lstat-bound creation identity and
+stage before either fallible operation while retaining the handle and binding on failure. It also
+requires exact closed state, transaction and identity shapes; only exact
+`{exists:false,stat:null}` proves absence, malformed or partial values retain residue with zero
+removal, and empty identities never compare equal or claim creation binding.
+
+The bounded collect-all pure-fixture runner records only allowlisted fixture names and closed safe
+failure codes. Development transparently consumed one legacy fail-fast red, one pre-fixture guard
+hard-stop and one complete diagnostic run with nine preflight-matrix reds before their common
+map-derived correction. Round-3 V1 syntax and V2 no-mutation self-test passed 264/264 with zero
+failures in Round 3. The necessary final Round-5 check passed 314/314 with zero failures.
+Fixture-name-set SHA-256 is
+`8d69314f7a703cfe5c44011033e3325e505667c33f9d631618172ff72e9262c4`; empty failure-set and
+empty-ledger SHA-256 are `4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945`;
+maximum-ledger SHA-256 is `8b3f59e179040dcb3d30611abb1ef55fc679b4fe807ac9ce721d678fc122055d`.
+`raw_output_preserved:false` and `mutation_performed:false`. Independent exact-delta/artifact
+re-review remains pending. The prior V3 claim remains revoked; V3 is `PENDING` until the Technical
+Lead independently repeats the final exact checks. Product source is unchanged. No Product or
+Attempt execution occurred and no Product correctness is proved.
+
+The remaining order is mandatory: current Round-5 exact-delta/artifact review `APPROVED` with zero open
+P0–P3; exact publication; exactly one local AVS R3 verification of the published candidate; one
+V4 exact-head CI; final independent exact-head/artifact review `APPROVED` with zero open P0–P3;
+then a separate exact Human authorization for an Attempt-13 run. The local R3 verification is not
+an Attempt-13 execution. No standing or automatic run authority exists. No Hardware, ADB,
+installation, Human/Product V5, production, production-data, deployment or distribution authority
+follows. R-034 and DA5 remain open.

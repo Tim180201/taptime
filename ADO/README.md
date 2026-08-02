@@ -7,19 +7,36 @@ Approval Authority: Human Architect
 
 ## Purpose
 
-### Current DA5 V5 Harness truth — Attempt 11 consumed; Attempt 12 absorbing cleanup_residue P2 re-review pending
+### Current DA5 V5 Harness truth — Attempt 12 consumed; Attempt 13 Round-5 re-review pending
 
-Attempt 11 is consumed fail-closed with no retry or artifact. The exact Attempt-12 ADO-only
-candidate on baseline `f029bdab6e7a92f74b38903ee8ee5ecc21ca6a11` / tree
-`ee741a0f58e9c5fde2e11774a44bc3346a2b1755` remains **REVIEW PENDING / NOT EXECUTED / DO NOT
-EXECUTE**. Round 3 closed the Round-2 findings. Round-3 review found one P2 in signal-terminated
-`WORKTREE_ADD[0]` Cleanup-V2 binding; the first focused correction closed that coupling. Its
-re-review found exactly one P2: terminal `cleanup_residue` lacked schema-legal absorbing retention
-through `CLEANUP`, `POSTCLEANUP` and `FINALIZE` for the 56 mismatch/ambiguity tuples. This
-correction closes only that point without weakening identity/mapping removal rules. Independent
-re-review and exact publication
-remain mandatory before the standing Human authority can activate one run. Hardware and
-Human/Product V5 remain **DO NOT START**.
+Attempt 12 is consumed fail-closed with no retry and no Harness artifact. Its immutable 45-record
+evidence contains 34 `passed`, two `failed` (`V2_SYNTHETIC_TEST`, `FINALIZE`) and nine `omitted`
+records. Gate 32 safely proves only a fully normalized exit-1 Vitest result with 13/13 file
+membership, 273 passed, six failed and 18 skipped tests, categorized as
+`assertion_result_or_test_hook_failure_ambiguous`; it proves no Product or test cause.
+
+Independent execution review returned `CHANGES REQUIRED`: two P2 findings bind missing mapped
+CLEANUP/POSTCLEANUP child fields and the absence of a prepublished exact executor anchor; a third
+P2 binds the non-reproducible Gate-32 signature inputs. The reported distribution correction is
+P3. The exact Attempt-13 preparation baseline is
+`db1fc8891d03753b2266957d45137e1817e46156` / tree
+`4fa39b6261e5f856d8f982bedee1ec843b371ed6`. A fresh, read-only external executor candidate with
+token `483fcf40` exists, but Attempt 13 is **REVIEW PENDING / NOT EXECUTED / DO NOT EXECUTE**.
+The prior executor-boundary V3 claim remains revoked. Formal Round-4 review returned
+`CHANGES REQUIRED` with exactly two P1 findings: prejournal identity was not persisted before
+fallible initial realpath/readback, and artifact absence/identity/removal decisions accepted
+malformed or partial state and identity shapes. The focused Round-5 correction closes only those
+findings. The Round-3 and Round-4 artifacts remain immutable and are superseded by read-only
+executor root `attempt13-executor-a0359a87-483fcf40-r5-plcym5sw`: executor 352,258 bytes /
+SHA-256 `f5cad177fc8efaefcb0d8d1b52f626c809be9cb3f46e9446a62cd6b60a74b4ec`, manifest 1,111 bytes /
+SHA-256 `8d6416d99717efe8929d3f6dcb639fa10a9dd8ab14dd452eabc6d23ca9d23fab`.
+Development V1 syntax and final bounded collect-all V2 self-test passed 314/314 fixtures with
+zero failures; V3 remains `PENDING` until the Technical Lead independently repeats the final
+exact checks. No Attempt-13 run is authorized. The remaining order is exact-delta/artifact
+Round-5 review `APPROVED` with zero
+P0–P3, exact publication, exactly one local AVS R3 verification of that publication, one V4
+exact-head CI, final exact-head/artifact review, then a separate exact Human authorization.
+Hardware and Human/Product V5 remain **DO NOT START**.
 
 ### Historical DA5 V5 run-18 fingerprint-transfer success and Product boundary
 
@@ -1125,7 +1142,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Development Assignment 4 V5 Enablement — local R3 V0–V4, exact-SHA implementation review and H01 ADO correction approved; new Human V5 remains separately exact-bound and unauthorized | `ADO/02_Development/Development_Assignment_04_V5_Enablement_Authorization.md` |
 | Development Assignment 5 Professional Mobile Productization — Workstreams A–F and AVS V0–V4 technically closed for the exact authorized local scope | `ADO/02_Development/Development_Assignment_05_Professional_Mobile_Productization_Authorization.md` |
 | Development Assignment 5 V5 Enablement — Validation Phase-0 run 18 established the exact safe transfer binding A `B55E8B6AEB30`, B `32A54C8F2F29`, X `F61C9F702CFE`; format and pairwise distinctness passed, its authority is consumed, and R-035 is locally mitigated. Product Human V5 is `NOT RUN`; DA5 and R-034 remain open. CI `30612797541` attempt 1 passed 12/12 only on ADO CI head `f45f49aa6c56c70a503322a043bec3d2360c2176` / tree `714300da7656822dd9b7a2a42fe1be85ab33aa6c`; it is carried evidence, not exact-head CI for run-18 ADO baseline `5a0d59c2b1767192d3d261cede7a2c2b11732d30` or this synchronization. **DO NOT INSTALL/DO NOT START for every new action** | `ADO/02_Development/Development_Assignment_05_V5_Enablement_Authorization.md` |
-| Development Assignment 5 V5 Harness Artifact Closure — Attempt 11 is consumed fail-closed with no artifact or retry. The exact Attempt-12 absorbing-`cleanup_residue` P2 correction is review pending / not executed / do not execute; its 56 mismatch/ambiguity tuples retain residue only at the named Cleanup/Postcleanup boundaries and finalize fail-closed | `ADO/02_Development/Development_Assignment_05_V5_Harness_Artifact_Closure_Authorization.md` |
+| Development Assignment 5 V5 Harness Artifact Closure — Attempt 12 is consumed fail-closed with immutable 34/2/9 evidence, no artifact and no retry. Attempt 13 collect-safe pre-execution candidate is review pending / not executed / do not execute; independent approval and exact publication are mandatory | `ADO/02_Development/Development_Assignment_05_V5_Harness_Artifact_Closure_Authorization.md` |
 | Development Assignment 5 V5 Isolated PostgreSQL Correction — Runtime Guard source `ba1b6e9`, CI `30255104609` attempt 2 12/12, immutable binary/manifest and independent Exact-SHA `APPROVED`; historical correction rounds retained; hardware authority not granted | `ADO/02_Development/Development_Assignment_05_V5_Isolated_PostgreSQL_Correction_Authorization.md` |
 | Development Assignment 6 Production-like Platform and Operational Readiness — ADO-only candidate; Human acceptance and separate implementation/provisioning authority required | `ADO/02_Development/Development_Assignment_06_Production_Like_Platform_Authorization.md` |
 | Legal, Privacy and Commercial Readiness Start Package — internal Block-H/DT-079–DT-084 working draft; not legal advice, approved legal text or publication authority | `ADO/02_Development/Legal_Privacy_Commercial_Readiness_Start_Package.md` |
@@ -1333,6 +1350,75 @@ normalization, and recomputed with a cleanup-failure override after normalized c
 Only independent `APPROVED` review plus exact publication may activate the standing Human
 authorization for exactly one future R3 Attempt-12 run. Hardware and Human/Product V5 remain
 separate and unauthorized.
+
+## DA5 Attempt-13 collect-safe pre-execution candidate — review pending
+
+Attempt 13 retains the exact 45-gate order and direct no-shell argv from the published Attempt-12
+map. Gates 1–10, Gate 27, every binding/provenance/schema/raw-disclosure/signal/worker-infrastructure
+or output-integrity anomaly, and every Cleanup anomaly hard-stop. Fully attestable nonzero
+build/test/Typecheck/Node and closed Metafile/TalkBack predicate results at Gates 11–26, 28–32,
+34 and 38–40 are collected at most once per gate, to a maximum of 25, while independent gates
+continue. Direct dependents alone become `dependency_omitted`; a hard stop uses the distinct
+`not_run_hard_stop`. Gates 42–45 always run. Gate 41 and external artifact publication require all
+earlier required gates green or validly carried, an empty quality ledger, no hard stop, exact
+Cleanup/Postcleanup and successful Finalize.
+
+The external executor directory is
+`/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-harness/attempt13-executor-a0359a87-483fcf40-r5-plcym5sw`.
+It contains exactly two mode-`0444` files under a mode-`0555` directory. Executor
+`attempt13-executor.mjs` is 352,258 bytes, SHA-256
+`f5cad177fc8efaefcb0d8d1b52f626c809be9cb3f46e9446a62cd6b60a74b4ec`; manifest
+`attempt13-executor-manifest.json` is 1,111 bytes, SHA-256
+`8d6416d99717efe8929d3f6dcb639fa10a9dd8ab14dd452eabc6d23ca9d23fab`. Its closed `supersedes`
+binding preserves the immutable Round-4 artifact root and both prior entry digests; the Round-4
+manifest in turn binds Round 3. Round 3 closes the
+three P1 receipt/Gate-42/artifact-transaction findings and four P2 Postcleanup, quality-ledger,
+Gate-32 and source-identity findings from Round-2 review. Receipt writes are full-write/sync/exact-
+readback transactions; Gate 42 safely rolls back bound partial snapshots and permits a truthful
+null snapshot; artifact rollback requires bound parent/creation identity and otherwise records
+residue without removal. Postcleanup uses fresh identities, every quality entry binds its frozen
+committed gate record, Gate 32 enforces the map-derived preflight matrix and complete failing-file
+set, and source reads bind exact lstat/fstat size and digest.
+
+Focused Round 4 closes only the remaining local snapshot/artifact/prejournal transaction boundary
+and the stale authorization-header baseline. Snapshot null requires proved absence; a fully bound
+snapshot keeps `{name,bytes,sha256}`; a present unbound/ambiguous fixed-name snapshot retains only
+`{name,status,removal_attempted:false}`, exposes no bytes/digest/content/path/identity detail,
+performs zero removal and forces `evidence_preserved:false` plus `FAIL_CLOSED`. Null/partial or
+unobservable artifact transaction state also performs zero removal and retains truthful residue.
+Prejournal rollback failures are surfaced and retain the bindings needed for safe terminal
+disposition.
+
+Formal Round-4 review returned `CHANGES REQUIRED` with exactly two P1 findings. Focused Round 5
+records the receipt creation identity immediately after exclusive creation and descriptor/lstat
+agreement, before fallible realpath or readback, and retains the handle and binding on either
+failure. Artifact state, transaction, parent, creation and root identities now require exact
+closed shapes before equality, absence or removal decisions. Only exact
+`{exists:false,stat:null}` proves absence; malformed, falsy or partial values retain truthful
+residue and authorize zero removal, and empty identities never compare equal or establish
+`creation_identity_bound`.
+
+The self-test runner is bounded collect-all for its isolated pure fixtures. Intermediate
+development runs failed closed at the legacy fail-fast `vitest-preflight-accepts-null-null`, at an
+over-restrictive pre-fixture name guard, and then at the complete nine-entry preflight-matrix set;
+the matrix was corrected from the authoritative loaded map. Round-3 V1 syntax and V2 no-mutation
+self-test passed 264/264 with zero fixture failures. The necessary final Round-5 syntax check and
+no-mutation self-test passed 314/314 with zero fixture failures. Fixture-name-set SHA-256 is
+`8d69314f7a703cfe5c44011033e3325e505667c33f9d631618172ff72e9262c4`; empty failure-set and
+empty-ledger SHA-256 are `4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945`;
+maximum-ledger SHA-256 is `8b3f59e179040dcb3d30611abb1ef55fc679b4fe807ac9ce721d678fc122055d`.
+The result has `raw_output_preserved:false` and `mutation_performed:false`. The correction is development-reported
+and awaits independent exact-delta/artifact re-review. V3 remains `PENDING` until the Technical
+Lead independently repeats the final exact checks. Product source remains unchanged. No Product
+or Attempt execution occurred and no checkout, cache, config, log, evidence or output-artifact
+path was created.
+
+The mandatory order is: current Round-5 exact-delta/artifact review `APPROVED` with zero open P0–P3;
+exact publication; exactly one local AVS R3 verification of the published candidate; one V4
+exact-head CI; final independent exact-head/artifact review `APPROVED` with zero open P0–P3; and
+only then a separate exact Human authorization for an Attempt-13 run. The local R3 verification
+is not an Attempt-13 execution. No earlier gate activates a run automatically. Attempt 13 remains
+unauthorized.
 
 ## Navigation Rule
 
