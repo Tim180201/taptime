@@ -6,12 +6,79 @@
 - Owner: Technical Lead
 - Human run authority: `PHASE-0 RUNS 17 AND 18 CONSUMED SUCCESSFULLY; PRODUCT HUMAN V5 NOT BOUND`
 
-Current Harness evidence override: Attempt 12 is consumed fail-closed with immutable evidence and
-no artifact or retry. Attempt 13 collect-safe pre-execution candidate is **REVIEW PENDING / NOT
-EXECUTED / DO NOT EXECUTE** with the Round-5 development correction complete and independent
-exact-delta/artifact re-review plus V3 still pending; publication, local R3, V4, final review and
-separate exact Human run authorization remain pending. It has no receipt, execution state or
-success artifact.
+Current Harness evidence override (2026-08-02): Attempt 12 is consumed fail-closed with immutable
+evidence and no artifact or retry. Attempt-13 Round-5 review returned `APPROVED` with zero open
+P0–P3; the candidate was published as `387421b3caeed988b159c93ff217fb78a0bee60c` / tree
+`ace680660468e0374004869f205e6a1e0af0ac7f`, and its one authorized local AVS R3 verification
+passed. V4 exact-head CI `30745607263`, attempt 1, passed 11/12 jobs and failed closed only in
+`Synthetic server-connected Android E2E harness` job `91490562435`. The confirmed cause is the
+DA3 test's fixed `[2026-07-01T00:00:00.000Z, 2026-08-01T00:00:00.000Z)` query/export window,
+which excluded the lifecycle record generated from current time. An unchanged retry is forbidden.
+
+`DA5-V5-CI-TIMEWINDOW-01` locally binds the exact server-verified lifecycle TimeEntry ID and its
+original start/stop timestamps, selects the stopped row by exact ID plus status, derives correction
+timestamps only from those originals, and reuses one canonical UTC `[fromInclusive,
+toExclusive)` window for query and export. Local Development verification passed `git diff
+--check`; the Synthetic tests-inclusive Typecheck with the test source listed exactly once; and an
+isolated PostgreSQL 17.10 loopback run of the required stateful sequence with 3/3 passed and 18
+filtered tests. A subsequent single fresh PostgreSQL 17.10 loopback run executed the complete
+Synthetic workspace on the unchanged candidate, whose Synthetic test working blob is
+`183b82674ed92e51375fad41e9efb034976ff5e3`. The exact wrapper environment had
+`TAPTIME_SYNTHETIC_E2E_DATABASE_URL` set to the dedicated numeric-loopback database,
+`TAPTIME_DA5_V5_CI_OWNER_RECORD` absent, and Node `24.17.0` on `darwin`/`arm64`. The one test
+process exited 0; its fail-closed wrapper admitted the build only after that exit. The terminal
+Vitest summary was not retained. The current Vitest 4.1.9 result cache instead binds all 13
+test-file entries with `failed:false`, and a post-run collection-only `vitest list --json` under
+the same input/environment bindings enumerated 297 tests across those 13 files without executing
+them. A complete source audit covered every `.skip`, `.todo`, `.skipIf`, `.runIf` and
+`describeWithPostgres` boundary: the set database URL activated every PostgreSQL describe, the
+absent owner record plus `darwin`/`arm64` activated every conditional `runIf`, and no other
+skip/todo boundary remained. The candidate-exact composed result is therefore 297 passed, zero
+failed and zero skipped. This is explicitly a composite count from test-process exit, cache,
+collection and source audit, not a retained terminal summary and not a test repetition.
+The subsequent exact Synthetic build refreshed all 80 expected outputs: 33 declarations, 33
+declaration maps, seven JavaScript bundles and seven source maps; `node --check` passed for all
+seven bundles. PostgreSQL stopped, port 55439 had no listener and the temporary `/private/tmp`
+source root was absent after its recoverable Trash move.
+
+AVS carry-forward is limited to the eleven unchanged green jobs from exact-head CI
+`30745607263`, attempt 1, on commit `387421b3caeed988b159c93ff217fb78a0bee60c` / tree
+`ace680660468e0374004869f205e6a1e0af0ac7f`. Every listed job result is `success`:
+
+| Boundary | Job | Vitest evidence | Other successful gates |
+|---|---:|---|---|
+| B1 | `91490562321` | 1 file; 39 passed; 2 skipped; 41 total | Typecheck; Build |
+| B4 | `91490562358` | 1/55; skip `n/a` | Migration; replay; tests-inclusive Typecheck; Build |
+| B5 | `91490562376` | 1/42; skip `n/a` | Dependencies; migration; replay; Typecheck; Build |
+| Standard | `91490562378` | Mobile-work 1/3; Offline 1/9; Export 1/12; Review 1/5; Core 43/290; Mobile 54/1176; Admin 7/87; skip `n/a` | All Typechecks; Core/Admin builds; Android bundle, 861 modules |
+| C3B | `91490562408` | 4/189; skip `n/a` | Dependencies; migration; replay; Typecheck; CLI build and verification |
+| C3C/E1/E2 | `91490562410` | Contract 1/4; Backend 3/121; skip `n/a` | Dependencies; migration; replay; Typechecks; Build |
+| API/Mobile | `91490562412` | Offline 2/14; Mobile-work 2/10; API 9/236; Mobile 54/1176; skip `n/a` | Dependencies; migration; replay; Typechecks; Backend build |
+| B6 | `91490562425` | 1/90; skip `n/a` | Dependencies; migration; replay; Typecheck; Build |
+| B3 | `91490562436` | 2/130; skip `n/a` | Typecheck; migration; replay; Build |
+| DA2 | `91490562448` | Export/Journey 2/15; HTTP 1/14; skip `n/a` | Dependencies; Typechecks; Build |
+| DA3 | `91490562453` | Contract 1/5; Correction/Review 1/11; Export/Journey 2/15; HTTP 1/7; skip `n/a` | Dependencies; migration; replay; Typechecks; runtime builds |
+
+Here `<files>/<passed tests>` records the printed green Vitest summary. `n/a` means that summary
+printed no numeric skip field; it is not a claim of zero skips.
+
+The carried commands and environments remain bound by unchanged `.github/workflows/ci.yml` blob
+`40b4b2edaa6246f1ea77f65fe98f4ffca450e399`: GitHub `ubuntu-latest`, Node `24.17.0` and each
+job's PostgreSQL/container boundary. The unchanged root/package inputs are `package.json` blob
+`d0b6c3203ad01953756f066bd31c22b4028054ec`, `package-lock.json` blob
+`77555096088f864860f2b6c75f51d364a7349d65` and `tsconfig.base.json` blob
+`3a18e61ebab26bfdfad9e886144f8e9e5d779da6`. Unchanged Synthetic inputs are `package.json`
+`8e39fac2c05bb99bad78668246031c4d2ddf8e7a`, `tsconfig.json`
+`ba5a6a848faf2a21bdec74ac8251ab737d759e41`, `tsconfig.build.json`
+`fb0a3deb294c9508858fbe3bd7c7ee9c0748e752` and `vitest.config.ts`
+`db05963d4d164781b43b8c801d65b5b298939992`. All non-Synthetic source/test inputs are
+blob-identical; the changed executable/test scope is only the current Synthetic test, which none
+of these eleven jobs consumes. This is carried baseline evidence, not fresh candidate execution.
+This prepublication candidate records completed local verification and makes no self-claim of its
+own publication, remote binding, replacement V4 or final review. Any such outcome must be bound
+after it actually occurs in a downstream closure synchronization. This is not success evidence
+for V4 or Attempt 13. Attempt 13 is **NOT EXECUTED / DO NOT EXECUTE**; separate final technical
+and Human gates remain mandatory.
 
 ## 0A. Run-18 fingerprint-transfer evidence and Product boundary
 

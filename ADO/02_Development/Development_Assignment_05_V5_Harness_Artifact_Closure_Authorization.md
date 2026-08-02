@@ -1,9 +1,11 @@
 # Development Assignment 5 — V5 Harness Artifact Closure Architecture and Authorization
 
-- Status: **ATTEMPT-12 CONSUMED FAIL-CLOSED; ATTEMPT-13 COLLECT-SAFE ROUND-5 DEVELOPMENT CORRECTION COMPLETE / INDEPENDENT RE-REVIEW PENDING / V3 REVOKED AND PENDING / NOT EXECUTED / DO NOT EXECUTE; PRODUCT HUMAN V5 DO NOT START**
+- Status: **ATTEMPT-12 CONSUMED FAIL-CLOSED; ATTEMPT-13 ROUND-5 `APPROVED`, PUBLISHED, LOCAL AVS R3 GREEN; V4 FAILED CLOSED 11/12; `DA5-V5-CI-TIMEWINDOW-01` LOCAL CORRECTION APPLIED AND VERIFIED; PREPUBLICATION CANDIDATE MAKES NO SELF-CLAIM OF ITS OWN PUBLICATION, REMOTE BINDING, REPLACEMENT V4 OR FINAL REVIEW; ATTEMPT-13 NOT EXECUTED / DO NOT EXECUTE; PRODUCT HUMAN V5 DO NOT START**
 - Date: 2026-08-02
 - Exact preparation baseline commit: `db1fc8891d03753b2266957d45137e1817e46156`
 - Exact preparation baseline tree: `4fa39b6261e5f856d8f982bedee1ec843b371ed6`
+- Published Attempt-13 authorization commit: `387421b3caeed988b159c93ff217fb78a0bee60c`
+- Published Attempt-13 authorization tree: `ace680660468e0374004869f205e6a1e0af0ac7f`
 - Published Attempt-10 authorization commit: `a08e2e89a2aa3962b1bc4ddeb0f77e480f1f4f85`
 - Published Attempt-10 authorization tree: `dbec8fb277b1a915153c765cad4c5a060e0626b4`
 - Corrected executable-source commit: `a0359a87fd1738c8493929a1661cbbc7adb3c07c`
@@ -39,8 +41,22 @@
 - Attempt-12 execution: **consumed fail-closed at `V2_SYNTHETIC_TEST`; immutable 34/2/9 distribution; no artifact and no retry**
 - Attempt-12 execution/evidence review: **`CHANGES REQUIRED`; three P2 and one P3 synchronization item feed the Attempt-13 candidate**
 - Attempt-13 candidate Round-2 review: **`CHANGES REQUIRED`; three P1 and four P2 corrected in Round 3**
-- Attempt-13 candidate Round-4 review: **`CHANGES REQUIRED`; exactly two P1 corrected in focused Round 5; independent exact-delta/artifact re-review pending**
-- Attempt-13 candidate: **ROUND-5 DEVELOPMENT CORRECTION COMPLETE / INDEPENDENT RE-REVIEW PENDING / V3 REVOKED AND PENDING / NOT EXECUTED / DO NOT EXECUTE; V4, final review and separate exact Human run authorization remain mandatory**
+- Attempt-13 candidate Round-4 review: **`CHANGES REQUIRED`; exactly two P1 corrected in focused Round 5**
+- Attempt-13 candidate Round-5 review/publication: **`APPROVED`; zero open P0–P3; published as `387421b3caeed988b159c93ff217fb78a0bee60c` / tree `ace680660468e0374004869f205e6a1e0af0ac7f`**
+- Attempt-13 published-baseline local AVS R3: **the one authorized verification passed**
+- Attempt-13 V4 exact-head CI: **run `30745607263`, attempt 1, failed closed 11/12; only `Synthetic server-connected Android E2E harness` job `91490562435` failed**
+- `DA5-V5-CI-TIMEWINDOW-01`: **confirmed fixed-window test defect; focused local deterministic record-bound/window-bound correction applied and verified; prepublication candidate makes no self-claim of its own publication, remote binding, replacement V4 or final review; unchanged retry forbidden**
+- Attempt-13 execution: **NOT EXECUTED / DO NOT EXECUTE; final exact-head/artifact review and separate exact Human run authorization remain mandatory after a successful corrected technical chain**
+
+The V4 failure changes no Product, Business, lifecycle, correction or export semantics. The DA3
+test's fixed `[2026-07-01T00:00:00.000Z, 2026-08-01T00:00:00.000Z)` window excluded the
+server lifecycle row created from current time. The local correction binds that row's exact ID and
+server-verified original timestamps, finds it by exact ID plus stopped status, derives corrected
+timestamps solely from those originals and uses the same canonical contract-bounded UTC window
+for query and export. This paragraph records completed local Development verification for a
+prepublication candidate, not a self-claim of its own publication, remote binding, replacement V4
+or final review. Any such outcome must be bound after it actually occurs in a downstream closure
+synchronization; no run authority is granted.
 
 ## 1. Purpose and current authority
 

@@ -7,7 +7,7 @@ Approval Authority: Human Architect
 
 ## Purpose
 
-### Current DA5 V5 Harness truth — Attempt 12 consumed; Attempt 13 Round-5 re-review pending
+### Current DA5 V5 Harness truth — Attempt 13 published; CI time-window correction local
 
 Attempt 12 is consumed fail-closed with no retry and no Harness artifact. Its immutable 45-record
 evidence contains 34 `passed`, two `failed` (`V2_SYNTHETIC_TEST`, `FINALIZE`) and nine `omitted`
@@ -15,28 +15,24 @@ records. Gate 32 safely proves only a fully normalized exit-1 Vitest result with
 membership, 273 passed, six failed and 18 skipped tests, categorized as
 `assertion_result_or_test_hook_failure_ambiguous`; it proves no Product or test cause.
 
-Independent execution review returned `CHANGES REQUIRED`: two P2 findings bind missing mapped
-CLEANUP/POSTCLEANUP child fields and the absence of a prepublished exact executor anchor; a third
-P2 binds the non-reproducible Gate-32 signature inputs. The reported distribution correction is
-P3. The exact Attempt-13 preparation baseline is
-`db1fc8891d03753b2266957d45137e1817e46156` / tree
-`4fa39b6261e5f856d8f982bedee1ec843b371ed6`. A fresh, read-only external executor candidate with
-token `483fcf40` exists, but Attempt 13 is **REVIEW PENDING / NOT EXECUTED / DO NOT EXECUTE**.
-The prior executor-boundary V3 claim remains revoked. Formal Round-4 review returned
-`CHANGES REQUIRED` with exactly two P1 findings: prejournal identity was not persisted before
-fallible initial realpath/readback, and artifact absence/identity/removal decisions accepted
-malformed or partial state and identity shapes. The focused Round-5 correction closes only those
-findings. The Round-3 and Round-4 artifacts remain immutable and are superseded by read-only
-executor root `attempt13-executor-a0359a87-483fcf40-r5-plcym5sw`: executor 352,258 bytes /
-SHA-256 `f5cad177fc8efaefcb0d8d1b52f626c809be9cb3f46e9446a62cd6b60a74b4ec`, manifest 1,111 bytes /
+Attempt-13 Round-5 independent review returned `APPROVED` with zero open P0–P3. The approved
+candidate was published as `387421b3caeed988b159c93ff217fb78a0bee60c` / tree
+`ace680660468e0374004869f205e6a1e0af0ac7f`; its one authorized local AVS R3 verification passed.
+The bound read-only executor remains
+`attempt13-executor-a0359a87-483fcf40-r5-plcym5sw`: executor 352,258 bytes / SHA-256
+`f5cad177fc8efaefcb0d8d1b52f626c809be9cb3f46e9446a62cd6b60a74b4ec`, manifest 1,111 bytes /
 SHA-256 `8d6416d99717efe8929d3f6dcb639fa10a9dd8ab14dd452eabc6d23ca9d23fab`.
-Development V1 syntax and final bounded collect-all V2 self-test passed 314/314 fixtures with
-zero failures; V3 remains `PENDING` until the Technical Lead independently repeats the final
-exact checks. No Attempt-13 run is authorized. The remaining order is exact-delta/artifact
-Round-5 review `APPROVED` with zero
-P0–P3, exact publication, exactly one local AVS R3 verification of that publication, one V4
-exact-head CI, final exact-head/artifact review, then a separate exact Human authorization.
-Hardware and Human/Product V5 remain **DO NOT START**.
+
+V4 exact-head CI run `30745607263`, attempt 1, failed closed with 11/12 jobs passing. The only
+failed job was `Synthetic server-connected Android E2E harness` (`91490562435`): the DA3 test's
+fixed UTC query/export window `[2026-07-01T00:00:00.000Z, 2026-08-01T00:00:00.000Z)` excluded
+the lifecycle record generated after that window. `DA5-V5-CI-TIMEWINDOW-01` is confirmed; an
+unchanged retry is forbidden. The focused local correction binds the exact server-verified
+lifecycle record and derives one canonical bounded UTC window deterministically from its original
+and corrected timestamps; its local verification is complete. This prepublication candidate makes
+no self-claim of its own publication, remote binding, replacement V4 or final review. Any such
+outcome must be bound after it actually occurs in a downstream closure synchronization. Attempt 13
+remains **NOT EXECUTED / DO NOT EXECUTE**; Hardware and Human/Product V5 remain **DO NOT START**.
 
 ### Historical DA5 V5 run-18 fingerprint-transfer success and Product boundary
 

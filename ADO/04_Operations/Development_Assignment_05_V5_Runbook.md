@@ -5,10 +5,18 @@
 - Owner: Technical Lead
 - Approval authority for any run: Human Architect
 
-Current Harness override: Attempt 12 is consumed fail-closed. Attempt 13 collect-safe
-pre-execution candidate is **ROUND-5 DEVELOPMENT CORRECTION COMPLETE / INDEPENDENT RE-REVIEW PENDING / V3 REVOKED AND PENDING / NOT EXECUTED / DO NOT
-EXECUTE**; V4, final review and a separate exact Human run authorization remain mandatory. No run,
-Hardware or Human/Product V5 authority exists.
+Current Harness override (2026-08-02): Attempt 12 is consumed fail-closed. Attempt-13 Round-5
+review returned `APPROVED` with zero open P0–P3; the candidate was published as
+`387421b3caeed988b159c93ff217fb78a0bee60c` / tree
+`ace680660468e0374004869f205e6a1e0af0ac7f`, and its one authorized local AVS R3 verification
+passed. V4 exact-head CI `30745607263`, attempt 1, failed closed 11/12 only in `Synthetic
+server-connected Android E2E harness` job `91490562435` because its fixed July query/export
+window excluded the current-date lifecycle row. `DA5-V5-CI-TIMEWINDOW-01` is confirmed. The
+focused deterministic record-bound/window-bound test correction is applied and locally verified.
+This prepublication candidate makes no self-claim of its own publication, remote binding,
+replacement V4 or final review; any such outcome must be bound after it actually occurs in a
+downstream closure synchronization. Do not rerun the unchanged failed head. Attempt 13 remains
+**NOT EXECUTED / DO NOT EXECUTE**; no run, Hardware or Human/Product V5 authority exists.
 
 ## 0A. Run-18 fingerprint-transfer success and current Product boundary
 

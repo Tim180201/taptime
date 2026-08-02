@@ -2,6 +2,21 @@
 
 Status: Active
 
+Current R-034 Harness override (2026-08-02): Attempt-13 Round-5 review returned `APPROVED` with
+zero open P0–P3 and the candidate was published as
+`387421b3caeed988b159c93ff217fb78a0bee60c` / tree
+`ace680660468e0374004869f205e6a1e0af0ac7f`; its one authorized local AVS R3 verification passed.
+V4 exact-head CI `30745607263`, attempt 1, failed closed 11/12 only in `Synthetic server-connected
+Android E2E harness` job `91490562435`. `DA5-V5-CI-TIMEWINDOW-01` is confirmed: the fixed July
+query/export window excluded the current-date lifecycle row. A focused deterministic
+record-bound/window-bound correction is applied and locally verified. This prepublication
+candidate makes no self-claim of its own publication, remote binding, replacement V4 or final
+review; any such outcome must be bound after it actually occurs in a downstream closure
+synchronization. An unchanged retry is forbidden. R-034 remains open. Attempt 13, Hardware and
+Human/Product V5 remain `DO NOT EXECUTE` / `DO NOT START`. This paragraph supersedes only stale
+Attempt-13 preparation state in the R-034 row below; all historical evidence and risk boundaries
+remain unchanged.
+
 | ID | Risk | Category | Severity | Status | Mitigation |
 |---|---|---|---|---|---|
 | R-001 | NFC behavior differs between devices and Android versions. | Technical | High | Open | NFC remains isolated. Block-D device-local/product checks and E2A warm-session transport-loss/restart passed on Galaxy A33 5G / Android 15 with NTAG213 tags; require a broader supported Android/tag matrix and iOS-specific validation before release claims. |

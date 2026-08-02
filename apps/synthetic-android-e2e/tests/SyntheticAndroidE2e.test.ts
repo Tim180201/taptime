@@ -4,7 +4,15 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createNfcPayload } from '@taptime/core';
-import { validateTimeEntryExportRequest } from '@taptime/time-entry-export-contract';
+import {
+  TIME_ENTRY_EXPORT_MAXIMUM_RANGE_MILLISECONDS,
+  validateTimeEntryExportRequest,
+} from '@taptime/time-entry-export-contract';
+import {
+  isCanonicalTimeReviewTimestamp,
+  isCanonicalTimeReviewUuid,
+  validateTimeRecordQueryRequest,
+} from '@taptime/time-review-contract';
 import { createClient } from '@supabase/supabase-js';
 import { Pool } from 'pg';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -67,6 +75,77 @@ const da5V5TagBinding = Object.freeze({
   tagX: fingerprint(da5V5TagPayloads.tagX),
   technology: 'NfcA' as const,
 });
+const da3CorrectionOffsetMilliseconds = 24 * 60 * 60 * 1_000;
+
+type ServerVerifiedLifecycleTimeRecord = Readonly<{
+  serverTimeEntryId: string;
+  originalStartedAt: string;
+  originalStoppedAt: string;
+}>;
+
+const serverVerifiedLifecycleTimeRecordBinding = (() => {
+  let value: ServerVerifiedLifecycleTimeRecord | undefined;
+
+  return Object.freeze({
+    bind(candidate: ServerVerifiedLifecycleTimeRecord): void {
+      if (value !== undefined) {
+        throw new Error('Synthetic lifecycle time record binding was already established');
+      }
+      if (
+        !isCanonicalTimeReviewUuid(candidate.serverTimeEntryId)
+        || !isCanonicalTimeReviewTimestamp(candidate.originalStartedAt)
+        || !isCanonicalTimeReviewTimestamp(candidate.originalStoppedAt)
+        || Date.parse(candidate.originalStartedAt) >= Date.parse(candidate.originalStoppedAt)
+      ) {
+        throw new Error('Synthetic lifecycle time record binding is invalid');
+      }
+      value = Object.freeze({ ...candidate });
+    },
+
+    require(): ServerVerifiedLifecycleTimeRecord {
+      if (value === undefined) {
+        throw new Error('Synthetic DA3 server-verified lifecycle binding is missing');
+      }
+      return value;
+    },
+  });
+})();
+
+function createDa3CorrectionWindow(
+  binding: ServerVerifiedLifecycleTimeRecord,
+): Readonly<{
+  correctedStartedAt: string;
+  correctedStoppedAt: string;
+  timeWindow: Readonly<{ fromInclusive: string; toExclusive: string }>;
+}> {
+  const originalStartedAt = Date.parse(binding.originalStartedAt);
+  const originalStoppedAt = Date.parse(binding.originalStoppedAt);
+  const correctedStartedAt = originalStartedAt - da3CorrectionOffsetMilliseconds;
+  const correctedStoppedAt = originalStoppedAt - da3CorrectionOffsetMilliseconds;
+  const fromInclusive = Math.min(originalStartedAt, correctedStartedAt);
+  const toExclusive = Math.max(originalStoppedAt, correctedStoppedAt) + 1;
+  const rangeMilliseconds = toExclusive - fromInclusive;
+
+  if (
+    !Number.isSafeInteger(correctedStartedAt)
+    || !Number.isSafeInteger(correctedStoppedAt)
+    || correctedStartedAt >= correctedStoppedAt
+    || !Number.isSafeInteger(toExclusive)
+    || rangeMilliseconds <= 0
+    || rangeMilliseconds > TIME_ENTRY_EXPORT_MAXIMUM_RANGE_MILLISECONDS
+  ) {
+    throw new Error('Synthetic DA3 correction window is invalid');
+  }
+
+  return Object.freeze({
+    correctedStartedAt: new Date(correctedStartedAt).toISOString(),
+    correctedStoppedAt: new Date(correctedStoppedAt).toISOString(),
+    timeWindow: Object.freeze({
+      fromInclusive: new Date(fromInclusive).toISOString(),
+      toExclusive: new Date(toExclusive).toISOString(),
+    }),
+  });
+}
 
 describe('synthetic E2E safety guards', () => {
   it('accepts only the exact dedicated database on numeric loopback', () => {
@@ -450,6 +529,10 @@ describeWithPostgres('synthetic Android product-to-server E2E', () => {
         workEventId: start.workEvent.id,
         receiptId: start.receipt.id,
       });
+      const serverTimeEntryId = started.serverTimeEntryId;
+      if (typeof serverTimeEntryId !== 'string') {
+        throw new Error('Synthetic lifecycle start response is missing its server TimeEntry ID');
+      }
 
       const stop = lifecycleBody(context, new Date(startedAt.getTime() + 6_000), 2);
       const stopResponse = await postLifecycle(token, stop);
@@ -461,7 +544,7 @@ describeWithPostgres('synthetic Android product-to-server E2E', () => {
         decision: { status: 'time_entry_stopped' },
         workEventId: stop.workEvent.id,
         receiptId: stop.receipt.id,
-        serverTimeEntryId: started.serverTimeEntryId,
+        serverTimeEntryId,
       });
 
       expect(await environment.evidenceCounts()).toEqual({
@@ -479,23 +562,27 @@ describeWithPostgres('synthetic Android product-to-server E2E', () => {
       const trace = await installerPool.query<{
         decisions: string;
         receipts: string;
+        server_time_entry_id: string;
         status: string;
         start_matches: boolean;
         started_at: Date;
         stop_matches: boolean;
         stopped_at: Date;
       }>(
-        `SELECT entry.status,
+        `SELECT entry.id::text AS server_time_entry_id,
+                entry.status,
                 entry.start_work_event_id = $2::uuid AS start_matches,
                 entry.stop_work_event_id = $1::uuid AS stop_matches,
                 entry.started_at,
                 entry.stopped_at,
                 (SELECT count(*)::text FROM taptime_server.canonical_decisions) AS decisions,
                 (SELECT count(*)::text FROM taptime_server.sync_receipts) AS receipts
-         FROM taptime_server.time_entries AS entry`,
-        [stop.workEvent.id, start.workEvent.id],
+         FROM taptime_server.time_entries AS entry
+         WHERE entry.id = $3::uuid`,
+        [stop.workEvent.id, start.workEvent.id, serverTimeEntryId],
       );
       expect(trace.rows).toEqual([{
+        server_time_entry_id: serverTimeEntryId,
         status: 'stopped',
         start_matches: true,
         stop_matches: true,
@@ -504,6 +591,10 @@ describeWithPostgres('synthetic Android product-to-server E2E', () => {
         decisions: '2',
         receipts: '2',
       }]);
+      const verifiedTimeRecord = trace.rows[0];
+      if (verifiedTimeRecord === undefined) {
+        throw new Error('Synthetic lifecycle server TimeEntry verification is missing');
+      }
 
       expect(safeEvents).toEqual([
         'assignment_armed',
@@ -514,6 +605,11 @@ describeWithPostgres('synthetic Android product-to-server E2E', () => {
       expect(diagnostics).not.toContain(tagA);
       expect(diagnostics).not.toContain(tagB);
       expect(diagnostics).not.toContain(token);
+      serverVerifiedLifecycleTimeRecordBinding.bind({
+        serverTimeEntryId: verifiedTimeRecord.server_time_entry_id,
+        originalStartedAt: verifiedTimeRecord.started_at.toISOString(),
+        originalStoppedAt: verifiedTimeRecord.stopped_at.toISOString(),
+      });
     });
 
   it('stores defer-only evidence with no canonical Decision or TimeEntry mutation', async () => {
@@ -602,15 +698,19 @@ describeWithPostgres('synthetic Android product-to-server E2E', () => {
     if (administrator.status !== 'authenticated' || employee.status !== 'authenticated') {
       throw new Error('Synthetic DA3 identities unexpectedly failed authentication');
     }
-    const fromInclusive = '2026-07-01T00:00:00.000Z';
-    const toExclusive = '2026-08-01T00:00:00.000Z';
+    const lifecycleRecord = serverVerifiedLifecycleTimeRecordBinding.require();
+    const {
+      correctedStartedAt,
+      correctedStoppedAt,
+      timeWindow,
+    } = createDa3CorrectionWindow(lifecycleRecord);
     const queryBody = {
       expectedMembershipId: syntheticIds.administratorMembership,
-      fromInclusive,
-      toExclusive,
+      ...timeWindow,
       limit: 100,
       cursor: null,
     };
+    expect(validateTimeRecordQueryRequest(queryBody).status).toBe('valid');
 
     const employeeDenied = await postAdministration(
       employee.tokens.accessToken,
@@ -636,13 +736,20 @@ describeWithPostgres('synthetic Android product-to-server E2E', () => {
         readonly effectiveRevisionNumber: number;
       }>;
     };
-    const record = recordsPage.records.find((candidate) => candidate.status === 'stopped');
+    const record = recordsPage.records.find((candidate) => (
+      candidate.timeRecordId === lifecycleRecord.serverTimeEntryId
+      && candidate.status === 'stopped'
+    ));
     expect(record).toBeDefined();
     if (record === undefined || record.stoppedAt === null) {
-      throw new Error('Synthetic DA3 stopped record is missing');
+      throw new Error('Synthetic DA3 bound stopped record is missing');
     }
-    const correctedStoppedAt = new Date(Date.now() - 1_000).toISOString();
-    const correctedStartedAt = new Date(Date.parse(correctedStoppedAt) - 6_000).toISOString();
+    expect(record).toMatchObject({
+      timeRecordId: lifecycleRecord.serverTimeEntryId,
+      status: 'stopped',
+      startedAt: lifecycleRecord.originalStartedAt,
+      stoppedAt: lifecycleRecord.originalStoppedAt,
+    });
     const before = await environment.timeReviewEvidenceCounts();
 
     const correction = await postAdministration(
@@ -711,8 +818,7 @@ describeWithPostgres('synthetic Android product-to-server E2E', () => {
 
     const exportBody = {
       expectedMembershipId: syntheticIds.administratorMembership,
-      fromInclusive,
-      toExclusive,
+      ...timeWindow,
     };
     expect(validateTimeEntryExportRequest(exportBody).status).toBe('valid');
     const exportResponse = await postAdministration(
