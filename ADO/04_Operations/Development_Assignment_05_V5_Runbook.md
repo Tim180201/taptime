@@ -1,6 +1,20 @@
 # Development Assignment 5 — V5 Human Android Gate Runbook
 
-## Current Harness override — Attempt 14 consumed; Attempt 15 prospective read-only candidate
+## Current governance override — Lean V5 candidate is not yet executable
+
+Attempt 15 is consumed fail-closed on `456da51150f8748a647ab46aa10fd0e1f25b54bf` / tree
+`a4ba688a55e6302f1588cc3ceda48d9a63c4933b`: 30 passed, two failed and 13
+`not_run_hard_stop`; Gate 28 `MOBILE_FOCUS_TEST` stopped with `unexpected_output_root` after
+child exit 0 and zero quality failures; Cleanup/Postcleanup completed; artifact is `null`; raw
+output is absent. Retry, repair and resume are forbidden.
+
+The Human-directed ADR-0019 Lean V5 profile is an **ADO-ONLY CANDIDATE / REVIEW PENDING / NOT
+ACTIVE**. After independent approval and focused publication, a later exact implementation may
+replace the historical 45-gate preparation with at most six AVS-001 stages. Until then this file
+authorizes no command. There is no Attempt-16 path. Product/Human V5 remains a separate future
+exact authorization after automated V0–V4 and final artifact approval.
+
+## Historical superseded Harness override — Attempt 14 consumed; Attempt 15 prospective read-only candidate
 
 Attempt 14 is consumed fail-closed on exact publication `7f6c94886b4dff263e364ea8860b5de1b98b3b53`
 / tree `c6df9d7b05374f2baba369d3ca163ea83048b68a` and cannot be retried, repaired, resumed or

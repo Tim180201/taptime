@@ -1,6 +1,29 @@
 # Project Status
 
-DA5 V5 current override: **ATTEMPT 14 IS CONSUMED FAIL-CLOSED; ATTEMPT 15 IS A PROSPECTIVE
+DA5 V5 current override: **ATTEMPT 15 IS CONSUMED FAIL-CLOSED; LEAN V5 IS AN ADO-ONLY
+ARCHITECTURE/AUTHORIZATION CANDIDATE PENDING INDEPENDENT REVIEW AND FOCUSED PUBLICATION.** Attempt
+15 ran once on commit `456da51150f8748a647ab46aa10fd0e1f25b54bf`, tree
+`a4ba688a55e6302f1588cc3ceda48d9a63c4933b`. Its 45 immutable records are 30 passed, two failed
+and 13 `not_run_hard_stop`. Gate 28 `MOBILE_FOCUS_TEST` stopped with
+`unexpected_output_root`; the mapped child exited 0, stdout was 322 bytes, stderr was zero bytes
+and quality-failure count was zero. Gate 45 records `hard_stop_recorded`. Cleanup/Postcleanup
+completed, artifact is `null` and raw output was not preserved.
+
+Immutable Attempt-15 Evidence remains mode `0555` with exactly three mode-`0444` files: receipt
+151,401 bytes / `b27b17620aa659cec5c820ff0fdb97c2b33adc40adc4e68bce6a043daad5ac3f`, snapshot
+2,503 bytes / `3fdf644461cbd3bc96576d9cf36d2b6292be8101bdd4af74c739a7810021b5a1`, and manifest
+1,160 bytes / `d50c50a4b8dae5fcb356dc790e1eb8ebe69b0612c853119bc7e44748b53ceacb`.
+Attempt 15 may not be retried, repaired or resumed.
+
+The Human Architect accepted the ADR-0019 direction to replace the historical 45-gate approach
+prospectively with a maximum-six-stage, AVS-001-aligned Lean V5 profile. Existing green unchanged
+Evidence may be carried exactly; ordinary bounded tool/cache/test outputs do not independently
+create findings or per-file authorization work; exact final artifact, security, CI, review and
+separate Human/Hardware gates remain. This R0 candidate creates no Product correctness or test
+claim and authorizes no Attempt 16, executable implementation, R3 run, Hardware/Human V5,
+production, production data, deployment or distribution.
+
+Historical superseded DA5 V5 override: **ATTEMPT 14 IS CONSUMED FAIL-CLOSED; ATTEMPT 15 IS A PROSPECTIVE
 READ-ONLY CANDIDATE, NOT EXECUTED, AND MUST NOT EXECUTE WITHOUT A FUTURE SEPARATE EXACT RUN
 AUTHORIZATION.** Attempt 14 ran once on publication
 `7f6c94886b4dff263e364ea8860b5de1b98b3b53` / tree
@@ -1792,6 +1815,11 @@ Two Epics are concurrently Active, per EP-009's own stated relationship to the r
 - EP-009 does not create implementation work, Feature Blueprints, or Development Tasks.
 
 ## Immediate Next Steps
+
+0. Complete the independent read-only review of ADR-0019 and the DA5 V5 Lean Verification
+   Profile authorization candidate. If `APPROVED` with zero open P0–P3, publish the focused
+   ADO-only candidate and stop for one compact exact implementation authorization. Do not create
+   or run Attempt 16 and do not start Product/Human V5.
 
 1. Preserve Development Assignments 1–3 and DT-060–DT-074 as completed only for their exact
    independently approved local scopes.

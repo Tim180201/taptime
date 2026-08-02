@@ -1,6 +1,21 @@
 # Development Assignment 5 — V5 Harness Artifact Closure Architecture and Authorization
 
-## Current override — Attempt 14 consumed; Attempt 15 prospective output-binding candidate
+## Current prospective override — Attempt 15 consumed; Lean V5 candidate pending review
+
+Attempt 15 executed once on `456da51150f8748a647ab46aa10fd0e1f25b54bf` / tree
+`a4ba688a55e6302f1588cc3ceda48d9a63c4933b` and is consumed fail-closed. Its immutable 45
+records are 30 passed, two failed and 13 `not_run_hard_stop`. Gate 28 `MOBILE_FOCUS_TEST`
+stopped with `unexpected_output_root`; child exit was 0 and quality-failure count was zero.
+Cleanup/Postcleanup completed, artifact is `null`, raw output was not preserved, and Attempt 15
+may not be retried, repaired or resumed.
+
+ADR-0019 and the DA5 V5 Lean Verification Profile authorization candidate prospectively replace
+this 45-gate/per-attempt-executor architecture after independent `APPROVED` review and focused
+publication. All historical executor and Evidence identities remain immutable. No Attempt-16
+correction or run is authorized. This document remains historical architecture evidence and is
+not future default execution authority.
+
+## Historical superseded override — Attempt 14 consumed; Attempt 15 prospective output-binding candidate
 
 Attempt 14 executed once on exact publication `7f6c94886b4dff263e364ea8860b5de1b98b3b53` / tree
 `c6df9d7b05374f2baba369d3ca163ea83048b68a` and is consumed fail-closed. It may not be retried,

@@ -1,6 +1,36 @@
 # Development Assignment 5 — V5 Human Android Evidence
 
-## Attempt-14 terminal evidence and prospective Attempt-15 output-binding candidate
+## Attempt-15 terminal evidence and Lean V5 candidate boundary
+
+Attempt 15 executed once on publication commit
+`456da51150f8748a647ab46aa10fd0e1f25b54bf`, tree
+`a4ba688a55e6302f1588cc3ceda48d9a63c4933b`, and is consumed fail-closed. Its immutable
+mode-`0555` Evidence root contains exactly these mode-`0444` entries:
+
+| Entry | Bytes | SHA-256 |
+|---|---:|---|
+| Receipt | 151,401 | `b27b17620aa659cec5c820ff0fdb97c2b33adc40adc4e68bce6a043daad5ac3f` |
+| Precleanup snapshot | 2,503 | `3fdf644461cbd3bc96576d9cf36d2b6292be8101bdd4af74c739a7810021b5a1` |
+| Evidence manifest | 1,160 | `d50c50a4b8dae5fcb356dc790e1eb8ebe69b0612c853119bc7e44748b53ceacb` |
+
+All 45 records exist: 30 passed, two failed and 13 `not_run_hard_stop`. Gate 28
+`MOBILE_FOCUS_TEST` failed with `unexpected_output_root`; the mapped child exited 0, stdout was
+322 bytes, stderr was zero bytes and quality-failure count was zero. Gate 45 records
+`hard_stop_recorded`. Cleanup and Postcleanup completed, artifact is `null`, and
+`raw_output_preserved` is false. Attempt 15 has no retry, repair or resume path.
+
+Independent failure review returned `CHANGES REQUIRED`: Gate 28's output allowlist is statically
+incomplete because `apps/mobile/vitest.config.ts` has no `cacheDir` and Vite 8.1.3 resolves the
+nearest package cache to `apps/mobile/node_modules/.vite`. Because raw run paths were deliberately
+not preserved, that concrete run path is an inference, not observed Evidence. No Product defect
+is proven. The accompanying P3 requires this current-truth synchronization.
+
+The Human Architect chose the prospective ADR-0019 Lean V5 profile instead of an Attempt-16
+cache-allowlist correction. Historical Evidence remains immutable. The new ADO-only candidate has
+not received independent approval or focused publication and creates no Product, CI, artifact,
+R3, Hardware/Human V5, production, deployment or distribution evidence.
+
+## Historical superseded Attempt-14 terminal evidence and prospective Attempt-15 output-binding candidate
 
 Attempt 14 executed once on publication `7f6c94886b4dff263e364ea8860b5de1b98b3b53` / tree
 `c6df9d7b05374f2baba369d3ca163ea83048b68a` and is consumed fail-closed. The immutable mode-`0555`
