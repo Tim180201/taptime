@@ -257,8 +257,20 @@ class CredentialAdb implements Da5V5AndroidAdbRunner {
         '',
       ].join('\n');
     }
-    if (command === 'shell pm path com.tim180201.mobile.synthetic') {
+    if (
+      command === 'shell cmd package list packages -a -u --user 0 '
+        + 'com.tim180201.mobile.synthetic'
+    ) {
+      return 'package:com.tim180201.mobile.synthetic\n';
+    }
+    if (
+      command === 'shell cmd package path --user 0 '
+        + 'com.tim180201.mobile.synthetic'
+    ) {
       return 'package:/data/app/synthetic/base.apk\n';
+    }
+    if (command === 'shell ps -A -w -o NAME:4') {
+      return 'NAME\ncom.tim180201.mobile.synthetic\n';
     }
     throw new Error(`unexpected command: ${command}`);
   }
