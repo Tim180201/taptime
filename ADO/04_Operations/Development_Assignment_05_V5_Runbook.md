@@ -1,18 +1,33 @@
 # Development Assignment 5 — V5 Human Android Gate Runbook
 
-## Current governance override — Lean V5 candidate is not yet executable
+## Current governance override — automated Lean closure complete; V5 separately gated
 
-Attempt 15 is consumed fail-closed on `456da51150f8748a647ab46aa10fd0e1f25b54bf` / tree
-`a4ba688a55e6302f1588cc3ceda48d9a63c4933b`: 30 passed, two failed and 13
-`not_run_hard_stop`; Gate 28 `MOBILE_FOCUS_TEST` stopped with `unexpected_output_root` after
-child exit 0 and zero quality failures; Cleanup/Postcleanup completed; artifact is `null`; raw
-output is absent. Retry, repair and resume are forbidden.
+ADR-0019 and the Lean authorization were Human-accepted and published at
+`83635335aa4f547dc8994243c604dacf9797f593` / tree
+`40b7655a94e607b8afe19f90f42a95f42ee6d582`; independent architecture/authorization review
+returned `APPROVED` with zero open P0–P3. Lean stages 1–5 and automated V0–V4 are complete on
+executable candidate `1b341d83592ea457c8ca722d01bfa2e64fe8cc40` / tree
+`2db756832a81f07cdb1a927ff3076320cc253960`. Prepublication binding review and final independent
+Exact-Head/Artifact review returned `APPROVED` with zero open P0–P3. Exact-head CI
+`30786622180`, attempt 1, passed 12/12 without retry.
 
-The Human-directed ADR-0019 Lean V5 profile is an **ADO-ONLY CANDIDATE / REVIEW PENDING / NOT
-ACTIVE**. After independent approval and focused publication, a later exact implementation may
-replace the historical 45-gate preparation with at most six AVS-001 stages. Until then this file
-authorizes no command. There is no Attempt-16 path. Product/Human V5 remains a separate future
-exact authorization after automated V0–V4 and final artifact approval.
+Fresh read-only hardware-candidate bindings, which supersede populated earlier `Current` artifact
+rows later in this historical runbook, are:
+
+| Artifact | Exact current binding |
+|---|---|
+| Product source | `83635335aa4f547dc8994243c604dacf9797f593` / tree `40b7655a94e607b8afe19f90f42a95f42ee6d582` |
+| Product APK — DO NOT INSTALL | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5/lean-83635335-b0180c31769e4534/app-release-b0180c31769e4534.apk`; 95,522,751 bytes; mode `0444`; SHA-256 `b0180c31769e453472a20eb1e7eb4e0825a85be9429becf6bf4970e0875b67f8` |
+| Product manifest | Same directory, `artifact-manifest.txt`; 1,968 bytes; mode `0444`; SHA-256 `83b93bbf33297334bfcca3aa30e5ed6772175f98a2a81dc80045454570fe937b` |
+| Validation source | `83635335aa4f547dc8994243c604dacf9797f593` / tree `40b7655a94e607b8afe19f90f42a95f42ee6d582` |
+| Validation APK — DO NOT INSTALL | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-validation/da5-v5-validation-83635335aa4f-9908d76ea97a1ae9/app-release-9908d76ea97a1ae9.apk`; 65,634,553 bytes; mode `0444`; SHA-256 `9908d76ea97a1ae95ad4a08b24f626d72e8cfc6ddb20d3d1629fa822686c9d29` |
+| Validation manifest/closure | Same directory, `manifest-83635335aa4f.json`; 6,855 bytes; mode `0444`; SHA-256 `ab6a02980058259ae719bc597cfa4e7ba25ef0da28d2de4f0ee039884f373298`; 33-record sourceClosure digest `a50ec386e87217eb9a02fede94fd37a97fefb0734fa5a9791b7ff142a9c44c2f` |
+
+The Product App is not installed. This runbook grants no Hardware/ADB/install authority and no
+Product Human V5 action may start without a separate exact Human authorization. DA5 and R-034
+remain open only for that gate. Production, production data, production signing, deployment and
+distribution remain unauthorized. Attempt 15 remains consumed with no retry. CI
+`30786622180` binds the executable candidate, not a future R0 documentation-sync head.
 
 ## Historical superseded Harness override — Attempt 14 consumed; Attempt 15 prospective read-only candidate
 

@@ -7,22 +7,30 @@ Approval Authority: Human Architect
 
 ## Purpose
 
-### Current DA5 V5 truth — Attempt 15 consumed; Lean V5 candidate pending review
+### Current DA5 V5 truth — automated Lean V0–V4 complete; Human/Hardware V5 pending
 
-Attempt 15 executed once on `456da51150f8748a647ab46aa10fd0e1f25b54bf` / tree
-`a4ba688a55e6302f1588cc3ceda48d9a63c4933b` and is consumed fail-closed. Its 45 immutable
-records are 30 passed, two failed and 13 `not_run_hard_stop`. Gate 28 `MOBILE_FOCUS_TEST`
-stopped with `unexpected_output_root` although the mapped child exited 0 and quality-failure
-count was zero. Gate 45 records `hard_stop_recorded`; Cleanup/Postcleanup completed, artifact is
-`null` and raw output was not preserved. Attempt 15 has no retry, repair or resume path.
+The Human Architect accepted ADR-0019 and the Lean V5 authorization at
+`83635335aa4f547dc8994243c604dacf9797f593` / tree
+`40b7655a94e607b8afe19f90f42a95f42ee6d582`; independent architecture/authorization review
+returned `APPROVED` with zero open P0–P3. Lean stages 1–5 are complete on executable candidate
+`1b341d83592ea457c8ca722d01bfa2e64fe8cc40` / tree
+`2db756832a81f07cdb1a927ff3076320cc253960`. Its delta contains exactly six executable files and
+no dependency, lockfile, schema, workflow or Product-rule change.
 
-The Human Architect accepted the direction of ADR-0019: future DA5 V5 preparation shall use the
-AVS-001-aligned Lean V5 Verification Profile with no more than six stages and shall verify the
-Product rather than perpetuate per-attempt Harness machinery. Historical 45-gate Evidence remains
-immutable. ADR-0019 and its authorization are **ADO-ONLY CANDIDATES / REVIEW PENDING / NOT
-ACTIVE**; independent `APPROVED` review and focused publication are required. No Attempt-16
-allowlist correction, executable implementation, local R3, Hardware/Human V5, production,
-production data, deployment or distribution is authorized.
+Prepublication binding review and final independent Exact-Head/Artifact review both returned
+`APPROVED` with zero open P0–P3. Fresh isolated V3 passed `npm ci` with 695 packages, every
+applicable build, every workspace typecheck and 2,835 tests plus exactly two expected/disclosed
+B1 skips, with no final failure. V4 CI `30786622180`, attempt 1, ran on the exact executable head
+and passed 12/12 without retry. PostgreSQL is stopped, its port is closed and the task worktree,
+cache and cluster are absent.
+
+Fresh read-only Product and Validation artifacts are exactly bound in the current DA5 V5 runbook
+and Evidence record. The automated candidate is ready for the hardware gate, but DA5 and R-034
+remain open only pending a separately authorized Product Human/Hardware V5. The Product App is
+not installed. Hardware/ADB/install actions and production, production-data, production-signing,
+deployment and distribution remain unauthorized. Attempt 15 remains consumed with no retry.
+This R0 synchronization carries the exact executable-candidate CI/review evidence and does not
+claim CI for a future documentation-only synchronization head.
 
 ### Historical superseded DA5 V5 Harness truth — Attempt 14 consumed; Attempt 15 prospective read-only candidate
 
@@ -1251,7 +1259,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Technical Architecture Profile (TTAP-001) | `ADO/01_Architecture/Technical_Architecture_Profile.md` |
 | Development Task Profile | `ADO/01_Architecture/Development_Task_Profile.md` |
 | Official Technical Lead Start Prompt (TLP-001) | `ADO/01_Architecture/Technical_Lead_Start_Prompt.md` |
-| Architecture Decision Records (including ADR-0019 Lean V5 Verification Profile — Human direction accepted; ADO-only candidate review/publication pending) | `ADO/01_Architecture/ADR/` |
+| Architecture Decision Records (including ADR-0019 Lean V5 Verification Profile — Human-accepted and published at `83635335` / tree `40b7655`; independent review `APPROVED`, zero open P0–P3) | `ADO/01_Architecture/ADR/` |
 | Feature Blueprints (incl. FB-001, FB-002) | `ADO/01_Architecture/Feature_Blueprints/` |
 | Technical Specifications (incl. TS-001, TS-002) | `ADO/01_Architecture/Technical_Specifications/` |
 | Developer Implementation Manual (EP-008) | `ADO/01_Architecture/Developer_Implementation_Manual/` |
@@ -1283,7 +1291,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Development Assignment 5 Professional Mobile Productization — Workstreams A–F and AVS V0–V4 technically closed for the exact authorized local scope | `ADO/02_Development/Development_Assignment_05_Professional_Mobile_Productization_Authorization.md` |
 | Development Assignment 5 V5 Enablement — Validation Phase-0 run 18 established the exact safe transfer binding A `B55E8B6AEB30`, B `32A54C8F2F29`, X `F61C9F702CFE`; format and pairwise distinctness passed, its authority is consumed, and R-035 is locally mitigated. Product Human V5 is `NOT RUN`; DA5 and R-034 remain open. CI `30612797541` attempt 1 passed 12/12 only on ADO CI head `f45f49aa6c56c70a503322a043bec3d2360c2176` / tree `714300da7656822dd9b7a2a42fe1be85ab33aa6c`; it is carried evidence, not exact-head CI for run-18 ADO baseline `5a0d59c2b1767192d3d261cede7a2c2b11732d30` or this synchronization. **DO NOT INSTALL/DO NOT START for every new action** | `ADO/02_Development/Development_Assignment_05_V5_Enablement_Authorization.md` |
 | Development Assignment 5 V5 Harness Artifact Closure — Attempt 15 is consumed fail-closed with immutable 30/2/13 evidence and no retry. The historical 45-gate path is prospectively superseded by the Lean V5 candidate after its review/publication gates; no run authority exists | `ADO/02_Development/Development_Assignment_05_V5_Harness_Artifact_Closure_Authorization.md` |
-| Development Assignment 5 V5 Lean Verification Profile — Human direction accepted; ADO-only architecture/authorization candidate pending independent review and focused publication; no implementation or run authority | `ADO/02_Development/Development_Assignment_05_V5_Lean_Verification_Profile_Authorization.md` |
+| Development Assignment 5 V5 Lean Verification Profile — Human-accepted/published; Lean stages 1–5 and automated V0–V4 complete on `1b341d8` / tree `2db7568`; Product Human/Hardware V5 remains separately unauthorized | `ADO/02_Development/Development_Assignment_05_V5_Lean_Verification_Profile_Authorization.md` |
 | Development Assignment 5 V5 Isolated PostgreSQL Correction — Runtime Guard source `ba1b6e9`, CI `30255104609` attempt 2 12/12, immutable binary/manifest and independent Exact-SHA `APPROVED`; historical correction rounds retained; hardware authority not granted | `ADO/02_Development/Development_Assignment_05_V5_Isolated_PostgreSQL_Correction_Authorization.md` |
 | Development Assignment 6 Production-like Platform and Operational Readiness — ADO-only candidate; Human acceptance and separate implementation/provisioning authority required | `ADO/02_Development/Development_Assignment_06_Production_Like_Platform_Authorization.md` |
 | Legal, Privacy and Commercial Readiness Start Package — internal Block-H/DT-079–DT-084 working draft; not legal advice, approved legal text or publication authority | `ADO/02_Development/Legal_Privacy_Commercial_Readiness_Start_Package.md` |
@@ -1307,7 +1315,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Development Assignment 1 Gate-C Response-Drop Runbook | `ADO/04_Operations/Development_Assignment_01_Gate_C_Response_Drop_Runbook.md` |
 | Development Assignment 3 V5 Human Functional/Physical Gate Runbook — complete fresh run passed and final closure approved; permanently non-executable without new separate authority | `ADO/04_Operations/Development_Assignment_03_V5_Runbook.md` |
 | Development Assignment 4 V5 Human Browser Gate Runbook — first gate failed closed and authority is consumed; corrected checkpoint handshake independently approved, but execution requires new exact-bound Human authority | `ADO/04_Operations/Development_Assignment_04_V5_Runbook.md` |
-| Development Assignment 5 V5 Human Android Runbook — Validation Phase-0 run 18 established the exact safe transfer binding A `B55E8B6AEB30`, B `32A54C8F2F29`, X `F61C9F702CFE`; its authority is consumed and R-035 is locally mitigated. Product Human V5 is `NOT RUN`. CI `30612797541` attempt 1 passed 12/12 only on ADO CI head `f45f49aa6c56c70a503322a043bec3d2360c2176` / tree `714300da7656822dd9b7a2a42fe1be85ab33aa6c`; it is carried evidence, not exact-head CI for run-18 ADO baseline `5a0d59c2b1767192d3d261cede7a2c2b11732d30` or this synchronization. **DO NOT INSTALL/DO NOT START for every new action** | `ADO/04_Operations/Development_Assignment_05_V5_Runbook.md` |
+| Development Assignment 5 V5 Human Android Runbook — Lean stages 1–5 and automated V0–V4 complete on `1b341d8` / tree `2db7568`; fresh Product/Validation artifacts bound and hardware candidate ready. Product App not installed; Product Human/Hardware V5 remains separately unauthorized. **DO NOT INSTALL/DO NOT START without that exact authority** | `ADO/04_Operations/Development_Assignment_05_V5_Runbook.md` |
 
 ## Evidence
 
@@ -1370,7 +1378,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Development Assignment 4 DA4-V5-H01 Human Browser Failure Evidence — first gate failed closed at the premature Tag-reassignment checkpoint; P2 operational/gate reliability, complete cleanup, authority consumed and new run unauthorized | `ADO/05_Evidence/Development_Assignment_04_DA4_V5_H01_Human_Browser_Failure_Evidence.md` |
 | Development Assignment 4 DA4-V5-H01 Correction Independent Exact-SHA Review — `APPROVED`, zero open P0–P3 review findings; historical P2 remains until a fresh successful gate/final review and no new run is authorized | `ADO/05_Evidence/Development_Assignment_04_DA4_V5_H01_Correction_Independent_Exact_SHA_Review.md` |
 | Development Assignment 5 Local Implementation Evidence — Workstreams A–F and AVS V0–V4 technically closed for the exact authorized local scope | `ADO/05_Evidence/Development_Assignment_05_Local_Implementation_Evidence.md` |
-| Development Assignment 5 V5 Evidence — Validation Phase-0 run 18 established the exact safe transfer binding A `B55E8B6AEB30`, B `32A54C8F2F29`, X `F61C9F702CFE`; its authority is consumed and R-035 is locally mitigated. Product Human V5 is `NOT RUN`; DA5 and R-034 remain open. CI `30612797541` attempt 1 passed 12/12 only on ADO CI head `f45f49aa6c56c70a503322a043bec3d2360c2176` / tree `714300da7656822dd9b7a2a42fe1be85ab33aa6c`; it is carried evidence, not exact-head CI for run-18 ADO baseline `5a0d59c2b1767192d3d261cede7a2c2b11732d30` or this synchronization. **DO NOT INSTALL/DO NOT START for every new action** | `ADO/05_Evidence/Development_Assignment_05_V5_Evidence.md` |
+| Development Assignment 5 V5 Evidence — Lean stages 1–5 complete; isolated V3 passed 2,835 tests plus two expected/disclosed B1 skips; exact-head CI `30786622180` passed 12/12; final Exact-Head/Artifact review `APPROVED`, zero open P0–P3. DA5/R-034 remain open only for separately authorized Product Human/Hardware V5 | `ADO/05_Evidence/Development_Assignment_05_V5_Evidence.md` |
 | Development Assignment 5 V5 Validation Query-Visibility Correction Independent Exact-SHA Review — review base `11a8269`, CI `30277641127` 12/12, `APPROVED`, zero open P0–P3; Hardware remains unauthorized | `ADO/05_Evidence/Development_Assignment_05_V5_Validation_Query_Visibility_Correction_Independent_Exact_SHA_Review.md` |
 | Development Assignment 5 V5 Validation Runtime Correction Independent Exact-SHA Review — initial candidate `534b6d2` had one P1 fail-open graph; source `7e8c0f7`, CI `30284566289` 12/12 and its artifact independently `APPROVED` with zero open P0–P3 for that exact source; artifact is now historical/DO NOT INSTALL after DA5-V5-VAL-UI-01 source correction and Hardware authority remains separately gated | `ADO/05_Evidence/Development_Assignment_05_V5_Validation_Runtime_Correction_Independent_Exact_SHA_Review.md` |
 | Development Assignment 5 DA5-V5-VAL-UI-01 Independent Source/Artifact Exact-SHA Review — source `e97bbe9`, tree `2958f45`, CI `30370977809` attempt 1 12/12 and exact replacement APK/manifest `APPROVED`, zero open P0–P3; artifact is now historical/DO NOT INSTALL | `ADO/05_Evidence/Development_Assignment_05_DA5_V5_VAL_UI_01_Independent_Source_Artifact_Exact_SHA_Review.md` |

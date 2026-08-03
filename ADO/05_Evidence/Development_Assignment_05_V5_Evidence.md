@@ -1,5 +1,56 @@
 # Development Assignment 5 — V5 Human Android Evidence
 
+## Current Lean V0–V4 closure — hardware candidate ready; Product Human V5 not run
+
+The Human Architect accepted ADR-0019 and the Lean authorization at
+`83635335aa4f547dc8994243c604dacf9797f593` / tree
+`40b7655a94e607b8afe19f90f42a95f42ee6d582`; independent architecture/authorization review
+returned `APPROVED` with zero open P0–P3. Lean stages 1–5 completed on executable candidate
+`1b341d83592ea457c8ca722d01bfa2e64fe8cc40` / tree
+`2db756832a81f07cdb1a927ff3076320cc253960`. The exact delta is limited to these six executable
+files:
+
+- `apps/mobile/scripts/da5V5AndroidArtifact.d.mts`
+- `apps/mobile/scripts/da5V5AndroidArtifact.mjs`
+- `apps/mobile/scripts/da5V5ValidationPhase0OperatorCore.d.mts`
+- `apps/mobile/scripts/da5V5ValidationPhase0OperatorCore.mjs`
+- `apps/mobile/tests/runtime/da5V5AndroidArtifact.test.ts`
+- `apps/mobile/tests/runtime/da5V5ValidationPhase0Operator.test.ts`
+
+There is no dependency, lockfile, schema, workflow or Product-rule change. Prepublication binding
+review returned `APPROVED` with zero open P0–P3.
+
+Fresh isolated V3 established `npm ci` with 695 packages, every applicable build and every
+workspace typecheck passing. All suites completed with 2,835 passed tests plus exactly two
+expected/disclosed B1 skips and no final failure. Reported suite counts include Core 290, Mobile
+1,176, Admin 87, Synthetic 297, B1 39 plus two skips, MobileWork 10 and TimeReview 11. The initial
+convenience-command stops were
+orchestration mismatches: non-topological build order, a nonexistent generic Mobile build and
+missing suite-specific database environment. Continuation changed environment/dependency state;
+it was not an unchanged retry. PostgreSQL is stopped, its port is closed and the task worktree,
+cache and cluster are absent.
+
+V4 CI `30786622180`, attempt 1, ran on the exact executable head and passed 12/12 without retry.
+Final independent Exact-Head/Artifact review returned `APPROVED` with zero open P0–P3.
+
+| Fresh artifact | Exact binding |
+|---|---|
+| Product source | `83635335aa4f547dc8994243c604dacf9797f593` / tree `40b7655a94e607b8afe19f90f42a95f42ee6d582` |
+| Product APK — DO NOT INSTALL | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5/lean-83635335-b0180c31769e4534/app-release-b0180c31769e4534.apk`; 95,522,751 bytes; mode `0444`; SHA-256 `b0180c31769e453472a20eb1e7eb4e0825a85be9429becf6bf4970e0875b67f8` |
+| Product manifest | Same directory, `artifact-manifest.txt`; 1,968 bytes; mode `0444`; SHA-256 `83b93bbf33297334bfcca3aa30e5ed6772175f98a2a81dc80045454570fe937b` |
+| Validation source | `83635335aa4f547dc8994243c604dacf9797f593` / tree `40b7655a94e607b8afe19f90f42a95f42ee6d582` |
+| Validation APK — DO NOT INSTALL | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-validation/da5-v5-validation-83635335aa4f-9908d76ea97a1ae9/app-release-9908d76ea97a1ae9.apk`; 65,634,553 bytes; mode `0444`; SHA-256 `9908d76ea97a1ae95ad4a08b24f626d72e8cfc6ddb20d3d1629fa822686c9d29` |
+| Validation manifest/closure | Same directory, `manifest-83635335aa4f.json`; 6,855 bytes; mode `0444`; SHA-256 `ab6a02980058259ae719bc597cfa4e7ba25ef0da28d2de4f0ee039884f373298`; 33-record sourceClosure digest `a50ec386e87217eb9a02fede94fd37a97fefb0734fa5a9791b7ff142a9c44c2f` |
+
+These bindings supersede later historical rows labelled `Current`. Automated Lean V0–V4 is
+complete and the candidate is hardware-gate ready. DA5 and R-034 remain open only pending a
+separately authorized Product Human/Hardware V5; the Product App is not installed. No
+Hardware/ADB/install action and no production, production-data, production-signing, deployment or
+distribution action is authorized. Attempt 15 remains consumed with no retry. This R0 Evidence
+sync carries CI/review evidence from the exact executable candidate and claims no CI for a future
+documentation-only synchronization head. It introduces no Product, Business or architecture
+decision.
+
 ## Attempt-15 terminal evidence and Lean V5 candidate boundary
 
 Attempt 15 executed once on publication commit

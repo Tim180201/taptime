@@ -1,27 +1,27 @@
 # Project Status
 
-DA5 V5 current override: **ATTEMPT 15 IS CONSUMED FAIL-CLOSED; LEAN V5 IS AN ADO-ONLY
-ARCHITECTURE/AUTHORIZATION CANDIDATE PENDING INDEPENDENT REVIEW AND FOCUSED PUBLICATION.** Attempt
-15 ran once on commit `456da51150f8748a647ab46aa10fd0e1f25b54bf`, tree
-`a4ba688a55e6302f1588cc3ceda48d9a63c4933b`. Its 45 immutable records are 30 passed, two failed
-and 13 `not_run_hard_stop`. Gate 28 `MOBILE_FOCUS_TEST` stopped with
-`unexpected_output_root`; the mapped child exited 0, stdout was 322 bytes, stderr was zero bytes
-and quality-failure count was zero. Gate 45 records `hard_stop_recorded`. Cleanup/Postcleanup
-completed, artifact is `null` and raw output was not preserved.
+DA5 V5 current override: **AUTOMATED LEAN V0–V4 AND LEAN STAGES 1–5 ARE COMPLETE; THE PRODUCT
+HUMAN/HARDWARE V5 GATE REMAINS SEPARATELY UNAUTHORIZED.** The Human Architect accepted ADR-0019
+and the Lean authorization at `83635335aa4f547dc8994243c604dacf9797f593` / tree
+`40b7655a94e607b8afe19f90f42a95f42ee6d582`; independent architecture/authorization review
+returned `APPROVED` with zero open P0–P3. The executable candidate is
+`1b341d83592ea457c8ca722d01bfa2e64fe8cc40` / tree
+`2db756832a81f07cdb1a927ff3076320cc253960`, with exactly six executable changed files and no
+dependency, lockfile, schema, workflow or Product-rule change.
 
-Immutable Attempt-15 Evidence remains mode `0555` with exactly three mode-`0444` files: receipt
-151,401 bytes / `b27b17620aa659cec5c820ff0fdb97c2b33adc40adc4e68bce6a043daad5ac3f`, snapshot
-2,503 bytes / `3fdf644461cbd3bc96576d9cf36d2b6292be8101bdd4af74c739a7810021b5a1`, and manifest
-1,160 bytes / `d50c50a4b8dae5fcb356dc790e1eb8ebe69b0612c853119bc7e44748b53ceacb`.
-Attempt 15 may not be retried, repaired or resumed.
+Prepublication binding review returned `APPROVED` with zero open P0–P3. Fresh isolated V3 passed
+`npm ci` with 695 packages, all applicable builds, all workspace typechecks and 2,835 tests plus
+exactly two expected/disclosed B1 skips, with no final failure. V4 CI `30786622180`, attempt 1,
+passed 12/12 on the exact executable head without retry. Final independent Exact-Head/Artifact
+review returned `APPROVED` with zero open P0–P3. PostgreSQL is stopped, its port is closed and the
+task worktree, cache and cluster are absent. Fresh Product and Validation artifacts are bound in
+the DA5 V5 runbook/evidence. The automated candidate is hardware-gate ready.
 
-The Human Architect accepted the ADR-0019 direction to replace the historical 45-gate approach
-prospectively with a maximum-six-stage, AVS-001-aligned Lean V5 profile. Existing green unchanged
-Evidence may be carried exactly; ordinary bounded tool/cache/test outputs do not independently
-create findings or per-file authorization work; exact final artifact, security, CI, review and
-separate Human/Hardware gates remain. This R0 candidate creates no Product correctness or test
-claim and authorizes no Attempt 16, executable implementation, R3 run, Hardware/Human V5,
-production, production data, deployment or distribution.
+DA5 and R-034 remain open only pending separately authorized Product Human/Hardware V5. The
+Product App is not installed. Hardware/ADB/install and production, production-data,
+production-signing, deployment and distribution are unauthorized. Attempt 15 remains consumed
+with no retry. This R0 documentation synchronization carries exact CI/review evidence from the
+executable candidate and claims no CI for a future documentation-only head.
 
 Historical superseded DA5 V5 override: **ATTEMPT 14 IS CONSUMED FAIL-CLOSED; ATTEMPT 15 IS A PROSPECTIVE
 READ-ONLY CANDIDATE, NOT EXECUTED, AND MUST NOT EXECUTE WITHOUT A FUTURE SEPARATE EXACT RUN
@@ -423,6 +423,12 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
 
 ## Current State
 
+- **Current DA5 V5 status:** ADR-0019/Lean authorization accepted and independently approved;
+  Lean stages 1–5 and automated V0–V4 complete on `1b341d8` / tree `2db7568`; isolated V3 passed
+  2,835 tests plus two disclosed B1 skips, exact-head CI `30786622180` passed 12/12 and final
+  Exact-Head/Artifact review is `APPROVED` with zero open P0–P3. The fresh artifacts are bound and
+  the candidate is ready for the hardware gate. DA5/R-034 remain open only for separately
+  authorized Product Human/Hardware V5; the Product App is not installed.
 - **DA5-V5-VAL-TECH-01 source and its exact replacement artifact are independently approved
   with zero open P0–P3 and remain DO NOT INSTALL; the Validation Phase-0 operator correction
   `083fdfb`, tree `24bd130`, exact-head CI `30402655381` attempt 1 12/12 and independent
@@ -1816,10 +1822,9 @@ Two Epics are concurrently Active, per EP-009's own stated relationship to the r
 
 ## Immediate Next Steps
 
-0. Complete the independent read-only review of ADR-0019 and the DA5 V5 Lean Verification
-   Profile authorization candidate. If `APPROVED` with zero open P0–P3, publish the focused
-   ADO-only candidate and stop for one compact exact implementation authorization. Do not create
-   or run Attempt 16 and do not start Product/Human V5.
+0. Preserve the completed automated Lean V0–V4/stages 1–5 evidence and exact fresh artifact
+   bindings. Do not install the Product App or start Hardware/ADB/Product Human V5 until the Human
+   Architect grants a separate exact authorization. Attempt 15 remains consumed with no retry.
 
 1. Preserve Development Assignments 1–3 and DT-060–DT-074 as completed only for their exact
    independently approved local scopes.

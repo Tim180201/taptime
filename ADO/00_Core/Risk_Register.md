@@ -2,23 +2,24 @@
 
 Status: Active
 
-Current R-034 Lean-V5 override: Attempt 15 is consumed fail-closed on
-`456da51150f8748a647ab46aa10fd0e1f25b54bf` / tree
-`a4ba688a55e6302f1588cc3ceda48d9a63c4933b`. Its immutable 45 records are 30 passed, two failed
-and 13 hard-stop omissions. Gate 28 `MOBILE_FOCUS_TEST` stopped at `unexpected_output_root`
-although the child exited 0 and quality-failure count was zero. Cleanup/Postcleanup completed;
-artifact is `null`; raw output is absent. Receipt/snapshot/manifest are 151,401 / 2,503 / 1,160
-bytes with SHA-256 `b27b17620aa659cec5c820ff0fdb97c2b33adc40adc4e68bce6a043daad5ac3f`,
-`3fdf644461cbd3bc96576d9cf36d2b6292be8101bdd4af74c739a7810021b5a1` and
-`d50c50a4b8dae5fcb356dc790e1eb8ebe69b0612c853119bc7e44748b53ceacb`. No retry, repair or
-resume is allowed and no Product defect is proven.
+Current R-034 Lean-V5 override: **Open / R3 only pending the separately authorized Product
+Human/Hardware V5 gate.** The Human Architect accepted ADR-0019 and the Lean authorization at
+`83635335aa4f547dc8994243c604dacf9797f593` / tree
+`40b7655a94e607b8afe19f90f42a95f42ee6d582`; independent architecture/authorization review is
+`APPROVED` with zero open P0–P3. Lean stages 1–5 and automated V0–V4 completed on executable
+candidate `1b341d83592ea457c8ca722d01bfa2e64fe8cc40` / tree
+`2db756832a81f07cdb1a927ff3076320cc253960`. Its exact six-file executable delta changes no
+dependency, lockfile, schema, workflow or Product rule.
 
-The Human Architect selected ADR-0019's prospective Lean V5 mitigation: at most six AVS-aligned
-stages, standard repository commands by default, exact evidence reuse, bounded ordinary tool
-outputs and strict final artifact/CI/review/Human gates. Residual status remains **Open / R3**
-until the ADO-only candidate is independently approved and published, a later exact implementation
-is authorized and verified, and Product Human V5 passes. The candidate does not authorize an
-Attempt-16 cache fix, executable change or run.
+Fresh isolated V3 passed all applicable builds and workspace typechecks plus 2,835 tests and two
+expected/disclosed B1 skips; exact-head CI `30786622180`, attempt 1, passed 12/12 without retry.
+Prepublication binding review and final Exact-Head/Artifact review are `APPROVED` with zero open
+P0–P3. Fresh artifacts are exactly bound and cleanup is complete: PostgreSQL stopped, port closed,
+task worktree/cache/cluster absent. The automated mitigation is complete and the candidate is
+hardware-gate ready. The Product App is not installed; Hardware/ADB/install and all production,
+production-data, production-signing, deployment and distribution actions remain unauthorized.
+Attempt 15 remains consumed with no retry. This R0 sync does not claim CI for its future
+documentation-only head.
 
 Historical superseded R-034 Attempt-15 override: Attempt 14 is consumed fail-closed on publication
 `7f6c94886b4dff263e364ea8860b5de1b98b3b53` / tree

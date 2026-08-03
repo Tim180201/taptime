@@ -1,13 +1,38 @@
-# Development Assignment 5 — V5 Lean Verification Profile Authorization Candidate
+# Development Assignment 5 — V5 Lean Verification Profile Authorization
 
-- Status: **ADO-ONLY CANDIDATE — HUMAN DIRECTION ACCEPTED; INDEPENDENT REVIEW AND FOCUSED PUBLICATION REQUIRED; NO EXECUTION AUTHORITY**
-- Date: 2026-08-02
-- Baseline commit: `456da51150f8748a647ab46aa10fd0e1f25b54bf`
-- Baseline tree: `a4ba688a55e6302f1588cc3ceda48d9a63c4933b`
+- Status: **HUMAN-ACCEPTED AND PUBLISHED; AUTOMATED LEAN V0–V4 COMPLETE; PRODUCT HUMAN/HARDWARE V5 SEPARATELY GATED**
+- Date: 2026-08-03
+- Authorization publication: `83635335aa4f547dc8994243c604dacf9797f593`
+- Authorization tree: `40b7655a94e607b8afe19f90f42a95f42ee6d582`
+- Executable candidate: `1b341d83592ea457c8ca722d01bfa2e64fe8cc40`
+- Executable tree: `2db756832a81f07cdb1a927ff3076320cc253960`
 - Owner: Technical Lead
 - Approval authority: Human Architect
 - Architecture: ADR-0019
 - Verification: AVS-001
+
+## Current activation and automated closure
+
+The Human Architect accepted this authorization and ADR-0019 at the publication bound above.
+Independent architecture/authorization review returned `APPROVED` with zero open P0–P3. The
+candidate-language in Sections 1–9 is retained as the originating authorization record; this
+current block supersedes its pre-activation status statements.
+
+Lean stages 1–5 completed on the exact executable candidate/tree above. Its delta contains exactly
+six executable files and no dependency, lockfile, schema, workflow or Product-rule change.
+Prepublication binding review returned `APPROVED` with zero open P0–P3. Fresh isolated V3 passed
+`npm ci` with 695 packages, every applicable build, every workspace typecheck and 2,835 tests plus
+exactly two expected/disclosed B1 skips, with no final failure. V4 CI `30786622180`, attempt 1,
+passed 12/12 on the exact executable head without retry. Final independent Exact-Head/Artifact
+review returned `APPROVED` with zero open P0–P3. PostgreSQL is stopped, its port is closed and the
+task worktree, cache and cluster are absent.
+
+The automated Lean V0–V4 candidate is ready for the hardware gate. DA5 and R-034 remain open only
+pending separately authorized Product Human/Hardware V5; the Product App is not installed.
+Hardware/ADB/install, production, production-data, production-signing, deployment and distribution
+remain unauthorized. Attempt 15 remains consumed with no retry. A future documentation-only R0
+head must not be described as the exact-head CI source; CI `30786622180` binds only the executable
+candidate above. No new Product, Business or architecture decision is introduced here.
 
 ## 1. Purpose
 
