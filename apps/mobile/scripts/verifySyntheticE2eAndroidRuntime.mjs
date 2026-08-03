@@ -170,6 +170,13 @@ function systemDependencies() {
 const invokedPath = process.argv[1] === undefined
   ? null
   : pathToFileURL(resolve(process.argv[1])).href;
-if (invokedPath === import.meta.url) {
+const directCliModuleUrl = new URL(
+  './verifySyntheticE2eAndroidRuntime.mjs',
+  import.meta.url,
+).href;
+if (
+  import.meta.url === directCliModuleUrl
+  && invokedPath === directCliModuleUrl
+) {
   verifySyntheticE2eAndroidRuntime(process.argv[2]);
 }

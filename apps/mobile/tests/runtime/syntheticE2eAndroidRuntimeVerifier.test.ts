@@ -1,3 +1,12 @@
+import { spawnSync } from 'node:child_process';
+import {
+  mkdtempSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it, vi } from 'vitest';
 
 import {
@@ -9,7 +18,80 @@ import {
   verifySyntheticE2eAndroidRuntime,
 } from '../../scripts/verifySyntheticE2eAndroidRuntime.mjs';
 
+const verifierModuleUrl = new URL(
+  '../../scripts/verifySyntheticE2eAndroidRuntime.mjs',
+  import.meta.url,
+);
+const verifierModulePath = fileURLToPath(verifierModuleUrl);
+
 describe('synthetic Android E2E runtime-completeness verifier', () => {
+  it('keeps the source module import side-effect free', () => {
+    const result = spawnSync(
+      process.execPath,
+      [
+        '--input-type=module',
+        '--eval',
+        `await import(${JSON.stringify(verifierModuleUrl.href)})`,
+      ],
+      { encoding: 'utf8' },
+    );
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toBe('');
+    expect(result.stderr).toBe('');
+  });
+
+  it('keeps a direct CLI invocation fail-closed for a missing artifact', () => {
+    const temporaryDirectory = mkdtempSync(
+      join(tmpdir(), 'taptime-runtime-verifier-cli-missing-'),
+    );
+    try {
+      const result = spawnSync(
+        process.execPath,
+        [
+          verifierModulePath,
+          join(temporaryDirectory, 'missing.apk'),
+        ],
+        { encoding: 'utf8' },
+      );
+
+      expect(result.status).toBe(1);
+      expect(result.stdout).toBe('');
+      expect(result.stderr).toContain('Synthetic E2E release APK is missing');
+    } finally {
+      rmSync(temporaryDirectory, { force: true, recursive: true });
+    }
+  });
+
+  it('keeps a direct CLI invocation fail-closed for a wrong artifact', () => {
+    const temporaryDirectory = mkdtempSync(
+      join(tmpdir(), 'taptime-runtime-verifier-cli-wrong-'),
+    );
+    try {
+      const wrongArtifact = join(temporaryDirectory, 'wrong.apk');
+      writeFileSync(wrongArtifact, 'not-an-apk');
+      const result = spawnSync(
+        process.execPath,
+        [
+          verifierModulePath,
+          wrongArtifact,
+        ],
+        { encoding: 'utf8' },
+      );
+
+      expect(result.status).toBe(1);
+      expect(result.stdout).toBe('');
+      expect(result.stderr).toContain(
+        'Synthetic E2E runtime verification command failed: /usr/bin/unzip',
+      );
+      expect(result.stderr).not.toContain(
+        'synthetic_e2e_android_runtime_complete_verified',
+      );
+    } finally {
+      rmSync(temporaryDirectory, { force: true, recursive: true });
+    }
+  });
+
   it('accepts a Hermes dump containing every exact synthetic runtime value', () => {
     const dump = REQUIRED_SYNTHETIC_E2E_RUNTIME_LITERALS
       .map(({ value }) => `String ${JSON.stringify(value)}`)
@@ -113,4 +195,50 @@ describe('synthetic Android E2E runtime-completeness verifier', () => {
       expect(run).not.toHaveBeenCalled();
     },
   );
+
+  it('rejects a missing artifact before executing an inspection tool', () => {
+    const run = vi.fn();
+
+    expect(() => verifySyntheticE2eAndroidRuntime(
+      '/synthetic/missing.apk',
+      {
+        dependencies: {
+          exists: vi.fn(() => false),
+          mkdtemp: vi.fn(),
+          remove: vi.fn(),
+          run,
+          tmpdir: vi.fn(),
+          writeFile: vi.fn(),
+          writeOutput: vi.fn(),
+        },
+        hermesCompilerPath: '/synthetic/tools/hermesc',
+        unzipPath: '/synthetic/tools/unzip',
+      },
+    )).toThrow('Synthetic E2E release APK is missing');
+    expect(run).not.toHaveBeenCalled();
+  });
+
+  it('rejects an artifact without the exact Hermes bundle entry', () => {
+    const run = vi.fn(() => ({ stdout: 'classes.dex\n' }));
+
+    expect(() => verifySyntheticE2eAndroidRuntime(
+      '/synthetic/wrong.apk',
+      {
+        dependencies: {
+          exists: vi.fn(() => true),
+          mkdtemp: vi.fn(),
+          remove: vi.fn(),
+          run,
+          tmpdir: vi.fn(),
+          writeFile: vi.fn(),
+          writeOutput: vi.fn(),
+        },
+        hermesCompilerPath: '/synthetic/tools/hermesc',
+        unzipPath: '/synthetic/tools/unzip',
+      },
+    )).toThrow(
+      'Synthetic E2E release APK must contain exactly one Hermes Android bundle',
+    );
+    expect(run).toHaveBeenCalledTimes(1);
+  });
 });
