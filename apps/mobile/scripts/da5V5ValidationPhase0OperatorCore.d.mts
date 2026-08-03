@@ -53,10 +53,10 @@ export const DA5_V5_VALIDATION_PHASE0_ARTIFACT: Readonly<{
     path: string;
     sha256: string;
   }>;
-  sourceClosureJsonSha256: '62aaa737428ef90b52fc9790ab1cc268537e8d5f5add1fce785bdb501bade763';
+  sourceClosureJsonSha256: 'a50ec386e87217eb9a02fede94fd37a97fefb0734fa5a9791b7ff142a9c44c2f';
   sourceClosureRecords: 33;
-  sourceCommit: '5675297dab94258e50d7371a95e07fe7a77fc51c';
-  sourceTree: 'b32af38c8ac769965ab062762004312d96d0de25';
+  sourceCommit: '83635335aa4f547dc8994243c604dacf9797f593';
+  sourceTree: '40b7655a94e607b8afe19f90f42a95f42ee6d582';
 }>;
 
 export interface Da5V5ValidationSnapshot {

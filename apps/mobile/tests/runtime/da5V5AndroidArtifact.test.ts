@@ -43,8 +43,8 @@ const syntheticBindings = Object.freeze({
 });
 const validArtifactManifest = `artifact-manifest-version=1
 artifact-purpose=da5-v5-read-only-synthetic-android-candidate
-product-commit=814cb9013be7da98e46a4c36c5d4e716eef4cf46
-product-tree=0181c50faf6936ea1236f4454d536bf734334c91
+product-commit=83635335aa4f547dc8994243c604dacf9797f593
+product-tree=40b7655a94e607b8afe19f90f42a95f42ee6d582
 source-review=APPROVED
 source-review-open-p0-p3=0
 node-version=24.17.0
@@ -53,11 +53,11 @@ java-version="17.0.19" 2026-04-21
 gradle-version=9.3.1
 android-build-tools=36.0.0
 artifact-inspector=Android Asset Packaging Tool, v0.2-11948202
-dependency-install=npm-ci-offline
-expo-network-mode=offline-no-telemetry
-gradle-network-mode=offline-init-script
-apk-filename=app-release-fd0886dc1c393d3b.apk
-apk-sha256=fd0886dc1c393d3b09b5ce575215e4767c84335362ec7cbe5f1948877c714d96
+dependency-install=npm-ci-task-owned-cache
+expo-network-mode=local-no-telemetry
+gradle-network-mode=task-owned-cache
+apk-filename=app-release-b0180c31769e4534.apk
+apk-sha256=b0180c31769e453472a20eb1e7eb4e0825a85be9429becf6bf4970e0875b67f8
 apk-bytes=95522751
 apk-mode=0444
 package-name=com.tim180201.mobile.synthetic
@@ -148,23 +148,23 @@ describe('DA5 V5 immutable external Android artifact', () => {
         bytes: 95_522_751,
         mode: 0o444,
         path:
-          '/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5/814cb90/app-release-fd0886dc1c393d3b.apk',
+          '/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5/lean-83635335-b0180c31769e4534/app-release-b0180c31769e4534.apk',
         sha256:
-          'fd0886dc1c393d3b09b5ce575215e4767c84335362ec7cbe5f1948877c714d96',
+          'b0180c31769e453472a20eb1e7eb4e0825a85be9429becf6bf4970e0875b67f8',
       },
       manifest: {
-        bytes: 1_964,
+        bytes: 1_968,
         mode: 0o444,
         path:
-          '/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5/814cb90/artifact-manifest.txt',
+          '/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5/lean-83635335-b0180c31769e4534/artifact-manifest.txt',
         sha256:
-          'c0645dda543394cba9d6029b41a23aff5bcb5d0d805e3e944d9f8f880d1d5639',
+          '83b93bbf33297334bfcca3aa30e5ed6772175f98a2a81dc80045454570fe937b',
       },
       packageName: 'com.tim180201.mobile.synthetic',
       signerCertificateSha256:
         'fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c',
-      sourceCommit: '814cb9013be7da98e46a4c36c5d4e716eef4cf46',
-      sourceTree: '0181c50faf6936ea1236f4454d536bf734334c91',
+      sourceCommit: '83635335aa4f547dc8994243c604dacf9797f593',
+      sourceTree: '40b7655a94e607b8afe19f90f42a95f42ee6d582',
       versionCode: '1',
       versionName: '1.0.0',
     });
@@ -176,7 +176,7 @@ describe('DA5 V5 immutable external Android artifact', () => {
     );
     expect(Object.keys(manifest)).toHaveLength(59);
     expect(manifest).toMatchObject({
-      'apk-filename': 'app-release-fd0886dc1c393d3b.apk',
+      'apk-filename': 'app-release-b0180c31769e4534.apk',
       'nfc-tech-filter': 'NfcA',
       'product-commit': DA5_V5_ANDROID_ARTIFACT.sourceCommit,
       'product-tree': DA5_V5_ANDROID_ARTIFACT.sourceTree,
@@ -330,7 +330,7 @@ describe('DA5 V5 immutable external Android artifact', () => {
     const dependencies = validDependencies();
     vi.mocked(dependencies.files.readUtf8!).mockReturnValue(
       validArtifactManifest.replace(
-        'apk-sha256=fd0886dc1c393d3b09b5ce575215e4767c84335362ec7cbe5f1948877c714d96',
+        'apk-sha256=b0180c31769e453472a20eb1e7eb4e0825a85be9429becf6bf4970e0875b67f8',
         `apk-sha256=${'0'.repeat(64)}`,
       ),
     );

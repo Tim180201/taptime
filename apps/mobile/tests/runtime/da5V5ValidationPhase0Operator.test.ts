@@ -513,23 +513,23 @@ describe('DA5 V5 Validation stable-FD install snapshot', () => {
         bytes: 65_634_553,
         mode: 0o444,
         path:
-          '/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-validation/da5-v5-validation-5675297dab94-3d5450f257eda716/app-release-3d5450f257eda716.apk',
+          '/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-validation/da5-v5-validation-83635335aa4f-9908d76ea97a1ae9/app-release-9908d76ea97a1ae9.apk',
         sha256:
-          '3d5450f257eda716bbda0a133a7630d3a2d8bb1f5095fdb1986e85aa0277d144',
+          '9908d76ea97a1ae95ad4a08b24f626d72e8cfc6ddb20d3d1629fa822686c9d29',
       },
       manifest: {
         bytes: 6_855,
         mode: 0o444,
         path:
-          '/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-validation/da5-v5-validation-5675297dab94-3d5450f257eda716/manifest-5675297dab94.json',
+          '/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-validation/da5-v5-validation-83635335aa4f-9908d76ea97a1ae9/manifest-83635335aa4f.json',
         sha256:
-          '1397f0504bbbf88e776ececb9796918586724a16c69a885c8e23631c2465e86a',
+          'ab6a02980058259ae719bc597cfa4e7ba25ef0da28d2de4f0ee039884f373298',
       },
       sourceClosureJsonSha256:
-        '62aaa737428ef90b52fc9790ab1cc268537e8d5f5add1fce785bdb501bade763',
+        'a50ec386e87217eb9a02fede94fd37a97fefb0734fa5a9791b7ff142a9c44c2f',
       sourceClosureRecords: 33,
-      sourceCommit: '5675297dab94258e50d7371a95e07fe7a77fc51c',
-      sourceTree: 'b32af38c8ac769965ab062762004312d96d0de25',
+      sourceCommit: '83635335aa4f547dc8994243c604dacf9797f593',
+      sourceTree: '40b7655a94e607b8afe19f90f42a95f42ee6d582',
     });
   });
 
@@ -578,7 +578,13 @@ describe('DA5 V5 Validation stable-FD install snapshot', () => {
             path:
               'apps/mobile/scripts/da5V5ValidationNoHardwareReadiness.mjs',
             sha256:
-              '8bf8198b3d13a55490d9276c2d74ae73c52a63783785aece848e2116841baeb2',
+              'edf552f3d1882701122c3d9a10f53b200efd880d98007e30ac5e7440081f1c37',
+          });
+          expect(binding.expectedSourceClosure).toContainEqual({
+            path:
+              'apps/mobile/scripts/da5V5ValidationRuntimeContract.mjs',
+            sha256:
+              'fc8166981d7faec272f65a0238f577ef8b62092d2f1a07b24ef417ef85ace148',
           });
           expect(binding.expectedSourceClosure.at(-1)).toEqual({
             path: 'package.json',
