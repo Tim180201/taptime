@@ -1,8 +1,8 @@
 # Project Status
 
 DA5 V5 current override: **THE PRODUCT INSTALL RUN IS CONSUMED FAIL-CLOSED;
-DA5-V5-PRODUCT-INSTALL-01 AND DA5-V5-SECURITY-BRACE-01 ARE PREPUBLICATION TECHNICALLY APPROVED;
-PUBLICATION GATES REMAIN PENDING.** On exact
+DA5-V5-PRODUCT-INSTALL-01 AND DA5-V5-SECURITY-BRACE-01 ARE TECHNICALLY CLOSED; A NEW
+HUMAN/HARDWARE V5 REQUIRES SEPARATE ONE-TIME AUTHORITY.** On exact
 baseline `7b971070c7fc108fea4ae92db30b87f340b24e91` / tree
 `a053d34581687b541fc0fe67a477250bb24319c3`, artifact verification and both authorized reverse
 mappings completed before `operator_command_failed` and automatic `da5_v5_cleanup_failed`.
@@ -40,9 +40,17 @@ remaining tests including Safe-Root 89/89, audits with zero high/critical findin
 database evidence under ADR-0019 and complete cleanup. The package lock and carried verification
 inputs are unchanged. Independent review Round 3 returned `APPROVED` with zero open P0–P3 and
 technically approved `DA5-V5-PRODUCT-INSTALL-01` plus `DA5-V5-SECURITY-BRACE-01` for
-prepublication. V4/Exact-Head CI, a fresh Operator Artifact/Manifest and final independent
-Exact-Head/Artifact review remain open. Hardware/ADB/install remain unauthorized pending a fresh
-exact Human authorization. No retry or production authority exists.
+prepublication. Execution publication `354e2dff2877ee1681f222f2616b4ad318296023` / tree
+`84542b4a9efd499f1f6ae43610cb93bf89c8e299`, direct parent `7b971070c7fc108fea4ae92db30b87f340b24e91`
+/ tree `a053d34581687b541fc0fe67a477250bb24319c3`, contains exactly 12 changed files and the bound
+71,761-byte delta SHA-256 `7d69b8055c752a2afe4f6644b5e9b463d3b256a4eb171a19ae535e43497aa84f`.
+Exact-Head CI `30848391390`, attempt 1, passed 12/12. Fresh read-only Operator Runtime
+`354e2dff-ced93b4b` has an exact clean checkout and bound Bundle/Map/Manifest; the discarded
+Node-26 setup was fully replaced and only Node-24 artifact evidence is valid. Product APK/manifest
+remain unchanged. Final independent Exact-Head/Artifact review returned `APPROVED` with zero open
+P0–P3, technically closing both findings. No correction-publication Hardware/ADB/install action
+occurred. The failed run remains consumed and cleaned; a new Human/Hardware V5 requires separate
+one-time exact authority. No retry or production authority exists.
 
 DA5 V5 prior override: **PRODUCT-START-BUNDLE-01 IS TECHNICALLY COMPLETE; ONLY A FRESH
 HUMAN/HARDWARE AUTHORIZATION REMAINS PENDING.** The

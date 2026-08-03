@@ -1,6 +1,6 @@
 # Development Assignment 5 — V5 Human Android Evidence
 
-## Current PRODUCT-INSTALL-01 consumed-run and final-V3 correction evidence
+## Current PRODUCT-INSTALL-01 consumed-run and technical-closure evidence
 
 | Evidence | Exact result |
 |---|---|
@@ -24,10 +24,21 @@
 | Carried V3 dependency/security | `npm ls --all` green; runtime and full audit each 12 moderate, zero high and zero critical findings |
 | Carried V3 cleanup | Isolated PostgreSQL/Guard process, port `55435`, task `t5` temporary roots, worktree, cache and TMP fully removed; pre-existing untracked `app.json` untouched |
 | Independent Review Round 3 | `APPROVED`; zero open P0–P3. `DA5-V5-PRODUCT-INSTALL-01` and `DA5-V5-SECURITY-BRACE-01` are technically prepublication approved |
-| Pending / unauthorized | V4/Exact-Head CI, fresh Operator Artifact/Manifest and final independent Exact-Head/Artifact review remain open; Hardware/ADB/install/retry and production/deployment/distribution remain unauthorized |
+| Execution publication | Commit `354e2dff2877ee1681f222f2616b4ad318296023` / tree `84542b4a9efd499f1f6ae43610cb93bf89c8e299`; direct parent `7b971070c7fc108fea4ae92db30b87f340b24e91` / tree `a053d34581687b541fc0fe67a477250bb24319c3`; exactly 12 changed files; full-index/binary delta 71,761 bytes / SHA-256 `7d69b8055c752a2afe4f6644b5e9b463d3b256a4eb171a19ae535e43497aa84f` |
+| Exact-Head CI | GitHub Actions `30848391390`, attempt 1, 12/12 successful |
+| Operator Runtime | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-product-operator/354e2dff-ced93b4b`; exact clean detached checkout at the execution commit/tree; root contains only `checkout/` and `operator-runtime-manifest.json` |
+| Runtime Bundle | `checkout/apps/synthetic-android-e2e/dist/da5V5Main.js`; 867,317 bytes; mode `0444`; SHA-256 `ced93b4b6ce7a82538bedbde301b2cf49615936dee275ce15ebb0dee993aae12` |
+| Runtime Map | `checkout/apps/synthetic-android-e2e/dist/da5V5Main.js.map`; 1,613,470 bytes; mode `0444`; SHA-256 `82add1a869444e2d3e6f63005e1fa2f3bb73eb536045ccbd37e35205134347a6` |
+| Runtime Manifest | `operator-runtime-manifest.json`; 7,545 bytes; mode `0444`; SHA-256 `cb44082adfdcfeeef673f51ee14f302a8002b0e1bd465e322a52dd50ec322dd9` |
+| Artifact toolchain | Only Node `24.17.0` / npm `11.13.0` evidence is valid. The initial Node-26 setup was explicitly discarded and fully replaced before all 20/20 artifact builds, syntax and hardware-free profile-gate start smoke passed |
+| Lock / audit | `package-lock.json` 356,795 bytes / SHA-256 `b905263b7b303938f8e0a5381f82bb151073588a3176fb14fd84fdd79caf9f1e`; runtime/full audits zero high and zero critical findings |
+| Unchanged Product artifact | APK 95,522,751 bytes / mode `0444` / SHA-256 `b0180c31769e453472a20eb1e7eb4e0825a85be9429becf6bf4970e0875b67f8`; artifact manifest 1,968 bytes / mode `0444` / SHA-256 `83b93bbf33297334bfcca3aa30e5ed6772175f98a2a81dc80045454570fe937b` |
+| Final Exact-Head/Artifact review | `APPROVED`; zero open P0–P3. Execution head, CI, clean checkout, runtime files, manifest bindings and unchanged Product artifact are accepted; `DA5-V5-PRODUCT-INSTALL-01` and `DA5-V5-SECURITY-BRACE-01` are technically closed |
+| Hardware / remaining authority | No Hardware, ADB or installation action occurred during correction publication or artifact generation. The failed run remains consumed and cleaned. A new Human/Hardware V5 requires separate one-time exact authority; production/deployment/distribution remain unauthorized |
 
-This ADO synchronization remains uncommitted. Prepublication technical approval grants no new
-Product/Human V5, production, deployment or distribution authority.
+This final ADO-only closure synchronization claims no test, CI, Artifact or Human run for its own
+documentation head and grants no new Product/Human V5, production, deployment or distribution
+authority.
 
 ## Current PRODUCT-START-BUNDLE-01 correction evidence — technical closure approved; hardware pending
 

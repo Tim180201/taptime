@@ -7,7 +7,7 @@ Approval Authority: Human Architect
 
 ## Purpose
 
-### Current DA5 V5 truth — Product install run consumed; prepublication technically approved
+### Current DA5 V5 truth — Product install correction technically closed; fresh hardware authority pending
 
 The authorized Product run on baseline `7b971070c7fc108fea4ae92db30b87f340b24e91` / tree
 `a053d34581687b541fc0fe67a477250bb24319c3` is consumed fail-closed. Full artifact verification
@@ -48,9 +48,18 @@ remaining tests including Safe-Root 89/89, audits with zero high/critical findin
 database evidence under ADR-0019 and complete cleanup. The package lock and carried verification
 inputs are unchanged. Independent review Round 3 returned `APPROVED` with zero open P0–P3;
 `DA5-V5-PRODUCT-INSTALL-01` and `DA5-V5-SECURITY-BRACE-01` are technically prepublication
-approved. V4/Exact-Head CI, a fresh Operator Artifact/Manifest and final independent
-Exact-Head/Artifact review remain open. Hardware/ADB/install remain unauthorized pending a fresh
-exact Human authorization.
+approved. Execution publication `354e2dff2877ee1681f222f2616b4ad318296023` / tree
+`84542b4a9efd499f1f6ae43610cb93bf89c8e299`, direct parent `7b971070c7fc108fea4ae92db30b87f340b24e91`
+/ tree `a053d34581687b541fc0fe67a477250bb24319c3`, has exactly 12 changed files and a 71,761-byte
+full-index/binary delta with SHA-256 `7d69b8055c752a2afe4f6644b5e9b463d3b256a4eb171a19ae535e43497aa84f`.
+Exact-Head CI `30848391390`, attempt 1, passed 12/12. The fresh read-only Operator Runtime at
+`/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-product-operator/354e2dff-ced93b4b`
+has an exact clean checkout plus bound Bundle/Map/Manifest; the initial Node-26 setup was discarded
+and replaced, so only Node `24.17.0` artifact evidence is valid. Product APK/manifest remain
+unchanged. Final independent Exact-Head/Artifact review returned `APPROVED` with zero open P0–P3,
+technically closing both findings. No correction-publication Hardware/ADB/install action occurred.
+The prior failed run remains consumed and cleaned; a new Human/Hardware V5 requires a separate
+one-time exact authorization.
 
 ### Current DA5 V5 truth — Product start-bundle correction complete; hardware authorization pending
 

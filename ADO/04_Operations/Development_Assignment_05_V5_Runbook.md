@@ -44,9 +44,28 @@ remaining tests including the user-owned Safe-Root continuation at 89/89, audits
 high/critical findings, unchanged privileged database evidence under ADR-0019 and complete
 cleanup. Package lock and carried verification inputs are unchanged. Independent review Round 3
 returned `APPROVED` with zero open P0–P3; `DA5-V5-PRODUCT-INSTALL-01` and
-`DA5-V5-SECURITY-BRACE-01` are technically prepublication approved. V4/Exact-Head CI, a fresh
-Operator Artifact/Manifest and final independent Exact-Head/Artifact review remain open. **DO NOT
-START OR RETRY HARDWARE, ADB OR INSTALLATION.**
+`DA5-V5-SECURITY-BRACE-01` are technically prepublication approved. Execution publication
+`354e2dff2877ee1681f222f2616b4ad318296023` / tree
+`84542b4a9efd499f1f6ae43610cb93bf89c8e299`, direct parent `7b971070c7fc108fea4ae92db30b87f340b24e91`
+/ tree `a053d34581687b541fc0fe67a477250bb24319c3`, binds exactly 12 changed files and a 71,761-byte
+full-index/binary delta, SHA-256 `7d69b8055c752a2afe4f6644b5e9b463d3b256a4eb171a19ae535e43497aa84f`.
+Exact-Head CI `30848391390`, attempt 1, passed 12/12.
+
+The fresh read-only Operator Runtime is
+`/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-product-operator/354e2dff-ced93b4b`.
+Its checkout is exact and tracked clean. Bundle `da5V5Main.js` is 867,317 bytes, mode `0444`,
+SHA-256 `ced93b4b6ce7a82538bedbde301b2cf49615936dee275ce15ebb0dee993aae12`; its map is 1,613,470
+bytes, mode `0444`, SHA-256 `82add1a869444e2d3e6f63005e1fa2f3bb73eb536045ccbd37e35205134347a6`;
+`operator-runtime-manifest.json` is 7,545 bytes, mode `0444`, SHA-256
+`cb44082adfdcfeeef673f51ee14f302a8002b0e1bd465e322a52dd50ec322dd9`. The initial Node-26
+setup was discarded and replaced; only Node `24.17.0` artifact evidence is valid. The lock is
+SHA-256 `b905263b7b303938f8e0a5381f82bb151073588a3176fb14fd84fdd79caf9f1e`; audits remain zero
+high/critical. Product APK and manifest remain unchanged at SHA-256 `b0180c31769e453472a20eb1e7eb4e0825a85be9429becf6bf4970e0875b67f8`
+and `83b93bbf33297334bfcca3aa30e5ed6772175f98a2a81dc80045454570fe937b`.
+Final independent Exact-Head/Artifact review returned `APPROVED` with zero open P0–P3;
+`DA5-V5-PRODUCT-INSTALL-01` and `DA5-V5-SECURITY-BRACE-01` are technically closed. **DO NOT START
+OR RETRY HARDWARE, ADB OR INSTALLATION.** The failed run remains consumed and cleaned. A new
+Human/Hardware V5 requires separate one-time exact authority.
 
 ## Current Product-start-bundle correction — technically approved; DO NOT START hardware without fresh authority
 
