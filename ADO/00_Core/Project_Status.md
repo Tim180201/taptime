@@ -1,5 +1,26 @@
 # Project Status
 
+DA5 V5 current override: **PRODUCT-START-BUNDLE-01 IS CORRECTED LOCALLY; V4 EXACT-HEAD CI,
+FINAL EXACT-HEAD/ARTIFACT REVIEW AND A FRESH HUMAN/HARDWARE AUTHORIZATION REMAIN PENDING.** The
+Product-Hardware authority on `4dff147031e2d8ebbd95b9451705f66b35fbacd3` / tree
+`be05ca8e893a00dbd95f84e7133e73f080f96547` is consumed. Its operator stopped before database,
+device preflight or installation because the bundled runtime misclassified an imported APK
+verifier as its direct CLI and attempted the unbound default build path. Read-only post-failure
+inspection proved both app packages/processes, reverse mappings, synthetic listeners and new
+task PostgreSQL/runtime state absent; repository and remote were unchanged.
+
+Correction `e939d8c40e7994c72ab1cd2e68e47f189ed8abc1` / tree
+`dfd5e160c6c14d09daadcc192afaf81daf1ad060` separates direct CLI identity from bundled library
+identity without changing the external Product-APK verification boundary. Its three-file delta
+adds direct/import/missing/wrong-artifact regressions and a hardware-free built-bundle start
+smoke. Independent prepublication review is `APPROVED` with zero open P0–P3. Fresh Node-24 V3
+completed all 20 builds and 21 tests-inclusive typechecks; changed-scope and non-database suites
+are green, unchanged database evidence is carried from exact parent CI `30829321321`, and the
+isolated Runtime-Guard/PostgreSQL/environment/status boundary matched with complete cleanup.
+The new read-only runtime/manifest is bound in the DA5 V5 runbook/evidence. Existing Product and
+Validation APKs remain byte-exact. Hardware, ADB, installation, production, production data,
+production/distribution signing, deployment and distribution remain unauthorized.
+
 DA5 V5 current override: **PRODUCT-PREINSTALL-01 IS TECHNICALLY CORRECTED AND EXACT-HEAD CI IS
 GREEN; R0 ADO REVIEW AND FRESH HUMAN/HARDWARE AUTHORIZATION REMAIN PENDING.** The preceding
 read-only inspection on `304ddb159f3def2b50d059678086e02aacbd51c9` / tree

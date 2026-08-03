@@ -2,6 +2,23 @@
 
 Status: Active
 
+Current R-034 Product-start-bundle override: **Open / R3 pending V4 Exact-Head CI, final
+Exact-Head/Artifact review and fresh Product Human/Hardware V5 authority.** The authority on
+`4dff147031e2d8ebbd95b9451705f66b35fbacd3` is consumed after the standard Product operator
+stopped before database, device preflight and installation. Confirmed finding
+`DA5-V5-PRODUCT-START-BUNDLE-01` was a bundled-module direct-CLI false positive in
+`verifySyntheticE2eAndroidRuntime.mjs`, not a Product-APK, device or NFC failure. Post-failure
+read-only evidence proved package/process/reverse/listener/task-runtime null state.
+
+Correction `e939d8c40e7994c72ab1cd2e68e47f189ed8abc1` / tree
+`dfd5e160c6c14d09daadcc192afaf81daf1ad060` preserves exact external APK verification while
+making import and bundled execution side-effect-free. Focused tests, hardware-free artifact
+smoke, fresh V3, audit without High/Critical, runtime binding and cleanup are green; independent
+prepublication review is `APPROVED` with zero open P0–P3. Residual risk is limited to V4 CI,
+final exact artifact review and the separately authorized Human/Hardware gate. Product and
+Validation APKs are unchanged. Hardware/ADB/install and all production/deployment/distribution
+actions remain unauthorized.
+
 Current R-034 Product-preinstall override: **Open / R3 pending R0 ADO review and fresh Product
 Human/Hardware V5.** The matched read-only inspection on `304ddb159f3def2b50d059678086e02aacbd51c9`
 did not start the operator or install anything; its authority is superseded. Correction

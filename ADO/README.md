@@ -7,6 +7,21 @@ Approval Authority: Human Architect
 
 ## Purpose
 
+### Current DA5 V5 truth — Product start-bundle correction locally complete; V4/final review pending
+
+The Product-Hardware authority on `4dff147031e2d8ebbd95b9451705f66b35fbacd3` / tree
+`be05ca8e893a00dbd95f84e7133e73f080f96547` is consumed after the standard operator stopped before
+database, device preflight or installation. `DA5-V5-PRODUCT-START-BUNDLE-01` was the bundled
+runtime misidentifying an imported Product-APK verifier as its direct CLI. Post-failure read-only
+inspection proved package/process/reverse/listener/task-runtime null state.
+
+Correction `e939d8c40e7994c72ab1cd2e68e47f189ed8abc1` / tree
+`dfd5e160c6c14d09daadcc192afaf81daf1ad060` is independently prepublication `APPROVED` with zero
+open P0–P3. Focused tests, hardware-free built-bundle smoke, fresh V3, audit and the new read-only
+runtime/manifest binding are green; Product and Validation APKs are unchanged. V4 Exact-Head CI
+and final independent Exact-Head/Artifact review remain pending. Hardware/ADB/install and all
+production, production-data, signing, deployment and distribution actions remain unauthorized.
+
 ### Current DA5 V5 truth — Product preinstall corrected; ADO closure review pending
 
 Read-only inspection on `304ddb159f3def2b50d059678086e02aacbd51c9` / tree

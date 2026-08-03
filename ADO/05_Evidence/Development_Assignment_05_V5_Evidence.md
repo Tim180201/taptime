@@ -1,5 +1,61 @@
 # Development Assignment 5 — V5 Human Android Evidence
 
+## Current PRODUCT-START-BUNDLE-01 correction evidence — V4/final review pending
+
+The Product-Hardware authority on `4dff147031e2d8ebbd95b9451705f66b35fbacd3` / tree
+`be05ca8e893a00dbd95f84e7133e73f080f96547` is consumed. Starting the bound standard operator
+stopped before database, device preflight and installation with `Synthetic E2E release APK is
+missing`. The direct-CLI predicate in `verifySyntheticE2eAndroidRuntime.mjs` compared its
+importing `import.meta.url` to `argv[1]`; after bundling, both referred to `da5V5Main.js`, causing
+the imported verifier to use its unintended default build-directory APK path.
+
+Authorized read-only post-failure inspection established Product and Validation package/process
+absence, zero ADB reverse mappings, zero synthetic listeners, no new task PostgreSQL/runtime
+instance and unchanged repository/remote state. No Product, database, installation, NFC or Human
+result was produced.
+
+| Binding | Exact value |
+|---|---|
+| Product correction | `e939d8c40e7994c72ab1cd2e68e47f189ed8abc1` / tree `dfd5e160c6c14d09daadcc192afaf81daf1ad060` / parent `4dff147031e2d8ebbd95b9451705f66b35fbacd3` |
+| Scope | `apps/mobile/scripts/verifySyntheticE2eAndroidRuntime.mjs`; `apps/mobile/tests/runtime/syntheticE2eAndroidRuntimeVerifier.test.ts`; `apps/synthetic-android-e2e/tests/Da5V5ProductStartBundle.test.ts` |
+| Full-index binary delta | 7,545 bytes; SHA-256 `96fb2b3110fbffce95143000601cc8f451766f3cb88655844730f3ff136e7235` |
+| Prepublication review | `APPROVED`; zero open P0–P3 |
+
+The correction compares the current module URL to the verifier's own sibling URL before allowing
+direct CLI execution. Unbundled direct CLI remains fail-closed for missing/wrong artifacts;
+library import and bundled Product-operator start are side-effect-free until the operator's
+existing exact external Product-APK boundary runs.
+
+Fresh Node `24.17.0` / npm `11.13.0` local evidence:
+
+- `npm ci` installed 695 packages from the unchanged lockfile;
+- all 20 applicable builds completed after dependency-order continuation;
+- 21/21 workspace typechecks passed, including Mobile and Synthetic test sources;
+- focused verifier tests passed 12/12 and the actual built-bundle start regression passed 1/1;
+- Mobile passed 54 files / 1,198 tests; Synthetic passed 280 with 18 unchanged PostgreSQL-gated
+  skips; every other non-database workspace suite passed;
+- unchanged database evidence is carried from exact parent CI `30829321321` under ADR-0019 and
+  will be rerun by V4 Exact-Head CI;
+- isolated Runtime-Guard artifact verification, PostgreSQL capability, migrations, Auth/API
+  environment creation and initial DA5 status matched; listeners and task PostgreSQL state were
+  zero after cleanup; and
+- full and runtime audit reported zero High/Critical vulnerabilities.
+
+The exact read-only operator runtime candidate is:
+
+| Runtime entry | Exact binding |
+|---|---|
+| Root | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-product-operator/e939d8c4-379b2d9b` |
+| Checkout | `e939d8c40e7994c72ab1cd2e68e47f189ed8abc1` / tree `dfd5e160c6c14d09daadcc192afaf81daf1ad060`; `research/` excluded; tracked clean |
+| Entrypoint | `checkout/apps/synthetic-android-e2e/dist/da5V5Main.js`; 846,602 bytes; mode `0444`; SHA-256 `379b2d9b32a26f3fb120b4247431644ae65c4eebe257893948a8e252989dd66b` |
+| Source map | same directory, `da5V5Main.js.map`; 1,579,813 bytes; mode `0444`; SHA-256 `4c61abcfc81b77afa223e207c56a4fef05e249a2659129d32f2f2992b2468ed8` |
+| Runtime manifest | root `operator-runtime-manifest.json`; 4,977 bytes; mode `0444`; SHA-256 `2b041dee0e945b680da15764b7584eced36c19d3860f6b4067cfc400988c627b` |
+
+The Product and Validation APK/manifest pairs remain byte-exact under the prior Lean bindings.
+V4 Exact-Head CI and final independent Exact-Head/Artifact review are pending. No Hardware, ADB,
+installation, production, production-data, production/distribution-signing, deployment or
+distribution authority or evidence is claimed.
+
 ## Current PRODUCT-PREINSTALL-01 correction evidence — R0 re-review pending
 
 The matched read-only inspection on `304ddb159f3def2b50d059678086e02aacbd51c9` / tree

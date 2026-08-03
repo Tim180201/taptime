@@ -1,5 +1,44 @@
 # Development Assignment 5 — V5 Human Android Gate Runbook
 
+## Current Product-start-bundle correction — DO NOT START hardware
+
+The Product-Hardware run bound to `4dff147031e2d8ebbd95b9451705f66b35fbacd3` / tree
+`be05ca8e893a00dbd95f84e7133e73f080f96547` is consumed. The standard operator stopped before
+database, device preflight and installation with `Synthetic E2E release APK is missing`.
+`DA5-V5-PRODUCT-START-BUNDLE-01` was the bundled verifier mistaking the importing
+`da5V5Main.js` URL for the verifier's direct CLI URL. Authorized read-only cleanup inspection
+proved Product/Validation packages and processes, reverse mappings, synthetic listeners and new
+task PostgreSQL/runtime state absent; repository and remote were unchanged.
+
+Executable correction `e939d8c40e7994c72ab1cd2e68e47f189ed8abc1` / tree
+`dfd5e160c6c14d09daadcc192afaf81daf1ad060` makes the direct-CLI predicate module-specific and
+leaves the existing externally supplied Product-APK verifier unchanged. Source import and the
+built operator no longer auto-check the default APK path; explicit direct CLI missing/wrong APK
+checks remain fail-closed. Independent prepublication review is `APPROVED`, zero open P0–P3.
+
+The fresh no-custom-executor runtime candidate is preserved read-only at:
+
+| Runtime entry | Exact binding |
+|---|---|
+| Root | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-product-operator/e939d8c4-379b2d9b` |
+| Checkout | source `e939d8c40e7994c72ab1cd2e68e47f189ed8abc1` / tree `dfd5e160c6c14d09daadcc192afaf81daf1ad060`; sparse checkout excludes `research/`; tracked clean |
+| Entrypoint | `checkout/apps/synthetic-android-e2e/dist/da5V5Main.js`; 846,602 bytes; mode `0444`; SHA-256 `379b2d9b32a26f3fb120b4247431644ae65c4eebe257893948a8e252989dd66b` |
+| Source map | same directory, `da5V5Main.js.map`; 1,579,813 bytes; mode `0444`; SHA-256 `4c61abcfc81b77afa223e207c56a4fef05e249a2659129d32f2f2992b2468ed8` |
+| Runtime manifest | root `operator-runtime-manifest.json`; 4,977 bytes; mode `0444`; SHA-256 `2b041dee0e945b680da15764b7584eced36c19d3860f6b4067cfc400988c627b` |
+
+Fresh Node `24.17.0` / npm `11.13.0` V3 completed 20/20 builds and 21/21 typechecks.
+Focused verifier tests passed 12/12, the built-bundle start smoke passed 1/1, Mobile passed
+1,198/1,198, Synthetic passed 280 with 18 unchanged database-gated skips, and all other
+non-database workspace suites passed. Exact unchanged database evidence is carried from parent
+CI `30829321321`; V4 will rerun the full matrix on the final publication. Runtime-Guard artifact,
+isolated PostgreSQL, environment creation and initial DA5 status matched, followed by complete
+cleanup. Audit reports zero High/Critical vulnerabilities.
+
+**DO NOT START HARDWARE, ADB OR INSTALLATION.** V4 Exact-Head CI and final independent
+Exact-Head/Artifact review are pending. Product and Validation APKs remain unchanged. A fresh
+exact Human authorization is mandatory after final `APPROVED`. Production, production data,
+production/distribution signing, deployment and distribution remain unauthorized.
+
 ## Current Product-preinstall correction — DO NOT START hardware
 
 The matched read-only inspection on `304ddb159f3def2b50d059678086e02aacbd51c9` / tree
