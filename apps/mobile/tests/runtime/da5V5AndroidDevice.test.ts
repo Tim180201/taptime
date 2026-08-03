@@ -141,8 +141,6 @@ describe('DA5 V5 package-zero Android install', () => {
     const pathAfterDigest = '/data/app/synthetic-after/base.apk';
     adb.expectedDigestPath = pathBeforeDigest;
     adb.packagePathOutputs = [
-      '',
-      '',
       `package:${pathBeforeDigest}\n`,
       `package:${pathBeforeDigest}\n`,
       `package:${pathAfterDigest}\n`,
@@ -181,8 +179,9 @@ describe('DA5 V5 package-zero Android install', () => {
       'multiple package paths',
       'package:/data/app/synthetic-a/base.apk\npackage:/data/app/synthetic-b/base.apk\n',
     ],
-  ])('rejects real pm-path parser output with %s', async (_name, output) => {
+  ])('rejects real cmd-package-path parser output with %s', async (_name, output) => {
     const adb = new FakeAdb();
+    adb.packageInstalled = true;
     adb.packagePathOutputs = [output];
     const serial = await requireSingleDa5V5UsbDevice(adb);
 
@@ -192,6 +191,119 @@ describe('DA5 V5 package-zero Android install', () => {
       /\b(?:install|uninstall|reverse tcp:|--remove)\b/u,
     );
   });
+
+  it('treats exact Android-15 Owner-User-0 absence as zero without querying package path',
+    async () => {
+      const adb = new FakeAdb();
+      adb.processes = ['com.android.systemui'];
+      const serial = await requireSingleDa5V5UsbDevice(adb);
+
+      await expect(assertDa5V5PackageMappingZero(adb, serial)).resolves.toEqual({
+        status: 'match',
+      });
+
+      expect(adb.commands).toContainEqual([
+        '-s', serial, 'shell', 'cmd', 'package', 'list', 'packages',
+        '-a', '-u', '--user', '0', DA5_V5_ANDROID_PACKAGE,
+      ]);
+      expect(adb.commands.some((command) => (
+        command.includes('path') && command.includes(DA5_V5_ANDROID_PACKAGE)
+      ))).toBe(false);
+    });
+
+  it('queries the strict Owner-User-0 base path only after exact package presence', async () => {
+    const adb = new FakeAdb();
+    adb.packageInstalled = true;
+    const serial = await requireSingleDa5V5UsbDevice(adb);
+
+    await expect(assertDa5V5PackageMappingZero(adb, serial)).rejects.toThrow(/zero state/);
+
+    expect(adb.commands).toContainEqual([
+      '-s', serial, 'shell', 'cmd', 'package', 'path',
+      '--user', '0', DA5_V5_ANDROID_PACKAGE,
+    ]);
+  });
+
+  it.each([
+    ['foreign', 'package:com.example.foreign\n'],
+    [
+      'multiple',
+      `package:${DA5_V5_ANDROID_PACKAGE}\npackage:com.example.foreign\n`,
+    ],
+    ['malformed', `package:${DA5_V5_ANDROID_PACKAGE} versionCode:1\n`],
+    ['padded', ` package:${DA5_V5_ANDROID_PACKAGE}\n`],
+  ])('fails closed for %s package registration without querying path', async (
+    _scenario,
+    registrationOutput,
+  ) => {
+    const adb = new FakeAdb();
+    adb.packageRegistrationOutputs = [registrationOutput];
+    const serial = await requireSingleDa5V5UsbDevice(adb);
+
+    await expect(assertDa5V5PackageMappingZero(adb, serial)).rejects.toThrow();
+
+    expect(adb.commands.some((command) => (
+      command.includes('path') && command.includes(DA5_V5_ANDROID_PACKAGE)
+    ))).toBe(false);
+  });
+
+  it.each([
+    ['main', DA5_V5_ANDROID_PACKAGE],
+    ['secondary', `${DA5_V5_ANDROID_PACKAGE}:secondary`],
+  ])('fails closed for an exact Product %s process in package-null state', async (
+    _processKind,
+    processName,
+  ) => {
+    const adb = new FakeAdb();
+    adb.processes = [processName];
+    const serial = await requireSingleDa5V5UsbDevice(adb);
+
+    await expect(assertDa5V5PackageMappingZero(adb, serial)).rejects.toThrow(/zero state/);
+  });
+
+  it.each([
+    ['header', `${DA5_V5_ANDROID_PACKAGE}\n`],
+    ['padded row', `NAME\n ${DA5_V5_ANDROID_PACKAGE}\n`],
+    ['extra empty row', `NAME\n${DA5_V5_ANDROID_PACKAGE}\n\n`],
+  ])('fails closed for malformed process output with %s', async (_scenario, output) => {
+    const adb = new FakeAdb();
+    adb.processOutputs = [output];
+    const serial = await requireSingleDa5V5UsbDevice(adb);
+
+    await expect(assertDa5V5PackageMappingZero(adb, serial)).rejects.toThrow();
+  });
+
+  it.each(['registration', 'path', 'process', 'reverse'] as const)(
+    'fails closed for %s transport failure without mutation',
+    async (failure) => {
+      const adb = new FakeAdb();
+      adb.packageInstalled = failure === 'path';
+      adb.failOnce = (arguments_) => {
+        const command = arguments_.slice(2).join(' ');
+        if (failure === 'registration') {
+          return command === (
+            `shell cmd package list packages -a -u --user 0 ${DA5_V5_ANDROID_PACKAGE}`
+          );
+        }
+        if (failure === 'path') {
+          return command === (
+            `shell cmd package path --user 0 ${DA5_V5_ANDROID_PACKAGE}`
+          );
+        }
+        if (failure === 'process') {
+          return command === 'shell ps -A -w -o NAME:4';
+        }
+        return command === 'reverse --list';
+      };
+      const serial = await requireSingleDa5V5UsbDevice(adb);
+
+      await expect(assertDa5V5PackageMappingZero(adb, serial)).rejects.toThrow();
+
+      expect(adb.commands.flat().join(' ')).not.toMatch(
+        /\b(?:install|uninstall|reverse tcp:|--remove)\b/u,
+      );
+    },
+  );
 
   it('rejects absent, multiple, unauthorized, network and emulator transports', async () => {
     for (const devices of [
@@ -251,7 +363,9 @@ describe('DA5 V5 package-zero Android install', () => {
       if (failure === 'install') {
         return isInstallCommand(arguments_);
       }
-      if (command === `shell pm path ${DA5_V5_ANDROID_PACKAGE}`) {
+      if (command === (
+        `shell cmd package path --user 0 ${DA5_V5_ANDROID_PACKAGE}`
+      )) {
         packageChecks += 1;
         return packageChecks === 3;
       }
@@ -456,6 +570,34 @@ describe('DA5 V5 scoped Android cleanup', () => {
       assertNoBroadDeviceMutation(adb);
     }
   });
+
+  it('uninstalls exact package state and proves secondary-process cleanup jointly', async () => {
+    const adb = new FakeAdb();
+    adb.packageInstalled = true;
+    adb.processes = [`${DA5_V5_ANDROID_PACKAGE}:secondary`];
+    adb.mappings.set('tcp:54321', 'tcp:54321');
+    adb.mappings.set('tcp:3000', 'tcp:3000');
+
+    await expect(cleanup(adb)).resolves.toEqual({ status: 'match' });
+
+    expect(adb.packageInstalled).toBe(false);
+    expect(adb.processes).toEqual([]);
+    expect(adb.mappings).toEqual(new Map());
+    expect(adb.commands).toContainEqual([
+      '-s', adb.serial, 'shell', 'ps', '-A', '-w', '-o', 'NAME:4',
+    ]);
+  });
+
+  it('fails cleanup closed for a secondary process without Owner-User-0 registration',
+    async () => {
+      const adb = new FakeAdb();
+      adb.processes = [`${DA5_V5_ANDROID_PACKAGE}:secondary`];
+
+      await expect(cleanup(adb)).resolves.toEqual({ status: 'mismatch' });
+
+      expect(adb.processes).toEqual([`${DA5_V5_ANDROID_PACKAGE}:secondary`]);
+      expect(adb.commands.flat()).not.toContain('uninstall');
+    });
 
   it('preserves unrelated mappings and fails closed without overwriting an owned-port mismatch',
     async () => {
@@ -700,8 +842,11 @@ class FakeAdb implements Da5V5AndroidAdbRunner {
   installInputObserved = false;
   installedSha256 = DA5_V5_ANDROID_ARTIFACT.apk.sha256;
   expectedDigestPath = '/data/app/synthetic/base.apk';
+  packageRegistrationOutputs: string[] = [];
   packagePathChecks = 0;
   packagePathOutputs: string[] = [];
+  processes: string[] = [];
+  processOutputs: string[] = [];
   rawReverseLines: string[] = [];
   serial = 'synthetic-device';
   talkBackPackage: typeof googleTalkBackPackage | typeof samsungTalkBackPackage = (
@@ -765,6 +910,27 @@ class FakeAdb implements Da5V5AndroidAdbRunner {
       return `Packages:\n  versionName=${this.talkBackVersion}\n`;
     }
     if (text === 'shell ss -ltnH') return this.listeners;
+    if (text === (
+      `shell cmd package list packages -a -u --user 0 ${DA5_V5_ANDROID_PACKAGE}`
+    )) {
+      const output = this.packageRegistrationOutputs.shift();
+      if (output !== undefined) {
+        return output;
+      }
+      const lateVisibility = this.latePackageVisibilityAtMilliseconds[0];
+      if (lateVisibility !== undefined && this.elapsedMilliseconds >= lateVisibility) {
+        this.packageInstalled = true;
+        this.latePackageVisibilityAtMilliseconds.shift();
+      }
+      return this.packageInstalled ? `package:${DA5_V5_ANDROID_PACKAGE}\n` : '';
+    }
+    if (text === 'shell ps -A -w -o NAME:4') {
+      const output = this.processOutputs.shift();
+      if (output !== undefined) {
+        return output;
+      }
+      return ['NAME', ...this.processes, ''].join('\n');
+    }
     if (text === 'reverse --list') {
       const lateVisibility = this.lateOwnedMappingVisibilityAtMilliseconds[0];
       if (lateVisibility !== undefined && this.elapsedMilliseconds >= lateVisibility) {
@@ -786,16 +952,13 @@ class FakeAdb implements Da5V5AndroidAdbRunner {
       this.mappings.set(command[1] as string, command[2] as string);
       return '';
     }
-    if (text === `shell pm path ${DA5_V5_ANDROID_PACKAGE}`) {
+    if (text === (
+      `shell cmd package path --user 0 ${DA5_V5_ANDROID_PACKAGE}`
+    )) {
       this.packagePathChecks += 1;
       const output = this.packagePathOutputs.shift();
       if (output !== undefined) {
         return output;
-      }
-      const lateVisibility = this.latePackageVisibilityAtMilliseconds[0];
-      if (lateVisibility !== undefined && this.elapsedMilliseconds >= lateVisibility) {
-        this.packageInstalled = true;
-        this.latePackageVisibilityAtMilliseconds.shift();
       }
       return this.packageInstalled ? 'package:/data/app/synthetic/base.apk\n' : '';
     }
@@ -816,6 +979,7 @@ class FakeAdb implements Da5V5AndroidAdbRunner {
     }
     if (text === `uninstall ${DA5_V5_ANDROID_PACKAGE}`) {
       this.packageInstalled = false;
+      this.processes = [];
       return 'Success\n';
     }
     throw new Error(`unexpected fake adb command: ${text}`);

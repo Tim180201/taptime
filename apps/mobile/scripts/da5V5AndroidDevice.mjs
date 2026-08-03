@@ -35,6 +35,7 @@ const allowedTalkBackPackages = Object.freeze([
   'com.google.android.marvin.talkback',
   'com.samsung.android.accessibility.talkback',
 ]);
+const androidOwnerUser = '0';
 
 export function requireDa5V5TalkBackPackage(value) {
   if (!allowedTalkBackPackages.includes(value)) {
@@ -283,9 +284,14 @@ export function parseDa5V5ReverseMappings(value, expectedSerial) {
 
 export async function assertDa5V5PackageMappingZero(runner, serial, options = {}) {
   const packagePaths = await readPackagePaths(runner, serial, options.signal);
+  const processes = await readMatchingProcesses(runner, serial, options.signal);
   const mappings = await readMappings(runner, serial, options.signal);
-  if (packagePaths.length !== 0 || mappings.length !== 0) {
-    throw new Error('DA5 V5 package/mapping zero state mismatch');
+  if (
+    packagePaths.length !== 0
+    || processes.length !== 0
+    || mappings.length !== 0
+  ) {
+    throw new Error('DA5 V5 package/process/mapping zero state mismatch');
   }
   return Object.freeze({ status: 'match' });
 }
@@ -493,8 +499,9 @@ async function performCleanup(
     failed = true;
   }
 
+  let packagePaths = [];
   try {
-    const packagePaths = await readPackagePaths(runner, serial);
+    packagePaths = await readPackagePaths(runner, serial);
     if (packagePaths.length > 1) {
       failed = true;
     } else if (packagePaths.length === 1) {
@@ -505,6 +512,15 @@ async function performCleanup(
       } catch {
         failed = true;
       }
+    }
+  } catch {
+    failed = true;
+  }
+
+  try {
+    const processes = await readMatchingProcesses(runner, serial);
+    if (processes.length !== 0 && packagePaths.length === 0) {
+      failed = true;
     }
   } catch {
     failed = true;
@@ -537,10 +553,15 @@ async function proveFinalZero(
     try {
       const mappings = await readMappings(runner, serial);
       const packagePaths = await readPackagePaths(runner, serial);
+      const processes = await readMatchingProcesses(runner, serial);
       const ownedMappings = mappings.filter((mapping) => (
         requiredMappings.some((required) => required.device === mapping.device)
       ));
-      if (ownedMappings.length === 0 && packagePaths.length === 0) {
+      if (
+        ownedMappings.length === 0
+        && packagePaths.length === 0
+        && processes.length === 0
+      ) {
         consecutiveZeroObservations += 1;
         if (consecutiveZeroObservations >= 2) {
           return true;
@@ -592,6 +613,12 @@ async function proveUncertainInstallNullWindow(runner, serial, waitForSettle, no
         undefined,
         remainingTimeout(deadline, now, timeouts.inspect),
       );
+      const processes = await readMatchingProcesses(
+        runner,
+        serial,
+        undefined,
+        remainingTimeout(deadline, now, timeouts.inspect),
+      );
       const observedAt = now();
       if (observedAt > deadline || packagePaths.length > 1) {
         return false;
@@ -609,7 +636,11 @@ async function proveUncertainInstallNullWindow(runner, serial, waitForSettle, no
           ownedMappings.push(matches[0]);
         }
       }
-      if (ownedMappings.length === 0 && packagePaths.length === 0) {
+      if (
+        ownedMappings.length === 0
+        && packagePaths.length === 0
+        && processes.length === 0
+      ) {
         zeroSince ??= observedAt;
         if (
           observedAt - zeroSince
@@ -672,9 +703,13 @@ async function requireExactInstalledState(runner, serial, packageExpected = fals
     throw new Error('DA5 V5 exact reverse mapping mismatch');
   }
   const packagePaths = await readPackagePaths(runner, serial, signal);
+  const processes = packageExpected
+    ? []
+    : await readMatchingProcesses(runner, serial, signal);
   if (
     (packageExpected && packagePaths.length !== 1)
     || (!packageExpected && packagePaths.length !== 0)
+    || (!packageExpected && processes.length !== 0)
   ) {
     throw new Error('DA5 V5 exact package state mismatch');
   }
@@ -735,23 +770,76 @@ async function readPackagePaths(
   signal,
   timeoutMilliseconds = timeouts.inspect,
 ) {
-  return (await runner.run(
-    ['-s', serial, 'shell', 'pm', 'path', DA5_V5_ANDROID_PACKAGE],
+  const registration = await readOwnerPackageRegistration(
+    runner,
+    serial,
+    signal,
+    timeoutMilliseconds,
+  );
+  if (registration === 'absent') {
+    return [];
+  }
+  const line = exactSingleLine(await runner.run(
+    [
+      '-s', serial, 'shell', 'cmd', 'package', 'path',
+      '--user', androidOwnerUser, DA5_V5_ANDROID_PACKAGE,
+    ],
     { signal, timeoutMilliseconds },
-  ))
-    .split(/\r?\n/u)
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0)
-    .map((line) => {
-      if (!line.startsWith('package:')) {
-        throw new Error('DA5 V5 package state is ambiguous');
-      }
-      const path = line.slice('package:'.length);
-      if (!isStrictInstalledBaseApkPath(path)) {
-        throw new Error('DA5 V5 package state is ambiguous');
-      }
-      return path;
-    });
+  ));
+  if (!line.startsWith('package:')) {
+    throw new Error('DA5 V5 package state is ambiguous');
+  }
+  const path = line.slice('package:'.length);
+  if (!isStrictInstalledBaseApkPath(path)) {
+    throw new Error('DA5 V5 package state is ambiguous');
+  }
+  return [path];
+}
+
+async function readOwnerPackageRegistration(
+  runner,
+  serial,
+  signal,
+  timeoutMilliseconds = timeouts.inspect,
+) {
+  const value = await runner.run(
+    [
+      '-s', serial, 'shell', 'cmd', 'package', 'list', 'packages',
+      '-a', '-u', '--user', androidOwnerUser, DA5_V5_ANDROID_PACKAGE,
+    ],
+    { signal, timeoutMilliseconds },
+  );
+  if (isExactEmptyOutput(value)) {
+    return 'absent';
+  }
+  if (exactSingleLine(value) === `package:${DA5_V5_ANDROID_PACKAGE}`) {
+    return 'present';
+  }
+  throw new Error('DA5 V5 package registration is ambiguous');
+}
+
+async function readMatchingProcesses(
+  runner,
+  serial,
+  signal,
+  timeoutMilliseconds = timeouts.inspect,
+) {
+  const lines = exactLines(await runner.run(
+    ['-s', serial, 'shell', 'ps', '-A', '-w', '-o', 'NAME:4'],
+    { signal, timeoutMilliseconds },
+  ));
+  if (lines.shift() !== 'NAME') {
+    throw new Error('DA5 V5 process header mismatch');
+  }
+  for (const line of lines) {
+    if (line.length === 0 || /\s|\0/u.test(line)) {
+      throw new Error('DA5 V5 process state mismatch');
+    }
+  }
+  return lines.filter((line) => (
+    line === DA5_V5_ANDROID_PACKAGE
+    || line.startsWith(`${DA5_V5_ANDROID_PACKAGE}:`)
+  ));
 }
 
 function isStrictInstalledBaseApkPath(path) {
@@ -809,6 +897,38 @@ function oneLine(value) {
     throw new Error('DA5 V5 device binding value is unavailable');
   }
   return trimmed;
+}
+
+function exactSingleLine(value) {
+  if (typeof value !== 'string') {
+    throw new Error('DA5 V5 command output mismatch');
+  }
+  const match = /^([^\0\r\n]+)(?:\r?\n)?$/u.exec(value);
+  if (match?.[1] === undefined) {
+    throw new Error('DA5 V5 command output mismatch');
+  }
+  return match[1];
+}
+
+function exactLines(value) {
+  if (typeof value !== 'string' || value.includes('\0')) {
+    throw new Error('DA5 V5 command output mismatch');
+  }
+  const normalized = value.endsWith('\r\n')
+    ? value.slice(0, -2)
+    : value.endsWith('\n')
+      ? value.slice(0, -1)
+      : value;
+  if (normalized.length === 0) return [];
+  const lines = normalized.split(/\r?\n/u);
+  if (lines.some((line) => line.length === 0)) {
+    throw new Error('DA5 V5 command output mismatch');
+  }
+  return lines;
+}
+
+function isExactEmptyOutput(value) {
+  return value === '' || value === '\n' || value === '\r\n';
 }
 
 function readTalkBackVersion(value) {
