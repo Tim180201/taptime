@@ -7,7 +7,7 @@ Approval Authority: Human Architect
 
 ## Purpose
 
-### Current DA5 V5 truth — Product start-bundle correction locally complete; V4/final review pending
+### Current DA5 V5 truth — Product start-bundle correction complete; hardware authorization pending
 
 The Product-Hardware authority on `4dff147031e2d8ebbd95b9451705f66b35fbacd3` / tree
 `be05ca8e893a00dbd95f84e7133e73f080f96547` is consumed after the standard operator stopped before
@@ -17,10 +17,16 @@ inspection proved package/process/reverse/listener/task-runtime null state.
 
 Correction `e939d8c40e7994c72ab1cd2e68e47f189ed8abc1` / tree
 `dfd5e160c6c14d09daadcc192afaf81daf1ad060` is independently prepublication `APPROVED` with zero
-open P0–P3. Focused tests, hardware-free built-bundle smoke, fresh V3, audit and the new read-only
-runtime/manifest binding are green; Product and Validation APKs are unchanged. V4 Exact-Head CI
-and final independent Exact-Head/Artifact review remain pending. Hardware/ADB/install and all
-production, production-data, signing, deployment and distribution actions remain unauthorized.
+open P0–P3. Publication `e5a566bc60be7dc7647183bbbcfb9947ac3a6fb7` / tree
+`05a0f4c2ff4006a73ec18b2d19c74cb903d064f0` passed Exact-Head CI `30834192270`, attempt 1,
+12/12 without retry. Final independent Exact-Head/Artifact review is `APPROVED` with zero open
+P0–P3. Focused tests, hardware-free built-bundle smoke, fresh V3, audit and the new read-only
+runtime/manifest binding are green; Product and Validation APKs are unchanged. The corrected
+candidate is hardware-gate ready. Hardware/ADB/install remain unauthorized pending a fresh exact
+Human hardware authorization. Production, production-data, signing, deployment and distribution
+remain separately unauthorized and require their own separate explicit authority. This R0
+synchronization carries the exact executable-publication CI/review evidence and claims no CI for
+its documentation-only head.
 
 ### Current DA5 V5 truth — Product preinstall corrected; ADO closure review pending
 

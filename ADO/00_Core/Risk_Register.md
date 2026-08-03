@@ -2,8 +2,8 @@
 
 Status: Active
 
-Current R-034 Product-start-bundle override: **Open / R3 pending V4 Exact-Head CI, final
-Exact-Head/Artifact review and fresh Product Human/Hardware V5 authority.** The authority on
+Current R-034 Product-start-bundle override: **Open / R3 only pending fresh Product Human/Hardware
+V5 authority.** The authority on
 `4dff147031e2d8ebbd95b9451705f66b35fbacd3` is consumed after the standard Product operator
 stopped before database, device preflight and installation. Confirmed finding
 `DA5-V5-PRODUCT-START-BUNDLE-01` was a bundled-module direct-CLI false positive in
@@ -14,10 +14,13 @@ Correction `e939d8c40e7994c72ab1cd2e68e47f189ed8abc1` / tree
 `dfd5e160c6c14d09daadcc192afaf81daf1ad060` preserves exact external APK verification while
 making import and bundled execution side-effect-free. Focused tests, hardware-free artifact
 smoke, fresh V3, audit without High/Critical, runtime binding and cleanup are green; independent
-prepublication review is `APPROVED` with zero open P0–P3. Residual risk is limited to V4 CI,
-final exact artifact review and the separately authorized Human/Hardware gate. Product and
+prepublication review is `APPROVED` with zero open P0–P3. Publication
+`e5a566bc60be7dc7647183bbbcfb9947ac3a6fb7` / tree
+`05a0f4c2ff4006a73ec18b2d19c74cb903d064f0` passed Exact-Head CI `30834192270`, attempt 1,
+12/12 without retry; final independent Exact-Head/Artifact review is `APPROVED` with zero open
+P0–P3. Residual risk is limited to the separately authorized Human/Hardware gate. Product and
 Validation APKs are unchanged. Hardware/ADB/install and all production/deployment/distribution
-actions remain unauthorized.
+actions remain unauthorized. This R0 sync claims no CI for its documentation-only head.
 
 Current R-034 Product-preinstall override: **Open / R3 pending R0 ADO review and fresh Product
 Human/Hardware V5.** The matched read-only inspection on `304ddb159f3def2b50d059678086e02aacbd51c9`

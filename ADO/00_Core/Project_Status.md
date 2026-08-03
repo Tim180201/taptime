@@ -1,7 +1,7 @@
 # Project Status
 
-DA5 V5 current override: **PRODUCT-START-BUNDLE-01 IS CORRECTED LOCALLY; V4 EXACT-HEAD CI,
-FINAL EXACT-HEAD/ARTIFACT REVIEW AND A FRESH HUMAN/HARDWARE AUTHORIZATION REMAIN PENDING.** The
+DA5 V5 current override: **PRODUCT-START-BUNDLE-01 IS TECHNICALLY COMPLETE; ONLY A FRESH
+HUMAN/HARDWARE AUTHORIZATION REMAINS PENDING.** The
 Product-Hardware authority on `4dff147031e2d8ebbd95b9451705f66b35fbacd3` / tree
 `be05ca8e893a00dbd95f84e7133e73f080f96547` is consumed. Its operator stopped before database,
 device preflight or installation because the bundled runtime misclassified an imported APK
@@ -17,9 +17,15 @@ smoke. Independent prepublication review is `APPROVED` with zero open P0–P3. F
 completed all 20 builds and 21 tests-inclusive typechecks; changed-scope and non-database suites
 are green, unchanged database evidence is carried from exact parent CI `30829321321`, and the
 isolated Runtime-Guard/PostgreSQL/environment/status boundary matched with complete cleanup.
-The new read-only runtime/manifest is bound in the DA5 V5 runbook/evidence. Existing Product and
-Validation APKs remain byte-exact. Hardware, ADB, installation, production, production data,
-production/distribution signing, deployment and distribution remain unauthorized.
+The new read-only runtime/manifest is bound in the DA5 V5 runbook/evidence. Publication
+`e5a566bc60be7dc7647183bbbcfb9947ac3a6fb7` / tree
+`05a0f4c2ff4006a73ec18b2d19c74cb903d064f0` passed Exact-Head CI `30834192270`, attempt 1,
+12/12 without retry. Final independent Exact-Head/Artifact review returned `APPROVED` with zero
+open P0–P3. Existing Product and Validation APKs remain byte-exact and the corrected candidate is
+hardware-gate ready. Hardware, ADB, installation, production, production data,
+production/distribution signing, deployment and distribution remain unauthorized. This R0
+documentation sync carries the executable-publication evidence and claims no CI for its own
+documentation-only head.
 
 DA5 V5 current override: **PRODUCT-PREINSTALL-01 IS TECHNICALLY CORRECTED AND EXACT-HEAD CI IS
 GREEN; R0 ADO REVIEW AND FRESH HUMAN/HARDWARE AUTHORIZATION REMAIN PENDING.** The preceding

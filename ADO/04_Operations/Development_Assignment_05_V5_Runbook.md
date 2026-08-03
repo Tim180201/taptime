@@ -1,6 +1,6 @@
 # Development Assignment 5 — V5 Human Android Gate Runbook
 
-## Current Product-start-bundle correction — DO NOT START hardware
+## Current Product-start-bundle correction — technically approved; DO NOT START hardware without fresh authority
 
 The Product-Hardware run bound to `4dff147031e2d8ebbd95b9451705f66b35fbacd3` / tree
 `be05ca8e893a00dbd95f84e7133e73f080f96547` is consumed. The standard operator stopped before
@@ -29,15 +29,18 @@ The fresh no-custom-executor runtime candidate is preserved read-only at:
 Fresh Node `24.17.0` / npm `11.13.0` V3 completed 20/20 builds and 21/21 typechecks.
 Focused verifier tests passed 12/12, the built-bundle start smoke passed 1/1, Mobile passed
 1,198/1,198, Synthetic passed 280 with 18 unchanged database-gated skips, and all other
-non-database workspace suites passed. Exact unchanged database evidence is carried from parent
-CI `30829321321`; V4 will rerun the full matrix on the final publication. Runtime-Guard artifact,
+non-database workspace suites passed. Exact unchanged database evidence was carried from parent
+CI `30829321321`; Exact-Head CI `30834192270`, attempt 1, reran the final publication matrix and
+passed 12/12 without retry. Runtime-Guard artifact,
 isolated PostgreSQL, environment creation and initial DA5 status matched, followed by complete
-cleanup. Audit reports zero High/Critical vulnerabilities.
+cleanup. Audit reports zero High/Critical vulnerabilities. Final independent Exact-Head/Artifact
+review of publication `e5a566bc60be7dc7647183bbbcfb9947ac3a6fb7` / tree
+`05a0f4c2ff4006a73ec18b2d19c74cb903d064f0` returned `APPROVED` with zero open P0–P3 and
+confirmed the runtime and unchanged Product-/Validation-artifact bindings.
 
-**DO NOT START HARDWARE, ADB OR INSTALLATION.** V4 Exact-Head CI and final independent
-Exact-Head/Artifact review are pending. Product and Validation APKs remain unchanged. A fresh
-exact Human authorization is mandatory after final `APPROVED`. Production, production data,
-production/distribution signing, deployment and distribution remain unauthorized.
+**DO NOT START HARDWARE, ADB OR INSTALLATION.** Product and Validation APKs remain unchanged.
+Only a fresh exact Human authorization is still mandatory before the hardware gate. Production,
+production data, production/distribution signing, deployment and distribution remain unauthorized.
 
 ## Current Product-preinstall correction — DO NOT START hardware
 

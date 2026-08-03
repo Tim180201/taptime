@@ -1,6 +1,6 @@
 # Development Assignment 5 — V5 Human Android Evidence
 
-## Current PRODUCT-START-BUNDLE-01 correction evidence — V4/final review pending
+## Current PRODUCT-START-BUNDLE-01 correction evidence — technical closure approved; hardware pending
 
 The Product-Hardware authority on `4dff147031e2d8ebbd95b9451705f66b35fbacd3` / tree
 `be05ca8e893a00dbd95f84e7133e73f080f96547` is consumed. Starting the bound standard operator
@@ -34,8 +34,8 @@ Fresh Node `24.17.0` / npm `11.13.0` local evidence:
 - focused verifier tests passed 12/12 and the actual built-bundle start regression passed 1/1;
 - Mobile passed 54 files / 1,198 tests; Synthetic passed 280 with 18 unchanged PostgreSQL-gated
   skips; every other non-database workspace suite passed;
-- unchanged database evidence is carried from exact parent CI `30829321321` under ADR-0019 and
-  will be rerun by V4 Exact-Head CI;
+- unchanged database evidence was carried from exact parent CI `30829321321` under ADR-0019 and
+  rerun by Exact-Head CI `30834192270`, attempt 1, which passed 12/12 without retry;
 - isolated Runtime-Guard artifact verification, PostgreSQL capability, migrations, Auth/API
   environment creation and initial DA5 status matched; listeners and task PostgreSQL state were
   zero after cleanup; and
@@ -52,9 +52,14 @@ The exact read-only operator runtime candidate is:
 | Runtime manifest | root `operator-runtime-manifest.json`; 4,977 bytes; mode `0444`; SHA-256 `2b041dee0e945b680da15764b7584eced36c19d3860f6b4067cfc400988c627b` |
 
 The Product and Validation APK/manifest pairs remain byte-exact under the prior Lean bindings.
-V4 Exact-Head CI and final independent Exact-Head/Artifact review are pending. No Hardware, ADB,
+Publication `e5a566bc60be7dc7647183bbbcfb9947ac3a6fb7` / tree
+`05a0f4c2ff4006a73ec18b2d19c74cb903d064f0` passed Exact-Head CI `30834192270`, attempt 1,
+12/12 without retry. Final independent Exact-Head/Artifact review returned `APPROVED` with zero
+open P0–P3 and confirmed the Runtime/Map/Manifest bindings and the byte-exact unchanged Product
+and Validation artifacts. The corrected candidate is hardware-gate ready. No Hardware, ADB,
 installation, production, production-data, production/distribution-signing, deployment or
-distribution authority or evidence is claimed.
+distribution authority or evidence is claimed. This R0 Evidence sync carries exact CI/review
+evidence from the executable publication and claims no CI for its documentation-only head.
 
 ## Current PRODUCT-PREINSTALL-01 correction evidence — R0 re-review pending
 
