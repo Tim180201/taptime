@@ -1,5 +1,34 @@
 # Development Assignment 5 — V5 Human Android Evidence
 
+## Current PRODUCT-INSTALL-01 consumed-run and final-V3 correction evidence
+
+| Evidence | Exact result |
+|---|---|
+| Baseline | `7b971070c7fc108fea4ae92db30b87f340b24e91` / tree `a053d34581687b541fc0fe67a477250bb24319c3`; `HEAD`, `main` and local `origin/main` matched before correction |
+| Consumed run | Artifact verification and scoped `tcp:3000` / `tcp:54321` reverse creation completed; then `operator_command_failed` and automatic `da5_v5_cleanup_failed`; exact install subcause not retained |
+| Final recovery | Only those mappings were removed; terminal cleanup matched; Product package/process, owned listeners and task database null; no Product action |
+| Confirmed finding/correction | `DA5-V5-PRODUCT-INSTALL-01`; Product-only exact create/write/commit, memory-only session, exact byte/receipt/provenance and mandatory pre-commit abandon |
+| Disclosure | Only `artifact_reverify`, `child_start_transport`, `stdin_pipe`, `timeout`, `child_exit`, `package_manager_receipt`, `installed_provenance` or `cleanup`; no raw error/stderr/path/serial/PackageManager detail |
+| Review Round 1 / correction | `CHANGES REQUIRED`, exactly two P2: central typed timeout/child-exit classification was incomplete at reattestation/provenance, and the default stream runner was not dependency-bound to control ADB. Both are corrected; six boundary/type regressions, exact dependency integration and incomplete-custom-pair fail-closed coverage are green; Round 2 followed as recorded below |
+| Review Round 2 / Development Round 3 | `CHANGES REQUIRED`, exactly one P2: `runAdbBinaryDigest` handled nonzero or signaled child close as a generic error, so actual installed-APK digest provenance retained `installed_provenance` instead of `child_exit`. Round 3 rejects both terminal forms with `Da5V5AndroidCommandExitError`, without raw output/signal/exit detail and without changing timeout, transport, provenance or cleanup behavior. The actual System binary-digest provenance path is covered for both nonzero and signal exit |
+| Round 3 focused V0–V2 | MJS syntax green; affected Mobile Installer suite 75/75; tests-inclusive Mobile Typecheck green with `da5V5AndroidDevice.test.ts` membership proven |
+| `DA5-V5-SECURITY-BRACE-01` | Separately Human-authorized lock correction: only `node_modules/brace-expansion` changes `5.0.8` to patched `5.0.9` through version/resolved/integrity; `minimatch@10.2.5` and its `brace-expansion` range `^5.0.5`, `balanced-match`, every package manifest and all other lock data are unchanged. A 64-MiB/5-second/output-bounded child regression covers `GHSA-rgw5-rvv9-x895` without exposing the parent test process to the OOM path |
+| Fresh V1/V2 | Changed Mobile installer/stream files 86/86 tests; Product bundle/security test 2/2; both tests-inclusive Typechecks with changed-source membership and Synthetic build green; `npm ls --all` exit 0. The unchanged MJS syntax pass is carried from the immediately preceding focused round |
+| Security audit | Runtime and full audit each exit 0 with 12 moderate, zero high and zero critical findings; `brace-expansion` advisory absent |
+| Final post-correction V3 binding | `PASS` on snapshot `bcddf757c7ef64e82c167b39f20d763fdb159ceb` / tree `ee00e3246f2cd5498cc67eabf9b2f7e2fc19205b` |
+| Final V3 changed-input checks | MJS syntax pass; Mobile 54/54 files and 1,219/1,219 tests; tests-inclusive Mobile Typecheck pass; exactly Synthetic `Da5V5ProductStartBundle` plus `Da5V5Profile` at 2/2 files and 33/33 tests; tests-inclusive Synthetic Typecheck pass; Synthetic build pass |
+| Immediate prior full-V3 carry-forward source | Snapshot `613feb8d4bfa71e48c75cf933f6aea422404096c` / tree `b1a73234abfbd19623a96c7ba330da731d7320ea`; package lock and carried verification inputs unchanged |
+| Carried V3 builds / Typechecks | Under AVS risk-adaptive carry-forward, all 20 workspace builds and 21/21 workspace Typechecks remain green; Mobile and Synthetic Typechecks were additionally rerun on the final snapshot as recorded above |
+| Carried V3 Product tests / Guard | All remaining unchanged locally applicable tests carry forward. The first six Guard failures under `/private/tmp` were producer-owner/mode environment mismatches; exactly the two affected unchanged Guard files passed 89/89 from a user-owned Safe Root |
+| Carried V3 privileged boundaries | Unchanged privileged B1, Mobile-Work and Time-Review database boundaries stopped locally because `B1_DATABASE_URL` or `taptime_da3` was unavailable; their already bound green CI evidence carries under ADR-0019 and no test was repeated |
+| Carried V3 dependency/security | `npm ls --all` green; runtime and full audit each 12 moderate, zero high and zero critical findings |
+| Carried V3 cleanup | Isolated PostgreSQL/Guard process, port `55435`, task `t5` temporary roots, worktree, cache and TMP fully removed; pre-existing untracked `app.json` untouched |
+| Independent Review Round 3 | `APPROVED`; zero open P0–P3. `DA5-V5-PRODUCT-INSTALL-01` and `DA5-V5-SECURITY-BRACE-01` are technically prepublication approved |
+| Pending / unauthorized | V4/Exact-Head CI, fresh Operator Artifact/Manifest and final independent Exact-Head/Artifact review remain open; Hardware/ADB/install/retry and production/deployment/distribution remain unauthorized |
+
+This ADO synchronization remains uncommitted. Prepublication technical approval grants no new
+Product/Human V5, production, deployment or distribution authority.
+
 ## Current PRODUCT-START-BUNDLE-01 correction evidence — technical closure approved; hardware pending
 
 The Product-Hardware authority on `4dff147031e2d8ebbd95b9451705f66b35fbacd3` / tree

@@ -1,5 +1,53 @@
 # Development Assignment 5 — V5 Human Android Gate Runbook
 
+## Current Product-install failure/correction — run consumed; DO NOT START
+
+The authorized Product run on `7b971070c7fc108fea4ae92db30b87f340b24e91` / tree
+`a053d34581687b541fc0fe67a477250bb24319c3` is consumed. Artifact verification and both scoped
+reverse mappings completed before `operator_command_failed` and automatic
+`da5_v5_cleanup_failed`. Final recovery removed only `tcp:3000` and `tcp:54321`; terminal cleanup
+matched with package, process, owned listeners and task database null. No Product action occurred.
+
+Confirmed `DA5-V5-PRODUCT-INSTALL-01` is corrected in the R3 candidate using
+exact `install-create`, `install-write`, `install-commit`, memory-only session binding, exact
+write-byte/PackageManager receipts and mandatory bounded `install-abandon` before ordinary
+cleanup for every known uncommitted session. Existing Product APK/package/User-0/size/SHA,
+timeout, reverse, provenance, zeroization and cleanup boundaries remain mandatory. Only eight
+fixed safe categories may be emitted. Independent review Round 1 returned `CHANGES REQUIRED` with
+exactly two P2 findings. The candidate correction now centrally maps typed timeout/child-exit
+failures at both reattestation boundaries and installed provenance, and derives the default write
+runner only from the verified System ADB dependencies while incomplete custom pairings fail before
+ADB mutation. Focused V1 and affected V2 are green. Independent review Round 2 returned `CHANGES
+REQUIRED` with exactly one P2: the real installed-APK binary-digest runner mapped a nonzero or
+signaled child close to a generic error, so the central classifier retained
+`installed_provenance` rather than `child_exit`. Development Round 3 emits the typed
+disclosure-safe child-exit error for both forms and preserves timeout, transport, provenance and
+cleanup behavior. MJS syntax, the affected Installer suite at 75/75 and the tests-inclusive Mobile
+Typecheck with changed-test membership are green. The separately Human-authorized
+`DA5-V5-SECURITY-BRACE-01` addition changes only the lock resolution of `brace-expansion` from
+`5.0.8` to patched `5.0.9` under `minimatch@10.2.5`'s unchanged `brace-expansion` range `^5.0.5`;
+package manifests and all other dependencies remain unchanged. The bounded advisory regression,
+focused Product tests, affected tests-inclusive Typechecks and Synthetic build pass. Runtime and
+full audits each show 12 moderate, zero high and zero critical findings and no `brace-expansion`
+advisory.
+
+Final post-correction V3 is `PASS` on snapshot
+`bcddf757c7ef64e82c167b39f20d763fdb159ceb` / tree
+`ee00e3246f2cd5498cc67eabf9b2f7e2fc19205b`. The changed-input verification passed MJS syntax,
+Mobile 54/54 files and 1,219/1,219 tests, the tests-inclusive Mobile Typecheck, exactly
+`Da5V5ProductStartBundle` plus `Da5V5Profile` at 2/2 files and 33/33 Synthetic tests, the
+tests-inclusive Synthetic Typecheck and the Synthetic build. Under AVS risk-adaptive
+carry-forward, unchanged evidence from the immediately preceding full V3 snapshot
+`613feb8d4bfa71e48c75cf933f6aea422404096c` / tree
+`b1a73234abfbd19623a96c7ba330da731d7320ea` remains applicable: 20 builds, 21 Typechecks, all
+remaining tests including the user-owned Safe-Root continuation at 89/89, audits with zero
+high/critical findings, unchanged privileged database evidence under ADR-0019 and complete
+cleanup. Package lock and carried verification inputs are unchanged. Independent review Round 3
+returned `APPROVED` with zero open P0–P3; `DA5-V5-PRODUCT-INSTALL-01` and
+`DA5-V5-SECURITY-BRACE-01` are technically prepublication approved. V4/Exact-Head CI, a fresh
+Operator Artifact/Manifest and final independent Exact-Head/Artifact review remain open. **DO NOT
+START OR RETRY HARDWARE, ADB OR INSTALLATION.**
+
 ## Current Product-start-bundle correction — technically approved; DO NOT START hardware without fresh authority
 
 The Product-Hardware run bound to `4dff147031e2d8ebbd95b9451705f66b35fbacd3` / tree

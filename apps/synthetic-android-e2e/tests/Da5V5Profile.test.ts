@@ -899,6 +899,12 @@ describe('DA5 V5 fixture, lifecycle and startup fail-stop boundaries', () => {
       expect(source.indexOf('await installDa5V5AndroidFromPackageZero({')).toBeLessThan(
         source.indexOf("if (offline.arm() !== 'match')"),
       );
+      expect(source).toContain('classifyDa5V5AndroidInstallError(error)');
+      expect(source).toContain(
+        'da5_v5_android_install=mismatch category=${classifyDa5V5AndroidInstallError(error)}',
+      );
+      expect(source).not.toContain('error.message');
+      expect(source).not.toContain('String(error)');
       expect(source.indexOf("if (offline.arm() !== 'match')")).toBeLessThan(
         source.indexOf('androidInstalled = true'),
       );

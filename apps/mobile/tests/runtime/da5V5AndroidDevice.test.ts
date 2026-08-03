@@ -1,18 +1,29 @@
+import { spawn } from 'node:child_process';
 import { describe, expect, it, vi } from 'vitest';
 import {
   DA5_V5_ANDROID_ARTIFACT,
   DA5_V5_ANDROID_PACKAGE,
 } from '../../scripts/da5V5AndroidArtifact.mjs';
 import {
+  DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES,
   assertDa5V5PackageMappingZero,
+  classifyDa5V5AndroidInstallError,
   cleanupDa5V5AndroidState,
+  Da5V5AndroidCommandExitError,
+  Da5V5AndroidCommandTimeoutError,
   Da5V5AndroidPreinstallPreflight,
   Da5V5UsbSerialBinding,
   installDa5V5AndroidFromPackageZero,
   parseDa5V5ReverseMappings,
   requireSingleDa5V5UsbDevice,
+  SystemDa5V5AndroidAdbRunner,
   type Da5V5AndroidAdbRunner,
 } from '../../scripts/da5V5AndroidDevice.mjs';
+import {
+  DA5_V5_VALIDATION_INSTALL_STREAM_ERROR_CATEGORIES,
+  type Da5V5ValidationInstallStreamOutcome,
+  type Da5V5ValidationInstallStreamRunner,
+} from '../../scripts/da5V5ValidationInstallStream.mjs';
 
 const deviceBinding = Object.freeze({
   androidBuild: 'synthetic/vendor/device:15/BUILD/1:user/release-keys',
@@ -48,7 +59,10 @@ describe('DA5 V5 package-zero Android install', () => {
       runner: adb,
       serialBinding: boundSerial(adb),
       verifyArtifact,
-    })).rejects.toThrow('immutable mismatch');
+    })).rejects.toMatchObject({
+      category: DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES.artifactReverify,
+      message: 'DA5 V5 Android install failed',
+    });
     expect(adb.commands).toEqual([]);
   });
 
@@ -58,6 +72,7 @@ describe('DA5 V5 package-zero Android install', () => {
       const verifyArtifact = vi.fn();
       await expect(installDa5V5AndroidFromPackageZero({
         deviceBinding,
+        installStreamRunner: adb.installStreamRunner,
         profile: 'da5-v5',
         runner: adb,
         reverifyArtifact: vi.fn(() => verifiedSource()),
@@ -74,8 +89,11 @@ describe('DA5 V5 package-zero Android install', () => {
         ['tcp:54321', 'tcp:54321'],
         ['tcp:3000', 'tcp:3000'],
       ]));
-      expect(adb.commands).toContainEqual(installCommand(adb.serial));
+      expect(adb.commands).toContainEqual(installCreateCommand(adb.serial));
+      expect(adb.commands).toContainEqual(installWriteCommand(adb.serial));
+      expect(adb.commands).toContainEqual(installCommitCommand(adb.serial));
       expect(adb.commands.flat()).not.toContain('-r');
+      expect(adb.commands.flat()).not.toContain('install');
       expect(adb.commands.flat()).toContain('-R');
       expect(adb.installInputObserved).toBe(true);
       expect(adb.commands).toContainEqual([
@@ -90,6 +108,276 @@ describe('DA5 V5 package-zero Android install', () => {
       assertNoBroadDeviceMutation(adb);
     });
 
+  it.each([
+    [
+      'child transport',
+      Object.freeze({
+        category:
+          DA5_V5_VALIDATION_INSTALL_STREAM_ERROR_CATEGORIES.childTransportMismatch,
+        childTerminal: false,
+        status: 'mismatch' as const,
+        stdoutTerminal: false,
+      }),
+      DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES.childStartTransport,
+    ],
+    [
+      'stdin pipe',
+      Object.freeze({
+        category:
+          DA5_V5_VALIDATION_INSTALL_STREAM_ERROR_CATEGORIES.stdinPipeAbortMismatch,
+        childTerminal: true,
+        status: 'mismatch' as const,
+        stdoutTerminal: true,
+      }),
+      DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES.stdinPipe,
+    ],
+    [
+      'timeout',
+      Object.freeze({
+        category:
+          DA5_V5_VALIDATION_INSTALL_STREAM_ERROR_CATEGORIES.childTimeoutMismatch,
+        childTerminal: true,
+        status: 'mismatch' as const,
+        stdoutTerminal: true,
+      }),
+      DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES.timeout,
+    ],
+    [
+      'child exit',
+      Object.freeze({
+        category:
+          DA5_V5_VALIDATION_INSTALL_STREAM_ERROR_CATEGORIES.childExitMismatch,
+        childTerminal: true,
+        status: 'mismatch' as const,
+        stdoutTerminal: true,
+      }),
+      DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES.childExit,
+    ],
+  ] as const)('classifies %s and abandons the pending session once', async (
+    _scenario,
+    outcome,
+    category,
+  ) => {
+    const adb = new FakeAdb();
+    adb.installStreamOutcome = outcome;
+
+    await expect(install(adb)).rejects.toMatchObject({
+      category,
+      message: 'DA5 V5 Android install failed',
+    });
+
+    expect(adb.commands.filter((command) => (
+      command.includes('install-abandon')
+    ))).toHaveLength(1);
+    expect(adb.installSessionPending).toBe(false);
+    expect(adb.packageInstalled).toBe(false);
+    expect(adb.mappings).toEqual(new Map());
+    await expect(cleanup(adb)).resolves.toEqual({ status: 'match' });
+    expect(adb.commands.filter((command) => (
+      command.includes('install-abandon')
+    ))).toHaveLength(1);
+  });
+
+  it.each([
+    [
+      'partial pipe with a success-looking receipt',
+      Object.freeze({
+        status: 'match' as const,
+        stdinTerminal: 'partial_then_pipe_closed' as const,
+        stdout: `Success: streamed ${DA5_V5_ANDROID_ARTIFACT.apk.bytes} bytes\n`,
+      }),
+      DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES.stdinPipe,
+    ],
+    [
+      'wrong byte receipt',
+      Object.freeze({
+        status: 'match' as const,
+        stdinTerminal: 'finished' as const,
+        stdout: `Success: streamed ${DA5_V5_ANDROID_ARTIFACT.apk.bytes - 1} bytes\n`,
+      }),
+      DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES.packageManagerReceipt,
+    ],
+    [
+      'multiline receipt',
+      Object.freeze({
+        status: 'match' as const,
+        stdinTerminal: 'finished' as const,
+        stdout: `Success: streamed ${DA5_V5_ANDROID_ARTIFACT.apk.bytes} bytes\nprivate detail\n`,
+      }),
+      DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES.packageManagerReceipt,
+    ],
+  ] as const)('rejects %s and abandons before commit', async (
+    _scenario,
+    outcome,
+    category,
+  ) => {
+    const adb = new FakeAdb();
+    adb.installStreamOutcome = outcome;
+
+    await expect(install(adb)).rejects.toMatchObject({ category });
+
+    const mutations = adb.commands.filter((command) => (
+      command.some((argument) => argument.startsWith('install-'))
+    )).map((command) => command.find((argument) => argument.startsWith('install-')));
+    expect(mutations).toEqual(['install-create', 'install-write', 'install-abandon']);
+  });
+
+  it('maps unknown failures to one fixed disclosure-safe category', () => {
+    const rawDetail = 'private stderr path serial package-manager detail';
+    const category = classifyDa5V5AndroidInstallError(new Error(rawDetail));
+
+    expect(category).toBe(
+      DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES.childStartTransport,
+    );
+    expect(category).not.toContain(rawDetail);
+  });
+
+  it.each([
+    ['timeout', 'post-create reattestation', 2, 'timeout'],
+    ['child exit', 'post-create reattestation', 2, 'child_exit'],
+    ['timeout', 'post-write reattestation', 3, 'timeout'],
+    ['child exit', 'post-write reattestation', 3, 'child_exit'],
+    ['timeout', 'installed provenance', 4, 'timeout'],
+    ['child exit', 'installed provenance', 4, 'child_exit'],
+  ] as const)(
+    'classifies typed %s at %s without exposing raw detail',
+    async (failureKind, _boundary, targetDeviceCheck, expectedCategory) => {
+      const adb = new FakeAdb();
+      const rawDetail = `private ${failureKind} command detail`;
+      const typedFailure = failureKind === 'timeout'
+        ? new Da5V5AndroidCommandTimeoutError()
+        : new Da5V5AndroidCommandExitError();
+      Object.assign(typedFailure, { rawDetail });
+      let deviceChecks = 0;
+      adb.errorOnce = (arguments_) => {
+        if (arguments_.join(' ') !== 'devices -l') return null;
+        deviceChecks += 1;
+        return deviceChecks === targetDeviceCheck ? typedFailure : null;
+      };
+
+      let failure: unknown;
+      try {
+        await install(adb);
+      } catch (error) {
+        failure = error;
+      }
+
+      expect(failure).toMatchObject({
+        category: expectedCategory,
+        message: 'DA5 V5 Android install failed',
+      });
+      expect(String(failure)).not.toContain(rawDetail);
+      expect(JSON.stringify(failure)).not.toContain(rawDetail);
+      expect(adb.packageInstalled).toBe(false);
+      expect(adb.mappings).toEqual(new Map());
+    },
+  );
+
+  it.each([
+    [
+      'nonzero exit',
+      "process.stderr.write('private digest exit detail'); process.exit(23)",
+      '23',
+    ],
+    [
+      'signal exit',
+      [
+        "process.stderr.write('private digest signal detail')",
+        "process.kill(process.pid, 'SIGTERM')",
+      ].join(';'),
+      'SIGTERM',
+    ],
+  ] as const)(
+    'classifies an actual installed-provenance binary digest %s as child_exit',
+    async (_scenario, childSource, terminalDetail) => {
+      const adb = new FakeAdb();
+      adb.binaryDigestRunner = new SystemDa5V5AndroidAdbRunner({
+        adbPath: process.execPath,
+        environment: { PATH: process.env.PATH ?? '/usr/bin:/bin' },
+        spawn: spawnNodeScript(childSource),
+      });
+
+      let failure: unknown;
+      try {
+        await install(adb);
+      } catch (error) {
+        failure = error;
+      }
+
+      expect(failure).toMatchObject({
+        category: DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES.childExit,
+        message: 'DA5 V5 Android install failed',
+      });
+      expect(String(failure)).not.toContain('private digest');
+      expect(String(failure)).not.toContain(terminalDetail);
+      expect(JSON.stringify(failure)).not.toContain('private digest');
+      expect(JSON.stringify(failure)).not.toContain(terminalDetail);
+      expect(adb.commands).toContainEqual([
+        '-s', adb.serial, 'shell', '-T', 'cat', '--', adb.expectedDigestPath,
+      ]);
+      expect(adb.packageInstalled).toBe(false);
+      expect(adb.mappings).toEqual(new Map());
+    },
+  );
+
+  it('fails closed before ADB mutation for a custom runner without a bound stream runner',
+    async () => {
+      const adb = new FakeAdb();
+      const reverifyArtifact = vi.fn();
+
+      await expect(installDa5V5AndroidFromPackageZero({
+        deviceBinding,
+        profile: 'da5-v5',
+        runner: adb,
+        reverifyArtifact,
+        serialBinding: boundSerial(adb),
+        verifyArtifact: vi.fn(),
+      })).rejects.toMatchObject({
+        category: DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES.childStartTransport,
+        message: 'DA5 V5 Android install failed',
+      });
+
+      expect(adb.commands).toEqual([]);
+      expect(reverifyArtifact).not.toHaveBeenCalled();
+      expect(adb.packageInstalled).toBe(false);
+      expect(adb.mappings).toEqual(new Map());
+    });
+
+  it('classifies a malformed commit receipt and abandons before installed provenance',
+    async () => {
+      const adb = new FakeAdb();
+      adb.installCommitReceipt = 'Success\nprivate detail\n';
+
+      await expect(install(adb)).rejects.toMatchObject({
+        category: DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES.packageManagerReceipt,
+      });
+
+      expect(adb.commands.filter((command) => command.includes('install-abandon')))
+        .toHaveLength(1);
+      expect(adb.commands.some((command) => command.includes('cat'))).toBe(false);
+      expect(adb.packageInstalled).toBe(false);
+    });
+
+  it('reports cleanup when a mandatory abandon cannot be proven', async () => {
+    const adb = new FakeAdb();
+    adb.installAbandonReceipt = 'Failure [private detail]\n';
+    adb.installStreamOutcome = Object.freeze({
+      category:
+        DA5_V5_VALIDATION_INSTALL_STREAM_ERROR_CATEGORIES.childExitMismatch,
+      childTerminal: true,
+      status: 'mismatch',
+      stdoutTerminal: true,
+    });
+
+    await expect(install(adb)).rejects.toMatchObject({
+      category: DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES.cleanup,
+    });
+    expect(adb.commands.filter((command) => command.includes('install-abandon')))
+      .toHaveLength(1);
+    expect(adb.packageInstalled).toBe(false);
+    expect(adb.mappings).toEqual(new Map());
+  });
+
   it('installs only the sealed snapshot after an adversarial late host-path swap', async () => {
     const adb = new FakeAdb();
     let hostPathSha256 = DA5_V5_ANDROID_ARTIFACT.apk.sha256;
@@ -99,6 +387,7 @@ describe('DA5 V5 package-zero Android install', () => {
 
     await expect(installDa5V5AndroidFromPackageZero({
       deviceBinding,
+      installStreamRunner: adb.installStreamRunner,
       profile: 'da5-v5',
       runner: adb,
       reverifyArtifact,
@@ -115,12 +404,41 @@ describe('DA5 V5 package-zero Android install', () => {
     expect(adb.commands.flat()).not.toContain(DA5_V5_ANDROID_ARTIFACT.apk.path);
   });
 
+  it('classifies the pre-session artifact reverify boundary and rolls back mappings',
+    async () => {
+      const adb = new FakeAdb();
+      const rawDetail = 'private artifact path and digest detail';
+
+      await expect(installDa5V5AndroidFromPackageZero({
+        deviceBinding,
+        installStreamRunner: adb.installStreamRunner,
+        profile: 'da5-v5',
+        reverifyArtifact: vi.fn(() => {
+          throw new Error(rawDetail);
+        }),
+        runner: adb,
+        serialBinding: boundSerial(adb),
+        verifyArtifact: vi.fn(),
+        ...virtualTiming(adb),
+      })).rejects.toMatchObject({
+        category: DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES.artifactReverify,
+        message: 'DA5 V5 Android install failed',
+      });
+
+      expect(adb.commands.some((command) => command.includes('install-create')))
+        .toBe(false);
+      expect(adb.mappings).toEqual(new Map());
+      expect(JSON.stringify(adb.commands)).not.toContain(rawDetail);
+    });
+
   it('rolls back when the installed base APK is not byte-identical to the verified snapshot',
     async () => {
       const adb = new FakeAdb();
       adb.installedSha256 = 'f'.repeat(64);
 
-      await expect(install(adb)).rejects.toThrow(/install failed/);
+      await expect(install(adb)).rejects.toMatchObject({
+        category: DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES.installedProvenance,
+      });
 
       expect(adb.packageInstalled).toBe(false);
       expect(adb.mappings).toEqual(new Map());
@@ -743,6 +1061,7 @@ describe('DA5 V5 scoped Android cleanup', () => {
       adb.abortInstall = abort;
       await expect(installDa5V5AndroidFromPackageZero({
         deviceBinding,
+        installStreamRunner: adb.installStreamRunner,
         profile: 'da5-v5',
         reverifyArtifact: vi.fn(() => verifiedSource()),
         runner: adb,
@@ -809,7 +1128,10 @@ describe('DA5 V5 scoped Android cleanup', () => {
     );
     adb.latePackageVisibilityAtMilliseconds = [5_000, 19_000, 33_000, 47_000];
 
-    await expect(install(adb)).rejects.toThrow(/install rollback failed/);
+    await expect(install(adb)).rejects.toMatchObject({
+      category: DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES.cleanup,
+      message: 'DA5 V5 Android install failed',
+    });
 
     expect(adb.elapsedMilliseconds).toBe(60_000);
     expect(adb.packageInstalled).toBe(false);
@@ -823,6 +1145,7 @@ describe('DA5 V5 scoped Android cleanup', () => {
 class FakeAdb implements Da5V5AndroidAdbRunner {
   accessibilityEnabled = '1';
   abortInstall: AbortController | null = null;
+  binaryDigestRunner: Da5V5AndroidAdbRunner | null = null;
   readonly androidBuild = deviceBinding.androidBuild;
   commands: string[][] = [];
   readonly deviceModel = deviceBinding.deviceModel;
@@ -832,6 +1155,7 @@ class FakeAdb implements Da5V5AndroidAdbRunner {
     state: 'device',
   }];
   enabledAccessibilityServices = `${googleTalkBackPackage}/.TalkBackService`;
+  errorOnce: ((arguments_: readonly string[]) => Error | null) | null = null;
   failOnce: ((arguments_: readonly string[]) => boolean) | null = null;
   elapsedMilliseconds = 0;
   lateOwnedMappingVisibilityAtMilliseconds: number[] = [];
@@ -839,7 +1163,13 @@ class FakeAdb implements Da5V5AndroidAdbRunner {
   mappings = new Map<string, string>();
   listeners = '';
   packageInstalled = false;
+  installAbandonReceipt = 'Success\n';
+  installCommitReceipt = 'Success\n';
+  installCreateReceipt = 'Success: created install session [42]\n';
   installInputObserved = false;
+  installSessionPending = false;
+  installStreamOutcome: Da5V5ValidationInstallStreamOutcome | null = null;
+  readonly installStreamRunner = new FakeInstallStreamRunner(this);
   installedSha256 = DA5_V5_ANDROID_ARTIFACT.apk.sha256;
   expectedDigestPath = '/data/app/synthetic/base.apk';
   packageRegistrationOutputs: string[] = [];
@@ -873,6 +1203,11 @@ class FakeAdb implements Da5V5AndroidAdbRunner {
     this.commandOptions.push({ arguments_: [...arguments_], ...options });
     if (options.signal?.aborted === true) {
       throw new Error('fake adb aborted');
+    }
+    const injectedError = this.errorOnce?.(arguments_);
+    if (injectedError !== null && injectedError !== undefined) {
+      this.errorOnce = null;
+      throw injectedError;
     }
     if (this.failOnce?.(arguments_) === true) {
       this.failOnce = null;
@@ -962,20 +1297,24 @@ class FakeAdb implements Da5V5AndroidAdbRunner {
       }
       return this.packageInstalled ? 'package:/data/app/synthetic/base.apk\n' : '';
     }
-    if (isInstallCommand(arguments_)) {
-      if (
-        !Buffer.isBuffer(options.stdinBytes)
-        || options.stdinBytes.toString('utf8') !== 'verified-apk-snapshot'
-      ) {
-        throw new Error('fake adb received an unverified install stream');
+    if (arguments_.join(' ') === installCreateCommand(this.serial).join(' ')) {
+      this.installSessionPending = this.installCreateReceipt.startsWith(
+        'Success: created install session',
+      );
+      return this.installCreateReceipt;
+    }
+    if (arguments_.join(' ') === installCommitCommand(this.serial).join(' ')) {
+      if (this.installCommitReceipt === 'Success\n') {
+        this.installSessionPending = false;
+        this.packageInstalled = true;
       }
-      this.installInputObserved = true;
-      if (this.abortInstall !== null) {
-        this.abortInstall.abort();
-        throw new Error('fake adb aborted during install');
+      return this.installCommitReceipt;
+    }
+    if (text === 'shell -T -x cmd package install-abandon 42') {
+      if (this.installAbandonReceipt === 'Success\n') {
+        this.installSessionPending = false;
       }
-      this.packageInstalled = true;
-      return 'Success\n';
+      return this.installAbandonReceipt;
     }
     if (text === `uninstall ${DA5_V5_ANDROID_PACKAGE}`) {
       this.packageInstalled = false;
@@ -1003,6 +1342,9 @@ class FakeAdb implements Da5V5AndroidAdbRunner {
     )) {
       throw new Error('unexpected fake binary adb command');
     }
+    if (this.binaryDigestRunner?.runBinaryDigest !== undefined) {
+      return this.binaryDigestRunner.runBinaryDigest(arguments_, options);
+    }
     return Object.freeze({
       bytes: DA5_V5_ANDROID_ARTIFACT.apk.bytes,
       sha256: this.installedSha256,
@@ -1019,9 +1361,58 @@ class FakeAdb implements Da5V5AndroidAdbRunner {
   }
 }
 
+function spawnNodeScript(source: string): typeof spawn {
+  return ((
+    _command: string,
+    _arguments: readonly string[],
+    options: object,
+  ) => spawn(process.execPath, ['-e', source], options)
+  ) as unknown as typeof spawn;
+}
+
+class FakeInstallStreamRunner implements Da5V5ValidationInstallStreamRunner {
+  constructor(private readonly adb: FakeAdb) {}
+
+  async write(
+    arguments_: readonly string[],
+    options: Readonly<{
+      signal?: AbortSignal;
+      stdinBytes: Buffer;
+      timeoutMilliseconds: number;
+    }>,
+  ): Promise<Da5V5ValidationInstallStreamOutcome> {
+    this.adb.commands.push([...arguments_]);
+    this.adb.commandOptions.push({ arguments_: [...arguments_], ...options });
+    if (arguments_.join(' ') !== installWriteCommand(this.adb.serial).join(' ')) {
+      throw new Error('unexpected fake install-write command');
+    }
+    if (options.stdinBytes.toString('utf8') !== 'verified-apk-snapshot') {
+      throw new Error('fake adb received an unverified install stream');
+    }
+    this.adb.installInputObserved = true;
+    if (this.adb.abortInstall !== null) {
+      this.adb.abortInstall.abort();
+      return Object.freeze({
+        category:
+          DA5_V5_VALIDATION_INSTALL_STREAM_ERROR_CATEGORIES.childTransportMismatch,
+        childTerminal: true,
+        status: 'mismatch',
+        stdoutTerminal: true,
+        terminalCause: 'signal_abort',
+      });
+    }
+    return this.adb.installStreamOutcome ?? Object.freeze({
+      status: 'match',
+      stdinTerminal: 'finished',
+      stdout: `Success: streamed ${DA5_V5_ANDROID_ARTIFACT.apk.bytes} bytes\n`,
+    });
+  }
+}
+
 function install(adb: FakeAdb) {
   return installDa5V5AndroidFromPackageZero({
     deviceBinding,
+    installStreamRunner: adb.installStreamRunner,
     profile: 'da5-v5',
     runner: adb,
     reverifyArtifact: vi.fn(() => verifiedSource()),
@@ -1089,24 +1480,29 @@ function verifiedSource(onUse: () => void = () => undefined) {
   };
 }
 
-function installCommand(serial: string): string[] {
+function installCreateCommand(serial: string): string[] {
   return [
-    '-s',
-    serial,
-    'shell',
-    '-T',
-    'cmd',
-    'package',
-    'install',
-    '-R',
-    '--pkg',
-    DA5_V5_ANDROID_PACKAGE,
-    '-S',
-    String(DA5_V5_ANDROID_ARTIFACT.apk.bytes),
-    '-',
+    '-s', serial, 'shell', '-T', '-x', 'cmd', 'package',
+    'install-create', '-R', '--user', '0', '--pkg', DA5_V5_ANDROID_PACKAGE,
+    '-S', String(DA5_V5_ANDROID_ARTIFACT.apk.bytes),
+  ];
+}
+
+function installWriteCommand(serial: string): string[] {
+  return [
+    '-s', serial, 'shell', '-T', '-x', 'cmd', 'package',
+    'install-write', '-S', String(DA5_V5_ANDROID_ARTIFACT.apk.bytes),
+    '42', 'base.apk', '-',
+  ];
+}
+
+function installCommitCommand(serial: string): string[] {
+  return [
+    '-s', serial, 'shell', '-T', '-x', 'cmd', 'package',
+    'install-commit', '42',
   ];
 }
 
 function isInstallCommand(arguments_: readonly string[]): boolean {
-  return arguments_.join(' ') === installCommand(arguments_[1] ?? '').join(' ');
+  return arguments_.join(' ') === installCreateCommand(arguments_[1] ?? '').join(' ');
 }

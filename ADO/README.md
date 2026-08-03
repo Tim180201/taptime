@@ -7,6 +7,51 @@ Approval Authority: Human Architect
 
 ## Purpose
 
+### Current DA5 V5 truth — Product install run consumed; prepublication technically approved
+
+The authorized Product run on baseline `7b971070c7fc108fea4ae92db30b87f340b24e91` / tree
+`a053d34581687b541fc0fe67a477250bb24319c3` is consumed fail-closed. Full artifact verification
+and both scoped reverse mappings completed before `operator_command_failed` and automatic
+`da5_v5_cleanup_failed`. Final scoped recovery removed only `tcp:3000` and `tcp:54321`; terminal
+cleanup matched with Product package/process, owned listeners and task database null. No Product
+action occurred.
+
+`DA5-V5-PRODUCT-INSTALL-01` is confirmed: the Product installer retained one combined
+PackageManager stdin stream instead of the proven Validation session boundary. The exact run
+subcause is not reconstructable. The R3 candidate uses exact create/write/commit,
+memory-only session binding, exact receipt/byte checks, mandatory pre-commit abandon and eight
+fixed disclosure-safe categories. Independent review Round 1 returned `CHANGES REQUIRED` with
+exactly two P2 findings. The candidate now centrally maps typed timeout/child-exit
+causes at reattestation/provenance, derives default write streaming from the verified System ADB
+dependencies and fails closed before mutation for incomplete custom pairings. Focused V1 and
+affected Mobile/Synthetic V2 are green. Independent review Round 2 returned `CHANGES REQUIRED`
+with exactly one P2: the real binary-digest runner converted a nonzero or signaled child close to
+a generic error, so the installed-APK provenance boundary reported `installed_provenance` instead
+of `child_exit`. Development Round 3 now emits the typed disclosure-safe child-exit error for both
+terminal forms while preserving timeout, transport, provenance and cleanup behavior. MJS syntax,
+the affected Installer suite at 75/75 and the tests-inclusive Mobile Typecheck with the changed
+test source included are green. Under the new separate Human authorization,
+`DA5-V5-SECURITY-BRACE-01` changes only the lock resolution from
+vulnerable `brace-expansion@5.0.8` to patched `5.0.9` under `minimatch@10.2.5`'s unchanged
+`brace-expansion` range `^5.0.5`; package manifests and every other dependency remain unchanged.
+Its bounded advisory regression and affected V1/V2 are green. Runtime and full audits each show 12 moderate, zero high
+and zero critical findings, and no remaining `brace-expansion` advisory. Final post-correction V3
+is `PASS` on snapshot `bcddf757c7ef64e82c167b39f20d763fdb159ceb` / tree
+`ee00e3246f2cd5498cc67eabf9b2f7e2fc19205b`: MJS syntax, Mobile 54/54 files and 1,219/1,219
+tests, the tests-inclusive Mobile Typecheck, exactly Synthetic `Da5V5ProductStartBundle` plus
+`Da5V5Profile` at 2/2 files and 33/33 tests, the tests-inclusive Synthetic Typecheck and Synthetic
+build all pass.
+Under AVS risk-adaptive carry-forward, the unchanged evidence from the immediately preceding full
+V3 snapshot `613feb8d4bfa71e48c75cf933f6aea422404096c` / tree
+`b1a73234abfbd19623a96c7ba330da731d7320ea` remains applicable: 20 builds, 21 Typechecks, all
+remaining tests including Safe-Root 89/89, audits with zero high/critical findings, unchanged
+database evidence under ADR-0019 and complete cleanup. The package lock and carried verification
+inputs are unchanged. Independent review Round 3 returned `APPROVED` with zero open P0–P3;
+`DA5-V5-PRODUCT-INSTALL-01` and `DA5-V5-SECURITY-BRACE-01` are technically prepublication
+approved. V4/Exact-Head CI, a fresh Operator Artifact/Manifest and final independent
+Exact-Head/Artifact review remain open. Hardware/ADB/install remain unauthorized pending a fresh
+exact Human authorization.
+
 ### Current DA5 V5 truth — Product start-bundle correction complete; hardware authorization pending
 
 The Product-Hardware authority on `4dff147031e2d8ebbd95b9451705f66b35fbacd3` / tree

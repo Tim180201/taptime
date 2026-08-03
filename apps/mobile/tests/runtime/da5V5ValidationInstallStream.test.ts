@@ -33,6 +33,69 @@ const childEnvironment = Object.freeze({
 });
 
 describe('DA5 V5 Validation package install stream terminal evidence', () => {
+  it('derives install streaming from the exact verified System ADB dependencies',
+    async () => {
+      const adbPath = '/verified/android-sdk/platform-tools/adb';
+      const environment = Object.freeze({ PATH: '/verified/bin' });
+      const stdout = new PassThrough();
+      const child = createControlledChild(stdout);
+      let invocation: Readonly<{
+        arguments_: readonly string[];
+        command: string;
+        options: Readonly<{
+          env?: NodeJS.ProcessEnv;
+          stdio?: readonly string[];
+        }>;
+      }> | undefined;
+      const verifiedSpawn = ((
+        command: string,
+        arguments_: readonly string[],
+        options: Readonly<{
+          env?: NodeJS.ProcessEnv;
+          stdio?: readonly string[];
+        }>,
+      ) => {
+        invocation = { arguments_, command, options };
+        return child;
+      }) as unknown as typeof spawn;
+      const runner = new SystemDa5V5AndroidAdbRunner({
+        adbPath,
+        environment,
+        spawn: verifiedSpawn,
+      });
+      child.stdin.once('finish', () => {
+        stdout.end('Success: streamed 8 bytes\n');
+        child.stderr.end();
+        child.emit('close', 0, null);
+      });
+
+      await expect(runner.createInstallStreamRunner().write(
+        installWriteArguments,
+        {
+          stdinBytes: Buffer.from('complete'),
+          timeoutMilliseconds: 2_000,
+        },
+      )).resolves.toEqual({
+        status: 'match',
+        stdinTerminal: 'finished',
+        stdout: 'Success: streamed 8 bytes\n',
+      });
+
+      expect(invocation).toEqual({
+        arguments_: [
+          '-H', '127.0.0.1', '-P', '5037', ...installWriteArguments,
+        ],
+        command: adbPath,
+        options: {
+          env: {
+            ADB_SERVER_SOCKET: 'tcp:127.0.0.1:5037',
+            PATH: environment.PATH,
+          },
+          stdio: ['pipe', 'pipe', 'pipe'],
+        },
+      });
+    });
+
   it('reports a child-start failure only as the fixed transport category', async () => {
     const adbPath = '/synthetic/android-sdk/platform-tools/adb';
     let spawnedCommand: string | undefined;

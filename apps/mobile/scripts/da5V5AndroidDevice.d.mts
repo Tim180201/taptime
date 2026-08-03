@@ -3,6 +3,33 @@ import type {
   Da5V5FileDependencies,
   verifyDa5V5AndroidArtifact,
 } from './da5V5AndroidArtifact.mjs';
+import type {
+  Da5V5ValidationInstallStreamRunner,
+} from './da5V5ValidationInstallStream.mjs';
+
+export const DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES: Readonly<{
+  artifactReverify: 'artifact_reverify';
+  childExit: 'child_exit';
+  childStartTransport: 'child_start_transport';
+  cleanup: 'cleanup';
+  installedProvenance: 'installed_provenance';
+  packageManagerReceipt: 'package_manager_receipt';
+  stdinPipe: 'stdin_pipe';
+  timeout: 'timeout';
+}>;
+
+export type Da5V5AndroidInstallFailureCategory =
+  (typeof DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES)[
+    keyof typeof DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES
+  ];
+
+export class Da5V5AndroidInstallError extends Error {
+  readonly category: Da5V5AndroidInstallFailureCategory;
+  constructor(category: Da5V5AndroidInstallFailureCategory);
+}
+export function classifyDa5V5AndroidInstallError(
+  error: unknown,
+): Da5V5AndroidInstallFailureCategory;
 
 export interface Da5V5AndroidCommandOptions {
   readonly signal?: AbortSignal;
@@ -52,6 +79,7 @@ export class Da5V5AndroidCommandTimeoutError extends Error {}
 export function isDa5V5AndroidCommandTimeoutError(
   error: unknown,
 ): error is Da5V5AndroidCommandTimeoutError;
+export class Da5V5AndroidCommandExitError extends Error {}
 
 export interface Da5V5AndroidPreflightBinding extends Da5V5AndroidDeviceBinding {
   readonly androidApi: string;
@@ -94,6 +122,7 @@ export class SystemDa5V5AndroidAdbRunner implements Da5V5AndroidAdbRunner {
     bytes: number;
     sha256: string;
   }>>;
+  createInstallStreamRunner(): Da5V5ValidationInstallStreamRunner;
 }
 
 export class Da5V5AndroidPreinstallPreflight {
@@ -145,6 +174,7 @@ export function installDa5V5AndroidFromPackageZero(options: {
     status: 'match';
     use<T>(operation: (snapshot: Buffer) => Promise<T> | T): Promise<T>;
   }>;
+  readonly installStreamRunner?: Da5V5ValidationInstallStreamRunner;
   readonly runner?: Da5V5AndroidAdbRunner;
   readonly serialBinding: Da5V5UsbSerialBinding;
   readonly signal?: AbortSignal;

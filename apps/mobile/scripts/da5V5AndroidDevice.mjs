@@ -12,12 +12,18 @@ import {
   reverifyDa5V5AndroidArtifactForInstall,
   verifyDa5V5AndroidArtifact,
 } from './da5V5AndroidArtifact.mjs';
+import {
+  DA5_V5_VALIDATION_INSTALL_STREAM_ERROR_CATEGORIES,
+  SystemDa5V5ValidationInstallStreamRunner,
+} from './da5V5ValidationInstallStream.mjs';
 
 const requiredMappings = Object.freeze([
   Object.freeze({ device: 'tcp:54321', host: 'tcp:54321' }),
   Object.freeze({ device: 'tcp:3000', host: 'tcp:3000' }),
 ]);
 const cleanupFlights = new WeakMap();
+const pendingInstallSessions = new WeakMap();
+const unresolvedInstallSessions = new WeakSet();
 const uncertainInstallRunners = new WeakSet();
 const timeouts = Object.freeze({
   inspect: 15_000,
@@ -36,6 +42,34 @@ const allowedTalkBackPackages = Object.freeze([
   'com.samsung.android.accessibility.talkback',
 ]);
 const androidOwnerUser = '0';
+const installSplitName = 'base.apk';
+const maximumPackageInstallerSessionId = 2_147_483_647;
+
+export const DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES = Object.freeze({
+  artifactReverify: 'artifact_reverify',
+  childExit: 'child_exit',
+  childStartTransport: 'child_start_transport',
+  cleanup: 'cleanup',
+  installedProvenance: 'installed_provenance',
+  packageManagerReceipt: 'package_manager_receipt',
+  stdinPipe: 'stdin_pipe',
+  timeout: 'timeout',
+});
+
+export class Da5V5AndroidInstallError extends Error {
+  constructor(category) {
+    super('DA5 V5 Android install failed');
+    this.name = 'Da5V5AndroidInstallError';
+    this.category = requireInstallFailureCategory(category);
+  }
+}
+
+export function classifyDa5V5AndroidInstallError(error) {
+  return classifyTypedInstallFailure(
+    error,
+    DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES.childStartTransport,
+  );
+}
 
 export function requireDa5V5TalkBackPackage(value) {
   if (!allowedTalkBackPackages.includes(value)) {
@@ -135,6 +169,13 @@ export function isDa5V5AndroidCommandTimeoutError(error) {
   return error instanceof Da5V5AndroidCommandTimeoutError;
 }
 
+export class Da5V5AndroidCommandExitError extends Error {
+  constructor() {
+    super('DA5 V5 Android device command exited unsuccessfully');
+    this.name = 'Da5V5AndroidCommandExitError';
+  }
+}
+
 export class SystemDa5V5AndroidAdbRunner {
   constructor(dependencies = {}) {
     this.dependencies = Object.freeze({
@@ -150,6 +191,10 @@ export class SystemDa5V5AndroidAdbRunner {
 
   runBinaryDigest(arguments_, options = {}) {
     return runAdbBinaryDigest(arguments_, options, this.dependencies);
+  }
+
+  createInstallStreamRunner() {
+    return new SystemDa5V5ValidationInstallStreamRunner(this.dependencies);
   }
 }
 
@@ -312,16 +357,35 @@ export async function installDa5V5AndroidFromPackageZero(options) {
   const verifyArtifact = options.verifyArtifact ?? verifyDa5V5AndroidArtifact;
   const reverifyArtifact = options.reverifyArtifact
     ?? reverifyDa5V5AndroidArtifactForInstall;
-  const verification = verifyArtifact({
-    profile: options.profile,
-    ...(options.artifactDependencies === undefined
-      ? {}
-      : { dependencies: options.artifactDependencies }),
-  });
+  let verification;
+  try {
+    verification = verifyArtifact({
+      profile: options.profile,
+      ...(options.artifactDependencies === undefined
+        ? {}
+        : { dependencies: options.artifactDependencies }),
+    });
+  } catch {
+    throw new Da5V5AndroidInstallError(
+      DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES.artifactReverify,
+    );
+  }
   const runner = options.runner ?? new SystemDa5V5AndroidAdbRunner();
+  const installStreamRunner = options.installStreamRunner ?? (
+    runner instanceof SystemDa5V5AndroidAdbRunner
+      ? runner.createInstallStreamRunner()
+      : null
+  );
+  if (typeof installStreamRunner?.write !== 'function') {
+    throw new Da5V5AndroidInstallError(
+      DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES.childStartTransport,
+    );
+  }
   const serialBinding = requireSerialBinding(options.serialBinding);
+  const now = options.now ?? (() => performance.now());
+  let failureCategory =
+    DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES.childStartTransport;
   let mutationStarted = false;
-  let installCommandStarted = false;
   let reverseMutationUncertain = false;
   let verifiedSource = null;
   try {
@@ -342,10 +406,16 @@ export async function installDa5V5AndroidFromPackageZero(options) {
     }
     await requireExactInstalledState(runner, serial, false, options.signal);
     reverseMutationUncertain = false;
-    verifiedSource = reverifyArtifact(
-      verification,
-      options.artifactDependencies?.files,
-    );
+    failureCategory =
+      DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES.artifactReverify;
+    try {
+      verifiedSource = reverifyArtifact(
+        verification,
+        options.artifactDependencies?.files,
+      );
+    } catch {
+      throw new Error('DA5 V5 verified APK snapshot is unavailable');
+    }
     if (
       verifiedSource?.status !== 'match'
       || typeof verifiedSource.use !== 'function'
@@ -353,59 +423,145 @@ export async function installDa5V5AndroidFromPackageZero(options) {
     ) {
       throw new Error('DA5 V5 verified APK snapshot is unavailable');
     }
-    installCommandStarted = true;
+    failureCategory =
+      DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES.childStartTransport;
     uncertainInstallRunners.add(runner);
-    const installResult = await verifiedSource.use((snapshot) => runner.run(
+    unresolvedInstallSessions.add(runner);
+    const installDeadline = now() + timeouts.install;
+    const createReceipt = await runInstallControlCommand(
+      runner,
       [
-        '-s',
-        serial,
-        'shell',
-        '-T',
-        'cmd',
-        'package',
-        'install',
-        '-R',
-        '--pkg',
-        DA5_V5_ANDROID_PACKAGE,
-        '-S',
-        String(DA5_V5_ANDROID_ARTIFACT.apk.bytes),
-        '-',
+        '-s', serial, 'shell', '-T', '-x', 'cmd', 'package',
+        'install-create', '-R', '--user', androidOwnerUser,
+        '--pkg', DA5_V5_ANDROID_PACKAGE,
+        '-S', String(DA5_V5_ANDROID_ARTIFACT.apk.bytes),
       ],
-      {
-        signal: options.signal,
-        stdinBytes: snapshot,
-        timeoutMilliseconds: timeouts.install,
-      },
-    ));
-    verifiedSource = null;
-    if (oneLine(installResult) !== 'Success') {
-      throw new Error('DA5 V5 Android package-manager install failed');
+      options.signal,
+      installDeadline,
+      now,
+    );
+    const createResult = parsePackageManagerCreateReceipt(createReceipt);
+    if (createResult.status !== 'match') {
+      failureCategory =
+        DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES.packageManagerReceipt;
+      if (createResult.sessionAbsent) {
+        unresolvedInstallSessions.delete(runner);
+      }
+      throw new Error('DA5 V5 Android install-create receipt mismatch');
     }
-    await requireExactInstalledState(runner, serial, true, options.signal);
-    await requireExactInstalledArtifactBytes(runner, serial, options.signal);
+    unresolvedInstallSessions.delete(runner);
+    pendingInstallSessions.set(runner, Object.freeze({
+      serial,
+      sessionId: createResult.sessionId,
+    }));
+
+    const writeSerial = await bindCurrentDevice(
+      runner,
+      serialBinding,
+      options.deviceBinding,
+      options.signal,
+    );
+    if (writeSerial !== serial) {
+      throw new Error('DA5 V5 Android install-write device mismatch');
+    }
+    let writeOutcome;
+    try {
+      writeOutcome = await verifiedSource.use((snapshot) => installStreamRunner.write(
+        [
+          '-s', writeSerial, 'shell', '-T', '-x', 'cmd', 'package',
+          'install-write', '-S', String(DA5_V5_ANDROID_ARTIFACT.apk.bytes),
+          createResult.sessionId, installSplitName, '-',
+        ],
+        {
+          signal: options.signal,
+          stdinBytes: snapshot,
+          timeoutMilliseconds: remainingInstallTimeout(installDeadline, now),
+        },
+      ));
+    } finally {
+      verifiedSource = null;
+    }
+    if (writeOutcome?.status !== 'match') {
+      failureCategory = installStreamFailureCategory(writeOutcome);
+      throw new Error('DA5 V5 Android install-write stream mismatch');
+    }
+    failureCategory = classifyPackageManagerWriteReceipt(
+      writeOutcome.stdout,
+      writeOutcome.stdinTerminal,
+    );
+    if (failureCategory !== null) {
+      throw new Error('DA5 V5 Android install-write receipt mismatch');
+    }
+
+    failureCategory =
+      DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES.childStartTransport;
+    const commitSerial = await bindCurrentDevice(
+      runner,
+      serialBinding,
+      options.deviceBinding,
+      options.signal,
+    );
+    if (commitSerial !== serial) {
+      throw new Error('DA5 V5 Android install-commit device mismatch');
+    }
+    const commitReceipt = await runInstallControlCommand(
+      runner,
+      [
+        '-s', commitSerial, 'shell', '-T', '-x', 'cmd', 'package',
+        'install-commit', createResult.sessionId,
+      ],
+      options.signal,
+      installDeadline,
+      now,
+    );
+    if (!isExactPackageManagerSuccess(commitReceipt)) {
+      failureCategory =
+        DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES.packageManagerReceipt;
+      throw new Error('DA5 V5 Android install-commit receipt mismatch');
+    }
+    pendingInstallSessions.delete(runner);
+
+    failureCategory =
+      DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES.installedProvenance;
+    const proofSerial = await bindCurrentDevice(
+      runner,
+      serialBinding,
+      options.deviceBinding,
+      options.signal,
+    );
+    if (proofSerial !== serial) {
+      throw new Error('DA5 V5 Android installed device mismatch');
+    }
+    await requireExactInstalledState(runner, proofSerial, true, options.signal);
+    await requireExactInstalledArtifactBytes(runner, proofSerial, options.signal);
     uncertainInstallRunners.delete(runner);
     return Object.freeze({
       packageName: DA5_V5_ANDROID_PACKAGE,
       status: 'match',
     });
-  } catch {
-    verifiedSource?.destroy();
+  } catch (error) {
+    failureCategory = classifyTypedInstallFailure(error, failureCategory);
+    try {
+      verifiedSource?.destroy();
+    } catch {
+      failureCategory = DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES.cleanup;
+    }
     if (mutationStarted) {
       const rollback = await cleanupDa5V5AndroidState({
         profile: options.profile,
         runner,
         deviceBinding: options.deviceBinding,
         serialBinding,
-        installationState: installCommandStarted ? 'uncertain' : 'known',
+        installationState: uncertainInstallRunners.has(runner) ? 'uncertain' : 'known',
         reverseState: reverseMutationUncertain ? 'uncertain' : 'known',
         now: options.now,
         wait: options.wait,
       });
       if (rollback.status !== 'match') {
-        throw new Error('DA5 V5 Android install rollback failed');
+        failureCategory = DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES.cleanup;
       }
     }
-    throw new Error('DA5 V5 Android install failed');
+    throw new Da5V5AndroidInstallError(failureCategory);
   }
 }
 
@@ -476,6 +632,33 @@ async function performCleanup(
     return Object.freeze({ status: 'mismatch' });
   }
 
+  const pendingSession = pendingInstallSessions.get(runner);
+  if (pendingSession !== undefined) {
+    if (pendingSession.serial !== serial) {
+      failed = true;
+    } else {
+      try {
+        const receipt = await runner.run(
+          [
+            '-s', serial, 'shell', '-T', '-x', 'cmd', 'package',
+            'install-abandon', pendingSession.sessionId,
+          ],
+          { timeoutMilliseconds: timeouts.uninstall },
+        );
+        if (!isExactPackageManagerSuccess(receipt)) {
+          failed = true;
+        } else {
+          pendingInstallSessions.delete(runner);
+        }
+      } catch {
+        failed = true;
+      }
+    }
+  }
+  if (unresolvedInstallSessions.has(runner)) {
+    failed = true;
+  }
+
   let mappings = [];
   try {
     mappings = await readMappings(runner, serial);
@@ -533,6 +716,9 @@ async function performCleanup(
     uncertainMutation,
     now,
   )) {
+    failed = true;
+  }
+  if (pendingInstallSessions.has(runner) || unresolvedInstallSessions.has(runner)) {
     failed = true;
   }
   return Object.freeze({ status: failed ? 'mismatch' : 'match' });
@@ -931,6 +1117,142 @@ function isExactEmptyOutput(value) {
   return value === '' || value === '\n' || value === '\r\n';
 }
 
+function requireInstallFailureCategory(value) {
+  if (!Object.values(DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES).includes(value)) {
+    throw new Error('DA5 V5 Android install failure category is unavailable');
+  }
+  return value;
+}
+
+function classifyTypedInstallFailure(error, fallbackCategory) {
+  if (error instanceof Da5V5AndroidInstallError) {
+    return error.category;
+  }
+  if (isDa5V5AndroidCommandTimeoutError(error)) {
+    return DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES.timeout;
+  }
+  if (error instanceof Da5V5AndroidCommandExitError) {
+    return DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES.childExit;
+  }
+  return fallbackCategory;
+}
+
+async function runInstallControlCommand(
+  runner,
+  arguments_,
+  signal,
+  deadline,
+  now,
+) {
+  try {
+    return await runner.run(arguments_, {
+      signal,
+      timeoutMilliseconds: remainingInstallTimeout(deadline, now),
+    });
+  } catch (error) {
+    throw new Da5V5AndroidInstallError(classifyTypedInstallFailure(
+      error,
+      DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES.childStartTransport,
+    ));
+  }
+}
+
+function remainingInstallTimeout(deadline, now) {
+  const remaining = Math.floor(deadline - now());
+  if (remaining <= 0) {
+    throw new Da5V5AndroidInstallError(
+      DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES.timeout,
+    );
+  }
+  return Math.min(timeouts.install, remaining);
+}
+
+function parsePackageManagerCreateReceipt(value) {
+  let line;
+  try {
+    line = exactSingleLine(value);
+  } catch {
+    return Object.freeze({ sessionAbsent: false, status: 'mismatch' });
+  }
+  const match = /^Success: created install session \[([1-9][0-9]{0,9})\]$/u
+    .exec(line);
+  if (match?.[1] !== undefined) {
+    const sessionId = Number(match[1]);
+    if (
+      Number.isSafeInteger(sessionId)
+      && sessionId <= maximumPackageInstallerSessionId
+    ) {
+      return Object.freeze({ sessionId: match[1], status: 'match' });
+    }
+  }
+  return Object.freeze({
+    sessionAbsent: isExactPackageManagerNonSuccessLine(line),
+    status: 'mismatch',
+  });
+}
+
+function isExactPackageManagerNonSuccessLine(value) {
+  return (
+    value.length <= 2_048
+    && (
+      /^Failure \[[^\0\r\n]+\]$/u.test(value)
+      || /^Error: [^\0\r\n]+$/u.test(value)
+    )
+  );
+}
+
+function isExactPackageManagerSuccess(value) {
+  try {
+    return exactSingleLine(value) === 'Success';
+  } catch {
+    return false;
+  }
+}
+
+function classifyPackageManagerWriteReceipt(value, stdinTerminal) {
+  if (stdinTerminal === 'partial_then_pipe_closed') {
+    return DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES.stdinPipe;
+  }
+  if (
+    stdinTerminal !== 'finished'
+    && stdinTerminal !== 'all_bytes_submitted_then_pipe_closed'
+  ) {
+    return DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES.stdinPipe;
+  }
+  try {
+    return exactSingleLine(value) === (
+      `Success: streamed ${DA5_V5_ANDROID_ARTIFACT.apk.bytes} bytes`
+    )
+      ? null
+      : DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES.packageManagerReceipt;
+  } catch {
+    return DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES.packageManagerReceipt;
+  }
+}
+
+function installStreamFailureCategory(outcome) {
+  const category = outcome?.category;
+  if (
+    category
+    === DA5_V5_VALIDATION_INSTALL_STREAM_ERROR_CATEGORIES.stdinPipeAbortMismatch
+  ) {
+    return DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES.stdinPipe;
+  }
+  if (
+    category
+    === DA5_V5_VALIDATION_INSTALL_STREAM_ERROR_CATEGORIES.childTimeoutMismatch
+  ) {
+    return DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES.timeout;
+  }
+  if (
+    category
+    === DA5_V5_VALIDATION_INSTALL_STREAM_ERROR_CATEGORIES.childExitMismatch
+  ) {
+    return DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES.childExit;
+  }
+  return DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES.childStartTransport;
+}
+
 function readTalkBackVersion(value) {
   const matches = [...value.matchAll(/^\s*versionName=(\S+)\s*$/gmu)];
   if (matches.length !== 1 || matches[0]?.[1] === undefined) {
@@ -1117,10 +1439,12 @@ function runAdb(arguments_, options, dependencies) {
       terminate(new Error('DA5 V5 Android device command failed'));
     }
 
-    function onClose(code) {
+    function onClose(code, signal) {
       finish(
         terminationError ?? (
-          code === 0 ? undefined : new Error('DA5 V5 Android device command failed')
+          code === 0 && (signal === null || signal === undefined)
+            ? undefined
+            : new Da5V5AndroidCommandExitError()
         ),
         stdout,
       );
@@ -1308,10 +1632,12 @@ function runAdbBinaryDigest(arguments_, options, dependencies) {
     const onChildError = () => {
       terminate(new Error('DA5 V5 Android device command failed'));
     };
-    const onClose = (code) => {
+    const onClose = (code, signal) => {
       finish(
         terminationError ?? (
-          code === 0 ? undefined : new Error('DA5 V5 Android device command failed')
+          code === 0 && (signal === null || signal === undefined)
+            ? undefined
+            : new Da5V5AndroidCommandExitError()
         ),
       );
     };

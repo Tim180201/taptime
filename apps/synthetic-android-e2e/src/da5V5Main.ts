@@ -1,6 +1,7 @@
 import { Writable } from 'node:stream';
 import { createInterface } from 'node:readline';
 import {
+  classifyDa5V5AndroidInstallError,
   cleanupDa5V5AndroidState,
   Da5V5AndroidPreinstallPreflight,
   installDa5V5AndroidFromPackageZero,
@@ -322,13 +323,20 @@ async function handleCommand(line: string): Promise<Da5V5OperatorCommandOutcome>
     ) {
       return fail(activeSession, 'da5_v5_device_checkpoint=mismatch');
     }
-    await installDa5V5AndroidFromPackageZero({
-      deviceBinding: accessibilityBinding,
-      profile,
-      runner: mobileAdb,
-      serialBinding: deviceLock,
-      signal: mutationAbortController.signal,
-    });
+    try {
+      await installDa5V5AndroidFromPackageZero({
+        deviceBinding: accessibilityBinding,
+        profile,
+        runner: mobileAdb,
+        serialBinding: deviceLock,
+        signal: mutationAbortController.signal,
+      });
+    } catch (error: unknown) {
+      process.stdout.write(
+        `da5_v5_android_install=mismatch category=${classifyDa5V5AndroidInstallError(error)}\n`,
+      );
+      throw new Error('DA5 V5 Android install command failed');
+    }
     if (offline.arm() !== 'match') {
       throw new Error('DA5 V5 offline controller arm mismatch');
     }
