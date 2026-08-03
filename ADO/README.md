@@ -7,6 +7,21 @@ Approval Authority: Human Architect
 
 ## Purpose
 
+### Current DA5 V5 truth — Product preinstall corrected; ADO closure review pending
+
+Read-only inspection on `304ddb159f3def2b50d059678086e02aacbd51c9` / tree
+`97940b61ce76017c9c295b1cb43fe007727f2ca9` matched artifact, device/accessibility and all null
+states; the Product operator did not start and nothing was installed. That Human authority was
+unconsumed but is superseded and non-reusable.
+
+`DA5-V5-PRODUCT-PREINSTALL-01` is corrected in `e525a9ad2b937356002928028fddaaa3e1dca301`
+/ tree `11aa7fdf526c9b149af5dc60ef5567fb727a24fe`; independent review is `APPROVED`. Focused fixture
+correction `4329fec6783907b3549322a344085b96e7d00d16` / tree
+`4165f9d88d07f80f0b3a4772764c53aa2f515e0f` is independently `APPROVED`, and Exact-Head CI
+`30829321321`, attempt 1, passed 12/12. Final technical review requested only this P3 ADO sync;
+independent R0 Exact-Delta review and a fresh exact Human authorization remain required before
+Hardware/ADB/install. DA5/R-034 and all production/deployment/distribution prohibitions remain open.
+
 ### Current DA5 V5 truth — automated Lean V0–V4 complete; Human/Hardware V5 pending
 
 The Human Architect accepted ADR-0019 and the Lean V5 authorization at

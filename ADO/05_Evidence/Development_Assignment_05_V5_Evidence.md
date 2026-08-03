@@ -1,5 +1,59 @@
 # Development Assignment 5 — V5 Human Android Evidence
 
+## Current PRODUCT-PREINSTALL-01 correction evidence — R0 re-review pending
+
+The matched read-only inspection on `304ddb159f3def2b50d059678086e02aacbd51c9` / tree
+`97940b61ce76017c9c295b1cb43fe007727f2ca9` did not start the Product operator or perform any
+installation/Product/database action. Its Human authority was unconsumed but is superseded.
+
+Confirmed finding `DA5-V5-PRODUCT-PREINSTALL-01` was limited to the Product operator treating
+Android-15 `pm path` exit 1 with empty output as a package-null mismatch. Executable correction:
+
+| Binding | Exact value |
+|---|---|
+| Product correction | `e525a9ad2b937356002928028fddaaa3e1dca301` / tree `11aa7fdf526c9b149af5dc60ef5567fb727a24fe` / parent `304ddb159f3def2b50d059678086e02aacbd51c9` |
+| Scope | `apps/mobile/scripts/da5V5AndroidDevice.mjs`; `apps/mobile/tests/runtime/da5V5AndroidDevice.test.ts` |
+| Canonical delta | 18,520 bytes; SHA-256 `0e22a480f3fca20183e3d38780f886e41338b8e61fae1673e51a9ea884ae8c17` |
+| Fixture correction | `4329fec6783907b3549322a344085b96e7d00d16` / tree `4165f9d88d07f80f0b3a4772764c53aa2f515e0f` / parent `e525a9ad2b937356002928028fddaaa3e1dca301`; only `apps/synthetic-android-e2e/tests/Da5V5CredentialTransfer.test.ts`, +13/-1 |
+| Replacement V4 | Exact-Head CI `30829321321`, attempt 1, 12/12; no unchanged retry |
+
+Exact empty User-0 package-list output proves absence; only the canonical package line proves
+presence and permits strict `base.apk` inspection. All other responses fail closed. Strict
+main/secondary process parsing and joint package/process/reverse-null proof are unchanged.
+
+Actual local verification on a fresh task-owned dependency state:
+
+- `npm ci` completed; 20/20 applicable builds ran in dependency order;
+- Mobile and Synthetic tests-inclusive typechecks passed;
+- Mobile passed 54/54 files and 1,193/1,193 tests;
+- focused Product-operator verification passed 3/3 files and 71/71 tests;
+- built operator bundle syntax passed; and
+- Product no-install artifact preflight returned `match`.
+
+Initial pre-build typecheck and incorrect `/private/tmp` Runtime-Guard context were orchestration
+stops; continuation changed build/TMPDIR state and was not an unchanged retry. CI `30828750551`
+was 11/12 only for the historical Credential-ADB fake. Its focused correction is independently
+`APPROVED`; replacement CI passed 12/12. Both implementation reviews have zero open P0–P3.
+
+The exact read-only operator runtime is:
+
+| Runtime entry | Exact binding |
+|---|---|
+| Root | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-product-operator/e525a9ad-00932e6a` |
+| Checkout | `e525a9ad2b937356002928028fddaaa3e1dca301` / tree `11aa7fdf526c9b149af5dc60ef5567fb727a24fe`; tracked clean |
+| Entrypoint | `checkout/apps/synthetic-android-e2e/dist/da5V5Main.js`; 846,453 bytes; mode `0444`; SHA-256 `00932e6a1f8ba8d6ff95ff92ec8437b99c48a3f7e97e6b679f205b8f254b66c6` |
+| Source map | `checkout/apps/synthetic-android-e2e/dist/da5V5Main.js.map`; 1,579,577 bytes; mode `0444`; SHA-256 `2d4064af3424779f05cabab6d8e6f8bd66ad2d33fa08f4ffe0a654abec29eb1b` |
+| Runtime manifest | root `operator-runtime-manifest.json`; 4,475 bytes; mode `0444`; SHA-256 `6ef434d2c1a5684b19bb9a349edc6fd3eefa3aa4d6f8846ba1e5f932de14708b` |
+
+Final independent Exact-Head/Artifact review verified code, CI and runtime technically and
+returned `CHANGES REQUIRED` solely for P3 missing ADO synchronization. This exact five-file R0
+candidate is that synchronization; it claims no CI for its future documentation-only head and
+requires an independent Exact-Delta re-review before any new Hardware authority. Existing Product
+APK/manifest and Validation artifacts remain byte-exact under the Lean bindings below. No ADB,
+Hardware, installation, production, production-data, signing, deployment or distribution action
+is authorized or evidenced here. DA5 and R-034 remain open only for the future fresh Product
+Human/Hardware V5 gate.
+
 ## Current Lean V0–V4 closure — hardware candidate ready; Product Human V5 not run
 
 The Human Architect accepted ADR-0019 and the Lean authorization at

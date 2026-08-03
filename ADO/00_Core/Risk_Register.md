@@ -2,6 +2,16 @@
 
 Status: Active
 
+Current R-034 Product-preinstall override: **Open / R3 pending R0 ADO review and fresh Product
+Human/Hardware V5.** The matched read-only inspection on `304ddb159f3def2b50d059678086e02aacbd51c9`
+did not start the operator or install anything; its authority is superseded. Correction
+`e525a9ad2b937356002928028fddaaa3e1dca301` / tree
+`11aa7fdf526c9b149af5dc60ef5567fb727a24fe` closes Android-15 package-null handling while
+preserving strict path/process/joint-null/cleanup boundaries. Both code and fixture corrections
+are independently `APPROVED`; Exact-Head CI `30829321321`, attempt 1, passed 12/12. Final technical
+review requested only this P3 sync. Hardware/ADB/install and production, production-data, signing,
+deployment and distribution remain unauthorized.
+
 Current R-034 Lean-V5 override: **Open / R3 only pending the separately authorized Product
 Human/Hardware V5 gate.** The Human Architect accepted ADR-0019 and the Lean authorization at
 `83635335aa4f547dc8994243c604dacf9797f593` / tree

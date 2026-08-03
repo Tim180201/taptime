@@ -1,5 +1,36 @@
 # Development Assignment 5 — V5 Human Android Gate Runbook
 
+## Current Product-preinstall correction — DO NOT START hardware
+
+The matched read-only inspection on `304ddb159f3def2b50d059678086e02aacbd51c9` / tree
+`97940b61ce76017c9c295b1cb43fe007727f2ca9` did not start the Product operator or install
+anything. That Human authority is superseded and must not be reused.
+
+`DA5-V5-PRODUCT-PREINSTALL-01` is corrected by executable commit
+`e525a9ad2b937356002928028fddaaa3e1dca301` / tree
+`11aa7fdf526c9b149af5dc60ef5567fb727a24fe`, with verification-head fixture correction
+`4329fec6783907b3549322a344085b96e7d00d16` / tree
+`4165f9d88d07f80f0b3a4772764c53aa2f515e0f`. Exactly empty User-0 package-list output proves
+absence; exactly the canonical package line proves presence, after which alone strict `base.apk`
+inspection may run. Every other result fails closed. Strict main/secondary process parsing and
+joint package/process/reverse-null proof remain mandatory at preinstall and cleanup.
+
+The approved no-custom-executor runtime is preserved read-only at:
+
+| Runtime entry | Exact binding |
+|---|---|
+| Root | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-product-operator/e525a9ad-00932e6a` |
+| Checkout | source `e525a9ad2b937356002928028fddaaa3e1dca301` / tree `11aa7fdf526c9b149af5dc60ef5567fb727a24fe`; tracked clean |
+| Entrypoint | `checkout/apps/synthetic-android-e2e/dist/da5V5Main.js`; 846,453 bytes; mode `0444`; SHA-256 `00932e6a1f8ba8d6ff95ff92ec8437b99c48a3f7e97e6b679f205b8f254b66c6` |
+| Source map | same directory, `da5V5Main.js.map`; 1,579,577 bytes; mode `0444`; SHA-256 `2d4064af3424779f05cabab6d8e6f8bd66ad2d33fa08f4ffe0a654abec29eb1b` |
+| Runtime manifest | root `operator-runtime-manifest.json`; 4,475 bytes; mode `0444`; SHA-256 `6ef434d2c1a5684b19bb9a349edc6fd3eefa3aa4d6f8846ba1e5f932de14708b` |
+
+Local V3 and Exact-Head CI `30829321321`, attempt 1, are green; correction reviews are `APPROVED`.
+**DO NOT START HARDWARE, ADB OR INSTALLATION** until this R0 delta is independently `APPROVED`
+and a new exact Human authorization binds the corrected publication/runtime. Existing Product and
+Validation artifacts remain unchanged. Production, production data, signing, deployment and
+distribution remain unauthorized.
+
 ## Current governance override — automated Lean closure complete; V5 separately gated
 
 ADR-0019 and the Lean authorization were Human-accepted and published at

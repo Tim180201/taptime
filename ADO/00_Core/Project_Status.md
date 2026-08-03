@@ -1,5 +1,21 @@
 # Project Status
 
+DA5 V5 current override: **PRODUCT-PREINSTALL-01 IS TECHNICALLY CORRECTED AND EXACT-HEAD CI IS
+GREEN; R0 ADO REVIEW AND FRESH HUMAN/HARDWARE AUTHORIZATION REMAIN PENDING.** The preceding
+read-only inspection on `304ddb159f3def2b50d059678086e02aacbd51c9` / tree
+`97940b61ce76017c9c295b1cb43fe007727f2ca9` matched all bindings/null states. The operator did not
+start and nothing was installed; that Human authority is superseded and non-reusable.
+
+Correction `e525a9ad2b937356002928028fddaaa3e1dca301` / tree
+`11aa7fdf526c9b149af5dc60ef5567fb727a24fe` makes exact User-0 package-list evidence authoritative
+and preserves strict path/process/joint-null/cleanup boundaries; independent review is `APPROVED`.
+Fresh V3 passed 20/20 builds, both tests-inclusive typechecks, Mobile 1,193/1,193, focused operator
+71/71, bundle syntax and no-install preflight. Initial pre-build/TMPDIR stops changed environment
+before continuation and were not unchanged retries. Fixture correction
+`4329fec6783907b3549322a344085b96e7d00d16` is independently `APPROVED`; replacement Exact-Head
+CI `30829321321`, attempt 1, passed 12/12. Final technical review requested only this P3 ADO sync.
+DA5/R-034 and all Hardware/production prohibitions remain open through R0 review and the Human gate.
+
 DA5 V5 current override: **AUTOMATED LEAN V0–V4 AND LEAN STAGES 1–5 ARE COMPLETE; THE PRODUCT
 HUMAN/HARDWARE V5 GATE REMAINS SEPARATELY UNAUTHORIZED.** The Human Architect accepted ADR-0019
 and the Lean authorization at `83635335aa4f547dc8994243c604dacf9797f593` / tree
