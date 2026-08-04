@@ -14,6 +14,7 @@ import {
 } from './da5V5AndroidArtifact.mjs';
 import {
   DA5_V5_VALIDATION_INSTALL_STREAM_ERROR_CATEGORIES,
+  DA5_V5_VALIDATION_INSTALL_STREAM_TERMINAL_CAUSES,
   SystemDa5V5ValidationInstallStreamRunner,
 } from './da5V5ValidationInstallStream.mjs';
 
@@ -21,10 +22,7 @@ const requiredMappings = Object.freeze([
   Object.freeze({ device: 'tcp:54321', host: 'tcp:54321' }),
   Object.freeze({ device: 'tcp:3000', host: 'tcp:3000' }),
 ]);
-const cleanupFlights = new WeakMap();
-const pendingInstallSessions = new WeakMap();
-const unresolvedInstallSessions = new WeakSet();
-const uncertainInstallRunners = new WeakSet();
+const activeInstallTransactions = new WeakMap();
 const timeouts = Object.freeze({
   inspect: 15_000,
   install: 240_000,
@@ -44,6 +42,72 @@ const allowedTalkBackPackages = Object.freeze([
 const androidOwnerUser = '0';
 const installSplitName = 'base.apk';
 const maximumPackageInstallerSessionId = 2_147_483_647;
+const cleanupRetryAttempts = 2;
+const cleanupPackageResource = 'package';
+const transientAdbErrorCodes = new Set([
+  'EAGAIN',
+  'EBUSY',
+  'ECONNRESET',
+  'EPIPE',
+  'ETIMEDOUT',
+]);
+const cleanupResourceStates = Object.freeze({
+  baselineUnproven: 'baseline_unproven',
+  cleanupFailed: 'cleanup_failed',
+  cleanupNotStarted: 'cleanup_not_started',
+  cleanupRemovalStarted: 'cleanup_removal_started',
+  cleanupRemoved: 'cleanup_removed',
+  mutationNotStarted: 'mutation_not_started',
+  mutationOwned: 'mutation_owned',
+  mutationUncertain: 'mutation_uncertain',
+  zeroProven: 'zero_proven',
+});
+
+export const DA5_V5_ANDROID_CLEANUP_SUBSTAGES = Object.freeze({
+  artifactSnapshotDestroy: 'artifact_snapshot_destroy',
+  complete: 'complete',
+  deviceReattest: 'device_reattest',
+  finalZero: 'final_zero',
+  installAbandon: 'install_abandon',
+  internal: 'cleanup_internal',
+  notRequired: 'not_required',
+  packageList: 'package_list',
+  packageUninstall: 'package_uninstall',
+  processList: 'process_list',
+  reverseList: 'reverse_list',
+  reverseRemoveApi: 'reverse_remove_tcp_3000',
+  reverseRemoveAuth: 'reverse_remove_tcp_54321',
+  runnerBinding: 'runner_binding',
+  uncertaintyEscalation: 'uncertainty_escalation',
+});
+
+const cleanupNotRequired = Object.freeze({
+  status: 'not_required',
+  substage: DA5_V5_ANDROID_CLEANUP_SUBSTAGES.notRequired,
+});
+
+function createCleanupResourceRecord() {
+  return Object.freeze({
+    baseline: cleanupResourceStates.baselineUnproven,
+    cleanup: cleanupResourceStates.cleanupNotStarted,
+    mutation: cleanupResourceStates.mutationNotStarted,
+  });
+}
+
+function cleanupCoverageIsUncertain(coverage) {
+  return (
+    coverage.installationUncertain === true
+    || coverage.reverseUncertain === true
+  );
+}
+
+function cleanupCoverageIncludes(completed, requested) {
+  return (
+    completed !== undefined
+    && (!requested.installationUncertain || completed.installationUncertain)
+    && (!requested.reverseUncertain || completed.reverseUncertain)
+  );
+}
 
 export const DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES = Object.freeze({
   artifactReverify: 'artifact_reverify',
@@ -52,15 +116,19 @@ export const DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES = Object.freeze({
   cleanup: 'cleanup',
   installedProvenance: 'installed_provenance',
   packageManagerReceipt: 'package_manager_receipt',
+  signalAbort: 'signal_abort',
   stdinPipe: 'stdin_pipe',
   timeout: 'timeout',
 });
 
 export class Da5V5AndroidInstallError extends Error {
-  constructor(category) {
+  constructor(category, cleanup = cleanupNotRequired) {
     super('DA5 V5 Android install failed');
     this.name = 'Da5V5AndroidInstallError';
     this.category = requireInstallFailureCategory(category);
+    const normalizedCleanup = requireInstallCleanupEvidence(cleanup);
+    this.cleanupStatus = normalizedCleanup.status;
+    this.cleanupSubstage = normalizedCleanup.substage;
   }
 }
 
@@ -69,6 +137,16 @@ export function classifyDa5V5AndroidInstallError(error) {
     error,
     DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES.childStartTransport,
   );
+}
+
+export function classifyDa5V5AndroidInstallCleanup(error) {
+  if (error instanceof Da5V5AndroidInstallError) {
+    return Object.freeze({
+      status: error.cleanupStatus,
+      substage: error.cleanupSubstage,
+    });
+  }
+  return cleanupNotRequired;
 }
 
 export function requireDa5V5TalkBackPackage(value) {
@@ -176,6 +254,29 @@ export class Da5V5AndroidCommandExitError extends Error {
   }
 }
 
+export class Da5V5AndroidCommandTransientError extends Error {
+  constructor() {
+    super('DA5 V5 Android device command failed transiently');
+    this.name = 'Da5V5AndroidCommandTransientError';
+  }
+}
+
+export function isDa5V5AndroidCommandTransientError(error) {
+  return error instanceof Da5V5AndroidCommandTransientError;
+}
+
+function classifyAdbTransportError(error) {
+  return (
+    typeof error === 'object'
+    && error !== null
+    && 'code' in error
+    && typeof error.code === 'string'
+    && transientAdbErrorCodes.has(error.code)
+  )
+    ? new Da5V5AndroidCommandTransientError()
+    : new Error('DA5 V5 Android device command failed');
+}
+
 export class SystemDa5V5AndroidAdbRunner {
   constructor(dependencies = {}) {
     this.dependencies = Object.freeze({
@@ -195,6 +296,402 @@ export class SystemDa5V5AndroidAdbRunner {
 
   createInstallStreamRunner() {
     return new SystemDa5V5ValidationInstallStreamRunner(this.dependencies);
+  }
+}
+
+export class Da5V5AndroidInstallTransaction {
+  #abandonFlight;
+  #cleanupCoverage;
+  #cleanupDeadline = null;
+  #cleanupFlight;
+  #installStarted = false;
+  #packageRemovalFlight;
+  #resources = new Map([
+    [cleanupPackageResource, createCleanupResourceRecord()],
+    ...requiredMappings.map(({ device }) => [device, createCleanupResourceRecord()]),
+  ]);
+  #serial = null;
+  #sessionId;
+  #sessionState = 'none';
+
+  constructor(options) {
+    if (
+      options === undefined
+      || typeof options.runner?.run !== 'function'
+      || typeof options.installStreamRunner?.write !== 'function'
+    ) {
+      throw new Error('DA5 V5 Android install runner binding is unavailable');
+    }
+    const serialBinding = requireSerialBinding(options.serialBinding);
+    requireDeviceBinding(options.deviceBinding);
+    this.runner = options.runner;
+    this.installStreamRunner = options.installStreamRunner;
+    this.serialBinding = serialBinding;
+    this.deviceBinding = Object.freeze({
+      androidBuild: options.deviceBinding.androidBuild,
+      deviceModel: options.deviceBinding.deviceModel,
+    });
+    this.cleanupOwnership = Object.freeze({
+      deviceBinding: this.deviceBinding,
+      packageName: DA5_V5_ANDROID_PACKAGE,
+      reverseMappings: requiredMappings,
+    });
+    Object.freeze(this);
+  }
+
+  matchesInstallBindings(options) {
+    return (
+      options.runner === this.runner
+      && options.installStreamRunner === this.installStreamRunner
+      && options.serialBinding === this.serialBinding
+      && deviceBindingMatches(options.deviceBinding, this.deviceBinding)
+    );
+  }
+
+  matchesCleanupBindings(options) {
+    return (
+      options.runner === this.runner
+      && options.serialBinding === this.serialBinding
+      && deviceBindingMatches(options.deviceBinding, this.deviceBinding)
+    );
+  }
+
+  beginInstall() {
+    const active = activeInstallTransactions.get(this.runner);
+    if (
+      this.#installStarted
+      || this.#cleanupFlight !== undefined
+      || (active !== undefined && active !== this)
+    ) {
+      return false;
+    }
+    activeInstallTransactions.set(this.runner, this);
+    this.#installStarted = true;
+    return true;
+  }
+
+  bindSerial(serial) {
+    if (
+      typeof serial !== 'string'
+      || serial.length === 0
+      || (this.#serial !== null && this.#serial !== serial)
+    ) {
+      return false;
+    }
+    this.#serial = serial;
+    return true;
+  }
+
+  serialMatches(serial) {
+    return this.#serial !== null && this.#serial === serial;
+  }
+
+  markZeroPreconditionProven() {
+    if (this.hasMutationStarted()) {
+      throw new Error('DA5 V5 Android cleanup zero precondition is unavailable');
+    }
+    for (const resource of this.#resources.keys()) {
+      const record = this.#resource(resource);
+      if (record.baseline !== cleanupResourceStates.baselineUnproven) {
+        throw new Error('DA5 V5 Android cleanup zero precondition was already used');
+      }
+      this.#setResource(resource, {
+        ...record,
+        baseline: cleanupResourceStates.zeroProven,
+      });
+    }
+  }
+
+  markReverseMutationStarted(device) {
+    this.#markMutationStarted(device);
+  }
+
+  markReverseMutationProven(device) {
+    this.#markMutationProven(device);
+  }
+
+  markReverseStateProven() {
+    for (const { device } of requiredMappings) {
+      this.#markMutationProven(device);
+    }
+  }
+
+  markSessionCreateStarted() {
+    this.#markMutationStarted(cleanupPackageResource);
+    this.#sessionState = 'uncertain';
+    this.#sessionId = undefined;
+  }
+
+  markSessionAbsent() {
+    this.#sessionState = 'absent';
+    this.#sessionId = undefined;
+  }
+
+  markSessionPending(serial, sessionId) {
+    if (!this.serialMatches(serial)) {
+      throw new Error('DA5 V5 Android install session device mismatch');
+    }
+    this.#sessionState = 'pending';
+    this.#sessionId = sessionId;
+  }
+
+  markSessionCommitted() {
+    this.#markMutationProven(cleanupPackageResource);
+    this.#sessionState = 'committed';
+    this.#sessionId = undefined;
+  }
+
+  markInstalledProven() {
+    this.#markMutationProven(cleanupPackageResource);
+  }
+
+  hasMutationStarted() {
+    return [...this.#resources.values()].some((record) => (
+      record.mutation !== cleanupResourceStates.mutationNotStarted
+    ));
+  }
+
+  uncertainMutation() {
+    return [...this.#resources.values()].some((record) => (
+      record.mutation === cleanupResourceStates.mutationUncertain
+    ));
+  }
+
+  canMutatePackage() {
+    return this.#canMutateResource(cleanupPackageResource);
+  }
+
+  canMutateReverseMapping(device) {
+    return this.#canMutateResource(device, true);
+  }
+
+  markReverseMappingRemoved(device) {
+    this.#markResourceRemoved(device);
+  }
+
+  beginReverseMappingRemoval(device) {
+    this.#markRemovalStarted(device);
+  }
+
+  markReverseMappingCleanupFailed(device) {
+    this.#markResourceCleanupFailed(device);
+  }
+
+  markPackageRemoved() {
+    this.#markResourceRemoved(cleanupPackageResource);
+  }
+
+  sessionSettled() {
+    return [
+      'none',
+      'absent',
+      'abandoned',
+      'committed',
+    ].includes(this.#sessionState);
+  }
+
+  settleInstallSession(serial, operation) {
+    if (this.#abandonFlight !== undefined) {
+      return this.#abandonFlight;
+    }
+    if (this.sessionSettled()) {
+      return Promise.resolve(Object.freeze({ status: 'match' }));
+    }
+    if (
+      this.#sessionState !== 'pending'
+      || typeof this.#sessionId !== 'string'
+      || !this.serialMatches(serial)
+    ) {
+      return Promise.resolve(Object.freeze({ status: 'mismatch' }));
+    }
+    const sessionId = this.#sessionId;
+    this.#sessionState = 'abandon_attempted';
+    this.#abandonFlight = (async () => {
+      try {
+        const result = await operation(sessionId);
+        if (result?.status !== 'match') {
+          return Object.freeze({ status: 'mismatch' });
+        }
+        this.#sessionId = undefined;
+        this.#sessionState = 'abandoned';
+        return Object.freeze({ status: 'match' });
+      } catch {
+        return Object.freeze({ status: 'mismatch' });
+      }
+    })();
+    return this.#abandonFlight;
+  }
+
+  removePackage(serial, operation) {
+    if (this.#packageRemovalFlight !== undefined) {
+      return this.#packageRemovalFlight;
+    }
+    if (!this.serialMatches(serial) || !this.canMutatePackage()) {
+      return Promise.resolve(Object.freeze({ status: 'mismatch' }));
+    }
+    this.#markRemovalStarted(cleanupPackageResource);
+    this.#packageRemovalFlight = Promise.resolve()
+      .then(operation)
+      .then((result) => {
+        if (result?.status !== 'match') {
+          this.#markResourceCleanupFailed(cleanupPackageResource);
+          return Object.freeze({ status: 'mismatch' });
+        }
+        this.#markResourceRemoved(cleanupPackageResource);
+        return Object.freeze({ status: 'match' });
+      })
+      .catch(() => {
+        this.#markResourceCleanupFailed(cleanupPackageResource);
+        return Object.freeze({ status: 'mismatch' });
+      });
+    return this.#packageRemovalFlight;
+  }
+
+  cleanup(options, now, operation) {
+    const requestedCoverage = this.#requestedCleanupCoverage(options);
+    if (this.#cleanupFlight !== undefined) {
+      if (!cleanupCoverageIncludes(this.#cleanupCoverage, requestedCoverage)) {
+        return Promise.resolve(cleanupMismatch(
+          DA5_V5_ANDROID_CLEANUP_SUBSTAGES.uncertaintyEscalation,
+        ));
+      }
+      return this.#cleanupFlight;
+    }
+    this.#cleanupCoverage = requestedCoverage;
+    this.#cleanupDeadline = cleanupCoverageIsUncertain(requestedCoverage)
+      ? now() + uncertainInstallCleanup.maximumMilliseconds
+      : null;
+    this.#cleanupFlight = Promise.resolve().then(() => operation(Object.freeze({
+      deadline: this.#cleanupDeadline,
+      installationUncertain: requestedCoverage.installationUncertain,
+      reverseUncertain: requestedCoverage.reverseUncertain,
+    }))).catch(() => (
+      cleanupMismatch(DA5_V5_ANDROID_CLEANUP_SUBSTAGES.internal)
+    ));
+    return this.#cleanupFlight;
+  }
+
+  markCleanupComplete() {
+    for (const [resource, record] of this.#resources) {
+      if (record.mutation !== cleanupResourceStates.mutationNotStarted) {
+        this.#setResource(resource, {
+          ...record,
+          cleanup: cleanupResourceStates.cleanupRemoved,
+        });
+      }
+    }
+  }
+
+  #requestedCleanupCoverage(options) {
+    return Object.freeze({
+      installationUncertain: (
+        options.installationState === 'uncertain'
+        || this.#resource(cleanupPackageResource).mutation
+          === cleanupResourceStates.mutationUncertain
+      ),
+      reverseUncertain: (
+        options.reverseState === 'uncertain'
+        || requiredMappings.some(({ device }) => (
+          this.#resource(device).mutation === cleanupResourceStates.mutationUncertain
+        ))
+      ),
+    });
+  }
+
+  #canMutateResource(resource, allowPreviouslyRemoved = false) {
+    const record = this.#resource(resource);
+    return (
+      record.baseline === cleanupResourceStates.zeroProven
+      && [
+        cleanupResourceStates.mutationOwned,
+        cleanupResourceStates.mutationUncertain,
+      ].includes(record.mutation)
+      && [
+        cleanupResourceStates.cleanupNotStarted,
+        cleanupResourceStates.cleanupRemovalStarted,
+        ...(allowPreviouslyRemoved ? [cleanupResourceStates.cleanupRemoved] : []),
+      ].includes(record.cleanup)
+    );
+  }
+
+  #markMutationStarted(resource) {
+    const record = this.#resource(resource);
+    if (
+      record.baseline !== cleanupResourceStates.zeroProven
+      || record.mutation !== cleanupResourceStates.mutationNotStarted
+      || record.cleanup !== cleanupResourceStates.cleanupNotStarted
+    ) {
+      throw new Error('DA5 V5 Android cleanup resource ownership is unavailable');
+    }
+    this.#setResource(resource, {
+      ...record,
+      mutation: cleanupResourceStates.mutationUncertain,
+    });
+  }
+
+  #markMutationProven(resource) {
+    const record = this.#resource(resource);
+    if (
+      record.baseline !== cleanupResourceStates.zeroProven
+      || ![
+        cleanupResourceStates.mutationOwned,
+        cleanupResourceStates.mutationUncertain,
+      ].includes(record.mutation)
+    ) {
+      throw new Error('DA5 V5 Android cleanup resource ownership is unavailable');
+    }
+    this.#setResource(resource, {
+      ...record,
+      mutation: cleanupResourceStates.mutationOwned,
+    });
+  }
+
+  #markRemovalStarted(resource) {
+    const record = this.#resource(resource);
+    if (
+      !this.#canMutateResource(resource, resource !== cleanupPackageResource)
+      || ![
+        cleanupResourceStates.cleanupNotStarted,
+        cleanupResourceStates.cleanupRemoved,
+      ].includes(record.cleanup)
+    ) {
+      throw new Error('DA5 V5 Android cleanup resource ownership is unavailable');
+    }
+    this.#setResource(resource, {
+      ...record,
+      cleanup: cleanupResourceStates.cleanupRemovalStarted,
+    });
+  }
+
+  #markResourceCleanupFailed(resource) {
+    const record = this.#resource(resource);
+    this.#setResource(resource, {
+      ...record,
+      cleanup: cleanupResourceStates.cleanupFailed,
+    });
+  }
+
+  #markResourceRemoved(resource) {
+    const record = this.#resource(resource);
+    if (record.mutation === cleanupResourceStates.mutationNotStarted) {
+      throw new Error('DA5 V5 Android cleanup resource ownership is unavailable');
+    }
+    this.#setResource(resource, {
+      ...record,
+      cleanup: cleanupResourceStates.cleanupRemoved,
+    });
+  }
+
+  #resource(resource) {
+    const record = this.#resources.get(resource);
+    if (record === undefined) {
+      throw new Error('DA5 V5 Android cleanup resource is unavailable');
+    }
+    return record;
+  }
+
+  #setResource(resource, record) {
+    this.#resources.set(resource, Object.freeze(record));
   }
 }
 
@@ -382,11 +879,23 @@ export async function installDa5V5AndroidFromPackageZero(options) {
     );
   }
   const serialBinding = requireSerialBinding(options.serialBinding);
+  const transaction = requireInstallTransaction(options.transaction);
+  if (
+    !transaction.matchesInstallBindings({
+      deviceBinding: options.deviceBinding,
+      installStreamRunner,
+      runner,
+      serialBinding,
+    })
+    || !transaction.beginInstall()
+  ) {
+    throw new Da5V5AndroidInstallError(
+      DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES.childStartTransport,
+    );
+  }
   const now = options.now ?? (() => performance.now());
   let failureCategory =
     DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES.childStartTransport;
-  let mutationStarted = false;
-  let reverseMutationUncertain = false;
   let verifiedSource = null;
   try {
     const serial = await bindCurrentDevice(
@@ -394,18 +903,20 @@ export async function installDa5V5AndroidFromPackageZero(options) {
       serialBinding,
       options.deviceBinding,
       options.signal,
+      transaction,
     );
     await assertDa5V5PackageMappingZero(runner, serial, { signal: options.signal });
-    mutationStarted = true;
+    transaction.markZeroPreconditionProven();
     for (const mapping of requiredMappings) {
-      reverseMutationUncertain = true;
+      transaction.markReverseMutationStarted(mapping.device);
       await runner.run(['-s', serial, 'reverse', mapping.device, mapping.host], {
         signal: options.signal,
         timeoutMilliseconds: timeouts.reverse,
       });
+      transaction.markReverseMutationProven(mapping.device);
     }
     await requireExactInstalledState(runner, serial, false, options.signal);
-    reverseMutationUncertain = false;
+    transaction.markReverseStateProven();
     failureCategory =
       DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES.artifactReverify;
     try {
@@ -425,8 +936,7 @@ export async function installDa5V5AndroidFromPackageZero(options) {
     }
     failureCategory =
       DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES.childStartTransport;
-    uncertainInstallRunners.add(runner);
-    unresolvedInstallSessions.add(runner);
+    transaction.markSessionCreateStarted();
     const installDeadline = now() + timeouts.install;
     const createReceipt = await runInstallControlCommand(
       runner,
@@ -445,21 +955,18 @@ export async function installDa5V5AndroidFromPackageZero(options) {
       failureCategory =
         DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES.packageManagerReceipt;
       if (createResult.sessionAbsent) {
-        unresolvedInstallSessions.delete(runner);
+        transaction.markSessionAbsent();
       }
       throw new Error('DA5 V5 Android install-create receipt mismatch');
     }
-    unresolvedInstallSessions.delete(runner);
-    pendingInstallSessions.set(runner, Object.freeze({
-      serial,
-      sessionId: createResult.sessionId,
-    }));
+    transaction.markSessionPending(serial, createResult.sessionId);
 
     const writeSerial = await bindCurrentDevice(
       runner,
       serialBinding,
       options.deviceBinding,
       options.signal,
+      transaction,
     );
     if (writeSerial !== serial) {
       throw new Error('DA5 V5 Android install-write device mismatch');
@@ -500,6 +1007,7 @@ export async function installDa5V5AndroidFromPackageZero(options) {
       serialBinding,
       options.deviceBinding,
       options.signal,
+      transaction,
     );
     if (commitSerial !== serial) {
       throw new Error('DA5 V5 Android install-commit device mismatch');
@@ -519,7 +1027,7 @@ export async function installDa5V5AndroidFromPackageZero(options) {
         DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES.packageManagerReceipt;
       throw new Error('DA5 V5 Android install-commit receipt mismatch');
     }
-    pendingInstallSessions.delete(runner);
+    transaction.markSessionCommitted();
 
     failureCategory =
       DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES.installedProvenance;
@@ -528,302 +1036,435 @@ export async function installDa5V5AndroidFromPackageZero(options) {
       serialBinding,
       options.deviceBinding,
       options.signal,
+      transaction,
     );
     if (proofSerial !== serial) {
       throw new Error('DA5 V5 Android installed device mismatch');
     }
     await requireExactInstalledState(runner, proofSerial, true, options.signal);
     await requireExactInstalledArtifactBytes(runner, proofSerial, options.signal);
-    uncertainInstallRunners.delete(runner);
+    transaction.markInstalledProven();
     return Object.freeze({
       packageName: DA5_V5_ANDROID_PACKAGE,
       status: 'match',
     });
   } catch (error) {
     failureCategory = classifyTypedInstallFailure(error, failureCategory);
+    let cleanupEvidence = cleanupNotRequired;
     try {
       verifiedSource?.destroy();
     } catch {
-      failureCategory = DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES.cleanup;
+      cleanupEvidence = cleanupMismatch(
+        DA5_V5_ANDROID_CLEANUP_SUBSTAGES.artifactSnapshotDestroy,
+      );
     }
-    if (mutationStarted) {
+    if (transaction.hasMutationStarted()) {
       const rollback = await cleanupDa5V5AndroidState({
+        transaction,
         profile: options.profile,
         runner,
         deviceBinding: options.deviceBinding,
         serialBinding,
-        installationState: uncertainInstallRunners.has(runner) ? 'uncertain' : 'known',
-        reverseState: reverseMutationUncertain ? 'uncertain' : 'known',
         now: options.now,
         wait: options.wait,
       });
-      if (rollback.status !== 'match') {
-        failureCategory = DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES.cleanup;
+      if (rollback.status === 'mismatch' || cleanupEvidence.status !== 'mismatch') {
+        cleanupEvidence = rollback;
       }
     }
-    throw new Da5V5AndroidInstallError(failureCategory);
+    throw new Da5V5AndroidInstallError(failureCategory, cleanupEvidence);
   }
 }
 
 export function cleanupDa5V5AndroidState(options) {
   requireDa5V5AndroidProfile(options.profile);
   const runner = options.runner ?? new SystemDa5V5AndroidAdbRunner();
-  const requestedUncertainMutation = (
-    options.installationState === 'uncertain'
-    || options.reverseState === 'uncertain'
-    || uncertainInstallRunners.has(runner)
-  );
-  const active = cleanupFlights.get(runner);
-  if (active !== undefined) {
-    if (requestedUncertainMutation && !active.uncertainMutation) {
-      return active.operation.then(() => Object.freeze({ status: 'mismatch' }));
-    }
-    return active.operation;
-  }
   const serialBinding = requireSerialBinding(options.serialBinding);
-  const uncertainMutation = requestedUncertainMutation;
-  const operation = performCleanup(
+  const now = options.now ?? (() => performance.now());
+  let transaction;
+  try {
+    transaction = requireInstallTransaction(options.transaction);
+  } catch {
+    return Promise.resolve(cleanupMismatch(
+      DA5_V5_ANDROID_CLEANUP_SUBSTAGES.runnerBinding,
+    ));
+  }
+  if (!transaction.matchesCleanupBindings({
+    deviceBinding: options.deviceBinding,
     runner,
-    options.deviceBinding,
     serialBinding,
-    options.wait ?? wait,
-    uncertainMutation,
-    options.now ?? (() => performance.now()),
-    false,
-  ).then((result) => {
-    if (uncertainMutation && result.status === 'match') {
-      uncertainInstallRunners.delete(runner);
-    }
-    return result;
-  }).finally(() => {
-    if (cleanupFlights.get(runner)?.operation === operation) {
-      cleanupFlights.delete(runner);
-    }
+  })) {
+    return Promise.resolve(cleanupMismatch(
+      DA5_V5_ANDROID_CLEANUP_SUBSTAGES.runnerBinding,
+    ));
+  }
+  return transaction.cleanup(options, now, async (coverage) => {
+    const context = Object.freeze({
+      deadline: coverage.deadline,
+      now,
+      wait: options.wait ?? wait,
+    });
+    return performCleanup(
+      transaction,
+      runner,
+      options.deviceBinding,
+      serialBinding,
+      context,
+      coverage,
+    );
   });
-  cleanupFlights.set(runner, Object.freeze({
-    operation,
-    uncertainMutation,
-  }));
-  return operation;
 }
 
 async function performCleanup(
+  transaction,
   runner,
   deviceBinding,
   serialBinding,
-  waitForSettle,
-  uncertainMutation,
-  now,
-  bindIfUnbound,
+  context,
+  coverage,
 ) {
-  let failed = false;
+  let firstFailure;
+  const recordFailure = (substage) => {
+    firstFailure ??= substage;
+  };
+  const removalState = {
+    blockedMappings: new Set(),
+    removeAttempts: new Map(),
+  };
+  const ownership = transaction.cleanupOwnership;
   let serial;
+  if (
+    serialBinding.state() === 'unbound'
+    && !transaction.hasMutationStarted()
+    && !cleanupCoverageIsUncertain(coverage)
+  ) {
+    transaction.markCleanupComplete();
+    return cleanupMatch();
+  }
   try {
-    if (serialBinding.state() === 'unbound' && !bindIfUnbound) {
-      return Object.freeze({ status: 'match' });
-    }
-    const current = await requireSingleDa5V5UsbDevice(runner);
-    await verifyDeviceBinding(runner, current, deviceBinding);
-    if (serialBinding.bind(current) !== 'match') {
-      return Object.freeze({ status: 'mismatch' });
-    }
-    serial = serialBinding.use(current, (retained) => retained);
+    serial = await reattestCleanupDevice(
+      transaction,
+      runner,
+      serialBinding,
+      deviceBinding,
+      context,
+    );
   } catch {
-    return Object.freeze({ status: 'mismatch' });
+    return cleanupMismatch(DA5_V5_ANDROID_CLEANUP_SUBSTAGES.deviceReattest);
   }
 
-  const pendingSession = pendingInstallSessions.get(runner);
-  if (pendingSession !== undefined) {
-    if (pendingSession.serial !== serial) {
-      failed = true;
-    } else {
-      try {
-        const receipt = await runner.run(
-          [
-            '-s', serial, 'shell', '-T', '-x', 'cmd', 'package',
-            'install-abandon', pendingSession.sessionId,
-          ],
-          { timeoutMilliseconds: timeouts.uninstall },
-        );
-        if (!isExactPackageManagerSuccess(receipt)) {
-          failed = true;
-        } else {
-          pendingInstallSessions.delete(runner);
-        }
-      } catch {
-        failed = true;
+  const sessionCleanup = await transaction.settleInstallSession(
+    serial,
+    async (sessionId) => {
+      const current = await reattestCleanupDevice(
+        transaction,
+        runner,
+        serialBinding,
+        deviceBinding,
+        context,
+      );
+      if (current !== serial) {
+        return Object.freeze({ status: 'mismatch' });
       }
-    }
-  }
-  if (unresolvedInstallSessions.has(runner)) {
-    failed = true;
+      const receipt = await runner.run(
+        [
+          '-s', serial, 'shell', '-T', '-x', 'cmd', 'package',
+          'install-abandon', sessionId,
+        ],
+        { timeoutMilliseconds: cleanupCommandTimeout(context, timeouts.uninstall) },
+      );
+      return Object.freeze({
+        status: isExactPackageManagerSuccess(receipt) ? 'match' : 'mismatch',
+      });
+    },
+  );
+  if (sessionCleanup.status !== 'match') {
+    recordFailure(DA5_V5_ANDROID_CLEANUP_SUBSTAGES.installAbandon);
   }
 
-  let mappings = [];
+  let mappings;
   try {
-    mappings = await readMappings(runner, serial);
-    for (const required of requiredMappings) {
+    mappings = await retryCleanupOperation(
+      () => readMappings(
+        runner,
+        serial,
+        undefined,
+        cleanupCommandTimeout(context, timeouts.inspect),
+      ),
+      context,
+    );
+  } catch {
+    mappings = null;
+    for (const required of ownership.reverseMappings) {
+      removalState.blockedMappings.add(required.device);
+    }
+    recordFailure(DA5_V5_ANDROID_CLEANUP_SUBSTAGES.reverseList);
+  }
+  if (mappings !== null) {
+    for (const required of ownership.reverseMappings) {
       const matches = mappings.filter((mapping) => mapping.device === required.device);
-      if (matches.length > 1 || (matches[0] !== undefined && matches[0].host !== required.host)) {
-        failed = true;
+      const substage = cleanupMappingSubstage(required.device);
+      if (
+        matches.length > 1
+        || (matches[0] !== undefined && matches[0].host !== required.host)
+      ) {
+        removalState.blockedMappings.add(required.device);
+        recordFailure(substage);
         continue;
       }
-      if (matches.length === 1) {
-        try {
-          await runner.run(['-s', serial, 'reverse', '--remove', required.device], {
-            timeoutMilliseconds: timeouts.reverse,
-          });
-        } catch {
-          failed = true;
+      if (matches.length === 0) {
+        if (
+          !coverage.reverseUncertain
+          && transaction.canMutateReverseMapping(required.device)
+        ) {
+          transaction.markReverseMappingRemoved(required.device);
         }
+        continue;
+      }
+      if (!transaction.canMutateReverseMapping(required.device)) {
+        removalState.blockedMappings.add(required.device);
+        recordFailure(substage);
+        continue;
+      }
+      if (
+        !await removeExactOwnedMapping({
+          context,
+          deviceBinding,
+          mapping: required,
+          removalState,
+          runner,
+          serial,
+          serialBinding,
+          transaction,
+        })
+      ) {
+        removalState.blockedMappings.add(required.device);
+        recordFailure(substage);
       }
     }
-  } catch {
-    failed = true;
   }
 
   let packagePaths = [];
   try {
-    packagePaths = await readPackagePaths(runner, serial);
+    packagePaths = await readPackagePaths(
+      runner,
+      serial,
+      undefined,
+      () => cleanupCommandTimeout(context, timeouts.inspect),
+    );
     if (packagePaths.length > 1) {
-      failed = true;
+      recordFailure(DA5_V5_ANDROID_CLEANUP_SUBSTAGES.packageList);
     } else if (packagePaths.length === 1) {
-      try {
-        await runner.run(['-s', serial, 'uninstall', DA5_V5_ANDROID_PACKAGE], {
-          timeoutMilliseconds: timeouts.uninstall,
+      if (!transaction.canMutatePackage()) {
+        recordFailure(DA5_V5_ANDROID_CLEANUP_SUBSTAGES.packageUninstall);
+      } else {
+        const packageCleanup = await transaction.removePackage(serial, async () => {
+          const current = await reattestCleanupDevice(
+            transaction,
+            runner,
+            serialBinding,
+            deviceBinding,
+            context,
+          );
+          if (current !== serial) {
+            return Object.freeze({ status: 'mismatch' });
+          }
+          const receipt = await runner.run(
+            ['-s', serial, 'uninstall', ownership.packageName],
+            { timeoutMilliseconds: cleanupCommandTimeout(context, timeouts.uninstall) },
+          );
+          return Object.freeze({
+            status: isExactPackageManagerSuccess(receipt) ? 'match' : 'mismatch',
+          });
         });
-      } catch {
-        failed = true;
+        if (packageCleanup.status !== 'match') {
+          recordFailure(DA5_V5_ANDROID_CLEANUP_SUBSTAGES.packageUninstall);
+        }
       }
+    } else if (!coverage.installationUncertain && transaction.canMutatePackage()) {
+      transaction.markPackageRemoved();
     }
   } catch {
-    failed = true;
+    recordFailure(DA5_V5_ANDROID_CLEANUP_SUBSTAGES.packageList);
   }
 
   try {
-    const processes = await readMatchingProcesses(runner, serial);
+    const processes = await readMatchingProcesses(
+      runner,
+      serial,
+      undefined,
+      cleanupCommandTimeout(context, timeouts.inspect),
+    );
     if (processes.length !== 0 && packagePaths.length === 0) {
-      failed = true;
+      recordFailure(DA5_V5_ANDROID_CLEANUP_SUBSTAGES.processList);
     }
   } catch {
-    failed = true;
+    recordFailure(DA5_V5_ANDROID_CLEANUP_SUBSTAGES.processList);
   }
 
   if (!await proveFinalZero(
+    transaction,
     runner,
     serial,
-    waitForSettle,
-    uncertainMutation,
-    now,
+    serialBinding,
+    deviceBinding,
+    context,
+    removalState,
   )) {
-    failed = true;
+    recordFailure(DA5_V5_ANDROID_CLEANUP_SUBSTAGES.finalZero);
   }
-  if (pendingInstallSessions.has(runner) || unresolvedInstallSessions.has(runner)) {
-    failed = true;
+  if (!transaction.sessionSettled()) {
+    recordFailure(DA5_V5_ANDROID_CLEANUP_SUBSTAGES.installAbandon);
   }
-  return Object.freeze({ status: failed ? 'mismatch' : 'match' });
+  if (firstFailure !== undefined) {
+    return cleanupMismatch(firstFailure);
+  }
+  transaction.markCleanupComplete();
+  return cleanupMatch();
 }
 
 async function proveFinalZero(
+  transaction,
   runner,
   serial,
-  waitForSettle,
-  uncertainMutation,
-  now,
+  serialBinding,
+  deviceBinding,
+  context,
+  removalState,
 ) {
-  if (uncertainMutation) {
-    return proveUncertainInstallNullWindow(runner, serial, waitForSettle, now);
+  if (context.deadline !== null) {
+    return proveUncertainInstallNullWindow(
+      transaction,
+      runner,
+      serial,
+      serialBinding,
+      deviceBinding,
+      context,
+      removalState,
+    );
   }
   let consecutiveZeroObservations = 0;
   for (let attempt = 0; attempt < 5; attempt += 1) {
     try {
-      const mappings = await readMappings(runner, serial);
-      const packagePaths = await readPackagePaths(runner, serial);
-      const processes = await readMatchingProcesses(runner, serial);
-      const ownedMappings = mappings.filter((mapping) => (
-        requiredMappings.some((required) => required.device === mapping.device)
-      ));
-      if (
-        ownedMappings.length === 0
-        && packagePaths.length === 0
-        && processes.length === 0
-      ) {
-        consecutiveZeroObservations += 1;
-        if (consecutiveZeroObservations >= 2) {
-          return true;
-        }
-      } else {
-        consecutiveZeroObservations = 0;
-        for (const mapping of ownedMappings) {
-          const expected = requiredMappings.find(
-            (required) => required.device === mapping.device,
-          );
-          if (expected === undefined || mapping.host !== expected.host) {
-            return false;
-          }
-          await runner.run(['-s', serial, 'reverse', '--remove', mapping.device], {
-            timeoutMilliseconds: timeouts.reverse,
-          });
-        }
-        if (packagePaths.length > 1) {
-          return false;
-        }
-        if (packagePaths.length === 1) {
-          await runner.run(['-s', serial, 'uninstall', DA5_V5_ANDROID_PACKAGE], {
-            timeoutMilliseconds: timeouts.uninstall,
-          });
-        }
-      }
-    } catch {
-      return false;
-    }
-    await waitForSettle(250);
-  }
-  return false;
-}
-
-async function proveUncertainInstallNullWindow(runner, serial, waitForSettle, now) {
-  const deadline = now() + uncertainInstallCleanup.maximumMilliseconds;
-  let zeroSince = null;
-  while (now() < deadline) {
-    try {
-      const mappings = await readMappings(
+      const current = await reattestCleanupDevice(
+        transaction,
         runner,
-        serial,
-        undefined,
-        remainingTimeout(deadline, now, timeouts.inspect),
+        serialBinding,
+        deviceBinding,
+        context,
+      );
+      if (current !== serial) return false;
+      const mappings = await retryCleanupOperation(
+        () => readMappings(
+          runner,
+          serial,
+          undefined,
+          cleanupCommandTimeout(context, timeouts.inspect),
+        ),
+        context,
       );
       const packagePaths = await readPackagePaths(
         runner,
         serial,
         undefined,
-        remainingTimeout(deadline, now, timeouts.inspect),
+        () => cleanupCommandTimeout(context, timeouts.inspect),
       );
       const processes = await readMatchingProcesses(
         runner,
         serial,
         undefined,
-        remainingTimeout(deadline, now, timeouts.inspect),
+        cleanupCommandTimeout(context, timeouts.inspect),
       );
-      const observedAt = now();
-      if (observedAt > deadline || packagePaths.length > 1) {
+      const mutableMappings = exactMutableCleanupMappings(
+        transaction,
+        mappings,
+        removalState,
+      );
+      if (mutableMappings === null) return false;
+      if (
+        mutableMappings.length === 0
+        && packagePaths.length === 0
+        && processes.length === 0
+      ) {
+        consecutiveZeroObservations += 1;
+        if (consecutiveZeroObservations >= 2) return true;
+      } else {
+        consecutiveZeroObservations = 0;
+        for (const mapping of mutableMappings) {
+          if (!await removeExactOwnedMapping({
+            context,
+            deviceBinding,
+            mapping,
+            removalState,
+            runner,
+            serial,
+            serialBinding,
+            transaction,
+          })) return false;
+        }
+        if (packagePaths.length !== 0 || processes.length !== 0) return false;
+      }
+    } catch {
+      return false;
+    }
+    await waitForCleanup(context, uncertainInstallCleanup.pollMilliseconds);
+  }
+  return false;
+}
+
+async function proveUncertainInstallNullWindow(
+  transaction,
+  runner,
+  serial,
+  serialBinding,
+  deviceBinding,
+  context,
+  removalState,
+) {
+  let zeroSince = null;
+  while (context.now() < context.deadline) {
+    try {
+      const current = await reattestCleanupDevice(
+        transaction,
+        runner,
+        serialBinding,
+        deviceBinding,
+        context,
+      );
+      if (current !== serial) return false;
+      const mappings = await retryCleanupOperation(
+        () => readMappings(
+          runner,
+          serial,
+          undefined,
+          cleanupCommandTimeout(context, timeouts.inspect),
+        ),
+        context,
+      );
+      const packagePaths = await readPackagePaths(
+        runner,
+        serial,
+        undefined,
+        () => cleanupCommandTimeout(context, timeouts.inspect),
+      );
+      const processes = await readMatchingProcesses(
+        runner,
+        serial,
+        undefined,
+        cleanupCommandTimeout(context, timeouts.inspect),
+      );
+      const observedAt = context.now();
+      if (observedAt > context.deadline || packagePaths.length > 1) {
         return false;
       }
-      const ownedMappings = [];
-      for (const required of requiredMappings) {
-        const matches = mappings.filter((mapping) => mapping.device === required.device);
-        if (
-          matches.length > 1
-          || (matches[0] !== undefined && matches[0].host !== required.host)
-        ) {
-          return false;
-        }
-        if (matches.length === 1) {
-          ownedMappings.push(matches[0]);
-        }
-      }
+      const mutableMappings = exactMutableCleanupMappings(
+        transaction,
+        mappings,
+        removalState,
+      );
+      if (mutableMappings === null) return false;
       if (
-        ownedMappings.length === 0
+        mutableMappings.length === 0
         && packagePaths.length === 0
         && processes.length === 0
       ) {
@@ -836,27 +1477,208 @@ async function proveUncertainInstallNullWindow(runner, serial, waitForSettle, no
         }
       } else {
         zeroSince = null;
-        for (const mapping of ownedMappings) {
-          await runner.run(['-s', serial, 'reverse', '--remove', mapping.device], {
-            timeoutMilliseconds: remainingTimeout(deadline, now, timeouts.reverse),
-          });
+        for (const mapping of mutableMappings) {
+          if (!await removeExactOwnedMapping({
+              context,
+              deviceBinding,
+              mapping,
+              removalState,
+              runner,
+              serial,
+              serialBinding,
+              transaction,
+            })) return false;
         }
-        if (packagePaths.length === 1) {
-          await runner.run(['-s', serial, 'uninstall', DA5_V5_ANDROID_PACKAGE], {
-            timeoutMilliseconds: remainingTimeout(deadline, now, timeouts.uninstall),
-          });
-        }
+        if (packagePaths.length !== 0 || processes.length !== 0) return false;
       }
     } catch {
       return false;
     }
-    const remaining = deadline - now();
-    if (remaining <= 0) {
-      return false;
-    }
-    await waitForSettle(Math.min(uncertainInstallCleanup.pollMilliseconds, remaining));
+    await waitForCleanup(context, uncertainInstallCleanup.pollMilliseconds);
   }
   return false;
+}
+
+async function reattestCleanupDevice(
+  transaction,
+  runner,
+  serialBinding,
+  deviceBinding,
+  context,
+) {
+  return retryCleanupOperation(async () => {
+    const current = await requireSingleDa5V5UsbDevice(runner, {
+      timeoutMilliseconds: cleanupCommandTimeout(context, timeouts.inspect),
+    });
+    await verifyDeviceBinding(
+      runner,
+      current,
+      deviceBinding,
+      undefined,
+      () => cleanupCommandTimeout(context, timeouts.inspect),
+    );
+    if (
+      serialBinding.bind(current) !== 'match'
+      || !transaction.bindSerial(current)
+    ) {
+      throw new Error('DA5 V5 Android cleanup device binding mismatch');
+    }
+    return serialBinding.use(current, (retained) => retained);
+  }, context);
+}
+
+async function retryCleanupOperation(operation, context) {
+  let failure;
+  for (let attempt = 0; attempt < cleanupRetryAttempts; attempt += 1) {
+    try {
+      return await operation();
+    } catch (error) {
+      failure = error;
+      if (
+        attempt + 1 >= cleanupRetryAttempts
+        || !isCleanupRetryableCommandError(error)
+      ) {
+        break;
+      }
+      await waitForCleanup(context, uncertainInstallCleanup.pollMilliseconds);
+    }
+  }
+  throw failure ?? new Error('DA5 V5 Android cleanup observation failed');
+}
+
+function exactMutableCleanupMappings(transaction, mappings, removalState) {
+  const mutable = [];
+  for (const required of transaction.cleanupOwnership.reverseMappings) {
+    const matches = mappings.filter((mapping) => mapping.device === required.device);
+    if (
+      matches.length > 1
+      || (matches[0] !== undefined && matches[0].host !== required.host)
+    ) {
+      return null;
+    }
+    if (matches.length === 1) {
+      if (
+        removalState.blockedMappings.has(required.device)
+        || !transaction.canMutateReverseMapping(required.device)
+      ) {
+        return null;
+      }
+      mutable.push(required);
+    }
+  }
+  return mutable;
+}
+
+async function removeExactOwnedMapping(options) {
+  if (!options.transaction.canMutateReverseMapping(options.mapping.device)) {
+    return false;
+  }
+  options.transaction.beginReverseMappingRemoval(options.mapping.device);
+  const attempts = options.removalState.removeAttempts.get(options.mapping.device) ?? 0;
+  let nextAttempt = attempts;
+  while (nextAttempt < cleanupRetryAttempts) {
+    nextAttempt += 1;
+    options.removalState.removeAttempts.set(options.mapping.device, nextAttempt);
+    let current;
+    try {
+      current = await reattestCleanupDevice(
+        options.transaction,
+        options.runner,
+        options.serialBinding,
+        options.deviceBinding,
+        options.context,
+      );
+    } catch {
+      options.transaction.markReverseMappingCleanupFailed(options.mapping.device);
+      return false;
+    }
+    if (current !== options.serial) {
+      options.transaction.markReverseMappingCleanupFailed(options.mapping.device);
+      return false;
+    }
+    try {
+      await options.runner.run(
+        ['-s', options.serial, 'reverse', '--remove', options.mapping.device],
+        {
+          timeoutMilliseconds: cleanupCommandTimeout(
+            options.context,
+            timeouts.reverse,
+          ),
+        },
+      );
+      options.transaction.markReverseMappingRemoved(options.mapping.device);
+      return true;
+    } catch (error) {
+      if (
+        nextAttempt >= cleanupRetryAttempts
+        || !isCleanupRetryableCommandError(error)
+      ) {
+        options.transaction.markReverseMappingCleanupFailed(options.mapping.device);
+        return false;
+      }
+      try {
+        await waitForCleanup(
+          options.context,
+          uncertainInstallCleanup.pollMilliseconds,
+        );
+      } catch {
+        options.transaction.markReverseMappingCleanupFailed(options.mapping.device);
+        return false;
+      }
+      let mappings;
+      try {
+        mappings = await retryCleanupOperation(
+          () => readMappings(
+            options.runner,
+            options.serial,
+            undefined,
+            cleanupCommandTimeout(options.context, timeouts.inspect),
+          ),
+          options.context,
+        );
+      } catch {
+        options.transaction.markReverseMappingCleanupFailed(options.mapping.device);
+        return false;
+      }
+      const matches = mappings.filter((mapping) => (
+        mapping.device === options.mapping.device
+      ));
+      if (matches.length === 0) {
+        options.transaction.markReverseMappingRemoved(options.mapping.device);
+        return true;
+      }
+      if (matches.length !== 1 || matches[0].host !== options.mapping.host) {
+        options.transaction.markReverseMappingCleanupFailed(options.mapping.device);
+        return false;
+      }
+    }
+  }
+  options.transaction.markReverseMappingCleanupFailed(options.mapping.device);
+  return false;
+}
+
+function cleanupCommandTimeout(context, maximum) {
+  if (context.deadline === null) return maximum;
+  return remainingTimeout(context.deadline, context.now, maximum);
+}
+
+function isCleanupRetryableCommandError(error) {
+  return (
+    isDa5V5AndroidCommandTimeoutError(error)
+    || isDa5V5AndroidCommandTransientError(error)
+  );
+}
+
+async function waitForCleanup(context, milliseconds) {
+  if (context.deadline === null) {
+    await context.wait(milliseconds);
+    return;
+  }
+  const remaining = Math.floor(context.deadline - context.now());
+  if (remaining <= 0) {
+    throw new Error('DA5 V5 uncertain install cleanup timed out');
+  }
+  await context.wait(Math.min(milliseconds, remaining));
 }
 
 function remainingTimeout(deadline, now, maximum) {
@@ -867,10 +1689,19 @@ function remainingTimeout(deadline, now, maximum) {
   return Math.max(1, Math.min(maximum, remaining));
 }
 
-async function bindCurrentDevice(runner, serialBinding, binding, signal) {
+async function bindCurrentDevice(
+  runner,
+  serialBinding,
+  binding,
+  signal,
+  transaction,
+) {
   const serial = await requireSingleDa5V5UsbDevice(runner, { signal });
   await verifyDeviceBinding(runner, serial, binding, signal);
-  if (serialBinding.bind(serial) !== 'match') {
+  if (
+    serialBinding.bind(serial) !== 'match'
+    || (transaction !== undefined && !transaction.bindSerial(serial))
+  ) {
     throw new Error('DA5 V5 exact USB device continuity mismatch');
   }
   return serialBinding.use(serial, (retained) => retained);
@@ -929,7 +1760,13 @@ async function requireExactInstalledArtifactBytes(runner, serial, signal) {
   }
 }
 
-async function verifyDeviceBinding(runner, serial, binding, signal) {
+async function verifyDeviceBinding(
+  runner,
+  serial,
+  binding,
+  signal,
+  timeoutMilliseconds = timeouts.inspect,
+) {
   if (
     binding === undefined
     || typeof binding.deviceModel !== 'string'
@@ -941,10 +1778,10 @@ async function verifyDeviceBinding(runner, serial, binding, signal) {
   }
   const model = oneLine(await runner.run([
     '-s', serial, 'shell', 'getprop', 'ro.product.model',
-  ], { signal, timeoutMilliseconds: timeouts.inspect }));
+  ], { signal, timeoutMilliseconds: resolveCommandTimeout(timeoutMilliseconds) }));
   const build = oneLine(await runner.run([
     '-s', serial, 'shell', 'getprop', 'ro.build.fingerprint',
-  ], { signal, timeoutMilliseconds: timeouts.inspect }));
+  ], { signal, timeoutMilliseconds: resolveCommandTimeout(timeoutMilliseconds) }));
   if (model !== binding.deviceModel || build !== binding.androidBuild) {
     throw new Error('DA5 V5 exact device binding mismatch');
   }
@@ -970,7 +1807,7 @@ async function readPackagePaths(
       '-s', serial, 'shell', 'cmd', 'package', 'path',
       '--user', androidOwnerUser, DA5_V5_ANDROID_PACKAGE,
     ],
-    { signal, timeoutMilliseconds },
+    { signal, timeoutMilliseconds: resolveCommandTimeout(timeoutMilliseconds) },
   ));
   if (!line.startsWith('package:')) {
     throw new Error('DA5 V5 package state is ambiguous');
@@ -993,7 +1830,7 @@ async function readOwnerPackageRegistration(
       '-s', serial, 'shell', 'cmd', 'package', 'list', 'packages',
       '-a', '-u', '--user', androidOwnerUser, DA5_V5_ANDROID_PACKAGE,
     ],
-    { signal, timeoutMilliseconds },
+    { signal, timeoutMilliseconds: resolveCommandTimeout(timeoutMilliseconds) },
   );
   if (isExactEmptyOutput(value)) {
     return 'absent';
@@ -1002,6 +1839,10 @@ async function readOwnerPackageRegistration(
     return 'present';
   }
   throw new Error('DA5 V5 package registration is ambiguous');
+}
+
+function resolveCommandTimeout(value) {
+  return typeof value === 'function' ? value() : value;
 }
 
 async function readMatchingProcesses(
@@ -1065,6 +1906,34 @@ function validTcpEndpoint(value) {
   return Number(value.slice(4)) <= 65_535;
 }
 
+function requireDeviceBinding(value) {
+  if (
+    value === undefined
+    || typeof value.deviceModel !== 'string'
+    || value.deviceModel.length === 0
+    || typeof value.androidBuild !== 'string'
+    || value.androidBuild.length === 0
+  ) {
+    throw new Error('DA5 V5 exact device binding is unavailable');
+  }
+  return value;
+}
+
+function deviceBindingMatches(left, right) {
+  return (
+    left !== undefined
+    && left.deviceModel === right.deviceModel
+    && left.androidBuild === right.androidBuild
+  );
+}
+
+function requireInstallTransaction(value) {
+  if (!(value instanceof Da5V5AndroidInstallTransaction)) {
+    throw new Error('DA5 V5 Android install transaction is unavailable');
+  }
+  return value;
+}
+
 function requireSerialBinding(value) {
   if (
     value === undefined
@@ -1075,6 +1944,57 @@ function requireSerialBinding(value) {
     throw new Error('DA5 V5 opaque USB serial binding is unavailable');
   }
   return value;
+}
+
+function cleanupMappingSubstage(device) {
+  if (device === 'tcp:54321') {
+    return DA5_V5_ANDROID_CLEANUP_SUBSTAGES.reverseRemoveAuth;
+  }
+  if (device === 'tcp:3000') {
+    return DA5_V5_ANDROID_CLEANUP_SUBSTAGES.reverseRemoveApi;
+  }
+  throw new Error('DA5 V5 Android cleanup mapping is unavailable');
+}
+
+function cleanupMatch() {
+  return Object.freeze({
+    status: 'match',
+    substage: DA5_V5_ANDROID_CLEANUP_SUBSTAGES.complete,
+  });
+}
+
+function cleanupMismatch(substage) {
+  if (!Object.values(DA5_V5_ANDROID_CLEANUP_SUBSTAGES).includes(substage)) {
+    return Object.freeze({
+      status: 'mismatch',
+      substage: DA5_V5_ANDROID_CLEANUP_SUBSTAGES.internal,
+    });
+  }
+  return Object.freeze({ status: 'mismatch', substage });
+}
+
+function requireInstallCleanupEvidence(value) {
+  if (
+    value?.status === 'not_required'
+    && value.substage === DA5_V5_ANDROID_CLEANUP_SUBSTAGES.notRequired
+  ) {
+    return cleanupNotRequired;
+  }
+  if (
+    value?.status === 'match'
+    && value.substage === DA5_V5_ANDROID_CLEANUP_SUBSTAGES.complete
+  ) {
+    return cleanupMatch();
+  }
+  if (
+    value?.status === 'mismatch'
+    && Object.values(DA5_V5_ANDROID_CLEANUP_SUBSTAGES).includes(value.substage)
+    && value.substage !== DA5_V5_ANDROID_CLEANUP_SUBSTAGES.notRequired
+    && value.substage !== DA5_V5_ANDROID_CLEANUP_SUBSTAGES.complete
+  ) {
+    return cleanupMismatch(value.substage);
+  }
+  return cleanupMismatch(DA5_V5_ANDROID_CLEANUP_SUBSTAGES.internal);
 }
 
 function oneLine(value) {
@@ -1127,6 +2047,9 @@ function requireInstallFailureCategory(value) {
 function classifyTypedInstallFailure(error, fallbackCategory) {
   if (error instanceof Da5V5AndroidInstallError) {
     return error.category;
+  }
+  if (isDa5V5AndroidCommandAbortError(error)) {
+    return DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES.signalAbort;
   }
   if (isDa5V5AndroidCommandTimeoutError(error)) {
     return DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES.timeout;
@@ -1231,6 +2154,12 @@ function classifyPackageManagerWriteReceipt(value, stdinTerminal) {
 }
 
 function installStreamFailureCategory(outcome) {
+  if (
+    outcome?.terminalCause
+    === DA5_V5_VALIDATION_INSTALL_STREAM_TERMINAL_CAUSES.signalAbort
+  ) {
+    return DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES.signalAbort;
+  }
   const category = outcome?.category;
   if (
     category
@@ -1423,20 +2352,20 @@ function runAdb(arguments_, options, dependencies) {
       }
     }
 
-    function onStdoutError() {
-      terminate(new Error('DA5 V5 Android device command failed'));
+    function onStdoutError(error) {
+      terminate(classifyAdbTransportError(error));
     }
 
-    function onStderrError() {
-      terminate(new Error('DA5 V5 Android device command failed'));
+    function onStderrError(error) {
+      terminate(classifyAdbTransportError(error));
     }
 
     function onStdinError() {
       terminate(new Error('DA5 V5 Android device input failed'));
     }
 
-    function onChildError() {
-      terminate(new Error('DA5 V5 Android device command failed'));
+    function onChildError(error) {
+      terminate(classifyAdbTransportError(error));
     }
 
     function onClose(code, signal) {

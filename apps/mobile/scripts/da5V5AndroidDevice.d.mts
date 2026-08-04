@@ -7,6 +7,33 @@ import type {
   Da5V5ValidationInstallStreamRunner,
 } from './da5V5ValidationInstallStream.mjs';
 
+export const DA5_V5_ANDROID_CLEANUP_SUBSTAGES: Readonly<{
+  artifactSnapshotDestroy: 'artifact_snapshot_destroy';
+  complete: 'complete';
+  deviceReattest: 'device_reattest';
+  finalZero: 'final_zero';
+  installAbandon: 'install_abandon';
+  internal: 'cleanup_internal';
+  notRequired: 'not_required';
+  packageList: 'package_list';
+  packageUninstall: 'package_uninstall';
+  processList: 'process_list';
+  reverseList: 'reverse_list';
+  reverseRemoveApi: 'reverse_remove_tcp_3000';
+  reverseRemoveAuth: 'reverse_remove_tcp_54321';
+  runnerBinding: 'runner_binding';
+  uncertaintyEscalation: 'uncertainty_escalation';
+}>;
+
+export type Da5V5AndroidCleanupSubstage =
+  (typeof DA5_V5_ANDROID_CLEANUP_SUBSTAGES)[
+    keyof typeof DA5_V5_ANDROID_CLEANUP_SUBSTAGES
+  ];
+export interface Da5V5AndroidCleanupEvidence {
+  readonly status: 'match' | 'mismatch' | 'not_required';
+  readonly substage: Da5V5AndroidCleanupSubstage;
+}
+
 export const DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES: Readonly<{
   artifactReverify: 'artifact_reverify';
   childExit: 'child_exit';
@@ -14,6 +41,7 @@ export const DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES: Readonly<{
   cleanup: 'cleanup';
   installedProvenance: 'installed_provenance';
   packageManagerReceipt: 'package_manager_receipt';
+  signalAbort: 'signal_abort';
   stdinPipe: 'stdin_pipe';
   timeout: 'timeout';
 }>;
@@ -25,11 +53,19 @@ export type Da5V5AndroidInstallFailureCategory =
 
 export class Da5V5AndroidInstallError extends Error {
   readonly category: Da5V5AndroidInstallFailureCategory;
-  constructor(category: Da5V5AndroidInstallFailureCategory);
+  readonly cleanupStatus: Da5V5AndroidCleanupEvidence['status'];
+  readonly cleanupSubstage: Da5V5AndroidCleanupSubstage;
+  constructor(
+    category: Da5V5AndroidInstallFailureCategory,
+    cleanup?: Da5V5AndroidCleanupEvidence,
+  );
 }
 export function classifyDa5V5AndroidInstallError(
   error: unknown,
 ): Da5V5AndroidInstallFailureCategory;
+export function classifyDa5V5AndroidInstallCleanup(
+  error: unknown,
+): Readonly<Da5V5AndroidCleanupEvidence>;
 
 export interface Da5V5AndroidCommandOptions {
   readonly signal?: AbortSignal;
@@ -80,6 +116,10 @@ export function isDa5V5AndroidCommandTimeoutError(
   error: unknown,
 ): error is Da5V5AndroidCommandTimeoutError;
 export class Da5V5AndroidCommandExitError extends Error {}
+export class Da5V5AndroidCommandTransientError extends Error {}
+export function isDa5V5AndroidCommandTransientError(
+  error: unknown,
+): error is Da5V5AndroidCommandTransientError;
 
 export interface Da5V5AndroidPreflightBinding extends Da5V5AndroidDeviceBinding {
   readonly androidApi: string;
@@ -123,6 +163,20 @@ export class SystemDa5V5AndroidAdbRunner implements Da5V5AndroidAdbRunner {
     sha256: string;
   }>>;
   createInstallStreamRunner(): Da5V5ValidationInstallStreamRunner;
+}
+
+export class Da5V5AndroidInstallTransaction {
+  constructor(options: Readonly<{
+    deviceBinding: Da5V5AndroidDeviceBinding;
+    installStreamRunner: Da5V5ValidationInstallStreamRunner;
+    runner: Da5V5AndroidAdbRunner;
+    serialBinding: Da5V5UsbSerialBinding;
+  }>);
+  markZeroPreconditionProven(): void;
+  markReverseMutationStarted(device: 'tcp:3000' | 'tcp:54321'): void;
+  markReverseMutationProven(device: 'tcp:3000' | 'tcp:54321'): void;
+  markSessionCreateStarted(): void;
+  markSessionCommitted(): void;
 }
 
 export class Da5V5AndroidPreinstallPreflight {
@@ -178,6 +232,7 @@ export function installDa5V5AndroidFromPackageZero(options: {
   readonly runner?: Da5V5AndroidAdbRunner;
   readonly serialBinding: Da5V5UsbSerialBinding;
   readonly signal?: AbortSignal;
+  readonly transaction: Da5V5AndroidInstallTransaction;
   readonly now?: () => number;
   readonly verifyArtifact?: (options: {
     readonly dependencies?: Da5V5ArtifactDependencies;
@@ -193,8 +248,9 @@ export function cleanupDa5V5AndroidState(options: {
   readonly profile: unknown;
   readonly runner?: Da5V5AndroidAdbRunner;
   readonly serialBinding: Da5V5UsbSerialBinding;
+  readonly transaction: Da5V5AndroidInstallTransaction;
   readonly installationState?: 'known' | 'uncertain';
   readonly reverseState?: 'known' | 'uncertain';
   readonly now?: () => number;
   readonly wait?: (milliseconds: number) => Promise<void>;
-}): Promise<Readonly<{ status: 'match' | 'mismatch' }>>;
+}): Promise<Readonly<Da5V5AndroidCleanupEvidence>>;

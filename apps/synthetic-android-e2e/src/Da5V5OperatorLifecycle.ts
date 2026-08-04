@@ -1,5 +1,44 @@
 import type { Interface } from 'node:readline';
 
+export class Da5V5StartupSettlement {
+  private readonly completion: Promise<void>;
+  private resolveCompletion: () => void = () => undefined;
+  private settled = false;
+
+  constructor() {
+    this.completion = new Promise<void>((resolve) => {
+      this.resolveCompletion = resolve;
+    });
+  }
+
+  settle(): void {
+    if (this.settled) return;
+    this.settled = true;
+    this.resolveCompletion();
+  }
+
+  wait(): Promise<void> {
+    return this.completion;
+  }
+}
+
+export function settleDa5V5BackgroundOperation(
+  operation: Promise<unknown> | undefined,
+  markFailed: () => void,
+): Promise<void> {
+  if (operation === undefined) return Promise.resolve();
+  return operation.then(
+    () => undefined,
+    () => {
+      try {
+        markFailed();
+      } catch {
+        // A terminal background sink must never create another rejection.
+      }
+    },
+  );
+}
+
 export function rejectDa5V5OperationalInputs(
   environment: NodeJS.ProcessEnv,
   argv: readonly string[],

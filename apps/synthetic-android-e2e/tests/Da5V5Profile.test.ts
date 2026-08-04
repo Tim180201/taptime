@@ -19,6 +19,7 @@ import {
   Da5V5CommandExecutionGuard,
   Da5V5SafeEventLatch,
   Da5V5SignalController,
+  Da5V5StartupSettlement,
   Da5V5StartupInterrupted,
   cleanSyntheticDatabase,
   da5V5StartupCleanupIncomplete,
@@ -30,6 +31,7 @@ import {
   rejectDa5V5OperationalInputs,
   requireDa5V5Profile,
   runDa5V5StrictCleanup,
+  settleDa5V5BackgroundOperation,
   syntheticIds,
   validateDa5V5TagBinding,
   type Da5V5Checkpoint,
@@ -625,7 +627,7 @@ describe('DA5 V5 fixture, lifecycle and startup fail-stop boundaries', () => {
       }
     });
 
-  it('retains completed cleanup stages and clears rejected in-flight latches',
+  it('retains completed stages and the terminal Product cleanup flight',
     async () => {
       const [main, environment, owner] = await Promise.all([
         readFile(new URL('../src/da5V5Main.ts', import.meta.url), 'utf8'),
@@ -641,7 +643,10 @@ describe('DA5 V5 fixture, lifecycle and startup fail-stop boundaries', () => {
 
       expect(main).toContain('const completedCleanupStages = new Set<string>()');
       expect(main).toContain('completedCleanupStages.add(name)');
-      expect(main.match(/cleanupResourcesPromise = null/gu)).toHaveLength(2);
+      expect(main).toContain(
+        'cleanupResourcesPromise = startupAcquisitionSettlement.wait().then(',
+      );
+      expect(main).not.toContain('cleanupResourcesPromise = null;');
       expect(environment).toContain(
         'const completedDa5CloseStages = new Set<string>()',
       );
@@ -797,7 +802,13 @@ describe('DA5 V5 fixture, lifecycle and startup fail-stop boundaries', () => {
       expect(startupFailed).toHaveBeenCalledTimes(1);
 
       const events: string[] = [];
-      const cleanup = vi.fn(async () => undefined);
+      const startupSettlement = new Da5V5StartupSettlement();
+      const cleanupAttempt = vi.fn(async () => undefined);
+      let cleanupFlight: Promise<void> | null = null;
+      const cleanup = (): Promise<void> => {
+        cleanupFlight ??= startupSettlement.wait().then(() => cleanupAttempt());
+        return cleanupFlight;
+      };
       const failed = vi.fn();
       const lifecycle = new Da5V5OperatorLifecycle(
         cleanup,
@@ -806,13 +817,201 @@ describe('DA5 V5 fixture, lifecycle and startup fail-stop boundaries', () => {
       );
       const signal = new Da5V5SignalController((event) => events.push(event), failed);
       signal.bind(lifecycle);
+      startupSettlement.settle();
+      startupSettlement.settle();
       const first = signal.handleSignal();
       const repeated = signal.handleSignal();
       expect(first).toBe(repeated);
       await Promise.all([first, repeated]);
       expect(events).toEqual(['da5_v5_interrupted']);
-      expect(cleanup).toHaveBeenCalledTimes(1);
+      expect(cleanupAttempt).toHaveBeenCalledTimes(1);
       expect(failed).toHaveBeenCalledTimes(1);
+    });
+
+  it.each([
+    'runtime-guard',
+    'postgres-capability',
+    'environment',
+  ] as const)(
+    'waits for a late %s startup acquisition before coalesced signal cleanup',
+    async (acquisitionStage) => {
+      const startupSettlement = new Da5V5StartupSettlement();
+      const acquisition = deferred<void>();
+      const guard = fakeStartupResource();
+      const capability = fakeStartupResource();
+      const environmentResource = fakeStartupResource(() => capability.close());
+      const guardRevalidate = vi.fn(async () => undefined);
+      let runtimeGuard = acquisitionStage === 'runtime-guard' ? null : guard;
+      let postgresCapability = acquisitionStage === 'environment' ? capability : null;
+      let environment: ReturnType<typeof fakeStartupResource> | null = null;
+      const cleanupAttempt = vi.fn(async () => {
+        const activeEnvironment = environment;
+        if (activeEnvironment !== null) {
+          await activeEnvironment.close();
+          environment = null;
+        }
+        const activeCapability = postgresCapability;
+        if (activeCapability !== null) {
+          await activeCapability.close();
+          postgresCapability = null;
+        }
+        const activeGuard = runtimeGuard;
+        if (activeGuard !== null) {
+          await guardRevalidate();
+          await activeGuard.close();
+          runtimeGuard = null;
+        }
+      });
+      let cleanupFlight: Promise<void> | null = null;
+      const cleanupResources = (): Promise<void> => {
+        cleanupFlight ??= startupSettlement.wait().then(() => cleanupAttempt());
+        return cleanupFlight;
+      };
+      const events: string[] = [];
+      const failed = vi.fn();
+      const backgroundFailed = vi.fn();
+      const mutationAbort = vi.fn();
+      const closeInput = vi.fn();
+      const signal = new Da5V5SignalController(
+        (event) => events.push(event),
+        failed,
+      );
+      let startupError: unknown;
+      const startup = (async () => {
+        try {
+          await acquisition.promise;
+          if (acquisitionStage === 'runtime-guard') {
+            runtimeGuard = guard;
+          } else if (acquisitionStage === 'postgres-capability') {
+            postgresCapability = capability;
+          } else {
+            environment = environmentResource;
+            postgresCapability = null;
+          }
+          signal.checkpoint();
+        } catch (error: unknown) {
+          startupError = error;
+          startupSettlement.settle();
+          await cleanupResources();
+        }
+      })();
+      const terminate = (): Promise<void> => {
+        mutationAbort();
+        closeInput();
+        return settleDa5V5BackgroundOperation(
+          signal.handleSignal().finally(cleanupResources),
+          backgroundFailed,
+        );
+      };
+
+      const firstSignal = terminate();
+      const repeatedSignal = terminate();
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(signal.isInterrupted()).toBe(true);
+      expect(events).toEqual(['da5_v5_interrupted']);
+      expect(failed).toHaveBeenCalledTimes(1);
+      expect(mutationAbort).toHaveBeenCalledTimes(2);
+      expect(closeInput).toHaveBeenCalledTimes(2);
+      expect(cleanupAttempt).not.toHaveBeenCalled();
+
+      acquisition.resolve();
+      await expect(Promise.all([
+        startup,
+        firstSignal,
+        repeatedSignal,
+      ])).resolves.toEqual([undefined, undefined, undefined]);
+
+      expect(startupError).toBeInstanceOf(Da5V5StartupInterrupted);
+      expect(cleanupAttempt).toHaveBeenCalledTimes(1);
+      expect(runtimeGuard).toBeNull();
+      expect(postgresCapability).toBeNull();
+      expect(environment).toBeNull();
+      expect(guardRevalidate).toHaveBeenCalledTimes(1);
+      expect(guard.close).toHaveBeenCalledTimes(1);
+      expect(guard.isOpen()).toBe(false);
+      expect(guard.listenerCount()).toBe(0);
+      const capabilityWasAcquired = acquisitionStage !== 'runtime-guard';
+      expect(capability.close).toHaveBeenCalledTimes(capabilityWasAcquired ? 1 : 0);
+      expect(capability.isOpen()).toBe(!capabilityWasAcquired);
+      expect(capability.listenerCount()).toBe(capabilityWasAcquired ? 0 : 1);
+      const environmentWasAcquired = acquisitionStage === 'environment';
+      expect(environmentResource.close).toHaveBeenCalledTimes(
+        environmentWasAcquired ? 1 : 0,
+      );
+      expect(environmentResource.isOpen()).toBe(!environmentWasAcquired);
+      expect(environmentResource.listenerCount()).toBe(
+        environmentWasAcquired ? 0 : 1,
+      );
+      expect(backgroundFailed).not.toHaveBeenCalled();
+    },
+  );
+
+  it('terminally settles signal and EOF paths when their persistent cleanup flight rejects',
+    async () => {
+      const events: string[] = [];
+      const lifecycleFailed = vi.fn();
+      const backgroundFailed = vi.fn();
+      const cleanupAttempt = vi.fn(async () => {
+        throw new Error('private persistent cleanup detail');
+      });
+      let cleanupFlight: Promise<void> | null = null;
+      const cleanupResources = (): Promise<void> => {
+        cleanupFlight ??= cleanupAttempt();
+        return cleanupFlight;
+      };
+      const lifecycle = new Da5V5OperatorLifecycle(
+        cleanupResources,
+        (event) => events.push(event),
+        lifecycleFailed,
+      );
+      const signal = new Da5V5SignalController(
+        (event) => events.push(event),
+        lifecycleFailed,
+      );
+      signal.bind(lifecycle);
+
+      const signalPath = settleDa5V5BackgroundOperation(
+        signal.handleSignal().finally(cleanupResources),
+        backgroundFailed,
+      );
+      const repeatedSignalPath = settleDa5V5BackgroundOperation(
+        signal.handleSignal().finally(cleanupResources),
+        backgroundFailed,
+      );
+      const eofPath = settleDa5V5BackgroundOperation(
+        lifecycle.abortAndFail('operator_command_failed').finally(cleanupResources),
+        backgroundFailed,
+      );
+
+      await expect(Promise.all([
+        signalPath,
+        repeatedSignalPath,
+        eofPath,
+      ])).resolves.toEqual([
+        undefined,
+        undefined,
+        undefined,
+      ]);
+      expect(cleanupAttempt).toHaveBeenCalledTimes(1);
+      expect(backgroundFailed).toHaveBeenCalledTimes(3);
+      expect(events.filter((event) => event === 'da5_v5_cleanup_failed'))
+        .toHaveLength(1);
+    });
+
+  it('never rejects from the terminal background sink even when failure marking throws',
+    async () => {
+      await expect(settleDa5V5BackgroundOperation(
+        Promise.reject(new Error('private background detail')),
+        () => {
+          throw new Error('private failure-marker detail');
+        },
+      )).resolves.toBeUndefined();
+      await expect(settleDa5V5BackgroundOperation(
+        undefined,
+        vi.fn(),
+      )).resolves.toBeUndefined();
     });
 
   it('keeps command and hidden credential input under one exclusive owner', () => {
@@ -894,21 +1093,58 @@ describe('DA5 V5 fixture, lifecycle and startup fail-stop boundaries', () => {
       expect(source).toContain(
         "operatorLifecycle?.abortAndFail('operator_command_failed')",
       );
+      expect(source).toContain(
+        'signalController.handleSignal().finally(() => cleanupResources())',
+      );
+      expect(source).toContain(
+        'const startupAcquisitionSettlement = new Da5V5StartupSettlement()',
+      );
+      expect(source).toContain(
+        'cleanupResourcesPromise = startupAcquisitionSettlement.wait().then(',
+      );
+      const lifecycleBinding = source.indexOf('signalController.bind(operatorLifecycle);');
+      const successfulSettlement = source.indexOf(
+        'startupAcquisitionSettlement.settle();',
+        lifecycleBinding,
+      );
+      const postBindingSafeEvent = source.indexOf(
+        'if (!safeEventLatch.commandAllowed())',
+        lifecycleBinding,
+      );
+      expect(lifecycleBinding).toBeGreaterThanOrEqual(0);
+      expect(successfulSettlement).toBeGreaterThan(lifecycleBinding);
+      expect(successfulSettlement).toBeLessThan(postBindingSafeEvent);
+      expect(source).toContain(
+        "} catch {\n  startupAcquisitionSettlement.settle();\n  password = '';",
+      );
+      expect(source).toContain(
+        'void settleDa5V5BackgroundOperation(operation, () => {',
+      );
+      expect(source).not.toMatch(/void\s+signalController\.handleSignal\(\)/u);
+      expect(source).not.toMatch(/void\s+operatorLifecycle\?\.abortAndFail/u);
       expect(source).toContain('reverseState: offline.cleanupProofState()');
       expect(source).toContain("if (offline.arm() !== 'match')");
       expect(source.indexOf('await installDa5V5AndroidFromPackageZero({')).toBeLessThan(
         source.indexOf("if (offline.arm() !== 'match')"),
       );
       expect(source).toContain('classifyDa5V5AndroidInstallError(error)');
+      expect(source).toContain('classifyDa5V5AndroidInstallCleanup(error)');
       expect(source).toContain(
-        'da5_v5_android_install=mismatch category=${classifyDa5V5AndroidInstallError(error)}',
+        'da5_v5_android_install=mismatch category=${classifyDa5V5AndroidInstallError(error)} cleanup_status=${cleanup.status} cleanup_substage=${cleanup.substage}',
       );
       expect(source).not.toContain('error.message');
       expect(source).not.toContain('String(error)');
       expect(source.indexOf("if (offline.arm() !== 'match')")).toBeLessThan(
         source.indexOf('androidInstalled = true'),
       );
-      expect(source.match(/serialBinding: deviceLock/gu)).toHaveLength(2);
+      expect(source.match(/serialBinding: deviceLock/gu)).toHaveLength(3);
+      expect(source).toContain(
+        'const androidInstallTransaction = new Da5V5AndroidInstallTransaction({',
+      );
+      expect(source.match(/transaction: androidInstallTransaction/gu)).toHaveLength(2);
+      expect(source).toContain(
+        'const mobileInstallStreamAdb = mobileAdb.createInstallStreamRunner()',
+      );
       expect(source).toContain(
         'new Da5V5ApiOfflineController(\n  adb,\n  accessibilityBinding,\n  deviceLock,',
       );
@@ -935,6 +1171,27 @@ function deferred<T>(): {
     resolvePromise = resolve;
   });
   return { promise, resolve: resolvePromise };
+}
+
+function fakeStartupResource(
+  closeOwned: () => Promise<void> = async () => undefined,
+): {
+  readonly close: () => Promise<void>;
+  isOpen(): boolean;
+  listenerCount(): number;
+} {
+  let open = true;
+  let listeners = 1;
+  const close = vi.fn(async () => {
+    open = false;
+    listeners = 0;
+    await closeOwned();
+  });
+  return {
+    close,
+    isOpen: () => open,
+    listenerCount: () => listeners,
+  };
 }
 
 function fakeInterface(): Interface {

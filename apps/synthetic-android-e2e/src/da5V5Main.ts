@@ -1,8 +1,10 @@
 import { Writable } from 'node:stream';
 import { createInterface } from 'node:readline';
 import {
+  classifyDa5V5AndroidInstallCleanup,
   classifyDa5V5AndroidInstallError,
   cleanupDa5V5AndroidState,
+  Da5V5AndroidInstallTransaction,
   Da5V5AndroidPreinstallPreflight,
   installDa5V5AndroidFromPackageZero,
   requireDa5V5TalkBackPackage,
@@ -18,7 +20,9 @@ import {
   Da5V5InputOwnership,
   Da5V5OperatorLifecycle,
   Da5V5SignalController,
+  Da5V5StartupSettlement,
   rejectDa5V5OperationalInputs,
+  settleDa5V5BackgroundOperation,
   type Da5V5OperatorCommandOutcome,
 } from './Da5V5OperatorLifecycle.js';
 import {
@@ -122,10 +126,18 @@ let operationSession: Da5V5OperationSession | null = null;
 let operatorLifecycle: Da5V5OperatorLifecycle | null = null;
 let cleanupResourcesPromise: Promise<void> | null = null;
 const completedCleanupStages = new Set<string>();
+const startupAcquisitionSettlement = new Da5V5StartupSettlement();
 const inputOwnership = new Da5V5InputOwnership();
 const adb = new SystemDa5V5AdbCommandRunner();
 const mobileAdb = new SystemDa5V5AndroidAdbRunner();
+const mobileInstallStreamAdb = mobileAdb.createInstallStreamRunner();
 const deviceLock = new Da5V5UsbDeviceLock();
+const androidInstallTransaction = new Da5V5AndroidInstallTransaction({
+  deviceBinding: accessibilityBinding,
+  installStreamRunner: mobileInstallStreamAdb,
+  runner: mobileAdb,
+  serialBinding: deviceLock,
+});
 const preinstall = new Da5V5AndroidPreinstallPreflight(
   mobileAdb,
   deviceLock,
@@ -141,7 +153,9 @@ const webCredential = new Da5V5WebCredentialTransfer(
     process.exitCode = 1;
     mutationAbortController.abort();
     inputOwnership.closeAll();
-    void operatorLifecycle?.abortAndFail('da5_v5_credential_binding=mismatch');
+    observeBackgroundOperation(
+      operatorLifecycle?.abortAndFail('da5_v5_credential_binding=mismatch'),
+    );
   },
 );
 const mobileCredential = new Da5V5MobileCredentialTransfer(
@@ -173,7 +187,9 @@ const handleTerminationSignal = (): void => {
   process.exitCode = 1;
   mutationAbortController.abort();
   inputOwnership.closeAll();
-  void signalController.handleSignal().finally(() => cleanupResources());
+  observeBackgroundOperation(
+    signalController.handleSignal().finally(() => cleanupResources()),
+  );
 };
 process.on('SIGINT', handleTerminationSignal);
 process.on('SIGTERM', handleTerminationSignal);
@@ -238,6 +254,7 @@ try {
     },
   );
   signalController.bind(operatorLifecycle);
+  startupAcquisitionSettlement.settle();
   if (!safeEventLatch.commandAllowed()) {
     await operatorLifecycle.fail('operator_command_failed');
     throw new Error('DA5 V5 safe failure latched during startup');
@@ -251,6 +268,7 @@ try {
   ].join('\n'));
   startCommandInput();
 } catch {
+  startupAcquisitionSettlement.settle();
   password = '';
   startupPasswordBuffer.fill(0);
   if (!signalController.isInterrupted()) {
@@ -326,14 +344,17 @@ async function handleCommand(line: string): Promise<Da5V5OperatorCommandOutcome>
     try {
       await installDa5V5AndroidFromPackageZero({
         deviceBinding: accessibilityBinding,
+        installStreamRunner: mobileInstallStreamAdb,
         profile,
         runner: mobileAdb,
         serialBinding: deviceLock,
         signal: mutationAbortController.signal,
+        transaction: androidInstallTransaction,
       });
     } catch (error: unknown) {
+      const cleanup = classifyDa5V5AndroidInstallCleanup(error);
       process.stdout.write(
-        `da5_v5_android_install=mismatch category=${classifyDa5V5AndroidInstallError(error)}\n`,
+        `da5_v5_android_install=mismatch category=${classifyDa5V5AndroidInstallError(error)} cleanup_status=${cleanup.status} cleanup_substage=${cleanup.substage}\n`,
       );
       throw new Error('DA5 V5 Android install command failed');
     }
@@ -1004,12 +1025,16 @@ function startCommandInput(): void {
   });
   inputOwnership.attachCommand(commandInput);
   commandInput.on('line', (line) => {
-    void operatorLifecycle?.submit(() => handleCommand(line)).finally(() => {
-      startCommandInput();
-    });
+    observeBackgroundOperation(
+      operatorLifecycle?.submit(() => handleCommand(line)).finally(() => {
+        startCommandInput();
+      }),
+    );
   });
   commandInput.once('close', () => {
-    void operatorLifecycle?.abortAndFail('operator_command_failed');
+    observeBackgroundOperation(
+      operatorLifecycle?.abortAndFail('operator_command_failed'),
+    );
   });
 }
 
@@ -1017,21 +1042,10 @@ function cleanupResources(): Promise<void> {
   if (cleanupResourcesPromise !== null) {
     return cleanupResourcesPromise;
   }
-  const activeCleanup = performCleanupResources();
-  cleanupResourcesPromise = activeCleanup;
-  void activeCleanup.then(
-    () => {
-      if (cleanupResourcesPromise === activeCleanup) {
-        cleanupResourcesPromise = null;
-      }
-    },
-    () => {
-      if (cleanupResourcesPromise === activeCleanup) {
-        cleanupResourcesPromise = null;
-      }
-    },
+  cleanupResourcesPromise = startupAcquisitionSettlement.wait().then(
+    () => performCleanupResources(),
   );
-  return activeCleanup;
+  return cleanupResourcesPromise;
 }
 
 async function performCleanupResources(): Promise<void> {
@@ -1065,6 +1079,7 @@ async function performCleanupResources(): Promise<void> {
       profile,
       runner: mobileAdb,
       serialBinding: deviceLock,
+      transaction: androidInstallTransaction,
       reverseState: offline.cleanupProofState(),
     });
     if (cleanup.status !== 'match') {
@@ -1104,13 +1119,21 @@ function reportOperatorEvent(event: string): void {
   process.stdout.write(`${event}\n`);
 }
 
+function observeBackgroundOperation(operation: Promise<unknown> | undefined): void {
+  void settleDa5V5BackgroundOperation(operation, () => {
+    process.exitCode = 1;
+  });
+}
+
 function reportSafeEvent(event: SyntheticEnvironmentSafeEvent): void {
   process.stdout.write(`synthetic_e2e_event=${event}\n`);
   if (safeEventLatch.observe(event) === 'failed') {
     process.exitCode = 1;
     mutationAbortController.abort();
     inputOwnership.closeAll();
-    void operatorLifecycle?.abortAndFail('operator_command_failed');
+    observeBackgroundOperation(
+      operatorLifecycle?.abortAndFail('operator_command_failed'),
+    );
   }
 }
 

@@ -47,7 +47,7 @@ describe('DA5 V5 Product operator bundle start smoke', () => {
     });
   }, 10_000);
 
-  it('builds and reaches the DA5 operator input boundary without inspecting an APK', () => {
+  it('builds and reaches the hardware-free DA5 startup guard without APK or ADB use', () => {
     const build = spawnSync(
       'npm',
       ['run', 'build', '--workspace=@taptime/synthetic-android-e2e'],
@@ -69,9 +69,16 @@ describe('DA5 V5 Product operator bundle start smoke', () => {
       'package_manager_receipt',
       'installed_provenance',
       'cleanup',
+      'signal_abort',
     ]) {
       expect(bundle).toContain(category);
     }
+    expect(bundle).toContain('cleanup_status=');
+    expect(bundle).toContain('cleanup_substage=');
+    expect(bundle).toContain('install_abandon');
+    expect(bundle).toContain('runner_binding');
+    expect(bundle).toContain('uncertainty_escalation');
+    expect(bundle).toContain('settleDa5V5BackgroundOperation');
     expect(bundle).toContain('install-create');
     expect(bundle).toContain('install-write');
     expect(bundle).toContain('install-commit');
@@ -99,5 +106,44 @@ describe('DA5 V5 Product operator bundle start smoke', () => {
     expect(start.stderr).not.toContain(
       'synthetic_e2e_android_runtime_complete_verified',
     );
+
+    const startNear = spawnSync(
+      process.execPath,
+      [operatorBundle],
+      {
+        cwd: repositoryRoot,
+        encoding: 'utf8',
+        env: {
+          ...environment,
+          TAPTIME_DA5_V5_ANDROID_API: '35',
+          TAPTIME_DA5_V5_ANDROID_BUILD: 'synthetic-build',
+          TAPTIME_DA5_V5_ANDROID_RELEASE: '15',
+          TAPTIME_DA5_V5_DEVICE_MODEL: 'Synthetic Galaxy',
+          TAPTIME_DA5_V5_IMPLEMENTATION_COMMIT: 'a'.repeat(40),
+          TAPTIME_DA5_V5_IMPLEMENTATION_TREE: 'b'.repeat(40),
+          TAPTIME_DA5_V5_PG_CONFIG: `${repositoryRoot}/.missing-da5-v5-pg-config`,
+          TAPTIME_DA5_V5_RUNTIME_GUARD_BINARY:
+            `${repositoryRoot}/.missing-da5-v5-runtime-guard`,
+          TAPTIME_DA5_V5_RUNTIME_GUARD_BINARY_SHA256: 'c'.repeat(64),
+          TAPTIME_DA5_V5_RUNTIME_GUARD_MANIFEST:
+            `${repositoryRoot}/.missing-da5-v5-runtime-guard-manifest`,
+          TAPTIME_DA5_V5_RUNTIME_GUARD_MANIFEST_SHA256: 'd'.repeat(64),
+          TAPTIME_DA5_V5_TAG_A_FINGERPRINT: 'B55E8B6AEB30',
+          TAPTIME_DA5_V5_TAG_B_FINGERPRINT: '32A54C8F2F29',
+          TAPTIME_DA5_V5_TAG_TECHNOLOGY: 'NfcA',
+          TAPTIME_DA5_V5_TAG_X_FINGERPRINT: 'F61C9F702CFE',
+          TAPTIME_DA5_V5_TALKBACK_PACKAGE:
+            'com.google.android.marvin.talkback',
+          TAPTIME_DA5_V5_TALKBACK_VERSION: '15.1.0',
+          TAPTIME_SYNTHETIC_E2E_PASSWORD: 'e'.repeat(64),
+          TAPTIME_SYNTHETIC_E2E_PROFILE: 'da5-v5',
+        },
+      },
+    );
+
+    expect(startNear.status).toBe(1);
+    expect(startNear.stdout).toBe('');
+    expect(startNear.stderr).toBe('da5_v5_start_failed\n');
+    expect(startNear.stderr).not.toContain('Synthetic E2E release APK');
   }, 30_000);
 });

@@ -5,12 +5,17 @@ import {
   DA5_V5_ANDROID_PACKAGE,
 } from '../../scripts/da5V5AndroidArtifact.mjs';
 import {
+  DA5_V5_ANDROID_CLEANUP_SUBSTAGES,
   DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES,
   assertDa5V5PackageMappingZero,
+  classifyDa5V5AndroidInstallCleanup,
   classifyDa5V5AndroidInstallError,
   cleanupDa5V5AndroidState,
+  Da5V5AndroidCommandAbortError,
   Da5V5AndroidCommandExitError,
   Da5V5AndroidCommandTimeoutError,
+  Da5V5AndroidCommandTransientError,
+  Da5V5AndroidInstallTransaction,
   Da5V5AndroidPreinstallPreflight,
   Da5V5UsbSerialBinding,
   installDa5V5AndroidFromPackageZero,
@@ -40,10 +45,9 @@ describe('DA5 V5 package-zero Android install', () => {
       await expect(installDa5V5AndroidFromPackageZero({
         deviceBinding,
         profile,
-        runner: adb,
         reverifyArtifact: vi.fn(),
-        serialBinding: boundSerial(adb),
         verifyArtifact,
+        ...productInstallBindings(adb),
       })).rejects.toThrow(/exact explicit profile/);
       expect(verifyArtifact).not.toHaveBeenCalled();
       expect(adb.commands).toEqual([]);
@@ -56,9 +60,8 @@ describe('DA5 V5 package-zero Android install', () => {
     await expect(installDa5V5AndroidFromPackageZero({
       deviceBinding,
       profile: 'da5-v5',
-      runner: adb,
-      serialBinding: boundSerial(adb),
       verifyArtifact,
+      ...productInstallBindings(adb),
     })).rejects.toMatchObject({
       category: DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES.artifactReverify,
       message: 'DA5 V5 Android install failed',
@@ -72,12 +75,10 @@ describe('DA5 V5 package-zero Android install', () => {
       const verifyArtifact = vi.fn();
       await expect(installDa5V5AndroidFromPackageZero({
         deviceBinding,
-        installStreamRunner: adb.installStreamRunner,
         profile: 'da5-v5',
-        runner: adb,
         reverifyArtifact: vi.fn(() => verifiedSource()),
-        serialBinding: boundSerial(adb),
         verifyArtifact,
+        ...productInstallBindings(adb),
       })).resolves.toEqual({
         packageName: DA5_V5_ANDROID_PACKAGE,
         status: 'match',
@@ -119,6 +120,18 @@ describe('DA5 V5 package-zero Android install', () => {
         stdoutTerminal: false,
       }),
       DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES.childStartTransport,
+    ],
+    [
+      'signal abort',
+      Object.freeze({
+        category:
+          DA5_V5_VALIDATION_INSTALL_STREAM_ERROR_CATEGORIES.childTransportMismatch,
+        childTerminal: true,
+        status: 'mismatch' as const,
+        stdoutTerminal: true,
+        terminalCause: 'signal_abort' as const,
+      }),
+      DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES.signalAbort,
     ],
     [
       'stdin pipe',
@@ -163,6 +176,8 @@ describe('DA5 V5 package-zero Android install', () => {
 
     await expect(install(adb)).rejects.toMatchObject({
       category,
+      cleanupStatus: 'match',
+      cleanupSubstage: DA5_V5_ANDROID_CLEANUP_SUBSTAGES.complete,
       message: 'DA5 V5 Android install failed',
     });
 
@@ -172,7 +187,7 @@ describe('DA5 V5 package-zero Android install', () => {
     expect(adb.installSessionPending).toBe(false);
     expect(adb.packageInstalled).toBe(false);
     expect(adb.mappings).toEqual(new Map());
-    await expect(cleanup(adb)).resolves.toEqual({ status: 'match' });
+    await expect(cleanup(adb)).resolves.toMatchObject({ status: 'match' });
     expect(adb.commands.filter((command) => (
       command.includes('install-abandon')
     ))).toHaveLength(1);
@@ -230,6 +245,18 @@ describe('DA5 V5 package-zero Android install', () => {
       DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES.childStartTransport,
     );
     expect(category).not.toContain(rawDetail);
+  });
+
+  it('exposes only closed cleanup evidence without retaining raw failure detail', () => {
+    const rawDetail = 'private cleanup stderr serial and device path';
+    const error = new Error(rawDetail);
+
+    expect(classifyDa5V5AndroidInstallCleanup(error)).toEqual({
+      status: 'not_required',
+      substage: DA5_V5_ANDROID_CLEANUP_SUBSTAGES.notRequired,
+    });
+    expect(JSON.stringify(classifyDa5V5AndroidInstallCleanup(error)))
+      .not.toContain(rawDetail);
   });
 
   it.each([
@@ -331,6 +358,7 @@ describe('DA5 V5 package-zero Android install', () => {
         runner: adb,
         reverifyArtifact,
         serialBinding: boundSerial(adb),
+        transaction: undefined as unknown as Da5V5AndroidInstallTransaction,
         verifyArtifact: vi.fn(),
       })).rejects.toMatchObject({
         category: DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES.childStartTransport,
@@ -342,6 +370,61 @@ describe('DA5 V5 package-zero Android install', () => {
       expect(adb.packageInstalled).toBe(false);
       expect(adb.mappings).toEqual(new Map());
     });
+
+  it.each(['control', 'stream'] as const)(
+    'fails closed before mutation on %s-runner identity drift',
+    async (drift) => {
+      const adb = new FakeAdb();
+      const replacement = new FakeAdb();
+      const serialBinding = boundSerial(adb);
+      const transaction = productTransaction(adb, serialBinding);
+
+      await expect(installDa5V5AndroidFromPackageZero({
+        deviceBinding,
+        installStreamRunner: drift === 'stream'
+          ? replacement.installStreamRunner
+          : adb.installStreamRunner,
+        profile: 'da5-v5',
+        reverifyArtifact: vi.fn(() => verifiedSource()),
+        runner: drift === 'control' ? replacement : adb,
+        serialBinding,
+        transaction,
+        verifyArtifact: vi.fn(),
+      })).rejects.toMatchObject({
+        category: DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES.childStartTransport,
+        cleanupStatus: 'not_required',
+        cleanupSubstage: DA5_V5_ANDROID_CLEANUP_SUBSTAGES.notRequired,
+      });
+
+      expect(adb.commands).toEqual([]);
+      expect(replacement.commands).toEqual([]);
+    },
+  );
+
+  it('rejects a parallel install transaction on the same control runner', async () => {
+    const adb = new FakeAdb();
+    const first = install(adb);
+    const secondSerialBinding = boundSerial(adb);
+    const secondTransaction = productTransaction(adb, secondSerialBinding);
+
+    await expect(installDa5V5AndroidFromPackageZero({
+      deviceBinding,
+      installStreamRunner: adb.installStreamRunner,
+      profile: 'da5-v5',
+      reverifyArtifact: vi.fn(() => verifiedSource()),
+      runner: adb,
+      serialBinding: secondSerialBinding,
+      transaction: secondTransaction,
+      verifyArtifact: vi.fn(),
+      ...virtualTiming(adb),
+    })).rejects.toMatchObject({
+      category: DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES.childStartTransport,
+      cleanupStatus: 'not_required',
+    });
+    await expect(first).resolves.toMatchObject({ status: 'match' });
+    expect(adb.commands.filter((command) => command.includes('install-create')))
+      .toHaveLength(1);
+  });
 
   it('classifies a malformed commit receipt and abandons before installed provenance',
     async () => {
@@ -370,12 +453,20 @@ describe('DA5 V5 package-zero Android install', () => {
     });
 
     await expect(install(adb)).rejects.toMatchObject({
-      category: DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES.cleanup,
+      category: DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES.childExit,
+      cleanupStatus: 'mismatch',
+      cleanupSubstage: DA5_V5_ANDROID_CLEANUP_SUBSTAGES.installAbandon,
     });
     expect(adb.commands.filter((command) => command.includes('install-abandon')))
       .toHaveLength(1);
     expect(adb.packageInstalled).toBe(false);
     expect(adb.mappings).toEqual(new Map());
+    await expect(cleanup(adb)).resolves.toMatchObject({
+      status: 'mismatch',
+      substage: DA5_V5_ANDROID_CLEANUP_SUBSTAGES.installAbandon,
+    });
+    expect(adb.commands.filter((command) => command.includes('install-abandon')))
+      .toHaveLength(1);
   });
 
   it('installs only the sealed snapshot after an adversarial late host-path swap', async () => {
@@ -387,12 +478,10 @@ describe('DA5 V5 package-zero Android install', () => {
 
     await expect(installDa5V5AndroidFromPackageZero({
       deviceBinding,
-      installStreamRunner: adb.installStreamRunner,
       profile: 'da5-v5',
-      runner: adb,
       reverifyArtifact,
-      serialBinding: boundSerial(adb),
       verifyArtifact: vi.fn(),
+      ...productInstallBindings(adb),
     })).resolves.toEqual({
       packageName: DA5_V5_ANDROID_PACKAGE,
       status: 'match',
@@ -411,14 +500,12 @@ describe('DA5 V5 package-zero Android install', () => {
 
       await expect(installDa5V5AndroidFromPackageZero({
         deviceBinding,
-        installStreamRunner: adb.installStreamRunner,
         profile: 'da5-v5',
         reverifyArtifact: vi.fn(() => {
           throw new Error(rawDetail);
         }),
-        runner: adb,
-        serialBinding: boundSerial(adb),
         verifyArtifact: vi.fn(),
+        ...productInstallBindings(adb),
         ...virtualTiming(adb),
       })).rejects.toMatchObject({
         category: DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES.artifactReverify,
@@ -693,7 +780,11 @@ describe('DA5 V5 package-zero Android install', () => {
     await expect(install(adb)).rejects.toThrow('DA5 V5 Android install failed');
     expect(adb.packageInstalled).toBe(false);
     expect(adb.mappings).toEqual(new Map());
-    expect(adb.elapsedMilliseconds).toBeGreaterThanOrEqual(15_000);
+    if (failure === 'post-install-check') {
+      expect(adb.elapsedMilliseconds).toBe(250);
+    } else {
+      expect(adb.elapsedMilliseconds).toBeGreaterThanOrEqual(15_000);
+    }
     assertNoBroadDeviceMutation(adb);
   });
 });
@@ -880,9 +971,20 @@ describe('DA5 V5 scoped Android cleanup', () => {
         adb.mappings.set('tcp:3000', 'tcp:3000');
       }
       adb.packageInstalled = state === 'full' || state === 'package-only';
+      acquireProductResources(adb, {
+        ...(adb.packageInstalled ? { package: 'owned' as const } : {}),
+        mappings: {
+          ...(adb.mappings.has('tcp:54321')
+            ? { 'tcp:54321': 'owned' as const }
+            : {}),
+          ...(adb.mappings.has('tcp:3000')
+            ? { 'tcp:3000': 'owned' as const }
+            : {}),
+        },
+      });
 
-      await expect(cleanup(adb)).resolves.toEqual({ status: 'match' });
-      await expect(cleanup(adb)).resolves.toEqual({ status: 'match' });
+      await expect(cleanup(adb)).resolves.toMatchObject({ status: 'match' });
+      await expect(cleanup(adb)).resolves.toMatchObject({ status: 'match' });
       expect(adb.packageInstalled).toBe(false);
       expect(adb.mappings).toEqual(new Map());
       assertNoBroadDeviceMutation(adb);
@@ -895,8 +997,9 @@ describe('DA5 V5 scoped Android cleanup', () => {
     adb.processes = [`${DA5_V5_ANDROID_PACKAGE}:secondary`];
     adb.mappings.set('tcp:54321', 'tcp:54321');
     adb.mappings.set('tcp:3000', 'tcp:3000');
+    acquireProductResources(adb);
 
-    await expect(cleanup(adb)).resolves.toEqual({ status: 'match' });
+    await expect(cleanup(adb)).resolves.toMatchObject({ status: 'match' });
 
     expect(adb.packageInstalled).toBe(false);
     expect(adb.processes).toEqual([]);
@@ -911,10 +1014,32 @@ describe('DA5 V5 scoped Android cleanup', () => {
       const adb = new FakeAdb();
       adb.processes = [`${DA5_V5_ANDROID_PACKAGE}:secondary`];
 
-      await expect(cleanup(adb)).resolves.toEqual({ status: 'mismatch' });
+      await expect(cleanup(adb)).resolves.toMatchObject({ status: 'mismatch' });
 
       expect(adb.processes).toEqual([`${DA5_V5_ANDROID_PACKAGE}:secondary`]);
       expect(adb.commands.flat()).not.toContain('uninstall');
+    });
+
+  it('observes but never removes pre-existing Product-shaped state without resource acquisition',
+    async () => {
+      const adb = new FakeAdb();
+      adb.packageInstalled = true;
+      adb.mappings.set('tcp:54321', 'tcp:54321');
+      adb.mappings.set('tcp:3000', 'tcp:3000');
+      productBinding(adb);
+
+      await expect(cleanup(adb)).resolves.toEqual({
+        status: 'mismatch',
+        substage: DA5_V5_ANDROID_CLEANUP_SUBSTAGES.reverseRemoveAuth,
+      });
+
+      expect(adb.packageInstalled).toBe(true);
+      expect(adb.mappings).toEqual(new Map([
+        ['tcp:54321', 'tcp:54321'],
+        ['tcp:3000', 'tcp:3000'],
+      ]));
+      expect(adb.commands.flat()).not.toContain('uninstall');
+      expect(adb.commands.flat()).not.toContain('--remove');
     });
 
   it('preserves unrelated mappings and fails closed without overwriting an owned-port mismatch',
@@ -923,7 +1048,11 @@ describe('DA5 V5 scoped Android cleanup', () => {
       unrelated.packageInstalled = true;
       unrelated.mappings.set('tcp:9999', 'tcp:9998');
       unrelated.mappings.set('tcp:54321', 'tcp:54321');
-      await expect(cleanup(unrelated)).resolves.toEqual({ status: 'match' });
+      acquireProductResources(unrelated, {
+        mappings: { 'tcp:54321': 'owned' },
+        package: 'owned',
+      });
+      await expect(cleanup(unrelated)).resolves.toMatchObject({ status: 'match' });
       expect(unrelated.mappings).toEqual(new Map([['tcp:9999', 'tcp:9998']]));
       expect(unrelated.packageInstalled).toBe(false);
 
@@ -931,7 +1060,8 @@ describe('DA5 V5 scoped Android cleanup', () => {
       mismatch.packageInstalled = true;
       mismatch.mappings.set('tcp:54321', 'tcp:3999');
       mismatch.mappings.set('tcp:3000', 'tcp:3000');
-      await expect(cleanup(mismatch)).resolves.toEqual({ status: 'mismatch' });
+      acquireProductResources(mismatch);
+      await expect(cleanup(mismatch)).resolves.toMatchObject({ status: 'mismatch' });
       expect(mismatch.mappings.get('tcp:54321')).toBe('tcp:3999');
       expect(mismatch.mappings.has('tcp:3000')).toBe(false);
       expect(mismatch.packageInstalled).toBe(false);
@@ -943,36 +1073,273 @@ describe('DA5 V5 scoped Android cleanup', () => {
     adb.packageInstalled = true;
     adb.mappings.set('tcp:54321', 'tcp:54321');
     adb.mappings.set('tcp:3000', 'tcp:3000');
+    acquireProductResources(adb);
     const first = cleanup(adb);
     const second = cleanup(adb);
     expect(first).toBe(second);
-    await expect(first).resolves.toEqual({ status: 'match' });
+    await expect(first).resolves.toMatchObject({ status: 'match' });
     expect(adb.commands.filter((command) => command.includes('uninstall'))).toHaveLength(1);
     expect(JSON.stringify(await first)).not.toContain(adb.serial);
   });
+
+  it('retains one successful package-removal flight across inner and outer cleanup', async () => {
+    const adb = cleanupFixture();
+
+    await expect(cleanup(adb)).resolves.toEqual({
+      status: 'match',
+      substage: DA5_V5_ANDROID_CLEANUP_SUBSTAGES.complete,
+    });
+    await expect(cleanup(adb)).resolves.toEqual({
+      status: 'match',
+      substage: DA5_V5_ANDROID_CLEANUP_SUBSTAGES.complete,
+    });
+
+    expect(adb.commands.filter((command) => (
+      command.slice(2).join(' ') === `uninstall ${DA5_V5_ANDROID_PACKAGE}`
+    ))).toHaveLength(1);
+  });
+
+  it('retains one failed package-removal flight across inner and outer cleanup', async () => {
+    const adb = cleanupFixture();
+    adb.uninstallReceipt = 'Failure [DELETE_FAILED_INTERNAL_ERROR]\n';
+
+    const expected = {
+      status: 'mismatch' as const,
+      substage: DA5_V5_ANDROID_CLEANUP_SUBSTAGES.packageUninstall,
+    };
+    await expect(cleanup(adb)).resolves.toEqual(expected);
+    await expect(cleanup(adb)).resolves.toEqual(expected);
+
+    expect(adb.packageInstalled).toBe(true);
+    expect(adb.commands.filter((command) => (
+      command.slice(2).join(' ') === `uninstall ${DA5_V5_ANDROID_PACKAGE}`
+    ))).toHaveLength(1);
+  });
+
+  it('never uninstalls again when package residue reappears during final-zero observation',
+    async () => {
+      const adb = new FakeAdb();
+      adb.packageInstalled = true;
+      adb.latePackageVisibilityAtMilliseconds = [5_000];
+      acquireProductResources(adb, { package: 'uncertain' });
+
+      await expect(cleanupDa5V5AndroidState({
+        deviceBinding,
+        installationState: 'uncertain',
+        profile: 'da5-v5',
+        ...productCleanupBindings(adb),
+        ...virtualTiming(adb),
+      })).resolves.toEqual({
+        status: 'mismatch',
+        substage: DA5_V5_ANDROID_CLEANUP_SUBSTAGES.installAbandon,
+      });
+
+      expect(adb.elapsedMilliseconds).toBe(5_000);
+      expect(adb.packageInstalled).toBe(true);
+      expect(adb.commands.filter((command) => (
+        command.slice(2).join(' ') === `uninstall ${DA5_V5_ANDROID_PACKAGE}`
+      ))).toHaveLength(1);
+    });
+
+  it('retries one transient device reattestation failure without broad mutation', async () => {
+    const adb = cleanupFixture();
+    adb.failCounts.set('devices -l', 1);
+
+    await expect(cleanup(adb)).resolves.toEqual({
+      status: 'match',
+      substage: DA5_V5_ANDROID_CLEANUP_SUBSTAGES.complete,
+    });
+
+    expect(initialCleanupReattestationCount(adb)).toBe(2);
+    expect(adb.packageInstalled).toBe(false);
+    expect(adb.mappings).toEqual(new Map());
+    assertNoBroadDeviceMutation(adb);
+  });
+
+  it.each([
+    ['abort', new Da5V5AndroidCommandAbortError()],
+    ['permanent exit', new Da5V5AndroidCommandExitError()],
+    ['untyped failure', new Error('permanent fake failure')],
+  ])('does not retry a %s during device reattestation', async (_scenario, error) => {
+    const adb = cleanupFixture();
+    adb.errorOnce = (arguments_) => (
+      arguments_.join(' ') === 'devices -l' ? error : null
+    );
+
+    await expect(cleanup(adb)).resolves.toEqual({
+      status: 'mismatch',
+      substage: DA5_V5_ANDROID_CLEANUP_SUBSTAGES.deviceReattest,
+    });
+
+    expect(adb.commands.filter((command) => command.join(' ') === 'devices -l'))
+      .toHaveLength(1);
+    expect(adb.commands.flat()).not.toContain('uninstall');
+    expect(adb.commands.flat()).not.toContain('--remove');
+  });
+
+  it('retries one transient reverse-list failure and completes exact cleanup', async () => {
+    const adb = cleanupFixture();
+    const listCommand = `-s ${adb.serial} reverse --list`;
+    adb.failCounts.set(listCommand, 1);
+
+    await expect(cleanup(adb)).resolves.toEqual({
+      status: 'match',
+      substage: DA5_V5_ANDROID_CLEANUP_SUBSTAGES.complete,
+    });
+
+    expect(initialCleanupReverseListCount(adb, listCommand)).toBe(2);
+    expect(adb.packageInstalled).toBe(false);
+    expect(adb.mappings).toEqual(new Map());
+  });
+
+  it('retries one typed timeout during reverse-list observation', async () => {
+    const adb = cleanupFixture();
+    const listCommand = `-s ${adb.serial} reverse --list`;
+    adb.errorOnce = (arguments_) => (
+      arguments_.join(' ') === listCommand
+        ? new Da5V5AndroidCommandTimeoutError()
+        : null
+    );
+
+    await expect(cleanup(adb)).resolves.toEqual({
+      status: 'match',
+      substage: DA5_V5_ANDROID_CLEANUP_SUBSTAGES.complete,
+    });
+    expect(initialCleanupReverseListCount(adb, listCommand)).toBe(2);
+  });
+
+  it.each([
+    ['abort', new Da5V5AndroidCommandAbortError()],
+    ['permanent exit', new Da5V5AndroidCommandExitError()],
+  ])('does not retry a %s during reverse-list observation', async (_scenario, error) => {
+    const adb = cleanupFixture();
+    const listCommand = `-s ${adb.serial} reverse --list`;
+    adb.errorOnce = (arguments_) => (
+      arguments_.join(' ') === listCommand ? error : null
+    );
+
+    await expect(cleanup(adb)).resolves.toEqual({
+      status: 'mismatch',
+      substage: DA5_V5_ANDROID_CLEANUP_SUBSTAGES.reverseList,
+    });
+    expect(initialCleanupReverseListCount(adb, listCommand)).toBe(1);
+    expect(adb.packageInstalled).toBe(false);
+  });
+
+  it('does not retry malformed reverse-list output', async () => {
+    const adb = cleanupFixture();
+    const listCommand = `-s ${adb.serial} reverse --list`;
+    adb.rawReverseLines = ['malformed'];
+
+    await expect(cleanup(adb)).resolves.toEqual({
+      status: 'mismatch',
+      substage: DA5_V5_ANDROID_CLEANUP_SUBSTAGES.reverseList,
+    });
+    expect(initialCleanupReverseListCount(adb, listCommand)).toBe(1);
+    expect(adb.packageInstalled).toBe(false);
+  });
+
+  it('retries both exact reverse removals independently', async () => {
+    const adb = cleanupFixture();
+    for (const device of ['tcp:54321', 'tcp:3000']) {
+      adb.failCounts.set(`-s ${adb.serial} reverse --remove ${device}`, 1);
+    }
+
+    await expect(cleanup(adb)).resolves.toEqual({
+      status: 'match',
+      substage: DA5_V5_ANDROID_CLEANUP_SUBSTAGES.complete,
+    });
+
+    for (const device of ['tcp:54321', 'tcp:3000']) {
+      expect(adb.commands.filter((command) => (
+        command.join(' ') === `-s ${adb.serial} reverse --remove ${device}`
+      ))).toHaveLength(2);
+    }
+    expect(adb.mappings).toEqual(new Map());
+  });
+
+  it.each([
+    ['abort', new Da5V5AndroidCommandAbortError()],
+    ['permanent exit', new Da5V5AndroidCommandExitError()],
+  ])('does not retry a %s during exact reverse removal', async (_scenario, error) => {
+    const adb = cleanupFixture();
+    const removeCommand = `-s ${adb.serial} reverse --remove tcp:54321`;
+    adb.errorOnce = (arguments_) => (
+      arguments_.join(' ') === removeCommand ? error : null
+    );
+
+    await expect(cleanup(adb)).resolves.toEqual({
+      status: 'mismatch',
+      substage: DA5_V5_ANDROID_CLEANUP_SUBSTAGES.reverseRemoveAuth,
+    });
+    expect(adb.commands.filter((command) => command.join(' ') === removeCommand))
+      .toHaveLength(1);
+    expect(adb.mappings).toEqual(new Map([['tcp:54321', 'tcp:54321']]));
+    expect(adb.packageInstalled).toBe(false);
+  });
+
+  it('records partial progress when one exact reverse removal remains unavailable', async () => {
+    const adb = cleanupFixture();
+    const failedRemoval = `-s ${adb.serial} reverse --remove tcp:54321`;
+    adb.failCounts.set(failedRemoval, 2);
+
+    await expect(cleanup(adb)).resolves.toEqual({
+      status: 'mismatch',
+      substage: DA5_V5_ANDROID_CLEANUP_SUBSTAGES.reverseRemoveAuth,
+    });
+
+    expect(adb.commands.filter((command) => command.join(' ') === failedRemoval))
+      .toHaveLength(2);
+    expect(adb.mappings).toEqual(new Map([['tcp:54321', 'tcp:54321']]));
+    expect(adb.packageInstalled).toBe(false);
+  });
+
+  it('continues package cleanup after the bounded reverse-list retries are exhausted',
+    async () => {
+      const adb = cleanupFixture();
+      adb.failCounts.set(`-s ${adb.serial} reverse --list`, 2);
+
+      await expect(cleanup(adb)).resolves.toEqual({
+        status: 'mismatch',
+        substage: DA5_V5_ANDROID_CLEANUP_SUBSTAGES.reverseList,
+      });
+
+      expect(adb.packageInstalled).toBe(false);
+      expect(adb.mappings).toEqual(new Map([
+        ['tcp:54321', 'tcp:54321'],
+        ['tcp:3000', 'tcp:3000'],
+      ]));
+    });
 
   it('fails closed instead of coalescing an uncertain-install cleanup into a weaker flight',
     async () => {
       const adb = new FakeAdb();
       const serialBinding = boundSerial(adb);
+      const transaction = productTransaction(adb, serialBinding);
       const ordinary = cleanupDa5V5AndroidState({
         deviceBinding,
         profile: 'da5-v5',
         runner: adb,
         serialBinding,
-        wait: async () => undefined,
+        transaction,
+        ...virtualTiming(adb),
       });
+      await expect(ordinary).resolves.toMatchObject({ status: 'match' });
+      const commandCount = adb.commands.length;
       const uncertain = cleanupDa5V5AndroidState({
         deviceBinding,
         installationState: 'uncertain',
         profile: 'da5-v5',
         runner: adb,
         serialBinding,
+        transaction,
         ...virtualTiming(adb),
       });
-
-      await expect(ordinary).resolves.toEqual({ status: 'match' });
-      await expect(uncertain).resolves.toEqual({ status: 'mismatch' });
+      await expect(uncertain).resolves.toEqual({
+        status: 'mismatch',
+        substage: DA5_V5_ANDROID_CLEANUP_SUBSTAGES.uncertaintyEscalation,
+      });
+      expect(adb.commands).toHaveLength(commandCount);
     });
 
   it('parses last-two-column reverse output and requires a true zero state', async () => {
@@ -1007,8 +1374,14 @@ describe('DA5 V5 scoped Android cleanup', () => {
     const adb = new FakeAdb();
     const serialBinding = new Da5V5UsbSerialBinding();
     expect(serialBinding.bind(adb.serial)).toBe('match');
+    const transaction = productTransaction(adb, serialBinding);
     adb.packageInstalled = true;
     adb.mappings.set('tcp:54321', 'tcp:54321');
+    transaction.markZeroPreconditionProven();
+    transaction.markReverseMutationStarted('tcp:54321');
+    transaction.markReverseMutationProven('tcp:54321');
+    transaction.markSessionCreateStarted();
+    transaction.markSessionCommitted();
     adb.replaceDevice('replacement-device');
 
     await expect(cleanupDa5V5AndroidState({
@@ -1016,8 +1389,12 @@ describe('DA5 V5 scoped Android cleanup', () => {
       profile: 'da5-v5',
       runner: adb,
       serialBinding,
+      transaction,
       wait: async () => undefined,
-    })).resolves.toEqual({ status: 'mismatch' });
+    })).resolves.toEqual({
+      status: 'mismatch',
+      substage: DA5_V5_ANDROID_CLEANUP_SUBSTAGES.deviceReattest,
+    });
 
     expect(adb.commands.filter((command) => (
       command[0] === '-s' && command[1] === 'replacement-device'
@@ -1026,6 +1403,30 @@ describe('DA5 V5 scoped Android cleanup', () => {
     );
     expect(adb.packageInstalled).toBe(true);
     expect(adb.mappings.get('tcp:54321')).toBe('tcp:54321');
+  });
+
+  it('never mutates an ambiguous device set during cleanup', async () => {
+    const adb = cleanupFixture();
+    adb.devices.push({
+      details: 'usb:second product:synthetic model:synthetic transport_id:2',
+      serial: 'second-device',
+      state: 'device',
+    });
+
+    await expect(cleanup(adb)).resolves.toEqual({
+      status: 'mismatch',
+      substage: DA5_V5_ANDROID_CLEANUP_SUBSTAGES.deviceReattest,
+    });
+
+    expect(adb.packageInstalled).toBe(true);
+    expect(adb.mappings).toEqual(new Map([
+      ['tcp:54321', 'tcp:54321'],
+      ['tcp:3000', 'tcp:3000'],
+    ]));
+    expect(adb.commands.flat()).not.toContain('uninstall');
+    expect(adb.commands.flat()).not.toContain('--remove');
+    expect(adb.commands.filter((command) => command.join(' ') === 'devices -l'))
+      .toHaveLength(1);
   });
 
   it('refuses retained serial use after a continuity mismatch has latched', () => {
@@ -1061,21 +1462,23 @@ describe('DA5 V5 scoped Android cleanup', () => {
       adb.abortInstall = abort;
       await expect(installDa5V5AndroidFromPackageZero({
         deviceBinding,
-        installStreamRunner: adb.installStreamRunner,
         profile: 'da5-v5',
         reverifyArtifact: vi.fn(() => verifiedSource()),
-        runner: adb,
-        serialBinding: boundSerial(adb),
         signal: abort.signal,
         verifyArtifact: vi.fn(),
+        ...productInstallBindings(adb),
         ...virtualTiming(adb),
-      })).rejects.toThrow(/install failed/);
+      })).rejects.toMatchObject({
+        category: DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES.signalAbort,
+        cleanupStatus: 'match',
+        cleanupSubstage: DA5_V5_ANDROID_CLEANUP_SUBSTAGES.complete,
+      });
       expect(abort.signal.aborted).toBe(true);
       expect(adb.mappings).toEqual(new Map());
       expect(adb.packageInstalled).toBe(false);
     });
 
-  it('restarts a 15-second null window for residue appearing five seconds after install failure',
+  it('observes late package residue without another uninstall in the uncertain final proof',
     async () => {
       const adb = new FakeAdb();
       adb.failOnce = (arguments_) => (
@@ -1084,13 +1487,17 @@ describe('DA5 V5 scoped Android cleanup', () => {
       adb.lateOwnedMappingVisibilityAtMilliseconds = [5_000];
       adb.latePackageVisibilityAtMilliseconds = [5_000];
 
-      await expect(install(adb)).rejects.toThrow(/install failed/);
+      await expect(install(adb)).rejects.toMatchObject({
+        category: DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES.childStartTransport,
+        cleanupStatus: 'mismatch',
+        cleanupSubstage: DA5_V5_ANDROID_CLEANUP_SUBSTAGES.installAbandon,
+      });
 
-      expect(adb.elapsedMilliseconds).toBeGreaterThanOrEqual(20_000);
-      expect(adb.packageInstalled).toBe(false);
+      expect(adb.elapsedMilliseconds).toBe(5_000);
+      expect(adb.packageInstalled).toBe(true);
       expect(adb.commands.filter((command) => (
         command.slice(2).join(' ') === `uninstall ${DA5_V5_ANDROID_PACKAGE}`
-      ))).toHaveLength(1);
+      ))).toHaveLength(0);
       expect(adb.commands.filter((command) => (
         command.slice(2).join(' ') === 'reverse --remove tcp:3000'
       ))).toHaveLength(2);
@@ -1103,15 +1510,20 @@ describe('DA5 V5 scoped Android cleanup', () => {
       adb.mappings.set('tcp:54321', 'tcp:54321');
       adb.mappings.set('tcp:3000', 'tcp:3000');
       adb.lateOwnedMappingVisibilityAtMilliseconds = [5_000];
+      acquireProductResources(adb, {
+        mappings: {
+          'tcp:3000': 'owned',
+          'tcp:54321': 'owned',
+        },
+      });
 
       await expect(cleanupDa5V5AndroidState({
         deviceBinding,
         profile: 'da5-v5',
         reverseState: 'uncertain',
-        runner: adb,
-        serialBinding: boundSerial(adb),
+        ...productCleanupBindings(adb),
         ...virtualTiming(adb),
-      })).resolves.toEqual({ status: 'match' });
+      })).resolves.toMatchObject({ status: 'match' });
 
       expect(adb.elapsedMilliseconds).toBeGreaterThanOrEqual(20_000);
       expect(adb.commands.filter((command) => (
@@ -1120,26 +1532,45 @@ describe('DA5 V5 scoped Android cleanup', () => {
       expect(adb.mappings).toEqual(new Map());
     });
 
-  it('fails closed within 60 seconds when late install residue prevents a 15-second null window',
+  it('never lets reattestation, retry waits, or reverse-list reads exceed one 60-second deadline',
     async () => {
-    const adb = new FakeAdb();
-    adb.failOnce = (arguments_) => (
-      isInstallCommand(arguments_)
-    );
-    adb.latePackageVisibilityAtMilliseconds = [5_000, 19_000, 33_000, 47_000];
+      const adb = new FakeAdb();
+      acquireProductResources(adb, {
+        mappings: { 'tcp:54321': 'uncertain' },
+      });
+      adb.commandDurations.set('devices -l', 14_000);
+      adb.commandDurations.set(
+        `-s ${adb.serial} shell getprop ro.product.model`,
+        14_000,
+      );
+      adb.commandDurations.set(
+        `-s ${adb.serial} shell getprop ro.build.fingerprint`,
+        14_000,
+      );
+      adb.commandDurations.set(`-s ${adb.serial} reverse --list`, 20_000);
 
-    await expect(install(adb)).rejects.toMatchObject({
-      category: DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES.cleanup,
-      message: 'DA5 V5 Android install failed',
+      await expect(cleanupDa5V5AndroidState({
+        deviceBinding,
+        profile: 'da5-v5',
+        reverseState: 'uncertain',
+        ...productCleanupBindings(adb),
+        ...virtualTiming(adb),
+      })).resolves.toEqual({
+        status: 'mismatch',
+        substage: DA5_V5_ANDROID_CLEANUP_SUBSTAGES.reverseList,
+      });
+
+      expect(adb.elapsedMilliseconds).toBe(60_000);
+      expect(adb.commands.filter((command) => (
+        command.join(' ') === `-s ${adb.serial} reverse --list`
+      ))).toHaveLength(2);
+      for (const observation of adb.commandOptions) {
+        expect(observation.timeoutMilliseconds).toBeGreaterThan(0);
+        expect(observation.timeoutMilliseconds).toBeLessThanOrEqual(
+          60_000 - observation.startedAtMilliseconds,
+        );
+      }
     });
-
-    expect(adb.elapsedMilliseconds).toBe(60_000);
-    expect(adb.packageInstalled).toBe(false);
-    expect(adb.commands.filter((command) => (
-      command.slice(2).join(' ') === `uninstall ${DA5_V5_ANDROID_PACKAGE}`
-    ))).toHaveLength(4);
-    expect(adb.mappings).toEqual(new Map());
-  });
 });
 
 class FakeAdb implements Da5V5AndroidAdbRunner {
@@ -1155,7 +1586,9 @@ class FakeAdb implements Da5V5AndroidAdbRunner {
     state: 'device',
   }];
   enabledAccessibilityServices = `${googleTalkBackPackage}/.TalkBackService`;
+  commandDurations = new Map<string, number>();
   errorOnce: ((arguments_: readonly string[]) => Error | null) | null = null;
+  failCounts = new Map<string, number>();
   failOnce: ((arguments_: readonly string[]) => boolean) | null = null;
   elapsedMilliseconds = 0;
   lateOwnedMappingVisibilityAtMilliseconds: number[] = [];
@@ -1168,6 +1601,7 @@ class FakeAdb implements Da5V5AndroidAdbRunner {
   installCreateReceipt = 'Success: created install session [42]\n';
   installInputObserved = false;
   installSessionPending = false;
+  uninstallReceipt = 'Success\n';
   installStreamOutcome: Da5V5ValidationInstallStreamOutcome | null = null;
   readonly installStreamRunner = new FakeInstallStreamRunner(this);
   installedSha256 = DA5_V5_ANDROID_ARTIFACT.apk.sha256;
@@ -1187,6 +1621,7 @@ class FakeAdb implements Da5V5AndroidAdbRunner {
     arguments_: readonly string[];
     maximumBytes?: number;
     signal?: AbortSignal;
+    startedAtMilliseconds: number;
     stdinBytes?: Buffer;
     timeoutMilliseconds?: number;
   }> = [];
@@ -1199,15 +1634,35 @@ class FakeAdb implements Da5V5AndroidAdbRunner {
       timeoutMilliseconds?: number;
     } = {},
   ): Promise<string> {
+    const failureKey = arguments_.join(' ');
+    const startedAtMilliseconds = this.elapsedMilliseconds;
     this.commands.push([...arguments_]);
-    this.commandOptions.push({ arguments_: [...arguments_], ...options });
+    this.commandOptions.push({
+      arguments_: [...arguments_],
+      startedAtMilliseconds,
+      ...options,
+    });
     if (options.signal?.aborted === true) {
-      throw new Error('fake adb aborted');
+      throw new Da5V5AndroidCommandAbortError();
     }
+    const commandDuration = this.commandDurations.get(failureKey) ?? 0;
+    if (
+      options.timeoutMilliseconds !== undefined
+      && commandDuration > options.timeoutMilliseconds
+    ) {
+      this.elapsedMilliseconds += options.timeoutMilliseconds;
+      throw new Da5V5AndroidCommandTimeoutError();
+    }
+    this.elapsedMilliseconds += commandDuration;
     const injectedError = this.errorOnce?.(arguments_);
     if (injectedError !== null && injectedError !== undefined) {
       this.errorOnce = null;
       throw injectedError;
+    }
+    const remainingFailures = this.failCounts.get(failureKey) ?? 0;
+    if (remainingFailures > 0) {
+      this.failCounts.set(failureKey, remainingFailures - 1);
+      throw new Da5V5AndroidCommandTransientError();
     }
     if (this.failOnce?.(arguments_) === true) {
       this.failOnce = null;
@@ -1317,9 +1772,11 @@ class FakeAdb implements Da5V5AndroidAdbRunner {
       return this.installAbandonReceipt;
     }
     if (text === `uninstall ${DA5_V5_ANDROID_PACKAGE}`) {
-      this.packageInstalled = false;
-      this.processes = [];
-      return 'Success\n';
+      if (this.uninstallReceipt === 'Success\n') {
+        this.packageInstalled = false;
+        this.processes = [];
+      }
+      return this.uninstallReceipt;
     }
     throw new Error(`unexpected fake adb command: ${text}`);
   }
@@ -1333,7 +1790,11 @@ class FakeAdb implements Da5V5AndroidAdbRunner {
     },
   ): Promise<Readonly<{ bytes: number; sha256: string }>> {
     this.commands.push([...arguments_]);
-    this.commandOptions.push({ arguments_: [...arguments_], ...options });
+    this.commandOptions.push({
+      arguments_: [...arguments_],
+      startedAtMilliseconds: this.elapsedMilliseconds,
+      ...options,
+    });
     if (options.signal?.aborted === true) {
       throw new Error('fake adb aborted');
     }
@@ -1382,7 +1843,11 @@ class FakeInstallStreamRunner implements Da5V5ValidationInstallStreamRunner {
     }>,
   ): Promise<Da5V5ValidationInstallStreamOutcome> {
     this.adb.commands.push([...arguments_]);
-    this.adb.commandOptions.push({ arguments_: [...arguments_], ...options });
+    this.adb.commandOptions.push({
+      arguments_: [...arguments_],
+      startedAtMilliseconds: this.adb.elapsedMilliseconds,
+      ...options,
+    });
     if (arguments_.join(' ') !== installWriteCommand(this.adb.serial).join(' ')) {
       throw new Error('unexpected fake install-write command');
     }
@@ -1412,25 +1877,109 @@ class FakeInstallStreamRunner implements Da5V5ValidationInstallStreamRunner {
 function install(adb: FakeAdb) {
   return installDa5V5AndroidFromPackageZero({
     deviceBinding,
-    installStreamRunner: adb.installStreamRunner,
     profile: 'da5-v5',
-    runner: adb,
     reverifyArtifact: vi.fn(() => verifiedSource()),
-    serialBinding: boundSerial(adb),
     verifyArtifact: vi.fn(),
+    ...productInstallBindings(adb),
     ...virtualTiming(adb),
   });
 }
 
 function cleanup(adb: FakeAdb) {
-  const serialBinding = boundSerial(adb);
   return cleanupDa5V5AndroidState({
     deviceBinding,
     profile: 'da5-v5',
-    runner: adb,
-    serialBinding,
+    ...productCleanupBindings(adb),
     wait: async () => undefined,
   });
+}
+
+function cleanupFixture(): FakeAdb {
+  const adb = new FakeAdb();
+  adb.packageInstalled = true;
+  adb.mappings.set('tcp:54321', 'tcp:54321');
+  adb.mappings.set('tcp:3000', 'tcp:3000');
+  acquireProductResources(adb);
+  return adb;
+}
+
+type ProductCleanupResourceOptions = Readonly<{
+  mappings?: Readonly<Partial<Record<'tcp:3000' | 'tcp:54321', 'owned' | 'uncertain'>>>;
+  package?: 'owned' | 'uncertain';
+}>;
+
+function acquireProductResources(
+  adb: FakeAdb,
+  options: ProductCleanupResourceOptions = Object.freeze({
+    mappings: Object.freeze({
+      'tcp:3000': 'owned',
+      'tcp:54321': 'owned',
+    }),
+    package: 'owned',
+  }),
+): ProductTransactionBinding {
+  const binding = productBinding(adb);
+  binding.transaction.markZeroPreconditionProven();
+  for (const device of ['tcp:54321', 'tcp:3000'] as const) {
+    const state = options.mappings?.[device];
+    if (state === undefined) continue;
+    binding.transaction.markReverseMutationStarted(device);
+    if (state === 'owned') {
+      binding.transaction.markReverseMutationProven(device);
+    }
+  }
+  if (options.package !== undefined) {
+    binding.transaction.markSessionCreateStarted();
+    if (options.package === 'owned') {
+      binding.transaction.markSessionCommitted();
+    }
+  }
+  return binding;
+}
+
+type ProductTransactionBinding = Readonly<{
+  serialBinding: Da5V5UsbSerialBinding;
+  transaction: Da5V5AndroidInstallTransaction;
+}>;
+
+const productTransactions = new WeakMap<FakeAdb, ProductTransactionBinding>();
+
+function productTransaction(
+  adb: FakeAdb,
+  serialBinding: Da5V5UsbSerialBinding = boundSerial(adb),
+  installStreamRunner: Da5V5ValidationInstallStreamRunner = adb.installStreamRunner,
+): Da5V5AndroidInstallTransaction {
+  return new Da5V5AndroidInstallTransaction({
+    deviceBinding,
+    installStreamRunner,
+    runner: adb,
+    serialBinding,
+  });
+}
+
+function productBinding(adb: FakeAdb): ProductTransactionBinding {
+  const current = productTransactions.get(adb);
+  if (current !== undefined) return current;
+  const serialBinding = boundSerial(adb);
+  const transaction = productTransaction(adb, serialBinding);
+  const binding = Object.freeze({ serialBinding, transaction });
+  productTransactions.set(adb, binding);
+  return binding;
+}
+
+function productInstallBindings(adb: FakeAdb) {
+  return {
+    installStreamRunner: adb.installStreamRunner,
+    runner: adb,
+    ...productBinding(adb),
+  };
+}
+
+function productCleanupBindings(adb: FakeAdb) {
+  return {
+    runner: adb,
+    ...productBinding(adb),
+  };
 }
 
 function boundSerial(adb: FakeAdb): Da5V5UsbSerialBinding {
@@ -1449,6 +1998,30 @@ function virtualTiming(adb: FakeAdb): {
       adb.elapsedMilliseconds += milliseconds;
     },
   };
+}
+
+function initialCleanupReverseListCount(adb: FakeAdb, listCommand: string): number {
+  const packageObservation = adb.commands.findIndex((command) => (
+    command.slice(2).join(' ') === (
+      `shell cmd package list packages -a -u --user 0 ${DA5_V5_ANDROID_PACKAGE}`
+    )
+  ));
+  const initialStage = adb.commands.slice(
+    0,
+    packageObservation === -1 ? adb.commands.length : packageObservation,
+  );
+  return initialStage.filter((command) => command.join(' ') === listCommand).length;
+}
+
+function initialCleanupReattestationCount(adb: FakeAdb): number {
+  const reverseObservation = adb.commands.findIndex((command) => (
+    command.slice(2).join(' ') === 'reverse --list'
+  ));
+  const initialStage = adb.commands.slice(
+    0,
+    reverseObservation === -1 ? adb.commands.length : reverseObservation,
+  );
+  return initialStage.filter((command) => command.join(' ') === 'devices -l').length;
 }
 
 function assertNoBroadDeviceMutation(adb: FakeAdb): void {

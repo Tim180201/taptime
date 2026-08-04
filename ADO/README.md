@@ -53,7 +53,76 @@ The current DA5 hardware source and artifacts remain byte-exact and unblocked. A
 candidate is published, any DA5 hardware action still requires a new exact ADO-head binding and a
 separate one-time Human authorization.
 
-### Current DA5 V5 truth — Product install correction technically closed; fresh hardware authority pending
+### Current DA5 V5 truth — Product-install-02 final Lean-V3 passed; Round-3 review pending
+
+The Product-Human/Hardware run on `8723221aba847f778f97febc13f4dd8c1447cac4` / tree
+`fcb6249a5ccdb402a39f7a0dd7beefb4930651d7` is consumed and fully cleaned. It reached complete
+Product-APK runtime verification, then disclosed only install category `cleanup` and terminal
+cleanup failure. Scoped recovery removed only `tcp:3000` and `tcp:54321`; Product/Validation
+package/process, reverse/listener and task-owned runtime state was null, the memory-only credential
+was destroyed, and no authentication, NFC, Product or time action occurred.
+
+`DA5-V5-PRODUCT-INSTALL-02` remains an uncommitted, unapproved local R3 correction candidate.
+Independent review Round 1 returned `CHANGES REQUIRED` with exactly two P1, four P2 and one P3.
+The in-scope correction now requires a proven package/mapping-zero precondition plus a
+resource-specific started or proven mutation before cleanup may uninstall the Product package or
+remove either owned reverse mapping. Foreign pre-existing Product-shaped state is observation-only.
+Package removal is one persistent flight, final-zero proof never uninstalls again, and a later
+stronger uncertainty request cannot reuse a weaker completed proof: it returns the closed
+`uncertainty_escalation` mismatch without a new mutation loop.
+
+Cleanup uses one absolute 60-second uncertain-state deadline across device discovery, both exact
+binding reads, waits and retries. Only explicitly typed transient command failures may receive one
+retry at reattestation, reverse-list or exact reverse-remove boundaries; abort, device/binding,
+parse, ownership and permanent failures do not retry. Signal, EOF and safe-event background paths
+terminally settle even when the one persistent cleanup flight rejects, preventing recursive
+`unhandledRejection` cleanup. The original install category, closed cleanup status/substage and
+disclosure-safe `signal_abort` remain intact.
+
+Independent review Round 2 returned `CHANGES REQUIRED` with exactly one P1 and no P0, P2 or P3:
+a pre-readiness signal could complete the persistent cleanup flight while Guard, PostgreSQL
+capability or Environment acquisition was still pending, allowing the later resource assignment
+to escape cleanup. The focused Round-2 correction latches failure, abort and input closure
+immediately, but gates the coalesced cleanup flight on a separate monotone startup-acquisition
+settlement. Successful startup settles directly after lifecycle binding; startup catch settles
+before its own cleanup. Every late acquired Guard/capability/Environment is therefore handed to
+exactly one cleanup flight, without coupling settlement to the signal promise.
+
+The final composite Lean-V3 is `PASS`. Immediately before this ADO-only sync, the final Round-2
+candidate remained exactly 12 tracked paths against baseline
+`8723221aba847f778f97febc13f4dd8c1447cac4` / tree
+`fcb6249a5ccdb402a39f7a0dd7beefb4930651d7`; its 158,738-byte full-index/binary delta had SHA-256
+`ef86b48ad5882b1020b593a8a82139ff618a5b0dd0ef7d2eff2e1433493b557a`. Fresh Synthetic
+verification passed 14/14 files with 286 tests and 18 expected skips, the tests-inclusive
+Typecheck, a normalized 571-entry `--listFilesOnly` receipt with SHA-256
+`45ac1d63ca5f619fcb432594b8495ec08968af1aed99edb8c336d357dcb74e5b` containing both changed
+Synthetic tests, the Synthetic build and final bundle syntax. The current local mode-`0644`
+bundle is 894,145 bytes with SHA-256
+`6612aca547727e1b77b2e0deb88bd029f80fba0eb30ca39c962fe84fbb9a5f19`; its mode-`0644` map is
+1,658,075 bytes with SHA-256
+`a010852ceebe55878e7b211b183ea785a86a812336ab73f0eff246e6da992779`.
+
+Mobile bytes did not change after the immediately preceding pre-Round-2 Lean-V3, so its Mobile
+evidence is carried into this final composite result: 54/54 files, 1,243/1,243 tests, Typecheck
+pass and normalized 868-entry membership SHA-256
+`11d72c73fe9c420a4c7b4aaadbdcad91187ec78500b5f7c8b68c9dd07f2f82e6`. This is carried
+byte-identical Mobile evidence, not a fresh rerun.
+
+Under AVS, only the remaining 19 unchanged workspace test suites, 19 Typechecks and 19 builds,
+Guard 89/89, unchanged privileged database/migration evidence, `npm ci`/`npm ls`/audits with zero
+high/critical findings, C3B/Android export/APK verification and cleanup are carried from composite
+source `bcddf757c7ef64e82c167b39f20d763fdb159ceb` / tree
+`ee00e3246f2cd5498cc67eabf9b2f7e2fc19205b`, whose full source is
+`613feb8d4bfa71e48c75cf933f6aea422404096c` / tree
+`b1a73234abfbd19623a96c7ba330da731d7320ea`. Fresh Synthetic evidence replaces the old Synthetic
+checks; only the byte-identical Mobile evidence is carried as stated above. Old runtime
+bundle/map/manifest evidence is not carried. Product and Validation APKs remain unchanged. The
+candidate remains uncommitted and unapproved; independent final Review Round 3, V4,
+publication/runtime binding, final approval and a fresh exact one-time Human authority remain
+pending. No ADB, installation, Hardware, CI, publication, production, deployment or distribution
+action is authorized or claimed.
+
+### Historical superseded DA5 V5 truth — Product-install-01 correction technically closed
 
 The authorized Product run on baseline `7b971070c7fc108fea4ae92db30b87f340b24e91` / tree
 `a053d34581687b541fc0fe67a477250bb24319c3` is consumed fail-closed. Full artifact verification

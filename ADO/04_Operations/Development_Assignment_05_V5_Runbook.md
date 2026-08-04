@@ -1,5 +1,86 @@
 # Development Assignment 5 — V5 Human Android Gate Runbook
 
+## Current PRODUCT-INSTALL-02 correction candidate — DO NOT START hardware
+
+The Product-Human/Hardware run on `8723221aba847f778f97febc13f4dd8c1447cac4` / tree
+`fcb6249a5ccdb402a39f7a0dd7beefb4930651d7` is consumed and fully cleaned. It reached complete
+Product-APK runtime verification, then emitted `da5_v5_android_install=mismatch category=cleanup`
+and `da5_v5_cleanup_failed`. Scoped recovery removed only `tcp:3000` and `tcp:54321`; final
+Product/Validation package, process, reverse, listener and task-runtime state was null, and no
+authentication, NFC, Product or time action occurred. Do not retry that authority.
+
+The local R3 correction candidate uses one durable per-run install transaction bound to the exact
+control runner, stream runner, device and serial. Product-package and reverse-mapping cleanup
+authority is acquired separately for each resource only after the transaction proves package and
+mapping zero and then starts or proves that resource's mutation. A matching Product-shaped
+package or mapping that predates that proof is observation-only and must never be removed.
+Install failure output is closed and disclosure-safe:
+
+```text
+da5_v5_android_install=mismatch category=<closed-install-category> cleanup_status=<not_required|match|mismatch> cleanup_substage=<closed-cleanup-substage>
+```
+
+The primary category is retained even when cleanup fails. A bound pending session receives at
+most one `install-abandon` attempt across inner rollback and outer operator cleanup. Package
+removal is also one persistent flight per transaction; final-zero and uncertain null-window proof
+are observation-only for package state and never uninstall again. Cleanup coalesces persistently,
+continues safe independent stages after failure and reattests the exact device. A later stronger
+uncertainty request after a weaker flight returns closed substage `uncertainty_escalation` without
+new mutation. The uncertain path shares one absolute 60-second deadline across device discovery,
+both exact binding reads, command timeouts, waits and retries.
+
+Only explicitly typed transient command failures may retry once, and only at reattestation,
+reverse-list or an individual exact reverse-remove boundary. Abort, replacement/ambiguous device,
+binding, parse, ownership and permanent command failures do not retry. Never remove a foreign
+mapping/package, use `--remove-all`, or print raw errors, stderr, PackageManager details, paths,
+serials or secrets. SIGINT, SIGTERM, SIGHUP, uncaught exception, unhandled rejection, EOF and
+install-stream abort remain fail-closed; every background path has a terminal non-rejecting sink,
+and stream signal abort has the distinct safe category `signal_abort`.
+
+Independent review Round 1 returned `CHANGES REQUIRED` with exactly two P1, four P2 and one P3;
+the preceding rules remain part of the current in-scope correction. Independent review Round 2
+returned `CHANGES REQUIRED` with exactly one P1 and no P0, P2 or P3: a signal during Guard,
+PostgreSQL capability or Environment acquisition could permanently complete cleanup before the
+late resource assignment. Cleanup now waits for a separate monotone startup-acquisition
+settlement while failure, mutation abort and input closure latch immediately. Settle directly
+after normal lifecycle binding, and settle in startup catch before invoking cleanup; never make
+settlement depend on `handleSignal()`. One persistent cleanup flight then owns every acquired
+startup resource exactly once.
+
+Final composite Lean-V3 is `PASS`. Immediately before this ADO-only sync, the candidate remained
+exactly 12 tracked paths and its 158,738-byte full-index/binary delta had SHA-256
+`ef86b48ad5882b1020b593a8a82139ff618a5b0dd0ef7d2eff2e1433493b557a` on unchanged HEAD/origin
+`8723221aba847f778f97febc13f4dd8c1447cac4` / tree
+`fcb6249a5ccdb402a39f7a0dd7beefb4930651d7`. Fresh Synthetic passed 14/14 files with 286 tests
+and 18 expected skips, its tests-inclusive Typecheck, the 571-entry normalized membership receipt
+SHA-256 `45ac1d63ca5f619fcb432594b8495ec08968af1aed99edb8c336d357dcb74e5b`
+including `Da5V5ProductStartBundle.test.ts` and `Da5V5Profile.test.ts`, the build and final bundle
+syntax. Current local `dist/da5V5Main.js` is 894,145 bytes, mode `0644`, SHA-256
+`6612aca547727e1b77b2e0deb88bd029f80fba0eb30ca39c962fe84fbb9a5f19`; its source map is
+1,658,075 bytes, mode `0644`, SHA-256
+`a010852ceebe55878e7b211b183ea785a86a812336ab73f0eff246e6da992779`. They are mutable local
+verification outputs, not an authorized or published runtime.
+
+No Mobile byte changed after the immediately preceding pre-Round-2 Lean-V3. Carry its Mobile
+evidence without rerun: MJS syntax, 54/54 files, 1,243/1,243 tests, Typecheck pass and normalized
+868-entry membership SHA-256
+`11d72c73fe9c420a4c7b4aaadbdcad91187ec78500b5f7c8b68c9dd07f2f82e6`.
+
+AVS carry-forward is limited to the remaining 19 unchanged workspace test suites, 19 Typechecks
+and 19 builds, Guard 89/89, unchanged privileged database/migration evidence,
+`npm ci`/`npm ls`/audits with zero high/critical findings, C3B/Android export/APK verification and
+cleanup from exact composite source `bcddf757c7ef64e82c167b39f20d763fdb159ceb` / tree
+`ee00e3246f2cd5498cc67eabf9b2f7e2fc19205b`, with full source
+`613feb8d4bfa71e48c75cf933f6aea422404096c` / tree
+`b1a73234abfbd19623a96c7ba330da731d7320ea`. Fresh Synthetic evidence replaces the old
+Synthetic checks; carry only the byte-identical Mobile evidence specified above. Do not
+substitute old runtime bundle/map/manifest evidence for the current local V3 outputs. Product and
+Validation APKs remain unchanged.
+This is an uncommitted, unapproved candidate, not Hardware authority or technical closure. No
+ADB, installation, Hardware, CI, V4 or publication occurred. Independent final Review Round 3,
+V4, exact publication/runtime binding, final approval and a new fully populated one-time Human
+authorization are required before any ADB, installation or Hardware command.
+
 ## Current Product-install failure/correction — run consumed; DO NOT START
 
 The authorized Product run on `7b971070c7fc108fea4ae92db30b87f340b24e91` / tree

@@ -2,6 +2,58 @@
 
 Status: Active
 
+Current R-034 Product-install-02 override: **Open / R3 Round-2 correction passed final Lean-V3;
+independent Review Round 3 pending; Hardware remains prohibited.** The Human Architect accepted the
+Product-Human/Hardware run on `8723221aba847f778f97febc13f4dd8c1447cac4` / tree
+`fcb6249a5ccdb402a39f7a0dd7beefb4930651d7` as consumed and fully cleaned. It reached complete
+Product-APK runtime verification, then disclosed only install category `cleanup` and terminal
+cleanup failure. Final scoped recovery proved Product/Validation package and process absence,
+zero authorized reverse mappings/listeners, zero task-owned runtime state and destroyed
+memory-only credentials; no authentication, NFC, Product or time action occurred.
+
+`DA5-V5-PRODUCT-INSTALL-02` is confirmed: cleanup overwrote the primary install category;
+session/abandon/cleanup state was not a durable per-run transaction; transient cleanup failures
+could stop progress without a closed substage; and signal abort was not distinct. The local
+uncommitted candidate on that unchanged baseline adds exact transaction/runner/device/serial and
+memory-only ownership binding, persistent coalesced cleanup with at most one abandon attempt per
+bound session, primary-plus-cleanup disclosure and fail-closed `signal_abort`. Independent review
+Round 1 returned `CHANGES REQUIRED` with exactly two P1, four P2 and one P3. The corrected
+candidate now requires proven zero plus a resource-specific mutation before removing the Product
+package or either mapping; pre-existing foreign state is observation-only. It keeps one persistent
+package-removal flight, never uninstalls during final-zero, rejects stronger later uncertainty as
+`uncertainty_escalation`, terminally settles signal/EOF cleanup rejection, and applies one absolute
+60-second uncertain-cleanup deadline. Only explicitly typed transient command failures retry once
+at the three authorized cleanup boundaries; abort, device/binding, parse, ownership and permanent
+errors do not retry. Round-2 independent review returned `CHANGES REQUIRED`
+with exactly one P1 and no P0, P2 or P3 because early null-resource cleanup could complete while
+Guard, PostgreSQL capability or Environment acquisition remained in flight. The correction keeps
+immediate failure/abort/input latching and gates one persistent cleanup flight on independent
+monotone startup settlement; normal lifecycle handoff and catch settle without a signal-cycle, so
+every late acquired resource is closed exactly once. Focused Synthetic profile 36/36 and the
+tests-inclusive Synthetic Typecheck passed.
+
+Final composite Lean-V3 is `PASS`. Before this ADO sync the candidate remained exactly 12 tracked
+paths, 158,738 full-index/binary bytes, SHA-256
+`ef86b48ad5882b1020b593a8a82139ff618a5b0dd0ef7d2eff2e1433493b557a`. Fresh Synthetic passed
+14/14 files, 286 tests plus 18 expected skips, tests-inclusive Typecheck, exact 571-entry
+membership SHA-256 `45ac1d63ca5f619fcb432594b8495ec08968af1aed99edb8c336d357dcb74e5b`,
+build and bundle syntax. The fresh mode-`0644` bundle/map are 894,145 / 1,658,075 bytes with
+SHA-256 `6612aca547727e1b77b2e0deb88bd029f80fba0eb30ca39c962fe84fbb9a5f19` /
+`a010852ceebe55878e7b211b183ea785a86a812336ab73f0eff246e6da992779`. Byte-identical Mobile
+evidence carries without rerun: 54/54 files, 1,243/1,243 tests, Typecheck pass and 868-entry list
+SHA-256 `11d72c73fe9c420a4c7b4aaadbdcad91187ec78500b5f7c8b68c9dd07f2f82e6`.
+AVS carry-forward is limited to the remaining 19 unchanged workspace test suites, 19 Typechecks and 19 builds, Guard 89/89,
+unchanged privileged database/migration evidence, dependency installation/integrity/audits,
+C3B/Android export/APK verification and cleanup from exact composite source
+`bcddf757c7ef64e82c167b39f20d763fdb159ceb` / tree
+`ee00e3246f2cd5498cc67eabf9b2f7e2fc19205b`; fresh Synthetic replaces its old evidence, exact
+Mobile evidence carries as stated, and old runtime bundle/map/manifest does not carry. Residual
+risk remains R3 until independent final Review Round 3, V4, exact publication/runtime binding and
+final approval. The candidate remains uncommitted and unapproved. No APK, dependency, lockfile, schema, workflow,
+Product-rule or NFC change is present; Product and Validation APKs remain unchanged. Hardware,
+ADB/install, CI, V4, publication, a new Product-Human V5 run, production, deployment and
+distribution remain unauthorized.
+
 Current R-034 Product-start-bundle override: **Open / R3 only pending fresh Product Human/Hardware
 V5 authority.** The authority on
 `4dff147031e2d8ebbd95b9451705f66b35fbacd3` is consumed after the standard Product operator

@@ -1,5 +1,72 @@
 # Project Status
 
+DA5 V5 PRODUCT-INSTALL-02 override: **THE PRODUCT-HUMAN/HARDWARE RUN ON
+`8723221aba847f778f97febc13f4dd8c1447cac4` / TREE
+`fcb6249a5ccdb402a39f7a0dd7beefb4930651d7` IS CONSUMED AND FULLY CLEANED;
+THE LOCAL R3 ROUND-2 CORRECTION PASSED FINAL LEAN-V3, BUT INDEPENDENT REVIEW ROUND 3,
+PUBLICATION AND EVERY HARDWARE GATE REMAIN PENDING.** The accepted run reached operator/runtime start,
+device preflight, Human tag confirmation and complete Product-APK runtime verification, then
+reported `da5_v5_android_install=mismatch category=cleanup` followed by
+`da5_v5_cleanup_failed`. Scoped recovery removed only the authorized `tcp:3000` and `tcp:54321`
+reverse mappings. Product and Validation package/process state, those mappings/listeners,
+task-owned runtime state and the memory-only credential were confirmed null; no authentication,
+NFC, Product or time-recording action occurred.
+
+Confirmed `DA5-V5-PRODUCT-INSTALL-02` comprises loss of the primary install cause, non-durable
+per-run session/abandon/cleanup state, cleanup stopping without a closed substage, and an
+undifferentiated install-stream signal abort. The uncommitted local correction on the unchanged
+baseline binds one durable control/stream/device/serial transaction, one persistent abandon and
+cleanup flight, the original install category plus separate closed cleanup status/substage, and a
+distinct disclosure-safe `signal_abort` category. Independent review Round 1 returned `CHANGES
+REQUIRED` with exactly two P1, four P2 and one P3. The current in-scope correction requires a
+proven zero precondition and resource-specific started/proven mutation before package or mapping
+cleanup, retains at most one package-removal flight, makes final-zero package observation-only,
+rejects stronger later uncertainty with closed `uncertainty_escalation`, and uses one absolute
+60-second uncertain-cleanup deadline. Only explicitly typed transient command failures may retry
+once at reattestation, reverse-list or exact reverse-remove; abort, device/binding, parse,
+ownership and permanent failures never retry. Signal/EOF background work has a terminal
+non-rejecting sink even if persistent cleanup rejects.
+
+Independent review Round 2 returned `CHANGES REQUIRED` with exactly one P1 and no P0, P2 or P3:
+an early signal could finish null-resource cleanup before a pending Guard, PostgreSQL capability
+or Environment acquisition published its result. The focused correction keeps the immediate
+failure/abort/input latch but makes the persistent cleanup flight wait for an independent monotone
+startup-acquisition settlement. Normal handoff settles directly after lifecycle binding; catch
+settles before cleanup, so every late resource is closed by the one coalesced flight.
+
+The final composite Lean-V3 is `PASS`. Immediately before this ADO-only sync, the final Round-2
+candidate remained exactly 12 tracked paths with a 158,738-byte full-index/binary delta, SHA-256
+`ef86b48ad5882b1020b593a8a82139ff618a5b0dd0ef7d2eff2e1433493b557a`, on unchanged
+HEAD/origin `8723221aba847f778f97febc13f4dd8c1447cac4` / tree
+`fcb6249a5ccdb402a39f7a0dd7beefb4930651d7`. Fresh Synthetic verification passed 14/14 files,
+286 tests and 18 expected skips, its tests-inclusive Typecheck, normalized 571-entry membership
+receipt SHA-256 `45ac1d63ca5f619fcb432594b8495ec08968af1aed99edb8c336d357dcb74e5b`
+including both changed Synthetic tests, the build and final bundle syntax. The mode-`0644` bundle
+is 894,145 bytes / SHA-256
+`6612aca547727e1b77b2e0deb88bd029f80fba0eb30ca39c962fe84fbb9a5f19`; its mode-`0644` map is
+1,658,075 bytes / SHA-256
+`a010852ceebe55878e7b211b183ea785a86a812336ab73f0eff246e6da992779`.
+
+No Mobile byte changed after the immediately preceding pre-Round-2 Lean-V3. Its Mobile evidence
+therefore carries into the final composite result without rerun: 54/54 files, 1,243/1,243 tests,
+Typecheck pass and 868 normalized membership entries with SHA-256
+`11d72c73fe9c420a4c7b4aaadbdcad91187ec78500b5f7c8b68c9dd07f2f82e6`.
+
+AVS carry-forward is limited to the remaining 19 unchanged workspace test suites, 19 Typechecks
+and 19 builds, Guard 89/89, unchanged privileged database/migration evidence,
+`npm ci`/`npm ls`/audits with zero high/critical findings, C3B/Android export/APK verification and
+cleanup from composite source `bcddf757c7ef64e82c167b39f20d763fdb159ceb` / tree
+`ee00e3246f2cd5498cc67eabf9b2f7e2fc19205b`, with full source
+`613feb8d4bfa71e48c75cf933f6aea422404096c` / tree
+`b1a73234abfbd19623a96c7ba330da731d7320ea`. Fresh Synthetic evidence replaces its old checks;
+the byte-identical Mobile evidence is carried as stated above. Old runtime bundle/map/manifest is
+not carried. Existing create/write/commit,
+artifact/package/User-0/size/SHA/timeout/provenance/zeroization and security boundaries remain
+unchanged; Product and Validation APKs are unchanged. The candidate remains uncommitted and
+unapproved. No ADB, installation, Hardware, CI, V4, artifact/runtime publication, deployment or
+distribution action occurred. Independent final Review Round 3, V4, final approval and a fresh
+exact one-time Human authority remain mandatory before Hardware.
+
 DA6 Location/delegation candidate override: **INDEPENDENTLY APPROVED FOR ADO CANDIDATE
 PUBLICATION; R1 P1 CLOSED; ONLY P1 ASSIGNMENT DECISION HUMAN-ACCEPTED; REMAINING ADR-0020/DA6
 HUMAN DISPOSITION PENDING; NO IMPLEMENTATION AUTHORITY.** On exact preparation baseline
