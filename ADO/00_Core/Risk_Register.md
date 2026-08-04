@@ -2,14 +2,16 @@
 
 Status: Active
 
-Current R-034 CI-clipboard-cleanup override: **Open / R3 correction independently approved and
-final Synthetic V3 passed; publication/V4 and Hardware pending.**
+Current R-034 CI-clipboard-cleanup override: **Open only through the separately gated Product
+Human/Hardware V5; the R3 executable correction is published, V4- and artifact-bound, and final
+independent review is `APPROVED` with zero open P0–P3. Hardware remains DO NOT INSTALL / DO NOT
+START.**
 `DA5-V5-PRODUCT-INSTALL-02` is independently approved and published at
 `c92744bc35a2c2fca27dd5ff7c54b39a93692fde` / tree
 `60ef4d73916370367e5259e6557014e0364139b8`, but Exact-Head CI `30926820054`, attempt 1, is
 11/12 without retry. All INSTALL-02 regressions were green. The sole failure is confirmed
 `DA5-V5-CI-CLIPBOARD-CLEANUP-01`: Linux startup cleanup attempted macOS-only clipboard commands
-despite no prior credential/clipboard ownership. The local candidate binds cleanup duty before
+despite no prior credential/clipboard ownership. The published correction binds cleanup duty before
 possible mutation, releases it only after a zero proof, performs pristine close without a
 platform process and preserves fail-closed cleanup for every outstanding duty. Independent review
 returned `CHANGES REQUIRED` with exactly one P1: close could begin during initial clear and the
@@ -18,8 +20,40 @@ returns `mismatch`. Focused 15/15 tests and tests-inclusive Synthetic Typecheck 
 independent re-review returned `APPROVED` with zero open P0–P3. The exactly-once final Synthetic
 V3 passed 14/14 files, 291 passed, 18 expected skips and 309 total; Typecheck, 571-entry membership,
 build and bundle syntax passed. Unchanged Mobile/backend/dependency evidence carries under Lean
-V5/ADR-0019. Publication, V4, fresh runtime/manifest and final artifact review remain pending. No
-Hardware, ADB or installation is authorized.
+V5/ADR-0019.
+
+Executable publication `7eead7560b075763a8ef5076d499b621d63dc3c7` / tree
+`a832bcd574af169fd9600a2a0940f5f5d962914f`, parent
+`c92744bc35a2c2fca27dd5ff7c54b39a93692fde` / tree
+`60ef4d73916370367e5259e6557014e0364139b8`, changes exactly eight files. Its 32,916-byte
+Full-Index/Binary delta has SHA-256
+`c763bee4b070ec56ffbe799485df34e6e003665e39bd9fd0c0fa705b941d3bd8`; prepublication
+correction re-review and publication-delta review are each `APPROVED` with zero open P0–P3.
+Exact-Head CI `30930590588`, attempt 1, passed 12/12 without retry.
+
+Fresh read-only Operator Runtime
+`/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-product-operator/7eead756-dbacb6b9`
+is exact, detached and tracked-clean, contains only `checkout/` plus its mode-`0444` manifest, has
+no `research/`, and has no remaining task cache. Its mode-`0444` bundle/map/manifest are 894,993 /
+1,659,518 / 6,815 bytes with SHA-256
+`dbacb6b9c5c1a5e1a0960441331580acc6acf8e6f3c99e34985d99d504c80e3f` /
+`c2e6eeb28be5dc6d0bfcb9ee19804e4ae61ba17143ad59c8d4d152988bdcc6dd` /
+`320efc48f083d9b42bad043eac2e9c81cd0b8c21ea2f04487841666a41f36c32`. Node `24.17.0` / npm
+`11.13.0`, fresh `npm ci` 695/717 and 18/18 dependency-closure builds bind the unchanged lockfile.
+The unchanged Product APK remains mode `0444`, 95,522,751 bytes, SHA-256
+`b0180c31769e453472a20eb1e7eb4e0825a85be9429becf6bf4970e0875b67f8`.
+
+The first final substantive review found no Code, Artifact or CI defect but formally returned
+`CHANGES REQUIRED` with one P2 because runtime read-only was not technically enforced. Fresh
+independent re-review ran wholly under `/usr/bin/sandbox-exec` with `(deny file-write*)`; its
+adversarial write attempt was blocked, and repository/artifacts remained identical before/after.
+It returned `APPROVED` with zero open P0–P3 and closes that formal P2. Residual R-034 exposure is
+therefore the separately unauthorized Human/Hardware V5, not an open clipboard correction.
+
+No Hardware, ADB or installation occurred or is authorized; production, production data,
+deployment and distribution remain separately unauthorized. This ADO-only R0 closure sync claims
+no own test, CI or Artifact execution and does not move executable head `7eead756…`. A later
+Hardware prompt must separately bind that executable head and the exact published ADO-closure head.
 
 Historical prepublication R-034 Product-install-02 record: **Open / R3 Round-2 correction passed
 final Lean-V3; independent Review Round 3 was pending and Hardware was prohibited at this recorded

@@ -1,7 +1,8 @@
 # Project Status
 
-DA5 V5 CI-CLIPBOARD-CLEANUP-01 override: **THE CORRECTION IS INDEPENDENTLY APPROVED AND FINAL
-SYNTHETIC V3 PASSED; PUBLICATION/V4 AND HARDWARE REMAIN PENDING.**
+DA5 V5 CI-CLIPBOARD-CLEANUP-01 override: **THE EXECUTABLE CORRECTION IS PUBLISHED, V4- AND
+ARTIFACT-BOUND, AND FINAL INDEPENDENT REVIEW IS `APPROVED` WITH ZERO OPEN P0–P3; HARDWARE REMAINS
+SEPARATELY UNAUTHORIZED / DO NOT INSTALL / DO NOT START.**
 Publication `c92744bc35a2c2fca27dd5ff7c54b39a93692fde` / tree
 `60ef4d73916370367e5259e6557014e0364139b8` retained green INSTALL-02 regressions. Only the
 hardware-free Synthetic bundle-start smoke failed on Linux: pristine startup cleanup invoked
@@ -9,8 +10,8 @@ macOS-only `pbcopy`/`pbpaste` before any credential or clipboard operation, prod
 `da5_v5_cleanup_failed`. Product, installation, database, Hardware and NFC were not involved;
 the failed CI was not retried.
 
-The uncommitted R3 correction candidate sets a zero-proof obligation before every possible
-clipboard mutation and clears it only after empty-write plus zero-byte readback. Pristine and
+The R3 correction sets a zero-proof obligation before every possible clipboard mutation and
+clears it only after empty-write plus zero-byte readback. Pristine and
 already zero-proven close now use no platform process; every pending, failed, aborted or
 not-zero-proven path remains fail-closed, and close prevents later injection. Independent review
 returned `CHANGES REQUIRED` with exactly one P1 because an inject awaiting its initial clear could
@@ -19,15 +20,46 @@ returns `mismatch` before every non-empty write. Independent re-review returned 
 zero open P0–P3.
 
 The exactly-once final Synthetic V3 passed 14/14 files with 291 passed, 18 expected skips and 309
-total; workspace Typecheck passed. The normalized 571-entry file list has SHA-256
+total; the tests-inclusive Synthetic Typecheck passed. The normalized 571-entry file list has SHA-256
 `45ac1d63ca5f619fcb432594b8495ec08968af1aed99edb8c336d357dcb74e5b` and contains both changed
-tests. Build and bundle syntax passed. The mode-`0644` bundle is 894,993 bytes / SHA-256
-`dbacb6b9c5c1a5e1a0960441331580acc6acf8e6f3c99e34985d99d504c80e3f`; its mode-`0644` map is
-1,659,518 bytes / SHA-256
-`c2e6eeb28be5dc6d0bfcb9ee19804e4ae61ba17143ad59c8d4d152988bdcc6dd`. Unchanged Mobile,
-backend and dependency evidence carries under Lean V5/ADR-0019. Publication, V4, fresh
-runtime/manifest and final Exact-Head/Artifact review remain pending. Hardware, ADB, installation,
-production, production data, deployment and distribution remain unauthorized.
+tests. Build and bundle syntax passed. Unchanged Mobile, backend and dependency evidence carries
+under Lean V5/ADR-0019.
+
+Executable publication `7eead7560b075763a8ef5076d499b621d63dc3c7` / tree
+`a832bcd574af169fd9600a2a0940f5f5d962914f` has direct parent
+`c92744bc35a2c2fca27dd5ff7c54b39a93692fde` / tree
+`60ef4d73916370367e5259e6557014e0364139b8`, exactly eight changed files and a 32,916-byte
+Full-Index/Binary delta with SHA-256
+`c763bee4b070ec56ffbe799485df34e6e003665e39bd9fd0c0fa705b941d3bd8`. Prepublication
+correction re-review and publication-delta review both returned `APPROVED` with zero open P0–P3.
+Exact-Head CI `30930590588`, attempt 1, passed 12/12 without retry.
+
+The fresh read-only Operator Runtime at
+`/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-product-operator/7eead756-dbacb6b9`
+contains exactly the detached tracked-clean `checkout/` and mode-`0444`
+`operator-runtime-manifest.json`; `research/` is absent and the task cache was removed. Bundle,
+map and manifest are respectively 894,993 / 1,659,518 / 6,815 bytes, mode `0444`, with SHA-256
+`dbacb6b9c5c1a5e1a0960441331580acc6acf8e6f3c99e34985d99d504c80e3f` /
+`c2e6eeb28be5dc6d0bfcb9ee19804e4ae61ba17143ad59c8d4d152988bdcc6dd` /
+`320efc48f083d9b42bad043eac2e9c81cd0b8c21ea2f04487841666a41f36c32`. Node `24.17.0` / npm
+`11.13.0`, fresh `npm ci` 695/717 and 18/18 runtime dependency-closure builds bind the unchanged
+356,795-byte lockfile, SHA-256
+`b905263b7b303938f8e0a5381f82bb151073588a3176fb14fd84fdd79caf9f1e`. The Product APK remains
+unchanged at 95,522,751 bytes, mode `0444`, SHA-256
+`b0180c31769e453472a20eb1e7eb4e0825a85be9429becf6bf4970e0875b67f8`; its unchanged 1,968-byte
+manifest has SHA-256 `83b93bbf33297334bfcca3aa30e5ed6772175f98a2a81dc80045454570fe937b`.
+
+The first final substantive review reported no Code, Artifact or CI finding but formally returned
+`CHANGES REQUIRED` with one P2 because the runtime read-only boundary was not technically enforced.
+Fresh independent re-review ran wholly under `/usr/bin/sandbox-exec` with `(deny file-write*)`;
+an adversarial write attempt was blocked with `Operation not permitted`, and repository/artifacts
+were identical before and after. Final result: `APPROVED`, zero open P0–P3; the formal P2 is closed.
+
+No Hardware, ADB or installation occurred, and none is authorized. Production, production data,
+deployment and distribution remain separately unauthorized. This ADO-only R0 closure sync claims
+no test, CI or Artifact execution for its own documentation head and does not move executable head
+`7eead7560b075763a8ef5076d499b621d63dc3c7`. A later Hardware prompt must separately bind that
+executable head and the exact published ADO-closure head.
 
 Historical prepublication DA5 V5 PRODUCT-INSTALL-02 record: **THE PRODUCT-HUMAN/HARDWARE RUN ON
 `8723221aba847f778f97febc13f4dd8c1447cac4` / TREE

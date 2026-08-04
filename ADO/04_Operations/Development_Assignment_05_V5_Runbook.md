@@ -1,6 +1,6 @@
 # Development Assignment 5 — V5 Human Android Gate Runbook
 
-## Current CI-CLIPBOARD-CLEANUP-01 correction approved; V4 pending — DO NOT START hardware
+## Current CI-CLIPBOARD-CLEANUP-01 technical closure — DO NOT INSTALL / DO NOT START hardware
 
 `DA5-V5-PRODUCT-INSTALL-02` is independently approved and published at
 `c92744bc35a2c2fca27dd5ff7c54b39a93692fde` / tree
@@ -21,14 +21,48 @@ empty-`PATH` bundle smoke and the tests-inclusive Synthetic Typecheck with both 
 listed. Independent re-review returned `APPROVED` with zero open P0–P3.
 
 The exactly-once final Synthetic V3 passed 14/14 files, 291 passed, 18 expected skips and 309
-total. Workspace Typecheck, normalized 571-entry membership with SHA-256
+total. The tests-inclusive Synthetic Typecheck, normalized 571-entry membership with SHA-256
 `45ac1d63ca5f619fcb432594b8495ec08968af1aed99edb8c336d357dcb74e5b`, build and bundle syntax
-passed. The mode-`0644` bundle/map are 894,993 / 1,659,518 bytes with SHA-256
-`dbacb6b9c5c1a5e1a0960441331580acc6acf8e6f3c99e34985d99d504c80e3f` /
-`c2e6eeb28be5dc6d0bfcb9ee19804e4ae61ba17143ad59c8d4d152988bdcc6dd`. Unchanged
-Mobile/backend/dependency evidence carries under Lean V5/ADR-0019. Publication, V4, fresh
-read-only runtime/manifest and final Exact-Head/Artifact review remain required. **DO NOT START
-Hardware, ADB or installation.**
+passed. Unchanged Mobile/backend/dependency evidence carries under Lean V5/ADR-0019.
+
+The executable correction is published as `7eead7560b075763a8ef5076d499b621d63dc3c7` / tree
+`a832bcd574af169fd9600a2a0940f5f5d962914f`, direct parent
+`c92744bc35a2c2fca27dd5ff7c54b39a93692fde` / tree
+`60ef4d73916370367e5259e6557014e0364139b8`. The exact eight-file, 32,916-byte
+Full-Index/Binary delta has SHA-256
+`c763bee4b070ec56ffbe799485df34e6e003665e39bd9fd0c0fa705b941d3bd8`. Prepublication
+correction re-review and publication-delta review each returned `APPROVED` with zero open P0–P3.
+Exact-Head CI `30930590588`, attempt 1, passed 12/12 without retry.
+
+Use no mutable development output for a later gate. The fresh read-only Operator Runtime is
+`/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-product-operator/7eead756-dbacb6b9`.
+Its root contains exactly detached tracked-clean `checkout/` plus mode-`0444`
+`operator-runtime-manifest.json`; `research/` is absent and the task cache is removed. Exact
+runtime bindings are:
+
+| Runtime input | Exact binding |
+|---|---|
+| Bundle | `checkout/apps/synthetic-android-e2e/dist/da5V5Main.js`; 894,993 bytes; mode `0444`; SHA-256 `dbacb6b9c5c1a5e1a0960441331580acc6acf8e6f3c99e34985d99d504c80e3f` |
+| Source map | `checkout/apps/synthetic-android-e2e/dist/da5V5Main.js.map`; 1,659,518 bytes; mode `0444`; SHA-256 `c2e6eeb28be5dc6d0bfcb9ee19804e4ae61ba17143ad59c8d4d152988bdcc6dd` |
+| Runtime manifest | `operator-runtime-manifest.json`; 6,815 bytes; mode `0444`; SHA-256 `320efc48f083d9b42bad043eac2e9c81cd0b8c21ea2f04487841666a41f36c32` |
+| Lockfile / toolchain | `checkout/package-lock.json`; 356,795 bytes; SHA-256 `b905263b7b303938f8e0a5381f82bb151073588a3176fb14fd84fdd79caf9f1e`; Node `24.17.0`; npm `11.13.0`; fresh `npm ci` 695/717; 18/18 runtime dependency-closure builds |
+| Product APK — DO NOT INSTALL | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5/lean-83635335-b0180c31769e4534/app-release-b0180c31769e4534.apk`; unchanged; 95,522,751 bytes; mode `0444`; SHA-256 `b0180c31769e453472a20eb1e7eb4e0825a85be9429becf6bf4970e0875b67f8` |
+| Product manifest | Same directory, `artifact-manifest.txt`; unchanged; 1,968 bytes; mode `0444`; SHA-256 `83b93bbf33297334bfcca3aa30e5ed6772175f98a2a81dc80045454570fe937b` |
+
+The first final substantive review found no Code, Artifact or CI finding but formally returned
+`CHANGES REQUIRED` with one P2 because its runtime read-only boundary was not technically enforced.
+A fresh independent re-review ran wholly under `/usr/bin/sandbox-exec` with `(deny file-write*)`;
+an adversarial write attempt was blocked with `Operation not permitted`, and repository/artifacts
+were identical before and after. It returned final `APPROVED` with zero open P0–P3 and closes the
+formal P2.
+
+The executable candidate is technically closed and artifact-bound. **DO NOT INSTALL / DO NOT
+START Hardware, ADB or installation.** None occurred and none is authorized. Production,
+production data, deployment and distribution remain separately unauthorized. This ADO-only R0
+closure sync claims no test, CI or Artifact execution for its own documentation head and does not
+move reviewed executable head `7eead7560b075763a8ef5076d499b621d63dc3c7`. Before any later
+Hardware action, a new exact Human prompt must separately bind that executable head and the exact
+published ADO-closure head.
 
 ## Historical prepublication PRODUCT-INSTALL-02 correction candidate — hardware was blocked
 

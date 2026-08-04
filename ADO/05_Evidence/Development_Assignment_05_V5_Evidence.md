@@ -1,27 +1,39 @@
 # Development Assignment 5 — V5 Human Android Evidence
 
-## Current CI-CLIPBOARD-CLEANUP-01 correction-candidate evidence
+## Current CI-CLIPBOARD-CLEANUP-01 executable technical-closure evidence
 
 | Evidence | Exact result |
 |---|---|
-| Published baseline | `c92744bc35a2c2fca27dd5ff7c54b39a93692fde` / tree `60ef4d73916370367e5259e6557014e0364139b8`; independent INSTALL-02 Review Round 3 `APPROVED`, zero open P0–P3 |
-| Exact-Head CI | `30926820054`, attempt 1, 11/12; no retry. All INSTALL-02 regressions passed; only Synthetic hardware-free Product-start bundle smoke failed |
+| Published predecessor | `c92744bc35a2c2fca27dd5ff7c54b39a93692fde` / tree `60ef4d73916370367e5259e6557014e0364139b8`; independent INSTALL-02 Review Round 3 `APPROVED`, zero open P0–P3 |
+| Predecessor Exact-Head CI | `30926820054`, attempt 1, 11/12; no retry. All INSTALL-02 regressions passed; only Synthetic hardware-free Product-start bundle smoke failed |
 | Confirmed finding | `DA5-V5-CI-CLIPBOARD-CLEANUP-01`: pristine startup cleanup invoked macOS-only `pbcopy`/`pbpaste` on Linux before any credential/clipboard action and emitted `da5_v5_cleanup_failed`; Product, installation, database, Hardware and NFC were not involved |
 | Regression before correction | Focused 2-file run reproduced exactly three failures: pristine close made two platform calls, zero-confirmed close made two additional platform calls and empty-`PATH` bundle start emitted `da5_v5_cleanup_failed` |
-| Local correction | Explicit clipboard-zero duty is set before every possible mutation and cleared only after empty-write plus zero-byte readback. Pristine/already-zero-proven close uses no platform process; outstanding duty remains fail-closed; close is idempotent and rejects later injection |
+| Correction | Explicit clipboard-zero duty is set before every possible mutation and cleared only after empty-write plus zero-byte readback. Pristine/already-zero-proven close uses no platform process; outstanding duty remains fail-closed; close is idempotent and rejects later injection |
 | Independent review / P1 correction | `CHANGES REQUIRED`, exactly one P1: inject could resume from its initial clear after close began and still perform one non-empty write. The correction rechecks the closing latch immediately after the clear and returns `mismatch` before that write; repeated close remains idempotent |
-| Independent re-review | `APPROVED`; zero open P0–P3 |
+| Prepublication correction re-review | `APPROVED`; zero open P0–P3 |
 | Focused V1/V2 | `Da5V5CredentialTransfer.test.ts` plus `Da5V5ProductStartBundle.test.ts`: 2/2 files, 15/15 tests passed. The built-bundle smoke uses empty `PATH`, keeps stdout empty and returns exact stderr `da5_v5_start_failed` |
-| Final Synthetic V3 | Exactly once: 14/14 files, 291 passed, 18 expected skips, 309 total; workspace Typecheck `PASS`; normalized `--listFilesOnly` 571 entries, SHA-256 `45ac1d63ca5f619fcb432594b8495ec08968af1aed99edb8c336d357dcb74e5b`, including both changed tests; build and `node --check dist/da5V5Main.js` `PASS` |
+| Final Synthetic V3 | Exactly once: 14/14 files, 291 passed, 18 expected skips, 309 total; tests-inclusive Synthetic Typecheck `PASS`; normalized `--listFilesOnly` 571 entries, SHA-256 `45ac1d63ca5f619fcb432594b8495ec08968af1aed99edb8c336d357dcb74e5b`, including both changed tests; build and `node --check dist/da5V5Main.js` `PASS` |
 | V3 toolchain | Node `24.17.0`; npm `11.13.0`; Vitest `4.1.9` |
-| V3 local bundle | `dist/da5V5Main.js`, 894,993 bytes, mode `0644`, SHA-256 `dbacb6b9c5c1a5e1a0960441331580acc6acf8e6f3c99e34985d99d504c80e3f` |
-| V3 local map | `dist/da5V5Main.js.map`, 1,659,518 bytes, mode `0644`, SHA-256 `c2e6eeb28be5dc6d0bfcb9ee19804e4ae61ba17143ad59c8d4d152988bdcc6dd` |
 | Carried evidence | Unchanged Mobile, backend and dependency evidence carries under Lean V5/ADR-0019 |
 | Preserved boundaries | Product/Validation APKs, Product rules, NFC semantics, Dependencies, lockfile, Product/database schema and workflow unchanged |
-| Not performed | No publication, new V4 Exact-Head CI, runtime/manifest publication, Hardware, ADB, installation, production, deployment or distribution |
-| Remaining gates | Focused publication, exactly one new Exact-Head CI, fresh read-only runtime/manifest and final independent Exact-Head/Artifact review |
+| Executable publication | `7eead7560b075763a8ef5076d499b621d63dc3c7` / tree `a832bcd574af169fd9600a2a0940f5f5d962914f`; direct parent `c92744bc35a2c2fca27dd5ff7c54b39a93692fde` / tree `60ef4d73916370367e5259e6557014e0364139b8` |
+| Publication delta | Exactly eight changed files; Full-Index/Binary delta 32,916 bytes; SHA-256 `c763bee4b070ec56ffbe799485df34e6e003665e39bd9fd0c0fa705b941d3bd8` |
+| Publication-delta review | `APPROVED`; zero open P0–P3 |
+| Exact-Head V4 CI | GitHub Actions `30930590588`, attempt 1, 12/12 successful; no retry |
+| Fresh read-only Operator Runtime | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-product-operator/7eead756-dbacb6b9`; root contains exactly `checkout/` plus `operator-runtime-manifest.json`; detached exact checkout is tracked-clean, `research/` is absent and task cache removed |
+| Runtime bundle | `checkout/apps/synthetic-android-e2e/dist/da5V5Main.js`; 894,993 bytes; mode `0444`; SHA-256 `dbacb6b9c5c1a5e1a0960441331580acc6acf8e6f3c99e34985d99d504c80e3f` |
+| Runtime source map | `checkout/apps/synthetic-android-e2e/dist/da5V5Main.js.map`; 1,659,518 bytes; mode `0444`; SHA-256 `c2e6eeb28be5dc6d0bfcb9ee19804e4ae61ba17143ad59c8d4d152988bdcc6dd` |
+| Runtime manifest | `operator-runtime-manifest.json`; 6,815 bytes; mode `0444`; SHA-256 `320efc48f083d9b42bad043eac2e9c81cd0b8c21ea2f04487841666a41f36c32` |
+| Runtime dependency closure | Node `24.17.0`; npm `11.13.0`; fresh `npm ci` 695/717; 18/18 runtime dependency-closure builds. Unchanged `package-lock.json` is 356,795 bytes / SHA-256 `b905263b7b303938f8e0a5381f82bb151073588a3176fb14fd84fdd79caf9f1e` |
+| Unchanged Product artifact | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5/lean-83635335-b0180c31769e4534/app-release-b0180c31769e4534.apk`; 95,522,751 bytes; mode `0444`; SHA-256 `b0180c31769e453472a20eb1e7eb4e0825a85be9429becf6bf4970e0875b67f8` |
+| Unchanged Product manifest | Same directory, `artifact-manifest.txt`; 1,968 bytes; mode `0444`; SHA-256 `83b93bbf33297334bfcca3aa30e5ed6772175f98a2a81dc80045454570fe937b` |
+| First final substantive review | No Code, Artifact or CI finding. Formal result nevertheless `CHANGES REQUIRED` with exactly one P2 because the reviewer runtime's read-only boundary was not technically enforced |
+| Final independent re-review / P2 closure | Ran wholly under `/usr/bin/sandbox-exec` with `(version 1) (allow default) (deny file-write*)`; adversarial write attempt was blocked with `Operation not permitted`, absence afterward was proved, and repository/artifacts were identical before/after. Final `APPROVED`; zero open P0–P3 |
+| Hardware / operational authority | No Hardware, ADB or installation occurred. Product APK is **DO NOT INSTALL** and Operator/Hardware is **DO NOT START** until a separate exact Human authorization. Production, production data, deployment and distribution remain separately unauthorized |
+| ADO-only closure synchronization | R0 documentation only. It claims no own test, CI or Artifact execution and does not move reviewed executable head `7eead7560b075763a8ef5076d499b621d63dc3c7`. A later Hardware prompt must separately bind that executable head plus the exact published ADO-closure head |
 
-This is an uncommitted correction candidate and grants no Hardware or operational authority.
+The executable clipboard correction is technically closed and artifact-bound. This documentation
+closure grants no Hardware or operational authority.
 
 ## Historical prepublication PRODUCT-INSTALL-02 consumed-run and local-candidate evidence
 
