@@ -22,6 +22,7 @@ const requiredMappings = Object.freeze([
   Object.freeze({ device: 'tcp:54321', host: 'tcp:54321' }),
   Object.freeze({ device: 'tcp:3000', host: 'tcp:3000' }),
 ]);
+const usbReverseTransport = 'UsbFfs';
 const activeInstallTransactions = new WeakMap();
 const timeouts = Object.freeze({
   inspect: 15_000,
@@ -804,22 +805,25 @@ export async function requireSingleDa5V5UsbDevice(runner, options = {}) {
   return serial;
 }
 
-export function parseDa5V5ReverseMappings(value, expectedSerial) {
+export function parseDa5V5ReverseMappings(value, _expectedSerial) {
   const lines = value
     .split(/\r?\n/u)
     .map((line) => line.trim())
     .filter((line) => line.length !== 0);
+  const devices = new Set();
   return Object.freeze(lines.map((line) => {
     const parts = line.split(/\s+/u);
-    const [serial, device, host] = parts;
+    const [transport, device, host] = parts;
     if (
       parts.length !== 3
-      || serial !== expectedSerial
+      || transport !== usbReverseTransport
       || !validTcpEndpoint(device)
       || !validTcpEndpoint(host)
+      || devices.has(device)
     ) {
       throw new Error('DA5 V5 reverse mapping output is malformed or unexpected');
     }
+    devices.add(device);
     return Object.freeze({ device, host });
   }));
 }

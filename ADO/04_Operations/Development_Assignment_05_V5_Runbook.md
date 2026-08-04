@@ -1,6 +1,52 @@
 # Development Assignment 5 — V5 Human Android Gate Runbook
 
-## Current CI-CLIPBOARD-CLEANUP-01 technical closure — DO NOT INSTALL / DO NOT START hardware
+## Current ADB-37 reverse correction candidate — DO NOT INSTALL / DO NOT START hardware
+
+The latest Product Human/Hardware authority is consumed and may not be retried or reused. On
+correction baseline `6b7f60ba483a65f1723cbf29e87f8a439f0804c9` / tree
+`fbe43ebce13fdc0d7851ca8384043b948c9ca898`, the run created exact owned mappings `tcp:54321`
+and `tcp:3000`, then stopped before `install-create`. The bound USB/ADB-37 command
+`adb -s <bound-serial> reverse --list` returned `UsbFfs` in its first transport column. Both
+parsers expected the serial there, so the primary failure fell back to `child_start_transport`
+and cleanup failed at `reverse_list`. Final recovery/observation established null package,
+process and owned-mapping state; no authentication, NFC, Product or time action occurred.
+
+Do not repeat the diagnostic post-failure mapping mutation. It crossed the authorized operator
+boundary, is a P2 process finding and is not run Evidence. No observation from it may validate
+the parser correction or a Product/Hardware result.
+
+The local uncommitted correction permits exactly the `UsbFfs` transport token. It does not ignore
+column one and does not derive device identity from it. Every command remains scoped by
+`-s <bound-serial>`, exactly one USB device, exact model/build and serial continuity. Exactly three
+columns, bounded nonzero TCP endpoints, unique device endpoints and exact owned mapping sets are
+mandatory; every foreign, malformed, duplicate or ambiguous result stops fail-closed.
+
+Development V0/V1/V2 passed the focused install/controller, error rollback/final-zero, preinstall
+zero, both offline cycles, Credential transfer and hardware-free built-bundle boundaries; full
+Mobile/Synthetic suites and tests-inclusive Typechecks are green. The prior failing Synthetic run
+was caused only by an old Serial-emitting fake and was followed by a changed-input two-line
+`UsbFfs` fixture correction.
+
+The exactly-once final V3 is `PASS` on unchanged `HEAD`/`origin/main`
+`6b7f60ba483a65f1723cbf29e87f8a439f0804c9` / tree
+`fbe43ebce13fdc0d7851ca8384043b948c9ca898` and pre-ADO-sync exact 11-file
+Full-Index/Binary patch SHA-256
+`a2baca0159e1c64c8b552a2d95b9b29aad5b5196be6aa11c205572df510bf1d6`. Node `24.17.0` / npm
+`11.13.0` passed MJS syntax; Mobile 54/54 files, 1,243/1,243 tests, Typecheck and exact 868-entry
+membership SHA-256 `6d29af79968b01bb14f14b0ec3b0b280b4c6fd8dd4e9be04bab3b8cc7f34f3fe`;
+Synthetic 14/14 files, 291 passed plus 18 expected skips, Typecheck, exact 571-entry membership
+SHA-256 `c79f5c314c1bc3df8002bc7ba53d975d4f671c8e49575f12e83b1134dacd84ae`, build and final bundle
+syntax. Every changed test is included. After all V3 checks, `rg` was unavailable under a
+minimized `PATH` for a membership helper and exited 127; `/usr/bin/grep` immediately verified the
+already-created lists, both temporary lists were unlinked and no gate was repeated.
+
+This R0 ADO sync changes no executable/test input and this file grants no executable command.
+Independent re-review, focused publication, V4 and a new exact Human authorization are required
+before any later Hardware/ADB/install action. Product and Validation APKs remain byte-exact and
+**DO NOT INSTALL**. The existing Operator Runtime is **DO NOT START**. Production, production
+data, deployment and distribution remain separately unauthorized.
+
+## Prior CI-CLIPBOARD-CLEANUP-01 technical closure — before consumed Hardware run
 
 `DA5-V5-PRODUCT-INSTALL-02` is independently approved and published at
 `c92744bc35a2c2fca27dd5ff7c54b39a93692fde` / tree

@@ -116,6 +116,11 @@ describe('DA5 V5 controlled API-offline ownership', () => {
     expect(adb.mappings.get('tcp:54321')).toBe('tcp:54321');
     expect(adb.mappings.get('tcp:3000')).toBe('tcp:3000');
     expect(adb.commands.some((command) => command.includes('--remove-all'))).toBe(false);
+    expect(adb.commands.filter((command) => (
+      command.slice(2).join(' ') === 'reverse --list'
+    )).every((command) => (
+      command[0] === '-s' && command[1] === adb.serial
+    ))).toBe(true);
     expect(JSON.stringify(controller.getState())).not.toContain(adb.serial);
   });
 
@@ -174,12 +179,18 @@ describe('DA5 V5 controlled API-offline ownership', () => {
     expect(extra.commands.some((command) => command.includes('--remove'))).toBe(false);
   });
 
-  it('fails closed before mutation for malformed, non-TCP, or foreign-serial mappings',
+  it('fails closed before mutation for foreign transport, malformed columns/endpoints, or duplicates',
     async () => {
     for (const unexpectedLine of [
       'malformed',
-      'synthetic-device localabstract:unexpected tcp:3000',
+      'UsbFfs tcp:9911 tcp:9922 extra-column',
+      'UsbFfs localabstract:unexpected tcp:3000',
+      'UsbFfs tcp:0 tcp:9922',
+      'UsbFfs tcp:65536 tcp:9922',
+      'synthetic-device tcp:9911 tcp:9922',
+      'usbffs tcp:9911 tcp:9922',
       'replacement-device tcp:9911 tcp:9922',
+      'UsbFfs tcp:54321 tcp:54321',
     ]) {
       const adb = directAdb();
       adb.rawReverseLines = [unexpectedLine];
@@ -557,6 +568,7 @@ class FakeAdb implements Da5V5AdbCommandRunner {
   packageInstalled = true;
   processRunning = true;
   rawReverseLines: string[] = [];
+  reverseTransport = 'UsbFfs';
   serial = 'synthetic-device';
   talkBackPackage: typeof googleTalkBackPackage | typeof samsungTalkBackPackage = (
     googleTalkBackPackage
@@ -586,7 +598,7 @@ class FakeAdb implements Da5V5AdbCommandRunner {
     if (command.join(' ') === 'reverse --list') {
       return [
         ...[...this.mappings].map(([device, host]) => (
-          `${this.serial} ${device} ${host}`
+          `${this.reverseTransport} ${device} ${host}`
         )),
         ...this.rawReverseLines,
       ].join('\n');

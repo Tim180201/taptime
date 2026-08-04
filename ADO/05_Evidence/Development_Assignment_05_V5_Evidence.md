@@ -1,6 +1,38 @@
 # Development Assignment 5 — V5 Human Android Evidence
 
-## Current CI-CLIPBOARD-CLEANUP-01 executable technical-closure evidence
+## Current PRODUCT-ADB-REVERSE-01 consumed-run and local-candidate evidence
+
+| Evidence | Exact result |
+|---|---|
+| Correction baseline | `6b7f60ba483a65f1723cbf29e87f8a439f0804c9` / tree `fbe43ebce13fdc0d7851ca8384043b948c9ca898`; local `HEAD` and `origin/main` matched before Development |
+| Consumed run | Both owned mappings were created; the operator then stopped before `install-create` with fallback `child_start_transport`; cleanup stopped at `reverse_list`; authority is consumed/non-reusable |
+| Exact cause | On the bound USB device, ADB 37 returned `UsbFfs <device-endpoint> <host-endpoint>` from `adb -s <bound-serial> reverse --list`. Mobile `parseDa5V5ReverseMappings` and Synthetic `readMappings` treated column one as a serial and rejected the real transport identifier |
+| Product result | No Product package installation, authentication, NFC, Product or time action occurred. Terminal recovery/observation established final null package/process/owned-mapping state |
+| P2 process finding | A diagnostic post-failure mapping mutation crossed the authorized operator boundary. It is not authorized run Evidence, cannot be reused and proves neither correction behavior nor a Product/Hardware result |
+| Authorized correction | `DA5-V5-PRODUCT-ADB-REVERSE-01`: accept exactly transport token `UsbFfs`; retain identity only through `-s <bound-serial>`, exactly one USB device, exact model/build and continuity; keep exact columns/endpoints/duplicates/mapping sets fail-closed |
+| Source scope | `apps/mobile/scripts/da5V5AndroidDevice.mjs`; `apps/synthetic-android-e2e/src/Da5V5AdbController.ts` |
+| Focused tests | `apps/mobile/tests/runtime/da5V5AndroidDevice.test.ts`; `apps/synthetic-android-e2e/tests/Da5V5AdbController.test.ts`; hardware-free bundle smoke in `Da5V5ProductStartBundle.test.ts`; separately confirmed scope extension changed only two reverse-list fake rows in `Da5V5CredentialTransfer.test.ts` |
+| MJS/focused V1 | `node --check` passed; parser/controller run passed 2/2 files and 128/128 tests; corrected Credential-transfer file passed 13/13 |
+| Hardware-free bundle smoke | 1/1 file and 2/2 tests passed; it rebuilt the Synthetic bundle, verified the exact `UsbFfs` boundary is present and reached the existing no-ADB startup guards |
+| Mobile V2 | 54/54 files and 1,243/1,243 tests passed |
+| Synthetic V2 first run | 13/14 files; 290 passed, one failed and 18 expected skips. Sole failure was the old Credential fake emitting its serial as reverse transport; no Product/source failure |
+| Synthetic V2 corrected run | Changed-input rerun after the exact authorized two-line fixture correction: 14/14 files, 291 passed and 18 expected skips, 309 total |
+| Tests-inclusive Typechecks | Mobile and Synthetic workspace Typechecks passed. `--listFilesOnly` reported 868 Mobile entries including `da5V5AndroidDevice.test.ts`, and 571 Synthetic entries including `Da5V5AdbController.test.ts`, `Da5V5CredentialTransfer.test.ts` and `Da5V5ProductStartBundle.test.ts` |
+| Toolchain | Node `24.17.0`; npm `11.13.0`; Vitest `4.1.9`; TypeScript `6.0.3` |
+| Final V3 binding | Exactly once, `PASS`; `HEAD` = `origin/main` = `6b7f60ba483a65f1723cbf29e87f8a439f0804c9`, tree `fbe43ebce13fdc0d7851ca8384043b948c9ca898`, before and after all V3 checks. Pre-ADO-sync exact 11-file Full-Index/Binary patch SHA-256 `a2baca0159e1c64c8b552a2d95b9b29aad5b5196be6aa11c205572df510bf1d6` |
+| Final V3 Mobile | MJS syntax `PASS`; 54/54 files and 1,243/1,243 tests `PASS`; tests-inclusive Typecheck `PASS`; captured `--listFilesOnly` 868 entries, SHA-256 `6d29af79968b01bb14f14b0ec3b0b280b4c6fd8dd4e9be04bab3b8cc7f34f3fe`, including the changed Mobile test |
+| Final V3 Synthetic | 14/14 files, 291 passed and 18 expected skips `PASS`; tests-inclusive Typecheck `PASS`; captured `--listFilesOnly` 571 entries, SHA-256 `c79f5c314c1bc3df8002bc7ba53d975d4f671c8e49575f12e83b1134dacd84ae`, including all three changed Synthetic tests; build and `node --check dist/da5V5Main.js` `PASS` |
+| Post-V3 membership helper / cleanup | After every V3 test, Typecheck, build and syntax check had completed, an `rg` membership invocation under a minimized `PATH` exited 127 because `rg` was unavailable. `/usr/bin/grep` immediately verified the already-created Mobile/Synthetic lists without repeating a gate; both `/tmp` lists were then unlinked |
+| R0 ADO synchronization | Only the five authorized ADO files changed after V3. The exact six-path executable/test Full-Index/Binary diff SHA-256 remained `551254d0e8a5c0b2f06f309f5cde7b4af30e4bca90b938fd3846977ea05d5da9` before and after this synchronization; no product input or V3 result changed |
+| Preserved boundaries | Product/Validation APKs, Product rules, NFC, dependencies, lockfile, schema, workflows and ADB routing/device-binding rules unchanged |
+| Not performed | No independent re-review, commit, publication, V4/CI, artifact/runtime publication, ADB, installation, Hardware, production, deployment or distribution action occurred |
+| Current disposition | Local uncommitted R3 candidate: `V3 PASS, independent re-review pending`; no approval or closure claim; **DO NOT INSTALL / DO NOT START** |
+
+The first failed Synthetic V2 was investigated and corrected by changing the exact stale fixture
+input; it was not an unchanged retry. Existing prior green evidence is not relabeled as fresh
+candidate Evidence.
+
+## Prior CI-CLIPBOARD-CLEANUP-01 executable technical-closure evidence
 
 | Evidence | Exact result |
 |---|---|

@@ -1,6 +1,48 @@
 # Project Status
 
-DA5 V5 CI-CLIPBOARD-CLEANUP-01 override: **THE EXECUTABLE CORRECTION IS PUBLISHED, V4- AND
+DA5 V5 ADB-reverse override: **THE LATEST PRODUCT HUMAN/HARDWARE RUN IS CONSUMED WITH FINAL NULL;
+`DA5-V5-PRODUCT-ADB-REVERSE-01` IS CONFIRMED; THE LOCAL UNCOMMITTED R3 CORRECTION HAS EXACTLY-ONCE
+FINAL V3 `PASS` AND IS PENDING INDEPENDENT RE-REVIEW, PUBLICATION AND V4. DO NOT INSTALL / DO NOT
+START.** Development baseline is `6b7f60ba483a65f1723cbf29e87f8a439f0804c9` / tree
+`fbe43ebce13fdc0d7851ca8384043b948c9ca898`. After the run created `tcp:54321` and `tcp:3000`,
+the bound ADB-37 USB transport reported `UsbFfs` as column one of
+`adb -s <bound-serial> reverse --list`. Both the Mobile install parser and Synthetic offline
+controller incorrectly compared that transport column with the serial. The operator stopped
+before `install-create` with fallback `child_start_transport`; cleanup then stopped at
+`reverse_list` for the same cause. No Product package installation, authentication, NFC, Product
+or time action occurred. Terminal recovery/observation established final null.
+
+A diagnostic post-failure mapping mutation is a P2 process-boundary violation. It is excluded from
+authorized run Evidence and proves neither the correction nor a Product/Hardware result. The
+Human authorization covers only the focused parser/test/ADO correction.
+
+The candidate accepts exactly transport identifier `UsbFfs`; serial identity remains exclusively
+in existing `-s`, exactly-one-USB-device, model/build and continuity checks. Foreign/case-drift,
+malformed columns/endpoints, duplicates and unexpected mapping sets remain fail-closed. Focused
+parser/controller tests pass 128/128; the exact Credential fixture correction passes 13/13; the
+built-bundle smoke passes 2/2; Mobile passes 54/54 files and 1,243/1,243 tests; Synthetic passes
+14/14 files with 291 passed and 18 expected skips. Mobile/Synthetic Typechecks pass and list
+868/571 files including all changed tests. The first full Synthetic attempt failed only because
+the old fixture emitted the serial; it was not retried unchanged. Product/Validation APKs,
+Product rules, NFC, dependencies, lockfile, schema and workflow are unchanged.
+
+The exactly-once final V3 is `PASS` on unchanged `HEAD`/`origin/main`
+`6b7f60ba483a65f1723cbf29e87f8a439f0804c9` / tree
+`fbe43ebce13fdc0d7851ca8384043b948c9ca898` and pre-ADO-sync exact 11-file
+Full-Index/Binary patch SHA-256
+`a2baca0159e1c64c8b552a2d95b9b29aad5b5196be6aa11c205572df510bf1d6`. Under Node `24.17.0`
+and npm `11.13.0`, MJS syntax passed; Mobile passed 54/54 files and 1,243/1,243 tests, Typecheck
+and exact 868-entry membership SHA-256
+`6d29af79968b01bb14f14b0ec3b0b280b4c6fd8dd4e9be04bab3b8cc7f34f3fe`; Synthetic passed 14/14
+files, 291 tests plus 18 expected skips, Typecheck, exact 571-entry membership SHA-256
+`c79f5c314c1bc3df8002bc7ba53d975d4f671c8e49575f12e83b1134dacd84ae`, build and final bundle
+syntax. Every changed test is included. After all V3 checks, a membership helper attempted `rg`
+under a minimized `PATH` and exited 127; `/usr/bin/grep` immediately verified the already-created
+lists, both temporary lists were unlinked and no gate was repeated. This R0 ADO sync changes no
+executable/test input. Independent re-review, approval, publication, V4/CI, ADB, installation and
+Hardware action remain pending and unclaimed.
+
+Prior DA5 V5 CI-CLIPBOARD-CLEANUP-01 override: **THE EXECUTABLE CORRECTION IS PUBLISHED, V4- AND
 ARTIFACT-BOUND, AND FINAL INDEPENDENT REVIEW IS `APPROVED` WITH ZERO OPEN P0–P3; HARDWARE REMAINS
 SEPARATELY UNAUTHORIZED / DO NOT INSTALL / DO NOT START.**
 Publication `c92744bc35a2c2fca27dd5ff7c54b39a93692fde` / tree
@@ -2115,9 +2157,11 @@ Two Epics are concurrently Active, per EP-009's own stated relationship to the r
 
 ## Immediate Next Steps
 
-0. Preserve the completed automated Lean V0–V4/stages 1–5 evidence and exact fresh artifact
-   bindings. Do not install the Product App or start Hardware/ADB/Product Human V5 until the Human
-   Architect grants a separate exact authorization. Attempt 15 remains consumed with no retry.
+0. Treat the latest DA5 Product Human/Hardware run as consumed/final-null and preserve the P2
+   diagnostic mapping mutation only as non-Evidence. Preserve the exactly-once final V3 `PASS`;
+   complete independent re-review, focused publication and V4 for
+   `DA5-V5-PRODUCT-ADB-REVERSE-01` before seeking a new exact Human authority. Do not install the
+   Product App or start Hardware/ADB. Attempt 15 remains consumed with no retry.
 
 1. Preserve Development Assignments 1–3 and DT-060–DT-074 as completed only for their exact
    independently approved local scopes.

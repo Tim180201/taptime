@@ -93,6 +93,11 @@ describe('DA5 V5 package-zero Android install', () => {
       expect(adb.commands).toContainEqual(installCreateCommand(adb.serial));
       expect(adb.commands).toContainEqual(installWriteCommand(adb.serial));
       expect(adb.commands).toContainEqual(installCommitCommand(adb.serial));
+      expect(adb.commands.filter((command) => (
+        command.slice(2).join(' ') === 'reverse --list'
+      )).every((command) => (
+        command[0] === '-s' && command[1] === adb.serial
+      ))).toBe(true);
       expect(adb.commands.flat()).not.toContain('-r');
       expect(adb.commands.flat()).not.toContain('install');
       expect(adb.commands.flat()).toContain('-R');
@@ -743,7 +748,7 @@ describe('DA5 V5 package-zero Android install', () => {
     expect(retainedMapping.commands.flat()).not.toContain('install');
 
     const malformedMapping = new FakeAdb();
-    malformedMapping.rawReverseLines = ['synthetic-device localabstract:unexpected tcp:3000'];
+    malformedMapping.rawReverseLines = ['UsbFfs localabstract:unexpected tcp:3000'];
     await expect(install(malformedMapping)).rejects.toThrow('DA5 V5 Android install failed');
     expect(malformedMapping.commands.flat()).not.toContain('install');
     expect(malformedMapping.mappings.size).toBe(0);
@@ -1342,22 +1347,25 @@ describe('DA5 V5 scoped Android cleanup', () => {
       expect(adb.commands).toHaveLength(commandCount);
     });
 
-  it('parses last-two-column reverse output and requires a true zero state', async () => {
+  it('accepts only exact UsbFfs reverse transport and requires a true zero state', async () => {
     expect(parseDa5V5ReverseMappings(
-      'serial tcp:54321 tcp:54321\nserial tcp:3000 tcp:3000\n',
-      'serial',
+      'UsbFfs tcp:54321 tcp:54321\nUsbFfs tcp:3000 tcp:3000\n',
+      'bound-serial',
     )).toEqual([
       { device: 'tcp:54321', host: 'tcp:54321' },
       { device: 'tcp:3000', host: 'tcp:3000' },
     ]);
     for (const value of [
       'malformed\n',
-      'serial localabstract:unexpected tcp:3000\n',
-      'different-serial tcp:54321 tcp:54321\n',
-      'serial tcp:0 tcp:3000\n',
-      'serial tcp:65536 tcp:3000\n',
+      'UsbFfs tcp:54321 tcp:54321 extra-column\n',
+      'UsbFfs localabstract:unexpected tcp:3000\n',
+      'bound-serial tcp:54321 tcp:54321\n',
+      'usbffs tcp:54321 tcp:54321\n',
+      'UsbFfs tcp:0 tcp:3000\n',
+      'UsbFfs tcp:65536 tcp:3000\n',
+      'UsbFfs tcp:54321 tcp:54321\nUsbFfs tcp:54321 tcp:3000\n',
     ]) {
-      expect(() => parseDa5V5ReverseMappings(value, 'serial')).toThrow(
+      expect(() => parseDa5V5ReverseMappings(value, 'bound-serial')).toThrow(
         /malformed or unexpected/,
       );
     }
@@ -1612,6 +1620,7 @@ class FakeAdb implements Da5V5AndroidAdbRunner {
   processes: string[] = [];
   processOutputs: string[] = [];
   rawReverseLines: string[] = [];
+  reverseTransport = 'UsbFfs';
   serial = 'synthetic-device';
   talkBackPackage: typeof googleTalkBackPackage | typeof samsungTalkBackPackage = (
     googleTalkBackPackage
@@ -1729,7 +1738,7 @@ class FakeAdb implements Da5V5AndroidAdbRunner {
       }
       return [
         ...[...this.mappings].map(([device, host]) => (
-          `${this.serial} ${device} ${host}`
+          `${this.reverseTransport} ${device} ${host}`
         )),
         ...this.rawReverseLines,
       ].join('\n');

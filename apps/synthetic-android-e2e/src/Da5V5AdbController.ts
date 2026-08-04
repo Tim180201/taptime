@@ -12,6 +12,7 @@ import {
 const PACKAGE_NAME = 'com.tim180201.mobile.synthetic';
 const AUTH_MAPPING = Object.freeze({ device: 'tcp:54321', host: 'tcp:54321' });
 const API_MAPPING = Object.freeze({ device: 'tcp:3000', host: 'tcp:3000' });
+const USB_REVERSE_TRANSPORT = 'UsbFfs';
 const ADB_TIMEOUT_MILLISECONDS = 5_000;
 const ADB_SERVER_ARGUMENTS = Object.freeze(['-H', '127.0.0.1', '-P', '5037']);
 
@@ -546,21 +547,24 @@ function readMappings(
     .split('\n')
     .map((line) => line.trim())
     .filter((line) => line.length !== 0);
+  const devices = new Set<string>();
   return lines.map((line) => {
     const parts = line.split(/\s+/);
-    const [mappingSerial, device, host] = parts;
+    const [transport, device, host] = parts;
     if (
       parts.length !== 3
-      || mappingSerial !== serial
+      || transport !== USB_REVERSE_TRANSPORT
       || device === undefined
       || host === undefined
       || !/^tcp:[1-9][0-9]{0,4}$/u.test(device)
       || !/^tcp:[1-9][0-9]{0,4}$/u.test(host)
       || Number(device.slice(4)) > 65_535
       || Number(host.slice(4)) > 65_535
+      || devices.has(device)
     ) {
       throw new Error('DA5 V5 reverse mapping output is malformed or unexpected');
     }
+    devices.add(device);
     return Object.freeze({ device, host });
   });
 }

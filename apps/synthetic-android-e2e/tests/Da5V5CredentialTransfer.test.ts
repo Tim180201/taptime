@@ -369,8 +369,8 @@ class CredentialAdb implements Da5V5AndroidAdbRunner {
     }
     if (command === 'reverse --list') {
       return [
-        `${this.serial} tcp:54321 tcp:54321`,
-        `${this.serial} tcp:3000 tcp:3000`,
+        'UsbFfs tcp:54321 tcp:54321',
+        'UsbFfs tcp:3000 tcp:3000',
         '',
       ].join('\n');
     }

@@ -2,7 +2,34 @@
 
 Status: Active
 
-Current R-034 CI-clipboard-cleanup override: **Open only through the separately gated Product
+Current R-034 ADB-reverse override: **Open — latest Product Human/Hardware run consumed/final-null;
+confirmed `DA5-V5-PRODUCT-ADB-REVERSE-01` local R3 correction has exactly-once final V3 `PASS` but
+is pending independent re-review, publication/V4 and a new exact Human authority. DO NOT INSTALL /
+DO NOT START.** On baseline `6b7f60ba483a65f1723cbf29e87f8a439f0804c9` / tree
+`fbe43ebce13fdc0d7851ca8384043b948c9ca898`, the run created the two owned reverse mappings and
+then stopped before `install-create`. Bound ADB-37 `reverse --list` emitted exact transport
+identifier `UsbFfs`; the Mobile and Synthetic parsers incorrectly treated it as the bound serial,
+causing fallback `child_start_transport` and cleanup substage `reverse_list`. Terminal
+recovery/observation established final null and no Product package installation, authentication,
+NFC, Product or time action occurred.
+
+One diagnostic post-failure mapping mutation is a P2 process risk and is excluded from authorized
+run Evidence. It cannot validate the correction or any Product/Hardware result. The focused
+candidate accepts only `UsbFfs`, retains identity exclusively through the bound `-s`/USB/model/
+build/continuity chain and rejects foreign/malformed/duplicate/mapping-set ambiguity. Mobile
+54/54 files and 1,243 tests, Synthetic 14/14 files with 291 passed plus 18 expected skips, focused
+128/128 plus 13/13, the 2/2 bundle smoke and both tests-inclusive Typechecks are green. The
+exactly-once final V3 is also `PASS` on the unchanged baseline/tree and pre-ADO-sync exact 11-file
+Full-Index/Binary patch SHA-256
+`a2baca0159e1c64c8b552a2d95b9b29aad5b5196be6aa11c205572df510bf1d6`: MJS syntax; complete
+Mobile/Synthetic suites and Typechecks; exact 868/571-entry changed-test membership with SHA-256
+`6d29af79968b01bb14f14b0ec3b0b280b4c6fd8dd4e9be04bab3b8cc7f34f3fe` /
+`c79f5c314c1bc3df8002bc7ba53d975d4f671c8e49575f12e83b1134dacd84ae`; Synthetic build and bundle
+syntax. Product/Validation APKs, Product rules, NFC, dependencies, lockfile, schema and workflow
+are unchanged. No independent re-review, approval, CI, publication, new ADB/install/Hardware,
+production, deployment or distribution authority is claimed.
+
+Prior R-034 CI-clipboard-cleanup override: **Open only through the separately gated Product
 Human/Hardware V5; the R3 executable correction is published, V4- and artifact-bound, and final
 independent review is `APPROVED` with zero open P0–P3. Hardware remains DO NOT INSTALL / DO NOT
 START.**

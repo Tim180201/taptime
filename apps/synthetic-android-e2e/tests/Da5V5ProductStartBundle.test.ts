@@ -83,6 +83,7 @@ describe('DA5 V5 Product operator bundle start smoke', () => {
     expect(bundle).toContain('install-write');
     expect(bundle).toContain('install-commit');
     expect(bundle).toContain('install-abandon');
+    expect(bundle).toContain('UsbFfs');
 
     const environment = Object.fromEntries(
       Object.entries(process.env).filter(([name]) => !name.startsWith('TAPTIME_')),

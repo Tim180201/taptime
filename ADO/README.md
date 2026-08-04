@@ -7,6 +7,51 @@ Approval Authority: Human Architect
 
 ## Purpose
 
+### Current DA5 V5 truth — ADB-37 reverse `UsbFfs` correction V3 passed; independent re-review pending
+
+The Product Human/Hardware run associated with correction baseline
+`6b7f60ba483a65f1723cbf29e87f8a439f0804c9` / tree
+`fbe43ebce13fdc0d7851ca8384043b948c9ca898` is consumed and non-reusable. It created the two
+owned reverse mappings, then stopped before `install-create`: on the bound USB device,
+`adb -s <bound-serial> reverse --list` returned `UsbFfs` in its first transport column, while the
+Mobile install parser and Synthetic offline controller incorrectly required that column to equal
+the bound device serial. The primary failure therefore fell back to `child_start_transport`; the
+same parse defect then stopped cleanup at `reverse_list`. No Product package installation,
+authentication, NFC, Product or time action occurred. Terminal recovery/observation established
+the required final null state.
+
+One diagnostic post-failure mapping mutation crossed the authorized operator boundary. This is a
+P2 process finding, is not authorized run Evidence and establishes no correction or Product/
+Hardware result. The Human Architect accepted only the consumed/final-null disposition and
+authorized the focused R3 transport correction.
+
+The local uncommitted `DA5-V5-PRODUCT-ADB-REVERSE-01` candidate treats column one strictly as a
+transport identifier and accepts exactly `UsbFfs`; device identity remains bound only by the
+existing `-s <bound-serial>`, exactly-one-USB-device, model/build and continuity checks. Exact
+three-column TCP parsing, endpoint bounds, duplicate/set rejection, owned-mapping cleanup and
+offline enter/restore/close remain fail-closed. Product/Validation APKs, Product rules, NFC,
+dependencies, lockfile, schema and workflow are unchanged.
+
+Development V0/V1/V2 is green: MJS syntax; focused parser/controller 2/2 files and 128/128 tests;
+the authorized Credential-transfer fixture correction 13/13; and hardware-free built-bundle
+smoke 2/2. The first full Synthetic run failed only on the old Serial-emitting fixture;
+changed-input rerun passed after the exact two-line `UsbFfs` correction.
+
+The exactly-once final V3 is `PASS` on unchanged `HEAD`/`origin/main`
+`6b7f60ba483a65f1723cbf29e87f8a439f0804c9` / tree
+`fbe43ebce13fdc0d7851ca8384043b948c9ca898` and the pre-ADO-sync exact 11-file
+Full-Index/Binary patch SHA-256
+`a2baca0159e1c64c8b552a2d95b9b29aad5b5196be6aa11c205572df510bf1d6`. Under Node `24.17.0`
+and npm `11.13.0`, MJS syntax passed; Mobile passed 54/54 files and 1,243/1,243 tests plus its
+tests-inclusive Typecheck; Synthetic passed 14/14 files, 291 tests plus 18 expected skips, its
+tests-inclusive Typecheck, build and final bundle syntax. Normalized Mobile/Synthetic membership
+lists contain 868/571 entries with SHA-256
+`6d29af79968b01bb14f14b0ec3b0b280b4c6fd8dd4e9be04bab3b8cc7f34f3fe` /
+`c79f5c314c1bc3df8002bc7ba53d975d4f671c8e49575f12e83b1134dacd84ae` and include every changed
+test. This R0 ADO sync carries that evidence over unchanged executable/test bytes. Independent
+re-review, publication, V4/CI and every new Hardware action remain pending and unclaimed.
+**DO NOT INSTALL / DO NOT START.**
+
 ### Current DA6 truth — corrected ADR-0020 candidate independently approved for ADO publication
 
 The Human Architect authorized ADO-only preparation of ADR-0020 on baseline
@@ -49,13 +94,13 @@ costs, cloud, legal decisions, hardware, production and deployment remain unauth
 Frogs-specific students, groups, tariffs, cancellations, ERP integration and customer workflows
 are excluded.
 
-The current DA5 Product and Validation artifacts remain byte-exact. The Operator correction is
-technically closed on executable publication `7eead7560b075763a8ef5076d499b621d63dc3c7` as
-documented below. DA5 Hardware remains separately unauthorized. A later Hardware prompt must bind
-that executable head and the eventual exact head of this ADO-only closure synchronization as two
-separate heads under a new one-time Human authorization.
+The current DA5 Product and Validation artifacts remain byte-exact. The prior clipboard correction
+remains technically closed on executable publication
+`7eead7560b075763a8ef5076d499b621d63dc3c7`, but the later consumed run confirmed
+`DA5-V5-PRODUCT-ADB-REVERSE-01`. DA5 Hardware is blocked pending independent re-review,
+publication/V4 and a later new one-time Human authorization.
 
-### Current DA5 V5 truth — clipboard correction technically closed; Hardware remains DO NOT START
+### Prior DA5 V5 truth — clipboard correction technically closed before the consumed Hardware run
 
 `DA5-V5-PRODUCT-INSTALL-02` was published on
 `c92744bc35a2c2fca27dd5ff7c54b39a93692fde` / tree
@@ -1591,7 +1636,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Development Assignment 1 Gate-C Response-Drop Runbook | `ADO/04_Operations/Development_Assignment_01_Gate_C_Response_Drop_Runbook.md` |
 | Development Assignment 3 V5 Human Functional/Physical Gate Runbook — complete fresh run passed and final closure approved; permanently non-executable without new separate authority | `ADO/04_Operations/Development_Assignment_03_V5_Runbook.md` |
 | Development Assignment 4 V5 Human Browser Gate Runbook — first gate failed closed and authority is consumed; corrected checkpoint handshake independently approved, but execution requires new exact-bound Human authority | `ADO/04_Operations/Development_Assignment_04_V5_Runbook.md` |
-| Development Assignment 5 V5 Human Android Runbook — `DA5-V5-CI-CLIPBOARD-CLEANUP-01` is technically closed on executable publication `7eead756…`, Exact-Head CI `30930590588` 12/12, fresh read-only Operator Runtime and final sandbox-enforced independent `APPROVED` re-review with zero open P0–P3. Hardware remains separately unauthorized. **DO NOT INSTALL/DO NOT START** | `ADO/04_Operations/Development_Assignment_05_V5_Runbook.md` |
+| Development Assignment 5 V5 Human Android Runbook — the latest run is consumed/final-null after confirmed `DA5-V5-PRODUCT-ADB-REVERSE-01`; the local R3 `UsbFfs` correction has exactly-once final V3 `PASS`, with independent re-review, publication/V4 and new Human authority pending. **DO NOT INSTALL/DO NOT START** | `ADO/04_Operations/Development_Assignment_05_V5_Runbook.md` |
 
 ## Evidence
 
@@ -1654,7 +1699,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Development Assignment 4 DA4-V5-H01 Human Browser Failure Evidence — first gate failed closed at the premature Tag-reassignment checkpoint; P2 operational/gate reliability, complete cleanup, authority consumed and new run unauthorized | `ADO/05_Evidence/Development_Assignment_04_DA4_V5_H01_Human_Browser_Failure_Evidence.md` |
 | Development Assignment 4 DA4-V5-H01 Correction Independent Exact-SHA Review — `APPROVED`, zero open P0–P3 review findings; historical P2 remains until a fresh successful gate/final review and no new run is authorized | `ADO/05_Evidence/Development_Assignment_04_DA4_V5_H01_Correction_Independent_Exact_SHA_Review.md` |
 | Development Assignment 5 Local Implementation Evidence — Workstreams A–F and AVS V0–V4 technically closed for the exact authorized local scope | `ADO/05_Evidence/Development_Assignment_05_Local_Implementation_Evidence.md` |
-| Development Assignment 5 V5 Evidence — clipboard correction technically closed on executable publication `7eead756…` / tree `a832bcd…`; exactly-once final Synthetic V3 passed 291 with 18 expected skips, Exact-Head CI `30930590588` passed 12/12, fresh Operator Runtime/Product artifact binding completed and sandbox-enforced final independent re-review returned `APPROVED` with zero open P0–P3. DA5/R-034 remain open only for separately authorized Product Human/Hardware V5 | `ADO/05_Evidence/Development_Assignment_05_V5_Evidence.md` |
+| Development Assignment 5 V5 Evidence — latest run consumed/final-null; exact cause is both reverse-list parsers treating ADB-37 `UsbFfs` as a serial; diagnostic post-failure mapping mutation is excluded as P2 non-Evidence. Local correction final V3 is `PASS`; independent re-review, publication/V4 and every new Hardware authority remain pending | `ADO/05_Evidence/Development_Assignment_05_V5_Evidence.md` |
 | Development Assignment 5 V5 Validation Query-Visibility Correction Independent Exact-SHA Review — review base `11a8269`, CI `30277641127` 12/12, `APPROVED`, zero open P0–P3; Hardware remains unauthorized | `ADO/05_Evidence/Development_Assignment_05_V5_Validation_Query_Visibility_Correction_Independent_Exact_SHA_Review.md` |
 | Development Assignment 5 V5 Validation Runtime Correction Independent Exact-SHA Review — initial candidate `534b6d2` had one P1 fail-open graph; source `7e8c0f7`, CI `30284566289` 12/12 and its artifact independently `APPROVED` with zero open P0–P3 for that exact source; artifact is now historical/DO NOT INSTALL after DA5-V5-VAL-UI-01 source correction and Hardware authority remains separately gated | `ADO/05_Evidence/Development_Assignment_05_V5_Validation_Runtime_Correction_Independent_Exact_SHA_Review.md` |
 | Development Assignment 5 DA5-V5-VAL-UI-01 Independent Source/Artifact Exact-SHA Review — source `e97bbe9`, tree `2958f45`, CI `30370977809` attempt 1 12/12 and exact replacement APK/manifest `APPROVED`, zero open P0–P3; artifact is now historical/DO NOT INSTALL | `ADO/05_Evidence/Development_Assignment_05_DA5_V5_VAL_UI_01_Independent_Source_Artifact_Exact_SHA_Review.md` |
