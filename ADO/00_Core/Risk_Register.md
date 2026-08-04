@@ -2,8 +2,28 @@
 
 Status: Active
 
-Current R-034 Product-install-02 override: **Open / R3 Round-2 correction passed final Lean-V3;
-independent Review Round 3 pending; Hardware remains prohibited.** The Human Architect accepted the
+Current R-034 CI-clipboard-cleanup override: **Open / R3 correction independently approved and
+final Synthetic V3 passed; publication/V4 and Hardware pending.**
+`DA5-V5-PRODUCT-INSTALL-02` is independently approved and published at
+`c92744bc35a2c2fca27dd5ff7c54b39a93692fde` / tree
+`60ef4d73916370367e5259e6557014e0364139b8`, but Exact-Head CI `30926820054`, attempt 1, is
+11/12 without retry. All INSTALL-02 regressions were green. The sole failure is confirmed
+`DA5-V5-CI-CLIPBOARD-CLEANUP-01`: Linux startup cleanup attempted macOS-only clipboard commands
+despite no prior credential/clipboard ownership. The local candidate binds cleanup duty before
+possible mutation, releases it only after a zero proof, performs pristine close without a
+platform process and preserves fail-closed cleanup for every outstanding duty. Independent review
+returned `CHANGES REQUIRED` with exactly one P1: close could begin during initial clear and the
+waiting inject could then write once. The correction rechecks close before the non-empty write and
+returns `mismatch`. Focused 15/15 tests and tests-inclusive Synthetic Typecheck are green;
+independent re-review returned `APPROVED` with zero open P0–P3. The exactly-once final Synthetic
+V3 passed 14/14 files, 291 passed, 18 expected skips and 309 total; Typecheck, 571-entry membership,
+build and bundle syntax passed. Unchanged Mobile/backend/dependency evidence carries under Lean
+V5/ADR-0019. Publication, V4, fresh runtime/manifest and final artifact review remain pending. No
+Hardware, ADB or installation is authorized.
+
+Historical prepublication R-034 Product-install-02 record: **Open / R3 Round-2 correction passed
+final Lean-V3; independent Review Round 3 was pending and Hardware was prohibited at this recorded
+point.** This section is superseded by the current override above. The Human Architect accepted the
 Product-Human/Hardware run on `8723221aba847f778f97febc13f4dd8c1447cac4` / tree
 `fcb6249a5ccdb402a39f7a0dd7beefb4930651d7` as consumed and fully cleaned. It reached complete
 Product-APK runtime verification, then disclosed only install category `cleanup` and terminal

@@ -48,6 +48,7 @@ export class SystemDa5V5SecretProcessRunner implements Da5V5SecretProcessRunner 
 
 export class Da5V5WebCredentialTransfer {
   private activeOperation: Promise<unknown> | null = null;
+  private clipboardRequiresZeroProof = false;
   private closeOperation: Promise<void> | null = null;
   private closing = false;
   private stateValue: 'busy' | 'closed' | 'failed' | 'idle' | 'paste-pending' = 'idle';
@@ -62,6 +63,9 @@ export class Da5V5WebCredentialTransfer {
   ) {}
 
   inject(candidate: Buffer, signal?: AbortSignal): Promise<'match' | 'mismatch'> {
+    if (this.closing || this.stateValue === 'closed') {
+      return Promise.resolve('mismatch');
+    }
     if (this.stateValue !== 'idle') {
       return Promise.resolve(this.fail());
     }
@@ -75,7 +79,10 @@ export class Da5V5WebCredentialTransfer {
   ): Promise<'match' | 'mismatch'> {
     try {
       await this.clearAndProveZero(signal);
-      await this.processes.write('pbcopy', [], candidate, { signal });
+      if (this.closing) {
+        return this.fail();
+      }
+      await this.writeClipboard(candidate, signal);
       this.stateValue = 'paste-pending';
       this.watchdog = this.schedule(() => {
         this.beginExpiry();
@@ -88,6 +95,9 @@ export class Da5V5WebCredentialTransfer {
   }
 
   confirmPaste(signal?: AbortSignal): Promise<'match' | 'mismatch'> {
+    if (this.closing || this.stateValue === 'closed') {
+      return Promise.resolve('mismatch');
+    }
     if (this.stateValue !== 'paste-pending') {
       return Promise.resolve(this.fail());
     }
@@ -108,13 +118,22 @@ export class Da5V5WebCredentialTransfer {
   }
 
   close(): Promise<void> {
-    if (this.stateValue === 'closed') {
-      return Promise.resolve();
-    }
     if (this.closeOperation !== null) {
       return this.closeOperation;
     }
+    if (this.stateValue === 'closed') {
+      this.closeOperation = Promise.resolve();
+      return this.closeOperation;
+    }
     this.closing = true;
+    this.clearWatchdog();
+    if (this.activeOperation === null && !this.clipboardRequiresZeroProof) {
+      if (this.stateValue !== 'failed') {
+        this.stateValue = 'closed';
+      }
+      this.closeOperation = Promise.resolve();
+      return this.closeOperation;
+    }
     this.closeOperation = this.performClose();
     return this.closeOperation;
   }
@@ -125,7 +144,9 @@ export class Da5V5WebCredentialTransfer {
     this.clearWatchdog();
     const retainFailedState = this.stateValue === 'failed';
     try {
-      await this.clearAndProveZero();
+      if (this.clipboardRequiresZeroProof) {
+        await this.clearAndProveZero();
+      }
       if (!retainFailedState) {
         this.stateValue = 'closed';
       }
@@ -141,10 +162,16 @@ export class Da5V5WebCredentialTransfer {
 
   private async clearAndProveZero(signal?: AbortSignal): Promise<void> {
     const empty = Buffer.alloc(0);
-    await this.processes.write('pbcopy', [], empty, { signal });
+    await this.writeClipboard(empty, signal);
     if (await this.processes.countOutput('pbpaste', [], { signal }) !== 0) {
       throw new Error('DA5 V5 clipboard zero state mismatch');
     }
+    this.clipboardRequiresZeroProof = false;
+  }
+
+  private async writeClipboard(input: Buffer, signal?: AbortSignal): Promise<void> {
+    this.clipboardRequiresZeroProof = true;
+    await this.processes.write('pbcopy', [], input, { signal });
   }
 
   private clearWatchdog(): void {

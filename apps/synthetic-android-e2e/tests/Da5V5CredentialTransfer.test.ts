@@ -23,6 +23,24 @@ afterEach(() => {
 });
 
 describe('DA5 V5 coupled credential transfer', () => {
+  it('closes a pristine transfer idempotently without invoking a platform process', async () => {
+    const processes = new FakeSecretProcesses();
+    const web = new Da5V5WebCredentialTransfer(processes, vi.fn());
+    const candidate = da5V5SyntheticCredentialBuffer(credentialText);
+
+    const firstClose = web.close();
+    const secondClose = web.close();
+
+    expect(secondClose).toBe(firstClose);
+    await expect(firstClose).resolves.toBeUndefined();
+    expect(web.state()).toBe('closed');
+    expect(processes.commands).toHaveLength(0);
+    await expect(web.inject(candidate)).resolves.toBe('mismatch');
+    expect(web.state()).toBe('closed');
+    expect(processes.commands).toHaveLength(0);
+    candidate.fill(0);
+  });
+
   it('accepts only exact 64-hex ASCII and compares its digest timing-safely', () => {
     const credential = da5V5SyntheticCredentialBuffer(credentialText);
     const binding = new Da5V5MemoryOnlyPasswordBinding(credential);
@@ -58,9 +76,101 @@ describe('DA5 V5 coupled credential transfer', () => {
       expect(processes.writes.at(-1)?.input.length).toBe(0);
       expect(processes.counts.at(-1)).toEqual({ arguments_: [], command: 'pbpaste' });
       expect(watchdogFailure).not.toHaveBeenCalled();
-      await web.close();
+      const commandsBeforeClose = processes.commands.length;
+      const firstClose = web.close();
+      const secondClose = web.close();
+      expect(secondClose).toBe(firstClose);
+      await firstClose;
+      expect(processes.commands).toHaveLength(commandsBeforeClose);
+      expect(web.state()).toBe('closed');
       candidate.fill(0);
     });
+
+  it('clears and proves zero when close owns a paste-pending clipboard', async () => {
+    const processes = new FakeSecretProcesses();
+    const web = new Da5V5WebCredentialTransfer(processes, vi.fn());
+    const candidate = da5V5SyntheticCredentialBuffer(credentialText);
+
+    await expect(web.inject(candidate)).resolves.toBe('match');
+    expect(web.state()).toBe('paste-pending');
+    await expect(web.close()).resolves.toBeUndefined();
+
+    expect(web.state()).toBe('closed');
+    expect(processes.writes).toHaveLength(3);
+    expect(processes.writes.at(-1)?.input.length).toBe(0);
+    expect(processes.counts).toHaveLength(2);
+    candidate.fill(0);
+  });
+
+  it('retains cleanup duty after write failure and retries it exactly once on close', async () => {
+    const processes = new FakeSecretProcesses();
+    processes.writeOutcomes.push('pass', 'fail', 'fail', 'pass');
+    const web = new Da5V5WebCredentialTransfer(processes, vi.fn());
+    const candidate = da5V5SyntheticCredentialBuffer(credentialText);
+
+    await expect(web.inject(candidate)).resolves.toBe('mismatch');
+    expect(web.state()).toBe('failed');
+    expect(processes.writes).toHaveLength(3);
+    expect(processes.counts).toHaveLength(1);
+
+    const close = web.close();
+    await expect(close).resolves.toBeUndefined();
+    expect(web.state()).toBe('failed');
+    expect(processes.writes).toHaveLength(4);
+    expect(processes.writes.at(-1)?.input.length).toBe(0);
+    expect(processes.counts).toHaveLength(2);
+    await expect(web.close()).resolves.toBeUndefined();
+    expect(processes.writes).toHaveLength(4);
+    candidate.fill(0);
+  });
+
+  it('fails close closed when no clipboard-zero proof can be established', async () => {
+    const processes = new FakeSecretProcesses();
+    processes.countOutcomes.push(1, 1, 1);
+    const web = new Da5V5WebCredentialTransfer(processes, vi.fn());
+    const candidate = da5V5SyntheticCredentialBuffer(credentialText);
+
+    await expect(web.inject(candidate)).resolves.toBe('mismatch');
+    expect(processes.writes.every(({ input }) => input.length === 0)).toBe(true);
+    const close = web.close();
+    await expect(close).rejects.toThrow('DA5 V5 credential cleanup failed');
+    expect(web.state()).toBe('failed');
+    expect(processes.counts).toHaveLength(3);
+
+    const commandCount = processes.commands.length;
+    await expect(web.close()).rejects.toThrow('DA5 V5 credential cleanup failed');
+    expect(processes.commands).toHaveLength(commandCount);
+    candidate.fill(0);
+  });
+
+  it('stops an active inject before its non-empty write when close begins', async () => {
+    const processes = new FakeSecretProcesses();
+    let releaseInitialClear!: () => void;
+    processes.deferNextEmptyWrite = new Promise<void>((resolvePromise) => {
+      releaseInitialClear = resolvePromise;
+    });
+    const web = new Da5V5WebCredentialTransfer(processes, vi.fn());
+    const candidate = da5V5SyntheticCredentialBuffer(credentialText);
+    const lateCandidate = da5V5SyntheticCredentialBuffer(`b${credentialText.slice(1)}`);
+
+    const inject = web.inject(candidate);
+    const close = web.close();
+    await expect(web.inject(lateCandidate)).resolves.toBe('mismatch');
+    releaseInitialClear();
+
+    await expect(inject).resolves.toBe('mismatch');
+    await expect(close).resolves.toBeUndefined();
+    expect(web.state()).toBe('failed');
+    expect(processes.writes.filter(({ input }) => input.length > 0)).toHaveLength(0);
+    expect(processes.writes.at(-1)?.input.length).toBe(0);
+    const commandCount = processes.commands.length;
+    await expect(web.close()).resolves.toBeUndefined();
+    await expect(web.inject(lateCandidate)).resolves.toBe('mismatch');
+    expect(web.state()).toBe('failed');
+    expect(processes.commands).toHaveLength(commandCount);
+    candidate.fill(0);
+    lateCandidate.fill(0);
+  });
 
   it('stops before clipboard or device injection on digest mismatch', async () => {
     const processes = new FakeSecretProcesses();
@@ -215,18 +325,25 @@ class FakeSecretProcesses implements Da5V5SecretProcessRunner {
   counts: Array<{ arguments_: readonly string[]; command: string }> = [];
   deferNextEmptyWrite: Promise<void> | null = null;
   outputBytes = 0;
+  countOutcomes: Array<number | 'fail'> = [];
+  writeOutcomes: Array<'fail' | 'pass'> = [];
   writes: Array<{ arguments_: readonly string[]; command: string; input: Buffer }> = [];
 
   async countOutput(command: string, arguments_: readonly string[]): Promise<number> {
     const invocation = { arguments_: [...arguments_], command };
     this.commands.push(invocation);
     this.counts.push(invocation);
-    return this.outputBytes;
+    const outcome = this.countOutcomes.shift();
+    if (outcome === 'fail') throw new Error('synthetic count failure');
+    return outcome ?? this.outputBytes;
   }
 
   async write(command: string, arguments_: readonly string[], input: Buffer): Promise<void> {
     this.commands.push({ arguments_: [...arguments_], command });
     this.writes.push({ arguments_: [...arguments_], command, input });
+    if (this.writeOutcomes.shift() === 'fail') {
+      throw new Error('synthetic write failure');
+    }
     if (input.length === 0 && this.deferNextEmptyWrite !== null) {
       const deferredWrite = this.deferNextEmptyWrite;
       this.deferNextEmptyWrite = null;

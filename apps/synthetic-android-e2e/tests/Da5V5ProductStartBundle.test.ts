@@ -115,6 +115,7 @@ describe('DA5 V5 Product operator bundle start smoke', () => {
         encoding: 'utf8',
         env: {
           ...environment,
+          PATH: '',
           TAPTIME_DA5_V5_ANDROID_API: '35',
           TAPTIME_DA5_V5_ANDROID_BUILD: 'synthetic-build',
           TAPTIME_DA5_V5_ANDROID_RELEASE: '15',

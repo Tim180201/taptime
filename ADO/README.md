@@ -49,11 +49,45 @@ costs, cloud, legal decisions, hardware, production and deployment remain unauth
 Frogs-specific students, groups, tariffs, cancellations, ERP integration and customer workflows
 are excluded.
 
-The current DA5 hardware source and artifacts remain byte-exact and unblocked. After this ADO
-candidate is published, any DA5 hardware action still requires a new exact ADO-head binding and a
-separate one-time Human authorization.
+The current DA5 Product and Validation artifacts remain byte-exact, but the Operator candidate is
+blocked by the CI clipboard-cleanup finding documented below. After this ADO candidate is
+published, any DA5 hardware action still requires a new exact ADO-head binding and a separate
+one-time Human authorization.
 
-### Current DA5 V5 truth — Product-install-02 final Lean-V3 passed; Round-3 review pending
+### Current DA5 V5 truth — clipboard correction approved and final V3 passed; V4 pending
+
+`DA5-V5-PRODUCT-INSTALL-02` was published on
+`c92744bc35a2c2fca27dd5ff7c54b39a93692fde` / tree
+`60ef4d73916370367e5259e6557014e0364139b8` after independent Review Round 3 returned
+`APPROVED` with zero open P0–P3. Exact-Head CI `30926820054`, attempt 1, stopped at 11/12
+without retry. Every INSTALL-02 regression was green; only the hardware-free Synthetic bundle
+start smoke failed on Linux because pristine startup cleanup invoked the macOS-only `pbcopy` and
+`pbpaste` processes before any credential or clipboard action had begun. Product, installation,
+database, Hardware and NFC were not involved.
+
+Confirmed `DA5-V5-CI-CLIPBOARD-CLEANUP-01` is an uncommitted local R3 correction candidate. It
+binds a clipboard-zero obligation before every possible clipboard mutation and clears that
+obligation only after an empty write plus confirmed zero-byte readback. Pristine or already
+zero-proven close performs no platform process; pending, failed, aborted or not-zero-proven work
+remains fail-closed, and close rejects every later injection. Independent review returned
+`CHANGES REQUIRED` with exactly one P1: an inject already waiting on its initial clear could still
+perform one non-empty write after close began. The focused correction rechecks the closing latch
+after that clear and stops with `mismatch` before the non-empty write. Independent re-review
+returned `APPROVED` with zero open P0–P3.
+
+The exactly-once final Synthetic V3 is `PASS`: 14/14 files, 291 passed, 18 expected skips and 309
+total; workspace Typecheck passed. Normalized `--listFilesOnly` contains 571 entries with SHA-256
+`45ac1d63ca5f619fcb432594b8495ec08968af1aed99edb8c336d357dcb74e5b` and includes both changed
+tests. Build and bundle syntax passed under Node `24.17.0`, npm `11.13.0` and Vitest `4.1.9`.
+The mode-`0644` bundle is 894,993 bytes / SHA-256
+`dbacb6b9c5c1a5e1a0960441331580acc6acf8e6f3c99e34985d99d504c80e3f`; its mode-`0644` map is
+1,659,518 bytes / SHA-256
+`c2e6eeb28be5dc6d0bfcb9ee19804e4ae61ba17143ad59c8d4d152988bdcc6dd`. Unchanged Mobile,
+backend and dependency evidence carries under Lean V5/ADR-0019. Publication, V4, fresh read-only
+runtime/manifest binding and final Exact-Head/Artifact review remain pending. Hardware, ADB,
+installation, production, deployment and distribution remain unauthorized.
+
+### Historical prepublication DA5 V5 truth — Product-install-02 final Lean-V3 passed
 
 The Product-Human/Hardware run on `8723221aba847f778f97febc13f4dd8c1447cac4` / tree
 `fcb6249a5ccdb402a39f7a0dd7beefb4930651d7` is consumed and fully cleaned. It reached complete
@@ -1521,7 +1555,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Development Assignment 1 Gate-C Response-Drop Runbook | `ADO/04_Operations/Development_Assignment_01_Gate_C_Response_Drop_Runbook.md` |
 | Development Assignment 3 V5 Human Functional/Physical Gate Runbook — complete fresh run passed and final closure approved; permanently non-executable without new separate authority | `ADO/04_Operations/Development_Assignment_03_V5_Runbook.md` |
 | Development Assignment 4 V5 Human Browser Gate Runbook — first gate failed closed and authority is consumed; corrected checkpoint handshake independently approved, but execution requires new exact-bound Human authority | `ADO/04_Operations/Development_Assignment_04_V5_Runbook.md` |
-| Development Assignment 5 V5 Human Android Runbook — Lean stages 1–5 and automated V0–V4 complete on `1b341d8` / tree `2db7568`; fresh Product/Validation artifacts bound and hardware candidate ready. Product App not installed; Product Human/Hardware V5 remains separately unauthorized. **DO NOT INSTALL/DO NOT START without that exact authority** | `ADO/04_Operations/Development_Assignment_05_V5_Runbook.md` |
+| Development Assignment 5 V5 Human Android Runbook — `DA5-V5-CI-CLIPBOARD-CLEANUP-01` final Synthetic V3 passed and independent correction re-review is `APPROVED`; publication/V4, fresh read-only runtime/manifest and final Exact-Head/Artifact review remain pending. Hardware is blocked and unauthorized. **DO NOT INSTALL/DO NOT START** | `ADO/04_Operations/Development_Assignment_05_V5_Runbook.md` |
 
 ## Evidence
 

@@ -1,10 +1,40 @@
 # Project Status
 
-DA5 V5 PRODUCT-INSTALL-02 override: **THE PRODUCT-HUMAN/HARDWARE RUN ON
+DA5 V5 CI-CLIPBOARD-CLEANUP-01 override: **THE CORRECTION IS INDEPENDENTLY APPROVED AND FINAL
+SYNTHETIC V3 PASSED; PUBLICATION/V4 AND HARDWARE REMAIN PENDING.**
+Publication `c92744bc35a2c2fca27dd5ff7c54b39a93692fde` / tree
+`60ef4d73916370367e5259e6557014e0364139b8` retained green INSTALL-02 regressions. Only the
+hardware-free Synthetic bundle-start smoke failed on Linux: pristine startup cleanup invoked
+macOS-only `pbcopy`/`pbpaste` before any credential or clipboard operation, producing
+`da5_v5_cleanup_failed`. Product, installation, database, Hardware and NFC were not involved;
+the failed CI was not retried.
+
+The uncommitted R3 correction candidate sets a zero-proof obligation before every possible
+clipboard mutation and clears it only after empty-write plus zero-byte readback. Pristine and
+already zero-proven close now use no platform process; every pending, failed, aborted or
+not-zero-proven path remains fail-closed, and close prevents later injection. Independent review
+returned `CHANGES REQUIRED` with exactly one P1 because an inject awaiting its initial clear could
+still write after close began. The correction rechecks close immediately after that clear and
+returns `mismatch` before every non-empty write. Independent re-review returned `APPROVED` with
+zero open P0–P3.
+
+The exactly-once final Synthetic V3 passed 14/14 files with 291 passed, 18 expected skips and 309
+total; workspace Typecheck passed. The normalized 571-entry file list has SHA-256
+`45ac1d63ca5f619fcb432594b8495ec08968af1aed99edb8c336d357dcb74e5b` and contains both changed
+tests. Build and bundle syntax passed. The mode-`0644` bundle is 894,993 bytes / SHA-256
+`dbacb6b9c5c1a5e1a0960441331580acc6acf8e6f3c99e34985d99d504c80e3f`; its mode-`0644` map is
+1,659,518 bytes / SHA-256
+`c2e6eeb28be5dc6d0bfcb9ee19804e4ae61ba17143ad59c8d4d152988bdcc6dd`. Unchanged Mobile,
+backend and dependency evidence carries under Lean V5/ADR-0019. Publication, V4, fresh
+runtime/manifest and final Exact-Head/Artifact review remain pending. Hardware, ADB, installation,
+production, production data, deployment and distribution remain unauthorized.
+
+Historical prepublication DA5 V5 PRODUCT-INSTALL-02 record: **THE PRODUCT-HUMAN/HARDWARE RUN ON
 `8723221aba847f778f97febc13f4dd8c1447cac4` / TREE
 `fcb6249a5ccdb402a39f7a0dd7beefb4930651d7` IS CONSUMED AND FULLY CLEANED;
 THE LOCAL R3 ROUND-2 CORRECTION PASSED FINAL LEAN-V3, BUT INDEPENDENT REVIEW ROUND 3,
-PUBLICATION AND EVERY HARDWARE GATE REMAIN PENDING.** The accepted run reached operator/runtime start,
+PUBLICATION AND EVERY HARDWARE GATE WERE PENDING AT THIS RECORDED POINT.** This historical
+prepublication section is superseded by the current override above. The accepted run reached operator/runtime start,
 device preflight, Human tag confirmation and complete Product-APK runtime verification, then
 reported `da5_v5_android_install=mismatch category=cleanup` followed by
 `da5_v5_cleanup_failed`. Scoped recovery removed only the authorized `tcp:3000` and `tcp:54321`
@@ -18,7 +48,7 @@ undifferentiated install-stream signal abort. The uncommitted local correction o
 baseline binds one durable control/stream/device/serial transaction, one persistent abandon and
 cleanup flight, the original install category plus separate closed cleanup status/substage, and a
 distinct disclosure-safe `signal_abort` category. Independent review Round 1 returned `CHANGES
-REQUIRED` with exactly two P1, four P2 and one P3. The current in-scope correction requires a
+REQUIRED` with exactly two P1, four P2 and one P3. The then-current in-scope correction required a
 proven zero precondition and resource-specific started/proven mutation before package or mapping
 cleanup, retains at most one package-removal flight, makes final-zero package observation-only,
 rejects stronger later uncertainty with closed `uncertainty_escalation`, and uses one absolute

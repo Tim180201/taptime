@@ -1,6 +1,32 @@
 # Development Assignment 5 — V5 Human Android Evidence
 
-## Current PRODUCT-INSTALL-02 consumed-run and local-candidate evidence
+## Current CI-CLIPBOARD-CLEANUP-01 correction-candidate evidence
+
+| Evidence | Exact result |
+|---|---|
+| Published baseline | `c92744bc35a2c2fca27dd5ff7c54b39a93692fde` / tree `60ef4d73916370367e5259e6557014e0364139b8`; independent INSTALL-02 Review Round 3 `APPROVED`, zero open P0–P3 |
+| Exact-Head CI | `30926820054`, attempt 1, 11/12; no retry. All INSTALL-02 regressions passed; only Synthetic hardware-free Product-start bundle smoke failed |
+| Confirmed finding | `DA5-V5-CI-CLIPBOARD-CLEANUP-01`: pristine startup cleanup invoked macOS-only `pbcopy`/`pbpaste` on Linux before any credential/clipboard action and emitted `da5_v5_cleanup_failed`; Product, installation, database, Hardware and NFC were not involved |
+| Regression before correction | Focused 2-file run reproduced exactly three failures: pristine close made two platform calls, zero-confirmed close made two additional platform calls and empty-`PATH` bundle start emitted `da5_v5_cleanup_failed` |
+| Local correction | Explicit clipboard-zero duty is set before every possible mutation and cleared only after empty-write plus zero-byte readback. Pristine/already-zero-proven close uses no platform process; outstanding duty remains fail-closed; close is idempotent and rejects later injection |
+| Independent review / P1 correction | `CHANGES REQUIRED`, exactly one P1: inject could resume from its initial clear after close began and still perform one non-empty write. The correction rechecks the closing latch immediately after the clear and returns `mismatch` before that write; repeated close remains idempotent |
+| Independent re-review | `APPROVED`; zero open P0–P3 |
+| Focused V1/V2 | `Da5V5CredentialTransfer.test.ts` plus `Da5V5ProductStartBundle.test.ts`: 2/2 files, 15/15 tests passed. The built-bundle smoke uses empty `PATH`, keeps stdout empty and returns exact stderr `da5_v5_start_failed` |
+| Final Synthetic V3 | Exactly once: 14/14 files, 291 passed, 18 expected skips, 309 total; workspace Typecheck `PASS`; normalized `--listFilesOnly` 571 entries, SHA-256 `45ac1d63ca5f619fcb432594b8495ec08968af1aed99edb8c336d357dcb74e5b`, including both changed tests; build and `node --check dist/da5V5Main.js` `PASS` |
+| V3 toolchain | Node `24.17.0`; npm `11.13.0`; Vitest `4.1.9` |
+| V3 local bundle | `dist/da5V5Main.js`, 894,993 bytes, mode `0644`, SHA-256 `dbacb6b9c5c1a5e1a0960441331580acc6acf8e6f3c99e34985d99d504c80e3f` |
+| V3 local map | `dist/da5V5Main.js.map`, 1,659,518 bytes, mode `0644`, SHA-256 `c2e6eeb28be5dc6d0bfcb9ee19804e4ae61ba17143ad59c8d4d152988bdcc6dd` |
+| Carried evidence | Unchanged Mobile, backend and dependency evidence carries under Lean V5/ADR-0019 |
+| Preserved boundaries | Product/Validation APKs, Product rules, NFC semantics, Dependencies, lockfile, Product/database schema and workflow unchanged |
+| Not performed | No publication, new V4 Exact-Head CI, runtime/manifest publication, Hardware, ADB, installation, production, deployment or distribution |
+| Remaining gates | Focused publication, exactly one new Exact-Head CI, fresh read-only runtime/manifest and final independent Exact-Head/Artifact review |
+
+This is an uncommitted correction candidate and grants no Hardware or operational authority.
+
+## Historical prepublication PRODUCT-INSTALL-02 consumed-run and local-candidate evidence
+
+This section preserves the candidate state before Review Round 3 approval and publication and is
+superseded by the current CI-CLIPBOARD-CLEANUP-01 evidence above.
 
 | Evidence | Exact result |
 |---|---|
@@ -35,10 +61,10 @@
 | Not performed | No fresh Mobile rerun, ADB, installation, Hardware, Product-Human rerun, CI, V4, artifact/runtime publication, production, deployment or distribution. No fresh rerun of carried `npm ci`/`npm ls`/audit, remaining workspace, Guard, privileged database/migration, C3B, Android export/APK or cleanup evidence |
 | Remaining gates | Independent final Review Round 3, V4, exact publication/runtime binding, final approval and a new exact one-time Human authorization |
 
-This evidence describes an uncommitted local candidate on the consumed baseline. Rounds 1 and 2
-remain historically `CHANGES REQUIRED`; the Round-2 correction has final Lean-V3 `PASS` but is not
-independently approved. It claims no publication, CI, V4, Hardware or Product result. Independent
-final Review Round 3 remains pending.
+This historical evidence described an uncommitted local candidate on the consumed baseline.
+Rounds 1 and 2 remain historically `CHANGES REQUIRED`; the Round-2 correction had final Lean-V3
+`PASS` but was not yet independently approved at this recorded point. It claimed no publication,
+CI, V4, Hardware or Product result. Independent final Review Round 3 was pending at that time.
 
 ## Current PRODUCT-INSTALL-01 consumed-run and technical-closure evidence
 

@@ -1,6 +1,39 @@
 # Development Assignment 5 — V5 Human Android Gate Runbook
 
-## Current PRODUCT-INSTALL-02 correction candidate — DO NOT START hardware
+## Current CI-CLIPBOARD-CLEANUP-01 correction approved; V4 pending — DO NOT START hardware
+
+`DA5-V5-PRODUCT-INSTALL-02` is independently approved and published at
+`c92744bc35a2c2fca27dd5ff7c54b39a93692fde` / tree
+`60ef4d73916370367e5259e6557014e0364139b8`. Exact-Head CI `30926820054`, attempt 1, is 11/12
+without retry. The INSTALL-02 tests passed; only the hardware-free Linux bundle-start smoke
+failed because pristine startup cleanup called unavailable `pbcopy`/`pbpaste`, yielding
+`da5_v5_cleanup_failed` before Product, installation, database, Hardware or NFC activity.
+
+The authorized local correction binds clipboard-zero duty before every possible mutation and
+removes it only after empty-write plus zero-byte readback. Close may skip platform processes only
+when no active operation, watchdog or zero-proof duty remains. Pending, failed, aborted and
+not-zero-proven paths must still clear and prove zero or fail closed; close is idempotent and
+blocks every later injection. Independent review returned `CHANGES REQUIRED` with exactly one P1:
+an inject waiting on initial clear could write once after close began. Recheck the closing latch
+immediately after that clear and stop with `mismatch` before the non-empty write. Focused
+verification passed 2/2 files and 15/15 tests, the
+empty-`PATH` bundle smoke and the tests-inclusive Synthetic Typecheck with both changed tests
+listed. Independent re-review returned `APPROVED` with zero open P0–P3.
+
+The exactly-once final Synthetic V3 passed 14/14 files, 291 passed, 18 expected skips and 309
+total. Workspace Typecheck, normalized 571-entry membership with SHA-256
+`45ac1d63ca5f619fcb432594b8495ec08968af1aed99edb8c336d357dcb74e5b`, build and bundle syntax
+passed. The mode-`0644` bundle/map are 894,993 / 1,659,518 bytes with SHA-256
+`dbacb6b9c5c1a5e1a0960441331580acc6acf8e6f3c99e34985d99d504c80e3f` /
+`c2e6eeb28be5dc6d0bfcb9ee19804e4ae61ba17143ad59c8d4d152988bdcc6dd`. Unchanged
+Mobile/backend/dependency evidence carries under Lean V5/ADR-0019. Publication, V4, fresh
+read-only runtime/manifest and final Exact-Head/Artifact review remain required. **DO NOT START
+Hardware, ADB or installation.**
+
+## Historical prepublication PRODUCT-INSTALL-02 correction candidate — hardware was blocked
+
+This section preserves the state before Review Round 3 approval and publication and is superseded
+by the current CI-CLIPBOARD-CLEANUP-01 section above.
 
 The Product-Human/Hardware run on `8723221aba847f778f97febc13f4dd8c1447cac4` / tree
 `fcb6249a5ccdb402a39f7a0dd7beefb4930651d7` is consumed and fully cleaned. It reached complete
