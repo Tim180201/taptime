@@ -1,14 +1,23 @@
 # ADR-0018: Production-like Platform and Operational Readiness
 
-- Status: **PROPOSED — HUMAN ACCEPTANCE AND SEPARATE IMPLEMENTATION AUTHORITY REQUIRED**
+- Status: **ADR-0020 INDEPENDENTLY APPROVED FOR ADO CANDIDATE PUBLICATION; R1 P1 CLOSED; ONLY
+  P1 ASSIGNMENT DECISION HUMAN-ACCEPTED; REMAINING ADR-0018/ADR-0020/DA6 HUMAN DISPOSITION
+  PENDING; NO IMPLEMENTATION OR PROVISIONING AUTHORITY**
 - Date: 2026-07-28
+- ADR-0020 extension preparation date: 2026-08-04
 - Candidate baseline commit: `f0c51f2a30770c62fc4ba7463fa89a6624365612`
 - Candidate baseline tree: `6c2cdbd3c9b20c8c24fdd7645d3504c210491484`
+- ADR-0020 extension preparation baseline commit: `90a5d1a3c90ee81aaeee335edd74a88c8fc904de`
+- ADR-0020 extension preparation baseline tree: `38d025a134cffe305017a1c845930d80115c1d3d`
+- ADR-0020 corrected seven-file candidate Full-Index-Diff SHA-256:
+  `e30591baf23f00bf4cc56ed1bf8fa0f7c4c9c86dfc0c962bd5a36f490791a9de`
+- ADR-0020 independent re-review:
+  `ADO/05_Evidence/Development_Assignment_06_Optional_Locations_Independent_Architecture_Authorization_Review.md`
 - Owner: Technical Lead
 - Decision authority: Human Architect
 - Roadmap: Development Assignment 6; production-like platform, security, observability,
   backup/recovery and operations
-- Related: Product Vision, ADR-0008, ADR-0011–ADR-0017, AVS-001, Risk Register
+- Related: Product Vision, ADR-0008, ADR-0011–ADR-0017, ADR-0020, AVS-001, Risk Register
 - Proposed implementation risk: AVS-001 **R3**
 
 ## 1. Context
@@ -44,6 +53,11 @@ security controls, observability, backup/restore tooling and runbooks.
 DA6 SHALL NOT create a production resource, process production/pilot personal data, deploy a
 publicly reachable service, purchase a service, change a system account, or distribute an app
 without a separate exact Human authorization.
+
+The previously reviewed unchanged-Product/role/UI boundary remains controlling except for the
+exact optional Location and delegated-administration candidate in ADR-0020. That extension is
+default off, separately Human-gated and has no implementation authority. Nothing else in
+`DA6-P01`–`DA6-P12` is superseded.
 
 ### DA6-P02 — Four explicit environments
 
@@ -195,7 +209,34 @@ DA6 is R3. A later implementation requires:
 Cloud provisioning, paid services, DNS/public endpoints, production credentials/data, deployment
 and distribution remain separately authorized actions even after local implementation approval.
 
+### Optional ADR-0020 extension boundary
+
+ADR-0020 proposes `DA6-L01`–`DA6-L11` as a separately reviewable, Organization-opt-in Location
+and delegated-administration extension. The Human Architect has accepted exactly its mandatory
+one-Home-per-active-Membership model, additional Work Location Grants, separate Management
+Location Grants and their atomic activation/immutable accepted-Work-Location rules after R1 found
+the normative assignment missing. The remaining extension is not Human-accepted or an
+implementation contract. If accepted, it supersedes only ADR-0018's prior unchanged-role/UI/
+Product-behavior exclusion for that exact default-off scope. The operational values
+`DA6-P01`–`DA6-P12`, including every provider, cost, legal, production and deployment gate, remain
+unchanged.
+
 ## 3. Proposed workstreams
+
+### Workstream E / Phase 0 — optional Locations and delegated administration
+
+This workstream is proposed by ADR-0020 and its corrected ADO candidate is independently approved
+for publication. If its remaining values are Human-accepted, it runs before, and then integrates
+with, Workstreams A–D. It
+establishes the default-off feature,
+Organization/Location/Membership/grant model, closed Location Manager matrix, explicit legacy-data
+assignment, immutable historical Location provenance, disclosure-safe audit and server-authoritative
+tenant/Location enforcement. Its one-Home plus separate Work/Management Grant assignment model is
+already Human-accepted; the workstream and all implementation remain unaccepted/unauthorized.
+
+It SHALL remain a focused Product/security workstream and SHALL NOT be hidden inside provider or
+infrastructure provisioning. Workstreams A–D must subsequently prove Location-aware RLS/IAM,
+observability, backup/restore, lifecycle/retention/export and operational recovery behavior.
 
 ### Workstream A — environment and delivery foundation
 
@@ -231,7 +272,7 @@ and distribution remain separately authorized actions even after local implement
 
 ## 4. Explicit exclusions
 
-DA6 excludes:
+Except for the exact optional ADR-0020 candidate, DA6 excludes:
 
 - new Product behavior, Business Engine rules or UI productization;
 - payroll, billing, analytics, advertising, employee-performance scoring or surveillance;
@@ -243,14 +284,21 @@ DA6 excludes:
 - access to `research/`; and
 - any claim that local/staging evidence is production evidence.
 
+ADR-0020 additionally excludes Frogs-specific students, groups, tariffs, cancellation rules,
+ERP integration and every other customer-specific workflow. It implements no UI and changes no
+Product behavior while the feature is off.
+
 ## 5. Human decisions required before implementation or provisioning
 
 Architecture acceptance requires the Human Architect to accept or adjust:
 
 1. DA6-P01–P12 and Workstreams A–D;
-2. whether the commercial Product remains B2B-only for v1;
-3. candidate service objectives and operational ownership;
-4. the separation between cost-free local implementation and separately authorized provisioning.
+2. separately, the remaining ADR-0020 `DA6-L01`–`DA6-L11` and Workstream E / Phase 0 values,
+   excluding the already Human-accepted mandatory Home/Work/Management assignment, atomic
+   activation and immutable accepted-Work-Location P1 disposition;
+3. whether the commercial Product remains B2B-only for v1;
+4. candidate service objectives and operational ownership;
+5. the separation between cost-free local implementation and separately authorized provisioning.
 
 Before any paid/cloud provisioning, additional exact decisions are required:
 
@@ -267,10 +315,34 @@ Renewed architecture/Human/legal review is required before:
 
 - production or pilot personal data;
 - changing provider, region, tenant topology or connection mode;
-- adding analytics, session replay, advertising, location or employee scoring;
+- accepting or changing Location/delegation topology or capability values beyond exact
+  Human-accepted ADR-0020 scope, or adding analytics, session replay, advertising or employee
+  scoring;
 - adding a new Auth provider or identity-linking behavior;
 - accepting raw/free-form Product data into logs or support tools;
 - implementing irreversible deletion/anonymization or legal hold;
 - changing backup region/retention/restore behavior;
 - public endpoints, production deployment, production signing or distribution; or
 - accepting costs beyond an exact approved ceiling.
+
+## 7. Historical review and current candidate truth
+
+The archived
+`ADO/05_Evidence/Development_Assignment_06_Independent_Pre_Implementation_Review.md` remains valid
+only for the earlier ADR-0018/Workstreams A–D candidate on its recorded baseline. It did not review ADR-0020,
+`DA6-L01`–`DA6-L11`, Workstream E or this synchronization and grants no approval or implementation
+authority for them.
+
+ADR-0020 Review Round 1 returned `CHANGES REQUIRED` with exactly one P1 against reviewed diff
+SHA-256 `475edf4654fc23bd33e1e0c8db1306f98a0ec2cc83bf4fe1a00587cd66e49e4f`: normative Location
+assignment was missing. The Human Architect accepted exactly the corrected mandatory Home, Work
+and Management Location assignment decision. Independent re-review of exact corrected seven-file
+Full-Index-Diff SHA-256
+`e30591baf23f00bf4cc56ed1bf8fa0f7c4c9c86dfc0c962bd5a36f490791a9de` returned `APPROVED` with
+zero open P0–P3 and closed the R1 P1; it is archived in
+`ADO/05_Evidence/Development_Assignment_06_Optional_Locations_Independent_Architecture_Authorization_Review.md`.
+The rest of ADR-0018/ADR-0020/DA6 is not thereby Human-accepted, and no implementation authority
+follows. Any later implementation is R3 and requires a separate exact authorization after
+remaining Human disposition. The current DA5 hardware source and artifacts remain byte-exact and
+unblocked; after focused ADO publication, only a new exact ADO-head binding plus separate one-time
+Human hardware authority can permit a future DA5 action.

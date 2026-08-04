@@ -7,6 +7,52 @@ Approval Authority: Human Architect
 
 ## Purpose
 
+### Current DA6 truth — corrected ADR-0020 candidate independently approved for ADO publication
+
+The Human Architect authorized ADO-only preparation of ADR-0020 on baseline
+`90a5d1a3c90ee81aaeee335edd74a88c8fc904de` / tree
+`38d025a134cffe305017a1c845930d80115c1d3d`. R1 reviewed diff SHA-256
+`475edf4654fc23bd33e1e0c8db1306f98a0ec2cc83bf4fe1a00587cd66e49e4f` and returned
+`CHANGES REQUIRED` with exactly one P1 because normative Location assignment was missing. The
+Human Architect accepted exactly the mandatory Home Location and described additional Work and
+Management Location assignments. Independent re-review of the corrected exact seven-file,
++766/-23 Full-Index-Diff SHA-256
+`e30591baf23f00bf4cc56ed1bf8fa0f7c4c9c86dfc0c962bd5a36f490791a9de` returned `APPROVED` with
+zero open P0–P3 and closed R1 P1. The Review is archived at
+`ADO/05_Evidence/Development_Assignment_06_Optional_Locations_Independent_Architecture_Authorization_Review.md`.
+R1 remains historically `CHANGES REQUIRED`; only the P1 assignment decision is Human-accepted.
+The remaining `DA6-L01`–`DA6-L11`/Workstream-E/DA6 values await Human disposition, and no
+implementation authority exists.
+
+The generic candidate is Organization-wise default off and activatable only by a current
+Organization Administrator. Organization remains the hard tenant boundary; Location is only a
+subordinate scope. Existing Organizations, Memberships, roles, data, behavior and Employee
+self-service remain exactly unchanged while effectively off; inactive setup grants no authority.
+Activation is atomic only after one active Home per active user/Membership and unique active
+bindings for every relevant resource/WorkTarget/NFC Assignment. Home does not restrict the
+Organization Administrator. Additional Work Grants authorize only Home-plus-Work Employee
+self-service; separate Management Grants scope only delegated administration and do not inherit.
+
+Every accepted WorkEvent/TimeRecord gets one immutable server-derived accepted Work Location from
+resource, NFC or explicit General Work context; it is not GPS/geolocation evidence. Manager
+resource scope follows current Resource Location, Employee projection current Home/minimum
+operation need and time/correction/review/export immutable record Location. Current Management
+Grants are required for every Location, own-time is forbidden and mixed scope rejects all.
+Deactivation immediately removes Location/delegated authority while retaining assignments and
+history; reactivation validates the complete current setup again.
+
+ADR-0018 `DA6-P01`–`DA6-P12` remain unchanged. Workstream E precedes and feeds Location concerns
+into Workstreams A–D without mixing Product authorization into provider provisioning. R-037 is
+open. The archived DA6 review covers only the earlier ADR-0018/A–D candidate and is not approval
+of ADR-0020; the new exact review approves only ADO candidate publication. Product code/tests/schema/UI, providers,
+costs, cloud, legal decisions, hardware, production and deployment remain unauthorized.
+Frogs-specific students, groups, tariffs, cancellations, ERP integration and customer workflows
+are excluded.
+
+The current DA5 hardware source and artifacts remain byte-exact and unblocked. After this ADO
+candidate is published, any DA5 hardware action still requires a new exact ADO-head binding and a
+separate one-time Human authorization.
+
 ### Current DA5 V5 truth — Product install correction technically closed; fresh hardware authority pending
 
 The authorized Product run on baseline `7b971070c7fc108fea4ae92db30b87f340b24e91` / tree
@@ -1349,7 +1395,8 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Technical Architecture Profile (TTAP-001) | `ADO/01_Architecture/Technical_Architecture_Profile.md` |
 | Development Task Profile | `ADO/01_Architecture/Development_Task_Profile.md` |
 | Official Technical Lead Start Prompt (TLP-001) | `ADO/01_Architecture/Technical_Lead_Start_Prompt.md` |
-| Architecture Decision Records (including ADR-0019 Lean V5 Verification Profile — Human-accepted and published at `83635335` / tree `40b7655`; independent review `APPROVED`, zero open P0–P3) | `ADO/01_Architecture/ADR/` |
+| Architecture Decision Records (including Human-accepted ADR-0019 and ADR-0020 Optional Locations/Delegated Administration — corrected candidate independently approved for ADO publication; R1 P1 closed; only P1 assignment decision Human-accepted; remaining Human disposition and implementation authority pending) | `ADO/01_Architecture/ADR/` |
+| ADR-0020 Optional Locations and Delegated Administration — default-off DA6-L01–L11/Workstream-E candidate; exact seven-file review `APPROVED`, zero open P0–P3; R1 P1 closed; only mandatory Home plus separate Work/Management assignment P1 decision Human-accepted | `ADO/01_Architecture/ADR/ADR-0020-optional-locations-and-delegated-administration.md` |
 | Feature Blueprints (incl. FB-001, FB-002) | `ADO/01_Architecture/Feature_Blueprints/` |
 | Technical Specifications (incl. TS-001, TS-002) | `ADO/01_Architecture/Technical_Specifications/` |
 | Developer Implementation Manual (EP-008) | `ADO/01_Architecture/Developer_Implementation_Manual/` |
@@ -1383,7 +1430,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Development Assignment 5 V5 Harness Artifact Closure — Attempt 15 is consumed fail-closed with immutable 30/2/13 evidence and no retry. The historical 45-gate path is prospectively superseded by the Lean V5 candidate after its review/publication gates; no run authority exists | `ADO/02_Development/Development_Assignment_05_V5_Harness_Artifact_Closure_Authorization.md` |
 | Development Assignment 5 V5 Lean Verification Profile — Human-accepted/published; Lean stages 1–5 and automated V0–V4 complete on `1b341d8` / tree `2db7568`; Product Human/Hardware V5 remains separately unauthorized | `ADO/02_Development/Development_Assignment_05_V5_Lean_Verification_Profile_Authorization.md` |
 | Development Assignment 5 V5 Isolated PostgreSQL Correction — Runtime Guard source `ba1b6e9`, CI `30255104609` attempt 2 12/12, immutable binary/manifest and independent Exact-SHA `APPROVED`; historical correction rounds retained; hardware authority not granted | `ADO/02_Development/Development_Assignment_05_V5_Isolated_PostgreSQL_Correction_Authorization.md` |
-| Development Assignment 6 Production-like Platform and Operational Readiness — ADO-only candidate; Human acceptance and separate implementation/provisioning authority required | `ADO/02_Development/Development_Assignment_06_Production_Like_Platform_Authorization.md` |
+| Development Assignment 6 Production-like Platform and Operational Readiness — ADR-0018 P01–P12 unchanged; exact corrected ADR-0020 candidate independently approved for ADO publication with R1 P1 closed; only assignment P1 decision Human-accepted; remaining Human disposition and implementation/provisioning authority pending | `ADO/02_Development/Development_Assignment_06_Production_Like_Platform_Authorization.md` |
 | Legal, Privacy and Commercial Readiness Start Package — internal Block-H/DT-079–DT-084 working draft; not legal advice, approved legal text or publication authority | `ADO/02_Development/Legal_Privacy_Commercial_Readiness_Start_Package.md` |
 | Block C3 Organization Administration Implementation Plan | `ADO/02_Development/Block_C3_Organization_Administration_Implementation_Plan.md` |
 | Repository Health Sprint 001 | `ADO/02_Development/Repository_Health_Sprint_001.md` |
@@ -1475,7 +1522,8 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Development Assignment 5 DA5-V5-VAL-NATIVE-CAPTURE-DIAGNOSTICS Independent Source/Artifact Exact-SHA Review — source `effc57a`, tree `758dbfa`, CI `30377569479` attempt 1 12/12 and exact replacement APK/manifest `APPROVED`, zero open P0–P3 for that exact historical source; artifact is now DO NOT INSTALL after confirmed `DA5-V5-VAL-TECH-01` | `ADO/05_Evidence/Development_Assignment_05_DA5_V5_VAL_NATIVE_CAPTURE_DIAGNOSTICS_Independent_Source_Artifact_Exact_SHA_Review.md` |
 | Development Assignment 5 DA5-V5-VAL-TECH-01 Independent Source/Artifact Exact-SHA Review — source `03694f2`, tree `6c60396`, CI `30386552118` attempt 1 12/12 and exact APK/manifest `APPROVED`, zero open P0–P3; artifact remains DO NOT INSTALL and review grants no hardware authority | `ADO/05_Evidence/Development_Assignment_05_DA5_V5_VAL_TECH_01_Independent_Source_Artifact_Exact_SHA_Review.md` |
 | Development Assignment 5 V5 Validation Phase-0 Operator Correction Independent Exact-SHA Review — historical candidate `083fdfb`, tree `24bd130`, CI `30402655381` attempt 1 12/12 remains round-2 `APPROVED`, zero open P0–P3; separate readiness candidate `496ca59`, tree `b398b89`, and failed exact-candidate CI `30427205223` remain historical; focused test-only correction `21e5181`, tree `8f764f9`, exact-head CI `30429746848` attempt 1 12/12 and independent source/delta plus final Exact-SHA/V4 reviews are `APPROVED` with zero open P0–P3, closing the historical P2; no hardware authority | `ADO/05_Evidence/Development_Assignment_05_V5_Validation_Phase_0_Operator_Correction_Independent_Exact_SHA_Review.md` |
-| Development Assignment 6 Independent Pre-Implementation Review — ADO-only candidate publication `APPROVED`, initial EOF-whitespace P3 closed, zero open P0–P3; no implementation, legal, provider, cost or production authority | `ADO/05_Evidence/Development_Assignment_06_Independent_Pre_Implementation_Review.md` |
+| Development Assignment 6 Independent Pre-Implementation Review — historical ADO-only publication `APPROVED` for the earlier ADR-0018/Workstreams A–D candidate only; it did not review ADR-0020 and grants no implementation, legal, provider, cost or production authority | `ADO/05_Evidence/Development_Assignment_06_Independent_Pre_Implementation_Review.md` |
+| Development Assignment 6 Optional Locations Independent Architecture/Authorization Review — exact corrected seven-file candidate +766/−23 / Full-Index-Diff SHA-256 `e30591b…` `APPROVED`, zero open P0–P3; R1 P1 closed; only P1 assignment decision Human-accepted; no implementation authority | `ADO/05_Evidence/Development_Assignment_06_Optional_Locations_Independent_Architecture_Authorization_Review.md` |
 | Development Assignment 1 DA1-PHYS-01 Independent Exact-Delta Review — approved, finding closed | `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_01_Independent_Exact_Delta_Review.md` |
 | Development Assignment 1 DA1-PHYS-02 Independent Exact-Delta Review — approved, repository finding closed | `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_02_Independent_Exact_Delta_Review.md` |
 | Development Assignment 1 DA1-PHYS-03 Independent Exact-Delta Review — approved, repository finding closed | `ADO/05_Evidence/Development_Assignment_01_DA1_PHYS_03_Independent_Exact_Delta_Review.md` |

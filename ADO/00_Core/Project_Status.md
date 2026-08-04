@@ -1,5 +1,67 @@
 # Project Status
 
+DA6 Location/delegation candidate override: **INDEPENDENTLY APPROVED FOR ADO CANDIDATE
+PUBLICATION; R1 P1 CLOSED; ONLY P1 ASSIGNMENT DECISION HUMAN-ACCEPTED; REMAINING ADR-0020/DA6
+HUMAN DISPOSITION PENDING; NO IMPLEMENTATION AUTHORITY.** On exact preparation baseline
+`90a5d1a3c90ee81aaeee335edd74a88c8fc904de` /
+tree `38d025a134cffe305017a1c845930d80115c1d3d`, ADR-0020 proposes generic optional Locations and
+delegated Location administration as DA6 Workstream E / Phase 0. The feature is Organization-wise
+default off. R1 reviewed diff SHA-256
+`475edf4654fc23bd33e1e0c8db1306f98a0ec2cc83bf4fe1a00587cd66e49e4f` and returned
+`CHANGES REQUIRED` with exactly one P1: normative Location assignment was missing. The Human
+Architect accepted exactly the mandatory one-Home assignment and described additional Work and
+Management Location assignments. Independent re-review of the corrected exact seven-file,
++766/-23 Full-Index-Diff SHA-256
+`e30591baf23f00bf4cc56ed1bf8fa0f7c4c9c86dfc0c962bd5a36f490791a9de` returned `APPROVED` with
+zero open P0–P3 and closed the R1 P1; the result is archived in
+`ADO/05_Evidence/Development_Assignment_06_Optional_Locations_Independent_Architecture_Authorization_Review.md`.
+R1 remains historically `CHANGES REQUIRED`, only the P1 decision is Human-accepted and no
+implementation authority exists.
+
+Organization remains the hard tenant boundary. Location is only a subordinate scope. The
+corrected candidate preserves one Membership per Organization/User and, while on, requires exactly
+one active Home Location per active Membership, including Administrators/Location Managers. Home
+does not restrict Organization-wide Administrator authority. Zero/many additional Work Location
+Grants authorize only Employee self-service/work; separate zero/one/many Management Location
+Grants scope only delegated administration and neither grant class inherits the other.
+
+An Administrator may prepare inactive setup. Effective activation is atomic/fail-closed only
+after every active user/Membership has one active Home and every relevant active resource,
+WorkTarget and NFC Assignment has one unambiguous active Location binding. Until then the feature
+is effectively off and current behavior is exact; there is no automatic migration or inference.
+When on, Employee Start/Stop/One-Tap/Business Engine semantics remain unchanged but the target
+catalog is limited to Home plus current Work Grants. Every accepted WorkEvent/TimeRecord receives
+one immutable server-derived accepted Work Location from resource/NFC/explicit General Work
+context; it is organizational context, not GPS/geolocation evidence.
+
+Manager resource operations use current Resource Location; Employee projection normally uses
+current Home; TimeRecord/correction/review/export uses immutable accepted Work Location. Every
+affected Location requires a current Management Grant, own-time remains forbidden and mixed scope
+rejects all. Revocation blocks new decisions; Manager revocation also blocks new privileged access
+to history. Deactivation removes delegated/Location-scoped authority immediately while retaining
+assignments/history; reactivation repeats the complete check. Setup, transitions, grants,
+revocation and privileged actions require append-only disclosure-safe audit.
+
+ADR-0018 `DA6-P01`–`DA6-P12` remain unchanged. Workstream E precedes and then feeds the Location
+dimension into A–D RLS/IAM, observability, backup/restore, deletion/retention/export and operations;
+it is not part of provider provisioning. Any later implementation is R3. The archived DA6
+pre-implementation review remains truthful only for the earlier ADR-0018/A–D candidate and is not
+approval of ADR-0020. The new exact ADR-0020 review approves ADO candidate publication and closes
+R1 P1 without Human-accepting the remainder. R-037 is open until implementation, independent
+review and the required Human gate.
+
+The current DA5 hardware candidate remains byte-, source- and artifact-identical and is not
+blocked by this ADO-only preparation. After any focused ADO publication, a future DA5 action needs
+only the newly exact ADO-head binding plus separate one-time Human hardware authority; no Hardware,
+ADB or installation action is authorized here. Provider, plan, cost, cloud, region, legal/privacy,
+retention, production, production-data, deployment and distribution decisions remain separately
+open. Frogs-specific students, groups, tariffs, cancellations, ERP integration and every other
+customer-specific workflow are out of scope.
+
+Required next Product/architecture disposition after focused ADO publication: explicitly accept,
+adjust or reject the remaining ADR-0020 `DA6-L01`–`DA6-L11`, Workstream E / Phase 0 and DA6 values,
+excluding the already Human-accepted P1 assignment rules. No implementation authority exists.
+
 DA5 V5 current override: **THE PRODUCT INSTALL RUN IS CONSUMED FAIL-CLOSED;
 DA5-V5-PRODUCT-INSTALL-01 AND DA5-V5-SECURITY-BRACE-01 ARE TECHNICALLY CLOSED; A NEW
 HUMAN/HARDWARE V5 REQUIRES SEPARATE ONE-TIME AUTHORITY.** On exact
@@ -518,6 +580,13 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
 
 ## Current State
 
+- **DA6 ADR-0020 Location/delegation extension:** The corrected candidate is independently
+  `APPROVED` for ADO candidate publication with zero open P0–P3, and R1 P1 is closed. The R1
+  predecessor remains historically `CHANGES REQUIRED`. Only the exact P1 mandatory Home plus
+  separate Work/Management assignment values are Human-accepted; remaining ADR-0020/DA6 Human
+  disposition is pending and no implementation authority exists. ADR-0018 P01–P12 remain
+  unchanged and R-037 is open. The historical DA6 review still covers only the earlier A–D
+  candidate; the exact new review approves ADO candidate publication only.
 - **Current DA5 V5 status:** ADR-0019/Lean authorization accepted and independently approved;
   Lean stages 1–5 and automated V0–V4 complete on `1b341d8` / tree `2db7568`; isolated V3 passed
   2,835 tests plus two disclosed B1 skips, exact-head CI `30786622180` passed 12/12 and final
@@ -1988,10 +2057,18 @@ Two Epics are concurrently Active, per EP-009's own stated relationship to the r
    a new separate exact authorization before Product APK installation or Product Human V5. Product
    correctness remains unproven; production, production data, system changes, deployment and
    distribution remain unauthorized.
-7. Review the ADO-only ADR-0018/DA6 production-like operational-readiness candidate. Preparation
-   does not authorize Workstreams A–D implementation, cloud/provider resources, costs, public
-   endpoints, production data or deployment. Resolve provider/cost/IAM/RPO/RTO/retention values
-   only through their explicit later Human and legal gates.
+7. Publish the independently `APPROVED` corrected ADO-only ADR-0020 `DA6-L01`–`DA6-L11` and
+   Workstream E / Phase-0 candidate together with synchronized ADR-0018, DA6 and the exact Review
+   archive. Preserve R1 `CHANGES REQUIRED` as historical truth and R1 P1 as closed. The historical
+   DA6 review covers only the earlier A–D candidate. After publication, obtain exact Human
+   disposition of the unchanged `DA6-P01`–`DA6-P12` package and all remaining Location values; do
+   not reopen the accepted Home/Work/Management assignment rules.
+   Preparation does not authorize Workstreams A–E implementation, Product/schema/UI
+   changes, cloud/provider resources, costs, public endpoints, production data or deployment.
+   Resolve provider/cost/IAM/RPO/RTO/retention values only through their explicit later Human and
+   legal gates. Preserve the current DA5 hardware source/artifacts unchanged; after ADO
+   publication, rebind only the exact ADO head before seeking a separate one-time Human hardware
+   authorization.
 8. Continue Block H in parallel through the internal Legal, Privacy and Commercial Readiness Start
    Package. Confirm company/B2B/controller-processor/provider/retention inputs and obtain qualified
    German/EU legal review before publishing privacy, AVV/TOM/AGB/Impressum text or processing
@@ -2010,7 +2087,9 @@ independent review and applicable Human/physical gate:
 3. correction and append-only audit workflow;
 4. professional Admin Web productization;
 5. professional Mobile productization;
-6. production-like platform, security, observability, backup/recovery and operations;
+6. if its remaining values are Human-accepted, optional default-off Locations/delegated
+   administration as Workstream E / Phase 0, then production-like platform, security,
+   observability, backup/recovery and operations;
 7. app build, signing and distribution; and
 8. public website plus final cross-surface hardening.
 
