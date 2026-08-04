@@ -1,6 +1,6 @@
 # Development Assignment 5 — V5 Human Android Evidence
 
-## Current PRODUCT-ADB-REVERSE-01 consumed-run and local-candidate evidence
+## Current PRODUCT-ADB-REVERSE-01 consumed-run and technical-closure evidence
 
 | Evidence | Exact result |
 |---|---|
@@ -23,10 +23,22 @@
 | Final V3 Mobile | MJS syntax `PASS`; 54/54 files and 1,243/1,243 tests `PASS`; tests-inclusive Typecheck `PASS`; captured `--listFilesOnly` 868 entries, SHA-256 `6d29af79968b01bb14f14b0ec3b0b280b4c6fd8dd4e9be04bab3b8cc7f34f3fe`, including the changed Mobile test |
 | Final V3 Synthetic | 14/14 files, 291 passed and 18 expected skips `PASS`; tests-inclusive Typecheck `PASS`; captured `--listFilesOnly` 571 entries, SHA-256 `c79f5c314c1bc3df8002bc7ba53d975d4f671c8e49575f12e83b1134dacd84ae`, including all three changed Synthetic tests; build and `node --check dist/da5V5Main.js` `PASS` |
 | Post-V3 membership helper / cleanup | After every V3 test, Typecheck, build and syntax check had completed, an `rg` membership invocation under a minimized `PATH` exited 127 because `rg` was unavailable. `/usr/bin/grep` immediately verified the already-created Mobile/Synthetic lists without repeating a gate; both `/tmp` lists were then unlinked |
-| R0 ADO synchronization | Only the five authorized ADO files changed after V3. The exact six-path executable/test Full-Index/Binary diff SHA-256 remained `551254d0e8a5c0b2f06f309f5cde7b4af30e4bca90b938fd3846977ea05d5da9` before and after this synchronization; no product input or V3 result changed |
+| Prepublication R0 ADO synchronization | Only the five authorized ADO files changed after V3. The exact six-path executable/test Full-Index/Binary diff SHA-256 remained `551254d0e8a5c0b2f06f309f5cde7b4af30e4bca90b938fd3846977ea05d5da9` before and after this synchronization; no product input or V3 result changed |
+| Executable publication | `f8d68c541056cb19e0f222b8a2c04cd3db2b734f` / tree `ddb4a69a2db0167b7a57c4f708f2cc64553f4799`; direct parent `6b7f60ba483a65f1723cbf29e87f8a439f0804c9` / tree `fbe43ebce13fdc0d7851ca8384043b948c9ca898` |
+| Publication delta | Exactly 11 files; Full-Index/Binary delta 38,897 bytes; SHA-256 `abec3ca7acbe4619c724fa7dba9422db4dc987d48844f0d39a31043b9d32fdc9` |
+| Exact-Head V4 CI | GitHub Actions `30943224381`, attempt 1, 12/12 successful; no retry |
+| Fresh read-only Operator Runtime | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-product-operator/f8d68c54-1406581c`; top level contains exactly `checkout/` plus `operator-runtime-manifest.json`; checkout is exact-head detached/sparse/tracked-clean, `research/` is absent and task cache removed |
+| Runtime bundle | `checkout/apps/synthetic-android-e2e/dist/da5V5Main.js`; 895,276 bytes; mode `0444`; SHA-256 `1406581cf5974f899cd512511289cbdae47a3f05875ebea5cfbcabc2538701dd` |
+| Runtime source map | `checkout/apps/synthetic-android-e2e/dist/da5V5Main.js.map`; 1,659,973 bytes; mode `0444`; SHA-256 `3c8d2b1b9e69ede819708c82934b0be45b10f317079bc6d6453ed6cd4d59fc13` |
+| Runtime manifest | `operator-runtime-manifest.json`; 7,554 bytes; mode `0444`; SHA-256 `2e20e4b028294527e52fca621467997e2805db28c365b22db7f6d3eba05acd31` |
+| Runtime dependency closure | Fresh `npm ci` 695/717; audits report 12 moderate, zero high and zero critical findings; 18/18 builds passed |
+| Unchanged Product artifact | Existing Product APK binding is unchanged: 95,522,751 bytes; mode `0444`; SHA-256 `b0180c31769e453472a20eb1e7eb4e0825a85be9429becf6bf4970e0875b67f8` |
+| Unchanged Product manifest | Existing binding is unchanged: 1,968 bytes; mode `0444`; SHA-256 `83b93bbf33297334bfcca3aa30e5ed6772175f98a2a81dc80045454570fe937b` |
+| Final independent Exact-Head/Artifact Review | Technically enforced sandbox read-only; adversarial write blocked; repository and artifacts identical before/after; final `APPROVED`, zero open P0–P3 |
 | Preserved boundaries | Product/Validation APKs, Product rules, NFC, dependencies, lockfile, schema, workflows and ADB routing/device-binding rules unchanged |
-| Not performed | No independent re-review, commit, publication, V4/CI, artifact/runtime publication, ADB, installation, Hardware, production, deployment or distribution action occurred |
-| Current disposition | Local uncommitted R3 candidate: `V3 PASS, independent re-review pending`; no approval or closure claim; **DO NOT INSTALL / DO NOT START** |
+| R0 closure synchronization | Documentation only; no source, test, artifact or runtime input changed. No test, build, CI, review or artifact generation is claimed for this future documentation head; the carried evidence remains bound to executable publication `f8d68c541056cb19e0f222b8a2c04cd3db2b734f` |
+| Hardware / operational authority | No new ADB, installation, Hardware or Human V5 action occurred or is authorized. Production, production data, deployment and distribution remain separately unauthorized |
+| Current disposition | Executable correction technically closed and artifact-bound; final independent Review `APPROVED`, zero open P0–P3. Product/Validation APKs remain unchanged; **DO NOT INSTALL / DO NOT START** |
 
 The first failed Synthetic V2 was investigated and corrected by changing the exact stale fixture
 input; it was not an unchanged retry. Existing prior green evidence is not relabeled as fresh

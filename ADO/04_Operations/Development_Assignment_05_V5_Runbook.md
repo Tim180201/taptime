@@ -1,6 +1,6 @@
 # Development Assignment 5 — V5 Human Android Gate Runbook
 
-## Current ADB-37 reverse correction candidate — DO NOT INSTALL / DO NOT START hardware
+## Current ADB-37 reverse correction technical closure — DO NOT INSTALL / DO NOT START hardware
 
 The latest Product Human/Hardware authority is consumed and may not be retried or reused. On
 correction baseline `6b7f60ba483a65f1723cbf29e87f8a439f0804c9` / tree
@@ -15,11 +15,11 @@ Do not repeat the diagnostic post-failure mapping mutation. It crossed the autho
 boundary, is a P2 process finding and is not run Evidence. No observation from it may validate
 the parser correction or a Product/Hardware result.
 
-The local uncommitted correction permits exactly the `UsbFfs` transport token. It does not ignore
-column one and does not derive device identity from it. Every command remains scoped by
-`-s <bound-serial>`, exactly one USB device, exact model/build and serial continuity. Exactly three
-columns, bounded nonzero TCP endpoints, unique device endpoints and exact owned mapping sets are
-mandatory; every foreign, malformed, duplicate or ambiguous result stops fail-closed.
+The published correction permits exactly the `UsbFfs` transport token. It does not ignore column
+one and does not derive device identity from it. Every command remains scoped by
+`-s <bound-serial>`, exactly one USB device, exact model/build and serial continuity. Exactly
+three columns, bounded nonzero TCP endpoints, unique device endpoints and exact owned mapping
+sets are mandatory; every foreign, malformed, duplicate or ambiguous result stops fail-closed.
 
 Development V0/V1/V2 passed the focused install/controller, error rollback/final-zero, preinstall
 zero, both offline cycles, Credential transfer and hardware-free built-bundle boundaries; full
@@ -40,11 +40,38 @@ syntax. Every changed test is included. After all V3 checks, `rg` was unavailabl
 minimized `PATH` for a membership helper and exited 127; `/usr/bin/grep` immediately verified the
 already-created lists, both temporary lists were unlinked and no gate was repeated.
 
-This R0 ADO sync changes no executable/test input and this file grants no executable command.
-Independent re-review, focused publication, V4 and a new exact Human authorization are required
-before any later Hardware/ADB/install action. Product and Validation APKs remain byte-exact and
-**DO NOT INSTALL**. The existing Operator Runtime is **DO NOT START**. Production, production
-data, deployment and distribution remain separately unauthorized.
+The executable correction is published at `f8d68c541056cb19e0f222b8a2c04cd3db2b734f` / tree
+`ddb4a69a2db0167b7a57c4f708f2cc64553f4799`, direct parent
+`6b7f60ba483a65f1723cbf29e87f8a439f0804c9` / tree
+`fbe43ebce13fdc0d7851ca8384043b948c9ca898`. Its exact 11-file, 38,897-byte
+Full-Index/Binary delta has SHA-256
+`abec3ca7acbe4619c724fa7dba9422db4dc987d48844f0d39a31043b9d32fdc9`. Exact-Head CI
+`30943224381`, attempt 1, passed 12/12 without retry.
+
+Use no mutable development output. The fresh read-only Operator Runtime is
+`/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-product-operator/f8d68c54-1406581c`;
+its top level contains exactly detached/sparse/tracked-clean `checkout/` plus
+`operator-runtime-manifest.json`, `research/` is absent and the task cache is removed.
+
+| Runtime input | Exact binding |
+|---|---|
+| Bundle | `checkout/apps/synthetic-android-e2e/dist/da5V5Main.js`; 895,276 bytes; mode `0444`; SHA-256 `1406581cf5974f899cd512511289cbdae47a3f05875ebea5cfbcabc2538701dd` |
+| Source map | `checkout/apps/synthetic-android-e2e/dist/da5V5Main.js.map`; 1,659,973 bytes; mode `0444`; SHA-256 `3c8d2b1b9e69ede819708c82934b0be45b10f317079bc6d6453ed6cd4d59fc13` |
+| Runtime manifest | `operator-runtime-manifest.json`; 7,554 bytes; mode `0444`; SHA-256 `2e20e4b028294527e52fca621467997e2805db28c365b22db7f6d3eba05acd31` |
+| Dependency closure | Fresh `npm ci` 695/717; audits 12 moderate, zero high and zero critical; 18/18 builds |
+| Product APK — DO NOT INSTALL | Unchanged existing binding: 95,522,751 bytes; mode `0444`; SHA-256 `b0180c31769e453472a20eb1e7eb4e0825a85be9429becf6bf4970e0875b67f8` |
+| Product manifest | Unchanged existing binding: 1,968 bytes; mode `0444`; SHA-256 `83b93bbf33297334bfcca3aa30e5ed6772175f98a2a81dc80045454570fe937b` |
+
+Final independent Exact-Head/Artifact Review ran under a technically enforced read-only sandbox;
+its adversarial write was blocked and repository/artifacts were identical before/after. Final
+result is `APPROVED` with zero open P0–P3. The executable correction is technically closed and
+artifact-bound.
+
+This R0 ADO closure changes no executable/test/artifact input, claims no CI for its own future
+documentation head and grants no executable command. Product and Validation APKs remain
+byte-exact and **DO NOT INSTALL**. Runtime/Hardware is **DO NOT START**. Every ADB, installation,
+Human V5, production, production-data, deployment and distribution action remains separately
+unauthorized and requires its own exact authority.
 
 ## Prior CI-CLIPBOARD-CLEANUP-01 technical closure — before consumed Hardware run
 

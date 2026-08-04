@@ -2,10 +2,11 @@
 
 Status: Active
 
-Current R-034 ADB-reverse override: **Open — latest Product Human/Hardware run consumed/final-null;
-confirmed `DA5-V5-PRODUCT-ADB-REVERSE-01` local R3 correction has exactly-once final V3 `PASS` but
-is pending independent re-review, publication/V4 and a new exact Human authority. DO NOT INSTALL /
-DO NOT START.** On baseline `6b7f60ba483a65f1723cbf29e87f8a439f0804c9` / tree
+Current R-034 ADB-reverse override: **Open only through separately gated Product Human/Hardware
+V5 — latest run consumed/final-null; published `DA5-V5-PRODUCT-ADB-REVERSE-01` is V4-bound,
+technically closed and artifact-bound, with final independent Review `APPROVED` and zero open
+P0–P3. DO NOT INSTALL / DO NOT START.** On baseline
+`6b7f60ba483a65f1723cbf29e87f8a439f0804c9` / tree
 `fbe43ebce13fdc0d7851ca8384043b948c9ca898`, the run created the two owned reverse mappings and
 then stopped before `install-create`. Bound ADB-37 `reverse --list` emitted exact transport
 identifier `UsbFfs`; the Mobile and Synthetic parsers incorrectly treated it as the bound serial,
@@ -14,8 +15,8 @@ recovery/observation established final null and no Product package installation,
 NFC, Product or time action occurred.
 
 One diagnostic post-failure mapping mutation is a P2 process risk and is excluded from authorized
-run Evidence. It cannot validate the correction or any Product/Hardware result. The focused
-candidate accepts only `UsbFfs`, retains identity exclusively through the bound `-s`/USB/model/
+run Evidence. It cannot validate the correction or any Product/Hardware result. The published
+correction accepts only `UsbFfs`, retains identity exclusively through the bound `-s`/USB/model/
 build/continuity chain and rejects foreign/malformed/duplicate/mapping-set ambiguity. Mobile
 54/54 files and 1,243 tests, Synthetic 14/14 files with 291 passed plus 18 expected skips, focused
 128/128 plus 13/13, the 2/2 bundle smoke and both tests-inclusive Typechecks are green. The
@@ -26,8 +27,20 @@ Mobile/Synthetic suites and Typechecks; exact 868/571-entry changed-test members
 `6d29af79968b01bb14f14b0ec3b0b280b4c6fd8dd4e9be04bab3b8cc7f34f3fe` /
 `c79f5c314c1bc3df8002bc7ba53d975d4f671c8e49575f12e83b1134dacd84ae`; Synthetic build and bundle
 syntax. Product/Validation APKs, Product rules, NFC, dependencies, lockfile, schema and workflow
-are unchanged. No independent re-review, approval, CI, publication, new ADB/install/Hardware,
-production, deployment or distribution authority is claimed.
+are unchanged.
+
+Executable publication `f8d68c541056cb19e0f222b8a2c04cd3db2b734f` / tree
+`ddb4a69a2db0167b7a57c4f708f2cc64553f4799` has direct parent
+`6b7f60ba483a65f1723cbf29e87f8a439f0804c9` / tree
+`fbe43ebce13fdc0d7851ca8384043b948c9ca898` and
+the exact 11-file, 38,897-byte Full-Index/Binary delta SHA-256
+`abec3ca7acbe4619c724fa7dba9422db4dc987d48844f0d39a31043b9d32fdc9`. Exact-Head CI
+`30943224381`, attempt 1, passed 12/12 without retry. The fresh exact-head runtime is read-only,
+tracked-clean and artifact-bound; final sandbox-enforced Exact-Head/Artifact Review blocked an
+adversarial write, proved repository/artifacts unchanged and returned `APPROVED` with zero open
+P0–P3. This R0 ADO closure claims no CI for its own future documentation head. New ADB,
+installation, Hardware, Human V5, production, production-data, deployment and distribution
+authority remains absent.
 
 Prior R-034 CI-clipboard-cleanup override: **Open only through the separately gated Product
 Human/Hardware V5; the R3 executable correction is published, V4- and artifact-bound, and final

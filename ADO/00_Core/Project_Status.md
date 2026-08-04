@@ -1,9 +1,10 @@
 # Project Status
 
 DA5 V5 ADB-reverse override: **THE LATEST PRODUCT HUMAN/HARDWARE RUN IS CONSUMED WITH FINAL NULL;
-`DA5-V5-PRODUCT-ADB-REVERSE-01` IS CONFIRMED; THE LOCAL UNCOMMITTED R3 CORRECTION HAS EXACTLY-ONCE
-FINAL V3 `PASS` AND IS PENDING INDEPENDENT RE-REVIEW, PUBLICATION AND V4. DO NOT INSTALL / DO NOT
-START.** Development baseline is `6b7f60ba483a65f1723cbf29e87f8a439f0804c9` / tree
+`DA5-V5-PRODUCT-ADB-REVERSE-01` IS CONFIRMED; THE PUBLISHED R3 CORRECTION IS V4-BOUND,
+TECHNICALLY CLOSED AND ARTIFACT-BOUND. EVERY NEW HUMAN/HARDWARE ACTION REMAINS UNAUTHORIZED. DO
+NOT INSTALL / DO NOT START.** Development baseline is
+`6b7f60ba483a65f1723cbf29e87f8a439f0804c9` / tree
 `fbe43ebce13fdc0d7851ca8384043b948c9ca898`. After the run created `tcp:54321` and `tcp:3000`,
 the bound ADB-37 USB transport reported `UsbFfs` as column one of
 `adb -s <bound-serial> reverse --list`. Both the Mobile install parser and Synthetic offline
@@ -16,15 +17,15 @@ A diagnostic post-failure mapping mutation is a P2 process-boundary violation. I
 authorized run Evidence and proves neither the correction nor a Product/Hardware result. The
 Human authorization covers only the focused parser/test/ADO correction.
 
-The candidate accepts exactly transport identifier `UsbFfs`; serial identity remains exclusively
-in existing `-s`, exactly-one-USB-device, model/build and continuity checks. Foreign/case-drift,
-malformed columns/endpoints, duplicates and unexpected mapping sets remain fail-closed. Focused
-parser/controller tests pass 128/128; the exact Credential fixture correction passes 13/13; the
-built-bundle smoke passes 2/2; Mobile passes 54/54 files and 1,243/1,243 tests; Synthetic passes
-14/14 files with 291 passed and 18 expected skips. Mobile/Synthetic Typechecks pass and list
-868/571 files including all changed tests. The first full Synthetic attempt failed only because
-the old fixture emitted the serial; it was not retried unchanged. Product/Validation APKs,
-Product rules, NFC, dependencies, lockfile, schema and workflow are unchanged.
+The published correction accepts exactly transport identifier `UsbFfs`; serial identity remains
+exclusively in existing `-s`, exactly-one-USB-device, model/build and continuity checks.
+Foreign/case-drift, malformed columns/endpoints, duplicates and unexpected mapping sets remain
+fail-closed. Focused parser/controller tests pass 128/128; the exact Credential fixture correction
+passes 13/13; the built-bundle smoke passes 2/2; Mobile passes 54/54 files and 1,243/1,243 tests;
+Synthetic passes 14/14 files with 291 passed and 18 expected skips. Mobile/Synthetic Typechecks
+pass and list 868/571 files including all changed tests. The first full Synthetic attempt failed
+only because the old fixture emitted the serial; it was not retried unchanged. Product/Validation
+APKs, Product rules, NFC, dependencies, lockfile, schema and workflow are unchanged.
 
 The exactly-once final V3 is `PASS` on unchanged `HEAD`/`origin/main`
 `6b7f60ba483a65f1723cbf29e87f8a439f0804c9` / tree
@@ -39,8 +40,27 @@ files, 291 tests plus 18 expected skips, Typecheck, exact 571-entry membership S
 syntax. Every changed test is included. After all V3 checks, a membership helper attempted `rg`
 under a minimized `PATH` and exited 127; `/usr/bin/grep` immediately verified the already-created
 lists, both temporary lists were unlinked and no gate was repeated. This R0 ADO sync changes no
-executable/test input. Independent re-review, approval, publication, V4/CI, ADB, installation and
-Hardware action remain pending and unclaimed.
+executable/test input.
+
+Executable publication `f8d68c541056cb19e0f222b8a2c04cd3db2b734f` / tree
+`ddb4a69a2db0167b7a57c4f708f2cc64553f4799`, direct parent
+`6b7f60ba483a65f1723cbf29e87f8a439f0804c9` / tree
+`fbe43ebce13fdc0d7851ca8384043b948c9ca898`, contains exactly 11 changed files; its 38,897-byte
+Full-Index/Binary delta has SHA-256
+`abec3ca7acbe4619c724fa7dba9422db4dc987d48844f0d39a31043b9d32fdc9`. Exact-Head CI
+`30943224381`, attempt 1, passed 12/12 without retry. The fresh exact-head read-only runtime is
+artifact-bound at
+`/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-product-operator/f8d68c54-1406581c`;
+its checkout is detached/sparse/tracked-clean, and the top level contains exactly `checkout/` plus
+`operator-runtime-manifest.json`. Fresh `npm ci` 695/717, audits with 12 moderate and zero
+high/critical, and 18/18 builds passed. Final independent Exact-Head/Artifact Review ran under an
+enforced read-only sandbox, blocked an adversarial write, proved repository/artifacts identical
+before/after and returned `APPROVED` with zero open P0–P3.
+
+The executable correction is technically closed and artifact-bound. This R0 ADO closure claims
+no test, build, CI, review or artifact action for its own future documentation head. Product and
+Validation APKs remain unchanged. ADB, installation, Hardware, Human V5, production,
+production-data, deployment and distribution remain separately unauthorized.
 
 Prior DA5 V5 CI-CLIPBOARD-CLEANUP-01 override: **THE EXECUTABLE CORRECTION IS PUBLISHED, V4- AND
 ARTIFACT-BOUND, AND FINAL INDEPENDENT REVIEW IS `APPROVED` WITH ZERO OPEN P0–P3; HARDWARE REMAINS
@@ -2158,10 +2178,10 @@ Two Epics are concurrently Active, per EP-009's own stated relationship to the r
 ## Immediate Next Steps
 
 0. Treat the latest DA5 Product Human/Hardware run as consumed/final-null and preserve the P2
-   diagnostic mapping mutation only as non-Evidence. Preserve the exactly-once final V3 `PASS`;
-   complete independent re-review, focused publication and V4 for
-   `DA5-V5-PRODUCT-ADB-REVERSE-01` before seeking a new exact Human authority. Do not install the
-   Product App or start Hardware/ADB. Attempt 15 remains consumed with no retry.
+   diagnostic mapping mutation only as non-Evidence. Preserve technically closed,
+   artifact-bound publication `f8d68c541056cb19e0f222b8a2c04cd3db2b734f` and its exact V4/review
+   binding. Seek a new exact Human authority before any Product install or Hardware/ADB start.
+   Attempt 15 remains consumed with no retry.
 
 1. Preserve Development Assignments 1–3 and DT-060–DT-074 as completed only for their exact
    independently approved local scopes.
