@@ -1,6 +1,6 @@
 # Development Assignment 5 — V5 Human Android Gate Runbook
 
-## Current Credential-transfer / Lean-Accessibility technically approved candidate — DO NOT START hardware
+## Current Credential-transfer / Lean-Accessibility published V4/runtime candidate — final review APPROVED; ADO closure publication pending; DO NOT START hardware
 
 The latest Product Human/Hardware authority on baseline
 `aab04442721d57d53def25e45e5e3ce1d6ea3f77` / tree
@@ -53,11 +53,49 @@ SHA-256 `45ac1d63ca5f619fcb432594b8495ec08968af1aed99edb8c336d357dcb74e5b` and i
 changed Synthetic tests. Both temporary membership lists were unlinked.
 
 Unchanged dependency, backend, PostgreSQL, migration, APK and security evidence is carried under
-the Lean profile; it was not freshly executed or relabeled by this R0 synchronization. The
-candidate remains uncommitted and unpublished, and no CI/V4 or fresh Operator Runtime publication
-exists. **DO NOT START** Hardware, ADB or installation. No database action occurred.
-Product/Validation APKs remain unchanged. Production, production data, system changes, deployment
-and distribution remain unauthorized.
+the Lean profile; it was not freshly executed or relabeled by this R0 synchronization.
+
+The independently prepublication-approved executable is published at
+`0f7ea912d861ecc0bfbf760bfd170496c37220b2` / tree
+`86f742536b2439955eb8291d53931487b15fff83`, direct parent
+`aab04442721d57d53def25e45e5e3ce1d6ea3f77` / tree
+`e96fee7f3fa0f9783693c9f2c84605bae4c63920`. Its exact 14-file, 148,041-byte
+Full-Index/Binary delta has SHA-256
+`0f9384c67a04edeaff62d8174462c41df5d315a55162c5299f8a03995303ec92`. Exact-Head V4 CI
+`31039633334`, attempt 1, passed 12/12 without retry.
+
+Use no mutable development output. The fresh read-only Product Operator Runtime is
+`/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-product-operator/0f7ea912-af5cde8b`.
+Its checkout is detached and tracked-clean with exact sparse patterns `/*` and `!/research/`.
+Fresh `npm ci` ran exactly once, added 695 packages and audited 717; 20/20 applicable workspace
+builds passed once in dependency-derived topological order. The audit reports 12 moderate, zero
+high and zero critical findings. The task cache is absent and the staging root is removed.
+
+| Runtime input | Exact binding |
+|---|---|
+| Bundle | `checkout/apps/synthetic-android-e2e/dist/da5V5Main.js`; 907,171 bytes; mode `0444`; SHA-256 `af5cde8b304ebb8c5fe623c604addd5d2d40727fcb69f713d524f715771ac7ac` |
+| Source map | `checkout/apps/synthetic-android-e2e/dist/da5V5Main.js.map`; 1,688,780 bytes; mode `0444`; SHA-256 `55ab8eebd277b551042b0766a3c1781857d8b0f1714fc42d6f1d759b5ad1df15` |
+| Runtime manifest | `operator-runtime-manifest.json`; 9,219 bytes; mode `0444`; SHA-256 `7c5931035446faa1d0fc90fe31de8ef123ecba43f6de1c5a0b7a1da47f4b91e4` |
+| Product APK — DO NOT INSTALL | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5/lean-83635335-b0180c31769e4534/app-release-b0180c31769e4534.apk`; unchanged; 95,522,751 bytes; mode `0444`; SHA-256 `b0180c31769e453472a20eb1e7eb4e0825a85be9429becf6bf4970e0875b67f8` |
+| Product manifest | Same directory, `artifact-manifest.txt`; unchanged; 1,968 bytes; mode `0444`; SHA-256 `83b93bbf33297334bfcca3aa30e5ed6772175f98a2a81dc80045454570fe937b` |
+
+Focused final independent Exact-Head/Artifact Re-Review returned `APPROVED` with zero open P0–P3.
+It is bound to executable `0f7ea912d861ecc0bfbf760bfd170496c37220b2` / tree
+`86f742536b2439955eb8291d53931487b15fff83`, Exact-Head CI `31039633334` attempt 1 at 12/12,
+the corrected 9,219-byte mode-`0444` manifest SHA-256
+`7c5931035446faa1d0fc90fe31de8ef123ecba43f6de1c5a0b7a1da47f4b91e4` with all 14/14 changed-file
+entries exact, the unchanged Bundle/Map/Product APK/Product manifest bindings above and the exact
+pre-status-synchronization three-file R0 Full-Index/Binary diff of 13,485 bytes, SHA-256
+`576334a65612239ff8d73caaab122eb6320877b7c901dd6a17c6127e1d47f445`.
+
+The read-only manifest's `candidate_status` value
+`exact_head_ci_passed_pending_final_artifact_review` records its generation state before that
+final review; this status synchronization does not mutate the manifest. It claims no new test,
+build, CI or artifact action. Publication of this ADO closure remains pending until commit/push,
+and no future commit is claimed. **DO NOT START** Hardware, ADB, installation or Human V5 without
+a separate exact one-time Human authorization. No database action occurred. Product/Validation
+APKs remain unchanged. Production, production data, system changes, deployment and distribution
+remain unauthorized.
 
 ## Current ADB-37 reverse correction technical closure — DO NOT INSTALL / DO NOT START hardware
 

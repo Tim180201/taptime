@@ -1,6 +1,6 @@
 # Development Assignment 5 — V5 Human Android Evidence
 
-## Current consumed Product run and technically approved Credential / Lean-Accessibility candidate
+## Current consumed Product run and published Credential / Lean-Accessibility V4/runtime candidate — final review APPROVED; ADO closure publication pending
 
 | Evidence | Exact result |
 |---|---|
@@ -25,8 +25,21 @@
 | Final V3 toolchain / ADB boundary | Node `24.17.0`; npm `11.13.0`; Vitest `4.1.9`; TypeScript `6.0.3`; esbuild `0.28.1`. ADB boundary `match` with `adb` not resolvable; no ADB command ran |
 | Final V3 Mobile | MJS syntax `PASS`; 54/54 files and 1,245/1,245 tests `PASS`; tests-inclusive Typecheck `PASS`; normalized `--listFilesOnly` 868 entries, SHA-256 `11d72c73fe9c420a4c7b4aaadbdcad91187ec78500b5f7c8b68c9dd07f2f82e6`, including the changed Mobile test |
 | Final V3 Synthetic | 14/14 files, 303 passed and 18 expected skips, 321 total `PASS`; tests-inclusive Typecheck `PASS`; normalized `--listFilesOnly` 571 entries, SHA-256 `45ac1d63ca5f619fcb432594b8495ec08968af1aed99edb8c336d357dcb74e5b`, including all four changed Synthetic tests; build and final bundle `node --check` `PASS` |
-| Final V3 carried Evidence / cleanup | Dependency, backend, PostgreSQL, migration, APK and security evidence is carried unchanged under the Lean profile, not freshly executed or relabeled. Both temporary membership lists were unlinked. No Hardware, ADB, installation, database, CI/V4 or runtime-publication action occurred |
-| Candidate status | Uncommitted and unpublished; independently Round-3 `APPROVED` with zero open P0–P3 and final Lean-V3 `PASS`, but no fresh read-only Operator Runtime/manifest and no Hardware authority. Product/Validation APKs unchanged; **DO NOT START** ADB, installation or Human V5 |
+| Final V3 carried Evidence / cleanup | Dependency, backend, PostgreSQL, migration, APK and security evidence is carried unchanged under the Lean profile, not freshly executed or relabeled. Both temporary membership lists were unlinked. During V3 no Hardware, ADB, installation, database, CI/V4 or runtime-publication action occurred |
+| Executable publication | `0f7ea912d861ecc0bfbf760bfd170496c37220b2` / tree `86f742536b2439955eb8291d53931487b15fff83`; direct parent `aab04442721d57d53def25e45e5e3ce1d6ea3f77` / tree `e96fee7f3fa0f9783693c9f2c84605bae4c63920` |
+| Publication delta | Exactly 14 files; Full-Index/Binary delta 148,041 bytes; SHA-256 `0f9384c67a04edeaff62d8174462c41df5d315a55162c5299f8a03995303ec92` |
+| Exact-Head V4 CI | GitHub Actions `31039633334`, attempt 1, 12/12 successful; no retry |
+| Fresh read-only Product Operator Runtime | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-product-operator/0f7ea912-af5cde8b`; checkout detached and tracked-clean with exact sparse patterns `/*` and `!/research/` |
+| Runtime bundle | `checkout/apps/synthetic-android-e2e/dist/da5V5Main.js`; 907,171 bytes; mode `0444`; SHA-256 `af5cde8b304ebb8c5fe623c604addd5d2d40727fcb69f713d524f715771ac7ac` |
+| Runtime source map | `checkout/apps/synthetic-android-e2e/dist/da5V5Main.js.map`; 1,688,780 bytes; mode `0444`; SHA-256 `55ab8eebd277b551042b0766a3c1781857d8b0f1714fc42d6f1d759b5ad1df15` |
+| Runtime manifest | `operator-runtime-manifest.json`; 9,219 bytes; mode `0444`; SHA-256 `7c5931035446faa1d0fc90fe31de8ef123ecba43f6de1c5a0b7a1da47f4b91e4`; generation-time status `exact_head_ci_passed_pending_final_artifact_review` is preserved because it records artifact generation before final review, and this status synchronization does not mutate the manifest |
+| Runtime dependency closure | Fresh `npm ci` ran exactly once: 695 packages added, 717 audited. All 20/20 applicable workspace builds passed once in dependency-derived topological order; audit 12 moderate, zero high and zero critical findings |
+| Runtime cleanup | Task cache absent; staging root removed; final checkout retained detached and tracked-clean |
+| Unchanged Product artifact | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5/lean-83635335-b0180c31769e4534/app-release-b0180c31769e4534.apk`; 95,522,751 bytes; mode `0444`; SHA-256 `b0180c31769e453472a20eb1e7eb4e0825a85be9429becf6bf4970e0875b67f8` |
+| Unchanged Product manifest | Same directory, `artifact-manifest.txt`; 1,968 bytes; mode `0444`; SHA-256 `83b93bbf33297334bfcca3aa30e5ed6772175f98a2a81dc80045454570fe937b` |
+| Final independent Exact-Head/Artifact Re-Review | `APPROVED`; zero open P0–P3. Bound to executable `0f7ea912d861ecc0bfbf760bfd170496c37220b2` / tree `86f742536b2439955eb8291d53931487b15fff83`, Exact-Head CI `31039633334` attempt 1 at 12/12, corrected 9,219-byte mode-`0444` manifest SHA-256 `7c5931035446faa1d0fc90fe31de8ef123ecba43f6de1c5a0b7a1da47f4b91e4` with 14/14 entries exact, unchanged Bundle/Map/Product APK/Product manifest and the pre-status-synchronization exact three-file R0 Full-Index/Binary diff of 13,485 bytes / SHA-256 `576334a65612239ff8d73caaab122eb6320877b7c901dd6a17c6127e1d47f445` |
+| R0 closure synchronization | Documentation only; no source, test, artifact or runtime input changed. No new test, build, CI or artifact generation is claimed for this documentation head; existing Lean-V3, prepublication review, V4 and runtime evidence remains bound as stated above |
+| Candidate status / authority | Executable published, V4 green, runtime generated and final Exact-Head/Artifact Re-Review `APPROVED` with zero open P0–P3. Publication of this ADO closure remains pending until commit/push; no future commit is claimed. Product/Validation APKs are unchanged; **DO NOT START** Hardware, ADB, installation or Human V5 without a separate exact one-time Human authorization |
 
 ## Current PRODUCT-ADB-REVERSE-01 consumed-run and technical-closure evidence
 

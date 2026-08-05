@@ -328,23 +328,28 @@ npm run android:da5-v5:no-install-preflight --workspace=@taptime/mobile
 run. Do not invoke it during software-only enablement. There are deliberately no standalone DA5
 install or cleanup commands: a real run must use this long-lived operator so one opaque memory-only
 USB serial binds device preflight, installation, device controllers, credential injection,
-rollback and cleanup. The device preflight is single-use and read-only: exact model, Android
-release/API/build, 200-percent font scale, TalkBack, package, reverse mappings and owned listeners
-must match before installation. The harness has no trusted in-process acquisition path for the
+rollback and cleanup. The functional device preflight is single-use and read-only, and it plus
+Gates A–D require the exact standard profile: `fontScale=1.0`, accessibility disabled and no
+active accessibility service. Exact model, Android release/API/build, package, reverse mappings
+and owned listeners must also match before installation. Only after Gate D and a successful
+`accessibility-prepare` may the Human apply 200-percent text scale (`fontScale=2.0`) and the exact
+TalkBack provider/version, exactly once for the final read-only Gate E. After Gate E, the Human
+must restore the exact standard profile and the operator must accept `standard-profile-check`
+before terminal cleanup or Gate F. The harness has no trusted in-process acquisition path for the
 A/B/X fingerprints and technology: it validates operator-supplied environment values and accepts
 the separate Human `physical-tag-binding-confirm PASS` command, but cannot establish their source.
 The code therefore does not technically block supplied values on its own; project authorization
 must withhold that confirmation and installation until a disclosure-safe source is independently
 reviewed and the Human/Hardware run is separately authorized.
 
-The synthetic password contract is exactly 64 hexadecimal ASCII characters. `credential-check`
-uses the just-matched Buffer immediately: Administrator transfer uses only `pbcopy` stdin and
-requires `credential-paste-confirm administrator`, which clears the local pasteboard and proves
-`pbpaste` byte count zero. Enrollment/Employee transfer requires the Human observation
-`credential-field-ready <phase> EMPTY_ACTIVE` and uses only stdin to constant ADB shell argv on
-the locked serial. Fixed synthetic email addresses never use the credential clipboard. Cleanup
-and a short watchdog clear the local macOS pasteboard; third-party clipboard managers, Universal
-Clipboard and a complete OS failure are outside the provable local boundary.
+The synthetic password contract is exactly 64 lowercase hexadecimal ASCII characters. The same
+transfer sequence applies to `administrator`, `enrollment` and `employee`: first
+`credential-field-ready <phase> EMPTY_ACTIVE`, then `credential-check <phase>` sends the
+just-matched Buffer through non-PTY stdin to constant ADB shell argv on the locked serial and
+requires the device child to exit successfully with both stdout and stderr empty. Progress is
+allowed only after the Human reports `credential-field-confirm <phase> VISIBLE`; `EMPTY` or
+`AMBIGUOUS` fails closed. No Credential uses, enters, clears or otherwise interacts with any
+Clipboard.
 
 `protected-review-arm <human-observed-queue-items>` accepts only the Human-visible Product FIFO
 count and requires exact zero. Missing, non-zero, repeated or out-of-order observations fail
