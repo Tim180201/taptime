@@ -1,16 +1,49 @@
 import { spawn } from 'node:child_process';
 import {
+  requireDa5V5AccessibilityDisabled,
+  requireDa5V5ActiveTalkBackProvider,
   withDa5V5VerifiedInstalledDevice,
   type Da5V5AndroidAdbRunner,
   type Da5V5AndroidDeviceBinding,
+  type Da5V5TalkBackPackage,
   type Da5V5UsbSerialBinding,
 } from '../../mobile/scripts/da5V5AndroidDevice.mjs';
 
 const childTimeoutMilliseconds = 15_000;
 const clipboardWatchdogMilliseconds = 30_000;
-const mobileInputScript = 'IFS= read -r v; input text "$v"; unset v';
+const mobileInputScript = [
+  'IFS= read -r v || exit 40;',
+  '[ "${#v}" -eq 64 ] || { unset v; exit 41; };',
+  'case "$v" in *[!0-9a-f]*) unset v; exit 41;; esac;',
+  'IFS= read -r extra;',
+  'extra_status=$?;',
+  'if [ "$extra_status" -eq 0 ] || [ -n "$extra" ]; then',
+  'unset v extra extra_status;',
+  'exit 42;',
+  'fi;',
+  'input text "$v" >/dev/null 2>&1;',
+  'input_status=$?;',
+  'unset v extra extra_status;',
+  'exit "$input_status"',
+].join(' ');
+const quotedMobileInputScript = `'${mobileInputScript}'`;
 
 export type Da5V5CredentialPhase = 'administrator' | 'employee' | 'enrollment';
+export type Da5V5CredentialFieldResult = 'ambiguous' | 'empty' | 'visible';
+
+export interface Da5V5StandardCredentialBinding extends Da5V5AndroidDeviceBinding {
+  readonly fontScale: '1.0';
+}
+
+export interface Da5V5AccessibilityCredentialBinding extends Da5V5AndroidDeviceBinding {
+  readonly fontScale: '2.0';
+  readonly talkBackPackage: Da5V5TalkBackPackage;
+  readonly talkBackVersion: string;
+}
+
+export type Da5V5MobileCredentialBinding =
+  | Da5V5AccessibilityCredentialBinding
+  | Da5V5StandardCredentialBinding;
 
 export interface Da5V5SecretProcessRunner {
   countOutput(
@@ -228,53 +261,141 @@ export class Da5V5WebCredentialTransfer {
 }
 
 export class Da5V5MobileCredentialTransfer {
-  private readyPhase: 'employee' | 'enrollment' | null = null;
+  private phase: Da5V5CredentialPhase | null = null;
+  private stateValue: 'failed' | 'field-ready' | 'idle' | 'injecting' | 'injection-pending' = (
+    'idle'
+  );
 
   constructor(
-    private readonly processes: Da5V5SecretProcessRunner,
     private readonly adb: Da5V5AndroidAdbRunner,
     private readonly serialBinding: Da5V5UsbSerialBinding,
-    private readonly deviceBinding: Da5V5AndroidDeviceBinding,
+    private readonly deviceBinding: Da5V5MobileCredentialBinding,
   ) {}
 
   confirmEmptyActiveField(
-    phase: 'employee' | 'enrollment',
+    phase: Da5V5CredentialPhase,
   ): 'match' | 'mismatch' {
-    if (this.readyPhase !== null) {
-      this.readyPhase = null;
-      return 'mismatch';
+    if (this.stateValue !== 'idle' || this.phase !== null) {
+      return this.fail();
     }
-    this.readyPhase = phase;
+    this.phase = phase;
+    this.stateValue = 'field-ready';
     return 'match';
   }
 
   async inject(
-    phase: 'employee' | 'enrollment',
+    phase: Da5V5CredentialPhase,
     candidate: Buffer,
     signal?: AbortSignal,
   ): Promise<'match' | 'mismatch'> {
-    if (this.readyPhase !== phase) {
-      this.readyPhase = null;
-      return 'mismatch';
+    if (
+      this.stateValue !== 'field-ready'
+      || this.phase !== phase
+      || !isDa5V5SyntheticCredential(candidate)
+    ) {
+      return this.fail();
     }
-    this.readyPhase = null;
+    this.stateValue = 'injecting';
+    const framedCandidate = Buffer.alloc(candidate.length + 1);
+    candidate.copy(framedCandidate);
+    framedCandidate[candidate.length] = 0x0a;
     try {
-      await withDa5V5VerifiedInstalledDevice({
+      const output = await withDa5V5VerifiedInstalledDevice({
         deviceBinding: this.deviceBinding,
         runner: this.adb,
         serialBinding: this.serialBinding,
         signal,
-      }, (serial) => this.processes.write(
-        'adb',
-        ['-s', serial, 'shell', 'sh', '-c', mobileInputScript],
-        candidate,
-        { signal },
-      ));
+      }, async (serial) => {
+        const fontScale = exactSingleLine(await this.adb.run(
+          ['-s', serial, 'shell', 'settings', 'get', 'system', 'font_scale'],
+          { signal },
+        ));
+        const accessibilityEnabled = await this.adb.run(
+          ['-s', serial, 'shell', 'settings', 'get', 'secure', 'accessibility_enabled'],
+          { signal },
+        );
+        const enabledAccessibilityServices = await this.adb.run(
+          [
+            '-s', serial, 'shell', 'settings', 'get', 'secure',
+            'enabled_accessibility_services',
+          ],
+          { signal },
+        );
+        if (fontScale !== this.deviceBinding.fontScale) {
+          throw new Error('DA5 V5 credential profile mismatch');
+        }
+        if (this.deviceBinding.fontScale === '1.0') {
+          requireDa5V5AccessibilityDisabled(
+            accessibilityEnabled,
+            enabledAccessibilityServices,
+          );
+        } else {
+          const talkBackPackage = requireDa5V5ActiveTalkBackProvider(
+            accessibilityEnabled,
+            enabledAccessibilityServices,
+            this.deviceBinding.talkBackPackage,
+          );
+          const talkBack = await this.adb.run(
+            ['-s', serial, 'shell', 'dumpsys', 'package', talkBackPackage],
+            { signal },
+          );
+          if (readTalkBackVersion(talkBack) !== this.deviceBinding.talkBackVersion) {
+            throw new Error('DA5 V5 credential accessibility profile mismatch');
+          }
+        }
+        return this.adb.run(
+          ['-s', serial, 'shell', '-T', 'sh', '-c', quotedMobileInputScript],
+          { requireEmptyOutput: true, signal, stdinBytes: framedCandidate },
+        );
+      });
+      if (output !== '') {
+        return this.fail();
+      }
+      this.stateValue = 'injection-pending';
       return 'match';
     } catch {
-      return 'mismatch';
+      return this.fail();
+    } finally {
+      framedCandidate.fill(0);
     }
   }
+
+  confirmVisibleField(
+    phase: Da5V5CredentialPhase,
+    result: Da5V5CredentialFieldResult,
+  ): 'match' | 'mismatch' {
+    if (
+      this.stateValue !== 'injection-pending'
+      || this.phase !== phase
+      || result !== 'visible'
+    ) {
+      return this.fail();
+    }
+    this.phase = null;
+    this.stateValue = 'idle';
+    return 'match';
+  }
+
+  state(): Readonly<{
+    phase: Da5V5CredentialPhase | null;
+    state: 'failed' | 'field-ready' | 'idle' | 'injecting' | 'injection-pending';
+  }> {
+    return Object.freeze({ phase: this.phase, state: this.stateValue });
+  }
+
+  private fail(): 'mismatch' {
+    this.phase = null;
+    this.stateValue = 'failed';
+    return 'mismatch';
+  }
+}
+
+function readTalkBackVersion(value: string): string {
+  const matches = [...value.matchAll(/^\s*versionName=(\S+)\s*$/gmu)];
+  if (matches.length !== 1 || matches[0]?.[1] === undefined) {
+    throw new Error('DA5 V5 TalkBack binding is unavailable');
+  }
+  return matches[0][1];
 }
 
 function runSecretProcess(
@@ -343,4 +464,26 @@ function runSecretProcess(
       child.stdin?.end(input);
     }
   });
+}
+
+function isDa5V5SyntheticCredential(value: Buffer): boolean {
+  if (value.length !== 64) return false;
+  return value.every((byte) => (
+    (byte >= 0x30 && byte <= 0x39)
+    || (byte >= 0x61 && byte <= 0x66)
+  ));
+}
+
+function exactSingleLine(value: string): string {
+  const lines = value.split(/\r?\n/u);
+  if (lines.at(-1) === '') lines.pop();
+  if (
+    lines.length !== 1
+    || lines[0] === undefined
+    || lines[0].length === 0
+    || lines[0].trim() !== lines[0]
+  ) {
+    throw new Error('DA5 V5 credential device output mismatch');
+  }
+  return lines[0];
 }

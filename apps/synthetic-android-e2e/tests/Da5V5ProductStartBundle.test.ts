@@ -84,6 +84,29 @@ describe('DA5 V5 Product operator bundle start smoke', () => {
     expect(bundle).toContain('install-commit');
     expect(bundle).toContain('install-abandon');
     expect(bundle).toContain('UsbFfs');
+    expect(bundle).toContain('credential-field-ready <administrator|enrollment|employee> EMPTY_ACTIVE');
+    expect(bundle).toContain('credential-field-confirm <administrator|enrollment|employee>');
+    expect(bundle).toContain('synthetic_credential_injection=pending_human_confirmation');
+    expect(bundle).toContain('da5_v5_accessibility_surface_plan=');
+    expect(bundle).toContain('protected-review-error');
+    expect(bundle).toContain('auth-login');
+    expect(bundle).toContain('administrator-setup');
+    expect(bundle).toContain('accessibility-prepare | accessibility-check');
+    expect(bundle).toContain('da5_v5_accessibility_prepare=match restore_required=armed');
+    expect(bundle).toContain('prepareAccessibilityProfileChange');
+    expect(bundle).toContain('profile-change-prepared');
+    expect(bundle).toContain('accessibility-surface-confirm <surface> <PASS|FAIL|AMBIGUOUS>');
+    expect(bundle).toContain('accessibility-credential-check <administrator|employee>');
+    expect(bundle).toContain('da5_v5_accessibility_restore_only=mismatch');
+    expect(bundle).toContain('da5_v5_accessibility_restore_required=match');
+    expect(bundle).toContain('DA5 V5 accessibility restore proof is unavailable');
+    expect(bundle).toContain('standard-profile-check');
+    expect(bundle).toContain('requireEmptyOutput: true');
+    expect(bundle).toContain('IFS= read -r v || exit 40;');
+    expect(bundle).toContain('*[!0-9a-f]*');
+    expect(bundle).not.toContain('credential-paste-confirm');
+    expect(bundle).not.toContain('pbcopy');
+    expect(bundle).not.toContain('pbpaste');
 
     const environment = Object.fromEntries(
       Object.entries(process.env).filter(([name]) => !name.startsWith('TAPTIME_')),

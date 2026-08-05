@@ -352,6 +352,73 @@ describe('DA5 V5 package-zero Android install', () => {
     },
   );
 
+  it('enforces the credential-only empty-output contract on real stdin children', async () => {
+    const credential = `${'a'.repeat(64)}\n`;
+    const exactInputPrefix = [
+      'const chunks = [];',
+      'process.stdin.on("data", (chunk) => chunks.push(chunk));',
+      'process.stdin.on("end", () => {',
+      `if (Buffer.concat(chunks).toString("ascii") !== ${JSON.stringify(credential)}) {`,
+      'process.exit(91);',
+      '}',
+    ].join('');
+    const exactInputScript = (terminal: string): string => (
+      `${exactInputPrefix}${terminal}});`
+    );
+    const run = (
+      source: string,
+      options: Readonly<{ signal?: AbortSignal; timeoutMilliseconds?: number }> = {},
+      requireEmptyOutput = true,
+    ) => new SystemDa5V5AndroidAdbRunner({
+      adbPath: process.execPath,
+      environment: { PATH: process.env.PATH ?? '/usr/bin:/bin' },
+      spawn: spawnNodeScript(source),
+    }).run(['shell', '-T', 'sh', '-c', 'credential-input'], {
+      ...(requireEmptyOutput ? { requireEmptyOutput: true as const } : {}),
+      signal: options.signal,
+      stdinBytes: Buffer.from(credential, 'ascii'),
+      timeoutMilliseconds: options.timeoutMilliseconds ?? 5_000,
+    });
+
+    await expect(run(exactInputScript('process.exit(0);'))).resolves.toBe('');
+
+    for (const [stream, terminal] of [
+      ['stderr', 'process.stderr.write("private stderr detail"); process.exit(0);'],
+      ['stdout', 'process.stdout.write("private stdout detail"); process.exit(0);'],
+    ] as const) {
+      const failure = await run(exactInputScript(terminal)).catch(
+        (error: unknown) => error,
+      );
+      expect(failure).toMatchObject({
+        message: 'DA5 V5 Android device output mismatch',
+      });
+      expect(String(failure)).not.toContain(`private ${stream} detail`);
+      expect(JSON.stringify(failure)).not.toContain(`private ${stream} detail`);
+    }
+
+    await expect(run(exactInputScript('process.exit(23);'))).rejects.toBeInstanceOf(
+      Da5V5AndroidCommandExitError,
+    );
+    await expect(run(
+      exactInputScript('setInterval(() => undefined, 1_000);'),
+      { timeoutMilliseconds: 250 },
+    )).rejects.toBeInstanceOf(Da5V5AndroidCommandTimeoutError);
+
+    const abortController = new AbortController();
+    const aborted = run(
+      exactInputScript('setInterval(() => undefined, 1_000);'),
+      { signal: abortController.signal },
+    );
+    abortController.abort();
+    await expect(aborted).rejects.toBeInstanceOf(Da5V5AndroidCommandAbortError);
+
+    await expect(run(
+      exactInputScript('process.stderr.write("allowed diagnostic"); process.exit(0);'),
+      {},
+      false,
+    )).resolves.toBe('');
+  });
+
   it('fails closed before ADB mutation for a custom runner without a bound stream runner',
     async () => {
       const adb = new FakeAdb();
@@ -795,20 +862,20 @@ describe('DA5 V5 package-zero Android install', () => {
 });
 
 describe('DA5 V5 read-only device preinstall preflight', () => {
-  it('single-use binds exact OS/API/build/accessibility and proves owned residue zero',
+  const standardBinding = Object.freeze({
+    ...deviceBinding,
+    androidApi: '35',
+    androidRelease: '15',
+    fontScale: '1.0' as const,
+  });
+
+  it('single-use binds OS/API/build and the disabled standard accessibility state',
     async () => {
       const adb = new FakeAdb();
       const preflight = new Da5V5AndroidPreinstallPreflight(
         adb,
         new Da5V5UsbSerialBinding(),
-        {
-          ...deviceBinding,
-          androidApi: '35',
-          androidRelease: '15',
-          fontScale: '2.0',
-          talkBackPackage: googleTalkBackPackage,
-          talkBackVersion: '15.1.0',
-        },
+        standardBinding,
       );
       await expect(preflight.run()).resolves.toEqual({ status: 'match' });
       expect(preflight.state()).toBe('matched');
@@ -817,6 +884,7 @@ describe('DA5 V5 read-only device preinstall preflight', () => {
       expect(adb.commands.flat().join(' ')).not.toMatch(
         /\b(?:install|uninstall|reverse tcp:|--remove)\b/u,
       );
+      expect(adb.commands.flat().join(' ')).not.toContain('dumpsys package');
     });
 
   it('fails closed for listener residue before any installation mutation', async () => {
@@ -825,14 +893,7 @@ describe('DA5 V5 read-only device preinstall preflight', () => {
     const preflight = new Da5V5AndroidPreinstallPreflight(
       adb,
       new Da5V5UsbSerialBinding(),
-      {
-        ...deviceBinding,
-        androidApi: '35',
-        androidRelease: '15',
-        fontScale: '2.0',
-        talkBackPackage: googleTalkBackPackage,
-        talkBackVersion: '15.1.0',
-      },
+      standardBinding,
     );
     await expect(preflight.run()).resolves.toEqual({ status: 'mismatch' });
     expect(adb.commands.flat()).not.toContain('install');
@@ -858,52 +919,36 @@ describe('DA5 V5 read-only device preinstall preflight', () => {
       const preflight = new Da5V5AndroidPreinstallPreflight(
         runner,
         new Da5V5UsbSerialBinding(),
-        {
-          ...deviceBinding,
-          androidApi: '35',
-          androidRelease: '15',
-          fontScale: '2.0',
-          talkBackPackage: googleTalkBackPackage,
-          talkBackVersion: '15.1.0',
-        },
+        standardBinding,
       );
 
       await expect(preflight.run()).resolves.toEqual({ status: 'match' });
       expect(maximumActive).toBe(1);
     });
 
-  it.each([googleTalkBackPackage, samsungTalkBackPackage])(
-    'binds the exact active allowlisted provider package %s and version',
-    async (talkBackPackage) => {
+  it.each(['', 'null'])(
+    'accepts the exact disabled service-list representation %j',
+    async (enabledAccessibilityServices) => {
       const adb = new FakeAdb();
-      adb.talkBackPackage = talkBackPackage;
-      adb.enabledAccessibilityServices = `${talkBackPackage}/.TalkBackService`;
+      adb.enabledAccessibilityServices = enabledAccessibilityServices;
       const preflight = new Da5V5AndroidPreinstallPreflight(
         adb,
         new Da5V5UsbSerialBinding(),
-        {
-          ...deviceBinding,
-          androidApi: '35',
-          androidRelease: '15',
-          fontScale: '2.0',
-          talkBackPackage,
-          talkBackVersion: adb.talkBackVersion,
-        },
+        standardBinding,
       );
 
       await expect(preflight.run()).resolves.toEqual({ status: 'match' });
-      expect(adb.commands).toContainEqual([
-        '-s', adb.serial, 'shell', 'dumpsys', 'package', talkBackPackage,
-      ]);
+      expect(adb.commands.flat().join(' ')).not.toContain('dumpsys package');
     },
   );
 
   it.each([
-    ['none', '1', 'null'],
-    ['deactivated', '0', `${googleTalkBackPackage}/.TalkBackService`],
-    ['both', '1', `${googleTalkBackPackage}/.TalkBackService:${samsungTalkBackPackage}/.TalkBackService`],
-    ['unexpected', '1', 'com.example.accessibility/.ForeignService'],
-  ])('fails closed for %s accessibility-provider state', async (
+    ['active TalkBack', '1', `${googleTalkBackPackage}/.TalkBackService`],
+    ['disabled with stale service', '0', `${googleTalkBackPackage}/.TalkBackService`],
+    ['enabled without service', '1', 'null'],
+    ['malformed enabled flag', 'true', 'null'],
+    ['foreign service', '0', 'com.example.accessibility/.ForeignService'],
+  ])('fails closed for %s standard accessibility state', async (
     _scenario,
     accessibilityEnabled,
     enabledAccessibilityServices,
@@ -914,56 +959,24 @@ describe('DA5 V5 read-only device preinstall preflight', () => {
     const preflight = new Da5V5AndroidPreinstallPreflight(
       adb,
       new Da5V5UsbSerialBinding(),
-      {
-        ...deviceBinding,
-        androidApi: '35',
-        androidRelease: '15',
-        fontScale: '2.0',
-        talkBackPackage: googleTalkBackPackage,
-        talkBackVersion: adb.talkBackVersion,
-      },
+      standardBinding,
     );
 
     await expect(preflight.run()).resolves.toEqual({ status: 'mismatch' });
     expect(preflight.state()).toBe('failed');
   });
 
-  it('fails closed when the active package or its version differs from the binding', async () => {
-    const packageMismatch = new FakeAdb();
-    packageMismatch.talkBackPackage = samsungTalkBackPackage;
-    packageMismatch.enabledAccessibilityServices = (
-      `${samsungTalkBackPackage}/.TalkBackService`
-    );
-    const wrongPackage = new Da5V5AndroidPreinstallPreflight(
-      packageMismatch,
+  it('fails closed when the font scale is not the exact standard value', async () => {
+    const adb = new FakeAdb();
+    adb.fontScale = '2.0';
+    const preflight = new Da5V5AndroidPreinstallPreflight(
+      adb,
       new Da5V5UsbSerialBinding(),
-      {
-        ...deviceBinding,
-        androidApi: '35',
-        androidRelease: '15',
-        fontScale: '2.0',
-        talkBackPackage: googleTalkBackPackage,
-        talkBackVersion: packageMismatch.talkBackVersion,
-      },
+      standardBinding,
     );
-    await expect(wrongPackage.run()).resolves.toEqual({ status: 'mismatch' });
-
-    const versionMismatch = new FakeAdb();
-    const wrongVersion = new Da5V5AndroidPreinstallPreflight(
-      versionMismatch,
-      new Da5V5UsbSerialBinding(),
-      {
-        ...deviceBinding,
-        androidApi: '35',
-        androidRelease: '15',
-        fontScale: '2.0',
-        talkBackPackage: googleTalkBackPackage,
-        talkBackVersion: 'different-version',
-      },
-    );
-    await expect(wrongVersion.run()).resolves.toEqual({ status: 'mismatch' });
+    await expect(preflight.run()).resolves.toEqual({ status: 'mismatch' });
   });
-  });
+});
 
 describe('DA5 V5 scoped Android cleanup', () => {
   it('cleans full, partial and already-null states idempotently', async () => {
@@ -1582,7 +1595,7 @@ describe('DA5 V5 scoped Android cleanup', () => {
 });
 
 class FakeAdb implements Da5V5AndroidAdbRunner {
-  accessibilityEnabled = '1';
+  accessibilityEnabled = '0';
   abortInstall: AbortController | null = null;
   binaryDigestRunner: Da5V5AndroidAdbRunner | null = null;
   readonly androidBuild = deviceBinding.androidBuild;
@@ -1593,7 +1606,8 @@ class FakeAdb implements Da5V5AndroidAdbRunner {
     serial: 'synthetic-device',
     state: 'device',
   }];
-  enabledAccessibilityServices = `${googleTalkBackPackage}/.TalkBackService`;
+  enabledAccessibilityServices = 'null';
+  fontScale = '1.0';
   commandDurations = new Map<string, number>();
   errorOnce: ((arguments_: readonly string[]) => Error | null) | null = null;
   failCounts = new Map<string, number>();
@@ -1698,7 +1712,7 @@ class FakeAdb implements Da5V5AndroidAdbRunner {
     if (text === 'shell getprop ro.build.fingerprint') return `${this.androidBuild}\n`;
     if (text === 'shell getprop ro.build.version.release') return '15\n';
     if (text === 'shell getprop ro.build.version.sdk') return '35\n';
-    if (text === 'shell settings get system font_scale') return '2.0\n';
+    if (text === 'shell settings get system font_scale') return `${this.fontScale}\n`;
     if (text === 'shell settings get secure accessibility_enabled') {
       return `${this.accessibilityEnabled}\n`;
     }

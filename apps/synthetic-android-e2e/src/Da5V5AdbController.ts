@@ -1,6 +1,7 @@
 import { spawnSync } from 'node:child_process';
 import {
   Da5V5UsbSerialBinding,
+  requireDa5V5AccessibilityDisabled,
   requireDa5V5ActiveTalkBackProvider,
   SystemDa5V5AndroidAdbRunner,
   type Da5V5TalkBackPackage,
@@ -290,6 +291,10 @@ export interface Da5V5AccessibilityBinding extends Da5V5DeviceIdentityBinding {
   readonly talkBackVersion: string;
 }
 
+export interface Da5V5StandardProfileBinding extends Da5V5DeviceIdentityBinding {
+  readonly fontScale: '1.0';
+}
+
 export type Da5V5DeviceCheckpointState =
   | 'created'
   | 'cold-dispatch-prepared'
@@ -298,9 +303,11 @@ export type Da5V5DeviceCheckpointState =
   | 'cancellation-ui-confirmed'
   | 'cancellation-killed'
   | 'cancellation-complete'
+  | 'accessibility-restore-required'
   | 'accessibility-confirmed'
   | 'protected-relaunch-prepared'
   | 'protected-relaunch-complete'
+  | 'standard-restored'
   | 'failed';
 
 export class Da5V5DeviceCheckpointController {
@@ -309,12 +316,16 @@ export class Da5V5DeviceCheckpointController {
 
   constructor(
     private readonly adb: Da5V5AdbCommandRunner,
+    private readonly standard: Da5V5StandardProfileBinding,
     private readonly accessibility: Da5V5AccessibilityBinding,
     private readonly deviceLock: Da5V5UsbDeviceLock = new Da5V5UsbDeviceLock(),
   ) {}
 
   prepareColdDispatch(): 'match' | 'mismatch' {
     if (this.state !== 'created') {
+      return this.fail();
+    }
+    if (this.verifyStandardBinding() !== 'match') {
       return this.fail();
     }
     if (this.killAndProveAbsent('kill') !== 'match') {
@@ -324,15 +335,23 @@ export class Da5V5DeviceCheckpointController {
     return 'match';
   }
 
+  prepareAccessibilityProfileChange(): 'match' | 'mismatch' {
+    if (this.state !== 'protected-relaunch-complete') {
+      return 'mismatch';
+    }
+    this.state = 'accessibility-restore-required';
+    return this.verifyStandardBinding();
+  }
+
   verifyAccessibilityBinding(): 'match' | 'mismatch' {
-    if (this.state !== 'cold-dispatch-prepared') {
+    if (this.state !== 'accessibility-restore-required') {
       return this.fail();
     }
     try {
       const serial = requireSingleUsbDevice(this.adb);
       requireDeviceIdentity(this.adb, serial, this.accessibility);
       if (this.deviceLock.bind(serial) !== 'match') {
-        return this.fail();
+        return 'mismatch';
       }
       const fontScale = oneLine(
         this.adb.run(['-s', serial, 'shell', 'settings', 'get', 'system', 'font_scale']),
@@ -352,17 +371,17 @@ export class Da5V5DeviceCheckpointController {
         fontScale !== this.accessibility.fontScale
         || talkBack !== this.accessibility.talkBackVersion
       ) {
-        return this.fail();
+        return 'mismatch';
       }
       this.state = 'accessibility-confirmed';
       return 'match';
     } catch {
-      return this.fail();
+      return 'mismatch';
     }
   }
 
   prepareOrdinaryPendingRelaunch(): 'match' | 'mismatch' {
-    if (this.state !== 'accessibility-confirmed') {
+    if (this.state !== 'cold-dispatch-prepared') {
       return this.fail();
     }
     if (this.killAndProveAbsent('kill') !== 'match') {
@@ -378,7 +397,7 @@ export class Da5V5DeviceCheckpointController {
     }
     try {
       const serial = requireSingleUsbDevice(this.adb);
-      requireDeviceIdentity(this.adb, serial, this.accessibility);
+      requireDeviceIdentity(this.adb, serial, this.standard);
       if (this.deviceLock.bind(serial) !== 'match') {
         return this.fail();
       }
@@ -450,6 +469,21 @@ export class Da5V5DeviceCheckpointController {
     return 'match';
   }
 
+  verifyStandardProfileRestored(): 'match' | 'mismatch' {
+    if (
+      this.state !== 'accessibility-confirmed'
+      && this.state !== 'accessibility-restore-required'
+    ) {
+      return this.fail();
+    }
+    if (this.verifyStandardBinding() !== 'match') {
+      this.state = 'accessibility-restore-required';
+      return 'mismatch';
+    }
+    this.state = 'standard-restored';
+    return 'match';
+  }
+
   getState(): Da5V5DeviceCheckpointState {
     return this.state;
   }
@@ -469,7 +503,7 @@ export class Da5V5DeviceCheckpointController {
       if (expectedSerial !== undefined && serial !== expectedSerial) {
         return 'mismatch';
       }
-      requireDeviceIdentity(this.adb, serial, this.accessibility);
+      requireDeviceIdentity(this.adb, serial, this.standard);
       if (this.deviceLock.bind(serial) !== 'match') {
         return 'mismatch';
       }
@@ -486,6 +520,33 @@ export class Da5V5DeviceCheckpointController {
       ))
         ? 'mismatch'
         : 'match';
+    } catch {
+      return 'mismatch';
+    }
+  }
+
+  private verifyStandardBinding(): 'match' | 'mismatch' {
+    try {
+      const serial = requireSingleUsbDevice(this.adb);
+      requireDeviceIdentity(this.adb, serial, this.standard);
+      if (this.deviceLock.bind(serial) !== 'match') {
+        return 'mismatch';
+      }
+      const fontScale = oneLine(
+        this.adb.run(['-s', serial, 'shell', 'settings', 'get', 'system', 'font_scale']),
+      );
+      const accessibilityEnabled = this.adb.run([
+        '-s', serial, 'shell', 'settings', 'get', 'secure', 'accessibility_enabled',
+      ]);
+      const enabledAccessibilityServices = this.adb.run([
+        '-s', serial, 'shell', 'settings', 'get', 'secure',
+        'enabled_accessibility_services',
+      ]);
+      requireDa5V5AccessibilityDisabled(
+        accessibilityEnabled,
+        enabledAccessibilityServices,
+      );
+      return fontScale === this.standard.fontScale ? 'match' : 'mismatch';
     } catch {
       return 'mismatch';
     }

@@ -206,13 +206,7 @@ describe('DA5 V5 controlled API-offline ownership', () => {
   it('rejects an otherwise identical USB-device swap across controller boundaries', async () => {
     const adb = directAdb();
     const lock = new Da5V5UsbDeviceLock();
-    const device = new Da5V5DeviceCheckpointController(adb, {
-      androidBuild: adb.androidBuild,
-      deviceModel: adb.deviceModel,
-      fontScale: '2.0',
-      talkBackPackage: adb.talkBackPackage,
-      talkBackVersion: adb.talkBackVersion,
-    }, lock);
+    const device = checkpointController(adb, {}, {}, lock);
     const offline = new Da5V5ApiOfflineController(adb, {
       androidBuild: adb.androidBuild,
       deviceModel: adb.deviceModel,
@@ -340,38 +334,87 @@ describe('DA5 V5 controlled API-offline ownership', () => {
   });
 });
 
-describe('DA5 V5 device-bound cancellation and accessibility checks', () => {
-  it('matches exact build, TalkBack and 200-percent font scale without exposing a serial', () => {
+describe('DA5 V5 standard functional profile and final accessibility block', () => {
+  it('runs functional lifecycle at standard, then accessibility, then proves restoration', () => {
     const adb = directAdb();
-    const controller = new Da5V5DeviceCheckpointController(adb, {
-      androidBuild: adb.androidBuild,
-      deviceModel: adb.deviceModel,
-      fontScale: '2.0',
-      talkBackPackage: adb.talkBackPackage,
-      talkBackVersion: adb.talkBackVersion,
-    });
+    const controller = checkpointController(adb);
 
-    expect(controller.prepareColdDispatch()).toBe('match');
+    expect(completeFunctionalDeviceFlow(controller)).toBe('match');
+    expect(controller.getState()).toBe('protected-relaunch-complete');
+    expect(controller.prepareAccessibilityProfileChange()).toBe('match');
+    expect(controller.getState()).toBe('accessibility-restore-required');
+    enableAccessibilityProfile(adb);
     expect(controller.verifyAccessibilityBinding()).toBe('match');
     expect(controller.getState()).toBe('accessibility-confirmed');
+    restoreStandardProfile(adb);
+    expect(controller.verifyStandardProfileRestored()).toBe('match');
+    expect(controller.getState()).toBe('standard-restored');
     expect(JSON.stringify(controller.getState())).not.toContain(adb.serial);
+
+    const lifecycleCommands = adb.commands
+      .filter((command) => command.slice(2, 4).join(' ') === 'shell am')
+      .map((command) => command.slice(2).join(' '));
+    expect(lifecycleCommands).toEqual([
+      'shell am kill com.tim180201.mobile.synthetic',
+      'shell am kill com.tim180201.mobile.synthetic',
+      'shell am kill com.tim180201.mobile.synthetic',
+      'shell am force-stop com.tim180201.mobile.synthetic',
+    ]);
+    expect(adb.commands.flat().join(' ')).not.toMatch(/pm clear|pidof/);
+  });
+
+  it('rejects accessibility verification before the protected functional terminal', () => {
+    const adb = directAdb();
+    const controller = checkpointController(adb);
+    expect(controller.prepareColdDispatch()).toBe('match');
+    enableAccessibilityProfile(adb);
+    expect(controller.verifyAccessibilityBinding()).toBe('mismatch');
+    expect(controller.getState()).toBe('failed');
+  });
+
+  it('arms restoration before profile change and closes a pre-check cancel only after proof',
+    () => {
+      const adb = directAdb();
+      const controller = checkpointController(adb);
+      expect(completeFunctionalDeviceFlow(controller)).toBe('match');
+      const mutationsBeforePreparation = adb.commands.filter(
+        (command) => command.slice(2, 4).join(' ') === 'shell am',
+      ).length;
+
+      expect(controller.prepareAccessibilityProfileChange()).toBe('match');
+      expect(controller.getState()).toBe('accessibility-restore-required');
+      expect(adb.commands.filter(
+        (command) => command.slice(2, 4).join(' ') === 'shell am',
+      )).toHaveLength(mutationsBeforePreparation);
+      enableAccessibilityProfile(adb);
+      restoreStandardProfile(adb);
+      expect(controller.verifyStandardProfileRestored()).toBe('match');
+      expect(controller.getState()).toBe('standard-restored');
+      expect(controller.verifyAccessibilityBinding()).toBe('mismatch');
+    });
+
+  it('keeps a preparation-time standard-profile mismatch restore-required', () => {
+    const adb = directAdb();
+    const controller = checkpointController(adb);
+    expect(completeFunctionalDeviceFlow(controller)).toBe('match');
+    adb.fontScale = '2.0';
+
+    expect(controller.prepareAccessibilityProfileChange()).toBe('mismatch');
+    expect(controller.getState()).toBe('accessibility-restore-required');
+    restoreStandardProfile(adb);
+    expect(controller.verifyStandardProfileRestored()).toBe('match');
+    expect(controller.getState()).toBe('standard-restored');
   });
 
   it.each([googleTalkBackPackage, samsungTalkBackPackage])(
-    'matches the exact active allowlisted provider package %s and version',
+    'matches the final exact active allowlisted provider package %s and version',
     (talkBackPackage) => {
       const adb = directAdb();
       adb.talkBackPackage = talkBackPackage;
-      adb.enabledAccessibilityServices = `${talkBackPackage}/.TalkBackService`;
-      const controller = new Da5V5DeviceCheckpointController(adb, {
-        androidBuild: adb.androidBuild,
-        deviceModel: adb.deviceModel,
-        fontScale: '2.0',
-        talkBackPackage,
-        talkBackVersion: adb.talkBackVersion,
-      });
-
-      expect(controller.prepareColdDispatch()).toBe('match');
+      const controller = checkpointController(adb, { talkBackPackage });
+      expect(completeFunctionalDeviceFlow(controller)).toBe('match');
+      expect(controller.prepareAccessibilityProfileChange()).toBe('match');
+      enableAccessibilityProfile(adb);
       expect(controller.verifyAccessibilityBinding()).toBe('match');
       expect(adb.commands).toContainEqual([
         '-s', adb.serial, 'shell', 'dumpsys', 'package', talkBackPackage,
@@ -384,172 +427,148 @@ describe('DA5 V5 device-bound cancellation and accessibility checks', () => {
     ['deactivated', '0', `${googleTalkBackPackage}/.TalkBackService`],
     ['both', '1', `${googleTalkBackPackage}/.TalkBackService:${samsungTalkBackPackage}/.TalkBackService`],
     ['unexpected', '1', 'com.example.accessibility/.ForeignService'],
-  ])('fails closed for %s accessibility-provider state', (
+  ])('fails closed for %s final accessibility-provider state', (
     _scenario,
     accessibilityEnabled,
     enabledAccessibilityServices,
   ) => {
     const adb = directAdb();
+    const controller = checkpointController(adb);
+    expect(completeFunctionalDeviceFlow(controller)).toBe('match');
+    expect(controller.prepareAccessibilityProfileChange()).toBe('match');
+    adb.fontScale = '2.0';
     adb.accessibilityEnabled = accessibilityEnabled;
     adb.enabledAccessibilityServices = enabledAccessibilityServices;
-    const controller = new Da5V5DeviceCheckpointController(adb, {
-      androidBuild: adb.androidBuild,
-      deviceModel: adb.deviceModel,
-      fontScale: '2.0',
-      talkBackPackage: googleTalkBackPackage,
-      talkBackVersion: adb.talkBackVersion,
-    });
-
-    expect(controller.prepareColdDispatch()).toBe('match');
     expect(controller.verifyAccessibilityBinding()).toBe('mismatch');
-    expect(controller.getState()).toBe('failed');
+    expect(controller.getState()).toBe('accessibility-restore-required');
+    restoreStandardProfile(adb);
+    expect(controller.verifyStandardProfileRestored()).toBe('match');
+    expect(controller.getState()).toBe('standard-restored');
   });
 
-  it('fails closed when the active provider package or version differs from the binding', () => {
+  it('fails closed for provider/version drift and incomplete standard restoration', () => {
     const packageAdb = directAdb();
-    packageAdb.talkBackPackage = samsungTalkBackPackage;
-    packageAdb.enabledAccessibilityServices = `${samsungTalkBackPackage}/.TalkBackService`;
-    const packageMismatch = new Da5V5DeviceCheckpointController(packageAdb, {
-      androidBuild: packageAdb.androidBuild,
-      deviceModel: packageAdb.deviceModel,
-      fontScale: '2.0',
+    const packageMismatch = checkpointController(packageAdb, {
       talkBackPackage: googleTalkBackPackage,
-      talkBackVersion: packageAdb.talkBackVersion,
     });
-    expect(packageMismatch.prepareColdDispatch()).toBe('match');
+    expect(completeFunctionalDeviceFlow(packageMismatch)).toBe('match');
+    expect(packageMismatch.prepareAccessibilityProfileChange()).toBe('match');
+    packageAdb.talkBackPackage = samsungTalkBackPackage;
+    enableAccessibilityProfile(packageAdb);
     expect(packageMismatch.verifyAccessibilityBinding()).toBe('mismatch');
 
     const versionAdb = directAdb();
-    const versionMismatch = new Da5V5DeviceCheckpointController(versionAdb, {
-      androidBuild: versionAdb.androidBuild,
-      deviceModel: versionAdb.deviceModel,
-      fontScale: '2.0',
-      talkBackPackage: googleTalkBackPackage,
+    const versionMismatch = checkpointController(versionAdb, {
       talkBackVersion: 'different-version',
     });
-    expect(versionMismatch.prepareColdDispatch()).toBe('match');
+    expect(completeFunctionalDeviceFlow(versionMismatch)).toBe('match');
+    expect(versionMismatch.prepareAccessibilityProfileChange()).toBe('match');
+    enableAccessibilityProfile(versionAdb);
     expect(versionMismatch.verifyAccessibilityBinding()).toBe('mismatch');
+
+    const restoreAdb = directAdb();
+    const restoreMismatch = checkpointController(restoreAdb);
+    expect(completeFunctionalDeviceFlow(restoreMismatch)).toBe('match');
+    expect(restoreMismatch.prepareAccessibilityProfileChange()).toBe('match');
+    enableAccessibilityProfile(restoreAdb);
+    expect(restoreMismatch.verifyAccessibilityBinding()).toBe('match');
+    restoreAdb.fontScale = '1.0';
+    expect(restoreMismatch.verifyStandardProfileRestored()).toBe('mismatch');
+    expect(restoreMismatch.getState()).toBe('accessibility-restore-required');
+    restoreStandardProfile(restoreAdb);
+    expect(restoreMismatch.verifyStandardProfileRestored()).toBe('match');
   });
 
-  it('uses only am kill after confirmed Scan-abgebrochen UI and proves process absence', () => {
+  it('latches mismatched standard, Human and process bindings before later mutation', () => {
     const adb = directAdb();
-    const controller = new Da5V5DeviceCheckpointController(adb, {
-      androidBuild: adb.androidBuild,
-      deviceModel: adb.deviceModel,
-      fontScale: '2.0',
-      talkBackPackage: adb.talkBackPackage,
-      talkBackVersion: adb.talkBackVersion,
-    });
-
-    expect(controller.prepareColdDispatch()).toBe('match');
-    expect(controller.verifyAccessibilityBinding()).toBe('match');
-    expect(controller.prepareOrdinaryPendingRelaunch()).toBe('match');
-    expect(controller.armCancellation()).toBe('match');
-    expect(controller.confirmCancelledUi('pass')).toBe('match');
-    expect(controller.killBackgroundProcess()).toBe('match');
-    expect(controller.confirmColdReady('pass')).toBe('match');
-    expect(controller.getState()).toBe('cancellation-complete');
-    expect(adb.commands).toContainEqual([
-      '-s',
-      adb.serial,
-      'shell',
-      'am',
-      'kill',
-      'com.tim180201.mobile.synthetic',
-    ]);
-    expect(adb.commands.flat().join(' ')).not.toMatch(/force-stop|pm clear|pidof/);
-  });
-
-  it('latches mismatched Human and device bindings before the kill command', () => {
-    const adb = directAdb();
-    const mismatch = new Da5V5DeviceCheckpointController(adb, {
-      androidBuild: 'different-build',
-      deviceModel: adb.deviceModel,
-      fontScale: '2.0',
-      talkBackPackage: adb.talkBackPackage,
-      talkBackVersion: adb.talkBackVersion,
-    });
+    const mismatch = checkpointController(adb, {}, { androidBuild: 'different-build' });
     expect(mismatch.prepareColdDispatch()).toBe('mismatch');
-    expect(mismatch.verifyAccessibilityBinding()).toBe('mismatch');
     expect(mismatch.armCancellation()).toBe('mismatch');
     expect(adb.commands.flat().join(' ')).not.toContain(
       'shell am kill com.tim180201.mobile.synthetic',
     );
 
-    const ambiguous = new Da5V5DeviceCheckpointController(adb, {
-      androidBuild: adb.androidBuild,
-      deviceModel: adb.deviceModel,
-      fontScale: '2.0',
-      talkBackPackage: adb.talkBackPackage,
-      talkBackVersion: adb.talkBackVersion,
-    });
+    const ambiguousAdb = directAdb();
+    const ambiguous = checkpointController(ambiguousAdb);
     expect(ambiguous.prepareColdDispatch()).toBe('match');
-    expect(ambiguous.verifyAccessibilityBinding()).toBe('match');
     expect(ambiguous.prepareOrdinaryPendingRelaunch()).toBe('match');
     expect(ambiguous.armCancellation()).toBe('match');
-    const killsBeforeAmbiguousConfirmation = adb.commands.filter(
+    const killsBeforeConfirmation = ambiguousAdb.commands.filter(
       (command) => command.slice(2).join(' ') === (
         'shell am kill com.tim180201.mobile.synthetic'
       ),
     ).length;
     expect(ambiguous.confirmCancelledUi('ambiguous')).toBe('mismatch');
-    expect(adb.commands.filter(
+    expect(ambiguousAdb.commands.filter(
       (command) => command.slice(2).join(' ') === (
         'shell am kill com.tim180201.mobile.synthetic'
       ),
-    )).toHaveLength(killsBeforeAmbiguousConfirmation);
-  });
+    )).toHaveLength(killsBeforeConfirmation);
 
-  it('treats package secondary processes as still running after a lifecycle kill', () => {
-    const adb = directAdb();
-    adb.extraProcessNames = ['com.tim180201.mobile.synthetic:secondary'];
-    const controller = new Da5V5DeviceCheckpointController(adb, {
+    const processAdb = directAdb();
+    processAdb.extraProcessNames = ['com.tim180201.mobile.synthetic:secondary'];
+    const processMismatch = checkpointController(processAdb);
+    expect(processMismatch.prepareColdDispatch()).toBe('mismatch');
+  });
+});
+
+function checkpointController(
+  adb: FakeAdb,
+  accessibilityOverrides: Readonly<{
+    talkBackPackage?: typeof googleTalkBackPackage | typeof samsungTalkBackPackage;
+    talkBackVersion?: string;
+  }> = {},
+  standardOverrides: Readonly<{ androidBuild?: string }> = {},
+  lock = new Da5V5UsbDeviceLock(),
+): Da5V5DeviceCheckpointController {
+  return new Da5V5DeviceCheckpointController(
+    adb,
+    {
+      androidBuild: standardOverrides.androidBuild ?? adb.androidBuild,
+      deviceModel: adb.deviceModel,
+      fontScale: '1.0',
+    },
+    {
       androidBuild: adb.androidBuild,
       deviceModel: adb.deviceModel,
       fontScale: '2.0',
-      talkBackPackage: adb.talkBackPackage,
-      talkBackVersion: adb.talkBackVersion,
-    });
+      talkBackPackage: accessibilityOverrides.talkBackPackage ?? adb.talkBackPackage,
+      talkBackVersion: accessibilityOverrides.talkBackVersion ?? adb.talkBackVersion,
+    },
+    lock,
+  );
+}
 
-    expect(controller.prepareColdDispatch()).toBe('mismatch');
-    expect(controller.getState()).toBe('failed');
-  });
+function completeFunctionalDeviceFlow(
+  controller: Da5V5DeviceCheckpointController,
+): 'match' | 'mismatch' {
+  const results = [
+    controller.prepareColdDispatch(),
+    controller.prepareOrdinaryPendingRelaunch(),
+    controller.armCancellation(),
+    controller.confirmCancelledUi('pass'),
+    controller.killBackgroundProcess(),
+    controller.confirmColdReady('pass'),
+    controller.prepareProtectedColdRelaunch(),
+    controller.confirmProtectedStateRetained('pass'),
+  ];
+  return results.every((result) => result === 'match') ? 'match' : 'mismatch';
+}
 
-  it('uses am kill for cold/ordinary/cancellation and force-stop only for terminal relaunch',
-    () => {
-      const adb = directAdb();
-      const controller = new Da5V5DeviceCheckpointController(adb, {
-        androidBuild: adb.androidBuild,
-        deviceModel: adb.deviceModel,
-        fontScale: '2.0',
-        talkBackPackage: adb.talkBackPackage,
-        talkBackVersion: adb.talkBackVersion,
-      });
-      expect(controller.prepareColdDispatch()).toBe('match');
-      expect(controller.verifyAccessibilityBinding()).toBe('match');
-      expect(controller.prepareOrdinaryPendingRelaunch()).toBe('match');
-      expect(controller.armCancellation()).toBe('match');
-      expect(controller.confirmCancelledUi('pass')).toBe('match');
-      expect(controller.killBackgroundProcess()).toBe('match');
-      expect(controller.confirmColdReady('pass')).toBe('match');
-      expect(controller.prepareProtectedColdRelaunch()).toBe('match');
-      expect(controller.confirmProtectedStateRetained('pass')).toBe('match');
+function enableAccessibilityProfile(adb: FakeAdb): void {
+  adb.fontScale = '2.0';
+  adb.accessibilityEnabled = '1';
+  adb.enabledAccessibilityServices = `${adb.talkBackPackage}/.TalkBackService`;
+}
 
-      const lifecycleCommands = adb.commands
-        .filter((command) => command.slice(2, 4).join(' ') === 'shell am')
-        .map((command) => command.slice(2).join(' '));
-      expect(lifecycleCommands).toEqual([
-        'shell am kill com.tim180201.mobile.synthetic',
-        'shell am kill com.tim180201.mobile.synthetic',
-        'shell am kill com.tim180201.mobile.synthetic',
-        'shell am force-stop com.tim180201.mobile.synthetic',
-      ]);
-      expect(adb.commands.flat().join(' ')).not.toMatch(/pm clear|pidof/);
-    });
-});
+function restoreStandardProfile(adb: FakeAdb): void {
+  adb.fontScale = '1.0';
+  adb.accessibilityEnabled = '0';
+  adb.enabledAccessibilityServices = 'null';
+}
 
 class FakeAdb implements Da5V5AdbCommandRunner {
-  accessibilityEnabled = '1';
+  accessibilityEnabled = '0';
   abortMutation: AbortController | null = null;
   androidBuild = 'synthetic/vendor/device:15/BUILD/1:user/release-keys';
   commands: string[][] = [];
@@ -561,9 +580,10 @@ class FakeAdb implements Da5V5AdbCommandRunner {
     serial: 'synthetic-device',
     state: 'device',
   }];
-  enabledAccessibilityServices = `${googleTalkBackPackage}/.TalkBackService`;
+  enabledAccessibilityServices = 'null';
   extraProcessNames: string[] = [];
   failOnce: ((arguments_: readonly string[]) => boolean) | null = null;
+  fontScale = '1.0';
   mappings = new Map<string, string>();
   packageInstalled = true;
   processRunning = true;
@@ -623,7 +643,7 @@ class FakeAdb implements Da5V5AdbCommandRunner {
       return `${this.androidBuild}\n`;
     }
     if (command.join(' ') === 'shell settings get system font_scale') {
-      return '2.0\n';
+      return `${this.fontScale}\n`;
     }
     if (command.join(' ') === 'shell settings get secure accessibility_enabled') {
       return `${this.accessibilityEnabled}\n`;

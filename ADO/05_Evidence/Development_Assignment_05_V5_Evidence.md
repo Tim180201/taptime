@@ -1,5 +1,33 @@
 # Development Assignment 5 — V5 Human Android Evidence
 
+## Current consumed Product run and technically approved Credential / Lean-Accessibility candidate
+
+| Evidence | Exact result |
+|---|---|
+| Baseline | `aab04442721d57d53def25e45e5e3ce1d6ea3f77` / tree `e96fee7f3fa0f9783693c9f2c84605bae4c63920` |
+| Consumed run | Administrator authentication, Tag-A assignment, assigned-Tag setup preview rejection and signed-out Tag-A rejection succeeded. Enrollment credential injection left the focused field empty; the authority was then explicitly terminated and is non-reusable |
+| Mutation boundary | No lifecycle, queue, time, export or protected-fixture mutation occurred. Enrollment/Employee authentication and Gates B–F were not started |
+| Terminal cleanup | Product/Validation packages and processes, owned reverse mappings, listeners, disposable database and task runtime all matched the confirmed null state; the memory-only Credential was discarded |
+| Confirmed correction boundary | One mobile path for Administrator, Enrollment and Employee; same exact bound Android runner for reattestation and non-PTY stdin; exact 64 lowercase hex plus one line/EOF; exact child exit; Credential-only proof that both stdout and stderr are empty; phase advances only after Human `VISIBLE` confirmation |
+| Short preflight | The first Administrator transfer immediately after installation is both the one short Credential preflight and the real Gate-A entry; no duplicate Credential action |
+| Lean accessibility sequence | Functional Gates A–D at exact standard profile; exact order then `accessibility-prepare` -> Human profile change -> `accessibility-check` -> final Gate E at exact `font_scale=2.0` plus bound TalkBack; exact ordered surfaces `protected-review-error`, `auth-login`, `administrator-setup`, `employee-navigation`, `employee-scan`, `employee-manual-target`, `employee-own-time`, `employee-sync-pending`; no repeated business mutation |
+| Accessibility reauthentication | Exactly one Administrator and one Employee mobile transfer, each only at its named surface boundary and under the same empty-active, hidden digest, non-PTY stdin, both-streams-empty and Human `VISIBLE` contract; no setup/lifecycle/queue/sync/fixture action is authorized |
+| Gate-E preparation / restore closure | At the exact pre-Gate-E standard-profile boundary, only `accessibility-prepare` may emit `da5_v5_accessibility_prepare=match restore_required=armed`; only that receipt authorizes the Human profile change. It first makes restore duty monotone in session/device state. From that receipt, Gate-E-entry mismatch, failed `accessibility-check`, pre-check Cancel, PASS, FAIL, AMBIGUOUS or any later mismatch requires Human restoration followed by the sole accepted `standard-profile-check`. Only exact `font_scale=1.0`, accessibility disabled and empty/null active services proves restore. PASS then permits Gate F; failed routes terminate after proof. No Gate-E resume/retry/mutation exists and cleanup cannot complete without proof |
+| Independent Review Round 1 | `CHANGES REQUIRED`: one P1 for missing real child stderr+0 rejection proof, one P1 for non-executable essential-surface reachability and one P2 for missing terminal restore-proof path. The first focused correction addressed those three findings |
+| Independent Re-Review Round 2 | `CHANGES REQUIRED`: the sole remaining P2 found that restore duty began only inside `accessibility-check`, after the runbook had already instructed the Human to change TalkBack/text scale. The Round-2 correction added the explicit pre-change preparation/arm boundary and deterministic entry-mismatch/pre-check-Cancel regressions; independent Round-3 re-review was required |
+| Focused correction V1 | `node --check apps/mobile/scripts/da5V5AndroidDevice.mjs` passed. Mobile focused run first passed 100/101; the sole failure was a new test-helper default that accidentally retained the strict policy for the explicit backward-compatibility case. After changing that test input, the same file passed 101/101, including real stdin child success, stderr+0, stdout+0, nonzero, timeout, abort and ordinary-stderr cases |
+| Focused correction V2 | Synthetic controller/Credential/Profile first passed 3/3 files and 85/85 tests. Hardware-free Product-start bundle first failed only because the new test expected the runtime-joined plan as one source literal; after correcting that assertion input, it passed 1/1 file and 2/2 tests. The final combined four-file run rebuilt the bundle and passed 4/4 files and 88/88 tests; final bundle `node --check` passed |
+| Tests-inclusive Typechecks and inclusion | Final Mobile and Synthetic workspace Typechecks passed. Mobile `--listFilesOnly`: 868 entries and changed Mobile test included. Synthetic: 571 entries and all four changed Synthetic tests included |
+| Round-2 focused V1/V2 | `Da5V5AdbController.test.ts`, `Da5V5Profile.test.ts` and the hardware-free `Da5V5ProductStartBundle.test.ts` passed together: 3/3 files and 76/76 tests. The run rebuilt the Synthetic bundle. The tests-inclusive Synthetic Typecheck passed; `--listFilesOnly` reported 571 entries and included all three Round-2 test files. Final `node --check apps/synthetic-android-e2e/dist/da5V5Main.js` passed |
+| Round-2 carried Evidence | Round 2 did not change Mobile, its runner/test, Credential transfer, package/dependency/lockfile/schema/workflow inputs or the fourth Synthetic Credential test. Their immediately preceding green V1/V2 and tests-inclusive Typecheck evidence above is carried unchanged, not relabeled as freshly executed. No V3 was run or authorized for this correction round |
+| Independent Re-Review Round 3 | `APPROVED`; zero open P0–P3. The explicit pre-change prepare/arm boundary, monotone restore obligation, restore-only Entry-Mismatch/pre-check-Cancel paths and cleanup proof gate close the Round-2 P2 without retry, resume or Product mutation |
+| Final Lean-V3 binding | Exactly once, `PASS`; before and after the final run `HEAD` = local `origin/main` = `aab04442721d57d53def25e45e5e3ce1d6ea3f77`, tree `e96fee7f3fa0f9783693c9f2c84605bae4c63920`. Pre-sync exact 14-file Full-Index/Binary delta: 144,817 bytes, SHA-256 `4cfab7b09377c59f25f88af2caf3d0238824325a285baf6ee16d04bc01c13f70` |
+| Final V3 toolchain / ADB boundary | Node `24.17.0`; npm `11.13.0`; Vitest `4.1.9`; TypeScript `6.0.3`; esbuild `0.28.1`. ADB boundary `match` with `adb` not resolvable; no ADB command ran |
+| Final V3 Mobile | MJS syntax `PASS`; 54/54 files and 1,245/1,245 tests `PASS`; tests-inclusive Typecheck `PASS`; normalized `--listFilesOnly` 868 entries, SHA-256 `11d72c73fe9c420a4c7b4aaadbdcad91187ec78500b5f7c8b68c9dd07f2f82e6`, including the changed Mobile test |
+| Final V3 Synthetic | 14/14 files, 303 passed and 18 expected skips, 321 total `PASS`; tests-inclusive Typecheck `PASS`; normalized `--listFilesOnly` 571 entries, SHA-256 `45ac1d63ca5f619fcb432594b8495ec08968af1aed99edb8c336d357dcb74e5b`, including all four changed Synthetic tests; build and final bundle `node --check` `PASS` |
+| Final V3 carried Evidence / cleanup | Dependency, backend, PostgreSQL, migration, APK and security evidence is carried unchanged under the Lean profile, not freshly executed or relabeled. Both temporary membership lists were unlinked. No Hardware, ADB, installation, database, CI/V4 or runtime-publication action occurred |
+| Candidate status | Uncommitted and unpublished; independently Round-3 `APPROVED` with zero open P0–P3 and final Lean-V3 `PASS`, but no fresh read-only Operator Runtime/manifest and no Hardware authority. Product/Validation APKs unchanged; **DO NOT START** ADB, installation or Human V5 |
+
 ## Current PRODUCT-ADB-REVERSE-01 consumed-run and technical-closure evidence
 
 | Evidence | Exact result |
@@ -1930,11 +1958,11 @@ NfcA-only source/artifact/operator set and a fresh separate exact Human authoriz
 
 | Gate | Mandatory coverage | Result | Human checkpoint |
 |---|---|---|---|
-| A | Auth/enrollment, completed first assignment capture, separate Admin Setup Preview 2, zero lifecycle/queue/replay, setup preservation and rejection paths | `NOT RUN` | — |
+| A | Auth/enrollment, completed first assignment capture, separate Admin Setup Preview 2, zero lifecycle/queue/replay, setup preservation and rejection paths | `PARTIAL — RUN CONSUMED` | Administrator auth, Tag-A assignment, assigned-Tag preview rejection and signed-out Tag-A rejection observed; Enrollment field remained empty after transfer, so no Gate-A PASS |
 | B | Cold/background Tag Dispatch; duplicate WorkEvent/Decision/Receipt/Audit with `duplicate_scan_ignored`; zero second TimeEntry mutation | `NOT RUN` | — |
 | C | Online target/provenance/own-time truth with every opposite toggle strictly after five seconds | `NOT RUN` | — |
-| E | TalkBack, text scaling, focus/labels/announcements and layout | `NOT RUN` | — |
 | D | Ordinary offline/restart/cancellation, reviewed historical cutover, ordered `review_pending`, protected-state stop and no reuse | `NOT RUN` | — |
+| E | Final read-only TalkBack, text scaling, focus/labels/announcements and layout without repeated business mutation | `NOT RUN` | — |
 | F | Final safe truth and complete cleanup | `NOT RUN` | — |
 
 ## 4. Product Human V5 disclosure-safe result record
@@ -1956,12 +1984,13 @@ Populate only after a separately authorized run. Keep values aggregate and synth
 
 ## 5. Product Human V5 failure, interruption or ambiguity
 
-- Disposition: `NOT RUN`
-- Gate/step: —
-- Disclosure-safe symptom: —
-- Later gates not started: —
-- Authority consumed: `NOT RUN`
-- Retry/repair/resume performed: `NOT RUN`
+- Disposition: `FAIL_CLOSED`
+- Gate/step: `Gate A / Enrollment Credential transfer`
+- Disclosure-safe symptom: focused password field remained empty after transfer attempts
+- Later gates not started: remaining Gate A and Gates B–F
+- Authority consumed: `YES`
+- Retry/repair/resume performed: `NO after terminal consumption`; earlier individually authorized
+  in-run transfer attempts produced no visible field mutation
 
 Any `FAIL` or `AMBIGUOUS` result consumes the complete one-run authority. Preserve only safe
 diagnostics, mark all later gates not started and perform cleanup. No observation is reusable.
@@ -1970,19 +1999,19 @@ diagnostics, mark all later gates not started and perform cleanup. No observatio
 
 | Check | Result |
 |---|---|
-| Mobile/Admin sign-out and clipboard/download/screenshot cleanup | `NOT RUN` |
-| Scoped service shutdown and mapping/listener cleanup | `NOT RUN` |
-| Exact synthetic package removed | `NOT RUN` |
-| Protected/Review fixture scoped teardown, without product repair/adjudication | `NOT RUN` |
-| Disposable database/schema/ledger/runtime roles removed | `NOT RUN` |
-| Repository binding reverified with protected exclusions | `NOT RUN` |
-| Unrelated device/repository/PostgreSQL state preserved | `NOT RUN` |
+| Mobile/Admin sign-out and clipboard/download/screenshot cleanup | `MATCH` — no Mac clipboard Credential mutation in the consumed path |
+| Scoped service shutdown and mapping/listener cleanup | `MATCH` |
+| Exact synthetic package removed | `MATCH` |
+| Protected/Review fixture scoped teardown, without product repair/adjudication | `NOT REQUIRED` — fixture not started |
+| Disposable database/schema/ledger/runtime roles removed | `MATCH` |
+| Repository binding reverified with protected exclusions | `MATCH` |
+| Unrelated device/repository/PostgreSQL state preserved | `MATCH` |
 
 ## 7. Final Product Human V5 disposition
 
-- Overall result: `NOT RUN`
+- Overall result: `FAIL_CLOSED — CONSUMED AND CLEANED`
 - Product Human V5 checkpoint authority: `NOT BOUND`
-- DA5 V5 closure decision: `NOT RUN`
+- DA5 V5 closure decision: `OPEN — superseding reviewed Hardware candidate required`
 
 This shell, automated evidence, software `MERGE_READY` status or cleanup alone cannot pass V5.
 Production, production data, signing, deployment and distribution remain unauthorized.

@@ -12,8 +12,12 @@ import {
   type Da5V5AndroidPreflightBinding,
 } from '../../mobile/scripts/da5V5AndroidDevice.mjs';
 import {
+  DA5_V5_ACCESSIBILITY_SURFACE_PLAN,
   DA5_V5_CHECKPOINT_PLAN,
+  Da5V5AccessibilitySession,
   Da5V5OperationSession,
+  type Da5V5AccessibilityReauthenticationRole,
+  type Da5V5AccessibilitySurface,
   type Da5V5Checkpoint,
 } from './Da5V5OperationSession.js';
 import {
@@ -32,6 +36,7 @@ import {
   SystemDa5V5AdbCommandRunner,
   type Da5V5AccessibilityBinding,
   type Da5V5OfflinePhase,
+  type Da5V5StandardProfileBinding,
 } from './Da5V5AdbController.js';
 import {
   Da5V5CommandExecutionGuard,
@@ -41,8 +46,6 @@ import {
 } from './Da5V5CommandPolicy.js';
 import {
   Da5V5MobileCredentialTransfer,
-  Da5V5WebCredentialTransfer,
-  SystemDa5V5SecretProcessRunner,
 } from './Da5V5CredentialTransfer.js';
 import {
   da5V5DedupeBinding,
@@ -98,18 +101,23 @@ const tagBinding = validateDa5V5TagBinding({
   tagX: requiredEnvironmentValue('TAPTIME_DA5_V5_TAG_X_FINGERPRINT'),
   technology: requiredEnvironmentValue('TAPTIME_DA5_V5_TAG_TECHNOLOGY'),
 });
-const accessibilityBinding: Da5V5AccessibilityBinding & Da5V5AndroidPreflightBinding =
+const standardBinding: Da5V5StandardProfileBinding & Da5V5AndroidPreflightBinding =
   Object.freeze({
     androidApi: requiredEnvironmentValue('TAPTIME_DA5_V5_ANDROID_API'),
     androidBuild: requiredEnvironmentValue('TAPTIME_DA5_V5_ANDROID_BUILD'),
     androidRelease: requiredEnvironmentValue('TAPTIME_DA5_V5_ANDROID_RELEASE'),
     deviceModel: requiredEnvironmentValue('TAPTIME_DA5_V5_DEVICE_MODEL'),
-    fontScale: '2.0',
-    talkBackPackage: requireDa5V5TalkBackPackage(
-      requiredEnvironmentValue('TAPTIME_DA5_V5_TALKBACK_PACKAGE'),
-    ),
-    talkBackVersion: requiredEnvironmentValue('TAPTIME_DA5_V5_TALKBACK_VERSION'),
+    fontScale: '1.0',
   });
+const accessibilityBinding: Da5V5AccessibilityBinding = Object.freeze({
+  androidBuild: standardBinding.androidBuild,
+  deviceModel: standardBinding.deviceModel,
+  fontScale: '2.0',
+  talkBackPackage: requireDa5V5TalkBackPackage(
+    requiredEnvironmentValue('TAPTIME_DA5_V5_TALKBACK_PACKAGE'),
+  ),
+  talkBackVersion: requiredEnvironmentValue('TAPTIME_DA5_V5_TALKBACK_VERSION'),
+});
 delete process.env.TAPTIME_SYNTHETIC_E2E_PASSWORD;
 
 const passwordBinding = new Da5V5MemoryOnlyPasswordBinding(startupPasswordBuffer);
@@ -124,6 +132,10 @@ let postgresCapability: Da5V5PostgresCapability | null = null;
 let runtimeGuardArtifact: Da5V5RuntimeGuardArtifactBinding | null = null;
 let operationSession: Da5V5OperationSession | null = null;
 let operatorLifecycle: Da5V5OperatorLifecycle | null = null;
+let accessibilityFailureEvent: Extract<
+  Da5V5OperatorCommandOutcome,
+  { state: 'fail' }
+>['event'] | null = null;
 let cleanupResourcesPromise: Promise<void> | null = null;
 const completedCleanupStages = new Set<string>();
 const startupAcquisitionSettlement = new Da5V5StartupSettlement();
@@ -133,7 +145,7 @@ const mobileAdb = new SystemDa5V5AndroidAdbRunner();
 const mobileInstallStreamAdb = mobileAdb.createInstallStreamRunner();
 const deviceLock = new Da5V5UsbDeviceLock();
 const androidInstallTransaction = new Da5V5AndroidInstallTransaction({
-  deviceBinding: accessibilityBinding,
+  deviceBinding: standardBinding,
   installStreamRunner: mobileInstallStreamAdb,
   runner: mobileAdb,
   serialBinding: deviceLock,
@@ -141,36 +153,34 @@ const androidInstallTransaction = new Da5V5AndroidInstallTransaction({
 const preinstall = new Da5V5AndroidPreinstallPreflight(
   mobileAdb,
   deviceLock,
-  accessibilityBinding,
+  standardBinding,
 );
 let physicalTagBindingConfirmed = false;
 let androidInstalled = false;
 const mutationAbortController = new AbortController();
-const secretProcesses = new SystemDa5V5SecretProcessRunner();
-const webCredential = new Da5V5WebCredentialTransfer(
-  secretProcesses,
-  () => {
-    process.exitCode = 1;
-    mutationAbortController.abort();
-    inputOwnership.closeAll();
-    observeBackgroundOperation(
-      operatorLifecycle?.abortAndFail('da5_v5_credential_binding=mismatch'),
-    );
-  },
-);
 const mobileCredential = new Da5V5MobileCredentialTransfer(
-  secretProcesses,
+  mobileAdb,
+  deviceLock,
+  standardBinding,
+);
+const accessibilityCredential = new Da5V5MobileCredentialTransfer(
   mobileAdb,
   deviceLock,
   accessibilityBinding,
 );
+const accessibilitySession = new Da5V5AccessibilitySession();
 const offline = new Da5V5ApiOfflineController(
   adb,
-  accessibilityBinding,
+  standardBinding,
   deviceLock,
   mutationAbortController.signal,
 );
-const device = new Da5V5DeviceCheckpointController(adb, accessibilityBinding, deviceLock);
+const device = new Da5V5DeviceCheckpointController(
+  adb,
+  standardBinding,
+  accessibilityBinding,
+  deviceLock,
+);
 const safeEventLatch = new Da5V5SafeEventLatch();
 const commandExecutionGuard = new Da5V5CommandExecutionGuard(
   safeEventLatch,
@@ -262,7 +272,8 @@ try {
   process.stdout.write([
     'da5_v5_ready',
     `da5_v5_public_manifest=${JSON.stringify(DA5_V5_PUBLIC_MANIFEST)}`,
-    'operator_commands=status | device-preflight | physical-tag-binding-confirm <PASS|FAIL|AMBIGUOUS> | android-install-confirm <PASS|FAIL|AMBIGUOUS> | credential-field-ready <enrollment|employee> EMPTY_ACTIVE | credential-check <administrator|enrollment|employee> | credential-paste-confirm administrator | checkpoint <name> <queue-items> | checkpoint-confirm <name> <PASS|FAIL|AMBIGUOUS> | dedupe-window-baseline <phase> | dedupe-window-check <phase> | tag-b-registration-arm | protected-review-arm <human-observed-queue-items> | protected-review-activate-tag-b | protected-review-cutover-tag-a | protected-review-terminal | offline-enter <ordinary|protected> | offline-restore <ordinary|protected> | gate-b-cold-prepare | ordinary-relaunch-prepare | accessibility-check | cancellation-arm | cancellation-ui-confirm <PASS|FAIL|AMBIGUOUS> | cancellation-kill-background | cancellation-ready-confirm <PASS|FAIL|AMBIGUOUS> | protected-force-stop | protected-ready-confirm <PASS|FAIL|AMBIGUOUS> | stop',
+    `da5_v5_accessibility_surface_plan=${DA5_V5_ACCESSIBILITY_SURFACE_PLAN.join(',')}`,
+    'operator_commands=status | device-preflight | physical-tag-binding-confirm <PASS|FAIL|AMBIGUOUS> | android-install-confirm <PASS|FAIL|AMBIGUOUS> | credential-field-ready <administrator|enrollment|employee> EMPTY_ACTIVE | credential-check <administrator|enrollment|employee> | credential-field-confirm <administrator|enrollment|employee> <VISIBLE|EMPTY|AMBIGUOUS> | checkpoint <name> <queue-items> | checkpoint-confirm <name> <PASS|FAIL|AMBIGUOUS> | dedupe-window-baseline <phase> | dedupe-window-check <phase> | tag-b-registration-arm | protected-review-arm <human-observed-queue-items> | protected-review-activate-tag-b | protected-review-cutover-tag-a | protected-review-terminal | offline-enter <ordinary|protected> | offline-restore <ordinary|protected> | gate-b-cold-prepare | ordinary-relaunch-prepare | accessibility-prepare | accessibility-check | accessibility-surface-confirm <surface> <PASS|FAIL|AMBIGUOUS> | accessibility-credential-field-ready <administrator|employee> EMPTY_ACTIVE | accessibility-credential-check <administrator|employee> | accessibility-credential-field-confirm <administrator|employee> <VISIBLE|EMPTY|AMBIGUOUS> | accessibility-cancel | standard-profile-check | cancellation-arm | cancellation-ui-confirm <PASS|FAIL|AMBIGUOUS> | cancellation-kill-background | cancellation-ready-confirm <PASS|FAIL|AMBIGUOUS> | protected-force-stop | protected-ready-confirm <PASS|FAIL|AMBIGUOUS> | stop',
     'sensitive_values_are_never_printed',
     '',
   ].join('\n'));
@@ -290,6 +301,35 @@ async function handleCommand(line: string): Promise<Da5V5OperatorCommandOutcome>
     return fail(activeSession, 'operator_command_failed');
   }
   const normalized = line.trim();
+  if (accessibilitySession.restoreOnly()) {
+    if (normalized !== 'standard-profile-check') {
+      process.stdout.write('da5_v5_accessibility_restore_only=mismatch\n');
+      return { state: 'continue' };
+    }
+    const deviceResult = device.verifyStandardProfileRestored();
+    const proofResult = accessibilitySession.confirmRestoreProof(deviceResult);
+    process.stdout.write(`da5_v5_standard_profile_binding=${proofResult}\n`);
+    if (proofResult !== 'match') {
+      activeSession.fail();
+      accessibilityFailureEvent ??= 'da5_v5_device_checkpoint=mismatch';
+      process.stdout.write('da5_v5_accessibility_restore_required=match\n');
+      return { state: 'continue' };
+    }
+    if (accessibilitySession.terminalFailureRestored()) {
+      return {
+        event: accessibilityFailureEvent ?? 'da5_v5_checkpoint=mismatch',
+        state: 'fail',
+      };
+    }
+    return { state: 'continue' };
+  }
+  if (
+    accessibilitySession.profileChangePrepared()
+    && normalized !== 'accessibility-check'
+    && normalized !== 'accessibility-cancel'
+  ) {
+    return fail(activeSession, 'operator_command_rejected');
+  }
   if (normalized === 'status') {
     await reportStatus(activeEnvironment, activeSession);
     return { state: 'continue' };
@@ -343,7 +383,7 @@ async function handleCommand(line: string): Promise<Da5V5OperatorCommandOutcome>
     }
     try {
       await installDa5V5AndroidFromPackageZero({
-        deviceBinding: accessibilityBinding,
+        deviceBinding: standardBinding,
         installStreamRunner: mobileInstallStreamAdb,
         profile,
         runner: mobileAdb,
@@ -366,9 +406,11 @@ async function handleCommand(line: string): Promise<Da5V5OperatorCommandOutcome>
     return { state: 'continue' };
   }
   const fieldReady =
-    /^credential-field-ready (enrollment|employee) EMPTY_ACTIVE$/u.exec(normalized);
+    /^credential-field-ready (administrator|enrollment|employee) EMPTY_ACTIVE$/u.exec(
+      normalized,
+    );
   if (fieldReady !== null) {
-    const phase = fieldReady[1] as 'employee' | 'enrollment';
+    const phase = fieldReady[1] as (typeof credentialPhases)[number];
     const result = (
       credentialPhases[nextCredentialPhase] === phase
       && androidInstalled
@@ -380,17 +422,19 @@ async function handleCommand(line: string): Promise<Da5V5OperatorCommandOutcome>
       ? { state: 'continue' }
       : fail(activeSession, 'da5_v5_credential_binding=mismatch');
   }
-  if (normalized === 'credential-paste-confirm administrator') {
-    const result = (
-      credentialPhases[nextCredentialPhase] === 'administrator'
-      && webCredential.state() === 'paste-pending'
-    )
-      ? await webCredential.confirmPaste(mutationAbortController.signal)
+  const fieldConfirmation =
+    /^credential-field-confirm (administrator|enrollment|employee) (VISIBLE|EMPTY|AMBIGUOUS)$/u
+      .exec(normalized);
+  if (fieldConfirmation !== null) {
+    const phase = fieldConfirmation[1] as (typeof credentialPhases)[number];
+    const observation = fieldConfirmation[2]?.toLowerCase() as (
+      'ambiguous' | 'empty' | 'visible'
+    );
+    const result = credentialPhases[nextCredentialPhase] === phase
+      ? mobileCredential.confirmVisibleField(phase, observation)
       : 'mismatch';
-    if (result === 'match') {
-      nextCredentialPhase += 1;
-    }
-    process.stdout.write(`synthetic_clipboard_zero=${result}\n`);
+    if (result === 'match') nextCredentialPhase += 1;
+    process.stdout.write(`synthetic_credential_field_confirmation=${result}\n`);
     return result === 'match'
       ? { state: 'continue' }
       : fail(activeSession, 'da5_v5_credential_binding=mismatch');
@@ -413,13 +457,11 @@ async function handleCommand(line: string): Promise<Da5V5OperatorCommandOutcome>
     let result: 'match' | 'mismatch' = 'mismatch';
     try {
       if (passwordBinding.compare(candidate) === 'match') {
-        result = phase === 'administrator'
-          ? await webCredential.inject(candidate, mutationAbortController.signal)
-          : await mobileCredential.inject(
-              phase,
-              candidate,
-              mutationAbortController.signal,
-            );
+        result = await mobileCredential.inject(
+          phase,
+          candidate,
+          mutationAbortController.signal,
+        );
       }
     } finally {
       candidate.fill(0);
@@ -428,11 +470,143 @@ async function handleCommand(line: string): Promise<Da5V5OperatorCommandOutcome>
       process.stdout.write('synthetic_password_binding=mismatch\n');
       return fail(activeSession, 'da5_v5_credential_binding=mismatch');
     }
-    if (phase !== 'administrator') {
-      nextCredentialPhase += 1;
-    }
     process.stdout.write('synthetic_password_binding=match\n');
+    process.stdout.write('synthetic_credential_injection=pending_human_confirmation\n');
     return { state: 'continue' };
+  }
+  const accessibilityFieldReady =
+    /^accessibility-credential-field-ready (administrator|employee) EMPTY_ACTIVE$/u.exec(
+      normalized,
+    );
+  if (accessibilityFieldReady !== null) {
+    const role = accessibilityFieldReady[1] as Da5V5AccessibilityReauthenticationRole;
+    const result = accessibilityGateSurfaceBoundaryMatches(
+      activeSession,
+      activeEnvironment,
+    )
+      && accessibilitySession.beginReauthentication(role) === 'match'
+      ? accessibilityCredential.confirmEmptyActiveField(role)
+      : 'mismatch';
+    process.stdout.write(`da5_v5_accessibility_credential_field_ready=${result}\n`);
+    return result === 'match'
+      ? { state: 'continue' }
+      : fail(activeSession, 'da5_v5_credential_binding=mismatch');
+  }
+  const accessibilityCredentialCheck =
+    /^accessibility-credential-check (administrator|employee)$/u.exec(normalized);
+  if (accessibilityCredentialCheck !== null) {
+    const role = accessibilityCredentialCheck[1] as Da5V5AccessibilityReauthenticationRole;
+    if (
+      !accessibilityGateSurfaceBoundaryMatches(activeSession, activeEnvironment)
+      || !accessibilitySession.reauthenticationIsInProgress(role)
+    ) {
+      return fail(activeSession, 'da5_v5_credential_binding=mismatch');
+    }
+    const candidate = await commandExecutionGuard.wait(readHiddenCredential());
+    let result: 'match' | 'mismatch' = 'mismatch';
+    try {
+      if (passwordBinding.compare(candidate) === 'match') {
+        result = await accessibilityCredential.inject(
+          role,
+          candidate,
+          mutationAbortController.signal,
+        );
+      }
+    } finally {
+      candidate.fill(0);
+    }
+    if (result !== 'match') {
+      process.stdout.write('da5_v5_accessibility_password_binding=mismatch\n');
+      return fail(activeSession, 'da5_v5_credential_binding=mismatch');
+    }
+    process.stdout.write('da5_v5_accessibility_password_binding=match\n');
+    process.stdout.write(
+      'da5_v5_accessibility_credential_injection=pending_human_confirmation\n',
+    );
+    return { state: 'continue' };
+  }
+  const accessibilityFieldConfirmation =
+    /^accessibility-credential-field-confirm (administrator|employee) (VISIBLE|EMPTY|AMBIGUOUS)$/u
+      .exec(normalized);
+  if (accessibilityFieldConfirmation !== null) {
+    const role = accessibilityFieldConfirmation[1] as (
+      Da5V5AccessibilityReauthenticationRole
+    );
+    const observation = accessibilityFieldConfirmation[2]?.toLowerCase() as (
+      'ambiguous' | 'empty' | 'visible'
+    );
+    const fieldResult = accessibilityGateSurfaceBoundaryMatches(
+      activeSession,
+      activeEnvironment,
+    )
+      ? accessibilityCredential.confirmVisibleField(role, observation)
+      : 'mismatch';
+    const result = fieldResult === 'match'
+      ? accessibilitySession.completeReauthentication(role)
+      : 'mismatch';
+    process.stdout.write(`da5_v5_accessibility_credential_field_confirmation=${result}\n`);
+    return result === 'match'
+      ? { state: 'continue' }
+      : fail(activeSession, 'da5_v5_credential_binding=mismatch');
+  }
+  const accessibilitySurface =
+    /^accessibility-surface-confirm ([a-z-]+) (PASS|FAIL|AMBIGUOUS)$/u.exec(normalized);
+  if (accessibilitySurface !== null) {
+    const surface = accessibilitySurface[1] as Da5V5AccessibilitySurface;
+    const verdict = parseHumanVerdict(accessibilitySurface[2]) ?? 'ambiguous';
+    const result = accessibilityGateSurfaceBoundaryMatches(
+      activeSession,
+      activeEnvironment,
+    )
+      ? accessibilitySession.confirmSurface(surface, verdict)
+      : 'mismatch';
+    process.stdout.write(`da5_v5_accessibility_surface=${JSON.stringify({
+      result,
+      surface,
+    })}\n`);
+    return result === 'match'
+      ? { state: 'continue' }
+      : fail(activeSession, 'da5_v5_checkpoint=mismatch');
+  }
+  if (normalized === 'accessibility-cancel') {
+    if (!accessibilitySession.requiresRestoreProof()) {
+      return fail(activeSession, 'operator_command_rejected');
+    }
+    accessibilitySession.fail();
+    activeSession.fail();
+    accessibilityFailureEvent ??= 'da5_v5_checkpoint=mismatch';
+    process.stdout.write('da5_v5_accessibility_cancelled=restore_required\n');
+    return { state: 'continue' };
+  }
+  if (normalized === 'accessibility-prepare') {
+    let result: 'match' | 'mismatch' = 'mismatch';
+    if (accessibilityGatePreparationBoundaryMatches(activeSession, activeEnvironment)) {
+      const sessionResult = accessibilitySession.prepareProfileChange();
+      result = sessionResult === 'match'
+        ? device.prepareAccessibilityProfileChange()
+        : 'mismatch';
+    }
+    process.stdout.write(
+      result === 'match'
+        ? 'da5_v5_accessibility_prepare=match restore_required=armed\n'
+        : 'da5_v5_accessibility_prepare=mismatch\n',
+    );
+    return result === 'match'
+      ? { state: 'continue' }
+      : fail(activeSession, 'da5_v5_device_checkpoint=mismatch');
+  }
+  if (normalized === 'accessibility-check') {
+    if (!accessibilityGateCheckBoundaryMatches(activeSession, activeEnvironment)) {
+      return fail(activeSession, 'da5_v5_device_checkpoint=mismatch');
+    }
+    const deviceResult = device.verifyAccessibilityBinding();
+    const result = deviceResult === 'match'
+      ? accessibilitySession.confirmAccessibilityProfile()
+      : 'mismatch';
+    process.stdout.write(`da5_v5_accessibility_binding=${result}\n`);
+    return result === 'match'
+      ? { state: 'continue' }
+      : fail(activeSession, 'da5_v5_device_checkpoint=mismatch');
   }
   const checkpoint = /^checkpoint ([a-z0-9-]+) ([0-9]+)$/u.exec(normalized);
   if (checkpoint !== null) {
@@ -470,20 +644,24 @@ async function handleCommand(line: string): Promise<Da5V5OperatorCommandOutcome>
     })}\n`);
     return result === 'match'
       ? { state: 'continue' }
-      : { state: 'fail', event: 'da5_v5_checkpoint=mismatch' };
+      : fail(activeSession, 'da5_v5_checkpoint=mismatch');
   }
   const confirmation =
     /^checkpoint-confirm ([a-z0-9-]+) (PASS|FAIL|AMBIGUOUS)$/u.exec(normalized);
   if (confirmation !== null) {
     const verdict = parseHumanVerdict(confirmation[2]);
-    const result = activeSession.confirmCheckpoint(
-      confirmation[1] as Da5V5Checkpoint,
-      verdict ?? 'ambiguous',
-    );
+    const checkpointName = confirmation[1] as Da5V5Checkpoint;
+    const humanResult = verdict ?? 'ambiguous';
+    const accessibilityResult = checkpointName === 'gate-e-accessibility'
+      ? accessibilitySession.recordGateOutcome(humanResult)
+      : 'match';
+    const result = accessibilityResult === 'match'
+      ? activeSession.confirmCheckpoint(checkpointName, humanResult)
+      : activeSession.fail();
     process.stdout.write(`da5_v5_checkpoint_confirmation=${result}\n`);
     return result === 'match'
       ? { state: 'continue' }
-      : { state: 'fail', event: 'da5_v5_checkpoint=mismatch' };
+      : fail(activeSession, 'da5_v5_checkpoint=mismatch');
   }
   const baseline = /^dedupe-window-baseline ([a-z0-9-]+)$/u.exec(normalized);
   if (baseline !== null) {
@@ -602,7 +780,7 @@ async function handleCommand(line: string): Promise<Da5V5OperatorCommandOutcome>
       !da5V5SessionBoundaryMatches(
         activeSession,
         'gate-d-protected-relaunch',
-        'gate-f-final',
+        'gate-e-accessibility',
       )
       || offline.getState().state !== 'complete'
       || device.getState() !== 'protected-relaunch-complete'
@@ -644,8 +822,9 @@ async function handleCommand(line: string): Promise<Da5V5OperatorCommandOutcome>
   if (normalized === 'stop') {
     const ready = (
       activeSession.state().terminal
+      && accessibilitySession.canProceedToGateF()
       && offline.complete() === 'match'
-      && device.getState() === 'protected-relaunch-complete'
+      && device.getState() === 'standard-restored'
       && activeEnvironment.da5V5FixtureState() === 'terminal'
       && nextCredentialPhase === credentialPhases.length
       && androidInstalled
@@ -685,21 +864,6 @@ function handleDeviceCommand(
     return {
       event: 'da5_v5_ordinary_relaunch_preparation',
       result: device.prepareOrdinaryPendingRelaunch(),
-    };
-  }
-  if (normalized === 'accessibility-check') {
-    if (
-      !da5V5SessionBoundaryMatches(
-        session,
-        'gate-c-general-complete',
-        'gate-e-accessibility',
-      )
-    ) {
-      return { event: 'da5_v5_accessibility_binding', result: 'mismatch' };
-    }
-    return {
-      event: 'da5_v5_accessibility_binding',
-      result: device.verifyAccessibilityBinding(),
     };
   }
   if (normalized === 'cancellation-arm') {
@@ -800,6 +964,49 @@ function handleDeviceCommand(
   return null;
 }
 
+function accessibilityGatePreparationBoundaryMatches(
+  session: Da5V5OperationSession,
+  activeEnvironment: SyntheticAndroidE2eEnvironment,
+): boolean {
+  return da5V5SessionBoundaryMatches(
+    session,
+    'gate-d-protected-relaunch',
+    'gate-e-accessibility',
+  )
+    && offline.getState().state === 'complete'
+    && activeEnvironment.da5V5FixtureState() === 'terminal'
+    && device.getState() === 'protected-relaunch-complete';
+}
+
+function accessibilityGateCheckBoundaryMatches(
+  session: Da5V5OperationSession,
+  activeEnvironment: SyntheticAndroidE2eEnvironment,
+): boolean {
+  return da5V5SessionBoundaryMatches(
+    session,
+    'gate-d-protected-relaunch',
+    'gate-e-accessibility',
+  )
+    && offline.getState().state === 'complete'
+    && activeEnvironment.da5V5FixtureState() === 'terminal'
+    && accessibilitySession.profileChangePrepared()
+    && device.getState() === 'accessibility-restore-required';
+}
+
+function accessibilityGateSurfaceBoundaryMatches(
+  session: Da5V5OperationSession,
+  activeEnvironment: SyntheticAndroidE2eEnvironment,
+): boolean {
+  return da5V5SessionBoundaryMatches(
+    session,
+    'gate-d-protected-relaunch',
+    'gate-e-accessibility',
+  )
+    && offline.getState().state === 'complete'
+    && activeEnvironment.da5V5FixtureState() === 'terminal'
+    && device.getState() === 'accessibility-confirmed';
+}
+
 async function checkpointOperatorStateMatches(
   checkpoint: Da5V5Checkpoint,
   activeEnvironment: SyntheticAndroidE2eEnvironment,
@@ -823,7 +1030,10 @@ async function checkpointOperatorStateMatches(
     case 'gate-b-cold':
       return device.getState() === 'cold-dispatch-prepared';
     case 'gate-e-accessibility':
-      return device.getState() === 'accessibility-confirmed';
+      return device.getState() === 'accessibility-confirmed'
+        && accessibilitySession.surfacesComplete()
+        && offline.getState().state === 'complete'
+        && activeEnvironment.da5V5FixtureState() === 'terminal';
     case 'gate-d-customer-first-pending':
       return offline.getState().state === 'offline-ordinary';
     case 'gate-d-ordinary-relaunch':
@@ -855,9 +1065,10 @@ async function checkpointOperatorStateMatches(
         && activeEnvironment.da5V5FixtureState() === 'cutover-complete';
     case 'gate-f-final':
       return offline.getState().state === 'complete'
-        && device.getState() === 'protected-relaunch-complete'
+        && accessibilitySession.canProceedToGateF()
+        && device.getState() === 'standard-restored'
         && activeEnvironment.da5V5FixtureState() === 'terminal'
-        && activeSession.state().confirmedCheckpoint === 'gate-d-protected-relaunch';
+        && activeSession.state().confirmedCheckpoint === 'gate-e-accessibility';
     default:
       return true;
   }
@@ -873,10 +1084,10 @@ function offlineCommandIsAuthorized(
   if (operation === 'enter' && phase === 'ordinary') {
     return da5V5SessionBoundaryMatches(
       session,
-      'gate-e-accessibility',
+      'gate-c-general-complete',
       'gate-d-customer-first-pending',
     )
-      && device.getState() === 'accessibility-confirmed';
+      && device.getState() === 'cold-dispatch-prepared';
   }
   if (operation === 'restore' && phase === 'ordinary') {
     return da5V5SessionBoundaryMatches(
@@ -920,7 +1131,10 @@ async function reportStatus(
   process.stdout.write(`da5_v5_status=${JSON.stringify({
     profile: DA5_V5_PROFILE,
     operator: {
+      accessibility: accessibilitySession.state(),
+      accessibilityCredentialTransfer: accessibilityCredential.state(),
       credentialsCompleted: nextCredentialPhase,
+      credentialTransfer: mobileCredential.state(),
       dedupe: activeEnvironment.da5V5DedupeState(),
       device: device.getState(),
       fixture: activeEnvironment.da5V5FixtureState(),
@@ -944,6 +1158,7 @@ function checkpointInvariantsMatch(
   if (
     checkpoint === 'gate-d-protected-terminal'
     || checkpoint === 'gate-d-protected-relaunch'
+    || checkpoint === 'gate-e-accessibility'
     || checkpoint === 'gate-f-final'
   ) {
     return Object.values(invariants).every((value) => value === 'match');
@@ -965,8 +1180,14 @@ function fixtureOutcome(
 function fail(
   session: Da5V5OperationSession,
   event: Extract<Da5V5OperatorCommandOutcome, { state: 'fail' }>['event'],
-): Extract<Da5V5OperatorCommandOutcome, { state: 'fail' }> {
+): Da5V5OperatorCommandOutcome {
   session.fail();
+  if (accessibilitySession.requiresRestoreProof()) {
+    accessibilitySession.fail();
+    accessibilityFailureEvent ??= event;
+    process.stdout.write('da5_v5_accessibility_restore_required=match\n');
+    return { state: 'continue' };
+  }
   return { state: 'fail', event };
 }
 
@@ -1065,9 +1286,13 @@ async function performCleanupResources(): Promise<void> {
     }
   };
 
+  await stage('accessibility-restore-proof', () => {
+    if (!accessibilitySession.cleanupAllowed()) {
+      throw new Error('DA5 V5 accessibility restore proof is unavailable');
+    }
+  });
   await stage('input', () => inputOwnership.closeAll());
   await stage('password', () => passwordBinding.destroy());
-  await stage('web-credential', async () => webCredential.close());
   await stage('offline', async () => {
     if (await offline.close() !== 'match') {
       throw new Error('DA5 V5 offline cleanup mismatch');
@@ -1075,7 +1300,7 @@ async function performCleanupResources(): Promise<void> {
   });
   await stage('android', async () => {
     const cleanup = await cleanupDa5V5AndroidState({
-      deviceBinding: accessibilityBinding,
+      deviceBinding: standardBinding,
       profile,
       runner: mobileAdb,
       serialBinding: deviceLock,

@@ -1,5 +1,64 @@
 # Development Assignment 5 — V5 Human Android Gate Runbook
 
+## Current Credential-transfer / Lean-Accessibility technically approved candidate — DO NOT START hardware
+
+The latest Product Human/Hardware authority on baseline
+`aab04442721d57d53def25e45e5e3ce1d6ea3f77` / tree
+`e96fee7f3fa0f9783693c9f2c84605bae4c63920` is consumed and fully cleaned. It reached
+Administrator authentication, Tag-A assignment, assigned-Tag setup preview rejection and the
+signed-out Tag-A rejection. Enrollment credential transfer then left the focused field empty, so
+the run stopped before enrollment authentication. No lifecycle, queue, time, export or protected
+fixture mutation occurred. Product/Validation packages and processes, owned reverse mappings,
+listeners, disposable database and task runtime all ended at the confirmed null state.
+
+The superseding technical candidate uses one fail-closed mobile transfer for Administrator,
+Enrollment and Employee credentials. The already bound Android runner reattests the exact
+standard profile, accepts only one 64-lowercase-hex line through non-PTY stdin, requires the
+device-side input command to exit successfully and applies a Credential-only runner policy that
+requires both child stdout and stderr to be empty. Ordinary ADB calls retain their prior stderr
+behavior. The transfer advances only after the Human confirms visible field content. The first
+Administrator transfer immediately after installation is the short transfer preflight and its
+real Gate-A entry; do not repeat it.
+
+Functional Gates A–D now use the exact standard profile (`font_scale=1.0`, accessibility disabled
+and no active accessibility service). After Gate D and while that exact standard profile still
+applies, the operator must run the single-use `accessibility-prepare` command. Only its exact
+`da5_v5_accessibility_prepare=match restore_required=armed` receipt authorizes the Human to change
+TalkBack/text scale; the receipt first activates a monotone restore obligation in both the Gate-E
+session and device checkpoint. One read-only Gate E then uses the separately bound
+`font_scale=2.0` and exact TalkBack provider/version on essential surfaces and interactions only;
+it repeats no business mutation. Gate E has one exact ordered read-only surface plan and only two
+narrow reauthentication transfers needed to reach Administrator and Employee surfaces. From the
+prepare receipt onward, a boundary/check mismatch, PASS, FAIL, AMBIGUOUS or explicit Cancel accepts
+only the separate standard-profile restore proof before terminal cleanup can complete. A failed
+route terminates after that proof; it cannot resume Gate E. The exact successful order is
+`A -> B -> C -> D -> accessibility-prepare -> Human profile change -> accessibility-check -> E ->
+restore proof -> F`.
+
+Independent Round-3 Re-Review returned `APPROVED` with zero open P0–P3. The exactly-once final
+Lean-V3 is `PASS` on unchanged `HEAD` = local `origin/main`
+`aab04442721d57d53def25e45e5e3ce1d6ea3f77` / tree
+`e96fee7f3fa0f9783693c9f2c84605bae4c63920` and the pre-sync exact 14-file, 144,817-byte
+Full-Index/Binary delta SHA-256
+`4cfab7b09377c59f25f88af2caf3d0238824325a285baf6ee16d04bc01c13f70`. The ADB boundary is
+`match` with `adb` not resolvable; no ADB command ran.
+
+Under Node `24.17.0`, npm `11.13.0`, Vitest `4.1.9`, TypeScript `6.0.3` and esbuild `0.28.1`,
+Mobile syntax passed, all 54/54 files and 1,245/1,245 tests passed, and its tests-inclusive
+Typecheck passed. Its normalized 868-file membership list has SHA-256
+`11d72c73fe9c420a4c7b4aaadbdcad91187ec78500b5f7c8b68c9dd07f2f82e6` and includes the changed
+Mobile test. Synthetic passed 14/14 files with 303 passed, 18 expected skips and 321 total; its
+tests-inclusive Typecheck, build and final bundle syntax passed. Its normalized 571-file list has
+SHA-256 `45ac1d63ca5f619fcb432594b8495ec08968af1aed99edb8c336d357dcb74e5b` and includes all four
+changed Synthetic tests. Both temporary membership lists were unlinked.
+
+Unchanged dependency, backend, PostgreSQL, migration, APK and security evidence is carried under
+the Lean profile; it was not freshly executed or relabeled by this R0 synchronization. The
+candidate remains uncommitted and unpublished, and no CI/V4 or fresh Operator Runtime publication
+exists. **DO NOT START** Hardware, ADB or installation. No database action occurred.
+Product/Validation APKs remain unchanged. Production, production data, system changes, deployment
+and distribution remain unauthorized.
+
 ## Current ADB-37 reverse correction technical closure — DO NOT INSTALL / DO NOT START hardware
 
 The latest Product Human/Hardware authority is consumed and may not be retried or reused. On
@@ -1468,7 +1527,9 @@ authorization must quote every binding in Section 3.
 
 A failed, interrupted or ambiguous preflight, action, observation or checkpoint consumes that
 one-run authority. Stop, mark the entire run failed and clean up. No retry, repair, resume,
-replacement action or evidence reuse is allowed.
+replacement action or evidence reuse is allowed. If Gate E has started, its separately defined
+Human standard-profile restoration plus read-only proof occurs before cleanup; it is a terminal
+device-safety obligation, not a Gate-E retry or resume.
 
 ## 2. Fixed safety and disclosure boundary
 
@@ -1552,7 +1613,8 @@ Before Gate A:
 1. Verify the exact repository heads and a clean tracked worktree with both protected exclusions.
 2. Verify the Section 3 bindings without rebuilding or changing the read-only files.
 3. Require only the authorized USB device, no unexpected mapping/listener, no retained package
-   state and fresh synthetic database/accounts/data.
+   state and fresh synthetic database/accounts/data. Require exact `font_scale=1.0`,
+   `accessibility_enabled=0` and an empty/null active-service setting.
 4. Install only the exact bound APK through the separately reviewed scoped procedure. Enable NFC
    and keep the device screen unlocked.
 5. Require the authorized disclosure-safe status boundary to report fresh zero DA5 setup,
@@ -1579,22 +1641,32 @@ baseline fails before the action. No elapsed check is required before a first ac
 
 ### Gate A — Authentication, enrollment and setup exclusion
 
-1. Exercise the authorized fresh synthetic authentication/enrollment path. Verify signed-out,
-   Employee and Administrator navigation disclose only role-appropriate screens and actions.
-2. In Administrator setup, present only the approved assigned Tag and complete its authorized
+1. Immediately after installation, use the Administrator login as the single short Credential-
+   transfer preflight and the real first Gate-A login. The Human must first confirm the password
+   field is empty and active. Only after the operator's hidden digest match may the bound runner
+   send exactly one 64-lowercase-hex line through non-PTY stdin. Require successful remote format
+   and input exit, no remote output, and then explicit Human `VISIBLE` confirmation before login
+   or phase advancement. `EMPTY`, `AMBIGUOUS`, wrong phase/order or any transport/format/exit
+   mismatch stops fail-closed. Do not use the Mac clipboard and do not repeat the Administrator
+   entry as a separate preflight.
+2. Apply the same empty-active -> hidden match -> stdin injection -> visible-confirmation boundary
+   exactly once for Enrollment and Employee in that order. Exercise the authorized fresh
+   authentication/enrollment path and verify signed-out, Employee and Administrator navigation
+   disclose only role-appropriate screens and actions.
+3. In Administrator setup, present only the approved assigned Tag and complete its authorized
    synthetic Customer assignment. Require setup UI success and setup aggregates, with zero
    lifecycle action. Require that first assignment capture to finish and release capture
    ownership.
-3. Start the separately bound second operation named **Admin Setup Preview 2**. Within only that
+4. Start the separately bound second operation named **Admin Setup Preview 2**. Within only that
    new setup capture/preview, present the already assigned Tag. Require setup-side
    preview/validation only, with zero lifecycle WorkEvent/Decision/Receipt/Audit, zero queue item
    and no navigation into lifecycle handling.
-4. Safely cancel/leave Admin Setup Preview 2 through its bound exit. After returning to the normal
+5. Safely cancel/leave Admin Setup Preview 2 through its bound exit. After returning to the normal
    shell and again after refresh/relaunch, require zero replay and unchanged lifecycle/queue
    aggregates. Verify Administrator setup state remains visible and correct.
-5. Sign out and present the assigned Tag. Require signed-out rejection with zero lifecycle or
+6. Sign out and present the assigned Tag. Require signed-out rejection with zero lifecycle or
    queue mutation.
-6. After Employee authentication, present the separately approved unassigned Tag and unrelated
+7. After Employee authentication, present the separately approved unassigned Tag and unrelated
    Tag. Require safe rejection and zero lifecycle or queue mutation for each.
 
 Checkpoint: auth/enrollment, role boundary, completed first assignment capture, separately started
@@ -1641,18 +1713,6 @@ General Work.
 Checkpoint: applicable NFC/manual Customer plus manual Project/General online coverage and
 own-time truth are complete.
 
-### Gate E — TalkBack, text scaling and layout
-
-At the exact large-text setting, enable the bound TalkBack version and inspect the authentication,
-setup, scan/manual-target, own-time, sync/pending and error/rejection surfaces already reached.
-Require logical focus order, meaningful labels/roles, announced state changes, visible focus,
-non-color-only meaning, readable controls and no clipped, overlapping, unreachable or
-horizontally overflowing essential content. Do not repeat lifecycle writes for accessibility.
-
-Checkpoint: accessibility and layout pass on the exact bound device/settings.
-
-Gate E must pass before Gate D starts because Gate D ends at the mandatory protected-state stop.
-
 ### Gate D — Controlled offline, reviewed Protected/Review fixture and final stop
 
 1. Activate only the exact authorized controlled-offline switch and prove loss of the bound
@@ -1691,18 +1751,83 @@ Gate E must pass before Gate D starts because Gate D ends at the mandatory prote
    review-pending outcomes, a drained FIFO and the protected/review-required UI.
 9. Force-stop and cold relaunch exactly once as part of the fixture. Require the same protected/
    review-required state to persist.
-10. Stop at `protected_review_fixture_checkpoint=match`. Do not repair, retry, adjudicate, clear,
-    resume, continue to another gate or reuse any fixture state or observation. Proceed directly
-    to Gate F cleanup.
+10. Stop all further Product and fixture mutation at
+    `protected_review_fixture_checkpoint=match`. Do not repair, retry, adjudicate, clear, resume
+    or reuse any fixture state or observation. Proceed only to the read-only Gate E block.
 
 Checkpoint: ordinary offline parity/restart/cancellation and the separately reviewed historical
 cutover sequence are exact; `review_pending` and protected state persist at the final mandatory
 stop.
 
+### Gate E — final TalkBack, text scaling and layout block
+
+After Gate D has stopped Product mutation, keep the exact standard profile unchanged and run
+`accessibility-prepare` once. It is accepted only at the exact Gate-D protected-relaunch terminal,
+complete-offline and terminal-fixture boundary. Do not enable TalkBack or change text scale unless
+the operator emits exactly
+`da5_v5_accessibility_prepare=match restore_required=armed`. That receipt monotonically activates
+the mandatory standard-profile restore proof before any Human setting change; it cannot be
+disarmed by Cancel, mismatch, abort or cleanup.
+
+Only after that receipt, the Human enables the exact bound TalkBack provider and
+`font_scale=2.0`. The next operator command must be `accessibility-check` (or
+`accessibility-cancel`). `accessibility-check` revalidates the exact Gate-E entry boundary and
+binds the profile values read-only. A boundary mismatch or accessibility-binding mismatch after
+preparation immediately consumes Gate E and becomes restore-only; it never authorizes retry or
+resume. The following exact Human navigation/session plan is then single-use and ordered; after
+every row the Human submits
+`accessibility-surface-confirm <surface> PASS|FAIL|AMBIGUOUS`:
+
+1. `protected-review-error`: inspect the already-retained Protected/Review state and its error/
+   explanation affordances before leaving it. Do not adjudicate, clear or retry it.
+2. `auth-login`: sign out through ordinary session navigation and inspect the Login surface.
+3. Use `accessibility-credential-field-ready administrator EMPTY_ACTIVE`,
+   `accessibility-credential-check administrator` and
+   `accessibility-credential-field-confirm administrator VISIBLE` exactly once. This is only the
+   narrow reauthentication needed to reach `administrator-setup`; open the existing setup screen
+   read-only without starting capture, preview, assignment or any save action.
+4. Sign out through ordinary session navigation. Use the corresponding three
+   `accessibility-credential-* employee` commands exactly once to reach `employee-navigation`.
+5. Inspect, in order, `employee-scan`, `employee-manual-target`, `employee-own-time` and
+   `employee-sync-pending`. Do not present a Tag or activate a scan/manual target, Start/Stop,
+   retry, synchronization or queue action.
+
+For every named surface require logical focus order, meaningful labels/roles, visible focus,
+announced state, non-color-only meaning, readable controls and no clipped, overlapping,
+unreachable or horizontally overflowing essential content. The two reauthentication transfers
+reuse the exact empty-active -> hidden digest -> non-PTY stdin -> both-streams-empty -> Human
+`VISIBLE` contract. Authentication/session navigation is permitted only to reach the listed
+surfaces; it may not create or change setup, lifecycle, queue, sync or fixture records. The final
+Gate-E checkpoint re-reads the unchanged aggregate and invariant set before Human confirmation.
+
+Any wrong surface/order, missing reauthentication, `FAIL`, `AMBIGUOUS`, explicit
+`accessibility-cancel` (including Cancel after preparation but before a successful check),
+Gate-E-entry boundary mismatch, Credential/profile mismatch or premature command consumes Gate E
+and enters a restore-only terminal state. It authorizes no Gate-E resume, navigation, Credential
+retry, Product mutation or operator device-setting mutation. Before successful
+`accessibility-check`, no command other than that check or `accessibility-cancel` is accepted; a
+different command also becomes restore-only.
+
+After PASS, FAIL, AMBIGUOUS or Cancel, the Human manually restores `font_scale=1.0`, disables
+TalkBack/accessibility and leaves no active accessibility service. In restore-only state the sole
+accepted command is `standard-profile-check`; the operator verifies exact model/build continuity,
+`font_scale=1.0`, `accessibility_enabled=0` and empty/null active services read-only. An incomplete
+proof remains restore-only and converts a prior PASS to failure; it never resumes Gate E. Exact
+proof after PASS permits Gate F. Exact proof after failure/ambiguity/Cancel terminates fail-closed
+and only then starts scoped cleanup. The cleanup result cannot be complete if Gate E started and
+this restore proof is absent. For this rule, Gate E has started as soon as the exact
+`accessibility-prepare` receipt was emitted, even if `accessibility-check` never succeeds.
+
+Checkpoint: all eight named accessibility/layout surfaces pass in exact order, both narrow reauth
+handoffs are Human-confirmed, business aggregates remain unchanged and the exact standard profile
+is restored.
+
 ### Gate F — Final truth and complete cleanup
 
 1. Require the disclosure-safe final status to match only the staged actions, with no duplicate,
    foreign or unexplained setup/lifecycle/sync evidence.
+   Require the Gate-E restore proof to be present whenever `accessibility-prepare` matched;
+   cleanup/completion cannot substitute for it.
 2. Sign out every Mobile/Admin session and clear clipboard, downloads and temporary screenshots.
 3. Stop synthetic services normally; remove only scoped mappings/listeners and the exact synthetic
    package. Never use blanket device cleanup.

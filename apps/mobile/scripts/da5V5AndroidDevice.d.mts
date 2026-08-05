@@ -68,6 +68,7 @@ export function classifyDa5V5AndroidInstallCleanup(
 ): Readonly<Da5V5AndroidCleanupEvidence>;
 
 export interface Da5V5AndroidCommandOptions {
+  readonly requireEmptyOutput?: true;
   readonly signal?: AbortSignal;
   readonly stdinBytes?: Buffer;
   readonly timeoutMilliseconds?: number;
@@ -106,6 +107,10 @@ export function requireDa5V5ActiveTalkBackProvider(
   enabledServices: string,
   expectedPackage: string,
 ): Da5V5TalkBackPackage;
+export function requireDa5V5AccessibilityDisabled(
+  accessibilityEnabled: string,
+  enabledServices: string,
+): void;
 
 export class Da5V5AndroidCommandAbortError extends Error {}
 export function isDa5V5AndroidCommandAbortError(
@@ -124,9 +129,7 @@ export function isDa5V5AndroidCommandTransientError(
 export interface Da5V5AndroidPreflightBinding extends Da5V5AndroidDeviceBinding {
   readonly androidApi: string;
   readonly androidRelease: string;
-  readonly fontScale: '2.0';
-  readonly talkBackPackage: Da5V5TalkBackPackage;
-  readonly talkBackVersion: string;
+  readonly fontScale: '1.0';
 }
 
 export interface Da5V5ReverseMapping {

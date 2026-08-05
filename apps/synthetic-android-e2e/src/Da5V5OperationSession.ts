@@ -41,6 +41,221 @@ export interface Da5V5CheckpointStep {
   readonly status: Da5V5Status;
 }
 
+export const DA5_V5_ACCESSIBILITY_SURFACE_PLAN = Object.freeze([
+  'protected-review-error',
+  'auth-login',
+  'administrator-setup',
+  'employee-navigation',
+  'employee-scan',
+  'employee-manual-target',
+  'employee-own-time',
+  'employee-sync-pending',
+] as const);
+
+export type Da5V5AccessibilitySurface =
+  (typeof DA5_V5_ACCESSIBILITY_SURFACE_PLAN)[number];
+export type Da5V5AccessibilityReauthenticationRole = 'administrator' | 'employee';
+
+export interface Da5V5AccessibilityState {
+  readonly completedReauthentications: readonly Da5V5AccessibilityReauthenticationRole[];
+  readonly completedSurfaces: readonly Da5V5AccessibilitySurface[];
+  readonly gateOutcome: 'fail' | 'pass' | null;
+  readonly nextSurface: Da5V5AccessibilitySurface | null;
+  readonly phase:
+    | 'not-started'
+    | 'profile-change-prepared'
+    | 'surface-review'
+    | 'checkpoint-ready'
+    | 'restore-required'
+    | 'restored-fail'
+    | 'restored-pass'
+    | 'failed-before-start';
+  readonly reauthenticationInProgress: Da5V5AccessibilityReauthenticationRole | null;
+  readonly restoreProven: boolean;
+}
+
+const accessibilityReauthenticationBySurface: Readonly<
+  Partial<Record<Da5V5AccessibilitySurface, Da5V5AccessibilityReauthenticationRole>>
+> = Object.freeze({
+  'administrator-setup': 'administrator',
+  'employee-navigation': 'employee',
+});
+
+export class Da5V5AccessibilitySession {
+  private readonly completedReauthentications = new Set<
+    Da5V5AccessibilityReauthenticationRole
+  >();
+  private gateOutcome: 'fail' | 'pass' | null = null;
+  private nextSurfaceIndex = 0;
+  private phaseValue: Da5V5AccessibilityState['phase'] = 'not-started';
+  private reauthenticationInProgress: Da5V5AccessibilityReauthenticationRole | null = null;
+
+  prepareProfileChange(): 'match' | 'mismatch' {
+    if (this.phaseValue !== 'not-started') {
+      return this.fail();
+    }
+    this.phaseValue = 'profile-change-prepared';
+    return 'match';
+  }
+
+  confirmAccessibilityProfile(): 'match' | 'mismatch' {
+    if (this.phaseValue !== 'profile-change-prepared') {
+      return this.fail();
+    }
+    this.phaseValue = 'surface-review';
+    return 'match';
+  }
+
+  beginReauthentication(
+    role: Da5V5AccessibilityReauthenticationRole,
+  ): 'match' | 'mismatch' {
+    const nextSurface = DA5_V5_ACCESSIBILITY_SURFACE_PLAN[this.nextSurfaceIndex];
+    if (
+      this.phaseValue !== 'surface-review'
+      || nextSurface === undefined
+      || accessibilityReauthenticationBySurface[nextSurface] !== role
+      || this.completedReauthentications.has(role)
+      || this.reauthenticationInProgress !== null
+    ) {
+      return this.fail();
+    }
+    this.reauthenticationInProgress = role;
+    return 'match';
+  }
+
+  reauthenticationIsInProgress(
+    role: Da5V5AccessibilityReauthenticationRole,
+  ): boolean {
+    return this.phaseValue === 'surface-review'
+      && this.reauthenticationInProgress === role;
+  }
+
+  completeReauthentication(
+    role: Da5V5AccessibilityReauthenticationRole,
+  ): 'match' | 'mismatch' {
+    if (
+      this.phaseValue !== 'surface-review'
+      || this.reauthenticationInProgress !== role
+    ) {
+      return this.fail();
+    }
+    this.reauthenticationInProgress = null;
+    this.completedReauthentications.add(role);
+    return 'match';
+  }
+
+  confirmSurface(
+    surface: Da5V5AccessibilitySurface,
+    result: 'ambiguous' | 'fail' | 'pass',
+  ): 'match' | 'mismatch' {
+    const expectedSurface = DA5_V5_ACCESSIBILITY_SURFACE_PLAN[this.nextSurfaceIndex];
+    const requiredReauthentication = expectedSurface === undefined
+      ? undefined
+      : accessibilityReauthenticationBySurface[expectedSurface];
+    if (
+      this.phaseValue !== 'surface-review'
+      || result !== 'pass'
+      || surface !== expectedSurface
+      || this.reauthenticationInProgress !== null
+      || (
+        requiredReauthentication !== undefined
+        && !this.completedReauthentications.has(requiredReauthentication)
+      )
+    ) {
+      return this.fail();
+    }
+    this.nextSurfaceIndex += 1;
+    if (this.nextSurfaceIndex === DA5_V5_ACCESSIBILITY_SURFACE_PLAN.length) {
+      this.phaseValue = 'checkpoint-ready';
+    }
+    return 'match';
+  }
+
+  recordGateOutcome(
+    result: 'ambiguous' | 'fail' | 'pass',
+  ): 'match' | 'mismatch' {
+    if (result !== 'pass' || this.phaseValue !== 'checkpoint-ready') {
+      return this.fail();
+    }
+    this.gateOutcome = 'pass';
+    this.phaseValue = 'restore-required';
+    return 'match';
+  }
+
+  confirmRestoreProof(result: 'match' | 'mismatch'): 'match' | 'mismatch' {
+    if (this.phaseValue !== 'restore-required') {
+      return this.fail();
+    }
+    if (result !== 'match') {
+      this.gateOutcome = 'fail';
+      return 'mismatch';
+    }
+    this.phaseValue = this.gateOutcome === 'pass' ? 'restored-pass' : 'restored-fail';
+    return 'match';
+  }
+
+  fail(): 'mismatch' {
+    this.reauthenticationInProgress = null;
+    if (this.phaseValue === 'not-started') {
+      this.phaseValue = 'failed-before-start';
+      return 'mismatch';
+    }
+    if (this.phaseValue !== 'restored-fail' && this.phaseValue !== 'restored-pass') {
+      this.gateOutcome = 'fail';
+      this.phaseValue = 'restore-required';
+    }
+    return 'mismatch';
+  }
+
+  requiresRestoreProof(): boolean {
+    return this.phaseValue === 'profile-change-prepared'
+      || this.phaseValue === 'surface-review'
+      || this.phaseValue === 'checkpoint-ready'
+      || this.phaseValue === 'restore-required';
+  }
+
+  profileChangePrepared(): boolean {
+    return this.phaseValue === 'profile-change-prepared';
+  }
+
+  restoreOnly(): boolean {
+    return this.phaseValue === 'restore-required';
+  }
+
+  surfacesComplete(): boolean {
+    return this.phaseValue === 'checkpoint-ready';
+  }
+
+  canProceedToGateF(): boolean {
+    return this.phaseValue === 'restored-pass';
+  }
+
+  terminalFailureRestored(): boolean {
+    return this.phaseValue === 'restored-fail';
+  }
+
+  cleanupAllowed(): boolean {
+    return !this.requiresRestoreProof();
+  }
+
+  state(): Da5V5AccessibilityState {
+    return Object.freeze({
+      completedReauthentications: Object.freeze(
+        [...this.completedReauthentications].sort(),
+      ),
+      completedSurfaces: Object.freeze(
+        DA5_V5_ACCESSIBILITY_SURFACE_PLAN.slice(0, this.nextSurfaceIndex),
+      ),
+      gateOutcome: this.gateOutcome,
+      nextSurface: DA5_V5_ACCESSIBILITY_SURFACE_PLAN[this.nextSurfaceIndex] ?? null,
+      phase: this.phaseValue,
+      reauthenticationInProgress: this.reauthenticationInProgress,
+      restoreProven: this.phaseValue === 'restored-fail'
+        || this.phaseValue === 'restored-pass',
+    });
+  }
+}
+
 const gateA = expected({
   activeAssignments: 1,
   adminSetupReceipts: 1,
@@ -184,7 +399,6 @@ export const DA5_V5_CHECKPOINT_PLAN: readonly Da5V5CheckpointStep[] = Object.fre
   step('gate-c-project-complete', gateCProjectComplete, 0),
   step('gate-c-general-first', gateCGeneralFirst, 0),
   step('gate-c-general-complete', gateCGeneralComplete, 0),
-  step('gate-e-accessibility', gateCGeneralComplete, 0),
   step('gate-d-customer-first-pending', gateCGeneralComplete, 1),
   step('gate-d-customer-complete-pending', gateCGeneralComplete, 2),
   step('gate-d-project-first-pending', gateCGeneralComplete, 3),
@@ -201,6 +415,7 @@ export const DA5_V5_CHECKPOINT_PLAN: readonly Da5V5CheckpointStep[] = Object.fre
   step('gate-d-fixture-all-pending', fixtureCutover, 3),
   step('gate-d-protected-terminal', protectedTerminal, 0),
   step('gate-d-protected-relaunch', protectedTerminal, 0),
+  step('gate-e-accessibility', protectedTerminal, 0),
   step('gate-f-final', protectedTerminal, 0),
 ]);
 

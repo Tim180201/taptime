@@ -3,6 +3,7 @@ import type { Interface } from 'node:readline';
 import type { Pool } from 'pg';
 import { describe, expect, it, vi } from 'vitest';
 import {
+  DA5_V5_ACCESSIBILITY_SURFACE_PLAN,
   DA5_V5_DEDUPE_PHASES,
   DA5_V5_CHECKPOINT_PLAN,
   DA5_V5_INITIAL_STATUS,
@@ -10,6 +11,7 @@ import {
   DA5_V5_PUBLIC_MANIFEST,
   DA5_V5_TAG_B_REGISTRATION_ARM_STATUS,
   DA4_V5_PROFILE,
+  Da5V5AccessibilitySession,
   Da5V5DedupeWindowController,
   Da5V5InputOwnership,
   Da5V5MemoryOnlyPasswordBinding,
@@ -254,6 +256,178 @@ describe('DA5 V5 explicit profile and disclosure boundaries', () => {
 });
 
 describe('DA5 V5 serial Human checkpoints', () => {
+  it('keeps the exact lean functional-to-accessibility checkpoint order', () => {
+    expect(DA5_V5_CHECKPOINT_PLAN.map(({ checkpoint }) => checkpoint)).toEqual([
+      'gate-a-setup-rejections',
+      'gate-b-cold',
+      'gate-b-duplicate',
+      'gate-b-background',
+      'gate-c-customer-first',
+      'gate-c-customer-complete',
+      'gate-c-project-first',
+      'gate-c-project-complete',
+      'gate-c-general-first',
+      'gate-c-general-complete',
+      'gate-d-customer-first-pending',
+      'gate-d-customer-complete-pending',
+      'gate-d-project-first-pending',
+      'gate-d-project-complete-pending',
+      'gate-d-general-first-pending',
+      'gate-d-general-complete-pending',
+      'gate-d-ordinary-relaunch',
+      'gate-d-ordinary-synchronized',
+      'gate-d-cancellation',
+      'gate-d-fixture-tag-b-activated',
+      'gate-d-fixture-tag-b-started',
+      'gate-d-fixture-pre-cutover-pending',
+      'gate-d-fixture-cutover',
+      'gate-d-fixture-all-pending',
+      'gate-d-protected-terminal',
+      'gate-d-protected-relaunch',
+      'gate-e-accessibility',
+      'gate-f-final',
+    ]);
+  });
+
+  it('binds the complete read-only Gate-E surface and reauthentication order', () => {
+    expect(DA5_V5_ACCESSIBILITY_SURFACE_PLAN).toEqual([
+      'protected-review-error',
+      'auth-login',
+      'administrator-setup',
+      'employee-navigation',
+      'employee-scan',
+      'employee-manual-target',
+      'employee-own-time',
+      'employee-sync-pending',
+    ]);
+    const accessibility = new Da5V5AccessibilitySession();
+    expect(accessibility.prepareProfileChange()).toBe('match');
+    expect(accessibility.state().phase).toBe('profile-change-prepared');
+    expect(accessibility.cleanupAllowed()).toBe(false);
+    expect(accessibility.confirmAccessibilityProfile()).toBe('match');
+    expect(accessibility.confirmSurface('protected-review-error', 'pass')).toBe('match');
+    expect(accessibility.confirmSurface('auth-login', 'pass')).toBe('match');
+    expect(accessibility.beginReauthentication('administrator')).toBe('match');
+    expect(accessibility.reauthenticationIsInProgress('administrator')).toBe(true);
+    expect(accessibility.completeReauthentication('administrator')).toBe('match');
+    expect(accessibility.confirmSurface('administrator-setup', 'pass')).toBe('match');
+    expect(accessibility.beginReauthentication('employee')).toBe('match');
+    expect(accessibility.completeReauthentication('employee')).toBe('match');
+    for (const surface of DA5_V5_ACCESSIBILITY_SURFACE_PLAN.slice(3)) {
+      expect(accessibility.confirmSurface(surface, 'pass')).toBe('match');
+    }
+    expect(accessibility.surfacesComplete()).toBe(true);
+    expect(accessibility.recordGateOutcome('pass')).toBe('match');
+    expect(accessibility.restoreOnly()).toBe(true);
+    expect(accessibility.cleanupAllowed()).toBe(false);
+    expect(accessibility.confirmRestoreProof('match')).toBe('match');
+    expect(accessibility.canProceedToGateF()).toBe(true);
+    expect(accessibility.cleanupAllowed()).toBe(true);
+    expect(accessibility.state()).toMatchObject({
+      completedReauthentications: ['administrator', 'employee'],
+      completedSurfaces: DA5_V5_ACCESSIBILITY_SURFACE_PLAN,
+      gateOutcome: 'pass',
+      nextSurface: null,
+      phase: 'restored-pass',
+      restoreProven: true,
+    });
+  });
+
+  it('keeps a prepared Gate-E entry-boundary mismatch restore-only', () => {
+    const accessibility = new Da5V5AccessibilitySession();
+    expect(accessibility.prepareProfileChange()).toBe('match');
+    expect(accessibility.requiresRestoreProof()).toBe(true);
+    expect(accessibility.cleanupAllowed()).toBe(false);
+
+    expect(accessibility.fail()).toBe('mismatch');
+    expect(accessibility.state()).toMatchObject({
+      completedSurfaces: [],
+      gateOutcome: 'fail',
+      phase: 'restore-required',
+      restoreProven: false,
+    });
+    expect(accessibility.restoreOnly()).toBe(true);
+    expect(accessibility.cleanupAllowed()).toBe(false);
+    expect(accessibility.confirmRestoreProof('match')).toBe('match');
+    expect(accessibility.terminalFailureRestored()).toBe(true);
+    expect(accessibility.cleanupAllowed()).toBe(true);
+  });
+
+  it('keeps a pre-check accessibility cancel restore-only without retry or resume', () => {
+    const accessibility = new Da5V5AccessibilitySession();
+    expect(accessibility.prepareProfileChange()).toBe('match');
+    expect(accessibility.profileChangePrepared()).toBe(true);
+
+    expect(accessibility.fail()).toBe('mismatch');
+    expect(accessibility.restoreOnly()).toBe(true);
+    expect(accessibility.confirmAccessibilityProfile()).toBe('mismatch');
+    expect(accessibility.restoreOnly()).toBe(true);
+    expect(accessibility.cleanupAllowed()).toBe(false);
+    expect(accessibility.confirmRestoreProof('match')).toBe('match');
+    expect(accessibility.terminalFailureRestored()).toBe(true);
+    expect(accessibility.canProceedToGateF()).toBe(false);
+  });
+
+  it.each(['fail', 'ambiguous', 'cancel'] as const)(
+    'keeps %s terminal and recovery-only until exact standard restore proof',
+    (outcome) => {
+      const accessibility = new Da5V5AccessibilitySession();
+      expect(accessibility.prepareProfileChange()).toBe('match');
+      expect(accessibility.confirmAccessibilityProfile()).toBe('match');
+      expect(accessibility.confirmSurface('protected-review-error', 'pass')).toBe('match');
+      const result = outcome === 'cancel'
+        ? accessibility.fail()
+        : accessibility.recordGateOutcome(outcome);
+      expect(result).toBe('mismatch');
+      expect(accessibility.restoreOnly()).toBe(true);
+      expect(accessibility.cleanupAllowed()).toBe(false);
+      expect(accessibility.prepareProfileChange()).toBe('mismatch');
+      expect(accessibility.confirmRestoreProof('mismatch')).toBe('mismatch');
+      expect(accessibility.restoreOnly()).toBe(true);
+      expect(accessibility.cleanupAllowed()).toBe(false);
+      expect(accessibility.confirmRestoreProof('match')).toBe('match');
+      expect(accessibility.terminalFailureRestored()).toBe(true);
+      expect(accessibility.canProceedToGateF()).toBe(false);
+      expect(accessibility.cleanupAllowed()).toBe(true);
+    },
+  );
+
+  it('fails Gate E before Administrator Setup when its required reauth is absent', () => {
+    const accessibility = new Da5V5AccessibilitySession();
+    expect(accessibility.prepareProfileChange()).toBe('match');
+    expect(accessibility.confirmAccessibilityProfile()).toBe('match');
+    expect(accessibility.confirmSurface('protected-review-error', 'pass')).toBe('match');
+    expect(accessibility.confirmSurface('auth-login', 'pass')).toBe('match');
+    expect(accessibility.confirmSurface('administrator-setup', 'pass')).toBe('mismatch');
+    expect(accessibility.state()).toMatchObject({
+      gateOutcome: 'fail',
+      phase: 'restore-required',
+    });
+  });
+
+  it('converts a Gate-E PASS to terminal failure when the first restore proof is incomplete',
+    () => {
+      const accessibility = new Da5V5AccessibilitySession();
+      expect(accessibility.prepareProfileChange()).toBe('match');
+      expect(accessibility.confirmAccessibilityProfile()).toBe('match');
+      for (const surface of DA5_V5_ACCESSIBILITY_SURFACE_PLAN) {
+        if (surface === 'administrator-setup') {
+          expect(accessibility.beginReauthentication('administrator')).toBe('match');
+          expect(accessibility.completeReauthentication('administrator')).toBe('match');
+        }
+        if (surface === 'employee-navigation') {
+          expect(accessibility.beginReauthentication('employee')).toBe('match');
+          expect(accessibility.completeReauthentication('employee')).toBe('match');
+        }
+        expect(accessibility.confirmSurface(surface, 'pass')).toBe('match');
+      }
+      expect(accessibility.recordGateOutcome('pass')).toBe('match');
+      expect(accessibility.confirmRestoreProof('mismatch')).toBe('mismatch');
+      expect(accessibility.state().gateOutcome).toBe('fail');
+      expect(accessibility.confirmRestoreProof('match')).toBe('match');
+      expect(accessibility.terminalFailureRestored()).toBe(true);
+    });
+
   it('requires Tag A to be actively assigned to exact Customer A before Tag B can be armed',
     () => {
       const exactRoles = {
@@ -1088,9 +1262,6 @@ describe('DA5 V5 fixture, lifecycle and startup fail-stop boundaries', () => {
       );
       expect(source).toContain('mutationAbortController.abort()');
       expect(source).toContain(
-        "operatorLifecycle?.abortAndFail('da5_v5_credential_binding=mismatch')",
-      );
-      expect(source).toContain(
         "operatorLifecycle?.abortAndFail('operator_command_failed')",
       );
       expect(source).toContain(
@@ -1146,10 +1317,51 @@ describe('DA5 V5 fixture, lifecycle and startup fail-stop boundaries', () => {
         'const mobileInstallStreamAdb = mobileAdb.createInstallStreamRunner()',
       );
       expect(source).toContain(
-        'new Da5V5ApiOfflineController(\n  adb,\n  accessibilityBinding,\n  deviceLock,',
+        'new Da5V5ApiOfflineController(\n  adb,\n  standardBinding,\n  deviceLock,',
       );
       expect(source).toContain(
-        'new Da5V5DeviceCheckpointController(adb, accessibilityBinding, deviceLock)',
+        'new Da5V5DeviceCheckpointController(\n  adb,\n  standardBinding,\n  accessibilityBinding,\n  deviceLock,',
+      );
+      expect(source).toContain(
+        'credential-field-ready <administrator|enrollment|employee> EMPTY_ACTIVE',
+      );
+      expect(source).toContain(
+        'credential-field-confirm <administrator|enrollment|employee> <VISIBLE|EMPTY|AMBIGUOUS>',
+      );
+      expect(source).toContain('da5_v5_accessibility_surface_plan=');
+      expect(source).toContain('accessibility-prepare | accessibility-check');
+      expect(source).toContain("if (normalized === 'accessibility-prepare')");
+      expect(source).toContain(
+        'da5_v5_accessibility_prepare=match restore_required=armed',
+      );
+      expect(source).toContain('accessibilitySession.prepareProfileChange()');
+      expect(source).toContain('device.prepareAccessibilityProfileChange()');
+      expect(source).toContain('accessibilitySession.profileChangePrepared()');
+      expect(source).toContain('accessibilityGateCheckBoundaryMatches(');
+      expect(source).toContain('accessibilitySession.confirmAccessibilityProfile()');
+      expect(source).toContain(
+        "if (!accessibilityGateCheckBoundaryMatches(activeSession, activeEnvironment)) {\n      return fail(activeSession, 'da5_v5_device_checkpoint=mismatch');\n    }",
+      );
+      expect(source).toContain('if (accessibilitySession.requiresRestoreProof())');
+      expect(source).toContain('da5_v5_accessibility_restore_required=match');
+      expect(source).toContain(
+        'accessibility-credential-field-ready <administrator|employee> EMPTY_ACTIVE',
+      );
+      expect(source).toContain(
+        'accessibility-credential-field-confirm <administrator|employee> <VISIBLE|EMPTY|AMBIGUOUS>',
+      );
+      expect(source).toContain('accessibility-surface-confirm <surface>');
+      expect(source).toContain("if (normalized === 'accessibility-cancel')");
+      expect(source).toContain("if (normalized !== 'standard-profile-check')");
+      expect(source).toContain("await stage('accessibility-restore-proof'");
+      expect(source).toContain('accessibilitySession.cleanupAllowed()');
+      expect(source).toContain('accessibilitySession.canProceedToGateF()');
+      expect(source.indexOf("if (normalized === 'accessibility-prepare')"))
+        .toBeLessThan(source.indexOf("if (normalized === 'accessibility-check')"));
+      expect(source).not.toContain('credential-paste-confirm');
+      expect(source).not.toContain('Da5V5WebCredentialTransfer');
+      expect(source.indexOf("'gate-d-protected-relaunch',")).toBeLessThan(
+        source.indexOf("'gate-e-accessibility',"),
       );
       expect(source).toContain(
         "requiredEnvironmentValue('TAPTIME_DA5_V5_TALKBACK_PACKAGE')",

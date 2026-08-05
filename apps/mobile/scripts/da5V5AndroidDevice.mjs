@@ -184,6 +184,19 @@ export function requireDa5V5ActiveTalkBackProvider(
   return talkBackPackage;
 }
 
+export function requireDa5V5AccessibilityDisabled(
+  accessibilityEnabled,
+  enabledServices,
+) {
+  const normalizedServices = enabledServices.trim();
+  if (
+    oneLine(accessibilityEnabled) !== '0'
+    || (normalizedServices !== '' && normalizedServices !== 'null')
+  ) {
+    throw new Error('DA5 V5 standard accessibility binding mismatch');
+  }
+}
+
 export class Da5V5UsbSerialBinding {
   #failed = false;
   #serial = null;
@@ -739,15 +752,9 @@ export class Da5V5AndroidPreinstallPreflight {
           'enabled_accessibility_services'],
         { signal: options.signal, timeoutMilliseconds: timeouts.inspect },
       );
-      const talkBackPackage = requireDa5V5ActiveTalkBackProvider(
+      requireDa5V5AccessibilityDisabled(
         accessibilityEnabled,
         enabledAccessibilityServices,
-        this.binding.talkBackPackage,
-      );
-      const talkBack = await this.runner.run(
-        ['-s', serial, 'shell', 'dumpsys', 'package',
-          talkBackPackage],
-        { signal: options.signal, timeoutMilliseconds: timeouts.inspect },
       );
       const listeners = await this.runner.run(
         ['-s', serial, 'shell', 'ss', '-ltnH'],
@@ -757,7 +764,6 @@ export class Da5V5AndroidPreinstallPreflight {
         oneLine(release) !== this.binding.androidRelease
         || oneLine(api) !== this.binding.androidApi
         || oneLine(fontScale) !== this.binding.fontScale
-        || readTalkBackVersion(talkBack) !== this.binding.talkBackVersion
       ) {
         throw new Error('DA5 V5 preinstall metadata mismatch');
       }
@@ -2186,14 +2192,6 @@ function installStreamFailureCategory(outcome) {
   return DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES.childStartTransport;
 }
 
-function readTalkBackVersion(value) {
-  const matches = [...value.matchAll(/^\s*versionName=(\S+)\s*$/gmu)];
-  if (matches.length !== 1 || matches[0]?.[1] === undefined) {
-    throw new Error('DA5 V5 TalkBack binding is unavailable');
-  }
-  return matches[0][1];
-}
-
 function assertNoDa5V5OwnedListeners(value) {
   for (const line of value.split(/\r?\n/u).map((entry) => entry.trim()).filter(Boolean)) {
     const parts = line.split(/\s+/u);
@@ -2216,8 +2214,13 @@ function runAdb(arguments_, options, dependencies) {
     }
     const environment = createDa5V5AdbChildEnvironment(dependencies.environment);
     const stdinBytes = options.stdinBytes;
+    const requireEmptyOutput = options.requireEmptyOutput;
     if (stdinBytes !== undefined && !Buffer.isBuffer(stdinBytes)) {
       rejectPromise(new Error('DA5 V5 Android device input is invalid'));
+      return;
+    }
+    if (requireEmptyOutput !== undefined && requireEmptyOutput !== true) {
+      rejectPromise(new Error('DA5 V5 Android device output policy is invalid'));
       return;
     }
     const child = dependencies.spawn(
@@ -2343,7 +2346,9 @@ function runAdb(arguments_, options, dependencies) {
         return;
       }
       stdoutBytes += chunkBytes;
-      stdout += chunk;
+      if (requireEmptyOutput !== true) {
+        stdout += chunk;
+      }
     }
 
     function onStderrData(chunk) {
@@ -2373,13 +2378,18 @@ function runAdb(arguments_, options, dependencies) {
     }
 
     function onClose(code, signal) {
+      const cleanExit = code === 0 && (signal === null || signal === undefined);
+      const outputMismatch = requireEmptyOutput === true
+        && (stdoutBytes !== 0 || stderrBytes !== 0);
       finish(
         terminationError ?? (
-          code === 0 && (signal === null || signal === undefined)
-            ? undefined
-            : new Da5V5AndroidCommandExitError()
+          !cleanExit
+            ? new Da5V5AndroidCommandExitError()
+            : outputMismatch
+              ? new Error('DA5 V5 Android device output mismatch')
+              : undefined
         ),
-        stdout,
+        requireEmptyOutput === true ? '' : stdout,
       );
     }
 

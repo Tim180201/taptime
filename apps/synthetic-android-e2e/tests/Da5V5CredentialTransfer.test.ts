@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -16,6 +17,7 @@ const credentialText = 'a'.repeat(64);
 const deviceBinding = Object.freeze({
   androidBuild: 'synthetic/vendor/device:15/BUILD/1:user/release-keys',
   deviceModel: 'Synthetic Galaxy',
+  fontScale: '1.0' as const,
 });
 
 afterEach(() => {
@@ -41,14 +43,17 @@ describe('DA5 V5 coupled credential transfer', () => {
     candidate.fill(0);
   });
 
-  it('accepts only exact 64-hex ASCII and compares its digest timing-safely', () => {
+  it('accepts only exact 64-lowercase-hex ASCII and compares its digest timing-safely', () => {
     const credential = da5V5SyntheticCredentialBuffer(credentialText);
     const binding = new Da5V5MemoryOnlyPasswordBinding(credential);
     const same = Buffer.from(credential);
     const different = Buffer.from(`b${credentialText.slice(1)}`, 'ascii');
     expect(binding.compare(same)).toBe('match');
     expect(binding.compare(different)).toBe('mismatch');
-    expect(() => da5V5SyntheticCredentialBuffer('not-hex')).toThrow(/64-hex ASCII/);
+    expect(() => da5V5SyntheticCredentialBuffer('not-hex')).toThrow(/64-lowercase-hex ASCII/);
+    expect(() => da5V5SyntheticCredentialBuffer('A'.repeat(64))).toThrow(
+      /64-lowercase-hex ASCII/,
+    );
     binding.destroy();
     expect(binding.compare(same)).toBe('mismatch');
     credential.fill(0);
@@ -254,14 +259,12 @@ describe('DA5 V5 coupled credential transfer', () => {
       candidate.fill(0);
     });
 
-  it('requires Human EMPTY_ACTIVE and injects through constant ADB argv on the bound serial',
+  it('requires EMPTY_ACTIVE, fixed non-PTY stdin and visible Human confirmation for every phase',
     async () => {
-      const processes = new FakeSecretProcesses();
       const adb = new CredentialAdb();
       const serialBinding = new Da5V5UsbSerialBinding();
       expect(serialBinding.bind(adb.serial)).toBe('match');
       const mobile = new Da5V5MobileCredentialTransfer(
-        processes,
         adb,
         serialBinding,
         deviceBinding,
@@ -269,35 +272,154 @@ describe('DA5 V5 coupled credential transfer', () => {
       const candidate = da5V5SyntheticCredentialBuffer(credentialText);
 
       await expect(mobile.inject('enrollment', candidate)).resolves.toBe('mismatch');
-      expect(processes.writes).toHaveLength(0);
-      expect(mobile.confirmEmptyActiveField('enrollment')).toBe('match');
-      await expect(mobile.inject('enrollment', candidate)).resolves.toBe('match');
+      expect(adb.injectionInputs).toHaveLength(0);
 
-      expect(processes.writes).toHaveLength(1);
-      expect(processes.writes[0]?.input).toBe(candidate);
-      expect(processes.writes[0]).toMatchObject({
-        arguments_: [
-          '-s',
-          adb.serial,
-          'shell',
-          'sh',
-          '-c',
-          'IFS= read -r v; input text "$v"; unset v',
-        ],
-        command: 'adb',
+      const fresh = new Da5V5MobileCredentialTransfer(adb, serialBinding, deviceBinding);
+      for (const phase of ['administrator', 'enrollment', 'employee'] as const) {
+        expect(fresh.confirmEmptyActiveField(phase)).toBe('match');
+        await expect(fresh.inject(phase, candidate)).resolves.toBe('match');
+        expect(fresh.state()).toEqual({ phase, state: 'injection-pending' });
+        expect(fresh.confirmVisibleField(phase, 'visible')).toBe('match');
+        expect(fresh.state()).toEqual({ phase: null, state: 'idle' });
+      }
+
+      expect(adb.injectionInputs).toHaveLength(3);
+      expect(adb.injectionRequireEmptyOutput).toEqual([true, true, true]);
+      expect(adb.injectionSnapshots).toEqual([
+        Buffer.from(`${credentialText}\n`, 'ascii'),
+        Buffer.from(`${credentialText}\n`, 'ascii'),
+        Buffer.from(`${credentialText}\n`, 'ascii'),
+      ]);
+      expect(adb.injectionInputs.every((input) => input.every((byte) => byte === 0))).toBe(true);
+      expect(adb.injectionCommands[0]?.slice(0, 6)).toEqual([
+        '-s', adb.serial, 'shell', '-T', 'sh', '-c',
+      ]);
+      const scriptArgument = adb.injectionCommands[0]?.[6];
+      expect(scriptArgument?.startsWith("'IFS= read -r v || exit 40;")).toBe(true);
+      expect(scriptArgument).toContain('[ "${#v}" -eq 64 ]');
+      expect(scriptArgument).toContain('*[!0-9a-f]*');
+      expect(scriptArgument).toContain('input text "$v" >/dev/null 2>&1;');
+      expect(scriptArgument).toContain('exit "$input_status"');
+      expect(JSON.stringify(adb.commands)).not.toContain(credentialText);
+      candidate.fill(0);
+    });
+
+  it('uses the same empty-field and no-output transfer under the exact Gate-E profile',
+    async () => {
+      const adb = new CredentialAdb();
+      adb.fontScale = '2.0';
+      adb.accessibilityEnabled = '1';
+      adb.enabledAccessibilityServices = `${adb.talkBackPackage}/.TalkBackService`;
+      const serialBinding = new Da5V5UsbSerialBinding();
+      expect(serialBinding.bind(adb.serial)).toBe('match');
+      const mobile = new Da5V5MobileCredentialTransfer(adb, serialBinding, {
+        androidBuild: deviceBinding.androidBuild,
+        deviceModel: deviceBinding.deviceModel,
+        fontScale: '2.0',
+        talkBackPackage: adb.talkBackPackage,
+        talkBackVersion: adb.talkBackVersion,
       });
-      expect(JSON.stringify(processes.commands)).not.toContain(credentialText);
+      const candidate = da5V5SyntheticCredentialBuffer(credentialText);
+
+      expect(mobile.confirmEmptyActiveField('administrator')).toBe('match');
+      await expect(mobile.inject('administrator', candidate)).resolves.toBe('match');
+      expect(mobile.confirmVisibleField('administrator', 'visible')).toBe('match');
+      expect(adb.injectionRequireEmptyOutput).toEqual([true]);
+      expect(adb.commands).toContainEqual([
+        '-s', adb.serial, 'shell', 'dumpsys', 'package', adb.talkBackPackage,
+      ]);
+
+      const versionDrift = new CredentialAdb();
+      versionDrift.fontScale = '2.0';
+      versionDrift.accessibilityEnabled = '1';
+      versionDrift.enabledAccessibilityServices = (
+        `${versionDrift.talkBackPackage}/.TalkBackService`
+      );
+      const driftBinding = new Da5V5UsbSerialBinding();
+      expect(driftBinding.bind(versionDrift.serial)).toBe('match');
+      const rejected = new Da5V5MobileCredentialTransfer(versionDrift, driftBinding, {
+        androidBuild: deviceBinding.androidBuild,
+        deviceModel: deviceBinding.deviceModel,
+        fontScale: '2.0',
+        talkBackPackage: versionDrift.talkBackPackage,
+        talkBackVersion: 'different-version',
+      });
+      expect(rejected.confirmEmptyActiveField('employee')).toBe('match');
+      await expect(rejected.inject('employee', candidate)).resolves.toBe('mismatch');
+      expect(versionDrift.injectionInputs).toHaveLength(0);
+      candidate.fill(0);
+    });
+
+  it('executes the fixed device-side parser fail-closed for format, extra input and input exit',
+    async () => {
+      const adb = new CredentialAdb();
+      const serialBinding = new Da5V5UsbSerialBinding();
+      expect(serialBinding.bind(adb.serial)).toBe('match');
+      const mobile = new Da5V5MobileCredentialTransfer(adb, serialBinding, deviceBinding);
+      const candidate = da5V5SyntheticCredentialBuffer(credentialText);
+      expect(mobile.confirmEmptyActiveField('administrator')).toBe('match');
+      await expect(mobile.inject('administrator', candidate)).resolves.toBe('match');
+      const quoted = adb.injectionCommands[0]?.[6];
+      expect(quoted).toBeDefined();
+      const script = quoted?.slice(1, -1) ?? '';
+
+      expect(runMobileInputScript(script, `${credentialText}\n`, 0)).toBe(0);
+      expect(runMobileInputScript(script, `${'A'.repeat(64)}\n`, 0)).toBe(41);
+      expect(runMobileInputScript(script, `${'a'.repeat(63)}\n`, 0)).toBe(41);
+      expect(runMobileInputScript(script, `${credentialText}\nextra\n`, 0)).toBe(42);
+      expect(runMobileInputScript(script, `${credentialText}\n`, 7)).toBe(7);
+      candidate.fill(0);
+    });
+
+  it('latches failed on wrong phase, non-visible confirmation, invalid format or ADB output',
+    async () => {
+      const makeTransfer = (adb = new CredentialAdb()) => {
+        const serialBinding = new Da5V5UsbSerialBinding();
+        expect(serialBinding.bind(adb.serial)).toBe('match');
+        return { adb, mobile: new Da5V5MobileCredentialTransfer(adb, serialBinding, deviceBinding) };
+      };
+      const candidate = da5V5SyntheticCredentialBuffer(credentialText);
+
+      const wrongPhase = makeTransfer();
+      expect(wrongPhase.mobile.confirmEmptyActiveField('enrollment')).toBe('match');
+      await expect(wrongPhase.mobile.inject('employee', candidate)).resolves.toBe('mismatch');
+      expect(wrongPhase.mobile.state()).toEqual({ phase: null, state: 'failed' });
+
+      const notVisible = makeTransfer();
+      expect(notVisible.mobile.confirmEmptyActiveField('employee')).toBe('match');
+      await expect(notVisible.mobile.inject('employee', candidate)).resolves.toBe('match');
+      expect(notVisible.mobile.confirmVisibleField('employee', 'empty')).toBe('mismatch');
+      expect(notVisible.mobile.confirmEmptyActiveField('employee')).toBe('mismatch');
+
+      const invalid = makeTransfer();
+      expect(invalid.mobile.confirmEmptyActiveField('administrator')).toBe('match');
+      await expect(invalid.mobile.inject(
+        'administrator',
+        Buffer.from('A'.repeat(64), 'ascii'),
+      )).resolves.toBe('mismatch');
+      expect(invalid.adb.injectionInputs).toHaveLength(0);
+
+      const output = makeTransfer();
+      output.adb.injectionOutput = '\n';
+      expect(output.mobile.confirmEmptyActiveField('administrator')).toBe('match');
+      await expect(output.mobile.inject('administrator', candidate)).resolves.toBe('mismatch');
+      expect(output.mobile.state()).toEqual({ phase: null, state: 'failed' });
+      expect(output.adb.injectionInputs[0]?.every((byte) => byte === 0)).toBe(true);
+
+      const profile = makeTransfer();
+      profile.adb.fontScale = '2.0';
+      expect(profile.mobile.confirmEmptyActiveField('administrator')).toBe('match');
+      await expect(profile.mobile.inject('administrator', candidate)).resolves.toBe('mismatch');
+      expect(profile.adb.injectionInputs).toHaveLength(0);
       candidate.fill(0);
     });
 
   it('stops before injection when an identical-model/build replacement serial appears',
     async () => {
-      const processes = new FakeSecretProcesses();
       const adb = new CredentialAdb();
       const serialBinding = new Da5V5UsbSerialBinding();
       expect(serialBinding.bind(adb.serial)).toBe('match');
       const mobile = new Da5V5MobileCredentialTransfer(
-        processes,
         adb,
         serialBinding,
         deviceBinding,
@@ -307,7 +429,7 @@ describe('DA5 V5 coupled credential transfer', () => {
       const candidate = da5V5SyntheticCredentialBuffer(credentialText);
 
       await expect(mobile.inject('employee', candidate)).resolves.toBe('mismatch');
-      expect(processes.writes).toHaveLength(0);
+      expect(adb.injectionInputs).toHaveLength(0);
       candidate.fill(0);
     });
 
@@ -353,9 +475,24 @@ class FakeSecretProcesses implements Da5V5SecretProcessRunner {
 }
 
 class CredentialAdb implements Da5V5AndroidAdbRunner {
+  accessibilityEnabled = '0';
+  commands: string[][] = [];
+  enabledAccessibilityServices = 'null';
+  injectionCommands: string[][] = [];
+  injectionInputs: Buffer[] = [];
+  injectionRequireEmptyOutput: boolean[] = [];
+  injectionSnapshots: Buffer[] = [];
+  injectionOutput = '';
+  fontScale = '1.0';
   serial = 'synthetic-device';
+  talkBackPackage = 'com.google.android.marvin.talkback' as const;
+  talkBackVersion = '15.1.0';
 
-  async run(arguments_: readonly string[]): Promise<string> {
+  async run(
+    arguments_: readonly string[],
+    options: Readonly<{ requireEmptyOutput?: true; stdinBytes?: Buffer }> = {},
+  ): Promise<string> {
+    this.commands.push([...arguments_]);
     if (arguments_.join(' ') === 'devices -l') {
       return `List of devices attached\n${this.serial}\tdevice usb:synthetic\n`;
     }
@@ -366,6 +503,16 @@ class CredentialAdb implements Da5V5AndroidAdbRunner {
     if (command === 'shell getprop ro.product.model') return `${deviceBinding.deviceModel}\n`;
     if (command === 'shell getprop ro.build.fingerprint') {
       return `${deviceBinding.androidBuild}\n`;
+    }
+    if (command === 'shell settings get system font_scale') return `${this.fontScale}\n`;
+    if (command === 'shell settings get secure accessibility_enabled') {
+      return `${this.accessibilityEnabled}\n`;
+    }
+    if (command === 'shell settings get secure enabled_accessibility_services') {
+      return `${this.enabledAccessibilityServices}\n`;
+    }
+    if (command === `shell dumpsys package ${this.talkBackPackage}`) {
+      return `  versionName=${this.talkBackVersion}\n`;
     }
     if (command === 'reverse --list') {
       return [
@@ -389,6 +536,31 @@ class CredentialAdb implements Da5V5AndroidAdbRunner {
     if (command === 'shell ps -A -w -o NAME:4') {
       return 'NAME\ncom.tim180201.mobile.synthetic\n';
     }
+    if (command.startsWith("shell -T sh -c 'IFS= read -r v || exit 40;")) {
+      if (options.stdinBytes === undefined) {
+        throw new Error('missing synthetic stdin');
+      }
+      this.injectionCommands.push([...arguments_]);
+      this.injectionInputs.push(options.stdinBytes);
+      this.injectionRequireEmptyOutput.push(options.requireEmptyOutput === true);
+      this.injectionSnapshots.push(Buffer.from(options.stdinBytes));
+      return this.injectionOutput;
+    }
     throw new Error(`unexpected command: ${command}`);
   }
+}
+
+function runMobileInputScript(script: string, input: string, inputStatus: number): number {
+  const result = spawnSync(
+    '/bin/sh',
+    ['-c', `input() { return "\${INPUT_STATUS}"; }; ${script}`],
+    {
+      encoding: 'utf8',
+      env: { INPUT_STATUS: String(inputStatus), PATH: '/usr/bin:/bin' },
+      input,
+    },
+  );
+  expect(result.stdout).toBe('');
+  expect(result.stderr).toBe('');
+  return result.status ?? -1;
 }

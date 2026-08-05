@@ -92,13 +92,13 @@ export function da5V5SyntheticCredentialBuffer(value: string): Buffer {
   const candidate = Buffer.from(value, 'ascii');
   if (!isDa5V5SyntheticCredential(candidate) || candidate.toString('ascii') !== value) {
     candidate.fill(0);
-    throw new Error('DA5 V5 synthetic credential must be exact 64-hex ASCII');
+    throw new Error('DA5 V5 synthetic credential must be exact 64-lowercase-hex ASCII');
   }
   return candidate;
 }
 
 function isDa5V5SyntheticCredential(value: Buffer): boolean {
-  return value.length === 64 && /^[0-9a-fA-F]{64}$/u.test(value.toString('ascii'));
+  return value.length === 64 && /^[0-9a-f]{64}$/u.test(value.toString('ascii'));
 }
 
 function digest(value: string | Buffer): Buffer {
@@ -111,7 +111,7 @@ function digest(value: string | Buffer): Buffer {
     }
   }
   if (!isDa5V5SyntheticCredential(value)) {
-    throw new Error('DA5 V5 synthetic credential must be exact 64-hex ASCII');
+    throw new Error('DA5 V5 synthetic credential must be exact 64-lowercase-hex ASCII');
   }
   return createHash('sha256').update(value).digest();
 }
