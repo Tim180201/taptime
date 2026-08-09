@@ -1,5 +1,37 @@
 # Development Assignment 5 — V5 Human Android Evidence
 
+## Current Credential PTY consumed-run finding and local correction evidence — corrected final V3 PASS; prepublication review pending
+
+| Evidence | Exact result |
+|---|---|
+| Development baseline | `aca2fcfb794adf9bd44786459a7dbd35448172d2` / tree `124cce6f4b80eca3562fe50fe219d0c2517ee99a`; local `HEAD` and `origin/main` matched before Development |
+| Consumed run | Active empty password field reached; protection filter detected the memory-only Credential in child PTY output and stopped fail-closed; authority consumed; later Product gates not authorized |
+| Terminal cleanup | Product/Validation packages and processes, owned reverse mappings, listeners, disposable database and task runtime matched null; no raw Credential or Credential digest is Evidence |
+| Confirmed predecessor cause | Exact Node PTY path removed all Command-readline listeners, closed it, published `synthetic_password_input_ready` and created the muted Secret readline afterward; deterministic synthetic dummy appeared exactly once despite ECHO/ECHONL off |
+| Initial focused correction | One synchronous Command-to-Secret factory transfer; no `removeAllListeners`; muted output plus active question before the sole Ready receipt; exact 64-lowercase-hex validation; retained Buffer zeroization; closed Secret ownership retained until release |
+| Independent Review Round 1 | `CHANGES REQUIRED`: one P1 for valid line plus same-write EOF/Close and valid line plus unterminated foreign rest crossing settlement; one P2 because only the bounded PTY wrapper/process group—not Credential capture—had timeout evidence; one P2 because complete Synthetic V2 was missing; one P3 because `ADO/README.md` still presented ADB reverse as current truth |
+| Round-1 correction | The exclusively owned raw input is audited from before Ready through final settlement; Close and Error always reject until that boundary; any byte after the first line terminator rejects in the same input event; mutable raw copies/chunks, muted writes and retained Credential Buffers are zeroized; immutable strings are discarded; no timer/delay or new Credential timeout |
+| Duplicate/foreign/terminal behavior | Complete and unterminated same-turn foreign input reject; valid line plus Ctrl-D/Close rejects; empty Ctrl-D and explicit Error reject; Command ownership cannot restart before Secret release |
+| Exact transfer/receipt positions | Standard Administrator, Enrollment and Employee: `synthetic_password_binding=match`; Gate-E Administrator at `administrator-setup` and Employee at `employee-navigation`: `da5_v5_accessibility_password_binding=match`; exactly five transfers |
+| V0 predecessor/correction | Real PTY with fixed synthetic dummy: predecessor one occurrence / corrected built helper zero occurrences; corrected capture 64 bytes and exit 0 |
+| Focused V1/V2 | `Da5V5CredentialTransfer.test.ts`, `Da5V5Profile.test.ts` and `Da5V5ProductStartBundle.test.ts`: 3/3 files, 63/63 tests passed |
+| Real PTY capture matrix | Success; complete foreign line reject; unterminated foreign rest reject; valid line plus Ctrl-D/Close reject; empty Ctrl-D reject; explicit Error reject; uppercase-format reject; exactly one Ready receipt and zero Secret occurrences in every capture case |
+| PTY wrapper/process-group evidence | Separate bounded wrapper expiry; final unterminated-output remainder scanned before result; negative-PGID TERM/KILL cleanup removed the Node leader and deliberately live descendant. This is not Credential-capture timeout evidence |
+| Complete Synthetic V2 first changed-input run | 13/14 files passed; 302 tests passed and 18 skipped. Sole failure was the stale static `captureCredential(secretInput)` signature assertion after the raw-input parameter was added; no runtime/Product assertion failed |
+| Complete Synthetic V2 final | After that test correction, 14/14 files passed; 303 tests passed and 18 unchanged expected skips, 321 total |
+| Tests-inclusive Typecheck | `tsc -p tsconfig.json --noEmit` passed. Final exact `--listFilesOnly` membership reported 572 files and included `Da5V5SecretInput.ts`, `Da5V5OperatorLifecycle.ts`, `da5V5Main.ts`, the Synthetic `index.ts` and all three focused test sources exactly once. The first helper matcher counted three cross-workspace `src/index.ts` files; the exact workspace-relative matcher then passed with no source/test change between the two list invocations |
+| Build/syntax | Synthetic workspace build passed; `node --check apps/synthetic-android-e2e/dist/da5V5Main.js` passed |
+| Independent Review Round 2 | `APPROVED`; zero open P0–P3 |
+| First final Synthetic V3 quality phases | Exactly once on 09.08.2026: 14/14 files, 303 passed and 18 expected skips, 321 total; tests-inclusive Typecheck passed; exact `--listFilesOnly` membership contained 572 files and every changed input exactly once; Synthetic build and final bundle syntax passed |
+| First final Synthetic V3 formal result | `FAIL`, exit 98. After every quality phase passed, the terminal cleanup check found Node-24 `node-compile-cache/**` under the task-owned basename `taptime-da5-credential-v3.nSz7lx` and therefore failed closed |
+| First post-failure bounded cleanup | Only that exact task-owned root was removed; the following absence check passed. The cleanup does not convert the first run into V3 `PASS`; it remains non-reusable `FAIL` evidence |
+| Corrected V3 authority / unchanged input | Separately and exactly Human-authorized; ran once after confirming the old root absent. `HEAD`/`origin/main` remained `aca2fcfb794adf9bd44786459a7dbd35448172d2`, tree `124cce6f4b80eca3562fe50fe219d0c2517ee99a`; exact six-path input-manifest SHA-256 remained `6f7c0f11c1db4dc52b8f7742f356a3dec629aac5b3ca01609bc457ee98cba8f3` before and after |
+| Corrected V3 root / environment | Fresh basename `taptime-da5-credential-v3-corrected.aKLa2n`; root mode `0700`, UID `501`, device `16777232`, inode `26198550`; parent device/inode `16777232:31941`. Fixed `tmp` and `node-compile-cache` children were passed through `env -i` to every Node/npm/Vitest/TypeScript/Vite invocation. Node `24.17.0`, npm `11.13.0`; ADB not resolvable and database environment absent |
+| Corrected final Synthetic V3 | `PASS`, exactly once: 14/14 files, 303 passed and 18 expected skips, 321 total; tests-inclusive Typecheck passed; `--listFilesOnly` ran exactly once with 572 files, all seven required source/test inputs exactly once and SHA-256 `c91ba74dbf6a834f620cc9971048f22700f3e03eceb15368a133d1c5ed949a3b`; Synthetic build and final bundle syntax passed |
+| Corrected V3 post-children / cleanup | Root/Parent/UID/Inode reattested unchanged; symlinks, mounts and open handles absent. Only the exactly bound root was removed with `find -xdev -depth -delete`; root absence and unchanged parent binding passed |
+| Boundaries | Product/Validation Apps and APKs, Product rules, NFC, schema, dependencies, package manifests/lockfile and workflow unchanged; no ADB, install, APK build/publication, Product/production database, Hardware or production action |
+| Candidate status | Uncommitted/unpublished; corrected final V3 `PASS`; prepublication review and V4/CI remain pending; every published predecessor runtime is superseded for every future start; **DO NOT INSTALL / DO NOT START** |
+
 ## Current consumed Product run and published Credential / Lean-Accessibility V4/runtime candidate — final review APPROVED; ADO closure publication pending
 
 | Evidence | Exact result |

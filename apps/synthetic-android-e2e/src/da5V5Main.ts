@@ -1,4 +1,3 @@
-import { Writable } from 'node:stream';
 import { createInterface } from 'node:readline';
 import {
   classifyDa5V5AndroidInstallCleanup,
@@ -47,6 +46,7 @@ import {
 import {
   Da5V5MobileCredentialTransfer,
 } from './Da5V5CredentialTransfer.js';
+import { readDa5V5HiddenCredential } from './Da5V5SecretInput.js';
 import {
   da5V5DedupeBinding,
   isDa5V5DedupePhase,
@@ -1192,46 +1192,11 @@ function fail(
 }
 
 async function readHiddenCredential(): Promise<Buffer> {
-  const activeInput = inputOwnership.command();
-  if (activeInput === null || !process.stdin.isTTY) {
-    throw new Error('DA5 V5 credential input requires an interactive terminal');
-  }
-  inputOwnership.detachCommandForSecret();
-  process.stdout.write('synthetic_password_input_ready\n');
-  const mutedOutput = new Writable({
-    write(_chunk, _encoding, callback) {
-      callback();
-    },
-  });
-  const secretInput = createInterface({
-    input: process.stdin,
-    output: mutedOutput,
-    terminal: true,
-    historySize: 0,
-  });
-  inputOwnership.attachSecret(secretInput);
-  try {
-    return await new Promise<Buffer>((resolvePromise, rejectPromise) => {
-      let answered = false;
-      secretInput.once('close', () => {
-        if (!answered) {
-          rejectPromise(new Error('DA5 V5 credential input closed'));
-        }
-      });
-      secretInput.question('', (answer) => {
-        answered = true;
-        const candidate = Buffer.from(answer, 'utf8');
-        if (candidate.length !== 64) {
-          candidate.fill(0);
-          resolvePromise(Buffer.alloc(0));
-          return;
-        }
-        resolvePromise(candidate);
-      });
-    });
-  } finally {
-    inputOwnership.releaseSecret(secretInput);
-  }
+  return readDa5V5HiddenCredential(
+    inputOwnership,
+    process.stdin,
+    () => process.stdout.write('synthetic_password_input_ready\n'),
+  );
 }
 
 function startCommandInput(): void {
@@ -1253,6 +1218,7 @@ function startCommandInput(): void {
     );
   });
   commandInput.once('close', () => {
+    if (inputOwnership.command() !== commandInput) return;
     observeBackgroundOperation(
       operatorLifecycle?.abortAndFail('operator_command_failed'),
     );

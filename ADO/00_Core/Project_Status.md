@@ -1,5 +1,79 @@
 # Project Status
 
+DA5 V5 Credential-PTY override: **THE LATEST PRODUCT HUMAN/HARDWARE AUTHORITY IS CONSUMED AND
+FINAL CLEANUP IS NULL. THE PUBLISHED PRODUCT OPERATOR RUNTIME IS SUPERSEDED FOR EVERY FUTURE
+START BY CONFIRMED PTY CREDENTIAL DISCLOSURE. THE CORRECTION IS INDEPENDENTLY APPROVED WITH ZERO
+OPEN P0–P3, AND THE SEPARATELY AUTHORIZED CORRECTED FINAL V3 IS PASS. PREPUBLICATION REVIEW,
+PUBLICATION AND EVERY NEW HARDWARE ACTION REMAIN PENDING.
+DO NOT INSTALL / DO NOT START.** Development baseline is
+`aca2fcfb794adf9bd44786459a7dbd35448172d2` / tree
+`124cce6f4b80eca3562fe50fe219d0c2517ee99a`; local `HEAD` and `origin/main` matched before
+Development.
+
+The consumed run reached an active empty password field. Its protection filter then detected the
+memory-only 64-byte Credential in the Node PTY output and stopped the run fail-closed; no later
+Product gate was authorized. Product/Validation packages and processes, owned reverse mappings,
+listeners, disposable database and task runtime ended at the confirmed null state. No raw
+Credential or Credential digest is Evidence.
+
+The exact hardware-free reproducer confirmed one occurrence after
+`Da5V5InputOwnership.detachCommandForSecret()` removed every Command-readline listener, closed the
+interface, published `synthetic_password_input_ready` and only then created the muted Secret
+readline. Terminal ECHO/ECHONL state did not prevent this userland echo. The initial correction
+replaced that gap with one synchronous Command-to-Secret ownership transfer, never called
+`removeAllListeners`, and bound muted output plus the active question before the single Ready
+receipt. Independent Review Round 1 returned `CHANGES REQUIRED`: valid input plus same-write
+Ctrl-D/Close and valid input plus an unterminated foreign rest could still cross the settlement
+boundary; timeout evidence named only a PTY wrapper; full Synthetic V2 and official-entry truth
+were incomplete.
+
+The corrected local candidate additionally audits the exclusively owned raw input from before
+Ready through final settlement. Close and Error always reject until that boundary, and every byte
+after the first line terminator rejects in the same input event. Mutable raw copies/chunks, muted
+writes and retained Credential Buffers are zeroized; immutable strings are immediately discarded.
+No timer or timing delay is used. A closed Secret remains the logical owner until release, so
+Command input cannot restart in parallel.
+
+The transfer contract remains exactly five position-bound actions: Administrator, Enrollment and
+Employee use `synthetic_password_binding=match`; Gate-E Administrator and Employee
+reauthentication use `da5_v5_accessibility_password_binding=match` at their already bound surface
+positions. Digest comparison, empty-active and Human `VISIBLE` confirmation gates are unchanged.
+
+V0 reproduced the predecessor with one synthetic-dummy occurrence and the corrected built helper
+with zero. Focused V1/V2 passes 3/3 files and 63/63 tests. The real PTY matrix covers success,
+complete and unterminated same-turn foreign input, valid line plus Ctrl-D/Close, empty Ctrl-D,
+explicit Error and invalid format; every Credential case reports zero Secret occurrences. The
+separate bounded PTY-wrapper check scans the final unterminated output remainder and cleans the
+whole process group including a deliberately retained descendant; it is not Credential-capture
+timeout evidence.
+
+The first complete Synthetic run passed 13/14 files, 302 tests and 18 skips; only the stale static
+`captureCredential(secretInput)` signature assertion failed after the new raw-input argument.
+After that changed-input test correction, complete Synthetic V2 passed 14/14 files with 303
+passed and 18 unchanged expected skips. The tests-inclusive Typecheck passed; final exact
+`--listFilesOnly` membership reported 572 files and included all changed sources plus the three
+focused tests. Synthetic build and final bundle `node --check` passed. Independent Review Round 2
+returned `APPROVED` with zero open P0–P3.
+
+The first exactly-once final Synthetic V3 on 09.08.2026 is formally `FAIL` with exit 98 although every
+quality phase passed: 14/14 files, 303 passed and 18 expected skips; tests-inclusive Typecheck;
+572-file exact changed-input membership; Synthetic build; and bundle syntax. The terminal cleanup
+check alone found Node-24 `node-compile-cache/**` under task-owned basename
+`taptime-da5-credential-v3.nSz7lx`. Only that exact root was subsequently removed and its absence
+proven. This first run remains non-reusable `FAIL` evidence.
+
+After separate exact Human authorization, one corrected Synthetic V3 ran exactly once on the
+unchanged baseline and input-manifest SHA-256
+`6f7c0f11c1db4dc52b8f7742f356a3dec629aac5b3ca01609bc457ee98cba8f3`. The old root was absent;
+fresh mode-`0700` root `taptime-da5-credential-v3-corrected.aKLa2n` bound fixed `tmp` and
+`node-compile-cache` children to the same parent, UID and inode boundary for every toolchain
+child. The run is `PASS`: 14/14 files, 303 passed, 18 expected skips; tests-inclusive Typecheck;
+exactly one 572-file membership list with SHA-256
+`c91ba74dbf6a834f620cc9971048f22700f3e03eceb15368a133d1c5ed949a3b`; build; and bundle syntax.
+After all children, Root/Parent/UID/Inode remained bound, symlinks, mounts and open handles were
+absent, and `xdev`-bounded removal plus root-absence proof passed. No V4/CI, artifact publication,
+ADB, installation, APK build or Hardware action was run or authorized.
+
 DA5 V5 ADB-reverse override: **THE LATEST PRODUCT HUMAN/HARDWARE RUN IS CONSUMED WITH FINAL NULL;
 `DA5-V5-PRODUCT-ADB-REVERSE-01` IS CONFIRMED; THE PUBLISHED R3 CORRECTION IS V4-BOUND,
 TECHNICALLY CLOSED AND ARTIFACT-BOUND. EVERY NEW HUMAN/HARDWARE ACTION REMAINS UNAUTHORIZED. DO

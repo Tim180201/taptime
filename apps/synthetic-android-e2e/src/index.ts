@@ -10,6 +10,7 @@ export * from './Da5V5Database.js';
 export * from './Da5V5AdbController.js';
 export * from './Da5V5CommandPolicy.js';
 export * from './Da5V5CredentialTransfer.js';
+export * from './Da5V5SecretInput.js';
 export * from './Da5V5OperationSession.js';
 export * from './Da5V5OperatorLifecycle.js';
 export * from './Da5V5Profile.js';

@@ -1,5 +1,80 @@
 # Development Assignment 5 — V5 Human Android Gate Runbook
 
+## Current Credential PTY correction candidate — corrected final V3 PASS; prepublication review pending; DO NOT START hardware
+
+The latest Product Human/Hardware authority is consumed and final cleanup is null. The protection
+filter detected the memory-only Credential in child PTY output after the password field was
+confirmed active and empty, then stopped the run fail-closed. The published Product Operator
+runtime must not be reused. No raw Credential or Credential digest may be recorded, and no run
+observation authorizes a retry or later Product gate.
+
+The focused local candidate is based on
+`aca2fcfb794adf9bd44786459a7dbd35448172d2` / tree
+`124cce6f4b80eca3562fe50fe219d0c2517ee99a`. For every Credential action, the Command interface
+must transfer ownership synchronously to one Secret interface without `removeAllListeners`.
+Muted output, the active Secret question and the exclusively owned raw-input audit must be
+installed before exactly one `synthetic_password_input_ready` receipt. Only exact
+64-lowercase-hex input is accepted. Close and Error reject until final settlement; any byte after
+the first line terminator, including same-write Ctrl-D or an unterminated foreign rest, rejects in
+that same input event. Secret, line and write buffers are zeroized in place where mutable and
+otherwise immediately discarded. No product Credential-capture timeout was added or proved, and
+no timing delay is part of the correction. Command input may restart only after Secret release and
+completion of the owning command.
+
+The exact five transfer positions and success receipts are normative:
+
+1. Standard Administrator: `synthetic_password_binding=match`.
+2. Standard Enrollment: `synthetic_password_binding=match`.
+3. Standard Employee: `synthetic_password_binding=match`.
+4. Gate-E `administrator-setup` reauthentication:
+   `da5_v5_accessibility_password_binding=match`.
+5. Gate-E `employee-navigation` reauthentication:
+   `da5_v5_accessibility_password_binding=match`.
+
+Every position retains its existing empty-active check, hidden digest comparison, exact bound
+Android runner, both-streams-empty injection proof and Human `VISIBLE` confirmation before phase
+advance. A standard receipt is never accepted at an Accessibility position or conversely.
+
+Hardware-free V0 reproduced one synthetic-dummy occurrence on the predecessor and zero on the
+corrected built helper. Independent Review Round 1 returned `CHANGES REQUIRED` with one P1 for
+same-turn settlement, two P2 findings for timeout/full-V2 evidence and one P3 for the official
+ADO entry. The bundled local correction now passes focused tests at 3/3 files and 63/63 tests.
+Its real PTY matrix proves success plus rejection of complete/unterminated foreign input, valid
+line plus Ctrl-D/Close, empty Ctrl-D, Error and invalid format with zero Secret occurrences.
+A separate bounded PTY-wrapper/process-group check proves final-output scanning and whole-group
+cleanup with a live descendant; it does not prove a Credential-capture timeout.
+
+The first complete Synthetic run stopped at one stale static signature assertion after 13/14
+files, 302 passed and 18 skipped. After correcting that changed-input test, final complete
+Synthetic V2 passed 14/14 files, 303 tests and 18 unchanged expected skips. The tests-inclusive
+Typecheck passed with 572 listed files and exact changed-input membership; build and bundle syntax
+passed. These checks used no ADB, installation, APK or Hardware.
+
+Independent Review Round 2 returned `APPROVED` with zero open P0–P3. The first exactly-once final
+Synthetic V3 on 09.08.2026 nevertheless ended formally `FAIL` with exit 98: tests passed 14/14
+files with 303 passed and 18 expected skips; tests-inclusive Typecheck, exact 572-file membership,
+Synthetic build and bundle syntax all passed. The sole failure was the terminal cleanup check:
+Node 24 created task-owned `node-compile-cache/**` under basename
+`taptime-da5-credential-v3.nSz7lx`. The exact root was subsequently removed through bounded
+cleanup and its absence proven. This first run remains non-reusable `FAIL` evidence and does not
+authorize continuation.
+
+Separate exact Human authorization then permitted one fresh corrected V3 on the unchanged
+baseline and six-path input-manifest SHA-256
+`6f7c0f11c1db4dc52b8f7742f356a3dec629aac5b3ca01609bc457ee98cba8f3`. Before start, the old
+root was absent. Fresh mode-`0700` root `taptime-da5-credential-v3-corrected.aKLa2n` was bound to
+its parent, UID and inode; fixed `tmp` and `node-compile-cache` children were inherited by every
+Node/npm/Vitest/TypeScript/Vite invocation. The run passed 14/14 files, 303 tests and 18 expected
+skips; tests-inclusive Typecheck; exactly one 572-file membership list with every required input
+once and SHA-256 `c91ba74dbf6a834f620cc9971048f22700f3e03eceb15368a133d1c5ed949a3b`;
+Synthetic build; and bundle syntax. After all children exited, Root/Parent/UID/Inode remained
+bound, symlinks, mounts and open handles were absent, and exact `xdev`-bounded removal plus
+root-absence proof passed. This corrected run is the current V3 `PASS` evidence only.
+
+This remains an uncommitted and unpublished candidate. Prepublication review remains pending; no
+V4/CI or exact publication is claimed. **DO NOT INSTALL / DO NOT START.** A separate Human
+authorization would still be required before any future Hardware action.
+
 ## Current Credential-transfer / Lean-Accessibility published V4/runtime candidate — final review APPROVED; ADO closure publication pending; DO NOT START hardware
 
 The latest Product Human/Hardware authority on baseline

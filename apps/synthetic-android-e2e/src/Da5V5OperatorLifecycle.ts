@@ -265,28 +265,35 @@ export class Da5V5InputOwnership {
   }
 
   attachCommand(input: Interface): void {
-    if (this.commandInput !== null || this.secretInput !== null) {
+    if (
+      this.closedSecretInput !== null
+      || this.commandInput !== null
+      || this.secretInput !== null
+    ) {
       throw new Error('DA5 V5 input already has an owner');
     }
     this.commandInput = input;
   }
 
-  detachCommandForSecret(): void {
+  transferCommandToSecret(createSecretInput: () => Interface): Interface {
     const input = this.commandInput;
-    if (input === null || this.secretInput !== null) {
+    if (
+      this.closedSecretInput !== null
+      || input === null
+      || this.secretInput !== null
+    ) {
       throw new Error('DA5 V5 command input is unavailable');
     }
     this.commandInput = null;
-    input.removeAllListeners();
     input.close();
-  }
-
-  attachSecret(input: Interface): void {
+    const secretInput = createSecretInput();
     if (this.commandInput !== null || this.secretInput !== null) {
+      secretInput.close();
       throw new Error('DA5 V5 input already has an owner');
     }
     this.closedSecretInput = null;
-    this.secretInput = input;
+    this.secretInput = secretInput;
+    return secretInput;
   }
 
   releaseSecret(input: Interface): void {
@@ -305,9 +312,9 @@ export class Da5V5InputOwnership {
   }
 
   closeAll(): void {
-    this.commandInput?.removeAllListeners();
-    this.commandInput?.close();
+    const commandInput = this.commandInput;
     this.commandInput = null;
+    commandInput?.close();
     if (this.secretInput !== null) {
       this.closedSecretInput = this.secretInput;
       this.secretInput.close();
@@ -318,6 +325,8 @@ export class Da5V5InputOwnership {
   mode(): 'command' | 'none' | 'secret' {
     return this.commandInput !== null
       ? 'command'
-      : this.secretInput !== null ? 'secret' : 'none';
+      : this.secretInput !== null || this.closedSecretInput !== null
+        ? 'secret'
+        : 'none';
   }
 }

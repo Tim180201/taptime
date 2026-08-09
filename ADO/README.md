@@ -7,7 +7,52 @@ Approval Authority: Human Architect
 
 ## Purpose
 
-### Current DA5 V5 truth — ADB-37 reverse `UsbFfs` correction technically closed and artifact-bound
+### Current DA5 V5 truth — Credential PTY correction final corrected V3 PASS; prepublication review pending
+
+The latest Product Human/Hardware authority is consumed and final cleanup is null. After the
+password field was confirmed active and empty, the protection filter detected the memory-only
+Credential in child PTY output and stopped the run fail-closed before every later Product gate.
+Every previously published Product Operator runtime, including the ADB-reverse-corrected runtime,
+is superseded for every future start. No raw Credential or Credential digest is Evidence.
+
+The focused local correction is based on
+`aca2fcfb794adf9bd44786459a7dbd35448172d2` / tree
+`124cce6f4b80eca3562fe50fe219d0c2517ee99a`. Independent Review Round 1 returned
+`CHANGES REQUIRED` for the same-turn valid-line-plus-Close and unterminated-rest settlement gap,
+inaccurate timeout evidence, missing full Synthetic V2 and this stale official entry. The corrected capture
+owns the Command-to-Secret transfer, muted output and raw input audit before the single Ready
+receipt; rejects Close, Error and any byte after the first line terminator through final settlement
+boundary; and zeroizes mutable Secret/input/output buffers without a timer or delay.
+
+Focused verification passes 3/3 files and 63/63 tests. The final complete Synthetic V2 passes
+14/14 files with 303 passed and 18 unchanged expected skips; the tests-inclusive Typecheck passes
+with 572 listed files and exact changed-input membership; Synthetic build and final bundle syntax
+pass. The PTY wrapper separately proves bounded whole-process-group cleanup and final
+unterminated-output scanning; it is not Credential-capture timeout evidence. Independent Review
+Round 2 returned `APPROVED` with zero open P0–P3.
+
+The first exactly-once final Synthetic V3 on 09.08.2026 is formally `FAIL` with exit 98. All quality
+phases completed green: 14/14 files, 303 passed and 18 expected skips; tests-inclusive Typecheck;
+572-file membership with every changed input exactly once; Synthetic build; and final bundle
+syntax. Only the terminal cleanup check failed because Node 24 created
+`node-compile-cache/**` inside task-owned basename `taptime-da5-credential-v3.nSz7lx`. That exact
+root was then removed with a bounded cleanup and its absence was proven. This first run remains
+non-reusable `FAIL` evidence and was not relabeled.
+
+After separate exact Human authorization, one fresh corrected Synthetic V3 ran exactly once on
+the unchanged commit/tree and six-path input-manifest SHA-256
+`6f7c0f11c1db4dc52b8f7742f356a3dec629aac5b3ca01609bc457ee98cba8f3`. The old root was absent.
+Fresh mode-`0700` root `taptime-da5-credential-v3-corrected.aKLa2n` was bound to its parent, UID
+and inode; fixed `tmp` and `node-compile-cache` children were inherited by every Node/npm/toolchain
+process. The corrected run is `PASS`: 14/14 files, 303 passed, 18 expected skips; tests-inclusive
+Typecheck; exactly one 572-file membership receipt with SHA-256
+`c91ba74dbf6a834f620cc9971048f22700f3e03eceb15368a133d1c5ed949a3b`; build; and bundle syntax.
+After all children exited, binding was unchanged and symlinks, mounts and open handles were
+absent; the exact root was removed `xdev`-bounded and its absence proven. No V4/CI, artifact
+publication, ADB, installation, APK build or Hardware action was run. Prepublication review and
+exact publication remain pending. **DO NOT INSTALL / DO NOT START.**
+
+### Prior DA5 V5 truth — ADB-37 reverse `UsbFfs` correction technically closed and artifact-bound
 
 The Product Human/Hardware run associated with correction baseline
 `6b7f60ba483a65f1723cbf29e87f8a439f0804c9` / tree

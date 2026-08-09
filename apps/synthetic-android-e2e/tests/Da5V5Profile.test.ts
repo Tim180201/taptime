@@ -1193,21 +1193,30 @@ describe('DA5 V5 fixture, lifecycle and startup fail-stop boundaries', () => {
     const command = fakeInterface();
     const secret = fakeInterface();
     ownership.attachCommand(command);
-    expect(() => ownership.attachSecret(secret)).toThrow(/already has an owner/);
-    ownership.detachCommandForSecret();
-    ownership.attachSecret(secret);
+    const transferred = ownership.transferCommandToSecret(() => secret);
+    expect(transferred).toBe(secret);
+    expect(command.removeAllListeners).not.toHaveBeenCalled();
+    expect(command.close).toHaveBeenCalledTimes(1);
     expect(ownership.mode()).toBe('secret');
     expect(() => ownership.attachCommand(command)).toThrow(/already has an owner/);
     ownership.releaseSecret(secret);
     expect(ownership.mode()).toBe('none');
-    ownership.attachSecret(secret);
+    ownership.attachCommand(command);
+    ownership.transferCommandToSecret(() => secret);
     ownership.closeAll();
+    expect(ownership.mode()).toBe('secret');
+    expect(() => ownership.attachCommand(command)).toThrow(/already has an owner/);
     expect(() => ownership.releaseSecret(secret)).not.toThrow();
+    expect(ownership.mode()).toBe('none');
   });
 
   it('keeps profile and signal guards ahead of configuration and resource creation',
     async () => {
       const source = await readFile(new URL('../src/da5V5Main.ts', import.meta.url), 'utf8');
+      const secretInputSource = await readFile(
+        new URL('../src/Da5V5SecretInput.ts', import.meta.url),
+        'utf8',
+      );
       const rejection = 'rejectDa5V5OperationalInputs(process.env, process.argv);';
       const profileRequirement =
         'const profile = requireDa5V5Profile(process.env.TAPTIME_SYNTHETIC_E2E_PROFILE);';
@@ -1327,6 +1336,55 @@ describe('DA5 V5 fixture, lifecycle and startup fail-stop boundaries', () => {
       );
       expect(source).toContain(
         'credential-field-confirm <administrator|enrollment|employee> <VISIBLE|EMPTY|AMBIGUOUS>',
+      );
+      expect(source).toContain(
+        "const credentialPhases = Object.freeze([\n  'administrator',\n  'enrollment',\n  'employee',\n] as const);",
+      );
+      const standardCredentialStart = source.indexOf(
+        'const credential = /^credential-check',
+      );
+      const accessibilityFieldStart = source.indexOf(
+        'const accessibilityFieldReady =',
+      );
+      const accessibilityCredentialStart = source.indexOf(
+        'const accessibilityCredentialCheck =',
+      );
+      const accessibilityConfirmationStart = source.indexOf(
+        'const accessibilityFieldConfirmation =',
+      );
+      const standardCredentialBlock = source.slice(
+        standardCredentialStart,
+        accessibilityFieldStart,
+      );
+      const accessibilityCredentialBlock = source.slice(
+        accessibilityCredentialStart,
+        accessibilityConfirmationStart,
+      );
+      expect(standardCredentialBlock).toContain(
+        "process.stdout.write('synthetic_password_binding=match\\n')",
+      );
+      expect(standardCredentialBlock).not.toContain(
+        'da5_v5_accessibility_password_binding=match',
+      );
+      expect(accessibilityCredentialBlock).toContain(
+        "process.stdout.write('da5_v5_accessibility_password_binding=match\\n')",
+      );
+      expect(accessibilityCredentialBlock).not.toContain(
+        "process.stdout.write('synthetic_password_binding=match\\n')",
+      );
+      expect(source.match(/synthetic_password_input_ready/gu)).toHaveLength(1);
+      expect(source).toContain(
+        "() => process.stdout.write('synthetic_password_input_ready\\n')",
+      );
+      expect(secretInputSource).not.toContain('removeAllListeners');
+      expect(secretInputSource).not.toContain('setTimeout');
+      expect(secretInputSource.indexOf('ownership.transferCommandToSecret('))
+        .toBeLessThan(secretInputSource.indexOf('captureCredential(secretInput, input)'));
+      expect(secretInputSource.indexOf('captureCredential(secretInput, input)'))
+        .toBeLessThan(secretInputSource.indexOf('publishReady();'));
+      expect(secretInputSource).toContain('observed.fill(0)');
+      expect(secretInputSource).toContain(
+        'if (Buffer.isBuffer(chunk)) chunk.fill(0);',
       );
       expect(source).toContain('da5_v5_accessibility_surface_plan=');
       expect(source).toContain('accessibility-prepare | accessibility-check');
