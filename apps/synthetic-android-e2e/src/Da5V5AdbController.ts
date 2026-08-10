@@ -1,5 +1,7 @@
 import { spawnSync } from 'node:child_process';
 import {
+  classifyDa5V5AndroidInstallCleanup,
+  classifyDa5V5AndroidInstallError,
   Da5V5UsbSerialBinding,
   requireDa5V5AccessibilityDisabled,
   requireDa5V5ActiveTalkBackProvider,
@@ -80,6 +82,134 @@ export interface Da5V5ApiOfflineState {
     | 'complete'
     | 'failed'
     | 'closed';
+}
+
+export type Da5V5EmployeeInstallationTransitionState =
+  | 'awaiting-human-pass'
+  | 'human-confirmed'
+  | 'prechecked'
+  | 'old-offline-closed'
+  | 'old-installation-cleaned'
+  | 'replacement-installed'
+  | 'postchecked'
+  | 'matched'
+  | 'failed';
+
+export interface Da5V5EmployeeInstallationTransitionOperations {
+  readonly closeOldOffline: () => Promise<'match' | 'mismatch'>;
+  readonly cleanupOldInstallation: () => Promise<'match' | 'mismatch'>;
+  readonly installReplacement: () => Promise<'match' | 'mismatch'>;
+  readonly postcheck: () => Promise<'match' | 'mismatch'>;
+  readonly precheck: () => Promise<'match' | 'mismatch'>;
+}
+
+export function da5V5AndroidInstallFailureReceipt(error: unknown): string {
+  const cleanup = classifyDa5V5AndroidInstallCleanup(error);
+  return `da5_v5_android_install=mismatch category=${classifyDa5V5AndroidInstallError(error)} cleanup_status=${cleanup.status} cleanup_substage=${cleanup.substage}\n`;
+}
+
+export class Da5V5EmployeeInstallationTransition {
+  private flight: Promise<'match' | 'mismatch'> | null = null;
+  private stateValue: Da5V5EmployeeInstallationTransitionState = 'awaiting-human-pass';
+
+  confirm(
+    verdict: 'pass' | 'fail' | 'ambiguous',
+    operations: Da5V5EmployeeInstallationTransitionOperations,
+  ): Promise<'match' | 'mismatch'> {
+    if (
+      verdict !== 'pass'
+      || this.stateValue !== 'awaiting-human-pass'
+      || this.flight !== null
+    ) {
+      return Promise.resolve(this.fail());
+    }
+    this.stateValue = 'human-confirmed';
+    const flight = this.run(operations).finally(() => {
+      if (this.flight === flight) {
+        this.flight = null;
+      }
+    });
+    this.flight = flight;
+    return flight;
+  }
+
+  getState(): Readonly<{ state: Da5V5EmployeeInstallationTransitionState }> {
+    return Object.freeze({ state: this.stateValue });
+  }
+
+  matched(): boolean {
+    return this.stateValue === 'matched';
+  }
+
+  private async run(
+    operations: Da5V5EmployeeInstallationTransitionOperations,
+  ): Promise<'match' | 'mismatch'> {
+    if (!await this.step('human-confirmed', 'prechecked', operations.precheck)) {
+      return 'mismatch';
+    }
+    if (!await this.step(
+      'prechecked',
+      'old-offline-closed',
+      operations.closeOldOffline,
+    )) {
+      return 'mismatch';
+    }
+    if (!await this.step(
+      'old-offline-closed',
+      'old-installation-cleaned',
+      operations.cleanupOldInstallation,
+    )) {
+      return 'mismatch';
+    }
+    if (!await this.step(
+      'old-installation-cleaned',
+      'replacement-installed',
+      operations.installReplacement,
+    )) {
+      return 'mismatch';
+    }
+    if (!await this.step(
+      'replacement-installed',
+      'postchecked',
+      operations.postcheck,
+    )) {
+      return 'mismatch';
+    }
+    if (this.stateValue !== 'postchecked') {
+      return this.fail();
+    }
+    this.stateValue = 'matched';
+    return 'match';
+  }
+
+  private async step(
+    expected: Da5V5EmployeeInstallationTransitionState,
+    next: Da5V5EmployeeInstallationTransitionState,
+    operation: () => Promise<'match' | 'mismatch'>,
+  ): Promise<boolean> {
+    if (this.stateValue !== expected) {
+      this.fail();
+      return false;
+    }
+    let result: 'match' | 'mismatch';
+    try {
+      result = await operation();
+    } catch {
+      this.fail();
+      return false;
+    }
+    if (this.stateValue !== expected || result !== 'match') {
+      this.fail();
+      return false;
+    }
+    this.stateValue = next;
+    return true;
+  }
+
+  private fail(): 'mismatch' {
+    this.stateValue = 'failed';
+    return 'mismatch';
+  }
 }
 
 export class Da5V5ApiOfflineController {

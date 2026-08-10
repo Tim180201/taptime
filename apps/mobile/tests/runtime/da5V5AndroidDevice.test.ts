@@ -498,6 +498,119 @@ describe('DA5 V5 package-zero Android install', () => {
       .toHaveLength(1);
   });
 
+  it('releases a runner for a second transaction only after exact successful cleanup',
+    async () => {
+      const adb = new FakeAdb();
+      const firstSerialBinding = boundSerial(adb);
+      const firstTransaction = productTransaction(adb, firstSerialBinding);
+      const installWith = (
+        serialBinding: Da5V5UsbSerialBinding,
+        transaction: Da5V5AndroidInstallTransaction,
+      ) => installDa5V5AndroidFromPackageZero({
+        deviceBinding,
+        installStreamRunner: adb.installStreamRunner,
+        profile: 'da5-v5',
+        reverifyArtifact: vi.fn(() => verifiedSource()),
+        runner: adb,
+        serialBinding,
+        transaction,
+        verifyArtifact: vi.fn(),
+        ...virtualTiming(adb),
+      });
+
+      await expect(installWith(firstSerialBinding, firstTransaction))
+        .resolves.toMatchObject({ status: 'match' });
+
+      const blockedSerialBinding = boundSerial(adb);
+      const blockedTransaction = productTransaction(adb, blockedSerialBinding);
+      await expect(installWith(blockedSerialBinding, blockedTransaction))
+        .rejects.toMatchObject({
+          category: DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES.childStartTransport,
+          cleanupStatus: 'not_required',
+        });
+      expect(adb.commands.filter((command) => command.includes('install-create')))
+        .toHaveLength(1);
+
+      await expect(cleanupDa5V5AndroidState({
+        deviceBinding,
+        profile: 'da5-v5',
+        runner: adb,
+        serialBinding: firstSerialBinding,
+        transaction: firstTransaction,
+        ...virtualTiming(adb),
+      })).resolves.toEqual({
+        status: 'match',
+        substage: DA5_V5_ANDROID_CLEANUP_SUBSTAGES.complete,
+      });
+
+      const replacementSerialBinding = boundSerial(adb);
+      const replacementTransaction = productTransaction(adb, replacementSerialBinding);
+      await expect(installWith(replacementSerialBinding, replacementTransaction))
+        .resolves.toMatchObject({ status: 'match' });
+      expect(adb.commands.filter((command) => command.includes('install-create')))
+        .toHaveLength(2);
+      await expect(cleanupDa5V5AndroidState({
+        deviceBinding,
+        profile: 'da5-v5',
+        runner: adb,
+        serialBinding: replacementSerialBinding,
+        transaction: replacementTransaction,
+        ...virtualTiming(adb),
+      })).resolves.toMatchObject({ status: 'match' });
+      assertNoBroadDeviceMutation(adb);
+    });
+
+  it('retains runner ownership after cleanup mismatch and rejects a replacement transaction',
+    async () => {
+      const adb = new FakeAdb();
+      const firstSerialBinding = boundSerial(adb);
+      const firstTransaction = productTransaction(adb, firstSerialBinding);
+      await expect(installDa5V5AndroidFromPackageZero({
+        deviceBinding,
+        installStreamRunner: adb.installStreamRunner,
+        profile: 'da5-v5',
+        reverifyArtifact: vi.fn(() => verifiedSource()),
+        runner: adb,
+        serialBinding: firstSerialBinding,
+        transaction: firstTransaction,
+        verifyArtifact: vi.fn(),
+        ...virtualTiming(adb),
+      })).resolves.toMatchObject({ status: 'match' });
+
+      adb.uninstallReceipt = 'Failure [DELETE_FAILED_INTERNAL_ERROR]\n';
+      await expect(cleanupDa5V5AndroidState({
+        deviceBinding,
+        profile: 'da5-v5',
+        runner: adb,
+        serialBinding: firstSerialBinding,
+        transaction: firstTransaction,
+        ...virtualTiming(adb),
+      })).resolves.toEqual({
+        status: 'mismatch',
+        substage: DA5_V5_ANDROID_CLEANUP_SUBSTAGES.packageUninstall,
+      });
+
+      const replacementSerialBinding = boundSerial(adb);
+      const replacementTransaction = productTransaction(adb, replacementSerialBinding);
+      await expect(installDa5V5AndroidFromPackageZero({
+        deviceBinding,
+        installStreamRunner: adb.installStreamRunner,
+        profile: 'da5-v5',
+        reverifyArtifact: vi.fn(() => verifiedSource()),
+        runner: adb,
+        serialBinding: replacementSerialBinding,
+        transaction: replacementTransaction,
+        verifyArtifact: vi.fn(),
+        ...virtualTiming(adb),
+      })).rejects.toMatchObject({
+        category: DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES.childStartTransport,
+        cleanupStatus: 'not_required',
+      });
+      expect(adb.commands.filter((command) => command.includes('install-create')))
+        .toHaveLength(1);
+      assertNoBroadDeviceMutation(adb);
+    });
+
   it('classifies a malformed commit receipt and abandons before installed provenance',
     async () => {
       const adb = new FakeAdb();

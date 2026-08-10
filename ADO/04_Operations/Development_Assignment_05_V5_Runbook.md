@@ -1,5 +1,72 @@
 # Development Assignment 5 — V5 Human Android Gate Runbook
 
+## Current clean-identity installation boundary — local R3 candidate, do not run on Hardware
+
+The `2026-08-10` R4 Hardware authority is consumed and non-reusable. It reached Administrator
+Tag-A assignment plus the enrollment-only sign-out, but Employee readiness remained at
+`NFC wird geprüft`; reopening the Product showed `Ausstehender Vorgang geschützt` without an
+intervening scan. Tag B was not presented in the Employee phase. No scan, lifecycle, queue, time
+or review mutation occurred, and terminal Operator cleanup proved package/process, owned reverse
+mappings, listener, PostgreSQL, Guard, Credential and task state null.
+
+The same installation retained the deliberately permanent Administrator offline-store ownership
+and therefore refused the different Employee identity. This is the DA5-scoped R-026 recurrence
+of the `DA3-PHYS-01` clean-install precedent. It is not an NFC, Tag or Human-input defect.
+
+The local candidate inserts exactly one command after enrollment sign-out and immediately before
+Employee Credential readiness:
+
+`employee-installation-transition-confirm <PASS|FAIL|AMBIGUOUS>`
+
+Only `PASS` at credential phase 2 with idle Credential input, the initial Gate-A session,
+registration disarmed, exact Tag A active/Customer A plus Tag B zero/Tag X zero, direct-ordinary
+offline mode and null lifecycle/queue/time/review state may begin. The Operator then performs,
+strictly and once: pre-state match; old offline close; cleanup of only the old exact package and
+owned reverse mappings with zero proof; a new installation transaction; reinstall of the same
+immutable APK; fresh offline arm; exact post-state/Tag-role equality; disclosure-safe match
+receipt. Employee field-ready/check, Tag-B arm and Gate-A checkpoint remain blocked until the
+transition is matched. Early, late, concurrent, repeated, `FAIL`, `AMBIGUOUS` or stage failure is
+terminal fail-closed; no resume or retry exists. Final cleanup owns whichever exact old/new
+transaction is current. `pm clear`, broad `--remove-all`, backup/restore and Product changes are
+forbidden. A runner can be reused only after its exact cleanup has succeeded.
+
+Independent Review Round 1 returned `CHANGES REQUIRED` with exactly one P2: a typed failure of
+the replacement install was folded into the transition mismatch before its closed install
+category and cleanup evidence were emitted. The correction now routes both the initial and the
+replacement install through the same disclosure-safe receipt:
+
+`da5_v5_android_install=mismatch category=<closed-install-category> cleanup_status=<not_required|match|mismatch> cleanup_substage=<closed-cleanup-substage>`
+
+The receipt is emitted before the replacement error enters the monotone transition failure. No
+raw error is exposed; no following stage starts; final cleanup continues to own the replacement
+transaction. Independent re-review remains pending.
+
+Review Round 2 returned `CHANGES REQUIRED` with exactly one P3 and no other finding because the
+preceding evidence summary did not distinguish carried Mobile evidence from fresh post-Round-1
+Synthetic evidence. The corrected provenance under Node `24.17.0` / npm `11.13.0` is:
+
+- carried pre-Round-1 Full Mobile: 54/54 files and 1,247/1,247 tests, receipt `8f392d`, exit 0;
+- carried pre-Round-1 Mobile tests-inclusive Typecheck: receipt `108def`, exit 0, with the changed
+  Mobile test listed by membership receipt `bf24e7`, exit 0;
+- fresh current Mobile focus: 1/1 file and 103/103 tests, receipt `734cdc`, exit 0;
+- fresh post-Round-1 Full Synthetic: 14/14 files, 324 passed and 19 expected skips, receipt
+  `00267f`, terminal exit 0 from the identical child session;
+- fresh post-Round-1 Synthetic tests-inclusive Typecheck and five-file membership: `7d3c10`, exit 0;
+- fresh post-Round-1 Synthetic build/bundle syntax: `43f3d6`, exit 0; and
+- fresh post-Round-1 ProductStart 5/5 with required APK reachability and final bundle syntax:
+  `2b5744`, exit 0.
+
+Every relevant Mobile runner, test, TypeScript/configuration, package and dependency input remained
+byte-identical through the Round-1 P2 correction. No test or build was rerun for this ADO-only
+Round-2 P3 correction. Local candidate bundle is 920,552 bytes / SHA-256
+`8d4981e591820ed6a62bd3b6ca139a7f4b8da90156f858ed0c71a1018a0a0d22`; map is 1,712,456 bytes /
+SHA-256 `7286e001e1b55c65aa31e2bbb6a5ec65059d68295fc579037c892c4111e67afa`, version 3, no
+`sourceRoot`, 90 sources, 90 unique sources and 90 `sourcesContent` entries.
+
+These are local candidate bindings only. Independent re-review, publication, Exact-Head CI, fresh
+read-only runtime/artifact review and a newly exact-bound one-time Human Hardware authorization
+remain mandatory. **DO NOT INSTALL / DO NOT START.**
+
 ## Current dependency-security / test-TMPDIR technical closure — Exact-Head CI and final artifact review APPROVED
 
 The independently approved candidate and its prepublication ADO synchronization are published as

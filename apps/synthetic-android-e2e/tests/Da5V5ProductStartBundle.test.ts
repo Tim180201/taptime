@@ -417,17 +417,17 @@ describe('DA5 V5 Product operator bundle start smoke', () => {
       bytes: Buffer.byteLength(bundle),
       sha256: createHash('sha256').update(bundle).digest('hex'),
     }).toEqual({
-      bytes: 912_627,
+      bytes: 920_552,
       sha256:
-        '97448febd21887fa29a08e26ed9e2ac5737736502d6241e6053a3f241aac01ce',
+        '8d4981e591820ed6a62bd3b6ca139a7f4b8da90156f858ed0c71a1018a0a0d22',
     });
     expect({
       bytes: sourceMapBytes.byteLength,
       sha256: createHash('sha256').update(sourceMapBytes).digest('hex'),
     }).toEqual({
-      bytes: 1_697_795,
+      bytes: 1_712_456,
       sha256:
-        'c8cd0e8aa5bb19945946ef9ba4d157075e7cd3ac3e888c6645f31bd6a50854f5',
+        '7286e001e1b55c65aa31e2bbb6a5ec65059d68295fc579037c892c4111e67afa',
     });
     expect(sourceMap.version).toBe(3);
     expect(sourceMap.sourceRoot).toBeUndefined();
@@ -494,6 +494,12 @@ describe('DA5 V5 Product operator bundle start smoke', () => {
     expect(bundle).toContain('install-commit');
     expect(bundle).toContain('install-abandon');
     expect(bundle).toContain('UsbFfs');
+    expect(bundle).toContain(
+      'employee-installation-transition-confirm <PASS|FAIL|AMBIGUOUS>',
+    );
+    expect(bundle).toContain('da5_v5_employee_installation_transition=');
+    expect(bundle).toContain('old-installation-cleaned');
+    expect(bundle).toContain('replacement-installed');
     expect(bundle).toContain('credential-field-ready <administrator|enrollment|employee> EMPTY_ACTIVE');
     expect(bundle).toContain('credential-field-confirm <administrator|enrollment|employee>');
     expect(bundle).toContain('synthetic_credential_injection=pending_human_confirmation');

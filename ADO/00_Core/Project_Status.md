@@ -1,5 +1,46 @@
 # Project Status
 
+DA5 V5 clean-identity installation boundary: **THE 2026-08-10 PRODUCT HUMAN/HARDWARE R4
+AUTHORITY IS CONSUMED, TERMINAL CLEANUP IS NULL, AND THE LOCAL R3 CORRECTION CANDIDATE IS NOT
+HARDWARE-READY. DO NOT INSTALL / DO NOT START.** The run reached Administrator Tag-A assignment
+and enrollment-only sign-out, then the Employee path remained at `NFC wird geprüft`. Cold reopen
+showed `Ausstehender Vorgang geschützt` without an intervening scan. Tag B was not presented in
+that phase; no scan, lifecycle, queue, time or review mutation occurred. Product package/process,
+owned reverse mappings, listeners, PostgreSQL, Guard, Credential and task state were cleaned to
+null.
+
+The confirmed cause is cross-identity ownership: the permanent encrypted offline store retained
+the Administrator identity, so the same installation correctly refused the Employee identity.
+This reopens R-026 only for the DA5 procedure and matches the `DA3-PHYS-01` clean-reinstall
+precedent. It is not an NFC, Tag, Product-rule or Human-input defect.
+
+The uncommitted candidate on baseline `55f4d4984175dd544fd4f27f6a97d9507dcf14a2`, tree
+`cbc27ac9cac93dee674bdb07d81c15c226218575`, changes only the DA5 operational installer/Operator
+boundary, its regressions and this material truth synchronization. After enrollment sign-out a
+new exact command accepts Human `PASS`, binds the unchanged Tag/customer aggregates, closes the
+old offline controller, performs only exact-package plus owned-mapping cleanup, reinstalls the
+same immutable APK, arms a fresh offline controller, rebinds unchanged aggregates and only then
+unblocks Employee readiness. Runner identity remains reserved until exact cleanup succeeds.
+There is no Product/Mobile runtime semantic, APK, dependency, lockfile, schema or workflow change;
+`pm clear`, broad reset and backup/restore remain absent.
+
+Verification provenance under Node `24.17.0` and npm `11.13.0` is explicit. Full Mobile 54/54
+files and 1,247/1,247 tests are carried from the pre-Round-1 receipt `8f392d`, exit 0; its
+tests-inclusive Typecheck is carried from `108def`, exit 0, with changed-test membership from
+`bf24e7`, exit 0. All Mobile runner, test, TypeScript/configuration, package and dependency inputs
+remained byte-identical through the Round-1 P2 correction. The current Mobile focused result is
+fresh: 1/1 file and 103/103 tests, receipt `734cdc`, exit 0. Post-Round-1 evidence is fresh for
+Synthetic: 14/14 files, 324 passed and 19 expected skips (`00267f`, exit 0); tests-inclusive
+Typecheck plus changed-file membership (`7d3c10`, exit 0); build and bundle syntax (`43f3d6`, exit
+0); and ProductStart 5/5 with required Product-APK reachability plus final syntax
+(`2b5744`, exit 0). Local generated bindings are bundle 920,552 bytes
+/ SHA-256 `8d4981e591820ed6a62bd3b6ca139a7f4b8da90156f858ed0c71a1018a0a0d22` and map 1,712,456 bytes /
+SHA-256 `7286e001e1b55c65aa31e2bbb6a5ec65059d68295fc579037c892c4111e67afa`, with map version 3,
+absent `sourceRoot` and 90/90/90 source invariants. Review Round 2 returned `CHANGES REQUIRED`
+only for the now-corrected P3 provenance ambiguity; no command was rerun for this ADO-only
+correction. Independent re-review, publication, Exact-Head CI, fresh runtime/artifact review and
+new Human Hardware authorization remain pending.
+
 DA5 V5 dependency-security / test-TMPDIR override: **THE EXECUTABLE IS PUBLISHED, EXACT-HEAD CI
 PASSED 12/12, AND FINAL ARTIFACT REVIEW ROUND 2 IS `APPROVED` WITH ZERO OPEN P0–P3. THE HUMAN
 ACCEPTED THE EXPLICITLY COMPOSITE GREEN EVIDENCE ON 10.08.2026 IN LIEU OF ANOTHER LOCAL FULL

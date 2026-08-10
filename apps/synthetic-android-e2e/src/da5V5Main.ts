@@ -1,7 +1,5 @@
 import { createInterface } from 'node:readline';
 import {
-  classifyDa5V5AndroidInstallCleanup,
-  classifyDa5V5AndroidInstallError,
   cleanupDa5V5AndroidState,
   Da5V5AndroidInstallTransaction,
   Da5V5AndroidPreinstallPreflight,
@@ -31,12 +29,19 @@ import {
 import {
   Da5V5ApiOfflineController,
   Da5V5DeviceCheckpointController,
+  Da5V5EmployeeInstallationTransition,
   Da5V5UsbDeviceLock,
   SystemDa5V5AdbCommandRunner,
+  da5V5AndroidInstallFailureReceipt,
   type Da5V5AccessibilityBinding,
   type Da5V5OfflinePhase,
   type Da5V5StandardProfileBinding,
 } from './Da5V5AdbController.js';
+import {
+  DA5_V5_TAG_B_REGISTRATION_ARM_STATUS,
+  sameDa5V5Status,
+  type Da5V5Status,
+} from './Da5V5Database.js';
 import {
   Da5V5CommandExecutionGuard,
   Da5V5SafeEventLatch,
@@ -72,9 +77,11 @@ import {
 } from './Da5V5RuntimeGuardArtifact.js';
 import {
   createSyntheticAndroidE2eEnvironment,
+  da5V5TagBRegistrationPreconditionMatches,
   type SyntheticAndroidE2eEnvironment,
   type SyntheticEnvironmentSafeEvent,
 } from './SyntheticAndroidE2eEnvironment.js';
+import type { Da5V5TagRoleState } from './Da5V5ScanContextResolver.js';
 
 rejectDa5V5OperationalInputs(process.env, process.argv);
 const profile = requireDa5V5Profile(process.env.TAPTIME_SYNTHETIC_E2E_PROFILE);
@@ -144,7 +151,7 @@ const adb = new SystemDa5V5AdbCommandRunner();
 const mobileAdb = new SystemDa5V5AndroidAdbRunner();
 const mobileInstallStreamAdb = mobileAdb.createInstallStreamRunner();
 const deviceLock = new Da5V5UsbDeviceLock();
-const androidInstallTransaction = new Da5V5AndroidInstallTransaction({
+let androidInstallTransaction = new Da5V5AndroidInstallTransaction({
   deviceBinding: standardBinding,
   installStreamRunner: mobileInstallStreamAdb,
   runner: mobileAdb,
@@ -169,12 +176,13 @@ const accessibilityCredential = new Da5V5MobileCredentialTransfer(
   accessibilityBinding,
 );
 const accessibilitySession = new Da5V5AccessibilitySession();
-const offline = new Da5V5ApiOfflineController(
+let offline = new Da5V5ApiOfflineController(
   adb,
   standardBinding,
   deviceLock,
   mutationAbortController.signal,
 );
+const employeeInstallationTransition = new Da5V5EmployeeInstallationTransition();
 const device = new Da5V5DeviceCheckpointController(
   adb,
   standardBinding,
@@ -273,7 +281,7 @@ try {
     'da5_v5_ready',
     `da5_v5_public_manifest=${JSON.stringify(DA5_V5_PUBLIC_MANIFEST)}`,
     `da5_v5_accessibility_surface_plan=${DA5_V5_ACCESSIBILITY_SURFACE_PLAN.join(',')}`,
-    'operator_commands=status | device-preflight | physical-tag-binding-confirm <PASS|FAIL|AMBIGUOUS> | android-install-confirm <PASS|FAIL|AMBIGUOUS> | credential-field-ready <administrator|enrollment|employee> EMPTY_ACTIVE | credential-check <administrator|enrollment|employee> | credential-field-confirm <administrator|enrollment|employee> <VISIBLE|EMPTY|AMBIGUOUS> | checkpoint <name> <queue-items> | checkpoint-confirm <name> <PASS|FAIL|AMBIGUOUS> | dedupe-window-baseline <phase> | dedupe-window-check <phase> | tag-b-registration-arm | protected-review-arm <human-observed-queue-items> | protected-review-activate-tag-b | protected-review-cutover-tag-a | protected-review-terminal | offline-enter <ordinary|protected> | offline-restore <ordinary|protected> | gate-b-cold-prepare | ordinary-relaunch-prepare | accessibility-prepare | accessibility-check | accessibility-surface-confirm <surface> <PASS|FAIL|AMBIGUOUS> | accessibility-credential-field-ready <administrator|employee> EMPTY_ACTIVE | accessibility-credential-check <administrator|employee> | accessibility-credential-field-confirm <administrator|employee> <VISIBLE|EMPTY|AMBIGUOUS> | accessibility-cancel | standard-profile-check | cancellation-arm | cancellation-ui-confirm <PASS|FAIL|AMBIGUOUS> | cancellation-kill-background | cancellation-ready-confirm <PASS|FAIL|AMBIGUOUS> | protected-force-stop | protected-ready-confirm <PASS|FAIL|AMBIGUOUS> | stop',
+    'operator_commands=status | device-preflight | physical-tag-binding-confirm <PASS|FAIL|AMBIGUOUS> | android-install-confirm <PASS|FAIL|AMBIGUOUS> | employee-installation-transition-confirm <PASS|FAIL|AMBIGUOUS> | credential-field-ready <administrator|enrollment|employee> EMPTY_ACTIVE | credential-check <administrator|enrollment|employee> | credential-field-confirm <administrator|enrollment|employee> <VISIBLE|EMPTY|AMBIGUOUS> | checkpoint <name> <queue-items> | checkpoint-confirm <name> <PASS|FAIL|AMBIGUOUS> | dedupe-window-baseline <phase> | dedupe-window-check <phase> | tag-b-registration-arm | protected-review-arm <human-observed-queue-items> | protected-review-activate-tag-b | protected-review-cutover-tag-a | protected-review-terminal | offline-enter <ordinary|protected> | offline-restore <ordinary|protected> | gate-b-cold-prepare | ordinary-relaunch-prepare | accessibility-prepare | accessibility-check | accessibility-surface-confirm <surface> <PASS|FAIL|AMBIGUOUS> | accessibility-credential-field-ready <administrator|employee> EMPTY_ACTIVE | accessibility-credential-check <administrator|employee> | accessibility-credential-field-confirm <administrator|employee> <VISIBLE|EMPTY|AMBIGUOUS> | accessibility-cancel | standard-profile-check | cancellation-arm | cancellation-ui-confirm <PASS|FAIL|AMBIGUOUS> | cancellation-kill-background | cancellation-ready-confirm <PASS|FAIL|AMBIGUOUS> | protected-force-stop | protected-ready-confirm <PASS|FAIL|AMBIGUOUS> | stop',
     'sensitive_values_are_never_printed',
     '',
   ].join('\n'));
@@ -392,10 +400,7 @@ async function handleCommand(line: string): Promise<Da5V5OperatorCommandOutcome>
         transaction: androidInstallTransaction,
       });
     } catch (error: unknown) {
-      const cleanup = classifyDa5V5AndroidInstallCleanup(error);
-      process.stdout.write(
-        `da5_v5_android_install=mismatch category=${classifyDa5V5AndroidInstallError(error)} cleanup_status=${cleanup.status} cleanup_substage=${cleanup.substage}\n`,
-      );
+      process.stdout.write(da5V5AndroidInstallFailureReceipt(error));
       throw new Error('DA5 V5 Android install command failed');
     }
     if (offline.arm() !== 'match') {
@@ -404,6 +409,91 @@ async function handleCommand(line: string): Promise<Da5V5OperatorCommandOutcome>
     androidInstalled = true;
     process.stdout.write('da5_v5_android_install=match\n');
     return { state: 'continue' };
+  }
+  const employeeInstallationConfirmation =
+    /^employee-installation-transition-confirm (PASS|FAIL|AMBIGUOUS)$/u.exec(normalized);
+  if (employeeInstallationConfirmation !== null) {
+    const verdict = parseHumanVerdict(employeeInstallationConfirmation[1]) ?? 'ambiguous';
+    const oldOffline = offline;
+    const oldTransaction = androidInstallTransaction;
+    let preBoundary: Da5V5EmployeeInstallationBoundarySnapshot | null = null;
+    const result = await commandExecutionGuard.wait(
+      employeeInstallationTransition.confirm(verdict, {
+        precheck: async () => {
+          preBoundary = await readEmployeeInstallationBoundary(
+            activeEnvironment,
+            activeSession,
+          );
+          return preBoundary === null ? 'mismatch' : 'match';
+        },
+        closeOldOffline: async () => oldOffline.close(),
+        cleanupOldInstallation: async () => {
+          const cleanup = await cleanupDa5V5AndroidState({
+            deviceBinding: standardBinding,
+            profile,
+            runner: mobileAdb,
+            serialBinding: deviceLock,
+            transaction: oldTransaction,
+            reverseState: oldOffline.cleanupProofState(),
+          });
+          if (cleanup.status !== 'match') {
+            return 'mismatch';
+          }
+          androidInstalled = false;
+          return 'match';
+        },
+        installReplacement: async () => {
+          const replacementTransaction = new Da5V5AndroidInstallTransaction({
+            deviceBinding: standardBinding,
+            installStreamRunner: mobileInstallStreamAdb,
+            runner: mobileAdb,
+            serialBinding: deviceLock,
+          });
+          const replacementOffline = new Da5V5ApiOfflineController(
+            adb,
+            standardBinding,
+            deviceLock,
+            mutationAbortController.signal,
+          );
+          androidInstallTransaction = replacementTransaction;
+          offline = replacementOffline;
+          try {
+            await installDa5V5AndroidFromPackageZero({
+              deviceBinding: standardBinding,
+              installStreamRunner: mobileInstallStreamAdb,
+              profile,
+              runner: mobileAdb,
+              serialBinding: deviceLock,
+              signal: mutationAbortController.signal,
+              transaction: replacementTransaction,
+            });
+          } catch (error: unknown) {
+            process.stdout.write(da5V5AndroidInstallFailureReceipt(error));
+            throw new Error('DA5 V5 Android replacement install command failed');
+          }
+          if (replacementOffline.arm() !== 'match') {
+            return 'mismatch';
+          }
+          androidInstalled = true;
+          return 'match';
+        },
+        postcheck: async () => {
+          const postBoundary = await readEmployeeInstallationBoundary(
+            activeEnvironment,
+            activeSession,
+          );
+          return preBoundary !== null
+            && postBoundary !== null
+            && employeeInstallationBoundarySnapshotsMatch(preBoundary, postBoundary)
+            ? 'match'
+            : 'mismatch';
+        },
+      }),
+    );
+    process.stdout.write(`da5_v5_employee_installation_transition=${result}\n`);
+    return result === 'match'
+      ? { state: 'continue' }
+      : fail(activeSession, 'da5_v5_device_checkpoint=mismatch');
   }
   const fieldReady =
     /^credential-field-ready (administrator|enrollment|employee) EMPTY_ACTIVE$/u.exec(
@@ -414,6 +504,7 @@ async function handleCommand(line: string): Promise<Da5V5OperatorCommandOutcome>
     const result = (
       credentialPhases[nextCredentialPhase] === phase
       && androidInstalled
+      && (phase !== 'employee' || employeeInstallationTransition.matched())
     )
       ? mobileCredential.confirmEmptyActiveField(phase)
       : 'mismatch';
@@ -445,6 +536,7 @@ async function handleCommand(line: string): Promise<Da5V5OperatorCommandOutcome>
     if (
       credentialPhases[nextCredentialPhase] !== phase
       || !androidInstalled
+      || (phase === 'employee' && !employeeInstallationTransition.matched())
       || !da5V5SessionBoundaryMatches(
         activeSession,
         null,
@@ -706,6 +798,7 @@ async function handleCommand(line: string): Promise<Da5V5OperatorCommandOutcome>
         session: activeSession,
         tagRegistrationState: activeEnvironment.da5V5TagRegistrationState(),
       })
+      || !employeeInstallationTransition.matched()
     ) {
       return fail(activeSession, 'da5_v5_fixture=mismatch');
     }
@@ -828,6 +921,7 @@ async function handleCommand(line: string): Promise<Da5V5OperatorCommandOutcome>
       && activeEnvironment.da5V5FixtureState() === 'terminal'
       && nextCredentialPhase === credentialPhases.length
       && androidInstalled
+      && employeeInstallationTransition.matched()
     );
     return ready
       ? { state: 'stop' }
@@ -1015,7 +1109,8 @@ async function checkpointOperatorStateMatches(
   switch (checkpoint) {
     case 'gate-a-setup-rejections': {
       const tagRoles = await activeEnvironment.da5V5TagRoleState();
-      return nextCredentialPhase === credentialPhases.length
+      return employeeInstallationTransition.matched()
+        && nextCredentialPhase === credentialPhases.length
         && activeEnvironment.da5V5TagRegistrationState() === 'registered'
         && tagRoles.activeTagAAssignments === 1
         && tagRoles.activeTagACustomerAAssignments === 1
@@ -1118,6 +1213,64 @@ function offlineCommandIsAuthorized(
     && state.checkedDedupePhases.includes('gate-d-tag-b');
 }
 
+interface Da5V5EmployeeInstallationBoundarySnapshot {
+  readonly status: Da5V5Status;
+  readonly tagRoles: Da5V5TagRoleState;
+}
+
+async function readEmployeeInstallationBoundary(
+  activeEnvironment: SyntheticAndroidE2eEnvironment,
+  activeSession: Da5V5OperationSession,
+): Promise<Da5V5EmployeeInstallationBoundarySnapshot | null> {
+  const credentialState = mobileCredential.state();
+  if (
+    nextCredentialPhase !== 2
+    || credentialState.phase !== null
+    || credentialState.state !== 'idle'
+    || !androidInstalled
+    || !physicalTagBindingConfirmed
+    || preinstall.state() !== 'matched'
+    || !da5V5SessionBoundaryMatches(
+      activeSession,
+      null,
+      'gate-a-setup-rejections',
+    )
+    || activeEnvironment.da5V5TagRegistrationState() !== 'disarmed'
+    || offline.getState().state !== 'direct-ordinary'
+  ) {
+    return null;
+  }
+  const [status, tagRoles] = await Promise.all([
+    activeEnvironment.da5V5Status(),
+    activeEnvironment.da5V5TagRoleState(),
+  ]);
+  commandExecutionGuard.ensure();
+  if (
+    !sameDa5V5Status(status, DA5_V5_TAG_B_REGISTRATION_ARM_STATUS)
+    || !da5V5TagBRegistrationPreconditionMatches(status, tagRoles)
+  ) {
+    return null;
+  }
+  return Object.freeze({ status, tagRoles });
+}
+
+function employeeInstallationBoundarySnapshotsMatch(
+  before: Da5V5EmployeeInstallationBoundarySnapshot,
+  after: Da5V5EmployeeInstallationBoundarySnapshot,
+): boolean {
+  return sameDa5V5Status(before.status, after.status)
+    && before.tagRoles.activeTagAAssignments === after.tagRoles.activeTagAAssignments
+    && before.tagRoles.activeTagACustomerAAssignments
+      === after.tagRoles.activeTagACustomerAAssignments
+    && before.tagRoles.activeTagBAssignments === after.tagRoles.activeTagBAssignments
+    && before.tagRoles.tagAExactRecords === after.tagRoles.tagAExactRecords
+    && before.tagRoles.tagARecords === after.tagRoles.tagARecords
+    && before.tagRoles.tagBExactRecords === after.tagRoles.tagBExactRecords
+    && before.tagRoles.tagBRecords === after.tagRoles.tagBRecords
+    && before.tagRoles.tagBTotalAssignments === after.tagRoles.tagBTotalAssignments
+    && before.tagRoles.tagXRecords === after.tagRoles.tagXRecords;
+}
+
 async function reportStatus(
   activeEnvironment: SyntheticAndroidE2eEnvironment,
   activeSession: Da5V5OperationSession,
@@ -1137,6 +1290,7 @@ async function reportStatus(
       credentialTransfer: mobileCredential.state(),
       dedupe: activeEnvironment.da5V5DedupeState(),
       device: device.getState(),
+      employeeInstallationTransition: employeeInstallationTransition.getState(),
       fixture: activeEnvironment.da5V5FixtureState(),
       offline: offline.getState(),
       session: activeSession.state(),

@@ -586,6 +586,10 @@ export class Da5V5AndroidInstallTransaction {
   }
 
   markCleanupComplete() {
+    const active = activeInstallTransactions.get(this.runner);
+    if (this.#installStarted && active !== this) {
+      throw new Error('DA5 V5 Android install transaction ownership mismatch');
+    }
     for (const [resource, record] of this.#resources) {
       if (record.mutation !== cleanupResourceStates.mutationNotStarted) {
         this.#setResource(resource, {
@@ -593,6 +597,12 @@ export class Da5V5AndroidInstallTransaction {
           cleanup: cleanupResourceStates.cleanupRemoved,
         });
       }
+    }
+    if (
+      this.#installStarted
+      && !activeInstallTransactions.delete(this.runner)
+    ) {
+      throw new Error('DA5 V5 Android install transaction release mismatch');
     }
   }
 

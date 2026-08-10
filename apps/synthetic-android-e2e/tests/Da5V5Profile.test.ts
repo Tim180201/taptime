@@ -1307,19 +1307,15 @@ describe('DA5 V5 fixture, lifecycle and startup fail-stop boundaries', () => {
       expect(source.indexOf('await installDa5V5AndroidFromPackageZero({')).toBeLessThan(
         source.indexOf("if (offline.arm() !== 'match')"),
       );
-      expect(source).toContain('classifyDa5V5AndroidInstallError(error)');
-      expect(source).toContain('classifyDa5V5AndroidInstallCleanup(error)');
-      expect(source).toContain(
-        'da5_v5_android_install=mismatch category=${classifyDa5V5AndroidInstallError(error)} cleanup_status=${cleanup.status} cleanup_substage=${cleanup.substage}',
-      );
+      expect(source.match(/da5V5AndroidInstallFailureReceipt\(error\)/gu)).toHaveLength(2);
       expect(source).not.toContain('error.message');
       expect(source).not.toContain('String(error)');
       expect(source.indexOf("if (offline.arm() !== 'match')")).toBeLessThan(
         source.indexOf('androidInstalled = true'),
       );
-      expect(source.match(/serialBinding: deviceLock/gu)).toHaveLength(3);
+      expect(source.match(/serialBinding: deviceLock/gu)).toHaveLength(6);
       expect(source).toContain(
-        'const androidInstallTransaction = new Da5V5AndroidInstallTransaction({',
+        'let androidInstallTransaction = new Da5V5AndroidInstallTransaction({',
       );
       expect(source.match(/transaction: androidInstallTransaction/gu)).toHaveLength(2);
       expect(source).toContain(
@@ -1330,6 +1326,98 @@ describe('DA5 V5 fixture, lifecycle and startup fail-stop boundaries', () => {
       );
       expect(source).toContain(
         'new Da5V5DeviceCheckpointController(\n  adb,\n  standardBinding,\n  accessibilityBinding,\n  deviceLock,',
+      );
+      expect(source).toContain(
+        'employee-installation-transition-confirm <PASS|FAIL|AMBIGUOUS>',
+      );
+      expect(source).toContain(
+        '/^employee-installation-transition-confirm (PASS|FAIL|AMBIGUOUS)$/u.exec(normalized)',
+      );
+      expect(source).toContain(
+        'const employeeInstallationTransition = new Da5V5EmployeeInstallationTransition()',
+      );
+      expect(source).toContain(
+        'da5_v5_employee_installation_transition=${result}',
+      );
+      expect(source).toContain(
+        'employeeInstallationTransition: employeeInstallationTransition.getState()',
+      );
+      expect(source).toContain(
+        "nextCredentialPhase !== 2\n    || credentialState.phase !== null\n    || credentialState.state !== 'idle'",
+      );
+      expect(source).toContain(
+        "activeEnvironment.da5V5TagRegistrationState() !== 'disarmed'",
+      );
+      expect(source).toContain(
+        'sameDa5V5Status(status, DA5_V5_TAG_B_REGISTRATION_ARM_STATUS)',
+      );
+      expect(source).toContain(
+        'da5V5TagBRegistrationPreconditionMatches(status, tagRoles)',
+      );
+      expect(source).toContain(
+        'employeeInstallationBoundarySnapshotsMatch(preBoundary, postBoundary)',
+      );
+      expect(source).toContain(
+        "phase !== 'employee' || employeeInstallationTransition.matched()",
+      );
+      expect(source).toContain(
+        "phase === 'employee' && !employeeInstallationTransition.matched()",
+      );
+      expect(source).toContain(
+        "case 'gate-a-setup-rejections': {\n      const tagRoles = await activeEnvironment.da5V5TagRoleState();\n      return employeeInstallationTransition.matched()",
+      );
+      const employeeTransitionStart = source.indexOf(
+        'const employeeInstallationConfirmation =',
+      );
+      const transitionClose = source.indexOf(
+        'closeOldOffline: async () => oldOffline.close()',
+        employeeTransitionStart,
+      );
+      const transitionCleanup = source.indexOf(
+        'cleanupOldInstallation: async () => {',
+        employeeTransitionStart,
+      );
+      const transactionSwap = source.indexOf(
+        'androidInstallTransaction = replacementTransaction;',
+        employeeTransitionStart,
+      );
+      const replacementInstall = source.indexOf(
+        'await installDa5V5AndroidFromPackageZero({',
+        transactionSwap,
+      );
+      const replacementInstallFailureReceipt = source.indexOf(
+        'process.stdout.write(da5V5AndroidInstallFailureReceipt(error));',
+        replacementInstall,
+      );
+      const replacementInstallFailureStop = source.indexOf(
+        "throw new Error('DA5 V5 Android replacement install command failed');",
+        replacementInstallFailureReceipt,
+      );
+      const replacementArm = source.indexOf(
+        "if (replacementOffline.arm() !== 'match')",
+        replacementInstall,
+      );
+      const transitionPostcheck = source.indexOf(
+        'postcheck: async () => {',
+        replacementArm,
+      );
+      expect(employeeTransitionStart).toBeGreaterThanOrEqual(0);
+      expect(transitionClose).toBeGreaterThan(employeeTransitionStart);
+      expect(transitionCleanup).toBeGreaterThan(transitionClose);
+      expect(transactionSwap).toBeGreaterThan(transitionCleanup);
+      expect(replacementInstall).toBeGreaterThan(transactionSwap);
+      expect(replacementInstallFailureReceipt).toBeGreaterThan(replacementInstall);
+      expect(replacementInstallFailureStop).toBeGreaterThan(replacementInstallFailureReceipt);
+      expect(replacementInstallFailureStop).toBeLessThan(replacementArm);
+      expect(replacementArm).toBeGreaterThan(replacementInstall);
+      expect(transitionPostcheck).toBeGreaterThan(replacementArm);
+      const employeeTransitionBlock = source.slice(
+        employeeTransitionStart,
+        source.indexOf('const fieldReady =', employeeTransitionStart),
+      );
+      expect(employeeTransitionBlock).not.toMatch(/pm clear|--remove-all|backup|restore/iu);
+      expect(employeeTransitionBlock).not.toContain(
+        'androidInstallTransaction = oldTransaction',
       );
       expect(source).toContain(
         'credential-field-ready <administrator|enrollment|employee> EMPTY_ACTIVE',

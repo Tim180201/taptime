@@ -1,5 +1,35 @@
 # Development Assignment 5 — V5 Human Android Evidence
 
+## Current clean-identity installation-boundary correction — local R3 candidate
+
+| Evidence | Exact result |
+|---|---|
+| Development baseline | `HEAD == main == origin/main == 55f4d4984175dd544fd4f27f6a97d9507dcf14a2`; tree `cbc27ac9cac93dee674bdb07d81c15c226218575`; tracked baseline clean |
+| Consumed Product Human/Hardware R4 | Administrator Tag-A assignment and enrollment-only sign-out completed; Employee stayed at `NFC wird geprüft`; cold reopen showed `Ausstehender Vorgang geschützt` without an intervening scan; authority consumed and non-reusable |
+| Product mutation boundary | Tag B was not presented in the Employee phase; no scan, lifecycle, queue, time or review mutation occurred |
+| Terminal cleanup | Product package/process, owned reverse mappings, listener, PostgreSQL, Guard, Credential and task state matched null |
+| Confirmed cause | Same installation retained the permanent encrypted Administrator offline-store owner, so the different Employee identity failed closed; DA5-scoped R-026 recurrence of accepted `DA3-PHYS-01`, not NFC/Tag/Human failure |
+| Installer ownership correction | The active runner is released only by identity-matched, fully successful `markCleanupComplete()`; before cleanup or after cleanup mismatch a second transaction remains rejected |
+| Employee transition correction | Exact once and monotone: Human `PASS` after enrollment sign-out; exact pre-state; old offline close; exact-package plus owned-mapping cleanup/zero proof; new transaction; same immutable APK reinstall; fresh offline arm; exact unchanged post-state and distinct match receipt before Employee readiness |
+| Fail-closed boundary | Early/late/repeated/concurrent invocation, `FAIL`, `AMBIGUOUS`, every stage failure or pre/post mismatch prevents all following mutation and cannot be resumed or retried; cleanup follows the exact current old/new transaction |
+| Independent Review Round 1 | `CHANGES REQUIRED`; exactly one P2: the replacement-install callback let a typed install failure reach the transition's generic mismatch fold before emitting its closed install category and cleanup evidence |
+| Round-1 P2 correction | Initial and replacement install failures now use one tested disclosure-safe formatter; a typed `timeout` replacement failure with cleanup `mismatch` / `package_uninstall` binds exactly `da5_v5_android_install=mismatch category=timeout cleanup_status=mismatch cleanup_substage=package_uninstall`; the receipt precedes the monotone transition stop and final cleanup retains the replacement transaction |
+| Independent Review Round 2 | `CHANGES REQUIRED`; exactly one P3 and no other finding: carried pre-Round-1 Mobile evidence and fresh post-Round-1 Synthetic evidence were presented together without explicit provenance |
+| Round-2 P3 correction | ADO-only provenance correction; no npm, test, Typecheck, build, ProductStart, Hardware, ADB or installation rerun. Independent re-review remains pending |
+| Forbidden mechanisms | No `pm clear`, broad `--remove-all`, backup/restore, Product/Mobile runtime-semantic change, Product APK build, dependency/lockfile, schema or workflow change |
+| Toolchain / dependency preflight | Node `24.17.0`; npm `11.13.0`; installed `js-yaml@4.3.1`; installed `nanoid@3.3.18`; `npm ls --all` exit 0 |
+| Fresh focused regression after Round 1 | Mobile installer: 1/1 file, 103/103 tests, receipt `734cdc`, exit 0. Synthetic transition/Profile: 2/2 files, 86/86 tests, receipt `da0c45`, exit 0. The 3/3 and 189/189 total is their explicit composition, not one process |
+| Carried Full Mobile workspace | Pre-Round-1 receipt `8f392d`, exit 0: Node `24.17.0`, npm `11.13.0`, 54/54 files and 1,247/1,247 tests. Mobile runner/test paths and every relevant configuration/package/dependency input remained byte-identical through the Round-1 P2 correction; the current 103/103 focus above is fresh |
+| Fresh Full Synthetic workspace after Round 1 | Receipt `00267f`, authoritative terminal exit 0 from unchanged child session `80890`: 14/14 files; 324 passed and 19 expected skips, 343 total; `TAPTIME_DA5_V5_PRODUCT_APK_REACHABILITY=required` |
+| Carried Mobile tests-inclusive Typecheck | Pre-Round-1 receipt `108def`, exit 0; `npm run typecheck --workspace @taptime/mobile`. Changed Mobile test membership was separately proved by receipt `bf24e7`, exit 0. All relevant Mobile TypeScript/configuration/source/test/package/dependency inputs remained byte-identical through Round 1 |
+| Fresh Synthetic tests-inclusive Typecheck after Round 1 | Receipt `7d3c10`, exit 0; workspace Typecheck plus `--listFilesOnly` membership included both changed Synthetic sources and all three changed Synthetic tests |
+| Fresh Synthetic build after Round 1 | Receipt `43f3d6`, exit 0; build, bundle syntax and map invariants completed under the exact toolchain |
+| Fresh ProductStart regression after Round 1 | Receipt `2b5744`, exit 0; 5/5 passed with mandatory Product-APK reachability; final bundle syntax and byte/digest readback completed |
+| Local Product-start bundle | Fresh post-Round-1 `da5V5Main.js`; 920,552 bytes; SHA-256 `8d4981e591820ed6a62bd3b6ca139a7f4b8da90156f858ed0c71a1018a0a0d22`; final `node --check` passed |
+| Local Product-start source map | `da5V5Main.js.map`; 1,712,456 bytes; SHA-256 `7286e001e1b55c65aa31e2bbb6a5ec65059d68295fc579037c892c4111e67afa`; version 3; `sourceRoot` absent; 90 sources, 90 unique sources and 90 `sourcesContent` entries |
+| Carried evidence | Unchanged dependency/security, backend, PostgreSQL/migration, Expo, Product APK and unrelated workspace evidence remains carried exactly as previously bound; it was not rerun or relabeled by this focused correction |
+| Current status / authority | Local uncommitted Round-1 code candidate plus Round-2 ADO-only provenance correction; independent re-review, publication, Exact-Head CI, fresh runtime/artifact review and new exact Human Hardware authorization pending; **not Hardware-ready — DO NOT INSTALL / DO NOT START** |
+
 ## Current dependency-security / test-TMPDIR technical closure — final artifact review APPROVED
 
 | Evidence | Exact result |

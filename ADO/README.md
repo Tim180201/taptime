@@ -7,6 +7,49 @@ Approval Authority: Human Architect
 
 ## Purpose
 
+### Current DA5 V5 clean-identity installation-boundary correction — local R3 candidate, Hardware blocked
+
+The `2026-08-10` Product Human/Hardware R4 authority is consumed and non-reusable. After the
+Administrator had assigned Tag A and the enrollment-only path had signed out, the Employee path
+remained at `NFC wird geprüft`; a cold reopen showed `Ausstehender Vorgang geschützt` without an
+intervening scan. Tag B was not presented in that Employee phase and no scan, lifecycle, queue,
+time or review mutation occurred. Terminal Operator cleanup proved Product package/process,
+owned reverse mappings, listeners, PostgreSQL, Guard, Credential and task state null.
+
+The confirmed boundary is the deliberate encrypted offline-store owner binding: the same
+installation retained the Administrator identity and therefore correctly rejected a different
+Employee identity. This is a DA5-scoped recurrence of R-026 and the `DA3-PHYS-01` precedent, not
+an NFC, Tag or Human-input failure. The published Product APK and Mobile/Product runtime semantics
+remain unchanged.
+
+On clean baseline `55f4d4984175dd544fd4f27f6a97d9507dcf14a2`, tree
+`cbc27ac9cac93dee674bdb07d81c15c226218575`, the local R3 candidate adds only an Operator-side
+monotone identity transition after enrollment sign-out: exact pre-state, Human `PASS`, old
+offline close, exact-package/owned-mapping cleanup, reinstall of the same immutable APK, fresh
+offline arm, exact unchanged post-state and only then Employee readiness. The Android installer
+runner is reusable only after an identity-matched successful cleanup. `pm clear`, broad
+`--remove-all`, backup/restore and Product changes remain forbidden.
+
+Review Round 2 returned `CHANGES REQUIRED` with exactly one P3 and no other finding: the current
+ADO text grouped carried Mobile evidence with fresh post-Round-1 Synthetic evidence without
+labeling their provenance. This ADO-only correction makes that boundary explicit. Full Mobile
+54/54 files and 1,247/1,247 tests are carried from pre-Round-1 tool receipt `8f392d`, exit 0;
+the Mobile tests-inclusive Typecheck is carried from receipt `108def`, exit 0, with changed-test
+membership from `bf24e7`, exit 0. All relevant Mobile runner, test, configuration, package and
+dependency inputs remained byte-identical through the Round-1 P2 correction. The current Mobile
+focused 103/103 result is fresh from `734cdc`, exit 0. Full Synthetic, its tests-inclusive
+Typecheck/membership, build and ProductStart are fresh after Round 1 from receipts `00267f`,
+`7d3c10`, `43f3d6` and `2b5744`, each with terminal exit 0. No test or build was rerun for this
+Round-2 documentation correction; independent re-review remains pending.
+
+The local generated Product-start binding is `da5V5Main.js` 920,552 bytes / SHA-256
+`8d4981e591820ed6a62bd3b6ca139a7f4b8da90156f858ed0c71a1018a0a0d22` and map 1,712,456 bytes /
+SHA-256 `7286e001e1b55c65aa31e2bbb6a5ec65059d68295fc579037c892c4111e67afa`; the map remains version
+3 with absent `sourceRoot`, 90 sources, 90 unique sources and 90 `sourcesContent` entries. This is
+unpublished local candidate evidence only. Independent re-review, publication, Exact-Head CI, fresh
+runtime/artifact review and a new exact one-time Human authorization remain pending. The candidate
+is **not Hardware-ready: DO NOT INSTALL / DO NOT START**.
+
 ### Current DA5 V5 dependency-security / test-TMPDIR technical closure — Exact-Head CI and final artifact review APPROVED
 
 The independently approved four-path candidate and its prepublication ADO synchronization were

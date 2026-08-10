@@ -1,14 +1,191 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
+  DA5_V5_ANDROID_CLEANUP_SUBSTAGES,
+  DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES,
+  Da5V5AndroidInstallError,
+} from '../../mobile/scripts/da5V5AndroidDevice.mjs';
+import {
   Da5V5ApiOfflineController,
   Da5V5DeviceCheckpointController,
+  Da5V5EmployeeInstallationTransition,
   Da5V5UsbDeviceLock,
   SystemDa5V5AdbCommandRunner,
+  da5V5AndroidInstallFailureReceipt,
   type Da5V5AdbCommandRunner,
 } from '../src/index.js';
 
 const googleTalkBackPackage = 'com.google.android.marvin.talkback' as const;
 const samsungTalkBackPackage = 'com.samsung.android.accessibility.talkback' as const;
+
+describe('DA5 V5 Employee installation transition', () => {
+  it('renders a typed replacement-install cleanup mismatch as one closed receipt', () => {
+    const error = new Da5V5AndroidInstallError(
+      DA5_V5_ANDROID_INSTALL_FAILURE_CATEGORIES.timeout,
+      {
+        status: 'mismatch',
+        substage: DA5_V5_ANDROID_CLEANUP_SUBSTAGES.packageUninstall,
+      },
+    );
+
+    expect(da5V5AndroidInstallFailureReceipt(error)).toBe(
+      'da5_v5_android_install=mismatch category=timeout cleanup_status=mismatch cleanup_substage=package_uninstall\n',
+    );
+  });
+
+  it('runs the exact Human/pre/close/cleanup/install/post sequence once', async () => {
+    const transition = new Da5V5EmployeeInstallationTransition();
+    const calls: string[] = [];
+    const aggregate = Object.freeze({ auditEvents: 2, workEvents: 0 });
+    let preAggregate: typeof aggregate | null = null;
+
+    await expect(transition.confirm('pass', {
+      precheck: async () => {
+        calls.push(`pre:${transition.getState().state}`);
+        preAggregate = aggregate;
+        return 'match';
+      },
+      closeOldOffline: async () => {
+        calls.push(`offline:${transition.getState().state}`);
+        return 'match';
+      },
+      cleanupOldInstallation: async () => {
+        calls.push(`cleanup:${transition.getState().state}`);
+        return 'match';
+      },
+      installReplacement: async () => {
+        calls.push(`install:${transition.getState().state}`);
+        return 'match';
+      },
+      postcheck: async () => {
+        calls.push(`post:${transition.getState().state}`);
+        return preAggregate === aggregate ? 'match' : 'mismatch';
+      },
+    })).resolves.toBe('match');
+
+    expect(calls).toEqual([
+      'pre:human-confirmed',
+      'offline:prechecked',
+      'cleanup:old-offline-closed',
+      'install:old-installation-cleaned',
+      'post:replacement-installed',
+    ]);
+    expect(transition.getState()).toEqual({ state: 'matched' });
+    expect(transition.matched()).toBe(true);
+  });
+
+  it.each([
+    'precheck',
+    'closeOldOffline',
+    'cleanupOldInstallation',
+    'installReplacement',
+    'postcheck',
+  ] as const)('fails at %s without starting any following mutation', async (failingStage) => {
+    const transition = new Da5V5EmployeeInstallationTransition();
+    const calls: string[] = [];
+    const stages = [
+      'precheck',
+      'closeOldOffline',
+      'cleanupOldInstallation',
+      'installReplacement',
+      'postcheck',
+    ] as const;
+    const operation = (stage: (typeof stages)[number]) => async () => {
+      calls.push(stage);
+      return stage === failingStage ? 'mismatch' as const : 'match' as const;
+    };
+
+    await expect(transition.confirm('pass', {
+      precheck: operation('precheck'),
+      closeOldOffline: operation('closeOldOffline'),
+      cleanupOldInstallation: operation('cleanupOldInstallation'),
+      installReplacement: operation('installReplacement'),
+      postcheck: operation('postcheck'),
+    })).resolves.toBe('mismatch');
+
+    expect(calls).toEqual(stages.slice(0, stages.indexOf(failingStage) + 1));
+    expect(transition.getState()).toEqual({ state: 'failed' });
+    expect(transition.matched()).toBe(false);
+  });
+
+  it('absorbs thrown stages and blocks every continuation or repeat', async () => {
+    const transition = new Da5V5EmployeeInstallationTransition();
+    const calls: string[] = [];
+    const operations = employeeTransitionOperations(calls);
+    operations.cleanupOldInstallation = async () => {
+      calls.push('cleanupOldInstallation');
+      throw new Error('private cleanup detail');
+    };
+
+    await expect(transition.confirm('pass', operations)).resolves.toBe('mismatch');
+    await expect(transition.confirm('pass', employeeTransitionOperations(calls)))
+      .resolves.toBe('mismatch');
+    expect(calls).toEqual([
+      'precheck',
+      'closeOldOffline',
+      'cleanupOldInstallation',
+    ]);
+    expect(transition.getState()).toEqual({ state: 'failed' });
+  });
+
+  it.each(['fail', 'ambiguous'] as const)(
+    'rejects Human %s before precheck or mutation',
+    async (verdict) => {
+      const calls: string[] = [];
+      const transition = new Da5V5EmployeeInstallationTransition();
+      await expect(transition.confirm(verdict, employeeTransitionOperations(calls)))
+        .resolves.toBe('mismatch');
+      expect(calls).toEqual([]);
+      expect(transition.getState()).toEqual({ state: 'failed' });
+    },
+  );
+
+  it('turns an early precondition mismatch and a late duplicate into terminal failure',
+    async () => {
+      const early = new Da5V5EmployeeInstallationTransition();
+      const earlyCalls: string[] = [];
+      const earlyOperations = employeeTransitionOperations(earlyCalls);
+      earlyOperations.precheck = async () => {
+        earlyCalls.push('precheck');
+        return 'mismatch';
+      };
+      await expect(early.confirm('pass', earlyOperations)).resolves.toBe('mismatch');
+      expect(earlyCalls).toEqual(['precheck']);
+      expect(early.getState()).toEqual({ state: 'failed' });
+
+      const late = new Da5V5EmployeeInstallationTransition();
+      await expect(late.confirm('pass', employeeTransitionOperations([])))
+        .resolves.toBe('match');
+      const repeatedCalls: string[] = [];
+      await expect(late.confirm('pass', employeeTransitionOperations(repeatedCalls)))
+        .resolves.toBe('mismatch');
+      expect(repeatedCalls).toEqual([]);
+      expect(late.getState()).toEqual({ state: 'failed' });
+    });
+
+  it('rejects a concurrent confirmation and stops the in-flight path before close', async () => {
+    const transition = new Da5V5EmployeeInstallationTransition();
+    const calls: string[] = [];
+    let releasePrecheck!: () => void;
+    const precheckReleased = new Promise<void>((resolve) => {
+      releasePrecheck = resolve;
+    });
+    const operations = employeeTransitionOperations(calls);
+    operations.precheck = async () => {
+      calls.push('precheck');
+      await precheckReleased;
+      return 'match';
+    };
+
+    const first = transition.confirm('pass', operations);
+    await Promise.resolve();
+    await expect(transition.confirm('pass', employeeTransitionOperations(calls)))
+      .resolves.toBe('mismatch');
+    releasePrecheck();
+    await expect(first).resolves.toBe('mismatch');
+    expect(calls).toEqual(['precheck']);
+    expect(transition.getState()).toEqual({ state: 'failed' });
+  });
+});
 
 describe('DA5 V5 synchronous ADB child-process boundary', () => {
   it('uses the same minimal environment and explicit loopback routing as mutations', () => {
@@ -511,6 +688,20 @@ describe('DA5 V5 standard functional profile and final accessibility block', () 
     expect(processMismatch.prepareColdDispatch()).toBe('mismatch');
   });
 });
+
+function employeeTransitionOperations(calls: string[]) {
+  const operation = (stage: string) => async (): Promise<'match' | 'mismatch'> => {
+    calls.push(stage);
+    return 'match';
+  };
+  return {
+    precheck: operation('precheck'),
+    closeOldOffline: operation('closeOldOffline'),
+    cleanupOldInstallation: operation('cleanupOldInstallation'),
+    installReplacement: operation('installReplacement'),
+    postcheck: operation('postcheck'),
+  };
+}
 
 function checkpointController(
   adb: FakeAdb,
