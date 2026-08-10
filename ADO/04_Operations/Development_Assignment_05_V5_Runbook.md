@@ -1,8 +1,10 @@
 # Development Assignment 5 — V5 Human Android Gate Runbook
 
-## Current dependency-security / test-TMPDIR candidate — composite evidence accepted; publication and Exact-Head CI pending
+## Current dependency-security / test-TMPDIR technical closure — Exact-Head CI and final artifact review APPROVED
 
-The current uncommitted candidate is bound to exact `HEAD`/`origin/main`
+The independently approved candidate and its prepublication ADO synchronization are published as
+executable `e2f4f6c777d4dc89531394609e44b3471537b2d7`, tree
+`0850d2f254877580773f62174d4c85e10cfff165`. Its direct development baseline is
 `627e8512631c53bc2c6882aed80b163ab81051fd`, tree
 `dfaf1d32574e4253aad07d99d84e3489cc5634aa`. Its pre-ADO exact four-path Full-Index/Binary
 diff is 45,981 bytes / SHA-256
@@ -61,11 +63,34 @@ retained at
 `0444`, root mode `0555`, SHA-256
 `479758b48825ef3dee311255824a53c9a890953792104f4e54e9057977e29af7`.
 
-The next technical gate is exact publication followed by Exact-Head CI; neither is claimed here.
-No Hardware, ADB, installation, Product Human V5, production, deployment or distribution action
-is authorized. **DO NOT INSTALL / DO NOT START.**
+Exact-Head CI GitHub Actions run `31384903728`, attempt 1, passed 12/12. Use no mutable
+development output. The fresh Product Operator Runtime is
+`/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-product-operator/e2f4f6c7-97448feb`.
+Its checkout is detached, sparse and tracked-clean at the executable commit/tree. Its read-only
+manifest is 8,640 bytes, mode `0444`, SHA-256
+`4cf1d4589028707c3328826d3148d34f2ae1e4e6226d75566c4ff3d0476e2790`.
 
-## Current Credential PTY correction candidate — corrected final V3 PASS; prepublication review pending; DO NOT START hardware
+| Runtime input | Exact binding |
+|---|---|
+| Bundle | `checkout/apps/synthetic-android-e2e/dist/da5V5Main.js`; 912,627 bytes; mode `0444`; SHA-256 `97448febd21887fa29a08e26ed9e2ac5737736502d6241e6053a3f241aac01ce` |
+| Source map | `checkout/apps/synthetic-android-e2e/dist/da5V5Main.js.map`; 1,697,795 bytes; mode `0444`; SHA-256 `c8cd0e8aa5bb19945946ef9ba4d157075e7cd3ac3e888c6645f31bd6a50854f5`; version 3; `sourceRoot` absent; 90 sources, 90 unique sources and 90 `sourcesContent` entries |
+| Product APK — DO NOT INSTALL | Unchanged path and exact 95,522,751-byte, mode-`0444`, SHA-256 `b0180c31769e453472a20eb1e7eb4e0825a85be9429becf6bf4970e0875b67f8` binding above |
+| Product manifest | Unchanged 1,968-byte, mode-`0444`, SHA-256 `83b93bbf33297334bfcca3aa30e5ed6772175f98a2a81dc80045454570fe937b` binding above |
+
+The runtime manifest retains its generation-time
+`candidate_status=exact_head_ci_passed_pending_final_artifact_review`; do not rewrite it after
+review. Final Artifact Review Round 1 raised only a formal sandbox-enforcement P2, with no
+material Candidate/Artifact defect and no candidate mutation. Round 2 ran fully under enforced
+write denial and returned `APPROVED` with zero open P0–P3.
+
+Technical closure is complete. A later ADO-only closure commit remains distinct from the
+executable/CI commit and does not invalidate this runtime. The next possible Product gate is one
+fresh, exactly-bound Human Hardware run, and it still requires separate one-time Human
+authorization. No Hardware, ADB, installation, Product Human V5, production, production-data,
+deployment or distribution action occurred or is authorized here. **DO NOT INSTALL / DO NOT
+START without that authorization.**
+
+## Historical snapshot — superseded by 2026-08-10 final closure above — Credential PTY correction before publication
 
 The latest Product Human/Hardware authority is consumed and final cleanup is null. The protection
 filter detected the memory-only Credential in child PTY output after the password field was
@@ -140,7 +165,7 @@ This remains an uncommitted and unpublished candidate. Prepublication review rem
 V4/CI or exact publication is claimed. **DO NOT INSTALL / DO NOT START.** A separate Human
 authorization would still be required before any future Hardware action.
 
-## Current Credential-transfer / Lean-Accessibility published V4/runtime candidate — final review APPROVED; ADO closure publication pending; DO NOT START hardware
+## Historical snapshot — superseded by 2026-08-10 final closure above — Credential-transfer / Lean-Accessibility V4 runtime
 
 The latest Product Human/Hardware authority on baseline
 `aab04442721d57d53def25e45e5e3ce1d6ea3f77` / tree
@@ -237,7 +262,7 @@ a separate exact one-time Human authorization. No database action occurred. Prod
 APKs remain unchanged. Production, production data, system changes, deployment and distribution
 remain unauthorized.
 
-## Current ADB-37 reverse correction technical closure — DO NOT INSTALL / DO NOT START hardware
+## Historical snapshot — superseded by 2026-08-10 final closure above — ADB-37 reverse correction
 
 The latest Product Human/Hardware authority is consumed and may not be retried or reused. On
 correction baseline `6b7f60ba483a65f1723cbf29e87f8a439f0804c9` / tree
@@ -458,7 +483,7 @@ ADB, installation, Hardware, CI, V4 or publication occurred. Independent final R
 V4, exact publication/runtime binding, final approval and a new fully populated one-time Human
 authorization are required before any ADB, installation or Hardware command.
 
-## Current Product-install failure/correction — run consumed; DO NOT START
+## Historical snapshot — superseded by 2026-08-10 final closure above — Product-install failure/correction
 
 The authorized Product run on `7b971070c7fc108fea4ae92db30b87f340b24e91` / tree
 `a053d34581687b541fc0fe67a477250bb24319c3` is consumed. Artifact verification and both scoped
@@ -525,7 +550,7 @@ Final independent Exact-Head/Artifact review returned `APPROVED` with zero open 
 OR RETRY HARDWARE, ADB OR INSTALLATION.** The failed run remains consumed and cleaned. A new
 Human/Hardware V5 requires separate one-time exact authority.
 
-## Current Product-start-bundle correction — technically approved; DO NOT START hardware without fresh authority
+## Historical snapshot — superseded by 2026-08-10 final closure above — Product-start-bundle correction
 
 The Product-Hardware run bound to `4dff147031e2d8ebbd95b9451705f66b35fbacd3` / tree
 `be05ca8e893a00dbd95f84e7133e73f080f96547` is consumed. The standard operator stopped before
@@ -567,7 +592,7 @@ confirmed the runtime and unchanged Product-/Validation-artifact bindings.
 Only a fresh exact Human authorization is still mandatory before the hardware gate. Production,
 production data, production/distribution signing, deployment and distribution remain unauthorized.
 
-## Current Product-preinstall correction — DO NOT START hardware
+## Historical snapshot — superseded by 2026-08-10 final closure above — Product-preinstall correction
 
 The matched read-only inspection on `304ddb159f3def2b50d059678086e02aacbd51c9` / tree
 `97940b61ce76017c9c295b1cb43fe007727f2ca9` did not start the Product operator or install
@@ -598,7 +623,7 @@ and a new exact Human authorization binds the corrected publication/runtime. Exi
 Validation artifacts remain unchanged. Production, production data, signing, deployment and
 distribution remain unauthorized.
 
-## Current governance override — automated Lean closure complete; V5 separately gated
+## Historical snapshot — superseded by 2026-08-10 final closure above — automated Lean governance
 
 ADR-0019 and the Lean authorization were Human-accepted and published at
 `83635335aa4f547dc8994243c604dacf9797f593` / tree
@@ -787,7 +812,7 @@ Exact-Head review returned `APPROVED` with zero open P0–P3. Do not rerun the u
 head. Attempt 13 remains **NOT EXECUTED / DO NOT EXECUTE**; no run, Hardware or Human/Product V5
 authority exists.
 
-## 0A. Run-18 fingerprint-transfer success and current Product boundary
+## Historical snapshot — superseded by 2026-08-10 final closure above — Run-18 fingerprint-transfer result and then-current Product boundary
 
 Run 18 used exact ADO baseline `5a0d59c2b1767192d3d261cede7a2c2b11732d30` / tree
 `e2970d1851ab55f99ff7a027e6268ec4b7622643`, Validation Artifact Source
@@ -1057,7 +1082,7 @@ settles capture and remains `cleanup_failed` ahead of cancel/order outcomes. The
 the same active offer, removes it at settlement and rejects stale replay. This is not permission
 to build, install or run.
 
-## 0. Current non-executable bindings and phase separation
+## Historical snapshot — superseded by 2026-08-10 final closure above — non-executable bindings and phase separation
 
 The Runtime Guard is bound to source `ba1b6e922ceb7902ecedd9dc2df01d6b22d90867`,
 tree `980b6c57fdd71c12820f2890b640946db0d883c6`, CI `30255104609`, attempt 2,
@@ -1628,9 +1653,11 @@ Exact-Head-CI SHA. This is carried evidence only and is not exact-head CI for ru
 the transfer binding A `B55E8B6AEB30`, B `32A54C8F2F29`, X `F61C9F702CFE` and consumed its
 exact authority. Both artifacts are **DO NOT INSTALL** and the operator is **DO NOT START** for
 every new action. No APK listed below may be installed under current authority; all entries are
-non-executable audit bindings. The R3 Harness-artifact closure and independent review must pass
-before Product Human V5 may receive separate exact authorization; no auth, network, database,
-Product action or timekeeping is authorized.
+non-executable audit bindings. **Historical snapshot — superseded by the 2026-08-10 final
+closure above:** every `Current` label in the table below is snapshot-local, non-normative and
+must not be used for a future Product run. At that checkpoint the R3 Harness-artifact closure and
+independent review still had to pass. They later passed only as recorded in the top closure;
+no auth, network, database, Product action or timekeeping is authorized by this historical table.
 
 | Phase 0 artifact | Exact binding |
 |---|---|
@@ -1679,8 +1706,12 @@ Product action or timekeeping is authorized.
 **Later Product Human V5** remains the separate run described below. Successful Validation
 Phase-0 runs 17 and 18 supply no Product/Human-V5 result. The Product App was not installed. The
 run-18 transfer binding locally mitigates R-035 but authorizes no Product installation, Product
-action or other hardware action. The R3 Harness-artifact closure and independent review must pass
-before Product Human V5 may receive separate exact authorization.
+action or other hardware action. The R3 Product-Operator artifact closure has now passed for
+executable `e2f4f6c777d4dc89531394609e44b3471537b2d7` / tree
+`0850d2f254877580773f62174d4c85e10cfff165`, exact-head CI `31384903728` attempt 1 at
+12/12 and fully sandboxed final Artifact Review Round 2 `APPROVED` with zero open P0–P3.
+That technical readiness still authorizes no Product installation, Product action or Hardware
+run; Product Human V5 requires a new, separate and exact one-time Human authorization.
 Production, production data, system changes, deployment and distribution remain unauthorized.
 
 ## 1. Purpose and authority boundary
@@ -1701,7 +1732,9 @@ zero open P0–P3.
 Those facts close the DA5 V0–V4 software scope only. **This document does not authorize V5,
 installation, ADB, device or Tag interaction.** One future fresh run requires a separate exact
 Human-Architect authorization despite the completed artifact/evidence review and CI. The
-authorization must quote every binding in Section 3.
+authorization must fully quote the current top-closure/executable-runtime binding and every
+freshly reattested current Product, runtime, device, Tag and environment binding; it must not
+copy, inherit or rely on any superseded Section 3 binding.
 
 A failed, interrupted or ambiguous preflight, action, observation or checkpoint consumes that
 one-run authority. Stop, mark the entire run failed and clean up. No retry, repair, resume,
@@ -1728,15 +1761,18 @@ device-safety obligation, not a Gate-E retry or resume.
 - Production, production data, signing, deployment, distribution, pilot operation and
   legal/privacy approval remain unauthorized.
 
-## 3. Mandatory exact binding — fill and verify before start
+## 3. Historical mandatory-binding snapshot — superseded and non-normative
 
-Every still-`UNBOUND` field below must be filled by the future authorization and independently
-verified before any installation, device/Tag interaction or Gate A action. This runbook requires
-no self-SHA.
+This complete table is preserved only as historical evidence of the former
+`814cb901…`/`fd0886…`/`c0645…` binding. It is superseded by the 2026-08-10 top closure and
+must not be used, completed or interpreted as current operational input. The only current
+operational path is the top closure plus a future, separately issued exact one-time Human
+authorization that freshly binds every Product, runtime, device, Tag and environment value before
+installation, device interaction or Gate A. Until then: **UNBOUND — DO NOT START**.
 
 | Binding | Required exact value |
 |---|---|
-| Product Human V5 one-run authorization and date | `UNBOUND — DO NOT START`; may not be bound before the R3 Harness-artifact closure and independent source/artifact Exact-SHA review pass with zero open P0–P3; successful Validation Phase-0 run-17 and transfer run-18 authorities are separate and consumed |
+| Product Human V5 one-run authorization and date | Historical snapshot value: `UNBOUND — DO NOT START`. The prerequisite later passed only as recorded in the top closure, but supplies no run authority; successful Validation Phase-0 run-17 and transfer run-18 authorities are separate and consumed |
 | Product source commit/tree and review state | `814cb9013be7da98e46a4c36c5d4e716eef4cf46` / `0181c50faf6936ea1236f4454d536bf734334c91`; source/prepublication reviews `APPROVED`, zero open P0–P3; current execution candidate final V3 passed |
 | Historical runbook/evidence commit/tree and review — not current binding | `e6a06e2ec8f580d6314bfe5a51378f949d524b16` / `6dcdce405feb2eccb1462c373ab6be891152715c`; CI `30150095109`, attempt 1, 12/12; historical Artifact/Evidence Exact-SHA review `APPROVED`, zero open P0–P3 |
 | Read-only Product APK path, byte size, SHA-256 and exact mode | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5/814cb90/app-release-fd0886dc1c393d3b.apk`; 95,522,751 bytes; `fd0886dc1c393d3b09b5ce575215e4767c84335362ec7cbe5f1948877c714d96`; `0444` |
@@ -1744,7 +1780,7 @@ no self-SHA.
 | Package, version, signature scheme, signer digest and packaged manifest/runtime values | `com.tim180201.mobile.synthetic`; versionCode `1`; versionName `1.0.0`; v2 `true`, v1/v3/v3.1/v4 `false`; one local synthetic non-production signer certificate SHA-256 `fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c`; packaged boundary/runtime `match` per adjacent manifest |
 | Read-only Validation Artifact Source commit/tree | `5675297dab94258e50d7371a95e07fe7a77fc51c` / `b32af38c8ac769965ab062762004312d96d0de25`; exact 33-record closure |
 | Validation Execution Repository commit/tree | `be76ce4a69c8a971ad73b5232082a9e500d8d471` / `56abec5e7f2752f5004fe3e8667f47a917429c52` — **DO NOT START**; matched the canonical loaded-module root's actual HEAD/tree in final V3 |
-| Pre-run ADO/V4/re-review closure | Historical Validation/Phase-0 binding remains ADO CI head `f45f49aa6c56c70a503322a043bec3d2360c2176`/tree `714300da7656822dd9b7a2a42fe1be85ab33aa6c`, exact-head CI `30612797541`, attempt 1, 12/12, `9c6eec7`/tree `0aaa6de`, both Exact-Delta re-reviews `APPROVED`, and carried R0 `[skip ci]` closure `3b544c731d15428334bbadc8e70a3492ef60b886`/tree `52eb3a2bd4f9676a22dbfbb5eaacf9fccb474e02`; none is reinterpreted as exact-head CI for run 18 or this synchronization. Current Product-Harness TalkBack tracked-source evidence: `a0359a87fd1738c8493929a1661cbbc7adb3c07c`/tree `102c913e264bd0ccce1d085db1c50bd407f7d4a4`, parent `3f8eb8f582a2458e628ab8c76240a291aaba27f5`; exact seven-file +294/-5 delta SHA-256 `30a7b90bd59de29af0c6bd97b4a809df933b230baa69508cea0ca189a78e27fb`; exact-head CI `30638926835`, attempt 1, 12/12; independent Exact-Head review `APPROVED`, zero open P0–P3; Mobile 38/38, Synthetic 60/60, both tests-inclusive typechecks and Guard closure 4/4 files / 123 passed / 18 expected skips green. `DA5-V5-HARNESS-ARTIFACT-01` remains open because the startable ignored bundle predates that source and is not authorized execution evidence. Its R3 closure and independent source/artifact Exact-SHA review must pass before any separate Product-Human-V5 authorization. Runs 17 and 18 remain separately consumed; R-035 is locally mitigated; DA5/R-034 and Product Human V5 remain open; this row grants no Human-run authority |
+| Superseding closure pointer — not an operational binding | Use only the exact top closure plus a future exact Human authorization. The top closure records executable `e2f4f6c777d4dc89531394609e44b3471537b2d7` / tree `0850d2f254877580773f62174d4c85e10cfff165`, exact-head CI `31384903728` attempt 1 at 12/12, runtime `e2f4f6c7-97448feb`, manifest 8,640 bytes / mode `0444` / SHA-256 `4cf1d4589028707c3328826d3148d34f2ae1e4e6226d75566c4ff3d0476e2790`, and fully sandboxed final Artifact Review Round 2 `APPROVED` with zero open P0–P3. This pointer grants no Human-run authority |
 | Read-only Validation APK path, byte size, SHA-256 and exact mode | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-validation/da5-v5-validation-5675297dab94-3d5450f257eda716/app-release-3d5450f257eda716.apk`; 65,634,553 bytes; `3d5450f257eda716bbda0a133a7630d3a2d8bb1f5095fdb1986e85aa0277d144`; `0444` |
 | Read-only Validation manifest/closure | Same directory, `manifest-5675297dab94.json`; 6,855 bytes; `1397f0504bbbf88e776ececb9796918586724a16c69a885c8e23631c2465e86a`; `0444`; 33 records; compact-JSON SHA-256 `62aaa737428ef90b52fc9790ab1cc268537e8d5f5add1fce785bdb501bade763` |
 | Device model, OS/build and approved screen-unlocked mode | `UNBOUND — DO NOT START` |
@@ -1755,12 +1791,13 @@ no self-SHA.
 | Separately reviewed Protected/Review induction fixture, synthetic labels, exact start state, cutover procedure, expected state sequence and scoped teardown | `UNBOUND — DO NOT START` |
 | Exact large-text setting and active allowlisted TalkBack package/version | `UNBOUND — DO NOT START`; technical candidate context supports exact Google or Samsung package/version, including Samsung, but the future authorization must bind one exact active provider/version and setting |
 
-The populated historical artifact/evidence rows retain their recorded independent approvals. The
-current Product/Validation/operator candidate passed final V3, exact-head CI and both Exact-Delta
-re-reviews with zero open P0–P3; the non-hardware preparation is technically
-`APPROVED`/`MERGE_READY`. This R0 synchronization carries V3/V4 without a second V3 or CI. The
-Human gate remains unbound. None of these rows is a Human-run authorization. Every remaining
-operational binding and a separate exact Human authorization are still mandatory.
+The populated historical artifact/evidence rows retain their recorded independent approvals. At
+that historical checkpoint, the then-current Product/Validation/operator candidate had passed
+final V3, exact-head CI and both Exact-Delta re-reviews with zero open P0–P3; the non-hardware
+preparation was technically `APPROVED`/`MERGE_READY`, and that R0 synchronization carried V3/V4
+without a second V3 or CI. The Human gate remained unbound. None of these rows is a Human-run
+authorization. Only the top closure plus a new exact Human authorization may define any future
+operational binding.
 
 At preflight, recompute both read-only file sizes, SHA-256 digests and modes from the preserved APK
 and manifest. Independently verify package/version, signature/signer and packaged

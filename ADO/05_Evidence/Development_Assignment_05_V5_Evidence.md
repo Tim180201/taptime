@@ -1,10 +1,10 @@
 # Development Assignment 5 — V5 Human Android Evidence
 
-## Current dependency-security / test-TMPDIR candidate — Human-accepted composite evidence
+## Current dependency-security / test-TMPDIR technical closure — final artifact review APPROVED
 
 | Evidence | Exact result |
 |---|---|
-| Baseline | `HEAD` = `origin/main` = `627e8512631c53bc2c6882aed80b163ab81051fd`; tree `dfaf1d32574e4253aad07d99d84e3489cc5634aa` |
+| Development baseline | Direct parent `627e8512631c53bc2c6882aed80b163ab81051fd`; tree `dfaf1d32574e4253aad07d99d84e3489cc5634aa` |
 | Pre-ADO candidate delta | Exactly four tracked paths; Full-Index/Binary diff 45,981 bytes; SHA-256 `7d76ebb9d717ca7b2578b3e50e192b1abf1140c24b2895e5a1c4ff5ee870b37e`; staged empty |
 | Lockfile | `package-lock.json`; SHA-256 `902286a30377eef08ce7613eff44d5af5bdd47bb09f7d3cc0741c69685bad491`; selects `js-yaml@4.3.1` and `nanoid@3.3.18` |
 | Runtime-Guard source | `apps/synthetic-android-e2e/src/Da5V5RuntimeGuardArtifact.ts`; SHA-256 `267f41bcb978604849a5feac177dc88edc98e514a230413d8f2994f8595b567e` |
@@ -26,9 +26,18 @@
 | Unchanged Product artifact | APK `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5/lean-83635335-b0180c31769e4534/app-release-b0180c31769e4534.apk`; 95,522,751 bytes; mode `0444`; SHA-256 `b0180c31769e453472a20eb1e7eb4e0825a85be9429becf6bf4970e0875b67f8`; same-directory manifest 1,968 bytes; mode `0444`; SHA-256 `83b93bbf33297334bfcca3aa30e5ed6772175f98a2a81dc80045454570fe937b` |
 | Later pre-test orchestration stop | Intended `initdb --pwfile=-` invocation failed before PostgreSQL server start and before any full Synthetic test start; no Product, database-content or test-quality finding; task-owned execution/runtime cleanup completed and only the named immutable Evidence was intentionally retained |
 | Immutable orchestration evidence | `/private/tmp/taptime-da5-full-final-evidence.6krwCf/final-evidence.txt`; 4,260 bytes; mode `0444`; containing root mode `0555`; SHA-256 `479758b48825ef3dee311255824a53c9a890953792104f4e54e9057977e29af7` |
-| Current status / authority | Publication and Exact-Head CI pending; no Hardware, ADB, installation, Product Human V5, production, deployment or distribution authority; **DO NOT INSTALL / DO NOT START** |
+| Executable publication | `e2f4f6c777d4dc89531394609e44b3471537b2d7`; tree `0850d2f254877580773f62174d4c85e10cfff165`. A later ADO-only closure commit remains distinct and does not change the executable/CI source |
+| Exact-Head CI | GitHub Actions run `31384903728`, attempt 1, 12/12 successful |
+| Fresh read-only Product Operator Runtime | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-product-operator/e2f4f6c7-97448feb`; checkout detached, sparse and tracked-clean at the executable commit/tree |
+| Runtime bundle | `checkout/apps/synthetic-android-e2e/dist/da5V5Main.js`; 912,627 bytes; mode `0444`; SHA-256 `97448febd21887fa29a08e26ed9e2ac5737736502d6241e6053a3f241aac01ce` |
+| Runtime source map | `checkout/apps/synthetic-android-e2e/dist/da5V5Main.js.map`; 1,697,795 bytes; mode `0444`; SHA-256 `c8cd0e8aa5bb19945946ef9ba4d157075e7cd3ac3e888c6645f31bd6a50854f5`; version 3; `sourceRoot` absent; 90 sources, 90 unique sources and 90 `sourcesContent` entries |
+| Runtime manifest | `operator-runtime-manifest.json`; 8,640 bytes; mode `0444`; SHA-256 `4cf1d4589028707c3328826d3148d34f2ae1e4e6226d75566c4ff3d0476e2790`; generation-time `candidate_status=exact_head_ci_passed_pending_final_artifact_review` remains historical and the manifest was not rewritten after review |
+| Final Artifact Review Round 1 | `CHANGES REQUIRED` only for one formal P2: reviewer write-deny sandbox enforcement was not technically proved. No material Candidate/Artifact finding and no candidate mutation |
+| Final Artifact Review Round 2 | Fully sandboxed; `APPROVED`; zero open P0–P3 |
+| R0 closure synchronization | ADO-only; changes no source, test, lockfile, risk entry, workflow, artifact or runtime input; claims no new test, build, npm, audit, network, CI or Hardware evidence |
+| Current status / authority | Technical closure complete and ready for one separately authorized exact one-time Human Hardware gate. No Hardware, ADB, installation or Product Human V5 occurred. Production, production data, deployment and distribution remain unauthorized; **DO NOT INSTALL / DO NOT START without new Human authorization** |
 
-## Current Credential PTY consumed-run finding and local correction evidence — corrected final V3 PASS; prepublication review pending
+## Historical snapshot — superseded by 2026-08-10 final closure above — Credential PTY consumed-run/correction
 
 | Evidence | Exact result |
 |---|---|
@@ -60,7 +69,7 @@
 | Boundaries | Product/Validation Apps and APKs, Product rules, NFC, schema, dependencies, package manifests/lockfile and workflow unchanged; no ADB, install, APK build/publication, Product/production database, Hardware or production action |
 | Candidate status | Uncommitted/unpublished; corrected final V3 `PASS`; prepublication review and V4/CI remain pending; every published predecessor runtime is superseded for every future start; **DO NOT INSTALL / DO NOT START** |
 
-## Current consumed Product run and published Credential / Lean-Accessibility V4/runtime candidate — final review APPROVED; ADO closure publication pending
+## Historical snapshot — superseded by 2026-08-10 final closure above — Credential / Lean-Accessibility V4 runtime
 
 | Evidence | Exact result |
 |---|---|
@@ -101,7 +110,7 @@
 | R0 closure synchronization | Documentation only; no source, test, artifact or runtime input changed. No new test, build, CI or artifact generation is claimed for this documentation head; existing Lean-V3, prepublication review, V4 and runtime evidence remains bound as stated above |
 | Candidate status / authority | Executable published, V4 green, runtime generated and final Exact-Head/Artifact Re-Review `APPROVED` with zero open P0–P3. Publication of this ADO closure remains pending until commit/push; no future commit is claimed. Product/Validation APKs are unchanged; **DO NOT START** Hardware, ADB, installation or Human V5 without a separate exact one-time Human authorization |
 
-## Current PRODUCT-ADB-REVERSE-01 consumed-run and technical-closure evidence
+## Historical snapshot — superseded by 2026-08-10 final closure above — PRODUCT-ADB-REVERSE-01
 
 | Evidence | Exact result |
 |---|---|
@@ -223,7 +232,7 @@ Rounds 1 and 2 remain historically `CHANGES REQUIRED`; the Round-2 correction ha
 `PASS` but was not yet independently approved at this recorded point. It claimed no publication,
 CI, V4, Hardware or Product result. Independent final Review Round 3 was pending at that time.
 
-## Current PRODUCT-INSTALL-01 consumed-run and technical-closure evidence
+## Historical snapshot — superseded by 2026-08-10 final closure above — PRODUCT-INSTALL-01
 
 | Evidence | Exact result |
 |---|---|
@@ -263,7 +272,7 @@ This final ADO-only closure synchronization claims no test, CI, Artifact or Huma
 documentation head and grants no new Product/Human V5, production, deployment or distribution
 authority.
 
-## Current PRODUCT-START-BUNDLE-01 correction evidence — technical closure approved; hardware pending
+## Historical snapshot — superseded by 2026-08-10 final closure above — PRODUCT-START-BUNDLE-01
 
 The Product-Hardware authority on `4dff147031e2d8ebbd95b9451705f66b35fbacd3` / tree
 `be05ca8e893a00dbd95f84e7133e73f080f96547` is consumed. Starting the bound standard operator
@@ -324,7 +333,7 @@ installation, production, production-data, production/distribution-signing, depl
 distribution authority or evidence is claimed. This R0 Evidence sync carries exact CI/review
 evidence from the executable publication and claims no CI for its documentation-only head.
 
-## Current PRODUCT-PREINSTALL-01 correction evidence — R0 re-review pending
+## Historical snapshot — superseded by 2026-08-10 final closure above — PRODUCT-PREINSTALL-01
 
 The matched read-only inspection on `304ddb159f3def2b50d059678086e02aacbd51c9` / tree
 `97940b61ce76017c9c295b1cb43fe007727f2ca9` did not start the Product operator or perform any
@@ -378,7 +387,7 @@ Hardware, installation, production, production-data, signing, deployment or dist
 is authorized or evidenced here. DA5 and R-034 remain open only for the future fresh Product
 Human/Hardware V5 gate.
 
-## Current Lean V0–V4 closure — hardware candidate ready; Product Human V5 not run
+## Historical snapshot — superseded by 2026-08-10 final closure above — Lean V0–V4 closure
 
 The Human Architect accepted ADR-0019 and the Lean authorization at
 `83635335aa4f547dc8994243c604dacf9797f593` / tree
@@ -1095,7 +1104,8 @@ loaded-module root in final V3. Node, Git, ADB, aapt, apksigner, hermesc and unz
 each require explicit `_PATH`, `_BYTES`, `_MODE` and `_SHA256` inputs under their
 `DA5_V5_VALIDATION_<TOOL>` prefix; `ANDROID_HOME`/`ANDROID_SDK_ROOT` bind the SDK-derived Android
 tools, hermesc must equal the repository-resolved compiler and unzip must equal `/usr/bin/unzip`.
-The Product and Validation candidate bindings above are current artifact Evidence. Ordinary scoped Git status
+The Product and Validation candidate bindings above were this historical snapshot's artifact Evidence and are
+superseded by the 2026-08-10 final closure at document top. Ordinary scoped Git status
 includes staged, unstaged and untracked state under the root `app.json` and `research/**`
 exclusions. A separate `status --ignored=matching` receives only the positive deduplicated
 Validation source scopes plus the exact 13-file transitive local execution closure, detects ignored
@@ -1110,7 +1120,7 @@ The prior Product NfcA/MifareUltralight artifact and its then-current Validation
 are historical **DO NOT INSTALL/DO NOT START**. R-035 is locally mitigated only by the current
 run-18 transfer binding above.
 
-## 0. Current Validation Runtime truth — no Product Human result
+## Historical snapshot — superseded by 2026-08-10 final closure above — Validation Runtime truth with no Product Human result
 
 The local Runtime Guard remains independently `APPROVED` with zero open P0–P3. Round-1 Exact-SHA
 review of Validation App baseline `be32840` returned `CHANGES REQUIRED` for P1 Samsung package
@@ -1491,10 +1501,12 @@ is `NOT RUN`. No production, production-data,
 system-change, deployment or distribution result is claimed. Historical candidate and review
 details remain preserved below.
 
-## 1. Authority and exact binding
+## 1. Historical authority/exact-binding snapshot — superseded and non-normative
 
-This record mirrors
-`ADO/04_Operations/Development_Assignment_05_V5_Runbook.md`. It records the current read-only
+This historical record mirrors the correspondingly superseded Runbook table. Every `Current`
+label below is snapshot-local and must not be used as current operational truth. The only current
+path is the top 2026-08-10 closure plus a future, separately issued exact one-time Human
+authorization; until then: **UNBOUND — DO NOT START**. This snapshot records the then-read-only
 Product/Validation artifacts plus operator Execution candidate, its final V3, ADO/V4 and both
 independent zero-finding Exact-Delta re-reviews, the historical Validation artifacts and exact
 TECH-01 source/CI/source-review bindings, failed runs 1–16, successful Validation Phase-0 run 17
@@ -1712,7 +1724,7 @@ Do not add credentials, credential/password/identity digests, tokens, secrets, r
 provider subjects, device serials, encryption keys, internal identifiers, CSV bodies or personal
 data.
 
-## 2. Consumed Phase-0 attempts and current preflight stop
+## Historical snapshot — superseded by 2026-08-10 final closure above — consumed Phase-0 attempts and then-current preflight stop
 
 | Attempt | Fail-closed stop | Cleanup/result |
 |---|---|---|
@@ -1740,8 +1752,10 @@ Runs 10 through 18 ended with terminal cleanup matched. The run-7 through run-9 
 longer installed; runs 10–15 reached no attributable installation provenance; run 16 reached only
 the first rejected Tag-A evidence boundary; run 17 passed the complete Validation protocol and
 removed the Validation App; run 18 established the exact safe A/B/X transfer binding and again
-removed the Validation App. Product Human V5 remains separately unauthorized and `NOT RUN`; the
-R3 Harness-artifact closure plus independent source/artifact Exact-SHA review must pass first.
+removed the Validation App. At this historical checkpoint Product Human V5 remained separately
+unauthorized and `NOT RUN`, and the R3 Harness-artifact closure plus independent source/artifact
+Exact-SHA review still had to pass. The top 2026-08-10 closure records that later pass but grants
+no Human-run authority.
 
 ### 2.1 Validation Phase-0 operator R1 correction — independently approved, non-executable
 
@@ -2157,7 +2171,7 @@ no retry or resume. No Hardware,
 Human/Product V5, production, production-data, deployment or distribution authority follows.
 Product Human V5 remains `NOT RUN / NOT BOUND / DO NOT START`.
 
-## Attempt-12 prospective evidence contract — review pending, no evidence yet
+## Historical snapshot — superseded by 2026-08-10 final closure above — Attempt-12 prospective evidence contract
 
 Attempt 11 remains consumed. Its independent review returned `CHANGES REQUIRED` with exactly one
 P2 because the immutable Gate-32 evidence can establish only exact mapped Vitest exit 1 and cannot

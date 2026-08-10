@@ -1,10 +1,13 @@
 # Project Status
 
-DA5 V5 dependency-security / test-TMPDIR override: **THE FOUR-PATH CODE CANDIDATE IS
-INDEPENDENTLY APPROVED WITH ZERO OPEN P0–P3. THE HUMAN ACCEPTED THE EXPLICITLY COMPOSITE GREEN
-EVIDENCE ON 10.08.2026 IN LIEU OF ANOTHER LOCAL FULL SYNTHETIC RERUN. PUBLICATION AND EXACT-HEAD
-CI REMAIN PENDING; NO NEW HARDWARE AUTHORITY EXISTS. DO NOT INSTALL / DO NOT START.** Exact
-baseline is `HEAD` = `origin/main` = `627e8512631c53bc2c6882aed80b163ab81051fd`, tree
+DA5 V5 dependency-security / test-TMPDIR override: **THE EXECUTABLE IS PUBLISHED, EXACT-HEAD CI
+PASSED 12/12, AND FINAL ARTIFACT REVIEW ROUND 2 IS `APPROVED` WITH ZERO OPEN P0–P3. THE HUMAN
+ACCEPTED THE EXPLICITLY COMPOSITE GREEN EVIDENCE ON 10.08.2026 IN LIEU OF ANOTHER LOCAL FULL
+SYNTHETIC RERUN. TECHNICAL CLOSURE IS COMPLETE; A NEW EXACT ONE-TIME HUMAN AUTHORIZATION IS
+REQUIRED BEFORE HARDWARE, ADB OR INSTALLATION. DO NOT INSTALL / DO NOT START.** The executable
+publication is `e2f4f6c777d4dc89531394609e44b3471537b2d7`, tree
+`0850d2f254877580773f62174d4c85e10cfff165`. Its direct development baseline is
+`627e8512631c53bc2c6882aed80b163ab81051fd`, tree
 `dfaf1d32574e4253aad07d99d84e3489cc5634aa`. Before ADO synchronization the four-path
 Full-Index/Binary diff was 45,981 bytes, SHA-256
 `7d76ebb9d717ca7b2578b3e50e192b1abf1140c24b2895e5a1c4ff5ee870b37e`.
@@ -57,7 +60,29 @@ evidence was retained at
 `479758b48825ef3dee311255824a53c9a890953792104f4e54e9057977e29af7`. It is not a Product,
 test-quality or database finding and does not replace the Human-accepted composite evidence.
 
-DA5 V5 Credential-PTY override: **THE LATEST PRODUCT HUMAN/HARDWARE AUTHORITY IS CONSUMED AND
+Exact-Head CI GitHub Actions run `31384903728`, attempt 1, passed 12/12. The fresh read-only
+Product Operator Runtime is
+`/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-product-operator/e2f4f6c7-97448feb`;
+its detached, sparse and tracked-clean checkout is bound to the executable commit/tree. The
+runtime manifest is 8,640 bytes, mode `0444`, SHA-256
+`4cf1d4589028707c3328826d3148d34f2ae1e4e6226d75566c4ff3d0476e2790`. The mode-`0444`
+bundle remains 912,627 bytes / SHA-256
+`97448febd21887fa29a08e26ed9e2ac5737736502d6241e6053a3f241aac01ce`; the mode-`0444`
+map remains 1,697,795 bytes / SHA-256
+`c8cd0e8aa5bb19945946ef9ba4d157075e7cd3ac3e888c6645f31bd6a50854f5`.
+The manifest's generation-time
+`candidate_status=exact_head_ci_passed_pending_final_artifact_review` remains unchanged.
+
+Final Artifact Review Round 1 had only one formal P2 because reviewer sandbox enforcement was
+not technically proved; it found no material Candidate/Artifact defect and performed no
+candidate mutation. Round 2 ran fully under the enforced write-deny sandbox and returned
+`APPROVED` with zero open P0–P3. This ADO-only closure synchronization is a later R0 commit
+candidate, not a new executable or CI source, and does not invalidate the exact runtime binding.
+No Hardware, ADB or installation occurred. Production, production data, deployment and
+distribution remain unauthorized.
+
+Historical snapshot — superseded by the 2026-08-10 final closure above. DA5 V5 Credential-PTY
+override: **THE LATEST PRODUCT HUMAN/HARDWARE AUTHORITY IS CONSUMED AND
 FINAL CLEANUP IS NULL. THE PUBLISHED PRODUCT OPERATOR RUNTIME IS SUPERSEDED FOR EVERY FUTURE
 START BY CONFIRMED PTY CREDENTIAL DISCLOSURE. THE CORRECTION IS INDEPENDENTLY APPROVED WITH ZERO
 OPEN P0–P3, AND THE SEPARATELY AUTHORIZED CORRECTED FINAL V3 IS PASS. PREPUBLICATION REVIEW,
@@ -131,7 +156,8 @@ After all children, Root/Parent/UID/Inode remained bound, symlinks, mounts and o
 absent, and `xdev`-bounded removal plus root-absence proof passed. No V4/CI, artifact publication,
 ADB, installation, APK build or Hardware action was run or authorized.
 
-DA5 V5 ADB-reverse override: **THE LATEST PRODUCT HUMAN/HARDWARE RUN IS CONSUMED WITH FINAL NULL;
+Historical snapshot — superseded by the 2026-08-10 final closure above. DA5 V5 ADB-reverse
+override: **THE LATEST PRODUCT HUMAN/HARDWARE RUN IS CONSUMED WITH FINAL NULL;
 `DA5-V5-PRODUCT-ADB-REVERSE-01` IS CONFIRMED; THE PUBLISHED R3 CORRECTION IS V4-BOUND,
 TECHNICALLY CLOSED AND ARTIFACT-BOUND. EVERY NEW HUMAN/HARDWARE ACTION REMAINS UNAUTHORIZED. DO
 NOT INSTALL / DO NOT START.** Development baseline is
@@ -384,7 +410,8 @@ Required next Product/architecture disposition after focused ADO publication: ex
 adjust or reject the remaining ADR-0020 `DA6-L01`–`DA6-L11`, Workstream E / Phase 0 and DA6 values,
 excluding the already Human-accepted P1 assignment rules. No implementation authority exists.
 
-DA5 V5 current override: **THE PRODUCT INSTALL RUN IS CONSUMED FAIL-CLOSED;
+Historical snapshot — superseded by the 2026-08-10 final closure above. DA5 V5 Product-install
+override: **THE PRODUCT INSTALL RUN IS CONSUMED FAIL-CLOSED;
 DA5-V5-PRODUCT-INSTALL-01 AND DA5-V5-SECURITY-BRACE-01 ARE TECHNICALLY CLOSED; A NEW
 HUMAN/HARDWARE V5 REQUIRES SEPARATE ONE-TIME AUTHORITY.** On exact
 baseline `7b971070c7fc108fea4ae92db30b87f340b24e91` / tree
@@ -463,7 +490,8 @@ production/distribution signing, deployment and distribution remain unauthorized
 documentation sync carries the executable-publication evidence and claims no CI for its own
 documentation-only head.
 
-DA5 V5 current override: **PRODUCT-PREINSTALL-01 IS TECHNICALLY CORRECTED AND EXACT-HEAD CI IS
+Historical snapshot — superseded by the 2026-08-10 final closure above. DA5 V5
+PRODUCT-PREINSTALL-01 override: **PRODUCT-PREINSTALL-01 IS TECHNICALLY CORRECTED AND EXACT-HEAD CI IS
 GREEN; R0 ADO REVIEW AND FRESH HUMAN/HARDWARE AUTHORIZATION REMAIN PENDING.** The preceding
 read-only inspection on `304ddb159f3def2b50d059678086e02aacbd51c9` / tree
 `97940b61ce76017c9c295b1cb43fe007727f2ca9` matched all bindings/null states. The operator did not
@@ -479,7 +507,8 @@ before continuation and were not unchanged retries. Fixture correction
 CI `30829321321`, attempt 1, passed 12/12. Final technical review requested only this P3 ADO sync.
 DA5/R-034 and all Hardware/production prohibitions remain open through R0 review and the Human gate.
 
-DA5 V5 current override: **AUTOMATED LEAN V0–V4 AND LEAN STAGES 1–5 ARE COMPLETE; THE PRODUCT
+Historical snapshot — superseded by the 2026-08-10 final closure above. DA5 V5 automated-Lean
+override: **AUTOMATED LEAN V0–V4 AND LEAN STAGES 1–5 ARE COMPLETE; THE PRODUCT
 HUMAN/HARDWARE V5 GATE REMAINS SEPARATELY UNAUTHORIZED.** The Human Architect accepted ADR-0019
 and the Lean authorization at `83635335aa4f547dc8994243c604dacf9797f593` / tree
 `40b7655a94e607b8afe19f90f42a95f42ee6d582`; independent architecture/authorization review
@@ -582,7 +611,8 @@ Attempt 14 is **NOT EXECUTED / DO NOT EXECUTE WITHOUT SEPARATE EXACT RUN AUTHORI
 Hardware/Human/Product V5 remains **DO NOT START**. This override supersedes older
 Attempt-13 preparation state below, not its historical evidence.
 
-DA5 V5 execution-binding override: **THE SUPERSEDING READ-ONLY EXECUTOR IS AN INDEPENDENTLY
+Historical snapshot — superseded by the 2026-08-10 final closure above. DA5 V5 execution-binding
+override: **THE SUPERSEDING READ-ONLY EXECUTOR IS AN INDEPENDENTLY
 REVIEWED PUBLICATION CANDIDATE AND GRANTS NO ATTEMPT AUTHORITY.** Independent prepublication
 exact-delta/artifact review Round 1 returned exactly one P3 for stale historic labels; Round 2
 closure returned `APPROVED` with zero open P0–P3.
@@ -909,7 +939,8 @@ TapTim.e is a professional time tracking product with NFC chip scan as its prima
   disposition is pending and no implementation authority exists. ADR-0018 P01–P12 remain
   unchanged and R-037 is open. The historical DA6 review still covers only the earlier A–D
   candidate; the exact new review approves ADO candidate publication only.
-- **Current DA5 V5 status:** ADR-0019/Lean authorization accepted and independently approved;
+- **Historical DA5 V5 status snapshot — superseded by the 2026-08-10 final closure at document
+  top:** ADR-0019/Lean authorization accepted and independently approved;
   Lean stages 1–5 and automated V0–V4 complete on `1b341d8` / tree `2db7568`; isolated V3 passed
   2,835 tests plus two disclosed B1 skips, exact-head CI `30786622180` passed 12/12 and final
   Exact-Head/Artifact review is `APPROVED` with zero open P0–P3. The fresh artifacts are bound and
@@ -2308,11 +2339,12 @@ Two Epics are concurrently Active, per EP-009's own stated relationship to the r
 
 ## Immediate Next Steps
 
-0. Treat the latest DA5 Product Human/Hardware run as consumed/final-null and preserve the P2
-   diagnostic mapping mutation only as non-Evidence. Preserve technically closed,
-   artifact-bound publication `f8d68c541056cb19e0f222b8a2c04cd3db2b734f` and its exact V4/review
-   binding. Seek a new exact Human authority before any Product install or Hardware/ADB start.
-   Attempt 15 remains consumed with no retry.
+0. Preserve executable publication `e2f4f6c777d4dc89531394609e44b3471537b2d7` / tree
+   `0850d2f254877580773f62174d4c85e10cfff165`, exact-head CI `31384903728` attempt 1 at
+   12/12, runtime `e2f4f6c7-97448feb` and fully sandboxed final Artifact Review Round 2
+   `APPROVED` with zero open P0–P3. Technical closure permits only preparation of a new exact
+   one-time Human authorization; do not install or start Hardware/ADB before that authorization.
+   Preserve all consumed-run and excluded diagnostic evidence as historical truth.
 
 1. Preserve Development Assignments 1–3 and DT-060–DT-074 as completed only for their exact
    independently approved local scopes.
@@ -2421,7 +2453,7 @@ The grouping reduces coordination overhead only. It does not combine privileged 
 review, lower test depth, bypass security gates or turn production/deployment/personal-data work
 into implicit authority.
 
-## Current DA5 V5 Harness Attempt-11 terminal override — 2026-08-01
+## Historical snapshot — superseded by 2026-08-10 final closure above — DA5 V5 Harness Attempt 11
 
 This section supersedes only the older Attempt-11 candidate-state statements in this file. Exact
 publication `32272ca8e1155839380797cadb64fbc454bf2133` / tree
