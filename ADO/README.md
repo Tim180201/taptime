@@ -7,6 +7,52 @@ Approval Authority: Human Architect
 
 ## Purpose
 
+### Current DA5 V5 dependency-security / test-TMPDIR candidate — Human-accepted composite evidence; publication and Exact-Head CI pending
+
+The current uncommitted candidate is based on exact `HEAD`/`origin/main`
+`627e8512631c53bc2c6882aed80b163ab81051fd`, tree
+`dfaf1d32574e4253aad07d99d84e3489cc5634aa`. Before this ADO synchronization, its exact
+four-path Full-Index/Binary diff was 45,981 bytes with SHA-256
+`7d76ebb9d717ca7b2578b3e50e192b1abf1140c24b2895e5a1c4ff5ee870b37e`: the lockfile,
+the test-only Runtime-Guard artifact verifier and regression, and the Product-start binding test.
+
+The lock correction selects `js-yaml@4.3.1` and `nanoid@3.3.18`. The only accepted High
+advisories are the transitive `image-size@1.2.1` findings `GHSA-w3rx-r6r6-pgpr` and
+`GHSA-5p2g-fcmc-qvqq`; the narrow exception is accepted through `2026-09-09` and is recorded as
+R-038.
+The test-only verifier now derives one canonical `os.tmpdir()` trust root, accepts only a strict
+same-EUID-private descendant after root and binary binding, keeps unsafe in-root state fail-closed
+without fallback, and leaves every outside path on the root-system boundary. Production verifier
+and artifact semantics are unchanged.
+
+The generated Product-start binding is 912,627-byte `da5V5Main.js` with SHA-256
+`97448febd21887fa29a08e26ed9e2ac5737736502d6241e6053a3f241aac01ce` and 1,697,795-byte
+`da5V5Main.js.map` with SHA-256
+`c8cd0e8aa5bb19945946ef9ba4d157075e7cd3ac3e888c6645f31bd6a50854f5`; the map remains
+version 3, has no `sourceRoot`, and binds 90 unique sources plus 90 `sourcesContent` entries.
+Independent Exact-Delta review returned `APPROVED` with zero open P0–P3.
+
+On `2026-08-10`, the Human accepted the explicitly composite evidence in lieu of another local
+full Synthetic rerun. Carry-forward is limited to V3r3 gates whose bound inputs remained
+byte-identical: dependency install/graph/audits/validator, 19 non-Synthetic builds, 20
+non-Synthetic tests-inclusive Typechecks, C3B `verify-bin`, migration apply/replay/ledger, Expo
+export and the first 20 non-Synthetic workspace suites. No V3r3 Synthetic build, Typecheck or
+workspace result is carried after the RuntimeGuard source/test and ProductStart test changed.
+
+Fresh evidence passed the final Synthetic binding build under exact Node `24.17.0`, npm
+`11.13.0`, `js-yaml@4.3.1` and `nanoid@3.3.18`; the tests-inclusive Synthetic Typecheck passed
+with 573 listed files and membership of the changed RuntimeGuard source, RuntimeGuard test and
+ProductStart test. Fresh macOS slices passed RuntimeGuard 17 plus one expected skip, PostgresGuard
+78/78, SyntheticDB 21/21 and ProductStart 5/5 with
+`TAPTIME_DA5_V5_PRODUCT_APK_REACHABILITY=required`. This is not relabeled as one monolithic
+rerun.
+A later intended pre-test `initdb --pwfile=-` invocation stopped as orchestration-only failure;
+no PostgreSQL server or full Synthetic test started. All task-owned execution/runtime state was
+cleaned; only the immutable Evidence described in the DA5-V5 Evidence record was retained.
+
+Publication and Exact-Head CI remain pending. No new Hardware, ADB, installation, Product Human
+V5, production, deployment or distribution authority exists. **DO NOT INSTALL / DO NOT START.**
+
 ### Current DA5 V5 truth — Credential PTY correction final corrected V3 PASS; prepublication review pending
 
 The latest Product Human/Hardware authority is consumed and final cleanup is null. After the

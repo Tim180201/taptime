@@ -2,7 +2,9 @@ import { createHash } from 'node:crypto';
 import { spawn, spawnSync } from 'node:child_process';
 import { once } from 'node:events';
 import {
+  chown,
   chmod,
+  copyFile,
   mkdtemp,
   mkdir,
   readdir,
@@ -11,6 +13,7 @@ import {
   rename,
   rm,
   stat,
+  symlink,
   writeFile,
 } from 'node:fs/promises';
 import { arch, platform, release, tmpdir } from 'node:os';
@@ -35,9 +38,53 @@ const sourcePath = fileURLToPath(new URL(
   import.meta.url,
 ));
 
+async function withTemporaryRoot<T>(
+  temporaryRoot: string,
+  operation: () => Promise<T>,
+): Promise<T> {
+  const originalTemporaryRoot = process.env.TMPDIR;
+  process.env.TMPDIR = temporaryRoot;
+  try {
+    return await operation();
+  } finally {
+    if (originalTemporaryRoot === undefined) {
+      delete process.env.TMPDIR;
+    } else {
+      process.env.TMPDIR = originalTemporaryRoot;
+    }
+  }
+}
+
+async function copyRunningSleepFixture(temporaryRoot: string): Promise<{
+  readonly binaryPath: string;
+  readonly process: ReturnType<typeof spawn>;
+}> {
+  const binaryPath = join(temporaryRoot, 'sleep');
+  await copyFile('/bin/sleep', binaryPath);
+  await chmod(binaryPath, 0o500);
+  const running = spawn(binaryPath, ['10'], {
+    cwd: '/',
+    env: {},
+    shell: false,
+    stdio: 'ignore',
+  });
+  await once(running, 'spawn');
+  return Object.freeze({ binaryPath, process: running });
+}
+
+async function stopSleepFixture(
+  running: ReturnType<typeof spawn>,
+): Promise<void> {
+  if (running.exitCode === null && running.signalCode === null) {
+    const exited = once(running, 'exit');
+    running.kill('SIGTERM');
+    await exited;
+  }
+}
+
 describe('DA5 V5 Runtime Guard stable artifact binding', () => {
   it.runIf(process.platform === 'darwin')(
-    'binds the actual running guest CDHash and rejects mismatch or exited guests',
+    'keeps system binaries outside temp root-bound and rejects false CDHash or exited guests',
     async () => {
       const running = spawn('/bin/sleep', ['10'], {
         env: {},
@@ -70,6 +117,236 @@ describe('DA5 V5 Runtime Guard stable artifact binding', () => {
         binaryPath: '/usr/bin/true',
         pid: exited.pid as number,
       })).rejects.toThrow(/running process identity mismatch/);
+    },
+  );
+
+  it.runIf(process.platform === 'darwin')(
+    'accepts a running same-euid binary under the default private temp root',
+    async () => {
+      const root = await realpath(await mkdtemp(
+        join(tmpdir(), 'taptime-da5-default-tmpdir-'),
+      ));
+      const fixture = await copyRunningSleepFixture(root);
+      try {
+        await expect(verifyDa5V5RuntimeGuardRunningProcessForTest({
+          binaryPath: fixture.binaryPath,
+          pid: fixture.process.pid as number,
+        })).resolves.toBeUndefined();
+      } finally {
+        await stopSleepFixture(fixture.process);
+        await rm(root, { force: true, recursive: true });
+      }
+    },
+  );
+
+  it.runIf(process.platform === 'darwin')(
+    'accepts a custom private TMPDIR and reads that boundary exactly once',
+    async () => {
+      const outerRoot = await realpath(await mkdtemp(
+        join(tmpdir(), 'taptime-da5-custom-tmpdir-'),
+      ));
+      const temporaryRoot = join(outerRoot, 'private-root');
+      await mkdir(temporaryRoot, { mode: 0o700 });
+      const fixture = await copyRunningSleepFixture(temporaryRoot);
+      try {
+        await withTemporaryRoot(temporaryRoot, async () => {
+          await expect(verifyDa5V5RuntimeGuardRunningProcessForTest({
+            binaryPath: fixture.binaryPath,
+            pid: fixture.process.pid as number,
+            testOnlyBeforeProcessVerification: async () => {
+              process.env.TMPDIR = '/';
+            },
+          })).resolves.toBeUndefined();
+        });
+      } finally {
+        await stopSleepFixture(fixture.process);
+        await rm(outerRoot, { force: true, recursive: true });
+      }
+    },
+  );
+
+  it.runIf(process.platform === 'darwin')(
+    'rejects user-owned temp siblings, prefix collisions and escapes',
+    async () => {
+      const outerRoot = await realpath(await mkdtemp(
+        join(tmpdir(), 'taptime-da5-tmpdir-boundary-'),
+      ));
+      const temporaryRoot = join(outerRoot, 'trusted');
+      const prefixedSibling = join(outerRoot, 'trusted-sibling');
+      const unrelatedSibling = join(outerRoot, 'outside');
+      await Promise.all([
+        mkdir(temporaryRoot, { mode: 0o700 }),
+        mkdir(prefixedSibling, { mode: 0o700 }),
+        mkdir(unrelatedSibling, { mode: 0o700 }),
+      ]);
+      const outsideBinaries = [prefixedSibling, unrelatedSibling].map(
+        (directory) => join(directory, 'sleep'),
+      );
+      await Promise.all(outsideBinaries.map(async (binaryPath) => {
+        await copyFile('/bin/sleep', binaryPath);
+        await chmod(binaryPath, 0o500);
+      }));
+      const escapedLink = join(temporaryRoot, 'escaped-sleep');
+      await symlink(outsideBinaries[1] as string, escapedLink);
+      try {
+        await withTemporaryRoot(temporaryRoot, async () => {
+          for (const binaryPath of outsideBinaries) {
+            await expect(verifyDa5V5RuntimeGuardRunningProcessForTest({
+              binaryPath,
+              pid: process.pid,
+            })).rejects.toThrow(/owner or mode mismatch/);
+          }
+          await expect(verifyDa5V5RuntimeGuardRunningProcessForTest({
+            binaryPath: `${temporaryRoot}/../trusted-sibling/sleep`,
+            pid: process.pid,
+          })).rejects.toThrow(/path must be canonical/);
+          await expect(verifyDa5V5RuntimeGuardRunningProcessForTest({
+            binaryPath: escapedLink,
+            pid: process.pid,
+          })).rejects.toThrow(/path must be canonical/);
+        });
+      } finally {
+        await rm(outerRoot, { force: true, recursive: true });
+      }
+    },
+  );
+
+  it.runIf(process.platform === 'darwin')(
+    'fail-closes on unsafe private temp root and binary modes',
+    async () => {
+      const outerRoot = await realpath(await mkdtemp(
+        join(tmpdir(), 'taptime-da5-tmpdir-mode-'),
+      ));
+      const temporaryRoot = join(outerRoot, 'private-root');
+      await mkdir(temporaryRoot, { mode: 0o700 });
+      const binaryPath = join(temporaryRoot, 'sleep');
+      await copyFile('/bin/sleep', binaryPath);
+      await chmod(binaryPath, 0o500);
+      try {
+        await withTemporaryRoot(temporaryRoot, async () => {
+          for (const unsafeRootMode of [0o720, 0o702, 0o600]) {
+            await chmod(temporaryRoot, unsafeRootMode);
+            await expect(verifyDa5V5RuntimeGuardRunningProcessForTest({
+              binaryPath,
+              pid: process.pid,
+            })).rejects.toThrow(
+              /owner or mode mismatch|EACCES|permission denied/,
+            );
+            await chmod(temporaryRoot, 0o700);
+          }
+          for (const unsafeBinaryMode of [0o520, 0o502]) {
+            await chmod(binaryPath, unsafeBinaryMode);
+            await expect(verifyDa5V5RuntimeGuardRunningProcessForTest({
+              binaryPath,
+              pid: process.pid,
+            })).rejects.toThrow(/owner or mode mismatch/);
+          }
+        });
+      } finally {
+        await chmod(temporaryRoot, 0o700).catch(() => undefined);
+        await rm(outerRoot, { force: true, recursive: true });
+      }
+    },
+  );
+
+  it.runIf(
+    process.platform === 'darwin'
+    && process.geteuid !== undefined
+    && process.geteuid() !== 0,
+  )(
+    'rejects a wrong-owner in-bound temp root without mutating it',
+    async () => {
+      await withTemporaryRoot('/', async () => {
+        await expect(verifyDa5V5RuntimeGuardRunningProcessForTest({
+          binaryPath: '/bin/sleep',
+          pid: process.pid,
+        })).rejects.toThrow(/owner or mode mismatch/);
+      });
+    },
+  );
+
+  it.runIf(
+    process.platform === 'darwin'
+    && process.geteuid !== undefined
+    && process.geteuid() === 0,
+  )(
+    'rejects a wrong-owner in-bound binary when fixture chown is safe',
+    async () => {
+      const outerRoot = await realpath(await mkdtemp(
+        join(tmpdir(), 'taptime-da5-tmpdir-owner-'),
+      ));
+      const temporaryRoot = join(outerRoot, 'private-root');
+      await mkdir(temporaryRoot, { mode: 0o700 });
+      const binaryPath = join(temporaryRoot, 'sleep');
+      await copyFile('/bin/sleep', binaryPath);
+      await chmod(binaryPath, 0o500);
+      await chown(binaryPath, 1, 1);
+      try {
+        await withTemporaryRoot(temporaryRoot, async () => {
+          await expect(verifyDa5V5RuntimeGuardRunningProcessForTest({
+            binaryPath,
+            pid: process.pid,
+          })).rejects.toThrow(/owner or mode mismatch/);
+        });
+      } finally {
+        await rm(outerRoot, { force: true, recursive: true });
+      }
+    },
+  );
+
+  it.runIf(process.platform === 'darwin')(
+    'detects deterministic temp root and binary replacement around process verification',
+    async () => {
+      const rootReplacementOuter = await realpath(await mkdtemp(
+        join(tmpdir(), 'taptime-da5-tmpdir-root-replacement-'),
+      ));
+      const temporaryRoot = join(rootReplacementOuter, 'private-root');
+      const displacedRoot = join(rootReplacementOuter, 'displaced-root');
+      await mkdir(temporaryRoot, { mode: 0o700 });
+      const rootFixture = await copyRunningSleepFixture(temporaryRoot);
+      try {
+        await withTemporaryRoot(temporaryRoot, async () => {
+          await expect(verifyDa5V5RuntimeGuardRunningProcessForTest({
+            binaryPath: rootFixture.binaryPath,
+            pid: rootFixture.process.pid as number,
+            testOnlyBeforeProcessVerification: async () => {
+              await rename(temporaryRoot, displacedRoot);
+              await mkdir(temporaryRoot, { mode: 0o700 });
+              await rename(
+                join(displacedRoot, 'sleep'),
+                rootFixture.binaryPath,
+              );
+            },
+          })).rejects.toThrow(/producer path changed/);
+        });
+      } finally {
+        await stopSleepFixture(rootFixture.process);
+        await rm(rootReplacementOuter, { force: true, recursive: true });
+      }
+
+      const binaryReplacementOuter = await realpath(await mkdtemp(
+        join(tmpdir(), 'taptime-da5-tmpdir-binary-replacement-'),
+      ));
+      const binaryTemporaryRoot = join(binaryReplacementOuter, 'private-root');
+      await mkdir(binaryTemporaryRoot, { mode: 0o700 });
+      const binaryFixture = await copyRunningSleepFixture(binaryTemporaryRoot);
+      const displacedBinary = join(binaryReplacementOuter, 'displaced-sleep');
+      try {
+        await withTemporaryRoot(binaryTemporaryRoot, async () => {
+          await expect(verifyDa5V5RuntimeGuardRunningProcessForTest({
+            binaryPath: binaryFixture.binaryPath,
+            pid: binaryFixture.process.pid as number,
+            testOnlyAfterProcessVerification: async () => {
+              await rename(binaryFixture.binaryPath, displacedBinary);
+              await copyFile(displacedBinary, binaryFixture.binaryPath);
+              await chmod(binaryFixture.binaryPath, 0o500);
+            },
+          })).rejects.toThrow(/producer input changed/);
+        });
+      } finally {
+        await stopSleepFixture(binaryFixture.process);
+        await rm(binaryReplacementOuter, { force: true, recursive: true });
+      }
     },
   );
 

@@ -1,5 +1,33 @@
 # Development Assignment 5 — V5 Human Android Evidence
 
+## Current dependency-security / test-TMPDIR candidate — Human-accepted composite evidence
+
+| Evidence | Exact result |
+|---|---|
+| Baseline | `HEAD` = `origin/main` = `627e8512631c53bc2c6882aed80b163ab81051fd`; tree `dfaf1d32574e4253aad07d99d84e3489cc5634aa` |
+| Pre-ADO candidate delta | Exactly four tracked paths; Full-Index/Binary diff 45,981 bytes; SHA-256 `7d76ebb9d717ca7b2578b3e50e192b1abf1140c24b2895e5a1c4ff5ee870b37e`; staged empty |
+| Lockfile | `package-lock.json`; SHA-256 `902286a30377eef08ce7613eff44d5af5bdd47bb09f7d3cc0741c69685bad491`; selects `js-yaml@4.3.1` and `nanoid@3.3.18` |
+| Runtime-Guard source | `apps/synthetic-android-e2e/src/Da5V5RuntimeGuardArtifact.ts`; SHA-256 `267f41bcb978604849a5feac177dc88edc98e514a230413d8f2994f8595b567e` |
+| Runtime-Guard regression | `apps/synthetic-android-e2e/tests/Da5V5RuntimeGuardArtifact.test.ts`; SHA-256 `a86a6afc4198e0b2a0113fa83db5c7b363cbb7f8e5418d596de15afa66165c6e` |
+| Product-start binding regression | `apps/synthetic-android-e2e/tests/Da5V5ProductStartBundle.test.ts`; SHA-256 `40c14eda526739a9dc6ae09fdf22828cb4119dee4b646dbcb1dc3dde6fc13806` |
+| Test-only TMPDIR trust correction | Reads `os.tmpdir()` once; canonical root and binary; strict nonempty component descendant; bound same-EUID-private root and binary; unsafe in-bound root fails without fallback; outside remains root-system; root, binary and codesign revalidated immediately before and after process verification; production verifier/artifact semantics unchanged |
+| Product-start bundle | `da5V5Main.js`; 912,627 bytes; SHA-256 `97448febd21887fa29a08e26ed9e2ac5737736502d6241e6053a3f241aac01ce` |
+| Product-start source map | `da5V5Main.js.map`; 1,697,795 bytes; SHA-256 `c8cd0e8aa5bb19945946ef9ba4d157075e7cd3ac3e888c6645f31bd6a50854f5`; version 3; `sourceRoot` absent; 90 sources, 90 unique sources, 90 `sourcesContent` entries |
+| Independent Exact-Delta review | `APPROVED`; zero open P0–P3 |
+| Carried V3r3 evidence | Limited to byte-identical bound inputs: dependency install/graph, both audits, validator each/pair, 19 non-Synthetic builds, 20 non-Synthetic tests-inclusive Typechecks, C3B `verify-bin`, migration apply/replay/ledger, Expo export and the first 20 non-Synthetic workspace suites. No V3r3 Synthetic build, Typecheck or workspace result carries after the RuntimeGuard source/test and ProductStart test changed; the historical failed Synthetic workspace result remains historical and is not relabeled |
+| Fresh Synthetic binding build | `PASS` under exact Node `24.17.0`, npm `11.13.0`, installed `js-yaml@4.3.1` and installed `nanoid@3.3.18` |
+| Fresh tests-inclusive Synthetic Typecheck | `PASS`; 573 listed files; membership includes `apps/synthetic-android-e2e/src/Da5V5RuntimeGuardArtifact.ts`, `apps/synthetic-android-e2e/tests/Da5V5RuntimeGuardArtifact.test.ts` and `apps/synthetic-android-e2e/tests/Da5V5ProductStartBundle.test.ts` |
+| Fresh macOS RuntimeGuard slice | 17 passed; one expected skip |
+| Fresh macOS PostgresGuard slice | 78/78 passed |
+| Fresh macOS SyntheticDB slice | 21/21 passed |
+| Final ProductStart slice | 5/5 passed under exact Node `24.17.0`, npm `11.13.0`, installed `js-yaml@4.3.1`, installed `nanoid@3.3.18` and `TAPTIME_DA5_V5_PRODUCT_APK_REACHABILITY=required` |
+| Composite-evidence disposition | Explicitly accepted by the Human on `2026-08-10` in lieu of another local full Synthetic rerun; components retain their individual carried/fresh labels and are not a single monolithic rerun |
+| Accepted temporary security exception | Only `image-size@1.2.1` High advisories `GHSA-w3rx-r6r6-pgpr` and `GHSA-5p2g-fcmc-qvqq`; accepted through `2026-09-09` under R-038; all other dependency/security expectations remain unchanged |
+| Unchanged Product artifact | APK `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5/lean-83635335-b0180c31769e4534/app-release-b0180c31769e4534.apk`; 95,522,751 bytes; mode `0444`; SHA-256 `b0180c31769e453472a20eb1e7eb4e0825a85be9429becf6bf4970e0875b67f8`; same-directory manifest 1,968 bytes; mode `0444`; SHA-256 `83b93bbf33297334bfcca3aa30e5ed6772175f98a2a81dc80045454570fe937b` |
+| Later pre-test orchestration stop | Intended `initdb --pwfile=-` invocation failed before PostgreSQL server start and before any full Synthetic test start; no Product, database-content or test-quality finding; task-owned execution/runtime cleanup completed and only the named immutable Evidence was intentionally retained |
+| Immutable orchestration evidence | `/private/tmp/taptime-da5-full-final-evidence.6krwCf/final-evidence.txt`; 4,260 bytes; mode `0444`; containing root mode `0555`; SHA-256 `479758b48825ef3dee311255824a53c9a890953792104f4e54e9057977e29af7` |
+| Current status / authority | Publication and Exact-Head CI pending; no Hardware, ADB, installation, Product Human V5, production, deployment or distribution authority; **DO NOT INSTALL / DO NOT START** |
+
 ## Current Credential PTY consumed-run finding and local correction evidence — corrected final V3 PASS; prepublication review pending
 
 | Evidence | Exact result |

@@ -15,8 +15,8 @@ import {
   writeFile,
   type FileHandle,
 } from 'node:fs/promises';
-import { arch, platform, release } from 'node:os';
-import { dirname, join, relative, resolve } from 'node:path';
+import { arch, platform, release, tmpdir } from 'node:os';
+import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 
 const rejectedEnvironmentPatterns = Object.freeze([
   /^(?:CC|CFLAGS|CPPFLAGS|LDFLAGS|CPATH|C_INCLUDE_PATH|CPLUS_INCLUDE_PATH)$/u,
@@ -198,20 +198,47 @@ export async function verifyDa5V5RuntimeGuardRunningProcessForTest(options: {
   readonly binaryPath: string;
   readonly expectedCdHash?: string;
   readonly pid: number;
+  readonly testOnlyAfterProcessVerification?: () => Promise<void>;
+  readonly testOnlyBeforeProcessVerification?: () => Promise<void>;
 }): Promise<void> {
   if (process.env.NODE_ENV !== 'test' || process.env.VITEST !== 'true') {
     throw new Error('DA5 V5 Runtime Guard process verifier is test-only');
   }
+  const temporaryRootPath = await realpath(resolve(tmpdir()));
   const binaryPath = await requireAbsoluteCanonicalPath(options.binaryPath);
+  const temporaryRelativePath = relative(temporaryRootPath, binaryPath);
+  const isTemporaryBinary = (
+    temporaryRelativePath.length > 0
+    && temporaryRelativePath !== '..'
+    && !temporaryRelativePath.startsWith(`..${sep}`)
+    && !isAbsolute(temporaryRelativePath)
+  );
+  const temporaryRoot = isTemporaryBinary
+    ? await bindArtifactPath(temporaryRootPath, 'same-euid-private')
+    : null;
   const binary = await bindArtifactFile(
     binaryPath,
-    binaryPath.startsWith('/private/var/folders/')
-      ? 'same-euid-private'
-      : 'root-system',
+    isTemporaryBinary ? 'same-euid-private' : 'root-system',
   );
   const verifier = await bindArtifactFile('/usr/bin/codesign', 'root-system');
   const cdHash = options.expectedCdHash
     ?? requireCdHash(binary.platformSignature);
+  const revalidateBeforeProcessVerification = async (): Promise<void> => {
+    if (temporaryRoot !== null) {
+      await revalidateArtifactPath(temporaryRoot);
+    }
+    await revalidateArtifactFile(binary);
+    await revalidateArtifactFile(verifier);
+  };
+  const revalidateAfterProcessVerification = async (): Promise<void> => {
+    await revalidateArtifactFile(verifier);
+    await revalidateArtifactFile(binary);
+    if (temporaryRoot !== null) {
+      await revalidateArtifactPath(temporaryRoot);
+    }
+  };
+  await options.testOnlyBeforeProcessVerification?.();
+  await revalidateBeforeProcessVerification();
   const result = spawnSync(verifier.canonicalPath, [
     '--verify',
     `-R=cdhash H"${cdHash}"`,
@@ -225,10 +252,8 @@ export async function verifyDa5V5RuntimeGuardRunningProcessForTest(options: {
     timeout: 5_000,
     killSignal: 'SIGKILL',
   });
-  await Promise.all([
-    revalidateArtifactFile(binary),
-    revalidateArtifactFile(verifier),
-  ]);
+  await options.testOnlyAfterProcessVerification?.();
+  await revalidateAfterProcessVerification();
   if (
     result.error !== undefined
     || result.signal !== null

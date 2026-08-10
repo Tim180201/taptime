@@ -1,5 +1,62 @@
 # Project Status
 
+DA5 V5 dependency-security / test-TMPDIR override: **THE FOUR-PATH CODE CANDIDATE IS
+INDEPENDENTLY APPROVED WITH ZERO OPEN P0–P3. THE HUMAN ACCEPTED THE EXPLICITLY COMPOSITE GREEN
+EVIDENCE ON 10.08.2026 IN LIEU OF ANOTHER LOCAL FULL SYNTHETIC RERUN. PUBLICATION AND EXACT-HEAD
+CI REMAIN PENDING; NO NEW HARDWARE AUTHORITY EXISTS. DO NOT INSTALL / DO NOT START.** Exact
+baseline is `HEAD` = `origin/main` = `627e8512631c53bc2c6882aed80b163ab81051fd`, tree
+`dfaf1d32574e4253aad07d99d84e3489cc5634aa`. Before ADO synchronization the four-path
+Full-Index/Binary diff was 45,981 bytes, SHA-256
+`7d76ebb9d717ca7b2578b3e50e192b1abf1140c24b2895e5a1c4ff5ee870b37e`.
+
+The tracked code candidate is exactly `package-lock.json`
+(`902286a30377eef08ce7613eff44d5af5bdd47bb09f7d3cc0741c69685bad491`),
+`apps/synthetic-android-e2e/src/Da5V5RuntimeGuardArtifact.ts`
+(`267f41bcb978604849a5feac177dc88edc98e514a230413d8f2994f8595b567e`),
+`apps/synthetic-android-e2e/tests/Da5V5RuntimeGuardArtifact.test.ts`
+(`a86a6afc4198e0b2a0113fa83db5c7b363cbb7f8e5418d596de15afa66165c6e`) and
+`apps/synthetic-android-e2e/tests/Da5V5ProductStartBundle.test.ts`
+(`40c14eda526739a9dc6ae09fdf22828cb4119dee4b646dbcb1dc3dde6fc13806`). No Product source,
+package manifest, schema or workflow changes.
+
+The lock now binds `js-yaml@4.3.1` and `nanoid@3.3.18`. Only the two `image-size@1.2.1` High
+advisories `GHSA-w3rx-r6r6-pgpr` and `GHSA-5p2g-fcmc-qvqq` are temporarily accepted through
+`2026-09-09` under R-038. The test-only Runtime-Guard helper reads `os.tmpdir()` once, binds the
+canonical private root and binary, uses strict component-descendant containment, rejects unsafe
+in-root state without fallback, keeps outside paths root-system, and revalidates root, binary and
+codesign around process verification. Production verification remains unchanged.
+
+The final Product-start output bindings are `da5V5Main.js` 912,627 bytes / SHA-256
+`97448febd21887fa29a08e26ed9e2ac5737736502d6241e6053a3f241aac01ce` and
+`da5V5Main.js.map` 1,697,795 bytes / SHA-256
+`c8cd0e8aa5bb19945946ef9ba4d157075e7cd3ac3e888c6645f31bd6a50854f5`; map version 3,
+`sourceRoot` absent, 90 sources, 90 unique sources and 90 `sourcesContent` entries.
+
+The accepted evidence is deliberately composite, not a claim of one new full rerun. Unaffected
+V3r3 carry-forward is limited to byte-identical bound inputs: dependency install/graph/audits/
+validator, 19 non-Synthetic builds, 20 non-Synthetic tests-inclusive Typechecks, C3B
+`verify-bin`, migration apply/replay/ledger, Expo export and the first 20 non-Synthetic workspace
+suites. No V3r3 Synthetic build, Typecheck or workspace result is carried after the RuntimeGuard
+source/test and ProductStart test changed.
+
+Fresh evidence passed the final Synthetic binding build under exact Node `24.17.0`, npm
+`11.13.0`, `js-yaml@4.3.1` and `nanoid@3.3.18`. The tests-inclusive Synthetic Typecheck passed
+with 573 listed files and membership of
+`apps/synthetic-android-e2e/src/Da5V5RuntimeGuardArtifact.ts`,
+`apps/synthetic-android-e2e/tests/Da5V5RuntimeGuardArtifact.test.ts` and
+`apps/synthetic-android-e2e/tests/Da5V5ProductStartBundle.test.ts`. Fresh macOS slices passed
+RuntimeGuard 17 plus one expected skip, PostgresGuard 78/78, SyntheticDB 21/21 and ProductStart
+5/5 with `TAPTIME_DA5_V5_PRODUCT_APK_REACHABILITY=required`. Independent Exact-Delta review is
+`APPROVED`, zero open P0–P3.
+
+The later pre-test `initdb --pwfile=-` invocation failed at orchestration before PostgreSQL or the
+full Synthetic test started. All task-owned execution/runtime state was cleaned; only immutable
+evidence was retained at
+`/private/tmp/taptime-da5-full-final-evidence.6krwCf/final-evidence.txt`, 4,260 bytes, mode
+`0444`, in a mode-`0555` root, SHA-256
+`479758b48825ef3dee311255824a53c9a890953792104f4e54e9057977e29af7`. It is not a Product,
+test-quality or database finding and does not replace the Human-accepted composite evidence.
+
 DA5 V5 Credential-PTY override: **THE LATEST PRODUCT HUMAN/HARDWARE AUTHORITY IS CONSUMED AND
 FINAL CLEANUP IS NULL. THE PUBLISHED PRODUCT OPERATOR RUNTIME IS SUPERSEDED FOR EVERY FUTURE
 START BY CONFIRMED PTY CREDENTIAL DISCLOSURE. THE CORRECTION IS INDEPENDENTLY APPROVED WITH ZERO
