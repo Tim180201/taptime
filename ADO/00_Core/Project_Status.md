@@ -1,8 +1,10 @@
 # Project Status
 
 DA5 V5 clean-identity installation boundary: **THE 2026-08-10 PRODUCT HUMAN/HARDWARE R4
-AUTHORITY IS CONSUMED, TERMINAL CLEANUP IS NULL, AND THE LOCAL R3 CORRECTION CANDIDATE IS NOT
-HARDWARE-READY. DO NOT INSTALL / DO NOT START.** The run reached Administrator Tag-A assignment
+AUTHORITY IS CONSUMED AND TERMINAL CLEANUP IS NULL. THE CORRECTION IS PUBLISHED, EXACT-HEAD CI
+PASSED 12/12, AND FINAL EXACT-HEAD/ARTIFACT REVIEW IS `APPROVED` WITH ZERO OPEN P0–P3. R-026
+REMAINS OPEN ONLY PENDING A NEW, SEPARATELY AUTHORIZED HUMAN HARDWARE RUN. DO NOT INSTALL / DO NOT
+START.** The consumed run reached Administrator Tag-A assignment
 and enrollment-only sign-out, then the Employee path remained at `NFC wird geprüft`. Cold reopen
 showed `Ausstehender Vorgang geschützt` without an intervening scan. Tag B was not presented in
 that phase; no scan, lifecycle, queue, time or review mutation occurred. Product package/process,
@@ -14,7 +16,9 @@ the Administrator identity, so the same installation correctly refused the Emplo
 This reopens R-026 only for the DA5 procedure and matches the `DA3-PHYS-01` clean-reinstall
 precedent. It is not an NFC, Tag, Product-rule or Human-input defect.
 
-The uncommitted candidate on baseline `55f4d4984175dd544fd4f27f6a97d9507dcf14a2`, tree
+Published executable `416f1bc8a7803b1ce96d0d767d6b0179ea1ffb6a`, tree
+`ba9d884fd7eb71b988ecaab9991efbc995141f32`, with direct parent
+`55f4d4984175dd544fd4f27f6a97d9507dcf14a2`, tree
 `cbc27ac9cac93dee674bdb07d81c15c226218575`, changes only the DA5 operational installer/Operator
 boundary, its regressions and this material truth synchronization. After enrollment sign-out a
 new exact command accepts Human `PASS`, binds the unchanged Tag/customer aggregates, closes the
@@ -33,13 +37,25 @@ fresh: 1/1 file and 103/103 tests, receipt `734cdc`, exit 0. Post-Round-1 eviden
 Synthetic: 14/14 files, 324 passed and 19 expected skips (`00267f`, exit 0); tests-inclusive
 Typecheck plus changed-file membership (`7d3c10`, exit 0); build and bundle syntax (`43f3d6`, exit
 0); and ProductStart 5/5 with required Product-APK reachability plus final syntax
-(`2b5744`, exit 0). Local generated bindings are bundle 920,552 bytes
+(`2b5744`, exit 0). Fresh generated/runtime bindings are bundle 920,552 bytes
 / SHA-256 `8d4981e591820ed6a62bd3b6ca139a7f4b8da90156f858ed0c71a1018a0a0d22` and map 1,712,456 bytes /
 SHA-256 `7286e001e1b55c65aa31e2bbb6a5ec65059d68295fc579037c892c4111e67afa`, with map version 3,
 absent `sourceRoot` and 90/90/90 source invariants. Review Round 2 returned `CHANGES REQUIRED`
-only for the now-corrected P3 provenance ambiguity; no command was rerun for this ADO-only
-correction. Independent re-review, publication, Exact-Head CI, fresh runtime/artifact review and
-new Human Hardware authorization remain pending.
+only for the now-corrected P3 provenance ambiguity; no command was rerun for that ADO-only
+correction.
+
+The exact published 13-path Full-Index/Binary delta from the parent is 81,331 bytes, SHA-256
+`4d586d2ad5318f288e611393554b2fbc25731c95fd35e4c1fc1376d30737c70c`. Exact-Head CI run
+`31430310571`, attempt 1, passed 12/12 on the push head without retry. Fresh read-only runtime
+`/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-product-operator/416f1bc8-8d4981e5`
+binds a 9,775-byte mode-`0444` manifest at SHA-256
+`26ba35d40b23439a533526d102fadf68176f7c6d8cce189fb32c1fbac80364ca`, the exact bundle above
+at mode `0444`, and its exact map above at mode `0444`. Final OS-sandboxed Exact-Head/Artifact
+Review rejected an adversarial write with `EPERM`, proved candidate/artifacts unchanged and
+returned `APPROVED`, zero open P0–P3. No Hardware, ADB, installation or Operator run followed.
+This R0 ADO-only closure sync performs no npm, tests, Typechecks, builds, network, CI or artifact
+generation. Technical correction is complete; a new exact Human Hardware authority is the only
+remaining R-026 gate.
 
 DA5 V5 dependency-security / test-TMPDIR override: **THE EXECUTABLE IS PUBLISHED, EXACT-HEAD CI
 PASSED 12/12, AND FINAL ARTIFACT REVIEW ROUND 2 IS `APPROVED` WITH ZERO OPEN P0–P3. THE HUMAN

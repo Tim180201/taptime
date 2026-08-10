@@ -1,10 +1,12 @@
 # Development Assignment 5 — V5 Human Android Evidence
 
-## Current clean-identity installation-boundary correction — local R3 candidate
+## Current clean-identity installation-boundary correction — published, CI and final artifact review APPROVED
 
 | Evidence | Exact result |
 |---|---|
-| Development baseline | `HEAD == main == origin/main == 55f4d4984175dd544fd4f27f6a97d9507dcf14a2`; tree `cbc27ac9cac93dee674bdb07d81c15c226218575`; tracked baseline clean |
+| Direct development parent | `55f4d4984175dd544fd4f27f6a97d9507dcf14a2`; tree `cbc27ac9cac93dee674bdb07d81c15c226218575` |
+| Executable publication | `HEAD == main == origin/main == 416f1bc8a7803b1ce96d0d767d6b0179ea1ffb6a`; tree `ba9d884fd7eb71b988ecaab9991efbc995141f32`; published tracked state clean before this R0 synchronization |
+| Publication delta | Exactly 13 paths; Full-Index/Binary delta from the direct parent 81,331 bytes; SHA-256 `4d586d2ad5318f288e611393554b2fbc25731c95fd35e4c1fc1376d30737c70c` |
 | Consumed Product Human/Hardware R4 | Administrator Tag-A assignment and enrollment-only sign-out completed; Employee stayed at `NFC wird geprüft`; cold reopen showed `Ausstehender Vorgang geschützt` without an intervening scan; authority consumed and non-reusable |
 | Product mutation boundary | Tag B was not presented in the Employee phase; no scan, lifecycle, queue, time or review mutation occurred |
 | Terminal cleanup | Product package/process, owned reverse mappings, listener, PostgreSQL, Guard, Credential and task state matched null |
@@ -15,7 +17,7 @@
 | Independent Review Round 1 | `CHANGES REQUIRED`; exactly one P2: the replacement-install callback let a typed install failure reach the transition's generic mismatch fold before emitting its closed install category and cleanup evidence |
 | Round-1 P2 correction | Initial and replacement install failures now use one tested disclosure-safe formatter; a typed `timeout` replacement failure with cleanup `mismatch` / `package_uninstall` binds exactly `da5_v5_android_install=mismatch category=timeout cleanup_status=mismatch cleanup_substage=package_uninstall`; the receipt precedes the monotone transition stop and final cleanup retains the replacement transaction |
 | Independent Review Round 2 | `CHANGES REQUIRED`; exactly one P3 and no other finding: carried pre-Round-1 Mobile evidence and fresh post-Round-1 Synthetic evidence were presented together without explicit provenance |
-| Round-2 P3 correction | ADO-only provenance correction; no npm, test, Typecheck, build, ProductStart, Hardware, ADB or installation rerun. Independent re-review remains pending |
+| Round-2 P3 correction | ADO-only provenance correction; no npm, test, Typecheck, build, ProductStart, Hardware, ADB or installation rerun. The later final review result is recorded below |
 | Forbidden mechanisms | No `pm clear`, broad `--remove-all`, backup/restore, Product/Mobile runtime-semantic change, Product APK build, dependency/lockfile, schema or workflow change |
 | Toolchain / dependency preflight | Node `24.17.0`; npm `11.13.0`; installed `js-yaml@4.3.1`; installed `nanoid@3.3.18`; `npm ls --all` exit 0 |
 | Fresh focused regression after Round 1 | Mobile installer: 1/1 file, 103/103 tests, receipt `734cdc`, exit 0. Synthetic transition/Profile: 2/2 files, 86/86 tests, receipt `da0c45`, exit 0. The 3/3 and 189/189 total is their explicit composition, not one process |
@@ -25,10 +27,15 @@
 | Fresh Synthetic tests-inclusive Typecheck after Round 1 | Receipt `7d3c10`, exit 0; workspace Typecheck plus `--listFilesOnly` membership included both changed Synthetic sources and all three changed Synthetic tests |
 | Fresh Synthetic build after Round 1 | Receipt `43f3d6`, exit 0; build, bundle syntax and map invariants completed under the exact toolchain |
 | Fresh ProductStart regression after Round 1 | Receipt `2b5744`, exit 0; 5/5 passed with mandatory Product-APK reachability; final bundle syntax and byte/digest readback completed |
-| Local Product-start bundle | Fresh post-Round-1 `da5V5Main.js`; 920,552 bytes; SHA-256 `8d4981e591820ed6a62bd3b6ca139a7f4b8da90156f858ed0c71a1018a0a0d22`; final `node --check` passed |
-| Local Product-start source map | `da5V5Main.js.map`; 1,712,456 bytes; SHA-256 `7286e001e1b55c65aa31e2bbb6a5ec65059d68295fc579037c892c4111e67afa`; version 3; `sourceRoot` absent; 90 sources, 90 unique sources and 90 `sourcesContent` entries |
+| Runtime Product-start bundle | `da5V5Main.js`; 920,552 bytes; mode `0444`; SHA-256 `8d4981e591820ed6a62bd3b6ca139a7f4b8da90156f858ed0c71a1018a0a0d22`; final fresh post-Round-1 `node --check` passed |
+| Runtime Product-start source map | `da5V5Main.js.map`; 1,712,456 bytes; mode `0444`; SHA-256 `7286e001e1b55c65aa31e2bbb6a5ec65059d68295fc579037c892c4111e67afa`; version 3; `sourceRoot` absent; 90 sources, 90 unique sources and 90 `sourcesContent` entries |
 | Carried evidence | Unchanged dependency/security, backend, PostgreSQL/migration, Expo, Product APK and unrelated workspace evidence remains carried exactly as previously bound; it was not rerun or relabeled by this focused correction |
-| Current status / authority | Local uncommitted Round-1 code candidate plus Round-2 ADO-only provenance correction; independent re-review, publication, Exact-Head CI, fresh runtime/artifact review and new exact Human Hardware authorization pending; **not Hardware-ready — DO NOT INSTALL / DO NOT START** |
+| Exact-Head CI | GitHub Actions run `31430310571`, attempt 1, push exact head, 12/12 successful; no retry |
+| Fresh read-only Product Operator Runtime | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-product-operator/416f1bc8-8d4981e5` |
+| Runtime manifest | 9,775 bytes; mode `0444`; SHA-256 `26ba35d40b23439a533526d102fadf68176f7c6d8cce189fb32c1fbac80364ca` |
+| Final independent Exact-Head/Artifact Review | OS-enforced write-deny sandbox; adversarial write rejected with `EPERM`; candidate and artifacts identical before/after; `APPROVED`; zero open P0–P3 |
+| R0 closure synchronization | ADO-only across the existing six truth surfaces; no source, test, lockfile, workflow, runtime or artifact input change; no npm, test, Typecheck, build, network, CI, Hardware, ADB, installation or Operator execution is claimed for this documentation head |
+| Current status / authority | Technical correction published, Exact-Head CI-green and artifact-approved. R-026 remains open only pending one new, separately authorized exact Human Hardware run. No Hardware action occurred after publication; **STOP before Hardware — DO NOT INSTALL / DO NOT START without new Human authority** |
 
 ## Current dependency-security / test-TMPDIR technical closure — final artifact review APPROVED
 

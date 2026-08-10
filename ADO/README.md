@@ -7,7 +7,7 @@ Approval Authority: Human Architect
 
 ## Purpose
 
-### Current DA5 V5 clean-identity installation-boundary correction — local R3 candidate, Hardware blocked
+### Current DA5 V5 clean-identity installation-boundary correction — published, CI and artifact review APPROVED; Hardware separately gated
 
 The `2026-08-10` Product Human/Hardware R4 authority is consumed and non-reusable. After the
 Administrator had assigned Tag A and the enrollment-only path had signed out, the Employee path
@@ -22,13 +22,20 @@ Employee identity. This is a DA5-scoped recurrence of R-026 and the `DA3-PHYS-01
 an NFC, Tag or Human-input failure. The published Product APK and Mobile/Product runtime semantics
 remain unchanged.
 
-On clean baseline `55f4d4984175dd544fd4f27f6a97d9507dcf14a2`, tree
-`cbc27ac9cac93dee674bdb07d81c15c226218575`, the local R3 candidate adds only an Operator-side
+Published executable `416f1bc8a7803b1ce96d0d767d6b0179ea1ffb6a`, tree
+`ba9d884fd7eb71b988ecaab9991efbc995141f32`, with direct parent
+`55f4d4984175dd544fd4f27f6a97d9507dcf14a2`, tree
+`cbc27ac9cac93dee674bdb07d81c15c226218575`, adds only an Operator-side
 monotone identity transition after enrollment sign-out: exact pre-state, Human `PASS`, old
 offline close, exact-package/owned-mapping cleanup, reinstall of the same immutable APK, fresh
 offline arm, exact unchanged post-state and only then Employee readiness. The Android installer
 runner is reusable only after an identity-matched successful cleanup. `pm clear`, broad
 `--remove-all`, backup/restore and Product changes remain forbidden.
+
+The exact published 13-path Full-Index/Binary delta from that parent is 81,331 bytes with
+SHA-256 `4d586d2ad5318f288e611393554b2fbc25731c95fd35e4c1fc1376d30737c70c`.
+Exact-Head CI GitHub Actions run `31430310571`, attempt 1, passed 12/12 on the push head without
+retry.
 
 Review Round 2 returned `CHANGES REQUIRED` with exactly one P3 and no other finding: the current
 ADO text grouped carried Mobile evidence with fresh post-Round-1 Synthetic evidence without
@@ -40,15 +47,26 @@ dependency inputs remained byte-identical through the Round-1 P2 correction. The
 focused 103/103 result is fresh from `734cdc`, exit 0. Full Synthetic, its tests-inclusive
 Typecheck/membership, build and ProductStart are fresh after Round 1 from receipts `00267f`,
 `7d3c10`, `43f3d6` and `2b5744`, each with terminal exit 0. No test or build was rerun for this
-Round-2 documentation correction; independent re-review remains pending.
+Round-2 documentation correction. The later final independent review is recorded below.
 
-The local generated Product-start binding is `da5V5Main.js` 920,552 bytes / SHA-256
+The fresh read-only Product Operator Runtime is
+`/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-product-operator/416f1bc8-8d4981e5`.
+Its mode-`0444` manifest is 9,775 bytes / SHA-256
+`26ba35d40b23439a533526d102fadf68176f7c6d8cce189fb32c1fbac80364ca`.
+The runtime Product-start binding is mode-`0444` `da5V5Main.js` 920,552 bytes / SHA-256
 `8d4981e591820ed6a62bd3b6ca139a7f4b8da90156f858ed0c71a1018a0a0d22` and map 1,712,456 bytes /
 SHA-256 `7286e001e1b55c65aa31e2bbb6a5ec65059d68295fc579037c892c4111e67afa`; the map remains version
-3 with absent `sourceRoot`, 90 sources, 90 unique sources and 90 `sourcesContent` entries. This is
-unpublished local candidate evidence only. Independent re-review, publication, Exact-Head CI, fresh
-runtime/artifact review and a new exact one-time Human authorization remain pending. The candidate
-is **not Hardware-ready: DO NOT INSTALL / DO NOT START**.
+3 with absent `sourceRoot`, 90 sources, 90 unique sources and 90 `sourcesContent` entries. Final
+independent Exact-Head/Artifact Review ran inside an OS-enforced write-deny sandbox: the
+adversarial write was rejected with `EPERM`, repository and artifacts remained identical before
+and after, and the result is `APPROVED` with zero open P0–P3.
+
+The technical correction is published, CI-green and artifact-approved. R-026 remains open only
+until one new, separately and exactly Human-authorized Hardware run confirms the corrected
+boundary. No Hardware, ADB, installation or Operator run occurred after publication. This R0
+ADO-only closure synchronization runs no npm, tests, Typechecks, builds, network, CI or artifact
+generation and changes no executable/runtime input. **STOP before Hardware: DO NOT INSTALL / DO
+NOT START without new exact Human authority.**
 
 ### Current DA5 V5 dependency-security / test-TMPDIR technical closure — Exact-Head CI and final artifact review APPROVED
 

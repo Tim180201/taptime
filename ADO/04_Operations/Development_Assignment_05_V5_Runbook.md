@@ -1,6 +1,6 @@
 # Development Assignment 5 — V5 Human Android Gate Runbook
 
-## Current clean-identity installation boundary — local R3 candidate, do not run on Hardware
+## Current clean-identity installation boundary — published and artifact-approved; do not run on Hardware without new authority
 
 The `2026-08-10` R4 Hardware authority is consumed and non-reusable. It reached Administrator
 Tag-A assignment plus the enrollment-only sign-out, but Employee readiness remained at
@@ -13,8 +13,9 @@ The same installation retained the deliberately permanent Administrator offline-
 and therefore refused the different Employee identity. This is the DA5-scoped R-026 recurrence
 of the `DA3-PHYS-01` clean-install precedent. It is not an NFC, Tag or Human-input defect.
 
-The local candidate inserts exactly one command after enrollment sign-out and immediately before
-Employee Credential readiness:
+Published executable `416f1bc8a7803b1ce96d0d767d6b0179ea1ffb6a`, tree
+`ba9d884fd7eb71b988ecaab9991efbc995141f32`, inserts exactly one command after enrollment
+sign-out and immediately before Employee Credential readiness:
 
 `employee-installation-transition-confirm <PASS|FAIL|AMBIGUOUS>`
 
@@ -39,7 +40,7 @@ replacement install through the same disclosure-safe receipt:
 
 The receipt is emitted before the replacement error enters the monotone transition failure. No
 raw error is exposed; no following stage starts; final cleanup continues to own the replacement
-transaction. Independent re-review remains pending.
+transaction. At that stage, independent re-review remained pending.
 
 Review Round 2 returned `CHANGES REQUIRED` with exactly one P3 and no other finding because the
 preceding evidence summary did not distinguish carried Mobile evidence from fresh post-Round-1
@@ -58,14 +59,31 @@ Synthetic evidence. The corrected provenance under Node `24.17.0` / npm `11.13.0
 
 Every relevant Mobile runner, test, TypeScript/configuration, package and dependency input remained
 byte-identical through the Round-1 P2 correction. No test or build was rerun for this ADO-only
-Round-2 P3 correction. Local candidate bundle is 920,552 bytes / SHA-256
+Round-2 P3 correction. Published/runtime bundle is 920,552 bytes / SHA-256
 `8d4981e591820ed6a62bd3b6ca139a7f4b8da90156f858ed0c71a1018a0a0d22`; map is 1,712,456 bytes /
 SHA-256 `7286e001e1b55c65aa31e2bbb6a5ec65059d68295fc579037c892c4111e67afa`, version 3, no
 `sourceRoot`, 90 sources, 90 unique sources and 90 `sourcesContent` entries.
 
-These are local candidate bindings only. Independent re-review, publication, Exact-Head CI, fresh
-read-only runtime/artifact review and a newly exact-bound one-time Human Hardware authorization
-remain mandatory. **DO NOT INSTALL / DO NOT START.**
+The exact published 13-path Full-Index/Binary delta from direct parent
+`55f4d4984175dd544fd4f27f6a97d9507dcf14a2`, tree
+`cbc27ac9cac93dee674bdb07d81c15c226218575`, is 81,331 bytes / SHA-256
+`4d586d2ad5318f288e611393554b2fbc25731c95fd35e4c1fc1376d30737c70c`.
+Exact-Head CI `31430310571`, attempt 1, passed 12/12 without retry. Use only the fresh read-only
+runtime
+`/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-product-operator/416f1bc8-8d4981e5`:
+
+| Runtime input | Exact binding |
+|---|---|
+| Manifest | 9,775 bytes; mode `0444`; SHA-256 `26ba35d40b23439a533526d102fadf68176f7c6d8cce189fb32c1fbac80364ca` |
+| Bundle | 920,552 bytes; mode `0444`; SHA-256 `8d4981e591820ed6a62bd3b6ca139a7f4b8da90156f858ed0c71a1018a0a0d22` |
+| Source map | 1,712,456 bytes; mode `0444`; SHA-256 `7286e001e1b55c65aa31e2bbb6a5ec65059d68295fc579037c892c4111e67afa`; version 3; `sourceRoot` absent; 90 sources, 90 unique sources and 90 `sourcesContent` entries |
+
+Final independent Exact-Head/Artifact Review ran under OS-enforced write denial; its adversarial
+write failed with `EPERM`, the candidate and artifacts were byte-identical before/after, and the
+result is `APPROVED` with zero open P0–P3. No Hardware, ADB, installation or Operator run occurred
+after publication. Technical correction is complete, but R-026 remains open until one new exact
+Human Hardware run. This R0 documentation sync runs no execution gate. **STOP before Hardware;
+DO NOT INSTALL / DO NOT START without a new, separately bound one-time Human authorization.**
 
 ## Current dependency-security / test-TMPDIR technical closure — Exact-Head CI and final artifact review APPROVED
 
