@@ -7,28 +7,48 @@ Approval Authority: Human Architect
 
 ## Purpose
 
-### Current DA5 V5 terminal-abort / lost-reverse cleanup correction — local R3 candidate; Hardware stopped
+### Current DA5 V5 terminal-abort / lost-reverse cleanup correction — published, CI and artifact review APPROVED; Hardware separately gated
 
 The fresh `2026-08-11` Product Human/Hardware run continued on `2026-08-12` only after its
 original Operator, device, package and standard-profile bindings were rechecked. Both previously
-owned ADB reverse mappings were then absent (`0/2`), so the run correctly stopped fail-closed
-before any further Product action. The early Human stop was represented by the success-only
-`stop` command and therefore produced `operator_command_rejected`; terminal cleanup treated the
-already-absent owned mappings as a mismatch and left the bound Operator/Guard/PostgreSQL chain for
-exact external PID cleanup. That recovery reached complete null and preserved repository,
-runtime, APK, Guard, device and standard profile unchanged. This is an Operator cleanup finding,
-not an NFC, Tag, Product or Hardware correctness finding.
+owned ADB reverse mappings were absent (`0/2`), so the run correctly stopped fail-closed before
+any further Product action. The success-only `stop` command was not an early Human-abort path;
+terminal cleanup rejected the already-absent owned mappings and retained the bound
+Operator/Guard/PostgreSQL chain until exact external PID cleanup proved complete null. Repository,
+runtime, APK, Guard, device and standard profile remained unchanged. This was an Operator cleanup
+finding, not an NFC, Tag, Product, Security, tenant-isolation or Hardware correctness finding.
 
-The local R3 correction adds a distinct exactly-once `abort` outcome for an idle command surface,
-with failure exit, closed input and one coalesced cleanup; it does not change the success-only
-`stop` predicate and cannot bypass mandatory Accessibility restoration. Normal offline `close()`
-remains strict. Final cleanup instead freezes the controller after any mutation flight, never
-recreates reverse mappings and accepts only an exact subset of the two transaction-owned
-mappings before the existing exact-package/owned-mapping cleanup and repeated-zero proof.
-Foreign, malformed, duplicate, wrong-host, changed-device or unreadable state remains fail-closed
-without foreign mutation. Product/Mobile semantics and the APK are unchanged. Independent review,
-publication, exact-head CI and a fresh exact Human Hardware authorization remain pending.
-**DO NOT INSTALL / DO NOT START.**
+Published executable `2a13b71737bc34a69b137943cb9ccb790caa058b`, tree
+`c79402af300112d7fdad901079fc0a5fc30f1938`, with direct parent
+`d39446f2a67b51788e8a63d3f73e90e373cc8da8`, tree
+`eb1a0f540e52a55ece87e647e325d6ca2c4219ff`, adds the independently approved Operator-only
+correction. The exact 12-path Full-Index/Binary delta is 40,772 bytes with SHA-256
+`b1e6bac320c8a091a40bfa05b9f404d732f6086fbe1188d6fd2b71b881215286`. The distinct idle-only,
+exactly-once `abort` has failure exit, closes input and coalesces cleanup; success-only `stop` and
+mandatory Accessibility restoration remain unchanged. Terminal settlement freezes after any
+mutation flight, never recreates reverse mappings and accepts only an exact subset of the two
+transaction-owned mappings before exact-owned cleanup and repeated-zero proof. Foreign,
+malformed, duplicate, wrong-host, changed-device, unreadable or ownership-ambiguous state remains
+fail-closed without foreign mutation. Product/Mobile semantics and the APK are unchanged.
+
+Prepublication independent R3 review returned `APPROVED` with zero open P0–P3. Exact-Head CI
+GitHub Actions run `31613335215`, attempt 1, passed 12/12 on the push head without retry. The fresh
+read-only Operator Runtime is
+`/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-product-operator/2a13b717-b2b439d5`;
+its mode-`0444` manifest is 9,343 bytes / SHA-256
+`7848924db60d4a5986656be8caf78c76d2329a89503e9bbe1a2f0e5a7fa0be70`, bundle 921,846 bytes /
+SHA-256 `b2b439d5cf221306d89a2cecb229b30f1487ae40721af75473d8551d74eb53fe`, and map 1,714,733 bytes /
+SHA-256 `016a2ab73e3b431e7a4f242a1f9fd0b25659a4a689ef20cfa3a56d6d4a9a33e9` with version 3,
+absent `sourceRoot` and 90/90/90 source invariants. Its generation-time pending-review field is
+historical and was not rewritten. Final OS-sandboxed Exact-Head/Artifact review blocked the write
+probe with `EPERM`, proved candidate and artifacts unchanged, and returned `APPROVED` with zero
+open P0–P3.
+
+The cleanup subfinding of R-026/R-034 is technically closed. Hardware risk remains open until one
+new, separately and exactly Human-authorized one-time run. This R0 ADO-only closure candidate is
+pending publication, runs no product verification, changes no executable/runtime/artifact input
+and claims no future commit or tree. **STOP before Hardware: DO NOT INSTALL / DO NOT START without
+fresh exact Human authority.**
 
 ### Current DA5 V5 clean-identity installation-boundary correction — published, CI and artifact review APPROVED; Hardware separately gated
 

@@ -2,23 +2,42 @@
 
 DA5 V5 terminal-abort / lost-reverse cleanup: **THE 2026-08-11 HARDWARE AUTHORITY CONTINUED ON
 2026-08-12, THEN WAS CONSUMED FAIL-CLOSED AFTER BOTH TRANSACTION-OWNED REVERSE MAPPINGS WERE
-OBSERVED ABSENT. EXACT EXTERNAL RECOVERY REACHED TERMINAL NULL. A LOCAL R3 OPERATOR-ONLY
-CORRECTION EXISTS; REVIEW/PUBLICATION/CI AND A NEW HUMAN HARDWARE AUTHORITY ARE PENDING. DO NOT
-INSTALL / DO NOT START.** The original Operator, package, device and standard profile remained
-bound, but the overnight USB/ADB discontinuity left `0/2` required mappings. No later Product,
-NFC, Tag, lifecycle, queue, time or review action ran. Early `stop` was correctly rejected because
-it remains success-only; cleanup then failed on already-absent owned mappings and retained the
-exact Operator/Guard/PostgreSQL chain until bounded PID cleanup proved every task state null.
+OBSERVED ABSENT. EXACT EXTERNAL RECOVERY REACHED TERMINAL NULL. THE OPERATOR-ONLY CORRECTION IS
+PUBLISHED, EXACT-HEAD CI PASSED 12/12, AND FINAL EXACT-HEAD/ARTIFACT REVIEW IS `APPROVED` WITH
+ZERO OPEN P0–P3. HARDWARE REMAINS STOPPED PENDING A NEW EXACT HUMAN AUTHORITY. DO NOT INSTALL /
+DO NOT START.** The original Operator, package, device and standard profile remained bound, but
+the overnight USB/ADB discontinuity left `0/2` required mappings. No later Product, NFC, Tag,
+lifecycle, queue, time or review action ran. The success-only `stop` was not an early Human-abort
+path; cleanup rejected already-absent owned mappings and retained the exact
+Operator/Guard/PostgreSQL chain until bounded PID cleanup proved every task state null. This is
+no Product, NFC, Tag, Security, tenant-isolation or Hardware correctness finding.
 
-The focused candidate adds an idle-only, exactly-once `abort` failure outcome and a terminal-only
-offline settlement. Abort closes input, latches exit 1 and coalesces cleanup once; later commands
-cannot run, normal successful `stop` is unchanged and Accessibility restore-only still takes
-precedence. Terminal settlement waits for the mutation flight, performs no reverse recreation or
-removal, and accepts only zero, one or both exact transaction-owned mappings; Android cleanup
-then removes any still-present exact owned resources and proves repeated zero. Foreign, wrong-
-host, duplicate, malformed, changed-device, ownership or read ambiguity remains fail-closed with
-no foreign mutation. No Mobile/Product runtime semantic, APK, dependency, lockfile, schema or
-workflow change is present.
+Published executable `2a13b71737bc34a69b137943cb9ccb790caa058b`, tree
+`c79402af300112d7fdad901079fc0a5fc30f1938`, with direct parent
+`d39446f2a67b51788e8a63d3f73e90e373cc8da8`, tree
+`eb1a0f540e52a55ece87e647e325d6ca2c4219ff`, has an exact 12-path, 40,772-byte
+Full-Index/Binary delta at SHA-256
+`b1e6bac320c8a091a40bfa05b9f404d732f6086fbe1188d6fd2b71b881215286`. It adds an idle-only,
+exactly-once `abort` failure outcome and terminal-only offline settlement. Abort closes input,
+latches exit 1 and coalesces cleanup; success-only `stop` and Accessibility restore-only remain
+unchanged. Terminal settlement waits for the mutation flight, creates or removes no reverse
+mapping, and accepts only zero, one or both exact transaction-owned mappings before exact-owned
+Android cleanup and repeated-zero proof. Foreign, wrong-host, duplicate, malformed,
+changed-device, ownership or read ambiguity remains fail-closed with no foreign mutation. No
+Mobile/Product runtime semantic, APK, dependency, lockfile, schema or workflow change exists.
+
+Prepublication independent R3 review returned `APPROVED`, zero open P0–P3. Exact-Head CI run
+`31613335215`, attempt 1, passed 12/12 without retry. Fresh read-only runtime
+`/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-product-operator/2a13b717-b2b439d5`
+binds the 9,343-byte mode-`0444` manifest at SHA-256
+`7848924db60d4a5986656be8caf78c76d2329a89503e9bbe1a2f0e5a7fa0be70`, 921,846-byte mode-`0444`
+bundle at SHA-256 `b2b439d5cf221306d89a2cecb229b30f1487ae40721af75473d8551d74eb53fe` and 1,714,733-byte
+mode-`0444` map at SHA-256 `016a2ab73e3b431e7a4f242a1f9fd0b25659a4a689ef20cfa3a56d6d4a9a33e9` with unchanged
+version-3/absent-`sourceRoot`/90-90-90 invariants. Final OS-sandboxed Exact-Head/Artifact review
+blocked its write probe with `EPERM`, proved inputs unchanged and returned `APPROVED`, zero open
+P0–P3. The cleanup subfinding of R-026/R-034 is technically closed; Hardware risk remains open
+pending a fresh separately authorized run. This R0 ADO-only closure candidate is pending
+publication and runs no npm, test, build, network, CI, runtime generation or Hardware action.
 
 DA5 V5 clean-identity installation boundary: **THE 2026-08-10 PRODUCT HUMAN/HARDWARE R4
 AUTHORITY IS CONSUMED AND TERMINAL CLEANUP IS NULL. THE CORRECTION IS PUBLISHED, EXACT-HEAD CI

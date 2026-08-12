@@ -5,17 +5,24 @@ Status: Active
 Current R-026/R-034 terminal-cleanup addendum: **The `2026-08-11` Hardware authority continued on
 `2026-08-12` only long enough to prove that the bound run had lost both transaction-owned reverse
 mappings (`0/2`); it is consumed fail-closed and exact external recovery proved terminal null.**
-No new Product/NFC/Tag result exists. Confirmed `DA5-V5-OPERATOR-ABORT-CLEANUP-01` is an Operator
-cleanup risk: the only Human stop token was success-only `stop`, and final cleanup rejected
-already-absent owned mappings, leaving the exact Operator/Guard/PostgreSQL chain until bounded
-PID recovery. The local R3 correction adds distinct exactly-once `abort`, keeps `stop` and
-Accessibility restore obligations unchanged, and separates strict operational offline close from
-terminal cleanup settlement. Terminal settlement never recreates or removes mappings and accepts
-only an exact subset of the two transaction-owned endpoints; existing Android cleanup removes
-only any present exact-owned resources and proves repeated zero. Foreign/wrong-host/duplicate/
-malformed/read/device/ownership ambiguity remains fail-closed with no foreign mutation.
-Independent review, publication, exact-head CI and a new exact Human Hardware authority are
-pending. **DO NOT INSTALL / DO NOT START.**
+No Product/NFC/Tag/Security/tenant-isolation/Hardware correctness result exists. Confirmed
+`DA5-V5-OPERATOR-ABORT-CLEANUP-01` was an Operator cleanup risk: the only Human stop token was
+success-only `stop`, and final cleanup rejected already-absent owned mappings, leaving the exact
+Operator/Guard/PostgreSQL chain until bounded PID recovery.
+
+The cleanup subfinding is technically closed by published executable
+`2a13b71737bc34a69b137943cb9ccb790caa058b`, tree
+`c79402af300112d7fdad901079fc0a5fc30f1938`: exact 12-path Full-Index/Binary delta 40,772 bytes /
+SHA-256 `b1e6bac320c8a091a40bfa05b9f404d732f6086fbe1188d6fd2b71b881215286`; prepublication R3
+review `APPROVED`, zero open P0–P3; Exact-Head CI `31613335215`, attempt 1, 12/12 without retry;
+fresh read-only runtime and final OS-sandboxed Exact-Head/Artifact review `APPROVED`, zero open
+P0–P3. The correction adds distinct exactly-once `abort`, keeps `stop` and Accessibility restore
+obligations unchanged, and separates strict operational offline close from terminal cleanup
+settlement. Terminal settlement never recreates or removes mappings and accepts only an exact
+subset of the two owned endpoints; exact-owned Android cleanup removes any still-present owned
+resources and proves repeated zero. Foreign/wrong-host/duplicate/malformed/read/device/ownership
+ambiguity remains fail-closed with no foreign mutation. R-026/R-034 Hardware risk stays open
+until a new separately and exactly Human-authorized run. **DO NOT INSTALL / DO NOT START.**
 
 Current R-026 DA5-scoped reopen: **The `2026-08-10` Product Human/Hardware R4 authority is consumed
 and terminal cleanup is null. The correction is published, Exact-Head CI-green and independently

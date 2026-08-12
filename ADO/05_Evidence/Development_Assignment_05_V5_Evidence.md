@@ -1,25 +1,38 @@
 # Development Assignment 5 — V5 Human Android Evidence
 
-## Current terminal-abort / lost-reverse cleanup evidence — local R3 candidate
+## Current terminal-abort / lost-reverse cleanup evidence — published, CI and final artifact review APPROVED
 
 | Evidence | Exact result |
 |---|---|
-| Baseline | `d39446f2a67b51788e8a63d3f73e90e373cc8da8`; tree `eb1a0f540e52a55ece87e647e325d6ca2c4219ff`; `HEAD == main == origin/main` before Development; tracked state clean, protected untracked state untouched |
+| Direct development parent | `d39446f2a67b51788e8a63d3f73e90e373cc8da8`; tree `eb1a0f540e52a55ece87e647e325d6ca2c4219ff` |
+| Executable publication | `HEAD == main == origin/main == 2a13b71737bc34a69b137943cb9ccb790caa058b`; tree `c79402af300112d7fdad901079fc0a5fc30f1938`; tracked state clean before this R0 synchronization |
+| Publication delta | Exactly 12 paths; Full-Index/Binary delta from direct parent 40,772 bytes; SHA-256 `b1e6bac320c8a091a40bfa05b9f404d732f6086fbe1188d6fd2b71b881215286` |
 | Consumed run | Started `2026-08-11`, continuity inspected `2026-08-12`; bound Operator/device/package/standard profile remained exact, but reverse mappings were `0/2`; no later Product/NFC/Tag/lifecycle/queue/time/review action |
 | Confirmed finding | `DA5-V5-OPERATOR-ABORT-CLEANUP-01`: early Human stop used success-only `stop`, yielded `operator_command_rejected`; cleanup rejected already-absent owned mappings and retained exact Operator/Guard/PostgreSQL resources |
 | Terminal recovery | Only exact bound PIDs/task root were cleaned; Product package/process, reverse mappings, ports `3000`/`54321`/`55435`, Operator, Guard, PostgreSQL and task roots reached zero; standard profile remained exact; repository/runtime/APK/Guard unchanged |
 | Product classification | Operator cleanup finding only; no NFC, Tag, Product, Security, tenant-isolation or Hardware correctness result |
-| Candidate abort | New idle-only outcome `abort`; exactly one `da5_v5_aborted`, failure exit, owned mutation/input closure and coalesced cleanup; no later command; no `da5_v5_stopped`; success-only `stop` unchanged |
+| Published abort correction | New idle-only outcome `abort`; exactly one `da5_v5_aborted`, failure exit, owned mutation/input closure and coalesced cleanup; no later command; no `da5_v5_stopped`; success-only `stop` unchanged |
 | Accessibility | Restore-only and prepared profile-change gates retain precedence; `abort` cannot bypass mandatory standard-profile restoration |
 | Terminal offline settlement | Waits mutation flight; freezes controller; performs no reverse add/remove; accepts only zero/one/two exact transaction-owned mappings while carrying known/uncertain proof into Android cleanup |
 | Adversarial boundary | Foreign/extra, wrong-host, duplicate, malformed, changed-device, unreadable or ownership mismatch is fail-closed; no foreign mapping is removed; no broad remove/recreate exists |
 | Focused Development V1 | `Da5V5AdbController.test.ts` + `Da5V5Profile.test.ts`: 2/2 files, 99/99 tests, exit 0 |
 | Affected Synthetic workspace | 14/14 files; 337 passed, 19 expected skips, 356 total; required Product-APK reachability enabled; exit 0 |
 | Tests-inclusive Typecheck | Synthetic workspace `tsc -p tsconfig.json --noEmit`, exit 0; normalized `--listFilesOnly` has 573 entries / SHA-256 `17a4f90510db649a6c3246c293870299e7692aeeabf049fb0241282be16e15f3` and includes all three changed sources plus all three changed tests |
-| Local candidate build binding | Synthetic build and bundle syntax exit 0; `da5V5Main.js` 921,846 bytes / SHA-256 `b2b439d5cf221306d89a2cecb229b30f1487ae40721af75473d8551d74eb53fe`; map 1,714,733 bytes / SHA-256 `016a2ab73e3b431e7a4f242a1f9fd0b25659a4a689ef20cfa3a56d6d4a9a33e9`; map version 3, absent `sourceRoot`, 90/90/90 source invariants |
+| Candidate build binding | Synthetic build and bundle syntax exit 0; `da5V5Main.js` 921,846 bytes / SHA-256 `b2b439d5cf221306d89a2cecb229b30f1487ae40721af75473d8551d74eb53fe`; map 1,714,733 bytes / SHA-256 `016a2ab73e3b431e7a4f242a1f9fd0b25659a4a689ef20cfa3a56d6d4a9a33e9`; map version 3, absent `sourceRoot`, 90/90/90 source invariants |
 | ProductStart | 5/5 passed with `TAPTIME_DA5_V5_PRODUCT_APK_REACHABILITY=required`; exit 0 |
 | Preserved scope | No Mobile/Product runtime semantic, APK, dependency, lockfile, schema or workflow change; no Hardware/ADB/install action in Development |
-| Pending gates | Independent R3 review, publication, exact-head CI, fresh runtime/artifact review and a new exact Human Hardware authorization |
+| Prepublication independent R3 review | `APPROVED`; zero open P0–P3 |
+| Exact-Head CI | GitHub Actions run `31613335215`, attempt 1, push exact head, 12/12 successful; no retry |
+| Fresh read-only Product Operator Runtime | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-product-operator/2a13b717-b2b439d5`; root mode `0700`; detached/sparse/tracked-clean checkout; task cache/staging cleanup null |
+| Runtime manifest | 9,343 bytes; mode `0444`; SHA-256 `7848924db60d4a5986656be8caf78c76d2329a89503e9bbe1a2f0e5a7fa0be70`; generation-time pending-review field remains historical and was not rewritten |
+| Runtime bundle | 921,846 bytes; mode `0444`; SHA-256 `b2b439d5cf221306d89a2cecb229b30f1487ae40721af75473d8551d74eb53fe` |
+| Runtime source map | 1,714,733 bytes; mode `0444`; SHA-256 `016a2ab73e3b431e7a4f242a1f9fd0b25659a4a689ef20cfa3a56d6d4a9a33e9`; version 3; `sourceRoot` absent; 90 sources, 90 unique sources and 90 `sourcesContent` entries |
+| Runtime dependency closure | Exactly one fresh `npm ci`, 695 packages; 17/17 required dependency-closure builds; no result is attributed to this later ADO-only synchronization |
+| Unchanged Product APK | 95,522,751 bytes; mode `0444`; SHA-256 `b0180c31769e453472a20eb1e7eb4e0825a85be9429becf6bf4970e0875b67f8` |
+| Unchanged Product manifest | 1,968 bytes; mode `0444`; SHA-256 `83b93bbf33297334bfcca3aa30e5ed6772175f98a2a81dc80045454570fe937b` |
+| Final independent Exact-Head/Artifact review | OS-enforced write-deny sandbox; adversarial write blocked with `EPERM`; candidate/artifacts identical before and after; `APPROVED`; zero open P0–P3 |
+| R0 closure synchronization | Exactly these six ADO files only; pending publication, no future commit/tree claimed; no npm, test, Typecheck, build, network, CI, runtime/artifact generation, Hardware, ADB, installation or Product action |
+| Current status / authority | Cleanup subfinding of R-026/R-034 technically closed. Hardware risk remains open pending one new, separately and exactly Human-authorized run; **STOP before Hardware — DO NOT INSTALL / DO NOT START** |
 
 ## Current clean-identity installation-boundary correction — published, CI and final artifact review APPROVED
 

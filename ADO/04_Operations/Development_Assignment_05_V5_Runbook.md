@@ -1,6 +1,6 @@
 # Development Assignment 5 — V5 Human Android Gate Runbook
 
-## Current terminal-abort / lost-reverse correction — local candidate; do not run
+## Current terminal-abort / lost-reverse correction — published and artifact-approved; do not run without new authority
 
 The `2026-08-11` run continued on `2026-08-12` only after same-session continuity checks. The
 bound device/package/profile remained exact, but both transaction-owned reverse mappings were
@@ -10,7 +10,14 @@ abort produced `operator_command_rejected`. Final cleanup then rejected the alre
 mappings and retained the exact Operator/Guard/PostgreSQL chain until exact external PID cleanup
 proved terminal null. This is no NFC, Tag or Product finding.
 
-The local correction introduces `abort` only on the ordinary idle command surface. It is
+Published executable `2a13b71737bc34a69b137943cb9ccb790caa058b`, tree
+`c79402af300112d7fdad901079fc0a5fc30f1938`, with direct parent
+`d39446f2a67b51788e8a63d3f73e90e373cc8da8`, tree
+`eb1a0f540e52a55ece87e647e325d6ca2c4219ff`, contains the independently approved correction.
+Its exact 12-path Full-Index/Binary delta is 40,772 bytes / SHA-256
+`b1e6bac320c8a091a40bfa05b9f404d732f6086fbe1188d6fd2b71b881215286`.
+
+The correction introduces `abort` only on the ordinary idle command surface. It is
 exactly-once, emits only `da5_v5_aborted`, fixes exit 1, closes command/secret input, aborts an
 owned mutation and joins the single cleanup flight; later input is impossible. It is unavailable
 while Accessibility restoration is required: only the existing restoration proof remains valid.
@@ -21,9 +28,17 @@ mutation flight, freezes the controller and never recreates or removes a reverse
 zero, one or both exact owned `tcp:54321` / `tcp:3000` mappings are accepted. Existing Android
 cleanup then removes any present exact-owned mapping/package and proves repeated zero. Any
 foreign/extra, wrong-host, duplicate, malformed, changed-device, unreadable or ownership-
-ambiguous state remains a terminal mismatch and no foreign mapping is mutated. This candidate
-must pass independent review, publication and exact-head CI before a new exact Human Hardware
-authorization may be prepared. **DO NOT INSTALL / DO NOT START.**
+ambiguous state remains a terminal mismatch and no foreign mapping is mutated.
+
+Prepublication independent R3 review returned `APPROVED` with zero open P0–P3. Exact-Head CI run
+`31613335215`, attempt 1, passed 12/12 without retry. Fresh read-only runtime
+`/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-product-operator/2a13b717-b2b439d5`
+binds manifest/bundle/map exactly; final OS-sandboxed Exact-Head/Artifact review blocked its write
+probe with `EPERM` and returned `APPROVED`, zero open P0–P3. The cleanup subfinding is technically
+closed, but the consumed run remains non-reusable and no runbook step may start until one new,
+separate exact Human authorization binds the executable, closure head, runtime, unchanged APK,
+Guard, device and Tags. This ADO-only closure candidate is pending publication and claims no
+future commit/tree. **DO NOT INSTALL / DO NOT START.**
 
 ## Current clean-identity installation boundary — published and artifact-approved; do not run on Hardware without new authority
 
