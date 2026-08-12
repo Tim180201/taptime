@@ -1,11 +1,12 @@
 # Development Assignment 5 — V5 Human Android Evidence
 
-## Current package-clear / Employee-ready correction — final-review Round-1 P2 corrected; re-review pending
+## Current package-clear / Employee-ready correction — published, CI and final artifact review APPROVED
 
 | Evidence | Exact result |
 |---|---|
-| Authority / baseline | Human-authorized focused final-review correction; `HEAD == main == origin/main == 5fa6389aad785007b0322a38cfd81a17816c7eab`; tree `2387276f4969e9ca16cbb31e03a4ad50949bbaba`; tracked clean before Development apart from preserved untracked protected paths |
-| Executable/test candidate delta before six-surface ADO synchronization | Exactly three authorized paths; Full-Index/Binary diff 5,037 bytes; SHA-256 `61c56a2afcf9a986f69fe67f28de2fda037d1e1cac942407b943a0b3b5fda2ea` |
+| Executable publication | `22fe85d540c8949f179b96589ed493f0211002db`; tree `7514edfe90da11a3288fec0df872fb7010238c0b`; direct parent `5fa6389aad785007b0322a38cfd81a17816c7eab` / tree `2387276f4969e9ca16cbb31e03a4ad50949bbaba` |
+| Publication delta | Exactly nine paths; Full-Index/Binary delta 45,172 bytes; SHA-256 `2346cccc6e3727f39f0f09470fc5e2a66cd8dbba8f20d9aa95da2c1d206fc592` |
+| Prepublication candidate provenance | Three code/test paths: 5,037 bytes / SHA-256 `61c56a2afcf9a986f69fe67f28de2fda037d1e1cac942407b943a0b3b5fda2ea`; six ADO paths: 40,135 bytes / SHA-256 `51da9ddc31788e020f85ce3b54aee8b01568e9d846f0cdace6c4fdc9a98c337f` |
 | Final Exact-Head/Artifact Review Round 1 | `CHANGES REQUIRED`; exactly one P2, no other finding: the immediate Employee-arm `ps -A -o NAME` query could truncate a long Product primary/secondary process name under Toybox |
 | Round-1 P2 correction | Only that immediate Employee-arm query is hardened to the normative Mobile precedent `ps -A -w -o NAME:4`; exact exit/stdout/header/row parsing, failure latch, no-App-start and no-mapping-mutation behavior remain unchanged |
 | Clear / proof | Exactly once bound `pm clear --user 0 com.tim180201.mobile.synthetic`; exact `Success\n`, empty stderr; exact device/package/APK provenance-bytes-signer/process-null/two-mapping reattestation; no retry/resume/other package/broad clear |
@@ -15,8 +16,14 @@
 | Full Synthetic | Exactly once under final code with required APK reachability; 14/14 files; 345 passed + 19 expected skips; 364 total; exit 0; 77.62s |
 | Synthetic tests-inclusive Typecheck | Exit 0; 573 normalized listed files; Controller source, Controller test and ProductStart test each included exactly once; normalized-list SHA-256 `aa39adbf221c919a840b32056fcecd4f86c17763c5e3674a330da8d04a215a47` |
 | Build / generated bindings | Synthetic build and bundle `node --check` exit 0. Bundle 930,095 bytes / SHA-256 `2a48d52d204ef8cfba73d9a789de3ef50ecefa29e32c51953bc75b9d48d023a6`; map 1,728,717 bytes / SHA-256 `a51b9cfa0dfa883bf5d091789051ec16c85529afbecd53b37017940fa16a70d2`; version 3, absent `sourceRoot`, 90/90/90; generated bundle contains `NAME:4` |
-| Toolchain / omissions | Node `24.17.0`; npm `11.13.0`; APK path readable. No audit, Expo, DB/migration matrix, other workspace, Hardware, ADB, install or network execution |
-| Scope / status | No Mobile source, Product/offline-owner semantics, APK, schema, dependency/lockfile, backup-rule or workflow change. Uncommitted; final-review Round-1 P2 correction complete, independent re-review pending; no commit/push; **DO NOT INSTALL / DO NOT START** |
+| Exact-Head CI | GitHub Actions run `31630253237`, attempt 1, push exact head, 12/12 successful; no retry |
+| Product Operator Runtime | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-product-operator/22fe85d5-2a48d52d` |
+| Runtime manifest | 10,726 bytes; mode `0444`; SHA-256 `2e24bb5c5d39089ef871d9fd986a67532d51f71df3a6e1652b1b1e232bf6e1fe`; generation-time pending-review field remains historical truth |
+| Runtime bundle | 930,095 bytes; mode `0444`; SHA-256 `2a48d52d204ef8cfba73d9a789de3ef50ecefa29e32c51953bc75b9d48d023a6` |
+| Runtime source map | 1,728,717 bytes; mode `0444`; SHA-256 `a51b9cfa0dfa883bf5d091789051ec16c85529afbecd53b37017940fa16a70d2`; version 3; absent `sourceRoot`; 90 sources, 90 unique sources and 90 `sourcesContent` entries |
+| Final independent Exact-Head/Artifact Review | Strict OS-enforced write-deny sandbox; `APPROVED`; zero open P0–P3; commit/runtime/artifact identity unchanged; CI verified locally from immutable manifest and exact refs because reviewer network access was denied |
+| Toolchain / omissions | Node `24.17.0`; npm `11.13.0`. No Hardware, ADB, install, new Product run, production, production-data, deployment or distribution action followed publication |
+| Scope / status | Package-only `pm clear` and Employee-ready semantics technically closed. Previous consumed Hardware run and abort/null cleanup remain non-reusable. R-026 technically mitigated but open only pending a new separate exact Human Hardware authorization/run. Product APK, Guard, device, Tag, path and Credential constraints unchanged; **STOP before Hardware — DO NOT INSTALL / DO NOT START** |
 
 ## Current terminal-abort / lost-reverse cleanup evidence — published, CI and final artifact review APPROVED
 

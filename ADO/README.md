@@ -7,18 +7,25 @@ Approval Authority: Human Architect
 
 ## Purpose
 
-### Current DA5 V5 package-clear / Employee-ready correction — final-review Round-1 P2 corrected; independent re-review pending
+### Current DA5 V5 package-clear / Employee-ready correction — published, CI and final artifact review APPROVED; Hardware separately gated
 
-Published baseline HEAD, `main` and `origin/main` all equal
+Executable `22fe85d540c8949f179b96589ed493f0211002db`, tree
+`7514edfe90da11a3288fec0df872fb7010238c0b`, is published directly after
 `5fa6389aad785007b0322a38cfd81a17816c7eab`, tree
-`2387276f4969e9ca16cbb31e03a4ad50949bbaba`, contains the Human-authorized package-clear and
-Employee-ready correction. Product APK and Product/Mobile rules remain unchanged. Formal final
-Exact-Head/Artifact Review Round 1 returned `CHANGES REQUIRED` with exactly one P2 and no other
-finding: the immediate Employee-only offline arm used Toybox `ps -A -o NAME`, whose default
-column width can truncate a long Product primary or secondary process name before the exact
-match. The focused correction changes only that query to the existing normative Mobile precedent
-`ps -A -w -o NAME:4`. Exact exit/stdout/header/row parsing and fail-closed behavior are retained;
-the query starts no App and mutates no mapping.
+`2387276f4969e9ca16cbb31e03a4ad50949bbaba`. Its exact nine-path Full-Index/Binary delta is
+45,172 bytes / SHA-256
+`2346cccc6e3727f39f0f09470fc5e2a66cd8dbba8f20d9aa95da2c1d206fc592`. Prepublication
+candidate provenance splits that same candidate into three code/test paths at 5,037 bytes /
+SHA-256 `61c56a2afcf9a986f69fe67f28de2fda037d1e1cac942407b943a0b3b5fda2ea` and six ADO paths at
+40,135 bytes / SHA-256
+`51da9ddc31788e020f85ce3b54aee8b01568e9d846f0cdace6c4fdc9a98c337f`.
+
+Formal review Round 1 returned `CHANGES REQUIRED` with exactly one P2 and no other finding:
+Toybox `ps -A -o NAME` could truncate a long Product primary or secondary process name at the
+immediate Employee-only offline arm. The correction uses the normative Mobile precedent
+`ps -A -w -o NAME:4` while retaining exact exit/stdout/header/row parsing, terminal fail-closed
+behavior, no App start and no mapping mutation. Package-only `pm clear` and Employee-ready
+semantics are technically closed; Product APK and Product/Mobile rules remain unchanged.
 
 The transition stops at `employee-prepared`; only the Employee Credential may continue. Human
 `employee-ready-confirm PASS` means exclusively exact `Bereit zum Scannen` is visible after
@@ -27,19 +34,29 @@ the same flight; only then is state `matched`. Tag-B, Gate A and Tag presentatio
 before then. `FAIL`, `AMBIGUOUS`, protected/unavailable, early, late, repeat and concurrent paths
 fail closed. Abort and terminal cleanup stay unchanged.
 
-Fresh Node `24.17.0` / npm `11.13.0`: focused Controller 60/60 and required-reachability
-ProductStart 5/5 passed; the tests-inclusive Synthetic Typecheck listed 573 files and included
-all three changed TypeScript inputs exactly once; build, bundle syntax and map invariants passed.
-Exactly one final full required-reachability Synthetic run passed 14/14 files, 345 tests plus 19
-expected skips. Before this six-surface ADO synchronization, the exact three-path executable/test
-delta is 5,037 bytes / SHA-256
-`61c56a2afcf9a986f69fe67f28de2fda037d1e1cac942407b943a0b3b5fda2ea`. Regenerated bundle
-930,095 bytes / SHA-256
-`2a48d52d204ef8cfba73d9a789de3ef50ecefa29e32c51953bc75b9d48d023a6`; map 1,728,717 bytes /
-SHA-256 `a51b9cfa0dfa883bf5d091789051ec16c85529afbecd53b37017940fa16a70d2`. This correction is
-uncommitted and independent final-artifact re-review is pending. No Hardware, ADB, install,
-network, audit, Expo, DB/migration, production, deployment or distribution action occurred.
-**DO NOT INSTALL / DO NOT START.**
+Fresh Node `24.17.0` / npm `11.13.0` evidence remains bound: focused Controller 60/60,
+required-reachability ProductStart 5/5, tests-inclusive Synthetic Typecheck with 573 files and all
+three changed inputs exactly once, build/syntax/map invariants, and exactly one final full
+required-reachability Synthetic run at 345 passed plus 19 expected skips. Exact-head push CI run
+`31630253237`, attempt 1, passed 12/12 for the executable without retry.
+
+The fresh read-only Product Operator Runtime is
+`/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-product-operator/22fe85d5-2a48d52d`.
+Its mode-`0444` manifest is 10,726 bytes / SHA-256
+`2e24bb5c5d39089ef871d9fd986a67532d51f71df3a6e1652b1b1e232bf6e1fe`; bundle is 930,095 bytes /
+mode `0444` / SHA-256 `2a48d52d204ef8cfba73d9a789de3ef50ecefa29e32c51953bc75b9d48d023a6`;
+map is 1,728,717 bytes / mode `0444` / SHA-256
+`a51b9cfa0dfa883bf5d091789051ec16c85529afbecd53b37017940fa16a70d2`, version 3, absent
+`sourceRoot`, 90/90/90. The manifest's generation-time pending-review field is historical truth.
+Final strict OS-sandboxed Exact-Head/Artifact Review returned `APPROVED` with zero open P0–P3;
+commit/runtime/artifact identity stayed unchanged, and the network-denied reviewer verified CI
+locally from the immutable manifest and exact refs.
+
+The previous consumed Hardware run and its abort/null cleanup remain non-reusable. R-026 is
+technically mitigated but stays open only pending a new, separate exact Human Hardware
+authorization and run. Product APK, Guard, device, Tag, path and Credential constraints remain
+unchanged. No production, production-data, deployment or distribution authority follows.
+**STOP before Hardware — DO NOT INSTALL / DO NOT START without new Human authorization.**
 
 ### Current DA5 V5 terminal-abort / lost-reverse cleanup correction — published, CI and artifact review APPROVED; Hardware separately gated
 

@@ -1,12 +1,17 @@
 # Development Assignment 5 — V5 Human Android Gate Runbook
 
-## Current package-clear / Employee-ready Development candidate — do not run on Hardware
+## Current package-clear / Employee-ready correction — published and artifact-approved; do not run without new authority
 
-Published baseline HEAD, `main` and `origin/main` all equal
+Published executable `22fe85d540c8949f179b96589ed493f0211002db`, tree
+`7514edfe90da11a3288fec0df872fb7010238c0b`, has direct parent
 `5fa6389aad785007b0322a38cfd81a17816c7eab`, tree
-`2387276f4969e9ca16cbb31e03a4ad50949bbaba`. Formal final Exact-Head/Artifact Review Round 1
-returned `CHANGES REQUIRED` for exactly one P2 and no other finding. The focused correction is
-uncommitted, locally verified and independent re-review pending.
+`2387276f4969e9ca16cbb31e03a4ad50949bbaba`. The exact nine-path Full-Index/Binary delta is
+45,172 bytes / SHA-256
+`2346cccc6e3727f39f0f09470fc5e2a66cd8dbba8f20d9aa95da2c1d206fc592`; prepublication
+candidate provenance is three code/test paths at 5,037 bytes / SHA-256
+`61c56a2afcf9a986f69fe67f28de2fda037d1e1cac942407b943a0b3b5fda2ea` and six ADO paths at
+40,135 bytes / SHA-256
+`51da9ddc31788e020f85ce3b54aee8b01568e9d846f0cdace6c4fdc9a98c337f`.
 
 After enrollment sign-out and `employee-installation-transition-confirm PASS`, keep existing
 pre-state, old-offline close, exact cleanup and same-APK replacement order. The owning Mobile
@@ -35,17 +40,30 @@ offline, fixture, device or Accessibility continuation. Existing status, abort, 
 terminal-cleanup and Accessibility-restore handling remains authoritative. Product/Mobile
 semantics, APK, schema, dependencies/lockfile, backup rules and workflow are unchanged.
 
-Fresh Development evidence under Node `24.17.0` / npm `11.13.0`: focused Controller 60/60,
-required-reachability ProductStart 5/5, tests-inclusive Synthetic Typecheck with 573 normalized
-files and each of the three changed inputs exactly once, build, syntax and map invariants all
-pass. Exactly one final full Synthetic run with required APK reachability passed 14/14 files,
-345 tests plus 19 expected skips. Before six-surface ADO synchronization, the executable/test
-delta is exactly three paths, 5,037 bytes / SHA-256
-`61c56a2afcf9a986f69fe67f28de2fda037d1e1cac942407b943a0b3b5fda2ea`; regenerated bundle/map
-are 930,095 / 1,728,717 bytes at SHA-256
-`2a48d52d204ef8cfba73d9a789de3ef50ecefa29e32c51953bc75b9d48d023a6` /
-`a51b9cfa0dfa883bf5d091789051ec16c85529afbecd53b37017940fa16a70d2`. No Hardware, ADB or
-installation may run before independent re-review and a later separate Human authorization.
+Fresh Development evidence under Node `24.17.0` / npm `11.13.0` remains bound: focused Controller
+60/60, required-reachability ProductStart 5/5, tests-inclusive Synthetic Typecheck with 573 files
+and all three changed inputs exactly once, build/syntax/map invariants, and exactly one final full
+required-reachability Synthetic run at 345 passed plus 19 expected skips. Exact-head push CI run
+`31630253237`, attempt 1, passed 12/12 without retry.
+
+Fresh read-only Product Operator Runtime is
+`/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-product-operator/22fe85d5-2a48d52d`:
+manifest 10,726 bytes / mode `0444` / SHA-256
+`2e24bb5c5d39089ef871d9fd986a67532d51f71df3a6e1652b1b1e232bf6e1fe`; bundle 930,095 bytes /
+mode `0444` / SHA-256 `2a48d52d204ef8cfba73d9a789de3ef50ecefa29e32c51953bc75b9d48d023a6`;
+map 1,728,717 bytes / mode `0444` / SHA-256
+`a51b9cfa0dfa883bf5d091789051ec16c85529afbecd53b37017940fa16a70d2`, version 3, absent
+`sourceRoot`, 90/90/90. The manifest's generation-time pending-review field remains historical.
+Final strict OS-sandboxed Exact-Head/Artifact Review returned `APPROVED` with zero open P0–P3,
+proved unchanged commit/runtime/artifact identity, and verified CI locally from immutable manifest
+plus exact refs because reviewer network access was denied.
+
+Package-only `pm clear` and Employee-ready semantics are technically closed. The previous consumed
+Hardware run and its abort/null cleanup are non-reusable. R-026 is technically mitigated but open
+only pending a new, separate exact Human Hardware authorization and run. Product APK, Guard,
+device, Tag, path and Credential constraints remain unchanged. Production, production data,
+deployment and distribution remain unauthorized. **STOP before Hardware — DO NOT INSTALL / DO
+NOT START without new Human authorization.**
 
 ## Current terminal-abort / lost-reverse correction — published and artifact-approved; do not run without new authority
 
