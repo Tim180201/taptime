@@ -281,7 +281,7 @@ try {
     'da5_v5_ready',
     `da5_v5_public_manifest=${JSON.stringify(DA5_V5_PUBLIC_MANIFEST)}`,
     `da5_v5_accessibility_surface_plan=${DA5_V5_ACCESSIBILITY_SURFACE_PLAN.join(',')}`,
-    'operator_commands=status | device-preflight | physical-tag-binding-confirm <PASS|FAIL|AMBIGUOUS> | android-install-confirm <PASS|FAIL|AMBIGUOUS> | employee-installation-transition-confirm <PASS|FAIL|AMBIGUOUS> | credential-field-ready <administrator|enrollment|employee> EMPTY_ACTIVE | credential-check <administrator|enrollment|employee> | credential-field-confirm <administrator|enrollment|employee> <VISIBLE|EMPTY|AMBIGUOUS> | checkpoint <name> <queue-items> | checkpoint-confirm <name> <PASS|FAIL|AMBIGUOUS> | dedupe-window-baseline <phase> | dedupe-window-check <phase> | tag-b-registration-arm | protected-review-arm <human-observed-queue-items> | protected-review-activate-tag-b | protected-review-cutover-tag-a | protected-review-terminal | offline-enter <ordinary|protected> | offline-restore <ordinary|protected> | gate-b-cold-prepare | ordinary-relaunch-prepare | accessibility-prepare | accessibility-check | accessibility-surface-confirm <surface> <PASS|FAIL|AMBIGUOUS> | accessibility-credential-field-ready <administrator|employee> EMPTY_ACTIVE | accessibility-credential-check <administrator|employee> | accessibility-credential-field-confirm <administrator|employee> <VISIBLE|EMPTY|AMBIGUOUS> | accessibility-cancel | standard-profile-check | cancellation-arm | cancellation-ui-confirm <PASS|FAIL|AMBIGUOUS> | cancellation-kill-background | cancellation-ready-confirm <PASS|FAIL|AMBIGUOUS> | protected-force-stop | protected-ready-confirm <PASS|FAIL|AMBIGUOUS> | stop',
+    'operator_commands=status | device-preflight | physical-tag-binding-confirm <PASS|FAIL|AMBIGUOUS> | android-install-confirm <PASS|FAIL|AMBIGUOUS> | employee-installation-transition-confirm <PASS|FAIL|AMBIGUOUS> | credential-field-ready <administrator|enrollment|employee> EMPTY_ACTIVE | credential-check <administrator|enrollment|employee> | credential-field-confirm <administrator|enrollment|employee> <VISIBLE|EMPTY|AMBIGUOUS> | checkpoint <name> <queue-items> | checkpoint-confirm <name> <PASS|FAIL|AMBIGUOUS> | dedupe-window-baseline <phase> | dedupe-window-check <phase> | tag-b-registration-arm | protected-review-arm <human-observed-queue-items> | protected-review-activate-tag-b | protected-review-cutover-tag-a | protected-review-terminal | offline-enter <ordinary|protected> | offline-restore <ordinary|protected> | gate-b-cold-prepare | ordinary-relaunch-prepare | accessibility-prepare | accessibility-check | accessibility-surface-confirm <surface> <PASS|FAIL|AMBIGUOUS> | accessibility-credential-field-ready <administrator|employee> EMPTY_ACTIVE | accessibility-credential-check <administrator|employee> | accessibility-credential-field-confirm <administrator|employee> <VISIBLE|EMPTY|AMBIGUOUS> | accessibility-cancel | standard-profile-check | cancellation-arm | cancellation-ui-confirm <PASS|FAIL|AMBIGUOUS> | cancellation-kill-background | cancellation-ready-confirm <PASS|FAIL|AMBIGUOUS> | protected-force-stop | protected-ready-confirm <PASS|FAIL|AMBIGUOUS> | abort | stop',
     'sensitive_values_are_never_printed',
     '',
   ].join('\n'));
@@ -337,6 +337,9 @@ async function handleCommand(line: string): Promise<Da5V5OperatorCommandOutcome>
     && normalized !== 'accessibility-cancel'
   ) {
     return fail(activeSession, 'operator_command_rejected');
+  }
+  if (normalized === 'abort') {
+    return { state: 'abort' };
   }
   if (normalized === 'status') {
     await reportStatus(activeEnvironment, activeSession);
@@ -1414,7 +1417,7 @@ async function performCleanupResources(): Promise<void> {
   await stage('input', () => inputOwnership.closeAll());
   await stage('password', () => passwordBinding.destroy());
   await stage('offline', async () => {
-    if (await offline.close() !== 'match') {
+    if (await offline.settleForTerminalCleanup() !== 'match') {
       throw new Error('DA5 V5 offline cleanup mismatch');
     }
   });

@@ -1,5 +1,26 @@
 # Development Assignment 5 — V5 Human Android Evidence
 
+## Current terminal-abort / lost-reverse cleanup evidence — local R3 candidate
+
+| Evidence | Exact result |
+|---|---|
+| Baseline | `d39446f2a67b51788e8a63d3f73e90e373cc8da8`; tree `eb1a0f540e52a55ece87e647e325d6ca2c4219ff`; `HEAD == main == origin/main` before Development; tracked state clean, protected untracked state untouched |
+| Consumed run | Started `2026-08-11`, continuity inspected `2026-08-12`; bound Operator/device/package/standard profile remained exact, but reverse mappings were `0/2`; no later Product/NFC/Tag/lifecycle/queue/time/review action |
+| Confirmed finding | `DA5-V5-OPERATOR-ABORT-CLEANUP-01`: early Human stop used success-only `stop`, yielded `operator_command_rejected`; cleanup rejected already-absent owned mappings and retained exact Operator/Guard/PostgreSQL resources |
+| Terminal recovery | Only exact bound PIDs/task root were cleaned; Product package/process, reverse mappings, ports `3000`/`54321`/`55435`, Operator, Guard, PostgreSQL and task roots reached zero; standard profile remained exact; repository/runtime/APK/Guard unchanged |
+| Product classification | Operator cleanup finding only; no NFC, Tag, Product, Security, tenant-isolation or Hardware correctness result |
+| Candidate abort | New idle-only outcome `abort`; exactly one `da5_v5_aborted`, failure exit, owned mutation/input closure and coalesced cleanup; no later command; no `da5_v5_stopped`; success-only `stop` unchanged |
+| Accessibility | Restore-only and prepared profile-change gates retain precedence; `abort` cannot bypass mandatory standard-profile restoration |
+| Terminal offline settlement | Waits mutation flight; freezes controller; performs no reverse add/remove; accepts only zero/one/two exact transaction-owned mappings while carrying known/uncertain proof into Android cleanup |
+| Adversarial boundary | Foreign/extra, wrong-host, duplicate, malformed, changed-device, unreadable or ownership mismatch is fail-closed; no foreign mapping is removed; no broad remove/recreate exists |
+| Focused Development V1 | `Da5V5AdbController.test.ts` + `Da5V5Profile.test.ts`: 2/2 files, 99/99 tests, exit 0 |
+| Affected Synthetic workspace | 14/14 files; 337 passed, 19 expected skips, 356 total; required Product-APK reachability enabled; exit 0 |
+| Tests-inclusive Typecheck | Synthetic workspace `tsc -p tsconfig.json --noEmit`, exit 0; normalized `--listFilesOnly` has 573 entries / SHA-256 `17a4f90510db649a6c3246c293870299e7692aeeabf049fb0241282be16e15f3` and includes all three changed sources plus all three changed tests |
+| Local candidate build binding | Synthetic build and bundle syntax exit 0; `da5V5Main.js` 921,846 bytes / SHA-256 `b2b439d5cf221306d89a2cecb229b30f1487ae40721af75473d8551d74eb53fe`; map 1,714,733 bytes / SHA-256 `016a2ab73e3b431e7a4f242a1f9fd0b25659a4a689ef20cfa3a56d6d4a9a33e9`; map version 3, absent `sourceRoot`, 90/90/90 source invariants |
+| ProductStart | 5/5 passed with `TAPTIME_DA5_V5_PRODUCT_APK_REACHABILITY=required`; exit 0 |
+| Preserved scope | No Mobile/Product runtime semantic, APK, dependency, lockfile, schema or workflow change; no Hardware/ADB/install action in Development |
+| Pending gates | Independent R3 review, publication, exact-head CI, fresh runtime/artifact review and a new exact Human Hardware authorization |
+
 ## Current clean-identity installation-boundary correction — published, CI and final artifact review APPROVED
 
 | Evidence | Exact result |

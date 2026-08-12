@@ -1,5 +1,30 @@
 # Development Assignment 5 — V5 Human Android Gate Runbook
 
+## Current terminal-abort / lost-reverse correction — local candidate; do not run
+
+The `2026-08-11` run continued on `2026-08-12` only after same-session continuity checks. The
+bound device/package/profile remained exact, but both transaction-owned reverse mappings were
+absent (`0/2`). The run therefore stopped fail-closed before further Product action. `stop`
+remained correctly restricted to a fully successful terminal gate; using it for an early Human
+abort produced `operator_command_rejected`. Final cleanup then rejected the already-absent owned
+mappings and retained the exact Operator/Guard/PostgreSQL chain until exact external PID cleanup
+proved terminal null. This is no NFC, Tag or Product finding.
+
+The local correction introduces `abort` only on the ordinary idle command surface. It is
+exactly-once, emits only `da5_v5_aborted`, fixes exit 1, closes command/secret input, aborts an
+owned mutation and joins the single cleanup flight; later input is impossible. It is unavailable
+while Accessibility restoration is required: only the existing restoration proof remains valid.
+`stop` stays success-only and continues to be the sole source of `da5_v5_stopped`.
+
+Final cleanup uses `settleForTerminalCleanup()`, not operational `close()`: it waits for any
+mutation flight, freezes the controller and never recreates or removes a reverse mapping. Only
+zero, one or both exact owned `tcp:54321` / `tcp:3000` mappings are accepted. Existing Android
+cleanup then removes any present exact-owned mapping/package and proves repeated zero. Any
+foreign/extra, wrong-host, duplicate, malformed, changed-device, unreadable or ownership-
+ambiguous state remains a terminal mismatch and no foreign mapping is mutated. This candidate
+must pass independent review, publication and exact-head CI before a new exact Human Hardware
+authorization may be prepared. **DO NOT INSTALL / DO NOT START.**
+
 ## Current clean-identity installation boundary — published and artifact-approved; do not run on Hardware without new authority
 
 The `2026-08-10` R4 Hardware authority is consumed and non-reusable. It reached Administrator

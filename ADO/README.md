@@ -7,6 +7,29 @@ Approval Authority: Human Architect
 
 ## Purpose
 
+### Current DA5 V5 terminal-abort / lost-reverse cleanup correction — local R3 candidate; Hardware stopped
+
+The fresh `2026-08-11` Product Human/Hardware run continued on `2026-08-12` only after its
+original Operator, device, package and standard-profile bindings were rechecked. Both previously
+owned ADB reverse mappings were then absent (`0/2`), so the run correctly stopped fail-closed
+before any further Product action. The early Human stop was represented by the success-only
+`stop` command and therefore produced `operator_command_rejected`; terminal cleanup treated the
+already-absent owned mappings as a mismatch and left the bound Operator/Guard/PostgreSQL chain for
+exact external PID cleanup. That recovery reached complete null and preserved repository,
+runtime, APK, Guard, device and standard profile unchanged. This is an Operator cleanup finding,
+not an NFC, Tag, Product or Hardware correctness finding.
+
+The local R3 correction adds a distinct exactly-once `abort` outcome for an idle command surface,
+with failure exit, closed input and one coalesced cleanup; it does not change the success-only
+`stop` predicate and cannot bypass mandatory Accessibility restoration. Normal offline `close()`
+remains strict. Final cleanup instead freezes the controller after any mutation flight, never
+recreates reverse mappings and accepts only an exact subset of the two transaction-owned
+mappings before the existing exact-package/owned-mapping cleanup and repeated-zero proof.
+Foreign, malformed, duplicate, wrong-host, changed-device or unreadable state remains fail-closed
+without foreign mutation. Product/Mobile semantics and the APK are unchanged. Independent review,
+publication, exact-head CI and a fresh exact Human Hardware authorization remain pending.
+**DO NOT INSTALL / DO NOT START.**
+
 ### Current DA5 V5 clean-identity installation-boundary correction — published, CI and artifact review APPROVED; Hardware separately gated
 
 The `2026-08-10` Product Human/Hardware R4 authority is consumed and non-reusable. After the

@@ -139,6 +139,22 @@ describe('DA5 V5 Employee installation transition', () => {
     },
   );
 
+  it('keeps operational close strict when a previously required mapping is absent', async () => {
+    const adb = directAdb();
+    const controller = offlineController(adb);
+    expect(controller.arm()).toBe('match');
+    adb.mappings.delete('tcp:3000');
+    const commandStart = adb.commands.length;
+
+    await expect(controller.close()).resolves.toBe('mismatch');
+
+    expect(controller.getState().state).toBe('failed');
+    expect(adb.mappings).toEqual(new Map([['tcp:54321', 'tcp:54321']]));
+    expect(adb.commands.slice(commandStart).some((command) => (
+      command.slice(2).join(' ') === 'reverse tcp:3000 tcp:3000'
+    ))).toBe(false);
+  });
+
   it('turns an early precondition mismatch and a late duplicate into terminal failure',
     async () => {
       const early = new Da5V5EmployeeInstallationTransition();
@@ -444,6 +460,128 @@ describe('DA5 V5 controlled API-offline ownership', () => {
     expect(await controller.close()).toBe('match');
     expect(adb.mappings.get('tcp:3000')).toBe('tcp:3000');
     expect(controller.cleanupProofState()).toBe('uncertain');
+  });
+
+  it.each([
+    ['both absent', []],
+    ['only auth present', [['tcp:54321', 'tcp:54321']]],
+    ['only API present', [['tcp:3000', 'tcp:3000']]],
+  ] as const)(
+    'settles terminal cleanup with %s without recreating or removing a mapping',
+    async (_scenario, entries) => {
+      const adb = directAdb();
+      const controller = offlineController(adb);
+      expect(controller.arm()).toBe('match');
+      adb.mappings = new Map(entries);
+      const commandStart = adb.commands.length;
+
+      await expect(controller.settleForTerminalCleanup()).resolves.toBe('match');
+      await expect(controller.settleForTerminalCleanup()).resolves.toBe('match');
+
+      expect(controller.getState()).toEqual({ completedCycles: 0, state: 'closed' });
+      expect(controller.cleanupProofState()).toBe('known');
+      expect(adb.mappings).toEqual(new Map(entries));
+      expect(adb.commands.slice(commandStart).some((command) => (
+        command.slice(2, 3)[0] === 'reverse'
+        && command.slice(2).join(' ') !== 'reverse --list'
+      ))).toBe(false);
+    },
+  );
+
+  it.each([
+    ['foreign mapping', [['tcp:9911', 'tcp:9922']], []],
+    ['wrong host', [['tcp:54321', 'tcp:3999']], []],
+    ['duplicate', [['tcp:54321', 'tcp:54321']], ['UsbFfs tcp:54321 tcp:54321']],
+    ['malformed', [], ['malformed']],
+  ] as const)(
+    'fails terminal cleanup closed for %s without mutating mappings',
+    async (_scenario, entries, rawReverseLines) => {
+      const adb = directAdb();
+      const controller = offlineController(adb);
+      expect(controller.arm()).toBe('match');
+      adb.mappings = new Map(entries);
+      adb.rawReverseLines = [...rawReverseLines];
+      const before = new Map(adb.mappings);
+      const commandStart = adb.commands.length;
+
+      await expect(controller.settleForTerminalCleanup()).resolves.toBe('mismatch');
+
+      expect(controller.getState().state).toBe('failed');
+      expect(controller.cleanupProofState()).toBe('uncertain');
+      expect(adb.mappings).toEqual(before);
+      expect(adb.commands.slice(commandStart).some((command) => (
+        command.slice(2, 3)[0] === 'reverse'
+        && command.slice(2).join(' ') !== 'reverse --list'
+      ))).toBe(false);
+    },
+  );
+
+  it('preserves uncertain proof and never recreates API mapping during terminal settlement',
+    async () => {
+      const adb = directAdb();
+      const abort = new AbortController();
+      adb.abortMutation = abort;
+      const controller = new Da5V5ApiOfflineController(
+        adb,
+        {
+          androidBuild: adb.androidBuild,
+          deviceModel: adb.deviceModel,
+        },
+        new Da5V5UsbDeviceLock(),
+        abort.signal,
+      );
+      expect(controller.arm()).toBe('match');
+      expect(await controller.enterOffline('ordinary')).toBe('mismatch');
+      expect(controller.cleanupProofState()).toBe('uncertain');
+      const commandStart = adb.commands.length;
+
+      await expect(controller.settleForTerminalCleanup()).resolves.toBe('match');
+
+      expect(controller.cleanupProofState()).toBe('uncertain');
+      expect(adb.mappings).toEqual(new Map([['tcp:54321', 'tcp:54321']]));
+      expect(adb.commands.slice(commandStart).some((command) => (
+        command.slice(2).join(' ') === 'reverse tcp:3000 tcp:3000'
+      ))).toBe(false);
+    });
+
+  it('rejects a device swap during terminal settlement without mapping mutation', async () => {
+    const adb = directAdb();
+    const controller = offlineController(adb);
+    expect(controller.arm()).toBe('match');
+    adb.serial = 'replacement-device';
+    adb.devices = [{
+      details: 'usb:replacement product:synthetic model:synthetic transport_id:2',
+      serial: adb.serial,
+      state: 'device',
+    }];
+    const before = new Map(adb.mappings);
+    const commandStart = adb.commands.length;
+
+    await expect(controller.settleForTerminalCleanup()).resolves.toBe('mismatch');
+
+    expect(adb.mappings).toEqual(before);
+    expect(adb.commands.slice(commandStart).some((command) => (
+      command.includes('--remove')
+    ))).toBe(false);
+  });
+
+  it('fails terminal settlement on reverse-list read failure without mutation', async () => {
+    const adb = directAdb();
+    const controller = offlineController(adb);
+    expect(controller.arm()).toBe('match');
+    adb.failOnce = (arguments_) => (
+      arguments_.join(' ') === `-s ${adb.serial} reverse --list`
+    );
+    const before = new Map(adb.mappings);
+    const commandStart = adb.commands.length;
+
+    await expect(controller.settleForTerminalCleanup()).resolves.toBe('mismatch');
+
+    expect(controller.cleanupProofState()).toBe('uncertain');
+    expect(adb.mappings).toEqual(before);
+    expect(adb.commands.slice(commandStart).some((command) => (
+      command.includes('--remove')
+    ))).toBe(false);
   });
 
   it('keeps an aborted restore/add uncertain after compensation when its effect can appear late',

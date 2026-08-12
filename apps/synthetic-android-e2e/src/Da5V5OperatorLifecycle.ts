@@ -56,6 +56,7 @@ export function rejectDa5V5OperationalInputs(
 }
 
 export type Da5V5OperatorFailureEvent =
+  | 'da5_v5_aborted'
   | 'da5_v5_checkpoint=mismatch'
   | 'da5_v5_credential_binding=mismatch'
   | 'da5_v5_device_checkpoint=mismatch'
@@ -67,6 +68,7 @@ export type Da5V5OperatorFailureEvent =
   | 'operator_command_rejected';
 
 export type Da5V5OperatorCommandOutcome =
+  | Readonly<{ readonly state: 'abort' }>
   | Readonly<{ readonly state: 'continue' }>
   | Readonly<{ readonly event: Da5V5OperatorFailureEvent; readonly state: 'fail' }>
   | Readonly<{ readonly state: 'stop' }>;
@@ -128,6 +130,8 @@ export class Da5V5OperatorLifecycle {
       this.state = 'active';
     } else if (outcome.state === 'fail') {
       await this.fail(outcome.event);
+    } else if (outcome.state === 'abort') {
+      await this.abortAndFail('da5_v5_aborted');
     } else {
       await this.finish(true);
     }

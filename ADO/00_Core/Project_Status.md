@@ -1,5 +1,25 @@
 # Project Status
 
+DA5 V5 terminal-abort / lost-reverse cleanup: **THE 2026-08-11 HARDWARE AUTHORITY CONTINUED ON
+2026-08-12, THEN WAS CONSUMED FAIL-CLOSED AFTER BOTH TRANSACTION-OWNED REVERSE MAPPINGS WERE
+OBSERVED ABSENT. EXACT EXTERNAL RECOVERY REACHED TERMINAL NULL. A LOCAL R3 OPERATOR-ONLY
+CORRECTION EXISTS; REVIEW/PUBLICATION/CI AND A NEW HUMAN HARDWARE AUTHORITY ARE PENDING. DO NOT
+INSTALL / DO NOT START.** The original Operator, package, device and standard profile remained
+bound, but the overnight USB/ADB discontinuity left `0/2` required mappings. No later Product,
+NFC, Tag, lifecycle, queue, time or review action ran. Early `stop` was correctly rejected because
+it remains success-only; cleanup then failed on already-absent owned mappings and retained the
+exact Operator/Guard/PostgreSQL chain until bounded PID cleanup proved every task state null.
+
+The focused candidate adds an idle-only, exactly-once `abort` failure outcome and a terminal-only
+offline settlement. Abort closes input, latches exit 1 and coalesces cleanup once; later commands
+cannot run, normal successful `stop` is unchanged and Accessibility restore-only still takes
+precedence. Terminal settlement waits for the mutation flight, performs no reverse recreation or
+removal, and accepts only zero, one or both exact transaction-owned mappings; Android cleanup
+then removes any still-present exact owned resources and proves repeated zero. Foreign, wrong-
+host, duplicate, malformed, changed-device, ownership or read ambiguity remains fail-closed with
+no foreign mutation. No Mobile/Product runtime semantic, APK, dependency, lockfile, schema or
+workflow change is present.
+
 DA5 V5 clean-identity installation boundary: **THE 2026-08-10 PRODUCT HUMAN/HARDWARE R4
 AUTHORITY IS CONSUMED AND TERMINAL CLEANUP IS NULL. THE CORRECTION IS PUBLISHED, EXACT-HEAD CI
 PASSED 12/12, AND FINAL EXACT-HEAD/ARTIFACT REVIEW IS `APPROVED` WITH ZERO OPEN P0–P3. R-026

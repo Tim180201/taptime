@@ -417,17 +417,17 @@ describe('DA5 V5 Product operator bundle start smoke', () => {
       bytes: Buffer.byteLength(bundle),
       sha256: createHash('sha256').update(bundle).digest('hex'),
     }).toEqual({
-      bytes: 920_552,
+      bytes: 921_846,
       sha256:
-        '8d4981e591820ed6a62bd3b6ca139a7f4b8da90156f858ed0c71a1018a0a0d22',
+        'b2b439d5cf221306d89a2cecb229b30f1487ae40721af75473d8551d74eb53fe',
     });
     expect({
       bytes: sourceMapBytes.byteLength,
       sha256: createHash('sha256').update(sourceMapBytes).digest('hex'),
     }).toEqual({
-      bytes: 1_712_456,
+      bytes: 1_714_733,
       sha256:
-        '7286e001e1b55c65aa31e2bbb6a5ec65059d68295fc579037c892c4111e67afa',
+        '016a2ab73e3b431e7a4f242a1f9fd0b25659a4a689ef20cfa3a56d6d4a9a33e9',
     });
     expect(sourceMap.version).toBe(3);
     expect(sourceMap.sourceRoot).toBeUndefined();
@@ -489,6 +489,8 @@ describe('DA5 V5 Product operator bundle start smoke', () => {
     expect(bundle).toContain('runner_binding');
     expect(bundle).toContain('uncertainty_escalation');
     expect(bundle).toContain('settleDa5V5BackgroundOperation');
+    expect(bundle).toContain('settleForTerminalCleanup');
+    expect(bundle).toContain('da5_v5_aborted');
     expect(bundle).toContain('install-create');
     expect(bundle).toContain('install-write');
     expect(bundle).toContain('install-commit');
@@ -497,6 +499,7 @@ describe('DA5 V5 Product operator bundle start smoke', () => {
     expect(bundle).toContain(
       'employee-installation-transition-confirm <PASS|FAIL|AMBIGUOUS>',
     );
+    expect(bundle).toContain('| abort | stop');
     expect(bundle).toContain('da5_v5_employee_installation_transition=');
     expect(bundle).toContain('old-installation-cleaned');
     expect(bundle).toContain('replacement-installed');

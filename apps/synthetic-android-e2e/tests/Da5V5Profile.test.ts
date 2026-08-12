@@ -900,6 +900,52 @@ describe('DA5 V5 fixture, lifecycle and startup fail-stop boundaries', () => {
     expect(later).not.toHaveBeenCalled();
   });
 
+  it('aborts once, closes input, cleans once and rejects every later command silently',
+    async () => {
+      const events: string[] = [];
+      const cleanup = vi.fn(async () => undefined);
+      const markFailed = vi.fn();
+      const abortMutation = vi.fn();
+      const closeInput = vi.fn();
+      const lifecycle = new Da5V5OperatorLifecycle(
+        cleanup,
+        (event) => events.push(event),
+        markFailed,
+        abortMutation,
+        closeInput,
+      );
+
+      await lifecycle.submit(async () => ({ state: 'abort' }));
+      const later = vi.fn(async () => ({ state: 'continue' as const }));
+      await lifecycle.submit(later);
+
+      expect(events).toEqual(['da5_v5_aborted']);
+      expect(events).not.toContain('operator_command_rejected');
+      expect(events).not.toContain('da5_v5_stopped');
+      expect(cleanup).toHaveBeenCalledTimes(1);
+      expect(markFailed).toHaveBeenCalledTimes(1);
+      expect(abortMutation).toHaveBeenCalledTimes(1);
+      expect(closeInput).toHaveBeenCalledTimes(1);
+      expect(later).not.toHaveBeenCalled();
+    });
+
+  it('retains stop as the only successful stopped outcome', async () => {
+    const events: string[] = [];
+    const cleanup = vi.fn(async () => undefined);
+    const markFailed = vi.fn();
+    const lifecycle = new Da5V5OperatorLifecycle(
+      cleanup,
+      (event) => events.push(event),
+      markFailed,
+    );
+
+    await lifecycle.submit(async () => ({ state: 'stop' }));
+
+    expect(events).toEqual(['da5_v5_stopped']);
+    expect(cleanup).toHaveBeenCalledTimes(1);
+    expect(markFailed).not.toHaveBeenCalled();
+  });
+
   it('aborts and settles an active command before external failure cleanup', async () => {
     const events: string[] = [];
     const operation = deferred<{ readonly state: 'continue' }>();
@@ -1303,6 +1349,12 @@ describe('DA5 V5 fixture, lifecycle and startup fail-stop boundaries', () => {
       expect(source).not.toMatch(/void\s+signalController\.handleSignal\(\)/u);
       expect(source).not.toMatch(/void\s+operatorLifecycle\?\.abortAndFail/u);
       expect(source).toContain('reverseState: offline.cleanupProofState()');
+      expect(source).toContain('await offline.settleForTerminalCleanup()');
+      expect(source).toContain("if (normalized === 'abort')");
+      expect(source).toContain('| abort | stop');
+      expect(source.indexOf('if (accessibilitySession.restoreOnly())')).toBeLessThan(
+        source.indexOf("if (normalized === 'abort')"),
+      );
       expect(source).toContain("if (offline.arm() !== 'match')");
       expect(source.indexOf('await installDa5V5AndroidFromPackageZero({')).toBeLessThan(
         source.indexOf("if (offline.arm() !== 'match')"),

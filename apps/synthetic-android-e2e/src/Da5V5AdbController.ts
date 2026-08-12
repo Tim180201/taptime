@@ -219,6 +219,7 @@ export class Da5V5ApiOfflineController {
   private offlineSerial: string | null = null;
   private reverseCleanupState: 'known' | 'uncertain' = 'known';
   private state: Da5V5ApiOfflineState['state'] = 'unarmed';
+  private terminalCleanupStarted = false;
 
   constructor(
     private readonly adb: Da5V5AdbCommandRunner,
@@ -345,6 +346,30 @@ export class Da5V5ApiOfflineController {
     return 'match';
   }
 
+  async settleForTerminalCleanup(): Promise<'match' | 'mismatch'> {
+    if (this.terminalCleanupStarted) {
+      return this.state === 'closed' ? 'match' : 'mismatch';
+    }
+    this.terminalCleanupStarted = true;
+    await this.mutationFlight;
+    if (!this.armed) {
+      this.offlineSerial = null;
+      this.state = 'closed';
+      return 'match';
+    }
+    try {
+      const serial = this.requireBoundDevice();
+      requireTerminalCleanupMappingSubset(readMappings(this.adb, serial));
+      this.offlineSerial = null;
+      this.state = 'closed';
+      return 'match';
+    } catch {
+      this.reverseCleanupState = 'uncertain';
+      this.state = 'failed';
+      return 'mismatch';
+    }
+  }
+
   getState(): Da5V5ApiOfflineState {
     return Object.freeze({
       completedCycles: this.completedCycles,
@@ -392,7 +417,7 @@ export class Da5V5ApiOfflineController {
   private beginMutation(
     operation: () => Promise<'match' | 'mismatch'>,
   ): Promise<'match' | 'mismatch'> {
-    if (this.mutationFlight !== null) {
+    if (this.terminalCleanupStarted || this.mutationFlight !== null) {
       this.state = 'failed';
       return Promise.resolve('mismatch');
     }
@@ -727,6 +752,23 @@ function requireMappings(
     requireExactMapping(api, API_MAPPING.device, API_MAPPING.host);
   } else if (api.length !== 0) {
     throw new Error('DA5 V5 API mapping remained during controlled offline');
+  }
+}
+
+function requireTerminalCleanupMappingSubset(
+  mappings: readonly ReverseMapping[],
+): void {
+  for (const mapping of mappings) {
+    const owned = (
+      mapping.device === AUTH_MAPPING.device
+      && mapping.host === AUTH_MAPPING.host
+    ) || (
+      mapping.device === API_MAPPING.device
+      && mapping.host === API_MAPPING.host
+    );
+    if (!owned) {
+      throw new Error('DA5 V5 terminal cleanup mapping set is unexpected');
+    }
   }
 }
 

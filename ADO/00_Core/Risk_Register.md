@@ -2,6 +2,21 @@
 
 Status: Active
 
+Current R-026/R-034 terminal-cleanup addendum: **The `2026-08-11` Hardware authority continued on
+`2026-08-12` only long enough to prove that the bound run had lost both transaction-owned reverse
+mappings (`0/2`); it is consumed fail-closed and exact external recovery proved terminal null.**
+No new Product/NFC/Tag result exists. Confirmed `DA5-V5-OPERATOR-ABORT-CLEANUP-01` is an Operator
+cleanup risk: the only Human stop token was success-only `stop`, and final cleanup rejected
+already-absent owned mappings, leaving the exact Operator/Guard/PostgreSQL chain until bounded
+PID recovery. The local R3 correction adds distinct exactly-once `abort`, keeps `stop` and
+Accessibility restore obligations unchanged, and separates strict operational offline close from
+terminal cleanup settlement. Terminal settlement never recreates or removes mappings and accepts
+only an exact subset of the two transaction-owned endpoints; existing Android cleanup removes
+only any present exact-owned resources and proves repeated zero. Foreign/wrong-host/duplicate/
+malformed/read/device/ownership ambiguity remains fail-closed with no foreign mutation.
+Independent review, publication, exact-head CI and a new exact Human Hardware authority are
+pending. **DO NOT INSTALL / DO NOT START.**
+
 Current R-026 DA5-scoped reopen: **The `2026-08-10` Product Human/Hardware R4 authority is consumed
 and terminal cleanup is null. The correction is published, Exact-Head CI-green and independently
 artifact-approved; R-026 remains open only pending one new, separately authorized Human Hardware
