@@ -91,13 +91,17 @@ export type Da5V5EmployeeInstallationTransitionState =
   | 'old-offline-closed'
   | 'old-installation-cleaned'
   | 'replacement-installed'
+  | 'replacement-cleared'
   | 'postchecked'
+  | 'employee-prepared'
+  | 'employee-ready-confirming'
   | 'matched'
   | 'failed';
 
 export interface Da5V5EmployeeInstallationTransitionOperations {
   readonly closeOldOffline: () => Promise<'match' | 'mismatch'>;
   readonly cleanupOldInstallation: () => Promise<'match' | 'mismatch'>;
+  readonly clearReplacement: () => Promise<'match' | 'mismatch'>;
   readonly installReplacement: () => Promise<'match' | 'mismatch'>;
   readonly postcheck: () => Promise<'match' | 'mismatch'>;
   readonly precheck: () => Promise<'match' | 'mismatch'>;
@@ -141,6 +145,31 @@ export class Da5V5EmployeeInstallationTransition {
     return this.stateValue === 'matched';
   }
 
+  prepared(): boolean {
+    return this.stateValue === 'employee-prepared';
+  }
+
+  confirmReady(
+    verdict: 'pass' | 'fail' | 'ambiguous',
+    reattestBoundary: () => Promise<'match' | 'mismatch'>,
+  ): Promise<'match' | 'mismatch'> {
+    if (
+      verdict !== 'pass'
+      || this.stateValue !== 'employee-prepared'
+      || this.flight !== null
+    ) {
+      return Promise.resolve(this.fail());
+    }
+    this.stateValue = 'employee-ready-confirming';
+    const flight = this.runReady(reattestBoundary).finally(() => {
+      if (this.flight === flight) {
+        this.flight = null;
+      }
+    });
+    this.flight = flight;
+    return flight;
+  }
+
   private async run(
     operations: Da5V5EmployeeInstallationTransitionOperations,
   ): Promise<'match' | 'mismatch'> {
@@ -170,12 +199,35 @@ export class Da5V5EmployeeInstallationTransition {
     }
     if (!await this.step(
       'replacement-installed',
+      'replacement-cleared',
+      operations.clearReplacement,
+    )) {
+      return 'mismatch';
+    }
+    if (!await this.step(
+      'replacement-cleared',
       'postchecked',
       operations.postcheck,
     )) {
       return 'mismatch';
     }
     if (this.stateValue !== 'postchecked') {
+      return this.fail();
+    }
+    this.stateValue = 'employee-prepared';
+    return 'match';
+  }
+
+  private async runReady(
+    reattestBoundary: () => Promise<'match' | 'mismatch'>,
+  ): Promise<'match' | 'mismatch'> {
+    let result: 'match' | 'mismatch';
+    try {
+      result = await reattestBoundary();
+    } catch {
+      return this.fail();
+    }
+    if (this.stateValue !== 'employee-ready-confirming' || result !== 'match') {
       return this.fail();
     }
     this.stateValue = 'matched';
@@ -229,6 +281,14 @@ export class Da5V5ApiOfflineController {
   ) {}
 
   arm(): 'match' | 'mismatch' {
+    return this.armExact(false);
+  }
+
+  armPreparedEmployee(): 'match' | 'mismatch' {
+    return this.armExact(true);
+  }
+
+  private armExact(processNullRequired: boolean): 'match' | 'mismatch' {
     if (this.state !== 'unarmed' || this.armed) {
       return this.fail();
     }
@@ -236,6 +296,9 @@ export class Da5V5ApiOfflineController {
       const serial = this.requireBoundDevice();
       requireMappings(this.adb, serial, true);
       requireInstalledPackage(this.adb, serial);
+      if (processNullRequired) {
+        requireProductProcessNull(this.adb, serial);
+      }
       this.armed = true;
       this.state = 'direct-ordinary';
       return 'match';
@@ -820,6 +883,28 @@ function requireInstalledPackage(
   const result = adb.run(['-s', serial, 'shell', 'pm', 'path', PACKAGE_NAME]).trim();
   if (!/^package:\/\S+\.apk$/.test(result)) {
     throw new Error('DA5 V5 synthetic package is unavailable');
+  }
+}
+
+function requireProductProcessNull(
+  adb: Da5V5AdbCommandRunner,
+  serial: string,
+): void {
+  const lines = adb.run(['-s', serial, 'shell', 'ps', '-A', '-o', 'NAME'])
+    .split('\n');
+  if (lines.at(-1) === '') {
+    lines.pop();
+  }
+  if (lines.shift() !== 'NAME') {
+    throw new Error('DA5 V5 Product process header mismatch');
+  }
+  for (const line of lines) {
+    if (line.length === 0 || /\s|\0/u.test(line)) {
+      throw new Error('DA5 V5 Product process state mismatch');
+    }
+    if (line === PACKAGE_NAME || line.startsWith(`${PACKAGE_NAME}:`)) {
+      throw new Error('DA5 V5 Product process remained during Employee preparation');
+    }
   }
 }
 

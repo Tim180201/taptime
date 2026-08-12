@@ -32,7 +32,7 @@ describe('DA5 V5 Employee installation transition', () => {
     );
   });
 
-  it('runs the exact Human/pre/close/cleanup/install/post sequence once', async () => {
+  it('runs Human/pre/close/cleanup/install/clear/post once and stops prepared', async () => {
     const transition = new Da5V5EmployeeInstallationTransition();
     const calls: string[] = [];
     const aggregate = Object.freeze({ auditEvents: 2, workEvents: 0 });
@@ -56,6 +56,10 @@ describe('DA5 V5 Employee installation transition', () => {
         calls.push(`install:${transition.getState().state}`);
         return 'match';
       },
+      clearReplacement: async () => {
+        calls.push(`clear:${transition.getState().state}`);
+        return 'match';
+      },
       postcheck: async () => {
         calls.push(`post:${transition.getState().state}`);
         return preAggregate === aggregate ? 'match' : 'mismatch';
@@ -67,9 +71,20 @@ describe('DA5 V5 Employee installation transition', () => {
       'offline:prechecked',
       'cleanup:old-offline-closed',
       'install:old-installation-cleaned',
-      'post:replacement-installed',
+      'clear:replacement-installed',
+      'post:replacement-cleared',
     ]);
+    expect(transition.getState()).toEqual({ state: 'employee-prepared' });
+    expect(transition.prepared()).toBe(true);
+    expect(transition.matched()).toBe(false);
+
+    await expect(transition.confirmReady('pass', async () => {
+      calls.push(`ready:${transition.getState().state}`);
+      return 'match';
+    })).resolves.toBe('match');
+    expect(calls.at(-1)).toBe('ready:employee-ready-confirming');
     expect(transition.getState()).toEqual({ state: 'matched' });
+    expect(transition.prepared()).toBe(false);
     expect(transition.matched()).toBe(true);
   });
 
@@ -78,6 +93,7 @@ describe('DA5 V5 Employee installation transition', () => {
     'closeOldOffline',
     'cleanupOldInstallation',
     'installReplacement',
+    'clearReplacement',
     'postcheck',
   ] as const)('fails at %s without starting any following mutation', async (failingStage) => {
     const transition = new Da5V5EmployeeInstallationTransition();
@@ -87,6 +103,7 @@ describe('DA5 V5 Employee installation transition', () => {
       'closeOldOffline',
       'cleanupOldInstallation',
       'installReplacement',
+      'clearReplacement',
       'postcheck',
     ] as const;
     const operation = (stage: (typeof stages)[number]) => async () => {
@@ -99,6 +116,7 @@ describe('DA5 V5 Employee installation transition', () => {
       closeOldOffline: operation('closeOldOffline'),
       cleanupOldInstallation: operation('cleanupOldInstallation'),
       installReplacement: operation('installReplacement'),
+      clearReplacement: operation('clearReplacement'),
       postcheck: operation('postcheck'),
     })).resolves.toBe('mismatch');
 
@@ -201,6 +219,76 @@ describe('DA5 V5 Employee installation transition', () => {
     expect(calls).toEqual(['precheck']);
     expect(transition.getState()).toEqual({ state: 'failed' });
   });
+
+  it.each(['fail', 'ambiguous'] as const)(
+    'rejects Employee-ready %s from prepared without boundary reattestation',
+    async (verdict) => {
+      const transition = new Da5V5EmployeeInstallationTransition();
+      await expect(transition.confirm('pass', employeeTransitionOperations([])))
+        .resolves.toBe('match');
+      const reattest = vi.fn(async () => 'match' as const);
+
+      await expect(transition.confirmReady(verdict, reattest))
+        .resolves.toBe('mismatch');
+
+      expect(reattest).not.toHaveBeenCalled();
+      expect(transition.getState()).toEqual({ state: 'failed' });
+      expect(transition.matched()).toBe(false);
+    },
+  );
+
+  it('blocks early, late and repeated Employee-ready confirmation monotonically', async () => {
+    const early = new Da5V5EmployeeInstallationTransition();
+    const earlyReattest = vi.fn(async () => 'match' as const);
+    await expect(early.confirmReady('pass', earlyReattest)).resolves.toBe('mismatch');
+    expect(earlyReattest).not.toHaveBeenCalled();
+    expect(early.getState()).toEqual({ state: 'failed' });
+
+    const late = new Da5V5EmployeeInstallationTransition();
+    await expect(late.confirm('pass', employeeTransitionOperations([])))
+      .resolves.toBe('match');
+    await expect(late.confirmReady('pass', async () => 'match'))
+      .resolves.toBe('match');
+    const repeatReattest = vi.fn(async () => 'match' as const);
+    await expect(late.confirmReady('pass', repeatReattest)).resolves.toBe('mismatch');
+    expect(repeatReattest).not.toHaveBeenCalled();
+    expect(late.getState()).toEqual({ state: 'failed' });
+  });
+
+  it.each(['mismatch', 'throw'] as const)(
+    'fails closed when the ready boundary is %s',
+    async (outcome) => {
+      const transition = new Da5V5EmployeeInstallationTransition();
+      await transition.confirm('pass', employeeTransitionOperations([]));
+
+      await expect(transition.confirmReady('pass', async () => {
+        if (outcome === 'throw') throw new Error('private unavailable detail');
+        return 'mismatch';
+      })).resolves.toBe('mismatch');
+
+      expect(transition.getState()).toEqual({ state: 'failed' });
+    },
+  );
+
+  it('rejects a concurrent ready confirmation and invalidates the in-flight proof', async () => {
+    const transition = new Da5V5EmployeeInstallationTransition();
+    await transition.confirm('pass', employeeTransitionOperations([]));
+    let release!: () => void;
+    const blocked = new Promise<void>((resolve) => { release = resolve; });
+    const first = transition.confirmReady('pass', async () => {
+      await blocked;
+      return 'match';
+    });
+    await Promise.resolve();
+    const secondProof = vi.fn(async () => 'match' as const);
+
+    await expect(transition.confirmReady('pass', secondProof)).resolves.toBe('mismatch');
+    release();
+    await expect(first).resolves.toBe('mismatch');
+
+    expect(secondProof).not.toHaveBeenCalled();
+    expect(transition.getState()).toEqual({ state: 'failed' });
+  });
 });
 
 describe('DA5 V5 synchronous ADB child-process boundary', () => {
@@ -282,6 +370,32 @@ describe('DA5 V5 synchronous ADB child-process boundary', () => {
 });
 
 describe('DA5 V5 controlled API-offline ownership', () => {
+  it('arms the Employee-prepared boundary only while the Product process is null', () => {
+    const running = directAdb();
+    const originalMappings = new Map(running.mappings);
+    const runningController = offlineController(running);
+
+    expect(runningController.armPreparedEmployee()).toBe('mismatch');
+    expect(runningController.getState().state).toBe('failed');
+    expect(running.mappings).toEqual(originalMappings);
+    expect(running.commands.some((command) => (
+      command.includes('--remove')
+      || command.includes('kill')
+      || command.includes('force-stop')
+    ))).toBe(false);
+
+    const stopped = directAdb();
+    stopped.processRunning = false;
+    const stoppedController = offlineController(stopped);
+    expect(stoppedController.armPreparedEmployee()).toBe('match');
+    expect(stoppedController.getState().state).toBe('direct-ordinary');
+    expect(stopped.commands.at(-1)).toEqual([
+      '-s', stopped.serial, 'shell', 'ps', '-A', '-o', 'NAME',
+    ]);
+    expect(stoppedController.armPreparedEmployee()).toBe('mismatch');
+    expect(stoppedController.getState().state).toBe('failed');
+  });
+
   it('owns only the API mapping for exactly two cycles', async () => {
     const adb = directAdb();
     const controller = offlineController(adb);
@@ -837,6 +951,7 @@ function employeeTransitionOperations(calls: string[]) {
     closeOldOffline: operation('closeOldOffline'),
     cleanupOldInstallation: operation('cleanupOldInstallation'),
     installReplacement: operation('installReplacement'),
+    clearReplacement: operation('clearReplacement'),
     postcheck: operation('postcheck'),
   };
 }

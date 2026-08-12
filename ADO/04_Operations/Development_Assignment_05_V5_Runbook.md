@@ -1,5 +1,45 @@
 # Development Assignment 5 — V5 Human Android Gate Runbook
 
+## Current package-clear / Employee-ready Development candidate — do not run on Hardware
+
+Baseline `aa9ad8c1d5cb74bc68b7702a41d9b154906921d0`, tree
+`3f1e0f4cd812fc37153cf2de5a0ce6f7506a2362`; uncommitted. Round-1 independent R3 review
+returned `CHANGES REQUIRED` for exactly one P2 and no other finding; the correction is complete
+and independent re-review is pending.
+
+After enrollment sign-out and `employee-installation-transition-confirm PASS`, keep existing
+pre-state, old-offline close, exact cleanup and same-APK replacement order. The owning Mobile
+transaction then runs exactly once:
+`adb -s <exact-bound-serial> shell pm clear --user 0 com.tim180201.mobile.synthetic`.
+Accept only `Success\n` with empty stderr. No other package, wildcard, broad clear,
+`--remove-all`, retry, recovery or resume. Timeout, abort, receipt/concurrency or runner,
+transaction, serial/device drift is terminal. After APK provenance/signer verification and the
+complete installed-APK digest, reattest exact device, package, process null and exactly
+`tcp:54321 -> tcp:54321` plus `tcp:3000 -> tcp:3000`; any mismatch stops closed. The immediately
+following Employee-only offline arm proves process-null once again without starting the App or
+mutating mappings.
+
+After fresh offline arm and unchanged server/Tag/session-lifecycle/queue/time/review postcheck,
+state is `employee-prepared`, never `matched`. Only Employee empty-field, one hidden Credential,
+Employee visible-field, then `employee-ready-confirm <PASS|FAIL|AMBIGUOUS>` may run. `PASS`
+asserts solely exact Human-visible `Bereit zum Scannen` after login and requires the same boundary
+reattestation; only then `matched`. `FAIL`, `AMBIGUOUS`, protected/unavailable, early, late,
+repeat or concurrent confirmation is terminal.
+
+Before `matched`, do not arm Tag B, record Gate A, present a Tag, or run checkpoint, dedupe,
+offline, fixture, device or Accessibility continuation. Existing status, abort, safe-event,
+terminal-cleanup and Accessibility-restore handling remains authoritative. Product/Mobile
+semantics, APK, schema, dependencies/lockfile, backup rules and workflow are unchanged.
+
+Corrected Development evidence under Node `24.17.0` / npm `11.13.0`: focused Mobile 120/120,
+focused Synthetic 107/107, ProductStart 5/5, tests-inclusive Typechecks with exact membership,
+build and syntax all pass. Exactly one final full Synthetic run with required APK reachability
+passed 14/14 files, 345 tests plus 19 expected skips. The executable/test delta is exactly eight
+paths, 53,756 bytes / SHA-256
+`817e843f6bbceb051149c6096b270634425815d755e34fcb4d1e038dc7db8eed`; bundle/map are 930,087 /
+1,728,704 bytes at SHA-256 `ab6600b38b8e4fdda3fec11e0b2c32d80a2987488ed717c5740bb59a4e4b6edf` /
+`a0e163eabff240310ee9dae2a1d7b22f64f56ff9fe64e92e6b7428233623d87e`.
+
 ## Current terminal-abort / lost-reverse correction — published and artifact-approved; do not run without new authority
 
 The `2026-08-11` run continued on `2026-08-12` only after same-session continuity checks. The

@@ -10,6 +10,7 @@ import {
   assertDa5V5PackageMappingZero,
   classifyDa5V5AndroidInstallCleanup,
   classifyDa5V5AndroidInstallError,
+  clearDa5V5AndroidPackageForEmployeePreparation,
   cleanupDa5V5AndroidState,
   Da5V5AndroidCommandAbortError,
   Da5V5AndroidCommandExitError,
@@ -417,6 +418,27 @@ describe('DA5 V5 package-zero Android install', () => {
       {},
       false,
     )).resolves.toBe('');
+  });
+
+  it('enforces the package-clear empty-stderr receipt policy on real children', async () => {
+    const run = (source: string) => new SystemDa5V5AndroidAdbRunner({
+      adbPath: process.execPath,
+      environment: { PATH: process.env.PATH ?? '/usr/bin:/bin' },
+      spawn: spawnNodeScript(source),
+    }).run(['shell', 'pm', 'clear'], {
+      requireEmptyStderr: true,
+      timeoutMilliseconds: 5_000,
+    });
+
+    await expect(run('process.stdout.write("Success\\n")')).resolves.toBe('Success\n');
+    const failure = await run(
+      'process.stdout.write("Success\\n"); process.stderr.write("private detail")',
+    ).catch((error: unknown) => error);
+    expect(failure).toMatchObject({
+      message: 'DA5 V5 Android device output mismatch',
+    });
+    expect(String(failure)).not.toContain('private detail');
+    expect(JSON.stringify(failure)).not.toContain('private detail');
   });
 
   it('fails closed before ADB mutation for a custom runner without a bound stream runner',
@@ -972,6 +994,186 @@ describe('DA5 V5 package-zero Android install', () => {
     }
     assertNoBroadDeviceMutation(adb);
   });
+});
+
+describe('DA5 V5 exact Employee package clear', () => {
+  it('clears exactly the bound synthetic package once and reattests the full installed proof',
+    async () => {
+      const adb = new FakeAdb();
+      await install(adb);
+      adb.processes = [DA5_V5_ANDROID_PACKAGE];
+      const verifyArtifact = vi.fn(() => Object.freeze({
+        packageName: DA5_V5_ANDROID_PACKAGE,
+        status: 'match' as const,
+      }));
+
+      await expect(clearEmployeePackage(adb, verifyArtifact)).resolves.toEqual({
+        packageName: DA5_V5_ANDROID_PACKAGE,
+        status: 'match',
+      });
+
+      expect(packageClearCommands(adb)).toEqual([
+        packageClearCommand(adb.serial),
+      ]);
+      expect(adb.processes).toEqual([]);
+      expect(adb.packageInstalled).toBe(true);
+      expect(adb.mappings).toEqual(new Map([
+        ['tcp:54321', 'tcp:54321'],
+        ['tcp:3000', 'tcp:3000'],
+      ]));
+      expect(verifyArtifact).toHaveBeenCalledTimes(1);
+      expect(verifyArtifact).toHaveBeenCalledWith({ profile: 'da5-v5' });
+      expect(adb.commands).toContainEqual([
+        '-s', adb.serial, 'shell', '-T', 'cat', '--', adb.expectedDigestPath,
+      ]);
+      const digestIndex = adb.commands.findLastIndex((command) => (
+        command.join(' ') === (
+          `-s ${adb.serial} shell -T cat -- ${adb.expectedDigestPath}`
+        )
+      ));
+      const postDigestCommands = adb.commands.slice(digestIndex + 1)
+        .map((command) => command.join(' '));
+      expect(postDigestCommands).toContain('devices -l');
+      expect(postDigestCommands).toContain(`-s ${adb.serial} reverse --list`);
+      expect(postDigestCommands.filter((command) => (
+        command === [
+          '-s', adb.serial, 'shell', 'cmd', 'package', 'path', '--user', '0',
+          DA5_V5_ANDROID_PACKAGE,
+        ].join(' ')
+      ))).toHaveLength(2);
+      expect(postDigestCommands.at(-1)).toBe(
+        `-s ${adb.serial} shell ps -A -w -o NAME:4`,
+      );
+      const commands = adb.commands.map((command) => command.join(' ')).join('\n');
+      expect(commands).not.toContain('--remove-all');
+      expect(commands).not.toContain('pm clear --user 0 com.example');
+      expect(commands.match(/shell pm clear/g)).toHaveLength(1);
+    });
+
+  it.each([
+    ['missing line ending', 'Success'],
+    ['unexpected line ending', 'Success\r\n'],
+    ['multiline', 'Success\nprivate detail\n'],
+    ['wrong receipt', 'Failure [clear failed]\n'],
+  ])('rejects a %s receipt without retry or resume', async (_scenario, receipt) => {
+    const adb = new FakeAdb();
+    await install(adb);
+    adb.packageClearReceipt = receipt;
+
+    await expect(clearEmployeePackage(adb)).rejects.toThrow(
+      /package-clear receipt mismatch/,
+    );
+    await expect(clearEmployeePackage(adb)).rejects.toThrow(
+      /package-clear binding is unavailable/,
+    );
+
+    expect(packageClearCommands(adb)).toHaveLength(1);
+    expect(adb.packageInstalled).toBe(true);
+  });
+
+  it('fails closed on timeout and blocks a second clear attempt', async () => {
+    const adb = new FakeAdb();
+    await install(adb);
+    adb.errorOnce = (arguments_) => (
+      arguments_.join(' ') === packageClearCommand(adb.serial).join(' ')
+        ? new Da5V5AndroidCommandTimeoutError()
+        : null
+    );
+
+    await expect(clearEmployeePackage(adb)).rejects.toBeInstanceOf(
+      Da5V5AndroidCommandTimeoutError,
+    );
+    await expect(clearEmployeePackage(adb)).rejects.toThrow(
+      /package-clear binding is unavailable/,
+    );
+
+    expect(packageClearCommands(adb)).toHaveLength(1);
+  });
+
+  it('fails closed when the exact device drifts after the clear receipt', async () => {
+    const adb = new FakeAdb();
+    await install(adb);
+    adb.afterPackageClear = () => adb.replaceDevice('replacement-device');
+
+    await expect(clearEmployeePackage(adb)).rejects.toThrow(
+      /device continuity mismatch/,
+    );
+
+    expect(packageClearCommands(adb)).toHaveLength(1);
+  });
+
+  it.each([
+    ['package', (adb: FakeAdb) => { adb.packageInstalled = false; }],
+    ['process', (adb: FakeAdb) => { adb.processes = [DA5_V5_ANDROID_PACKAGE]; }],
+    ['reverse mapping', (adb: FakeAdb) => { adb.mappings.delete('tcp:3000'); }],
+    ['installed bytes', (adb: FakeAdb) => { adb.installedSha256 = 'f'.repeat(64); }],
+  ] as const)('fails the post-clear %s reattestation without another clear', async (
+    _scenario,
+    drift,
+  ) => {
+    const adb = new FakeAdb();
+    await install(adb);
+    adb.afterPackageClear = () => drift(adb);
+
+    await expect(clearEmployeePackage(adb)).rejects.toThrow();
+
+    expect(packageClearCommands(adb)).toHaveLength(1);
+  });
+
+  it.each([
+    ['Product process', (adb: FakeAdb) => {
+      adb.processes = [DA5_V5_ANDROID_PACKAGE];
+    }],
+    ['owned reverse mapping', (adb: FakeAdb) => {
+      adb.mappings.delete('tcp:3000');
+    }],
+    ['bound device', (adb: FakeAdb) => {
+      adb.replaceDevice('replacement-device');
+    }],
+  ] as const)('fails closed when the %s drifts during the final APK digest', async (
+    _scenario,
+    drift,
+  ) => {
+    const adb = new FakeAdb();
+    await install(adb);
+    adb.afterBinaryDigest = () => drift(adb);
+
+    await expect(clearEmployeePackage(adb)).rejects.toThrow();
+    await expect(clearEmployeePackage(adb)).rejects.toThrow(
+      /package-clear binding is unavailable/,
+    );
+
+    expect(packageClearCommands(adb)).toHaveLength(1);
+  });
+
+  it('fails closed when post-clear APK provenance or signer verification is unavailable',
+    async () => {
+      const adb = new FakeAdb();
+      await install(adb);
+      const verifyArtifact = vi.fn(() => {
+        throw new Error('private signer detail');
+      });
+
+      await expect(clearEmployeePackage(adb, verifyArtifact)).rejects.toThrow(
+        'private signer detail',
+      );
+
+      expect(verifyArtifact).toHaveBeenCalledTimes(1);
+      expect(packageClearCommands(adb)).toHaveLength(1);
+    });
+
+  it('serializes concurrent calls at the transaction boundary before a second mutation',
+    async () => {
+      const adb = new FakeAdb();
+      await install(adb);
+
+      const first = clearEmployeePackage(adb);
+      const second = clearEmployeePackage(adb);
+      await expect(second).rejects.toThrow(/package-clear binding is unavailable/);
+      await expect(first).resolves.toMatchObject({ status: 'match' });
+
+      expect(packageClearCommands(adb)).toHaveLength(1);
+    });
 });
 
 describe('DA5 V5 read-only device preinstall preflight', () => {
@@ -1731,6 +1933,9 @@ class FakeAdb implements Da5V5AndroidAdbRunner {
   mappings = new Map<string, string>();
   listeners = '';
   packageInstalled = false;
+  packageClearReceipt = 'Success\n';
+  afterPackageClear: (() => void) | null = null;
+  afterBinaryDigest: (() => void) | null = null;
   installAbandonReceipt = 'Success\n';
   installCommitReceipt = 'Success\n';
   installCreateReceipt = 'Success: created install session [42]\n';
@@ -1914,6 +2119,13 @@ class FakeAdb implements Da5V5AndroidAdbRunner {
       }
       return this.uninstallReceipt;
     }
+    if (arguments_.join(' ') === packageClearCommand(this.serial).join(' ')) {
+      if (this.packageClearReceipt === 'Success\n') {
+        this.processes = [];
+      }
+      this.afterPackageClear?.();
+      return this.packageClearReceipt;
+    }
     throw new Error(`unexpected fake adb command: ${text}`);
   }
 
@@ -1939,13 +2151,14 @@ class FakeAdb implements Da5V5AndroidAdbRunner {
     )) {
       throw new Error('unexpected fake binary adb command');
     }
-    if (this.binaryDigestRunner?.runBinaryDigest !== undefined) {
-      return this.binaryDigestRunner.runBinaryDigest(arguments_, options);
-    }
-    return Object.freeze({
-      bytes: DA5_V5_ANDROID_ARTIFACT.apk.bytes,
-      sha256: this.installedSha256,
-    });
+    const result = this.binaryDigestRunner?.runBinaryDigest !== undefined
+      ? await this.binaryDigestRunner.runBinaryDigest(arguments_, options)
+      : Object.freeze({
+          bytes: DA5_V5_ANDROID_ARTIFACT.apk.bytes,
+          sha256: this.installedSha256,
+        });
+    this.afterBinaryDigest?.();
+    return result;
   }
 
   replaceDevice(serial: string): void {
@@ -2018,6 +2231,22 @@ function install(adb: FakeAdb) {
     verifyArtifact: vi.fn(),
     ...productInstallBindings(adb),
     ...virtualTiming(adb),
+  });
+}
+
+function clearEmployeePackage(
+  adb: FakeAdb,
+  verifyArtifact = vi.fn(() => Object.freeze({
+    packageName: DA5_V5_ANDROID_PACKAGE,
+    status: 'match' as const,
+  })),
+) {
+  return clearDa5V5AndroidPackageForEmployeePreparation({
+    deviceBinding,
+    profile: 'da5-v5',
+    runner: adb,
+    verifyArtifact,
+    ...productBinding(adb),
   });
 }
 
@@ -2210,6 +2439,17 @@ function installCommitCommand(serial: string): string[] {
     '-s', serial, 'shell', '-T', '-x', 'cmd', 'package',
     'install-commit', '42',
   ];
+}
+
+function packageClearCommand(serial: string): string[] {
+  return [
+    '-s', serial, 'shell', 'pm', 'clear', '--user', '0',
+    DA5_V5_ANDROID_PACKAGE,
+  ];
+}
+
+function packageClearCommands(adb: FakeAdb): string[][] {
+  return adb.commands.filter((command) => command.includes('clear'));
 }
 
 function isInstallCommand(arguments_: readonly string[]): boolean {

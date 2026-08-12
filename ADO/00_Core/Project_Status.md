@@ -1,5 +1,33 @@
 # Project Status
 
+DA5 V5 package-clear / Employee-ready: **UNCOMMITTED DEVELOPMENT CANDIDATE ON BASELINE
+`aa9ad8c1d5cb74bc68b7702a41d9b154906921d0` / TREE
+`3f1e0f4cd812fc37153cf2de5a0ce6f7506a2362`; ROUND-1 REVIEW `CHANGES REQUIRED` FOR EXACTLY ONE
+P2 AND NO OTHER FINDING; P2 CORRECTED AND LOCAL VERIFICATION GREEN; INDEPENDENT RE-REVIEW
+PENDING; DO NOT INSTALL / DO NOT START.** After same-APK replacement, exactly one bound-serial,
+owning-transaction `pm clear --user 0 com.tim180201.mobile.synthetic` accepts only `Success\n`
+and empty stderr, then reattests device, package, APK provenance/bytes/signer, process null and
+two owned mappings. The Round-1 P2 identified a proof gap after APK provenance/signer/digest and
+before the immediate offline arm. The correction repeats device/package/two-mapping/process-null
+proof after the complete digest and binds process-null again read-only at the Employee-only arm,
+without App start or mapping mutation. Failure or ambiguity is terminal without retry.
+
+Clear/postcheck yields `employee-prepared`, permitting one Employee Credential flow.
+`employee-ready-confirm PASS` asserts exact Human-visible `Bereit zum Scannen` after login and
+requires unchanged server/Tag/session-lifecycle/queue/time/review proof; only then `matched`.
+Tag-B, Gate A and Tag presentation stay blocked beforehand. Early/late/repeat/concurrent,
+protected/unavailable, `FAIL` and `AMBIGUOUS` fail closed. Product/Mobile semantics, APK, schema,
+dependency/lockfile, backup rules, workflow, abort and cleanup remain unchanged.
+
+Node `24.17.0` / npm `11.13.0`: corrected focused Mobile 120/120; focused Synthetic 107/107;
+ProductStart 5/5; one final full required-reachability Synthetic 14/14 files, 345 passed + 19
+expected skips; tests-inclusive Typechecks with exact 868/573-file membership; build and syntax
+passed. Eight-path executable/test delta: 53,756 bytes / SHA-256
+`817e843f6bbceb051149c6096b270634425815d755e34fcb4d1e038dc7db8eed`. Bundle 930,087 bytes /
+SHA-256 `ab6600b38b8e4fdda3fec11e0b2c32d80a2987488ed717c5740bb59a4e4b6edf`; map 1,728,704 bytes /
+SHA-256 `a0e163eabff240310ee9dae2a1d7b22f64f56ff9fe64e92e6b7428233623d87e`. No Hardware, ADB,
+install, network, audit, Expo, DB/migration or production action ran; re-review is pending.
+
 DA5 V5 terminal-abort / lost-reverse cleanup: **THE 2026-08-11 HARDWARE AUTHORITY CONTINUED ON
 2026-08-12, THEN WAS CONSUMED FAIL-CLOSED AFTER BOTH TRANSACTION-OWNED REVERSE MAPPINGS WERE
 OBSERVED ABSENT. EXACT EXTERNAL RECOVERY REACHED TERMINAL NULL. THE OPERATOR-ONLY CORRECTION IS

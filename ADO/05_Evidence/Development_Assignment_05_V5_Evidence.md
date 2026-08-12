@@ -1,5 +1,25 @@
 # Development Assignment 5 — V5 Human Android Evidence
 
+## Current package-clear / Employee-ready correction — Round-1 P2 corrected; re-review pending
+
+| Evidence | Exact result |
+|---|---|
+| Authority / baseline | Human-authorized package-bounded fix; `aa9ad8c1d5cb74bc68b7702a41d9b154906921d0`; tree `3f1e0f4cd812fc37153cf2de5a0ce6f7506a2362`; tracked clean before Development |
+| Executable/test candidate delta before six-surface ADO synchronization | Exactly eight authorized paths; Full-Index/Binary diff 53,756 bytes; SHA-256 `817e843f6bbceb051149c6096b270634425815d755e34fcb4d1e038dc7db8eed` |
+| Independent R3 Review Round 1 | `CHANGES REQUIRED`; exactly one P2, no other finding: no final device/package/two-mapping/process-null reattestation after APK provenance/signer/digest, and no process-null binding at the immediately following Employee offline arm |
+| Round-1 P2 correction | After the full installed-APK digest, the Mobile helper reattests the current exact device, package, exactly two owned mappings and process null. The immediately following Employee-only offline arm reattests process null read-only; it does not start the Product App or mutate mappings. Process, mapping and device drift during/after digest fail closed with exactly one clear and no retry |
+| Clear / proof | Exactly once bound `pm clear --user 0 com.tim180201.mobile.synthetic`; exact `Success\n`, empty stderr; exact device/package/APK provenance-bytes-signer/process-null/two-mapping reattestation; no retry/resume/other package/broad clear |
+| Transition / gates | `employee-prepared`; one Employee Credential; exact Human-visible `Bereit zum Scannen` plus unchanged server/Tag/session-lifecycle/queue/time/review proof yields `matched`; all Tag/Gate/presentation blocked before matched; failure/ambiguity/repeat/concurrency terminal; abort/cleanup unchanged |
+| Focused Mobile | First corrected run: 119/120, exit 1, solely because the new success assertion named the hardened package query incorrectly; assertion-only correction followed by final 1/1 file, 120/120 passed, exit 0 |
+| Focused Synthetic | Controller + Profile 2/2 files; 107/107 passed; exit 0 |
+| ProductStart | 1/1 file; 5/5 passed; exit 0; focused run did not claim required APK reachability |
+| Full Synthetic | Exactly once after the executable correction with required APK reachability; 14/14 files; 345 passed + 19 expected skips; 364 total; exit 0; 76.56s |
+| Mobile tests-inclusive Typecheck | Exit 0; 868 listed files; changed `.d.mts` and Mobile test each once; normalized-list SHA-256 `11d72c73fe9c420a4c7b4aaadbdcad91187ec78500b5f7c8b68c9dd07f2f82e6` |
+| Synthetic tests-inclusive Typecheck | Exit 0; 573 listed files; both sources and three changed tests each once; normalized-list SHA-256 `aa39adbf221c919a840b32056fcecd4f86c17763c5e3674a330da8d04a215a47` |
+| Build / generated bindings | Synthetic build and Mobile/bundle `node --check` exit 0. Bundle 930,087 bytes / SHA-256 `ab6600b38b8e4fdda3fec11e0b2c32d80a2987488ed717c5740bb59a4e4b6edf`; map 1,728,704 bytes / SHA-256 `a0e163eabff240310ee9dae2a1d7b22f64f56ff9fe64e92e6b7428233623d87e`; version 3, absent `sourceRoot`, 90/90/90 |
+| Toolchain / omissions | Node `24.17.0`; npm `11.13.0`; APK path readable. No audit, Expo, DB/migration matrix, other workspace, Hardware, ADB, install or network execution |
+| Scope / status | No `apps/mobile/src/**`, Product/offline-owner semantics, APK, schema, dependency/lockfile, backup-rule or workflow change. Uncommitted; Round-1 P2 correction complete, independent re-review pending; no commit/push; **DO NOT INSTALL / DO NOT START** |
+
 ## Current terminal-abort / lost-reverse cleanup evidence — published, CI and final artifact review APPROVED
 
 | Evidence | Exact result |

@@ -69,6 +69,7 @@ export function classifyDa5V5AndroidInstallCleanup(
 
 export interface Da5V5AndroidCommandOptions {
   readonly requireEmptyOutput?: true;
+  readonly requireEmptyStderr?: true;
   readonly signal?: AbortSignal;
   readonly stdinBytes?: Buffer;
   readonly timeoutMilliseconds?: number;
@@ -242,6 +243,22 @@ export function installDa5V5AndroidFromPackageZero(options: {
     readonly profile: unknown;
   }) => ReturnType<typeof verifyDa5V5AndroidArtifact> | unknown;
   readonly wait?: (milliseconds: number) => Promise<void>;
+}): Promise<Readonly<{
+  packageName: 'com.tim180201.mobile.synthetic';
+  status: 'match';
+}>>;
+export function clearDa5V5AndroidPackageForEmployeePreparation(options: {
+  readonly artifactDependencies?: Da5V5ArtifactDependencies;
+  readonly deviceBinding: Da5V5AndroidDeviceBinding;
+  readonly profile: unknown;
+  readonly runner?: Da5V5AndroidAdbRunner;
+  readonly serialBinding: Da5V5UsbSerialBinding;
+  readonly signal?: AbortSignal;
+  readonly transaction: Da5V5AndroidInstallTransaction;
+  readonly verifyArtifact?: (options: {
+    readonly dependencies?: Da5V5ArtifactDependencies;
+    readonly profile: unknown;
+  }) => ReturnType<typeof verifyDa5V5AndroidArtifact> | unknown;
 }): Promise<Readonly<{
   packageName: 'com.tim180201.mobile.synthetic';
   status: 'match';

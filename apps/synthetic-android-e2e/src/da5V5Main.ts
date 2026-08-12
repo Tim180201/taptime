@@ -1,5 +1,6 @@
 import { createInterface } from 'node:readline';
 import {
+  clearDa5V5AndroidPackageForEmployeePreparation,
   cleanupDa5V5AndroidState,
   Da5V5AndroidInstallTransaction,
   Da5V5AndroidPreinstallPreflight,
@@ -183,6 +184,7 @@ let offline = new Da5V5ApiOfflineController(
   mutationAbortController.signal,
 );
 const employeeInstallationTransition = new Da5V5EmployeeInstallationTransition();
+let employeePreparedBoundary: Da5V5EmployeeInstallationBoundarySnapshot | null = null;
 const device = new Da5V5DeviceCheckpointController(
   adb,
   standardBinding,
@@ -281,7 +283,7 @@ try {
     'da5_v5_ready',
     `da5_v5_public_manifest=${JSON.stringify(DA5_V5_PUBLIC_MANIFEST)}`,
     `da5_v5_accessibility_surface_plan=${DA5_V5_ACCESSIBILITY_SURFACE_PLAN.join(',')}`,
-    'operator_commands=status | device-preflight | physical-tag-binding-confirm <PASS|FAIL|AMBIGUOUS> | android-install-confirm <PASS|FAIL|AMBIGUOUS> | employee-installation-transition-confirm <PASS|FAIL|AMBIGUOUS> | credential-field-ready <administrator|enrollment|employee> EMPTY_ACTIVE | credential-check <administrator|enrollment|employee> | credential-field-confirm <administrator|enrollment|employee> <VISIBLE|EMPTY|AMBIGUOUS> | checkpoint <name> <queue-items> | checkpoint-confirm <name> <PASS|FAIL|AMBIGUOUS> | dedupe-window-baseline <phase> | dedupe-window-check <phase> | tag-b-registration-arm | protected-review-arm <human-observed-queue-items> | protected-review-activate-tag-b | protected-review-cutover-tag-a | protected-review-terminal | offline-enter <ordinary|protected> | offline-restore <ordinary|protected> | gate-b-cold-prepare | ordinary-relaunch-prepare | accessibility-prepare | accessibility-check | accessibility-surface-confirm <surface> <PASS|FAIL|AMBIGUOUS> | accessibility-credential-field-ready <administrator|employee> EMPTY_ACTIVE | accessibility-credential-check <administrator|employee> | accessibility-credential-field-confirm <administrator|employee> <VISIBLE|EMPTY|AMBIGUOUS> | accessibility-cancel | standard-profile-check | cancellation-arm | cancellation-ui-confirm <PASS|FAIL|AMBIGUOUS> | cancellation-kill-background | cancellation-ready-confirm <PASS|FAIL|AMBIGUOUS> | protected-force-stop | protected-ready-confirm <PASS|FAIL|AMBIGUOUS> | abort | stop',
+    'operator_commands=status | device-preflight | physical-tag-binding-confirm <PASS|FAIL|AMBIGUOUS> | android-install-confirm <PASS|FAIL|AMBIGUOUS> | employee-installation-transition-confirm <PASS|FAIL|AMBIGUOUS> | employee-ready-confirm <PASS|FAIL|AMBIGUOUS> | credential-field-ready <administrator|enrollment|employee> EMPTY_ACTIVE | credential-check <administrator|enrollment|employee> | credential-field-confirm <administrator|enrollment|employee> <VISIBLE|EMPTY|AMBIGUOUS> | checkpoint <name> <queue-items> | checkpoint-confirm <name> <PASS|FAIL|AMBIGUOUS> | dedupe-window-baseline <phase> | dedupe-window-check <phase> | tag-b-registration-arm | protected-review-arm <human-observed-queue-items> | protected-review-activate-tag-b | protected-review-cutover-tag-a | protected-review-terminal | offline-enter <ordinary|protected> | offline-restore <ordinary|protected> | gate-b-cold-prepare | ordinary-relaunch-prepare | accessibility-prepare | accessibility-check | accessibility-surface-confirm <surface> <PASS|FAIL|AMBIGUOUS> | accessibility-credential-field-ready <administrator|employee> EMPTY_ACTIVE | accessibility-credential-check <administrator|employee> | accessibility-credential-field-confirm <administrator|employee> <VISIBLE|EMPTY|AMBIGUOUS> | accessibility-cancel | standard-profile-check | cancellation-arm | cancellation-ui-confirm <PASS|FAIL|AMBIGUOUS> | cancellation-kill-background | cancellation-ready-confirm <PASS|FAIL|AMBIGUOUS> | protected-force-stop | protected-ready-confirm <PASS|FAIL|AMBIGUOUS> | abort | stop',
     'sensitive_values_are_never_printed',
     '',
   ].join('\n'));
@@ -344,6 +346,12 @@ async function handleCommand(line: string): Promise<Da5V5OperatorCommandOutcome>
   if (normalized === 'status') {
     await reportStatus(activeEnvironment, activeSession);
     return { state: 'continue' };
+  }
+  if (
+    employeeInstallationTransition.prepared()
+    && !employeePreparedCommandAllowed(normalized)
+  ) {
+    return fail(activeSession, 'operator_command_rejected');
   }
   if (normalized === 'device-preflight') {
     if (
@@ -420,6 +428,8 @@ async function handleCommand(line: string): Promise<Da5V5OperatorCommandOutcome>
     const oldOffline = offline;
     const oldTransaction = androidInstallTransaction;
     let preBoundary: Da5V5EmployeeInstallationBoundarySnapshot | null = null;
+    let replacementTransaction: Da5V5AndroidInstallTransaction | null = null;
+    let replacementOffline: Da5V5ApiOfflineController | null = null;
     const result = await commandExecutionGuard.wait(
       employeeInstallationTransition.confirm(verdict, {
         precheck: async () => {
@@ -446,13 +456,13 @@ async function handleCommand(line: string): Promise<Da5V5OperatorCommandOutcome>
           return 'match';
         },
         installReplacement: async () => {
-          const replacementTransaction = new Da5V5AndroidInstallTransaction({
+          replacementTransaction = new Da5V5AndroidInstallTransaction({
             deviceBinding: standardBinding,
             installStreamRunner: mobileInstallStreamAdb,
             runner: mobileAdb,
             serialBinding: deviceLock,
           });
-          const replacementOffline = new Da5V5ApiOfflineController(
+          replacementOffline = new Da5V5ApiOfflineController(
             adb,
             standardBinding,
             deviceLock,
@@ -474,10 +484,30 @@ async function handleCommand(line: string): Promise<Da5V5OperatorCommandOutcome>
             process.stdout.write(da5V5AndroidInstallFailureReceipt(error));
             throw new Error('DA5 V5 Android replacement install command failed');
           }
-          if (replacementOffline.arm() !== 'match') {
+          return 'match';
+        },
+        clearReplacement: async () => {
+          if (replacementTransaction === null || replacementOffline === null) {
+            return 'mismatch';
+          }
+          try {
+            await clearDa5V5AndroidPackageForEmployeePreparation({
+              deviceBinding: standardBinding,
+              profile,
+              runner: mobileAdb,
+              serialBinding: deviceLock,
+              signal: mutationAbortController.signal,
+              transaction: replacementTransaction,
+            });
+          } catch {
+            process.stdout.write('da5_v5_employee_package_clear=mismatch\n');
+            return 'mismatch';
+          }
+          if (replacementOffline.armPreparedEmployee() !== 'match') {
             return 'mismatch';
           }
           androidInstalled = true;
+          process.stdout.write('da5_v5_employee_package_clear=match\n');
           return 'match';
         },
         postcheck: async () => {
@@ -485,15 +515,52 @@ async function handleCommand(line: string): Promise<Da5V5OperatorCommandOutcome>
             activeEnvironment,
             activeSession,
           );
-          return preBoundary !== null
+          const matched = preBoundary !== null
             && postBoundary !== null
-            && employeeInstallationBoundarySnapshotsMatch(preBoundary, postBoundary)
-            ? 'match'
-            : 'mismatch';
+            && employeeInstallationBoundarySnapshotsMatch(preBoundary, postBoundary);
+          employeePreparedBoundary = matched ? postBoundary : null;
+          return matched ? 'match' : 'mismatch';
         },
       }),
     );
-    process.stdout.write(`da5_v5_employee_installation_transition=${result}\n`);
+    process.stdout.write(
+      `da5_v5_employee_installation_transition=${result === 'match'
+        ? 'employee-prepared'
+        : 'mismatch'}\n`,
+    );
+    return result === 'match'
+      ? { state: 'continue' }
+      : fail(activeSession, 'da5_v5_device_checkpoint=mismatch');
+  }
+  const employeeReadyConfirmation =
+    /^employee-ready-confirm (PASS|FAIL|AMBIGUOUS)$/u.exec(normalized);
+  if (employeeReadyConfirmation !== null) {
+    const verdict = parseHumanVerdict(employeeReadyConfirmation[1]) ?? 'ambiguous';
+    const result = await commandExecutionGuard.wait(
+      employeeInstallationTransition.confirmReady(verdict, async () => {
+        const readyBoundary = await readEmployeeInstallationBoundary(
+          activeEnvironment,
+          activeSession,
+          credentialPhases.length,
+        );
+        return employeePreparedBoundary !== null
+          && readyBoundary !== null
+          && employeeInstallationBoundarySnapshotsMatch(
+            employeePreparedBoundary,
+            readyBoundary,
+          )
+          ? 'match'
+          : 'mismatch';
+      }),
+    );
+    if (result === 'match') {
+      employeePreparedBoundary = null;
+    }
+    process.stdout.write(`da5_v5_employee_ready=${JSON.stringify({
+      expected: 'Bereit zum Scannen',
+      result,
+      source: 'human-visible-product-observation',
+    })}\n`);
     return result === 'match'
       ? { state: 'continue' }
       : fail(activeSession, 'da5_v5_device_checkpoint=mismatch');
@@ -507,7 +574,7 @@ async function handleCommand(line: string): Promise<Da5V5OperatorCommandOutcome>
     const result = (
       credentialPhases[nextCredentialPhase] === phase
       && androidInstalled
-      && (phase !== 'employee' || employeeInstallationTransition.matched())
+      && (phase !== 'employee' || employeeInstallationTransition.prepared())
     )
       ? mobileCredential.confirmEmptyActiveField(phase)
       : 'mismatch';
@@ -525,6 +592,7 @@ async function handleCommand(line: string): Promise<Da5V5OperatorCommandOutcome>
       'ambiguous' | 'empty' | 'visible'
     );
     const result = credentialPhases[nextCredentialPhase] === phase
+      && (phase !== 'employee' || employeeInstallationTransition.prepared())
       ? mobileCredential.confirmVisibleField(phase, observation)
       : 'mismatch';
     if (result === 'match') nextCredentialPhase += 1;
@@ -539,7 +607,7 @@ async function handleCommand(line: string): Promise<Da5V5OperatorCommandOutcome>
     if (
       credentialPhases[nextCredentialPhase] !== phase
       || !androidInstalled
-      || (phase === 'employee' && !employeeInstallationTransition.matched())
+      || (phase === 'employee' && !employeeInstallationTransition.prepared())
       || !da5V5SessionBoundaryMatches(
         activeSession,
         null,
@@ -1224,10 +1292,11 @@ interface Da5V5EmployeeInstallationBoundarySnapshot {
 async function readEmployeeInstallationBoundary(
   activeEnvironment: SyntheticAndroidE2eEnvironment,
   activeSession: Da5V5OperationSession,
+  credentialsCompleted = 2,
 ): Promise<Da5V5EmployeeInstallationBoundarySnapshot | null> {
   const credentialState = mobileCredential.state();
   if (
-    nextCredentialPhase !== 2
+    nextCredentialPhase !== credentialsCompleted
     || credentialState.phase !== null
     || credentialState.state !== 'idle'
     || !androidInstalled
@@ -1492,6 +1561,13 @@ function parseHumanVerdict(
     return value.toLowerCase() as 'pass' | 'fail' | 'ambiguous';
   }
   return undefined;
+}
+
+function employeePreparedCommandAllowed(normalized: string): boolean {
+  return normalized === 'credential-field-ready employee EMPTY_ACTIVE'
+    || normalized === 'credential-check employee'
+    || /^credential-field-confirm employee (VISIBLE|EMPTY|AMBIGUOUS)$/u.test(normalized)
+    || /^employee-ready-confirm (PASS|FAIL|AMBIGUOUS)$/u.test(normalized);
 }
 
 function requiredEnvironmentValue(name: string): string {

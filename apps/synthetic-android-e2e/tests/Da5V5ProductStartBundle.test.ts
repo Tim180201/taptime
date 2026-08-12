@@ -417,17 +417,17 @@ describe('DA5 V5 Product operator bundle start smoke', () => {
       bytes: Buffer.byteLength(bundle),
       sha256: createHash('sha256').update(bundle).digest('hex'),
     }).toEqual({
-      bytes: 921_846,
+      bytes: 930_087,
       sha256:
-        'b2b439d5cf221306d89a2cecb229b30f1487ae40721af75473d8551d74eb53fe',
+        'ab6600b38b8e4fdda3fec11e0b2c32d80a2987488ed717c5740bb59a4e4b6edf',
     });
     expect({
       bytes: sourceMapBytes.byteLength,
       sha256: createHash('sha256').update(sourceMapBytes).digest('hex'),
     }).toEqual({
-      bytes: 1_714_733,
+      bytes: 1_728_704,
       sha256:
-        '016a2ab73e3b431e7a4f242a1f9fd0b25659a4a689ef20cfa3a56d6d4a9a33e9',
+        'a0e163eabff240310ee9dae2a1d7b22f64f56ff9fe64e92e6b7428233623d87e',
     });
     expect(sourceMap.version).toBe(3);
     expect(sourceMap.sourceRoot).toBeUndefined();
@@ -470,6 +470,7 @@ describe('DA5 V5 Product operator bundle start smoke', () => {
     expect(bundle).toContain(String(DA5_V5_ANDROID_ARTIFACT.apk.bytes));
     expect(bundle).toContain(DA5_V5_ANDROID_ARTIFACT.apk.sha256);
     expect(bundle).toContain('da5_v5_android_install=mismatch category=');
+    expect(bundle).toContain('armPreparedEmployee');
     for (const category of [
       'artifact_reverify',
       'child_start_transport',
@@ -499,10 +500,20 @@ describe('DA5 V5 Product operator bundle start smoke', () => {
     expect(bundle).toContain(
       'employee-installation-transition-confirm <PASS|FAIL|AMBIGUOUS>',
     );
+    expect(bundle).toContain('employee-ready-confirm <PASS|FAIL|AMBIGUOUS>');
     expect(bundle).toContain('| abort | stop');
     expect(bundle).toContain('da5_v5_employee_installation_transition=');
     expect(bundle).toContain('old-installation-cleaned');
     expect(bundle).toContain('replacement-installed');
+    expect(bundle).toContain('replacement-cleared');
+    expect(bundle).toContain('employee-prepared');
+    expect(bundle).toContain('Bereit zum Scannen');
+    expect(bundle).toContain('human-visible-product-observation');
+    expect(bundle).toMatch(
+      /"shell",\s+"pm",\s+"clear",\s+"--user",\s+androidOwnerUser,\s+DA5_V5_ANDROID_PACKAGE/u,
+    );
+    expect(bundle).toContain('com.tim180201.mobile.synthetic');
+    expect(bundle).not.toContain('--remove-all');
     expect(bundle).toContain('credential-field-ready <administrator|enrollment|employee> EMPTY_ACTIVE');
     expect(bundle).toContain('credential-field-confirm <administrator|enrollment|employee>');
     expect(bundle).toContain('synthetic_credential_injection=pending_human_confirmation');

@@ -7,6 +7,40 @@ Approval Authority: Human Architect
 
 ## Purpose
 
+### Current DA5 V5 package-clear / Employee-ready correction — Round-1 P2 corrected; independent re-review pending
+
+On exact baseline `aa9ad8c1d5cb74bc68b7702a41d9b154906921d0`, tree
+`3f1e0f4cd812fc37153cf2de5a0ce6f7506a2362`, the Human-authorized correction keeps Product APK
+and Product/Mobile rules unchanged. After same-APK replacement, the owning Mobile transaction
+permits exactly once `adb -s <bound-serial> shell pm clear --user 0
+com.tim180201.mobile.synthetic`. Only exact `Success\n` with empty stderr is accepted. Any
+timeout, receipt, runner/transaction/serial/device, package, APK-provenance/bytes/signer,
+process-null or two-owned-mapping mismatch stops without retry, resume or a second clear. Round-1
+independent R3 review returned `CHANGES REQUIRED` with exactly one P2 and no other finding: the
+successful helper could finish after APK provenance/signer/digest without a final current-state
+proof, and process-null was not rebound at the immediately following Employee offline-arm
+boundary. The correction now reattests the device, exact package, both owned mappings and
+process-null after the complete digest, then the Employee-only arm proves process-null once more
+read-only without starting the App or mutating mappings.
+
+The transition stops at `employee-prepared`; only the Employee Credential may continue. Human
+`employee-ready-confirm PASS` means exclusively exact `Bereit zum Scannen` is visible after
+Employee login. Unchanged server/Tag/session-lifecycle/queue/time/review state is reattested in
+the same flight; only then is state `matched`. Tag-B, Gate A and Tag presentation stay blocked
+before then. `FAIL`, `AMBIGUOUS`, protected/unavailable, early, late, repeat and concurrent paths
+fail closed. Abort and terminal cleanup stay unchanged.
+
+Fresh Node `24.17.0` / npm `11.13.0`: corrected focused Mobile 120/120, focused Synthetic
+107/107, ProductStart 5/5, exactly one final full required-APK-reachability Synthetic run 345
+passed plus 19 expected skips, tests-inclusive Typechecks/membership, build and syntax passed.
+The exact eight-path executable/test delta is 53,756 bytes / SHA-256
+`817e843f6bbceb051149c6096b270634425815d755e34fcb4d1e038dc7db8eed`. Bundle 930,087 bytes /
+SHA-256 `ab6600b38b8e4fdda3fec11e0b2c32d80a2987488ed717c5740bb59a4e4b6edf`; map 1,728,704 bytes /
+SHA-256 `a0e163eabff240310ee9dae2a1d7b22f64f56ff9fe64e92e6b7428233623d87e`. This is uncommitted;
+the Round-1 P2 correction is complete and independent re-review is pending. No Hardware, ADB,
+install, network, audit, Expo, DB/migration, production, deployment or distribution action
+occurred. **DO NOT INSTALL / DO NOT START.**
+
 ### Current DA5 V5 terminal-abort / lost-reverse cleanup correction — published, CI and artifact review APPROVED; Hardware separately gated
 
 The fresh `2026-08-11` Product Human/Hardware run continued on `2026-08-12` only after its

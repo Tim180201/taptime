@@ -318,7 +318,9 @@ export class Da5V5AndroidInstallTransaction {
   #cleanupCoverage;
   #cleanupDeadline = null;
   #cleanupFlight;
+  #employeePackageClearStarted = false;
   #installStarted = false;
+  #installedProven = false;
   #packageRemovalFlight;
   #resources = new Map([
     [cleanupPackageResource, createCleanupResourceRecord()],
@@ -456,7 +458,26 @@ export class Da5V5AndroidInstallTransaction {
   }
 
   markInstalledProven() {
+    if (this.#installedProven) {
+      throw new Error('DA5 V5 Android installed proof was already used');
+    }
     this.#markMutationProven(cleanupPackageResource);
+    this.#installedProven = true;
+  }
+
+  beginEmployeePackageClear() {
+    const active = activeInstallTransactions.get(this.runner);
+    if (
+      !this.#installStarted
+      || !this.#installedProven
+      || this.#employeePackageClearStarted
+      || this.#cleanupFlight !== undefined
+      || active !== this
+    ) {
+      return false;
+    }
+    this.#employeePackageClearStarted = true;
+    return true;
   }
 
   hasMutationStarted() {
@@ -1094,6 +1115,93 @@ export async function installDa5V5AndroidFromPackageZero(options) {
     }
     throw new Da5V5AndroidInstallError(failureCategory, cleanupEvidence);
   }
+}
+
+export async function clearDa5V5AndroidPackageForEmployeePreparation(options) {
+  requireDa5V5AndroidProfile(options.profile);
+  const runner = options.runner ?? new SystemDa5V5AndroidAdbRunner();
+  const serialBinding = requireSerialBinding(options.serialBinding);
+  const transaction = requireInstallTransaction(options.transaction);
+  if (
+    !transaction.matchesCleanupBindings({
+      deviceBinding: options.deviceBinding,
+      runner,
+      serialBinding,
+    })
+    || !transaction.beginEmployeePackageClear()
+  ) {
+    throw new Error('DA5 V5 employee package-clear binding is unavailable');
+  }
+
+  const serial = await bindCurrentDevice(
+    runner,
+    serialBinding,
+    options.deviceBinding,
+    options.signal,
+    transaction,
+  );
+  const receipt = await runner.run(
+    [
+      '-s', serial, 'shell', 'pm', 'clear', '--user', androidOwnerUser,
+      DA5_V5_ANDROID_PACKAGE,
+    ],
+    {
+      requireEmptyStderr: true,
+      signal: options.signal,
+      timeoutMilliseconds: timeouts.uninstall,
+    },
+  );
+  if (receipt !== 'Success\n') {
+    throw new Error('DA5 V5 employee package-clear receipt mismatch');
+  }
+
+  const proofSerial = await bindCurrentDevice(
+    runner,
+    serialBinding,
+    options.deviceBinding,
+    options.signal,
+    transaction,
+  );
+  if (proofSerial !== serial) {
+    throw new Error('DA5 V5 employee package-clear device mismatch');
+  }
+  await requireExactPreparedEmployeeState(
+    runner,
+    proofSerial,
+    options.signal,
+  );
+  const verification = (options.verifyArtifact ?? verifyDa5V5AndroidArtifact)({
+    profile: options.profile,
+    ...(options.artifactDependencies === undefined
+      ? {}
+      : { dependencies: options.artifactDependencies }),
+  });
+  if (
+    verification?.status !== 'match'
+    || verification.packageName !== DA5_V5_ANDROID_PACKAGE
+  ) {
+    throw new Error('DA5 V5 employee package-clear APK provenance mismatch');
+  }
+  await requireExactInstalledArtifactBytes(runner, proofSerial, options.signal);
+  const finalSerial = await bindCurrentDevice(
+    runner,
+    serialBinding,
+    options.deviceBinding,
+    options.signal,
+    transaction,
+  );
+  if (finalSerial !== proofSerial) {
+    throw new Error('DA5 V5 employee package-clear final device mismatch');
+  }
+  await requireExactPreparedEmployeeState(
+    runner,
+    finalSerial,
+    options.signal,
+  );
+  return Object.freeze({
+    packageName: DA5_V5_ANDROID_PACKAGE,
+    status: 'match',
+  });
 }
 
 export function cleanupDa5V5AndroidState(options) {
@@ -1780,6 +1888,14 @@ async function requireExactInstalledArtifactBytes(runner, serial, signal) {
   }
 }
 
+async function requireExactPreparedEmployeeState(runner, serial, signal) {
+  await requireExactInstalledState(runner, serial, true, signal);
+  const processes = await readMatchingProcesses(runner, serial, signal);
+  if (processes.length !== 0) {
+    throw new Error('DA5 V5 employee package-clear process state mismatch');
+  }
+}
+
 async function verifyDeviceBinding(
   runner,
   serial,
@@ -2225,11 +2341,16 @@ function runAdb(arguments_, options, dependencies) {
     const environment = createDa5V5AdbChildEnvironment(dependencies.environment);
     const stdinBytes = options.stdinBytes;
     const requireEmptyOutput = options.requireEmptyOutput;
+    const requireEmptyStderr = options.requireEmptyStderr;
     if (stdinBytes !== undefined && !Buffer.isBuffer(stdinBytes)) {
       rejectPromise(new Error('DA5 V5 Android device input is invalid'));
       return;
     }
     if (requireEmptyOutput !== undefined && requireEmptyOutput !== true) {
+      rejectPromise(new Error('DA5 V5 Android device output policy is invalid'));
+      return;
+    }
+    if (requireEmptyStderr !== undefined && requireEmptyStderr !== true) {
       rejectPromise(new Error('DA5 V5 Android device output policy is invalid'));
       return;
     }
@@ -2390,7 +2511,8 @@ function runAdb(arguments_, options, dependencies) {
     function onClose(code, signal) {
       const cleanExit = code === 0 && (signal === null || signal === undefined);
       const outputMismatch = requireEmptyOutput === true
-        && (stdoutBytes !== 0 || stderrBytes !== 0);
+        ? stdoutBytes !== 0 || stderrBytes !== 0
+        : requireEmptyStderr === true && stderrBytes !== 0;
       finish(
         terminationError ?? (
           !cleanExit
