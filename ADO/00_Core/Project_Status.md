@@ -1,38 +1,43 @@
 # Project Status
 
-DA5 Lean Stage 6: **ADO PRE-HARDWARE PREPARATION / PUBLICATION CLOSURE PENDING / STOP BEFORE HARDWARE.** ADR-0019 and the Lean
-authorization are Human-accepted, independently `APPROVED` and published at
-`83635335aa4f547dc8994243c604dacf9797f593` / tree
-`40b7655a94e607b8afe19f90f42a95f42ee6d582`. Lean stages 1–5 and automated V0–V4 completed on
-`1b341d83592ea457c8ca722d01bfa2e64fe8cc40` / tree
-`2db756832a81f07cdb1a927ff3076320cc253960`; CI `30786622180`, attempt 1, passed 12/12 and final
-independent review returned `APPROVED` with zero open P0–P3. The legacy 45-gate Harness is
-superseded; all attempts are immutable and consumed, with no Attempt 16 or legacy rerun.
-
-The current operational executable remains
-`22fe85d540c8949f179b96589ed493f0211002db` / tree
-`7514edfe90da11a3288fec0df872fb7010238c0b`, CI `31630253237`, attempt 1, 12/12, final strict
-independent Exact-Head/Artifact Review `APPROVED`, zero open P0–P3. Current repository HEAD
+DA5 Lean Stage 6: **ADO PRE-HARDWARE PACKAGE / EXACT-REVIEWED PUBLISHED CLOSURE HEAD REQUIRED /
+STOP BEFORE HARDWARE.** The preparation is published at
+`HEAD == main == origin/main == 3a0469ac1d0c9d781e49648a73bc9ef019423c8e` / tree
+`4521f179bbae8867c6776d643679cce32658c979`, parent
 `2d0cbd01ce483987c375eeee9ecc49f37e2185f8` / tree
-`840fd156fe46614adf9d1bec2a018a2c6b453c1c` is a later documentation-only baseline, not the CI
-source. The terminal-abort closure was already published by documentation commit `aa9ad8c`; any
-older unqualified `pending publication` statement describes its historical prepublication point.
-Use `ADO/04_Operations/Development_Assignment_05_V5_Lean_Hardware_Flight_Card.md` for the compact
-continuous-run index; the full Runbook remains controlling. DA6 is frozen before this gate and is
-not a DA5 Hardware blocker. A fresh exact Human start signal is required before Hardware, ADB or
-installation; production, production data, signing, deployment and distribution remain
-unauthorized.
+`840fd156fe46614adf9d1bec2a018a2c6b453c1c`: exactly nine ADO files, 405 insertions/63
+deletions, binary diff SHA-256
+`b98c6fcb424cf2fda31748efa2b0ce5b79f77bdc0da1e1a32364ae9f48efaf52`. Its corrected
+prepublication independent review returned `APPROVED`, zero open P0–P3.
 
-Publication-closure gate: `2d0cbd01ce483987c375eeee9ecc49f37e2185f8` / tree
-`840fd156fe46614adf9d1bec2a018a2c6b453c1c` is only this R0 candidate baseline, never the future
-Hardware-authority ADO head. Focused R0 publication must complete first. Its exact then-final ADO
-commit/tree, including governing Flight Card/Runbook versions, must then be truth-synchronized and
-reviewed before a new one-time Human Hardware authorization may be issued. That live authority
-must quote the exact final ADO commit/tree and bind Operator executable/tree, runtime
-manifest/entrypoint/map, APK plus artifact manifest/package/signature, governing Node/toolchain,
-and exact device/Tags/environment/Guard/Credential constraints. Missing or differing binding
-stops before Phase B, ADB, installation or Hardware without retry. No unknown future hash is
-claimed here.
+Product Evidence is carried unchanged: Operator
+`22fe85d540c8949f179b96589ed493f0211002db` / tree
+`7514edfe90da11a3288fec0df872fb7010238c0b`, CI `31630253237`, attempt 1, 12/12 and final strict
+independent `APPROVED`, zero open P0–P3. The `3a0469ac` preparation and this R0 closure candidate
+are not Product CI sources and change no executable/runtime/artifact input. The published
+preparation binds Flight Card blob `657eb575c23e7b41b1a1e40593e48bd283b24796`, Runbook blob
+`9827a27afc8882fe29dbfb20433035f1b3b9b321`, Evidence blob
+`7477234fa17820ddf8c847bbb22122b7a0d7a0ee` and Status blob
+`4b1ce546c5288c1b9bb07c093ee282193cdd13ae`.
+
+Current closure gate: this uncommitted R0 candidate must receive independent `APPROVED`, then be
+focusedly published, and then receive independent exact-head read-only review binding the actual
+published closure commit/tree, final governing blobs, exact delta and no executable delta. The
+future head is intentionally not predicted or embedded; no later ADO mutation is required solely
+for a self-hash. Only that externally exact-reviewed published closure head may be quoted in a
+new one-time Human Hardware authorization. Its live signal must also bind Operator
+executable/tree, runtime manifest/entrypoint/map, APK plus artifact
+manifest/package/signature, governing Node/toolchain and exact
+device/Tags/environment/Guard/Credential constraints. Any absence or drift stops before Phase B,
+ADB, installation or Hardware without retry.
+
+Use `ADO/05_Evidence/Development_Assignment_05_V5_Lean_Hardware_Publication_Closure.md` for the
+closure sequence and `ADO/04_Operations/Development_Assignment_05_V5_Lean_Hardware_Flight_Card.md`
+for the compact procedure; the full Runbook and AVS Physical gate remain controlling. The legacy
+45-gate Harness is superseded, every attempt is immutable/consumed, and there is no Attempt 16 or
+legacy rerun. DA6 remains frozen before this gate and is not a DA5 Hardware blocker. Hardware,
+ADB, installation, production, production data, signing, deployment and distribution remain
+unauthorized.
 
 DA5 V5 package-clear / Employee-ready: **EXECUTABLE
 `22fe85d540c8949f179b96589ed493f0211002db` / TREE

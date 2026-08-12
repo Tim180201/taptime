@@ -1,6 +1,6 @@
 # Development Assignment 5 — V5 Human Android Gate Runbook
 
-## Current Lean Stage-6 operating index — ADO PRE-HARDWARE PREPARATION / PUBLICATION CLOSURE PENDING / STOP BEFORE HARDWARE
+## Current Lean Stage-6 operating index — ADO PRE-HARDWARE PACKAGE / EXACT-REVIEWED PUBLISHED CLOSURE HEAD REQUIRED / STOP BEFORE HARDWARE
 
 Use `ADO/04_Operations/Development_Assignment_05_V5_Lean_Hardware_Flight_Card.md` as the compact
 four-phase index for one continuous Stage-6 run. It does not replace or shorten this Runbook or
@@ -9,28 +9,32 @@ cleanup obligation below remains controlling. The Technical Lead owns all digita
 binding checks, status/Evidence recording and cleanup; the Human performs only irreducible
 device/Tag/visual actions and hidden Credential entry.
 
-The current exact Operator is executable `22fe85d540c8949f179b96589ed493f0211002db` / tree
-`7514edfe90da11a3288fec0df872fb7010238c0b`, CI `31630253237`, attempt 1, 12/12, final strict
-independent review `APPROVED`, zero open P0–P3. Its read-only runtime is
-`/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-product-operator/22fe85d5-2a48d52d`.
-Current repository HEAD `2d0cbd01ce483987c375eeee9ecc49f37e2185f8` / tree
-`840fd156fe46614adf9d1bec2a018a2c6b453c1c` is documentation-only and is not the Operator CI
-source. The legacy 45-gate Harness is superseded; do not run it, create Attempt 16, repeat V3/V4,
-run `npm ci` or rebuild an artifact merely for this R0 synchronization. No Hardware, ADB,
-installation or Product action may begin without a fresh exact Human start signal in the live
-task.
-
-This is ADO/pre-Hardware preparation, not Operator or Hardware authority. Baseline
+The exact ADO preparation is published at
+`HEAD == main == origin/main == 3a0469ac1d0c9d781e49648a73bc9ef019423c8e` / tree
+`4521f179bbae8867c6776d643679cce32658c979`, parent
 `2d0cbd01ce483987c375eeee9ecc49f37e2185f8` / tree
-`840fd156fe46614adf9d1bec2a018a2c6b453c1c` is only the R0 candidate baseline and must not be
-quoted as the future Hardware-authority ADO head. After focused R0 publication, Publication
-Closure must truth-synchronize and review the exact then-final published ADO commit/tree,
-including the governing Flight Card/Runbook versions. Only then may a new one-time Human Hardware
-authorization be issued. Its live start signal must quote that commit/tree and exactly bind
-Operator executable/tree, runtime manifest/entrypoint/map, APK plus artifact
-manifest/package/signature, governing Node/toolchain, and exact
-device/Tags/environment/Guard/Credential constraints. Missing or differing binding stops before
-Phase B, ADB, installation or Hardware without retry. No future commit/tree is claimed here.
+`840fd156fe46614adf9d1bec2a018a2c6b453c1c`: nine ADO files, 405 insertions/63 deletions,
+binary diff SHA-256 `b98c6fcb424cf2fda31748efa2b0ce5b79f77bdc0da1e1a32364ae9f48efaf52`, corrected
+prepublication independent review `APPROVED`, zero open P0–P3. It is not the Operator CI source.
+The current exact Operator remains executable
+`22fe85d540c8949f179b96589ed493f0211002db` / tree
+`7514edfe90da11a3288fec0df872fb7010238c0b`, CI `31630253237`, attempt 1, 12/12, final strict
+independent `APPROVED`, zero open P0–P3; its exact runtime/APK/Node bindings remain in the Flight
+Card and Evidence.
+
+This is an ADO/pre-Hardware package, not Operator or Hardware authority. The closure candidate at
+`ADO/05_Evidence/Development_Assignment_05_V5_Lean_Hardware_Publication_Closure.md` must first
+receive independent `APPROVED`, then be focusedly published, and then receive independent
+exact-head read-only review binding the actual published closure commit/tree, final governing
+blobs, exact delta and no executable delta. Its future self-hash is intentionally not embedded.
+Only that externally exact-reviewed published closure head may be quoted by a new one-time Human
+Hardware authorization. Its live signal must also bind every governing
+Operator/runtime/APK/manifest/Node and exact device/Tags/environment/Guard/Credential constraint.
+Missing or differing binding stops before Phase B, ADB, installation or Hardware without retry.
+
+The legacy 45-gate Harness is superseded; do not run it, create Attempt 16, repeat V3/V4, run
+`npm ci` or rebuild an artifact merely for this R0 closure. No Hardware, ADB, installation or
+Product action may begin without the later fresh exact Human start signal in the live task.
 
 ## Current package-clear / Employee-ready correction — published and artifact-approved; do not run without new authority
 

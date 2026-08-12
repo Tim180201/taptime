@@ -2,18 +2,17 @@
 
 Status: Active
 
-Current DA5 Lean Stage-6 control: ADR-0019 is active, Human-accepted, independently `APPROVED`
-and published at `83635335aa4f547dc8994243c604dacf9797f593` / tree
-`40b7655a94e607b8afe19f90f42a95f42ee6d582`; automated V0–V4 closure is complete on
-`1b341d83592ea457c8ca722d01bfa2e64fe8cc40` / tree
-`2db756832a81f07cdb1a927ff3076320cc253960`, with CI `30786622180` attempt 1 at 12/12 and final
-independent `APPROVED`, zero open P0–P3. The current Product Operator is executable
-`22fe85d540c8949f179b96589ed493f0211002db` / tree
-`7514edfe90da11a3288fec0df872fb7010238c0b`, CI `31630253237` attempt 1 at 12/12 and final strict
-independent review `APPROVED`, zero open P0–P3. The later repository baseline
+Current DA5 Lean Stage-6 control: the exact ADO preparation is published at
+`HEAD == main == origin/main == 3a0469ac1d0c9d781e49648a73bc9ef019423c8e` / tree
+`4521f179bbae8867c6776d643679cce32658c979`, parent
 `2d0cbd01ce483987c375eeee9ecc49f37e2185f8` / tree
-`840fd156fe46614adf9d1bec2a018a2c6b453c1c` is documentation-only and not the executable CI
-source.
+`840fd156fe46614adf9d1bec2a018a2c6b453c1c`. Its exact nine-file ADO delta is 405
+insertions/63 deletions with binary diff SHA-256
+`b98c6fcb424cf2fda31748efa2b0ce5b79f77bdc0da1e1a32364ae9f48efaf52`; corrected
+prepublication independent review returned `APPROVED`, zero open P0–P3. This is not the Product
+CI source. Exact Operator `22fe85d540c8949f179b96589ed493f0211002db` / tree
+`7514edfe90da11a3288fec0df872fb7010238c0b`, CI `31630253237` attempt 1 at 12/12 and final
+strict independent `APPROVED`, zero open P0–P3, is carried unchanged.
 
 Residual R-026/R-034 exposure is the fresh Physical run, not the superseded 45-gate Harness.
 Every legacy attempt is immutable and consumed; there is no Attempt 16 or legacy rerun. The
@@ -23,15 +22,16 @@ and installation remain stopped until a fresh exact Human start signal; producti
 data, signing, deployment and distribution remain separately unauthorized. Any later legacy
 Harness block labelled `Current` is point-in-time history where it conflicts with this control.
 
-Publication-binding control: `2d0cbd01ce483987c375eeee9ecc49f37e2185f8` / tree
-`840fd156fe46614adf9d1bec2a018a2c6b453c1c` is only the R0 candidate baseline and is not the
-future Hardware-authority ADO head. The focused R0 publication must precede any new one-time Human
-Hardware authorization. Publication Closure must first truth-synchronize and review the exact
-then-final published ADO commit/tree, including governing Flight Card/Runbook versions. The live
-authority must quote it and exactly bind Operator executable/tree, runtime
-manifest/entrypoint/map, APK plus artifact manifest/package/signature, governing Node/toolchain,
-and exact device/Tags/environment/Guard/Credential constraints. Absence or drift stops before Phase B,
-ADB, installation or Hardware without retry. This candidate claims no future commit/tree.
+Publication-binding control: this R0 closure candidate must receive independent `APPROVED`, be
+focusedly published, and then receive independent exact-head read-only review binding the actual
+published closure commit/tree, final governing blobs, exact scoped delta and no executable delta.
+That future self-identity is intentionally not embedded; no ADO mutation is required solely to
+insert it. Only the externally exact-reviewed published closure head may be quoted by a new
+one-time Human Hardware authorization. The live signal must also bind Operator executable/tree,
+runtime manifest/entrypoint/map, APK plus artifact manifest/package/signature, governing
+Node/toolchain and exact device/Tags/environment/Guard/Credential constraints. Absence or drift
+stops before Phase B, ADB, installation or Hardware without retry. The controlling candidate is
+`ADO/05_Evidence/Development_Assignment_05_V5_Lean_Hardware_Publication_Closure.md`.
 
 Current R-026/R-034 terminal-cleanup addendum: **The `2026-08-11` Hardware authority continued on
 `2026-08-12` only long enough to prove that the bound run had lost both transaction-owned reverse
