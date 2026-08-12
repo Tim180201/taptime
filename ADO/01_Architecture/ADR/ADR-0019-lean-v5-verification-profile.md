@@ -1,13 +1,17 @@
 # ADR-0019: Lean V5 Verification Profile
 
-- Status: **CANDIDATE — HUMAN DIRECTION ACCEPTED; INDEPENDENT REVIEW AND FOCUSED PUBLICATION REQUIRED BEFORE ACTIVATION**
+- Status: **ACTIVE — HUMAN ACCEPTED; INDEPENDENTLY APPROVED; PUBLISHED**
 - Date: 2026-08-02
-- Candidate baseline commit: `456da51150f8748a647ab46aa10fd0e1f25b54bf`
-- Candidate baseline tree: `a4ba688a55e6302f1588cc3ceda48d9a63c4933b`
+- Historical candidate baseline commit: `456da51150f8748a647ab46aa10fd0e1f25b54bf`
+- Historical candidate baseline tree: `a4ba688a55e6302f1588cc3ceda48d9a63c4933b`
+- Accepted publication: `83635335aa4f547dc8994243c604dacf9797f593` / tree
+  `40b7655a94e607b8afe19f90f42a95f42ee6d582`
+- Executable Lean closure: `1b341d83592ea457c8ca722d01bfa2e64fe8cc40` / tree
+  `2db756832a81f07cdb1a927ff3076320cc253960`
 - Owner: Technical Lead
 - Decision authority: Human Architect
 - Related: AVS-001, DA5 V5 Runbook, DA5 V5 Evidence, R-034
-- Candidate risk: AVS-001 **R0** for this ADO-only decision candidate; future executable V5
+- Historical candidate risk: AVS-001 **R0** for this ADO-only decision candidate; executable V5
   preparation remains **R3**
 
 ## 1. Context
@@ -167,25 +171,39 @@ authorize Attempt 16 or any other legacy executor run.
 - Ambiguous impact selects the broader Product boundary rather than a custom narrow gate.
 - Exact final artifact and V5 bindings remain intentionally strict.
 
-## 4. Activation and authority boundary
+## 4. Current activation and authority boundary
 
-The Human Architect accepted the direction represented by this candidate. The profile becomes
-active only after:
+The activation conditions are complete. The Human Architect accepted the ADR and Lean
+authorization, independent architecture/authorization review returned `APPROVED` with zero open
+P0–P3, and the focused decision was published at
+`83635335aa4f547dc8994243c604dacf9797f593` / tree
+`40b7655a94e607b8afe19f90f42a95f42ee6d582`.
 
-1. an independent architecture/authorization review returns `APPROVED` with zero open P0–P3;
-2. confirmed ADO-only In-Scope corrections, if any, receive required re-review; and
-3. the focused ADO-only candidate is published exactly.
+Lean stages 1–5 and automated V0–V4 completed on executable
+`1b341d83592ea457c8ca722d01bfa2e64fe8cc40` / tree
+`2db756832a81f07cdb1a927ff3076320cc253960`. Exact-head CI run `30786622180`, attempt 1, passed
+12/12 without retry, and final independent Exact-Head/Artifact Review returned `APPROVED` with
+zero open P0–P3. This is carried executable Evidence, not Evidence freshly produced by a later
+ADO-only synchronization.
 
-Before activation, the existing executable boundaries remain unchanged. After activation, a
-single compact, exact implementation authorization is still required before Product code, tests,
-verification scripts, workflows, executors, artifacts or any local R3 execution may change or
-run. Human/Hardware V5, production, production data, deployment and distribution always require
-their own separate authorization.
+The historical 45-gate/per-attempt Harness is superseded. All attempts remain immutable and
+consumed; Attempt 16 and every legacy Harness rerun remain unauthorized. Active authority stops
+immediately before Human/Hardware V5. A fresh exact Human start signal is required before
+Hardware, ADB, installation or any Product run. Production, production data, production signing,
+deployment and distribution require separate authorization.
 
-This ADR creates no Product correctness, test-pass, CI, independent-approval, artifact or V5
-claim.
+Current R0 candidate baseline `2d0cbd01ce483987c375eeee9ecc49f37e2185f8` / tree
+`840fd156fe46614adf9d1bec2a018a2c6b453c1c` is not the future Hardware-authority ADO head. Only
+after focused R0 publication may a new one-time Human Hardware authorization be issued. Before
+that authorization, Publication Closure must truth-synchronize and review the exact then-final
+published ADO commit/tree, including the governing Flight Card and Runbook versions. The live
+authorization must quote that ADO commit/tree and exactly bind Operator executable/tree, runtime
+manifest/entrypoint/map, APK plus artifact manifest/package/signature, governing Node/toolchain,
+and exact device/Tags/environment/Guard/Credential constraints. Any missing or differing binding stops
+before Phase B, ADB, installation or Hardware without retry. No future commit/tree is claimed by
+this candidate.
 
-## 5. Change-Impact Record
+## 5. Historical candidate Change-Impact Record
 
 - Baseline: commit `456da51150f8748a647ab46aa10fd0e1f25b54bf`, tree
   `a4ba688a55e6302f1588cc3ceda48d9a63c4933b`.
@@ -197,5 +215,5 @@ claim.
 - Product suites/V1–V5: not run; not relevant to an unactivated documentation-only candidate and
   not authorized.
 - Carried Evidence: immutable Attempt-15 facts recorded in the DA5 V5 Evidence document.
-- Next gate: independent read-only architecture/authorization review, then focused ADO-only
-  publication if `APPROVED`.
+- Historical next gate: the independent review and focused publication later completed as
+  recorded in Section 4. The current next gate is a separately authorized Human/Hardware V5 run.

@@ -1,5 +1,39 @@
 # Project Status
 
+DA5 Lean Stage 6: **ADO PRE-HARDWARE PREPARATION / PUBLICATION CLOSURE PENDING / STOP BEFORE HARDWARE.** ADR-0019 and the Lean
+authorization are Human-accepted, independently `APPROVED` and published at
+`83635335aa4f547dc8994243c604dacf9797f593` / tree
+`40b7655a94e607b8afe19f90f42a95f42ee6d582`. Lean stages 1–5 and automated V0–V4 completed on
+`1b341d83592ea457c8ca722d01bfa2e64fe8cc40` / tree
+`2db756832a81f07cdb1a927ff3076320cc253960`; CI `30786622180`, attempt 1, passed 12/12 and final
+independent review returned `APPROVED` with zero open P0–P3. The legacy 45-gate Harness is
+superseded; all attempts are immutable and consumed, with no Attempt 16 or legacy rerun.
+
+The current operational executable remains
+`22fe85d540c8949f179b96589ed493f0211002db` / tree
+`7514edfe90da11a3288fec0df872fb7010238c0b`, CI `31630253237`, attempt 1, 12/12, final strict
+independent Exact-Head/Artifact Review `APPROVED`, zero open P0–P3. Current repository HEAD
+`2d0cbd01ce483987c375eeee9ecc49f37e2185f8` / tree
+`840fd156fe46614adf9d1bec2a018a2c6b453c1c` is a later documentation-only baseline, not the CI
+source. The terminal-abort closure was already published by documentation commit `aa9ad8c`; any
+older unqualified `pending publication` statement describes its historical prepublication point.
+Use `ADO/04_Operations/Development_Assignment_05_V5_Lean_Hardware_Flight_Card.md` for the compact
+continuous-run index; the full Runbook remains controlling. DA6 is frozen before this gate and is
+not a DA5 Hardware blocker. A fresh exact Human start signal is required before Hardware, ADB or
+installation; production, production data, signing, deployment and distribution remain
+unauthorized.
+
+Publication-closure gate: `2d0cbd01ce483987c375eeee9ecc49f37e2185f8` / tree
+`840fd156fe46614adf9d1bec2a018a2c6b453c1c` is only this R0 candidate baseline, never the future
+Hardware-authority ADO head. Focused R0 publication must complete first. Its exact then-final ADO
+commit/tree, including governing Flight Card/Runbook versions, must then be truth-synchronized and
+reviewed before a new one-time Human Hardware authorization may be issued. That live authority
+must quote the exact final ADO commit/tree and bind Operator executable/tree, runtime
+manifest/entrypoint/map, APK plus artifact manifest/package/signature, governing Node/toolchain,
+and exact device/Tags/environment/Guard/Credential constraints. Missing or differing binding
+stops before Phase B, ADB, installation or Hardware without retry. No unknown future hash is
+claimed here.
+
 DA5 V5 package-clear / Employee-ready: **EXECUTABLE
 `22fe85d540c8949f179b96589ed493f0211002db` / TREE
 `7514edfe90da11a3288fec0df872fb7010238c0b` IS PUBLISHED, EXACT-HEAD CI PASSED 12/12, AND FINAL
@@ -79,8 +113,9 @@ mode-`0444` map at SHA-256 `016a2ab73e3b431e7a4f242a1f9fd0b25659a4a689ef20cfa3a5
 version-3/absent-`sourceRoot`/90-90-90 invariants. Final OS-sandboxed Exact-Head/Artifact review
 blocked its write probe with `EPERM`, proved inputs unchanged and returned `APPROVED`, zero open
 P0–P3. The cleanup subfinding of R-026/R-034 is technically closed; Hardware risk remains open
-pending a fresh separately authorized run. This R0 ADO-only closure candidate is pending
-publication and runs no npm, test, build, network, CI, runtime generation or Hardware action.
+pending a fresh separately authorized run. The then-pending R0 ADO-only closure was later
+published by documentation commit `aa9ad8c`; it ran no npm, test, build, network, CI, runtime
+generation or Hardware action.
 
 DA5 V5 clean-identity installation boundary: **THE 2026-08-10 PRODUCT HUMAN/HARDWARE R4
 AUTHORITY IS CONSUMED AND TERMINAL CLEANUP IS NULL. THE CORRECTION IS PUBLISHED, EXACT-HEAD CI
@@ -2478,12 +2513,15 @@ Two Epics are concurrently Active, per EP-009's own stated relationship to the r
 
 ## Immediate Next Steps
 
-0. Preserve executable publication `e2f4f6c777d4dc89531394609e44b3471537b2d7` / tree
-   `0850d2f254877580773f62174d4c85e10cfff165`, exact-head CI `31384903728` attempt 1 at
-   12/12, runtime `e2f4f6c7-97448feb` and fully sandboxed final Artifact Review Round 2
-   `APPROVED` with zero open P0–P3. Technical closure permits only preparation of a new exact
-   one-time Human authorization; do not install or start Hardware/ADB before that authorization.
-   Preserve all consumed-run and excluded diagnostic evidence as historical truth.
+0. Treat the former `e2f4f6c7` instruction as superseded historical closure. The sole current
+   route is Operator executable `22fe85d540c8949f179b96589ed493f0211002db` / tree
+   `7514edfe90da11a3288fec0df872fb7010238c0b`, its exact runtime/artifact bindings and the Lean
+   Stage-6 Flight Card. First publish this focused R0 delta, then truth-synchronize and review the
+   exact then-final published ADO commit/tree as Publication Closure. Only afterward may a new
+   one-time Human Hardware authorization quote that final ADO head and every governing binding.
+   Until then, and on any missing or differing binding, stop before Phase B, ADB, installation or
+   Hardware without retry. Preserve all consumed-run and excluded diagnostic evidence as
+   historical truth.
 
 1. Preserve Development Assignments 1–3 and DT-060–DT-074 as completed only for their exact
    independently approved local scopes.

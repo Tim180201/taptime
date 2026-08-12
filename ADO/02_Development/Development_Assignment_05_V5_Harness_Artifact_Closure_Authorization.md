@@ -1,6 +1,6 @@
 # Development Assignment 5 — V5 Harness Artifact Closure Architecture and Authorization
 
-## Current prospective override — Attempt 15 consumed; Lean V5 candidate pending review
+## Current authority — legacy Harness superseded; Lean closure complete; Stage 6 separately gated
 
 Attempt 15 executed once on `456da51150f8748a647ab46aa10fd0e1f25b54bf` / tree
 `a4ba688a55e6302f1588cc3ceda48d9a63c4933b` and is consumed fail-closed. Its immutable 45
@@ -9,11 +9,39 @@ stopped with `unexpected_output_root`; child exit was 0 and quality-failure coun
 Cleanup/Postcleanup completed, artifact is `null`, raw output was not preserved, and Attempt 15
 may not be retried, repaired or resumed.
 
-ADR-0019 and the DA5 V5 Lean Verification Profile authorization candidate prospectively replace
-this 45-gate/per-attempt-executor architecture after independent `APPROVED` review and focused
-publication. All historical executor and Evidence identities remain immutable. No Attempt-16
-correction or run is authorized. This document remains historical architecture evidence and is
-not future default execution authority.
+ADR-0019 and the DA5 V5 Lean Verification Profile now replace this 45-gate/per-attempt-executor
+architecture. The Human-accepted decision and authorization were independently `APPROVED` with
+zero open P0–P3 and published at `83635335aa4f547dc8994243c604dacf9797f593` / tree
+`40b7655a94e607b8afe19f90f42a95f42ee6d582`. Lean stages 1–5 and automated V0–V4 completed on
+`1b341d83592ea457c8ca722d01bfa2e64fe8cc40` / tree
+`2db756832a81f07cdb1a927ff3076320cc253960`; Exact-Head CI `30786622180`, attempt 1, passed 12/12
+and final independent review returned `APPROVED` with zero open P0–P3.
+
+All historical executor and Evidence identities remain immutable and consumed. No Attempt 16,
+legacy correction or legacy rerun is authorized. The exact current Product Operator is executable
+`22fe85d540c8949f179b96589ed493f0211002db` / tree
+`7514edfe90da11a3288fec0df872fb7010238c0b`, with CI `31630253237`, attempt 1, 12/12 and final
+strict independent review `APPROVED`, zero open P0–P3. Current documentation baseline
+`2d0cbd01ce483987c375eeee9ecc49f37e2185f8` / tree
+`840fd156fe46614adf9d1bec2a018a2c6b453c1c` is not that CI source.
+
+This document remains historical architecture Evidence, not current execution authority. Use
+`ADO/04_Operations/Development_Assignment_05_V5_Lean_Hardware_Flight_Card.md` as the compact
+current operator index; the full Runbook and AVS Physical requirements remain controlling.
+Hardware, ADB and installation require a fresh exact Human start signal. DA6 is frozen before the
+gate and is not a DA5 Hardware blocker. Every later Harness `pending`, `next gate` or execution
+statement is retained only as point-in-time history, never as a current run path.
+
+This Flight Card work is ADO/pre-Hardware preparation, not executable authority. Current baseline
+`2d0cbd01ce483987c375eeee9ecc49f37e2185f8` / tree
+`840fd156fe46614adf9d1bec2a018a2c6b453c1c` is only the R0 candidate baseline and is not the
+future Hardware-authority ADO head. Only after focused publication and a reviewed
+Publication Closure truth-synchronize the exact then-final published ADO commit/tree, including governing
+Flight Card/Runbook versions, may a new one-time Human Hardware authorization be issued. Its live
+start signal must quote that commit/tree and exactly bind Operator executable/tree, runtime
+manifest/entrypoint/map, APK plus artifact manifest/package/signature, governing Node/toolchain,
+and exact device/Tags/environment/Guard/Credential constraints. Missing or differing binding stops
+before Phase B, ADB, installation or Hardware without retry. No future commit/tree is asserted.
 
 ## Historical superseded override — Attempt 14 consumed; Attempt 15 prospective output-binding candidate
 

@@ -2,6 +2,37 @@
 
 Status: Active
 
+Current DA5 Lean Stage-6 control: ADR-0019 is active, Human-accepted, independently `APPROVED`
+and published at `83635335aa4f547dc8994243c604dacf9797f593` / tree
+`40b7655a94e607b8afe19f90f42a95f42ee6d582`; automated V0–V4 closure is complete on
+`1b341d83592ea457c8ca722d01bfa2e64fe8cc40` / tree
+`2db756832a81f07cdb1a927ff3076320cc253960`, with CI `30786622180` attempt 1 at 12/12 and final
+independent `APPROVED`, zero open P0–P3. The current Product Operator is executable
+`22fe85d540c8949f179b96589ed493f0211002db` / tree
+`7514edfe90da11a3288fec0df872fb7010238c0b`, CI `31630253237` attempt 1 at 12/12 and final strict
+independent review `APPROVED`, zero open P0–P3. The later repository baseline
+`2d0cbd01ce483987c375eeee9ecc49f37e2185f8` / tree
+`840fd156fe46614adf9d1bec2a018a2c6b453c1c` is documentation-only and not the executable CI
+source.
+
+Residual R-026/R-034 exposure is the fresh Physical run, not the superseded 45-gate Harness.
+Every legacy attempt is immutable and consumed; there is no Attempt 16 or legacy rerun. The
+Flight Card preserves every Runbook observation/checkpoint and fails closed on drift, failure or
+ambiguity without retry. DA6 is frozen before this gate and is not a DA5 blocker. Hardware, ADB
+and installation remain stopped until a fresh exact Human start signal; production, production
+data, signing, deployment and distribution remain separately unauthorized. Any later legacy
+Harness block labelled `Current` is point-in-time history where it conflicts with this control.
+
+Publication-binding control: `2d0cbd01ce483987c375eeee9ecc49f37e2185f8` / tree
+`840fd156fe46614adf9d1bec2a018a2c6b453c1c` is only the R0 candidate baseline and is not the
+future Hardware-authority ADO head. The focused R0 publication must precede any new one-time Human
+Hardware authorization. Publication Closure must first truth-synchronize and review the exact
+then-final published ADO commit/tree, including governing Flight Card/Runbook versions. The live
+authority must quote it and exactly bind Operator executable/tree, runtime
+manifest/entrypoint/map, APK plus artifact manifest/package/signature, governing Node/toolchain,
+and exact device/Tags/environment/Guard/Credential constraints. Absence or drift stops before Phase B,
+ADB, installation or Hardware without retry. This candidate claims no future commit/tree.
+
 Current R-026/R-034 terminal-cleanup addendum: **The `2026-08-11` Hardware authority continued on
 `2026-08-12` only long enough to prove that the bound run had lost both transaction-owned reverse
 mappings (`0/2`); it is consumed fail-closed and exact external recovery proved terminal null.**
@@ -332,7 +363,7 @@ This block supersedes only stale current
 Attempt-13 preparation text below; R-034, Hardware/Human/Product V5 and all production/deployment/
 distribution prohibitions remain open.
 
-Current R-034 execution-binding override: the unchanged Round-5 executor is superseded by the
+Historical superseded R-034 execution-binding override: the unchanged Round-5 executor was superseded by the
 independently reviewed read-only publication candidate
 `attempt13-executor-4dad93bd-483fcf40-r6-execbind` (376,105-byte executor SHA-256
 `810090e78b247820a2ffb24a97846d74c76768db22c2e3d5f77c68084c7e50b6`; 2,648-byte manifest
@@ -375,6 +406,9 @@ Exact-Head review returned `APPROVED` with zero open P0–P3. An unchanged retry
 remains forbidden. R-034 remains open. Attempt 13, Hardware and Human/Product V5 remain `DO NOT
 EXECUTE` / `DO NOT START`. This paragraph supersedes only stale Attempt-13 preparation state in
 the R-034 row below; all historical evidence and risk boundaries remain unchanged.
+
+The R-034 row below retains its long immutable attempt history. Its older Harness-pending status
+is superseded only by the current control above; the historical evidence itself is unchanged.
 
 | ID | Risk | Category | Severity | Status | Mitigation |
 |---|---|---|---|---|---|

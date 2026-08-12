@@ -1,5 +1,37 @@
 # Development Assignment 5 — V5 Human Android Gate Runbook
 
+## Current Lean Stage-6 operating index — ADO PRE-HARDWARE PREPARATION / PUBLICATION CLOSURE PENDING / STOP BEFORE HARDWARE
+
+Use `ADO/04_Operations/Development_Assignment_05_V5_Lean_Hardware_Flight_Card.md` as the compact
+four-phase index for one continuous Stage-6 run. It does not replace or shorten this Runbook or
+the AVS Physical gate: every observation, checkpoint, fresh-first-step rule, fail-closed stop and
+cleanup obligation below remains controlling. The Technical Lead owns all digital commands,
+binding checks, status/Evidence recording and cleanup; the Human performs only irreducible
+device/Tag/visual actions and hidden Credential entry.
+
+The current exact Operator is executable `22fe85d540c8949f179b96589ed493f0211002db` / tree
+`7514edfe90da11a3288fec0df872fb7010238c0b`, CI `31630253237`, attempt 1, 12/12, final strict
+independent review `APPROVED`, zero open P0–P3. Its read-only runtime is
+`/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-product-operator/22fe85d5-2a48d52d`.
+Current repository HEAD `2d0cbd01ce483987c375eeee9ecc49f37e2185f8` / tree
+`840fd156fe46614adf9d1bec2a018a2c6b453c1c` is documentation-only and is not the Operator CI
+source. The legacy 45-gate Harness is superseded; do not run it, create Attempt 16, repeat V3/V4,
+run `npm ci` or rebuild an artifact merely for this R0 synchronization. No Hardware, ADB,
+installation or Product action may begin without a fresh exact Human start signal in the live
+task.
+
+This is ADO/pre-Hardware preparation, not Operator or Hardware authority. Baseline
+`2d0cbd01ce483987c375eeee9ecc49f37e2185f8` / tree
+`840fd156fe46614adf9d1bec2a018a2c6b453c1c` is only the R0 candidate baseline and must not be
+quoted as the future Hardware-authority ADO head. After focused R0 publication, Publication
+Closure must truth-synchronize and review the exact then-final published ADO commit/tree,
+including the governing Flight Card/Runbook versions. Only then may a new one-time Human Hardware
+authorization be issued. Its live start signal must quote that commit/tree and exactly bind
+Operator executable/tree, runtime manifest/entrypoint/map, APK plus artifact
+manifest/package/signature, governing Node/toolchain, and exact
+device/Tags/environment/Guard/Credential constraints. Missing or differing binding stops before
+Phase B, ADB, installation or Hardware without retry. No future commit/tree is claimed here.
+
 ## Current package-clear / Employee-ready correction — published and artifact-approved; do not run without new authority
 
 Published executable `22fe85d540c8949f179b96589ed493f0211002db`, tree
@@ -65,7 +97,7 @@ device, Tag, path and Credential constraints remain unchanged. Production, produ
 deployment and distribution remain unauthorized. **STOP before Hardware — DO NOT INSTALL / DO
 NOT START without new Human authorization.**
 
-## Current terminal-abort / lost-reverse correction — published and artifact-approved; do not run without new authority
+## Historical incorporated terminal-abort / lost-reverse correction — published and artifact-approved
 
 The `2026-08-11` run continued on `2026-08-12` only after same-session continuity checks. The
 bound device/package/profile remained exact, but both transaction-owned reverse mappings were
@@ -102,10 +134,11 @@ binds manifest/bundle/map exactly; final OS-sandboxed Exact-Head/Artifact review
 probe with `EPERM` and returned `APPROVED`, zero open P0–P3. The cleanup subfinding is technically
 closed, but the consumed run remains non-reusable and no runbook step may start until one new,
 separate exact Human authorization binds the executable, closure head, runtime, unchanged APK,
-Guard, device and Tags. This ADO-only closure candidate is pending publication and claims no
-future commit/tree. **DO NOT INSTALL / DO NOT START.**
+Guard, device and Tags. The then-pending ADO-only closure was later published by documentation
+commit `aa9ad8c`; it claimed no Product rerun or replacement executable. **DO NOT INSTALL / DO NOT
+START.**
 
-## Current clean-identity installation boundary — published and artifact-approved; do not run on Hardware without new authority
+## Historical incorporated clean-identity installation boundary — published and artifact-approved
 
 The `2026-08-10` R4 Hardware authority is consumed and non-reusable. It reached Administrator
 Tag-A assignment plus the enrollment-only sign-out, but Employee readiness remained at
@@ -190,7 +223,7 @@ after publication. Technical correction is complete, but R-026 remains open unti
 Human Hardware run. This R0 documentation sync runs no execution gate. **STOP before Hardware;
 DO NOT INSTALL / DO NOT START without a new, separately bound one-time Human authorization.**
 
-## Current dependency-security / test-TMPDIR technical closure — Exact-Head CI and final artifact review APPROVED
+## Historical incorporated dependency-security / test-TMPDIR technical closure — approved
 
 The independently approved candidate and its prepublication ADO synchronization are published as
 executable `e2f4f6c777d4dc89531394609e44b3471537b2d7`, tree
@@ -2016,7 +2049,9 @@ aggregate or fixture-scoped teardown is absent or differs, do not start.
 Before Gate A:
 
 1. Verify the exact repository heads and a clean tracked worktree with both protected exclusions.
-2. Verify the Section 3 bindings without rebuilding or changing the read-only files.
+2. Verify the exact current Product, Operator/runtime, device, Tag and environment bindings quoted
+   by the separate one-time Human authorization and the Lean Stage-6 Flight Card, without
+   rebuilding or changing read-only files. Never use the historical Section 3 values.
 3. Require only the authorized USB device, no unexpected mapping/listener, no retained package
    state and fresh synthetic database/accounts/data. Require exact `font_scale=1.0`,
    `accessibility_enabled=0` and an empty/null active-service setting.

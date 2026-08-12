@@ -1,5 +1,25 @@
 # Development Assignment 5 — V5 Human Android Evidence
 
+## Current Lean Stage-6 carried Evidence and R0 synchronization boundary
+
+| Evidence | Exact result |
+|---|---|
+| Lean decision publication | Human-accepted and independent `APPROVED`, zero open P0–P3; `83635335aa4f547dc8994243c604dacf9797f593` / tree `40b7655a94e607b8afe19f90f42a95f42ee6d582` |
+| Automated Lean closure | Stages 1–5 and V0–V4 complete on `1b341d83592ea457c8ca722d01bfa2e64fe8cc40` / tree `2db756832a81f07cdb1a927ff3076320cc253960`; CI `30786622180`, attempt 1, 12/12; final independent `APPROVED`, zero open P0–P3 |
+| Legacy Harness | Historical 45-gate/per-attempt Harness superseded; all attempts immutable and consumed; no Attempt 16, repair, resume or legacy rerun |
+| Current Product Operator | Executable `22fe85d540c8949f179b96589ed493f0211002db` / tree `7514edfe90da11a3288fec0df872fb7010238c0b`; CI `31630253237`, attempt 1, 12/12; final strict independent Exact-Head/Artifact Review `APPROVED`, zero open P0–P3 |
+| R0 candidate baseline | Repository HEAD/origin `2d0cbd01ce483987c375eeee9ecc49f37e2185f8` / tree `840fd156fe46614adf9d1bec2a018a2c6b453c1c`; documentation-only, not the executable CI source and not the future Hardware-authority ADO head |
+| Operator runtime | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-product-operator/22fe85d5-2a48d52d`; manifest 10,726 bytes, mode `0444`, SHA-256 `2e24bb5c5d39089ef871d9fd986a67532d51f71df3a6e1652b1b1e232bf6e1fe`; bundle 930,095 bytes, mode `0444`, SHA-256 `2a48d52d204ef8cfba73d9a789de3ef50ecefa29e32c51953bc75b9d48d023a6`; map 1,728,717 bytes, mode `0444`, SHA-256 `a51b9cfa0dfa883bf5d091789051ec16c85529afbecd53b37017940fa16a70d2` |
+| Product APK | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5/lean-83635335-b0180c31769e4534/app-release-b0180c31769e4534.apk`; 95,522,751 bytes; mode `0444`; SHA-256 `b0180c31769e453472a20eb1e7eb4e0825a85be9429becf6bf4970e0875b67f8`; package `com.tim180201.mobile.synthetic`; versionCode `1`; versionName `1.0.0`; v2 `true`, v1/v3/v3.1/v4 `false`; signer count `1`; signer certificate SHA-256 `fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c` is local V5 debug identity, not production signing |
+| Product manifest | Same directory `artifact-manifest.txt`; 1,968 bytes; mode `0444`; SHA-256 `83b93bbf33297334bfcca3aa30e5ed6772175f98a2a81dc80045454570fe937b` |
+| Complete manifest equality | Runtime manifest and APK `artifact-manifest.txt` must each match the full bound size, mode and digest plus every parsed field; partial or selected-field checks are insufficient |
+| Node binding | `/Users/timbartz/.nvm/versions/node/v24.17.0/bin/node`; Node `v24.17.0`; 120,591,840 bytes; mode `0755`; SHA-256 `f5f9b9db4d95f5e0340982685f083de654c21eef9d9122cab5321081ccaa2601`; read-only bundle check `PASS` on 2026-08-12 |
+| Terminal-abort closure | Executable `2a13b71737bc34a69b137943cb9ccb790caa058b` closure was already published by documentation commit `aa9ad8c`; older `pending publication` wording is historical |
+| Change impact | AVS R0: only the nine named ADO paths; no executable, test, script, workflow, schema, dependency, lockfile, runtime or artifact input delta. V0 only; all Product V1–V5 checks omitted because unchanged exact Evidence is carried and Hardware is not authorized |
+| Required Publication Closure | Focused R0 publication first; then truth-synchronize and review the exact then-final published ADO commit/tree including governing Flight Card/Runbook versions. No future commit/tree is claimed in this candidate |
+| Future live authority binding | Only after reviewed Publication Closure may a new one-time Human Hardware authorization quote the exact final ADO commit/tree and bind Operator executable/tree, runtime manifest/entrypoint/map, APK plus artifact manifest/package/signature, governing Node/toolchain and exact device/Tags/environment/Guard/Credential constraints. Missing or differing binding stops before Phase B, ADB, installation or Hardware without retry |
+| Current gate | Flight Card is ADO/pre-Hardware preparation only at `ADO/04_Operations/Development_Assignment_05_V5_Lean_Hardware_Flight_Card.md`; it grants no execution authority. Status `STOP BEFORE HARDWARE`; DA6 frozen and not a blocker |
+
 ## Current package-clear / Employee-ready correction — published, CI and final artifact review APPROVED
 
 | Evidence | Exact result |
@@ -30,7 +50,7 @@
 | Evidence | Exact result |
 |---|---|
 | Direct development parent | `d39446f2a67b51788e8a63d3f73e90e373cc8da8`; tree `eb1a0f540e52a55ece87e647e325d6ca2c4219ff` |
-| Executable publication | `HEAD == main == origin/main == 2a13b71737bc34a69b137943cb9ccb790caa058b`; tree `c79402af300112d7fdad901079fc0a5fc30f1938`; tracked state clean before this R0 synchronization |
+| Executable publication | `2a13b71737bc34a69b137943cb9ccb790caa058b`; tree `c79402af300112d7fdad901079fc0a5fc30f1938`; historical executable publication, not current repository HEAD |
 | Publication delta | Exactly 12 paths; Full-Index/Binary delta from direct parent 40,772 bytes; SHA-256 `b1e6bac320c8a091a40bfa05b9f404d732f6086fbe1188d6fd2b71b881215286` |
 | Consumed run | Started `2026-08-11`, continuity inspected `2026-08-12`; bound Operator/device/package/standard profile remained exact, but reverse mappings were `0/2`; no later Product/NFC/Tag/lifecycle/queue/time/review action |
 | Confirmed finding | `DA5-V5-OPERATOR-ABORT-CLEANUP-01`: early Human stop used success-only `stop`, yielded `operator_command_rejected`; cleanup rejected already-absent owned mappings and retained exact Operator/Guard/PostgreSQL resources |
@@ -56,15 +76,15 @@
 | Unchanged Product APK | 95,522,751 bytes; mode `0444`; SHA-256 `b0180c31769e453472a20eb1e7eb4e0825a85be9429becf6bf4970e0875b67f8` |
 | Unchanged Product manifest | 1,968 bytes; mode `0444`; SHA-256 `83b93bbf33297334bfcca3aa30e5ed6772175f98a2a81dc80045454570fe937b` |
 | Final independent Exact-Head/Artifact review | OS-enforced write-deny sandbox; adversarial write blocked with `EPERM`; candidate/artifacts identical before and after; `APPROVED`; zero open P0–P3 |
-| R0 closure synchronization | Exactly these six ADO files only; pending publication, no future commit/tree claimed; no npm, test, Typecheck, build, network, CI, runtime/artifact generation, Hardware, ADB, installation or Product action |
+| R0 closure synchronization | The then-pending six-file ADO-only closure was later published by documentation commit `aa9ad8c`; no npm, test, Typecheck, build, network, CI, runtime/artifact generation, Hardware, ADB, installation or Product action was attributed to it |
 | Current status / authority | Cleanup subfinding of R-026/R-034 technically closed. Hardware risk remains open pending one new, separately and exactly Human-authorized run; **STOP before Hardware — DO NOT INSTALL / DO NOT START** |
 
-## Current clean-identity installation-boundary correction — published, CI and final artifact review APPROVED
+## Historical incorporated clean-identity installation-boundary correction — published, CI and final artifact review APPROVED
 
 | Evidence | Exact result |
 |---|---|
 | Direct development parent | `55f4d4984175dd544fd4f27f6a97d9507dcf14a2`; tree `cbc27ac9cac93dee674bdb07d81c15c226218575` |
-| Executable publication | `HEAD == main == origin/main == 416f1bc8a7803b1ce96d0d767d6b0179ea1ffb6a`; tree `ba9d884fd7eb71b988ecaab9991efbc995141f32`; published tracked state clean before this R0 synchronization |
+| Executable publication | At that historical publication checkpoint, `HEAD == main == origin/main == 416f1bc8a7803b1ce96d0d767d6b0179ea1ffb6a`; tree `ba9d884fd7eb71b988ecaab9991efbc995141f32`; this is not current repository HEAD |
 | Publication delta | Exactly 13 paths; Full-Index/Binary delta from the direct parent 81,331 bytes; SHA-256 `4d586d2ad5318f288e611393554b2fbc25731c95fd35e4c1fc1376d30737c70c` |
 | Consumed Product Human/Hardware R4 | Administrator Tag-A assignment and enrollment-only sign-out completed; Employee stayed at `NFC wird geprüft`; cold reopen showed `Ausstehender Vorgang geschützt` without an intervening scan; authority consumed and non-reusable |
 | Product mutation boundary | Tag B was not presented in the Employee phase; no scan, lifecycle, queue, time or review mutation occurred |
@@ -534,7 +554,7 @@ sync carries CI/review evidence from the exact executable candidate and claims n
 documentation-only synchronization head. It introduces no Product, Business or architecture
 decision.
 
-## Attempt-15 terminal evidence and Lean V5 candidate boundary
+## Historical Attempt-15 terminal evidence and Lean V5 candidate boundary
 
 Attempt 15 executed once on publication commit
 `456da51150f8748a647ab46aa10fd0e1f25b54bf`, tree
@@ -559,10 +579,10 @@ nearest package cache to `apps/mobile/node_modules/.vite`. Because raw run paths
 not preserved, that concrete run path is an inference, not observed Evidence. No Product defect
 is proven. The accompanying P3 requires this current-truth synchronization.
 
-The Human Architect chose the prospective ADR-0019 Lean V5 profile instead of an Attempt-16
-cache-allowlist correction. Historical Evidence remains immutable. The new ADO-only candidate has
-not received independent approval or focused publication and creates no Product, CI, artifact,
-R3, Hardware/Human V5, production, deployment or distribution evidence.
+The Human Architect chose ADR-0019 Lean V5 instead of an Attempt-16 cache-allowlist correction.
+At this historical checkpoint the ADO-only candidate had not yet received independent approval or
+focused publication. Those gates later completed as recorded in the current Evidence table at the
+top; historical Evidence remains immutable, and no Attempt 16 or legacy rerun exists.
 
 ## Historical superseded Attempt-14 terminal evidence and prospective Attempt-15 output-binding candidate
 
