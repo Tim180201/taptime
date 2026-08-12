@@ -2,10 +2,11 @@
 
 ## Current package-clear / Employee-ready Development candidate — do not run on Hardware
 
-Baseline `aa9ad8c1d5cb74bc68b7702a41d9b154906921d0`, tree
-`3f1e0f4cd812fc37153cf2de5a0ce6f7506a2362`; uncommitted. Round-1 independent R3 review
-returned `CHANGES REQUIRED` for exactly one P2 and no other finding; the correction is complete
-and independent re-review is pending.
+Published baseline HEAD, `main` and `origin/main` all equal
+`5fa6389aad785007b0322a38cfd81a17816c7eab`, tree
+`2387276f4969e9ca16cbb31e03a4ad50949bbaba`. Formal final Exact-Head/Artifact Review Round 1
+returned `CHANGES REQUIRED` for exactly one P2 and no other finding. The focused correction is
+uncommitted, locally verified and independent re-review pending.
 
 After enrollment sign-out and `employee-installation-transition-confirm PASS`, keep existing
 pre-state, old-offline close, exact cleanup and same-APK replacement order. The owning Mobile
@@ -17,7 +18,10 @@ transaction, serial/device drift is terminal. After APK provenance/signer verifi
 complete installed-APK digest, reattest exact device, package, process null and exactly
 `tcp:54321 -> tcp:54321` plus `tcp:3000 -> tcp:3000`; any mismatch stops closed. The immediately
 following Employee-only offline arm proves process-null once again without starting the App or
-mutating mappings.
+mutating mappings. That immediate arm must issue exact Toybox argv
+`ps -A -w -o NAME:4`; `-w` prevents long primary/secondary Product names from truncating, while
+the exact `NAME` header, whitespace-free rows, exit/stdout and fail-closed parser remain
+unchanged. Do not substitute `ps -A -o NAME`.
 
 After fresh offline arm and unchanged server/Tag/session-lifecycle/queue/time/review postcheck,
 state is `employee-prepared`, never `matched`. Only Employee empty-field, one hidden Credential,
@@ -31,14 +35,17 @@ offline, fixture, device or Accessibility continuation. Existing status, abort, 
 terminal-cleanup and Accessibility-restore handling remains authoritative. Product/Mobile
 semantics, APK, schema, dependencies/lockfile, backup rules and workflow are unchanged.
 
-Corrected Development evidence under Node `24.17.0` / npm `11.13.0`: focused Mobile 120/120,
-focused Synthetic 107/107, ProductStart 5/5, tests-inclusive Typechecks with exact membership,
-build and syntax all pass. Exactly one final full Synthetic run with required APK reachability
-passed 14/14 files, 345 tests plus 19 expected skips. The executable/test delta is exactly eight
-paths, 53,756 bytes / SHA-256
-`817e843f6bbceb051149c6096b270634425815d755e34fcb4d1e038dc7db8eed`; bundle/map are 930,087 /
-1,728,704 bytes at SHA-256 `ab6600b38b8e4fdda3fec11e0b2c32d80a2987488ed717c5740bb59a4e4b6edf` /
-`a0e163eabff240310ee9dae2a1d7b22f64f56ff9fe64e92e6b7428233623d87e`.
+Fresh Development evidence under Node `24.17.0` / npm `11.13.0`: focused Controller 60/60,
+required-reachability ProductStart 5/5, tests-inclusive Synthetic Typecheck with 573 normalized
+files and each of the three changed inputs exactly once, build, syntax and map invariants all
+pass. Exactly one final full Synthetic run with required APK reachability passed 14/14 files,
+345 tests plus 19 expected skips. Before six-surface ADO synchronization, the executable/test
+delta is exactly three paths, 5,037 bytes / SHA-256
+`61c56a2afcf9a986f69fe67f28de2fda037d1e1cac942407b943a0b3b5fda2ea`; regenerated bundle/map
+are 930,095 / 1,728,717 bytes at SHA-256
+`2a48d52d204ef8cfba73d9a789de3ef50ecefa29e32c51953bc75b9d48d023a6` /
+`a51b9cfa0dfa883bf5d091789051ec16c85529afbecd53b37017940fa16a70d2`. No Hardware, ADB or
+installation may run before independent re-review and a later separate Human authorization.
 
 ## Current terminal-abort / lost-reverse correction — published and artifact-approved; do not run without new authority
 

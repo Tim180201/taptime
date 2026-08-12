@@ -371,18 +371,28 @@ describe('DA5 V5 synchronous ADB child-process boundary', () => {
 
 describe('DA5 V5 controlled API-offline ownership', () => {
   it('arms the Employee-prepared boundary only while the Product process is null', () => {
-    const running = directAdb();
-    const originalMappings = new Map(running.mappings);
-    const runningController = offlineController(running);
+    for (const processName of [
+      'com.tim180201.mobile.synthetic',
+      'com.tim180201.mobile.synthetic:secondary-process-with-long-suffix',
+    ]) {
+      const running = directAdb();
+      running.processRunning = false;
+      running.extraProcessNames = [processName];
+      const originalMappings = new Map(running.mappings);
+      const runningController = offlineController(running);
 
-    expect(runningController.armPreparedEmployee()).toBe('mismatch');
-    expect(runningController.getState().state).toBe('failed');
-    expect(running.mappings).toEqual(originalMappings);
-    expect(running.commands.some((command) => (
-      command.includes('--remove')
-      || command.includes('kill')
-      || command.includes('force-stop')
-    ))).toBe(false);
+      expect(runningController.armPreparedEmployee()).toBe('mismatch');
+      expect(runningController.getState().state).toBe('failed');
+      expect(running.mappings).toEqual(originalMappings);
+      expect(running.commands.at(-1)).toEqual([
+        '-s', running.serial, 'shell', 'ps', '-A', '-w', '-o', 'NAME:4',
+      ]);
+      expect(running.commands.some((command) => (
+        command.includes('--remove')
+        || command.includes('kill')
+        || command.includes('force-stop')
+      ))).toBe(false);
+    }
 
     const stopped = directAdb();
     stopped.processRunning = false;
@@ -390,7 +400,7 @@ describe('DA5 V5 controlled API-offline ownership', () => {
     expect(stoppedController.armPreparedEmployee()).toBe('match');
     expect(stoppedController.getState().state).toBe('direct-ordinary');
     expect(stopped.commands.at(-1)).toEqual([
-      '-s', stopped.serial, 'shell', 'ps', '-A', '-o', 'NAME',
+      '-s', stopped.serial, 'shell', 'ps', '-A', '-w', '-o', 'NAME:4',
     ]);
     expect(stoppedController.armPreparedEmployee()).toBe('mismatch');
     expect(stoppedController.getState().state).toBe('failed');
@@ -1110,7 +1120,10 @@ class FakeAdb implements Da5V5AdbCommandRunner {
       this.processRunning = false;
       return '';
     }
-    if (command.join(' ') === 'shell ps -A -o NAME') {
+    if (
+      command.join(' ') === 'shell ps -A -o NAME'
+      || command.join(' ') === 'shell ps -A -w -o NAME:4'
+    ) {
       const processNames = [
         'NAME',
         'init',

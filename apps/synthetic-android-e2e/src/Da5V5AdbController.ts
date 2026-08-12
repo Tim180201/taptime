@@ -890,7 +890,7 @@ function requireProductProcessNull(
   adb: Da5V5AdbCommandRunner,
   serial: string,
 ): void {
-  const lines = adb.run(['-s', serial, 'shell', 'ps', '-A', '-o', 'NAME'])
+  const lines = adb.run(['-s', serial, 'shell', 'ps', '-A', '-w', '-o', 'NAME:4'])
     .split('\n');
   if (lines.at(-1) === '') {
     lines.pop();

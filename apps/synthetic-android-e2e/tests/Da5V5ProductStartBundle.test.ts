@@ -417,17 +417,17 @@ describe('DA5 V5 Product operator bundle start smoke', () => {
       bytes: Buffer.byteLength(bundle),
       sha256: createHash('sha256').update(bundle).digest('hex'),
     }).toEqual({
-      bytes: 930_087,
+      bytes: 930_095,
       sha256:
-        'ab6600b38b8e4fdda3fec11e0b2c32d80a2987488ed717c5740bb59a4e4b6edf',
+        '2a48d52d204ef8cfba73d9a789de3ef50ecefa29e32c51953bc75b9d48d023a6',
     });
     expect({
       bytes: sourceMapBytes.byteLength,
       sha256: createHash('sha256').update(sourceMapBytes).digest('hex'),
     }).toEqual({
-      bytes: 1_728_704,
+      bytes: 1_728_717,
       sha256:
-        'a0e163eabff240310ee9dae2a1d7b22f64f56ff9fe64e92e6b7428233623d87e',
+        'a51b9cfa0dfa883bf5d091789051ec16c85529afbecd53b37017940fa16a70d2',
     });
     expect(sourceMap.version).toBe(3);
     expect(sourceMap.sourceRoot).toBeUndefined();
