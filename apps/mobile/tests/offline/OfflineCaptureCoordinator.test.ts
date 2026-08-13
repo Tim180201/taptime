@@ -521,7 +521,127 @@ describe('OfflineCaptureCoordinator', () => {
     expect(removeActiveLookupKey).toHaveBeenCalledTimes(1);
     expect(coordinator.getState()).toEqual({ status: 'inactive' });
   });
+
+  it.each([
+    ['secure_identity', 'P01', {
+      status: 'protected_pending',
+      reason: 'local_evidence_protected',
+    }],
+    ['database_initialization', 'P02', {
+      status: 'secure_storage_unavailable',
+    }],
+    ['database_integrity', 'P03', {
+      status: 'protected_pending',
+      reason: 'local_evidence_protected',
+    }],
+    ['database_migration', 'P04', {
+      status: 'protected_pending',
+      reason: 'local_evidence_protected',
+    }],
+    ['legacy_import', 'P05', {
+      status: 'protected_pending',
+      reason: 'legacy_membership_unknown',
+    }],
+    ['owner_binding', 'P06', {
+      status: 'protected_pending',
+      reason: 'identity_mismatch',
+    }],
+    ['lease_completeness', 'P07', {
+      status: 'protected_pending',
+      reason: 'local_evidence_protected',
+    }],
+    ['lease_activation', 'P08', {
+      status: 'unavailable',
+    }],
+    ['scheduler_durable', 'P09', {
+      status: 'protected_pending',
+      reason: 'local_evidence_protected',
+    }],
+  ] as const)('classifies the exact %s pre-scan origin opaquely', async (
+    origin,
+    protection,
+    state,
+  ) => {
+    const coordinator = protectedOriginCoordinator(origin);
+
+    await coordinator.start();
+
+    expect(coordinator.getState()).toEqual(state);
+    expect(coordinator.getState().protection).toEqual([protection]);
+  });
 });
+
+function protectedOriginCoordinator(origin:
+  | 'secure_identity'
+  | 'database_initialization'
+  | 'database_integrity'
+  | 'database_migration'
+  | 'legacy_import'
+  | 'owner_binding'
+  | 'lease_completeness'
+  | 'lease_activation'
+  | 'scheduler_durable'
+): OfflineCaptureCoordinator {
+  const initialized = origin === 'database_integrity'
+    ? { status: 'protected' as const, reason: 'cipher_integrity_failed' as const }
+    : origin === 'database_migration'
+      ? { status: 'migration_failed' as const }
+      : { status: 'ready' as const };
+  const database = databaseFake({
+    initialize: vi.fn(async () => initialized),
+    hasProtectedLegacy: vi.fn(async () => origin === 'legacy_import'),
+    bindOwner: vi.fn(async () => origin === 'owner_binding'
+      ? { status: 'protected' as const, reason: 'identity_mismatch' as const }
+      : { status: 'ready' as const }),
+    activateLease: vi.fn(async () => origin === 'lease_activation'
+      ? { status: 'protected' as const, reason: 'corrupt_row' as const }
+      : { status: 'ready' as const }),
+    readActiveCaptureContext: vi.fn(async () => null),
+    queueCount: vi.fn(async () => 0),
+    close: vi.fn(async () => undefined),
+  });
+  const protectedIdentity = {
+    async loadOrCreate() {
+      return { status: 'protected' as const, reason: 'missing_key' as const };
+    },
+    async removeActiveLookupKey() {},
+  } as unknown as OfflineInstallationIdentityStore;
+  const completeLease = leaseClient();
+  const lease = origin === 'lease_completeness'
+    ? {
+        ...completeLease,
+        async issueCompleteV2() {
+          return { status: 'incomplete_or_oversize' as const };
+        },
+      }
+    : completeLease;
+  return new OfflineCaptureCoordinator(
+    { async scan() { return { status: 'cancelled' }; } },
+    nfcLifecycle(),
+    sessionReader({ status: 'authenticated', session }, snapshot),
+    origin === 'secure_identity' ? protectedIdentity : identityStore(),
+    () => {
+      if (origin === 'database_initialization') {
+        throw new Error('closed database initialization failure');
+      }
+      return database;
+    },
+    lease,
+    new AndroidMonotonicClock({
+      async sample() {
+        return { bootMarker: 'boot-1', elapsedRealtimeMilliseconds: 100 };
+      },
+    }),
+    () => {
+      if (origin === 'scheduler_durable') {
+        throw new Error('closed scheduler durable failure');
+      }
+      return schedulerFake([]);
+    },
+    emptyOutbox(),
+    sequentialUuid([ids.command]),
+  );
+}
 
 function databaseFake(
   methods: Record<string, ReturnType<typeof vi.fn>>,

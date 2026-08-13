@@ -40,6 +40,34 @@ import {
   type Da5V5DedupePhase,
 } from '../src/index.js';
 
+function accessibilityAtPhase(
+  phase:
+    | 'profile-change-prepared'
+    | 'surface-review'
+    | 'checkpoint-ready'
+    | 'restore-required',
+): Da5V5AccessibilitySession {
+  const accessibility = new Da5V5AccessibilitySession();
+  accessibility.prepareProfileChange();
+  if (phase === 'profile-change-prepared') return accessibility;
+  accessibility.confirmAccessibilityProfile();
+  if (phase === 'surface-review') return accessibility;
+  for (const surface of DA5_V5_ACCESSIBILITY_SURFACE_PLAN) {
+    if (surface === 'administrator-setup') {
+      accessibility.beginReauthentication('administrator');
+      accessibility.completeReauthentication('administrator');
+    }
+    if (surface === 'employee-navigation') {
+      accessibility.beginReauthentication('employee');
+      accessibility.completeReauthentication('employee');
+    }
+    accessibility.confirmSurface(surface, 'pass');
+  }
+  if (phase === 'checkpoint-ready') return accessibility;
+  accessibility.recordGateOutcome('pass');
+  return accessibility;
+}
+
 describe('DA5 V5 explicit profile and disclosure boundaries', () => {
   it('accepts only the exact opt-in profile', () => {
     expect(requireDa5V5Profile(DA5_V5_PROFILE)).toBe('da5-v5');
@@ -425,6 +453,58 @@ describe('DA5 V5 serial Human checkpoints', () => {
       expect(accessibility.confirmRestoreProof('mismatch')).toBe('mismatch');
       expect(accessibility.state().gateOutcome).toBe('fail');
       expect(accessibility.confirmRestoreProof('match')).toBe('match');
+      expect(accessibility.terminalFailureRestored()).toBe(true);
+    });
+
+  it.each([
+    'profile-change-prepared',
+    'surface-review',
+    'checkpoint-ready',
+    'restore-required',
+  ] as const)('keeps direct abort in %s restoration-only until one terminal cleanup',
+    async (phase) => {
+      const accessibility = accessibilityAtPhase(phase);
+      const events: string[] = [];
+      const closeInput = vi.fn();
+      const cleanup = vi.fn(async () => {
+        closeInput();
+      });
+      const lifecycle = new Da5V5OperatorLifecycle(
+        cleanup,
+        (event) => events.push(event),
+        vi.fn(),
+        vi.fn(),
+        closeInput,
+      );
+      const directAbort = async () => {
+        expect(accessibility.requiresRestoreProof()).toBe(true);
+        accessibility.fail();
+        return { state: 'continue' as const };
+      };
+
+      await lifecycle.submit(directAbort);
+      await lifecycle.submit(directAbort);
+      expect(accessibility.restoreOnly()).toBe(true);
+      expect(accessibility.state().gateOutcome).toBe('fail');
+      expect(accessibility.recordGateOutcome('pass')).toBe('mismatch');
+      expect(cleanup).not.toHaveBeenCalled();
+      expect(closeInput).not.toHaveBeenCalled();
+
+      expect(accessibility.confirmRestoreProof('mismatch')).toBe('mismatch');
+      expect(accessibility.restoreOnly()).toBe(true);
+      expect(cleanup).not.toHaveBeenCalled();
+      expect(closeInput).not.toHaveBeenCalled();
+
+      expect(accessibility.confirmRestoreProof('match')).toBe('match');
+      await lifecycle.submit(async () => ({
+        event: 'da5_v5_aborted' as const,
+        state: 'fail' as const,
+      }));
+      await lifecycle.submit(vi.fn(async () => ({ state: 'continue' as const })));
+
+      expect(events).toEqual(['da5_v5_aborted']);
+      expect(cleanup).toHaveBeenCalledTimes(1);
+      expect(closeInput).toHaveBeenCalledTimes(1);
       expect(accessibility.terminalFailureRestored()).toBe(true);
     });
 
@@ -1312,9 +1392,9 @@ describe('DA5 V5 fixture, lifecycle and startup fail-stop boundaries', () => {
         '/^protected-review-arm ([0-9]+)$/u.exec(normalized)',
       );
       expect(source).not.toContain('activeEnvironment.da5V5FixtureArm(0)');
-      expect(source).toContain(
-        "source: 'human-visible-product-observation'",
-      );
+      expect(source).toContain("hierarchy: device.verifyEmployeeReadyHierarchy()");
+      expect(source).toContain("? 'READY' : 'MISMATCH'");
+      expect(source).not.toContain("expected: 'Bereit zum Scannen'");
       expect(source).toContain('mutationAbortController.abort()');
       expect(source).toContain(
         "operatorLifecycle?.abortAndFail('operator_command_failed')",
@@ -1352,9 +1432,19 @@ describe('DA5 V5 fixture, lifecycle and startup fail-stop boundaries', () => {
       expect(source).toContain('await offline.settleForTerminalCleanup()');
       expect(source).toContain("if (normalized === 'abort')");
       expect(source).toContain('| abort | stop');
+      expect(source.indexOf(
+        "if (normalized === 'abort' && accessibilitySession.requiresRestoreProof())",
+      )).toBeLessThan(source.indexOf('if (accessibilitySession.restoreOnly())'));
       expect(source.indexOf('if (accessibilitySession.restoreOnly())')).toBeLessThan(
-        source.indexOf("if (normalized === 'abort')"),
+        source.indexOf("if (normalized === 'abort') {"),
       );
+      expect(source).toContain("return fail(activeSession, 'da5_v5_aborted')");
+      expect(source).toContain('let commandSubmissionTail: Promise<void> = Promise.resolve()');
+      expect(source).toContain(
+        'const restorationRequired = accessibilitySession.requiresRestoreProof()',
+      );
+      expect(source).toContain('? commandSubmissionTail.then(submitCommand)');
+      expect(source).toContain(': submitCommand()');
       expect(source).toContain("if (offline.arm() !== 'match')");
       expect(source.indexOf('await installDa5V5AndroidFromPackageZero({')).toBeLessThan(
         source.indexOf("if (offline.arm() !== 'match')"),
@@ -1392,8 +1482,8 @@ describe('DA5 V5 fixture, lifecycle and startup fail-stop boundaries', () => {
         'const employeeInstallationTransition = new Da5V5EmployeeInstallationTransition()',
       );
       expect(source).toContain("? 'employee-prepared'");
-      expect(source).toContain("expected: 'Bereit zum Scannen'");
-      expect(source).toContain("source: 'human-visible-product-observation'");
+      expect(source).toContain('device.verifyEmployeeReadyHierarchy()');
+      expect(source).toContain('da5_v5_employee_ready=${result === \'match\' ? \'READY\' : \'MISMATCH\'}');
       expect(source).toContain(
         'employeeInstallationTransition: employeeInstallationTransition.getState()',
       );

@@ -17,7 +17,10 @@ const AUTH_MAPPING = Object.freeze({ device: 'tcp:54321', host: 'tcp:54321' });
 const API_MAPPING = Object.freeze({ device: 'tcp:3000', host: 'tcp:3000' });
 const USB_REVERSE_TRANSPORT = 'UsbFfs';
 const ADB_TIMEOUT_MILLISECONDS = 5_000;
+const ADB_MAX_OUTPUT_BYTES = 64 * 1024;
 const ADB_SERVER_ARGUMENTS = Object.freeze(['-H', '127.0.0.1', '-P', '5037']);
+const EMPLOYEE_READY_RESOURCE_ID = `${PACKAGE_NAME}:id/scan-status-ready`;
+const EMPLOYEE_SCAN_STATUS_RESOURCE_PREFIX = `${PACKAGE_NAME}:id/scan-status-`;
 
 export interface Da5V5AdbCommandRunner {
   run(arguments_: readonly string[]): string;
@@ -47,6 +50,7 @@ export class SystemDa5V5AdbCommandRunner implements Da5V5AdbCommandRunner {
       encoding: 'utf8',
       env: createDa5V5AdbChildEnvironment(this.environment),
       killSignal: 'SIGKILL',
+      maxBuffer: ADB_MAX_OUTPUT_BYTES,
       stdio: ['ignore', 'pipe', 'pipe'],
       timeout: ADB_TIMEOUT_MILLISECONDS,
     });
@@ -107,6 +111,23 @@ export interface Da5V5EmployeeInstallationTransitionOperations {
   readonly precheck: () => Promise<'match' | 'mismatch'>;
 }
 
+export type Da5V5EmployeeReadyHierarchyStatus =
+  | 'ready'
+  | 'missing'
+  | 'duplicate'
+  | 'protected'
+  | 'unavailable'
+  | 'unknown'
+  | 'wrong-package'
+  | 'malformed'
+  | 'oversize'
+  | 'query-failed';
+
+export interface Da5V5EmployeeReadyAttestation {
+  readonly boundary: 'match' | 'mismatch';
+  readonly hierarchy: Da5V5EmployeeReadyHierarchyStatus;
+}
+
 export function da5V5AndroidInstallFailureReceipt(error: unknown): string {
   const cleanup = classifyDa5V5AndroidInstallCleanup(error);
   return `da5_v5_android_install=mismatch category=${classifyDa5V5AndroidInstallError(error)} cleanup_status=${cleanup.status} cleanup_substage=${cleanup.substage}\n`;
@@ -151,7 +172,7 @@ export class Da5V5EmployeeInstallationTransition {
 
   confirmReady(
     verdict: 'pass' | 'fail' | 'ambiguous',
-    reattestBoundary: () => Promise<'match' | 'mismatch'>,
+    attest: () => Promise<Da5V5EmployeeReadyAttestation>,
   ): Promise<'match' | 'mismatch'> {
     if (
       verdict !== 'pass'
@@ -161,7 +182,7 @@ export class Da5V5EmployeeInstallationTransition {
       return Promise.resolve(this.fail());
     }
     this.stateValue = 'employee-ready-confirming';
-    const flight = this.runReady(reattestBoundary).finally(() => {
+    const flight = this.runReady(attest).finally(() => {
       if (this.flight === flight) {
         this.flight = null;
       }
@@ -219,15 +240,19 @@ export class Da5V5EmployeeInstallationTransition {
   }
 
   private async runReady(
-    reattestBoundary: () => Promise<'match' | 'mismatch'>,
+    attest: () => Promise<Da5V5EmployeeReadyAttestation>,
   ): Promise<'match' | 'mismatch'> {
-    let result: 'match' | 'mismatch';
+    let result: Da5V5EmployeeReadyAttestation;
     try {
-      result = await reattestBoundary();
+      result = await attest();
     } catch {
       return this.fail();
     }
-    if (this.stateValue !== 'employee-ready-confirming' || result !== 'match') {
+    if (
+      this.stateValue !== 'employee-ready-confirming'
+      || result.boundary !== 'match'
+      || result.hierarchy !== 'ready'
+    ) {
       return this.fail();
     }
     this.stateValue = 'matched';
@@ -553,6 +578,28 @@ export class Da5V5DeviceCheckpointController {
     return 'match';
   }
 
+  verifyEmployeeReadyHierarchy(): Da5V5EmployeeReadyHierarchyStatus {
+    if (this.state !== 'created') return 'query-failed';
+    try {
+      const serial = requireSingleUsbDevice(this.adb);
+      requireDeviceIdentity(this.adb, serial, this.standard);
+      if (this.deviceLock.bind(serial) !== 'match') return 'query-failed';
+      requireMappings(this.adb, serial, true);
+      requireInstalledPackage(this.adb, serial);
+      const hierarchy = this.adb.run([
+        '-s',
+        serial,
+        'exec-out',
+        'uiautomator',
+        'dump',
+        '/dev/tty',
+      ]);
+      return classifyDa5V5EmployeeReadyHierarchy(hierarchy);
+    } catch {
+      return 'query-failed';
+    }
+  }
+
   prepareAccessibilityProfileChange(): 'match' | 'mismatch' {
     if (this.state !== 'protected-relaunch-complete') {
       return 'mismatch';
@@ -774,6 +821,126 @@ export class Da5V5DeviceCheckpointController {
 interface ReverseMapping {
   readonly device: string;
   readonly host: string;
+}
+
+export function classifyDa5V5EmployeeReadyHierarchy(
+  hierarchy: string,
+): Da5V5EmployeeReadyHierarchyStatus {
+  if (Buffer.byteLength(hierarchy, 'utf8') > ADB_MAX_OUTPUT_BYTES) return 'oversize';
+  const resourceIds = readUiAutomatorResourceIds(hierarchy);
+  if (resourceIds === null) return 'malformed';
+  const scanStatusIds = resourceIds.filter((resourceId) => (
+    resourceId.includes(':id/scan-status-')
+    || resourceId.endsWith(':id/scan-status')
+  ));
+  if (scanStatusIds.length === 0) return 'missing';
+  if (scanStatusIds.some((resourceId) => (
+    !resourceId.startsWith(EMPLOYEE_SCAN_STATUS_RESOURCE_PREFIX)
+  ))) return 'wrong-package';
+  if (scanStatusIds.length !== 1) return 'duplicate';
+  const [resourceId] = scanStatusIds;
+  if (resourceId === EMPLOYEE_READY_RESOURCE_ID) return 'ready';
+  if (/^com\.tim180201\.mobile\.synthetic:id\/scan-status-p0[1-9]$/u.test(resourceId ?? '')) {
+    return 'protected';
+  }
+  if (resourceId === `${EMPLOYEE_SCAN_STATUS_RESOURCE_PREFIX}unavailable`) {
+    return 'unavailable';
+  }
+  return 'unknown';
+}
+
+function readUiAutomatorResourceIds(hierarchy: string): readonly string[] | null {
+  if (hierarchy.includes('\0')) return null;
+  const source = hierarchy.replace(
+    /\r?\nUI hierchary dumped to: \/dev\/tty\r?\n?$/u,
+    '',
+  );
+  const resourceIds: string[] = [];
+  const stack: string[] = [];
+  let cursor = 0;
+  let rootSeen = false;
+  let rootClosed = false;
+  while (cursor < source.length) {
+    const opening = source.indexOf('<', cursor);
+    if (opening === -1) {
+      if (source.slice(cursor).trim().length !== 0) return null;
+      break;
+    }
+    if (source.slice(cursor, opening).trim().length !== 0) return null;
+    let closing = opening + 1;
+    let quote: '"' | "'" | null = null;
+    for (; closing < source.length; closing += 1) {
+      const character = source[closing];
+      if (quote !== null) {
+        if (character === quote) quote = null;
+      } else if (character === '"' || character === "'") {
+        quote = character;
+      } else if (character === '>') {
+        break;
+      }
+    }
+    if (closing >= source.length || quote !== null) return null;
+    const token = source.slice(opening + 1, closing).trim();
+    cursor = closing + 1;
+    if (token.startsWith('?')) {
+      if (rootSeen || !/^\?xml\s+[^<>]*\?$/u.test(token)) return null;
+      continue;
+    }
+    if (token.startsWith('/')) {
+      const name = token.slice(1).trim();
+      if (!/^(?:hierarchy|node)$/u.test(name) || stack.pop() !== name) return null;
+      if (name === 'hierarchy') rootClosed = true;
+      continue;
+    }
+    const selfClosing = token.endsWith('/');
+    const openingToken = selfClosing ? token.slice(0, -1).trimEnd() : token;
+    const nameMatch = /^(hierarchy|node)(?=\s|$)/u.exec(openingToken);
+    if (nameMatch === null || rootClosed) return null;
+    const name = nameMatch[1]!;
+    if (name === 'hierarchy') {
+      if (rootSeen || stack.length !== 0 || selfClosing) return null;
+      rootSeen = true;
+    } else if (!rootSeen || stack.length === 0) {
+      return null;
+    }
+    const attributes = readXmlAttributes(openingToken.slice(name.length));
+    if (attributes === null) return null;
+    const resourceId = attributes.get('resource-id');
+    if (resourceId !== undefined) resourceIds.push(resourceId);
+    if (!selfClosing) stack.push(name);
+  }
+  return rootSeen && rootClosed && stack.length === 0 ? resourceIds : null;
+}
+
+function readXmlAttributes(source: string): ReadonlyMap<string, string> | null {
+  const attributes = new Map<string, string>();
+  let cursor = 0;
+  while (cursor < source.length) {
+    while (/\s/u.test(source[cursor] ?? '')) cursor += 1;
+    if (cursor === source.length) return attributes;
+    const nameMatch = /^[A-Za-z_:][A-Za-z0-9_.:-]*/u.exec(source.slice(cursor));
+    if (nameMatch === null) return null;
+    const name = nameMatch[0];
+    cursor += name.length;
+    while (/\s/u.test(source[cursor] ?? '')) cursor += 1;
+    if (source[cursor] !== '=') return null;
+    cursor += 1;
+    while (/\s/u.test(source[cursor] ?? '')) cursor += 1;
+    const quote = source[cursor];
+    if (quote !== '"' && quote !== "'") return null;
+    cursor += 1;
+    const end = source.indexOf(quote, cursor);
+    if (end === -1) return null;
+    const value = source.slice(cursor, end);
+    if (/[<&]/u.test(value.replace(
+      /&(?:amp|lt|gt|quot|apos|#[0-9]+|#x[0-9A-Fa-f]+);/gu,
+      '',
+    ))) return null;
+    if (attributes.has(name)) return null;
+    attributes.set(name, value);
+    cursor = end + 1;
+  }
+  return attributes;
 }
 
 function requireSingleUsbDevice(adb: Da5V5AdbCommandRunner): string {

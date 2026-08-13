@@ -417,17 +417,17 @@ describe('DA5 V5 Product operator bundle start smoke', () => {
       bytes: Buffer.byteLength(bundle),
       sha256: createHash('sha256').update(bundle).digest('hex'),
     }).toEqual({
-      bytes: 930_095,
+      bytes: 935_974,
       sha256:
-        '2a48d52d204ef8cfba73d9a789de3ef50ecefa29e32c51953bc75b9d48d023a6',
+        'f08327487af8e284cb2678359ef8f3d553bd8e5b96654693676ebda1e73e1cd3',
     });
     expect({
       bytes: sourceMapBytes.byteLength,
       sha256: createHash('sha256').update(sourceMapBytes).digest('hex'),
     }).toEqual({
-      bytes: 1_728_717,
+      bytes: 1_739_281,
       sha256:
-        'a51b9cfa0dfa883bf5d091789051ec16c85529afbecd53b37017940fa16a70d2',
+        '513f9d4af23bfda4453aecf09a94c945a11bb1581ecebbe3cf7760ff8ac39220',
     });
     expect(sourceMap.version).toBe(3);
     expect(sourceMap.sourceRoot).toBeUndefined();
@@ -507,8 +507,11 @@ describe('DA5 V5 Product operator bundle start smoke', () => {
     expect(bundle).toContain('replacement-installed');
     expect(bundle).toContain('replacement-cleared');
     expect(bundle).toContain('employee-prepared');
-    expect(bundle).toContain('Bereit zum Scannen');
-    expect(bundle).toContain('human-visible-product-observation');
+    expect(bundle).toContain('da5_v5_employee_ready=');
+    expect(bundle).toContain('scan-status-ready');
+    expect(bundle).toContain('uiautomator');
+    expect(bundle).toContain('/dev/tty');
+    expect(bundle).toContain('query-failed');
     expect(bundle).toMatch(
       /"shell",\s+"pm",\s+"clear",\s+"--user",\s+androidOwnerUser,\s+DA5_V5_ANDROID_PACKAGE/u,
     );
@@ -531,6 +534,7 @@ describe('DA5 V5 Product operator bundle start smoke', () => {
     expect(bundle).toContain('da5_v5_accessibility_restore_required=match');
     expect(bundle).toContain('DA5 V5 accessibility restore proof is unavailable');
     expect(bundle).toContain('standard-profile-check');
+    expect(bundle).toContain('commandSubmissionTail');
     expect(bundle).toContain('requireEmptyOutput: true');
     expect(bundle).toContain('IFS= read -r v || exit 40;');
     expect(bundle).toContain('*[!0-9a-f]*');

@@ -148,6 +148,7 @@ let cleanupResourcesPromise: Promise<void> | null = null;
 const completedCleanupStages = new Set<string>();
 const startupAcquisitionSettlement = new Da5V5StartupSettlement();
 const inputOwnership = new Da5V5InputOwnership();
+let commandSubmissionTail: Promise<void> = Promise.resolve();
 const adb = new SystemDa5V5AdbCommandRunner();
 const mobileAdb = new SystemDa5V5AndroidAdbRunner();
 const mobileInstallStreamAdb = mobileAdb.createInstallStreamRunner();
@@ -311,6 +312,9 @@ async function handleCommand(line: string): Promise<Da5V5OperatorCommandOutcome>
     return fail(activeSession, 'operator_command_failed');
   }
   const normalized = line.trim();
+  if (normalized === 'abort' && accessibilitySession.requiresRestoreProof()) {
+    return fail(activeSession, 'da5_v5_aborted');
+  }
   if (accessibilitySession.restoreOnly()) {
     if (normalized !== 'standard-profile-check') {
       process.stdout.write('da5_v5_accessibility_restore_only=mismatch\n');
@@ -543,7 +547,7 @@ async function handleCommand(line: string): Promise<Da5V5OperatorCommandOutcome>
           activeSession,
           credentialPhases.length,
         );
-        return employeePreparedBoundary !== null
+        const boundary = employeePreparedBoundary !== null
           && readyBoundary !== null
           && employeeInstallationBoundarySnapshotsMatch(
             employeePreparedBoundary,
@@ -551,16 +555,18 @@ async function handleCommand(line: string): Promise<Da5V5OperatorCommandOutcome>
           )
           ? 'match'
           : 'mismatch';
+        return Object.freeze({
+          boundary,
+          hierarchy: device.verifyEmployeeReadyHierarchy(),
+        });
       }),
     );
     if (result === 'match') {
       employeePreparedBoundary = null;
     }
-    process.stdout.write(`da5_v5_employee_ready=${JSON.stringify({
-      expected: 'Bereit zum Scannen',
-      result,
-      source: 'human-visible-product-observation',
-    })}\n`);
+    process.stdout.write(
+      `da5_v5_employee_ready=${result === 'match' ? 'READY' : 'MISMATCH'}\n`,
+    );
     return result === 'match'
       ? { state: 'continue' }
       : fail(activeSession, 'da5_v5_device_checkpoint=mismatch');
@@ -1437,11 +1443,22 @@ function startCommandInput(): void {
   });
   inputOwnership.attachCommand(commandInput);
   commandInput.on('line', (line) => {
-    observeBackgroundOperation(
-      operatorLifecycle?.submit(() => handleCommand(line)).finally(() => {
-        startCommandInput();
-      }),
-    );
+    const submitCommand = async () => {
+      await operatorLifecycle?.submit(() => handleCommand(line));
+    };
+    const restorationRequired = accessibilitySession.requiresRestoreProof();
+    const submission = restorationRequired
+      ? commandSubmissionTail.then(submitCommand)
+      : submitCommand();
+    if (restorationRequired) {
+      commandSubmissionTail = submission.then(
+        () => undefined,
+        () => undefined,
+      );
+    }
+    observeBackgroundOperation(submission.finally(() => {
+      startCommandInput();
+    }));
   });
   commandInput.once('close', () => {
     if (inputOwnership.command() !== commandInput) return;

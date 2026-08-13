@@ -10,9 +10,12 @@ import {
   Da5V5EmployeeInstallationTransition,
   Da5V5UsbDeviceLock,
   SystemDa5V5AdbCommandRunner,
+  classifyDa5V5EmployeeReadyHierarchy,
   da5V5AndroidInstallFailureReceipt,
   type Da5V5AdbCommandRunner,
 } from '../src/index.js';
+
+import { scanStatusTestId } from '../../mobile/src/scan/contracts';
 
 const googleTalkBackPackage = 'com.google.android.marvin.talkback' as const;
 const samsungTalkBackPackage = 'com.samsung.android.accessibility.talkback' as const;
@@ -80,7 +83,7 @@ describe('DA5 V5 Employee installation transition', () => {
 
     await expect(transition.confirmReady('pass', async () => {
       calls.push(`ready:${transition.getState().state}`);
-      return 'match';
+      return readyAttestation();
     })).resolves.toBe('match');
     expect(calls.at(-1)).toBe('ready:employee-ready-confirming');
     expect(transition.getState()).toEqual({ state: 'matched' });
@@ -226,7 +229,7 @@ describe('DA5 V5 Employee installation transition', () => {
       const transition = new Da5V5EmployeeInstallationTransition();
       await expect(transition.confirm('pass', employeeTransitionOperations([])))
         .resolves.toBe('match');
-      const reattest = vi.fn(async () => 'match' as const);
+      const reattest = vi.fn(async () => readyAttestation());
 
       await expect(transition.confirmReady(verdict, reattest))
         .resolves.toBe('mismatch');
@@ -239,7 +242,7 @@ describe('DA5 V5 Employee installation transition', () => {
 
   it('blocks early, late and repeated Employee-ready confirmation monotonically', async () => {
     const early = new Da5V5EmployeeInstallationTransition();
-    const earlyReattest = vi.fn(async () => 'match' as const);
+    const earlyReattest = vi.fn(async () => readyAttestation());
     await expect(early.confirmReady('pass', earlyReattest)).resolves.toBe('mismatch');
     expect(earlyReattest).not.toHaveBeenCalled();
     expect(early.getState()).toEqual({ state: 'failed' });
@@ -247,9 +250,9 @@ describe('DA5 V5 Employee installation transition', () => {
     const late = new Da5V5EmployeeInstallationTransition();
     await expect(late.confirm('pass', employeeTransitionOperations([])))
       .resolves.toBe('match');
-    await expect(late.confirmReady('pass', async () => 'match'))
+    await expect(late.confirmReady('pass', async () => readyAttestation()))
       .resolves.toBe('match');
-    const repeatReattest = vi.fn(async () => 'match' as const);
+    const repeatReattest = vi.fn(async () => readyAttestation());
     await expect(late.confirmReady('pass', repeatReattest)).resolves.toBe('mismatch');
     expect(repeatReattest).not.toHaveBeenCalled();
     expect(late.getState()).toEqual({ state: 'failed' });
@@ -263,7 +266,7 @@ describe('DA5 V5 Employee installation transition', () => {
 
       await expect(transition.confirmReady('pass', async () => {
         if (outcome === 'throw') throw new Error('private unavailable detail');
-        return 'mismatch';
+        return readyAttestation('mismatch');
       })).resolves.toBe('mismatch');
 
       expect(transition.getState()).toEqual({ state: 'failed' });
@@ -277,10 +280,10 @@ describe('DA5 V5 Employee installation transition', () => {
     const blocked = new Promise<void>((resolve) => { release = resolve; });
     const first = transition.confirmReady('pass', async () => {
       await blocked;
-      return 'match';
+      return readyAttestation();
     });
     await Promise.resolve();
-    const secondProof = vi.fn(async () => 'match' as const);
+    const secondProof = vi.fn(async () => readyAttestation());
 
     await expect(transition.confirmReady('pass', secondProof)).resolves.toBe('mismatch');
     release();
@@ -288,6 +291,83 @@ describe('DA5 V5 Employee installation transition', () => {
 
     expect(secondProof).not.toHaveBeenCalled();
     expect(transition.getState()).toEqual({ state: 'failed' });
+  });
+
+  it.each([
+    'missing',
+    'duplicate',
+    'protected',
+    'unavailable',
+    'unknown',
+    'wrong-package',
+    'malformed',
+    'oversize',
+    'query-failed',
+  ] as const)('never matches Employee-ready when the machine hierarchy is %s', async (hierarchy) => {
+    const transition = new Da5V5EmployeeInstallationTransition();
+    await transition.confirm('pass', employeeTransitionOperations([]));
+
+    await expect(transition.confirmReady('pass', async () => (
+      readyAttestation('match', hierarchy)
+    ))).resolves.toBe('mismatch');
+
+    expect(transition.getState()).toEqual({ state: 'failed' });
+    expect(transition.matched()).toBe(false);
+  });
+});
+
+describe('DA5 V5 disclosure-safe Employee-ready hierarchy proof', () => {
+  it('classifies the exact fully-qualified READY resource-id emitted by ScanScreen', () => {
+    const scanScreenResourceId = scanStatusTestId(
+      { status: 'ready', outcome: null },
+      'synthetic-e2e',
+    );
+
+    expect(scanScreenResourceId)
+      .toBe('com.tim180201.mobile.synthetic:id/scan-status-ready');
+    expect(classifyDa5V5EmployeeReadyHierarchy(employeeHierarchy(scanScreenResourceId)))
+      .toBe('ready');
+  });
+
+  it.each([
+    [employeeHierarchy('com.tim180201.mobile.synthetic:id/scan-status-ready'), 'ready'],
+    [employeeHierarchy(), 'missing'],
+    [employeeHierarchy(
+      'com.tim180201.mobile.synthetic:id/scan-status-ready',
+      'com.tim180201.mobile.synthetic:id/scan-status-ready',
+    ), 'duplicate'],
+    [employeeHierarchy('com.tim180201.mobile.synthetic:id/scan-status-p01'), 'protected'],
+    [employeeHierarchy('com.tim180201.mobile.synthetic:id/scan-status-p09'), 'protected'],
+    [employeeHierarchy('com.tim180201.mobile.synthetic:id/scan-status-unavailable'), 'unavailable'],
+    [employeeHierarchy('com.tim180201.mobile.synthetic:id/scan-status-other'), 'unknown'],
+    [employeeHierarchy('other.package:id/scan-status-ready'), 'wrong-package'],
+    ['<hierarchy><node resource-id="com.tim180201.mobile.synthetic:id/scan-status-ready"></hierarchy>', 'malformed'],
+    ['x'.repeat(64 * 1024 + 1), 'oversize'],
+  ] as const)('classifies bounded hierarchy input as %s', (hierarchy, expected) => {
+    expect(classifyDa5V5EmployeeReadyHierarchy(hierarchy)).toBe(expected);
+  });
+
+  it('uses only the exact read-only query after device, mapping and package continuity checks', () => {
+    const adb = directAdb();
+    const controller = checkpointController(adb);
+
+    expect(controller.verifyEmployeeReadyHierarchy()).toBe('ready');
+    expect(adb.commands.at(-1)?.slice(2)).toEqual([
+      'exec-out',
+      'uiautomator',
+      'dump',
+      '/dev/tty',
+    ]);
+
+    const wrongPackage = directAdb();
+    wrongPackage.hierarchy = employeeHierarchy('other.package:id/scan-status-ready');
+    expect(checkpointController(wrongPackage).verifyEmployeeReadyHierarchy())
+      .toBe('wrong-package');
+
+    const unavailable = directAdb();
+    unavailable.packageInstalled = false;
+    expect(checkpointController(unavailable).verifyEmployeeReadyHierarchy())
+      .toBe('query-failed');
   });
 });
 
@@ -966,6 +1046,34 @@ function employeeTransitionOperations(calls: string[]) {
   };
 }
 
+function readyAttestation(
+  boundary: 'match' | 'mismatch' = 'match',
+  hierarchy:
+    | 'ready'
+    | 'missing'
+    | 'duplicate'
+    | 'protected'
+    | 'unavailable'
+    | 'unknown'
+    | 'wrong-package'
+    | 'malformed'
+    | 'oversize'
+    | 'query-failed' = 'ready',
+) {
+  return Object.freeze({ boundary, hierarchy });
+}
+
+function employeeHierarchy(...resourceIds: readonly string[]): string {
+  return [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<hierarchy rotation="0">',
+    ...resourceIds.map((resourceId) => (
+      `<node resource-id="${resourceId}" class="android.view.View" />`
+    )),
+    '</hierarchy>',
+  ].join('');
+}
+
 function checkpointController(
   adb: FakeAdb,
   accessibilityOverrides: Readonly<{
@@ -1038,6 +1146,9 @@ class FakeAdb implements Da5V5AdbCommandRunner {
   extraProcessNames: string[] = [];
   failOnce: ((arguments_: readonly string[]) => boolean) | null = null;
   fontScale = '1.0';
+  hierarchy = employeeHierarchy(
+    'com.tim180201.mobile.synthetic:id/scan-status-ready',
+  );
   mappings = new Map<string, string>();
   packageInstalled = true;
   processRunning = true;
@@ -1112,6 +1223,9 @@ class FakeAdb implements Da5V5AdbCommandRunner {
       return this.packageInstalled
         ? 'package:/data/app/synthetic/base.apk\n'
         : '';
+    }
+    if (command.join(' ') === 'exec-out uiautomator dump /dev/tty') {
+      return this.hierarchy;
     }
     if (
       command.join(' ') === 'shell am kill com.tim180201.mobile.synthetic'

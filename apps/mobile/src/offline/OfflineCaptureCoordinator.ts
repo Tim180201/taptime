@@ -23,11 +23,13 @@ import type {
 import type {
   ProductScanCapability,
   ProductScanOutcome,
+  ProductScanProtectionClass,
   ProductScanSessionContextReader,
   ProductScanSessionSnapshot,
   ProductScanState,
   SecureUuidGenerator,
 } from '../scan/contracts';
+import { PRODUCT_SCAN_PROTECTION_CLASS } from '../scan/contracts';
 import type { LifecycleEventApiPort } from '../transport/contracts';
 import { AndroidMonotonicClock } from './AndroidMonotonicClock';
 import {
@@ -315,8 +317,14 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
     }
     if (identity.status !== 'ready') {
       this.setState(identity.status === 'protected'
-        ? { status: 'protected_pending', reason: 'local_evidence_protected' }
-        : { status: 'secure_storage_unavailable' });
+        ? protectedScanState(
+            'local_evidence_protected',
+            PRODUCT_SCAN_PROTECTION_CLASS.secureIdentity,
+          )
+        : classifiedScanState(
+            { status: 'secure_storage_unavailable' },
+            PRODUCT_SCAN_PROTECTION_CLASS.secureIdentity,
+          ));
       return false;
     }
     this.secrets = identity.secrets;
@@ -324,32 +332,78 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
     try {
       database = this.databaseFactory(identity.secrets.databaseKey);
     } catch {
-      this.setState({ status: 'secure_storage_unavailable' });
+      this.setState(classifiedScanState(
+        { status: 'secure_storage_unavailable' },
+        PRODUCT_SCAN_PROTECTION_CLASS.databaseInitialization,
+      ));
       return false;
     }
-    const initialized = await database.initialize();
+    let initialized;
+    try {
+      initialized = await database.initialize();
+    } catch {
+      this.setState(protectedScanState(
+        'local_evidence_protected',
+        PRODUCT_SCAN_PROTECTION_CLASS.databaseInitialization,
+      ));
+      return false;
+    }
     if (initialized.status !== 'ready') {
-      this.setState({ status: 'protected_pending', reason: 'local_evidence_protected' });
+      const protection = initialized.status === 'migration_failed'
+        ? PRODUCT_SCAN_PROTECTION_CLASS.databaseMigration
+        : initialized.status === 'protected'
+          ? PRODUCT_SCAN_PROTECTION_CLASS.databaseIntegrity
+          : PRODUCT_SCAN_PROTECTION_CLASS.databaseInitialization;
+      this.setState(protectedScanState('local_evidence_protected', protection));
       return false;
     }
     this.database = database;
-    const imported = await new LegacyLifecycleEvidenceImporter(
-      this.legacyOutbox,
-      database,
-      this.now,
-    ).importOnce();
+    let imported;
+    try {
+      imported = await new LegacyLifecycleEvidenceImporter(
+        this.legacyOutbox,
+        database,
+        this.now,
+      ).importOnce();
+    } catch {
+      this.setState(protectedScanState(
+        'local_evidence_protected',
+        PRODUCT_SCAN_PROTECTION_CLASS.legacyImport,
+      ));
+      return false;
+    }
     if (imported.status === 'protected' && imported.reason === 'review_predecessor') {
       this.protectedLegacy = true;
     } else if (imported.status !== 'ready') {
-      this.setState({ status: 'protected_pending', reason: 'local_evidence_protected' });
+      this.setState(protectedScanState(
+        'local_evidence_protected',
+        PRODUCT_SCAN_PROTECTION_CLASS.legacyImport,
+      ));
       return false;
     }
-    this.scheduler = this.schedulerFactory(database, {
-      rejectOfflineCapture: () => this.rejectOfflineCapture(),
-    });
-    this.scheduler.start();
-    this.unsubscribeScheduler = this.scheduler.subscribe(() => this.onSchedulerState());
-    this.backgroundBinding.bind(this.scheduler);
+    try {
+      this.scheduler = this.schedulerFactory(database, {
+        rejectOfflineCapture: () => this.rejectOfflineCapture(),
+      });
+      this.scheduler.start();
+      this.unsubscribeScheduler = this.scheduler.subscribe(() => this.onSchedulerState());
+      this.backgroundBinding.bind(this.scheduler);
+    } catch {
+      this.unsubscribeScheduler?.();
+      this.unsubscribeScheduler = null;
+      this.scheduler?.stop();
+      this.scheduler = null;
+      try {
+        this.backgroundBinding.bind(null);
+      } catch {
+        // The stopped scheduler remains unusable even if the optional native binding rejects.
+      }
+      this.setState(protectedScanState(
+        'local_evidence_protected',
+        PRODUCT_SCAN_PROTECTION_CLASS.schedulerDurableState,
+      ));
+      return false;
+    }
     return true;
   }
 
@@ -378,7 +432,10 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
     await this.nfcLifecycle.cancelCapture();
     if (!this.isCurrent(generation)) return;
     if (this.protectedLegacy) {
-      this.setState({ status: 'protected_pending', reason: 'legacy_membership_unknown' });
+      this.setState(protectedScanState(
+        'legacy_membership_unknown',
+        PRODUCT_SCAN_PROTECTION_CLASS.legacyImport,
+      ));
       return;
     }
 
@@ -429,7 +486,10 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
     if (secrets === null) {
       const loaded = await this.identityStore.loadOrCreate();
       if (loaded.status !== 'ready') {
-        this.setState({ status: 'secure_storage_unavailable' });
+        this.setState(classifiedScanState(
+          { status: 'secure_storage_unavailable' },
+          PRODUCT_SCAN_PROTECTION_CLASS.secureIdentity,
+        ));
         return;
       }
       secrets = loaded.secrets;
@@ -437,43 +497,75 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
     }
     const decodedBinding = decodeBase64Url32(secrets.installationBinding);
     if (decodedBinding === null) {
-      this.setState({ status: 'secure_storage_unavailable' });
+      this.setState(classifiedScanState(
+        { status: 'secure_storage_unavailable' },
+        PRODUCT_SCAN_PROTECTION_CLASS.secureIdentity,
+      ));
       return;
     }
-    const bound = await database.bindOwner({
-      organizationId: snapshot.session.organizationId,
-      userId: snapshot.session.userId,
-      membershipId: snapshot.session.membershipId,
-      installationBindingDigest: mobileSha256Hex(decodedBinding),
-    });
+    let bound;
+    try {
+      bound = await database.bindOwner({
+        organizationId: snapshot.session.organizationId,
+        userId: snapshot.session.userId,
+        membershipId: snapshot.session.membershipId,
+        installationBindingDigest: mobileSha256Hex(decodedBinding),
+      });
+    } catch {
+      if (this.isCurrent(generation) && this.session.isCurrent(snapshot)) {
+        this.setState(protectedScanState(
+          'identity_mismatch',
+          PRODUCT_SCAN_PROTECTION_CLASS.ownerBinding,
+        ));
+      }
+      return;
+    }
     if (!this.isCurrent(generation) || !this.session.isCurrent(snapshot)) return;
     if (bound.status !== 'ready') {
-      this.setState({ status: 'protected_pending', reason: 'identity_mismatch' });
+      this.setState(protectedScanState(
+        'identity_mismatch',
+        PRODUCT_SCAN_PROTECTION_CLASS.ownerBinding,
+      ));
       return;
     }
     this.setState({ status: 'checking' });
-    const commandId = this.createUuid();
-    if (!isCanonicalOfflineUuid(commandId)) {
-      this.setState({ status: 'unavailable' });
+    let commandId: string;
+    try {
+      commandId = this.createUuid();
+    } catch {
+      this.setState(classifiedScanState(
+        { status: 'unavailable' },
+        PRODUCT_SCAN_PROTECTION_CLASS.leaseCompleteness,
+      ));
       return;
     }
-    const result = this.leaseClient.issueCompleteV2 === undefined
-      ? { status: 'unavailable' as const }
-      : await this.leaseClient.issueCompleteV2({
-          commandId,
-          installationBinding: secrets.installationBinding,
-          lookupKey: encodeBase64Url(secrets.lookupKey),
-        });
+    if (!isCanonicalOfflineUuid(commandId)) {
+      this.setState(classifiedScanState(
+        { status: 'unavailable' },
+        PRODUCT_SCAN_PROTECTION_CLASS.leaseCompleteness,
+      ));
+      return;
+    }
+    let result;
+    try {
+      result = this.leaseClient.issueCompleteV2 === undefined
+        ? { status: 'unavailable' as const }
+        : await this.leaseClient.issueCompleteV2({
+            commandId,
+            installationBinding: secrets.installationBinding,
+            lookupKey: encodeBase64Url(secrets.lookupKey),
+          });
+    } catch {
+      result = { status: 'unavailable' as const };
+    }
     if (!this.isCurrent(generation) || !this.session.isCurrent(snapshot)) return;
     if (result.status === 'authority_rejected') {
       await this.rejectOfflineCapture();
       this.setReady({ status: 'session_rejected' });
       return;
     }
-    if (
-      result.status === 'ready'
-      && sameSessionLease(result.page, snapshot)
-    ) {
+    let readinessProtection: ProductScanProtectionClass | null = null;
+    if (result.status === 'ready' && sameSessionLease(result.page, snapshot)) {
       let activationSample;
       try {
         activationSample = await this.monotonicClock.sample();
@@ -481,22 +573,46 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
         activationSample = null;
       }
       if (activationSample !== null) {
-        const activated = await database.activateLease({
-          page: result.page,
-          activationBootMarker: activationSample.bootMarker,
-          activationMonotonicMilliseconds: activationSample.elapsedRealtimeMilliseconds,
-        });
+        let activated;
+        try {
+          activated = await database.activateLease({
+            page: result.page,
+            activationBootMarker: activationSample.bootMarker,
+            activationMonotonicMilliseconds: activationSample.elapsedRealtimeMilliseconds,
+          });
+        } catch {
+          activated = { status: 'protected' as const };
+        }
         if (activated.status === 'ready') {
           this.captureMode = 'authenticated';
           await this.publishReady('authenticated');
           void this.scheduler?.trigger('session_restored');
           return;
         }
+        readinessProtection = activated.status === 'full'
+          ? PRODUCT_SCAN_PROTECTION_CLASS.leaseCompleteness
+          : PRODUCT_SCAN_PROTECTION_CLASS.leaseActivation;
+      } else {
+        readinessProtection = PRODUCT_SCAN_PROTECTION_CLASS.leaseActivation;
       }
+    } else if (result.status === 'ready' || result.status === 'incomplete_or_oversize') {
+      readinessProtection = PRODUCT_SCAN_PROTECTION_CLASS.leaseCompleteness;
     }
 
     // A refresh failure may not destroy a still-valid exact local generation.
-    const fallback = await this.readValidAuthenticatedContext(snapshot);
+    let fallback: ActiveOfflineCaptureContext | null;
+    try {
+      fallback = await this.readValidAuthenticatedContext(snapshot);
+    } catch {
+      if (this.isCurrent(generation) && this.session.isCurrent(snapshot)) {
+        this.setState(protectedScanState(
+          'local_evidence_protected',
+          readinessProtection
+            ?? PRODUCT_SCAN_PROTECTION_CLASS.schedulerDurableState,
+        ));
+      }
+      return;
+    }
     if (!this.isCurrent(generation) || !this.session.isCurrent(snapshot)) return;
     if (fallback !== null) {
       this.captureMode = 'authenticated';
@@ -504,9 +620,16 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
       void this.scheduler?.trigger('session_restored');
       return;
     }
-    this.setState(result.status === 'incomplete_or_oversize'
-      ? { status: 'protected_pending', reason: 'local_evidence_protected' }
-      : { status: 'unavailable' });
+    if (result.status === 'incomplete_or_oversize') {
+      this.setState(protectedScanState(
+        'local_evidence_protected',
+        PRODUCT_SCAN_PROTECTION_CLASS.leaseCompleteness,
+      ));
+      return;
+    }
+    this.setState(readinessProtection === null
+      ? { status: 'unavailable' }
+      : classifiedScanState({ status: 'unavailable' }, readinessProtection));
   }
 
   private async performScan(generation: number): Promise<void> {
@@ -586,7 +709,10 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
         && !sameActiveCaptureContext(context, expectedOfflineContext)
       )
     ) {
-      this.setState({ status: 'protected_pending', reason: 'local_evidence_protected' });
+      this.setState(protectedScanState(
+        'local_evidence_protected',
+        PRODUCT_SCAN_PROTECTION_CLASS.schedulerDurableState,
+      ));
       return;
     }
     const clock = clockEvidence(item, sample);
@@ -621,7 +747,10 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
       return;
     }
     if (appended.status !== 'ready') {
-      this.setState({ status: 'protected_pending', reason: 'local_evidence_protected' });
+      this.setState(protectedScanState(
+        'local_evidence_protected',
+        PRODUCT_SCAN_PROTECTION_CLASS.schedulerDurableState,
+      ));
       return;
     }
     const queueCount = await database.queueCount();
@@ -770,7 +899,10 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
     }
     const database = this.database;
     if (database === null) {
-      this.setState({ status: 'protected_pending', reason: 'local_evidence_protected' });
+      this.setState(protectedScanState(
+        'local_evidence_protected',
+        PRODUCT_SCAN_PROTECTION_CLASS.schedulerDurableState,
+      ));
       return;
     }
     let queueCount: number;
@@ -781,7 +913,10 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
         database.readReviewPendingSequence(),
       ]);
     } catch {
-      this.setState({ status: 'protected_pending', reason: 'local_evidence_protected' });
+      this.setState(protectedScanState(
+        'local_evidence_protected',
+        PRODUCT_SCAN_PROTECTION_CLASS.schedulerDurableState,
+      ));
       return;
     }
     if (!this.started || this.captureMode !== mode) return;
@@ -884,10 +1019,10 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
         return;
       case 'protected':
         this.updatePendingManualAcknowledgements({ status: 'protected' });
-        this.setState({
-          status: 'protected_pending',
-          reason: 'local_evidence_protected',
-        });
+        this.setState(protectedScanState(
+          'local_evidence_protected',
+          PRODUCT_SCAN_PROTECTION_CLASS.schedulerDurableState,
+        ));
         return;
       case 'authority_rejected':
         this.updatePendingManualAcknowledgements({ status: 'rejected' });
@@ -1031,6 +1166,27 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
       for (const listener of this.manualAcknowledgementListeners) listener();
     }
   }
+}
+
+function classifiedScanState(
+  state: ProductScanState,
+  protection: ProductScanProtectionClass,
+): ProductScanState {
+  const classified = { ...state } as ProductScanState;
+  Object.defineProperty(classified, 'protection', {
+    configurable: false,
+    enumerable: false,
+    value: Object.freeze([protection] as const),
+    writable: false,
+  });
+  return Object.freeze(classified);
+}
+
+function protectedScanState(
+  reason: Extract<ProductScanState, { status: 'protected_pending' }>['reason'],
+  protection: ProductScanProtectionClass,
+): ProductScanState {
+  return classifiedScanState({ status: 'protected_pending', reason }, protection);
 }
 
 function sameSessionLease(

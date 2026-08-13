@@ -1,7 +1,12 @@
 import { useSyncExternalStore } from 'react';
 import { Button, StyleSheet, Text, View } from 'react-native';
 import type { ProductMembershipRole } from '../auth/contracts';
-import type { ProductScanCapability, ProductScanState } from '../scan/contracts';
+import {
+  scanStatusTestId,
+  type ProductScanCapability,
+  type ProductScanState,
+} from '../scan/contracts';
+export { scanStatusTestId } from '../scan/contracts';
 
 interface ScanScreenProps {
   readonly actor: ProductMembershipRole | 'offline';
@@ -23,6 +28,10 @@ export function ScanScreen({ actor, scan, signOut, embedded = false }: ScanScree
     () => scan.getState(),
   );
   const presentation = presentScanState(state);
+  const statusTestId = scanStatusTestId(
+    state,
+    process.env.EXPO_PUBLIC_TAPTIME_RUNTIME_VARIANT,
+  );
 
   return (
     <View style={[styles.container, embedded && styles.embeddedContainer]}>
@@ -34,7 +43,7 @@ export function ScanScreen({ actor, scan, signOut, embedded = false }: ScanScree
       <View
         style={[styles.statusCard, styles[`status_${presentation.tone}`]]}
         accessibilityLiveRegion="polite"
-        testID="scan-status"
+        testID={statusTestId}
       >
         <Text style={styles.statusTitle}>{presentation.title}</Text>
         <Text style={styles.statusMessage}>{presentation.message}</Text>

@@ -18,7 +18,6 @@ import {
 } from '../../src/offline/AndroidMonotonicClock';
 import {
   OfflineInstallationIdentityStore,
-  type OfflineSecureStorePort,
 } from '../../src/offline/OfflineInstallationIdentityStore';
 import {
   mobileHmacSha256Hex,
@@ -26,6 +25,7 @@ import {
   mobileManifestDigest,
 } from '../../src/offline/MobileLookupHmac';
 import { decodeBase64Url32, encodeBase64Url } from '../../src/offline/encoding';
+import { memorySecureStore } from '../support/MemoryOfflinePlatform';
 
 describe('Mobile complete-offline primitives', () => {
   it.each(OFFLINE_HMAC_SHA256_VECTORS)(
@@ -110,21 +110,6 @@ describe('Mobile complete-offline primitives', () => {
     })).toBeNull();
   });
 });
-
-function memorySecureStore(initial: Record<string, string> = {}) {
-  const values = new Map(Object.entries(initial));
-  const port: OfflineSecureStorePort = {
-    isAvailableAsync: vi.fn(async () => true),
-    getItemAsync: vi.fn(async (key) => values.get(key) ?? null),
-    setItemAsync: vi.fn(async (key, value) => {
-      values.set(key, value);
-    }),
-    deleteItemAsync: vi.fn(async (key) => {
-      values.delete(key);
-    }),
-  };
-  return { port, values };
-}
 
 function hexBytes(value: string): Uint8Array {
   return Uint8Array.from(
