@@ -1,5 +1,41 @@
 # Project Status
 
+## Current override — DA5 V5 startup-environment failure closure
+
+Marker: `DA5-V5-STARTUP-ENV-FAILURE-CLOSURE-2026-08-13`; this section supersedes conflicting
+later current/authority text and preserves it as history. Exact R0 baseline is published `C`
+`33a1d70c06b0275c59be20bf9d5afc4c8af44767` / tree
+`ce4c62cf64f8bfe6a1891813e6a9fadec3168af5`. Executable `M`
+`9380758f3e149718c8c0b8d34a1818de64c0d8d1`, CI `31695047997`, final r4 runtime
+`9380758f-f06a1b50-r4` and APK SHA-256
+`b02fdb2544225d03e3142fa30f12caa8fedf889a558b39cc040cca03f9539234` remain byte-unchanged.
+
+The exact one-time Hardware authority was consumed by one invocation. A wrapper-supplied fixed
+nonsecret `LANG` was rejected by exact `rejectOperationalEnvironment` before PostgreSQL owner
+creation (source lines 712/1830; r4 bundle line 2183). Terminal result was exit 1 after about
+0.23 seconds with sole safe output `da5_v5_start_failed`, no `da5_v5_ready`, and no retry.
+Immediate checks reported zero `.t5-*` task roots, zero listeners on 3000/54321/55435, absent
+package/process, empty reverse mappings and unchanged standard profile. This is
+**`FAIL_CLOSED AND CLEAN / STARTUP-ENV WRAPPER`**, not PASS, not a Product finding, and requires
+no executable correction.
+
+Immutable disclosure-safe Evidence root
+`/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5/hardware-33a1d70-startup-env-failure-20260813`
+is `0555`: receipt 4,317 bytes / `0444` /
+`bf5608695d6d3e495ecb09a6b2203da82335e9b982e12e3966383c29f32262c0`; manifest 1,446 bytes /
+`0444` / `ed4b507d512f7f65a3bae0ad8bbdc46dba48c72df1f1cd389c13ebe536b85506`.
+Observed sequence is Technical-Lead-reported from live output, not raw transcript; exact start time
+was not independently preserved.
+
+Next: independent review of exactly eight ADO documents → focused `[skip ci]` publication at
+unknown `E` → independent exact-head review → STOP for a fresh one-time Human authorization.
+No CI/V3/runtime/APK rebuild and no restart/resume/replacement is authorized. A future start uses
+an allowlisted child environment and a pre-Node, name-only predicate/receipt: no `LANG`,
+`LANGUAGE`, `LC_*`, `PG*`, `PQ*`, `DATABASE_URL`, forbidden DB credentials, `ADB_*`,
+`ANDROID_ADB_*` or `ANDROID_SERIAL`; exact `PATH`
+`/Users/timbartz/Library/Android/sdk/platform-tools:/usr/bin:/bin:/usr/sbin:/sbin`; otherwise only
+required identity/temp names, exact Android roots and exact Operator `TAPTIME_*` bindings.
+
 ## Current override — DA5 V5 pre-Hardware technical closure candidate
 
 Marker: `DA5-V5-PRE-HARDWARE-CLOSURE-M-2026-08-13`. This section supersedes conflicting later

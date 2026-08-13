@@ -1,5 +1,42 @@
 # Development Assignment 5 — V5 Human Android Evidence
 
+## Current startup-environment failure Evidence — `2026-08-13`
+
+Marker: `DA5-V5-STARTUP-ENV-FAILURE-CLOSURE-2026-08-13`; this section supersedes conflicting
+later current/authority text while preserving history. Published ADO baseline was exact `C`
+`33a1d70c06b0275c59be20bf9d5afc4c8af44767` / tree
+`ce4c62cf64f8bfe6a1891813e6a9fadec3168af5`; executable `M`
+`9380758f3e149718c8c0b8d34a1818de64c0d8d1`, CI `31695047997`, r4 runtime and APK
+95,526,563 bytes / `0444` / SHA-256
+`b02fdb2544225d03e3142fa30f12caa8fedf889a558b39cc040cca03f9539234` remained exact.
+
+| Evidence | Disclosure-safe exact result |
+|---|---|
+| Authority/invocations | Exact one-time Human authority consumed; exact r4 invoked once in TTY with fresh memory-only 64-lowercase-hex credential; no retry, restart, resume or replacement |
+| Fresh preflight | Local/remote/runtime/APK/Guard/Node/npm/toolchain/host-null and read-only privately bound device checks matched; standard SM-A336B Android-15/API-35 User-0 profile matched; package/process/reverse absent; Samsung TalkBack 15.1.01.1 matched; no raw serial retained |
+| Failure predicate | Technical-Lead wrapper unnecessarily supplied fixed nonsecret `LANG`; source blob `be53ceb311cca8e689d08fedd752973a8d7e4b05` calls `rejectOperationalEnvironment` at line 712 and line 1830 rejects locale names before PostgreSQL owner creation; exact r4 bundle contains the predicate at line 2183 and safe failure write at line 23735 |
+| Terminal result | Exit 1 after approximately 0.23 seconds; sole safe combined PTY output exactly `da5_v5_start_failed`; `da5_v5_ready` never emitted |
+| Immediate post-failure | `.t5-*` roots 0; listeners 3000/54321/55435 0; Product APK/package/process absent; reverse mappings empty; standard profile unchanged |
+| Mutation boundary | No PostgreSQL/API/environment, APK install, package/mapping, Product, NFC, Tag or accessibility mutation |
+| Classification | **`FAIL_CLOSED AND CLEAN / STARTUP-ENV WRAPPER`**; never PASS; no Product defect and no executable correction required |
+| Evidence provenance | Observed sequence and immediate checks are Technical-Lead-reported from live tool output, not a raw transcript. Exact start time was not independently preserved; receipt creation time is separate |
+
+Immutable disclosure-safe root is
+`/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5/hardware-33a1d70-startup-env-failure-20260813`
+mode `0555`, containing exactly: receipt 4,317 bytes / `0444` / SHA-256
+`bf5608695d6d3e495ecb09a6b2203da82335e9b982e12e3966383c29f32262c0`; manifest 1,446 bytes /
+`0444` / SHA-256 `ed4b507d512f7f65a3bae0ad8bbdc46dba48c72df1f1cd389c13ebe536b85506`.
+No secret, raw serial/UID, password, credential digest, PID, personal data or raw transcript is
+retained.
+
+Next allowed gate is exact eight-document R0/V0 independent review → focused `[skip ci]`
+publication at unknown `E` → independent exact-head review → STOP → fresh one-time Human
+authorization. No V3, CI, runtime or APK rebuild. The future Runbook contract requires a clean
+allowlisted child environment, exact platform-tools/system `PATH`, and a pre-Node name-only
+predicate proving locale, PostgreSQL/database-credential, ADB-control and all unlisted names
+absent; only required identity/temp, exact Android roots and exact Operator `TAPTIME_*` names are
+allowed. The receipt records no values/secrets.
+
 ## Current technical pre-Hardware closure candidate
 
 Marker: `DA5-V5-PRE-HARDWARE-CLOSURE-M-2026-08-13`. This table supersedes conflicting later

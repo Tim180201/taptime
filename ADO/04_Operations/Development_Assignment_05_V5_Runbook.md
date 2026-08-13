@@ -1,5 +1,71 @@
 # Development Assignment 5 — V5 Human Android Gate Runbook
 
+## Current startup-environment failure override — STOP pending new E and Human authority
+
+Marker: `DA5-V5-STARTUP-ENV-FAILURE-CLOSURE-2026-08-13`. This section supersedes later
+conflicting current/start statements and preserves every physical gate below. Published ADO
+baseline is `C` `33a1d70c06b0275c59be20bf9d5afc4c8af44767` / tree
+`ce4c62cf64f8bfe6a1891813e6a9fadec3168af5`; executable `M`
+`9380758f3e149718c8c0b8d34a1818de64c0d8d1`, r4 runtime and APK SHA-256
+`b02fdb2544225d03e3142fa30f12caa8fedf889a558b39cc040cca03f9539234` are unchanged.
+
+The exact one-time authorization was consumed by one r4 TTY invocation. All fresh preflight
+bindings matched, but the Technical-Lead wrapper unnecessarily included fixed nonsecret `LANG`.
+Exact `Da5V5PostgresRuntimeGuard.ts` calls `rejectOperationalEnvironment` at line 712; line 1830
+rejects `LANG`, `LANGUAGE` and every `LC_*` before PostgreSQL owner creation. The exact r4 bundle
+has the same predicate at line 2183 and safe failure write at line 23735. The invocation exited 1
+after about 0.23 seconds, emitted solely `da5_v5_start_failed`, never `da5_v5_ready`, and was not
+retried. Immediate checks: zero `.t5-*` roots and listeners 3000/54321/55435; absent Product
+package/process; empty reverse mappings; unchanged standard profile. No PostgreSQL/API/runtime,
+install, Product, NFC, Tag or accessibility mutation occurred. Classification is
+**`FAIL_CLOSED AND CLEAN / STARTUP-ENV WRAPPER`**, never PASS; no Product finding and no
+executable correction.
+
+Immutable disclosure-safe Evidence is the `0555` root
+`/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5/hardware-33a1d70-startup-env-failure-20260813`:
+receipt 4,317 bytes / `0444` / SHA-256
+`bf5608695d6d3e495ecb09a6b2203da82335e9b982e12e3966383c29f32262c0`; manifest 1,446 bytes /
+`0444` / SHA-256 `ed4b507d512f7f65a3bae0ad8bbdc46dba48c72df1f1cd389c13ebe536b85506`.
+The sequence is Technical-Lead-reported from live tool output, not raw transcript; exact start
+time was not independently preserved.
+
+### Mandatory child-environment contract for any later newly authorized start
+
+The Technical Lead constructs the child environment from an allowlist; parent-environment
+inheritance is forbidden. Before invoking absolute Node, a separate name-only predicate records
+only `MATCH`/`MISMATCH` plus present/forbidden name sets and stops on any forbidden name. It never
+records values, the memory credential, a digest, serial or personal data.
+
+- `PATH` is exactly
+  `/Users/timbartz/Library/Android/sdk/platform-tools:/usr/bin:/bin:/usr/sbin:/sbin`.
+- Allowed non-Product names are only required `HOME`, `USER`, `LOGNAME`, `SHELL`, `TMPDIR`,
+  `ANDROID_HOME`, `ANDROID_SDK_ROOT` and `PATH`; both Android roots equal the exact authorized SDK.
+- Allowed exact Operator bindings are only `TAPTIME_SYNTHETIC_E2E_PROFILE`,
+  `TAPTIME_SYNTHETIC_E2E_PASSWORD` (fresh 64-lowercase-hex, memory-only),
+  `TAPTIME_DA5_V5_RUNTIME_GUARD_BINARY`, `TAPTIME_DA5_V5_RUNTIME_GUARD_MANIFEST`,
+  `TAPTIME_DA5_V5_RUNTIME_GUARD_BINARY_SHA256`, `TAPTIME_DA5_V5_RUNTIME_GUARD_MANIFEST_SHA256`,
+  `TAPTIME_DA5_V5_IMPLEMENTATION_COMMIT`, `TAPTIME_DA5_V5_IMPLEMENTATION_TREE`,
+  `TAPTIME_DA5_V5_PG_CONFIG`, `TAPTIME_DA5_V5_TAG_A_FINGERPRINT`,
+  `TAPTIME_DA5_V5_TAG_B_FINGERPRINT`, `TAPTIME_DA5_V5_TAG_X_FINGERPRINT`,
+  `TAPTIME_DA5_V5_TAG_TECHNOLOGY`, `TAPTIME_DA5_V5_ANDROID_API`,
+  `TAPTIME_DA5_V5_ANDROID_BUILD`, `TAPTIME_DA5_V5_ANDROID_RELEASE`,
+  `TAPTIME_DA5_V5_DEVICE_MODEL`, `TAPTIME_DA5_V5_TALKBACK_PACKAGE` and
+  `TAPTIME_DA5_V5_TALKBACK_VERSION`, each at its separately authorized exact value.
+- `LANG`, `LANGUAGE`, every `LC_*`, every `PG*`/`PQ*`, `DATABASE_URL`,
+  `TAPTIME_SYNTHETIC_E2E_DATABASE_URL`, `TAPTIME_DA5_V5_CI_OWNER_RECORD`, every name matching the
+  forbidden `(DATABASE|POSTGRES)` URL/URI/password/pass/credential suffix boundary, every `ADB_*`,
+  every `ANDROID_ADB_*` and `ANDROID_SERIAL` are absent. Because the environment is allowlisted,
+  compiler, loader and every other unlisted name are absent too.
+
+Any name mismatch stops before Node and consumes no new run because no run may be requested until
+the exact predicate contract itself is reviewed. No automatic retry exists.
+
+Next allowed sequence is independent prepublication review of exactly eight ADO files → focused
+`[skip ci]` publication at unknown `E` → independent exact-head review → STOP → fresh one-time
+Human authorization quoting reviewed `E` and all unchanged bindings. No V3, CI, runtime or APK
+rebuild is required or authorized for this R0 correction; the old authority cannot restart,
+resume or be replaced.
+
 ## Current pre-Hardware operating override — exact M / Source-A artifact / R4 runtime
 
 Marker: `DA5-V5-PRE-HARDWARE-CLOSURE-M-2026-08-13`. This section supersedes later conflicting

@@ -6,6 +6,37 @@ This file is the index of important technical and organizational decisions for T
 
 Full architecture decisions are documented as ADRs under `ADO/01_Architecture/ADR/`.
 
+## Current governing DA5 startup-environment failure decision
+
+Marker `DA5-V5-STARTUP-ENV-FAILURE-CLOSURE-2026-08-13` supersedes later conflicting DA5 current
+or authority statements while preserving their history. Decision: classify the one exact,
+no-retry r4 invocation on published ADO `C`
+`33a1d70c06b0275c59be20bf9d5afc4c8af44767` / tree
+`ce4c62cf64f8bfe6a1891813e6a9fadec3168af5` as
+**`FAIL_CLOSED AND CLEAN / STARTUP-ENV WRAPPER`**. Executable `M`
+`9380758f3e149718c8c0b8d34a1818de64c0d8d1`, r4 runtime and Product APK SHA-256
+`b02fdb2544225d03e3142fa30f12caa8fedf889a558b39cc040cca03f9539234` remain unchanged.
+
+The wrapper included fixed nonsecret `LANG`, which exact source lines 712/1830 and r4 bundle line
+2183 reject before PostgreSQL owner creation. The only invocation exited 1 after about 0.23
+seconds, emitted only `da5_v5_start_failed`, never emitted `da5_v5_ready`, and left immediate
+package/process/mapping/listener/task/profile checks clean. There is no Product finding and no
+executable correction decision. Authority is consumed; no retry, restart, resume or replacement.
+
+Evidence root
+`/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5/hardware-33a1d70-startup-env-failure-20260813`
+is immutable `0555`; receipt SHA-256
+`bf5608695d6d3e495ecb09a6b2203da82335e9b982e12e3966383c29f32262c0`, manifest SHA-256
+`ed4b507d512f7f65a3bae0ad8bbdc46dba48c72df1f1cd389c13ebe536b85506`. The observed sequence is
+Technical-Lead-reported, not a raw transcript; exact execution start time was not preserved.
+
+Decision sequence: independent review of exactly eight ADO files → focused `[skip ci]`
+publication at unknown `E` → independent exact-head review → STOP → new one-time Human authority;
+no CI/V3/runtime/APK rebuild. Future execution requires a clean allowlisted child environment,
+exact platform-tools/system `PATH`, and a pre-Node name-only predicate/receipt proving all locale,
+PostgreSQL/database-credential and ADB-control names forbidden by the Runbook are absent. Values
+and secrets are excluded from that receipt.
+
 ## Current governing DA5 closure decision
 
 Marker `DA5-V5-PRE-HARDWARE-CLOSURE-M-2026-08-13` supersedes the two later DA5

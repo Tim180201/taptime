@@ -1,10 +1,60 @@
 # Development Assignment 5 — Lean Stage-6 Hardware Publication Closure
 
-Status: **R0/V0 CURRENT TECHNICAL CLOSURE CANDIDATE — PREPUBLICATION REVIEW, FUTURE C AND EXACT-HEAD REVIEW REQUIRED / STOP BEFORE HARDWARE**
+Status: **R0/V0 STARTUP-ENV FAILURE CLOSURE CANDIDATE — PREPUBLICATION REVIEW, FUTURE E AND EXACT-HEAD REVIEW REQUIRED / STOP**
 
 Owner: Technical Lead
 
 Physical approval authority: Human Architect
+
+Marker: `DA5-V5-STARTUP-ENV-FAILURE-CLOSURE-2026-08-13`.
+
+## Current exact failure closure and publication gate
+
+This section supersedes later conflicting current/scope/authority statements and preserves them as
+history. Baseline is published `C` `33a1d70c06b0275c59be20bf9d5afc4c8af44767` / tree
+`ce4c62cf64f8bfe6a1891813e6a9fadec3168af5`. Executable `M`
+`9380758f3e149718c8c0b8d34a1818de64c0d8d1`, corrected V3, CI `31695047997`, final r4 runtime
+and APK 95,526,563 bytes / `0444` / SHA-256
+`b02fdb2544225d03e3142fa30f12caa8fedf889a558b39cc040cca03f9539234` remain unchanged.
+
+The exact one-time authority was consumed by one r4 invocation. Fixed nonsecret wrapper `LANG`
+was rejected before PostgreSQL owner creation by exact source lines 712/1830 and r4 bundle line
+2183. Terminal exit was 1 after about 0.23 seconds; sole output `da5_v5_start_failed`; no
+`da5_v5_ready`; no retry. Immediate task/listener/package/process/mapping null and standard-profile
+continuity matched. No database/runtime/install/Product/NFC/Tag/accessibility mutation occurred.
+Classification: **`FAIL_CLOSED AND CLEAN / STARTUP-ENV WRAPPER`**, not Product defect; no
+executable correction required.
+
+Immutable `0555` Evidence root
+`/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5/hardware-33a1d70-startup-env-failure-20260813`
+contains receipt 4,317 bytes / `0444` /
+`bf5608695d6d3e495ecb09a6b2203da82335e9b982e12e3966383c29f32262c0` and manifest 1,446 bytes /
+`0444` / `ed4b507d512f7f65a3bae0ad8bbdc46dba48c72df1f1cd389c13ebe536b85506`.
+The observed sequence is Technical-Lead-reported, not raw transcript; exact start time was not
+independently preserved.
+
+Exact candidate scope is only these eight existing ADO paths: `ADO/README.md`,
+`ADO/00_Core/Project_Status.md`, `ADO/00_Core/Risk_Register.md`, `ADO/00_Core/Decision_Log.md`,
+`ADO/04_Operations/Development_Assignment_05_V5_Runbook.md`,
+`ADO/04_Operations/Development_Assignment_05_V5_Lean_Hardware_Flight_Card.md`,
+`ADO/05_Evidence/Development_Assignment_05_V5_Evidence.md` and this file. AVS classification is
+R0/V0: no executable, configuration, schema, dependency, lockfile, test, workflow, runtime or
+artifact delta. Product tests, Typechecks, builds, V3/V4, CI, runtime/APK generation, ADB and
+Hardware are neither required nor authorized.
+
+Required sequence: independent prepublication review of the exact eight-document candidate → one
+focused `[skip ci]` publication at intentionally unknown future `E` → independent exact-head
+read-only review binding `E`, the exact eight paths/blobs/delta and carried M/r4/APK evidence →
+**STOP** → fresh one-time Human authority. No post-publication self-hash edit is required. The old
+authority grants no restart, resume or replacement.
+
+Any future start uses the Runbook's allowlisted child environment and pre-Node name-only
+predicate/receipt. It must prove exact platform-tools/system `PATH`; only required identity/temp,
+exact Android roots and exact Operator `TAPTIME_*` names; and absence of all locale,
+PostgreSQL/database-credential, ADB-control and other unlisted names. It records no values,
+credential, digest, serial or personal data and stops before Node on mismatch.
+
+## Preserved prior technical closure candidate
 
 Marker: `DA5-V5-PRE-HARDWARE-CLOSURE-M-2026-08-13`.
 

@@ -5,6 +5,49 @@ Epic: EP-006
 Owner: Technical Lead  
 Approval Authority: Human Architect
 
+## Current DA5 V5 Hardware startup-environment failure closure candidate
+
+Marker: `DA5-V5-STARTUP-ENV-FAILURE-CLOSURE-2026-08-13`. This block supersedes every later
+conflicting `Current`, authority or next-step statement while retaining all later text as history.
+Publication baseline is `HEAD == main == origin/main == C`
+`33a1d70c06b0275c59be20bf9d5afc4c8af44767` / tree
+`ce4c62cf64f8bfe6a1891813e6a9fadec3168af5`; executable `M`
+`9380758f3e149718c8c0b8d34a1818de64c0d8d1`, final r4 runtime and the 95,526,563-byte APK
+SHA-256 `b02fdb2544225d03e3142fa30f12caa8fedf889a558b39cc040cca03f9539234` are unchanged.
+
+The exact one-time Human authority was used once. Fresh preflight matched, but the Technical-Lead
+wrapper unnecessarily passed fixed nonsecret `LANG`; exact source
+`Da5V5PostgresRuntimeGuard.ts` calls `rejectOperationalEnvironment` at line 712 and rejects
+`LANG`/`LANGUAGE`/every `LC_*` at line 1830 before PostgreSQL owner creation. The bound r4 bundle
+contains the same rejection at line 2183. The sole invocation exited 1 after about 0.23 seconds,
+emitted only `da5_v5_start_failed`, never `da5_v5_ready`, and was not retried. Immediate null
+checks found no task root, listener, package, process or reverse mapping and an unchanged standard
+device profile. Result: **`FAIL_CLOSED AND CLEAN / STARTUP-ENV WRAPPER`**, never PASS; no Product
+finding and no executable correction is required.
+
+Disclosure-safe Evidence is immutable at
+`/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5/hardware-33a1d70-startup-env-failure-20260813`:
+`receipt.txt` 4,317 bytes / `0444` / SHA-256
+`bf5608695d6d3e495ecb09a6b2203da82335e9b982e12e3966383c29f32262c0` and
+`evidence-manifest.txt` 1,446 bytes / `0444` / SHA-256
+`ed4b507d512f7f65a3bae0ad8bbdc46dba48c72df1f1cd389c13ebe536b85506`, root `0555`.
+The sequence is Technical-Lead-reported from live tool output, not a raw transcript; exact start
+time was not independently preserved and the receipt creation time is separate.
+
+Next is only: independent prepublication review of this exact eight-document R0 candidate → one
+focused `[skip ci]` publication at unknown future `E` → independent exact-head review → **STOP** →
+fresh one-time Human authority. No V3, CI, runtime or APK rebuild follows this documentation-only
+correction. The consumed authority grants no restart, resume or replacement run.
+
+Any future start must use an allowlisted child environment and an immediately preceding name-only
+environment predicate/receipt. `LANG`, `LANGUAGE`, every `LC_*`, `PG*`, `PQ*`, `DATABASE_URL`,
+all forbidden database-credential names, `ADB_*`, `ANDROID_ADB_*` and `ANDROID_SERIAL` must be
+absent before Node. `PATH` is exactly
+`/Users/timbartz/Library/Android/sdk/platform-tools:/usr/bin:/bin:/usr/sbin:/sbin`; only that
+`PATH`, required `HOME`/`USER`/`LOGNAME`/`SHELL`/`TMPDIR`, exact Android roots and the exact
+Operator-required `TAPTIME_*` bindings are allowed. Values and secrets are never recorded by the
+name-only receipt.
+
 ## Current DA5 V5 pre-Hardware technical closure candidate
 
 Marker: `DA5-V5-PRE-HARDWARE-CLOSURE-M-2026-08-13`.

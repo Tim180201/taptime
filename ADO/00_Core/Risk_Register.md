@@ -2,6 +2,34 @@
 
 Status: Active
 
+Current DA5 startup-environment failure override (`2026-08-13`), marker
+`DA5-V5-STARTUP-ENV-FAILURE-CLOSURE-2026-08-13`: R-026/R-034 remain open only for a later fresh,
+separately authorized physical flight. Published ADO baseline `C`
+`33a1d70c06b0275c59be20bf9d5afc4c8af44767` / tree
+`ce4c62cf64f8bfe6a1891813e6a9fadec3168af5`, executable `M`
+`9380758f3e149718c8c0b8d34a1818de64c0d8d1`, final r4 runtime and APK SHA-256
+`b02fdb2544225d03e3142fa30f12caa8fedf889a558b39cc040cca03f9539234` remain unchanged.
+The exact one-time authority was consumed by one no-retry invocation: wrapper `LANG` reached the
+source/r4 `rejectOperationalEnvironment` predicate before PostgreSQL ownership, exit was 1 after
+about 0.23 seconds, sole output was `da5_v5_start_failed`, and `da5_v5_ready` was absent.
+Immediate null checks passed with no Product, database, package, mapping, NFC, Tag or accessibility
+mutation. Classification is **`FAIL_CLOSED AND CLEAN / STARTUP-ENV WRAPPER`**, not Product defect;
+there is no executable correction risk to close.
+
+Immutable Evidence root is
+`/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5/hardware-33a1d70-startup-env-failure-20260813`
+(`0555`): receipt 4,317 bytes / `0444` / SHA-256
+`bf5608695d6d3e495ecb09a6b2203da82335e9b982e12e3966383c29f32262c0`; manifest 1,446 bytes /
+`0444` / SHA-256 `ed4b507d512f7f65a3bae0ad8bbdc46dba48c72df1f1cd389c13ebe536b85506`.
+Execution sequence is Technical-Lead-reported, not raw transcript; exact start time is unproved.
+
+Risk control is R0/V0 only: independent exact-eight-doc review → focused `[skip ci]` publication
+at unknown `E` → exact-head review → STOP → fresh one-time Human authority. No CI/V3/runtime/APK
+rebuild or retry. Before any future Node start, a name-only predicate must prove a clean allowlist:
+no `LANG`/`LANGUAGE`/`LC_*`, `PG*`/`PQ*`, database URL/credential, `ADB_*`, `ANDROID_ADB_*` or
+`ANDROID_SERIAL`; exact platform-tools/system `PATH`; only required identity/temp, Android-root and
+exact Operator `TAPTIME_*` names. Any forbidden name stops before Node without recording values.
+
 Current DA5 pre-Hardware closure override (`2026-08-13`), marker
 `DA5-V5-PRE-HARDWARE-CLOSURE-M-2026-08-13`: R-026/R-034 remain open only for a future separately
 authorized physical run. Exact executable `M`
