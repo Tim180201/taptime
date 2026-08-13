@@ -2,6 +2,29 @@
 
 Status: Active
 
+Current DA5 Hardware/cleanup override (`2026-08-13`): the one-time run is consumed and ended
+**`FAIL_CLOSED AND CLEAN`**, not `PASS`. It reached `Ausstehender Vorgang geschützt` after exact
+package clear and Employee Credential, before `employee-ready-confirm`; no Tag B or Gate A–F
+continuation occurred. Later absence of the original child session/TTY and Operator process means
+that regular Operator abort, cleanup receipt and terminal exit are not proved. Separately
+authorized cleanup-only work re-bound and removed only the exact package, both owned mappings and
+the exact task-owned PostgreSQL 17 temp cluster; two equal null proofs two seconds apart passed,
+with no foreign mutation and the unrelated Homebrew PostgreSQL listener on `5432` untouched.
+
+Precleanup bindings, mutation results and the historical null sequence are
+`Technical-Lead-execution-reported from live tool outputs; no immutable raw/receipt artifact was
+preserved before cleanup`; only current-state null plus ADO scope/repository state is independently
+re-checkable. `FAIL_CLOSED AND CLEAN` is the current-state disposition, not independently proved
+execution history, and regular Operator abort/receipt/exit remains unproved.
+
+R-026/R-034 remain open for a future separately authorized Hardware run. In addition, one P1
+Operator fail-closed risk is open: current `22fe85d` accepts `abort` immediately after a
+successful Accessibility check and closes input even though cleanup cannot succeed without
+restoration proof, which can prevent `standard-profile-check`. Gate E was not reached in the
+consumed run, and this ADO-only synchronization claims no correction. Authority `2d0cbd` is
+consumed; exact-reviewed closure head `7dad6a5caa9f42e6f29a096df21d915ea34e3296` / tree
+`cbf54d36a525ed1bc0d3bf1611bc0ea06288c5ef` grants no new Hardware run.
+
 Current DA5 Lean Stage-6 control: the exact ADO preparation is published at
 `HEAD == main == origin/main == 3a0469ac1d0c9d781e49648a73bc9ef019423c8e` / tree
 `4521f179bbae8867c6776d643679cce32658c979`, parent

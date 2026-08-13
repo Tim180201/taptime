@@ -1,5 +1,65 @@
 # Development Assignment 5 — V5 Human Android Evidence
 
+## Current consumed-run and cleanup-only Evidence — `2026-08-13`
+
+### Run truth and evidence boundary
+
+| Evidence | Disclosure-safe result |
+|---|---|
+| One-time run | Started `2026-08-12`; exact package clear and Employee Credential reached Human-visible `Ausstehender Vorgang geschützt`, before `employee-ready-confirm`; Tag B and Gates A–F did not continue |
+| Operator-state limit | Operator was left idle; original child session/TTY and Operator process were later absent. No regular Operator `abort`, `da5_v5_aborted`, Operator cleanup receipt or terminal Operator exit is proved |
+| Reuse | Authority consumed; no resume or retry; no observation from this run is reusable |
+| Later Human authority | Cleanup-only for exact package `com.tim180201.mobile.synthetic`, owned `tcp:54321`/`tcp:3000` mappings and associated DA5 resources; no restart, retry or foreign cleanup |
+| Published closure binding | Exact-reviewed head `7dad6a5caa9f42e6f29a096df21d915ea34e3296` / tree `cbf54d36a525ed1bc0d3bf1611bc0ea06288c5ef`; prior `2d0cbd` authority consumed; no new Hardware run authorized |
+
+Before the successful bindings, only non-mutating local wrapper/compatibility stops occurred:
+Bash 3.2 `mapfile`, one faulty self-matching/`awk` host count, missing `realpath`, and an
+`rm -rf` rejected by the tool before execution. None changed state; the corrected read-only
+bindings and explicit non-force `rm -r` execution are the authoritative Evidence.
+
+### Provenance and independent-verification boundary
+
+The precleanup bindings, the mapping/package/temp-cluster mutation results and the two-check
+historical null sequence are `Technical-Lead-execution-reported from live tool outputs; no
+immutable raw/receipt artifact was preserved before cleanup`. They are not independently proved
+as an execution sequence. Independently re-checkable is only the present current-state null
+condition plus ADO scope/repository state. The missing original child session/TTY and Operator
+process cannot establish a regular Operator `abort`, `da5_v5_aborted`, cleanup receipt or terminal
+Operator exit; those remain unproved. Accordingly, **`FAIL_CLOSED AND CLEAN`** is the current-state
+disposition, never `PASS`, and not an independently proved history of the cleanup steps.
+
+### Direct cleanup binding and mutation Evidence
+
+| Evidence | Disclosure-safe result |
+|---|---|
+| Device/profile | Exactly one USB device; transport, SM-A336B, Android 15/API 35, exact build, User 0 and standard profile `MATCH` |
+| APK | Exact immutable APK `MATCH`: 95,522,751 bytes; SHA-256 `b0180c31769e453472a20eb1e7eb4e0825a85be9429becf6bf4970e0875b67f8` |
+| Android precleanup | Each exact-owned mapping count `1`; no foreign or malformed mapping; package `PRESENT`; one package process; two device-owned listeners |
+| Host precleanup | Operator, Guard, task Node and isolated PostgreSQL processes each `0`; listeners on `3000`, `54321` and `55435` each `0`; clipboard/Credential environment `0`; unrelated Homebrew PostgreSQL on `5432` explicitly untouched |
+| Temp-cluster binding | Exactly one task-owned PostgreSQL 17 cluster; disclosure-safe path SHA-256 `647f88b42cbf0a0c026a45bbbc0ff7aa1b25d823e3e5086d0b0f603a34ca05f1`; mode `0700`, current owner; 1,481 entries = 1,451 files + 30 directories; no symlink or special entry; exact run/data/socket/log structure and port `55435`; no postmaster, socket or live process; log contained readiness once and clean shutdown once |
+| Mapping cleanup | Removed owned `tcp:54321` exactly once, then proved it zero; removed owned `tcp:3000` exactly once, then proved complete mapping zero |
+| Package cleanup | Reattested the exact bound package immediately before mutation; exact uninstall output `Success`; no `pm clear` |
+| Temp-cluster cleanup | Completely reattested the exact cluster, then deleted only its exact-bound path with `/bin/rm -r -- <exact-bound-path>`; deletion is irreversible |
+| Foreign-state boundary | No foreign state mutated; Homebrew PostgreSQL on `5432` remained untouched |
+
+### Terminal null proof and disposition
+
+The Technical Lead reported two identical disclosure-safe null checks, separated by two seconds,
+each passing: the same
+device/profile remained `MATCH`; package, package process, mappings, device/host listeners,
+Operator, Guard, isolated PostgreSQL, task Node, temp cluster, Credential, clipboard and
+Credential environment were all zero; the tracked repository was clean at both historical
+measurements. Only present current-state null plus ADO scope/repository state is independently
+re-checkable. Result disposition: **`FAIL_CLOSED AND CLEAN`**, never `PASS`.
+
+No fachliche Product-, Tag- oder NFC-Mutation occurred after failure; the only mutations were the
+authorized cleanup mutations. No new Operator, `stop`, retry/resume, installation, build, test,
+Typecheck, commit or push occurred. One P1 remains open before a
+future Hardware run: current Operator `22fe85d` accepts `abort` directly after a successful
+Accessibility check and closes input while cleanup without restoration proof fails, which can
+prevent `standard-profile-check`. Gate E was not reached in this run; this Evidence records no
+code correction.
+
 ## Current Lean Stage-6 carried Evidence and published-closure boundary
 
 | Evidence | Exact result |

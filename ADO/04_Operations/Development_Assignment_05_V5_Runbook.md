@@ -1,5 +1,41 @@
 # Development Assignment 5 — V5 Human Android Gate Runbook
 
+## Current terminal override — consumed run and cleanup-only closure (`2026-08-13`)
+
+The one-time run started on `2026-08-12` and is consumed. After exact package clear and Employee
+Credential it reached visible `Ausstehender Vorgang geschützt`, before `employee-ready-confirm`.
+Do not reuse that observation: Tag B and Gates A–F did not continue. The Operator was left idle;
+the original child session/TTY and Operator process were later absent. Therefore no regular
+Operator `abort`, `da5_v5_aborted`, Operator cleanup receipt or terminal Operator exit may be
+claimed, and the run cannot be resumed or retried.
+
+The later Human authorization was cleanup-only and limited to exact package
+`com.tim180201.mobile.synthetic`, owned `tcp:54321`/`tcp:3000` mappings and associated DA5
+resources. Disclosure-safe exact binding was proved before mutation. Cleanup removed
+`tcp:54321` exactly once and proved it zero, removed `tcp:3000` exactly once and proved the full
+mapping set zero, reattested the exact package and uninstalled it with exact output `Success`.
+It did not run `pm clear`. After complete reattestation, cleanup deleted only the exact-bound
+task-owned PostgreSQL 17 temp cluster. No restart, retry, foreign cleanup or mutation of the
+unrelated Homebrew PostgreSQL listener on `5432` occurred.
+
+These precleanup bindings, executed mutation results and the historical null-check sequence are
+`Technical-Lead-execution-reported from live tool outputs; no immutable raw/receipt artifact was
+preserved before cleanup`. Only current-state null plus ADO scope/repository state is independently
+re-checkable. `FAIL_CLOSED AND CLEAN` is the current-state disposition, not independent proof of
+the cleanup execution sequence; regular Operator abort, receipt and exit remain unproved.
+
+Two identical disclosure-safe null checks two seconds apart passed; terminal classification is
+**`FAIL_CLOSED AND CLEAN`**, never `PASS`. No fachliche Product-, Tag- oder NFC-Mutation followed
+the failure; the only mutations were the authorized cleanup mutations. No Operator restart,
+`stop`, installation, build, test or publication followed. Before any future
+Hardware run, the P1 in current Operator `22fe85d` must be resolved and independently verified:
+after a successful Accessibility check it can accept `abort`, close input and then fail cleanup
+without restoration proof, preventing `standard-profile-check`. Gate E was not reached in this
+run. Prior authority `2d0cbd` is consumed; closure head
+`7dad6a5caa9f42e6f29a096df21d915ea34e3296` / tree
+`cbf54d36a525ed1bc0d3bf1611bc0ea06288c5ef` grants no new Hardware authority. Sections below are
+historical or future procedure only where they conflict with this override.
+
 ## Current Lean Stage-6 operating index — ADO PRE-HARDWARE PACKAGE / EXACT-REVIEWED PUBLISHED CLOSURE HEAD REQUIRED / STOP BEFORE HARDWARE
 
 Use `ADO/04_Operations/Development_Assignment_05_V5_Lean_Hardware_Flight_Card.md` as the compact

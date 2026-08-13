@@ -7,6 +7,38 @@ Approval Authority: Human Architect
 
 ## Purpose
 
+### Current DA5 Lean Stage-6 Hardware outcome — consumed fail-closed and cleanup-only closed; STOP before Hardware
+
+The one-time run started on `2026-08-12` and reached the Human-visible Employee state
+`Ausstehender Vorgang geschützt` after exact package clear and Employee Credential, before
+`employee-ready-confirm`. Tag B and Gates A–F did not continue. The original child session/TTY
+and Operator process were later absent, so no regular Operator `abort`, `da5_v5_aborted`,
+Operator cleanup receipt or terminal Operator exit is proved. The run is consumed and cannot be
+resumed or retried.
+
+Separate Human cleanup-only authority covered only package `com.tim180201.mobile.synthetic`, the
+owned `tcp:54321`/`tcp:3000` mappings and associated DA5 resources. Exact read-only rebinding
+preceded mutation; each mapping was removed exactly once, the exact package was uninstalled with
+`Success`, and the fully reattested task-owned PostgreSQL 17 temp cluster was deleted by its
+exact bound path. Two identical disclosure-safe null checks two seconds apart passed. No foreign
+state was mutated; the unrelated Homebrew PostgreSQL listener on `5432` remained untouched. The
+outcome is **`FAIL_CLOSED AND CLEAN`**, never `PASS`.
+
+Precleanup bindings, executed mutation results and the historical null-check sequence are
+`Technical-Lead-execution-reported from live tool outputs; no immutable raw/receipt artifact was
+preserved before cleanup`. Independently re-checkable is only the current-state null condition
+plus ADO scope/repository state. `FAIL_CLOSED AND CLEAN` is therefore the current-state
+disposition, not an independently proved execution sequence; regular Operator abort, receipt and
+exit remain unproved.
+
+The prior `2d0cbd` authority is consumed. Current published exact-reviewed ADO closure head is
+`7dad6a5caa9f42e6f29a096df21d915ea34e3296` / tree
+`cbf54d36a525ed1bc0d3bf1611bc0ea06288c5ef`; no new Hardware run is authorized. One P1 remains
+open before any future run: current Operator `22fe85d` can accept `abort` immediately after a
+successful Accessibility check, close input, then fail cleanup without restoration proof and
+thereby prevent `standard-profile-check`. Gate E was not reached in this run, and no correction
+is claimed here.
+
 ### Current DA5 Lean Stage-6 flight — ADO PRE-HARDWARE PACKAGE / EXACT-REVIEWED PUBLISHED CLOSURE HEAD REQUIRED / STOP BEFORE HARDWARE
 
 The exact preparation is published at

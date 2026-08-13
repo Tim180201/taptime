@@ -1,5 +1,33 @@
 # Project Status
 
+DA5 Lean Stage 6 Hardware outcome (`2026-08-13`): **`FAIL_CLOSED AND CLEAN`; ONE-TIME RUN
+CONSUMED; NO RESUME, RETRY OR NEW HARDWARE AUTHORITY.** The run reached the visible Employee state
+`Ausstehender Vorgang geschützt` after exact package clear and Employee Credential, before
+`employee-ready-confirm`; Tag B and Gates A–F did not continue. Because the original child
+session/TTY and Operator process were later absent, no regular Operator `abort`, abort receipt,
+Operator cleanup receipt or terminal exit is proved.
+
+The later Human authority was cleanup-only. Exact rebinding preceded exact-owned mapping removal,
+package uninstall and deletion of the fully reattested task-owned PostgreSQL 17 temp cluster.
+Two equal disclosure-safe null checks two seconds apart proved device/profile continuity plus
+package/process/mapping/listener/Operator/Guard/isolated-PostgreSQL/task/temp-cluster/Credential/
+clipboard/environment null; the repository was tracked-clean at both historical measurements.
+No foreign state changed, including the unrelated Homebrew PostgreSQL listener on `5432`.
+
+Those precleanup bindings, mutation results and historical null-check sequence are
+`Technical-Lead-execution-reported from live tool outputs; no immutable raw/receipt artifact was
+preserved before cleanup`. Only current-state null plus ADO scope/repository state is independently
+re-checkable. `FAIL_CLOSED AND CLEAN` is a current-state disposition, not independent proof of the
+execution sequence; regular Operator abort, receipt and exit remain unproved.
+
+Prior authority `2d0cbd` is consumed. Current published exact-reviewed ADO closure head is
+`7dad6a5caa9f42e6f29a096df21d915ea34e3296` / tree
+`cbf54d36a525ed1bc0d3bf1611bc0ea06288c5ef`. A P1/fail-closed Operator finding remains before
+any future Hardware run: current `22fe85d` can accept `abort` directly after successful
+Accessibility check, close input and then fail cleanup without restoration proof, preventing
+`standard-profile-check`. Gate E was not reached here; no code correction or Product PASS is
+claimed. The older pre-Hardware text below is historical where it conflicts with this override.
+
 DA5 Lean Stage 6: **ADO PRE-HARDWARE PACKAGE / EXACT-REVIEWED PUBLISHED CLOSURE HEAD REQUIRED /
 STOP BEFORE HARDWARE.** The preparation is published at
 `HEAD == main == origin/main == 3a0469ac1d0c9d781e49648a73bc9ef019423c8e` / tree
