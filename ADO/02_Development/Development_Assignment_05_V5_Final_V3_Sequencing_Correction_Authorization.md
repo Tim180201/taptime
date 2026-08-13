@@ -1,6 +1,6 @@
 # Development Assignment 5 — V5 Final-V3 Sequencing Correction Authorization
 
-- Status: **CANDIDATE — R0 REVIEW/PUBLICATION PENDING / NO EXECUTION OR HARDWARE AUTHORITY**
+- Status: **FULFILLED / SUPERSEDED BY EXACT M PRE-HARDWARE CLOSURE / NO HARDWARE AUTHORITY**
 - Date: 2026-08-13
 - Owner: Technical Lead
 - Approval authority: Human Architect
@@ -10,6 +10,37 @@
 - Governing documents: ADR-0019; AVS-001
 - Amends: `Development_Assignment_05_V5_Fresh_Artifact_Rebinding_Authorization.md`
 - Related risks: R-026; R-034
+
+## Fulfilment record
+
+Marker: `DA5-V5-PRE-HARDWARE-CLOSURE-M-2026-08-13`. This authorization was fulfilled by ADO
+publication `D` `cc6767d118a66e7926b2a5c2a457684695d05d45` and merge `M`
+`9380758f3e149718c8c0b8d34a1818de64c0d8d1` / tree
+`3c3b566124cf8c7ccd7727faf3a8aa76231f20f7`, with first parent `B`
+`489a853e1af45e60bab0b94bcce05d674f6af700` and second parent `D`. `M` versus `B` is exactly
+five ADO paths. Source `A`/hardbinding `B` and the four-path diff remain exactly as recorded below.
+
+The corrected D01→D02 sequence and complete V3 passed and were independently `APPROVED` with zero
+findings: 20/20 builds, 21/21 tests-inclusive Typechecks, 21/21 suites, 153 files, 3,026 passed,
+zero failed and three named expected skips, plus migrations, additional gates, Expo/artifact and
+cleanup. Immutable evidence root is
+`/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5/v3-9380758-corrected-4r21J4`;
+receipt 4,366 bytes / `0444` /
+`227b4a7e0028a85067ba5a22089ba201e4d678210a310ec6062279a446cbd2bc`; manifest 10,540 bytes /
+`0444` / `cc3299d4df6de04afb26aa9d834fab93f9eb105c4d8b3bb7833c43538379b2ae`.
+Exact-head CI `31695047997` attempt 1 matched `M` and passed 12/12 without retry. Final
+Source-A APK/manifest and Round-4 runtime
+`/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-product-operator/9380758f-f06a1b50-r4`
+review also returned `APPROVED` with zero open P0–P3; its 16,492-byte / `0444` manifest SHA-256 is
+`8a179bf8ef7dd206f6095d4d1248780062fe3a7d8db78d45276dbf356b95609d`. R1 was rejected for
+npm-hash transcription; r2 closed it but exposed the A→B recipe label; r3 fixed A→B but exposed
+B→M/D→M labels; r4 exhaustively binds both recipes for all three pairs without rebuild.
+
+The failed overlapping predecessor execution below remains immutable consumed failure evidence;
+it is neither relabeled nor reusable. Sections below are the historical authorization contract,
+not a current candidate. Only the ten-file R0/V0 closure publication and exact-head review of
+still-unknown future `C` remain; there is no V3/V4 rerun or current ADB/install/Hardware/
+Product-Human authority.
 
 ## 1. Purpose and current truth
 
@@ -34,7 +65,7 @@ The following identities are immutable inputs, not future hashes:
 | Published remote baseline | `fe029f078654e5b46b9563bf613f36fa90ec765c` / tree `a1d251a2c392cdb58739769bfa56e53ff054363c` |
 | Local source A | `03e0e48ad53ff91b24ee1182abf782473317988d` / tree `4465f8ee5be41f82cdaed5f31f2da92b839c952d`; direct parent `fe029f078654e5b46b9563bf613f36fa90ec765c` |
 | Local hardbinding B | `489a853e1af45e60bab0b94bcce05d674f6af700` / tree `841727f8228f85ab91f5f7e9e9a052608e105152`; direct parent A |
-| Exact A→B delta | Exactly the four paths authorized by the fresh-artifact amendment; ordinary `git diff --binary A B` SHA-256 `d430d51edf2459f37b96f6634611ad6092d9aa23330ec923da15e7dc2fc55127` |
+| Exact A→B delta | Exactly the four paths authorized by the fresh-artifact amendment; ordinary `git diff --binary A B` is 10,441 bytes / SHA-256 `d430d51edf2459f37b96f6634611ad6092d9aa23330ec923da15e7dc2fc55127`; canonical `git diff --full-index --binary A B` is 10,705 bytes / SHA-256 `b875bc186f2e218f608c69d2ebe579fc580e363664fd5efb6135c7961931610a` |
 
 B and its exact four-path delta already received independent pre-V3 `APPROVED` with zero open
 P0–P3. A and B remain local and unpushed.

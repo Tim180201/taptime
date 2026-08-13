@@ -1,6 +1,6 @@
 # Development Assignment 5 — V5 Fresh Artifact Rebinding Authorization
 
-- Status: **CANDIDATE — NOT EXECUTED / INDEPENDENT REVIEW PENDING / NO HARDWARE AUTHORITY**
+- Status: **FULFILLED / SUPERSEDED BY EXACT M PRE-HARDWARE CLOSURE / NO HARDWARE AUTHORITY**
 - Date: 2026-08-13
 - Owner: Technical Lead
 - Approval authority: Human Architect
@@ -10,6 +10,41 @@
 - Governing architecture and verification: ADR-0019; AVS-001
 - Amends: `Development_Assignment_05_V5_Employee_Readiness_and_Accessibility_Abort_Correction_Authorization.md`
 - Related operational risk: R-026; R-034
+
+## Fulfilment record
+
+Marker: `DA5-V5-PRE-HARDWARE-CLOSURE-M-2026-08-13`. This authorization was executed through
+source `A` `03e0e48ad53ff91b24ee1182abf782473317988d` / tree
+`4465f8ee5be41f82cdaed5f31f2da92b839c952d` and hardbinding `B`
+`489a853e1af45e60bab0b94bcce05d674f6af700` / tree
+`841727f8228f85ab91f5f7e9e9a052608e105152`. The exact four-path A→B ordinary
+`git diff --binary A B` is 10,441 bytes / SHA-256
+`d430d51edf2459f37b96f6634611ad6092d9aa23330ec923da15e7dc2fc55127`; canonical
+`git diff --full-index --binary A B` is 10,705 bytes / SHA-256
+`b875bc186f2e218f608c69d2ebe579fc580e363664fd5efb6135c7961931610a`.
+The final executable is merge `M`
+`9380758f3e149718c8c0b8d34a1818de64c0d8d1` / tree
+`3c3b566124cf8c7ccd7727faf3a8aa76231f20f7`, parents `B` and sequencing publication `D`
+`cc6767d118a66e7926b2a5c2a457684695d05d45`; `M` versus `B` is exactly five ADO paths.
+
+The Source-A APK is 95,526,563 bytes / `0444` / SHA-256
+`b02fdb2544225d03e3142fa30f12caa8fedf889a558b39cc040cca03f9539234` and its 59-LF-field
+manifest is 1,968 bytes / `0444` / SHA-256
+`91725bb6f14306eb40d0e4414f38511fc829250799af91bacf840ac622efc577`. Corrected V3, exact-head
+CI `31695047997` attempt 1 at 12/12, and final Round-4 runtime/artifact review are all `APPROVED`
+with zero findings. The independently approved R4 runtime is
+`/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-product-operator/9380758f-f06a1b50-r4`;
+its 16,492-byte / `0444` manifest and entry/map SHA-256 values are respectively
+`8a179bf8ef7dd206f6095d4d1248780062fe3a7d8db78d45276dbf356b95609d`,
+`f06a1b508369fc525e562485f7a08bd5b1174034d0554cdb5174b3bbf3ef70d5` and
+`aba65ced7deb7aa6a44809cc2fef33e202c0157b3056cd00324911e7890dc30a`. R1 was rejected for
+npm-hash transcription; r2 closed that P2 but exposed the A→B recipe label; r3 fixed A→B but
+exposed B→M/D→M labels. R4 binds both recipes for all three pairs without rebuild and is final
+`APPROVED` with zero open P0–P3.
+
+Sections below are the historical authorization contract, not pending work. Current authority is
+only an R0/V0 ten-file ADO closure candidate followed by exact-head review of still-unknown `C`;
+no V3/V4 rerun, ADB, installation, Hardware or Product-Human action is authorized.
 
 ## 1. Purpose and current truth
 

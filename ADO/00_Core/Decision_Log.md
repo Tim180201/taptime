@@ -6,6 +6,31 @@ This file is the index of important technical and organizational decisions for T
 
 Full architecture decisions are documented as ADRs under `ADO/01_Architecture/ADR/`.
 
+## Current governing DA5 closure decision
+
+Marker `DA5-V5-PRE-HARDWARE-CLOSURE-M-2026-08-13` supersedes the two later DA5
+fresh-artifact/final-V3 `CANDIDATE` rows: both authorizations are fulfilled and superseded by exact
+`M` `9380758f3e149718c8c0b8d34a1818de64c0d8d1` / tree
+`3c3b566124cf8c7ccd7727faf3a8aa76231f20f7`, parents `B`
+`489a853e1af45e60bab0b94bcce05d674f6af700` and `D`
+`cc6767d118a66e7926b2a5c2a457684695d05d45`. Corrected V3 is independently `APPROVED` with
+zero findings, exact-head CI `31695047997` attempt 1 passed 12/12, and the Source-A APK/manifest
+are immutable. Final Round-4 runtime
+`/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-product-operator/9380758f-f06a1b50-r4`
+has a 16,492-byte / `0444` manifest at SHA-256
+`8a179bf8ef7dd206f6095d4d1248780062fe3a7d8db78d45276dbf356b95609d` and received independent
+`APPROVED` with zero open P0–P3. R1 was rejected for npm-hash transcription; r2 closed it but
+exposed the A→B recipe label; r3 fixed A→B but exposed B→M/D→M labels; r4 exhaustively binds both
+recipes for all three pairs without rebuild.
+
+Decision: preserve the consumed physical failure as historical/non-reusable without asserting its
+unproved actual cause; treat the technical preparation gap as closed by machine `READY` IDs, the
+real lifecycle regression and safe abort. Publish this exact ten-file R0/V0 documentation delta
+only after prepublication review, then exact-head review unknown future `C`; do not rerun V3/V4.
+Stop after that review for a new one-time Human authority quoting `C` plus every exact executable,
+evidence, artifact/runtime, toolchain and private device/environment binding. No ADB, install,
+Hardware, Product-Human, production, deployment or distribution authority follows.
+
 | ID | Title | Status | Date | Location |
 |---|---|---|---|---|
 | DEVELOPMENT-ASSIGNMENT-05-V5-FINAL-V3-SEQUENCING-CORRECTION-CANDIDATE-2026-08-13 | On exact `fe029f078654e5b46b9563bf613f36fa90ec765c` / tree `a1d251a2c392cdb58739769bfa56e53ff054363c`, approved local A `03e0e48` and B `489a853` plus the approved source-A APK/manifest stay unchanged/unpushed. The consumed failed V3 overlapped D02 with D01 (start delta 39.905s; D01 continued past 60s and exited 0), so four npm tuples are partial-install observations and no downstream gate ran. After R0 review/publication D, create conflict-free merge M with first parent B, second D and only these five ADO paths relative B; run exactly one corrected foreground/awaited D01→D02 and unchanged full V3 on M, then independent approval, one M push/V4, fresh M runtime and final artifact review. No retry, weakening, A/B/artifact mutation, ADB/install/Human/Hardware or production authority | R0 CANDIDATE — INDEPENDENT REVIEW/PUBLICATION REQUIRED BEFORE ONE CORRECTED R3 V3; NO CURRENT EXECUTION/HARDWARE AUTHORITY | 2026-08-13 | `ADO/02_Development/Development_Assignment_05_V5_Final_V3_Sequencing_Correction_Authorization.md`; `ADO/02_Development/Development_Assignment_05_V5_Fresh_Artifact_Rebinding_Authorization.md`; ADR-0019; AVS-001; R-026; R-034 |

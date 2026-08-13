@@ -1,5 +1,31 @@
 # Development Assignment 5 — V5 Human Android Evidence
 
+## Current technical pre-Hardware closure candidate
+
+Marker: `DA5-V5-PRE-HARDWARE-CLOSURE-M-2026-08-13`. This table supersedes conflicting later
+`Current` bindings; later consumed/failure sections remain historical and non-reusable.
+
+| Evidence | Exact current result |
+|---|---|
+| Executable lineage | `M` `9380758f3e149718c8c0b8d34a1818de64c0d8d1` / tree `3c3b566124cf8c7ccd7727faf3a8aa76231f20f7`; parents `B` `489a853e1af45e60bab0b94bcce05d674f6af700` and `D` `cc6767d118a66e7926b2a5c2a457684695d05d45`; `M` vs `B` exactly five ADO paths |
+| A→B artifact hardbinding delta | Ordinary `git diff --binary A B` is 10,441 bytes / SHA-256 `d430d51edf2459f37b96f6634611ad6092d9aa23330ec923da15e7dc2fc55127`; canonical `git diff --full-index --binary A B` is 10,705 bytes / SHA-256 `b875bc186f2e218f608c69d2ebe579fc580e363664fd5efb6135c7961931610a` |
+| B→M first-parent merge delta | Ordinary `git diff --binary B M` is 23,453 bytes / SHA-256 `f11c8f1fc6ac7a11d9f23514a6b5a2a70e4aac0a3714096012de9c50f70c84c6`; canonical `git diff --full-index --binary B M` is 23,783 bytes / SHA-256 `1b277ac1dc786944ec48fd22f1875d9d7db6afaeb37f5a02d9af8f7a4df19b1c` |
+| D→M second-parent merge delta | Ordinary `git diff --binary D M` is 116,666 bytes / SHA-256 `6fd0a85e22c34a576a6bce802e693169857def5bf1cdcbc0b4d2c6c49341feb6`; canonical `git diff --full-index --binary D M` is 117,788 bytes / SHA-256 `5fbbda1bfa52d318d7986cf74d5a91eea5547dcd07524123dddb80e8429c46dd` |
+| R4 manifest recipe audit | The final R4 runtime manifest named below is the canonical runtime binding for all six recipe/byte/SHA-256 tuples above; its independent Round-4 review returned `APPROVED`, zero open P0–P3 |
+| Corrected V3 | Independently `APPROVED`, zero findings; 20/20 builds, 21/21 tests-inclusive Typechecks, 21/21 suites, 153 files, 3,026 passed, zero failed, three named expected skips; migrations/additional gates/Expo/artifact/cleanup passed |
+| V3 immutability | `/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5/v3-9380758-corrected-4r21J4`; receipt 4,366 bytes / `0444` / SHA-256 `227b4a7e0028a85067ba5a22089ba201e4d678210a310ec6062279a446cbd2bc`; manifest 10,540 bytes / `0444` / SHA-256 `cc3299d4df6de04afb26aa9d834fab93f9eb105c4d8b3bb7833c43538379b2ae` |
+| Named expected skips | `backend-b1-spike_optional_Supavisor_session_target_absent`; `backend-b1-spike_optional_Supavisor_transaction_target_absent`; `synthetic_runtime_guard_mutually_exclusive_root-only_wrong-owner_fixture_on_non-root_host` |
+| Exact-head CI | Run `31695047997`, attempt 1, exact `M`, 12/12 successful, no retry |
+| Product artifact | Root `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5/lean-03e0e48a-b02fdb2544225d03`; APK 95,526,563 bytes / `0444` / SHA-256 `b02fdb2544225d03e3142fa30f12caa8fedf889a558b39cc040cca03f9539234`; manifest 1,968 bytes / 59 LF fields / `0444` / SHA-256 `91725bb6f14306eb40d0e4414f38511fc829250799af91bacf840ac622efc577` |
+| Product identity/security | Package `com.tim180201.mobile.synthetic`; versionCode `1`; versionName `1.0.0`; v2 signature true, v1/v3/v3.1/v4 false; one local synthetic non-production signer certificate SHA-256 `fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c`; backup/cleartext constraints, NFC binding and single Hermes bundle match the full 59-field manifest |
+| Approved Round-4 runtime | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-product-operator/9380758f-f06a1b50-r4`; final independent `APPROVED`, zero open P0–P3 |
+| Runtime manifest | 16,492 bytes / `0444` / SHA-256 `8a179bf8ef7dd206f6095d4d1248780062fe3a7d8db78d45276dbf356b95609d` |
+| Runtime entry/map | Entry 935,974 bytes / `0444` / SHA-256 `f06a1b508369fc525e562485f7a08bd5b1174034d0554cdb5174b3bbf3ef70d5`; map 1,739,281 bytes / `0444` / SHA-256 `aba65ced7deb7aa6a44809cc2fef33e202c0157b3056cd00324911e7890dc30a`, v3, no `sourceRoot`, 90/90/90 |
+| Runtime dependency binding | Hidden lock 328,432 bytes / `0444` / SHA-256 `9c6a9279f40fd88e2e958db388595b3b3575fb3dcb49c436562a83444d8bf0c4`; Node `24.17.0` SHA-256 `f5f9b9db4d95f5e0340982685f083de654c21eef9d9122cab5321081ccaa2601`; npm `11.13.0` CLI 54-byte SHA-256 `8e5f6f3429f8cdbe693cdc29904e9d5a7b127a494bd15c804bd54c7403bfcbe7` |
+| Runtime correction provenance | R1 rejected for npm-hash transcription; r2 closed that P2 but closure review found its A→B recipe label; r3 fixed A→B but formal re-review found remaining B→M/D→M recipe labels; r4 exhaustively binds both recipes for all three pairs, copied reviewed runtime bytes without rebuild and passed final Round-4 review |
+| Historical physical result | Consumed/non-reusable failure; actual root cause not positively proved. Machine `READY` IDs, real lifecycle regression and safe abort close technical preparation only, not physical PASS |
+| Current gate | Both newer auth documents fulfilled/superseded. R0/V0 sequence is prepublication review → exact ten-file commit/push at unknown `C` → exact-head review, with no V3/V4 rerun; then STOP for new exact one-time Human authority. No ADB/install/Hardware/Product-Human action now |
+
 ## Current consumed-run and cleanup-only Evidence — `2026-08-13`
 
 ### Run truth and evidence boundary

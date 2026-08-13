@@ -5,6 +5,69 @@ Epic: EP-006
 Owner: Technical Lead  
 Approval Authority: Human Architect
 
+## Current DA5 V5 pre-Hardware technical closure candidate
+
+Marker: `DA5-V5-PRE-HARDWARE-CLOSURE-M-2026-08-13`.
+
+This block is the current truth and supersedes every later conflicting `Current` or candidate
+statement in this file; the later text remains immutable history. Executable
+`HEAD == main == origin/main == 9380758f3e149718c8c0b8d34a1818de64c0d8d1` (`M`), tree
+`3c3b566124cf8c7ccd7727faf3a8aa76231f20f7`, has parents hardbinding `B`
+`489a853e1af45e60bab0b94bcce05d674f6af700` and ADO sequencing publication `D`
+`cc6767d118a66e7926b2a5c2a457684695d05d45`. `M` differs from `B` in exactly five ADO paths.
+Source `A` is `03e0e48ad53ff91b24ee1182abf782473317988d` / tree
+`4465f8ee5be41f82cdaed5f31f2da92b839c952d`; `B` tree is
+`841727f8228f85ab91f5f7e9e9a052608e105152`. The exact four-path A→B ordinary
+`git diff --binary A B` is 10,441 bytes / SHA-256
+`d430d51edf2459f37b96f6634611ad6092d9aa23330ec923da15e7dc2fc55127`; canonical
+`git diff --full-index --binary A B` is 10,705 bytes / SHA-256
+`b875bc186f2e218f608c69d2ebe579fc580e363664fd5efb6135c7961931610a`.
+
+Corrected local V3 on `M` is independently `APPROVED` with zero open P0–P3: 20/20 builds,
+21/21 tests-inclusive Typechecks, 21/21 suites, 153 files, 3,026 passed, zero failed and exactly
+three expected skips (`backend-b1-spike_optional_Supavisor_session_target_absent`,
+`backend-b1-spike_optional_Supavisor_transaction_target_absent` and
+`synthetic_runtime_guard_mutually_exclusive_root-only_wrong-owner_fixture_on_non-root_host`),
+plus migrations, additional gates, Expo/artifact checks and complete cleanup. Evidence root:
+`/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5/v3-9380758-corrected-4r21J4`;
+receipt 4,366 bytes / `0444` / SHA-256
+`227b4a7e0028a85067ba5a22089ba201e4d678210a310ec6062279a446cbd2bc`; manifest 10,540 bytes /
+`0444` / SHA-256 `cc3299d4df6de04afb26aa9d834fab93f9eb105c4d8b3bb7833c43538379b2ae`.
+Exact-head CI run `31695047997`, attempt 1, matched `M` and passed 12/12 without retry.
+
+The immutable Source-A Product artifact root is
+`/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5/lean-03e0e48a-b02fdb2544225d03`:
+APK 95,526,563 bytes / `0444` / SHA-256
+`b02fdb2544225d03e3142fa30f12caa8fedf889a558b39cc040cca03f9539234`; 59-LF-field manifest
+1,968 bytes / `0444` / SHA-256
+`91725bb6f14306eb40d0e4414f38511fc829250799af91bacf840ac622efc577`. The final independently
+`APPROVED` Round-4 Operator runtime is
+`/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-product-operator/9380758f-f06a1b50-r4`:
+manifest 16,492 bytes / `0444` / SHA-256
+`8a179bf8ef7dd206f6095d4d1248780062fe3a7d8db78d45276dbf356b95609d`; entry 935,974 bytes /
+`0444` / SHA-256 `f06a1b508369fc525e562485f7a08bd5b1174034d0554cdb5174b3bbf3ef70d5`;
+map 1,739,281 bytes / `0444` / SHA-256
+`aba65ced7deb7aa6a44809cc2fef33e202c0157b3056cd00324911e7890dc30a` (v3, no `sourceRoot`,
+90/90/90); hidden lock 328,432 bytes / `0444` / SHA-256
+`9c6a9279f40fd88e2e958db388595b3b3575fb3dcb49c436562a83444d8bf0c4`. Node is exact
+`24.17.0`; npm CLI is exact `11.13.0`, 54 bytes, SHA-256
+`8e5f6f3429f8cdbe693cdc29904e9d5a7b127a494bd15c804bd54c7403bfcbe7`. The immutable
+predecessors remain rejected: r1 had the npm-hash transcription error; r2 closed it but closure
+review found the A→B recipe label; r3 fixed A→B but re-review found the B→M and D→M labels. R4
+exhaustively binds ordinary and full-index recipes for all three pairs, reused reviewed bytes
+without rebuild and received final independent `APPROVED` with zero open P0–P3.
+
+The two newer sequencing/rebinding authorization documents are fulfilled and superseded by this
+closure. The consumed Hardware failure remains historical and non-reusable; its actual root cause
+was not positively proved. The technical gap is nevertheless closed by machine `READY` identifiers,
+the real lifecycle regression and safe abort. Next is only R0/V0 documentation publication:
+prepublication review → focused commit/push of these exact ten ADO files as future head `C` →
+exact-head review. `C` is intentionally unknown here. No V3/V4 rerun follows an ADO-only delta.
+After exact-head review, stop for a new one-time Human authorization quoting the reviewed `C` and
+all executable, CI, V3, Product-artifact, runtime, toolchain and private device/Tag/port/mapping/
+Guard/Credential bindings. No secret, UID or serial belongs in ADO. No ADB, install, Hardware or
+Product-Human action is currently authorized.
+
 ## Purpose
 
 ### Current DA5 final-V3 sequencing correction — R0 REVIEW/PUBLICATION PENDING; NO EXECUTION OR HARDWARE AUTHORITY

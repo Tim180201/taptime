@@ -2,6 +2,34 @@
 
 Status: Active
 
+Current DA5 pre-Hardware closure override (`2026-08-13`), marker
+`DA5-V5-PRE-HARDWARE-CLOSURE-M-2026-08-13`: R-026/R-034 remain open only for a future separately
+authorized physical run. Exact executable `M`
+`9380758f3e149718c8c0b8d34a1818de64c0d8d1` / tree
+`3c3b566124cf8c7ccd7727faf3a8aa76231f20f7`, parents `B`
+`489a853e1af45e60bab0b94bcce05d674f6af700` and `D`
+`cc6767d118a66e7926b2a5c2a457684695d05d45`, is V3-corrected, exact-head CI
+`31695047997` attempt 1 at 12/12, and independently artifact/runtime approved with zero findings.
+The Source-A APK is SHA-256
+`b02fdb2544225d03e3142fa30f12caa8fedf889a558b39cc040cca03f9539234`; its 59-field manifest is
+`91725bb6f14306eb40d0e4414f38511fc829250799af91bacf840ac622efc577`. Final Round-4-approved
+runtime `9380758f-f06a1b50-r4` binds its 16,492-byte / `0444` manifest at
+`8a179bf8ef7dd206f6095d4d1248780062fe3a7d8db78d45276dbf356b95609d`, entry
+`f06a1b508369fc525e562485f7a08bd5b1174034d0554cdb5174b3bbf3ef70d5` and map
+`aba65ced7deb7aa6a44809cc2fef33e202c0157b3056cd00324911e7890dc30a`. R1 was rejected for
+the npm-hash transcription; r2 closed it but exposed the A→B recipe-label P2; r3 fixed A→B but
+exposed the remaining B→M/D→M labels. R4 binds both recipes for all three pairs without rebuild,
+uses npm CLI SHA-256 `8e5f6f3429f8cdbe693cdc29904e9d5a7b127a494bd15c804bd54c7403bfcbe7`
+and is independently `APPROVED` with zero open P0–P3.
+
+The consumed Hardware failure remains non-reusable and its actual root cause is not positively
+proved. Machine `READY` identifiers, a real lifecycle regression and safe abort close the
+technical preparation gap without claiming physical PASS. The two later ADO authorizations are
+fulfilled/superseded. Remaining control is R0/V0: prepublication review, exact ten-file publication
+at unknown future `C`, exact-head review, then STOP pending a new exact one-time Human authority.
+No V3/V4 rerun, ADB, install, Hardware or Product-Human action is currently authorized. Later
+conflicting `Current` statements are historical.
+
 Current DA5 final-V3 sequencing control (`2026-08-13`): R-026/R-034 remain open; no Product or
 Hardware result is claimed. On exact `fe029f078654e5b46b9563bf613f36fa90ec765c` / tree
 `a1d251a2c392cdb58739769bfa56e53ff054363c`, local approved A `03e0e48` and B `489a853` plus

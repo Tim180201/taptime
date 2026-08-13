@@ -1,5 +1,44 @@
 # Development Assignment 5 — V5 Human Android Gate Runbook
 
+## Current pre-Hardware operating override — exact M / Source-A artifact / R4 runtime
+
+Marker: `DA5-V5-PRE-HARDWARE-CLOSURE-M-2026-08-13`. This section supersedes later conflicting
+`Current` bindings while preserving consumed-run history and every physical gate below.
+
+Executable `M` is `9380758f3e149718c8c0b8d34a1818de64c0d8d1` / tree
+`3c3b566124cf8c7ccd7727faf3a8aa76231f20f7`, parents `B`
+`489a853e1af45e60bab0b94bcce05d674f6af700` and `D`
+`cc6767d118a66e7926b2a5c2a457684695d05d45`. Exact-head CI `31695047997` attempt 1 passed
+12/12. Corrected V3 at `v3-9380758-corrected-4r21J4` is independently `APPROVED` with zero
+findings and complete cleanup. The immutable Product APK/manifest are the Source-A pair under
+`lean-03e0e48a-b02fdb2544225d03`, with SHA-256
+`b02fdb2544225d03e3142fa30f12caa8fedf889a558b39cc040cca03f9539234` and
+`91725bb6f14306eb40d0e4414f38511fc829250799af91bacf840ac622efc577`.
+The final independently `APPROVED` Round-4 Operator runtime is
+`/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-product-operator/9380758f-f06a1b50-r4`;
+its manifest is 16,492 bytes / `0444` / SHA-256
+`8a179bf8ef7dd206f6095d4d1248780062fe3a7d8db78d45276dbf356b95609d`; entry/map SHA-256 values are
+respectively
+`f06a1b508369fc525e562485f7a08bd5b1174034d0554cdb5174b3bbf3ef70d5` and
+`aba65ced7deb7aa6a44809cc2fef33e202c0157b3056cd00324911e7890dc30a`.
+R1 was rejected for npm-hash transcription; r2 closed it but exposed the A→B recipe label; r3
+fixed A→B but exposed B→M/D→M labels. R4 binds ordinary and full-index outputs for all three
+pairs without rebuild and its final independent review has zero open P0–P3.
+
+Before any physical action: independent prepublication review → focused exact ten-file ADO
+commit/push at not-yet-known `C` → independent exact-head review. This R0 delta triggers no V3/V4
+rerun. After exact-head review, STOP for a new one-time Human authorization quoting `C`, `M`
+lineage, CI/V3, APK/manifest, runtime manifest/entry/map, Node/toolchain and private device/Tag/
+port/mapping/Guard/Credential bindings. Do not place raw secrets, UID or serial values in ADO.
+
+In a later authorized flight, the Technical Lead alone owns every digital ADB/Operator command,
+checkpoint, Evidence update and cleanup. The Human only unlocks/changes requested settings,
+presents requested Tags, reports visible `PASS`/`FAIL`/`AMBIGUOUS` and enters a Credential at the
+hidden active prompt. All existing physical observation, restoration and cleanup gates remain.
+The consumed failure is historical/non-reusable and its actual root cause is not asserted; machine
+`READY` identifiers, real lifecycle regression and safe abort close only the technical gap.
+No ADB, install, Hardware or Product-Human action is currently authorized.
+
 ## Current terminal override — consumed run and cleanup-only closure (`2026-08-13`)
 
 The one-time run started on `2026-08-12` and is consumed. After exact package clear and Employee

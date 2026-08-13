@@ -1,10 +1,12 @@
 # Development Assignment 5 — Lean Stage-6 Hardware Flight Card
 
-Status: **ADO PRE-HARDWARE PACKAGE / EXACT-REVIEWED PUBLISHED CLOSURE HEAD REQUIRED / STOP BEFORE HARDWARE**
+Status: **R0/V0 TECHNICAL PRE-HARDWARE CLOSURE CANDIDATE / EXACT-REVIEWED FUTURE C REQUIRED / STOP BEFORE HARDWARE**
 
 Owner: Technical Lead
 
 Physical approval authority: Human Architect
+
+Marker: `DA5-V5-PRE-HARDWARE-CLOSURE-M-2026-08-13`.
 
 ## Boundary
 
@@ -36,19 +38,23 @@ closed, do not retry/resume/rebuild, and follow only the governing restoration/c
 |---|---|
 | Lean decision | `83635335aa4f547dc8994243c604dacf9797f593` / tree `40b7655a94e607b8afe19f90f42a95f42ee6d582`; Human-accepted; independent `APPROVED`, zero open P0–P3 |
 | Automated closure | `1b341d83592ea457c8ca722d01bfa2e64fe8cc40` / tree `2db756832a81f07cdb1a927ff3076320cc253960`; stages 1–5 and V0–V4 complete; CI `30786622180`, attempt 1, 12/12; final independent `APPROVED` |
-| Current Operator | `22fe85d540c8949f179b96589ed493f0211002db` / tree `7514edfe90da11a3288fec0df872fb7010238c0b`; CI `31630253237`, attempt 1, 12/12; final strict review `APPROVED`, zero open P0–P3 |
-| Published ADO preparation | HEAD/main/origin `3a0469ac1d0c9d781e49648a73bc9ef019423c8e` / tree `4521f179bbae8867c6776d643679cce32658c979`, parent `2d0cbd01ce483987c375eeee9ecc49f37e2185f8` / tree `840fd156fe46614adf9d1bec2a018a2c6b453c1c`; exactly nine ADO files, 405 insertions/63 deletions, binary diff SHA-256 `b98c6fcb424cf2fda31748efa2b0ce5b79f77bdc0da1e1a32364ae9f48efaf52`; prepublication corrected independent review `APPROVED`, zero open P0–P3; not the Operator CI source and not the future Hardware-authority closure head |
-| Prepared governing blobs at `3a0469ac` | Flight Card blob `657eb575c23e7b41b1a1e40593e48bd283b24796`, 10,846 bytes, SHA-256 `6cfacd144c780876a2ed2cc41ac93c8de76c5cb3c64523c52f444f79c3c23627`; Runbook blob `9827a27afc8882fe29dbfb20433035f1b3b9b321`, 213,251 bytes, SHA-256 `c720934e872af8b4d228521467fe39a27b2f1df9f97065f97f0d2520a56ce19a`; Evidence blob `7477234fa17820ddf8c847bbb22122b7a0d7a0ee`, 260,193 bytes, SHA-256 `372372993ad27ed3f39f923402e1b8c8cebf017dfbf553d1cf419ff2dfacd3eb`; Status blob `4b1ce546c5288c1b9bb07c093ee282193cdd13ae`, 253,688 bytes, SHA-256 `5cef76333e37326486fcf7e4d041f7d47e2546bd6a4a55be7d593343dc3d4afc`; each Git mode `100644`, working mode `0644` |
-| Required live ADO binding | The actual published Publication Closure commit/tree is intentionally not embedded or predicted here. After this candidate is independently approved and focusedly published, an independent exact-head read-only review must quote that actual head and bind its exact governing Flight Card/Runbook/Evidence/Status blobs, exact delta and no-executable-delta result. Only that reviewed published closure head may be quoted by a future live one-time Human Hardware authorization |
-| Operator runtime | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-product-operator/22fe85d5-2a48d52d` |
-| Runtime manifest | `operator-runtime-manifest.json`; 10,726 bytes; mode `0444`; SHA-256 `2e24bb5c5d39089ef871d9fd986a67532d51f71df3a6e1652b1b1e232bf6e1fe` |
-| Runtime entrypoint | `checkout/apps/synthetic-android-e2e/dist/da5V5Main.js`; 930,095 bytes; mode `0444`; SHA-256 `2a48d52d204ef8cfba73d9a789de3ef50ecefa29e32c51953bc75b9d48d023a6` |
-| Runtime map | Adjacent `.map`; 1,728,717 bytes; mode `0444`; SHA-256 `a51b9cfa0dfa883bf5d091789051ec16c85529afbecd53b37017940fa16a70d2` |
-| Product APK | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5/lean-83635335-b0180c31769e4534/app-release-b0180c31769e4534.apk`; 95,522,751 bytes; mode `0444`; SHA-256 `b0180c31769e453472a20eb1e7eb4e0825a85be9429becf6bf4970e0875b67f8` |
-| APK manifest | Same directory `artifact-manifest.txt`; 1,968 bytes; mode `0444`; SHA-256 `83b93bbf33297334bfcca3aa30e5ed6772175f98a2a81dc80045454570fe937b` |
+| Current executable | `HEAD == main == origin/main == M` `9380758f3e149718c8c0b8d34a1818de64c0d8d1` / tree `3c3b566124cf8c7ccd7727faf3a8aa76231f20f7`; parents `B` `489a853e1af45e60bab0b94bcce05d674f6af700` and `D` `cc6767d118a66e7926b2a5c2a457684695d05d45`; `M` versus `B` exactly five ADO paths |
+| Source / hardbinding | `A` `03e0e48ad53ff91b24ee1182abf782473317988d` / tree `4465f8ee5be41f82cdaed5f31f2da92b839c952d`; `B` tree `841727f8228f85ab91f5f7e9e9a052608e105152`; ordinary `git diff --binary A B` 10,441 bytes / SHA-256 `d430d51edf2459f37b96f6634611ad6092d9aa23330ec923da15e7dc2fc55127`; canonical `git diff --full-index --binary A B` 10,705 bytes / SHA-256 `b875bc186f2e218f608c69d2ebe579fc580e363664fd5efb6135c7961931610a` |
+| Corrected V3 | Independently `APPROVED`, zero findings; immutable `v3-9380758-corrected-4r21J4` receipt SHA-256 `227b4a7e0028a85067ba5a22089ba201e4d678210a310ec6062279a446cbd2bc` and manifest `cc3299d4df6de04afb26aa9d834fab93f9eb105c4d8b3bb7833c43538379b2ae`; 20/20 builds, 21/21 tests-inclusive Typechecks, 21/21 suites, 3,026 pass/0 fail/3 named expected skips; cleanup complete |
+| Exact-head CI | Run `31695047997`, attempt 1, exact `M`, 12/12 successful, no retry |
+| Future ADO closure `C` | This candidate changes exactly ten existing ADO files. Its future focused publication commit/tree `C` is intentionally unknown and must not be predicted here. Independent prepublication approval and then independent exact-head review must bind `C`, exact ten-path delta/blobs and no executable/config/schema/dependency/test/workflow/artifact delta |
+| Required live ADO binding | Only exact-head-reviewed `C` may be quoted by a later one-time Human authorization, together with exact `M`/tree/lineage, CI, corrected V3 evidence, APK/manifest, runtime manifest/entry/map, Node/toolchain and privately recorded device/Tags/ports/mappings/Guard/Credential constraints; no raw secret, UID or serial in ADO |
+| Operator runtime | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-product-operator/9380758f-f06a1b50-r4`; final Round-4 independent `APPROVED`, zero open P0–P3 |
+| Runtime manifest | `operator-runtime-manifest.json`; 16,492 bytes; mode `0444`; SHA-256 `8a179bf8ef7dd206f6095d4d1248780062fe3a7d8db78d45276dbf356b95609d` |
+| Runtime entrypoint | `checkout/apps/synthetic-android-e2e/dist/da5V5Main.js`; 935,974 bytes; mode `0444`; SHA-256 `f06a1b508369fc525e562485f7a08bd5b1174034d0554cdb5174b3bbf3ef70d5` |
+| Runtime map | Adjacent `.map`; 1,739,281 bytes; mode `0444`; SHA-256 `aba65ced7deb7aa6a44809cc2fef33e202c0157b3056cd00324911e7890dc30a`; version 3, no `sourceRoot`, 90/90/90 |
+| Runtime dependencies | Hidden lock 328,432 bytes / `0444` / SHA-256 `9c6a9279f40fd88e2e958db388595b3b3575fb3dcb49c436562a83444d8bf0c4`; npm `11.13.0` CLI 54 bytes / SHA-256 `8e5f6f3429f8cdbe693cdc29904e9d5a7b127a494bd15c804bd54c7403bfcbe7` |
+| Runtime correction chain | R1 rejected for npm-hash transcription; r2 closed it but exposed the A→B recipe label; r3 fixed A→B but exposed B→M/D→M labels; r4 exhaustively binds ordinary and full-index recipes for all three pairs without rebuild and is final `APPROVED` |
+| Product APK | `/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5/lean-03e0e48a-b02fdb2544225d03/app-release-b02fdb2544225d03.apk`; 95,526,563 bytes; mode `0444`; SHA-256 `b02fdb2544225d03e3142fa30f12caa8fedf889a558b39cc040cca03f9539234` |
+| APK manifest | Same directory `artifact-manifest.txt`; 1,968 bytes; 59 LF fields; mode `0444`; SHA-256 `91725bb6f14306eb40d0e4414f38511fc829250799af91bacf840ac622efc577` |
 | Complete manifest equality | Runtime manifest and APK `artifact-manifest.txt` must each match the full bound size, mode and digest plus every parsed field; selected-field checks are insufficient |
-| APK identity | Package `com.tim180201.mobile.synthetic`; versionCode `1`; versionName `1.0.0`; signature schemes v2 `true`, v1/v3/v3.1/v4 `false`; signer count `1`; signer certificate SHA-256 `fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c`; local V5 debug identity, no production-signing claim |
-| Node | `/Users/timbartz/.nvm/versions/node/v24.17.0/bin/node`; `v24.17.0`; 120,591,840 bytes; mode `0755`; SHA-256 `f5f9b9db4d95f5e0340982685f083de654c21eef9d9122cab5321081ccaa2601`; read-only bundle check `PASS` on 2026-08-12 |
+| APK identity/security | Package `com.tim180201.mobile.synthetic`; versionCode `1`; versionName `1.0.0`; v2 `true`, v1/v3/v3.1/v4 `false`; signer count `1`; `local-synthetic-non-production` certificate SHA-256 `fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c`; `allow-backup=false`; `uses-cleartext-traffic=false`; base deny with 127.0.0.1-only exception; offline backup exclusions; exact NfcA binding; one Hermes bundle and runtime-contract match |
+| Node | `/Users/timbartz/.nvm/versions/node/v24.17.0/bin/node`; `v24.17.0`; 120,591,840 bytes; mode `0755`; SHA-256 `f5f9b9db4d95f5e0340982685f083de654c21eef9d9122cab5321081ccaa2601` |
 
 Do not run the legacy 45-gate Harness, create Attempt 16, run `npm ci`, repeat V3/V4, or rebuild
 an APK/runtime because of this R0 synchronization. All historical attempts are immutable and
@@ -56,12 +62,12 @@ consumed. DA6 is frozen before this gate and is not a DA5 blocker.
 
 ## Publication Closure and live authority gate
 
-1. Published preparation `3a0469ac1d0c9d781e49648a73bc9ef019423c8e` is exact carried
-   Evidence, not the future Hardware-authority closure head.
+1. Exact `M` and all carried V3/CI/APK/runtime Evidence above are immutable inputs, not the future
+   Hardware-authority closure head.
 2. This R0 closure candidate must receive independent `APPROVED` before a focused commit/push.
    Its future commit/tree is deliberately unknown here and need not be embedded afterward.
 3. After publication, an independent exact-head read-only review must bind the actual published
-   closure commit/tree and exact governing procedure blobs, and confirm the exact scoped delta and
+   `C` commit/tree, all exact ten changed-path blobs, and confirm the exact scoped delta and
    that no executable, test, script, workflow, schema, dependency, lockfile, runtime or artifact
    input changed.
 4. Only that externally exact-reviewed published closure head may be quoted by one new one-time

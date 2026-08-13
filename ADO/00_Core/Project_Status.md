@@ -1,5 +1,62 @@
 # Project Status
 
+## Current override — DA5 V5 pre-Hardware technical closure candidate
+
+Marker: `DA5-V5-PRE-HARDWARE-CLOSURE-M-2026-08-13`. This section supersedes conflicting later
+`Current`/candidate statements while preserving them as historical records.
+
+`HEAD == main == origin/main == M` is
+`9380758f3e149718c8c0b8d34a1818de64c0d8d1` / tree
+`3c3b566124cf8c7ccd7727faf3a8aa76231f20f7`, with parents `B`
+`489a853e1af45e60bab0b94bcce05d674f6af700` and `D`
+`cc6767d118a66e7926b2a5c2a457684695d05d45`; `M` versus `B` is exactly five ADO paths. Source
+`A` is `03e0e48ad53ff91b24ee1182abf782473317988d` / tree
+`4465f8ee5be41f82cdaed5f31f2da92b839c952d`; `B` tree
+`841727f8228f85ab91f5f7e9e9a052608e105152`. The exact four-path A→B ordinary
+`git diff --binary A B` is 10,441 bytes / SHA-256
+`d430d51edf2459f37b96f6634611ad6092d9aa23330ec923da15e7dc2fc55127`; canonical
+`git diff --full-index --binary A B` is 10,705 bytes / SHA-256
+`b875bc186f2e218f608c69d2ebe579fc580e363664fd5efb6135c7961931610a`.
+
+Corrected V3 is independently `APPROVED`, zero findings, at
+`/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5/v3-9380758-corrected-4r21J4`:
+receipt 4,366 bytes / `0444` / SHA-256
+`227b4a7e0028a85067ba5a22089ba201e4d678210a310ec6062279a446cbd2bc`; manifest 10,540 bytes /
+`0444` / SHA-256 `cc3299d4df6de04afb26aa9d834fab93f9eb105c4d8b3bb7833c43538379b2ae`.
+It proves 20/20 builds, 21/21 tests-inclusive Typechecks, 21/21 suites, 153 files, 3,026 passed,
+zero failed and the three named expected Supavisor-session, Supavisor-transaction and root-only
+wrong-owner/non-root-host skips, plus migrations, additional gates, Expo/artifact and cleanup.
+Exact-head CI `31695047997` attempt 1 matched `M` and passed 12/12 without retry.
+
+The immutable Source-A artifact is rooted at
+`/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5/lean-03e0e48a-b02fdb2544225d03`:
+APK 95,526,563 bytes / `0444` / SHA-256
+`b02fdb2544225d03e3142fa30f12caa8fedf889a558b39cc040cca03f9539234`; 59-LF-field manifest
+1,968 bytes / `0444` / SHA-256
+`91725bb6f14306eb40d0e4414f38511fc829250799af91bacf840ac622efc577`. The final independently
+`APPROVED` runtime root is
+`/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-product-operator/9380758f-f06a1b50-r4`:
+manifest 16,492 bytes / `0444` / SHA-256
+`8a179bf8ef7dd206f6095d4d1248780062fe3a7d8db78d45276dbf356b95609d`; entry 935,974 bytes /
+`0444` / SHA-256 `f06a1b508369fc525e562485f7a08bd5b1174034d0554cdb5174b3bbf3ef70d5`;
+map 1,739,281 bytes / `0444` / SHA-256
+`aba65ced7deb7aa6a44809cc2fef33e202c0157b3056cd00324911e7890dc30a` (v3, no
+`sourceRoot`, 90/90/90); hidden lock 328,432 bytes / `0444` /
+SHA-256 `9c6a9279f40fd88e2e958db388595b3b3575fb3dcb49c436562a83444d8bf0c4`. It binds Node
+`24.17.0` and npm `11.13.0` CLI 54-byte SHA-256
+`8e5f6f3429f8cdbe693cdc29904e9d5a7b127a494bd15c804bd54c7403bfcbe7`. R1 was rejected for
+the npm-hash transcription; r2 closed it but exposed the A→B recipe-label P2; r3 fixed A→B but
+re-review exposed the B→M/D→M labels. R4 exhaustively binds ordinary and full-index outputs for
+all three pairs, performed no rebuild and passed final Round-4 review with zero open P0–P3.
+
+Both newer authorization documents are fulfilled/superseded. The prior consumed Hardware failure
+is historical/non-reusable; no actual root cause is asserted, while machine `READY` identifiers,
+real lifecycle regression and safe abort close the technical gap. Current work is R0/V0 only:
+prepublication review → an exact ten-file ADO commit/push at still-unknown `C` → exact-head review;
+no V3/V4 rerun. Then stop for new one-time Human authority that quotes reviewed `C` and all exact
+M/lineage, CI, V3, APK/manifest, runtime, toolchain and private device/Tag/environment bindings.
+No ADB, installation, Hardware or Product-Human action is authorized.
+
 DA5 final-V3 sequencing correction candidate (`2026-08-13`): **R0 ADO-ONLY; REVIEW AND
 PUBLICATION PENDING; NO CURRENT EXECUTION OR HARDWARE AUTHORITY.** Exact baseline is
 `fe029f078654e5b46b9563bf613f36fa90ec765c` / tree
