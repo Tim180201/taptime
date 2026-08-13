@@ -100,8 +100,8 @@ export const DA5_V5_ANDROID_ARTIFACT: Readonly<{
   manifest: Da5V5ImmutableFileBinding;
   packageName: typeof DA5_V5_ANDROID_PACKAGE;
   signerCertificateSha256: string;
-  sourceCommit: '83635335aa4f547dc8994243c604dacf9797f593';
-  sourceTree: '40b7655a94e607b8afe19f90f42a95f42ee6d582';
+  sourceCommit: '03e0e48ad53ff91b24ee1182abf782473317988d';
+  sourceTree: '4465f8ee5be41f82cdaed5f31f2da92b839c952d';
   versionCode: '1';
   versionName: '1.0.0';
 }>;

@@ -32,22 +32,22 @@ const verifiedArtifacts = new WeakMap();
 
 export const DA5_V5_ANDROID_ARTIFACT = Object.freeze({
   apk: Object.freeze({
-    bytes: 95_522_751,
+    bytes: 95_526_563,
     mode: 0o444,
-    path: '/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5/lean-83635335-b0180c31769e4534/app-release-b0180c31769e4534.apk',
-    sha256: 'b0180c31769e453472a20eb1e7eb4e0825a85be9429becf6bf4970e0875b67f8',
+    path: '/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5/lean-03e0e48a-b02fdb2544225d03/app-release-b02fdb2544225d03.apk',
+    sha256: 'b02fdb2544225d03e3142fa30f12caa8fedf889a558b39cc040cca03f9539234',
   }),
   manifest: Object.freeze({
     bytes: 1_968,
     mode: 0o444,
-    path: '/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5/lean-83635335-b0180c31769e4534/artifact-manifest.txt',
-    sha256: '83b93bbf33297334bfcca3aa30e5ed6772175f98a2a81dc80045454570fe937b',
+    path: '/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5/lean-03e0e48a-b02fdb2544225d03/artifact-manifest.txt',
+    sha256: '91725bb6f14306eb40d0e4414f38511fc829250799af91bacf840ac622efc577',
   }),
   packageName: DA5_V5_ANDROID_PACKAGE,
   signerCertificateSha256:
     'fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c',
-  sourceCommit: '83635335aa4f547dc8994243c604dacf9797f593',
-  sourceTree: '40b7655a94e607b8afe19f90f42a95f42ee6d582',
+  sourceCommit: '03e0e48ad53ff91b24ee1182abf782473317988d',
+  sourceTree: '4465f8ee5be41f82cdaed5f31f2da92b839c952d',
   versionCode: '1',
   versionName: '1.0.0',
 });

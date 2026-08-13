@@ -343,24 +343,24 @@ describe('DA5 V5 Product operator bundle start smoke', () => {
 
     expect(DA5_V5_ANDROID_ARTIFACT).toMatchObject({
       apk: {
-        bytes: 95_522_751,
+        bytes: 95_526_563,
         mode: 0o444,
         path:
-          '/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5/lean-83635335-b0180c31769e4534/app-release-b0180c31769e4534.apk',
+          '/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5/lean-03e0e48a-b02fdb2544225d03/app-release-b02fdb2544225d03.apk',
         sha256:
-          'b0180c31769e453472a20eb1e7eb4e0825a85be9429becf6bf4970e0875b67f8',
+          'b02fdb2544225d03e3142fa30f12caa8fedf889a558b39cc040cca03f9539234',
       },
       manifest: {
         bytes: 1_968,
         mode: 0o444,
         path:
-          '/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5/lean-83635335-b0180c31769e4534/artifact-manifest.txt',
+          '/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5/lean-03e0e48a-b02fdb2544225d03/artifact-manifest.txt',
         sha256:
-          '83b93bbf33297334bfcca3aa30e5ed6772175f98a2a81dc80045454570fe937b',
+          '91725bb6f14306eb40d0e4414f38511fc829250799af91bacf840ac622efc577',
       },
       packageName: 'com.tim180201.mobile.synthetic',
-      sourceCommit: '83635335aa4f547dc8994243c604dacf9797f593',
-      sourceTree: '40b7655a94e607b8afe19f90f42a95f42ee6d582',
+      sourceCommit: '03e0e48ad53ff91b24ee1182abf782473317988d',
+      sourceTree: '4465f8ee5be41f82cdaed5f31f2da92b839c952d',
     });
 
     const reachabilityMode =
@@ -369,12 +369,12 @@ describe('DA5 V5 Product operator bundle start smoke', () => {
     if (reachabilityMode === 'required') {
       expect(verifyProductApkDependencyAbsence()).toEqual({
         apkEntries: 1_180,
-        bundleBytes: 2_404_960,
+        bundleBytes: 2_408_772,
         bundleSha256:
-          '20cb04a00dad1d0d784501bb2f517246a95a185429850ed012d83b5f2135ab4b',
-        bytecodeDumpBytes: 15_204_955,
+          '3354eac63027ab94cb2691bb7eadc9643471852c5ea2f0cb37995899cc857e61',
+        bytecodeDumpBytes: 15_281_132,
         bytecodeDumpSha256:
-          'cbcdcf3532f888b0c038779959b48f49900eae3721787af18b73413e7f5269c1',
+          'e72b5a828f0dc2e2ae9e11ab29c9bf4408362ad1e8691c73b9870a0a41afc99b',
         dependencyNamedEntries: 0,
         forbiddenDependencySignatures: 0,
         sourceMapEntries: 0,
@@ -419,7 +419,7 @@ describe('DA5 V5 Product operator bundle start smoke', () => {
     }).toEqual({
       bytes: 935_974,
       sha256:
-        'f08327487af8e284cb2678359ef8f3d553bd8e5b96654693676ebda1e73e1cd3',
+        'f06a1b508369fc525e562485f7a08bd5b1174034d0554cdb5174b3bbf3ef70d5',
     });
     expect({
       bytes: sourceMapBytes.byteLength,
@@ -427,7 +427,7 @@ describe('DA5 V5 Product operator bundle start smoke', () => {
     }).toEqual({
       bytes: 1_739_281,
       sha256:
-        '513f9d4af23bfda4453aecf09a94c945a11bb1581ecebbe3cf7760ff8ac39220',
+        'aba65ced7deb7aa6a44809cc2fef33e202c0157b3056cd00324911e7890dc30a',
     });
     expect(sourceMap.version).toBe(3);
     expect(sourceMap.sourceRoot).toBeUndefined();

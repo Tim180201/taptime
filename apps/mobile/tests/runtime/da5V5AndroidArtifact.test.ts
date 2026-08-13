@@ -43,8 +43,8 @@ const syntheticBindings = Object.freeze({
 });
 const validArtifactManifest = `artifact-manifest-version=1
 artifact-purpose=da5-v5-read-only-synthetic-android-candidate
-product-commit=83635335aa4f547dc8994243c604dacf9797f593
-product-tree=40b7655a94e607b8afe19f90f42a95f42ee6d582
+product-commit=03e0e48ad53ff91b24ee1182abf782473317988d
+product-tree=4465f8ee5be41f82cdaed5f31f2da92b839c952d
 source-review=APPROVED
 source-review-open-p0-p3=0
 node-version=24.17.0
@@ -56,9 +56,9 @@ artifact-inspector=Android Asset Packaging Tool, v0.2-11948202
 dependency-install=npm-ci-task-owned-cache
 expo-network-mode=local-no-telemetry
 gradle-network-mode=task-owned-cache
-apk-filename=app-release-b0180c31769e4534.apk
-apk-sha256=b0180c31769e453472a20eb1e7eb4e0825a85be9429becf6bf4970e0875b67f8
-apk-bytes=95522751
+apk-filename=app-release-b02fdb2544225d03.apk
+apk-sha256=b02fdb2544225d03e3142fa30f12caa8fedf889a558b39cc040cca03f9539234
+apk-bytes=95526563
 apk-mode=0444
 package-name=com.tim180201.mobile.synthetic
 version-code=1
@@ -145,26 +145,26 @@ describe('DA5 V5 immutable external Android artifact', () => {
   it('hard-binds the Product candidate identity', () => {
     expect(DA5_V5_ANDROID_ARTIFACT).toEqual({
       apk: {
-        bytes: 95_522_751,
+        bytes: 95_526_563,
         mode: 0o444,
         path:
-          '/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5/lean-83635335-b0180c31769e4534/app-release-b0180c31769e4534.apk',
+          '/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5/lean-03e0e48a-b02fdb2544225d03/app-release-b02fdb2544225d03.apk',
         sha256:
-          'b0180c31769e453472a20eb1e7eb4e0825a85be9429becf6bf4970e0875b67f8',
+          'b02fdb2544225d03e3142fa30f12caa8fedf889a558b39cc040cca03f9539234',
       },
       manifest: {
         bytes: 1_968,
         mode: 0o444,
         path:
-          '/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5/lean-83635335-b0180c31769e4534/artifact-manifest.txt',
+          '/Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5/lean-03e0e48a-b02fdb2544225d03/artifact-manifest.txt',
         sha256:
-          '83b93bbf33297334bfcca3aa30e5ed6772175f98a2a81dc80045454570fe937b',
+          '91725bb6f14306eb40d0e4414f38511fc829250799af91bacf840ac622efc577',
       },
       packageName: 'com.tim180201.mobile.synthetic',
       signerCertificateSha256:
         'fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c',
-      sourceCommit: '83635335aa4f547dc8994243c604dacf9797f593',
-      sourceTree: '40b7655a94e607b8afe19f90f42a95f42ee6d582',
+      sourceCommit: '03e0e48ad53ff91b24ee1182abf782473317988d',
+      sourceTree: '4465f8ee5be41f82cdaed5f31f2da92b839c952d',
       versionCode: '1',
       versionName: '1.0.0',
     });
@@ -176,7 +176,7 @@ describe('DA5 V5 immutable external Android artifact', () => {
     );
     expect(Object.keys(manifest)).toHaveLength(59);
     expect(manifest).toMatchObject({
-      'apk-filename': 'app-release-b0180c31769e4534.apk',
+      'apk-filename': 'app-release-b02fdb2544225d03.apk',
       'nfc-tech-filter': 'NfcA',
       'product-commit': DA5_V5_ANDROID_ARTIFACT.sourceCommit,
       'product-tree': DA5_V5_ANDROID_ARTIFACT.sourceTree,
@@ -222,7 +222,7 @@ describe('DA5 V5 immutable external Android artifact', () => {
     ['product-tree', '1'.repeat(40)],
     ['apk-filename', 'stale.apk'],
     ['apk-sha256', '2'.repeat(64)],
-    ['apk-bytes', '95522752'],
+    ['apk-bytes', '95526564'],
     ['apk-mode', '0644'],
     ['package-name', 'com.example.stale'],
     ['version-code', '2'],
@@ -330,7 +330,7 @@ describe('DA5 V5 immutable external Android artifact', () => {
     const dependencies = validDependencies();
     vi.mocked(dependencies.files.readUtf8!).mockReturnValue(
       validArtifactManifest.replace(
-        'apk-sha256=b0180c31769e453472a20eb1e7eb4e0825a85be9429becf6bf4970e0875b67f8',
+        'apk-sha256=b02fdb2544225d03e3142fa30f12caa8fedf889a558b39cc040cca03f9539234',
         `apk-sha256=${'0'.repeat(64)}`,
       ),
     );
