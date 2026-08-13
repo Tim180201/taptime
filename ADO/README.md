@@ -7,28 +7,43 @@ Approval Authority: Human Architect
 
 ## Purpose
 
-### Current DA5 Employee-readiness and Accessibility-abort correction candidate — NOT EXECUTED / REVIEW PENDING / STOP BEFORE HARDWARE
+### Current DA5 fresh-artifact rebinding amendment — NOT EXECUTED / REVIEW PENDING / STOP BEFORE BUILD AND HARDWARE
 
-Exact candidate baseline is
-`HEAD == main == origin/main == 6e84e80ea87f65977acd6b0a57326e6529dcd664` / tree
-`e9f2492aaf66467c61a6bc1a14ee7d8b7f1ef1e1`. This five-path R0 ADO candidate supersedes only
-the older technical-closure claim for Employee readiness: the consumed run's generic protected UI
-does not prove its precise pre-scan origin, and current Operator `22fe85d` can close input on direct
-abort while Accessibility restoration proof remains mandatory. No executable correction, test,
-PASS, retry or Hardware result is claimed.
+Exact R0 baseline is `e408820bf25e48f9cf5977f70f79d2cbccb135dc` / tree
+`98e323f90eb7ea1694e8dc0678f07486e66408a2`. This five-path candidate closes only the published
+correction authorization's sequencing gap between its fresh Product APK requirement and the
+existing old-APK hardbinding. It binds the independently `APPROVED` fourteen-path source candidate,
+with zero open P0–P3, by exact tracked patch and new-file SHA-256 values. After independent ADO
+`APPROVED` and focused
+publication only, it permits local unpushed source A, a fresh detached-A APK/immutable 59-field
+manifest, and three mandatory plus at most one conditional Product artifact hardbinding path for B.
 
-After independent candidate `APPROVED` with zero open P0–P3 and focused ADO publication, the exact
-fourteen-path R3 Lean cycle may implement only closed Synthetic-only protection/READY machine proof,
-a real empty-store-to-normal-Employee-ready software integration and routing of abort in every
-restore-required phase through the existing restoration-only path. AVS V0–V4, one final full V3,
-focused publication and exact-head CI remain mandatory. The three allowlisted Mobile Product TS
-sources change Product App/new-APK code, so a fresh APK rebuild/verification plus fresh Product
-Operator runtime/manifests is required; native/prebuild/app/build/signing/packaging configuration
-and Product sources outside the allowlist remain excluded. Independent candidate and exact-head/
-artifact reviews remain mandatory. No ADB, install or Hardware occurs in Development; a new exact
-Human Hardware V5 authorization is separate. Visible/TalkBack/Product/Business/Auth/tenant/NFC/
-backup/owner-fail-closed semantics, DA6, production, production data, deployment and distribution
-remain unchanged or excluded. See
+Exactly one final full V3 runs on combined B, then independent prepublication approval, one B
+publication, one exact-head V4, fresh B Operator runtime/manifest and final independent exact-head/
+artifact approval. The amendment does not relax any original Product, security, artifact, review
+or separate-Human-Hardware gate. Validation and every other source/config/native/lock/workflow
+delta remain excluded; no ADB, install, Operator device run, Human/Hardware V5, production,
+deployment or distribution is authorized. See
+`ADO/02_Development/Development_Assignment_05_V5_Fresh_Artifact_Rebinding_Authorization.md`.
+
+### Historical DA5 Employee-readiness and Accessibility-abort R0 authorization preparation/publication — source approved; artifact sequence pending
+
+The five-path R0 ADO candidate was historically prepared when `HEAD == main == origin/main ==
+6e84e80ea87f65977acd6b0a57326e6529dcd664` / tree
+`e9f2492aaf66467c61a6bc1a14ee7d8b7f1ef1e1`. That is a preparation-time statement, not current
+repository truth or a still-pending R0 review. The authorization was subsequently published on the
+`e408820bf25e48f9cf5977f70f79d2cbccb135dc` / tree
+`98e323f90eb7ea1694e8dc0678f07486e66408a2` lineage. It recorded the unproved protected pre-scan
+origin and restore-required abort finding; no Product correction, test, artifact or Hardware result
+was produced by that R0 publication.
+
+Current source truth is separate: the exact uncommitted fourteen-path source candidate based on
+`e408820` is independently `APPROVED` with zero open P0–P3 and digest-bound by the fresh-artifact
+rebinding amendment above. Commit A, detached-A build/APK/59-field manifest, hardbinding B, final
+V3, B publication/V4, fresh B Operator runtime, final exact-head/artifact review and Human/Hardware
+V5 remain not executed and pending. Product scope remains governed by the original authorization;
+only the corrected sequence is governed by the amendment. No ADB, installation, production,
+deployment or distribution authority follows. See
 `ADO/02_Development/Development_Assignment_05_V5_Employee_Readiness_and_Accessibility_Abort_Correction_Authorization.md`.
 
 ### Current DA5 Lean Stage-6 Hardware outcome — consumed fail-closed and cleanup-only closed; STOP before Hardware
@@ -1986,6 +2001,7 @@ This preserves backward compatibility while removing the assumption that `ADO/RE
 | Development Assignment 5 V5 Harness Artifact Closure — historical 45-gate path superseded by active/published Lean V5; Attempt 15 and every earlier attempt immutable/consumed; no Attempt 16 or legacy rerun | `ADO/02_Development/Development_Assignment_05_V5_Harness_Artifact_Closure_Authorization.md` |
 | Development Assignment 5 V5 Lean Verification Profile — Human-accepted/published; Lean stages 1–5 and automated V0–V4 complete on `1b341d8` / tree `2db7568`; Product Human/Hardware V5 remains separately unauthorized | `ADO/02_Development/Development_Assignment_05_V5_Lean_Verification_Profile_Authorization.md` |
 | Development Assignment 5 V5 Isolated PostgreSQL Correction — Runtime Guard source `ba1b6e9`, CI `30255104609` attempt 2 12/12, immutable binary/manifest and independent Exact-SHA `APPROVED`; historical correction rounds retained; hardware authority not granted | `ADO/02_Development/Development_Assignment_05_V5_Isolated_PostgreSQL_Correction_Authorization.md` |
+| Development Assignment 5 V5 Fresh Artifact Rebinding — R0 candidate binding local A, detached-A APK/59-field manifest and minimal Product hardbinding B; review/publication required before execution; no build/ADB/install/Hardware authority | `ADO/02_Development/Development_Assignment_05_V5_Fresh_Artifact_Rebinding_Authorization.md` |
 | Development Assignment 6 Production-like Platform and Operational Readiness — ADR-0018 P01–P12 unchanged; exact corrected ADR-0020 candidate independently approved for ADO publication with R1 P1 closed; only assignment P1 decision Human-accepted; remaining Human disposition and implementation/provisioning authority pending | `ADO/02_Development/Development_Assignment_06_Production_Like_Platform_Authorization.md` |
 | Legal, Privacy and Commercial Readiness Start Package — internal Block-H/DT-079–DT-084 working draft; not legal advice, approved legal text or publication authority | `ADO/02_Development/Legal_Privacy_Commercial_Readiness_Start_Package.md` |
 | Block C3 Organization Administration Implementation Plan | `ADO/02_Development/Block_C3_Organization_Administration_Implementation_Plan.md` |

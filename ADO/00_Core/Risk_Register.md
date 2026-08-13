@@ -2,22 +2,42 @@
 
 Status: Active
 
-Current DA5 pre-Hardware correction candidate (`2026-08-13`): R-026/R-034 remain open. The
+Current DA5 fresh-artifact rebinding control (`2026-08-13`): R-026/R-034 remain open and no new
+Product or Hardware result is claimed. Exact R0 baseline
+`e408820bf25e48f9cf5977f70f79d2cbccb135dc` / tree
+`98e323f90eb7ea1694e8dc0678f07486e66408a2` exposes one authorization gap: the independently
+`APPROVED` fourteen-path Product correction, with zero open P0–P3, requires a new APK, while the
+prior allowlist cannot replace the old APK hardbinding. The amendment binds the current candidate
+bytes, permits local unpushed A,
+fresh detached-A APK/59-field manifest verification, and only the four minimal Product
+artifact/hardbinding allowlist paths for B (three mandatory, one conditional); Validation paths
+remain excluded absent new exact authority.
+
+Risk stays fail-closed through one final V3 on combined B, independent prepublication approval,
+one publication/one exact-head V4, fresh B Operator runtime and final independent exact-head/
+artifact approval. No other source/config/native/lock/workflow change and no ADB, installation,
+Human/Hardware, production, deployment or distribution is authorized. See
+`ADO/02_Development/Development_Assignment_05_V5_Fresh_Artifact_Rebinding_Authorization.md`.
+
+Historical DA5 pre-Hardware correction R0 preparation/publication state (`2026-08-13`): R-026/
+R-034 remain open. The
 consumed run's generic protected Employee UI cannot distinguish identity mismatch from protected
 local evidence, so the older Employee-readiness technical-closure claim is superseded; current
 Operator `22fe85d` can also accept direct `abort` while Accessibility restoration proof is
 required and close the only input needed to reach `standard-profile-check`. No cause, correction,
 PASS or Hardware result is claimed.
 
-The R0 candidate on exact `6e84e80ea87f65977acd6b0a57326e6529dcd664` / tree
-`e9f2492aaf66467c61a6bc1a14ee7d8b7f1ef1e1` is **NOT EXECUTED / REVIEW PENDING**. Only after
-independent `APPROVED` and focused ADO publication may its exact fourteen-path R3
-Development/Review cycle run with full AVS V0–V4, mandatory fresh Product APK rebuild, fresh
-Operator runtime/manifest and independent exact-head/artifact closure. Only the three allowlisted
-Mobile Product TS sources may change Product App/APK code; native/prebuild/app/build/signing/
-packaging configuration and all Product sources outside the allowlist remain excluded. It
-authorizes no ADB, install, Operator device run or Human/Hardware V5 and changes no visible/
-TalkBack, Product, Business, Auth, tenant, NFC, backup or owner fail-closed rule. See
+The R0 candidate was prepared on exact `6e84e80ea87f65977acd6b0a57326e6529dcd664`
+/ tree `e9f2492aaf66467c61a6bc1a14ee7d8b7f1ef1e1`; that is historical preparation state, not a
+current ref or pending-review statement. Its authorization was subsequently published on the
+`e408820bf25e48f9cf5977f70f79d2cbccb135dc` / tree
+`98e323f90eb7ea1694e8dc0678f07486e66408a2` lineage without Product/artifact execution.
+Current source truth is separate: the exact uncommitted fourteen-path candidate based on
+`e408820` is independently `APPROVED` with zero open P0–P3 and digest-bound by the amendment.
+Commit A, build/APK/59-field manifest, hardbinding B, final V3, B publication/V4, fresh runtime,
+final artifact review and Human/Hardware V5 remain not executed. Native/prebuild/app/build/signing/
+packaging configuration and all Product sources outside the exact allowlists remain excluded; no
+ADB, installation, production, deployment or distribution authority follows. See
 `ADO/02_Development/Development_Assignment_05_V5_Employee_Readiness_and_Accessibility_Abort_Correction_Authorization.md`.
 
 Current DA5 Hardware/cleanup override (`2026-08-13`): the one-time run is consumed and ended

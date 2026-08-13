@@ -1,23 +1,42 @@
 # Project Status
 
-DA5 Employee readiness / Accessibility abort correction candidate (`2026-08-13`): **R0 ADO-ONLY,
-NOT EXECUTED, INDEPENDENT REVIEW PENDING; NO HARDWARE AUTHORITY.** On exact
-`HEAD == main == origin/main == 6e84e80ea87f65977acd6b0a57326e6529dcd664` / tree
-`e9f2492aaf66467c61a6bc1a14ee7d8b7f1ef1e1`, the new authorization supersedes the older
-technically-closed Employee-readiness claim: the consumed run's generic protected UI does not
-prove whether the pre-scan origin was identity mismatch or protected local evidence, and direct
-Operator abort can still close input while Accessibility restoration proof is required.
+DA5 fresh artifact rebinding amendment candidate (`2026-08-13`): **R0 ADO-ONLY, NOT EXECUTED,
+INDEPENDENT REVIEW PENDING; NO BUILD OR HARDWARE AUTHORITY.** On exact
+`e408820bf25e48f9cf5977f70f79d2cbccb135dc` / tree
+`98e323f90eb7ea1694e8dc0678f07486e66408a2`, this five-path candidate closes only the published
+correction authorization's fresh-APK hardbinding sequence gap. It binds the independently
+`APPROVED` fourteen-path source candidate, with zero open P0–P3, by tracked patch SHA-256
+`9cfee2460c5d545d2424ef52543a3151e9edfe568a83a953c17c36e1881a79d4` and exact new-file
+SHA-256 values, then authorizes—only after review/publication—local unpushed source A, a fresh
+detached-A APK/immutable 59-field manifest, and three mandatory plus at most one conditional
+Product artifact hardbinding path for B.
 
-After independent candidate `APPROVED` and focused ADO publication only, the exact fourteen-path R3
-cycle may add closed Synthetic-only protection-class/READY resource proof, a real empty-store to
-Employee-ready production lifecycle integration and restore-required abort routing through the
-existing restore-only path. The three allowlisted Mobile Product TS sources change Product App/APK
-code, so a fresh APK rebuild and verification is mandatory; native/prebuild/app/build/signing/
-packaging configuration and Product sources outside the allowlist remain excluded. Full AVS
-V0–V4, fresh Operator runtime/manifests, independent candidate and exact-head/artifact reviews
-remain mandatory. Authority ends before ADB, installation, Operator device execution or
-separately exact Human Hardware V5; DA6, production, deployment and distribution remain excluded.
-Controlling candidate:
+Exactly one final complete local V3 runs on final combined B; after independent prepublication
+`APPROVED`, B is published once for one exact-head V4, followed by fresh B Operator
+runtime/manifest and final independent exact-head/artifact `APPROVED`. A is never published
+separately. No other source/config/native/lock/workflow delta, ADB, install, Operator device run,
+Human/Hardware V5, production, deployment or distribution is authorized. The amendment supersedes
+only prior sequencing needed to avoid duplicate V3/CI; every Product/security/review/artifact gate
+remains. Controlling candidate:
+`ADO/02_Development/Development_Assignment_05_V5_Fresh_Artifact_Rebinding_Authorization.md`.
+
+Historical DA5 Employee-readiness / Accessibility-abort R0 authorization preparation and
+publication state (`2026-08-13`): **HISTORICAL PREPARATION ON `6e84e80`; AUTHORIZATION PUBLISHED
+ON THE `e408820` LINEAGE; NOT A CURRENT REF OR PENDING-R0-REVIEW CLAIM.** The five-path R0 ADO
+candidate was prepared when `HEAD == main == origin/main ==
+6e84e80ea87f65977acd6b0a57326e6529dcd664` / tree
+`e9f2492aaf66467c61a6bc1a14ee7d8b7f1ef1e1`; that statement is historical. The authorization
+was subsequently published as `e408820bf25e48f9cf5977f70f79d2cbccb135dc` / tree
+`98e323f90eb7ea1694e8dc0678f07486e66408a2`. It captured the unproved protected pre-scan origin
+and the restore-required direct-abort finding without claiming a Product correction or result.
+
+Current source truth is separate: the exact uncommitted fourteen-path candidate based on `e408820`
+is independently `APPROVED` with zero open P0–P3 and is digest-bound by the fresh-artifact
+rebinding amendment above. Commit A, detached-A build/APK/59-field manifest, hardbinding B, final
+V3, B publication/V4, fresh B runtime, final artifact review and Human/Hardware V5 have not run
+and remain pending behind that amendment's gates. The original authorization continues to govern
+Product scope; the amendment governs only the corrected artifact/publication sequence. No ADB,
+installation, production, deployment or distribution authority follows. See
 `ADO/02_Development/Development_Assignment_05_V5_Employee_Readiness_and_Accessibility_Abort_Correction_Authorization.md`.
 
 DA5 Lean Stage 6 Hardware outcome (`2026-08-13`): **`FAIL_CLOSED AND CLEAN`; ONE-TIME RUN
