@@ -2,6 +2,24 @@
 
 Status: Active
 
+Current DA5 pre-Hardware correction candidate (`2026-08-13`): R-026/R-034 remain open. The
+consumed run's generic protected Employee UI cannot distinguish identity mismatch from protected
+local evidence, so the older Employee-readiness technical-closure claim is superseded; current
+Operator `22fe85d` can also accept direct `abort` while Accessibility restoration proof is
+required and close the only input needed to reach `standard-profile-check`. No cause, correction,
+PASS or Hardware result is claimed.
+
+The R0 candidate on exact `6e84e80ea87f65977acd6b0a57326e6529dcd664` / tree
+`e9f2492aaf66467c61a6bc1a14ee7d8b7f1ef1e1` is **NOT EXECUTED / REVIEW PENDING**. Only after
+independent `APPROVED` and focused ADO publication may its exact fourteen-path R3
+Development/Review cycle run with full AVS V0–V4, mandatory fresh Product APK rebuild, fresh
+Operator runtime/manifest and independent exact-head/artifact closure. Only the three allowlisted
+Mobile Product TS sources may change Product App/APK code; native/prebuild/app/build/signing/
+packaging configuration and all Product sources outside the allowlist remain excluded. It
+authorizes no ADB, install, Operator device run or Human/Hardware V5 and changes no visible/
+TalkBack, Product, Business, Auth, tenant, NFC, backup or owner fail-closed rule. See
+`ADO/02_Development/Development_Assignment_05_V5_Employee_Readiness_and_Accessibility_Abort_Correction_Authorization.md`.
+
 Current DA5 Hardware/cleanup override (`2026-08-13`): the one-time run is consumed and ended
 **`FAIL_CLOSED AND CLEAN`**, not `PASS`. It reached `Ausstehender Vorgang geschützt` after exact
 package clear and Employee Credential, before `employee-ready-confirm`; no Tag B or Gate A–F

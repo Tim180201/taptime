@@ -7,6 +7,30 @@ Approval Authority: Human Architect
 
 ## Purpose
 
+### Current DA5 Employee-readiness and Accessibility-abort correction candidate — NOT EXECUTED / REVIEW PENDING / STOP BEFORE HARDWARE
+
+Exact candidate baseline is
+`HEAD == main == origin/main == 6e84e80ea87f65977acd6b0a57326e6529dcd664` / tree
+`e9f2492aaf66467c61a6bc1a14ee7d8b7f1ef1e1`. This five-path R0 ADO candidate supersedes only
+the older technical-closure claim for Employee readiness: the consumed run's generic protected UI
+does not prove its precise pre-scan origin, and current Operator `22fe85d` can close input on direct
+abort while Accessibility restoration proof remains mandatory. No executable correction, test,
+PASS, retry or Hardware result is claimed.
+
+After independent candidate `APPROVED` with zero open P0–P3 and focused ADO publication, the exact
+fourteen-path R3 Lean cycle may implement only closed Synthetic-only protection/READY machine proof,
+a real empty-store-to-normal-Employee-ready software integration and routing of abort in every
+restore-required phase through the existing restoration-only path. AVS V0–V4, one final full V3,
+focused publication and exact-head CI remain mandatory. The three allowlisted Mobile Product TS
+sources change Product App/new-APK code, so a fresh APK rebuild/verification plus fresh Product
+Operator runtime/manifests is required; native/prebuild/app/build/signing/packaging configuration
+and Product sources outside the allowlist remain excluded. Independent candidate and exact-head/
+artifact reviews remain mandatory. No ADB, install or Hardware occurs in Development; a new exact
+Human Hardware V5 authorization is separate. Visible/TalkBack/Product/Business/Auth/tenant/NFC/
+backup/owner-fail-closed semantics, DA6, production, production data, deployment and distribution
+remain unchanged or excluded. See
+`ADO/02_Development/Development_Assignment_05_V5_Employee_Readiness_and_Accessibility_Abort_Correction_Authorization.md`.
+
 ### Current DA5 Lean Stage-6 Hardware outcome — consumed fail-closed and cleanup-only closed; STOP before Hardware
 
 The one-time run started on `2026-08-12` and reached the Human-visible Employee state
