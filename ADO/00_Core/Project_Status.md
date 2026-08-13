@@ -1,5 +1,24 @@
 # Project Status
 
+DA5 final-V3 sequencing correction candidate (`2026-08-13`): **R0 ADO-ONLY; REVIEW AND
+PUBLICATION PENDING; NO CURRENT EXECUTION OR HARDWARE AUTHORITY.** Exact baseline is
+`fe029f078654e5b46b9563bf613f36fa90ec765c` / tree
+`a1d251a2c392cdb58739769bfa56e53ff054363c`. Local source A `03e0e48` and hardbinding B
+`489a853` plus the source-A-bound immutable APK/manifest are independently approved and remain
+unpushed. The first attempted final V3 is consumed `FAIL`: D02 began 39.905 seconds after D01
+while D01 continued through 60.980 seconds and then exited 0; thus four npm problem tuples were
+partial-install observations, not a lock/Product defect. No build, Typecheck, test, PostgreSQL or
+additional gate ran.
+
+After independent R0 approval/publication as future D, one local merge M must have first parent
+exact B, second parent D and only this five-ADO-path content delta relative to B. One corrected
+foreground/awaited D01→D02 execution and the unchanged complete 20-build/21-Typecheck/21-suite
+V3 run on M precede independent prepublication review, one M push, one exact-head V4, fresh M
+Operator runtime and final exact-head/artifact review. A/B/artifacts cannot be rebased, changed or
+published separately. No ADB, installation, Human/Hardware, production, deployment or
+distribution is authorized. Controlling candidate:
+`ADO/02_Development/Development_Assignment_05_V5_Final_V3_Sequencing_Correction_Authorization.md`.
+
 DA5 fresh artifact rebinding amendment candidate (`2026-08-13`): **R0 ADO-ONLY, NOT EXECUTED,
 INDEPENDENT REVIEW PENDING; NO BUILD OR HARDWARE AUTHORITY.** On exact
 `e408820bf25e48f9cf5977f70f79d2cbccb135dc` / tree

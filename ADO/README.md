@@ -7,6 +7,23 @@ Approval Authority: Human Architect
 
 ## Purpose
 
+### Current DA5 final-V3 sequencing correction — R0 REVIEW/PUBLICATION PENDING; NO EXECUTION OR HARDWARE AUTHORITY
+
+Exact R0 baseline is `fe029f078654e5b46b9563bf613f36fa90ec765c` / tree
+`a1d251a2c392cdb58739769bfa56e53ff054363c`. Approved local source A `03e0e48`, hardbinding B
+`489a853` and the source-A APK/manifest remain unchanged and unpushed. The first attempted final
+V3 is consumed failure evidence: D02 began after 39.905 seconds while D01 continued past 60
+seconds and then exited 0, so its four npm problem tuples reflect partial installation. No
+PostgreSQL, build, Typecheck, test or additional gate ran.
+
+After independent review and focused publication as future D, one local merge M must have first
+parent B, second parent D and only the five ADO paths relative to B. Exactly one corrected
+foreground/awaited D01→D02 and the unchanged full 20/21/21 V3 run on M precede independent
+prepublication approval, one M push, exact-head V4, fresh M Operator runtime and final artifact
+approval. There is no A/B-only push, retry, runner weakening, artifact mutation, ADB, install,
+Human/Hardware, production, deployment or distribution authority. See
+`ADO/02_Development/Development_Assignment_05_V5_Final_V3_Sequencing_Correction_Authorization.md`.
+
 ### Current DA5 fresh-artifact rebinding amendment — NOT EXECUTED / REVIEW PENDING / STOP BEFORE BUILD AND HARDWARE
 
 Exact R0 baseline is `e408820bf25e48f9cf5977f70f79d2cbccb135dc` / tree

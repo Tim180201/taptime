@@ -2,6 +2,22 @@
 
 Status: Active
 
+Current DA5 final-V3 sequencing control (`2026-08-13`): R-026/R-034 remain open; no Product or
+Hardware result is claimed. On exact `fe029f078654e5b46b9563bf613f36fa90ec765c` / tree
+`a1d251a2c392cdb58739769bfa56e53ff054363c`, local approved A `03e0e48` and B `489a853` plus
+the approved source-A APK/manifest remain immutable and unpushed. The consumed failed V3 wrapper
+started D02 only 39.905 seconds after D01 although D01 continued past 60 seconds and exited 0;
+its four npm tuples are partial-install observations. No downstream Product gate ran, and no
+allowlist or lock correction is justified.
+
+The correction requires R0 review/publication D, then conflict-free local merge M with first
+parent B, second parent D and only five ADO paths relative to B. Exactly one corrected awaited
+D01/D02 plus the unchanged full V3 runs on M before independent review, one M publication/V4,
+fresh M runtime and final artifact approval. Yield/background/pipe completion, zsh `status`,
+workspace-only weakening, A/B/artifact mutation and extra attempts fail closed. Hardware, ADB,
+installation, production, deployment and distribution remain excluded. See
+`ADO/02_Development/Development_Assignment_05_V5_Final_V3_Sequencing_Correction_Authorization.md`.
+
 Current DA5 fresh-artifact rebinding control (`2026-08-13`): R-026/R-034 remain open and no new
 Product or Hardware result is claimed. Exact R0 baseline
 `e408820bf25e48f9cf5977f70f79d2cbccb135dc` / tree
