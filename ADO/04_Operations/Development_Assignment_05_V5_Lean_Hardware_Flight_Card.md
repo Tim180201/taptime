@@ -1,10 +1,123 @@
 # Development Assignment 5 — Lean Stage-6 Hardware Flight Card
 
-Status: **R0/V0 STARTUP-ENV FAILURE CLOSURE CANDIDATE / EXACT-REVIEWED FUTURE E AND NEW HUMAN AUTHORITY REQUIRED / STOP**
+Status: **R0/V0 CORRECTION-2 CLOSURE CANDIDATE / LATER CURRENT STATE CLEAN / AUTHORITY CONSUMED / STOP**
 
 Owner: Technical Lead
 
 Physical approval authority: Human Architect
+
+Marker: `DA5-V5-ABORT-BEFORE-PREVIEW2-CORRECTION2-2026-08-13`.
+
+## Current terminal correction 2 — exact `/private/tmp`, later current state only
+
+This correction supersedes correction 1's inaccurate child-TMP relationship, its overbroad
+no-entry wording and every conflicting generic task-state, immediate-cleanup, queue or
+clean-working-tree assertion. Terminal classification remains **`FAIL_CLOSED / HUMAN ORDER
+DEVIATION BEFORE PREVIEW 2; LATER CURRENT STATE CLEAN`**, never Product PASS and no
+Product-defect finding. `E` authority is consumed; do not retry, resume, relogin, replace or
+continue.
+
+Executable `M` `9380758f3e149718c8c0b8d34a1818de64c0d8d1`, exact
+`apps/synthetic-android-e2e/src/da5V5Main.ts:232-237`, passes
+`temporaryBase: '/private/tmp'`; Guard mkdtemp therefore creates `/private/tmp/.t5-*` directly,
+not beneath an additional child TMP base. The immutable historical roots remain byte-exact:
+original `0555`
+`/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5/hardware-42b330a-abort-before-preview2-20260813`
+contains `receipt.txt` 3,825 bytes / `0444` / SHA-256
+`98e7278983dce827133cddcdfb3cb1617b6b072179ad39e93f6ea44ab3221f94` and manifest 1,827 bytes /
+`0444` / SHA-256 `db24eb313181a64f488becf552c0fd9d70583e375a7f79d17c5ca357afae3813`;
+correction-1 `0555`
+`/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5/hardware-42b330a-abort-before-preview2-20260813-correction1`
+contains `correction-receipt.txt` 3,155 bytes / `0444` / SHA-256
+`fd94e071d611ff7c08b1220b85d8aad740e3f750cd6edffe2f687f4443dcee81` and manifest 1,831 bytes /
+`0444` / SHA-256 `1a453bfa8474462a13fda346b76e78daa82f007154c8545fcc887e300c6d0da8`.
+Neither root was changed. Correction 1's child-base description is not exact source truth, and
+its no-entry wording is not bound by its sealed bytes because the type-filter-free recheck
+occurred only after correction 1 was sealed, after Review.
+
+New immutable correction-2 root
+`/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5/hardware-42b330a-abort-before-preview2-20260813-correction2`
+is `0555`, containing exactly `correction-receipt.txt` 3,549 bytes / `0444` / SHA-256
+`da712709ab51016a822b6eb3a282a89f038f6ebaf64a533bcae008c9e1064b4a` and manifest 3,014 bytes /
+`0444` / SHA-256 `6e3b86c39df0200e276a3b6993de199ad059642197e0d11de0ea2ddfe78f9c5d`.
+It binds only the Technical-Lead-reported later read-only check after Review:
+`current_cleanup_correction2=MATCH`; max-depth-one `/private/tmp/.t5-*` name check without type
+filter found no entry; bound Guard and `/private/tmp/.t5-*/run-*/data` PostgreSQL processes were
+zero; owned ports 3000/54321/55435 were zero; exact Product package/process/reverse mappings were
+absent; Operator process was zero; standard profile matched at font scale 1, accessibility 0 and
+services null. The staged index was clean while the working tree was intentionally dirty with the
+exact eight-ADO-path candidate; no clean repository or working tree is claimed. This proves only
+later current state, never immediate abort cleanup. Queue remains unobserved and unclaimed. This
+card remains an AVS R0/V0 documentation-only STOP; no test, build, Typecheck, CI, ADB, Hardware,
+commit or push is run or claimed.
+
+## Preserved terminal correction 1 — immediate cleanup unverified
+
+Marker: `DA5-V5-ABORT-BEFORE-PREVIEW2-CORRECTION1-2026-08-13`.
+
+This preserved correction-1 block is superseded by correction 2 above. Its terminal
+classification is
+**`FAIL_CLOSED / HUMAN ORDER DEVIATION BEFORE PREVIEW 2; LATER CURRENT STATE CLEAN`**, never
+Product PASS and no Product-defect finding. `E` authority is consumed; do not retry, resume,
+relogin, replace or continue.
+
+The original immutable `0555` Evidence root
+`/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5/hardware-42b330a-abort-before-preview2-20260813`
+remains historical flawed Evidence: receipt
+3,825 bytes / `0444` / `98e7278983dce827133cddcdfb3cb1617b6b072179ad39e93f6ea44ab3221f94`;
+manifest 1,827 bytes / `0444` /
+`db24eb313181a64f488becf552c0fd9d70583e375a7f79d17c5ca357afae3813`. Its generic task-state
+and queue claims are not independently bound and are superseded. The original task-root check
+covered only repository-local `.t5-*`; correction 1 inaccurately described an exact bound child
+TMP base, while correction 2 binds direct `/private/tmp/.t5-*`. `da5_v5_aborted` precedes
+cleanup. Complete immediate post-abort cleanup cannot be reconstructed and remains unverified.
+
+New immutable `0555` correction root
+`/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5/hardware-42b330a-abort-before-preview2-20260813-correction1`
+contains exactly correction receipt
+3,155 bytes / `0444` / `fd94e071d611ff7c08b1220b85d8aad740e3f750cd6edffe2f687f4443dcee81`
+and manifest 1,831 bytes / `0444` /
+`1a453bfa8474462a13fda346b76e78daa82f007154c8545fcc887e300c6d0da8`. It proves only two
+separately timed Technical-Lead-reported later current checks: package/process absent, owned
+mappings empty, standard profile `MATCH`, Operator absent and a historical tracked/staged-clean
+report; then `current_guard_cleanup=MATCH` and the listed Guard/PostgreSQL/owned-port checks.
+Correction 2 supersedes correction 1's child-base and no-entry scope. It does not reconstruct
+immediate cleanup. The schema has no queue field,
+the queue checkpoint was not reached and no machine queue Evidence exists; queue state/event is
+not observed or claimed.
+
+## Preserved predecessor terminal override — abort before Admin Setup Preview 2
+
+Marker: `DA5-V5-ABORT-BEFORE-PREVIEW2-CLOSURE-2026-08-13`.
+
+Exact published ADO baseline is `E` `42b330a1ea700169d7adcd1c3bf54e3dfb868d0a` / tree
+`21aad9fa3e0dd7de1d87c66fdaaba8ee0cdc6a92`, parent `C`
+`33a1d70c06b0275c59be20bf9d5afc4c8af44767`. Fresh read-only preflight and the exact name-only
+child-environment predicate matched. The continuous Operator reached `da5_v5_ready`,
+`device-preflight=match`, Human Tag readiness PASS, verified installation, Administrator
+Credential/login, initial all-zero digital state and the first Tag-A-to-Customer-A setup. Exact
+reattestation then showed one active Tag-A/Customer-A assignment and one setup receipt, with no
+lifecycle or NFC/manual/time record; it did not prove queue state.
+
+**STOP.** Before the mandatory Admin Setup Preview 2 operation, the Human reported an accidental
+sign-out. Relogin or continuation was not allowed. Ordinary-idle `abort` was accepted exactly
+once, emitted `da5_v5_aborted` and exited 1. Correction 1 binds only later current state, not
+immediate complete cleanup. Terminal state is **`FAIL_CLOSED / HUMAN ORDER DEVIATION BEFORE
+PREVIEW 2; LATER CURRENT STATE CLEAN`**, not PASS and not a Product defect. `E` authority is
+consumed; do not retry, resume, relogin, replace or continue.
+
+Preview 2, Employee, Tags B/X, Gates B–F and Accessibility were not reached. Immutable Evidence
+root is
+`/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5/hardware-42b330a-abort-before-preview2-20260813`
+mode `0555`: receipt 3,825 bytes / `0444` /
+`98e7278983dce827133cddcdfb3cb1617b6b072179ad39e93f6ea44ab3221f94`; manifest 1,827 bytes /
+`0444` / `db24eb313181a64f488becf552c0fd9d70583e375a7f79d17c5ca357afae3813`.
+The accidental sign-out and other stated Human observations are Human-reported; they are not
+inferred from machine receipts or later current-state checks. The original generic task-state and
+queue claims are superseded. This card permits documentation correction only, not ADB,
+installation, Operator restart, Hardware or any Product action.
+
+## Preserved prior startup-environment closure
 
 Marker: `DA5-V5-STARTUP-ENV-FAILURE-CLOSURE-2026-08-13`.
 

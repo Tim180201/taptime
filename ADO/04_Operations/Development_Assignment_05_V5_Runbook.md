@@ -1,5 +1,122 @@
 # Development Assignment 5 — V5 Human Android Gate Runbook
 
+## Current Human-order-deviation correction 2 — terminal STOP
+
+Marker: `DA5-V5-ABORT-BEFORE-PREVIEW2-CORRECTION2-2026-08-13`. This section supersedes
+correction 1's inaccurate child-TMP relationship, its overbroad no-entry wording and every
+conflicting generic task-state, immediate-cleanup, queue or clean-working-tree assertion.
+Terminal classification remains **`FAIL_CLOSED / HUMAN ORDER DEVIATION BEFORE PREVIEW 2; LATER
+CURRENT STATE CLEAN`**, never Product PASS and no Product-defect finding. Authority `E` is
+consumed; there is no retry, resume, relogin or replacement run.
+
+Executable `M` `9380758f3e149718c8c0b8d34a1818de64c0d8d1`, exact
+`apps/synthetic-android-e2e/src/da5V5Main.ts:232-237`, passes
+`temporaryBase: '/private/tmp'`; Guard mkdtemp therefore creates `/private/tmp/.t5-*` directly,
+not beneath an additional child TMP base. The immutable historical roots remain byte-exact:
+original `0555`
+`/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5/hardware-42b330a-abort-before-preview2-20260813`
+contains `receipt.txt` 3,825 bytes / `0444` / SHA-256
+`98e7278983dce827133cddcdfb3cb1617b6b072179ad39e93f6ea44ab3221f94` and manifest 1,827 bytes /
+`0444` / SHA-256 `db24eb313181a64f488becf552c0fd9d70583e375a7f79d17c5ca357afae3813`;
+correction-1 `0555`
+`/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5/hardware-42b330a-abort-before-preview2-20260813-correction1`
+contains `correction-receipt.txt` 3,155 bytes / `0444` / SHA-256
+`fd94e071d611ff7c08b1220b85d8aad740e3f750cd6edffe2f687f4443dcee81` and manifest 1,831 bytes /
+`0444` / SHA-256 `1a453bfa8474462a13fda346b76e78daa82f007154c8545fcc887e300c6d0da8`.
+Neither root was changed. Correction 1's child-base description is not exact source truth, and
+its no-entry wording is not bound by its sealed bytes because the type-filter-free recheck
+occurred only after correction 1 was sealed, after Review.
+
+New immutable correction-2 root
+`/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5/hardware-42b330a-abort-before-preview2-20260813-correction2`
+is `0555`, containing exactly `correction-receipt.txt` 3,549 bytes / `0444` / SHA-256
+`da712709ab51016a822b6eb3a282a89f038f6ebaf64a533bcae008c9e1064b4a` and manifest 3,014 bytes /
+`0444` / SHA-256 `6e3b86c39df0200e276a3b6993de199ad059642197e0d11de0ea2ddfe78f9c5d`.
+It binds only the Technical-Lead-reported later read-only check after Review:
+`current_cleanup_correction2=MATCH`; max-depth-one `/private/tmp/.t5-*` name check without a type
+filter found no entry; bound Guard and `/private/tmp/.t5-*/run-*/data` PostgreSQL processes were
+zero; owned ports 3000/54321/55435 were zero; exact Product package/process/reverse mappings were
+absent; Operator process was zero; standard profile matched at font scale 1, accessibility 0 and
+services null. The staged index was clean while the working tree was intentionally dirty with the
+exact eight-ADO-path candidate; no clean repository or working tree is claimed. This proves only
+later current state, never immediate abort cleanup. Queue remains unobserved and unclaimed.
+Remain stopped: AVS scope is R0/V0 documentation only; no test, build, Typecheck, CI, ADB,
+Hardware, commit or push is run or claimed.
+
+## Preserved Human-order-deviation correction 1 — terminal STOP
+
+Marker: `DA5-V5-ABORT-BEFORE-PREVIEW2-CORRECTION1-2026-08-13`. This preserved correction-1
+section is superseded by correction 2 above. Its terminal classification is
+**`FAIL_CLOSED / HUMAN ORDER DEVIATION BEFORE PREVIEW 2;
+LATER CURRENT STATE CLEAN`**, never Product PASS and no Product-defect finding. Authority `E` is
+consumed; there is no retry, resume, relogin or replacement run.
+
+The immutable original `0555` Evidence root
+`/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5/hardware-42b330a-abort-before-preview2-20260813`
+remains historical flawed Evidence: receipt
+3,825 bytes / `0444` / `98e7278983dce827133cddcdfb3cb1617b6b072179ad39e93f6ea44ab3221f94`;
+manifest 1,827 bytes / `0444` /
+`db24eb313181a64f488becf552c0fd9d70583e375a7f79d17c5ca357afae3813`. Its generic task-state
+and every queue-zero/no-queue-event claim are not independently bound and are superseded. The
+original check covered only repository-local `.t5-*`; correction 1 inaccurately described an
+exact bound child TMP base, while correction 2 binds direct `/private/tmp/.t5-*`.
+`da5_v5_aborted` precedes cleanup. Complete immediate post-abort cleanup cannot be reconstructed
+and is unverified.
+
+New immutable `0555` correction root
+`/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5/hardware-42b330a-abort-before-preview2-20260813-correction1`
+contains exactly correction receipt
+3,155 bytes / `0444` / `fd94e071d611ff7c08b1220b85d8aad740e3f750cd6edffe2f687f4443dcee81`
+and manifest 1,831 bytes / `0444` /
+`1a453bfa8474462a13fda346b76e78daa82f007154c8545fcc887e300c6d0da8`. It binds only two
+separately timed Technical-Lead-reported later current checks: package/process absent, mappings
+empty, profile `MATCH`, Operator absent and a historical tracked/staged-clean report; then
+`current_guard_cleanup=MATCH` and the listed Guard/PostgreSQL/owned-port checks. Correction 2
+supersedes correction 1's child-base and no-entry scope. This proves later current state only, not
+immediate cleanup. The status
+schema has no queue field, the queue checkpoint was not reached and no machine queue Evidence
+exists; queue state/event is not observed or claimed.
+
+## Preserved predecessor Human-order-deviation override — terminal STOP before Preview 2
+
+Marker: `DA5-V5-ABORT-BEFORE-PREVIEW2-CLOSURE-2026-08-13`. This section supersedes every later
+conflicting current/start statement while preserving the procedure below as non-executable
+history. Exact published baseline is `E`
+`42b330a1ea700169d7adcd1c3bf54e3dfb868d0a` / tree
+`21aad9fa3e0dd7de1d87c66fdaaba8ee0cdc6a92`, parent `C`
+`33a1d70c06b0275c59be20bf9d5afc4c8af44767`.
+
+Fresh read-only preflight and the reviewed name-only child-environment contract matched with the
+exact allowlist present and forbidden names absent. The Operator emitted `da5_v5_ready` and
+`device-preflight=match`; Human physical Tag readiness passed. Installation emitted
+`synthetic_e2e_android_runtime_complete_verified` and `da5_v5_android_install=match`.
+Administrator empty-active/visible Human confirmations and memory-only Credential binding/
+injection receipts matched, and the Human reported login PASS. Initial digital status proved the
+lifecycle and Tag records exposed by that status zero; the schema exposed no queue field. The
+Human reported Tag A to Customer A setup PASS; machine
+reattestation proved exactly one active Tag-A assignment, one Customer-A assignment and one setup
+receipt, with WorkEvents/NFC/manual/time all zero; it did not prove queue state.
+
+Before the next mandatory step, **Admin Setup Preview 2**, the Human reported an accidental
+sign-out. That report is an order deviation and is not a machine receipt. No relogin, Preview 2 or
+continuation is allowed. From ordinary-idle, invoke `abort` exactly once only; the completed run
+did so, emitted `da5_v5_aborted` and terminated exit 1. Correction 1 binds only the separately
+timed later current-state checks and does not establish immediate complete cleanup.
+
+Terminal classification is **`FAIL_CLOSED / HUMAN ORDER DEVIATION BEFORE PREVIEW 2; LATER CURRENT
+STATE CLEAN`**, never PASS and no Product defect. Authority `E` is consumed. There is no retry,
+resume, relogin or replacement run. No lifecycle/time event was observed at the reached machine
+checkpoints; queue state/event is unobserved and unclaimed. Preview 2, Employee, Tag B/X, Gate B–F
+and Accessibility action did not occur. Do not reuse any observation.
+
+Immutable disclosure-safe Evidence root
+`/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5/hardware-42b330a-abort-before-preview2-20260813`
+is `0555`: receipt 3,825 bytes / `0444` / SHA-256
+`98e7278983dce827133cddcdfb3cb1617b6b072179ad39e93f6ea44ab3221f94`; manifest 1,827 bytes /
+`0444` / SHA-256 `db24eb313181a64f488becf552c0fd9d70583e375a7f79d17c5ca357afae3813`.
+It is preserved historical Evidence; its generic task-state and queue claims are superseded by
+correction 1. Human reports remain separate from machine receipts and later current-state checks.
+
 ## Current startup-environment failure override — STOP pending new E and Human authority
 
 Marker: `DA5-V5-STARTUP-ENV-FAILURE-CLOSURE-2026-08-13`. This section supersedes later

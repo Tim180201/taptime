@@ -1,5 +1,114 @@
 # Project Status
 
+## Current override — DA5 V5 Human-order-deviation correction 2
+
+Marker: `DA5-V5-ABORT-BEFORE-PREVIEW2-CORRECTION2-2026-08-13`. This override supersedes
+correction 1's inaccurate child-TMP relationship, its overbroad no-entry wording and every
+conflicting generic task-state, immediate-cleanup, queue or clean-working-tree assertion.
+Terminal status remains **`FAIL_CLOSED / HUMAN ORDER DEVIATION BEFORE PREVIEW 2; LATER CURRENT
+STATE CLEAN`**, never Product PASS and no Product-defect finding. Authority `E` is consumed; no
+retry, resume, relogin or replacement run is authorized.
+
+Executable `M` `9380758f3e149718c8c0b8d34a1818de64c0d8d1`, exact
+`apps/synthetic-android-e2e/src/da5V5Main.ts:232-237`, passes
+`temporaryBase: '/private/tmp'`; Guard mkdtemp therefore creates `/private/tmp/.t5-*` directly,
+not beneath an additional child TMP base. The immutable historical roots remain byte-exact:
+original `0555`
+`/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5/hardware-42b330a-abort-before-preview2-20260813`
+contains `receipt.txt` 3,825 bytes / `0444` / SHA-256
+`98e7278983dce827133cddcdfb3cb1617b6b072179ad39e93f6ea44ab3221f94` and manifest 1,827 bytes /
+`0444` / SHA-256 `db24eb313181a64f488becf552c0fd9d70583e375a7f79d17c5ca357afae3813`;
+correction-1 `0555`
+`/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5/hardware-42b330a-abort-before-preview2-20260813-correction1`
+contains `correction-receipt.txt` 3,155 bytes / `0444` / SHA-256
+`fd94e071d611ff7c08b1220b85d8aad740e3f750cd6edffe2f687f4443dcee81` and manifest 1,831 bytes /
+`0444` / SHA-256 `1a453bfa8474462a13fda346b76e78daa82f007154c8545fcc887e300c6d0da8`.
+Neither root was changed. Correction 1's child-base description is not exact source truth, and
+its no-entry wording is not bound by its sealed bytes because the type-filter-free recheck
+occurred only after correction 1 was sealed, after Review.
+
+New immutable correction-2 root
+`/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5/hardware-42b330a-abort-before-preview2-20260813-correction2`
+is `0555`, containing exactly `correction-receipt.txt` 3,549 bytes / `0444` / SHA-256
+`da712709ab51016a822b6eb3a282a89f038f6ebaf64a533bcae008c9e1064b4a` and manifest 3,014 bytes /
+`0444` / SHA-256 `6e3b86c39df0200e276a3b6993de199ad059642197e0d11de0ea2ddfe78f9c5d`.
+It binds only the Technical-Lead-reported later read-only check after Review:
+`current_cleanup_correction2=MATCH`; max-depth-one `/private/tmp/.t5-*` name check without a type
+filter found no entry; bound Guard and `/private/tmp/.t5-*/run-*/data` PostgreSQL processes were
+zero; owned ports 3000/54321/55435 were zero; exact Product package/process/reverse mappings were
+absent; Operator process was zero; standard profile matched at font scale 1, accessibility 0 and
+services null. The staged index was clean while the working tree was intentionally dirty with the
+exact eight-ADO-path candidate; no clean repository or working tree is claimed. This proves only
+later current state, never immediate abort cleanup. Queue remains unobserved and unclaimed. This
+is AVS R0/V0 only; no test, build, Typecheck, CI, ADB, Hardware, commit or push is run or claimed.
+
+## Preserved override — DA5 V5 Human-order-deviation correction 1
+
+Marker: `DA5-V5-ABORT-BEFORE-PREVIEW2-CORRECTION1-2026-08-13`. This preserved correction-1
+override is superseded by correction 2 above. Its terminal status is
+**`FAIL_CLOSED / HUMAN ORDER DEVIATION BEFORE PREVIEW 2; LATER CURRENT
+STATE CLEAN`**, never Product PASS and no Product-defect finding. Authority `E` is consumed; no
+retry, resume, relogin or replacement run is authorized.
+
+The immutable original `0555` Evidence root
+`/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5/hardware-42b330a-abort-before-preview2-20260813`
+remains historical flawed Evidence: receipt 3,825 bytes / `0444` /
+`98e7278983dce827133cddcdfb3cb1617b6b072179ad39e93f6ea44ab3221f94`; manifest 1,827 bytes /
+`0444` / `db24eb313181a64f488becf552c0fd9d70583e375a7f79d17c5ca357afae3813`. Its generic
+task-state and queue claims are not independently bound and are superseded. The original check
+covered only repository-local `.t5-*`; correction 1 inaccurately described an exact bound child
+TMP base, while correction 2 binds direct `/private/tmp/.t5-*`. `da5_v5_aborted` precedes
+cleanup. Complete immediate post-abort cleanup cannot be reconstructed and is unverified.
+
+New immutable `0555` correction root
+`/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5/hardware-42b330a-abort-before-preview2-20260813-correction1`
+contains exactly correction receipt 3,155 bytes / `0444` /
+`fd94e071d611ff7c08b1220b85d8aad740e3f750cd6edffe2f687f4443dcee81` and manifest 1,831 bytes /
+`0444` / `1a453bfa8474462a13fda346b76e78daa82f007154c8545fcc887e300c6d0da8`. It binds only
+two separately timed Technical-Lead-reported read-only later current checks: package/process
+absent, owned mappings empty, profile `MATCH`, Operator absent and a historical tracked/staged-
+clean report; then `current_guard_cleanup=MATCH` and the listed Guard/PostgreSQL/owned-port
+checks. Correction 2 supersedes correction 1's child-base and no-entry scope. This proves later
+current state only. The schema has no queue field, the
+queue checkpoint was not reached and no machine queue Evidence exists; queue state/event is not
+observed or claimed.
+
+## Preserved predecessor — DA5 V5 Human order deviation before Preview 2
+
+Marker: `DA5-V5-ABORT-BEFORE-PREVIEW2-CLOSURE-2026-08-13`; this section supersedes conflicting
+later DA5 current/authority text and preserves it as history. Baseline is exact published `E`
+`42b330a1ea700169d7adcd1c3bf54e3dfb868d0a` / tree
+`21aad9fa3e0dd7de1d87c66fdaaba8ee0cdc6a92`, parent `C`
+`33a1d70c06b0275c59be20bf9d5afc4c8af44767`.
+
+Fresh read-only and name-only child-environment preflight matched. Operator/device/install
+receipts reached `da5_v5_ready`, `device-preflight=match`,
+`synthetic_e2e_android_runtime_complete_verified` and `da5_v5_android_install=match`; Human Tag
+readiness, Administrator Credential field visibility, login and Tag-A-to-Customer-A setup were
+reported PASS/match. Initial digital lifecycle/Tag state exposed by the status was zero; the
+schema exposed no queue field. Reattestation after
+setup proved exactly one active Tag-A assignment, one Customer-A assignment and one setup receipt,
+while WorkEvents and NFC/manual/time remained zero; queue was not proved.
+
+Before required Admin Setup Preview 2, the Human reported an accidental sign-out. Relogin was
+forbidden. Ordinary-idle `abort` ran exactly once, emitted `da5_v5_aborted` and exited 1. The
+separately timed later current-state checks are bound only by correction 1 and do not prove
+immediate complete cleanup. Current disposition is **`FAIL_CLOSED / HUMAN ORDER DEVIATION BEFORE
+PREVIEW 2; LATER CURRENT STATE CLEAN`**, never PASS and no Product defect. Authority `E` is
+consumed; no retry, resume, relogin or replacement is authorized. No lifecycle/time event was
+observed at the reached machine checkpoints; queue state/event is unobserved and unclaimed.
+Preview 2, Employee, Tags B/X, Gates B–F and Accessibility did not occur.
+
+Immutable disclosure-safe Evidence root
+`/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5/hardware-42b330a-abort-before-preview2-20260813`
+is `0555`: receipt 3,825 bytes / `0444` / SHA-256
+`98e7278983dce827133cddcdfb3cb1617b6b072179ad39e93f6ea44ab3221f94`; manifest 1,827 bytes /
+`0444` / SHA-256 `db24eb313181a64f488becf552c0fd9d70583e375a7f79d17c5ca357afae3813`.
+The accidental sign-out and stated Human PASS observations are Human-reported; machine receipts
+and later current-state checks are separately identified and do not reconstruct them or immediate
+cleanup. The original generic task-state and queue claims are superseded. This exact eight-path
+ADO synchronization is AVS R0/V0 only; no executable verification or execution authority follows.
+
 ## Current override — DA5 V5 startup-environment failure closure
 
 Marker: `DA5-V5-STARTUP-ENV-FAILURE-CLOSURE-2026-08-13`; this section supersedes conflicting

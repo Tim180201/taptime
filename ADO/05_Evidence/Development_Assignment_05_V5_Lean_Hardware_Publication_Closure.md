@@ -1,10 +1,159 @@
 # Development Assignment 5 — Lean Stage-6 Hardware Publication Closure
 
-Status: **R0/V0 STARTUP-ENV FAILURE CLOSURE CANDIDATE — PREPUBLICATION REVIEW, FUTURE E AND EXACT-HEAD REVIEW REQUIRED / STOP**
+Status: **R0/V0 CORRECTION-2 CLOSURE CANDIDATE — PREPUBLICATION REVIEW 3 REQUIRED / AUTHORITY CONSUMED / STOP**
 
 Owner: Technical Lead
 
 Physical approval authority: Human Architect
+
+Marker: `DA5-V5-ABORT-BEFORE-PREVIEW2-CORRECTION2-2026-08-13`.
+
+## Current exact correction-2 closure
+
+This section supersedes correction 1's inaccurate child-TMP relationship, its overbroad no-entry
+wording and every conflicting generic task-state, immediate-cleanup, queue or clean-working-tree
+assertion. Terminal classification remains **`FAIL_CLOSED / HUMAN ORDER DEVIATION BEFORE PREVIEW
+2; LATER CURRENT STATE CLEAN`**, never Product PASS and no Product-defect finding. Authority `E`
+is consumed; no retry, resume, relogin or replacement run is authorized.
+
+Executable `M` `9380758f3e149718c8c0b8d34a1818de64c0d8d1`, exact
+`apps/synthetic-android-e2e/src/da5V5Main.ts:232-237`, passes
+`temporaryBase: '/private/tmp'`; Guard mkdtemp therefore creates `/private/tmp/.t5-*` directly,
+not beneath an additional child TMP base. The immutable historical roots remain byte-exact:
+
+- original root
+  `/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5/hardware-42b330a-abort-before-preview2-20260813`
+  is `0555`: `receipt.txt` 3,825 bytes / `0444` / SHA-256
+  `98e7278983dce827133cddcdfb3cb1617b6b072179ad39e93f6ea44ab3221f94`; manifest 1,827 bytes /
+  `0444` / SHA-256 `db24eb313181a64f488becf552c0fd9d70583e375a7f79d17c5ca357afae3813`;
+- correction-1 root
+  `/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5/hardware-42b330a-abort-before-preview2-20260813-correction1`
+  is `0555`: `correction-receipt.txt` 3,155 bytes / `0444` / SHA-256
+  `fd94e071d611ff7c08b1220b85d8aad740e3f750cd6edffe2f687f4443dcee81`; manifest 1,831 bytes /
+  `0444` / SHA-256 `1a453bfa8474462a13fda346b76e78daa82f007154c8545fcc887e300c6d0da8`.
+
+Neither historical root was changed. Correction 1's child-base description is not exact source
+truth, and its no-entry wording is not bound by its sealed bytes because the type-filter-free
+recheck occurred only after correction 1 was sealed, after Review. New immutable correction-2
+root
+`/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5/hardware-42b330a-abort-before-preview2-20260813-correction2`
+is `0555`, containing exactly `correction-receipt.txt` 3,549 bytes / `0444` / SHA-256
+`da712709ab51016a822b6eb3a282a89f038f6ebaf64a533bcae008c9e1064b4a` and
+`evidence-manifest.txt` 3,014 bytes / `0444` / SHA-256
+`6e3b86c39df0200e276a3b6993de199ad059642197e0d11de0ea2ddfe78f9c5d`.
+
+Correction 2 binds only the Technical-Lead-reported later read-only check after Review:
+`current_cleanup_correction2=MATCH`; a max-depth-one name check for `/private/tmp/.t5-*` without
+a file-type filter found no entry; bound Guard and `/private/tmp/.t5-*/run-*/data` PostgreSQL
+processes were zero; owned ports 3000/54321/55435 were zero; exact Product
+package/process/reverse mappings were absent; Operator process was zero; standard profile matched
+at font scale 1, accessibility 0 and services null. The staged index was clean while the working
+tree was intentionally dirty with this exact eight-ADO-path candidate; no clean repository or
+working tree is claimed. This proves only later current state, never immediate abort cleanup.
+Queue remains unobserved and unclaimed.
+
+Exact candidate scope remains only these eight existing ADO paths: `ADO/README.md`,
+`ADO/00_Core/Project_Status.md`, `ADO/00_Core/Risk_Register.md`, `ADO/00_Core/Decision_Log.md`,
+`ADO/04_Operations/Development_Assignment_05_V5_Lean_Hardware_Flight_Card.md`,
+`ADO/04_Operations/Development_Assignment_05_V5_Runbook.md`,
+`ADO/05_Evidence/Development_Assignment_05_V5_Evidence.md` and this file. Change impact is
+non-executable documentation only; AVS classification is R0/V0. Review 3 must examine this exact
+candidate. No Product test, Typecheck, build, V3/V4, CI, ADB, Hardware, commit or push is run or
+authorized. Publication and every later exact-head/Human gate remain STOP.
+
+## Preserved exact correction-1 closure
+
+Marker: `DA5-V5-ABORT-BEFORE-PREVIEW2-CORRECTION1-2026-08-13`.
+
+This preserved correction-1 section is superseded by correction 2 above. Its terminal
+classification is
+**`FAIL_CLOSED / HUMAN ORDER DEVIATION BEFORE PREVIEW 2; LATER CURRENT STATE CLEAN`**, never
+Product PASS and no Product-defect finding. Authority `E` is consumed; no retry, resume, relogin
+or replacement run is authorized.
+
+The original immutable `0555` Evidence root
+`/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5/hardware-42b330a-abort-before-preview2-20260813`
+remains historical flawed Evidence: receipt
+3,825 bytes / `0444` / `98e7278983dce827133cddcdfb3cb1617b6b072179ad39e93f6ea44ab3221f94`;
+manifest 1,827 bytes / `0444` /
+`db24eb313181a64f488becf552c0fd9d70583e375a7f79d17c5ca357afae3813`. Its generic task-state
+and every queue-zero/no-queue-event claim are not independently bound and are superseded. The
+original task-root check covered only repository-local `.t5-*`; correction 1 inaccurately
+described an exact bound child TMP base, while correction 2 binds direct `/private/tmp/.t5-*`.
+`da5_v5_aborted` precedes cleanup. Complete cleanup immediately after abort cannot be
+reconstructed and remains unverified.
+
+New immutable `0555` correction root
+`/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5/hardware-42b330a-abort-before-preview2-20260813-correction1`
+contains exactly correction receipt
+3,155 bytes / `0444` / `fd94e071d611ff7c08b1220b85d8aad740e3f750cd6edffe2f687f4443dcee81`
+and manifest 1,831 bytes / `0444` /
+`1a453bfa8474462a13fda346b76e78daa82f007154c8545fcc887e300c6d0da8`. It binds two
+separately timed Technical-Lead-reported read-only later current-state checks: package/process
+absent, owned mappings empty, standard profile `MATCH`, Operator absent and a historical
+tracked/staged-clean report; then `current_guard_cleanup=MATCH` and the listed
+Guard/PostgreSQL/owned-port checks. Correction 2 supersedes correction 1's child-base and
+no-entry scope. This proves only later current state and cannot reconstruct immediate post-abort
+cleanup. The status schema has no queue field, the queue
+checkpoint was not reached and no machine queue Evidence exists; queue state/event is not
+observed or claimed.
+
+Candidate status remains R0/V0 correction-only and requires renewed independent prepublication
+review of these exact eight ADO paths. No Product test, Typecheck, build, V3/V4, CI, ADB,
+Hardware, commit or push is run or authorized. Publication and every later exact-head/Human gate
+remain STOP.
+
+## Preserved predecessor exact Human-order-deviation closure
+
+Marker: `DA5-V5-ABORT-BEFORE-PREVIEW2-CLOSURE-2026-08-13`.
+
+This section supersedes later conflicting current/scope/authority statements and preserves them
+as history. Baseline is exact published `E`
+`42b330a1ea700169d7adcd1c3bf54e3dfb868d0a` / tree
+`21aad9fa3e0dd7de1d87c66fdaaba8ee0cdc6a92`, parent `C`
+`33a1d70c06b0275c59be20bf9d5afc4c8af44767`.
+
+Fresh read-only preflight and exact name-only child-environment checks matched. Operator/device/
+install receipts, Administrator Credential/login, initial zero state, first Tag-A-to-Customer-A
+setup and exact post-setup reattestation reached the boundaries recorded in the V5 Evidence. The
+reattestation proved one active Tag-A and Customer-A assignment plus one setup receipt, with zero
+lifecycle/NFC/manual/time state; it did not prove queue state.
+
+Before mandatory Admin Setup Preview 2, the Human reported an accidental sign-out. It is an order
+deviation, not a machine receipt. Relogin was forbidden. Ordinary-idle `abort` ran exactly once,
+emitted `da5_v5_aborted` and exited 1. Correction 1 binds only later current state, not immediate
+cleanup. Classification is **`FAIL_CLOSED / HUMAN ORDER DEVIATION BEFORE PREVIEW 2; LATER CURRENT
+STATE CLEAN`**, never PASS and no Product defect. `E` authority is consumed; no retry, resume,
+relogin or replacement run is authorized. No lifecycle/time event was observed at reached
+machine checkpoints; queue state/event is unobserved and unclaimed. Preview 2, Employee, Tags
+B/X, Gates B–F and Accessibility did not occur.
+
+Immutable disclosure-safe root
+`/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5/hardware-42b330a-abort-before-preview2-20260813`
+is mode `0555`: receipt 3,825 bytes / `0444` / SHA-256
+`98e7278983dce827133cddcdfb3cb1617b6b072179ad39e93f6ea44ab3221f94`; manifest 1,827 bytes /
+`0444` / SHA-256 `db24eb313181a64f488becf552c0fd9d70583e375a7f79d17c5ca357afae3813`.
+Human-reported facts are distinct from machine receipts/later current-state checks. The original
+generic task-state and queue claims are superseded by correction 1.
+
+Exact candidate scope is only these eight existing ADO paths: `ADO/README.md`,
+`ADO/00_Core/Project_Status.md`, `ADO/00_Core/Risk_Register.md`,
+`ADO/00_Core/Decision_Log.md`,
+`ADO/04_Operations/Development_Assignment_05_V5_Lean_Hardware_Flight_Card.md`,
+`ADO/04_Operations/Development_Assignment_05_V5_Runbook.md`,
+`ADO/05_Evidence/Development_Assignment_05_V5_Evidence.md` and this file. Change impact is
+non-executable documentation only: no source, configuration, schema, dependency, lockfile, test,
+workflow, runtime or artifact input changed. AVS classification is R0/V0. Product tests,
+Typechecks, builds, V3/V4, CI, ADB, Hardware, commit and push are not run or claimed.
+
+Candidate V0 at handover is `PASS`: `HEAD`, tree and parent match the exact refs above; scoped
+tracked diff names are exactly these eight paths; the scoped index is empty; `git diff --check`
+exits 0; all eight references exist; no mode change or executable delta is present; both original
+immutable Evidence files and both correction Evidence files re-match their recorded sizes, modes
+and SHA-256 values; and the correction root contains exactly those two files. No V1–V5, Product
+suite, Typecheck, build, CI, ADB or Hardware check was executed for this R0 delta.
+
+## Preserved prior startup-environment closure
 
 Marker: `DA5-V5-STARTUP-ENV-FAILURE-CLOSURE-2026-08-13`.
 
