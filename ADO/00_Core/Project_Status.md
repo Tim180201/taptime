@@ -1,5 +1,15 @@
 # Project Status
 
+## Current pointer — DA5 V5 Fast Flight Cycle authorization candidate
+
+Status: **HUMAN PROCESS-OPTIMIZATION DIRECTION RECEIVED / R0 CANDIDATE / REVIEW PENDING /
+NOT ACTIVE / NO HARDWARE AUTHORITY**. Exact baseline
+`187ba562b6197e1c589b0b23f36cf3dfd662f32f`, tree
+`174d2e80333c227338f788ac2dd85f0fbbcef972`. The candidate is not active and does not supersede
+the correction-2 terminal truth, restore authority, or authorize code, tests, CI, ADB, hardware or
+Physical V5. Stable controlling pointer:
+[DA5 V5 Fast Flight Cycle Authorization](../02_Development/Development_Assignment_05_V5_Fast_Flight_Cycle_Authorization.md).
+
 ## Current override — DA5 V5 Human-order-deviation correction 2
 
 Marker: `DA5-V5-ABORT-BEFORE-PREVIEW2-CORRECTION2-2026-08-13`. This override supersedes

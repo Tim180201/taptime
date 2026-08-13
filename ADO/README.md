@@ -5,6 +5,18 @@ Epic: EP-006
 Owner: Technical Lead  
 Approval Authority: Human Architect
 
+## Current DA5 V5 Fast Flight Cycle authorization candidate
+
+Status: **HUMAN PROCESS-OPTIMIZATION DIRECTION RECEIVED / R0 CANDIDATE / REVIEW PENDING /
+NOT ACTIVE / NO HARDWARE AUTHORITY**. Bound to commit
+`187ba562b6197e1c589b0b23f36cf3dfd662f32f`, tree
+`174d2e80333c227338f788ac2dd85f0fbbcef972`. This candidate is only a stable navigation pointer;
+it does not alter the correction-2 terminal truth, reopen consumed authority, or authorize code,
+tests, builds, CI, ADB, hardware or Physical V5. Controlling candidate:
+[DA5 V5 Fast Flight Cycle Authorization](02_Development/Development_Assignment_05_V5_Fast_Flight_Cycle_Authorization.md).
+Independent R0 review, focused publication and exact-head review are required before activation;
+the resulting sequence still stops before every Human/hardware gate.
+
 ## Current DA5 V5 Hardware correction-2 closure candidate
 
 Marker: `DA5-V5-ABORT-BEFORE-PREVIEW2-CORRECTION2-2026-08-13`. This block supersedes
