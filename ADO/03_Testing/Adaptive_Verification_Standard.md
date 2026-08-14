@@ -1,5 +1,62 @@
 # AVS-001 – Adaptive Verification and CI Efficiency Standard
 
+## DA5 Compact-Login/Invitation replacement V3 authority (`2026-08-14`) — REVIEW PENDING / NOT ACTIVE
+
+The first final V3 for the unchanged nine-path Compact-Login/Invitation candidate tree
+`534b1bfed4696833d2e6994af7e2eb2590b37388` and canonical full-index patch 95,701 bytes /
+SHA-256 `948362e5b82cc599181976c9e55966979b75f5b25b0e5ec2cb2990004c9635d0` is consumed
+`FAIL_CLOSED`. D01 and D02 passed exactly once; PostgreSQL 17.10 started and all eleven databases
+were created, but the first migration stopped before migration 001 with SQLSTATE `42501`
+(`permission denied to create role`). The runner had created separate installer LOGIN roles
+without the required CI-equivalent superuser/role-creation semantics. This is a runner-bootstrap
+failure, not a code or Product finding. Zero of 27 migrations and no build, Typecheck, suite,
+additional gate, ADB, installation, Product-Human or Hardware action followed. Cleanup passed.
+
+Immutable Evidence root
+`/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5/v3-534b1bfe-20260814T063909Z`
+is `0555`, with 102 manifested payloads plus `evidence-manifest.txt` = 103 regular files. Receipt:
+2,355 bytes / `0444` / SHA-256
+`ed7d7972d385cbb2262df90e19ae490884c3a7a1a9c934f2bc600a943d29c96c`; manifest: 11,651
+bytes / `0444` / SHA-256
+`30cfdb6747dc0814cf3db1e487b1a578df8726578e56d8d7302d125ed7d8a68c`. Initial preflight
+stdout was retained, but the four individual port return codes were not immutably bound; that
+preflight Evidence remains incomplete. Post-cleanup Evidence fully binds separate successful
+checks for ports 3000, 54321, 55435 and 55436, stopped PostgreSQL and absent worktree/task root.
+
+Independent Review Round 1 inspected the combined 12-path input tree
+`468ae43e2bf18914bef9a08c6b65c8ff7b9ff932` and its canonical full-index patch 109,107 bytes /
+SHA-256 `aafe63a4bc156c5204820d9784cd7cba9e483e2353e7bde88b9cc76016c0f509`, and returned
+`CHANGES REQUIRED` for non-deterministic runner detail and self-referential activation binding.
+Those values remain Round-1 review input only; this three-document correction necessarily changes
+them and must never be substituted for the final Pre-D01 target.
+
+Only the byte-identical V2 result and pre-V3 independent R3 `APPROVED` with zero open P0–P3 may
+be carried. No failed-V3 gate, result, process, database, task root, file or observation may count
+as replacement-run execution or be reused. Only after independent `APPROVED` of this exact
+three-document R0/V0 amendment, one focused documentation-only `[skip ci]` publication and
+independent exact-head review may exactly one **new, fully fresh** replacement V3
+(`DA5-CLIS-V3-R1`) start. That exact-head review must issue an immutable receipt binding the
+published ADO commit/tree, each of the exact three published ADO blob IDs, each of the unchanged
+nine executable/test overlay blob IDs, the resulting final combined candidate tree, and the
+canonical nine-path overlay patch byte count and SHA-256 relative to the published ADO head.
+Those externally exact-reviewed values—not the Round-1 input and not an in-document placeholder—
+are the sole Pre-D01 target. A missing/ambiguous receipt or value is `STOP`; no hash is inferred or
+invented. The run is expressly not a retry or resume and starts again at D01 in a fresh normal
+detached worktree and task root. The Runbook top addendum is the sole operative database,
+environment, command, port-Evidence and cleanup contract.
+
+There is no separate candidate/run-plan input: suite fixtures, Expo values, final artifact gates
+and final V0 are fixed only by that Runbook and the mandatory exact-head receipt. Replacement-run
+Evidence is valid only as the fully reread, sealed final root below the Runbook-bound external
+Evidence parent; deleting the disposable task root cannot delete it, and any staging,
+inventory, manifest, permission, atomic-publication or reread failure makes the Evidence invalid
+and can never yield `PASS`.
+
+Any deviation, interruption, ambiguity or failed gate consumes `DA5-CLIS-V3-R1` fail-closed;
+there is no retry, resume or further replacement. Green routes only to independent R3 execution/
+Evidence review. **STOP** before ADB, installation, Product-Human and Hardware; those gates still
+require fresh explicit Human authority.
+
 ## DA5 V3-D fulfillment and publication gate (`2026-08-14`)
 
 V3-D ran exactly once on candidate tree `d8a7c272a41738e95b9bb5b6043312443bdfd7e5` and passed

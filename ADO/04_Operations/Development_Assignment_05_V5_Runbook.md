@@ -1,5 +1,359 @@
 # Development Assignment 5 — V5 Human Android Gate Runbook
 
+## 2026-08-14 Compact-Login/Invitation fresh replacement V3 — REVIEW PENDING / NOT ACTIVE / HARDWARE STOP
+
+This addendum is the sole operative contract for conditional `DA5-CLIS-V3-R1`. The consumed first
+final V3 was bound to unchanged candidate tree `534b1bfed4696833d2e6994af7e2eb2590b37388`
+and canonical nine-path full-index patch 95,701 bytes / SHA-256
+`948362e5b82cc599181976c9e55966979b75f5b25b0e5ec2cb2990004c9635d0`. D01/D02 and the
+PostgreSQL 17.10 plus eleven-database gates passed; the first migration failed before 001 with
+SQLSTATE `42501` because the ad-hoc bootstrap's separate installer LOGIN role lacked the
+CI-equivalent role-creation privilege. No code/Product finding exists. No later gate, ADB,
+installation, Product-Human or Hardware action ran, and cleanup passed. The exact immutable root,
+receipt and manifest are bound by the Event-Ledger top claim. Its preflight port stdout lacks
+separately immutable return codes; complete post-cleanup proof does not retroactively repair that
+gap.
+
+Independent Review Round 1 used exact combined 12-path tree
+`468ae43e2bf18914bef9a08c6b65c8ff7b9ff932` and canonical full-index patch 109,107 bytes /
+SHA-256 `aafe63a4bc156c5204820d9784cd7cba9e483e2353e7bde88b9cc76016c0f509`, then returned
+`CHANGES REQUIRED` for deterministic-runner and activation-binding gaps. Those values are
+Round-1 input only; this correction changes the three ADO blobs and therefore cannot reuse them
+as the final Pre-D01 target.
+
+Only after independent ADO `APPROVED`, focused publication of exactly these three ADO documents
+with `[skip ci]`, and independent exact-head review may `DA5-CLIS-V3-R1` start once. That review's
+immutable receipt must bind the published ADO commit/tree, all three published ADO blob IDs, all
+nine unchanged executable/test overlay blob IDs, the resulting final combined candidate tree,
+and the canonical nine-path overlay patch byte count/SHA-256 relative to the published ADO head.
+Those external exact values are the sole Pre-D01 target. Missing/ambiguous receipt/value is
+`STOP`; do not infer or invent a placeholder/hash. Create a full **normal, non-sparse** detached
+worktree at the receipt-bound ADO commit, overlay exactly the receipt-bound nine blobs and require
+the resulting tree to equal the receipt-bound final tree. The unchanged V2 and pre-V3 R3
+`APPROVED` are preconditions only. No failed-run gate, result, process, PostgreSQL cluster/
+database, task/worktree/Evidence root, file or observation is copied or reused.
+
+Create a fresh `mkdtemp` task root under `/private/tmp` with prefix
+`taptime-da5-clis-v3r1-`; bind its absolute value as `$TASK_ROOT`. Bind the final worktree root as
+`$CANDIDATE_CWD`, then define `$TASK_HOME=$TASK_ROOT/home`, `$TASK_TMP=$TASK_ROOT/tmp`,
+`$NPM_CACHE=$TASK_ROOT/npm-cache`, `$NPM_USERCONFIG=$TASK_ROOT/npmrc-user`,
+`$NPM_GLOBALCONFIG=$TASK_ROOT/npmrc-global`, `$PGDATA=$TASK_ROOT/postgres/data`,
+`$PGLOG=$TASK_ROOT/postgres/postgresql.log`, `$PGSOCKET=$TASK_ROOT/postgres/socket` and
+`$EXPO_OUT=$TASK_ROOT/expo-out`; fixed `$POST_CLEANUP_CWD=/private/tmp` must remain an existing
+directory through final Evidence capture. Create all task-owned directories fresh. Both npmrc
+files are empty `0444` files with SHA-256
+`e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`.
+
+### Exact tool and immutable recipe bindings
+
+| Tool | Bytes / mode / SHA-256 |
+|---|---|
+| `/opt/homebrew/opt/postgresql@17/bin/initdb` | 213,936 / `0555` / `43f864de4746e096246a2a9f9784ccbd7364b35b2301b82aeeb6d2a12c1912c4` |
+| `/opt/homebrew/opt/postgresql@17/bin/pg_ctl` | 116,432 / `0555` / `ba12d9fbe4492e3ab0e8bcedd53e3a0da8163fd8c2cef340dfaf619af0e132c5` |
+| `/opt/homebrew/opt/postgresql@17/bin/pg_isready` | 136,352 / `0555` / `a28e468c1ac200dee1d56f02d1436dfe2e799371a8c4448d5a2540efeb80dabb` |
+| `/opt/homebrew/opt/postgresql@17/bin/createdb` | 137,312 / `0555` / `8a997310fc83db360751187ba8e4aff8b123751a60c1abbac36687dba9f467b6` |
+| `/opt/homebrew/opt/postgresql@17/bin/psql` | 728,912 / `0555` / `bb4ef660720948d242d8c4e32450ae5607241510dc8f06cf685048e4c493447d` |
+| `/Users/timbartz/.nvm/versions/node/v24.17.0/bin/node` | 120,591,840 / `0755` / `f5f9b9db4d95f5e0340982685f083de654c21eef9d9122cab5321081ccaa2601` |
+| `/Users/timbartz/.nvm/versions/node/v24.17.0/lib/node_modules/npm/bin/npm-cli.js` | 54 / `0755` / `8e5f6f3429f8cdbe693cdc29904e9d5a7b127a494bd15c804bd54c7403bfcbe7` |
+| `/usr/sbin/lsof` | 307,600 / `0755` / `28c36d6b6dfcce1f544717b0d1961aa03441ee0a736fee3e1eaeb215c0fbff4c` |
+| `/usr/bin/git` | 118,928 / `0755` / `179301dcb41ea78accc3fa0048a7e6f6710d891945a751a34addd622020c1818` |
+| `/usr/bin/stat` | 118,768 / `0755` / `934656def5cfb8e85b2e4d983bb59ba97479cec49b63b4ea2fa42d067c569242` |
+| `/usr/bin/shasum` | 9,979 / `0755` / `0812595f981a26f813d98dc380af14d4af427626c9339eda29eb849ae13de1e3` |
+
+Before the first port preflight, independently re-stat and SHA-256 every table row and require an
+exact match; a symlink/path/size/mode/digest mismatch is `STOP` before D01.
+
+Two immutable historical files are byte-bound normative inputs only for command structure,
+environment-name matrix and workspace order, never for prior results: `execution-matrix.txt` at
+`/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5/v3-fast-d8a7-v3d-OCGEwA2H/execution-matrix.txt`
+(3,646 bytes / `0444` / SHA-256
+`e9060f6a1019b7eeeea0f052dc5b72caf2fae0d616d0ebc3614970b96ba3bc1d`) and
+`runner-record.txt` at
+`/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5/v3-9380758-corrected-4r21J4/runner-record.txt`
+(2,839 bytes / `0444` / SHA-256
+`5b23c0308ff5ca3cde791538b60a2092dafcf2b52878bf416ea6511339907921`). Consumed historical
+authority does not consume these instruction bytes. Their historical CWD, candidate, Expo paths,
+ports 55439 and cleanup-port literals are non-operative; this top addendum's receipt-bound paths
+and fixed port 55436 supersede them.
+
+### Persistent external Evidence contract
+
+Set exact
+`$EVIDENCE_PARENT=/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5` and require it
+to be an existing real directory outside `$TASK_ROOT` and `$CANDIDATE_CWD`. Before D01 derive one
+fresh canonical 32-lowercase-hex nonce and bind
+`$EVIDENCE_STAGE=$EVIDENCE_PARENT/.da5-clis-v3r1-stage-<nonce>` plus
+`$EVIDENCE_FINAL=$EVIDENCE_PARENT/da5-clis-v3r1-<UTC-YYYYMMDDTHHMMSSZ>-<nonce>`. Require both
+paths absent, create only `$EVIDENCE_STAGE` as mode `0700`, and leave `$EVIDENCE_FINAL` absent
+until atomic publication. The stage root is never inside or removed with the task root. Define
+fresh mode-`0700` `$D01_LOGS=$EVIDENCE_STAGE/npm-debug/d01` and
+`$D02_LOGS=$EVIDENCE_STAGE/npm-debug/d02`; npm writes both raw debug logs directly to persistent
+external Evidence.
+
+Every preflight, execution gate and cleanup child through the four post-cleanup `lsof` commands
+writes four files directly beneath `$EVIDENCE_STAGE/commands` before the next child:
+`NNN-<gate>.meta` with exact CWD, literal argv and sorted environment **names**; corresponding
+`NNN-<gate>.stdout.log`, `NNN-<gate>.stderr.log` and `NNN-<gate>.rc` with the exact decimal return
+code plus LF. No secret value enters metadata, output or filenames. A missing write, noncanonical
+name/order, duplicate sequence number or output/RC mismatch is terminal `FAIL_CLOSED`.
+
+On every PASS, failure, signal, timeout or ambiguity, stop further gates and execute exactly:
+
+1. Complete the bound PostgreSQL/worktree/task-root cleanup and write all four post-`lsof`
+   command records directly to the external stage.
+2. Write one disclosure-safe `receipt.txt` binding final classification, cleanup state, reviewed
+   commit/tree/blob/overlay values, gate counts and omissions; never include credentials, runtime
+   fixture values, raw device identifiers or raw Product/database records.
+3. Inventory the stage by sorted relative pathname. Reject symlinks, sockets, devices, FIFOs,
+   hard-link multiplicity, unexpected/nonregular files and any path not created by this run.
+4. Set every existing regular payload file, including the receipt, to `0444`. Then write
+   `evidence-manifest.txt` with one LF-terminated row per other regular file, sorted by relative
+   pathname and containing SHA-256, byte count, exact `0444` mode and relative path; set the
+   completed manifest itself to `0444`. The manifest is the sole intentionally self-excluded
+   regular file; it is never called an extra.
+5. Set every directory, including the stage root, to `0555`. Reinventory and reject any
+   byte/path/type/mode drift or any payload row whose path, size, mode or SHA no longer matches.
+6. Compute and retain the manifest's exact future final path, byte count, `0444` mode and SHA-256,
+   then atomically rename the same sealed root from `$EVIDENCE_STAGE` to the previously absent
+   `$EVIDENCE_FINAL` on the same filesystem.
+7. Fully reread from `$EVIDENCE_FINAL`: require stage absent; root/directories `0555`; no symlink,
+   nonregular or unlisted payload; every payload byte count/mode/SHA equal to its manifest row;
+   and manifest path/bytes/mode/SHA equal to the retained publication result.
+
+Only that fully reread sealed final root and its retained final manifest metadata are authority.
+Any cleanup, receipt, inventory, chmod, manifest, atomic-rename or reread failure leaves the run
+`FAIL_CLOSED / EVIDENCE INVALID`, never PASS; no unsealed stage or task-local copy is reusable.
+
+Execute every gate as a separate direct, sequential, awaited process call; a monolithic/ad-hoc
+runner, sparse checkout or inherited/global phase environment is forbidden. Every child starts
+with this exact `/usr/bin/env -i` base, in this order:
+`HOME=$TASK_HOME TMPDIR=$TASK_TMP PATH=/Users/timbartz/.nvm/versions/node/v24.17.0/bin:/usr/bin:/bin USER=timbartz LOGNAME=timbartz SHELL=/bin/zsh`.
+Every `$...` token below is replaced before direct process spawn by its already receipt-bound
+absolute literal; there is no shell evaluation. Unlisted names are absent.
+
+D01 and D02 run from exact CWD `$CANDIDATE_CWD`. Their only overlay is
+`NPM_CONFIG_CACHE=$NPM_CACHE NPM_CONFIG_USERCONFIG=$NPM_USERCONFIG
+NPM_CONFIG_GLOBALCONFIG=$NPM_GLOBALCONFIG NPM_CONFIG_LOGS_DIR=$D01_LOGS` (or `$D02_LOGS`),
+`NPM_CONFIG_LOGS_MAX=1 NPM_CONFIG_LOGLEVEL=verbose
+npm_node_execpath=/Users/timbartz/.nvm/versions/node/v24.17.0/bin/node
+npm_execpath=/Users/timbartz/.nvm/versions/node/v24.17.0/lib/node_modules/npm/bin/npm-cli.js`.
+After base and overlay, D01 argv is
+`/Users/timbartz/.nvm/versions/node/v24.17.0/bin/node
+/Users/timbartz/.nvm/versions/node/v24.17.0/lib/node_modules/npm/bin/npm-cli.js ci --no-audit
+--no-fund`; D02 is the same absolute pair followed by `ls --all --json`. D02 starts only after
+D01 terminal success, installed-manifest/root-lock verification and immediate retention/hash of
+the sole raw D01 debug log. Retain/hash the sole raw D02 log before PostgreSQL. Missing/rotated/
+unreadable raw log or any exact CWD/argv/environment/stdout/stderr/return-code field is `STOP`.
+
+Before D01, run four distinct commands from CWD `$CANDIDATE_CWD`, one per port 3000, 54321, 55435
+and 55436. Each exact argv is `/usr/bin/env -i`, the exact base above, then
+`/usr/sbin/lsof -nP -iTCP:<port> -sTCP:LISTEN`. After PostgreSQL stop plus confirmed worktree and
+task-root removal, run the same four port-specific `lsof` argv from fixed CWD
+`$POST_CLEANUP_CWD`, but with fixed post-removal base
+`HOME=/private/tmp TMPDIR=/private/tmp PATH=/Users/timbartz/.nvm/versions/node/v24.17.0/bin:/usr/bin:/bin USER=timbartz LOGNAME=timbartz SHELL=/bin/zsh`.
+Retain each literal argv, CWD, stdout, stderr and return code separately. Only return code 1 with
+empty stdout and stderr is `MATCH`; missing CWD/tool, combined/missing return codes or any output
+is `STOP`/cleanup `UNVERIFIED`.
+
+### Exact fresh PostgreSQL recipe
+
+Use fixed loopback `127.0.0.1:55436` and exact PostgreSQL `17.10`. Every PostgreSQL-tool child has
+exact argv prefix `/usr/bin/env -i`, the exact base above, then sole overlay `LC_ALL=C`; all
+`LANG`, `LANGUAGE`, other `LC_*`, `PG*` and `PQ*` names are absent. `LC_ALL` is removed before
+every Node/npm child. From CWD `$CANDIDATE_CWD`, run these direct argv templates in order:
+
+1. `/opt/homebrew/opt/postgresql@17/bin/initdb --pgdata=$PGDATA --locale=C --encoding=UTF8
+   --username=timbartz --auth=trust`.
+2. `/opt/homebrew/opt/postgresql@17/bin/pg_ctl --pgdata=$PGDATA --log=$PGLOG
+   --options=-h 127.0.0.1 -p 55436 -k $PGSOCKET --wait --timeout=60 start`, where the complete
+   text after `--options=` is one argv element after receipt-bound path substitution.
+3. `/opt/homebrew/opt/postgresql@17/bin/pg_isready --host=127.0.0.1 --port=55436
+   --username=timbartz --dbname=postgres --timeout=5`; require exit 0 and `accepting connections`.
+4. `/opt/homebrew/opt/postgresql@17/bin/psql --no-psqlrc --tuples-only --no-align
+   --set=ON_ERROR_STOP=1 --host=127.0.0.1 --port=55436 --username=timbartz --dbname=postgres
+   --command=<role-query>`, where `<role-query>` is exactly `SELECT current_user, rolsuper,
+   rolcreaterole, rolcreatedb, rolcanlogin, rolbypassrls FROM pg_roles WHERE
+   rolname=current_user;`; require the sole trimmed row `timbartz|t|t|t|t|t`.
+
+Create no separate installer role. Execute the following exact `createdb` argv template once per
+database, as eleven separate awaited children in the listed order:
+`/opt/homebrew/opt/postgresql@17/bin/createdb --host=127.0.0.1 --port=55436
+--username=timbartz --owner=timbartz --encoding=UTF8 --template=template0 <database>`.
+
+Create exactly these eleven fresh databases, each with owner `timbartz`:
+`taptime_b1`, `taptime_synthetic_android_e2e`, `taptime_b4`, `taptime_b5`, `taptime_b6`,
+`taptime_c2`, `taptime_c3b`, `taptime_c3c`, `taptime_offline_sync`, `taptime_da2` and
+`taptime_da3`. Then run one PostgreSQL-prefixed `psql` owner attestation with the same connection
+argv as step 4 and exact query `SELECT string_agg(datname || '=' || pg_get_userbyid(datdba), ','
+ORDER BY datname) FROM pg_database WHERE left(datname,8)='taptime_';`. Require exactly:
+`taptime_b1=timbartz,taptime_b4=timbartz,taptime_b5=timbartz,taptime_b6=timbartz,taptime_c2=timbartz,taptime_c3b=timbartz,taptime_c3c=timbartz,taptime_da2=timbartz,taptime_da3=timbartz,taptime_offline_sync=timbartz,taptime_synthetic_android_e2e=timbartz`.
+Thus there is no `taptime_b3` or extra task database. `taptime_b1` and `taptime_c3b` remain
+outside the 27-command migration matrix.
+
+Each migration is a fresh Node/npm child from `$CANDIDATE_CWD` with `/usr/bin/env -i`, the exact
+base, then only `B3_DATABASE_URL=<row-url>`; no locale or npm overlay. For each row, invoke exactly
+twice `/Users/timbartz/.nvm/versions/node/v24.17.0/bin/node
+/Users/timbartz/.nvm/versions/node/v24.17.0/lib/node_modules/npm/bin/npm-cli.js run migrate
+--workspace=@taptime/backend-schema`, then once the same absolute pair with
+`run verify-migrations --workspace=@taptime/backend-schema`:
+
+| Boundary | Exact database URL |
+|---|---|
+| Synthetic (B3) | `postgresql://timbartz@127.0.0.1:55436/taptime_synthetic_android_e2e` |
+| B4 | `postgresql://timbartz@127.0.0.1:55436/taptime_b4` |
+| B5 | `postgresql://timbartz@127.0.0.1:55436/taptime_b5` |
+| B6 | `postgresql://timbartz@127.0.0.1:55436/taptime_b6` |
+| C2 | `postgresql://timbartz@127.0.0.1:55436/taptime_c2` |
+| C3C | `postgresql://timbartz@127.0.0.1:55436/taptime_c3c` |
+| Offline Sync | `postgresql://timbartz@127.0.0.1:55436/taptime_offline_sync` |
+| DA2 | `postgresql://timbartz@127.0.0.1:55436/taptime_da2` |
+| DA3 | `postgresql://timbartz@127.0.0.1:55436/taptime_da3` |
+
+This is exactly nine triplets/27 commands. Any count, owner, role, URL, version, locale or port
+mismatch is `STOP`; do not repair it in-place.
+
+### Exact 20/21/21 command and environment matrix
+
+Every build, Typecheck and suite runs from CWD `$CANDIDATE_CWD` and uses `/usr/bin/env -i` plus
+the exact base and absolute Node/npm pair. Builds use `run build --workspace=<workspace>` in this
+exact 20-entry order:
+`@taptime/administration-contract`, `@taptime/mobile-work-contract`,
+`@taptime/offline-sync-contract`, `@taptime/time-entry-export-contract`,
+`@taptime/time-review-contract`, `@taptime/core`, `@taptime/backend-schema`,
+`@taptime/backend-identity`, `@taptime/backend-b1-spike`, `@taptime/backend-mobile-work`,
+`@taptime/backend-read-model`, `@taptime/backend-lifecycle`,
+`@taptime/backend-administration`, `@taptime/backend-bootstrap`,
+`@taptime/backend-offline-sync`, `@taptime/backend-time-review`,
+`@taptime/backend-time-export`, `@taptime/backend-api`, `@taptime/admin-web`,
+`@taptime/synthetic-android-e2e`.
+
+Tests-inclusive Typechecks use `run typecheck --workspace=<workspace> -- --listFiles` in this exact
+21-entry order: the build order through `@taptime/admin-web`, then `@taptime/mobile`, then
+`@taptime/synthetic-android-e2e`. Each retained `--listFiles` membership must prove its expected
+source/test boundary before the next command.
+
+Suites use `test --workspace=<workspace>` in this exact 21-entry order:
+`@taptime/administration-contract`, `@taptime/core`, `@taptime/mobile-work-contract`,
+`@taptime/offline-sync-contract`, `@taptime/time-entry-export-contract`,
+`@taptime/time-review-contract`, `@taptime/admin-web`, `@taptime/mobile`,
+`@taptime/backend-b1-spike`, `@taptime/backend-schema`, `@taptime/backend-identity`,
+`@taptime/backend-read-model`, `@taptime/backend-lifecycle`,
+`@taptime/backend-offline-sync`, `@taptime/backend-mobile-work`, `@taptime/backend-api`,
+`@taptime/backend-bootstrap`, `@taptime/backend-administration`,
+`@taptime/backend-time-export`, `@taptime/backend-time-review`,
+`@taptime/synthetic-android-e2e`. Only the final Synthetic argv adds
+`-- --no-file-parallelism`.
+
+Build and Typecheck overlays are empty. Suite overlays are exactly the fixed assignments below;
+there is no external plan or implicit/default value. These values are public disposable local
+nonproduction fixtures, never a Product/Hardware Credential and never reusable outside this V3.
+
+| Suite workspace | Exact additions to base |
+|---|---|
+| all unlisted rows | none |
+| `@taptime/backend-b1-spike` | `B1_DATABASE_URL=postgresql://timbartz@127.0.0.1:55436/taptime_b1`; `B1_RUNTIME_PASSWORD=da5-clis-v3r1-b1-runtime-only`; `B1_RUNTIME_DATABASE_URL=postgresql://taptime_b1_runtime:da5-clis-v3r1-b1-runtime-only@127.0.0.1:55436/taptime_b1` |
+| `@taptime/backend-schema` | `B3_DATABASE_URL=postgresql://timbartz@127.0.0.1:55436/taptime_synthetic_android_e2e` |
+| `@taptime/backend-identity` | `B4_DATABASE_URL=postgresql://timbartz@127.0.0.1:55436/taptime_b4`; `B4_RUNTIME_PASSWORD=b4-local-synthetic-only` |
+| `@taptime/backend-read-model` | `B5_DATABASE_URL=postgresql://timbartz@127.0.0.1:55436/taptime_b5`; `B5_RUNTIME_PASSWORD=b5-local-synthetic-only` |
+| `@taptime/backend-lifecycle` | `B6_DATABASE_URL=postgresql://timbartz@127.0.0.1:55436/taptime_b6`; `B6_RUNTIME_PASSWORD=b6-local-synthetic-only` |
+| `@taptime/backend-offline-sync` | `OFFLINE_SYNC_DATABASE_URL=postgresql://timbartz@127.0.0.1:55436/taptime_offline_sync` |
+| `@taptime/backend-mobile-work` | `DA5_MOBILE_WORK_DATABASE_URL=postgresql://timbartz@127.0.0.1:55436/taptime_offline_sync` |
+| `@taptime/backend-api` | `C2_DATABASE_URL=postgresql://timbartz@127.0.0.1:55436/taptime_c2` |
+| `@taptime/backend-bootstrap` | `C3B_DATABASE_URL=postgresql://timbartz@127.0.0.1:55436/taptime_c3b` |
+| `@taptime/backend-administration` | `C3C_DATABASE_URL=postgresql://timbartz@127.0.0.1:55436/taptime_c3c` |
+| `@taptime/backend-time-export` | `DA2_DATABASE_URL=postgresql://timbartz@127.0.0.1:55436/taptime_da2`; `DA2_RUNTIME_PASSWORD=da2-local-synthetic-only` |
+| `@taptime/backend-time-review` | `DA3_DATABASE_URL=postgresql://timbartz@127.0.0.1:55436/taptime_da3`; `DA3_RUNTIME_PASSWORD=da3-local-synthetic-only` |
+| `@taptime/synthetic-android-e2e` | `TAPTIME_SYNTHETIC_E2E_DATABASE_URL=postgresql://timbartz@127.0.0.1:55436/taptime_synthetic_android_e2e`; `TAPTIME_DA5_V5_PRODUCT_APK_REACHABILITY=required`; `TAPTIME_DA5_V5_CI_OWNER_RECORD` absent |
+
+### Exact post-build and post-suite bundle gates
+
+Immediately after build 20 and again immediately after suite 21, require these exact regular
+files; no rebuild occurs between the two attestations:
+
+| File | Exact bytes / SHA-256 / source-map semantics |
+|---|---|
+| `$CANDIDATE_CWD/apps/synthetic-android-e2e/dist/da5V5Main.js` | 981,670 / `f480968a588e15bf974c172615edc0778fc4679088f6ccc86a5cdafecb5b00c1` |
+| `$CANDIDATE_CWD/apps/synthetic-android-e2e/dist/da5V5Main.js.map` | 1,904,949 / `1c4c8e791eea704b2cb135fc77b2ef1f3d9cda3fa11898fdfa8f8de106fe2768`; v3; `sourceRoot` absent; 93 `sources`; 93 `sourcesContent`; 334 `names` |
+| `$CANDIDATE_CWD/apps/synthetic-android-e2e/dist/da5V5FlightMain.js` | 163,638 / `eda3a6e407a07f6d923c62c3c7591a1bb79a2232e87a5b265ab77a7c419fe023` |
+| `$CANDIDATE_CWD/apps/synthetic-android-e2e/dist/da5V5FlightMain.js.map` | 453,423 / `1b0fbead6b33599c42567031f0eb113babbbfeb24317ba59e90f16e8e3529dbc`; v3; `sourceRoot` absent; 16 `sources`; 16 `sourcesContent`; 38 `names` |
+
+For each file, from `$CANDIDATE_CWD`, run exact-base direct children `/usr/bin/stat -f %z
+<absolute-file>` and `/usr/bin/shasum -a 256 <absolute-file>` and require the table's decimal size
+and first SHA field. For each map, run exact-base argv
+`/Users/timbartz/.nvm/versions/node/v24.17.0/bin/node --input-type=module
+--eval=<map-verifier> <absolute-map> <sources> <sourcesContent> <names>`, where the exact one-line
+`<map-verifier>` argv element is:
+
+```text
+import{readFile}from'node:fs/promises';const[p,s,c,n]=process.argv.slice(1);const m=JSON.parse(await readFile(p,'utf8'));if(m.version!==3||Object.hasOwn(m,'sourceRoot')||!Array.isArray(m.sources)||m.sources.length!==Number(s)||!Array.isArray(m.sourcesContent)||m.sourcesContent.length!==Number(c)||!Array.isArray(m.names)||m.names.length!==Number(n))process.exit(97);
+```
+
+### Exact remaining gates and final V0
+
+After the post-suite bundle gate, run in order:
+
+1. C3B from `$CANDIDATE_CWD` with exact base then absolute Node/npm plus `run verify-bin
+   --workspace=@taptime/backend-bootstrap`.
+2. The sole APK/tool inspection gate: exact base plus only
+   `ANDROID_HOME=/Users/timbartz/Library/Android/sdk`,
+   `ANDROID_SDK_ROOT=/Users/timbartz/Library/Android/sdk` and
+   `TAPTIME_SYNTHETIC_E2E_PROFILE=da5-v5`, then exact argv
+   `/Users/timbartz/.nvm/versions/node/v24.17.0/bin/node
+   $CANDIDATE_CWD/apps/mobile/scripts/da5V5AndroidNoInstallPreflight.mjs`. No other APK/tool
+   inspection or APK build is permitted.
+3. Two separate exact-base argv from `$CANDIDATE_CWD`:
+   `/Users/timbartz/.nvm/versions/node/v24.17.0/bin/node --check
+   apps/synthetic-android-e2e/dist/da5V5Main.js`, then the same with `da5V5FlightMain.js`.
+4. Expo from CWD `$CANDIDATE_CWD/apps/mobile` with exact base plus
+   `APP_VARIANT=synthetic-e2e`, `EXPO_PUBLIC_TAPTIME_RUNTIME_VARIANT=synthetic-e2e`,
+   `EXPO_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321`,
+   `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_taptime_synthetic_android_e2e`,
+   `EXPO_PUBLIC_TAPTIME_API_BASE_URL=http://127.0.0.1:3000` and
+   `EXPO_PUBLIC_TAPTIME_DEMO_MODE=false`, then exact argv
+   `/Users/timbartz/.nvm/versions/node/v24.17.0/bin/node
+   $CANDIDATE_CWD/node_modules/expo/bin/cli export --platform android --output-dir $EXPO_OUT
+   --clear`.
+5. Final V0 below. Unknown/extra environment names or values are `STOP`; there is no external
+   candidate/run-plan artifact. Preserve expected-skip rules. No ADB or install exists in V3.
+
+For final V0, take `$ADO_COMMIT`, `$ADO_TREE`, three ADO blob IDs, nine overlay blob IDs,
+`$FINAL_TREE`, `$OVERLAY_PATCH_BYTES` and `$OVERLAY_PATCH_SHA256` only from the mandatory
+exact-head receipt. Define fresh `$FINAL_INDEX=$TASK_ROOT/final-v0.index`. Using exact base plus
+only `GIT_INDEX_FILE=$FINAL_INDEX`, directly run `/usr/bin/git read-tree $ADO_COMMIT`, then
+`/usr/bin/git add --` with exactly these nine paths in this order:
+`apps/synthetic-android-e2e/src/Da5V5FlightController.ts`,
+`apps/synthetic-android-e2e/src/da5V5Main.ts`,
+`apps/synthetic-android-e2e/src/Da5V5CredentialTransfer.ts`,
+`apps/synthetic-android-e2e/src/Da5V5InvitationSecret.ts`,
+`apps/synthetic-android-e2e/tests/Da5V5FlightController.test.ts`,
+`apps/synthetic-android-e2e/tests/Da5V5CredentialTransfer.test.ts`,
+`apps/synthetic-android-e2e/tests/Da5V5InvitationSecret.test.ts`,
+`apps/synthetic-android-e2e/tests/Da5V5Profile.test.ts`,
+`apps/synthetic-android-e2e/tests/Da5V5ProductStartBundle.test.ts`; then run
+`/usr/bin/git write-tree` and require sole stdout `$FINAL_TREE`.
+
+From `$CANDIDATE_CWD`, use exact-base `/usr/bin/git ls-tree $ADO_COMMIT --` for the three ADO
+paths and require the receipt's three blobs; run `/usr/bin/git hash-object -- <path>` separately
+for every overlay path and require its receipt blob. Run exact-base `/usr/bin/git diff --check
+$ADO_COMMIT $FINAL_TREE -- <nine paths>` and require RC 0 with empty stdout/stderr. Finally run
+exact-base `/usr/bin/git diff --full-index --binary $ADO_COMMIT $FINAL_TREE -- <nine paths>` with
+its raw stdout written directly as the command's external Evidence stdout file; exact-base
+`/usr/bin/stat -f %z` and `/usr/bin/shasum -a 256` of that file must equal
+`$OVERLAY_PATCH_BYTES`/`$OVERLAY_PATCH_SHA256`. Also require exact-base `/usr/bin/git rev-parse
+$ADO_COMMIT^{tree}` equals `$ADO_TREE`. Any blob, diff, byte, SHA, tree, argv/tool or Evidence
+mismatch is `STOP`; only all matches complete V0.
+
+During cleanup, if PostgreSQL started, run the PostgreSQL-prefixed exact argv
+`/opt/homebrew/opt/postgresql@17/bin/pg_ctl --pgdata=$PGDATA --wait --timeout=60 --mode=fast
+stop` and require terminal exit. Then deregister/remove only the receipt-bound worktree, remove
+only the receipt-bound task root, separately attest both absent, require existing
+`$POST_CLEANUP_CWD`, and only then execute the four separate post-cleanup `lsof` commands there
+with the fixed post-removal base above. Cleanup uncertainty is never `PASS`.
+
+Every failure, interruption or ambiguity consumes `DA5-CLIS-V3-R1`; no retry, resume or second
+replacement is authorized. Green proceeds only to independent R3 execution/Evidence review and
+then **STOPS before Supervisor, ADB, installation, Product-Human and Hardware**.
+
 ## 2026-08-14 invitation-secret source/transfer procedure amendment — REVIEW PENDING / STOP
 
 This R0/V0 top candidate is bound to clean `HEAD == main == origin/main ==

@@ -1,5 +1,62 @@
 # Development Assignment 5 — Append-Only Event Ledger
 
+## Claim `3d04c462b0f5e1303683e6b11ab21424b7c556b27b94204e8c1845173ed86897` — Compact-Login/Invitation V3 terminal failure and conditional replacement authority (`2026-08-14`)
+
+- `binding_set_id`: `50e58860f132131257f487cc5c1bc571b3ab27d1e45027c166e59f6ac0e8a40f`;
+  binds candidate tree `534b1bfed4696833d2e6994af7e2eb2590b37388`, canonical nine-path
+  full-index patch 95,701 bytes / SHA-256
+  `948362e5b82cc599181976c9e55966979b75f5b25b0e5ec2cb2990004c9635d0`, receipt digest and
+  manifest digest below.
+- `round_1_review_input`: exact combined 12-path tree
+  `468ae43e2bf18914bef9a08c6b65c8ff7b9ff932`; canonical full-index patch 109,107 bytes /
+  SHA-256 `aafe63a4bc156c5204820d9784cd7cba9e483e2353e7bde88b9cc76016c0f509`.
+  Independent Review Round 1 returned `CHANGES REQUIRED` for P1-A deterministic execution detail
+  and P1-B activation binding. These values are historical review input, never a final Pre-D01
+  target after this three-document correction.
+- `supersedes_claim_ids`: `[]`; this is the sole result/Evidence claim for this Compact-Login/
+  Invitation final-V3 attempt and does not rewrite prior fast-flight V3-A/B/C/D history.
+- `provenance`: machine execution and cleanup facts supplied by the Technical Lead and the
+  immutable Evidence below. This three-document amendment is R0/V0 review-pending; it claims no
+  independent ADO approval or replacement execution.
+- `time_scope` / `observation`: named execution gates and final cleanup are immediate / observed.
+  Initial port stdout is observed, but the four individual preflight return codes are unproved /
+  unobserved; complete post-cleanup port Evidence does not repair that limitation.
+- `authority_before`: exactly one final V3; `authority_after`: that attempt is consumed
+  `FAIL_CLOSED`, with no retry or resume. Exactly one new fresh `DA5-CLIS-V3-R1` becomes active
+  only after independent ADO `APPROVED`, focused three-document `[skip ci]` publication and
+  independent exact-head review. Its immutable receipt must bind the published ADO commit/tree,
+  exact three ADO blobs, unchanged nine executable/test overlay blobs, resulting final candidate
+  tree, and canonical nine-path overlay-patch bytes/SHA relative to that published head. Those
+  externally reviewed values alone are the Pre-D01 target; missing/ambiguous values are `STOP`,
+  and no placeholder or hash may be inferred. Failure then consumes the run with no replacement.
+- `evidence`: immutable root
+  `/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5/v3-534b1bfe-20260814T063909Z`
+  is `0555`, with 102 manifested payloads plus `evidence-manifest.txt` = 103 regular files;
+  receipt 2,355 bytes / `0444` / SHA-256
+  `ed7d7972d385cbb2262df90e19ae490884c3a7a1a9c934f2bc600a943d29c96c`; manifest 11,651
+  bytes / `0444` / SHA-256
+  `30cfdb6747dc0814cf3db1e487b1a578df8726578e56d8d7302d125ed7d8a68c`.
+- `verification`: unchanged V2 remains carried `PASS`; pre-V3 independent R3 review remains
+  carried `APPROVED` with zero open P0–P3. In the consumed V3, D01 and D02 passed exactly once;
+  PostgreSQL 17.10 and exactly eleven fresh databases passed. The first migration stopped before
+  migration 001 with SQLSTATE `42501` because a separate installer LOGIN role lacked
+  CI-equivalent role-creation privilege. Zero of 27 migrations completed; no build, Typecheck,
+  suite, later/final gate, ADB, installation, Product-Human or Hardware action ran.
+- `cleanup`: `PASS`; PostgreSQL stopped, worktree/task root were absent, and separate retained
+  `/usr/sbin/lsof` checks fully proved ports 3000, 54321, 55435 and 55436 free after cleanup.
+- `replacement_execution_contract`: there is no separate candidate/run-plan input. The Runbook
+  fixes every suite fixture, all six Expo values, all four exact artifact gates and final V0 from
+  the mandatory exact-head receipt. Every command writes directly to a fresh external Evidence
+  stage; only its inventory/manifest/mode-complete, atomically published and fully reread sealed
+  final root is authority. Task-root deletion cannot delete that Evidence; any sealing failure is
+  invalid and can never yield `PASS`.
+- `terminal_state`: `FAIL_CLOSED`; Product finding `NONE`; fast lane `NOT APPLICABLE`. No failed-
+  V3 gate, result, process, database, root, file or observation may be reused. The AVS top
+  addendum alone governs the conditional one-shot replacement authority; the Runbook top addendum
+  alone governs its fresh execution, including its byte-bound tool and immutable command/
+  environment/order recipe inputs. Green replacement V3 routes only to independent R3 review and
+  **STOPS before ADB, installation, Product-Human and Hardware**.
+
 ## Claim `d1b1d67ef28081e25900e6b1367e3585a7846547960af47969b68c5aca341a5b` — V3-D terminal PASS (`2026-08-14`)
 
 - `binding_set_id`: `7d799b1c2e4ad86bdfe3df0f25b5af081dc881213f8e8a87c0e3ef1e5e71bdb4`;
