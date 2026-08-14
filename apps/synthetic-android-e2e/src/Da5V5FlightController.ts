@@ -26,6 +26,11 @@ import {
   type Da5V5CleanStateAttestation,
   type Da5V5CleanStateAttestationOptions,
 } from './Da5V5CleanStateAttestation.js';
+import {
+  SYNTHETIC_ADMIN_AUTH_EMAIL,
+  SYNTHETIC_AUTH_EMAIL,
+  SYNTHETIC_ENROLLMENT_AUTH_EMAIL,
+} from './constants.js';
 
 export const DA5_V5_FLIGHT_FAILURE_REASONS = Object.freeze([
   'SIGNAL',
@@ -107,7 +112,7 @@ export const DA5_V5_FAST_FLIGHT_PLAN_SHA256 = sha256(
 );
 
 export const DA5_V5_FLIGHT_PROTOCOL_VERSION = 2 as const;
-export const DA5_V5_OPERATOR_COMMANDS = 'status | device-preflight | physical-tag-binding-confirm <PASS|FAIL|AMBIGUOUS> | android-install-confirm <PASS|FAIL|AMBIGUOUS> | employee-installation-transition-confirm <PASS|FAIL|AMBIGUOUS> | employee-ready-confirm <PASS|FAIL|AMBIGUOUS> | credential-field-ready <administrator|enrollment|employee> EMPTY_ACTIVE | credential-check <administrator|enrollment|employee> | credential-field-confirm <administrator|enrollment|employee> <VISIBLE|EMPTY|AMBIGUOUS> | checkpoint <name> <queue-items> | checkpoint-confirm <name> <PASS|FAIL|AMBIGUOUS> | dedupe-window-baseline <phase> | dedupe-window-check <phase> | tag-b-registration-arm | protected-review-arm <human-observed-queue-items> | protected-review-activate-tag-b | protected-review-cutover-tag-a | protected-review-terminal | offline-enter <ordinary|protected> | offline-restore <ordinary|protected> | gate-b-cold-prepare | ordinary-relaunch-prepare | accessibility-prepare | accessibility-check | accessibility-surface-confirm <surface> <PASS|FAIL|AMBIGUOUS> | accessibility-credential-field-ready <administrator|employee> EMPTY_ACTIVE | accessibility-credential-check <administrator|employee> | accessibility-credential-field-confirm <administrator|employee> <VISIBLE|EMPTY|AMBIGUOUS> | accessibility-cancel | standard-profile-check | cancellation-arm | cancellation-ui-confirm <PASS|FAIL|AMBIGUOUS> | cancellation-kill-background | cancellation-ready-confirm <PASS|FAIL|AMBIGUOUS> | protected-force-stop | protected-ready-confirm <PASS|FAIL|AMBIGUOUS> | abort | stop';
+export const DA5_V5_OPERATOR_COMMANDS = 'status | device-preflight | physical-tag-binding-confirm <PASS|FAIL|AMBIGUOUS> | android-install-confirm <PASS|FAIL|AMBIGUOUS> | employee-installation-transition-confirm <PASS|FAIL|AMBIGUOUS> | employee-ready-confirm <PASS|FAIL|AMBIGUOUS> | credential-field-ready <administrator|enrollment|employee> EMPTY_ACTIVE | credential-check <administrator|enrollment|employee> | credential-result-confirm <administrator|enrollment> <PASS|FAIL|AMBIGUOUS> | invitation-create | invitation-field-ready EMPTY_ACTIVE | invitation-check | checkpoint <name> <queue-items> | checkpoint-confirm <name> <PASS|FAIL|AMBIGUOUS> | dedupe-window-baseline <phase> | dedupe-window-check <phase> | tag-b-registration-arm | protected-review-arm <human-observed-queue-items> | protected-review-activate-tag-b | protected-review-cutover-tag-a | protected-review-terminal | offline-enter <ordinary|protected> | offline-restore <ordinary|protected> | gate-b-cold-prepare | ordinary-relaunch-prepare | accessibility-prepare | accessibility-check | accessibility-surface-confirm <surface> <PASS|FAIL|AMBIGUOUS> | accessibility-credential-field-ready <administrator|employee> EMPTY_ACTIVE | accessibility-credential-check <administrator|employee> | accessibility-cancel | standard-profile-check | cancellation-arm | cancellation-ui-confirm <PASS|FAIL|AMBIGUOUS> | cancellation-kill-background | cancellation-ready-confirm <PASS|FAIL|AMBIGUOUS> | protected-force-stop | protected-ready-confirm <PASS|FAIL|AMBIGUOUS> | abort | stop';
 
 export function requireDa5V5FlightPlanBinding(
   line: string,
@@ -1173,23 +1178,37 @@ function buildFlightSteps(): readonly Da5V5FlightPlanStep[] {
       'Confirm the screen-unlocked bound device is ready for exact APK installation.',
       'Do not install, open or change the Product manually.',
     ), 'android-install-confirm {response}', 'none', longMachineTimeout),
-    ...credentialSequence('administrator', 'Administrator login', 'Passwort'),
+    ...credentialSequence('administrator'),
+    humanCommand('administrator-result', credentialResultPrompt('administrator'),
+      'credential-result-confirm administrator {response}'),
     humanOnly('admin-setup-actions', prompt(
       'Administrator setup', 'Customer assignment / Preview 2', 'Abbrechen / Abmelden',
       'Assign Tag A to Customer A, run and safely leave Admin Setup Preview 2, then verify signed-out rejection.',
       'Do not present Tag B/X, relogin out of order, or create a lifecycle action.',
     ), 'task-owned-disposable'),
-    ...credentialSequence('enrollment', 'Enrollment', 'Einladungscode'),
+    machine('invitation-create', 'invitation-create', 'task-owned-disposable', longMachineTimeout),
+    ...credentialSequence('enrollment'),
+    humanCommand('enrollment-result', credentialResultPrompt('enrollment'),
+      'credential-result-confirm enrollment {response}'),
+    humanOnly('invitation-empty-active', prompt(
+      'Als Beschäftigter beitreten', 'Einladungsgeheimnis', 'Einladung sicher einlösen',
+      'Activate Einladungsgeheimnis and confirm it is exactly empty and active.',
+      'Do not type, paste, expose or submit an invitation secret.',
+    )),
+    machine('invitation-field-ready', 'invitation-field-ready EMPTY_ACTIVE'),
+    machine('invitation-secret', 'invitation-check', 'none', longMachineTimeout),
     humanCommand('employee-install-transition', prompt(
-      'Enrollment completed / signed out', 'none', 'none',
-      'Confirm the Administrator/Enrollment sequence is complete and Employee preparation may begin.',
-      'Do not install, clear, launch or authenticate manually.',
+      'Als Beschäftigter beitreten / Employee scan / TapTim.e — Anmeldung',
+      'Einladungsgeheimnis / scan status', 'Einladung sicher einlösen / Abmelden',
+      'Press Einladung sicher einlösen once, confirm Bereit zum Scannen, sign out once and confirm TapTim.e — Anmeldung.',
+      'Do not repeat redemption, install, clear, relaunch or authenticate again.',
     ), 'employee-installation-transition-confirm {response}', 'task-owned-disposable'),
-    ...credentialSequence('employee', 'Employee login', 'Passwort'),
+    ...credentialSequence('employee'),
     humanCommand('employee-ready', prompt(
-      'Employee scan screen', 'scan status', 'none',
-      'Confirm the exact visible state is Bereit zum Scannen.',
-      'Do not present a Tag or trigger a manual action.',
+      'TapTim.e — Anmeldung / Employee scan screen',
+      'E-Mail-Adresse / Passwort / scan status', 'Anmelden',
+      `Press Anmelden once for ${SYNTHETIC_AUTH_EMAIL} and confirm Bereit zum Scannen.`,
+      'Do not edit the injected password, present a Tag or trigger a manual action.',
     ), 'employee-ready-confirm {response}'),
     machine('tag-b-registration-arm', 'tag-b-registration-arm'),
     humanOnly('gate-a-rejections', prompt(
@@ -1292,12 +1311,21 @@ function accessibilitySteps(): Da5V5FlightPlanStep[] {
     if (surface === 'employee-navigation') {
       steps.push(...accessibilityCredentialSequence('employee'));
     }
+    const reauthentication = accessibilityReauthentication(surface);
     steps.push(humanCommand(`accessibility-${surface}`, prompt(
-      `Accessibility surface: ${surface}`,
-      'focus order / labels / state / layout',
-      'none',
-      `Inspect only ${surface} and confirm every required accessibility/layout property.`,
-      'Do not mutate Product, setup, queue, sync, fixture or lifecycle state.',
+      reauthentication === null
+        ? `Accessibility surface: ${surface}`
+        : `TapTim.e — Anmeldung → Accessibility surface: ${surface}`,
+      reauthentication === null
+        ? 'focus order / labels / state / layout'
+        : 'E-Mail-Adresse / Passwort / focus order / labels / state / layout',
+      reauthentication === null ? 'none' : 'Anmelden',
+      reauthentication === null
+        ? `Inspect only ${surface} and confirm every required accessibility/layout property.`
+        : `Press Anmelden once for ${credentialEmail(reauthentication)}; answer PASS only when ${surface} is visible and every required accessibility/layout property matches.`,
+      reauthentication === null
+        ? 'Do not mutate Product, setup, queue, sync, fixture or lifecycle state.'
+        : 'Do not edit the injected password, submit twice or mutate setup, queue, sync, fixture or lifecycle state.',
     ), `accessibility-surface-confirm ${surface} {response}`));
   }
   return steps;
@@ -1305,22 +1333,17 @@ function accessibilitySteps(): Da5V5FlightPlanStep[] {
 
 function credentialSequence(
   role: 'administrator' | 'employee' | 'enrollment',
-  screen: string,
-  field: string,
 ): Da5V5FlightPlanStep[] {
+  const button = credentialButton(role);
+  const email = credentialEmail(role);
   return [
     humanOnly(`${role}-empty-active`, prompt(
-      screen, field, 'none',
-      `Confirm the ${field} field is exactly empty and active.`,
-      'Do not type, paste, expose or repeat the credential.',
+      'TapTim.e — Anmeldung', 'E-Mail-Adresse / Passwort', button,
+      `Type ${email} into E-Mail-Adresse, activate Passwort and confirm Passwort is exactly empty and active.`,
+      `Do not type or paste the password and do not press ${button} yet.`,
     )),
     machine(`${role}-field-ready`, `credential-field-ready ${role} EMPTY_ACTIVE`),
     machine(`${role}-credential`, `credential-check ${role}`, 'none', longMachineTimeout),
-    humanCommand(`${role}-visible`, prompt(
-      screen, field, 'none',
-      `Confirm the injected ${field} value is visibly present.`,
-      'Do not read it aloud, copy it, edit it or submit twice.',
-    ), `credential-field-confirm ${role} {response}`),
   ];
 }
 
@@ -1329,9 +1352,9 @@ function accessibilityCredentialSequence(
 ): Da5V5FlightPlanStep[] {
   return [
     humanOnly(`accessibility-${role}-empty-active`, prompt(
-      `Accessibility ${role} login`, 'Passwort', 'none',
-      'Confirm the password field is exactly empty and active.',
-      'Do not type, paste, expose or repeat the credential.',
+      'TapTim.e — Anmeldung', 'E-Mail-Adresse / Passwort', 'Anmelden',
+      `Type ${credentialEmail(role)} into E-Mail-Adresse, activate Passwort and confirm Passwort is exactly empty and active.`,
+      'Do not type or paste the password and do not press Anmelden yet.',
     )),
     machine(
       `accessibility-${role}-field-ready`,
@@ -1343,12 +1366,42 @@ function accessibilityCredentialSequence(
       'none',
       longMachineTimeout,
     ),
-    humanCommand(`accessibility-${role}-visible`, prompt(
-      `Accessibility ${role} login`, 'Passwort', 'none',
-      'Confirm the injected password is visibly present.',
-      'Do not read it aloud, copy it, edit it or submit twice.',
-    ), `accessibility-credential-field-confirm ${role} {response}`),
   ];
+}
+
+function credentialResultPrompt(
+  role: 'administrator' | 'enrollment',
+): Da5V5HumanPrompt {
+  const email = credentialEmail(role);
+  const button = credentialButton(role);
+  const destination = role === 'administrator'
+    ? 'Administrator setup'
+    : 'Als Beschäftigter beitreten';
+  return prompt(
+    'TapTim.e — Anmeldung', 'E-Mail-Adresse / Passwort', button,
+    `Press ${button} once for ${email}; answer PASS only when ${destination} is visible.`,
+    'If Passwort is empty/not-filled-looking or doubtful, login is rejected or another surface appears, answer FAIL or AMBIGUOUS; do not submit twice.',
+  );
+}
+
+function credentialEmail(
+  role: 'administrator' | 'employee' | 'enrollment',
+): string {
+  if (role === 'administrator') return SYNTHETIC_ADMIN_AUTH_EMAIL;
+  if (role === 'enrollment') return SYNTHETIC_ENROLLMENT_AUTH_EMAIL;
+  return SYNTHETIC_AUTH_EMAIL;
+}
+
+function credentialButton(role: 'administrator' | 'employee' | 'enrollment'): string {
+  return role === 'enrollment' ? 'Mit Einladung beitreten' : 'Anmelden';
+}
+
+function accessibilityReauthentication(
+  surface: (typeof DA5_V5_ACCESSIBILITY_SURFACE_PLAN)[number],
+): 'administrator' | 'employee' | null {
+  if (surface === 'administrator-setup') return 'administrator';
+  if (surface === 'employee-navigation') return 'employee';
+  return null;
 }
 
 function checkpoint(
@@ -1560,35 +1613,53 @@ function commandPayloadAlternatives(command: string): readonly (readonly Payload
       : [[]];
   } else if (/^employee-installation-transition-confirm /u.test(command)) {
     alternatives = [
-      ['da5_v5_employee_package_clear=match', 'da5_v5_employee_installation_transition=employee-prepared'],
-      ['da5_v5_employee_package_clear=mismatch', 'da5_v5_employee_installation_transition=mismatch'],
-      ['da5_v5_employee_installation_transition=mismatch'],
-      [/^da5_v5_android_install=mismatch category=[a-z_]+ cleanup_status=[a-z_]+ cleanup_substage=[a-z0-9_]+$/u],
+      ['da5_v5_invitation_redemption=match', 'da5_v5_employee_package_clear=match', 'da5_v5_employee_installation_transition=employee-prepared'],
+      ['da5_v5_invitation_redemption=match', 'da5_v5_employee_package_clear=mismatch', 'da5_v5_employee_installation_transition=mismatch'],
+      ['da5_v5_invitation_redemption=match', 'da5_v5_employee_installation_transition=mismatch'],
+      ['da5_v5_invitation_redemption=match', /^da5_v5_android_install=mismatch category=[a-z_]+ cleanup_status=[a-z_]+ cleanup_substage=[a-z0-9_]+$/u],
+      ['da5_v5_invitation_redemption=mismatch'],
     ];
   } else if (/^employee-ready-confirm /u.test(command)) {
-    alternatives = [[/^da5_v5_employee_ready=(?:READY|MISMATCH)$/u]];
+    alternatives = [
+      ['synthetic_credential_result=match', /^da5_v5_employee_ready=(?:READY|MISMATCH)$/u],
+      ['synthetic_credential_result=mismatch'],
+    ];
   } else if (/^credential-field-ready /u.test(command)) {
     alternatives = [[new RegExp(`^synthetic_credential_field_ready=${matchResult}$`, 'u')]];
-  } else if (/^credential-field-confirm /u.test(command)) {
-    alternatives = [[new RegExp(`^synthetic_credential_field_confirmation=${matchResult}$`, 'u')]];
+  } else if (/^credential-result-confirm /u.test(command)) {
+    alternatives = [[new RegExp(`^synthetic_credential_result=${matchResult}$`, 'u')]];
   } else if (/^credential-check /u.test(command)) {
     alternatives = [
-      ['synthetic_password_binding=match', 'synthetic_credential_injection=pending_human_confirmation'],
+      ['synthetic_password_binding=match', 'synthetic_credential_injection=pending_result_gate'],
       ['synthetic_password_binding=mismatch'],
       [],
     ];
+  } else if (command === 'invitation-create') {
+    alternatives = [
+      ['da5_v5_invitation_creation=match', 'da5_v5_invitation_counters=created'],
+      ['da5_v5_invitation_creation=mismatch'],
+    ];
+  } else if (command === 'invitation-field-ready EMPTY_ACTIVE') {
+    alternatives = [[new RegExp(`^da5_v5_invitation_field_ready=${matchResult}$`, 'u')]];
+  } else if (command === 'invitation-check') {
+    alternatives = [
+      ['da5_v5_invitation_binding=match', 'da5_v5_invitation_injection=pending_redemption_result'],
+      ['da5_v5_invitation_binding=mismatch'],
+    ];
   } else if (/^accessibility-credential-field-ready /u.test(command)) {
     alternatives = [[new RegExp(`^da5_v5_accessibility_credential_field_ready=${matchResult}$`, 'u')]];
-  } else if (/^accessibility-credential-field-confirm /u.test(command)) {
-    alternatives = [[new RegExp(`^da5_v5_accessibility_credential_field_confirmation=${matchResult}$`, 'u')]];
   } else if (/^accessibility-credential-check /u.test(command)) {
     alternatives = [
-      ['da5_v5_accessibility_password_binding=match', 'da5_v5_accessibility_credential_injection=pending_human_confirmation'],
+      ['da5_v5_accessibility_password_binding=match', 'da5_v5_accessibility_credential_injection=pending_surface_result'],
       ['da5_v5_accessibility_password_binding=mismatch'],
       [],
     ];
   } else if (/^accessibility-surface-confirm /u.test(command)) {
-    alternatives = [[/^da5_v5_accessibility_surface=\{"result":"(?:match|mismatch)","surface":"[a-z-]+"\}$/u]];
+    alternatives = [
+      [/^da5_v5_accessibility_surface=\{"result":"(?:match|mismatch)","surface":"[a-z-]+"\}$/u],
+      ['da5_v5_accessibility_credential_result=match', /^da5_v5_accessibility_surface=\{"result":"(?:match|mismatch)","surface":"[a-z-]+"\}$/u],
+      ['da5_v5_accessibility_credential_result=mismatch'],
+    ];
   } else if (command === 'accessibility-cancel') {
     alternatives = [['da5_v5_accessibility_cancelled=restore_required'], []];
   } else if (command === 'accessibility-prepare') {

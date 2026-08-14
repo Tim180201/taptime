@@ -1608,8 +1608,13 @@ describe('DA5 V5 fixture, lifecycle and startup fail-stop boundaries', () => {
         'credential-field-ready <administrator|enrollment|employee> EMPTY_ACTIVE',
       );
       expect(flightControllerSource).toContain(
-        'credential-field-confirm <administrator|enrollment|employee> <VISIBLE|EMPTY|AMBIGUOUS>',
+        'credential-result-confirm <administrator|enrollment> <PASS|FAIL|AMBIGUOUS>',
       );
+      expect(flightControllerSource).toContain(
+        'invitation-create | invitation-field-ready EMPTY_ACTIVE | invitation-check',
+      );
+      expect(flightControllerSource).not.toContain('credential-field-confirm');
+      expect(flightControllerSource).not.toContain('VISIBLE');
       expect(source).toContain(
         "const credentialPhases = Object.freeze([\n  'administrator',\n  'enrollment',\n  'employee',\n] as const);",
       );
@@ -1622,8 +1627,8 @@ describe('DA5 V5 fixture, lifecycle and startup fail-stop boundaries', () => {
       const accessibilityCredentialStart = source.indexOf(
         'const accessibilityCredentialCheck =',
       );
-      const accessibilityConfirmationStart = source.indexOf(
-        'const accessibilityFieldConfirmation =',
+      const accessibilitySurfaceStart = source.indexOf(
+        'const accessibilitySurface =',
       );
       const standardCredentialBlock = source.slice(
         standardCredentialStart,
@@ -1631,7 +1636,7 @@ describe('DA5 V5 fixture, lifecycle and startup fail-stop boundaries', () => {
       );
       const accessibilityCredentialBlock = source.slice(
         accessibilityCredentialStart,
-        accessibilityConfirmationStart,
+        accessibilitySurfaceStart,
       );
       expect(standardCredentialBlock).toContain(
         "writeOperatorOutput('synthetic_password_binding=match\\n')",
@@ -1689,10 +1694,11 @@ describe('DA5 V5 fixture, lifecycle and startup fail-stop boundaries', () => {
       expect(flightControllerSource).toContain(
         'accessibility-credential-field-ready <administrator|employee> EMPTY_ACTIVE',
       );
-      expect(flightControllerSource).toContain(
-        'accessibility-credential-field-confirm <administrator|employee> <VISIBLE|EMPTY|AMBIGUOUS>',
-      );
+      expect(flightControllerSource).not.toContain('accessibility-credential-field-confirm');
       expect(flightControllerSource).toContain('accessibility-surface-confirm <surface>');
+      expect(source).toContain('da5_v5_accessibility_credential_result=${reauthenticationResult}');
+      expect(source).toContain('accessibilityCredential.confirmResult(role, verdict)');
+      expect(source).toContain("await stage('invitation-secret'");
       expect(source).toContain("if (normalized === 'accessibility-cancel')");
       expect(source).toContain("if (normalized !== 'standard-profile-check')");
       expect(source).toContain("await stage('accessibility-restore-proof'");

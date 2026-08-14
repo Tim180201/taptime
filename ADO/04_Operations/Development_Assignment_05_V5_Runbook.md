@@ -1,5 +1,53 @@
 # Development Assignment 5 — V5 Human Android Gate Runbook
 
+## 2026-08-14 Compact-Login/Invitation R2 fulfillment — PASS / INDEPENDENT R3 APPROVED / CONSUMED / HARDWARE STOP
+
+The exact one-shot `DA5-CLIS-V3-R2` run is complete. Its published authority head is
+`eb3c2d006934fe64031153834426864ffb9a5ce5`, tree
+`9b024e5de558bf6be72348d9a88aa573bf37ab16`, parent
+`caa4fb55c227de137d16ce4d7a39e67faafa38f0`. Immutable pre-D01 binding root
+`/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5/da5-clis-v3r2-pre-d01-binding-3de9b87baafb00cc6f29d44e93fdf14d`
+has receipt SHA-256 `c679dbfb767f5fa4bc88c1dd5699177578a8e1ddf293b3400a68b9c66e2e164a`
+and manifest SHA-256 `4dea8b66ce831f77df27422252670da460439d1f66c82118bfffb8064f7b3513`.
+It binds the unchanged nine overlay blobs, resulting tree
+`b61e3ec4ef2b84d36d1fb88f3c5bcc16e9042379`, and canonical 95,701-byte full-index patch
+SHA-256 `948362e5b82cc599181976c9e55966979b75f5b25b0e5ec2cb2990004c9635d0`.
+The authoritative frozen bundle is bound by manifest SHA-256
+`db5c8a895eb7900271d35d0c68606c7e8c6f4399b8a43fd1f3a673c5173fccf2`, independent review
+receipt SHA-256 `511095747c30ef9af20b7cff7048dc1ccdeab125983358271a067927626a72e3`
+and review-subject SHA-256 `6f8fda9686c5fa8f8275037c4c52f7c72b67f3b75acdb9b49b9ccfc115d55e3f`.
+
+Receipt-bound absolute Node invoked the frozen terminal supervisor exactly once. Supervisor,
+orchestrator and final-root validator each ended `exit`/`0`; the second atomic terminal-envelope
+rename committed the authoritative `PASS`. Immutable inner root
+`/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5/da5-clis-v3r1-20260814T094123Z-3de9b87baafb00cc6f29d44e93fdf14d`
+is `0555`, with 883 manifested payloads plus its manifest = 884 regular files, 217 command sets
+and 868 command records. Its 2,524-byte receipt SHA-256 is
+`b6124d02eecf961ad0cae1b883e2169476d955551c4a02ca932401f93a0224e5`; its 102,706-byte
+manifest SHA-256 is `d63ebdef1f03c5c715ea3d87bc0c16a187b067114aada333610290a4923920e0`.
+The literal `v3r1` inner path remains the reviewed R2 recipe value only.
+
+Authoritative terminal root
+`/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5/da5-clis-v3r2-terminal-20260814T094123Z-3de9b87baafb00cc6f29d44e93fdf14d`
+is `0555`, with two manifested payloads plus its manifest = three regular files. Its 839-byte
+terminal receipt SHA-256 is
+`ca48e2a7935e42906d09fd38694ab11ceebb67d5015df7f1a711fdd96adb4fc3`; its 192-byte manifest
+SHA-256 is `a96119329668328e0a2a4d2f9a0f76d0f3499f46744a3fa013a06882e2c718d9`.
+D01 and D02 passed; PostgreSQL 17, eleven fresh databases and all 27 migrations passed. All 20
+builds, 21 tests-inclusive-Typecheck memberships/commands and 21 suites passed; suite totals are
+156 files, 3,071 passed, three expected skips and zero failures. C3B, no-install preflight,
+Node/JavaScript/map and artifact checks, Expo export, final V0, inventory/sealing and cleanup all
+passed. Product finding is `NONE`; no ADB, installation, Product-Human or Hardware action ran.
+
+Independent R3 execution/Evidence review `/root/review_clis_v3r2_execution` returned `APPROVED`
+with zero open P0–P3 findings. R2 is consumed `PASS`, cannot be rerun, and the prospective R2
+recipe below is retained as history only. The only next route is independent R0/V0 review of
+these three ADO additions within the final 12-path candidate, one intentional commit/push of the
+unchanged nine code/test blobs plus these three ADO blobs, one exact-head CI/V4, fresh
+runtime/Operator artifact generation and independent review, then **STOP** for fresh explicit
+Human/Hardware authority. There is no local V3 rerun because only these documentation blocks were
+added after independent review of the byte-unchanged nine blobs.
+
 ## 2026-08-14 Compact-Login/Invitation fresh R2 frozen-orchestrator correction — REVIEW PENDING / NOT ACTIVE / HARDWARE STOP
 
 This is the sole operative recipe for conditional `DA5-CLIS-V3-R2` and supersedes the following

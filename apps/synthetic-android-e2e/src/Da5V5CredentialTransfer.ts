@@ -29,7 +29,7 @@ const mobileInputScript = [
 const quotedMobileInputScript = `'${mobileInputScript}'`;
 
 export type Da5V5CredentialPhase = 'administrator' | 'employee' | 'enrollment';
-export type Da5V5CredentialFieldResult = 'ambiguous' | 'empty' | 'visible';
+export type Da5V5CredentialResult = 'ambiguous' | 'fail' | 'pass';
 
 export interface Da5V5StandardCredentialBinding extends Da5V5AndroidDeviceBinding {
   readonly fontScale: '1.0';
@@ -360,14 +360,14 @@ export class Da5V5MobileCredentialTransfer {
     }
   }
 
-  confirmVisibleField(
+  confirmResult(
     phase: Da5V5CredentialPhase,
-    result: Da5V5CredentialFieldResult,
+    result: Da5V5CredentialResult,
   ): 'match' | 'mismatch' {
     if (
       this.stateValue !== 'injection-pending'
       || this.phase !== phase
-      || result !== 'visible'
+      || result !== 'pass'
     ) {
       return this.fail();
     }

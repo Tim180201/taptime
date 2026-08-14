@@ -1,5 +1,56 @@
 # Development Assignment 5 — Append-Only Event Ledger
 
+## Claim `195fae95e31b39a6ae9878ae79d3076641dd075d4f2d1da463ca15ae20f432a6` — Compact-Login/Invitation R2 terminal PASS and final publication route (`2026-08-14`)
+
+- `binding_set_id`: `9757a7f4f265cdf7fda97706cb18023bf635e1b732358becbbfdab9adce91b39`;
+  binds published authority head `eb3c2d006934fe64031153834426864ffb9a5ce5`, tree
+  `9b024e5de558bf6be72348d9a88aa573bf37ab16`, parent
+  `caa4fb55c227de137d16ce4d7a39e67faafa38f0`, the unchanged nine overlay blobs, resulting tree
+  `b61e3ec4ef2b84d36d1fb88f3c5bcc16e9042379`, and their canonical 95,701-byte full-index patch
+  SHA-256 `948362e5b82cc599181976c9e55966979b75f5b25b0e5ec2cb2990004c9635d0`.
+- `supersedes_claim_ids`:
+  [`5898f40b130c82a5bdaf540d1f59861cd3775a638749b00040a0bb45bdffaaf9`] only for that
+  claim's prospective R2 authority and conflicting current R2 state. Its R1 invalid-Evidence
+  facts and all earlier history remain unchanged.
+- `pre_d01_binding`: immutable `0555` root
+  `/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5/da5-clis-v3r2-pre-d01-binding-3de9b87baafb00cc6f29d44e93fdf14d`;
+  receipt 7,490 bytes / `0444` / SHA-256
+  `c679dbfb767f5fa4bc88c1dd5699177578a8e1ddf293b3400a68b9c66e2e164a`; manifest 87 bytes /
+  `0444` / SHA-256 `4dea8b66ce831f77df27422252670da460439d1f66c82118bfffb8064f7b3513`.
+- `runner_bundle`: authoritative manifest SHA-256
+  `db5c8a895eb7900271d35d0c68606c7e8c6f4399b8a43fd1f3a673c5173fccf2`; independent review
+  receipt SHA-256 `511095747c30ef9af20b7cff7048dc1ccdeab125983358271a067927626a72e3`;
+  review-subject SHA-256 `6f8fda9686c5fa8f8275037c4c52f7c72b67f3b75acdb9b49b9ccfc115d55e3f`.
+- `authority`: the frozen terminal supervisor was invoked exactly once. Supervisor, orchestrator
+  and final-root validator each terminated `exit`/`0`; the terminal commit produced authoritative
+  `PASS`. R2 is consumed `PASS` with no rerun.
+- `inner_evidence`: immutable `0555` root
+  `/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5/da5-clis-v3r1-20260814T094123Z-3de9b87baafb00cc6f29d44e93fdf14d`
+  contains 883 manifested payloads plus `evidence-manifest.txt` = 884 regular files, 217 command
+  sets and 868 command records. Receipt: 2,524 bytes / `0444` / SHA-256
+  `b6124d02eecf961ad0cae1b883e2169476d955551c4a02ca932401f93a0224e5`; manifest: 102,706
+  bytes / `0444` / SHA-256
+  `d63ebdef1f03c5c715ea3d87bc0c16a187b067114aada333610290a4923920e0`. The literal `v3r1`
+  path is the reviewed R2 recipe value and does not restore R1 authority.
+- `terminal_evidence`: authoritative immutable `0555` root
+  `/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5/da5-clis-v3r2-terminal-20260814T094123Z-3de9b87baafb00cc6f29d44e93fdf14d`
+  contains two manifested payloads plus `evidence-manifest.txt` = three regular files. Terminal
+  receipt: 839 bytes / `0444` / SHA-256
+  `ca48e2a7935e42906d09fd38694ab11ceebb67d5015df7f1a711fdd96adb4fc3`; manifest: 192 bytes /
+  `0444` / SHA-256 `a96119329668328e0a2a4d2f9a0f76d0f3499f46744a3fa013a06882e2c718d9`.
+- `verification`: D01/D02; PostgreSQL 17 with eleven databases and 27 migrations; 20 builds; all
+  21 tests-inclusive-Typecheck memberships/commands; and all 21 suites passed. Suites covered 156
+  files / 3,071 passed / exactly three expected skips / zero failures. C3B, no-install,
+  Node/JavaScript/map and artifact, Expo, final V0, inventory/sealing and cleanup gates passed.
+  Product finding is `NONE`; no ADB, installation, Product-Human or Hardware action ran.
+- `independent_review`: `/root/review_clis_v3r2_execution` returned `APPROVED` with zero open
+  P0–P3 findings.
+- `next_route`: independent R0/V0 review of these exact three ADO additions within the final
+  12-path candidate → one intentional commit/push of the unchanged nine code/test blobs plus these
+  three ADO blobs → one exact-head CI/V4 → fresh runtime/Operator artifact generation and independent
+  review → **STOP** for fresh explicit Human/Hardware authority. No local V3 rerun occurs because
+  only documentation was added after review of the byte-unchanged nine blobs.
+
 ## Claim `5898f40b130c82a5bdaf540d1f59861cd3775a638749b00040a0bb45bdffaaf9` — Compact-Login/Invitation R1 invalid Evidence and conditional R2 authority (`2026-08-14`)
 
 - `binding_set_id`: `14a4dd1effdb145bfd7c1f8069172a6dffea12f02cbdd30d156f59da65f03c17`;

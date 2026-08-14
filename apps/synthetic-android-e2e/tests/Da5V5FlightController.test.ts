@@ -76,6 +76,79 @@ describe('DA5 V5 immutable fast-flight supervisor contract', () => {
     }
   });
 
+  it('binds compact manual-email prompts, one result gate and the invitation order', () => {
+    const steps = DA5_V5_FAST_FLIGHT_PLAN.steps;
+    const byId = (id: string) => {
+      const step = steps.find((candidate) => candidate.id === id);
+      expect(step).toBeDefined();
+      return step;
+    };
+    const humanPrompt = (id: string) => {
+      const step = byId(id);
+      expect(step?.kind).toBe('human');
+      if (step?.kind !== 'human') throw new Error('expected Human step');
+      return step.prompt;
+    };
+    const ids = steps.map(({ id }) => id);
+    const serialized = JSON.stringify(DA5_V5_FAST_FLIGHT_PLAN);
+    expect(ids.some((id) => id.includes('visible'))).toBe(false);
+    expect(serialized).not.toContain('VISIBLE');
+    expect(serialized).not.toContain('credential-field-confirm');
+    expect(serialized).not.toContain('accessibility-credential-field-confirm');
+
+    expect(ids.indexOf('administrator-result')).toBeLessThan(ids.indexOf('admin-setup-actions'));
+    expect(ids.indexOf('admin-setup-actions')).toBeLessThan(ids.indexOf('invitation-create'));
+    expect(ids.indexOf('invitation-create')).toBeLessThan(ids.indexOf('enrollment-empty-active'));
+    expect(ids.indexOf('enrollment-result')).toBeLessThan(ids.indexOf('invitation-empty-active'));
+    expect(ids.indexOf('invitation-empty-active')).toBeLessThan(
+      ids.indexOf('invitation-field-ready'),
+    );
+    expect(ids.indexOf('invitation-field-ready')).toBeLessThan(ids.indexOf('invitation-secret'));
+    expect(ids.indexOf('invitation-secret')).toBeLessThan(
+      ids.indexOf('employee-install-transition'),
+    );
+
+    expect(humanPrompt('administrator-empty-active')).toMatchObject({
+      button: 'Anmelden',
+      field: 'E-Mail-Adresse / Passwort',
+      screen: 'TapTim.e — Anmeldung',
+    });
+    expect(humanPrompt('administrator-empty-active').action).toContain(
+      'administrator-e2e@example.invalid',
+    );
+    expect(humanPrompt('administrator-result').action).toContain('Administrator setup');
+    expect(humanPrompt('enrollment-empty-active')).toMatchObject({
+      button: 'Mit Einladung beitreten',
+      field: 'E-Mail-Adresse / Passwort',
+      screen: 'TapTim.e — Anmeldung',
+    });
+    expect(humanPrompt('enrollment-empty-active').action).toContain(
+      'employee-enrollment-e2e@example.invalid',
+    );
+    expect(humanPrompt('enrollment-result').action).toContain('Als Beschäftigter beitreten');
+    expect(humanPrompt('invitation-empty-active')).toMatchObject({
+      button: 'Einladung sicher einlösen',
+      field: 'Einladungsgeheimnis',
+      screen: 'Als Beschäftigter beitreten',
+    });
+    expect(humanPrompt('employee-empty-active').action).toContain(
+      'android-e2e@example.invalid',
+    );
+    expect(humanPrompt('employee-ready').action).toContain('Bereit zum Scannen');
+
+    for (const [role, email, surface] of [
+      ['administrator', 'administrator-e2e@example.invalid', 'administrator-setup'],
+      ['employee', 'android-e2e@example.invalid', 'employee-navigation'],
+    ] as const) {
+      expect(humanPrompt(`accessibility-${role}-empty-active`).action).toContain(email);
+      expect(humanPrompt(`accessibility-${surface}`)).toMatchObject({
+        button: 'Anmelden',
+        field: 'E-Mail-Adresse / Passwort / focus order / labels / state / layout',
+      });
+      expect(humanPrompt(`accessibility-${surface}`).action).toContain(surface);
+    }
+  });
+
   it('makes the child reject a supervisor digest other than its compiled plan', () => {
     const nonce = '1'.repeat(64);
     expect(requireDa5V5FlightPlanBinding(

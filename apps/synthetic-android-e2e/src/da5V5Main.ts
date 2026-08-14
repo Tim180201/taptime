@@ -52,6 +52,11 @@ import {
 import {
   Da5V5MobileCredentialTransfer,
 } from './Da5V5CredentialTransfer.js';
+import {
+  Da5V5InvitationSecretOwner,
+  Da5V5InvitationSecretTransfer,
+  createDa5V5InvitationSecret,
+} from './Da5V5InvitationSecret.js';
 import { readDa5V5CredentialFrame } from './Da5V5SecretInput.js';
 import {
   da5V5DedupeBinding,
@@ -192,6 +197,13 @@ const mobileCredential = new Da5V5MobileCredentialTransfer(
   deviceLock,
   standardBinding,
 );
+const invitationSecretOwner = new Da5V5InvitationSecretOwner();
+const invitationSecretTransfer = new Da5V5InvitationSecretTransfer(
+  invitationSecretOwner,
+  mobileAdb,
+  deviceLock,
+  standardBinding,
+);
 const accessibilityCredential = new Da5V5MobileCredentialTransfer(
   mobileAdb,
   deviceLock,
@@ -206,6 +218,8 @@ let offline = new Da5V5ApiOfflineController(
 );
 const employeeInstallationTransition = new Da5V5EmployeeInstallationTransition();
 let employeePreparedBoundary: Da5V5EmployeeInstallationBoundarySnapshot | null = null;
+let invitationEnrollmentBaseline: Da5V5EnrollmentCounts | null = null;
+let invitationRedemptionVerified = false;
 const device = new Da5V5DeviceCheckpointController(
   adb,
   standardBinding,
@@ -275,13 +289,14 @@ try {
   // JavaScript strings cannot be byte-zeroized. This transient constructor value is never
   // logged, persisted or transferred and its reference is cleared immediately after use.
   password = '';
-  const [initialStatus, initialInvariants, initialTagRoles] = await Promise.all([
+  const [initialStatus, initialInvariants, initialTagRoles, initialEnrollment] = await Promise.all([
     environment.da5V5Status(),
     environment.da5V5InvariantStatus(),
     environment.da5V5TagRoleState(),
+    environment.employeeEnrollmentEvidenceCounts(),
   ]);
   initialProductSnapshot = Object.freeze({
-    aggregates: initialStatus,
+    aggregates: disclosureSafeProductAggregates(initialStatus, initialEnrollment),
     invariants: initialInvariants,
     tagRoles: initialTagRoles,
   });
@@ -465,6 +480,11 @@ async function handleCommand(line: string): Promise<Da5V5OperatorCommandOutcome>
     /^employee-installation-transition-confirm (PASS|FAIL|AMBIGUOUS)$/u.exec(normalized);
   if (employeeInstallationConfirmation !== null) {
     const verdict = parseHumanVerdict(employeeInstallationConfirmation[1]) ?? 'ambiguous';
+    const redemption = await confirmInvitationRedemption(activeEnvironment, verdict);
+    writeOperatorOutput(`da5_v5_invitation_redemption=${redemption}\n`);
+    if (redemption !== 'match') {
+      return fail(activeSession, 'da5_v5_credential_binding=mismatch');
+    }
     const oldOffline = offline;
     const oldTransaction = androidInstallTransaction;
     let preBoundary: Da5V5EmployeeInstallationBoundarySnapshot | null = null;
@@ -576,6 +596,14 @@ async function handleCommand(line: string): Promise<Da5V5OperatorCommandOutcome>
     /^employee-ready-confirm (PASS|FAIL|AMBIGUOUS)$/u.exec(normalized);
   if (employeeReadyConfirmation !== null) {
     const verdict = parseHumanVerdict(employeeReadyConfirmation[1]) ?? 'ambiguous';
+    const credentialResult = credentialPhases[nextCredentialPhase] === 'employee'
+      ? mobileCredential.confirmResult('employee', verdict)
+      : 'mismatch';
+    if (credentialResult === 'match') nextCredentialPhase += 1;
+    writeOperatorOutput(`synthetic_credential_result=${credentialResult}\n`);
+    if (credentialResult !== 'match') {
+      return fail(activeSession, 'da5_v5_credential_binding=mismatch');
+    }
     const result = await commandExecutionGuard.wait(
       employeeInstallationTransition.confirmReady(verdict, async () => {
         const readyBoundary = await readEmployeeInstallationBoundary(
@@ -625,20 +653,17 @@ async function handleCommand(line: string): Promise<Da5V5OperatorCommandOutcome>
       ? { state: 'continue' }
       : fail(activeSession, 'da5_v5_credential_binding=mismatch');
   }
-  const fieldConfirmation =
-    /^credential-field-confirm (administrator|enrollment|employee) (VISIBLE|EMPTY|AMBIGUOUS)$/u
+  const credentialResultConfirmation =
+    /^credential-result-confirm (administrator|enrollment) (PASS|FAIL|AMBIGUOUS)$/u
       .exec(normalized);
-  if (fieldConfirmation !== null) {
-    const phase = fieldConfirmation[1] as (typeof credentialPhases)[number];
-    const observation = fieldConfirmation[2]?.toLowerCase() as (
-      'ambiguous' | 'empty' | 'visible'
-    );
+  if (credentialResultConfirmation !== null) {
+    const phase = credentialResultConfirmation[1] as 'administrator' | 'enrollment';
+    const verdict = parseHumanVerdict(credentialResultConfirmation[2]) ?? 'ambiguous';
     const result = credentialPhases[nextCredentialPhase] === phase
-      && (phase !== 'employee' || employeeInstallationTransition.prepared())
-      ? mobileCredential.confirmVisibleField(phase, observation)
+      ? mobileCredential.confirmResult(phase, verdict)
       : 'mismatch';
     if (result === 'match') nextCredentialPhase += 1;
-    writeOperatorOutput(`synthetic_credential_field_confirmation=${result}\n`);
+    writeOperatorOutput(`synthetic_credential_result=${result}\n`);
     return result === 'match'
       ? { state: 'continue' }
       : fail(activeSession, 'da5_v5_credential_binding=mismatch');
@@ -674,7 +699,110 @@ async function handleCommand(line: string): Promise<Da5V5OperatorCommandOutcome>
       return fail(activeSession, 'da5_v5_credential_binding=mismatch');
     }
     writeOperatorOutput('synthetic_password_binding=match\n');
-    writeOperatorOutput('synthetic_credential_injection=pending_human_confirmation\n');
+    writeOperatorOutput('synthetic_credential_injection=pending_result_gate\n');
+    return { state: 'continue' };
+  }
+  if (normalized === 'invitation-create') {
+    if (
+      nextCredentialPhase !== 1
+      || !androidInstalled
+      || invitationSecretTransfer.state() !== 'vacant'
+      || mobileCredential.state().state !== 'idle'
+      || !da5V5SessionBoundaryMatches(activeSession, null, 'gate-a-setup-rejections')
+    ) {
+      writeOperatorOutput('da5_v5_invitation_creation=mismatch\n');
+      return fail(activeSession, 'da5_v5_credential_binding=mismatch');
+    }
+    let baseline: Da5V5EnrollmentCounts;
+    try {
+      baseline = await commandExecutionGuard.wait(
+        activeEnvironment.employeeEnrollmentEvidenceCounts(),
+      );
+    } catch {
+      invitationSecretTransfer.destroy();
+      writeOperatorOutput('da5_v5_invitation_creation=mismatch\n');
+      return fail(activeSession, 'da5_v5_credential_binding=mismatch');
+    }
+    if (!initialInvitationCountsMatch(baseline)) {
+      writeOperatorOutput('da5_v5_invitation_creation=mismatch\n');
+      return fail(activeSession, 'da5_v5_credential_binding=mismatch');
+    }
+    const candidate = copyCredentialMaster();
+    let secret: Buffer | null = null;
+    let captured: 'match' | 'mismatch' = 'mismatch';
+    try {
+      secret = await createDa5V5InvitationSecret({
+        apiBaseUrl: activeEnvironment.apiBaseUrl,
+        authBaseUrl: activeEnvironment.authBaseUrl,
+        password: candidate,
+        signal: mutationAbortController.signal,
+      });
+      commandExecutionGuard.ensure();
+      captured = invitationSecretOwner.capture(secret);
+      if (captured === 'match') secret = null;
+    } catch {
+      captured = 'mismatch';
+    } finally {
+      secret?.fill(0);
+      candidate.fill(0);
+    }
+    if (captured !== 'match') {
+      invitationSecretTransfer.destroy();
+      writeOperatorOutput('da5_v5_invitation_creation=mismatch\n');
+      return fail(activeSession, 'da5_v5_credential_binding=mismatch');
+    }
+    let created: Da5V5EnrollmentCounts;
+    try {
+      created = await commandExecutionGuard.wait(
+        activeEnvironment.employeeEnrollmentEvidenceCounts(),
+      );
+    } catch {
+      invitationSecretTransfer.destroy();
+      writeOperatorOutput('da5_v5_invitation_creation=mismatch\n');
+      return fail(activeSession, 'da5_v5_credential_binding=mismatch');
+    }
+    if (!createdInvitationCountsMatch(baseline, created)) {
+      invitationSecretTransfer.destroy();
+      writeOperatorOutput('da5_v5_invitation_creation=mismatch\n');
+      return fail(activeSession, 'da5_v5_credential_binding=mismatch');
+    }
+    invitationEnrollmentBaseline = baseline;
+    writeOperatorOutput('da5_v5_invitation_creation=match\n');
+    writeOperatorOutput('da5_v5_invitation_counters=created\n');
+    return { state: 'continue' };
+  }
+  if (normalized === 'invitation-field-ready EMPTY_ACTIVE') {
+    const result = nextCredentialPhase === 2
+      && androidInstalled
+      && invitationEnrollmentBaseline !== null
+      ? invitationSecretTransfer.confirmEmptyActiveField()
+      : 'mismatch';
+    writeOperatorOutput(`da5_v5_invitation_field_ready=${result}\n`);
+    return result === 'match'
+      ? { state: 'continue' }
+      : fail(activeSession, 'da5_v5_credential_binding=mismatch');
+  }
+  if (normalized === 'invitation-check') {
+    let result: 'match' | 'mismatch' = 'mismatch';
+    if (
+      nextCredentialPhase === 2
+      && androidInstalled
+      && invitationEnrollmentBaseline !== null
+    ) {
+      try {
+        result = await commandExecutionGuard.wait(
+          invitationSecretTransfer.inject(mutationAbortController.signal),
+        );
+      } catch {
+        invitationSecretTransfer.destroy();
+        result = 'mismatch';
+      }
+    }
+    writeOperatorOutput(`da5_v5_invitation_binding=${result}\n`);
+    if (result !== 'match') {
+      return fail(activeSession, 'da5_v5_credential_binding=mismatch');
+    }
+    writeOperatorOutput('da5_v5_invitation_injection=pending_redemption_result\n');
     return { state: 'continue' };
   }
   const accessibilityFieldReady =
@@ -722,46 +850,37 @@ async function handleCommand(line: string): Promise<Da5V5OperatorCommandOutcome>
     }
     writeOperatorOutput('da5_v5_accessibility_password_binding=match\n');
     writeOperatorOutput(
-      'da5_v5_accessibility_credential_injection=pending_human_confirmation\n',
+      'da5_v5_accessibility_credential_injection=pending_surface_result\n',
     );
     return { state: 'continue' };
-  }
-  const accessibilityFieldConfirmation =
-    /^accessibility-credential-field-confirm (administrator|employee) (VISIBLE|EMPTY|AMBIGUOUS)$/u
-      .exec(normalized);
-  if (accessibilityFieldConfirmation !== null) {
-    const role = accessibilityFieldConfirmation[1] as (
-      Da5V5AccessibilityReauthenticationRole
-    );
-    const observation = accessibilityFieldConfirmation[2]?.toLowerCase() as (
-      'ambiguous' | 'empty' | 'visible'
-    );
-    const fieldResult = accessibilityGateSurfaceBoundaryMatches(
-      activeSession,
-      activeEnvironment,
-    )
-      ? accessibilityCredential.confirmVisibleField(role, observation)
-      : 'mismatch';
-    const result = fieldResult === 'match'
-      ? accessibilitySession.completeReauthentication(role)
-      : 'mismatch';
-    if (result === 'match' && role === 'employee') {
-      destroyCredentialMaster();
-    }
-    writeOperatorOutput(`da5_v5_accessibility_credential_field_confirmation=${result}\n`);
-    return result === 'match'
-      ? { state: 'continue' }
-      : fail(activeSession, 'da5_v5_credential_binding=mismatch');
   }
   const accessibilitySurface =
     /^accessibility-surface-confirm ([a-z-]+) (PASS|FAIL|AMBIGUOUS)$/u.exec(normalized);
   if (accessibilitySurface !== null) {
     const surface = accessibilitySurface[1] as Da5V5AccessibilitySurface;
     const verdict = parseHumanVerdict(accessibilitySurface[2]) ?? 'ambiguous';
-    const result = accessibilityGateSurfaceBoundaryMatches(
+    const boundaryMatches = accessibilityGateSurfaceBoundaryMatches(
       activeSession,
       activeEnvironment,
-    )
+    );
+    const role = accessibilityReauthenticationRole(surface);
+    if (role !== null) {
+      const credentialResult = boundaryMatches
+        && accessibilitySession.reauthenticationIsInProgress(role)
+        ? accessibilityCredential.confirmResult(role, verdict)
+        : 'mismatch';
+      const reauthenticationResult = credentialResult === 'match'
+        ? accessibilitySession.completeReauthentication(role)
+        : 'mismatch';
+      writeOperatorOutput(
+        `da5_v5_accessibility_credential_result=${reauthenticationResult}\n`,
+      );
+      if (reauthenticationResult !== 'match') {
+        return fail(activeSession, 'da5_v5_credential_binding=mismatch');
+      }
+      if (role === 'employee') destroyCredentialMaster();
+    }
+    const result = boundaryMatches
       ? accessibilitySession.confirmSurface(surface, verdict)
       : 'mismatch';
     writeOperatorOutput(`da5_v5_accessibility_surface=${JSON.stringify({
@@ -1034,6 +1153,8 @@ async function handleCommand(line: string): Promise<Da5V5OperatorCommandOutcome>
       && nextCredentialPhase === credentialPhases.length
       && androidInstalled
       && employeeInstallationTransition.matched()
+      && invitationRedemptionVerified
+      && invitationSecretTransfer.state() === 'consumed'
     );
     return ready
       ? { state: 'stop' }
@@ -1184,6 +1305,14 @@ function accessibilityGatePreparationBoundaryMatches(
     && device.getState() === 'protected-relaunch-complete';
 }
 
+function accessibilityReauthenticationRole(
+  surface: Da5V5AccessibilitySurface,
+): Da5V5AccessibilityReauthenticationRole | null {
+  if (surface === 'administrator-setup') return 'administrator';
+  if (surface === 'employee-navigation') return 'employee';
+  return null;
+}
+
 function accessibilityGateCheckBoundaryMatches(
   session: Da5V5OperationSession,
   activeEnvironment: SyntheticAndroidE2eEnvironment,
@@ -1223,6 +1352,8 @@ async function checkpointOperatorStateMatches(
       const tagRoles = await activeEnvironment.da5V5TagRoleState();
       return employeeInstallationTransition.matched()
         && nextCredentialPhase === credentialPhases.length
+        && invitationRedemptionVerified
+        && invitationSecretTransfer.state() === 'consumed'
         && activeEnvironment.da5V5TagRegistrationState() === 'registered'
         && tagRoles.activeTagAAssignments === 1
         && tagRoles.activeTagACustomerAAssignments === 1
@@ -1325,6 +1456,96 @@ function offlineCommandIsAuthorized(
     && state.checkedDedupePhases.includes('gate-d-tag-b');
 }
 
+type Da5V5EnrollmentCounts = Awaited<
+  ReturnType<SyntheticAndroidE2eEnvironment['employeeEnrollmentEvidenceCounts']>
+>;
+
+type Da5V5DisclosureSafeProductAggregates = Readonly<
+  Da5V5Status & Da5V5EnrollmentCounts
+>;
+
+function disclosureSafeProductAggregates(
+  status: Da5V5Status,
+  enrollment: Da5V5EnrollmentCounts,
+): Da5V5DisclosureSafeProductAggregates {
+  return Object.freeze({ ...status, ...enrollment });
+}
+
+function initialInvitationCountsMatch(counts: Da5V5EnrollmentCounts): boolean {
+  return counts.activeEmployeeInvitations === 0
+    && counts.consumedEmployeeInvitations === 0
+    && counts.employeeInvitationReceipts === 0
+    && counts.employeeMemberships === 1
+    && counts.employeeRedemptionReceipts === 0
+    && counts.identityBindings === 2
+    && counts.memberships === 2
+    && counts.users === 2;
+}
+
+function createdInvitationCountsMatch(
+  baseline: Da5V5EnrollmentCounts,
+  created: Da5V5EnrollmentCounts,
+): boolean {
+  return initialInvitationCountsMatch(baseline)
+    && created.activeEmployeeInvitations === 1
+    && created.consumedEmployeeInvitations === 0
+    && created.employeeInvitationReceipts === 1
+    && created.employeeMemberships === baseline.employeeMemberships
+    && created.employeeRedemptionReceipts === 0
+    && created.identityBindings === baseline.identityBindings
+    && created.memberships === baseline.memberships
+    && created.users === baseline.users;
+}
+
+function redeemedInvitationCountsMatch(
+  baseline: Da5V5EnrollmentCounts,
+  redeemed: Da5V5EnrollmentCounts,
+): boolean {
+  return initialInvitationCountsMatch(baseline)
+    && redeemed.activeEmployeeInvitations === 0
+    && redeemed.consumedEmployeeInvitations === 1
+    && redeemed.employeeInvitationReceipts === 1
+    && redeemed.employeeMemberships === baseline.employeeMemberships + 1
+    && redeemed.employeeRedemptionReceipts === 1
+    && redeemed.identityBindings === baseline.identityBindings + 1
+    && redeemed.memberships === baseline.memberships + 1
+    && redeemed.users === baseline.users + 1;
+}
+
+async function confirmInvitationRedemption(
+  activeEnvironment: SyntheticAndroidE2eEnvironment,
+  verdict: 'ambiguous' | 'fail' | 'pass',
+): Promise<'match' | 'mismatch'> {
+  const baseline = invitationEnrollmentBaseline;
+  if (
+    verdict !== 'pass'
+    || baseline === null
+    || invitationSecretTransfer.state() !== 'injection-pending'
+  ) {
+    invitationSecretTransfer.confirmRedemption(verdict);
+    return 'mismatch';
+  }
+  let redeemed: Da5V5EnrollmentCounts;
+  try {
+    redeemed = await commandExecutionGuard.wait(
+      activeEnvironment.employeeEnrollmentEvidenceCounts(),
+    );
+  } catch {
+    invitationSecretTransfer.destroy();
+    return 'mismatch';
+  }
+  if (!redeemedInvitationCountsMatch(baseline, redeemed)) {
+    invitationSecretTransfer.confirmRedemption('fail');
+    return 'mismatch';
+  }
+  const result = invitationSecretTransfer.confirmRedemption('pass');
+  if (result === 'match') {
+    invitationEnrollmentBaseline = null;
+    invitationRedemptionVerified = true;
+  }
+  return result;
+}
+
 interface Da5V5EmployeeInstallationBoundarySnapshot {
   readonly status: Da5V5Status;
   readonly tagRoles: Da5V5TagRoleState;
@@ -1340,6 +1561,8 @@ async function readEmployeeInstallationBoundary(
     nextCredentialPhase !== credentialsCompleted
     || credentialState.phase !== null
     || credentialState.state !== 'idle'
+    || !invitationRedemptionVerified
+    || invitationSecretTransfer.state() !== 'consumed'
     || !androidInstalled
     || !physicalTagBindingConfirmed
     || preinstall.state() !== 'matched'
@@ -1405,6 +1628,7 @@ async function reportStatus(
       device: device.getState(),
       employeeInstallationTransition: employeeInstallationTransition.getState(),
       fixture: activeEnvironment.da5V5FixtureState(),
+      invitationSecretTransfer: invitationSecretTransfer.state(),
       offline: offline.getState(),
       session: activeSession.state(),
       tagRegistration: activeEnvironment.da5V5TagRegistrationState(),
@@ -1625,6 +1849,11 @@ async function performCleanupResources(): Promise<void> {
     }
   });
   await stage('input', () => inputOwnership.closeAll());
+  await stage('invitation-secret', () => {
+    invitationSecretTransfer.destroy();
+    invitationEnrollmentBaseline = null;
+    invitationRedemptionVerified = false;
+  });
   await stage('credential-master', () => destroyCredentialMaster());
   await stage('offline', async () => {
     if (await offline.settleForTerminalCleanup() !== 'match') {
@@ -1675,7 +1904,7 @@ async function performCleanupResources(): Promise<void> {
 }
 
 interface Da5V5ProductSnapshot {
-  readonly aggregates: Da5V5Status;
+  readonly aggregates: Da5V5DisclosureSafeProductAggregates;
   readonly invariants: Awaited<
     ReturnType<SyntheticAndroidE2eEnvironment['da5V5InvariantStatus']>
   >;
@@ -1700,11 +1929,13 @@ async function reportPrecleanupSnapshot(): Promise<void> {
     return;
   }
   try {
-    const [aggregates, invariants, tagRoles] = await Promise.all([
+    const [status, enrollment, invariants, tagRoles] = await Promise.all([
       activeEnvironment.da5V5Status(),
+      activeEnvironment.employeeEnrollmentEvidenceCounts(),
       activeEnvironment.da5V5InvariantStatus(),
       activeEnvironment.da5V5TagRoleState(),
     ]);
+    const aggregates = disclosureSafeProductAggregates(status, enrollment);
     writeOperatorOutput(`da5_v5_precleanup_snapshot=${JSON.stringify({
       aggregates: observedProductEquality(baseline.aggregates, aggregates),
       invariants: observedProductEquality(baseline.invariants, invariants),
@@ -1844,7 +2075,6 @@ function parseHumanVerdict(
 function employeePreparedCommandAllowed(normalized: string): boolean {
   return normalized === 'credential-field-ready employee EMPTY_ACTIVE'
     || normalized === 'credential-check employee'
-    || /^credential-field-confirm employee (VISIBLE|EMPTY|AMBIGUOUS)$/u.test(normalized)
     || /^employee-ready-confirm (PASS|FAIL|AMBIGUOUS)$/u.test(normalized);
 }
 

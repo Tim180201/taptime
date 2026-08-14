@@ -259,7 +259,7 @@ describe('DA5 V5 coupled credential transfer', () => {
       candidate.fill(0);
     });
 
-  it('requires EMPTY_ACTIVE, fixed non-PTY stdin and visible Human confirmation for every phase',
+  it('requires EMPTY_ACTIVE, fixed non-PTY stdin and one Human result gate per phase',
     async () => {
       const adb = new CredentialAdb();
       const serialBinding = new Da5V5UsbSerialBinding();
@@ -279,7 +279,7 @@ describe('DA5 V5 coupled credential transfer', () => {
         expect(fresh.confirmEmptyActiveField(phase)).toBe('match');
         await expect(fresh.inject(phase, candidate)).resolves.toBe('match');
         expect(fresh.state()).toEqual({ phase, state: 'injection-pending' });
-        expect(fresh.confirmVisibleField(phase, 'visible')).toBe('match');
+        expect(fresh.confirmResult(phase, 'pass')).toBe('match');
         expect(fresh.state()).toEqual({ phase: null, state: 'idle' });
       }
 
@@ -323,7 +323,7 @@ describe('DA5 V5 coupled credential transfer', () => {
 
       expect(mobile.confirmEmptyActiveField('administrator')).toBe('match');
       await expect(mobile.inject('administrator', candidate)).resolves.toBe('match');
-      expect(mobile.confirmVisibleField('administrator', 'visible')).toBe('match');
+      expect(mobile.confirmResult('administrator', 'pass')).toBe('match');
       expect(adb.injectionRequireEmptyOutput).toEqual([true]);
       expect(adb.commands).toContainEqual([
         '-s', adb.serial, 'shell', 'dumpsys', 'package', adb.talkBackPackage,
@@ -371,7 +371,7 @@ describe('DA5 V5 coupled credential transfer', () => {
       candidate.fill(0);
     });
 
-  it('latches failed on wrong phase, non-visible confirmation, invalid format or ADB output',
+  it('latches failed on wrong phase, failed Human result, invalid format or ADB output',
     async () => {
       const makeTransfer = (adb = new CredentialAdb()) => {
         const serialBinding = new Da5V5UsbSerialBinding();
@@ -385,11 +385,11 @@ describe('DA5 V5 coupled credential transfer', () => {
       await expect(wrongPhase.mobile.inject('employee', candidate)).resolves.toBe('mismatch');
       expect(wrongPhase.mobile.state()).toEqual({ phase: null, state: 'failed' });
 
-      const notVisible = makeTransfer();
-      expect(notVisible.mobile.confirmEmptyActiveField('employee')).toBe('match');
-      await expect(notVisible.mobile.inject('employee', candidate)).resolves.toBe('match');
-      expect(notVisible.mobile.confirmVisibleField('employee', 'empty')).toBe('mismatch');
-      expect(notVisible.mobile.confirmEmptyActiveField('employee')).toBe('mismatch');
+      const failedResult = makeTransfer();
+      expect(failedResult.mobile.confirmEmptyActiveField('employee')).toBe('match');
+      await expect(failedResult.mobile.inject('employee', candidate)).resolves.toBe('match');
+      expect(failedResult.mobile.confirmResult('employee', 'fail')).toBe('mismatch');
+      expect(failedResult.mobile.confirmEmptyActiveField('employee')).toBe('mismatch');
 
       const invalid = makeTransfer();
       expect(invalid.mobile.confirmEmptyActiveField('administrator')).toBe('match');

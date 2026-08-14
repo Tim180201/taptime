@@ -423,28 +423,29 @@ describe('DA5 V5 Product operator bundle start smoke', () => {
       bytes: Buffer.byteLength(bundle),
       sha256: createHash('sha256').update(bundle).digest('hex'),
     }).toEqual({
-      bytes: 955_797,
+      bytes: 981_670,
       sha256:
-        '81d006308ddf063665c2f8995362fcdb8f667ee2f1d8fb14bfa3599c053bc9c5',
+        'f480968a588e15bf974c172615edc0778fc4679088f6ccc86a5cdafecb5b00c1',
     });
     expect({
       bytes: sourceMapBytes.byteLength,
       sha256: createHash('sha256').update(sourceMapBytes).digest('hex'),
     }).toEqual({
-      bytes: 1_858_204,
+      bytes: 1_904_949,
       sha256:
-        'e6f92b35c5279aa8e3fd9ba62419785280c8979a99e5eb99a2541a83a334c94d',
+        '1c4c8e791eea704b2cb135fc77b2ef1f3d9cda3fa11898fdfa8f8de106fe2768',
     });
     expect(sourceMap.version).toBe(3);
     expect(sourceMap.sourceRoot).toBeUndefined();
     expect(Array.isArray(sourceMap.sources)).toBe(true);
     expect(Array.isArray(sourceMap.sourcesContent)).toBe(true);
-    expect(sourceMap.sources).toHaveLength(92);
-    expect(sourceMap.sourcesContent).toHaveLength(92);
+    expect(sourceMap.sources).toHaveLength(93);
+    expect(sourceMap.sourcesContent).toHaveLength(93);
     const operatorSources = sourceMap.sources as string[];
     expect(new Set(operatorSources).size).toBe(operatorSources.length);
     expect(operatorSources).toEqual(expect.arrayContaining([
       '../src/da5V5Main.ts',
+      '../src/Da5V5InvitationSecret.ts',
       '../../mobile/scripts/da5V5AndroidArtifact.mjs',
       '../../mobile/scripts/da5V5AndroidDevice.mjs',
     ]));
@@ -524,8 +525,22 @@ describe('DA5 V5 Product operator bundle start smoke', () => {
     expect(bundle).toContain('com.tim180201.mobile.synthetic');
     expect(bundle).not.toContain('--remove-all');
     expect(bundle).toContain('credential-field-ready <administrator|enrollment|employee> EMPTY_ACTIVE');
-    expect(bundle).toContain('credential-field-confirm <administrator|enrollment|employee>');
-    expect(bundle).toContain('synthetic_credential_injection=pending_human_confirmation');
+    expect(bundle).toContain('credential-result-confirm <administrator|enrollment>');
+    expect(bundle).toContain('synthetic_credential_injection=pending_result_gate');
+    expect(bundle).toContain('invitation-create | invitation-field-ready EMPTY_ACTIVE | invitation-check');
+    expect(bundle).toContain('da5_v5_invitation_injection=pending_redemption_result');
+    expect(bundle).toContain('da5_v5_invitation_counters=created');
+    expect(bundle).toContain('DA5 V5 Synthetic Employee');
+    expect(bundle).toContain('/auth/v1/token?grant_type=password');
+    expect(bundle).toContain('/v1/administration/employee-invitations');
+    expect(bundle).toContain('Einladungsgeheimnis');
+    expect(bundle).toContain('administrator-e2e@example.invalid');
+    expect(bundle).toContain('employee-enrollment-e2e@example.invalid');
+    expect(bundle).toContain('android-e2e@example.invalid');
+    expect(bundle).not.toContain('credential-field-confirm');
+    expect(bundle).not.toContain('accessibility-credential-field-confirm');
+    expect(bundle).not.toContain('VISIBLE');
+    expect(bundle).not.toContain('Einladungscode');
     expect(bundle).toContain('da5_v5_accessibility_surface_plan=');
     expect(bundle).toContain('protected-review-error');
     expect(bundle).toContain('auth-login');
@@ -536,6 +551,7 @@ describe('DA5 V5 Product operator bundle start smoke', () => {
     expect(bundle).toContain('profile-change-prepared');
     expect(bundle).toContain('accessibility-surface-confirm <surface> <PASS|FAIL|AMBIGUOUS>');
     expect(bundle).toContain('accessibility-credential-check <administrator|employee>');
+    expect(bundle).toContain('da5_v5_accessibility_credential_injection=pending_surface_result');
     expect(bundle).toContain('da5_v5_accessibility_restore_only=mismatch');
     expect(bundle).toContain('da5_v5_accessibility_restore_required=match');
     expect(bundle).toContain('DA5 V5 accessibility restore proof is unavailable');
@@ -562,17 +578,17 @@ describe('DA5 V5 Product operator bundle start smoke', () => {
       bytes: Buffer.byteLength(supervisorBundle),
       sha256: createHash('sha256').update(supervisorBundle).digest('hex'),
     }).toEqual({
-      bytes: 160_126,
+      bytes: 163_638,
       sha256:
-        '1c83b1adc1bc8c738582a446e1ea169cc161d9e664abc6c6f15053c60d8aafa6',
+        'eda3a6e407a07f6d923c62c3c7591a1bb79a2232e87a5b265ab77a7c419fe023',
     });
     expect({
       bytes: supervisorSourceMapBytes.byteLength,
       sha256: createHash('sha256').update(supervisorSourceMapBytes).digest('hex'),
     }).toEqual({
-      bytes: 448_429,
+      bytes: 453_423,
       sha256:
-        'a610cf725a9c390c6755facd5c0d5e7fc19c0e88d0e6daa5ae24b8be262d5200',
+        '1b0fbead6b33599c42567031f0eb113babbbfeb24317ba59e90f16e8e3529dbc',
     });
     expect(supervisorSourceMap).toMatchObject({ version: 3 });
     expect(supervisorSourceMap.sourceRoot).toBeUndefined();
