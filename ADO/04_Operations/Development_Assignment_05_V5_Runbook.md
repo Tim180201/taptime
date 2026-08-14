@@ -1,5 +1,82 @@
 # Development Assignment 5 — V5 Human Android Gate Runbook
 
+## 2026-08-14 invitation-secret source/transfer procedure amendment — REVIEW PENDING / STOP
+
+This R0/V0 top candidate is bound to clean `HEAD == main == origin/main ==
+b36d2795afd9d0a6bd8e597203ae05c2c8a8aeb6`, tree
+`eb4e1e1872f017ec377fb48a7fb31b5a67bbb5e0`. The b36 R3 read-only preflight found no exact DA5
+source or safe transfer procedure for `Einladungsgeheimnis` and therefore stopped before edits,
+tests, builds or execution. This procedure is **not active** before independent R0 approval,
+focused `[skip ci]` publication and independent exact-head review. It grants no Supervisor, ADB,
+installation, Product-Human or Hardware run.
+
+After the combined Administrator login result is `PASS`, machine automation creates exactly one
+task-owned invitation through the already-running real loopback stack:
+
+1. Require the exact environment-provided `http://127.0.0.1:<bound-port>` Auth origin. Send one
+   `POST /auth/v1/token?grant_type=password` using public
+   `administrator-e2e@example.invalid`, public
+   `sb_publishable_taptime_synthetic_android_e2e` and the existing memory-only password.
+2. Strictly bind HTTP 200, exact `Cache-Control: no-store`, no redirect and the exact local
+   Synthetic Administrator session response. Retain its bearer token only in memory.
+3. Require the exact environment-provided loopback API origin. Send one `POST
+   /v1/administration/employee-invitations` with that bearer token and exactly
+   `{"expectedMembershipId":"12000000-0000-4000-8000-000000000702","commandId":"<fresh
+   canonical random UUID>","displayName":"DA5 V5 Synthetic Employee"}`.
+4. Accept only HTTP 200, exact `Cache-Control: no-store`, no redirect and an exact three-key
+   response `{"status":"succeeded","invitationSecret":"<secret>","expiresAt":"<time>"}`.
+   Expiry is canonical and strictly future; `<secret>` is exactly 43 canonical unpadded base64url
+   characters decoding to exactly 32 bytes, including canonical pad bits.
+
+Immediately before step 1 require enrollment counts `active=0`, `consumed=0`,
+`invitationReceipts=0`, `redemptionReceipts=0`. Immediately after step 4 require `active=1`,
+`consumed=0`, `invitationReceipts=1`, `redemptionReceipts=0`. A second call, redirect, unexpected
+origin/port, timeout, response/header/schema mismatch or count drift is fail-closed.
+
+The separate one-shot invitation owner accepts only that canonical secret. It must reject the
+64-hex password master before opening any ADB transfer, then send the invitation exactly once by
+bound non-PTY ADB stdin to the already active empty `Einladungsgeheimnis` field. It never uses
+clipboard, environment, argv, file, terminal output, log, Evidence, artifact manifest or IPC.
+Every Operator-owned secret/candidate/frame Buffer is overwritten after success and on every
+failure, abort, exception and cleanup; reuse/reset is forbidden. Only the password uses existing
+FD3. Strict HTTP/JSON handling necessarily creates brief JavaScript access-token and invitation-
+secret strings. They are nonloggable and nonpersistent, their references are dropped immediately,
+and byte-zeroization is not claimed; owned Buffer copies are zeroized.
+
+The exact operator sequence is:
+
+1. Administrator combined result reaches its expected surface; machine creates and binds the
+   invitation once.
+2. On `TapTim.e — Anmeldung`, Human types
+   `employee-enrollment-e2e@example.invalid` into `E-Mail-Adresse`, activates `Passwort` and
+   answers `EMPTY_ACTIVE`. Machine injects the password. The next result action presses `Mit
+   Einladung beitreten`; answer `PASS` only when `Als Beschäftigter beitreten` is visible.
+3. Human activates `Einladungsgeheimnis` and answers its separate `EMPTY_ACTIVE`. Machine injects
+   the one-shot invitation secret. There is no standalone `VISIBLE` response.
+4. The existing `employee-install-transition` action presses the redemption button, answers
+   `PASS` only when `Bereit zum Scannen` is visible, signs out exactly once and confirms
+   `TapTim.e — Anmeldung`. Machine then requires `active=0`, `consumed=1`,
+   `invitationReceipts=1`, `redemptionReceipts=1` plus exactly one new Employee Membership,
+   identity binding, Membership and User against the pre-create baseline before installation
+   transition may continue.
+
+An empty/not-filled-looking or doubtful field, rejected action, wrong surface, `FAIL`,
+`AMBIGUOUS`, `ABORT`, counter mismatch or cleanup uncertainty stops fail-closed. No button is
+tapped automatically.
+
+The existing seven executable/test paths gain only
+`apps/synthetic-android-e2e/src/Da5V5InvitationSecret.ts` and
+`apps/synthetic-android-e2e/tests/Da5V5InvitationSecret.test.ts`.
+`apps/synthetic-android-e2e/src/constants.ts` and
+`apps/synthetic-android-e2e/src/SyntheticAndroidE2eEnvironment.ts` remain read-only. The new unit
+suite covers strict loopback/status/no-store/exact-response/expiry parsing, one-shot and state
+order, sentinel non-disclosure, abort/failure cleanup and zeroing, invalid alphabet/length/pad
+bits, and rejection of a 64-hex password before ADB. The unchanged full Synthetic suite remains
+the real-endpoint verification boundary. After focused verification, tests-inclusive typecheck,
+full Synthetic required-APK reachability, build/bundle/Node checks, exactly one final V3,
+independent review, publication, one exact-head CI and fresh reviewed runtime/artifact, **STOP
+before ADB/install/Product-Human/Hardware** for fresh explicit authority.
+
 ## 2026-08-14 compact e-mail/credential prompt addendum — REVIEW PENDING / NOT ACTIVE / STOP
 
 This top addendum is an R0/V0 procedure candidate on baseline

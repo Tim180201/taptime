@@ -1,5 +1,92 @@
 # Development Assignment 05 — V5 Fast Flight Cycle Authorization Candidate
 
+## 2026-08-14 invitation-secret source/transfer scope amendment — top candidate
+
+Status: **B36 R3 PREFLIGHT STOP / R0-V0 SCOPE-AMENDMENT CANDIDATE / REVIEW PENDING / NOT
+ACTIVE / NO HARDWARE AUTHORITY**. Exact clean preparation baseline is `HEAD == main ==
+origin/main == b36d2795afd9d0a6bd8e597203ae05c2c8a8aeb6`, tree
+`eb4e1e1872f017ec377fb48a7fb31b5a67bbb5e0`. The activated b36 R3 cycle performed only its
+mandatory read-only invitation-source preflight. Repository truth exposed no bound DA5 invitation
+source, seed or Operator transfer procedure, so it stopped before every executable/test edit,
+test, build and run. This candidate supersedes only conflicting prospective invitation and R3
+scope wording below; it does not authorize execution until the activation sequence at the end of
+this addendum completes.
+
+Exactly one task-owned invitation is created after the successful Administrator result and before
+Enrollment. The child uses only the already-running loopback Synthetic services: first `POST
+/auth/v1/token?grant_type=password` with fixed public e-mail
+`administrator-e2e@example.invalid`, fixed public key
+`sb_publishable_taptime_synthetic_android_e2e` and the existing memory-only password master; then
+`POST /v1/administration/employee-invitations` with the returned Administrator bearer token,
+`expectedMembershipId = 12000000-0000-4000-8000-000000000702`, one fresh random canonical UUID
+as `commandId`, and fixed `displayName = "DA5 V5 Synthetic Employee"`. Both origins must be the
+exact environment-provided `http://127.0.0.1:<bound-port>` origins. Redirect, non-loopback,
+unexpected origin/port, non-200, missing exact `Cache-Control: no-store`, timeout or ambiguous
+response fails closed.
+
+The Auth response must exactly match the local Synthetic password-session contract and bind the
+Administrator identity. The invitation response must have exactly `status`, `invitationSecret`
+and `expiresAt`; `status` is `succeeded`, expiry is canonical and strictly future, and the secret
+is exactly 43 canonical unpadded base64url characters decoding to exactly 32 bytes with canonical
+pad bits. Immediately before creation the enrollment counters must prove zero active/consumed
+task invitations and zero invitation/redemption receipts. Immediately after the sole creation
+they must prove exactly one active invitation, zero consumed, exactly one creation receipt and
+zero redemption receipts. Any drift, second invocation or idempotent/ambiguous outcome is `STOP`.
+
+A new one-shot invitation-secret owner is completely separate from the password owner and accepts
+only the canonical 32-byte/43-character invitation. It owns the parsed secret Buffer, direct
+non-PTY ADB stdin frame and every candidate copy; each Operator-owned Buffer/frame is overwritten
+on success, rejection, abort, exception and cleanup. It is consumed exactly once and cannot be
+reset or reused. The 64-lowercase-hex password master is rejected by the invitation owner before
+any ADB call. The invitation never enters clipboard, environment, argv, file, log, terminal,
+Evidence, artifact manifest or IPC; only the password keeps the existing supervisor-to-child FD3
+frame. The local Auth access token and JSON invitation secret necessarily exist briefly as
+JavaScript strings while strict JSON/HTTP contracts are parsed or an Authorization header is
+formed. Those strings are nonloggable, never persisted or copied into evidence, their references
+are dropped immediately, and byte-zeroization is explicitly not claimed; owned Buffer copies are
+still zeroized.
+
+The exact Human/machine order is:
+
+1. Administrator combined result `PASS` on its expected destination.
+2. Machine authenticates locally, creates exactly one invitation and proves the post-create
+   counters.
+3. Human enters `employee-enrollment-e2e@example.invalid`, activates `Passwort`, answers retained
+   `EMPTY_ACTIVE`; machine injects the password; the next result action presses `Mit Einladung
+   beitreten` and accepts `PASS` only on `Als Beschäftigter beitreten`.
+4. Human activates `Einladungsgeheimnis` and answers a separate retained `EMPTY_ACTIVE`; machine
+   injects the one-shot invitation secret directly without a standalone `VISIBLE` answer.
+5. The existing `employee-install-transition` Human action presses the redemption button, accepts
+   `PASS` only after `Bereit zum Scannen`, signs out once and confirms the `TapTim.e — Anmeldung`
+   surface. Machine then proves exactly one consumed invitation, zero active, one creation receipt,
+   one redemption receipt and the exact single enrollment deltas before the existing Employee
+   installation transition proceeds.
+
+Every wrong surface, empty/not-filled-looking field, rejected action, counter mismatch, `FAIL`,
+`AMBIGUOUS` or `ABORT` fails closed. There is no automatic button tap and no positive standalone
+`VISIBLE` step.
+
+The b36 seven-path executable/test allowlist remains exact and is extended by only:
+
+- `apps/synthetic-android-e2e/src/Da5V5InvitationSecret.ts` (new)
+- `apps/synthetic-android-e2e/tests/Da5V5InvitationSecret.test.ts` (new)
+
+`apps/synthetic-android-e2e/src/constants.ts` and
+`apps/synthetic-android-e2e/src/SyntheticAndroidE2eEnvironment.ts` remain read-only. The unchanged
+full Synthetic suite is a verification input for the real Auth/invitation/redemption endpoints;
+the new focused unit suite must cover strict HTTP/JSON parsing, loopback/no-store/expiry binding,
+one-shot state, sentinel non-disclosure, abort/error cleanup and zeroing, invalid alphabet/length/
+pad bits, and rejection of the wrong 64-hex password master before ADB. The prior focused tests,
+tests-inclusive Synthetic typecheck, full required-APK-reachability boundary, build/bundle/Node
+checks, exactly one final V3, independent R3 review, focused publication, one exact-head CI, fresh
+runtime/artifact generation and independent review remain mandatory. Then **STOP before ADB,
+installation, Product-Human and Hardware** for fresh explicit authority.
+
+Activation is only: independent R0 review `APPROVED` -> focused two-document `[skip ci]`
+publication -> independent exact-head review -> extended R3 cycle. This candidate itself is V0:
+exactly these two ADO paths, no executable delta, and no test, build, npm, CI, commit, push, ADB or
+Hardware action.
+
 ## 2026-08-14 Human e-mail entry / compact credential prompts — top addendum candidate
 
 Status: **HUMAN DIRECTION RECORDED / R0-V0 CANDIDATE / REVIEW PENDING / NOT ACTIVE / NO
