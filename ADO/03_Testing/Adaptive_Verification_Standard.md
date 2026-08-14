@@ -1,5 +1,79 @@
 # AVS-001 – Adaptive Verification and CI Efficiency Standard
 
+## DA5 V3-D fulfillment and publication gate (`2026-08-14`)
+
+V3-D ran exactly once on candidate tree `d8a7c272a41738e95b9bb5b6043312443bdfd7e5` and passed
+the complete local R3 regression. Event-Ledger claim
+`d1b1d67ef28081e25900e6b1367e3585a7846547960af47969b68c5aca341a5b` binds the immutable
+Evidence; independent R3 review returned `APPROVED` with zero open P0–P3. V3-D authority is
+consumed `PASS`; the prospective instructions below are historical and grant no further run.
+
+Authorized next is only independent R0/V0 review of this focused three-ADO-file truth sync, then
+one intentional commit/push of the exact 18-path candidate after Technical-Lead approval and
+remote-state verification, followed by one exact-head CI/V4 and fresh runtime/artifact generation
+and independent review. No local V3 rerun follows because these three documentation blobs change
+no executable, test, package, dependency, workflow or artifact input and the other 15 candidate
+blobs remain exact. **STOP** before ADB, installation, Product-Human and Hardware; fresh explicit
+Human authority remains mandatory.
+
+Historical consumed rule: only after independent ADO review returned `APPROVED` for the exact
+three-document correction could
+exactly one **new, fully fresh V3-D** start. It reruns the complete established sequence from D01;
+no V3-A/B/C result, process, database, task root, file or observation is reused, resumed or called
+a retry. The successful immutable runner record
+`/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5/v3-9380758-corrected-4r21J4/runner-record.txt`
+(2,839 bytes / `0444` / SHA-256
+`5b23c0308ff5ca3cde791538b60a2092dafcf2b52878bf416ea6511339907921`) supplies command order
+only, never prior results. The Runbook is the sole operative execution/environment contract.
+
+The consumed V3-D used direct sequential process invocations in a full normal tracked detached worktree; sparse
+checkout, monolithic/ad-hoc runners and inherited/global phase environments are forbidden. Raw
+D01 and D02 npm debug logs and exact `/usr/sbin/lsof` port Evidence are hard gates. Any mismatch
+or failure consumes V3-D; there is no retry or replacement. Green routes only to independent R3
+review and stops before ADB, installation, Product-Human and Hardware. V3-D is a local technical
+verification attempt, not a Human fast-flight event; the maximum three runs/24 hours applies only
+to separately Human-authorized Product-Hardware flight events.
+
+## DA5 fast-flight addendum (`2026-08-13`)
+
+The exact-head approved DA5 fast-flight authorization at
+`9032581b1cb13b4a44f575aaface8a87989f4932` activates one R3 implementation cycle with focused
+V1, one affected-boundary V2 and exactly one final complete V3. Routine qualifying aborts do not
+rerun Product verification: they require a sealed external receipt and every closed fast-lane
+predicate to match. Campaign limits (at most three separately authorized runs in 24 hours) are
+governance/Event-Ledger rules; executable code never starts another run. Any Product/security/
+tenant failure or ambiguity, binding drift, cleanup/checker/seal risk, missing observation or
+non-disposable mutation is `STOP`. V4, exact runtime/artifact review and every Human/Hardware gate
+remain separately required.
+
+### Current DA5 verification and one-new-run rule (`2026-08-14`)
+
+Candidate tree `b775c248bb268e91b141c62361b47614f38934a5` / 212,896-byte full patch SHA-256
+`155bb35851508e30bed6c3b2908c8b410845ddd6fabc3bd795016bd0ed744cc1` has fresh V2 PASS:
+Synthetic 16 files / 384 passed / 19 expected DB skips, Mobile 1 file / 120 passed, both
+tests-inclusive typechecks (579/870 listed files), fresh Synthetic build and exact child/flight
+bundle checks. This R0 amendment carries those results and reruns no Product test.
+
+V3-A is consumed `FAIL_CLOSED`. It passed D01/D02, 11 DB, 27 migrations, 20 builds, all 21
+memberships/typechecks/suites (155 files; 3,040 passed, zero failed, three expected skips) and C3B,
+then stopped at the read-only no-install preflight because the runner omitted
+`TAPTIME_SYNTHETIC_E2E_PROFILE=da5-v5`. The Mobile package script calls
+`da5V5AndroidNoInstallPreflight.mjs`, which reads that environment variable; the artifact helper
+rejects every value except exact `da5-v5`. This is no code/Product finding. No ADB/install/Product/
+Hardware action occurred and cleanup passed.
+
+After independent ADO review `APPROVED`, one new fresh V3-B—and no retry/resume—is authorized on
+the resulting exact amendment tree/patch. It repeats the complete established V3 from D01 using
+absolute Node 24/npm CLI where npm is required; no V3-A result counts as V3-B execution. From exact
+candidate-checkout CWD `/Users/timbartz/Dokumente/GitHub/taptime` and the unchanged minimal
+sanitized V3 environment, the established gate directly runs the helper exactly once:
+`/usr/bin/env TAPTIME_SYNTHETIC_E2E_PROFILE=da5-v5 /Users/timbartz/.nvm/versions/node/v24.17.0/bin/node apps/mobile/scripts/da5V5AndroidNoInstallPreflight.mjs`.
+The helper is the direct child of D01-bound absolute Node `24.17.0`, not npm. Gate evidence retains
+exact CWD/argv, environment-name proof, raw stdout/stderr and return code; conflicting profile,
+DB-credential and secret variables remain excluded. No package lifecycle, bare
+`node`/`npm`/`npx`, ADB or installation is allowed. Failure consumes V3-B without retry; green
+V3-B proceeds to independent review, and no Hardware gate opens.
+
 Status: Active — Human Architect Accepted; Manual Operating Rules Effective; CI Automation Pending
 Document ID: AVS-001
 Version: 1.0

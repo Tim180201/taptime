@@ -46,6 +46,7 @@ export function rejectDa5V5OperationalInputs(
   const forbiddenEnvironment = Object.keys(environment).some((name) => (
     name === 'DATABASE_URL'
     || name === 'TAPTIME_SYNTHETIC_E2E_DATABASE_URL'
+    || name === 'TAPTIME_SYNTHETIC_E2E_PASSWORD'
     || name === 'TAPTIME_DA5_V5_CI_OWNER_RECORD'
     || /^(?:PG|PQ)/u.test(name)
     || /(?:DATABASE|POSTGRES)(?:_URL|_URI|_PASSWORD|_PASS|_CREDENTIALS?)$/u.test(name)
@@ -77,6 +78,7 @@ export class Da5V5OperatorLifecycle {
   private activeOperationSettlement: Promise<void> | null = null;
   private cleanupPromise: Promise<void> | null = null;
   private failureLatched = false;
+  private pendingFailureEvent: Da5V5OperatorFailureEvent | null = null;
   private reportStoppedAfterCleanup = false;
   private state: 'active' | 'running' | 'stopping' | 'stopped' = 'active';
 
@@ -86,6 +88,7 @@ export class Da5V5OperatorLifecycle {
     private readonly markFailed: () => void,
     private readonly abortActiveMutation: () => void = () => undefined,
     private readonly closeActiveInput: () => void = () => undefined,
+    private readonly reportPrecleanupSnapshot: () => Promise<void> = async () => undefined,
   ) {}
 
   isActive(): boolean {
@@ -169,8 +172,8 @@ export class Da5V5OperatorLifecycle {
   private latchFailure(event: Da5V5OperatorFailureEvent): void {
     if (!this.failureLatched) {
       this.failureLatched = true;
+      this.pendingFailureEvent = event;
       this.reportStoppedAfterCleanup = false;
-      this.report(event);
       this.markFailed();
     }
   }
@@ -192,17 +195,35 @@ export class Da5V5OperatorLifecycle {
     }
     this.state = 'stopping';
     this.cleanupPromise = (async () => {
+      let snapshotFailed = false;
+      let cleanupSucceeded = false;
       try {
         await operationSettlement;
+        try {
+          await this.reportPrecleanupSnapshot();
+        } catch {
+          snapshotFailed = true;
+          this.markFailed();
+          this.report('da5_v5_precleanup_snapshot_failed');
+        }
         await this.cleanup();
+        cleanupSucceeded = true;
         this.state = 'stopped';
-        if (this.reportStoppedAfterCleanup && !this.failureLatched) {
+        this.report('da5_v5_cleanup_complete');
+        if (this.pendingFailureEvent !== null) {
+          this.report(this.pendingFailureEvent);
+        } else if (this.reportStoppedAfterCleanup && !snapshotFailed) {
           this.report('da5_v5_stopped');
         }
       } catch {
         this.state = 'stopped';
         this.markFailed();
-        this.report('da5_v5_cleanup_failed');
+        if (!cleanupSucceeded) {
+          this.report('da5_v5_cleanup_failed');
+        }
+        if (this.pendingFailureEvent !== null) {
+          this.report(this.pendingFailureEvent);
+        }
       }
     })();
     await this.cleanupPromise;

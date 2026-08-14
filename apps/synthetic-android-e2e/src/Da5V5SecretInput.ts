@@ -1,6 +1,151 @@
+import { closeSync, read } from 'node:fs';
 import { createInterface, type Interface } from 'node:readline';
 import { Writable } from 'node:stream';
 import { Da5V5InputOwnership } from './Da5V5OperatorLifecycle.js';
+
+export const DA5_V5_CREDENTIAL_FD = 3;
+export const DA5_V5_CREDENTIAL_FRAME_BYTES = 64;
+const credentialFrameMaximumBytes = DA5_V5_CREDENTIAL_FRAME_BYTES + 1;
+const credentialFrameTimeoutMilliseconds = 5_000;
+
+export async function readDa5V5FlightCredential(
+  input: NodeJS.ReadStream,
+  publishReady: () => void,
+  signal?: AbortSignal,
+): Promise<Buffer> {
+  if (!input.isTTY) {
+    throw new Error('DA5 V5 credential input requires an interactive terminal');
+  }
+
+  const mutedOutput = createMutedOutput();
+  const secretInput = createInterface({
+    input,
+    output: mutedOutput,
+    terminal: true,
+    historySize: 0,
+  });
+  let capture: ReturnType<typeof captureCredential> | null = null;
+  try {
+    capture = captureCredential(secretInput, input);
+    void capture.result.catch(() => undefined);
+    publishReady();
+    const candidate = await awaitCredentialCapture(capture.result, signal);
+    capture.release(candidate);
+    return candidate;
+  } finally {
+    capture?.destroy();
+    secretInput.close();
+    mutedOutput.destroy();
+  }
+}
+
+function awaitCredentialCapture(
+  operation: Promise<Buffer>,
+  signal?: AbortSignal,
+): Promise<Buffer> {
+  if (signal === undefined) return operation;
+  return new Promise<Buffer>((resolvePromise, rejectPromise) => {
+    const onAbort = (): void => rejectPromise(new Error('DA5 V5 credential input cancelled'));
+    signal.addEventListener('abort', onAbort, { once: true });
+    if (signal.aborted) onAbort();
+    void operation.then(
+      (value) => {
+        signal.removeEventListener('abort', onAbort);
+        resolvePromise(value);
+      },
+      (error: unknown) => {
+        signal.removeEventListener('abort', onAbort);
+        rejectPromise(error);
+      },
+    );
+  });
+}
+
+export function readDa5V5CredentialFrame(
+  fileDescriptor: number = DA5_V5_CREDENTIAL_FD,
+  timeoutMilliseconds: number = credentialFrameTimeoutMilliseconds,
+): Promise<Buffer> {
+  if (
+    !Number.isSafeInteger(fileDescriptor)
+    || fileDescriptor < DA5_V5_CREDENTIAL_FD
+    || !Number.isSafeInteger(timeoutMilliseconds)
+    || timeoutMilliseconds < 1
+    || timeoutMilliseconds > 30_000
+  ) {
+    return Promise.reject(new Error('DA5 V5 credential frame binding is invalid'));
+  }
+
+  const observed = Buffer.alloc(credentialFrameMaximumBytes);
+  return new Promise<Buffer>((resolvePromise, rejectPromise) => {
+    let closed = false;
+    let offset = 0;
+    let settled = false;
+    const timeout = setTimeout(() => {
+      finish(new Error('DA5 V5 credential frame timed out'));
+    }, timeoutMilliseconds);
+
+    const closeDescriptor = (): Error | undefined => {
+      if (closed) return undefined;
+      closed = true;
+      try {
+        closeSync(fileDescriptor);
+        return undefined;
+      } catch {
+        return new Error('DA5 V5 credential frame close failed');
+      }
+    };
+
+    const finish = (error?: Error): void => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      const closeError = closeDescriptor();
+      if (
+        error === undefined
+        && closeError === undefined
+        && offset === DA5_V5_CREDENTIAL_FRAME_BYTES
+        && isExactLowercaseHexCredential(observed.subarray(0, offset))
+      ) {
+        const credential = Buffer.alloc(DA5_V5_CREDENTIAL_FRAME_BYTES);
+        observed.copy(credential, 0, 0, DA5_V5_CREDENTIAL_FRAME_BYTES);
+        observed.fill(0);
+        resolvePromise(credential);
+        return;
+      }
+      observed.fill(0);
+      rejectPromise(error ?? closeError ?? new Error('DA5 V5 credential frame rejected'));
+    };
+
+    const readNext = (): void => {
+      read(
+        fileDescriptor,
+        observed,
+        offset,
+        credentialFrameMaximumBytes - offset,
+        null,
+        (error, bytesRead) => {
+          if (settled) return;
+          if (error !== null) {
+            finish(new Error('DA5 V5 credential frame read failed'));
+            return;
+          }
+          if (bytesRead === 0) {
+            finish();
+            return;
+          }
+          offset += bytesRead;
+          if (offset > DA5_V5_CREDENTIAL_FRAME_BYTES) {
+            finish(new Error('DA5 V5 credential frame rejected'));
+            return;
+          }
+          readNext();
+        },
+      );
+    };
+
+    readNext();
+  });
+}
 
 export async function readDa5V5HiddenCredential(
   ownership: Da5V5InputOwnership,
@@ -11,13 +156,7 @@ export async function readDa5V5HiddenCredential(
     throw new Error('DA5 V5 credential input requires an interactive terminal');
   }
 
-  const mutedOutput = new Writable({
-    decodeStrings: true,
-    write(chunk, _encoding, callback) {
-      if (Buffer.isBuffer(chunk)) chunk.fill(0);
-      callback();
-    },
-  });
+  const mutedOutput = createMutedOutput();
   let secretInput: Interface | null = null;
   let capture: ReturnType<typeof captureCredential> | null = null;
   try {
@@ -38,6 +177,16 @@ export async function readDa5V5HiddenCredential(
     if (secretInput !== null) ownership.releaseSecret(secretInput);
     mutedOutput.destroy();
   }
+}
+
+function createMutedOutput(): Writable {
+  return new Writable({
+    decodeStrings: true,
+    write(chunk, _encoding, callback) {
+      if (Buffer.isBuffer(chunk)) chunk.fill(0);
+      callback();
+    },
+  });
 }
 
 function captureCredential(

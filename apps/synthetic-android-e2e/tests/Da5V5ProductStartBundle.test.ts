@@ -40,6 +40,12 @@ const operatorBundle = fileURLToPath(
 const operatorSourceMap = fileURLToPath(
   new URL('../dist/da5V5Main.js.map', import.meta.url),
 );
+const flightBundle = fileURLToPath(
+  new URL('../dist/da5V5FlightMain.js', import.meta.url),
+);
+const flightSourceMap = fileURLToPath(
+  new URL('../dist/da5V5FlightMain.js.map', import.meta.url),
+);
 const indexBundle = fileURLToPath(
   new URL('../dist/index.js', import.meta.url),
 );
@@ -417,24 +423,24 @@ describe('DA5 V5 Product operator bundle start smoke', () => {
       bytes: Buffer.byteLength(bundle),
       sha256: createHash('sha256').update(bundle).digest('hex'),
     }).toEqual({
-      bytes: 935_974,
+      bytes: 955_797,
       sha256:
-        'f06a1b508369fc525e562485f7a08bd5b1174034d0554cdb5174b3bbf3ef70d5',
+        '81d006308ddf063665c2f8995362fcdb8f667ee2f1d8fb14bfa3599c053bc9c5',
     });
     expect({
       bytes: sourceMapBytes.byteLength,
       sha256: createHash('sha256').update(sourceMapBytes).digest('hex'),
     }).toEqual({
-      bytes: 1_739_281,
+      bytes: 1_858_204,
       sha256:
-        'aba65ced7deb7aa6a44809cc2fef33e202c0157b3056cd00324911e7890dc30a',
+        'e6f92b35c5279aa8e3fd9ba62419785280c8979a99e5eb99a2541a83a334c94d',
     });
     expect(sourceMap.version).toBe(3);
     expect(sourceMap.sourceRoot).toBeUndefined();
     expect(Array.isArray(sourceMap.sources)).toBe(true);
     expect(Array.isArray(sourceMap.sourcesContent)).toBe(true);
-    expect(sourceMap.sources).toHaveLength(90);
-    expect(sourceMap.sourcesContent).toHaveLength(90);
+    expect(sourceMap.sources).toHaveLength(92);
+    expect(sourceMap.sourcesContent).toHaveLength(92);
     const operatorSources = sourceMap.sources as string[];
     expect(new Set(operatorSources).size).toBe(operatorSources.length);
     expect(operatorSources).toEqual(expect.arrayContaining([
@@ -542,18 +548,65 @@ describe('DA5 V5 Product operator bundle start smoke', () => {
     expect(bundle).not.toContain('pbcopy');
     expect(bundle).not.toContain('pbpaste');
 
+    const supervisorBundle = readFileSync(flightBundle, 'utf8');
+    const supervisorSourceMapBytes = readFileSync(flightSourceMap);
+    const supervisorSourceMap = JSON.parse(
+      supervisorSourceMapBytes.toString('utf8'),
+    ) as {
+      sourceRoot?: unknown;
+      sources: unknown;
+      sourcesContent: unknown;
+      version: unknown;
+    };
+    expect({
+      bytes: Buffer.byteLength(supervisorBundle),
+      sha256: createHash('sha256').update(supervisorBundle).digest('hex'),
+    }).toEqual({
+      bytes: 160_126,
+      sha256:
+        '1c83b1adc1bc8c738582a446e1ea169cc161d9e664abc6c6f15053c60d8aafa6',
+    });
+    expect({
+      bytes: supervisorSourceMapBytes.byteLength,
+      sha256: createHash('sha256').update(supervisorSourceMapBytes).digest('hex'),
+    }).toEqual({
+      bytes: 448_429,
+      sha256:
+        'a610cf725a9c390c6755facd5c0d5e7fc19c0e88d0e6daa5ae24b8be262d5200',
+    });
+    expect(supervisorSourceMap).toMatchObject({ version: 3 });
+    expect(supervisorSourceMap.sourceRoot).toBeUndefined();
+    expect(supervisorSourceMap.sources).toHaveLength(16);
+    expect(supervisorSourceMap.sourcesContent).toHaveLength(16);
+    expect(supervisorSourceMap.sources).toEqual(expect.arrayContaining([
+      '../src/da5V5FlightMain.ts',
+      '../src/Da5V5FlightController.ts',
+      '../src/Da5V5CleanStateAttestation.ts',
+    ]));
+    expect(supervisorBundle).toContain('da5-v5-fast-flight-v1');
+    expect(supervisorBundle).toContain('da5V5Main.js');
+    expect(supervisorBundle).toContain('RECEIPT_SEAL_FAILURE');
+    expect(supervisorBundle).toContain('invalid_receipt_root');
+    expect(supervisorBundle).toContain('receipt_sealed');
+    expect(supervisorBundle).toContain('DA5 V5 receipt schema mismatch');
+    expect(supervisorBundle).toContain('DA5 V5 process attestation failed');
+    expect(supervisorBundle).toContain('DA5 V5 binding set mismatch');
+    expect(supervisorBundle).toContain('TAPTIME_DA5_V5_FINAL_V3_SHA256');
+    expect(supervisorBundle).toContain('TAPTIME_DA5_V5_EXACT_HEAD_CI_SHA256');
+    expect(supervisorBundle).toContain('TAPTIME_DA5_V5_RUNTIME_MANIFEST_SHA256');
+    const syntheticPackage = JSON.parse(readFileSync(
+      fileURLToPath(new URL('../package.json', import.meta.url)),
+      'utf8',
+    )) as { readonly scripts: Readonly<Record<string, string>> };
+    expect(syntheticPackage.scripts['da5-v5:start']).toBe(
+      'node dist/da5V5FlightMain.js',
+    );
+    expect(syntheticPackage.scripts['da5-v5:child']).toBe('node dist/da5V5Main.js');
+
     const environment = Object.fromEntries(
       Object.entries(process.env).filter(([name]) => !name.startsWith('TAPTIME_')),
     );
-    const start = spawnSync(
-      process.execPath,
-      [operatorBundle],
-      {
-        cwd: repositoryRoot,
-        encoding: 'utf8',
-        env: environment,
-      },
-    );
+    const start = startOperatorWithFd3(environment);
 
     expect(start.status).toBe(1);
     expect(start.stdout).toBe('');
@@ -565,13 +618,7 @@ describe('DA5 V5 Product operator bundle start smoke', () => {
       'synthetic_e2e_android_runtime_complete_verified',
     );
 
-    const startNear = spawnSync(
-      process.execPath,
-      [operatorBundle],
-      {
-        cwd: repositoryRoot,
-        encoding: 'utf8',
-        env: {
+    const startNear = startOperatorWithFd3({
           ...environment,
           PATH: '',
           TAPTIME_DA5_V5_ANDROID_API: '35',
@@ -594,14 +641,18 @@ describe('DA5 V5 Product operator bundle start smoke', () => {
           TAPTIME_DA5_V5_TALKBACK_PACKAGE:
             'com.google.android.marvin.talkback',
           TAPTIME_DA5_V5_TALKBACK_VERSION: '15.1.0',
-          TAPTIME_SYNTHETIC_E2E_PASSWORD: 'e'.repeat(64),
           TAPTIME_SYNTHETIC_E2E_PROFILE: 'da5-v5',
-        },
-      },
-    );
+    });
 
     expect(startNear.status).toBe(1);
-    expect(startNear.stdout).toBe('');
+    expect(startNear.stdout).toBe(
+      'da5_v5_precleanup_snapshot={"aggregates":{"equality":"unproved","observation":"unobserved"},'
+      + '"invariants":{"equality":"unproved","observation":"unobserved"},'
+      + '"queue":{"equality":"unproved","observation":"unobserved",'
+      + '"reason":"operator_schema_has_no_queue_field"},"schema_version":1,'
+      + '"tag_roles":{"equality":"unproved","observation":"unobserved"}}\n'
+      + 'da5_v5_cleanup_complete\n',
+    );
     expect(startNear.stderr).toBe('da5_v5_start_failed\n');
     expect(startNear.stderr).not.toContain('Synthetic E2E release APK');
 
@@ -702,6 +753,47 @@ describe('DA5 V5 Product operator bundle start smoke', () => {
     });
   }, 30_000);
 });
+
+function startOperatorWithFd3(environment: NodeJS.ProcessEnv) {
+  return spawnSync(
+    process.execPath,
+    [
+      '--input-type=module',
+      '--eval',
+      `
+        import { spawn } from 'node:child_process';
+        const chunks = [];
+        for await (const chunk of process.stdin) chunks.push(chunk);
+        const credential = Buffer.concat(chunks);
+        for (const chunk of chunks) chunk.fill(0);
+        const child = spawn(process.execPath, [process.argv[1]], {
+          cwd: process.cwd(),
+          env: process.env,
+          stdio: ['ignore', 'pipe', 'pipe', 'pipe'],
+        });
+        process.once('exit', () => credential.fill(0));
+        child.stdout.pipe(process.stdout);
+        child.stderr.pipe(process.stderr);
+        const pipe = child.stdio[3];
+        pipe.on('error', () => credential.fill(0));
+        pipe.end(credential, () => credential.fill(0));
+        child.once('close', (code, signal) => {
+          credential.fill(0);
+          process.exitCode = signal === null && code !== null ? code : 2;
+        });
+      `,
+      operatorBundle,
+    ],
+    {
+      cwd: repositoryRoot,
+      encoding: 'utf8',
+      env: environment,
+      input: ptyCredential,
+      maxBuffer: 64 * 1024,
+      timeout: 10_000,
+    },
+  );
+}
 
 const IMAGE_SIZE_HANDLER_EXTENSIONS: Readonly<
   Record<string, readonly string[]>

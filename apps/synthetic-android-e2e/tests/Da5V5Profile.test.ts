@@ -502,7 +502,7 @@ describe('DA5 V5 serial Human checkpoints', () => {
       }));
       await lifecycle.submit(vi.fn(async () => ({ state: 'continue' as const })));
 
-      expect(events).toEqual(['da5_v5_aborted']);
+      expect(events).toEqual(['da5_v5_cleanup_complete', 'da5_v5_aborted']);
       expect(cleanup).toHaveBeenCalledTimes(1);
       expect(closeInput).toHaveBeenCalledTimes(1);
       expect(accessibility.terminalFailureRestored()).toBe(true);
@@ -973,7 +973,7 @@ describe('DA5 V5 fixture, lifecycle and startup fail-stop boundaries', () => {
 
     const later = vi.fn(async () => ({ state: 'continue' as const }));
     await lifecycle.submit(later);
-    expect(events).toEqual(['operator_command_rejected']);
+    expect(events).toEqual(['da5_v5_cleanup_complete', 'operator_command_rejected']);
     expect(cleanup).toHaveBeenCalledTimes(1);
     expect(markFailed).toHaveBeenCalledTimes(1);
     expect(abort).toHaveBeenCalledTimes(1);
@@ -999,7 +999,7 @@ describe('DA5 V5 fixture, lifecycle and startup fail-stop boundaries', () => {
       const later = vi.fn(async () => ({ state: 'continue' as const }));
       await lifecycle.submit(later);
 
-      expect(events).toEqual(['da5_v5_aborted']);
+      expect(events).toEqual(['da5_v5_cleanup_complete', 'da5_v5_aborted']);
       expect(events).not.toContain('operator_command_rejected');
       expect(events).not.toContain('da5_v5_stopped');
       expect(cleanup).toHaveBeenCalledTimes(1);
@@ -1021,7 +1021,7 @@ describe('DA5 V5 fixture, lifecycle and startup fail-stop boundaries', () => {
 
     await lifecycle.submit(async () => ({ state: 'stop' }));
 
-    expect(events).toEqual(['da5_v5_stopped']);
+    expect(events).toEqual(['da5_v5_cleanup_complete', 'da5_v5_stopped']);
     expect(cleanup).toHaveBeenCalledTimes(1);
     expect(markFailed).not.toHaveBeenCalled();
   });
@@ -1059,7 +1059,7 @@ describe('DA5 V5 fixture, lifecycle and startup fail-stop boundaries', () => {
       lifecycle.abortAndFail('operator_command_failed'),
     ]);
 
-    expect(events).toEqual(['operator_command_failed']);
+    expect(events).toEqual(['da5_v5_cleanup_complete', 'operator_command_failed']);
     expect(cleanup).toHaveBeenCalledTimes(1);
   });
 
@@ -1084,7 +1084,7 @@ describe('DA5 V5 fixture, lifecycle and startup fail-stop boundaries', () => {
         return { state: 'continue' };
       });
 
-      expect(events).toEqual(['operator_command_failed']);
+      expect(events).toEqual(['da5_v5_cleanup_complete', 'operator_command_failed']);
       expect(cleanup).toHaveBeenCalledTimes(1);
     });
 
@@ -1123,7 +1123,7 @@ describe('DA5 V5 fixture, lifecycle and startup fail-stop boundaries', () => {
       const repeated = signal.handleSignal();
       expect(first).toBe(repeated);
       await Promise.all([first, repeated]);
-      expect(events).toEqual(['da5_v5_interrupted']);
+      expect(events).toEqual(['da5_v5_cleanup_complete', 'da5_v5_interrupted']);
       expect(cleanupAttempt).toHaveBeenCalledTimes(1);
       expect(failed).toHaveBeenCalledTimes(1);
     });
@@ -1343,12 +1343,21 @@ describe('DA5 V5 fixture, lifecycle and startup fail-stop boundaries', () => {
         new URL('../src/Da5V5SecretInput.ts', import.meta.url),
         'utf8',
       );
+      const flightControllerSource = await readFile(
+        new URL('../src/Da5V5FlightController.ts', import.meta.url),
+        'utf8',
+      );
       const rejection = 'rejectDa5V5OperationalInputs(process.env, process.argv);';
       const profileRequirement =
         'const profile = requireDa5V5Profile(process.env.TAPTIME_SYNTHETIC_E2E_PROFILE);';
+      const credentialFrameRead = 'credentialMasterBuffer = await readDa5V5CredentialFrame();';
       expect(source.indexOf(rejection)).toBeGreaterThanOrEqual(0);
+      expect(source.indexOf(credentialFrameRead)).toBeGreaterThanOrEqual(0);
       expect(source.indexOf(profileRequirement)).toBeGreaterThanOrEqual(0);
       expect(source.indexOf(rejection)).toBeLessThan(
+        source.indexOf(credentialFrameRead),
+      );
+      expect(source.indexOf(credentialFrameRead)).toBeLessThan(
         source.indexOf(profileRequirement),
       );
       expect(source.indexOf('verifyDa5V5RuntimeGuardArtifact({')).toBeLessThan(
@@ -1431,7 +1440,8 @@ describe('DA5 V5 fixture, lifecycle and startup fail-stop boundaries', () => {
       expect(source).toContain('reverseState: offline.cleanupProofState()');
       expect(source).toContain('await offline.settleForTerminalCleanup()');
       expect(source).toContain("if (normalized === 'abort')");
-      expect(source).toContain('| abort | stop');
+      expect(source).toContain('DA5_V5_OPERATOR_COMMANDS');
+      expect(flightControllerSource).toContain('| abort | stop');
       expect(source.indexOf(
         "if (normalized === 'abort' && accessibilitySession.requiresRestoreProof())",
       )).toBeLessThan(source.indexOf('if (accessibilitySession.restoreOnly())'));
@@ -1469,10 +1479,10 @@ describe('DA5 V5 fixture, lifecycle and startup fail-stop boundaries', () => {
       expect(source).toContain(
         'new Da5V5DeviceCheckpointController(\n  adb,\n  standardBinding,\n  accessibilityBinding,\n  deviceLock,',
       );
-      expect(source).toContain(
+      expect(flightControllerSource).toContain(
         'employee-installation-transition-confirm <PASS|FAIL|AMBIGUOUS>',
       );
-      expect(source).toContain(
+      expect(flightControllerSource).toContain(
         'employee-ready-confirm <PASS|FAIL|AMBIGUOUS>',
       );
       expect(source).toContain(
@@ -1534,7 +1544,7 @@ describe('DA5 V5 fixture, lifecycle and startup fail-stop boundaries', () => {
         transactionSwap,
       );
       const replacementInstallFailureReceipt = source.indexOf(
-        'process.stdout.write(da5V5AndroidInstallFailureReceipt(error));',
+        'writeOperatorOutput(da5V5AndroidInstallFailureReceipt(error));',
         replacementInstall,
       );
       const replacementInstallFailureStop = source.indexOf(
@@ -1594,10 +1604,10 @@ describe('DA5 V5 fixture, lifecycle and startup fail-stop boundaries', () => {
       expect(employeeTransitionBlock).not.toContain(
         'androidInstallTransaction = oldTransaction',
       );
-      expect(source).toContain(
+      expect(flightControllerSource).toContain(
         'credential-field-ready <administrator|enrollment|employee> EMPTY_ACTIVE',
       );
-      expect(source).toContain(
+      expect(flightControllerSource).toContain(
         'credential-field-confirm <administrator|enrollment|employee> <VISIBLE|EMPTY|AMBIGUOUS>',
       );
       expect(source).toContain(
@@ -1624,33 +1634,44 @@ describe('DA5 V5 fixture, lifecycle and startup fail-stop boundaries', () => {
         accessibilityConfirmationStart,
       );
       expect(standardCredentialBlock).toContain(
-        "process.stdout.write('synthetic_password_binding=match\\n')",
+        "writeOperatorOutput('synthetic_password_binding=match\\n')",
       );
       expect(standardCredentialBlock).not.toContain(
         'da5_v5_accessibility_password_binding=match',
       );
       expect(accessibilityCredentialBlock).toContain(
-        "process.stdout.write('da5_v5_accessibility_password_binding=match\\n')",
+        "writeOperatorOutput('da5_v5_accessibility_password_binding=match\\n')",
       );
       expect(accessibilityCredentialBlock).not.toContain(
-        "process.stdout.write('synthetic_password_binding=match\\n')",
+        "writeOperatorOutput('synthetic_password_binding=match\\n')",
       );
-      expect(source.match(/synthetic_password_input_ready/gu)).toHaveLength(1);
-      expect(source).toContain(
-        "() => process.stdout.write('synthetic_password_input_ready\\n')",
-      );
+      expect(source).not.toContain('synthetic_password_input_ready');
+      expect(source).not.toContain('readDa5V5HiddenCredential');
+      expect(source).toContain('const candidate = copyCredentialMaster();');
+      expect(source).toContain('destroyCredentialMaster();');
       expect(secretInputSource).not.toContain('removeAllListeners');
-      expect(secretInputSource).not.toContain('setTimeout');
-      expect(secretInputSource.indexOf('ownership.transferCommandToSecret('))
-        .toBeLessThan(secretInputSource.indexOf('captureCredential(secretInput, input)'));
-      expect(secretInputSource.indexOf('captureCredential(secretInput, input)'))
-        .toBeLessThan(secretInputSource.indexOf('publishReady();'));
+      const ttyCaptureSource = secretInputSource.slice(
+        secretInputSource.indexOf('function captureCredential('),
+      );
+      expect(ttyCaptureSource).not.toContain('setTimeout');
+      const hiddenCredentialStart = secretInputSource.indexOf(
+        'export async function readDa5V5HiddenCredential',
+      );
+      expect(secretInputSource.indexOf('ownership.transferCommandToSecret(', hiddenCredentialStart))
+        .toBeLessThan(secretInputSource.indexOf(
+          'captureCredential(secretInput, input)',
+          hiddenCredentialStart,
+        ));
+      expect(secretInputSource.indexOf(
+        'captureCredential(secretInput, input)',
+        hiddenCredentialStart,
+      )).toBeLessThan(secretInputSource.indexOf('publishReady();', hiddenCredentialStart));
       expect(secretInputSource).toContain('observed.fill(0)');
       expect(secretInputSource).toContain(
         'if (Buffer.isBuffer(chunk)) chunk.fill(0);',
       );
       expect(source).toContain('da5_v5_accessibility_surface_plan=');
-      expect(source).toContain('accessibility-prepare | accessibility-check');
+      expect(flightControllerSource).toContain('accessibility-prepare | accessibility-check');
       expect(source).toContain("if (normalized === 'accessibility-prepare')");
       expect(source).toContain(
         'da5_v5_accessibility_prepare=match restore_required=armed',
@@ -1665,13 +1686,13 @@ describe('DA5 V5 fixture, lifecycle and startup fail-stop boundaries', () => {
       );
       expect(source).toContain('if (accessibilitySession.requiresRestoreProof())');
       expect(source).toContain('da5_v5_accessibility_restore_required=match');
-      expect(source).toContain(
+      expect(flightControllerSource).toContain(
         'accessibility-credential-field-ready <administrator|employee> EMPTY_ACTIVE',
       );
-      expect(source).toContain(
+      expect(flightControllerSource).toContain(
         'accessibility-credential-field-confirm <administrator|employee> <VISIBLE|EMPTY|AMBIGUOUS>',
       );
-      expect(source).toContain('accessibility-surface-confirm <surface>');
+      expect(flightControllerSource).toContain('accessibility-surface-confirm <surface>');
       expect(source).toContain("if (normalized === 'accessibility-cancel')");
       expect(source).toContain("if (normalized !== 'standard-profile-check')");
       expect(source).toContain("await stage('accessibility-restore-proof'");

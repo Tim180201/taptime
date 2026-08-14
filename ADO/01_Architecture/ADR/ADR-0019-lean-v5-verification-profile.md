@@ -1,5 +1,45 @@
 # ADR-0019: Lean V5 Verification Profile
 
+## Fast-flight activation (`2026-08-13`)
+
+The exact-head approved authorization published at
+`9032581b1cb13b4a44f575aaface8a87989f4932` / tree
+`03c06109a622e666d693ad9f28785ad834f4e663` activates the prospective fast-flight policy in
+`Development_Assignment_05_V5_Fast_Flight_Cycle_Authorization.md`. The compiled, digest-bound
+Supervisor is the only DA5 V5 start path: it starts one fresh child, never resumes or restarts,
+and creates a closed post-cleanup receipt only after child exit and fresh clean-state attestation.
+Every Human/Hardware invocation still requires separate exact authority. Current executable and
+Hardware state remains **STOP** pending implementation verification, review, publication and V4.
+
+The append-only Event Ledger is the single published event source. Historical attempt truth below
+remains immutable and is referenced, not copied or reclassified.
+
+### Current verification and V3-B amendment candidate (`2026-08-14`)
+
+The independently approved pre-amendment candidate is tree
+`b775c248bb268e91b141c62361b47614f38934a5`, full 18-path patch 212,896 bytes / SHA-256
+`155bb35851508e30bed6c3b2908c8b410845ddd6fabc3bd795016bd0ed744cc1`. Fresh affected-boundary
+V2 passed: Synthetic 16 files / 384 passed / 19 expected DB skips, Mobile 1 file / 120 passed,
+both tests-inclusive typechecks, fresh build and both bundle bindings/checks.
+
+Final V3-A is consumed `FAIL_CLOSED`: D01/D02, 11 databases, 27 migration invocations, 20 builds,
+21 memberships/typechecks/suites (155 files; 3,043 tests: 3,040 passed, zero failed, three expected
+skips) and C3B passed; the following no-install preflight stopped because the runner omitted exact
+`TAPTIME_SYNTHETIC_E2E_PROFILE=da5-v5`. Repository source requires that value and rejects every
+other profile. This is a runner-configuration failure, not a code or Product finding. No ADB,
+installation, Product or Hardware action occurred; cleanup passed.
+
+Only after independent ADO review `APPROVED`, exactly one **new** V3-B is authorized on this
+amendment's resulting exact tree/patch. It reruns the complete established V3 from D01 with
+absolute Node 24/npm CLI where npm is required; V3-A is diagnostic context only. From exact
+candidate-checkout CWD `/Users/timbartz/Dokumente/GitHub/taptime` and the unchanged minimal
+sanitized V3 environment, the read-only no-install gate directly invokes exactly once:
+`/usr/bin/env TAPTIME_SYNTHETIC_E2E_PROFILE=da5-v5 /Users/timbartz/.nvm/versions/node/v24.17.0/bin/node apps/mobile/scripts/da5V5AndroidNoInstallPreflight.mjs`.
+The helper is the direct child of bound absolute Node `24.17.0`; D01 binds its path/version/digest
+and gate evidence binds exact CWD/argv, environment-name proof, raw output and return code. No npm
+lifecycle, bare `node`/`npm`/`npx`, ADB or install is permitted. Any failure consumes V3-B with no
+retry; green V3-B proceeds only to independent review, never Hardware.
+
 - Status: **ACTIVE — HUMAN ACCEPTED; INDEPENDENTLY APPROVED; PUBLISHED**
 - Date: 2026-08-02
 - Historical candidate baseline commit: `456da51150f8748a647ab46aa10fd0e1f25b54bf`

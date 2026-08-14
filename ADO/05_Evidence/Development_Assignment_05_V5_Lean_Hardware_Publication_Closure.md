@@ -1,5 +1,53 @@
 # Development Assignment 5 — Lean Stage-6 Hardware Publication Closure
 
+## Fast-flight publication closure — implementation candidate / STOP
+
+Exact authority source is published commit
+`9032581b1cb13b4a44f575aaface8a87989f4932`, tree
+`03c06109a622e666d693ad9f28785ad834f4e663`. The fast-flight policy is active, but the new Flight
+Package remains an uncommitted R3 implementation candidate until final V1/V2/V3, independent
+implementation review, focused publication, V4 and exact runtime/artifact review complete.
+No current Operator, ADB, installation, Product, Hardware, production, deployment or distribution
+authority exists.
+
+Publication must bind the Supervisor/child bundles and maps, immutable plan digest, exact source
+delta, tests-inclusive typechecks, V1/V2/V3 evidence and the single Event-Ledger pointer. It must
+not duplicate historical narrative or convert a test receipt into Physical evidence. Historical
+correction-2 terminal truth below stays latest: authority consumed, no retry/resume/relogin/
+replacement. The next Human/Hardware authorization, if any, must separately cite the final exact
+reviewed head and binding set.
+
+### Current verification and publication boundary (`2026-08-14`)
+
+The independently approved pre-amendment candidate is tree
+`b775c248bb268e91b141c62361b47614f38934a5`, full 18-path patch 212,896 bytes / SHA-256
+`155bb35851508e30bed6c3b2908c8b410845ddd6fabc3bd795016bd0ed744cc1`. Fresh V2 passed:
+Synthetic 16 files / 384 passed / 19 expected DB skips, Mobile 1 file / 120 passed, both
+tests-inclusive typechecks, fresh build and exact bundle checks.
+
+V3-A is consumed `FAIL_CLOSED` after D01/D02, 11 DB, 27 migrations, 20 builds, all 21
+memberships/typechecks/suites (155 files; 3,040 passed / zero failed / three expected skips) and
+C3B passed. The next no-install preflight failed because the runner omitted exact
+`TAPTIME_SYNTHETIC_E2E_PROFILE=da5-v5`, which repository source requires. No ADB, install,
+Product or Hardware action occurred; cleanup passed. Immutable evidence root
+`v3-fast-b775c248-failed-profile-20260814T0049Z` is `0555` with 78 manifest-bound payload files
+plus `evidence-manifest.txt` = 79 regular files total; receipt SHA-256
+`d13dae77c997167962ac31c843e8ee22f904001957c25db0143dceb88c61fb75`; manifest SHA-256
+`36d1172e26f330d12d3990a29e0e0bd31e42adc0fd80b71c09be373773fb79f1`. This is a runner
+configuration failure, not a code/Product finding.
+
+Independent ADO review `APPROVED` is prerequisite to exactly one new fresh V3-B on this
+amendment's resulting exact tree/patch. V3-B reruns full V3 from D01 with no V3-A execution reuse.
+Its preflight proves the exact unchanged minimal sanitized V3 environment. The established
+read-only no-install gate binds candidate-checkout CWD exactly as
+`/Users/timbartz/Dokumente/GitHub/taptime`, records exact CWD/argv plus raw output/return code and
+directly invokes exactly once:
+`/usr/bin/env TAPTIME_SYNTHETIC_E2E_PROFILE=da5-v5 /Users/timbartz/.nvm/versions/node/v24.17.0/bin/node apps/mobile/scripts/da5V5AndroidNoInstallPreflight.mjs`.
+The helper is the direct child of D01-bound absolute Node `24.17.0`; no package lifecycle, bare
+`node`/`npm`/`npx`, conflicting profile/DB-credential/secret variable, ADB or installation is
+allowed. Failure consumes V3-B without retry; green V3-B requires independent review. Publication
+and every Human/Hardware gate remain closed.
+
 Status: **R0/V0 CORRECTION-2 CLOSURE CANDIDATE — PREPUBLICATION REVIEW 3 REQUIRED / AUTHORITY CONSUMED / STOP**
 
 Owner: Technical Lead

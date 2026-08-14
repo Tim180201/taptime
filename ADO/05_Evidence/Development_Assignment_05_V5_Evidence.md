@@ -1,5 +1,57 @@
 # Development Assignment 5 — V5 Human Android Evidence
 
+## Fast-flight implementation evidence boundary (`2026-08-13`)
+
+The approved activation source is commit
+`9032581b1cb13b4a44f575aaface8a87989f4932`, tree
+`03c06109a622e666d693ad9f28785ad834f4e663`. This R3 candidate adds the compiled Supervisor,
+immutable plan, FD3 Credential transfer, post-cleanup snapshot/checker, atomic receipt and focused
+tests; final V1/V2/V3 results and exact candidate digests are recorded at Development handover and
+must be bound by independent review/publication before V4. No Hardware, ADB, installation,
+Product run, production action, commit or push is claimed here.
+
+Future operational events are appended once to
+`Development_Assignment_05_Event_Ledger.md`; this document retains only evidence-package concern.
+The latest historical terminal truth remains correction 2 below, with consumed authority and no
+retry/resume. This implementation candidate does not create a run, receipt or new Human authority.
+
+### Current technical evidence and V3-B candidate (`2026-08-14`)
+
+The independently approved pre-amendment candidate is tree
+`b775c248bb268e91b141c62361b47614f38934a5`, full 18-path patch 212,896 bytes / SHA-256
+`155bb35851508e30bed6c3b2908c8b410845ddd6fabc3bd795016bd0ed744cc1`. Fresh V2 passed:
+Synthetic 16 files / 384 passed / 19 expected DB skips; Mobile neighbor 1 file / 120 passed;
+tests-inclusive Synthetic/Mobile typechecks with 579/870 listed files; fresh Synthetic build,
+both bundle syntax checks and exact bundle/map bindings. This R0 amendment carries those results;
+it reruns no Product check.
+
+Fresh final V3-A is consumed `FAIL_CLOSED`. Passed before stop: D01/D02; one 11-DB PostgreSQL
+boundary; 27 migration invocations; 20 builds; 21/21 tests-inclusive memberships, typechecks and
+suites; 155 files / 3,043 tests / 3,040 passed / zero failed / three disclosed expected skips;
+C3B `verify-bin`. The next read-only no-install preflight returned failure because the runner
+omitted `TAPTIME_SYNTHETIC_E2E_PROFILE=da5-v5`. `apps/mobile/package.json` dispatches to
+`da5V5AndroidNoInstallPreflight.mjs`; that script reads the variable and
+`da5V5AndroidArtifact.mjs` rejects unless it is exact `da5-v5`. This is runner configuration, not
+a code or Product finding. No ADB, install, Product or Hardware action occurred; cleanup passed.
+
+Immutable V3-A evidence:
+`/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5/v3-fast-b775c248-failed-profile-20260814T0049Z`
+(`0555`, 78 manifest-bound payload files plus `evidence-manifest.txt` = 79 regular files total);
+receipt 2,282 bytes / `0444` / SHA-256
+`d13dae77c997167962ac31c843e8ee22f904001957c25db0143dceb88c61fb75`; manifest 9,769 bytes /
+`0444` / SHA-256 `36d1172e26f330d12d3990a29e0e0bd31e42adc0fd80b71c09be373773fb79f1`.
+
+After independent ADO review `APPROVED`, exactly one new V3-B is authorized on the amendment's
+resulting exact tree/patch. It reruns the complete established V3 from D01; V3-A is diagnostic
+context only. Pre-D01 evidence must prove exact profile plus the unchanged minimal sanitized V3
+environment. With candidate-checkout CWD exactly
+`/Users/timbartz/Dokumente/GitHub/taptime`, the gate directly invokes exactly once:
+`/usr/bin/env TAPTIME_SYNTHETIC_E2E_PROFILE=da5-v5 /Users/timbartz/.nvm/versions/node/v24.17.0/bin/node apps/mobile/scripts/da5V5AndroidNoInstallPreflight.mjs`.
+Evidence retains exact CWD/argv, sanitized environment-name proof, raw stdout/stderr and return
+code. The helper is the direct child of D01-bound absolute Node `24.17.0`; no package lifecycle,
+bare `node`/`npm`/`npx`, other profile/DB-credential/secret leakage, ADB or install is allowed.
+Failure consumes V3-B without retry; green routes to independent review, never Hardware.
+
 ## Current correction-2 Evidence — exact `/private/tmp`, later current state only (`2026-08-13`)
 
 Marker: `DA5-V5-ABORT-BEFORE-PREVIEW2-CORRECTION2-2026-08-13`. This section supersedes

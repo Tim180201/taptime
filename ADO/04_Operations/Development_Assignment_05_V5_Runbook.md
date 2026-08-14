@@ -1,5 +1,130 @@
 # Development Assignment 5 — V5 Human Android Gate Runbook
 
+## V3-D fulfilled (`2026-08-14`) — publication path only / Hardware STOP
+
+V3-D ran exactly once on candidate tree `d8a7c272a41738e95b9bb5b6043312443bdfd7e5` and passed
+the complete established sequence and cleanup. Event-Ledger claim
+`d1b1d67ef28081e25900e6b1367e3585a7846547960af47969b68c5aca341a5b` binds the exact Evidence;
+independent R3 review returned `APPROVED` with zero open P0–P3. V3-D is consumed: no restart,
+retry, replacement or result reuse is authorized.
+
+Current route is independent R0/V0 review of the focused three-document truth sync, one
+intentional exact-candidate commit/push after Technical-Lead approval and remote check, one
+exact-head CI/V4, then fresh runtime/artifact generation and independent review. **STOP** before
+Supervisor invocation, ADB, installation, Product-Human and Hardware; a fresh explicit Human
+Hardware authorization remains mandatory. The retained runner matrix below is historical and
+consumed; it MUST NOT be executed again.
+
+### Historical consumed worktree and order gate
+
+Create a fresh **normal, non-sparse**, detached worktree at published baseline
+`9032581b1cb13b4a44f575aaface8a87989f4932` / tree
+`03c06109a622e666d693ad9f28785ad834f4e663`, then overlay exactly the independently reviewed 18
+candidate-tree blobs. Before D01 prove: baseline tracked count 971; candidate tracked count 977;
+all 18 blob identities and the reviewed candidate tree/canonical baseline patch match; root
+`tsconfig.base.json`, `package.json` and `package-lock.json` exist and are blob-equal to the bound
+candidate tree. Root `app.json` and `research/` are absent from both bound Git trees; never
+enumerate or read their contents. Sparse checkout or any omitted tracked file is `STOP`.
+
+Execute every command as its own direct, awaited process call—no monolithic/ad-hoc shell runner
+or wrapper. Follow only the command order in immutable
+`/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5/v3-9380758-corrected-4r21J4/runner-record.txt`
+(2,839 bytes / `0444` / SHA-256
+`5b23c0308ff5ca3cde791538b60a2092dafcf2b52878bf416ea6511339907921`); that file supplies order,
+not results. Bind absolute Node 24, npm CLI, PostgreSQL 17.10 and artifact tools. Before D01 use
+exact `/usr/sbin/lsof` and retained command/path/stdout/stderr/return-code Evidence to prove owned
+ports 3000/54321/55435 absent; missing tool or ambiguous output is `STOP`.
+
+### Historical consumed state, environment and evidence gates
+
+Create one fresh task-owned `V3D_TASK_ROOT`; derive fresh `HOME`, `TMPDIR`, npm cache, empty
+`0444` user/global npmrc files (empty SHA-256
+`e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`) and separate D01/D02
+debug directories from it. Each child uses `/usr/bin/env -i`, closed base `HOME`, `TMPDIR`,
+`PATH=/Users/timbartz/.nvm/versions/node/v24.17.0/bin:/usr/bin:/bin`, `USER=timbartz`,
+`LOGNAME=timbartz`, `SHELL=/bin/zsh`, plus only its row's overlay:
+
+| Phase | Closed overlay/rule |
+|---|---|
+| D01 / D02 | Fresh root-derived `NPM_CONFIG_CACHE`, `NPM_CONFIG_USERCONFIG`, `NPM_CONFIG_GLOBALCONFIG`, phase-specific `NPM_CONFIG_LOGS_DIR`; `NPM_CONFIG_LOGS_MAX=1`, `NPM_CONFIG_LOGLEVEL=verbose`, exact absolute `npm_node_execpath` and `npm_execpath`; invoke absolute Node 24 + absolute npm CLI. D01 completes before D02. Immediately after **each** command, before D02 or any PG/later command respectively, copy the raw npm debug log into Evidence and hash-bind it. Missing/rotated/unreadable raw log is `STOP`; JSON/stderr/return code/digest is not a substitute. |
+| PostgreSQL | Only `LC_ALL=C`; exact PostgreSQL 17.10, `initdb --locale=C --encoding=UTF8`, `pg_ctl`/postmaster inherit `LC_ALL=C`; argv-bound host/port/user/database; all other locale and every `PG*`/`PQ*` environment name absent. Remove locale before Node. Run fresh 11-database and 27-migration gates. |
+| Node gates | Absolute Node 24 and absolute npm CLI only where required; no locale. Only the established per-command database overlay may exist. Run the full established 20 builds, 21 membership/typecheck gates and 21 suites, then all additional/bundle checks in recorded order. |
+| DA5 no-install preflight | From candidate CWD, direct absolute Node 24 invocation of `apps/mobile/scripts/da5V5AndroidNoInstallPreflight.mjs`; add only `TAPTIME_SYNTHETIC_E2E_PROFILE=da5-v5`, equal bound Android roots and task/OS support names. No package lifecycle, bare tool, locale, DB/PG/PQ, ADB control or installation. |
+| Expo/artifact | Exact recorded direct absolute-Node invocation and established synthetic-e2e overlay only; no locale, operational DB overlay, ADB or DA5 profile. |
+
+All unnamed `LANG`, `LANGUAGE`, `LC_*`, `PG*`, `PQ*`, database credential/URL, Android/ADB and
+profile names remain absent. Retain exact CWD/argv, environment-name proof, raw output and return
+code for every gate. Cleanup uses exact `/usr/sbin/lsof` for each owned port and retains the same
+five evidence fields; missing tool or ambiguity means cleanup `UNVERIFIED`, never `PASS`.
+
+Any mismatch/failure consumes V3-D; no retry, replacement or result reuse. Green routes only to
+independent R3 review. **STOP before ADB, install, Product-Human and Hardware.**
+
+## Current fast-flight procedure activation — implementation candidate / STOP
+
+The exact-head approved authorization is
+`9032581b1cb13b4a44f575aaface8a87989f4932` / tree
+`03c06109a622e666d693ad9f28785ad834f4e663`. After required implementation verification, review,
+publication, V4 and exact runtime/artifact review, `npm run da5-v5:start
+--workspace=@taptime/synthetic-android-e2e` reaches only the compiled Supervisor. Until those
+gates and a fresh separate Human authorization complete, **do not invoke it**; no ADB, install,
+Product or Hardware action is authorized.
+
+The Supervisor captures the bound 64-lowercase-hex Credential once through hidden TTY input,
+passes it only as one exact FD3 frame to one fresh child, and follows its immutable hashed plan.
+Before capture it recomputes `binding_set_id` from the exact Supervisor/child bytes, plan digest,
+Node version, allowlisted child environment and the six separately reviewed SHA-256 bindings for
+procedure, closure, final V3, exact-head CI, runtime manifest and toolchain; mismatch stops before
+the child. Those six values are supplied only as Supervisor bindings named
+`TAPTIME_DA5_V5_{PROCEDURE,CLOSURE,FINAL_V3,EXACT_HEAD_CI,RUNTIME_MANIFEST,TOOLCHAIN}_SHA256`
+and are never passed to the child.
+At each prompt the Human uses only the displayed `screen`, exact `field`/`button`, `action`,
+`do_not` and `allowed_response`; only `PASS`, `FAIL`, `AMBIGUOUS`, the requested non-negative
+integer queue count, or `ABORT` is valid. Never type the Credential into the command channel.
+There is no mid-flight source/Runbook lookup, resume, retry or automatic next run.
+
+Every terminal path waits for Operator cleanup/exit, runs the fresh scoped checker and then seals
+one disclosure-safe external JSON receipt plus manifest. `FAIL`, `AMBIGUOUS`, unexpected input,
+order/nonce mismatch, signal, timeout/hang, child failure, cleanup/checker/seal mismatch or unknown
+state is fail-closed `STOP`. Accessibility restoration remains mandatory once started. A later
+run always begins at step one under new separate Human authority. Campaign synchronization and
+the maximum-three/24-hour rule are enforced through the Event Ledger, never by the Supervisor.
+
+### Current verification and V3-B runner correction (`2026-08-14`)
+
+Pre-amendment candidate tree `b775c248bb268e91b141c62361b47614f38934a5`, full patch 212,896
+bytes / SHA-256 `155bb35851508e30bed6c3b2908c8b410845ddd6fabc3bd795016bd0ed744cc1`, has fresh V2 PASS:
+Synthetic 16 files / 384 passed / 19 expected DB skips; Mobile 1 file / 120 passed; both
+tests-inclusive typechecks, fresh build and both bundle checks.
+
+V3-A is consumed `FAIL_CLOSED`. It passed D01/D02, 11 DB, 27 migration commands, 20 builds,
+21 memberships/typechecks/suites (155 files; 3,043 tests: 3,040 passed / zero failed / three
+expected skips) and C3B. The next no-install preflight stopped because the runner did not supply
+exact `TAPTIME_SYNTHETIC_E2E_PROFILE=da5-v5`; repository code requires it. No ADB, install,
+Product or Hardware action occurred; cleanup passed. The immutable evidence root is
+`/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5/v3-fast-b775c248-failed-profile-20260814T0049Z`
+(root `0555`, 78 manifest-bound payload files plus `evidence-manifest.txt` = 79 regular files
+total), receipt SHA-256
+`d13dae77c997167962ac31c843e8ee22f904001957c25db0143dceb88c61fb75`, manifest SHA-256
+`36d1172e26f330d12d3990a29e0e0bd31e42adc0fd80b71c09be373773fb79f1`.
+
+Only after independent ADO review `APPROVED`, run exactly one **new** V3-B on this amendment's
+resulting bound tree/patch. Start the full established sequence at D01; do not reuse V3-A gates as
+execution. Before D01 prove exact profile `da5-v5`, the unchanged minimal sanitized V3 environment
+and absence of conflicting profile, DB-credential or secret variables. From exact
+candidate-checkout CWD `/Users/timbartz/Dokumente/GitHub/taptime`, directly invoke exactly once:
+`/usr/bin/env TAPTIME_SYNTHETIC_E2E_PROFILE=da5-v5 /Users/timbartz/.nvm/versions/node/v24.17.0/bin/node apps/mobile/scripts/da5V5AndroidNoInstallPreflight.mjs`.
+The helper is the direct child of D01-bound absolute Node `24.17.0`; no package script/npm
+lifecycle is invoked. Its runtime environment needs only the already-bound exact profile, equal
+exact `ANDROID_HOME`/`ANDROID_SDK_ROOT`, task-owned `TMPDIR` and existing allowlisted OS support
+names; this correction adds none. Retain exact CWD/argv, environment-name proof, raw stdout/stderr
+and return code. No bare `node`/`npm`/`npx`, ADB or installation is allowed. A failure consumes
+V3-B without retry; green routes to independent review, not Product/Hardware.
+
+The latest historical terminal truth remains the correction-2 event below:
+`FAIL_CLOSED / HUMAN ORDER DEVIATION BEFORE PREVIEW 2; LATER CURRENT STATE CLEAN`, authority
+consumed. It is not retryable and is not reclassified by this activation.
+
 ## Current Human-order-deviation correction 2 — terminal STOP
 
 Marker: `DA5-V5-ABORT-BEFORE-PREVIEW2-CORRECTION2-2026-08-13`. This section supersedes

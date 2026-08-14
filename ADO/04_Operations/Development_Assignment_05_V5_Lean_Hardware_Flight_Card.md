@@ -1,5 +1,42 @@
 # Development Assignment 5 — Lean Stage-6 Hardware Flight Card
 
+## Fast-flight card — implementation candidate / STOP
+
+Governing authorization: `9032581b1cb13b4a44f575aaface8a87989f4932` / tree
+`03c06109a622e666d693ad9f28785ad834f4e663`. The compiled Supervisor, plan digest, exact binding
+set and external evidence parent must all match the independently reviewed/published Flight
+Package before invocation. **No current invocation, ADB, install, Product or Hardware authority
+exists.**
+
+During a separately authorized run, respond only to the complete on-screen prompt contract with
+`PASS`, `FAIL`, `AMBIGUOUS`, the requested integer queue count, or `ABORT`. Do only that action;
+do not improvise, retry, resume, repair, reorder, expose a Credential or start another run.
+Cleanup, child exit, fresh attestation and sealed receipt are mandatory before classification.
+Only a receipt with every fast-lane predicate `MATCH` can support a later separately authorized
+fresh run. Otherwise `STOP` and use normal publication/review routing. Historical correction-2
+terminal truth and consumed authority below remain unchanged.
+
+### Current verification / no flight authority (`2026-08-14`)
+
+Candidate tree `b775c248bb268e91b141c62361b47614f38934a5` / full patch SHA-256
+`155bb35851508e30bed6c3b2908c8b410845ddd6fabc3bd795016bd0ed744cc1` passed fresh V2
+(Synthetic 384 passed / 19 expected DB skips; Mobile 120 passed; both tests-inclusive typechecks,
+fresh build and bundle checks). V3-A is consumed `FAIL_CLOSED` after all gates through C3B passed:
+the following no-install preflight lacked exact `TAPTIME_SYNTHETIC_E2E_PROFILE=da5-v5`. This is a
+runner-configuration failure, not a code/Product finding. No ADB, install, Product or Hardware
+action occurred; cleanup passed.
+
+Independent ADO `APPROVED` review may authorize exactly one new V3-B on the resulting amendment
+tree/patch. It must rerun full V3 from D01 and use absolute Node 24/npm CLI for the applicable npm
+gates. The no-install gate binds exact candidate-checkout CWD
+`/Users/timbartz/Dokumente/GitHub/taptime`, the unchanged minimal sanitized V3 environment and
+directly invokes exactly once:
+`/usr/bin/env TAPTIME_SYNTHETIC_E2E_PROFILE=da5-v5 /Users/timbartz/.nvm/versions/node/v24.17.0/bin/node apps/mobile/scripts/da5V5AndroidNoInstallPreflight.mjs`.
+Gate evidence binds exact CWD/argv, environment-name proof, raw output and return code. The helper
+is the direct child of D01-bound Node `24.17.0`; no package lifecycle or bare
+`node`/`npm`/`npx` is allowed. V3-A is context only; failure consumes V3-B with no retry. Green
+V3-B goes to independent review only. **No flight, ADB, install or Hardware authority is created.**
+
 Status: **R0/V0 CORRECTION-2 CLOSURE CANDIDATE / LATER CURRENT STATE CLEAN / AUTHORITY CONSUMED / STOP**
 
 Owner: Technical Lead
