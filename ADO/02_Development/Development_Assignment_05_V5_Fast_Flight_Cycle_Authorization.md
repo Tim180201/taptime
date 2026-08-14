@@ -1,5 +1,67 @@
 # Development Assignment 05 — V5 Fast Flight Cycle Authorization Candidate
 
+## 2026-08-14 Human e-mail entry / compact credential prompts — top addendum candidate
+
+Status: **HUMAN DIRECTION RECORDED / R0-V0 CANDIDATE / REVIEW PENDING / NOT ACTIVE / NO
+HARDWARE AUTHORITY**. Exact preparation baseline is `HEAD == main == origin/main ==
+3edae6bc5e91da1c286d32f3fe577b25154717fe`, tree
+`25971097144a0d043d1656108da7045469bd36e5`. This addendum supersedes only conflicting future
+prompt/credential-procedure wording below; historical outcomes and consumed authorities remain
+unchanged. It authorizes no executable change or run before the activation sequence below.
+
+The Human enters each public Synthetic e-mail address manually. Every affected prompt must name
+the exact screen, e-mail field, address, credential field and button:
+
+| Flow | Screen / fields / button | Exact public Synthetic e-mail |
+|---|---|---|
+| Administrator and Accessibility Administrator | `TapTim.e — Anmeldung` / `E-Mail-Adresse` / `Passwort` / `Anmelden` | `administrator-e2e@example.invalid` |
+| Enrollment login | `TapTim.e — Anmeldung` / `E-Mail-Adresse` / `Passwort` / `Mit Einladung beitreten` | `employee-enrollment-e2e@example.invalid` |
+| Employee and Accessibility Employee | `TapTim.e — Anmeldung` / `E-Mail-Adresse` / `Passwort` / `Anmelden` | `android-e2e@example.invalid` |
+
+Only the three fixed public Synthetic addresses above may appear in the compiled plan, Human
+prompt and terminal prompt output. A personal/free-form e-mail is forbidden, and no e-mail enters
+the credential/ADB/clipboard channel, child environment, argv, evidence receipt or artifact
+manifest. The credential remains captured exactly once, hidden at run start, memory-only and
+FD3-bound, then machine-injected; it never enters clipboard, environment, argv, file or log.
+`EMPTY_ACTIVE` before injection remains mandatory. The separate positive `VISIBLE` checkpoint is
+removed. After successful machine-bound transfer, the next already-required Human result/surface
+action also instructs the Human to press the named button. `PASS` is allowed only when the expected
+destination surface is visible. An empty/not-filled-looking credential field, invisible or
+otherwise doubtful injection, rejected login, wrong surface or any uncertainty is immediately
+`FAIL`, `AMBIGUOUS` or `ABORT` and remains fail-closed. There is no automatic button tap.
+Accessibility restoration is unchanged.
+
+The `enrollment` credential phase is strictly the password field on `TapTim.e — Anmeldung`; its
+successful destination is `Als Beschäftigter beitreten`. The 64-hex password master must never be
+sent to `Einladungsgeheimnis`. The separate existing invitation-redemption step is not redefined;
+if its exact safe source/procedure cannot be bound from current repository truth, R3 stops before
+implementation and requests a scope amendment instead of guessing.
+
+Only after this R0 candidate receives independent review `APPROVED`, one focused `[skip ci]`
+publication and independent exact-head review may the standing rule activate one R3 cycle on the
+resulting exact head. Its executable/test allowlist is exactly:
+
+- `apps/synthetic-android-e2e/src/Da5V5FlightController.ts`
+- `apps/synthetic-android-e2e/src/da5V5Main.ts`
+- `apps/synthetic-android-e2e/src/Da5V5CredentialTransfer.ts`
+- `apps/synthetic-android-e2e/tests/Da5V5FlightController.test.ts`
+- `apps/synthetic-android-e2e/tests/Da5V5CredentialTransfer.test.ts`
+- `apps/synthetic-android-e2e/tests/Da5V5Profile.test.ts`
+- `apps/synthetic-android-e2e/tests/Da5V5ProductStartBundle.test.ts`
+
+`apps/synthetic-android-e2e/src/constants.ts` remains read-only and supplies the exact e-mail
+literals. The Event Ledger may change only as the terminal truth synchronization after the R3
+result. Any other path or semantic expansion stops for new authority.
+
+The activated R3 cycle requires focused tests, a tests-inclusive Synthetic typecheck, the full
+Synthetic required-APK-reachability boundary, build/bundle/Node checks, exactly one final V3,
+independent R3 review, focused publication, one exact-head CI, fresh runtime/artifact generation
+and independent review. Focused acceptance includes exact prompt/e-mail mapping, absence of every
+standalone `VISIBLE` step/command, combined result-gate failures, and proof that the password master
+cannot enter the invitation-secret field. It then **STOPS before ADB, installation, Human
+interaction and Hardware** for a fresh explicit authority. This R0 preparation runs only V0; no
+test, build, npm, CI, commit, push, ADB or Hardware action is claimed.
+
 Status: **HUMAN PROCESS-OPTIMIZATION DIRECTION RECEIVED / R0 CANDIDATE / REVIEW PENDING /
 NOT ACTIVE / NO HARDWARE AUTHORITY**
 Owner: Technical Lead

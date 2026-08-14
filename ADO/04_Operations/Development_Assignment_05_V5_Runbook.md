@@ -1,5 +1,54 @@
 # Development Assignment 5 — V5 Human Android Gate Runbook
 
+## 2026-08-14 compact e-mail/credential prompt addendum — REVIEW PENDING / NOT ACTIVE / STOP
+
+This top addendum is an R0/V0 procedure candidate on baseline
+`3edae6bc5e91da1c286d32f3fe577b25154717fe` / tree
+`25971097144a0d043d1656108da7045469bd36e5`. It supersedes only conflicting future prompt
+wording below. It grants no Supervisor invocation, ADB, installation, Product-Human or Hardware
+authority.
+
+For every affected surface, the Human types the named public Synthetic e-mail into
+`E-Mail-Adresse`, then
+activates the named credential field and answers the retained `EMPTY_ACTIVE` checkpoint:
+
+| Surface | E-mail to type | Credential field | Human button |
+|---|---|---|---|
+| Administrator login | `administrator-e2e@example.invalid` | `Passwort` | `Anmelden` |
+| Enrollment login | `employee-enrollment-e2e@example.invalid` | `Passwort` | `Mit Einladung beitreten` |
+| Employee login | `android-e2e@example.invalid` | `Passwort` | `Anmelden` |
+| Accessibility Administrator reauthentication | `administrator-e2e@example.invalid` | `Passwort` | `Anmelden` |
+| Accessibility Employee reauthentication | `android-e2e@example.invalid` | `Passwort` | `Anmelden` |
+
+Each generated prompt names screen, `E-Mail-Adresse`, the exact address, credential field, button
+and expected destination surface. Only these fixed public Synthetic addresses may appear in the
+compiled plan and terminal prompt output; no personal/free-form e-mail is accepted or persisted.
+The Operator never injects an e-mail and never places one in the credential/ADB/clipboard path,
+child environment, argv, evidence receipt or artifact manifest. The run credential is still
+captured once through hidden input before child start, transferred only as the exact FD3 frame,
+retained memory-only as required and machine-injected into the active empty credential field. It
+never appears in clipboard, environment, argv, file or log.
+
+`enrollment` means only the `Passwort` field on `TapTim.e — Anmeldung`, followed once by `Mit
+Einladung beitreten`; expected destination is `Als Beschäftigter beitreten`. Never inject the
+64-hex password master into `Einladungsgeheimnis`. Invitation redemption remains a separate
+existing Product step. If its exact safe source/procedure is not already bound, stop before R3
+implementation and request a scope amendment; never improvise or reuse the password.
+
+There is no separate positive `VISIBLE` answer after injection. Instead, the next already-required
+Human result/surface action tells the Human to press the listed button and observe the expected
+destination. Respond `PASS` only after that destination is visible. If the credential field is
+empty, not filled-looking or doubtful, the button/login is rejected, a different surface appears,
+or the observation is uncertain, respond immediately with `FAIL`, `AMBIGUOUS` or `ABORT`; the
+run stops fail-closed. No button is tapped automatically. Accessibility restore/check/abort
+semantics remain unchanged.
+
+Activation order is fixed: independent R0 review → focused `[skip ci]` publication → independent
+exact-head review → allowlisted R3 implementation and verification → independent R3 review →
+focused publication → one exact-head CI → fresh runtime/artifact plus independent review →
+**STOP before ADB/install/Human/Hardware for fresh explicit authority**. Until that sequence
+completes, the existing runtime must not be used for another Hardware run.
+
 ## V3-D fulfilled (`2026-08-14`) — publication path only / Hardware STOP
 
 V3-D ran exactly once on candidate tree `d8a7c272a41738e95b9bb5b6043312443bdfd7e5` and passed
