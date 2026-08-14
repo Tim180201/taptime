@@ -1248,9 +1248,35 @@ function ptyProbeSource(): string {
 
     const descendant = spawn(
       process.execPath,
-      ['--eval', "process.on('SIGHUP', () => undefined); setInterval(() => undefined, 1_000);"],
-      { stdio: 'ignore' },
+      [
+        '--eval',
+        "process.on('SIGHUP', () => undefined); setInterval(() => undefined, 1_000); if (typeof process.send !== 'function') process.exit(2); process.send('ready');",
+      ],
+      { stdio: ['ignore', 'ignore', 'ignore', 'ipc'] },
     );
+    await new Promise((resolve, reject) => {
+      const cleanup = () => {
+        descendant.off('error', fail);
+        descendant.off('exit', fail);
+        descendant.off('message', handleMessage);
+      };
+      const fail = () => {
+        cleanup();
+        reject(new Error('descendant readiness failed'));
+      };
+      const handleMessage = (message) => {
+        cleanup();
+        if (message !== 'ready') {
+          reject(new Error('descendant readiness mismatch'));
+          return;
+        }
+        resolve();
+      };
+      descendant.once('error', fail);
+      descendant.once('exit', fail);
+      descendant.once('message', handleMessage);
+    });
+    descendant.disconnect();
     descendant.unref();
 
     const ownership = new Da5V5InputOwnership();
