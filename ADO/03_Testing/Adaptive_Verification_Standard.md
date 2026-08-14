@@ -1,5 +1,76 @@
 # AVS-001 – Adaptive Verification and CI Efficiency Standard
 
+## DA5 Compact-Login/Invitation R1 correction and conditional R2 authority (`2026-08-14`) — REVIEW PENDING / NOT ACTIVE
+
+Formal independent execution review returned `CHANGES REQUIRED` for `DA5-CLIS-V3-R1`. Its
+terminal truth is **`FAIL_CLOSED / EVIDENCE INVALID / RUNNER-VALIDATOR DEVIATION`**, never
+`PASS`: the outer D01 digest matcher exited `125` at the first decision-path deviation, and the
+first pre-seal inventory validator exited `91` at the second. Technical gates observed after the
+first deviation are diagnostic history only and are not reusable execution Evidence. Product
+finding is `NONE`; cleanup is `PASS`; no ADB, installation, Product-Human or Hardware action ran.
+
+The immutable historical root
+`/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5/da5-clis-v3r1-20260814T082337Z-2a40cfb8fa0d45e9b4de8362177a368b`
+remains byte-unchanged with 787 payloads plus `evidence-manifest.txt` and 196 command sets.
+`receipt.txt` is 4,511 bytes / `0444` / SHA-256
+`05c6d91cd34e7c325e1378e7649b2a50d81f1ba4b92c9bc394e3527f955efc16`; the manifest is
+91,302 bytes / `0444` / SHA-256
+`c9ca075e0ebbf4d3cd81ea07a20224c8370613796e655f9610dbac2cda6af02c`. Its recorded `PASS`
+classification is superseded; sealing does not make deviating execution valid. The following R1
+authority block remains history and grants no run.
+
+At this amendment baseline, `HEAD == main == origin/main ==
+caa4fb55c227de137d16ce4d7a39e67faafa38f0`, tree
+`28546aeab6c54f367f1f7ac312bc3a23b57eee1f`. The byte-identical nine-path executable/test
+overlay produces tree `ea785f3f2b0eb23ee8c031a325ba5cac79da78c7`; its canonical full-index
+patch remains 95,701 bytes / SHA-256
+`948362e5b82cc599181976c9e55966979b75f5b25b0e5ec2cb2990004c9635d0`. These are
+prepublication preparation facts, not substitutes for the future exact-head receipt.
+
+This AVS block is the sole prospective authority for exactly one new, complete and fully fresh
+`DA5-CLIS-V3-R2`. It remains inactive until, in order: independent `APPROVED` of this exact
+three-document R0/V0 amendment; one focused three-document `[skip ci]` publication; independent
+`APPROVED` of an immutable frozen runner bundle; and independent exact-head review issuing an
+immutable receipt. That receipt must bind the published ADO head and tree, each of the three ADO
+blob IDs, each unchanged overlay blob ID, the resulting combined tree, the canonical nine-path
+patch bytes/SHA above, and every runner-bundle path, byte count, mode and SHA-256 together with
+its manifest, validator/self-test receipts, terminal-supervisor/fault-test receipt and independent
+review receipt. It also prebinds the run ID, canonical final inner-Evidence root and absent
+canonical same-filesystem terminal-envelope stage, nonauthoritative pending and final paths; all
+three must initially be absent. Missing, ambiguous or drifting binding is `STOP`; no value is
+inferred.
+
+R2 starts at D01 in fresh roots and may reuse no R1 gate, result, process, database, file, root or
+observation; it is neither retry nor resume. Correction Round 1 found that the sealed inner root
+cannot non-circularly record either its post-rename validator result or the orchestrator's eventual
+terminal state. Therefore only receipt-bound absolute Node may invoke frozen
+`terminal-supervisor.mjs` as the sole entrypoint. The supervisor directly spawns and awaits the
+receipt-bound orchestrator with `shell: false`, requires terminal kind `exit`/code `0`, and then
+separately directly spawns and awaits the receipt-bound validator against the immutable final
+inner root with the same terminal requirement. The inner receipt is always
+`TECHNICAL_GATES_COMPLETE_PENDING_TERMINAL_ENVELOPE`, never `PASS`.
+
+The supervisor alone prepares a separate sealed terminal envelope after verifying the run ID,
+canonical final-root path, exact manifest bytes/mode/SHA-256 and complete root/directory/file
+mode/path inventory. It seals and validates stage, atomically renames stage to the prebound
+nonauthoritative pending path while final remains absent, then fully rereads and validates pending
+including its receipt and exact path/byte/mode/SHA inventory. Only after that success may it
+atomically rename pending to the prebound final path. This second rename is the single terminal
+authority, commit point and final operation affecting authority or Evidence; reviewed
+same-filesystem rename semantics plus the prevalidated pending bytes make final authoritative on
+successful rename. No required reread, fallible validation, cleanup or classification operation
+follows it, and the supervisor's later process return is informational rather than a second
+authority.
+
+Stage and pending are explicitly nonauthoritative even if a complete `PASS` receipt is visible;
+consumers accept only the exact prebound final path together with its referenced exact inner root.
+Every fault before the second rename is `FAIL_CLOSED` and must leave final absent. Successful
+commit leaves stage/pending absent and final present. This finite outer commit replaces any
+self-recording requirement without permitting an external/ad-hoc wrapper. The Runbook top
+addendum is the sole operative R2 recipe and leaves the existing exact run matrix otherwise
+unchanged. Green R2 proceeds only to independent R3 execution/Evidence review and then **STOPS
+before Supervisor, ADB, installation, Product-Human and Hardware**.
+
 ## DA5 Compact-Login/Invitation replacement V3 authority (`2026-08-14`) — REVIEW PENDING / NOT ACTIVE
 
 The first final V3 for the unchanged nine-path Compact-Login/Invitation candidate tree

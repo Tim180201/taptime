@@ -1,5 +1,63 @@
 # Development Assignment 5 — Append-Only Event Ledger
 
+## Claim `5898f40b130c82a5bdaf540d1f59861cd3775a638749b00040a0bb45bdffaaf9` — Compact-Login/Invitation R1 invalid Evidence and conditional R2 authority (`2026-08-14`)
+
+- `binding_set_id`: `14a4dd1effdb145bfd7c1f8069172a6dffea12f02cbdd30d156f59da65f03c17`;
+  binds the unchanged nine-path overlay tree at this amendment baseline
+  `ea785f3f2b0eb23ee8c031a325ba5cac79da78c7`, canonical full-index patch 95,701 bytes /
+  SHA-256 `948362e5b82cc599181976c9e55966979b75f5b25b0e5ec2cb2990004c9635d0`, and the immutable
+  R1 receipt/manifest below.
+- `supersedes_claim_ids`:
+  [`3d04c462b0f5e1303683e6b11ab21424b7c556b27b94204e8c1845173ed86897`] only for that
+  claim's prospective R1 authority and any conflicting current R1 truth. Its first final-V3
+  failure, SQLSTATE `42501`, cleanup and other historical facts remain unchanged.
+- `provenance`: formal independent execution review `CHANGES REQUIRED` plus the immutable R1
+  Evidence root below. This three-document amendment is R0/V0 and review-pending.
+- `time_scope` / `observation`: the two named decision-path deviations and later diagnostic gates
+  are observed in the immutable run; no later gate is reusable execution Evidence.
+- `authority_before`: exactly one `DA5-CLIS-V3-R1`; `authority_after`: R1 is consumed
+  `FAIL_CLOSED` with no retry or resume. Prospective R2 remains inactive behind the AVS gates.
+- `evidence`: immutable, unchanged root
+  `/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5/da5-clis-v3r1-20260814T082337Z-2a40cfb8fa0d45e9b4de8362177a368b`
+  contains 787 payloads plus `evidence-manifest.txt` and 196 command sets. `receipt.txt` is 4,511
+  bytes / `0444` / SHA-256
+  `05c6d91cd34e7c325e1378e7649b2a50d81f1ba4b92c9bc394e3527f955efc16`; the manifest is
+  91,302 bytes / `0444` / SHA-256
+  `c9ca075e0ebbf4d3cd81ea07a20224c8370613796e655f9610dbac2cda6af02c`. The receipt's `PASS`
+  classification is superseded without changing the root.
+- `verification`: outer D01 digest matcher return code `125` was the first decision-path
+  deviation; first pre-seal inventory-validator return code `91` was the second. Technical gates
+  observed afterward are diagnostic only. Product finding is `NONE`; no ADB, installation,
+  Product-Human or Hardware action ran.
+- `cleanup`: `PASS`; it does not repair invalid Evidence or authorize reuse.
+- `prospective_r2`: the AVS top addendum alone conditionally authorizes exactly one fully fresh
+  `DA5-CLIS-V3-R2` after independent ADO `APPROVED`, focused exact-three-document `[skip ci]`
+  publication, independent immutable frozen-runner-bundle `APPROVED`, and independent exact-head
+  receipt binding the published ADO head/tree/three blobs, unchanged nine overlay blobs,
+  resulting combined tree, canonical patch bytes/SHA, exact runner bundle including
+  `terminal-supervisor.mjs` and its fault-test receipt, prebound run ID/final inner root and absent
+  canonical same-filesystem terminal-envelope stage, nonauthoritative pending and final paths. The
+  Runbook top addendum alone is the operative recipe. R2 starts at D01 with no reuse/retry/resume;
+  failure consumes it with no replacement.
+- `prospective_terminal_commit`: only receipt-bound absolute Node invokes the frozen terminal
+  supervisor. It awaits exact orchestrator `exit`/`0`, independently awaits final-root validator
+  `exit`/`0`, verifies run/root/manifest/mode/path bindings, and then seals and atomically publishes
+  a separate terminal envelope. The inner receipt is
+  `TECHNICAL_GATES_COMPLETE_PENDING_TERMINAL_ENVELOPE`, never `PASS`. It seals/validates stage,
+  atomically renames stage to nonauthoritative pending while final stays absent, and fully
+  rereads/validates pending. Only the second atomic pending-to-final rename is the commit and final
+  Evidence/authority operation; exact reviewed same-filesystem semantics plus prevalidated
+  pending bytes make final authoritative without a post-final reread. Stage/pending remain
+  nonauthoritative even with a visible complete `PASS` receipt, and consumers accept only the
+  prebound final path jointly with its referenced exact inner root. Every precommit fault leaves
+  final absent; successful commit leaves stage/pending absent and final present. No cleanup or
+  classification operation follows; supervisor return is informational, not recursive authority.
+  External/ad-hoc wrappers remain forbidden.
+- `terminal_state`: **`FAIL_CLOSED / EVIDENCE INVALID / RUNNER-VALIDATOR DEVIATION`**; recorded
+  R1 `PASS` is invalid and superseded; Product finding `NONE`; cleanup `PASS`; fast lane `NOT
+  APPLICABLE`. R2 green can proceed only to independent R3 execution/Evidence review and then
+  **STOPS before Supervisor, ADB, installation, Product-Human and Hardware**.
+
 ## Claim `3d04c462b0f5e1303683e6b11ab21424b7c556b27b94204e8c1845173ed86897` — Compact-Login/Invitation V3 terminal failure and conditional replacement authority (`2026-08-14`)
 
 - `binding_set_id`: `50e58860f132131257f487cc5c1bc571b3ab27d1e45027c166e59f6ac0e8a40f`;

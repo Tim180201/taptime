@@ -1,5 +1,138 @@
 # Development Assignment 5 — V5 Human Android Gate Runbook
 
+## 2026-08-14 Compact-Login/Invitation fresh R2 frozen-orchestrator correction — REVIEW PENDING / NOT ACTIVE / HARDWARE STOP
+
+This is the sole operative recipe for conditional `DA5-CLIS-V3-R2` and supersedes the following
+R1 addendum only where this block changes authority, orchestration, inventory validation, D01
+digest matching and terminal handling. Formal independent execution review classified R1
+**`FAIL_CLOSED / EVIDENCE INVALID / RUNNER-VALIDATOR DEVIATION`**: outer D01 digest matcher
+return code `125` was the first decision-path deviation and first pre-seal inventory-validator
+return code `91` was the second. Every later technical gate is diagnostic only and cannot be
+reused. The unchanged historical root, receipt and manifest are bound by the Event-Ledger top
+claim; its receipt's `PASS` classification is superseded. Product finding is `NONE`, cleanup is
+`PASS`, and no ADB, installation, Product-Human or Hardware action ran.
+
+R2 may start exactly once only after the AVS-ordered independent ADO `APPROVED`, focused exact
+three-document `[skip ci]` publication, independent frozen-runner-bundle `APPROVED`, and
+independent exact-head review/receipt. That receipt supplies the sole admissible ADO head/tree,
+three ADO blobs, unchanged nine overlay blobs, resulting combined tree, 95,701-byte canonical
+nine-path full-index patch SHA-256
+`948362e5b82cc599181976c9e55966979b75f5b25b0e5ec2cb2990004c9635d0`, and exact runner-bundle
+bindings. R2 creates fresh task, worktree, PostgreSQL and Evidence roots and begins at D01. No R1
+result, process, database, path, file, gate or observation is reused, retried or resumed.
+
+Except for the explicit supersessions in this block, every exact tool, CWD, argv, environment,
+port, PostgreSQL, migration, 20/21/21, artifact, Expo, final-V0 and cleanup requirement in the
+immediately following R1 addendum applies unchanged and in the same order. Its remaining
+`v3r1` path and public fixture literals stay literal recipe values; they do not restore R1
+authority. No alternative command matrix, external override or implicit default exists.
+
+### Frozen runner bundle, terminal supervisor and direct orchestration
+
+The frozen bundle must contain `terminal-supervisor.mjs`, `orchestrator.mjs`,
+`inventory-validator.mjs`, `run-plan.json`, the validator and terminal-supervisor self-/fault-test
+sources and immutable receipts, the independent `APPROVED` review receipt, and
+`evidence-manifest.txt`. The manifest names every exact relative path and binds every other bundle
+payload by bytes, mode and SHA-256; only the manifest excludes itself. All regular payloads,
+including every receipt, are `0444`; all directories are `0555`. The exact-head receipt binds the
+final bundle manifest metadata, every payload binding, the run ID, canonical final inner root and
+three canonical same-filesystem terminal-envelope paths: fresh stage, nonauthoritative pending and
+final. All three are receipt-prebound and initially absent. Before the first pre-port command and
+D01, the exact bundle is copied into fresh run Evidence and its bytes, hashes, modes and paths are
+proved identical.
+
+Only receipt-bound absolute Node may invoke receipt-bound `terminal-supervisor.mjs`, which is the
+sole entrypoint; an external/ad-hoc wrapper, direct orchestrator invocation, monolithic shell
+runner or substitute plan is forbidden. The supervisor directly spawns the receipt-bound
+`orchestrator.mjs` with receipt-bound `run-plan.json`, `shell: false`, and awaits its true terminal
+state. The orchestrator must use `shell: false` and spawn every preflight, D01/D02, database,
+migration, build, Typecheck, suite, artifact, Expo, V0, cleanup, inner sealing and pre-rename
+validation gate as its own separate direct, sequential and awaited child. It records each child's
+actual terminal kind and return code before the next child. The first failed or ambiguous gate
+stops technical execution and enters only required cleanup and Evidence finalization.
+
+The orchestrator's disclosure-safe inner `receipt.txt` must classify only
+`TECHNICAL_GATES_COMPLETE_PENDING_TERMINAL_ENVELOPE`, never `PASS`. After it atomically publishes
+the immutable final inner root and terminates, the supervisor requires orchestrator terminal kind
+`exit` and code `0`. It then independently directly spawns the receipt-bound
+`inventory-validator.mjs` against that final root with `shell: false`, awaits the true terminal,
+and requires kind `exit`/code `0`. The supervisor independently verifies exact run ID, bound
+canonical final-root path, manifest byte count/mode/SHA-256, and complete root/directory/file
+mode/path inventory. Neither the inner root nor either successful child terminal alone authorizes
+`PASS`.
+
+### Exact inventory-validator and D01-digest contract
+
+The bundle cannot receive independent `APPROVED` until its validator negative tests and receipt
+prove rejection of every forbidden case below and success of the sole valid fixture. At each
+receipt-bound phase the validator uses `lstat`, requires the bound canonical root, rejects path
+escape and symlinks, requires every root/entry on the same device, and requires every
+`(st_dev, st_ino)` pair to be unique. Every regular file has `nlink == 1`; directories have no
+link-count requirement. Every entry must have the phase-exact regular-file or directory type and
+mode; hard links, FIFOs, sockets and every other type are rejected.
+
+Each manifest is strict LF-terminated, sorted and unique by canonical relative path, with exactly
+four fields per row: SHA-256, decimal byte count, four-digit mode and relative path. It covers
+every regular payload and excludes only itself. Duplicate or unsorted rows, duplicate paths,
+missing or extra entries, path escape, type/device/inode/link-count mismatch, and hash, byte or
+mode drift are rejection conditions. The orchestrator must run the exact validator for pre-seal
+inventory and again after payload `0444`/directory `0555` chmod. After the same-filesystem inner
+atomic rename and the orchestrator's true successful terminal, the supervisor independently runs
+the exact validator against the final root; post-chmod and final-root validations require
+identical manifest coverage and payload bytes.
+
+The D01 digest matcher is a separate direct awaited child. Success requires both its terminal kind
+`exit`/code `0` and programmatic equality of the observed and receipt-bound expected digest; grep,
+shell marker text or output-presence inference is forbidden. Any outer matcher/orchestrator
+nonzero terminal, signal, timeout, missing return code or digest inequality is terminal failure.
+
+### Non-circular terminal-envelope commit
+
+Only after both awaited children and every independent binding check above pass may the supervisor
+create a fresh separate terminal-envelope stage at its receipt-prebound canonical absent path.
+Stage, nonauthoritative pending and final are three distinct receipt-prebound canonical paths in
+one reviewed same-filesystem atomic-rename domain and must all be absent initially; any
+preexistence is terminal failure. The supervisor writes disclosure-safe `terminal-receipt.txt`
+containing exactly the bound `run_id`, orchestrator terminal kind/code, final-validator terminal
+kind/code, canonical final inner-root path plus its manifest bytes/mode/SHA-256, result `PASS`, and
+the bound terminal-supervisor/orchestrator/validator/plan bundle digests. No secret or Product
+data enters the envelope.
+
+The supervisor writes the envelope manifest covering `terminal-receipt.txt` and every other
+regular envelope input, excluding only that manifest; chmods every payload `0444` and every
+directory `0555`; validates exact manifest coverage, bytes, hashes, types, modes, device/inode and
+path inventory; and atomically renames sealed stage to the prebound absent pending path while final
+remains absent. It then fully rereads and validates pending, including the exact receipt, path
+inventory, bytes, modes and SHA-256 values. Stage and pending are nonauthoritative even when their
+complete receipt says `PASS`; every consumer must reject them and accept only the exact prebound
+final path.
+
+Only after pending fully passes may the supervisor atomically rename pending to the prebound absent
+final path. That second rename is the sole terminal authority and commit point and is the final
+operation affecting authority, classification, state or Evidence. The exact reviewed
+same-filesystem rename semantics and prevalidated pending bytes make final authoritative on
+successful second rename; no required reread, fallible validation, cleanup or classification
+operation follows it. Supervisor process return after commit is informational and is not a second
+authority. Successful commit has stage/pending absent and final present; only that exact final
+envelope together with its referenced immutable inner Evidence root proves R2 `PASS`.
+
+Before the second rename, any supervisor/orchestrator/validator nonzero exit, signal, timeout,
+missing terminal/return code, validation or seal error, manifest/root drift, write/chmod fault,
+first-rename fault, pending reread/validation fault or second-rename fault is `FAIL_CLOSED` and
+must leave final absent. Any stage or pending root is nonauthoritative regardless of completeness;
+cleanup success cannot repair the failure.
+
+Before frozen-bundle `APPROVED`, receipt-bound fault tests must cover orchestrator nonzero exit,
+signal and timeout; validator nonzero exit; manifest/root drift; stage, pending or final-path
+preexistence; envelope write/chmod faults; first-rename faults; pending reread/validation faults;
+and second-rename faults. Every case must prove final absent until the successful second rename;
+that success must prove stage/pending absent and final present. The test sources/results and
+immutable receipt are bundle payloads and must themselves match the reviewed manifest.
+
+Every R2 failure, interruption or ambiguity consumes `DA5-CLIS-V3-R2`; there is no retry, resume
+or replacement. Green proceeds only to independent R3 execution/Evidence review and then
+**STOPS before Supervisor, ADB, installation, Product-Human and Hardware**.
+
 ## 2026-08-14 Compact-Login/Invitation fresh replacement V3 — REVIEW PENDING / NOT ACTIVE / HARDWARE STOP
 
 This addendum is the sole operative contract for conditional `DA5-CLIS-V3-R1`. The consumed first
