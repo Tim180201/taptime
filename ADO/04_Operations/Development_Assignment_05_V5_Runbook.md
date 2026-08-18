@@ -1,5 +1,54 @@
 # Development Assignment 5 — V5 Human Android Gate Runbook
 
+## 2026-08-18 visible-same-terminal replacement contract — REVIEW PENDING / NOT ACTIVE / STOP
+
+The consumed event is **`FAIL_CLOSED / PRE-CONTROLLER VISIBLE-TTY ROUTING FAILURE`**: the exact
+Supervisor displayed its hidden-credential JSON prompt, but Codex UI exposed an unrelated ordinary
+zsh terminal to the Human. The candidate entered there produced `zsh: command not found`, is
+compromised and must never be reused. The actual Supervisor remained at the first credential read;
+one TL SIGINT produced only `da5_v5_flight_start_failed` / exit 1. Source ordering proves no
+Controller, child, ADB, installation or Product/Hardware step. The authority and binding set
+`ef9149d7a76aee1185cf01fe1c30f14c8cbef08a37ac639b0ae9c8f6f68236e8` are consumed.
+
+This section is the exact prospective visible-same-terminal contract only. It activates no run.
+After the required three-document publication and exact-head review, and not before, prepare one
+private immutable launcher/execution-binding root mode `0700`; launcher mode `0500`; manifest and
+independent review receipt mode `0444`. The artifact must bind the final published Runbook and
+Ledger SHA-256 values, the new binding set and every exact artifact/runtime/tool/path/hash and
+name-only environment input. Independent artifact review must return `APPROVED` before the sequence
+stops for fresh explicit Human authority.
+
+For an expressly authorized replacement, open a **new visible Codex terminal**. The Human's only
+shell input is `exec /absolute/reviewed/launcher`. That exact absolute launcher path must come from
+the independently `APPROVED` execution-binding/launcher manifest and must also be quoted verbatim in
+the fresh explicit Human authority; neither source may be inferred or substituted. The command
+contains no secret or private device/Tag identifier. The launcher accepts no arguments, requires
+stdin/stdout/stderr all be TTYs, verifies every reviewed binding and the exact name-only environment
+predicate, and `cd`s to the exact Operator checkout. Its final action is `exec /usr/bin/env -i` with
+the exact reviewed 34 `NAME=value` environment and absolute reviewed Node plus absolute
+`da5V5FlightMain.js`. There is no npm, later shell, `set -x`, `tee`, log, redirect or clipboard path,
+and no secret or serial may appear in launcher bytes, environment, argv or shell history.
+
+After `exec`, the Human types nothing until that **same visible terminal** shows the exact Supervisor
+JSON surface: screen `DA5 V5 Flight Supervisor`; field `hidden credential input`; allowed response
+`EXACT_64_LOWERCASE_HEX_SECRET`. Only then the Human enters exactly once one **new random** 64-character
+lowercase hexadecimal secret. The old zsh candidate is forbidden. Any ordinary zsh prompt,
+`command not found`, missing exact surface or TTY ambiguity stops before secret entry and consumes
+the one replacement once active. Every later Human input occurs only after an exact surface/field/
+button/action instruction from the Supervisor; ambiguity stops fail-closed.
+
+The carried executable bindings remain head/tree
+`c2151a833043801440d20127cbf096b418d8e324` /
+`6d4ffdc0b74016632dfb59b2f6b10ca30d7bd9cf`, CI `31812974037` attempt 1 / 12 of 12, APK
+SHA-256 `b02fdb2544225d03e3142fa30f12caa8fedf889a558b39cc040cca03f9539234`,
+Operator manifest SHA-256
+`9a7224fcf459095dc5cb69de08780ce797a113464762ddf5c3d5cdb4d0a90ec3`, Supervisor
+SHA-256 `eda3a6e407a07f6d923c62c3c7591a1bb79a2232e87a5b265ab77a7c419fe023`, child
+SHA-256 `f480968a588e15bf974c172615edc0778fc4679088f6ccc86a5cdafecb5b00c1` and plan
+SHA-256 `bd6d8f9614d9e86b46a0ca49cc431ce95130f99e35b4d1458238eb019bed08bf`.
+The old binding set and pre-amendment Runbook/Ledger hashes are not launcher inputs. There is no
+retry, resume or second replacement; R0/V0 adds no test, build, V3, CI, ADB or Hardware run.
+
 ## 2026-08-14 Compact-Login/Invitation R2 fulfillment — PASS / INDEPENDENT R3 APPROVED / CONSUMED / HARDWARE STOP
 
 The exact one-shot `DA5-CLIS-V3-R2` run is complete. Its published authority head is

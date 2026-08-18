@@ -1,5 +1,55 @@
 # Development Assignment 5 — Append-Only Event Ledger
 
+## Claim `923076835dfec0e294390dc795756269c3c4fae94e714b7a3a337d80c1fc5b22` — Product-Human pre-Controller visible-TTY routing failure (`2026-08-18`)
+
+- `binding_set_id`:
+  `ef9149d7a76aee1185cf01fe1c30f14c8cbef08a37ac639b0ae9c8f6f68236e8`; binds head/tree
+  `c2151a833043801440d20127cbf096b418d8e324` /
+  `6d4ffdc0b74016632dfb59b2f6b10ca30d7bd9cf`, CI `31812974037` attempt 1 / 12 of 12,
+  APK SHA-256 `b02fdb2544225d03e3142fa30f12caa8fedf889a558b39cc040cca03f9539234`,
+  Operator manifest SHA-256
+  `9a7224fcf459095dc5cb69de08780ce797a113464762ddf5c3d5cdb4d0a90ec3`, Supervisor
+  SHA-256 `eda3a6e407a07f6d923c62c3c7591a1bb79a2232e87a5b265ab77a7c419fe023`, child
+  SHA-256 `f480968a588e15bf974c172615edc0778fc4679088f6ccc86a5cdafecb5b00c1` and plan
+  SHA-256 `bd6d8f9614d9e86b46a0ca49cc431ce95130f99e35b4d1458238eb019bed08bf`.
+- `supersedes_claim_ids`: `[]`; this is the sole claim for this invocation and does not rewrite
+  earlier flight history.
+- `provenance`: Human reported the unrelated ordinary-zsh interaction and `command not found`;
+  Machine emitted name-only preflight `MATCH`, the exact hidden-input prompt and later only
+  `da5_v5_flight_start_failed` / exit 1; TL invoked the bound Supervisor, sent SIGINT exactly once,
+  audited exact source ordering and performed the later read-only current-state check.
+- `authority_before`: exactly one Product-Human/Hardware invocation; `authority_after`: consumed
+  `FAIL_CLOSED`, with no retry, resume or replacement currently active.
+- `execution`: the Supervisor stayed at its first credential read. The Human's ordinary-zsh
+  candidate is compromised and permanently non-reusable; its value and digest are not retained.
+  Source ordering awaits credential input before Controller construction/run, and child spawn is
+  only inside `run()`. There was no Controller, child, ADB, installation, Product, NFC, Tag or
+  Hardware step and therefore no such result.
+- `evidence`: immutable root
+  `/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5/hardware-c2151a8-pre-controller-visible-tty-routing-failure-20260818`
+  is `0555` with exactly two files. Receipt: 3,989 bytes / `0444` / SHA-256
+  `cdb92889be81a710ed817fb0983faaf41e8e54e71503b0ea3b0530daf8755cec`; manifest: 1,309
+  bytes / `0444` / SHA-256
+  `90609a7b4f0c85d8d907063fb6f11aa9fb94f1915da3ed83ed7dcfa0abed1c59`.
+- `time_scope` / `observation`: invocation/prompt/SIGINT/failure are immediate and attributed above.
+  At `2026-08-18T16:29:01Z`, the read-only audit observed no DA5 Supervisor/child/Guard process,
+  zero listeners on ports 3000/54321/55435, zero `/private/tmp/.t5-*` names and no new Flight root.
+  This is later current state only; immediate complete cleanup, device/package/profile and queue
+  state are unobserved and unclaimed.
+- `verification`: AVS R0/V0 for exactly the three ADO paths; source-order inspection, evidence
+  inventory/mode/size/SHA verification, repository/ref/index/diff checks and canonical patch
+  binding only. No Product test, Typecheck, build, V3, CI rerun, ADB or Hardware action.
+- `terminal_state`: **`FAIL_CLOSED / PRE-CONTROLLER VISIBLE-TTY ROUTING FAILURE`**; Product finding
+  `NONE`; fast lane `STOP`; no Product/device/NFC/Tag/Hardware result.
+- `conditional_replacement`: independent semantic `APPROVED` of the exact three-document delta →
+  focused exact-three-document `[skip ci]` publication → independent exact-head review → only then
+  private immutable visible-terminal launcher/execution-binding creation using the final new
+  Runbook/Ledger SHA-256 values and a new binding set → independent artifact `APPROVED` → **STOP**
+  for fresh explicit Human authority. The old binding set and pre-amendment Runbook/Ledger SHA-256
+  values `3c5f3d89d9e519510647173490ac876f8d537f4f10a94aac383e64cdcdb1186b` /
+  `bfacfd30e2d40661c197ffe05eb413f8012672672ee5c23869df24f54cc60f2b` are non-reusable.
+  There is no retry, resume or second replacement.
+
 ## Claim `195fae95e31b39a6ae9878ae79d3076641dd075d4f2d1da463ca15ae20f432a6` — Compact-Login/Invitation R2 terminal PASS and final publication route (`2026-08-14`)
 
 - `binding_set_id`: `9757a7f4f265cdf7fda97706cb18023bf635e1b732358becbbfdab9adce91b39`;

@@ -1,5 +1,58 @@
 # AVS-001 – Adaptive Verification and CI Efficiency Standard
 
+## DA5 Product-Human visible-TTY routing closure and conditional replacement (`2026-08-18`) — FAIL_CLOSED / R0 REVIEW PENDING / NOT ACTIVE / STOP
+
+The exact Product-Human/Hardware authority on head
+`c2151a833043801440d20127cbf096b418d8e324`, tree
+`6d4ffdc0b74016632dfb59b2f6b10ca30d7bd9cf`, CI `31812974037` attempt 1 / 12 of 12,
+APK SHA-256 `b02fdb2544225d03e3142fa30f12caa8fedf889a558b39cc040cca03f9539234`
+and Operator manifest SHA-256
+`9a7224fcf459095dc5cb69de08780ce797a113464762ddf5c3d5cdb4d0a90ec3` was invoked
+exactly once. The name-only environment preflight matched binding set
+`ef9149d7a76aee1185cf01fe1c30f14c8cbef08a37ac639b0ae9c8f6f68236e8`, and the
+Supervisor emitted the exact hidden-credential prompt. Codex UI then exposed an unrelated ordinary
+zsh terminal; the Human entered a candidate there and received `zsh: command not found`. That
+candidate is compromised and permanently non-reusable; neither its value nor a digest is retained.
+
+The real Supervisor remained at its first input read. The Technical Lead sent SIGINT exactly once;
+the Supervisor emitted only `da5_v5_flight_start_failed`, exited 1, emitted no
+`da5_v5_flight_terminal` and created no Flight root. Exact source ordering awaits
+`readDa5V5FlightCredential` before Controller construction and `controller.run()`; the child spawn
+exists only inside `run()`. Therefore no Controller, child, ADB, installation, Product, NFC, Tag or
+Hardware step occurred. Terminal truth is **`FAIL_CLOSED / PRE-CONTROLLER VISIBLE-TTY ROUTING
+FAILURE`**, Product finding `NONE`, fast lane `STOP`; the authority and old binding set are consumed.
+
+Immutable disclosure-safe Evidence root
+`/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5/hardware-c2151a8-pre-controller-visible-tty-routing-failure-20260818`
+is `0555`: `receipt.txt` is 3,989 bytes / `0444` / SHA-256
+`cdb92889be81a710ed817fb0983faaf41e8e54e71503b0ea3b0530daf8755cec`; manifest is 1,309
+bytes / `0444` / SHA-256
+`90609a7b4f0c85d8d907063fb6f11aa9fb94f1915da3ed83ed7dcfa0abed1c59`. Its later
+`2026-08-18T16:29:01Z` audit observed no DA5 Supervisor/child/Guard process, zero owned listeners,
+zero `/private/tmp/.t5-*` names and no new Flight root. That is later current state only, never proof
+of immediate complete cleanup, device/profile/package state, queue state or absence of transient
+state.
+
+Exactly one fully fresh replacement may become eligible only in this order: independent R0
+semantic `APPROVED` of this exact three-document delta; one focused exact-three-document `[skip ci]`
+publication; independent exact-head review; post-publication creation of a private immutable
+visible-terminal launcher/execution-binding artifact bound to the final new Runbook/Ledger SHA-256
+values and a new binding set; independent `APPROVED` review of that artifact; then **STOP** for a
+fresh explicit Human authority. No replacement is active before that final authority. There is no
+retry, resume or second replacement.
+
+The replacement may carry unchanged only executable head/tree
+`c2151a833043801440d20127cbf096b418d8e324` /
+`6d4ffdc0b74016632dfb59b2f6b10ca30d7bd9cf`, the CI/APK/Operator bindings above, Supervisor
+SHA-256 `eda3a6e407a07f6d923c62c3c7591a1bb79a2232e87a5b265ab77a7c419fe023`, child
+SHA-256 `f480968a588e15bf974c172615edc0778fc4679088f6ccc86a5cdafecb5b00c1` and plan
+SHA-256 `bd6d8f9614d9e86b46a0ca49cc431ce95130f99e35b4d1458238eb019bed08bf`.
+The consumed binding-set ID above and old Runbook/Ledger file SHA-256 values
+`3c5f3d89d9e519510647173490ac876f8d537f4f10a94aac383e64cdcdb1186b` /
+`bfacfd30e2d40661c197ffe05eb413f8012672672ee5c23869df24f54cc60f2b` are non-reusable
+because this amendment changes those files. Scope is R0/V0 and exactly these three ADO paths; no
+Product test, Typecheck, build, V3, CI rerun, ADB or Hardware action follows.
+
 ## DA5 Compact-Login/Invitation R2 terminal PASS and publication gate (`2026-08-14`) — INDEPENDENT R3 APPROVED / R2 CONSUMED / HARDWARE STOP
 
 The one-shot `DA5-CLIS-V3-R2` authority was activated on published head
