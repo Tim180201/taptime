@@ -45,6 +45,9 @@ export const DA5_V5_FLIGHT_FAILURE_REASONS = Object.freeze([
 
 export type Da5V5FlightFailureReason =
   (typeof DA5_V5_FLIGHT_FAILURE_REASONS)[number];
+export const DA5_V5_INPUT_ORDER_ABORT_REASON = 'DA5_V5_INPUT_ORDER_VIOLATION' as const;
+export const DA5_V5_INPUT_EOF_ABORT_REASON = 'DA5_V5_INPUT_EOF' as const;
+export const DA5_V5_OS_SIGNAL_ABORT_REASON = 'DA5_V5_OS_SIGNAL' as const;
 export type Da5V5HumanVerdict = 'PASS' | 'FAIL' | 'AMBIGUOUS';
 export type Da5V5AttemptedOutcome =
   | 'PASS'
@@ -60,6 +63,10 @@ export interface Da5V5HumanPrompt {
   readonly do_not: string;
   readonly field: string;
   readonly screen: string;
+}
+
+export interface Da5V5HumanInput {
+  request(prompt: Da5V5HumanPrompt, signal?: AbortSignal): Promise<string>;
 }
 
 interface Da5V5MachineStep {
@@ -139,7 +146,9 @@ export interface Da5V5FlightControllerOptions {
   readonly childEnvironment: Readonly<Record<string, string>>;
   readonly credential: Buffer;
   readonly evidenceParentPath: string;
+  readonly humanInput: Da5V5HumanInput;
   readonly repositoryRootPath: string;
+  readonly runNonce: string;
   readonly runtimeGuardBinaryPath: string;
   readonly signal?: AbortSignal;
   readonly standardProfile: Da5V5CleanStateAttestationOptions['standardProfile'];
@@ -148,11 +157,9 @@ export interface Da5V5FlightControllerOptions {
 export interface Da5V5FlightControllerDependencies {
   readonly attest: typeof attestDa5V5CleanState;
   readonly createNonce: () => string;
-  readonly readHuman: (prompt: Da5V5HumanPrompt, signal?: AbortSignal) => Promise<string>;
   readonly seal: typeof sealDa5V5FlightReceipt;
   readonly spawnChild: typeof spawn;
   readonly wait: (milliseconds: number) => Promise<void>;
-  readonly writeHumanPrompt: (prompt: Da5V5HumanPrompt) => void;
 }
 
 export interface Da5V5FlightRunResult {
@@ -201,6 +208,22 @@ export function da5V5FlightTerminalResult(
   });
 }
 
+export function da5V5FlightIdentity(
+  bindingSetId: string,
+  runNonce: string,
+): Readonly<{ readonly receiptId: string; readonly runId: string }> {
+  if (!/^[0-9a-f]{64}$/u.test(bindingSetId)) {
+    throw new Error('DA5 V5 flight identity binding mismatch');
+  }
+  const validatedRunNonce = requireNonce(runNonce);
+  return Object.freeze({
+    receiptId: sha256(
+      `receipt:${bindingSetId}:${validatedRunNonce}:${DA5_V5_FAST_FLIGHT_PLAN_SHA256}`,
+    ).slice(0, 32),
+    runId: sha256(`run:${bindingSetId}:${validatedRunNonce}`).slice(0, 32),
+  });
+}
+
 export interface Da5V5FlightReceipt {
   readonly accessibility_restoration: 'MATCH' | 'MISMATCH' | 'NOT_REQUIRED';
   readonly attempted_outcome: Da5V5AttemptedOutcome;
@@ -232,14 +255,10 @@ export class Da5V5FlightController {
     this.dependencies = Object.freeze({
       attest: dependencies.attest ?? attestDa5V5CleanState,
       createNonce: dependencies.createNonce ?? (() => randomBytes(32).toString('hex')),
-      readHuman: dependencies.readHuman ?? readHumanAnswer,
       seal: dependencies.seal ?? sealDa5V5FlightReceipt,
       spawnChild: dependencies.spawnChild ?? spawn,
       wait: dependencies.wait ?? (async (milliseconds) => {
         await new Promise<void>((resolvePromise) => setTimeout(resolvePromise, milliseconds));
-      }),
-      writeHumanPrompt: dependencies.writeHumanPrompt ?? ((prompt) => {
-        process.stdout.write(`da5_v5_human_prompt=${canonicalJson(prompt)}\n`);
       }),
     });
   }
@@ -247,8 +266,8 @@ export class Da5V5FlightController {
   async run(): Promise<Da5V5FlightRunResult> {
     if (this.ran) throw new Error('DA5 V5 flight has no resume or restart');
     this.ran = true;
-    const runNonce = requireNonce(this.dependencies.createNonce());
-    const runId = sha256(`run:${this.options.bindingSetId}:${runNonce}`).slice(0, 32);
+    const runNonce = this.options.runNonce;
+    const { runId } = da5V5FlightIdentity(this.options.bindingSetId, runNonce);
     const credential = this.options.credential;
     let attemptedOutcome: Da5V5AttemptedOutcome = 'FAIL_CLOSED';
     let failureReason: Da5V5FlightFailureReason | null = null;
@@ -265,6 +284,7 @@ export class Da5V5FlightController {
     let childCloseProven = true;
 
     try {
+      throwIfSignalled(this.options.signal);
       spawnedChild = this.dependencies.spawnChild(
         process.execPath,
         [this.options.childEntrypointPath],
@@ -294,9 +314,8 @@ export class Da5V5FlightController {
         }
         let command: string | null = step.kind === 'machine' ? step.command : null;
         if (step.kind === 'human') {
-          this.dependencies.writeHumanPrompt(step.prompt);
           const answer = await readHumanWithSignal(
-            this.dependencies.readHuman(step.prompt, this.options.signal),
+            this.options.humanInput.request(step.prompt, this.options.signal),
             this.options.signal,
           );
           const parsed = parseHumanAnswer(answer, step.response);
@@ -1777,7 +1796,11 @@ function requireControllerOptions(options: Da5V5FlightControllerOptions): void {
     || options.bindingInputsVerified !== true
     || !isAbsolute(options.childEntrypointPath)
     || !isAbsolute(options.evidenceParentPath)
+    || typeof options.humanInput !== 'object'
+    || options.humanInput === null
+    || typeof options.humanInput.request !== 'function'
     || !isAbsolute(options.repositoryRootPath)
+    || !/^[0-9a-f]{64}$/u.test(options.runNonce)
     || !isAbsolute(options.runtimeGuardBinaryPath)
     || !isCredential(options.credential)
   ) {
@@ -1941,22 +1964,6 @@ async function syncDirectory(path: string): Promise<void> {
   try { await handle.sync(); } finally { await handle.close(); }
 }
 
-async function readHumanAnswer(
-  promptValue: Da5V5HumanPrompt,
-  signal?: AbortSignal,
-): Promise<string> {
-  const { createInterface } = await import('node:readline/promises');
-  const input = createInterface({ input: process.stdin, output: process.stdout, terminal: false });
-  try {
-    const question = `response[${promptValue.allowed_response.join('|')}]> `;
-    return signal === undefined
-      ? await input.question(question)
-      : await input.question(question, { signal });
-  } finally {
-    input.close();
-  }
-}
-
 function parseClosedJson(value: string): Record<string, unknown> {
   let parsed: unknown;
   try { parsed = JSON.parse(value); } catch { throw new FlightFailure('UNEXPECTED_OUTPUT'); }
@@ -2015,7 +2022,7 @@ function classifyFlightError(error: unknown): Da5V5FlightFailureReason {
 }
 
 function throwIfSignalled(signal?: AbortSignal): void {
-  if (signal?.aborted === true) throw new FlightFailure('SIGNAL');
+  if (signal?.aborted === true) throw abortFlightFailure(signal);
 }
 
 function bounded<T>(operation: Promise<T>, timeout: number, signal?: AbortSignal): Promise<T> {
@@ -2023,7 +2030,7 @@ function bounded<T>(operation: Promise<T>, timeout: number, signal?: AbortSignal
     let settled = false;
     const timer = setTimeout(() => finish(new FlightFailure('MACHINE_STEP_TIMEOUT_OR_HANG')),
       timeout);
-    const onAbort = (): void => finish(new FlightFailure('SIGNAL'));
+    const onAbort = (): void => finish(abortFlightFailure(signal));
     const finish = (error?: Error, value?: T): void => {
       if (settled) return;
       settled = true;
@@ -2042,7 +2049,7 @@ function bounded<T>(operation: Promise<T>, timeout: number, signal?: AbortSignal
 
 function readHumanWithSignal(operation: Promise<string>, signal?: AbortSignal): Promise<string> {
   return new Promise((resolvePromise, rejectPromise) => {
-    const onAbort = (): void => rejectPromise(new FlightFailure('SIGNAL'));
+    const onAbort = (): void => rejectPromise(abortFlightFailure(signal));
     signal?.addEventListener('abort', onAbort, { once: true });
     if (signal?.aborted === true) onAbort();
     void operation.then(
@@ -2052,10 +2059,22 @@ function readHumanWithSignal(operation: Promise<string>, signal?: AbortSignal): 
       },
       () => {
         signal?.removeEventListener('abort', onAbort);
-        rejectPromise(new FlightFailure('IPC_EOF'));
+        rejectPromise(signal?.aborted === true
+          ? abortFlightFailure(signal)
+          : new FlightFailure('IPC_EOF'));
       },
     );
   });
+}
+
+function abortFlightFailure(signal?: AbortSignal): FlightFailure {
+  if (signal?.reason === DA5_V5_INPUT_ORDER_ABORT_REASON) {
+    return new FlightFailure('NONCE_OR_ORDER_MISMATCH');
+  }
+  if (signal?.reason === DA5_V5_INPUT_EOF_ABORT_REASON) {
+    return new FlightFailure('IPC_EOF');
+  }
+  return new FlightFailure('SIGNAL');
 }
 
 function waitWithSignal(operation: Promise<void>, signal?: AbortSignal): Promise<void> {

@@ -1,5 +1,172 @@
 # Development Assignment 5 — Append-Only Event Ledger
 
+## Human direction — DA5 Fast Recovery Lane (`2026-08-19`)
+
+- `state`: **ACTIVE UNTIL EXPLICIT HUMAN REVOCATION** under
+  `OK – maximal schnelle Fast Recovery Lane`.
+- `supersedes`: for this recovery candidate, broader mandatory recovery reruns and the still-unrun
+  **first full terminal-envelope V3 plus subsequent CI** required below, as well as repeated
+  documentation truth-sync. The older V3 sequence does not execute before the next Human gate;
+  prior event truth and Human/Hardware gates remain.
+- `pointer_precedence`: for this recovery candidate, the current `8900a827` authority supersedes
+  the older `ADO/README.md` and `ADO/00_Core/Project_Status.md` pointers `187ba562` / `174d2e80`;
+  those pointer statements are non-operative here until a later synchronization.
+- `failure_evidence`: one compact disclosure-safe failure receipt plus manifest per failed attempt.
+- `unchanged_executable`: no test rerun; only cleanup/current-state and exact binding reattestation,
+  with unchanged-input Evidence carried forward.
+- `runner_or_launcher_delta`: syntax, exact concern regressions and validate-only only.
+- `carried_v1_v2`: existing exact V1/V2 Evidence carries because all nine approved Product
+  source/test overlay blobs remain byte-identical; exact V0 rebinding must prove the equality.
+- `product_delta`: directly impacted tests/typecheck/build only; broad suites only for a materially
+  changed shared boundary or when the Human asks.
+- `review_route`: targeted runner verification, one focused independent review of the combined
+  recovery delta and Evidence, and exact rebinding route directly to the Human gate without the
+  cancelled full V3/CI; no separate repeated documentation truth-sync cycle.
+- `human_gate`: after that review and rebinding, stop for one fresh exact one-shot
+  Human/Product-Hardware authorization. Failure, ambiguity, interruption or binding drift remains
+  fail-closed with no retry, resume or replacement absent a new explicit Human authority. This
+  direction grants no present ADB, installation, Product-Human, Hardware or Tag execution.
+
+## Technical activation addendum — terminal-envelope final V3 (`2026-08-19`)
+
+- `supersedes`: only the round-1 correction-step statements that V1/V2/review remain pending and
+  that no final V3 is authorized. The consumed Human run, immutable external Evidence,
+  `FAIL_CLOSED / POST_HIDDEN_INPUT_TERMINAL_OUTCOME_UNPROVEN` truth, Product finding `NONE`,
+  fast-lane `STOP` and all Human/Hardware exclusions remain unchanged.
+- `round_2_review`: formal independent
+  `/root/review_precontroller_terminal_envelope_r3_round2` returned `APPROVED` with zero open
+  P0–P3 on baseline head/tree `8900a827be1edde2d7626c59b08ce48878934380` /
+  `012640bbe837cc35479abc78461faaf207041518`, exact 12-path pre-activation candidate tree
+  `f692df082e4abb8812adc4d65c8c825c93063c84`, and canonical full-index binary patch 185,418 bytes /
+  SHA-256 `db2560174b2b1781935bf01ee1247861e157bf326ae0a3bffe7a7eff436743ad`.
+- `verification`: V1 tests-inclusive five-file membership passed; seven focused/neighbor files had
+  273 passes; PTY was 10/10. V2 required-APK Synthetic had 19 files, 523 passes, 19 expected skips
+  and zero failures; Mobile had 120/120 plus tests-inclusive membership; fresh build/Node checks
+  passed. Flight bundle/map: 201,416 bytes /
+  `c5b43839601073f706c0c34e394085a3fda1ad34c8462f5ac486769ff3be7d1f`; 528,673 bytes /
+  `61e7c2974d757f977fa7a2bbd9c5492cf54fc1707d00e847215bd3741cfd1039`.
+- `immutable_code_test_overlay`: the nine source/test blob IDs listed exactly in the AVS activation
+  block must remain byte-identical across this three-document delta and be independently proven
+  again before V3.
+- `activation_gate`: exactly one fully fresh final technical V3 becomes active only after an
+  independent semantic `APPROVED` of these exact three addenda and external review/binding of the
+  resulting combined 12-path tree and canonical full-index binary patch. No circular self-hash is
+  recorded or inferred. Human `Dann leg los!` plus the approved architecture, round-2 `APPROVED`
+  and `AGENTS.md` provide technical authority after those gates; no new Human prompt is required.
+- `one_shot_execution`: begin at D01 in a fresh normal complete detached baseline worktree with the
+  exact bound 12-blob overlay and fresh task/cache/log/Evidence/PostgreSQL roots. Run the established
+  exact complete V3 sequence; reuse no earlier result, path, process, dependency or database state.
+  Any nonzero, signal, ambiguity, runner/Evidence/configuration fault or deviation consumes V3
+  `FAIL_CLOSED`; no retry, resume or replacement exists.
+- `next_and_stop`: green V3 routes only to independent execution/Evidence review, focused
+  publication and one V4. No pre-V3 commit, push or CI action is authorized; this addendum is
+  R0/V0 only. **STOP before ADB, installation, Product-Human, Hardware, Tag or Physical-V5.**
+
+## Technical correction addendum — terminal-envelope R3 round 1 (`2026-08-19`)
+
+- `supersedes`: only the conflicting six-class/output-publication/link-validation mechanics in
+  claim `d1d1f8a390715e3db1e2c70df9a34bf2c3477ece66b027194af7efea9716d3f9`; every consumed-run
+  fact, mode/byte/hash binding and limitation in that claim remains unchanged.
+- `authority`: Human `Dann leg los!`, the independently approved R3 architecture and formal
+  correction-round-1 `CHANGES REQUIRED` authorize the three confirmed P1 corrections inside the
+  same exact 12-path allowlist. There is no new Human, Hardware, ADB, CI, V3, publication,
+  production, deployment or distribution authority.
+- `terminal_truth`: **`FAIL_CLOSED / POST_HIDDEN_INPUT_TERMINAL_OUTCOME_UNPROVEN`**; Product
+  finding `NONE`; fast lane `STOP`; authority consumed; credential permanently non-reusable. The
+  external two-file Evidence root is final and was not edited.
+- `p1_terminal_status`: terminal-status flush is now explicit proof
+  `terminal_outcome_published`; `CLOSE` is neither armed nor offered before that exact bounded
+  write succeeds, and exit 0 requires it. Status or acknowledgement output failure cannot undo an
+  authoritative outer rename and always returns non-success.
+- `p1_link_identity`: evidence parent, stage and pending roots bind canonical path plus
+  `dev`/`ino`/`uid`/mode identity. Payloads are exclusive/no-follow, descriptor-sealed and
+  revalidated through `lstat` + no-follow open + `fstat` as regular, single-link, unique-inode,
+  exact-mode/bytes/SHA-256 files. Dangling links count as collisions. A final synchronous
+  parent/root/file/collision validation immediately precedes latch selection and the only rename.
+- `p1_stdout_owner`: one persistent stdout error/close owner exists before pending preparation
+  through status and `CLOSE`. Every output flush is fixed-bounded, abortable and settled once;
+  callback failure, error/close, timeout, signal and stdin EOF cannot hang, late callbacks are
+  inert, and raw/flow/listener/timer cleanup is non-throwing. A raw/flow restoration failure is
+  latched and forbids exit 0.
+- `classification_mapping`: exactly seven final paths:
+  `PRE_CONTROLLER_INPUT_FAILURE_NO_CHILD_PROVEN`,
+  `PRE_CONTROLLER_SIGNAL_NO_CHILD_PROVEN`,
+  `PRE_CONTROLLER_TERMINAL_IO_FAILURE_NO_CHILD_PROVEN`,
+  `PRE_CONTROLLER_CONSTRUCTION_FAILURE_NO_CHILD_PROVEN`,
+  `CONTROLLER_RETURNED_INNER_RECEIPT_SEALED`,
+  `CONTROLLER_RETURNED_INNER_RECEIPT_UNSEALED`, and
+  `CONTROLLER_MANAGED_OR_UNPROVEN`. Signal/EOF cancellation retains its original pre-Controller
+  classification; terminal I/O cannot create a Product/cleanup claim.
+- `verification_route`: rerun tests-inclusive five-file membership; focused five tests and
+  CredentialTransfer/AdbController neighbors; ten consecutive PTY closures; whole Synthetic with
+  required APK reachability; unchanged Mobile Android-device neighbor and tests-inclusive
+  membership; fresh build, Node syntax, source-map reachability and exact bundle/hash bindings;
+  then independent review. No final V3 is run before a stable approved candidate.
+- `stop`: old CI/Operator/binding/launcher/Supervisor remain non-reusable. APK/Guard/tool carry
+  only under exact equality and child/plan only after fresh byte equality. Future inventory rules
+  remain unchanged. **STOP before every Human, Hardware, ADB, install, Tag or Physical-V5 gate.**
+
+## Claim `d1d1f8a390715e3db1e2c70df9a34bf2c3477ece66b027194af7efea9716d3f9` — Product-Human post-hidden-input terminal outcome unproved and technical correction (`2026-08-18`)
+
+- `binding_set_id`:
+  `1297fcc5c3ec2fffe60193fd0686f034ee3ded5206fa97ce5081ffde13aa2b8d`; binds closure
+  head/tree `8900a827be1edde2d7626c59b08ce48878934380` /
+  `012640bbe837cc35479abc78461faaf207041518`, sole parent/executable
+  `c2151a833043801440d20127cbf096b418d8e324`, executable tree
+  `6d4ffdc0b74016632dfb59b2f6b10ca30d7bd9cf`, CI `31812974037` attempt 1 / 12 of 12,
+  APK SHA-256 `b02fdb2544225d03e3142fa30f12caa8fedf889a558b39cc040cca03f9539234` and Operator
+  manifest SHA-256 `9a7224fcf459095dc5cb69de08780ce797a113464762ddf5c3d5cdb4d0a90ec3`.
+- `supersedes_claim_ids`:
+  [`923076835dfec0e294390dc795756269c3c4fae94e714b7a3a337d80c1fc5b22`] only for that
+  claim's prospective replacement/current-authority state. Its first invocation's visible-TTY
+  routing facts remain historical and unchanged.
+- `provenance`: Human observed the exact Supervisor hidden-input surface, reported one hidden
+  credential submission and reported that the same terminal then closed. No terminal transcript,
+  terminal result marker, exit status or Flight root was retained. TL later performed the bounded
+  read-only audit and source trace; neither reconstructs the immediate terminal outcome.
+- `authority_before`: exactly one fully fresh replacement invocation; `authority_after`:
+  `CONSUMED / FAIL_CLOSED`, with no retry, resume, restart, relogin or replacement authorized.
+- `observation` / `time_scope`: exact trigger, credential-validation result, Controller construction,
+  Controller-run entry, child spawn, device preflight, immediate cleanup, device/package/profile/
+  queue state and Product/install mutation are `UNOBSERVED`. There is no affirmative absence or
+  presence claim. The run-scoped credential is permanently non-reusable but not classified as
+  compromised; no credential value, derivative or metadata is retained.
+- `later_only_audit`: no matching Supervisor/child/launcher process, no owned listener on
+  3000/54321/55435, no `/private/tmp/.t5-*` name and no new Flight stage/receipt/root was observed.
+  This is later current state only, never immediate-cleanup, device or Product proof.
+- `evidence`: immutable root
+  `/Users/timbartz/Dokumente/GitHub/taptime-local-evidence/da5-v5/hardware-8900a827-post-hidden-input-terminal-unproven-20260818`
+  is `0555` with exactly `receipt.txt` 3,300 bytes / `0444` / SHA-256
+  `d1d1f8a390715e3db1e2c70df9a34bf2c3477ece66b027194af7efea9716d3f9` and
+  `evidence-manifest.txt` 822 bytes / `0444` / SHA-256
+  `ae645f4516390de2da1fccaa0208b5a08cdb2646471f3d99ca97bcca889c2450`. It also binds
+  launcher `f93e95ae8b678908412dbf94d39f33c07d167108be3cbf42685da9f8524b193f`, execution
+  binding `0f353d93020d8d9efdfa89d15f62caf07a61bed53d0c0ac6a6d837382ab48513`, launcher review
+  `f40424fece7f420b738c8a8f2e3882252f2e8480e09c0236be0ae503c252dd57` and external final
+  inventory `eaa620be061f1997ed6f0d114af73f0c852662b189137dde26ff67b5537e6f72` SHA-256 values.
+- `terminal_state`: **`FAIL_CLOSED / POST_HIDDEN_INPUT_TERMINAL_OUTCOME_UNPROVEN`**; Product
+  finding `NONE`; fast lane `STOP`; no Product, install, device, NFC, Tag, cleanup or Hardware
+  result.
+- `technical_correction_authority`: Human `Dann leg los!` plus independent corrected-architecture
+  `APPROVED` activates one R3 code/test/three-document cycle on exact baseline `8900a827` and the
+  exact 12-path allowlist recorded by the AVS top block. It authorizes no execution beyond V1/V2,
+  independent review/correction and later one final V3 under the prescribed sequence; it stops
+  before every Human/Hardware gate.
+- `correction_contract`: sole compiled `da5V5FlightMain`; imported Supervisor coordinator; one
+  whole-run raw Buffer stdin owner; byte-only Flight credential path; combined prompt/read port;
+  precomputed run/plan/exact-receipt identity shared with Controller; verified same stdin/stdout
+  TTY character device; persistent signal latch; outcome-neutral nonauthoritative pending
+  envelope; closed six-path final classification; one final synchronous
+  rename; inner receipt as sole Product/cleanup authority; disclosure-safe terminal JSON; exact
+  same-TTY nonsecret `CLOSE`; no retry/resume/start.
+- `verification_route`: R3 V1 focused adversarial tests plus tests-inclusive membership; V2 whole
+  Synthetic required-APK boundary, unchanged Mobile neighbor, build/Node/map/bundle; independent
+  review and correction; exactly one final V3; publication; V4; fresh artifacts and reviews; then
+  **STOP** for new exact Human authority. Old CI/Operator/binding/launcher/Supervisor are
+  non-reusable. APK/Guard/toolchain carry only by equality; child/plan only after fresh build proves
+  equality. The future launcher persists and externally binds/reviews a final inventory manifest
+  for every other final file.
+
 ## Claim `923076835dfec0e294390dc795756269c3c4fae94e714b7a3a337d80c1fc5b22` — Product-Human pre-Controller visible-TTY routing failure (`2026-08-18`)
 
 - `binding_set_id`:

@@ -10,6 +10,9 @@ import {
   DA5_V5_FAST_FLIGHT_PLAN_SHA256,
   DA5_V5_FLIGHT_FAILURE_REASONS,
   DA5_V5_FLIGHT_PROTOCOL_VERSION,
+  DA5_V5_INPUT_EOF_ABORT_REASON,
+  DA5_V5_INPUT_ORDER_ABORT_REASON,
+  DA5_V5_OS_SIGNAL_ABORT_REASON,
   Da5V5FlightController,
   Da5V5FlightProtocolValidator,
   Da5V5ReceiptSealError,
@@ -193,6 +196,99 @@ describe('DA5 V5 immutable fast-flight supervisor contract', () => {
       .rejects.toThrow(/CLEANUP_OR_CHECKER_FAILURE/u);
     expect(child.kill).toHaveBeenNthCalledWith(1, 'SIGTERM');
     expect(child.kill).toHaveBeenNthCalledWith(2, 'SIGKILL');
+  });
+
+  it.each([
+    [DA5_V5_INPUT_ORDER_ABORT_REASON, 'NONCE_OR_ORDER_MISMATCH'],
+    [DA5_V5_INPUT_EOF_ABORT_REASON, 'IPC_EOF'],
+    [DA5_V5_OS_SIGNAL_ABORT_REASON, 'SIGNAL'],
+    ['unknown-abort-reason', 'SIGNAL'],
+  ] as const)('maps an already-aborted %s signal before spawn to %s',
+    async (reason, expected) => {
+      const abortController = new AbortController();
+      abortController.abort(reason);
+      const spawnChild = vi.fn(() => {
+        throw new Error('spawn must remain unreachable');
+      }) as unknown as typeof spawn;
+      const credential = Buffer.from('a'.repeat(64), 'ascii');
+      const controller = controllerFixture(credential, abortController.signal, spawnChild);
+      const result = await controller.run();
+      expect(spawnChild).not.toHaveBeenCalled();
+      expect(result).toMatchObject({
+        attempted_outcome: 'FAIL_CLOSED',
+        failure_reason: expected,
+        fast_lane: 'STOP',
+      });
+      expect(credential.every((byte) => byte === 0)).toBe(true);
+    });
+
+  it('terminates and attests after an input-order violation during a machine wait', async () => {
+    const abortController = new AbortController();
+    const credential = Buffer.from('a'.repeat(64), 'ascii');
+    const attest = vi.fn(async () => receiptFixture().scoped_cleanup);
+    const seal = vi.fn(async () => '/private/tmp/da5-v5-evidence/flight-sealed');
+    let spawnedChild: ChildProcess | null = null;
+    const spawnChild = vi.fn(() => {
+      const child = spawn(
+        process.execPath,
+        ['--input-type=module', '--eval', inFlightAbortChildSource()],
+        {
+          detached: true,
+          env: { PATH: process.env.PATH },
+          stdio: ['pipe', 'pipe', 'pipe', 'pipe'],
+        },
+      );
+      spawnedChild = child;
+      const input = child.stdin;
+      if (input === null) throw new Error('test child stdin unavailable');
+      const originalWrite = input.write.bind(input);
+      input.write = ((chunk: string | Uint8Array, ...args: unknown[]) => {
+        const written = Reflect.apply(originalWrite, input, [chunk, ...args]) as boolean;
+        if (String(chunk).startsWith('flight-step ')) {
+          setImmediate(() => abortController.abort(DA5_V5_INPUT_ORDER_ABORT_REASON));
+        }
+        return written;
+      }) as typeof input.write;
+      return child;
+    }) as unknown as typeof spawn;
+    const controller = new Da5V5FlightController(
+      controllerOptions(credential, abortController.signal),
+      {
+        attest,
+        createNonce: () => '2'.repeat(64),
+        seal,
+        spawnChild,
+      },
+    );
+
+    const result = await controller.run();
+
+    expect(result).toMatchObject({
+      attempted_outcome: 'FAIL_CLOSED',
+      cleanup: 'MATCH',
+      failure_reason: 'NONCE_OR_ORDER_MISMATCH',
+      fast_lane: 'STOP',
+      receipt_root: '/private/tmp/da5-v5-evidence/flight-sealed',
+    });
+    expect(spawnChild).toHaveBeenCalledTimes(1);
+    expect(attest).toHaveBeenCalledTimes(1);
+    expect(seal).toHaveBeenCalledTimes(1);
+    expect(credential.every((byte) => byte === 0)).toBe(true);
+    expect((spawnedChild as ChildProcess | null)?.exitCode).toBe(1);
+  }, 10_000);
+
+  it('requires one prevalidated run nonce and one combined Human input port', () => {
+    const credential = Buffer.from('a'.repeat(64), 'ascii');
+    const base = controllerOptions(credential, undefined);
+    expect(() => new Da5V5FlightController({
+      ...base,
+      runNonce: 'x'.repeat(64),
+    })).toThrow(/binding mismatch/u);
+    expect(() => new Da5V5FlightController({
+      ...base,
+      humanInput: null as unknown as typeof base.humanInput,
+    })).toThrow(/binding mismatch/u);
+    credential.fill(0);
   });
 
   it('permits only a clean pre-Product abort and closes every disqualifier', () => {
@@ -404,6 +500,67 @@ function outputFrame(sequence: number, payload: string): string {
   })}`;
 }
 
+function inFlightAbortChildSource(): string {
+  return `
+    import { createInterface } from 'node:readline';
+    import { createReadStream } from 'node:fs';
+
+    const credential = createReadStream('', { autoClose: true, fd: 3 });
+    credential.on('data', (chunk) => chunk.fill(0));
+    credential.on('error', () => process.exit(20));
+    const lines = createInterface({ input: process.stdin, terminal: false });
+    let step = null;
+    process.stdout.write(${JSON.stringify(`${da5V5FlightProtocolStartupLines().join('\n')}\n`)});
+    lines.on('line', (line) => {
+      if (line.startsWith('flight-bind ')) {
+        const [, runNonce, planDigest] = line.split(' ');
+        process.stdout.write('da5_v5_flight_bound=' + JSON.stringify({
+          plan_digest: planDigest,
+          protocol_version: ${DA5_V5_FLIGHT_PROTOCOL_VERSION},
+          run_nonce: runNonce,
+        }) + '\\n');
+        return;
+      }
+      if (line.startsWith('flight-step ')) {
+        const [, runNonce, stepNonce, order] = line.split(' ');
+        step = { order: Number(order), runNonce, stepNonce };
+      }
+    });
+    const output = (payload, sequence) => {
+      process.stdout.write('da5_v5_flight_output=' + JSON.stringify({
+        order: step.order,
+        payload: Buffer.from(payload, 'utf8').toString('base64url'),
+        protocol_version: ${DA5_V5_FLIGHT_PROTOCOL_VERSION},
+        run_nonce: step.runNonce,
+        sequence,
+        step_nonce: step.stepNonce,
+      }) + '\\n');
+    };
+    process.on('SIGTERM', () => {
+      const finish = () => {
+        if (step === null) {
+          setTimeout(finish, 1);
+          return;
+        }
+        output('da5_v5_device_preflight=match', 0);
+        process.stdout.write('da5_v5_flight_step=' + JSON.stringify({
+          order: step.order,
+          output_count: 1,
+          protocol_version: ${DA5_V5_FLIGHT_PROTOCOL_VERSION},
+          result: 'abort',
+          run_nonce: step.runNonce,
+          step_nonce: step.stepNonce,
+        }) + '\\n');
+        output('da5_v5_precleanup_snapshot_failed', 1);
+        output('da5_v5_cleanup_complete', 2);
+        output('da5_v5_aborted', 3);
+        setTimeout(() => process.exit(1), 5);
+      };
+      finish();
+    });
+  `;
+}
+
 async function sealFailureRunResult(invalidRoot: string) {
   const credential = Buffer.from('a'.repeat(64), 'ascii');
   const controller = new Da5V5FlightController({
@@ -413,7 +570,11 @@ async function sealFailureRunResult(invalidRoot: string) {
     childEnvironment: Object.freeze({}),
     credential,
     evidenceParentPath: '/private/tmp/da5-v5-evidence',
+    humanInput: Object.freeze({
+      request: async () => 'ABORT',
+    }),
     repositoryRootPath: process.cwd(),
+    runNonce: '1'.repeat(64),
     runtimeGuardBinaryPath: '/private/tmp/da5-v5-runtime-guard',
     standardProfile: Object.freeze({
       androidApi: '35',
@@ -434,6 +595,42 @@ async function sealFailureRunResult(invalidRoot: string) {
   const result = await controller.run();
   expect(credential.every((byte) => byte === 0)).toBe(true);
   return result;
+}
+
+function controllerFixture(
+  credential: Buffer,
+  signal: AbortSignal | undefined,
+  spawnChild: typeof spawn,
+): Da5V5FlightController {
+  return new Da5V5FlightController(controllerOptions(credential, signal), {
+    attest: async () => receiptFixture().scoped_cleanup,
+    createNonce: () => '2'.repeat(64),
+    seal: async () => '/private/tmp/da5-v5-evidence/flight-sealed',
+    spawnChild,
+  });
+}
+
+function controllerOptions(credential: Buffer, signal: AbortSignal | undefined) {
+  return {
+    bindingInputsVerified: true as const,
+    bindingSetId: 'a'.repeat(64),
+    childEntrypointPath: '/private/tmp/da5V5Main.js',
+    childEnvironment: Object.freeze({}),
+    credential,
+    evidenceParentPath: '/private/tmp/da5-v5-evidence',
+    humanInput: Object.freeze({ request: async () => 'ABORT' }),
+    repositoryRootPath: process.cwd(),
+    runNonce: '1'.repeat(64),
+    runtimeGuardBinaryPath: '/private/tmp/da5-v5-runtime-guard',
+    signal,
+    standardProfile: Object.freeze({
+      androidApi: '35',
+      androidBuild: 'AP3A.241105.007',
+      androidRelease: '15',
+      deviceModel: 'Pixel 8',
+      fontScale: '1.0',
+    }),
+  };
 }
 
 async function syncTestDirectory(path: string): Promise<void> {

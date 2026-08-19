@@ -8,57 +8,74 @@ export const DA5_V5_CREDENTIAL_FRAME_BYTES = 64;
 const credentialFrameMaximumBytes = DA5_V5_CREDENTIAL_FRAME_BYTES + 1;
 const credentialFrameTimeoutMilliseconds = 5_000;
 
-export async function readDa5V5FlightCredential(
-  input: NodeJS.ReadStream,
-  publishReady: () => void,
-  signal?: AbortSignal,
-): Promise<Buffer> {
-  if (!input.isTTY) {
-    throw new Error('DA5 V5 credential input requires an interactive terminal');
+export class Da5V5FlightCredentialCapture {
+  #candidate = Buffer.alloc(DA5_V5_CREDENTIAL_FRAME_BYTES);
+  #closed = false;
+  #invalid = false;
+  #offset = 0;
+  #terminated = false;
+
+  push(chunk: Buffer): void {
+    if (this.#closed) {
+      chunk.fill(0);
+      throw new Error('DA5 V5 flight input rejected');
+    }
+    try {
+      for (const byte of chunk) {
+        if (this.#terminated) {
+          this.#invalid = true;
+          continue;
+        }
+        if (byte === 0x0d || byte === 0x0a) {
+          this.#terminated = true;
+          continue;
+        }
+        if (
+          this.#offset >= this.#candidate.byteLength
+          || !isLowercaseHexByte(byte)
+        ) {
+          this.#invalid = true;
+          continue;
+        }
+        this.#candidate[this.#offset] = byte;
+        this.#offset += 1;
+      }
+    } finally {
+      chunk.fill(0);
+    }
+    if (this.#invalid) {
+      this.destroy();
+      throw new Error('DA5 V5 flight input rejected');
+    }
   }
 
-  const mutedOutput = createMutedOutput();
-  const secretInput = createInterface({
-    input,
-    output: mutedOutput,
-    terminal: true,
-    historySize: 0,
-  });
-  let capture: ReturnType<typeof captureCredential> | null = null;
-  try {
-    capture = captureCredential(secretInput, input);
-    void capture.result.catch(() => undefined);
-    publishReady();
-    const candidate = await awaitCredentialCapture(capture.result, signal);
-    capture.release(candidate);
-    return candidate;
-  } finally {
-    capture?.destroy();
-    secretInput.close();
-    mutedOutput.destroy();
+  terminated(): boolean {
+    return this.#terminated;
   }
-}
 
-function awaitCredentialCapture(
-  operation: Promise<Buffer>,
-  signal?: AbortSignal,
-): Promise<Buffer> {
-  if (signal === undefined) return operation;
-  return new Promise<Buffer>((resolvePromise, rejectPromise) => {
-    const onAbort = (): void => rejectPromise(new Error('DA5 V5 credential input cancelled'));
-    signal.addEventListener('abort', onAbort, { once: true });
-    if (signal.aborted) onAbort();
-    void operation.then(
-      (value) => {
-        signal.removeEventListener('abort', onAbort);
-        resolvePromise(value);
-      },
-      (error: unknown) => {
-        signal.removeEventListener('abort', onAbort);
-        rejectPromise(error);
-      },
-    );
-  });
+  settle(): Buffer {
+    if (
+      this.#closed
+      || this.#invalid
+      || !this.#terminated
+      || this.#offset !== this.#candidate.byteLength
+    ) {
+      this.destroy();
+      throw new Error('DA5 V5 flight input rejected');
+    }
+    const result = Buffer.alloc(DA5_V5_CREDENTIAL_FRAME_BYTES);
+    this.#candidate.copy(result);
+    this.destroy();
+    return result;
+  }
+
+  destroy(): void {
+    if (!this.#closed) this.#candidate.fill(0);
+    this.#closed = true;
+    this.#invalid = true;
+    this.#offset = 0;
+    this.#terminated = false;
+  }
 }
 
 export function readDa5V5CredentialFrame(
@@ -309,8 +326,10 @@ function captureCredential(
 
 function isExactLowercaseHexCredential(candidate: Buffer): boolean {
   if (candidate.length !== 64) return false;
-  return candidate.every((byte) => (
-    (byte >= 0x30 && byte <= 0x39)
-    || (byte >= 0x61 && byte <= 0x66)
-  ));
+  return candidate.every(isLowercaseHexByte);
+}
+
+function isLowercaseHexByte(byte: number): boolean {
+  return (byte >= 0x30 && byte <= 0x39)
+    || (byte >= 0x61 && byte <= 0x66);
 }

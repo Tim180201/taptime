@@ -1,14 +1,16 @@
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   DA5_V5_FAST_FLIGHT_PLAN_SHA256,
   Da5V5FlightController,
-  da5V5FlightTerminalResult,
-  type Da5V5FlightRunResult,
 } from './Da5V5FlightController.js';
+import {
+  Da5V5FlightSupervisorStartError,
+  runDa5V5FlightSupervisor,
+} from './Da5V5FlightSupervisor.js';
 import { rejectDa5V5OperationalInputs } from './Da5V5OperatorLifecycle.js';
-import { readDa5V5FlightCredential } from './Da5V5SecretInput.js';
 
 const childEnvironmentNames = Object.freeze([
   'ANDROID_HOME',
@@ -83,13 +85,8 @@ const requiredChildEnvironmentNames = Object.freeze([
 ] as const);
 
 rejectDa5V5OperationalInputs(process.env, process.argv);
-const abortController = new AbortController();
-const handleSignal = (): void => abortController.abort();
-process.once('SIGINT', handleSignal);
-process.once('SIGTERM', handleSignal);
-process.once('SIGHUP', handleSignal);
 
-let credential: Buffer | null = null;
+let startStage: 'BINDING' | 'SUPERVISOR' = 'BINDING';
 try {
   const bindingSetId = requiredEnvironmentValue(requiredFlightEnvironmentNames[0]);
   const evidenceParentPath = requiredEnvironmentValue(requiredFlightEnvironmentNames[1]);
@@ -97,7 +94,7 @@ try {
   requireFlightBindings(bindingSetId, evidenceParentPath, childEnvironment);
   const childEntrypointPath = fileURLToPath(new URL('./da5V5Main.js', import.meta.url));
   const supervisorEntrypointPath = fileURLToPath(import.meta.url);
-  const repositoryRootPath = fileURLToPath(new URL('../../..', import.meta.url));
+  const repositoryRootPath = resolve(fileURLToPath(new URL('../../..', import.meta.url)));
   const runtimeGuardBinaryPath = childEnvironment.TAPTIME_DA5_V5_RUNTIME_GUARD_BINARY;
   const bindingInputsVerified = await verifyBindingSet(
     bindingSetId,
@@ -105,47 +102,44 @@ try {
     supervisorEntrypointPath,
     childEnvironment,
   );
+  startStage = 'SUPERVISOR';
 
-  credential = await readDa5V5FlightCredential(
-    process.stdin,
-    publishCredentialPrompt,
-    abortController.signal,
-  );
-  const controller = new Da5V5FlightController({
+  const supervisor = await runDa5V5FlightSupervisor({
     bindingSetId,
-    bindingInputsVerified,
-    childEntrypointPath,
-    childEnvironment,
-    credential,
     evidenceParentPath,
+    input: process.stdin,
+    output: process.stdout,
     repositoryRootPath,
-    runtimeGuardBinaryPath,
-    signal: abortController.signal,
-    standardProfile: Object.freeze({
-      androidApi: childEnvironment.TAPTIME_DA5_V5_ANDROID_API,
-      androidBuild: childEnvironment.TAPTIME_DA5_V5_ANDROID_BUILD,
-      androidRelease: childEnvironment.TAPTIME_DA5_V5_ANDROID_RELEASE,
-      deviceModel: childEnvironment.TAPTIME_DA5_V5_DEVICE_MODEL,
-      fontScale: '1.0',
-    }),
+    createController: ({ credential, humanInput, runNonce, signal }) => (
+      new Da5V5FlightController({
+        bindingSetId,
+        bindingInputsVerified,
+        childEntrypointPath,
+        childEnvironment,
+        credential,
+        evidenceParentPath,
+        humanInput,
+        repositoryRootPath,
+        runNonce,
+        runtimeGuardBinaryPath,
+        signal,
+        standardProfile: Object.freeze({
+          androidApi: childEnvironment.TAPTIME_DA5_V5_ANDROID_API,
+          androidBuild: childEnvironment.TAPTIME_DA5_V5_ANDROID_BUILD,
+          androidRelease: childEnvironment.TAPTIME_DA5_V5_ANDROID_RELEASE,
+          deviceModel: childEnvironment.TAPTIME_DA5_V5_DEVICE_MODEL,
+          fontScale: '1.0',
+        }),
+      })
+    ),
   });
-  const result = await controller.run();
-  publishTerminalResult(result);
-  process.exitCode = result.failure_reason === null
-    && result.cleanup === 'MATCH'
-    && result.attempted_outcome === 'PASS'
-    ? 0
-    : 1;
-} catch {
-  credential?.fill(0);
-  process.stderr.write('da5_v5_flight_start_failed\n');
+  process.exitCode = supervisor.exit_code;
+} catch (error: unknown) {
+  const supervisorCode = error instanceof Da5V5FlightSupervisorStartError
+    ? ` code=${error.code}`
+    : '';
+  process.stderr.write(`da5_v5_flight_start_failed stage=${startStage}${supervisorCode}\n`);
   process.exitCode = 1;
-} finally {
-  credential?.fill(0);
-  credential = null;
-  process.removeListener('SIGINT', handleSignal);
-  process.removeListener('SIGTERM', handleSignal);
-  process.removeListener('SIGHUP', handleSignal);
 }
 
 async function verifyBindingSet(
@@ -252,21 +246,4 @@ function requireFlightBindings(
   ) {
     throw new Error('DA5 V5 flight binding mismatch');
   }
-}
-
-function publishCredentialPrompt(): void {
-  process.stdout.write(`${JSON.stringify({
-    action: 'Enter the bound credential exactly once through hidden terminal input.',
-    allowed_response: ['EXACT_64_LOWERCASE_HEX_SECRET'],
-    button: 'none',
-    do_not: 'Do not paste to a visible field, log, file, environment or clipboard.',
-    field: 'hidden credential input',
-    screen: 'DA5 V5 Flight Supervisor',
-  })}\n`);
-}
-
-function publishTerminalResult(result: Da5V5FlightRunResult): void {
-  process.stdout.write(
-    `da5_v5_flight_terminal=${JSON.stringify(da5V5FlightTerminalResult(result))}\n`,
-  );
 }

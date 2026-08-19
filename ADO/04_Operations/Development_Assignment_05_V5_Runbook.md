@@ -1,5 +1,186 @@
 # Development Assignment 5 — V5 Human Android Gate Runbook
 
+## 2026-08-19 Fast Recovery Lane — ACTIVE UNTIL EXPLICIT HUMAN REVOCATION
+
+The Human's `OK – maximal schnelle Fast Recovery Lane` direction expressly supersedes and cancels
+for this recovery candidate both broader recovery reruns and the still-unrun **first complete
+terminal-envelope V3 plus subsequent CI** required below. In particular, the immediately following
+older V3 sequence does not execute before the next Human gate. Each failure is closed with one
+compact disclosure-safe receipt and manifest. Unchanged executable bytes are not retested;
+for this recovery candidate, the current `8900a827` authority also supersedes the older
+`ADO/README.md` and `ADO/00_Core/Project_Status.md` pointers `187ba562` / `174d2e80`, whose pointer
+statements are non-operative here until a later synchronization.
+Cleanup/current-state and exact binding are reattested and unchanged-input Evidence carries
+forward. Runner/launcher/Evidence-control-only changes receive syntax, exact concern regressions and
+validate-only. The existing exact V1/V2 Evidence carries because the nine approved Product
+source/test overlay blobs remain byte-identical, subject to exact V0 proof. Product changes receive
+only directly impacted tests, typecheck and build; a broad suite runs only for a materially changed
+shared boundary or on Human request.
+
+After targeted runner verification, use one focused independent review for the combined recovery
+delta and Evidence plus exact rebinding; then route **directly**, without the cancelled full V3/CI,
+to **STOP** for one new, exact, single-run Human/Product-Hardware authorization. Do not add a
+separate repeated documentation truth-sync cycle. The physical run remains strictly
+fresh and fail-closed: any failure, ambiguity, interruption or binding drift ends it without retry,
+resume or replacement unless the Human separately authorizes another run. No clause here opens
+ADB, installation, Product-Human, Hardware or Tag activity by itself. This lane stays active until
+the Human explicitly revokes or replaces it.
+
+## 2026-08-19 terminal-envelope final technical V3 — ROUND 2 APPROVED / CONDITIONAL ONE-SHOT / HARDWARE STOP
+
+This append-only R0/V0 addendum supersedes only the round-1 correction-step denials of current
+V1/V2/review completion and final-V3 authority. The consumed Human run and external Evidence remain
+unchanged. Formal independent review `/root/review_precontroller_terminal_envelope_r3_round2`
+returned `APPROVED` with zero open P0–P3 for the exact pre-activation 12-path candidate on head/tree
+`8900a827be1edde2d7626c59b08ce48878934380` /
+`012640bbe837cc35479abc78461faaf207041518`: candidate tree
+`f692df082e4abb8812adc4d65c8c825c93063c84`; full-index binary patch 185,418 bytes / SHA-256
+`db2560174b2b1781935bf01ee1247861e157bf326ae0a3bffe7a7eff436743ad`. V1 passed the
+tests-inclusive five-file membership, seven files / 273 tests and PTY 10/10. V2 passed required-APK
+Synthetic 19 files / 523 passes / 19 expected skips / zero failures, Mobile 120/120 plus
+tests-inclusive membership, and fresh build/Node checks. Flight bundle/map bindings are 201,416
+bytes / `c5b43839601073f706c0c34e394085a3fda1ad34c8462f5ac486769ff3be7d1f` and 528,673 bytes /
+`61e7c2974d757f977fa7a2bbd9c5492cf54fc1707d00e847215bd3741cfd1039`.
+
+The operative final-technical sequence is:
+
+1. Do not start V3 until independent semantic review returns `APPROVED` for these exact three
+   activation addenda and independently binds their resulting combined 12-path tree and canonical
+   full-index binary patch. That gate must prove the nine source/test blob IDs listed in the AVS
+   activation block unchanged before and after this documentation delta. No addendum self-hash is
+   inferred or substituted.
+2. Then start exactly one fully fresh final technical V3 at D01 in a fresh normal complete detached
+   worktree of the exact baseline, with the exact externally bound 12-blob overlay. Create fresh
+   task, cache, log, Evidence and PostgreSQL roots. Reuse no prior result, path, process, dependency
+   or database state, and run the established exact complete V3 sequence without omission or
+   substitution.
+3. Any nonzero result, signal, ambiguity, runner/Evidence/configuration fault or other deviation
+   consumes this one V3 as `FAIL_CLOSED`. Stop immediately; there is no retry, resume or replacement.
+4. A green V3 routes only to independent execution/Evidence review, focused publication and one
+   V4. It does not open a Human, Hardware or Physical-V5 gate.
+
+The Human's `Dann leg los!`, the independently approved architecture, formal round-2 `APPROVED`
+and the standing `AGENTS.md` rule provide the technical authority after the review/binding gate;
+no new Human prompt is required for this V3. There is no pre-V3 commit, push or CI action, and this
+addendum itself receives only R0/V0. **STOP before ADB, installation, Product-Human, Hardware, Tag
+or Physical-V5 activity.**
+
+## 2026-08-19 terminal-envelope correction round 1 — R3 TECHNICAL CANDIDATE / NO RUN AUTHORITY / STOP
+
+This addendum supersedes only conflicting mechanics in the `2026-08-18` correction candidate. The
+consumed run remains **`FAIL_CLOSED / POST_HIDDEN_INPUT_TERMINAL_OUTCOME_UNPROVEN`** with Product
+finding `NONE` and fast lane `STOP`; its immutable external Evidence is unchanged. Formal R3
+round-1 review returned `CHANGES REQUIRED` for terminal-status false success, Evidence link/node
+identity, and stdout ownership/bounded flush. Correction is limited to the same exact 12 paths and
+does not authorize a terminal, Controller, child, ADB, device, install, Tag, Product or Hardware
+start.
+
+For every future separately authorized invocation, the corrected technical sequence is:
+
+1. Persistent signal, raw stdin and stdout owners attach before outcome-neutral Evidence
+   preparation. Stdout owns `error`/`close` for the entire Supervisor lifecycle and serializes one
+   bounded, abortable flush. Stdin EOF/close and persistent signals cancel a stalled write without
+   changing their original failure class; real output callback/error/close/timeout failure latches
+   the terminal-I/O class before Controller entry or Controller-managed truth after entry.
+2. Evidence parent, stage and pending roots are canonical real directories whose owner, mode,
+   device and inode are captured and synchronously rechecked. Payload creation and reread use
+   exclusive/no-follow file descriptors plus `lstat`/`fstat`; each file must remain regular,
+   single-link, unique-inode, `0444`, exact-length and exact-hash. A symlink, dangling symlink,
+   hardlink, root replacement, parent replacement, identity change or collision fails closed and
+   leaves no authoritative selected final.
+3. The closed final mapping has seven classes, adding
+   `PRE_CONTROLLER_TERMINAL_IO_FAILURE_NO_CHILD_PROVEN`. After the final drain, the pending parent,
+   root, payloads and all selected-final collision paths are revalidated synchronously. Only then
+   are signal/input/output latches selected and exactly one pending-to-final rename attempted. No
+   required/fallible Evidence work follows a successful rename; failure remains
+   `EVIDENCE_UNSEALED` without retry.
+4. After the Evidence decision, Flight/Human input is permanently closed and the Supervisor begins
+   terminal publication. Exact disclosure-safe `da5_v5_flight_terminal` output must reach its
+   bounded flush callback before `terminal_outcome_published` becomes true. Only that proof can arm
+   and print the exact nonsecret `CLOSE` surface. Status failure offers no acknowledgement; status
+   or acknowledgement failure exits 1 without changing committed Evidence. Exit 0 requires the
+   exact sealed inner result, clean final latches, successful outer Evidence, published status and
+   exact `CLOSE`.
+5. Every prompt gate, including `CLOSE`, opens only after its bounded flush callback. Output
+   timeout, error/close, signal, stdin EOF or invalid/early input settles once, ignores late
+   callbacks, removes timers/listeners and attempts raw/flow restoration non-throwingly. A failed
+   raw/flow restoration is latched and forces exit 1. No credential, `PASS`, command, start, retry
+   or resume is accepted after Flight input closes.
+
+The seven-class correction and its adversarial tests remain an R3 candidate until V1/V2 and a new
+independent review are complete. The old CI, Operator, binding, launcher, Supervisor and consumed
+credential remain non-reusable; carry rules and future final-inventory-manifest requirements are
+unchanged. No final V3 runs in this correction step. **STOP for fresh exact authority before every
+Human, Hardware, ADB, install or Physical-V5 action.**
+
+## 2026-08-18 post-hidden-input terminal-envelope correction — R3 CANDIDATE / NO RUN AUTHORITY / STOP
+
+The exact second visible-TTY invocation is consumed as **`FAIL_CLOSED /
+POST_HIDDEN_INPUT_TERMINAL_OUTCOME_UNPROVEN`**. The Human saw the exact Supervisor prompt, entered
+the hidden credential once and reported that the same terminal closed. No result marker, exit
+status or Flight root was retained. Exact trigger, Controller/child reachability, immediate cleanup,
+device/package/profile/queue state and Product/install mutation are unobserved; no affirmative
+claim is made. Product finding is `NONE`; fast lane is `STOP`; the run-scoped credential is
+permanently non-reusable and is not labelled compromised. The immutable two-file root, modes,
+sizes and hashes are bound by the AVS top block and Event Ledger claim below.
+
+This correction is technical preparation only. It keeps `da5V5FlightMain` as the sole compiled
+entry and adds `Da5V5FlightSupervisor` only as an imported coordinator. No external wrapper,
+second start path, retry or resume is allowed. One raw Buffer stdin owner attaches before pending
+Evidence preparation, switches only through the closed
+`DETACHED -> QUARANTINED -> FLIGHT_INPUT|HUMAN_INPUT -> QUARANTINED -> ACK -> CLOSED` state
+machine and stays attached for the entire process.
+
+For every future separately authorized invocation:
+
+1. The launcher still uses one final `exec` of the reviewed absolute Node and compiled
+   `da5V5FlightMain.js`; no shell fallback follows.
+2. The Supervisor creates the run identity and expected Controller receipt path, installs
+   persistent `SIGINT`/`SIGTERM`/`SIGHUP` latching, attaches the sole raw Buffer input owner and
+   verifies stdin/stdout are the same TTY character device, then fully prepares/rereads the
+   outcome-neutral nonauthoritative terminal envelope before showing the credential prompt.
+3. The Human types nothing until the same visible terminal shows screen
+   `DA5 V5 Flight Supervisor`, field `hidden credential input` and the exact allowed-response
+   instruction. The gate opens only after that entire prompt is flushed. The credential is entered
+   once and never echoed. Exactly one CR or one LF terminates it; CRLF, extra bytes, control bytes,
+   malformed input, close/end/error or any byte outside an open gate fails closed without a
+   re-prompt.
+4. After credential capture, stdin returns to permanent quarantine. Every later Human prompt and
+   response hint is one indivisible `humanInput.request` operation whose gate likewise opens only
+   after flush. Early, late, machine-step, between-prompt or partial pre-prompt bytes are discarded,
+   never buffered for another prompt, and stop the Controller through the closed inner reason.
+5. Immediately before `controller.run()`, the boundary becomes Controller-managed/unproved. A
+   pre-input, signal or construction failure proves no child only because the boundary was not
+   crossed. An unexpected `run()` throw is always
+   `CONTROLLER_MANAGED_OR_UNPROVEN`. A returned result must match the shared run identity, plan and
+   exact expected receipt root; identity drift is managed/unproved and any other receipt path is
+   inner-unsealed. The inner receipt alone carries Product/cleanup authority.
+6. After the final drain/latch check, exactly one synchronous rename selects one of the six closed
+   classification paths listed in the AVS. A failed rename yields `EVIDENCE_UNSEALED`, leaves no
+   authoritative final and is never retried. A successful rename is final; no reread, cleanup or
+   classification operation follows it.
+7. The same terminal then prints one disclosure-safe `da5_v5_flight_terminal` JSON object and one
+   acknowledgement surface. The Human enters exactly `CLOSE` after that surface is visible. This
+   acknowledgement cannot alter Evidence and accepts no credential, `PASS`, command, start, retry
+   or resume. The process does not return to zsh after the reviewed launcher `exec`; EOF or a new
+   signal may close it only after the Evidence decision.
+
+The byte-only/no-secret-String claim applies solely to the new Flight credential and Supervisor
+TTY path. Existing ownership-based hidden input outside Flight and the documented transient child
+String are unchanged. Runtime terminal/envelope output or files contain no observed credential
+candidate value, derivative or candidate property, private device/Tag identifier, personal data
+or raw error; the visible prompt still states the reviewed required input format.
+
+The consumed binding set `1297fcc5c3ec2fffe60193fd0686f034ee3ded5206fa97ce5081ffde13aa2b8d`,
+old launcher, execution binding, review receipt, external inventory, Operator and old Supervisor
+are never reused. Future publication follows only R3 V1/V2 -> independent review/correction -> one
+final V3 -> publication -> exact-head V4 -> new reviewed runtime/operator artifacts -> new reviewed
+visible-TTY launcher. That launcher root must contain a persisted disclosure-safe
+`final-inventory-manifest` covering every other final file by path, mode, byte count and SHA-256;
+its digest is externally bound and independently reviewed without self-reference. Then **STOP for
+a new exact Human authority**. This block authorizes no current terminal start, ADB, installation,
+device, Tag, Product-Human, Hardware, production, deployment or distribution action.
+
 ## 2026-08-18 visible-same-terminal replacement contract — REVIEW PENDING / NOT ACTIVE / STOP
 
 The consumed event is **`FAIL_CLOSED / PRE-CONTROLLER VISIBLE-TTY ROUTING FAILURE`**: the exact

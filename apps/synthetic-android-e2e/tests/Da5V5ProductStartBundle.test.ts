@@ -4,8 +4,10 @@ import {
   chmodSync,
   existsSync,
   lstatSync,
+  mkdirSync,
   mkdtempSync,
   readFileSync,
+  readdirSync,
   realpathSync,
   rmSync,
   writeFileSync,
@@ -32,6 +34,7 @@ import {
 import {
   verifyDa5V5ValidationToolIdentity,
 } from '../../mobile/scripts/da5V5ValidationRuntimeContract.mjs';
+import { DA5_V5_FAST_FLIGHT_PLAN_SHA256 } from '../src/Da5V5FlightController.js';
 
 const repositoryRoot = fileURLToPath(new URL('../../..', import.meta.url));
 const operatorBundle = fileURLToPath(
@@ -423,17 +426,17 @@ describe('DA5 V5 Product operator bundle start smoke', () => {
       bytes: Buffer.byteLength(bundle),
       sha256: createHash('sha256').update(bundle).digest('hex'),
     }).toEqual({
-      bytes: 981_670,
+      bytes: 981_727,
       sha256:
-        'f480968a588e15bf974c172615edc0778fc4679088f6ccc86a5cdafecb5b00c1',
+        '1809c1b52aaad0980b5b204197a58029567925f4f1f77c06aca4611d65bfbce8',
     });
     expect({
       bytes: sourceMapBytes.byteLength,
       sha256: createHash('sha256').update(sourceMapBytes).digest('hex'),
     }).toEqual({
-      bytes: 1_904_949,
+      bytes: 1_905_775,
       sha256:
-        '1c4c8e791eea704b2cb135fc77b2ef1f3d9cda3fa11898fdfa8f8de106fe2768',
+        '34aa20276ac9e4a74f8a7c4978389721294276bc39bf391d23031789ce920516',
     });
     expect(sourceMap.version).toBe(3);
     expect(sourceMap.sourceRoot).toBeUndefined();
@@ -578,38 +581,61 @@ describe('DA5 V5 Product operator bundle start smoke', () => {
       bytes: Buffer.byteLength(supervisorBundle),
       sha256: createHash('sha256').update(supervisorBundle).digest('hex'),
     }).toEqual({
-      bytes: 163_638,
+      bytes: 201_416,
       sha256:
-        'eda3a6e407a07f6d923c62c3c7591a1bb79a2232e87a5b265ab77a7c419fe023',
+        'c5b43839601073f706c0c34e394085a3fda1ad34c8462f5ac486769ff3be7d1f',
     });
     expect({
       bytes: supervisorSourceMapBytes.byteLength,
       sha256: createHash('sha256').update(supervisorSourceMapBytes).digest('hex'),
     }).toEqual({
-      bytes: 453_423,
+      bytes: 528_673,
       sha256:
-        '1b0fbead6b33599c42567031f0eb113babbbfeb24317ba59e90f16e8e3529dbc',
+        '61e7c2974d757f977fa7a2bbd9c5492cf54fc1707d00e847215bd3741cfd1039',
     });
     expect(supervisorSourceMap).toMatchObject({ version: 3 });
     expect(supervisorSourceMap.sourceRoot).toBeUndefined();
-    expect(supervisorSourceMap.sources).toHaveLength(16);
-    expect(supervisorSourceMap.sourcesContent).toHaveLength(16);
+    expect(supervisorSourceMap.sources).toHaveLength(17);
+    expect(supervisorSourceMap.sourcesContent).toHaveLength(17);
     expect(supervisorSourceMap.sources).toEqual(expect.arrayContaining([
       '../src/da5V5FlightMain.ts',
       '../src/Da5V5FlightController.ts',
+      '../src/Da5V5FlightSupervisor.ts',
       '../src/Da5V5CleanStateAttestation.ts',
     ]));
     expect(supervisorBundle).toContain('da5-v5-fast-flight-v1');
     expect(supervisorBundle).toContain('da5V5Main.js');
     expect(supervisorBundle).toContain('RECEIPT_SEAL_FAILURE');
     expect(supervisorBundle).toContain('invalid_receipt_root');
-    expect(supervisorBundle).toContain('receipt_sealed');
+    expect(supervisorBundle).not.toContain('receipt_sealed');
+    expect(supervisorBundle).toContain('NON_AUTHORITATIVE_PENDING_PATH_ONLY');
+    expect(supervisorBundle).toContain('PRE_CONTROLLER_INPUT_FAILURE_NO_CHILD_PROVEN');
+    expect(supervisorBundle).toContain(
+      'PRE_CONTROLLER_TERMINAL_IO_FAILURE_NO_CHILD_PROVEN',
+    );
+    expect(supervisorBundle).toContain('terminal_outcome_published');
+    expect(supervisorBundle).toContain('O_RDONLY | O_NOFOLLOW');
+    expect(supervisorBundle).toContain('O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW');
+    expect(supervisorBundle).toContain('terminal outcome acknowledgement');
+    expect(supervisorBundle).not.toContain('node:readline/promises');
+    expect(supervisorBundle).not.toContain('readHumanAnswer');
+    expect(supervisorBundle).not.toContain('writeHumanPrompt');
+    expect(supervisorBundle).not.toContain('readDa5V5FlightCredential');
     expect(supervisorBundle).toContain('DA5 V5 receipt schema mismatch');
     expect(supervisorBundle).toContain('DA5 V5 process attestation failed');
     expect(supervisorBundle).toContain('DA5 V5 binding set mismatch');
     expect(supervisorBundle).toContain('TAPTIME_DA5_V5_FINAL_V3_SHA256');
     expect(supervisorBundle).toContain('TAPTIME_DA5_V5_EXACT_HEAD_CI_SHA256');
     expect(supervisorBundle).toContain('TAPTIME_DA5_V5_RUNTIME_MANIFEST_SHA256');
+    expect(runFlightSupervisorPtyClosure()).toEqual({
+      aliveBeforeClose: true,
+      closePromptCount: 1,
+      credentialPromptCount: 1,
+      exitCode: 1,
+      inputEchoOccurrences: 0,
+      terminalCount: 1,
+      terminalMatched: true,
+    });
     const syntheticPackage = JSON.parse(readFileSync(
       fileURLToPath(new URL('../package.json', import.meta.url)),
       'utf8',
@@ -810,6 +836,202 @@ function startOperatorWithFd3(environment: NodeJS.ProcessEnv) {
     },
   );
 }
+
+function runFlightSupervisorPtyClosure(): Readonly<{
+  readonly aliveBeforeClose: boolean;
+  readonly closePromptCount: number;
+  readonly credentialPromptCount: number;
+  readonly exitCode: number;
+  readonly inputEchoOccurrences: number;
+  readonly terminalCount: number;
+  readonly terminalMatched: boolean;
+}> {
+  const temporaryRoot = realpathSync(
+    mkdtempSync(join(tmpdir(), 'taptime-da5-flight-pty-')),
+  );
+  const evidenceParent = join(temporaryRoot, 'evidence');
+  mkdirSync(evidenceParent, { mode: 0o700 });
+  const childEnvironment: Record<string, string> = {
+    ANDROID_HOME: '/private/tmp/android-sdk',
+    ANDROID_SDK_ROOT: '/private/tmp/android-sdk',
+    HOME: temporaryRoot,
+    LOGNAME: 'synthetic',
+    PATH: '/usr/bin:/bin',
+    SHELL: '/bin/zsh',
+    TAPTIME_DA5_V5_ANDROID_API: '35',
+    TAPTIME_DA5_V5_ANDROID_BUILD: 'synthetic-build',
+    TAPTIME_DA5_V5_ANDROID_RELEASE: '15',
+    TAPTIME_DA5_V5_DEVICE_MODEL: 'Synthetic Galaxy',
+    TAPTIME_DA5_V5_IMPLEMENTATION_COMMIT: 'a'.repeat(40),
+    TAPTIME_DA5_V5_IMPLEMENTATION_TREE: 'b'.repeat(40),
+    TAPTIME_DA5_V5_PG_CONFIG: '/usr/bin/false',
+    TAPTIME_DA5_V5_RUNTIME_GUARD_BINARY: '/private/tmp/runtime-guard',
+    TAPTIME_DA5_V5_RUNTIME_GUARD_BINARY_SHA256: 'c'.repeat(64),
+    TAPTIME_DA5_V5_RUNTIME_GUARD_MANIFEST: '/private/tmp/runtime-guard-manifest',
+    TAPTIME_DA5_V5_RUNTIME_GUARD_MANIFEST_SHA256: 'd'.repeat(64),
+    TAPTIME_DA5_V5_TAG_A_FINGERPRINT: 'B55E8B6AEB30',
+    TAPTIME_DA5_V5_TAG_B_FINGERPRINT: '32A54C8F2F29',
+    TAPTIME_DA5_V5_TAG_TECHNOLOGY: 'NfcA',
+    TAPTIME_DA5_V5_TAG_X_FINGERPRINT: 'F61C9F702CFE',
+    TAPTIME_DA5_V5_TALKBACK_PACKAGE: 'com.google.android.marvin.talkback',
+    TAPTIME_DA5_V5_TALKBACK_VERSION: '15.1.0',
+    TAPTIME_SYNTHETIC_E2E_PROFILE: 'da5-v5',
+    TMPDIR: temporaryRoot,
+    USER: 'synthetic',
+  };
+  const evidence = {
+    TAPTIME_DA5_V5_CLOSURE_SHA256: '1'.repeat(64),
+    TAPTIME_DA5_V5_EXACT_HEAD_CI_SHA256: '2'.repeat(64),
+    TAPTIME_DA5_V5_FINAL_V3_SHA256: '3'.repeat(64),
+    TAPTIME_DA5_V5_PROCEDURE_SHA256: '4'.repeat(64),
+    TAPTIME_DA5_V5_RUNTIME_MANIFEST_SHA256: '5'.repeat(64),
+    TAPTIME_DA5_V5_TOOLCHAIN_SHA256: '6'.repeat(64),
+  };
+  const material = {
+    child_environment: childEnvironment,
+    child_sha256: createHash('sha256').update(readFileSync(operatorBundle)).digest('hex'),
+    evidence,
+    node_version: process.version,
+    plan_sha256: DA5_V5_FAST_FLIGHT_PLAN_SHA256,
+    schema_version: 1,
+    supervisor_sha256: createHash('sha256').update(readFileSync(flightBundle)).digest('hex'),
+  };
+  const environment = {
+    ...childEnvironment,
+    ...evidence,
+    TAPTIME_DA5_V5_BINDING_SET_ID: createHash('sha256')
+      .update(canonicalJsonBinding(material))
+      .digest('hex'),
+    TAPTIME_DA5_V5_FLIGHT_EVIDENCE_PARENT: evidenceParent,
+  };
+  try {
+    const probe = spawnSync(
+      'python3',
+      ['-c', FLIGHT_SUPERVISOR_PTY_PROBE, process.execPath, flightBundle],
+      {
+        cwd: repositoryRoot,
+        encoding: 'utf8',
+        env: environment,
+        killSignal: 'SIGTERM',
+        maxBuffer: 64 * 1024,
+        timeout: 10_000,
+      },
+    );
+    expect(probe.error, probe.stderr).toBeUndefined();
+    expect(probe.signal, probe.stderr).toBeNull();
+    expect(probe.status, probe.stderr).toBe(0);
+    const parsed = JSON.parse(probe.stdout) as ReturnType<typeof runFlightSupervisorPtyClosure>;
+    if (parsed.credentialPromptCount === 0) {
+      throw new Error('DA5 V5 Flight PTY prompt missing');
+    }
+    return parsed;
+  } finally {
+    makeTreeWritable(temporaryRoot);
+    rmSync(temporaryRoot, { force: true, recursive: true });
+  }
+}
+
+function canonicalJsonBinding(value: unknown): string {
+  if (value === null || typeof value !== 'object') {
+    const encoded = JSON.stringify(value);
+    if (encoded === undefined) throw new Error('binding encoding failed');
+    return encoded;
+  }
+  if (Array.isArray(value)) return `[${value.map(canonicalJsonBinding).join(',')}]`;
+  const record = value as Record<string, unknown>;
+  return `{${Object.keys(record).sort().map((key) => (
+    `${JSON.stringify(key)}:${canonicalJsonBinding(record[key])}`
+  )).join(',')}}`;
+}
+
+function makeTreeWritable(path: string): void {
+  if (!existsSync(path)) return;
+  const status = lstatSync(path);
+  if (!status.isDirectory()) {
+    chmodSync(path, 0o600);
+    return;
+  }
+  chmodSync(path, 0o700);
+  for (const name of readdirSync(path)) makeTreeWritable(join(path, name));
+}
+
+const FLIGHT_SUPERVISOR_PTY_PROBE = String.raw`
+import errno
+import json
+import os
+import pty
+import select
+import signal
+import sys
+import time
+
+node = sys.argv[1]
+bundle = sys.argv[2]
+pid, master = pty.fork()
+if pid == 0:
+    os.execve(node, [node, bundle], os.environ.copy())
+
+deadline = time.monotonic() + 8.0
+output = bytearray()
+credential_prompt = b'"field":"hidden credential input"'
+close_prompt = b'"field":"terminal outcome acknowledgement"'
+terminal_marker = b'da5_v5_flight_terminal='
+input_bytes = b'0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcde'
+input_sent = False
+close_sent = False
+alive_before_close = False
+status = None
+
+while time.monotonic() < deadline:
+    readable, _, _ = select.select([master], [], [], 0.1)
+    if readable:
+        try:
+            chunk = os.read(master, 4096)
+        except OSError as error:
+            if error.errno == errno.EIO:
+                break
+            raise
+        if not chunk:
+            break
+        output.extend(chunk)
+    if not input_sent and credential_prompt in output:
+        input_sent = True
+        os.write(master, input_bytes[:32])
+        time.sleep(0.02)
+        os.write(master, input_bytes[32:] + b'\r')
+    if not close_sent and close_prompt in output:
+        waited, observed = os.waitpid(pid, os.WNOHANG)
+        alive_before_close = waited == 0
+        if waited != 0:
+            status = observed
+            break
+        close_sent = True
+        time.sleep(0.05)
+        os.write(master, b'CLOSE\r')
+    waited, observed = os.waitpid(pid, os.WNOHANG)
+    if waited != 0:
+        status = observed
+        break
+
+if status is None:
+    waited, observed = os.waitpid(pid, os.WNOHANG)
+    if waited == 0:
+        os.kill(pid, signal.SIGTERM)
+        waited, observed = os.waitpid(pid, 0)
+    status = observed
+os.close(master)
+text = bytes(output)
+result = {
+    'aliveBeforeClose': alive_before_close,
+    'closePromptCount': text.count(close_prompt),
+    'credentialPromptCount': text.count(credential_prompt),
+    'exitCode': os.waitstatus_to_exitcode(status),
+    'inputEchoOccurrences': text.count(input_bytes),
+    'terminalCount': text.count(terminal_marker),
+    'terminalMatched': b'PRE_CONTROLLER_INPUT_FAILURE_NO_CHILD_PROVEN' in text,
+}
+sys.stdout.write(json.dumps(result, sort_keys=True))
+`;
 
 const IMAGE_SIZE_HANDLER_EXTENSIONS: Readonly<
   Record<string, readonly string[]>

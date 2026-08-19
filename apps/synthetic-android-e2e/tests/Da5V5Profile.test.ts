@@ -1347,6 +1347,14 @@ describe('DA5 V5 fixture, lifecycle and startup fail-stop boundaries', () => {
         new URL('../src/Da5V5FlightController.ts', import.meta.url),
         'utf8',
       );
+      const flightMainSource = await readFile(
+        new URL('../src/da5V5FlightMain.ts', import.meta.url),
+        'utf8',
+      );
+      const flightSupervisorSource = await readFile(
+        new URL('../src/Da5V5FlightSupervisor.ts', import.meta.url),
+        'utf8',
+      );
       const rejection = 'rejectDa5V5OperationalInputs(process.env, process.argv);';
       const profileRequirement =
         'const profile = requireDa5V5Profile(process.env.TAPTIME_SYNTHETIC_E2E_PROFILE);';
@@ -1442,6 +1450,49 @@ describe('DA5 V5 fixture, lifecycle and startup fail-stop boundaries', () => {
       expect(source).toContain("if (normalized === 'abort')");
       expect(source).toContain('DA5_V5_OPERATOR_COMMANDS');
       expect(flightControllerSource).toContain('| abort | stop');
+      expect(flightControllerSource).not.toContain("import('node:readline/promises')");
+      expect(flightControllerSource).not.toContain('readHumanAnswer');
+      expect(flightControllerSource).not.toContain('writeHumanPrompt');
+      expect(flightControllerSource).toContain('readonly humanInput: Da5V5HumanInput;');
+      expect(flightControllerSource).toContain('readonly runNonce: string;');
+      expect(flightControllerSource.indexOf('throwIfSignalled(this.options.signal);')).toBeLessThan(
+        flightControllerSource.indexOf('this.dependencies.spawnChild('),
+      );
+      expect(flightMainSource).toContain("from './Da5V5FlightSupervisor.js'");
+      expect(flightMainSource).toContain('await runDa5V5FlightSupervisor({');
+      expect(flightMainSource).not.toContain('readDa5V5FlightCredential');
+      expect(flightMainSource).not.toContain('publishCredentialPrompt');
+      expect(flightSupervisorSource.match(/this\.input\.on\('data'/gu)).toHaveLength(1);
+      expect(flightSupervisorSource).toContain("this.stateValue = 'QUARANTINED'");
+      expect(flightSupervisorSource).toContain("'FLIGHT_INPUT'");
+      expect(flightSupervisorSource).toContain("'HUMAN_INPUT'");
+      expect(flightSupervisorSource).toContain("'ACK'");
+      expect(flightSupervisorSource).toContain(
+        'PRE_CONTROLLER_TERMINAL_IO_FAILURE_NO_CHILD_PROVEN',
+      );
+      expect(flightSupervisorSource).toContain('terminal_outcome_published:');
+      expect(flightSupervisorSource).toContain('!inputOwner.restorationFailed()');
+      expect(flightSupervisorSource).toContain('outputFlushTimeoutMilliseconds');
+      expect(flightSupervisorSource).toContain("this.output.on('error', this.onOutputFailure)");
+      expect(flightSupervisorSource).toContain("this.output.on('close', this.onOutputFailure)");
+      expect(flightSupervisorSource).toContain('O_RDONLY | O_NOFOLLOW');
+      expect(flightSupervisorSource).toContain('O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW');
+      expect(flightSupervisorSource).toContain('lstatSync(path, { bigint: true })');
+      expect(flightSupervisorSource).not.toContain('existsSync(');
+      expect(flightSupervisorSource).not.toMatch(/\bstatSync\(/u);
+      expect(flightSupervisorSource).toContain(
+        'renameSync(this.pendingPath, committed.finalPath);',
+      );
+      expect(flightSupervisorSource).toContain("process.on('SIGINT', handler)");
+      expect(flightSupervisorSource).toContain("process.on('SIGTERM', handler)");
+      expect(flightSupervisorSource).toContain("process.on('SIGHUP', handler)");
+      const flightCaptureSource = secretInputSource.slice(
+        secretInputSource.indexOf('export class Da5V5FlightCredentialCapture'),
+        secretInputSource.indexOf('export function readDa5V5CredentialFrame'),
+      );
+      expect(flightCaptureSource).toContain('Buffer.alloc(DA5_V5_CREDENTIAL_FRAME_BYTES)');
+      expect(flightCaptureSource).not.toContain('createInterface');
+      expect(flightCaptureSource).not.toContain('Buffer.from(answer');
       expect(source.indexOf(
         "if (normalized === 'abort' && accessibilitySession.requiresRestoreProof())",
       )).toBeLessThan(source.indexOf('if (accessibilitySession.restoreOnly())'));
