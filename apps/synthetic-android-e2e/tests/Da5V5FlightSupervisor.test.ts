@@ -13,6 +13,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+  DA5_V5_INPUT_EOF_ABORT_REASON,
   DA5_V5_INPUT_ORDER_ABORT_REASON,
   DA5_V5_FAST_FLIGHT_PLAN_SHA256,
   da5V5FlightIdentity,
@@ -31,7 +32,8 @@ import {
 
 const bindingSetId = 'a'.repeat(64);
 const runNonce = '1'.repeat(64);
-const credentialValue = '0123456789abcdef'.repeat(4);
+const generatedCredentialValue = '000102030405060708090a0b0c0d0e0f'
+  + '101112131415161718191a1b1c1d1e1f';
 const temporaryRoots: string[] = [];
 
 afterEach(async () => {
@@ -42,17 +44,22 @@ afterEach(async () => {
 });
 
 describe('DA5 V5 same-TTY Flight Supervisor', () => {
-  it('keeps one raw listener through a sealed result and waits for exact CLOSE', async () => {
-    const harness = await createHarness();
+  it('generates one exact lowercase-hex credential, zeroes its entropy and waits for CLOSE',
+    async () => {
+    const entropy = Buffer.from(Array.from({ length: 32 }, (_value, index) => index));
+    const createCredentialEntropy = vi.fn(() => entropy);
+    const harness = await createHarness({ createCredentialEntropy });
     const credentialReference: { value: Buffer | null } = { value: null };
     harness.output.onWrite = (value, flush) => {
       flush();
-      if (isCredentialPrompt(value)) {
-        harness.input.send(`${credentialValue}\n`);
-      }
     };
     let settled = false;
     const operation = harness.run(({ credential }) => {
+      expect(credential).toHaveLength(64);
+      expect(credential.toString('ascii')).toBe(generatedCredentialValue);
+      expect(credential.every((byte) => (
+        (byte >= 0x30 && byte <= 0x39) || (byte >= 0x61 && byte <= 0x66)
+      ))).toBe(true);
       credentialReference.value = credential;
       return controllerReturning(resultFixture(harness.innerReceiptRoot));
     }).finally(() => { settled = true; });
@@ -61,7 +68,10 @@ describe('DA5 V5 same-TTY Flight Supervisor', () => {
     expect(settled).toBe(false);
     expect(harness.input.isRaw).toBe(true);
     expect(harness.input.listenerCount('data')).toBe(1);
-    expect(harness.output.text()).not.toContain(credentialValue);
+    expect(createCredentialEntropy).toHaveBeenCalledTimes(1);
+    expect(entropy.every((byte) => byte === 0)).toBe(true);
+    expect(harness.output.text()).not.toContain(generatedCredentialValue);
+    expect(harness.output.text()).not.toContain('hidden credential input');
     expect(harness.output.text()).not.toContain('zsh');
     harness.input.send('CLOSE\r');
     const result = await operation;
@@ -91,97 +101,90 @@ describe('DA5 V5 same-TTY Flight Supervisor', () => {
       readFile(join(result.final_root as string, 'evidence-manifest.json')),
       readFile(join(result.final_root as string, 'terminal-receipt.json')),
     ])).toString('utf8');
-    expect(sealedEnvelope).not.toContain(credentialValue);
+    expect(sealedEnvelope).not.toContain(generatedCredentialValue);
     expect(sealedEnvelope).not.toMatch(/credential|password|secret/iu);
   });
 
-  it.each([
-    ['short', `${credentialValue.slice(1)}\n`],
-    ['long', `${credentialValue}a\n`],
-    ['uppercase', `${'A'}${credentialValue.slice(1)}\n`],
-    ['nonhex', `${'g'}${credentialValue.slice(1)}\n`],
-    ['utf8', `${'é'}${credentialValue.slice(2)}\n`],
-    ['nul', `\0${credentialValue.slice(1)}\n`],
-    ['escape', `\u001b${credentialValue.slice(1)}\n`],
-    ['backspace', `\b${credentialValue.slice(1)}\n`],
-    ['ctrl-c', `\u0003${credentialValue.slice(1)}\n`],
-    ['crlf', `${credentialValue}\r\n`],
-    ['same chunk extra', `${credentialValue}\nx`],
-  ])('commits no-child input failure for %s', async (_name, supplied) => {
-    const harness = await createHarness();
-    const factory = vi.fn(() => controllerReturning(resultFixture(null)));
-    drivePrompts(harness, supplied);
-    const result = await harness.run(factory);
-    expect(result).toMatchObject({
-      evidence_status: 'SEALED',
-      exit_code: 1,
-      outcome_class: 'PRE_CONTROLLER_INPUT_FAILURE_NO_CHILD_PROVEN',
-    });
-    expect(factory).not.toHaveBeenCalled();
-  });
-
-  it.each(['\n', 'x'])('rejects split-tick trailing %j before credential settlement', async (extra) => {
-    const harness = await createHarness();
-    const factory = vi.fn(() => controllerReturning(resultFixture(null)));
-    harness.output.onWrite = (value, flush) => {
-      flush();
-      if (isCredentialPrompt(value)) {
-        setImmediate(() => {
-          harness.input.send(`${credentialValue}\r`);
-          setImmediate(() => harness.input.send(extra));
-        });
-      } else if (isClosePrompt(value)) {
-        setImmediate(() => harness.input.send('CLOSE\n'));
-      }
-    };
-    const result = await harness.run(factory);
-    expect(result.outcome_class).toBe('PRE_CONTROLLER_INPUT_FAILURE_NO_CHILD_PROVEN');
-    expect(factory).not.toHaveBeenCalled();
-  });
-
-  it('rejects bytes before the visible credential prompt flush', async () => {
-    const harness = await createHarness();
-    const factory = vi.fn(() => controllerReturning(resultFixture(null)));
-    harness.output.onWrite = (value, flush) => {
-      if (isCredentialPrompt(value)) harness.input.send(`${credentialValue}\n`);
-      flush();
-      if (isClosePrompt(value)) setImmediate(() => harness.input.send('CLOSE\n'));
-    };
-    const result = await harness.run(factory);
-    expect(result.outcome_class).toBe('PRE_CONTROLLER_INPUT_FAILURE_NO_CHILD_PROVEN');
-    expect(factory).not.toHaveBeenCalled();
-  });
-
-  it('keeps post-credential quarantine and never enters a controller on later-tick bytes',
-    async () => {
-      const harness = await createHarness();
+  it.each([31, 33])('rejects and zeroes a %i-byte entropy Buffer before controller construction',
+    async (length) => {
+      const entropy = Buffer.alloc(length, 0xab);
       const factory = vi.fn(() => controllerReturning(resultFixture(null)));
-      harness.output.onWrite = (value, flush) => {
-        flush();
-        if (isCredentialPrompt(value)) {
-          setImmediate(() => {
-            harness.input.send(`${credentialValue}\n`);
-            setImmediate(() => setImmediate(() => setImmediate(() => harness.input.send('P'))));
-          });
-        } else if (isClosePrompt(value)) {
-          setImmediate(() => harness.input.send('CLOSE\n'));
-        }
-      };
+      const harness = await createHarness({ createCredentialEntropy: () => entropy });
+      drivePrompts(harness);
+      const result = await harness.run(factory);
+      expect(result.outcome_class).toBe(
+        'PRE_CONTROLLER_CONSTRUCTION_FAILURE_NO_CHILD_PROVEN',
+      );
+      expect(factory).not.toHaveBeenCalled();
+      expect(entropy.every((byte) => byte === 0)).toBe(true);
+    });
+
+  it('rejects a non-Buffer entropy value without constructing the controller', async () => {
+    const factory = vi.fn(() => controllerReturning(resultFixture(null)));
+    const harness = await createHarness({
+      createCredentialEntropy: (() => new Uint8Array(32)) as unknown as () => Buffer,
+    });
+    drivePrompts(harness);
+    const result = await harness.run(factory);
+    expect(result.outcome_class).toBe(
+      'PRE_CONTROLLER_CONSTRUCTION_FAILURE_NO_CHILD_PROVEN',
+    );
+    expect(factory).not.toHaveBeenCalled();
+  });
+
+  it('classifies an entropy-factory throw without disclosing it or attempting a fallback',
+    async () => {
+      const createCredentialEntropy = vi.fn((): Buffer => {
+        throw new Error('private entropy detail');
+      });
+      const factory = vi.fn(() => controllerReturning(resultFixture(null)));
+      const harness = await createHarness({ createCredentialEntropy });
+      drivePrompts(harness);
+      const result = await harness.run(factory);
+      expect(result.outcome_class).toBe(
+        'PRE_CONTROLLER_CONSTRUCTION_FAILURE_NO_CHILD_PROVEN',
+      );
+      expect(createCredentialEntropy).toHaveBeenCalledTimes(1);
+      expect(factory).not.toHaveBeenCalled();
+      expect(harness.output.text()).not.toContain('private entropy detail');
+    });
+
+  it('rejects early terminal bytes during automatic generation and zeroes both Buffers',
+    async () => {
+      const entropy = Buffer.alloc(32, 0xab);
+      const factory = vi.fn(() => controllerReturning(resultFixture(null)));
+      let harness: Awaited<ReturnType<typeof createHarness>>;
+      harness = await createHarness({
+        createCredentialEntropy: () => {
+          setImmediate(() => harness.input.send('P'));
+          return entropy;
+        },
+      });
+      drivePrompts(harness);
       const result = await harness.run(factory);
       expect(result.outcome_class).toBe('PRE_CONTROLLER_INPUT_FAILURE_NO_CHILD_PROVEN');
       expect(factory).not.toHaveBeenCalled();
+      expect(entropy.every((byte) => byte === 0)).toBe(true);
     });
 
   it('classifies synchronous controller construction failure with spawn still unreachable',
     async () => {
-      const harness = await createHarness();
-      const factory = vi.fn(() => { throw new Error('private constructor detail'); });
-      drivePrompts(harness, `${credentialValue}\n`);
+      const entropy = Buffer.alloc(32, 0xab);
+      let credentialReference: Buffer | null = null;
+      const harness = await createHarness({ createCredentialEntropy: () => entropy });
+      const factory = vi.fn(({ credential }: { readonly credential: Buffer }) => {
+        credentialReference = credential;
+        throw new Error('private constructor detail');
+      });
+      drivePrompts(harness);
       const result = await harness.run(factory);
       expect(result.outcome_class).toBe(
         'PRE_CONTROLLER_CONSTRUCTION_FAILURE_NO_CHILD_PROVEN',
       );
       expect(factory).toHaveBeenCalledTimes(1);
+      expect(entropy.every((byte) => byte === 0)).toBe(true);
+      expect(credentialReference).not.toBeNull();
+      expect((credentialReference as unknown as Buffer).every((byte) => byte === 0)).toBe(true);
       expect(harness.output.text()).not.toContain('private constructor detail');
     });
 
@@ -191,7 +194,7 @@ describe('DA5 V5 same-TTY Flight Supervisor', () => {
   ] as const)('classifies a controller-returned %s inner receipt without Product claims',
     async (_name, sealed, expected) => {
       const harness = await createHarness();
-      drivePrompts(harness, `${credentialValue}\n`);
+      drivePrompts(harness);
       const result = await harness.run(() => controllerReturning(
         resultFixture(sealed ? harness.innerReceiptRoot : null),
       ));
@@ -203,7 +206,7 @@ describe('DA5 V5 same-TTY Flight Supervisor', () => {
 
   it('treats a stale or arbitrary returned receipt path as inner-unsealed', async () => {
     const harness = await createHarness();
-    drivePrompts(harness, `${credentialValue}\n`);
+    drivePrompts(harness);
     const result = await harness.run(() => controllerReturning(
       resultFixture('/private/tmp/arbitrary-stale-inner-root'),
     ));
@@ -215,7 +218,7 @@ describe('DA5 V5 same-TTY Flight Supervisor', () => {
     'treats a returned result with mismatched %s identity as managed or unproven',
     async (field) => {
       const harness = await createHarness();
-      drivePrompts(harness, `${credentialValue}\n`);
+      drivePrompts(harness);
       const fixture = resultFixture(harness.innerReceiptRoot);
       const mismatched = Object.freeze({
         ...fixture,
@@ -231,7 +234,7 @@ describe('DA5 V5 same-TTY Flight Supervisor', () => {
 
   it('classifies an unexpected run throw conservatively and discloses no raw error', async () => {
     const harness = await createHarness();
-    drivePrompts(harness, `${credentialValue}\n`);
+    drivePrompts(harness);
     const result = await harness.run(() => ({
       run: async () => { throw new Error('private controller detail'); },
     }));
@@ -246,9 +249,7 @@ describe('DA5 V5 same-TTY Flight Supervisor', () => {
       let humanPromptCount = 0;
       harness.output.onWrite = (value, flush) => {
         flush();
-        if (isCredentialPrompt(value)) {
-          harness.input.send(`${credentialValue}\n`);
-        } else if (value.includes('da5_v5_human_prompt=')) {
+        if (value.includes('da5_v5_human_prompt=')) {
           humanPromptCount += 1;
           harness.input.send('PASS\n');
         } else if (isClosePrompt(value)) {
@@ -268,7 +269,7 @@ describe('DA5 V5 same-TTY Flight Supervisor', () => {
 
   it('turns bytes during managed machine work into a latched order violation', async () => {
     const harness = await createHarness();
-    drivePrompts(harness, `${credentialValue}\n`);
+    drivePrompts(harness);
     const result = await harness.run(({ signal }) => ({
       run: async () => {
         harness.input.send('PASS\n');
@@ -280,10 +281,37 @@ describe('DA5 V5 same-TTY Flight Supervisor', () => {
     expect(result.outcome_class).toBe('CONTROLLER_MANAGED_OR_UNPROVEN');
   });
 
+  it.each([
+    ['input-order', DA5_V5_INPUT_ORDER_ABORT_REASON],
+    ['input-eof', DA5_V5_INPUT_EOF_ABORT_REASON],
+  ] as const)('delivers %s abort semantics to managed transfer without password disclosure',
+    async (event, expectedReason) => {
+      const harness = await createHarness();
+      drivePrompts(harness);
+      let credentialReference: Buffer | null = null;
+      const result = await harness.run(({ credential, signal }) => {
+        credentialReference = credential;
+        return {
+          run: async () => {
+            if (event === 'input-order') harness.input.send('PASS\n');
+            else harness.input.emit('end');
+            expect(signal.aborted).toBe(true);
+            expect(signal.reason).toBe(expectedReason);
+            throw new Error('managed transfer stopped');
+          },
+        };
+      });
+      expect(result.outcome_class).toBe('CONTROLLER_MANAGED_OR_UNPROVEN');
+      expect(credentialReference).not.toBeNull();
+      expect((credentialReference as unknown as Buffer).every((byte) => byte === 0)).toBe(true);
+      expect(harness.output.text()).not.toContain(generatedCredentialValue);
+      expect(harness.output.text()).not.toContain('managed transfer stopped');
+    });
+
   it('never buffers partial input between two Human prompts', async () => {
     const harness = await createHarness();
     const prompt = humanPrompt();
-    drivePrompts(harness, `${credentialValue}\n`, 'PASS\n');
+    drivePrompts(harness, 'PASS\n');
     const result = await harness.run(({ humanInput, signal }) => ({
       run: async () => {
         expect(await humanInput.request(prompt, signal)).toBe('PASS');
@@ -296,20 +324,21 @@ describe('DA5 V5 same-TTY Flight Supervisor', () => {
   });
 
   it.each(['end', 'close', 'error'] as const)(
-    'fails closed when input emits %s during capture and restores ownership',
+    'fails closed when input emits %s during automatic-generation quarantine',
     async (event) => {
-      const harness = await createHarness();
+      let harness: Awaited<ReturnType<typeof createHarness>>;
+      harness = await createHarness({
+        createCredentialEntropy: () => {
+          setImmediate(() => {
+            if (event === 'error') {
+              harness.input.emit('error', new Error('private input detail'));
+              harness.input.emit('error', new Error('second private input detail'));
+            } else harness.input.emit(event);
+          });
+          return Buffer.alloc(32, 0xab);
+        },
+      });
       const factory = vi.fn(() => controllerReturning(resultFixture(null)));
-      harness.output.onWrite = (value, flush) => {
-        flush();
-        if (!isCredentialPrompt(value)) return;
-        setImmediate(() => {
-          if (event === 'error') {
-            harness.input.emit('error', new Error('private input detail'));
-            harness.input.emit('error', new Error('second private input detail'));
-          } else harness.input.emit(event);
-        });
-      };
       const result = await harness.run(factory);
       expect(result.outcome_class).toBe('PRE_CONTROLLER_INPUT_FAILURE_NO_CHILD_PROVEN');
       expect(result.close_acknowledged).toBe(false);
@@ -334,36 +363,33 @@ describe('DA5 V5 same-TTY Flight Supervisor', () => {
           return () => undefined;
         },
       });
-      drivePrompts(harness, `${credentialValue}\n`);
+      drivePrompts(harness);
       const factory = vi.fn(() => controllerReturning(resultFixture(null)));
       const result = await harness.run(factory);
       expect(result.outcome_class).toBe('PRE_CONTROLLER_SIGNAL_NO_CHILD_PROVEN');
       expect(factory).not.toHaveBeenCalled();
     });
 
-  it('latches repeated signals during hidden capture without default termination', async () => {
+  it('latches repeated signals during automatic generation and zeroes the entropy', async () => {
     let signalHandler = (): void => undefined;
+    const entropy = Buffer.alloc(32, 0xab);
     const harness = await createHarness({
       installSignalHandlers: (handler) => {
         signalHandler = handler;
         return () => undefined;
       },
+      createCredentialEntropy: () => {
+        signalHandler();
+        signalHandler();
+        return entropy;
+      },
     });
-    harness.output.onWrite = (value, flush) => {
-      flush();
-      if (isCredentialPrompt(value)) {
-        setImmediate(() => {
-          signalHandler();
-          signalHandler();
-        });
-      } else if (isClosePrompt(value)) {
-        setImmediate(() => harness.input.send('CLOSE\n'));
-      }
-    };
+    drivePrompts(harness);
     const factory = vi.fn(() => controllerReturning(resultFixture(null)));
     const result = await harness.run(factory);
     expect(result.outcome_class).toBe('PRE_CONTROLLER_SIGNAL_NO_CHILD_PROVEN');
     expect(factory).not.toHaveBeenCalled();
+    expect(entropy.every((byte) => byte === 0)).toBe(true);
   });
 
   it('downgrades repeated signals during a returning controller', async () => {
@@ -374,11 +400,12 @@ describe('DA5 V5 same-TTY Flight Supervisor', () => {
         return () => undefined;
       },
     });
-    drivePrompts(harness, `${credentialValue}\n`);
-    const result = await harness.run(() => ({
+    drivePrompts(harness);
+    const result = await harness.run(({ credential }) => ({
       run: async () => {
         signalHandler();
         signalHandler();
+        expect(credential.every((byte) => byte === 0)).toBe(true);
         return resultFixture(null);
       },
     }));
@@ -400,7 +427,7 @@ describe('DA5 V5 same-TTY Flight Supervisor', () => {
         return () => undefined;
       },
     });
-    drivePrompts(harness, `${credentialValue}\n`);
+    drivePrompts(harness);
     const result = await harness.run(() => controllerReturning(
       resultFixture(harness.innerReceiptRoot),
     ));
@@ -413,9 +440,7 @@ describe('DA5 V5 same-TTY Flight Supervisor', () => {
     const harness = await createHarness();
     harness.output.onWrite = (value, flush) => {
       flush();
-      if (isCredentialPrompt(value)) {
-        setImmediate(() => harness.input.send(`${credentialValue}\n`));
-      } else if (value.startsWith('da5_v5_flight_terminal=')) {
+      if (value.startsWith('da5_v5_flight_terminal=')) {
         harness.input.send('CLOSE\n');
       }
     };
@@ -437,9 +462,7 @@ describe('DA5 V5 same-TTY Flight Supervisor', () => {
     let lateRequest: Promise<string> | null = null;
     harness.output.onWrite = (value, flush) => {
       flush();
-      if (isCredentialPrompt(value)) {
-        setImmediate(() => harness.input.send(`${credentialValue}\n`));
-      } else if (value.startsWith('da5_v5_flight_terminal=')) {
+      if (value.startsWith('da5_v5_flight_terminal=')) {
         lateRequest = retainedHumanInput?.request(humanPrompt()) ?? null;
         if (lateRequest !== null) void lateRequest.catch(() => undefined);
       } else if (isClosePrompt(value)) {
@@ -464,11 +487,6 @@ describe('DA5 V5 same-TTY Flight Supervisor', () => {
     const harness = await createHarness();
     let closePromptWrites = 0;
     harness.output.onWrite = (value, flush) => {
-      if (isCredentialPrompt(value)) {
-        flush();
-        setImmediate(() => harness.input.send(`${credentialValue}\n`));
-        return;
-      }
       if (value.startsWith('da5_v5_flight_terminal=')) {
         flush(new Error('private status write failure'));
         return;
@@ -495,13 +513,12 @@ describe('DA5 V5 same-TTY Flight Supervisor', () => {
     expectTerminalOwnershipRestored(harness);
   });
 
-  it('ignores a late callback error after an already successful prompt flush', async () => {
+  it('ignores a late callback error after an already successful status flush', async () => {
     const harness = await createHarness();
     harness.output.onWrite = (value, flush) => {
       flush();
-      if (isCredentialPrompt(value)) {
+      if (value.startsWith('da5_v5_flight_terminal=')) {
         setImmediate(() => flush(new Error('private late callback error')));
-        harness.input.send(`${credentialValue}\n`);
       } else if (isClosePrompt(value)) {
         setImmediate(() => harness.input.send('CLOSE\n'));
       }
@@ -526,8 +543,7 @@ describe('DA5 V5 same-TTY Flight Supervisor', () => {
       const harness = await createHarness();
       harness.output.onWrite = (value, flush) => {
         flush();
-        if (isCredentialPrompt(value)) harness.input.send(`${credentialValue}\n`);
-        else if (isClosePrompt(value)) harness.input.send('CLOSE\n');
+        if (isClosePrompt(value)) harness.input.send('CLOSE\n');
       };
       const operation = harness.run(() => controllerReturning(
         resultFixture(harness.innerReceiptRoot),
@@ -542,14 +558,15 @@ describe('DA5 V5 same-TTY Flight Supervisor', () => {
     }
   });
 
-  it('owns an asynchronous stdout error during the credential prompt', async () => {
-    const harness = await createHarness();
-    const factory = vi.fn(() => controllerReturning(resultFixture(null)));
-    harness.output.onWrite = (value) => {
-      if (isCredentialPrompt(value)) {
+  it('owns an asynchronous stdout error during automatic generation', async () => {
+    let harness: Awaited<ReturnType<typeof createHarness>>;
+    harness = await createHarness({
+      createCredentialEntropy: () => {
         setImmediate(() => harness.output.emit('error', new Error('private prompt error')));
-      }
-    };
+        return Buffer.alloc(32, 0xab);
+      },
+    });
+    const factory = vi.fn(() => controllerReturning(resultFixture(null)));
     const result = await harness.run(factory);
     expect(result).toMatchObject({
       close_acknowledged: false,
@@ -564,7 +581,7 @@ describe('DA5 V5 same-TTY Flight Supervisor', () => {
 
   it('owns an asynchronous stdout error during a managed controller', async () => {
     const harness = await createHarness();
-    drivePrompts(harness, `${credentialValue}\n`);
+    drivePrompts(harness);
     const result = await harness.run(() => ({
       run: async () => {
         await new Promise<void>((resolvePromise) => setImmediate(resolvePromise));
@@ -586,10 +603,7 @@ describe('DA5 V5 same-TTY Flight Supervisor', () => {
   it('owns an asynchronous stdout error during terminal status publication', async () => {
     const harness = await createHarness();
     harness.output.onWrite = (value, flush) => {
-      if (isCredentialPrompt(value)) {
-        flush();
-        setImmediate(() => harness.input.send(`${credentialValue}\n`));
-      } else if (value.startsWith('da5_v5_flight_terminal=')) {
+      if (value.startsWith('da5_v5_flight_terminal=')) {
         setImmediate(() => harness.output.emit('error', new Error('private status error')));
       }
     };
@@ -611,10 +625,7 @@ describe('DA5 V5 same-TTY Flight Supervisor', () => {
     async (event) => {
       const harness = await createHarness();
       harness.output.onWrite = (value, flush) => {
-        if (isCredentialPrompt(value)) {
-          flush();
-          setImmediate(() => harness.input.send(`${credentialValue}\n`));
-        } else if (value.startsWith('da5_v5_flight_terminal=')) {
+        if (value.startsWith('da5_v5_flight_terminal=')) {
           flush();
         } else if (isClosePrompt(value)) {
           setImmediate(() => {
@@ -648,10 +659,7 @@ describe('DA5 V5 same-TTY Flight Supervisor', () => {
         },
       });
       harness.output.onWrite = (value, flush) => {
-        if (isCredentialPrompt(value)) {
-          flush();
-          setImmediate(() => harness.input.send(`${credentialValue}\n`));
-        } else if (value.startsWith('da5_v5_flight_terminal=')) {
+        if (value.startsWith('da5_v5_flight_terminal=')) {
           setImmediate(() => signalHandler());
         }
       };
@@ -672,10 +680,7 @@ describe('DA5 V5 same-TTY Flight Supervisor', () => {
   it('cancels a stalled status flush on stdin EOF', async () => {
     const harness = await createHarness();
     harness.output.onWrite = (value, flush) => {
-      if (isCredentialPrompt(value)) {
-        flush();
-        setImmediate(() => harness.input.send(`${credentialValue}\n`));
-      } else if (value.startsWith('da5_v5_flight_terminal=')) {
+      if (value.startsWith('da5_v5_flight_terminal=')) {
         setImmediate(() => harness.input.emit('end'));
       }
     };
@@ -696,10 +701,7 @@ describe('DA5 V5 same-TTY Flight Supervisor', () => {
     const harness = await createHarness({ outputFlushTimeoutMilliseconds: 10 });
     let lateFlush: ((error?: Error) => void) | null = null;
     harness.output.onWrite = (value, flush) => {
-      if (isCredentialPrompt(value)) {
-        flush();
-        setImmediate(() => harness.input.send(`${credentialValue}\n`));
-      } else if (value.startsWith('da5_v5_flight_terminal=')) {
+      if (value.startsWith('da5_v5_flight_terminal=')) {
         lateFlush = flush;
       }
     };
@@ -723,10 +725,7 @@ describe('DA5 V5 same-TTY Flight Supervisor', () => {
       const harness = await createHarness({ outputFlushTimeoutMilliseconds: 10 });
       let lateFlush: ((error?: Error) => void) | null = null;
       harness.output.onWrite = (value, flush) => {
-        if (isCredentialPrompt(value)) {
-          flush();
-          setImmediate(() => harness.input.send(`${credentialValue}\n`));
-        } else if (value.startsWith('da5_v5_flight_terminal=')) {
+        if (value.startsWith('da5_v5_flight_terminal=')) {
           flush();
         } else if (isClosePrompt(value)) {
           lateFlush = flush;
@@ -776,7 +775,7 @@ describe('DA5 V5 same-TTY Flight Supervisor', () => {
           if (point === faultPoint) throw new Error('injected envelope fault');
         },
       });
-      drivePrompts(harness, `${credentialValue}\n`);
+      drivePrompts(harness);
       const result = await harness.run(() => controllerReturning(resultFixture(null)));
       expect(result).toMatchObject({
         evidence_status: 'EVIDENCE_UNSEALED',
@@ -808,7 +807,7 @@ describe('DA5 V5 same-TTY Flight Supervisor', () => {
         chmodSync(stage, 0o555);
       },
     });
-    drivePrompts(harness, `${credentialValue}\n`);
+    drivePrompts(harness);
     const result = await harness.run(() => controllerReturning(resultFixture(null)));
     expect(result).toMatchObject({
       evidence_status: 'EVIDENCE_UNSEALED',
@@ -829,7 +828,7 @@ describe('DA5 V5 same-TTY Flight Supervisor', () => {
         symlinkSync(join(harness.evidenceParent, 'missing-pending-target'), collision, 'dir');
       },
     });
-    drivePrompts(harness, `${credentialValue}\n`);
+    drivePrompts(harness);
     const result = await harness.run(() => controllerReturning(resultFixture(null)));
     expect(result).toMatchObject({
       evidence_status: 'EVIDENCE_UNSEALED',
@@ -851,7 +850,7 @@ describe('DA5 V5 same-TTY Flight Supervisor', () => {
           symlinkSync(alias, pending, 'dir');
         },
       });
-      drivePrompts(harness, `${credentialValue}\n`);
+      drivePrompts(harness);
       const result = await harness.run(() => controllerReturning(resultFixture(null)));
       const pending = pendingRoot(harness);
       expect(result).toMatchObject({
@@ -877,7 +876,7 @@ describe('DA5 V5 same-TTY Flight Supervisor', () => {
         linkSync(join(pendingRoot(harness), 'terminal-receipt.json'), hardlink);
       },
     });
-    drivePrompts(harness, `${credentialValue}\n`);
+    drivePrompts(harness);
     const result = await harness.run(() => controllerReturning(resultFixture(null)));
     expect(result).toMatchObject({
       evidence_status: 'EVIDENCE_UNSEALED',
@@ -905,7 +904,7 @@ describe('DA5 V5 same-TTY Flight Supervisor', () => {
         chmodSync(pending, 0o555);
       },
     });
-    drivePrompts(harness, `${credentialValue}\n`);
+    drivePrompts(harness);
     const result = await harness.run(() => controllerReturning(resultFixture(null)));
     expect(result).toMatchObject({
       evidence_status: 'EVIDENCE_UNSEALED',
@@ -927,7 +926,7 @@ describe('DA5 V5 same-TTY Flight Supervisor', () => {
         mkdirSync(harness.evidenceParent, { mode: 0o700 });
       },
     });
-    drivePrompts(harness, `${credentialValue}\n`);
+    drivePrompts(harness);
     const result = await harness.run(() => controllerReturning(resultFixture(null)));
     expect(result).toMatchObject({
       evidence_status: 'EVIDENCE_UNSEALED',
@@ -954,7 +953,7 @@ describe('DA5 V5 same-TTY Flight Supervisor', () => {
         symlinkSync(join(harness.evidenceParent, 'missing-target'), collision, 'dir');
       },
     });
-    drivePrompts(harness, `${credentialValue}\n`);
+    drivePrompts(harness);
     const result = await harness.run(() => controllerReturning(resultFixture(null)));
     expect(result).toMatchObject({
       evidence_status: 'EVIDENCE_UNSEALED',
@@ -973,7 +972,7 @@ describe('DA5 V5 same-TTY Flight Supervisor', () => {
           + '-CONTROLLER_RETURNED_INNER_RECEIPT_UNSEALED',
       );
       await mkdir(collision, { mode: 0o700 });
-      drivePrompts(harness, `${credentialValue}\n`);
+      drivePrompts(harness);
       const before = await readdir(harness.evidenceParent);
       const result = await harness.run(() => controllerReturning(resultFixture(null)));
       expect(result).toMatchObject({
@@ -986,7 +985,7 @@ describe('DA5 V5 same-TTY Flight Supervisor', () => {
 
   it('creates exactly one selected final and offers no second commit path', async () => {
     const harness = await createHarness();
-    drivePrompts(harness, `${credentialValue}\n`);
+    drivePrompts(harness);
     const result = await harness.run(() => controllerReturning(resultFixture(null)));
     const names = await readdir(harness.evidenceParent);
     expect(names.filter((name) => name.startsWith('flight-terminal-'))).toHaveLength(1);
@@ -998,11 +997,6 @@ describe('DA5 V5 same-TTY Flight Supervisor', () => {
   it('keeps a committed final authoritative when terminal output hits EPIPE', async () => {
     const harness = await createHarness();
     harness.output.onWrite = (value, flush) => {
-      if (isCredentialPrompt(value)) {
-        flush();
-        setImmediate(() => harness.input.send(`${credentialValue}\n`));
-        return;
-      }
       if (value.startsWith('da5_v5_flight_terminal=')) {
         flush(new Error('EPIPE'));
         return;
@@ -1044,7 +1038,7 @@ describe('DA5 V5 same-TTY Flight Supervisor', () => {
       installSignalHandlers: () => uninstall,
     });
     harness.input.failPause = true;
-    drivePrompts(harness, `${credentialValue}\n`);
+    drivePrompts(harness);
     const result = await harness.run(() => controllerReturning(
       resultFixture(harness.innerReceiptRoot),
     ));
@@ -1060,7 +1054,7 @@ describe('DA5 V5 same-TTY Flight Supervisor', () => {
       installSignalHandlers: () => uninstall,
     });
     harness.input.failRawRestore = true;
-    drivePrompts(harness, `${credentialValue}\n`);
+    drivePrompts(harness);
     const result = await harness.run(() => controllerReturning(
       resultFixture(harness.innerReceiptRoot),
     ));
@@ -1117,6 +1111,9 @@ async function createHarness(
       output: output as unknown as NodeJS.WriteStream,
       repositoryRootPath: process.cwd(),
     }, {
+      createCredentialEntropy: () => Buffer.from(
+        Array.from({ length: 32 }, (_value, index) => index),
+      ),
       createRunNonce: () => runNonce,
       verifySameTty: () => true,
       ...dependencyOverrides,
@@ -1126,14 +1123,11 @@ async function createHarness(
 
 function drivePrompts(
   harness: Awaited<ReturnType<typeof createHarness>>,
-  credential: string,
   humanResponse = 'PASS\n',
 ): void {
   harness.output.onWrite = (value, flush) => {
     flush();
-    if (isCredentialPrompt(value)) {
-      setImmediate(() => harness.input.send(credential));
-    } else if (value.includes('da5_v5_human_prompt=')) {
+    if (value.includes('da5_v5_human_prompt=')) {
       setImmediate(() => harness.input.send(humanResponse));
     } else if (isClosePrompt(value)) {
       setImmediate(() => harness.input.send('CLOSE\n'));
@@ -1185,10 +1179,6 @@ function humanPrompt(): Da5V5HumanPrompt {
     field: 'Product result',
     screen: 'TapTim.e',
   });
-}
-
-function isCredentialPrompt(value: string): boolean {
-  return value.includes('"field":"hidden credential input"');
 }
 
 function isClosePrompt(value: string): boolean {

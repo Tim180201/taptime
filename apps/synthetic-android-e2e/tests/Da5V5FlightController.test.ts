@@ -222,6 +222,122 @@ describe('DA5 V5 immutable fast-flight supervisor contract', () => {
       expect(credential.every((byte) => byte === 0)).toBe(true);
     });
 
+  it.each([
+    ['synchronous write throw', 'write-throw'],
+    ['write callback error', 'write-error'],
+    ['synchronous end throw', 'end-throw'],
+    ['end callback error', 'end-error'],
+    ['pipe error with a late write callback', 'pipe-error-late'],
+    ['pipe close', 'pipe-close'],
+    ['child error', 'child-error'],
+    ['child close', 'child-close'],
+  ] as const)('closes FD3 exactly once on %s', async (_name, mode) => {
+    const run = await transferFailureRun(mode);
+    expect(run.result.failure_reason).toBe('CHILD_NONZERO_OR_EARLY_EXIT');
+    expect(run.pipe.writeCalls).toBe(1);
+    expect(run.pipe.observedBytes).toBe(64);
+    expect(run.pipe.observedLowercaseHex).toBe(true);
+    expect(run.pipe.destroyed).toBe(true);
+    expect(run.credential.every((byte) => byte === 0)).toBe(true);
+    expect(run.attest).toHaveBeenCalledTimes(1);
+    expect(run.seal).toHaveBeenCalledTimes(1);
+    expect(run.pipe.listenerCount('error')).toBe(0);
+    expect(run.pipe.listenerCount('close')).toBe(0);
+    if (mode === 'write-error' || mode === 'end-error') {
+      expect(run.pipe.errorEvents).toBe(1);
+      expect(run.pipe.closeEvents).toBe(1);
+      expect(run.child.kill).toHaveBeenCalledWith('SIGTERM');
+    }
+  });
+
+  it('fails closed when successful end is followed by a late FD3 error before close',
+    async () => {
+      vi.useFakeTimers();
+      try {
+        const operation = transferFailureRun('end-success-late-error');
+        await vi.runAllTimersAsync();
+        const run = await operation;
+        expect(run.result.failure_reason).toBe('CHILD_NONZERO_OR_EARLY_EXIT');
+        expect(run.pipe.history).toEqual([
+          'write',
+          'write-success',
+          'end',
+          'end-success',
+          'error',
+          'close',
+        ]);
+        expect(run.pipe.endCalls).toBe(1);
+        expect(run.pipe.errorEvents).toBe(1);
+        expect(run.pipe.closeEvents).toBe(1);
+        expect(run.pipe.destroyed).toBe(true);
+        expect(run.child.kill).toHaveBeenCalledWith('SIGTERM');
+        expect(run.credential.every((byte) => byte === 0)).toBe(true);
+        expect(run.attest).toHaveBeenCalledTimes(1);
+        expect(run.seal).toHaveBeenCalledTimes(1);
+        expect(run.pipe.listenerCount('error')).toBe(0);
+        expect(run.pipe.listenerCount('close')).toBe(0);
+        expect(vi.getTimerCount()).toBe(0);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+  it('advances past a normal FD3 transfer only after one successful end-to-close lifecycle',
+    async () => {
+      const run = await transferFailureRun('end-success-close');
+      expect(run.result.failure_reason).toBe('CHILD_NONZERO_OR_EARLY_EXIT');
+      expect(run.pipe.history).toEqual([
+        'write',
+        'write-success',
+        'end',
+        'end-success',
+        'close',
+      ]);
+      expect(run.pipe.endCalls).toBe(1);
+      expect(run.pipe.errorEvents).toBe(0);
+      expect(run.pipe.closeEvents).toBe(1);
+      expect(run.credential.every((byte) => byte === 0)).toBe(true);
+      expect(run.attest).toHaveBeenCalledTimes(1);
+      expect(run.seal).toHaveBeenCalledTimes(1);
+      expect(run.pipe.listenerCount('error')).toBe(0);
+      expect(run.pipe.listenerCount('close')).toBe(0);
+    });
+
+  it.each([
+    [DA5_V5_OS_SIGNAL_ABORT_REASON, 'SIGNAL'],
+    [DA5_V5_INPUT_ORDER_ABORT_REASON, 'NONCE_OR_ORDER_MISMATCH'],
+    [DA5_V5_INPUT_EOF_ABORT_REASON, 'IPC_EOF'],
+    ['unknown-abort-reason', 'SIGNAL'],
+  ] as const)('maps a stalled FD3 %s abort to %s and ignores late callbacks',
+    async (reason, expected) => {
+    const run = await transferFailureRun('signal', reason);
+    expect(run.result.failure_reason).toBe(expected);
+    expect(run.pipe.writeCalls).toBe(1);
+    expect(run.pipe.destroyed).toBe(true);
+    expect(run.credential.every((byte) => byte === 0)).toBe(true);
+    expect(run.attest).toHaveBeenCalledTimes(1);
+    expect(run.seal).toHaveBeenCalledTimes(1);
+    expect(run.pipe.listenerCount('error')).toBe(0);
+    expect(run.pipe.listenerCount('close')).toBe(0);
+  });
+
+  it('bounds a stalled FD3 transfer with the machine-step timeout', async () => {
+    vi.useFakeTimers();
+    try {
+      const operation = transferFailureRun('timeout');
+      await vi.advanceTimersByTimeAsync(30_001);
+      await vi.runAllTimersAsync();
+      const run = await operation;
+      expect(run.result.failure_reason).toBe('MACHINE_STEP_TIMEOUT_OR_HANG');
+      expect(run.pipe.writeCalls).toBe(1);
+      expect(run.pipe.destroyed).toBe(true);
+      expect(run.credential.every((byte) => byte === 0)).toBe(true);
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('retains the primary failure when cleanup attestation also fails', async () => {
     const abortController = new AbortController();
     abortController.abort(DA5_V5_INPUT_ORDER_ABORT_REASON);
@@ -587,11 +703,22 @@ function inFlightAbortChildSource(): string {
     import { createReadStream } from 'node:fs';
 
     const credential = createReadStream('', { autoClose: true, fd: 3 });
-    credential.on('data', (chunk) => chunk.fill(0));
+    let credentialBytes = 0;
+    let credentialValid = true;
+    credential.on('data', (chunk) => {
+      credentialBytes += chunk.length;
+      credentialValid = credentialValid && chunk.every((byte) => (
+        (byte >= 0x30 && byte <= 0x39) || (byte >= 0x61 && byte <= 0x66)
+      ));
+      chunk.fill(0);
+    });
     credential.on('error', () => process.exit(20));
+    credential.on('end', () => {
+      if (credentialBytes !== 64 || !credentialValid) process.exit(19);
+      process.stdout.write(${JSON.stringify(`${da5V5FlightProtocolStartupLines().join('\n')}\n`)});
+    });
     const lines = createInterface({ input: process.stdin, terminal: false });
     let step = null;
-    process.stdout.write(${JSON.stringify(`${da5V5FlightProtocolStartupLines().join('\n')}\n`)});
     lines.on('line', (line) => {
       if (line.startsWith('flight-bind ')) {
         const [, runNonce, planDigest] = line.split(' ');
@@ -651,11 +778,22 @@ function cleanAbortChildSource(cleanup: 'complete' | 'failed'): string {
     import { createReadStream } from 'node:fs';
 
     const credential = createReadStream('', { autoClose: true, fd: 3 });
-    credential.on('data', (chunk) => chunk.fill(0));
+    let credentialBytes = 0;
+    let credentialValid = true;
+    credential.on('data', (chunk) => {
+      credentialBytes += chunk.length;
+      credentialValid = credentialValid && chunk.every((byte) => (
+        (byte >= 0x30 && byte <= 0x39) || (byte >= 0x61 && byte <= 0x66)
+      ));
+      chunk.fill(0);
+    });
     credential.on('error', () => process.exit(20));
+    credential.on('end', () => {
+      if (credentialBytes !== 64 || !credentialValid) process.exit(19);
+      process.stdout.write(${JSON.stringify(`${da5V5FlightProtocolStartupLines().join('\n')}\n`)});
+    });
     const lines = createInterface({ input: process.stdin, terminal: false });
     let step = null;
-    process.stdout.write(${JSON.stringify(`${da5V5FlightProtocolStartupLines().join('\n')}\n`)});
     const output = (payload, sequence) => {
       process.stdout.write('da5_v5_flight_output=' + JSON.stringify({
         order: step.order,
@@ -742,6 +880,209 @@ async function sealFailureRunResult(invalidRoot: string) {
   const result = await controller.run();
   expect(credential.every((byte) => byte === 0)).toBe(true);
   return result;
+}
+
+type TransferFailureMode =
+  | 'child-error'
+  | 'child-close'
+  | 'end-error'
+  | 'end-success-close'
+  | 'end-success-late-error'
+  | 'end-throw'
+  | 'pipe-close'
+  | 'pipe-error-late'
+  | 'signal'
+  | 'timeout'
+  | 'write-error'
+  | 'write-throw';
+
+class FakeCredentialPipe extends EventEmitter {
+  closed = false;
+  closeEvents = 0;
+  closeScheduled = false;
+  destroyed = false;
+  endCalls = 0;
+  errorEvents = 0;
+  observedBytes = 0;
+  observedLowercaseHex = false;
+  readonly history: string[] = [];
+  writableEnded = false;
+  writeCalls = 0;
+
+  constructor(
+    private readonly mode: TransferFailureMode,
+    private readonly abort: () => void,
+    private readonly closeChild: (error?: Error) => void,
+  ) {
+    super();
+  }
+
+  write(value: Buffer, callback: (error?: Error | null) => void): boolean {
+    this.history.push('write');
+    this.writeCalls += 1;
+    this.observedBytes = value.byteLength;
+    this.observedLowercaseHex = value.every((byte) => (
+      (byte >= 0x30 && byte <= 0x39) || (byte >= 0x61 && byte <= 0x66)
+    ));
+    if (this.mode === 'write-throw') throw new Error('private write throw');
+    if (this.mode === 'write-error') {
+      setImmediate(() => {
+        this.history.push('write-error');
+        callback(new Error('private write callback error'));
+        this.emitPairedFailure('write');
+      });
+    } else if (this.mode === 'pipe-error-late') {
+      setImmediate(() => {
+        this.emit('error', new Error('private pipe error'));
+        callback(null);
+      });
+    } else if (this.mode === 'pipe-close') {
+      this.scheduleClose();
+    } else if (this.mode === 'child-close') {
+      setImmediate(() => {
+        this.closeChild();
+        this.emitClose();
+      });
+    } else if (this.mode === 'child-error') {
+      setImmediate(() => this.emitChildError());
+    } else if (this.mode === 'signal') {
+      setImmediate(() => {
+        this.abort();
+        this.history.push('write-success');
+        callback(null);
+      });
+    } else if (this.mode !== 'timeout') {
+      setImmediate(() => {
+        this.history.push('write-success');
+        callback(null);
+      });
+    }
+    return true;
+  }
+
+  end(callback: (error?: Error | null) => void): void {
+    this.history.push('end');
+    this.endCalls += 1;
+    this.writableEnded = true;
+    if (this.mode === 'end-throw') throw new Error('private end throw');
+    setImmediate(() => {
+      if (this.mode === 'end-error') {
+        this.history.push('end-error');
+        callback(new Error('private end callback error'));
+        this.emitPairedFailure('end');
+        return;
+      }
+      this.history.push('end-success');
+      callback(null);
+      if (this.mode === 'end-success-late-error') {
+        this.emitPairedFailure('end-success');
+      } else if (this.mode === 'end-success-close') {
+        this.scheduleClose(() => this.emitChildError());
+      }
+    });
+  }
+
+  destroy(): this {
+    this.destroyed = true;
+    if (![
+      'child-close',
+      'end-error',
+      'end-success-late-error',
+      'write-error',
+    ].includes(this.mode)) {
+      this.scheduleClose();
+    }
+    return this;
+  }
+
+  private emitChildError(): void {
+    this.closeChild(new Error('private child error'));
+  }
+
+  private emitPairedFailure(stage: 'end' | 'end-success' | 'write'): void {
+    setImmediate(() => {
+      this.history.push('error');
+      this.errorEvents += 1;
+      this.emit('error', new Error(`private ${stage} stream error`));
+      this.emitClose();
+    });
+  }
+
+  private emitClose(): void {
+    if (this.closed) return;
+    this.closed = true;
+    this.destroyed = true;
+    this.history.push('close');
+    this.closeEvents += 1;
+    this.emit('close');
+  }
+
+  private scheduleClose(afterClose?: () => void): void {
+    if (this.closed || this.closeScheduled) return;
+    this.closeScheduled = true;
+    setImmediate(() => {
+      this.closeScheduled = false;
+      if (this.closed) return;
+      this.emitClose();
+      if (afterClose !== undefined) setImmediate(afterClose);
+    });
+  }
+}
+
+async function transferFailureRun(
+  mode: TransferFailureMode,
+  abortReason: unknown = DA5_V5_OS_SIGNAL_ABORT_REASON,
+) {
+  const credential = Buffer.from('0123456789abcdef'.repeat(4), 'ascii');
+  const abortController = new AbortController();
+  const child = new EventEmitter() as ChildProcess;
+  let childClosed = false;
+  const closeChild = (error?: Error): void => {
+    if (error !== undefined) {
+      child.emit('error', error);
+      return;
+    }
+    if (childClosed) return;
+    childClosed = true;
+    child.emit('close', 1, null);
+  };
+  const pipe = new FakeCredentialPipe(
+    mode,
+    () => abortController.abort(abortReason),
+    (error?: Error) => closeChild(error),
+  );
+  const stdin = Object.assign(new EventEmitter(), {
+    destroyed: false,
+    write: vi.fn(() => true),
+  });
+  const stdout = new EventEmitter();
+  const stderr = new EventEmitter();
+  Object.assign(child, {
+    exitCode: null,
+    kill: vi.fn(() => {
+      setImmediate(closeChild);
+      return true;
+    }),
+    pid: 2_147_483_647,
+    signalCode: null,
+    stderr,
+    stdin,
+    stdio: [stdin, stdout, stderr, pipe],
+    stdout,
+  });
+  const attest = vi.fn(async () => receiptFixture().scoped_cleanup);
+  const seal = vi.fn(async () => '/private/tmp/da5-v5-evidence/flight-sealed');
+  const controller = new Da5V5FlightController(
+    controllerOptions(credential, abortController.signal),
+    {
+      attest,
+      createNonce: () => '2'.repeat(64),
+      seal,
+      spawnChild: vi.fn(() => child) as unknown as typeof spawn,
+    },
+  );
+  const result = await controller.run();
+  return { attest, child, credential, pipe, result, seal };
 }
 
 function controllerFixture(

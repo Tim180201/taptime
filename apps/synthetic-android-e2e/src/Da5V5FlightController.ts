@@ -299,7 +299,7 @@ export class Da5V5FlightController {
       childPid = spawnedChild.pid ?? null;
       child = new FlightChild(spawnedChild);
       childPid = child.pid();
-      await child.writeCredential(credential);
+      await child.writeCredential(credential, machineTimeout, this.options.signal);
       await child.waitForReady(machineTimeout, this.options.signal);
       await child.bind(runNonce, DA5_V5_FAST_FLIGHT_PLAN_SHA256, machineTimeout,
         this.options.signal);
@@ -928,28 +928,126 @@ class FlightChild {
     return this.child.pid;
   }
 
-  async writeCredential(credential: Buffer): Promise<void> {
-    if (!isCredential(credential)) throw new FlightFailure('UNEXPECTED_OUTPUT');
+  async writeCredential(
+    credential: Buffer,
+    timeout: number,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    if (!isCredential(credential)) {
+      credential.fill(0);
+      throw new FlightFailure('UNEXPECTED_OUTPUT');
+    }
     const pipe = this.child.stdio[3];
-    if (pipe === null || pipe === undefined || !('write' in pipe) || !('end' in pipe)) {
+    if (
+      pipe === null
+      || pipe === undefined
+      || !('write' in pipe)
+      || typeof pipe.write !== 'function'
+      || !('end' in pipe)
+      || typeof pipe.end !== 'function'
+      || !('destroy' in pipe)
+      || typeof pipe.destroy !== 'function'
+      || this.exitCode !== null
+      || pipe.destroyed
+      || pipe.writableEnded
+      || !Number.isSafeInteger(timeout)
+      || timeout < 1
+    ) {
       credential.fill(0);
       throw new FlightFailure('CHILD_NONZERO_OR_EARLY_EXIT');
     }
     await new Promise<void>((resolvePromise, rejectPromise) => {
-      const onError = (): void => {
-        credential.fill(0);
-        rejectPromise(new FlightFailure('CHILD_NONZERO_OR_EARLY_EXIT'));
+      let endSucceeded = false;
+      let settled = false;
+      let lifecycleReleased = false;
+      let lifecycleReleaseTimer: NodeJS.Timeout | null = null;
+      let transferTimer: NodeJS.Timeout | null = null;
+      const releaseLifecycleOwner = (): void => {
+        if (lifecycleReleased) return;
+        lifecycleReleased = true;
+        if (lifecycleReleaseTimer !== null) {
+          clearTimeout(lifecycleReleaseTimer);
+          lifecycleReleaseTimer = null;
+        }
+        pipe.removeListener('error', onPipeFailure);
+        pipe.removeListener('close', onPipeClose);
+        this.child.removeListener('close', onChildClose);
+        this.child.removeListener('error', onChildError);
       };
-      pipe.once('error', onError);
-      pipe.write(credential, (error?: Error | null) => {
+      const retainLifecycleOwnerBounded = (): void => {
+        if (lifecycleReleased || lifecycleReleaseTimer !== null) return;
+        lifecycleReleaseTimer = setTimeout(releaseLifecycleOwner, timeout);
+        lifecycleReleaseTimer.unref();
+      };
+      const finish = (failure: FlightFailure | null): void => {
+        if (settled) return;
+        settled = true;
+        if (transferTimer !== null) {
+          clearTimeout(transferTimer);
+          transferTimer = null;
+        }
+        signal?.removeEventListener('abort', onAbort);
         credential.fill(0);
-        pipe.removeListener('error', onError);
-        if (error !== undefined && error !== null) {
-          rejectPromise(new FlightFailure('CHILD_NONZERO_OR_EARLY_EXIT'));
+        if (failure === null) {
+          releaseLifecycleOwner();
+          resolvePromise();
           return;
         }
-        pipe.end(() => resolvePromise());
-      });
+        retainLifecycleOwnerBounded();
+        try { pipe.destroy(); } catch { /* child termination remains authoritative */ }
+        rejectPromise(failure);
+      };
+      const onAbort = (): void => finish(abortFlightFailure(signal));
+      const onPipeFailure = (): void => finish(
+        new FlightFailure('CHILD_NONZERO_OR_EARLY_EXIT'),
+      );
+      const onPipeClose = (): void => {
+        finish(endSucceeded
+          ? null
+          : new FlightFailure('CHILD_NONZERO_OR_EARLY_EXIT'));
+        releaseLifecycleOwner();
+      };
+      const onChildClose = (): void => {
+        finish(new FlightFailure('CHILD_NONZERO_OR_EARLY_EXIT'));
+      };
+      const onChildError = (): void => finish(
+        new FlightFailure('CHILD_NONZERO_OR_EARLY_EXIT'),
+      );
+      transferTimer = setTimeout(() => finish(
+        new FlightFailure('MACHINE_STEP_TIMEOUT_OR_HANG'),
+      ), timeout);
+      signal?.addEventListener('abort', onAbort, { once: true });
+      pipe.on('error', onPipeFailure);
+      pipe.once('close', onPipeClose);
+      this.child.once('close', onChildClose);
+      this.child.once('error', onChildError);
+      if (signal?.aborted === true) {
+        onAbort();
+        return;
+      }
+      try {
+        pipe.write(credential, (writeError?: Error | null) => {
+          if (settled) return;
+          if (writeError !== undefined && writeError !== null) {
+            finish(new FlightFailure('CHILD_NONZERO_OR_EARLY_EXIT'));
+            return;
+          }
+          credential.fill(0);
+          try {
+            pipe.end((endError?: Error | null) => {
+              if (endError !== undefined && endError !== null) {
+                finish(new FlightFailure('CHILD_NONZERO_OR_EARLY_EXIT'));
+                return;
+              }
+              endSucceeded = true;
+            });
+          } catch {
+            finish(new FlightFailure('CHILD_NONZERO_OR_EARLY_EXIT'));
+          }
+        });
+      } catch {
+        finish(new FlightFailure('CHILD_NONZERO_OR_EARLY_EXIT'));
+      }
     });
   }
 
@@ -2010,7 +2108,7 @@ function requireNonce(value: string): string {
 }
 
 function isCredential(value: Buffer): boolean {
-  return value.length === 64 && value.every((byte) => (
+  return Buffer.isBuffer(value) && value.length === 64 && value.every((byte) => (
     (byte >= 0x30 && byte <= 0x39) || (byte >= 0x61 && byte <= 0x66)
   ));
 }

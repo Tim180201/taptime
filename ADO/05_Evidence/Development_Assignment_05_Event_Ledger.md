@@ -1,5 +1,79 @@
 # Development Assignment 5 — Append-Only Event Ledger
 
+## Automatic password Fast-Recovery candidate and consumed invisible start (`2026-08-21`)
+
+- `claim_id`: `DA5-V5-2885739D-INVISIBLE-START-CONSUMED-20260821`; provenance Human/TL;
+  authority changed from one fresh run to `CONSUMED`; terminal is
+  `FAIL_CLOSED / START_VISIBILITY_OR_EXECUTION_UNOBSERVED / HUMAN_STOP`. The start boundary
+  reported acceptance, the Human observed no retained window/prompt and entered no password.
+  A later check found Terminal windows/process absent, scoped DA5 processes/task roots zero, ports
+  3000/54321/55435 free and no new Flight root. Only later null state is proved; actual command
+  execution/exit, immediate cleanup, Supervisor/Controller/ADB/install/Product/Hardware and
+  Product equality remain unobserved. No retry/resume is authorized.
+- `evidence`: immutable external root basename
+  `flight-2885739d-start-visibility-unobserved-20260821`, root `0555`, exactly receipt 2,460 bytes /
+  `0444` / SHA-256 `40d39c9b15bb2b2612a96fccc7c5c4587f99fb8974ffc377e7f36fe5cb3dea5d`
+  and manifest 318 bytes / `0444` / SHA-256
+  `bb98592a702b450ffb307e0ea0e4d51aa09913f7d37a57913fbabdbb4dfff0e2`.
+- `claim_id`: `DA5-V5-AUTOMATIC-PASSWORD-R3-CANDIDATE-20260821`; provenance Human/Development;
+  supersedes only prospective manual Supervisor password entry. On exact baseline
+  `2885739d9679c7be16ea518c640636bd2f3b6753` /
+  `1e437b7ebfa80aaa353a8ebbe8aa2f9e074d98dd`, the uncommitted ten-path candidate generates one
+  CSPRNG-backed mutable 64-byte lowercase-hex Buffer after TTY/pending-Evidence/quarantine,
+  removes hidden terminal capture, retains one fail-closed stdin owner and hardens exact FD3
+  write-plus-EOF settlement. Existing plan/order/prompts/tokens/schema/Product semantics and
+  manual fixed Synthetic e-mail entry remain unchanged. `Passwort nicht sichtbar` maps externally
+  to existing `FAIL`; uncertainty maps to `AMBIGUOUS`; no button is automated.
+- `round_1_correction`: formal review returned `CHANGES REQUIRED`, P0/P1/P2/P3 `0/1/1/0`.
+  Callback-error settlement now retains one bounded pipe-error owner through paired
+  callback-to-`error`/`close`, then releases without listener/timer residue; the first failure,
+  child termination, attestation and seal remain authoritative. FD3 abort now calls the existing
+  centralized mapper: input-order `NONCE_OR_ORDER_MISMATCH`, EOF `IPC_EOF`, OS signal and unknown
+  reason `SIGNAL`. Supervisor input-order/EOF reach those exact reasons without password output.
+- `round_1_verification`: correction development passed Controller 33/33; the first Supervisor run was
+  RC 1 with 72 passes and one test-harness timeout, then passed 73/73 after driving `CLOSE`. The
+  first four-file PREBUILT run was RC 1 only at one stale Profile static assertion; the final run
+  passed 4/4 files and 162/162. Correction tests-inclusive Synthetic Typecheck passed and exact
+  file-list output proved all four test members. The sole correction build argv was
+  `npm run build --workspace=@taptime/synthetic-android-e2e`. The exact added final-test environment
+  binding was `TAPTIME_DA5_V5_PREBUILT_BUNDLE_VERIFICATION=required`; test argv was
+  `npm run test --workspace=@taptime/synthetic-android-e2e -- --run tests/Da5V5FlightSupervisor.test.ts tests/Da5V5FlightController.test.ts tests/Da5V5Profile.test.ts tests/Da5V5ProductStartBundle.test.ts`.
+  PREBUILT fails closed unless Node is `v24.17.0`, all four bundle/map files are regular and their
+  exact byte/hash plus relevant current `sourcesContent` bindings match; absent the variable,
+  default test behavior still self-builds. Child/Flight Node syntax passed; built PTY used zero
+  password input, showed zero hidden prompt and emitted no unknown 64-lowerhex candidate. Round-1
+  Child JS/map are 981,784 / 1,912,537 bytes with SHA-256
+  `d2bd86d3a4229022014c5fc6d7ede1493b81feb50a9b72d4ad5f1a8b8b76e633` /
+  `5db54bdf7860112e5534f927b6bdb8d7d313e50e1d4810efc7fec9228d669525`; Flight JS/map are
+  205,090 / 527,068 bytes with SHA-256
+  `fca6ce9a95ba899c2d6b22105e06588995373b1814cb31036b9131a99e7d67f7` /
+  `cf351992919e26d9f0fece4a1b0a0c0b5e5008769e2f345e885536caa282edee`. Round-0 focused
+  development results remain 90/90, 151/151, 152/152 and final 157/157. No broad suite, neighbor
+  secret/transfer suite, V3, CI, PostgreSQL, APK reachability execution, ADB, install or Hardware
+  ran.
+- `round_2_correction`: formal review returned `CHANGES REQUIRED`, P0/P1/P2/P3 `0/1/0/0`, because
+  successful end callback still resolved transfer before terminal FD3 close and could leave a
+  later error unowned. Write/end success are now intermediate; deadline and AbortSignal remain
+  through close; only an error-free FD3 close succeeds. Late error and child-close-before-FD3-close
+  fail without resettlement, while the error owner remains to FD3 close or bounded release.
+- `round_2_verification`: Controller passed 35/35 both before and after adding exact fake-timer
+  residue proof. Exactly one correction-2 build ran with argv
+  `npm run build --workspace=@taptime/synthetic-android-e2e`; no nested build ran. With exact added
+  environment `TAPTIME_DA5_V5_PREBUILT_BUNDLE_VERIFICATION=required`, the unchanged four-test argv
+  passed 4/4 files and 164/164. Tests-inclusive Synthetic Typecheck and exact four-member file list
+  passed; Child/Flight Node syntax passed. Built PTY again used zero password input, showed zero
+  hidden prompt and emitted no unknown 64-lowerhex candidate. Current Child JS/map are 981,784 /
+  1,912,587 bytes with SHA-256
+  `d2bd86d3a4229022014c5fc6d7ede1493b81feb50a9b72d4ad5f1a8b8b76e633` /
+  `36b8e5a6aa4b78a80523980802fb050e88b8e9feae3272d12cb6135ccbaf57e8`; Flight JS/map are
+  205,118 / 527,127 bytes with SHA-256
+  `6c1921eda081116af0c9c101262f08956282c80a950c0c485a181b3f67d3af49` /
+  `eeeac060997fbf0986864826586693d743eac3aeb3aaad2e0a384c07f30b740b`. No broad or neighbor
+  suite, V3, CI, PostgreSQL, APK reachability execution, ADB, install or Hardware ran.
+- `authority`: candidate is `R3 ROUND-2 CORRECTED / ROUND-3 REVIEW PENDING / UNPUBLISHED / NO
+  HARDWARE AUTHORITY`. Independent round-3 review, publication, exact artifact rebinding and a
+  fresh one-shot Human Hardware authorization remain mandatory.
+
 ## Fast-Recovery fulfillment — e10d pre-Product failure and focused correction (`2026-08-21`)
 
 - `authority`: the exact one-shot run `e10d22d0697b994c9e35bbbc2ae90efa` is consumed

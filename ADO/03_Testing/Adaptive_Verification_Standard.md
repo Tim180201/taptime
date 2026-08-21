@@ -1,5 +1,66 @@
 # AVS-001 – Adaptive Verification and CI Efficiency Standard
 
+## DA5 automatic password Fast-Recovery candidate (`2026-08-21`) — R3 round-2 corrected / round-3 review pending / Hardware STOP
+
+Human-authorized scope is exactly two Supervisor/Controller sources, four directly affected tests
+and the four compact ADO addenda on baseline `2885739d9679c7be16ea518c640636bd2f3b6753` /
+`1e437b7ebfa80aaa353a8ebbe8aa2f9e074d98dd`. Risk is R3 because password generation, terminal
+ownership and FD3 transfer are security boundaries. The active Fast Recovery Lane limits proof to
+the four focused suites, tests-inclusive Synthetic Typecheck, one final Synthetic build, Child and
+Flight Node syntax, exact bundle/map bindings, V0 integrity and one independent review.
+
+Round 0's bounded development runs passed two files / 90 tests, then three files / 151 and 152,
+and finally four files / 157; tests-inclusive Synthetic Typecheck passed twice. Formal round 1
+returned `CHANGES REQUIRED`, P0/P1/P2/P3 `0/1/1/0`. Correction development first passed the
+Controller file 33/33. The first Supervisor-only attempt observed 72 passes and one 30-second
+test-harness timeout because the new input-order case did not yet drive `CLOSE`; after that
+test-only correction the file passed 73/73. The first four-file PREBUILT attempt returned RC 1
+only because one Profile static-source assertion still named the replaced close handler; after
+updating that assertion, the final run passed four files / 162 tests. The correction tests prove a
+write- or end-callback error followed after rejection/cleanup start by stream `error` and `close`
+without uncaught error, resettlement, listener/timer residue, lost child termination, lost
+attestation/seal or password residue. Stalled FD3 OS-signal/input-order/EOF/unknown aborts map to
+`SIGNAL`/`NONCE_OR_ORDER_MISMATCH`/`IPC_EOF`/`SIGNAL`, and Supervisor tests deliver the exact
+input-order/EOF reasons without outputting the password.
+
+Formal round 2 returned `CHANGES REQUIRED`, P0/P1/P2/P3 `0/1/0/0`, because successful end
+callback still resolved transfer and removed its error owner before terminal FD3 close. The final
+allowed correction makes write and end success intermediate states, retains timeout/AbortSignal
+through close, fails child-close-before-FD3-close and treats only an error-free terminal FD3 close
+as success. Controller development passed 35/35 before and after adding an explicit fake-timer
+residue assertion; the final PREBUILT run passed four files / 164 tests without an intermediate
+failure. Deterministic tests prove normal `end-success -> close` exactly once and
+`end-success -> late error -> close` as `CHILD_NONZERO_OR_EARLY_EXIT`, with no uncaught error,
+false success/resettlement, residual listener/timer, password residue, lost child termination or
+lost attestation/seal.
+
+Each correction round had one tests-inclusive Synthetic Typecheck and separate `--listFilesOnly`
+proof of all four focused tests. Exactly one build ran after source stabilization in each
+correction round; correction 2 did not invoke a nested build. `node --check` passed separately for
+Child and Flight. Current final exact outputs are:
+Child JS 981,784 bytes /
+`d2bd86d3a4229022014c5fc6d7ede1493b81feb50a9b72d4ad5f1a8b8b76e633`; Child map 1,912,587 /
+`36b8e5a6aa4b78a80523980802fb050e88b8e9feae3272d12cb6135ccbaf57e8`; Flight JS 205,118 /
+`6c1921eda081116af0c9c101262f08956282c80a950c0c485a181b3f67d3af49`; Flight map 527,127 /
+`eeeac060997fbf0986864826586693d743eac3aeb3aaad2e0a384c07f30b740b`.
+The exact final test environment was
+`TAPTIME_DA5_V5_PREBUILT_BUNDLE_VERIFICATION=required`; argv was
+`npm run test --workspace=@taptime/synthetic-android-e2e -- --run tests/Da5V5FlightSupervisor.test.ts tests/Da5V5FlightController.test.ts tests/Da5V5Profile.test.ts tests/Da5V5ProductStartBundle.test.ts`.
+This test-only mode rejects every other value, requires Node `v24.17.0`, four present regular
+bundle/map artifacts, their exact byte/hash assertions and current relevant source-map
+`sourcesContent` hashes, then exercises the existing PTY bindings. With the variable absent the
+test's default remains its original self-build. The built-bundle PTY advanced without password
+input, observed zero hidden-password prompts, reached Controller classification, preserved one
+`CLOSE` acknowledgement and found zero unknown 64-lowerhex output candidates.
+
+No broad suite, standalone `Da5V5SecretInput`/`Da5V5CredentialTransfer` neighbor run, V3, CI,
+PostgreSQL, APK reachability execution, ADB, install or Hardware ran: the focused suites directly
+cover the removed Supervisor capture, retained Human/CLOSE ownership, generator and zeroization
+faults, FD3 write/end/error/close/timeout/abort/late-callback races, static boundaries and real
+built-bundle PTY progression. Final V0 integrity is bound outside this non-self-hashing document
+in the Development handover; independent R3 round-3 review remains required before publication,
+which still stops before every Human/Hardware gate.
+
 ## DA5 Fast Recovery e10d fulfillment (`2026-08-21`) — FAIL_CLOSED / ROUND 1 CHANGES REQUIRED / CORRECTION 1 / ROUND 2 PENDING / HARDWARE STOP
 
 This append-only top block fulfills the active Fast Recovery Lane only for consumed run

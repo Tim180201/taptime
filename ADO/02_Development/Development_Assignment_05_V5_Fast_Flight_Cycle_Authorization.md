@@ -1,5 +1,59 @@
 # Development Assignment 05 — V5 Fast Flight Cycle Authorization Candidate
 
+## 2026-08-21 automatic memory-only password Fast-Recovery candidate — R3 round-2 corrected / round-3 review pending / Hardware STOP
+
+The Human authorized this bounded Fast-Lane process correction on exact baseline
+`2885739d9679c7be16ea518c640636bd2f3b6753`, tree
+`1e437b7ebfa80aaa353a8ebbe8aa2f9e074d98dd`. It replaces only prospective manual Supervisor
+password capture: after same-TTY ownership, the outcome-neutral pending envelope and the initial
+quarantine drain, the Supervisor obtains exactly 32 bytes from Node CSPRNG once and nibble-encodes
+them into one mutable 64-byte lowercase-hex ASCII `Buffer`. Entropy is immediately overwritten;
+the password Buffer is overwritten on construction error, signal, transfer, Controller return or
+throw, and final Supervisor closure. It is never a JavaScript password string and never enters
+stdin, terminal output, clipboard, environment, argv, file, log, Evidence or AppleScript.
+
+`FLIGHT_INPUT`, the hidden password prompt and `requestCredential` are removed. The Supervisor
+retains the sole raw stdin owner with only `QUARANTINED`, `HUMAN_INPUT`, `ACK` and `CLOSED`; early
+or unprompted bytes still fail closed. The existing plan, plan order, prompts, response tokens,
+schema, fixed public Synthetic e-mails and Product behavior are unchanged. The Human still types
+only the explicitly prompted e-mail and confirms the empty active password field. Machine
+injection remains automatic. The next existing combined button/destination prompt is the only
+post-injection prompt; no button is clicked automatically. Human report `Passwort nicht sichtbar`
+maps to `FAIL` without clicking, and uncertainty maps to `AMBIGUOUS`; neither phrase becomes a
+new protocol token.
+
+FD3 now proves one exact 64-byte write followed by EOF under the existing 30-second machine bound.
+Write/end throw or callback failure, pipe/child error or close, timeout, abort and late callbacks
+settle once, overwrite the password, close/destroy FD3 and enter existing child-termination and
+cleanup policy. Write success and end/finish success are intermediate only: transfer succeeds
+exactly once after terminal FD3 `close` is observed with no preceding error. Deadline and abort
+ownership remain active through that close. A late error after successful end therefore fails
+closed, and child close before successful FD3 closure remains failure. One bounded pipe-error
+owner remains until terminal FD3 close or its bounded failure release; late callbacks cannot
+resettle and no listener/timer remains after release. The centralized abort mapping is preserved:
+input-order maps to `NONCE_OR_ORDER_MISMATCH`, stdin EOF to `IPC_EOF`, and OS signal or unknown
+reason conservatively to `SIGNAL`; timeout maps to `MACHINE_STEP_TIMEOUT_OR_HANG`, and pipe/child
+failure to `CHILD_NONZERO_OR_EARLY_EXIT`. The Child's already-existing transient password string
+boundary is unchanged and is not reclassified as zeroizable.
+
+The preceding one-shot launcher request is consumed
+`FAIL_CLOSED / START_VISIBILITY_OR_EXECUTION_UNOBSERVED / HUMAN_STOP / AUTHORITY_CONSUMED`.
+Immutable root basename `flight-2885739d-start-visibility-unobserved-20260821` is `0555` with
+receipt 2,460 bytes / `0444` / SHA-256
+`40d39c9b15bb2b2612a96fccc7c5c4587f99fb8974ffc377e7f36fe5cb3dea5d` and manifest 318 bytes /
+`0444` / SHA-256 `bb98592a702b450ffb307e0ea0e4d51aa09913f7d37a57913fbabdbb4dfff0e2`.
+It proves only the reported accepted start request, no Human-visible window/prompt and the later
+null state; actual launcher execution/exit, immediate cleanup, Supervisor/Controller/ADB/install,
+Product and Hardware are unobserved. No retry or resume exists.
+
+Formal round 1 returned `CHANGES REQUIRED`, P0/P1/P2/P3 `0/1/1/0`, solely for the paired FD3
+callback-error lifecycle and the overbroad transfer-abort mapping. Formal round 2 then returned
+`CHANGES REQUIRED`, P0/P1/P2/P3 `0/1/0/0`, because successful end callback still released the
+error owner before terminal FD3 close. This same ten-path R3 candidate contains all bounded
+corrections and now requires independent round-3 review. It grants no current launcher, TTY, ADB,
+install, Product-Human or Hardware authority. After approval/publication, new exact artifacts and
+binding Evidence must be prepared, followed by **STOP for one fresh Human Hardware authorization**.
+
 ## 2026-08-14 invitation-secret source/transfer scope amendment — top candidate
 
 Status: **B36 R3 PREFLIGHT STOP / R0-V0 SCOPE-AMENDMENT CANDIDATE / REVIEW PENDING / NOT

@@ -404,16 +404,33 @@ describe('DA5 V5 Product operator bundle start smoke', () => {
   }, 90_000);
 
   it('builds and reaches the hardware-free DA5 startup guard without APK or ADB use', () => {
-    const build = spawnSync(
-      'npm',
-      ['run', 'build', '--workspace=@taptime/synthetic-android-e2e'],
-      {
-        cwd: repositoryRoot,
-        encoding: 'utf8',
-        env: process.env,
-      },
-    );
-    expect(build.status, `${build.stdout}\n${build.stderr}`).toBe(0);
+    const prebuiltMode = process.env.TAPTIME_DA5_V5_PREBUILT_BUNDLE_VERIFICATION;
+    expect([undefined, 'required']).toContain(prebuiltMode);
+    if (prebuiltMode === 'required') {
+      expect(process.version).toBe('v24.17.0');
+      for (const path of [
+        operatorBundle,
+        operatorSourceMap,
+        flightBundle,
+        flightSourceMap,
+      ]) {
+        expect(existsSync(path)).toBe(true);
+        const status = lstatSync(path);
+        expect(status.isFile()).toBe(true);
+        expect(status.isSymbolicLink()).toBe(false);
+      }
+    } else {
+      const build = spawnSync(
+        'npm',
+        ['run', 'build', '--workspace=@taptime/synthetic-android-e2e'],
+        {
+          cwd: repositoryRoot,
+          encoding: 'utf8',
+          env: process.env,
+        },
+      );
+      expect(build.status, `${build.stdout}\n${build.stderr}`).toBe(0);
+    }
     const bundle = readFileSync(operatorBundle, 'utf8');
     const sourceMapBytes = readFileSync(operatorSourceMap);
     const sourceMap = JSON.parse(sourceMapBytes.toString('utf8')) as {
@@ -426,17 +443,17 @@ describe('DA5 V5 Product operator bundle start smoke', () => {
       bytes: Buffer.byteLength(bundle),
       sha256: createHash('sha256').update(bundle).digest('hex'),
     }).toEqual({
-      bytes: 981_727,
+      bytes: 981_784,
       sha256:
-        '1809c1b52aaad0980b5b204197a58029567925f4f1f77c06aca4611d65bfbce8',
+        'd2bd86d3a4229022014c5fc6d7ede1493b81feb50a9b72d4ad5f1a8b8b76e633',
     });
     expect({
       bytes: sourceMapBytes.byteLength,
       sha256: createHash('sha256').update(sourceMapBytes).digest('hex'),
     }).toEqual({
-      bytes: 1_905_775,
+      bytes: 1_912_587,
       sha256:
-        '34aa20276ac9e4a74f8a7c4978389721294276bc39bf391d23031789ce920516',
+        '36b8e5a6aa4b78a80523980802fb050e88b8e9feae3272d12cb6135ccbaf57e8',
     });
     expect(sourceMap.version).toBe(3);
     expect(sourceMap.sourceRoot).toBeUndefined();
@@ -445,6 +462,7 @@ describe('DA5 V5 Product operator bundle start smoke', () => {
     expect(sourceMap.sources).toHaveLength(93);
     expect(sourceMap.sourcesContent).toHaveLength(93);
     const operatorSources = sourceMap.sources as string[];
+    const operatorSourcesContent = sourceMap.sourcesContent as string[];
     expect(new Set(operatorSources).size).toBe(operatorSources.length);
     expect(operatorSources).toEqual(expect.arrayContaining([
       '../src/da5V5Main.ts',
@@ -469,6 +487,18 @@ describe('DA5 V5 Product operator bundle start smoke', () => {
         );
       }),
     ).toEqual([]);
+    expectCurrentSourceMapEntry(
+      operatorSources,
+      operatorSourcesContent,
+      '../src/da5V5Main.ts',
+      join(repositoryRoot, 'apps/synthetic-android-e2e/src/da5V5Main.ts'),
+    );
+    expectCurrentSourceMapEntry(
+      operatorSources,
+      operatorSourcesContent,
+      '../src/Da5V5FlightController.ts',
+      join(repositoryRoot, 'apps/synthetic-android-e2e/src/Da5V5FlightController.ts'),
+    );
     const highDependencyNames = ['image-size', 'js-yaml', 'nanoid'];
     expect(
       operatorSources.filter((source) =>
@@ -581,28 +611,46 @@ describe('DA5 V5 Product operator bundle start smoke', () => {
       bytes: Buffer.byteLength(supervisorBundle),
       sha256: createHash('sha256').update(supervisorBundle).digest('hex'),
     }).toEqual({
-      bytes: 201_416,
+      bytes: 205_118,
       sha256:
-        'c5b43839601073f706c0c34e394085a3fda1ad34c8462f5ac486769ff3be7d1f',
+        '6c1921eda081116af0c9c101262f08956282c80a950c0c485a181b3f67d3af49',
     });
     expect({
       bytes: supervisorSourceMapBytes.byteLength,
       sha256: createHash('sha256').update(supervisorSourceMapBytes).digest('hex'),
     }).toEqual({
-      bytes: 528_673,
+      bytes: 527_127,
       sha256:
-        '61e7c2974d757f977fa7a2bbd9c5492cf54fc1707d00e847215bd3741cfd1039',
+        'eeeac060997fbf0986864826586693d743eac3aeb3aaad2e0a384c07f30b740b',
     });
     expect(supervisorSourceMap).toMatchObject({ version: 3 });
     expect(supervisorSourceMap.sourceRoot).toBeUndefined();
-    expect(supervisorSourceMap.sources).toHaveLength(17);
-    expect(supervisorSourceMap.sourcesContent).toHaveLength(17);
+    expect(supervisorSourceMap.sources).toHaveLength(16);
+    expect(supervisorSourceMap.sourcesContent).toHaveLength(16);
     expect(supervisorSourceMap.sources).toEqual(expect.arrayContaining([
       '../src/da5V5FlightMain.ts',
       '../src/Da5V5FlightController.ts',
       '../src/Da5V5FlightSupervisor.ts',
       '../src/Da5V5CleanStateAttestation.ts',
     ]));
+    expectCurrentSourceMapEntry(
+      supervisorSourceMap.sources as string[],
+      supervisorSourceMap.sourcesContent as string[],
+      '../src/da5V5FlightMain.ts',
+      join(repositoryRoot, 'apps/synthetic-android-e2e/src/da5V5FlightMain.ts'),
+    );
+    expectCurrentSourceMapEntry(
+      supervisorSourceMap.sources as string[],
+      supervisorSourceMap.sourcesContent as string[],
+      '../src/Da5V5FlightController.ts',
+      join(repositoryRoot, 'apps/synthetic-android-e2e/src/Da5V5FlightController.ts'),
+    );
+    expectCurrentSourceMapEntry(
+      supervisorSourceMap.sources as string[],
+      supervisorSourceMap.sourcesContent as string[],
+      '../src/Da5V5FlightSupervisor.ts',
+      join(repositoryRoot, 'apps/synthetic-android-e2e/src/Da5V5FlightSupervisor.ts'),
+    );
     expect(supervisorBundle).toContain('da5-v5-fast-flight-v1');
     expect(supervisorBundle).toContain('da5V5Main.js');
     expect(supervisorBundle).toContain('RECEIPT_SEAL_FAILURE');
@@ -621,6 +669,10 @@ describe('DA5 V5 Product operator bundle start smoke', () => {
     expect(supervisorBundle).not.toContain('readHumanAnswer');
     expect(supervisorBundle).not.toContain('writeHumanPrompt');
     expect(supervisorBundle).not.toContain('readDa5V5FlightCredential');
+    expect(supervisorBundle).not.toContain('hidden credential input');
+    expect(supervisorBundle).not.toContain('requestCredential');
+    expect(supervisorBundle).not.toContain('FLIGHT_INPUT');
+    expect(supervisorBundle).toContain('DA5 V5 flight credential generation failed');
     expect(supervisorBundle).toContain('DA5 V5 receipt schema mismatch');
     expect(supervisorBundle).toContain('DA5 V5 process attestation failed');
     expect(supervisorBundle).toContain('DA5 V5 binding set mismatch');
@@ -630,11 +682,12 @@ describe('DA5 V5 Product operator bundle start smoke', () => {
     expect(runFlightSupervisorPtyClosure()).toEqual({
       aliveBeforeClose: true,
       closePromptCount: 1,
-      credentialPromptCount: 1,
+      controllerReached: true,
+      credentialInputBytesWritten: 0,
+      credentialPromptCount: 0,
       exitCode: 1,
-      inputEchoOccurrences: 0,
       terminalCount: 1,
-      terminalMatched: true,
+      unknownLowerHex64Count: 0,
     });
     const syntheticPackage = JSON.parse(readFileSync(
       fileURLToPath(new URL('../package.json', import.meta.url)),
@@ -840,11 +893,12 @@ function startOperatorWithFd3(environment: NodeJS.ProcessEnv) {
 function runFlightSupervisorPtyClosure(): Readonly<{
   readonly aliveBeforeClose: boolean;
   readonly closePromptCount: number;
+  readonly controllerReached: boolean;
+  readonly credentialInputBytesWritten: number;
   readonly credentialPromptCount: number;
   readonly exitCode: number;
-  readonly inputEchoOccurrences: number;
   readonly terminalCount: number;
-  readonly terminalMatched: boolean;
+  readonly unknownLowerHex64Count: number;
 }> {
   const temporaryRoot = realpathSync(
     mkdtempSync(join(tmpdir(), 'taptime-da5-flight-pty-')),
@@ -921,8 +975,8 @@ function runFlightSupervisorPtyClosure(): Readonly<{
     expect(probe.signal, probe.stderr).toBeNull();
     expect(probe.status, probe.stderr).toBe(0);
     const parsed = JSON.parse(probe.stdout) as ReturnType<typeof runFlightSupervisorPtyClosure>;
-    if (parsed.credentialPromptCount === 0) {
-      throw new Error('DA5 V5 Flight PTY prompt missing');
+    if (parsed.credentialPromptCount !== 0) {
+      throw new Error('DA5 V5 Flight PTY hidden prompt unexpectedly present');
     }
     return parsed;
   } finally {
@@ -944,6 +998,30 @@ function canonicalJsonBinding(value: unknown): string {
   )).join(',')}}`;
 }
 
+function expectCurrentSourceMapEntry(
+  sources: readonly string[],
+  sourcesContent: readonly string[],
+  expectedSource: string,
+  absoluteSourcePath: string,
+): void {
+  const index = sources.indexOf(expectedSource);
+  expect(index).toBeGreaterThanOrEqual(0);
+  const embedded = sourcesContent[index];
+  expect(typeof embedded).toBe('string');
+  if (typeof embedded !== 'string') throw new Error('source map content missing');
+  const sourceStatus = lstatSync(absoluteSourcePath);
+  expect(sourceStatus.isFile()).toBe(true);
+  expect(sourceStatus.isSymbolicLink()).toBe(false);
+  const current = readFileSync(absoluteSourcePath);
+  expect({
+    bytes: Buffer.byteLength(embedded),
+    sha256: createHash('sha256').update(embedded).digest('hex'),
+  }).toEqual({
+    bytes: current.byteLength,
+    sha256: createHash('sha256').update(current).digest('hex'),
+  });
+}
+
 function makeTreeWritable(path: string): void {
   if (!existsSync(path)) return;
   const status = lstatSync(path);
@@ -960,6 +1038,7 @@ import errno
 import json
 import os
 import pty
+import re
 import select
 import signal
 import sys
@@ -976,11 +1055,10 @@ output = bytearray()
 credential_prompt = b'"field":"hidden credential input"'
 close_prompt = b'"field":"terminal outcome acknowledgement"'
 terminal_marker = b'da5_v5_flight_terminal='
-input_bytes = b'0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcde'
-input_sent = False
 close_sent = False
 alive_before_close = False
 status = None
+credential_input_bytes_written = 0
 
 while time.monotonic() < deadline:
     readable, _, _ = select.select([master], [], [], 0.1)
@@ -994,11 +1072,6 @@ while time.monotonic() < deadline:
         if not chunk:
             break
         output.extend(chunk)
-    if not input_sent and credential_prompt in output:
-        input_sent = True
-        os.write(master, input_bytes[:32])
-        time.sleep(0.02)
-        os.write(master, input_bytes[32:] + b'\r')
     if not close_sent and close_prompt in output:
         waited, observed = os.waitpid(pid, os.WNOHANG)
         alive_before_close = waited == 0
@@ -1021,14 +1094,23 @@ if status is None:
     status = observed
 os.close(master)
 text = bytes(output)
+known_hex64 = {
+    value.encode('ascii')
+    for value in os.environ.values()
+    if re.fullmatch(r'[0-9a-f]{64}', value)
+}
+hex64_candidates = re.findall(rb'(?<![0-9a-f])[0-9a-f]{64}(?![0-9a-f])', text)
 result = {
     'aliveBeforeClose': alive_before_close,
     'closePromptCount': text.count(close_prompt),
+    'controllerReached': b'"outcome_class":"CONTROLLER_' in text,
+    'credentialInputBytesWritten': credential_input_bytes_written,
     'credentialPromptCount': text.count(credential_prompt),
     'exitCode': os.waitstatus_to_exitcode(status),
-    'inputEchoOccurrences': text.count(input_bytes),
     'terminalCount': text.count(terminal_marker),
-    'terminalMatched': b'PRE_CONTROLLER_INPUT_FAILURE_NO_CHILD_PROVEN' in text,
+    'unknownLowerHex64Count': sum(
+        1 for candidate in hex64_candidates if candidate not in known_hex64
+    ),
 }
 sys.stdout.write(json.dumps(result, sort_keys=True))
 `;

@@ -26,7 +26,6 @@ import {
   type Da5V5HumanInput,
   type Da5V5HumanPrompt,
 } from './Da5V5FlightController.js';
-import { Da5V5FlightCredentialCapture } from './Da5V5SecretInput.js';
 
 export const DA5_V5_TERMINAL_OUTCOME_CLASSES = Object.freeze([
   'PRE_CONTROLLER_INPUT_FAILURE_NO_CHILD_PROVEN',
@@ -43,19 +42,9 @@ export type Da5V5TerminalOutcomeClass =
 export type Da5V5TerminalInputState =
   | 'DETACHED'
   | 'QUARANTINED'
-  | 'FLIGHT_INPUT'
   | 'HUMAN_INPUT'
   | 'ACK'
   | 'CLOSED';
-
-export const DA5_V5_FLIGHT_CREDENTIAL_PROMPT: Da5V5HumanPrompt = Object.freeze({
-  action: 'Enter the bound credential exactly once through hidden terminal input.',
-  allowed_response: Object.freeze(['EXACT_64_LOWERCASE_HEX_SECRET']),
-  button: 'none',
-  do_not: 'Do not paste to a visible field, log, file, environment or clipboard.',
-  field: 'hidden credential input',
-  screen: 'DA5 V5 Flight Supervisor',
-});
 
 export interface Da5V5FlightSupervisorController {
   run(): Promise<Da5V5FlightRunResult>;
@@ -69,7 +58,6 @@ export interface Da5V5FlightSupervisorOptions {
     readonly runNonce: string;
     readonly signal: AbortSignal;
   }>) => Da5V5FlightSupervisorController;
-  readonly credentialPrompt?: Da5V5HumanPrompt;
   readonly evidenceParentPath: string;
   readonly input: NodeJS.ReadStream;
   readonly output: NodeJS.WriteStream;
@@ -98,6 +86,7 @@ export type Da5V5TerminalEnvelopeFaultPoint =
   | 'final-rename';
 
 export interface Da5V5FlightSupervisorDependencies {
+  readonly createCredentialEntropy: () => Buffer;
   readonly createRunNonce: () => string;
   readonly fault: (point: Da5V5TerminalEnvelopeFaultPoint) => void;
   readonly installSignalHandlers: (handler: () => void) => () => void;
@@ -132,6 +121,8 @@ export async function runDa5V5FlightSupervisor(
 ): Promise<Da5V5FlightSupervisorResult> {
   requireSupervisorOptions(options);
   const operations: Da5V5FlightSupervisorDependencies = Object.freeze({
+    createCredentialEntropy: dependencies.createCredentialEntropy
+      ?? (() => randomBytes(32)),
     createRunNonce: dependencies.createRunNonce
       ?? (() => randomBytes(32).toString('hex')),
     fault: dependencies.fault ?? (() => undefined),
@@ -145,11 +136,13 @@ export async function runDa5V5FlightSupervisor(
   });
   const controllerAbort = new AbortController();
   const postCommitAbort = new AbortController();
+  let credential: Buffer | null = null;
   let postCommitPhase = false;
   let signalLatch = 0;
   let outputFailureLatch = 0;
   const uninstallSignals = operations.installSignalHandlers(() => {
     signalLatch += 1;
+    zeroBuffer(credential);
     if (postCommitPhase) {
       if (!postCommitAbort.signal.aborted) {
         postCommitAbort.abort(DA5_V5_OS_SIGNAL_ABORT_REASON);
@@ -181,7 +174,6 @@ export async function runDa5V5FlightSupervisor(
     postCommitAbort,
     operations.verifySameTty,
   );
-  let credential: Buffer | null = null;
   let envelope: Da5V5TerminalEnvelope | null = null;
   let finalRoot: string | null = null;
   let outcomeClass: Da5V5TerminalOutcomeClass | 'EVIDENCE_UNSEALED' =
@@ -228,10 +220,7 @@ export async function runDa5V5FlightSupervisor(
         );
       } else {
         try {
-          credential = await inputOwner.requestCredential(
-            options.credentialPrompt ?? DA5_V5_FLIGHT_CREDENTIAL_PROMPT,
-            controllerAbort.signal,
-          );
+          credential = createFlightCredential(operations.createCredentialEntropy);
           await inputOwner.drainBarrier();
           if (controllerAbort.signal.aborted) {
             outcomeClass = preControllerAbortClass(
@@ -277,18 +266,20 @@ export async function runDa5V5FlightSupervisor(
             }
           }
         } catch {
-          outcomeClass = preControllerAbortClass(
-            controllerAbort.signal,
-            signalLatch,
-            outputFailureLatch,
-          );
+          outcomeClass = controllerAbort.signal.aborted
+            ? preControllerAbortClass(
+              controllerAbort.signal,
+              signalLatch,
+              outputFailureLatch,
+            )
+            : 'PRE_CONTROLLER_CONSTRUCTION_FAILURE_NO_CHILD_PROVEN';
         } finally {
           credential?.fill(0);
           credential = null;
         }
       }
 
-      inputOwner.closeFlightInput();
+      inputOwner.closeControllerInput();
       await inputOwner.drainBarrier();
       try {
         const classifiedOutcome = outcomeClass;
@@ -324,7 +315,7 @@ export async function runDa5V5FlightSupervisor(
       }
     }
 
-    inputOwner.closeFlightInput();
+    inputOwner.closeControllerInput();
     postCommitPhase = true;
     const terminalPublicationReady = inputOwner.beginTerminalPublication();
     if (terminalPublicationReady) {
@@ -510,7 +501,7 @@ export class Da5V5TerminalInputOwner implements Da5V5HumanInput {
   private acknowledgementPrepared = false;
   private acknowledgementStarted = false;
   private closed = false;
-  private flightInputClosed = false;
+  private controllerInputClosed = false;
   private orderViolated = false;
   private orderViolationLatch = 0;
   private settleScheduled = false;
@@ -584,9 +575,9 @@ export class Da5V5TerminalInputOwner implements Da5V5HumanInput {
     return this.terminalRestorationFailed;
   }
 
-  closeFlightInput(): void {
-    if (this.flightInputClosed) return;
-    this.flightInputClosed = true;
+  closeControllerInput(): void {
+    if (this.controllerInputClosed) return;
+    this.controllerInputClosed = true;
     if (this.active !== null) this.markOrderViolation();
   }
 
@@ -594,7 +585,7 @@ export class Da5V5TerminalInputOwner implements Da5V5HumanInput {
     if (
       this.closed
       || !this.attached
-      || !this.flightInputClosed
+      || !this.controllerInputClosed
       || this.active !== null
       || this.stateValue !== 'QUARANTINED'
     ) {
@@ -620,20 +611,6 @@ export class Da5V5TerminalInputOwner implements Da5V5HumanInput {
     }
     this.acknowledgementPrepared = true;
     return true;
-  }
-
-  async requestCredential(
-    prompt: Da5V5HumanPrompt,
-    signal?: AbortSignal,
-  ): Promise<Buffer> {
-    const result = await this.beginCapture(
-      'credential',
-      'FLIGHT_INPUT',
-      `${JSON.stringify(prompt)}\n`,
-      signal,
-    );
-    if (!Buffer.isBuffer(result)) throw new Error('DA5 V5 flight input rejected');
-    return result;
   }
 
   async request(prompt: Da5V5HumanPrompt, signal?: AbortSignal): Promise<string> {
@@ -689,10 +666,10 @@ export class Da5V5TerminalInputOwner implements Da5V5HumanInput {
 
   private beginCapture(
     kind: ActiveCapture['kind'],
-    openState: 'FLIGHT_INPUT' | 'HUMAN_INPUT' | 'ACK',
+    openState: 'HUMAN_INPUT' | 'ACK',
     prompt: string,
     signal?: AbortSignal,
-  ): Promise<Buffer | string | true> {
+  ): Promise<string | true> {
     if (
       this.closed
       || !this.attached
@@ -701,15 +678,14 @@ export class Da5V5TerminalInputOwner implements Da5V5HumanInput {
       || this.orderViolated
       || (kind === 'ack'
         ? !this.acknowledgementPrepared || this.acknowledgementStarted
-        : this.flightInputClosed)
+        : this.controllerInputClosed)
       || signal?.aborted === true
     ) {
       return Promise.reject(new Error('DA5 V5 terminal input order mismatch'));
     }
-    return new Promise<Buffer | string | true>((resolvePromise, rejectPromise) => {
+    return new Promise<string | true>((resolvePromise, rejectPromise) => {
       const capture: ActiveCapture = {
-        buffer: kind === 'credential' ? null : Buffer.alloc(64),
-        credential: kind === 'credential' ? new Da5V5FlightCredentialCapture() : null,
+        buffer: Buffer.alloc(64),
         gated: false,
         kind,
         offset: 0,
@@ -771,13 +747,8 @@ export class Da5V5TerminalInputOwner implements Da5V5HumanInput {
       return;
     }
     try {
-      if (capture.kind === 'credential') {
-        capture.credential?.push(value);
-        if (capture.credential?.terminated() === true) this.scheduleSettle(capture);
-      } else {
-        this.pushNonSecret(capture, value);
-        if (capture.terminated) this.scheduleSettle(capture);
-      }
+      this.pushNonSecret(capture, value);
+      if (capture.terminated) this.scheduleSettle(capture);
     } catch {
       value.fill(0);
       this.markOrderViolation();
@@ -812,8 +783,7 @@ export class Da5V5TerminalInputOwner implements Da5V5HumanInput {
           continue;
         }
         if (
-          capture.buffer === null
-          || capture.offset >= capture.buffer.byteLength
+          capture.offset >= capture.buffer.byteLength
           || !((byte >= 0x30 && byte <= 0x39) || (byte >= 0x41 && byte <= 0x5a))
         ) {
           invalid = true;
@@ -835,22 +805,17 @@ export class Da5V5TerminalInputOwner implements Da5V5HumanInput {
       this.settleScheduled = false;
       if (this.active !== capture || this.orderViolated || !capture.gated) return;
       try {
-        let result: Buffer | string | true;
-        if (capture.kind === 'credential') {
-          result = capture.credential?.settle()
-            ?? (() => { throw new Error('DA5 V5 flight input rejected'); })();
+        let result: string | true;
+        if (!capture.terminated || capture.offset === 0) {
+          throw new Error('DA5 V5 terminal input rejected');
+        }
+        if (capture.kind === 'ack') {
+          const matched = capture.offset === 5
+            && capture.buffer.subarray(0, capture.offset).equals(Buffer.from('CLOSE', 'ascii'));
+          if (!matched) throw new Error('DA5 V5 terminal input rejected');
+          result = true;
         } else {
-          if (!capture.terminated || capture.offset === 0 || capture.buffer === null) {
-            throw new Error('DA5 V5 terminal input rejected');
-          }
-          if (capture.kind === 'ack') {
-            const matched = capture.offset === 5
-              && capture.buffer.subarray(0, capture.offset).equals(Buffer.from('CLOSE', 'ascii'));
-            if (!matched) throw new Error('DA5 V5 terminal input rejected');
-            result = true;
-          } else {
-            result = capture.buffer.subarray(0, capture.offset).toString('ascii');
-          }
+          result = capture.buffer.subarray(0, capture.offset).toString('ascii');
         }
         this.releaseCapture(capture);
         this.stateValue = 'QUARANTINED';
@@ -888,8 +853,7 @@ export class Da5V5TerminalInputOwner implements Da5V5HumanInput {
 
   private releaseCapture(capture: ActiveCapture): void {
     capture.signal?.removeEventListener('abort', capture.onAbort ?? (() => undefined));
-    capture.credential?.destroy();
-    capture.buffer?.fill(0);
+    capture.buffer.fill(0);
     this.active = null;
   }
 
@@ -902,15 +866,14 @@ export class Da5V5TerminalInputOwner implements Da5V5HumanInput {
 }
 
 interface ActiveCapture {
-  readonly buffer: Buffer | null;
-  readonly credential: Da5V5FlightCredentialCapture | null;
+  readonly buffer: Buffer;
   gated: boolean;
-  readonly kind: 'credential' | 'human' | 'ack';
+  readonly kind: 'human' | 'ack';
   offset: number;
   onAbort?: () => void;
-  readonly openState: 'FLIGHT_INPUT' | 'HUMAN_INPUT' | 'ACK';
+  readonly openState: 'HUMAN_INPUT' | 'ACK';
   readonly reject: (error: Error) => void;
-  readonly resolve: (value: Buffer | string | true) => void;
+  readonly resolve: (value: string | true) => void;
   readonly signal?: AbortSignal;
   terminated: boolean;
 }
@@ -1494,6 +1457,37 @@ function requireNonce(value: string): string {
     throw new Error('DA5 V5 flight supervisor nonce mismatch');
   }
   return value;
+}
+
+function createFlightCredential(createEntropy: () => Buffer): Buffer {
+  let entropy: Buffer | null = null;
+  let credential: Buffer | null = null;
+  try {
+    const candidate = createEntropy();
+    if (!Buffer.isBuffer(candidate)) {
+      throw new Error('DA5 V5 flight credential entropy mismatch');
+    }
+    entropy = candidate;
+    if (entropy.byteLength !== 32) {
+      throw new Error('DA5 V5 flight credential entropy mismatch');
+    }
+    credential = Buffer.alloc(64);
+    for (let index = 0; index < entropy.byteLength; index += 1) {
+      const byte = entropy[index] as number;
+      const high = byte >>> 4;
+      const low = byte & 0x0f;
+      credential[index * 2] = high < 10 ? 0x30 + high : 0x61 + high - 10;
+      credential[(index * 2) + 1] = low < 10 ? 0x30 + low : 0x61 + low - 10;
+    }
+    const generated = credential;
+    credential = null;
+    return generated;
+  } catch {
+    throw new Error('DA5 V5 flight credential generation failed');
+  } finally {
+    zeroBuffer(entropy);
+    zeroBuffer(credential);
+  }
 }
 
 function requireOutputFlushTimeout(value: number): number {

@@ -1464,9 +1464,31 @@ describe('DA5 V5 fixture, lifecycle and startup fail-stop boundaries', () => {
       expect(flightMainSource).not.toContain('publishCredentialPrompt');
       expect(flightSupervisorSource.match(/this\.input\.on\('data'/gu)).toHaveLength(1);
       expect(flightSupervisorSource).toContain("this.stateValue = 'QUARANTINED'");
-      expect(flightSupervisorSource).toContain("'FLIGHT_INPUT'");
+      expect(flightSupervisorSource).not.toContain("'FLIGHT_INPUT'");
       expect(flightSupervisorSource).toContain("'HUMAN_INPUT'");
       expect(flightSupervisorSource).toContain("'ACK'");
+      expect(flightSupervisorSource).not.toContain('requestCredential');
+      expect(flightSupervisorSource).not.toContain('hidden credential input');
+      expect(flightSupervisorSource).not.toContain('Da5V5FlightCredentialCapture');
+      expect(flightSupervisorSource).toContain('createCredentialEntropy: () => Buffer;');
+      expect(flightSupervisorSource).toContain('credential = Buffer.alloc(64);');
+      expect(flightSupervisorSource).toContain('credential[index * 2] =');
+      expect(flightSupervisorSource).toContain('zeroBuffer(entropy);');
+      const credentialGeneratorSource = flightSupervisorSource.slice(
+        flightSupervisorSource.indexOf('function createFlightCredential('),
+        flightSupervisorSource.indexOf('function requireOutputFlushTimeout('),
+      );
+      expect(credentialGeneratorSource).not.toContain('.toString(');
+      expect(credentialGeneratorSource).not.toContain('JSON.stringify');
+      expect(credentialGeneratorSource).not.toContain('process.env');
+      expect(flightSupervisorSource.indexOf('await inputOwner.drainBarrier();')).toBeLessThan(
+        flightSupervisorSource.indexOf(
+          'credential = createFlightCredential(operations.createCredentialEntropy);',
+        ),
+      );
+      expect(flightSupervisorSource.indexOf(
+        'credential = createFlightCredential(operations.createCredentialEntropy);',
+      )).toBeLessThan(flightSupervisorSource.indexOf('options.createController({'));
       expect(flightSupervisorSource).toContain(
         'PRE_CONTROLLER_TERMINAL_IO_FAILURE_NO_CHILD_PROVEN',
       );
@@ -1486,6 +1508,21 @@ describe('DA5 V5 fixture, lifecycle and startup fail-stop boundaries', () => {
       expect(flightSupervisorSource).toContain("process.on('SIGINT', handler)");
       expect(flightSupervisorSource).toContain("process.on('SIGTERM', handler)");
       expect(flightSupervisorSource).toContain("process.on('SIGHUP', handler)");
+      expect(flightControllerSource).toContain(
+        'await child.writeCredential(credential, machineTimeout, this.options.signal);',
+      );
+      expect(flightControllerSource).toContain("new FlightFailure('MACHINE_STEP_TIMEOUT_OR_HANG')");
+      expect(flightControllerSource).toContain("new FlightFailure('SIGNAL')");
+      expect(flightControllerSource).toContain(
+        'const onAbort = (): void => finish(abortFlightFailure(signal));',
+      );
+      expect(flightControllerSource).toContain("pipe.on('error', onPipeFailure)");
+      expect(flightControllerSource).toContain("pipe.once('close', onPipeClose)");
+      expect(flightControllerSource).toContain('let endSucceeded = false;');
+      expect(flightControllerSource).toContain('endSucceeded = true;');
+      expect(flightControllerSource).toContain('finish(endSucceeded');
+      expect(flightControllerSource).toContain('retainLifecycleOwnerBounded();');
+      expect(flightControllerSource).toContain("this.child.once('close', onChildClose)");
       const flightCaptureSource = secretInputSource.slice(
         secretInputSource.indexOf('export class Da5V5FlightCredentialCapture'),
         secretInputSource.indexOf('export function readDa5V5CredentialFrame'),

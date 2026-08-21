@@ -1,5 +1,47 @@
 # Development Assignment 5 — V5 Human Android Gate Runbook
 
+## 2026-08-21 automatic password Fast-Recovery procedure — round-2 corrected / round-3 review pending / do not run
+
+The consumed `2885739d-41739a74-r1` start is closed by immutable two-file root basename
+`flight-2885739d-start-visibility-unobserved-20260821`: receipt 2,460 bytes /
+`40d39c9b15bb2b2612a96fccc7c5c4587f99fb8974ffc377e7f36fe5cb3dea5d`; manifest 318 bytes /
+`bb98592a702b450ffb307e0ea0e4d51aa09913f7d37a57913fbabdbb4dfff0e2`; modes are root `0555`
+and files `0444`. The Human saw no window or prompt and stopped. Later zero windows/processes,
+zero scoped DA5 processes/task roots, and free ports 3000/54321/55435 prove only that later null
+state. Actual execution/exit, immediate cleanup, Supervisor/Controller/ADB/install/Product and
+Hardware remain unobserved. Never retry or resume it.
+
+For a future separately authorized fresh run on new exact bindings:
+
+1. Start only the reviewed visible-TTY launcher once. Never type or paste a password into Terminal;
+   no hidden password prompt exists.
+2. At each explicit Product field prompt, manually type only the named fixed Synthetic e-mail,
+   activate the empty `Passwort` field and submit the retained empty-active confirmation. Do not
+   click the named login/join button yet.
+3. The machine injects the internally generated password. There is no separate password-visible
+   question. At the existing combined result prompt, click the named button once only when the
+   password field visibly contains masking characters, then report the requested destination
+   result.
+4. If masking characters are absent, do not click: report `Passwort nicht sichtbar`; this is
+   fail-closed `FAIL`. If visibility or destination is uncertain, answer `AMBIGUOUS`. Never edit,
+   reveal, reuse or request the generated password, and never submit twice.
+5. The machine never clicks a Product button. Any generation, FD3, input-order, signal, timeout,
+   Product-result or cleanup deviation consumes that fresh authority and follows the ordinary
+   fail-closed terminal/CLOSE path. During FD3, input-order is
+   `NONCE_OR_ORDER_MISMATCH`, stdin EOF is `IPC_EOF`, and OS signal or an unknown abort reason is
+   conservatively `SIGNAL`; no blanket abort-to-`SIGNAL` rule exists.
+
+The password is one invocation-local 64-byte lowercase-hex Buffer generated from 32 CSPRNG bytes,
+not an operator value. It is absent from terminal/stdin/clipboard/environment/argv/files/logs and
+Evidence and is overwritten at every owned terminal path. Write and end/finish success do not
+complete transfer: the existing deadline and abort owner remain active until one error-free
+terminal FD3 `close`. A late error or child close before it fails closed. On failure the Controller
+retains one bounded error owner until FD3 close or bounded release, while the first failure remains
+authoritative and existing termination, attestation and sealing continue. This procedure is not
+active until the corrected R3 candidate passes independent round-3 review, is published and
+rebound. **Do not start a launcher, TTY, ADB, install, Product-Human or Hardware action from this
+addendum.**
+
 ## 2026-08-21 Fast Recovery e10d fulfillment — ROUND 1 CHANGES REQUIRED / CORRECTION 1 / ROUND 2 PENDING / NO RUN AUTHORITY
 
 Run `e10d22d0697b994c9e35bbbc2ae90efa` is consumed
