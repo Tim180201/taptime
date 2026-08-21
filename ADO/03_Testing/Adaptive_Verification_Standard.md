@@ -1,5 +1,87 @@
 # AVS-001 – Adaptive Verification and CI Efficiency Standard
 
+## DA5 Fast Recovery e10d fulfillment (`2026-08-21`) — FAIL_CLOSED / ROUND 1 CHANGES REQUIRED / CORRECTION 1 / ROUND 2 PENDING / HARDWARE STOP
+
+This append-only top block fulfills the active Fast Recovery Lane only for consumed run
+`e10d22d0697b994c9e35bbbc2ae90efa` on baseline head/tree
+`365d94c5b8bee0e63eba277f64008eda330ff8a3` /
+`0a8786bfb52aeb3341543b1b8c7d2de6db8d2125`. Authority is consumed; terminal truth is
+`FAIL_CLOSED / pre_product_non_product / cleanup MISMATCH / fast lane STOP`. Product equality
+was not observed. The child Guard rejects before ready/bind/device-preflight because the launcher
+passed implementation head/tree `365d94c5` / `0a8786bf`, while guard manifest SHA-256
+`957d6e99c271663763945026995e7463cf2f20b385eb942fd16a152d3de5f709` requires
+`ba1b6e922ceb7902ecedd9dc2df01d6b22d90867` /
+`980b6c57fdd71c12820f2890b640946db0d883c6`. Therefore Child ready/bind and the Child plan
+`device-preflight` step were unreachable. After Child failure the Controller necessarily invoked
+cleanup attestation; its production Android preflight attempted at least read-only
+`adb devices -l` enumeration and, depending on that result, may have attempted further read-only
+preinstall/profile queries. Exact success, extent, output and result are unsealed and unobserved.
+The Child reached no Product install/mutation, Tag or Human step; Hardware absence/state is not
+claimed. No exact hidden leaf/error text is claimed.
+
+Immutable external Evidence root basename
+`flight-e10d22d0-fast-recovery-failure-20260821` is `0555` with exactly two `0444` files:
+receipt 4,450 bytes / SHA-256
+`9dfbdd3abcf794cebf5957124cd04fcee62bbf5a584f9ff04864a76d401a6c7d`; manifest 288 bytes /
+SHA-256 `517be573c54c77c563143af7f2822e39de2a9e9aa131d9a3506a4ef9a0b4a50f`.
+It binds outer terminal receipt/manifest SHA-256
+`6e32b0e608f40066a2c936de712c1713948e43e3658905d39e7007e84a1d1149` /
+`24250b5c7e9fc5d5c99bb51f88b47effa6c948c48b436dd2c8ef6d03fc5f3036` and inner
+receipt/manifest/commitment SHA-256
+`3423e6506e668d98c28f08e35d55a597391951a1ee8cffe345bad94df4f2d69e` /
+`a506728af7409be64715a70b86a7ad983953db6a4f6fe1fd947ea5004941db37` /
+`6350f90788038f163e3837191a1e570123a85a0193e82fbec98d2b7c1fd92ba9`.
+The later 91,595-byte `ps` reproduction exceeded the former shared 65,536-byte cap and is strong
+current-only proof, not exact historical proof; later-free ports 3000/54321/55435 and zero bound
+roots/processes likewise do not prove atomic cleanup.
+
+Formal review `/root/review_e10d_fast_recovery` returned `CHANGES REQUIRED` with
+P0/P1/P2/P3 = `0/1/0/0` because the original receipt's `adb_reached=false` and equivalent
+top-block wording conflated the unreachable Child checkpoint with cleanup attestation. The
+original root remains byte-exact and is superseded only for that no-ADB assertion. New immutable
+external root basename `flight-e10d22d0-fast-recovery-failure-20260821-correction1` is `0555`
+with exactly two `0444` files: correction receipt 3,408 bytes / SHA-256
+`b894827448b24e943ed17915f2a8055c60ffa413a4244a3110199a40b350212f`; manifest 299 bytes /
+SHA-256 `b5e54a94c532897a8339e6ce7036493638ebeb4709a0466305db45c427e524df`.
+
+The focused correction gives `ps` its own finite 4 MiB raw-chunk cap, retains 64 KiB per
+`lsof`, never truncates, and attributes checker failure only to the owned process, task-root,
+Android or listener domain. Controller cleanup is latched independently; child-cleanup,
+attestation mismatch or attestation exception sets `cleanup=MISMATCH`, while
+`failureReason ??= CLEANUP_OR_CHECKER_FAILURE` preserves an earlier primary reason. Receipt
+schema, Flight plan and Product semantics are unchanged; no false cleanup `MATCH` or Product
+`PASS` is introduced.
+
+Fast-Lane verification ran only the two affected test files: 2/2 files and 26/26 tests passed in
+both the initial and final correction cycles. The tests-inclusive Synthetic Typecheck passed in
+both cycles and its config includes `src` plus `tests`. One intermediate build passed before
+the final primary-reason return-path and raw-byte accounting adjustments; the required
+final-candidate build then
+passed, so two builds actually ran and no one-build claim is made. Final Node syntax checks passed
+for Child and Flight bundles. Baseline Child JS/map were 981,727 / 1,905,775 bytes with SHA-256
+`1809c1b52aaad0980b5b204197a58029567925f4f1f77c06aca4611d65bfbce8` /
+`34aa20276ac9e4a74f8a7c4978389721294276bc39bf391d23031789ce920516`; final Child JS/map are
+981,784 / 1,909,095 bytes with SHA-256
+`d2bd86d3a4229022014c5fc6d7ede1493b81feb50a9b72d4ad5f1a8b8b76e633` /
+`94b22f07fbc6195c4247a2d18b381c96f21913f80906df2e1525ec24fc514b3e`: not byte-identical,
+because `da5V5Main.ts` imports the changed shared FlightController module, which imports the
+changed CleanStateAttestation module. Final Flight JS/map are 203,990 / 533,550 bytes with
+SHA-256 `f906611b93a7bee09b9c91bafd5765bd0f621025c89f99f58b5d6dbc6f456642` /
+`54f252830d666fd3cf4579aabeda647139d7eca6465a9d97c04a9ca13fb4a61e`.
+No ProductStartBundle test, broad suite, V3 or CI ran. Correction 1 changed only Evidence/ADO;
+all four source/test blobs and the verification facts above remain exact, so the active Fast
+Recovery Lane required and performed no test, Typecheck or build rerun. Correction 1 itself ran no
+ADB, install or Hardware action; the consumed run's cleanup-attestation ADB scope is exactly the
+limited unobserved truth above.
+
+Round 1 is `CHANGES REQUIRED`; Correction 1 is `PENDING` independent Round-2 review. Any future artifact must use Guard
+implementation env `ba1b6e922ceb7902ecedd9dc2df01d6b22d90867` /
+`980b6c57fdd71c12820f2890b640946db0d883c6`, canonical toolchain digest
+`34425ef206527fc65c6b5bfe1b4ea9aaa48a32fba491441d5a5b52b40b45d4`, a new binding-set ID,
+and a future published correction head/tree for closure/execution checkout. The current launcher
+typo digest ending `c6b6f...` is noncausal but non-reusable. **STOP before fresh explicit
+one-shot Human/Hardware authority.**
+
 ## DA5 Fast Recovery Lane (`2026-08-19`) — HUMAN-DIRECTED / ACTIVE UNTIL EXPLICIT REVOCATION
 
 This top addendum expressly supersedes and cancels for this recovery candidate both every broader

@@ -282,6 +282,7 @@ export class Da5V5FlightController {
     let receiptRoot: string | null = null;
     let attestation: Da5V5CleanStateAttestation | null = null;
     let childCloseProven = true;
+    let cleanupMismatch = false;
 
     try {
       throwIfSignalled(this.options.signal);
@@ -364,6 +365,7 @@ export class Da5V5FlightController {
       }
     } catch (error: unknown) {
       failureReason = classifyFlightError(error);
+      if (failureReason === 'CLEANUP_OR_CHECKER_FAILURE') cleanupMismatch = true;
       attemptedOutcome = attemptedOutcome === 'PASS' ? 'FAIL_CLOSED' : attemptedOutcome;
       try {
         if (child !== null) {
@@ -373,7 +375,8 @@ export class Da5V5FlightController {
         }
       } catch {
         childCloseProven = false;
-        failureReason = 'CLEANUP_OR_CHECKER_FAILURE';
+        cleanupMismatch = true;
+        failureReason ??= 'CLEANUP_OR_CHECKER_FAILURE';
         attemptedOutcome = 'FAIL_CLOSED';
       }
     } finally {
@@ -381,7 +384,8 @@ export class Da5V5FlightController {
     }
 
     if (!childCloseProven || (child !== null && (!child.cleanupComplete() || child.cleanupFailed()))) {
-      failureReason = 'CLEANUP_OR_CHECKER_FAILURE';
+      cleanupMismatch = true;
+      failureReason ??= 'CLEANUP_OR_CHECKER_FAILURE';
     }
     try {
       attestation = await this.dependencies.attest({
@@ -392,14 +396,16 @@ export class Da5V5FlightController {
         standardProfile: this.options.standardProfile,
       });
       if (attestation.status !== 'match') {
-        failureReason = 'CLEANUP_OR_CHECKER_FAILURE';
+        cleanupMismatch = true;
+        failureReason ??= 'CLEANUP_OR_CHECKER_FAILURE';
       }
     } catch {
-      failureReason = 'CLEANUP_OR_CHECKER_FAILURE';
+      cleanupMismatch = true;
+      failureReason ??= 'CLEANUP_OR_CHECKER_FAILURE';
       attestation = unavailableAttestation();
     }
 
-    let cleanup: 'MATCH' | 'MISMATCH' = failureReason === 'CLEANUP_OR_CHECKER_FAILURE'
+    const cleanup: 'MATCH' | 'MISMATCH' = cleanupMismatch
       ? 'MISMATCH'
       : 'MATCH';
     const classification = classifyDa5V5FastLane({
@@ -445,7 +451,7 @@ export class Da5V5FlightController {
         attestation,
         attempted_outcome: 'FAIL_CLOSED',
         cleanup: 'MISMATCH',
-        failure_reason: 'CLEANUP_OR_CHECKER_FAILURE',
+        failure_reason: failureReason ?? 'CLEANUP_OR_CHECKER_FAILURE',
         fast_lane: 'STOP',
         invalid_receipt_root: null,
         plan_sha256: DA5_V5_FAST_FLIGHT_PLAN_SHA256,

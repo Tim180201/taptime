@@ -1,5 +1,73 @@
 # Development Assignment 5 — Append-Only Event Ledger
 
+## Fast-Recovery fulfillment — e10d pre-Product failure and focused correction (`2026-08-21`)
+
+- `authority`: the exact one-shot run `e10d22d0697b994c9e35bbbc2ae90efa` is consumed
+  `FAIL_CLOSED / pre_product_non_product / cleanup MISMATCH / fast lane STOP`; no retry/resume is
+  created. Product equality was unobserved. Child ready/bind and the Child plan
+  `device-preflight` step were unreachable; cleanup-attestation ADB truth is separately corrected
+  below. No Child Product result exists.
+- `evidence`: immutable external root basename
+  `flight-e10d22d0-fast-recovery-failure-20260821`, mode `0555`, contains exactly receipt
+  4,450 bytes / `0444` /
+  `9dfbdd3abcf794cebf5957124cd04fcee62bbf5a584f9ff04864a76d401a6c7d` and manifest 288 bytes /
+  `0444` / `517be573c54c77c563143af7f2822e39de2a9e9aa131d9a3506a4ef9a0b4a50f`.
+  Outer receipt/manifest SHA-256 are
+  `6e32b0e608f40066a2c936de712c1713948e43e3658905d39e7007e84a1d1149` /
+  `24250b5c7e9fc5d5c99bb51f88b47effa6c948c48b436dd2c8ef6d03fc5f3036`; inner
+  receipt/manifest/commitment SHA-256 are
+  `3423e6506e668d98c28f08e35d55a597391951a1ee8cffe345bad94df4f2d69e` /
+  `a506728af7409be64715a70b86a7ad983953db6a4f6fe1fd947ea5004941db37` /
+  `6350f90788038f163e3837191a1e570123a85a0193e82fbec98d2b7c1fd92ba9`.
+- `round_1_and_supersession`: formal `/root/review_e10d_fast_recovery` returned
+  `CHANGES REQUIRED`, P0/P1/P2/P3 `0/1/0/0`, because the original receipt's
+  `adb_reached=false` overclaimed the cleanup-attestation domain. That root remains byte-exact and
+  is superseded only for this assertion by immutable external `0555` root basename
+  `flight-e10d22d0-fast-recovery-failure-20260821-correction1`, containing exactly correction
+  receipt 3,408 bytes / `0444` /
+  `b894827448b24e943ed17915f2a8055c60ffa413a4244a3110199a40b350212f` and manifest 299 bytes /
+  `0444` / `b5e54a94c532897a8339e6ce7036493638ebeb4709a0466305db45c427e524df`.
+- `cause_and_limits`: launcher implementation `365d94c5` / `0a8786bf` mismatched Guard-required
+  `ba1b6e922ceb7902ecedd9dc2df01d6b22d90867` /
+  `980b6c57fdd71c12820f2890b640946db0d883c6` under manifest
+  `957d6e99c271663763945026995e7463cf2f20b385eb942fd16a152d3de5f709`; Guard ordering
+  guarantees rejection before Child ready/bind and its plan `device-preflight`. Controller
+  cleanup attestation necessarily followed; production Android preflight attempted at least
+  read-only `adb devices -l` and may conditionally have attempted further read-only
+  preinstall/profile queries. Exact success, extent, output and result are unsealed/unobserved.
+  No Product install/mutation, Tag or Human step was reached by the Child; Hardware absence/state
+  is unclaimed. Exact hidden leaf/error text is unsealed and unclaimed. Later `ps` was 91,595 bytes versus the old 65,536-byte shared cap;
+  this and the later free ports/zero roots/processes are current-only, never historical exact or
+  atomic-cleanup proof.
+- `correction`: `ps` now has a finite 4 MiB raw-byte cap, `lsof` remains 64 KiB, output is
+  never truncated, and checker failures affect only owned domains. Cleanup mismatch is an
+  independent Controller latch; an existing primary reason survives cleanup failure via `??=`.
+  Receipt schema, plan and Product semantics are unchanged.
+- `verification`: the two directly affected test files passed 26/26 in both initial/final
+  cycles; tests-inclusive Synthetic Typecheck passed both cycles. One intermediate and one final
+  build passed because post-build self-review added the final primary-reason return-path and
+  raw-byte accounting adjustments; final Child and Flight Node checks passed. Baseline Child JS/map
+  981,727 / 1,905,775 bytes and
+  `1809c1b52aaad0980b5b204197a58029567925f4f1f77c06aca4611d65bfbce8` /
+  `34aa20276ac9e4a74f8a7c4978389721294276bc39bf391d23031789ce920516` changed to final
+  981,784 / 1,909,095 bytes and
+  `d2bd86d3a4229022014c5fc6d7ede1493b81feb50a9b72d4ad5f1a8b8b76e633` /
+  `94b22f07fbc6195c4247a2d18b381c96f21913f80906df2e1525ec24fc514b3e`; final Flight JS/map
+  are 203,990 / 533,550 bytes and
+  `f906611b93a7bee09b9c91bafd5765bd0f621025c89f99f58b5d6dbc6f456642` /
+  `54f252830d666fd3cf4579aabeda647139d7eca6465a9d97c04a9ca13fb4a61e`. No
+  ProductStartBundle, broad suite, V3 or CI ran. Correction 1 is Evidence/ADO-only; the four
+  source/test blobs and all verification facts remain exact, so no test, Typecheck or build was
+  rerun. Correction 1 itself ran no ADB/install/Hardware action; consumed-run cleanup ADB is
+  limited to the corrected unsealed/unobserved truth above.
+- `next_and_stop`: Round 1 is `CHANGES REQUIRED`; Correction 1 is `PENDING` independent
+  Round-2 review. Future rebinding
+  requires Guard env `ba1b6e...` / `980b6c...`, canonical toolchain SHA-256
+  `34425ef206527fc65c6b5bfe1b4ea9aaa48a32fba491441d5a5b52b40b45d4`, a new binding-set ID
+  and the future published correction head/tree for closure/execution checkout. The current
+  launcher typo ending `c6b6f...` is noncausal and non-reusable. **STOP before fresh explicit
+  one-shot Human/Hardware authority.**
+
 ## Human direction — DA5 Fast Recovery Lane (`2026-08-19`)
 
 - `state`: **ACTIVE UNTIL EXPLICIT HUMAN REVOCATION** under

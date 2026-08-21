@@ -1,5 +1,64 @@
 # Development Assignment 5 — V5 Human Android Gate Runbook
 
+## 2026-08-21 Fast Recovery e10d fulfillment — ROUND 1 CHANGES REQUIRED / CORRECTION 1 / ROUND 2 PENDING / NO RUN AUTHORITY
+
+Run `e10d22d0697b994c9e35bbbc2ae90efa` is consumed
+`FAIL_CLOSED / pre_product_non_product / cleanup MISMATCH / fast lane STOP`; Product equality was
+unobserved. Static ordering proves the launcher supplied
+implementation `365d94c5b8bee0e63eba277f64008eda330ff8a3` /
+`0a8786bfb52aeb3341543b1b8c7d2de6db8d2125`, while bound Guard manifest SHA-256
+`957d6e99c271663763945026995e7463cf2f20b385eb942fd16a152d3de5f709` requires
+`ba1b6e922ceb7902ecedd9dc2df01d6b22d90867` /
+`980b6c57fdd71c12820f2890b640946db0d883c6` before Child ready/bind and the Child plan
+`device-preflight` step. After Child failure the Controller necessarily invoked cleanup
+attestation: production Android preflight attempted at least read-only `adb devices -l`
+enumeration and may then have attempted further read-only preinstall/profile queries. Their exact
+success, extent, output and result are unsealed/unobserved. No Product install/mutation, Tag or
+Human step was reached by the Child; Hardware absence/state is not claimed. No hidden leaf/error
+text is claimed. Immutable external recovery root basename
+`flight-e10d22d0-fast-recovery-failure-20260821` is `0555`: receipt 4,450 bytes / `0444` /
+`9dfbdd3abcf794cebf5957124cd04fcee62bbf5a584f9ff04864a76d401a6c7d`; manifest 288 bytes /
+`0444` / `517be573c54c77c563143af7f2822e39de2a9e9aa131d9a3506a4ef9a0b4a50f`.
+Round-1 review `/root/review_e10d_fast_recovery` returned `CHANGES REQUIRED`,
+P0/P1/P2/P3 `0/1/0/0`, for its overbroad no-ADB assertion. The original root stays byte-exact
+and is superseded only on that point by immutable `0555` root basename
+`flight-e10d22d0-fast-recovery-failure-20260821-correction1`: correction receipt 3,408 bytes /
+`0444` / `b894827448b24e943ed17915f2a8055c60ffa413a4244a3110199a40b350212f`; manifest
+299 bytes / `0444` / `b5e54a94c532897a8339e6ce7036493638ebeb4709a0466305db45c427e524df`.
+
+The corrected checker uses 4 MiB raw bytes for `ps`, 64 KiB per `lsof`, no truncation and
+independent fail-closed domain attribution. The Controller independently latches cleanup mismatch,
+preserves any earlier primary reason with `??=`, and derives cleanup from that latch. Plan,
+receipt schema and Product behavior are unchanged. Focused tests passed 2 files / 26 tests in both
+initial and final cycles; tests-inclusive Synthetic Typecheck passed both times. An intermediate
+build preceded the final primary-reason return-path and raw-byte accounting adjustments, so two
+builds truthfully ran; the final build and Node syntax checks for both Child and Flight passed. No ProductStartBundle,
+broad suite, V3 or CI ran. Correction 1 changes only Evidence/ADO; all four source/test blobs and
+these verification facts remain unchanged, so Fast Recovery performed no test, Typecheck or build
+rerun. Correction 1 itself ran no ADB/install/Hardware action; the consumed run's cleanup ADB is
+limited to the unsealed/unobserved scope above.
+
+Baseline Child JS/map bindings 981,727 / 1,905,775 bytes and
+`1809c1b52aaad0980b5b204197a58029567925f4f1f77c06aca4611d65bfbce8` /
+`34aa20276ac9e4a74f8a7c4978389721294276bc39bf391d23031789ce920516` changed to final
+981,784 / 1,909,095 bytes and
+`d2bd86d3a4229022014c5fc6d7ede1493b81feb50a9b72d4ad5f1a8b8b76e633` /
+`94b22f07fbc6195c4247a2d18b381c96f21913f80906df2e1525ec24fc514b3e`; equality is not
+claimed because the Child imports the changed shared FlightController/CleanState modules. Final
+Flight JS/map are 203,990 / 533,550 bytes and
+`f906611b93a7bee09b9c91bafd5765bd0f621025c89f99f58b5d6dbc6f456642` /
+`54f252830d666fd3cf4579aabeda647139d7eca6465a9d97c04a9ca13fb4a61e`.
+
+Next sequence is independent Round-2 review of this exact seven-path Correction-1 candidate,
+correction only if required, then focused publication/exact artifact rebinding under the active Fast Recovery
+Lane. Do not reuse or edit the consumed launcher/operator. A future launcher must bind a new
+binding-set ID, Guard implementation env `ba1b6e922ceb7902ecedd9dc2df01d6b22d90867` /
+`980b6c57fdd71c12820f2890b640946db0d883c6`, canonical toolchain SHA-256
+`34425ef206527fc65c6b5bfe1b4ea9aaa48a32fba491441d5a5b52b40b45d4` instead of the
+noncausal typo ending `c6b6f...`, and the future published correction head/tree as its
+closure/execution checkout. Then **STOP for a fresh explicit one-shot Human/Hardware authority**;
+until that authority there is no terminal, ADB, install, Tag or Hardware start.
+
 ## 2026-08-19 Fast Recovery Lane — ACTIVE UNTIL EXPLICIT HUMAN REVOCATION
 
 The Human's `OK – maximal schnelle Fast Recovery Lane` direction expressly supersedes and cancels

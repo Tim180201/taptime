@@ -222,6 +222,87 @@ describe('DA5 V5 immutable fast-flight supervisor contract', () => {
       expect(credential.every((byte) => byte === 0)).toBe(true);
     });
 
+  it('retains the primary failure when cleanup attestation also fails', async () => {
+    const abortController = new AbortController();
+    abortController.abort(DA5_V5_INPUT_ORDER_ABORT_REASON);
+    const credential = Buffer.from('a'.repeat(64), 'ascii');
+    const spawnChild = vi.fn(() => {
+      throw new Error('spawn must remain unreachable');
+    }) as unknown as typeof spawn;
+    const seal = vi.fn(async () => '/private/tmp/da5-v5-evidence/flight-sealed');
+    const controller = new Da5V5FlightController(
+      controllerOptions(credential, abortController.signal),
+      {
+        attest: vi.fn(async () => {
+          throw new Error('injected attestation failure');
+        }),
+        seal,
+        spawnChild,
+      },
+    );
+
+    const result = await controller.run();
+
+    expect(spawnChild).not.toHaveBeenCalled();
+    expect(result).toMatchObject({
+      attempted_outcome: 'FAIL_CLOSED',
+      cleanup: 'MISMATCH',
+      failure_reason: 'NONCE_OR_ORDER_MISMATCH',
+      fast_lane: 'STOP',
+      receipt_root: '/private/tmp/da5-v5-evidence/flight-sealed',
+    });
+    expect(seal).toHaveBeenCalledWith(expect.objectContaining({
+      receipt: expect.objectContaining({
+        cleanup: 'MISMATCH',
+        failure_reason: 'NONCE_OR_ORDER_MISMATCH',
+      }),
+    }));
+    expect(credential.every((byte) => byte === 0)).toBe(true);
+  });
+
+  it('uses the generic cleanup reason when cleanup fails without a primary failure', async () => {
+    const credential = Buffer.from('a'.repeat(64), 'ascii');
+    let spawnedChild: ChildProcess | null = null;
+    const spawnChild = vi.fn(() => {
+      const child = spawn(
+        process.execPath,
+        ['--input-type=module', '--eval', cleanAbortChildSource('failed')],
+        {
+          detached: true,
+          env: { PATH: process.env.PATH },
+          stdio: ['pipe', 'pipe', 'pipe', 'pipe'],
+        },
+      );
+      spawnedChild = child;
+      return child;
+    }) as unknown as typeof spawn;
+    const seal = vi.fn(async () => '/private/tmp/da5-v5-evidence/flight-sealed');
+    const controller = new Da5V5FlightController(controllerOptions(credential, undefined), {
+      attest: async () => receiptFixture().scoped_cleanup,
+      createNonce: () => '2'.repeat(64),
+      seal,
+      spawnChild,
+    });
+
+    const result = await controller.run();
+
+    expect(result).toMatchObject({
+      attempted_outcome: 'ABORT',
+      cleanup: 'MISMATCH',
+      failure_reason: 'CLEANUP_OR_CHECKER_FAILURE',
+      fast_lane: 'STOP',
+      receipt_root: '/private/tmp/da5-v5-evidence/flight-sealed',
+    });
+    expect(seal).toHaveBeenCalledWith(expect.objectContaining({
+      receipt: expect.objectContaining({
+        cleanup: 'MISMATCH',
+        failure_reason: 'CLEANUP_OR_CHECKER_FAILURE',
+      }),
+    }));
+    expect(credential.every((byte) => byte === 0)).toBe(true);
+    expect((spawnedChild as ChildProcess | null)?.exitCode).toBe(1);
+  }, 10_000);
+
   it('terminates and attests after an input-order violation during a machine wait', async () => {
     const abortController = new AbortController();
     const credential = Buffer.from('a'.repeat(64), 'ascii');
@@ -557,6 +638,72 @@ function inFlightAbortChildSource(): string {
         setTimeout(() => process.exit(1), 5);
       };
       finish();
+    });
+  `;
+}
+
+function cleanAbortChildSource(cleanup: 'complete' | 'failed'): string {
+  const cleanupPayload = cleanup === 'complete'
+    ? 'da5_v5_cleanup_complete'
+    : 'da5_v5_cleanup_failed';
+  return `
+    import { createInterface } from 'node:readline';
+    import { createReadStream } from 'node:fs';
+
+    const credential = createReadStream('', { autoClose: true, fd: 3 });
+    credential.on('data', (chunk) => chunk.fill(0));
+    credential.on('error', () => process.exit(20));
+    const lines = createInterface({ input: process.stdin, terminal: false });
+    let step = null;
+    process.stdout.write(${JSON.stringify(`${da5V5FlightProtocolStartupLines().join('\n')}\n`)});
+    const output = (payload, sequence) => {
+      process.stdout.write('da5_v5_flight_output=' + JSON.stringify({
+        order: step.order,
+        payload: Buffer.from(payload, 'utf8').toString('base64url'),
+        protocol_version: ${DA5_V5_FLIGHT_PROTOCOL_VERSION},
+        run_nonce: step.runNonce,
+        sequence,
+        step_nonce: step.stepNonce,
+      }) + '\\n');
+    };
+    const result = (outcome, outputCount) => {
+      process.stdout.write('da5_v5_flight_step=' + JSON.stringify({
+        order: step.order,
+        output_count: outputCount,
+        protocol_version: ${DA5_V5_FLIGHT_PROTOCOL_VERSION},
+        result: outcome,
+        run_nonce: step.runNonce,
+        step_nonce: step.stepNonce,
+      }) + '\\n');
+    };
+    lines.on('line', (line) => {
+      if (line.startsWith('flight-bind ')) {
+        const [, runNonce, planDigest] = line.split(' ');
+        process.stdout.write('da5_v5_flight_bound=' + JSON.stringify({
+          plan_digest: planDigest,
+          protocol_version: ${DA5_V5_FLIGHT_PROTOCOL_VERSION},
+          run_nonce: runNonce,
+        }) + '\\n');
+        return;
+      }
+      if (!line.startsWith('flight-step ')) return;
+      const [, runNonce, stepNonce, order, frame] = line.split(' ');
+      const command = Buffer.from(frame, 'base64url').toString('utf8');
+      step = { order: Number(order), runNonce, stepNonce };
+      if (command === 'device-preflight') {
+        output('da5_v5_device_preflight=match', 0);
+        result('continue', 1);
+        return;
+      }
+      if (command === 'abort') {
+        result('abort', 0);
+        output('da5_v5_precleanup_snapshot_failed', 0);
+        output(${JSON.stringify(cleanupPayload)}, 1);
+        output('da5_v5_aborted', 2);
+        setTimeout(() => process.exit(1), 5);
+        return;
+      }
+      process.exit(21);
     });
   `;
 }

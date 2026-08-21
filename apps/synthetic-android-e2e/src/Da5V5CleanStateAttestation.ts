@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process';
 import { readdir } from 'node:fs/promises';
+import { StringDecoder } from 'node:string_decoder';
 import {
   Da5V5AndroidPreinstallPreflight,
   Da5V5UsbSerialBinding,
@@ -9,7 +10,8 @@ import {
 
 const ownedPorts = Object.freeze([3_000, 54_321, 55_435] as const);
 const commandTimeoutMilliseconds = 15_000;
-const maximumOutputBytes = 64 * 1024;
+const maximumListenerOutputBytes = 64 * 1024;
+const maximumProcessOutputBytes = 4 * 1024 * 1024;
 
 export type Da5V5AttestationMatch = 'match' | 'mismatch';
 export type Da5V5ProductObservation = 'observed' | 'unobserved';
@@ -52,6 +54,7 @@ export interface Da5V5CleanStateAttestationOptions {
 
 interface HostCommandResult {
   readonly exitCode: number;
+  readonly outputBytes?: number;
   readonly stderr: string;
   readonly stdout: string;
 }
@@ -64,6 +67,7 @@ export interface Da5V5CleanStateDependencies {
   readonly runHost: (
     executable: string,
     arguments_: readonly string[],
+    maximumOutputBytes: number,
   ) => Promise<HostCommandResult>;
 }
 
@@ -73,36 +77,39 @@ export async function attestDa5V5CleanState(
 ): Promise<Da5V5CleanStateAttestation> {
   requireAttestationOptions(options);
   const productEquality = requireDa5V5ProductSnapshotClaim(options.productSnapshot);
-  const [processResult, taskRootNames, android, ...portResults] = await Promise.all([
-    dependencies.runHost('/bin/ps', ['-axo', 'pid=,ppid=,pgid=,command=']),
-    dependencies.listPrivateTmpNames(),
-    dependencies.androidAttest(options.standardProfile),
-    ...ownedPorts.map((port) => dependencies.runHost(
+  const [processResult, taskRootNames, android, portResults] = await Promise.all([
+    settleChecker(() => dependencies.runHost(
+      '/bin/ps',
+      ['-axo', 'pid=,ppid=,pgid=,command='],
+      maximumProcessOutputBytes,
+    )),
+    settleChecker(() => dependencies.listPrivateTmpNames()),
+    settleChecker(() => dependencies.androidAttest(options.standardProfile)),
+    Promise.all(ownedPorts.map((port) => settleChecker(() => dependencies.runHost(
       '/usr/sbin/lsof',
       ['-nP', `-iTCP:${port}`, '-sTCP:LISTEN'],
-    )),
+      maximumListenerOutputBytes,
+    )))),
   ]);
 
-  const processes = parseProcessTable(processResult);
-  const operatorProcesses = processes.every((process) => (
-    (options.childPid === null || (
-      process.pid !== options.childPid
-      && process.parentPid !== options.childPid
-      && process.processGroupId !== options.childPid
-    ))
-    && !commandReferencesExactPath(process.command, options.operatorEntrypointPath)
-    && !commandReferencesExactPath(process.command, options.runtimeGuardBinaryPath)
-  )) ? 'match' : 'mismatch';
-  const boundPostgresProcesses = processes.every((process) => (
-    !/\/private\/tmp\/\.t5-[^/\s]+\/run-[^/\s]+\/data(?:\s|\/|$)/u
-      .test(process.command)
-  )) ? 'match' : 'mismatch';
-  const taskRoots = taskRootNames.every((name) => !name.startsWith('.t5-'))
+  const { boundPostgresProcesses, operatorProcesses } = attestProcessDomains(
+    processResult,
+    options,
+  );
+  const taskRoots = taskRootNames.status === 'fulfilled'
+    && taskRootNames.value.every((name) => !name.startsWith('.t5-'))
     ? 'match'
     : 'mismatch';
-  const ownedListeners = portResults.every(portIsUnbound) ? 'match' : 'mismatch';
+  const androidStatus = android.status === 'fulfilled' && android.value === 'match'
+    ? 'match'
+    : 'mismatch';
+  const ownedListeners = portResults.every((result) => (
+    result.status === 'fulfilled'
+    && hostOutputWithinBound(result.value, maximumListenerOutputBytes)
+    && safelyPortIsUnbound(result.value)
+  )) ? 'match' : 'mismatch';
   const status = [
-    android,
+    androidStatus,
     operatorProcesses,
     boundPostgresProcesses,
     taskRoots,
@@ -110,7 +117,7 @@ export async function attestDa5V5CleanState(
   ].every((value) => value === 'match') ? 'match' : 'mismatch';
 
   return Object.freeze({
-    android,
+    android: androidStatus,
     bound_postgres_processes: boundPostgresProcesses,
     checked_ports: ownedPorts,
     operator_processes: operatorProcesses,
@@ -120,6 +127,76 @@ export async function attestDa5V5CleanState(
     status,
     task_roots: taskRoots,
   });
+}
+
+type CheckerResult<T> = Readonly<
+  | { readonly status: 'fulfilled'; readonly value: T }
+  | { readonly status: 'rejected' }
+>;
+
+async function settleChecker<T>(operation: () => Promise<T>): Promise<CheckerResult<T>> {
+  try {
+    return Object.freeze({ status: 'fulfilled', value: await operation() });
+  } catch {
+    return Object.freeze({ status: 'rejected' });
+  }
+}
+
+function attestProcessDomains(
+  result: CheckerResult<HostCommandResult>,
+  options: Da5V5CleanStateAttestationOptions,
+): Readonly<{
+  readonly boundPostgresProcesses: Da5V5AttestationMatch;
+  readonly operatorProcesses: Da5V5AttestationMatch;
+}> {
+  if (
+    result.status !== 'fulfilled'
+    || !hostOutputWithinBound(result.value, maximumProcessOutputBytes)
+  ) {
+    return Object.freeze({
+      boundPostgresProcesses: 'mismatch',
+      operatorProcesses: 'mismatch',
+    });
+  }
+  try {
+    const processes = parseProcessTable(result.value);
+    return Object.freeze({
+      operatorProcesses: processes.every((process) => (
+        (options.childPid === null || (
+          process.pid !== options.childPid
+          && process.parentPid !== options.childPid
+          && process.processGroupId !== options.childPid
+        ))
+        && !commandReferencesExactPath(process.command, options.operatorEntrypointPath)
+        && !commandReferencesExactPath(process.command, options.runtimeGuardBinaryPath)
+      )) ? 'match' : 'mismatch',
+      boundPostgresProcesses: processes.every((process) => (
+        !/\/private\/tmp\/\.t5-[^/\s]+\/run-[^/\s]+\/data(?:\s|\/|$)/u
+          .test(process.command)
+      )) ? 'match' : 'mismatch',
+    });
+  } catch {
+    return Object.freeze({
+      boundPostgresProcesses: 'mismatch',
+      operatorProcesses: 'mismatch',
+    });
+  }
+}
+
+function hostOutputWithinBound(result: HostCommandResult, maximumOutputBytes: number): boolean {
+  const outputBytes = result.outputBytes
+    ?? Buffer.byteLength(result.stdout, 'utf8') + Buffer.byteLength(result.stderr, 'utf8');
+  return Number.isSafeInteger(outputBytes)
+    && outputBytes >= 0
+    && outputBytes <= maximumOutputBytes;
+}
+
+function safelyPortIsUnbound(result: HostCommandResult): boolean {
+  try {
+    return portIsUnbound(result);
+  } catch {
+    return false;
+  }
 }
 
 export function requireDa5V5ProductSnapshotClaim(
@@ -317,15 +394,23 @@ function systemCleanStateDependencies(): Da5V5CleanStateDependencies {
 function runBoundedHostCommand(
   executable: string,
   arguments_: readonly string[],
+  maximumOutputBytes: number,
 ): Promise<HostCommandResult> {
   return new Promise((resolvePromise, rejectPromise) => {
+    if (!Number.isSafeInteger(maximumOutputBytes) || maximumOutputBytes < 1) {
+      rejectPromise(new Error('DA5 V5 host attestation output bound mismatch'));
+      return;
+    }
     const child = spawn(executable, [...arguments_], {
       env: { PATH: '/usr/bin:/bin:/usr/sbin:/sbin' },
       stdio: ['ignore', 'pipe', 'pipe'],
     });
     let stdout = '';
     let stderr = '';
+    let outputBytes = 0;
     let settled = false;
+    const stdoutDecoder = new StringDecoder('utf8');
+    const stderrDecoder = new StringDecoder('utf8');
     const timeout = setTimeout(() => finish(new Error('DA5 V5 host attestation timed out')),
       commandTimeoutMilliseconds);
     const finish = (error?: Error, exitCode?: number): void => {
@@ -336,17 +421,24 @@ function runBoundedHostCommand(
         try { child.kill('SIGKILL'); } catch { /* terminal settlement is authoritative */ }
         rejectPromise(error ?? new Error('DA5 V5 host attestation failed'));
       } else {
-        resolvePromise(Object.freeze({ exitCode, stderr, stdout }));
+        resolvePromise(Object.freeze({ exitCode, outputBytes, stderr, stdout }));
       }
     };
     const append = (target: 'stderr' | 'stdout', chunk: Buffer): void => {
-      const value = chunk.toString('utf8');
-      chunk.fill(0);
-      if (Buffer.byteLength(stdout) + Buffer.byteLength(stderr) + Buffer.byteLength(value)
-        > maximumOutputBytes) {
+      if (settled) {
+        chunk.fill(0);
+        return;
+      }
+      outputBytes += chunk.byteLength;
+      if (outputBytes > maximumOutputBytes) {
+        chunk.fill(0);
         finish(new Error('DA5 V5 host attestation output exceeded its bound'));
         return;
       }
+      const value = target === 'stdout'
+        ? stdoutDecoder.write(chunk)
+        : stderrDecoder.write(chunk);
+      chunk.fill(0);
       if (target === 'stdout') stdout += value;
       else stderr += value;
     };
@@ -354,6 +446,10 @@ function runBoundedHostCommand(
     child.stderr.on('data', (chunk: Buffer) => append('stderr', chunk));
     child.once('error', () => finish(new Error('DA5 V5 host attestation failed')));
     child.once('close', (code, signal) => {
+      if (!settled) {
+        stdout += stdoutDecoder.end();
+        stderr += stderrDecoder.end();
+      }
       finish(
         signal === null && code !== null
           ? undefined

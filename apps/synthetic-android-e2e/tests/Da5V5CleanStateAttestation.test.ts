@@ -42,6 +42,12 @@ function cleanDependencies(): Da5V5CleanStateDependencies {
   };
 }
 
+function cleanHostResult(executable: string) {
+  return executable === '/bin/ps'
+    ? { exitCode: 0, stderr: '', stdout: '1 0 1 /sbin/launchd\n' }
+    : { exitCode: 1, stderr: '', stdout: '' };
+}
+
 describe('DA5 V5 fresh clean-state attestation', () => {
   it('matches only the exact scoped clean host, Android and Product state', async () => {
     const dependencies = cleanDependencies();
@@ -93,6 +99,126 @@ describe('DA5 V5 fresh clean-state attestation', () => {
       operator_processes: 'mismatch',
       owned_listeners: 'mismatch',
       task_roots: 'mismatch',
+    });
+  });
+
+  it('accepts a process table above 64 KiB and below the dedicated 4 MiB cap', async () => {
+    const processTable = Array.from({ length: 4_000 }, (_, index) => {
+      const pid = 10_000 + index;
+      return `${pid} 1 ${pid} /usr/bin/clean-worker-${index}`;
+    }).join('\n');
+    expect(Buffer.byteLength(processTable)).toBeGreaterThan(64 * 1024);
+    expect(Buffer.byteLength(processTable)).toBeLessThan(4 * 1024 * 1024);
+    const dependencies: Da5V5CleanStateDependencies = {
+      ...cleanDependencies(),
+      runHost: vi.fn(async (executable) => executable === '/bin/ps'
+        ? { exitCode: 0, stderr: '', stdout: processTable }
+        : cleanHostResult(executable)),
+    };
+
+    const result = await attestDa5V5CleanState(options(), dependencies);
+
+    expect(result.status).toBe('match');
+    expect(dependencies.runHost).toHaveBeenCalledWith(
+      '/bin/ps',
+      ['-axo', 'pid=,ppid=,pgid=,command='],
+      4 * 1024 * 1024,
+    );
+    for (const port of [3000, 54321, 55435]) {
+      expect(dependencies.runHost).toHaveBeenCalledWith(
+        '/usr/sbin/lsof',
+        ['-nP', `-iTCP:${port}`, '-sTCP:LISTEN'],
+        64 * 1024,
+      );
+    }
+  });
+
+  it('fails only the process-owned domains when ps exceeds its 4 MiB cap', async () => {
+    const dependencies: Da5V5CleanStateDependencies = {
+      ...cleanDependencies(),
+      runHost: vi.fn(async (executable) => executable === '/bin/ps'
+        ? {
+            exitCode: 0,
+            outputBytes: 4 * 1024 * 1024 + 1,
+            stderr: '',
+            stdout: '1 0 1 /sbin/launchd\n',
+          }
+        : cleanHostResult(executable)),
+    };
+
+    const result = await attestDa5V5CleanState(options(), dependencies);
+
+    expect(result).toMatchObject({
+      android: 'match',
+      bound_postgres_processes: 'mismatch',
+      operator_processes: 'mismatch',
+      owned_listeners: 'match',
+      status: 'mismatch',
+      task_roots: 'match',
+    });
+  });
+
+  it('attributes each checker failure only to its owned attestation domain', async () => {
+    const processFailure: Da5V5CleanStateDependencies = {
+      ...cleanDependencies(),
+      runHost: vi.fn(async (executable) => {
+        if (executable === '/bin/ps') throw new Error('injected ps failure');
+        return cleanHostResult(executable);
+      }),
+    };
+    const taskRootFailure: Da5V5CleanStateDependencies = {
+      ...cleanDependencies(),
+      listPrivateTmpNames: vi.fn(async () => {
+        throw new Error('injected task-root failure');
+      }),
+    };
+    const androidFailure: Da5V5CleanStateDependencies = {
+      ...cleanDependencies(),
+      androidAttest: vi.fn(async () => {
+        throw new Error('injected Android failure');
+      }),
+    };
+    const listenerFailure: Da5V5CleanStateDependencies = {
+      ...cleanDependencies(),
+      runHost: vi.fn(async (executable, arguments_) => {
+        if (executable === '/usr/sbin/lsof' && arguments_.includes('-iTCP:54321')) {
+          throw new Error('injected lsof failure');
+        }
+        return cleanHostResult(executable);
+      }),
+    };
+
+    await expect(attestDa5V5CleanState(options(), processFailure)).resolves.toMatchObject({
+      android: 'match',
+      bound_postgres_processes: 'mismatch',
+      operator_processes: 'mismatch',
+      owned_listeners: 'match',
+      status: 'mismatch',
+      task_roots: 'match',
+    });
+    await expect(attestDa5V5CleanState(options(), taskRootFailure)).resolves.toMatchObject({
+      android: 'match',
+      bound_postgres_processes: 'match',
+      operator_processes: 'match',
+      owned_listeners: 'match',
+      status: 'mismatch',
+      task_roots: 'mismatch',
+    });
+    await expect(attestDa5V5CleanState(options(), androidFailure)).resolves.toMatchObject({
+      android: 'mismatch',
+      bound_postgres_processes: 'match',
+      operator_processes: 'match',
+      owned_listeners: 'match',
+      status: 'mismatch',
+      task_roots: 'match',
+    });
+    await expect(attestDa5V5CleanState(options(), listenerFailure)).resolves.toMatchObject({
+      android: 'match',
+      bound_postgres_processes: 'match',
+      operator_processes: 'match',
+      owned_listeners: 'mismatch',
+      status: 'mismatch',
+      task_roots: 'match',
     });
   });
 
