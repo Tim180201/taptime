@@ -60,6 +60,7 @@ import type {
 } from './types.js';
 
 const SESSION_PATH = '/v1/session';
+const HEALTH_PATH = '/health';
 const SCAN_CONTEXT_PATH = '/v1/scan-context/resolve';
 const LIFECYCLE_PATH = '/v1/lifecycle-events';
 const DEFERRED_LIFECYCLE_PATH = '/v1/lifecycle-events/deferred';
@@ -100,6 +101,7 @@ const MAX_HEADER_COUNT = 64;
 const MAX_SCAN_PAYLOAD_BYTES = 1_024;
 const TIME_REVIEW_READ_RESPONSE_MAXIMUM_BYTES = 256 * 1024;
 const DEFAULT_OPERATION_TIMEOUT_MILLISECONDS = 10_000;
+const HEALTH_CHECK_TIMEOUT_MILLISECONDS = 2_000;
 const compactJwtPattern = /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/;
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const canonicalUuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -130,6 +132,7 @@ type ErrorCode =
   | 'unauthorized';
 
 type Route =
+  | 'health'
   | 'admin_create_customer'
   | 'admin_create_employee_invitation'
   | 'admin_employee_memberships_projection'
@@ -235,7 +238,7 @@ async function handleRequest(
     return;
   }
 
-  const expectedMethod = route === 'session' ? 'GET' : 'POST';
+  const expectedMethod = route === 'health' || route === 'session' ? 'GET' : 'POST';
   if (request.method !== expectedMethod) {
     request.resume();
     response.setHeader('Allow', expectedMethod);
@@ -264,15 +267,20 @@ async function handleRequest(
     return;
   }
 
-  if (route === 'session' && requestHasBody(request)) {
+  if ((route === 'health' || route === 'session') && requestHasBody(request)) {
     request.resume();
     respondError(response, 400, 'invalid_request');
     return;
   }
-  if (route !== 'session' && !hasValidJsonBodyHeaders(request)) {
+  if (route !== 'health' && route !== 'session' && !hasValidJsonBodyHeaders(request)) {
     response.setHeader('Connection', 'close');
     request.resume();
     respondError(response, 400, 'invalid_request');
+    return;
+  }
+
+  if (route === 'health') {
+    await handleHealth(response, dependencies);
     return;
   }
 
@@ -616,6 +624,21 @@ async function handleRequest(
     correlationId,
     timeoutMilliseconds,
   );
+}
+
+async function handleHealth(
+  response: ServerResponse,
+  dependencies: BackendApiDependencies,
+): Promise<void> {
+  try {
+    if (dependencies.healthCheck === undefined) {
+      throw new Error('Database health check is unavailable');
+    }
+    await withTimeout(dependencies.healthCheck(), HEALTH_CHECK_TIMEOUT_MILLISECONDS);
+    respondJson(response, 200, { status: 'ok' });
+  } catch {
+    respondJson(response, 503, { status: 'degraded' });
+  }
 }
 
 async function handleSession(
@@ -1838,6 +1861,7 @@ async function handleOfflineReviewState(
 }
 
 function requestRoute(url: string | undefined): Route | null {
+  if (url === HEALTH_PATH) return 'health';
   if (url === MOBILE_OWN_TIME_PATH) return 'mobile_own_time';
   if (url === MOBILE_WORK_TARGETS_PATH) return 'mobile_work_targets';
   if (url === MANUAL_LIFECYCLE_PATH) return 'manual_lifecycle';
@@ -1916,6 +1940,8 @@ function requestRoute(url: string | undefined): Route | null {
 
 function diagnosticCodeForRoute(route: Route | null): BackendApiDiagnostic['code'] | null {
   switch (route) {
+    case 'health':
+      return null;
     case 'admin_create_customer':
     case 'admin_create_employee_invitation':
     case 'admin_employee_memberships_projection':

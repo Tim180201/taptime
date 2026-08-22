@@ -1,0 +1,62 @@
+name: taptime-local
+
+services:
+  database:
+    build:
+      context: ..
+      dockerfile: infrastructure/postgres/Dockerfile
+    environment:
+      POSTGRES_DB: taptime
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: taptime-local-only
+    ports:
+      - "5433:5432"
+    volumes:
+      - taptime-local-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          pg_isready --username postgres --dbname taptime
+          && psql --username postgres --dbname taptime --tuples-only --no-align
+          --command "SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = 'taptime_local_project_administration'"
+          | grep --quiet '^1$'
+      interval: 2s
+      timeout: 5s
+      retries: 30
+    restart: unless-stopped
+
+  backend-api:
+    build:
+      context: ..
+      dockerfile: infrastructure/backend-api/Dockerfile
+    environment:
+      PORT: "3000"
+      SUPABASE_ISSUER: http://127.0.0.1:54321/auth/v1
+      TAPTIME_SESSION_DATABASE_URL: postgresql://taptime_local_session:taptime-local-only@database:5432/taptime
+      TAPTIME_READ_MODEL_DATABASE_URL: postgresql://taptime_local_read_model:taptime-local-only@database:5432/taptime
+      TAPTIME_LIFECYCLE_DATABASE_URL: postgresql://taptime_local_lifecycle:taptime-local-only@database:5432/taptime
+      TAPTIME_ADMINISTRATION_DATABASE_URL: postgresql://taptime_local_administration:taptime-local-only@database:5432/taptime
+      TAPTIME_EMPLOYEE_INVITATION_DATABASE_URL: postgresql://taptime_local_invitation:taptime-local-only@database:5432/taptime
+      TAPTIME_EMPLOYEE_ENROLLMENT_DATABASE_URL: postgresql://taptime_local_enrollment:taptime-local-only@database:5432/taptime
+      TAPTIME_REASSIGNMENT_DATABASE_URL: postgresql://taptime_local_reassignment:taptime-local-only@database:5432/taptime
+      TAPTIME_OFFLINE_LEASE_DATABASE_URL: postgresql://taptime_local_offline_lease:taptime-local-only@database:5432/taptime
+      TAPTIME_OFFLINE_EVENT_DATABASE_URL: postgresql://taptime_local_offline_event:taptime-local-only@database:5432/taptime
+      TAPTIME_OFFLINE_RECONCILIATION_DATABASE_URL: postgresql://taptime_local_offline_reconciliation:taptime-local-only@database:5432/taptime
+      TAPTIME_TIME_ENTRY_EXPORT_DATABASE_URL: postgresql://taptime_local_time_export:taptime-local-only@database:5432/taptime
+      TAPTIME_TIME_REVIEW_READ_DATABASE_URL: postgresql://taptime_local_time_review_read:taptime-local-only@database:5432/taptime
+      TAPTIME_TIME_REVIEW_WRITE_DATABASE_URL: postgresql://taptime_local_time_review_write:taptime-local-only@database:5432/taptime
+      TAPTIME_MANUAL_LIFECYCLE_DATABASE_URL: postgresql://taptime_local_manual_lifecycle:taptime-local-only@database:5432/taptime
+      TAPTIME_MOBILE_OWN_TIME_DATABASE_URL: postgresql://taptime_local_mobile_own_time:taptime-local-only@database:5432/taptime
+      TAPTIME_MOBILE_TARGET_DATABASE_URL: postgresql://taptime_local_mobile_target:taptime-local-only@database:5432/taptime
+      TAPTIME_MOBILE_OWN_TIME_CURSOR_HMAC_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+      TAPTIME_PROJECT_ADMINISTRATION_DATABASE_URL: postgresql://taptime_local_project_administration:taptime-local-only@database:5432/taptime
+    depends_on:
+      database:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+
+volumes:
+  taptime-local-postgres:

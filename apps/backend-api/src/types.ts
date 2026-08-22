@@ -141,6 +141,7 @@ export interface NfcTagReassignmentPort {
 }
 
 export interface BackendApiDependencies {
+  readonly healthCheck?: () => Promise<void>;
   readonly sessionAuthority: SessionAuthorityResolver;
   readonly scanContextResolver: ScanContextResolver;
   readonly lifecycleIngestor: LifecycleIngestor;

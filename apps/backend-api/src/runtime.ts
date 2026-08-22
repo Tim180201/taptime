@@ -139,6 +139,7 @@ export function createBackendApiRuntime(
   });
 
   const sessionPool = createRuntimePool(sessionDatabase.connectionString);
+  const healthPool = createHealthPool(sessionDatabase.connectionString);
   const readModelPool = createRuntimePool(readModelDatabase.connectionString);
   const lifecyclePool = createRuntimePool(lifecycleDatabase.connectionString);
   const administrationPool = createRuntimePool(administrationDatabase.connectionString);
@@ -175,6 +176,9 @@ export function createBackendApiRuntime(
       );
   const server = createBackendHttpServer(
     {
+      healthCheck: async () => {
+        await healthPool.query('SELECT 1');
+      },
       sessionAuthority: new B4SessionAuthorityResolver(
         verifier,
         new PostgresIdentityMembershipResolver(sessionPool),
@@ -236,6 +240,7 @@ export function createBackendApiRuntime(
         }
       }
       const results = await Promise.allSettled([
+        healthPool.end(),
         sessionPool.end(),
         readModelPool.end(),
         lifecyclePool.end(),
@@ -300,6 +305,21 @@ function createRuntimePool(connectionString: string): Pool {
     query_timeout: 5_000,
     statement_timeout: 5_000,
   });
+}
+
+function createHealthPool(connectionString: string): Pool {
+  const pool = new Pool({
+    connectionString,
+    max: 1,
+    connectionTimeoutMillis: 2_000,
+    idleTimeoutMillis: 30_000,
+    query_timeout: 2_000,
+    statement_timeout: 2_000,
+  });
+  pool.on('error', () => {
+    // An idle health connection can fail when PostgreSQL stops. The next probe reports degraded.
+  });
+  return pool;
 }
 
 function validateDatabaseUrl(value: string): ValidatedDatabaseUrl {
