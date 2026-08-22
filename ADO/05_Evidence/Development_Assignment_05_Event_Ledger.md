@@ -1,5 +1,64 @@
 # Development Assignment 5 — Append-Only Event Ledger
 
+## Claim `c922685efc7e474cb363cce8fb0992b70e6060b61f76723f4a3a9b0a2210ed5e` — session 46561 BINDING failure and Toolchain supersession (`2026-08-22`)
+
+- `binding_set_id`: `ee2ff587c42af235acb079f9686a8eee07741d1bca71023b7eaebd0eee93dbae`;
+  this is the actually executed and consumed Flight Package binding, not a future runtime binding
+  or run authority.
+- `claim_id`: `c922685efc7e474cb363cce8fb0992b70e6060b61f76723f4a3a9b0a2210ed5e`;
+  stable unique identity is reproducibly the SHA-256 of the immutable session-46561 failure
+  receipt.
+- `supersedes_claim_ids`: `[]`; the legacy e10d section has no digest claim ID. This claim
+  supersedes only its prospective Toolchain-canonicalization assertions, identified under
+  `evidence`, and does not rewrite its historical run or cleanup truth.
+- `provenance`: Human supplied the exact one-shot authority and no input; Machine session `46561`
+  invoked the exact command once and emitted the bound exit/line; TL performed read-only receipt,
+  launcher-source and host-identity verification and prepared this append-only candidate.
+- `time_scope`: `immediate` for the invocation, empty initial second, next poll and exit; `unproved`
+  for cleanup and external Product/ADB/Hardware state.
+- `observation`: `observed` for the exact invocation, initial empty output, exit `1`, safe line
+  `da5_v5_flight_start_failed stage=BINDING` and absence of Human prompt/input/token/password;
+  `unobserved` for cleanup and external Product, ADB and Hardware state.
+- `authority_before`: exactly one fresh Product-Human/Hardware invocation bound to consumed
+  runtime binding-set ID `ee2ff587c42af235acb079f9686a8eee07741d1bca71023b7eaebd0eee93dbae`.
+- `authority_after`: `CONSUMED_NONREUSABLE`, with no retry, resume, replacement or current run
+  authority.
+- `evidence`: published head/tree `867d61f8396a9fdee81e9f06681ff445d965a34c` /
+  `02af1914dfac7b4b70e46986bac4369ecd907136`; exact once-only command
+  `exec /Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-visible-tty-launcher/867d61f8-ee2ff587-codex-pty-r1/launch-codex-pty`;
+  immutable `0555` failure root basename
+  `flight-867d61f8-ee2ff587-s46561-binding-failed-20260822`, receipt 3,852 bytes / `0444` / SHA-256
+  `c922685efc7e474cb363cce8fb0992b70e6060b61f76723f4a3a9b0a2210ed5e`, manifest 754 bytes /
+  `0444` / SHA-256 `923138150831c71dfa1833ca871d4b5e0e56cb8cdd61f66b5209b4b62e93ec3b`.
+  The byte-exact legacy e10d section in published HEAD is 5,051 bytes / SHA-256
+  `34f76967c0255c7f9036a5a7435cbc64cab9b99669eb054b0e6ee78c6bc942ed`.
+  Its sealed receipt/manifest SHA-256
+  `9dfbdd3abcf794cebf5957124cd04fcee62bbf5a584f9ff04864a76d401a6c7d` /
+  `517be573c54c77c563143af7f2822e39de2a9e9aa131d9a3506a4ef9a0b4a50f` expose one old
+  64-character launcher-drift value
+  `34425ef206527fc65c6b6f5bfe1b4ea9aaa48a32fba491441d5a5b52b40b45d4` and two invalid
+  62-character purported canonical/future fields
+  `34425ef206527fc65c6b5bfe1b4ea9aaa48a32fba491441d5a5b52b40b45d4`; both candidates are
+  `SUPERSEDED_NOT_CANONICAL`. New immutable `0555` root basename
+  `toolchain-host-identity-v1-20260822` contains canonical self-hash-free payload 2,960 bytes /
+  `0444` / SHA-256 `0609497e4cf36e408f441a8f5f9eb821e8f4aa2b54a46f1525f2ccbf5c7ce657`
+  and manifest 661 bytes / `0444` / SHA-256
+  `4d60c9317df44ff4abdf5287c78e097970f7263a343af218847bde0dd53c3a76`;
+  `toolchain_evidence_set_id` is
+  `0609497e4cf36e408f441a8f5f9eb821e8f4aa2b54a46f1525f2ccbf5c7ce657`, identical to the payload
+  SHA and the exact future `TAPTIME_DA5_V5_TOOLCHAIN_SHA256` value.
+- `verification`: AVS R0/V0 for exactly AVS, Runbook and Event Ledger plus the new two-file
+  Toolchain Evidence; exact-three diff/index/ref/live-remote checks, canonical JSON+LF,
+  inventory/mode/size/SHA and all seven host identities, lowercase-hex-64 positive, both old
+  candidates negative/superseded, legacy-section byte equality and pre-Supervisor source ordering.
+  No build, test, Typecheck, V3, CI, positive TTY, Supervisor, ADB, Product or Hardware ran because
+  Product/runtime executable bundle/map bytes, carried CI, APK and Guard are unchanged. A future
+  separately reviewed rebind must regenerate the Operator manifest and create a new binding-set ID.
+- `terminal_state`: attempted outcome `FAIL_CLOSED / BINDING`; cleanup `UNOBSERVED`; Product
+  finding `NONE`, with Supervisor/Product path `NOT_REACHED_BY_SOURCE_ORDERING` and external
+  Product state `UNOBSERVED`; fast lane `STOP_PENDING_INDEPENDENT_REVIEW`. No current Human or
+  Hardware authority exists.
+
 ## Automatic password Fast-Recovery candidate and consumed invisible start (`2026-08-21`)
 
 - `claim_id`: `DA5-V5-2885739D-INVISIBLE-START-CONSUMED-20260821`; provenance Human/TL;

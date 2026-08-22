@@ -1,5 +1,49 @@
 # AVS-001 – Adaptive Verification and CI Efficiency Standard
 
+## DA5 Codex-PTY session 46561 BINDING supersession (`2026-08-22`) — CONSUMED / R0-V0 CANDIDATE / REVIEW STOP
+
+On published head/tree `867d61f8396a9fdee81e9f06681ff445d965a34c` /
+`02af1914dfac7b4b70e46986bac4369ecd907136`, the exact command
+`exec /Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-visible-tty-launcher/867d61f8-ee2ff587-codex-pty-r1/launch-codex-pty`
+ran once in Codex foreground PTY session `46561`. Initial one-second output was empty; the next
+empty poll returned exit `1` and exactly `da5_v5_flight_start_failed stage=BINDING`. No Human
+prompt, input, token or password occurred. Authority is consumed and non-reusable; retry and resume
+remain forbidden. Immutable failure Evidence root basename
+`flight-867d61f8-ee2ff587-s46561-binding-failed-20260822` is `0555`: receipt 3,852 bytes / `0444` /
+SHA-256 `c922685efc7e474cb363cce8fb0992b70e6060b61f76723f4a3a9b0a2210ed5e`; manifest 754 bytes /
+`0444` / SHA-256 `923138150831c71dfa1833ca871d4b5e0e56cb8cdd61f66b5209b4b62e93ec3b`.
+
+Static source ordering proves the launcher's sixth binding value, a 62-character Toolchain value,
+failed the lowercase-hex-64 predicate before `runDa5V5FlightSupervisor`. Supervisor and Product
+execution were therefore not reached through this invocation; external Product, ADB, Hardware and
+cleanup state remain unobserved. Sealed e10d receipt/manifest SHA-256
+`9dfbdd3abcf794cebf5957124cd04fcee62bbf5a584f9ff04864a76d401a6c7d` /
+`517be573c54c77c563143af7f2822e39de2a9e9aa131d9a3506a4ef9a0b4a50f` retain the historical
+contradiction: `noncausal_rebinding_drift.launcher_toolchain_binding_sha256` is the old 64-character
+`34425ef206527fc65c6b6f5bfe1b4ea9aaa48a32fba491441d5a5b52b40b45d4`, while both
+`noncausal_rebinding_drift.canonical_operator_toolchain_binding_sha256` and
+`future_rebinding_required.canonical_toolchain_binding_sha256` are the invalid 62-character
+`34425ef206527fc65c6b5bfe1b4ea9aaa48a32fba491441d5a5b52b40b45d4`. Both old candidates are
+superseded and neither is canonical.
+
+The immutable `0555` Toolchain Evidence root basename `toolchain-host-identity-v1-20260822`
+contains exactly payload 2,960 bytes / `0444` / SHA-256
+`0609497e4cf36e408f441a8f5f9eb821e8f4aa2b54a46f1525f2ccbf5c7ce657` and manifest 661 bytes /
+`0444` / SHA-256 `4d60c9317df44ff4abdf5287c78e097970f7263a343af218847bde0dd53c3a76`.
+The exact future environment value is
+`TAPTIME_DA5_V5_TOOLCHAIN_SHA256=0609497e4cf36e408f441a8f5f9eb821e8f4aa2b54a46f1525f2ccbf5c7ce657`,
+defined as SHA-256 of the canonical self-hash-free payload. A future separately reviewed external
+rebind must preserve Product/runtime executable bundle and map bytes, regenerate the Operator
+manifest, bind this payload and manifest, and create a new binding-set ID. The consumed
+Operator/launcher/binding are never reused.
+
+Fast-Lane correction scope is this immutable Evidence root plus exactly AVS, Runbook and Event
+Ledger; carried CI, APK and Guard are unchanged. Verification is V0 plus focused payload
+canonicalization, full host-identity equality, lowercase-hex-64 positive, old-62 negative and
+pre-Supervisor ordering checks. No build, test, V3, CI, positive TTY, ADB, Product or Hardware run
+is allowed. Independent prepublication review is next; no current execution or Human/Hardware
+authority exists.
+
 ## DA5 automatic password Fast-Recovery candidate (`2026-08-21`) — R3 round-2 corrected / round-3 review pending / Hardware STOP
 
 Human-authorized scope is exactly two Supervisor/Controller sources, four directly affected tests

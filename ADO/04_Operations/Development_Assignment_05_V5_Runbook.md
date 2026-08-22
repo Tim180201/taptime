@@ -1,5 +1,48 @@
 # Development Assignment 5 — V5 Human Android Gate Runbook
 
+## 2026-08-22 Codex-PTY session 46561 BINDING supersession — CONSUMED / THREE-DOC CORRECTION / DO NOT RUN
+
+The exact command
+`exec /Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-visible-tty-launcher/867d61f8-ee2ff587-codex-pty-r1/launch-codex-pty`
+was invoked once in foreground PTY session `46561` on head/tree
+`867d61f8396a9fdee81e9f06681ff445d965a34c` /
+`02af1914dfac7b4b70e46986bac4369ecd907136`. One second produced no output; the next empty poll
+returned exit `1` and exactly `da5_v5_flight_start_failed stage=BINDING`. No Human prompt, input,
+token or password occurred. The one-shot authority is consumed; never retry or resume this run.
+Sealed root basename `flight-867d61f8-ee2ff587-s46561-binding-failed-20260822` is `0555`, with
+receipt 3,852 bytes / `0444` / `c922685efc7e474cb363cce8fb0992b70e6060b61f76723f4a3a9b0a2210ed5e`
+and manifest 754 bytes / `0444` /
+`923138150831c71dfa1833ca871d4b5e0e56cb8cdd61f66b5209b4b62e93ec3b`.
+
+Do not use the published launcher again. Its sixth evidence binding used a 62-character Toolchain
+value, which exact `da5V5FlightMain.ts` rejects with `^[0-9a-f]{64}$` before calling
+`runDa5V5FlightSupervisor`. Supervisor and Product execution were not reached through this
+invocation; external Product, ADB, Hardware and cleanup state remain unobserved. Sealed e10d
+receipt/manifest SHA-256 `9dfbdd3abcf794cebf5957124cd04fcee62bbf5a584f9ff04864a76d401a6c7d` /
+`517be573c54c77c563143af7f2822e39de2a9e9aa131d9a3506a4ef9a0b4a50f` retain three conflicting
+historical fields: the old launcher-drift value is 64 characters
+`34425ef206527fc65c6b6f5bfe1b4ea9aaa48a32fba491441d5a5b52b40b45d4`, while the purported
+canonical Operator and future values are the same invalid 62-character
+`34425ef206527fc65c6b5bfe1b4ea9aaa48a32fba491441d5a5b52b40b45d4`. Both candidates are
+superseded; neither is canonical.
+
+Use only the immutable `0555` root basename `toolchain-host-identity-v1-20260822`: payload 2,960
+bytes / `0444` / SHA-256 `0609497e4cf36e408f441a8f5f9eb821e8f4aa2b54a46f1525f2ccbf5c7ce657`;
+manifest 661 bytes / `0444` / SHA-256
+`4d60c9317df44ff4abdf5287c78e097970f7263a343af218847bde0dd53c3a76`. For a future rebind,
+set exactly
+`TAPTIME_DA5_V5_TOOLCHAIN_SHA256=0609497e4cf36e408f441a8f5f9eb821e8f4aa2b54a46f1525f2ccbf5c7ce657`;
+this is SHA-256 of the canonical self-hash-free payload. Preserve Product/runtime executable
+bundle and map bytes, regenerate the Operator manifest, bind both Toolchain Evidence files and
+create a new binding-set ID. Never reuse the consumed Operator, launcher or binding.
+
+Current Fast-Lane correction is this immutable Evidence root plus exactly AVS, Runbook and Event
+Ledger; carried CI, APK and Guard remain unchanged. Run only V0 and focused payload canonical,
+host-equality, lowercase-hex-64 positive, old-62 negative and pre-Supervisor ordering checks. Do
+not run builds, tests, V3, CI, positive TTY, ADB, Product or Hardware. Next is independent review
+of this candidate, then focused publication and a separately reviewed external rebind. No current
+run authority exists.
+
 ## 2026-08-21 automatic password Fast-Recovery procedure — round-2 corrected / round-3 review pending / do not run
 
 The consumed `2885739d-41739a74-r1` start is closed by immutable two-file root basename
