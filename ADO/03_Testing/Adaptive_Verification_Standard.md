@@ -1,5 +1,54 @@
 # AVS-001 – Adaptive Verification and CI Efficiency Standard
 
+## DA5 run 459dd ADB-server Fast Recovery (`2026-08-22`) — CONSUMED / REPAIRED HOST PREREQUISITE / REVIEW STOP
+
+Binding set `4dd436a970db0bd57be26a2c7fb0f4eb7133c88b3073e6ac3bd4216c7ddb70c0`
+was invoked exactly once on published head/tree
+`31736a6e388a190148204009a2a11b6f4b1df799` /
+`5b569d4f6c679a4ff39fb71f5bd7f6b42ec69e17` in Codex foreground PTY session `75431`.
+Before the terminal outcome there was no output or Human prompt/input. The Supervisor published
+`CONTROLLER_RETURNED_INNER_RECEIPT_SEALED`, accepted exactly one `CLOSE`, and then returned exit
+`1`; source and receipt truth make that exit the expected terminal settlement for this sealed
+non-PASS outcome, not a retry signal. Authority is `CONSUMED_NONREUSABLE`.
+
+The sealed inner outcome is `FAIL_CLOSED / CHILD_NONZERO_OR_EARLY_EXIT / cleanup MISMATCH`, with
+the Android cleanup-attestation domain `mismatch`. That is an attestation result, not proof that
+residue existed. The Product-Human field/button, install/mutation, Tag/NFC and Hardware path was
+`NOT_REACHED`, and the Product finding is `NONE`. Cleanup-attestation product equality did observe
+aggregates, invariants and tag roles as `MATCH`; queue equality remains `UNOBSERVED / UNPROVED`
+because the Operator schema has no queue field.
+
+After the run was closed, exact absolute `adb -H 127.0.0.1 -P 5037 devices -l` returned status
+`1`, classified as `LOCAL_SERVER_UNREACHABLE`, with zero stdout bytes and 300 stderr bytes; raw
+stderr is neither retained nor disclosed. Exact argv
+`["/Users/timbartz/Library/Android/sdk/platform-tools/adb","start-server"]` then returned `0` and
+mutated only local host ADB-daemon/transport availability. A later, separate sanitized read-only
+preflight returned `MATCH` for device count, authorization, USB, model, build, Android release,
+API, font, accessibility status/services, device listeners, Product package/process and reverse
+mappings. This later result neither rewrites the run's cleanup `MISMATCH` nor proves its atomic
+cleanup. Since `device-preflight` is statically the first Controller plan step, the post-close
+finding identifies the focused recovery prerequisite; the original hidden child leaf remains
+unsealed.
+
+Immutable recovery Evidence root basename
+`flight-459dd223-adb-server-recovery-r1-20260822` is `0555` with exactly two `0444` files: receipt
+6,972 bytes / SHA-256
+`3c8a3bba8276f71d08bdedc8c376610a1eb0e23a1a02674e361c98a8e101e3b2` and manifest 668 bytes /
+SHA-256 `319d7cd5867c9f6fe7b0adc0492ff523134eaf025ebd1cad99e0dd2cc0d1c0c9`.
+It separately inventories the immutable outer terminal root and inner Controller root, exact PTY
+transcript, post-close diagnosis, host-only repair and later reattestation without credential,
+e-mail, USB serial, raw fingerprint or raw tag UID values.
+
+Every future DA5 pre-Hardware package must freshly establish local ADB-server reachability and a
+sanitized full preinstall `OVERALL=MATCH` immediately before Evidence sealing and before fresh
+Human authority or start; daemon persistence must never be assumed. It must then create a fresh
+binding and pre-Hardware receipt. Current Fast-Lane scope is only this recovery Evidence plus AVS,
+Runbook and Event Ledger. Verification is R0/V0: exact-three diff/index/ref/live-remote checks,
+canonical Evidence/hash/mode/inventory checks, Closed-claim schema and identity checks, plus static
+first-step and exit-after-`CLOSE` source proof. No build, test, Typecheck, V3, CI, new TTY,
+Supervisor, install, Product, ADB or Hardware execution is part of this candidate. Independent
+review is next; no current Human or Hardware authority exists.
+
 ## DA5 Codex-PTY session 46561 BINDING supersession (`2026-08-22`) — CONSUMED / R0-V0 CANDIDATE / REVIEW STOP
 
 On published head/tree `867d61f8396a9fdee81e9f06681ff445d965a34c` /

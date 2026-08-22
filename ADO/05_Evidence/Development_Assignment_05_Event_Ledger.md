@@ -1,5 +1,75 @@
 # Development Assignment 5 — Append-Only Event Ledger
 
+## Claim `3c8a3bba8276f71d08bdedc8c376610a1eb0e23a1a02674e361c98a8e101e3b2` — run 459dd consumed and local ADB-server recovery (`2026-08-22`)
+
+- `binding_set_id`: `4dd436a970db0bd57be26a2c7fb0f4eb7133c88b3073e6ac3bd4216c7ddb70c0`,
+  the actually invoked and consumed Flight Package binding.
+- `claim_id`: `3c8a3bba8276f71d08bdedc8c376610a1eb0e23a1a02674e361c98a8e101e3b2`,
+  reproducibly the SHA-256 of the immutable self-hash-free recovery receipt.
+- `supersedes_claim_ids`: `[]`; this claim closes a new run and does not rewrite prior claims.
+- `provenance`: Human supplied exactly one fresh bound authority and later authorized the terminal
+  acknowledgement; Machine invoked the launcher once in Codex foreground PTY session `75431`,
+  sent exactly one `CLOSE`, sealed outer run `459dd22300854233b44527bfe4284578` and inner receipt
+  `ea38fb4581a74bddd2eeb9547242e963`, then performed the explicitly reported post-close sanitized
+  diagnosis, host-only ADB-server start and separate read-only reattestation; TL verified sealed
+  files and source ordering; Development sealed this recovery Evidence and prepared the exact-three
+  append-only candidate.
+- `time_scope`: `immediate` for the observed PTY command, empty polls, two terminal lines, exact
+  one-time `CLOSE` and exit `1`; `at_run_close` for sealed inner cleanup/product-equality truth;
+  `post_close_current_only` for ADB-server diagnosis; `later_after_host_repair_current_only` for
+  sanitized Android `MATCH`. Exact wall-clock timing not encoded by the sealed roots is unproved.
+- `observation`: no output or Human prompt/input preceded the terminal lines. The exact terminal
+  status was `CONTROLLER_RETURNED_INNER_RECEIPT_SEALED / CONSUMED / CLOSE REQUIRED`; one `CLOSE`
+  produced expected exit `1` and no output. Inner receipt observed `FAIL_CLOSED`, failure reason
+  `CHILD_NONZERO_OR_EARLY_EXIT`, cleanup `MISMATCH` with Android `mismatch`, aggregates/invariants/
+  tag roles `MATCH`, and queue `UNOBSERVED / UNPROVED`. Product-Human fields/buttons,
+  install/mutation, Tag/NFC and Hardware were `NOT_REACHED`; Product finding is `NONE`.
+- `authority_before`: exactly one fresh Product-Human/Hardware invocation bound to
+  `4dd436a970db0bd57be26a2c7fb0f4eb7133c88b3073e6ac3bd4216c7ddb70c0`.
+- `authority_after`: `CONSUMED_NONREUSABLE`; retry, resume, reuse and a new start are forbidden,
+  and no current Human or Hardware authority exists.
+- `evidence`: published head/tree/parent
+  `31736a6e388a190148204009a2a11b6f4b1df799` /
+  `5b569d4f6c679a4ff39fb71f5bd7f6b42ec69e17` /
+  `867d61f8396a9fdee81e9f06681ff445d965a34c`; exact once-only command
+  `exec /Users/timbartz/Dokumente/GitHub/taptime-local-artifacts/da5-v5-visible-tty-launcher/31736a6e-4dd436a9-codex-pty-r1/launch-codex-pty`.
+  Outer root basename
+  `flight-terminal-459dd22300854233b44527bfe4284578-CONTROLLER_RETURNED_INNER_RECEIPT_SEALED`
+  is `0555`: terminal receipt 2,089 bytes / `0444` / SHA-256
+  `2608735616a39d567481731bc6d256d9368841c375c3e48aa78981918284610d`; manifest 319 bytes /
+  `0444` / SHA-256 `eaf9e1adf751b385164c5ea412217fd6efa4b500a18b0e0043f69b2ab1b97533`.
+  Separately inventoried inner root basename `flight-ea38fb4581a74bddd2eeb9547242e963` is `0555`:
+  receipt 1,623 bytes / `0444` / SHA-256
+  `52ad1b5270ec085bd4973eecb6e11407f07c418d78e1264d4bd09cb6d28a1714`; manifest 293 bytes /
+  `0444` / SHA-256 `2bfae31bb3648c007620998bd64a7d1743ab6b9b1d5b324fc5da4073a3876ad2`;
+  commitment 344 bytes / `0444` / SHA-256
+  `e07685c67284d4108283bc3a6122e90613b00e42c7906f5c9605cd4bd8f70d68`.
+  New recovery root basename `flight-459dd223-adb-server-recovery-r1-20260822` is `0555`, exactly
+  receipt 6,972 bytes / `0444` / SHA-256
+  `3c8a3bba8276f71d08bdedc8c376610a1eb0e23a1a02674e361c98a8e101e3b2` and manifest 668 bytes /
+  `0444` / SHA-256 `319d7cd5867c9f6fe7b0adc0492ff523134eaf025ebd1cad99e0dd2cc0d1c0c9`.
+  Post-close exact absolute `adb -H 127.0.0.1 -P 5037 devices -l` was status `1`,
+  `LOCAL_SERVER_UNREACHABLE`, stdout 0 bytes/stderr 300 bytes; raw stderr is undisclosed. Exact
+  `["/Users/timbartz/Library/Android/sdk/platform-tools/adb","start-server"]` with inherited
+  environment returned `0` and changed only local host daemon/transport availability. Later
+  sanitized read-only full preflight returned `OVERALL=MATCH` and every bound subdomain `MATCH`;
+  it is not original cleanup proof. First Controller plan step is statically `device-preflight`;
+  the original hidden child leaf remains unsealed.
+- `verification`: AVS R0/V0 for exactly AVS, Runbook and Event Ledger plus the one immutable
+  recovery Evidence root: exact-three diff/index/ref/live-remote checks, recursive canonical
+  JSON+LF, exact file count/modes/sizes/SHA/inventory, receipt-hash claim identity, all 11 Closed
+  schema fields, sensitive-value absence, static first-plan-step proof and expected exit-`1` after
+  exact `CLOSE` proof. No build, test, Typecheck, V3, CI, new TTY, Supervisor, ADB, install,
+  Product or Hardware ran in this candidate because executable Product/runtime bytes are unchanged
+  and all runtime/repair observations predate this documentation task.
+- `terminal_state`: consumed run is `FAIL_CLOSED / CHILD_NONZERO_OR_EARLY_EXIT / cleanup
+  MISMATCH / fast lane STOP`. Cleanup mismatch is an attestation result, not proof of residue;
+  later Android `MATCH` is separate/current-only. Product-Human/install/mutation/Tag/NFC/Hardware
+  path is `NOT_REACHED`, Product finding `NONE`, aggregates/invariants/tag roles observed `MATCH`,
+  queue unobserved/unproved. A future package must freshly prove local ADB-server availability and
+  sanitized full preinstall `OVERALL=MATCH`, then use a fresh binding and pre-Hardware receipt
+  before fresh Human authority/start. Independent review is pending; no current authority exists.
+
 ## Claim `c922685efc7e474cb363cce8fb0992b70e6060b61f76723f4a3a9b0a2210ed5e` — session 46561 BINDING failure and Toolchain supersession (`2026-08-22`)
 
 - `binding_set_id`: `ee2ff587c42af235acb079f9686a8eee07741d1bca71023b7eaebd0eee93dbae`;

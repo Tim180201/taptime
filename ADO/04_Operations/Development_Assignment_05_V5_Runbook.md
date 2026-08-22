@@ -1,5 +1,55 @@
 # Development Assignment 5 — V5 Human Android Gate Runbook
 
+## 2026-08-22 run 459dd ADB-server Fast Recovery — CONSUMED / HOST PREREQUISITE REPAIRED / DO NOT RUN
+
+The exact bound launcher ran once in Codex foreground PTY session `75431` under binding-set ID
+`4dd436a970db0bd57be26a2c7fb0f4eb7133c88b3073e6ac3bd4216c7ddb70c0`. No output or Human
+prompt/input preceded the two terminal lines. The Supervisor published sealed inner receipt
+`ea38fb4581a74bddd2eeb9547242e963`, requested close, received exactly one `CLOSE`, and exited `1`
+with no further output. That exit is expected for the sealed non-PASS inner outcome. Never retry,
+resume or reuse this run, Operator, launcher or binding.
+
+Inner truth remains `FAIL_CLOSED / CHILD_NONZERO_OR_EARLY_EXIT / cleanup MISMATCH`, with Android
+cleanup attestation `mismatch`; no residue is inferred. The Product-Human field/button,
+install/mutation, Tag/NFC and Hardware path was not reached and Product finding is `NONE`.
+Aggregates, invariants and tag roles were nevertheless observed `MATCH` by cleanup-attestation
+product equality; queue remains unobserved and unproved.
+
+Post-close diagnosis found the local ADB server unreachable: exact absolute argv
+`["/Users/timbartz/Library/Android/sdk/platform-tools/adb","-H","127.0.0.1","-P","5037","devices","-l"]`
+returned status `1`, classification `LOCAL_SERVER_UNREACHABLE`, stdout 0 bytes and stderr 300
+bytes. Raw stderr is not retained or disclosed. Exact argv
+`["/Users/timbartz/Library/Android/sdk/platform-tools/adb","start-server"]`, with inherited
+environment and no explicit host/port flags, returned `0`. This changed only the local host ADB
+daemon/transport. A later separate sanitized read-only preflight returned `OVERALL=MATCH` across
+device count/authorization/USB, model/build/release/API, font/accessibility, services/listeners,
+Product package/process and reverse mappings. It is later readiness only; it does not replace the
+run's cleanup `MISMATCH` or prove original atomic cleanup. The exact original child leaf was not
+sealed, although static ordering makes `device-preflight` the first plan step and therefore the
+focused repaired prerequisite.
+
+Use immutable `0555` recovery Evidence root basename
+`flight-459dd223-adb-server-recovery-r1-20260822`: receipt 6,972 bytes / `0444` / SHA-256
+`3c8a3bba8276f71d08bdedc8c376610a1eb0e23a1a02674e361c98a8e101e3b2`; manifest 668 bytes /
+`0444` / SHA-256 `319d7cd5867c9f6fe7b0adc0492ff523134eaf025ebd1cad99e0dd2cc0d1c0c9`.
+
+For the next separately prepared run, perform these gates in order:
+
+1. Before creating fresh Human authority or starting anything, establish local ADB-server
+   reachability on the bound host/socket; never assume the daemon persisted.
+2. Run the sanitized, read-only full preinstall matrix and require every named domain plus
+   `OVERALL=MATCH`. Do not retain or disclose serials, fingerprints, credentials, e-mails or raw
+   tag UIDs.
+3. Create and independently review a fresh Operator/launcher binding and pre-Hardware receipt that
+   binds this prerequisite Evidence. Never reuse binding `4dd436a9…`.
+4. Stop for one fresh exact Human/Product-Hardware authority. Only that later authority may start
+   the exact new command once.
+
+This candidate permits only exact-three V0, Evidence canonical/hash/mode/inventory, Closed-claim
+schema/identity and static source-order checks. Do not run tests, builds, CI, a new TTY/Supervisor,
+install, Product, ADB or Hardware here. Independent review is next; no current run authority
+exists.
+
 ## 2026-08-22 Codex-PTY session 46561 BINDING supersession — CONSUMED / THREE-DOC CORRECTION / DO NOT RUN
 
 The exact command
