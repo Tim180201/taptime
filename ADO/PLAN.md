@@ -3,107 +3,131 @@
 > **One Tap. One Decision.** Jede Aufgabe unten muss diesem Ziel dienen.
 
 **Kapazität:** ~4 h/Tag · **Team:** Tim (Product Owner) · Claude (Technical Lead) · Codex (Development)
+**Leitentscheidung:** Erst das System vollständig fertig, dann Firma, Recht und Store (D-007).
 
 ---
 
 ## Das Prinzip: parallel über Rollen, nicht über Codex
 
-Codex kann immer nur **eine** Aufgabe gleichzeitig bearbeiten. Echte Parallelität entsteht
-dadurch, dass Tim und Claude an Dingen arbeiten, die keinen Code brauchen.
+Codex bearbeitet immer nur **eine** Aufgabe. Echte Parallelität entsteht dadurch, dass Tim und
+Claude an Dingen arbeiten, die keinen Code brauchen.
 
 **Ziel:** Codex' Warteschlange ist nie leer — und Tim wartet nie auf Codex.
 
 ---
 
-## Die Bahnen
+## Die Linie, die nicht verschiebbar ist
 
-### Bahn A — Recht und Datenschutz · *Tim + Claude + Anwalt* · **startet sofort**
+Recht wird zwingend, sobald **echte Beschäftigte eines fremden Betriebs** ihre echten Zeiten
+stempeln. Ab dann bist du Auftragsverarbeiter und brauchst einen AVV.
 
-Der längste Pol im Projekt und der einzige, der nicht von Arbeitszeit abhängt, sondern von
-Kalenderzeit. Deshalb zuerst.
-
-1. **Verarbeitungsverzeichnis** — leitet sich direkt aus den Migrationen ab. Wir wissen
-   exakt, welche personenbezogenen Daten wo liegen. Claude erstellt den Entwurf.
-2. **TOM** (technische und organisatorische Maßnahmen) — RLS-Mandantentrennung,
-   Verschlüsselung, Zugriffsmodell, Backup. Entwurf aus `ARCHITECTURE.md`.
-3. **AVV-Entwurf** (Auftragsverarbeitung) — für B2B zwingend.
-4. **Datenschutzerklärung** für App, Admin-Web und Website.
-5. **Fragen an den Anwalt** — mit rausgeben:
-   - Muss TapTim.e **Pausen** erfassen, um in Deutschland als Arbeitszeiterfassung
-     einsetzbar zu sein?
-   - Welche **Aufbewahrungsfristen** gelten für Zeitdaten?
-   - Reicht die vorhandene Korrektur-Historie als Nachweisführung?
-   - Was muss ein Beschäftigter einsehen können?
-
-**Ergebnis:** Paket beim Anwalt. Danach läuft die Uhr ohne uns. Die Pausen-Antwort füttert
-direkt Bahn D.
+Vorher nicht. Du selbst, Freunde, erfundene Firmen und erfundene Kunden sind rechtlich frei —
+beliebig lange, beliebig gründlich. Deshalb geht Phase 1 ohne Anwalt auf.
 
 ---
 
-### Bahn B — Betrieb · *Codex + Tim (Accounts)* · **startet sofort**
+## Phase 1 — System fertig bauen (Woche 1–11)
 
-Der technische kritische Pfad. Ohne erreichbares Backend gibt es keinen Piloten.
+Ziel: Vollständiges Produkt. Läuft auf einem Server, installiert auf einem Telefon,
+von dir durchgetestet.
 
-1. Supabase-Projekt (EU-Region), Migrationen einspielen
-2. `backend-api` als Container deployen, Umgebungsvariablen sauber trennen
-3. `admin-web` als statisches Build ausliefern
-4. **Healthcheck-Endpunkt** — ohne den weiß niemand, ob der Dienst lebt
-5. **Backup einrichten und Restore einmal wirklich durchführen**
+| Bahn | Wer | Inhalt |
+|---|---|---|
+| **Betrieb** | Codex + Tim | Container, Supabase EU, Hetzner Deutschland, TLS, Backup und **getesteter Restore** |
+| **Standorte** | Claude + Codex | Standort als Berechtigungsdimension, Standortleiter mit voller Verwaltung am Standort, Pausen, Löschkonzept |
+| **Oberflächen** | Codex + Tim | App, Admin-Web, Standortleiter-Bereich, Landing Page |
+| **Eigener Test** | Tim | APK per Direktlink, Smoke-Test, zwei Wochen selbst stempeln |
 
-Punkt 5 ist der wichtigste im ganzen Plan. „Was passiert mit unseren Daten, wenn bei euch
-etwas kaputtgeht?" ist die Frage, die jeder B2B-Käufer stellt. Ein getesteter Restore ist
-mehr wert als jeder Testbericht.
+**Reihenfolge zwingend:** Betrieb → Standorte → Oberflächen. Der Standortleiter-Bereich ist
+Oberfläche für ein Feature, das es vorher nicht gibt. Andersherum wird die UI zweimal gebaut.
 
----
-
-### Bahn C — Store und Branding · *Tim + Codex* · **startet sofort**
-
-1. **Package-ID festlegen** (z. B. `e.taptime.app`) — **nach dem ersten Play-Upload
-   unwiderruflich.** Muss vor Schritt 3 stehen.
-2. App-Name, Slug, Icon, Store-Texte
-3. Play-Console-Konto (~25 € einmalig), `eas build --profile production`
-4. Internal Testing Track, App auf Tims Gerät installieren
-
-`eas.json` ist bereits vollständig konfiguriert. Das ist überwiegend Konten- und
-Formulararbeit, keine Entwicklung.
+**Vor dem Polieren:** Zwei, drei Leute aus einem passenden Betrieb durchklicken lassen. Kein
+Vertrag, keine echten Daten, keine Rechtsfolge — nur ein Gespräch vor einem Bildschirm.
+Feedback vor Politur, nicht Politur vor Feedback.
 
 ---
 
-### Bahn D — Produktlücken · *Claude + Codex* · **nach Entscheidung**
+## Phase 2 — Offiziell werden (Woche 12–15)
 
-- **Pausen** — abhängig von Bahn A. Additiv gebaut: neuer WorkEvent-Typ, die Engine
-  entscheidet. Der Nutzer bekommt **keine** zusätzliche Entscheidung (Prinzip 3).
-- **Rolle `team_lead`** — nur wenn ein Pilotkunde danach fragt.
-- Was der Smoke-Test und der Pilot als echte Fehler zutage fördern.
+| Bahn | Wer | Inhalt |
+|---|---|---|
+| **Firma** | Tim | Rechtsform, Notar, Handelsregister, Bank, Steuerberater |
+| **Recht** | Tim + Anwalt | AVV, Datenschutzerklärung, AGB; Verzeichnis und TOM prüfen lassen; Markenrecherche |
+| **Store** | Tim + Codex | Name und Package-ID final, Play-Konto, Icon, Texte, signiertes Release |
 
----
-
-### Bahn E — UI-Politur · *Codex* · **ab Woche 4**
-
-Erst polieren, was im Piloten wirklich weh getan hat. Nicht vorher raten.
-Dazu Landing Page und Datenschutzseiten.
+**Eigenes Tor: Die Website darf erst veröffentlicht werden**, wenn Impressum nach DDG § 5 und
+Datenschutzerklärung stehen. Beides hängt an der Firmengründung. Gebaut wird sie in Phase 1,
+veröffentlicht in Phase 2.
 
 ---
 
-## Wochenraster
+## Phase 3 — Pilot und Verkauf (ab Woche 16)
 
-| Woche | Tim | Codex | Claude |
-|---|---|---|---|
-| **1** | Smoke-Test · Accounts anlegen · Anwaltspaket freigeben | Prozess-Reset · Bahn B1–B2 | Anwaltsentwürfe · Briefings |
-| **2** | Package-ID entscheiden · Play-Konto | Bahn B3–B5 (Deploy, Backup, Restore) | Review · Bahn C vorbereiten |
-| **3** | Store-Texte · Gerät einrichten | Bahn C (Branding, Release-Build) | Review · Pilot vorbereiten |
-| **4** | **Pilotwoche — echte Nutzung** | Bugfixes aus dem Piloten | Triage · Priorisierung |
-| **5–6** | Pilot-Feedback | Bahn E (UI dort, wo es weh tat) | Anwalts-Feedback einarbeiten |
-| **7–10** | Preis, Angebot, erster Kunde | Restarbeiten | Verkaufsbereitschaft prüfen |
+Echter Pilotbetrieb mit AVV · Politur an den Stellen, die im Pilot weh taten ·
+Support- und Störungsprozess · Preis, Einseiter, Demo-Pfad · Go/No-Go.
 
-**≈ 6 Wochen bis pilotfähig · ≈ 10–12 Wochen bis verkaufsfähig.**
+**Erster Kunde realistisch in rund vier Monaten** — am unteren Ende der ursprünglichen
+Roadmap-Schätzung von vier bis sieben Monaten, bei größerem Funktionsumfang.
+
+---
+
+## Aufgabenkette
+
+Immer genau eine. Die Reihenfolge ist echt.
+
+| | Aufgabe | Braucht |
+|---|---|---|
+| T-001 | Prozess-Reset | ✅ erledigt |
+| T-002 | Container und Healthcheck | nichts — läuft lokal |
+| T-003 | Supabase EU, Migrationen | Supabase-Konto |
+| T-004 | Hetzner Deutschland, Deploy mit TLS | Hetzner-Konto, eine Domain |
+| T-005 | Admin-Web ausliefern | — |
+| T-006 | Backup und getesteter Restore | Supabase Pro |
+| T-007 | Pausenerfassung | — |
+| T-008 | Standorte und Standortleiter (ADR-0020) | R3, unabhängiges Review |
+| T-009 | Oberflächen fertigstellen | Nutzer-Feedback |
+| T-010 | Installierbare App per Direktlink | — |
+
+---
+
+## Zuordnung zur ursprünglichen Roadmap
+
+Die `Core_Roadmap_v2_Commercial_Readiness.md` liegt im Archiv. Sie ist abgelöst, nicht verworfen —
+ihr Inhalt lebt hier weiter:
+
+| Dieser Plan | Ursprüngliche Roadmap |
+|---|---|
+| Phase 1, Betrieb (T-002…T-006) | **DA6-P01…P12** — ADR-0018, Production-like Platform |
+| Phase 1, Standorte (T-008) | **DA6-L01…L11** — ADR-0020, Optional Locations |
+| Phase 1, T-010 + Store in Phase 2 | **DT-075…DT-077** und **DA7** — Build, Signing, Distribution |
+| Smoke-Test-Checkliste | **DT-078** — App Runtime Smoke Test |
+| Phase 1, Oberflächen (T-009) | **Block I**, DT-090…DT-103 — pilotgetrieben statt vorab geplant |
+| Phase 1, Landing Page + Phase 2 Veröffentlichung | **DA8** — öffentliche Website, Impressum, Trust-Seiten |
+| Phase 2, Recht | **DT-079…DT-085** — Block H |
+| Phase 3, Verkauf | **DT-086…DT-089** — Block H |
+
+**Blocks A bis F** sind durch DA1 bis DA5 abgearbeitet.
+Von den 17 Punkten unter „Must-Have Before First Sale" sind **zwölf gebaut**; die fünf offenen
+stehen alle oben in der Aufgabenkette.
+
+---
+
+## Was der Betrieb kostet
+
+Phase 1: **~8 € netto im Monat** — Hetzner CX23 5,49 € + IPv4 0,50 € + Backup 1,10 € +
+Supabase Free + EAS Free + eine Domain.
+
+Phase 2: **~32 € netto im Monat** — Supabase Pro kommt dazu (25 $, nötig für tägliche Backups),
+plus einmalig 25 € Play Console.
+
+Die Infrastruktur ist nicht das Kostenrisiko. Ein Monat Anwalt kostet mehr als ein Jahr Server.
 
 ---
 
 ## Nach dem ersten Kunden — bewusst nicht jetzt
 
-Controlling und Stundensätze, Self-Service-Onboarding, Abrechnung, iOS, Dashboards,
+Controlling und Stundensätze, Budgets, Self-Service-Onboarding, Abrechnung, iOS, Dashboards,
 Design-System, erweiterte Rollenmatrix.
 
-Die Architektur trägt das bereits (siehe `ARCHITECTURE.md`, Invarianten I1–I3). Ein Feld,
-das heute niemand benutzt, ist Datenschutz-Ballast und Migrationsschuld.
+Die Architektur trägt das bereits (siehe `ARCHITECTURE.md`, Invarianten I1–I3). Ein Feld, das
+heute niemand benutzt, ist Datenschutz-Ballast und Migrationsschuld.

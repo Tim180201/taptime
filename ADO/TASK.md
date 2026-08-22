@@ -4,91 +4,105 @@
 
 ---
 
-## T-001 · Prozess-Reset
+## T-002 · Betriebsfähig machen — Container und Healthcheck
 
-**Für:** Codex · **Risiko:** Dokumentation · **Zeitbox:** eine Arbeitssitzung
-**Freigegeben von:** Tim (Product Owner), 22.08.2026
+**Für:** Codex · **Risiko:** normaler Code + eine neue öffentliche Route
+**Zeitbox:** zwei Arbeitssitzungen
+**Vorbedingung:** T-001 ist committet
 
 ### Ziel
 
-Das Projektgedächtnis auf die fünf Kerndateien reduzieren. Kein Code wird angefasst.
+`backend-api` läuft reproduzierbar in einem Container und sagt von außen, ob es lebt.
+**Alles läuft lokal — es wird kein einziges Konto und kein Cloud-Dienst gebraucht.**
+
+Das ist die Vorbereitung für T-003 (Supabase) und T-004 (Hetzner). Wenn diese Aufgabe fertig
+ist, ist das Deployment nur noch Kontenarbeit.
 
 ### Schritte
 
-**1. Arbeitsanweisung ersetzen**
+**1. Healthcheck-Endpunkt**
 
-- Inhalt von `AGENTS.v2.md` nach `AGENTS.md` übernehmen (alte Fassung vollständig ersetzen)
-- `AGENTS.v2.md` löschen
+In `apps/backend-api/src/BackendHttpServer.ts` eine Route `GET /health` ergänzen:
 
-**2. Altdokumentation archivieren**
+- **Ohne Authentifizierung** — Überwachung muss ohne Zugangsdaten funktionieren
+- Antwort bei Erfolg: `200` mit exakt `{"status":"ok"}`
+- Antwort bei nicht erreichbarer Datenbank: `503` mit exakt `{"status":"degraded"}`
+- **Keine weiteren Felder.** Keine Version, kein Hostname, keine Fehlermeldung, kein Stacktrace,
+  keine Datenbank-Details. Ein unauthentifizierter Endpunkt gibt nichts preis.
+- Header `Cache-Control: no-store`
+- Die Datenbankprüfung ist ein einfaches `SELECT 1` mit kurzem Timeout (2 s), niemals eine
+  fachliche Abfrage, und **nie** mit Mandantenkontext.
 
-Alles unter `ADO/` nach `ADO/99_Archive/` verschieben — **außer** dieser Liste:
+**2. Dockerfile für `backend-api`**
 
-```
-ADO/STATUS.md
-ADO/PLAN.md
-ADO/ARCHITECTURE.md
-ADO/TASK.md
-ADO/DECISIONS.md
-ADO/00_Core/Glossary.md
-ADO/01_Architecture/ADR/                    (vollständig)
-ADO/01_Architecture/Product_Vision.md
-ADO/01_Architecture/Product_Principles.md
-ADO/01_Architecture/Domain_Model.md
-ADO/01_Architecture/Role_Model.md
-ADO/01_Architecture/NFC_Capability_Model.md
-ADO/01_Architecture/System_Overview.md
-ADO/01_Architecture/Tech_Stack.md
-ADO/01_Architecture/Coding_Standards.md
-ADO/01_Architecture/Technical_Architecture_Profile.md
-ADO/04_Operations/Smoke_Test_Checkliste.md
-```
+Ablage: `infrastructure/backend-api/Dockerfile` (der Ordner `infrastructure/` ist bisher leer).
 
-- **`git mv` verwenden**, damit die Historie erhalten bleibt.
-- Die Ordnerstruktur unterhalb von `99_Archive/` spiegelt den bisherigen Pfad.
-- Archivieren heißt **nicht** löschen. Alles bleibt in Git und ist jederzeit abrufbar.
+- Mehrstufiger Build: Build-Stufe installiert und baut, Laufzeit-Stufe enthält nur das Ergebnis
+- Node 24, exakt die Version aus `package.json` (`engines`)
+- **Läuft als nicht-privilegierter Benutzer**, nicht als root
+- `HEALTHCHECK` auf `/health`
+- Passendes `.dockerignore` — `node_modules`, `dist`, `.git`, `ADO`, `.env*` bleiben draußen
 
-**3. Wurzel-`README.md` aktualisieren**
+**3. `docker-compose.yml` für lokal**
 
-Der Abschnitt „Current Phase" wird ersetzt durch einen kurzen Verweis auf `ADO/STATUS.md`,
-`ADO/PLAN.md` und `ADO/ARCHITECTURE.md`. Der Rest der Datei bleibt unverändert.
+Ablage: `infrastructure/docker-compose.local.yml`
 
-**4. `.DS_Store`-Dateien aus dem Arbeitsbaum entfernen.** In `.gitignore` stehen sie bereits.
+- `backend-api` plus eine lokale PostgreSQL zum Ausprobieren
+- Migrationen aus `apps/backend-schema/migrations/` werden beim Start eingespielt
+- Nur für lokale Entwicklung. Das ist **nicht** die Produktionsumgebung.
 
-**5. Zwei ungetrackte Fundstücke behandeln**
+**4. Umgebungsvariablen dokumentieren**
 
-- `research/Time_Tracking_Market_Analysis_2026-07-14.md` — Marktanalyse, nie eingecheckt.
-  Wird **mit committet**, sie wird für Preisfindung und Anwaltspaket gebraucht.
-- `app.json` **im Wurzelverzeichnis** — enthält nur `android.package = com.tim180201.taptime`
-  und widerspricht `apps/mobile/app.json` (`com.tim180201.mobile`).
-  **Nicht löschen, nicht ändern.** Nur melden: seit wann existiert die Datei, wird sie von
-  irgendetwas gelesen? Die Package-ID entscheidet der Product Owner (siehe `ADO/STATUS.md`).
+`infrastructure/env.example` mit allen benötigten Variablen und Erklärung, **ohne echte Werte**.
+
+- Prüfen, welche Variablen `backend-api` tatsächlich liest, und genau die aufführen
+- Fehlt eine Pflichtvariable, muss der Dienst **beim Start** mit klarer Meldung abbrechen —
+  nicht erst bei der ersten Anfrage
+- Niemals ein Secret ins Repository. `.env` steht bereits in `.gitignore`
+
+**5. `admin-web` Build prüfen**
+
+`npm run build --workspace=@taptime/admin-web` muss durchlaufen und statische Dateien erzeugen.
+Falls nicht: reparieren. Ausliefern kommt erst in T-005.
+
+### Vision-Check
+
+Diese Aufgabe berührt keine Nutzerinteraktion. Die Kette
+`Trigger → WorkEvent → BusinessEngine → TimeEntry` wird nicht angefasst.
+**Keine fachliche Logik ändern.** Fällt dabei etwas Fachliches auf, wird es gemeldet, nicht
+nebenbei repariert.
 
 ### Nicht anfassen
 
-- Alles unter `apps/`, `packages/`, `tests/`, `infrastructure/`, `scripts/`, `.github/`
-- `package.json`, `package-lock.json`, `tsconfig*.json`
-- **`apps/synthetic-android-e2e` bleibt unverändert liegen** (siehe D-001) — kein Rückbau,
-  keine Löschung.
+- `packages/core`, jede Geschäftslogik, jede Migration
+- `apps/mobile`, `apps/synthetic-android-e2e`
+- Bestehende API-Routen und deren Verhalten
 
 ### Prüfung
 
-- `git status` zeigt ausschließlich Verschiebungen, die neuen Kerndateien, `README.md`
-  und die Marktanalyse
-- Kein Diff in `apps/`, `packages/` oder Konfigurationsdateien
-- Die fünf Kerndateien sind an ihrem Platz und lesbar
-- Kein Test-, Build- oder Typecheck-Lauf nötig — es ändert sich keine ausführbare Zeile
+- `npm run typecheck` und `npm test` grün (mindestens `backend-api`, `core`, `admin-web`)
+- **CI grün — `[skip ci]` ist hier verboten**, es ändert sich ausführbarer Code
+- Container baut und startet
+- `curl http://localhost:<port>/health` liefert `200` und exakt `{"status":"ok"}`
+- Bei gestoppter Datenbank liefert dieselbe Anfrage `503` und exakt `{"status":"degraded"}`
+- Dienst startet **nicht** ohne Pflichtvariablen und sagt verständlich, welche fehlt
+
+### Zusätzliches Review
+
+`/health` ist eine neue **unauthentifizierte, öffentlich erreichbare** Route. Nach der
+Implementierung läuft ein unabhängiges Review durch einen zweiten Agenten mit genau einer Frage:
+
+> Gibt dieser Endpunkt irgendeine Information preis, die ein Unbefugter nicht haben darf —
+> direkt, über Fehlermeldungen, über Antwortzeiten oder über Header?
 
 ### Abschluss
 
-Vier Punkte an den Technical Lead melden: geänderte Dateien · ausgeführte Prüfung ·
-verbleibende Risiken · nächster Schritt.
-
-**Nicht committen**, bevor der Technical Lead den Diff geprüft und `APPROVED` gemeldet hat.
+Vier Punkte melden: geänderte Dateien · ausgeführte Verifikation · verbleibende Risiken ·
+nächster Schritt. **Nicht committen** vor `APPROVED` durch den Technical Lead.
 
 ---
 
 ## Danach
 
-`T-002` (Bahn B, Deployment) wird vom Technical Lead hier eingetragen, sobald Tim die
-Hosting-Region entschieden hat. Siehe `ADO/PLAN.md`.
+`T-003` — Supabase-Projekt in der EU-Region, Migrationen einspielen.
+Braucht ein Supabase-Konto vom Product Owner.

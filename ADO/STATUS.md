@@ -2,45 +2,42 @@
 
 > **Diese Datei wird überschrieben, nie angehängt.** Sie beschreibt nur den Jetzt-Zustand.
 
-**Stand:** 22.08.2026 · **Ziel:** Pilotfähig in ~6 Wochen, verkaufsfähig in ~10–12 Wochen
+**Stand:** 22.08.2026 · **Ziel:** System fertig in ~11 Wochen, erster Kunde in ~4 Monaten
 
 ---
 
 ## Wo wir stehen
 
-Das Produkt ist weitgehend gebaut. Was fehlt, ist Betrieb, Distribution und Recht.
+Das Produkt ist weitgehend gebaut. Was fehlt: Betrieb, Standorte, Pausen, fertige Oberflächen —
+danach Firma, Recht und Store.
 
 **Fertig und im Repository:**
 
 - Domäne und Business Engine (`Trigger → WorkEvent → Engine → TimeEntry`)
-- Backend: 15 Module, gebündelt in einem deploybaren Dienst, 34 API-Endpunkte
+- Backend: 15 Module in einem deploybaren Dienst, 34 API-Endpunkte
 - Datenbank: 13 Migrationen, Mandantentrennung über RLS
-- Mobile-App: NFC-Scan, Offline-Queue, Anmeldung, Einladung/Enrollment, eigene Zeiten,
-  manuelle Erfassung
+- Mobile-App: NFC-Scan, Offline-Queue, Anmeldung, Einladung, eigene Zeiten, manuelle Erfassung
 - Admin-Web: Übersicht, Einrichtung, Beschäftigte, Arbeitszeiten, Prüfungen
 - Korrekturen mit lückenloser Historie, CSV-Export (V2), Offline-Abgleich
 - CI auf GitHub Actions
+- **Prozess-Reset (T-001)** — Commit `84ac01b`, auf `main`, CI grün
 
 **Nicht vorhanden:**
 
 - Deployment, Backup, getesteter Restore, Monitoring (`infrastructure/` ist leer)
-- Signierte App, Play-Console-Eintrag
-- Datenschutz-/Rechtspaket
-- Pausenlogik
+- Standorte und Standortleiter (ADR-0020 ist beschrieben, nicht gebaut)
+- Pausenerfassung, Löschkonzept
+- Fertige Oberflächen, Landing Page
+- Signierte App, Store-Eintrag, Rechtspaket, Firma
 
 ---
 
-## Was als Nächstes passiert
+## Aktuelle Aufgabe
 
-| # | Was | Wer | Bahn |
-|---|---|---|---|
-| 1 | Prozess-Reset committen, Altdoku archivieren | Codex | — |
-| 2 | Smoke-Test am echten Gerät | Tim | — |
-| 3 | Anwaltspaket zusammenstellen und rausgeben | Tim + Claude | A |
-| 4 | Backend deployen, Backup + Restore testen | Codex | B |
-| 5 | Branding, signiertes Release, Play Internal Track | Tim + Codex | C |
+**T-002 — Container und Healthcheck.** Siehe `ADO/TASK.md`.
+Läuft vollständig lokal, braucht kein einziges Konto.
 
-Details in `ADO/PLAN.md`. Die aktuelle Aufgabe steht in `ADO/TASK.md`.
+Danach T-003 bis T-010, siehe `ADO/PLAN.md`.
 
 ---
 
@@ -48,27 +45,27 @@ Details in `ADO/PLAN.md`. Die aktuelle Aufgabe steht in `ADO/TASK.md`.
 
 | Was | Von wem | Warum es drängt |
 |---|---|---|
-| **Pausenerfassung ja/nein** | Tim (ggf. nach Anwaltsauskunft) | Berührt das Datenmodell. Nach dem ersten Kunden nur noch teuer änderbar. |
-| **Hosting-Region** | Tim | EU-/DE-Hosting ist im B2B ein Verkaufsargument. Blockiert Bahn B. |
-| **App-Package-ID** | Tim | Aktuell `com.tim180201.mobile`. **Nach dem ersten Play-Upload unwiderruflich.** Muss vor dem Release stehen. |
-| **Erster Pilotbetrieb** | Tim | Verändert die Priorisierung deutlich. |
+| **Produktname** | Tim | „TapTime" ist vergeben. Wird für Store, Firma und Domain gebraucht — Deadline Woche 12. Blockiert Phase 1 nicht. |
+| **Supabase-Konto** | Tim | Blockiert T-003. |
+| **Hetzner-Konto + eine Domain** | Tim | Blockiert T-004. Die Domain ist nur für TLS und **muss nicht der Produktname sein**. |
 
 ---
 
 ## Bekannte Kleinigkeiten (blockieren nichts)
 
 - App heißt intern noch `mobile` (Name, Slug, Package-ID) statt TapTim.e.
-- Nur zwei Rollen (`administrator`, `employee`). `team_lead` ist eine typische
-  B2B-Rückfrage, aber additiv nachrüstbar.
+- Ungetracktes `app.json` im Wurzelverzeichnis (seit 20.07.2026), von keinem Build oder Runtime
+  gelesen. Package-ID entscheidet der Product Owner.
+- Nur zwei Rollen (`administrator`, `employee`). `team_lead` ist eine typische B2B-Rückfrage,
+  additiv nachrüstbar. Der Standortleiter aus T-008 deckt den häufigsten Fall ab.
 - `apps/backend-b1-spike` ist ein altes Experiment und kann entfernt werden.
-- Ungetracktes app.json im Wurzelverzeichnis (seit 20.07.2026), von keinem Build oder Runtime gelesen. Package-ID entscheidet der Product Owner.
 
 ---
 
 ## Eingefroren
 
 - **`apps/synthetic-android-e2e`** — der automatisierte Hardware-Testlauf ist eingestellt.
-  Ersetzt durch `ADO/04_Operations/Smoke_Test_Checkliste.md`. Code bleibt liegen, wird
-  nicht weiterentwickelt. Begründung: siehe `ADO/DECISIONS.md`, D-001.
+  Ersetzt durch `ADO/04_Operations/Smoke_Test_Checkliste.md`. Code bleibt liegen, wird nicht
+  weiterentwickelt. Begründung: `ADO/DECISIONS.md`, D-001.
 - **Development Assignment 5 / V5-Verfahren** — beendet. Die offene Frage war nie ein
-  Produktfehler; im Ereignisprotokoll steht durchgehend `Product finding: NONE`.
+  Produktfehler; im Ereignisprotokoll stand durchgehend `Product finding: NONE`.

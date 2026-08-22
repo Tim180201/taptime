@@ -72,3 +72,63 @@ versionierter Export.
 **Warum:** Erweiterbarkeit entsteht nicht durch vorgezogene Felder, sondern durch ein
 Datenmodell, das später additiv wächst. Ein ungenutztes Feld ist Datenschutz-Ballast.
 Die drei Invarianten sind bereits vorhanden und müssen nur gehalten werden.
+
+---
+
+## D-006 · Hosting bei Hetzner in Deutschland · 22.08.2026 · Claude (TL)
+
+**Entscheidung:** Der Backend-Container läuft bei Hetzner Cloud, Standort Deutschland
+(Nürnberg oder Falkenstein). Supabase bleibt wie in ADR-0008 entschieden, in der EU-Region.
+
+**Warum:** Deutsche Firma, deutsches Recht, Server in Deutschland — im B2B-Verkaufsgespräch das
+stärkste Argument auf die Frage „wo liegen unsere Daten?". Rund 8 € netto im Monat.
+Der Mehraufwand gegenüber einer PaaS entfällt praktisch, weil Backup, Restore und Healthcheck
+für den B2B-Verkauf ohnehin selbst beherrscht werden müssen.
+
+**Offen für den Anwalt:** Supabase ist eine US-Firma, auch mit EU-Region.
+
+---
+
+## D-007 · Erst System fertig, dann offiziell · 22.08.2026 · Tim
+
+**Entscheidung:** Das Produkt wird vollständig fertiggestellt und selbst getestet, bevor
+Firmengründung, Anwalt und Store angegangen werden.
+
+**Warum:** Der Anwalt beschreibt dann ein fertiges Produkt statt eines geplanten — billiger,
+schneller, präziser. Verzeichnis und TOM müssen nicht zweimal geschrieben werden.
+
+**Grenze:** Recht wird zwingend, sobald echte Beschäftigte eines fremden Betriebs ihre echten
+Zeiten stempeln. Eigener Test, Freunde und erfundene Daten sind rechtlich frei.
+
+**Preis:** Ein bis drei Wochen mehr, weil die Anwaltszeit seriell statt parallel läuft.
+
+---
+
+## D-008 · Standorte und Standortleiter kommen in Phase 1 · 22.08.2026 · Tim
+
+**Entscheidung:** ADR-0020 (DA6-L01…L11) wird in Phase 1 umgesetzt. Der Standortleiter erhält
+**volle Administration begrenzt auf seinen Standort**.
+
+**Warum:** Bei einem Betrieb mit mehreren Filialen ist ein einzelner Administrator ein
+Flaschenhals und ein Ausfallrisiko. Der Zweck ist Delegation der Mitarbeiterverwaltung.
+
+**Architektur:** Der Standort ist eine **Berechtigungsdimension**, keine Buchungsdimension.
+`work_targets` bleibt unangetastet — Invariante I1 hält. Die Trennung muss auch per RLS in der
+Datenbank durchgesetzt werden, nicht nur im Anwendungscode. Risikoklasse R3 mit verpflichtendem
+unabhängigem Review.
+
+**Ersetzt** die frühere Einschätzung des Technical Lead, Standorte nach dem ersten Kunden zu
+bauen. Sie beruhte auf der falschen Annahme, kein Zielkunde brauche sie.
+
+---
+
+## D-009 · TapTim.e bleibt generisch · 22.08.2026 · Tim
+
+**Entscheidung:** Es wird nicht für einen konkreten Kunden oder eine Branche gebaut. Jede
+Anforderung wird auf einen allgemeinen Begriff abgebildet, den das Modell bereits kennt.
+
+**Beispiel:** Ein Nachhilfeschüler ist ein **Projekt**. Eine Filiale ist ein **Standort**.
+Beides existiert bereits generisch.
+
+**Warum:** Diese Regel steht schon in ADR-0020 selbst. Sie wird hier festgeschrieben, damit sich
+keine branchenspezifische Annahme unbemerkt in den Code schleicht.
