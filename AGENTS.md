@@ -1,40 +1,133 @@
-# TapTim.e Arbeitsanweisung für Codex
+# TapTim.e — Arbeitsanweisung
 
-Diese Regeln gelten verbindlich für alle Codex-Tasks in diesem Repository. Vor Arbeitsbeginn sind mindestens `ADO/README.md`, der aktuelle Projektstatus und die für den Task maßgeblichen ADO-Artefakte zu lesen.
+> **One Tap. One Decision.**
+> Jede Nutzerinteraktion erzeugt genau ein fachliches Ereignis. Die Business Engine
+> interpretiert es — nicht der Nutzer.
 
-## Rollen und Freigaben
+Diese Datei gilt verbindlich für alle Agenten in diesem Repository. Sie ersetzt die
+vorherige Fassung vollständig.
 
-- Der Human Architect entscheidet über Produktziel, Prioritäten, Produktabnahme und Produktfreigaben.
-- Der Technical Lead verantwortet Architektur, Task-Scope, technische Risiken und technische Abnahme.
-- Implementation Agents implementieren ausschließlich den ausdrücklich freigegebenen Scope.
-- Produktentscheidungen, Businessregeln und Architektur dürfen ohne Freigabe der jeweils verantwortlichen Rolle weder geändert noch neu interpretiert werden. Fehlende oder widersprüchliche Vorgaben sind als offene Frage zu melden, nicht durch Annahmen zu ersetzen.
+**Vor Arbeitsbeginn zu lesen (zusammen ~10 Seiten, das ist das gesamte Gedächtnis):**
+`ADO/STATUS.md` · `ADO/PLAN.md` · `ADO/ARCHITECTURE.md` · `ADO/TASK.md` · `ADO/DECISIONS.md`
 
-## Arbeitsweise
+---
 
-- Repository-Wahrheit und tatsächlich ausgeführter Code haben Vorrang vor veralteter oder widersprüchlicher Dokumentation. Abweichungen sind transparent zu benennen.
-- Änderungen müssen klein, fokussiert und anhand des Diffs nachvollziehbar bleiben.
-- Unverwandte Dateien und bestehende Nutzeränderungen dürfen nicht verändert, überschrieben oder zurückgesetzt werden.
-- ADO-Dokumente sind nur zu aktualisieren, wenn die Änderung die tatsächliche Projektwahrheit materiell verändert.
-- Implementation Agents erstellen ohne ausdrücklichen Auftrag keine Commits, Pushes, Pull Requests oder Merges.
-- Änderungen, die der Technical Lead nach vollständiger Prüfung ausdrücklich mit `APPROVED` abnimmt, dürfen unter der dauerhaften Freigabe des Human Architect direkt committed und nach `main` gepusht werden. Vor dem Push müssen der Remote-Stand geprüft und alle relevanten Verifikationen erfolgreich abgeschlossen sein.
+## 1. Vision-Check — die erste Frage bei jeder Aufgabe
 
-## Verifikation und Abschluss
+Bevor irgendetwas gebaut wird, muss die Aufgabe diesen Test bestehen:
 
-- Vor Abschluss sind alle für den geänderten Scope relevanten Tests und Typechecks auszuführen. Ausgelassene oder nicht ausführbare Prüfungen sind mit Grund zu melden.
-- Ein grüner Standard-Typecheck darf nicht als tests-inklusiver Typecheck bezeichnet werden. Testquellen gelten nur dann als typegeprüft, wenn die ausgeführte Konfiguration sie nachweislich einschließt.
-- Wesentliche Risiken, Scope-Abweichungen, Dokumentationswidersprüche und offene Fragen sind transparent zu melden.
-- Der Abschlussbericht nennt geänderte Dateien, ausgeführte Verifikation, verbleibende Risiken beziehungsweise offene Fragen und den empfohlenen nächsten Schritt.
+1. **Reduziert es Entscheidungen für den Nutzer?** Wenn eine Änderung dem Nutzer eine
+   Entscheidung *hinzufügt*, ist sie im Zweifel falsch.
+2. **Bleibt die Kette intakt?** `Trigger → WorkEvent → BusinessEngine → TimeEntry`.
+   Ein Trigger erzeugt nie direkt einen fachlichen Datensatz.
+3. **Bleibt es nachvollziehbar?** Korrekturen überschreiben niemals die Original-Historie.
+4. **Bleibt die Domäne trigger-agnostisch?** NFC ist der erste Auslöser, nicht die Domäne.
 
-## Risikoadaptiver Development-Review-Kreislauf
+Besteht eine Aufgabe diesen Test nicht, wird sie **nicht implementiert**, sondern als
+Produktfrage an den Product Owner gemeldet.
 
-- Der Technical Lead bleibt Orchestrator und prüft vor jeder Delegation die exakte Autorität, Baseline, Risikoklasse und die nach dem Adaptive Verification Standard erforderlichen Nachweise.
-- Für Implementierungen der Risikoklassen R2 und R3 sowie immer dann, wenn ADO oder der Human Architect ein unabhängiges Review verlangen, ist der Kreislauf `Development -> Review -> gegebenenfalls Korrektur -> erneutes Review` verpflichtend. Für R0 und einfache R1-Arbeiten ist er optional, sofern keine strengere Vorgabe gilt.
-- Der Custom Agent `taptime_development` ist während seiner Aufgabe der einzige schreibende Agent. Der Technical Lead und andere Agenten verändern das Repository nicht gleichzeitig. Der Development Agent darf ohne ausdrücklichen Auftrag weder committen noch pushen oder mergen.
-- Erst nachdem Development vollständig beendet ist und der Technical Lead Arbeitsbaum sowie Delta geprüft hat, wird der Custom Agent `taptime_reviewer` gestartet.
-- `taptime_reviewer` arbeitet technisch read-only und unabhängig. Er prüft mindestens Anforderungen und Autorität, Korrektheit, Regressionen, Architektur, Sicherheit, Tenant-Isolation, Tests und Codequalität. Er darf keine Dateien ändern, nichts stagen, committen, pushen, installieren, deployen oder anderweitig externen Zustand verändern.
-- Ein interner Review-Subagent ersetzt kein separat vorgeschriebenes formales unabhängiges Review. Verlangt ADO eine exakte Bindung an Commit, Tree oder CI, muss diese Bindung zusätzlich nachgewiesen werden.
-- Zulässige Review-Ergebnisse sind ausschließlich `APPROVED` oder `CHANGES REQUIRED`. Findings werden als P0 bis P3 mit konkreter Evidenz berichtet. `APPROVED` ist nur ohne offene P0-P3-Findings und mit ausreichender Verifikation zulässig.
-- Bestätigte Code- oder Test-Findings innerhalb des bereits autorisierten Scopes gehen zurück an Development. Findings, die eine neue Produkt-, Business-, Architektur-, Scope- oder Autorisierungsentscheidung erfordern, stoppen den Kreislauf und gehen an den Human Architect.
-- Nach jeder Korrektur werden die relevanten Prüfungen erneut ausgeführt und ein neues unabhängiges Review gestartet. Nach höchstens drei Review-Runden wird bei verbleibenden Findings mit `CHANGES REQUIRED` beziehungsweise `BLOCKED` berichtet; Qualität oder Prüftiefe werden nicht reduziert.
-- Sobald das vorgeschriebene unabhängige Review einen konkreten technischen Architektur- und Autorisierungskandidaten vollständig mit `APPROVED` und ohne offene P0–P3-Findings freigegeben hat, darf der Technical Lead den darin exakt bestimmten technischen Scope auf der exakt bestimmten Baseline ohne separaten Bestätigungsprompt implementieren, risikoadaptiv verifizieren, unabhängig reviewen, bestätigte In-Scope-Findings korrigieren und erneut reviewen lassen. Diese Regel endet unmittelbar vor jedem Human-, Hardware- oder Physical-V5-Gate. Sie erlaubt weder das Erfinden fehlender Produkt-, Business- oder Architekturentscheidungen noch die Auflösung von Scope-Mehrdeutigkeit; solche Punkte gehen an den Human Architect. Produktion, Produktionsdaten, Deployment und Distribution benötigen immer eine separate ausdrückliche Autorisierung.
-- `MERGE_READY` beziehungsweise technischer Abschluss darf erst nach Technical-Lead-Abnahme, allen erforderlichen Verifikationen, Remote-Prüfung sowie gegebenenfalls Exact-Head-CI und formaler Review-Freigabe gemeldet werden. Produktion, Produktionsdaten, Deployment und Distribution benötigen weiterhin jeweils eine separate ausdrückliche Autorisierung.
+Maßstab bleibt `ADO/01_Architecture/Product_Vision.md` und `Product_Principles.md`.
+
+---
+
+## 2. Rollen
+
+| Rolle | Wer | Entscheidet über |
+|---|---|---|
+| **Product Owner** | Tim | Produkt, Preis, Recht, Geld, Kunden. **Verhaltensabnahme**: benutzt das Produkt und sagt, ob es das Richtige tut. Go/No-Go bei Deploy, Store-Release, erstem Kunden. |
+| **Technical Lead** | Claude | Architektur, Aufgabenzuschnitt, Risiko, **technische Abnahme**. Reviewt jeden Diff vor dem Merge. Schreibt die Briefings. |
+| **Development** | Codex | Implementiert genau den Scope aus `ADO/TASK.md`. Führt Tests und Builds aus. Committet nach Freigabe. |
+
+**Der Product Owner autorisiert niemals Commit-Hashes, Trees oder Baselines.**
+Er beurteilt Produktverhalten und Geschäft. Technische Abnahme liegt beim Technical Lead.
+
+Fehlende oder widersprüchliche Vorgaben werden als offene Frage gemeldet, nicht durch
+Annahmen ersetzt.
+
+---
+
+## 3. Arbeitsweise
+
+- **Codex ist der einzige Schreiber.** Nie zwei Agenten gleichzeitig im Repository.
+- **Genau eine Aufgabe gleichzeitig.** Sie steht in `ADO/TASK.md`. Nichts außerhalb dieses
+  Scopes wird angefasst.
+- Der ausgeführte Code hat Vorrang vor der Dokumentation. Abweichungen werden benannt.
+- Änderungen bleiben klein und am Diff nachvollziehbar.
+- Unverwandte Dateien und bestehende Nutzeränderungen werden nicht verändert.
+- **Jede Aufgabe hat eine Zeitbox.** Reißt sie, wird der Scope geschnitten — nicht die Zeit
+  verlängert. Das wird gemeldet, nicht still gelöst.
+
+---
+
+## 4. Verifikation — verhältnismäßig
+
+| Änderung | Erforderlich |
+|---|---|
+| Dokumentation | Lesbarkeit, keine falsche Aussage. Kein Testlauf. |
+| Normaler Code | Typecheck + Tests des betroffenen Workspace grün. CI grün. |
+| Auth, Mandantentrennung, personenbezogene Daten, Geld | Zusätzlich ein unabhängiges Review durch einen zweiten Agenten. |
+| Release | Zusätzlich Smoke-Test am echten Gerät durch den Product Owner (`ADO/04_Operations/Smoke_Test_Checkliste.md`). |
+
+- Ein Typecheck heißt nur dann „tests-inklusive", wenn die ausgeführte Konfiguration die
+  Testdateien nachweislich einschließt.
+- **`[skip ci]` ist bei Code-Änderungen verboten.** Nur bei reinen Dokumentänderungen erlaubt.
+- Nicht ausgeführte Prüfungen werden mit Grund gemeldet.
+
+---
+
+## 5. Review — die Abbruchregel
+
+Zulässige Ergebnisse: `APPROVED` oder `CHANGES REQUIRED`.
+
+- **Blockieren darf nur P0 und P1.** P0 = kaputt, Datenverlust, Sicherheitsloch.
+  P1 = falsches Verhalten im Normalfall.
+- **P2 und P3 werden notiert, nicht wiederholt.** Sie landen als Zeile in `ADO/STATUS.md`
+  unter „Bekannte Kleinigkeiten" und blockieren nichts.
+- **Maximal zwei Review-Runden pro Aufgabe.** Danach entscheidet der Technical Lead:
+  liefern oder Scope schneiden. Es gibt keine dritte Runde.
+
+Diese Regel existiert, weil ein Reviewer immer noch ein P2 findet. Ohne sie terminiert
+kein Arbeitspaket.
+
+Findings, die eine neue Produkt-, Geschäfts- oder Architekturentscheidung erfordern,
+stoppen den Kreislauf und gehen an den Product Owner.
+
+---
+
+## 6. Dokumentation — harte Obergrenzen
+
+| Datei | Max | Regel |
+|---|---|---|
+| `ADO/STATUS.md` | 1 Seite | **Überschreiben, nie anhängen.** |
+| `ADO/PLAN.md` | 2 Seiten | Überschreiben. |
+| `ADO/ARCHITECTURE.md` | 3 Seiten | Überschreiben. |
+| `ADO/TASK.md` | 1 Seite | Pro Aufgabe überschreiben. |
+| `ADO/DECISIONS.md` | 10 Zeilen je Eintrag | Append-only. |
+| `ADO/01_Architecture/ADR/` | 2 Seiten je ADR | Eine Entscheidung, ein ADR. |
+
+**Verboten:** Korrektur-Abschnitte anhängen („Correction 2 supersedes Correction 1").
+Das Dokument wird editiert. Git ist die Historie.
+
+**Verboten:** SHA-256-Manifeste, versiegelte Evidence-Verzeichnisse, Attempt-Zähler,
+Baseline-Hashes in Fließtext. Git ist bereits ein unveränderlicher Hash-Baum.
+
+Alles unter `ADO/99_Archive/` ist Historie und wird nicht gelesen.
+
+---
+
+## 7. Commits und Freigaben
+
+- Kein Commit, Push, PR oder Merge ohne ausdrücklichen Auftrag.
+- Nach `APPROVED` durch den Technical Lead darf direkt committet und nach `main` gepusht
+  werden. Vorher Remote-Stand prüfen, CI muss grün sein.
+- **Produktion, Produktionsdaten, Deployment, Store-Veröffentlichung und alles, was Geld
+  kostet, brauchen immer eine separate ausdrückliche Freigabe des Product Owners.**
+
+## 8. Abschlussbericht
+
+Vier Punkte, mehr nicht:
+
+1. Geänderte Dateien
+2. Ausgeführte Verifikation (und was ausgelassen wurde, mit Grund)
+3. Verbleibende Risiken oder offene Fragen
+4. Empfohlener nächster Schritt
