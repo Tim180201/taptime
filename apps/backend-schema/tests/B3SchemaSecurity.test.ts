@@ -54,6 +54,127 @@ const employeeA2Context = { organizationId: ids.organizationA, userId: ids.emplo
 const employeeBContext = { organizationId: ids.organizationB, userId: ids.employeeB };
 const adminAContext = { organizationId: ids.organizationA, userId: ids.adminA };
 const adminBContext = { organizationId: ids.organizationB, userId: ids.adminB };
+const adminAMembershipId = '12000000-0000-4000-8000-000000000001';
+
+type B3CapabilityRole =
+  | 'taptime_admin_setup'
+  | 'taptime_admin_setup_data_function_owner'
+  | 'taptime_assignment_reassigner'
+  | 'taptime_employee_enrollment_redeemer'
+  | 'taptime_employee_invitation_creator'
+  | 'taptime_employee_redemption_data_function_owner';
+
+interface B3CapabilityContext {
+  readonly organizationId: string;
+  readonly userId: string;
+  readonly membershipId: string;
+  readonly membershipRole: 'administrator';
+  readonly correlationId: string;
+}
+
+function adminACapabilityContext(correlationId: string): B3CapabilityContext {
+  return {
+    organizationId: ids.organizationA,
+    userId: ids.adminA,
+    membershipId: adminAMembershipId,
+    membershipRole: 'administrator',
+    correlationId,
+  };
+}
+
+async function setCapabilityContext(
+  client: PoolClient,
+  role: B3CapabilityRole,
+  context: B3CapabilityContext,
+): Promise<void> {
+  await client.query(
+    `SELECT
+       set_config('app.organization_id', $1, true),
+       set_config('app.user_id', $2, true),
+       set_config('app.membership_id', $3, true),
+       set_config('app.membership_role', $4, true),
+       set_config('app.correlation_id', $5, true)`,
+    [
+      context.organizationId,
+      context.userId,
+      context.membershipId,
+      context.membershipRole,
+      context.correlationId,
+    ],
+  );
+  await client.query(`SET LOCAL ROLE ${role}`);
+}
+
+async function withCapabilityTransaction<Value>(
+  role: B3CapabilityRole,
+  context: B3CapabilityContext,
+  operation: (client: PoolClient) => Promise<Value>,
+): Promise<Value> {
+  const client = await installerPool.connect();
+  try {
+    await client.query('BEGIN');
+    await setCapabilityContext(client, role, context);
+    const result = await operation(client);
+    await client.query('COMMIT');
+    return result;
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+async function withCapabilityProbeTransaction<Value>(
+  role: B3CapabilityRole,
+  context: B3CapabilityContext,
+  operation: (client: PoolClient) => Promise<Value>,
+  temporaryGrants: readonly string[] = [],
+): Promise<Value> {
+  const client = await installerPool.connect();
+  try {
+    await client.query('BEGIN');
+    for (const statement of temporaryGrants) {
+      await client.query(statement);
+    }
+    await setCapabilityContext(client, role, context);
+    const result = await operation(client);
+    await client.query('ROLLBACK');
+    return result;
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+async function postgresErrorDetails(operation: Promise<unknown>): Promise<{
+  readonly code: string | undefined;
+  readonly message: string;
+} | undefined> {
+  try {
+    await operation;
+    return undefined;
+  } catch (error) {
+    return {
+      code: error instanceof Error && 'code' in error ? String(error.code) : undefined,
+      message: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
+async function rejectedAtSavepoint(
+  client: PoolClient,
+  statement: string,
+  values: readonly unknown[] = [],
+): Promise<{ readonly code: string | undefined; readonly message: string } | undefined> {
+  await client.query('SAVEPOINT b3_expected_rejection');
+  const error = await postgresErrorDetails(client.query(statement, [...values]));
+  await client.query('ROLLBACK TO SAVEPOINT b3_expected_rejection');
+  await client.query('RELEASE SAVEPOINT b3_expected_rejection');
+  return error;
+}
 
 const otherTarget = {
   customerId: '20000000-0000-4000-8000-000000000098',
@@ -311,13 +432,13 @@ afterAll(async () => {
 });
 
 describe('B3 deterministic migration system', () => {
-  it('applies exactly twelve sorted versioned migrations through append-only time review', async () => {
+  it('applies exactly fourteen sorted versioned migrations', async () => {
     const rows = await installerPool.query<{ version: string; checksum: string }>(
       `SELECT version, checksum FROM ${B3_MIGRATION_TABLE} ORDER BY version`,
     );
 
     expect(rows.rows.map((row) => row.version)).toEqual([
-      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013',
+      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014',
     ]);
     expect(rows.rows.every((row) => /^[0-9a-f]{64}$/.test(row.checksum))).toBe(true);
   });
@@ -326,7 +447,7 @@ describe('B3 deterministic migration system', () => {
     await expect(migrate(installerPool)).resolves.toEqual({
       applied: [],
       alreadyApplied: [
-        '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013',
+        '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014',
       ],
     });
   });
@@ -425,6 +546,71 @@ describe('B3 deterministic migration system', () => {
       await expect(applyMigrationSet(upgradePool, migrations.slice(11, 12))).resolves.toEqual({
         applied: [], alreadyApplied: ['012'],
       });
+    } finally {
+      await closePoolAndDropTestDatabase({
+        targetPool: upgradePool,
+        installerPool,
+        databaseName: database,
+      });
+    }
+  }, 30_000);
+
+  it('upgrades an exact 001–013 database with migration 014 and removes Administrator DML', async () => {
+    const database = 'taptime_014_upgrade_check';
+    await installerPool.query(`DROP DATABASE IF EXISTS ${database} WITH (FORCE)`);
+    await installerPool.query(`CREATE DATABASE ${database}`);
+    const url = new URL(installerConnectionString);
+    url.pathname = `/${database}`;
+    const upgradePool = new Pool({ connectionString: url.toString(), max: 2 });
+    const administratorDmlCount = async () => upgradePool.query<{ count: string }>(`
+      SELECT count(*)
+      FROM (
+        VALUES
+          ('taptime_server.organizations'::regclass),
+          ('taptime_server.memberships'::regclass),
+          ('taptime_server.customers'::regclass),
+          ('taptime_server.nfc_tags'::regclass),
+          ('taptime_server.nfc_assignments'::regclass)
+      ) AS target(relation_oid)
+      CROSS JOIN (VALUES ('INSERT'), ('UPDATE'), ('DELETE')) AS privilege(privilege_name)
+      WHERE CASE privilege.privilege_name
+        WHEN 'INSERT' THEN
+          has_table_privilege('taptime_administrator', target.relation_oid, 'INSERT')
+          OR has_any_column_privilege('taptime_administrator', target.relation_oid, 'INSERT')
+        WHEN 'UPDATE' THEN
+          has_table_privilege('taptime_administrator', target.relation_oid, 'UPDATE')
+          OR has_any_column_privilege('taptime_administrator', target.relation_oid, 'UPDATE')
+        WHEN 'DELETE' THEN
+          has_table_privilege('taptime_administrator', target.relation_oid, 'DELETE')
+        ELSE true
+      END
+    `);
+    try {
+      const migrations = await loadMigrations();
+      const migration014 = migrations[13]!;
+      await expect(applyMigrationSet(upgradePool, migrations.slice(0, 13))).resolves.toEqual({
+        applied: [
+          '001', '002', '003', '004', '005', '006', '007',
+          '008', '009', '010', '011', '012', '013',
+        ],
+        alreadyApplied: [],
+      });
+      expect(Number((await administratorDmlCount()).rows[0]?.count)).toBeGreaterThan(0);
+
+      await expect(applyMigrationSet(upgradePool, migrations.slice(13))).resolves.toEqual({
+        applied: ['014'], alreadyApplied: [],
+      });
+      expect((await administratorDmlCount()).rows[0]?.count).toBe('0');
+      await expect(upgradePool.query(migration014.sql)).resolves.toBeDefined();
+      expect((await administratorDmlCount()).rows[0]?.count).toBe('0');
+      await expect(applyMigrationSet(upgradePool, migrations.slice(13))).resolves.toEqual({
+        applied: [], alreadyApplied: ['014'],
+      });
+
+      await upgradePool.query(
+        'GRANT INSERT ON taptime_server.organizations TO taptime_administrator',
+      );
+      await expect(upgradePool.query(migration014.sql)).rejects.toMatchObject({ code: '42501' });
     } finally {
       await closePoolAndDropTestDatabase({
         targetPool: upgradePool,
@@ -797,35 +983,31 @@ describe('B3 Employee and Administrator RLS matrix', () => {
     expect(results.map((result) => result.rowCount)).toEqual([2, 2, 2, 1]);
   });
 
-  it('lets an Administrator create, update and delete configuration only in the own Organization', async () => {
-    const id = '20000000-0000-4000-8000-000000000099';
-    const inserted = await adminQuery(
-      adminAContext,
-      `INSERT INTO ${B3_SCHEMA}.customers
-        (id, organization_id, display_name, active)
-       VALUES ($1, $2, 'Synthetic Administrator Customer', true)`,
-      [id, ids.organizationA],
-    );
-    const updated = await adminQuery(
-      adminAContext,
-      `UPDATE ${B3_SCHEMA}.customers
-       SET active = false, deactivated_at = transaction_timestamp(), row_version = row_version + 1
-       WHERE id = $1`,
-      [id],
-    );
-    const deleted = await adminQuery(adminAContext, `DELETE FROM ${B3_SCHEMA}.customers WHERE id = $1`, [id]);
-    expect([inserted.rowCount, updated.rowCount, deleted.rowCount]).toEqual([1, 1, 1]);
+  it.each([
+    ['INSERT', `INSERT INTO ${B3_SCHEMA}.customers
+      (id, organization_id, active, display_name)
+      SELECT '20000000-0000-4000-8000-000000000099', '${ids.organizationA}',
+        true, 'Forbidden Administrator Insert'
+      WHERE false`],
+    ['UPDATE', `UPDATE ${B3_SCHEMA}.organizations SET name = name WHERE false`],
+    ['DELETE', `DELETE FROM ${B3_SCHEMA}.customers WHERE false`],
+  ])('denies obsolete Administrator %s privileges', async (_operation, statement) => {
+    expect(await postgresErrorCode(adminQuery(adminAContext, statement))).toBe('42501');
   });
 
   it('blocks Administrator SELECT/UPDATE/DELETE against another Organization without disclosure', async () => {
     const selected = await adminQuery(adminAContext, `SELECT id FROM ${B3_SCHEMA}.customers WHERE id = $1`, [ids.customerB]);
     const guessedUser = await adminQuery(adminAContext, `SELECT id FROM ${B3_SCHEMA}.users WHERE id = $1`, [ids.employeeB]);
-    const updated = await adminQuery(adminAContext, `UPDATE ${B3_SCHEMA}.customers SET row_version = 2 WHERE id = $1`, [ids.customerB]);
-    const deleted = await adminQuery(adminAContext, `DELETE FROM ${B3_SCHEMA}.customers WHERE id = $1`, [ids.customerB]);
-    expect([selected.rowCount, guessedUser.rowCount, updated.rowCount, deleted.rowCount]).toEqual([0, 0, 0, 0]);
+    expect([selected.rowCount, guessedUser.rowCount]).toEqual([0, 0]);
+    expect(await postgresErrorCode(
+      adminQuery(adminAContext, `UPDATE ${B3_SCHEMA}.customers SET row_version = 2 WHERE id = $1`, [ids.customerB]),
+    )).toBe('42501');
+    expect(await postgresErrorCode(
+      adminQuery(adminAContext, `DELETE FROM ${B3_SCHEMA}.customers WHERE id = $1`, [ids.customerB]),
+    )).toBe('42501');
   });
 
-  it('rejects an Administrator cross-tenant INSERT through RLS', async () => {
+  it('rejects an Administrator cross-tenant INSERT after write revocation', async () => {
     expect(
       await postgresErrorCode(
         adminQuery(
@@ -2069,7 +2251,7 @@ describe('B3 Organization-qualified administrative actors', () => {
 });
 
 describe('B3 controlled Administrator mutation surface', () => {
-  it('denies every historical or ownership-column mutation through column grants', async () => {
+  it('denies every historical or ownership-column mutation after write revocation', async () => {
     const forbidden = [
       ['organizations', 'id = id'],
       ['organizations', 'created_at = created_at'],
@@ -2104,204 +2286,728 @@ describe('B3 controlled Administrator mutation surface', () => {
     }
   });
 
-  it('requires exact row_version advancement for allowed updates', async () => {
-    expect(
-      await postgresErrorCode(
-        adminQuery(
-          adminAContext,
-          `UPDATE ${B3_SCHEMA}.memberships SET role = 'administrator' WHERE user_id = $1`,
-          [ids.employeeA],
-        ),
-      ),
-    ).toBe('23514');
-    const updated = await adminQuery(
-      adminAContext,
-      `UPDATE ${B3_SCHEMA}.memberships
-       SET role = 'administrator', row_version = row_version + 1 WHERE user_id = $1`,
-      [ids.employeeA],
+  it.each([
+    ['Organization rename', `UPDATE ${B3_SCHEMA}.organizations
+      SET name = 'Forbidden Administrator Rename', row_version = row_version + 1
+      WHERE id = '${ids.organizationA}'`],
+    ['Membership role change', `UPDATE ${B3_SCHEMA}.memberships
+      SET role = 'administrator', row_version = row_version + 1
+      WHERE user_id = '${ids.employeeA}'`],
+    ['Membership revocation', `UPDATE ${B3_SCHEMA}.memberships
+      SET revoked_at = transaction_timestamp(), row_version = row_version + 1
+      WHERE user_id = '${ids.employeeA}'`],
+    ['Customer deactivation', `UPDATE ${B3_SCHEMA}.customers
+      SET active = false, deactivated_at = transaction_timestamp(), row_version = row_version + 1
+      WHERE id = '${ids.customerA}'`],
+    ['NFC assignment deactivation', `UPDATE ${B3_SCHEMA}.nfc_assignments
+      SET active = false, valid_to = transaction_timestamp(), row_version = row_version + 1
+      WHERE id = '${ids.assignmentA}'`],
+  ])('denies the former Administrator %s path', async (_operation, statement) => {
+    expect(await postgresErrorCode(adminQuery(adminAContext, statement))).toBe('42501');
+  });
+});
+
+describe('B3 production administrative capability boundaries', () => {
+  it('lets taptime_admin_setup create allowlisted configuration in its own tenant', async () => {
+    const correlationId = '80000000-0000-4000-8000-000000000070';
+    const customerId = '20000000-0000-4000-8000-000000000070';
+    const tagId = '30000000-0000-4000-8000-000000000070';
+    const assignmentId = '40000000-0000-4000-8000-000000000070';
+
+    await withCapabilityTransaction(
+      'taptime_admin_setup',
+      adminACapabilityContext(correlationId),
+      async (client) => {
+        await client.query(
+          `INSERT INTO ${B3_SCHEMA}.customers (id, organization_id, display_name, active)
+           VALUES ($1, $2, 'Capability Customer', true)`,
+          [customerId, ids.organizationA],
+        );
+        await client.query(
+          `SELECT inserted_nfc_tag_id
+           FROM ${B3_SCHEMA}.insert_admin_setup_nfc_tag_v1($1, $2, $3, $4)`,
+          [tagId, ids.organizationA, 'Capability Tag', 'nfc:uid:v1:7001'],
+        );
+        await client.query(
+          `INSERT INTO ${B3_SCHEMA}.nfc_assignments
+            (id, organization_id, nfc_tag_id, target_type, target_customer_id, active)
+           VALUES ($1, $2, $3, 'customer', $4, true)`,
+          [assignmentId, ids.organizationA, tagId, customerId],
+        );
+      },
     );
-    expect(updated.rowCount).toBe(1);
+
+    const state = await installerPool.query<{ customers: number; tags: number; assignments: number }>(`
+      SELECT
+        (SELECT count(*)::integer FROM ${B3_SCHEMA}.customers WHERE id = $1) AS customers,
+        (SELECT count(*)::integer FROM ${B3_SCHEMA}.nfc_tags WHERE id = $2) AS tags,
+        (SELECT count(*)::integer FROM ${B3_SCHEMA}.nfc_assignments WHERE id = $3) AS assignments
+    `, [customerId, tagId, assignmentId]);
+    expect(state.rows[0]).toEqual({ customers: 1, tags: 1, assignments: 1 });
   });
 
-  it('allows a one-way Membership revocation but rejects un-revoke', async () => {
-    const revoked = await adminQuery(
-      adminAContext,
-      `UPDATE ${B3_SCHEMA}.memberships
-       SET revoked_at = transaction_timestamp(), row_version = row_version + 1 WHERE user_id = $1`,
-      [ids.employeeA],
-    );
-    expect(revoked.rowCount).toBe(1);
-    expect(
-      await postgresErrorCode(
-        adminQuery(
-          adminAContext,
-          `UPDATE ${B3_SCHEMA}.memberships
-           SET revoked_at = NULL, row_version = row_version + 1 WHERE user_id = $1`,
-          [ids.employeeA],
-        ),
+  it('rejects taptime_admin_setup cross-tenant Customer INSERT through RLS despite complete INSERT column rights', async () => {
+    const privilege = await installerPool.query<{
+      has_table_insert: boolean;
+      has_all_insert_columns: boolean;
+    }>(`
+      SELECT
+        has_table_privilege(
+          'taptime_admin_setup', '${B3_SCHEMA}.customers', 'INSERT'
+        ) AS has_table_insert,
+        bool_and(has_column_privilege(
+          'taptime_admin_setup', '${B3_SCHEMA}.customers', column_name, 'INSERT'
+        )) AS has_all_insert_columns
+      FROM unnest(ARRAY['id', 'organization_id', 'display_name', 'active']) AS allowed(column_name)
+    `);
+    expect(privilege.rows[0]).toEqual({
+      has_table_insert: false,
+      has_all_insert_columns: true,
+    });
+
+    const error = await postgresErrorDetails(withCapabilityTransaction(
+      'taptime_admin_setup',
+      adminACapabilityContext('80000000-0000-4000-8000-000000000071'),
+      (client) => client.query(
+        `INSERT INTO ${B3_SCHEMA}.customers (id, organization_id, display_name, active)
+         VALUES ('20000000-0000-4000-8000-000000000071', $1,
+           'Cross Tenant Capability Customer', true)`,
+        [ids.organizationB],
       ),
-    ).toBe('23514');
+    ));
+    expect(error?.code).toBe('42501');
+    expect(error?.message).toMatch(/row-level security/i);
   });
 
-  it('allows one-way Customer deactivation but rejects reactivation', async () => {
-    await adminQuery(
-      adminAContext,
-      `UPDATE ${B3_SCHEMA}.customers
-       SET active = false, deactivated_at = transaction_timestamp(), row_version = row_version + 1
-       WHERE id = $1`,
-      [ids.customerA],
-    );
+  it('keeps Organization history read-only to the production setup capability', async () => {
+    const privileges = await installerPool.query<{
+      can_select_name: boolean;
+      can_update_any_column: boolean;
+    }>(`
+      SELECT
+        has_column_privilege(
+          'taptime_admin_setup', '${B3_SCHEMA}.organizations', 'name', 'SELECT'
+        ) AS can_select_name,
+        has_any_column_privilege(
+          'taptime_admin_setup', '${B3_SCHEMA}.organizations', 'UPDATE'
+        ) AS can_update_any_column
+    `);
+    expect(privileges.rows[0]).toEqual({
+      can_select_name: true,
+      can_update_any_column: false,
+    });
+
+    for (const assignment of [
+      "name = 'Forbidden Capability Rename'",
+      "created_at = '2026-07-01T00:00:00Z'",
+      'row_version = 2',
+    ]) {
+      const error = await postgresErrorDetails(withCapabilityTransaction(
+        'taptime_admin_setup',
+        adminACapabilityContext('80000000-0000-4000-8000-000000000072'),
+        (client) => client.query(
+          `UPDATE ${B3_SCHEMA}.organizations SET ${assignment} WHERE id = $1`,
+          [ids.organizationA],
+        ),
+      ));
+      expect(error?.code, assignment).toBe('42501');
+      expect(error?.message, assignment).toMatch(/permission denied/i);
+    }
+  });
+
+  it('protects Membership ownership and history through redemption-owner UPDATE column grants', async () => {
+    const forbiddenColumns = [
+      'id', 'organization_id', 'user_id', 'role', 'created_at', 'revoked_at',
+      'created_by_user_id',
+    ];
+    const privileges = await installerPool.query<{ column_name: string; granted: boolean }>(`
+      SELECT column_name,
+        has_column_privilege(
+          'taptime_employee_redemption_data_function_owner',
+          '${B3_SCHEMA}.memberships', column_name, 'UPDATE'
+        ) AS granted
+      FROM unnest($1::text[]) AS forbidden(column_name)
+      UNION ALL
+      SELECT 'row_version', has_column_privilege(
+        'taptime_employee_redemption_data_function_owner',
+        '${B3_SCHEMA}.memberships', 'row_version', 'UPDATE'
+      )
+    `, [forbiddenColumns]);
+    expect(privileges.rows.find(({ column_name }) => column_name === 'row_version')?.granted).toBe(true);
     expect(
-      await postgresErrorCode(
-        adminQuery(
-          adminAContext,
-          `UPDATE ${B3_SCHEMA}.customers
-           SET active = true, deactivated_at = NULL, row_version = row_version + 1 WHERE id = $1`,
+      privileges.rows
+        .filter(({ column_name }) => column_name !== 'row_version')
+        .every(({ granted }) => !granted),
+    ).toBe(true);
+
+    const assignments = [
+      `id = '12000000-0000-4000-8000-000000000002'`,
+      `organization_id = '${ids.organizationA}'`,
+      `user_id = '${ids.employeeA}'`,
+      "role = 'employee'",
+      "created_at = '2026-07-01T00:00:00Z'",
+      'revoked_at = NULL',
+      `created_by_user_id = '${ids.adminA}'`,
+    ];
+    for (const assignment of assignments) {
+      const error = await postgresErrorDetails(withCapabilityTransaction(
+        'taptime_employee_redemption_data_function_owner',
+        adminACapabilityContext('80000000-0000-4000-8000-000000000073'),
+        (client) => client.query(
+          `UPDATE ${B3_SCHEMA}.memberships SET ${assignment}
+           WHERE id = '12000000-0000-4000-8000-000000000002'`,
+        ),
+      ));
+      expect(error?.code, assignment).toBe('42501');
+      expect(error?.message, assignment).toMatch(/permission denied/i);
+    }
+  });
+
+  it('protects Customer ownership and history through setup-owner UPDATE column grants', async () => {
+    const forbiddenColumns = [
+      'id', 'organization_id', 'display_name', 'activated_at', 'deactivated_at',
+      'created_at', 'updated_at', 'row_version',
+    ];
+    const privileges = await installerPool.query<{ column_name: string; granted: boolean }>(`
+      SELECT column_name,
+        has_column_privilege(
+          'taptime_admin_setup_data_function_owner',
+          '${B3_SCHEMA}.customers', column_name, 'UPDATE'
+        ) AS granted
+      FROM unnest($1::text[]) AS forbidden(column_name)
+      UNION ALL
+      SELECT 'active', has_column_privilege(
+        'taptime_admin_setup_data_function_owner',
+        '${B3_SCHEMA}.customers', 'active', 'UPDATE'
+      )
+    `, [forbiddenColumns]);
+    expect(privileges.rows.find(({ column_name }) => column_name === 'active')?.granted).toBe(true);
+    expect(
+      privileges.rows
+        .filter(({ column_name }) => column_name !== 'active')
+        .every(({ granted }) => !granted),
+    ).toBe(true);
+
+    const assignments = [
+      `id = '${ids.customerA}'`,
+      `organization_id = '${ids.organizationA}'`,
+      "display_name = 'Forbidden Customer Rename'",
+      "activated_at = '2026-07-01T00:00:00Z'",
+      'deactivated_at = NULL',
+      "created_at = '2026-07-01T00:00:00Z'",
+      "updated_at = '2026-07-01T00:00:00Z'",
+      'row_version = 2',
+    ];
+    for (const assignment of assignments) {
+      const error = await postgresErrorDetails(withCapabilityTransaction(
+        'taptime_admin_setup_data_function_owner',
+        adminACapabilityContext('80000000-0000-4000-8000-000000000074'),
+        (client) => client.query(
+          `UPDATE ${B3_SCHEMA}.customers SET ${assignment} WHERE id = $1`,
           [ids.customerA],
         ),
-      ),
-    ).toBe('23514');
+      ));
+      expect(error?.code, assignment).toBe('42501');
+      expect(error?.message, assignment).toMatch(/permission denied/i);
+    }
   });
 
-  it('allows one-way Assignment deactivation but rejects reactivation', async () => {
-    await adminQuery(
-      adminAContext,
-      `UPDATE ${B3_SCHEMA}.nfc_assignments
-       SET active = false, valid_to = transaction_timestamp(), row_version = row_version + 1
-       WHERE id = $1`,
-      [ids.assignmentA],
-    );
+  it('protects NFC Tag creation history through setup-owner INSERT column grants', async () => {
+    const privileges = await installerPool.query<{
+      allowed_columns: boolean;
+      created_at: boolean;
+    }>(`
+      SELECT
+        bool_and(has_column_privilege(
+          'taptime_admin_setup_data_function_owner', '${B3_SCHEMA}.nfc_tags',
+          column_name, 'INSERT'
+        )) AS allowed_columns,
+        has_column_privilege(
+          'taptime_admin_setup_data_function_owner', '${B3_SCHEMA}.nfc_tags',
+          'created_at', 'INSERT'
+        ) AS created_at
+      FROM unnest(ARRAY['id', 'organization_id', 'display_name', 'payload_value'])
+        AS allowed(column_name)
+    `);
+    expect(privileges.rows[0]).toEqual({ allowed_columns: true, created_at: false });
+
+    const error = await postgresErrorDetails(withCapabilityTransaction(
+      'taptime_admin_setup_data_function_owner',
+      adminACapabilityContext('80000000-0000-4000-8000-000000000075'),
+      (client) => client.query(
+        `INSERT INTO ${B3_SCHEMA}.nfc_tags
+          (id, organization_id, display_name, payload_value, created_at)
+         VALUES ('30000000-0000-4000-8000-000000000075', $1,
+           'Forbidden Historical Tag', 'nfc:uid:v1:7501', transaction_timestamp())`,
+        [ids.organizationA],
+      ),
+    ));
+    expect(error?.code).toBe('42501');
+    expect(error?.message).toMatch(/permission denied/i);
+  });
+
+  it('protects Assignment ownership and history through reassigner UPDATE column grants', async () => {
+    const forbiddenColumns = [
+      'id', 'organization_id', 'nfc_tag_id', 'target_type', 'target_customer_id',
+      'valid_from', 'created_at',
+    ];
+    const privileges = await installerPool.query<{ column_name: string; granted: boolean }>(`
+      SELECT column_name,
+        has_column_privilege(
+          'taptime_assignment_reassigner', '${B3_SCHEMA}.nfc_assignments',
+          column_name, 'UPDATE'
+        ) AS granted
+      FROM unnest($1::text[]) AS forbidden(column_name)
+      UNION ALL
+      SELECT 'active', has_column_privilege(
+        'taptime_assignment_reassigner', '${B3_SCHEMA}.nfc_assignments',
+        'active', 'UPDATE'
+      )
+    `, [forbiddenColumns]);
+    expect(privileges.rows.find(({ column_name }) => column_name === 'active')?.granted).toBe(true);
     expect(
-      await postgresErrorCode(
-        adminQuery(
-          adminAContext,
-          `UPDATE ${B3_SCHEMA}.nfc_assignments
-           SET active = true, valid_to = NULL, row_version = row_version + 1 WHERE id = $1`,
+      privileges.rows
+        .filter(({ column_name }) => column_name !== 'active')
+        .every(({ granted }) => !granted),
+    ).toBe(true);
+
+    const assignments = [
+      `id = '${ids.assignmentA}'`,
+      `organization_id = '${ids.organizationA}'`,
+      `nfc_tag_id = '${ids.tagA}'`,
+      "target_type = 'customer'",
+      `target_customer_id = '${ids.customerA}'`,
+      "valid_from = '2026-07-01T00:00:00Z'",
+      "created_at = '2026-07-01T00:00:00Z'",
+    ];
+    for (const assignment of assignments) {
+      const error = await postgresErrorDetails(withCapabilityTransaction(
+        'taptime_assignment_reassigner',
+        adminACapabilityContext('80000000-0000-4000-8000-000000000076'),
+        (client) => client.query(
+          `UPDATE ${B3_SCHEMA}.nfc_assignments SET ${assignment} WHERE id = $1`,
           [ids.assignmentA],
         ),
+      ));
+      expect(error?.code, assignment).toBe('42501');
+      expect(error?.message, assignment).toMatch(/permission denied/i);
+    }
+  });
+
+  it('requires exact row_version advancement for an allowed production reassignment update', async () => {
+    const result = await withCapabilityProbeTransaction(
+      'taptime_assignment_reassigner',
+      adminACapabilityContext('80000000-0000-4000-8000-000000000077'),
+      async (client) => {
+        const rejected = await rejectedAtSavepoint(
+          client,
+          `UPDATE ${B3_SCHEMA}.nfc_assignments
+           SET active = false, valid_to = transaction_timestamp()
+           WHERE id = $1`,
+          [ids.assignmentA],
+        );
+        const allowed = await client.query<{ row_version: string }>(
+          `UPDATE ${B3_SCHEMA}.nfc_assignments
+           SET active = false, valid_to = transaction_timestamp(),
+             row_version = row_version + 1
+           WHERE id = $1
+           RETURNING row_version`,
+          [ids.assignmentA],
+        );
+        return { rejected, rowVersion: allowed.rows[0]?.row_version };
+      },
+    );
+    expect(result.rejected?.code).toBe('23514');
+    expect(result.rowVersion).toBe('2');
+  });
+
+  it('requires exact Membership row_version advancement through the production redemption data role', async () => {
+    const membershipId = '12000000-0000-4000-8000-000000000002';
+    const result = await withCapabilityProbeTransaction(
+      'taptime_employee_redemption_data_function_owner',
+      adminACapabilityContext('80000000-0000-4000-8000-000000000087'),
+      async (client) => {
+        const rejected = await rejectedAtSavepoint(
+          client,
+          `UPDATE ${B3_SCHEMA}.memberships
+           SET row_version = row_version
+           WHERE id = $1`,
+          [membershipId],
+        );
+        const allowed = await client.query<{ row_version: string }>(
+          `UPDATE ${B3_SCHEMA}.memberships
+           SET row_version = row_version + 1
+           WHERE id = $1
+           RETURNING row_version`,
+          [membershipId],
+        );
+        return { rejected, rowVersion: allowed.rows[0]?.row_version };
+      },
+    );
+    expect(result.rejected?.code).toBe('23514');
+    expect(result.rowVersion).toBe('2');
+  });
+
+  it('allows one-way Membership revocation through the production redemption data role but rejects un-revoke', async () => {
+    const membershipId = '12000000-0000-4000-8000-000000000002';
+    const result = await withCapabilityProbeTransaction(
+      'taptime_employee_redemption_data_function_owner',
+      adminACapabilityContext('80000000-0000-4000-8000-000000000078'),
+      async (client) => {
+        const revoked = await client.query<{ revoked: boolean; row_version: string }>(
+          `UPDATE ${B3_SCHEMA}.memberships
+           SET revoked_at = transaction_timestamp(), row_version = row_version + 1
+           WHERE id = $1
+           RETURNING revoked_at IS NOT NULL AS revoked, row_version`,
+          [membershipId],
+        );
+        const rejected = await rejectedAtSavepoint(
+          client,
+          `UPDATE ${B3_SCHEMA}.memberships
+           SET revoked_at = NULL, row_version = row_version + 1
+           WHERE id = $1`,
+          [membershipId],
+        );
+        return { rejected, revoked: revoked.rows[0] };
+      },
+      [
+        `GRANT UPDATE (revoked_at) ON ${B3_SCHEMA}.memberships
+         TO taptime_employee_redemption_data_function_owner`,
+      ],
+    );
+    expect(result.revoked).toEqual({ revoked: true, row_version: '2' });
+    expect(result.rejected?.code).toBe('23514');
+  });
+
+  it('allows one-way Customer deactivation through the production setup data role but rejects reactivation', async () => {
+    const result = await withCapabilityProbeTransaction(
+      'taptime_admin_setup_data_function_owner',
+      adminACapabilityContext('80000000-0000-4000-8000-000000000079'),
+      async (client) => {
+        const deactivated = await client.query<{ active: boolean }>(
+          `UPDATE ${B3_SCHEMA}.customers
+           SET active = false, deactivated_at = transaction_timestamp(),
+             row_version = 2
+           WHERE id = $1
+           RETURNING active`,
+          [ids.customerA],
+        );
+        const rejected = await rejectedAtSavepoint(
+          client,
+          `UPDATE ${B3_SCHEMA}.customers
+           SET active = true, deactivated_at = NULL, row_version = 3
+           WHERE id = $1`,
+          [ids.customerA],
+        );
+        return { deactivated: deactivated.rows[0], rejected };
+      },
+      [
+        `GRANT UPDATE (deactivated_at, row_version) ON ${B3_SCHEMA}.customers
+         TO taptime_admin_setup_data_function_owner`,
+      ],
+    );
+    expect(result.deactivated).toEqual({ active: false });
+    expect(result.rejected?.code).toBe('23514');
+  });
+
+  it('allows one-way Assignment deactivation through taptime_assignment_reassigner but rejects reactivation', async () => {
+    const result = await withCapabilityProbeTransaction(
+      'taptime_assignment_reassigner',
+      adminACapabilityContext('80000000-0000-4000-8000-000000000080'),
+      async (client) => {
+        const deactivated = await client.query<{ active: boolean; row_version: string }>(
+          `UPDATE ${B3_SCHEMA}.nfc_assignments
+           SET active = false, valid_to = transaction_timestamp(),
+             row_version = row_version + 1
+           WHERE id = $1
+           RETURNING active, row_version`,
+          [ids.assignmentA],
+        );
+        const rejected = await rejectedAtSavepoint(
+          client,
+          `UPDATE ${B3_SCHEMA}.nfc_assignments
+           SET active = true, valid_to = NULL, row_version = row_version + 1
+           WHERE id = $1`,
+          [ids.assignmentA],
+        );
+        return { deactivated: deactivated.rows[0], rejected };
+      },
+    );
+    expect(result.deactivated).toEqual({ active: false, row_version: '2' });
+    expect(result.rejected?.code).toBe('23514');
+  });
+});
+
+describe('B3 atomic production-capability audit evidence', () => {
+  it('writes setup data and all three AuditEvents in the same transaction', async () => {
+    const correlationId = '80000000-0000-4000-8000-000000000081';
+    const customerId = '20000000-0000-4000-8000-000000000081';
+    const tagId = '30000000-0000-4000-8000-000000000081';
+    const assignmentId = '40000000-0000-4000-8000-000000000081';
+    await withCapabilityTransaction(
+      'taptime_admin_setup',
+      adminACapabilityContext(correlationId),
+      async (client) => {
+        await client.query(
+          `INSERT INTO ${B3_SCHEMA}.customers (id, organization_id, display_name, active)
+           VALUES ($1, $2, 'Atomic Setup Customer', true)`,
+          [customerId, ids.organizationA],
+        );
+        await client.query(
+          `SELECT inserted_nfc_tag_id
+           FROM ${B3_SCHEMA}.insert_admin_setup_nfc_tag_v1($1, $2, $3, $4)`,
+          [tagId, ids.organizationA, 'Atomic Setup Tag', 'nfc:uid:v1:8101'],
+        );
+        await client.query(
+          `INSERT INTO ${B3_SCHEMA}.nfc_assignments
+            (id, organization_id, nfc_tag_id, target_type, target_customer_id, active)
+           VALUES ($1, $2, $3, 'customer', $4, true)`,
+          [assignmentId, ids.organizationA, tagId, customerId],
+        );
+      },
+    );
+
+    const transactionRows = await installerPool.query<{
+      record_kind: string;
+      transaction_id: string;
+    }>(`
+      SELECT 'customer' AS record_kind, xmin::text AS transaction_id
+      FROM ${B3_SCHEMA}.customers WHERE id = $1
+      UNION ALL
+      SELECT 'tag', xmin::text FROM ${B3_SCHEMA}.nfc_tags WHERE id = $2
+      UNION ALL
+      SELECT 'assignment', xmin::text FROM ${B3_SCHEMA}.nfc_assignments WHERE id = $3
+      UNION ALL
+      SELECT 'audit:' || event_type, xmin::text FROM ${B3_SCHEMA}.audit_events
+      WHERE correlation_id = $4
+    `, [customerId, tagId, assignmentId, correlationId]);
+    expect(transactionRows.rows).toHaveLength(6);
+    expect(new Set(transactionRows.rows.map(({ transaction_id }) => transaction_id)).size).toBe(1);
+    expect(
+      transactionRows.rows
+        .map(({ record_kind }) => record_kind)
+        .filter((recordKind) => recordKind.startsWith('audit:'))
+        .sort(),
+    ).toEqual([
+      'audit:CustomerCreated',
+      'audit:NfcTagAssigned',
+      'audit:NfcTagRegistered',
+    ]);
+  });
+
+  it('writes an Employee invitation and its AuditEvent in the same creator transaction', async () => {
+    const commandId = '80000000-0000-4000-8000-000000000082';
+    const invitationId = '82000000-0000-4000-8000-000000000082';
+    const tokenDigest = createHash('sha256').update('b3-invitation-audit-82').digest();
+    const created = await withCapabilityTransaction(
+      'taptime_employee_invitation_creator',
+      adminACapabilityContext(commandId),
+      (client) => client.query<{ result_status: string }>(
+        `SELECT result_status
+         FROM ${B3_SCHEMA}.create_employee_membership_invitation_v1($1, $2, $3, $4)`,
+        [commandId, invitationId, 'Capability Employee', tokenDigest],
       ),
-    ).toBe('23514');
+    );
+    expect(created.rows[0]?.result_status).toBe('succeeded');
+
+    const transactionRows = await installerPool.query<{ transaction_id: string }>(`
+      SELECT xmin::text AS transaction_id
+      FROM ${B3_SCHEMA}.employee_membership_invitations WHERE id = $1
+      UNION ALL
+      SELECT xmin::text FROM ${B3_SCHEMA}.audit_events
+      WHERE correlation_id = $2 AND event_type = 'EmployeeMembershipInvitationCreated'
+    `, [invitationId, commandId]);
+    expect(transactionRows.rows).toHaveLength(2);
+    expect(new Set(transactionRows.rows.map(({ transaction_id }) => transaction_id)).size).toBe(1);
+  });
+
+  it('writes enrollment data and MembershipGranted in the same redeemer transaction', async () => {
+    const invitationCommandId = '80000000-0000-4000-8000-000000000083';
+    const invitationId = '82000000-0000-4000-8000-000000000083';
+    const redemptionCommandId = '83000000-0000-4000-8000-000000000083';
+    const userId = '10000000-0000-4000-8000-000000000083';
+    const identityBindingId = '11000000-0000-4000-8000-000000000083';
+    const membershipId = '12000000-0000-4000-8000-000000000083';
+    const tokenDigest = createHash('sha256').update('b3-enrollment-audit-83').digest();
+    const invitation = await withCapabilityTransaction(
+      'taptime_employee_invitation_creator',
+      adminACapabilityContext(invitationCommandId),
+      (client) => client.query<{ result_status: string }>(
+        `SELECT result_status
+         FROM ${B3_SCHEMA}.create_employee_membership_invitation_v1($1, $2, $3, $4)`,
+        [invitationCommandId, invitationId, 'Enrolled Capability User', tokenDigest],
+      ),
+    );
+    expect(invitation.rows[0]?.result_status).toBe('succeeded');
+
+    const redemption = await withCapabilityTransaction(
+      'taptime_employee_enrollment_redeemer',
+      adminACapabilityContext(redemptionCommandId),
+      (client) => client.query<{ result_status: string }>(
+        `SELECT result_status
+         FROM ${B3_SCHEMA}.redeem_employee_membership_invitation_v1(
+           $1, $2, $3, $4, $5, $6, $7
+         )`,
+        [
+          redemptionCommandId,
+          tokenDigest,
+          'https://synthetic.invalid/auth',
+          'b3-capability-audit-user',
+          userId,
+          identityBindingId,
+          membershipId,
+        ],
+      ),
+    );
+    expect(redemption.rows[0]?.result_status).toBe('succeeded');
+
+    const transactionRows = await installerPool.query<{ transaction_id: string }>(`
+      SELECT xmin::text AS transaction_id FROM ${B3_SCHEMA}.users WHERE id = $1
+      UNION ALL
+      SELECT xmin::text FROM ${B3_SCHEMA}.identity_bindings WHERE id = $2
+      UNION ALL
+      SELECT xmin::text FROM ${B3_SCHEMA}.memberships WHERE id = $3
+      UNION ALL
+      SELECT xmin::text FROM ${B3_SCHEMA}.employee_membership_invitations WHERE id = $4
+      UNION ALL
+      SELECT xmin::text FROM ${B3_SCHEMA}.employee_enrollment_redemption_receipts
+      WHERE command_id = $5
+      UNION ALL
+      SELECT xmin::text FROM ${B3_SCHEMA}.audit_events
+      WHERE correlation_id = $5::text AND event_type = 'MembershipGranted'
+    `, [userId, identityBindingId, membershipId, invitationId, redemptionCommandId]);
+    expect(transactionRows.rows).toHaveLength(6);
+    expect(new Set(transactionRows.rows.map(({ transaction_id }) => transaction_id)).size).toBe(1);
+
+    const audit = await installerPool.query<{ payload: Record<string, unknown> }>(
+      `SELECT payload FROM ${B3_SCHEMA}.audit_events
+       WHERE correlation_id = $1 AND event_type = 'MembershipGranted'`,
+      [redemptionCommandId],
+    );
+    expect(audit.rows[0]?.payload).toEqual({ role: 'employee' });
+  });
+
+  it('writes both sides of a reassignment and both AuditEvents in the same transaction', async () => {
+    const correlationId = '80000000-0000-4000-8000-000000000084';
+    const replacementId = '40000000-0000-4000-8000-000000000084';
+    const result = await withCapabilityTransaction(
+      'taptime_assignment_reassigner',
+      adminACapabilityContext(correlationId),
+      async (client) => {
+        const effective = await client.query<{ effective_at: Date }>(
+          'SELECT transaction_timestamp() AS effective_at',
+        );
+        const effectiveAt = effective.rows[0]!.effective_at;
+        const deactivated = await client.query<{ row_version: string }>(
+          `UPDATE ${B3_SCHEMA}.nfc_assignments
+           SET active = false, valid_to = $2, row_version = row_version + 1
+           WHERE id = $1
+           RETURNING row_version`,
+          [ids.assignmentA, effectiveAt],
+        );
+        await client.query(
+          `INSERT INTO ${B3_SCHEMA}.nfc_assignments
+            (id, organization_id, nfc_tag_id, target_type, target_customer_id, active, valid_from)
+           VALUES ($1, $2, $3, 'customer', $4, true, $5)`,
+          [replacementId, ids.organizationA, ids.tagA, ids.customerA, effectiveAt],
+        );
+        return deactivated.rows[0]?.row_version;
+      },
+    );
+    expect(result).toBe('2');
+
+    const transactionRows = await installerPool.query<{ transaction_id: string }>(`
+      SELECT xmin::text AS transaction_id FROM ${B3_SCHEMA}.nfc_assignments
+      WHERE id IN ($1, $2)
+      UNION ALL
+      SELECT xmin::text FROM ${B3_SCHEMA}.audit_events WHERE correlation_id = $3
+    `, [ids.assignmentA, replacementId, correlationId]);
+    expect(transactionRows.rows).toHaveLength(4);
+    expect(new Set(transactionRows.rows.map(({ transaction_id }) => transaction_id)).size).toBe(1);
+
+    const audit = await installerPool.query<{
+      event_type: string;
+      payload: Record<string, unknown>;
+    }>(`
+      SELECT event_type, payload FROM ${B3_SCHEMA}.audit_events
+      WHERE correlation_id = $1 ORDER BY event_type
+    `, [correlationId]);
+    expect(audit.rows).toEqual([
+      { event_type: 'NfcAssignmentDeactivated', payload: { active: false, rowVersion: 2 } },
+      { event_type: 'NfcTagAssigned', payload: {} },
+    ]);
+  });
+
+  it('stores only allowlisted fields and no raw NFC credential in setup audit payloads', async () => {
+    const correlationId = '80000000-0000-4000-8000-000000000085';
+    const tagId = '30000000-0000-4000-8000-000000000085';
+    const rawPayload = 'nfc:uid:v1:85AABBCC';
+    await withCapabilityTransaction(
+      'taptime_admin_setup',
+      adminACapabilityContext(correlationId),
+      (client) => client.query(
+        `SELECT inserted_nfc_tag_id
+         FROM ${B3_SCHEMA}.insert_admin_setup_nfc_tag_v1($1, $2, $3, $4)`,
+        [tagId, ids.organizationA, 'Payload Safe Tag', rawPayload],
+      ),
+    );
+
+    const audit = await installerPool.query<{
+      payload: Record<string, unknown>;
+      serialized: string;
+    }>(`
+      SELECT payload, payload::text AS serialized FROM ${B3_SCHEMA}.audit_events
+      WHERE correlation_id = $1 AND entity_id = $2 AND event_type = 'NfcTagRegistered'
+    `, [correlationId, tagId]);
+    expect(audit.rows[0]?.payload).toEqual({});
+    expect(audit.rows[0]?.serialized).not.toContain(rawPayload);
+  });
+
+  it('rolls back setup data and its AuditEvent atomically', async () => {
+    const correlationId = '80000000-0000-4000-8000-000000000086';
+    const customerId = '20000000-0000-4000-8000-000000000086';
+    await expect(withCapabilityTransaction(
+      'taptime_admin_setup',
+      adminACapabilityContext(correlationId),
+      async (client) => {
+        await client.query(
+          `INSERT INTO ${B3_SCHEMA}.customers (id, organization_id, display_name, active)
+           VALUES ($1, $2, 'Rolled Back Capability Customer', true)`,
+          [customerId, ids.organizationA],
+        );
+        throw new Error('synthetic production-capability rollback');
+      },
+    )).rejects.toThrow('synthetic production-capability rollback');
+
+    const state = await installerPool.query<{ data_count: string; audit_count: string }>(`
+      SELECT
+        (SELECT count(*) FROM ${B3_SCHEMA}.customers WHERE id = $1) AS data_count,
+        (SELECT count(*) FROM ${B3_SCHEMA}.audit_events WHERE correlation_id = $2) AS audit_count
+    `, [customerId, correlationId]);
+    expect(state.rows[0]).toEqual({ data_count: '0', audit_count: '0' });
   });
 });
 
 describe('B3 atomic administrative audit evidence', () => {
-  it('audits every allowlisted administrative operation in the same transaction', async () => {
-    const userId = '10000000-0000-4000-8000-000000000080';
-    const membershipId = '12000000-0000-4000-8000-000000000080';
-    const deletedCustomerId = '20000000-0000-4000-8000-000000000080';
-    const deactivatedCustomerId = '20000000-0000-4000-8000-000000000081';
-    const deletedTagId = '30000000-0000-4000-8000-000000000080';
-    const assignmentTagId = '30000000-0000-4000-8000-000000000081';
-    const assignmentId = '40000000-0000-4000-8000-000000000080';
-    await installerPool.query(`INSERT INTO ${B3_SCHEMA}.users (id) VALUES ($1)`, [userId]);
-    await adminQuery(
-      adminAContext,
-      `UPDATE ${B3_SCHEMA}.organizations SET name = 'Synthetic A audited', row_version = row_version + 1 WHERE id = $1`,
-      [ids.organizationA],
+  it('creates no audit row for rejected own-tenant Administrator DML', async () => {
+    const before = await installerPool.query<{ count: string }>(
+      `SELECT count(*) FROM ${B3_SCHEMA}.audit_events`,
     );
-    await adminQuery(
-      adminAContext,
-      `INSERT INTO ${B3_SCHEMA}.memberships
-        (id, organization_id, user_id, role, created_by_user_id)
-       VALUES ($1, $2, $3, 'employee', $4)`,
-      [membershipId, ids.organizationA, userId, ids.adminA],
+    expect(
+      await postgresErrorCode(
+        adminQuery(
+          adminAContext,
+          `INSERT INTO ${B3_SCHEMA}.nfc_tags (id, organization_id, display_name, payload_value)
+           VALUES ('30000000-0000-4000-8000-000000000082', $1,
+             'Rejected Administrator Tag', 'rejected-administrator-tag')`,
+          [ids.organizationA],
+        ),
+      ),
+    ).toBe('42501');
+    const after = await installerPool.query<{ count: string }>(
+      `SELECT count(*) FROM ${B3_SCHEMA}.audit_events`,
     );
-    await adminQuery(
-      adminAContext,
-      `UPDATE ${B3_SCHEMA}.memberships
-       SET role = 'administrator', row_version = row_version + 1 WHERE id = $1`,
-      [membershipId],
-    );
-    await adminQuery(
-      adminAContext,
-      `UPDATE ${B3_SCHEMA}.memberships
-       SET revoked_at = transaction_timestamp(), row_version = row_version + 1 WHERE id = $1`,
-      [membershipId],
-    );
-    await adminQuery(
-      adminAContext,
-      `INSERT INTO ${B3_SCHEMA}.customers (id, organization_id, display_name, active)
-       VALUES ($1, $2, 'Synthetic Deleted Customer', true)`,
-      [deletedCustomerId, ids.organizationA],
-    );
-    await adminQuery(adminAContext, `DELETE FROM ${B3_SCHEMA}.customers WHERE id = $1`, [deletedCustomerId]);
-    await adminQuery(
-      adminAContext,
-      `INSERT INTO ${B3_SCHEMA}.customers (id, organization_id, display_name, active)
-       VALUES ($1, $2, 'Synthetic Deactivated Customer', true)`,
-      [deactivatedCustomerId, ids.organizationA],
-    );
-    await adminQuery(
-      adminAContext,
-      `UPDATE ${B3_SCHEMA}.customers
-       SET active = false, deactivated_at = transaction_timestamp(), row_version = row_version + 1
-       WHERE id = $1`,
-      [deactivatedCustomerId],
-    );
-    await adminQuery(
-      adminAContext,
-      `INSERT INTO ${B3_SCHEMA}.nfc_tags (id, organization_id, display_name, payload_value)
-       VALUES ($1, $2, 'Synthetic Deleted Tag', 'do-not-audit-full-nfc-payload')`,
-      [deletedTagId, ids.organizationA],
-    );
-    await adminQuery(adminAContext, `DELETE FROM ${B3_SCHEMA}.nfc_tags WHERE id = $1`, [deletedTagId]);
-    await adminQuery(
-      adminAContext,
-      `INSERT INTO ${B3_SCHEMA}.nfc_tags (id, organization_id, display_name, payload_value)
-       VALUES ($1, $2, 'Synthetic Assignment Tag', 'assignment-only-synthetic-payload')`,
-      [assignmentTagId, ids.organizationA],
-    );
-    await adminQuery(
-      adminAContext,
-      `INSERT INTO ${B3_SCHEMA}.nfc_assignments
-        (id, organization_id, nfc_tag_id, target_type, target_customer_id, active)
-       VALUES ($1, $2, $3, 'customer', $4, true)`,
-      [assignmentId, ids.organizationA, assignmentTagId, ids.customerA],
-    );
-    await adminQuery(
-      adminAContext,
-      `UPDATE ${B3_SCHEMA}.nfc_assignments
-       SET active = false, valid_to = transaction_timestamp(), row_version = row_version + 1 WHERE id = $1`,
-      [assignmentId],
-    );
-
-    const audit = await installerPool.query<{ event_type: string; count: string }>(`
-      SELECT event_type, count(*)::text AS count
-      FROM ${B3_SCHEMA}.audit_events
-      WHERE actor_user_id = $1 AND event_type <> 'LifecycleEvaluated'
-      GROUP BY event_type
-      ORDER BY event_type
-    `, [ids.adminA]);
-    expect(audit.rows).toEqual([
-      { event_type: 'CustomerCreated', count: '2' },
-      { event_type: 'CustomerDeactivated', count: '1' },
-      { event_type: 'CustomerDeleted', count: '1' },
-      { event_type: 'MembershipGranted', count: '1' },
-      { event_type: 'MembershipRevoked', count: '1' },
-      { event_type: 'MembershipRoleChanged', count: '1' },
-      { event_type: 'NfcAssignmentDeactivated', count: '1' },
-      { event_type: 'NfcTagAssigned', count: '1' },
-      { event_type: 'NfcTagDeleted', count: '1' },
-      { event_type: 'NfcTagRegistered', count: '2' },
-      { event_type: 'OrganizationUpdated', count: '1' },
-    ]);
-  });
-
-  it('stores only allowlisted administrative audit payload fields', async () => {
-    const tagId = '30000000-0000-4000-8000-000000000082';
-    await adminQuery(
-      adminAContext,
-      `INSERT INTO ${B3_SCHEMA}.nfc_tags (id, organization_id, display_name, payload_value)
-       VALUES ($1, $2, 'Synthetic Audit Tag', 'credential-like-value-must-not-be-audited')`,
-      [tagId, ids.organizationA],
-    );
-    const audit = await installerPool.query<{ payload: Record<string, unknown>; serialized: string }>(
-      `SELECT payload, payload::text AS serialized
-       FROM ${B3_SCHEMA}.audit_events WHERE entity_id = $1 AND event_type = 'NfcTagRegistered'`,
-      [tagId],
-    );
-    expect(audit.rows[0]?.payload).toEqual({});
-    expect(audit.rows[0]?.serialized).not.toContain('credential-like-value');
+    expect(after.rows[0]?.count).toBe(before.rows[0]?.count);
   });
 
   it('creates no audit row for a rejected cross-tenant administrative mutation', async () => {
@@ -2325,13 +3031,13 @@ describe('B3 atomic administrative audit evidence', () => {
     expect(after.rows[0]?.count).toBe(before.rows[0]?.count);
   });
 
-  it('rolls back administrative data and its AuditEvent atomically', async () => {
+  it('preserves administrative data and audit evidence when obsolete DML is denied', async () => {
     const before = await installerPool.query<{ name: string; audit_count: string }>(`
       SELECT name,
         (SELECT count(*) FROM ${B3_SCHEMA}.audit_events WHERE actor_user_id = $2) AS audit_count
       FROM ${B3_SCHEMA}.organizations WHERE id = $1
     `, [ids.organizationA, ids.adminA]);
-    await expect(
+    expect(await postgresErrorCode(
       withRequestTransaction(
         administratorPool,
         B3_ADMIN_ROLE,
@@ -2343,10 +3049,9 @@ describe('B3 atomic administrative audit evidence', () => {
              SET name = 'Must Roll Back', row_version = row_version + 1 WHERE id = $1`,
             [ids.organizationA],
           );
-          throw new Error('synthetic administrative rollback');
         },
       ),
-    ).rejects.toThrow('synthetic administrative rollback');
+    )).toBe('42501');
     const after = await installerPool.query<{ name: string; audit_count: string }>(`
       SELECT name,
         (SELECT count(*) FROM ${B3_SCHEMA}.audit_events WHERE actor_user_id = $2) AS audit_count

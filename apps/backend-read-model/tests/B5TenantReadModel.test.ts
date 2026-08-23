@@ -218,17 +218,17 @@ afterAll(async () => {
 });
 
 describe('B5 versioned-schema and least-privilege runtime boundary', () => {
-  it('uses the current migrations 001 through 013 without a B5-owned migration', async () => {
+  it('uses the current migrations 001 through 014 without a B5-owned migration', async () => {
     const migrations = await loadMigrations();
-    expect(migrations.map(({ version }) => version)).toEqual(['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013']);
+    expect(migrations.map(({ version }) => version)).toEqual(['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014']);
 
     const ledger = await installerPool.query<{ version: string }>(
       `SELECT version FROM ${B3_MIGRATION_TABLE} ORDER BY version`,
     );
-    expect(ledger.rows.map(({ version }) => version)).toEqual(['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013']);
+    expect(ledger.rows.map(({ version }) => version)).toEqual(['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014']);
     expect(await migrate(installerPool)).toEqual({
       applied: [],
-      alreadyApplied: ['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013'],
+      alreadyApplied: ['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014'],
     });
   });
 
@@ -331,6 +331,36 @@ describe('B5 versioned-schema and least-privilege runtime boundary', () => {
     expect(await postgresErrorCode(runtimePool.query(
       `ALTER TABLE ${B3_SCHEMA}.organizations DISABLE ROW LEVEL SECURITY`,
     ))).toBe('42501');
+  });
+
+  it.each([
+    ['INSERT', `INSERT INTO ${B3_SCHEMA}.customers
+      (id, organization_id, active, display_name)
+      SELECT '20000000-0000-4000-8000-000000000099', '${ids.organizationA}',
+        true, 'Forbidden Read Model Insert'
+      WHERE false`],
+    ['UPDATE', `UPDATE ${B3_SCHEMA}.organizations
+      SET name = 'Forbidden Read Model Update'
+      WHERE id = '${ids.organizationA}'`],
+    ['DELETE', `DELETE FROM ${B3_SCHEMA}.customers WHERE id = '${ids.customerA}'`],
+  ])('cannot use the Administrator selection role for %s', async (_operation, statement) => {
+    const client = await runtimePool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query('SET LOCAL ROLE taptime_administrator');
+      await client.query(
+        `SELECT
+           set_config('app.user_id', $1, true),
+           set_config('app.organization_id', $2, true),
+           set_config('app.membership_id', $3, true),
+           set_config('app.membership_role', 'administrator', true)`,
+        [ids.adminA, ids.organizationA, '12000000-0000-4000-8000-000000000001'],
+      );
+      expect(await postgresErrorCode(client.query(statement))).toBe('42501');
+      await client.query('ROLLBACK');
+    } finally {
+      client.release();
+    }
   });
 });
 

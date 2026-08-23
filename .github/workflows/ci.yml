@@ -173,10 +173,10 @@ jobs:
       - name: Typecheck backend B3 schema
         run: npm run typecheck --workspace=@taptime/backend-schema
 
-      - name: Apply current schema migrations 001 through 013 to empty PostgreSQL database
+      - name: Apply current schema migrations 001 through 014 to empty PostgreSQL database
         run: npm run migrate --workspace=@taptime/backend-schema
 
-      - name: Re-run and verify migration ledger 001 through 013
+      - name: Re-run and verify migration ledger 001 through 014
         run: |
           npm run migrate --workspace=@taptime/backend-schema
           npm run verify-migrations --workspace=@taptime/backend-schema
@@ -228,7 +228,7 @@ jobs:
       - name: Install dependencies from lockfile
         run: npm ci
 
-      - name: Apply current schema migrations 001 through 013 for B4
+      - name: Apply current schema migrations 001 through 014 for B4
         run: npm run migrate --workspace=@taptime/backend-schema
 
       - name: Re-run and verify the B4 migration ledger
@@ -289,7 +289,7 @@ jobs:
       - name: Build the approved B4 identity dependency
         run: npm run build --workspace=@taptime/backend-identity
 
-      - name: Apply current schema migrations 001 through 013 for B5
+      - name: Apply current schema migrations 001 through 014 for B5
         run: npm run migrate --workspace=@taptime/backend-schema
 
       - name: Re-run and verify the migration ledger
@@ -353,10 +353,10 @@ jobs:
           npm run build --workspace=@taptime/backend-schema
           npm run build --workspace=@taptime/backend-identity
 
-      - name: Apply schema migrations 001 through 013
+      - name: Apply schema migrations 001 through 014
         run: npm run migrate --workspace=@taptime/backend-schema
 
-      - name: Re-run and verify migration ledger 001 through 013
+      - name: Re-run and verify migration ledger 001 through 014
         run: |
           npm run migrate --workspace=@taptime/backend-schema
           npm run verify-migrations --workspace=@taptime/backend-schema
@@ -437,10 +437,10 @@ jobs:
           npm run build --workspace=@taptime/backend-time-review
           npm run build --workspace=@taptime/backend-offline-sync
 
-      - name: Apply schema migrations 001 through 013 to clean PostgreSQL 17
+      - name: Apply schema migrations 001 through 014 to clean PostgreSQL 17
         run: npm run migrate --workspace=@taptime/backend-schema
 
-      - name: Re-run and verify migration ledger 001 through 013
+      - name: Re-run and verify migration ledger 001 through 014
         run: |
           npm run migrate --workspace=@taptime/backend-schema
           npm run verify-migrations --workspace=@taptime/backend-schema
@@ -516,10 +516,10 @@ jobs:
           npm run build --workspace=@taptime/backend-schema
           npm run build --workspace=@taptime/backend-identity
 
-      - name: Apply schema migrations 001 through 013 to clean PostgreSQL 17
+      - name: Apply schema migrations 001 through 014 to clean PostgreSQL 17
         run: npm run migrate --workspace=@taptime/backend-schema
 
-      - name: Re-run and verify migration ledger 001 through 013
+      - name: Re-run and verify migration ledger 001 through 014
         run: |
           npm run migrate --workspace=@taptime/backend-schema
           npm run verify-migrations --workspace=@taptime/backend-schema
@@ -584,10 +584,10 @@ jobs:
           npm run build --workspace=@taptime/backend-identity
           npm run build --workspace=@taptime/backend-lifecycle
 
-      - name: Apply schema migrations 001 through 013 to clean PostgreSQL 17
+      - name: Apply schema migrations 001 through 014 to clean PostgreSQL 17
         run: npm run migrate --workspace=@taptime/backend-schema
 
-      - name: Re-run and verify migration ledger 001 through 013
+      - name: Re-run and verify migration ledger 001 through 014
         run: |
           npm run migrate --workspace=@taptime/backend-schema
           npm run verify-migrations --workspace=@taptime/backend-schema
@@ -742,7 +742,7 @@ jobs:
           npm run typecheck --workspace=@taptime/time-review-contract
           npm test --workspace=@taptime/time-review-contract
 
-      - name: Apply, replay, and verify schema migrations 001 through 013
+      - name: Apply, replay, and verify schema migrations 001 through 014
         run: |
           npm run migrate --workspace=@taptime/backend-schema
           npm run migrate --workspace=@taptime/backend-schema

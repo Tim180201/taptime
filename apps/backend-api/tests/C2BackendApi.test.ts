@@ -201,13 +201,13 @@ afterAll(async () => {
 });
 
 describe('C2 package, runtime composition, and least privilege', () => {
-  it('uses exactly migrations 001 through 013 and reruns the ledger cleanly', async () => {
+  it('uses exactly migrations 001 through 014 and reruns the ledger cleanly', async () => {
     expect((await loadMigrations()).map(({ version }) => version)).toEqual([
-      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013',
+      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014',
     ]);
     await expect(migrate(installerPool)).resolves.toEqual({
       applied: [],
-      alreadyApplied: ['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013'],
+      alreadyApplied: ['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014'],
     });
   });
 
