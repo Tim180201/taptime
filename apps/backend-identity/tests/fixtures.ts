@@ -70,9 +70,17 @@ export async function contaminateExistingResolverRole(installerPool: Pool): Prom
     END
     $roles$;
     ALTER ROLE taptime_identity_resolver WITH
-      LOGIN INHERIT SUPERUSER CREATEDB CREATEROLE REPLICATION BYPASSRLS;
+      LOGIN INHERIT CREATEDB CREATEROLE REPLICATION BYPASSRLS;
     GRANT ${B4_RESOLVER_PARENT_CONTAMINATION_ROLE} TO taptime_identity_resolver;
   `);
+}
+
+export async function contaminateResolverRoleWithSuperuser(
+  installerPool: Pool,
+): Promise<void> {
+  await installerPool.query(
+    'ALTER ROLE taptime_identity_resolver WITH SUPERUSER',
+  );
 }
 
 export function b4RuntimeConnectionString(

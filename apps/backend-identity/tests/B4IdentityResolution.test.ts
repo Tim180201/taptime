@@ -20,17 +20,20 @@ import {
   type RequestActorContext,
 } from '../src/index.js';
 import {
+  applyMigrationSet,
   B3_MIGRATION_TABLE,
   B3_SCHEMA,
   loadMigrations,
   migrate,
 } from '../../backend-schema/src/index.js';
+import { closePoolAndDropTestDatabase } from '../../backend-schema/tests/support/postgresTestDatabaseCleanup.mjs';
 import {
   B4_RESOLVER_PARENT_CONTAMINATION_ROLE,
   B4_RESOLVER_TEST_LOGIN,
   b4Ids,
   b4RuntimeConnectionString,
   contaminateExistingResolverRole,
+  contaminateResolverRoleWithSuperuser,
   ensureSyntheticResolverLogin,
   postgresErrorCode,
   resetAndSeedB4,
@@ -256,6 +259,73 @@ describe('versioned B4 migration', () => {
 
     const rerun = await migrate(installerPool);
     expect(rerun).toEqual({ applied: [], alreadyApplied: ['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013'] });
+  });
+
+  it('refuses to migrate when the resolver role is already SUPERUSER', async () => {
+    const database = 'taptime_b4_superuser_rejection';
+    await installerPool.query(`DROP DATABASE IF EXISTS ${database} WITH (FORCE)`);
+    await installerPool.query(`CREATE DATABASE ${database}`);
+    const url = new URL(installerConnectionString);
+    url.pathname = `/${database}`;
+    const superuserProbePool = new Pool({ connectionString: url.toString(), max: 2 });
+
+    try {
+      const migrations = await loadMigrations();
+      await applyMigrationSet(superuserProbePool, migrations.slice(0, 3));
+      await contaminateResolverRoleWithSuperuser(installerPool);
+
+      let migrationFailure: unknown;
+      try {
+        await applyMigrationSet(superuserProbePool, migrations.slice(3, 4));
+      } catch (error) {
+        migrationFailure = error;
+      }
+
+      expect(migrationFailure).toMatchObject({
+        code: 'P0001',
+        message: `TapTime roles must not be SUPERUSER: ${B4_IDENTITY_RESOLVER_ROLE}`,
+      });
+
+      const schemaState = await superuserProbePool.query<{
+        ledger_count: number;
+        resolver_function: string | null;
+      }>(`
+        SELECT
+          (SELECT count(*)::integer FROM ${B3_MIGRATION_TABLE} WHERE version = '004')
+            AS ledger_count,
+          to_regprocedure('${B3_SCHEMA}.resolve_request_actor(text,text)')::text
+            AS resolver_function
+      `);
+      expect(schemaState.rows[0]).toEqual({
+        ledger_count: 0,
+        resolver_function: null,
+      });
+
+      const roleState = await installerPool.query<{ rolsuper: boolean }>(`
+        SELECT rolsuper FROM pg_catalog.pg_roles
+        WHERE rolname = '${B4_IDENTITY_RESOLVER_ROLE}'
+      `);
+      expect(roleState.rows[0]).toEqual({ rolsuper: true });
+    } finally {
+      try {
+        await installerPool.query(
+          `ALTER ROLE ${B4_IDENTITY_RESOLVER_ROLE} WITH NOSUPERUSER`,
+        );
+        const cleanedRole = await installerPool.query<{ rolsuper: boolean }>(`
+          SELECT rolsuper FROM pg_catalog.pg_roles
+          WHERE rolname = '${B4_IDENTITY_RESOLVER_ROLE}'
+        `);
+        if (cleanedRole.rows[0]?.rolsuper !== false) {
+          throw new Error('B4 SUPERUSER probe role cleanup failed');
+        }
+      } finally {
+        await closePoolAndDropTestDatabase({
+          targetPool: superuserProbePool,
+          installerPool,
+          databaseName: database,
+        });
+      }
+    }
   });
 });
 
