@@ -18,9 +18,26 @@ END
 $roles$;
 
 ALTER ROLE taptime_assignment_reassigner WITH
-  NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+  NOLOGIN NOINHERIT NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
 ALTER ROLE taptime_assignment_reassignment_function_owner WITH
-  NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION BYPASSRLS;
+  NOLOGIN NOINHERIT NOCREATEDB NOCREATEROLE NOREPLICATION BYPASSRLS;
+
+DO $verify_no_superuser$
+DECLARE
+  offending text;
+BEGIN
+  SELECT pg_catalog.string_agg(rolname, ', ' ORDER BY rolname) INTO offending
+  FROM pg_catalog.pg_roles
+  WHERE rolname IN (
+    'taptime_assignment_reassigner',
+    'taptime_assignment_reassignment_function_owner'
+  )
+    AND rolsuper;
+  IF offending IS NOT NULL THEN
+    RAISE EXCEPTION 'TapTime roles must not be SUPERUSER: %', offending;
+  END IF;
+END
+$verify_no_superuser$;
 
 DO $normalize_role_graph$
 DECLARE

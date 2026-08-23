@@ -63,9 +63,9 @@ mandantensicheren Fremdschlüssel. Ohne Ausnahme.
 
 ---
 
-## 4. Die drei Invarianten für spätere Erweiterung
+## 4. Die Invarianten für spätere Erweiterung
 
-Diese drei Eigenschaften sind der Grund, warum Controlling, Auswertungen oder Abrechnung
+Diese Eigenschaften sind der Grund, warum Controlling, Auswertungen oder Abrechnung
 später *additiv* möglich sind. Sie dürfen nicht gebrochen werden.
 
 ### I1 — `work_targets` ist die einzige Dimensionstabelle
@@ -93,6 +93,14 @@ Zeiterfassungen scheitern, sobald jemand Controlling darauf aufsetzen will.
 erzeugen eine **neue Version**, niemals eine Änderung an einer bestehenden.
 
 Controlling wird V3. Bestehende Kunden-Importe brechen dadurch nicht.
+
+### I4 — Angewendete Migrationen sind eingefroren
+
+Der Migrations-Ledger speichert je Migration eine SHA-256-Prüfsumme und bricht bei
+Abweichung ab. Sobald eine Migration auf einer Datenbank mit schützenswerten Daten
+verzeichnet ist, ist ihre Datei dauerhaft unveränderlich. Korrekturen kommen
+ausschließlich als neue Migration. Die einmalige Änderung von 004 bis 012 am
+2026-08-23 war zulässig, weil zu diesem Zeitpunkt keine solche Datenbank existierte.
 
 ---
 
