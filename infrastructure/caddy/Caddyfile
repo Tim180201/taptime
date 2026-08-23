@@ -1,0 +1,14 @@
+http://api.tb-infra.de {
+	header -Server
+	redir https://api.tb-infra.de{uri} permanent
+}
+
+api.tb-infra.de {
+	header {
+		-Server
+		-Via
+	}
+	reverse_proxy backend-api:3000 {
+		header_down -Server
+	}
+}

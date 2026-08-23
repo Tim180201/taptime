@@ -22,15 +22,64 @@ services:
       retries: 20
     restart: unless-stopped
 
+  backend-api:
+    build:
+      context: ..
+      dockerfile: infrastructure/backend-api/Dockerfile
+    env_file:
+      - /opt/taptime/.env
+    depends_on:
+      database:
+        condition: service_healthy
+    networks:
+      - taptime-internal
+      - taptime-edge
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp:mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2.10.2-alpine
+    depends_on:
+      backend-api:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - taptime-caddy-data:/data
+      - taptime-caddy-config:/config
+    networks:
+      - taptime-edge
+    read_only: true
+    tmpfs:
+      - /tmp:mode=1777
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+
 networks:
   taptime-internal:
     name: taptime-internal
     internal: true
+  taptime-edge:
+    name: taptime-edge
 
 volumes:
   taptime-postgres-data:
     name: taptime-postgres-data
+  taptime-caddy-data:
+    name: taptime-caddy-data
+  taptime-caddy-config:
+    name: taptime-caddy-config
 
 secrets:
   postgres_installer_password:
-    file: ./secrets/postgres-installer-password
+    file: /opt/taptime/secrets/postgres-installer-password

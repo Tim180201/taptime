@@ -106,6 +106,50 @@ ausschließlich als neue Migration. Die einmalige Änderung von 004 bis 012 am
 
 ---
 
+## 4b. Funktionsumfang — was das Produkt kann
+
+Diese Übersicht existiert, damit niemand — Mensch oder Agent — den Funktionsumfang aus dem
+Quelltext zusammensuchen muss. Bei jeder Erweiterung mitpflegen.
+
+### Die Auslöser-Regel (ADR-0017, DA5-T01)
+
+**NFC-Scan und manuelle Erfassung sind beides nur Auslöser, niemals Start- oder Stopp-Befehle.**
+Beide erzeugen ein unveränderliches WorkEvent und laufen durch dieselbe Business Engine.
+Keine Oberfläche, kein Adapter, keine API-Route darf Start oder Stopp vorwählen oder einen
+TimeEntry direkt verändern.
+
+Entscheidungsreihenfolge der Engine:
+ungültig ablehnen → Duplikatschutz → starten, wenn nichts läuft → stoppen, wenn dasselbe Ziel
+läuft → ablehnen, wenn ein anderes Ziel läuft → bei widersprüchlichem Zustand eskalieren.
+
+### Ziele
+
+`customer` · `project` · `general_work`. Die eingebaute **Allgemeine Arbeitszeit** existiert
+genau einmal je Organisation, ist immer aktiv und lässt sich weder umbenennen noch löschen.
+
+### Mobile-App — acht Bildschirme
+
+| Bildschirm | Zweck |
+|---|---|
+| Anmelden | E-Mail und Passwort, alternativ „Mit Einladung beitreten" |
+| Einladung einlösen | Einladungsgeheimnis eingeben, Mitgliedschaft entsteht |
+| NFC-Tag scannen | Der Kernweg. Chip halten, Engine entscheidet. |
+| **Manuell erfassen** | Ziel suchen und auslösen — ohne Chip, gleiche Engine |
+| **Manuell erfassen (offline)** | Dasselbe ohne Netz, aus dem lokalen Zielbestand |
+| Meine Zeiten | Eigene Einträge der letzten 31 Tage |
+| Synchronisierung | Abgleichstatus, unveränderte Daten erneut senden |
+| Einrichtung | NFC-Tag erfassen und zuordnen — **nur Administratoren** |
+
+### Admin-Web — fünf Ansichten
+
+| Ansicht | Zweck |
+|---|---|
+| Übersicht | Lage auf einen Blick |
+| Einrichtung | Kunden, Projekte, NFC-Tags anlegen, zuweisen, neu zuweisen |
+| Beschäftigte | Einladungen erstellen, Mitgliedschaften verwalten |
+| Arbeitszeiten | Abfragen, korrigieren (append-only), als CSV exportieren |
+| Prüfungen | Nachträge und Offline-Konflikte entscheiden |
+
 ## 5. Offline
 
 Kernerfassung funktioniert ohne Netz (Produktprinzip 4). Die App schreibt in eine lokale

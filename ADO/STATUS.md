@@ -96,6 +96,10 @@ Der Technical Lead führt beide Zahlen mit, um eigene systematische Fehler zu er
   erledigen.
 - **P3:** Fünf hohe npm-Audit-Meldungen, alle im Expo/Metro-Build-Werkzeug der Mobile-App.
   Nichts davon läuft im Backend-Container. Updates verfügbar.
+- **P3:** Caddy nennt bei HTTP-Anfragen an die IP oder einen fremden Host seinen Produktnamen
+  ohne Version. Die Antworten für `api.tb-infra.de` enthalten den Header nicht.
+- **P3:** Caddy kündigt HTTP/3 per `Alt-Svc` an, obwohl aktuell nur 443/TCP veröffentlicht ist.
+  Funktional fällt der Client auf HTTP/2 zurück; die Ankündigung ist unnötig.
 - Mit dem entfernten CI-Job entfielen auch Absicherungen gegen bekannte Lücken in
   Abhängigkeiten (GHSA-Einträge, `image-size`). Falls das erhalten bleiben soll, gehört es in
   eine eigene Abhängigkeits-Richtlinie — nicht zurück in den eingefrorenen Harness.
