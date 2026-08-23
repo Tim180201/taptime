@@ -38,6 +38,7 @@ Hexagonal: Geschäftslogik kennt weder UI noch NFC-Bibliothek noch Datenbank.
 | `apps/backend-api` | **Das einzige deploybare Backend.** Bündelt alle `backend-*` | Node 24, esbuild, `node dist/main.js` |
 | `apps/backend-*` | Fachliche Server-Module (15 Stück) | als Bibliotheken eingebunden |
 | `apps/backend-schema` | Datenbankmigrationen (013) | SQL, Schema `taptime_server` |
+| PostgreSQL | **Selbstbetrieben auf dem Hetzner-Server** (ADR-0021). Supabase liefert nur noch Authentifizierung. | Container, festes Datenverzeichnis |
 | `apps/mobile` | Android-App | Expo 57, RN 0.86, NFC, SQLite-Offline-Queue |
 | `apps/admin-web` | Verwaltung im Browser | Vite + React, 5 Ansichten |
 
@@ -50,7 +51,8 @@ Neue fachliche Module (z. B. später `backend-controlling`) kommen als weiteres
 
 ## 3. Mandantentrennung
 
-Supabase-managed PostgreSQL. Jede fachliche Tabelle trägt `organization_id` und ist über
+PostgreSQL läuft selbstbetrieben auf dem eigenen Server (ADR-0021); Supabase stellt nur noch
+die Authentifizierung. Jede fachliche Tabelle trägt `organization_id` und ist über
 **Row Level Security** (`ENABLE` + `FORCE`) abgesichert. Zusammengesetzte Fremdschlüssel
 enthalten immer `organization_id`, damit ein Datensatz technisch nicht über Mandantengrenzen
 zeigen kann.
@@ -128,8 +130,8 @@ Das ist eine bewusste v1-Reduktion, kein Versehen. Eine Erweiterung ist additiv 
 
 Ehrlicher Stand, damit niemand es für vorhanden hält:
 
-- **Kein Betrieb.** `infrastructure/` ist leer. Kein Deployment, kein Backup, kein
-  getesteter Restore, kein Healthcheck, kein Monitoring.
+- **Kein Betrieb.** Kein Server, kein Deployment, kein Backup, kein getesteter Restore,
+  kein Monitoring. Container und Healthcheck sind gebaut (T-002).
 - **Keine Pausenlogik.** `time_entries` kennt nur `started` und `stopped`.
   Offene Produkt-/Rechtsfrage — siehe `ADO/PLAN.md`, Bahn A.
 - **Keine Distribution.** Kein signiertes Release, kein Play-Console-Eintrag.

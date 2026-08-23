@@ -132,3 +132,28 @@ Beides existiert bereits generisch.
 
 **Warum:** Diese Regel steht schon in ADR-0020 selbst. Sie wird hier festgeschrieben, damit sich
 keine branchenspezifische Annahme unbemerkt in den Code schleicht.
+
+---
+
+## D-010 · PostgreSQL selbstbetrieben, Supabase nur für Auth · 23.08.2026 · Claude (TL)
+
+**Entscheidung:** Die Produktdatenbank läuft als PostgreSQL-Container auf dem eigenen
+Hetzner-Server in Deutschland. Supabase bleibt ausschließlich Authentifizierungsanbieter.
+Ausführlich in `ADO/01_Architecture/ADR/ADR-0021`.
+
+**Warum:** Sechs Berechtigungshürden in einer einzigen Aufgabe, alle aus derselben Ursache —
+das Schema wurde für einen Superuser gebaut, Supabase gibt keinen. Die Fehlerrate nahm nicht ab.
+Hürde 5 und 6 hätten Eingriffe in die Rollengraph-Normalisierung verlangt, also in genau den
+Code, der die Mandantentrennung absichert. Umgebungszwänge sind das schlechteste Motiv für
+solche Eingriffe.
+
+**Möglich, weil:** Das Schema ist vollständig anbieterunabhängig. `identity_bindings` speichert
+nur `issuer` und `subject`, keine Referenz auf Supabases `auth`-Schema.
+
+**Nebeneffekte:** Produktion verhält sich exakt wie CI. Personenbezogene Produktdaten liegen in
+Deutschland statt bei einem US-Anbieter. Rund 8 € statt 32 € im Monat.
+
+**Preis:** Wir betreiben die Datenbank selbst. Bekannte Einschränkung: Datenbank und Anwendung
+zunächst auf demselben Server — vor dem ersten zahlenden Kunden neu zu bewerten.
+
+**Ersetzt** die frühere Empfehlung des Technical Lead, auf Supabase weiterzupatchen.

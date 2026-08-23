@@ -37,10 +37,22 @@ danach Firma, Recht und Store.
 
 ## Aktuelle Aufgabe
 
-**T-003 — Supabase EU, Schema und 17 Laufzeitrollen.** Siehe `ADO/TASK.md`.
+**T-004 — Hetzner-Server, PostgreSQL, Schema und 17 Laufzeitrollen.** Siehe `ADO/TASK.md`.
 Berührt die Mandantentrennung, daher mit verpflichtendem unabhängigem Review.
 
-Danach T-004 bis T-010, siehe `ADO/PLAN.md`.
+Danach T-005 bis T-011, siehe `ADO/PLAN.md`.
+
+## T-003 — eingestellt, nicht abgeschlossen
+
+Der Versuch, das Schema auf Supabase einzuspielen, ist nach **sechs Berechtigungshürden**
+eingestellt worden. Das Ziel — Schema und 17 Laufzeitrollen — wandert unverändert nach T-004,
+auf eine selbstbetriebene Datenbank. Begründung: `ADR-0021` und `DECISIONS.md` D-010.
+
+**Dauerhaft übernommen:** `d6b8679` (Prüfblöcke gegen SUPERUSER in den Migrationen) und
+`400fd43` (B4-Test deckt Normalisierung *und* Verweigerung ab). Beide sind unabhängig vom
+Betreiber Verbesserungen.
+
+**Verworfen:** die uncommitteten Nicht-Superuser-Umbauten aus T-003d und T-003f.
 
 ## Schätzung gegen Wirklichkeit
 
@@ -50,7 +62,8 @@ Der Technical Lead führt beide Zahlen mit, um eigene systematische Fehler zu er
 |---|---|---|
 | T-001 | eine Sitzung | eine Sitzung + eine Nachbesserung |
 | T-002 | zwei Sitzungen | zwei Sitzungen (inkl. T-002b) |
-| T-003 | zwei Sitzungen | offen |
+| T-003 | zwei Sitzungen | **sechs** — eingestellt |
+| T-004 | zwei Sitzungen | offen |
 
 ---
 
@@ -59,8 +72,7 @@ Der Technical Lead führt beide Zahlen mit, um eigene systematische Fehler zu er
 | Was | Von wem | Warum es drängt |
 |---|---|---|
 | **Produktname** | Tim | „TapTime" ist vergeben. Wird für Store, Firma und Domain gebraucht — Deadline Woche 12. Blockiert Phase 1 nicht. |
-| **`.env.bootstrap`** | Tim | Blockiert T-003. Zwei Zeilen: Supabase-Admin-Verbindung und Issuer-URL. |
-| **Domain `tb-infra.de`** | Tim | Blockiert T-004 — ohne Domainname kein TLS-Zertifikat. Nur technisch, **nicht der Produktname**. |
+| **Server anlegen** | Tim | Blockiert T-004. CX23, Nürnberg oder Falkenstein, SSH-Schlüssel `tim-mac-taptime`, Backups an. Sechs Klicks, der TL lotst durch. |
 
 ---
 

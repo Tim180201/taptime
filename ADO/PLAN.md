@@ -78,15 +78,16 @@ Immer genau eine. Die Reihenfolge ist echt.
 | | Aufgabe | Braucht |
 |---|---|---|
 | T-001 | Prozess-Reset | ✅ erledigt |
-| T-002 | Container und Healthcheck | nichts — läuft lokal |
-| T-003 | Supabase EU, Migrationen | Supabase-Konto |
-| T-004 | Hetzner Deutschland, Deploy mit TLS | Hetzner-Konto, eine Domain |
-| T-005 | Admin-Web ausliefern | — |
-| T-006 | Backup und getesteter Restore | Supabase Pro |
-| T-007 | Pausenerfassung | — |
-| T-008 | Standorte und Standortleiter (ADR-0020) | R3, unabhängiges Review |
-| T-009 | Oberflächen fertigstellen | Nutzer-Feedback |
-| T-010 | Installierbare App per Direktlink | — |
+| T-002 | Container und Healthcheck | ✅ erledigt |
+| T-003 | Supabase-Anlauf | ⛔ eingestellt — siehe D-010 und ADR-0021 |
+| T-004 | Server, PostgreSQL, Schema, 17 Laufzeitrollen | Hetzner-Server |
+| T-005 | API-Container, Caddy, TLS | Domain `tb-infra.de` |
+| T-006 | Admin-Web ausliefern | — |
+| T-007 | Backup und **getesteter Restore** | — |
+| T-008 | Pausenerfassung | — |
+| T-009 | Standorte und Standortleiter (ADR-0020) | R3, unabhängiges Review |
+| T-010 | Oberflächen fertigstellen | Nutzer-Feedback |
+| T-011 | Installierbare App per Direktlink | — |
 
 ---
 
@@ -114,11 +115,9 @@ stehen alle oben in der Aufgabenkette.
 
 ## Was der Betrieb kostet
 
-Phase 1: **~8 € netto im Monat** — Hetzner CX23 5,49 € + IPv4 0,50 € + Backup 1,10 € +
-Supabase Free + EAS Free + eine Domain.
-
-Phase 2: **~32 € netto im Monat** — Supabase Pro kommt dazu (25 $, nötig für tägliche Backups),
-plus einmalig 25 € Play Console.
+**~8 € netto im Monat**, dauerhaft — Hetzner CX23 5,49 € + IPv4 0,50 € + Backup 1,10 € +
+Supabase Free (nur Auth) + EAS Free + eine Domain. Der Supabase-Pro-Tarif entfällt durch
+ADR-0021. In Phase 2 kommen einmalig 25 € Play Console und die Produktdomain dazu.
 
 Die Infrastruktur ist nicht das Kostenrisiko. Ein Monat Anwalt kostet mehr als ein Jahr Server.
 
