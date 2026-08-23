@@ -2,7 +2,7 @@
 
 > **Diese Datei wird überschrieben, nie angehängt.** Sie beschreibt nur den Jetzt-Zustand.
 
-**Stand:** 22.08.2026 · **Ziel:** System fertig in ~11 Wochen, erster Kunde in ~4 Monaten
+**Stand:** 23.08.2026 · **Ziel:** System fertig in ~11 Wochen, erster Kunde in ~4 Monaten
 
 ---
 
@@ -29,6 +29,11 @@ danach Firma, Recht und Store.
   Schema 001–014, RLS auf 29/29 Tabellen, 17 Laufzeitrollen mit minimalen Rechten.
   Migration 014 entzieht tote Schreibrechte; B3-Sicherheitstests von 109 auf 124 gewachsen,
   Nachweisführung von einem auf sieben Tests.
+- **T-005 API im Netz** — `4fd2de2`. Backend-API im Container hinter Caddy, automatisches
+  TLS von Let's Encrypt. Zwei Netze: `taptime-internal` ohne Außenverbindung für API und
+  Datenbank, `taptime-edge` nur für Caddy. Container schreibgeschützt, ohne Capabilities,
+  ohne Rechteerweiterung. `https://api.tb-infra.de/health` liefert `200`, überlebt den
+  Serverneustart.
 - **`tb-infra.de`** zeigt auf den Server, TTL 300, DNS bestätigt
 
 **Nicht vorhanden:**
@@ -43,10 +48,13 @@ danach Firma, Recht und Store.
 
 ## Aktuelle Aufgabe
 
-**T-005 — API im Netz: Container, Reverse Proxy, TLS.** Siehe `ADO/TASK.md`.
-Öffentlich erreichbarer Dienst, daher mit verpflichtendem unabhängigem Review.
+**T-006 — Admin-Web ausliefern und Erstinbetriebnahme.** Siehe `ADO/TASK.md`.
+Erster echter Zugang zum System, daher mit verpflichtendem unabhängigem Review.
 
-Danach T-006 bis T-011, siehe `ADO/PLAN.md`.
+Fertig ist die Aufgabe erst, wenn der Product Owner sich unter `https://admin.tb-infra.de`
+anmeldet und die Übersicht sieht.
+
+Danach T-007 bis T-011, siehe `ADO/PLAN.md`.
 
 ## T-003 — eingestellt, nicht abgeschlossen
 
@@ -70,7 +78,8 @@ Der Technical Lead führt beide Zahlen mit, um eigene systematische Fehler zu er
 | T-002 | zwei Sitzungen | zwei Sitzungen (inkl. T-002b) |
 | T-003 | zwei Sitzungen | **sechs** — eingestellt |
 | T-004 | zwei Sitzungen | drei — inkl. einer Korrekturrunde |
-| T-005 | eine Sitzung | offen |
+| T-005 | eine Sitzung | eine Sitzung |
+| T-006 | zwei Sitzungen | offen |
 
 ---
 
