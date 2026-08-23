@@ -4,112 +4,81 @@
 
 ---
 
-## T-004 · Server, PostgreSQL, Schema und Laufzeitrollen
+## T-005 · API im Netz — Container, Reverse Proxy, TLS
 
-**Für:** Codex · **Risiko:** Mandantentrennung → **unabhängiges Review verpflichtend**
-**Zeitbox:** zwei Arbeitssitzungen · **Grundlage:** ADR-0021
+**Für:** Codex · **Risiko:** öffentlich erreichbarer Dienst → **unabhängiges Review verpflichtend**
+**Zeitbox:** eine Arbeitssitzung · **Grundlage:** T-004 abgeschlossen (`93fd143`)
 
 ### Ziel
 
-Ein Hetzner-Server in Deutschland trägt PostgreSQL mit dem vollständigen Schema und den
-17 Laufzeitrollen. Die Migrationen laufen dort **als Superuser** — identisch zu lokal und CI.
+`https://api.tb-infra.de/health` antwortet aus dem Internet mit `200 {"status":"ok"}` —
+über ein gültiges Zertifikat, und der Dienst übersteht einen Neustart des Servers.
 
-### Schritt 0 — Aufräumen vor dem Anfang
+### Schritte
 
-Die uncommitteten Änderungen aus T-003d und T-003f werden **verworfen**:
+**1. API-Container ausrollen**
 
-```
-git checkout -- apps/backend-schema/src/migrations.ts apps/backend-schema/migrations/
-git status --short
-```
+- `backend-api` mit dem Dockerfile aus T-002 auf dem Server bauen und starten
+- Erreicht PostgreSQL **ausschließlich über das interne Netz** — kein Umweg über die
+  öffentliche Adresse
+- Liest die 17 Verbindungszeichenfolgen und `SUPABASE_ISSUER` aus der `.env` vom Server
+- **Läuft als nicht-privilegierter Benutzer**, nicht als root
 
-Begründung: Sie lösen ausschließlich das Nicht-Superuser-Problem, das mit ADR-0021 entfällt.
-Halbfertige Komplexität für einen verworfenen Fall wird nicht mitgeschleppt.
+**2. Caddy als Reverse Proxy**
 
-**Was bleibt:** Die committeten Verbesserungen aus T-003b (Prüfblöcke gegen SUPERUSER) sind
-unabhängig richtig und bleiben unverändert.
+- Holt und erneuert das Zertifikat für `api.tb-infra.de` automatisch über Let's Encrypt
+- Leitet `http://` dauerhaft auf `https://` um
+- Gibt **keine Versionsangaben** preis — weder Caddy noch Node in den Antwort-Headern
+- Reicht ausschließlich an den API-Container weiter; **PostgreSQL ist nicht über den Proxy
+  erreichbar**
 
-Prüfe danach: Alle 13 Migrationen sind byte-identisch zu `origin/main`.
+**3. Neustartfestigkeit**
 
-### Schritt 1 — Server anlegen
+- Alle Container starten nach einem Serverneustart **von selbst** wieder
+- **Weise das nach:** Server wirklich neu starten, dann prüfen, dass `/health` ohne
+  Handgriff wieder antwortet. Nicht die Konfiguration lesen — den Neustart durchführen.
 
-Das macht der **Product Owner** in der Hetzner Cloud Console. Sage ihm Bescheid, sobald
-Schritt 0 sauber ist, und warte auf die IP-Adresse.
+**4. Protokollhygiene**
 
-Vorgabe: **CX23**, Standort **Nürnberg oder Falkenstein**, Ubuntu LTS, SSH-Schlüssel
-`tim-mac-taptime`, **Backups aktiviert**, kein Passwortlogin.
-
-### Schritt 2 — Server absichern
-
-- SSH nur mit Schlüssel, **Passwortanmeldung und Root-Login per Passwort deaktiviert**
-- Firewall: **nur 22, 80 und 443** von außen erreichbar
-- **PostgreSQL ist von außen nicht erreichbar** — kein offener Port 5432 ins Internet
-- Automatische Sicherheitsaktualisierungen aktiviert
-- Zeitzone UTC
-
-### Schritt 3 — PostgreSQL als Container
-
-- Feste Hauptversion, passend zu lokal und CI. **Version nennen und begründen.**
-- Daten auf einem dauerhaften Datenträger, nicht im Container
-- Erreichbar nur für den API-Container über ein internes Netz
-- Ein Installationsbenutzer mit Superuser-Rechten für Migrationen
-
-### Schritt 4 — Schema einspielen
-
-- Migrationen 001 bis 013 in Reihenfolge
-- Nachweisen: alle erwarteten Tabellen vorhanden, RLS auf jeder fachlichen Tabelle
-  **`ENABLED` und `FORCED`** — Liste in den Bericht
-- Ledger vollständig, Prüfsummen stimmen
-
-### Schritt 5 — Die 17 Laufzeitrollen
-
-- Vorlage: `infrastructure/postgres/local-runtime-logins.sql`
-- Namensschema `taptime_<modul>`, **je Rolle ein eigenes Zufallspasswort** (mind. 32 Zeichen
-  aus kryptographischem Zufall)
-- `NOSUPERUSER`, `NOCREATEDB`, `NOCREATEROLE`, `NOBYPASSRLS` — für alle 17, ohne Ausnahme
-- Jede Rolle bekommt **exakt die Rechte, die ihr Modul braucht** — nicht mehr
-- Als `infrastructure/postgres/server-runtime-logins.sql` ablegen, **mit Platzhaltern statt
-  Passwörtern**
-
-### Schritt 6 — Konfiguration und Nachweis
-
-- `.env` auf dem Server erzeugen, nach dem Muster aus `infrastructure/env.example`
-- `SUPABASE_ISSUER` bleibt auf das Supabase-Projekt gerichtet — **Auth ändert sich nicht**
-- `TAPTIME_MOBILE_OWN_TIME_CURSOR_HMAC_KEY`: 32 Zufallsbytes, base64url ohne Auffüllzeichen
-- **Negativprobe:** Melde dich mit einer Laufzeitrolle an und weise nach, dass sie etwas, das
-  ihr Modul nicht braucht, **nicht** kann. Ergebnis in den Bericht.
+- Prüfe die Protokolle von Caddy und API auf Zugangsdaten, Verbindungszeichenfolgen,
+  Token oder E-Mail-Adressen. **Nichts davon darf dort auftauchen.**
 
 ### Vision-Check
 
-Keine fachliche Logik wird geändert. Keine Migration wird bearbeitet. Die Kette
-`Trigger → WorkEvent → BusinessEngine → TimeEntry` bleibt unberührt.
+Keine fachliche Logik, keine Migration, keine Nutzerinteraktion. Reiner Betrieb.
 
 ### Nicht anfassen
 
-- `apps/backend-schema/migrations/` — die Migrationen werden **ausgeführt**, nicht bearbeitet
-- `packages/core`, jede Geschäftslogik, `apps/mobile`, `apps/synthetic-android-e2e`
+- `apps/backend-schema/migrations/` und jede Geschäftslogik
+- `packages/core`, `apps/mobile`, `apps/synthetic-android-e2e`
+- Der Healthcheck selbst — der ist aus T-002 fertig und geprüft
 
-### Prüfung
+### Prüfung — alles nachweisen, nichts behaupten
 
-- Migrationen 001–013 vollständig, Ledger stimmt
-- RLS auf allen fachlichen Tabellen `ENABLED` und `FORCED`
-- Alle 17 Rollen ohne `SUPERUSER` und ohne `BYPASSRLS` — **nachweisen, nicht behaupten**
-- PostgreSQL von außen nicht erreichbar — **nachweisen**
-- **Kein Geheimnis im Repository.** `git diff` gegen Passwörter und Verbindungszeichenfolgen prüfen
-- CI grün
+- `https://api.tb-infra.de/health` → `200` und **exakt** `{"status":"ok"}`
+- Zertifikat gültig, korrekte Kette, richtiger Name
+- `http://api.tb-infra.de/health` leitet auf `https://` um
+- **Von außen weiterhin nur 22, 80 und 443 offen.** Voller Portscan, wie in T-004.
+- PostgreSQL von außen **nicht** erreichbar
+- Ein beliebiger anderer Endpunkt ohne Anmeldung → `401`, nicht `200`
+- Antwort-Header enthalten keine Versionsangaben
+- Nach echtem Serverneustart antwortet `/health` wieder ohne Eingriff
+- Keine Geheimnisse in Protokollen oder im Diff
+- CI grün, kein `[skip ci]`
 
 ### Zusätzliches Review
 
-> Kann eine der 17 Laufzeitrollen mehr, als ihr Modul benötigt? Ist die Datenbank von außerhalb
-> des Servers erreichbar? Liegt irgendein Geheimnis im Repository?
+> Ist über `api.tb-infra.de` irgendetwas erreichbar, das nicht erreichbar sein soll?
+> Verrät eine Antwort — Header, Fehlermeldung, Zeitverhalten — mehr als nötig?
 
 ### Abschluss
 
-Vier Punkte melden. **Nicht committen** vor `APPROVED` durch den Technical Lead.
+Vier Punkte melden. **Entfernte oder umgeschriebene Tests einzeln benennen, mit Begründung** —
+nie als Sammelposten. **Nicht committen** vor `APPROVED` durch den Technical Lead.
 
 ---
 
 ## Danach
 
-`T-005` — API-Container, Caddy, TLS. Dann T-006 Admin-Web, T-007 Backup und **getesteter
-Restore**, T-008 Pausen, T-009 Standorte, T-010 Oberflächen, T-011 installierbare App.
+`T-006` Admin-Web ausliefern · `T-007` Backup und **getesteter Restore** · `T-008` Pausen ·
+`T-009` Standorte · `T-010` Oberflächen · `T-011` installierbare App.

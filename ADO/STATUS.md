@@ -24,6 +24,12 @@ danach Firma, Recht und Store.
 - **T-002 Container und Healthcheck** — `e7a16f0`, `/health` mit eigenem Verbindungspool,
   Dockerfile ohne root, `env.example` mit 17 Least-Privilege-Rollen
 - **T-002b** — `1c81aed`, eingefrorener Harness aus CI entfernt (1.180 → 767 Zeilen)
+- **T-004 Server und Datenbank** — `3b35007` und `93fd143`. Hetzner Nürnberg, CX23,
+  `46.225.58.30`. PostgreSQL 17 im Container, von außen nicht erreichbar, nur Port 22 offen.
+  Schema 001–014, RLS auf 29/29 Tabellen, 17 Laufzeitrollen mit minimalen Rechten.
+  Migration 014 entzieht tote Schreibrechte; B3-Sicherheitstests von 109 auf 124 gewachsen,
+  Nachweisführung von einem auf sieben Tests.
+- **`tb-infra.de`** zeigt auf den Server, TTL 300, DNS bestätigt
 
 **Nicht vorhanden:**
 
@@ -37,10 +43,10 @@ danach Firma, Recht und Store.
 
 ## Aktuelle Aufgabe
 
-**T-004 — Hetzner-Server, PostgreSQL, Schema und 17 Laufzeitrollen.** Siehe `ADO/TASK.md`.
-Berührt die Mandantentrennung, daher mit verpflichtendem unabhängigem Review.
+**T-005 — API im Netz: Container, Reverse Proxy, TLS.** Siehe `ADO/TASK.md`.
+Öffentlich erreichbarer Dienst, daher mit verpflichtendem unabhängigem Review.
 
-Danach T-005 bis T-011, siehe `ADO/PLAN.md`.
+Danach T-006 bis T-011, siehe `ADO/PLAN.md`.
 
 ## T-003 — eingestellt, nicht abgeschlossen
 
@@ -63,7 +69,8 @@ Der Technical Lead führt beide Zahlen mit, um eigene systematische Fehler zu er
 | T-001 | eine Sitzung | eine Sitzung + eine Nachbesserung |
 | T-002 | zwei Sitzungen | zwei Sitzungen (inkl. T-002b) |
 | T-003 | zwei Sitzungen | **sechs** — eingestellt |
-| T-004 | zwei Sitzungen | offen |
+| T-004 | zwei Sitzungen | drei — inkl. einer Korrekturrunde |
+| T-005 | eine Sitzung | offen |
 
 ---
 
@@ -72,7 +79,7 @@ Der Technical Lead führt beide Zahlen mit, um eigene systematische Fehler zu er
 | Was | Von wem | Warum es drängt |
 |---|---|---|
 | **Produktname** | Tim | „TapTime" ist vergeben. Wird für Store, Firma und Domain gebraucht — Deadline Woche 12. Blockiert Phase 1 nicht. |
-| **Server anlegen** | Tim | Blockiert T-004. CX23, Nürnberg oder Falkenstein, SSH-Schlüssel `tim-mac-taptime`, Backups an. Sechs Klicks, der TL lotst durch. |
+| — | — | **Aktuell nichts.** Alle Vorbereitungen des Product Owner sind erledigt. |
 
 ---
 
