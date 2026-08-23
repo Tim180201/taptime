@@ -4,105 +4,115 @@
 
 ---
 
-## T-002 · Betriebsfähig machen — Container und Healthcheck
+## T-003 · Supabase EU — Schema und Laufzeitrollen
 
-**Für:** Codex · **Risiko:** normaler Code + eine neue öffentliche Route
-**Zeitbox:** zwei Arbeitssitzungen
-**Vorbedingung:** T-001 ist committet
+**Für:** Codex · **Risiko:** Mandantentrennung → **unabhängiges Review verpflichtend**
+**Zeitbox:** zwei Arbeitssitzungen · **Vorbedingung:** T-002b committet, CI grün
 
 ### Ziel
 
-`backend-api` läuft reproduzierbar in einem Container und sagt von außen, ob es lebt.
-**Alles läuft lokal — es wird kein einziges Konto und kein Cloud-Dienst gebraucht.**
+Das Supabase-Projekt trägt das vollständige Schema und 17 Laufzeitrollen mit minimalen Rechten.
+Das Backend läuft lokal gegen Supabase und meldet `/health` = 200.
 
-Das ist die Vorbereitung für T-003 (Supabase) und T-004 (Hetzner). Wenn diese Aufgabe fertig
-ist, ist das Deployment nur noch Kontenarbeit.
+### Was der Product Owner bereitstellt
+
+Eine Datei `.env.bootstrap` im Wurzelverzeichnis (nicht im Repo, steht in `.gitignore`):
+
+```
+SUPABASE_ADMIN_DATABASE_URL=<direkte Verbindungszeichenfolge aus dem Supabase-Dashboard>
+SUPABASE_ISSUER=https://<project-ref>.supabase.co/auth/v1
+```
+
+**Das ist das einzige Geheimnis, das er anfassen muss.** Alle 17 Rollenpasswörter erzeugst du.
 
 ### Schritte
 
-**1. Healthcheck-Endpunkt**
+**1. Verbindung prüfen, bevor irgendetwas geschrieben wird**
 
-In `apps/backend-api/src/BackendHttpServer.ts` eine Route `GET /health` ergänzen:
+- Verbindung aufbauen, PostgreSQL-Version und Region ausgeben
+- **Wenn die Region nicht `eu-central-1` / Frankfurt ist: sofort stoppen und melden.** Nicht
+  weiterarbeiten. Die Region ist nachträglich nicht änderbar.
 
-- **Ohne Authentifizierung** — Überwachung muss ohne Zugangsdaten funktionieren
-- Antwort bei Erfolg: `200` mit exakt `{"status":"ok"}`
-- Antwort bei nicht erreichbarer Datenbank: `503` mit exakt `{"status":"degraded"}`
-- **Keine weiteren Felder.** Keine Version, kein Hostname, keine Fehlermeldung, kein Stacktrace,
-  keine Datenbank-Details. Ein unauthentifizierter Endpunkt gibt nichts preis.
-- Header `Cache-Control: no-store`
-- Die Datenbankprüfung ist ein einfaches `SELECT 1` mit kurzem Timeout (2 s), niemals eine
-  fachliche Abfrage, und **nie** mit Mandantenkontext.
+**2. Migrationen einspielen**
 
-**2. Dockerfile für `backend-api`**
+- `apps/backend-schema/migrations/001` bis `013` in Reihenfolge, über die **direkte** Verbindung
+- Danach nachweisen: alle erwarteten Tabellen im Schema `taptime_server` vorhanden, RLS auf jeder
+  fachlichen Tabelle `ENABLED` **und** `FORCED`
+- **Supabase-eigene Rollen und Schemas (`anon`, `authenticated`, `service_role`, `auth`, `storage`)
+  werden nicht verändert.** Falls eine Migration daran scheitert: stoppen und melden, nicht umgehen.
 
-Ablage: `infrastructure/backend-api/Dockerfile` (der Ordner `infrastructure/` ist bisher leer).
+**3. Die 17 Laufzeitrollen anlegen**
 
-- Mehrstufiger Build: Build-Stufe installiert und baut, Laufzeit-Stufe enthält nur das Ergebnis
-- Node 24, exakt die Version aus `package.json` (`engines`)
-- **Läuft als nicht-privilegierter Benutzer**, nicht als root
-- `HEALTHCHECK` auf `/health`
-- Passendes `.dockerignore` — `node_modules`, `dist`, `.git`, `ADO`, `.env*` bleiben draußen
+- Vorlage: `infrastructure/postgres/local-runtime-logins.sql`, adaptiert auf Supabase
+- Namensschema `taptime_<modul>` statt `taptime_local_<modul>`
+- **Jede Rolle bekommt ein eigenes, zufällig erzeugtes Passwort** (mindestens 32 Zeichen aus einem
+  kryptographischen Zufallsgenerator)
+- **Jede Rolle bekommt exakt die Rechte, die ihr Modul braucht — nicht mehr.** Die lokale Datei ist
+  die maßgebliche Vorlage dafür.
+- `NOSUPERUSER`, `NOCREATEDB`, `NOCREATEROLE`, `NOBYPASSRLS` für alle 17. Ohne Ausnahme.
+- Als neue Datei `infrastructure/postgres/supabase-runtime-logins.sql` ablegen — **ohne Passwörter**,
+  mit Platzhaltern. Die Datei kommt ins Repo, die Passwörter nie.
 
-**3. `docker-compose.yml` für lokal**
+**4. `.env` erzeugen**
 
-Ablage: `infrastructure/docker-compose.local.yml`
+- Nach dem Muster aus `infrastructure/env.example`, mit den echten Werten
+- `TAPTIME_MOBILE_OWN_TIME_CURSOR_HMAC_KEY`: 32 Zufallsbytes, base64url ohne Auffüllzeichen
+- **Die Datei bleibt lokal.** `.env` steht bereits in `.gitignore` — prüfe das nochmal.
 
-- `backend-api` plus eine lokale PostgreSQL zum Ausprobieren
-- Migrationen aus `apps/backend-schema/migrations/` werden beim Start eingespielt
-- Nur für lokale Entwicklung. Das ist **nicht** die Produktionsumgebung.
+**5. Verbindungsweg klären und dokumentieren**
 
-**4. Umgebungsvariablen dokumentieren**
+Supabase bietet zwei Wege: die **direkte Verbindung** und den **Pooler (Supavisor)**.
 
-`infrastructure/env.example` mit allen benötigten Variablen und Erklärung, **ohne echte Werte**.
+- Migrationen und Rollenanlage laufen über die direkte Verbindung.
+- Für die Laufzeit **prüfe, welcher Weg funktioniert.** Der Pooler im Transaktionsmodus kann
+  sitzungsbezogene Einstellungen verwerfen — und unsere Mandantentrennung hängt daran.
+  **Prüfe konkret, ob `SET LOCAL` und `current_setting()` über den gewählten Weg zuverlässig
+  funktionieren.** Wenn nicht: melden, nicht selbst eine Notlösung bauen.
+- Prüfe außerdem, ob der gewählte Weg über IPv4 erreichbar ist. Das entscheidet in T-004, wie der
+  Hetzner-Server angebunden wird. Ergebnis in den Abschlussbericht.
 
-- Prüfen, welche Variablen `backend-api` tatsächlich liest, und genau die aufführen
-- Fehlt eine Pflichtvariable, muss der Dienst **beim Start** mit klarer Meldung abbrechen —
-  nicht erst bei der ersten Anfrage
-- Niemals ein Secret ins Repository. `.env` steht bereits in `.gitignore`
+**6. Nachweis, dass es wirklich läuft**
 
-**5. `admin-web` Build prüfen**
-
-`npm run build --workspace=@taptime/admin-web` muss durchlaufen und statische Dateien erzeugen.
-Falls nicht: reparieren. Ausliefern kommt erst in T-005.
+- Backend lokal mit dieser `.env` starten
+- `/health` liefert `200 {"status":"ok"}`
+- **Eine Negativprobe:** Melde dich mit einer Laufzeitrolle an und weise nach, dass sie etwas,
+  das ihr Modul nicht braucht, **nicht** kann. Ergebnis in den Abschlussbericht.
 
 ### Vision-Check
 
-Diese Aufgabe berührt keine Nutzerinteraktion. Die Kette
-`Trigger → WorkEvent → BusinessEngine → TimeEntry` wird nicht angefasst.
-**Keine fachliche Logik ändern.** Fällt dabei etwas Fachliches auf, wird es gemeldet, nicht
-nebenbei repariert.
+Diese Aufgabe ändert **keine** fachliche Logik. Die Kette
+`Trigger → WorkEvent → BusinessEngine → TimeEntry` wird nicht angefasst. Keine Migration wird
+geändert, keine hinzugefügt.
 
 ### Nicht anfassen
 
-- `packages/core`, jede Geschäftslogik, jede Migration
-- `apps/mobile`, `apps/synthetic-android-e2e`
-- Bestehende API-Routen und deren Verhalten
+- `apps/backend-schema/migrations/` — die Migrationen werden **ausgeführt**, nicht bearbeitet
+- `packages/core`, jede Geschäftslogik, `apps/mobile`, `apps/synthetic-android-e2e`
+- Alles unter `.github/`
 
 ### Prüfung
 
-- `npm run typecheck` und `npm test` grün (mindestens `backend-api`, `core`, `admin-web`)
-- **CI grün — `[skip ci]` ist hier verboten**, es ändert sich ausführbarer Code
-- Container baut und startet
-- `curl http://localhost:<port>/health` liefert `200` und exakt `{"status":"ok"}`
-- Bei gestoppter Datenbank liefert dieselbe Anfrage `503` und exakt `{"status":"degraded"}`
-- Dienst startet **nicht** ohne Pflichtvariablen und sagt verständlich, welche fehlt
+- Typecheck und Tests des betroffenen Bereichs grün, CI grün
+- Migrationsprotokoll: 001 bis 013 vollständig, in Reihenfolge, ohne Fehler
+- RLS auf jeder fachlichen Tabelle `ENABLED` und `FORCED` — Liste in den Bericht
+- Alle 17 Rollen ohne `SUPERUSER` und ohne `BYPASSRLS` — nachweisen, nicht behaupten
+- **Kein Geheimnis im Repository.** `git diff` gegen Passwörter, Verbindungszeichenfolgen und
+  Schlüssel prüfen.
 
 ### Zusätzliches Review
 
-`/health` ist eine neue **unauthentifizierte, öffentlich erreichbare** Route. Nach der
-Implementierung läuft ein unabhängiges Review durch einen zweiten Agenten mit genau einer Frage:
+Diese Aufgabe berührt die Mandantentrennung. Nach der Umsetzung läuft ein unabhängiges Review
+mit dieser Frage:
 
-> Gibt dieser Endpunkt irgendeine Information preis, die ein Unbefugter nicht haben darf —
-> direkt, über Fehlermeldungen, über Antwortzeiten oder über Header?
+> Kann eine der 17 Laufzeitrollen mehr, als ihr Modul benötigt — direkt, über geerbte Rechte,
+> über Standardrechte im Schema oder durch Umgehung von RLS?
 
 ### Abschluss
 
-Vier Punkte melden: geänderte Dateien · ausgeführte Verifikation · verbleibende Risiken ·
-nächster Schritt. **Nicht committen** vor `APPROVED` durch den Technical Lead.
+Vier Punkte melden. **Nicht committen** vor `APPROVED` durch den Technical Lead.
 
 ---
 
 ## Danach
 
-`T-003` — Supabase-Projekt in der EU-Region, Migrationen einspielen.
-Braucht ein Supabase-Konto vom Product Owner.
+`T-004` — Hetzner-Server, Container ausrollen, TLS. Braucht Hetzner-Konto und die Domain.
