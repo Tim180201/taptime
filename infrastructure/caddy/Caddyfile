@@ -7,8 +7,46 @@ api.tb-infra.de {
 	header {
 		-Server
 		-Via
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
 	}
 	reverse_proxy backend-api:3000 {
 		header_down -Server
+	}
+}
+
+http://admin.tb-infra.de {
+	header -Server
+	redir https://admin.tb-infra.de{uri} permanent
+}
+
+admin.tb-infra.de {
+	header {
+		-Server
+		-Via
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+	}
+
+	handle /health {
+		reverse_proxy backend-api:3000 {
+			header_down -Server
+		}
+	}
+
+	handle /v1/* {
+		reverse_proxy backend-api:3000 {
+			header_down -Server
+		}
+	}
+
+	handle /v2/* {
+		reverse_proxy backend-api:3000 {
+			header_down -Server
+		}
+	}
+
+	handle {
+		root * /srv/admin-web
+		try_files {path} /index.html
+		file_server
 	}
 }

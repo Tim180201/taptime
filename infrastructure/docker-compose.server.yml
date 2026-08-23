@@ -54,6 +54,7 @@ services:
       - "443:443"
     volumes:
       - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - /opt/taptime/admin-web:/srv/admin-web:ro
       - taptime-caddy-data:/data
       - taptime-caddy-config:/config
     networks:
