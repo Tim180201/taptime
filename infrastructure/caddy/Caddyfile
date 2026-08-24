@@ -32,6 +32,9 @@ admin.tb-infra.de {
 		}
 	}
 
+	@backupStatus path /status/*
+	header @backupStatus Cache-Control "no-store"
+
 	handle /v1/* {
 		reverse_proxy backend-api:3000 {
 			header_down -Server

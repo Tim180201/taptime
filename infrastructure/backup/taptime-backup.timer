@@ -1,0 +1,10 @@
+[Unit]
+Description=Run TapTim.e backup hourly at minute five
+
+[Timer]
+OnCalendar=*-*-* *:05:00
+Persistent=true
+Unit=taptime-backup.service
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,10 @@
+[Unit]
+Description=Run TapTim.e isolated restore verification weekly
+
+[Timer]
+OnCalendar=Sun *-*-* 03:35:00
+Persistent=true
+Unit=taptime-restore-verify.service
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,18 @@
+[Unit]
+Description=TapTim.e encrypted PostgreSQL backup to Storage Box
+Wants=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/taptime-backup
+User=root
+Group=root
+UMask=0077
+RuntimeDirectory=taptime-backup
+RuntimeDirectoryMode=0700
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectHome=yes
+ProtectSystem=strict
+ReadWritePaths=/run/taptime-backup /run/lock /opt/taptime/admin-web

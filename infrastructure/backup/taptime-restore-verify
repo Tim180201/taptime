@@ -1,0 +1,129 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+readonly CONFIG_FILE=/etc/taptime-backup/config
+readonly LOCK_FILE=/run/lock/taptime-borg.lock
+readonly STAGING_ROOT=/run/taptime-backup
+
+require_file() {
+  if [[ ! -f "$1" ]]; then
+    printf 'Required file is missing: %s\n' "$1" >&2
+    exit 1
+  fi
+}
+
+require_file "$CONFIG_FILE"
+# shellcheck source=/etc/taptime-backup/config
+source "$CONFIG_FILE"
+require_file "$BORG_PASSPHRASE_FILE"
+
+install -d -m 0700 "$STAGING_ROOT"
+if [[ "$(findmnt -n -o FSTYPE --target "$STAGING_ROOT")" != 'tmpfs' ]]; then
+  printf '%s must be a tmpfs; refusing restore verification.\n' "$STAGING_ROOT" >&2
+  exit 1
+fi
+
+exec 9>"$LOCK_FILE"
+if ! flock -n 9; then
+  printf 'Another Borg operation is already running; restore verification skipped.\n'
+  exit 0
+fi
+
+export BORG_RSH
+export BORG_PASSCOMMAND="cat '$BORG_PASSPHRASE_FILE'"
+export BORG_UNKNOWN_UNENCRYPTED_REPO_ACCESS_IS_OK=no
+export BORG_CACHE_DIR="$STAGING_ROOT/borg-cache"
+export BORG_CONFIG_DIR="$STAGING_ROOT/borg-config"
+install -d -m 0700 "$BORG_CACHE_DIR" "$BORG_CONFIG_DIR"
+
+stage="$(mktemp -d "$STAGING_ROOT/restore.XXXXXX")"
+container="taptime-restore-verify-$(date +%s)"
+
+cleanup() {
+  docker rm --force "$container" >/dev/null 2>&1 || true
+  rm -rf "$stage"
+}
+trap cleanup EXIT
+
+printf 'Verifying Borg repository data.\n'
+borg check --verify-data "$BORG_REPOSITORY"
+archive="$(borg list --last 1 --format '{archive}{NL}' "$BORG_REPOSITORY")"
+if [[ -z "$archive" ]]; then
+  printf 'No Borg archive is available for restore verification.\n' >&2
+  exit 1
+fi
+printf 'Restoring newest archive: %s\n' "$archive"
+
+(
+  cd "$stage"
+  borg extract "$BORG_REPOSITORY::$archive" manifest
+)
+
+printf 'Checking the archived migration-source checksums.\n'
+(
+  cd "$MIGRATIONS_DIRECTORY"
+  sha256sum --check "$stage/manifest/source-migration-checksums.tsv"
+)
+
+docker run --detach --name "$container" --network none --read-only \
+  --tmpfs /var/lib/postgresql/data:rw,noexec,nosuid,size=1g,uid=999,gid=999,mode=0700 \
+  --tmpfs /var/run/postgresql:rw,noexec,nosuid,size=64m,uid=999,gid=999,mode=0775 \
+  --env POSTGRES_HOST_AUTH_METHOD=trust \
+  "$RESTORE_IMAGE" >/dev/null
+
+for _ in $(seq 1 30); do
+  if docker exec --user postgres "$container" pg_isready --dbname=postgres >/dev/null 2>&1; then
+    break
+  fi
+  sleep 1
+done
+docker exec --user postgres "$container" pg_isready --dbname=postgres
+
+printf 'Restoring global roles.\n'
+borg extract --stdout "$BORG_REPOSITORY::$archive" globals.sql | \
+  sed -e '/^CREATE ROLE postgres;$/d' -e '/^ALTER ROLE postgres /d' | \
+  docker exec --interactive --user postgres "$container" psql --set ON_ERROR_STOP=on --dbname=postgres
+docker exec --user postgres "$container" createdb "$DATABASE_NAME"
+
+printf 'Restoring database.\n'
+borg extract --stdout "$BORG_REPOSITORY::$archive" database.dump | \
+  docker exec --interactive --user postgres "$container" \
+  pg_restore --exit-on-error --dbname="$DATABASE_NAME"
+
+printf 'Comparing migration ledger.\n'
+docker exec --user postgres "$container" psql --tuples-only --no-align --dbname="$DATABASE_NAME" \
+  --command "SELECT version || E'\\t' || name || E'\\t' || checksum FROM public.taptime_server_schema_migrations ORDER BY version" \
+  > "$stage/restored-migration-ledger.tsv"
+diff --unified "$stage/manifest/migration-ledger.tsv" "$stage/restored-migration-ledger.tsv"
+
+printf 'Comparing seven carrying-table row counts.\n'
+docker exec --user postgres "$container" psql --tuples-only --no-align --field-separator=$'\t' \
+  --dbname="$DATABASE_NAME" --command "
+  SELECT 'organizations', count(*) FROM taptime_server.organizations
+  UNION ALL SELECT 'memberships', count(*) FROM taptime_server.memberships
+  UNION ALL SELECT 'work_events', count(*) FROM taptime_server.work_events
+  UNION ALL SELECT 'time_entries', count(*) FROM taptime_server.time_entries
+  UNION ALL SELECT 'canonical_decisions', count(*) FROM taptime_server.canonical_decisions
+  UNION ALL SELECT 'offline_event_reconciliations', count(*) FROM taptime_server.offline_event_reconciliations
+  UNION ALL SELECT 'audit_events', count(*) FROM taptime_server.audit_events
+  ORDER BY 1" > "$stage/restored-row-counts.tsv"
+diff --unified "$stage/manifest/row-counts.tsv" "$stage/restored-row-counts.tsv"
+cat "$stage/restored-row-counts.tsv"
+
+printf 'Checking RLS: every application table must be enabled and forced.\n'
+rls_result="$(docker exec --user postgres "$container" psql --tuples-only --no-align --dbname="$DATABASE_NAME" \
+  --command "SELECT count(*) || '/' || count(*) FILTER (WHERE relrowsecurity AND relforcerowsecurity) FROM pg_catalog.pg_class WHERE relnamespace = 'taptime_server'::pg_catalog.regnamespace AND relkind = 'r';")"
+printf 'RLS enabled and forced: %s\n' "$rls_result"
+if [[ "$rls_result" != '29/29' ]]; then
+  printf 'RLS check failed: expected 29/29.\n' >&2
+  exit 1
+fi
+
+printf 'Comparing all non-built-in PostgreSQL roles.\n'
+docker exec --user postgres "$container" psql --tuples-only --no-align --dbname="$DATABASE_NAME" \
+  --command "SELECT rolname FROM pg_catalog.pg_roles WHERE rolname !~ '^pg_' ORDER BY rolname" \
+  > "$stage/restored-database-roles.txt"
+diff --unified "$stage/manifest/database-roles.txt" "$stage/restored-database-roles.txt"
+printf 'Non-built-in PostgreSQL roles restored: %s\n' "$(wc -l < "$stage/restored-database-roles.txt")"
+
+printf 'Restore verification completed: %s\n' "$archive"

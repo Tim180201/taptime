@@ -1,0 +1,107 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+readonly CONFIG_FILE=/etc/taptime-backup/config
+readonly LOCK_FILE=/run/lock/taptime-borg.lock
+readonly STAGING_ROOT=/run/taptime-backup
+
+require_file() {
+  if [[ ! -f "$1" ]]; then
+    printf 'Required file is missing: %s\n' "$1" >&2
+    exit 1
+  fi
+}
+
+write_status() {
+  local state="$1"
+  local temporary
+
+  temporary="$(mktemp "${STATUS_FILE}.XXXXXX")"
+  trap 'rm -f "$temporary"' RETURN
+  printf '{"state":"%s","last_success_at_utc":"%s"}\n' \
+    "$state" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$temporary"
+  chmod 0644 "$temporary"
+  mv "$temporary" "$STATUS_FILE"
+  trap - RETURN
+}
+
+require_file "$CONFIG_FILE"
+# shellcheck source=/etc/taptime-backup/config
+source "$CONFIG_FILE"
+require_file "$BORG_PASSPHRASE_FILE"
+require_file "$MIGRATIONS_DIRECTORY/001_foundation.sql"
+install -d -m 0755 "$(dirname "$STATUS_FILE")"
+
+install -d -m 0700 "$STAGING_ROOT"
+if [[ "$(findmnt -n -o FSTYPE --target "$STAGING_ROOT")" != 'tmpfs' ]]; then
+  printf '%s must be a tmpfs; refusing to create an unencrypted dump on disk\n' "$STAGING_ROOT" >&2
+  exit 1
+fi
+
+exec 9>"$LOCK_FILE"
+if ! flock -n 9; then
+  printf 'Another Borg operation is already running; backup skipped.\n'
+  exit 0
+fi
+
+export BORG_RSH
+export BORG_PASSCOMMAND="cat '$BORG_PASSPHRASE_FILE'"
+export BORG_UNKNOWN_UNENCRYPTED_REPO_ACCESS_IS_OK=no
+export BORG_CACHE_DIR="$STAGING_ROOT/borg-cache"
+export BORG_CONFIG_DIR="$STAGING_ROOT/borg-config"
+install -d -m 0700 "$BORG_CACHE_DIR" "$BORG_CONFIG_DIR"
+
+stage="$(mktemp -d "$STAGING_ROOT/backup.XXXXXX")"
+cleanup() {
+  rm -rf "$stage"
+}
+trap cleanup EXIT
+
+archive="taptime-$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+mkdir -p "$stage/manifest"
+
+printf 'Creating PostgreSQL custom dump in tmpfs.\n'
+docker exec --user postgres "$DATABASE_CONTAINER" \
+  pg_dump --format=custom --compress=9 --dbname="$DATABASE_NAME" > "$stage/database.dump"
+
+printf 'Creating PostgreSQL global-role dump in tmpfs.\n'
+docker exec --user postgres "$DATABASE_CONTAINER" pg_dumpall --globals-only > "$stage/globals.sql"
+
+docker exec --user postgres "$DATABASE_CONTAINER" psql --tuples-only --no-align \
+  --dbname="$DATABASE_NAME" --command \
+  "SELECT version || E'\\t' || name || E'\\t' || checksum FROM public.taptime_server_schema_migrations ORDER BY version" \
+  > "$stage/manifest/migration-ledger.tsv"
+
+(
+  cd "$MIGRATIONS_DIRECTORY"
+  find . -maxdepth 1 -type f -name '[0-9][0-9][0-9]_*.sql' -print0 | sort -z | xargs -0 sha256sum
+) > "$stage/manifest/source-migration-checksums.tsv"
+
+docker exec --user postgres "$DATABASE_CONTAINER" psql --tuples-only --no-align \
+  --field-separator=$'\t' --dbname="$DATABASE_NAME" --command "
+  SELECT 'organizations', count(*) FROM taptime_server.organizations
+  UNION ALL SELECT 'memberships', count(*) FROM taptime_server.memberships
+  UNION ALL SELECT 'work_events', count(*) FROM taptime_server.work_events
+  UNION ALL SELECT 'time_entries', count(*) FROM taptime_server.time_entries
+  UNION ALL SELECT 'canonical_decisions', count(*) FROM taptime_server.canonical_decisions
+  UNION ALL SELECT 'offline_event_reconciliations', count(*) FROM taptime_server.offline_event_reconciliations
+  UNION ALL SELECT 'audit_events', count(*) FROM taptime_server.audit_events
+  ORDER BY 1" > "$stage/manifest/row-counts.tsv"
+
+docker exec --user postgres "$DATABASE_CONTAINER" psql --tuples-only --no-align \
+  --dbname="$DATABASE_NAME" --command \
+  "SELECT rolname FROM pg_catalog.pg_roles WHERE rolname !~ '^pg_' ORDER BY rolname" \
+  > "$stage/manifest/database-roles.txt"
+
+printf 'Writing encrypted Borg archive %s.\n' "$archive"
+(
+  cd "$stage"
+  borg create --stats --compression zstd,6 "$BORG_REPOSITORY::$archive" .
+)
+
+printf 'Applying retention policy.\n'
+borg prune --list "$BORG_REPOSITORY" \
+  --keep-hourly 24 --keep-daily 14 --keep-weekly 8 --keep-monthly 6
+
+write_status 'ok'
+printf 'Backup completed: %s\n' "$archive"

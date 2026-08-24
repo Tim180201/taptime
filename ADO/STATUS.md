@@ -149,6 +149,9 @@ in keinem Plan standen.
 - **P2:** `/health` löst pro Aufruf eine Datenbankabfrage aus. Der eigene Pool (`max: 1`) schützt
   die Fachmodule, aber ein Ergebnis-Zwischenspeicher von wenigen Sekunden würde das Thema ganz
   erledigen.
+- **P2:** Der getestete Wiederherstellungslauf enthält praktisch keine Geschäftsdaten:
+  `work_events`, `time_entries` und `canonical_decisions` stehen jeweils auf 0. Die
+  Restore-Mechanik ist belegt, ein Datenrundlauf mit realen Einträgen noch nicht.
 - **P3:** Fünf hohe npm-Audit-Meldungen, alle im Expo/Metro-Build-Werkzeug der Mobile-App.
   Nichts davon läuft im Backend-Container. Updates verfügbar.
 - **P3:** Caddy nennt bei HTTP-Anfragen an die IP oder einen fremden Host seinen Produktnamen

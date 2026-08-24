@@ -1,0 +1,14 @@
+# Install this file as /etc/taptime-backup/config with mode 0600.
+# It contains no password; BORG_PASSPHRASE is read from the separate root-only file below.
+
+BORG_REPOSITORY='ssh://u000000-sub0@u000000-sub0.your-storagebox.de:23/./taptime-production'
+BORG_RSH='ssh -p 23 -i /etc/taptime-backup/ssh/storage-box_ed25519 -o BatchMode=yes -o IdentitiesOnly=yes -o UserKnownHostsFile=/etc/taptime-backup/storage-box-known_hosts -o StrictHostKeyChecking=yes'
+BORG_PASSPHRASE_FILE='/etc/taptime-backup/borg-passphrase'
+
+DATABASE_CONTAINER='taptime-prod-database-1'
+DATABASE_NAME='taptime'
+MIGRATIONS_DIRECTORY='/opt/taptime/source/apps/backend-schema/migrations'
+# Generate the 32 hexadecimal characters on the server. Give the resulting public URL only to
+# the Product Owner, and keep it out of Git and operational reports.
+STATUS_FILE='/opt/taptime/admin-web/status/<32-random-hex>.json'
+RESTORE_IMAGE='postgres:17.10-bookworm'
