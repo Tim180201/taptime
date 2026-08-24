@@ -2,131 +2,134 @@
 
 > **One Tap. One Decision.** Jede Aufgabe unten muss diesem Ziel dienen.
 
-**Kapazität:** ~4 h/Tag · **Team:** Tim (Product Owner) · Claude (Technical Lead) · Codex (Development)
-**Leitentscheidung:** Erst das System vollständig fertig, dann Firma, Recht und Store (D-007).
+**Team:** Tim (Product Owner) · Claude (Technical Lead) · Codex (Development)
+**Leitentscheidung:** Erst das System vollständig fertig, dann Firma, Recht und Store (D-007),
+mit getrennten Uhren für reine Wartezeiten (D-011).
+**Stand:** 24.08.2026, nach vollständiger Anforderungsprüfung gegen den Code (D-012).
 
 ---
 
-## Das Prinzip: parallel über Rollen, nicht über Codex
+## Was die Prüfung ergeben hat
 
-Codex bearbeitet immer nur **eine** Aufgabe. Echte Parallelität entsteht dadurch, dass Tim und
-Claude an Dingen arbeiten, die keinen Code brauchen.
+21 ADRs, Vision, Prinzipien, Domänen- und Rollenmodell sowie drei archivierte Roadmaps wurden
+gegen den echten Quelltext geprüft — nicht gegen die Dokumentation. Ergebnis: **Der Kern trägt.**
+Mandantentrennung, append-only Korrekturhistorie, Idempotenz, Offline-Warteschlange und die Kette
+`Trigger → WorkEvent → Engine → TimeEntry` sind sauber gebaut und belegt getestet. Es gibt keinen
+Pfad, auf dem ein Auslöser die Engine umgeht.
 
-**Ziel:** Codex' Warteschlange ist nie leer — und Tim wartet nie auf Codex.
+Gefehlt haben nicht Funktionen des Kerns, sondern **alles, was ein echter Betrieb mit echten
+Menschen braucht**: jemanden aussperren, den Betrieb sehen, einen festgefahrenen Fall auflösen,
+eine Abrechnung erzeugen, die eine Prüfung übersteht.
 
----
-
-## Die Linie, die nicht verschiebbar ist
-
-Recht wird zwingend, sobald **echte Beschäftigte eines fremden Betriebs** ihre echten Zeiten
-stempeln. Ab dann bist du Auftragsverarbeiter und brauchst einen AVV.
-
-Vorher nicht. Du selbst, Freunde, erfundene Firmen und erfundene Kunden sind rechtlich frei —
-beliebig lange, beliebig gründlich. Deshalb geht Phase 1 ohne Anwalt auf.
+Die alte Aufgabenkette deckte davon vier Punkte ab. Diese hier deckt sie alle ab.
 
 ---
 
-## Phase 1 — System fertig bauen (Woche 1–11)
+## Nummernwechsel — einmalig
 
-Ziel: Vollständiges Produkt. Läuft auf einem Server, installiert auf einem Telefon,
-von dir durchgetestet.
+`T-001` bis `T-006` bleiben unverändert; sie stehen in Commit-Nachrichten. Alles danach ist neu
+sortiert, weil die alte Reihenfolge die Betriebsfähigkeit hinter Ausbaustufen gestellt hätte.
+
+| Alt | Neu |
+|---|---|
+| T-007 Backup | **T-007** unverändert |
+| T-008 Pausen | **T-012** |
+| T-009 Standorte | **T-015** |
+| T-010 Oberflächen | **T-017** |
+| T-011 Installierbare App | **T-018** |
+
+---
+
+## Phase 1 — Betriebsfähig werden
+
+Ziel: Ein System, das ein fremder Betrieb benutzen kann, ohne dass der Product Owner mit
+Datenbankrechten eingreifen muss.
+
+| | Aufgabe | Warum jetzt | Größe |
+|---|---|---|---|
+| **T-006** | Admin-Web ausliefern und Erstinbetriebnahme | läuft | 2 |
+| **T-007** | Sicherung und **getesteter Restore** | Datenverlust ist heute endgültig | 2 |
+| **T-008** | Betriebssichtbarkeit: Protokolle, Alarm | Es entsteht heute **kein einziger Logeintrag** | 2 |
+| **T-009** | Menschen verwalten: zweiter Administrator, Zugang entziehen, Passwort zurücksetzen | Ein Kunde kann eine ausgeschiedene Person nicht aussperren | 3 |
+| **T-010** | Die Warteschlange darf nie blockieren | Eine Eskalation legt heute das Gerät dauerhaft still | 3 |
+| **T-011** | Schutz der öffentlichen Ränder: Ratenbegrenzung, Anmeldeschutz | Anmeldung steht ungebremst im Netz | 1 |
+| **T-012** | Pausenerfassung | Ohne Pausen keine belastbare Arbeitszeit | 3 |
+| **T-013** | Export für die Lohnbuchhaltung | Heutige CSV übersteht keine Prüfung | 2 |
+| **T-014** | Zweite Umgebung und wiederholbares Ausliefern | 14 Migrationen liefen nie vor der Produktion | 2 |
+| **T-015** | Standorte und Standortleiter (ADR-0020) | Verwaltung hängt sonst an einer Person | 6 |
+| **T-016** | Löschkonzept und Betroffenenrechte | Der AVV verlangt die Fähigkeit, nicht den Text | 5 |
+| **T-017** | Oberflächen fertigstellen, Barrierefreiheit, Landing Page | Vor dem Pilotbetrieb | 4 |
+| **T-018** | Installierbare App per Direktlink | Für den eigenen Test | 2 |
+| **T-019** | Dokumente an die Wirklichkeit angleichen | Vier Dokumente beschreiben, was es nicht gibt | 1 |
+
+**Größe** in Arbeitssitzungen. Summe 38.
+
+**Reihenfolge ist echt.** T-013 braucht die Pausen aus T-012. T-016 braucht die Standorte aus
+T-015, weil ein Löschlauf sie mit erfassen muss. T-017 braucht Nutzer-Feedback.
+
+**Zwischen T-018 und Phase 2:** zwei Wochen selbst stempeln, dann zwei bis drei Leute aus einem
+passenden Betrieb durchklicken lassen. Feedback vor Politur, nicht Politur vor Feedback.
+
+---
+
+## Phase 2 — Offiziell werden
+
+Läuft nach D-011 in Teilen bereits parallel zu Phase 1.
 
 | Bahn | Wer | Inhalt |
 |---|---|---|
-| **Betrieb** | Codex + Tim | Container, Supabase EU, Hetzner Deutschland, TLS, Backup und **getesteter Restore** |
-| **Standorte** | Claude + Codex | Standort als Berechtigungsdimension, Standortleiter mit voller Verwaltung am Standort, Pausen, Löschkonzept |
-| **Oberflächen** | Codex + Tim | App, Admin-Web, Standortleiter-Bereich, Landing Page |
-| **Eigener Test** | Tim | APK per Direktlink, Smoke-Test, zwei Wochen selbst stempeln |
+| **Marke** | Tim | Produktname, Ähnlichkeitsrecherche, DPMA-Anmeldung — **längste Uhr, über neun Monate** |
+| **Firma** | Tim | UG, Notar, Handelsregister, Konto, Finanzamt, Steuerberater |
+| **Recht** | Tim + Anwalt | AVV, Datenschutzerklärung, AGB; Verzeichnis und TOM prüfen lassen |
+| **Store** | Tim + Codex | D-U-N-S, Play-Firmenkonto, Icon, Texte, signiertes Release |
+| **Support** | Tim + Claude | Meldeweg, Störungsprozess, 72-Stunden-Frist nach Art. 33 DSGVO |
 
-**Reihenfolge zwingend:** Betrieb → Standorte → Oberflächen. Der Standortleiter-Bereich ist
-Oberfläche für ein Feature, das es vorher nicht gibt. Andersherum wird die UI zweimal gebaut.
-
-**Vor dem Polieren:** Zwei, drei Leute aus einem passenden Betrieb durchklicken lassen. Kein
-Vertrag, keine echten Daten, keine Rechtsfolge — nur ein Gespräch vor einem Bildschirm.
-Feedback vor Politur, nicht Politur vor Feedback.
+**Eigenes Tor:** Die Website darf erst veröffentlicht werden, wenn Impressum nach § 5 DDG und
+Datenschutzerklärung stehen. Google verlangt beides für den Store-Eintrag.
 
 ---
 
-## Phase 2 — Offiziell werden (Woche 12–15)
-
-| Bahn | Wer | Inhalt |
-|---|---|---|
-| **Firma** | Tim | Rechtsform, Notar, Handelsregister, Bank, Steuerberater |
-| **Recht** | Tim + Anwalt | AVV, Datenschutzerklärung, AGB; Verzeichnis und TOM prüfen lassen; Markenrecherche |
-| **Store** | Tim + Codex | Name und Package-ID final, Play-Konto, Icon, Texte, signiertes Release |
-
-**Eigenes Tor: Die Website darf erst veröffentlicht werden**, wenn Impressum nach DDG § 5 und
-Datenschutzerklärung stehen. Beides hängt an der Firmengründung. Gebaut wird sie in Phase 1,
-veröffentlicht in Phase 2.
-
----
-
-## Phase 3 — Pilot und Verkauf (ab Woche 16)
+## Phase 3 — Pilot und Verkauf
 
 Echter Pilotbetrieb mit AVV · Politur an den Stellen, die im Pilot weh taten ·
-Support- und Störungsprozess · Preis, Einseiter, Demo-Pfad · Go/No-Go.
-
-**Erster Kunde realistisch in rund vier Monaten** — am unteren Ende der ursprünglichen
-Roadmap-Schätzung von vier bis sieben Monaten, bei größerem Funktionsumfang.
+Preis, Einseiter, Demo-Pfad · Mitbestimmungs-Handreichung für Kunden mit Betriebsrat ·
+Go/No-Go.
 
 ---
 
-## Aufgabenkette
+## Was bewusst wartet
 
-Immer genau eine. Die Reihenfolge ist echt.
+Controlling und Stundensätze, Budgets, Self-Service-Onboarding, Abrechnungsautomatik, iOS,
+Dashboards, vollständige Rollenmatrix mit System Owner und Team Lead, Mehrfach-Mitgliedschaft,
+Statusseite, Zertifizierungen.
 
-| | Aufgabe | Braucht |
-|---|---|---|
-| T-001 | Prozess-Reset | ✅ erledigt |
-| T-002 | Container und Healthcheck | ✅ erledigt |
-| T-003 | Supabase-Anlauf | ⛔ eingestellt — siehe D-010 und ADR-0021 |
-| T-004 | Server, PostgreSQL, Schema, 17 Laufzeitrollen | Hetzner-Server |
-| T-005 | API-Container, Caddy, TLS | Domain `tb-infra.de` |
-| T-006 | Admin-Web ausliefern | — |
-| T-007 | Backup und **getesteter Restore** | — |
-| T-008 | Pausenerfassung | — |
-| T-009 | Standorte und Standortleiter (ADR-0020) | R3, unabhängiges Review |
-| T-010 | Oberflächen fertigstellen | Nutzer-Feedback |
-| T-011 | Installierbare App per Direktlink | — |
+Die Architektur trägt das bereits. Ein Feld, das heute niemand benutzt, ist Datenschutz-Ballast
+und Migrationsschuld.
 
 ---
 
 ## Zuordnung zur ursprünglichen Roadmap
 
-Die `Core_Roadmap_v2_Commercial_Readiness.md` liegt im Archiv. Sie ist abgelöst, nicht verworfen —
-ihr Inhalt lebt hier weiter:
+254 Punkte aus `Roadmap.md`, `Core_Roadmap_v2_Commercial_Readiness.md`,
+`Product_Readiness_Roadmap.md` und `FB-002` wurden ausgewertet: **148 gebaut, 42 im Plan,
+15 fehlten und sind jetzt aufgenommen, 49 bewusst später.**
 
 | Dieser Plan | Ursprüngliche Roadmap |
 |---|---|
-| Phase 1, Betrieb (T-002…T-006) | **DA6-P01…P12** — ADR-0018, Production-like Platform |
-| Phase 1, Standorte (T-008) | **DA6-L01…L11** — ADR-0020, Optional Locations |
-| Phase 1, T-010 + Store in Phase 2 | **DT-075…DT-077** und **DA7** — Build, Signing, Distribution |
-| Smoke-Test-Checkliste | **DT-078** — App Runtime Smoke Test |
-| Phase 1, Oberflächen (T-009) | **Block I**, DT-090…DT-103 — pilotgetrieben statt vorab geplant |
-| Phase 1, Landing Page + Phase 2 Veröffentlichung | **DA8** — öffentliche Website, Impressum, Trust-Seiten |
-| Phase 2, Recht | **DT-079…DT-085** — Block H |
-| Phase 3, Verkauf | **DT-086…DT-089** — Block H |
+| T-002…T-008, T-011, T-014 | **DA6-P01…P12** — ADR-0018 |
+| T-015 | **DA6-L01…L11** — ADR-0020 |
+| T-018 + Store in Phase 2 | **DT-075…DT-077**, **DA7** |
+| Smoke-Test-Checkliste | **DT-078** |
+| T-017 | **Block I**, DT-090…DT-103 |
+| T-016, Phase 2 Recht | **DT-079…DT-085** |
+| Phase 3 | **DT-086…DT-089**, **DA8** |
 
-**Blocks A bis F** sind durch DA1 bis DA5 abgearbeitet.
-Von den 17 Punkten unter „Must-Have Before First Sale" sind **zwölf gebaut**; die fünf offenen
-stehen alle oben in der Aufgabenkette.
+Von den 17 Punkten unter „Must-Have Before First Sale" sind zwölf gebaut; die fünf offenen
+stehen oben in der Kette.
 
 ---
 
 ## Was der Betrieb kostet
 
-**~8 € netto im Monat**, dauerhaft — Hetzner CX23 5,49 € + IPv4 0,50 € + Backup 1,10 € +
-Supabase Free (nur Auth) + EAS Free + eine Domain. Der Supabase-Pro-Tarif entfällt durch
-ADR-0021. In Phase 2 kommen einmalig 25 € Play Console und die Produktdomain dazu.
-
-Die Infrastruktur ist nicht das Kostenrisiko. Ein Monat Anwalt kostet mehr als ein Jahr Server.
-
----
-
-## Nach dem ersten Kunden — bewusst nicht jetzt
-
-Controlling und Stundensätze, Budgets, Self-Service-Onboarding, Abrechnung, iOS, Dashboards,
-Design-System, erweiterte Rollenmatrix.
-
-Die Architektur trägt das bereits (siehe `ARCHITECTURE.md`, Invarianten I1–I3). Ein Feld, das
-heute niemand benutzt, ist Datenschutz-Ballast und Migrationsschuld.
+**~8 € netto im Monat**, dauerhaft. In Phase 2 einmalig 25 USD Play Console, ~400 € Gründung,
+290 € Markenanmeldung und das Rechtspaket.

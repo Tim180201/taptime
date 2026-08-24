@@ -157,3 +157,80 @@ Deutschland statt bei einem US-Anbieter. Rund 8 € statt 32 € im Monat.
 zunächst auf demselben Server — vor dem ersten zahlenden Kunden neu zu bewerten.
 
 **Ersetzt** die frühere Empfehlung des Technical Lead, auf Supabase weiterzupatchen.
+
+---
+
+## D-011 — Gründung und Recht laufen als getrennte Uhr neben dem Bau
+
+**Datum:** 23.08.2026 · **Entschieden von:** Tim, vorbereitet vom Technical Lead
+
+**Entscheidung:** D-007 („erst System, dann Firma") bleibt bestehen, wird aber in zwei Uhren
+geteilt. Reine Wartezeiten — Markenrecherche, Markenanmeldung, Notartermin, Handelsregister,
+Finanzamt, D-U-N-S — starten sofort und laufen neben dem Bau. Bindendes — Anwaltspaket
+beauftragen, echte Kundenverträge — wartet auf den eigenen Zweiwochen-Test.
+
+**Warum:** Der Engpass ist nicht mehr die Entwicklung. Die Uhren, die den ersten zahlenden
+Kunden bestimmen, laufen bei Dritten: Steuernummer 4–8 Wochen, D-U-N-S bis 30 Tage,
+Anwaltspaket 4–8 Wochen, Marke über sechs Monate bis zur Eintragung plus drei Monate
+Widerspruchsfrist. Nacheinander kosten sie rund sieben Wochen mehr als nebeneinander.
+
+**Preis:** Rund 400 € Gründungskosten und einige Monate Buchhaltung früher als nötig.
+
+**Nicht verhandelbar:** Zwischen Beurkundung und Handelsregistereintragung haftet der Gründer
+für Geschäfte der UG i. G. persönlich. Erste echte Kundenverträge deshalb erst nach der
+Eintragung.
+
+---
+
+## D-012 — Die Aufgabenkette wird nach Betriebsfähigkeit sortiert, nicht nach Ausbaustufe
+
+**Datum:** 24.08.2026 · **Entschieden von:** Technical Lead
+
+**Entscheidung:** Vollständige Prüfung aller 21 ADRs, der Vision, der Prinzipien, des Domänen-
+und Rollenmodells sowie der drei archivierten Roadmaps gegen den echten Quelltext. Ergebnis:
+Die Aufgabenkette wird neu sortiert und um sieben Aufgaben erweitert. `T-001` bis `T-006`
+bleiben unverändert, alles danach ist neu nummeriert. Siehe `ADO/PLAN.md`.
+
+**Warum:** Der Produktkern ist belastbar — Mandantentrennung, append-only Historie, Idempotenz,
+Offline-Warteschlange und die Kette `Trigger → WorkEvent → Engine → TimeEntry` sind gebaut und
+getestet, ohne Umgehungspfad. Was fehlte, war ausnahmslos Betrieb mit echten Menschen. Die alte
+Kette hätte Standorte und Oberflächen gebaut, während ein Kunde weiterhin niemanden aussperren
+und niemand einen Ausfall bemerken kann.
+
+**Die vier Befunde, die die Sortierung bestimmen:**
+
+1. **Eine Eskalation verschwindet spurlos.** Die Engine eskaliert bei sieben
+   Konsistenzverstößen, zwei davon im Alltag erreichbar. Es entsteht kein Zeiteintrag — richtig.
+   Die Abstimmzeile wird aber mit `result_status = 'synchronized'` geschrieben, das Gerät
+   quittiert, und `read_time_review_items_v1` wählt nur `review_pending`. Folge: Die Arbeitszeit
+   ist weg, die Warteschlange leert sich sauber, und kein Administrator sieht den Fall. Die App
+   verspricht dem Beschäftigten dabei eine Prüfung, die nie stattfindet. → **T-010**
+
+   *Korrektur des Technical Lead:* Der erste Befundbericht nannte dies richtig. Ich habe ihm
+   widersprochen — auf Basis der empfangenden Seite (`OfflineSyncScheduler.ts`) statt der
+   sendenden. Auf dem Offline-Weg ist die Hülle immer `synchronized`; `escalation_required` ist
+   darin nur die Entscheidung. Für Befunde, die eine Aufgabe auslösen, werden ab jetzt beide
+   Enden geprüft.
+
+2. **Kein Weg, jemanden auszusperren.** Die Datenbank kann es und ist dafür getestet; es gibt
+   keine Route, keinen Coordinator, keine Oberfläche. Migration 014 hat das ungenutzte Recht
+   folgerichtig entzogen. → **T-009**
+
+3. **Im Betrieb entsteht kein einziger Logeintrag.** Das Diagnoseschema mit Allowlist existiert,
+   aber `main.ts` ruft `createBackendApiRuntime` ohne `onDiagnostic`. Einzige Laufzeitausgabe:
+   eine Zeile auf stderr, wenn der Server nicht startet. → **T-008**
+
+4. **Der Export übersteht keine Prüfung.** Keine Pausen, keine lokale Zeitzone, keine
+   garantierte Personenkennung — der Anzeigename darf leer sein —, kein Korrekturhinweis. Eine
+   nachträglich verschobene Zeit sieht in der CSV aus wie eine Originalzeit. → **T-012**, **T-013**
+
+**Was ausdrücklich in Ordnung ist:** RLS auf 29 von 29 Tabellen mit `ENABLE` und `FORCE`,
+Mandantenkontext transaktionslokal mit Nicht-Leckage-Tests über wiederverwendete Verbindungen,
+26 Isolationstests für Lesen und Schreiben, erzwungene Korrekturbegründung, Administrator-
+Vorbehalt für Korrekturen, protokollierter und mandantensicherer Export, serverseitige
+Idempotenz.
+
+**Nachgetragen:** Sieben Tabellen tragen keine Policy und hängen allein an den Prädikaten ihrer
+`SECURITY DEFINER`-Funktionen; darunter `time_record_revisions`, auf der ein `UPDATE`-Recht
+liegt, dessen Unveränderlichkeits-Trigger ungetestet ist. Kein akutes Risiko, aber die zweite
+Verteidigungslinie fehlt dort. → aufgenommen als bekannte Kleinigkeit, Prüfung in **T-019**.

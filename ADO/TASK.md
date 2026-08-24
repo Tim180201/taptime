@@ -4,102 +4,108 @@
 
 ---
 
-## T-006 · Admin-Web ausliefern und Erstinbetriebnahme
+## T-010 · Eine Eskalation muss beim Administrator ankommen
 
-**Für:** Codex · **Risiko:** öffentlich erreichbar + erster echter Zugang → **unabhängiges Review verpflichtend**
-**Zeitbox:** zwei Arbeitssitzungen · **Grundlage:** T-005 abgeschlossen (`4fd2de2`)
+**Für:** Codex · **Risiko:** fachliche Entscheidung, Migration, Mandantengrenze → **unabhängiges Review verpflichtend**
+**Zeitbox:** drei Arbeitssitzungen · **Grundlage:** D-012, `ADO/PLAN.md`
+
+### Der Fehler
+
+Die App sagt dem Beschäftigten heute:
+
+> „Prüfung erforderlich. Der Scan muss geprüft werden. Deine Arbeitszeit wurde nicht
+> stillschweigend verändert."
+
+Diese Prüfung findet nie statt. Der Weg im Einzelnen:
+
+1. Die Engine entscheidet `escalation_required`.
+2. `OfflineLifecycleIngestionCoordinator` schreibt die Abstimmzeile trotzdem mit
+   `result_status = 'synchronized'` und `review_reason = null`.
+3. `persistTimeEntryMutation` legt für diese Entscheidung keinen Zeiteintrag an — richtig so.
+4. Das Gerät quittiert, die Warteschlange läuft weiter — ebenfalls richtig.
+5. `read_time_review_items_v1` wählt nur `result_status = 'review_pending'`. Die Eskalation
+   erscheint **in keiner Administratoransicht.**
+
+Ergebnis: Die Arbeitszeit ist weg. Der einzige Nachweis liegt in `audit_events` und
+`canonical_decisions` — beides hat keine Oberfläche. Der Beschäftigte hat ein Versprechen
+bekommen, das das System nicht einlösen kann.
 
 ### Ziel
 
-**Der Product Owner meldet sich unter `https://admin.tb-infra.de` an und sieht die Übersicht.**
+**Jede Entscheidung `escalation_required` erzeugt einen Prüfposten, den ein Administrator
+sieht und entscheiden kann.** Auf jedem Weg — offline, kanonisch, manuell.
 
-Die Aufgabe ist erst fertig, wenn das passiert ist — nicht wenn etwas ausgeliefert wurde.
+Die Aufgabe ist fertig, wenn ein absichtlich herbeigeführter Eskalationsfall in der Ansicht
+*Prüfungen* auftaucht, dort entschieden wird und danach verschwindet.
 
-### Der entscheidende Aufbau — bitte genau lesen
+### Invarianten, die nicht verletzt werden dürfen
 
-`AdminWebApiClient` ruft die API über **relative Pfade** auf (`/v1/session`,
-`/v1/administration/…`), und `backend-api` hat **kein CORS**. Admin-Web und API **müssen
-also auf demselben Ursprung liegen.**
-
-Daher:
-
-```
-admin.tb-infra.de
-  /            → statische Dateien des Admin-Web
-  /v1/*        → backend-api
-  /health      → backend-api
-
-api.tb-infra.de   bleibt unverändert (Mobile-App)
-```
-
-**Kein CORS einbauen.** Wenn du in Versuchung gerätst, CORS-Header zu setzen, ist der Aufbau
-falsch — dann melden statt bauen.
+1. **Die Warteschlange darf nie blockieren.** Das Gerät quittiert weiterhin und arbeitet die
+   Warteschlange ab. Ein Prüfposten hält kein Gerät an.
+2. **Kein Zeiteintrag ohne Engine-Entscheidung.** Eine Eskalation legt weiterhin keinen
+   Zeiteintrag an. Erst die Entscheidung des Administrators tut das.
+3. **Die Historie wird nicht umgeschrieben.** Append-only bleibt append-only.
+4. **Die Meldung an den Beschäftigten muss wahr werden**, nicht verschwinden.
 
 ### Schritte
 
-**1. Admin-Web bauen**
+**1. Die Abstimmzeile muss die Wahrheit sagen**
 
-- `npm run build --workspace=@taptime/admin-web`
-- Erforderliche Bau-Variablen: `VITE_TAPTIME_SUPABASE_URL` und
-  `VITE_TAPTIME_SUPABASE_PUBLISHABLE_KEY`
-- Der Publishable Key ist bauartbedingt öffentlich — er gehört in den Auslieferungsstand.
-  **Der Service-Role-Key niemals.** Prüfe das Ergebnis darauf.
+- Migration: `review_reason` um einen Wert für die Engine-Eskalation erweitern. Der bestehende
+  `CHECK` in `010_complete_offline_synchronization.sql:309` zählt fünf Werte auf.
+- Bei `escalation_required` die Abstimmzeile mit `result_status = 'review_pending'` und dem
+  neuen Grund schreiben statt mit `'synchronized'`.
+- **Den Nachfolge-Block nicht setzen.** `predecessor_requires_review` hält spätere Ereignisse
+  absichtlich an; eine Eskalation betrifft nur ihr eigenes Ereignis. Spätere Ereignisse werden
+  normal bewertet. Begründung in den Bericht.
 
-**2. Ausliefern über Caddy**
+**2. Der Prüfposten muss den Grund tragen**
 
-- Statische Dateien schreibgeschützt einhängen, **kein Verzeichnislisting**
-- Single-Page-Fallback auf `index.html`, aber **nicht** für `/v1/*` und `/health`
-- Versionsangaben weiterhin unterdrückt
+Der Administrator muss unterscheiden können, warum geprüft werden soll. Die Engine kennt sieben
+Eskalationsgründe (`BusinessEngineEscalationReason`). Er braucht den Grund in verständlicher
+Form, nicht den technischen Bezeichner.
 
-**3. HSTS auf beiden Hosts**
+**3. Alle drei Wege, nicht nur der Offline-Weg**
 
-`Strict-Transport-Security: max-age=31536000; includeSubDomains`
-Caddy setzt das nicht von selbst. Jetzt ist der richtige Zeitpunkt, weil ab hier echte
-Browser auf das System zugreifen.
+`ServerCanonicalLifecycleIngestionCoordinator` und `ManualLifecycleIngestionCoordinator` treffen
+dieselbe Entscheidung. Wenn dort eine Eskalation entstehen kann, muss auch dort ein Prüfposten
+entstehen. Prüfe beide und melde, was du gefunden hast.
 
-**4. Erstinbetriebnahme**
+**4. Die Ansicht Prüfungen**
 
-- Benutzer für den Product Owner in Supabase Auth anlegen
-- Bootstrap auf dem Server ausführen: `apps/backend-bootstrap`, CLI mit
-  `--organization-name`, `--operator-login`, `--request-id`, Geheimnisse über
-  `--secrets-stdin` — **niemals über argv**
-- Identität des Product Owner als Administrator binden
-- Nachweisen: genau **eine** Organisation, genau **eine** Administrator-Mitgliedschaft,
-  die eingebaute **Allgemeine Arbeitszeit** vorhanden
-
-**5. Übergabe an den Product Owner**
-
-Melde ihm: Adresse, E-Mail des Zugangs und wie er sein Passwort setzt.
-**Das Passwort niemals im Chat, im Bericht oder im Repository.**
+Der neue Grund muss im Admin-Web lesbar dargestellt werden. Keine neue Ansicht, keine neue
+Route — der bestehende Weg trägt das.
 
 ### Vision-Check
 
-Keine fachliche Logik, keine Migration. Ausliefern und in Betrieb nehmen.
+**One Tap. One Decision.** Der Beschäftigte tippt einmal. Das System löst die Unklarheit auf,
+nicht er. Genau dafür gibt es die Eskalation — sie war nur bisher eine Sackgasse.
 
 ### Nicht anfassen
 
-- `apps/backend-schema/migrations/`, `packages/core`, jede Geschäftslogik
-- `apps/mobile`, `apps/synthetic-android-e2e`
-- Der bestehende `api.tb-infra.de`-Block in der Caddy-Konfiguration
+- `BusinessEngine`. Die Entscheidungslogik ist richtig und bleibt unverändert.
+- Die Reihenfolge der Entscheidungen. Nichts an `findInconsistency`.
+- `apps/admin-web` über die Darstellung des neuen Grundes hinaus.
+- Nachträgliches Befüllen alter Daten. Die Produktionsdatenbank enthält nur die Erstinbetriebnahme.
 
 ### Prüfung — nachweisen, nicht behaupten
 
-- `https://admin.tb-infra.de` lädt das Admin-Web, gültiges Zertifikat
-- `https://admin.tb-infra.de/health` liefert `200 {"status":"ok"}` — beweist denselben Ursprung
-- Ein Aufruf von `/v1/session` ohne Anmeldung → `401`
-- `Strict-Transport-Security` auf beiden Hosts vorhanden
-- Kein Verzeichnislisting, keine Versionsangaben
-- **Kein Service-Role-Key** im Auslieferungsstand — im gebauten Ergebnis suchen
-- Weiterhin von außen nur 22, 80 und 443 offen
-- Genau eine Organisation, genau eine Administrator-Mitgliedschaft
-- Nach echtem Serverneustart ist beides wieder erreichbar
-- CI grün, kein `[skip ci]`
+- Ein Test führt eine echte Eskalation gegen PostgreSQL herbei und weist nach, dass sie in
+  `read_time_review_items_v1` erscheint.
+- Ein Test weist nach, dass die Adjudikation sie auflöst und sie danach verschwindet.
+- Ein Test weist nach, dass das Gerät weiterarbeitet: nach einer Eskalation wird das nächste
+  Ereignis normal bewertet und die Warteschlange leert sich.
+- Ein Test weist nach, dass **kein** Zeiteintrag durch die Eskalation entsteht.
+- Ein Test weist nach, dass ein Administrator einer fremden Organisation den Prüfposten
+  **nicht** sieht.
+- Die sieben Eskalationsgründe sind vollständig abgebildet — keiner fällt in einen Standardfall.
+- CI grün, kein `[skip ci]`.
 
 ### Zusätzliches Review
 
-> Ist über `admin.tb-infra.de` etwas erreichbar, das nicht erreichbar sein soll — Quelltext,
-> Verzeichnisse, Konfiguration, Schlüssel? Kann jemand ohne gültige Anmeldung eine
-> `/v1/`-Route erreichen?
+> Gibt es nach dieser Änderung noch irgendeinen Weg, auf dem ein Auslöser angenommen wird,
+> keinen Zeiteintrag erzeugt und in keiner Administratoransicht erscheint? Suche danach, statt
+> es auszuschließen.
 
 ### Abschluss
 
@@ -110,5 +116,5 @@ Vier Punkte melden. Entfernte oder umgeschriebene Tests **einzeln** benennen.
 
 ## Danach
 
-`T-007` Backup und **getesteter Restore** · `T-008` Pausen · `T-009` Standorte ·
-`T-010` Oberflächen · `T-011` installierbare App.
+`T-007` Sicherung und getesteter Restore · `T-008` Betriebssichtbarkeit ·
+`T-009` Menschen verwalten · `T-011` Ratenbegrenzung · siehe `ADO/PLAN.md`.

@@ -2,7 +2,7 @@
 
 > **Diese Datei wird überschrieben, nie angehängt.** Sie beschreibt nur den Jetzt-Zustand.
 
-**Stand:** 23.08.2026 · **Ziel:** System fertig in ~11 Wochen, erster Kunde in ~4 Monaten
+**Stand:** 24.08.2026 (T-006 abgeschlossen) · **Ziel:** System fertig in ~6 Wochen, erster Kunde in ~3 Monaten
 
 ---
 
@@ -34,27 +34,42 @@ danach Firma, Recht und Store.
   Datenbank, `taptime-edge` nur für Caddy. Container schreibgeschützt, ohne Capabilities,
   ohne Rechteerweiterung. `https://api.tb-infra.de/health` liefert `200`, überlebt den
   Serverneustart.
+- **T-006 Admin-Web und Erstinbetriebnahme** — `7ef3951`. `https://admin.tb-infra.de` liefert
+  das Admin-Web, `/v1/*`, `/v2/*` und `/health` gehen an dieselbe API — gleicher Ursprung, kein
+  CORS. HSTS auf beiden Hosts. Ausgeliefert werden genau drei Dateien, kein Quelltext, keine
+  Source Maps, kein Service-Role-Key. Vollständiger Portscan 1–65535: nur 22, 80, 443.
+  Erstinbetriebnahme: eine Organisation „Tim Bartz", eine Administrator-Mitgliedschaft, eine
+  Identitätsbindung, die eingebaute Allgemeine Arbeitszeit. Nach echtem Neustart alles wieder da.
+  **Der Product Owner hat sich angemeldet und die Übersicht gesehen.**
 - **`tb-infra.de`** zeigt auf den Server, TTL 300, DNS bestätigt
 
-**Nicht vorhanden:**
+**Nicht vorhanden** — nach vollständiger Anforderungsprüfung am 24.08. (D-012):
 
-- Deployment, Backup, getesteter Restore, Monitoring (`infrastructure/` ist leer)
+- Sicherung und getesteter Restore. Datenverlust ist heute endgültig.
+- **Protokollierung.** Im Betrieb entsteht kein einziger Logeintrag, kein Alarm.
+- **Zugang entziehen, zweiter Administrator, Passwort zurücksetzen.** Die Datenbank kann es,
+  die Anwendung nicht.
+- **Auflösung eskalierter Ereignisse.** Eine Eskalation legt die Warteschlange dauerhaft still.
+- Ratenbegrenzung und Anmeldeschutz auf einem öffentlich erreichbaren Dienst
+- Pausenerfassung; Export ohne Pausen, lokale Zeit, Personenkennung und Korrekturhinweis
+- Zweite Umgebung; die Produktion baut aus dem Quellbaum statt aus einem geprüften Artefakt
 - Standorte und Standortleiter (ADR-0020 ist beschrieben, nicht gebaut)
-- Pausenerfassung, Löschkonzept
-- Fertige Oberflächen, Landing Page
+- Löschkonzept und Betroffenenrechte im laufenden System
+- Fertige Oberflächen, Barrierefreiheit der Mobile-Anmeldung, Landing Page
 - Signierte App, Store-Eintrag, Rechtspaket, Firma
 
 ---
 
 ## Aktuelle Aufgabe
 
-**T-006 — Admin-Web ausliefern und Erstinbetriebnahme.** Siehe `ADO/TASK.md`.
-Erster echter Zugang zum System, daher mit verpflichtendem unabhängigem Review.
+**T-010 — Eine Eskalation muss beim Administrator ankommen.** Siehe `ADO/TASK.md`.
+Vorgezogen vor T-007: Der Verlust trifft den ersten Pilotnutzer, ein Datenverlust durch
+Serverausfall ist demgegenüber selten. Fachliche Entscheidung und Migration, daher mit
+verpflichtendem unabhängigem Review.
 
-Fertig ist die Aufgabe erst, wenn der Product Owner sich unter `https://admin.tb-infra.de`
-anmeldet und die Übersicht sieht.
-
-Danach T-007 bis T-011, siehe `ADO/PLAN.md`.
+Danach T-007 bis T-019 in neuer Reihenfolge, siehe `ADO/PLAN.md`. Die Kette wurde am 24.08.
+nach Betriebsfähigkeit sortiert und um sieben Aufgaben erweitert (D-012). `T-001` bis `T-006`
+sind unverändert, alles danach ist neu nummeriert.
 
 ## T-003 — eingestellt, nicht abgeschlossen
 
@@ -79,7 +94,12 @@ Der Technical Lead führt beide Zahlen mit, um eigene systematische Fehler zu er
 | T-003 | zwei Sitzungen | **sechs** — eingestellt |
 | T-004 | zwei Sitzungen | drei — inkl. einer Korrekturrunde |
 | T-005 | eine Sitzung | eine Sitzung |
-| T-006 | zwei Sitzungen | offen |
+| T-006 | zwei Sitzungen | zwei Sitzungen |
+| T-010 | drei Sitzungen | offen |
+
+Die Prüfung vom 24.08. hat die Restschätzung von 11 auf **38 Sitzungen** über 13 Aufgaben
+korrigiert — nicht weil mehr Arbeit entstanden ist, sondern weil sieben nötige Aufgaben vorher
+in keinem Plan standen.
 
 ---
 
@@ -98,7 +118,24 @@ Der Technical Lead führt beide Zahlen mit, um eigene systematische Fehler zu er
 - Ungetracktes `app.json` im Wurzelverzeichnis (seit 20.07.2026), von keinem Build oder Runtime
   gelesen. Package-ID entscheidet der Product Owner.
 - Nur zwei Rollen (`administrator`, `employee`). `team_lead` ist eine typische B2B-Rückfrage,
-  additiv nachrüstbar. Der Standortleiter aus T-008 deckt den häufigsten Fall ab.
+  additiv nachrüstbar. Der Standortleiter aus T-015 deckt den häufigsten Fall ab.
+- **P2:** Sieben von 29 Tabellen tragen keine RLS-Policy — `bootstrap_receipts`,
+  `employee_membership_invitations`, `employee_invitation_command_receipts`,
+  `employee_enrollment_redemption_receipts`, `time_record_revisions`,
+  `time_review_command_receipts`, `offline_review_adjudications`. `FORCE` ohne Policy sperrt
+  alles, sie sind also fail-closed; ihre Mandantentrennung hängt aber allein an den Prädikaten
+  der `SECURITY DEFINER`-Funktionen. Auf `time_record_revisions` liegt ein `UPDATE`-Recht, dessen
+  Unveränderlichkeits-Trigger nirgends getestet ist.
+- **P2:** Fünf Policies aus Migration 013 leiten die Administrator-Eigenschaft aus einer
+  Anwendungsvariablen ab statt aus `memberships` wie die anderen 42. Heute nicht ausnutzbar,
+  bricht aber das Muster.
+- **P2:** Der Zeitstempel der manuellen Erfassung stammt von der Geräteuhr. Der Serverpfad mit
+  `transaction_timestamp()` existiert, wird von der App aber nie aufgerufen.
+- **P2:** Ein vergessener Stopp läuft unbegrenzt weiter. Es gibt keine Obergrenze und keinen
+  Hinweis an den Administrator.
+- **P3:** Vier Dokumente beschreiben, was es nicht gibt — `Role_Model.md` und `Domain_Model.md`
+  führen System Owner und Team Lead, `Glossary.md` kennt Work Target und Revision nicht,
+  ADR-0018 DA6-P03 nennt Supabase als Datenebene. Wird in T-019 angeglichen.
 - `apps/backend-b1-spike` ist ein altes Experiment und kann entfernt werden.
 - **P2:** `/health` löst pro Aufruf eine Datenbankabfrage aus. Der eigene Pool (`max: 1`) schützt
   die Fachmodule, aber ein Ergebnis-Zwischenspeicher von wenigen Sekunden würde das Thema ganz
