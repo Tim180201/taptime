@@ -59,11 +59,11 @@ Datenbankrechten eingreifen muss.
 | **T-015** | Standorte und Standortleiter (ADR-0020, überarbeitet nach D-013) | Verwaltung hängt sonst an einer Person | 7 |
 | **T-020** | **Freigabekette für nicht per NFC erfasste Zeiten (D-014)** | Braucht die Standortleitung als Instanz | 5 |
 | **T-016** | Löschkonzept und Betroffenenrechte | Der AVV verlangt die Fähigkeit, nicht den Text | 5 |
-| **T-017** | Oberflächen fertigstellen, Barrierefreiheit, Landing Page | Vor dem Pilotbetrieb | 4 |
+| **T-017** | Oberflächen, Barrierefreiheit, **CSP und Sitzung (D-015)**, Landing Page | Vor dem Pilotbetrieb | 5 |
 | **T-018** | Installierbare App per Direktlink | Für den eigenen Test | 2 |
 | **T-019** | Dokumente an die Wirklichkeit angleichen | Vier Dokumente beschreiben, was es nicht gibt | 1 |
 
-**Größe** in Arbeitssitzungen. Summe 44.
+**Größe** in Arbeitssitzungen. Summe 45.
 
 **Reihenfolge ist echt.** T-020 steht zwischen T-015 und T-016, weil die Freigabekette die
 Standortleitung als Instanz voraussetzt. T-013 braucht die Pausen aus T-012. T-016 braucht die Standorte aus

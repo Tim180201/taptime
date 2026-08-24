@@ -315,3 +315,33 @@ ohnehin, nur unsichtbar.
 - Der Export bleibt **vollständig** und weist Unbestätigtes in einer eigenen Spalte aus. Eine
   vergessene Freigabe darf nicht dazu führen, dass jemandem Geld auf der Abrechnung fehlt.
   Vom Technical Lead entschieden, vom Product Owner überstimmbar.
+
+---
+
+## D-015 — Erst die Content-Security-Policy, dann die bequemere Sitzung
+
+**Datum:** 24.08.2026 · **Entschieden von:** Tim, vorbereitet vom Technical Lead
+
+**Entscheidung:** In `T-017` werden zwei zusammengehörige Dinge gemeinsam geändert:
+
+1. Eine **strikte Content-Security-Policy** für `admin.tb-infra.de`. Heute gibt es keine — weder
+   in Caddy noch in der Seite.
+2. Die Anmeldung wandert von „nur im Arbeitsspeicher" auf **`sessionStorage`**: Sie überlebt das
+   Neuladen der Seite und endet mit dem Schließen des Tabs.
+
+**Die Reihenfolge ist Teil der Entscheidung.** Ohne CSP wird 2 nicht gebaut.
+
+**Warum:** ADR-0015, DA4-P10 hält Token bewusst nur im Arbeitsspeicher — „Reload starts signed
+out". Der Gedanke ist richtig, aber die Wirkung begrenzt: Wer Fremdcode in der Seite ausführen
+kann, erreicht auch den Arbeitsspeicher. Was solchen Code verhindert, ist eine CSP. Wir haben
+bisher die unbequeme Hälfte des Schutzes und nicht die wirksame.
+
+**Der Preis der heutigen Lösung** trägt ausgerechnet die Person, die am meisten mit dem System
+arbeitet. Ein Standortleiter, der F5 drückt, den Laptop zuklappt oder dessen Tab abstürzt, meldet
+sich neu an — bei täglicher Nutzung der Unterschied zwischen Werkzeug und Zumutung.
+
+**Warum `sessionStorage` und nicht `localStorage`:** Die Sitzung endet mit dem Tab. Ein
+vergessener Rechner im Betrieb hält keine offene Sitzung über Nacht.
+
+**Offen bis T-017:** ADR-0015, DA4-P10 überarbeiten. Der Technical Lead bereitet den
+Änderungsvorschlag vor.

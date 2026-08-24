@@ -4,116 +4,127 @@
 
 ---
 
-## T-008 · Betriebssichtbarkeit — sehen, dass etwas kaputt ist
+## T-009 · Menschen verwalten
 
-**Für:** Codex · **Risiko:** Protokolle können personenbezogene Daten enthalten → **unabhängiges Review verpflichtend**
-**Zeitbox:** zwei Arbeitssitzungen · **Grundlage:** T-007 abgeschlossen
+**Für:** Codex · **Risiko:** Berechtigungen, Mandantengrenze, Migration → **unabhängiges Review verpflichtend**
+**Zeitbox:** drei Arbeitssitzungen · **Grundlage:** T-008 abgeschlossen
 
 ### Der Zustand heute
 
-`apps/backend-api/src/main.ts` ruft `createBackendApiRuntime` **ohne** `onDiagnostic`. Das
-Diagnoseschema mit Allowlist, Fehlerklassen und Korrelations-ID ist gebaut und angeschlossen —
-an nichts. Die einzige Laufzeitausgabe des gesamten Backends ist eine Zeile auf stderr, wenn der
-Server nicht startet.
+Ein Kunde kann **niemanden aussperren**. Die Datenbank kann es — jede Policy prüft
+`revoked_at IS NULL`, und es ist getestet. Es gibt nur keine Route, keinen Coordinator und keine
+Oberfläche. Migration 014 hat das ungenutzte Schreibrecht folgerichtig sogar entzogen.
 
-Solange alles läuft, fällt das nicht auf. Im Störfall gibt es nichts.
+Dasselbe Loch zweimal daneben: Es gibt **keinen zweiten Administrator** — die entstehen
+ausschließlich über die Betreiber-CLI. Und ein vergessenes Passwort führt aus der Anwendung
+**nirgendwohin**.
+
+Alle drei landen heute beim Betreiber, mit Datenbankrechten. Das ist kein B2B-Produkt.
 
 ### Ziel
 
-**Der Product Owner erfährt von einer Störung, ohne dass ein Kunde ihn anruft — und kann
-danach nachlesen, was passiert ist.**
+**Ein Kunde verwaltet die Menschen in seinem Betrieb selbst — vollständig, ohne uns.**
 
-Die Aufgabe ist fertig, wenn eine absichtlich herbeigeführte Störung nachweislich eine Meldung
-ausgelöst hat, die auf seinem Telefon angekommen ist.
+Drei Fähigkeiten:
 
-### Schritt 0 · Erst die Produktion auf den aktuellen Stand bringen
+1. Zugang entziehen
+2. Einen zweiten Administrator einsetzen
+3. Passwort zurücksetzen
 
-Die Produktionsdatenbank läuft auf Migration **014**. Im Repository steht **015** — die
-Eskalations-Reparatur aus T-010 ist auf dem Server **nicht aktiv**.
+### Bauvorgabe aus D-013 — bitte zuerst lesen
 
-Bring den Server auf den aktuellen Stand, bevor du irgendetwas anderes tust. Nachweisen:
-Migrationsverzeichnis auf 015, `https://admin.tb-infra.de` erreichbar, `/health` grün, Sicherung
-danach weiterhin erfolgreich. Wiederholbar wird dieser Vorgang erst in T-014 — heute von Hand,
-aber dokumentiert.
+`T-015` gibt dieselben Fähigkeiten der Standortleitung, beschränkt auf ihren Standort.
+
+**Leite die Berechtigung deshalb aus Mitgliedschaft und Zuständigkeit ab, nicht aus der Rolle
+allein.** Ein `role = 'administrator'` mitten in einer Bedingung ist die Stelle, an der T-015
+alles noch einmal bauen müsste. Der Zuständigkeitsbereich ist heute „die ganze Organisation" —
+er muss morgen „dieser Standort" sein können, ohne dass die Prüfung umgeschrieben wird.
+
+### Die Falle — hier steckt die eigentliche Arbeit
+
+Ein Beschäftigter kündigt. Auf seinem Telefon liegen **noch nicht übertragene Arbeitszeiten**
+aus den letzten Tagen.
+
+Sperrst du ihn naiv, wird der nächste Abgleich abgelehnt, das Gerät räumt seine Warteschlange —
+und **echte, geleistete Arbeitszeit ist weg**. Genau der Fehler, den wir in T-010 behoben haben,
+nur an anderer Stelle.
+
+Umgekehrt darf ein Gesperrter selbstverständlich nicht weiterstempeln.
+
+**Die Auflösung:** Der Zeitstempel des Geräts ist manipulierbar, taugt also nicht als Beweis.
+Ereignisse einer entzogenen Mitgliedschaft werden deshalb **nicht angenommen und nicht
+verworfen, sondern zu Prüfposten**. Ein Administrator sieht: „Dieses Gerät wollte nach dem
+Entzug vier Ereignisse abgleichen" — und entscheidet.
+
+Die Maschinerie dafür steht seit T-010. **Benutze sie, bau nichts daneben.**
+
+### Invarianten
+
+1. **Die letzte Administrator-Mitgliedschaft kann nicht entzogen und nicht herabgestuft
+   werden.** Sonst sperrt sich ein Kunde selbst aus, und nur wir kommen wieder hinein — genau
+   das Problem, das diese Aufgabe löst.
+2. **Niemand entzieht sich selbst.** Auch nicht als Administrator.
+3. **Ein Entzug wirkt sofort**, auch wenn das Zugangstoken noch gültig ist. Die Prüfung
+   geschieht serverseitig bei jedem Zugriff, nicht beim Anmelden.
+4. **Arbeitszeit geht niemals still verloren.** Siehe oben.
+5. **Der Entzug löscht nichts.** Zeiten, Ereignisse und Historie des Ausgeschiedenen bleiben —
+   das sind Geschäftsunterlagen. Löschen ist `T-016`.
+6. **Jede dieser Handlungen ist ein Audit-Ereignis** mit Urheber, Zeitpunkt und Ziel.
 
 ### Schritte
 
-**1. Protokolle anschließen**
+**1. Zugang entziehen**
 
-- `onDiagnostic` verdrahten, Ausgabe nach journald.
-- **Die Allowlist ist der Kern, nicht das Beiwerk.** In ein Protokoll gehören Zeitpunkt,
-  Fehlerklasse, Route, Korrelations-ID und Organisationsbezug als Kennung. Niemals Namen,
-  E-Mail-Adressen, Kundenbezeichnungen, Arbeitszeiten, Token oder Anfrageinhalte.
-- Aufbewahrung begrenzen — Vorschlag 14 Tage, mit Größenobergrenze. Protokolle sind
-  personenbezogene Daten, sobald sie Rückschlüsse erlauben; Datensparsamkeit gilt auch hier.
-- Ein Test weist nach, dass ein Fehler mit personenbezogenem Inhalt **nichts davon** ins
-  Protokoll schreibt.
+Route, Coordinator, Oberfläche unter *Beschäftigte*. Migration: das in 014 entzogene
+Schreibrecht gezielt und minimal zurückgeben — nicht pauschal.
 
-**2. Melden, was wirklich wehtut**
+**2. Zweiter Administrator**
 
-Vier Dinge, mehr nicht. Jede weitere Meldung senkt die Aufmerksamkeit für die vier:
+Zwei Wege, beide nötig: eine Einladung, die bereits die Rolle trägt, und die Höherstufung einer
+bestehenden Mitgliedschaft. Beides mit Audit-Ereignis.
 
-- Die API antwortet nicht mehr
-- Die letzte Sicherung ist älter als zwei Stunden
-- Die wöchentliche Wiederherstellungsprüfung ist fehlgeschlagen
-- Die Platte läuft voll (Schwelle 80 Prozent)
+**3. Passwort zurücksetzen**
 
-**3. Der Fall, den ein Server nicht selbst melden kann — entschieden**
+Supabase kann das; das Produkt bietet nur keinen Weg dorthin. „Passwort vergessen" im Admin-Web
+**und** in der App.
 
-**healthchecks.io**, kostenloser Tarif, genau **ein** Check als Totmannschalter.
+Dazu gehört die **Site URL** in Supabase — sie steht noch auf dem Auslieferungswert, weshalb der
+Einladungslink des Product Owner in Safari ins Leere lief. Ohne diese Einstellung geht auch die
+Zurücksetzung ins Leere. Sag dem Product Owner genau, was er wo einträgt.
 
-- Nach draußen geht ausschließlich ein Lebenszeichen **ohne Rumpf**. Keine Daten, keine
-  Kennungen, keine Protokolle. Begründe im Bericht, warum der Dienst damit kein
-  Auftragsverarbeiter wird.
-- Der Alarm geht **nicht per E-Mail**, sondern per Webhook an dasselbe ntfy-Thema wie alles
-  andere. Der Product Owner soll eine App haben, nicht zwei Orte zum Nachsehen.
-- Die drei übrigen Meldungen erkennt der Server selbst und schickt sie direkt an ntfy — dafür
-  braucht es keine weiteren Checks bei healthchecks.io.
-
-**4. Der Weg zum Telefon — entschieden**
-
-**ntfy**, Push auf das Telefon des Product Owner. Kostenlos, kein Konto nötig.
-
-Zwei Dringlichkeitsstufen, keine dritte:
-
-| Stufe | Was | Verhalten |
-|---|---|---|
-| **Sofort** | API antwortet nicht · Server weg | Push mit hoher Priorität, darf den Stummmodus durchbrechen |
-| **Morgens** | Sicherung überfällig · Wiederherstellungsprüfung fehlgeschlagen · Platte über 80 % | Gesammelt einmal täglich, feste Uhrzeit, normale Priorität |
-
-Der Themenname (Topic) ist der einzige Zugangsschutz bei ntfy. Erzeuge ihn auf dem Server aus
-Zufallszeichen, gib ihn nur dem Product Owner, und halte ihn aus dem Repository und aus allen
-Berichten heraus — genau wie den Statuspfad aus T-007.
-
-**Im Meldungstext steht niemals ein Personenbezug.** Eine Meldung nennt, was kaputt ist, und
-sonst nichts. Kein Kundenname, keine E-Mail-Adresse, keine Arbeitszeit. Die Meldung verlässt
-den Server über einen fremden Dienst — behandle sie entsprechend.
+Die Missbrauchsbremse für diesen Weg ist `T-011`, nicht hier. Baue keine eigene.
 
 ### Vision-Check
 
-Keine fachliche Logik, keine Oberfläche für Benutzer. Betrieb.
+Verwaltung, keine Erfassung. Der Beschäftigte merkt von alldem nichts — außer dass er sich nicht
+mehr anmelden kann.
 
 ### Nicht anfassen
 
-- `packages/core`, jede Geschäftslogik
-- `apps/backend-schema/migrations/` — außer dem Einspielen von 015 in Schritt 0
-- Das Diagnoseschema selbst. Es ist richtig gebaut, es war nur nicht angeschlossen.
+- `packages/core`, die Business Engine, die Entscheidungsreihenfolge
+- Die Prüfungs-Maschinerie aus T-010 — benutzen, nicht erweitern, außer um den neuen Prüfgrund
+- Löschen von Daten. Das ist T-016.
 
 ### Prüfung — nachweisen, nicht behaupten
 
-- Produktion läuft auf Migration 015; Nachweis im Bericht
-- Ein echter Fehler erzeugt einen Protokolleintrag; der Eintrag steht im Bericht
-- Ein Fehler mit personenbezogenem Inhalt erzeugt einen Eintrag **ohne** diesen Inhalt
-- Jede der vier Meldungen wurde **absichtlich ausgelöst** und ist angekommen
-- Der Wächter von außen hat bei einem echten Serverneustart angeschlagen
-- Protokolle rotieren und laufen nicht voll
-- Kein Geheimnis in Protokollen, keines in argv, keines im Repository
+- Ein Entzug wirkt beim **nächsten Zugriff**, nicht erst beim nächsten Anmelden — mit noch
+  gültigem Token nachweisen
+- Der Versuch, die **letzte** Administrator-Mitgliedschaft zu entziehen oder herabzustufen,
+  wird abgewiesen
+- Der Versuch, sich **selbst** zu entziehen, wird abgewiesen
+- Ein Gerät mit vier nicht übertragenen Ereignissen erzeugt nach dem Entzug **vier Prüfposten**
+  und **keinen** stillen Verlust
+- Ein zweiter Administrator kann sich anmelden und alles tun, was der erste kann
+- Ein Administrator einer **fremden** Organisation sieht und kann nichts davon
+- Die Zurücksetzung führt zu einer funktionierenden Anmeldung — mit echtem Durchlauf
+- Alle Handlungen erscheinen in `audit_events`
 - CI grün, kein `[skip ci]`
 
 ### Zusätzliches Review
 
-> Nimm einen echten Protokollauszug aus dem Betrieb. Wie viel über eine einzelne Person lässt
-> sich daraus rekonstruieren? Zeige den Auszug, statt die Frage zu beantworten.
+> Zeige die Stelle, an der die Berechtigung geprüft wird. Wie viel davon müsste `T-015` ändern,
+> um sie auf einen Standort zu beschränken? Nenne Datei und Zeilen, statt zu behaupten, es sei
+> vorbereitet.
 
 ### Abschluss
 
@@ -124,5 +135,5 @@ Vier Punkte melden. Entfernte oder umgeschriebene Tests **einzeln** benennen.
 
 ## Danach
 
-`T-009` Menschen verwalten, standortfähig (D-013) · `T-011` Ratenbegrenzung ·
-`T-012` Pausen · siehe `ADO/PLAN.md`.
+`T-011` Ratenbegrenzung · `T-012` Pausen · `T-013` Export · `T-014` Zweite Umgebung ·
+siehe `ADO/PLAN.md`.

@@ -2,7 +2,7 @@
 
 > **Diese Datei wird überschrieben, nie angehängt.** Sie beschreibt nur den Jetzt-Zustand.
 
-**Stand:** 24.08.2026 (T-007 abgeschlossen) · **Ziel:** System fertig in ~6 Wochen, erster Kunde in ~3 Monaten
+**Stand:** 24.08.2026 (T-008 abgeschlossen) · **Ziel:** System fertig in ~6 Wochen, erster Kunde in ~3 Monaten
 
 ---
 
@@ -53,6 +53,12 @@ danach Firma, Recht und Store.
   Manifest aus dem Archiv: Migrationsverzeichnis, Zeilenzahlen, Rollen, RLS auf 29/29.
   Ein absichtlich beschädigtes Archiv wird erkannt. Borg-Schlüssel und `.env` liegen getrennt
   beim Product Owner.
+- **T-008 Betriebssichtbarkeit** — `3ab175d`. Diagnose angeschlossen: Protokolle mit Zeitpunkt,
+  Fehlerklasse, geschlossener Route und Korrelations-ID — **kein Personenbezug**, erzwungen durch
+  eine Projektion auf vier getippte Felder statt durch einen Filter. journald mit 14 Tagen
+  Aufbewahrung. Vier Meldungen per ntfy in zwei Dringlichkeitsstufen, alle vier absichtlich
+  ausgelöst und angekommen. Totmannschalter über healthchecks.io, nach echtem Neustart bewährt.
+  Geheimnisse ausschließlich in root-eigenen `curl`-Konfigurationen, nie in `argv`.
 - **`tb-infra.de`** zeigt auf den Server, TTL 300, DNS bestätigt
 
 **Nicht vorhanden** — nach vollständiger Anforderungsprüfung am 24.08. (D-012):
@@ -74,13 +80,12 @@ danach Firma, Recht und Store.
 
 ## Aktuelle Aufgabe
 
-**T-008 — Betriebssichtbarkeit.** Siehe `ADO/TASK.md`. Protokolle können personenbezogene
-Daten enthalten, daher mit verpflichtendem unabhängigem Review.
+**T-009 — Menschen verwalten.** Siehe `ADO/TASK.md`. Berechtigungen, Mandantengrenze und eine
+Migration, daher mit verpflichtendem unabhängigem Review.
 
-**Schritt 0 der Aufgabe ist dringend:** Die Produktion läuft auf Migration 014, das Repository
-auf 015. Die Eskalations-Reparatur aus T-010 ist auf dem Server nicht aktiv.
+Wird **standortfähig** gebaut (D-013), damit T-015 die Fähigkeit nur noch einschränken muss.
 
-Danach T-009 bis T-020 in neuer Reihenfolge, siehe `ADO/PLAN.md`. Die Kette wurde am 24.08.
+Danach T-011 bis T-020 in neuer Reihenfolge, siehe `ADO/PLAN.md`. Die Kette wurde am 24.08.
 nach Betriebsfähigkeit sortiert und um sieben Aufgaben erweitert (D-012). `T-001` bis `T-006`
 sind unverändert, alles danach ist neu nummeriert.
 
@@ -110,7 +115,8 @@ Der Technical Lead führt beide Zahlen mit, um eigene systematische Fehler zu er
 | T-006 | zwei Sitzungen | zwei Sitzungen |
 | T-010 | drei Sitzungen | eine Sitzung |
 | T-007 | zwei Sitzungen | eine Sitzung |
-| T-008 | zwei Sitzungen | offen |
+| T-008 | zwei Sitzungen | zwei Sitzungen |
+| T-009 | drei Sitzungen | offen |
 
 Die Prüfung vom 24.08. hat die Restschätzung von 11 auf **38 Sitzungen** über 13 Aufgaben
 korrigiert — nicht weil mehr Arbeit entstanden ist, sondern weil sieben nötige Aufgaben vorher
@@ -144,6 +150,10 @@ in keinem Plan standen.
 - **P2:** Fünf Policies aus Migration 013 leiten die Administrator-Eigenschaft aus einer
   Anwendungsvariablen ab statt aus `memberships` wie die anderen 42. Heute nicht ausnutzbar,
   bricht aber das Muster.
+- **P2:** `admin.tb-infra.de` hat **keine Content-Security-Policy** — weder in Caddy noch in der
+  Seite. Der Schutz „Token nur im Arbeitsspeicher" aus ADR-0015 DA4-P10 wirkt gegen
+  eingeschleustes JavaScript deshalb nur begrenzt. Wird in T-017 zusammen mit der Umstellung auf
+  `sessionStorage` behoben, in dieser Reihenfolge. Siehe D-015.
 - **P2:** Der Zeitstempel der manuellen Erfassung stammt von der Geräteuhr. Der Serverpfad mit
   `transaction_timestamp()` existiert, wird von der App aber nie aufgerufen.
 - **P2:** Die Wiederherstellungsprüfung läuft gegen eine praktisch leere Datenbank —
