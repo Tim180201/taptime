@@ -4,107 +4,100 @@
 
 ---
 
-## T-007 · Sicherung und getesteter Restore
+## T-008 · Betriebssichtbarkeit — sehen, dass etwas kaputt ist
 
-**Für:** Codex · **Risiko:** personenbezogene Daten verlassen den Server → **unabhängiges Review verpflichtend**
-**Zeitbox:** zwei Arbeitssitzungen · **Grundlage:** T-010 abgeschlossen
+**Für:** Codex · **Risiko:** Protokolle können personenbezogene Daten enthalten → **unabhängiges Review verpflichtend**
+**Zeitbox:** zwei Arbeitssitzungen · **Grundlage:** T-007 abgeschlossen
+
+### Der Zustand heute
+
+`apps/backend-api/src/main.ts` ruft `createBackendApiRuntime` **ohne** `onDiagnostic`. Das
+Diagnoseschema mit Allowlist, Fehlerklassen und Korrelations-ID ist gebaut und angeschlossen —
+an nichts. Die einzige Laufzeitausgabe des gesamten Backends ist eine Zeile auf stderr, wenn der
+Server nicht startet.
+
+Solange alles läuft, fällt das nicht auf. Im Störfall gibt es nichts.
 
 ### Ziel
 
-**Ein Restore ist nachweislich durchgeführt worden, automatisch, gegen echte Sicherungsdaten.**
+**Der Product Owner erfährt von einer Störung, ohne dass ein Kunde ihn anruft — und kann
+danach nachlesen, was passiert ist.**
 
-Die Aufgabe ist nicht fertig, wenn Sicherungen geschrieben werden. Sie ist fertig, wenn eine
-Wiederherstellung ohne menschliches Zutun gelaufen ist und ihr Ergebnis geprüft wurde. Eine
-ungetestete Sicherung ist keine Sicherung, sondern eine Hoffnung.
+Die Aufgabe ist fertig, wenn eine absichtlich herbeigeführte Störung nachweislich eine Meldung
+ausgelöst hat, die auf seinem Telefon angekommen ist.
 
-### Der Aufbau
+### Schritt 0 · Erst die Produktion auf den aktuellen Stand bringen
 
-| | |
-|---|---|
-| **Wohin** | Hetzner Storage Box **BX11**, Standort **FSN1 Falkenstein** — Deutschland, nicht Helsinki |
-| **Womit** | BorgBackup über SSH. Verschlüsselung, Deduplizierung und Integritätsprüfung sind eingebaut |
-| **Was** | `pg_dump` der Produktdatenbank, **stündlich** |
-| **Aufbewahrung** | 24 stündliche, 14 tägliche, 8 wöchentliche, 6 monatliche |
-| **Unveränderlichkeit** | Storage-Box-Schnappschüsse, planmäßig |
+Die Produktionsdatenbank läuft auf Migration **014**. Im Repository steht **015** — die
+Eskalations-Reparatur aus T-010 ist auf dem Server **nicht aktiv**.
 
-**Warum stündlich und nicht täglich:** Die Datenbank ist heute wenige Megabyte groß, und Borg
-dedupliziert. Stündlich kostet praktisch nichts und senkt den möglichen Datenverlust von einem
-Tag auf eine Stunde. Bei einer Zeiterfassung ist ein verlorener Tag ein verlorener Lohn — und
-die Geräte können ihn nicht nachliefern, sie quittieren und löschen ihre Warteschlange.
-
-**Warum Schnappschüsse:** Wer den Server übernimmt, hat auch dessen Zugang zur Storage Box.
-Ohne eine unveränderliche Ebene könnte er die Sicherungen mitlöschen. Prüfe, wie weit
-Storage-Box-Schnappschüsse das leisten, und melde ehrlich, wo die Grenze liegt.
+Bring den Server auf den aktuellen Stand, bevor du irgendetwas anderes tust. Nachweisen:
+Migrationsverzeichnis auf 015, `https://admin.tb-infra.de` erreichbar, `/health` grün, Sicherung
+danach weiterhin erfolgreich. Wiederholbar wird dieser Vorgang erst in T-014 — heute von Hand,
+aber dokumentiert.
 
 ### Schritte
 
-**1. Sicherung einrichten**
+**1. Protokolle anschließen**
 
-- `pg_dump` läuft **innerhalb** von `taptime-internal`. Die Datenbank bleibt von außen
-  unerreichbar.
-- Ergebnis unmittelbar in das Borg-Archiv. Kein unverschlüsselter Zwischenstand auf der Platte.
-- Der Borg-Schlüssel ist **nicht ausschließlich** auf dem Server. Er wird dem Product Owner
-  übergeben, damit er ihn getrennt verwahrt. Stirbt der Server mit dem einzigen Schlüssel, sind
-  alle Sicherungen wertlos.
+- `onDiagnostic` verdrahten, Ausgabe nach journald.
+- **Die Allowlist ist der Kern, nicht das Beiwerk.** In ein Protokoll gehören Zeitpunkt,
+  Fehlerklasse, Route, Korrelations-ID und Organisationsbezug als Kennung. Niemals Namen,
+  E-Mail-Adressen, Kundenbezeichnungen, Arbeitszeiten, Token oder Anfrageinhalte.
+- Aufbewahrung begrenzen — Vorschlag 14 Tage, mit Größenobergrenze. Protokolle sind
+  personenbezogene Daten, sobald sie Rückschlüsse erlauben; Datensparsamkeit gilt auch hier.
+- Ein Test weist nach, dass ein Fehler mit personenbezogenem Inhalt **nichts davon** ins
+  Protokoll schreibt.
 
-**2. Wiederherstellung, automatisch und wöchentlich**
+**2. Melden, was wirklich wehtut**
 
-Das ist der Kern der Aufgabe.
+Vier Dinge, mehr nicht. Jede weitere Meldung senkt die Aufmerksamkeit für die vier:
 
-- Neuestes Archiv in einen **Wegwerf-Container** einspielen, nie gegen die Produktion.
-- Nachweisen, und zwar mit Vergleich, nicht mit „lief durch":
-  - Migrationsstand stimmt, Prüfsummen des Migrationsverzeichnisses stimmen
-  - Zeilenzahlen der tragenden Tabellen entsprechen der Produktion
-  - RLS ist auf allen 29 Tabellen aktiv und erzwungen — eine Wiederherstellung, die die
-    Mandantentrennung verliert, ist ein Datenleck, kein Restore
-  - alle Rollen sind vorhanden
-- Wegwerf-Container danach restlos entfernen.
+- Die API antwortet nicht mehr
+- Die letzte Sicherung ist älter als zwei Stunden
+- Die wöchentliche Wiederherstellungsprüfung ist fehlgeschlagen
+- Die Platte läuft voll (Schwelle 80 Prozent)
 
-**3. Ein Signal, das ankommt**
+**3. Der Fall, den ein Server nicht selbst melden kann**
 
-Bis `T-008` gibt es keine Protokollierung. Diese Aufgabe braucht trotzdem eine Antwort auf die
-Frage „lief die letzte Sicherung?", die **ohne Anmeldung am Server** zu bekommen ist. Halte es
-einfach und wähle etwas, das ohne fremden Dienst auskommt. `T-008` hängt es später an die
-richtige Alarmierung.
+Ein toter Server meldet nichts. Dafür braucht es einen Wächter von außen, der Alarm schlägt,
+wenn das regelmäßige Lebenszeichen ausbleibt.
 
-**4. Ein Wiederherstellungs-Leitfaden**
+- Wähle etwas, das kostenlos und ohne Vertrag nutzbar ist.
+- **Nach draußen geht ausschließlich ein Lebenszeichen ohne Inhalt.** Keine Daten, keine
+  Kennungen, keine Protokolle. Begründe im Bericht, warum dein gewählter Dienst damit kein
+  Auftragsverarbeiter wird.
 
-Eine Seite, `infrastructure/RESTORE.md`, geschrieben für jemanden unter Druck:
+**4. Der Weg zum Telefon**
 
-- Server ist weg — was tue ich, in welcher Reihenfolge, wie lange dauert es
-- Nur die Datenbank ist beschädigt — wie hole ich einen einzelnen Stand zurück
-- **Was nicht in der Sicherung ist und wo es stattdessen liegt.** Insbesondere
-  `/opt/taptime/.env`. Die steht in keinem Repository. Ohne sie startet nichts.
-- **Warnung zu Storage-Box-Schnappschüssen:** Ein Zurücksetzen auf einen Schnappschuss löscht
-  alle neueren Schnappschüsse endgültig. Der übliche Weg ist deshalb **nicht** das Zurücksetzen,
-  sondern das Herauskopieren des benötigten Standes aus `/.zfs/snapshot/`. Beschreibe beide Wege
-  und sag klar, wann welcher gilt.
+Die Meldung muss beim Product Owner ankommen, nicht in einer Datei auf dem Server liegen.
+Wähle den einfachsten Weg, der ohne laufende Kosten auskommt, und beschreibe ihn.
 
 ### Vision-Check
 
-Keine fachliche Logik, keine Migration, keine Oberfläche. Betrieb.
+Keine fachliche Logik, keine Oberfläche für Benutzer. Betrieb.
 
 ### Nicht anfassen
 
-- `apps/`, `packages/`, `apps/backend-schema/migrations/`
-- Der laufende Betrieb. Die Sicherung darf die Produktion nicht anhalten.
+- `packages/core`, jede Geschäftslogik
+- `apps/backend-schema/migrations/` — außer dem Einspielen von 015 in Schritt 0
+- Das Diagnoseschema selbst. Es ist richtig gebaut, es war nur nicht angeschlossen.
 
 ### Prüfung — nachweisen, nicht behaupten
 
-- Ein echter Wiederherstellungslauf ist gelaufen; seine vollständige Ausgabe steht im Bericht
-- Die Zeilenzahlen aus Wiederherstellung und Produktion stehen nebeneinander
-- Der Nachweis, dass RLS nach der Wiederherstellung auf **29 von 29** Tabellen aktiv und
-  erzwungen ist
-- Ein absichtlich beschädigtes Archiv wird erkannt und nicht stillschweigend akzeptiert
-- Die Datenbank ist während der Sicherung weiterhin von außen unerreichbar
-- Nach echtem Serverneustart läuft die Sicherung von selbst weiter
-- Kein Geheimnis in argv, keines im Repository, keines im Bericht
+- Produktion läuft auf Migration 015; Nachweis im Bericht
+- Ein echter Fehler erzeugt einen Protokolleintrag; der Eintrag steht im Bericht
+- Ein Fehler mit personenbezogenem Inhalt erzeugt einen Eintrag **ohne** diesen Inhalt
+- Jede der vier Meldungen wurde **absichtlich ausgelöst** und ist angekommen
+- Der Wächter von außen hat bei einem echten Serverneustart angeschlagen
+- Protokolle rotieren und laufen nicht voll
+- Kein Geheimnis in Protokollen, keines in argv, keines im Repository
 - CI grün, kein `[skip ci]`
 
 ### Zusätzliches Review
 
-> Angenommen, jemand hat den Server vollständig übernommen. Wie viele der Sicherungen kann er
-> zerstören? Nenne die Zahl und den Weg, statt zu behaupten, es ginge nicht.
+> Nimm einen echten Protokollauszug aus dem Betrieb. Wie viel über eine einzelne Person lässt
+> sich daraus rekonstruieren? Zeige den Auszug, statt die Frage zu beantworten.
 
 ### Abschluss
 
@@ -115,5 +108,5 @@ Vier Punkte melden. Entfernte oder umgeschriebene Tests **einzeln** benennen.
 
 ## Danach
 
-`T-008` Betriebssichtbarkeit · `T-009` Menschen verwalten (standortfähig, D-013) ·
-`T-011` Ratenbegrenzung · siehe `ADO/PLAN.md`.
+`T-009` Menschen verwalten, standortfähig (D-013) · `T-011` Ratenbegrenzung ·
+`T-012` Pausen · siehe `ADO/PLAN.md`.

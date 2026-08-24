@@ -2,7 +2,7 @@
 
 > **Diese Datei wird überschrieben, nie angehängt.** Sie beschreibt nur den Jetzt-Zustand.
 
-**Stand:** 24.08.2026 (T-010 abgeschlossen) · **Ziel:** System fertig in ~6 Wochen, erster Kunde in ~3 Monaten
+**Stand:** 24.08.2026 (T-007 abgeschlossen) · **Ziel:** System fertig in ~6 Wochen, erster Kunde in ~3 Monaten
 
 ---
 
@@ -47,6 +47,12 @@ danach Firma, Recht und Store.
   erscheinen einzeln und in verständlichem Deutsch in der Ansicht *Prüfungen*. Das Gerät
   quittiert weiterhin, spätere Ereignisse werden nicht blockiert. Kanonischer und manueller Weg
   sind mit abgedeckt.
+- **T-007 Sicherung und getesteter Restore** — `2e53907`. Stündlich `pg_dump` in ein
+  verschlüsseltes Borg-Archiv auf einer Hetzner Storage Box in Falkenstein. Wöchentliche
+  **automatische Wiederherstellung** in einen Wegwerf-Container mit Abgleich gegen ein
+  Manifest aus dem Archiv: Migrationsverzeichnis, Zeilenzahlen, Rollen, RLS auf 29/29.
+  Ein absichtlich beschädigtes Archiv wird erkannt. Borg-Schlüssel und `.env` liegen getrennt
+  beim Product Owner.
 - **`tb-infra.de`** zeigt auf den Server, TTL 300, DNS bestätigt
 
 **Nicht vorhanden** — nach vollständiger Anforderungsprüfung am 24.08. (D-012):
@@ -68,11 +74,13 @@ danach Firma, Recht und Store.
 
 ## Aktuelle Aufgabe
 
-**T-007 — Sicherung und getesteter Restore.** Siehe `ADO/TASK.md`.
-Personenbezogene Daten verlassen den Server, daher mit verpflichtendem unabhängigem Review.
-Der Product Owner bestellt dafür eine Hetzner Storage Box BX11 in Falkenstein.
+**T-008 — Betriebssichtbarkeit.** Siehe `ADO/TASK.md`. Protokolle können personenbezogene
+Daten enthalten, daher mit verpflichtendem unabhängigem Review.
 
-Danach T-008 bis T-020 in neuer Reihenfolge, siehe `ADO/PLAN.md`. Die Kette wurde am 24.08.
+**Schritt 0 der Aufgabe ist dringend:** Die Produktion läuft auf Migration 014, das Repository
+auf 015. Die Eskalations-Reparatur aus T-010 ist auf dem Server nicht aktiv.
+
+Danach T-009 bis T-020 in neuer Reihenfolge, siehe `ADO/PLAN.md`. Die Kette wurde am 24.08.
 nach Betriebsfähigkeit sortiert und um sieben Aufgaben erweitert (D-012). `T-001` bis `T-006`
 sind unverändert, alles danach ist neu nummeriert.
 
@@ -101,7 +109,8 @@ Der Technical Lead führt beide Zahlen mit, um eigene systematische Fehler zu er
 | T-005 | eine Sitzung | eine Sitzung |
 | T-006 | zwei Sitzungen | zwei Sitzungen |
 | T-010 | drei Sitzungen | eine Sitzung |
-| T-007 | zwei Sitzungen | offen |
+| T-007 | zwei Sitzungen | eine Sitzung |
+| T-008 | zwei Sitzungen | offen |
 
 Die Prüfung vom 24.08. hat die Restschätzung von 11 auf **38 Sitzungen** über 13 Aufgaben
 korrigiert — nicht weil mehr Arbeit entstanden ist, sondern weil sieben nötige Aufgaben vorher
@@ -137,6 +146,12 @@ in keinem Plan standen.
   bricht aber das Muster.
 - **P2:** Der Zeitstempel der manuellen Erfassung stammt von der Geräteuhr. Der Serverpfad mit
   `transaction_timestamp()` existiert, wird von der App aber nie aufgerufen.
+- **P2:** Die Wiederherstellungsprüfung läuft gegen eine praktisch leere Datenbank —
+  `work_events`, `time_entries` und `canonical_decisions` stehen auf 0. Die Mechanik ist damit
+  bewiesen, ein echter Datenrundlauf nicht. Erledigt sich mit den ersten echten Daten.
+- **P2:** Zehn automatische Schnappschüsse rotieren täglich. Bei anhaltender Serverübernahme
+  sind sie nach zehn Tagen ersetzt. Gegenmittel ist der zweite Topf: zehn **manuelle**
+  Schnappschüsse rotieren nicht — einer pro Monat, einer vor jeder größeren Serveränderung.
 - **P3:** Eine gemischte Auswahl in *Prüfungen* — Engine-Eskalation zusammen mit einem anderen
   Prüfposten — wird mit `invalid_evidence` abgewiesen. Sicher, aber für den Administrator nicht
   selbsterklärend. Gehört in T-017.
@@ -149,9 +164,6 @@ in keinem Plan standen.
 - **P2:** `/health` löst pro Aufruf eine Datenbankabfrage aus. Der eigene Pool (`max: 1`) schützt
   die Fachmodule, aber ein Ergebnis-Zwischenspeicher von wenigen Sekunden würde das Thema ganz
   erledigen.
-- **P2:** Der getestete Wiederherstellungslauf enthält praktisch keine Geschäftsdaten:
-  `work_events`, `time_entries` und `canonical_decisions` stehen jeweils auf 0. Die
-  Restore-Mechanik ist belegt, ein Datenrundlauf mit realen Einträgen noch nicht.
 - **P3:** Fünf hohe npm-Audit-Meldungen, alle im Expo/Metro-Build-Werkzeug der Mobile-App.
   Nichts davon läuft im Backend-Container. Updates verfügbar.
 - **P3:** Caddy nennt bei HTTP-Anfragen an die IP oder einen fremden Host seinen Produktnamen
