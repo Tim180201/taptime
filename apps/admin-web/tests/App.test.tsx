@@ -245,6 +245,33 @@ describe('professional Admin Web shell', () => {
     expect(capability.loadMoreReviewItems).toHaveBeenCalledOnce();
   });
 
+  it('renders every Engine escalation reason as an explicit administrator message', () => {
+    const reasons = [
+      ['active_time_entry_organization_mismatch', 'Laufende Arbeitszeit gehört zu einem anderen Betrieb'],
+      ['active_time_entry_user_mismatch', 'Laufende Arbeitszeit gehört zu einer anderen Person'],
+      ['previous_work_event_organization_mismatch', 'Vorherige Erfassung gehört zu einem anderen Betrieb'],
+      ['previous_work_event_user_mismatch', 'Vorherige Erfassung gehört zu einer anderen Person'],
+      ['previous_work_event_target_mismatch', 'Vorherige Erfassung gehört zu einem anderen Ziel'],
+      ['work_event_precedes_active_time_entry', 'Erfassung liegt vor dem Beginn der laufenden Arbeitszeit'],
+      ['work_event_precedes_previous_accepted_work_event', 'Erfassung liegt vor der vorherigen bestätigten Erfassung'],
+    ] as const;
+    const state: Extract<AdminWebState, { readonly status: 'ready' }> = {
+      ...readyState,
+      reviewItems: reasons.map(([reason], index) => ({
+        ...reviewItem,
+        reviewItemId: `90000000-0000-4000-8000-${(10 + index).toString().padStart(12, '0')}`,
+        reviewReason: reason,
+      })),
+    };
+    window.history.replaceState(null, '', '#pruefungen');
+    render(<App administration={new FakeCapability(state)} />);
+    for (const [, label] of reasons) {
+      expect(screen.getByText((_content, element) => (
+        element?.tagName === 'SPAN' && element.textContent?.startsWith(label) === true
+      ))).toBeInTheDocument();
+    }
+  });
+
   it('contains a section failure and retries only that section', async () => {
     const capability = new FakeCapability({
       ...readyState,

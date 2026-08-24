@@ -34,6 +34,90 @@ afterAll(async () => {
 });
 
 describe('DA3 PostgreSQL correction and review boundary', () => {
+  it('projects, tenant-isolates and adjudicates a canonical Engine escalation', async () => {
+    const escalationEventId = '50000000-0000-4000-8000-000000000321';
+    await insertCanonicalEscalation(
+      escalationEventId,
+      'work_event_precedes_active_time_entry',
+      '2026-07-19T08:00:00.000Z',
+    );
+
+    const page = await coordinator.queryReviewItems({
+      accessToken: tokens.adminA,
+      request: { expectedMembershipId: ids.membershipAdminA, limit: 100, cursor: null },
+    });
+    expect(page).toMatchObject({
+      status: 'ready',
+      value: {
+        items: expect.arrayContaining([expect.objectContaining({
+          reviewItemId: escalationEventId,
+          source: 'server_legacy',
+          reviewReason: 'work_event_precedes_active_time_entry',
+        })]),
+      },
+    });
+    const foreignPage = await coordinator.queryReviewItems({
+      accessToken: tokens.adminB,
+      request: { expectedMembershipId: ids.membershipAdminB, limit: 100, cursor: null },
+    });
+    expect(foreignPage).toMatchObject({ status: 'ready', value: { items: [] } });
+
+    const adjudicationRequest = {
+      expectedMembershipId: ids.membershipAdminA,
+      commandId: '80000000-0000-4000-8000-000000000321',
+      reviewItemIds: [escalationEventId],
+      resolution: { type: 'no_time_record_change' as const },
+      reason: 'Engine-Eskalation geprüft; keine Arbeitszeitänderung erforderlich.',
+    };
+    await expect(coordinator.adjudicateReviewItems({
+      accessToken: tokens.adminA,
+      request: adjudicationRequest,
+    })).resolves.toMatchObject({
+      status: 'committed', value: { idempotentRetry: false },
+    });
+    await expect(coordinator.adjudicateReviewItems({
+      accessToken: tokens.adminA,
+      request: adjudicationRequest,
+    })).resolves.toMatchObject({
+      status: 'committed', value: { idempotentRetry: true },
+    });
+
+    const after = await coordinator.queryReviewItems({
+      accessToken: tokens.adminA,
+      request: { expectedMembershipId: ids.membershipAdminA, limit: 100, cursor: null },
+    });
+    expect(after.status).toBe('ready');
+    if (after.status !== 'ready') return;
+    expect(after.value.items.map((item) => item.reviewItemId)).not.toContain(escalationEventId);
+  });
+
+  it('projects every BusinessEngineEscalationReason without a fallback', async () => {
+    const reasons = [
+      'active_time_entry_organization_mismatch',
+      'active_time_entry_user_mismatch',
+      'previous_work_event_organization_mismatch',
+      'previous_work_event_user_mismatch',
+      'previous_work_event_target_mismatch',
+      'work_event_precedes_active_time_entry',
+      'work_event_precedes_previous_accepted_work_event',
+    ] as const;
+    for (const [index, reason] of reasons.entries()) {
+      await insertCanonicalEscalation(
+        `50000000-0000-4000-8000-${(330 + index).toString().padStart(12, '0')}`,
+        reason,
+        `2026-07-19T09:00:${index.toString().padStart(2, '0')}.000Z`,
+      );
+    }
+    const page = await coordinator.queryReviewItemsV2({
+      accessToken: tokens.adminA,
+      request: { expectedMembershipId: ids.membershipAdminA, limit: 100, cursor: null },
+    });
+    expect(page.status).toBe('ready');
+    if (page.status !== 'ready') return;
+    const projected = new Set(page.value.items.map((item) => item.reviewReason));
+    expect(reasons.every((reason) => projected.has(reason))).toBe(true);
+  });
+
   it('reads generalized Project/manual time and review provenance through v2 only', async () => {
     const projectId = '20000000-0000-4000-8000-000000000351';
     const startedEventId = '50000000-0000-4000-8000-000000000351';
@@ -540,6 +624,41 @@ async function insertLegacyReview(eventId: string, occurredAt: string): Promise<
        'LifecycleDeferred', 'WorkEvent', $3, pg_catalog.transaction_timestamp(),
        'da3-extra-legacy', '{}')`,
     [ids.organizationA, ids.employeeA, eventId],
+  );
+}
+
+async function insertCanonicalEscalation(
+  eventId: string,
+  reason:
+    | 'active_time_entry_organization_mismatch'
+    | 'active_time_entry_user_mismatch'
+    | 'previous_work_event_organization_mismatch'
+    | 'previous_work_event_user_mismatch'
+    | 'previous_work_event_target_mismatch'
+    | 'work_event_precedes_active_time_entry'
+    | 'work_event_precedes_previous_accepted_work_event',
+  occurredAt: string,
+): Promise<void> {
+  await installerPool.query(
+    `INSERT INTO taptime_server.work_events
+      (id, organization_id, assignment_id, nfc_tag_id, target_type,
+       target_customer_id, triggered_by_user_id, occurred_at, received_at,
+       content_hash, content_hash_algorithm, content_hash_version)
+     VALUES ($1, $2, $3, $4, 'customer', $5, $6, $7, $7,
+       repeat('e', 64), 'sha256', 1)`,
+    [
+      eventId, ids.organizationA, ids.assignmentA, ids.tagA,
+      ids.customerA, ids.employeeA, occurredAt,
+    ],
+  );
+  await installerPool.query(
+    `INSERT INTO taptime_server.canonical_decisions
+      (work_event_id, organization_id, actor_user_id, target_type,
+       target_customer_id, decision_type, reason, engine_version, decision_payload)
+     VALUES ($1, $2, $3, 'customer', $4, 'escalation_required', $5,
+       'taptime-core-test', pg_catalog.jsonb_build_object('status',
+       'escalation_required', 'reason', $5::text))`,
+    [eventId, ids.organizationA, ids.employeeA, ids.customerA, reason],
   );
 }
 

@@ -268,19 +268,19 @@ afterAll(async () => {
 });
 
 describe('B6 migration and least-privilege runtime boundary', () => {
-  it('applies exactly migrations 001 through 014 and reruns the immutable ledger', async () => {
+  it('applies exactly migrations 001 through 015 and reruns the immutable ledger', async () => {
     expect((await loadMigrations()).map(({ version }) => version)).toEqual([
-      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014',
+      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015',
     ]);
     const ledger = await installerPool.query<{ version: string }>(
       `SELECT version FROM ${B3_MIGRATION_TABLE} ORDER BY version`,
     );
     expect(ledger.rows.map(({ version }) => version)).toEqual([
-      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014',
+      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015',
     ]);
     await expect(migrate(installerPool)).resolves.toEqual({
       applied: [],
-      alreadyApplied: ['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014'],
+      alreadyApplied: ['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015'],
     });
   });
 
@@ -672,6 +672,94 @@ describe('server-canonical Core decisions and exact relational mappings', () => 
         reason: 'work_event_precedes_active_time_entry',
       },
     })]);
+
+    const reviewAdminUserId = '10000000-0000-4000-8000-000000000690';
+    const reviewAdminMembershipId = '12000000-0000-4000-8000-000000000690';
+    await installerPool.query(
+      `INSERT INTO ${B3_SCHEMA}.users (id) VALUES ($1::uuid)`,
+      [reviewAdminUserId],
+    );
+    await installerPool.query(
+      `INSERT INTO ${B3_SCHEMA}.memberships (
+         id, organization_id, user_id, role, created_by_user_id, display_name
+       ) VALUES ($1::uuid, $2::uuid, $3::uuid, 'administrator', $4::uuid, 'Review Admin')`,
+      [reviewAdminMembershipId, ids.organizationA, reviewAdminUserId, ids.userA],
+    );
+    const reviewClient = await installerPool.connect();
+    try {
+      await reviewClient.query('BEGIN');
+      await reviewClient.query('SET LOCAL ROLE taptime_time_review_reader');
+      await reviewClient.query(
+        `SELECT set_config('app.organization_id', $1, true),
+                set_config('app.user_id', $2, true),
+                set_config('app.membership_id', $3, true),
+                set_config('app.membership_role', 'administrator', true)`,
+        [ids.organizationA, reviewAdminUserId, reviewAdminMembershipId],
+      );
+      const review = await reviewClient.query<{
+        review_item_id: string;
+        review_reason: string;
+      }>(
+        `SELECT review_item_id, review_reason
+         FROM ${B3_SCHEMA}.read_time_review_items_v1(
+           $1::uuid, $2::uuid, $3::uuid, NULL, NULL, 100
+         )`,
+        [ids.organizationA, reviewAdminUserId, reviewAdminMembershipId],
+      );
+      expect(review.rows).toContainEqual({
+        review_item_id: escalationCommand.workEvent.id,
+        review_reason: 'work_event_precedes_active_time_entry',
+      });
+      await reviewClient.query('ROLLBACK');
+
+      await reviewClient.query('BEGIN');
+      await reviewClient.query('SET LOCAL ROLE taptime_time_review_writer');
+      await reviewClient.query(
+        `SELECT set_config('app.organization_id', $1, true),
+                set_config('app.user_id', $2, true),
+                set_config('app.membership_id', $3, true),
+                set_config('app.membership_role', 'administrator', true)`,
+        [ids.organizationA, reviewAdminUserId, reviewAdminMembershipId],
+      );
+      const adjudication = await reviewClient.query<{ result_status: string }>(
+        `SELECT result_status
+         FROM ${B3_SCHEMA}.adjudicate_time_review_items_v1(
+           $1::uuid, $2::uuid, $3::uuid,
+           '80000000-0000-4000-8000-000000000690'::uuid,
+           repeat('a', 64), ARRAY[$4::uuid], 'no_time_record_change',
+           NULL, NULL, NULL, NULL, NULL,
+           'Engine-Eskalation ohne Arbeitszeitänderung geprüft.'
+         )`,
+        [
+          ids.organizationA, reviewAdminUserId, reviewAdminMembershipId,
+          escalationCommand.workEvent.id,
+        ],
+      );
+      expect(adjudication.rows).toEqual([{ result_status: 'committed' }]);
+      await reviewClient.query('COMMIT');
+
+      await reviewClient.query('BEGIN');
+      await reviewClient.query('SET LOCAL ROLE taptime_time_review_reader');
+      await reviewClient.query(
+        `SELECT set_config('app.organization_id', $1, true),
+                set_config('app.user_id', $2, true),
+                set_config('app.membership_id', $3, true),
+                set_config('app.membership_role', 'administrator', true)`,
+        [ids.organizationA, reviewAdminUserId, reviewAdminMembershipId],
+      );
+      const after = await reviewClient.query<{ review_item_id: string }>(
+        `SELECT review_item_id
+         FROM ${B3_SCHEMA}.read_time_review_items_v1(
+           $1::uuid, $2::uuid, $3::uuid, NULL, NULL, 100
+         )`,
+        [ids.organizationA, reviewAdminUserId, reviewAdminMembershipId],
+      );
+      expect(after.rows.map((row) => row.review_item_id))
+        .not.toContain(escalationCommand.workEvent.id);
+      await reviewClient.query('ROLLBACK');
+    } finally {
+      reviewClient.release();
+    }
   });
 
   it('preserves ordered Start then Stop then Start as three separate commits', async () => {
@@ -1720,6 +1808,67 @@ describe('pool cleanup, unnamed execution and error truth', () => {
 });
 
 describe('DA5 manual trigger provenance and shared duplicate rule', () => {
+  it('routes a reachable manual Engine escalation into the existing review projection', async () => {
+    await coordinator.ingest(await command({
+      eventNumber: 298,
+      receiptNumber: 298,
+      occurredAt: '2090-07-13T08:00:00.000Z',
+    }));
+    const manual = await manualCoordinator.ingestManual({
+      accessToken: await accessToken(),
+      expectedMembershipId: MembershipId(ids.membershipA),
+      workEvent: {
+        id: WorkEventId(uuid('5', 299)),
+        target: customerAssignmentTarget(CustomerId(ids.customerA)),
+      },
+      receipt: { id: uuid('6', 299), attemptNumber: 1 },
+    });
+    expect(manual).toMatchObject({
+      status: 'synchronized',
+      decision: {
+        status: 'escalation_required',
+        reason: 'work_event_precedes_active_time_entry',
+      },
+      serverTimeEntryId: null,
+    });
+
+    const reviewAdminUserId = '10000000-0000-4000-8000-000000000691';
+    const reviewAdminMembershipId = '12000000-0000-4000-8000-000000000691';
+    await installerPool.query(
+      `INSERT INTO ${B3_SCHEMA}.users (id) VALUES ($1::uuid)`,
+      [reviewAdminUserId],
+    );
+    await installerPool.query(
+      `INSERT INTO ${B3_SCHEMA}.memberships (
+         id, organization_id, user_id, role, created_by_user_id, display_name
+       ) VALUES ($1::uuid, $2::uuid, $3::uuid, 'administrator', $4::uuid, 'Manual Review Admin')`,
+      [reviewAdminMembershipId, ids.organizationA, reviewAdminUserId, ids.userA],
+    );
+    const reviewClient = await installerPool.connect();
+    try {
+      await reviewClient.query('BEGIN');
+      await reviewClient.query('SET LOCAL ROLE taptime_time_review_reader');
+      await reviewClient.query(
+        `SELECT set_config('app.organization_id', $1, true),
+                set_config('app.user_id', $2, true),
+                set_config('app.membership_id', $3, true),
+                set_config('app.membership_role', 'administrator', true)`,
+        [ids.organizationA, reviewAdminUserId, reviewAdminMembershipId],
+      );
+      const review = await reviewClient.query<{ review_item_id: string }>(
+        `SELECT review_item_id
+         FROM ${B3_SCHEMA}.read_time_review_items_v1(
+           $1::uuid, $2::uuid, $3::uuid, NULL, NULL, 100
+         )`,
+        [ids.organizationA, reviewAdminUserId, reviewAdminMembershipId],
+      );
+      expect(review.rows.map((row) => row.review_item_id)).toContain(uuid('5', 299));
+      await reviewClient.query('ROLLBACK');
+    } finally {
+      reviewClient.release();
+    }
+  });
+
   it('uses server transaction time and treats a following NFC trigger as the same-target duplicate', async () => {
     const manual = await manualCoordinator.ingestManual({
       accessToken: await accessToken(),

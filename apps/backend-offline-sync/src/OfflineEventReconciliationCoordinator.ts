@@ -19,6 +19,7 @@ import type {
 } from './types.js';
 
 export const OFFLINE_RECONCILIATION_ROLE = 'taptime_offline_reconciliation_reader';
+const ENGINE_ESCALATION_REVIEW_REASON = 'business_engine_escalation';
 
 interface ActorRow extends QueryResultRow {
   readonly identity_binding_id: string;
@@ -107,6 +108,7 @@ implements OfflineEventReconciliationReader {
           receiptId: row.receipt_id,
           deviceSequence: Number(row.device_sequence),
           result: row.result_status === 'review_pending'
+            && row.review_reason !== ENGINE_ESCALATION_REVIEW_REASON
             ? {
                 status: 'review_pending' as const,
                 reason: requireReviewReason(row.review_reason),

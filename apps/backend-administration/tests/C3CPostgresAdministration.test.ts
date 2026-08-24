@@ -92,7 +92,7 @@ beforeAll(async () => {
   await installerPool.query(`DROP SCHEMA IF EXISTS ${B3_SCHEMA} CASCADE`);
   await installerPool.query(`DROP TABLE IF EXISTS ${B3_MIGRATION_TABLE}`);
   await expect(migrate(installerPool)).resolves.toEqual({
-    applied: ['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014'],
+    applied: ['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015'],
     alreadyApplied: [],
   });
   await ensureC3CRuntimeLogin(installerPool, runtimePassword);
@@ -116,13 +116,13 @@ afterAll(async () => {
 });
 
 describe('migration 007, roles and database contracts', () => {
-  it('records exactly immutable migrations 001 through 014 and reruns without changes', async () => {
+  it('records exactly immutable migrations 001 through 015 and reruns without changes', async () => {
     expect((await loadMigrations()).map(({ version }) => version)).toEqual([
-      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014',
+      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015',
     ]);
     await expect(migrate(installerPool)).resolves.toEqual({
       applied: [],
-      alreadyApplied: ['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014'],
+      alreadyApplied: ['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015'],
     });
   });
 
@@ -177,7 +177,7 @@ describe('migration 007, roles and database contracts', () => {
           await dirtyPool.query('DROP SCHEMA dirty_c3c CASCADE');
         }
         await expect(applyMigrationSet(dirtyPool, migrations.slice(6))).resolves.toEqual({
-          applied: ['007', '008', '009', '010', '011', '012', '013', '014'],
+          applied: ['007', '008', '009', '010', '011', '012', '013', '014', '015'],
           alreadyApplied: [],
         });
       } finally {
@@ -226,7 +226,7 @@ describe('migration 007, roles and database contracts', () => {
          WHERE id = '90000000-0000-4000-8000-000000000010'`,
       );
       await expect(applyMigrationSet(migrationPool, migrations.slice(6))).resolves.toEqual({
-        applied: ['007', '008', '009', '010', '011', '012', '013', '014'],
+        applied: ['007', '008', '009', '010', '011', '012', '013', '014', '015'],
         alreadyApplied: [],
       });
     } finally {

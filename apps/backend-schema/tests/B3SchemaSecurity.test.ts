@@ -432,13 +432,13 @@ afterAll(async () => {
 });
 
 describe('B3 deterministic migration system', () => {
-  it('applies exactly fourteen sorted versioned migrations', async () => {
+  it('applies exactly fifteen sorted versioned migrations', async () => {
     const rows = await installerPool.query<{ version: string; checksum: string }>(
       `SELECT version, checksum FROM ${B3_MIGRATION_TABLE} ORDER BY version`,
     );
 
     expect(rows.rows.map((row) => row.version)).toEqual([
-      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014',
+      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015',
     ]);
     expect(rows.rows.every((row) => /^[0-9a-f]{64}$/.test(row.checksum))).toBe(true);
   });
@@ -447,7 +447,7 @@ describe('B3 deterministic migration system', () => {
     await expect(migrate(installerPool)).resolves.toEqual({
       applied: [],
       alreadyApplied: [
-        '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014',
+        '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015',
       ],
     });
   });
@@ -597,13 +597,13 @@ describe('B3 deterministic migration system', () => {
       });
       expect(Number((await administratorDmlCount()).rows[0]?.count)).toBeGreaterThan(0);
 
-      await expect(applyMigrationSet(upgradePool, migrations.slice(13))).resolves.toEqual({
+      await expect(applyMigrationSet(upgradePool, migrations.slice(13, 14))).resolves.toEqual({
         applied: ['014'], alreadyApplied: [],
       });
       expect((await administratorDmlCount()).rows[0]?.count).toBe('0');
       await expect(upgradePool.query(migration014.sql)).resolves.toBeDefined();
       expect((await administratorDmlCount()).rows[0]?.count).toBe('0');
-      await expect(applyMigrationSet(upgradePool, migrations.slice(13))).resolves.toEqual({
+      await expect(applyMigrationSet(upgradePool, migrations.slice(13, 14))).resolves.toEqual({
         applied: [], alreadyApplied: ['014'],
       });
 

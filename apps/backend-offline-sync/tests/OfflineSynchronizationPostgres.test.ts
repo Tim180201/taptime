@@ -385,6 +385,192 @@ describe('complete offline PostgreSQL boundary', () => {
     });
   });
 
+  it('routes an Engine escalation to review without blocking the next device event', async () => {
+    const lease = await issueLease();
+    const item = lease.items[0]!;
+    const startedAt = new Date(Date.parse(lease.issuedAt) + 5_000).toISOString();
+    const escalationAt = new Date(Date.parse(startedAt) - 1).toISOString();
+    const stoppedAt = new Date(Date.parse(startedAt) + 5_000).toISOString();
+
+    await expect(eventCoordinator.ingest({
+      accessToken: 'valid',
+      command: eventCommand(lease, item.itemId, ids.event1, ids.receipt1, 1, startedAt),
+    })).resolves.toMatchObject({
+      status: 'synchronized', decision: { status: 'time_entry_started' },
+    });
+
+    const escalation = eventCommand(
+      lease, item.itemId, ids.event2, ids.receipt2, 2, escalationAt,
+    );
+    await expect(eventCoordinator.ingest({ accessToken: 'valid', command: escalation }))
+      .resolves.toMatchObject({
+        status: 'synchronized',
+        decision: {
+          status: 'escalation_required',
+          reason: 'work_event_precedes_active_time_entry',
+        },
+      });
+    await expect(eventCoordinator.ingest({ accessToken: 'valid', command: escalation }))
+      .resolves.toMatchObject({
+        status: 'synchronized', idempotentRetry: true,
+        decision: { status: 'escalation_required' },
+      });
+
+    await expect(eventCoordinator.ingest({
+      accessToken: 'valid',
+      command: eventCommand(lease, item.itemId, ids.event3, ids.receipt3, 3, stoppedAt),
+    })).resolves.toMatchObject({
+      status: 'synchronized', decision: { status: 'time_entry_stopped' },
+    });
+
+    await expect(reconciliationCoordinator.reconcile({
+      accessToken: 'valid', command: { workEventIds: [ids.event2] },
+    })).resolves.toMatchObject({
+      status: 'ready',
+      records: [{
+        workEventId: ids.event2,
+        result: { status: 'synchronized', decision: { status: 'escalation_required' } },
+      }],
+    });
+    await expect(reconciliationCoordinator.readReviewState({
+      accessToken: 'valid',
+      request: {
+        expectedMembershipId: ids.membership,
+        installationId: lease.installationId,
+      },
+    })).resolves.toEqual({
+      status: 'ready',
+      value: {
+        status: 'clear', expectedMembershipId: ids.membership,
+        installationId: lease.installationId, confirmedThroughSequence: 3,
+      },
+    });
+
+    const truth = await installerPool.query<{
+      readonly result_status: string;
+      readonly review_reason: string;
+      readonly decision_work_event_id: string;
+      readonly review_predecessor_sequence: string | null;
+      readonly last_durable_sequence: string;
+      readonly entry_count: string;
+      readonly entry_status: string;
+      readonly escalation_time_entry_id: string | null;
+    }>(
+      `SELECT reconciliation.result_status, reconciliation.review_reason,
+              reconciliation.decision_work_event_id,
+              cursor.review_predecessor_sequence, cursor.last_durable_sequence,
+              (SELECT count(*) FROM taptime_server.time_entries) AS entry_count,
+              entry.status AS entry_status,
+              decision.time_entry_id AS escalation_time_entry_id
+       FROM taptime_server.offline_event_reconciliations AS reconciliation
+       JOIN taptime_server.offline_sync_cursors AS cursor
+         ON cursor.organization_id = reconciliation.organization_id
+        AND cursor.installation_id = reconciliation.installation_id
+       JOIN taptime_server.canonical_decisions AS decision
+         ON decision.organization_id = reconciliation.organization_id
+        AND decision.work_event_id = reconciliation.work_event_id
+       JOIN taptime_server.time_entries AS entry
+         ON entry.organization_id = reconciliation.organization_id
+        AND entry.user_id = reconciliation.user_id
+       WHERE reconciliation.work_event_id = $1::uuid`,
+      [ids.event2],
+    );
+    expect(truth.rows).toEqual([{
+      result_status: 'review_pending',
+      review_reason: 'business_engine_escalation',
+      decision_work_event_id: ids.event2,
+      review_predecessor_sequence: null,
+      last_durable_sequence: '3',
+      entry_count: '1',
+      entry_status: 'stopped',
+      escalation_time_entry_id: null,
+    }]);
+
+    const reviewAdminUserId = '10000000-0000-4000-8000-000000000019';
+    const reviewAdminMembershipId = '12000000-0000-4000-8000-000000000019';
+    await installerPool.query(
+      `INSERT INTO taptime_server.users (id) VALUES ($1::uuid)`,
+      [reviewAdminUserId],
+    );
+    await installerPool.query(
+      `INSERT INTO taptime_server.memberships (
+         id, organization_id, user_id, role, created_by_user_id, display_name
+       ) VALUES ($1::uuid, $2::uuid, $3::uuid, 'administrator', $4::uuid, 'Review Admin')`,
+      [reviewAdminMembershipId, ids.organization, reviewAdminUserId, ids.user],
+    );
+    const reviewClient = await installerPool.connect();
+    try {
+      await reviewClient.query('BEGIN');
+      await reviewClient.query('SET LOCAL ROLE taptime_time_review_reader');
+      await reviewClient.query(
+        `SELECT set_config('app.organization_id', $1, true),
+                set_config('app.user_id', $2, true),
+                set_config('app.membership_id', $3, true),
+                set_config('app.membership_role', 'administrator', true)`,
+        [ids.organization, reviewAdminUserId, reviewAdminMembershipId],
+      );
+      const projected = await reviewClient.query<{
+        review_item_id: string;
+        review_reason: string;
+      }>(
+        `SELECT review_item_id, review_reason
+         FROM taptime_server.read_time_review_items_v1(
+           $1::uuid, $2::uuid, $3::uuid, NULL, NULL, 100
+         )`,
+        [ids.organization, reviewAdminUserId, reviewAdminMembershipId],
+      );
+      expect(projected.rows).toContainEqual({
+        review_item_id: ids.event2,
+        review_reason: 'work_event_precedes_active_time_entry',
+      });
+      await reviewClient.query('ROLLBACK');
+
+      await reviewClient.query('BEGIN');
+      await reviewClient.query('SET LOCAL ROLE taptime_time_review_writer');
+      await reviewClient.query(
+        `SELECT set_config('app.organization_id', $1, true),
+                set_config('app.user_id', $2, true),
+                set_config('app.membership_id', $3, true),
+                set_config('app.membership_role', 'administrator', true)`,
+        [ids.organization, reviewAdminUserId, reviewAdminMembershipId],
+      );
+      const adjudicated = await reviewClient.query<{ result_status: string }>(
+        `SELECT result_status
+         FROM taptime_server.adjudicate_time_review_items_v1(
+           $1::uuid, $2::uuid, $3::uuid,
+           '80000000-0000-4000-8000-000000000019'::uuid,
+           repeat('b', 64), ARRAY[$4::uuid], 'no_time_record_change',
+           NULL, NULL, NULL, NULL, NULL,
+           'Offline-Eskalation ohne Arbeitszeitänderung geprüft.'
+         )`,
+        [ids.organization, reviewAdminUserId, reviewAdminMembershipId, ids.event2],
+      );
+      expect(adjudicated.rows).toEqual([{ result_status: 'committed' }]);
+      await reviewClient.query('COMMIT');
+
+      await reviewClient.query('BEGIN');
+      await reviewClient.query('SET LOCAL ROLE taptime_time_review_reader');
+      await reviewClient.query(
+        `SELECT set_config('app.organization_id', $1, true),
+                set_config('app.user_id', $2, true),
+                set_config('app.membership_id', $3, true),
+                set_config('app.membership_role', 'administrator', true)`,
+        [ids.organization, reviewAdminUserId, reviewAdminMembershipId],
+      );
+      const after = await reviewClient.query<{ review_item_id: string }>(
+        `SELECT review_item_id
+         FROM taptime_server.read_time_review_items_v1(
+           $1::uuid, $2::uuid, $3::uuid, NULL, NULL, 100
+         )`,
+        [ids.organization, reviewAdminUserId, reviewAdminMembershipId],
+      );
+      expect(after.rows.map((row) => row.review_item_id)).not.toContain(ids.event2);
+      await reviewClient.query('ROLLBACK');
+    } finally {
+      reviewClient.release();
+    }
+  });
+
   it('ingests a lease-v2 manual Project command through the same FIFO provenance boundary', async () => {
     await installerPool.query(
       `INSERT INTO taptime_server.projects (

@@ -784,6 +784,13 @@ function reviewReasonLabel(value: string): string {
     historical_configuration_not_valid: 'Historische Konfiguration ungültig',
     predecessor_requires_review: 'Vorgänger benötigt Review',
     server_lifecycle_deferred: 'Server-Lifecycle zurückgestellt',
+    active_time_entry_organization_mismatch: 'Laufende Arbeitszeit gehört zu einem anderen Betrieb',
+    active_time_entry_user_mismatch: 'Laufende Arbeitszeit gehört zu einer anderen Person',
+    previous_work_event_organization_mismatch: 'Vorherige Erfassung gehört zu einem anderen Betrieb',
+    previous_work_event_user_mismatch: 'Vorherige Erfassung gehört zu einer anderen Person',
+    previous_work_event_target_mismatch: 'Vorherige Erfassung gehört zu einem anderen Ziel',
+    work_event_precedes_active_time_entry: 'Erfassung liegt vor dem Beginn der laufenden Arbeitszeit',
+    work_event_precedes_previous_accepted_work_event: 'Erfassung liegt vor der vorherigen bestätigten Erfassung',
   };
   return labels[value] ?? 'Review erforderlich';
 }

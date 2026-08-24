@@ -54,6 +54,10 @@ import type {
 
 export const OFFLINE_EVENT_ROLE = 'taptime_offline_event_ingestor';
 const OFFLINE_ENGINE_VERSION = 'taptime-core-0.1.0-offline-v1';
+const ENGINE_ESCALATION_REVIEW_REASON = 'business_engine_escalation' as const;
+
+type PersistedOfflineReviewReason = OfflineReviewReason
+  | typeof ENGINE_ESCALATION_REVIEW_REASON;
 
 interface ActorRow extends QueryResultRow {
   readonly identity_binding_id: string;
@@ -105,7 +109,7 @@ interface ExistingReconciliationRow extends QueryResultRow {
   readonly device_sequence: string;
   readonly request_content_hash: string;
   readonly result_status: 'synchronized' | 'review_pending';
-  readonly review_reason: OfflineReviewReason | null;
+  readonly review_reason: PersistedOfflineReviewReason | null;
 }
 
 interface ExistingLifecycleCollisionRow extends QueryResultRow {
@@ -426,8 +430,10 @@ export class OfflineLifecycleIngestionCoordinator implements OfflineLifecycleIng
           actor,
           installationRow.id,
           requestHash,
-          'synchronized',
-          null,
+          decision.status === 'escalation_required' ? 'review_pending' : 'synchronized',
+          decision.status === 'escalation_required'
+            ? ENGINE_ESCALATION_REVIEW_REASON
+            : null,
           resultTimeEntryId(canonicalDecision),
         );
         result = {
@@ -841,7 +847,10 @@ async function priorResult(
   ) {
     return { status: 'conflict', reason: 'event_content_conflict' };
   }
-  if (prior.result_status === 'review_pending') {
+  if (
+    prior.result_status === 'review_pending'
+    && prior.review_reason !== ENGINE_ESCALATION_REVIEW_REASON
+  ) {
     if (prior.review_reason === null) throw new Error('Stored review result has no reason');
     return {
       status: 'review_pending',
@@ -1165,7 +1174,7 @@ async function persistReconciliation(
   installationId: string,
   requestHash: string,
   status: 'synchronized' | 'review_pending',
-  reviewReason: OfflineReviewReason | null,
+  reviewReason: PersistedOfflineReviewReason | null,
   serverTimeEntryId: string | null,
 ): Promise<void> {
   await query(
@@ -1179,7 +1188,10 @@ async function persistReconciliation(
      ) VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5::uuid, $6::uuid,
        $7::uuid, $8::uuid, $9::bigint, $10, $11, $12::bigint, $13::bigint,
        $14::timestamptz, $15, 1, $16, $17, $18,
-       CASE WHEN $17 = 'synchronized' THEN $2::uuid ELSE NULL END, $19::uuid)`,
+       CASE
+         WHEN $17 = 'synchronized' OR $18 = 'business_engine_escalation' THEN $2::uuid
+         ELSE NULL
+       END, $19::uuid)`,
     [
       actor.organization_id,
       command.workEvent.id,

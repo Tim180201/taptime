@@ -7,7 +7,14 @@ export type TimeReviewReason =
   | 'automatic_window_elapsed'
   | 'historical_configuration_not_valid'
   | 'predecessor_requires_review'
-  | 'server_lifecycle_deferred';
+  | 'server_lifecycle_deferred'
+  | 'active_time_entry_organization_mismatch'
+  | 'active_time_entry_user_mismatch'
+  | 'previous_work_event_organization_mismatch'
+  | 'previous_work_event_user_mismatch'
+  | 'previous_work_event_target_mismatch'
+  | 'work_event_precedes_active_time_entry'
+  | 'work_event_precedes_previous_accepted_work_event';
 
 export interface TimeRecordQueryRequest {
   readonly expectedMembershipId: string;
