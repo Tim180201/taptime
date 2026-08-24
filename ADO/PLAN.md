@@ -50,21 +50,23 @@ Datenbankrechten eingreifen muss.
 | **T-006** | Admin-Web ausliefern und Erstinbetriebnahme | läuft | 2 |
 | **T-007** | Sicherung und **getesteter Restore** | Datenverlust ist heute endgültig | 2 |
 | **T-008** | Betriebssichtbarkeit: Protokolle, Alarm | Es entsteht heute **kein einziger Logeintrag** | 2 |
-| **T-009** | Menschen verwalten: zweiter Administrator, Zugang entziehen, Passwort zurücksetzen | Ein Kunde kann eine ausgeschiedene Person nicht aussperren | 3 |
+| **T-009** | Menschen verwalten: zweiter Administrator, Zugang entziehen, Passwort zurücksetzen | Ein Kunde kann eine ausgeschiedene Person nicht aussperren. **Standortfähig bauen — D-013** | 3 |
 | **T-010** | Die Warteschlange darf nie blockieren | Eine Eskalation legt heute das Gerät dauerhaft still | 3 |
 | **T-011** | Schutz der öffentlichen Ränder: Ratenbegrenzung, Anmeldeschutz | Anmeldung steht ungebremst im Netz | 1 |
 | **T-012** | Pausenerfassung | Ohne Pausen keine belastbare Arbeitszeit | 3 |
-| **T-013** | Export für die Lohnbuchhaltung | Heutige CSV übersteht keine Prüfung | 2 |
+| **T-013** | Export für die Lohnbuchhaltung, inkl. Kennzeichnung manueller Zeiten (D-014) | Heutige CSV übersteht keine Prüfung | 2 |
 | **T-014** | Zweite Umgebung und wiederholbares Ausliefern | 14 Migrationen liefen nie vor der Produktion | 2 |
-| **T-015** | Standorte und Standortleiter (ADR-0020) | Verwaltung hängt sonst an einer Person | 6 |
+| **T-015** | Standorte und Standortleiter (ADR-0020, überarbeitet nach D-013) | Verwaltung hängt sonst an einer Person | 7 |
+| **T-020** | **Freigabekette für nicht per NFC erfasste Zeiten (D-014)** | Braucht die Standortleitung als Instanz | 5 |
 | **T-016** | Löschkonzept und Betroffenenrechte | Der AVV verlangt die Fähigkeit, nicht den Text | 5 |
 | **T-017** | Oberflächen fertigstellen, Barrierefreiheit, Landing Page | Vor dem Pilotbetrieb | 4 |
 | **T-018** | Installierbare App per Direktlink | Für den eigenen Test | 2 |
 | **T-019** | Dokumente an die Wirklichkeit angleichen | Vier Dokumente beschreiben, was es nicht gibt | 1 |
 
-**Größe** in Arbeitssitzungen. Summe 38.
+**Größe** in Arbeitssitzungen. Summe 44.
 
-**Reihenfolge ist echt.** T-013 braucht die Pausen aus T-012. T-016 braucht die Standorte aus
+**Reihenfolge ist echt.** T-020 steht zwischen T-015 und T-016, weil die Freigabekette die
+Standortleitung als Instanz voraussetzt. T-013 braucht die Pausen aus T-012. T-016 braucht die Standorte aus
 T-015, weil ein Löschlauf sie mit erfassen muss. T-017 braucht Nutzer-Feedback.
 
 **Zwischen T-018 und Phase 2:** zwei Wochen selbst stempeln, dann zwei bis drei Leute aus einem

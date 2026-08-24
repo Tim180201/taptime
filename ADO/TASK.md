@@ -4,108 +4,107 @@
 
 ---
 
-## T-010 · Eine Eskalation muss beim Administrator ankommen
+## T-007 · Sicherung und getesteter Restore
 
-**Für:** Codex · **Risiko:** fachliche Entscheidung, Migration, Mandantengrenze → **unabhängiges Review verpflichtend**
-**Zeitbox:** drei Arbeitssitzungen · **Grundlage:** D-012, `ADO/PLAN.md`
-
-### Der Fehler
-
-Die App sagt dem Beschäftigten heute:
-
-> „Prüfung erforderlich. Der Scan muss geprüft werden. Deine Arbeitszeit wurde nicht
-> stillschweigend verändert."
-
-Diese Prüfung findet nie statt. Der Weg im Einzelnen:
-
-1. Die Engine entscheidet `escalation_required`.
-2. `OfflineLifecycleIngestionCoordinator` schreibt die Abstimmzeile trotzdem mit
-   `result_status = 'synchronized'` und `review_reason = null`.
-3. `persistTimeEntryMutation` legt für diese Entscheidung keinen Zeiteintrag an — richtig so.
-4. Das Gerät quittiert, die Warteschlange läuft weiter — ebenfalls richtig.
-5. `read_time_review_items_v1` wählt nur `result_status = 'review_pending'`. Die Eskalation
-   erscheint **in keiner Administratoransicht.**
-
-Ergebnis: Die Arbeitszeit ist weg. Der einzige Nachweis liegt in `audit_events` und
-`canonical_decisions` — beides hat keine Oberfläche. Der Beschäftigte hat ein Versprechen
-bekommen, das das System nicht einlösen kann.
+**Für:** Codex · **Risiko:** personenbezogene Daten verlassen den Server → **unabhängiges Review verpflichtend**
+**Zeitbox:** zwei Arbeitssitzungen · **Grundlage:** T-010 abgeschlossen
 
 ### Ziel
 
-**Jede Entscheidung `escalation_required` erzeugt einen Prüfposten, den ein Administrator
-sieht und entscheiden kann.** Auf jedem Weg — offline, kanonisch, manuell.
+**Ein Restore ist nachweislich durchgeführt worden, automatisch, gegen echte Sicherungsdaten.**
 
-Die Aufgabe ist fertig, wenn ein absichtlich herbeigeführter Eskalationsfall in der Ansicht
-*Prüfungen* auftaucht, dort entschieden wird und danach verschwindet.
+Die Aufgabe ist nicht fertig, wenn Sicherungen geschrieben werden. Sie ist fertig, wenn eine
+Wiederherstellung ohne menschliches Zutun gelaufen ist und ihr Ergebnis geprüft wurde. Eine
+ungetestete Sicherung ist keine Sicherung, sondern eine Hoffnung.
 
-### Invarianten, die nicht verletzt werden dürfen
+### Der Aufbau
 
-1. **Die Warteschlange darf nie blockieren.** Das Gerät quittiert weiterhin und arbeitet die
-   Warteschlange ab. Ein Prüfposten hält kein Gerät an.
-2. **Kein Zeiteintrag ohne Engine-Entscheidung.** Eine Eskalation legt weiterhin keinen
-   Zeiteintrag an. Erst die Entscheidung des Administrators tut das.
-3. **Die Historie wird nicht umgeschrieben.** Append-only bleibt append-only.
-4. **Die Meldung an den Beschäftigten muss wahr werden**, nicht verschwinden.
+| | |
+|---|---|
+| **Wohin** | Hetzner Storage Box **BX11**, Standort **FSN1 Falkenstein** — Deutschland, nicht Helsinki |
+| **Womit** | BorgBackup über SSH. Verschlüsselung, Deduplizierung und Integritätsprüfung sind eingebaut |
+| **Was** | `pg_dump` der Produktdatenbank, **stündlich** |
+| **Aufbewahrung** | 24 stündliche, 14 tägliche, 8 wöchentliche, 6 monatliche |
+| **Unveränderlichkeit** | Storage-Box-Schnappschüsse, planmäßig |
+
+**Warum stündlich und nicht täglich:** Die Datenbank ist heute wenige Megabyte groß, und Borg
+dedupliziert. Stündlich kostet praktisch nichts und senkt den möglichen Datenverlust von einem
+Tag auf eine Stunde. Bei einer Zeiterfassung ist ein verlorener Tag ein verlorener Lohn — und
+die Geräte können ihn nicht nachliefern, sie quittieren und löschen ihre Warteschlange.
+
+**Warum Schnappschüsse:** Wer den Server übernimmt, hat auch dessen Zugang zur Storage Box.
+Ohne eine unveränderliche Ebene könnte er die Sicherungen mitlöschen. Prüfe, wie weit
+Storage-Box-Schnappschüsse das leisten, und melde ehrlich, wo die Grenze liegt.
 
 ### Schritte
 
-**1. Die Abstimmzeile muss die Wahrheit sagen**
+**1. Sicherung einrichten**
 
-- Migration: `review_reason` um einen Wert für die Engine-Eskalation erweitern. Der bestehende
-  `CHECK` in `010_complete_offline_synchronization.sql:309` zählt fünf Werte auf.
-- Bei `escalation_required` die Abstimmzeile mit `result_status = 'review_pending'` und dem
-  neuen Grund schreiben statt mit `'synchronized'`.
-- **Den Nachfolge-Block nicht setzen.** `predecessor_requires_review` hält spätere Ereignisse
-  absichtlich an; eine Eskalation betrifft nur ihr eigenes Ereignis. Spätere Ereignisse werden
-  normal bewertet. Begründung in den Bericht.
+- `pg_dump` läuft **innerhalb** von `taptime-internal`. Die Datenbank bleibt von außen
+  unerreichbar.
+- Ergebnis unmittelbar in das Borg-Archiv. Kein unverschlüsselter Zwischenstand auf der Platte.
+- Der Borg-Schlüssel ist **nicht ausschließlich** auf dem Server. Er wird dem Product Owner
+  übergeben, damit er ihn getrennt verwahrt. Stirbt der Server mit dem einzigen Schlüssel, sind
+  alle Sicherungen wertlos.
 
-**2. Der Prüfposten muss den Grund tragen**
+**2. Wiederherstellung, automatisch und wöchentlich**
 
-Der Administrator muss unterscheiden können, warum geprüft werden soll. Die Engine kennt sieben
-Eskalationsgründe (`BusinessEngineEscalationReason`). Er braucht den Grund in verständlicher
-Form, nicht den technischen Bezeichner.
+Das ist der Kern der Aufgabe.
 
-**3. Alle drei Wege, nicht nur der Offline-Weg**
+- Neuestes Archiv in einen **Wegwerf-Container** einspielen, nie gegen die Produktion.
+- Nachweisen, und zwar mit Vergleich, nicht mit „lief durch":
+  - Migrationsstand stimmt, Prüfsummen des Migrationsverzeichnisses stimmen
+  - Zeilenzahlen der tragenden Tabellen entsprechen der Produktion
+  - RLS ist auf allen 29 Tabellen aktiv und erzwungen — eine Wiederherstellung, die die
+    Mandantentrennung verliert, ist ein Datenleck, kein Restore
+  - alle Rollen sind vorhanden
+- Wegwerf-Container danach restlos entfernen.
 
-`ServerCanonicalLifecycleIngestionCoordinator` und `ManualLifecycleIngestionCoordinator` treffen
-dieselbe Entscheidung. Wenn dort eine Eskalation entstehen kann, muss auch dort ein Prüfposten
-entstehen. Prüfe beide und melde, was du gefunden hast.
+**3. Ein Signal, das ankommt**
 
-**4. Die Ansicht Prüfungen**
+Bis `T-008` gibt es keine Protokollierung. Diese Aufgabe braucht trotzdem eine Antwort auf die
+Frage „lief die letzte Sicherung?", die **ohne Anmeldung am Server** zu bekommen ist. Halte es
+einfach und wähle etwas, das ohne fremden Dienst auskommt. `T-008` hängt es später an die
+richtige Alarmierung.
 
-Der neue Grund muss im Admin-Web lesbar dargestellt werden. Keine neue Ansicht, keine neue
-Route — der bestehende Weg trägt das.
+**4. Ein Wiederherstellungs-Leitfaden**
+
+Eine Seite, `infrastructure/RESTORE.md`, geschrieben für jemanden unter Druck:
+
+- Server ist weg — was tue ich, in welcher Reihenfolge, wie lange dauert es
+- Nur die Datenbank ist beschädigt — wie hole ich einen einzelnen Stand zurück
+- **Was nicht in der Sicherung ist und wo es stattdessen liegt.** Insbesondere
+  `/opt/taptime/.env`. Die steht in keinem Repository. Ohne sie startet nichts.
+- **Warnung zu Storage-Box-Schnappschüssen:** Ein Zurücksetzen auf einen Schnappschuss löscht
+  alle neueren Schnappschüsse endgültig. Der übliche Weg ist deshalb **nicht** das Zurücksetzen,
+  sondern das Herauskopieren des benötigten Standes aus `/.zfs/snapshot/`. Beschreibe beide Wege
+  und sag klar, wann welcher gilt.
 
 ### Vision-Check
 
-**One Tap. One Decision.** Der Beschäftigte tippt einmal. Das System löst die Unklarheit auf,
-nicht er. Genau dafür gibt es die Eskalation — sie war nur bisher eine Sackgasse.
+Keine fachliche Logik, keine Migration, keine Oberfläche. Betrieb.
 
 ### Nicht anfassen
 
-- `BusinessEngine`. Die Entscheidungslogik ist richtig und bleibt unverändert.
-- Die Reihenfolge der Entscheidungen. Nichts an `findInconsistency`.
-- `apps/admin-web` über die Darstellung des neuen Grundes hinaus.
-- Nachträgliches Befüllen alter Daten. Die Produktionsdatenbank enthält nur die Erstinbetriebnahme.
+- `apps/`, `packages/`, `apps/backend-schema/migrations/`
+- Der laufende Betrieb. Die Sicherung darf die Produktion nicht anhalten.
 
 ### Prüfung — nachweisen, nicht behaupten
 
-- Ein Test führt eine echte Eskalation gegen PostgreSQL herbei und weist nach, dass sie in
-  `read_time_review_items_v1` erscheint.
-- Ein Test weist nach, dass die Adjudikation sie auflöst und sie danach verschwindet.
-- Ein Test weist nach, dass das Gerät weiterarbeitet: nach einer Eskalation wird das nächste
-  Ereignis normal bewertet und die Warteschlange leert sich.
-- Ein Test weist nach, dass **kein** Zeiteintrag durch die Eskalation entsteht.
-- Ein Test weist nach, dass ein Administrator einer fremden Organisation den Prüfposten
-  **nicht** sieht.
-- Die sieben Eskalationsgründe sind vollständig abgebildet — keiner fällt in einen Standardfall.
-- CI grün, kein `[skip ci]`.
+- Ein echter Wiederherstellungslauf ist gelaufen; seine vollständige Ausgabe steht im Bericht
+- Die Zeilenzahlen aus Wiederherstellung und Produktion stehen nebeneinander
+- Der Nachweis, dass RLS nach der Wiederherstellung auf **29 von 29** Tabellen aktiv und
+  erzwungen ist
+- Ein absichtlich beschädigtes Archiv wird erkannt und nicht stillschweigend akzeptiert
+- Die Datenbank ist während der Sicherung weiterhin von außen unerreichbar
+- Nach echtem Serverneustart läuft die Sicherung von selbst weiter
+- Kein Geheimnis in argv, keines im Repository, keines im Bericht
+- CI grün, kein `[skip ci]`
 
 ### Zusätzliches Review
 
-> Gibt es nach dieser Änderung noch irgendeinen Weg, auf dem ein Auslöser angenommen wird,
-> keinen Zeiteintrag erzeugt und in keiner Administratoransicht erscheint? Suche danach, statt
-> es auszuschließen.
+> Angenommen, jemand hat den Server vollständig übernommen. Wie viele der Sicherungen kann er
+> zerstören? Nenne die Zahl und den Weg, statt zu behaupten, es ginge nicht.
 
 ### Abschluss
 
@@ -116,5 +115,5 @@ Vier Punkte melden. Entfernte oder umgeschriebene Tests **einzeln** benennen.
 
 ## Danach
 
-`T-007` Sicherung und getesteter Restore · `T-008` Betriebssichtbarkeit ·
-`T-009` Menschen verwalten · `T-011` Ratenbegrenzung · siehe `ADO/PLAN.md`.
+`T-008` Betriebssichtbarkeit · `T-009` Menschen verwalten (standortfähig, D-013) ·
+`T-011` Ratenbegrenzung · siehe `ADO/PLAN.md`.

@@ -2,7 +2,7 @@
 
 > **Diese Datei wird überschrieben, nie angehängt.** Sie beschreibt nur den Jetzt-Zustand.
 
-**Stand:** 24.08.2026 (T-006 abgeschlossen) · **Ziel:** System fertig in ~6 Wochen, erster Kunde in ~3 Monaten
+**Stand:** 24.08.2026 (T-010 abgeschlossen) · **Ziel:** System fertig in ~6 Wochen, erster Kunde in ~3 Monaten
 
 ---
 
@@ -41,6 +41,12 @@ danach Firma, Recht und Store.
   Erstinbetriebnahme: eine Organisation „Tim Bartz", eine Administrator-Mitgliedschaft, eine
   Identitätsbindung, die eingebaute Allgemeine Arbeitszeit. Nach echtem Neustart alles wieder da.
   **Der Product Owner hat sich angemeldet und die Übersicht gesehen.**
+- **T-010 Eskalationen erreichen den Administrator** — Migration 015. Eine Engine-Eskalation
+  ist jetzt zugleich dauerhafte Entscheidung **und** offener Prüfposten; die Datenbank erzwingt
+  diese Form über `offline_reconciliations_result_shape_v2`. Alle sieben Eskalationsgründe
+  erscheinen einzeln und in verständlichem Deutsch in der Ansicht *Prüfungen*. Das Gerät
+  quittiert weiterhin, spätere Ereignisse werden nicht blockiert. Kanonischer und manueller Weg
+  sind mit abgedeckt.
 - **`tb-infra.de`** zeigt auf den Server, TTL 300, DNS bestätigt
 
 **Nicht vorhanden** — nach vollständiger Anforderungsprüfung am 24.08. (D-012):
@@ -62,12 +68,11 @@ danach Firma, Recht und Store.
 
 ## Aktuelle Aufgabe
 
-**T-010 — Eine Eskalation muss beim Administrator ankommen.** Siehe `ADO/TASK.md`.
-Vorgezogen vor T-007: Der Verlust trifft den ersten Pilotnutzer, ein Datenverlust durch
-Serverausfall ist demgegenüber selten. Fachliche Entscheidung und Migration, daher mit
-verpflichtendem unabhängigem Review.
+**T-007 — Sicherung und getesteter Restore.** Siehe `ADO/TASK.md`.
+Personenbezogene Daten verlassen den Server, daher mit verpflichtendem unabhängigem Review.
+Der Product Owner bestellt dafür eine Hetzner Storage Box BX11 in Falkenstein.
 
-Danach T-007 bis T-019 in neuer Reihenfolge, siehe `ADO/PLAN.md`. Die Kette wurde am 24.08.
+Danach T-008 bis T-020 in neuer Reihenfolge, siehe `ADO/PLAN.md`. Die Kette wurde am 24.08.
 nach Betriebsfähigkeit sortiert und um sieben Aufgaben erweitert (D-012). `T-001` bis `T-006`
 sind unverändert, alles danach ist neu nummeriert.
 
@@ -95,7 +100,8 @@ Der Technical Lead führt beide Zahlen mit, um eigene systematische Fehler zu er
 | T-004 | zwei Sitzungen | drei — inkl. einer Korrekturrunde |
 | T-005 | eine Sitzung | eine Sitzung |
 | T-006 | zwei Sitzungen | zwei Sitzungen |
-| T-010 | drei Sitzungen | offen |
+| T-010 | drei Sitzungen | eine Sitzung |
+| T-007 | zwei Sitzungen | offen |
 
 Die Prüfung vom 24.08. hat die Restschätzung von 11 auf **38 Sitzungen** über 13 Aufgaben
 korrigiert — nicht weil mehr Arbeit entstanden ist, sondern weil sieben nötige Aufgaben vorher
@@ -131,6 +137,9 @@ in keinem Plan standen.
   bricht aber das Muster.
 - **P2:** Der Zeitstempel der manuellen Erfassung stammt von der Geräteuhr. Der Serverpfad mit
   `transaction_timestamp()` existiert, wird von der App aber nie aufgerufen.
+- **P3:** Eine gemischte Auswahl in *Prüfungen* — Engine-Eskalation zusammen mit einem anderen
+  Prüfposten — wird mit `invalid_evidence` abgewiesen. Sicher, aber für den Administrator nicht
+  selbsterklärend. Gehört in T-017.
 - **P2:** Ein vergessener Stopp läuft unbegrenzt weiter. Es gibt keine Obergrenze und keinen
   Hinweis an den Administrator.
 - **P3:** Vier Dokumente beschreiben, was es nicht gibt — `Role_Model.md` und `Domain_Model.md`

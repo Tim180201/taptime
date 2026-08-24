@@ -234,3 +234,84 @@ Idempotenz.
 `SECURITY DEFINER`-Funktionen; darunter `time_record_revisions`, auf der ein `UPDATE`-Recht
 liegt, dessen Unveränderlichkeits-Trigger ungetestet ist. Kein akutes Risiko, aber die zweite
 Verteidigungslinie fehlt dort. → aufgenommen als bekannte Kleinigkeit, Prüfung in **T-019**.
+
+---
+
+## D-013 — Die Standortleitung verwaltet Beschäftigte an ihrem Standort
+
+**Datum:** 24.08.2026 · **Entschieden von:** Tim, vorbereitet vom Technical Lead
+
+**Entscheidung:** Eine Standortleitung darf Beschäftigte **an ihrem Standort einladen und
+aussperren**. ADR-0020, DA6-L05 wird entsprechend überarbeitet, bevor T-015 gebaut wird.
+
+**Warum:** ADR-0020 verbot der Standortleitung ausdrücklich `Memberships` und `invitations`.
+Damit hätte sie genau das nicht gekonnt, wofür der Product Owner Standorte eingeführt hat —
+D-008: „damit die Verwaltung der Mitarbeiter nicht nur auf den Admin fällt". Der Engpass wäre
+geblieben. In einem Nachhilfebetrieb liefe jede neue Lehrkraft zu Semesterbeginn weiter über
+eine einzige Person.
+
+**Die Sicherheitsgrenze bleibt unverändert.** Eine Standortleitung darf nicht:
+
+- eine Rolle vergeben — weder Standortleitung noch Administrator. Keine Rechteausweitung.
+- jemanden an einen fremden Standort holen oder dort aussperren.
+- die eigene Mitgliedschaft oder die eines Administrators verändern.
+
+Alles Übrige aus DA6-L05 bleibt wie beschrieben, insbesondere: niemals die eigene Arbeitszeit
+korrigieren, niemals die eigene Prüfung entscheiden, kein organisationsweiter Export.
+
+**Folge für die Reihenfolge:** `T-009` baut Einladen und Aussperren für den Administrator.
+Das muss von vornherein so gebaut werden, dass `T-015` es auf einen Standort einschränken kann —
+also Berechtigung serverseitig aus Mitgliedschaft und Zuständigkeit ableiten, nicht aus der
+Rolle allein. Sonst wird die Fähigkeit zweimal gebaut.
+
+**Offen bis T-015:** ADR-0020 überarbeiten. Der Technical Lead bereitet den Änderungsvorschlag
+vor; DA6-L05 und die Ausschlussliste in Abschnitt 5 sind betroffen.
+
+---
+
+## D-014 — Der NFC-Scan ist der Beweis. Alles andere ist eine Behauptung und braucht Freigabe.
+
+**Datum:** 24.08.2026 · **Entschieden von:** Tim, vorbereitet vom Technical Lead
+
+**Entscheidung:** Jede Arbeitszeit, die **nicht** per NFC-Scan entstanden ist, wird als
+geändert beziehungsweise manuell **gekennzeichnet** und muss **freigegeben** werden.
+
+**Die Freigabekette:** Immer die nächsthöhere Instanz.
+
+| Wessen Zeit | Wer gibt frei |
+|---|---|
+| Beschäftigter | Standortleitung, falls vorhanden — sonst Administrator |
+| Standortleitung | Administrator |
+| Administrator | niemand. Die Kette endet hier. |
+
+**Was Freigabe braucht:** ein Eintrag, dessen Beginn oder Ende `manual` ist, sowie jede
+Korrektur. Ein Eintrag kann per Scan beginnen und von Hand enden — dann greift die Regel,
+weil die Kennzeichnung pro Grenze gilt, nicht pro Eintrag.
+
+**Was keine Freigabe braucht:** Beginn und Ende beide per NFC-Scan. Auch offline erfasst —
+offline ist kein Mangel an Beweis, es ist nur verzögerte Zustellung.
+
+**Warum das die Produktidee stärkt:** Der Tag ist der Beweis. Wer ihn scannt, war körperlich
+dort. Alles andere ist eine Aussage über die Vergangenheit und wird von einem Menschen
+bestätigt. Damit ist NFC nicht mehr nur der bequemste Weg, sondern der **einzige ohne
+Zusatzaufwand** — ein echter Grund für einen Kunden, Tags aufzuhängen.
+
+**Verhältnis zur Vision:** „One Tap. One Decision." bleibt unberührt. Der Beschäftigte tippt
+weiterhin genau einmal und entscheidet nichts. Die Freigabe passiert danach und woanders.
+
+**Ersetzt** die Vorüberlegung aus ADR-0020, der Standortleitung die Korrektur eigener Zeiten zu
+verbieten. Verbieten war das falsche Mittel — sichtbar machen und bestätigen lassen ist das
+richtige. Damit darf auch der Administrator seine eigene Zeit korrigieren; heute kann er das
+ohnehin, nur unsichtbar.
+
+**Folgen:**
+
+- Neue Dimension am Zeiteintrag: *bestätigt / wartet auf Bestätigung / abgelehnt*. `time_entries`
+  kennt heute nur `started` und `stopped`. Braucht eine eigene ADR.
+- `T-013` kennzeichnet im Export. Die Daten liegen bereits vor: `started_via` und `stopped_via`
+  aus Migration 013.
+- **`T-020`** baut die Freigabekette. Nach `T-015`, weil die Kette die Standortleitung als
+  Instanz voraussetzt.
+- Der Export bleibt **vollständig** und weist Unbestätigtes in einer eigenen Spalte aus. Eine
+  vergessene Freigabe darf nicht dazu führen, dass jemandem Geld auf der Abrechnung fehlt.
+  Vom Technical Lead entschieden, vom Product Owner überstimmbar.
