@@ -16,6 +16,7 @@ require_file "$CONFIG_FILE"
 # shellcheck source=/etc/taptime-backup/config
 source "$CONFIG_FILE"
 require_file "$BORG_PASSPHRASE_FILE"
+: "${RESTORE_STATUS_FILE:?RESTORE_STATUS_FILE must be configured}"
 
 install -d -m 0700 "$STAGING_ROOT"
 if [[ "$(findmnt -n -o FSTYPE --target "$STAGING_ROOT")" != 'tmpfs' ]]; then
@@ -29,6 +30,42 @@ if ! flock -n 9; then
   exit 0
 fi
 
+restore_state='failed'
+stage=''
+container=''
+
+write_restore_status() {
+  local temporary
+  install -d -m 0700 "$(dirname "$RESTORE_STATUS_FILE")"
+  temporary="$(mktemp "${RESTORE_STATUS_FILE}.XXXXXX")"
+  printf '{"state":"%s","last_attempt_at_utc":"%s"}\n' \
+    "$restore_state" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$temporary"
+  chmod 0644 "$temporary"
+  mv "$temporary" "$RESTORE_STATUS_FILE"
+}
+
+cleanup() {
+  if [[ -n "$container" ]]; then
+    docker rm --force "$container" >/dev/null 2>&1 || true
+  fi
+  if [[ -n "$stage" ]]; then
+    rm -rf "$stage"
+  fi
+}
+
+finish() {
+  local status=$?
+  trap - EXIT
+  cleanup
+  if ! write_restore_status; then
+    printf 'Could not persist restore-verification status.\n' >&2
+    status=1
+  fi
+  exit "$status"
+}
+
+trap finish EXIT
+
 export BORG_RSH
 export BORG_PASSCOMMAND="cat '$BORG_PASSPHRASE_FILE'"
 export BORG_UNKNOWN_UNENCRYPTED_REPO_ACCESS_IS_OK=no
@@ -38,12 +75,6 @@ install -d -m 0700 "$BORG_CACHE_DIR" "$BORG_CONFIG_DIR"
 
 stage="$(mktemp -d "$STAGING_ROOT/restore.XXXXXX")"
 container="taptime-restore-verify-$(date +%s)"
-
-cleanup() {
-  docker rm --force "$container" >/dev/null 2>&1 || true
-  rm -rf "$stage"
-}
-trap cleanup EXIT
 
 printf 'Verifying Borg repository data.\n'
 borg check --verify-data "$BORG_REPOSITORY"
@@ -71,12 +102,22 @@ docker run --detach --name "$container" --network none --read-only \
   --env POSTGRES_HOST_AUTH_METHOD=trust \
   "$RESTORE_IMAGE" >/dev/null
 
+ready_observations=0
 for _ in $(seq 1 30); do
   if docker exec --user postgres "$container" pg_isready --dbname=postgres >/dev/null 2>&1; then
-    break
+    ready_observations=$((ready_observations + 1))
+    if (( ready_observations >= 3 )); then
+      break
+    fi
+  else
+    ready_observations=0
   fi
   sleep 1
 done
+if (( ready_observations < 3 )); then
+  printf 'Restore PostgreSQL did not become stably ready.\n' >&2
+  exit 1
+fi
 docker exec --user postgres "$container" pg_isready --dbname=postgres
 
 printf 'Restoring global roles.\n'
@@ -127,3 +168,4 @@ diff --unified "$stage/manifest/database-roles.txt" "$stage/restored-database-ro
 printf 'Non-built-in PostgreSQL roles restored: %s\n' "$(wc -l < "$stage/restored-database-roles.txt")"
 
 printf 'Restore verification completed: %s\n' "$archive"
+restore_state='ok'

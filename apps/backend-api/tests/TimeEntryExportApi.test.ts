@@ -139,6 +139,7 @@ describe('DA2 TimeEntry export API', () => {
     expect(await response.text()).toBe('{"error":{"code":"service_unavailable"}}');
     expect(diagnostics).toEqual([{
       code: 'time_entry_export_failed',
+      route: 'admin_time_entry_export',
       correlationId: expect.stringMatching(/^[0-9a-f-]{36}$/),
     }]);
     expect(JSON.stringify(diagnostics)).not.toContain('secret');

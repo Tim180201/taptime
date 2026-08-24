@@ -1,0 +1,19 @@
+[Unit]
+Description=TapTim.e API and dead-man monitor
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/taptime-immediate-monitor
+User=root
+Group=root
+UMask=0077
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectHome=yes
+ProtectSystem=strict
+StateDirectory=taptime-monitor
+StateDirectoryMode=0700
+ReadWritePaths=/var/lib/taptime-monitor
+RestrictAddressFamilies=AF_INET AF_INET6

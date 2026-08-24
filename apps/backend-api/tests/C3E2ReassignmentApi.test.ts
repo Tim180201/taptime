@@ -107,6 +107,7 @@ describe('C3E2 reassignment API boundary', () => {
     await expect(response.json()).resolves.toEqual({ error: { code: 'service_unavailable' } });
     expect(diagnostics).toEqual([{
       code: 'administration_failed',
+      route: 'admin_reassign_nfc_tag',
       correlationId: expect.stringMatching(/^[0-9a-f-]{36}$/),
     }]);
   });

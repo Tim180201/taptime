@@ -187,6 +187,7 @@ describe('C3E1 Employee enrollment HTTP contract', () => {
     await expect(response.json()).resolves.toEqual({ error: { code: 'service_unavailable' } });
     expect(diagnostics).toEqual([{
       code: 'employee_enrollment_failed',
+      route: 'employee_enrollment_redeem',
       correlationId: expect.any(String),
     }]);
     expect(JSON.stringify(diagnostics)).not.toContain(invitationSecret);

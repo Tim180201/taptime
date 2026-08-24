@@ -58,20 +58,36 @@ Vier Dinge, mehr nicht. Jede weitere Meldung senkt die Aufmerksamkeit für die v
 - Die wöchentliche Wiederherstellungsprüfung ist fehlgeschlagen
 - Die Platte läuft voll (Schwelle 80 Prozent)
 
-**3. Der Fall, den ein Server nicht selbst melden kann**
+**3. Der Fall, den ein Server nicht selbst melden kann — entschieden**
 
-Ein toter Server meldet nichts. Dafür braucht es einen Wächter von außen, der Alarm schlägt,
-wenn das regelmäßige Lebenszeichen ausbleibt.
+**healthchecks.io**, kostenloser Tarif, genau **ein** Check als Totmannschalter.
 
-- Wähle etwas, das kostenlos und ohne Vertrag nutzbar ist.
-- **Nach draußen geht ausschließlich ein Lebenszeichen ohne Inhalt.** Keine Daten, keine
-  Kennungen, keine Protokolle. Begründe im Bericht, warum dein gewählter Dienst damit kein
+- Nach draußen geht ausschließlich ein Lebenszeichen **ohne Rumpf**. Keine Daten, keine
+  Kennungen, keine Protokolle. Begründe im Bericht, warum der Dienst damit kein
   Auftragsverarbeiter wird.
+- Der Alarm geht **nicht per E-Mail**, sondern per Webhook an dasselbe ntfy-Thema wie alles
+  andere. Der Product Owner soll eine App haben, nicht zwei Orte zum Nachsehen.
+- Die drei übrigen Meldungen erkennt der Server selbst und schickt sie direkt an ntfy — dafür
+  braucht es keine weiteren Checks bei healthchecks.io.
 
-**4. Der Weg zum Telefon**
+**4. Der Weg zum Telefon — entschieden**
 
-Die Meldung muss beim Product Owner ankommen, nicht in einer Datei auf dem Server liegen.
-Wähle den einfachsten Weg, der ohne laufende Kosten auskommt, und beschreibe ihn.
+**ntfy**, Push auf das Telefon des Product Owner. Kostenlos, kein Konto nötig.
+
+Zwei Dringlichkeitsstufen, keine dritte:
+
+| Stufe | Was | Verhalten |
+|---|---|---|
+| **Sofort** | API antwortet nicht · Server weg | Push mit hoher Priorität, darf den Stummmodus durchbrechen |
+| **Morgens** | Sicherung überfällig · Wiederherstellungsprüfung fehlgeschlagen · Platte über 80 % | Gesammelt einmal täglich, feste Uhrzeit, normale Priorität |
+
+Der Themenname (Topic) ist der einzige Zugangsschutz bei ntfy. Erzeuge ihn auf dem Server aus
+Zufallszeichen, gib ihn nur dem Product Owner, und halte ihn aus dem Repository und aus allen
+Berichten heraus — genau wie den Statuspfad aus T-007.
+
+**Im Meldungstext steht niemals ein Personenbezug.** Eine Meldung nennt, was kaputt ist, und
+sonst nichts. Kein Kundenname, keine E-Mail-Adresse, keine Arbeitszeit. Die Meldung verlässt
+den Server über einen fremden Dienst — behandle sie entsprechend.
 
 ### Vision-Check
 

@@ -10,6 +10,7 @@ import {
 import { B3_MIGRATION_TABLE, B3_SCHEMA, loadMigrations, migrate } from '@taptime/backend-schema';
 import { B4SessionAuthorityResolver } from '../src/B4SessionAuthorityResolver.js';
 import { createBackendHttpServer } from '../src/BackendHttpServer.js';
+import { createBackendApiDiagnosticLogSink } from '../src/diagnosticLog.js';
 import { createBackendApiRuntime, type BackendApiRuntime } from '../src/runtime.js';
 import type { SessionApiDiagnostic, SessionAuthorityResolver } from '../src/types.js';
 import {
@@ -451,11 +452,27 @@ describe('generic infrastructure handling', () => {
 
   it('maps PostgreSQL failure to the same generic 503 and emits only safe diagnostics', async () => {
     const safeDiagnostics: SessionApiDiagnostic[] = [];
+    let productionLog = '';
+    const forbiddenPersonalContent = [
+      'Erika Mustermann',
+      'erika@example.test',
+      'Kundenbezeichnung Nord',
+      '2026-08-24T08:00:00Z/2026-08-24T17:00:00Z',
+      'Bearer personal-access-token',
+      '{"request":"personal content"}',
+    ];
+    const logSink = createBackendApiDiagnosticLogSink({
+      now: () => new Date('2026-08-24T17:01:00.000Z'),
+      output: { write: (chunk) => { productionLog += String(chunk); return true; } },
+    });
     const failingAuthority = new B4SessionAuthorityResolver(verifier, {
-      resolve: async () => { throw new Error('postgresql://user:secret@database.internal'); },
+      resolve: async () => { throw new Error(forbiddenPersonalContent.join(' | ')); },
     });
     const server = createSessionRegressionServer(failingAuthority, {
-      onDiagnostic: (diagnostic) => safeDiagnostics.push(diagnostic),
+      onDiagnostic: (diagnostic) => {
+        safeDiagnostics.push(diagnostic);
+        logSink(diagnostic);
+      },
     });
     await listen(server);
     const token = await accessToken(jwks);
@@ -467,12 +484,21 @@ describe('generic infrastructure handling', () => {
       expect(safeDiagnostics).toHaveLength(1);
       expect(safeDiagnostics[0]).toEqual({
         code: 'session_resolution_failed',
+        route: 'session',
         correlationId: response.headers['x-request-id'],
       });
       const serialized = JSON.stringify({ response: response.text, diagnostics: safeDiagnostics });
       expect(serialized).not.toContain(token);
-      expect(serialized).not.toContain('secret');
-      expect(serialized).not.toContain('database.internal');
+      expect(JSON.parse(productionLog)).toEqual({
+        timestamp: '2026-08-24T17:01:00.000Z',
+        error_class: 'session_resolution_failed',
+        route: 'session',
+        correlation_id: response.headers['x-request-id'],
+      });
+      for (const forbidden of forbiddenPersonalContent) {
+        expect(productionLog).not.toContain(forbidden);
+      }
+      expect(productionLog).not.toContain('organization');
     } finally {
       await closeServer(server);
     }

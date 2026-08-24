@@ -432,6 +432,23 @@ describe('exact routes, HTTP hardening, and disclosure-safe errors', () => {
     expectSafeHeaders(response);
   });
 
+  it('survives an idle runtime database connection failure', async () => {
+    expect((await getSession(await token(ids.subjectA))).status).toBe(200);
+
+    const terminated = await installerPool.query<{ terminated: boolean }>(
+      `SELECT pg_catalog.pg_terminate_backend(activity.pid) AS terminated
+       FROM pg_catalog.pg_stat_activity AS activity
+       WHERE activity.usename = $1
+         AND activity.pid <> pg_catalog.pg_backend_pid()`,
+      [C2_SESSION_RUNTIME_LOGIN],
+    );
+    expect(terminated.rows.some(({ terminated: stopped }) => stopped)).toBe(true);
+    await new Promise<void>((resolve) => setTimeout(resolve, 100));
+
+    expect((await getSession(await token(ids.subjectA))).status).toBe(200);
+    expect(diagnostics).toEqual([]);
+  });
+
   it.each([
     ['POST', '/v1/session', 405, 'GET'],
     ['GET', '/v1/scan-context/resolve', 405, 'POST'],
@@ -602,6 +619,7 @@ describe('exact routes, HTTP hardening, and disclosure-safe errors', () => {
           code: capability === 'scan_context'
             ? 'scan_context_resolution_failed'
             : 'lifecycle_ingestion_failed',
+          route: capability,
           correlationId: response.headers['x-request-id'],
         }]);
       } finally {
@@ -1429,6 +1447,7 @@ describe('E2A defer-only lifecycle route', () => {
       expectGenericError(response, 503, 'service_unavailable');
       expect(safeDiagnostics).toEqual([{
         code: 'lifecycle_ingestion_failed',
+        route: 'deferred_lifecycle',
         correlationId: response.headers['x-request-id'],
       }]);
       expect(JSON.stringify({ response, safeDiagnostics }))

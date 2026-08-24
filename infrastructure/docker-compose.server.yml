@@ -42,6 +42,10 @@ services:
       - ALL
     security_opt:
       - no-new-privileges:true
+    logging:
+      driver: journald
+      options:
+        tag: taptime-backend-api
     restart: unless-stopped
 
   caddy:

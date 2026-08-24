@@ -57,6 +57,7 @@ import type {
   BackendApiDependencies,
   BackendApiDiagnostic,
   BackendApiDiagnosticSink,
+  BackendApiRoute,
 } from './types.js';
 
 const SESSION_PATH = '/v1/session';
@@ -131,41 +132,7 @@ type ErrorCode =
   | 'stale_row_version'
   | 'unauthorized';
 
-type Route =
-  | 'health'
-  | 'admin_create_customer'
-  | 'admin_create_employee_invitation'
-  | 'admin_employee_memberships_projection'
-  | 'admin_provision_nfc_tag'
-  | 'admin_reassign_nfc_tag'
-  | 'admin_setup_projection'
-  | 'admin_time_entry_export'
-  | 'time_entry_export_v2'
-  | 'admin_time_record_query'
-  | 'admin_time_record_query_v2'
-  | 'admin_time_record_correction'
-  | 'admin_review_item_query'
-  | 'admin_review_item_query_v2'
-  | 'admin_review_adjudication'
-  | 'admin_project_query'
-  | 'admin_project_create'
-  | 'admin_project_deactivate'
-  | 'deferred_lifecycle'
-  | 'employee_enrollment_redeem'
-  | 'lifecycle'
-  | 'manual_lifecycle'
-  | 'mobile_own_time'
-  | 'mobile_work_targets'
-  | 'offline_capture_lease'
-  | 'offline_capture_lease_page'
-  | 'offline_capture_lease_v2'
-  | 'offline_capture_lease_page_v2'
-  | 'offline_lifecycle'
-  | 'offline_lifecycle_v2'
-  | 'offline_reconciliation'
-  | 'offline_review_state'
-  | 'scan_context'
-  | 'session';
+type Route = BackendApiRoute;
 
 export interface BackendHttpServerOptions {
   readonly onDiagnostic?: BackendApiDiagnosticSink;
@@ -191,9 +158,10 @@ export function createBackendHttpServer(
       correlationId,
     )
       .catch(() => {
-        const code = diagnosticCodeForRoute(requestRoute(request.url));
+        const route = requestRoute(request.url);
+        const code = diagnosticCodeForRoute(route);
         if (code !== null) {
-          emitDiagnostic(options.onDiagnostic, { code, correlationId });
+          emitDiagnostic(options.onDiagnostic, { code, route: route ?? undefined, correlationId });
         }
         if (!response.writableEnded && !response.destroyed) {
           respondError(response, 503, 'service_unavailable');
@@ -237,6 +205,7 @@ async function handleRequest(
     respondError(response, 404, 'not_found');
     return;
   }
+  options = optionsWithDiagnosticRoute(options, route);
 
   const expectedMethod = route === 'health' || route === 'session' ? 'GET' : 'POST';
   if (request.method !== expectedMethod) {
@@ -2704,6 +2673,20 @@ function emitDiagnostic(
   } catch {
     // Diagnostics are non-authoritative and cannot alter the disclosure-safe transport response.
   }
+}
+
+function optionsWithDiagnosticRoute(
+  options: BackendHttpServerOptions,
+  route: Route,
+): BackendHttpServerOptions {
+  const sink = options.onDiagnostic;
+  if (sink === undefined) {
+    return options;
+  }
+  return {
+    ...options,
+    onDiagnostic: (diagnostic) => sink({ ...diagnostic, route }),
+  };
 }
 
 function emitOfflineDiagnostic(

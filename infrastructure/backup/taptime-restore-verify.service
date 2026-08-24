@@ -15,4 +15,6 @@ NoNewPrivileges=yes
 PrivateTmp=yes
 ProtectHome=yes
 ProtectSystem=strict
-ReadWritePaths=/run/taptime-backup /run/lock /var/lib/docker /var/run/docker.sock
+StateDirectory=taptime-monitor
+StateDirectoryMode=0700
+ReadWritePaths=/run/taptime-backup /run/lock /var/lib/docker /var/lib/taptime-monitor /var/run/docker.sock

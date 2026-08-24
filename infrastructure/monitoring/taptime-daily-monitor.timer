@@ -1,0 +1,11 @@
+[Unit]
+Description=Run TapTim.e daily operational summary at 08:00 Europe/Berlin
+
+[Timer]
+OnCalendar=*-*-* 08:00:00 Europe/Berlin
+Persistent=true
+AccuracySec=1min
+Unit=taptime-daily-monitor.service
+
+[Install]
+WantedBy=timers.target

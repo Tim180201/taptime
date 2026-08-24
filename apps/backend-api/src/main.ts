@@ -1,4 +1,5 @@
 import { createBackendApiRuntime } from './runtime.js';
+import { createBackendApiDiagnosticLogSink } from './diagnosticLog.js';
 
 const sessionDatabaseUrl = requiredEnvironmentValue('TAPTIME_SESSION_DATABASE_URL');
 const readModelDatabaseUrl = requiredEnvironmentValue('TAPTIME_READ_MODEL_DATABASE_URL');
@@ -58,6 +59,8 @@ const runtime = createBackendApiRuntime({
   mobileOwnTimeCursorHmacKey,
   projectAdministrationDatabaseUrl,
   supabaseIssuer,
+}, {
+  onDiagnostic: createBackendApiDiagnosticLogSink(),
 });
 
 runtime.server.listen(port, '0.0.0.0');

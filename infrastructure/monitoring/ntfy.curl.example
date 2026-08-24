@@ -1,0 +1,8 @@
+# Install as /etc/taptime-monitor/ntfy.curl with owner root and mode 0600.
+# Replace the placeholder with a long random topic generated on the server.
+url = "https://ntfy.sh/<random-topic>"
+silent
+show-error
+fail
+max-time = 10
+retry = 2

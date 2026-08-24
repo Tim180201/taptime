@@ -1,0 +1,105 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+readonly CONFIG_DIRECTORY="${TAPTIME_MONITOR_CONFIG_DIRECTORY:-/etc/taptime-monitor}"
+readonly BACKUP_CONFIG="${TAPTIME_BACKUP_CONFIG:-/etc/taptime-backup/config}"
+readonly RESTORE_STATUS_FILE="${TAPTIME_RESTORE_STATUS_FILE:-/var/lib/taptime-monitor/restore-status.json}"
+readonly NTFY_CURL_CONFIG="$CONFIG_DIRECTORY/ntfy.curl"
+readonly BACKUP_MAXIMUM_AGE_SECONDS=7200
+readonly RESTORE_MAXIMUM_AGE_SECONDS=691200
+readonly DISK_USAGE_THRESHOLD_PERCENT=80
+
+require_private_file() {
+  local file="$1"
+  if [[ ! -f "$file" || -L "$file" || ! -O "$file" || "$(stat -c '%a' "$file")" != '600' ]]; then
+    printf 'Required root-owned mode-0600 file is unavailable: %s\n' "$file" >&2
+    exit 1
+  fi
+}
+
+backup_status_path() {
+  local line
+  local path=''
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    case "$line" in
+      STATUS_FILE=\'*\')
+        path="${line#STATUS_FILE=\'}"
+        path="${path%\'}"
+        ;;
+    esac
+  done < "$BACKUP_CONFIG"
+  if [[ "$path" != /* ]]; then
+    return 1
+  fi
+  printf '%s' "$path"
+}
+
+backup_is_current() {
+  local path
+  local content
+  local timestamp
+  local success_epoch
+  local now_epoch="${TAPTIME_MONITOR_NOW_EPOCH:-$(date +%s)}"
+
+  path="$(backup_status_path)" || return 1
+  [[ -f "$path" ]] || return 1
+  content="$(< "$path")"
+  [[ "$content" == *'"state":"ok"'* ]] || return 1
+  if [[ "$content" =~ \"last_success_at_utc\":\"([^\"]+)\" ]]; then
+    timestamp="${BASH_REMATCH[1]}"
+  else
+    return 1
+  fi
+  success_epoch="$(date --date="$timestamp" +%s)" || return 1
+  (( now_epoch - success_epoch <= BACKUP_MAXIMUM_AGE_SECONDS ))
+}
+
+restore_is_healthy() {
+  local content
+  local timestamp
+  local attempt_epoch
+  local now_epoch="${TAPTIME_MONITOR_NOW_EPOCH:-$(date +%s)}"
+  [[ -f "$RESTORE_STATUS_FILE" ]] || return 1
+  content="$(< "$RESTORE_STATUS_FILE")"
+  [[ "$content" == *'"state":"ok"'* ]] || return 1
+  if [[ "$content" =~ \"last_attempt_at_utc\":\"([^\"]+)\" ]]; then
+    timestamp="${BASH_REMATCH[1]}"
+  else
+    return 1
+  fi
+  attempt_epoch="$(date --date="$timestamp" +%s)" || return 1
+  (( now_epoch - attempt_epoch <= RESTORE_MAXIMUM_AGE_SECONDS ))
+}
+
+disk_is_below_threshold() {
+  local usage
+  usage="$(df --output=pcent / | tail -n 1)"
+  usage="${usage//[!0-9]/}"
+  [[ -n "$usage" ]] && (( usage < DISK_USAGE_THRESHOLD_PERCENT ))
+}
+
+send_daily_notification() {
+  local body="$1"
+  printf '%s' "$body" | curl --config "$NTFY_CURL_CONFIG" \
+    --silent \
+    --show-error \
+    --fail \
+    --output /dev/null \
+    --request POST \
+    --header 'Title: TapTim.e Betrieb' \
+    --header 'Priority: 3' \
+    --data-binary @-
+}
+
+require_private_file "$NTFY_CURL_CONFIG"
+require_private_file "$BACKUP_CONFIG"
+
+messages=()
+backup_is_current || messages+=('Sicherung überfällig')
+restore_is_healthy || messages+=('Wiederherstellungsprüfung fehlgeschlagen')
+disk_is_below_threshold || messages+=('Platte über 80 Prozent')
+
+if (( ${#messages[@]} > 0 )); then
+  printf -v body '%s\n' "${messages[@]}"
+  send_daily_notification "${body%$'\n'}"
+fi

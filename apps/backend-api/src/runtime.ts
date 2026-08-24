@@ -297,7 +297,7 @@ function createOptionalPool(database: ValidatedDatabaseUrl | undefined): Pool | 
 }
 
 function createRuntimePool(connectionString: string): Pool {
-  return new Pool({
+  const pool = new Pool({
     connectionString,
     max: 10,
     connectionTimeoutMillis: 5_000,
@@ -305,6 +305,11 @@ function createRuntimePool(connectionString: string): Pool {
     query_timeout: 5_000,
     statement_timeout: 5_000,
   });
+  pool.on('error', () => {
+    // Idle-client errors have neither route nor correlation ID. Keep the process alive so the
+    // next affected request can emit its existing route-scoped, allowlisted diagnostic.
+  });
+  return pool;
 }
 
 function createHealthPool(connectionString: string): Pool {

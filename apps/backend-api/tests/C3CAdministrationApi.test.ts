@@ -408,6 +408,7 @@ describe('C3C exact administration transport', () => {
       expectGenericError(response, 503, 'service_unavailable');
       expect(diagnostics).toEqual([{
         code: 'administration_failed',
+        route: 'admin_create_customer',
         correlationId: response.headers['x-request-id'],
       }]);
       expect(JSON.stringify({ response, diagnostics })).not.toContain('sensitive database detail');

@@ -1,0 +1,140 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+REPOSITORY_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+readonly REPOSITORY_ROOT
+readonly IMMEDIATE_MONITOR="$REPOSITORY_ROOT/infrastructure/monitoring/taptime-immediate-monitor"
+readonly DAILY_MONITOR="$REPOSITORY_ROOT/infrastructure/monitoring/taptime-daily-monitor"
+test_root="$(mktemp -d)"
+trap 'rm -rf "$test_root"' EXIT
+
+fail() {
+  printf 'FAIL: %s\n' "$1" >&2
+  exit 1
+}
+
+assert_equals() {
+  local expected="$1"
+  local actual="$2"
+  local description="$3"
+  [[ "$actual" == "$expected" ]] || fail "$description: expected [$expected], got [$actual]"
+}
+
+mkdir -p "$test_root/bin" "$test_root/config" "$test_root/state" "$test_root/messages"
+chmod 0700 "$test_root/config" "$test_root/state"
+
+cat > "$test_root/bin/curl" <<'FAKE_CURL'
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%q ' "$@" >> "$FAKE_CURL_ARGUMENT_LOG"
+printf '\n' >> "$FAKE_CURL_ARGUMENT_LOG"
+arguments=" $* "
+if [[ "$arguments" == *' https://api.test/health '* ]]; then
+  exit "${FAKE_API_EXIT_STATUS:-0}"
+fi
+if [[ "$arguments" == *'/ntfy.curl '* ]]; then
+  message_number="$(find "$FAKE_MESSAGE_DIRECTORY" -type f | wc -l)"
+  cat > "$FAKE_MESSAGE_DIRECTORY/$message_number"
+  if [[ "$arguments" != *' --output /dev/null '* ]]; then
+    printf '%s\n' '{"topic":"test-only-secret-topic"}'
+  fi
+fi
+if [[ "$arguments" == *'/healthchecks.curl '* ]]; then
+  printf 'heartbeat\n' >> "$FAKE_HEARTBEAT_LOG"
+fi
+FAKE_CURL
+
+cat > "$test_root/bin/df" <<'FAKE_DF'
+#!/usr/bin/env bash
+set -euo pipefail
+printf 'Use%%\n%s%%\n' "${FAKE_DISK_PERCENT:-0}"
+FAKE_DF
+
+chmod 0755 "$test_root/bin/curl" "$test_root/bin/df"
+
+cat > "$test_root/config/ntfy.curl" <<'EOF_NTFY'
+url = "https://ntfy.sh/test-only-secret-topic"
+EOF_NTFY
+cat > "$test_root/config/healthchecks.curl" <<'EOF_HEALTHCHECKS'
+url = "https://hc-ping.com/00000000-0000-4000-8000-test-only-secret"
+EOF_HEALTHCHECKS
+chmod 0600 "$test_root/config/ntfy.curl" "$test_root/config/healthchecks.curl"
+
+export PATH="$test_root/bin:$PATH"
+export TAPTIME_MONITOR_CONFIG_DIRECTORY="$test_root/config"
+export TAPTIME_MONITOR_STATE_DIRECTORY="$test_root/state"
+export TAPTIME_API_HEALTH_URL='https://api.test/health'
+export FAKE_CURL_ARGUMENT_LOG="$test_root/curl-arguments"
+export FAKE_MESSAGE_DIRECTORY="$test_root/messages"
+export FAKE_HEARTBEAT_LOG="$test_root/heartbeats"
+: > "$FAKE_CURL_ARGUMENT_LOG"
+: > "$FAKE_HEARTBEAT_LOG"
+
+immediate_output="$(FAKE_API_EXIT_STATUS=1 "$IMMEDIATE_MONITOR")"
+assert_equals '' "$immediate_output" \
+  'the immediate monitor must discard the ntfy response body containing the topic'
+assert_equals 'API antwortet nicht' "$(< "$test_root/messages/0")" \
+  'the immediate alert must use the one fixed API message'
+assert_equals '1' "$(find "$test_root/messages" -type f | wc -l | tr -d ' ')" \
+  'the first API failure must send exactly one alert'
+FAKE_API_EXIT_STATUS=1 "$IMMEDIATE_MONITOR"
+assert_equals '1' "$(find "$test_root/messages" -type f | wc -l | tr -d ' ')" \
+  'a continuing API failure must not repeat the alert'
+FAKE_API_EXIT_STATUS=0 "$IMMEDIATE_MONITOR"
+FAKE_API_EXIT_STATUS=1 "$IMMEDIATE_MONITOR"
+assert_equals '2' "$(find "$test_root/messages" -type f | wc -l | tr -d ' ')" \
+  'a new API failure after recovery must send one new alert'
+assert_equals '4' "$(wc -l < "$FAKE_HEARTBEAT_LOG" | tr -d ' ')" \
+  'every immediate run must send one dead-man heartbeat'
+grep -q -- '--head' "$FAKE_CURL_ARGUMENT_LOG" || fail 'the dead-man heartbeat must use HEAD'
+grep -q 'Priority:.*5' "$FAKE_CURL_ARGUMENT_LOG" || fail 'the API alert must use urgent priority'
+if grep -Eq 'test-only-secret-topic|00000000-0000-4000-8000-test-only-secret' \
+  "$FAKE_CURL_ARGUMENT_LOG"; then
+  fail 'secret URLs must not appear in curl process arguments'
+fi
+
+rm -f "$test_root/messages"/*
+readonly BACKUP_STATUS="$test_root/backup-status.json"
+readonly RESTORE_STATUS="$test_root/restore-status.json"
+readonly BACKUP_CONFIG="$test_root/backup.conf"
+cat > "$BACKUP_CONFIG" <<EOF_BACKUP
+STATUS_FILE='$BACKUP_STATUS'
+EOF_BACKUP
+chmod 0600 "$BACKUP_CONFIG"
+printf '%s\n' '{"state":"ok","last_success_at_utc":"2026-08-24T10:30:00Z"}' > "$BACKUP_STATUS"
+printf '%s\n' '{"state":"ok","last_attempt_at_utc":"2026-08-23T03:40:00Z"}' > "$RESTORE_STATUS"
+export TAPTIME_BACKUP_CONFIG="$BACKUP_CONFIG"
+export TAPTIME_RESTORE_STATUS_FILE="$RESTORE_STATUS"
+export TAPTIME_MONITOR_NOW_EPOCH
+TAPTIME_MONITOR_NOW_EPOCH="$(date --date='2026-08-24T12:00:00Z' +%s)"
+export FAKE_DISK_PERCENT=79
+
+"$DAILY_MONITOR"
+assert_equals '0' "$(find "$test_root/messages" -type f | wc -l | tr -d ' ')" \
+  'healthy daily checks must stay silent'
+
+printf '%s\n' '{"state":"ok","last_attempt_at_utc":"2026-08-15T03:40:00Z"}' > "$RESTORE_STATUS"
+"$DAILY_MONITOR"
+assert_equals 'Wiederherstellungsprüfung fehlgeschlagen' "$(< "$test_root/messages/0")" \
+  'a stale successful restore check must use the fixed restore-failure message'
+
+rm -f "$test_root/messages"/*
+printf '%s\n' '{"state":"ok","last_success_at_utc":"2026-08-24T09:00:00Z"}' > "$BACKUP_STATUS"
+printf '%s\n' '{"state":"failed","last_attempt_at_utc":"2026-08-23T03:40:00Z"}' > "$RESTORE_STATUS"
+daily_output="$(FAKE_DISK_PERCENT=80 "$DAILY_MONITOR")"
+assert_equals '' "$daily_output" \
+  'the daily monitor must discard the ntfy response body containing the topic'
+expected_daily=$'Sicherung überfällig\nWiederherstellungsprüfung fehlgeschlagen\nPlatte über 80 Prozent'
+assert_equals "$expected_daily" "$(< "$test_root/messages/0")" \
+  'daily failures must be bundled from the three fixed normal-priority messages'
+assert_equals '1' "$(find "$test_root/messages" -type f | wc -l | tr -d ' ')" \
+  'daily failures must produce one bundled push'
+grep -q 'Priority:.*3' "$FAKE_CURL_ARGUMENT_LOG" || fail 'the daily alert must use normal priority'
+
+mapfile -t alert_messages < <(
+  grep -Eoh 'API antwortet nicht|Sicherung überfällig|Wiederherstellungsprüfung fehlgeschlagen|Platte über 80 Prozent' \
+    "$IMMEDIATE_MONITOR" "$DAILY_MONITOR" | sort -u
+)
+assert_equals '4' "${#alert_messages[@]}" 'the implementation must contain exactly four alert messages'
+
+printf 'Monitoring tests passed: one empty heartbeat, four fixed messages, two priorities, no secret argv.\n'

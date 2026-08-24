@@ -1,0 +1,8 @@
+# Install as /etc/taptime-monitor/healthchecks.curl with owner root and mode 0600.
+# The UUID URL comes from the single Healthchecks.io dead-man check.
+url = "https://hc-ping.com/<check-uuid>"
+silent
+show-error
+fail
+max-time = 10
+retry = 2

@@ -1,0 +1,11 @@
+[Unit]
+Description=Run TapTim.e API and dead-man monitor every minute
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=1min
+AccuracySec=5s
+Unit=taptime-immediate-monitor.service
+
+[Install]
+WantedBy=timers.target

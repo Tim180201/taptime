@@ -11,4 +11,5 @@ MIGRATIONS_DIRECTORY='/opt/taptime/source/apps/backend-schema/migrations'
 # Generate the 32 hexadecimal characters on the server. Give the resulting public URL only to
 # the Product Owner, and keep it out of Git and operational reports.
 STATUS_FILE='/opt/taptime/admin-web/status/<32-random-hex>.json'
+RESTORE_STATUS_FILE='/var/lib/taptime-monitor/restore-status.json'
 RESTORE_IMAGE='postgres:17.10-bookworm'

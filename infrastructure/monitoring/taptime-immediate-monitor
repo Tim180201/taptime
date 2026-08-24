@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+readonly CONFIG_DIRECTORY="${TAPTIME_MONITOR_CONFIG_DIRECTORY:-/etc/taptime-monitor}"
+readonly STATE_DIRECTORY="${TAPTIME_MONITOR_STATE_DIRECTORY:-/var/lib/taptime-monitor}"
+readonly API_HEALTH_URL="${TAPTIME_API_HEALTH_URL:-https://api.tb-infra.de/health}"
+readonly NTFY_CURL_CONFIG="$CONFIG_DIRECTORY/ntfy.curl"
+readonly HEALTHCHECKS_CURL_CONFIG="$CONFIG_DIRECTORY/healthchecks.curl"
+readonly API_DOWN_STATE="$STATE_DIRECTORY/api-down"
+
+require_private_file() {
+  local file="$1"
+  if [[ ! -f "$file" || -L "$file" || ! -O "$file" || "$(stat -c '%a' "$file")" != '600' ]]; then
+    printf 'Required root-owned mode-0600 file is unavailable: %s\n' "$file" >&2
+    exit 1
+  fi
+}
+
+send_urgent_notification() {
+  printf '%s' 'API antwortet nicht' | curl --config "$NTFY_CURL_CONFIG" \
+    --silent \
+    --show-error \
+    --fail \
+    --output /dev/null \
+    --request POST \
+    --header 'Title: TapTim.e Betrieb' \
+    --header 'Priority: 5' \
+    --header 'Tags: rotating_light' \
+    --data-binary @-
+}
+
+require_private_file "$NTFY_CURL_CONFIG"
+require_private_file "$HEALTHCHECKS_CURL_CONFIG"
+install -d -m 0700 "$STATE_DIRECTORY"
+
+result=0
+
+# The dead-man switch receives only an empty HEAD request. Its secret URL stays in
+# the root-only curl config and therefore never appears in the process arguments.
+if ! curl --config "$HEALTHCHECKS_CURL_CONFIG" --head --output /dev/null; then
+  printf 'The empty dead-man heartbeat could not be delivered.\n' >&2
+  result=1
+fi
+
+if curl --silent --show-error --fail --max-time 10 --output /dev/null "$API_HEALTH_URL"; then
+  rm -f "$API_DOWN_STATE"
+elif [[ ! -e "$API_DOWN_STATE" ]]; then
+  if send_urgent_notification; then
+    touch "$API_DOWN_STATE"
+  else
+    printf 'The API alert could not be delivered.\n' >&2
+    result=1
+  fi
+fi
+
+exit "$result"

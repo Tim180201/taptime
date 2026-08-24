@@ -37,6 +37,17 @@ jobs:
       - name: Install dependencies from lockfile
         run: npm ci
 
+      - name: Verify operational monitoring scripts
+        run: |
+          shellcheck -e SC1091 \
+            infrastructure/monitoring/taptime-immediate-monitor \
+            infrastructure/monitoring/taptime-daily-monitor \
+            infrastructure/backup/taptime-restore-verify
+          bash -n infrastructure/monitoring/taptime-immediate-monitor
+          bash -n infrastructure/monitoring/taptime-daily-monitor
+          bash -n infrastructure/backup/taptime-restore-verify
+          bash infrastructure/monitoring/tests/taptime-monitor.test
+
       - name: Build offline synchronization contract for workspace type resolution
         run: |
           npm run build --workspace=@taptime/mobile-work-contract
