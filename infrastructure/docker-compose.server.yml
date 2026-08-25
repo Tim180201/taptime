@@ -28,6 +28,10 @@ services:
       dockerfile: infrastructure/backend-api/Dockerfile
     env_file:
       - /opt/taptime/.env
+    environment:
+      TAPTIME_CLIENT_ADDRESS_MODE: trusted_proxy
+    secrets:
+      - taptime_proxy_shared_secret
     depends_on:
       database:
         condition: service_healthy
@@ -56,6 +60,8 @@ services:
     ports:
       - "80:80"
       - "443:443"
+    secrets:
+      - taptime_proxy_shared_secret
     volumes:
       - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - /opt/taptime/admin-web:/srv/admin-web:ro
@@ -88,3 +94,5 @@ volumes:
 secrets:
   postgres_installer_password:
     file: /opt/taptime/secrets/postgres-installer-password
+  taptime_proxy_shared_secret:
+    file: /opt/taptime/secrets/proxy-shared-secret

@@ -69,6 +69,16 @@ coordinator enforces transaction, statement and lock bounds before the HTTP time
 Infrastructure failures are generic; tokens, request bodies, database URLs, passwords and provider
 or database errors are never diagnostic data.
 
+Every `/v1` and `/v2` request is limited per client address to 300 attempts per minute. Invitation
+redemption is additionally limited to five attempts per minute. The process keeps only an
+ephemeral HMAC feature of the address; windows disappear after one minute and are never persisted
+or sent to diagnostics. The process bounds active windows and fails closed until the earliest
+window expires instead of growing without limit. Production uses
+`TAPTIME_CLIENT_ADDRESS_MODE=trusted_proxy`: Caddy
+overwrites both `X-Forwarded-For` and `X-TapTime-Proxy-Secret`, while the API rejects forwarded
+addresses without the matching proof. Local direct access must explicitly use
+`TAPTIME_CLIENT_ADDRESS_MODE=direct`; in that mode forwarded headers are ignored.
+
 The managed-runtime entry point requires:
 
 ```text
@@ -83,8 +93,14 @@ TAPTIME_OFFLINE_LEASE_DATABASE_URL
 TAPTIME_OFFLINE_EVENT_DATABASE_URL
 TAPTIME_OFFLINE_RECONCILIATION_DATABASE_URL
 SUPABASE_ISSUER
+TAPTIME_CLIENT_ADDRESS_MODE              # direct or trusted_proxy
 PORT                                      # optional, default 3000
 ```
+
+In trusted-proxy mode, both Caddy and the API read the same canonical 43-character base64url
+secret from `/run/secrets/taptime_proxy_shared_secret`. On the server, Compose mounts the
+root-owned source `/opt/taptime/secrets/proxy-shared-secret`. The source file must contain exactly
+the value for 32 random bytes, with no trailing newline.
 
 Local C2 regression tests use disposable PostgreSQL 17 data, local asymmetric JWKS infrastructure
 and synthetic-only `C2_*` variables. The isolated administration and offline-synchronization
@@ -92,8 +108,7 @@ workspaces own their database, authority, receipt, audit, reconciliation and con
 integration matrices; this workspace owns the exact HTTP surface, status mapping, header/body
 hardening, deadline propagation and runtime composition.
 
-This is not a production deployment: production secrets/data, Supavisor validation,
-observability/rate policy and production release remain separate gates.
+Production secrets/data and the production release remain separate gates.
 
 Run after building the administration and offline contracts plus Core, schema, identity,
 read-model, lifecycle, administration and offline-synchronization dependencies:

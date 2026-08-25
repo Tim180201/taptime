@@ -1,5 +1,9 @@
+import { readFileSync } from 'node:fs';
 import { createBackendApiRuntime } from './runtime.js';
 import { createBackendApiDiagnosticLogSink } from './diagnosticLog.js';
+import type { BackendHttpServerOptions } from './BackendHttpServer.js';
+
+const TRUSTED_PROXY_SECRET_FILE = '/run/secrets/taptime_proxy_shared_secret';
 
 const sessionDatabaseUrl = requiredEnvironmentValue('TAPTIME_SESSION_DATABASE_URL');
 const readModelDatabaseUrl = requiredEnvironmentValue('TAPTIME_READ_MODEL_DATABASE_URL');
@@ -38,6 +42,7 @@ const projectAdministrationDatabaseUrl = requiredEnvironmentValue(
   'TAPTIME_PROJECT_ADMINISTRATION_DATABASE_URL',
 );
 const supabaseIssuer = requiredEnvironmentValue('SUPABASE_ISSUER');
+const clientAddressMode = readClientAddressMode(process.env.TAPTIME_CLIENT_ADDRESS_MODE);
 const port = parsePort(process.env.PORT ?? '3000');
 const runtime = createBackendApiRuntime({
   sessionDatabaseUrl,
@@ -60,6 +65,7 @@ const runtime = createBackendApiRuntime({
   projectAdministrationDatabaseUrl,
   supabaseIssuer,
 }, {
+  clientAddressMode,
   onDiagnostic: createBackendApiDiagnosticLogSink(),
 });
 
@@ -125,4 +131,22 @@ function parsePort(value: string): number {
     throw new Error('PORT must be an integer between 1 and 65535');
   }
   return port;
+}
+
+function readClientAddressMode(
+  value: string | undefined,
+): NonNullable<BackendHttpServerOptions['clientAddressMode']> {
+  if (value === 'direct') {
+    return { mode: 'direct' };
+  }
+  if (value === 'trusted_proxy') {
+    let sharedSecret: string;
+    try {
+      sharedSecret = readFileSync(TRUSTED_PROXY_SECRET_FILE, 'utf8');
+    } catch {
+      throw new Error(`Trusted proxy secret is unavailable at ${TRUSTED_PROXY_SECRET_FILE}`);
+    }
+    return { mode: 'trusted_proxy', sharedSecret };
+  }
+  throw new Error('TAPTIME_CLIENT_ADDRESS_MODE must be direct or trusted_proxy');
 }

@@ -41,6 +41,6 @@ COPY --from=build --chown=node:node /runtime/main.js /runtime/main.js.map ./
 USER node
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
-  CMD ["node", "-e", "fetch(`http://127.0.0.1:${process.env.PORT}/health`).then(response => { if (response.status !== 200) process.exit(1); }).catch(() => process.exit(1));"]
+  CMD ["node", "-e", "const fs=require('node:fs');const headers=process.env.TAPTIME_CLIENT_ADDRESS_MODE==='trusted_proxy'?{'x-forwarded-for':'127.0.0.1','x-taptime-proxy-secret':fs.readFileSync('/run/secrets/taptime_proxy_shared_secret','utf8')}:{};fetch(`http://127.0.0.1:${process.env.PORT}/health`,{headers}).then(response=>{if(response.status!==200)process.exit(1);}).catch(()=>process.exit(1));"]
 
 CMD ["node", "main.js"]

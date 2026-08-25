@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+test_id="taptime-caddy-forwarding-$$"
+test_directory="$(mktemp -d "/tmp/${test_id}.XXXXXX")"
+network_name="${test_id}-network"
+backend_name="${test_id}-backend"
+caddy_name="${test_id}-caddy"
+expected_secret='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
+
+cleanup() {
+  status=$?
+  trap - EXIT
+  docker rm --force "$caddy_name" "$backend_name" >/dev/null 2>&1 || true
+  docker network rm "$network_name" >/dev/null 2>&1 || true
+  rm -rf "$test_directory"
+  exit "$status"
+}
+trap cleanup EXIT
+
+umask 077
+printf '%s' "$expected_secret" > "$test_directory/taptime_proxy_shared_secret"
+
+docker network create "$network_name" >/dev/null
+docker run --detach --name "$backend_name" --network "$network_name" \
+  --network-alias echo-backend \
+  node:24.17.0-alpine \
+  node -e "require('node:http').createServer((request,response)=>{response.setHeader('content-type','application/json');response.end(JSON.stringify(request.headers));}).listen(3000,'0.0.0.0')" \
+  >/dev/null
+docker create --name "$caddy_name" --network "$network_name" \
+  --publish 127.0.0.1:0:8080 \
+  caddy:2.10.2-alpine caddy run --config /tmp/forwarding.caddyfile \
+  >/dev/null
+docker cp infrastructure/caddy/tests/forwarding.caddyfile \
+  "$caddy_name:/tmp/forwarding.caddyfile"
+docker cp "$test_directory/taptime_proxy_shared_secret" \
+  "$caddy_name:/tmp/taptime_proxy_shared_secret"
+docker start "$caddy_name" >/dev/null
+
+host_port="$(docker inspect --format '{{(index (index .NetworkSettings.Ports "8080/tcp") 0).HostPort}}' "$caddy_name")"
+for _attempt in $(seq 1 30); do
+  if first_response="$(curl --fail --silent --show-error \
+    --header 'X-Forwarded-For: 203.0.113.10' \
+    --header 'X-TapTime-Proxy-Secret: attacker-selected' \
+    "http://127.0.0.1:${host_port}/" 2>/dev/null)"; then
+    break
+  fi
+  sleep 0.2
+done
+if [[ -z "${first_response:-}" ]]; then
+  docker logs "$caddy_name"
+  exit 1
+fi
+second_response="$(curl --fail --silent --show-error \
+  --header 'X-Forwarded-For: 198.51.100.20' \
+  --header 'X-TapTime-Proxy-Secret: another-attacker-value' \
+  "http://127.0.0.1:${host_port}/")"
+
+FIRST_RESPONSE="$first_response" SECOND_RESPONSE="$second_response" \
+EXPECTED_SECRET="$expected_secret" node <<'NODE'
+const first = JSON.parse(process.env.FIRST_RESPONSE);
+const second = JSON.parse(process.env.SECOND_RESPONSE);
+if (first['x-forwarded-for'] === '203.0.113.10') throw new Error('first forged address survived');
+if (second['x-forwarded-for'] === '198.51.100.20') throw new Error('second forged address survived');
+if (first['x-forwarded-for'] !== second['x-forwarded-for']) {
+  throw new Error('same client was assigned different forwarded addresses');
+}
+if (first['x-taptime-proxy-secret'] !== process.env.EXPECTED_SECRET) {
+  throw new Error('Caddy did not replace the proxy proof');
+}
+if (second['x-taptime-proxy-secret'] !== process.env.EXPECTED_SECRET) {
+  throw new Error('Caddy did not replace the second proxy proof');
+}
+process.stdout.write(`forwarded_address=${first['x-forwarded-for']} forged_headers_replaced=true proxy_proof_replaced=true\n`);
+NODE

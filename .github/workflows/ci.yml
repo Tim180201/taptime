@@ -42,11 +42,15 @@ jobs:
           shellcheck -e SC1091 \
             infrastructure/monitoring/taptime-immediate-monitor \
             infrastructure/monitoring/taptime-daily-monitor \
-            infrastructure/backup/taptime-restore-verify
+            infrastructure/backup/taptime-restore-verify \
+            infrastructure/caddy/tests/taptime-caddy-forwarding.test
           bash -n infrastructure/monitoring/taptime-immediate-monitor
           bash -n infrastructure/monitoring/taptime-daily-monitor
           bash -n infrastructure/backup/taptime-restore-verify
           bash infrastructure/monitoring/tests/taptime-monitor.test
+
+      - name: Verify Caddy replaces untrusted forwarding headers
+        run: bash infrastructure/caddy/tests/taptime-caddy-forwarding.test
 
       - name: Build offline synchronization contract for workspace type resolution
         run: |

@@ -2,7 +2,10 @@ import type { AddressInfo } from 'node:net';
 import type { Server } from 'node:http';
 import { MembershipId, OrganizationId } from '@taptime/core';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createBackendHttpServer } from '../src/BackendHttpServer.js';
+import {
+  createBackendHttpServer,
+  type BackendHttpServerOptions,
+} from '../src/BackendHttpServer.js';
 import type {
   BackendApiDependencies,
   BackendApiDiagnostic,
@@ -15,6 +18,7 @@ const membershipId = MembershipId('12000000-0000-4000-8000-000000000001');
 const organizationId = OrganizationId('00000000-0000-4000-8000-000000000001');
 const commandId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const invitationSecret = Buffer.alloc(32, 17).toString('base64url');
+const proxySharedSecret = Buffer.alloc(32, 23).toString('base64url');
 const openServers: Server[] = [];
 
 afterEach(async () => {
@@ -261,6 +265,106 @@ describe('C3E1 Employee enrollment HTTP contract', () => {
     }]);
     expect(JSON.stringify(diagnostics)).not.toContain(invitationSecret);
   });
+
+  it('rate-limits enrollment redemption per forwarded address without affecting another address', async () => {
+    const apiOrigin = await origin(coordinator(), [], trustedProxyOptions());
+    for (let attempt = 1; attempt <= 5; attempt += 1) {
+      const response = await post(apiOrigin, '/v1/employee-enrollment/redeem',
+        { commandId, invitationSecret }, proxyHeaders('192.0.2.10'));
+      expect(response.status, `attempt ${attempt}`).toBe(401);
+    }
+    const limited = await post(apiOrigin, '/v1/employee-enrollment/redeem',
+      { commandId, invitationSecret }, proxyHeaders('192.0.2.10'));
+    expect(limited.status).toBe(429);
+    expect(limited.headers.get('retry-after')).toBe('60');
+    await expect(limited.json()).resolves.toEqual({ error: { code: 'rate_limited' } });
+
+    const otherAddress = await post(apiOrigin, '/v1/employee-enrollment/redeem',
+      { commandId, invitationSecret }, proxyHeaders('198.51.100.20'));
+    expect(otherAddress.status).toBe(401);
+  });
+
+  it('ignores forged X-Forwarded-For values on a direct connection', async () => {
+    const apiOrigin = await origin(coordinator());
+    for (let attempt = 1; attempt <= 5; attempt += 1) {
+      const response = await post(apiOrigin, '/v1/employee-enrollment/redeem',
+        { commandId, invitationSecret }, { 'x-forwarded-for': `192.0.2.${attempt}` });
+      expect(response.status, `attempt ${attempt}`).toBe(401);
+    }
+    const response = await post(apiOrigin, '/v1/employee-enrollment/redeem',
+      { commandId, invitationSecret }, { 'x-forwarded-for': '198.51.100.99' });
+    expect(response.status).toBe(429);
+  });
+
+  it('fails closed when a caller claims a forwarded address without Caddy proof', async () => {
+    const apiOrigin = await origin(coordinator(), [], trustedProxyOptions());
+    const missingProof = await post(apiOrigin, '/v1/employee-enrollment/redeem',
+      { commandId, invitationSecret }, { 'x-forwarded-for': '192.0.2.10' });
+    expect(missingProof.status).toBe(400);
+    const wrongProof = await post(apiOrigin, '/v1/employee-enrollment/redeem',
+      { commandId, invitationSecret }, {
+        'x-forwarded-for': '192.0.2.10',
+        'x-taptime-proxy-secret': Buffer.alloc(32, 24).toString('base64url'),
+      });
+    expect(wrongProof.status).toBe(400);
+  });
+
+  it('does not distinguish a valid from an invalid invitation body once rate-limited', async () => {
+    const diagnostics: BackendApiDiagnostic[] = [];
+    const apiOrigin = await origin(coordinator({
+      async redeemInvitation() {
+        return {
+          status: 'succeeded', organizationName: 'Synthetic Organization A',
+          membershipDisplayName: 'Employee Alpha', role: 'employee',
+        };
+      },
+    }), diagnostics, trustedProxyOptions());
+    for (let attempt = 1; attempt <= 5; attempt += 1) {
+      const response = await post(apiOrigin, '/v1/employee-enrollment/redeem',
+        { commandId, invitationSecret }, proxyHeaders('192.0.2.10'));
+      expect(response.status, `attempt ${attempt}`).toBe(200);
+    }
+    const valid = await post(apiOrigin, '/v1/employee-enrollment/redeem',
+      { commandId, invitationSecret }, proxyHeaders('192.0.2.10'));
+    const invalid = await post(apiOrigin, '/v1/employee-enrollment/redeem',
+      { commandId, invitationSecret: 'invalid' }, proxyHeaders('192.0.2.10'));
+    expect(valid.status).toBe(429);
+    expect(invalid.status).toBe(429);
+    await expect(valid.json()).resolves.toEqual({ error: { code: 'rate_limited' } });
+    await expect(invalid.json()).resolves.toEqual({ error: { code: 'rate_limited' } });
+    expect(diagnostics).toEqual([]);
+  });
+
+  it('allows enrollment redemption again after the short window expires', async () => {
+    let now = 1_000;
+    const apiOrigin = await origin(coordinator(), [], {
+      ...trustedProxyOptions(),
+      rateLimitClock: () => now,
+    });
+    for (let attempt = 1; attempt <= 5; attempt += 1) {
+      const response = await post(apiOrigin, '/v1/employee-enrollment/redeem',
+        { commandId, invitationSecret }, proxyHeaders('192.0.2.10'));
+      expect(response.status, `attempt ${attempt}`).toBe(401);
+    }
+    const limited = await post(apiOrigin, '/v1/employee-enrollment/redeem',
+      { commandId, invitationSecret }, proxyHeaders('192.0.2.10'));
+    expect(limited.status).toBe(429);
+    now += 60_000;
+    const recovered = await post(apiOrigin, '/v1/employee-enrollment/redeem',
+      { commandId, invitationSecret }, proxyHeaders('192.0.2.10'));
+    expect(recovered.status).toBe(401);
+  });
+
+  it('applies the generous address limit to every v1 and v2 path', async () => {
+    const apiOrigin = await origin(coordinator(), [], trustedProxyOptions());
+    for (let attempt = 1; attempt <= 300; attempt += 1) {
+      const path = attempt % 2 === 0 ? '/v1/not-a-route' : '/v2/not-a-route';
+      const response = await post(apiOrigin, path, {}, proxyHeaders('192.0.2.10'));
+      expect(response.status, `attempt ${attempt}`).toBe(404);
+    }
+    const limited = await post(apiOrigin, '/v2/still-not-a-route', {}, proxyHeaders('192.0.2.10'));
+    expect(limited.status).toBe(429);
+  });
 });
 
 function coordinator(
@@ -280,8 +384,10 @@ function coordinator(
 async function origin(
   employeeEnrollment: EmployeeMembershipEnrollmentCoordinator,
   diagnostics: BackendApiDiagnostic[] = [],
+  options: BackendHttpServerOptions = {},
 ): Promise<string> {
   const server = createBackendHttpServer(dependencies(employeeEnrollment), {
+    ...options,
     onDiagnostic: (diagnostic) => diagnostics.push(diagnostic),
   });
   openServers.push(server);
@@ -291,6 +397,17 @@ async function origin(
   });
   const address = server.address() as AddressInfo;
   return `http://127.0.0.1:${address.port}`;
+}
+
+function trustedProxyOptions(): BackendHttpServerOptions {
+  return { clientAddressMode: { mode: 'trusted_proxy', sharedSecret: proxySharedSecret } };
+}
+
+function proxyHeaders(address: string): Record<string, string> {
+  return {
+    'x-forwarded-for': address,
+    'x-taptime-proxy-secret': proxySharedSecret,
+  };
 }
 
 function dependencies(

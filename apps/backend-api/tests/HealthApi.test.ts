@@ -1,6 +1,9 @@
 import type { Server } from 'node:http';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createBackendHttpServer } from '../src/BackendHttpServer.js';
+import {
+  createBackendHttpServer,
+  type BackendHttpServerOptions,
+} from '../src/BackendHttpServer.js';
 import type { BackendApiDependencies } from '../src/types.js';
 import { closeServer, listen } from './fixtures.js';
 import { unavailableOfflineDependencies } from './offlineTestDependencies.js';
@@ -63,10 +66,32 @@ describe('GET /health', () => {
     expect(response.headers.get('allow')).toBe('GET');
     expect(healthCheck).not.toHaveBeenCalled();
   });
+
+  it('makes the public health path prove the trusted Caddy hop', async () => {
+    const healthCheck = vi.fn(async () => undefined);
+    const sharedSecret = Buffer.alloc(32, 25).toString('base64url');
+    const origin = await start(healthCheck, {
+      clientAddressMode: { mode: 'trusted_proxy', sharedSecret },
+    });
+
+    const untrusted = await fetch(`${origin}/health`);
+    expect(untrusted.status).toBe(400);
+    expect(healthCheck).not.toHaveBeenCalled();
+
+    const trusted = await fetch(`${origin}/health`, { headers: {
+      'x-forwarded-for': '192.0.2.10',
+      'x-taptime-proxy-secret': sharedSecret,
+    } });
+    expect(trusted.status).toBe(200);
+    expect(healthCheck).toHaveBeenCalledOnce();
+  });
 });
 
-async function start(healthCheck: () => Promise<void>): Promise<string> {
-  const server = createBackendHttpServer(dependencies(healthCheck));
+async function start(
+  healthCheck: () => Promise<void>,
+  options: BackendHttpServerOptions = {},
+): Promise<string> {
+  const server = createBackendHttpServer(dependencies(healthCheck), options);
   servers.push(server);
   await listen(server);
   const address = server.address();

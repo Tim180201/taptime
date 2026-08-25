@@ -1,5 +1,6 @@
-import { randomUUID } from 'node:crypto';
+import { randomUUID, timingSafeEqual } from 'node:crypto';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
+import { isIP } from 'node:net';
 import { TextDecoder } from 'node:util';
 import {
   CustomerId,
@@ -59,6 +60,10 @@ import type {
   BackendApiDiagnosticSink,
   BackendApiRoute,
 } from './types.js';
+import {
+  RequestRateLimiter,
+  type RequestRateLimitScope,
+} from './RequestRateLimiter.js';
 
 const SESSION_PATH = '/v1/session';
 const HEALTH_PATH = '/health';
@@ -98,6 +103,7 @@ const ADMIN_PROJECT_QUERY_PATH = '/v1/administration/projects/query';
 const ADMIN_PROJECT_CREATE_PATH = '/v1/administration/projects/create';
 const ADMIN_PROJECT_DEACTIVATE_PATH = '/v1/administration/projects/deactivate';
 const EXPECTED_MEMBERSHIP_HEADER = 'x-taptime-expected-membership-id';
+const TRUSTED_PROXY_SECRET_HEADER = 'x-taptime-proxy-secret';
 const MAX_AUTHORIZATION_LENGTH = 4_096;
 const MAX_BODY_BYTES = OFFLINE_REQUEST_MAXIMUM_BYTES;
 const MAX_HEADER_BYTES = 8_192;
@@ -128,6 +134,7 @@ type ErrorCode =
   | 'not_adjustable'
   | 'project_in_use'
   | 'project_unavailable'
+  | 'rate_limited'
   | 'service_unavailable'
   | 'invitation_created_token_unavailable'
   | 'invitation_limit_reached'
@@ -141,9 +148,15 @@ type ErrorCode =
 type Route = BackendApiRoute;
 
 export interface BackendHttpServerOptions {
+  readonly clientAddressMode?:
+    | { readonly mode: 'direct' }
+    | { readonly mode: 'trusted_proxy'; readonly sharedSecret: string };
   readonly onDiagnostic?: BackendApiDiagnosticSink;
   readonly operationTimeoutMilliseconds?: number;
+  readonly rateLimitClock?: () => number;
 }
+
+type ClientAddressResolver = (request: IncomingMessage) => string | null;
 
 export function createBackendHttpServer(
   dependencies: BackendApiDependencies,
@@ -152,6 +165,10 @@ export function createBackendHttpServer(
   const timeoutMilliseconds = validateTimeout(
     options.operationTimeoutMilliseconds ?? DEFAULT_OPERATION_TIMEOUT_MILLISECONDS,
   );
+  const clientAddress = createClientAddressResolver(
+    options.clientAddressMode ?? { mode: 'direct' },
+  );
+  const rateLimiter = new RequestRateLimiter(options.rateLimitClock);
   const server = createServer({ maxHeaderSize: MAX_HEADER_BYTES }, (request, response) => {
     const correlationId = randomUUID();
     applyResponseHeaders(response, correlationId);
@@ -162,6 +179,8 @@ export function createBackendHttpServer(
       options,
       timeoutMilliseconds,
       correlationId,
+      clientAddress,
+      rateLimiter,
     )
       .catch(() => {
         const route = requestRoute(request.url);
@@ -178,6 +197,7 @@ export function createBackendHttpServer(
   server.headersTimeout = 5_000;
   server.requestTimeout = 10_000;
   server.keepAliveTimeout = 5_000;
+  server.once('close', () => rateLimiter.close());
   server.on('clientError', (_error, socket) => {
     if (!socket.writable) {
       return;
@@ -204,7 +224,36 @@ async function handleRequest(
   options: BackendHttpServerOptions,
   timeoutMilliseconds: number,
   correlationId: string,
+  resolveClientAddress: ClientAddressResolver,
+  rateLimiter: RequestRateLimiter,
 ): Promise<void> {
+  const rateLimitScope = requestRateLimitScope(request.url);
+  const requiresClientAddress = rateLimitScope !== null || request.url === HEALTH_PATH;
+  const clientAddress = requiresClientAddress ? resolveClientAddress(request) : null;
+  if (requiresClientAddress && clientAddress === null) {
+    request.resume();
+    respondError(response, 400, 'invalid_request');
+    return;
+  }
+  if (rateLimitScope !== null) {
+    if (clientAddress === null) {
+      request.resume();
+      respondError(response, 400, 'invalid_request');
+      return;
+    }
+    const generalDecision = rateLimiter.take('general_api', clientAddress);
+    const strictDecision = rateLimitScope === 'enrollment_redemption'
+      ? rateLimiter.take(rateLimitScope, clientAddress)
+      : generalDecision;
+    const decision = generalDecision.allowed ? strictDecision : generalDecision;
+    if (!decision.allowed) {
+      request.resume();
+      response.setHeader('Retry-After', String(decision.retryAfterSeconds));
+      respondError(response, 429, 'rate_limited');
+      return;
+    }
+  }
+
   const route = requestRoute(request.url);
   if (route === null) {
     request.resume();
@@ -2166,6 +2215,68 @@ function bearerToken(request: IncomingMessage): string | null {
     return null;
   }
   return match[1]!;
+}
+
+function requestRateLimitScope(requestUrl: string | undefined): RequestRateLimitScope | null {
+  if (requestUrl === undefined) {
+    return null;
+  }
+  const queryStart = requestUrl.indexOf('?');
+  const path = queryStart === -1 ? requestUrl : requestUrl.slice(0, queryStart);
+  if (path === EMPLOYEE_ENROLLMENT_REDEEM_PATH) {
+    return 'enrollment_redemption';
+  }
+  return path === '/v1' || path.startsWith('/v1/') || path === '/v2' || path.startsWith('/v2/')
+    ? 'general_api'
+    : null;
+}
+
+function createClientAddressResolver(
+  mode: NonNullable<BackendHttpServerOptions['clientAddressMode']>,
+): ClientAddressResolver {
+  if (mode.mode === 'direct') {
+    return (request) => canonicalIpAddress(request.socket.remoteAddress);
+  }
+
+  const expectedSecret = canonicalProxySecret(mode.sharedSecret);
+  return (request) => {
+    const secrets = rawHeaderValues(request, TRUSTED_PROXY_SECRET_HEADER);
+    if (secrets.length !== 1 || !secretMatches(secrets[0]!, expectedSecret)) {
+      return null;
+    }
+    const forwardedAddresses = rawHeaderValues(request, 'x-forwarded-for');
+    if (forwardedAddresses.length !== 1 || forwardedAddresses[0]!.includes(',')) {
+      return null;
+    }
+    return canonicalIpAddress(forwardedAddresses[0]);
+  };
+}
+
+function canonicalProxySecret(value: string): Buffer {
+  if (!/^[A-Za-z0-9_-]{43}$/.test(value)) {
+    throw new Error('Trusted proxy shared secret must be canonical base64url for 32 bytes');
+  }
+  const decoded = Buffer.from(value, 'base64url');
+  if (decoded.byteLength !== 32 || decoded.toString('base64url') !== value) {
+    throw new Error('Trusted proxy shared secret must be canonical base64url for 32 bytes');
+  }
+  return Buffer.from(value, 'utf8');
+}
+
+function secretMatches(value: string, expected: Buffer): boolean {
+  const received = Buffer.from(value, 'utf8');
+  return received.byteLength === expected.byteLength && timingSafeEqual(received, expected);
+}
+
+function canonicalIpAddress(value: string | undefined): string | null {
+  if (value === undefined) {
+    return null;
+  }
+  const trimmed = value.trim();
+  if (isIP(trimmed) === 0) {
+    return null;
+  }
+  return trimmed.toLowerCase();
 }
 
 function rawHeaderValues(request: IncomingMessage, name: string): readonly string[] {

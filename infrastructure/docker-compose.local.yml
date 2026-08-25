@@ -32,6 +32,7 @@ services:
       dockerfile: infrastructure/backend-api/Dockerfile
     environment:
       PORT: "3000"
+      TAPTIME_CLIENT_ADDRESS_MODE: direct
       SUPABASE_ISSUER: http://127.0.0.1:54321/auth/v1
       TAPTIME_SESSION_DATABASE_URL: postgresql://taptime_local_session:taptime-local-only@database:5432/taptime
       TAPTIME_READ_MODEL_DATABASE_URL: postgresql://taptime_local_read_model:taptime-local-only@database:5432/taptime
