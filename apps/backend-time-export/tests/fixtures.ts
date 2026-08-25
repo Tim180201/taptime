@@ -308,6 +308,12 @@ export async function seedDa2(installerPool: Pool, longNames = false): Promise<v
   }
 }
 
+export async function clearDa2SeedData(installerPool: Pool): Promise<void> {
+  await installerPool.query(`
+    TRUNCATE TABLE taptime_server.users, taptime_server.organizations CASCADE
+  `);
+}
+
 export async function insertBulkStoppedEntries(
   installerPool: Pool,
   count: number,

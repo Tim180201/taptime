@@ -5,6 +5,7 @@ import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { TimeEntryExportCoordinator, type TimeEntryExportCoordinatorControls } from '../src/index.js';
 import {
   DA2_RUNTIME_LOGIN,
+  clearDa2SeedData,
   ids,
   insertBulkStoppedEntries,
   resetMigrateAndPrepare,
@@ -271,7 +272,7 @@ describe('DA2 PostgreSQL export security and truth', () => {
   }, 30_000);
 
   it('fails closed above 8 MiB without truncation or audit', async () => {
-    await resetMigrateAndPrepare(installerPool, runtimePassword);
+    await clearDa2SeedData(installerPool);
     await seedDa2(installerPool, true);
     await insertBulkStoppedEntries(installerPool, 5_998);
     expect((await exportAs(tokens.adminA)).status).toBe('export_limit_exceeded');

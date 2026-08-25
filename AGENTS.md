@@ -70,6 +70,8 @@ Annahmen ersetzt.
 
 - Ein Typecheck heißt nur dann „tests-inklusive", wenn die ausgeführte Konfiguration die
   Testdateien nachweislich einschließt.
+- Ein grüner Wiederholungslauf ist kein grüner Lauf. Jeder vorherige Fehlschlag bleibt ein
+  Warnsignal, wird untersucht und bei nicht blockierenden Ursachen als P2 festgehalten.
 - **`[skip ci]` ist bei Code-Änderungen verboten.** Nur bei reinen Dokumentänderungen erlaubt.
 - Nicht ausgeführte Prüfungen werden mit Grund gemeldet.
 
@@ -85,6 +87,8 @@ Zulässige Ergebnisse: `APPROVED` oder `CHANGES REQUIRED`.
   unter „Bekannte Kleinigkeiten" und blockieren nichts.
 - **Maximal zwei Review-Runden pro Aufgabe.** Danach entscheidet der Technical Lead:
   liefern oder Scope schneiden. Es gibt keine dritte Runde.
+- Die Zwei-Runden-Regel gilt ausschließlich für Review-Befunde. Eine rote Prüfstrecke wird
+  repariert; Wiederholungen oder das Ende der Review-Runden ersetzen keinen grünen Lauf.
 
 Diese Regel existiert, weil ein Reviewer immer noch ein P2 findet. Ohne sie terminiert
 kein Arbeitspaket.
