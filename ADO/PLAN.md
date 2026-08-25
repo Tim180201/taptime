@@ -57,11 +57,13 @@ Datenbankrechten eingreifen muss.
 | **T-013** | Export für die Lohnbuchhaltung, inkl. Kennzeichnung manueller Zeiten (D-014) | Heutige CSV übersteht keine Prüfung | 2 |
 | **T-014** | Zweite Umgebung und wiederholbares Ausliefern | 14 Migrationen liefen nie vor der Produktion | 2 |
 | **T-017a** | **Grundpolitur der Oberfläche** | Vorgezogen: Der Pilot-Trockenlauf soll Antworten zum Ablauf liefern, nicht zur Kosmetik. Rollenunabhängig, daher kaum Nacharbeit. | 3 |
+| **T-022** | **Auslieferungsweg dokumentieren und absichern** | Am 25.08. musste der Weg zum Produktionsserver aus einer Shell-Historie rekonstruiert werden. `DEPLOY.md` nennt den Befehl, aber nicht den Host, nicht den Zugangsweg und nicht, wer ausliefern darf; `RESTORE.md` hat dieselbe Lücke an der Stelle, an der sie im Ernstfall am teuersten ist. Enthält zusätzlich den Wechsel vom Root-Login auf einen eng begrenzten Deploy-Benutzer. | 2 |
 | **T-015** | Standorte und Standortleiter (ADR-0020, überarbeitet nach D-013) | Verwaltung hängt sonst an einer Person | 7 |
 | **T-020** | **Freigabekette für nicht per NFC erfasste Zeiten (D-014)** | Braucht die Standortleitung als Instanz | 5 |
 | **T-016** | Löschkonzept und Betroffenenrechte | Der AVV verlangt die Fähigkeit, nicht den Text | 5 |
 | **T-017** | Feinschliff, Standortleitungs-Zuschnitt, Barrierefreiheit, **CSP und Sitzung (D-015)**, Landing Page | Nach dem Nutzer-Feedback | 4 |
 | **T-018** | Installierbare App per Direktlink | Für den eigenen Test | 2 |
+| **T-023** | **Vorschlag:** Übersicht als Arbeitsvorrat statt Zustandsbericht | Die Übersicht zählt heute, was geladen ist. Sie soll zeigen, **was ohne den Administrator stehen bleibt**: offene Prüfungen, manuell erfasste Zeiten vor der Freigabe, laufende Arbeitszeiten. Summen über Projekte brauchen eine echte Auswertung im Backend auf Basis von `effective_work_duration_seconds_v1` — geladene Seiten zu addieren ergibt eine Zahl, die falsch ist und richtig aussieht. **Noch keine Entscheidung.** Der Inhalt wird vom Pilotgespräch bestimmt (D-020), nicht geraten. | 4 |
 | **T-019** | Dokumente an die Wirklichkeit angleichen | Vier Dokumente beschreiben, was es nicht gibt | 1 |
 | **T-021** | **Zustellbarkeit: eigener Mailversand, SPF/DKIM/DMARC** | Supabase erlaubt eingebaut nur **zwei Mails pro Stunde** projektweit — die Zurücksetzung aus T-009 versagt beim ersten echten Kunden, und zwar lautlos. Braucht den Product Owner. | 1 |
 

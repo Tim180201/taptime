@@ -4,100 +4,98 @@
 
 ---
 
-## T-017a · Grundpolitur der Oberfläche
+## T-022 · Auslieferungsweg dokumentieren und absichern
 
-**Für:** Codex · **Risiko:** keine Datenänderung, aber der erste Eindruck beim Pilotkunden → unabhängiges Review
-**Zeitbox:** drei Arbeitssitzungen · **Grundlage:** T-014 abgeschlossen, **D-021**
+**Für:** Codex · **Risiko:** Aussperrung aus der Produktion → **unabhängiges Review verpflichtend**
+**Zeitbox:** zwei Arbeitssitzungen · **Grundlage:** T-017a ausgeliefert, Produktion auf `471b376`
 
-### Zuerst lesen
+### Der Anlass
 
-**`ADO/01_Architecture/UI_Leitlinien.md`** — vollständig, bevor du eine Zeile änderst.
+Am 25.08. sollte eine geprüfte, grüne Version ausgeliefert werden. Der Befehl stand in
+`DEPLOY.md`. Trotzdem ging es nicht — weil dort **nicht steht, auf welcher Maschine er läuft**.
+Der Weg musste aus einer Shell-Historie rekonstruiert werden.
 
-Das Regelwerk ist verbindlich und gilt ab jetzt für **jede** Oberflächenaufgabe, nicht nur für
-diese. Abweichungen sind erlaubt, aber im Bericht zu begründen. Was dort steht, wird hier nicht
-wiederholt.
+Das ist kein Schönheitsfehler. Es heißt: **Genau ein Chatfenster auf der Welt wusste, wie man
+dieses Produkt ausliefert.** Chatfenster enden. Genau dagegen haben wir dieses Verzeichnis
+gebaut, und ausgerechnet der Weg in die Produktion stand nicht darin.
 
-### Warum vorgezogen
+### Ziel
 
-Der Pilot-Inhaber macht bald einen Trockenlauf. Sitzt er dabei vor leeren Listen und
-Fehlercodes, redet er über die Oberfläche — statt über seinen Monatsabschluss und das, was ihn
-an seinem heutigen Werkzeug stört. Das wäre das teuerste Missverständnis im Projekt.
+**Jemand, der nur das Repository und den Passwortmanager hat, kommt auf den Server und liefert
+aus.** Ohne Verlauf, ohne Nachfragen, ohne Raten.
 
-### Umfang — fünf Dinge, mehr nicht
+Und: **Die Auslieferung läuft nicht mehr als direkter Root-Login.**
 
-**1 · Navigation**
+### Schritte
 
-- Seitenleiste statt Reiter oben. Fünf Bereiche sind die Grenze, mit Standorten werden es mehr.
-- **Echte Adressen**, kein `#hash`. Vor und Zurück funktionieren, ein Link führt dahin, wo er
-  hinführt, ein Lesezeichen auch. Filter und Zeitraum gehören in die Adresse.
+**1. `infrastructure/DEPLOY.md` vervollständigen**
 
-**2 · Leere Zustände — drei Arten**
+Was heute fehlt und hineingehört:
 
-Erstmalig leer führt hin. Durch Filter leer bietet Zurücksetzen. Ein Fehler wird **nie** als
-leerer Zustand getarnt. Einzelheiten im Regelwerk.
+- **Auf welcher Maschine** der Befehl läuft, und wie man dorthin kommt — vollständige
+  Befehlszeile einschließlich `ssh`, nicht nur der Teil, der auf dem Server läuft
+- **Wer** ausliefern darf und womit er sich ausweist
+- **Was man erwartet zu sehen**, und wie lange es dauert. Ein Lauf, der minutenlang schweigt,
+  weil Wiederherstellungsprobe und frische Sicherung davorhängen, sieht ohne diesen Satz aus
+  wie ein Hänger — und wird abgebrochen
+- **Wie man den Erfolg prüft:** `current`, Ledger-Eintrag, `external_health`
+- **Was zu tun ist, wenn der Health-Gate zurückrollt** — und ausdrücklich: nicht von Hand
+  nachhelfen
 
-Der erstmalig leere Zustand der Übersicht ist der wichtigste Bildschirm dieser Aufgabe — er ist
-das Erste, was ein neuer Kunde sieht.
+**2. `infrastructure/RESTORE.md` hat dieselbe Lücke**
 
-**3 · Ladezustände**
+Dort ist sie teurer. Die Anleitung beschreibt einen Menschen unter Druck, dessen Server weg ist
+— und setzt stillschweigend voraus, dass er weiß, wie er auf eine Maschine kommt, die es nicht
+mehr gibt. Ergänze den Zugangsweg **und** den Fall, dass der Rechner mit dem Schlüssel
+ebenfalls weg ist.
 
-Nach den Schwellenwerten im Regelwerk. Unter einer Sekunde passiert nichts — eine Anzeige würde
-nur flackern und den Eindruck verschlechtern.
+**3. Weg vom Root-Login**
 
-**4 · Fehlermeldungen**
+Ein eigener Benutzer für die Auslieferung, mit `sudo` **ausschließlich** für
+`/usr/local/sbin/taptime-deploy`. Kein allgemeines `sudo`, keine Shell als root.
 
-Jede Meldung, die ein Mensch sehen kann, wird übersetzt: was ist passiert, warum, was kann ich
-tun. Kein nackter Fehlercode. Kein Toast für Fehler.
+**Reihenfolge ist hier sicherheitskritisch, nicht Geschmackssache:**
 
-**Geh die Fehlerfälle systematisch durch**, nicht nur die offensichtlichen. Liste im Bericht auf,
-welche du gefunden und wie du jeden formuliert hast.
+1. Neuen Weg einrichten und **nachweisen**, dass eine echte Auslieferung darüber läuft
+2. Erst danach den Root-Login einschränken
+3. Vorher prüfen, dass die Hetzner-Konsole als Rückweg tatsächlich funktioniert
 
-**5 · Tabellen**
+Eine Absicherung, die uns selbst aussperrt, ist keine Absicherung. Wenn du an irgendeiner
+Stelle nicht sicher bist, ob der Rückweg steht: **anhalten und melden**, nicht weitermachen.
 
-Kopfzeile bleibt stehen, erste Spalte wird eingefroren. **Keine Kartenansicht auf schmalen
-Bildschirmen.** Filter als Chips mit Trefferzahl und Zurücksetzen.
+**4. Der Schlüssel liegt unverschlüsselt**
 
-### Wortschatz — überall angleichen
+Melde den Befund und den Vorschlag. **Entscheide nicht selbst** und ändere nichts an Schlüsseln
+auf dem Rechner des Product Owners — das ist seine Entscheidung, nicht deine.
 
-Der verbindliche Wortschatz steht im Regelwerk. Besonders: **Betrieb** statt Organisation,
-**Beschäftigte** statt Mitarbeiter, **Arbeitsziel** als Oberbegriff, **gescannt** und **manuell
-erfasst** als Erfassungsarten.
+### Vision-Check
 
-**Das Admin-Web siezt** (D-021). Es spricht heute niemanden an — jede neue Formulierung siezt.
-Die App bleibt unverändert beim Duzen.
+Keine fachliche Logik, keine Migration, keine Oberfläche. Betrieb.
 
 ### Nicht anfassen
 
-- Jede Geschäftslogik, `packages/core`, alle Backend-Module
-- Die Mobile-App. Diese Aufgabe betrifft ausschließlich `apps/admin-web`.
-- Der Zuschnitt auf die Standortleitung — das ist T-015
-- Barrierefreiheit, Content-Security-Policy, Sitzungsdauer — das ist T-017
-- **Neue Funktionen.** Keine. Diese Aufgabe macht Vorhandenes benutzbar.
+- Die Logik in `infrastructure/deploy`. Sie hat sich bei T-014 unter echten Bedingungen bewährt
+- `apps/`, `packages/`, Migrationen
+- Der laufende Betrieb. Produktion steht auf `471b376` und bleibt erreichbar
+- Schlüsseldateien auf dem Entwicklungsrechner
 
 ### Prüfung — nachweisen, nicht behaupten
 
-- Jeder der fünf Bereiche ist über eine **echte Adresse** erreichbar; Vor und Zurück
-  funktionieren; ein Link auf einen gefilterten Monat öffnet genau diesen
-- Alle drei Arten leerer Zustände existieren und unterscheiden sich sichtbar
-- Ein künstlich verzögerter Abruf zeigt **unter** einer Sekunde nichts und **darüber** ein
-  Skeleton
-- Kein technischer Fehlercode erreicht mehr den Bildschirm — die gefundenen Fälle sind einzeln
-  aufgelistet
-- Kein Toast für einen Fehler
-- Die Namensspalte bleibt beim seitlichen Scrollen stehen
-- Jedes Bedienelement hat die sechs Zustände aus dem Regelwerk, **einschließlich sichtbarem
-  Tastaturfokus**
-- Der Wortschatz ist durchgängig; „Organisation" und „Mitarbeiter" kommen in der Oberfläche
-  nicht mehr vor
-- Die Anwendung ist mit der Tastatur allein bedienbar
-- Alle bestehenden Admin-Web-Tests bleiben grün
+- Eine echte Auslieferung ist **über den neuen Weg** gelaufen; die Ausgabe steht im Bericht
+- Der Nachweis, dass der Auslieferungsbenutzer **nichts anderes** darf: ein Versuch, eine
+  andere Datei mit `sudo` auszuführen, wird abgelehnt
+- Der Nachweis, dass ein falsches Argument weiterhin am Skript scheitert, nicht an der Berechtigung
+- Der Rückweg über die Hetzner-Konsole ist geprüft, **bevor** der Root-Login eingeschränkt wurde
+- `DEPLOY.md` und `RESTORE.md` nennen Host, Zugangsweg, Berechtigten und Prüfschritte
+- Kein Geheimnis in argv, keines im Repository, keines im Bericht
 - CI grün, kein `[skip ci]`
 
 ### Zusätzliches Review
 
-> Öffne die Anwendung mit einem frisch eingerichteten, leeren Betrieb und arbeite dich ohne
-> Vorwissen bis zum ersten angelegten Arbeitsziel durch. Wo hast du gestockt? Nenne die Stellen,
-> statt zu behaupten, es sei selbsterklärend.
+> Angenommen, der Entwicklungsrechner ist weg und du hast nur dieses Repository und den
+> Passwortmanager. Folge deiner eigenen Anleitung Schritt für Schritt und komm bis zu einer
+> ausgelieferten Version. **Wo bleibst du stecken?** Nenne die Stellen, statt zu behaupten, die
+> Anleitung sei vollständig.
 
 ### Abschluss
 
@@ -108,5 +106,5 @@ Vier Punkte melden. Entfernte oder umgeschriebene Tests **einzeln** benennen.
 
 ## Danach
 
-`T-015` Standorte und Standortleitung (ADR-0022) · `T-016` Löschkonzept · `T-017` Feinschliff ·
-siehe `ADO/PLAN.md`.
+`T-015` Standorte und Standortleitung (ADR-0022) · `T-020` Freigabekette (D-014) ·
+`T-016` Löschkonzept · siehe `ADO/PLAN.md`.

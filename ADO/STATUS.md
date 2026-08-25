@@ -2,7 +2,7 @@
 
 > **Diese Datei wird überschrieben, nie angehängt.** Sie beschreibt nur den Jetzt-Zustand.
 
-**Stand:** 25.08.2026 (T-011 abgeschlossen) · **Ziel:** System fertig in ~6 Wochen, erster Kunde in ~3 Monaten
+**Stand:** 25.08.2026 (T-017a ausgeliefert, Produktion auf `471b376`) · **Ziel:** System fertig in ~6 Wochen, erster Kunde in ~3 Monaten
 
 ---
 
@@ -99,8 +99,15 @@ danach Firma, Recht und Store.
 
 ## Aktuelle Aufgabe
 
-**T-012 — Pausenerfassung.** Siehe `ADO/TASK.md`. Berührt `packages/core` und die Business
-Engine, daher mit verpflichtendem unabhängigem Review.
+**T-022 — Auslieferungsweg dokumentieren und absichern.** Siehe `ADO/TASK.md`.
+Berührt keinen Anwendungscode, aber den Zugang zur Produktion — daher mit verpflichtendem
+unabhängigem Review und ausdrücklichem Aussperrungs-Vorbehalt.
+
+**Zuletzt abgeschlossen:** T-017a (Grundpolitur der Oberfläche), Commit `471b376`, am 25.08.
+ausgeliefert. Produktion: `current = 471b376`, Ledger `18:018`, `external_health = 200`.
+Das Admin-Web hat damit echte Adressen, drei Arten leerer Zustände, übersetzte Fehlermeldungen
+und feste Tabellenspalten. `ADO/01_Architecture/UI_Leitlinien.md` ist ab sofort für **jede**
+Oberflächenaufgabe verbindlich (D-021).
 
 Danach die Folgeaufgaben in neuer Reihenfolge, siehe `ADO/PLAN.md`. Die Kette wurde am 24.08.
 nach Betriebsfähigkeit sortiert und um sieben Aufgaben erweitert (D-012). `T-001` bis `T-006`
@@ -169,6 +176,7 @@ in keinem Plan standen.
 |---|---|---|
 | **Produktname** | Tim | Engste Wahl: **Taptura** — `taptura.de`, `.com` und `.io` frei, `.app` vergeben. Kunstwort, trägt das „Tap" der Bedienung, in beiden Sprachen gleich aussprechbar, keine Kollision mit TIM/Telecom Italia. **Domains registrieren, bevor die Markenvorprüfung läuft** — sie sind das Einzige, das über Nacht weg sein kann. Regel aus der Suche: `.com` darf nicht über den Namen entscheiden; `.de` plus eine moderne Endung genügt. Verworfen: „MyTim" (Domains weg, TIM-Kollision, falsche Perspektive), „Zeitura" (international unklar auszusprechen). „TapTime" ist vergeben. Wird für Store, Firma und Domain gebraucht — Deadline Woche 12. Blockiert Phase 1 nicht. |
 | **T-021 Zustellbarkeit** | Tim | Brevo-Konto und DNS. Vor dem ersten echten Kunden, blockiert T-012 nicht. |
+| **Monatsgrenzen in Ortszeit** | Tim + Claude | Adressen wie `?monat=2026-10` rechnen heute in UTC-Monatsgrenzen. Ein Oktober in `Europe/Berlin` dauert durch die Zeitumstellung 31 Tage plus eine Stunde; Abfrage und CSV-Export erlauben vertraglich höchstens exakt 31 Tage. Betrifft genau zwei Monate im Jahr — und verschiebt dort Arbeitszeiten über die Monatsgrenze. Bei einer Lohnabrechnung ist das kein Rundungsfehler. Braucht eine Vertrags- und Backendentscheidung, nicht Oberflächenarbeit. Fällt spätestens mit T-013 an. |
 
 ---
 
@@ -247,6 +255,23 @@ in keinem Plan standen.
 - Mit dem entfernten CI-Job entfielen auch Absicherungen gegen bekannte Lücken in
   Abhängigkeiten (GHSA-Einträge, `image-size`). Falls das erhalten bleiben soll, gehört es in
   eine eigene Abhängigkeits-Richtlinie — nicht zurück in den eingefrorenen Harness.
+- **P2:** Die Auslieferung läuft als **direkter Root-Login** per SSH-Schlüssel, der
+  unverschlüsselt auf dem Entwicklungsrechner liegt. Wer diesen Rechner hat, hat die
+  Produktion — und über sie den Zugang zur Storage Box. Sauberer wäre ein eigener Benutzer
+  mit eng begrenztem `sudo` ausschließlich für `/usr/local/sbin/taptime-deploy`. Zu beheben,
+  **bevor echte Lohndaten auf dem System liegen** — siehe T-022.
+- **P2:** Der zweite T-017a-CI-Lauf war grün, der erste rot: ein 30-Sekunden-Grenztest im
+  DA3-Backend-Job erzeugte kaskadierende Datenbank-Timeouts und riss fremde Prüfungen mit.
+  Das ist der **zweite Vorfall dieser Bauart** (siehe DA2-8-MiB oben). Beim dritten ist es
+  kein Timing-Zufall mehr, sondern ein Testentwurf, der andere Tests unzuverlässig macht —
+  dann gehört der Grenztest isoliert, nicht wiederholt.
+- **P2:** `securityBoundaries.test.ts` prüft die Tabellenfixierung über reguläre Ausdrücke
+  auf dem **Quelltext** von `styles.css`, nicht über Verhalten. Er bricht bei jeder
+  Umformatierung ohne Verhaltensänderung — und würde einen echten Verlust der Fixierung
+  durch eine andere Schreibweise nicht bemerken. Bewusst so belassen, weil jsdom die
+  Fixierung nicht darstellt.
+- **P2:** Das Admin-Web-Bündel liegt bei 510 kB JavaScript. Ohne Aufteilung wird der erste
+  Aufbau in schlechten Netzen spürbar.
 - Geparkte Idee: **`ADO/RESULT.md`** — Codex schreibt seinen Abschlussbericht ins Repo statt nur
   in den Chat. Spart dem Product Owner bei jeder Aufgabe einen Handgriff.
 
