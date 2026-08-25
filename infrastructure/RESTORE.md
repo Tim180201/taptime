@@ -29,7 +29,7 @@ Stunde ist, oder ein anderer Zustand als `ok` ist ein Betriebsfall.
    wieder her. Baue die Container noch nicht mit einer leeren Datenbank hoch.
 2. Führe `systemctl start taptime-restore-verify.service` aus. Der Dienst prüft das Archiv, spielt das
    neueste Archiv isoliert in einen Wegwerf-PostgreSQL-Container ein und vergleicht
-   Migrations-Checksums, sieben tragende Tabellen, alle TapTim.e-Rollen und `29/29` aktivierte
+   Migrations-Checksums, sieben tragende Tabellen, alle TapTim.e-Rollen und `32/32` aktivierte
    und erzwungene RLS-Tabellen.
 3. Ist die Prüfung grün, spiele dasselbe Archiv mit den dort verwendeten Schritten in die neue
    Produktdatenbank ein, starte den Stack und prüfe `/health` von außen. Bei Fehlern nicht
@@ -47,7 +47,7 @@ zu aktualisieren, bevor sie als Zusage verwendet wird.
 3. Starte einen leeren PostgreSQL-17-Container ohne veröffentlichte Ports und ohne
    Produktions-Volume, spiele zuerst `globals.sql`, dann `database.dump` ein.
 4. Führe die gleichen Vergleiche wie `taptime-restore-verify` durch. Insbesondere ist ein
-   Ergebnis ohne `RLS enabled and forced: 29/29` kein gültiger Restore.
+   Ergebnis ohne `RLS enabled and forced: 32/32` kein gültiger Restore.
 5. Erst nach erfolgreicher Prüfung die defekte Produktdatenbank durch den geprüften Stand
    ersetzen, `backend-api` starten und `/health` prüfen.
 
