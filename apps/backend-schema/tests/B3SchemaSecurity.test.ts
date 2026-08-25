@@ -538,7 +538,7 @@ describe('B3 deterministic migration system', () => {
     );
 
     expect(rows.rows.map((row) => row.version)).toEqual([
-      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017',
+      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018',
     ]);
     expect(rows.rows.every((row) => /^[0-9a-f]{64}$/.test(row.checksum))).toBe(true);
   });
@@ -547,7 +547,7 @@ describe('B3 deterministic migration system', () => {
     await expect(migrate(installerPool)).resolves.toEqual({
       applied: [],
       alreadyApplied: [
-        '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017',
+        '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018',
       ],
     });
   });
@@ -3570,8 +3570,12 @@ describe('T-012 BreakInterval integrity, duration and tenant isolation', () => {
     const foreignTenant = await adminQuery(adminBContext, `
       SELECT id FROM ${B3_SCHEMA}.break_intervals
     `);
+    const foreignDuration = await adminQuery<{ seconds: string | null }>(adminBContext, `
+      SELECT ${B3_SCHEMA}.effective_work_duration_seconds_v1($1)::text AS seconds
+    `, [ids.timeEntryA]);
     expect(ownTenant.rowCount).toBe(1);
     expect(foreignTenant.rows).toEqual([]);
+    expect(foreignDuration.rows).toEqual([{ seconds: null }]);
   });
 
   it('stores interval boundaries and provenance, never a mutable minute sum', async () => {

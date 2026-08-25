@@ -109,6 +109,36 @@ describe('DA2 TimeEntry export API', () => {
     expect(exportTimeEntriesV2).toHaveBeenCalledOnce();
   });
 
+  it('uses the opt-in v3 coordinator on the exact additive payroll route', async () => {
+    const bytes = new TextEncoder().encode('\uFEFF"person_identifier";"local_date"\r\n');
+    const exportTimeEntriesV3 = vi.fn(async () => ({
+      status: 'succeeded' as const,
+      bytes,
+      byteCount: bytes.byteLength,
+      rowCount: 0,
+      sha256: 'c'.repeat(64),
+      filename: 'taptime-time-entries_v3_20260701T000000000Z_20260801T000000000Z.csv',
+    }));
+    const origin = await start({
+      async exportTimeEntries() { return { status: 'service_unavailable' }; },
+      exportTimeEntriesV3,
+    });
+
+    const response = await fetch(`${origin}/v3/time-entries/export`, {
+      method: 'POST',
+      headers: {
+        authorization: 'Bearer aaa.bbb.ccc',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify(validBody),
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-disposition')).toContain('_v3_');
+    expect(Buffer.from(await response.arrayBuffer())).toEqual(Buffer.from(bytes));
+    expect(exportTimeEntriesV3).toHaveBeenCalledOnce();
+  });
+
   it('rejects method, media type and legacy expected-Membership header', async () => {
     const exportTimeEntries = vi.fn<TimeEntryExporter['exportTimeEntries']>();
     const origin = await start({ exportTimeEntries });

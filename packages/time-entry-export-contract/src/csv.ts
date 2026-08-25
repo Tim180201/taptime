@@ -5,17 +5,22 @@ import {
   TIME_ENTRY_EXPORT_SCHEMA_VERSION,
   TIME_ENTRY_EXPORT_HEADERS_V2,
   TIME_ENTRY_EXPORT_SCHEMA_VERSION_V2,
+  TIME_ENTRY_EXPORT_HEADERS_V3,
 } from './constants.js';
 import type {
   SerializedTimeEntryExport,
   TimeEntryExportRow,
   TimeEntryExportRowV2,
+  TimeEntryExportRowV3,
 } from './types.js';
 import { isCanonicalTimeEntryExportUuid } from './validation.js';
 
 const outputUtcPattern =
   /^\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])T(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d\.\d{3,6}Z$/;
 const durationPattern = /^(?:0|[1-9]\d*)(?:\.\d{1,6})?$/;
+const wholeSecondsPattern = /^(?:0|[1-9]\d*)$/;
+const localDatePattern = /^\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])$/;
+const localTimePattern = /^(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d\.\d{3,6}$/;
 const formulaPrefixPattern = /^\s*[=+\-@]/u;
 
 export class TimeEntryExportLimitError extends Error {
@@ -106,6 +111,41 @@ export function serializeTimeEntryExportCsvV2(
   return Object.freeze({ bytes, byteCount: bytes.byteLength, rowCount: rows.length });
 }
 
+export function serializeTimeEntryExportCsvV3(
+  rows: readonly TimeEntryExportRowV3[],
+): SerializedTimeEntryExport {
+  if (rows.length > TIME_ENTRY_EXPORT_MAXIMUM_ROWS) {
+    throw new TimeEntryExportLimitError('rows');
+  }
+  for (const row of rows) assertValidRowV3(row);
+  const orderedRows = [...rows].sort((left, right) => (
+    left.startedAtUtc.localeCompare(right.startedAtUtc)
+    || left.timeEntryId.localeCompare(right.timeEntryId)
+  ));
+  const lines = [
+    serializeCells(TIME_ENTRY_EXPORT_HEADERS_V3),
+    ...orderedRows.map((row) => serializeCells([
+      row.personIdentifier,
+      neutralizeSpreadsheetFormula(row.employeeDisplayName),
+      row.localDate,
+      row.startedAtLocal,
+      row.stoppedAtLocal,
+      row.startedAtUtc,
+      row.stoppedAtUtc,
+      row.breakDurationSeconds,
+      row.effectiveWorkDurationSeconds,
+      neutralizeSpreadsheetFormula(`${row.targetType}: ${row.targetDisplayName}`),
+      `start=${row.startedVia}; end=${row.stoppedVia}`,
+      row.revisionNumber === '0' ? 'no' : `yes; revision=${row.revisionNumber}`,
+    ])),
+  ];
+  const bytes = new TextEncoder().encode(`\uFEFF${lines.join('\r\n')}\r\n`);
+  if (bytes.byteLength > TIME_ENTRY_EXPORT_MAXIMUM_BYTES) {
+    throw new TimeEntryExportLimitError('bytes');
+  }
+  return Object.freeze({ bytes, byteCount: bytes.byteLength, rowCount: rows.length });
+}
+
 export function neutralizeSpreadsheetFormula(value: string): string {
   return formulaPrefixPattern.test(value) ? `'${value}` : value;
 }
@@ -166,6 +206,37 @@ function assertValidRowV2(row: TimeEntryExportRowV2): void {
     || typeof row.organizationName !== 'string'
     || typeof row.employeeDisplayName !== 'string'
     || typeof row.targetDisplayName !== 'string'
+  ) {
+    throw new InvalidTimeEntryExportRowError();
+  }
+}
+
+function assertValidRowV3(row: TimeEntryExportRowV3): void {
+  const stopped = row.stoppedAtLocal !== ''
+    && row.stoppedAtUtc !== ''
+    && row.stoppedVia !== '';
+  const active = row.stoppedAtLocal === ''
+    && row.stoppedAtUtc === ''
+    && row.stoppedVia === '';
+  if (
+    !isCanonicalTimeEntryExportUuid(row.personIdentifier)
+    || !isCanonicalTimeEntryExportUuid(row.timeEntryId)
+    || !localDatePattern.test(row.localDate)
+    || !localTimePattern.test(row.startedAtLocal)
+    || (stopped && (
+      !localTimePattern.test(row.stoppedAtLocal)
+      || !outputUtcPattern.test(row.stoppedAtUtc)
+    ))
+    || (!stopped && !active)
+    || !outputUtcPattern.test(row.startedAtUtc)
+    || !wholeSecondsPattern.test(row.breakDurationSeconds)
+    || !wholeSecondsPattern.test(row.effectiveWorkDurationSeconds)
+    || !wholeSecondsPattern.test(row.revisionNumber)
+    || !['customer', 'project', 'general_work'].includes(row.targetType)
+    || !['nfc', 'manual'].includes(row.startedVia)
+    || typeof row.employeeDisplayName !== 'string'
+    || typeof row.targetDisplayName !== 'string'
+    || row.targetDisplayName.length === 0
   ) {
     throw new InvalidTimeEntryExportRowError();
   }

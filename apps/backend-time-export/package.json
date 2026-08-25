@@ -11,7 +11,7 @@
   "types": "./dist/index.d.ts",
   "scripts": {
     "build": "tsc -p tsconfig.build.json --emitDeclarationOnly && esbuild src/index.ts --bundle --platform=node --target=node24 --format=esm --external:@taptime/backend-identity --external:@taptime/time-entry-export-contract --external:pg --sourcemap --outfile=dist/index.js",
-    "test": "vitest run",
+    "test": "vitest run --no-file-parallelism",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

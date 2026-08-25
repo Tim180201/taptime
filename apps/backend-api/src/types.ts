@@ -205,6 +205,7 @@ export type BackendApiRoute =
   | 'admin_setup_projection'
   | 'admin_time_entry_export'
   | 'time_entry_export_v2'
+  | 'time_entry_export_v3'
   | 'admin_time_record_query'
   | 'admin_time_record_query_v2'
   | 'admin_time_record_correction'

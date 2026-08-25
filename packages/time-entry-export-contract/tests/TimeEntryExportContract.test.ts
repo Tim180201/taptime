@@ -4,6 +4,7 @@ import {
   TIME_ENTRY_EXPORT_GOLDEN_ROWS,
   TIME_ENTRY_EXPORT_HEADERS,
   TIME_ENTRY_EXPORT_HEADERS_V2,
+  TIME_ENTRY_EXPORT_HEADERS_V3,
   TIME_ENTRY_EXPORT_MAXIMUM_BYTES,
   TIME_ENTRY_EXPORT_MAXIMUM_RANGE_MILLISECONDS,
   TIME_ENTRY_EXPORT_MAXIMUM_ROWS,
@@ -11,6 +12,7 @@ import {
   neutralizeSpreadsheetFormula,
   serializeTimeEntryExportCsv,
   serializeTimeEntryExportCsvV2,
+  serializeTimeEntryExportCsvV3,
   validateTimeEntryExportRequest,
 } from '../src/index.js';
 
@@ -120,6 +122,37 @@ describe('time-entry export contract', () => {
       stoppedAtUtc: '2026-07-24T09:00:00.000000Z',
       durationSeconds: '3600',
     }])).toThrow(/accepted contract/);
+  });
+
+  it('serializes the exact twelve-column payroll v3 schema without a selector', () => {
+    expect(TIME_ENTRY_EXPORT_HEADERS_V3).toEqual([
+      'person_identifier', 'employee_display_name', 'date_europe_berlin',
+      'started_at_europe_berlin', 'stopped_at_europe_berlin', 'started_at_utc',
+      'stopped_at_utc', 'break_duration_seconds', 'effective_work_duration_seconds',
+      'target', 'capture_types', 'correction',
+    ]);
+    const result = serializeTimeEntryExportCsvV3([{
+      personIdentifier: '33333333-3333-4333-8333-333333333333',
+      employeeDisplayName: '',
+      timeEntryId: '22222222-2222-4222-8222-222222222222',
+      localDate: '2026-07-24',
+      startedAtLocal: '10:00:00.000000',
+      stoppedAtLocal: '11:00:00.000000',
+      startedAtUtc: '2026-07-24T08:00:00.000000Z',
+      stoppedAtUtc: '2026-07-24T09:00:00.000000Z',
+      breakDurationSeconds: '900',
+      effectiveWorkDurationSeconds: '2700',
+      targetType: 'project',
+      targetDisplayName: '=Innenausbau',
+      startedVia: 'manual',
+      stoppedVia: 'nfc',
+      revisionNumber: '2',
+    }]);
+    const cells = Buffer.from(result.bytes).toString('utf8').split('\r\n')[1];
+    expect(cells?.split(';')).toHaveLength(14); // two semicolons are quoted cell content
+    expect(cells).toContain('"start=manual; end=nfc"');
+    expect(cells).toContain('"yes; revision=2"');
+    expect(cells).toContain('"project: =Innenausbau"');
   });
 
   it.each(['=1+1', ' +SUM(A1)', '-2+3', '\t@cmd'])('neutralizes formula prefix %j', (value) => {

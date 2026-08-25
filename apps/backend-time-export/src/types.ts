@@ -39,4 +39,8 @@ export interface TimeEntryExporter {
     command: TimeEntryExportCommand,
     controls?: TimeEntryExportCoordinatorControls,
   ) => Promise<TimeEntryExportResult>;
+  readonly exportTimeEntriesV3?: (
+    command: TimeEntryExportCommand,
+    controls?: TimeEntryExportCoordinatorControls,
+  ) => Promise<TimeEntryExportResult>;
 }

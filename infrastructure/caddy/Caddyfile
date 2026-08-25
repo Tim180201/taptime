@@ -55,6 +55,14 @@ admin.tb-infra.de {
 		}
 	}
 
+	handle /v3/* {
+		reverse_proxy backend-api:3000 {
+			header_up X-Forwarded-For {remote_host}
+			header_up X-TapTime-Proxy-Secret {file./run/secrets/taptime_proxy_shared_secret}
+			header_down -Server
+		}
+	}
+
 	handle {
 		root * /srv/admin-web
 		try_files {path} /index.html

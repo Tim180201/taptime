@@ -216,6 +216,165 @@ describe('DA2 PostgreSQL export security and truth', () => {
     expect(text).toContain(entryId);
   });
 
+  registerExportTest('exports the fixed twelve-column payroll truth with breaks, local day, provenance and correction', async () => {
+    // Reproduce the valid creation-time shape: display_name is nullable but immutable later.
+    await installerPool.query('ALTER TABLE taptime_server.memberships DISABLE TRIGGER USER');
+    try {
+      await installerPool.query(
+        `UPDATE taptime_server.memberships SET display_name = NULL WHERE id = $1`,
+        [ids.membershipEmployeeA],
+      );
+    } finally {
+      await installerPool.query('ALTER TABLE taptime_server.memberships ENABLE TRIGGER USER');
+    }
+    await persistBreak({
+      intervalId: '68000000-0000-4000-8000-000000000101',
+      startEventId: '58000000-0000-4000-8000-000000000101',
+      stopEventId: '58000000-0000-4000-8000-000000000102',
+      timeEntryId: ids.stoppedEntryA,
+      userId: ids.employeeA,
+      startedAt: '2026-07-21T08:15:00Z',
+      stoppedAt: '2026-07-21T08:20:00Z',
+    });
+    await persistBreak({
+      intervalId: '68000000-0000-4000-8000-000000000102',
+      startEventId: '58000000-0000-4000-8000-000000000103',
+      stopEventId: '58000000-0000-4000-8000-000000000104',
+      timeEntryId: ids.stoppedEntryA,
+      userId: ids.employeeA,
+      startedAt: '2026-07-21T08:30:00Z',
+      stoppedAt: '2026-07-21T08:40:00Z',
+    });
+    await insertStoppedEntry({
+      entryId: '60000000-0000-4000-8000-000000000110',
+      startEventId: '50000000-0000-4000-8000-000000000110',
+      stopEventId: '50000000-0000-4000-8000-000000000111',
+      userId: ids.employeeA,
+      startedAt: '2026-07-20T22:30:00Z',
+      stoppedAt: '2026-07-20T23:30:00Z',
+      startedVia: 'manual',
+      stoppedVia: 'nfc',
+    });
+    const correctedEntryId = '60000000-0000-4000-8000-000000000112';
+    await insertStoppedEntry({
+      entryId: correctedEntryId,
+      startEventId: '50000000-0000-4000-8000-000000000112',
+      stopEventId: '50000000-0000-4000-8000-000000000113',
+      userId: ids.employeeA,
+      startedAt: '2026-07-22T08:00:00Z',
+      stoppedAt: '2026-07-22T12:00:00Z',
+      startedVia: 'manual',
+      stoppedVia: 'nfc',
+    });
+    await persistBreak({
+      intervalId: '68000000-0000-4000-8000-000000000112',
+      startEventId: '58000000-0000-4000-8000-000000000112',
+      stopEventId: '58000000-0000-4000-8000-000000000113',
+      timeEntryId: correctedEntryId,
+      userId: ids.employeeA,
+      startedAt: '2026-07-22T08:30:00Z',
+      stoppedAt: '2026-07-22T09:00:00Z',
+    });
+    await persistBreak({
+      intervalId: '68000000-0000-4000-8000-000000000113',
+      startEventId: '58000000-0000-4000-8000-000000000114',
+      stopEventId: '58000000-0000-4000-8000-000000000115',
+      timeEntryId: correctedEntryId,
+      userId: ids.employeeA,
+      startedAt: '2026-07-22T09:45:00Z',
+      stoppedAt: '2026-07-22T10:15:00Z',
+    });
+    await insertRevision({
+      timeEntryId: correctedEntryId,
+      userId: ids.employeeA,
+      startedAt: '2026-07-22T10:00:00Z',
+      stoppedAt: '2026-07-22T12:00:00Z',
+    });
+    await insertRecoveredRevision({
+      timeEntryId: '60000000-0000-4000-8000-000000000114',
+      userId: ids.employeeA,
+      startedAt: '2026-07-23T08:00:00Z',
+      stoppedAt: '2026-07-23T09:30:00Z',
+    });
+
+    const result = await exportV3As(tokens.adminA);
+    expect(result.status).toBe('succeeded');
+    if (result.status !== 'succeeded') return;
+    const lines = Buffer.from(result.bytes).toString('utf8').split('\r\n');
+    expect(lines[0]?.split(';')).toHaveLength(12);
+    const breakDurationFromFunction = await effectiveDurationAsAdmin(ids.stoppedEntryA);
+    expect(breakDurationFromFunction).toBe('2823');
+    const breakRow = lines.find((line) => line.includes('2026-07-21T08:00:00.123456Z'));
+    expect(breakRow).toContain(`"${ids.membershipEmployeeA}";"";"2026-07-21"`);
+    expect(breakRow).toContain('"10:00:00.123456";"11:02:03.123457"');
+    expect(breakRow).toContain(`"900";"${breakDurationFromFunction}"`);
+    expect(breakRow).toContain('"start=nfc; end=nfc";"no"');
+    const midnightRow = lines.find((line) => line.includes('2026-07-20T22:30:00.000000Z'));
+    expect(midnightRow).toContain('"2026-07-21";"00:30:00.000000"');
+    expect(midnightRow).toContain('"start=manual; end=nfc"');
+    const correctedDurationFromFunction = await effectiveDurationAsAdmin(correctedEntryId);
+    expect(correctedDurationFromFunction).toBe('6300');
+    const correctedRow = lines.find((line) => line.includes('2026-07-22T10:00:00.000000Z'));
+    expect(correctedRow).toContain(`"900";"${correctedDurationFromFunction}"`);
+    expect(correctedRow).toContain('"yes; revision=1"');
+    const recoveredRow = lines.find((line) => line.includes('2026-07-23T08:00:00.000000Z'));
+    expect(recoveredRow).toContain('"0";"5400"');
+    expect(recoveredRow).toContain('"start=manual; end=manual";"yes; revision=1"');
+    expect(result.filename).toContain('taptime-time-entries_v3_');
+
+    const audit = await installerPool.query<{ schema_version: number }>(
+      `SELECT (payload->>'schemaVersion')::integer AS schema_version
+       FROM taptime_server.audit_events WHERE event_type = 'TimeEntryExportGenerated'`,
+    );
+    expect(audit.rows).toEqual([{ schema_version: 3 }]);
+  });
+
+  registerExportTest('renders the Europe/Berlin daylight-saving jump from the UTC truth', async () => {
+    await insertStoppedEntry({
+      entryId: '60000000-0000-4000-8000-000000000120',
+      startEventId: '50000000-0000-4000-8000-000000000120',
+      stopEventId: '50000000-0000-4000-8000-000000000121',
+      userId: ids.employeeA,
+      startedAt: '2026-03-29T00:30:00Z',
+      stoppedAt: '2026-03-29T01:30:00Z',
+      startedVia: 'manual',
+      stoppedVia: 'nfc',
+    });
+    const result = await exportV3As(tokens.adminA, {
+      ...request,
+      fromInclusive: '2026-03-20T00:00:00.000Z',
+      toExclusive: '2026-04-10T00:00:00.000Z',
+    });
+    expect(result.status).toBe('succeeded');
+    if (result.status !== 'succeeded') return;
+    const text = Buffer.from(result.bytes).toString('utf8');
+    expect(text).toContain('"2026-03-29";"01:30:00.000000";"03:30:00.000000"');
+    expect(text).toContain('"2026-03-29T00:30:00.000000Z";"2026-03-29T01:30:00.000000Z"');
+    expect(text).toContain('"0";"3600"');
+  });
+
+  registerExportTest('keeps v2 byte-identical and a foreign Organization out of v3', async () => {
+    const v2Before = await coordinator.exportTimeEntriesV2(command(tokens.adminA, request));
+    const ownV3 = await exportV3As(tokens.adminA);
+    const v2After = await coordinator.exportTimeEntriesV2(command(tokens.adminA, request));
+    expect(v2Before.status).toBe('succeeded');
+    expect(ownV3.status).toBe('succeeded');
+    expect(v2After.status).toBe('succeeded');
+    if (v2Before.status !== 'succeeded' || v2After.status !== 'succeeded') return;
+    expect(Buffer.from(v2After.bytes)).toEqual(Buffer.from(v2Before.bytes));
+
+    const foreign = await exportV3As(tokens.adminB, {
+      ...request,
+      expectedMembershipId: ids.membershipAdminB,
+    });
+    expect(foreign.status).toBe('succeeded');
+    if (foreign.status !== 'succeeded') return;
+    const text = Buffer.from(foreign.bytes).toString('utf8');
+    expect(text).toContain(ids.membershipEmployeeB);
+    expect(text).not.toContain(ids.membershipEmployeeA);
+    expect(text).not.toContain('Jörg Export');
+  });
+
   registerExportTest('returns one coherent old snapshot when a correction commits after snapshot read, then effective-new', async () => {
     const raced = await coordinator.exportTimeEntries(command(tokens.adminA, request), {
       afterSnapshotRead: async () => insertEffectiveRevision(),
@@ -304,6 +463,14 @@ describe('DA2 PostgreSQL export security and truth', () => {
     await seedDa2(installerPool, true);
     await insertBulkStoppedEntries(installerPool, 5_998);
     expect((await exportAs(tokens.adminA)).status).toBe('export_limit_exceeded');
+    expect(await exportAuditCount()).toBe(0);
+  }, 30_000);
+
+  registerExportTest('fails payroll v3 closed above 8 MiB without truncation or audit', async () => {
+    await truncateDa2DataTables(installerPool);
+    await seedDa2(installerPool, true);
+    await insertBulkStoppedEntries(installerPool, 7_500);
+    expect((await exportV3As(tokens.adminA)).status).toBe('export_limit_exceeded');
     expect(await exportAuditCount()).toBe(0);
   }, 30_000);
 
@@ -554,6 +721,41 @@ function exportAs(
   return coordinator.exportTimeEntries(command(accessToken, exportRequest), controls);
 }
 
+function exportV3As(
+  accessToken: string,
+  exportRequest: TimeEntryExportRequest = request,
+  controls: TimeEntryExportCoordinatorControls = {},
+) {
+  return coordinator.exportTimeEntriesV3(command(accessToken, exportRequest), controls);
+}
+
+async function effectiveDurationAsAdmin(timeEntryId: string): Promise<string | null> {
+  const client = await installerPool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(
+      `SELECT
+         set_config('app.user_id', $1, true),
+         set_config('app.organization_id', $2, true),
+         set_config('app.membership_id', $3, true),
+         set_config('app.membership_role', 'administrator', true)`,
+      [ids.adminA, ids.organizationA, ids.membershipAdminA],
+    );
+    await client.query('SET LOCAL ROLE taptime_administrator');
+    const result = await client.query<{ seconds: string | null }>(
+      `SELECT taptime_server.effective_work_duration_seconds_v1($1)::text AS seconds`,
+      [timeEntryId],
+    );
+    await client.query('ROLLBACK');
+    return result.rows[0]?.seconds ?? null;
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 async function exportAuditCount(): Promise<number> {
   const result = await installerPool.query<{ count: number }>(
     `SELECT count(*)::integer AS count FROM taptime_server.audit_events
@@ -621,6 +823,202 @@ async function insertEffectiveRevision(): Promise<void> {
       ids.organizationA, ids.stoppedEntryA, ids.employeeA, ids.customerA,
       ids.adminA, ids.membershipAdminA,
     ],
+  );
+}
+
+async function persistBreak(input: {
+  intervalId: string;
+  startEventId: string;
+  stopEventId: string;
+  timeEntryId: string;
+  userId: string;
+  startedAt: string;
+  stoppedAt: string;
+}): Promise<void> {
+  const client = await installerPool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('SET CONSTRAINTS ALL DEFERRED');
+    await client.query(
+      `INSERT INTO taptime_server.work_events
+        (id, organization_id, assignment_id, nfc_tag_id, target_type, target_customer_id,
+         triggered_by_user_id, occurred_at, content_hash, content_hash_algorithm,
+         content_hash_version, trigger_type, subject_type)
+       VALUES ($1, $2, NULL, NULL, NULL, NULL, $3, $4,
+         repeat('d', 64), 'sha256', 3, 'manual', 'break')`,
+      [input.startEventId, ids.organizationA, input.userId, input.startedAt],
+    );
+    await client.query(
+      `INSERT INTO taptime_server.break_intervals
+        (id, organization_id, user_id, time_entry_id, status, start_work_event_id,
+         started_at, started_via)
+       VALUES ($1, $2, $3, $4, 'started', $5, $6, 'manual')`,
+      [input.intervalId, ids.organizationA, input.userId, input.timeEntryId,
+        input.startEventId, input.startedAt],
+    );
+    await client.query(
+      `INSERT INTO taptime_server.canonical_decisions
+        (work_event_id, organization_id, actor_user_id, target_type, target_customer_id,
+         subject_type, decision_type, time_entry_id, break_interval_id,
+         engine_version, decision_payload)
+       VALUES ($1, $2, $3, NULL, NULL, 'break', 'break_started', $4, $5,
+         't013-test', '{"status":"break_started"}')`,
+      [input.startEventId, ids.organizationA, input.userId, input.timeEntryId, input.intervalId],
+    );
+    await client.query('COMMIT');
+    await client.query('BEGIN');
+    await client.query('SET CONSTRAINTS ALL DEFERRED');
+    await client.query(
+      `INSERT INTO taptime_server.work_events
+        (id, organization_id, assignment_id, nfc_tag_id, target_type, target_customer_id,
+         triggered_by_user_id, occurred_at, content_hash, content_hash_algorithm,
+         content_hash_version, trigger_type, subject_type)
+       VALUES ($1, $2, NULL, NULL, NULL, NULL, $3, $4,
+         repeat('e', 64), 'sha256', 3, 'manual', 'break')`,
+      [input.stopEventId, ids.organizationA, input.userId, input.stoppedAt],
+    );
+    await client.query(
+      `UPDATE taptime_server.break_intervals
+       SET status = 'stopped', stop_work_event_id = $1, stopped_at = $2,
+         stopped_via = 'manual', row_version = row_version + 1
+       WHERE id = $3`,
+      [input.stopEventId, input.stoppedAt, input.intervalId],
+    );
+    await client.query(
+      `INSERT INTO taptime_server.canonical_decisions
+        (work_event_id, organization_id, actor_user_id, target_type, target_customer_id,
+         subject_type, decision_type, time_entry_id, break_interval_id,
+         engine_version, decision_payload)
+       VALUES ($1, $2, $3, NULL, NULL, 'break', 'break_stopped', $4, $5,
+         't013-test', '{"status":"break_stopped"}')`,
+      [input.stopEventId, ids.organizationA, input.userId, input.timeEntryId, input.intervalId],
+    );
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+async function insertStoppedEntry(input: {
+  entryId: string;
+  startEventId: string;
+  stopEventId: string;
+  userId: string;
+  startedAt: string;
+  stoppedAt: string;
+  startedVia: 'nfc' | 'manual';
+  stoppedVia: 'nfc' | 'manual';
+}): Promise<void> {
+  const client = await installerPool.connect();
+  const eventShape = (via: 'nfc' | 'manual') => via === 'nfc'
+    ? [ids.assignmentA, ids.tagA, 1]
+    : [null, null, 2];
+  const startShape = eventShape(input.startedVia);
+  const stopShape = eventShape(input.stoppedVia);
+  try {
+    await client.query('BEGIN');
+    await client.query('SET CONSTRAINTS ALL DEFERRED');
+    await client.query(
+      `INSERT INTO taptime_server.work_events
+        (id, organization_id, assignment_id, nfc_tag_id, target_type, target_customer_id,
+         triggered_by_user_id, occurred_at, content_hash, content_hash_algorithm,
+         content_hash_version, trigger_type)
+       VALUES ($1, $2, $3, $4, 'customer', $5, $6, $7,
+         repeat('a', 64), 'sha256', $8, $9)`,
+      [input.startEventId, ids.organizationA, startShape[0], startShape[1], ids.customerA,
+        input.userId, input.startedAt, startShape[2], input.startedVia],
+    );
+    await client.query(
+      `INSERT INTO taptime_server.time_entries
+        (id, organization_id, user_id, target_type, target_customer_id, status,
+         start_work_event_id, started_at, started_via)
+       VALUES ($1, $2, $3, 'customer', $4, 'started', $5, $6, $7)`,
+      [input.entryId, ids.organizationA, input.userId, ids.customerA,
+        input.startEventId, input.startedAt, input.startedVia],
+    );
+    await client.query(
+      `INSERT INTO taptime_server.canonical_decisions
+        (work_event_id, organization_id, actor_user_id, target_type, target_customer_id,
+         decision_type, time_entry_id, engine_version, decision_payload)
+       VALUES ($1, $2, $3, 'customer', $4, 'time_entry_started', $5,
+         't013-test', '{}')`,
+      [input.startEventId, ids.organizationA, input.userId, ids.customerA, input.entryId],
+    );
+    await client.query('COMMIT');
+    await client.query('BEGIN');
+    await client.query('SET CONSTRAINTS ALL DEFERRED');
+    await client.query(
+      `INSERT INTO taptime_server.work_events
+        (id, organization_id, assignment_id, nfc_tag_id, target_type, target_customer_id,
+         triggered_by_user_id, occurred_at, content_hash, content_hash_algorithm,
+         content_hash_version, trigger_type)
+       VALUES ($1, $2, $3, $4, 'customer', $5, $6, $7,
+         repeat('b', 64), 'sha256', $8, $9)`,
+      [input.stopEventId, ids.organizationA, stopShape[0], stopShape[1], ids.customerA,
+        input.userId, input.stoppedAt, stopShape[2], input.stoppedVia],
+    );
+    await client.query(
+      `UPDATE taptime_server.time_entries
+       SET status = 'stopped', stop_work_event_id = $1, stopped_at = $2,
+         stopped_via = $3, row_version = row_version + 1 WHERE id = $4`,
+      [input.stopEventId, input.stoppedAt, input.stoppedVia, input.entryId],
+    );
+    await client.query(
+      `INSERT INTO taptime_server.canonical_decisions
+        (work_event_id, organization_id, actor_user_id, target_type, target_customer_id,
+         decision_type, time_entry_id, engine_version, decision_payload)
+       VALUES ($1, $2, $3, 'customer', $4, 'time_entry_stopped', $5,
+         't013-test', '{}')`,
+      [input.stopEventId, ids.organizationA, input.userId, ids.customerA, input.entryId],
+    );
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+async function insertRevision(input: {
+  timeEntryId: string;
+  userId: string;
+  startedAt: string;
+  stoppedAt: string;
+}): Promise<void> {
+  await installerPool.query(
+    `INSERT INTO taptime_server.time_record_revisions
+      (organization_id, time_record_id, revision_number, canonical_time_entry_id,
+       user_id, target_type, target_customer_id, effective_started_at,
+       effective_stopped_at, base_row_version, actor_user_id, actor_membership_id,
+       reason, previous_revision_number, command_id, request_hash)
+     VALUES ($1, $2, 1, $2, $3, 'customer', $4, $5, $6, 2,
+       $7, $8, 'Synthetic payroll correction', NULL, gen_random_uuid(), repeat('c', 64))`,
+    [ids.organizationA, input.timeEntryId, input.userId, ids.customerA,
+      input.startedAt, input.stoppedAt, ids.adminA, ids.membershipAdminA],
+  );
+}
+
+async function insertRecoveredRevision(input: {
+  timeEntryId: string;
+  userId: string;
+  startedAt: string;
+  stoppedAt: string;
+}): Promise<void> {
+  await installerPool.query(
+    `INSERT INTO taptime_server.time_record_revisions
+      (organization_id, time_record_id, revision_number, canonical_time_entry_id,
+       user_id, target_type, target_customer_id, effective_started_at,
+       effective_stopped_at, base_row_version, actor_user_id, actor_membership_id,
+       reason, previous_revision_number, command_id, request_hash)
+     VALUES ($1, $2, 1, NULL, $3, 'customer', $4, $5, $6, 0,
+       $7, $8, 'Synthetic recovered payroll record', NULL,
+       gen_random_uuid(), repeat('f', 64))`,
+    [ids.organizationA, input.timeEntryId, input.userId, ids.customerA,
+      input.startedAt, input.stoppedAt, ids.adminA, ids.membershipAdminA],
   );
 }
 

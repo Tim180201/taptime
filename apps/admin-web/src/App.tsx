@@ -232,7 +232,7 @@ function Overview({
         <dt>Organisation</dt><dd>{state.projection.organization.name}</dd>
         <dt>Zeitfenster</dt><dd>Fest begrenzt auf die vergangenen 31 Tage</dd>
         <dt>Sitzung</dt><dd>Nur im Arbeitsspeicher · Neuladen meldet ab</dd>
-        <dt>Export</dt><dd>Serverseitig erzeugtes CSV v2 mit Zieltyp und Auslöser</dd>
+        <dt>Export</dt><dd>Vollständiges CSV v3 für die Lohnbuchhaltung</dd>
       </dl>
     </Panel>
   </section>;

@@ -322,7 +322,7 @@ export class AdminWebApiClient implements AdminWebApiPort {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 10_000);
     try {
-      const response = await this.fetchRequest('/v2/time-entries/export', {
+      const response = await this.fetchRequest('/v3/time-entries/export', {
         method: 'POST',
         headers: {
           Accept: 'text/csv', Authorization: `Bearer ${token}`,
@@ -333,7 +333,7 @@ export class AdminWebApiClient implements AdminWebApiPort {
       });
       if (response.status === 401 || response.status === 403) return { status: 'rejected' };
       const disposition = response.headers.get('content-disposition');
-      const match = /^attachment; filename="(taptime-time-entries_v2_[0-9TZ]+_[0-9TZ]+\.csv)"$/.exec(
+      const match = /^attachment; filename="(taptime-time-entries_v3_[0-9TZ]+_[0-9TZ]+\.csv)"$/.exec(
         disposition ?? '',
       );
       if (

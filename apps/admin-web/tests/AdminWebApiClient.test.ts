@@ -537,12 +537,12 @@ describe('AdminWebApiClient', () => {
     )).resolves.toEqual({ status: 'conflict', code: 'time_review_conflict' });
   });
 
-  it('accepts only a bounded attachment response from the generalized CSV v2 route', async () => {
+  it('accepts only a bounded attachment response from the fixed payroll CSV v3 route', async () => {
     const fetchRequest = vi.fn<typeof fetch>(async () => new Response('schema_version\n1\n', {
       status: 200,
       headers: {
         'Content-Type': 'text/csv; charset=utf-8',
-        'Content-Disposition': 'attachment; filename="taptime-time-entries_v2_20260701T000000Z_20260721T000000Z.csv"',
+        'Content-Disposition': 'attachment; filename="taptime-time-entries_v3_20260701T000000Z_20260721T000000Z.csv"',
       },
     }));
     const client = new AdminWebApiClient(fetchRequest);
@@ -551,9 +551,9 @@ describe('AdminWebApiClient', () => {
     );
     expect(result).toMatchObject({
       status: 'succeeded',
-      value: { filename: 'taptime-time-entries_v2_20260701T000000Z_20260721T000000Z.csv' },
+      value: { filename: 'taptime-time-entries_v3_20260701T000000Z_20260721T000000Z.csv' },
     });
-    expect(fetchRequest.mock.calls[0]?.[0]).toBe('/v2/time-entries/export');
+    expect(fetchRequest.mock.calls[0]?.[0]).toBe('/v3/time-entries/export');
   });
 
   it('parses the closed Project projection and exposes active-use conflicts only', async () => {
@@ -608,7 +608,7 @@ describe('AdminWebApiClient', () => {
       status: 200,
       headers: {
         'Content-Type': 'text/csv; charset=utf-8',
-        'Content-Disposition': 'attachment; filename="taptime-time-entries_v2_20260701T000000Z_20260721T000000Z.csv"',
+        'Content-Disposition': 'attachment; filename="taptime-time-entries_v3_20260701T000000Z_20260721T000000Z.csv"',
       },
     });
     const client = new AdminWebApiClient(vi.fn<typeof fetch>(async () => response));

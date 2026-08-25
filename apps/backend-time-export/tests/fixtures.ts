@@ -6,7 +6,7 @@ export const DA2_ISSUER = 'https://synthetic.invalid/auth';
 export const DA2_RUNTIME_LOGIN = 'taptime_da2_export_runtime';
 const DA2_EXPECTED_MIGRATIONS = Object.freeze([
   '001', '002', '003', '004', '005', '006', '007', '008', '009',
-  '010', '011', '012', '013', '014', '015', '016', '017',
+  '010', '011', '012', '013', '014', '015', '016', '017', '018',
 ]);
 
 export const ids = Object.freeze({
@@ -67,7 +67,7 @@ export async function resetMigrateAndPrepare(
   await installerPool.query(`DROP TABLE IF EXISTS ${B3_MIGRATION_TABLE}`);
   const result = await migrate(installerPool);
   if (result.applied.join(',') !== DA2_EXPECTED_MIGRATIONS.join(',')) {
-    throw new Error('DA2 requires a clean migration set 001 through 017');
+    throw new Error('DA2 requires a clean migration set 001 through 018');
   }
   await installerPool.query(`
     DO $login$

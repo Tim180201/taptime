@@ -96,6 +96,7 @@ const ADMIN_CHANGE_MEMBERSHIP_ROLE_PATH = '/v1/administration/memberships/change
 const PASSWORD_RESET_AUDIT_PATH = '/v1/auth/password-reset/audit';
 const ADMIN_TIME_ENTRY_EXPORT_PATH = '/v1/administration/time-entries/export';
 const TIME_ENTRY_EXPORT_V2_PATH = '/v2/time-entries/export';
+const TIME_ENTRY_EXPORT_V3_PATH = '/v3/time-entries/export';
 const ADMIN_TIME_RECORD_QUERY_PATH = '/v1/administration/time-records/query';
 const ADMIN_TIME_RECORD_QUERY_V2_PATH = '/v2/administration/time-records/query';
 const ADMIN_TIME_RECORD_CORRECTION_PATH = '/v1/administration/time-records/correct';
@@ -535,7 +536,20 @@ async function handleRequest(
       options,
       correlationId,
       timeoutMilliseconds,
-      true,
+      2,
+    );
+    return;
+  }
+  if (route === 'time_entry_export_v3') {
+    await handleTimeEntryExport(
+      response,
+      accessToken,
+      body,
+      dependencies,
+      options,
+      correlationId,
+      timeoutMilliseconds,
+      3,
     );
     return;
   }
@@ -1238,14 +1252,17 @@ async function handleTimeEntryExport(
   options: BackendHttpServerOptions,
   correlationId: string,
   timeoutMilliseconds: number,
-  version2 = false,
+  schemaVersion: 1 | 2 | 3 = 1,
 ): Promise<void> {
   const validation = validateTimeEntryExportRequest(body);
   if (validation.status === 'invalid_request') {
     respondError(response, 400, 'invalid_request');
     return;
   }
-  if (version2 && dependencies.timeEntryExporter.exportTimeEntriesV2 === undefined) {
+  if (
+    (schemaVersion === 2 && dependencies.timeEntryExporter.exportTimeEntriesV2 === undefined)
+    || (schemaVersion === 3 && dependencies.timeEntryExporter.exportTimeEntriesV3 === undefined)
+  ) {
     respondError(response, 503, 'service_unavailable');
     return;
   }
@@ -1258,12 +1275,17 @@ async function handleTimeEntryExport(
     });
     const exportCommand = { accessToken, correlationId, request: coordinatorRequest };
     const controls = { deadlineEpochMilliseconds };
-    const result = version2
+    const result = schemaVersion === 3
       ? await withTimeout(
-          dependencies.timeEntryExporter.exportTimeEntriesV2!(exportCommand, controls),
+          dependencies.timeEntryExporter.exportTimeEntriesV3!(exportCommand, controls),
           timeoutMilliseconds,
         )
-      : await withTimeout(
+      : schemaVersion === 2
+        ? await withTimeout(
+            dependencies.timeEntryExporter.exportTimeEntriesV2!(exportCommand, controls),
+            timeoutMilliseconds,
+          )
+        : await withTimeout(
           dependencies.timeEntryExporter.exportTimeEntries(exportCommand, controls),
           timeoutMilliseconds,
         );
@@ -2145,6 +2167,9 @@ function requestRoute(url: string | undefined): Route | null {
   if (url === TIME_ENTRY_EXPORT_V2_PATH) {
     return 'time_entry_export_v2';
   }
+  if (url === TIME_ENTRY_EXPORT_V3_PATH) {
+    return 'time_entry_export_v3';
+  }
   if (url === ADMIN_EMPLOYEE_INVITATIONS_PATH) {
     return 'admin_create_employee_invitation';
   }
@@ -2232,6 +2257,7 @@ function diagnosticCodeForRoute(route: Route | null): BackendApiDiagnostic['code
       return 'administration_failed';
     case 'admin_time_entry_export':
     case 'time_entry_export_v2':
+    case 'time_entry_export_v3':
       return 'time_entry_export_failed';
     case 'admin_time_record_query':
     case 'admin_time_record_query_v2':
@@ -2287,6 +2313,7 @@ function isAdministrationRoute(route: Route): boolean {
     || route === 'admin_setup_projection'
     || route === 'admin_time_entry_export'
     || route === 'time_entry_export_v2'
+    || route === 'time_entry_export_v3'
     || route === 'admin_time_record_query'
     || route === 'admin_time_record_query_v2'
     || route === 'admin_time_record_correction'
@@ -3196,7 +3223,7 @@ function respondCsv(
   if (response.writableEnded || response.destroyed) {
     return;
   }
-  if (!/^taptime-time-entries(?:_v2)?_[0-9TZ]+_[0-9TZ]+\.csv$/.test(filename)) {
+  if (!/^taptime-time-entries(?:_v[23])?_[0-9TZ]+_[0-9TZ]+\.csv$/.test(filename)) {
     respondError(response, 503, 'service_unavailable');
     return;
   }

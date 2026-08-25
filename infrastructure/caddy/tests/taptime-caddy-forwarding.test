@@ -8,6 +8,11 @@ backend_name="${test_id}-backend"
 caddy_name="${test_id}-caddy"
 expected_secret='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
 
+if ! grep -Fq $'\thandle /v3/* {' infrastructure/caddy/Caddyfile; then
+  echo 'production Caddyfile does not proxy /v3/*' >&2
+  exit 1
+fi
+
 cleanup() {
   status=$?
   trap - EXIT
@@ -42,7 +47,7 @@ for _attempt in $(seq 1 30); do
   if first_response="$(curl --fail --silent --show-error \
     --header 'X-Forwarded-For: 203.0.113.10' \
     --header 'X-TapTime-Proxy-Secret: attacker-selected' \
-    "http://127.0.0.1:${host_port}/" 2>/dev/null)"; then
+    "http://127.0.0.1:${host_port}/v3/time-entries/export" 2>/dev/null)"; then
     break
   fi
   sleep 0.2
@@ -54,7 +59,7 @@ fi
 second_response="$(curl --fail --silent --show-error \
   --header 'X-Forwarded-For: 198.51.100.20' \
   --header 'X-TapTime-Proxy-Secret: another-attacker-value' \
-  "http://127.0.0.1:${host_port}/")"
+  "http://127.0.0.1:${host_port}/v3/time-entries/export")"
 
 FIRST_RESPONSE="$first_response" SECOND_RESPONSE="$second_response" \
 EXPECTED_SECRET="$expected_secret" node <<'NODE'
