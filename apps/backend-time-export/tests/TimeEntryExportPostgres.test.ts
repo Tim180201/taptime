@@ -1,17 +1,17 @@
 import { createHash } from 'node:crypto';
 import { Pool, type PoolClient } from 'pg';
 import type { TimeEntryExportRequest } from '@taptime/time-entry-export-contract';
-import { afterAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { TimeEntryExportCoordinator, type TimeEntryExportCoordinatorControls } from '../src/index.js';
 import {
   DA2_RUNTIME_LOGIN,
-  clearDa2SeedData,
   ids,
   insertBulkStoppedEntries,
   resetMigrateAndPrepare,
   runtimeConnectionString,
   seedDa2,
   tokens,
+  truncateDa2DataTables,
   verifier,
 } from './fixtures.js';
 
@@ -24,6 +24,7 @@ const runtimePool = new Pool({
   max: 1,
 });
 const coordinator = new TimeEntryExportCoordinator(runtimePool, verifier);
+let schemaProtectionBaseline: SchemaProtectionSnapshot;
 
 const request: TimeEntryExportRequest = Object.freeze({
   expectedMembershipId: ids.membershipAdminA,
@@ -31,8 +32,13 @@ const request: TimeEntryExportRequest = Object.freeze({
   toExclusive: '2026-08-01T00:00:00.000Z',
 });
 
-beforeEach(async () => {
+beforeAll(async () => {
   await resetMigrateAndPrepare(installerPool, runtimePassword);
+  schemaProtectionBaseline = await readSchemaProtectionSnapshot();
+}, 30_000);
+
+beforeEach(async () => {
+  await truncateDa2DataTables(installerPool);
   await seedDa2(installerPool);
 }, 30_000);
 
@@ -42,7 +48,18 @@ afterAll(async () => {
 });
 
 describe('DA2 PostgreSQL export security and truth', () => {
-  it('exports only the derived tenant snapshot and appends one exact hash-bound audit', async () => {
+  const testCases: Array<{
+    readonly name: string;
+    readonly run: () => void | Promise<void>;
+    readonly timeout?: number;
+  }> = [];
+  const registerExportTest = (
+    name: string,
+    run: () => void | Promise<void>,
+    timeout?: number,
+  ) => testCases.push({ name, run, timeout });
+
+  registerExportTest('exports only the derived tenant snapshot and appends one exact hash-bound audit', async () => {
     const result = await exportAs(tokens.adminA);
     expect(result.status).toBe('succeeded');
     if (result.status !== 'succeeded') return;
@@ -85,7 +102,7 @@ describe('DA2 PostgreSQL export security and truth', () => {
     expect(JSON.stringify(audits.rows[0]!.payload)).not.toContain('Kunde');
   });
 
-  it('returns header-only bytes and a truthful zero-row audit for an empty interval', async () => {
+  registerExportTest('returns header-only bytes and a truthful zero-row audit for an empty interval', async () => {
     const result = await exportAs(tokens.adminA, {
       ...request,
       fromInclusive: '2026-07-02T00:00:00.000Z',
@@ -102,7 +119,7 @@ describe('DA2 PostgreSQL export security and truth', () => {
     expect(audit.rows[0]!.row_count).toBe(0);
   });
 
-  it('rejects a generalized range through CSV v1 and exports exact Project/manual truth in v2', async () => {
+  registerExportTest('rejects a generalized range through CSV v1 and exports exact Project/manual truth in v2', async () => {
     const projectId = '20000000-0000-4000-8000-000000000090';
     const startEventId = '50000000-0000-4000-8000-000000000090';
     const stopEventId = '50000000-0000-4000-8000-000000000091';
@@ -199,7 +216,7 @@ describe('DA2 PostgreSQL export security and truth', () => {
     expect(text).toContain(entryId);
   });
 
-  it('returns one coherent old snapshot when a correction commits after snapshot read, then effective-new', async () => {
+  registerExportTest('returns one coherent old snapshot when a correction commits after snapshot read, then effective-new', async () => {
     const raced = await coordinator.exportTimeEntries(command(tokens.adminA, request), {
       afterSnapshotRead: async () => insertEffectiveRevision(),
     });
@@ -218,7 +235,7 @@ describe('DA2 PostgreSQL export security and truth', () => {
     expect(afterText).not.toContain('"2026-07-21T08:00:00.123456Z"');
   });
 
-  it('distinguishes rejected identity from employee and stale expected Membership authority', async () => {
+  registerExportTest('distinguishes rejected identity from employee and stale expected Membership authority', async () => {
     expect((await exportAs(tokens.rejected)).status).toBe('unauthorized');
     expect((await exportAs(tokens.employeeA, {
       ...request,
@@ -231,7 +248,7 @@ describe('DA2 PostgreSQL export security and truth', () => {
     expect(await exportAuditCount()).toBe(0);
   });
 
-  it('retains stable revoked-employee attribution without granting that employee export authority', async () => {
+  registerExportTest('retains stable revoked-employee attribution without granting that employee export authority', async () => {
     await installerPool.query(
       `UPDATE taptime_server.memberships
        SET revoked_at = transaction_timestamp(), row_version = row_version + 1
@@ -246,7 +263,7 @@ describe('DA2 PostgreSQL export security and truth', () => {
     expect(text).toContain('Jörg Export');
   });
 
-  it('fails the complete export on missing same-Organization/User Membership integrity', async () => {
+  registerExportTest('fails the complete export on missing same-Organization/User Membership integrity', async () => {
     await installerPool.query(`
       ALTER TABLE taptime_server.memberships DISABLE TRIGGER ALL;
       DELETE FROM taptime_server.memberships WHERE id = '${ids.membershipEmployeeA}';
@@ -256,30 +273,41 @@ describe('DA2 PostgreSQL export security and truth', () => {
     expect(await exportAuditCount()).toBe(0);
   });
 
-  it('rolls back without bytes or success audit when audit insertion fails', async () => {
+  registerExportTest('rolls back without bytes or success audit when audit insertion fails', async () => {
     await installerPool.query(
       `REVOKE INSERT ON taptime_server.audit_events
        FROM taptime_time_export_function_owner`,
     );
-    expect((await exportAs(tokens.adminA)).status).toBe('service_unavailable');
-    expect(await exportAuditCount()).toBe(0);
+    try {
+      expect((await exportAs(tokens.adminA)).status).toBe('service_unavailable');
+      expect(await exportAuditCount()).toBe(0);
+    } finally {
+      await installerPool.query(
+        `GRANT INSERT (
+           id, organization_id, actor_user_id, event_type, entity_type,
+           entity_id, occurred_at, correlation_id, payload
+         ) ON taptime_server.audit_events
+         TO taptime_time_export_function_owner`,
+      );
+      expect(await readSchemaProtectionSnapshot()).toEqual(schemaProtectionBaseline);
+    }
   });
 
-  it('fails closed above 10,000 rows without truncation or audit', async () => {
+  registerExportTest('fails closed above 10,000 rows without truncation or audit', async () => {
     await insertBulkStoppedEntries(installerPool, 9_999);
     expect((await exportAs(tokens.adminA)).status).toBe('export_limit_exceeded');
     expect(await exportAuditCount()).toBe(0);
   }, 30_000);
 
-  it('fails closed above 8 MiB without truncation or audit', async () => {
-    await clearDa2SeedData(installerPool);
+  registerExportTest('fails closed above 8 MiB without truncation or audit', async () => {
+    await truncateDa2DataTables(installerPool);
     await seedDa2(installerPool, true);
     await insertBulkStoppedEntries(installerPool, 5_998);
     expect((await exportAs(tokens.adminA)).status).toBe('export_limit_exceeded');
     expect(await exportAuditCount()).toBe(0);
   }, 30_000);
 
-  it('uses one repeatable-read snapshot when a Stop commits after the read', async () => {
+  registerExportTest('uses one repeatable-read snapshot when a Stop commits after the read', async () => {
     const result = await coordinator.exportTimeEntries(
       command(tokens.adminA, request),
       { afterSnapshotRead: () => stopActiveEntryA(installerPool) },
@@ -298,7 +326,7 @@ describe('DA2 PostgreSQL export security and truth', () => {
     expect(secondRow).toContain('"stopped"');
   });
 
-  it('holds current Administrator authority through commit and rejects after revocation wins', async () => {
+  registerExportTest('holds current Administrator authority through commit and rejects after revocation wins', async () => {
     let revocation: Promise<unknown> | undefined;
     const first = await coordinator.exportTimeEntries(
       command(tokens.adminA, request),
@@ -318,7 +346,7 @@ describe('DA2 PostgreSQL export security and truth', () => {
     expect((await exportAs(tokens.adminA)).status).toBe('unauthorized');
   });
 
-  it('does not leak tenant or role context when the one-connection pool is reused', async () => {
+  registerExportTest('does not leak tenant or role context when the one-connection pool is reused', async () => {
     const first = await exportAs(tokens.adminA);
     expect(first.status).toBe('succeeded');
     const second = await exportAs(tokens.adminB, {
@@ -339,7 +367,7 @@ describe('DA2 PostgreSQL export security and truth', () => {
     expect(context.rows[0]).toEqual({ role_name: DA2_RUNTIME_LOGIN, organization_id: '' });
   });
 
-  it('keeps direct role access default-deny and exposes no forbidden tables or writes', async () => {
+  registerExportTest('keeps direct role access default-deny and exposes no forbidden tables or writes', async () => {
     const client = await runtimePool.connect();
     try {
       await client.query('BEGIN');
@@ -386,8 +414,129 @@ describe('DA2 PostgreSQL export security and truth', () => {
         rolsuper: false, rolcreaterole: false, rolbypassrls: false,
       },
     ]);
+    expect(await readSchemaProtectionSnapshot()).toEqual(schemaProtectionBaseline);
   });
+
+  const orderedTestCases = process.env.DA2_TEST_ORDER === 'reverse'
+    ? [...testCases].reverse()
+    : testCases;
+  for (const testCase of orderedTestCases) {
+    it(testCase.name, testCase.run, testCase.timeout);
+  }
 });
+
+interface SchemaProtectionSnapshot {
+  readonly roles: unknown;
+  readonly memberships: unknown;
+  readonly triggers: unknown;
+  readonly policies: unknown;
+  readonly tablePrivileges: unknown;
+  readonly columnPrivileges: unknown;
+  readonly rowSecurity: unknown;
+}
+
+async function readSchemaProtectionSnapshot(): Promise<SchemaProtectionSnapshot> {
+  const result = await installerPool.query<SchemaProtectionSnapshot>(`
+    SELECT
+      (
+        SELECT pg_catalog.jsonb_agg(pg_catalog.to_jsonb(role_state) ORDER BY role_state.rolname)
+        FROM (
+          SELECT rolname, rolcanlogin, rolinherit, rolsuper, rolcreatedb,
+                 rolcreaterole, rolreplication, rolbypassrls
+          FROM pg_catalog.pg_roles
+          WHERE rolname LIKE 'taptime_%'
+        ) AS role_state
+      ) AS roles,
+      (
+        SELECT pg_catalog.jsonb_agg(
+          pg_catalog.to_jsonb(membership_state)
+          ORDER BY membership_state.role_name, membership_state.member_name
+        )
+        FROM (
+          SELECT parent.rolname AS role_name, member.rolname AS member_name,
+                 edge.admin_option, edge.inherit_option, edge.set_option
+          FROM pg_catalog.pg_auth_members AS edge
+          JOIN pg_catalog.pg_roles AS parent ON parent.oid = edge.roleid
+          JOIN pg_catalog.pg_roles AS member ON member.oid = edge.member
+          WHERE parent.rolname LIKE 'taptime_%' OR member.rolname LIKE 'taptime_%'
+        ) AS membership_state
+      ) AS memberships,
+      (
+        SELECT pg_catalog.jsonb_agg(
+          pg_catalog.to_jsonb(trigger_state)
+          ORDER BY trigger_state.table_name, trigger_state.trigger_name
+        )
+        FROM (
+          SELECT relation.relname AS table_name, trigger.tgname AS trigger_name,
+                 trigger.tgenabled AS enabled,
+                 pg_catalog.pg_get_triggerdef(trigger.oid, false) AS definition
+          FROM pg_catalog.pg_trigger AS trigger
+          JOIN pg_catalog.pg_class AS relation ON relation.oid = trigger.tgrelid
+          JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid = relation.relnamespace
+          WHERE namespace.nspname = 'taptime_server' AND NOT trigger.tgisinternal
+        ) AS trigger_state
+      ) AS triggers,
+      (
+        SELECT pg_catalog.jsonb_agg(
+          pg_catalog.to_jsonb(policy_state)
+          ORDER BY policy_state.tablename, policy_state.policyname
+        )
+        FROM (
+          SELECT tablename, policyname, permissive, roles, cmd, qual, with_check
+          FROM pg_catalog.pg_policies
+          WHERE schemaname = 'taptime_server'
+        ) AS policy_state
+      ) AS policies,
+      (
+        SELECT pg_catalog.jsonb_agg(
+          pg_catalog.to_jsonb(table_privilege_state)
+          ORDER BY table_privilege_state.table_name
+        )
+        FROM (
+          SELECT relation.relname AS table_name, relation.relacl::text AS access_control
+          FROM pg_catalog.pg_class AS relation
+          JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid = relation.relnamespace
+          WHERE namespace.nspname = 'taptime_server' AND relation.relkind = 'r'
+        ) AS table_privilege_state
+      ) AS "tablePrivileges",
+      (
+        SELECT pg_catalog.jsonb_agg(
+          pg_catalog.to_jsonb(column_privilege_state)
+          ORDER BY column_privilege_state.table_name, column_privilege_state.column_name
+        )
+        FROM (
+          SELECT relation.relname AS table_name, attribute.attname AS column_name,
+                 attribute.attacl::text AS access_control
+          FROM pg_catalog.pg_attribute AS attribute
+          JOIN pg_catalog.pg_class AS relation ON relation.oid = attribute.attrelid
+          JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid = relation.relnamespace
+          WHERE namespace.nspname = 'taptime_server'
+            AND relation.relkind = 'r'
+            AND attribute.attnum > 0
+            AND NOT attribute.attisdropped
+        ) AS column_privilege_state
+      ) AS "columnPrivileges",
+      (
+        SELECT pg_catalog.jsonb_agg(
+          pg_catalog.to_jsonb(row_security_state)
+          ORDER BY row_security_state.table_name
+        )
+        FROM (
+          SELECT relation.relname AS table_name,
+                 relation.relrowsecurity AS enabled,
+                 relation.relforcerowsecurity AS forced
+          FROM pg_catalog.pg_class AS relation
+          JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid = relation.relnamespace
+          WHERE namespace.nspname = 'taptime_server' AND relation.relkind = 'r'
+        ) AS row_security_state
+      ) AS "rowSecurity"
+  `);
+  const snapshot = result.rows[0];
+  if (snapshot === undefined) {
+    throw new Error('DA2 schema protection snapshot is unavailable');
+  }
+  return snapshot;
+}
 
 function command(accessToken: string, exportRequest: TimeEntryExportRequest) {
   return {

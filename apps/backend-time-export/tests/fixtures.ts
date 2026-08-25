@@ -4,6 +4,10 @@ import type { AccessTokenVerifier, AccessTokenVerificationResult } from '@taptim
 
 export const DA2_ISSUER = 'https://synthetic.invalid/auth';
 export const DA2_RUNTIME_LOGIN = 'taptime_da2_export_runtime';
+const DA2_EXPECTED_MIGRATIONS = Object.freeze([
+  '001', '002', '003', '004', '005', '006', '007', '008', '009',
+  '010', '011', '012', '013', '014', '015', '016', '017',
+]);
 
 export const ids = Object.freeze({
   organizationA: '00000000-0000-4000-8000-000000000101',
@@ -62,7 +66,7 @@ export async function resetMigrateAndPrepare(
   await installerPool.query(`DROP SCHEMA IF EXISTS ${B3_SCHEMA} CASCADE`);
   await installerPool.query(`DROP TABLE IF EXISTS ${B3_MIGRATION_TABLE}`);
   const result = await migrate(installerPool);
-  if (result.applied.join(',') !== '001,002,003,004,005,006,007,008,009,010,011,012,013,014,015,016,017') {
+  if (result.applied.join(',') !== DA2_EXPECTED_MIGRATIONS.join(',')) {
     throw new Error('DA2 requires a clean migration set 001 through 017');
   }
   await installerPool.query(`
@@ -308,10 +312,33 @@ export async function seedDa2(installerPool: Pool, longNames = false): Promise<v
   }
 }
 
-export async function clearDa2SeedData(installerPool: Pool): Promise<void> {
-  await installerPool.query(`
-    TRUNCATE TABLE taptime_server.users, taptime_server.organizations CASCADE
-  `);
+export async function truncateDa2DataTables(installerPool: Pool): Promise<void> {
+  const [migrationSchema, migrationTable] = B3_MIGRATION_TABLE.split('.');
+  if (migrationSchema === undefined || migrationTable === undefined) {
+    throw new Error('DA2 migration ledger must use a schema-qualified table name');
+  }
+  const tables = await installerPool.query<{ qualified_name: string }>(
+    `SELECT pg_catalog.format('%I.%I', schemaname, tablename) AS qualified_name
+     FROM pg_catalog.pg_tables
+     WHERE schemaname = $1
+       AND (schemaname, tablename) <> ($2, $3)
+     ORDER BY tablename`,
+    [B3_SCHEMA, migrationSchema, migrationTable],
+  );
+  if (tables.rowCount === 0) {
+    throw new Error('DA2 data cleanup found no migrated tables');
+  }
+  await installerPool.query(
+    `TRUNCATE TABLE ${tables.rows.map((table) => table.qualified_name).join(', ')}
+     RESTART IDENTITY CASCADE`,
+  );
+  const ledger = await installerPool.query<{ versions: string[] }>(
+    `SELECT pg_catalog.array_agg(version ORDER BY version) AS versions
+     FROM ${B3_MIGRATION_TABLE}`,
+  );
+  if (ledger.rows[0]?.versions.join(',') !== DA2_EXPECTED_MIGRATIONS.join(',')) {
+    throw new Error('DA2 data cleanup changed the migration ledger');
+  }
 }
 
 export async function insertBulkStoppedEntries(

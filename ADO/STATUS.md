@@ -166,11 +166,8 @@ in keinem Plan standen.
   feste Rollenreihenfolge. Im ersten T-012-CI-Lauf kam deshalb `employee` vor `administrator`;
   der grüne Wiederholungslauf behebt diese nichtdeterministische Testannahme nicht.
 - **P2:** Der DA2-8-MiB-Grenztest überschritt nach Migration 017 einmal sein 30-Sekunden-Budget.
-  T-012b entfernt seinen redundanten zweiten Schemaaufbau; die Laufzeit bleibt bei weiteren
-  Migrationen zu beobachten, statt Fehlschläge durch Wiederholung zu akzeptieren.
-- **P3:** `clearDa2SeedData` räumt Testzustand über `TRUNCATE users, organizations CASCADE`
-  auf. Eine künftige zustandstragende Tabelle ohne Fremdschlüssel zu einer dieser Wurzeln würde
-  zwischen Tests unbemerkt lecken; bei Schemaerweiterungen muss diese Annahme geprüft werden.
+  T-012c baut das Schema pro Datei nur einmal auf und leert Daten dynamisch; die Laufzeit des
+  Einfügens und Exportierens bleibt zu beobachten, statt Fehlschläge durch Wiederholung zu akzeptieren.
 - **P2:** `effective_work_duration_seconds_v1` hat noch keinen Aufrufer. Das ist bis T-013
   korrekt; **T-013 muss diese Funktion aufrufen** und darf den Pausenabzug nicht in TypeScript
   nachrechnen, sonst entstehen zwei Wahrheiten.
