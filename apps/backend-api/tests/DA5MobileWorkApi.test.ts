@@ -194,7 +194,10 @@ describe('DA5 Mobile work HTTP boundaries', () => {
       serverTimeEntryId: ids.timeEntry,
     }));
     const origin = await start({
-      manualLifecycleIngestor: { ingestManual: ingestManual as never },
+      manualLifecycleIngestor: {
+        ingestManual: ingestManual as never,
+        ingestManualBreak: vi.fn() as never,
+      },
     });
     const request = {
       expectedMembershipId: ids.membership,
@@ -217,6 +220,49 @@ describe('DA5 Mobile work HTTP boundaries', () => {
       ...request,
       action: 'start',
     }), 400, 'invalid_request');
+  });
+
+  it('accepts one undirected manual pause trigger and rejects Start/Stop intent', async () => {
+    const ingestManualBreak = vi.fn(async () => ({
+      status: 'synchronized' as const,
+      idempotentRetry: false,
+      decision: {
+        status: 'break_started' as const,
+        timeEntryId: ids.timeEntry,
+        breakIntervalId: ids.project,
+      },
+      workEventId: ids.event,
+      receiptId: ids.receipt,
+      serverTimeEntryId: ids.timeEntry,
+    }));
+    const origin = await start({
+      manualLifecycleIngestor: {
+        ingestManual: vi.fn() as never,
+        ingestManualBreak: ingestManualBreak as never,
+      },
+    });
+    const request = {
+      expectedMembershipId: ids.membership,
+      workEvent: { id: ids.event, subject: { type: 'break' } },
+      receipt: { id: ids.receipt, attemptNumber: 1 },
+    };
+
+    const accepted = await post(origin, '/v1/lifecycle-events/manual-break', request);
+
+    expect(accepted.status).toBe(200);
+    expect(ingestManualBreak).toHaveBeenCalledWith({
+      accessToken: 'abc.def.ghi',
+      expectedMembershipId: ids.membership,
+      workEvent: { id: ids.event, subject: { type: 'break' } },
+      receipt: { id: ids.receipt, attemptNumber: 1 },
+    });
+    for (const action of ['start', 'stop']) {
+      await expectError(await post(origin, '/v1/lifecycle-events/manual-break', {
+        ...request,
+        action,
+      }), 400, 'invalid_request');
+    }
+    expect(ingestManualBreak).toHaveBeenCalledOnce();
   });
 });
 

@@ -10,6 +10,10 @@ export type ManualTriggerOutcome =
   | 'time_entry_stopped'
   | 'duplicate_scan_ignored'
   | 'active_entry_for_other_target_rejected'
+  | 'break_started'
+  | 'break_stopped'
+  | 'break_without_active_time_entry_rejected'
+  | 'work_trigger_during_break_rejected'
   | 'escalation_required'
   | 'pending'
   | 'rejected';
@@ -33,6 +37,7 @@ export interface MobileWorkCapability {
   refresh(): Promise<void>;
   loadMoreOwnTime(): Promise<void>;
   triggerManual(target: SafeWorkTarget): Promise<void>;
+  triggerBreak(): Promise<void>;
 }
 
 export interface MobileWorkSessionReader {
@@ -69,4 +74,5 @@ export interface MobileWorkApiPort {
     expectedMembershipId: string,
     target: SafeWorkTarget,
   ): Promise<ManualTriggerResult>;
+  triggerBreak?(expectedMembershipId: string): Promise<ManualTriggerResult>;
 }

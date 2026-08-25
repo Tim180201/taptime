@@ -5,9 +5,13 @@ export function classifyBusinessEngineDecision(decision: BusinessEngineDecision)
   switch (decision.status) {
     case 'time_entry_started':
     case 'time_entry_stopped':
+    case 'break_started':
+    case 'break_stopped':
     case 'duplicate_scan_ignored':
       return null;
     case 'active_entry_for_other_target_rejected':
+    case 'break_without_active_time_entry_rejected':
+    case 'work_trigger_during_break_rejected':
       return 'recoverable';
     case 'escalation_required':
       return 'deferred';

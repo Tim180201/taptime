@@ -217,10 +217,18 @@ function presentOutcome(
       return { title: 'Arbeitszeit gestartet', message: 'Der Server hat den Start bestätigt.', tone: 'success' };
     case 'time_entry_stopped':
       return { title: 'Arbeitszeit gestoppt', message: 'Der Server hat den Stopp bestätigt.', tone: 'success' };
+    case 'break_started':
+      return { title: 'Pause begonnen', message: 'Der Server hat den Pausenbeginn bestätigt. Das Arbeitsziel bleibt aktiv.', tone: 'success' };
+    case 'break_stopped':
+      return { title: 'Pause beendet', message: 'Der Server hat das Pausenende bestätigt.', tone: 'success' };
     case 'duplicate_scan_ignored':
       return { title: 'Doppelter Scan ignoriert', message: 'Deine Arbeitszeit wurde nicht verändert.', tone: 'neutral' };
     case 'active_entry_for_other_target_rejected':
       return { title: 'Andere Arbeitszeit ist aktiv', message: 'Beende zuerst die bereits aktive Arbeitszeit. Es wurde nichts verändert.', tone: 'warning' };
+    case 'break_without_active_time_entry_rejected':
+      return { title: 'Keine Arbeitszeit aktiv', message: 'Eine Pause kann nur innerhalb einer laufenden Arbeitszeit erfasst werden.', tone: 'warning' };
+    case 'work_trigger_during_break_rejected':
+      return { title: 'Pause ist aktiv', message: 'Beende die Pause mit demselben Pausenauslöser. Das Arbeitsziel wurde nicht verändert.', tone: 'warning' };
     case 'escalation_required':
       return { title: 'Prüfung erforderlich', message: 'Der Scan muss geprüft werden. Deine Arbeitszeit wurde nicht stillschweigend verändert.', tone: 'warning' };
     case 'server_review_pending':

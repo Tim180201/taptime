@@ -3,10 +3,13 @@ import type { AccessTokenVerifier } from '@taptime/backend-identity';
 import {
   B3_CONTENT_HASH_ALGORITHM,
   DA5_CONTENT_HASH_VERSION,
+  T012_CONTENT_HASH_VERSION,
+  breakWorkEventContentHashV3,
   workEventContentHashV2,
 } from '@taptime/backend-schema';
 import {
   BusinessEngine,
+  BreakIntervalId,
   CustomerId,
   GeneralWorkTargetId,
   NfcAssignmentId,
@@ -19,9 +22,12 @@ import {
   createTimestamp,
   customerAssignmentTarget,
   generalWorkTarget,
+  isBreakWorkEvent,
   projectWorkTarget,
   type BusinessEngineDecision,
+  type ManualBreakWorkEvent,
   type ManualWorkEvent,
+  type StartedBreakInterval,
   type StartedTimeEntry,
   type WorkEvent,
   type WorkTarget,
@@ -29,13 +35,14 @@ import {
 import type { Pool, PoolClient, QueryResultRow } from 'pg';
 import type {
   LifecycleIngestionResult,
+  ManualBreakLifecycleIngestionCommand,
   ManualLifecycleIngestionCommand,
   PersistedLifecycleDecision,
 } from './types.js';
 
 export const DA5_MANUAL_LIFECYCLE_ROLE = 'taptime_server_lifecycle';
 const IDENTITY_RESOLVER_ROLE = 'taptime_identity_resolver';
-const ENGINE_VERSION = 'taptime-core-0.1.0-f01';
+const ENGINE_VERSION = 'taptime-core-0.1.0-t012';
 const uuidPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
@@ -54,11 +61,22 @@ interface TargetRow extends QueryResultRow {
 
 interface ExistingEventRow extends QueryResultRow {
   readonly content_hash: string;
-  readonly target_type: 'customer' | 'project' | 'general_work';
-  readonly target_customer_id: string;
+  readonly subject_type: 'work' | 'break';
+  readonly target_type: 'customer' | 'project' | 'general_work' | null;
+  readonly target_customer_id: string | null;
   readonly triggered_by_user_id: string;
   readonly occurred_at: Date;
   readonly trigger_type: string;
+}
+
+interface ActiveBreakRow extends QueryResultRow {
+  readonly id: string;
+  readonly organization_id: string;
+  readonly user_id: string;
+  readonly time_entry_id: string;
+  readonly start_work_event_id: string;
+  readonly started_at: Date;
+  readonly started_via: 'nfc' | 'manual';
 }
 
 interface ActiveEntryRow extends QueryResultRow {
@@ -77,8 +95,9 @@ interface PreviousEventRow extends QueryResultRow {
   readonly organization_id: string;
   readonly assignment_id: string | null;
   readonly nfc_tag_id: string | null;
-  readonly target_type: 'customer' | 'project' | 'general_work';
-  readonly target_customer_id: string;
+  readonly subject_type: 'work' | 'break';
+  readonly target_type: 'customer' | 'project' | 'general_work' | null;
+  readonly target_customer_id: string | null;
   readonly triggered_by_user_id: string;
   readonly occurred_at: Date;
   readonly trigger_type: 'nfc' | 'manual';
@@ -91,6 +110,8 @@ interface DecisionRow extends QueryResultRow {
   readonly active_time_entry_id: string | null;
   readonly previous_work_event_id: string | null;
   readonly result_time_entry_id: string | null;
+  readonly break_interval_id: string | null;
+  readonly active_break_interval_id: string | null;
 }
 
 interface ReceiptRow extends QueryResultRow {
@@ -101,8 +122,28 @@ interface ReceiptRow extends QueryResultRow {
   readonly server_time_entry_id: string | null;
 }
 
+type ManualCommand = ManualLifecycleIngestionCommand | ManualBreakLifecycleIngestionCommand;
+type ManualEvent = ManualWorkEvent | ManualBreakWorkEvent;
+
+function isBreakCommand(
+  command: ManualCommand,
+): command is ManualBreakLifecycleIngestionCommand {
+  return 'subject' in command.workEvent && command.workEvent.subject.type === 'break';
+}
+
+function eventTargetType(event: ManualEvent): WorkTarget['targetType'] | null {
+  return isBreakWorkEvent(event) ? null : event.target.targetType;
+}
+
+function eventTargetId(event: ManualEvent): string | null {
+  return isBreakWorkEvent(event) ? null : event.target.targetId;
+}
+
 export class ManualLifecycleIngestionCoordinator {
-  private readonly engine = new BusinessEngine(() => TimeEntryId(randomUUID()));
+  private readonly engine = new BusinessEngine(
+    () => TimeEntryId(randomUUID()),
+    () => BreakIntervalId(randomUUID()),
+  );
 
   constructor(
     private readonly pool: Pool,
@@ -110,6 +151,16 @@ export class ManualLifecycleIngestionCoordinator {
   ) {}
 
   async ingestManual(command: ManualLifecycleIngestionCommand): Promise<LifecycleIngestionResult> {
+    return this.ingest(command);
+  }
+
+  async ingestManualBreak(
+    command: ManualBreakLifecycleIngestionCommand,
+  ): Promise<LifecycleIngestionResult> {
+    return this.ingest(command);
+  }
+
+  private async ingest(command: ManualCommand): Promise<LifecycleIngestionResult> {
     validateCommand(command);
     const verification = await this.accessTokenVerifier.verify(command.accessToken);
     if (verification.status === 'rejected') {
@@ -162,8 +213,10 @@ export class ManualLifecycleIngestionCoordinator {
         return { status: 'conflict', reason: 'receipt_metadata_conflict' };
       }
 
-      const target = await lockActiveTarget(client, actor.organization_id, command.workEvent.target);
-      if (target === null) {
+      const target = isBreakCommand(command)
+        ? null
+        : await lockActiveTarget(client, actor.organization_id, command.workEvent.target);
+      if (!isBreakCommand(command) && target === null) {
         await client.query('ROLLBACK');
         transactionOpen = false;
         return { status: 'deferred', evidenceStored: false, reason: 'configuration_unavailable_or_inactive' };
@@ -176,30 +229,48 @@ export class ManualLifecycleIngestionCoordinator {
         'SELECT transaction_timestamp() AS occurred_at',
       );
       const occurredAt = occurredAtResult.rows[0]!.occurred_at.toISOString();
-      const event: ManualWorkEvent = {
+      const base = {
         id: WorkEventId(command.workEvent.id),
         organizationId: OrganizationId(actor.organization_id),
-        target: targetFromRow(target),
         triggeredBy: UserId(actor.user_id),
         occurredAt: createTimestamp(occurredAt),
-        trigger: { type: 'manual' },
+        trigger: { type: 'manual' as const },
       };
-      const contentHash = workEventContentHashV2({
-        id: event.id,
-        organizationId: event.organizationId,
-        targetType: event.target.targetType,
-        targetId: event.target.targetId,
-        triggeredBy: event.triggeredBy,
-        occurredAt: event.occurredAt,
-        triggerType: 'manual',
-        assignmentId: null,
-        nfcTagId: null,
-      });
+      const event: ManualEvent = isBreakCommand(command)
+        ? { ...base, subject: { type: 'break' } }
+        : {
+            ...base,
+            subject: { type: 'work' },
+            target: targetFromRow(target!),
+          };
+      const contentHash = isBreakWorkEvent(event)
+        ? breakWorkEventContentHashV3({
+            id: event.id,
+            organizationId: event.organizationId,
+            triggeredBy: event.triggeredBy,
+            occurredAt: event.occurredAt,
+            triggerType: 'manual',
+            assignmentId: null,
+            nfcTagId: null,
+          })
+        : workEventContentHashV2({
+            id: event.id,
+            organizationId: event.organizationId,
+            targetType: event.target.targetType,
+            targetId: event.target.targetId,
+            triggeredBy: event.triggeredBy,
+            occurredAt: event.occurredAt,
+            triggerType: 'manual',
+            assignmentId: null,
+            nfcTagId: null,
+          });
 
       const active = await findActiveEntry(client, actor);
+      const activeBreak = await findActiveBreak(client, actor, active);
       const previous = await findPreviousEvent(client, event);
       const decision = this.engine.evaluate(event, {
         activeTimeEntryForUser: active,
+        activeBreakIntervalForUser: activeBreak,
         previousAcceptedWorkEventForUserAndTarget: previous,
       });
 
@@ -235,12 +306,14 @@ export class ManualLifecycleIngestionCoordinator {
   }
 }
 
-function validateCommand(command: ManualLifecycleIngestionCommand): void {
+function validateCommand(command: ManualCommand): void {
   if (
     !uuidPattern.test(command.expectedMembershipId)
     || !uuidPattern.test(command.workEvent.id)
-    || !uuidPattern.test(command.workEvent.target.targetId)
-    || !['customer', 'project', 'general_work'].includes(command.workEvent.target.targetType)
+    || (!isBreakCommand(command) && (
+      !uuidPattern.test(command.workEvent.target.targetId)
+      || !['customer', 'project', 'general_work'].includes(command.workEvent.target.targetType)
+    ))
     || !uuidPattern.test(command.receipt.id)
     || command.receipt.attemptNumber !== 1
   ) {
@@ -297,10 +370,10 @@ function targetFromRow(row: TargetRow): WorkTarget {
 async function findExistingEvent(
   client: PoolClient,
   actor: ActorRow,
-  command: ManualLifecycleIngestionCommand,
+  command: ManualCommand,
 ): Promise<ExistingEventRow | null> {
   const result = await client.query<ExistingEventRow>(
-    `SELECT content_hash, target_type, target_customer_id, triggered_by_user_id,
+    `SELECT content_hash, subject_type, target_type, target_customer_id, triggered_by_user_id,
             occurred_at, trigger_type
      FROM taptime_server.work_events
      WHERE organization_id = $1::uuid AND id = $2::uuid`,
@@ -312,32 +385,46 @@ async function findExistingEvent(
 async function exactReplay(
   client: PoolClient,
   actor: ActorRow,
-  command: ManualLifecycleIngestionCommand,
+  command: ManualCommand,
   existing: ExistingEventRow,
 ): Promise<LifecycleIngestionResult> {
-  const expectedHash = workEventContentHashV2({
-    id: command.workEvent.id,
-    organizationId: actor.organization_id,
-    targetType: command.workEvent.target.targetType,
-    targetId: command.workEvent.target.targetId,
-    triggeredBy: actor.user_id,
-    occurredAt: existing.occurred_at.toISOString(),
-    triggerType: 'manual',
-    assignmentId: null,
-    nfcTagId: null,
-  });
+  const expectedHash = isBreakCommand(command)
+    ? breakWorkEventContentHashV3({
+        id: command.workEvent.id,
+        organizationId: actor.organization_id,
+        triggeredBy: actor.user_id,
+        occurredAt: existing.occurred_at.toISOString(),
+        triggerType: 'manual',
+        assignmentId: null,
+        nfcTagId: null,
+      })
+    : workEventContentHashV2({
+        id: command.workEvent.id,
+        organizationId: actor.organization_id,
+        targetType: command.workEvent.target.targetType,
+        targetId: command.workEvent.target.targetId,
+        triggeredBy: actor.user_id,
+        occurredAt: existing.occurred_at.toISOString(),
+        triggerType: 'manual',
+        assignmentId: null,
+        nfcTagId: null,
+      });
   if (
     existing.trigger_type !== 'manual'
     || existing.triggered_by_user_id !== actor.user_id
-    || existing.target_type !== command.workEvent.target.targetType
-    || existing.target_customer_id !== command.workEvent.target.targetId
+    || existing.subject_type !== (isBreakCommand(command) ? 'break' : 'work')
+    || (!isBreakCommand(command) && (
+      existing.target_type !== command.workEvent.target.targetType
+      || existing.target_customer_id !== command.workEvent.target.targetId
+    ))
     || existing.content_hash.trim() !== expectedHash
   ) {
     return { status: 'conflict', reason: 'work_event_content_conflict' };
   }
   const decisions = await client.query<DecisionRow>(
     `SELECT decision_type, reason, time_entry_id, active_time_entry_id,
-            previous_work_event_id, result_time_entry_id
+            previous_work_event_id, result_time_entry_id, break_interval_id,
+            active_break_interval_id
      FROM taptime_server.canonical_decisions
      WHERE organization_id = $1::uuid AND actor_user_id = $2::uuid
        AND work_event_id = $3::uuid`,
@@ -407,12 +494,41 @@ async function findActiveEntry(
   };
 }
 
+async function findActiveBreak(
+  client: PoolClient,
+  actor: ActorRow,
+  activeEntry: StartedTimeEntry | null,
+): Promise<StartedBreakInterval | null> {
+  if (activeEntry === null) return null;
+  const result = await client.query<ActiveBreakRow>(
+    `SELECT id, organization_id, user_id, time_entry_id, start_work_event_id,
+            started_at, started_via
+     FROM taptime_server.break_intervals
+     WHERE organization_id = $1::uuid AND user_id = $2::uuid
+       AND time_entry_id = $3::uuid AND status = 'started'
+     LIMIT 1 FOR UPDATE`,
+    [actor.organization_id, actor.user_id, activeEntry.id],
+  );
+  const row = result.rows[0];
+  return row === undefined ? null : {
+    id: BreakIntervalId(row.id),
+    organizationId: OrganizationId(row.organization_id),
+    userId: UserId(row.user_id),
+    timeEntryId: TimeEntryId(row.time_entry_id),
+    status: 'started',
+    startedAt: createTimestamp(row.started_at.toISOString()),
+    startedByWorkEventId: WorkEventId(row.start_work_event_id),
+    startedVia: row.started_via,
+  };
+}
+
 async function findPreviousEvent(
   client: PoolClient,
-  event: ManualWorkEvent,
+  event: ManualEvent,
 ): Promise<WorkEvent | null> {
   const result = await client.query<PreviousEventRow>(
     `SELECT event.id, event.organization_id, event.assignment_id, event.nfc_tag_id,
+            event.subject_type,
             event.target_type, event.target_customer_id, event.triggered_by_user_id,
             event.occurred_at, event.trigger_type
      FROM taptime_server.work_events AS event
@@ -422,33 +538,64 @@ async function findPreviousEvent(
       AND decision.work_event_id = event.id
      WHERE event.organization_id = $1::uuid
        AND event.triggered_by_user_id = $2::uuid
-       AND event.target_type = $3
-       AND event.target_customer_id = $4::uuid
+       AND event.subject_type = $3
+       AND ($3 = 'break' OR (
+         event.target_type = $4 AND event.target_customer_id = $5::uuid
+       ))
      ORDER BY event.occurred_at DESC, event.received_at DESC, event.id DESC
      LIMIT 1`,
-    [event.organizationId, event.triggeredBy, event.target.targetType, event.target.targetId],
+    [
+      event.organizationId,
+      event.triggeredBy,
+      isBreakWorkEvent(event) ? 'break' : 'work',
+      eventTargetType(event),
+      eventTargetId(event),
+    ],
   );
   const row = result.rows[0];
   if (row === undefined) return null;
   const common = {
     id: WorkEventId(row.id),
     organizationId: OrganizationId(row.organization_id),
+    triggeredBy: UserId(row.triggered_by_user_id),
+    occurredAt: createTimestamp(row.occurred_at.toISOString()),
+  };
+  if (row.subject_type === 'break') {
+    if (row.trigger_type === 'manual') {
+      return { ...common, subject: { type: 'break' }, trigger: { type: 'manual' } };
+    }
+    if (row.assignment_id === null || row.nfc_tag_id === null) {
+      throw new Error('NFC Break WorkEvent is missing immutable trigger evidence');
+    }
+    const assignmentId = NfcAssignmentId(row.assignment_id);
+    const nfcTagId = NfcTagId(row.nfc_tag_id);
+    return {
+      ...common,
+      subject: { type: 'break' },
+      assignmentId,
+      nfcTagId,
+      trigger: { type: 'nfc', assignmentId, nfcTagId },
+    };
+  }
+  if (row.target_type === null || row.target_customer_id === null) {
+    throw new Error('Work WorkEvent is missing its target');
+  }
+  const workCommon = {
+    ...common,
     target: targetFromRow({
       target_type: row.target_type,
       target_id: row.target_customer_id,
       active: true,
     }),
-    triggeredBy: UserId(row.triggered_by_user_id),
-    occurredAt: createTimestamp(row.occurred_at.toISOString()),
   };
   if (row.trigger_type === 'manual') {
-    return { ...common, trigger: { type: 'manual' } };
+    return { ...workCommon, trigger: { type: 'manual' } };
   }
   if (row.assignment_id === null || row.nfc_tag_id === null) {
     throw new Error('NFC WorkEvent is missing immutable trigger evidence');
   }
   return {
-    ...common,
+    ...workCommon,
     assignmentId: NfcAssignmentId(row.assignment_id),
     nfcTagId: NfcTagId(row.nfc_tag_id),
   };
@@ -456,27 +603,28 @@ async function findPreviousEvent(
 
 async function insertEvent(
   client: PoolClient,
-  event: ManualWorkEvent,
+  event: ManualEvent,
   contentHash: string,
 ): Promise<void> {
   const result = await client.query(
     `INSERT INTO taptime_server.work_events (
        id, organization_id, assignment_id, nfc_tag_id, target_type, target_customer_id,
        triggered_by_user_id, occurred_at, content_hash, content_hash_algorithm,
-       content_hash_version, trigger_type
+       content_hash_version, trigger_type, subject_type
      ) VALUES ($1::uuid, $2::uuid, NULL, NULL, $3, $4::uuid, $5::uuid,
-       $6::timestamptz, $7, $8, $9, 'manual')
+       $6::timestamptz, $7, $8, $9, 'manual', $10)
      ON CONFLICT DO NOTHING`,
     [
       event.id,
       event.organizationId,
-      event.target.targetType,
-      event.target.targetId,
+      eventTargetType(event),
+      eventTargetId(event),
       event.triggeredBy,
       event.occurredAt,
       contentHash,
       B3_CONTENT_HASH_ALGORITHM,
-      DA5_CONTENT_HASH_VERSION,
+      isBreakWorkEvent(event) ? T012_CONTENT_HASH_VERSION : DA5_CONTENT_HASH_VERSION,
+      isBreakWorkEvent(event) ? 'break' : 'work',
     ],
   );
   if (result.rowCount !== 1) throw new Error('Manual WorkEvent conflict');
@@ -522,12 +670,47 @@ async function persistTimeEntry(
       ],
     );
     if (result.rowCount !== 1) throw new Error('Manual Stop did not map to active TimeEntry');
+  } else if (decision.status === 'break_started') {
+    const interval = decision.breakInterval;
+    await client.query(
+      `INSERT INTO taptime_server.break_intervals (
+         id, organization_id, user_id, time_entry_id, status,
+         start_work_event_id, started_at, started_via
+       ) VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, 'started',
+         $5::uuid, $6::timestamptz, 'manual')`,
+      [
+        interval.id,
+        interval.organizationId,
+        interval.userId,
+        interval.timeEntryId,
+        interval.startedByWorkEventId,
+        interval.startedAt,
+      ],
+    );
+  } else if (decision.status === 'break_stopped') {
+    const interval = decision.breakInterval;
+    const result = await client.query(
+      `UPDATE taptime_server.break_intervals
+       SET status = 'stopped', stop_work_event_id = $4::uuid,
+           stopped_at = $5::timestamptz, stopped_via = 'manual',
+           row_version = row_version + 1
+       WHERE organization_id = $1::uuid AND user_id = $2::uuid
+         AND id = $3::uuid AND status = 'started'`,
+      [
+        interval.organizationId,
+        interval.userId,
+        interval.id,
+        interval.stoppedByWorkEventId,
+        interval.stoppedAt,
+      ],
+    );
+    if (result.rowCount !== 1) throw new Error('Manual Break Stop did not map to active interval');
   }
 }
 
 async function insertDecision(
   client: PoolClient,
-  event: ManualWorkEvent,
+  event: ManualEvent,
   decision: BusinessEngineDecision,
 ): Promise<void> {
   const values = decisionValues(decision);
@@ -535,15 +718,16 @@ async function insertDecision(
     `INSERT INTO taptime_server.canonical_decisions (
        work_event_id, organization_id, actor_user_id, target_type, target_customer_id,
        decision_type, reason, time_entry_id, active_time_entry_id, previous_work_event_id,
-       engine_version, decision_payload
+       engine_version, decision_payload, subject_type, break_interval_id,
+       active_break_interval_id
      ) VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5::uuid, $6, $7,
-       $8::uuid, $9::uuid, $10::uuid, $11, $12::jsonb)`,
+       $8::uuid, $9::uuid, $10::uuid, $11, $12::jsonb, $13, $14::uuid, $15::uuid)`,
     [
       event.id,
       event.organizationId,
       event.triggeredBy,
-      event.target.targetType,
-      event.target.targetId,
+      eventTargetType(event),
+      eventTargetId(event),
       decision.status,
       values.reason,
       values.timeEntryId,
@@ -551,6 +735,9 @@ async function insertDecision(
       values.previousWorkEventId,
       ENGINE_VERSION,
       JSON.stringify({ status: decision.status, triggerType: 'manual' }),
+      isBreakWorkEvent(event) ? 'break' : 'work',
+      values.breakIntervalId,
+      values.activeBreakIntervalId,
     ],
   );
 }
@@ -558,25 +745,27 @@ async function insertDecision(
 async function insertReceipt(
   client: PoolClient,
   actor: ActorRow,
-  command: ManualLifecycleIngestionCommand,
-  event: ManualWorkEvent,
+  command: ManualCommand,
+  event: ManualEvent,
   decision: BusinessEngineDecision,
 ): Promise<void> {
   const persisted = persistedDecision(decision);
   await client.query(
     `INSERT INTO taptime_server.sync_receipts (
        id, organization_id, user_id, target_type, target_customer_id, work_event_id,
-       attempt_number, status, server_decision_work_event_id, server_time_entry_id
+       attempt_number, status, server_decision_work_event_id, server_time_entry_id,
+       subject_type
      ) VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5::uuid, $6::uuid, 1,
-       'synchronized', $6::uuid, $7::uuid)`,
+       'synchronized', $6::uuid, $7::uuid, $8)`,
     [
       command.receipt.id,
       actor.organization_id,
       actor.user_id,
-      event.target.targetType,
-      event.target.targetId,
+      eventTargetType(event),
+      eventTargetId(event),
       event.id,
       resultTimeEntryId(persisted),
+      isBreakWorkEvent(event) ? 'break' : 'work',
     ],
   );
 }
@@ -584,8 +773,8 @@ async function insertReceipt(
 async function insertAudit(
   client: PoolClient,
   actor: ActorRow,
-  command: ManualLifecycleIngestionCommand,
-  event: ManualWorkEvent,
+  command: ManualCommand,
+  event: ManualEvent,
   decision: BusinessEngineDecision,
 ): Promise<void> {
   await client.query(
@@ -606,7 +795,7 @@ async function insertAudit(
       JSON.stringify({
         status: decision.status,
         triggerType: 'manual',
-        targetType: event.target.targetType,
+        subjectType: isBreakWorkEvent(event) ? 'break' : 'work',
       }),
     ],
   );
@@ -617,6 +806,8 @@ function decisionValues(decision: BusinessEngineDecision): {
   timeEntryId: string | null;
   activeTimeEntryId: string | null;
   previousWorkEventId: string | null;
+  breakIntervalId: string | null;
+  activeBreakIntervalId: string | null;
 } {
   switch (decision.status) {
     case 'time_entry_started':
@@ -626,6 +817,36 @@ function decisionValues(decision: BusinessEngineDecision): {
         timeEntryId: decision.timeEntry.id,
         activeTimeEntryId: null,
         previousWorkEventId: null,
+        breakIntervalId: null,
+        activeBreakIntervalId: null,
+      };
+    case 'break_started':
+    case 'break_stopped':
+      return {
+        reason: null,
+        timeEntryId: decision.timeEntry.id,
+        activeTimeEntryId: null,
+        previousWorkEventId: null,
+        breakIntervalId: decision.breakInterval.id,
+        activeBreakIntervalId: null,
+      };
+    case 'break_without_active_time_entry_rejected':
+      return {
+        reason: null,
+        timeEntryId: null,
+        activeTimeEntryId: null,
+        previousWorkEventId: null,
+        breakIntervalId: null,
+        activeBreakIntervalId: null,
+      };
+    case 'work_trigger_during_break_rejected':
+      return {
+        reason: null,
+        timeEntryId: null,
+        activeTimeEntryId: decision.activeTimeEntry.id,
+        previousWorkEventId: null,
+        breakIntervalId: null,
+        activeBreakIntervalId: decision.activeBreakInterval.id,
       };
     case 'duplicate_scan_ignored':
       return {
@@ -633,6 +854,8 @@ function decisionValues(decision: BusinessEngineDecision): {
         timeEntryId: null,
         activeTimeEntryId: null,
         previousWorkEventId: decision.previousWorkEvent.id,
+        breakIntervalId: null,
+        activeBreakIntervalId: null,
       };
     case 'active_entry_for_other_target_rejected':
       return {
@@ -640,6 +863,8 @@ function decisionValues(decision: BusinessEngineDecision): {
         timeEntryId: null,
         activeTimeEntryId: decision.activeTimeEntry.id,
         previousWorkEventId: null,
+        breakIntervalId: null,
+        activeBreakIntervalId: null,
       };
     case 'escalation_required':
       return {
@@ -647,6 +872,8 @@ function decisionValues(decision: BusinessEngineDecision): {
         timeEntryId: null,
         activeTimeEntryId: null,
         previousWorkEventId: null,
+        breakIntervalId: null,
+        activeBreakIntervalId: null,
       };
   }
 }
@@ -656,6 +883,21 @@ function persistedDecision(decision: BusinessEngineDecision): PersistedLifecycle
     case 'time_entry_started':
     case 'time_entry_stopped':
       return { status: decision.status, timeEntryId: decision.timeEntry.id };
+    case 'break_started':
+    case 'break_stopped':
+      return {
+        status: decision.status,
+        timeEntryId: decision.timeEntry.id,
+        breakIntervalId: decision.breakInterval.id,
+      };
+    case 'break_without_active_time_entry_rejected':
+      return { status: decision.status };
+    case 'work_trigger_during_break_rejected':
+      return {
+        status: decision.status,
+        activeTimeEntryId: decision.activeTimeEntry.id,
+        activeBreakIntervalId: decision.activeBreakInterval.id,
+      };
     case 'duplicate_scan_ignored':
       return {
         status: decision.status,
@@ -683,6 +925,27 @@ function persistedDecisionFromRow(row: DecisionRow): PersistedLifecycleDecision 
         status: row.decision_type,
         previousWorkEventId: WorkEventId(row.previous_work_event_id),
       };
+    case 'break_started':
+    case 'break_stopped':
+      if (row.time_entry_id === null || row.break_interval_id === null) {
+        throw new Error('Break Decision lacks TimeEntry or interval');
+      }
+      return {
+        status: row.decision_type,
+        timeEntryId: TimeEntryId(row.time_entry_id),
+        breakIntervalId: row.break_interval_id,
+      };
+    case 'break_without_active_time_entry_rejected':
+      return { status: row.decision_type };
+    case 'work_trigger_during_break_rejected':
+      if (row.active_time_entry_id === null || row.active_break_interval_id === null) {
+        throw new Error('Work-during-break rejection lacks active state');
+      }
+      return {
+        status: row.decision_type,
+        activeTimeEntryId: TimeEntryId(row.active_time_entry_id),
+        activeBreakIntervalId: row.active_break_interval_id,
+      };
     case 'active_entry_for_other_target_rejected':
       if (row.active_time_entry_id === null) throw new Error('Rejection lacks active TimeEntry');
       return {
@@ -702,8 +965,10 @@ function persistedDecisionFromRow(row: DecisionRow): PersistedLifecycleDecision 
 
 function resultTimeEntryId(decision: PersistedLifecycleDecision): TimeEntryId | null {
   return decision.status === 'time_entry_started' || decision.status === 'time_entry_stopped'
+    || decision.status === 'break_started' || decision.status === 'break_stopped'
     ? decision.timeEntryId
     : decision.status === 'active_entry_for_other_target_rejected'
+      || decision.status === 'work_trigger_during_break_rejected'
       ? decision.activeTimeEntryId
       : null;
 }

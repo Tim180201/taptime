@@ -86,6 +86,18 @@ export interface ManualLifecycleRequest {
   };
 }
 
+export interface ManualBreakLifecycleRequest {
+  readonly expectedMembershipId: string;
+  readonly workEvent: {
+    readonly id: string;
+    readonly subject: { readonly type: 'break' };
+  };
+  readonly receipt: {
+    readonly id: string;
+    readonly attemptNumber: 1;
+  };
+}
+
 const uuidPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const asciiPattern = /^[\x20-\x7e]*$/;
@@ -200,6 +212,26 @@ export function validateManualLifecycleRequest(value: unknown): value is ManualL
     && isCanonicalUuid(value.workEvent.id)
     && isWorkTargetType(value.workEvent.target.targetType)
     && isCanonicalUuid(value.workEvent.target.targetId)
+    && isCanonicalUuid(value.receipt.id)
+    && value.receipt.attemptNumber === 1;
+}
+
+export function validateManualBreakLifecycleRequest(
+  value: unknown,
+): value is ManualBreakLifecycleRequest {
+  if (
+    !isObject(value)
+    || !exactKeys(value, ['expectedMembershipId', 'workEvent', 'receipt'])
+    || !isObject(value.workEvent)
+    || !exactKeys(value.workEvent, ['id', 'subject'])
+    || !isObject(value.workEvent.subject)
+    || !exactKeys(value.workEvent.subject, ['type'])
+    || value.workEvent.subject.type !== 'break'
+    || !isObject(value.receipt)
+    || !exactKeys(value.receipt, ['id', 'attemptNumber'])
+  ) return false;
+  return isCanonicalUuid(value.expectedMembershipId)
+    && isCanonicalUuid(value.workEvent.id)
     && isCanonicalUuid(value.receipt.id)
     && value.receipt.attemptNumber === 1;
 }

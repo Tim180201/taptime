@@ -299,6 +299,88 @@ type CanonicalDecisionType =
   | 'active_entry_for_other_target_rejected'
   | 'escalation_required';
 
+async function insertManualBreakWorkEvent(
+  client: PoolClient,
+  eventId: string,
+  occurredAt: string,
+): Promise<void> {
+  await query(client, `INSERT INTO ${B3_SCHEMA}.work_events
+    (id, organization_id, assignment_id, nfc_tag_id, target_type, target_customer_id,
+     triggered_by_user_id, occurred_at, content_hash, content_hash_algorithm,
+     content_hash_version, trigger_type, subject_type)
+   VALUES ($1, $2, NULL, NULL, NULL, NULL, $3, $4,
+     repeat('d', 64), 'sha256', 3, 'manual', 'break')`, [
+    eventId,
+    ids.organizationA,
+    ids.employeeA,
+    occurredAt,
+  ]);
+}
+
+async function persistManualBreak(input: {
+  intervalId: string;
+  startEventId: string;
+  stopEventId: string;
+  startedAt: string;
+  stoppedAt: string;
+}): Promise<void> {
+  await withRequestTransaction(
+    lifecyclePool,
+    B3_LIFECYCLE_ROLE,
+    employeeAContext,
+    async (client) => {
+      await insertManualBreakWorkEvent(client, input.startEventId, input.startedAt);
+      await query(client, `INSERT INTO ${B3_SCHEMA}.break_intervals
+        (id, organization_id, user_id, time_entry_id, status, start_work_event_id,
+         started_at, started_via)
+       VALUES ($1, $2, $3, $4, 'started', $5, $6, 'manual')`, [
+        input.intervalId,
+        ids.organizationA,
+        ids.employeeA,
+        ids.timeEntryA,
+        input.startEventId,
+        input.startedAt,
+      ]);
+      await query(client, `INSERT INTO ${B3_SCHEMA}.canonical_decisions
+        (work_event_id, organization_id, actor_user_id, target_type, target_customer_id,
+         subject_type, decision_type, time_entry_id, break_interval_id,
+         engine_version, decision_payload)
+       VALUES ($1, $2, $3, NULL, NULL, 'break', 'break_started', $4, $5,
+         'core-test', '{"status":"break_started"}')`, [
+        input.startEventId,
+        ids.organizationA,
+        ids.employeeA,
+        ids.timeEntryA,
+        input.intervalId,
+      ]);
+    },
+  );
+  await withRequestTransaction(
+    lifecyclePool,
+    B3_LIFECYCLE_ROLE,
+    employeeAContext,
+    async (client) => {
+      await insertManualBreakWorkEvent(client, input.stopEventId, input.stoppedAt);
+      await query(client, `UPDATE ${B3_SCHEMA}.break_intervals
+        SET status = 'stopped', stop_work_event_id = $1, stopped_at = $2,
+          stopped_via = 'manual', row_version = row_version + 1
+        WHERE id = $3`, [input.stopEventId, input.stoppedAt, input.intervalId]);
+      await query(client, `INSERT INTO ${B3_SCHEMA}.canonical_decisions
+        (work_event_id, organization_id, actor_user_id, target_type, target_customer_id,
+         subject_type, decision_type, time_entry_id, break_interval_id,
+         engine_version, decision_payload)
+       VALUES ($1, $2, $3, NULL, NULL, 'break', 'break_stopped', $4, $5,
+         'core-test', '{"status":"break_stopped"}')`, [
+        input.stopEventId,
+        ids.organizationA,
+        ids.employeeA,
+        ids.timeEntryA,
+        input.intervalId,
+      ]);
+    },
+  );
+}
+
 async function insertLifecycleDecision(input: {
   eventId: string;
   decisionType: CanonicalDecisionType;
@@ -450,13 +532,13 @@ afterAll(async () => {
 });
 
 describe('B3 deterministic migration system', () => {
-  it('applies exactly sixteen sorted versioned migrations', async () => {
+  it('applies exactly seventeen sorted versioned migrations', async () => {
     const rows = await installerPool.query<{ version: string; checksum: string }>(
       `SELECT version, checksum FROM ${B3_MIGRATION_TABLE} ORDER BY version`,
     );
 
     expect(rows.rows.map((row) => row.version)).toEqual([
-      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016',
+      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017',
     ]);
     expect(rows.rows.every((row) => /^[0-9a-f]{64}$/.test(row.checksum))).toBe(true);
   });
@@ -465,7 +547,7 @@ describe('B3 deterministic migration system', () => {
     await expect(migrate(installerPool)).resolves.toEqual({
       applied: [],
       alreadyApplied: [
-        '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016',
+        '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017',
       ],
     });
   });
@@ -749,15 +831,17 @@ describe('B3 deterministic migration system', () => {
     }
   }, 30_000);
 
-  it('contains exactly the thirty approved tables and two effective-record views', async () => {
+  it('contains exactly the thirty-two approved tables and two effective-record views', async () => {
     const result = await installerPool.query<{ table_name: string }>(
       `SELECT table_name FROM information_schema.tables WHERE table_schema = $1 ORDER BY table_name`,
       [B3_SCHEMA],
     );
     expect(result.rows.map((row) => row.table_name)).toEqual([
+      'admin_break_tag_command_receipts',
       'admin_setup_command_receipts',
       'audit_events',
       'bootstrap_receipts',
+      'break_intervals',
       'canonical_decisions',
       'customers',
       'effective_time_records_v1',
@@ -800,7 +884,7 @@ describe('B3 deterministic migration system', () => {
         AND relation.relrowsecurity
         AND relation.relforcerowsecurity
     `);
-    expect(result.rows[0]?.count).toBe('30');
+    expect(result.rows[0]?.count).toBe('32');
   });
 });
 
@@ -3397,6 +3481,110 @@ describe('B3 append-only SyncReceipt attempt evidence', () => {
       [ids.receiptA],
     );
     expect(preserved.rows[0]).toEqual({ status: 'synchronized', attempt_number: 1 });
+  });
+});
+
+describe('T-012 BreakInterval integrity, duration and tenant isolation', () => {
+  it('rejects a BreakInterval that has no matching canonical Engine Decision', async () => {
+    const eventId = '50000000-0000-4000-8000-000000000089';
+    const intervalId = '68000000-0000-4000-8000-000000000089';
+    const code = await postgresErrorCode(withRequestTransaction(
+      lifecyclePool,
+      B3_LIFECYCLE_ROLE,
+      employeeAContext,
+      async (client) => {
+        await insertManualBreakWorkEvent(client, eventId, '2026-07-13T08:30:00Z');
+        await query(client, `INSERT INTO ${B3_SCHEMA}.break_intervals
+          (id, organization_id, user_id, time_entry_id, status, start_work_event_id,
+           started_at, started_via)
+         VALUES ($1, $2, $3, $4, 'started', $5, '2026-07-13T08:30:00Z', 'manual')`, [
+          intervalId,
+          ids.organizationA,
+          ids.employeeA,
+          ids.timeEntryA,
+          eventId,
+        ]);
+      },
+    ));
+    const persisted = await installerPool.query(`
+      SELECT id FROM ${B3_SCHEMA}.break_intervals WHERE id = $1
+    `, [intervalId]);
+    expect(code).toBe('23503');
+    expect(persisted.rows).toEqual([]);
+  });
+
+  it('subtracts multiple persisted intervals and retains manual boundary provenance', async () => {
+    await persistManualBreak({
+      intervalId: '68000000-0000-4000-8000-000000000081',
+      startEventId: '50000000-0000-4000-8000-000000000081',
+      stopEventId: '50000000-0000-4000-8000-000000000082',
+      startedAt: '2026-07-13T08:30:00Z',
+      stoppedAt: '2026-07-13T08:45:00Z',
+    });
+    await persistManualBreak({
+      intervalId: '68000000-0000-4000-8000-000000000083',
+      startEventId: '50000000-0000-4000-8000-000000000083',
+      stopEventId: '50000000-0000-4000-8000-000000000084',
+      startedAt: '2026-07-13T09:00:00Z',
+      stoppedAt: '2026-07-13T09:20:00Z',
+    });
+    const stopEventId = '50000000-0000-4000-8000-000000000085';
+    await insertLifecycleWorkEvent(stopEventId, employeeAContext, undefined, '2026-07-13T10:00:00Z');
+    await persistStoppedTimeEntry({
+      eventId: stopEventId,
+      timeEntryId: ids.timeEntryA,
+      stoppedAt: '2026-07-13T10:00:00Z',
+    });
+
+    const duration = await employeeQuery<{ seconds: string }>(employeeAContext, `
+      SELECT ${B3_SCHEMA}.effective_work_duration_seconds_v1($1)::text AS seconds
+    `, [ids.timeEntryA]);
+    const intervals = await installerPool.query<{
+      started_via: string;
+      stopped_via: string;
+      seconds: string;
+    }>(`
+      SELECT started_via, stopped_via,
+        extract(epoch FROM (stopped_at - started_at))::bigint::text AS seconds
+      FROM ${B3_SCHEMA}.break_intervals
+      WHERE time_entry_id = $1 ORDER BY started_at
+    `, [ids.timeEntryA]);
+    expect(duration.rows).toEqual([{ seconds: '5100' }]);
+    expect(intervals.rows).toEqual([
+      { started_via: 'manual', stopped_via: 'manual', seconds: '900' },
+      { started_via: 'manual', stopped_via: 'manual', seconds: '1200' },
+    ]);
+  });
+
+  it('keeps a foreign Organization administrator blind to BreakIntervals', async () => {
+    await persistManualBreak({
+      intervalId: '68000000-0000-4000-8000-000000000086',
+      startEventId: '50000000-0000-4000-8000-000000000086',
+      stopEventId: '50000000-0000-4000-8000-000000000087',
+      startedAt: '2026-07-13T08:30:00Z',
+      stoppedAt: '2026-07-13T08:45:00Z',
+    });
+    const ownTenant = await adminQuery(adminAContext, `
+      SELECT id FROM ${B3_SCHEMA}.break_intervals
+    `);
+    const foreignTenant = await adminQuery(adminBContext, `
+      SELECT id FROM ${B3_SCHEMA}.break_intervals
+    `);
+    expect(ownTenant.rowCount).toBe(1);
+    expect(foreignTenant.rows).toEqual([]);
+  });
+
+  it('stores interval boundaries and provenance, never a mutable minute sum', async () => {
+    const columns = await installerPool.query<{ column_name: string }>(`
+      SELECT column_name FROM information_schema.columns
+      WHERE table_schema = $1 AND table_name = 'break_intervals'
+      ORDER BY ordinal_position
+    `, [B3_SCHEMA]);
+    expect(columns.rows.map((row) => row.column_name)).toEqual([
+      'id', 'organization_id', 'user_id', 'time_entry_id', 'status',
+      'start_work_event_id', 'started_at', 'started_via', 'stop_work_event_id',
+      'stopped_at', 'stopped_via', 'row_version',
+    ]);
   });
 });
 

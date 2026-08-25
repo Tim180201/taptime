@@ -18,8 +18,10 @@ import {
 import type {
   OfflineCaptureLeasePage,
   OfflineCaptureLeasePageV2,
+  OfflineCaptureLeasePageV3,
   OfflineLifecycleEventCommand,
   OfflineLifecycleEventCommandV2,
+  OfflineLifecycleEventCommandV3,
 } from '@taptime/offline-sync-contract';
 import {
   exportJWK,
@@ -67,6 +69,7 @@ const ids = {
   receipt4: '65000000-0000-4000-8000-000000000014',
   project: '20000000-0000-4000-8000-000000000012',
   leaseCommandV2: '81000000-0000-4000-8000-000000000012',
+  leaseCommandV3: '81000000-0000-4000-8000-000000000013',
 } as const;
 
 let issuer: string;
@@ -644,6 +647,85 @@ describe('complete offline PostgreSQL boundary', () => {
     }]);
   });
 
+  it('synchronizes offline pause start and stop completely in device-sequence order', async () => {
+    const lease = await issueLeaseV3();
+    const workItem = lease.items.find((item) => (
+      item.itemType === 'nfc_assignment' && item.subjectType === 'work'
+    ));
+    const breakItem = lease.items.find((item) => item.itemType === 'manual_break');
+    expect(workItem).toBeDefined();
+    expect(breakItem).toBeDefined();
+    if (workItem === undefined || breakItem === undefined) return;
+    const startedAt = new Date(Date.parse(lease.issuedAt) + 1_000).toISOString();
+    const breakStartedAt = new Date(Date.parse(lease.issuedAt) + 601_000).toISOString();
+    const breakStoppedAt = new Date(Date.parse(lease.issuedAt) + 1_201_000).toISOString();
+
+    const start = await eventCoordinator.ingest({
+      accessToken: 'valid',
+      command: eventCommandV3(lease, workItem, ids.event1, ids.receipt1, 1, startedAt),
+    });
+    const pauseStart = await eventCoordinator.ingest({
+      accessToken: 'valid',
+      command: eventCommandV3(lease, breakItem, ids.event2, ids.receipt2, 2, breakStartedAt),
+    });
+    const pauseStop = await eventCoordinator.ingest({
+      accessToken: 'valid',
+      command: eventCommandV3(lease, breakItem, ids.event3, ids.receipt3, 3, breakStoppedAt),
+    });
+    expect(start).toMatchObject({
+      status: 'synchronized', deviceSequence: 1,
+      decision: { status: 'time_entry_started' },
+    });
+    expect(pauseStart).toMatchObject({
+      status: 'synchronized', deviceSequence: 2,
+      decision: { status: 'break_started' },
+    });
+    expect(pauseStop).toMatchObject({
+      status: 'synchronized', deviceSequence: 3,
+      decision: { status: 'break_stopped' },
+    });
+
+    const truth = await installerPool.query<{
+      device_sequence: string;
+      decision_type: string;
+      subject_type: string;
+      interval_status: string | null;
+      started_via: string | null;
+      stopped_via: string | null;
+      entry_status: string;
+    }>(`
+      SELECT reconciliation.device_sequence::text, decision.decision_type,
+        event.subject_type, interval.status AS interval_status,
+        interval.started_via, interval.stopped_via, entry.status AS entry_status
+      FROM taptime_server.offline_event_reconciliations AS reconciliation
+      JOIN taptime_server.work_events AS event
+        ON event.id = reconciliation.work_event_id
+      JOIN taptime_server.canonical_decisions AS decision
+        ON decision.work_event_id = event.id
+      LEFT JOIN taptime_server.break_intervals AS interval
+        ON interval.id = decision.break_interval_id
+      LEFT JOIN taptime_server.time_entries AS entry
+        ON entry.id = decision.time_entry_id
+      ORDER BY reconciliation.device_sequence
+    `);
+    expect(truth.rows).toEqual([
+      {
+        device_sequence: '1', decision_type: 'time_entry_started', subject_type: 'work',
+        interval_status: null, started_via: null, stopped_via: null, entry_status: 'started',
+      },
+      {
+        device_sequence: '2', decision_type: 'break_started', subject_type: 'break',
+        interval_status: 'stopped', started_via: 'manual', stopped_via: 'manual',
+        entry_status: 'started',
+      },
+      {
+        device_sequence: '3', decision_type: 'break_stopped', subject_type: 'break',
+        interval_status: 'stopped', started_via: 'manual', stopped_via: 'manual',
+        entry_status: 'started',
+      },
+    ]);
+  });
+
   it('serializes canonical and offline ingestion for the same Organization and User',
     async () => {
       const lease = await issueLease();
@@ -1069,6 +1151,72 @@ async function issueLeaseV2(): Promise<OfflineCaptureLeasePageV2> {
   });
   if (result.status !== 'ready') throw new Error(`Lease v2 issue failed with ${result.status}`);
   return result.page;
+}
+
+async function issueLeaseV3(): Promise<OfflineCaptureLeasePageV3> {
+  const result = await leaseCoordinator.issueV3({
+    accessToken: 'valid',
+    command: {
+      commandId: ids.leaseCommandV3,
+      installationBinding,
+      lookupKey,
+    },
+  });
+  if (result.status !== 'ready') throw new Error(`Lease v3 issue failed with ${result.status}`);
+  return result.page;
+}
+
+function eventCommandV3(
+  lease: OfflineCaptureLeasePageV3,
+  item: OfflineCaptureLeasePageV3['items'][number],
+  eventId: string,
+  receiptId: string,
+  deviceSequence: number,
+  occurredAt: string,
+): OfflineLifecycleEventCommandV3 {
+  const base = {
+    organizationId: ids.organization,
+    expectedMembershipId: ids.membership,
+    leaseId: lease.leaseId,
+    leaseItemId: item.itemId,
+    installationBinding,
+    deviceSequence,
+    provenanceVersion: 3 as const,
+    clock: {
+      bootMarker: 'synthetic-boot-v3',
+      monotonicAnchorMilliseconds: 10_000,
+      monotonicDeltaMilliseconds: Date.parse(occurredAt) - Date.parse(lease.issuedAt),
+      wallClockAnchor: lease.issuedAt,
+      clockProofStatus: 'verified_same_boot' as const,
+      clockProofVersion: 1 as const,
+    },
+    receipt: { id: receiptId, attemptNumber: 1 as const },
+  };
+  if (item.subjectType === 'break') {
+    return {
+      ...base,
+      workEvent: {
+        id: eventId,
+        occurredAt,
+        subject: { type: 'break' },
+        trigger: item.itemType === 'nfc_assignment'
+          ? { type: 'nfc', assignmentId: item.assignmentId, nfcTagId: item.nfcTagId }
+          : { type: 'manual' },
+      },
+    };
+  }
+  return {
+    ...base,
+    workEvent: {
+      id: eventId,
+      occurredAt,
+      subject: { type: 'work' },
+      target: { targetType: item.targetType, targetId: item.targetId },
+      trigger: item.itemType === 'nfc_assignment'
+        ? { type: 'nfc', assignmentId: item.assignmentId, nfcTagId: item.nfcTagId }
+        : { type: 'manual' },
+    },
+  };
 }
 
 function eventCommand(

@@ -1,16 +1,17 @@
-import type { NfcAssignment } from '../domain/NfcAssignment';
+import type { NfcAssignment, WorkNfcAssignment } from '../domain/NfcAssignment';
 import type { Customer } from '../domain/Customer';
 import type { CallerContext } from '../domain/CallerContext';
 
 export type AssignmentValidationRejectionReason =
   | 'employee_not_authenticated'
   | 'employee_lacks_organization_access'
+  | 'unsupported_assignment_subject'
   | 'missing_assignment_target'
   | 'assignment_target_disabled';
 
 export interface AcceptedAssignmentValidationResult {
   readonly status: 'accepted';
-  readonly assignment: NfcAssignment;
+  readonly assignment: WorkNfcAssignment;
   readonly target: Customer;
   readonly caller: Extract<CallerContext, { status: 'authenticated' }>;
 }

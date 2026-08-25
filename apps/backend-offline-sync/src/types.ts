@@ -3,8 +3,10 @@ import type {
   OfflineCaptureLeasePageCommand,
   OfflineCaptureLeaseResult,
   OfflineCaptureLeaseResultV2,
+  OfflineCaptureLeaseResultV3,
   OfflineLifecycleEventCommand,
   OfflineLifecycleEventCommandV2,
+  OfflineLifecycleEventCommandV3,
   OfflineLifecycleEventResult,
   OfflineReconciliationCommand,
   OfflineReconciliationResult,
@@ -27,7 +29,7 @@ export interface AuthenticatedOfflineCaptureLeasePageCommand {
 
 export interface AuthenticatedOfflineLifecycleEventCommand {
   readonly accessToken: string;
-  readonly command: OfflineLifecycleEventCommand | OfflineLifecycleEventCommandV2;
+  readonly command: OfflineLifecycleEventCommand | OfflineLifecycleEventCommandV2 | OfflineLifecycleEventCommandV3;
 }
 
 /** Test/evidence controls only; no actor, role, database handle, or query surface is exposed. */
@@ -58,6 +60,12 @@ export interface OfflineCaptureLeaseIssuer {
   readonly readPageV2?: (
     command: AuthenticatedOfflineCaptureLeasePageCommand,
   ) => Promise<OfflineCaptureLeaseResultV2>;
+  readonly issueV3?: (
+    command: AuthenticatedOfflineCaptureLeaseIssueCommand,
+  ) => Promise<OfflineCaptureLeaseResultV3>;
+  readonly readPageV3?: (
+    command: AuthenticatedOfflineCaptureLeasePageCommand,
+  ) => Promise<OfflineCaptureLeaseResultV3>;
 }
 
 export interface OfflineLifecycleIngestor {

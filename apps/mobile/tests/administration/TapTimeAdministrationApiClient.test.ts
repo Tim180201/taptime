@@ -38,6 +38,7 @@ function projectionResponse(body: unknown = {
     displayName: 'Eingang',
     validationFingerprint: 'A1B2C3D4E5F6',
     assignmentState: 'assigned',
+    assignmentType: 'work',
     targetCustomerId: ids.customer,
     activeAssignmentId: ids.assignment,
   }],
@@ -59,6 +60,7 @@ function provisionResponse(idempotentRetry = false): AuthenticatedHttpResult {
         displayName: 'Eingang',
         validationFingerprint: 'A1B2C3D4E5F6',
         assignmentState: 'assigned',
+        assignmentType: 'work',
         targetCustomerId: ids.customer,
       },
       assignmentId: ids.assignment,
@@ -85,6 +87,7 @@ describe('TapTimeAdministrationApiClient', () => {
         displayName: 'Eingang',
         validationFingerprint: 'A1B2C3D4E5F6',
         assignmentState: 'assigned',
+        assignmentType: 'work',
         targetCustomerId: ids.customer,
         activeAssignmentId: ids.assignment,
       }],
@@ -132,6 +135,43 @@ describe('TapTimeAdministrationApiClient', () => {
       body: JSON.stringify(command),
       options: undefined,
     }]);
+  });
+
+  it('submits one break-subject provisioning command with no customer or start/stop intent', async () => {
+    const { request, client } = setup();
+    request.result = {
+      status: 'response',
+      statusCode: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        status: 'succeeded',
+        idempotentRetry: false,
+        nfcTag: {
+          id: ids.tag,
+          displayName: 'Pause',
+          validationFingerprint: 'A1B2C3D4E5F6',
+          assignmentState: 'assigned',
+          assignmentType: 'break',
+          targetCustomerId: null,
+        },
+        assignmentId: ids.assignment,
+      }),
+    };
+    const command = {
+      expectedMembershipId: ids.membership,
+      commandId: ids.command,
+      displayName: 'Pause',
+      canonicalPayload: 'nfc:uid:v1:B55E8B6AEB30',
+    };
+    await expect(client.provisionBreakTag(command)).resolves.toEqual({
+      status: 'succeeded', validationFingerprint: 'A1B2C3D4E5F6',
+    });
+    expect(request.calls).toEqual([{
+      endpoint: 'https://api.example/base/v1/administration/nfc-tags/provision-break',
+      body: JSON.stringify(command),
+      options: undefined,
+    }]);
+    expect(request.calls[0]!.body).not.toMatch(/customer|start|stop/i);
   });
 
   it('rejects malformed command IDs locally without exposing raw payload to a request', async () => {

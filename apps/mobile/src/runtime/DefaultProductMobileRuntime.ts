@@ -126,6 +126,7 @@ export class DefaultProductMobileRuntime implements ProductMobileRuntime {
       refresh: () => this.administrationCoordinator.refresh(),
       loadMore: () => this.administrationCoordinator.loadMore(),
       provision: (customerId: string, displayName: string) => this.administrationCoordinator.provision(customerId, displayName),
+      provisionBreak: (displayName: string) => this.administrationCoordinator.provisionBreak(displayName),
       cancel: () => this.administrationCoordinator.cancel(),
     });
     this.workCapability = Object.freeze({
@@ -134,10 +135,13 @@ export class DefaultProductMobileRuntime implements ProductMobileRuntime {
       refresh: () => this.mobileWorkCoordinator.refresh(),
       loadMoreOwnTime: () => this.mobileWorkCoordinator.loadMoreOwnTime(),
       triggerManual: (target: SafeWorkTarget) => this.mobileWorkCoordinator.triggerManual(target),
+      triggerBreak: () => this.mobileWorkCoordinator.triggerBreak(),
     });
     this.offlineManualCapability = Object.freeze({
       readOfflineManualTargets: () => offlineManualCapture.readOfflineManualTargets(),
       captureManual: (target: SafeWorkTarget) => offlineManualCapture.captureManual(target),
+      captureBreak: () => offlineManualCapture.captureBreak?.()
+        ?? Promise.resolve({ status: 'unavailable' as const }),
       readManualAcknowledgement: (workEventId: string) => (
         offlineManualCapture.readManualAcknowledgement?.(workEventId) ?? null
       ),
@@ -238,6 +242,7 @@ function inactiveMobileWork(): ProductMobileWorkRuntimeOwner {
     async refresh() {},
     async loadMoreOwnTime() {},
     async triggerManual() {},
+    async triggerBreak() {},
     start() {},
     stop() {},
   };
@@ -248,6 +253,7 @@ function unavailableOfflineManualCapture(): OfflineManualCaptureCapability {
     async readOfflineManualTargets() {
       return { status: 'unavailable' };
     },
+    async captureBreak() { return { status: 'unavailable' }; },
     async captureManual() {
       return { status: 'unavailable' };
     },

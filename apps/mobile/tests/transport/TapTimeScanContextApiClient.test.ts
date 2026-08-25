@@ -22,7 +22,10 @@ class FakeJsonPost implements AuthenticatedJsonPostPort {
     body: JSON.stringify({
       assignmentId: ids.assignment,
       nfcTagId: ids.tag,
-      target: { targetType: 'customer', targetId: ids.customer },
+      subject: {
+        type: 'work',
+        target: { targetType: 'customer', targetId: ids.customer },
+      },
     }),
   };
 
@@ -53,9 +56,13 @@ describe('TapTimeScanContextApiClient', () => {
       assignmentId: ids.assignment,
       nfcTagId: ids.tag,
       target: { targetType: 'customer', targetId: ids.customer },
+      subject: {
+        type: 'work',
+        target: { targetType: 'customer', targetId: ids.customer },
+      },
     });
     expect(request.calls).toEqual([{
-      endpoint: 'https://api.example/base/v1/scan-context/resolve',
+      endpoint: 'https://api.example/base/v2/scan-context/resolve',
       body: JSON.stringify({
         organizationId: ids.organization,
         payload: 'AbC-00-CaseSensitive',
@@ -127,12 +134,18 @@ describe('TapTimeScanContextApiClient', () => {
     {
       assignmentId: ids.assignment,
       nfcTagId: ids.tag,
-      target: { targetType: 'project', targetId: ids.customer },
+      subject: {
+        type: 'work',
+        target: { targetType: 'project', targetId: ids.customer },
+      },
     },
     {
       assignmentId: ids.assignment,
       nfcTagId: ids.tag,
-      target: { targetType: 'customer', targetId: ids.customer },
+      subject: {
+        type: 'work',
+        target: { targetType: 'customer', targetId: ids.customer },
+      },
       customerName: 'must-not-escape',
     },
   ])('rejects malformed or over-broad success JSON %#', async (body) => {

@@ -22,12 +22,17 @@ export interface ScanContextResolutionCommand {
 }
 
 export type ScanContextResolutionResult =
-  | {
+  | ({
       readonly status: 'resolved';
       readonly assignmentId: NfcAssignmentId;
       readonly nfcTagId: NfcTagId;
-      readonly target: AssignmentTarget;
-    }
+    } & (
+      | {
+          readonly target: AssignmentTarget;
+          readonly subject?: { readonly type: 'work'; readonly target: AssignmentTarget };
+        }
+      | { readonly subject: { readonly type: 'break' }; readonly target?: never }
+    ))
   | { readonly status: 'not_resolved' }
   | MobileTransportFailure;
 
@@ -35,13 +40,17 @@ export interface ScanContextApiPort {
   resolve(command: ScanContextResolutionCommand): Promise<ScanContextResolutionResult>;
 }
 
-export interface LifecycleWorkEventEvidence {
+interface LifecycleWorkEventEvidenceBase {
   readonly id: WorkEventId;
   readonly assignmentId: NfcAssignmentId;
   readonly nfcTagId: NfcTagId;
-  readonly target: AssignmentTarget;
   readonly occurredAt: Timestamp;
 }
+
+export type LifecycleWorkEventEvidence = LifecycleWorkEventEvidenceBase & (
+  | { readonly subject?: { readonly type: 'work' }; readonly target: AssignmentTarget }
+  | { readonly subject: { readonly type: 'break' }; readonly target?: never }
+);
 
 export interface LifecycleReceiptEvidence {
   readonly id: string;
@@ -75,12 +84,23 @@ export type ServerLifecycleDecision =
       readonly timeEntryId: TimeEntryId;
     }
   | {
+      readonly status: 'break_started' | 'break_stopped';
+      readonly timeEntryId: TimeEntryId;
+      readonly breakIntervalId: string;
+    }
+  | {
       readonly status: 'duplicate_scan_ignored';
       readonly previousWorkEventId: WorkEventId;
     }
   | {
       readonly status: 'active_entry_for_other_target_rejected';
       readonly activeTimeEntryId: TimeEntryId;
+    }
+  | { readonly status: 'break_without_active_time_entry_rejected' }
+  | {
+      readonly status: 'work_trigger_during_break_rejected';
+      readonly activeTimeEntryId: TimeEntryId;
+      readonly activeBreakIntervalId: string;
     }
   | {
       readonly status: 'escalation_required';

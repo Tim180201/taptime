@@ -3,10 +3,13 @@ import type { SupabaseJwtAccessTokenVerifier } from '@taptime/backend-identity';
 import {
   B3_CONTENT_HASH_ALGORITHM,
   B3_CONTENT_HASH_VERSION,
+  T012_CONTENT_HASH_VERSION,
+  breakWorkEventContentHashV3,
   workEventContentHash,
 } from '@taptime/backend-schema';
 import {
   BusinessEngine,
+  BreakIntervalId,
   CustomerId,
   GeneralWorkTargetId,
   NfcAssignmentId,
@@ -19,11 +22,14 @@ import {
   createTimestamp,
   customerAssignmentTarget,
   generalWorkTarget,
+  isBreakWorkEvent,
   projectWorkTarget,
   type BusinessEngineDecision,
   type BusinessEngineEscalationReason,
   type MembershipId,
   type StartedTimeEntry,
+  type StartedBreakInterval,
+  type NfcBreakWorkEvent,
   type NfcWorkEvent,
   type WorkEvent,
 } from '@taptime/core';
@@ -43,7 +49,7 @@ export const B6_IDENTITY_RESOLVER_ROLE = 'taptime_identity_resolver';
 export const B6_LIFECYCLE_ROLE = 'taptime_server_lifecycle';
 export const B6_RUNTIME_LOGIN = 'taptime_b6_lifecycle_test_login';
 
-const B6_ENGINE_VERSION = 'taptime-core-0.1.0-f01';
+const B6_ENGINE_VERSION = 'taptime-core-0.1.0-t012';
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 interface ResolvedActorRow extends QueryResultRow {
@@ -56,14 +62,15 @@ interface ResolvedActorRow extends QueryResultRow {
 interface ConfigurationRow extends QueryResultRow {
   readonly assignment_id: string;
   readonly nfc_tag_id: string;
-  readonly target_type: 'customer';
-  readonly target_customer_id: string;
+  readonly assignment_type: 'work' | 'break';
+  readonly target_type: 'customer' | null;
+  readonly target_customer_id: string | null;
   readonly assignment_active: boolean;
   readonly assignment_valid_from: Date;
   readonly assignment_valid_to: Date | null;
   readonly tag_created_at: Date;
-  readonly customer_active: boolean;
-  readonly customer_activated_at: Date;
+  readonly customer_active: boolean | null;
+  readonly customer_activated_at: Date | null;
   readonly customer_deactivated_at: Date | null;
 }
 
@@ -82,13 +89,24 @@ interface ActiveTimeEntryRow extends QueryResultRow {
   readonly started_via: 'nfc' | 'manual';
 }
 
+interface ActiveBreakIntervalRow extends QueryResultRow {
+  readonly id: string;
+  readonly organization_id: string;
+  readonly user_id: string;
+  readonly time_entry_id: string;
+  readonly start_work_event_id: string;
+  readonly started_at: Date;
+  readonly started_via: 'nfc' | 'manual';
+}
+
 interface WorkEventRow extends QueryResultRow {
   readonly id: string;
   readonly organization_id: string;
   readonly assignment_id: string | null;
   readonly nfc_tag_id: string | null;
-  readonly target_type: 'customer' | 'project' | 'general_work';
-  readonly target_customer_id: string;
+  readonly subject_type: 'work' | 'break';
+  readonly target_type: 'customer' | 'project' | 'general_work' | null;
+  readonly target_customer_id: string | null;
   readonly triggered_by_user_id: string;
   readonly occurred_at: Date;
   readonly trigger_type: 'nfc' | 'manual';
@@ -101,6 +119,8 @@ interface DecisionRow extends QueryResultRow {
   readonly active_time_entry_id: string | null;
   readonly previous_work_event_id: string | null;
   readonly result_time_entry_id: string | null;
+  readonly break_interval_id: string | null;
+  readonly active_break_interval_id: string | null;
 }
 
 interface ReceiptRow extends QueryResultRow {
@@ -121,7 +141,10 @@ export class InjectedB6Failure extends Error {
 }
 
 export class ServerCanonicalLifecycleIngestionCoordinator {
-  private readonly businessEngine = new BusinessEngine(() => TimeEntryId(randomUUID()));
+  private readonly businessEngine = new BusinessEngine(
+    () => TimeEntryId(randomUUID()),
+    () => BreakIntervalId(randomUUID()),
+  );
 
   constructor(
     private readonly pool: Pool,
@@ -229,16 +252,26 @@ export class ServerCanonicalLifecycleIngestionCoordinator {
       }
 
       const workEvent = toAuthoritativeWorkEvent(command, actor, configuration);
-      const contentHash = workEventContentHash({
-        id: workEvent.id,
-        organizationId: workEvent.organizationId,
-        assignmentId: workEvent.assignmentId,
-        nfcTagId: workEvent.nfcTagId,
-        targetType: workEvent.target.targetType,
-        targetId: workEvent.target.targetId,
-        triggeredBy: workEvent.triggeredBy,
-        occurredAt: workEvent.occurredAt,
-      });
+      const contentHash = isBreakWorkEvent(workEvent)
+        ? breakWorkEventContentHashV3({
+            id: workEvent.id,
+            organizationId: workEvent.organizationId,
+            assignmentId: workEvent.assignmentId,
+            nfcTagId: workEvent.nfcTagId,
+            triggeredBy: workEvent.triggeredBy,
+            occurredAt: workEvent.occurredAt,
+            triggerType: 'nfc',
+          })
+        : workEventContentHash({
+            id: workEvent.id,
+            organizationId: workEvent.organizationId,
+            assignmentId: workEvent.assignmentId,
+            nfcTagId: workEvent.nfcTagId,
+            targetType: workEvent.target.targetType,
+            targetId: workEvent.target.targetId,
+            triggeredBy: workEvent.triggeredBy,
+            occurredAt: workEvent.occurredAt,
+          });
 
       const existing = await findExistingWorkEvent(client, workEvent);
       if (existing !== null) {
@@ -349,10 +382,12 @@ export class ServerCanonicalLifecycleIngestionCoordinator {
       }
 
       const activeTimeEntry = await findActiveTimeEntry(client, actor);
+      const activeBreakInterval = await findActiveBreakInterval(client, actor, activeTimeEntry);
       const previousWorkEvent = await findPreviousCanonicalWorkEvent(client, workEvent);
       await controls.beforeEngineEvaluation?.();
       const decision = this.businessEngine.evaluate(workEvent, {
         activeTimeEntryForUser: activeTimeEntry,
+        activeBreakIntervalForUser: activeBreakInterval,
         previousAcceptedWorkEventForUserAndTarget: previousWorkEvent,
       });
 
@@ -417,7 +452,7 @@ function validateCommand(command: LifecycleIngestionCommand): void {
     command.workEvent.id,
     command.workEvent.assignmentId,
     command.workEvent.nfcTagId,
-    command.workEvent.target.targetId,
+    ...(isBreakEvidence(command.workEvent) ? [] : [command.workEvent.target.targetId]),
     command.receipt.id,
     command.receipt.clientTimeEntryId,
   ].filter((value): value is string => value !== undefined);
@@ -428,6 +463,22 @@ function validateCommand(command: LifecycleIngestionCommand): void {
     throw new TypeError('Lifecycle receipt attemptNumber must be a positive safe integer');
   }
   createTimestamp(command.workEvent.occurredAt);
+}
+
+function isBreakEvidence(
+  evidence: LifecycleIngestionCommand['workEvent'],
+): evidence is Extract<LifecycleIngestionCommand['workEvent'], {
+  readonly subject: { readonly type: 'break' };
+}> {
+  return evidence.subject?.type === 'break';
+}
+
+function eventTargetType(workEvent: WorkEvent): 'customer' | 'project' | 'general_work' | null {
+  return isBreakWorkEvent(workEvent) ? null : workEvent.target.targetType;
+}
+
+function eventTargetId(workEvent: WorkEvent): string | null {
+  return isBreakWorkEvent(workEvent) ? null : workEvent.target.targetId;
 }
 
 async function setActorContext(
@@ -460,7 +511,7 @@ async function lockConfiguration(
 ): Promise<ConfigurationRow | null> {
   const result = await query<ConfigurationRow>(
     client,
-    `SELECT assignment_id, nfc_tag_id, target_type, target_customer_id,
+    `SELECT assignment_id, nfc_tag_id, assignment_type, target_type, target_customer_id,
             assignment_active, assignment_valid_from, assignment_valid_to,
             tag_created_at, customer_active, customer_activated_at,
             customer_deactivated_at
@@ -479,15 +530,22 @@ function configurationMatches(
 ): boolean {
   return row.assignment_id === command.workEvent.assignmentId
     && row.nfc_tag_id === command.workEvent.nfcTagId
-    && row.target_type === command.workEvent.target.targetType
-    && row.target_customer_id === command.workEvent.target.targetId;
+    && row.assignment_type === (isBreakEvidence(command.workEvent) ? 'break' : 'work')
+    && (
+      isBreakEvidence(command.workEvent)
+        ? row.target_type === null && row.target_customer_id === null
+        : row.target_type === command.workEvent.target.targetType
+          && row.target_customer_id === command.workEvent.target.targetId
+    );
 }
 
 function configurationIsCurrentlyActive(row: ConfigurationRow): boolean {
   return row.assignment_active
     && row.assignment_valid_to === null
-    && row.customer_active
-    && row.customer_deactivated_at === null;
+    && (
+      row.assignment_type === 'break'
+      || (row.customer_active === true && row.customer_deactivated_at === null)
+    );
 }
 
 function configurationIsAutomaticallyEvaluable(
@@ -498,14 +556,34 @@ function configurationIsAutomaticallyEvaluable(
   return configurationIsCurrentlyActive(row)
     && eventTime >= row.assignment_valid_from.getTime()
     && eventTime >= row.tag_created_at.getTime()
-    && eventTime >= row.customer_activated_at.getTime();
+    && (
+      row.assignment_type === 'break'
+      || (row.customer_activated_at !== null && eventTime >= row.customer_activated_at.getTime())
+    );
 }
 
 function toAuthoritativeWorkEvent(
   command: LifecycleIngestionCommand,
   actor: ResolvedActorRow,
   configuration: ConfigurationRow,
-): NfcWorkEvent {
+): NfcWorkEvent | NfcBreakWorkEvent {
+  if (configuration.assignment_type === 'break') {
+    const assignmentId = NfcAssignmentId(configuration.assignment_id);
+    const nfcTagId = NfcTagId(configuration.nfc_tag_id);
+    return {
+      id: WorkEventId(command.workEvent.id),
+      organizationId: OrganizationId(actor.organization_id),
+      subject: { type: 'break' },
+      assignmentId,
+      nfcTagId,
+      triggeredBy: UserId(actor.user_id),
+      occurredAt: createTimestamp(command.workEvent.occurredAt),
+      trigger: { type: 'nfc', assignmentId, nfcTagId },
+    };
+  }
+  if (configuration.target_customer_id === null) {
+    throw new Error('Work Assignment has no target');
+  }
   return {
     id: WorkEventId(command.workEvent.id),
     organizationId: OrganizationId(actor.organization_id),
@@ -540,7 +618,8 @@ async function findPersistedDecision(
   const result = await query<DecisionRow>(
     client,
     `SELECT decision_type, reason, time_entry_id, active_time_entry_id,
-            previous_work_event_id, result_time_entry_id
+            previous_work_event_id, result_time_entry_id, break_interval_id,
+            active_break_interval_id
      FROM taptime_server.canonical_decisions
      WHERE organization_id = $1::uuid
        AND actor_user_id = $2::uuid
@@ -549,6 +628,38 @@ async function findPersistedDecision(
   );
   const row = result.rows[0];
   return row === undefined ? null : persistedDecisionFromRow(row);
+}
+
+async function findActiveBreakInterval(
+  client: PoolClient,
+  actor: ResolvedActorRow,
+  activeTimeEntry: StartedTimeEntry | null,
+): Promise<StartedBreakInterval | null> {
+  if (activeTimeEntry === null) return null;
+  const result = await query<ActiveBreakIntervalRow>(
+    client,
+    `SELECT id, organization_id, user_id, time_entry_id, start_work_event_id,
+            started_at, started_via
+     FROM taptime_server.break_intervals
+     WHERE organization_id = $1::uuid
+       AND user_id = $2::uuid
+       AND time_entry_id = $3::uuid
+       AND status = 'started'
+     LIMIT 1
+     FOR UPDATE`,
+    [actor.organization_id, actor.user_id, activeTimeEntry.id],
+  );
+  const row = result.rows[0];
+  return row === undefined ? null : {
+    id: BreakIntervalId(row.id),
+    organizationId: OrganizationId(row.organization_id),
+    userId: UserId(row.user_id),
+    timeEntryId: TimeEntryId(row.time_entry_id),
+    status: 'started',
+    startedAt: createTimestamp(row.started_at.toISOString()),
+    startedByWorkEventId: WorkEventId(row.start_work_event_id),
+    startedVia: row.started_via,
+  };
 }
 
 async function findActiveTimeEntry(
@@ -590,6 +701,7 @@ async function findPreviousCanonicalWorkEvent(
   const result = await query<WorkEventRow>(
     client,
     `SELECT event.id, event.organization_id, event.assignment_id, event.nfc_tag_id,
+            event.subject_type,
             event.target_type, event.target_customer_id, event.triggered_by_user_id,
             event.occurred_at, event.trigger_type
      FROM taptime_server.work_events AS event
@@ -599,15 +711,19 @@ async function findPreviousCanonicalWorkEvent(
       AND decision.work_event_id = event.id
      WHERE event.organization_id = $1::uuid
        AND event.triggered_by_user_id = $2::uuid
-       AND event.target_type = $3
-       AND event.target_customer_id = $4::uuid
+       AND event.subject_type = $3
+       AND ($3 = 'break' OR (
+         event.target_type = $4
+         AND event.target_customer_id = $5::uuid
+       ))
      ORDER BY event.occurred_at DESC, event.received_at DESC, event.id DESC
      LIMIT 1`,
     [
       workEvent.organizationId,
       workEvent.triggeredBy,
-      workEvent.target.targetType,
-      workEvent.target.targetId,
+      workEvent.subject?.type ?? 'work',
+      eventTargetType(workEvent),
+      eventTargetId(workEvent),
     ],
   );
   const row = result.rows[0];
@@ -617,18 +733,38 @@ async function findPreviousCanonicalWorkEvent(
   const base = {
     id: WorkEventId(row.id),
     organizationId: OrganizationId(row.organization_id),
-    target: targetFromStored(row.target_type, row.target_customer_id),
     triggeredBy: UserId(row.triggered_by_user_id),
     occurredAt: createTimestamp(row.occurred_at.toISOString()),
   };
+  if (row.subject_type === 'break') {
+    if (row.trigger_type === 'manual') {
+      return { ...base, subject: { type: 'break' }, trigger: { type: 'manual' } };
+    }
+    if (row.assignment_id === null || row.nfc_tag_id === null) {
+      throw new Error('Persisted NFC Break WorkEvent has no Assignment provenance');
+    }
+    const assignmentId = NfcAssignmentId(row.assignment_id);
+    const nfcTagId = NfcTagId(row.nfc_tag_id);
+    return {
+      ...base,
+      subject: { type: 'break' },
+      assignmentId,
+      nfcTagId,
+      trigger: { type: 'nfc', assignmentId, nfcTagId },
+    };
+  }
+  if (row.target_type === null || row.target_customer_id === null) {
+    throw new Error('Persisted Work WorkEvent has no WorkTarget');
+  }
+  const workBase = { ...base, target: targetFromStored(row.target_type, row.target_customer_id) };
   if (row.trigger_type === 'manual') {
-    return { ...base, trigger: { type: 'manual' } };
+    return { ...workBase, trigger: { type: 'manual' } };
   }
   if (row.assignment_id === null || row.nfc_tag_id === null) {
     throw new Error('Persisted NFC WorkEvent has no Assignment provenance');
   }
   return {
-    ...base,
+    ...workBase,
     assignmentId: NfcAssignmentId(row.assignment_id),
     nfcTagId: NfcTagId(row.nfc_tag_id),
     trigger: { type: 'nfc', assignmentId: NfcAssignmentId(row.assignment_id),
@@ -655,22 +791,23 @@ async function insertWorkEvent(
     `INSERT INTO taptime_server.work_events (
        id, organization_id, assignment_id, nfc_tag_id, target_type, target_customer_id,
        triggered_by_user_id, occurred_at, content_hash, content_hash_algorithm,
-       content_hash_version
+       content_hash_version, trigger_type, subject_type
      ) VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5, $6::uuid, $7::uuid,
-       $8::timestamptz, $9, $10, $11)
+       $8::timestamptz, $9, $10, $11, 'nfc', $12)
      ON CONFLICT DO NOTHING`,
     [
       workEvent.id,
       workEvent.organizationId,
       workEvent.assignmentId,
       workEvent.nfcTagId,
-      workEvent.target.targetType,
-      workEvent.target.targetId,
+      eventTargetType(workEvent),
+      eventTargetId(workEvent),
       workEvent.triggeredBy,
       workEvent.occurredAt,
       contentHash,
       B3_CONTENT_HASH_ALGORITHM,
-      B3_CONTENT_HASH_VERSION,
+      isBreakWorkEvent(workEvent) ? T012_CONTENT_HASH_VERSION : B3_CONTENT_HASH_VERSION,
+      workEvent.subject?.type ?? 'work',
     ],
   );
   return result.rowCount === 1;
@@ -730,6 +867,55 @@ async function persistTimeEntryMutation(
     }
     return true;
   }
+  if (decision.status === 'break_started') {
+    const interval = decision.breakInterval;
+    await query(
+      client,
+      `INSERT INTO taptime_server.break_intervals (
+         id, organization_id, user_id, time_entry_id, status,
+         start_work_event_id, started_at, started_via
+       ) VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, 'started',
+         $5::uuid, $6::timestamptz, $7)`,
+      [
+        interval.id,
+        interval.organizationId,
+        interval.userId,
+        interval.timeEntryId,
+        interval.startedByWorkEventId,
+        interval.startedAt,
+        interval.startedVia,
+      ],
+    );
+    return true;
+  }
+  if (decision.status === 'break_stopped') {
+    const interval = decision.breakInterval;
+    const result = await query(
+      client,
+      `UPDATE taptime_server.break_intervals
+       SET status = 'stopped',
+           stop_work_event_id = $4::uuid,
+           stopped_at = $5::timestamptz,
+           stopped_via = $6,
+           row_version = row_version + 1
+       WHERE organization_id = $1::uuid
+         AND user_id = $2::uuid
+         AND id = $3::uuid
+         AND status = 'started'`,
+      [
+        interval.organizationId,
+        interval.userId,
+        interval.id,
+        interval.stoppedByWorkEventId,
+        interval.stoppedAt,
+        interval.stoppedVia,
+      ],
+    );
+    if (result.rowCount !== 1) {
+      throw new Error('Core Break Stop result did not map to exactly one active BreakInterval');
+    }
+    return true;
+  }
   return false;
 }
 
@@ -744,15 +930,16 @@ async function insertDecision(
     `INSERT INTO taptime_server.canonical_decisions (
        work_event_id, organization_id, actor_user_id, target_type, target_customer_id,
        decision_type, reason, time_entry_id, active_time_entry_id, previous_work_event_id,
-       engine_version, decision_payload
+       engine_version, decision_payload, subject_type, break_interval_id,
+       active_break_interval_id
      ) VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5::uuid, $6, $7,
-       $8::uuid, $9::uuid, $10::uuid, $11, $12::jsonb)`,
+       $8::uuid, $9::uuid, $10::uuid, $11, $12::jsonb, $13, $14::uuid, $15::uuid)`,
     [
       workEvent.id,
       workEvent.organizationId,
       workEvent.triggeredBy,
-      workEvent.target.targetType,
-      workEvent.target.targetId,
+      eventTargetType(workEvent),
+      eventTargetId(workEvent),
       decision.status,
       mapping.reason,
       mapping.timeEntryId,
@@ -760,6 +947,9 @@ async function insertDecision(
       mapping.previousWorkEventId,
       B6_ENGINE_VERSION,
       JSON.stringify(decisionDiagnosticPayload(decision)),
+      workEvent.subject?.type ?? 'work',
+      mapping.breakIntervalId,
+      mapping.activeBreakIntervalId,
     ],
   );
 }
@@ -769,6 +959,8 @@ function decisionColumns(decision: BusinessEngineDecision): {
   readonly timeEntryId: string | null;
   readonly activeTimeEntryId: string | null;
   readonly previousWorkEventId: string | null;
+  readonly breakIntervalId: string | null;
+  readonly activeBreakIntervalId: string | null;
 } {
   switch (decision.status) {
     case 'time_entry_started':
@@ -778,6 +970,18 @@ function decisionColumns(decision: BusinessEngineDecision): {
         timeEntryId: decision.timeEntry.id,
         activeTimeEntryId: null,
         previousWorkEventId: null,
+        breakIntervalId: null,
+        activeBreakIntervalId: null,
+      };
+    case 'break_started':
+    case 'break_stopped':
+      return {
+        reason: null,
+        timeEntryId: decision.timeEntry.id,
+        activeTimeEntryId: null,
+        previousWorkEventId: null,
+        breakIntervalId: decision.breakInterval.id,
+        activeBreakIntervalId: null,
       };
     case 'duplicate_scan_ignored':
       return {
@@ -785,6 +989,8 @@ function decisionColumns(decision: BusinessEngineDecision): {
         timeEntryId: null,
         activeTimeEntryId: null,
         previousWorkEventId: decision.previousWorkEvent.id,
+        breakIntervalId: null,
+        activeBreakIntervalId: null,
       };
     case 'active_entry_for_other_target_rejected':
       return {
@@ -792,6 +998,26 @@ function decisionColumns(decision: BusinessEngineDecision): {
         timeEntryId: null,
         activeTimeEntryId: decision.activeTimeEntry.id,
         previousWorkEventId: null,
+        breakIntervalId: null,
+        activeBreakIntervalId: null,
+      };
+    case 'break_without_active_time_entry_rejected':
+      return {
+        reason: null,
+        timeEntryId: null,
+        activeTimeEntryId: null,
+        previousWorkEventId: null,
+        breakIntervalId: null,
+        activeBreakIntervalId: null,
+      };
+    case 'work_trigger_during_break_rejected':
+      return {
+        reason: null,
+        timeEntryId: null,
+        activeTimeEntryId: decision.activeTimeEntry.id,
+        previousWorkEventId: null,
+        breakIntervalId: null,
+        activeBreakIntervalId: decision.activeBreakInterval.id,
       };
     case 'escalation_required':
       return {
@@ -799,6 +1025,8 @@ function decisionColumns(decision: BusinessEngineDecision): {
         timeEntryId: null,
         activeTimeEntryId: null,
         previousWorkEventId: null,
+        breakIntervalId: null,
+        activeBreakIntervalId: null,
       };
     default:
       return decision satisfies never;
@@ -823,20 +1051,21 @@ async function insertReceipt(
     `INSERT INTO taptime_server.sync_receipts (
        id, organization_id, user_id, target_type, target_customer_id, work_event_id,
        attempt_number, status, server_decision_work_event_id, client_time_entry_id,
-       server_time_entry_id
+       server_time_entry_id, subject_type
      ) VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5::uuid, $6::uuid, $7,
-       'synchronized', $6::uuid, $8::uuid, $9::uuid)
+       'synchronized', $6::uuid, $8::uuid, $9::uuid, $10)
      ON CONFLICT DO NOTHING`,
     [
       command.receipt.id,
       workEvent.organizationId,
       workEvent.triggeredBy,
-      workEvent.target.targetType,
-      workEvent.target.targetId,
+      eventTargetType(workEvent),
+      eventTargetId(workEvent),
       workEvent.id,
       command.receipt.attemptNumber,
       command.receipt.clientTimeEntryId ?? null,
       serverTimeEntryId,
+      workEvent.subject?.type ?? 'work',
     ],
   );
   return result.rowCount === 1;
@@ -851,19 +1080,20 @@ async function insertDeferredReceipt(
     client,
     `INSERT INTO taptime_server.sync_receipts (
        id, organization_id, user_id, target_type, target_customer_id, work_event_id,
-       attempt_number, status, client_time_entry_id
+       attempt_number, status, client_time_entry_id, subject_type
      ) VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5::uuid, $6::uuid, $7,
-       'received', $8::uuid)
+       'received', $8::uuid, $9)
      ON CONFLICT DO NOTHING`,
     [
       command.receipt.id,
       workEvent.organizationId,
       workEvent.triggeredBy,
-      workEvent.target.targetType,
-      workEvent.target.targetId,
+      eventTargetType(workEvent),
+      eventTargetId(workEvent),
       workEvent.id,
       command.receipt.attemptNumber,
       command.receipt.clientTimeEntryId ?? null,
+      workEvent.subject?.type ?? 'work',
     ],
   );
   return result.rowCount === 1;
@@ -993,6 +1223,13 @@ function toPersistedDecision(decision: BusinessEngineDecision): PersistedLifecyc
     case 'time_entry_started':
     case 'time_entry_stopped':
       return { status: decision.status, timeEntryId: decision.timeEntry.id };
+    case 'break_started':
+    case 'break_stopped':
+      return {
+        status: decision.status,
+        timeEntryId: decision.timeEntry.id,
+        breakIntervalId: decision.breakInterval.id,
+      };
     case 'duplicate_scan_ignored':
       return {
         status: decision.status,
@@ -1002,6 +1239,14 @@ function toPersistedDecision(decision: BusinessEngineDecision): PersistedLifecyc
       return {
         status: decision.status,
         activeTimeEntryId: decision.activeTimeEntry.id,
+      };
+    case 'break_without_active_time_entry_rejected':
+      return { status: decision.status };
+    case 'work_trigger_during_break_rejected':
+      return {
+        status: decision.status,
+        activeTimeEntryId: decision.activeTimeEntry.id,
+        activeBreakIntervalId: decision.activeBreakInterval.id,
       };
     case 'escalation_required':
       return { status: decision.status, reason: decision.reason };
@@ -1018,6 +1263,16 @@ function persistedDecisionFromRow(row: DecisionRow): PersistedLifecycleDecision 
         throw new Error('Persisted lifecycle Decision is missing its TimeEntry');
       }
       return { status: row.decision_type, timeEntryId: TimeEntryId(row.time_entry_id) };
+    case 'break_started':
+    case 'break_stopped':
+      if (row.time_entry_id === null || row.break_interval_id === null) {
+        throw new Error('Persisted Break Decision is missing its interval or TimeEntry');
+      }
+      return {
+        status: row.decision_type,
+        timeEntryId: TimeEntryId(row.time_entry_id),
+        breakIntervalId: row.break_interval_id,
+      };
     case 'duplicate_scan_ignored':
       if (row.previous_work_event_id === null) {
         throw new Error('Persisted duplicate Decision is missing its previous WorkEvent');
@@ -1033,6 +1288,17 @@ function persistedDecisionFromRow(row: DecisionRow): PersistedLifecycleDecision 
       return {
         status: row.decision_type,
         activeTimeEntryId: TimeEntryId(row.active_time_entry_id),
+      };
+    case 'break_without_active_time_entry_rejected':
+      return { status: row.decision_type };
+    case 'work_trigger_during_break_rejected':
+      if (row.active_time_entry_id === null || row.active_break_interval_id === null) {
+        throw new Error('Persisted work-during-break rejection is missing active state');
+      }
+      return {
+        status: row.decision_type,
+        activeTimeEntryId: TimeEntryId(row.active_time_entry_id),
+        activeBreakIntervalId: row.active_break_interval_id,
       };
     case 'escalation_required':
       if (!isEscalationReason(row.reason)) {
@@ -1051,6 +1317,11 @@ function isEscalationReason(value: string | null): value is BusinessEngineEscala
     'previous_work_event_organization_mismatch',
     'previous_work_event_user_mismatch',
     'previous_work_event_target_mismatch',
+    'previous_work_event_subject_mismatch',
+    'active_break_organization_mismatch',
+    'active_break_user_mismatch',
+    'active_break_time_entry_mismatch',
+    'work_event_precedes_active_break',
     'work_event_precedes_active_time_entry',
     'work_event_precedes_previous_accepted_work_event',
   ].includes(value);
@@ -1060,9 +1331,13 @@ function resultTimeEntryId(decision: PersistedLifecycleDecision): TimeEntryId | 
   switch (decision.status) {
     case 'time_entry_started':
     case 'time_entry_stopped':
+    case 'break_started':
+    case 'break_stopped':
       return decision.timeEntryId;
     case 'active_entry_for_other_target_rejected':
+    case 'work_trigger_during_break_rejected':
       return decision.activeTimeEntryId;
+    case 'break_without_active_time_entry_rejected':
     case 'duplicate_scan_ignored':
     case 'escalation_required':
       return null;

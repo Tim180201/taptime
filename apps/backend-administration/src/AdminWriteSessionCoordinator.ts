@@ -5,6 +5,7 @@ import {
   normalizeNfcTagNameV1,
   normalizeOrganizationNameV1,
   provisionNfcTagCommandDigestV1,
+  provisionBreakNfcTagCommandDigestV1,
 } from '@taptime/administration-contract';
 import type { AccessTokenVerifier } from '@taptime/backend-identity';
 import {
@@ -26,6 +27,8 @@ import type {
   CreateCustomerResult,
   ProvisionNfcTagCommand,
   ProvisionNfcTagResult,
+  ProvisionBreakNfcTagCommand,
+  ProvisionBreakNfcTagResult,
   ReadSetupProjectionCommand,
   ReadSetupProjectionResult,
 } from './types.js';
@@ -75,6 +78,16 @@ interface ProjectionRow extends QueryResultRow {
   readonly validation_fingerprint: string | null;
   readonly target_customer_id: string | null;
   readonly active_assignment_id: string | null;
+  readonly assignment_type: 'work' | 'break' | null;
+}
+
+interface BreakTagReceiptRow extends QueryResultRow {
+  readonly actor_user_id: string;
+  readonly membership_id: string;
+  readonly request_hash: string;
+  readonly nfc_tag_id: string;
+  readonly nfc_assignment_id: string;
+  readonly validation_fingerprint: string;
 }
 
 interface OrganizationRow extends QueryResultRow {
@@ -369,6 +382,81 @@ export class AdminWriteSessionCoordinator {
     );
   }
 
+  async provisionBreakNfcTag(
+    command: ProvisionBreakNfcTagCommand,
+    controls: AdminCoordinatorControls = {},
+  ): Promise<ProvisionBreakNfcTagResult> {
+    const normalized = typeof command.displayName === 'string'
+      ? normalizeNfcTagNameV1(command.displayName)
+      : { status: 'invalid' as const };
+    if (!validCommonCommand(command) || normalized.status === 'invalid'
+      || typeof command.canonicalPayload !== 'string'
+      || !isCanonicalNfcUidPayload(command.canonicalPayload)) {
+      return { status: 'invalid_request' };
+    }
+    return this.runWithAuthority(command.accessToken, command.expectedMembershipId,
+      command.commandId, controls, async (client, actor, assertActive) => {
+        const digestRow = await client.query<NameDigestRow>(
+          `WITH normalized AS (
+             SELECT taptime_server.normalize_taptime_name_v1($4, 'tag') AS canonical_name
+           )
+           SELECT canonical_name, pg_catalog.encode(
+             taptime_server.admin_provision_break_nfc_tag_digest_v1(
+               $1, $2, $3, canonical_name, $5
+             ), 'hex') AS request_hash
+           FROM normalized WHERE canonical_name IS NOT NULL`,
+          [actor.organization_id, actor.user_id, actor.membership_id,
+            command.displayName, command.canonicalPayload],
+        );
+        const digest = digestRow.rows[0] ?? { canonical_name: null, request_hash: null };
+        const nodeDigest = provisionBreakNfcTagCommandDigestV1(actor.organization_id,
+          actor.user_id, actor.membership_id, normalized.canonicalName,
+          command.canonicalPayload);
+        assertMatchingDigest(digest, normalized.canonicalName, nodeDigest);
+        const existing = await findBreakTagReceipt(client, actor.organization_id,
+          command.commandId);
+        if (existing !== null) {
+          return { disposition: 'commit', value: mapBreakTagReceipt(existing, actor,
+            digest.request_hash, normalized.canonicalName, command.canonicalPayload) };
+        }
+        await controls.afterReceiptMiss?.(); assertActive();
+        const tagId = randomUUID();
+        const insertedTag = await client.query<InsertedTagRow>(
+          `SELECT inserted_nfc_tag_id AS id, validation_fingerprint
+           FROM taptime_server.insert_admin_setup_nfc_tag_v1($1, $2, $3, $4)`,
+          [tagId, actor.organization_id, digest.canonical_name, command.canonicalPayload]);
+        if (insertedTag.rowCount !== 1) {
+          return { disposition: 'rollback', value: { status: 'tag_payload_already_registered' } };
+        }
+        await afterWrite('nfc_tag_and_audit', controls, assertActive);
+        const assignmentId = randomUUID();
+        await client.query(
+          `INSERT INTO taptime_server.nfc_assignments (
+             id, organization_id, nfc_tag_id, target_type, target_customer_id,
+             assignment_type, active
+           ) VALUES ($1, $2, $3, NULL, NULL, 'break', true)`,
+          [assignmentId, actor.organization_id, tagId]);
+        await afterWrite('nfc_assignment_and_audit', controls, assertActive);
+        const receipt = await client.query(
+          `INSERT INTO taptime_server.admin_break_tag_command_receipts (
+             organization_id, command_id, actor_user_id, membership_id, request_hash,
+             nfc_tag_id, nfc_assignment_id
+           ) VALUES ($1, $2, $3, $4, pg_catalog.decode($5, 'hex'), $6, $7)
+           ON CONFLICT DO NOTHING`,
+          [actor.organization_id, command.commandId, actor.user_id, actor.membership_id,
+            digest.request_hash, tagId, assignmentId]);
+        if (receipt.rowCount !== 1) {
+          const raced = await findBreakTagReceipt(client, actor.organization_id, command.commandId);
+          if (raced === null) throw new Error('Break Tag receipt race has no committed receipt');
+          return { disposition: 'rollback', value: mapBreakTagReceipt(raced, actor,
+            digest.request_hash, normalized.canonicalName, command.canonicalPayload) };
+        }
+        await afterWrite('receipt', controls, assertActive);
+        return { disposition: 'commit', value: breakTagSuccess(tagId, assignmentId,
+          normalized.canonicalName, insertedTag.rows[0]!.validation_fingerprint, false) };
+      });
+  }
+
   async readSetupProjection(
     command: ReadSetupProjectionCommand,
     controls: AdminCoordinatorControls = {},
@@ -412,7 +500,8 @@ export class AdminWriteSessionCoordinator {
                customer.active,
                NULL::text AS validation_fingerprint,
                NULL::uuid AS target_customer_id,
-               NULL::uuid AS active_assignment_id
+               NULL::uuid AS active_assignment_id,
+               NULL::text AS assignment_type
              FROM taptime_server.customers AS customer
              WHERE customer.organization_id = $1
              UNION ALL
@@ -423,7 +512,8 @@ export class AdminWriteSessionCoordinator {
                NULL::boolean AS active,
                tag.validation_fingerprint,
                assignment.target_customer_id,
-               assignment.id AS active_assignment_id
+               assignment.id AS active_assignment_id,
+               assignment.assignment_type
              FROM taptime_server.nfc_tags AS tag
              LEFT JOIN taptime_server.nfc_assignments AS assignment
                ON assignment.organization_id = tag.organization_id
@@ -438,7 +528,8 @@ export class AdminWriteSessionCoordinator {
              active,
              validation_fingerprint,
              target_customer_id,
-             active_assignment_id
+             active_assignment_id,
+             assignment_type
            FROM setup_items
            WHERE $2::integer IS NULL
               OR kind_order > $2
@@ -467,14 +558,17 @@ export class AdminWriteSessionCoordinator {
           if (row.kind_order !== 1 || row.validation_fingerprint === null) {
             throw new Error('NFC Tag projection row has an invalid shape');
           }
-          if ((row.target_customer_id === null) !== (row.active_assignment_id === null)) {
+          if ((row.assignment_type === null) !== (row.active_assignment_id === null)
+            || (row.assignment_type === 'work' && row.target_customer_id === null)
+            || (row.assignment_type === 'break' && row.target_customer_id !== null)) {
             throw new Error('NFC Tag projection Assignment has an invalid shape');
           }
           nfcTags.push(Object.freeze({
             id: NfcTagId(row.id),
             displayName: row.display_name,
             validationFingerprint: row.validation_fingerprint,
-            assignmentState: row.target_customer_id === null ? 'unassigned' : 'assigned',
+            assignmentState: row.active_assignment_id === null ? 'unassigned' : 'assigned',
+            assignmentType: row.assignment_type,
             targetCustomerId: row.target_customer_id === null
               ? null
               : CustomerId(row.target_customer_id),
@@ -855,6 +949,60 @@ async function mapTagReceipt(
   );
 }
 
+async function findBreakTagReceipt(
+  client: PoolClient,
+  organizationId: string,
+  commandId: string,
+): Promise<BreakTagReceiptRow | null> {
+  const result = await client.query<BreakTagReceiptRow>(
+    `SELECT receipt.actor_user_id, receipt.membership_id,
+            pg_catalog.encode(receipt.request_hash, 'hex') AS request_hash,
+            receipt.nfc_tag_id, receipt.nfc_assignment_id, tag.validation_fingerprint
+     FROM taptime_server.admin_break_tag_command_receipts AS receipt
+     JOIN taptime_server.nfc_tags AS tag
+       ON tag.organization_id = receipt.organization_id AND tag.id = receipt.nfc_tag_id
+     JOIN taptime_server.nfc_assignments AS assignment
+       ON assignment.organization_id = receipt.organization_id
+      AND assignment.id = receipt.nfc_assignment_id
+      AND assignment.nfc_tag_id = tag.id
+      AND assignment.assignment_type = 'break'
+     WHERE receipt.organization_id = $1 AND receipt.command_id = $2`,
+    [organizationId, commandId]);
+  if (result.rows.length > 1) throw new Error('Break Tag receipt lookup returned multiple rows');
+  return result.rows[0] ?? null;
+}
+
+function mapBreakTagReceipt(
+  receipt: BreakTagReceiptRow,
+  actor: ResolvedActorRow,
+  requestHash: string,
+  canonicalName: string,
+  canonicalPayload: string,
+): ProvisionBreakNfcTagResult {
+  if (receipt.actor_user_id !== actor.user_id || receipt.membership_id !== actor.membership_id
+    || receipt.request_hash !== requestHash) return { status: 'command_id_conflict' };
+  const fingerprint = validationFingerprint(canonicalPayload);
+  if (receipt.validation_fingerprint !== fingerprint) {
+    throw new Error('Stored Break Tag fingerprint diverged from command');
+  }
+  return breakTagSuccess(receipt.nfc_tag_id, receipt.nfc_assignment_id,
+    canonicalName, fingerprint, true);
+}
+
+function breakTagSuccess(
+  tagId: string,
+  assignmentId: string,
+  canonicalName: string,
+  fingerprint: string,
+  idempotentRetry: boolean,
+): ProvisionBreakNfcTagResult {
+  return Object.freeze({ status: 'succeeded', idempotentRetry,
+    nfcTag: Object.freeze({ id: NfcTagId(tagId), displayName: canonicalName,
+      validationFingerprint: fingerprint, assignmentState: 'assigned',
+      assignmentType: 'break', targetCustomerId: null }),
+    assignmentId: NfcAssignmentId(assignmentId) });
+}
+
 function customerSuccess(
   customerId: string,
   canonicalName: string,
@@ -887,6 +1035,7 @@ function tagSuccess(
       displayName: canonicalName,
       validationFingerprint: fingerprint,
       assignmentState: 'assigned',
+      assignmentType: 'work',
       targetCustomerId: CustomerId(customerId),
     }),
     assignmentId: NfcAssignmentId(assignmentId),

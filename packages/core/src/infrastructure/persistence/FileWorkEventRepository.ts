@@ -3,6 +3,7 @@ import type { WorkEvent } from '../../domain/WorkEvent';
 import type { AssignmentTarget } from '../../domain/AssignmentTarget';
 import type { OrganizationId, UserId } from '../../domain/ids';
 import { readJsonArray, writeJsonArray } from './JsonFileStore';
+import { isBreakWorkEvent } from '../../domain/WorkEvent';
 
 // DT-015. Durable, file-based WorkEventRepository adapter - matches
 // InMemoryWorkEventRepository's exact behavior/semantics, but survives process restart.
@@ -16,6 +17,7 @@ export class FileWorkEventRepository implements WorkEventRepository {
   ): Promise<WorkEvent | null> {
     return this.readAll().reduce<WorkEvent | null>((latest, workEvent) => {
       const matches =
+        !isBreakWorkEvent(workEvent) &&
         workEvent.organizationId === organizationId &&
         workEvent.triggeredBy === userId &&
         workEvent.target.targetType === target.targetType &&

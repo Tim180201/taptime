@@ -48,8 +48,9 @@ interface NfcAssignmentRow {
   readonly id: string;
   readonly organization_id: string;
   readonly nfc_tag_id: string;
-  readonly target_type: string;
-  readonly target_customer_id: string;
+  readonly assignment_type: 'work' | 'break';
+  readonly target_type: string | null;
+  readonly target_customer_id: string | null;
   readonly active: boolean;
 }
 
@@ -142,7 +143,8 @@ export function createTenantReadRepositories(
     async findActiveByTagId(nfcTagId: NfcTagId): Promise<NfcAssignment | null> {
       assertSessionActive();
       const row = oneOrNull(await client.query<NfcAssignmentRow>(
-        `SELECT id, organization_id, nfc_tag_id, target_type, target_customer_id, active
+        `SELECT id, organization_id, nfc_tag_id, assignment_type, target_type,
+                target_customer_id, active
          FROM taptime_server.nfc_assignments
          WHERE organization_id = $1::uuid
            AND nfc_tag_id = $2::uuid
@@ -152,7 +154,19 @@ export function createTenantReadRepositories(
       if (row === null) {
         return null;
       }
-      if (row.target_type !== 'customer') {
+      if (row.assignment_type === 'break') {
+        if (row.target_type !== null || row.target_customer_id !== null) {
+          throw new Error('Persisted Break Assignment has a WorkTarget');
+        }
+        return {
+          id: NfcAssignmentId(row.id),
+          organizationId: OrganizationId(row.organization_id),
+          nfcTagId: NfcTagId(row.nfc_tag_id),
+          assignmentType: 'break',
+          active: row.active,
+        };
+      }
+      if (row.target_type !== 'customer' || row.target_customer_id === null) {
         throw new Error(`Unsupported persisted AssignmentTarget type: ${row.target_type}`);
       }
       return {

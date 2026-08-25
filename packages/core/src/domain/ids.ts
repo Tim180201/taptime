@@ -39,6 +39,9 @@ export const WorkEventId = brandedNonEmptyString<'WorkEventId'>('WorkEventId');
 export type TimeEntryId = Brand<string, 'TimeEntryId'>;
 export const TimeEntryId = brandedNonEmptyString<'TimeEntryId'>('TimeEntryId');
 
+export type BreakIntervalId = Brand<string, 'BreakIntervalId'>;
+export const BreakIntervalId = brandedNonEmptyString<'BreakIntervalId'>('BreakIntervalId');
+
 // Membership is an association between an actor and an Organization (ADR-0002's NfcAssignment
 // precedent: an association object gets its own identity, not just a compound key).
 export type MembershipId = Brand<string, 'MembershipId'>;

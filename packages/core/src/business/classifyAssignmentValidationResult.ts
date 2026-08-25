@@ -15,6 +15,7 @@ import type { ErrorCategory } from '../domain/ErrorCategory';
 const REJECTION_CATEGORIES: Record<AssignmentValidationRejectionReason, ErrorCategory> = {
   employee_not_authenticated: 'recoverable',
   employee_lacks_organization_access: 'fatal',
+  unsupported_assignment_subject: 'fatal',
   missing_assignment_target: 'fatal',
   assignment_target_disabled: 'fatal',
 };

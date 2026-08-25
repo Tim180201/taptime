@@ -355,14 +355,20 @@ describe('C3E1 Employee enrollment HTTP contract', () => {
     expect(recovered.status).toBe(401);
   });
 
-  it('applies the generous address limit to every v1 and v2 path', async () => {
+  it('requires proxy proof and applies the address limit to every v1, v2 and v3 path',
+    async () => {
     const apiOrigin = await origin(coordinator(), [], trustedProxyOptions());
+    const untrustedV3 = await post(apiOrigin, '/v3/offline-capture-leases', {}, {});
+    expect(untrustedV3.status).toBe(400);
     for (let attempt = 1; attempt <= 300; attempt += 1) {
-      const path = attempt % 2 === 0 ? '/v1/not-a-route' : '/v2/not-a-route';
+      const path = attempt % 3 === 0
+        ? '/v3/not-a-route'
+        : attempt % 2 === 0 ? '/v2/not-a-route' : '/v1/not-a-route';
       const response = await post(apiOrigin, path, {}, proxyHeaders('192.0.2.10'));
       expect(response.status, `attempt ${attempt}`).toBe(404);
     }
-    const limited = await post(apiOrigin, '/v2/still-not-a-route', {}, proxyHeaders('192.0.2.10'));
+    const limited = await post(apiOrigin, '/v3/offline-capture-leases', {},
+      proxyHeaders('192.0.2.10'));
     expect(limited.status).toBe(429);
   });
 });

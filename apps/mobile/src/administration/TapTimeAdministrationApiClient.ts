@@ -8,11 +8,13 @@ const cursorPattern = /^v1:[ct]:[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][
 export class TapTimeAdministrationApiClient implements AdminSetupApiPort {
   private readonly projectionEndpoint: URL;
   private readonly provisionEndpoint: URL;
+  private readonly provisionBreakEndpoint: URL;
 
   constructor(baseUrl: string, private readonly request: AuthenticatedJsonPostPort) {
     const base = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
     this.projectionEndpoint = new URL('v1/administration/setup-projection', base);
     this.provisionEndpoint = new URL('v1/administration/nfc-tags/provision', base);
+    this.provisionBreakEndpoint = new URL('v1/administration/nfc-tags/provision-break', base);
   }
 
   async readProjection(expectedMembershipId: string, cursor: string | null): Promise<AdminProjectionResult> {
@@ -38,15 +40,46 @@ export class TapTimeAdministrationApiClient implements AdminSetupApiPort {
     const body = parseJsonObject(response.body);
     if (response.statusCode === 200 && body !== null && hasExactKeys(body, ['status', 'idempotentRetry', 'nfcTag', 'assignmentId'])
       && body.status === 'succeeded' && typeof body.idempotentRetry === 'boolean' && isUuid(body.assignmentId)
-      && isObject(body.nfcTag) && hasExactKeys(body.nfcTag, ['id', 'displayName', 'validationFingerprint', 'assignmentState', 'targetCustomerId'])
+      && isObject(body.nfcTag) && hasExactKeys(body.nfcTag, ['id', 'displayName', 'validationFingerprint', 'assignmentState', 'assignmentType', 'targetCustomerId'])
       && isUuid(body.nfcTag.id) && typeof body.nfcTag.displayName === 'string'
       && fingerprintPattern.test(String(body.nfcTag.validationFingerprint))
-      && body.nfcTag.assignmentState === 'assigned' && isUuid(body.nfcTag.targetCustomerId)) {
+      && body.nfcTag.assignmentState === 'assigned' && body.nfcTag.assignmentType === 'work'
+      && isUuid(body.nfcTag.targetCustomerId)) {
       return { status: 'succeeded', validationFingerprint: String(body.nfcTag.validationFingerprint) };
     }
     const code = parseErrorCode(body);
     if (code === 'invalid_request' || code === 'assignment_target_unavailable'
       || code === 'tag_payload_already_registered' || code === 'command_id_conflict') return { status: code };
+    return { status: 'unavailable' };
+  }
+
+  async provisionBreakTag(
+    command: Parameters<NonNullable<AdminSetupApiPort['provisionBreakTag']>>[0],
+  ): Promise<ProvisionAdminTagResult> {
+    if (!isUuid(command.expectedMembershipId) || !isUuid(command.commandId)) {
+      return { status: 'invalid_request' };
+    }
+    const response = await this.request.post(this.provisionBreakEndpoint, JSON.stringify(command));
+    if (response.status !== 'response') return response;
+    if (response.statusCode === 401 || response.statusCode === 403) {
+      return { status: 'authority_rejected' };
+    }
+    if (!isJsonContentType(response.contentType)) return { status: 'unavailable' };
+    const body = parseJsonObject(response.body);
+    if (response.statusCode === 200 && body !== null
+      && hasExactKeys(body, ['status', 'idempotentRetry', 'nfcTag', 'assignmentId'])
+      && body.status === 'succeeded' && isUuid(body.assignmentId)
+      && isObject(body.nfcTag) && hasExactKeys(body.nfcTag, ['id', 'displayName',
+        'validationFingerprint', 'assignmentState', 'assignmentType', 'targetCustomerId'])
+      && isUuid(body.nfcTag.id) && body.nfcTag.assignmentState === 'assigned'
+      && body.nfcTag.assignmentType === 'break' && body.nfcTag.targetCustomerId === null
+      && fingerprintPattern.test(String(body.nfcTag.validationFingerprint))) {
+      return { status: 'succeeded',
+        validationFingerprint: String(body.nfcTag.validationFingerprint) };
+    }
+    const code = parseErrorCode(body);
+    if (code === 'invalid_request' || code === 'tag_payload_already_registered'
+      || code === 'command_id_conflict') return { status: code };
     return { status: 'unavailable' };
   }
 }
@@ -71,17 +104,23 @@ function parseCustomer(value: unknown) {
 }
 
 function parseTag(value: unknown) {
-  if (!isObject(value) || !hasExactKeys(value, ['id', 'displayName', 'validationFingerprint', 'assignmentState', 'targetCustomerId', 'activeAssignmentId'])
+  if (!isObject(value) || !hasExactKeys(value, ['id', 'displayName', 'validationFingerprint', 'assignmentState', 'assignmentType', 'targetCustomerId', 'activeAssignmentId'])
     || !isUuid(value.id) || typeof value.displayName !== 'string'
     || !fingerprintPattern.test(String(value.validationFingerprint))
     || (value.assignmentState !== 'assigned' && value.assignmentState !== 'unassigned')
+    || (value.assignmentType !== 'work' && value.assignmentType !== 'break'
+      && value.assignmentType !== null)
     || !(value.targetCustomerId === null || isUuid(value.targetCustomerId))
     || !(value.activeAssignmentId === null || isUuid(value.activeAssignmentId))
     || !(
-      (value.assignmentState === 'assigned' && value.targetCustomerId !== null && value.activeAssignmentId !== null)
-      || (value.assignmentState === 'unassigned' && value.targetCustomerId === null && value.activeAssignmentId === null)
+      (value.assignmentState === 'assigned' && value.assignmentType === 'work'
+        && value.targetCustomerId !== null && value.activeAssignmentId !== null)
+      || (value.assignmentState === 'assigned' && value.assignmentType === 'break'
+        && value.targetCustomerId === null && value.activeAssignmentId !== null)
+      || (value.assignmentState === 'unassigned' && value.assignmentType === null
+        && value.targetCustomerId === null && value.activeAssignmentId === null)
     )) return null;
-  return Object.freeze({ id: value.id, displayName: value.displayName, validationFingerprint: String(value.validationFingerprint), assignmentState: value.assignmentState, targetCustomerId: value.targetCustomerId, activeAssignmentId: value.activeAssignmentId });
+  return Object.freeze({ id: value.id, displayName: value.displayName, validationFingerprint: String(value.validationFingerprint), assignmentState: value.assignmentState, assignmentType: value.assignmentType, targetCustomerId: value.targetCustomerId, activeAssignmentId: value.activeAssignmentId });
 }
 
 function parseErrorCode(body: Record<string, unknown> | null): string | null {

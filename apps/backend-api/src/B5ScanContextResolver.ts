@@ -5,6 +5,7 @@ import type {
   ScanContextResolutionCommand,
   ScanContextResolver,
 } from './types.js';
+import { isBreakNfcAssignment } from '@taptime/core';
 
 /**
  * Resolves the narrow C2 scan projection entirely inside B5's expiring, read-only tenant session.
@@ -30,9 +31,16 @@ export class B5ScanContextResolver implements ScanContextResolver {
           assignment === null
           || !assignment.active
           || assignment.nfcTagId !== tag.id
-          || assignment.target.targetType !== 'customer'
         ) {
           return null;
+        }
+
+        if (isBreakNfcAssignment(assignment)) {
+          return Object.freeze({
+            assignmentId: assignment.id,
+            nfcTagId: tag.id,
+            subject: Object.freeze({ type: 'break' as const }),
+          });
         }
 
         const customer = await repositories.customer.findById(assignment.target.targetId);
@@ -43,7 +51,10 @@ export class B5ScanContextResolver implements ScanContextResolver {
         return Object.freeze({
           assignmentId: assignment.id,
           nfcTagId: tag.id,
-          target: Object.freeze({ ...assignment.target }),
+          subject: Object.freeze({
+            type: 'work' as const,
+            target: Object.freeze({ ...assignment.target }),
+          }),
         });
       },
     );

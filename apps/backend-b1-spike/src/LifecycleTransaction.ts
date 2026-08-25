@@ -12,8 +12,8 @@ import {
   createTimestamp,
   customerAssignmentTarget,
   type BusinessEngineDecision,
+  type NfcWorkEvent,
   type StartedTimeEntry,
-  type WorkEvent,
 } from '@taptime/core';
 import {
   B1_APPLICATION_ROLE,
@@ -100,7 +100,7 @@ function toStartedTimeEntry(row: ActiveTimeEntryRow): StartedTimeEntry {
   };
 }
 
-function toWorkEvent(row: WorkEventRow): WorkEvent {
+function toWorkEvent(row: WorkEventRow): NfcWorkEvent {
   return {
     id: WorkEventId(row.id),
     organizationId: OrganizationId(row.organization_id),
@@ -123,9 +123,13 @@ function referencedTimeEntryId(
   switch (decision.status) {
     case 'time_entry_started':
     case 'time_entry_stopped':
+    case 'break_started':
+    case 'break_stopped':
       return decision.timeEntry.id;
     case 'active_entry_for_other_target_rejected':
+    case 'work_trigger_during_break_rejected':
       return decision.activeTimeEntry.id;
+    case 'break_without_active_time_entry_rejected':
     case 'duplicate_scan_ignored':
     case 'escalation_required':
       return activeTimeEntry?.id ?? null;
@@ -166,7 +170,7 @@ export class B1LifecycleTransaction {
       );
       await controls.afterLockAcquired?.();
 
-      const workEvent: WorkEvent = {
+      const workEvent: NfcWorkEvent = {
         ...request.workEvent,
         organizationId: request.context.organizationId,
         triggeredBy: request.context.userId,
@@ -220,7 +224,7 @@ export class B1LifecycleTransaction {
 
   private async findExistingResult(
     client: PoolClient,
-    workEvent: WorkEvent,
+    workEvent: NfcWorkEvent,
     contentHash: string,
   ): Promise<B1LifecycleResult | null> {
     const existing = await this.query<ExistingWorkEventRow>(
@@ -277,7 +281,7 @@ export class B1LifecycleTransaction {
   private async findPreviousWorkEvent(
     client: PoolClient,
     request: B1LifecycleRequest,
-  ): Promise<WorkEvent | null> {
+  ): Promise<NfcWorkEvent | null> {
     const result = await this.query<WorkEventRow>(
       client,
       `SELECT id, organization_id, assignment_id, nfc_tag_id, target_type, target_id, triggered_by, occurred_at
@@ -298,7 +302,11 @@ export class B1LifecycleTransaction {
     return result.rows[0] === undefined ? null : toWorkEvent(result.rows[0]);
   }
 
-  private async writeWorkEvent(client: PoolClient, workEvent: WorkEvent, contentHash: string): Promise<void> {
+  private async writeWorkEvent(
+    client: PoolClient,
+    workEvent: NfcWorkEvent,
+    contentHash: string,
+  ): Promise<void> {
     await this.query(
       client,
       `INSERT INTO ${B1_SCHEMA}.work_events (

@@ -7,6 +7,7 @@ import {
   OFFLINE_CLOCK_PROOF_VERSION,
   OFFLINE_CLOCK_TOLERANCE_MILLISECONDS,
   OFFLINE_PROVENANCE_VERSION_V2,
+  OFFLINE_PROVENANCE_VERSION_V3,
   isCanonicalOfflineUuid,
   type OfflineCanonicalDecision,
 } from '@taptime/offline-sync-contract';
@@ -107,6 +108,10 @@ export type ManualOfflineAcknowledgement =
         | 'time_entry_stopped'
         | 'duplicate_scan_ignored'
         | 'active_entry_for_other_target_rejected'
+        | 'break_started'
+        | 'break_stopped'
+        | 'break_without_active_time_entry_rejected'
+        | 'work_trigger_during_break_rejected'
         | 'escalation_required';
     };
 
@@ -115,6 +120,7 @@ export interface ManualOfflineCapturePort {
     readonly targetType: 'customer' | 'project' | 'general_work';
     readonly targetId: string;
   }): Promise<ManualOfflineCaptureResult>;
+  captureBreak?(): Promise<ManualOfflineCaptureResult>;
   readManualAcknowledgement?(workEventId: string): ManualOfflineAcknowledgement | null;
   subscribeManualAcknowledgements?(listener: () => void): () => void;
 }
@@ -548,9 +554,9 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
     }
     let result;
     try {
-      result = this.leaseClient.issueCompleteV2 === undefined
+      result = this.leaseClient.issueCompleteV3 === undefined
         ? { status: 'unavailable' as const }
-        : await this.leaseClient.issueCompleteV2({
+        : await this.leaseClient.issueCompleteV3({
             commandId,
             installationBinding: secrets.installationBinding,
             lookupKey: encodeBase64Url(secrets.lookupKey),
@@ -716,16 +722,27 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
       return;
     }
     const clock = clockEvidence(item, sample);
-    const draft: OfflineLifecycleEventDraft = Object.freeze({
+    const commonDraft = {
       organizationId: context.organizationId,
       expectedMembershipId: context.membershipId,
       leaseId: item.leaseId,
       leaseItemId: item.leaseItemId,
       installationBinding: secrets.installationBinding,
-      provenanceVersion: OFFLINE_PROVENANCE_VERSION_V2,
+      provenanceVersion: OFFLINE_PROVENANCE_VERSION_V3,
       clock,
-      workEvent: Object.freeze({
+      receipt: Object.freeze({ id: receiptId, attemptNumber: 1 as const }),
+    } as const;
+    const draft: OfflineLifecycleEventDraft = Object.freeze({
+      ...commonDraft,
+      workEvent: item.subjectType === 'break' ? Object.freeze({
         id: workEventId,
+        subject: Object.freeze({ type: 'break' as const }),
+        occurredAt: capture.capturedAt,
+        trigger: Object.freeze({ type: 'nfc' as const,
+          assignmentId: item.assignmentId, nfcTagId: item.nfcTagId }),
+      }) : Object.freeze({
+        id: workEventId,
+        subject: Object.freeze({ type: 'work' as const }),
         target: Object.freeze({
           targetType: item.targetType,
           targetId: item.targetId,
@@ -737,7 +754,6 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
           nfcTagId: item.nfcTagId,
         }),
       }),
-      receipt: Object.freeze({ id: receiptId, attemptNumber: 1 }),
     });
     if (!this.isCaptureCurrent(generation, mode, restorationSnapshot)) return;
     const appended = await database.appendEvent(draft);
@@ -828,10 +844,11 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
       leaseId: item.leaseId,
       leaseItemId: item.leaseItemId,
       installationBinding: secrets.installationBinding,
-      provenanceVersion: OFFLINE_PROVENANCE_VERSION_V2,
+      provenanceVersion: OFFLINE_PROVENANCE_VERSION_V3,
       clock: clockEvidence(item, sample),
       workEvent: Object.freeze({
         id: workEventId,
+        subject: Object.freeze({ type: 'work' as const }),
         target: Object.freeze({
           targetType: item.targetType,
           targetId: item.targetId,
@@ -839,6 +856,61 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
         occurredAt: new Date(sample.wallClockMilliseconds).toISOString(),
         trigger: Object.freeze({ type: 'manual' as const }),
       }),
+      receipt: Object.freeze({ id: receiptId, attemptNumber: 1 as const }),
+    }));
+    if (!this.isCaptureCurrent(generation, mode, restorationSnapshot)) {
+      return { status: 'protected' };
+    }
+    if (appended.status === 'full') return { status: 'full' };
+    if (appended.status !== 'ready') return { status: 'protected' };
+    this.setManualAcknowledgement(workEventId, { status: 'pending' });
+    void this.scheduler?.trigger('event_append');
+    return { status: 'saved', workEventId };
+  }
+
+  async captureBreak(): Promise<ManualOfflineCaptureResult> {
+    const generation = this.generation;
+    const database = this.database;
+    const secrets = this.secrets;
+    const mode = this.captureMode;
+    const restorationSnapshot = mode === 'offline' ? this.offlineRestorationSnapshot : null;
+    const expectedOfflineContext = mode === 'offline' ? this.offlineCaptureContext : null;
+    if (database === null || secrets === null || mode === null
+      || (mode === 'offline' && (restorationSnapshot === null
+        || expectedOfflineContext === null))) return { status: 'unavailable' };
+    const item = await database.lookupActiveManualBreak();
+    if (!this.isCaptureCurrent(generation, mode, restorationSnapshot)
+      || item?.itemType !== 'manual_break') return { status: 'unavailable' };
+    let sample;
+    try { sample = await this.monotonicClock.sample(); }
+    catch { return { status: 'unavailable' }; }
+    if (sample.wallClockMilliseconds === undefined
+      || !Number.isSafeInteger(sample.wallClockMilliseconds)) return { status: 'unavailable' };
+    const context = await database.readActiveCaptureContext();
+    if (!this.isCaptureCurrent(generation, mode, restorationSnapshot)
+      || context === null || context.leaseId !== item.leaseId
+      || (expectedOfflineContext !== null
+        && !sameActiveCaptureContext(context, expectedOfflineContext))) {
+      return { status: 'protected' };
+    }
+    let workEventId: string;
+    let receiptId: string;
+    try { workEventId = this.createUuid(); receiptId = this.createUuid(); }
+    catch { return { status: 'unavailable' }; }
+    if (!isCanonicalOfflineUuid(workEventId) || !isCanonicalOfflineUuid(receiptId)
+      || workEventId === receiptId) return { status: 'unavailable' };
+    const appended = await database.appendEvent(Object.freeze({
+      organizationId: context.organizationId,
+      expectedMembershipId: context.membershipId,
+      leaseId: item.leaseId,
+      leaseItemId: item.leaseItemId,
+      installationBinding: secrets.installationBinding,
+      provenanceVersion: OFFLINE_PROVENANCE_VERSION_V3,
+      clock: clockEvidence(item, sample),
+      workEvent: Object.freeze({ id: workEventId,
+        subject: Object.freeze({ type: 'break' as const }),
+        occurredAt: new Date(sample.wallClockMilliseconds).toISOString(),
+        trigger: Object.freeze({ type: 'manual' as const }) }),
       receipt: Object.freeze({ id: receiptId, attemptNumber: 1 as const }),
     }));
     if (!this.isCaptureCurrent(generation, mode, restorationSnapshot)) {
@@ -1270,10 +1342,18 @@ function decisionOutcome(decision: OfflineCanonicalDecision): ProductScanOutcome
       return { status: 'time_entry_started' };
     case 'time_entry_stopped':
       return { status: 'time_entry_stopped' };
+    case 'break_started':
+      return { status: 'break_started' };
+    case 'break_stopped':
+      return { status: 'break_stopped' };
     case 'duplicate_scan_ignored':
       return { status: 'duplicate_scan_ignored' };
     case 'active_entry_for_other_target_rejected':
       return { status: 'active_entry_for_other_target_rejected' };
+    case 'break_without_active_time_entry_rejected':
+      return { status: 'break_without_active_time_entry_rejected' };
+    case 'work_trigger_during_break_rejected':
+      return { status: 'work_trigger_during_break_rejected' };
     case 'escalation_required':
       return { status: 'escalation_required' };
     default:

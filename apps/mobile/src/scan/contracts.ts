@@ -19,8 +19,12 @@ export type ProductScanOutcome =
   | { readonly status: 'scan_context_unavailable' }
   | { readonly status: 'time_entry_started' }
   | { readonly status: 'time_entry_stopped' }
+  | { readonly status: 'break_started' }
+  | { readonly status: 'break_stopped' }
   | { readonly status: 'duplicate_scan_ignored' }
   | { readonly status: 'active_entry_for_other_target_rejected' }
+  | { readonly status: 'break_without_active_time_entry_rejected' }
+  | { readonly status: 'work_trigger_during_break_rejected' }
   | { readonly status: 'escalation_required' }
   | { readonly status: 'server_review_pending' }
   | { readonly status: 'session_rejected' }

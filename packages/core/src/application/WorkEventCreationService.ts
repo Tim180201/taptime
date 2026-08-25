@@ -69,8 +69,13 @@ export class WorkEventCreationService implements WorkEventCreationPort {
         this.onEvent(decision.event);
         break;
       case 'active_entry_for_other_target_rejected':
+      case 'break_without_active_time_entry_rejected':
+      case 'work_trigger_during_break_rejected':
       case 'escalation_required':
         break;
+      case 'break_started':
+      case 'break_stopped':
+        throw new Error('Assignment WorkEvent unexpectedly produced a BreakInterval decision');
       default:
         decision satisfies never;
     }

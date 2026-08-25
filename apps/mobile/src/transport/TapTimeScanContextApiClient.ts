@@ -25,7 +25,7 @@ export class TapTimeScanContextApiClient implements ScanContextApiPort {
   private readonly endpoint: URL;
 
   constructor(baseUrl: string, private readonly request: AuthenticatedJsonPostPort) {
-    this.endpoint = new URL('v1/scan-context/resolve', withTrailingSlash(baseUrl));
+    this.endpoint = new URL('v2/scan-context/resolve', withTrailingSlash(baseUrl));
   }
 
   async resolve(command: ScanContextResolutionCommand): Promise<ScanContextResolutionResult> {
@@ -67,21 +67,39 @@ export class TapTimeScanContextApiClient implements ScanContextApiPort {
     const body = parseJsonObject(response.body);
     if (
       body === null
-      || !hasExactKeys(body, ['assignmentId', 'nfcTagId', 'target'])
+      || !hasExactKeys(body, ['assignmentId', 'nfcTagId', 'subject'])
       || !isUuid(body.assignmentId)
       || !isUuid(body.nfcTagId)
-      || !isObject(body.target)
-      || !hasExactKeys(body.target, ['targetId', 'targetType'])
-      || body.target.targetType !== 'customer'
-      || !isUuid(body.target.targetId)
+      || !isObject(body.subject)
     ) {
       return { status: 'unavailable' };
     }
+    if (hasExactKeys(body.subject, ['type']) && body.subject.type === 'break') {
+      return {
+        status: 'resolved',
+        assignmentId: NfcAssignmentId(body.assignmentId),
+        nfcTagId: NfcTagId(body.nfcTagId),
+        subject: Object.freeze({ type: 'break' }),
+      };
+    }
+    if (
+      !hasExactKeys(body.subject, ['target', 'type'])
+      || body.subject.type !== 'work'
+      || !isObject(body.subject.target)
+      || !hasExactKeys(body.subject.target, ['targetId', 'targetType'])
+      || body.subject.target.targetType !== 'customer'
+      || !isUuid(body.subject.target.targetId)
+    ) return { status: 'unavailable' };
+    const target = customerAssignmentTarget(CustomerId(body.subject.target.targetId));
     return {
       status: 'resolved',
       assignmentId: NfcAssignmentId(body.assignmentId),
       nfcTagId: NfcTagId(body.nfcTagId),
-      target: customerAssignmentTarget(CustomerId(body.target.targetId)),
+      target,
+      subject: Object.freeze({
+        type: 'work',
+        target,
+      }),
     };
   }
 }

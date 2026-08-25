@@ -44,6 +44,18 @@ export function ManualCaptureScreen({ work }: { readonly work: MobileWorkCapabil
     <Text style={styles.explanation}>
       Ziel auswählen und einmal auslösen. TapTim.e entscheidet sicher über Start oder Stopp.
     </Text>
+    <Card>
+      <Text style={styles.selection}>Pause</Text>
+      <Text style={styles.explanation}>
+        Einmal auslösen. TapTim.e entscheidet, ob die Pause beginnt oder endet.
+      </Text>
+      <ActionButton
+        title={state.submitting ? 'Wird sicher ausgelöst …' : 'Pause auslösen'}
+        disabled={state.submitting}
+        onPress={() => work.triggerBreak()}
+        accessibilityHint="Der Server entscheidet, ob die Pause beginnt oder endet."
+      />
+    </Card>
     <TextInput
       value={search}
       onChangeText={setSearch}
@@ -99,6 +111,14 @@ function outcomeLabel(outcome: NonNullable<
   if (outcome === 'duplicate_scan_ignored') return 'Doppelter Auslöser ignoriert';
   if (outcome === 'active_entry_for_other_target_rejected') {
     return 'Eine andere Arbeitszeit ist aktiv.';
+  }
+  if (outcome === 'break_started') return 'Pause begonnen';
+  if (outcome === 'break_stopped') return 'Pause beendet';
+  if (outcome === 'break_without_active_time_entry_rejected') {
+    return 'Ohne laufende Arbeitszeit ist keine Pause möglich.';
+  }
+  if (outcome === 'work_trigger_during_break_rejected') {
+    return 'Die Pause muss zuerst mit dem Pausenauslöser beendet werden.';
   }
   if (outcome === 'escalation_required') return 'Sichere Prüfung erforderlich';
   if (outcome === 'rejected') return 'Sitzung nicht mehr gültig';

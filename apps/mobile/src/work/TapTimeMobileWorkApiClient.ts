@@ -132,42 +132,62 @@ export class TapTimeMobileWorkApiClient implements MobileWorkApiPort {
         receipt: { id: this.createUuid(), attemptNumber: 1 },
       }),
     );
-    if (response.status === 'authority_rejected') return response;
-    if (response.status !== 'response' || !isJson(response.contentType)) {
-      return { status: 'unavailable' };
-    }
-    if (response.statusCode === 202) {
-      return { status: 'accepted', outcome: 'pending' };
-    }
-    if (response.statusCode !== 200) {
-      return response.statusCode === 401
-        ? { status: 'authority_rejected' }
-        : { status: 'unavailable' };
-    }
-    try {
-      const value: unknown = JSON.parse(response.body);
-      if (
-        !isRecord(value)
-        || value.status !== 'synchronized'
-        || !isRecord(value.decision)
-        || ![
-          'time_entry_started',
-          'time_entry_stopped',
-          'duplicate_scan_ignored',
-          'active_entry_for_other_target_rejected',
-          'escalation_required',
-        ].includes(String(value.decision.status))
-      ) return { status: 'unavailable' };
-      return {
-        status: 'accepted',
-        outcome: value.decision.status as Extract<
-          ManualTriggerResult,
-          { status: 'accepted' }
-        >['outcome'],
-      };
-    } catch {
-      return { status: 'unavailable' };
-    }
+    return parseManualTriggerResponse(response);
+  }
+
+  async triggerBreak(expectedMembershipId: string): Promise<ManualTriggerResult> {
+    const response = await this.requests.post(
+      new URL('/v1/lifecycle-events/manual-break', this.baseUrl),
+      JSON.stringify({
+        expectedMembershipId,
+        workEvent: { id: this.createUuid(), subject: { type: 'break' } },
+        receipt: { id: this.createUuid(), attemptNumber: 1 },
+      }),
+    );
+    return parseManualTriggerResponse(response);
+  }
+}
+
+function parseManualTriggerResponse(
+  response: Awaited<ReturnType<AuthenticatedJsonPostPort['post']>>,
+): ManualTriggerResult {
+  if (response.status === 'authority_rejected') return response;
+  if (response.status !== 'response' || !isJson(response.contentType)) {
+    return { status: 'unavailable' };
+  }
+  if (response.statusCode === 202) return { status: 'accepted', outcome: 'pending' };
+  if (response.statusCode !== 200) {
+    return response.statusCode === 401
+      ? { status: 'authority_rejected' }
+      : { status: 'unavailable' };
+  }
+  try {
+    const value: unknown = JSON.parse(response.body);
+    if (
+      !isRecord(value)
+      || value.status !== 'synchronized'
+      || !isRecord(value.decision)
+      || ![
+        'time_entry_started',
+        'time_entry_stopped',
+        'duplicate_scan_ignored',
+        'active_entry_for_other_target_rejected',
+        'break_started',
+        'break_stopped',
+        'break_without_active_time_entry_rejected',
+        'work_trigger_during_break_rejected',
+        'escalation_required',
+      ].includes(String(value.decision.status))
+    ) return { status: 'unavailable' };
+    return {
+      status: 'accepted',
+      outcome: value.decision.status as Extract<
+        ManualTriggerResult,
+        { status: 'accepted' }
+      >['outcome'],
+    };
+  } catch {
+    return { status: 'unavailable' };
   }
 }
 

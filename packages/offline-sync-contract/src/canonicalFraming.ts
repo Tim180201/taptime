@@ -1,6 +1,7 @@
 import type {
   OfflineCaptureLeaseItem,
   OfflineCaptureLeaseItemV2,
+  OfflineCaptureLeaseItemV3,
 } from './types.js';
 
 const textEncoder = new TextEncoder();
@@ -19,6 +20,47 @@ export function encodeOfflineLeaseManifest(
     item.displayName,
   ]);
   return encodeLengthFramedUtf8(fields);
+}
+
+export function encodeOfflineLeaseManifestV3(
+  items: readonly OfflineCaptureLeaseItemV3[],
+): Uint8Array {
+  assertLexicographicallyOrderedItemsV3(items);
+  return encodeLengthFramedUtf8(items.flatMap((item) => {
+    const common = [item.itemType, item.subjectType, item.itemId, item.displayName];
+    if (item.itemType === 'manual_break') return common;
+    if (item.itemType === 'manual_target') {
+      return [...common, item.targetType, item.targetId, String(item.targetRowVersion)];
+    }
+    if (item.subjectType === 'break') {
+      return [...common, item.lookup, item.assignmentId, item.nfcTagId,
+        String(item.assignmentRowVersion)];
+    }
+    return [...common, item.lookup, item.assignmentId, item.nfcTagId,
+      item.targetType, item.targetId, String(item.assignmentRowVersion),
+      String(item.targetRowVersion)];
+  }));
+}
+
+function assertLexicographicallyOrderedItemsV3(
+  items: readonly OfflineCaptureLeaseItemV3[],
+): void {
+  let previous: string | null = null;
+  const lookups = new Set<string>();
+  let manualBreaks = 0;
+  for (const item of items) {
+    if (previous !== null && compareAscii(item.itemId, previous) <= 0) {
+      throw new TypeError('Offline v3 lease items must be strictly ASCII-ordered by itemId');
+    }
+    if (item.itemType === 'nfc_assignment') {
+      if (lookups.has(item.lookup)) throw new TypeError('Offline v3 lease contains duplicate lookup');
+      lookups.add(item.lookup);
+    }
+    if (item.itemType === 'manual_break' && ++manualBreaks > 1) {
+      throw new TypeError('Offline v3 lease contains duplicate manual break trigger');
+    }
+    previous = item.itemId;
+  }
 }
 
 export function encodeOfflineLeaseManifestV2(

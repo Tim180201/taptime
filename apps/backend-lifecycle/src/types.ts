@@ -12,13 +12,17 @@ import type {
 } from '@taptime/core';
 import type { AccessTokenVerificationRejectionReason } from '@taptime/backend-identity';
 
-export interface LifecycleWorkEventEvidence {
+interface LifecycleWorkEventEvidenceBase {
   readonly id: WorkEventId;
   readonly assignmentId: NfcAssignmentId;
   readonly nfcTagId: NfcTagId;
-  readonly target: CustomerWorkTarget;
   readonly occurredAt: Timestamp;
 }
+
+export type LifecycleWorkEventEvidence = LifecycleWorkEventEvidenceBase & (
+  | { readonly subject?: { readonly type: 'work' }; readonly target: CustomerWorkTarget }
+  | { readonly subject: { readonly type: 'break' }; readonly target?: never }
+);
 
 export interface LifecycleReceiptEvidence {
   readonly id: string;
@@ -46,10 +50,28 @@ export interface ManualLifecycleIngestionCommand {
   };
 }
 
+export interface ManualBreakLifecycleIngestionCommand {
+  readonly accessToken: string;
+  readonly expectedMembershipId: MembershipId;
+  readonly workEvent: {
+    readonly id: WorkEventId;
+    readonly subject: { readonly type: 'break' };
+  };
+  readonly receipt: {
+    readonly id: string;
+    readonly attemptNumber: 1;
+  };
+}
+
 export type PersistedLifecycleDecision =
   | {
       readonly status: 'time_entry_started' | 'time_entry_stopped';
       readonly timeEntryId: TimeEntryId;
+    }
+  | {
+      readonly status: 'break_started' | 'break_stopped';
+      readonly timeEntryId: TimeEntryId;
+      readonly breakIntervalId: string;
     }
   | {
       readonly status: 'duplicate_scan_ignored';
@@ -58,6 +80,12 @@ export type PersistedLifecycleDecision =
   | {
       readonly status: 'active_entry_for_other_target_rejected';
       readonly activeTimeEntryId: TimeEntryId;
+    }
+  | { readonly status: 'break_without_active_time_entry_rejected' }
+  | {
+      readonly status: 'work_trigger_during_break_rejected';
+      readonly activeTimeEntryId: TimeEntryId;
+      readonly activeBreakIntervalId: string;
     }
   | {
       readonly status: 'escalation_required';

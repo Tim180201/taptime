@@ -292,6 +292,7 @@ describe('ProductScanOrchestrator (Block D)', () => {
         id: '60000000-0000-4000-8000-000000000101',
         assignmentId: resolvedContext.assignmentId,
         nfcTagId: resolvedContext.nfcTagId,
+        subject: { type: 'work' },
         target: resolvedContext.target,
         occurredAt: '2026-07-14T08:30:00.000Z',
       },

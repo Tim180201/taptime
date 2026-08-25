@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import {
   createCustomerCommandDigestV1,
   normalizeOrganizationNameV1,
+  provisionBreakNfcTagCommandDigestV1,
   provisionNfcTagCommandDigestV1,
 } from '@taptime/administration-contract';
 import {
@@ -30,6 +31,7 @@ import type {
   AdminWriteStage,
   CreateCustomerCommand,
   ProvisionNfcTagCommand,
+  ProvisionBreakNfcTagCommand,
   ReadSetupProjectionCommand,
 } from '../src/types.js';
 import {
@@ -58,6 +60,7 @@ const commandIds = {
   createSecond: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaab',
   provision: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
   provisionSecond: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbc',
+  provisionBreak: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbd',
 } as const;
 const contaminationCases = [
   {
@@ -92,7 +95,7 @@ beforeAll(async () => {
   await installerPool.query(`DROP SCHEMA IF EXISTS ${B3_SCHEMA} CASCADE`);
   await installerPool.query(`DROP TABLE IF EXISTS ${B3_MIGRATION_TABLE}`);
   await expect(migrate(installerPool)).resolves.toEqual({
-    applied: ['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016'],
+    applied: ['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017'],
     alreadyApplied: [],
   });
   await ensureC3CRuntimeLogin(installerPool, runtimePassword);
@@ -116,13 +119,13 @@ afterAll(async () => {
 });
 
 describe('migration 007, roles and database contracts', () => {
-  it('records exactly immutable migrations 001 through 016 and reruns without changes', async () => {
+  it('records exactly immutable migrations 001 through 017 and reruns without changes', async () => {
     expect((await loadMigrations()).map(({ version }) => version)).toEqual([
-      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016',
+      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017',
     ]);
     await expect(migrate(installerPool)).resolves.toEqual({
       applied: [],
-      alreadyApplied: ['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016'],
+      alreadyApplied: ['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017'],
     });
   });
 
@@ -177,7 +180,7 @@ describe('migration 007, roles and database contracts', () => {
           await dirtyPool.query('DROP SCHEMA dirty_c3c CASCADE');
         }
         await expect(applyMigrationSet(dirtyPool, migrations.slice(6))).resolves.toEqual({
-          applied: ['007', '008', '009', '010', '011', '012', '013', '014', '015', '016'],
+          applied: ['007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017'],
           alreadyApplied: [],
         });
       } finally {
@@ -226,7 +229,7 @@ describe('migration 007, roles and database contracts', () => {
          WHERE id = '90000000-0000-4000-8000-000000000010'`,
       );
       await expect(applyMigrationSet(migrationPool, migrations.slice(6))).resolves.toEqual({
-        applied: ['007', '008', '009', '010', '011', '012', '013', '014', '015', '016'],
+        applied: ['007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017'],
         alreadyApplied: [],
       });
     } finally {
@@ -422,6 +425,7 @@ describe('migration 007, roles and database contracts', () => {
       {
         owner: 'taptime_admin_setup_data_function_owner',
         functions: [
+          'enforce_admin_break_tag_receipt_integrity',
           'enforce_admin_setup_receipt_integrity',
           'insert_admin_setup_nfc_tag_v1',
           'lock_admin_setup_active_customer_v1',
@@ -501,6 +505,7 @@ describe('migration 007, roles and database contracts', () => {
     `);
     expect(assignmentColumns.rows).toEqual([
       { column_name: 'active', privilege_type: 'SELECT' },
+      { column_name: 'assignment_type', privilege_type: 'SELECT' },
       { column_name: 'created_at', privilege_type: 'SELECT' },
       { column_name: 'id', privilege_type: 'SELECT' },
       { column_name: 'nfc_tag_id', privilege_type: 'SELECT' },
@@ -1127,6 +1132,7 @@ describe('NFC provisioning, failure precedence and atomic rollback', () => {
         displayName: 'Warehouse Tag',
         validationFingerprint: fingerprint,
         assignmentState: 'assigned',
+        assignmentType: 'work',
         targetCustomerId: ids.customerA,
       },
     });
@@ -1200,6 +1206,53 @@ describe('NFC provisioning, failure precedence and atomic rollback', () => {
       },
     ]);
     expect(JSON.stringify(audits.rows)).not.toContain('nfc:uid:v1:CC');
+  });
+
+  it('provisions and idempotently replays one undirected Break NFC assignment', async () => {
+    const first = await coordinator.provisionBreakNfcTag(provisionBreakCommand());
+    const retry = await coordinator.provisionBreakNfcTag(provisionBreakCommand());
+    expect(first).toMatchObject({
+      status: 'succeeded',
+      idempotentRetry: false,
+      nfcTag: {
+        displayName: 'Pause',
+        assignmentState: 'assigned',
+        assignmentType: 'break',
+        targetCustomerId: null,
+      },
+    });
+    expect(retry).toEqual({ ...first, idempotentRetry: true });
+    if (first.status !== 'succeeded') throw new Error('Expected successful Break Tag');
+    const stored = await installerPool.query<{
+      assignment_type: string;
+      target_type: string | null;
+      target_customer_id: string | null;
+      request_hash: string;
+      audit_count: string;
+    }>(`
+      SELECT assignment.assignment_type, assignment.target_type,
+        assignment.target_customer_id, encode(receipt.request_hash, 'hex') AS request_hash,
+        (SELECT count(*)::text FROM taptime_server.audit_events AS audit
+         WHERE audit.correlation_id = $3) AS audit_count
+      FROM taptime_server.nfc_assignments AS assignment
+      JOIN taptime_server.admin_break_tag_command_receipts AS receipt
+        ON receipt.organization_id = assignment.organization_id
+       AND receipt.nfc_assignment_id = assignment.id
+      WHERE assignment.id = $1 AND receipt.command_id = $2
+    `, [first.assignmentId, commandIds.provisionBreak, commandIds.provisionBreak]);
+    expect(stored.rows).toEqual([{
+      assignment_type: 'break',
+      target_type: null,
+      target_customer_id: null,
+      request_hash: provisionBreakNfcTagCommandDigestV1(
+        ids.organizationA,
+        ids.adminA,
+        ids.membershipAdminA,
+        'Pause',
+        'nfc:uid:v1:DD',
+      ),
+      audit_count: '2',
+    }]);
   });
 
   it('returns the original Tag for an exact retry and conflicts on changed data', async () => {
@@ -1378,6 +1431,7 @@ describe('NFC provisioning, failure precedence and atomic rollback', () => {
         displayName: 'Warehouse Tag',
         validationFingerprint: fingerprintFor('nfc:uid:v1:CC'),
         assignmentState: 'assigned',
+        assignmentType: 'work',
         targetCustomerId: ids.customerA,
       },
       assignmentId: ids.adversarialAssignmentA,
@@ -1666,6 +1720,7 @@ describe('setup projection, paging, isolation and session cleanup', () => {
           displayName: 'Assigned Tag A',
           validationFingerprint: fingerprintFor('nfc:uid:v1:AA'),
           assignmentState: 'assigned',
+          assignmentType: 'work',
           targetCustomerId: ids.customerA,
           activeAssignmentId: ids.assignmentA,
         },
@@ -1674,6 +1729,7 @@ describe('setup projection, paging, isolation and session cleanup', () => {
           displayName: 'Unassigned Tag A',
           validationFingerprint: fingerprintFor('nfc:uid:v1:BB'),
           assignmentState: 'unassigned',
+          assignmentType: null,
           targetCustomerId: null,
           activeAssignmentId: null,
         },
@@ -1801,6 +1857,19 @@ function provisionCommand(
     customerId: customerIds.customerA,
     displayName: 'Warehouse Tag',
     canonicalPayload: 'nfc:uid:v1:CC',
+    ...overrides,
+  };
+}
+
+function provisionBreakCommand(
+  overrides: Partial<ProvisionBreakNfcTagCommand> = {},
+): ProvisionBreakNfcTagCommand {
+  return {
+    accessToken: fixtureTokens.adminA,
+    expectedMembershipId: membershipIds.adminA,
+    commandId: commandIds.provisionBreak,
+    displayName: 'Pause',
+    canonicalPayload: 'nfc:uid:v1:DD',
     ...overrides,
   };
 }

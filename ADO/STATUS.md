@@ -162,6 +162,14 @@ in keinem Plan standen.
 
 ## Bekannte Kleinigkeiten (blockieren nichts)
 
+- **P2:** `effective_work_duration_seconds_v1` hat noch keinen Aufrufer. Das ist bis T-013
+  korrekt; **T-013 muss diese Funktion aufrufen** und darf den Pausenabzug nicht in TypeScript
+  nachrechnen, sonst entstehen zwei Wahrheiten.
+- **P2:** Offline-Reconciliation speichert bei `work_trigger_during_break_rejected` die aktive
+  `server_time_entry_id` noch nicht mit, obwohl die Entscheidung selbst korrekt ankommt.
+- **P2:** Die Break-WorkEvent-Bindung könnte zusätzlich über `subject_type = 'break'` sowie die
+  Gleichheit von `started_via`/`stopped_via` und `trigger_type` gehärtet werden. Die aktuellen
+  Writer erzeugen bereits die richtige Form.
 - App heißt intern noch `mobile` (Name, Slug, Package-ID) statt TapTim.e.
 - Ungetracktes `app.json` im Wurzelverzeichnis (seit 20.07.2026), von keinem Build oder Runtime
   gelesen. Package-ID entscheidet der Product Owner.

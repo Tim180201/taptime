@@ -49,6 +49,17 @@ export function provisionNfcTagCommandDigestV1(
   ]);
 }
 
+export function provisionBreakNfcTagCommandDigestV1(
+  organizationId: string,
+  actorUserId: string,
+  expectedMembershipId: string,
+  canonicalDisplayName: string,
+  canonicalPayload: string,
+): string {
+  return tupleDigest(['provisionBreakNfcTag', organizationId, actorUserId,
+    expectedMembershipId, canonicalDisplayName, canonicalPayload]);
+}
+
 export function reassignNfcTagCommandDigestV1(
   organizationId: string,
   actorUserId: string,

@@ -1,6 +1,7 @@
 import type {
   OfflineCaptureLeasePage,
   OfflineCaptureLeasePageV2,
+  OfflineCaptureLeasePageV3,
   OfflineLifecycleEventCommand,
   OfflineLifecycleEventCommandV2,
 } from '@taptime/offline-sync-contract';
@@ -11,6 +12,7 @@ import {
 import {
   mobileManifestDigest,
   mobileManifestDigestV2,
+  mobileManifestDigestV3,
 } from '../../src/offline/MobileLookupHmac';
 import {
   MemoryOfflineDatabase,
@@ -47,7 +49,7 @@ describe('OfflineCaptureDatabase state machine', () => {
       await expect(store.initialize()).resolves.toEqual({ status: 'ready' });
       expect(native.execLog[0]).toMatch(/^PRAGMA key = "x'[0-9a-f]{64}'"$/);
       expect(native.execLog.some((sql) => sql.includes('CREATE TABLE offline_owner'))).toBe(true);
-      expect(native.userVersion).toBe(3);
+      expect(native.userVersion).toBe(4);
       expect(native.exclusiveTransactions).toBeGreaterThanOrEqual(2);
     });
 
@@ -62,7 +64,7 @@ describe('OfflineCaptureDatabase state machine', () => {
       expect(native.execLog.some((sql) => (
         sql.includes('ADD COLUMN review_pending_sequence')
       ))).toBe(true);
-      expect(native.userVersion).toBe(3);
+      expect(native.userVersion).toBe(4);
       await expect(store.readReviewPendingSequence()).resolves.toBeNull();
       expect(native.owner).toMatchObject(memoryOwner());
     });
@@ -253,6 +255,43 @@ describe('OfflineCaptureDatabase state machine', () => {
       .resolves.toEqual({ status: 'full' });
     expect(native.owner?.next_device_sequence).toBe(0);
   });
+
+  it('queues two undirected offline pause triggers immutably in capture order', async () => {
+    const { store } = await readyStore();
+    await store.bindOwner(owner());
+    const page = leasePageV3();
+    await expect(store.activateLease({
+      page,
+      activationBootMarker: 'boot-1',
+      activationMonotonicMilliseconds: 10_000,
+    })).resolves.toEqual({ status: 'ready' });
+    await expect(store.lookupActiveManualBreak()).resolves.toMatchObject({
+      itemType: 'manual_break', subjectType: 'break', leaseItemId: ids.item,
+    });
+    const first = await store.appendEvent(breakEventDraft(page, ids.event1, ids.receipt1, 1_000));
+    const second = await store.appendEvent(breakEventDraft(page, ids.event2, ids.receipt2, 2_000));
+    expect(first).toMatchObject({
+      status: 'ready',
+      command: {
+        deviceSequence: 1,
+        provenanceVersion: 3,
+        workEvent: { subject: { type: 'break' }, trigger: { type: 'manual' } },
+      },
+    });
+    expect(second).toMatchObject({
+      status: 'ready',
+      command: {
+        deviceSequence: 2,
+        provenanceVersion: 3,
+        workEvent: { subject: { type: 'break' }, trigger: { type: 'manual' } },
+      },
+    });
+    expect((await store.claimHead(20_000))?.command.workEvent.id).toBe(ids.event1);
+    await store.acknowledgeHead({
+      deviceSequence: 1, workEventId: ids.event1, receiptId: ids.receipt1,
+    }, 'synchronized');
+    expect((await store.claimHead(20_001))?.command.workEvent.id).toBe(ids.event2);
+  });
 });
 
 function owner() {
@@ -322,6 +361,66 @@ function leasePageV2(): OfflineCaptureLeasePageV2 {
     manifestDigest: mobileManifestDigestV2(items),
     items,
     nextCursor: null,
+  };
+}
+
+function leasePageV3(): OfflineCaptureLeasePageV3 {
+  const items = [{
+    itemType: 'manual_break' as const,
+    subjectType: 'break' as const,
+    itemId: ids.item,
+    displayName: 'Pause' as const,
+  }];
+  return {
+    leaseSchemaVersion: 3,
+    manifestVersion: 3,
+    leaseId: ids.lease,
+    installationId: ids.installation,
+    identityBindingId: ids.identityBinding,
+    userId: ids.user,
+    organizationId: ids.organization,
+    membershipId: ids.membership,
+    membershipRowVersion: 1,
+    role: 'employee',
+    issuedAt: '2026-07-18T10:00:00.000Z',
+    expiresAt: '2026-07-18T22:00:00.000Z',
+    configurationRevision: '3'.repeat(64),
+    itemCount: 1,
+    serializedBytes: JSON.stringify(items).length,
+    manifestDigest: mobileManifestDigestV3(items),
+    items,
+    nextCursor: null,
+  };
+}
+
+function breakEventDraft(
+  page: OfflineCaptureLeasePageV3,
+  eventId: string,
+  receiptId: string,
+  delta: number,
+) {
+  return {
+    organizationId: ids.organization,
+    expectedMembershipId: ids.membership,
+    leaseId: ids.lease,
+    leaseItemId: ids.item,
+    installationBinding: installationBindingEncoded,
+    provenanceVersion: 3 as const,
+    clock: {
+      bootMarker: 'boot-1',
+      monotonicAnchorMilliseconds: 10_000,
+      monotonicDeltaMilliseconds: delta,
+      wallClockAnchor: page.issuedAt,
+      clockProofStatus: 'verified_same_boot' as const,
+      clockProofVersion: 1 as const,
+    },
+    workEvent: {
+      id: eventId,
+      subject: { type: 'break' as const },
+      occurredAt: new Date(Date.parse(page.issuedAt) + delta).toISOString(),
+      trigger: { type: 'manual' as const },
+    },
+    receipt: { id: receiptId, attemptNumber: 1 as const },
   };
 }
 

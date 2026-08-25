@@ -4,7 +4,7 @@ import { NfcAssignmentId, NfcTagId, OrganizationId, CustomerId, UserId, WorkEven
 import { customerAssignmentTarget } from '../../src/domain/AssignmentTarget';
 import { createTimestamp } from '../../src/domain/Timestamp';
 import type { AssignmentTarget } from '../../src/domain/AssignmentTarget';
-import type { WorkEvent } from '../../src/domain/WorkEvent';
+import type { NfcWorkEvent, WorkEvent } from '../../src/domain/WorkEvent';
 import type { StartedTimeEntry } from '../../src/domain/TimeEntry';
 
 const organizationId = OrganizationId('org-1');
@@ -18,7 +18,7 @@ function buildWorkEvent(
   eventTarget: AssignmentTarget = target,
   triggeredBy = userId,
   eventOrganizationId = organizationId,
-): WorkEvent {
+): NfcWorkEvent {
   return {
     id: WorkEventId(id),
     organizationId: eventOrganizationId,
@@ -30,7 +30,7 @@ function buildWorkEvent(
   };
 }
 
-function buildStartedTimeEntry(startWorkEvent: WorkEvent): StartedTimeEntry {
+function buildStartedTimeEntry(startWorkEvent: NfcWorkEvent): StartedTimeEntry {
   return {
     id: TimeEntryId('time-entry-1'),
     workEventId: startWorkEvent.id,

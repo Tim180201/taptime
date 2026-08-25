@@ -2,6 +2,7 @@ import type { WorkEventRepository } from '../../ports/WorkEventRepository';
 import type { WorkEvent } from '../../domain/WorkEvent';
 import type { AssignmentTarget } from '../../domain/AssignmentTarget';
 import type { OrganizationId, UserId } from '../../domain/ids';
+import { isBreakWorkEvent } from '../../domain/WorkEvent';
 
 export class InMemoryWorkEventRepository implements WorkEventRepository {
   private readonly workEvents: WorkEvent[] = [];
@@ -13,6 +14,7 @@ export class InMemoryWorkEventRepository implements WorkEventRepository {
   ): Promise<WorkEvent | null> {
     return this.workEvents.reduce<WorkEvent | null>((latest, workEvent) => {
       const matches =
+        !isBreakWorkEvent(workEvent) &&
         workEvent.organizationId === organizationId &&
         workEvent.triggeredBy === userId &&
         workEvent.target.targetType === target.targetType &&

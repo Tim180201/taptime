@@ -15,7 +15,8 @@ export class MobileWorkCoordinator implements MobileWorkCapability {
   private generation = 0;
   private ownTimeCursors = new Set<string>();
   private boundSessionGeneration: number | null = null;
-  private pendingManualEventId: string | null = null;
+  private pendingManualEventIds: string[] = [];
+  private manualAcknowledgementFlight: Promise<void> | null = null;
 
   constructor(
     private readonly session: MobileWorkSessionReader,
@@ -46,7 +47,7 @@ export class MobileWorkCoordinator implements MobileWorkCapability {
         this.generation += 1;
         this.ownTimeCursors.clear();
         this.boundSessionGeneration = snapshot?.generation ?? null;
-        this.pendingManualEventId = null;
+        this.pendingManualEventIds = [];
         this.setState({ status: 'inactive' });
       }
     });
@@ -64,7 +65,7 @@ export class MobileWorkCoordinator implements MobileWorkCapability {
     this.generation += 1;
     this.ownTimeCursors.clear();
     this.boundSessionGeneration = null;
-    this.pendingManualEventId = null;
+    this.pendingManualEventIds = [];
     this.setState({ status: 'inactive' });
   }
 
@@ -97,7 +98,7 @@ export class MobileWorkCoordinator implements MobileWorkCapability {
         targets: result.targets,
         submitting: false,
         loadingMore: false,
-        outcome: this.pendingManualEventId === null ? null : 'pending',
+        outcome: this.pendingManualEventIds.length === 0 ? null : 'pending',
       });
       return;
     }
@@ -164,7 +165,6 @@ export class MobileWorkCoordinator implements MobileWorkCapability {
       snapshot === null
       || current.status !== 'ready'
       || current.submitting
-      || this.pendingManualEventId !== null
       || !current.targets.targets.some((candidate) => (
         candidate.targetType === target.targetType
         && candidate.targetId === target.targetId
@@ -182,7 +182,7 @@ export class MobileWorkCoordinator implements MobileWorkCapability {
       const latest = this.state;
       if (latest.status !== 'ready') return;
       if (result.status === 'saved') {
-        this.pendingManualEventId = result.workEventId;
+        this.pendingManualEventIds.push(result.workEventId);
       }
       this.setState({
         ...latest,
@@ -217,45 +217,104 @@ export class MobileWorkCoordinator implements MobileWorkCapability {
     }
   }
 
-  private setState(state: MobileWorkState): void {
-    this.state = Object.freeze(state);
-    for (const listener of this.listeners) listener();
-  }
-
-  private async handleManualAcknowledgement(): Promise<void> {
-    const workEventId = this.pendingManualEventId;
-    const offlineCapture = this.offlineCapture;
-    if (
-      workEventId === null
-      || offlineCapture?.readManualAcknowledgement === undefined
-    ) return;
-    const acknowledgement = offlineCapture.readManualAcknowledgement(workEventId);
-    if (
-      acknowledgement === null
-      || acknowledgement.status === 'pending'
-      || acknowledgement.status === 'review_pending'
-      || acknowledgement.status === 'protected'
-    ) return;
+  async triggerBreak(): Promise<void> {
     const snapshot = this.session.capture();
     const current = this.state;
     if (
       snapshot === null
       || current.status !== 'ready'
-      || !this.session.isCurrent(snapshot)
-      || workEventId !== this.pendingManualEventId
+      || current.submitting
     ) return;
-    this.pendingManualEventId = null;
-    if (acknowledgement.status === 'rejected') {
-      this.setState({ ...current, submitting: false, outcome: 'rejected' });
+    const generation = this.generation;
+    this.setState({ ...current, submitting: true, outcome: null });
+    if (this.offlineCapture !== null) {
+      const result = await (this.offlineCapture.captureBreak?.()
+        ?? Promise.resolve({ status: 'unavailable' as const }));
+      if (generation !== this.generation || !this.session.isCurrent(snapshot)) return;
+      const latest = this.state;
+      if (latest.status !== 'ready') return;
+      if (result.status === 'saved') this.pendingManualEventIds.push(result.workEventId);
+      this.setState({ ...latest, submitting: false,
+        outcome: result.status === 'saved' ? 'pending' : 'rejected' });
+      if (result.status === 'saved') await this.handleManualAcknowledgement();
       return;
     }
-    if (!('outcome' in acknowledgement)) return;
-    const outcome = acknowledgement.outcome;
-    await this.refresh();
-    if (!this.session.isCurrent(snapshot)) return;
-    const refreshed = this.state;
-    if (refreshed.status === 'ready') {
-      this.setState({ ...refreshed, outcome });
+    const result = await (this.api.triggerBreak?.(snapshot.session.membershipId)
+      ?? Promise.resolve({ status: 'unavailable' as const }));
+    if (generation !== this.generation || !this.session.isCurrent(snapshot)) return;
+    const latest = this.state;
+    if (latest.status !== 'ready') return;
+    if (result.status === 'accepted') {
+      this.setState({ ...latest, submitting: false, outcome: result.outcome });
+      await this.refresh();
+      const refreshed = this.state;
+      if (refreshed.status === 'ready') {
+        this.setState({ ...refreshed, outcome: result.outcome });
+      }
+      return;
+    }
+    this.setState({
+      ...latest,
+      submitting: false,
+      outcome: result.status === 'authority_rejected' ? 'rejected' : 'pending',
+    });
+  }
+
+  private setState(state: MobileWorkState): void {
+    this.state = Object.freeze(state);
+    for (const listener of this.listeners) listener();
+  }
+
+  private handleManualAcknowledgement(): Promise<void> {
+    if (this.manualAcknowledgementFlight !== null) {
+      return this.manualAcknowledgementFlight;
+    }
+    let flight!: Promise<void>;
+    flight = this.processManualAcknowledgements().finally(() => {
+      if (this.manualAcknowledgementFlight === flight) {
+        this.manualAcknowledgementFlight = null;
+      }
+    });
+    this.manualAcknowledgementFlight = flight;
+    return flight;
+  }
+
+  private async processManualAcknowledgements(): Promise<void> {
+    const offlineCapture = this.offlineCapture;
+    if (offlineCapture?.readManualAcknowledgement === undefined) return;
+    while (this.pendingManualEventIds.length > 0) {
+      const workEventId = this.pendingManualEventIds[0]!;
+      const acknowledgement = offlineCapture.readManualAcknowledgement(workEventId);
+      if (
+        acknowledgement === null
+        || acknowledgement.status === 'pending'
+        || acknowledgement.status === 'review_pending'
+        || acknowledgement.status === 'protected'
+      ) return;
+      const snapshot = this.session.capture();
+      const current = this.state;
+      if (
+        snapshot === null
+        || current.status !== 'ready'
+        || !this.session.isCurrent(snapshot)
+        || workEventId !== this.pendingManualEventIds[0]
+      ) return;
+      this.pendingManualEventIds.shift();
+      if (acknowledgement.status === 'rejected') {
+        this.setState({ ...current, submitting: false, outcome: 'rejected' });
+        continue;
+      }
+      if (!('outcome' in acknowledgement)) return;
+      const outcome = acknowledgement.outcome;
+      await this.refresh();
+      if (!this.session.isCurrent(snapshot)) return;
+      const refreshed = this.state;
+      if (refreshed.status === 'ready') {
+        this.setState({
+          ...refreshed,
+          outcome: this.pendingManualEventIds.length === 0 ? outcome : 'pending',
+        });
+      }
     }
   }
 }

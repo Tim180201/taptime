@@ -5,8 +5,10 @@ import {
   OFFLINE_LOOKUP_KEY_BYTES,
   encodeOfflineLeaseManifest,
   encodeOfflineLeaseManifestV2,
+  encodeOfflineLeaseManifestV3,
   type OfflineCaptureLeaseItem,
   type OfflineCaptureLeaseItemV2,
+  type OfflineCaptureLeaseItemV3,
 } from '@taptime/offline-sync-contract';
 
 export function mobileLookupHmac(key: Uint8Array, canonicalPayload: string): string {
@@ -27,6 +29,10 @@ export function mobileManifestDigest(items: readonly OfflineCaptureLeaseItem[]):
 
 export function mobileManifestDigestV2(items: readonly OfflineCaptureLeaseItemV2[]): string {
   return bytesToHex(sha256(encodeOfflineLeaseManifestV2(items)));
+}
+
+export function mobileManifestDigestV3(items: readonly OfflineCaptureLeaseItemV3[]): string {
+  return bytesToHex(sha256(encodeOfflineLeaseManifestV3(items)));
 }
 
 export function mobileSha256Hex(value: Uint8Array): string {

@@ -113,6 +113,7 @@ async function command(options: {
   readonly assignmentId?: string;
   readonly tagId?: string;
   readonly customerId?: string;
+  readonly breakSubject?: boolean;
   readonly occurredAt?: string;
   readonly clientTimeEntryId?: string;
   readonly claims?: Readonly<Record<string, unknown>>;
@@ -126,13 +127,21 @@ async function command(options: {
     requestedOrganizationId: OrganizationId(
       options.requestedOrganizationId ?? ids.organizationA,
     ),
-    workEvent: {
-      id: WorkEventId(uuid('5', options.eventNumber ?? 1)),
-      assignmentId: NfcAssignmentId(options.assignmentId ?? ids.assignmentA),
-      nfcTagId: NfcTagId(options.tagId ?? ids.tagA),
-      target: customerAssignmentTarget(CustomerId(options.customerId ?? ids.customerA)),
-      occurredAt: createTimestamp(options.occurredAt ?? '2026-07-13T08:00:00.000Z'),
-    },
+    workEvent: options.breakSubject
+      ? {
+          id: WorkEventId(uuid('5', options.eventNumber ?? 1)),
+          assignmentId: NfcAssignmentId(options.assignmentId ?? ids.assignmentA),
+          nfcTagId: NfcTagId(options.tagId ?? ids.tagA),
+          subject: { type: 'break' },
+          occurredAt: createTimestamp(options.occurredAt ?? '2026-07-13T08:00:00.000Z'),
+        }
+      : {
+          id: WorkEventId(uuid('5', options.eventNumber ?? 1)),
+          assignmentId: NfcAssignmentId(options.assignmentId ?? ids.assignmentA),
+          nfcTagId: NfcTagId(options.tagId ?? ids.tagA),
+          target: customerAssignmentTarget(CustomerId(options.customerId ?? ids.customerA)),
+          occurredAt: createTimestamp(options.occurredAt ?? '2026-07-13T08:00:00.000Z'),
+        },
     receipt: {
       id: uuid('6', options.receiptNumber ?? options.eventNumber ?? 1),
       attemptNumber: options.attemptNumber ?? 1,
@@ -268,19 +277,19 @@ afterAll(async () => {
 });
 
 describe('B6 migration and least-privilege runtime boundary', () => {
-  it('applies exactly migrations 001 through 016 and reruns the immutable ledger', async () => {
+  it('applies exactly migrations 001 through 017 and reruns the immutable ledger', async () => {
     expect((await loadMigrations()).map(({ version }) => version)).toEqual([
-      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016',
+      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017',
     ]);
     const ledger = await installerPool.query<{ version: string }>(
       `SELECT version FROM ${B3_MIGRATION_TABLE} ORDER BY version`,
     );
     expect(ledger.rows.map(({ version }) => version)).toEqual([
-      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016',
+      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017',
     ]);
     await expect(migrate(installerPool)).resolves.toEqual({
       applied: [],
-      alreadyApplied: ['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016'],
+      alreadyApplied: ['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017'],
     });
   });
 
@@ -1804,6 +1813,162 @@ describe('pool cleanup, unnamed execution and error truth', () => {
       receiptNumber: 215,
     }))).rejects.toThrow();
     await brokenPool.end();
+  });
+});
+
+describe('T-012 canonical pause lifecycle', () => {
+  it('keeps the TimeEntry open, rejects work during a manually started pause, and retains provenance', async () => {
+    const start = await coordinator.ingest(await command({
+      eventNumber: 310,
+      receiptNumber: 310,
+      occurredAt: '2026-08-24T06:00:00.000Z',
+    }));
+    expect(start).toMatchObject({
+      status: 'synchronized',
+      decision: { status: 'time_entry_started' },
+    });
+    const pauseStarted = await manualCoordinator.ingestManualBreak({
+      accessToken: await accessToken(),
+      expectedMembershipId: MembershipId(ids.membershipA),
+      workEvent: {
+        id: WorkEventId(uuid('5', 311)),
+        subject: { type: 'break' },
+      },
+      receipt: { id: uuid('6', 311), attemptNumber: 1 },
+    });
+    expect(pauseStarted).toMatchObject({
+      status: 'synchronized',
+      decision: { status: 'break_started' },
+      serverTimeEntryId: (start as { serverTimeEntryId: string }).serverTimeEntryId,
+    });
+    const persistedStart = await installerPool.query<{
+      interval_id: string;
+      started_at: Date;
+      interval_status: string;
+      started_via: string;
+      entry_status: string;
+    }>(`
+      SELECT interval.id AS interval_id, interval.started_at, interval.status AS interval_status,
+        interval.started_via, entry.status AS entry_status
+      FROM ${B3_SCHEMA}.break_intervals AS interval
+      JOIN ${B3_SCHEMA}.time_entries AS entry ON entry.id = interval.time_entry_id
+      WHERE interval.start_work_event_id = $1::uuid
+    `, [uuid('5', 311)]);
+    expect(persistedStart.rows[0]).toMatchObject({
+      interval_status: 'started',
+      started_via: 'manual',
+      entry_status: 'started',
+    });
+
+    const rejectedWork = await coordinator.ingest(await command({
+      eventNumber: 312,
+      receiptNumber: 312,
+      occurredAt: persistedStart.rows[0]!.started_at.toISOString(),
+    }));
+    expect(rejectedWork).toMatchObject({
+      status: 'synchronized',
+      decision: {
+        status: 'work_trigger_during_break_rejected',
+        activeBreakIntervalId: persistedStart.rows[0]!.interval_id,
+      },
+      serverTimeEntryId: (start as { serverTimeEntryId: string }).serverTimeEntryId,
+    });
+
+    const unchanged = await installerPool.query<{
+      interval_status: string;
+      entry_status: string;
+    }>(`
+      SELECT interval.status AS interval_status, entry.status AS entry_status
+      FROM ${B3_SCHEMA}.break_intervals AS interval
+      JOIN ${B3_SCHEMA}.time_entries AS entry ON entry.id = interval.time_entry_id
+      WHERE interval.id = $1::uuid
+    `, [persistedStart.rows[0]!.interval_id]);
+    expect(unchanged.rows).toEqual([{
+      interval_status: 'started', entry_status: 'started',
+    }]);
+  });
+
+  it('toggles the same NFC pause assignment without exposing separate start/stop commands', async () => {
+    await coordinator.ingest(await command({
+      eventNumber: 314,
+      receiptNumber: 314,
+      occurredAt: '2026-08-25T06:00:00.000Z',
+    }));
+    const breakTagId = '30000000-0000-4000-8000-000000000314';
+    const breakAssignmentId = '40000000-0000-4000-8000-000000000314';
+    await installerPool.query(`
+      INSERT INTO ${B3_SCHEMA}.nfc_tags (id, organization_id, display_name, payload_value)
+      VALUES ($1, $2, 'Synthetic Pause', 'nfc:uid:v1:0314')
+    `, [breakTagId, ids.organizationA]);
+    await installerPool.query(`
+      INSERT INTO ${B3_SCHEMA}.nfc_assignments
+        (id, organization_id, nfc_tag_id, assignment_type, target_type,
+         target_customer_id, active, valid_from)
+      VALUES ($1, $2, $3, 'break', NULL, NULL, true, '2026-08-25T06:30:00Z')
+    `, [breakAssignmentId, ids.organizationA, breakTagId]);
+    const tagCreated = await installerPool.query<{ created_at: Date }>(`
+      SELECT created_at FROM ${B3_SCHEMA}.nfc_tags WHERE id = $1
+    `, [breakTagId]);
+    const firstOccurredAt = new Date(tagCreated.rows[0]!.created_at.getTime() + 1_000).toISOString();
+    const secondOccurredAt = new Date(tagCreated.rows[0]!.created_at.getTime() + 1_801_000).toISOString();
+
+    const first = await coordinator.ingest(await command({
+      eventNumber: 315,
+      receiptNumber: 315,
+      assignmentId: breakAssignmentId,
+      tagId: breakTagId,
+      breakSubject: true,
+      occurredAt: firstOccurredAt,
+    }));
+    const second = await coordinator.ingest(await command({
+      eventNumber: 316,
+      receiptNumber: 316,
+      assignmentId: breakAssignmentId,
+      tagId: breakTagId,
+      breakSubject: true,
+      occurredAt: secondOccurredAt,
+    }));
+    expect(first).toMatchObject({ status: 'synchronized', decision: { status: 'break_started' } });
+    expect(second).toMatchObject({ status: 'synchronized', decision: { status: 'break_stopped' } });
+    const persisted = await installerPool.query<{
+      started_via: string;
+      stopped_via: string;
+      subject_types: string[];
+    }>(`
+      SELECT interval.started_via, interval.stopped_via,
+        array_agg(event.subject_type ORDER BY event.occurred_at)::text[] AS subject_types
+      FROM ${B3_SCHEMA}.break_intervals AS interval
+      JOIN ${B3_SCHEMA}.work_events AS event
+        ON event.id IN (interval.start_work_event_id, interval.stop_work_event_id)
+      WHERE interval.start_work_event_id = $1::uuid
+      GROUP BY interval.id
+    `, [uuid('5', 315)]);
+    expect(persisted.rows).toEqual([{
+      started_via: 'nfc',
+      stopped_via: 'nfc',
+      subject_types: ['break', 'break'],
+    }]);
+  });
+
+  it('persists the no-active-TimeEntry pause rejection without an interval', async () => {
+    const result = await manualCoordinator.ingestManualBreak({
+      accessToken: await accessToken(),
+      expectedMembershipId: MembershipId(ids.membershipA),
+      workEvent: {
+        id: WorkEventId(uuid('5', 317)),
+        subject: { type: 'break' },
+      },
+      receipt: { id: uuid('6', 317), attemptNumber: 1 },
+    });
+    expect(result).toMatchObject({
+      status: 'synchronized',
+      decision: { status: 'break_without_active_time_entry_rejected' },
+      serverTimeEntryId: null,
+    });
+    const intervals = await installerPool.query(`
+      SELECT id FROM ${B3_SCHEMA}.break_intervals
+    `);
+    expect(intervals.rows).toEqual([]);
   });
 });
 

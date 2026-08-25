@@ -10,7 +10,11 @@ function setup(role: 'administrator' | 'employee' = 'administrator') {
   let current = { ...snapshot, session: { ...snapshot.session, role } } as AdminSessionSnapshot; let listener: () => void = () => undefined;
   const session = { capture: vi.fn(() => current), isCurrent: vi.fn((candidate: AdminSessionSnapshot) => candidate === current), subscribe: vi.fn((next: () => void) => { listener = next; return () => undefined; }) };
   const nfc = { checkCapability: vi.fn(async () => 'ready' as const), scan: vi.fn(async () => ({ status: 'captured' as const, payload: createCanonicalNfcUidPayload('B55E8B6AEB30'), capturedAt: createTimestamp('2026-07-15T07:00:00.000Z') })), cancelCapture: vi.fn(async () => undefined), stop: vi.fn(async () => undefined) };
-  const api: AdminSetupApiPort = { readProjection: vi.fn(async () => projection), provisionTag: vi.fn(async () => ({ status: 'succeeded' as const, validationFingerprint: 'A1B2C3D4E5F6' })) };
+  const api: AdminSetupApiPort = {
+    readProjection: vi.fn(async () => projection),
+    provisionTag: vi.fn(async () => ({ status: 'succeeded' as const, validationFingerprint: 'A1B2C3D4E5F6' })),
+    provisionBreakTag: vi.fn(async () => ({ status: 'succeeded' as const, validationFingerprint: 'A1B2C3D4E5F6' })),
+  };
   const coordinator = new AdminSetupCoordinator(session, nfc, api, () => '50000000-0000-4000-8000-000000000001');
   return { coordinator, session, nfc, api, replace(value: AdminSessionSnapshot) { current = value; listener(); } };
 }
@@ -22,6 +26,21 @@ describe('AdminSetupCoordinator', () => {
     expect(context.api.provisionTag).toHaveBeenCalledWith(expect.objectContaining({ canonicalPayload: 'nfc:uid:v1:B55E8B6AEB30' }));
     expect(JSON.stringify(context.coordinator.getState())).not.toContain('nfc:uid');
     expect(JSON.stringify(context.coordinator.getState())).toContain('A1B2C3D4E5F6');
+  });
+
+  it('captures one Pausen-Tag command without a customer or boundary direction', async () => {
+    const context = setup();
+    await context.coordinator.start();
+    await context.coordinator.provisionBreak('Pause');
+    expect(context.api.provisionBreakTag).toHaveBeenCalledWith({
+      expectedMembershipId: snapshot.session.membershipId,
+      commandId: '50000000-0000-4000-8000-000000000001',
+      displayName: 'Pause',
+      canonicalPayload: 'nfc:uid:v1:B55E8B6AEB30',
+    });
+    expect(JSON.stringify(vi.mocked(context.api.provisionBreakTag!).mock.calls[0])).not.toMatch(
+      /customer|start|stop/i,
+    );
   });
 
   it('never offers capture to an employee', async () => {

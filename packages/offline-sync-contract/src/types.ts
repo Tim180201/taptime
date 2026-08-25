@@ -87,6 +87,71 @@ export type OfflineCaptureLeaseResultV2 =
   | { readonly status: 'authority_rejected' }
   | { readonly status: 'unavailable' };
 
+export type OfflineCaptureLeaseItemV3 =
+  | {
+      readonly itemType: 'nfc_assignment';
+      readonly subjectType: 'work';
+      readonly itemId: string;
+      readonly lookup: string;
+      readonly assignmentId: string;
+      readonly nfcTagId: string;
+      readonly targetType: 'customer';
+      readonly targetId: string;
+      readonly displayName: string;
+      readonly assignmentRowVersion: number;
+      readonly targetRowVersion: number;
+    }
+  | {
+      readonly itemType: 'nfc_assignment';
+      readonly subjectType: 'break';
+      readonly itemId: string;
+      readonly lookup: string;
+      readonly assignmentId: string;
+      readonly nfcTagId: string;
+      readonly displayName: 'Pause';
+      readonly assignmentRowVersion: number;
+    }
+  | {
+      readonly itemType: 'manual_target';
+      readonly subjectType: 'work';
+      readonly itemId: string;
+      readonly targetType: OfflineTargetTypeV2;
+      readonly targetId: string;
+      readonly displayName: string;
+      readonly targetRowVersion: number;
+    }
+  | {
+      readonly itemType: 'manual_break';
+      readonly subjectType: 'break';
+      readonly itemId: string;
+      readonly displayName: 'Pause';
+    };
+
+export interface OfflineCaptureLeasePageV3 {
+  readonly leaseSchemaVersion: 3;
+  readonly manifestVersion: 3;
+  readonly leaseId: string;
+  readonly installationId: string;
+  readonly identityBindingId: string;
+  readonly userId: string;
+  readonly organizationId: string;
+  readonly membershipId: string;
+  readonly membershipRowVersion: number;
+  readonly role: OfflineMembershipRole;
+  readonly issuedAt: string;
+  readonly expiresAt: string;
+  readonly configurationRevision: string;
+  readonly itemCount: number;
+  readonly serializedBytes: number;
+  readonly manifestDigest: string;
+  readonly items: readonly OfflineCaptureLeaseItemV3[];
+  readonly nextCursor: string | null;
+}
+
+export type OfflineCaptureLeaseResultV3 =
+  | { readonly status: 'ready'; readonly page: OfflineCaptureLeasePageV3; readonly idempotentRetry: boolean }
+  | { readonly status: 'incomplete_or_oversize' | 'authority_rejected' | 'unavailable' };
+
 export interface OfflineCaptureLeaseIssueCommand {
   readonly commandId: string;
   readonly installationBinding: string;
@@ -196,6 +261,39 @@ export interface OfflineLifecycleEventCommandV2 {
   readonly receipt: { readonly id: string; readonly attemptNumber: 1 };
 }
 
+export type OfflineLifecycleWorkEventV3 = {
+  readonly id: string;
+  readonly occurredAt: string;
+  readonly subject: { readonly type: 'work' };
+  readonly target: {
+    readonly targetType: OfflineTargetTypeV2;
+    readonly targetId: string;
+  };
+  readonly trigger:
+    | { readonly type: 'nfc'; readonly assignmentId: string; readonly nfcTagId: string }
+    | { readonly type: 'manual' };
+} | {
+  readonly id: string;
+  readonly occurredAt: string;
+  readonly subject: { readonly type: 'break' };
+  readonly trigger:
+    | { readonly type: 'nfc'; readonly assignmentId: string; readonly nfcTagId: string }
+    | { readonly type: 'manual' };
+};
+
+export interface OfflineLifecycleEventCommandV3 {
+  readonly organizationId: string;
+  readonly expectedMembershipId: string;
+  readonly leaseId: string;
+  readonly leaseItemId: string;
+  readonly installationBinding: string;
+  readonly deviceSequence: number;
+  readonly provenanceVersion: 3;
+  readonly clock: OfflineClockProof;
+  readonly workEvent: OfflineLifecycleWorkEventV3;
+  readonly receipt: { readonly id: string; readonly attemptNumber: 1 };
+}
+
 export type OfflineReviewReason =
   | 'identity_or_membership_not_current'
   | 'capture_time_out_of_bounds'
@@ -218,6 +316,9 @@ export type OfflineCanonicalDecision =
   | { readonly status: 'time_entry_started' | 'time_entry_stopped'; readonly timeEntryId: string }
   | { readonly status: 'duplicate_scan_ignored'; readonly previousWorkEventId: string }
   | { readonly status: 'active_entry_for_other_target_rejected'; readonly activeTimeEntryId: string }
+  | { readonly status: 'break_started' | 'break_stopped'; readonly timeEntryId: string; readonly breakIntervalId: string }
+  | { readonly status: 'break_without_active_time_entry_rejected' }
+  | { readonly status: 'work_trigger_during_break_rejected'; readonly activeTimeEntryId: string; readonly activeBreakIntervalId: string }
   | { readonly status: 'escalation_required'; readonly reason: string };
 
 export interface OfflineDurableResultIdentity {

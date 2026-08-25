@@ -112,6 +112,55 @@ export function isOfflineLifecycleEventCommandV2(value: unknown): boolean {
   );
 }
 
+export function isOfflineLifecycleEventCommandV3(value: unknown): boolean {
+  if (
+    !isRecord(value)
+    || !hasExactKeys(value, [
+      'organizationId', 'expectedMembershipId', 'leaseId', 'leaseItemId',
+      'installationBinding', 'deviceSequence', 'provenanceVersion', 'clock',
+      'workEvent', 'receipt',
+    ])
+    || !isCanonicalOfflineUuid(value.organizationId)
+    || !isCanonicalOfflineUuid(value.expectedMembershipId)
+    || !isCanonicalOfflineUuid(value.leaseId)
+    || !isCanonicalOfflineUuid(value.leaseItemId)
+    || !isOfflineBase64Url32Bytes(value.installationBinding)
+    || !isPositiveSafeInteger(value.deviceSequence)
+    || value.provenanceVersion !== 3
+    || !isClockProof(value.clock)
+    || !isRecord(value.receipt)
+    || !hasExactKeys(value.receipt, ['id', 'attemptNumber'])
+    || !isCanonicalOfflineUuid(value.receipt.id)
+    || value.receipt.attemptNumber !== 1
+    || !isRecord(value.workEvent)
+    || !isRecord(value.workEvent.subject)
+    || !hasExactKeys(value.workEvent.subject, ['type'])
+    || !isCanonicalOfflineUuid(value.workEvent.id)
+    || !isOfflineIsoTimestamp(value.workEvent.occurredAt)
+    || !isRecord(value.workEvent.trigger)
+  ) return false;
+  const commonKeys = ['id', 'occurredAt', 'subject', 'trigger'];
+  const breakEvent = value.workEvent.subject.type === 'break';
+  if (!hasExactKeys(value.workEvent, breakEvent ? commonKeys : [...commonKeys, 'target'])) {
+    return false;
+  }
+  if (!breakEvent) {
+    if (
+      value.workEvent.subject.type !== 'work'
+      || !isRecord(value.workEvent.target)
+      || !hasExactKeys(value.workEvent.target, ['targetType', 'targetId'])
+      || !isOfflineTargetTypeV2(value.workEvent.target.targetType)
+      || !isCanonicalOfflineUuid(value.workEvent.target.targetId)
+    ) return false;
+  }
+  const trigger = value.workEvent.trigger;
+  return (hasExactKeys(trigger, ['type']) && trigger.type === 'manual')
+    || (hasExactKeys(trigger, ['type', 'assignmentId', 'nfcTagId'])
+      && trigger.type === 'nfc'
+      && isCanonicalOfflineUuid(trigger.assignmentId)
+      && isCanonicalOfflineUuid(trigger.nfcTagId));
+}
+
 function isClockProof(value: unknown): boolean {
   return isRecord(value)
     && hasExactKeys(value, [

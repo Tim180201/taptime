@@ -1,4 +1,4 @@
-import { OrganizationId, type NfcPayload } from '@taptime/core';
+import { OrganizationId, type AssignmentTarget, type NfcPayload } from '@taptime/core';
 import type {
   ScanContextApiPort,
   ScanContextResolutionResult,
@@ -7,6 +7,7 @@ import type {
   ProductScanContextResolutionCommand,
   ProductScanContextResolutionResult,
   ProductScanContextResolver,
+  ResolvedProductScanContext,
 } from './ProductScanContextResolver';
 import type { ProductScanSessionSnapshot } from './contracts';
 import {
@@ -19,7 +20,7 @@ type ResolvedScanContext = Extract<ScanContextResolutionResult, { status: 'resol
 interface CachedScanContext {
   readonly session: ProductScanSessionSnapshot;
   readonly payload: NfcPayload;
-  readonly resolution: Readonly<ResolvedScanContext>;
+  readonly resolution: Readonly<ResolvedProductScanContext>;
 }
 
 /**
@@ -99,17 +100,30 @@ export class SessionBoundScanContextResolver implements ProductScanContextResolv
   }
 }
 
-function copyFrozenResolution(resolution: ResolvedScanContext): Readonly<ResolvedScanContext> {
+function copyFrozenResolution(
+  resolution: ResolvedScanContext,
+): Readonly<ResolvedProductScanContext> {
+  if (resolution.subject?.type === 'break') {
+    return Object.freeze({
+      status: 'resolved',
+      assignmentId: resolution.assignmentId,
+      nfcTagId: resolution.nfcTagId,
+      subject: Object.freeze({ type: 'break' }),
+    });
+  }
+  const workResolution = resolution as ResolvedScanContext & { readonly target: AssignmentTarget };
+  const target: AssignmentTarget = Object.freeze({ ...workResolution.target });
   return Object.freeze({
     status: 'resolved',
     assignmentId: resolution.assignmentId,
     nfcTagId: resolution.nfcTagId,
-    target: Object.freeze({ ...resolution.target }),
+    target,
+    subject: Object.freeze({ type: 'work', target }),
   });
 }
 
 function withSource(
-  resolution: Readonly<ResolvedScanContext>,
+  resolution: Readonly<ResolvedProductScanContext>,
   source: 'live' | 'session_cache',
 ): Extract<ProductScanContextResolutionResult, { status: 'resolved' }> {
   return Object.freeze({ ...resolution, source });

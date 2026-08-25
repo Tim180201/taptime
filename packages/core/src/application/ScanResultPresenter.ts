@@ -37,6 +37,7 @@ const RESOLUTION_REJECTION_DESCRIPTIONS: Record<AssignmentResolutionRejectionRea
 const VALIDATION_REJECTION_DESCRIPTIONS: Record<AssignmentValidationRejectionReason, string> = {
   employee_not_authenticated: 'the employee is not authenticated',
   employee_lacks_organization_access: 'the employee does not have access to this organization',
+  unsupported_assignment_subject: 'the assignment is not a work-target assignment',
   missing_assignment_target: 'the assignment target could not be found',
   assignment_target_disabled: 'the assignment target is disabled',
 };
@@ -98,10 +99,18 @@ export class ScanResultPresenter {
         return `WorkEvent ${workEventId} accepted and started (TimeEntry ${decision.timeEntry.id}); queued for synchronization.`;
       case 'time_entry_stopped':
         return `WorkEvent ${workEventId} accepted and stopped (TimeEntry ${decision.timeEntry.id}); queued for synchronization.`;
+      case 'break_started':
+        return `WorkEvent ${workEventId} accepted and started BreakInterval ${decision.breakInterval.id}; queued for synchronization.`;
+      case 'break_stopped':
+        return `WorkEvent ${workEventId} accepted and stopped BreakInterval ${decision.breakInterval.id}; queued for synchronization.`;
       case 'duplicate_scan_ignored':
         return `WorkEvent ${workEventId} accepted but ignored as a duplicate of WorkEvent ${decision.previousWorkEvent.id}; queued for synchronization.`;
       case 'active_entry_for_other_target_rejected':
         return `WorkEvent ${workEventId} rejected: TimeEntry ${decision.activeTimeEntry.id} is active for another target; queued for synchronization.`;
+      case 'break_without_active_time_entry_rejected':
+        return `WorkEvent ${workEventId} rejected: no TimeEntry is active for a break; queued for synchronization.`;
+      case 'work_trigger_during_break_rejected':
+        return `WorkEvent ${workEventId} rejected: BreakInterval ${decision.activeBreakInterval.id} is active; queued for synchronization.`;
       case 'escalation_required':
         return `WorkEvent ${workEventId} escalated due to inconsistent state (${decision.reason}); queued for synchronization.`;
       default:

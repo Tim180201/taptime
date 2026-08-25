@@ -11,16 +11,19 @@ import {
   isOfflineBase64Url32Bytes,
   type OfflineCaptureLeaseItem,
   type OfflineCaptureLeaseItemV2,
+  type OfflineCaptureLeaseItemV3,
   type OfflineCaptureLeasePage,
   type OfflineCaptureLeasePageV2,
+  type OfflineCaptureLeasePageV3,
   type OfflineCaptureLeaseResult,
   type OfflineCaptureLeaseResultV2,
+  type OfflineCaptureLeaseResultV3,
 } from '@taptime/offline-sync-contract';
 import type { Pool, PoolClient, QueryResultRow } from 'pg';
 import { query, rollback, setOfflineActorContext } from './database.js';
 import { offlineLookupHmac } from './lookupHmac.js';
 import { offlineManifestDigest } from './manifestDigest.js';
-import { offlineManifestDigestV2 } from './manifestDigest.js';
+import { offlineManifestDigestV2, offlineManifestDigestV3 } from './manifestDigest.js';
 import type {
   AuthenticatedOfflineCaptureLeaseIssueCommand,
   AuthenticatedOfflineCaptureLeasePageCommand,
@@ -59,6 +62,19 @@ interface ProjectionRowV2 extends QueryResultRow {
   readonly canonical_payload: string | null;
   readonly assignment_row_version: string | null;
   readonly target_row_version: string;
+}
+
+interface ProjectionRowV3 extends QueryResultRow {
+  readonly item_type: 'nfc_assignment' | 'manual_target' | 'manual_break';
+  readonly subject_type: 'work' | 'break';
+  readonly assignment_id: string | null;
+  readonly nfc_tag_id: string | null;
+  readonly target_type: 'customer' | 'project' | 'general_work' | null;
+  readonly target_id: string | null;
+  readonly display_name: string;
+  readonly canonical_payload: string | null;
+  readonly assignment_row_version: string | null;
+  readonly target_row_version: string | null;
 }
 
 interface InstallationRow extends QueryResultRow {
@@ -112,6 +128,20 @@ interface ItemRowV2 extends QueryResultRow {
   readonly display_name: string;
   readonly assignment_row_version: string | null;
   readonly target_row_version: string;
+}
+
+interface ItemRowV3 extends QueryResultRow {
+  readonly id: string;
+  readonly item_type: 'nfc_assignment' | 'manual_target' | 'manual_break';
+  readonly subject_type: 'work' | 'break';
+  readonly lookup_value: string | null;
+  readonly assignment_id: string | null;
+  readonly nfc_tag_id: string | null;
+  readonly target_type: 'customer' | 'project' | 'general_work' | null;
+  readonly target_customer_id: string | null;
+  readonly display_name: string;
+  readonly assignment_row_version: string | null;
+  readonly target_row_version: string | null;
 }
 
 export class OfflineCaptureLeaseCoordinator implements OfflineCaptureLeaseIssuer {
@@ -672,6 +702,200 @@ export class OfflineCaptureLeaseCoordinator implements OfflineCaptureLeaseIssuer
       client.release();
     }
   }
+
+  async issueV3(
+    request: AuthenticatedOfflineCaptureLeaseIssueCommand,
+  ): Promise<OfflineCaptureLeaseResultV3> {
+    const { command } = request;
+    if (
+      !isCanonicalOfflineUuid(command.commandId)
+      || !isOfflineBase64Url32Bytes(command.installationBinding)
+      || !isOfflineBase64Url32Bytes(command.lookupKey)
+    ) throw new TypeError('Invalid offline capture lease v3 command');
+    const lookupKey = decodeBase64Url32(command.lookupKey);
+    const bindingDigest = createHash('sha256')
+      .update(decodeBase64Url32(command.installationBinding)).digest();
+    const lookupKeyDigest = createHash('sha256').update(lookupKey).digest();
+    const verification = await this.accessTokenVerifier.verify(request.accessToken);
+    if (verification.status === 'rejected') return { status: 'authority_rejected' };
+
+    const client = await this.pool.connect();
+    let transactionOpen = false;
+    try {
+      await query(client, 'BEGIN ISOLATION LEVEL READ COMMITTED');
+      transactionOpen = true;
+      await query(client, `SET LOCAL ROLE ${OFFLINE_LEASE_ROLE}`);
+      const actor = await resolveActiveActor(
+        client, verification.identity.issuer, verification.identity.subject,
+      );
+      if (actor === null) {
+        await rollback(client); transactionOpen = false;
+        return { status: 'authority_rejected' };
+      }
+      await setOfflineActorContext(client, actor);
+      await query(client,
+        `SELECT pg_catalog.pg_advisory_xact_lock(
+           pg_catalog.hashtextextended(pg_catalog.encode($1::bytea, 'hex'), 0)
+         )`, [bindingDigest]);
+      const existing = await query<ReceiptRow>(client,
+        `SELECT receipt.lease_id,
+                pg_catalog.encode(receipt.binding_digest, 'hex') AS binding_digest_hex,
+                pg_catalog.encode(receipt.lookup_key_digest, 'hex') AS lookup_key_digest_hex,
+                receipt.lease_schema_version
+         FROM taptime_server.offline_capture_lease_receipts AS receipt
+         WHERE receipt.organization_id = $1::uuid AND receipt.command_id = $2::uuid`,
+        [actor.organization_id, command.commandId]);
+      const prior = existing.rows[0];
+      if (prior !== undefined) {
+        if (
+          prior.binding_digest_hex !== bindingDigest.toString('hex')
+          || prior.lookup_key_digest_hex !== lookupKeyDigest.toString('hex')
+          || prior.lease_schema_version !== 3
+        ) {
+          await rollback(client); transactionOpen = false;
+          return { status: 'unavailable' };
+        }
+        const page = await readLeasePageV3(client, actor.organization_id, prior.lease_id, null, 100);
+        await query(client, 'COMMIT'); transactionOpen = false;
+        return page === null ? { status: 'unavailable' }
+          : { status: 'ready', page, idempotentRetry: true };
+      }
+
+      const projection = await query<ProjectionRowV3>(client,
+        `SELECT item_type, subject_type, assignment_id, nfc_tag_id, target_type,
+                target_id, display_name, canonical_payload, assignment_row_version,
+                target_row_version
+         FROM taptime_server.lock_offline_capture_projection_v3($1::uuid)`,
+        [actor.organization_id]);
+      const items = projection.rows.map((row): OfflineCaptureLeaseItemV3 => {
+        const itemId = requireGeneratedUuid(this.createUuid());
+        if (row.item_type === 'manual_break') {
+          if (row.subject_type !== 'break') throw new Error('Invalid manual break projection');
+          return Object.freeze({ itemType: 'manual_break', subjectType: 'break', itemId,
+            displayName: 'Pause' });
+        }
+        if (row.item_type === 'manual_target') {
+          if (row.subject_type !== 'work' || row.target_type === null || row.target_id === null
+            || row.target_row_version === null) throw new Error('Invalid manual target projection');
+          return Object.freeze({ itemType: 'manual_target', subjectType: 'work', itemId,
+            targetType: row.target_type, targetId: row.target_id, displayName: row.display_name,
+            targetRowVersion: requirePositiveRowVersion(row.target_row_version) });
+        }
+        if (row.assignment_id === null || row.nfc_tag_id === null
+          || row.canonical_payload === null || row.assignment_row_version === null) {
+          throw new Error('Invalid NFC v3 projection');
+        }
+        const common = {
+          itemType: 'nfc_assignment' as const, itemId,
+          lookup: offlineLookupHmac(lookupKey, row.canonical_payload),
+          assignmentId: row.assignment_id, nfcTagId: row.nfc_tag_id,
+          assignmentRowVersion: requirePositiveRowVersion(row.assignment_row_version),
+        };
+        if (row.subject_type === 'break') {
+          return Object.freeze({ ...common, subjectType: 'break', displayName: 'Pause' });
+        }
+        if (row.target_type !== 'customer' || row.target_id === null
+          || row.target_row_version === null) throw new Error('Invalid work NFC v3 projection');
+        return Object.freeze({ ...common, subjectType: 'work', targetType: 'customer',
+          targetId: row.target_id, displayName: row.display_name,
+          targetRowVersion: requirePositiveRowVersion(row.target_row_version) });
+      }).sort(compareItemIdsV3);
+      const serializedBytes = Buffer.byteLength(JSON.stringify(items), 'utf8');
+      if (items.length > OFFLINE_LEASE_ACTIVATION_MAXIMUM_ITEMS
+        || serializedBytes > OFFLINE_LEASE_ACTIVATION_MAXIMUM_BYTES) {
+        await rollback(client); transactionOpen = false;
+        return { status: 'incomplete_or_oversize' };
+      }
+      const configurationRevision = createHash('sha256')
+        .update(encodeLengthFramedUtf8(projection.rows.flatMap((row) => [
+          row.item_type, row.subject_type, row.assignment_id ?? '', row.nfc_tag_id ?? '',
+          row.target_type ?? '', row.target_id ?? '', row.display_name,
+          row.assignment_row_version ?? '', row.target_row_version ?? '',
+        ]))).digest('hex');
+      const manifestDigest = offlineManifestDigestV3(items);
+      const installation = await findOrCreateInstallation(
+        client, actor, bindingDigest, this.createUuid,
+      );
+      if (installation === null) {
+        await rollback(client); transactionOpen = false;
+        return { status: 'unavailable' };
+      }
+      const leaseId = requireGeneratedUuid(this.createUuid());
+      const now = await query<{ issued_at: Date; expires_at: Date }>(client,
+        `SELECT pg_catalog.transaction_timestamp() AS issued_at,
+                pg_catalog.transaction_timestamp() + interval '12 hours' AS expires_at`);
+      const issuedAt = now.rows[0]!.issued_at;
+      const expiresAt = now.rows[0]!.expires_at;
+      await query(client,
+        `INSERT INTO taptime_server.offline_capture_leases (
+           id, organization_id, installation_id, identity_binding_id, user_id,
+           membership_id, membership_row_version, membership_role, issued_at, expires_at,
+           configuration_revision, item_count, serialized_bytes, manifest_digest,
+           lease_schema_version, manifest_version
+         ) VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5::uuid, $6::uuid,
+           $7::bigint, $8, $9::timestamptz, $10::timestamptz, $11, $12, $13, $14, 3, 3)`,
+        [leaseId, actor.organization_id, installation.id, actor.identity_binding_id,
+          actor.user_id, actor.membership_id, actor.membership_row_version,
+          actor.membership_role, issuedAt, expiresAt, configurationRevision,
+          items.length, serializedBytes, manifestDigest]);
+      if (expiresAt.getTime() - issuedAt.getTime()
+        !== OFFLINE_CAPTURE_LEASE_LIFETIME_MILLISECONDS) {
+        throw new Error('Database returned an invalid offline v3 lease lifetime');
+      }
+      await insertItemsV3(client, actor.organization_id, installation.id, leaseId, items);
+      await query(client,
+        `INSERT INTO taptime_server.offline_capture_lease_receipts (
+           organization_id, command_id, user_id, membership_id, identity_binding_id,
+           installation_id, lease_id, binding_digest, lookup_key_digest, lease_schema_version
+         ) VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5::uuid, $6::uuid,
+           $7::uuid, $8::bytea, $9::bytea, 3)`,
+        [actor.organization_id, command.commandId, actor.user_id, actor.membership_id,
+          actor.identity_binding_id, installation.id, leaseId, bindingDigest, lookupKeyDigest]);
+      const page = await readLeasePageV3(client, actor.organization_id, leaseId, null, 100);
+      await query(client, 'COMMIT'); transactionOpen = false;
+      return page === null ? { status: 'unavailable' }
+        : { status: 'ready', page, idempotentRetry: false };
+    } catch (error) {
+      if (transactionOpen) await rollback(client);
+      throw error;
+    } finally { client.release(); }
+  }
+
+  async readPageV3(
+    request: AuthenticatedOfflineCaptureLeasePageCommand,
+  ): Promise<OfflineCaptureLeaseResultV3> {
+    const { command } = request;
+    if (!isCanonicalOfflineUuid(command.leaseId) || !isOfflineAsciiCursor(command.cursor)
+      || !Number.isSafeInteger(command.limit) || command.limit < 1
+      || command.limit > OFFLINE_LEASE_PAGE_MAXIMUM_ITEMS) {
+      throw new TypeError('Invalid offline capture lease v3 page command');
+    }
+    const afterItemId = decodeCursor(command.cursor);
+    if (afterItemId === null) throw new TypeError('Invalid offline capture lease cursor');
+    const verification = await this.accessTokenVerifier.verify(request.accessToken);
+    if (verification.status === 'rejected') return { status: 'authority_rejected' };
+    const client = await this.pool.connect();
+    let transactionOpen = false;
+    try {
+      await query(client, 'BEGIN ISOLATION LEVEL READ COMMITTED'); transactionOpen = true;
+      await query(client, `SET LOCAL ROLE ${OFFLINE_LEASE_ROLE}`);
+      const actor = await resolveActiveActor(client, verification.identity.issuer,
+        verification.identity.subject);
+      if (actor === null) {
+        await rollback(client); transactionOpen = false;
+        return { status: 'authority_rejected' };
+      }
+      await setOfflineActorContext(client, actor);
+      const page = await readLeasePageV3(client, actor.organization_id, command.leaseId,
+        afterItemId, command.limit);
+      await query(client, 'COMMIT'); transactionOpen = false;
+      return page === null ? { status: 'unavailable' }
+        : { status: 'ready', page, idempotentRetry: true };
+    } catch (error) {
+      if (transactionOpen) await rollback(client);
+      throw error;
+    } finally { client.release(); }
+  }
 }
 
 async function resolveActiveActor(
@@ -830,6 +1054,45 @@ async function insertItemsV2(
       }))),
     ],
   );
+}
+
+async function insertItemsV3(
+  client: PoolClient,
+  organizationId: string,
+  installationId: string,
+  leaseId: string,
+  items: readonly OfflineCaptureLeaseItemV3[],
+): Promise<void> {
+  if (items.length === 0) return;
+  await query(client,
+    `INSERT INTO taptime_server.offline_capture_lease_items (
+       id, organization_id, lease_id, installation_id, item_type, subject_type,
+       lookup_value, assignment_id, nfc_tag_id, target_type, target_customer_id,
+       display_name, assignment_row_version, target_row_version
+     )
+     SELECT item.id, $1::uuid, $2::uuid, $3::uuid, item.item_type,
+            item.subject_type, item.lookup_value, item.assignment_id, item.nfc_tag_id,
+            item.target_type, item.target_id, item.display_name,
+            item.assignment_row_version, item.target_row_version
+     FROM pg_catalog.jsonb_to_recordset($4::jsonb) AS item(
+       id uuid, item_type text, subject_type text, lookup_value text,
+       assignment_id uuid, nfc_tag_id uuid, target_type text, target_id uuid,
+       display_name text, assignment_row_version bigint, target_row_version bigint
+     )`,
+    [organizationId, leaseId, installationId, JSON.stringify(items.map((item) => ({
+      id: item.itemId,
+      item_type: item.itemType,
+      subject_type: item.subjectType,
+      lookup_value: item.itemType === 'nfc_assignment' ? item.lookup : null,
+      assignment_id: item.itemType === 'nfc_assignment' ? item.assignmentId : null,
+      nfc_tag_id: item.itemType === 'nfc_assignment' ? item.nfcTagId : null,
+      target_type: item.subjectType === 'work' ? item.targetType : null,
+      target_id: item.subjectType === 'work' ? item.targetId : null,
+      display_name: item.displayName,
+      assignment_row_version: item.itemType === 'nfc_assignment'
+        ? item.assignmentRowVersion : null,
+      target_row_version: item.subjectType === 'work' ? item.targetRowVersion : null,
+    })))]);
 }
 
 async function readLeasePage(
@@ -992,9 +1255,89 @@ async function readLeasePageV2(
   });
 }
 
+async function readLeasePageV3(
+  client: PoolClient,
+  organizationId: string,
+  leaseId: string,
+  afterItemId: string | null,
+  limit: number,
+): Promise<OfflineCaptureLeasePageV3 | null> {
+  const lease = await query<LeaseRow>(client,
+    `SELECT id, installation_id, identity_binding_id, user_id, organization_id,
+            membership_id, membership_row_version, membership_role, issued_at, expires_at,
+            configuration_revision, item_count, serialized_bytes, manifest_digest,
+            lease_schema_version, manifest_version
+     FROM taptime_server.offline_capture_leases
+     WHERE organization_id = $1::uuid AND id = $2::uuid`, [organizationId, leaseId]);
+  const header = lease.rows[0];
+  if (header === undefined || header.lease_schema_version !== 3
+    || header.manifest_version !== 3) return null;
+  const itemRows = await query<ItemRowV3>(client,
+    `SELECT id, item_type, subject_type, lookup_value, assignment_id, nfc_tag_id,
+            target_type, target_customer_id, display_name, assignment_row_version,
+            target_row_version
+     FROM taptime_server.offline_capture_lease_items
+     WHERE organization_id = $1::uuid AND lease_id = $2::uuid
+       AND ($3::uuid IS NULL OR id > $3::uuid)
+     ORDER BY id LIMIT $4`, [organizationId, leaseId, afterItemId, limit + 1]);
+  const hasMore = itemRows.rows.length > limit;
+  const selected = hasMore ? itemRows.rows.slice(0, limit) : itemRows.rows;
+  const items = selected.map((item): OfflineCaptureLeaseItemV3 => {
+    if (item.item_type === 'manual_break') {
+      if (item.subject_type !== 'break') throw new Error('Invalid stored manual break item');
+      return Object.freeze({ itemType: 'manual_break', subjectType: 'break', itemId: item.id,
+        displayName: 'Pause' });
+    }
+    if (item.item_type === 'manual_target') {
+      if (item.subject_type !== 'work' || item.target_type === null
+        || item.target_customer_id === null || item.target_row_version === null) {
+        throw new Error('Invalid stored manual target v3 item');
+      }
+      return Object.freeze({ itemType: 'manual_target', subjectType: 'work', itemId: item.id,
+        targetType: item.target_type, targetId: item.target_customer_id,
+        displayName: item.display_name,
+        targetRowVersion: requirePositiveRowVersion(item.target_row_version) });
+    }
+    if (item.lookup_value === null || item.assignment_id === null || item.nfc_tag_id === null
+      || item.assignment_row_version === null) throw new Error('Invalid stored NFC v3 item');
+    const common = { itemType: 'nfc_assignment' as const, itemId: item.id,
+      lookup: item.lookup_value, assignmentId: item.assignment_id, nfcTagId: item.nfc_tag_id,
+      assignmentRowVersion: requirePositiveRowVersion(item.assignment_row_version) };
+    if (item.subject_type === 'break') {
+      return Object.freeze({ ...common, subjectType: 'break', displayName: 'Pause' });
+    }
+    if (item.target_type !== 'customer' || item.target_customer_id === null
+      || item.target_row_version === null) throw new Error('Invalid stored work NFC v3 item');
+    return Object.freeze({ ...common, subjectType: 'work', targetType: 'customer',
+      targetId: item.target_customer_id, displayName: item.display_name,
+      targetRowVersion: requirePositiveRowVersion(item.target_row_version) });
+  });
+  return Object.freeze({
+    leaseSchemaVersion: 3, manifestVersion: 3, leaseId: header.id,
+    installationId: header.installation_id, identityBindingId: header.identity_binding_id,
+    userId: header.user_id, organizationId: header.organization_id,
+    membershipId: header.membership_id,
+    membershipRowVersion: requirePositiveRowVersion(header.membership_row_version),
+    role: header.membership_role, issuedAt: header.issued_at.toISOString(),
+    expiresAt: header.expires_at.toISOString(), configurationRevision: header.configuration_revision,
+    itemCount: header.item_count, serializedBytes: header.serialized_bytes,
+    manifestDigest: header.manifest_digest, items: Object.freeze(items),
+    nextCursor: hasMore ? encodeCursor(selected.at(-1)!.id) : null,
+  });
+}
+
 function compareItemIds(
   left: OfflineCaptureLeaseItemV2,
   right: OfflineCaptureLeaseItemV2,
+): number {
+  if (left.itemId < right.itemId) return -1;
+  if (left.itemId > right.itemId) return 1;
+  return 0;
+}
+
+function compareItemIdsV3(
+  left: OfflineCaptureLeaseItemV3,
+  right: OfflineCaptureLeaseItemV3,
 ): number {
   if (left.itemId < right.itemId) return -1;
   if (left.itemId > right.itemId) return 1;

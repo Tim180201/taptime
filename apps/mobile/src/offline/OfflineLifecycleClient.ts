@@ -6,6 +6,7 @@ import {
   type OfflineCanonicalDecision,
   type OfflineLifecycleEventCommand,
   type OfflineLifecycleEventCommandV2,
+  type OfflineLifecycleEventCommandV3,
   type OfflineLifecycleEventResult,
   type OfflineReconciliationRecord,
   type OfflineReconciliationResult,
@@ -28,6 +29,7 @@ import {
 
 const OFFLINE_EVENT_PATH = '/v1/lifecycle-events/offline';
 const OFFLINE_EVENT_V2_PATH = '/v2/lifecycle-events/offline';
+const OFFLINE_EVENT_V3_PATH = '/v3/lifecycle-events/offline';
 const RECONCILIATION_PATH = '/v1/lifecycle-events/reconcile';
 const REVIEW_STATE_PATH = '/v1/offline-review-state/query';
 
@@ -55,6 +57,11 @@ const escalationReasons = new Set<BusinessEngineEscalationReason>([
   'previous_work_event_organization_mismatch',
   'previous_work_event_user_mismatch',
   'previous_work_event_target_mismatch',
+  'previous_work_event_subject_mismatch',
+  'active_break_organization_mismatch',
+  'active_break_user_mismatch',
+  'active_break_time_entry_mismatch',
+  'work_event_precedes_active_break',
   'work_event_precedes_active_time_entry',
   'work_event_precedes_previous_accepted_work_event',
 ]);
@@ -69,7 +76,7 @@ export type OfflineReconciliationTransportResult =
 
 export interface OfflineLifecycleApiPort {
   ingest(
-    command: OfflineLifecycleEventCommand | OfflineLifecycleEventCommandV2,
+    command: OfflineLifecycleEventCommand | OfflineLifecycleEventCommandV2 | OfflineLifecycleEventCommandV3,
   ): Promise<OfflineLifecycleTransportResult>;
   reconcile(workEventIds: readonly string[]): Promise<OfflineReconciliationTransportResult>;
   readReviewState(
@@ -80,6 +87,7 @@ export interface OfflineLifecycleApiPort {
 export class OfflineLifecycleClient implements OfflineLifecycleApiPort {
   private readonly eventEndpoint: URL;
   private readonly eventV2Endpoint: URL;
+  private readonly eventV3Endpoint: URL;
   private readonly reconciliationEndpoint: URL;
   private readonly reviewStateEndpoint: URL;
 
@@ -89,15 +97,17 @@ export class OfflineLifecycleClient implements OfflineLifecycleApiPort {
   ) {
     this.eventEndpoint = new URL(OFFLINE_EVENT_PATH, apiBaseUrl);
     this.eventV2Endpoint = new URL(OFFLINE_EVENT_V2_PATH, apiBaseUrl);
+    this.eventV3Endpoint = new URL(OFFLINE_EVENT_V3_PATH, apiBaseUrl);
     this.reconciliationEndpoint = new URL(RECONCILIATION_PATH, apiBaseUrl);
     this.reviewStateEndpoint = new URL(REVIEW_STATE_PATH, apiBaseUrl);
   }
 
   async ingest(
-    command: OfflineLifecycleEventCommand | OfflineLifecycleEventCommandV2,
+    command: OfflineLifecycleEventCommand | OfflineLifecycleEventCommandV2 | OfflineLifecycleEventCommandV3,
   ): Promise<OfflineLifecycleTransportResult> {
     const response = await this.post(
-      command.provenanceVersion === 2 ? this.eventV2Endpoint : this.eventEndpoint,
+      command.provenanceVersion === 3 ? this.eventV3Endpoint
+        : command.provenanceVersion === 2 ? this.eventV2Endpoint : this.eventEndpoint,
       JSON.stringify(command),
     );
     if (response.status !== 'response') return transportFailure(response);
@@ -229,7 +239,7 @@ export class OfflineLifecycleClient implements OfflineLifecycleApiPort {
 
 function parseDurableResult(
   body: Record<string, unknown>,
-  command: OfflineLifecycleEventCommand | OfflineLifecycleEventCommandV2,
+  command: OfflineLifecycleEventCommand | OfflineLifecycleEventCommandV2 | OfflineLifecycleEventCommandV3,
   expectedStatus: 'synchronized' | 'review_pending',
 ): OfflineLifecycleTransportResult {
   if (
@@ -382,6 +392,13 @@ function parseDecision(value: unknown): OfflineCanonicalDecision | null {
     && hasExactKeys(value, ['status', 'timeEntryId'])
     && isCanonicalOfflineUuid(value.timeEntryId)
   ) return { status: value.status, timeEntryId: value.timeEntryId };
+  if ((value.status === 'break_started' || value.status === 'break_stopped')
+    && hasExactKeys(value, ['breakIntervalId', 'status', 'timeEntryId'])
+    && isCanonicalOfflineUuid(value.breakIntervalId)
+    && isCanonicalOfflineUuid(value.timeEntryId)) {
+    return { status: value.status, timeEntryId: value.timeEntryId,
+      breakIntervalId: value.breakIntervalId };
+  }
   if (
     value.status === 'duplicate_scan_ignored'
     && hasExactKeys(value, ['previousWorkEventId', 'status'])
@@ -392,6 +409,15 @@ function parseDecision(value: unknown): OfflineCanonicalDecision | null {
     && hasExactKeys(value, ['activeTimeEntryId', 'status'])
     && isCanonicalOfflineUuid(value.activeTimeEntryId)
   ) return { status: value.status, activeTimeEntryId: value.activeTimeEntryId };
+  if (value.status === 'break_without_active_time_entry_rejected'
+    && hasExactKeys(value, ['status'])) return { status: value.status };
+  if (value.status === 'work_trigger_during_break_rejected'
+    && hasExactKeys(value, ['activeBreakIntervalId', 'activeTimeEntryId', 'status'])
+    && isCanonicalOfflineUuid(value.activeBreakIntervalId)
+    && isCanonicalOfflineUuid(value.activeTimeEntryId)) {
+    return { status: value.status, activeTimeEntryId: value.activeTimeEntryId,
+      activeBreakIntervalId: value.activeBreakIntervalId };
+  }
   if (
     value.status === 'escalation_required'
     && hasExactKeys(value, ['reason', 'status'])

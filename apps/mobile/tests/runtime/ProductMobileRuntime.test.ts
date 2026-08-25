@@ -63,6 +63,7 @@ class FakeAdministrationRuntimeOwner {
   readonly refresh = vi.fn<() => Promise<void>>(async () => undefined);
   readonly loadMore = vi.fn<() => Promise<void>>(async () => undefined);
   readonly provision = vi.fn<(_customerId: string, _displayName: string) => Promise<void>>(async () => undefined);
+  readonly provisionBreak = vi.fn<(_displayName: string) => Promise<void>>(async () => undefined);
   readonly cancel = vi.fn<() => Promise<void>>(async () => undefined);
   readonly subscribe = vi.fn<(_listener: () => void) => () => void>(() => () => undefined);
   getState(): AdminSetupState { return { status: 'inactive' }; }

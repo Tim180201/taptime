@@ -28,6 +28,8 @@ import type {
   EmployeeEnrollmentCoordinatorControls,
   ProvisionNfcTagCommand,
   ProvisionNfcTagResult,
+  ProvisionBreakNfcTagCommand,
+  ProvisionBreakNfcTagResult,
   ReassignNfcTagCommand,
   ReassignNfcTagResult,
   ReadEmployeeMembershipsProjectionCommand,
@@ -48,7 +50,10 @@ import type {
   MobileWorkReader,
   ProjectAdministrationPort,
 } from '@taptime/backend-mobile-work';
-import type { ManualLifecycleIngestionCommand } from '@taptime/backend-lifecycle';
+import type {
+  ManualBreakLifecycleIngestionCommand,
+  ManualLifecycleIngestionCommand,
+} from '@taptime/backend-lifecycle';
 
 export interface ResolvedProductSession {
   readonly userId: UserId;
@@ -68,7 +73,9 @@ export interface SessionAuthorityResolver {
 export interface ResolvedScanContext {
   readonly assignmentId: NfcAssignmentId;
   readonly nfcTagId: NfcTagId;
-  readonly target: AssignmentTarget;
+  readonly subject:
+    | { readonly type: 'work'; readonly target: AssignmentTarget }
+    | { readonly type: 'break' };
 }
 
 export interface ScanContextResolutionCommand {
@@ -102,6 +109,7 @@ export interface DeferredLifecycleIngestor {
 
 export interface ManualLifecycleIngestor {
   ingestManual(command: ManualLifecycleIngestionCommand): Promise<LifecycleIngestionResult>;
+  ingestManualBreak(command: ManualBreakLifecycleIngestionCommand): Promise<LifecycleIngestionResult>;
 }
 
 export interface AdministrationCoordinator {
@@ -114,6 +122,10 @@ export interface AdministrationCoordinator {
     command: ProvisionNfcTagCommand,
     controls?: AdminCoordinatorControls,
   ): Promise<ProvisionNfcTagResult>;
+  provisionBreakNfcTag?(
+    command: ProvisionBreakNfcTagCommand,
+    controls?: AdminCoordinatorControls,
+  ): Promise<ProvisionBreakNfcTagResult>;
 
   readSetupProjection(
     command: ReadSetupProjectionCommand,
@@ -188,6 +200,7 @@ export type BackendApiRoute =
   | 'admin_change_membership_role'
   | 'auth_password_reset_audit'
   | 'admin_provision_nfc_tag'
+  | 'admin_provision_break_nfc_tag'
   | 'admin_reassign_nfc_tag'
   | 'admin_setup_projection'
   | 'admin_time_entry_export'
@@ -205,17 +218,22 @@ export type BackendApiRoute =
   | 'employee_enrollment_redeem'
   | 'lifecycle'
   | 'manual_lifecycle'
+  | 'manual_break_lifecycle'
   | 'mobile_own_time'
   | 'mobile_work_targets'
   | 'offline_capture_lease'
   | 'offline_capture_lease_page'
   | 'offline_capture_lease_v2'
   | 'offline_capture_lease_page_v2'
+  | 'offline_capture_lease_v3'
+  | 'offline_capture_lease_page_v3'
   | 'offline_lifecycle'
   | 'offline_lifecycle_v2'
+  | 'offline_lifecycle_v3'
   | 'offline_reconciliation'
   | 'offline_review_state'
   | 'scan_context'
+  | 'scan_context_v2'
   | 'session';
 
 export interface BackendApiDiagnostic {

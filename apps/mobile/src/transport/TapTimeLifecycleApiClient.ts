@@ -26,6 +26,11 @@ const escalationReasons = new Set<BusinessEngineEscalationReason>([
   'previous_work_event_organization_mismatch',
   'previous_work_event_user_mismatch',
   'previous_work_event_target_mismatch',
+  'previous_work_event_subject_mismatch',
+  'active_break_organization_mismatch',
+  'active_break_user_mismatch',
+  'active_break_time_entry_mismatch',
+  'work_event_precedes_active_break',
   'work_event_precedes_active_time_entry',
   'work_event_precedes_previous_accepted_work_event',
 ]);
@@ -92,8 +97,13 @@ function isValidCommand(command: LifecycleEventCommand): boolean {
     && isUuid(command.workEvent.id)
     && isUuid(command.workEvent.assignmentId)
     && isUuid(command.workEvent.nfcTagId)
-    && command.workEvent.target.targetType === 'customer'
-    && isUuid(command.workEvent.target.targetId)
+    && (
+      isBreakEvidence(command.workEvent)
+      || (
+        command.workEvent.target.targetType === 'customer'
+        && isUuid(command.workEvent.target.targetId)
+      )
+    )
     && isIso8601Timestamp(command.workEvent.occurredAt)
     && isUuid(command.receipt.id)
     && Number.isSafeInteger(command.receipt.attemptNumber)
@@ -103,16 +113,21 @@ function isValidCommand(command: LifecycleEventCommand): boolean {
 }
 
 function serializeCommand(command: LifecycleEventCommand): string {
+  const breakEvidence = isBreakEvidence(command.workEvent);
   return JSON.stringify({
     organizationId: command.organizationId,
     workEvent: {
       id: command.workEvent.id,
       assignmentId: command.workEvent.assignmentId,
       nfcTagId: command.workEvent.nfcTagId,
-      target: {
-        targetType: command.workEvent.target.targetType,
-        targetId: command.workEvent.target.targetId,
-      },
+      ...(breakEvidence
+        ? { subject: { type: 'break' } }
+        : {
+            target: {
+              targetType: command.workEvent.target.targetType,
+              targetId: command.workEvent.target.targetId,
+            },
+          }),
       occurredAt: command.workEvent.occurredAt,
     },
     receipt: {
@@ -123,6 +138,12 @@ function serializeCommand(command: LifecycleEventCommand): string {
         : { clientTimeEntryId: command.receipt.clientTimeEntryId }),
     },
   });
+}
+
+function isBreakEvidence(
+  evidence: LifecycleEventCommand['workEvent'],
+): evidence is LifecycleEventCommand['workEvent'] & { readonly subject: { readonly type: 'break' } } {
+  return evidence.subject?.type === 'break';
 }
 
 function parseDeferredResult(
@@ -212,6 +233,18 @@ function parseDecision(value: Record<string, unknown>): ServerLifecycleDecision 
     return { status: value.status, timeEntryId: TimeEntryId(value.timeEntryId) };
   }
   if (
+    (value.status === 'break_started' || value.status === 'break_stopped')
+    && hasExactKeys(value, ['breakIntervalId', 'status', 'timeEntryId'])
+    && isUuid(value.breakIntervalId)
+    && isUuid(value.timeEntryId)
+  ) {
+    return {
+      status: value.status,
+      breakIntervalId: value.breakIntervalId,
+      timeEntryId: TimeEntryId(value.timeEntryId),
+    };
+  }
+  if (
     value.status === 'duplicate_scan_ignored'
     && hasExactKeys(value, ['previousWorkEventId', 'status'])
     && isUuid(value.previousWorkEventId)
@@ -228,6 +261,24 @@ function parseDecision(value: Record<string, unknown>): ServerLifecycleDecision 
   ) {
     return {
       status: 'active_entry_for_other_target_rejected',
+      activeTimeEntryId: TimeEntryId(value.activeTimeEntryId),
+    };
+  }
+  if (
+    value.status === 'break_without_active_time_entry_rejected'
+    && hasExactKeys(value, ['status'])
+  ) {
+    return { status: 'break_without_active_time_entry_rejected' };
+  }
+  if (
+    value.status === 'work_trigger_during_break_rejected'
+    && hasExactKeys(value, ['activeBreakIntervalId', 'activeTimeEntryId', 'status'])
+    && isUuid(value.activeBreakIntervalId)
+    && isUuid(value.activeTimeEntryId)
+  ) {
+    return {
+      status: 'work_trigger_during_break_rejected',
+      activeBreakIntervalId: value.activeBreakIntervalId,
       activeTimeEntryId: TimeEntryId(value.activeTimeEntryId),
     };
   }
@@ -252,9 +303,13 @@ function hasConsistentTimeEntry(
   switch (decision.status) {
     case 'time_entry_started':
     case 'time_entry_stopped':
+    case 'break_started':
+    case 'break_stopped':
       return isUuid(serverTimeEntryId) && serverTimeEntryId === decision.timeEntryId;
     case 'active_entry_for_other_target_rejected':
+    case 'work_trigger_during_break_rejected':
       return isUuid(serverTimeEntryId) && serverTimeEntryId === decision.activeTimeEntryId;
+    case 'break_without_active_time_entry_rejected':
     case 'duplicate_scan_ignored':
     case 'escalation_required':
       return serverTimeEntryId === null;

@@ -45,6 +45,10 @@ describe('ScanScreen presentation', () => {
     [{ status: 'ready', outcome: { status: 'scan_context_unavailable' } }, 'Zuordnung nicht erreichbar'],
     [{ status: 'ready', outcome: { status: 'time_entry_started' } }, 'Arbeitszeit gestartet'],
     [{ status: 'ready', outcome: { status: 'time_entry_stopped' } }, 'Arbeitszeit gestoppt'],
+    [{ status: 'ready', outcome: { status: 'break_started' } }, 'Pause begonnen'],
+    [{ status: 'ready', outcome: { status: 'break_stopped' } }, 'Pause beendet'],
+    [{ status: 'ready', outcome: { status: 'break_without_active_time_entry_rejected' } }, 'Keine Arbeitszeit aktiv'],
+    [{ status: 'ready', outcome: { status: 'work_trigger_during_break_rejected' } }, 'Pause ist aktiv'],
     [{ status: 'ready', outcome: { status: 'duplicate_scan_ignored' } }, 'Doppelter Scan ignoriert'],
     [{ status: 'ready', outcome: { status: 'active_entry_for_other_target_rejected' } }, 'Andere Arbeitszeit ist aktiv'],
     [{ status: 'ready', outcome: { status: 'escalation_required' } }, 'Prüfung erforderlich'],
@@ -65,6 +69,8 @@ describe('ScanScreen presentation', () => {
     for (const status of [
       'duplicate_scan_ignored',
       'active_entry_for_other_target_rejected',
+      'break_without_active_time_entry_rejected',
+      'work_trigger_during_break_rejected',
       'escalation_required',
       'server_review_pending',
     ] as const) {

@@ -106,6 +106,55 @@ describe('MobileWorkCoordinator', () => {
     });
   });
 
+  it('persists pause start, pause stop and following work offline before any acknowledgement',
+    async () => {
+    const captureOrder: string[] = [];
+    const api: MobileWorkApiPort = {
+      read: vi.fn(async () => readyRead),
+      readOwnTimePage: vi.fn(async () => ({ status: 'unavailable' as const })),
+      triggerManual: vi.fn(async () => ({ status: 'unavailable' as const })),
+      triggerBreak: vi.fn(async () => ({ status: 'unavailable' as const })),
+    };
+    const captureBreak = vi.fn().mockImplementationOnce(async () => {
+      captureOrder.push('pause-1');
+      return {
+        status: 'saved' as const,
+        workEventId: '50000000-0000-4000-8000-000000000009',
+      };
+    }).mockImplementationOnce(async () => {
+      captureOrder.push('pause-2');
+      return {
+        status: 'saved' as const,
+        workEventId: '50000000-0000-4000-8000-000000000010',
+      };
+    });
+    const captureManual = vi.fn(async () => {
+      captureOrder.push('work');
+      return {
+        status: 'saved' as const,
+        workEventId: '50000000-0000-4000-8000-000000000011',
+      };
+    });
+    const coordinator = new MobileWorkCoordinator(sessionReader(() => true), api, {
+      captureManual,
+      captureBreak,
+    });
+    await coordinator.refresh();
+    await coordinator.triggerBreak();
+    await coordinator.triggerBreak();
+    await coordinator.triggerManual(target);
+    expect(captureBreak).toHaveBeenCalledTimes(2);
+    expect(captureBreak).toHaveBeenNthCalledWith(1);
+    expect(captureBreak).toHaveBeenNthCalledWith(2);
+    expect(captureManual).toHaveBeenCalledOnce();
+    expect(captureManual).toHaveBeenCalledWith(target);
+    expect(captureOrder).toEqual(['pause-1', 'pause-2', 'work']);
+    expect(api.triggerBreak).not.toHaveBeenCalled();
+    expect(coordinator.getState()).toMatchObject({
+      status: 'ready', submitting: false, outcome: 'pending',
+    });
+  });
+
   it('loads own-time pages on demand while preserving the immutable active/window frame', async () => {
     const first = {
       ...readyRead,
@@ -250,7 +299,6 @@ describe('MobileWorkCoordinator', () => {
       });
       coordinator.start();
       await coordinator.refresh();
-      await coordinator.triggerManual(target);
       await coordinator.triggerManual(target);
       expect(captureManual).toHaveBeenCalledOnce();
       expect(coordinator.getState()).toMatchObject({ status: 'ready', outcome: 'pending' });

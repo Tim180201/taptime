@@ -4,6 +4,7 @@ import {
   UserId,
   WorkEventId,
   isCanonicalNfcUidPayload,
+  type AssignmentTarget,
   type NfcScanCaptureResult,
   type NfcScanPort,
 } from '@taptime/core';
@@ -246,13 +247,22 @@ export class ProductScanOrchestrator implements ProductScanCapability {
         expectedMembershipId: MembershipId(snapshot.session.membershipId),
         command: {
           organizationId: OrganizationId(snapshot.session.organizationId),
-          workEvent: {
-            id: WorkEventId(workEventId),
-            assignmentId: resolution.assignmentId,
-            nfcTagId: resolution.nfcTagId,
-            target: resolution.target,
-            occurredAt: capturedAt,
-          },
+          workEvent: resolution.subject.type === 'work'
+            ? {
+                id: WorkEventId(workEventId),
+                assignmentId: resolution.assignmentId,
+                nfcTagId: resolution.nfcTagId,
+                subject: Object.freeze({ type: 'work' as const }),
+                target: resolution.subject.target,
+                occurredAt: capturedAt,
+              }
+            : {
+                id: WorkEventId(workEventId),
+                assignmentId: resolution.assignmentId,
+                nfcTagId: resolution.nfcTagId,
+                subject: Object.freeze({ type: 'break' as const }),
+                occurredAt: capturedAt,
+              },
           receipt: {
             id: receiptId,
             attemptNumber: 1,
@@ -444,10 +454,18 @@ function lifecycleOutcome(
       return { status: 'time_entry_started' };
     case 'time_entry_stopped':
       return { status: 'time_entry_stopped' };
+    case 'break_started':
+      return { status: 'break_started' };
+    case 'break_stopped':
+      return { status: 'break_stopped' };
     case 'duplicate_scan_ignored':
       return { status: 'duplicate_scan_ignored' };
     case 'active_entry_for_other_target_rejected':
       return { status: 'active_entry_for_other_target_rejected' };
+    case 'break_without_active_time_entry_rejected':
+      return { status: 'break_without_active_time_entry_rejected' };
+    case 'work_trigger_during_break_rejected':
+      return { status: 'work_trigger_during_break_rejected' };
     case 'escalation_required':
       return { status: 'escalation_required' };
     default:
@@ -458,15 +476,30 @@ function lifecycleOutcome(
 function freezeLifecycleSubmission(
   submission: LifecycleEventSubmission,
 ): LifecycleEventSubmission {
+  const evidence = submission.command.workEvent;
+  const workTarget = (evidence as { readonly target?: AssignmentTarget }).target;
+  const workEvent = evidence.subject?.type === 'break'
+    ? Object.freeze({
+        id: evidence.id,
+        assignmentId: evidence.assignmentId,
+        nfcTagId: evidence.nfcTagId,
+        occurredAt: evidence.occurredAt,
+        subject: Object.freeze({ type: 'break' as const }),
+      })
+    : Object.freeze({
+        id: evidence.id,
+        assignmentId: evidence.assignmentId,
+        nfcTagId: evidence.nfcTagId,
+        occurredAt: evidence.occurredAt,
+        subject: Object.freeze({ type: 'work' as const }),
+        target: Object.freeze({ ...workTarget! }),
+      });
   return Object.freeze({
     mode: submission.mode,
     expectedMembershipId: submission.expectedMembershipId,
     command: Object.freeze({
       organizationId: submission.command.organizationId,
-      workEvent: Object.freeze({
-        ...submission.command.workEvent,
-        target: Object.freeze({ ...submission.command.workEvent.target }),
-      }),
+      workEvent,
       receipt: Object.freeze({ ...submission.command.receipt }),
     }),
   });

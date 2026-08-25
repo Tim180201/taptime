@@ -36,19 +36,28 @@ export function AdminSetupScreen({ administration }: { readonly administration: 
       <Text style={styles.label}>Tag-Bezeichnung</Text>
       <TextInput value={tagName} onChangeText={setTagName} maxLength={80} editable={!busy} placeholder="z. B. Eingang Werkstatt" accessibilityLabel="Bezeichnung des NFC-Tags" style={styles.input} />
       <Button title="NFC-Tag erfassen und zuordnen" onPress={() => administration.provision(customerId, tagName)} disabled={busy || customerId.length === 0 || tagName.trim().length === 0} />
+      <Button title="Pausen-Tag erfassen" onPress={() => administration.provisionBreak(tagName)} disabled={busy || tagName.trim().length === 0} />
       {state.status === 'capturing' ? <Button title="Erfassung abbrechen" onPress={() => administration.cancel()} /> : null}
       <Text style={styles.label}>Registrierte Tags</Text>
       {projection.nfcTags.map((tag) => (
         <View key={tag.id} style={styles.tagRow}>
           <Text style={styles.cardTitle}>{tag.displayName}</Text>
           <Text>Prüf-Fingerprint: {tag.validationFingerprint}</Text>
-          <Text>{tag.assignmentState === 'assigned' ? 'Zugeordnet' : 'Nicht zugeordnet'}</Text>
+          <Text>{presentAssignment(tag.assignmentState, tag.assignmentType)}</Text>
         </View>
       ))}
       {projection.nextCursor === null ? null : <Button title="Weitere Einträge laden" onPress={() => administration.loadMore()} disabled={busy} />}
       <Button title="Ansicht aktualisieren" onPress={() => administration.refresh()} disabled={busy} />
     </ScrollView>
   );
+}
+
+function presentAssignment(
+  state: 'assigned' | 'unassigned',
+  assignmentType: 'work' | 'break' | null,
+): string {
+  if (state === 'unassigned') return 'Nicht zugeordnet';
+  return assignmentType === 'break' ? 'Pausen-Auslöser' : 'Arbeitsziel zugeordnet';
 }
 
 export function presentAdminSetupState(state: AdminSetupState): { title: string; message: string } {

@@ -1,6 +1,7 @@
 import type {
   OfflineLifecycleEventCommand,
   OfflineLifecycleEventCommandV2,
+  OfflineLifecycleEventCommandV3,
 } from '@taptime/offline-sync-contract';
 import type {
   OfflineDatabaseConnection,
@@ -56,17 +57,19 @@ interface MemoryLease {
 interface MemoryItem {
   leaseId: string;
   itemId: string;
-  itemType: 'nfc_assignment' | 'manual_target';
+  itemType: 'nfc_assignment' | 'manual_target' | 'manual_break';
+  subjectType: 'work' | 'break';
   lookup: string | null;
   assignmentId: string | null;
   tagId: string | null;
-  targetType: 'customer' | 'project' | 'general_work';
-  targetId: string;
+  targetType: 'customer' | 'project' | 'general_work' | null;
+  targetId: string | null;
   displayName: string;
 }
 
 interface MemoryQueue {
-  command: OfflineLifecycleEventCommand | OfflineLifecycleEventCommandV2;
+  command: OfflineLifecycleEventCommand | OfflineLifecycleEventCommandV2
+    | OfflineLifecycleEventCommandV3;
   state: 'pending' | 'in_flight' | 'retry_wait' | 'protected_review_predecessor';
   attemptCount: number;
   nextAttemptAt: number | null;
@@ -150,9 +153,10 @@ export class MemoryOfflineDatabase implements OfflineDatabaseConnection {
         lookup: values[3] === null ? null : String(values[3]),
         assignmentId: values[4] === null ? null : String(values[4]),
         tagId: values[5] === null ? null : String(values[5]),
-        targetType: String(values[6]) as MemoryItem['targetType'],
-        targetId: String(values[7]),
-        displayName: String(values[8]),
+        subjectType: String(values[6]) as MemoryItem['subjectType'],
+        targetType: values[7] === null ? null : String(values[7]) as MemoryItem['targetType'],
+        targetId: values[8] === null ? null : String(values[8]),
+        displayName: String(values[9]),
       });
       return { changes: 1 };
     }
@@ -176,7 +180,8 @@ export class MemoryOfflineDatabase implements OfflineDatabaseConnection {
     }
     if (source.includes('INSERT INTO offline_event_queue')) {
       const command = JSON.parse(String(values[5])) as
-        OfflineLifecycleEventCommand | OfflineLifecycleEventCommandV2;
+        OfflineLifecycleEventCommand | OfflineLifecycleEventCommandV2
+          | OfflineLifecycleEventCommandV3;
       this.queue.push({
         command,
         bytes: Number(values[6]),
@@ -301,9 +306,15 @@ export class MemoryOfflineDatabase implements OfflineDatabaseConnection {
       const item = this.items.find((candidate) => (
         candidate.leaseId === values[0]
         && candidate.itemId === values[4]
-        && candidate.assignmentId === values[8]
-        && candidate.tagId === values[9]
-        && candidate.targetId === values[6]
+        && candidate.subjectType === values[5]
+        && candidate.targetType === values[6]
+        && candidate.targetId === values[7]
+        && (
+          (values[8] === 1
+            && candidate.assignmentId === values[9]
+            && candidate.tagId === values[10])
+          || (values[11] === 1 && candidate.itemType === values[12])
+        )
       ));
       const lease = this.leases.find((candidate) => (
         candidate.leaseId === values[0] && candidate.state === 'active'
@@ -311,6 +322,28 @@ export class MemoryOfflineDatabase implements OfflineDatabaseConnection {
       return item !== undefined && lease !== undefined
         ? { item_id: item.itemId } as Row
         : null;
+    }
+    if (
+      source.includes('FROM offline_lease_generations AS generation')
+      && source.includes("item.item_type = 'manual_break'")
+    ) {
+      const item = this.items.find((candidate) => candidate.itemType === 'manual_break');
+      const lease = item === undefined
+        ? undefined
+        : this.leases.find((candidate) => (
+            candidate.leaseId === item.leaseId && candidate.state === 'active'
+          ));
+      return item === undefined || lease === undefined
+        ? null
+        : {
+            lease_id: lease.leaseId,
+            item_id: item.itemId,
+            display_name: item.displayName,
+            issued_at: lease.issuedAt,
+            expires_at: lease.expiresAt,
+            activation_boot_marker: lease.boot,
+            activation_monotonic_milliseconds: lease.monotonic,
+          } as Row;
     }
     if (
       source.includes('FROM offline_lease_generations AS generation')
@@ -355,6 +388,7 @@ export class MemoryOfflineDatabase implements OfflineDatabaseConnection {
         item_id: item.itemId,
         assignment_id: item.assignmentId,
         nfc_tag_id: item.tagId,
+        subject_type: item.subjectType,
         target_type: item.targetType,
         target_id: item.targetId,
         display_name: item.displayName,

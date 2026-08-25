@@ -1,5 +1,5 @@
 import type { AcceptedAssignmentValidationResult } from './AssignmentValidationResult';
-import type { WorkEvent } from '../domain/WorkEvent';
+import type { NfcWorkEvent } from '../domain/WorkEvent';
 import { WorkEventId } from '../domain/ids';
 import { generateId } from '../domain/generateId';
 import { createTimestamp, type Timestamp } from '../domain/Timestamp';
@@ -13,7 +13,7 @@ export class WorkEventFactory {
     private readonly now: () => Timestamp = () => createTimestamp(new Date().toISOString()),
   ) {}
 
-  createFromAcceptedAssignment(result: AcceptedAssignmentValidationResult): WorkEvent {
+  createFromAcceptedAssignment(result: AcceptedAssignmentValidationResult): NfcWorkEvent {
     return {
       id: this.newWorkEventId(),
       organizationId: result.assignment.organizationId,

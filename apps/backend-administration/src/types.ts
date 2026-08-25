@@ -22,6 +22,7 @@ export interface AdminNfcTagSummary {
   readonly displayName: string;
   readonly validationFingerprint: string;
   readonly assignmentState: 'assigned' | 'unassigned';
+  readonly assignmentType?: 'work' | 'break' | null;
   readonly targetCustomerId: CustomerId | null;
 }
 
@@ -153,6 +154,14 @@ export interface ProvisionNfcTagCommand {
   readonly canonicalPayload: string;
 }
 
+export interface ProvisionBreakNfcTagCommand {
+  readonly accessToken: string;
+  readonly expectedMembershipId: MembershipId;
+  readonly commandId: string;
+  readonly displayName: string;
+  readonly canonicalPayload: string;
+}
+
 export interface ReadSetupProjectionCommand {
   readonly accessToken: string;
   readonly expectedMembershipId: MembershipId;
@@ -195,6 +204,16 @@ export type ProvisionNfcTagResult =
   | { readonly status: 'tag_payload_already_registered' }
   | { readonly status: 'command_id_conflict' }
   | { readonly status: 'invalid_request' };
+
+export type ProvisionBreakNfcTagResult =
+  | {
+      readonly status: 'succeeded';
+      readonly idempotentRetry: boolean;
+      readonly nfcTag: AdminNfcTagSummary;
+      readonly assignmentId: NfcAssignmentId;
+    }
+  | AdminAuthorityRejection
+  | { readonly status: 'tag_payload_already_registered' | 'command_id_conflict' | 'invalid_request' };
 
 export type ReassignNfcTagResult =
   | {

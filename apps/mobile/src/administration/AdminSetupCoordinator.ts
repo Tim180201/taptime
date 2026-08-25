@@ -100,6 +100,42 @@ export class AdminSetupCoordinator implements AdminSetupCapability {
     this.finish(current.projection, { status: mapped } as AdminSetupOutcome);
   }
 
+  async provisionBreak(displayName: string): Promise<void> {
+    const current = this.state;
+    const snapshot = this.session.capture();
+    if (current.status !== 'ready' || snapshot === null
+      || snapshot.session.role !== 'administrator') return;
+    if (displayName.trim().length < 1
+      || Array.from(displayName.normalize('NFC').trim()).length > 80) {
+      this.finish(current.projection, { status: 'invalid_input' }); return;
+    }
+    const generation = ++this.generation;
+    this.setState({ status: 'capturing', projection: current.projection });
+    const capture = await this.nfc.scan();
+    if (!this.isCurrent(generation, snapshot)) return;
+    if (capture.status !== 'captured') {
+      this.finish(current.projection, { status: capture.status === 'unavailable'
+        ? 'nfc_unavailable' : capture.status });
+      return;
+    }
+    this.setState({ status: 'submitting', projection: current.projection });
+    const result = await (this.api.provisionBreakTag?.({
+      expectedMembershipId: snapshot.session.membershipId,
+      commandId: this.createCommandId(), displayName, canonicalPayload: capture.payload,
+    }) ?? Promise.resolve({ status: 'unavailable' as const }));
+    if (!this.isCurrent(generation, snapshot)) return;
+    if (result.status === 'succeeded') {
+      await this.loadProjection({ status: 'tag_provisioned',
+        validationFingerprint: result.validationFingerprint }, snapshot, generation);
+      return;
+    }
+    const mapped: AdminSetupOutcome['status'] = result.status === 'authority_rejected'
+      ? 'session_rejected' : result.status === 'tag_payload_already_registered'
+        ? 'tag_already_registered' : result.status === 'invalid_request'
+          ? 'invalid_input' : 'request_failed';
+    this.finish(current.projection, { status: mapped } as AdminSetupOutcome);
+  }
+
   async cancel(): Promise<void> { this.generation += 1; await this.nfc.cancelCapture(); await this.loadProjection({ status: 'cancelled' }); }
 
   private async onSessionChanged(): Promise<void> {

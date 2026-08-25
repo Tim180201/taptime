@@ -87,6 +87,7 @@ describe('SessionBoundScanContextResolver', () => {
     await expect(context.resolver.resolve({ session, payload: payloadA })).resolves.toEqual({
       ...contextA,
       target: { ...contextA.target },
+      subject: { type: 'work', target: { ...contextA.target } },
       source: 'session_cache',
     });
     expect(context.live.commands).toEqual([

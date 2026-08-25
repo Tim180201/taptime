@@ -1,10 +1,10 @@
 import { createHash } from 'node:crypto';
-import type { WorkEvent } from '@taptime/core';
+import type { NfcWorkEvent } from '@taptime/core';
 
 export const B1_CONTENT_HASH_VERSION = 1;
 export const B1_CONTENT_HASH_ALGORITHM = 'sha256';
 
-export function canonicalWorkEventContent(workEvent: WorkEvent): string {
+export function canonicalWorkEventContent(workEvent: NfcWorkEvent): string {
   return JSON.stringify([
     workEvent.id,
     workEvent.organizationId,
@@ -17,7 +17,7 @@ export function canonicalWorkEventContent(workEvent: WorkEvent): string {
   ]);
 }
 
-export function workEventContentHash(workEvent: WorkEvent): string {
+export function workEventContentHash(workEvent: NfcWorkEvent): string {
   return createHash(B1_CONTENT_HASH_ALGORITHM)
     .update(canonicalWorkEventContent(workEvent), 'utf8')
     .digest('hex');

@@ -11,6 +11,7 @@ export interface AdminNfcTagSummary {
   readonly displayName: string;
   readonly validationFingerprint: string;
   readonly assignmentState: 'assigned' | 'unassigned';
+  readonly assignmentType: 'work' | 'break' | null;
   readonly targetCustomerId: string | null;
   readonly activeAssignmentId: string | null;
 }
@@ -42,6 +43,7 @@ export interface AdminSetupCapability {
   refresh(): Promise<void>;
   loadMore(): Promise<void>;
   provision(customerId: string, displayName: string): Promise<void>;
+  provisionBreak(displayName: string): Promise<void>;
   cancel(): Promise<void>;
 }
 
@@ -71,6 +73,12 @@ export interface AdminSetupApiPort {
     readonly expectedMembershipId: string;
     readonly commandId: string;
     readonly customerId: string;
+    readonly displayName: string;
+    readonly canonicalPayload: string;
+  }): Promise<ProvisionAdminTagResult>;
+  provisionBreakTag?(command: {
+    readonly expectedMembershipId: string;
+    readonly commandId: string;
     readonly displayName: string;
     readonly canonicalPayload: string;
   }): Promise<ProvisionAdminTagResult>;

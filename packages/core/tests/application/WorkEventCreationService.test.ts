@@ -13,7 +13,7 @@ import type { AssignmentTarget } from '../../src/domain/AssignmentTarget';
 import type { NfcAssignment } from '../../src/domain/NfcAssignment';
 import type { Customer } from '../../src/domain/Customer';
 import type { AcceptedAssignmentValidationResult } from '../../src/business/AssignmentValidationResult';
-import type { WorkEvent } from '../../src/domain/WorkEvent';
+import type { NfcWorkEvent, WorkEvent } from '../../src/domain/WorkEvent';
 import type { StartedTimeEntry } from '../../src/domain/TimeEntry';
 
 const organizationId = OrganizationId('org-1');
@@ -39,7 +39,7 @@ const acceptedResult: AcceptedAssignmentValidationResult = {
   caller,
 };
 
-function buildWorkEvent(id: string, occurredAt: string, eventTarget: AssignmentTarget = target): WorkEvent {
+function buildWorkEvent(id: string, occurredAt: string, eventTarget: AssignmentTarget = target): NfcWorkEvent {
   return {
     id: WorkEventId(id),
     organizationId,
@@ -51,7 +51,7 @@ function buildWorkEvent(id: string, occurredAt: string, eventTarget: AssignmentT
   };
 }
 
-function buildStartedTimeEntry(startWorkEvent: WorkEvent): StartedTimeEntry {
+function buildStartedTimeEntry(startWorkEvent: NfcWorkEvent): StartedTimeEntry {
   return {
     id: TimeEntryId('time-entry-1'),
     workEventId: startWorkEvent.id,

@@ -1,5 +1,5 @@
 import type {
-  OfflineCaptureLeasePageV2,
+  OfflineCaptureLeasePageV3,
 } from '@taptime/offline-sync-contract';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -29,7 +29,7 @@ import {
   OfflineInstallationIdentityStore,
   type OfflineSecureStorePort,
 } from '../../src/offline/OfflineInstallationIdentityStore';
-import { mobileManifestDigestV2 } from '../../src/offline/MobileLookupHmac';
+import { mobileManifestDigestV3 } from '../../src/offline/MobileLookupHmac';
 import { OfflineSyncScheduler } from '../../src/offline/OfflineSyncScheduler';
 import {
   DefaultProductMobileRuntime,
@@ -65,7 +65,7 @@ const expiresAt = '2026-08-13T20:00:00.000Z';
 const wallClock = Date.parse(issuedAt);
 
 describe('Product Mobile runtime Employee readiness', () => {
-  it('starts empty infrastructure before login, activates an exact v2 Employee lease, and protects a retained different owner',
+  it('starts empty infrastructure before login, activates an exact v3 Employee lease, and protects a retained different owner',
     async () => {
       const secureStore = memorySecureStore();
       const nativeDatabase = new MemoryOfflineDatabase();
@@ -121,7 +121,7 @@ describe('Product Mobile runtime Employee readiness', () => {
           state: 'active',
         }),
       ]);
-      expect(first.leaseRequests.paths).toEqual(['/v2/offline-capture-leases']);
+      expect(first.leaseRequests.paths).toEqual(['/v3/offline-capture-leases']);
 
       first.runtime.stop();
       await vi.waitFor(() => expect(nativeDatabase.closed).toBe(true));
@@ -254,6 +254,7 @@ function productRuntimeHarness(
       async refresh() {},
       async loadMore() {},
       async provision() {},
+      async provisionBreak() {},
       async cancel() {},
       async start() {},
       async stop() {},
@@ -315,9 +316,10 @@ class V2LeaseRequest implements AuthenticatedJsonPostPort {
   }
 }
 
-function leasePage(productSession: ProductSessionContext): OfflineCaptureLeasePageV2 {
+function leasePage(productSession: ProductSessionContext): OfflineCaptureLeasePageV3 {
   const items = [{
     itemType: 'nfc_assignment' as const,
+    subjectType: 'work' as const,
     itemId: ids.item,
     lookup: '1'.repeat(64),
     assignmentId: ids.assignment,
@@ -329,8 +331,8 @@ function leasePage(productSession: ProductSessionContext): OfflineCaptureLeasePa
     targetRowVersion: 1,
   }];
   return {
-    leaseSchemaVersion: 2,
-    manifestVersion: 2,
+    leaseSchemaVersion: 3,
+    manifestVersion: 3,
     leaseId: ids.lease,
     installationId: ids.installation,
     identityBindingId: ids.identityBinding,
@@ -344,7 +346,7 @@ function leasePage(productSession: ProductSessionContext): OfflineCaptureLeasePa
     configurationRevision: '2'.repeat(64),
     itemCount: items.length,
     serializedBytes: new TextEncoder().encode(JSON.stringify(items)).byteLength,
-    manifestDigest: mobileManifestDigestV2(items),
+    manifestDigest: mobileManifestDigestV3(items),
     items,
     nextCursor: null,
   };

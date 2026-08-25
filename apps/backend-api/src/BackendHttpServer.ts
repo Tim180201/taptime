@@ -20,6 +20,7 @@ import {
 } from '@taptime/core';
 import type { LifecycleIngestionCommand } from '@taptime/backend-lifecycle';
 import {
+  validateManualBreakLifecycleRequest,
   validateManualLifecycleRequest,
   validateMobileOwnTimeQueryRequest,
   validateMobileWorkTargetQueryRequest,
@@ -47,11 +48,13 @@ import {
   isOfflineIsoTimestamp,
   isPositiveSafeInteger,
   isOfflineLifecycleEventCommandV2,
+  isOfflineLifecycleEventCommandV3,
   isValidRetryAfterSeconds,
   type OfflineCaptureLeaseIssueCommand,
   type OfflineCaptureLeasePageCommand,
   type OfflineLifecycleEventCommand,
   type OfflineLifecycleEventCommandV2,
+  type OfflineLifecycleEventCommandV3,
   type OfflineReconciliationCommand,
 } from '@taptime/offline-sync-contract';
 import type {
@@ -68,17 +71,22 @@ import {
 const SESSION_PATH = '/v1/session';
 const HEALTH_PATH = '/health';
 const SCAN_CONTEXT_PATH = '/v1/scan-context/resolve';
+const SCAN_CONTEXT_V2_PATH = '/v2/scan-context/resolve';
 const LIFECYCLE_PATH = '/v1/lifecycle-events';
 const DEFERRED_LIFECYCLE_PATH = '/v1/lifecycle-events/deferred';
 const OFFLINE_CAPTURE_LEASE_PATH = '/v1/offline-capture-leases';
 const OFFLINE_CAPTURE_LEASE_PAGE_PATH = '/v1/offline-capture-leases/page';
 const OFFLINE_CAPTURE_LEASE_V2_PATH = '/v2/offline-capture-leases';
 const OFFLINE_CAPTURE_LEASE_PAGE_V2_PATH = '/v2/offline-capture-leases/page';
+const OFFLINE_CAPTURE_LEASE_V3_PATH = '/v3/offline-capture-leases';
+const OFFLINE_CAPTURE_LEASE_PAGE_V3_PATH = '/v3/offline-capture-leases/page';
 const OFFLINE_LIFECYCLE_PATH = '/v1/lifecycle-events/offline';
 const OFFLINE_LIFECYCLE_V2_PATH = '/v2/lifecycle-events/offline';
+const OFFLINE_LIFECYCLE_V3_PATH = '/v3/lifecycle-events/offline';
 const OFFLINE_RECONCILIATION_PATH = '/v1/lifecycle-events/reconcile';
 const ADMIN_CUSTOMERS_PATH = '/v1/administration/customers';
 const ADMIN_NFC_PROVISION_PATH = '/v1/administration/nfc-tags/provision';
+const ADMIN_BREAK_NFC_PROVISION_PATH = '/v1/administration/nfc-tags/provision-break';
 const ADMIN_NFC_REASSIGN_PATH = '/v1/administration/nfc-tags/reassign';
 const ADMIN_SETUP_PROJECTION_PATH = '/v1/administration/setup-projection';
 const ADMIN_EMPLOYEE_INVITATIONS_PATH = '/v1/administration/employee-invitations';
@@ -99,6 +107,7 @@ const EMPLOYEE_ENROLLMENT_REDEEM_PATH = '/v1/employee-enrollment/redeem';
 const MOBILE_OWN_TIME_PATH = '/v1/mobile/own-time/query';
 const MOBILE_WORK_TARGETS_PATH = '/v1/mobile/work-targets/query';
 const MANUAL_LIFECYCLE_PATH = '/v1/lifecycle-events/manual';
+const MANUAL_BREAK_LIFECYCLE_PATH = '/v1/lifecycle-events/manual-break';
 const ADMIN_PROJECT_QUERY_PATH = '/v1/administration/projects/query';
 const ADMIN_PROJECT_CREATE_PATH = '/v1/administration/projects/create';
 const ADMIN_PROJECT_DEACTIVATE_PATH = '/v1/administration/projects/deactivate';
@@ -281,6 +290,7 @@ async function handleRequest(
       || route === 'employee_enrollment_redeem'
       || isOfflineRoute(route)
       || route === 'manual_lifecycle'
+      || route === 'manual_break_lifecycle'
       || route === 'mobile_own_time'
       || route === 'mobile_work_targets'
     )
@@ -359,6 +369,11 @@ async function handleRequest(
   }
   if (route === 'manual_lifecycle') {
     await handleManualLifecycle(response, accessToken, body, dependencies, options,
+      correlationId, timeoutMilliseconds);
+    return;
+  }
+  if (route === 'manual_break_lifecycle') {
+    await handleManualBreakLifecycle(response, accessToken, body, dependencies, options,
       correlationId, timeoutMilliseconds);
     return;
   }
@@ -470,6 +485,11 @@ async function handleRequest(
     );
     return;
   }
+  if (route === 'admin_provision_break_nfc_tag') {
+    await handleProvisionBreakNfcTag(response, accessToken, body, dependencies, options,
+      correlationId, timeoutMilliseconds);
+    return;
+  }
   if (route === 'admin_reassign_nfc_tag') {
     await handleReassignNfcTag(
       response,
@@ -549,7 +569,7 @@ async function handleRequest(
       correlationId, timeoutMilliseconds);
     return;
   }
-  if (route === 'scan_context') {
+  if (route === 'scan_context' || route === 'scan_context_v2') {
     await handleScanContext(
       response,
       accessToken,
@@ -558,6 +578,7 @@ async function handleRequest(
       options,
       correlationId,
       timeoutMilliseconds,
+      route === 'scan_context_v2',
     );
     return;
   }
@@ -582,8 +603,13 @@ async function handleRequest(
       options,
       correlationId,
       timeoutMilliseconds,
-      true,
+      2,
     );
+    return;
+  }
+  if (route === 'offline_capture_lease_v3') {
+    await handleOfflineCaptureLease(response, accessToken, body, dependencies, options,
+      correlationId, timeoutMilliseconds, 3);
     return;
   }
   if (route === 'offline_capture_lease_page') {
@@ -607,8 +633,13 @@ async function handleRequest(
       options,
       correlationId,
       timeoutMilliseconds,
-      true,
+      2,
     );
+    return;
+  }
+  if (route === 'offline_capture_lease_page_v3') {
+    await handleOfflineCaptureLeasePage(response, accessToken, body, dependencies, options,
+      correlationId, timeoutMilliseconds, 3);
     return;
   }
   if (route === 'offline_lifecycle') {
@@ -632,8 +663,13 @@ async function handleRequest(
       options,
       correlationId,
       timeoutMilliseconds,
-      true,
+      2,
     );
+    return;
+  }
+  if (route === 'offline_lifecycle_v3') {
+    await handleOfflineLifecycle(response, accessToken, body, dependencies, options,
+      correlationId, timeoutMilliseconds, 3);
     return;
   }
   if (route === 'offline_reconciliation') {
@@ -820,6 +856,53 @@ async function handleManualLifecycle(
           id: body.receipt.id,
           attemptNumber: 1,
         },
+      }),
+      timeoutMilliseconds,
+    );
+    switch (result.status) {
+      case 'synchronized': respondJson(response, 200, result); return;
+      case 'deferred': respondJson(response, 202, result); return;
+      case 'conflict': respondJson(response, 409, result); return;
+      case 'rejected': respondError(response, 401, 'unauthorized'); return;
+      default: return result satisfies never;
+    }
+  } catch {
+    emitDiagnostic(options.onDiagnostic, {
+      code: 'lifecycle_ingestion_failed',
+      correlationId,
+    });
+    respondError(response, 503, 'service_unavailable');
+  }
+}
+
+async function handleManualBreakLifecycle(
+  response: ServerResponse,
+  accessToken: string,
+  body: unknown,
+  dependencies: BackendApiDependencies,
+  options: BackendHttpServerOptions,
+  correlationId: string,
+  timeoutMilliseconds: number,
+): Promise<void> {
+  if (!validateManualBreakLifecycleRequest(body)) {
+    respondError(response, 400, 'invalid_request');
+    return;
+  }
+  const ingestor = dependencies.manualLifecycleIngestor;
+  if (ingestor === undefined) {
+    respondError(response, 503, 'service_unavailable');
+    return;
+  }
+  try {
+    const result = await withTimeout(
+      ingestor.ingestManualBreak({
+        accessToken,
+        expectedMembershipId: MembershipId(body.expectedMembershipId),
+        workEvent: {
+          id: WorkEventId(body.workEvent.id),
+          subject: { type: 'break' },
+        },
+        receipt: { id: body.receipt.id, attemptNumber: 1 },
       }),
       timeoutMilliseconds,
     );
@@ -1033,11 +1116,33 @@ async function handleProvisionNfcTag(
         displayName: result.nfcTag.displayName,
         validationFingerprint: result.nfcTag.validationFingerprint,
         assignmentState: result.nfcTag.assignmentState,
+        assignmentType: result.nfcTag.assignmentType,
         targetCustomerId: result.nfcTag.targetCustomerId,
       },
       assignmentId: result.assignmentId,
     }),
   );
+}
+
+async function handleProvisionBreakNfcTag(
+  response: ServerResponse,
+  accessToken: string,
+  body: unknown,
+  dependencies: BackendApiDependencies,
+  options: BackendHttpServerOptions,
+  correlationId: string,
+  timeoutMilliseconds: number,
+): Promise<void> {
+  const command = parseProvisionBreakNfcTagBody(body);
+  if (command === null) { respondError(response, 400, 'invalid_request'); return; }
+  if (dependencies.administration.provisionBreakNfcTag === undefined) {
+    respondError(response, 503, 'service_unavailable'); return;
+  }
+  await handleAdministrationOperation(response, options, correlationId, timeoutMilliseconds,
+    (deadlineEpochMilliseconds) => dependencies.administration.provisionBreakNfcTag!(
+      { accessToken, ...command }, { deadlineEpochMilliseconds }),
+    (result) => ({ status: 'succeeded', idempotentRetry: result.idempotentRetry,
+      nfcTag: result.nfcTag, assignmentId: result.assignmentId }));
 }
 
 async function handleReassignNfcTag(
@@ -1116,6 +1221,7 @@ async function handleSetupProjection(
         displayName: nfcTag.displayName,
         validationFingerprint: nfcTag.validationFingerprint,
         assignmentState: nfcTag.assignmentState,
+        assignmentType: nfcTag.assignmentType,
         targetCustomerId: nfcTag.targetCustomerId,
         activeAssignmentId: nfcTag.activeAssignmentId,
       })),
@@ -1634,6 +1740,7 @@ async function handleScanContext(
   options: BackendHttpServerOptions,
   correlationId: string,
   timeoutMilliseconds: number,
+  version2: boolean,
 ): Promise<void> {
   const command = parseScanContextBody(body);
   if (command === null) {
@@ -1652,6 +1759,18 @@ async function handleScanContext(
     }
     if (resolution.status === 'not_resolved') {
       respondError(response, 404, 'not_found');
+      return;
+    }
+    if (!version2) {
+      if (resolution.context.subject.type === 'break') {
+        respondError(response, 404, 'not_found');
+        return;
+      }
+      respondJson(response, 200, {
+        assignmentId: resolution.context.assignmentId,
+        nfcTagId: resolution.context.nfcTagId,
+        target: resolution.context.subject.target,
+      });
       return;
     }
     respondJson(response, 200, resolution.context);
@@ -1761,19 +1880,25 @@ async function handleOfflineCaptureLease(
   options: BackendHttpServerOptions,
   correlationId: string,
   timeoutMilliseconds: number,
-  version2 = false,
+  version: 1 | 2 | 3 = 1,
 ): Promise<void> {
   const command = parseOfflineCaptureLeaseIssueBody(body);
   if (command === null) {
     respondError(response, 400, 'invalid_request');
     return;
   }
-  if (version2 && dependencies.offlineCaptureLeaseIssuer.issueV2 === undefined) {
+  if ((version === 2 && dependencies.offlineCaptureLeaseIssuer.issueV2 === undefined)
+    || (version === 3 && dependencies.offlineCaptureLeaseIssuer.issueV3 === undefined)) {
     respondError(response, 503, 'service_unavailable');
     return;
   }
   try {
-    const result = version2
+    const result = version === 3
+      ? await withTimeout(
+          dependencies.offlineCaptureLeaseIssuer.issueV3!({ accessToken, command }),
+          timeoutMilliseconds,
+        )
+      : version === 2
       ? await withTimeout(
           dependencies.offlineCaptureLeaseIssuer.issueV2!({ accessToken, command }),
           timeoutMilliseconds,
@@ -1817,19 +1942,25 @@ async function handleOfflineCaptureLeasePage(
   options: BackendHttpServerOptions,
   correlationId: string,
   timeoutMilliseconds: number,
-  version2 = false,
+  version: 1 | 2 | 3 = 1,
 ): Promise<void> {
   const command = parseOfflineCaptureLeasePageBody(body);
   if (command === null) {
     respondError(response, 400, 'invalid_request');
     return;
   }
-  if (version2 && dependencies.offlineCaptureLeaseIssuer.readPageV2 === undefined) {
+  if ((version === 2 && dependencies.offlineCaptureLeaseIssuer.readPageV2 === undefined)
+    || (version === 3 && dependencies.offlineCaptureLeaseIssuer.readPageV3 === undefined)) {
     respondError(response, 503, 'service_unavailable');
     return;
   }
   try {
-    const result = version2
+    const result = version === 3
+      ? await withTimeout(
+          dependencies.offlineCaptureLeaseIssuer.readPageV3!({ accessToken, command }),
+          timeoutMilliseconds,
+        )
+      : version === 2
       ? await withTimeout(
           dependencies.offlineCaptureLeaseIssuer.readPageV2!({ accessToken, command }),
           timeoutMilliseconds,
@@ -1873,11 +2004,13 @@ async function handleOfflineLifecycle(
   options: BackendHttpServerOptions,
   correlationId: string,
   timeoutMilliseconds: number,
-  version2 = false,
+  version: 1 | 2 | 3 = 1,
 ): Promise<void> {
-  const command = version2
-    ? parseOfflineLifecycleBodyV2(body)
-    : parseOfflineLifecycleBody(body);
+  const command = version === 3
+    ? parseOfflineLifecycleBodyV3(body)
+    : version === 2
+      ? parseOfflineLifecycleBodyV2(body)
+      : parseOfflineLifecycleBody(body);
   if (command === null) {
     respondError(response, 400, 'invalid_request');
     return;
@@ -1995,6 +2128,7 @@ function requestRoute(url: string | undefined): Route | null {
   if (url === MOBILE_OWN_TIME_PATH) return 'mobile_own_time';
   if (url === MOBILE_WORK_TARGETS_PATH) return 'mobile_work_targets';
   if (url === MANUAL_LIFECYCLE_PATH) return 'manual_lifecycle';
+  if (url === MANUAL_BREAK_LIFECYCLE_PATH) return 'manual_break_lifecycle';
   if (url === ADMIN_PROJECT_QUERY_PATH) return 'admin_project_query';
   if (url === ADMIN_PROJECT_CREATE_PATH) return 'admin_project_create';
   if (url === ADMIN_PROJECT_DEACTIVATE_PATH) return 'admin_project_deactivate';
@@ -2029,6 +2163,7 @@ function requestRoute(url: string | undefined): Route | null {
   if (url === ADMIN_NFC_PROVISION_PATH) {
     return 'admin_provision_nfc_tag';
   }
+  if (url === ADMIN_BREAK_NFC_PROVISION_PATH) return 'admin_provision_break_nfc_tag';
   if (url === ADMIN_NFC_REASSIGN_PATH) {
     return 'admin_reassign_nfc_tag';
   }
@@ -2040,6 +2175,9 @@ function requestRoute(url: string | undefined): Route | null {
   }
   if (url === SCAN_CONTEXT_PATH) {
     return 'scan_context';
+  }
+  if (url === SCAN_CONTEXT_V2_PATH) {
+    return 'scan_context_v2';
   }
   if (url === LIFECYCLE_PATH) {
     return 'lifecycle';
@@ -2059,12 +2197,15 @@ function requestRoute(url: string | undefined): Route | null {
   if (url === OFFLINE_CAPTURE_LEASE_PAGE_V2_PATH) {
     return 'offline_capture_lease_page_v2';
   }
+  if (url === OFFLINE_CAPTURE_LEASE_V3_PATH) return 'offline_capture_lease_v3';
+  if (url === OFFLINE_CAPTURE_LEASE_PAGE_V3_PATH) return 'offline_capture_lease_page_v3';
   if (url === OFFLINE_LIFECYCLE_PATH) {
     return 'offline_lifecycle';
   }
   if (url === OFFLINE_LIFECYCLE_V2_PATH) {
     return 'offline_lifecycle_v2';
   }
+  if (url === OFFLINE_LIFECYCLE_V3_PATH) return 'offline_lifecycle_v3';
   if (url === OFFLINE_RECONCILIATION_PATH) {
     return 'offline_reconciliation';
   }
@@ -2082,6 +2223,7 @@ function diagnosticCodeForRoute(route: Route | null): BackendApiDiagnostic['code
     case 'admin_change_membership_role':
     case 'auth_password_reset_audit':
     case 'admin_provision_nfc_tag':
+    case 'admin_provision_break_nfc_tag':
     case 'admin_reassign_nfc_tag':
     case 'admin_setup_projection':
     case 'admin_project_query':
@@ -2103,10 +2245,12 @@ function diagnosticCodeForRoute(route: Route | null): BackendApiDiagnostic['code
     case 'session':
       return 'session_resolution_failed';
     case 'scan_context':
+    case 'scan_context_v2':
       return 'scan_context_resolution_failed';
     case 'lifecycle':
     case 'deferred_lifecycle':
     case 'manual_lifecycle':
+    case 'manual_break_lifecycle':
       return 'lifecycle_ingestion_failed';
     case 'mobile_own_time':
     case 'mobile_work_targets':
@@ -2115,8 +2259,11 @@ function diagnosticCodeForRoute(route: Route | null): BackendApiDiagnostic['code
     case 'offline_capture_lease_page':
     case 'offline_capture_lease_v2':
     case 'offline_capture_lease_page_v2':
+    case 'offline_capture_lease_v3':
+    case 'offline_capture_lease_page_v3':
     case 'offline_lifecycle':
     case 'offline_lifecycle_v2':
+    case 'offline_lifecycle_v3':
     case 'offline_reconciliation':
     case 'offline_review_state':
       return 'offline_synchronization_failed';
@@ -2135,6 +2282,7 @@ function isAdministrationRoute(route: Route): boolean {
     || route === 'admin_change_membership_role'
     || route === 'auth_password_reset_audit'
     || route === 'admin_provision_nfc_tag'
+    || route === 'admin_provision_break_nfc_tag'
     || route === 'admin_reassign_nfc_tag'
     || route === 'admin_setup_projection'
     || route === 'admin_time_entry_export'
@@ -2155,8 +2303,11 @@ function isOfflineRoute(route: Route): boolean {
     || route === 'offline_capture_lease_page'
     || route === 'offline_capture_lease_v2'
     || route === 'offline_capture_lease_page_v2'
+    || route === 'offline_capture_lease_v3'
+    || route === 'offline_capture_lease_page_v3'
     || route === 'offline_lifecycle'
     || route === 'offline_lifecycle_v2'
+    || route === 'offline_lifecycle_v3'
     || route === 'offline_reconciliation'
     || route === 'offline_review_state';
 }
@@ -2226,7 +2377,9 @@ function requestRateLimitScope(requestUrl: string | undefined): RequestRateLimit
   if (path === EMPLOYEE_ENROLLMENT_REDEEM_PATH) {
     return 'enrollment_redemption';
   }
-  return path === '/v1' || path.startsWith('/v1/') || path === '/v2' || path.startsWith('/v2/')
+  return path === '/v1' || path.startsWith('/v1/')
+    || path === '/v2' || path.startsWith('/v2/')
+    || path === '/v3' || path.startsWith('/v3/')
     ? 'general_api'
     : null;
 }
@@ -2417,6 +2570,23 @@ function parseProvisionNfcTagBody(body: unknown): {
   } catch {
     return null;
   }
+}
+
+function parseProvisionBreakNfcTagBody(body: unknown): {
+  readonly expectedMembershipId: MembershipId;
+  readonly commandId: string;
+  readonly displayName: string;
+  readonly canonicalPayload: string;
+} | null {
+  if (!isRecord(body) || !hasExactKeys(body,
+    ['canonicalPayload', 'commandId', 'displayName', 'expectedMembershipId'])
+    || !isCanonicalUuid(body.expectedMembershipId) || !isCanonicalUuid(body.commandId)
+    || typeof body.displayName !== 'string' || typeof body.canonicalPayload !== 'string') {
+    return null;
+  }
+  return { expectedMembershipId: MembershipId(body.expectedMembershipId),
+    commandId: body.commandId, displayName: body.displayName,
+    canonicalPayload: body.canonicalPayload };
 }
 
 function parseReassignNfcTagBody(body: unknown): {
@@ -2766,6 +2936,13 @@ function parseOfflineLifecycleBodyV2(
   return body as OfflineLifecycleEventCommandV2;
 }
 
+function parseOfflineLifecycleBodyV3(
+  body: unknown,
+): OfflineLifecycleEventCommandV3 | null {
+  if (!isOfflineLifecycleEventCommandV3(body)) return null;
+  return body as OfflineLifecycleEventCommandV3;
+}
+
 function parseOfflineReconciliationBody(
   body: unknown,
 ): OfflineReconciliationCommand | null {
@@ -2793,18 +2970,10 @@ function parseLifecycleBody(
     || !hasExactKeys(body, ['organizationId', 'receipt', 'workEvent'])
     || !isUuid(body.organizationId)
     || !isRecord(body.workEvent)
-    || !hasExactKeys(
-      body.workEvent,
-      ['assignmentId', 'id', 'nfcTagId', 'occurredAt', 'target'],
-    )
     || !isUuid(body.workEvent.id)
     || !isUuid(body.workEvent.assignmentId)
     || !isUuid(body.workEvent.nfcTagId)
     || !isIsoTimestamp(body.workEvent.occurredAt)
-    || !isRecord(body.workEvent.target)
-    || !hasExactKeys(body.workEvent.target, ['targetId', 'targetType'])
-    || body.workEvent.target.targetType !== 'customer'
-    || !isUuid(body.workEvent.target.targetId)
     || !isRecord(body.receipt)
     || !hasExactKeys(body.receipt, ['attemptNumber', 'id'], ['clientTimeEntryId'])
     || !isUuid(body.receipt.id)
@@ -2822,15 +2991,41 @@ function parseLifecycleBody(
     return null;
   }
 
+  const legacyWork = hasExactKeys(
+    body.workEvent,
+    ['assignmentId', 'id', 'nfcTagId', 'occurredAt', 'target'],
+  );
+  const workV2 = hasExactKeys(
+    body.workEvent,
+    ['assignmentId', 'id', 'nfcTagId', 'occurredAt', 'subject', 'target'],
+  );
+  const breakV2 = hasExactKeys(
+    body.workEvent,
+    ['assignmentId', 'id', 'nfcTagId', 'occurredAt', 'subject'],
+  );
+  if (!legacyWork && !workV2 && !breakV2) return null;
+  if (workV2 || breakV2) {
+    if (
+      !isRecord(body.workEvent.subject)
+      || !hasExactKeys(body.workEvent.subject, ['type'])
+      || body.workEvent.subject.type !== (breakV2 ? 'break' : 'work')
+    ) return null;
+  }
+  if ((legacyWork || workV2) && (
+    !isRecord(body.workEvent.target)
+    || !hasExactKeys(body.workEvent.target, ['targetId', 'targetType'])
+    || body.workEvent.target.targetType !== 'customer'
+    || !isUuid(body.workEvent.target.targetId)
+  )) return null;
+
   try {
-    return {
+    const common = {
       accessToken,
       requestedOrganizationId: OrganizationId(body.organizationId),
       workEvent: {
         id: WorkEventId(body.workEvent.id),
         assignmentId: NfcAssignmentId(body.workEvent.assignmentId),
         nfcTagId: NfcTagId(body.workEvent.nfcTagId),
-        target: customerAssignmentTarget(CustomerId(body.workEvent.target.targetId)),
         occurredAt: createTimestamp(body.workEvent.occurredAt),
       },
       receipt: {
@@ -2841,6 +3036,24 @@ function parseLifecycleBody(
           : { clientTimeEntryId: TimeEntryId(body.receipt.clientTimeEntryId) }),
       },
     };
+    return breakV2
+      ? {
+          ...common,
+          workEvent: {
+            ...common.workEvent,
+            subject: { type: 'break' },
+          },
+        }
+      : {
+          ...common,
+          workEvent: {
+            ...common.workEvent,
+            subject: { type: 'work' },
+            target: customerAssignmentTarget(CustomerId(
+              (body.workEvent.target as Record<string, unknown>).targetId as string,
+            )),
+          },
+        };
   } catch {
     return null;
   }

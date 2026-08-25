@@ -132,7 +132,7 @@ describe('OfflineCaptureCoordinator', () => {
         nfcTagId: ids.tag,
       },
     });
-    expect(draft.provenanceVersion).toBe(2);
+    expect(draft.provenanceVersion).toBe(3);
     expect(order.indexOf('append')).toBeLessThan(order.lastIndexOf('trigger'));
     expect(coordinator.getState()).toEqual({ status: 'saved_locally', queueCount: 1 });
     await coordinator.onExplicitLogout();
@@ -610,7 +610,7 @@ function protectedOriginCoordinator(origin:
   const lease = origin === 'lease_completeness'
     ? {
         ...completeLease,
-        async issueCompleteV2() {
+        async issueCompleteV3() {
           return { status: 'incomplete_or_oversize' as const };
         },
       }
@@ -688,6 +688,45 @@ function identityStore(removeActiveLookupKey = vi.fn(async () => undefined)) {
 }
 
 function leaseClient(): OfflineCaptureLeaseApiPort {
+  const issueCompleteV3 = async () => {
+    const items = [{
+      itemType: 'nfc_assignment' as const,
+      subjectType: 'work' as const,
+      itemId: ids.item,
+      lookup: '1'.repeat(64),
+      assignmentId: ids.assignment,
+      nfcTagId: ids.tag,
+      targetType: 'customer' as const,
+      targetId: ids.customer,
+      displayName: 'Kunde',
+      assignmentRowVersion: 1,
+      targetRowVersion: 1,
+    }];
+    return {
+      status: 'ready' as const,
+      idempotentRetry: false,
+      page: {
+        leaseSchemaVersion: 3 as const,
+        manifestVersion: 3 as const,
+        leaseId: ids.lease,
+        installationId: ids.installation,
+        identityBindingId: ids.identity,
+        userId: ids.user,
+        organizationId: ids.organization,
+        membershipId: ids.membership,
+        membershipRowVersion: 1,
+        role: 'employee' as const,
+        issuedAt: '2026-07-18T10:00:00.000Z',
+        expiresAt: '2026-07-18T22:00:00.000Z',
+        configurationRevision: '2'.repeat(64),
+        itemCount: 1,
+        serializedBytes: new TextEncoder().encode(JSON.stringify(items)).byteLength,
+        manifestDigest: '3'.repeat(64),
+        items,
+        nextCursor: null,
+      },
+    };
+  };
   const issueCompleteV2 = async () => {
     const items = [{
       itemType: 'nfc_assignment' as const,
@@ -761,6 +800,7 @@ function leaseClient(): OfflineCaptureLeaseApiPort {
       };
     },
     issueCompleteV2,
+    issueCompleteV3,
   };
 }
 

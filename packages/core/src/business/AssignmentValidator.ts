@@ -1,4 +1,4 @@
-import type { NfcAssignment } from '../domain/NfcAssignment';
+import { isBreakNfcAssignment, type NfcAssignment } from '../domain/NfcAssignment';
 import type { CallerContext } from '../domain/CallerContext';
 import type { CustomerRepository } from '../ports/CustomerRepository';
 import type { AssignmentValidationResult } from './AssignmentValidationResult';
@@ -13,6 +13,10 @@ export class AssignmentValidator {
 
     if (caller.organizationId !== assignment.organizationId) {
       return { status: 'rejected', assignment, reason: 'employee_lacks_organization_access' };
+    }
+
+    if (isBreakNfcAssignment(assignment)) {
+      return { status: 'rejected', assignment, reason: 'unsupported_assignment_subject' };
     }
 
     const target = await this.customerRepository.findById(assignment.target.targetId);

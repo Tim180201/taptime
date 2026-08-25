@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 
 export const B3_CONTENT_HASH_VERSION = 1;
 export const DA5_CONTENT_HASH_VERSION = 2;
+export const T012_CONTENT_HASH_VERSION = 3;
 export const B3_CONTENT_HASH_ALGORITHM = 'sha256';
 
 export interface CanonicalWorkEventFields {
@@ -66,5 +67,36 @@ export function canonicalWorkEventContentV2(fields: CanonicalWorkEventV2Fields):
 export function workEventContentHashV2(fields: CanonicalWorkEventV2Fields): string {
   return createHash(B3_CONTENT_HASH_ALGORITHM)
     .update(canonicalWorkEventContentV2(fields), 'utf8')
+    .digest('hex');
+}
+
+export interface CanonicalBreakWorkEventV3Fields {
+  readonly id: string;
+  readonly organizationId: string;
+  readonly triggeredBy: string;
+  readonly occurredAt: string;
+  readonly triggerType: 'nfc' | 'manual';
+  readonly assignmentId: string | null;
+  readonly nfcTagId: string | null;
+}
+
+export function canonicalBreakWorkEventContentV3(
+  fields: CanonicalBreakWorkEventV3Fields,
+): string {
+  return JSON.stringify([
+    fields.id,
+    fields.organizationId,
+    'break',
+    fields.triggeredBy,
+    new Date(fields.occurredAt).toISOString(),
+    fields.triggerType,
+    fields.assignmentId,
+    fields.nfcTagId,
+  ]);
+}
+
+export function breakWorkEventContentHashV3(fields: CanonicalBreakWorkEventV3Fields): string {
+  return createHash(B3_CONTENT_HASH_ALGORITHM)
+    .update(canonicalBreakWorkEventContentV3(fields), 'utf8')
     .digest('hex');
 }
