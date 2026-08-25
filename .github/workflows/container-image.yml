@@ -34,15 +34,24 @@ jobs:
     timeout-minutes: 20
 
     steps:
+      - name: Check out the approved publication controls
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          path: control
+          persist-credentials: false
+
       - name: Check out the exact tested commit
         uses: actions/checkout@v7
         with:
           ref: ${{ github.event.workflow_run.head_sha || inputs.source_ref }}
+          path: source
           persist-credentials: false
 
       - name: Resolve immutable image coordinates
         id: image
         shell: bash
+        working-directory: source
         run: |
           set -euo pipefail
           full_sha="$(git rev-parse HEAD)"
@@ -155,7 +164,7 @@ jobs:
           if [[ "$PUBLISH_NEW_IMAGE" == 'true' ]]; then
             keep_existing=9
           fi
-          node .github/scripts/select-ghcr-deletions.mjs \
+          node control/.github/scripts/select-ghcr-deletions.mjs \
             "$RUNNER_TEMP/ghcr-protected-versions.json" \
             "$versions_file" \
             "$keep_existing" > "$RUNNER_TEMP/ghcr-delete-ids"
@@ -170,8 +179,8 @@ jobs:
         if: steps.existing.outputs.publish == 'true'
         uses: docker/build-push-action@v7
         with:
-          context: .
-          file: infrastructure/backend-api/Dockerfile
+          context: source
+          file: source/infrastructure/backend-api/Dockerfile
           push: true
           tags: ${{ steps.image.outputs.name }}:${{ steps.image.outputs.short_sha }}
           labels: |
