@@ -4,91 +4,98 @@
 
 ---
 
-## T-011 · Schutz der öffentlichen Ränder
+## T-012 · Pausenerfassung
 
-**Für:** Codex · **Risiko:** öffentlich erreichbar, Fehlkonfiguration wirkt wie kein Schutz → **unabhängiges Review verpflichtend**
-**Zeitbox:** eine Arbeitssitzung · **Grundlage:** T-009 abgeschlossen
+**Für:** Codex · **Risiko:** berührt `packages/core` und die Business Engine → **unabhängiges Review verpflichtend**
+**Zeitbox:** drei Arbeitssitzungen · **Grundlage:** T-011 abgeschlossen, **D-016**
 
-### Der Zustand heute
+### Vorbemerkung
 
-Kopf- und Rumpfgrenzen stehen (`MAX_BODY_BYTES`, `MAX_HEADER_BYTES`, `headersTimeout`). Was
-fehlt, ist eine **Häufigkeitsgrenze**. Anmeldung, Einladungseinlösung und Passwortzurücksetzung
-stehen ungebremst im Netz — jemand kann beliebig oft raten.
+Diese Aufgabe fasst zum ersten Mal seit T-001 die **Business Engine** an. `packages/core` stand
+bisher bei jeder Aufgabe auf der Nicht-anfassen-Liste. Entsprechend sorgfältig, entsprechend
+gründlich geprüft.
 
-### Ziel
+### Die Entscheidung — D-016, nicht verhandelbar
 
-**Wiederholtes Raten wird teuer, ohne dass ein echter Benutzer es merkt.**
+**Die Pause ist ein Auslöser, kein Knopf.**
 
-### Die Falle — hier scheitert diese Aufgabe normalerweise
+Der Beschäftigte meldet ein Ereignis — „Pause". Die **Engine** entscheidet, was es bedeutet:
 
-Der Dienst steht **hinter Caddy**. Aus Sicht der Anwendung kommt jede Anfrage von derselben
-Adresse — der des Reverse Proxy. Eine Begrenzung „pro IP" wäre damit eine Begrenzung für alle
-gemeinsam: Ein einziger Angreifer sperrt sämtliche Kunden aus.
+| Zustand | Ergebnis |
+|---|---|
+| Arbeit läuft | Pause beginnt |
+| Pause läuft | Pause endet |
+| nichts läuft | ablehnen oder eskalieren |
 
-Die echte Adresse steht in `X-Forwarded-For`. Diesem Kopf **blind zu vertrauen ist der zweite
-Fehler**: Der Wert ist frei wählbar, jeder Angreifer schreibt bei jeder Anfrage eine neue Adresse
-hinein und die Bremse greift nie.
+Dieselbe Kette wie beim NFC-Scan: `Trigger → WorkEvent → Engine → Ergebnis`. **Es gibt kein
+„Pause starten" und kein „Pause beenden".** Wenn im Quelltext oder in der Oberfläche zwei
+getrennte Befehle entstehen, ist der Entwurf falsch — dann melden statt bauen.
 
-Beides zusammen ist der Grund, warum Ratenbegrenzungen oft nur wie Schutz aussehen.
+**Der Zeiteintrag bleibt während der Pause offen.** Die Pause ist ein eigenes Intervall
+**innerhalb** des laufenden Eintrags. Nicht stoppen und neu starten — sonst müsste der
+Beschäftigte danach erneut auswählen, für wen er arbeitet.
 
-**Also:** Caddy setzt den Kopf und die Anwendung akzeptiert ihn **ausschließlich** von Caddy.
-Nichts anderes darf ihn setzen können. Weise beides nach — dass die Grenze pro Adresse greift
-**und** dass ein gefälschter Kopf sie nicht umgeht.
+### Datenmodell
 
-### Was begrenzt wird
+Pausen werden als **Intervalle** gespeichert: Beginn, Ende, Auslöserart. **Keine Minutensumme
+am Zeiteintrag.**
 
-| Ziel | Wonach | Warum |
-|---|---|---|
-| `/v1/session` | Adresse **und** Konto | Anmeldung erraten |
-| `/v1/employee-enrollment/redeem` | Adresse | Einladungscode erraten |
-| alles übrige unter `/v1/*`, `/v2/*` | Adresse, großzügig | Überlastung, nicht Raten |
+Der Grund ist Vorsorge: Die Bewertung nach § 4 ArbZG — über sechs Stunden ohne 30 Minuten Pause —
+soll später **additiv** nachrüstbar sein, ohne Migration und ohne Umschreiben der Historie. Mit
+einer Summe wäre das unmöglich.
 
-**Zwei Achsen bei der Anmeldung, nicht eine.** Nur pro Adresse begrenzt hilft nicht gegen viele
-Adressen auf ein Konto; nur pro Konto nicht gegen viele Konten von einer Adresse.
+**Bewertet wird heute nichts.** Das System hält fest, was war, und urteilt nicht.
 
-### Was ausdrücklich nicht dazugehört
+### Auslöser
 
-Die **Passwortzurücksetzung** läuft nicht über unsere API, sondern direkt gegen Supabase. Wir
-können sie nicht begrenzen. Prüfe, welche Grenzen Supabase dort selbst setzt, und schreib das
-Ergebnis in den Bericht — auch wenn nichts zu tun ist. Es ist ein offener Rand, und wir sollten
-wissen, wie weit er offen steht.
+Beide Wege, wie bei der Arbeitszeit:
+
+- **NFC** — ein Tag, das auf „Pause" zeigt statt auf ein Arbeitsziel. Nutze das bestehende
+  Tag- und Zuordnungsmodell; die Invarianten von `work_targets` dürfen nicht brechen.
+- **Manuell** — in der App.
+
+Nach **D-014** gilt: per NFC ausgelöste Pause ist Beweis, manuell erfasste Pause wird
+**gekennzeichnet**. Die Freigabekette selbst ist T-020, nicht hier — nur die Kennzeichnung.
 
 ### Invarianten
 
-1. **Ein echter Benutzer merkt nichts.** Wer sein Passwort zweimal vertippt, wird nicht gesperrt.
-2. **Die Antwort verrät nichts.** Eine Bremse darf nicht offenbaren, ob ein Konto existiert.
-3. **Nichts wird dauerhaft gesperrt.** Grenzen laufen ab. Ein Kunde darf sich nicht selbst
-   aussperren können.
-4. **Kein Personenbezug im Zustand.** Was zum Zählen gespeichert wird, ist ein Merkmal, keine
-   Kartei. Kurze Aufbewahrung.
+1. **Kein Zeiteintrag ohne Engine-Entscheidung.** Gilt für Pausen genauso.
+2. **Die Entscheidungsreihenfolge bleibt nachvollziehbar.** Erweitere sie, kehre sie nicht um.
+3. **Offline muss funktionieren.** Eine Pause im Funkloch ist eine Pause.
+4. **Duplikatschutz gilt auch hier.** Zweimal in fünf Sekunden auf das Pausen-Tag ist ein Tap.
+5. **Effektive Arbeitszeit = Eintrag minus Pausen.** An genau einer Stelle berechnet, nicht an
+   dreien.
 
-### Vision-Check
+### Was zu entscheiden ist — und im Bericht begründet gehört
 
-Keine fachliche Logik, keine Oberfläche. Schutz.
+Was passiert, wenn während einer laufenden Pause ein **Arbeits**-Auslöser kommt? Für dasselbe
+Ziel, für ein anderes Ziel? Entscheide deterministisch, teste **jede** Kombination und begründe
+die Wahl. Rate nicht.
 
 ### Nicht anfassen
 
-- `packages/core`, jede Geschäftslogik
-- Die Prüfungs- und Berechtigungsmaschinerie aus T-009 und T-010
+- Die bestehenden Entscheidungen der Engine. Erweitern ja, ändern nein.
+- Die Prüfungs- und Berechtigungsmaschinerie aus T-009 und T-010.
+- Der Export. Das ist T-013.
 
 ### Prüfung — nachweisen, nicht behaupten
 
-- Wiederholte Fehlanmeldungen von **einer** Adresse werden gebremst; eine **andere** Adresse ist
-  davon unberührt — mit echter Ausgabe
-- Ein **gefälschter** `X-Forwarded-For` umgeht die Bremse **nicht**
-- Wiederholte Versuche auf **ein Konto** von wechselnden Adressen werden gebremst
-- Zwei Fehlversuche eines echten Benutzers bremsen nichts
-- Die gebremste Antwort unterscheidet nicht zwischen bestehendem und nicht bestehendem Konto
-- Nach Ablauf der Frist geht es ohne Zutun weiter
-- Der Zustand enthält keinen Personenbezug und wird nicht dauerhaft aufbewahrt
-- Die vier Meldungen aus T-008 lösen dabei **nicht** aus — eine Bremse ist kein Störfall
+- Jede Kombination aus Zustand und Auslöser ist getestet, auch die abgelehnten
+- Ein Pausen-Auslöser bei laufender Arbeit beginnt eine Pause; das Ziel bleibt erhalten
+- Der Zeiteintrag bleibt während der Pause **offen**
+- Effektive Arbeitszeit stimmt bei mehreren Pausen an einem Tag
+- Offline erfasste Pausen kommen vollständig und in Reihenfolge an
+- Duplikatschutz greift
+- Eine manuell erfasste Pause ist als solche gekennzeichnet
+- Ein Administrator einer fremden Organisation sieht nichts davon
+- Kein Pfad erzeugt ein Pausenintervall ohne Engine-Entscheidung
 - CI grün, kein `[skip ci]`
 
 ### Zusätzliches Review
 
-> Zeige, wie du an die echte Adresse kommst, und wie du ausschließt, dass jemand sie selbst
-> bestimmt. Nenne Datei und Zeilen. Wenn es einen Weg vorbei gibt, nenne ihn — statt zu
-> behaupten, es gäbe keinen.
+> Zeige die Entscheidungsreihenfolge der Engine vor und nach deiner Änderung, nebeneinander.
+> Welche bestehende Entscheidung verhält sich jetzt anders als vorher? Wenn keine — zeige,
+> woran man das sieht.
 
 ### Abschluss
 
@@ -99,5 +106,5 @@ Vier Punkte melden. Entfernte oder umgeschriebene Tests **einzeln** benennen.
 
 ## Danach
 
-`T-012` Pausen · `T-013` Export · `T-014` Zweite Umgebung · `T-015` Standorte ·
+`T-013` Export für die Lohnbuchhaltung · `T-014` Zweite Umgebung · `T-015` Standorte ·
 siehe `ADO/PLAN.md`.

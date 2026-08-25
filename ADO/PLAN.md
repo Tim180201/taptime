@@ -52,7 +52,7 @@ Datenbankrechten eingreifen muss.
 | **T-008** | Betriebssichtbarkeit: Protokolle, Alarm | Es entsteht heute **kein einziger Logeintrag** | 2 |
 | **T-009** | Menschen verwalten: zweiter Administrator, Zugang entziehen, Passwort zurücksetzen | Ein Kunde kann eine ausgeschiedene Person nicht aussperren. **Standortfähig bauen — D-013** | 3 |
 | **T-010** | Die Warteschlange darf nie blockieren | Eine Eskalation legt heute das Gerät dauerhaft still | 3 |
-| **T-011** | Schutz der öffentlichen Ränder: Ratenbegrenzung, Anmeldeschutz | Anmeldung steht ungebremst im Netz | 1 |
+| **T-011** | Ratenbegrenzung an den eigenen Rändern | Einladungscodes ließen sich ungebremst raten | 1 |
 | **T-012** | Pausenerfassung | Ohne Pausen keine belastbare Arbeitszeit | 3 |
 | **T-013** | Export für die Lohnbuchhaltung, inkl. Kennzeichnung manueller Zeiten (D-014) | Heutige CSV übersteht keine Prüfung | 2 |
 | **T-014** | Zweite Umgebung und wiederholbares Ausliefern | 14 Migrationen liefen nie vor der Produktion | 2 |
@@ -62,8 +62,9 @@ Datenbankrechten eingreifen muss.
 | **T-017** | Oberflächen, Barrierefreiheit, **CSP und Sitzung (D-015)**, Landing Page | Vor dem Pilotbetrieb | 5 |
 | **T-018** | Installierbare App per Direktlink | Für den eigenen Test | 2 |
 | **T-019** | Dokumente an die Wirklichkeit angleichen | Vier Dokumente beschreiben, was es nicht gibt | 1 |
+| **T-021** | **Zustellbarkeit: eigener Mailversand, SPF/DKIM/DMARC** | Supabase erlaubt eingebaut nur **zwei Mails pro Stunde** projektweit — die Zurücksetzung aus T-009 versagt beim ersten echten Kunden, und zwar lautlos. Braucht den Product Owner. | 1 |
 
-**Größe** in Arbeitssitzungen. Summe 45.
+**Größe** in Arbeitssitzungen. Summe 46.
 
 **Reihenfolge ist echt.** T-020 steht zwischen T-015 und T-016, weil die Freigabekette die
 Standortleitung als Instanz voraussetzt. T-013 braucht die Pausen aus T-012. T-016 braucht die Standorte aus

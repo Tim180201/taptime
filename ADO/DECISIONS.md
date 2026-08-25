@@ -345,3 +345,56 @@ vergessener Rechner im Betrieb hält keine offene Sitzung über Nacht.
 
 **Offen bis T-017:** ADR-0015, DA4-P10 überarbeiten. Der Technical Lead bereitet den
 Änderungsvorschlag vor.
+
+---
+
+## D-016 — Die Pause ist ein Auslöser, kein Knopf
+
+**Datum:** 25.08.2026 · **Entschieden von:** Tim, vorbereitet vom Technical Lead
+
+**Entscheidung:** Pausen werden über einen **eigenen Auslöser** erfasst — NFC-Tag oder Eintrag in
+der App. Nicht aus Lücken berechnet und nicht automatisch abgezogen.
+
+**Warum nicht aus Lücken:** Eine Lücke ist mehrdeutig. Zwischen zwei Schülern liegen Fahrzeit,
+Vorbereitung oder Wartezeit — je nach Vertrag bezahlte Arbeitszeit. Das System kann das nicht
+unterscheiden, ein Mensch schon. Ein Lückenmodell hätte laufend Nacharbeit erzeugt. Eindeutige
+Daten sind für einen Nachweis mehr wert als zwei gesparte Antippen.
+
+**Warum nicht automatisch abziehen:** Das dokumentiert eine Pause, die vielleicht nie
+stattgefunden hat. Bei einer Prüfung ist das ein falscher Nachweis.
+
+### Zwei Festlegungen, die nicht verhandelbar sind
+
+**1. Kein „Pause starten"-Knopf.** Der Beschäftigte meldet ein Ereignis — „Pause" — und die
+Engine entscheidet, was es bedeutet:
+
+- Arbeit läuft → Pause beginnt
+- Pause läuft → Pause endet
+- nichts läuft → ablehnen oder eskalieren
+
+Dieselbe Kette wie beim NFC-Scan: `Trigger → WorkEvent → Engine → Ergebnis`. Sonst entscheidet
+wieder der Benutzer, und die Vision ist an der Stelle durchbrochen, an der sie zählt.
+
+**2. Der Zeiteintrag bleibt während der Pause offen.** Die Pause ist ein eigenes Intervall
+**innerhalb** des laufenden Eintrags. Würden wir stattdessen stoppen und neu starten, müsste der
+Beschäftigte danach erneut auswählen, für wen er arbeitet — genau die Reibung, die das Produkt
+vermeidet.
+
+### Keine Bewertung, nur Aufzeichnung
+
+Das System hält fest, was war, und urteilt **nicht** über § 4 ArbZG. Die Prüfung auf Verstöße —
+über sechs Stunden ohne 30 Minuten Pause — ist ein starkes Verkaufsargument und additiv
+nachrüstbar. Sie wird nach dem Pilotbetrieb entschieden, wenn wir wissen, ob Kunden sie wollen.
+
+**Bauvorgabe dafür:** Das Datenmodell muss die Auswertung später erlauben, ohne Umbau. Also
+Pausenintervalle mit Beginn, Ende und Auslöserart, nicht nur eine Minutensumme am Eintrag.
+
+**Folgen:**
+
+- Berührt `packages/core` und die Entscheidungsmenge der Engine — der am stärksten geschützte
+  Teil. Entsprechend sorgfältig und mit unabhängigem Review.
+- Nach **D-014** gilt: per NFC ausgelöste Pause = Beweis, manuell erfasste Pause = Kennzeichnung
+  und Freigabe.
+- `T-013` nimmt die Pausen in den Export auf.
+- Ein vergessenes Pausenende verhält sich wie ein vergessener Stopp — bekannte Einschränkung,
+  korrigierbar.

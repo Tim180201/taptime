@@ -2,7 +2,7 @@
 
 > **Diese Datei wird überschrieben, nie angehängt.** Sie beschreibt nur den Jetzt-Zustand.
 
-**Stand:** 25.08.2026 (T-009 abgeschlossen) · **Ziel:** System fertig in ~6 Wochen, erster Kunde in ~3 Monaten
+**Stand:** 25.08.2026 (T-011 abgeschlossen) · **Ziel:** System fertig in ~6 Wochen, erster Kunde in ~3 Monaten
 
 ---
 
@@ -66,6 +66,10 @@ danach Firma, Recht und Store.
   über einen Advisory Lock je Organisation. Der Entzug wirkt beim nächsten Zugriff, nicht erst
   beim nächsten Anmelden. Vier nicht übertragene Ereignisse eines Gesperrten werden zu
   Prüfposten statt zu Verlust.
+- **T-011 Ratenbegrenzung** — `3a08601`. Einladungseinlösung streng und alle übrigen eigenen
+  API-Ränder großzügig je Adresse begrenzt. Caddy überschreibt fremde `X-Forwarded-For`-Werte;
+  die API akzeptiert sie nur mit einem gemeinsamen Proxy-Geheimnis. Zustand ist flüchtig,
+  adressverschleiert, zeitlich und mengenmäßig begrenzt.
 - **`tb-infra.de`** zeigt auf den Server, TTL 300, DNS bestätigt
 
 **Nicht vorhanden** — nach vollständiger Anforderungsprüfung am 24.08. (D-012):
@@ -75,7 +79,7 @@ danach Firma, Recht und Store.
 - **Zugang entziehen, zweiter Administrator, Passwort zurücksetzen.** Die Datenbank kann es,
   die Anwendung nicht.
 - **Auflösung eskalierter Ereignisse.** Eine Eskalation legt die Warteschlange dauerhaft still.
-- Ratenbegrenzung und Anmeldeschutz auf einem öffentlich erreichbaren Dienst
+- Eigener Mailversand mit SPF, DKIM und DMARC; als T-021 vor dem ersten echten Kunden geparkt
 - Pausenerfassung; Export ohne Pausen, lokale Zeit, Personenkennung und Korrekturhinweis
 - Zweite Umgebung; die Produktion baut aus dem Quellbaum statt aus einem geprüften Artefakt
 - Standorte und Standortleiter (ADR-0020 ist beschrieben, nicht gebaut)
@@ -87,10 +91,10 @@ danach Firma, Recht und Store.
 
 ## Aktuelle Aufgabe
 
-**T-011 — Schutz der öffentlichen Ränder.** Siehe `ADO/TASK.md`. Öffentlich erreichbar und eine
-Fehlkonfiguration wirkt wie gar kein Schutz, daher mit verpflichtendem unabhängigem Review.
+**T-012 — Pausenerfassung.** Siehe `ADO/TASK.md`. Berührt `packages/core` und die Business
+Engine, daher mit verpflichtendem unabhängigem Review.
 
-Danach T-012 bis T-020 in neuer Reihenfolge, siehe `ADO/PLAN.md`. Die Kette wurde am 24.08.
+Danach die Folgeaufgaben in neuer Reihenfolge, siehe `ADO/PLAN.md`. Die Kette wurde am 24.08.
 nach Betriebsfähigkeit sortiert und um sieben Aufgaben erweitert (D-012). `T-001` bis `T-006`
 sind unverändert, alles danach ist neu nummeriert.
 
@@ -122,11 +126,20 @@ Der Technical Lead führt beide Zahlen mit, um eigene systematische Fehler zu er
 | T-007 | zwei Sitzungen | eine Sitzung |
 | T-008 | zwei Sitzungen | zwei Sitzungen |
 | T-009 | drei Sitzungen | zwei Sitzungen |
-| T-011 | eine Sitzung | offen |
+| T-011 | eine Sitzung | eine Sitzung |
 
 Die Prüfung vom 24.08. hat die Restschätzung von 11 auf **38 Sitzungen** über 13 Aufgaben
 korrigiert — nicht weil mehr Arbeit entstanden ist, sondern weil sieben nötige Aufgaben vorher
 in keinem Plan standen.
+
+---
+
+## Bewusst offene Ränder
+
+| Was | Wie weit offen | Wann neu bewerten |
+|---|---|---|
+| **Anmeldung** | Läuft direkt gegen Supabase, nicht über unsere API. `/v1/session` ist ein `GET` mit Bearer-Token und sieht nie ein Passwort. Supabase begrenzt auf 1.800 Anfragen/Stunde je IP, Burst 30 — **keine Konto-Achse**. Wir können daran nichts bremsen, solange der öffentliche Password-Grant erreichbar ist. | vor dem ersten zahlenden Kunden |
+| **Passwortzurücksetzung** | Ebenfalls direkt gegen Supabase. Mindestens 60 Sekunden je Nutzer. Bekannte und unbekannte Adresse liefern beide `200 {}` — kein Kontoverrat. | mit T-021 |
 
 ---
 
@@ -143,7 +156,7 @@ in keinem Plan standen.
 | Was | Von wem | Warum es drängt |
 |---|---|---|
 | **Produktname** | Tim | „TapTime" ist vergeben. Wird für Store, Firma und Domain gebraucht — Deadline Woche 12. Blockiert Phase 1 nicht. |
-| — | — | **Aktuell nichts.** Alle Vorbereitungen des Product Owner sind erledigt. |
+| **T-021 Zustellbarkeit** | Tim | Brevo-Konto und DNS. Vor dem ersten echten Kunden, blockiert T-012 nicht. |
 
 ---
 
@@ -202,6 +215,9 @@ in keinem Plan standen.
   ohne Version. Die Antworten für `api.tb-infra.de` enthalten den Header nicht.
 - **P3:** Caddy kündigt HTTP/3 per `Alt-Svc` an, obwohl aktuell nur 443/TCP veröffentlicht ist.
   Funktional fällt der Client auf HTTP/2 zurück; die Ankündigung ist unnötig.
+- **P2:** Der T-011-Caddy-Integrationstest prüft eine kleine äquivalente Testkonfiguration statt
+  der Produktionsdatei. Die Produktionsdatei wird separat validiert; ein späteres Entfernen der
+  Proxy-Header aus nur einer echten Route würde der Integrationstest aber nicht bemerken.
 - Mit dem entfernten CI-Job entfielen auch Absicherungen gegen bekannte Lücken in
   Abhängigkeiten (GHSA-Einträge, `image-size`). Falls das erhalten bleiben soll, gehört es in
   eine eigene Abhängigkeits-Richtlinie — nicht zurück in den eingefrorenen Harness.
