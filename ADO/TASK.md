@@ -4,127 +4,91 @@
 
 ---
 
-## T-009 · Menschen verwalten
+## T-011 · Schutz der öffentlichen Ränder
 
-**Für:** Codex · **Risiko:** Berechtigungen, Mandantengrenze, Migration → **unabhängiges Review verpflichtend**
-**Zeitbox:** drei Arbeitssitzungen · **Grundlage:** T-008 abgeschlossen
+**Für:** Codex · **Risiko:** öffentlich erreichbar, Fehlkonfiguration wirkt wie kein Schutz → **unabhängiges Review verpflichtend**
+**Zeitbox:** eine Arbeitssitzung · **Grundlage:** T-009 abgeschlossen
 
 ### Der Zustand heute
 
-Ein Kunde kann **niemanden aussperren**. Die Datenbank kann es — jede Policy prüft
-`revoked_at IS NULL`, und es ist getestet. Es gibt nur keine Route, keinen Coordinator und keine
-Oberfläche. Migration 014 hat das ungenutzte Schreibrecht folgerichtig sogar entzogen.
-
-Dasselbe Loch zweimal daneben: Es gibt **keinen zweiten Administrator** — die entstehen
-ausschließlich über die Betreiber-CLI. Und ein vergessenes Passwort führt aus der Anwendung
-**nirgendwohin**.
-
-Alle drei landen heute beim Betreiber, mit Datenbankrechten. Das ist kein B2B-Produkt.
+Kopf- und Rumpfgrenzen stehen (`MAX_BODY_BYTES`, `MAX_HEADER_BYTES`, `headersTimeout`). Was
+fehlt, ist eine **Häufigkeitsgrenze**. Anmeldung, Einladungseinlösung und Passwortzurücksetzung
+stehen ungebremst im Netz — jemand kann beliebig oft raten.
 
 ### Ziel
 
-**Ein Kunde verwaltet die Menschen in seinem Betrieb selbst — vollständig, ohne uns.**
+**Wiederholtes Raten wird teuer, ohne dass ein echter Benutzer es merkt.**
 
-Drei Fähigkeiten:
+### Die Falle — hier scheitert diese Aufgabe normalerweise
 
-1. Zugang entziehen
-2. Einen zweiten Administrator einsetzen
-3. Passwort zurücksetzen
+Der Dienst steht **hinter Caddy**. Aus Sicht der Anwendung kommt jede Anfrage von derselben
+Adresse — der des Reverse Proxy. Eine Begrenzung „pro IP" wäre damit eine Begrenzung für alle
+gemeinsam: Ein einziger Angreifer sperrt sämtliche Kunden aus.
 
-### Bauvorgabe aus D-013 — bitte zuerst lesen
+Die echte Adresse steht in `X-Forwarded-For`. Diesem Kopf **blind zu vertrauen ist der zweite
+Fehler**: Der Wert ist frei wählbar, jeder Angreifer schreibt bei jeder Anfrage eine neue Adresse
+hinein und die Bremse greift nie.
 
-`T-015` gibt dieselben Fähigkeiten der Standortleitung, beschränkt auf ihren Standort.
+Beides zusammen ist der Grund, warum Ratenbegrenzungen oft nur wie Schutz aussehen.
 
-**Leite die Berechtigung deshalb aus Mitgliedschaft und Zuständigkeit ab, nicht aus der Rolle
-allein.** Ein `role = 'administrator'` mitten in einer Bedingung ist die Stelle, an der T-015
-alles noch einmal bauen müsste. Der Zuständigkeitsbereich ist heute „die ganze Organisation" —
-er muss morgen „dieser Standort" sein können, ohne dass die Prüfung umgeschrieben wird.
+**Also:** Caddy setzt den Kopf und die Anwendung akzeptiert ihn **ausschließlich** von Caddy.
+Nichts anderes darf ihn setzen können. Weise beides nach — dass die Grenze pro Adresse greift
+**und** dass ein gefälschter Kopf sie nicht umgeht.
 
-### Die Falle — hier steckt die eigentliche Arbeit
+### Was begrenzt wird
 
-Ein Beschäftigter kündigt. Auf seinem Telefon liegen **noch nicht übertragene Arbeitszeiten**
-aus den letzten Tagen.
+| Ziel | Wonach | Warum |
+|---|---|---|
+| `/v1/session` | Adresse **und** Konto | Anmeldung erraten |
+| `/v1/employee-enrollment/redeem` | Adresse | Einladungscode erraten |
+| alles übrige unter `/v1/*`, `/v2/*` | Adresse, großzügig | Überlastung, nicht Raten |
 
-Sperrst du ihn naiv, wird der nächste Abgleich abgelehnt, das Gerät räumt seine Warteschlange —
-und **echte, geleistete Arbeitszeit ist weg**. Genau der Fehler, den wir in T-010 behoben haben,
-nur an anderer Stelle.
+**Zwei Achsen bei der Anmeldung, nicht eine.** Nur pro Adresse begrenzt hilft nicht gegen viele
+Adressen auf ein Konto; nur pro Konto nicht gegen viele Konten von einer Adresse.
 
-Umgekehrt darf ein Gesperrter selbstverständlich nicht weiterstempeln.
+### Was ausdrücklich nicht dazugehört
 
-**Die Auflösung:** Der Zeitstempel des Geräts ist manipulierbar, taugt also nicht als Beweis.
-Ereignisse einer entzogenen Mitgliedschaft werden deshalb **nicht angenommen und nicht
-verworfen, sondern zu Prüfposten**. Ein Administrator sieht: „Dieses Gerät wollte nach dem
-Entzug vier Ereignisse abgleichen" — und entscheidet.
-
-Die Maschinerie dafür steht seit T-010. **Benutze sie, bau nichts daneben.**
+Die **Passwortzurücksetzung** läuft nicht über unsere API, sondern direkt gegen Supabase. Wir
+können sie nicht begrenzen. Prüfe, welche Grenzen Supabase dort selbst setzt, und schreib das
+Ergebnis in den Bericht — auch wenn nichts zu tun ist. Es ist ein offener Rand, und wir sollten
+wissen, wie weit er offen steht.
 
 ### Invarianten
 
-1. **Die letzte Administrator-Mitgliedschaft kann nicht entzogen und nicht herabgestuft
-   werden.** Sonst sperrt sich ein Kunde selbst aus, und nur wir kommen wieder hinein — genau
-   das Problem, das diese Aufgabe löst.
-2. **Niemand entzieht sich selbst.** Auch nicht als Administrator.
-3. **Ein Entzug wirkt sofort**, auch wenn das Zugangstoken noch gültig ist. Die Prüfung
-   geschieht serverseitig bei jedem Zugriff, nicht beim Anmelden.
-4. **Arbeitszeit geht niemals still verloren.** Siehe oben.
-5. **Der Entzug löscht nichts.** Zeiten, Ereignisse und Historie des Ausgeschiedenen bleiben —
-   das sind Geschäftsunterlagen. Löschen ist `T-016`.
-6. **Jede dieser Handlungen ist ein Audit-Ereignis** mit Urheber, Zeitpunkt und Ziel.
-
-### Schritte
-
-**1. Zugang entziehen**
-
-Route, Coordinator, Oberfläche unter *Beschäftigte*. Migration: das in 014 entzogene
-Schreibrecht gezielt und minimal zurückgeben — nicht pauschal.
-
-**2. Zweiter Administrator**
-
-Zwei Wege, beide nötig: eine Einladung, die bereits die Rolle trägt, und die Höherstufung einer
-bestehenden Mitgliedschaft. Beides mit Audit-Ereignis.
-
-**3. Passwort zurücksetzen**
-
-Supabase kann das; das Produkt bietet nur keinen Weg dorthin. „Passwort vergessen" im Admin-Web
-**und** in der App.
-
-Dazu gehört die **Site URL** in Supabase — sie steht noch auf dem Auslieferungswert, weshalb der
-Einladungslink des Product Owner in Safari ins Leere lief. Ohne diese Einstellung geht auch die
-Zurücksetzung ins Leere. Sag dem Product Owner genau, was er wo einträgt.
-
-Die Missbrauchsbremse für diesen Weg ist `T-011`, nicht hier. Baue keine eigene.
+1. **Ein echter Benutzer merkt nichts.** Wer sein Passwort zweimal vertippt, wird nicht gesperrt.
+2. **Die Antwort verrät nichts.** Eine Bremse darf nicht offenbaren, ob ein Konto existiert.
+3. **Nichts wird dauerhaft gesperrt.** Grenzen laufen ab. Ein Kunde darf sich nicht selbst
+   aussperren können.
+4. **Kein Personenbezug im Zustand.** Was zum Zählen gespeichert wird, ist ein Merkmal, keine
+   Kartei. Kurze Aufbewahrung.
 
 ### Vision-Check
 
-Verwaltung, keine Erfassung. Der Beschäftigte merkt von alldem nichts — außer dass er sich nicht
-mehr anmelden kann.
+Keine fachliche Logik, keine Oberfläche. Schutz.
 
 ### Nicht anfassen
 
-- `packages/core`, die Business Engine, die Entscheidungsreihenfolge
-- Die Prüfungs-Maschinerie aus T-010 — benutzen, nicht erweitern, außer um den neuen Prüfgrund
-- Löschen von Daten. Das ist T-016.
+- `packages/core`, jede Geschäftslogik
+- Die Prüfungs- und Berechtigungsmaschinerie aus T-009 und T-010
 
 ### Prüfung — nachweisen, nicht behaupten
 
-- Ein Entzug wirkt beim **nächsten Zugriff**, nicht erst beim nächsten Anmelden — mit noch
-  gültigem Token nachweisen
-- Der Versuch, die **letzte** Administrator-Mitgliedschaft zu entziehen oder herabzustufen,
-  wird abgewiesen
-- Der Versuch, sich **selbst** zu entziehen, wird abgewiesen
-- Ein Gerät mit vier nicht übertragenen Ereignissen erzeugt nach dem Entzug **vier Prüfposten**
-  und **keinen** stillen Verlust
-- Ein zweiter Administrator kann sich anmelden und alles tun, was der erste kann
-- Ein Administrator einer **fremden** Organisation sieht und kann nichts davon
-- Die Zurücksetzung führt zu einer funktionierenden Anmeldung — mit echtem Durchlauf
-- Alle Handlungen erscheinen in `audit_events`
+- Wiederholte Fehlanmeldungen von **einer** Adresse werden gebremst; eine **andere** Adresse ist
+  davon unberührt — mit echter Ausgabe
+- Ein **gefälschter** `X-Forwarded-For` umgeht die Bremse **nicht**
+- Wiederholte Versuche auf **ein Konto** von wechselnden Adressen werden gebremst
+- Zwei Fehlversuche eines echten Benutzers bremsen nichts
+- Die gebremste Antwort unterscheidet nicht zwischen bestehendem und nicht bestehendem Konto
+- Nach Ablauf der Frist geht es ohne Zutun weiter
+- Der Zustand enthält keinen Personenbezug und wird nicht dauerhaft aufbewahrt
+- Die vier Meldungen aus T-008 lösen dabei **nicht** aus — eine Bremse ist kein Störfall
 - CI grün, kein `[skip ci]`
 
 ### Zusätzliches Review
 
-> Zeige die Stelle, an der die Berechtigung geprüft wird. Wie viel davon müsste `T-015` ändern,
-> um sie auf einen Standort zu beschränken? Nenne Datei und Zeilen, statt zu behaupten, es sei
-> vorbereitet.
+> Zeige, wie du an die echte Adresse kommst, und wie du ausschließt, dass jemand sie selbst
+> bestimmt. Nenne Datei und Zeilen. Wenn es einen Weg vorbei gibt, nenne ihn — statt zu
+> behaupten, es gäbe keinen.
 
 ### Abschluss
 
@@ -135,5 +99,5 @@ Vier Punkte melden. Entfernte oder umgeschriebene Tests **einzeln** benennen.
 
 ## Danach
 
-`T-011` Ratenbegrenzung · `T-012` Pausen · `T-013` Export · `T-014` Zweite Umgebung ·
+`T-012` Pausen · `T-013` Export · `T-014` Zweite Umgebung · `T-015` Standorte ·
 siehe `ADO/PLAN.md`.

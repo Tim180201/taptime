@@ -2,7 +2,7 @@
 
 > **Diese Datei wird überschrieben, nie angehängt.** Sie beschreibt nur den Jetzt-Zustand.
 
-**Stand:** 24.08.2026 (T-008 abgeschlossen) · **Ziel:** System fertig in ~6 Wochen, erster Kunde in ~3 Monaten
+**Stand:** 25.08.2026 (T-009 abgeschlossen) · **Ziel:** System fertig in ~6 Wochen, erster Kunde in ~3 Monaten
 
 ---
 
@@ -59,6 +59,13 @@ danach Firma, Recht und Store.
   Aufbewahrung. Vier Meldungen per ntfy in zwei Dringlichkeitsstufen, alle vier absichtlich
   ausgelöst und angekommen. Totmannschalter über healthchecks.io, nach echtem Neustart bewährt.
   Geheimnisse ausschließlich in root-eigenen `curl`-Konfigurationen, nie in `argv`.
+- **T-009 Menschen verwalten** — `b85b0ce`. Zugang entziehen, zweiter Administrator, Passwort
+  zurücksetzen — in Web und App. Die Berechtigung sitzt in **einer** Funktion
+  (`has_membership_management_authority_v1`), die T-015 nur noch auf einen Standort einschränken
+  muss. Letzter Administrator und Selbstentzug sind **in der Datenbank** abgewiesen, der Wettlauf
+  über einen Advisory Lock je Organisation. Der Entzug wirkt beim nächsten Zugriff, nicht erst
+  beim nächsten Anmelden. Vier nicht übertragene Ereignisse eines Gesperrten werden zu
+  Prüfposten statt zu Verlust.
 - **`tb-infra.de`** zeigt auf den Server, TTL 300, DNS bestätigt
 
 **Nicht vorhanden** — nach vollständiger Anforderungsprüfung am 24.08. (D-012):
@@ -80,12 +87,10 @@ danach Firma, Recht und Store.
 
 ## Aktuelle Aufgabe
 
-**T-009 — Menschen verwalten.** Siehe `ADO/TASK.md`. Berechtigungen, Mandantengrenze und eine
-Migration, daher mit verpflichtendem unabhängigem Review.
+**T-011 — Schutz der öffentlichen Ränder.** Siehe `ADO/TASK.md`. Öffentlich erreichbar und eine
+Fehlkonfiguration wirkt wie gar kein Schutz, daher mit verpflichtendem unabhängigem Review.
 
-Wird **standortfähig** gebaut (D-013), damit T-015 die Fähigkeit nur noch einschränken muss.
-
-Danach T-011 bis T-020 in neuer Reihenfolge, siehe `ADO/PLAN.md`. Die Kette wurde am 24.08.
+Danach T-012 bis T-020 in neuer Reihenfolge, siehe `ADO/PLAN.md`. Die Kette wurde am 24.08.
 nach Betriebsfähigkeit sortiert und um sieben Aufgaben erweitert (D-012). `T-001` bis `T-006`
 sind unverändert, alles danach ist neu nummeriert.
 
@@ -116,11 +121,20 @@ Der Technical Lead führt beide Zahlen mit, um eigene systematische Fehler zu er
 | T-010 | drei Sitzungen | eine Sitzung |
 | T-007 | zwei Sitzungen | eine Sitzung |
 | T-008 | zwei Sitzungen | zwei Sitzungen |
-| T-009 | drei Sitzungen | offen |
+| T-009 | drei Sitzungen | zwei Sitzungen |
+| T-011 | eine Sitzung | offen |
 
 Die Prüfung vom 24.08. hat die Restschätzung von 11 auf **38 Sitzungen** über 13 Aufgaben
 korrigiert — nicht weil mehr Arbeit entstanden ist, sondern weil sieben nötige Aufgaben vorher
 in keinem Plan standen.
+
+---
+
+## Offene Abnahme durch den Product Owner
+
+| Was | Warum es zählt | Spätestens |
+|---|---|---|
+| **Aussperr-Test** | Zweiten Administrator anlegen, damit anmelden, dem ersten den Zugang entziehen — und rückwärts. Prüft, ob ein Kunde sich aus jeder Lage selbst befreien kann, ohne uns. Braucht einen Rechner, nicht das Telefon. | vor dem ersten fremden Nutzer |
 
 ---
 
