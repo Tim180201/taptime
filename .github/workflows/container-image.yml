@@ -138,16 +138,16 @@ jobs:
           package='taptime-backend-api'
           versions_file="$RUNNER_TEMP/ghcr-package-versions.json"
           api_path="/users/$PACKAGE_OWNER/packages/container/$package"
+          error_file="$RUNNER_TEMP/ghcr-package-error.log"
 
-          package_matches="$(gh api --paginate \
-            "/users/$PACKAGE_OWNER/packages?package_type=container&per_page=100" \
-            --jq ".[] | select(.name == \"$package\") | .name")"
-          if [[ "$package_matches" == "$package" ]]; then
+          if gh api "$api_path" >/dev/null 2>"$error_file"; then
             gh api --paginate --slurp "$api_path/versions?per_page=100" > "$versions_file"
-          elif [[ -z "$package_matches" ]]; then
+          elif [[ "$PUBLISH_NEW_IMAGE" == 'true' ]] &&
+            grep --fixed-strings --quiet 'HTTP 404' "$error_file"; then
             printf '[]\n' > "$versions_file"
           else
-            printf 'Unexpected duplicate GHCR package listing; refusing publication.\n' >&2
+            cat "$error_file" >&2
+            printf 'Could not inspect GHCR package; refusing publication.\n' >&2
             exit 1
           fi
 
