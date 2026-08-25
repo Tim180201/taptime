@@ -398,3 +398,93 @@ Pausenintervalle mit Beginn, Ende und Auslöserart, nicht nur eine Minutensumme 
 - `T-013` nimmt die Pausen in den Export auf.
 - Ein vergessenes Pausenende verhält sich wie ein vergessener Stopp — bekannte Einschränkung,
   korrigierbar.
+
+---
+
+## D-017 — Der Export trägt alle Daten, aber keine Einstellungen
+
+**Datum:** 25.08.2026 · **Entschieden von:** Tim, vorbereitet vom Technical Lead · **Gilt für:** T-013
+
+**Entscheidung:** Der Export enthält **jedes Feld**, das eine Lohnbuchhaltung brauchen könnte —
+Personenkennung, Datum, Beginn, Ende, Pausen, Ziel, Kennzeichnung manuell erfasst, Kennzeichnung
+korrigiert, Zeitzone. Etwa zwölf Spalten.
+
+Er bekommt **keinen Spaltenwähler, keine Vorlagen, keine kundenspezifische Konfiguration.**
+
+**Die Unterscheidung, um die es geht:** Vollständigkeit der Daten ist nicht dasselbe wie
+Einstellbarkeit des Formats. Wer weniger Spalten braucht, löscht eine in Excel. Eine Einstellung
+dagegen muss gebaut, getestet, dokumentiert, migriert und jedem Kunden erklärt werden.
+
+**Warum jetzt keine Konfigurierbarkeit:** Wir wissen noch nicht, was Kunden brauchen. Das ist
+eine Unsicherheit, die sich mit einem Gespräch beim Steuerberater auflöst, nicht mit einem
+Feature. Der Export ist bereits **versioniert** — ein DATEV-Format oder was der erste Kunde
+verlangt, kommt später additiv dazu, ohne Umbau.
+
+**Offene Nutzerfrage vor T-013:** Was muss drinstehen, damit eine Lohnbuchhaltung damit arbeiten
+kann? Steuerberater oder Pilotbetrieb fragen. Echte Nutzerforschung, keine Formalie.
+
+---
+
+## D-018 — Löschklassen jetzt, Aufbewahrungsdauern einstellbar
+
+**Datum:** 25.08.2026 · **Entschieden von:** Tim, vorbereitet vom Technical Lead · **Gilt für:** T-016
+
+**Entscheidung:** `T-016` baut die **Fähigkeit** zu löschen, nicht eine bestimmte Frist. Jede
+Datenart bekommt eine **Aufbewahrungsklasse** — Arbeitszeiten, Protokolle, Prüfposten,
+Mitgliedschaften, Einladungen. Die Dauer je Klasse ist eine **Einstellung**, keine Migration.
+
+**Was sich später nicht ändern lässt, ist die Einteilung.** Fehlt sie oder ist sie falsch, muss
+sie auf Bestandsdaten nachgezogen werden — mühsam und fehleranfällig. Also: Klassen jetzt
+richtig, Zahlen später verstellbar.
+
+**Korrektur an „gesetzliche Untergrenzen":** Es gibt keine freie Wahl nach oben. Zu kurz
+aufbewahren verstößt gegen Arbeitszeit- und Steuerrecht, zu lang aufbewahren gegen die
+Speicherbegrenzung nach Art. 5 DSGVO. Für jede Datenart gibt es eine richtige Dauer, keine
+Bandbreite.
+
+**Gesichert:** Arbeitszeitaufzeichnungen **zwei Jahre** — § 16 Abs. 2 ArbZG und § 17 MiLoG.
+**Noch zu prüfen:** Fristen für Lohn- und Buchungsunterlagen nach der Abgabenordnung. Dort hat
+sich zuletzt etwas geändert; der Technical Lead recherchiert frisch, wenn T-016 geschrieben wird,
+statt veraltete Zahlen in eine Aufgabe zu schreiben.
+
+**Nicht vergessen — die Sicherungen.** Stündliche Borg-Archive, bis zu sechs Monate Aufbewahrung.
+Verlangt jemand Löschung nach Art. 17 DSGVO und die Daten leben in vierzig Archiven weiter, ist
+die Löschung unvollständig. Die anerkannte Antwort ist, dass die Löschung mit dem Ablauf der
+Sicherungen nachzieht — aber das muss **beschrieben** sein, sonst ist es beim Anwalt zu erklären.
+
+---
+
+## D-019 — Der Pilotkunde rückt die Firmengründung auf den kritischen Pfad
+
+**Datum:** 25.08.2026 · **Entschieden von:** Tim, eingeordnet vom Technical Lead
+
+**Lage:** Ein Nachhilfebetrieb steht als Pilotkunde bereit — warmer Kontakt, der Inhaber ist von
+der Idee überzeugt. Er will **so schnell wie möglich mit echten Daten** arbeiten.
+
+**Einordnung, damit die Erwartung stimmt:** „Begeistert von der Idee" ist Zustimmung zum Konzept,
+keine Zusage zur Einführung und keine Aussage über Zahlungsbereitschaft. Wertvoll ist der
+Zugang zu einem echten Betrieb mit echtem Personal — nicht der Beweis, dass jemand zahlt.
+
+**Entscheidung:** Der Pilot läuft **zweistufig**.
+
+| Stufe | Inhalt | Voraussetzung |
+|---|---|---|
+| **Trockenlauf** | Der Inhaber klickt sich durch, erfundene Schüler, erfundene Lehrkräfte | keine — startet sofort |
+| **Echtbetrieb** | Echte Beschäftigte stempeln echte Zeiten | UG eingetragen **und** AVV unterschrieben |
+
+**Warum:** Mit der ersten echten Arbeitszeit einer fremden Beschäftigten wird TapTim.e
+Auftragsverarbeiter nach Art. 28 DSGVO. Ohne Firma haftet der Product Owner dafür mit seinem
+Privatvermögen.
+
+**Folge für D-011:** Die Firmengründung war dort eine Optimierung — sieben Wochen sparen. Sie ist
+jetzt eine **Voraussetzung**. Rechtsform und Notartermin gehören in diese Woche, nicht nach dem
+Selbsttest.
+
+**Vorbereitung durch den Technical Lead:** AVV, Verarbeitungsverzeichnis und TOM als Entwürfe,
+damit der Anwalt prüft statt schreibt. Spart Wochen und mehrere hundert Euro.
+
+**Offene Nutzerfragen an den Inhaber, vor T-013 und T-017:**
+
+1. Wie werden die Zeiten heute erfasst — und wird für etwas bezahlt?
+2. Was passiert heute, wenn jemand vergisst einzutragen?
+3. Was braucht der Steuerberater am Monatsende? (löst die offene Frage aus D-017)

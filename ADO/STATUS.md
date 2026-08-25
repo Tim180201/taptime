@@ -127,6 +127,8 @@ Der Technical Lead führt beide Zahlen mit, um eigene systematische Fehler zu er
 | T-008 | zwei Sitzungen | zwei Sitzungen |
 | T-009 | drei Sitzungen | zwei Sitzungen |
 | T-011 | eine Sitzung | eine Sitzung |
+| T-012 | drei Sitzungen | vier — inkl. drei Runden CI-Reparatur |
+| T-013 | zwei Sitzungen | offen |
 
 Die Prüfung vom 24.08. hat die Restschätzung von 11 auf **38 Sitzungen** über 13 Aufgaben
 korrigiert — nicht weil mehr Arbeit entstanden ist, sondern weil sieben nötige Aufgaben vorher
@@ -155,7 +157,7 @@ in keinem Plan standen.
 
 | Was | Von wem | Warum es drängt |
 |---|---|---|
-| **Produktname** | Tim | „TapTime" ist vergeben. Wird für Store, Firma und Domain gebraucht — Deadline Woche 12. Blockiert Phase 1 nicht. |
+| **Produktname** | Tim | Engste Wahl: **Taptura** — `taptura.de`, `.com` und `.io` frei, `.app` vergeben. Kunstwort, trägt das „Tap" der Bedienung, in beiden Sprachen gleich aussprechbar, keine Kollision mit TIM/Telecom Italia. **Domains registrieren, bevor die Markenvorprüfung läuft** — sie sind das Einzige, das über Nacht weg sein kann. Regel aus der Suche: `.com` darf nicht über den Namen entscheiden; `.de` plus eine moderne Endung genügt. Verworfen: „MyTim" (Domains weg, TIM-Kollision, falsche Perspektive), „Zeitura" (international unklar auszusprechen). „TapTime" ist vergeben. Wird für Store, Firma und Domain gebraucht — Deadline Woche 12. Blockiert Phase 1 nicht. |
 | **T-021 Zustellbarkeit** | Tim | Brevo-Konto und DNS. Vor dem ersten echten Kunden, blockiert T-012 nicht. |
 
 ---
