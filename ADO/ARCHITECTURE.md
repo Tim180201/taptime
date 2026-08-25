@@ -189,3 +189,24 @@ Ehrlicher Stand, damit niemand es für vorhanden hält:
 - Alle weiteren Entscheidungen: `ADO/01_Architecture/ADR/`
 - Produktabsicht: `ADO/01_Architecture/Product_Vision.md`, `Product_Principles.md`
 - Alles unter `ADO/99_Archive/`: Historie, wird nicht gelesen.
+
+---
+
+## 5. Regel für Migrationen und Rücknahme
+
+**Eine Migration darf nichts entfernen, was die vorherige Anwendungsversion noch braucht.**
+
+Eine Auslieferung wird zurückgenommen, indem das **Abbild** auf die vorherige Version gesetzt
+wird. Migrationen sind vorwärtsgerichtet und werden nicht zurückgerollt — jede läuft zwar in
+einer eigenen Transaktion, aber ein bereits eingespielter Stand bleibt.
+
+Daraus folgt die Reihenfolge über drei Auslieferungen:
+
+1. Spalte **hinzufügen**, nullbar, von der Anwendung noch nicht verlangt
+2. Anwendung befüllt und liest sie
+3. Frühestens jetzt darf das Alte entfernt werden
+
+Wer Schritt 1 und 3 in einer Migration zusammenzieht, macht die Rücknahme unmöglich — und merkt
+es in dem Moment, in dem er sie dringend braucht.
+
+Gilt ab `T-014`.

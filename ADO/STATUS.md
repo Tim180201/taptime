@@ -70,6 +70,14 @@ danach Firma, Recht und Store.
   API-Ränder großzügig je Adresse begrenzt. Caddy überschreibt fremde `X-Forwarded-For`-Werte;
   die API akzeptiert sie nur mit einem gemeinsamen Proxy-Geheimnis. Zustand ist flüchtig,
   adressverschleiert, zeitlich und mengenmäßig begrenzt.
+- **T-012 Pausenerfassung** — `59bdafd`. Die Pause ist ein **Auslöser**, kein Knopf: Die Engine
+  entscheidet, ob sie beginnt oder endet. Der Zeiteintrag bleibt offen, die Pause ist ein
+  Intervall darin. Vier neue Konsistenzprüfungen rund um die Pause. Ein Arbeits-Auslöser während
+  einer Pause wird abgewiesen, weil er mehrdeutig wäre.
+- **T-013 Export für die Lohnbuchhaltung** — `8094744`. CSV **V3**: Pausen, lokale Zeit mit
+  Sommerzeit, garantiert belegte Personenkennung, Korrekturhinweis mit Revisionsnummer,
+  Erfassungsart je Grenze. Die effektive Arbeitszeit kommt aus
+  `effective_work_duration_seconds_v1` — **eine** Quelle, in SQL. V2 bleibt unverändert.
 - **`tb-infra.de`** zeigt auf den Server, TTL 300, DNS bestätigt
 
 **Nicht vorhanden** — nach vollständiger Anforderungsprüfung am 24.08. (D-012):
@@ -128,7 +136,8 @@ Der Technical Lead führt beide Zahlen mit, um eigene systematische Fehler zu er
 | T-009 | drei Sitzungen | zwei Sitzungen |
 | T-011 | eine Sitzung | eine Sitzung |
 | T-012 | drei Sitzungen | vier — inkl. drei Runden CI-Reparatur |
-| T-013 | zwei Sitzungen | offen |
+| T-013 | zwei Sitzungen | zwei Sitzungen |
+| T-014 | zwei Sitzungen | offen |
 
 Die Prüfung vom 24.08. hat die Restschätzung von 11 auf **38 Sitzungen** über 13 Aufgaben
 korrigiert — nicht weil mehr Arbeit entstanden ist, sondern weil sieben nötige Aufgaben vorher

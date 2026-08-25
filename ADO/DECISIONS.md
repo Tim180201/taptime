@@ -488,3 +488,50 @@ damit der Anwalt prüft statt schreibt. Spart Wochen und mehrere hundert Euro.
 1. Wie werden die Zeiten heute erfasst — und wird für etwas bezahlt?
 2. Was passiert heute, wenn jemand vergisst einzutragen?
 3. Was braucht der Steuerberater am Monatsende? (löst die offene Frage aus D-017)
+
+---
+
+## D-020 — Befund aus dem Pilotgespräch: Wettbewerb und der eigentliche Schmerz
+
+**Datum:** 25.08.2026 · **Festgehalten vom Technical Lead** · **Kein Beschluss, ein Befund**
+
+Der Pilotbetrieb hat zwei Dinge mitgeteilt, die die Lage verändern.
+
+### 1. Der Betrieb nutzt bereits Jibble — und Jibble bietet NFC kostenlos an
+
+Jibble bewirbt einen „100 % KOSTENLOSEN NFC-Anwesenheitstracker". Der Zielkunde hat die
+Kernfunktion also bereits, ohne dafür zu zahlen.
+
+**Folge: NFC ist kein Unterscheidungsmerkmal.** Die Frage „Warum sollte ein Betrieb wechseln?"
+hat keine Antwort mehr, die auf Technik beruht. Zu prüfen sind die Grenzen des kostenlosen
+Tarifs — und vor allem, was am bestehenden Werkzeug stört.
+
+### 2. Die Bezahlung hängt an einem monatlichen Einreichvorgang
+
+Wörtlich: *„Lehrer werden erst bezahlt, wenn alle Stunden des Monats korrekt eingereicht sind."*
+
+Es gibt also einen **monatlichen Abschluss mit Prüfung**, an dem die Auszahlung hängt. Das ist
+echter finanzieller Schmerz — bei den Beschäftigten und beim Inhaber, der hinterherläuft.
+
+**Vergleich mit dem, was wir gebaut haben:** Die Freigabekette aus D-014 arbeitet **pro Eintrag
+und laufend**. Der reale Prozess arbeitet **pro Person und pro Monat**. Dieselbe Bedürfnislage,
+andere Form. Durch Nachdenken haben wir sie nicht getroffen.
+
+### Konsequenz für den Bau
+
+D-009 bleibt: Wir bauen generisch, kein Nachhilfe-Produkt. **Aber generisch ist nicht dasselbe
+wie geraten.** Wer nicht fragt, baut trotzdem für einen Betrieb — nur für einen ausgedachten.
+
+„Monatsabschluss mit Freigabe, an dem die Abrechnung hängt" ist kein Nachhilfe-Merkmal. Zeitarbeit,
+Pflege, Handwerk und Reinigung kennen dasselbe. Das Muster wird generisch gebaut, nicht der
+Einzelfall.
+
+**Zu entscheiden vor T-020:** Ob die Freigabekette um einen **Monatsabschluss je Person**
+ergänzt wird — oder ob er sie ersetzt. Erst nach der offenen Frage unten.
+
+### Offen — die wichtigste Frage an den Inhaber
+
+**„Was nervt Sie an Jibble?"**
+
+Ohne Antwort darauf gibt es keine Positionierung. Hat er keine, ist die Begeisterung Höflichkeit
+und der Pilot kein Marktbeleg.

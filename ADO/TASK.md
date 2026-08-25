@@ -4,102 +4,118 @@
 
 ---
 
-## T-013 · Export für die Lohnbuchhaltung
+## T-014 · Wiederholbar ausliefern
 
-**Für:** Codex · **Risiko:** verlässt das System, wird zur Abrechnung verwendet → **unabhängiges Review verpflichtend**
-**Zeitbox:** zwei Arbeitssitzungen · **Grundlage:** T-012 abgeschlossen, **D-017**, **D-014**
+**Für:** Codex · **Risiko:** berührt die laufende Produktion → **unabhängiges Review verpflichtend**
+**Zeitbox:** zwei Arbeitssitzungen · **Grundlage:** T-013 abgeschlossen
 
 ### Der Zustand heute
 
-Der Export ist technisch tadellos: mandantensicher, protokolliert, versioniert, mit Prüfsumme,
-und er fällt oberhalb von 8 MiB sauber zu. Inhaltlich fehlt ihm das, was eine Lohnbuchhaltung
-braucht:
+**Die Produktion baut aus dem Quellbaum.** `docker-compose.server.yml` benutzt `build:` für die
+API. Was auf dem Server läuft, ist damit nicht reproduzierbar — derselbe Quellstand kann morgen
+ein anderes Abbild ergeben, sobald sich eine Abhängigkeit bewegt.
 
-- **keine Pausen** — seit T-012 vorhanden, aber nicht im Export
-- **keine lokale Zeit** — nur UTC. Wer um 00:30 Uhr deutscher Zeit stempelt, erscheint am Vortag.
-- **keine verlässliche Personenkennung** — `COALESCE(display_name, '')`, der Name darf leer sein
-- **kein Korrekturhinweis** — eine nachträglich verschobene Zeit sieht aus wie eine Originalzeit
-- **kein Hinweis auf manuelle Erfassung** — obwohl `started_via` und `stopped_via` es wissen
+**Es gibt kein Auslieferungsskript.** Jede Auslieferung ist Handarbeit über SSH. Bei T-006 und
+T-008 hat das funktioniert, weil Codex jeden Schritt einzeln geprüft hat. Das skaliert nicht und
+ist bei Nacht oder unter Druck nicht wiederholbar.
 
-Der letzte Punkt wiegt am schwersten: Die Provenienz einer Korrektur liegt vollständig im Audit —
-nachvollziehbar, unveränderlich, vorbildlich. Nur steht sie nicht in der Datei, die der Prüfer in
-die Hand bekommt.
+**Achtzehn Migrationen sind nie irgendwo gelaufen außer in CI und in der Produktion.** CI läuft
+gegen eine leere Datenbank. Die Produktion ist das erste Mal, dass eine Migration echte Daten
+sieht.
+
+**Was bereits gut ist und nicht angefasst wird:** Jede Migration läuft in einer eigenen
+Transaktion mit `ROLLBACK` im Fehlerfall. Eine halb eingespielte Migration kann es nicht geben.
 
 ### Ziel
 
-**Eine Datei, mit der eine Lohnbuchhaltung arbeiten kann, und die eine Prüfung übersteht.**
+**Eine Auslieferung ist ein Befehl, sie ist wiederholbar, und sie nimmt sich selbst zurück,
+wenn sie schiefgeht.**
 
-### Die Auflage aus T-012 — zuerst lesen
+### Kein zweiter Server — die Probe kommt aus der Sicherung
 
-`effective_work_duration_seconds_v1` existiert seit Migration 017 und hat **keinen Aufrufer.**
+Ein dauerhafter zweiter Server kostet Geld und pflegt sich nicht von selbst. Wir haben etwas
+Besseres: **stündliche Sicherungen echter Produktionsdaten.**
 
-**Der Export ruft diese Funktion auf. Er rechnet den Pausenabzug nicht in TypeScript nach.**
+Die Generalprobe läuft deshalb gegen eine **Wiederherstellung des letzten Standes**, nicht gegen
+eine leere Datenbank. Das prüft genau das, was CI nicht prüfen kann — ob eine Migration mit
+echten Daten durchläuft, und wie lange sie dabei braucht.
 
-Sonst haben wir zwei Wahrheiten über dieselbe Zahl, und die erste Abweichung findet ein Kunde,
-nicht wir. Das ist keine Empfehlung.
+Die Maschinerie dafür steht seit `T-007`. **Benutze sie, bau nichts daneben.**
 
-### Der Umfang — vollständig, aber nicht einstellbar (D-017)
+### Schritte
 
-Etwa zwölf Spalten. **Kein Spaltenwähler, keine Vorlagen, keine kundenspezifische
-Konfiguration.** Wer weniger braucht, löscht eine Spalte in Excel.
+**1. Ein Abbild statt eines Bauvorgangs**
 
-| Spalte | Hinweis |
-|---|---|
-| Personenkennung | **muss immer belegt sein** — siehe unten |
-| Anzeigename | darf leer sein |
-| Datum | lokale Zeitzone |
-| Beginn, Ende | lokale Zeitzone, dazu die UTC-Werte |
-| Pausendauer | aus den Intervallen |
-| Effektive Arbeitszeit | **aus der SQL-Funktion**, nicht nachgerechnet |
-| Ziel | Kunde, Projekt oder Allgemeine Arbeitszeit |
-| Erfassungsart Beginn / Ende | `nfc` oder `manual` — nach D-014 die Beweisfrage |
-| Korrigiert | ja/nein, mit Nummer der Revision |
+- Das Abbild der API wird **einmal in CI gebaut** und mit dem Commit-Kurzschlüssel versehen.
+- Ablage in der GitHub Container Registry.
+- `docker-compose.server.yml` benutzt `image:` mit fester Version. **Kein `build:` mehr auf dem
+  Server.**
+- Prüfe die Speichergrenzen des kostenlosen Tarifs und melde sie. Wenn es eng wird, sag es,
+  statt es zu umgehen.
 
-**Zeitzone:** Europe/Berlin, mit korrekter Behandlung der Sommerzeit. Die UTC-Werte bleiben
-zusätzlich erhalten — sie sind die Wahrheit, die lokale Zeit ist die Lesehilfe.
+**2. Generalprobe vor jeder Auslieferung**
 
-**Version:** V3. V2 bleibt unverändert erreichbar.
+- Letzten Sicherungsstand in einen Wegwerf-Container einspielen.
+- Die **ausstehenden** Migrationen dort einspielen. Dauer messen und melden.
+- Schlägt die Probe fehl, bricht die Auslieferung ab — **bevor** die Produktion angefasst wird.
+- Wegwerf-Container danach restlos entfernen.
 
-### Eine offene Produktfrage — nicht raten
+**3. Ausliefern als ein Befehl**
 
-Eine Lohnbuchhaltung braucht in der Regel eine **Personalnummer**. Wir haben keine. Heute gäbe es
-nur die Mitgliedschafts-Kennung — eindeutig, aber für einen Menschen unlesbar.
+Ein Skript im Repository, `infrastructure/deploy`, das der Reihe nach:
 
-**Baue keine Personalnummer, bevor der Product Owner geantwortet hat.** Exportiere vorerst die
-Mitgliedschafts-Kennung als garantiert belegte Personenkennung und melde die Frage im Bericht.
+1. die Generalprobe fährt
+2. die Sicherung anstößt und deren Erfolg abwartet
+3. das Abbild der gewünschten Version holt
+4. die Migrationen in der Produktion einspielt
+5. den neuen Stand startet
+6. die Gesundheit prüft
+7. **bei Misserfolg auf die vorherige Version zurückgeht**
 
-### Invarianten
+Jeder Schritt meldet, was er tut. Das Skript ist ohne Argumente **nicht** ausführbar — die
+Version wird ausdrücklich genannt.
 
-1. **Vollständigkeit vor Schönheit.** Der Export enthält alles, auch Unbestätigtes und
-   Korrigiertes — gekennzeichnet. Eine fehlende Zeile kostet jemandem Geld.
-2. **Der Mandant bleibt getrennt.** Keine Zeile einer fremden Organisation, unter keinen Umständen.
-3. **Der Export bleibt protokolliert** und fällt oberhalb der Grenze weiterhin zu.
-4. **Die effektive Zeit hat genau eine Quelle.**
+**4. Rücknahme, die wirklich funktioniert**
+
+Die Rücknahme setzt das **Abbild** zurück, nicht das Schema. Migrationen sind vorwärtsgerichtet.
+
+**Daraus folgt eine Regel, die du in `ADO/ARCHITECTURE.md` festhältst:** Eine Migration darf
+nichts entfernen, was die vorherige Anwendungsversion noch braucht. Spalten werden erst
+hinzugefügt, in einer späteren Auslieferung befüllt, und frühestens in einer übernächsten
+entfernt. Sonst ist die Rücknahme unmöglich, und wir merken es im schlechtesten Moment.
+
+**5. Aufschreiben**
+
+`infrastructure/DEPLOY.md`, eine Seite: wie liefere ich aus, wie nehme ich zurück, was tue ich,
+wenn die Probe fehlschlägt.
+
+### Vision-Check
+
+Keine fachliche Logik, keine Oberfläche. Betrieb.
 
 ### Nicht anfassen
 
-- `packages/core`, die Business Engine, die Entscheidungsreihenfolge
-- Die Freigabekette. Das ist T-020 — hier nur die **Kennzeichnung** manueller Erfassung.
-- Die bestehende V2. Additiv, nicht ersetzend.
+- `packages/core`, jede Geschäftslogik
+- Die Migrationen selbst
+- Die Sicherungs- und Wiederherstellungsskripte aus T-007 — benutzen, nicht ändern
 
 ### Prüfung — nachweisen, nicht behaupten
 
-- Ein Tag mit zwei Pausen erscheint mit korrekter effektiver Zeit — verglichen mit der
-  SQL-Funktion, nicht mit einer eigenen Rechnung
-- Eine Zeit über die Sommerzeitumstellung hinweg ist lokal korrekt
-- Ein Eintrag um 00:30 Uhr deutscher Zeit erscheint am **richtigen** Tag
-- Eine korrigierte Zeit ist als korrigiert erkennbar, mit Revisionsnummer
-- Ein manuell begonnener und per Scan beendeter Eintrag zeigt **beide** Erfassungsarten
-- Die Personenkennung ist in **jeder** Zeile belegt, auch wenn der Anzeigename leer ist
-- Ein Administrator einer fremden Organisation erhält nichts davon
-- V2 liefert unverändert dasselbe wie vorher
-- Die 8-MiB-Grenze fällt weiterhin zu, ohne Abschneiden und ohne Prüfeintrag
+- Eine **echte** Auslieferung des aktuellen Standes ist über das Skript gelaufen
+- Eine **echte** Rücknahme auf die vorherige Version ist gelaufen; danach war das System gesund
+- Eine absichtlich fehlerhafte Migration lässt die Generalprobe scheitern und die Produktion
+  **unberührt** — mit echter Ausgabe
+- Die Dauer der Migrationen gegen echte Daten steht im Bericht
+- Das ausgelieferte Abbild trägt den Commit-Kurzschlüssel und ist wiederauffindbar
+- Kein `build:` mehr in `docker-compose.server.yml`
+- Kein Geheimnis in argv, keines im Abbild, keines im Bericht
+- Nach echtem Serverneustart läuft alles wieder
 - CI grün, kein `[skip ci]`
 
 ### Zusätzliches Review
 
-> Nimm eine exportierte Zeile und rechne von Hand nach: Beginn, Ende, Pausen, effektive Zeit.
-> Stimmt die Summe? Zeige die Rechnung, statt sie zuzusichern.
+> Angenommen, die Auslieferung bricht zwischen Schritt 4 und 5 ab — Migrationen sind drin, der
+> neue Stand läuft nicht. Was passiert? Führe es vor, statt es zu beschreiben.
 
 ### Abschluss
 
@@ -110,5 +126,5 @@ Vier Punkte melden. Entfernte oder umgeschriebene Tests **einzeln** benennen.
 
 ## Danach
 
-`T-014` Zweite Umgebung · `T-015` Standorte (ADR-0022) · `T-016` Löschkonzept ·
+`T-015` Standorte und Standortleitung (ADR-0022) · `T-016` Löschkonzept · `T-017` Oberflächen ·
 siehe `ADO/PLAN.md`.
