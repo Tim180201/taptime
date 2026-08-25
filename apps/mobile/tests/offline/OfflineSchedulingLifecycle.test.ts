@@ -325,6 +325,7 @@ class MemoryRefreshTokenStore implements RefreshTokenStore {
 }
 
 class BackendSession implements BackendSessionPort {
+  async recordPasswordReset() { return { status: 'unavailable' as const }; }
   implementation: () => Promise<BackendSessionResolution> =
     async () => ({ status: 'unavailable' });
 

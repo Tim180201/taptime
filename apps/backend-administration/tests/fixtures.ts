@@ -155,13 +155,13 @@ export async function ensureC3E1RuntimeLogins(
     installerPool,
     C3E1_INVITATION_RUNTIME_LOGIN,
     invitationPassword,
-    ['taptime_identity_resolver', 'taptime_employee_invitation_creator'],
+    ['taptime_identity_resolver', 'taptime_membership_manager', 'taptime_password_reset_auditor'],
   );
   await ensureRuntimeLogin(
     installerPool,
     C3E1_ENROLLMENT_RUNTIME_LOGIN,
     enrollmentPassword,
-    ['taptime_employee_enrollment_redeemer'],
+    ['taptime_membership_enrollment_redeemer'],
   );
 }
 
@@ -174,7 +174,10 @@ export async function removeC3E1RuntimeLogins(installerPool: Pool): Promise<void
       REVOKE
         taptime_identity_resolver,
         taptime_employee_invitation_creator,
-        taptime_employee_enrollment_redeemer
+        taptime_employee_enrollment_redeemer,
+        taptime_membership_manager,
+        taptime_membership_enrollment_redeemer,
+        taptime_password_reset_auditor
       FROM ${login};
       DROP ROLE IF EXISTS ${login};
     `);

@@ -22,6 +22,7 @@ import type {
   AdminCoordinatorControls,
   CreateEmployeeMembershipInvitationCommand,
   CreateEmployeeMembershipInvitationResult,
+  ChangeMembershipRoleCommand,
   CreateCustomerCommand,
   CreateCustomerResult,
   EmployeeEnrollmentCoordinatorControls,
@@ -33,6 +34,10 @@ import type {
   ReadEmployeeMembershipsProjectionResult,
   ReadSetupProjectionCommand,
   ReadSetupProjectionResult,
+  RevokeMembershipCommand,
+  MembershipMutationResult,
+  RecordPasswordResetCommand,
+  RecordPasswordResetResult,
   ReassignmentCoordinatorControls,
   RedeemEmployeeMembershipInvitationCommand,
   RedeemEmployeeMembershipInvitationResult,
@@ -131,6 +136,21 @@ export interface EmployeeMembershipEnrollmentCoordinator {
     command: ReadEmployeeMembershipsProjectionCommand,
     controls?: EmployeeEnrollmentCoordinatorControls,
   ): Promise<ReadEmployeeMembershipsProjectionResult>;
+
+  revokeMembership(
+    command: RevokeMembershipCommand,
+    controls?: EmployeeEnrollmentCoordinatorControls,
+  ): Promise<MembershipMutationResult>;
+
+  changeMembershipRole(
+    command: ChangeMembershipRoleCommand,
+    controls?: EmployeeEnrollmentCoordinatorControls,
+  ): Promise<MembershipMutationResult>;
+
+  recordPasswordReset(
+    command: RecordPasswordResetCommand,
+    controls?: EmployeeEnrollmentCoordinatorControls,
+  ): Promise<RecordPasswordResetResult>;
 }
 
 export interface NfcTagReassignmentPort {
@@ -164,6 +184,9 @@ export type BackendApiRoute =
   | 'admin_create_customer'
   | 'admin_create_employee_invitation'
   | 'admin_employee_memberships_projection'
+  | 'admin_revoke_membership'
+  | 'admin_change_membership_role'
+  | 'auth_password_reset_audit'
   | 'admin_provision_nfc_tag'
   | 'admin_reassign_nfc_tag'
   | 'admin_setup_projection'

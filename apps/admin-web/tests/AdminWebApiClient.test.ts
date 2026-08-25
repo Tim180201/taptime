@@ -40,10 +40,32 @@ function employeeMemberships(start: number, count: number) {
     displayName: `Employee ${start + index}`,
     role: 'employee' as const,
     active: true as const,
+    rowVersion: 1,
   }));
 }
 
 describe('AdminWebApiClient', () => {
+  it('records a password reset with an exact credential-free POST body and response', async () => {
+    const fetchRequest = vi.fn<typeof fetch>(async () => json({ status: 'succeeded' }));
+    const client = new AdminWebApiClient(fetchRequest);
+
+    await expect(client.recordPasswordReset('recovery-token')).resolves.toEqual({
+      status: 'succeeded', value: true,
+    });
+    expect(fetchRequest.mock.calls[0]?.[0]).toBe('/v1/auth/password-reset/audit');
+    expect(fetchRequest.mock.calls[0]?.[1]).toMatchObject({
+      method: 'POST', body: '{}', credentials: 'omit', redirect: 'manual',
+    });
+    expect(fetchRequest.mock.calls[0]?.[1]?.headers).toMatchObject({
+      Authorization: 'Bearer recovery-token', 'Content-Type': 'application/json',
+    });
+
+    fetchRequest.mockResolvedValueOnce(json({ status: 'succeeded', userId: ids.user }));
+    await expect(client.recordPasswordReset('recovery-token')).resolves.toEqual({
+      status: 'unavailable',
+    });
+  });
+
   it('accepts only the exact session shape and keeps the request same-origin and credential-free', async () => {
     const calls: Array<{ readonly input: RequestInfo | URL; readonly init?: RequestInit }> = [];
     const fetchRequest: typeof fetch = async (input, init) => {
@@ -225,7 +247,7 @@ describe('AdminWebApiClient', () => {
 
   it('strictly parses the bounded Employee Membership projection', async () => {
     const firstPage = employeeMemberships(1, 20);
-    const firstCursor = `v1:e:${firstPage.at(-1)!.id}`;
+    const firstCursor = `v1:m:${firstPage.at(-1)!.id}`;
     const fetchRequest = vi.fn<typeof fetch>(async () => json({
       status: 'succeeded',
       organization: { id: ids.organization, name: 'TapTim.e' },
@@ -257,7 +279,7 @@ describe('AdminWebApiClient', () => {
   });
 
   it('rejects unsafe Employee names, duplicates, ordering, and cursor discontinuity', async () => {
-    const requestedCursor = 'v1:e:70000000-0000-4000-8000-000000000020';
+    const requestedCursor = 'v1:m:70000000-0000-4000-8000-000000000020';
     const validPage = employeeMemberships(21, 20);
     const responses = [
       {
@@ -274,7 +296,7 @@ describe('AdminWebApiClient', () => {
       },
       {
         status: 'succeeded', organization: { id: ids.organization, name: 'TapTim.e' },
-        employeeMemberships: validPage, nextCursor: `v1:e:${validPage[18]!.id}`,
+        employeeMemberships: validPage, nextCursor: `v1:m:${validPage[18]!.id}`,
       },
       {
         status: 'succeeded', organization: { id: ids.organization, name: 'TapTim.e' },
@@ -304,7 +326,7 @@ describe('AdminWebApiClient', () => {
       expiresAt: '2026-07-15T12:34:56.789Z',
     }));
     const client = new AdminWebApiClient(fetchRequest);
-    await expect(client.createEmployeeInvitation('token', ids.membership, ids.command, 'Employee Alpha'))
+    await expect(client.createEmployeeInvitation('token', ids.membership, ids.command, 'Employee Alpha', 'employee'))
       .resolves.toEqual({
         status: 'succeeded',
         value: { value: secret, expiresAt: '2026-07-15T12:34:56.789Z' },
@@ -314,23 +336,39 @@ describe('AdminWebApiClient', () => {
       expectedMembershipId: ids.membership,
       commandId: ids.command,
       displayName: 'Employee Alpha',
+      role: 'employee',
     });
 
+    fetchRequest.mockResolvedValueOnce(json({
+      status: 'succeeded',
+      membership: { id: ids.employeeMembership, role: 'administrator', active: true, rowVersion: 2 },
+      idempotentRetry: false,
+    }));
+    await expect(client.changeMembershipRole(
+      'token', ids.membership, ids.command, ids.employeeMembership, 1, 'administrator',
+    )).resolves.toEqual({ status: 'succeeded', value: true });
+    expect(fetchRequest.mock.calls.at(-1)?.[0]).toBe('/v1/administration/memberships/change-role');
+
+    fetchRequest.mockResolvedValueOnce(json({ error: { code: 'last_administrator' } }, 409));
+    await expect(client.revokeMembership(
+      'token', ids.membership, ids.command, ids.employeeMembership, 2,
+    )).resolves.toEqual({ status: 'conflict', code: 'last_administrator' });
+
     fetchRequest.mockResolvedValueOnce(json({ error: { code: 'invitation_limit_reached' } }, 409));
-    await expect(client.createEmployeeInvitation('token', ids.membership, ids.command, 'Employee Alpha'))
+    await expect(client.createEmployeeInvitation('token', ids.membership, ids.command, 'Employee Alpha', 'employee'))
       .resolves.toEqual({ status: 'conflict', code: 'invitation_limit_reached' });
     fetchRequest.mockResolvedValueOnce(json({ error: { code: 'internal_detail' } }, 409));
-    await expect(client.createEmployeeInvitation('token', ids.membership, ids.command, 'Employee Alpha'))
+    await expect(client.createEmployeeInvitation('token', ids.membership, ids.command, 'Employee Alpha', 'employee'))
       .resolves.toEqual({ status: 'unavailable' });
     fetchRequest.mockResolvedValueOnce(new Response(JSON.stringify({
       error: { code: 'invitation_limit_reached' },
     }), { status: 409, headers: { 'Content-Type': 'text/plain' } }));
-    await expect(client.createEmployeeInvitation('token', ids.membership, ids.command, 'Employee Alpha'))
+    await expect(client.createEmployeeInvitation('token', ids.membership, ids.command, 'Employee Alpha', 'employee'))
       .resolves.toEqual({ status: 'unavailable' });
     fetchRequest.mockResolvedValueOnce(new Response(JSON.stringify({
       error: { code: 'invitation_limit_reached' },
     }), { status: 409, headers: { 'Content-Type': 'application/jsonp' } }));
-    await expect(client.createEmployeeInvitation('token', ids.membership, ids.command, 'Employee Alpha'))
+    await expect(client.createEmployeeInvitation('token', ids.membership, ids.command, 'Employee Alpha', 'employee'))
       .resolves.toEqual({ status: 'unavailable' });
     fetchRequest.mockResolvedValueOnce(new Response(JSON.stringify({
       error: { code: 'invitation_limit_reached' },
@@ -338,14 +376,14 @@ describe('AdminWebApiClient', () => {
       status: 409,
       headers: { 'Content-Type': 'application/json', 'Content-Length': '16385' },
     }));
-    await expect(client.createEmployeeInvitation('token', ids.membership, ids.command, 'Employee Alpha'))
+    await expect(client.createEmployeeInvitation('token', ids.membership, ids.command, 'Employee Alpha', 'employee'))
       .resolves.toEqual({ status: 'unavailable' });
     fetchRequest.mockResolvedValueOnce(json({
       status: 'succeeded',
       invitationSecret: `${secret.slice(0, -1)}B`,
       expiresAt: '2026-07-15T12:34:56.789Z',
     }));
-    await expect(client.createEmployeeInvitation('token', ids.membership, ids.command, 'Employee Alpha'))
+    await expect(client.createEmployeeInvitation('token', ids.membership, ids.command, 'Employee Alpha', 'employee'))
       .resolves.toEqual({ status: 'unavailable' });
   });
 

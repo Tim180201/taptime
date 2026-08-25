@@ -2,7 +2,7 @@ import type { SafeEmployeeProjection } from './contracts';
 import { isCanonicalSafeTapTimeName } from './safeTapTimeName';
 
 const canonicalUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
-const employeeCursor = /^v1:e:([0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/;
+const employeeCursor = /^v1:m:([0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/;
 const pageLimit = 20;
 
 export function isSafeEmployeeProjectionPage(
@@ -22,8 +22,10 @@ export function isSafeEmployeeProjectionPage(
     if (
       !canonicalUuid.test(membership.id)
       || !isCanonicalSafeTapTimeName(membership.displayName)
-      || membership.role !== 'employee'
-      || membership.active !== true
+      || (membership.role !== 'employee' && membership.role !== 'administrator')
+      || typeof membership.active !== 'boolean'
+      || !Number.isSafeInteger(membership.rowVersion)
+      || membership.rowVersion < 1
       || (previousId !== null && membership.id <= previousId)
     ) return false;
     previousId = membership.id;
@@ -32,5 +34,5 @@ export function isSafeEmployeeProjectionPage(
   if (projection.nextCursor === null) return true;
   return projection.employeeMemberships.length === pageLimit
     && previousId !== null
-    && projection.nextCursor === `v1:e:${previousId}`;
+    && projection.nextCursor === `v1:m:${previousId}`;
 }

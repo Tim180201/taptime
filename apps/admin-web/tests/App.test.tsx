@@ -67,6 +67,7 @@ const readyState: Extract<AdminWebState, { readonly status: 'ready' }> = {
       displayName: 'Employee Alpha',
       role: 'employee',
       active: true,
+      rowVersion: 1,
     }],
     nextCursor: null,
   },
@@ -110,12 +111,16 @@ class FakeCapability implements AdminWebCapability {
   }
   invalidateTimeBoundIntents = vi.fn(() => undefined);
   signIn = vi.fn(async () => undefined);
+  requestPasswordReset = vi.fn(async () => undefined);
+  completePasswordRecovery = vi.fn(async () => undefined);
   signOut = vi.fn(async () => undefined);
   refresh = vi.fn(async () => undefined);
   retrySection = vi.fn(async () => undefined);
   loadMore = vi.fn(async () => undefined);
   createCustomer = vi.fn(async () => undefined);
   createEmployeeInvitation = vi.fn(async () => undefined);
+  revokeMembership = vi.fn(async () => undefined);
+  changeMembershipRole = vi.fn(async () => undefined);
   loadMoreEmployees = vi.fn(async () => undefined);
   dismissInvitation = vi.fn(() => undefined);
   prepareReassignment = vi.fn<AdminWebCapability['prepareReassignment']>(() => undefined);
@@ -170,6 +175,25 @@ describe('professional Admin Web shell', () => {
     pending.resolve(undefined);
     capability.emit({ status: 'signed_out' });
     await waitFor(() => expect(screen.getByLabelText('Passwort')).toHaveValue(''));
+  });
+
+  it('offers password recovery from the entered email without adding another decision', async () => {
+    const capability = new FakeCapability({ status: 'signed_out' });
+    render(<App administration={capability} />);
+    await userEvent.type(screen.getByLabelText('E-Mail'), 'admin@example.test');
+    await userEvent.click(screen.getByRole('button', { name: 'Passwort vergessen' }));
+    expect(capability.requestPasswordReset).toHaveBeenCalledWith('admin@example.test');
+  });
+
+  it('renders the dedicated recovery state and clears the new password before completion', async () => {
+    const capability = new FakeCapability({
+      status: 'password_recovery', completing: false, notice: null,
+    });
+    render(<App administration={capability} />);
+    await userEvent.type(screen.getByLabelText('Neues Passwort'), 'new-memory-secret');
+    await userEvent.click(screen.getByRole('button', { name: 'Passwort ändern' }));
+    expect(capability.completePasswordRecovery).toHaveBeenCalledWith('new-memory-secret');
+    expect(screen.getByLabelText('Neues Passwort')).toHaveValue('');
   });
 
   it('exposes exactly five allow-listed fragment views and deterministic hash navigation', async () => {

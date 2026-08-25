@@ -31,6 +31,9 @@ export interface ProviderAuthPort {
   subscribe(listener: (event: ProviderAuthEvent) => void): () => void;
   startAutoRefresh(): Promise<void>;
   stopAutoRefresh(): Promise<void>;
+  requestPasswordReset?(email: string, redirectTo: string): Promise<boolean>;
+  activatePasswordRecovery?(accessToken: string, refreshToken: string): Promise<boolean>;
+  updatePassword?(password: string): Promise<boolean>;
 }
 
 export interface RefreshTokenStore {
@@ -45,8 +48,14 @@ export type BackendSessionResolution =
   | { readonly status: 'authority_rejected' }
   | { readonly status: 'unavailable' };
 
+export type PasswordResetAuditResult =
+  | { readonly status: 'recorded' }
+  | { readonly status: 'authority_rejected' }
+  | { readonly status: 'unavailable' };
+
 export interface BackendSessionPort {
   resolve(accessToken: string): Promise<BackendSessionResolution>;
+  recordPasswordReset(accessToken: string): Promise<PasswordResetAuditResult>;
 }
 
 export type EmployeeEnrollmentRedemption =
@@ -71,6 +80,7 @@ export type MobileSessionState =
       readonly reason: 'not_signed_in' | 'invalid_credentials' | 'authority_rejected';
     }
   | { readonly status: 'signing_in' }
+  | { readonly status: 'password_recovery'; readonly completing: boolean; readonly notice: string | null }
   | { readonly status: 'authenticated'; readonly session: ProductSessionContext }
   | {
       readonly status: 'enrollment_only';
@@ -107,6 +117,9 @@ export interface MobileSessionCapability {
   retryContext(): Promise<void>;
   refresh(): Promise<void>;
   signOut(): Promise<void>;
+  readonly requestPasswordReset?: (email: string) => Promise<'requested' | 'unavailable'>;
+  readonly handlePasswordRecoveryUrl?: (url: string) => Promise<boolean>;
+  readonly completePasswordRecovery?: (password: string) => Promise<boolean>;
 }
 
 /**

@@ -16,6 +16,9 @@ function fakeAuth(overrides: Record<string, unknown> = {}) {
     onAuthStateChange: vi.fn(() => ({ data: { subscription: { unsubscribe: vi.fn() } } })),
     startAutoRefresh: vi.fn(async () => undefined),
     stopAutoRefresh: vi.fn(async () => undefined),
+    resetPasswordForEmail: vi.fn(async () => ({ error: null })),
+    setSession: vi.fn(async () => ({ data: { session: providerSession() }, error: null })),
+    updateUser: vi.fn(async () => ({ error: null })),
     ...overrides,
   };
 }
@@ -128,5 +131,23 @@ describe('SupabaseEmailPasswordAuthAdapter', () => {
     await adapter.stopAutoRefresh();
     expect(auth.startAutoRefresh).toHaveBeenCalledTimes(1);
     expect(auth.stopAutoRefresh).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses the app recovery redirect and updates only an activated recovery session', async () => {
+    const auth = fakeAuth();
+    const adapter = new SupabaseEmailPasswordAuthAdapter(auth as never);
+    await expect(adapter.requestPasswordReset(
+      'employee@example.invalid', 'taptime://auth/recovery',
+    )).resolves.toBe(true);
+    expect(auth.resetPasswordForEmail).toHaveBeenCalledWith(
+      'employee@example.invalid', { redirectTo: 'taptime://auth/recovery' },
+    );
+    await expect(adapter.activatePasswordRecovery('access-recovery', 'refresh-recovery'))
+      .resolves.toBe(true);
+    expect(auth.setSession).toHaveBeenCalledWith({
+      access_token: 'access-recovery', refresh_token: 'refresh-recovery',
+    });
+    await expect(adapter.updatePassword('new-password')).resolves.toBe(true);
+    expect(auth.updateUser).toHaveBeenCalledWith({ password: 'new-password' });
   });
 });

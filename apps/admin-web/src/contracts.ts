@@ -9,8 +9,9 @@ export interface SafeEmployeeProjection {
   readonly employeeMemberships: readonly {
     readonly id: string;
     readonly displayName: string;
-    readonly role: 'employee';
-    readonly active: true;
+    readonly role: 'administrator' | 'employee';
+    readonly active: boolean;
+    readonly rowVersion: number;
   }[];
   readonly nextCursor: string | null;
 }
@@ -84,8 +85,9 @@ export interface ReviewAdjudicationIntent {
   readonly reason: string;
 }
 export type AdminWebState =
-  | { readonly status: 'signed_out' }
+  | { readonly status: 'signed_out'; readonly notice?: string }
   | { readonly status: 'signing_in' }
+  | { readonly status: 'password_recovery'; readonly completing: boolean; readonly notice: string | null }
   | { readonly status: 'loading' }
   | { readonly status: 'forbidden'; readonly message: string }
   | { readonly status: 'unavailable'; readonly message: string }
@@ -117,12 +119,20 @@ export interface AdminWebCapability {
   subscribe(listener: () => void): () => void;
   invalidateTimeBoundIntents(): void;
   signIn(email: string, password: string): Promise<void>;
+  requestPasswordReset(email: string): Promise<void>;
+  completePasswordRecovery(password: string): Promise<void>;
   signOut(): Promise<void>;
   refresh(): Promise<void>;
   retrySection(section: AdminSection): Promise<void>;
   loadMore(): Promise<void>;
   createCustomer(displayName: string): Promise<void>;
-  createEmployeeInvitation(displayName: string): Promise<void>;
+  createEmployeeInvitation(displayName: string, role: 'administrator' | 'employee'): Promise<void>;
+  revokeMembership(membershipId: string, expectedRowVersion: number): Promise<void>;
+  changeMembershipRole(
+    membershipId: string,
+    expectedRowVersion: number,
+    role: 'administrator' | 'employee',
+  ): Promise<void>;
   loadMoreEmployees(): Promise<void>;
   dismissInvitation(): void;
   prepareReassignment(nfcTagId: string, targetCustomerId: string): void;

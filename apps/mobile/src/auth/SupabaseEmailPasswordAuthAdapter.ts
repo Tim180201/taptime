@@ -20,7 +20,10 @@ type SupabaseAuthClient = Pick<SupabaseClient['auth'],
   | 'signInWithPassword'
   | 'signOut'
   | 'startAutoRefresh'
-  | 'stopAutoRefresh'>;
+  | 'stopAutoRefresh'
+  | 'resetPasswordForEmail'
+  | 'setSession'
+  | 'updateUser'>;
 
 export class SupabaseEmailPasswordAuthAdapter implements ProviderAuthPort {
   constructor(private readonly auth: SupabaseAuthClient) {}
@@ -71,6 +74,24 @@ export class SupabaseEmailPasswordAuthAdapter implements ProviderAuthPort {
 
   async stopAutoRefresh(): Promise<void> {
     await this.auth.stopAutoRefresh();
+  }
+
+  async requestPasswordReset(email: string, redirectTo: string): Promise<boolean> {
+    const { error } = await this.auth.resetPasswordForEmail(email, { redirectTo });
+    return error === null;
+  }
+
+  async activatePasswordRecovery(accessToken: string, refreshToken: string): Promise<boolean> {
+    const { data, error } = await this.auth.setSession({
+      access_token: accessToken,
+      refresh_token: refreshToken,
+    });
+    return error === null && data.session !== null;
+  }
+
+  async updatePassword(password: string): Promise<boolean> {
+    const { error } = await this.auth.updateUser({ password });
+    return error === null;
   }
 }
 

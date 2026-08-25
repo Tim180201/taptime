@@ -22,6 +22,9 @@ export interface ProductMobileRuntime {
 export interface ProductSessionRuntimeOwner extends MobileSessionCapability {
   start(): Promise<void>;
   stop(): void;
+  requestPasswordReset(email: string): Promise<'requested' | 'unavailable'>;
+  handlePasswordRecoveryUrl(url: string): Promise<boolean>;
+  completePasswordRecovery(password: string): Promise<boolean>;
 }
 
 /** @internal Runtime owner used to keep orchestrator lifecycle and React capability separate. */
@@ -98,6 +101,11 @@ export class DefaultProductMobileRuntime implements ProductMobileRuntime {
         this.coordinator.redeemEmployeeInvitation(invitationSecret)
       ),
       retryContext: () => this.coordinator.retryContext(),
+      requestPasswordReset: (email: string) => this.coordinator.requestPasswordReset(email),
+      handlePasswordRecoveryUrl: (url: string) => this.coordinator.handlePasswordRecoveryUrl(url),
+      completePasswordRecovery: (password: string) => (
+        this.coordinator.completePasswordRecovery(password)
+      ),
       refresh: () => this.coordinator.refresh(),
       signOut: async () => {
         await this.scanOrchestrator.onExplicitLogout?.();

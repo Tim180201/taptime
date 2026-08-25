@@ -57,6 +57,7 @@ function employeeMemberships(start: number, count: number) {
     displayName: `Employee ${start + index}`,
     role: 'employee' as const,
     active: true as const,
+    rowVersion: 1,
   }));
 }
 
@@ -70,6 +71,19 @@ class FakeAuth implements AdminWebAuthPort {
   active = false;
   readonly signIn = vi.fn<AdminWebAuthPort['signIn']>(async () => { this.active = true; return true; });
   readonly signOut = vi.fn<AdminWebAuthPort['signOut']>(async () => { this.active = false; });
+  readonly requestPasswordReset = vi.fn(async () => true);
+  readonly updateRecoveredPassword = vi.fn(async () => true);
+  private readonly recoveryListeners = new Set<() => void>();
+
+  subscribePasswordRecovery(listener: () => void): () => void {
+    this.recoveryListeners.add(listener);
+    return () => this.recoveryListeners.delete(listener);
+  }
+
+  emitPasswordRecovery(): void {
+    this.active = true;
+    for (const listener of this.recoveryListeners) listener();
+  }
 
   async withAccessToken<Value>(operation: (accessToken: string) => Promise<Value>): Promise<Value | null> {
     return this.active ? operation('memory-only-token') : null;
@@ -77,6 +91,9 @@ class FakeAuth implements AdminWebAuthPort {
 }
 
 class FakeApi implements AdminWebApiPort {
+  readonly recordPasswordReset = vi.fn<AdminWebApiPort['recordPasswordReset']>(async () => ({
+    status: 'succeeded', value: true,
+  }));
   readonly session = vi.fn<AdminWebApiPort['session']>(async () => ({
     status: 'succeeded', value: { membershipId, role: 'administrator' },
   }));
@@ -95,6 +112,12 @@ class FakeApi implements AdminWebApiPort {
       value: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
       expiresAt: '2099-07-15T12:34:56.789Z',
     },
+  }));
+  readonly revokeMembership = vi.fn<AdminWebApiPort['revokeMembership']>(async () => ({
+    status: 'succeeded', value: true,
+  }));
+  readonly changeMembershipRole = vi.fn<AdminWebApiPort['changeMembershipRole']>(async () => ({
+    status: 'succeeded', value: true,
   }));
   readonly reassignNfcTag = vi.fn<AdminWebApiPort['reassignNfcTag']>(async () => ({
     status: 'succeeded',
@@ -129,6 +152,35 @@ function setup() {
 }
 
 describe('AdminWebCoordinator', () => {
+  it('moves only an explicit provider recovery into password replacement and signs out afterward', async () => {
+    const { auth, api, coordinator } = setup();
+    auth.emitPasswordRecovery();
+    expect(coordinator.getState()).toEqual({
+      status: 'password_recovery', completing: false, notice: null,
+    });
+    await coordinator.completePasswordRecovery('new-memory-secret');
+    expect(auth.updateRecoveredPassword).toHaveBeenCalledWith('new-memory-secret');
+    expect(api.recordPasswordReset).toHaveBeenCalledWith('memory-only-token');
+    expect(auth.signOut).toHaveBeenCalledOnce();
+    expect(coordinator.getState()).toEqual({
+      status: 'signed_out', notice: 'Passwort geändert. Bitte melde dich neu an.',
+    });
+  });
+
+  it('keeps recovery authority when the mandatory password-reset audit cannot be recorded', async () => {
+    const { auth, api, coordinator } = setup();
+    api.recordPasswordReset.mockResolvedValueOnce({ status: 'unavailable' });
+    auth.emitPasswordRecovery();
+
+    await coordinator.completePasswordRecovery('new-memory-secret');
+
+    expect(auth.signOut).not.toHaveBeenCalled();
+    expect(coordinator.getState()).toEqual({
+      status: 'password_recovery', completing: false,
+      notice: 'Passwort wurde geändert, aber der Abschluss konnte nicht sicher protokolliert werden. Bitte erneut bestätigen.',
+    });
+  });
+
   it('rejects an Employee, clears the memory session, and never loads setup data', async () => {
     const { auth, api, coordinator } = setup();
     api.session.mockResolvedValueOnce({
@@ -375,13 +427,14 @@ describe('AdminWebCoordinator', () => {
     const { auth, api, coordinator } = setup();
     await coordinator.signIn('administrator@example.test', 'secret');
 
-    await coordinator.createEmployeeInvitation('Employee Alpha');
+    await coordinator.createEmployeeInvitation('Employee Alpha', 'employee');
 
     expect(api.createEmployeeInvitation).toHaveBeenCalledWith(
       'memory-only-token',
       membershipId,
       expect.stringMatching(/^[0-9a-f-]{36}$/i),
       'Employee Alpha',
+      'employee',
     );
     expect(coordinator.getState()).toMatchObject({
       status: 'ready',
@@ -401,7 +454,7 @@ describe('AdminWebCoordinator', () => {
   it('never restores a once-disclosed secret on refresh or command replay conflict', async () => {
     const { api, coordinator } = setup();
     await coordinator.signIn('administrator@example.test', 'secret');
-    await coordinator.createEmployeeInvitation('Employee Alpha');
+    await coordinator.createEmployeeInvitation('Employee Alpha', 'employee');
     expect(coordinator.getState()).toMatchObject({ status: 'ready', invitation: expect.any(Object) });
 
     await coordinator.refresh();
@@ -410,11 +463,37 @@ describe('AdminWebCoordinator', () => {
     api.createEmployeeInvitation.mockResolvedValueOnce({
       status: 'conflict', code: 'invitation_created_token_unavailable',
     });
-    await coordinator.createEmployeeInvitation('Employee Alpha');
+    await coordinator.createEmployeeInvitation('Employee Alpha', 'employee');
     expect(coordinator.getState()).toMatchObject({
       status: 'ready',
       invitation: null,
       notice: 'Diese Einladung wurde bereits erzeugt; ihr Geheimnis kann nicht erneut angezeigt werden.',
+    });
+  });
+
+  it('revokes a projected Membership with its row version and refreshes former-member truth', async () => {
+    const { api, coordinator } = setup();
+    const membership = employeeMemberships(1, 1)[0]!;
+    api.employeeProjection.mockResolvedValueOnce({
+      status: 'succeeded', value: { ...employeeProjection, employeeMemberships: [membership] },
+    });
+    await coordinator.signIn('administrator@example.test', 'secret');
+    api.employeeProjection.mockResolvedValueOnce({
+      status: 'succeeded', value: {
+        ...employeeProjection,
+        employeeMemberships: [{ ...membership, active: false, rowVersion: 2 }],
+      },
+    });
+
+    await coordinator.revokeMembership(membership.id, 1);
+
+    expect(api.revokeMembership).toHaveBeenCalledWith(
+      'memory-only-token', membershipId, expect.any(String), membership.id, 1,
+    );
+    expect(coordinator.getState()).toMatchObject({
+      status: 'ready',
+      employeeProjection: { employeeMemberships: [{ active: false, rowVersion: 2 }] },
+      notice: 'Zugang wurde entzogen.',
     });
   });
 
@@ -425,7 +504,7 @@ describe('AdminWebCoordinator', () => {
       status: 'succeeded', value: { ...projection, nextCursor: cursor },
     });
     await coordinator.signIn('administrator@example.test', 'secret');
-    await coordinator.createEmployeeInvitation('Employee Alpha');
+    await coordinator.createEmployeeInvitation('Employee Alpha', 'employee');
     expect(coordinator.getState()).toMatchObject({ status: 'ready', invitation: expect.any(Object) });
     api.projection.mockResolvedValueOnce({
       status: 'succeeded',
@@ -449,7 +528,7 @@ describe('AdminWebCoordinator', () => {
   it('tombstones a dismissed secret against a later Employee-pagination completion', async () => {
     const { api, coordinator } = setup();
     const firstPage = employeeMemberships(1, 20);
-    const cursor = `v1:e:${firstPage.at(-1)!.id}`;
+    const cursor = `v1:m:${firstPage.at(-1)!.id}`;
     api.employeeProjection.mockResolvedValueOnce({
       status: 'succeeded',
       value: {
@@ -459,7 +538,7 @@ describe('AdminWebCoordinator', () => {
       },
     });
     await coordinator.signIn('administrator@example.test', 'secret');
-    await coordinator.createEmployeeInvitation('Employee Alpha');
+    await coordinator.createEmployeeInvitation('Employee Alpha', 'employee');
     const pendingPage = deferred<ApiResult<SafeEmployeeProjection>>();
     api.employeeProjection.mockImplementationOnce(() => pendingPage.promise);
 
@@ -487,7 +566,7 @@ describe('AdminWebCoordinator', () => {
   it('tombstones a dismissed secret against any later non-disclosure async state write', async () => {
     const { api, coordinator } = setup();
     await coordinator.signIn('administrator@example.test', 'secret');
-    await coordinator.createEmployeeInvitation('Employee Alpha');
+    await coordinator.createEmployeeInvitation('Employee Alpha', 'employee');
     const pendingCustomer = deferred<ApiResult<true>>();
     api.createCustomer.mockImplementationOnce(() => pendingCustomer.promise);
 
@@ -509,7 +588,7 @@ describe('AdminWebCoordinator', () => {
     }>>();
     api.createEmployeeInvitation.mockImplementationOnce(() => pendingInvitation.promise);
 
-    const creating = coordinator.createEmployeeInvitation('Employee Pending');
+    const creating = coordinator.createEmployeeInvitation('Employee Pending', 'employee');
     await vi.waitFor(() => expect(api.createEmployeeInvitation).toHaveBeenCalledTimes(1));
     expect(coordinator.getState()).toMatchObject({
       status: 'ready', creatingEmployee: true, invitation: null,
@@ -536,7 +615,7 @@ describe('AdminWebCoordinator', () => {
 
   it('fails closed for duplicate, unordered, cursor-regressing, or discontinuous Employee pages', async () => {
     const firstPage = employeeMemberships(1, 20);
-    const cursor = `v1:e:${firstPage.at(-1)!.id}`;
+    const cursor = `v1:m:${firstPage.at(-1)!.id}`;
     const nextPage = employeeMemberships(21, 20);
     const invalidPages: readonly SafeEmployeeProjection[] = [
       {
@@ -557,7 +636,7 @@ describe('AdminWebCoordinator', () => {
       {
         organization: projection.organization,
         employeeMemberships: nextPage,
-        nextCursor: `v1:e:${nextPage[18]!.id}`,
+        nextCursor: `v1:m:${nextPage[18]!.id}`,
       },
       {
         organization: projection.organization,
@@ -1062,7 +1141,7 @@ describe('AdminWebCoordinator', () => {
       readonly expiresAt: string;
     }>>();
     api.createEmployeeInvitation.mockImplementationOnce(() => invitationResult.promise);
-    const creatingInvitation = coordinator.createEmployeeInvitation('Veraltete Einladung');
+    const creatingInvitation = coordinator.createEmployeeInvitation('Veraltete Einladung', 'employee');
     await vi.waitFor(() => expect(api.createEmployeeInvitation).toHaveBeenCalledTimes(1));
     await coordinator.refresh();
     invitationResult.resolve({

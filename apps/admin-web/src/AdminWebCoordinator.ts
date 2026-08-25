@@ -22,6 +22,9 @@ export interface AdminWebAuthPort {
   signIn(email: string, password: string): Promise<boolean>;
   withAccessToken<Value>(operation: (accessToken: string) => Promise<Value>): Promise<Value | null>;
   signOut(): Promise<void>;
+  requestPasswordReset?(email: string): Promise<boolean>;
+  updateRecoveredPassword?(password: string): Promise<boolean>;
+  subscribePasswordRecovery?(listener: () => void): () => void;
 }
 
 type ApiSectionResult<Value> =
@@ -60,7 +63,15 @@ export class AdminWebCoordinator implements AdminWebCapability {
     private readonly auth: AdminWebAuthPort,
     private readonly api: AdminWebApiPort = new AdminWebApiClient(),
     private readonly now: () => number = () => Date.now(),
-  ) {}
+  ) {
+    this.auth.subscribePasswordRecovery?.(() => {
+      this.generation += 1;
+      this.refreshEpoch += 1;
+      this.membershipId = null;
+      this.clearInvitationExpiryTimer();
+      this.setState({ status: 'password_recovery', completing: false, notice: null });
+    });
+  }
 
   getState(): AdminWebState { return this.state; }
   subscribe(listener: () => void): () => void { this.listeners.add(listener); return () => this.listeners.delete(listener); }
@@ -92,6 +103,44 @@ export class AdminWebCoordinator implements AdminWebCapability {
     this.clearInvitationExpiryTimer();
     this.setState({ status: 'signing_in' });
     await this.enqueueAuthentication(() => this.completeSignIn(generation, email, password));
+  }
+
+  async requestPasswordReset(email: string): Promise<void> {
+    if (this.state.status !== 'signed_out' || email.trim().length < 3) return;
+    let accepted = false;
+    try {
+      accepted = await this.auth.requestPasswordReset?.(email.trim()) ?? false;
+    } catch { /* surfaced as a generic availability result */ }
+    this.setState(accepted
+      ? { status: 'signed_out', notice: 'Falls das Konto existiert, wurde eine Wiederherstellungs-E-Mail versendet.' }
+      : { status: 'signed_out', notice: 'Wiederherstellung ist derzeit nicht erreichbar.' });
+  }
+
+  async completePasswordRecovery(password: string): Promise<void> {
+    if (this.state.status !== 'password_recovery' || password.length < 8) return;
+    this.setState({ status: 'password_recovery', completing: true, notice: null });
+    let changed = false;
+    try {
+      changed = await this.auth.updateRecoveredPassword?.(password) ?? false;
+    } catch { /* surfaced without provider details */ }
+    if (!changed) {
+      this.setState({ status: 'password_recovery', completing: false,
+        notice: 'Passwort konnte nicht sicher geändert werden.' });
+      return;
+    }
+    let recorded: ApiResult<true> | null = null;
+    try {
+      recorded = await this.auth.withAccessToken(
+        (accessToken) => this.api.recordPasswordReset(accessToken),
+      );
+    } catch { /* fail closed until the reset has an audit trail */ }
+    if (recorded?.status !== 'succeeded') {
+      this.setState({ status: 'password_recovery', completing: false,
+        notice: 'Passwort wurde geändert, aber der Abschluss konnte nicht sicher protokolliert werden. Bitte erneut bestätigen.' });
+      return;
+    }
+    await this.safeSignOut();
+    this.setState({ status: 'signed_out', notice: 'Passwort geändert. Bitte melde dich neu an.' });
   }
 
   async signOut(): Promise<void> {
@@ -571,12 +620,16 @@ export class AdminWebCoordinator implements AdminWebCapability {
     }
   }
 
-  async createEmployeeInvitation(displayName: string): Promise<void> {
+  async createEmployeeInvitation(
+    displayName: string,
+    role: 'administrator' | 'employee',
+  ): Promise<void> {
     const current = this.state;
     const membershipId = this.membershipId;
     if (
       current.status !== 'ready'
       || membershipId === null
+      || (role !== 'administrator' && role !== 'employee')
       || displayName.trim().length < 1
       || Array.from(displayName.normalize('NFC').trim()).length > 120
     ) return;
@@ -596,6 +649,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
         membershipId,
         crypto.randomUUID(),
         displayName,
+        role,
       ));
     } catch {
       result = { status: 'unavailable' as const };
@@ -630,6 +684,84 @@ export class AdminWebCoordinator implements AdminWebCapability {
         invitation: null,
         notice: 'Einladung konnte nicht sicher erzeugt werden.',
       });
+    }
+  }
+
+  async revokeMembership(targetMembershipId: string, expectedRowVersion: number): Promise<void> {
+    await this.mutateMembership(targetMembershipId, expectedRowVersion, null);
+  }
+
+  async changeMembershipRole(
+    targetMembershipId: string,
+    expectedRowVersion: number,
+    role: 'administrator' | 'employee',
+  ): Promise<void> {
+    await this.mutateMembership(targetMembershipId, expectedRowVersion, role);
+  }
+
+  private async mutateMembership(
+    targetMembershipId: string,
+    expectedRowVersion: number,
+    role: 'administrator' | 'employee' | null,
+  ): Promise<void> {
+    const current = this.state;
+    const membershipId = this.membershipId;
+    const target = current.status === 'ready'
+      ? current.employeeProjection.employeeMemberships.find((entry) => entry.id === targetMembershipId)
+      : undefined;
+    if (
+      current.status !== 'ready'
+      || membershipId === null
+      || target === undefined
+      || target.rowVersion !== expectedRowVersion
+      || !target.active
+      || (role !== null && role === target.role)
+    ) return;
+    const generation = this.generation;
+    const refreshEpoch = this.refreshEpoch;
+    let result;
+    try {
+      result = await this.auth.withAccessToken((token) => role === null
+        ? this.api.revokeMembership(
+          token, membershipId, crypto.randomUUID(), targetMembershipId, expectedRowVersion,
+        )
+        : this.api.changeMembershipRole(
+          token, membershipId, crypto.randomUUID(), targetMembershipId, expectedRowVersion, role,
+        ));
+    } catch {
+      result = { status: 'unavailable' as const };
+    }
+    if (generation !== this.generation || refreshEpoch !== this.refreshEpoch) return;
+    if (result === null || result.status === 'rejected') {
+      await this.rejectOutsideAuthentication(generation, 'Administrator-Sitzung ist nicht mehr gültig.');
+      return;
+    }
+    if (result.status === 'succeeded') {
+      await this.retrySection('employees');
+      const latest = this.state;
+      if (latest.status === 'ready') {
+        this.setState({
+          ...latest,
+          notice: role === null ? 'Zugang wurde entzogen.' : 'Rolle wurde geändert.',
+        });
+      }
+      return;
+    }
+    const latest = this.state;
+    if (latest.status !== 'ready') return;
+    if (result.status === 'conflict') {
+      const notice = result.code === 'last_administrator'
+        ? 'Der letzte aktive Administrator kann nicht entfernt oder herabgestuft werden.'
+        : result.code === 'self_revocation_forbidden'
+          ? 'Der eigene Zugang kann hier nicht entzogen werden.'
+          : result.code === 'stale_row_version'
+            ? 'Die Mitgliedschaft wurde zwischenzeitlich geändert. Bitte aktualisieren.'
+            : result.code === 'target_unavailable'
+              ? 'Die Mitgliedschaft ist nicht mehr verfügbar.'
+              : 'Die Änderung steht mit einer vorhandenen Anfrage in Konflikt.';
+      this.setState({ ...latest, notice });
+    } else {
+      this.setState({ ...latest, notice: 'Mitgliedschaft konnte nicht sicher geändert werden.' });
     }
   }
 

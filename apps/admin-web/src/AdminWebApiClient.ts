@@ -14,7 +14,7 @@ const maximumTimeReviewBodyBytes = 256 * 1024;
 const maximumCsvBodyBytes = 8 * 1024 * 1024;
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const cursor = /^v1:[ct]:[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
-const employeeCursor = /^v1:e:[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+const employeeCursor = /^v1:m:[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const invitationSecret = /^[A-Za-z0-9_-]{43}$/;
 const canonicalTimestamp = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 const opaqueCursor = /^[A-Za-z0-9_-]{1,512}$/;
@@ -38,10 +38,14 @@ export type ApiResult<Value> =
         | 'invalid_evidence'
         | 'project_in_use'
         | 'project_unavailable'
-        | 'stale_row_version';
+        | 'stale_row_version'
+        | 'last_administrator'
+        | 'self_revocation_forbidden'
+        | 'target_unavailable';
     };
 
 export interface AdminWebApiPort {
+  recordPasswordReset(token: string): Promise<ApiResult<true>>;
   session(token: string): Promise<ApiResult<Session>>;
   projection(token: string, membershipId: string, nextCursor: string | null): Promise<ApiResult<SafeProjection>>;
   createCustomer(
@@ -60,7 +64,17 @@ export interface AdminWebApiPort {
     membershipId: string,
     commandId: string,
     displayName: string,
+    role: 'administrator' | 'employee',
   ): Promise<ApiResult<VolatileInvitationSecret>>;
+  revokeMembership(
+    token: string, membershipId: string, commandId: string,
+    targetMembershipId: string, expectedRowVersion: number,
+  ): Promise<ApiResult<true>>;
+  changeMembershipRole(
+    token: string, membershipId: string, commandId: string,
+    targetMembershipId: string, expectedRowVersion: number,
+    role: 'administrator' | 'employee',
+  ): Promise<ApiResult<true>>;
   reassignNfcTag(
     token: string,
     membershipId: string,
@@ -126,6 +140,11 @@ export interface AdminWebApiPort {
 
 export class AdminWebApiClient implements AdminWebApiPort {
   constructor(private readonly fetchRequest: typeof fetch = (input, init) => globalThis.fetch(input, init)) {}
+  async recordPasswordReset(token: string): Promise<ApiResult<true>> {
+    return this.request('/v1/auth/password-reset/audit', token, 'POST', {}, (value) => (
+      isRecord(value) && exact(value, ['status']) && value.status === 'succeeded' ? true : null
+    ));
+  }
   async session(token: string): Promise<ApiResult<Session>> { return this.request('/v1/session', token, 'GET', undefined, parseSession); }
   async projection(token: string, membershipId: string, nextCursor: string | null): Promise<ApiResult<SafeProjection>> {
     if (nextCursor !== null && !cursor.test(nextCursor)) return { status: 'unavailable' };
@@ -151,15 +170,36 @@ export class AdminWebApiClient implements AdminWebApiPort {
       (value) => parseEmployeeProjection(value, nextCursor),
     );
   }
-  async createEmployeeInvitation(token: string, membershipId: string, commandId: string, displayName: string): Promise<ApiResult<VolatileInvitationSecret>> {
+  async createEmployeeInvitation(token: string, membershipId: string, commandId: string, displayName: string, role: 'administrator' | 'employee'): Promise<ApiResult<VolatileInvitationSecret>> {
     return this.request(
       '/v1/administration/employee-invitations',
       token,
       'POST',
-      { expectedMembershipId: membershipId, commandId, displayName },
+      { expectedMembershipId: membershipId, commandId, displayName, role },
       parseInvitation,
       true,
     );
+  }
+  async revokeMembership(
+    token: string, membershipId: string, commandId: string,
+    targetMembershipId: string, expectedRowVersion: number,
+  ): Promise<ApiResult<true>> {
+    return this.membershipMutation('/v1/administration/memberships/revoke', token, {
+      expectedMembershipId: membershipId, commandId, targetMembershipId, expectedRowVersion,
+    });
+  }
+  async changeMembershipRole(
+    token: string, membershipId: string, commandId: string,
+    targetMembershipId: string, expectedRowVersion: number,
+    role: 'administrator' | 'employee',
+  ): Promise<ApiResult<true>> {
+    return this.membershipMutation('/v1/administration/memberships/change-role', token, {
+      expectedMembershipId: membershipId, commandId, targetMembershipId, expectedRowVersion, role,
+    });
+  }
+  private membershipMutation(path: string, token: string, body: object): Promise<ApiResult<true>> {
+    return this.request(path, token, 'POST', body, parseMembershipMutation, false, false, false,
+      maximumJsonBodyBytes, false, true);
   }
   async reassignNfcTag(
     token: string,
@@ -386,6 +426,7 @@ export class AdminWebApiClient implements AdminWebApiPort {
     exposeTimeReviewErrors = false,
     maximumResponseBytes = maximumJsonBodyBytes,
     exposeProjectErrors = false,
+    exposeMembershipErrors = false,
   ): Promise<ApiResult<Value>> {
     const controller = new AbortController(); const timeout = setTimeout(() => controller.abort(), 10_000);
     try {
@@ -435,6 +476,17 @@ export class AdminWebApiClient implements AdminWebApiPort {
         const code = parseProjectError(JSON.parse(conflictText));
         return code === null ? { status: 'unavailable' } : { status: 'conflict', code };
       }
+      if (exposeMembershipErrors && (response.status === 404 || response.status === 409)) {
+        if (
+          response.redirected
+          || !isJsonContentType(response.headers.get('content-type'))
+          || !hasSafeDeclaredLength(response, maximumResponseBytes)
+        ) return { status: 'unavailable' };
+        const conflictText = await readBoundedResponseText(response, maximumResponseBytes);
+        if (conflictText === null) return { status: 'unavailable' };
+        const code = parseMembershipError(JSON.parse(conflictText));
+        return code === null ? { status: 'unavailable' } : { status: 'conflict', code };
+      }
       if (response.status !== 200 || response.redirected || !isJsonContentType(response.headers.get('content-type'))) return { status: 'unavailable' };
       if (!hasSafeDeclaredLength(response, maximumResponseBytes)) return { status: 'unavailable' };
       const text = await readBoundedResponseText(response, maximumResponseBytes);
@@ -482,10 +534,13 @@ function parseEmployeeProjection(
     || typeof value.organization.name !== 'string' || !Array.isArray(value.employeeMemberships)
     || !(value.nextCursor === null || (typeof value.nextCursor === 'string' && employeeCursor.test(value.nextCursor)))) return null;
   const memberships = value.employeeMemberships.map((entry) => isRecord(entry)
-    && exact(entry, ['id', 'displayName', 'role', 'active'])
+    && exact(entry, ['id', 'displayName', 'role', 'active', 'rowVersion'])
     && uuid.test(String(entry.id)) && typeof entry.displayName === 'string'
-    && entry.role === 'employee' && entry.active === true
-    ? { id: String(entry.id), displayName: entry.displayName, role: 'employee' as const, active: true as const }
+    && (entry.role === 'administrator' || entry.role === 'employee')
+    && typeof entry.active === 'boolean'
+    && Number.isSafeInteger(entry.rowVersion) && (entry.rowVersion as number) >= 1
+    ? { id: String(entry.id), displayName: entry.displayName, role: entry.role,
+        active: entry.active, rowVersion: entry.rowVersion as number }
     : null);
   if (memberships.some((entry) => entry === null)) return null;
   const projection: SafeEmployeeProjection = {
@@ -494,6 +549,20 @@ function parseEmployeeProjection(
     nextCursor: value.nextCursor,
   };
   return isSafeEmployeeProjectionPage(projection, requestedCursor) ? projection : null;
+}
+function parseMembershipMutation(value: unknown): true | null {
+  return isRecord(value)
+    && exact(value, ['status', 'membership', 'idempotentRetry'])
+    && value.status === 'succeeded'
+    && typeof value.idempotentRetry === 'boolean'
+    && isRecord(value.membership)
+    && exact(value.membership, ['id', 'role', 'active', 'rowVersion'])
+    && uuid.test(String(value.membership.id))
+    && (value.membership.role === 'administrator' || value.membership.role === 'employee')
+    && typeof value.membership.active === 'boolean'
+    && Number.isSafeInteger(value.membership.rowVersion)
+    && (value.membership.rowVersion as number) >= 1
+    ? true : null;
 }
 function parseProjects(value: unknown): CursorPage<SafeProject> | null {
   if (
@@ -761,6 +830,19 @@ function parseProjectError(
     || value.error.code === 'stale_row_version'
     ? value.error.code
     : null;
+}
+function parseMembershipError(
+  value: unknown,
+): 'command_id_conflict' | 'last_administrator' | 'self_revocation_forbidden'
+  | 'stale_row_version' | 'target_unavailable' | null {
+  if (!isRecord(value) || !exact(value, ['error']) || !isRecord(value.error)
+    || !exact(value.error, ['code'])) return null;
+  return value.error.code === 'command_id_conflict'
+    || value.error.code === 'last_administrator'
+    || value.error.code === 'self_revocation_forbidden'
+    || value.error.code === 'stale_row_version'
+    || value.error.code === 'target_unavailable'
+    ? value.error.code : null;
 }
 function isRecord(value: unknown): value is Record<string, unknown> { return typeof value === 'object' && value !== null && !Array.isArray(value); }
 function exact(value: Record<string, unknown>, keys: readonly string[]): boolean { return Object.keys(value).sort().join(',') === [...keys].sort().join(','); }

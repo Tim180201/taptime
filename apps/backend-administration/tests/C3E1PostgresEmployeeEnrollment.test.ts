@@ -6,6 +6,11 @@ import {
   loadMigrations,
   migrate,
 } from '@taptime/backend-schema';
+import {
+  PostgresIdentityMembershipResolver,
+  RequestActorResolutionService,
+} from '@taptime/backend-identity';
+import { MembershipId, OrganizationId } from '@taptime/core';
 import { Pool } from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EmployeeMembershipEnrollmentCoordinator } from '../src/index.js';
@@ -46,7 +51,7 @@ beforeAll(async () => {
   await installerPool.query(`DROP SCHEMA IF EXISTS ${B3_SCHEMA} CASCADE`);
   await installerPool.query(`DROP TABLE IF EXISTS ${B3_MIGRATION_TABLE}`);
   await expect(migrate(installerPool)).resolves.toEqual({
-    applied: ['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015'],
+    applied: ['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016'],
     alreadyApplied: [],
   });
   await ensureC3E1RuntimeLogins(installerPool, invitationPassword, enrollmentPassword);
@@ -105,11 +110,11 @@ afterAll(async () => {
 describe('migration 008 Employee invitation and enrollment boundary', () => {
   it('records migration 008 and keeps creator and redeemer capabilities separated', async () => {
     expect((await loadMigrations()).map(({ version }) => version)).toEqual([
-      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015',
+      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016',
     ]);
     await expect(migrate(installerPool)).resolves.toEqual({
       applied: [],
-      alreadyApplied: ['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015'],
+      alreadyApplied: ['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016'],
     });
     expect(await postgresErrorCode(
       invitationPool.query('SET ROLE taptime_employee_enrollment_redeemer'),
@@ -194,10 +199,10 @@ describe('migration 008 Employee invitation and enrollment boundary', () => {
         pg_catalog.encode(invitation.token_digest, 'hex') AS token_digest,
         invitation.display_name,
         (SELECT count(*)::integer FROM taptime_server.audit_events
-         WHERE event_type = 'EmployeeMembershipInvitationCreated'
+         WHERE event_type = 'MembershipInvitationCreated'
            AND correlation_id = $1) AS audit_count,
         (SELECT row_to_json(audit)::text FROM taptime_server.audit_events AS audit
-         WHERE event_type = 'EmployeeMembershipInvitationCreated'
+         WHERE event_type = 'MembershipInvitationCreated'
            AND correlation_id = $1) AS audit_json
       FROM taptime_server.employee_membership_invitations AS invitation
     `, [commandId]);
@@ -235,6 +240,7 @@ describe('migration 008 Employee invitation and enrollment boundary', () => {
         expectedMembershipId: membershipIds.adminA,
         commandId: randomUUID(),
         displayName: 'Employee Timeout',
+        role: 'employee',
       }, {
         deadlineEpochMilliseconds: Date.now() + 400,
         beforeCommit: async () => new Promise((resolve) => setTimeout(resolve, 650)),
@@ -247,7 +253,7 @@ describe('migration 008 Employee invitation and enrollment boundary', () => {
            WHERE display_name = 'Employee Timeout') AS invitations,
           (SELECT count(*)::integer FROM taptime_server.employee_invitation_command_receipts) AS receipts,
           (SELECT count(*)::integer FROM taptime_server.audit_events
-           WHERE event_type = 'EmployeeMembershipInvitationCreated') AS audits
+           WHERE event_type = 'MembershipInvitationCreated') AS audits
       `);
       expect(state.rows[0]).toEqual({ invitations: 0, receipts: 0, audits: 0 });
       await expect(timeoutPool.query('SELECT 1 AS healthy')).resolves.toMatchObject({
@@ -389,7 +395,7 @@ describe('migration 008 Employee invitation and enrollment boundary', () => {
     expect(count.rows[0]!.count).toBe(1);
   });
 
-  it('projects only active named Employee Memberships with bounded canonical pagination', async () => {
+  it('projects all managed Membership roles with bounded canonical pagination', async () => {
     for (const name of ['Employee Alpha', 'Employee Beta']) {
       const invitation = await createInvitation(randomUUID(), name);
       if (invitation.status !== 'succeeded') throw new Error('Expected invitation success');
@@ -409,8 +415,8 @@ describe('migration 008 Employee invitation and enrollment boundary', () => {
     expect(first).toMatchObject({
       status: 'succeeded',
       organization: { id: ids.organizationA, name: 'Synthetic Organization A' },
-      employeeMemberships: [{ role: 'employee', active: true }],
-      nextCursor: expect.stringMatching(/^v1:e:[0-9a-f-]{36}$/),
+      employeeMemberships: [{ role: 'administrator', active: true, rowVersion: 1 }],
+      nextCursor: expect.stringMatching(/^v1:m:[0-9a-f-]{36}$/),
     });
     if (first.status !== 'succeeded') throw new Error('Expected projection success');
     const second = await coordinator.readEmployeeMembershipsProjection({
@@ -421,9 +427,232 @@ describe('migration 008 Employee invitation and enrollment boundary', () => {
     });
     expect(second.status).toBe('succeeded');
     if (second.status !== 'succeeded') throw new Error('Expected projection success');
-    expect(second.employeeMemberships).toHaveLength(1);
+    expect(second.employeeMemberships).toHaveLength(4);
     expect(second.employeeMemberships[0]!.id).not.toBe(first.employeeMemberships[0]!.id);
     expect(second.nextCursor).toBeNull();
+  });
+
+  it('invites a second Administrator who resolves the same management capability', async () => {
+    const invitationCommandId = randomUUID();
+    const invitation = await coordinator.createInvitation({
+      accessToken: fixtureTokens.adminA,
+      expectedMembershipId: membershipIds.adminA,
+      commandId: invitationCommandId,
+      displayName: 'Administrator Neu',
+      role: 'administrator',
+    });
+    if (invitation.status !== 'succeeded') throw new Error('Expected invitation success');
+    const redemptionCommandId = randomUUID();
+    await expect(coordinator.redeemInvitation({
+      accessToken: fixtureTokens.prospectiveA,
+      commandId: redemptionCommandId,
+      invitationSecret: invitation.invitationSecret,
+    })).resolves.toMatchObject({ status: 'succeeded', role: 'administrator' });
+    const membership = await installerPool.query<{ id: string }>(
+      `SELECT id FROM taptime_server.memberships
+       WHERE organization_id = $1 AND display_name = 'Administrator Neu'`,
+      [ids.organizationA],
+    );
+    const newMembershipId = MembershipId(membership.rows[0]!.id);
+    await expect(coordinator.readEmployeeMembershipsProjection({
+      accessToken: fixtureTokens.prospectiveA,
+      expectedMembershipId: newMembershipId,
+      cursor: null,
+      limit: 20,
+    })).resolves.toMatchObject({
+      status: 'succeeded',
+      organization: { id: ids.organizationA },
+    });
+    await expect(coordinator.createInvitation({
+      accessToken: fixtureTokens.prospectiveA,
+      expectedMembershipId: newMembershipId,
+      commandId: randomUUID(),
+      displayName: 'Vom zweiten Administrator',
+      role: 'employee',
+    })).resolves.toMatchObject({ status: 'succeeded' });
+    await expect(coordinator.changeMembershipRole({
+      accessToken: fixtureTokens.prospectiveA,
+      expectedMembershipId: newMembershipId,
+      commandId: randomUUID(),
+      targetMembershipId: membershipIds.employeeA,
+      expectedRowVersion: 1,
+      role: 'administrator',
+    })).resolves.toMatchObject({ status: 'succeeded', membership: { role: 'administrator' } });
+    await expect(coordinator.revokeMembership({
+      accessToken: fixtureTokens.prospectiveA,
+      expectedMembershipId: newMembershipId,
+      commandId: randomUUID(),
+      targetMembershipId: membershipIds.employeeA,
+      expectedRowVersion: 2,
+    })).resolves.toMatchObject({ status: 'succeeded', membership: { active: false } });
+    const audits = await installerPool.query<{ event_type: string; actor_user_id: string }>(
+      `SELECT event_type, actor_user_id::text
+       FROM taptime_server.audit_events
+       WHERE correlation_id IN ($1, $2)
+       ORDER BY occurred_at, event_type`,
+      [invitationCommandId, redemptionCommandId],
+    );
+    expect(audits.rows).toEqual([
+      { event_type: 'MembershipInvitationCreated', actor_user_id: ids.adminA },
+      { event_type: 'MembershipGranted', actor_user_id: ids.adminA },
+    ]);
+  });
+
+  it('promotes an existing Membership and records the actor and target in the audit trail', async () => {
+    const commandId = randomUUID();
+    await expect(coordinator.changeMembershipRole({
+      accessToken: fixtureTokens.adminA,
+      expectedMembershipId: membershipIds.adminA,
+      commandId,
+      targetMembershipId: membershipIds.employeeA,
+      expectedRowVersion: 1,
+      role: 'administrator',
+    })).resolves.toEqual({
+      status: 'succeeded',
+      membership: {
+        id: membershipIds.employeeA,
+        role: 'administrator',
+        active: true,
+        rowVersion: 2,
+      },
+      idempotentRetry: false,
+    });
+    const audit = await installerPool.query<{
+      event_type: string; actor_user_id: string; entity_id: string;
+    }>(
+      `SELECT event_type, actor_user_id::text, entity_id::text
+       FROM taptime_server.audit_events WHERE correlation_id = $1`,
+      [commandId],
+    );
+    expect(audit.rows).toEqual([{
+      event_type: 'MembershipRoleChanged',
+      actor_user_id: ids.adminA,
+      entity_id: ids.membershipEmployeeA,
+    }]);
+  });
+
+  it('revokes access before the next request despite the still-valid provider token', async () => {
+    const resolver = new RequestActorResolutionService(
+      fixtureAccessTokenVerifier,
+      new PostgresIdentityMembershipResolver(invitationPool),
+    );
+    await expect(resolver.resolve({
+      accessToken: fixtureTokens.employeeA,
+      requestedOrganizationId: OrganizationId(ids.organizationA),
+    })).resolves.toMatchObject({ status: 'accepted' });
+    const commandId = randomUUID();
+    await expect(coordinator.revokeMembership({
+      accessToken: fixtureTokens.adminA,
+      expectedMembershipId: membershipIds.adminA,
+      commandId,
+      targetMembershipId: membershipIds.employeeA,
+      expectedRowVersion: 1,
+    })).resolves.toMatchObject({
+      status: 'succeeded',
+      membership: { active: false, rowVersion: 2 },
+    });
+    await expect(resolver.resolve({
+      accessToken: fixtureTokens.employeeA,
+      requestedOrganizationId: OrganizationId(ids.organizationA),
+    })).resolves.toEqual({
+      status: 'rejected',
+      reason: 'identity_or_membership_unavailable',
+    });
+    const audit = await installerPool.query<{ count: number }>(
+      `SELECT count(*)::integer AS count FROM taptime_server.audit_events
+       WHERE correlation_id = $1 AND event_type = 'MembershipRevoked'
+         AND actor_user_id = $2 AND entity_id = $3`,
+      [commandId, ids.adminA, ids.membershipEmployeeA],
+    );
+    expect(audit.rows[0]!.count).toBe(1);
+  });
+
+  it('audits a completed password reset for an active Employee and rejects it after revocation', async () => {
+    await expect(coordinator.recordPasswordReset({
+      accessToken: fixtureTokens.employeeA,
+    })).resolves.toEqual({ status: 'succeeded' });
+    const audit = await installerPool.query<{
+      actor_user_id: string; entity_id: string; membership_id: string;
+    }>(`
+      SELECT actor_user_id::text, entity_id::text,
+             payload->>'membershipId' AS membership_id
+      FROM taptime_server.audit_events
+      WHERE event_type = 'PasswordResetCompleted'
+    `);
+    expect(audit.rows).toEqual([{
+      actor_user_id: ids.employeeA,
+      entity_id: ids.employeeA,
+      membership_id: ids.membershipEmployeeA,
+    }]);
+    await expect(coordinator.revokeMembership({
+      accessToken: fixtureTokens.adminA,
+      expectedMembershipId: membershipIds.adminA,
+      commandId: randomUUID(),
+      targetMembershipId: membershipIds.employeeA,
+      expectedRowVersion: 1,
+    })).resolves.toMatchObject({ status: 'succeeded' });
+    await expect(coordinator.recordPasswordReset({
+      accessToken: fixtureTokens.employeeA,
+    })).resolves.toEqual({ status: 'forbidden' });
+  });
+
+  it('rejects self-revocation and removal of the final Administrator', async () => {
+    await expect(coordinator.changeMembershipRole({
+      accessToken: fixtureTokens.adminA,
+      expectedMembershipId: membershipIds.adminA,
+      commandId: randomUUID(),
+      targetMembershipId: membershipIds.employeeA,
+      expectedRowVersion: 1,
+      role: 'employee',
+    })).resolves.toEqual({ status: 'invalid_request' });
+    await expect(coordinator.revokeMembership({
+      accessToken: fixtureTokens.adminA,
+      expectedMembershipId: membershipIds.adminA,
+      commandId: randomUUID(),
+      targetMembershipId: membershipIds.adminA,
+      expectedRowVersion: 1,
+    })).resolves.toEqual({ status: 'self_revocation_forbidden' });
+    expect((await coordinator.changeMembershipRole({
+      accessToken: fixtureTokens.adminA,
+      expectedMembershipId: membershipIds.adminA,
+      commandId: randomUUID(),
+      targetMembershipId: membershipIds.adminA2,
+      expectedRowVersion: 1,
+      role: 'employee',
+    })).status).toBe('succeeded');
+    await expect(coordinator.changeMembershipRole({
+      accessToken: fixtureTokens.adminA,
+      expectedMembershipId: membershipIds.adminA,
+      commandId: randomUUID(),
+      targetMembershipId: membershipIds.adminA,
+      expectedRowVersion: 1,
+      role: 'employee',
+    })).resolves.toEqual({ status: 'last_administrator' });
+  });
+
+  it('keeps a foreign Organization invisible and unmodifiable', async () => {
+    await expect(coordinator.readEmployeeMembershipsProjection({
+      accessToken: fixtureTokens.adminB,
+      expectedMembershipId: membershipIds.adminB,
+      cursor: null,
+      limit: 20,
+    })).resolves.toMatchObject({
+      status: 'succeeded',
+      organization: { id: ids.organizationB },
+      employeeMemberships: [{ id: membershipIds.adminB }],
+    });
+    await expect(coordinator.revokeMembership({
+      accessToken: fixtureTokens.adminB,
+      expectedMembershipId: membershipIds.adminB,
+      commandId: randomUUID(),
+      targetMembershipId: membershipIds.employeeA,
+      expectedRowVersion: 1,
+    })).resolves.toEqual({ status: 'target_unavailable' });
+    const target = await installerPool.query<{ revoked_at: Date | null; row_version: string }>(
+      'SELECT revoked_at, row_version FROM taptime_server.memberships WHERE id = $1',
+      [ids.membershipEmployeeA],
+    );
+    expect(target.rows[0]).toEqual({ revoked_at: null, row_version: '1' });
   });
 
   it('rejects malformed requests before authority and canonical unavailable secrets after verification', async () => {
@@ -451,12 +680,14 @@ describe('migration 008 Employee invitation and enrollment boundary', () => {
       expectedMembershipId: membershipIds.employeeA,
       commandId: randomUUID(),
       displayName: 'Employee Alpha',
+      role: 'employee',
     })).resolves.toEqual({ status: 'forbidden' });
     await expect(coordinator.createInvitation({
       accessToken: fixtureTokens.adminA,
       expectedMembershipId: membershipIds.adminA2,
       commandId: randomUUID(),
       displayName: 'Employee Alpha',
+      role: 'employee',
     })).resolves.toEqual({ status: 'forbidden' });
     const rows = await installerPool.query<{ count: number }>(
       'SELECT count(*)::integer AS count FROM taptime_server.employee_membership_invitations',
@@ -798,6 +1029,7 @@ function createInvitation(commandId: string, displayName: string) {
     expectedMembershipId: membershipIds.adminA,
     commandId,
     displayName,
+    role: 'employee',
   });
 }
 

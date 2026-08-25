@@ -18,12 +18,12 @@ GRANT taptime_identity_resolver, taptime_admin_setup TO taptime_local_administra
 
 CREATE ROLE taptime_local_invitation LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE
   NOREPLICATION NOBYPASSRLS PASSWORD 'taptime-local-only';
-GRANT taptime_identity_resolver, taptime_employee_invitation_creator
+GRANT taptime_identity_resolver, taptime_membership_manager, taptime_password_reset_auditor
   TO taptime_local_invitation;
 
 CREATE ROLE taptime_local_enrollment LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE
   NOREPLICATION NOBYPASSRLS PASSWORD 'taptime-local-only';
-GRANT taptime_employee_enrollment_redeemer TO taptime_local_enrollment;
+GRANT taptime_membership_enrollment_redeemer TO taptime_local_enrollment;
 
 CREATE ROLE taptime_local_reassignment LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE
   NOREPLICATION NOBYPASSRLS PASSWORD 'taptime-local-only';

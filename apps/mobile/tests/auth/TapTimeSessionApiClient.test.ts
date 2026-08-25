@@ -9,6 +9,37 @@ const session = {
 };
 
 describe('TapTimeSessionApiClient', () => {
+  it('records password reset completion with the recovery token and exact response', async () => {
+    const requests: Array<[URL | RequestInfo, RequestInit | undefined]> = [];
+    const client = new TapTimeSessionApiClient('https://api.example/base/', async (input, init) => {
+      requests.push([input, init]);
+      return Response.json({ status: 'succeeded' });
+    });
+
+    await expect(client.recordPasswordReset('recovery-access')).resolves.toEqual({
+      status: 'recorded',
+    });
+    expect(String(requests[0]?.[0])).toBe(
+      'https://api.example/base/v1/auth/password-reset/audit',
+    );
+    expect(requests[0]?.[1]).toMatchObject({
+      method: 'POST', body: '{}', credentials: 'omit', redirect: 'error',
+      headers: {
+        Accept: 'application/json', Authorization: 'Bearer recovery-access',
+        'Content-Type': 'application/json',
+      },
+    });
+  });
+
+  it.each([401, 403])('maps password-reset audit HTTP %s to authority rejection', async (status) => {
+    const client = new TapTimeSessionApiClient(
+      'https://api.example/', async () => new Response('{}', { status }),
+    );
+    await expect(client.recordPasswordReset('token')).resolves.toEqual({
+      status: 'authority_rejected',
+    });
+  });
+
   it('sends the access token only as Bearer authorization to exact GET /v1/session', async () => {
     const requests: Array<[URL | RequestInfo, RequestInit | undefined]> = [];
     const fetchRequest: typeof fetch = async (input, init) => {

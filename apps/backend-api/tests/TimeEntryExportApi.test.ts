@@ -189,6 +189,9 @@ function dependencies(timeEntryExporter: TimeEntryExporter): BackendApiDependenc
       async createInvitation() { return { status: 'unauthorized' }; },
       async redeemInvitation() { return { status: 'unauthorized' }; },
       async readEmployeeMembershipsProjection() { return { status: 'unauthorized' }; },
+      async revokeMembership() { return { status: 'unauthorized' }; },
+      async changeMembershipRole() { return { status: 'unauthorized' }; },
+      async recordPasswordReset() { return { status: 'unauthorized' }; },
     },
     tagReassignment: {
       async reassignNfcTag() { return { status: 'unauthorized' }; },

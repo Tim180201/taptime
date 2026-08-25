@@ -20,11 +20,12 @@ GRANT taptime_identity_resolver, taptime_admin_setup TO taptime_administration;
 
 CREATE ROLE taptime_invitation LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE
   NOREPLICATION NOBYPASSRLS PASSWORD :'taptime_invitation_password';
-GRANT taptime_identity_resolver, taptime_employee_invitation_creator TO taptime_invitation;
+GRANT taptime_identity_resolver, taptime_membership_manager,
+  taptime_password_reset_auditor TO taptime_invitation;
 
 CREATE ROLE taptime_enrollment LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE
   NOREPLICATION NOBYPASSRLS PASSWORD :'taptime_enrollment_password';
-GRANT taptime_employee_enrollment_redeemer TO taptime_enrollment;
+GRANT taptime_membership_enrollment_redeemer TO taptime_enrollment;
 
 CREATE ROLE taptime_reassignment LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE
   NOREPLICATION NOBYPASSRLS PASSWORD :'taptime_reassignment_password';

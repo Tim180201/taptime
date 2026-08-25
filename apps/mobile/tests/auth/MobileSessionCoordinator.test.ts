@@ -39,6 +39,9 @@ class FakeProvider implements ProviderAuthPort {
   unsubscribeCalls = 0;
   startAutoRefreshCalls = 0;
   stopAutoRefreshCalls = 0;
+  readonly passwordResetCalls: Array<[string, string]> = [];
+  readonly recoveryCalls: Array<[string, string]> = [];
+  readonly passwordUpdates: string[] = [];
   signInImplementation: (email: string, password: string) => Promise<ProviderSignInResult> =
     async () => ({
       status: 'authenticated',
@@ -82,6 +85,21 @@ class FakeProvider implements ProviderAuthPort {
 
   async stopAutoRefresh(): Promise<void> {
     this.stopAutoRefreshCalls += 1;
+  }
+
+  async requestPasswordReset(email: string, redirectTo: string): Promise<boolean> {
+    this.passwordResetCalls.push([email, redirectTo]);
+    return true;
+  }
+
+  async activatePasswordRecovery(accessToken: string, refreshToken: string): Promise<boolean> {
+    this.recoveryCalls.push([accessToken, refreshToken]);
+    return true;
+  }
+
+  async updatePassword(password: string): Promise<boolean> {
+    this.passwordUpdates.push(password);
+    return true;
   }
 
   emit(event: ProviderAuthEvent): void {
@@ -132,12 +150,18 @@ class FakeRefreshTokenStore implements RefreshTokenStore {
 
 class FakeBackendSession implements BackendSessionPort {
   readonly accessTokens: string[] = [];
+  readonly passwordResetTokens: string[] = [];
   implementation: (accessToken: string) => Promise<BackendSessionResolution> =
     async () => ({ status: 'resolved', session: productSession });
 
   async resolve(accessToken: string): Promise<BackendSessionResolution> {
     this.accessTokens.push(accessToken);
     return this.implementation(accessToken);
+  }
+
+  async recordPasswordReset(accessToken: string) {
+    this.passwordResetTokens.push(accessToken);
+    return { status: 'recorded' as const };
   }
 }
 
@@ -174,6 +198,47 @@ function setup(storedRefreshToken: string | null = null) {
 }
 
 describe('MobileSessionCoordinator', () => {
+  it('requests reset with the single allowlisted app return and strictly consumes recovery URLs', async () => {
+    const { coordinator, provider, store, backend } = setup();
+    await expect(coordinator.requestPasswordReset('employee@example.invalid'))
+      .resolves.toBe('requested');
+    expect(provider.passwordResetCalls).toEqual([
+      ['employee@example.invalid', 'taptime://auth/recovery'],
+    ]);
+    await expect(coordinator.handlePasswordRecoveryUrl(
+      'taptime://auth/recovery#access_token=aaaaaaaaaaaaaaaa&refresh_token=bbbbbbbbbbbbbbbb&type=signup',
+    )).resolves.toBe(false);
+    await expect(coordinator.handlePasswordRecoveryUrl(
+      'taptime://auth/recovery#access_token=aaaaaaaaaaaaaaaa&refresh_token=bbbbbbbbbbbbbbbb&type=recovery',
+    )).resolves.toBe(true);
+    expect(provider.recoveryCalls).toEqual([['aaaaaaaaaaaaaaaa', 'bbbbbbbbbbbbbbbb']]);
+    expect(store.value).toBeNull();
+    expect(coordinator.getState()).toEqual({
+      status: 'password_recovery', completing: false, notice: null,
+    });
+    await expect(coordinator.completePasswordRecovery('new-password')).resolves.toBe(true);
+    expect(provider.passwordUpdates).toEqual(['new-password']);
+    expect(backend.passwordResetTokens).toEqual(['aaaaaaaaaaaaaaaa']);
+    expect(coordinator.getState()).toEqual({ status: 'signed_out' });
+  });
+
+  it('preserves a recovery deep link that arrives before cold-start initialization', async () => {
+    const { coordinator, provider, store, backend } = setup('stale-refresh');
+
+    await expect(coordinator.handlePasswordRecoveryUrl(
+      'taptime://auth/recovery#access_token=aaaaaaaaaaaaaaaa&refresh_token=bbbbbbbbbbbbbbbb&type=recovery',
+    )).resolves.toBe(true);
+    await coordinator.start();
+
+    expect(coordinator.getState()).toEqual({
+      status: 'password_recovery', completing: false, notice: null,
+    });
+    expect(provider.refreshCalls).toEqual([]);
+    expect(store.readCalls).toBe(0);
+    await expect(coordinator.completePasswordRecovery('new-password')).resolves.toBe(true);
+    expect(backend.passwordResetTokens).toEqual(['aaaaaaaaaaaaaaaa']);
+  });
+
   it('starts signed out when no refresh token exists', async () => {
     const { coordinator, provider, store } = setup();
     await coordinator.start();

@@ -168,6 +168,7 @@ it('runs the authorized synthetic Setup/Lifecycle/Offline/Review/Correction/Expo
       expectedMembershipId: administratorMembershipId,
       commandId: randomUUID(),
       displayName: 'Employee Journey',
+      role: 'employee',
     });
     expect(invitation.status).toBe('succeeded');
     if (invitation.status !== 'succeeded') throw new Error('Synthetic invitation failed');
@@ -747,7 +748,7 @@ async function resetDatabase(pool: Pool): Promise<void> {
   await removeJourneyState(pool);
   const result = await migrate(pool);
   expect(result.applied).toEqual([
-    '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015',
+    '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016',
   ]);
 }
 
@@ -755,8 +756,11 @@ async function createRuntimeLogins(pool: Pool): Promise<void> {
   const grants: Readonly<Record<string, readonly string[]>> = Object.freeze({
     [logins.bootstrap]: ['taptime_bootstrap_executor'],
     [logins.administration]: ['taptime_identity_resolver', 'taptime_admin_setup'],
-    [logins.invitation]: ['taptime_identity_resolver', 'taptime_employee_invitation_creator'],
-    [logins.enrollment]: ['taptime_employee_enrollment_redeemer'],
+    [logins.invitation]: [
+      'taptime_identity_resolver', 'taptime_membership_manager',
+      'taptime_password_reset_auditor',
+    ],
+    [logins.enrollment]: ['taptime_membership_enrollment_redeemer'],
     [logins.reassignment]: ['taptime_identity_resolver', 'taptime_assignment_reassigner'],
     [logins.lifecycle]: ['taptime_identity_resolver', 'taptime_server_lifecycle'],
     [logins.offlineLease]: ['taptime_offline_lease_issuer'],

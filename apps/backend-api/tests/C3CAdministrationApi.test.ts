@@ -447,6 +447,9 @@ function dependencies(administration: AdministrationCoordinator): BackendApiDepe
       async readEmployeeMembershipsProjection() {
         return { status: 'unauthorized' };
       },
+      async revokeMembership() { return { status: 'unauthorized' }; },
+      async changeMembershipRole() { return { status: 'unauthorized' }; },
+      async recordPasswordReset() { return { status: 'unauthorized' }; },
     },
     tagReassignment: {
       async reassignNfcTag() {

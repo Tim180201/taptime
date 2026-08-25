@@ -78,6 +78,9 @@ const ADMIN_NFC_REASSIGN_PATH = '/v1/administration/nfc-tags/reassign';
 const ADMIN_SETUP_PROJECTION_PATH = '/v1/administration/setup-projection';
 const ADMIN_EMPLOYEE_INVITATIONS_PATH = '/v1/administration/employee-invitations';
 const ADMIN_EMPLOYEE_MEMBERSHIPS_PROJECTION_PATH = '/v1/administration/employee-memberships-projection';
+const ADMIN_REVOKE_MEMBERSHIP_PATH = '/v1/administration/memberships/revoke';
+const ADMIN_CHANGE_MEMBERSHIP_ROLE_PATH = '/v1/administration/memberships/change-role';
+const PASSWORD_RESET_AUDIT_PATH = '/v1/auth/password-reset/audit';
 const ADMIN_TIME_ENTRY_EXPORT_PATH = '/v1/administration/time-entries/export';
 const TIME_ENTRY_EXPORT_V2_PATH = '/v2/time-entries/export';
 const ADMIN_TIME_RECORD_QUERY_PATH = '/v1/administration/time-records/query';
@@ -128,6 +131,9 @@ type ErrorCode =
   | 'service_unavailable'
   | 'invitation_created_token_unavailable'
   | 'invitation_limit_reached'
+  | 'last_administrator'
+  | 'self_revocation_forbidden'
+  | 'target_unavailable'
   | 'tag_payload_already_registered'
   | 'stale_row_version'
   | 'unauthorized';
@@ -356,6 +362,38 @@ async function handleRequest(
       options,
       correlationId,
       timeoutMilliseconds,
+    );
+    return;
+  }
+  if (route === 'admin_revoke_membership') {
+    await handleMembershipMutation(
+      response,
+      accessToken,
+      body,
+      dependencies,
+      options,
+      correlationId,
+      timeoutMilliseconds,
+      'revoke',
+    );
+    return;
+  }
+  if (route === 'admin_change_membership_role') {
+    await handleMembershipMutation(
+      response,
+      accessToken,
+      body,
+      dependencies,
+      options,
+      correlationId,
+      timeoutMilliseconds,
+      'change_role',
+    );
+    return;
+  }
+  if (route === 'auth_password_reset_audit') {
+    await handlePasswordResetAudit(
+      response, accessToken, body, dependencies, options, correlationId, timeoutMilliseconds,
     );
     return;
   }
@@ -1398,6 +1436,68 @@ async function handleEmployeeEnrollmentRedemption(
   }
 }
 
+async function handleMembershipMutation(
+  response: ServerResponse,
+  accessToken: string,
+  body: unknown,
+  dependencies: BackendApiDependencies,
+  options: BackendHttpServerOptions,
+  correlationId: string,
+  timeoutMilliseconds: number,
+  action: 'revoke' | 'change_role',
+): Promise<void> {
+  const common = parseMembershipMutationBody(body, action === 'change_role');
+  if (common === null) {
+    respondError(response, 400, 'invalid_request');
+    return;
+  }
+  await handleAdministrationOperation(
+    response,
+    options,
+    correlationId,
+    timeoutMilliseconds,
+    (deadlineEpochMilliseconds) => action === 'revoke'
+      ? dependencies.employeeEnrollment.revokeMembership(
+        { accessToken, ...common },
+        { deadlineEpochMilliseconds },
+      )
+      : dependencies.employeeEnrollment.changeMembershipRole(
+        { accessToken, ...common, role: common.role! },
+        { deadlineEpochMilliseconds },
+      ),
+    (result) => ({
+      status: 'succeeded',
+      membership: result.membership,
+      idempotentRetry: result.idempotentRetry,
+    }),
+  );
+}
+
+async function handlePasswordResetAudit(
+  response: ServerResponse,
+  accessToken: string,
+  body: unknown,
+  dependencies: BackendApiDependencies,
+  options: BackendHttpServerOptions,
+  correlationId: string,
+  timeoutMilliseconds: number,
+): Promise<void> {
+  if (!isRecord(body) || !hasExactKeys(body, [])) {
+    respondError(response, 400, 'invalid_request');
+    return;
+  }
+  await handleAdministrationOperation(
+    response,
+    options,
+    correlationId,
+    timeoutMilliseconds,
+    (deadlineEpochMilliseconds) => dependencies.employeeEnrollment.recordPasswordReset(
+      { accessToken }, { deadlineEpochMilliseconds },
+    ),
+    () => ({ status: 'succeeded' }),
+  );
+}
+
 async function handleAdministrationOperation<Result extends { readonly status: string }>(
   response: ServerResponse,
   options: BackendHttpServerOptions,
@@ -1452,6 +1552,18 @@ async function handleAdministrationOperation<Result extends { readonly status: s
         return;
       case 'invitation_limit_reached':
         respondError(response, 409, 'invitation_limit_reached');
+        return;
+      case 'last_administrator':
+        respondError(response, 409, 'last_administrator');
+        return;
+      case 'self_revocation_forbidden':
+        respondError(response, 409, 'self_revocation_forbidden');
+        return;
+      case 'stale_row_version':
+        respondError(response, 409, 'stale_row_version');
+        return;
+      case 'target_unavailable':
+        respondError(response, 404, 'target_unavailable');
         return;
       default:
         throw new Error('Administration coordinator returned an unsupported result');
@@ -1856,6 +1968,9 @@ function requestRoute(url: string | undefined): Route | null {
   if (url === ADMIN_EMPLOYEE_MEMBERSHIPS_PROJECTION_PATH) {
     return 'admin_employee_memberships_projection';
   }
+  if (url === ADMIN_REVOKE_MEMBERSHIP_PATH) return 'admin_revoke_membership';
+  if (url === ADMIN_CHANGE_MEMBERSHIP_ROLE_PATH) return 'admin_change_membership_role';
+  if (url === PASSWORD_RESET_AUDIT_PATH) return 'auth_password_reset_audit';
   if (url === EMPLOYEE_ENROLLMENT_REDEEM_PATH) {
     return 'employee_enrollment_redeem';
   }
@@ -1914,6 +2029,9 @@ function diagnosticCodeForRoute(route: Route | null): BackendApiDiagnostic['code
     case 'admin_create_customer':
     case 'admin_create_employee_invitation':
     case 'admin_employee_memberships_projection':
+    case 'admin_revoke_membership':
+    case 'admin_change_membership_role':
+    case 'auth_password_reset_audit':
     case 'admin_provision_nfc_tag':
     case 'admin_reassign_nfc_tag':
     case 'admin_setup_projection':
@@ -1964,6 +2082,9 @@ function isAdministrationRoute(route: Route): boolean {
   return route === 'admin_create_customer'
     || route === 'admin_create_employee_invitation'
     || route === 'admin_employee_memberships_projection'
+    || route === 'admin_revoke_membership'
+    || route === 'admin_change_membership_role'
+    || route === 'auth_password_reset_audit'
     || route === 'admin_provision_nfc_tag'
     || route === 'admin_reassign_nfc_tag'
     || route === 'admin_setup_projection'
@@ -2262,13 +2383,15 @@ function parseCreateEmployeeInvitationBody(body: unknown): {
   readonly expectedMembershipId: MembershipId;
   readonly commandId: string;
   readonly displayName: string;
+  readonly role: 'administrator' | 'employee';
 } | null {
   if (
     !isRecord(body)
-    || !hasExactKeys(body, ['commandId', 'displayName', 'expectedMembershipId'])
+    || !hasExactKeys(body, ['commandId', 'displayName', 'expectedMembershipId', 'role'])
     || !isCanonicalUuid(body.expectedMembershipId)
     || !isCanonicalUuid(body.commandId)
     || typeof body.displayName !== 'string'
+    || (body.role !== 'administrator' && body.role !== 'employee')
   ) {
     return null;
   }
@@ -2276,6 +2399,41 @@ function parseCreateEmployeeInvitationBody(body: unknown): {
     expectedMembershipId: MembershipId(body.expectedMembershipId),
     commandId: body.commandId,
     displayName: body.displayName,
+    role: body.role,
+  };
+}
+
+function parseMembershipMutationBody(
+  body: unknown,
+  includesRole: boolean,
+): {
+  readonly expectedMembershipId: MembershipId;
+  readonly commandId: string;
+  readonly targetMembershipId: MembershipId;
+  readonly expectedRowVersion: number;
+  readonly role?: 'administrator' | 'employee';
+} | null {
+  const keys = includesRole
+    ? ['commandId', 'expectedMembershipId', 'expectedRowVersion', 'role', 'targetMembershipId']
+    : ['commandId', 'expectedMembershipId', 'expectedRowVersion', 'targetMembershipId'];
+  if (
+    !isRecord(body)
+    || !hasExactKeys(body, keys)
+    || !isCanonicalUuid(body.expectedMembershipId)
+    || !isCanonicalUuid(body.targetMembershipId)
+    || !isCanonicalUuid(body.commandId)
+    || !Number.isSafeInteger(body.expectedRowVersion)
+    || (body.expectedRowVersion as number) < 1
+    || (includesRole && body.role !== 'administrator' && body.role !== 'employee')
+  ) {
+    return null;
+  }
+  return {
+    expectedMembershipId: MembershipId(body.expectedMembershipId),
+    commandId: body.commandId,
+    targetMembershipId: MembershipId(body.targetMembershipId),
+    expectedRowVersion: body.expectedRowVersion as number,
+    ...(includesRole ? { role: body.role as 'administrator' | 'employee' } : {}),
   };
 }
 

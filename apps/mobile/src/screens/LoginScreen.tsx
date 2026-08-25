@@ -6,9 +6,10 @@ interface LoginScreenProps {
   readonly signIn: (email: string, password: string) => Promise<SignInResult>;
   readonly signInForEmployeeEnrollment: (email: string, password: string) => Promise<SignInResult>;
   readonly disabled: boolean;
+  readonly requestPasswordReset: (email: string) => Promise<'requested' | 'unavailable'>;
 }
 
-export function LoginScreen({ signIn, signInForEmployeeEnrollment, disabled }: LoginScreenProps) {
+export function LoginScreen({ signIn, signInForEmployeeEnrollment, requestPasswordReset, disabled }: LoginScreenProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -41,6 +42,18 @@ export function LoginScreen({ signIn, signInForEmployeeEnrollment, disabled }: L
       submitInFlight.current = false;
       setSubmitting(false);
     }
+  }
+
+  async function handlePasswordReset(): Promise<void> {
+    if (submitInFlight.current || disabled || email.trim().length < 3) return;
+    submitInFlight.current = true;
+    setSubmitting(true);
+    const result = await requestPasswordReset(email);
+    setMessage(result === 'requested'
+      ? 'Falls das Konto existiert, wurde eine Wiederherstellungs-E-Mail versendet.'
+      : 'Wiederherstellung ist derzeit nicht erreichbar.');
+    submitInFlight.current = false;
+    setSubmitting(false);
   }
 
   return (
@@ -80,6 +93,9 @@ export function LoginScreen({ signIn, signInForEmployeeEnrollment, disabled }: L
           testID="employee-enrollment-sign-in-button"
         />
       </View>
+      <Button title="Passwort vergessen" onPress={handlePasswordReset}
+        disabled={disabled || submitting || email.trim().length < 3}
+        testID="password-reset-button" />
       {message !== null ? <Text style={styles.error}>{message}</Text> : null}
     </View>
   );

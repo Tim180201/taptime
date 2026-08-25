@@ -39,6 +39,7 @@ describe('C3E1 Employee enrollment HTTP contract', () => {
         expectedMembershipId: membershipId,
         commandId,
         displayName: 'Employee Alpha',
+        role: 'employee',
       });
     expect(response.status).toBe(200);
     expect(response.headers.get('cache-control')).toBe('no-store');
@@ -65,9 +66,23 @@ describe('C3E1 Employee enrollment HTTP contract', () => {
       expectedMembershipId: membershipId,
       commandId,
       displayName: 'Employee Alpha',
+      role: 'employee',
     });
     expect(response.status).toBe(httpStatus);
     await expect(response.json()).resolves.toEqual({ error: { code: status } });
+  });
+
+  it('records a completed password reset through the active provider identity only', async () => {
+    const recordPasswordReset = vi.fn<
+      EmployeeMembershipEnrollmentCoordinator['recordPasswordReset']
+    >(async () => ({ status: 'succeeded' }));
+    const response = await post(await origin(coordinator({ recordPasswordReset })),
+      '/v1/auth/password-reset/audit', {});
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ status: 'succeeded' });
+    expect(recordPasswordReset).toHaveBeenCalledWith(
+      { accessToken }, { deadlineEpochMilliseconds: expect.any(Number) },
+    );
   });
 
   it('returns the bounded Employee Membership projection in its exact public shape', async () => {
@@ -81,8 +96,9 @@ describe('C3E1 Employee enrollment HTTP contract', () => {
             displayName: 'Employee Alpha',
             role: 'employee',
             active: true,
+            rowVersion: 3,
           }],
-          nextCursor: 'v1:e:22000000-0000-4000-8000-000000000001',
+          nextCursor: 'v1:m:22000000-0000-4000-8000-000000000001',
         };
       },
     })), '/v1/administration/employee-memberships-projection', {
@@ -99,9 +115,62 @@ describe('C3E1 Employee enrollment HTTP contract', () => {
         displayName: 'Employee Alpha',
         role: 'employee',
         active: true,
+        rowVersion: 3,
       }],
-      nextCursor: 'v1:e:22000000-0000-4000-8000-000000000001',
+      nextCursor: 'v1:m:22000000-0000-4000-8000-000000000001',
     });
+  });
+
+  it('exposes membership revocation with optimistic concurrency and exact success data', async () => {
+    const targetMembershipId = MembershipId('22000000-0000-4000-8000-000000000001');
+    const revokeMembership = vi.fn<EmployeeMembershipEnrollmentCoordinator['revokeMembership']>(
+      async () => ({
+        status: 'succeeded',
+        membership: { id: targetMembershipId, role: 'employee', active: false, rowVersion: 4 },
+        idempotentRetry: false,
+      }),
+    );
+    const response = await post(await origin(coordinator({ revokeMembership })),
+      '/v1/administration/memberships/revoke', {
+        expectedMembershipId: membershipId,
+        commandId,
+        targetMembershipId,
+        expectedRowVersion: 3,
+      });
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      status: 'succeeded',
+      membership: { id: targetMembershipId, role: 'employee', active: false, rowVersion: 4 },
+      idempotentRetry: false,
+    });
+    expect(revokeMembership).toHaveBeenCalledWith(
+      { accessToken, expectedMembershipId: membershipId, commandId,
+        targetMembershipId, expectedRowVersion: 3 },
+      { deadlineEpochMilliseconds: expect.any(Number) },
+    );
+  });
+
+  it.each([
+    ['last_administrator', 409],
+    ['self_revocation_forbidden', 409],
+    ['stale_row_version', 409],
+    ['target_unavailable', 404],
+    ['forbidden', 403],
+  ] as const)('maps membership mutation %s without hiding the domain conflict', async (
+    status,
+    httpStatus,
+  ) => {
+    const response = await post(await origin(coordinator({
+      async changeMembershipRole() { return { status }; },
+    })), '/v1/administration/memberships/change-role', {
+      expectedMembershipId: membershipId,
+      commandId,
+      targetMembershipId: '22000000-0000-4000-8000-000000000001',
+      expectedRowVersion: 3,
+      role: 'administrator',
+    });
+    expect(response.status).toBe(httpStatus);
+    await expect(response.json()).resolves.toEqual({ error: { code: status } });
   });
 
   it('redeems a canonical secret without accepting any client-supplied tenant context', async () => {
@@ -201,6 +270,9 @@ function coordinator(
     async createInvitation() { return { status: 'unauthorized' }; },
     async redeemInvitation() { return { status: 'unauthorized' }; },
     async readEmployeeMembershipsProjection() { return { status: 'unauthorized' }; },
+    async revokeMembership() { return { status: 'unauthorized' }; },
+    async changeMembershipRole() { return { status: 'unauthorized' }; },
+    async recordPasswordReset() { return { status: 'unauthorized' }; },
     ...overrides,
   };
 }

@@ -165,6 +165,7 @@ function productRuntimeHarness(
       async resolve() {
         return { status: 'resolved' as const, session: productSession };
       },
+      async recordPasswordReset() { return { status: 'unavailable' as const }; },
     } satisfies BackendSessionPort,
   );
   const sessionReader: OfflineCaptureSessionReader = {

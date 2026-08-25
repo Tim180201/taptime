@@ -1,5 +1,5 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
-import { Button, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Button, Linking, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import type { MobileSessionCapability } from '../auth/contracts';
 import type { ProductScanCapability } from '../scan/contracts';
 import type { AdminSetupCapability } from '../administration/contracts';
@@ -54,6 +54,12 @@ export function AppNavigator({
     state.status === 'authenticated' ? state.session.membershipId : null,
     work,
   ]);
+  useEffect(() => {
+    const handle = (url: string) => { void session.handlePasswordRecoveryUrl?.(url); };
+    void Linking.getInitialURL().then((url) => { if (url !== null) handle(url); });
+    const subscription = Linking.addEventListener('url', (event) => handle(event.url));
+    return () => subscription.remove();
+  }, [session]);
 
   if (state.status === 'authenticated') {
     if (work !== undefined) {
@@ -93,6 +99,10 @@ export function AppNavigator({
       signOut={() => session.signOut()}
     />;
   }
+  if (state.status === 'password_recovery') {
+    return <PasswordRecoveryScreen session={session} completing={state.completing}
+      notice={state.notice} />;
+  }
   if (state.status === 'context_unavailable') {
     if (canPresentOfflineCaptureShell(state, scanState)) {
       return (
@@ -123,8 +133,28 @@ export function AppNavigator({
         session.signInForEmployeeEnrollment(email, password)
       )}
       disabled={state.status === 'signing_in'}
+      requestPasswordReset={(email) => session.requestPasswordReset?.(email)
+        ?? Promise.resolve('unavailable')}
     />
   );
+}
+
+function PasswordRecoveryScreen({ session, completing, notice }: {
+  readonly session: MobileSessionCapability;
+  readonly completing: boolean;
+  readonly notice: string | null;
+}) {
+  const [password, setPassword] = useState('');
+  return <View style={styles.administratorShell}>
+    <Text>Neues Passwort setzen</Text>
+    <TextInput secureTextEntry autoComplete="new-password" value={password}
+      onChangeText={setPassword} placeholder="Neues Passwort" testID="recovery-password-input" />
+    <Button title={completing ? 'Wird geändert …' : 'Passwort ändern'}
+      disabled={completing || password.length < 8}
+      onPress={() => { const value = password; setPassword('');
+        void session.completePasswordRecovery?.(value); }} />
+    {notice === null ? null : <Text>{notice}</Text>}
+  </View>;
 }
 
 type ProductDestination = 'capture' | 'manual' | 'times' | 'sync' | 'setup';

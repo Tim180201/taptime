@@ -164,6 +164,24 @@ async function postgresErrorDetails(operation: Promise<unknown>): Promise<{
   }
 }
 
+async function dropProbeRole(roleName: string): Promise<void> {
+  if (!/^taptime_[a-z0-9_]+$/.test(roleName)) throw new Error('Unsafe probe role name');
+  const memberships = await installerPool.query<{ parent_name: string }>(`
+    SELECT parent.rolname AS parent_name
+    FROM pg_catalog.pg_auth_members AS edge
+    JOIN pg_catalog.pg_roles AS parent ON parent.oid = edge.roleid
+    JOIN pg_catalog.pg_roles AS member ON member.oid = edge.member
+    WHERE member.rolname = $1
+  `, [roleName]);
+  for (const membership of memberships.rows) {
+    if (!/^[a-z0-9_]+$/.test(membership.parent_name)) {
+      throw new Error('Unsafe parent role name');
+    }
+    await installerPool.query(`REVOKE ${membership.parent_name} FROM ${roleName}`);
+  }
+  await installerPool.query(`DROP ROLE IF EXISTS ${roleName}`);
+}
+
 async function rejectedAtSavepoint(
   client: PoolClient,
   statement: string,
@@ -432,13 +450,13 @@ afterAll(async () => {
 });
 
 describe('B3 deterministic migration system', () => {
-  it('applies exactly fifteen sorted versioned migrations', async () => {
+  it('applies exactly sixteen sorted versioned migrations', async () => {
     const rows = await installerPool.query<{ version: string; checksum: string }>(
       `SELECT version, checksum FROM ${B3_MIGRATION_TABLE} ORDER BY version`,
     );
 
     expect(rows.rows.map((row) => row.version)).toEqual([
-      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015',
+      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016',
     ]);
     expect(rows.rows.every((row) => /^[0-9a-f]{64}$/.test(row.checksum))).toBe(true);
   });
@@ -447,7 +465,7 @@ describe('B3 deterministic migration system', () => {
     await expect(migrate(installerPool)).resolves.toEqual({
       applied: [],
       alreadyApplied: [
-        '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015',
+        '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016',
       ],
     });
   });
@@ -649,7 +667,89 @@ describe('B3 deterministic migration system', () => {
     }
   }, 30_000);
 
-  it('contains exactly the twenty-nine approved tables and two effective-record views', async () => {
+  it('upgrades existing invitation and enrollment logins inside migration 016', async () => {
+    const database = 'taptime_016_upgrade_check';
+    const probe = 'taptime_016_upgrade_probe';
+    await dropProbeRole(probe);
+    await installerPool.query(`DROP DATABASE IF EXISTS ${database} WITH (FORCE)`);
+    await installerPool.query(`CREATE DATABASE ${database}`);
+    const url = new URL(installerConnectionString);
+    url.pathname = `/${database}`;
+    const upgradePool = new Pool({ connectionString: url.toString(), max: 2 });
+    try {
+      const migrations = await loadMigrations();
+      await applyMigrationSet(upgradePool, migrations.slice(0, 15));
+      await installerPool.query(`CREATE ROLE ${probe} LOGIN NOINHERIT`);
+      await installerPool.query(
+        `GRANT taptime_employee_invitation_creator,
+               taptime_employee_enrollment_redeemer TO ${probe}`,
+      );
+      const client = await upgradePool.connect();
+      try {
+        await client.query('BEGIN');
+        await client.query(migrations[15]!.sql);
+        const roles = await client.query<{ role_name: string }>(`
+          SELECT parent.rolname AS role_name
+          FROM pg_catalog.pg_auth_members AS edge
+          JOIN pg_catalog.pg_roles AS parent ON parent.oid = edge.roleid
+          JOIN pg_catalog.pg_roles AS member ON member.oid = edge.member
+          WHERE member.rolname = '${probe}'
+          ORDER BY parent.rolname
+        `);
+        expect(roles.rows.map((row) => row.role_name)).toEqual([
+          'taptime_membership_enrollment_redeemer',
+          'taptime_membership_manager',
+          'taptime_password_reset_auditor',
+        ]);
+        await client.query('ROLLBACK');
+      } finally {
+        client.release();
+      }
+    } finally {
+      await closePoolAndDropTestDatabase({
+        targetPool: upgradePool,
+        installerPool,
+        databaseName: database,
+      });
+      await dropProbeRole(probe);
+    }
+  }, 30_000);
+
+  it('rejects pre-existing T-009 role ACL contamination atomically', async () => {
+    const database = 'taptime_016_dirty_check';
+    await installerPool.query(`DROP DATABASE IF EXISTS ${database} WITH (FORCE)`);
+    await installerPool.query(`CREATE DATABASE ${database}`);
+    const url = new URL(installerConnectionString);
+    url.pathname = `/${database}`;
+    const dirtyPool = new Pool({ connectionString: url.toString(), max: 2 });
+    try {
+      const migrations = await loadMigrations();
+      await applyMigrationSet(dirtyPool, migrations.slice(0, 15));
+      await dirtyPool.query('CREATE SCHEMA dirty_t009');
+      await dirtyPool.query('GRANT USAGE ON SCHEMA dirty_t009 TO taptime_membership_manager');
+      const client = await dirtyPool.connect();
+      try {
+        await client.query('BEGIN');
+        await expect(client.query(migrations[15]!.sql)).rejects.toMatchObject({ code: '42501' });
+        await client.query('ROLLBACK');
+      } finally {
+        client.release();
+      }
+      const state = await dirtyPool.query<{ relation: string | null }>(`
+        SELECT to_regclass('taptime_server.membership_management_command_receipts')::text
+          AS relation
+      `);
+      expect(state.rows[0]).toEqual({ relation: null });
+    } finally {
+      await closePoolAndDropTestDatabase({
+        targetPool: dirtyPool,
+        installerPool,
+        databaseName: database,
+      });
+    }
+  }, 30_000);
+
+  it('contains exactly the thirty approved tables and two effective-record views', async () => {
     const result = await installerPool.query<{ table_name: string }>(
       `SELECT table_name FROM information_schema.tables WHERE table_schema = $1 ORDER BY table_name`,
       [B3_SCHEMA],
@@ -666,6 +766,7 @@ describe('B3 deterministic migration system', () => {
       'employee_invitation_command_receipts',
       'employee_membership_invitations',
       'identity_bindings',
+      'membership_management_command_receipts',
       'memberships',
       'nfc_assignments',
       'nfc_tags',
@@ -699,11 +800,113 @@ describe('B3 deterministic migration system', () => {
         AND relation.relrowsecurity
         AND relation.relforcerowsecurity
     `);
-    expect(result.rows[0]?.count).toBe('29');
+    expect(result.rows[0]?.count).toBe('30');
   });
 });
 
 describe('B3 least-privilege roles and request context', () => {
+  it('pins the T-009 role graph, function ownership and capability ACLs', async () => {
+    const roleNames = [
+      'taptime_membership_enrollment_redeemer',
+      'taptime_membership_manager',
+      'taptime_membership_management_function_owner',
+      'taptime_membership_redemption_function_owner',
+      'taptime_password_reset_auditor',
+      'taptime_people_audit_function_owner',
+    ];
+    const roles = await installerPool.query<{
+      rolname: string; rolcanlogin: boolean; rolsuper: boolean; rolcreaterole: boolean;
+      rolbypassrls: boolean;
+    }>(`
+      SELECT rolname, rolcanlogin, rolsuper, rolcreaterole, rolbypassrls
+      FROM pg_catalog.pg_roles WHERE rolname = ANY($1::text[]) ORDER BY rolname
+    `, [roleNames]);
+    expect(roles.rows).toEqual([
+      { rolname: 'taptime_membership_enrollment_redeemer', rolcanlogin: false,
+        rolsuper: false, rolcreaterole: false, rolbypassrls: false },
+      { rolname: 'taptime_membership_management_function_owner', rolcanlogin: false,
+        rolsuper: false, rolcreaterole: false, rolbypassrls: true },
+      { rolname: 'taptime_membership_manager', rolcanlogin: false,
+        rolsuper: false, rolcreaterole: false, rolbypassrls: false },
+      { rolname: 'taptime_membership_redemption_function_owner', rolcanlogin: false,
+        rolsuper: false, rolcreaterole: false, rolbypassrls: true },
+      { rolname: 'taptime_password_reset_auditor', rolcanlogin: false,
+        rolsuper: false, rolcreaterole: false, rolbypassrls: false },
+      { rolname: 'taptime_people_audit_function_owner', rolcanlogin: false,
+        rolsuper: false, rolcreaterole: false, rolbypassrls: true },
+    ]);
+
+    const graph = await installerPool.query<{ child: string; parent: string }>(`
+      SELECT member.rolname AS child, parent.rolname AS parent
+      FROM pg_catalog.pg_auth_members AS edge
+      JOIN pg_catalog.pg_roles AS member ON member.oid = edge.member
+      JOIN pg_catalog.pg_roles AS parent ON parent.oid = edge.roleid
+      WHERE member.rolname = ANY($1::text[])
+    `, [roleNames]);
+    expect(graph.rows).toEqual([]);
+
+    const directTablePrivileges = await installerPool.query<{ count: string }>(`
+      SELECT count(*)
+      FROM unnest(ARRAY[
+        'taptime_membership_manager',
+        'taptime_membership_enrollment_redeemer',
+        'taptime_password_reset_auditor'
+      ]) AS capability(role_name)
+      CROSS JOIN pg_catalog.pg_class AS relation
+      JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid = relation.relnamespace
+      WHERE namespace.nspname = '${B3_SCHEMA}' AND relation.relkind IN ('r', 'p', 'v', 'm')
+        AND (
+          has_table_privilege(capability.role_name, relation.oid,
+            'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
+          OR has_any_column_privilege(capability.role_name, relation.oid,
+            'SELECT,INSERT,UPDATE,REFERENCES')
+        )
+    `);
+    expect(directTablePrivileges.rows[0]?.count).toBe('0');
+
+    const functionPrivileges = await installerPool.query<{
+      role_name: string; signature: string;
+    }>(`
+      SELECT role_name, signature
+      FROM unnest(ARRAY[
+        'taptime_membership_manager',
+        'taptime_membership_enrollment_redeemer',
+        'taptime_password_reset_auditor'
+      ]) AS capability(role_name)
+      CROSS JOIN unnest(ARRAY[
+        'taptime_server.create_membership_invitation_v2(uuid,uuid,text,text,bytea)',
+        'taptime_server.read_managed_memberships_v1(uuid,integer)',
+        'taptime_server.manage_membership_v1(uuid,uuid,bigint,text,text)',
+        'taptime_server.redeem_membership_invitation_v2(uuid,bytea,text,text,uuid,uuid,uuid)',
+        'taptime_server.record_password_reset_completed_v1()'
+      ]) AS entry(signature)
+      WHERE has_function_privilege(role_name, signature, 'EXECUTE')
+      ORDER BY role_name, signature
+    `);
+    expect(functionPrivileges.rows).toEqual([
+      {
+        role_name: 'taptime_membership_enrollment_redeemer',
+        signature: 'taptime_server.redeem_membership_invitation_v2(uuid,bytea,text,text,uuid,uuid,uuid)',
+      },
+      {
+        role_name: 'taptime_membership_manager',
+        signature: 'taptime_server.create_membership_invitation_v2(uuid,uuid,text,text,bytea)',
+      },
+      {
+        role_name: 'taptime_membership_manager',
+        signature: 'taptime_server.manage_membership_v1(uuid,uuid,bigint,text,text)',
+      },
+      {
+        role_name: 'taptime_membership_manager',
+        signature: 'taptime_server.read_managed_memberships_v1(uuid,integer)',
+      },
+      {
+        role_name: 'taptime_password_reset_auditor',
+        signature: 'taptime_server.record_password_reset_completed_v1()',
+      },
+    ]);
+  });
+
   it('keeps DA3 application roles non-login/non-bypass and isolates BYPASSRLS to function owners', async () => {
     const roles = await installerPool.query<{
       rolname: string; rolcanlogin: boolean; rolsuper: boolean;

@@ -9,20 +9,26 @@ import type { Pool, PoolClient, QueryResultRow } from 'pg';
 import type {
   CreateEmployeeMembershipInvitationCommand,
   CreateEmployeeMembershipInvitationResult,
+  ChangeMembershipRoleCommand,
   EmployeeEnrollmentCoordinatorControls,
   EmployeeMembershipSummary,
+  MembershipMutationResult,
   ReadEmployeeMembershipsProjectionCommand,
   ReadEmployeeMembershipsProjectionResult,
+  RecordPasswordResetCommand,
+  RecordPasswordResetResult,
+  RevokeMembershipCommand,
   RedeemEmployeeMembershipInvitationCommand,
   RedeemEmployeeMembershipInvitationResult,
 } from './types.js';
 
 export const C3E1_IDENTITY_RESOLVER_ROLE = 'taptime_identity_resolver';
-export const C3E1_INVITATION_CREATOR_ROLE = 'taptime_employee_invitation_creator';
-export const C3E1_ENROLLMENT_REDEEMER_ROLE = 'taptime_employee_enrollment_redeemer';
+export const C3E1_INVITATION_CREATOR_ROLE = 'taptime_membership_manager';
+export const C3E1_ENROLLMENT_REDEEMER_ROLE = 'taptime_membership_enrollment_redeemer';
+export const PASSWORD_RESET_AUDITOR_ROLE = 'taptime_password_reset_auditor';
 
 const canonicalUuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
-const enrollmentCursorPattern = /^v1:e:([0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/;
+const enrollmentCursorPattern = /^v1:m:([0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/;
 const invitationSecretPattern = /^[A-Za-z0-9_-]{43}$/;
 const invitationDomain = Buffer.from('taptime:c3e1:employee-invitation:v1\0', 'utf8');
 const DEFAULT_INTERNAL_DEADLINE_MILLISECONDS = 8_000;
@@ -51,12 +57,36 @@ interface EmployeeProjectionRow extends QueryResultRow {
   readonly organization_name: string;
   readonly membership_id: string | null;
   readonly membership_display_name: string | null;
+  readonly membership_role: string | null;
+  readonly membership_active: boolean | null;
+  readonly membership_row_version: string | null;
 }
 
 interface RedemptionRow extends QueryResultRow {
   readonly result_status: 'enrollment_unavailable' | 'invalid_request' | 'succeeded';
   readonly result_organization_name: string | null;
   readonly result_membership_display_name: string | null;
+  readonly result_membership_role: string | null;
+}
+
+interface MembershipMutationRow extends QueryResultRow {
+  readonly result_status:
+    | 'command_id_conflict'
+    | 'forbidden'
+    | 'invalid_request'
+    | 'last_administrator'
+    | 'self_revocation_forbidden'
+    | 'stale_row_version'
+    | 'succeeded'
+    | 'target_unavailable';
+  readonly result_role: string | null;
+  readonly result_active: boolean | null;
+  readonly result_row_version: string | null;
+  readonly result_idempotent_retry: boolean;
+}
+
+interface PasswordResetAuditRow extends QueryResultRow {
+  readonly result_status: 'forbidden' | 'succeeded';
 }
 
 export class C3E1DeadlineExceededError extends Error {
@@ -84,6 +114,7 @@ export class EmployeeMembershipEnrollmentCoordinator {
       !validAccessToken(command.accessToken)
       || !isCanonicalUuid(command.expectedMembershipId)
       || !isCanonicalUuid(command.commandId)
+      || !isMembershipRole(command.role)
       || normalized.status === 'invalid'
     ) {
       return { status: 'invalid_request' };
@@ -96,7 +127,7 @@ export class EmployeeMembershipEnrollmentCoordinator {
       .update(secretBytes)
       .digest();
 
-    return this.withAdministratorAuthority(
+    return this.withMembershipManagementAuthority(
       command.accessToken,
       command.expectedMembershipId,
       command.commandId,
@@ -104,8 +135,8 @@ export class EmployeeMembershipEnrollmentCoordinator {
       async (client) => {
         const result = await client.query<CreateInvitationRow>(
           `SELECT result_status, result_expires_at
-           FROM taptime_server.create_employee_membership_invitation_v1($1, $2, $3, $4)`,
-          [command.commandId, randomUUID(), normalized.canonicalName, tokenDigest],
+           FROM taptime_server.create_membership_invitation_v2($1, $2, $3, $4, $5)`,
+          [command.commandId, randomUUID(), normalized.canonicalName, command.role, tokenDigest],
         );
         const row = onlyRow(result.rows, 'Invitation creation');
         if (row.result_status !== 'succeeded') {
@@ -139,15 +170,16 @@ export class EmployeeMembershipEnrollmentCoordinator {
       return { status: 'invalid_request' };
     }
 
-    return this.withAdministratorAuthority(
+    return this.withMembershipManagementAuthority(
       command.accessToken,
       command.expectedMembershipId,
       randomUUID(),
       controls,
       async (client) => {
         const result = await client.query<EmployeeProjectionRow>(
-          `SELECT organization_id, organization_name, membership_id, membership_display_name
-           FROM taptime_server.read_employee_memberships_projection_v1($1, $2)`,
+          `SELECT organization_id, organization_name, membership_id, membership_display_name,
+                  membership_role, membership_active, membership_row_version
+           FROM taptime_server.read_managed_memberships_v1($1, $2)`,
           [cursor, command.limit],
         );
         if (result.rows.length === 0) {
@@ -164,11 +196,20 @@ export class EmployeeMembershipEnrollmentCoordinator {
         }
 
         const projected = result.rows.filter(
-          (row): row is EmployeeProjectionRow & { membership_id: string; membership_display_name: string } => {
+          (row): row is EmployeeProjectionRow & {
+            membership_id: string;
+            membership_display_name: string;
+            membership_role: string;
+            membership_active: boolean;
+            membership_row_version: string;
+          } => {
             if (
               row.organization_id !== first.organization_id
               || row.organization_name !== first.organization_name
               || (row.membership_id === null) !== (row.membership_display_name === null)
+              || (row.membership_id === null) !== (row.membership_role === null)
+              || (row.membership_id === null) !== (row.membership_active === null)
+              || (row.membership_id === null) !== (row.membership_row_version === null)
             ) {
               throw new Error('Employee projection page is not Organization-consistent');
             }
@@ -183,6 +224,9 @@ export class EmployeeMembershipEnrollmentCoordinator {
           if (
             !isCanonicalUuid(row.membership_id)
             || seen.has(row.membership_id)
+            || !isMembershipRole(row.membership_role)
+            || !Number.isSafeInteger(Number(row.membership_row_version))
+            || Number(row.membership_row_version) < 1
             || normalizedName.status === 'invalid'
             || normalizedName.canonicalName !== row.membership_display_name
           ) {
@@ -192,8 +236,9 @@ export class EmployeeMembershipEnrollmentCoordinator {
           return Object.freeze({
             id: MembershipId(row.membership_id),
             displayName: row.membership_display_name,
-            role: 'employee' as const,
-            active: true as const,
+            role: row.membership_role,
+            active: row.membership_active,
+            rowVersion: Number(row.membership_row_version),
           });
         });
         const last = page.at(-1);
@@ -204,7 +249,7 @@ export class EmployeeMembershipEnrollmentCoordinator {
             name: first.organization_name,
           }),
           employeeMemberships: Object.freeze(employeeMemberships),
-          nextCursor: hasMore && last !== undefined ? `v1:e:${last.membership_id}` : null,
+          nextCursor: hasMore && last !== undefined ? `v1:m:${last.membership_id}` : null,
         });
       },
     );
@@ -238,8 +283,9 @@ export class EmployeeMembershipEnrollmentCoordinator {
     return withTransaction(this.enrollmentRedeemerPool, deadline, controls, async (client) => {
       await client.query(`SET LOCAL ROLE ${C3E1_ENROLLMENT_REDEEMER_ROLE}`);
       const result = await client.query<RedemptionRow>(
-        `SELECT result_status, result_organization_name, result_membership_display_name
-         FROM taptime_server.redeem_employee_membership_invitation_v1(
+        `SELECT result_status, result_organization_name, result_membership_display_name,
+                result_membership_role
+         FROM taptime_server.redeem_membership_invitation_v2(
            $1, $2, $3, $4, $5, $6, $7
          )`,
         [
@@ -261,6 +307,7 @@ export class EmployeeMembershipEnrollmentCoordinator {
         || row.result_membership_display_name === null
         || !isCanonicalName(row.result_organization_name, normalizeOrganizationNameV1)
         || !isCanonicalName(row.result_membership_display_name, normalizeCustomerNameV1)
+        || !isMembershipRole(row.result_membership_role)
       ) {
         throw new Error('Invitation redemption returned unsafe display data');
       }
@@ -268,12 +315,119 @@ export class EmployeeMembershipEnrollmentCoordinator {
         status: 'succeeded',
         organizationName: row.result_organization_name,
         membershipDisplayName: row.result_membership_display_name,
-        role: 'employee' as const,
+        role: row.result_membership_role,
       });
     });
   }
 
-  private async withAdministratorAuthority<Value>(
+  async revokeMembership(
+    command: RevokeMembershipCommand,
+    controls: EmployeeEnrollmentCoordinatorControls = {},
+  ): Promise<MembershipMutationResult> {
+    return this.mutateMembership(command, 'revoke', null, controls);
+  }
+
+  async recordPasswordReset(
+    command: RecordPasswordResetCommand,
+    controls: EmployeeEnrollmentCoordinatorControls = {},
+  ): Promise<RecordPasswordResetResult> {
+    if (!validAccessToken(command.accessToken)) return { status: 'invalid_request' };
+    const deadline = controls.deadlineEpochMilliseconds
+      ?? Date.now() + DEFAULT_INTERNAL_DEADLINE_MILLISECONDS;
+    assertBeforeDeadline(deadline);
+    const verification = await this.accessTokenVerifier.verify(command.accessToken);
+    if (verification.status === 'rejected') return { status: 'unauthorized' };
+    assertBeforeDeadline(deadline);
+    const correlationId = randomUUID();
+    return withTransaction(this.invitationCreatorPool, deadline, controls, async (client) => {
+      await client.query(`SET LOCAL ROLE ${C3E1_IDENTITY_RESOLVER_ROLE}`);
+      const authority = await client.query<ResolvedActorRow>(
+        `SELECT user_id, organization_id, membership_id, membership_role
+         FROM taptime_server.lock_request_actor($1, $2)`,
+        [verification.identity.issuer, verification.identity.subject],
+      );
+      if (authority.rows.length > 1) throw new Error('Password reset resolved multiple Memberships');
+      const actor = authority.rows[0];
+      if (actor === undefined) return { status: 'forbidden' } as const;
+      if (!isMembershipRole(actor.membership_role)) {
+        throw new Error('Password reset resolver returned an invalid role');
+      }
+      await client.query(
+        `SELECT
+           set_config('app.user_id', $1, true),
+           set_config('app.organization_id', $2, true),
+           set_config('app.membership_id', $3, true),
+           set_config('app.membership_role', $4, true),
+           set_config('app.correlation_id', $5, true)`,
+        [actor.user_id, actor.organization_id, actor.membership_id,
+          actor.membership_role, correlationId],
+      );
+      await client.query(`SET LOCAL ROLE ${PASSWORD_RESET_AUDITOR_ROLE}`);
+      const result = await client.query<PasswordResetAuditRow>(
+        `SELECT taptime_server.record_password_reset_completed_v1() AS result_status`,
+      );
+      return { status: onlyRow(result.rows, 'Password reset audit').result_status } as const;
+    });
+  }
+
+  async changeMembershipRole(
+    command: ChangeMembershipRoleCommand,
+    controls: EmployeeEnrollmentCoordinatorControls = {},
+  ): Promise<MembershipMutationResult> {
+    if (!isMembershipRole(command.role)) return { status: 'invalid_request' };
+    return this.mutateMembership(command, 'change_role', command.role, controls);
+  }
+
+  private async mutateMembership(
+    command: RevokeMembershipCommand,
+    commandType: 'revoke' | 'change_role',
+    role: 'administrator' | 'employee' | null,
+    controls: EmployeeEnrollmentCoordinatorControls,
+  ): Promise<MembershipMutationResult> {
+    if (
+      !validAccessToken(command.accessToken)
+      || !isCanonicalUuid(command.expectedMembershipId)
+      || !isCanonicalUuid(command.commandId)
+      || !isCanonicalUuid(command.targetMembershipId)
+      || !Number.isSafeInteger(command.expectedRowVersion)
+      || command.expectedRowVersion < 1
+    ) return { status: 'invalid_request' };
+    return this.withMembershipManagementAuthority(
+      command.accessToken,
+      command.expectedMembershipId,
+      command.commandId,
+      controls,
+      async (client) => {
+        const result = await client.query<MembershipMutationRow>(
+          `SELECT result_status, result_role, result_active, result_row_version,
+                  result_idempotent_retry
+           FROM taptime_server.manage_membership_v1($1, $2, $3, $4, $5)`,
+          [command.commandId, command.targetMembershipId, command.expectedRowVersion,
+            commandType, role],
+        );
+        const row = onlyRow(result.rows, 'Membership mutation');
+        if (row.result_status !== 'succeeded') return { status: row.result_status };
+        if (
+          !isMembershipRole(row.result_role)
+          || typeof row.result_active !== 'boolean'
+          || !Number.isSafeInteger(Number(row.result_row_version))
+          || Number(row.result_row_version) < 1
+        ) throw new Error('Membership mutation returned an invalid result');
+        return Object.freeze({
+          status: 'succeeded' as const,
+          membership: Object.freeze({
+            id: command.targetMembershipId,
+            role: row.result_role,
+            active: row.result_active,
+            rowVersion: Number(row.result_row_version),
+          }),
+          idempotentRetry: row.result_idempotent_retry,
+        });
+      },
+    );
+  }
+
+  private async withMembershipManagementAuthority<Value>(
     accessToken: string,
     expectedMembershipId: MembershipId,
     correlationId: string,
@@ -303,20 +457,21 @@ export class EmployeeMembershipEnrollmentCoordinator {
       if (actor === undefined) {
         return { status: 'unauthorized' } as const;
       }
-      if (
-        actor.membership_role !== 'administrator'
-        || actor.membership_id !== expectedMembershipId
-      ) {
+      if (actor.membership_id !== expectedMembershipId) {
         return { status: 'forbidden' } as const;
+      }
+      if (!isMembershipRole(actor.membership_role)) {
+        throw new Error('Membership-management resolver returned an invalid role');
       }
       await client.query(
         `SELECT
            set_config('app.user_id', $1, true),
            set_config('app.organization_id', $2, true),
            set_config('app.membership_id', $3, true),
-           set_config('app.membership_role', 'administrator', true),
-           set_config('app.correlation_id', $4, true)`,
-        [actor.user_id, actor.organization_id, actor.membership_id, correlationId],
+           set_config('app.membership_role', $4, true),
+           set_config('app.correlation_id', $5, true)`,
+        [actor.user_id, actor.organization_id, actor.membership_id,
+          actor.membership_role, correlationId],
       );
       await client.query(`SET LOCAL ROLE ${C3E1_INVITATION_CREATOR_ROLE}`);
       return operation(client);
@@ -374,6 +529,10 @@ function validAccessToken(value: unknown): value is string {
 
 function isCanonicalUuid(value: unknown): value is string {
   return typeof value === 'string' && canonicalUuidPattern.test(value);
+}
+
+function isMembershipRole(value: unknown): value is 'administrator' | 'employee' {
+  return value === 'administrator' || value === 'employee';
 }
 
 function parseCursor(value: unknown): string | null | undefined {

@@ -70,12 +70,18 @@ export function App({
     mainHeading.current?.focus();
   }, [administration, view]);
 
+  if (state.status === 'password_recovery') {
+    return <PasswordRecovery administration={administration} completing={state.completing}
+      notice={state.notice} />;
+  }
   if (state.status === 'signed_out' || state.status === 'signing_in') {
     return <main className="login-shell">
       <section className="login-card" aria-labelledby="login-title">
         <Brand />
         <h1 id="login-title">Einfach sauber eingerichtet.</h1>
         <p>Melde dich mit deinem Administrator-Konto an.</p>
+        {state.status === 'signed_out' && state.notice
+          ? <p role="status">{state.notice}</p> : null}
         <form onSubmit={(event: FormEvent) => {
           event.preventDefault();
           const passwordSnapshot = password;
@@ -92,6 +98,10 @@ export function App({
             {state.status === 'signing_in' ? 'Wird geprüft …' : 'Sicher anmelden'}
           </button>
         </form>
+        <button className="text-button" disabled={state.status === 'signing_in' || email.length < 3}
+          onClick={() => void administration.requestPasswordReset(email)}>
+          Passwort vergessen
+        </button>
       </section>
     </main>;
   }
@@ -152,6 +162,37 @@ export function App({
       {view === 'pruefungen' ? <ReviewsView state={state} administration={administration} timezone={timezone} /> : null}
     </main>
   </div>;
+}
+
+function PasswordRecovery({
+  administration,
+  completing,
+  notice,
+}: {
+  readonly administration: AdminWebCapability;
+  readonly completing: boolean;
+  readonly notice: string | null;
+}) {
+  const [password, setPassword] = useState('');
+  return <main className="login-shell">
+    <section className="login-card" aria-labelledby="recovery-title">
+      <Brand />
+      <h1 id="recovery-title">Neues Passwort setzen</h1>
+      {notice ? <p role="alert">{notice}</p> : null}
+      <form onSubmit={(event) => {
+        event.preventDefault();
+        const snapshot = password;
+        setPassword('');
+        void administration.completePasswordRecovery(snapshot);
+      }}>
+        <label htmlFor="recovery-password">Neues Passwort</label>
+        <input id="recovery-password" type="password" autoComplete="new-password"
+          minLength={8} required value={password}
+          onChange={(event) => setPassword(event.target.value)} />
+        <button disabled={completing}>{completing ? 'Wird geändert …' : 'Passwort ändern'}</button>
+      </form>
+    </section>
+  </main>;
 }
 
 type ReadyState = Extract<ReturnType<AdminWebCapability['getState']>, { readonly status: 'ready' }>;
@@ -398,6 +439,7 @@ function EmployeesView({
   readonly timezone: TimeZoneContext;
 }) {
   const [name, setName] = useState('');
+  const [role, setRole] = useState<'administrator' | 'employee'>('employee');
   return <SectionBoundary state={state.sections.employees}
     onRetry={() => void administration.retrySection('employees')}>
     <Panel title="Beschäftigte" description="Aktive Beschäftigte und einmalige Einladungen.">
@@ -405,13 +447,19 @@ function EmployeesView({
         noun="Beschäftigte" complete={state.employeeProjection.nextCursor === null} />
       <form className="inline-form" onSubmit={(event) => {
         event.preventDefault();
-        void administration.createEmployeeInvitation(name);
+        void administration.createEmployeeInvitation(name, role);
         setName('');
       }}>
         <label htmlFor="employee-name">Einladung für</label>
         <div className="input-action">
           <input id="employee-name" required maxLength={120} value={name}
             onChange={(event) => setName(event.target.value)} />
+          <label htmlFor="employee-role">Rolle</label>
+          <select id="employee-role" value={role}
+            onChange={(event) => setRole(event.target.value as typeof role)}>
+            <option value="employee">Beschäftigt</option>
+            <option value="administrator">Administrator</option>
+          </select>
           <button disabled={state.creatingEmployee}>
             {state.creatingEmployee ? 'Wird erzeugt …' : 'Einladung erzeugen'}
           </button>
@@ -427,7 +475,25 @@ function EmployeesView({
       </aside>}
       <ul className="entity-list">{state.employeeProjection.employeeMemberships.map((membership) =>
         <li key={membership.id}><span>{membership.displayName}</span>
-          <small className="pill success">Beschäftigt · Aktiv</small></li>)}</ul>
+          <small className={`pill ${membership.active ? 'success' : ''}`}>
+            {membership.role === 'administrator' ? 'Administrator' : 'Beschäftigt'}
+            {' · '}{membership.active ? 'Aktiv' : 'Zugang entzogen'}
+          </small>
+          {membership.active ? <div className="entity-actions">
+            <button className="secondary" onClick={() => void administration.changeMembershipRole(
+              membership.id,
+              membership.rowVersion,
+              membership.role === 'administrator' ? 'employee' : 'administrator',
+            )}>
+              {membership.role === 'administrator' ? 'Zu Beschäftigt ändern' : 'Zum Administrator machen'}
+            </button>
+            <button className="quiet" onClick={() => {
+              if (window.confirm(`Zugang für ${membership.displayName} wirklich entziehen?`)) {
+                void administration.revokeMembership(membership.id, membership.rowVersion);
+              }
+            }}>Zugang entziehen</button>
+          </div> : null}
+        </li>)}</ul>
       {state.employeeProjection.employeeMemberships.length === 0
         && state.employeeProjection.nextCursor === null
         ? <p className="empty">Keine Beschäftigten vorhanden.</p> : null}

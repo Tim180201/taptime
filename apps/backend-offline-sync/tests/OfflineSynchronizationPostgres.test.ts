@@ -63,6 +63,8 @@ const ids = {
   receipt2: '65000000-0000-4000-8000-000000000012',
   event3: '50000000-0000-4000-8000-000000000013',
   receipt3: '65000000-0000-4000-8000-000000000013',
+  event4: '50000000-0000-4000-8000-000000000014',
+  receipt4: '65000000-0000-4000-8000-000000000014',
   project: '20000000-0000-4000-8000-000000000012',
   leaseCommandV2: '81000000-0000-4000-8000-000000000012',
 } as const;
@@ -810,7 +812,7 @@ describe('complete offline PostgreSQL boundary', () => {
       });
   });
 
-  it('stores revoked evidence for review and blocks every later sequence behind it', async () => {
+  it('stores four revoked-membership events without loss and reviews every sequence', async () => {
     const lease = await issueLease();
     const item = lease.items[0]!;
     await installerPool.query(
@@ -837,23 +839,30 @@ describe('complete offline PostgreSQL boundary', () => {
       deviceSequence: 1,
     });
 
-    const blocked = eventCommand(
-      lease,
-      item.itemId,
-      ids.event2,
-      ids.receipt2,
-      2,
-      new Date(Date.parse(lease.issuedAt) + 7_000).toISOString(),
-    );
-    await expect(eventCoordinator.ingest({
-      accessToken: 'valid',
-      command: blocked,
-    })).resolves.toMatchObject({
-      status: 'review_pending',
-      reason: 'predecessor_requires_review',
-      workEventId: ids.event2,
-      deviceSequence: 2,
-    });
+    const followingEvents = [
+      { eventId: ids.event2, receiptId: ids.receipt2, sequence: 2 },
+      { eventId: ids.event3, receiptId: ids.receipt3, sequence: 3 },
+      { eventId: ids.event4, receiptId: ids.receipt4, sequence: 4 },
+    ] as const;
+    for (const following of followingEvents) {
+      const blocked = eventCommand(
+        lease,
+        item.itemId,
+        following.eventId,
+        following.receiptId,
+        following.sequence,
+        new Date(Date.parse(lease.issuedAt) + following.sequence * 7_000).toISOString(),
+      );
+      await expect(eventCoordinator.ingest({
+        accessToken: 'valid',
+        command: blocked,
+      })).resolves.toMatchObject({
+        status: 'review_pending',
+        reason: 'predecessor_requires_review',
+        workEventId: following.eventId,
+        deviceSequence: following.sequence,
+      });
+    }
 
     const counts = await installerPool.query<{
       events: string;
@@ -870,11 +879,11 @@ describe('complete offline PostgreSQL boundary', () => {
         (SELECT count(*) FROM taptime_server.offline_event_reconciliations) AS reconciliations
     `);
     expect(counts.rows[0]).toEqual({
-      events: '2',
-      receipts: '2',
+      events: '4',
+      receipts: '4',
       decisions: '0',
       entries: '0',
-      reconciliations: '2',
+      reconciliations: '4',
     });
   });
 

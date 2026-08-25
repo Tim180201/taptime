@@ -1,6 +1,7 @@
 import type {
   BackendSessionPort,
   BackendSessionResolution,
+  PasswordResetAuditResult,
   ProductMembershipRole,
   ProductSessionContext,
 } from './contracts';
@@ -12,6 +13,7 @@ type FetchPort = typeof fetch;
 
 export class TapTimeSessionApiClient implements BackendSessionPort {
   private readonly endpoint: URL;
+  private readonly passwordResetAuditEndpoint: URL;
 
   constructor(
     baseUrl: string,
@@ -19,6 +21,9 @@ export class TapTimeSessionApiClient implements BackendSessionPort {
     private readonly requestTimeoutMilliseconds = DEFAULT_REQUEST_TIMEOUT_MILLISECONDS,
   ) {
     this.endpoint = new URL('v1/session', withTrailingSlash(baseUrl));
+    this.passwordResetAuditEndpoint = new URL(
+      'v1/auth/password-reset/audit', withTrailingSlash(baseUrl),
+    );
     if (!Number.isSafeInteger(requestTimeoutMilliseconds) || requestTimeoutMilliseconds <= 0) {
       throw new Error('Session API request timeout must be a positive safe integer');
     }
@@ -53,6 +58,45 @@ export class TapTimeSessionApiClient implements BackendSessionPort {
       }
       const session = parseSession(await response.json());
       return session === null ? { status: 'unavailable' } : { status: 'resolved', session };
+    } catch {
+      return { status: 'unavailable' };
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  async recordPasswordReset(accessToken: string): Promise<PasswordResetAuditResult> {
+    const abortController = new AbortController();
+    const timeout = setTimeout(
+      () => abortController.abort(),
+      this.requestTimeoutMilliseconds,
+    );
+    try {
+      const response = await this.fetchRequest(this.passwordResetAuditEndpoint.href, {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: '{}',
+        cache: 'no-store',
+        credentials: 'omit',
+        redirect: 'error',
+        signal: abortController.signal,
+      });
+      if (response.redirected) return { status: 'unavailable' };
+      if (response.status === 401 || response.status === 403) {
+        return { status: 'authority_rejected' };
+      }
+      if (response.status !== 200) return { status: 'unavailable' };
+      const value: unknown = await response.json();
+      if (
+        typeof value !== 'object' || value === null || Array.isArray(value)
+        || Object.keys(value).join(',') !== 'status'
+        || (value as { readonly status?: unknown }).status !== 'succeeded'
+      ) return { status: 'unavailable' };
+      return { status: 'recorded' };
     } catch {
       return { status: 'unavailable' };
     } finally {

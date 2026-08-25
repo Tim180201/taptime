@@ -32,8 +32,9 @@ export interface AdminProjectedNfcTagSummary extends AdminNfcTagSummary {
 export interface EmployeeMembershipSummary {
   readonly id: MembershipId;
   readonly displayName: string;
-  readonly role: 'employee';
-  readonly active: true;
+  readonly role: 'administrator' | 'employee';
+  readonly active: boolean;
+  readonly rowVersion: number;
 }
 
 export interface CreateEmployeeMembershipInvitationCommand {
@@ -41,6 +42,7 @@ export interface CreateEmployeeMembershipInvitationCommand {
   readonly expectedMembershipId: MembershipId;
   readonly commandId: string;
   readonly displayName: string;
+  readonly role: 'administrator' | 'employee';
 }
 
 export interface RedeemEmployeeMembershipInvitationCommand {
@@ -54,6 +56,28 @@ export interface ReadEmployeeMembershipsProjectionCommand {
   readonly expectedMembershipId: MembershipId;
   readonly cursor: string | null;
   readonly limit: number;
+}
+
+export interface RevokeMembershipCommand {
+  readonly accessToken: string;
+  readonly expectedMembershipId: MembershipId;
+  readonly commandId: string;
+  readonly targetMembershipId: MembershipId;
+  readonly expectedRowVersion: number;
+}
+
+export interface RecordPasswordResetCommand {
+  readonly accessToken: string;
+}
+
+export type RecordPasswordResetResult =
+  | { readonly status: 'succeeded' }
+  | { readonly status: 'unauthorized' }
+  | { readonly status: 'forbidden' }
+  | { readonly status: 'invalid_request' };
+
+export interface ChangeMembershipRoleCommand extends RevokeMembershipCommand {
+  readonly role: 'administrator' | 'employee';
 }
 
 export type CreateEmployeeMembershipInvitationResult =
@@ -73,7 +97,7 @@ export type RedeemEmployeeMembershipInvitationResult =
       readonly status: 'succeeded';
       readonly organizationName: string;
       readonly membershipDisplayName: string;
-      readonly role: 'employee';
+      readonly role: 'administrator' | 'employee';
     }
   | { readonly status: 'unauthorized' }
   | { readonly status: 'enrollment_unavailable' }
@@ -87,6 +111,25 @@ export type ReadEmployeeMembershipsProjectionResult =
       readonly nextCursor: string | null;
     }
   | AdminAuthorityRejection
+  | { readonly status: 'invalid_request' };
+
+export type MembershipMutationResult =
+  | {
+      readonly status: 'succeeded';
+      readonly membership: {
+        readonly id: MembershipId;
+        readonly role: 'administrator' | 'employee';
+        readonly active: boolean;
+        readonly rowVersion: number;
+      };
+      readonly idempotentRetry: boolean;
+    }
+  | AdminAuthorityRejection
+  | { readonly status: 'command_id_conflict' }
+  | { readonly status: 'last_administrator' }
+  | { readonly status: 'self_revocation_forbidden' }
+  | { readonly status: 'stale_row_version' }
+  | { readonly status: 'target_unavailable' }
   | { readonly status: 'invalid_request' };
 
 export interface EmployeeEnrollmentCoordinatorControls {

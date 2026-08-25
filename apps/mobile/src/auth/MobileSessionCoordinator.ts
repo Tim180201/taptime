@@ -48,6 +48,7 @@ export class MobileSessionCoordinator implements
   private generation = 0;
   private accessToken: string | null = null;
   private refreshToken: string | null = null;
+  private recoveryAccessToken: string | null = null;
   private providerSessionAllowed = false;
   private offlineCaptureRestorationAllowed = false;
   private offlineRestorationRevision = 0;
@@ -143,7 +144,8 @@ export class MobileSessionCoordinator implements
     }
     this.started = true;
     const generation = this.generation;
-    this.setState({ status: 'initializing' });
+    const recoveryPending = this.state.status === 'password_recovery';
+    if (!recoveryPending) this.setState({ status: 'initializing' });
     try {
       this.unsubscribeProvider = this.provider.subscribe((event) => this.onProviderEvent(event));
     } catch {
@@ -151,6 +153,7 @@ export class MobileSessionCoordinator implements
       this.setState({ status: 'runtime_unavailable', reason: 'authentication_unavailable' });
       return Promise.resolve();
     }
+    if (recoveryPending) return Promise.resolve();
     const operation = this.performStart(generation);
     this.startFlight = operation;
     return operation.finally(() => {
@@ -200,6 +203,73 @@ export class MobileSessionCoordinator implements
 
   async signInForEmployeeEnrollment(email: string, password: string): Promise<SignInResult> {
     return this.startSignIn(email, password, true);
+  }
+
+  async requestPasswordReset(email: string): Promise<'requested' | 'unavailable'> {
+    if (this.provider.requestPasswordReset === undefined || email.trim().length < 3) {
+      return 'unavailable';
+    }
+    try {
+      return await this.enqueueProviderOperation(() => this.provider.requestPasswordReset!(
+        email.trim(),
+        'taptime://auth/recovery',
+      )) ? 'requested' : 'unavailable';
+    } catch {
+      return 'unavailable';
+    }
+  }
+
+  async handlePasswordRecoveryUrl(value: string): Promise<boolean> {
+    const tokens = parsePasswordRecoveryUrl(value);
+    if (tokens === null || this.provider.activatePasswordRecovery === undefined) return false;
+    const generation = this.invalidateInMemorySession();
+    this.refreshFlight = null;
+    this.signInFlight = null;
+    this.contextFlight = null;
+    try {
+      await this.enqueueStorageClear(generation);
+      const activated = await this.enqueueProviderOperation(
+        () => this.provider.activatePasswordRecovery!(tokens.accessToken, tokens.refreshToken),
+      );
+      if (!activated || generation !== this.generation) return false;
+      this.recoveryAccessToken = tokens.accessToken;
+      this.setState({ status: 'password_recovery', completing: false, notice: null });
+      return true;
+    } catch {
+      if (generation === this.generation) {
+        this.setState({ status: 'runtime_unavailable', reason: 'authentication_unavailable' });
+      }
+      return false;
+    }
+  }
+
+  async completePasswordRecovery(password: string): Promise<boolean> {
+    if (
+      this.state.status !== 'password_recovery'
+      || password.length < 8
+      || this.provider.updatePassword === undefined
+      || this.recoveryAccessToken === null
+    ) return false;
+    this.setState({ status: 'password_recovery', completing: true, notice: null });
+    try {
+      if (!await this.enqueueProviderOperation(() => this.provider.updatePassword!(password))) {
+        this.setState({ status: 'password_recovery', completing: false,
+          notice: 'Passwort konnte nicht sicher geändert werden.' });
+        return false;
+      }
+      const audit = await this.backendSession.recordPasswordReset(this.recoveryAccessToken);
+      if (audit.status !== 'recorded') {
+        this.setState({ status: 'password_recovery', completing: false,
+          notice: 'Passwort wurde geändert, aber der Abschluss konnte nicht sicher protokolliert werden. Bitte erneut bestätigen.' });
+        return false;
+      }
+      await this.signOut();
+      return true;
+    } catch {
+      this.setState({ status: 'password_recovery', completing: false,
+        notice: 'Passwort konnte nicht sicher geändert werden.' });
+      return false;
+    }
   }
 
   private async startSignIn(
@@ -748,6 +818,7 @@ export class MobileSessionCoordinator implements
     this.providerSessionAllowed = false;
     this.accessToken = null;
     this.refreshToken = null;
+    this.recoveryAccessToken = null;
     this.offlineCaptureRestorationAllowed = false;
     this.tokenRevision += 1;
     this.unauthorizedRefreshFlight = null;
@@ -811,4 +882,28 @@ export class MobileSessionCoordinator implements
       listener();
     }
   }
+}
+
+function parsePasswordRecoveryUrl(value: string): {
+  readonly accessToken: string;
+  readonly refreshToken: string;
+} | null {
+  let url: URL;
+  try { url = new URL(value); } catch { return null; }
+  if (
+    url.protocol !== 'taptime:'
+    || url.hostname !== 'auth'
+    || url.pathname !== '/recovery'
+    || url.username !== '' || url.password !== '' || url.port !== '' || url.search !== ''
+  ) return null;
+  const parameters = new URLSearchParams(url.hash.slice(1));
+  const allowed = new Set(['access_token', 'expires_at', 'expires_in', 'refresh_token', 'token_type', 'type']);
+  if ([...parameters.keys()].some((key) => !allowed.has(key))) return null;
+  for (const key of allowed) if (parameters.getAll(key).length > 1) return null;
+  const accessToken = parameters.get('access_token');
+  const refreshToken = parameters.get('refresh_token');
+  return parameters.get('type') === 'recovery'
+    && accessToken !== null && accessToken.length >= 16
+    && refreshToken !== null && refreshToken.length >= 16
+    ? { accessToken, refreshToken } : null;
 }

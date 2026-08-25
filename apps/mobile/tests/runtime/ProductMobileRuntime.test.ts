@@ -33,6 +33,9 @@ class FakeSessionRuntimeOwner implements ProductSessionRuntimeOwner {
     (_invitationSecret: string) => Promise<EmployeeEnrollmentResult>
   >(async () => ({ status: 'context_unavailable' }));
   readonly retryContext = vi.fn<() => Promise<void>>(async () => undefined);
+  readonly requestPasswordReset = vi.fn(async () => 'requested' as const);
+  readonly handlePasswordRecoveryUrl = vi.fn(async () => true);
+  readonly completePasswordRecovery = vi.fn(async () => true);
   readonly refresh = vi.fn<() => Promise<void>>(async () => undefined);
   readonly signOut = vi.fn<() => Promise<void>>(async () => undefined);
 

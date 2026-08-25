@@ -140,9 +140,14 @@ in keinem Plan standen.
   gelesen. Package-ID entscheidet der Product Owner.
 - Nur zwei Rollen (`administrator`, `employee`). `team_lead` ist eine typische B2B-Rückfrage,
   additiv nachrüstbar. Der Standortleiter aus T-015 deckt den häufigsten Fall ab.
-- **P2:** Sieben von 29 Tabellen tragen keine RLS-Policy — `bootstrap_receipts`,
+- **P1, Frist spätestens T-018:** `taptime://auth/recovery` ist ein eigenes URL-Schema. Auf
+  Android kann eine fremde App es beanspruchen und den Wiederherstellungstoken abfangen; auf
+  iOS ist die Zuordnung bei mehreren beanspruchenden Apps undefiniert. Vor Installation auf dem
+  ersten fremden Telefon auf HTTPS App Links / Universal Links mit Domainnachweis umstellen.
+- **P2:** Acht von 30 Tabellen tragen keine RLS-Policy — `bootstrap_receipts`,
   `employee_membership_invitations`, `employee_invitation_command_receipts`,
-  `employee_enrollment_redemption_receipts`, `time_record_revisions`,
+  `employee_enrollment_redemption_receipts`, `membership_management_command_receipts`,
+  `time_record_revisions`,
   `time_review_command_receipts`, `offline_review_adjudications`. `FORCE` ohne Policy sperrt
   alles, sie sind also fail-closed; ihre Mandantentrennung hängt aber allein an den Prädikaten
   der `SECURITY DEFINER`-Funktionen. Auf `time_record_revisions` liegt ein `UPDATE`-Recht, dessen
