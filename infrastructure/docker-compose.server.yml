@@ -52,6 +52,7 @@ services:
 
   migration:
     image: ghcr.io/tim180201/taptime-backend-api:${TAPTIME_VERSION:?TAPTIME_VERSION must be an explicit commit short hash}
+    user: root
     profiles:
       - deployment
     entrypoint:

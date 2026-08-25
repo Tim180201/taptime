@@ -357,48 +357,83 @@ rollback_started_image() {
 }
 
 main() {
+  local step_status
+
   if (( $# != 1 )); then
     printf 'Usage: %s <seven-character-commit-hash>\n' "${0##*/}" >&2
     return 64
   fi
 
   DESIRED_VERSION="$1"
-  validate_version "$DESIRED_VERSION" || return
-  require_root || return
-  require_file "$COMPOSE_FILE" || return
-  require_file "$BACKUP_CONFIG" || return
-  require_file "$VERSION_STATE_FILE" || return
+  validate_version "$DESIRED_VERSION"
+  step_status=$?
+  if (( step_status != 0 )); then return "$step_status"; fi
+  require_root
+  step_status=$?
+  if (( step_status != 0 )); then return "$step_status"; fi
+  require_file "$COMPOSE_FILE"
+  step_status=$?
+  if (( step_status != 0 )); then return "$step_status"; fi
+  require_file "$BACKUP_CONFIG"
+  step_status=$?
+  if (( step_status != 0 )); then return "$step_status"; fi
+  require_file "$VERSION_STATE_FILE"
+  step_status=$?
+  if (( step_status != 0 )); then return "$step_status"; fi
 
   PREVIOUS_VERSION="$(tr -d '[:space:]' < "$VERSION_STATE_FILE")"
-  validate_version "$PREVIOUS_VERSION" || return
+  validate_version "$PREVIOUS_VERSION"
+  step_status=$?
+  if (( step_status != 0 )); then return "$step_status"; fi
 
-  acquire_deploy_lock || return
+  acquire_deploy_lock
+  step_status=$?
+  if (( step_status != 0 )); then return "$step_status"; fi
 
   local desired_image previous_image migration_image rehearsal_image
   desired_image="$(image_for_version "$DESIRED_VERSION")"
   previous_image="$(image_for_version "$PREVIOUS_VERSION")"
 
-  pull_image "$desired_image" || return
-  pull_image "$previous_image" || return
-  MIGRATION_VERSION="$(select_migration_version "$desired_image" "$previous_image")" || return
+  pull_image "$desired_image"
+  step_status=$?
+  if (( step_status != 0 )); then return "$step_status"; fi
+  pull_image "$previous_image"
+  step_status=$?
+  if (( step_status != 0 )); then return "$step_status"; fi
+  MIGRATION_VERSION="$(select_migration_version "$desired_image" "$previous_image")"
+  step_status=$?
+  if (( step_status != 0 )); then return "$step_status"; fi
   migration_image="$(image_for_version "$MIGRATION_VERSION")"
   rehearsal_image="${TAPTIME_DEPLOY_TEST_REHEARSAL_IMAGE:-$migration_image}"
   if [[ "$rehearsal_image" != "$migration_image" && "${TAPTIME_DEPLOY_ALLOW_TEST_HOOKS:-0}" != '1' ]]; then
-    fail 'A rehearsal image override requires TAPTIME_DEPLOY_ALLOW_TEST_HOOKS=1.' || return
+    fail 'A rehearsal image override requires TAPTIME_DEPLOY_ALLOW_TEST_HOOKS=1.'
+    return 1
   fi
   if [[ "$rehearsal_image" != "$desired_image" && "$rehearsal_image" != "$previous_image" ]]; then
-    verify_local_rehearsal_image "$rehearsal_image" "$MIGRATION_VERSION" || return
+    verify_local_rehearsal_image "$rehearsal_image" "$MIGRATION_VERSION"
+    step_status=$?
+    if (( step_status != 0 )); then return "$step_status"; fi
   fi
 
-  run_restore_verification "$rehearsal_image" || return
-  run_backup || return
-  sync_migration_sources "$migration_image" || return
-  migrate_production || return
-  mark_known_version "$PREVIOUS_VERSION" || return
+  run_restore_verification "$rehearsal_image"
+  step_status=$?
+  if (( step_status != 0 )); then return "$step_status"; fi
+  run_backup
+  step_status=$?
+  if (( step_status != 0 )); then return "$step_status"; fi
+  sync_migration_sources "$migration_image"
+  step_status=$?
+  if (( step_status != 0 )); then return "$step_status"; fi
+  migrate_production
+  step_status=$?
+  if (( step_status != 0 )); then return "$step_status"; fi
+  mark_known_version "$PREVIOUS_VERSION"
+  step_status=$?
+  if (( step_status != 0 )); then return "$step_status"; fi
 
   if [[ "${TAPTIME_DEPLOY_TEST_ABORT_AFTER_MIGRATION:-0}" == '1' ]]; then
     [[ "${TAPTIME_DEPLOY_ALLOW_TEST_HOOKS:-0}" == '1' ]] ||
-      fail 'The migration/start abort hook requires TAPTIME_DEPLOY_ALLOW_TEST_HOOKS=1.' || return
+      { fail 'The migration/start abort hook requires TAPTIME_DEPLOY_ALLOW_TEST_HOOKS=1.'; return 1; }
     say '[Test] Erzwinge harten Abbruch zwischen Migration und Anwendungsstart.'
     kill -KILL "$$"
   fi
@@ -408,11 +443,21 @@ main() {
   trap 'rollback_started_image $?' EXIT
   trap 'exit 130' INT
   trap 'exit 143' TERM
-  start_backend "$DESIRED_VERSION" || return
-  wait_for_health "$DESIRED_VERSION" || return
-  mark_known_version "$DESIRED_VERSION" || return
-  publish_protected_versions "$DESIRED_VERSION" "$PREVIOUS_VERSION" || return
-  write_current_version "$DESIRED_VERSION" || return
+  start_backend "$DESIRED_VERSION"
+  step_status=$?
+  if (( step_status != 0 )); then return "$step_status"; fi
+  wait_for_health "$DESIRED_VERSION"
+  step_status=$?
+  if (( step_status != 0 )); then return "$step_status"; fi
+  mark_known_version "$DESIRED_VERSION"
+  step_status=$?
+  if (( step_status != 0 )); then return "$step_status"; fi
+  publish_protected_versions "$DESIRED_VERSION" "$PREVIOUS_VERSION"
+  step_status=$?
+  if (( step_status != 0 )); then return "$step_status"; fi
+  write_current_version "$DESIRED_VERSION"
+  step_status=$?
+  if (( step_status != 0 )); then return "$step_status"; fi
   NEW_IMAGE_STARTED=0
   trap - EXIT INT TERM
   say "[7/7] Auslieferung abgeschlossen: $PREVIOUS_VERSION -> $DESIRED_VERSION."
