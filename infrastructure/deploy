@@ -150,7 +150,7 @@ run_restore_verification() (
   real_docker="$(command -v docker)"
   ln -s "$script_path" "$hook_directory/docker"
   # Invoked by the EXIT trap below.
-  # shellcheck disable=SC2329
+  # shellcheck disable=SC2317,SC2329
   cleanup_hook() {
     if [[ "$hook_directory" == /run/taptime-backup/deploy-hook.* && -d "$hook_directory" ]]; then
       rm -rf -- "$hook_directory"
@@ -210,7 +210,7 @@ sync_migration_sources() (
   require_file "$MIGRATIONS_DIRECTORY/001_foundation.sql"
 
   # Invoked by the EXIT trap below.
-  # shellcheck disable=SC2329
+  # shellcheck disable=SC2317,SC2329
   cleanup_sources() {
     [[ -z "$holder" ]] || docker rm --force "$holder" >/dev/null 2>&1 || true
     if [[ -n "$staged" && "$staged" == "$parent"/.deploy-migrations.* && -d "$staged" ]]; then
