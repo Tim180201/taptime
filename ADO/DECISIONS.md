@@ -535,3 +535,35 @@ ergänzt wird — oder ob er sie ersetzt. Erst nach der offenen Frage unten.
 
 Ohne Antwort darauf gibt es keine Positionierung. Hat er keine, ist die Begeisterung Höflichkeit
 und der Pilot kein Marktbeleg.
+
+---
+
+## D-021 — Anrede und ein verbindliches Regelwerk für Oberflächen
+
+**Datum:** 25.08.2026 · **Entschieden von:** Tim, vorbereitet vom Technical Lead
+
+**Entscheidung 1 — Anrede:** Das **Admin-Web siezt**, die **App duzt**, die **Landing Page
+siezt**. Innerhalb einer Oberfläche wird nie gemischt.
+
+**Begründung:** Im Web handelt man im Namen des Betriebs über andere Menschen — deutsche
+Betriebssoftware siezt, und der Käufer ist der Inhaber. In der App geht es um die eigene
+Arbeitszeit, zehnmal am Tag. Die App duzt heute bereits konsequent; das Web sprach bisher
+niemanden an.
+
+**Entscheidung 2 — Regelwerk:** `ADO/01_Architecture/UI_Leitlinien.md`. Codex baut bei jeder
+Oberflächenaufgabe dagegen. Abweichungen sind erlaubt, aber im Bericht zu begründen.
+
+**Warum ein eigenes Dokument:** Sonst entscheidet jede Aufgabe die Oberfläche neu, und nach drei
+Aufgaben sieht das Produkt aus wie von drei Leuten gebaut.
+
+**Zwei eigene Entwürfe des Technical Lead wurden dabei widerlegt:**
+
+- **Reiter oben** waren falsch. Ab fünf Bereichen gehört eine Seitenleiste hin, und wir haben
+  fünf. Reiter kosten über 20 % der Fläche, eine Seitenleiste rund 6 %.
+- **Kartenansicht auf schmalen Bildschirmen** war falsch. Der Zweck einer Tabelle ist der
+  Vergleich zwischen Zeilen; Karten zerstören ihn. Richtig ist eingefrorene erste Spalte plus
+  seitliches Scrollen.
+
+**Verbindlicher Wortschatz:** *Betrieb* statt Organisation, *Beschäftigte* statt Mitarbeiter,
+*Arbeitsziel* als Oberbegriff für Kunde, Projekt und Allgemeine Arbeitszeit. Keine englischen
+Begriffe in der Oberfläche. Vollständige Liste im Regelwerk.

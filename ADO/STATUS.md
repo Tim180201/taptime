@@ -137,7 +137,8 @@ Der Technical Lead führt beide Zahlen mit, um eigene systematische Fehler zu er
 | T-011 | eine Sitzung | eine Sitzung |
 | T-012 | drei Sitzungen | vier — inkl. drei Runden CI-Reparatur |
 | T-013 | zwei Sitzungen | zwei Sitzungen |
-| T-014 | zwei Sitzungen | offen |
+| T-014 | zwei Sitzungen | drei |
+| T-017a | drei Sitzungen | offen |
 
 Die Prüfung vom 24.08. hat die Restschätzung von 11 auf **38 Sitzungen** über 13 Aufgaben
 korrigiert — nicht weil mehr Arbeit entstanden ist, sondern weil sieben nötige Aufgaben vorher
