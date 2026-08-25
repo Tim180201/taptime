@@ -63,6 +63,13 @@ describe('C3D Admin Web security boundaries', () => {
     expect(contrastRatio('#005fcc', '#ffffff')).toBeGreaterThanOrEqual(3);
     expect(contrastRatio('#f4d35e', '#123c36')).toBeGreaterThanOrEqual(3);
   });
+
+  it('keeps table headings and the name column fixed while the table scrolls', async () => {
+    const styles = await readFile(new URL('../src/styles.css', import.meta.url), 'utf8');
+    expect(styles).toMatch(/th \{[\s\S]*position: sticky;[\s\S]*top: 0;/);
+    expect(styles).toMatch(/th:first-child, td:first-child \{[\s\S]*position: sticky;[\s\S]*left: 0;/);
+    expect(styles).toMatch(/\.table-scroll \{[\s\S]*overflow: auto;/);
+  });
 });
 
 function contrastRatio(first: string, second: string): number {

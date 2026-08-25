@@ -109,7 +109,7 @@ wie „nichts vorhanden".
 |---|---|
 | unter 0,1 s | nichts |
 | 0,1 – 1 s | nichts. Eine Anzeige würde nur flackern. |
-| 1 – 10 s | Skeleton, eingeblendet nach 200–300 ms Verzögerung |
+| 1 – 10 s | Skeleton, eingeblendet nach 1 s Verzögerung |
 | über 10 s | Fortschritt in Prozent und Abbrechen-Möglichkeit |
 
 **Skeleton** nur, wenn die Form der Antwort bekannt ist — Tabellenzeilen, Karten. **Spinner** nur

@@ -1,4 +1,4 @@
-import type { ReactNode, RefObject } from 'react';
+import { useEffect, useState, type ReactNode, type RefObject } from 'react';
 import type { SectionStatus } from './contracts';
 
 export function Panel({
@@ -35,20 +35,40 @@ export function SectionBoundary({
   readonly children: ReactNode;
 }) {
   if (state.status === 'loading') {
-    return <div className="section-state" role="status" aria-live="polite">
-      <span className="spinner" aria-hidden="true" /> Daten werden sicher geladen …
+    return <div aria-busy="true">
+      <div className="loading-preserved" aria-hidden="true">{children}</div>
+      <DelayedSkeleton label="Daten werden geladen" />
     </div>;
   }
   if (state.status === 'unavailable') {
-    return <div className="section-state section-error" role="alert">
-      <strong>Bereich derzeit nicht verfügbar</strong>
+    return <div className="section-state section-error" role="alert" aria-live="assertive">
+      <strong>Der Bereich konnte nicht geladen werden</strong>
       <p>{state.message}</p>
       <button ref={retryButtonRef} className="secondary" onClick={onRetry}>
-        Erneut versuchen
+        Bereich erneut laden
       </button>
     </div>;
   }
   return <>{children}</>;
+}
+
+export function DelayedSkeleton({
+  label,
+  rows = 4,
+}: {
+  readonly label: string;
+  readonly rows?: number;
+}) {
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setVisible(true), 1_000);
+    return () => window.clearTimeout(timer);
+  }, []);
+  if (!visible) return null;
+  return <div className="skeleton" role="status" aria-live="polite">
+    <span className="sr-only">{label}</span>
+    {Array.from({ length: rows }, (_, index) => <span key={index} aria-hidden="true" />)}
+  </div>;
 }
 
 export function CountTruth({
@@ -88,7 +108,9 @@ export function Confirmation({
     <strong>{title}</strong>
     {children}
     <div className="confirmation-actions">
-      <button autoFocus disabled={busy} onClick={onConfirm}>{busy ? busyLabel : confirmLabel}</button>
+      <button autoFocus disabled={busy} aria-busy={busy} onClick={onConfirm}>
+        {busy ? busyLabel : confirmLabel}
+      </button>
       <button className="secondary" disabled={busy} onClick={onCancel}>Abbrechen</button>
     </div>
   </aside>;

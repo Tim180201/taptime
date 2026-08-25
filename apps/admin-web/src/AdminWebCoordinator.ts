@@ -47,6 +47,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
   private membershipId: string | null = null;
   private generation = 0;
   private refreshEpoch = 0;
+  private timeWindowPinned = false;
   private readonly sectionEpochs: Record<AdminSection, number> = {
     setup: 0,
     employees: 0,
@@ -91,7 +92,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
       correctionIntent: null,
       adjudicationIntent: null,
       timeReviewBusy: false,
-      notice: 'Zeitzone wurde geändert; offene Zeitangaben wurden sicher verworfen.',
+      notice: 'Die Zeitzone hat sich geändert. Offene Zeitangaben wurden verworfen, damit keine falschen Zeiten gespeichert werden. Geben Sie die Zeiten erneut ein.',
     });
     void this.refresh();
   }
@@ -113,7 +114,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
     } catch { /* surfaced as a generic availability result */ }
     this.setState(accepted
       ? { status: 'signed_out', notice: 'Falls das Konto existiert, wurde eine Wiederherstellungs-E-Mail versendet.' }
-      : { status: 'signed_out', notice: 'Wiederherstellung ist derzeit nicht erreichbar.' });
+      : { status: 'signed_out', notice: 'Die Wiederherstellungs-E-Mail konnte nicht angefordert werden. Der Anmeldedienst ist derzeit nicht erreichbar. Versuchen Sie es später erneut.' });
   }
 
   async completePasswordRecovery(password: string): Promise<void> {
@@ -125,7 +126,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
     } catch { /* surfaced without provider details */ }
     if (!changed) {
       this.setState({ status: 'password_recovery', completing: false,
-        notice: 'Passwort konnte nicht sicher geändert werden.' });
+        notice: 'Das Passwort konnte nicht geändert werden. Der Anmeldedienst hat die Änderung nicht bestätigt. Prüfen Sie das neue Passwort und versuchen Sie es erneut.' });
       return;
     }
     let recorded: ApiResult<true> | null = null;
@@ -136,11 +137,11 @@ export class AdminWebCoordinator implements AdminWebCapability {
     } catch { /* fail closed until the reset has an audit trail */ }
     if (recorded?.status !== 'succeeded') {
       this.setState({ status: 'password_recovery', completing: false,
-        notice: 'Passwort wurde geändert, aber der Abschluss konnte nicht sicher protokolliert werden. Bitte erneut bestätigen.' });
+        notice: 'Das Passwort wurde geändert, der Abschluss konnte aber nicht protokolliert werden. Die sichere Bestätigung durch den Server fehlt. Bestätigen Sie die Änderung erneut.' });
       return;
     }
     await this.safeSignOut();
-    this.setState({ status: 'signed_out', notice: 'Passwort geändert. Bitte melde dich neu an.' });
+    this.setState({ status: 'signed_out', notice: 'Das Passwort wurde geändert. Melden Sie sich mit dem neuen Passwort an.' });
   }
 
   async signOut(): Promise<void> {
@@ -170,15 +171,85 @@ export class AdminWebCoordinator implements AdminWebCapability {
       sections: allSections({ status: 'loading' }),
       notice: null,
     });
-    const result = await this.loadReadyData(membershipId);
+    const result = await this.loadReadyData(
+      membershipId,
+      this.timeWindowPinned ? current.timeWindow : undefined,
+    );
     if (generation !== this.generation || refreshEpoch !== this.refreshEpoch) return;
     if (result.status === 'rejected') {
-      await this.rejectOutsideAuthentication(generation, 'Administrator-Sitzung ist nicht mehr gültig.');
+      await this.rejectOutsideAuthentication(generation, 'Ihre Sitzung ist abgelaufen. Melden Sie sich erneut an, um weiterzuarbeiten.');
       return;
     }
     const latest = this.state;
     if (latest.status !== 'ready') return;
     this.setState(mergeRefreshResult(latest, result));
+  }
+
+  async setTimeWindow(
+    fromInclusive: string,
+    toExclusive: string,
+    pinned = true,
+  ): Promise<void> {
+    const current = this.state;
+    const membershipId = this.membershipId;
+    if (
+      current.status !== 'ready'
+      || membershipId === null
+      || !isBoundedTimeWindow(fromInclusive, toExclusive)
+      || (
+        current.timeWindow.fromInclusive === fromInclusive
+        && current.timeWindow.toExclusive === toExclusive
+      )
+    ) return;
+    this.timeWindowPinned = pinned;
+    const generation = this.generation;
+    const refreshEpoch = this.refreshEpoch;
+    const sectionEpoch = ++this.sectionEpochs.timeRecords;
+    const previousRecords = current.timeRecords;
+    const previousCursor = current.timeRecordsNextCursor;
+    this.setState({
+      ...current,
+      correctionIntent: null,
+      timeReviewBusy: false,
+      timeWindow: { fromInclusive, toExclusive },
+      sections: { ...current.sections, timeRecords: { status: 'loading' } },
+      notice: null,
+    });
+    const result = await this.loadSection(
+      'timeRecords',
+      membershipId,
+      { fromInclusive, toExclusive },
+    );
+    if (
+      generation !== this.generation
+      || refreshEpoch !== this.refreshEpoch
+      || sectionEpoch !== this.sectionEpochs.timeRecords
+    ) return;
+    if (result === null || result.status === 'rejected') {
+      await this.rejectOutsideAuthentication(
+        generation,
+        'Ihre Sitzung ist abgelaufen. Melden Sie sich erneut an, um weiterzuarbeiten.',
+      );
+      return;
+    }
+    const latest = this.state;
+    if (latest.status !== 'ready') return;
+    if (result.status !== 'succeeded') {
+      this.setState({
+        ...latest,
+        timeRecords: previousRecords,
+        timeRecordsNextCursor: previousCursor,
+        sections: {
+          ...latest.sections,
+          timeRecords: {
+            status: 'unavailable',
+            message: 'Die Arbeitszeiten konnten nicht abgerufen werden. Der Dienst ist derzeit nicht erreichbar. Laden Sie den Bereich erneut.',
+          },
+        },
+      });
+      return;
+    }
+    this.setState(applySectionResult(latest, 'timeRecords', result.value));
   }
 
   async retrySection(section: AdminSection): Promise<void> {
@@ -201,7 +272,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
       || sectionEpoch !== this.sectionEpochs[section]
     ) return;
     if (result === null || result.status === 'rejected') {
-      await this.rejectOutsideAuthentication(generation, 'Administrator-Sitzung ist nicht mehr gültig.');
+      await this.rejectOutsideAuthentication(generation, 'Ihre Sitzung ist abgelaufen. Melden Sie sich erneut an, um weiterzuarbeiten.');
       return;
     }
     const latest = this.state;
@@ -272,13 +343,13 @@ export class AdminWebCoordinator implements AdminWebCapability {
             ...latest.sections,
             setup: {
               status: 'unavailable',
-              message: 'Weitere Einrichtungsdaten konnten nicht sicher bestätigt werden.',
+              message: 'Weitere Einrichtungsdaten konnten nicht übernommen werden. Die Reihenfolge der geladenen Seiten ist widersprüchlich. Laden Sie den Bereich erneut.',
             },
           },
         });
       }
     } else if (result === null || result.status === 'rejected') {
-      await this.rejectOutsideAuthentication(generation, 'Administrator-Sitzung ist nicht mehr gültig.');
+      await this.rejectOutsideAuthentication(generation, 'Ihre Sitzung ist abgelaufen. Melden Sie sich erneut an, um weiterzuarbeiten.');
     } else {
       this.setState({
         ...latest,
@@ -286,7 +357,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
           ...latest.sections,
           setup: {
             status: 'unavailable',
-            message: 'Weitere Einrichtungsdaten sind derzeit nicht erreichbar.',
+            message: 'Weitere Einrichtungsdaten konnten nicht abgerufen werden. Der Dienst ist derzeit nicht erreichbar. Laden Sie den Bereich erneut.',
           },
         },
       });
@@ -299,7 +370,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
     if (current.status !== 'ready' || membershipId === null || displayName.trim().length < 1 || Array.from(displayName.normalize('NFC').trim()).length > 120) return;
     const generation = this.generation;
     const requestRefreshEpoch = this.refreshEpoch;
-    this.setState({ ...current, creating: true, notice: null });
+    this.setState({ ...current, creating: true, notice: null, completedAction: null });
     let result;
     try {
       result = await this.auth.withAccessToken((token) => this.api.createCustomer(token, membershipId, crypto.randomUUID(), displayName));
@@ -319,16 +390,20 @@ export class AdminWebCoordinator implements AdminWebCapability {
         || followupRefreshEpoch !== this.refreshEpoch
       ) return;
       const next = this.state;
-      if (next.status === 'ready') this.setState({ ...next, notice: 'Kunde wurde sicher angelegt.' });
+      if (next.status === 'ready') this.setState({
+        ...next,
+        notice: 'Kunde wurde sicher angelegt.',
+        completedAction: 'customer_created',
+      });
     } else if (result === null || result.status === 'rejected') {
-      await this.rejectOutsideAuthentication(generation, 'Administrator-Sitzung ist nicht mehr gültig.');
+      await this.rejectOutsideAuthentication(generation, 'Ihre Sitzung ist abgelaufen. Melden Sie sich erneut an, um weiterzuarbeiten.');
     } else {
       const latest = this.state;
       if (latest.status === 'ready') {
         this.setState({
           ...latest,
           creating: false,
-          notice: 'Kunde konnte nicht bestätigt angelegt werden.',
+          notice: 'Der Kunde konnte nicht angelegt werden. Der Server hat das Anlegen nicht bestätigt. Der eingegebene Name bleibt erhalten; versuchen Sie es erneut.',
         });
       }
     }
@@ -367,13 +442,13 @@ export class AdminWebCoordinator implements AdminWebCapability {
     } else if (result === null || result.status === 'rejected') {
       await this.rejectOutsideAuthentication(
         generation,
-        'Administrator-Sitzung ist nicht mehr gültig.',
+        'Ihre Sitzung ist abgelaufen. Melden Sie sich erneut an, um weiterzuarbeiten.',
       );
     } else {
       this.setState({
         ...latest,
         projectBusy: false,
-        notice: 'Projekte sind derzeit nicht erreichbar.',
+        notice: 'Die Projekte konnten nicht abgerufen werden. Der Dienst ist derzeit nicht erreichbar. Versuchen Sie es erneut.',
       });
     }
   }
@@ -415,7 +490,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
         ? {
             ...latest,
             projectBusy: false,
-            notice: 'Projektseite konnte nicht sicher fortgesetzt werden.',
+            notice: 'Weitere Projekte konnten nicht übernommen werden. Die Reihenfolge der geladenen Seiten ist widersprüchlich. Laden Sie die Projekte erneut.',
           }
         : {
             ...latest,
@@ -426,13 +501,13 @@ export class AdminWebCoordinator implements AdminWebCapability {
     } else if (result === null || result.status === 'rejected') {
       await this.rejectOutsideAuthentication(
         generation,
-        'Administrator-Sitzung ist nicht mehr gültig.',
+        'Ihre Sitzung ist abgelaufen. Melden Sie sich erneut an, um weiterzuarbeiten.',
       );
     } else {
       this.setState({
         ...latest,
         projectBusy: false,
-        notice: 'Weitere Projekte sind derzeit nicht erreichbar.',
+        notice: 'Weitere Projekte konnten nicht abgerufen werden. Der Dienst ist derzeit nicht erreichbar. Versuchen Sie es erneut.',
       });
     }
   }
@@ -451,7 +526,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
     ) return;
     const generation = this.generation;
     const refreshEpoch = this.refreshEpoch;
-    this.setState({ ...current, projectBusy: true, notice: null });
+    this.setState({ ...current, projectBusy: true, notice: null, completedAction: null });
     let result;
     try {
       result = await this.auth.withAccessToken((token) => this.api.createProject!(
@@ -472,20 +547,24 @@ export class AdminWebCoordinator implements AdminWebCapability {
       await this.refreshProjects();
       const refreshed = this.state;
       if (refreshed.status === 'ready') {
-        this.setState({ ...refreshed, notice: 'Projekt wurde sicher angelegt.' });
+        this.setState({
+          ...refreshed,
+          notice: 'Projekt wurde sicher angelegt.',
+          completedAction: 'project_created',
+        });
       }
     } else if (result === null || result.status === 'rejected') {
       await this.rejectOutsideAuthentication(
         generation,
-        'Administrator-Sitzung ist nicht mehr gültig.',
+        'Ihre Sitzung ist abgelaufen. Melden Sie sich erneut an, um weiterzuarbeiten.',
       );
     } else {
       this.setState({
         ...latest,
         projectBusy: false,
         notice: result.status === 'conflict'
-          ? 'Das Projekt konnte wegen eines sicheren Konflikts nicht angelegt werden.'
-          : 'Projekt konnte nicht sicher angelegt werden.',
+          ? 'Das Projekt konnte nicht angelegt werden. Eine andere Anfrage hat denselben Vorgang bereits verändert. Laden Sie die Projekte neu und versuchen Sie es erneut.'
+          : 'Das Projekt konnte nicht angelegt werden. Der Server hat den Vorgang nicht bestätigt. Der eingegebene Name bleibt erhalten; versuchen Sie es erneut.',
       });
     }
   }
@@ -531,12 +610,12 @@ export class AdminWebCoordinator implements AdminWebCapability {
     } else if (result === null || result.status === 'rejected') {
       await this.rejectOutsideAuthentication(
         generation,
-        'Administrator-Sitzung ist nicht mehr gültig.',
+        'Ihre Sitzung ist abgelaufen. Melden Sie sich erneut an, um weiterzuarbeiten.',
       );
     } else {
       const notice = result.status === 'conflict' && result.code === 'project_in_use'
-        ? 'Das Projekt hat eine laufende Arbeitszeit und kann nicht deaktiviert werden.'
-        : 'Projektstatus hat sich geändert; bitte Projekte neu laden.';
+        ? 'Das Projekt konnte nicht deaktiviert werden. Darauf läuft noch eine Arbeitszeit. Beenden Sie diese Arbeitszeit und versuchen Sie es erneut.'
+        : 'Das Projekt konnte nicht deaktiviert werden. Sein Status wurde zwischenzeitlich geändert. Laden Sie die Projekte neu und versuchen Sie es erneut.';
       this.setState({ ...latest, projectBusy: false, notice });
     }
   }
@@ -599,13 +678,13 @@ export class AdminWebCoordinator implements AdminWebCapability {
             ...latest.sections,
             employees: {
               status: 'unavailable',
-              message: 'Weitere Beschäftigtendaten konnten nicht sicher bestätigt werden.',
+              message: 'Weitere Beschäftigte konnten nicht übernommen werden. Die Reihenfolge der geladenen Seiten ist widersprüchlich. Laden Sie den Bereich erneut.',
             },
           },
         });
       }
     } else if (result === null || result.status === 'rejected') {
-      await this.rejectOutsideAuthentication(generation, 'Administrator-Sitzung ist nicht mehr gültig.');
+      await this.rejectOutsideAuthentication(generation, 'Ihre Sitzung ist abgelaufen. Melden Sie sich erneut an, um weiterzuarbeiten.');
     } else {
       this.setState({
         ...latest,
@@ -613,7 +692,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
           ...latest.sections,
           employees: {
             status: 'unavailable',
-            message: 'Weitere Beschäftigtendaten sind derzeit nicht erreichbar.',
+            message: 'Weitere Beschäftigte konnten nicht abgerufen werden. Der Dienst ist derzeit nicht erreichbar. Laden Sie den Bereich erneut.',
           },
         },
       });
@@ -640,6 +719,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
       creatingEmployee: true,
       invitation: null,
       notice: null,
+      completedAction: null,
     });
     const disclosureEpoch = this.invitationDisclosureEpoch;
     let result;
@@ -667,22 +747,23 @@ export class AdminWebCoordinator implements AdminWebCapability {
         creatingEmployee: false,
         invitation: result.value,
         notice: 'Einladung wurde einmalig erzeugt.',
+        completedAction: 'invitation_created',
       });
     } else if (result === null || result.status === 'rejected') {
-      await this.rejectOutsideAuthentication(generation, 'Administrator-Sitzung ist nicht mehr gültig.');
+      await this.rejectOutsideAuthentication(generation, 'Ihre Sitzung ist abgelaufen. Melden Sie sich erneut an, um weiterzuarbeiten.');
     } else if (result.status === 'conflict') {
       const notice = result.code === 'invitation_limit_reached'
-        ? 'Es sind bereits fünf aktive Einladungen vorhanden.'
+        ? 'Die Einladung konnte nicht erzeugt werden. Es sind bereits fünf aktive Einladungen vorhanden. Verwerfen Sie eine nicht mehr benötigte Einladung und versuchen Sie es erneut.'
         : result.code === 'invitation_created_token_unavailable'
-          ? 'Diese Einladung wurde bereits erzeugt; ihr Geheimnis kann nicht erneut angezeigt werden.'
-          : 'Die Einladungsanfrage steht mit einer vorhandenen Anfrage in Konflikt.';
+          ? 'Die Einladung wurde bereits erzeugt. Ihr Geheimnis kann aus Sicherheitsgründen nicht erneut angezeigt werden. Erzeugen Sie bei Bedarf eine neue Einladung.'
+          : 'Die Einladung konnte nicht erzeugt werden. Eine andere Anfrage hat denselben Vorgang bereits verändert. Laden Sie die Beschäftigten neu und versuchen Sie es erneut.';
       this.setState({ ...latest, creatingEmployee: false, invitation: null, notice });
     } else {
       this.setState({
         ...latest,
         creatingEmployee: false,
         invitation: null,
-        notice: 'Einladung konnte nicht sicher erzeugt werden.',
+        notice: 'Die Einladung konnte nicht erzeugt werden. Der Server hat den Vorgang nicht bestätigt. Der eingegebene Name bleibt erhalten; versuchen Sie es erneut.',
       });
     }
   }
@@ -733,7 +814,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
     }
     if (generation !== this.generation || refreshEpoch !== this.refreshEpoch) return;
     if (result === null || result.status === 'rejected') {
-      await this.rejectOutsideAuthentication(generation, 'Administrator-Sitzung ist nicht mehr gültig.');
+      await this.rejectOutsideAuthentication(generation, 'Ihre Sitzung ist abgelaufen. Melden Sie sich erneut an, um weiterzuarbeiten.');
       return;
     }
     if (result.status === 'succeeded') {
@@ -751,17 +832,17 @@ export class AdminWebCoordinator implements AdminWebCapability {
     if (latest.status !== 'ready') return;
     if (result.status === 'conflict') {
       const notice = result.code === 'last_administrator'
-        ? 'Der letzte aktive Administrator kann nicht entfernt oder herabgestuft werden.'
+        ? 'Die Rolle oder der Zugang konnte nicht geändert werden. Der Betrieb braucht mindestens einen aktiven Administrator. Ernennen Sie zuerst einen weiteren Administrator.'
         : result.code === 'self_revocation_forbidden'
-          ? 'Der eigene Zugang kann hier nicht entzogen werden.'
+          ? 'Der eigene Zugang konnte nicht entzogen werden. Damit Sie sich nicht selbst aussperren, ist dieser Vorgang gesperrt. Lassen Sie den Zugang von einem anderen Administrator entziehen.'
           : result.code === 'stale_row_version'
-            ? 'Die Mitgliedschaft wurde zwischenzeitlich geändert. Bitte aktualisieren.'
+            ? 'Die Beschäftigtenzuordnung konnte nicht geändert werden. Sie wurde zwischenzeitlich aktualisiert. Laden Sie den Bereich neu und versuchen Sie es erneut.'
             : result.code === 'target_unavailable'
-              ? 'Die Mitgliedschaft ist nicht mehr verfügbar.'
-              : 'Die Änderung steht mit einer vorhandenen Anfrage in Konflikt.';
+              ? 'Die Beschäftigtenzuordnung konnte nicht geändert werden. Sie ist nicht mehr verfügbar. Laden Sie den Bereich neu.'
+              : 'Die Beschäftigtenzuordnung konnte nicht geändert werden. Eine andere Anfrage betrifft denselben Vorgang. Laden Sie den Bereich neu und versuchen Sie es erneut.';
       this.setState({ ...latest, notice });
     } else {
-      this.setState({ ...latest, notice: 'Mitgliedschaft konnte nicht sicher geändert werden.' });
+      this.setState({ ...latest, notice: 'Die Beschäftigtenzuordnung konnte nicht geändert werden. Der Server hat den Vorgang nicht bestätigt. Laden Sie den Bereich neu und versuchen Sie es erneut.' });
     }
   }
 
@@ -797,7 +878,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
       this.setState({
         ...current,
         reassignmentIntent: null,
-        notice: 'Die gewünschte Zuordnung ist nicht sicher verfügbar.',
+        notice: 'Die Zuordnung kann nicht vorbereitet werden. Der NFC-Tag oder das Arbeitsziel ist nicht mehr verfügbar. Laden Sie die Einrichtung neu und wählen Sie erneut.',
       });
       return;
     }
@@ -876,7 +957,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
       return;
     }
     if (result === null || result.status === 'rejected') {
-      await this.rejectOutsideAuthentication(generation, 'Administrator-Sitzung ist nicht mehr gültig.');
+      await this.rejectOutsideAuthentication(generation, 'Ihre Sitzung ist abgelaufen. Melden Sie sich erneut an, um weiterzuarbeiten.');
       return;
     }
     if (result.status === 'conflict' && result.code !== 'assignment_in_use') {
@@ -890,10 +971,10 @@ export class AdminWebCoordinator implements AdminWebCapability {
       const refreshed = this.state;
       if (refreshed.status === 'ready') {
         const notice = result.code === 'assignment_target_unavailable'
-          ? 'Der Zielkunde ist nicht mehr aktiv verfügbar.'
+          ? 'Der NFC-Tag konnte nicht neu zugeordnet werden. Der gewählte Kunde ist nicht mehr aktiv. Wählen Sie einen anderen aktiven Kunden.'
           : result.code === 'assignment_conflict'
-            ? 'Die Zuordnung wurde zwischenzeitlich geändert. Daten wurden neu geladen.'
-            : 'Die Änderungsanfrage steht mit einer vorhandenen Anfrage in Konflikt.';
+            ? 'Der NFC-Tag konnte nicht neu zugeordnet werden. Die Zuordnung wurde zwischenzeitlich geändert. Prüfen Sie die neu geladenen Daten und versuchen Sie es erneut.'
+            : 'Der NFC-Tag konnte nicht neu zugeordnet werden. Eine andere Anfrage betrifft denselben Vorgang. Laden Sie die Einrichtung neu und versuchen Sie es erneut.';
         this.setState({ ...refreshed, notice });
       }
       return;
@@ -902,8 +983,8 @@ export class AdminWebCoordinator implements AdminWebCapability {
       ...latest,
       reassigning: false,
       notice: result.status === 'conflict'
-        ? 'Für diese Zuordnung läuft noch eine Arbeitszeit. Bitte zuerst stoppen und dann erneut bestätigen.'
-        : 'Zuordnung konnte nicht sicher bestätigt werden. Erneut bestätigen verwendet dieselbe Anfrage.',
+        ? 'Der NFC-Tag konnte nicht neu zugeordnet werden. Für das bisherige Arbeitsziel läuft noch eine Arbeitszeit. Beenden Sie diese Arbeitszeit und versuchen Sie es erneut.'
+        : 'Der NFC-Tag konnte nicht neu zugeordnet werden. Der Server hat den Vorgang nicht bestätigt. Versuchen Sie es erneut; dieselbe Anfrage wird sicher weiterverwendet.',
     });
   }
 
@@ -921,7 +1002,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
       || !isClosedInterval(startedAt, stoppedAt, this.now()) || !isValidTimeReviewReason(reason)
       || (record.startedAt === startedAt && record.stoppedAt === stoppedAt)
     ) {
-      this.setState({ ...current, correctionIntent: null, notice: 'Die Korrekturangaben sind nicht sicher verwendbar.' });
+      this.setState({ ...current, correctionIntent: null, notice: 'Die Korrektur kann nicht vorbereitet werden. Arbeitszeit, Zeitraum oder Begründung sind nicht mehr verwendbar. Prüfen Sie die erhaltenen Eingaben und versuchen Sie es erneut.' });
       return;
     }
     this.setState({
@@ -975,10 +1056,10 @@ export class AdminWebCoordinator implements AdminWebCapability {
         && followupRefreshEpoch === this.refreshEpoch
         && this.state.status === 'ready'
       ) {
-        this.setState({ ...this.state, notice: 'Arbeitszeit wurde append-only korrigiert.' });
+        this.setState({ ...this.state, notice: 'Die Arbeitszeit wurde korrigiert. Die ursprüngliche Fassung bleibt lückenlos erhalten.' });
       }
     } else if (result === null || result.status === 'rejected') {
-      await this.rejectOutsideAuthentication(generation, 'Administrator-Sitzung ist nicht mehr gültig.');
+      await this.rejectOutsideAuthentication(generation, 'Ihre Sitzung ist abgelaufen. Melden Sie sich erneut an, um weiterzuarbeiten.');
     } else if (result.status === 'conflict') {
       const refresh = this.refresh();
       const followupRefreshEpoch = this.refreshEpoch;
@@ -993,7 +1074,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
     } else {
       this.setState({
         ...latest, timeReviewBusy: false,
-        notice: 'Korrektur konnte nicht sicher bestätigt werden. Erneut bestätigen verwendet dieselbe Anfrage.',
+        notice: 'Die Korrektur konnte nicht gespeichert werden. Der Server hat den Vorgang nicht bestätigt. Bestätigen Sie erneut; dieselbe Anfrage wird sicher weiterverwendet.',
       });
     }
   }
@@ -1023,7 +1104,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
       && (record.startedAt !== startedAt || record.stoppedAt !== stoppedAt);
     if (reviewItem === undefined || !isValidTimeReviewReason(reason)
       || (!noChangeIsValid && !recoveredIsValid && !adjustmentIsValid)) {
-      this.setState({ ...current, adjudicationIntent: null, notice: 'Die Review-Entscheidung ist nicht sicher verwendbar.' });
+      this.setState({ ...current, adjudicationIntent: null, notice: 'Die Prüfentscheidung kann nicht vorbereitet werden. Prüffall, Zeitraum oder Begründung sind nicht mehr verwendbar. Prüfen Sie die erhaltenen Eingaben und versuchen Sie es erneut.' });
       return;
     }
     this.setState({
@@ -1042,7 +1123,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
   cancelAdjudication(): void {
     const current = this.state;
     if (current.status !== 'ready' || current.adjudicationIntent === null || current.timeReviewBusy) return;
-    this.setState({ ...current, adjudicationIntent: null, notice: 'Review-Entscheidung wurde verworfen.' });
+    this.setState({ ...current, adjudicationIntent: null, notice: 'Die Prüfentscheidung wurde verworfen.' });
   }
 
   async confirmAdjudication(): Promise<void> {
@@ -1080,10 +1161,10 @@ export class AdminWebCoordinator implements AdminWebCapability {
         && followupRefreshEpoch === this.refreshEpoch
         && this.state.status === 'ready'
       ) {
-        this.setState({ ...this.state, notice: 'Review-Entscheidung wurde append-only protokolliert.' });
+        this.setState({ ...this.state, notice: 'Die Prüfentscheidung wurde lückenlos protokolliert.' });
       }
     } else if (result === null || result.status === 'rejected') {
-      await this.rejectOutsideAuthentication(generation, 'Administrator-Sitzung ist nicht mehr gültig.');
+      await this.rejectOutsideAuthentication(generation, 'Ihre Sitzung ist abgelaufen. Melden Sie sich erneut an, um weiterzuarbeiten.');
     } else if (result.status === 'conflict') {
       const refresh = this.refresh();
       const followupRefreshEpoch = this.refreshEpoch;
@@ -1098,7 +1179,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
     } else {
       this.setState({
         ...latest, timeReviewBusy: false,
-        notice: 'Review-Entscheidung konnte nicht sicher bestätigt werden. Erneut bestätigen verwendet dieselbe Anfrage.',
+        notice: 'Die Prüfentscheidung konnte nicht gespeichert werden. Der Server hat den Vorgang nicht bestätigt. Bestätigen Sie erneut; dieselbe Anfrage wird sicher weiterverwendet.',
       });
     }
   }
@@ -1141,14 +1222,14 @@ export class AdminWebCoordinator implements AdminWebCapability {
         anchor.rel = 'noopener';
         anchor.click();
         URL.revokeObjectURL(href);
-        this.setState({ ...latest, timeReviewBusy: false, notice: 'CSV-Export wurde erzeugt.' });
+        this.setState({ ...latest, timeReviewBusy: false, notice: 'Die CSV-Datei wurde erstellt und heruntergeladen.' });
       } catch {
-        this.setState({ ...latest, timeReviewBusy: false, notice: 'CSV-Export konnte nicht sicher bereitgestellt werden.' });
+        this.setState({ ...latest, timeReviewBusy: false, notice: 'Die CSV-Datei konnte nicht bereitgestellt werden. Die Serverantwort war unvollständig. Versuchen Sie den Download erneut.' });
       }
     } else if (result === null || result.status === 'rejected') {
-      await this.rejectOutsideAuthentication(generation, 'Administrator-Sitzung ist nicht mehr gültig.');
+      await this.rejectOutsideAuthentication(generation, 'Ihre Sitzung ist abgelaufen. Melden Sie sich erneut an, um weiterzuarbeiten.');
     } else {
-      this.setState({ ...latest, timeReviewBusy: false, notice: 'CSV-Export ist derzeit nicht verfügbar.' });
+      this.setState({ ...latest, timeReviewBusy: false, notice: 'Die CSV-Datei konnte nicht heruntergeladen werden. Der Dienst ist derzeit nicht erreichbar. Versuchen Sie es später erneut.' });
     }
   }
 
@@ -1190,7 +1271,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
       || sectionEpoch !== this.sectionEpochs[section]
     ) return;
     if (result === null || result.status === 'rejected') {
-      await this.rejectOutsideAuthentication(generation, 'Administrator-Sitzung ist nicht mehr gültig.');
+      await this.rejectOutsideAuthentication(generation, 'Ihre Sitzung ist abgelaufen. Melden Sie sich erneut an, um weiterzuarbeiten.');
       return;
     }
     const latest = this.state;
@@ -1218,7 +1299,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
           ...latest.sections,
           [section]: {
             status: 'unavailable',
-            message: 'Die nächste Seite konnte nicht in bestätigter Reihenfolge übernommen werden.',
+            message: 'Weitere Daten konnten nicht übernommen werden. Die Reihenfolge der geladenen Seiten ist widersprüchlich. Laden Sie den Bereich erneut.',
           },
         },
       });
@@ -1241,8 +1322,11 @@ export class AdminWebCoordinator implements AdminWebCapability {
     }
   }
 
-  private async loadReadyData(membershipId: string): Promise<ReadyDataResult> {
-    const timeWindow = boundedTimeWindow(this.now());
+  private async loadReadyData(
+    membershipId: string,
+    requestedTimeWindow?: { readonly fromInclusive: string; readonly toExclusive: string },
+  ): Promise<ReadyDataResult> {
+    const timeWindow = requestedTimeWindow ?? boundedTimeWindow(this.now());
     const [projection, employees, records, reviewItems] = await Promise.all([
       this.safeSectionRead(
         () => this.auth.withAccessToken((token) => this.api.projection(token, membershipId, null)),
@@ -1330,18 +1414,21 @@ export class AdminWebCoordinator implements AdminWebCapability {
     try {
       if (!await this.auth.signIn(email, password)) {
         await this.safeSignOut();
-        if (generation === this.generation) this.setState({ status: 'signed_out' });
+        if (generation === this.generation) this.setState({
+          status: 'signed_out',
+          notice: 'Die Anmeldung war nicht erfolgreich. E-Mail-Adresse oder Passwort stimmen nicht. Prüfen Sie die Eingaben und versuchen Sie es erneut.',
+        });
         return;
       }
       if (generation !== this.generation) { await this.safeSignOut(); return; }
       const session = await this.auth.withAccessToken((token) => this.api.session(token));
       if (generation !== this.generation) { await this.safeSignOut(); return; }
       if (session?.status !== 'succeeded') {
-        await this.rejectWithinAuthentication(generation, 'Sitzung konnte nicht sicher bestätigt werden.');
+        await this.rejectWithinAuthentication(generation, 'Die Anmeldung konnte nicht abgeschlossen werden. Die Sitzung wurde vom Server nicht bestätigt. Melden Sie sich erneut an.');
         return;
       }
       if (session.value.role !== 'administrator') {
-        await this.rejectWithinAuthentication(generation, 'Diese Oberfläche ist nur für Administratoren verfügbar.', true);
+        await this.rejectWithinAuthentication(generation, 'Der Zugang wurde abgewiesen. Diese Verwaltung ist nur für Administratoren verfügbar. Melden Sie sich mit einem Administrator-Zugang an.', true);
         return;
       }
       this.membershipId = session.value.membershipId;
@@ -1349,7 +1436,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
       const projection = await this.loadReadyData(session.value.membershipId);
       if (generation !== this.generation) { await this.safeSignOut(); return; }
       if (projection.status === 'rejected') {
-        await this.rejectWithinAuthentication(generation, 'Administrator-Sitzung ist nicht mehr gültig.');
+        await this.rejectWithinAuthentication(generation, 'Ihre Sitzung ist abgelaufen. Melden Sie sich erneut an, um weiterzuarbeiten.');
       } else if (
         projection.projection.status === 'succeeded'
         || projection.employeeProjection.status === 'succeeded'
@@ -1392,13 +1479,13 @@ export class AdminWebCoordinator implements AdminWebCapability {
           },
         ));
       } else {
-        this.setState({ status: 'unavailable', message: 'Einrichtungsdaten sind derzeit nicht erreichbar.' });
+        this.setState({ status: 'unavailable', message: 'Die Verwaltung konnte nicht geöffnet werden. Die Betriebsdaten sind derzeit nicht erreichbar. Melden Sie sich erneut an oder versuchen Sie es später.' });
       }
     } catch {
       await this.safeSignOut();
       if (generation === this.generation) {
         this.membershipId = null;
-        this.setState({ status: 'unavailable', message: 'Anmeldung derzeit nicht verfügbar.' });
+        this.setState({ status: 'unavailable', message: 'Die Anmeldung konnte nicht abgeschlossen werden. Der Anmeldedienst ist derzeit nicht erreichbar. Versuchen Sie es später erneut.' });
       }
     }
   }
@@ -1455,7 +1542,11 @@ export class AdminWebCoordinator implements AdminWebCapability {
       const invitation = state.invitation;
       const remaining = Date.parse(invitation.expiresAt) - Date.now();
       if (remaining <= 0) {
-        this.state = Object.freeze({ ...state, invitation: null, notice: 'Einladung ist abgelaufen.' });
+        this.state = Object.freeze({
+          ...state,
+          invitation: null,
+          notice: 'Die Einladung kann nicht mehr verwendet werden. Ihre Gültigkeitsdauer ist abgelaufen. Erzeugen Sie eine neue Einladung.',
+        });
       } else {
         this.invitationExpiryTimer = setTimeout(() => {
           const current = this.state;
@@ -1464,7 +1555,11 @@ export class AdminWebCoordinator implements AdminWebCapability {
             && current.status === 'ready'
             && current.invitation?.value === invitation.value
           ) {
-            this.setState({ ...current, invitation: null, notice: 'Einladung ist abgelaufen.' });
+            this.setState({
+              ...current,
+              invitation: null,
+              notice: 'Die Einladung kann nicht mehr verwendet werden. Ihre Gültigkeitsdauer ist abgelaufen. Erzeugen Sie eine neue Einladung.',
+            });
           }
         }, Math.min(remaining, 2_147_483_647));
       }
@@ -1514,6 +1609,7 @@ function readyState(
     correctionIntent: null,
     adjudicationIntent: null,
     notice: null,
+    completedAction: null,
   };
 }
 
@@ -1584,7 +1680,7 @@ function mergeRefreshResult(
       ...current,
       sections: allSections({
         status: 'unavailable',
-        message: 'Die Administrationsbereiche widersprechen sich und wurden nicht übernommen.',
+        message: 'Die Verwaltungsbereiche konnten nicht übernommen werden. Die Betriebszuordnung der Antworten widerspricht sich. Melden Sie sich ab und erneut an.',
       }),
     };
   }
@@ -1635,10 +1731,16 @@ function sectionStatus(
 }
 
 function sectionUnavailableMessage(section: AdminSection): string {
-  if (section === 'setup') return 'Einrichtungsdaten sind derzeit nicht erreichbar.';
-  if (section === 'employees') return 'Beschäftigtendaten sind derzeit nicht erreichbar.';
-  if (section === 'timeRecords') return 'Arbeitszeiten sind derzeit nicht erreichbar.';
-  return 'Review-Evidence ist derzeit nicht erreichbar.';
+  if (section === 'setup') {
+    return 'Die Einrichtung konnte nicht abgerufen werden. Der Dienst ist derzeit nicht erreichbar. Laden Sie den Bereich erneut.';
+  }
+  if (section === 'employees') {
+    return 'Die Beschäftigten konnten nicht abgerufen werden. Der Dienst ist derzeit nicht erreichbar. Laden Sie den Bereich erneut.';
+  }
+  if (section === 'timeRecords') {
+    return 'Die Arbeitszeiten konnten nicht abgerufen werden. Der Dienst ist derzeit nicht erreichbar. Laden Sie den Bereich erneut.';
+  }
+  return 'Die offenen Prüfungen konnten nicht abgerufen werden. Der Dienst ist derzeit nicht erreichbar. Laden Sie den Bereich erneut.';
 }
 
 function applySectionResult(
@@ -1655,7 +1757,7 @@ function applySectionResult(
           ...current.sections,
           setup: {
             status: 'unavailable',
-            message: 'Einrichtungsdaten gehören nicht zur bestätigten Organisation.',
+            message: 'Die Einrichtung konnte nicht übernommen werden. Die Daten gehören nicht zum angemeldeten Betrieb. Melden Sie sich ab und erneut an.',
           },
         },
       };
@@ -1675,7 +1777,7 @@ function applySectionResult(
           ...current.sections,
           employees: {
             status: 'unavailable',
-            message: 'Beschäftigtendaten gehören nicht zur bestätigten Organisation.',
+            message: 'Die Beschäftigten konnten nicht übernommen werden. Die Daten gehören nicht zum angemeldeten Betrieb. Melden Sie sich ab und erneut an.',
           },
         },
       };
@@ -1770,6 +1872,18 @@ function boundedTimeWindow(now: number): { readonly fromInclusive: string; reado
   });
 }
 
+function isBoundedTimeWindow(fromInclusive: string, toExclusive: string): boolean {
+  const from = Date.parse(fromInclusive);
+  const to = Date.parse(toExclusive);
+  const maximumRangeMilliseconds = 31 * 24 * 60 * 60 * 1_000;
+  return Number.isFinite(from)
+    && Number.isFinite(to)
+    && new Date(from).toISOString() === fromInclusive
+    && new Date(to).toISOString() === toExclusive
+    && from < to
+    && to - from <= maximumRangeMilliseconds;
+}
+
 function isClosedInterval(startedAt: string, stoppedAt: string, now: number): boolean {
   const canonical = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
   if (!canonical.test(startedAt) || !canonical.test(stoppedAt)) return false;
@@ -1801,13 +1915,21 @@ function buildResolution(intent: ReviewAdjudicationIntent): object | null {
 }
 
 function correctionConflictNotice(code: string): string {
-  if (code === 'not_adjustable') return 'Nur abgeschlossene Arbeitszeiten können korrigiert werden.';
-  if (code === 'command_id_conflict') return 'Die Command-ID gehört bereits zu einer anderen Anfrage.';
-  return 'Die Arbeitszeit wurde zwischenzeitlich verändert. Daten wurden sicher neu geladen.';
+  if (code === 'not_adjustable') {
+    return 'Die Korrektur konnte nicht gespeichert werden. Nur abgeschlossene Arbeitszeiten können korrigiert werden. Wählen Sie eine abgeschlossene Arbeitszeit.';
+  }
+  if (code === 'command_id_conflict') {
+    return 'Die Korrektur konnte nicht gespeichert werden. Die Anfrage wurde bereits für einen anderen Vorgang verwendet. Laden Sie die Arbeitszeiten neu und versuchen Sie es erneut.';
+  }
+  return 'Die Korrektur konnte nicht gespeichert werden. Die Arbeitszeit wurde zwischenzeitlich verändert. Prüfen Sie die neu geladenen Daten und versuchen Sie es erneut.';
 }
 
 function adjudicationConflictNotice(code: string): string {
-  if (code === 'invalid_evidence') return 'Die ausgewählte Review-Evidence kann nicht gemeinsam entschieden werden.';
-  if (code === 'command_id_conflict') return 'Die Command-ID gehört bereits zu einer anderen Anfrage.';
-  return 'Der Review-Stand wurde zwischenzeitlich verändert. Daten wurden sicher neu geladen.';
+  if (code === 'invalid_evidence') {
+    return 'Die Prüfentscheidung konnte nicht gespeichert werden. Die ausgewählten Prüffälle lassen sich nicht gemeinsam entscheiden. Entscheiden Sie die Prüffälle einzeln.';
+  }
+  if (code === 'command_id_conflict') {
+    return 'Die Prüfentscheidung konnte nicht gespeichert werden. Die Anfrage wurde bereits für einen anderen Vorgang verwendet. Laden Sie die Prüfungen neu und versuchen Sie es erneut.';
+  }
+  return 'Die Prüfentscheidung konnte nicht gespeichert werden. Der Prüfstand wurde zwischenzeitlich verändert. Prüfen Sie die neu geladenen Daten und versuchen Sie es erneut.';
 }

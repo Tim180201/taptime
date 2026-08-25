@@ -34,6 +34,7 @@ const readyTimeReviewState = {
   timeReviewBusy: false,
   correctionIntent: null,
   adjudicationIntent: null,
+  completedAction: null,
 } as const;
 const stoppedRecord: SafeTimeRecord = {
   timeRecordId: '90000000-0000-4000-8000-000000000001',
@@ -163,7 +164,8 @@ describe('AdminWebCoordinator', () => {
     expect(api.recordPasswordReset).toHaveBeenCalledWith('memory-only-token');
     expect(auth.signOut).toHaveBeenCalledOnce();
     expect(coordinator.getState()).toEqual({
-      status: 'signed_out', notice: 'Passwort geändert. Bitte melde dich neu an.',
+      status: 'signed_out',
+      notice: 'Das Passwort wurde geändert. Melden Sie sich mit dem neuen Passwort an.',
     });
   });
 
@@ -177,7 +179,7 @@ describe('AdminWebCoordinator', () => {
     expect(auth.signOut).not.toHaveBeenCalled();
     expect(coordinator.getState()).toEqual({
       status: 'password_recovery', completing: false,
-      notice: 'Passwort wurde geändert, aber der Abschluss konnte nicht sicher protokolliert werden. Bitte erneut bestätigen.',
+      notice: 'Das Passwort wurde geändert, der Abschluss konnte aber nicht protokolliert werden. Die sichere Bestätigung durch den Server fehlt. Bestätigen Sie die Änderung erneut.',
     });
   });
 
@@ -190,7 +192,8 @@ describe('AdminWebCoordinator', () => {
     await coordinator.signIn('employee@example.test', 'secret');
 
     expect(coordinator.getState()).toEqual({
-      status: 'forbidden', message: 'Diese Oberfläche ist nur für Administratoren verfügbar.',
+      status: 'forbidden',
+      message: 'Der Zugang wurde abgewiesen. Diese Verwaltung ist nur für Administratoren verfügbar. Melden Sie sich mit einem Administrator-Zugang an.',
     });
     expect(auth.signOut).toHaveBeenCalledOnce();
     expect(auth.active).toBe(false);
@@ -260,6 +263,7 @@ describe('AdminWebCoordinator', () => {
       status: 'ready', projection, employeeProjection, creating: false,
       creatingEmployee: false, invitation: null, reassignmentIntent: null,
       reassigning: false, notice: 'Kunde wurde sicher angelegt.',
+      completedAction: 'customer_created',
     });
   });
 
@@ -271,7 +275,8 @@ describe('AdminWebCoordinator', () => {
     await coordinator.refresh();
 
     expect(coordinator.getState()).toEqual({
-      status: 'unavailable', message: 'Administrator-Sitzung ist nicht mehr gültig.',
+      status: 'unavailable',
+      message: 'Ihre Sitzung ist abgelaufen. Melden Sie sich erneut an, um weiterzuarbeiten.',
     });
     expect(auth.signOut).toHaveBeenCalledOnce();
     expect(auth.active).toBe(false);
@@ -285,7 +290,8 @@ describe('AdminWebCoordinator', () => {
     await coordinator.refresh();
 
     expect(coordinator.getState()).toEqual({
-      status: 'unavailable', message: 'Administrator-Sitzung ist nicht mehr gültig.',
+      status: 'unavailable',
+      message: 'Ihre Sitzung ist abgelaufen. Melden Sie sich erneut an, um weiterzuarbeiten.',
     });
     expect(auth.signOut).toHaveBeenCalledOnce();
     expect(auth.active).toBe(false);
@@ -380,7 +386,7 @@ describe('AdminWebCoordinator', () => {
       sections: {
         setup: {
           status: 'unavailable',
-          message: 'Weitere Einrichtungsdaten konnten nicht sicher bestätigt werden.',
+          message: 'Weitere Einrichtungsdaten konnten nicht übernommen werden. Die Reihenfolge der geladenen Seiten ist widersprüchlich. Laden Sie den Bereich erneut.',
         },
       },
     });
@@ -416,7 +422,7 @@ describe('AdminWebCoordinator', () => {
         sections: {
           setup: {
             status: 'unavailable',
-            message: 'Weitere Einrichtungsdaten konnten nicht sicher bestätigt werden.',
+            message: 'Weitere Einrichtungsdaten konnten nicht übernommen werden. Die Reihenfolge der geladenen Seiten ist widersprüchlich. Laden Sie den Bereich erneut.',
           },
         },
       });
@@ -443,6 +449,7 @@ describe('AdminWebCoordinator', () => {
         expiresAt: '2099-07-15T12:34:56.789Z',
       },
       creatingEmployee: false,
+      completedAction: 'invitation_created',
     });
 
     await coordinator.signOut();
@@ -467,7 +474,7 @@ describe('AdminWebCoordinator', () => {
     expect(coordinator.getState()).toMatchObject({
       status: 'ready',
       invitation: null,
-      notice: 'Diese Einladung wurde bereits erzeugt; ihr Geheimnis kann nicht erneut angezeigt werden.',
+      notice: 'Die Einladung wurde bereits erzeugt. Ihr Geheimnis kann aus Sicherheitsgründen nicht erneut angezeigt werden. Erzeugen Sie bei Bedarf eine neue Einladung.',
     });
   });
 
@@ -665,7 +672,7 @@ describe('AdminWebCoordinator', () => {
         sections: {
           employees: {
             status: 'unavailable',
-            message: 'Weitere Beschäftigtendaten konnten nicht sicher bestätigt werden.',
+            message: 'Weitere Beschäftigte konnten nicht übernommen werden. Die Reihenfolge der geladenen Seiten ist widersprüchlich. Laden Sie den Bereich erneut.',
           },
         },
       });
@@ -686,7 +693,8 @@ describe('AdminWebCoordinator', () => {
     await coordinator.signIn('administrator@example.test', 'secret');
 
     expect(coordinator.getState()).toEqual({
-      status: 'unavailable', message: 'Anmeldung derzeit nicht verfügbar.',
+      status: 'unavailable',
+      message: 'Die Anmeldung konnte nicht abgeschlossen werden. Der Anmeldedienst ist derzeit nicht erreichbar. Versuchen Sie es später erneut.',
     });
     expect(auth.active).toBe(false);
   });
@@ -736,7 +744,7 @@ describe('AdminWebCoordinator', () => {
       status: 'ready',
       reassigning: false,
       reassignmentIntent: { commandId },
-      notice: 'Zuordnung konnte nicht sicher bestätigt werden. Erneut bestätigen verwendet dieselbe Anfrage.',
+      notice: 'Der NFC-Tag konnte nicht neu zugeordnet werden. Der Server hat den Vorgang nicht bestätigt. Versuchen Sie es erneut; dieselbe Anfrage wird sicher weiterverwendet.',
     });
     await coordinator.confirmReassignment();
 
@@ -775,7 +783,7 @@ describe('AdminWebCoordinator', () => {
     expect(coordinator.getState()).toMatchObject({
       status: 'ready',
       reassignmentIntent: null,
-      notice: 'Die gewünschte Zuordnung ist nicht sicher verfügbar.',
+      notice: 'Die Zuordnung kann nicht vorbereitet werden. Der NFC-Tag oder das Arbeitsziel ist nicht mehr verfügbar. Laden Sie die Einrichtung neu und wählen Sie erneut.',
     });
     expect(api.reassignNfcTag).not.toHaveBeenCalled();
   });
@@ -809,7 +817,7 @@ describe('AdminWebCoordinator', () => {
     expect(coordinator.getState()).toMatchObject({
       status: 'ready',
       reassignmentIntent: null,
-      notice: 'Die Zuordnung wurde zwischenzeitlich geändert. Daten wurden neu geladen.',
+      notice: 'Der NFC-Tag konnte nicht neu zugeordnet werden. Die Zuordnung wurde zwischenzeitlich geändert. Prüfen Sie die neu geladenen Daten und versuchen Sie es erneut.',
     });
   });
 
@@ -852,7 +860,7 @@ describe('AdminWebCoordinator', () => {
     expect(api.correctTimeRecord.mock.calls.map((call) => call[2])).toEqual([commandId, commandId]);
     expect(coordinator.getState()).toMatchObject({
       status: 'ready', correctionIntent: null,
-      notice: 'Arbeitszeit wurde append-only korrigiert.',
+      notice: 'Die Arbeitszeit wurde korrigiert. Die ursprüngliche Fassung bleibt lückenlos erhalten.',
     });
   });
 
@@ -912,7 +920,7 @@ describe('AdminWebCoordinator', () => {
     );
     expect(coordinator.getState()).toMatchObject({
       status: 'ready', adjudicationIntent: null,
-      notice: 'Review-Entscheidung wurde append-only protokolliert.',
+      notice: 'Die Prüfentscheidung wurde lückenlos protokolliert.',
     });
   });
 
@@ -961,7 +969,7 @@ describe('AdminWebCoordinator', () => {
       sections: {
         timeRecords: {
           status: 'unavailable',
-          message: 'Die nächste Seite konnte nicht in bestätigter Reihenfolge übernommen werden.',
+          message: 'Weitere Daten konnten nicht übernommen werden. Die Reihenfolge der geladenen Seiten ist widersprüchlich. Laden Sie den Bereich erneut.',
         },
       },
     });
@@ -1013,7 +1021,7 @@ describe('AdminWebCoordinator', () => {
         timeRecords: { status: 'ready' },
         reviewItems: {
           status: 'unavailable',
-          message: 'Review-Evidence ist derzeit nicht erreichbar.',
+          message: 'Die offenen Prüfungen konnten nicht abgerufen werden. Der Dienst ist derzeit nicht erreichbar. Laden Sie den Bereich erneut.',
         },
       },
     });
@@ -1087,7 +1095,7 @@ describe('AdminWebCoordinator', () => {
         timeRecords: { status: 'ready' },
         reviewItems: {
           status: 'unavailable',
-          message: 'Review-Evidence ist derzeit nicht erreichbar.',
+          message: 'Die offenen Prüfungen konnten nicht abgerufen werden. Der Dienst ist derzeit nicht erreichbar. Laden Sie den Bereich erneut.',
         },
       },
     });
@@ -1112,10 +1120,16 @@ describe('AdminWebCoordinator', () => {
         sections: {
           setup: succeededSection === 'setup'
             ? { status: 'ready' }
-            : { status: 'unavailable', message: 'Einrichtungsdaten sind derzeit nicht erreichbar.' },
+            : {
+                status: 'unavailable',
+                message: 'Die Einrichtung konnte nicht abgerufen werden. Der Dienst ist derzeit nicht erreichbar. Laden Sie den Bereich erneut.',
+              },
           employees: succeededSection === 'employees'
             ? { status: 'ready' }
-            : { status: 'unavailable', message: 'Beschäftigtendaten sind derzeit nicht erreichbar.' },
+            : {
+                status: 'unavailable',
+                message: 'Die Beschäftigten konnten nicht abgerufen werden. Der Dienst ist derzeit nicht erreichbar. Laden Sie den Bereich erneut.',
+              },
         },
       });
     },
@@ -1260,7 +1274,7 @@ describe('AdminWebCoordinator', () => {
       sections: {
         timeRecords: {
           status: 'unavailable',
-          message: 'Arbeitszeiten sind derzeit nicht erreichbar.',
+          message: 'Die Arbeitszeiten konnten nicht abgerufen werden. Der Dienst ist derzeit nicht erreichbar. Laden Sie den Bereich erneut.',
         },
       },
     });

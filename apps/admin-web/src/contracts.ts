@@ -63,6 +63,7 @@ export interface CursorPage<Value> {
   readonly nextCursor: string | null;
 }
 export type AdminSection = 'setup' | 'employees' | 'timeRecords' | 'reviewItems';
+export type CompletedAdminAction = 'customer_created' | 'project_created' | 'invitation_created';
 export type SectionStatus =
   | { readonly status: 'ready' }
   | { readonly status: 'loading' }
@@ -113,6 +114,7 @@ export type AdminWebState =
       readonly correctionIntent: TimeCorrectionIntent | null;
       readonly adjudicationIntent: ReviewAdjudicationIntent | null;
       readonly notice: string | null;
+      readonly completedAction?: CompletedAdminAction | null;
     };
 export interface AdminWebCapability {
   getState(): AdminWebState;
@@ -123,6 +125,7 @@ export interface AdminWebCapability {
   completePasswordRecovery(password: string): Promise<void>;
   signOut(): Promise<void>;
   refresh(): Promise<void>;
+  setTimeWindow(fromInclusive: string, toExclusive: string, pinned?: boolean): Promise<void>;
   retrySection(section: AdminSection): Promise<void>;
   loadMore(): Promise<void>;
   createCustomer(displayName: string): Promise<void>;

@@ -1,5 +1,6 @@
 import {
   FormEvent,
+  type MouseEvent as ReactMouseEvent,
   type RefObject,
   useEffect,
   useRef,
@@ -13,9 +14,13 @@ import type {
 } from './contracts';
 import {
   adminViews,
-  canonicalViewHash,
-  type AdminView,
-  viewFromHash,
+  canonicalRoutePath,
+  canonicalViewPath,
+  defaultRoute,
+  monthLabel,
+  monthTimeWindow,
+  routeFromLocation,
+  type AdminRoute,
 } from './navigation';
 import {
   formatExactZonedDateTime,
@@ -25,7 +30,7 @@ import {
   type TimeZoneContext,
   toZonedLocalInput,
 } from './timeZone';
-import { Confirmation, CountTruth, Panel, SectionBoundary } from './ui';
+import { Confirmation, CountTruth, DelayedSkeleton, Panel, SectionBoundary } from './ui';
 import './styles.css';
 
 export function App({
@@ -43,32 +48,54 @@ export function App({
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const timezone = useCentralTimeZone(administration, resolveTimeZone);
-  const [view, setView] = useState<AdminView>(() => currentView());
-  const previousView = useRef(view);
+  const [route, setRoute] = useState<AdminRoute>(() => currentRoute());
+  const previousView = useRef(route.view);
+  const appliedMonth = useRef<string | null>(null);
   const mainHeading = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {
     const synchronize = () => {
-      const next = currentView();
-      if (typeof window !== 'undefined' && window.location.hash !== canonicalViewHash(next)) {
-        window.history.replaceState(null, '', canonicalViewHash(next));
+      const next = currentRoute();
+      const canonical = canonicalRoutePath(next);
+      if (`${window.location.pathname}${window.location.search}` !== canonical) {
+        window.history.replaceState(null, '', canonical);
       }
-      setView(next);
+      setRoute(next);
     };
     synchronize();
-    window.addEventListener('hashchange', synchronize);
-    return () => window.removeEventListener('hashchange', synchronize);
+    window.addEventListener('popstate', synchronize);
+    return () => window.removeEventListener('popstate', synchronize);
   }, []);
 
   useEffect(() => {
     if (
       previousView.current === 'beschaeftigte'
-      && view !== 'beschaeftigte'
+      && route.view !== 'beschaeftigte'
       && state.status === 'ready'
     ) administration.dismissInvitation();
-    previousView.current = view;
+    previousView.current = route.view;
     mainHeading.current?.focus();
-  }, [administration, view]);
+  }, [administration, route.view]);
+
+  useEffect(() => {
+    if (state.status !== 'ready') return;
+    if (route.month !== null && appliedMonth.current !== route.month) {
+      const window = monthTimeWindow(route.month);
+      if (window !== null) {
+        appliedMonth.current = route.month;
+        void administration.setTimeWindow(window.fromInclusive, window.toExclusive);
+      }
+    } else if (route.month === null && appliedMonth.current !== null) {
+      appliedMonth.current = null;
+      const window = recentTimeWindow();
+      void administration.setTimeWindow(window.fromInclusive, window.toExclusive, false);
+    }
+  }, [administration, route.month, state.status]);
+
+  const navigate = (next: AdminRoute) => {
+    window.history.pushState(null, '', canonicalRoutePath(next));
+    setRoute(next);
+  };
 
   if (state.status === 'password_recovery') {
     return <PasswordRecovery administration={administration} completing={state.completing}
@@ -79,9 +106,9 @@ export function App({
       <section className="login-card" aria-labelledby="login-title">
         <Brand />
         <h1 id="login-title">Einfach sauber eingerichtet.</h1>
-        <p>Melde dich mit deinem Administrator-Konto an.</p>
+        <p>Melden Sie sich mit Ihrem Administrator-Zugang an.</p>
         {state.status === 'signed_out' && state.notice
-          ? <p role="status">{state.notice}</p> : null}
+          ? <FeedbackBand message={state.notice} /> : null}
         <form onSubmit={(event: FormEvent) => {
           event.preventDefault();
           const passwordSnapshot = password;
@@ -94,11 +121,12 @@ export function App({
           <label htmlFor="login-password">Passwort</label>
           <input id="login-password" type="password" autoComplete="current-password" required
             value={password} onChange={(event) => setPassword(event.target.value)} />
-          <button disabled={state.status === 'signing_in'}>
+          <button disabled={state.status === 'signing_in'} aria-busy={state.status === 'signing_in'}>
             {state.status === 'signing_in' ? 'Wird geprüft …' : 'Sicher anmelden'}
           </button>
         </form>
         <button className="text-button" disabled={state.status === 'signing_in' || email.length < 3}
+          aria-busy={state.status === 'signing_in'}
           onClick={() => void administration.requestPasswordReset(email)}>
           Passwort vergessen
         </button>
@@ -106,29 +134,29 @@ export function App({
     </main>;
   }
   if (state.status === 'loading') {
-    return <main className="center" aria-busy="true">
-      <Brand />
-      <h1>Administration wird geladen …</h1>
+    return <main className="center loading-screen" aria-busy="true">
+      <DelayedSkeleton label="Verwaltung wird geladen" rows={5} />
     </main>;
   }
   if (state.status === 'forbidden' || state.status === 'unavailable') {
     return <main className="center">
       <Brand />
-      <h1>Nicht verfügbar</h1>
+      <h1>{state.status === 'forbidden' ? 'Zugang nicht möglich' : 'Verwaltung nicht erreichbar'}</h1>
       <p role="alert">{state.message}</p>
-      <button onClick={() => void administration.signOut()}>Zur Anmeldung</button>
+      <button onClick={() => void administration.signOut()}>Erneut anmelden</button>
     </main>;
   }
 
-  const activeView = adminViews.find((candidate) => candidate.slug === view)!;
+  const activeView = adminViews.find((candidate) => candidate.slug === route.view)!;
   return <div className="app-shell">
     <aside className="sidebar">
       <Brand />
       <nav aria-label="Hauptnavigation">
         <ul>{adminViews.map((item) => <li key={item.slug}>
           <a
-            href={canonicalViewHash(item.slug)}
-            aria-current={item.slug === view ? 'page' : undefined}
+            href={canonicalViewPath(item.slug)}
+            aria-current={item.slug === route.view ? 'page' : undefined}
+            onClick={(event) => navigateFromLink(event, defaultRoute(item.slug), navigate)}
           >{item.label}</a>
         </li>)}</ul>
       </nav>
@@ -140,7 +168,7 @@ export function App({
     <main className="workspace">
       <header className="workspace-header">
         <div>
-          <p className="eyebrow">ADMINISTRATION</p>
+          <p className="eyebrow">VERWALTUNG</p>
           <h1 ref={mainHeading} tabIndex={-1}>{activeView.label}</h1>
         </div>
         <div className="header-actions">
@@ -152,14 +180,17 @@ export function App({
       </header>
       <p className="timezone-declaration">
         Zeitdarstellung: {timezone.timeZone}
-        {timezone.usedUtcFallback ? ' (sicherer UTC-Fallback)' : ''}
+        {timezone.usedUtcFallback ? ' (sichere Ersatzdarstellung in UTC)' : ''}
       </p>
-      {state.notice ? <p role="status" aria-live="polite" className="notice">{state.notice}</p> : null}
-      {view === 'uebersicht' ? <Overview state={state} administration={administration} /> : null}
-      {view === 'einrichtung' ? <SetupView state={state} administration={administration} /> : null}
-      {view === 'beschaeftigte' ? <EmployeesView state={state} administration={administration} timezone={timezone} /> : null}
-      {view === 'arbeitszeiten' ? <TimeRecordsView state={state} administration={administration} timezone={timezone} /> : null}
-      {view === 'pruefungen' ? <ReviewsView state={state} administration={administration} timezone={timezone} /> : null}
+      {state.notice ? <FeedbackBand message={state.notice} /> : null}
+      {route.view === 'uebersicht'
+        ? <Overview state={state} administration={administration} navigate={navigate} /> : null}
+      {route.view === 'einrichtung' ? <SetupView state={state} administration={administration} /> : null}
+      {route.view === 'beschaeftigte' ? <EmployeesView state={state} administration={administration} timezone={timezone} /> : null}
+      {route.view === 'arbeitszeiten'
+        ? <TimeRecordsView state={state} administration={administration} timezone={timezone}
+            route={route} navigate={navigate} /> : null}
+      {route.view === 'pruefungen' ? <ReviewsView state={state} administration={administration} timezone={timezone} /> : null}
     </main>
   </div>;
 }
@@ -178,7 +209,7 @@ function PasswordRecovery({
     <section className="login-card" aria-labelledby="recovery-title">
       <Brand />
       <h1 id="recovery-title">Neues Passwort setzen</h1>
-      {notice ? <p role="alert">{notice}</p> : null}
+      {notice ? <FeedbackBand message={notice} /> : null}
       <form onSubmit={(event) => {
         event.preventDefault();
         const snapshot = password;
@@ -189,7 +220,9 @@ function PasswordRecovery({
         <input id="recovery-password" type="password" autoComplete="new-password"
           minLength={8} required value={password}
           onChange={(event) => setPassword(event.target.value)} />
-        <button disabled={completing}>{completing ? 'Wird geändert …' : 'Passwort ändern'}</button>
+        <button disabled={completing} aria-busy={completing}>
+          {completing ? 'Wird geändert …' : 'Passwort ändern'}
+        </button>
       </form>
     </section>
   </main>;
@@ -200,17 +233,51 @@ type ReadyState = Extract<ReturnType<AdminWebCapability['getState']>, { readonly
 function Overview({
   state,
   administration,
+  navigate,
 }: {
   readonly state: ReadyState;
   readonly administration: AdminWebCapability;
+  readonly navigate: (route: AdminRoute) => void;
 }) {
+  const projectRequestStarted = useRef(false);
+  useEffect(() => {
+    if (projectRequestStarted.current || state.projects !== undefined) return;
+    projectRequestStarted.current = true;
+    void administration.refreshProjects?.();
+  }, [administration, state.projects]);
   const cards: readonly [AdminSection, string, number, boolean][] = [
     ['setup', 'Kunden geladen', state.projection.customers.length, state.projection.nextCursor === null],
     ['employees', 'Beschäftigte geladen', state.employeeProjection.employeeMemberships.length, state.employeeProjection.nextCursor === null],
     ['timeRecords', 'Arbeitszeiten geladen', state.timeRecords.length, state.timeRecordsNextCursor === null],
     ['reviewItems', 'Prüfungen geladen', state.reviewItems.length, state.reviewItemsNextCursor === null],
   ];
-  return <section aria-label="Geladener Administrationsstand">
+  const sectionUnavailable = Object.values(state.sections).some(
+    (section) => section.status === 'unavailable',
+  );
+  const projectsKnown = state.projects !== undefined;
+  const newOperation = projectsKnown
+    && !sectionUnavailable
+    && state.projection.customers.length === 0
+    && state.projection.nfcTags.length === 0
+    && state.projects.length === 0
+    && state.timeRecords.length === 0
+    && state.reviewItems.length === 0;
+  if (!projectsKnown && state.projectBusy === true) {
+    return <DelayedSkeleton label="Betriebsstand wird geladen" />;
+  }
+  if (newOperation) {
+    return <section className="first-empty" aria-labelledby="first-empty-title">
+      <div className="empty-illustration" aria-hidden="true">✓</div>
+      <h2 id="first-empty-title">Ihr Betrieb ist bereit</h2>
+      <p>Legen Sie jetzt das erste Arbeitsziel an. Danach können Sie einen NFC-Tag zuordnen
+        und die erste Arbeitszeit erfassen.</p>
+      <a className="button-link" href={canonicalViewPath('einrichtung')}
+        onClick={(event) => navigateFromLink(event, defaultRoute('einrichtung'), navigate)}>
+        Erstes Arbeitsziel anlegen
+      </a>
+    </section>;
+  }
+  return <section aria-label="Geladener Verwaltungsstand">
     <div className="metric-grid">{cards.map(([section, label, count, complete]) =>
       <article className="metric-card" key={section}>
         <span>{label}</span>
@@ -227,12 +294,12 @@ function Overview({
           : null}
       </article>)}
     </div>
-    <Panel title="Sicherer Betriebsstatus" description="Geladene Daten, keine erfundenen Mandantensummen.">
+    <Panel title="Betriebsstatus" description="Geladene Daten ohne unbestätigte Gesamtsummen.">
       <dl className="status-list">
-        <dt>Organisation</dt><dd>{state.projection.organization.name}</dd>
+        <dt>Betrieb</dt><dd>{state.projection.organization.name}</dd>
         <dt>Zeitfenster</dt><dd>Fest begrenzt auf die vergangenen 31 Tage</dd>
         <dt>Sitzung</dt><dd>Nur im Arbeitsspeicher · Neuladen meldet ab</dd>
-        <dt>Export</dt><dd>Vollständiges CSV v3 für die Lohnbuchhaltung</dd>
+        <dt>CSV-Datei</dt><dd>Vollständige Fassung 3 für die Lohnbuchhaltung</dd>
       </dl>
     </Panel>
   </section>;
@@ -253,6 +320,10 @@ function SetupView({
   const tagSelect = useRef<HTMLSelectElement>(null);
   const targetSelect = useRef<HTMLSelectElement>(null);
   const sectionRetryButton = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (state.completedAction === 'customer_created') setCustomerName('');
+    if (state.completedAction === 'project_created') setProjectName('');
+  }, [state.completedAction]);
   useEffect(() => {
     void administration.refreshProjects?.();
   }, [administration]);
@@ -284,7 +355,6 @@ function SetupView({
         <form className="inline-form" onSubmit={(event) => {
           event.preventDefault();
           void administration.createCustomer(customerName);
-          setCustomerName('');
         }}>
           <label htmlFor="customer-name">Neuen Kunden anlegen</label>
           <div className="input-action">
@@ -304,17 +374,17 @@ function SetupView({
         {state.projection.customers.length === 0 && state.projection.nextCursor === null
           ? <p className="empty">Keine Kunden vorhanden.</p> : null}
       </Panel>
-      <Panel title="NFC-Tags" description="Sichere Fingerprints statt NFC-Rohdaten.">
-        <CountTruth count={state.projection.nfcTags.length} noun="Tags"
+      <Panel title="NFC-Tags" description="Sichere Prüffingerabdrücke statt NFC-Rohdaten.">
+        <CountTruth count={state.projection.nfcTags.length} noun="NFC-Tags"
           complete={state.projection.nextCursor === null} />
         <ul className="entity-list">{state.projection.nfcTags.map((tag) => <li key={tag.id}>
-          <div><span>{tag.displayName}</span><small>Prüf-Fingerprint {tag.validationFingerprint}</small></div>
+          <div><span>{tag.displayName}</span><small>Prüffingerabdruck {tag.validationFingerprint}</small></div>
           <small>{tag.targetCustomerId === null
             ? 'Nicht zugeordnet'
             : customerNameById.get(tag.targetCustomerId) ?? 'Zugeordnet'}</small>
         </li>)}</ul>
         {state.projection.nfcTags.length === 0 && state.projection.nextCursor === null
-          ? <p className="empty">Keine Tags registriert.</p> : null}
+          ? <p className="empty">Keine NFC-Tags registriert.</p> : null}
       </Panel>
       <Panel title="Projekte" description="Eigenständige Arbeitsziele ohne Kundenbeziehung.">
         <CountTruth count={state.projects?.length ?? 0} noun="Projekte"
@@ -322,7 +392,6 @@ function SetupView({
         <form className="inline-form" onSubmit={(event) => {
           event.preventDefault();
           void administration.createProject?.(projectName);
-          setProjectName('');
         }}>
           <label htmlFor="project-name">Neues Projekt anlegen</label>
           <div className="input-action">
@@ -373,7 +442,7 @@ function SetupView({
             <select ref={tagSelect} required value={tagId}
               disabled={state.reassigning || state.reassignmentIntent !== null}
               onChange={(event) => setTagId(event.target.value)}>
-              <option value="">Tag auswählen</option>
+              <option value="">NFC-Tag auswählen</option>
               {state.projection.nfcTags.filter((tag) => tag.assignmentState === 'assigned')
                 .map((tag) => <option key={tag.id} value={tag.id}>
                   {tag.displayName} · {tag.validationFingerprint}
@@ -384,7 +453,7 @@ function SetupView({
             <select ref={targetSelect} required value={targetId}
               disabled={state.reassigning || state.reassignmentIntent !== null}
               onChange={(event) => setTargetId(event.target.value)}>
-              <option value="">Ziel auswählen</option>
+              <option value="">Arbeitsziel auswählen</option>
               {state.projection.customers.filter((customer) => customer.active)
                 .map((customer) => <option key={customer.id} value={customer.id}
                   disabled={customer.id === selectedTag?.targetCustomerId}>
@@ -414,7 +483,7 @@ function SetupView({
               }}
             >
               <dl>
-                <dt>Tag</dt><dd>{intentTag.displayName} · {intentTag.validationFingerprint}</dd>
+                <dt>NFC-Tag</dt><dd>{intentTag.displayName} · {intentTag.validationFingerprint}</dd>
                 <dt>Vorher</dt><dd>{customerNameById.get(intentTag.targetCustomerId!) ?? 'Bisheriger Kunde'}</dd>
                 <dt>Nachher</dt><dd>{intentTarget.displayName}</dd>
               </dl>
@@ -440,6 +509,17 @@ function EmployeesView({
 }) {
   const [name, setName] = useState('');
   const [role, setRole] = useState<'administrator' | 'employee'>('employee');
+  const [revocationIntent, setRevocationIntent] = useState<{
+    readonly id: string;
+    readonly displayName: string;
+    readonly rowVersion: number;
+  } | null>(null);
+  const [revoking, setRevoking] = useState(false);
+  const revocationTrigger = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (state.completedAction === 'invitation_created') setName('');
+  }, [state.completedAction]);
+  useIntentFocusReturn(revocationIntent !== null, revocationTrigger);
   return <SectionBoundary state={state.sections.employees}
     onRetry={() => void administration.retrySection('employees')}>
     <Panel title="Beschäftigte" description="Aktive Beschäftigte und einmalige Einladungen.">
@@ -448,7 +528,6 @@ function EmployeesView({
       <form className="inline-form" onSubmit={(event) => {
         event.preventDefault();
         void administration.createEmployeeInvitation(name, role);
-        setName('');
       }}>
         <label htmlFor="employee-name">Einladung für</label>
         <div className="input-action">
@@ -457,7 +536,7 @@ function EmployeesView({
           <label htmlFor="employee-role">Rolle</label>
           <select id="employee-role" value={role}
             onChange={(event) => setRole(event.target.value as typeof role)}>
-            <option value="employee">Beschäftigt</option>
+            <option value="employee">Beschäftigter</option>
             <option value="administrator">Administrator</option>
           </select>
           <button disabled={state.creatingEmployee}>
@@ -476,7 +555,7 @@ function EmployeesView({
       <ul className="entity-list">{state.employeeProjection.employeeMemberships.map((membership) =>
         <li key={membership.id}><span>{membership.displayName}</span>
           <small className={`pill ${membership.active ? 'success' : ''}`}>
-            {membership.role === 'administrator' ? 'Administrator' : 'Beschäftigt'}
+            {membership.role === 'administrator' ? 'Administrator' : 'Beschäftigter'}
             {' · '}{membership.active ? 'Aktiv' : 'Zugang entzogen'}
           </small>
           {membership.active ? <div className="entity-actions">
@@ -485,15 +564,38 @@ function EmployeesView({
               membership.rowVersion,
               membership.role === 'administrator' ? 'employee' : 'administrator',
             )}>
-              {membership.role === 'administrator' ? 'Zu Beschäftigt ändern' : 'Zum Administrator machen'}
+              {membership.role === 'administrator' ? 'Rolle Beschäftigter vergeben' : 'Zum Administrator machen'}
             </button>
-            <button className="quiet" onClick={() => {
-              if (window.confirm(`Zugang für ${membership.displayName} wirklich entziehen?`)) {
-                void administration.revokeMembership(membership.id, membership.rowVersion);
-              }
+            <button className="quiet" onClick={(event) => {
+              revocationTrigger.current = event.currentTarget;
+              setRevocationIntent({
+                id: membership.id,
+                displayName: membership.displayName,
+                rowVersion: membership.rowVersion,
+              });
             }}>Zugang entziehen</button>
           </div> : null}
         </li>)}</ul>
+      {revocationIntent === null ? null : <Confirmation
+        label="Zugangsentzug ausdrücklich bestätigen"
+        title={`Zugang für ${revocationIntent.displayName} wirklich entziehen?`}
+        confirmLabel="Zugang entziehen"
+        busyLabel="Zugang wird entzogen …"
+        busy={revoking}
+        onConfirm={() => {
+          setRevoking(true);
+          void administration.revokeMembership(
+            revocationIntent.id,
+            revocationIntent.rowVersion,
+          ).finally(() => {
+            setRevoking(false);
+            setRevocationIntent(null);
+          });
+        }}
+        onCancel={() => setRevocationIntent(null)}
+      >
+        <p>Der Beschäftigte kann sich danach nicht mehr anmelden.</p>
+      </Confirmation>}
       {state.employeeProjection.employeeMemberships.length === 0
         && state.employeeProjection.nextCursor === null
         ? <p className="empty">Keine Beschäftigten vorhanden.</p> : null}
@@ -510,16 +612,23 @@ function TimeRecordsView({
   state,
   administration,
   timezone,
+  route,
+  navigate,
 }: {
   readonly state: ReadyState;
   readonly administration: AdminWebCapability;
   readonly timezone: TimeZoneContext;
+  readonly route: AdminRoute;
+  readonly navigate: (route: AdminRoute) => void;
 }) {
   const [recordId, setRecordId] = useState('');
   const [startedAt, setStartedAt] = useState('');
   const [stoppedAt, setStoppedAt] = useState('');
   const [reason, setReason] = useState('');
   const [timeError, setTimeError] = useState<string | null>(null);
+  const [month, setMonth] = useState(route.month ?? '');
+  const [statusFilter, setStatusFilter] = useState(route.status);
+  const [captureType, setCaptureType] = useState(route.captureType);
   const prepareButton = useRef<HTMLButtonElement>(null);
   const recordSelect = useRef<HTMLSelectElement>(null);
   const sectionRetryButton = useRef<HTMLButtonElement>(null);
@@ -539,33 +648,120 @@ function TimeRecordsView({
     setReason('');
     setTimeError(null);
   }, [timezone.timeZone]);
+  useEffect(() => {
+    setMonth(route.month ?? '');
+    setStatusFilter(route.status);
+    setCaptureType(route.captureType);
+  }, [route.captureType, route.month, route.status]);
   const format = (value: string) => formatZonedDateTime(value, timezone);
   const formatExact = (value: string) => formatExactZonedDateTime(value, timezone);
+  const visibleRecords = state.timeRecords.filter((record) => {
+    const statusMatches = route.status === 'alle'
+      || (route.status === 'laufend' && record.status === 'started')
+      || (route.status === 'abgeschlossen' && record.status === 'stopped');
+    const captureMatches = route.captureType === 'alle'
+      || (route.captureType === 'gescannt'
+        && (record.startedVia === 'nfc' || record.stoppedVia === 'nfc'))
+      || (route.captureType === 'manuell-erfasst'
+        && (record.startedVia === 'manual' || record.stoppedVia === 'manual'));
+    return statusMatches && captureMatches;
+  });
+  const hasFilters = route.month !== null
+    || route.status !== 'alle'
+    || route.captureType !== 'alle';
   return <SectionBoundary state={state.sections.timeRecords} retryButtonRef={sectionRetryButton}
     onRetry={() => void administration.retrySection('timeRecords')}>
     <Panel title="Arbeitszeiten"
-      description={`Fest begrenzt: ${format(state.timeWindow.fromInclusive)} bis ${format(state.timeWindow.toExclusive)}.`}>
+      description={`Zeitraum: ${format(state.timeWindow.fromInclusive)} bis ${format(state.timeWindow.toExclusive)}.`}>
+      <form className="filter-form" onSubmit={(event) => {
+        event.preventDefault();
+        navigate({
+          view: 'arbeitszeiten',
+          month: month.length === 0 ? null : month,
+          status: statusFilter,
+          captureType,
+        });
+      }}>
+        <label>Monat
+          <input type="month" value={month} min="2000-01" max="2200-12"
+            onChange={(event) => setMonth(event.target.value)} />
+        </label>
+        <label>Status
+          <select value={statusFilter}
+            onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)}>
+            <option value="alle">Alle</option>
+            <option value="laufend">Laufend</option>
+            <option value="abgeschlossen">Abgeschlossen</option>
+          </select>
+        </label>
+        <label>Erfassungsart
+          <select value={captureType}
+            onChange={(event) => setCaptureType(event.target.value as typeof captureType)}>
+            <option value="alle">Alle</option>
+            <option value="gescannt">Gescannt</option>
+            <option value="manuell-erfasst">Manuell erfasst</option>
+          </select>
+        </label>
+        <button>Filter anwenden</button>
+      </form>
+      {hasFilters ? <div className="filter-summary" aria-label="Aktive Filter">
+        <div className="filter-chips">
+          {route.month === null ? null : <span className="filter-chip">
+            Monat {monthLabel(route.month)} <strong>{visibleRecords.length}</strong>
+          </span>}
+          {route.status === 'alle' ? null : <span className="filter-chip">
+            {route.status === 'laufend' ? 'Laufend' : 'Abgeschlossen'}
+            {' '}<strong>{visibleRecords.length}</strong>
+          </span>}
+          {route.captureType === 'alle' ? null : <span className="filter-chip">
+            {route.captureType === 'gescannt' ? 'Gescannt' : 'Manuell erfasst'}
+            {' '}<strong>{visibleRecords.length}</strong>
+          </span>}
+        </div>
+        <button className="text-button" onClick={() => navigate(defaultRoute('arbeitszeiten'))}>
+          Alle zurücksetzen
+        </button>
+      </div> : null}
       <div className="toolbar">
-        <CountTruth count={state.timeRecords.length} noun="Arbeitszeiten"
+        <CountTruth count={visibleRecords.length} noun="Arbeitszeiten"
           complete={state.timeRecordsNextCursor === null} />
         <button className="secondary" disabled={state.timeReviewBusy}
-          onClick={() => void administration.exportTimeRecords()}>CSV exportieren</button>
+          aria-busy={state.timeReviewBusy}
+          onClick={() => void administration.exportTimeRecords()}>CSV herunterladen</button>
       </div>
       <div className="table-scroll" tabIndex={0} aria-label="Geladene Arbeitszeiten">
         <table>
-          <thead><tr><th>Beschäftigt</th><th>Kunde</th><th>Zeitraum</th><th>Quelle</th><th>Revision</th><th>Status</th></tr></thead>
-          <tbody>{state.timeRecords.map((record) => <tr key={record.timeRecordId}>
+          <thead><tr><th>Beschäftigte</th><th>Arbeitsziel</th><th>Zeitraum</th><th>Erfassungsart</th><th>Herkunft</th><th>Korrekturstand</th><th>Status</th></tr></thead>
+          <tbody>{visibleRecords.map((record) => <tr key={record.timeRecordId}>
             <td>{record.employeeDisplayName}</td><td>{targetLabel(record.targetType)} · {record.targetDisplayName}</td>
             <td>{format(record.startedAt)} – {record.stoppedAt === null ? 'läuft' : format(record.stoppedAt)}</td>
-            <td>{record.source === 'canonical' ? 'Kanonisch' : 'Wiederhergestellt'}</td>
+            <td>{captureLabel(record.startedVia, record.stoppedVia)}</td>
+            <td>{record.source === 'canonical' ? 'Regulär' : 'Wiederhergestellt'}</td>
             <td>{record.effectiveRevisionNumber}</td>
-            <td>{record.status === 'started' ? 'Gestartet' : 'Gestoppt'}
+            <td>{record.status === 'started' ? 'Läuft' : 'Abgeschlossen'}
               {record.overlapsAnotherRecord ? ' · Überschneidung' : ''}</td>
           </tr>)}</tbody>
         </table>
       </div>
-      {state.timeRecords.length === 0 && state.timeRecordsNextCursor === null
-        ? <p className="empty">Keine Arbeitszeiten im begrenzten Zeitraum.</p> : null}
+      {visibleRecords.length === 0 && state.timeRecordsNextCursor === null && hasFilters
+        ? <div className="empty filter-empty">
+            <strong>Keine Arbeitszeiten in dieser Auswahl</strong>
+            <p>Für den gewählten Zeitraum und die aktiven Filter wurden keine Arbeitszeiten gefunden.</p>
+            <button className="secondary" onClick={() => navigate(defaultRoute('arbeitszeiten'))}>
+              Filter zurücksetzen
+            </button>
+          </div>
+        : null}
+      {visibleRecords.length === 0 && state.timeRecordsNextCursor === null && !hasFilters
+        ? <div className="empty first-list-empty">
+            <strong>Noch keine Arbeitszeiten</strong>
+            <p>Sobald Beschäftigte ein Arbeitsziel auslösen, erscheinen ihre Arbeitszeiten hier.</p>
+            <a className="button-link secondary-link" href={canonicalViewPath('einrichtung')}
+              onClick={(event) => navigateFromLink(event, defaultRoute('einrichtung'), navigate)}>
+              Arbeitsziel einrichten
+            </a>
+          </div>
+        : null}
       {state.timeRecordsNextCursor === null ? null
         : <button className="secondary load-more"
             onClick={() => void administration.loadMoreTimeRecords()}>
@@ -573,13 +769,13 @@ function TimeRecordsView({
           </button>}
     </Panel>
     <Panel title="Abgeschlossene Arbeitszeit korrigieren"
-      description={`Eingaben werden in ${timezone.timeZone} interpretiert; Speicherung bleibt UTC.`}>
+      description={`Eingaben werden in ${timezone.timeZone} gelesen; gespeichert wird in UTC.`}>
       <form className="form-grid" onSubmit={(event) => {
         event.preventDefault();
         const canonicalStart = parseZonedLocalTimestamp(startedAt, timezone.timeZone);
         const canonicalStop = parseZonedLocalTimestamp(stoppedAt, timezone.timeZone);
         if (canonicalStart === null || canonicalStop === null) {
-          setTimeError('Der lokale Zeitpunkt ist ungültig, nicht vorhanden oder durch Zeitumstellung mehrdeutig.');
+          setTimeError('Die Zeitangaben können nicht verwendet werden. Mindestens ein lokaler Zeitpunkt existiert nicht oder ist wegen der Zeitumstellung mehrdeutig. Prüfen Sie Beginn und Ende; Ihre Eingaben bleiben erhalten.');
           return;
         }
         setTimeError(null);
@@ -602,6 +798,8 @@ function TimeRecordsView({
               </option>)}
           </select>
         </label>
+        {timeError === null ? null : <p id="correction-time-error"
+          className="field-error" role="alert">{timeError}</p>}
         <label>Neuer Beginn
           <input required type="datetime-local" step="0.001" value={startedAt}
             aria-describedby={timeError === null ? undefined : 'correction-time-error'}
@@ -619,14 +817,13 @@ function TimeRecordsView({
             disabled={state.timeReviewBusy || state.correctionIntent !== null}
             onChange={(event) => setReason(event.target.value)} />
         </label>
-        {timeError === null ? null : <p id="correction-time-error" className="field-error" role="alert">{timeError}</p>}
         <button ref={prepareButton} disabled={state.timeReviewBusy || state.correctionIntent !== null}>
           Korrektur prüfen
         </button>
       </form>
       {state.correctionIntent === null ? null : <Confirmation
         label="Korrektur ausdrücklich bestätigen"
-        title="Korrektur wirklich append-only protokollieren?"
+        title="Korrektur lückenlos protokollieren?"
         confirmLabel="Korrektur ausdrücklich bestätigen"
         busyLabel="Wird protokolliert …"
         busy={state.timeReviewBusy}
@@ -689,21 +886,21 @@ function ReviewsView({
   return <SectionBoundary state={state.sections.reviewItems}
     retryButtonRef={sectionRetryButton}
     onRetry={() => void administration.retrySection('reviewItems')}>
-    <Panel title="Offene Prüfungen" description="Server-Reihenfolge bleibt unverändert.">
+    <Panel title="Offene Prüfungen" description="Die Reihenfolge des Servers bleibt unverändert.">
       <CountTruth count={state.reviewItems.length} noun="Prüfungen"
         complete={state.reviewItemsNextCursor === null} />
       <ul className="review-list">{state.reviewItems.map((item) =>
         <ReviewItem key={item.reviewItemId} item={item} format={format} />)}</ul>
       {state.reviewItems.length === 0 && state.reviewItemsNextCursor === null
-        ? <p className="empty">Keine offene Review-Evidence.</p> : null}
+        ? <p className="empty">Keine offenen Prüfungen.</p> : null}
       {state.reviewItemsNextCursor === null ? null
         : <button className="secondary load-more"
             onClick={() => void administration.loadMoreReviewItems()}>
             Weitere Prüfungen laden
           </button>}
     </Panel>
-    <Panel title="Review-Evidence entscheiden"
-      description={`Lokale Zeiteingaben verwenden ${timezone.timeZone}; die API bleibt UTC.`}>
+    <Panel title="Prüffall entscheiden"
+      description={`Lokale Zeiteingaben verwenden ${timezone.timeZone}; übertragen wird in UTC.`}>
       <form className="form-grid" onSubmit={(event) => {
         event.preventDefault();
         let canonicalStart: string | null = null;
@@ -712,7 +909,7 @@ function ReviewsView({
           canonicalStart = parseZonedLocalTimestamp(startedAt, timezone.timeZone);
           canonicalStop = parseZonedLocalTimestamp(stoppedAt, timezone.timeZone);
           if (canonicalStart === null || canonicalStop === null) {
-            setTimeError('Der lokale Zeitpunkt ist ungültig, nicht vorhanden oder durch Zeitumstellung mehrdeutig.');
+            setTimeError('Die Zeitangaben können nicht verwendet werden. Mindestens ein lokaler Zeitpunkt existiert nicht oder ist wegen der Zeitumstellung mehrdeutig. Prüfen Sie Beginn und Ende; Ihre Eingaben bleiben erhalten.');
             return;
           }
         }
@@ -726,11 +923,11 @@ function ReviewsView({
           reason,
         );
       }}>
-        <label>Review-Evidence
+        <label>Prüffall
           <select ref={itemSelect} required value={itemId}
             disabled={state.timeReviewBusy || state.adjudicationIntent !== null}
             onChange={(event) => setItemId(event.target.value)}>
-            <option value="">Evidence auswählen</option>
+            <option value="">Prüffall auswählen</option>
             {state.reviewItems.map((item) => <option key={item.reviewItemId} value={item.reviewItemId}>
               {item.employeeDisplayName} · {targetLabel(item.targetType)} · {item.targetDisplayName} · {triggerLabel(item.triggerType)} · {format(item.occurredAt)}
             </option>)}
@@ -763,6 +960,8 @@ function ReviewsView({
           </select>
         </label> : null}
         {resolution === 'no_time_record_change' ? null : <>
+          {timeError === null ? null : <p id="review-time-error"
+            className="field-error" role="alert">{timeError}</p>}
           <label>Beginn
             <input required type="datetime-local" step="0.001" value={startedAt}
               aria-describedby={timeError === null ? undefined : 'review-time-error'}
@@ -781,15 +980,14 @@ function ReviewsView({
             disabled={state.timeReviewBusy || state.adjudicationIntent !== null}
             onChange={(event) => setReason(event.target.value)} />
         </label>
-        {timeError === null ? null : <p id="review-time-error" className="field-error" role="alert">{timeError}</p>}
         <button ref={prepareButton} disabled={state.timeReviewBusy || state.adjudicationIntent !== null}>
-          Review-Entscheidung prüfen
+          Entscheidung prüfen
         </button>
       </form>
       {state.adjudicationIntent === null ? null : <Confirmation
-        label="Review-Entscheidung ausdrücklich bestätigen"
-        title="Review-Entscheidung wirklich append-only protokollieren?"
-        confirmLabel="Review ausdrücklich bestätigen"
+        label="Entscheidung ausdrücklich bestätigen"
+        title="Entscheidung lückenlos protokollieren?"
+        confirmLabel="Entscheidung protokollieren"
         busyLabel="Wird protokolliert …"
         busy={state.timeReviewBusy}
         onConfirm={() => void administration.confirmAdjudication()}
@@ -799,7 +997,7 @@ function ReviewsView({
         }}
       >
         <dl>
-          <dt>Evidence</dt><dd>{selectedItem?.employeeDisplayName ?? state.adjudicationIntent.reviewItem.employeeDisplayName} · {format(state.adjudicationIntent.reviewItem.occurredAt)}</dd>
+          <dt>Prüffall</dt><dd>{selectedItem?.employeeDisplayName ?? state.adjudicationIntent.reviewItem.employeeDisplayName} · {format(state.adjudicationIntent.reviewItem.occurredAt)}</dd>
           <dt>Entscheidung</dt><dd>{resolutionLabel(state.adjudicationIntent.resolution)}</dd>
           {state.adjudicationIntent.timeRecord === null ? null : <>
             <dt>Vorher</dt><dd>{formatExact(state.adjudicationIntent.timeRecord.startedAt)} – {formatExact(state.adjudicationIntent.timeRecord.stoppedAt!)}</dd>
@@ -824,7 +1022,7 @@ function ReviewItem({
   return <li>
     <div>
       <strong>{item.employeeDisplayName} · {targetLabel(item.targetType)} · {item.targetDisplayName}</strong>
-      <small>{format(item.occurredAt)} · {triggerLabel(item.triggerType)} · {item.source === 'offline_v2' ? 'Offline V2' : 'Server Legacy'}</small>
+      <small>{format(item.occurredAt)} · {triggerLabel(item.triggerType)} · {item.source === 'offline_v2' ? 'Nachträglich übertragen' : 'Vom Server übernommen'}</small>
     </div>
     <span>{reviewReasonLabel(item.reviewReason)}
       {item.predecessorBlocked ? ' · Vorgänger blockiert' : ''}</span>
@@ -838,8 +1036,10 @@ function Brand() {
   </div>;
 }
 
-function currentView(): AdminView {
-  return typeof window === 'undefined' ? 'uebersicht' : viewFromHash(window.location.hash);
+function currentRoute(): AdminRoute {
+  return typeof window === 'undefined'
+    ? defaultRoute('uebersicht')
+    : routeFromLocation(window.location.pathname, window.location.search);
 }
 
 function reviewReasonLabel(value: string): string {
@@ -848,8 +1048,8 @@ function reviewReasonLabel(value: string): string {
     capture_time_out_of_bounds: 'Erfassungszeit außerhalb des Fensters',
     automatic_window_elapsed: 'Automatisches Zeitfenster abgelaufen',
     historical_configuration_not_valid: 'Historische Konfiguration ungültig',
-    predecessor_requires_review: 'Vorgänger benötigt Review',
-    server_lifecycle_deferred: 'Server-Lifecycle zurückgestellt',
+    predecessor_requires_review: 'Vorgänger muss geprüft werden',
+    server_lifecycle_deferred: 'Verarbeitung auf dem Server zurückgestellt',
     active_time_entry_organization_mismatch: 'Laufende Arbeitszeit gehört zu einem anderen Betrieb',
     active_time_entry_user_mismatch: 'Laufende Arbeitszeit gehört zu einer anderen Person',
     previous_work_event_organization_mismatch: 'Vorherige Erfassung gehört zu einem anderen Betrieb',
@@ -858,7 +1058,7 @@ function reviewReasonLabel(value: string): string {
     work_event_precedes_active_time_entry: 'Erfassung liegt vor dem Beginn der laufenden Arbeitszeit',
     work_event_precedes_previous_accepted_work_event: 'Erfassung liegt vor der vorherigen bestätigten Erfassung',
   };
-  return labels[value] ?? 'Review erforderlich';
+  return labels[value] ?? 'Prüfung erforderlich';
 }
 
 function resolutionLabel(value: string): string {
@@ -870,11 +1070,76 @@ function resolutionLabel(value: string): string {
 function targetLabel(value: 'customer' | 'project' | 'general_work'): string {
   if (value === 'customer') return 'Kunde';
   if (value === 'project') return 'Projekt';
-  return 'Allgemeine Arbeit';
+  return 'Allgemeine Arbeitszeit';
 }
 
 function triggerLabel(value: 'nfc' | 'manual'): string {
-  return value === 'nfc' ? 'NFC' : 'Manuell';
+  return value === 'nfc' ? 'Gescannt' : 'Manuell erfasst';
+}
+
+function captureLabel(
+  startedVia: 'nfc' | 'manual' | null,
+  stoppedVia: 'nfc' | 'manual' | null,
+): string {
+  const labels = [startedVia, stoppedVia]
+    .filter((value): value is 'nfc' | 'manual' => value !== null)
+    .map(triggerLabel);
+  return labels.length === 0 ? 'Nicht überliefert' : [...new Set(labels)].join(' / ');
+}
+
+function navigateFromLink(
+  event: ReactMouseEvent<HTMLAnchorElement>,
+  route: AdminRoute,
+  navigate: (route: AdminRoute) => void,
+): void {
+  if (
+    event.button !== 0
+    || event.metaKey
+    || event.ctrlKey
+    || event.shiftKey
+    || event.altKey
+  ) return;
+  event.preventDefault();
+  navigate(route);
+}
+
+function recentTimeWindow(): { readonly fromInclusive: string; readonly toExclusive: string } {
+  const to = Date.now();
+  return Object.freeze({
+    fromInclusive: new Date(to - 31 * 24 * 60 * 60 * 1_000).toISOString(),
+    toExclusive: new Date(to).toISOString(),
+  });
+}
+
+function FeedbackBand({ message }: { readonly message: string }) {
+  const error = isErrorMessage(message);
+  return <section className={`notice ${error ? 'notice-error' : 'notice-success'}`}
+    role={error ? 'alert' : 'status'} aria-live={error ? 'assertive' : 'polite'}>
+    <strong>{error ? 'Die Aktion wurde nicht abgeschlossen' : 'Erledigt'}</strong>
+    <p>{message}</p>
+  </section>;
+}
+
+function isErrorMessage(message: string): boolean {
+  return !new Set([
+    'Falls das Konto existiert, wurde eine Wiederherstellungs-E-Mail versendet.',
+    'Das Passwort wurde geändert. Melden Sie sich mit dem neuen Passwort an.',
+    'Kunde wurde sicher angelegt.',
+    'Projekt wurde sicher angelegt.',
+    'Projekt wurde deaktiviert.',
+    'Einladung wurde einmalig erzeugt.',
+    'Zugang wurde entzogen.',
+    'Rolle wurde geändert.',
+    'Einladungsgeheimnis wurde verworfen.',
+    'Änderung wurde verworfen.',
+    'NFC-Tag wurde sicher neu zugeordnet.',
+    'Die Zuordnung war bereits korrekt.',
+    'Korrektur wurde verworfen.',
+    'Die Arbeitszeit wurde korrigiert. Die ursprüngliche Fassung bleibt lückenlos erhalten.',
+    'Die Prüfentscheidung wurde verworfen.',
+    'Die Prüfentscheidung wurde lückenlos protokolliert.',
+    'Die CSV-Datei wurde erstellt und heruntergeladen.',
+  ]).has(message);
 }
 
 function returnFocus(...references: readonly RefObject<HTMLElement | null>[]): void {
