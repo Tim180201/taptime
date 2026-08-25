@@ -10,18 +10,74 @@ Der letzte erfolgreiche Lauf ist ohne SSH sichtbar: Seine nicht erratbare URL st
 Product Owner im Passwortmanager, nicht in Git oder Chat. Ein Zeitpunkt, der älter als eine
 Stunde ist, oder ein anderer Zustand als `ok` ist ein Betriebsfall.
 
+## Zugang im Notfall
+
+Der aktuelle Produktionsserver ist `taptime-prod` unter `46.225.58.30`. Der normale SSH-Zugang
+für Auslieferungen ist:
+
+```sh
+# Bestehender, geladener SSH-Agent:
+ssh taptime-deploy@46.225.58.30
+
+# Nach Schlüsselverlust mit der neu erzeugten Datei:
+ssh -i ~/.ssh/taptime-deploy taptime-deploy@46.225.58.30
+```
+
+Die erste Variante verwendet den bereits geladenen SSH-Agenten. Die zweite ist der vollständige
+Weg mit dem nach einem Rechnerverlust neu erzeugten Schlüssel.
+
+Er authentifiziert den ausdrücklich berechtigten Product Owner oder seine beauftragte Person
+per SSH-Schlüssel und gewährt `sudo` ausschließlich für `/usr/local/sbin/taptime-deploy`.
+Direkter Root-Login über SSH ist kein Betriebsweg.
+
+Der davon unabhängige Rückweg ist die **Hetzner Console**: mit dem Hetzner-Konto aus dem
+Passwortmanager Projekt *Taptime* → Server *taptime-prod* → *Aktionen* → *Konsole* öffnen und
+mit `root` sowie dem dort verwahrten Server-Root-Passwort anmelden. Die Konsole verwendet eine
+**US-Tastaturbelegung**; ein Passwort wird beim Tippen nicht angezeigt. Dieser Konsolen-Login
+wurde praktisch geprüft und funktioniert auch bei defektem SSH-Zugang.
+
+Ist der Rechner mit dem privaten Deploy-Schlüssel verloren, den privaten Schlüssel niemals
+rekonstruieren oder über Chat versenden. Auf einem vertrauenswürdigen Ersatzrechner ein neues
+ED25519-Schlüsselpaar erzeugen und nur den öffentlichen Teil verwenden:
+
+```sh
+ssh-keygen -t ed25519 -a 100 -f ~/.ssh/taptime-deploy
+```
+
+Dann über die Hetzner Console als `root` nur den neuen öffentlichen Schlüssel einlesen und den
+verlorenen Schlüssel damit ersetzen:
+
+```sh
+install -d -o taptime-deploy -g taptime-deploy -m 0700 /home/taptime-deploy/.ssh
+read -r deploy_public_key
+printf '%s\n' "$deploy_public_key" > /home/taptime-deploy/.ssh/authorized_keys
+unset deploy_public_key
+chown taptime-deploy:taptime-deploy /home/taptime-deploy/.ssh/authorized_keys
+chmod 0600 /home/taptime-deploy/.ssh/authorized_keys
+```
+
+Bei `read` die eine Zeile aus `~/.ssh/taptime-deploy.pub` einfügen und Enter drücken. Danach in
+einer zweiten Sitzung `ssh -i ~/.ssh/taptime-deploy taptime-deploy@46.225.58.30` erfolgreich
+prüfen, bevor die Konsole geschlossen wird. Niemals den privaten Schlüssel auf den Server
+kopieren.
+
 ## Vor dem Start
 
 1. Nimm den Borg-Schlüssel, die Borg-Passphrase und die verwahrte `/opt/taptime/.env` aus dem
    Passwortmanager. Fehlt die `.env`, ist dies ein Blocker für den Anwendungsstart, nicht etwas
    zum Neu-Erfinden.
-2. Erstelle einen neuen Server, installiere Docker und Borg 1.2. Der verlorene Storage-Box-
-   Privatschlüssel wird **nicht** wiederbeschafft: Erzeuge auf dem Ersatzserver ein neues
-   ED25519-Schlüsselpaar. Der Product Owner meldet dessen öffentlichen Teil einmalig mit dem
-   Storage-Box-Passwort über `install-ssh-key` auf Port 23 an.
+2. Falls auch der bisherige Arbeitsrechner weg ist, erzeuge zuerst dort ein neues Deploy-
+   Schlüsselpaar und hinterlege dessen **öffentlichen** Teil beim Erstellen des Ersatzservers in
+   der Hetzner Console. Erstelle dann den Server und installiere Docker und Borg 1.2. Der
+   verlorene Storage-Box-Privatschlüssel wird **nicht** wiederbeschafft: Erzeuge auf dem
+   Ersatzserver ein neues ED25519-Schlüsselpaar. Der Product Owner meldet dessen öffentlichen
+   Teil einmalig mit dem Storage-Box-Passwort über `install-ssh-key` auf Port 23 an.
 3. Stelle `/etc/taptime-backup/config`, die Borg-Passphrase-Datei, die verwahrte `.env` und die
    hier versionierten Skripte und systemd-Dateien wieder her. Die Produktion bleibt bis zum
    erfolgreichen Restore abgeschaltet.
+4. Richte `taptime-deploy`, dessen `authorized_keys`, die begrenzte sudoers-Regel und erst nach
+   dem Konsolen- und SSH-Nachweis die Root-SSH-Sperre exakt nach *Einmalige Einrichtung* in
+   `DEPLOY.md` ein. Ohne diese vier Schritte ist der Ersatzserver nicht betriebsbereit.
 
 ## Server ist weg
 

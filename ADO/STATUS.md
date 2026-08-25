@@ -255,11 +255,6 @@ in keinem Plan standen.
 - Mit dem entfernten CI-Job entfielen auch Absicherungen gegen bekannte Lücken in
   Abhängigkeiten (GHSA-Einträge, `image-size`). Falls das erhalten bleiben soll, gehört es in
   eine eigene Abhängigkeits-Richtlinie — nicht zurück in den eingefrorenen Harness.
-- **P2:** Die Auslieferung läuft als **direkter Root-Login** per SSH-Schlüssel, der
-  unverschlüsselt auf dem Entwicklungsrechner liegt. Wer diesen Rechner hat, hat die
-  Produktion — und über sie den Zugang zur Storage Box. Sauberer wäre ein eigener Benutzer
-  mit eng begrenztem `sudo` ausschließlich für `/usr/local/sbin/taptime-deploy`. Zu beheben,
-  **bevor echte Lohndaten auf dem System liegen** — siehe T-022.
 - **P2:** Der zweite T-017a-CI-Lauf war grün, der erste rot: ein 30-Sekunden-Grenztest im
   DA3-Backend-Job erzeugte kaskadierende Datenbank-Timeouts und riss fremde Prüfungen mit.
   Das ist der **zweite Vorfall dieser Bauart** (siehe DA2-8-MiB oben). Beim dritten ist es
@@ -272,6 +267,13 @@ in keinem Plan standen.
   Fixierung nicht darstellt.
 - **P2:** Das Admin-Web-Bündel liegt bei 510 kB JavaScript. Ohne Aufteilung wird der erste
   Aufbau in schlechten Netzen spürbar.
+- **P2:** Der private Deploy-Schlüssel auf dem Arbeitsrechner ist weiterhin **ohne
+  Passphrase**. Nach T-022 öffnet er nicht mehr root, sondern nur noch `taptime-deploy` mit
+  genau einer erlaubten `sudo`-Regel — der Schaden bei Verlust des Rechners ist damit deutlich
+  kleiner, aber nicht null. Vorschlag von Codex vom 25.08., aufgenommen in **T-024**: neuen
+  passphrasegeschützten Schlüssel einrichten, mit einer echten Auslieferung belegen, **erst
+  danach** den alten öffentlichen Schlüssel entfernen. In dieser Reihenfolge, sonst sperrt man
+  sich aus.
 - Geparkte Idee: **`ADO/RESULT.md`** — Codex schreibt seinen Abschlussbericht ins Repo statt nur
   in den Chat. Spart dem Product Owner bei jeder Aufgabe einen Handgriff.
 
