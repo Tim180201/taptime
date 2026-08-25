@@ -23,9 +23,7 @@ services:
     restart: unless-stopped
 
   backend-api:
-    build:
-      context: ..
-      dockerfile: infrastructure/backend-api/Dockerfile
+    image: ghcr.io/tim180201/taptime-backend-api:${TAPTIME_VERSION:?TAPTIME_VERSION must be an explicit commit short hash}
     env_file:
       - /opt/taptime/.env
     environment:
@@ -51,6 +49,35 @@ services:
       options:
         tag: taptime-backend-api
     restart: unless-stopped
+
+  migration:
+    image: ghcr.io/tim180201/taptime-backend-api:${TAPTIME_VERSION:?TAPTIME_VERSION must be an explicit commit short hash}
+    profiles:
+      - deployment
+    entrypoint:
+      - /bin/sh
+      - -eu
+      - -c
+    command:
+      - >-
+        export PGPASSWORD="$$(cat /run/secrets/postgres_installer_password)";
+        exec node schema/migrate.js
+    environment:
+      B3_DATABASE_URL: postgresql://postgres@database:5432/taptime
+    secrets:
+      - postgres_installer_password
+    depends_on:
+      database:
+        condition: service_healthy
+    networks:
+      - taptime-internal
+    read_only: true
+    tmpfs:
+      - /tmp:mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
 
   caddy:
     image: caddy:2.10.2-alpine

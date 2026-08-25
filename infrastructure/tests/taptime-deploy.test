@@ -1,0 +1,154 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+TEST_ROOT="$(mktemp -d)"
+readonly TEST_ROOT
+readonly LOG_FILE="$TEST_ROOT/calls.log"
+readonly OUTPUT_FILE="$TEST_ROOT/output.log"
+trap 'rm -rf -- "$TEST_ROOT"' EXIT
+
+export TAPTIME_DEPLOY_COMPOSE_FILE="$TEST_ROOT/docker-compose.yml"
+export TAPTIME_DEPLOY_BACKUP_CONFIG="$TEST_ROOT/backup.conf"
+export TAPTIME_DEPLOY_VERSION_STATE_FILE="$TEST_ROOT/current-version"
+export TAPTIME_DEPLOY_KNOWN_VERSIONS_FILE="$TEST_ROOT/known-versions"
+export TAPTIME_DEPLOY_PROTECTED_VERSIONS_FILE="$TEST_ROOT/ghcr-protected-versions.json"
+export TAPTIME_DEPLOY_HEALTH_URL='https://health.invalid/health'
+printf 'services: {}\n' > "$TAPTIME_DEPLOY_COMPOSE_FILE"
+printf '# synthetic deployment test configuration\n' > "$TAPTIME_DEPLOY_BACKUP_CONFIG"
+printf 'aaaaaaa\n' > "$TAPTIME_DEPLOY_VERSION_STATE_FILE"
+
+# shellcheck source=../deploy
+source "$(dirname "$0")/../deploy"
+
+printf 'aaaaaaa\nccccccc\n' > "$TAPTIME_DEPLOY_KNOWN_VERSIONS_FILE"
+publish_protected_versions bbbbbbb aaaaaaa
+node -e '
+  const snapshot = JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8"));
+  if (snapshot.current_version !== "bbbbbbb" || snapshot.previous_version !== "aaaaaaa") process.exit(1);
+  if (snapshot.known_versions.join(",") !== "aaaaaaa,bbbbbbb,ccccccc") process.exit(1);
+' "$TAPTIME_DEPLOY_PROTECTED_VERSIONS_FILE"
+
+record() {
+  printf '%s\n' "$*" >> "$LOG_FILE"
+}
+
+require_root() { :; }
+acquire_deploy_lock() { :; }
+pull_image() { record "pull $1"; }
+select_migration_version() { printf '%s\n' "$DESIRED_VERSION"; }
+run_restore_verification() {
+  record "restore-and-rehearsal $1"
+  [[ "${FAIL_REHEARSAL:-0}" != '1' ]]
+}
+run_backup() { record backup; }
+sync_migration_sources() { record "sync $1"; }
+migrate_production() { record migrate-production; }
+start_backend() { record "start $1"; }
+wait_for_health() {
+  record "health $1"
+  [[ "$1" != "${FAIL_HEALTH_VERSION:-}" ]]
+}
+write_current_version() { record "write-version $1"; }
+mark_known_version() { :; }
+publish_protected_versions() { record "publish-protected $1 $2"; }
+
+expect_status() {
+  local expected="$1"
+  shift
+  local actual
+
+  set +e
+  ( "$@" ) >"$OUTPUT_FILE" 2>&1
+  actual=$?
+  set -e
+  if (( actual != expected )); then
+    printf 'Expected status %s, got %s for: %s\n' "$expected" "$actual" "$*" >&2
+    cat "$OUTPUT_FILE" >&2
+    exit 1
+  fi
+}
+
+assert_log() {
+  local expected="$1"
+  local actual
+  actual="$(cat "$LOG_FILE" 2>/dev/null || true)"
+  if [[ "$actual" != "$expected" ]]; then
+    printf 'Unexpected call log.\nExpected:\n%s\nActual:\n%s\n' "$expected" "$actual" >&2
+    exit 1
+  fi
+}
+
+expect_status 64 main
+grep --quiet '^Usage: .* <seven-character-commit-hash>$' "$OUTPUT_FILE"
+
+expect_status 1 main latest
+grep --quiet 'Version must be exactly one seven-character lowercase commit hash' "$OUTPUT_FILE"
+
+: > "$LOG_FILE"
+FAIL_REHEARSAL=1 expect_status 1 main bbbbbbb
+assert_log "pull ghcr.io/tim180201/taptime-backend-api:bbbbbbb
+pull ghcr.io/tim180201/taptime-backend-api:aaaaaaa
+restore-and-rehearsal ghcr.io/tim180201/taptime-backend-api:bbbbbbb"
+
+: > "$LOG_FILE"
+FAIL_HEALTH_VERSION=bbbbbbb expect_status 1 main bbbbbbb
+assert_log "pull ghcr.io/tim180201/taptime-backend-api:bbbbbbb
+pull ghcr.io/tim180201/taptime-backend-api:aaaaaaa
+restore-and-rehearsal ghcr.io/tim180201/taptime-backend-api:bbbbbbb
+backup
+sync ghcr.io/tim180201/taptime-backend-api:bbbbbbb
+migrate-production
+start bbbbbbb
+health bbbbbbb
+start aaaaaaa
+health aaaaaaa"
+
+: > "$LOG_FILE"
+expect_status 0 main bbbbbbb
+assert_log "pull ghcr.io/tim180201/taptime-backend-api:bbbbbbb
+pull ghcr.io/tim180201/taptime-backend-api:aaaaaaa
+restore-and-rehearsal ghcr.io/tim180201/taptime-backend-api:bbbbbbb
+backup
+sync ghcr.io/tim180201/taptime-backend-api:bbbbbbb
+migrate-production
+start bbbbbbb
+health bbbbbbb
+publish-protected bbbbbbb aaaaaaa
+write-version bbbbbbb"
+
+: > "$LOG_FILE"
+# The single-quoted program is evaluated by the child Bash, not this test process.
+# shellcheck disable=SC2016
+expect_status 137 env \
+  TAPTIME_DEPLOY_ALLOW_TEST_HOOKS=1 \
+  TAPTIME_DEPLOY_TEST_ABORT_AFTER_MIGRATION=1 \
+  bash -c '
+    source "$1"
+    TEST_CALL_LOG="$2"
+    record() { printf "%s\n" "$*" >> "$TEST_CALL_LOG"; }
+    require_root() { :; }
+    acquire_deploy_lock() { :; }
+    pull_image() { record "pull $1"; }
+    select_migration_version() { printf "%s\n" "$DESIRED_VERSION"; }
+    run_restore_verification() { record "restore-and-rehearsal $1"; }
+    run_backup() { record backup; }
+    sync_migration_sources() { record "sync $1"; }
+    migrate_production() { record migrate-production; }
+    start_backend() { record "start $1"; }
+    wait_for_health() { record "health $1"; }
+    write_current_version() { record "write-version $1"; }
+    mark_known_version() { :; }
+    publish_protected_versions() { record "publish-protected $1 $2"; }
+    main bbbbbbb
+  ' bash "$(dirname "$0")/../deploy" "$LOG_FILE"
+grep --quiet '^migrate-production$' "$LOG_FILE"
+if grep --quiet -E '^(start|write-version) ' "$LOG_FILE"; then
+  printf 'The forced migration/start interruption changed the application image.\n' >&2
+  exit 1
+fi
+test "$(tr -d '[:space:]' < "$TAPTIME_DEPLOY_VERSION_STATE_FILE")" = 'aaaaaaa'
+printf 'Forced interruption evidence (exit 137):\n'
+cat "$LOG_FILE"
+printf 'No start or version write occurred; current-version is still aaaaaaa.\n'
+
+printf 'Deployment orchestration tests passed.\n'

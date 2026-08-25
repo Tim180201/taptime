@@ -1,0 +1,412 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+readonly IMAGE_REPOSITORY='ghcr.io/tim180201/taptime-backend-api'
+readonly COMPOSE_FILE="${TAPTIME_DEPLOY_COMPOSE_FILE:-/opt/taptime/source/infrastructure/docker-compose.server.yml}"
+readonly BACKUP_CONFIG="${TAPTIME_DEPLOY_BACKUP_CONFIG:-/etc/taptime-backup/config}"
+readonly VERSION_STATE_FILE="${TAPTIME_DEPLOY_VERSION_STATE_FILE:-/var/lib/taptime-deploy/current-version}"
+readonly KNOWN_VERSIONS_FILE="${TAPTIME_DEPLOY_KNOWN_VERSIONS_FILE:-/var/lib/taptime-deploy/known-versions}"
+readonly PROTECTED_VERSIONS_FILE="${TAPTIME_DEPLOY_PROTECTED_VERSIONS_FILE:-/opt/taptime/admin-web/status/ghcr-protected-versions.json}"
+readonly HEALTH_URL="${TAPTIME_DEPLOY_HEALTH_URL:-https://api.tb-infra.de/health}"
+readonly RESTORE_STATUS_FILE_DEFAULT='/var/lib/taptime-monitor/restore-status.json'
+readonly RESTORE_VERIFY_COMMAND="${TAPTIME_DEPLOY_RESTORE_VERIFY_COMMAND:-/usr/local/sbin/taptime-restore-verify}"
+
+DESIRED_VERSION=''
+PREVIOUS_VERSION=''
+NEW_IMAGE_STARTED=0
+MIGRATION_VERSION=''
+
+say() {
+  printf '%s\n' "$*"
+}
+
+fail() {
+  printf 'ERROR: %s\n' "$*" >&2
+  return 1
+}
+
+require_file() {
+  [[ -f "$1" ]] || fail "Required file is missing: $1"
+}
+
+require_root() {
+  [[ "$(id -u)" == '0' ]] || fail 'Deployment must run as root on the production server.'
+}
+
+validate_version() {
+  [[ "$1" =~ ^[0-9a-f]{7}$ ]] || fail 'Version must be exactly one seven-character lowercase commit hash.'
+}
+
+image_for_version() {
+  printf '%s:%s\n' "$IMAGE_REPOSITORY" "$1"
+}
+
+compose() {
+  TAPTIME_VERSION="$1" docker compose --file "$COMPOSE_FILE" "${@:2}"
+}
+
+status_fingerprint() {
+  if [[ -f "$1" ]]; then
+    stat --format='%y:%s' "$1"
+  else
+    printf 'missing\n'
+  fi
+}
+
+run_fresh_oneshot() {
+  local service="$1"
+  local status_file="$2"
+  local before after
+
+  before="$(status_fingerprint "$status_file")"
+  systemctl start "$service"
+  after="$(status_fingerprint "$status_file")"
+  [[ "$after" != "$before" ]] || fail "$service did not produce a fresh status record."
+  grep --quiet '"state":"ok"' "$status_file" || fail "$service did not finish successfully."
+}
+
+pull_image() {
+  local image="$1"
+  local version revision
+
+  say "[Vorbereitung] Lade ausdrücklich angefordertes Abbild $image."
+  docker pull "$image"
+  docker image inspect "$image" >/dev/null
+  version="${image##*:}"
+  revision="$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$image")"
+  [[ "$revision" == "$version"* ]] ||
+    fail "Image revision label does not match requested version $version."
+}
+
+image_has_migrator() {
+  docker run --rm --entrypoint test "$1" -f /app/schema/migrate.js
+}
+
+select_migration_version() {
+  local desired_image="$1"
+  local previous_image="$2"
+
+  if image_has_migrator "$desired_image"; then
+    printf '%s\n' "$DESIRED_VERSION"
+    return 0
+  fi
+  if [[ -f "$KNOWN_VERSIONS_FILE" ]] &&
+    grep --fixed-strings --line-regexp --quiet "$DESIRED_VERSION" "$KNOWN_VERSIONS_FILE" &&
+    image_has_migrator "$previous_image"; then
+    say "Rücknahme-Abbild $DESIRED_VERSION stammt von vor T-014; Migrationen laufen mit $PREVIOUS_VERSION." >&2
+    printf '%s\n' "$PREVIOUS_VERSION"
+    return 0
+  fi
+  fail "Target image $desired_image has no migration runner and is not a known rollback version." >&2
+}
+
+docker_hook() {
+  set -euo pipefail
+
+  local real_docker="${TAPTIME_REAL_DOCKER:?TAPTIME_REAL_DOCKER is required}"
+  if [[ "${1:-}" == 'rm' && "${2:-}" == '--force' &&
+    "${3:-}" == taptime-restore-verify-* ]]; then
+    local container="$3"
+    local start_ns end_ns duration_ms migration_status=0
+    start_ns="$(date +%s%N)"
+    set +e
+    "$real_docker" run --rm --network "container:$container" \
+      --env "B3_DATABASE_URL=postgresql://postgres@127.0.0.1:5432/${TAPTIME_HOOK_DATABASE_NAME:?}" \
+      --entrypoint node "${TAPTIME_HOOK_MIGRATION_IMAGE:?}" schema/migrate.js \
+      >"${TAPTIME_HOOK_LOG:?}" 2>&1
+    migration_status=$?
+    set -e
+    end_ns="$(date +%s%N)"
+    duration_ms=$(( (end_ns - start_ns) / 1000000 ))
+    if (( migration_status == 0 )); then
+      printf 'ok %s\n' "$duration_ms" >"${TAPTIME_HOOK_STATUS:?}"
+    else
+      printf 'failed %s\n' "$duration_ms" >"${TAPTIME_HOOK_STATUS:?}"
+    fi
+  fi
+  exec "$real_docker" "$@"
+}
+
+run_restore_verification() (
+  set -euo pipefail
+
+  local image="$1"
+  local restore_status hook_directory hook_status hook_log before after real_docker script_path
+  local verify_status=0 hook_state duration_ms
+
+  # shellcheck disable=SC1090
+  source "$BACKUP_CONFIG"
+  restore_status="${RESTORE_STATUS_FILE:-$RESTORE_STATUS_FILE_DEFAULT}"
+  : "${DATABASE_NAME:?DATABASE_NAME must be configured}"
+  require_file "$RESTORE_VERIFY_COMMAND"
+  install -d -m 0700 /run/taptime-backup
+  [[ "$(findmnt -n -o FSTYPE --target /run/taptime-backup)" == 'tmpfs' ]] ||
+    fail '/run/taptime-backup must be a tmpfs; refusing migration rehearsal.'
+
+  hook_directory="$(mktemp -d /run/taptime-backup/deploy-hook.XXXXXX)"
+  hook_status="$hook_directory/status"
+  hook_log="$hook_directory/migration.log"
+  script_path="$(readlink -f "${BASH_SOURCE[0]}")"
+  real_docker="$(command -v docker)"
+  ln -s "$script_path" "$hook_directory/docker"
+  # Invoked by the EXIT trap below.
+  # shellcheck disable=SC2329
+  cleanup_hook() {
+    if [[ "$hook_directory" == /run/taptime-backup/deploy-hook.* && -d "$hook_directory" ]]; then
+      rm -rf -- "$hook_directory"
+    fi
+  }
+  trap cleanup_hook EXIT
+
+  before="$(status_fingerprint "$restore_status")"
+  say '[1/7] T-007 stellt den letzten Sicherungsstand wieder her; Migrationen laufen vor dessen Cleanup.'
+  set +e
+  PATH="$hook_directory:$PATH" \
+    TAPTIME_REAL_DOCKER="$real_docker" \
+    TAPTIME_HOOK_DATABASE_NAME="$DATABASE_NAME" \
+    TAPTIME_HOOK_MIGRATION_IMAGE="$image" \
+    TAPTIME_HOOK_STATUS="$hook_status" \
+    TAPTIME_HOOK_LOG="$hook_log" \
+    "$RESTORE_VERIFY_COMMAND"
+  verify_status=$?
+  set -e
+  [[ ! -s "$hook_log" ]] || cat "$hook_log"
+  (( verify_status == 0 )) || fail 'T-007 restore verification failed.'
+
+  after="$(status_fingerprint "$restore_status")"
+  [[ "$after" != "$before" ]] || fail 'T-007 did not produce a fresh status record.'
+  grep --quiet '"state":"ok"' "$restore_status" || fail 'T-007 did not finish successfully.'
+  require_file "$hook_status"
+  read -r hook_state duration_ms < "$hook_status"
+  [[ "$hook_state" == 'ok' ]] || fail "Migration rehearsal failed after ${duration_ms:-unknown} ms."
+  say "[1/7] Migrations-Generalprobe im T-007-Container erfolgreich: $duration_ms ms."
+)
+
+run_backup() {
+  local status_file
+
+  # shellcheck disable=SC1090
+  source "$BACKUP_CONFIG"
+  status_file="${STATUS_FILE:?STATUS_FILE must be configured}"
+  say '[2/7] Erzeuge eine frische Sicherung und warte auf ihren Erfolg.'
+  run_fresh_oneshot taptime-backup.service "$status_file" || return
+}
+
+sync_migration_sources() (
+  set -euo pipefail
+
+  local image="$1"
+  local holder=''
+  local staged=''
+  local previous=''
+  local parent
+
+  # shellcheck disable=SC1090
+  source "$BACKUP_CONFIG"
+  : "${MIGRATIONS_DIRECTORY:?MIGRATIONS_DIRECTORY must be configured}"
+  [[ "$MIGRATIONS_DIRECTORY" == /opt/taptime/*/migrations ]] ||
+    fail "Unsafe migration directory: $MIGRATIONS_DIRECTORY"
+  parent="$(dirname "$MIGRATIONS_DIRECTORY")"
+  require_file "$MIGRATIONS_DIRECTORY/001_foundation.sql"
+
+  # Invoked by the EXIT trap below.
+  # shellcheck disable=SC2329
+  cleanup_sources() {
+    [[ -z "$holder" ]] || docker rm --force "$holder" >/dev/null 2>&1 || true
+    if [[ -n "$staged" && "$staged" == "$parent"/.deploy-migrations.* && -d "$staged" ]]; then
+      rm -rf -- "$staged"
+    fi
+  }
+  trap cleanup_sources EXIT
+
+  holder="$(docker create "$image")"
+  staged="$(mktemp -d "$parent/.deploy-migrations.XXXXXX")"
+  docker cp "$holder:/app/migrations/." "$staged"
+  require_file "$staged/001_foundation.sql"
+  find "$staged" -maxdepth 1 -type f -name '[0-9][0-9][0-9]_*.sql' -print -quit | grep --quiet . ||
+    fail 'Target image contains no schema migrations.'
+
+  previous="$parent/.previous-migrations.$$"
+  mv "$MIGRATIONS_DIRECTORY" "$previous"
+  if ! mv "$staged" "$MIGRATIONS_DIRECTORY"; then
+    mv "$previous" "$MIGRATIONS_DIRECTORY"
+    fail 'Could not install migration sources from target image.'
+  fi
+  staged=''
+  rm -rf -- "$previous"
+  say '[3/7] Das Zielabbild liegt lokal; seine eingefrorenen Migrationsquellen sind installiert.'
+)
+
+migrate_production() {
+  say '[4/7] Spiele ausstehende Migrationen in der Produktion transaktional ein.'
+  compose "$MIGRATION_VERSION" run --rm migration
+}
+
+start_backend() {
+  local version="$1"
+  compose "$version" up --detach --no-deps backend-api
+}
+
+wait_for_health() {
+  local version="$1"
+  local container health
+
+  say "[6/7] Prüfe Container- und externe Gesundheit für Version $version."
+  container="$(compose "$version" ps --quiet backend-api)"
+  [[ -n "$container" ]] || fail 'Backend container is not running.'
+
+  for _ in $(seq 1 30); do
+    health="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$container")"
+    if [[ "$health" == 'healthy' ]] && curl --fail --silent --show-error --max-time 5 "$HEALTH_URL" >/dev/null; then
+      say "[6/7] Version $version ist intern und extern gesund."
+      return 0
+    fi
+    [[ "$health" == 'unhealthy' || "$health" == 'exited' || "$health" == 'dead' ]] && break
+    sleep 2
+  done
+  fail "Version $version did not become healthy."
+}
+
+write_current_version() {
+  local directory temporary
+
+  directory="$(dirname "$VERSION_STATE_FILE")"
+  install -d -m 0755 "$directory"
+  temporary="$(mktemp "$directory/current-version.XXXXXX")"
+  printf '%s\n' "$1" > "$temporary"
+  chmod 0644 "$temporary"
+  mv "$temporary" "$VERSION_STATE_FILE"
+}
+
+mark_known_version() {
+  local directory
+
+  directory="$(dirname "$KNOWN_VERSIONS_FILE")"
+  install -d -m 0755 "$directory"
+  touch "$KNOWN_VERSIONS_FILE"
+  chmod 0644 "$KNOWN_VERSIONS_FILE"
+  if ! grep --fixed-strings --line-regexp --quiet "$1" "$KNOWN_VERSIONS_FILE"; then
+    printf '%s\n' "$1" >> "$KNOWN_VERSIONS_FILE"
+  fi
+}
+
+publish_protected_versions() {
+  local current="$1"
+  local previous="$2"
+  local directory temporary version first=1
+
+  validate_version "$current"
+  validate_version "$previous"
+  require_file "$KNOWN_VERSIONS_FILE"
+  while IFS= read -r version; do
+    [[ -n "$version" ]] || continue
+    validate_version "$version"
+  done < <(printf '%s\n%s\n' "$current" "$previous"; cat "$KNOWN_VERSIONS_FILE")
+
+  directory="$(dirname "$PROTECTED_VERSIONS_FILE")"
+  install -d -m 0755 "$directory"
+  temporary="$(mktemp "$directory/ghcr-protected-versions.XXXXXX")"
+  {
+    printf '{"schema_version":1,"current_version":"%s","previous_version":"%s","known_versions":[' \
+      "$current" "$previous"
+    while IFS= read -r version; do
+      [[ -n "$version" ]] || continue
+      if (( first == 0 )); then
+        printf ','
+      fi
+      printf '"%s"' "$version"
+      first=0
+    done < <({ printf '%s\n%s\n' "$current" "$previous"; cat "$KNOWN_VERSIONS_FILE"; } | sort --unique)
+    printf ']}\n'
+  } > "$temporary"
+  chmod 0644 "$temporary"
+  mv "$temporary" "$PROTECTED_VERSIONS_FILE"
+}
+
+acquire_deploy_lock() {
+  exec 9>/run/lock/taptime-deploy.lock
+  flock -n 9 || fail 'Another deployment is already running.'
+}
+
+rollback_started_image() {
+  local status="$1"
+
+  trap - EXIT INT TERM
+  if (( NEW_IMAGE_STARTED == 1 )); then
+    say "[7/7] Neuer Stand fehlgeschlagen; setze das Abbild auf $PREVIOUS_VERSION zurück." >&2
+    if start_backend "$PREVIOUS_VERSION" && wait_for_health "$PREVIOUS_VERSION"; then
+      say "[7/7] Rücknahme erfolgreich; Version $PREVIOUS_VERSION ist gesund." >&2
+    else
+      say "ERROR: Automatic image rollback to $PREVIOUS_VERSION also failed." >&2
+    fi
+  fi
+  exit "$status"
+}
+
+main() {
+  if (( $# != 1 )); then
+    printf 'Usage: %s <seven-character-commit-hash>\n' "${0##*/}" >&2
+    return 64
+  fi
+
+  DESIRED_VERSION="$1"
+  validate_version "$DESIRED_VERSION" || return
+  require_root || return
+  require_file "$COMPOSE_FILE" || return
+  require_file "$BACKUP_CONFIG" || return
+  require_file "$VERSION_STATE_FILE" || return
+
+  PREVIOUS_VERSION="$(tr -d '[:space:]' < "$VERSION_STATE_FILE")"
+  validate_version "$PREVIOUS_VERSION" || return
+
+  acquire_deploy_lock || return
+
+  local desired_image previous_image migration_image rehearsal_image
+  desired_image="$(image_for_version "$DESIRED_VERSION")"
+  previous_image="$(image_for_version "$PREVIOUS_VERSION")"
+
+  pull_image "$desired_image" || return
+  pull_image "$previous_image" || return
+  MIGRATION_VERSION="$(select_migration_version "$desired_image" "$previous_image")" || return
+  migration_image="$(image_for_version "$MIGRATION_VERSION")"
+  rehearsal_image="${TAPTIME_DEPLOY_TEST_REHEARSAL_IMAGE:-$migration_image}"
+  if [[ "$rehearsal_image" != "$migration_image" && "${TAPTIME_DEPLOY_ALLOW_TEST_HOOKS:-0}" != '1' ]]; then
+    fail 'A rehearsal image override requires TAPTIME_DEPLOY_ALLOW_TEST_HOOKS=1.' || return
+  fi
+  if [[ "$rehearsal_image" != "$desired_image" && "$rehearsal_image" != "$previous_image" ]]; then
+    pull_image "$rehearsal_image" || return
+  fi
+
+  run_restore_verification "$rehearsal_image" || return
+  run_backup || return
+  sync_migration_sources "$migration_image" || return
+  migrate_production || return
+  mark_known_version "$PREVIOUS_VERSION" || return
+
+  if [[ "${TAPTIME_DEPLOY_TEST_ABORT_AFTER_MIGRATION:-0}" == '1' ]]; then
+    [[ "${TAPTIME_DEPLOY_ALLOW_TEST_HOOKS:-0}" == '1' ]] ||
+      fail 'The migration/start abort hook requires TAPTIME_DEPLOY_ALLOW_TEST_HOOKS=1.' || return
+    say '[Test] Erzwinge harten Abbruch zwischen Migration und Anwendungsstart.'
+    kill -KILL "$$"
+  fi
+
+  say "[5/7] Starte ausdrücklich Version $DESIRED_VERSION."
+  NEW_IMAGE_STARTED=1
+  trap 'rollback_started_image $?' EXIT
+  trap 'exit 130' INT
+  trap 'exit 143' TERM
+  start_backend "$DESIRED_VERSION" || return
+  wait_for_health "$DESIRED_VERSION" || return
+  mark_known_version "$DESIRED_VERSION" || return
+  publish_protected_versions "$DESIRED_VERSION" "$PREVIOUS_VERSION" || return
+  write_current_version "$DESIRED_VERSION" || return
+  NEW_IMAGE_STARTED=0
+  trap - EXIT INT TERM
+  say "[7/7] Auslieferung abgeschlossen: $PREVIOUS_VERSION -> $DESIRED_VERSION."
+}
+
+if [[ "${0##*/}" == 'docker' ]]; then
+  docker_hook "$@"
+elif [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  main "$@"
+fi

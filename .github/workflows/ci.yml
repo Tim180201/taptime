@@ -40,6 +40,8 @@ jobs:
       - name: Verify operational monitoring scripts
         run: |
           shellcheck -e SC1091 \
+            infrastructure/deploy \
+            infrastructure/tests/taptime-deploy.test \
             infrastructure/monitoring/taptime-immediate-monitor \
             infrastructure/monitoring/taptime-daily-monitor \
             infrastructure/backup/taptime-restore-verify \
@@ -47,7 +49,12 @@ jobs:
           bash -n infrastructure/monitoring/taptime-immediate-monitor
           bash -n infrastructure/monitoring/taptime-daily-monitor
           bash -n infrastructure/backup/taptime-restore-verify
+          bash -n infrastructure/deploy
+          bash infrastructure/tests/taptime-deploy.test
           bash infrastructure/monitoring/tests/taptime-monitor.test
+
+      - name: Verify GHCR retention protects deployed versions
+        run: node --test .github/scripts/select-ghcr-deletions.test.mjs
 
       - name: Verify Caddy replaces untrusted forwarding headers
         run: bash infrastructure/caddy/tests/taptime-caddy-forwarding.test

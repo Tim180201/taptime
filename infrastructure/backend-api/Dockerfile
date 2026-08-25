@@ -29,6 +29,15 @@ RUN npx esbuild apps/backend-api/src/main.ts \
   --banner:js="import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);" \
   --sourcemap \
   --outfile=/runtime/main.js
+RUN npx esbuild apps/backend-schema/src/cli.ts \
+  --bundle \
+  --platform=node \
+  --target=node24 \
+  --format=esm \
+  --external:pg-native \
+  --banner:js="import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);" \
+  --sourcemap \
+  --outfile=/runtime/migrate.js
 
 FROM node:24.17.0-bookworm-slim AS runtime
 
@@ -37,6 +46,8 @@ ENV NODE_ENV=production \
 WORKDIR /app
 
 COPY --from=build --chown=node:node /runtime/main.js /runtime/main.js.map ./
+COPY --from=build --chown=node:node /runtime/migrate.js /runtime/migrate.js.map ./schema/
+COPY --from=build --chown=node:node /app/apps/backend-schema/migrations ./migrations
 
 USER node
 EXPOSE 3000
