@@ -78,6 +78,19 @@ pull_image() {
     fail "Image revision label does not match requested version $version."
 }
 
+verify_local_rehearsal_image() {
+  local image="$1"
+  local expected_version="$2"
+  local revision
+
+  docker image inspect "$image" >/dev/null ||
+    fail "Local rehearsal image does not exist: $image"
+  revision="$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$image")"
+  [[ "$revision" == "$expected_version"* ]] ||
+    fail "Local rehearsal image revision does not match migration version $expected_version."
+  say "[Test] Verwende lokal abgeleitetes Probe-Abbild $image."
+}
+
 image_has_migrator() {
   docker run --rm --entrypoint test "$1" -f /app/schema/migrate.js
 }
@@ -374,7 +387,7 @@ main() {
     fail 'A rehearsal image override requires TAPTIME_DEPLOY_ALLOW_TEST_HOOKS=1.' || return
   fi
   if [[ "$rehearsal_image" != "$desired_image" && "$rehearsal_image" != "$previous_image" ]]; then
-    pull_image "$rehearsal_image" || return
+    verify_local_rehearsal_image "$rehearsal_image" "$MIGRATION_VERSION" || return
   fi
 
   run_restore_verification "$rehearsal_image" || return

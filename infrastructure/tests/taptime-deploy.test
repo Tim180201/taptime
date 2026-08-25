@@ -37,6 +37,7 @@ record() {
 require_root() { :; }
 acquire_deploy_lock() { :; }
 pull_image() { record "pull $1"; }
+verify_local_rehearsal_image() { record "verify-local $1 $2"; }
 select_migration_version() { printf '%s\n' "$DESIRED_VERSION"; }
 run_restore_verification() {
   record "restore-and-rehearsal $1"
@@ -87,6 +88,21 @@ expect_status 1 main latest
 grep --quiet 'Version must be exactly one seven-character lowercase commit hash' "$OUTPUT_FILE"
 
 : > "$LOG_FILE"
+TAPTIME_DEPLOY_TEST_REHEARSAL_IMAGE=local-bad expect_status 1 main bbbbbbb
+grep --quiet 'rehearsal image override requires TAPTIME_DEPLOY_ALLOW_TEST_HOOKS=1' "$OUTPUT_FILE"
+assert_log "pull ghcr.io/tim180201/taptime-backend-api:bbbbbbb
+pull ghcr.io/tim180201/taptime-backend-api:aaaaaaa"
+
+: > "$LOG_FILE"
+TAPTIME_DEPLOY_ALLOW_TEST_HOOKS=1 \
+  TAPTIME_DEPLOY_TEST_REHEARSAL_IMAGE=local-bad \
+  FAIL_REHEARSAL=1 expect_status 1 main bbbbbbb
+assert_log "pull ghcr.io/tim180201/taptime-backend-api:bbbbbbb
+pull ghcr.io/tim180201/taptime-backend-api:aaaaaaa
+verify-local local-bad bbbbbbb
+restore-and-rehearsal local-bad"
+
+: > "$LOG_FILE"
 FAIL_REHEARSAL=1 expect_status 1 main bbbbbbb
 assert_log "pull ghcr.io/tim180201/taptime-backend-api:bbbbbbb
 pull ghcr.io/tim180201/taptime-backend-api:aaaaaaa
@@ -131,6 +147,7 @@ expect_status 137 env \
     require_root() { :; }
     acquire_deploy_lock() { :; }
     pull_image() { record "pull $1"; }
+    verify_local_rehearsal_image() { record "verify-local $1 $2"; }
     select_migration_version() { printf "%s\n" "$DESIRED_VERSION"; }
     run_restore_verification() { record "restore-and-rehearsal $1"; }
     run_backup() { record backup; }
