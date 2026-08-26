@@ -99,15 +99,14 @@ danach Firma, Recht und Store.
 
 ## Aktuelle Aufgabe
 
-**T-022 — Auslieferungsweg dokumentieren und absichern.** Siehe `ADO/TASK.md`.
-Berührt keinen Anwendungscode, aber den Zugang zur Produktion — daher mit verpflichtendem
-unabhängigem Review und ausdrücklichem Aussperrungs-Vorbehalt.
+**T-015a — Standorte als Datenmodell, ausgeschaltet.** Siehe `ADO/TASK.md`. Migration und
+Mandantengrenze, daher mit verpflichtendem unabhängigem Review. Die frühere Aufgabe `T-015`
+(sieben Sitzungen) ist am 26.08. in **T-015a / T-015b / T-015c** geteilt worden.
 
-**Zuletzt abgeschlossen:** T-017a (Grundpolitur der Oberfläche), Commit `471b376`, am 25.08.
-ausgeliefert. Produktion: `current = 471b376`, Ledger `18:018`, `external_health = 200`.
-Das Admin-Web hat damit echte Adressen, drei Arten leerer Zustände, übersetzte Fehlermeldungen
-und feste Tabellenspalten. `ADO/01_Architecture/UI_Leitlinien.md` ist ab sofort für **jede**
-Oberflächenaufgabe verbindlich (D-021).
+**Zuletzt abgeschlossen:** T-022 (Auslieferungsweg dokumentieren und absichern), Commit
+`7acb5e9`. Der Produktionsserver ist `taptime-prod` unter `46.225.58.30`; ausgeliefert wird als
+`taptime-deploy` mit genau einer erlaubten `sudo`-Regel. Direkter Root-Login über SSH ist
+gesperrt, der geprüfte Rückweg ist die Hetzner-Konsole. Produktion: `current = 471b376`.
 
 Danach die Folgeaufgaben in neuer Reihenfolge, siehe `ADO/PLAN.md`. Die Kette wurde am 24.08.
 nach Betriebsfähigkeit sortiert und um sieben Aufgaben erweitert (D-012). `T-001` bis `T-006`
@@ -177,6 +176,26 @@ in keinem Plan standen.
 | **Produktname** | Tim | Engste Wahl: **Taptura** — `taptura.de`, `.com` und `.io` frei, `.app` vergeben. Kunstwort, trägt das „Tap" der Bedienung, in beiden Sprachen gleich aussprechbar, keine Kollision mit TIM/Telecom Italia. **Domains registrieren, bevor die Markenvorprüfung läuft** — sie sind das Einzige, das über Nacht weg sein kann. Regel aus der Suche: `.com` darf nicht über den Namen entscheiden; `.de` plus eine moderne Endung genügt. Verworfen: „MyTim" (Domains weg, TIM-Kollision, falsche Perspektive), „Zeitura" (international unklar auszusprechen). „TapTime" ist vergeben. Wird für Store, Firma und Domain gebraucht — Deadline Woche 12. Blockiert Phase 1 nicht. |
 | **T-021 Zustellbarkeit** | Tim | Brevo-Konto und DNS. Vor dem ersten echten Kunden, blockiert T-012 nicht. |
 | **Monatsgrenzen in Ortszeit** | Tim + Claude | Adressen wie `?monat=2026-10` rechnen heute in UTC-Monatsgrenzen. Ein Oktober in `Europe/Berlin` dauert durch die Zeitumstellung 31 Tage plus eine Stunde; Abfrage und CSV-Export erlauben vertraglich höchstens exakt 31 Tage. Betrifft genau zwei Monate im Jahr — und verschiebt dort Arbeitszeiten über die Monatsgrenze. Bei einer Lohnabrechnung ist das kein Rundungsfehler. Braucht eine Vertrags- und Backendentscheidung, nicht Oberflächenarbeit. Fällt spätestens mit T-013 an. |
+
+---
+
+## Geheimnisse — verwahrt am 25.08.2026
+
+Bis zum 25.08. lagen Borg-Passphrase, Borg-Schlüssel und `/opt/taptime/.env` **ausschließlich
+auf dem Server**. Jede Sicherung wäre bei einem Serververlust unlesbar gewesen — T-007 hat
+funktioniert, aber sein Zweck nicht. Der Product Owner hat vier Einträge angelegt:
+
+| Eintrag | Inhalt |
+|---|---|
+| TapTime Server Root (Hetzner-Konsole) | Root-Passwort für den Konsolen-Rückweg |
+| TapTime Borg Passphrase | am 25.08. rotiert, weil die alte in einem Chatverlauf landete |
+| TapTime Borg Schlüssel (Papierform) | `borg key export --paper`, zusätzlich ausgedruckt |
+| TapTime Produktions-.env | 18 Datenbank-Zugangsdaten und der Cursor-HMAC-Schlüssel |
+
+**Regel ab sofort:** Eine Aufgabe, die ein Geheimnis erzeugt, ist erst abgeschlossen, wenn der
+Product Owner bestätigt hat, dass es verwahrt ist — nicht wenn das Skript läuft. Und bei jeder
+Änderung auf dem Server wird der Eintrag am selben Tag nachgezogen; **T-024** rotiert die
+`.env` und muss sie danach erneut verwahren.
 
 ---
 
