@@ -155,8 +155,8 @@ printf 'Checking RLS: every application table must be enabled and forced.\n'
 rls_result="$(docker exec --user postgres "$container" psql --tuples-only --no-align --dbname="$DATABASE_NAME" \
   --command "SELECT count(*) || '/' || count(*) FILTER (WHERE relrowsecurity AND relforcerowsecurity) FROM pg_catalog.pg_class WHERE relnamespace = 'taptime_server'::pg_catalog.regnamespace AND relkind = 'r';")"
 printf 'RLS enabled and forced: %s\n' "$rls_result"
-if [[ "$rls_result" != '32/32' ]]; then
-  printf 'RLS check failed: expected 32/32.\n' >&2
+if [[ "$rls_result" != '37/37' ]]; then
+  printf 'RLS check failed: expected 37/37.\n' >&2
   exit 1
 fi
 

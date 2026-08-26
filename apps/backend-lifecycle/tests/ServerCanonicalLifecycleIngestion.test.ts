@@ -64,6 +64,9 @@ const runtimePool = new Pool({
 
 const keyId = 'b6-local-rs256';
 const sessionId = '90000000-0000-4000-8000-000000000601';
+const carryoverLocationId = '89000000-0000-4000-8000-000000000001';
+const carryoverBreakTagId = '89000000-0000-4000-8000-000000000003';
+const carryoverBreakAssignmentId = '89000000-0000-4000-8000-000000000004';
 let signingKey: CryptoKey;
 let otherSigningKey: CryptoKey;
 let jwksServer: Server;
@@ -243,6 +246,62 @@ function expectCleanConnection(
   });
 }
 
+async function prepareAndEnableLocationsForOrganizationA(): Promise<void> {
+  await installerPool.query(
+    `UPDATE ${B3_SCHEMA}.nfc_assignments
+     SET active = false, valid_to = transaction_timestamp(),
+         updated_at = transaction_timestamp(), row_version = row_version + 1
+     WHERE organization_id = $1 AND id = $2 AND active`,
+    [ids.organizationA, ids.inactiveCustomerAssignmentA],
+  );
+  await installerPool.query(
+    `INSERT INTO ${B3_SCHEMA}.locations (id, organization_id, display_name)
+     VALUES ($1, $2, 'Carryover Location')`,
+    [carryoverLocationId, ids.organizationA],
+  );
+  await installerPool.query(
+    `INSERT INTO ${B3_SCHEMA}.membership_home_location_assignments
+       (id, organization_id, membership_id, location_id)
+     SELECT gen_random_uuid(), membership.organization_id, membership.id, $2
+     FROM ${B3_SCHEMA}.memberships AS membership
+     WHERE membership.organization_id = $1 AND membership.revoked_at IS NULL`,
+    [ids.organizationA, carryoverLocationId],
+  );
+  await installerPool.query(
+    `INSERT INTO ${B3_SCHEMA}.work_target_location_assignments
+       (id, organization_id, target_type, target_id, location_id)
+     SELECT gen_random_uuid(), target.organization_id, target.target_type, target.target_id, $2
+     FROM ${B3_SCHEMA}.work_targets AS target
+     WHERE target.organization_id = $1 AND target.active`,
+    [ids.organizationA, carryoverLocationId],
+  );
+
+  const client = await installerPool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(
+      `SELECT
+         set_config('app.organization_id', $1, true),
+         set_config('app.user_id', $2, true),
+         set_config('app.membership_id', $3, true),
+         set_config('app.membership_role', 'administrator', true),
+         set_config('app.correlation_id', '89000000-0000-4000-8000-000000000002', true)`,
+      [ids.organizationA, ids.userA, ids.membershipA],
+    );
+    await client.query('SET LOCAL ROLE taptime_admin_setup');
+    await client.query(
+      `SELECT ${B3_SCHEMA}.set_organization_locations_enabled_v1($1, true)`,
+      [ids.organizationA],
+    );
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 beforeAll(async () => {
   const primaryKeyPair = await generateKeyPair('RS256');
   const secondaryKeyPair = await generateKeyPair('RS256');
@@ -277,19 +336,19 @@ afterAll(async () => {
 });
 
 describe('B6 migration and least-privilege runtime boundary', () => {
-  it('applies exactly migrations 001 through 018 and reruns the immutable ledger', async () => {
+  it('applies exactly migrations 001 through 019 and reruns the immutable ledger', async () => {
     expect((await loadMigrations()).map(({ version }) => version)).toEqual([
-      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018',
+      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019',
     ]);
     const ledger = await installerPool.query<{ version: string }>(
       `SELECT version FROM ${B3_MIGRATION_TABLE} ORDER BY version`,
     );
     expect(ledger.rows.map(({ version }) => version)).toEqual([
-      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018',
+      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019',
     ]);
     await expect(migrate(installerPool)).resolves.toEqual({
       applied: [],
-      alreadyApplied: ['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018'],
+      alreadyApplied: ['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019'],
     });
   });
 
@@ -1813,6 +1872,145 @@ describe('pool cleanup, unnamed execution and error truth', () => {
       receiptNumber: 215,
     }))).rejects.toThrow();
     await brokenPool.end();
+  });
+});
+
+describe('T-015a pre-activation lifecycle carryover', () => {
+  it('enables Locations during active work and pause and ends both without rewriting history', async () => {
+    await installerPool.query(
+      `UPDATE ${B3_SCHEMA}.memberships
+       SET role = 'administrator', row_version = row_version + 1
+       WHERE organization_id = $1 AND id = $2`,
+      [ids.organizationA, ids.membershipA],
+    );
+    const startedAt = new Date(Date.now() - 60 * 60 * 1_000).toISOString();
+    const start = await coordinator.ingest(await command({
+      eventNumber: 401,
+      receiptNumber: 401,
+      occurredAt: startedAt,
+    }));
+    expect(start).toMatchObject({
+      status: 'synchronized',
+      decision: { status: 'time_entry_started' },
+    });
+    await installerPool.query(
+      `INSERT INTO ${B3_SCHEMA}.nfc_tags (id, organization_id, display_name, payload_value)
+       VALUES ($1, $2, 'Carryover Pause', 'nfc:uid:v1:carryover')`,
+      [carryoverBreakTagId, ids.organizationA],
+    );
+    const carryoverTag = await installerPool.query<{ created_at: Date }>(
+      `SELECT created_at FROM ${B3_SCHEMA}.nfc_tags WHERE id = $1`,
+      [carryoverBreakTagId],
+    );
+    const pauseStartedAt = new Date(carryoverTag.rows[0]!.created_at.getTime() + 1_000);
+    await installerPool.query(
+      `INSERT INTO ${B3_SCHEMA}.nfc_assignments
+        (id, organization_id, nfc_tag_id, assignment_type, target_type,
+         target_customer_id, active, valid_from)
+       VALUES ($1, $2, $3, 'break', NULL, NULL, true, $4)`,
+      [
+        carryoverBreakAssignmentId,
+        ids.organizationA,
+        carryoverBreakTagId,
+        carryoverTag.rows[0]!.created_at,
+      ],
+    );
+    const pauseStart = await coordinator.ingest(await command({
+      eventNumber: 402,
+      receiptNumber: 402,
+      assignmentId: carryoverBreakAssignmentId,
+      tagId: carryoverBreakTagId,
+      breakSubject: true,
+      occurredAt: pauseStartedAt.toISOString(),
+    }));
+    expect(pauseStart).toMatchObject({
+      status: 'synchronized',
+      decision: { status: 'break_started' },
+    });
+
+    await prepareAndEnableLocationsForOrganizationA();
+    const enabledCarryover = await installerPool.query<{
+      locations_enabled: boolean;
+      entry_location: string | null;
+      pause_event_location: string | null;
+      entry_status: string;
+      pause_status: string;
+    }>(
+      `SELECT organization.locations_enabled,
+              entry.accepted_work_location_id AS entry_location,
+              pause_event.accepted_work_location_id AS pause_event_location,
+              entry.status AS entry_status,
+              interval.status AS pause_status
+       FROM ${B3_SCHEMA}.organizations AS organization
+       JOIN ${B3_SCHEMA}.time_entries AS entry
+         ON entry.organization_id = organization.id AND entry.user_id = $2
+       JOIN ${B3_SCHEMA}.break_intervals AS interval
+         ON interval.organization_id = entry.organization_id AND interval.time_entry_id = entry.id
+       JOIN ${B3_SCHEMA}.work_events AS pause_event
+         ON pause_event.organization_id = interval.organization_id
+        AND pause_event.id = interval.start_work_event_id
+       WHERE organization.id = $1 AND entry.status = 'started' AND interval.status = 'started'`,
+      [ids.organizationA, ids.userA],
+    );
+    expect(enabledCarryover.rows[0]).toEqual({
+      locations_enabled: true,
+      entry_location: null,
+      pause_event_location: null,
+      entry_status: 'started',
+      pause_status: 'started',
+    });
+
+    const pauseStop = await coordinator.ingest(await command({
+      eventNumber: 403,
+      receiptNumber: 403,
+      assignmentId: carryoverBreakAssignmentId,
+      tagId: carryoverBreakTagId,
+      breakSubject: true,
+      occurredAt: new Date(pauseStartedAt.getTime() + 6_000).toISOString(),
+    }));
+    expect(pauseStop).toMatchObject({
+      status: 'synchronized',
+      decision: { status: 'break_stopped' },
+    });
+    const stoppedAt = new Date(pauseStartedAt.getTime() + 7_000).toISOString();
+    const workStop = await coordinator.ingest(await command({
+      eventNumber: 404,
+      receiptNumber: 404,
+      occurredAt: stoppedAt,
+    }));
+    expect(workStop).toMatchObject({
+      status: 'synchronized',
+      decision: { status: 'time_entry_stopped' },
+    });
+
+    const completed = await installerPool.query<{
+      entry_status: string;
+      pause_status: string;
+      located_event_count: number;
+      entry_location: string | null;
+    }>(
+      `SELECT entry.status AS entry_status, interval.status AS pause_status,
+              count(event.accepted_work_location_id)::integer AS located_event_count,
+              entry.accepted_work_location_id AS entry_location
+       FROM ${B3_SCHEMA}.time_entries AS entry
+       JOIN ${B3_SCHEMA}.break_intervals AS interval
+         ON interval.organization_id = entry.organization_id AND interval.time_entry_id = entry.id
+       JOIN ${B3_SCHEMA}.work_events AS event
+         ON event.id = ANY($3::uuid[])
+       WHERE entry.organization_id = $1 AND entry.user_id = $2
+       GROUP BY entry.id, interval.id`,
+      [
+        ids.organizationA,
+        ids.userA,
+        [uuid('5', 401), uuid('5', 402), uuid('5', 403), uuid('5', 404)],
+      ],
+    );
+    expect(completed.rows[0]).toEqual({
+      entry_status: 'stopped',
+      pause_status: 'stopped',
+      located_event_count: 0,
+      entry_location: null,
+    });
   });
 });
 

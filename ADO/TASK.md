@@ -4,98 +4,125 @@
 
 ---
 
-## T-022 · Auslieferungsweg dokumentieren und absichern
+## T-015a · Standorte als Datenmodell — ausgeschaltet
 
-**Für:** Codex · **Risiko:** Aussperrung aus der Produktion → **unabhängiges Review verpflichtend**
-**Zeitbox:** zwei Arbeitssitzungen · **Grundlage:** T-017a ausgeliefert, Produktion auf `471b376`
+**Für:** Codex · **Risiko:** Migration, Mandantengrenze, Berechtigungsdimension → **unabhängiges Review verpflichtend**
+**Zeitbox:** drei Arbeitssitzungen · **Grundlage:** ADR-0020 (DA6-L01 bis L03, L06), D-008, D-013
 
-### Der Anlass
+### Warum geteilt
 
-Am 25.08. sollte eine geprüfte, grüne Version ausgeliefert werden. Der Befehl stand in
-`DEPLOY.md`. Trotzdem ging es nicht — weil dort **nicht steht, auf welcher Maschine er läuft**.
-Der Weg musste aus einer Shell-Historie rekonstruiert werden.
+`T-015` war mit sieben Sitzungen die größte Aufgabe im Plan. Sie wird in drei geschnitten:
 
-Das ist kein Schönheitsfehler. Es heißt: **Genau ein Chatfenster auf der Welt wusste, wie man
-dieses Produkt ausliefert.** Chatfenster enden. Genau dagegen haben wir dieses Verzeichnis
-gebaut, und ausgerechnet der Weg in die Produktion stand nicht darin.
+- **T-015a** — dieses Datenmodell, vollständig, aber **ohne jede Verhaltensänderung**
+- **T-015b** — die Standortleitung als Rolle und Berechtigung (ADR-0022)
+- **T-015c** — der Zuschnitt der Oberfläche
+
+Der Schnitt ist möglich, weil ADR-0020 die Funktion ausdrücklich **standardmäßig aus** verlangt.
+Diese Aufgabe darf deshalb an keiner Stelle sichtbar werden.
 
 ### Ziel
 
-**Jemand, der nur das Repository und den Passwortmanager hat, kommt auf den Server und liefert
-aus.** Ohne Verlauf, ohne Nachfragen, ohne Raten.
+**Das Datenmodell für Standorte existiert vollständig, ist mandantengeschützt — und kein
+einziger Benutzer merkt etwas davon.**
 
-Und: **Die Auslieferung läuft nicht mehr als direkter Root-Login.**
+Die Aufgabe ist fertig, wenn die Migration eingespielt ist, die gesamte bestehende Testsuite
+unverändert grün bleibt und nachgewiesen ist, dass ausgeschaltete Standorte **kein** Verhalten
+beeinflussen.
+
+### Die vier Begriffe, die nicht vermischt werden dürfen
+
+ADR-0020 DA6-L03 trennt sie ausdrücklich, und die Trennung ist der Kern dieser Aufgabe:
+
+| Begriff | Was er bedeutet | Was er **nicht** bedeutet |
+|---|---|---|
+| **Heimatstandort** | genau einer je aktiver Zugehörigkeit, solange die Funktion an ist | keine Einschränkung der Administratorautorität |
+| **Arbeitszuweisung** | zusätzliche Standorte, an denen jemand arbeiten darf | keinerlei Verwaltungsrecht |
+| **Verwaltungszuweisung** | Standorte, für die später delegiert verwaltet werden darf | kein Recht, dort selbst zu arbeiten |
+| **Rolle** | bleibt in dieser Aufgabe unverändert `administrator` / `employee` | **keine dritte Rolle in T-015a** |
+
+Keiner dieser vier impliziert, erweitert oder ersetzt einen anderen. Genau diese Vermischung ist
+der Fehler, den ADR-0020 verhindern will.
 
 ### Schritte
 
-**1. `infrastructure/DEPLOY.md` vervollständigen**
+**1. Migration 019**
 
-Was heute fehlt und hineingehört:
+- `locations` je Organisation, mit Aktiv-Kennzeichen und unveränderlicher Historie (DA6-L06)
+- Heimatstandort an der Zugehörigkeit
+- Arbeitszuweisungen und Verwaltungszuweisungen als **getrennte** Tabellen. Nicht eine Tabelle
+  mit einem Typfeld — die beiden dürfen nie versehentlich ineinander laufen
+- Ein Schalter je Organisation, **standardmäßig aus**
 
-- **Auf welcher Maschine** der Befehl läuft, und wie man dorthin kommt — vollständige
-  Befehlszeile einschließlich `ssh`, nicht nur der Teil, der auf dem Server läuft
-- **Wer** ausliefern darf und womit er sich ausweist
-- **Was man erwartet zu sehen**, und wie lange es dauert. Ein Lauf, der minutenlang schweigt,
-  weil Wiederherstellungsprobe und frische Sicherung davorhängen, sieht ohne diesen Satz aus
-  wie ein Hänger — und wird abgebrochen
-- **Wie man den Erfolg prüft:** `current`, Ledger-Eintrag, `external_health`
-- **Was zu tun ist, wenn der Health-Gate zurückrollt** — und ausdrücklich: nicht von Hand
-  nachhelfen
+Alles im etablierten Stil: `organization_id` überall, RLS mit `ENABLE` **und** `FORCE`,
+mandantenweite Eindeutigkeit über `(organization_id, id)`, keine Rechteausweitung in
+`SECURITY DEFINER`-Funktionen, `SET search_path = pg_catalog`.
 
-**2. `infrastructure/RESTORE.md` hat dieselbe Lücke**
+Die Organisation bleibt die harte Mandantengrenze (DA6-L02). Ein Standort ist eine **untergeordnete**
+Dimension und niemals ein Ersatz für die Mandantenprüfung. Jede Berechtigung prüft weiterhin
+zuerst die Organisation und **danach** den Standort.
 
-Dort ist sie teurer. Die Anleitung beschreibt einen Menschen unter Druck, dessen Server weg ist
-— und setzt stillschweigend voraus, dass er weiß, wie er auf eine Maschine kommt, die es nicht
-mehr gibt. Ergänze den Zugangsweg **und** den Fall, dass der Rechner mit dem Schlüssel
-ebenfalls weg ist.
+**2. Das Einschalten ist eine einzige Transaktion**
 
-**3. Weg vom Root-Login**
+Das ist der anspruchsvollste Teil und der, an dem die Aufgabe steht oder fällt.
 
-Ein eigener Benutzer für die Auslieferung, mit `sudo` **ausschließlich** für
-`/usr/local/sbin/taptime-deploy`. Kein allgemeines `sudo`, keine Shell als root.
+Beim Einschalten wird geprüft, dass **jede** aktive Zugehörigkeit genau einen aktiven
+Heimatstandort hat und **jeder** aktive Kunde, jedes Projekt, jedes Arbeitsziel und jede
+NFC-Zuordnung genau eine eindeutige, aktive Standortbindung derselben Organisation trägt.
 
-**Reihenfolge ist hier sicherheitskritisch, nicht Geschmackssache:**
+Fehlt eine, ist eine doppelt, widersprüchlich oder organisationsfremd, wird **die ganze
+Umschaltung abgewiesen**. Kein Teilzustand. Keine automatische Zuweisung, keine Vermutung, kein
+stillschweigendes Nachziehen.
 
-1. Neuen Weg einrichten und **nachweisen**, dass eine echte Auslieferung darüber läuft
-2. Erst danach den Root-Login einschränken
-3. Vorher prüfen, dass die Hetzner-Konsole als Rückweg tatsächlich funktioniert
+**3. Ausschalten nimmt Rechte, löscht aber nichts**
 
-Eine Absicherung, die uns selbst aussperrt, ist keine Absicherung. Wenn du an irgendeiner
-Stelle nicht sicher bist, ob der Rückweg steht: **anhalten und melden**, nicht weitermachen.
+Ausschalten beendet jede standortbezogene Wirkung für neue Entscheidungen sofort. Zuweisungen,
+Standorte und Historie bleiben erhalten. Wiedereinschalten prüft **erneut vollständig** — nie
+darauf verlassen, dass es beim letzten Mal gültig war.
 
-**4. Der Schlüssel liegt unverschlüsselt**
+**4. Keine Datenwanderung**
 
-Melde den Befund und den Vorschlag. **Entscheide nicht selbst** und ändere nichts an Schlüsseln
-auf dem Rechner des Product Owners — das ist seine Entscheidung, nicht deine.
+Keine bestehende Zeile wird automatisch einem Standort zugeordnet. Nichts wird abgeleitet.
+Die Produktionsdatenbank ist praktisch leer; für später gilt DA6-L07, aber nicht hier.
 
 ### Vision-Check
 
-Keine fachliche Logik, keine Migration, keine Oberfläche. Betrieb.
+**One Tap. One Decision.** Diese Aufgabe fügt dem Beschäftigten nichts hinzu — sie ist unsichtbar.
+Sie schafft die Voraussetzung dafür, dass die Verwaltung später **nicht** mehr an einer einzigen
+Person hängt (D-008).
 
 ### Nicht anfassen
 
-- Die Logik in `infrastructure/deploy`. Sie hat sich bei T-014 unter echten Bedingungen bewährt
-- `apps/`, `packages/`, Migrationen
-- Der laufende Betrieb. Produktion steht auf `471b376` und bleibt erreichbar
-- Schlüsseldateien auf dem Entwicklungsrechner
+- **Die dritte Rolle.** Keine Standortleitung in dieser Aufgabe. Der `CHECK` auf `role` bleibt
+  bei `administrator` und `employee`
+- `has_membership_management_authority_v1` aus Migration 016 — der Körper dieser Funktion ist
+  **T-015b**
+- `BusinessEngine` und die Entscheidungsreihenfolge
+- `apps/admin-web` und `apps/mobile` — vollständig. Diese Aufgabe hat keine Oberfläche
+- Bestehende Leseabfragen. Kein Standortfilter, nirgends
 
 ### Prüfung — nachweisen, nicht behaupten
 
-- Eine echte Auslieferung ist **über den neuen Weg** gelaufen; die Ausgabe steht im Bericht
-- Der Nachweis, dass der Auslieferungsbenutzer **nichts anderes** darf: ein Versuch, eine
-  andere Datei mit `sudo` auszuführen, wird abgelehnt
-- Der Nachweis, dass ein falsches Argument weiterhin am Skript scheitert, nicht an der Berechtigung
-- Der Rückweg über die Hetzner-Konsole ist geprüft, **bevor** der Root-Login eingeschränkt wurde
-- `DEPLOY.md` und `RESTORE.md` nennen Host, Zugangsweg, Berechtigten und Prüfschritte
-- Kein Geheimnis in argv, keines im Repository, keines im Bericht
+- Die **gesamte bestehende Testsuite** bleibt unverändert grün. Kein Test wird angepasst, um
+  die Migration zu überstehen — falls doch, ist das ein Befund und wird einzeln gemeldet
+- Ein Test weist nach, dass bei ausgeschalteter Funktion **keine** Abfrage ein anderes Ergebnis
+  liefert als vorher
+- Ein Test schaltet mit einer absichtlich ungebundenen aktiven Zeile ein und weist nach, dass
+  die **gesamte** Umschaltung abgewiesen wird und danach nichts halb umgestellt ist
+- Ein Test weist nach, dass Aus- und Wiedereinschalten die vollständige Prüfung erneut ausführt
+- Ein Test weist nach, dass eine Arbeitszuweisung **kein** Verwaltungsrecht ergibt und eine
+  Verwaltungszuweisung **kein** Arbeitsrecht
+- Ein Test weist nach, dass ein Standort einer fremden Organisation nicht sichtbar und nicht
+  bindbar ist
+- RLS ist auf allen neuen Tabellen aktiv **und** erzwungen; die Gesamtzahl im
+  Wiederherstellungsnachweis ist entsprechend erhöht und im Bericht genannt
+- Die Migration läuft in ihrer eigenen Transaktion und ist mit `ROLLBACK` geprüft
 - CI grün, kein `[skip ci]`
 
 ### Zusätzliches Review
 
-> Angenommen, der Entwicklungsrechner ist weg und du hast nur dieses Repository und den
-> Passwortmanager. Folge deiner eigenen Anleitung Schritt für Schritt und komm bis zu einer
-> ausgelieferten Version. **Wo bleibst du stecken?** Nenne die Stellen, statt zu behaupten, die
-> Anleitung sei vollständig.
+> Gibt es nach dieser Migration **irgendeinen** Weg, auf dem ein Standortbezug das Verhalten
+> beeinflusst, obwohl die Funktion ausgeschaltet ist — eine Abfrage, eine Policy, eine Funktion,
+> ein Standardwert? Suche danach, statt es auszuschließen.
 
 ### Abschluss
 
@@ -106,5 +133,5 @@ Vier Punkte melden. Entfernte oder umgeschriebene Tests **einzeln** benennen.
 
 ## Danach
 
-`T-015` Standorte und Standortleitung (ADR-0022) · `T-020` Freigabekette (D-014) ·
-`T-016` Löschkonzept · siehe `ADO/PLAN.md`.
+`T-015b` Standortleitung als Rolle und Berechtigung (ADR-0022) · `T-015c` Oberfläche ·
+`T-020` Freigabekette (D-014) · `T-024` Geheimnisse rotieren · siehe `ADO/PLAN.md`.

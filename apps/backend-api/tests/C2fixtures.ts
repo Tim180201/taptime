@@ -65,8 +65,8 @@ export async function resetMigrateAndPrepareC2(
   await installerPool.query(`DROP SCHEMA IF EXISTS ${B3_SCHEMA} CASCADE`);
   await installerPool.query(`DROP TABLE IF EXISTS ${B3_MIGRATION_TABLE}`);
   const result = await migrate(installerPool);
-  if (result.applied.join(',') !== '001,002,003,004,005,006,007,008,009,010,011,012,013,014,015,016,017,018') {
-    throw new Error('C2 requires a clean migration set 001 through 018');
+  if (result.applied.join(',') !== '001,002,003,004,005,006,007,008,009,010,011,012,013,014,015,016,017,018,019') {
+    throw new Error('C2 requires a clean migration set 001 through 019');
   }
 
   await normalizeRuntimeLogin(

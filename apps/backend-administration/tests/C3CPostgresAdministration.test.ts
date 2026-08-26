@@ -95,7 +95,7 @@ beforeAll(async () => {
   await installerPool.query(`DROP SCHEMA IF EXISTS ${B3_SCHEMA} CASCADE`);
   await installerPool.query(`DROP TABLE IF EXISTS ${B3_MIGRATION_TABLE}`);
   await expect(migrate(installerPool)).resolves.toEqual({
-    applied: ['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018'],
+    applied: ['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019'],
     alreadyApplied: [],
   });
   await ensureC3CRuntimeLogin(installerPool, runtimePassword);
@@ -119,13 +119,13 @@ afterAll(async () => {
 });
 
 describe('migration 007, roles and database contracts', () => {
-  it('records exactly immutable migrations 001 through 018 and reruns without changes', async () => {
+  it('records exactly immutable migrations 001 through 019 and reruns without changes', async () => {
     expect((await loadMigrations()).map(({ version }) => version)).toEqual([
-      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018',
+      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019',
     ]);
     await expect(migrate(installerPool)).resolves.toEqual({
       applied: [],
-      alreadyApplied: ['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018'],
+      alreadyApplied: ['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019'],
     });
   });
 
@@ -180,7 +180,7 @@ describe('migration 007, roles and database contracts', () => {
           await dirtyPool.query('DROP SCHEMA dirty_c3c CASCADE');
         }
         await expect(applyMigrationSet(dirtyPool, migrations.slice(6))).resolves.toEqual({
-          applied: ['007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018'],
+          applied: ['007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019'],
           alreadyApplied: [],
         });
       } finally {
@@ -229,7 +229,7 @@ describe('migration 007, roles and database contracts', () => {
          WHERE id = '90000000-0000-4000-8000-000000000010'`,
       );
       await expect(applyMigrationSet(migrationPool, migrations.slice(6))).resolves.toEqual({
-        applied: ['007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018'],
+        applied: ['007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019'],
         alreadyApplied: [],
       });
     } finally {
@@ -427,8 +427,17 @@ describe('migration 007, roles and database contracts', () => {
         functions: [
           'enforce_admin_break_tag_receipt_integrity',
           'enforce_admin_setup_receipt_integrity',
+          'enforce_enabled_location_setup_v1',
+          'enforce_work_location_is_additional_v1',
           'insert_admin_setup_nfc_tag_v1',
+          'location_setup_is_complete_v1',
           'lock_admin_setup_active_customer_v1',
+          'membership_has_management_location_v1',
+          'membership_has_work_location_v1',
+          'propagate_time_entry_location_v1',
+          'propagate_time_record_revision_location_v1',
+          'resolve_work_event_location_v1',
+          'set_organization_locations_enabled_v1',
         ],
         relations: '0',
       },

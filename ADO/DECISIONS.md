@@ -567,3 +567,20 @@ Aufgaben sieht das Produkt aus wie von drei Leuten gebaut.
 **Verbindlicher Wortschatz:** *Betrieb* statt Organisation, *Beschäftigte* statt Mitarbeiter,
 *Arbeitsziel* als Oberbegriff für Kunde, Projekt und Allgemeine Arbeitszeit. Keine englischen
 Begriffe in der Oberfläche. Vollständige Liste im Regelwerk.
+
+---
+
+## D-022 — Ein Standort wird nie rückwirkend vergeben
+
+**Datum:** 26.08.2026 · **Entschieden vom Technical Lead** · **Ausarbeitung:** `ADR-0025`
+
+Laufende Zeiteinträge und Pausen blockieren das Einschalten **nicht** und bleiben ohne Standort.
+Wiederhergestellte Zeiten erhalten ihn nur aus eindeutiger eigener Evidenz, nie aus dem heutigen
+Standort von Kunde, Projekt oder NFC-Zuordnung.
+
+**Warum:** Ein vergessener Stopp würde das Einschalten sonst dauerhaft blockieren, und ein
+nachgetragener Standort schreibt Geschichte um. „Kein Standort" ist wahr, „der heutige
+Standort" ist falsch und sieht wie ein Messwert aus — dieselbe Linie wie D-014.
+
+**Folgen:** Ergänzt ADR-0020 DA6-L01, schärft DA6-L06. T-015a vergibt an keinen Bestands- oder
+Wiederherstellungsdatensatz einen Standort; die Regel wird in T-015b umgesetzt.
