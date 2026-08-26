@@ -99,14 +99,13 @@ danach Firma, Recht und Store.
 
 ## Aktuelle Aufgabe
 
-**T-015a — Standorte als Datenmodell, ausgeschaltet.** Siehe `ADO/TASK.md`. Migration und
-Mandantengrenze, daher mit verpflichtendem unabhängigem Review. Die frühere Aufgabe `T-015`
-(sieben Sitzungen) ist am 26.08. in **T-015a / T-015b / T-015c** geteilt worden.
+**T-025 — Grenztests messen statt raten.** Siehe `ADO/TASK.md`. Kein Produktcode, aber die
+Verlässlichkeit jeder künftigen Prüfung hängt daran. Vorgezogen vor T-015b.
 
-**Zuletzt abgeschlossen:** T-022 (Auslieferungsweg dokumentieren und absichern), Commit
-`7acb5e9`. Der Produktionsserver ist `taptime-prod` unter `46.225.58.30`; ausgeliefert wird als
-`taptime-deploy` mit genau einer erlaubten `sudo`-Regel. Direkter Root-Login über SSH ist
-gesperrt, der geprüfte Rückweg ist die Hetzner-Konsole. Produktion: `current = 471b376`.
+**Zuletzt abgeschlossen:** T-015a (Standorte als Datenmodell, ausgeschaltet), Commit `d6e7b21`,
+CI grün. Fünf neue Tabellen, RLS 32/32 → 37/37, 1.697 Tests grün, **kein Verhaltenstest
+geändert**. Die Standort-Funktion ist gebaut und ausgeschaltet; sie beeinflusst kein Verhalten.
+Regeln dazu: **D-022** und **ADR-0025** — ein Standort wird nie rückwirkend vergeben.
 
 Danach die Folgeaufgaben in neuer Reihenfolge, siehe `ADO/PLAN.md`. Die Kette wurde am 24.08.
 nach Betriebsfähigkeit sortiert und um sieben Aufgaben erweitert (D-012). `T-001` bis `T-006`
