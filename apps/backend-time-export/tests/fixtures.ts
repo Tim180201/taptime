@@ -361,20 +361,18 @@ export async function insertBulkStoppedEntries(
     stoppedAts.push(new Date(stopEpochMilliseconds + value * 1_000).toISOString());
   }
 
-  // The statement below validates the complete synthetic history set-wise; firing the same
-  // referential checks once per fixture row dominates this size-boundary test's runtime.
-  await installerPool.query(`
-    ALTER TABLE taptime_server.work_events DISABLE TRIGGER ALL;
-    ALTER TABLE taptime_server.time_entries DISABLE TRIGGER ALL;
-    ALTER TABLE taptime_server.canonical_decisions DISABLE TRIGGER ALL
-  `);
+  // Keep fixture construction set-wise, but use indexed tables for the final validation.
+  // Joining several data-modifying CTE result sets made PostgreSQL choose unstable quadratic
+  // plans even though every inserted row was already indexed in its destination table.
+  const client = await installerPool.connect();
   try {
-    const inserted = await installerPool.query<{
-      work_event_count: number;
-      time_entry_count: number;
-      decision_count: number;
-      complete_history_count: number;
-    }>(`
+    await client.query('BEGIN');
+    await client.query(`
+      ALTER TABLE taptime_server.work_events DISABLE TRIGGER ALL;
+      ALTER TABLE taptime_server.time_entries DISABLE TRIGGER ALL;
+      ALTER TABLE taptime_server.canonical_decisions DISABLE TRIGGER ALL
+    `);
+    await client.query(`
       WITH bulk_rows AS MATERIALIZED (
         SELECT *
         FROM unnest(
@@ -382,96 +380,20 @@ export async function insertBulkStoppedEntries(
         ) AS bulk_row(
           time_entry_id, start_work_event_id, stop_work_event_id, started_at, stopped_at
         )
-      ),
-      inserted_work_events AS (
-        INSERT INTO taptime_server.work_events
-          (id, organization_id, assignment_id, nfc_tag_id, target_type, target_customer_id,
-           triggered_by_user_id, occurred_at, content_hash, content_hash_algorithm,
-           content_hash_version)
-        SELECT
-          start_work_event_id, $6::uuid, $7::uuid, $8::uuid, 'customer', $9::uuid,
-          $10::uuid, started_at, pg_catalog.repeat('a', 64), 'sha256', 1
-        FROM bulk_rows
-        UNION ALL
-        SELECT
-          stop_work_event_id, $6::uuid, $7::uuid, $8::uuid, 'customer', $9::uuid,
-          $10::uuid, stopped_at, pg_catalog.repeat('b', 64), 'sha256', 1
-        FROM bulk_rows
-        RETURNING id, organization_id, triggered_by_user_id, target_type,
-                  target_customer_id, occurred_at
-      ),
-      inserted_time_entries AS (
-        INSERT INTO taptime_server.time_entries
-          (id, organization_id, user_id, target_type, target_customer_id, status,
-           start_work_event_id, started_at, stop_work_event_id, stopped_at)
-        SELECT
-          time_entry_id, $6::uuid, $10::uuid, 'customer', $9::uuid, 'stopped',
-          start_work_event_id, started_at, stop_work_event_id, stopped_at
-        FROM bulk_rows
-        WHERE (SELECT pg_catalog.count(*) FROM inserted_work_events)
-          = pg_catalog.cardinality($1::uuid[]) * 2
-        RETURNING id, organization_id, user_id, target_type, target_customer_id, status,
-                  start_work_event_id, started_at, stop_work_event_id, stopped_at
-      ),
-      inserted_decisions AS (
-        INSERT INTO taptime_server.canonical_decisions
-          (work_event_id, organization_id, actor_user_id, target_type, target_customer_id,
-           decision_type, time_entry_id, engine_version, decision_payload)
-        SELECT
-          start_work_event_id, $6::uuid, $10::uuid, 'customer', $9::uuid,
-          'time_entry_started', time_entry_id, 'da2-limit-test', '{}'::jsonb
-        FROM bulk_rows
-        WHERE (SELECT pg_catalog.count(*) FROM inserted_time_entries)
-          = pg_catalog.cardinality($1::uuid[])
-        UNION ALL
-        SELECT
-          stop_work_event_id, $6::uuid, $10::uuid, 'customer', $9::uuid,
-          'time_entry_stopped', time_entry_id, 'da2-limit-test', '{}'::jsonb
-        FROM bulk_rows
-        WHERE (SELECT pg_catalog.count(*) FROM inserted_time_entries)
-          = pg_catalog.cardinality($1::uuid[])
-        RETURNING work_event_id, organization_id, actor_user_id, target_type,
-                  target_customer_id, decision_type, time_entry_id
       )
+      INSERT INTO taptime_server.work_events
+        (id, organization_id, assignment_id, nfc_tag_id, target_type, target_customer_id,
+         triggered_by_user_id, occurred_at, content_hash, content_hash_algorithm,
+         content_hash_version)
       SELECT
-        (SELECT pg_catalog.count(*)::integer FROM inserted_work_events) AS work_event_count,
-        (SELECT pg_catalog.count(*)::integer FROM inserted_time_entries) AS time_entry_count,
-        (SELECT pg_catalog.count(*)::integer FROM inserted_decisions) AS decision_count,
-        (
-          SELECT pg_catalog.count(*)::integer
-          FROM inserted_time_entries AS entry
-          JOIN inserted_work_events AS start_event
-            ON start_event.id = entry.start_work_event_id
-           AND start_event.organization_id = entry.organization_id
-           AND start_event.triggered_by_user_id = entry.user_id
-           AND start_event.target_type = entry.target_type
-           AND start_event.target_customer_id = entry.target_customer_id
-           AND start_event.occurred_at = entry.started_at
-          JOIN inserted_work_events AS stop_event
-            ON stop_event.id = entry.stop_work_event_id
-           AND stop_event.organization_id = entry.organization_id
-           AND stop_event.triggered_by_user_id = entry.user_id
-           AND stop_event.target_type = entry.target_type
-           AND stop_event.target_customer_id = entry.target_customer_id
-           AND stop_event.occurred_at = entry.stopped_at
-          JOIN inserted_decisions AS start_decision
-            ON start_decision.work_event_id = entry.start_work_event_id
-           AND start_decision.organization_id = entry.organization_id
-           AND start_decision.actor_user_id = entry.user_id
-           AND start_decision.target_type = entry.target_type
-           AND start_decision.target_customer_id = entry.target_customer_id
-           AND start_decision.decision_type = 'time_entry_started'
-           AND start_decision.time_entry_id = entry.id
-          JOIN inserted_decisions AS stop_decision
-            ON stop_decision.work_event_id = entry.stop_work_event_id
-           AND stop_decision.organization_id = entry.organization_id
-           AND stop_decision.actor_user_id = entry.user_id
-           AND stop_decision.target_type = entry.target_type
-           AND stop_decision.target_customer_id = entry.target_customer_id
-           AND stop_decision.decision_type = 'time_entry_stopped'
-           AND stop_decision.time_entry_id = entry.id
-          WHERE entry.status = 'stopped'
-        ) AS complete_history_count
+        start_work_event_id, $6::uuid, $7::uuid, $8::uuid, 'customer', $9::uuid,
+        $10::uuid, started_at, pg_catalog.repeat('a', 64), 'sha256', 1
+      FROM bulk_rows
+      UNION ALL
+      SELECT
+        stop_work_event_id, $6::uuid, $7::uuid, $8::uuid, 'customer', $9::uuid,
+        $10::uuid, stopped_at, pg_catalog.repeat('b', 64), 'sha256', 1
+      FROM bulk_rows
     `, [
       entryIds,
       startEventIds,
@@ -484,6 +406,89 @@ export async function insertBulkStoppedEntries(
       ids.customerA,
       ids.employeeA,
     ]);
+    await client.query(`
+      INSERT INTO taptime_server.time_entries
+        (id, organization_id, user_id, target_type, target_customer_id, status,
+         start_work_event_id, started_at, stop_work_event_id, stopped_at)
+      SELECT time_entry_id, $6::uuid, $7::uuid, 'customer', $8::uuid, 'stopped',
+             start_work_event_id, started_at, stop_work_event_id, stopped_at
+      FROM unnest(
+        $1::uuid[], $2::uuid[], $3::uuid[], $4::timestamptz[], $5::timestamptz[]
+      ) AS bulk_row(
+        time_entry_id, start_work_event_id, stop_work_event_id, started_at, stopped_at
+      )
+    `, [entryIds, startEventIds, stopEventIds, startedAts, stoppedAts,
+      ids.organizationA, ids.employeeA, ids.customerA]);
+    await client.query(`
+      WITH bulk_rows AS MATERIALIZED (
+        SELECT *
+        FROM unnest($1::uuid[], $2::uuid[], $3::uuid[])
+          AS bulk_row(time_entry_id, start_work_event_id, stop_work_event_id)
+      )
+      INSERT INTO taptime_server.canonical_decisions
+        (work_event_id, organization_id, actor_user_id, target_type, target_customer_id,
+         decision_type, time_entry_id, engine_version, decision_payload)
+      SELECT start_work_event_id, $4::uuid, $5::uuid, 'customer', $6::uuid,
+             'time_entry_started', time_entry_id, 'da2-limit-test', '{}'::jsonb
+      FROM bulk_rows
+      UNION ALL
+      SELECT stop_work_event_id, $4::uuid, $5::uuid, 'customer', $6::uuid,
+             'time_entry_stopped', time_entry_id, 'da2-limit-test', '{}'::jsonb
+      FROM bulk_rows
+    `, [entryIds, startEventIds, stopEventIds,
+      ids.organizationA, ids.employeeA, ids.customerA]);
+    const inserted = await client.query<{
+      work_event_count: number;
+      time_entry_count: number;
+      decision_count: number;
+      complete_history_count: number;
+    }>(`
+      SELECT
+        (SELECT pg_catalog.count(*)::integer
+         FROM taptime_server.work_events
+         WHERE id = ANY($2::uuid[]) OR id = ANY($3::uuid[])) AS work_event_count,
+        (SELECT pg_catalog.count(*)::integer
+         FROM taptime_server.time_entries
+         WHERE id = ANY($1::uuid[])) AS time_entry_count,
+        (SELECT pg_catalog.count(*)::integer
+         FROM taptime_server.canonical_decisions
+         WHERE work_event_id = ANY($2::uuid[]) OR work_event_id = ANY($3::uuid[]))
+           AS decision_count,
+        (SELECT pg_catalog.count(*)::integer
+         FROM taptime_server.time_entries AS entry
+         JOIN taptime_server.work_events AS start_event
+           ON start_event.id = entry.start_work_event_id
+          AND start_event.organization_id = entry.organization_id
+          AND start_event.triggered_by_user_id = entry.user_id
+          AND start_event.target_type = entry.target_type
+          AND start_event.target_customer_id = entry.target_customer_id
+          AND start_event.occurred_at = entry.started_at
+         JOIN taptime_server.work_events AS stop_event
+           ON stop_event.id = entry.stop_work_event_id
+          AND stop_event.organization_id = entry.organization_id
+          AND stop_event.triggered_by_user_id = entry.user_id
+          AND stop_event.target_type = entry.target_type
+          AND stop_event.target_customer_id = entry.target_customer_id
+          AND stop_event.occurred_at = entry.stopped_at
+         JOIN taptime_server.canonical_decisions AS start_decision
+           ON start_decision.work_event_id = entry.start_work_event_id
+          AND start_decision.organization_id = entry.organization_id
+          AND start_decision.actor_user_id = entry.user_id
+          AND start_decision.target_type = entry.target_type
+          AND start_decision.target_customer_id = entry.target_customer_id
+          AND start_decision.decision_type = 'time_entry_started'
+          AND start_decision.time_entry_id = entry.id
+         JOIN taptime_server.canonical_decisions AS stop_decision
+           ON stop_decision.work_event_id = entry.stop_work_event_id
+          AND stop_decision.organization_id = entry.organization_id
+          AND stop_decision.actor_user_id = entry.user_id
+          AND stop_decision.target_type = entry.target_type
+          AND stop_decision.target_customer_id = entry.target_customer_id
+          AND stop_decision.decision_type = 'time_entry_stopped'
+          AND stop_decision.time_entry_id = entry.id
+         WHERE entry.id = ANY($1::uuid[]) AND entry.status = 'stopped')
+           AS complete_history_count
+    `, [entryIds, startEventIds, stopEventIds]);
     const counts = inserted.rows[0];
     if (
       counts?.work_event_count !== count * 2
@@ -493,12 +498,17 @@ export async function insertBulkStoppedEntries(
     ) {
       throw new Error('DA2 bulk setup did not insert the complete test history');
     }
-  } finally {
-    await installerPool.query(`
+    await client.query(`
       ALTER TABLE taptime_server.work_events ENABLE TRIGGER ALL;
       ALTER TABLE taptime_server.time_entries ENABLE TRIGGER ALL;
       ALTER TABLE taptime_server.canonical_decisions ENABLE TRIGGER ALL
     `);
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
   }
 }
 

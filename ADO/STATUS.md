@@ -201,12 +201,13 @@ Product Owner bestätigt hat, dass es verwahrt ist — nicht wenn das Skript lä
 
 ## Bekannte Kleinigkeiten (blockieren nichts)
 
-- **P2:** Der C3E1-Paginationstest erzeugt Mitgliedschafts-UUIDs zufällig, erwartet aber eine
-  feste Rollenreihenfolge. Im ersten T-012-CI-Lauf kam deshalb `employee` vor `administrator`;
-  der grüne Wiederholungslauf behebt diese nichtdeterministische Testannahme nicht.
-- **P2:** Der DA2-8-MiB-Grenztest überschritt nach Migration 017 einmal sein 30-Sekunden-Budget.
-  T-012c baut das Schema pro Datei nur einmal auf und leert Daten dynamisch; die Laufzeit des
-  Einfügens und Exportierens bleibt zu beobachten, statt Fehlschläge durch Wiederholung zu akzeptieren.
+- **P2, gelöst in T-025:** Drei Grenztest-Vorfälle waren Läuferwetter statt Produktfehler; zuletzt
+  schwankte Payroll V3 von 8,9 auf 30,2 Sekunden. Der 8-MiB-Test vergleicht den Export nun mit
+  einer festen PostgreSQL-CPU-Referenz im selben Lauf (`1,20×`), meldet absolute
+  Langsamkeit nur als Warnung und läuft in einem eigenen CI-Job mit eigener Datenbank.
+- **P2:** PostgreSQL-Integrationssuiten dürfen lokal nicht parallel auf demselben Cluster laufen:
+  Migrationen normalisieren clusterweite Rollen und können dadurch eine fremde Suite stören.
+  Die CI-Jobs besitzen getrennte PostgreSQL-Servicecontainer; lokale Prüfläufe bleiben seriell.
 - **P2:** `effective_work_duration_seconds_v1` hat noch keinen Aufrufer. Das ist bis T-013
   korrekt; **T-013 muss diese Funktion aufrufen** und darf den Pausenabzug nicht in TypeScript
   nachrechnen, sonst entstehen zwei Wahrheiten.
@@ -274,11 +275,6 @@ Product Owner bestätigt hat, dass es verwahrt ist — nicht wenn das Skript lä
 - Mit dem entfernten CI-Job entfielen auch Absicherungen gegen bekannte Lücken in
   Abhängigkeiten (GHSA-Einträge, `image-size`). Falls das erhalten bleiben soll, gehört es in
   eine eigene Abhängigkeits-Richtlinie — nicht zurück in den eingefrorenen Harness.
-- **P2:** Der zweite T-017a-CI-Lauf war grün, der erste rot: ein 30-Sekunden-Grenztest im
-  DA3-Backend-Job erzeugte kaskadierende Datenbank-Timeouts und riss fremde Prüfungen mit.
-  Das ist der **zweite Vorfall dieser Bauart** (siehe DA2-8-MiB oben). Beim dritten ist es
-  kein Timing-Zufall mehr, sondern ein Testentwurf, der andere Tests unzuverlässig macht —
-  dann gehört der Grenztest isoliert, nicht wiederholt.
 - **P2:** `securityBoundaries.test.ts` prüft die Tabellenfixierung über reguläre Ausdrücke
   auf dem **Quelltext** von `styles.css`, nicht über Verhalten. Er bricht bei jeder
   Umformatierung ohne Verhaltensänderung — und würde einen echten Verlust der Fixierung

@@ -700,6 +700,55 @@ jobs:
       - name: Test focused DA2 HTTP export boundary
         run: npm test --workspace=@taptime/backend-api -- --run tests/TimeEntryExportApi.test.ts
 
+  backend-da2-time-export-boundary:
+    name: Backend DA2 isolated TimeEntry export size boundaries
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:17.10-alpine
+        env:
+          POSTGRES_DB: taptime_da2_boundary
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: taptime_da2_boundary_installer
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U taptime_da2_boundary_installer -d taptime_da2_boundary"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DA2_BOUNDARY_DATABASE_URL: postgresql://taptime_da2_boundary_installer:postgres@127.0.0.1:5432/taptime_da2_boundary
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.17.0
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies from lockfile
+        run: npm ci
+
+      - name: Build DA2 boundary dependencies
+        run: |
+          npm run build --workspace=@taptime/time-entry-export-contract
+          npm run build --workspace=@taptime/core
+          npm run build --workspace=@taptime/backend-schema
+          npm run build --workspace=@taptime/backend-identity
+
+      - name: Test isolated DA2 export size boundaries against PostgreSQL 17
+        run: npm run test:boundary --workspace=@taptime/backend-time-export
+
   backend-da3-time-review:
     name: Backend DA3 append-only correction and Human review
     runs-on: ubuntu-latest

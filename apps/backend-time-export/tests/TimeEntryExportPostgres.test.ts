@@ -6,7 +6,6 @@ import { TimeEntryExportCoordinator, type TimeEntryExportCoordinatorControls } f
 import {
   DA2_RUNTIME_LOGIN,
   ids,
-  insertBulkStoppedEntries,
   resetMigrateAndPrepare,
   runtimeConnectionString,
   seedDa2,
@@ -451,28 +450,6 @@ describe('DA2 PostgreSQL export security and truth', () => {
       expect(await readSchemaProtectionSnapshot()).toEqual(schemaProtectionBaseline);
     }
   });
-
-  registerExportTest('fails closed above 10,000 rows without truncation or audit', async () => {
-    await insertBulkStoppedEntries(installerPool, 9_999);
-    expect((await exportAs(tokens.adminA)).status).toBe('export_limit_exceeded');
-    expect(await exportAuditCount()).toBe(0);
-  }, 30_000);
-
-  registerExportTest('fails closed above 8 MiB without truncation or audit', async () => {
-    await truncateDa2DataTables(installerPool);
-    await seedDa2(installerPool, true);
-    await insertBulkStoppedEntries(installerPool, 5_998);
-    expect((await exportAs(tokens.adminA)).status).toBe('export_limit_exceeded');
-    expect(await exportAuditCount()).toBe(0);
-  }, 30_000);
-
-  registerExportTest('fails payroll v3 closed above 8 MiB without truncation or audit', async () => {
-    await truncateDa2DataTables(installerPool);
-    await seedDa2(installerPool, true);
-    await insertBulkStoppedEntries(installerPool, 7_500);
-    expect((await exportV3As(tokens.adminA)).status).toBe('export_limit_exceeded');
-    expect(await exportAuditCount()).toBe(0);
-  }, 30_000);
 
   registerExportTest('uses one repeatable-read snapshot when a Stop commits after the read', async () => {
     const result = await coordinator.exportTimeEntries(

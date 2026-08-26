@@ -406,30 +406,46 @@ describe('migration 008 Employee invitation and enrollment boundary', () => {
         invitationSecret: invitation.invitationSecret,
       })).status).toBe('succeeded');
     }
-    const first = await coordinator.readEmployeeMembershipsProjection({
-      accessToken: fixtureTokens.adminA,
-      expectedMembershipId: membershipIds.adminA,
-      cursor: null,
-      limit: 1,
-    });
-    expect(first).toMatchObject({
-      status: 'succeeded',
-      organization: { id: ids.organizationA, name: 'Synthetic Organization A' },
-      employeeMemberships: [{ role: 'administrator', active: true, rowVersion: 1 }],
-      nextCursor: expect.stringMatching(/^v1:m:[0-9a-f-]{36}$/),
-    });
-    if (first.status !== 'succeeded') throw new Error('Expected projection success');
-    const second = await coordinator.readEmployeeMembershipsProjection({
-      accessToken: fixtureTokens.adminA,
-      expectedMembershipId: membershipIds.adminA,
-      cursor: first.nextCursor,
-      limit: 20,
-    });
-    expect(second.status).toBe('succeeded');
-    if (second.status !== 'succeeded') throw new Error('Expected projection success');
-    expect(second.employeeMemberships).toHaveLength(4);
-    expect(second.employeeMemberships[0]!.id).not.toBe(first.employeeMemberships[0]!.id);
-    expect(second.nextCursor).toBeNull();
+    const memberships = [];
+    const cursors = new Set<string>();
+    let cursor: string | null = null;
+    do {
+      const page = await coordinator.readEmployeeMembershipsProjection({
+        accessToken: fixtureTokens.adminA,
+        expectedMembershipId: membershipIds.adminA,
+        cursor,
+        limit: 1,
+      });
+      expect(page).toMatchObject({
+        status: 'succeeded',
+        organization: { id: ids.organizationA, name: 'Synthetic Organization A' },
+      });
+      if (page.status !== 'succeeded') throw new Error('Expected projection success');
+      expect(page.employeeMemberships).toHaveLength(1);
+      memberships.push(page.employeeMemberships[0]!);
+      if (page.nextCursor !== null) {
+        expect(page.nextCursor).toMatch(/^v1:m:[0-9a-f-]{36}$/);
+        expect(cursors.has(page.nextCursor)).toBe(false);
+        cursors.add(page.nextCursor);
+      }
+      cursor = page.nextCursor;
+    } while (cursor !== null);
+
+    expect(memberships).toHaveLength(5);
+    expect(memberships.map(({ id }) => id)).toEqual(
+      [...memberships.map(({ id }) => id)].sort(),
+    );
+    expect(memberships.map(({ role }) => role).sort()).toEqual([
+      'administrator', 'administrator', 'employee', 'employee', 'employee',
+    ]);
+    expect(memberships.map(({ displayName, role, active, rowVersion }) => ({
+      displayName, role, active, rowVersion,
+    }))).toEqual(expect.arrayContaining([
+      { displayName: 'Administrator', role: 'administrator', active: true, rowVersion: 1 },
+      { displayName: 'Beschäftigter', role: 'employee', active: true, rowVersion: 1 },
+      { displayName: 'Employee Alpha', role: 'employee', active: true, rowVersion: 1 },
+      { displayName: 'Employee Beta', role: 'employee', active: true, rowVersion: 1 },
+    ]));
   });
 
   it('invites a second Administrator who resolves the same management capability', async () => {
