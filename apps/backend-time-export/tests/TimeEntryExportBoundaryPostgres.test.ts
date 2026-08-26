@@ -32,8 +32,7 @@ const request: TimeEntryExportRequest = Object.freeze({
 });
 const BOUNDARY_EXPORT_DEADLINE_MILLISECONDS = 120_000;
 const ABSOLUTE_WARNING_MILLISECONDS = 10_000;
-const REFERENCE_SERIES_SIZE = 12_000_000;
-const REFERENCE_CHECKSUM = '5999995019461';
+const REFERENCE_EXPORT_PASSES = 8;
 const MAXIMUM_EXPORT_TO_REFERENCE_RATIO = 1.2;
 
 beforeAll(async () => {
@@ -79,12 +78,9 @@ describe('DA2 export size boundaries in an isolated database run', () => {
     const fixtureMilliseconds = performance.now() - fixtureStarted;
 
     const referenceStarted = performance.now();
-    const reference = await installerPool.query<{ checksum: string }>(
-      `SELECT pg_catalog.sum((value::bigint * 31) % 1000003)::text AS checksum
-       FROM pg_catalog.generate_series(1, $1) AS value`,
-      [REFERENCE_SERIES_SIZE],
-    );
-    expect(reference.rows[0]?.checksum).toBe(REFERENCE_CHECKSUM);
+    for (let pass = 0; pass < REFERENCE_EXPORT_PASSES; pass += 1) {
+      expect((await exportV2()).status).toBe('export_limit_exceeded');
+    }
     const referenceWorkMilliseconds = performance.now() - referenceStarted;
     await delay(referenceWorkMilliseconds * (syntheticRunnerFactor - 1));
     const referenceMilliseconds = performance.now() - referenceStarted;
@@ -102,7 +98,7 @@ describe('DA2 export size boundaries in an isolated database run', () => {
 
     console.info(
       `[T-025 boundary] fixture=${format(fixtureMilliseconds)}ms `
-      + `reference=${format(referenceMilliseconds)}ms `
+      + `reference-v2-${REFERENCE_EXPORT_PASSES}x=${format(referenceMilliseconds)}ms `
       + `payroll-v3=${format(exportMilliseconds)}ms ratio=${ratio.toFixed(2)}x `
       + `budget=${MAXIMUM_EXPORT_TO_REFERENCE_RATIO.toFixed(2)}x`,
     );
@@ -117,7 +113,7 @@ describe('DA2 export size boundaries in an isolated database run', () => {
     expect(await exportAuditCount()).toBe(0);
     expect(
       ratio,
-      `payroll-v3 export took ${ratio.toFixed(2)}x its same-run PostgreSQL reference`,
+      `payroll-v3 export took ${ratio.toFixed(2)}x its same-run eight-pass v2 reference`,
     ).toBeLessThanOrEqual(MAXIMUM_EXPORT_TO_REFERENCE_RATIO);
   }, 180_000);
 });
@@ -130,6 +126,12 @@ function exportV1() {
 
 function exportV3(controls: Parameters<TimeEntryExportCoordinator['exportTimeEntriesV3']>[1]) {
   return coordinator.exportTimeEntriesV3(command(), controls);
+}
+
+function exportV2() {
+  return coordinator.exportTimeEntriesV2(command(), {
+    deadlineEpochMilliseconds: Date.now() + BOUNDARY_EXPORT_DEADLINE_MILLISECONDS,
+  });
 }
 
 function command() {

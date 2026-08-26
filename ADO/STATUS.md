@@ -203,7 +203,7 @@ Product Owner bestätigt hat, dass es verwahrt ist — nicht wenn das Skript lä
 
 - **P2, gelöst in T-025:** Drei Grenztest-Vorfälle waren Läuferwetter statt Produktfehler; zuletzt
   schwankte Payroll V3 von 8,9 auf 30,2 Sekunden. Der 8-MiB-Test vergleicht den Export nun mit
-  einer festen PostgreSQL-CPU-Referenz im selben Lauf (`1,20×`), meldet absolute
+  acht Durchläufen des unveränderlichen V2-Exports im selben Lauf (`1,20×`), meldet absolute
   Langsamkeit nur als Warnung und läuft in einem eigenen CI-Job mit eigener Datenbank.
 - **P2:** PostgreSQL-Integrationssuiten dürfen lokal nicht parallel auf demselben Cluster laufen:
   Migrationen normalisieren clusterweite Rollen und können dadurch eine fremde Suite stören.
