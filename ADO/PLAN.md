@@ -62,7 +62,8 @@ Datenbankrechten eingreifen muss.
 | **T-015a** | **Standorte als Datenmodell — ausgeschaltet** | Geteilt am 26.08.: sieben Sitzungen in einem Chat sind die Bauart, die zu veralteten Kontexten führt. ADR-0020 verlangt die Funktion standardmäßig aus — der Schnitt ist dadurch gefahrlos. Diese Aufgabe ändert kein Verhalten. | 3 |
 | **T-025** | **Grenztests messen statt raten** | Derselbe Test schwankte am 26.08. zwischen 8,9 s und 30,2 s, die Exportstrecke um Faktor 8,5. Eine feste Millisekundenschranke misst auf dieser CI nicht die Software, sondern die Tagesform des Läufers — dreimal ausgelöst, dreimal war nichts kaputt. Vorgezogen, weil der Flackerer sonst T-015b und T-015c weiter verrauscht. | 1 |
 | **T-015b** | Standortleitung als Rolle und Berechtigung (ADR-0022) | Ändert den Körper von `has_membership_management_authority_v1`; Route und Aufrufstellen bleiben | 3 |
-| **T-015c** | Zuschnitt der Oberfläche auf den Standort | Braucht T-015b und das Regelwerk aus D-021 | 2 |
+| **T-015c** | **Der Server sagt, was die Oberfläche zeigen darf** | Geteilt am 26.08.: `/v1/session` trägt weder Standortfunktion noch Verwaltungsumfang, die Beschäftigtenprojektion keinen Standort. Ohne diesen Vertrag müsste die Oberfläche selbst über Berechtigungen entscheiden — verboten nach DA6-L08. | 2 |
+| **T-015d** | Zuschnitt der Oberfläche auf den Standort | Braucht T-015c und das Regelwerk aus D-021 | 2 |
 | **T-020** | **Freigabekette für nicht per NFC erfasste Zeiten (D-014)** | Braucht die Standortleitung als Instanz | 5 |
 | **T-016** | Löschkonzept und Betroffenenrechte | Der AVV verlangt die Fähigkeit, nicht den Text | 5 |
 | **T-017** | Feinschliff, Standortleitungs-Zuschnitt, Barrierefreiheit, **CSP und Sitzung (D-015)**, Landing Page | Nach dem Nutzer-Feedback | 4 |

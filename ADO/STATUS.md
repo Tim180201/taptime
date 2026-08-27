@@ -99,8 +99,13 @@ danach Firma, Recht und Store.
 
 ## Aktuelle Aufgabe
 
-**T-015c — Die Oberfläche zeigt den Standort.** Siehe `ADO/TASK.md`. Keine
-Berechtigungsentscheidung — die liegt vollständig im Server —, aber die sichtbare Standortgrenze.
+**T-015c — Der Server sagt, was die Oberfläche zeigen darf.** Siehe `ADO/TASK.md`.
+Vertragsänderung an der Sitzung, daher mit verpflichtendem unabhängigem Review.
+
+Die ursprüngliche Fassung von T-015c verlangte eine standortbewusste Oberfläche und verbot
+zugleich Backend-Änderungen — unmöglich, weil `/v1/session` nur Identität, Betrieb und Rolle
+liefert. Fehler des Technical Lead: Aufgabe geschrieben, ohne den Vertrag zu lesen, von dem sie
+abhängt. Von Codex vor der ersten Zeile gefunden. Die Oberfläche folgt als **T-015d**.
 
 **Zuletzt abgeschlossen:** T-015b (Die Standortleitung darf verwalten), Migration 020. Die
 Berechtigung liefert jetzt einen **Umfang** statt eines Wahrheitswerts (D-023). Belegt: eine
