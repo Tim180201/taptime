@@ -56,7 +56,7 @@ interface ResolvedActorRow extends QueryResultRow {
   readonly user_id: string;
   readonly organization_id: string;
   readonly membership_id: string;
-  readonly membership_role: 'administrator' | 'employee';
+  readonly membership_role: 'administrator' | 'standortleitung' | 'employee';
 }
 
 interface ConfigurationRow extends QueryResultRow {

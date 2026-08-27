@@ -3,6 +3,7 @@ import { reassignNfcTagCommandDigestV1 } from '@taptime/administration-contract'
 import type { AccessTokenVerifier } from '@taptime/backend-identity';
 import {
   CustomerId,
+  isMembershipRole,
   NfcAssignmentId,
   type MembershipId,
 } from '@taptime/core';
@@ -346,7 +347,7 @@ export class NfcTagReassignmentCoordinator {
         transactionOpen = false;
         return { status: 'unauthorized' };
       }
-      if (actor.membership_role !== 'administrator' && actor.membership_role !== 'employee') {
+      if (!isMembershipRole(actor.membership_role)) {
         throw new Error('Locked identity resolver returned an unsupported Membership role');
       }
       if (

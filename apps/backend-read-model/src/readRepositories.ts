@@ -7,6 +7,7 @@ import {
   UserId,
   createNfcPayload,
   customerAssignmentTarget,
+  isMembershipRole,
   type Customer,
   type Membership,
   type MembershipRole,
@@ -190,7 +191,7 @@ function oneOrNull<Row extends object>(result: QueryResult<Row>): Row | null {
 }
 
 function membershipRole(value: string): MembershipRole {
-  if (value === 'administrator' || value === 'employee') {
+  if (isMembershipRole(value)) {
     return value;
   }
   throw new Error(`Unsupported persisted Membership role: ${value}`);

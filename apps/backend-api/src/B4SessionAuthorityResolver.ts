@@ -2,6 +2,7 @@ import type {
   AccessTokenVerifier,
   IdentityMembershipResolver,
 } from '@taptime/backend-identity';
+import { isMembershipRole } from '@taptime/core';
 import type { SessionAuthorityResolution, SessionAuthorityResolver } from './types.js';
 
 /**
@@ -22,6 +23,9 @@ export class B4SessionAuthorityResolver implements SessionAuthorityResolver {
 
     const resolution = await this.membershipResolver.resolve(verification.identity);
     if (resolution.status === 'not_resolved') {
+      return { status: 'rejected' };
+    }
+    if (!isMembershipRole(resolution.membership.role)) {
       return { status: 'rejected' };
     }
 

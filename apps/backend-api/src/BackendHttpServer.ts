@@ -2691,15 +2691,22 @@ function parseCreateEmployeeInvitationBody(body: unknown): {
   readonly expectedMembershipId: MembershipId;
   readonly commandId: string;
   readonly displayName: string;
-  readonly role: 'administrator' | 'employee';
+  readonly role: 'administrator' | 'standortleitung' | 'employee';
+  readonly locationId: string | null;
 } | null {
+  const hasLocation = isRecord(body) && 'locationId' in body;
   if (
     !isRecord(body)
-    || !hasExactKeys(body, ['commandId', 'displayName', 'expectedMembershipId', 'role'])
+    || !hasExactKeys(body, hasLocation
+      ? ['commandId', 'displayName', 'expectedMembershipId', 'locationId', 'role']
+      : ['commandId', 'displayName', 'expectedMembershipId', 'role'])
     || !isCanonicalUuid(body.expectedMembershipId)
     || !isCanonicalUuid(body.commandId)
     || typeof body.displayName !== 'string'
-    || (body.role !== 'administrator' && body.role !== 'employee')
+    || (body.role !== 'administrator'
+      && body.role !== 'standortleitung'
+      && body.role !== 'employee')
+    || (hasLocation && body.locationId !== null && !isCanonicalUuid(body.locationId))
   ) {
     return null;
   }
@@ -2708,6 +2715,7 @@ function parseCreateEmployeeInvitationBody(body: unknown): {
     commandId: body.commandId,
     displayName: body.displayName,
     role: body.role,
+    locationId: hasLocation ? body.locationId as string | null : null,
   };
 }
 
@@ -2719,7 +2727,7 @@ function parseMembershipMutationBody(
   readonly commandId: string;
   readonly targetMembershipId: MembershipId;
   readonly expectedRowVersion: number;
-  readonly role?: 'administrator' | 'employee';
+  readonly role?: 'administrator' | 'standortleitung' | 'employee';
 } | null {
   const keys = includesRole
     ? ['commandId', 'expectedMembershipId', 'expectedRowVersion', 'role', 'targetMembershipId']
@@ -2732,7 +2740,10 @@ function parseMembershipMutationBody(
     || !isCanonicalUuid(body.commandId)
     || !Number.isSafeInteger(body.expectedRowVersion)
     || (body.expectedRowVersion as number) < 1
-    || (includesRole && body.role !== 'administrator' && body.role !== 'employee')
+    || (includesRole
+      && body.role !== 'administrator'
+      && body.role !== 'standortleitung'
+      && body.role !== 'employee')
   ) {
     return null;
   }
@@ -2741,7 +2752,9 @@ function parseMembershipMutationBody(
     commandId: body.commandId,
     targetMembershipId: MembershipId(body.targetMembershipId),
     expectedRowVersion: body.expectedRowVersion as number,
-    ...(includesRole ? { role: body.role as 'administrator' | 'employee' } : {}),
+    ...(includesRole
+      ? { role: body.role as 'administrator' | 'standortleitung' | 'employee' }
+      : {}),
   };
 }
 

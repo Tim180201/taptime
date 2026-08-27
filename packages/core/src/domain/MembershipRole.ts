@@ -2,4 +2,8 @@
 // string-literal-union idiom already used for AssignmentTarget.targetType and
 // SyncState/ErrorCategory. Administrator and Employee are Membership Roles, not standalone
 // domain objects (FB-002 Technical Lead Review Follow-up).
-export type MembershipRole = 'administrator' | 'employee';
+export type MembershipRole = 'administrator' | 'standortleitung' | 'employee';
+
+export function isMembershipRole(value: unknown): value is MembershipRole {
+  return value === 'administrator' || value === 'standortleitung' || value === 'employee';
+}

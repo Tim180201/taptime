@@ -650,3 +650,33 @@ als jede Funktion.
 **Der unbequeme Teil:** Es gibt noch keinen zahlenden Kunden. Der wertvollste nächste Schritt
 ist, den Pilotkunden nach dem Testmonat zahlen zu lassen — auch nur 20 € — weil sich ab dann
 ändert, was wir über das Produkt lernen.
+
+---
+
+## D-026 — Befund: Der Administrator prüft sich selbst
+
+**Datum:** 26.08.2026 · **Gefunden bei der Rolleninventur zu T-015b** · **Kein Beschluss, ein Befund**
+
+`012:764` und `012:1071`: Nach der Administratorprüfung fehlt der Selbstausschluss. **Ein
+Administrator kann seine eigene Arbeitszeit korrigieren und seine eigene Prüfung entscheiden.**
+Bestand seit Migration 012, nicht durch T-015b entstanden.
+
+ADR-0020 verlangt „niemals die eigene Arbeitszeit korrigieren, niemals die eigene Prüfung
+entscheiden" — der Satz stand dort für die Standortleitung und wurde für den Administrator nie
+umgesetzt.
+
+**Warum das nicht einfach „ein Fehler zum Beheben" ist:** Verbietet man es, kann in einem Betrieb
+mit **einem** Administrator dessen eigene vergessene Stempelung nie mehr korrigiert werden —
+dieselbe Sackgasse wie bei D-022. Das Vier-Augen-Prinzip lässt sich nicht erzwingen, wo es nur
+zwei Augen gibt.
+
+**Entschieden von Tim am 26.08.2026: erlauben, aber kennzeichnen.** Der Administrator darf sich
+selbst korrigieren und freigeben — jede Selbstkorrektur und jede Selbstfreigabe wird jedoch
+ausdrücklich als solche markiert, trägt in den Export und erscheint in der Übersicht. Ein Prüfer
+sieht ohne Nachfrage, wer sich selbst freigegeben hat.
+
+**Warum so:** Das Vier-Augen-Prinzip lässt sich nicht erzwingen, wo es nur zwei Augen gibt. Ein
+Verbot hätte den Pilotbetrieb sofort ausgesperrt. Dieselbe Linie wie D-014: markieren statt
+verbieten — das System urteilt nicht, es macht sichtbar.
+
+**Umsetzung in T-020**, nicht in T-015b.

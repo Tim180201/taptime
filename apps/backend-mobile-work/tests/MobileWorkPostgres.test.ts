@@ -24,9 +24,15 @@ const ids = Object.freeze({
   membership: '12000000-0000-4000-8000-000000000551',
   otherMembership: '12000000-0000-4000-8000-000000000552',
   customer: '20000000-0000-4000-8000-000000000551',
+  workLocationCustomer: '20000000-0000-4000-8000-000000000552',
+  inaccessibleCustomer: '20000000-0000-4000-8000-000000000553',
   tag: '30000000-0000-4000-8000-000000000551',
   assignment: '40000000-0000-4000-8000-000000000551',
   activeEntry: '60000000-0000-4000-8000-000000000550',
+  otherStoppedEntry: '60000000-0000-4000-8000-000000000558',
+  homeLocation: '91000000-0000-4000-8000-000000000551',
+  workLocation: '91000000-0000-4000-8000-000000000552',
+  inaccessibleLocation: '91000000-0000-4000-8000-000000000553',
   stoppedEntries: [
     '60000000-0000-4000-8000-000000000551',
     '60000000-0000-4000-8000-000000000552',
@@ -140,6 +146,7 @@ describe('Mobile own-time PostgreSQL pagination', () => {
       ].map((record) => record.timeRecordId);
       expect(recordIds).toHaveLength(3);
       expect(new Set(recordIds)).toEqual(new Set(ids.stoppedEntries));
+      expect(recordIds).not.toContain(ids.otherStoppedEntry);
     });
 
   it('rejects cursor tampering, cross-user reuse and future or malformed SQL frames', async () => {
@@ -246,6 +253,23 @@ describe('Mobile own-time PostgreSQL pagination', () => {
     });
 });
 
+describe('T-015b Location Manager mobile self scope', () => {
+  it('returns only work targets from the manager Membership home and work Locations',
+    async () => {
+      const result = await coordinator.queryWorkTargets({
+        accessToken: tokens.user,
+        request: { expectedMembershipId: ids.membership, cursor: null, limit: 10 },
+      });
+      expect(result.status).toBe('succeeded');
+      if (result.status !== 'succeeded') return;
+      expect(result.response.targets.map((target) => target.targetId)).toContain(ids.customer);
+      expect(result.response.targets.map((target) => target.targetId))
+        .toContain(ids.workLocationCustomer);
+      expect(result.response.targets.map((target) => target.targetId))
+        .not.toContain(ids.inaccessibleCustomer);
+    });
+});
+
 async function prepareRuntimeLogin(): Promise<void> {
   await installerPool.query(`
     DO $login$
@@ -278,6 +302,8 @@ async function prepareRuntimeLogin(): Promise<void> {
       WITH INHERIT FALSE, SET TRUE, ADMIN FALSE;
     GRANT taptime_mobile_own_time_reader TO ${runtimeLogin}
       WITH INHERIT FALSE, SET TRUE, ADMIN FALSE;
+    GRANT taptime_mobile_target_reader TO ${runtimeLogin}
+      WITH INHERIT FALSE, SET TRUE, ADMIN FALSE;
   `);
 }
 
@@ -301,15 +327,17 @@ async function seed(): Promise<void> {
     await client.query(
       `INSERT INTO taptime_server.memberships
         (id, organization_id, user_id, role, created_by_user_id, display_name) VALUES
-        ($1, $3, $4, 'employee', $5, 'Employee A'),
+        ($1, $3, $4, 'administrator', $4, 'Location Manager'),
         ($2, $3, $5, 'employee', $5, 'Employee B')`,
       [ids.membership, ids.otherMembership, ids.organization, ids.user, ids.otherUser],
     );
     await client.query(
       `INSERT INTO taptime_server.customers
         (id, organization_id, display_name, active, activated_at)
-       VALUES ($1, $2, 'Pagination Customer', true, transaction_timestamp())`,
-      [ids.customer, ids.organization],
+       VALUES ($1, $4, 'Home Customer', true, transaction_timestamp()),
+              ($2, $4, 'Work Location Customer', true, transaction_timestamp()),
+              ($3, $4, 'Inaccessible Customer', true, transaction_timestamp())`,
+      [ids.customer, ids.workLocationCustomer, ids.inaccessibleCustomer, ids.organization],
     );
     await client.query(
       `INSERT INTO taptime_server.nfc_tags
@@ -327,9 +355,11 @@ async function seed(): Promise<void> {
     for (const [index, entryId] of ids.stoppedEntries.entries()) {
       await insertStoppedEntry(client, entryId, index);
     }
+    await insertStoppedEntry(client, ids.otherStoppedEntry, 5, ids.otherUser);
     await client.query('BEGIN');
     await insertActiveEntry(client);
     await client.query('COMMIT');
+    await enableLocationManagerMobileScope(client);
   } catch (error) {
     await client.query('ROLLBACK');
     throw error;
@@ -342,6 +372,7 @@ async function insertStoppedEntry(
   client: PoolClient,
   entryId: string,
   index: number,
+  userId: string = ids.user,
 ): Promise<void> {
   const suffix = String(561 + index * 2).padStart(12, '0');
   const stopSuffix = String(562 + index * 2).padStart(12, '0');
@@ -349,7 +380,7 @@ async function insertStoppedEntry(
   const stopEventId = `50000000-0000-4000-8000-${stopSuffix}`;
   const hoursAgo = index * 2 + 2;
   await client.query('BEGIN');
-  await insertWorkEvent(client, startEventId, `${hoursAgo} hours`);
+  await insertWorkEvent(client, startEventId, `${hoursAgo} hours`, userId);
   await client.query(
     `INSERT INTO taptime_server.time_entries
       (id, organization_id, user_id, target_type, target_customer_id, status,
@@ -357,14 +388,14 @@ async function insertStoppedEntry(
      VALUES ($1, $2, $3, 'customer', $4, 'started', $5,
        transaction_timestamp() - $6::interval, 1)`,
     [
-      entryId, ids.organization, ids.user, ids.customer, startEventId, `${hoursAgo} hours`,
+      entryId, ids.organization, userId, ids.customer, startEventId, `${hoursAgo} hours`,
     ],
   );
-  await insertDecision(client, startEventId, 'time_entry_started', entryId);
+  await insertDecision(client, startEventId, 'time_entry_started', entryId, userId);
   await client.query('COMMIT');
 
   await client.query('BEGIN');
-  await insertWorkEvent(client, stopEventId, `${hoursAgo - 1} hours`);
+  await insertWorkEvent(client, stopEventId, `${hoursAgo - 1} hours`, userId);
   await client.query(
     `UPDATE taptime_server.time_entries
      SET status = 'stopped', stop_work_event_id = $1,
@@ -372,7 +403,7 @@ async function insertStoppedEntry(
      WHERE organization_id = $2 AND id = $4`,
     [stopEventId, ids.organization, `${hoursAgo - 1} hours`, entryId],
   );
-  await insertDecision(client, stopEventId, 'time_entry_stopped', entryId);
+  await insertDecision(client, stopEventId, 'time_entry_stopped', entryId, userId);
   await client.query('COMMIT');
 }
 
@@ -394,6 +425,7 @@ async function insertWorkEvent(
   client: PoolClient,
   eventId: string,
   age: string,
+  userId: string = ids.user,
 ): Promise<void> {
   await client.query(
     `INSERT INTO taptime_server.work_events
@@ -403,7 +435,7 @@ async function insertWorkEvent(
      VALUES ($1, $2, $3, $4, 'customer', $5, $6,
        transaction_timestamp() - $7::interval, repeat('a', 64), 'sha256', 1)`,
     [
-      eventId, ids.organization, ids.assignment, ids.tag, ids.customer, ids.user, age,
+      eventId, ids.organization, ids.assignment, ids.tag, ids.customer, userId, age,
     ],
   );
 }
@@ -413,14 +445,72 @@ async function insertDecision(
   eventId: string,
   decisionType: 'time_entry_started' | 'time_entry_stopped',
   entryId: string,
+  userId: string = ids.user,
 ): Promise<void> {
   await client.query(
     `INSERT INTO taptime_server.canonical_decisions
       (work_event_id, organization_id, actor_user_id, target_type,
        target_customer_id, decision_type, time_entry_id, engine_version, decision_payload)
      VALUES ($1, $2, $3, 'customer', $4, $5, $6, 'da5-pagination-test', '{}')`,
-    [eventId, ids.organization, ids.user, ids.customer, decisionType, entryId],
+    [eventId, ids.organization, userId, ids.customer, decisionType, entryId],
   );
+}
+
+async function enableLocationManagerMobileScope(client: PoolClient): Promise<void> {
+  await client.query('BEGIN');
+  await client.query(
+    `INSERT INTO taptime_server.locations (id, organization_id, display_name) VALUES
+       ($1, $4, 'Home'), ($2, $4, 'Additional Work'), ($3, $4, 'Inaccessible')`,
+    [ids.homeLocation, ids.workLocation, ids.inaccessibleLocation, ids.organization],
+  );
+  await client.query(
+    `INSERT INTO taptime_server.membership_home_location_assignments
+       (id, organization_id, membership_id, location_id) VALUES
+       (gen_random_uuid(), $1, $2, $4), (gen_random_uuid(), $1, $3, $4)`,
+    [ids.organization, ids.membership, ids.otherMembership, ids.homeLocation],
+  );
+  await client.query(
+    `INSERT INTO taptime_server.membership_work_location_grants
+       (id, organization_id, membership_id, location_id)
+     VALUES (gen_random_uuid(), $1, $2, $3)`,
+    [ids.organization, ids.membership, ids.workLocation],
+  );
+  await client.query(
+    `INSERT INTO taptime_server.work_target_location_assignments
+       (id, organization_id, target_type, target_id, location_id)
+     SELECT gen_random_uuid(), target.organization_id, target.target_type, target.target_id,
+            CASE target.target_id
+              WHEN $2::uuid THEN $3::uuid
+              WHEN $4::uuid THEN $5::uuid
+              ELSE $6::uuid
+            END
+     FROM taptime_server.work_targets AS target
+     WHERE target.organization_id = $1 AND target.active`,
+    [ids.organization, ids.customer, ids.homeLocation, ids.workLocationCustomer,
+      ids.workLocation, ids.inaccessibleLocation],
+  );
+  await client.query(
+    `SELECT set_config('app.organization_id', $1, true),
+            set_config('app.user_id', $2, true),
+            set_config('app.membership_id', $3, true),
+            set_config('app.membership_role', 'administrator', true),
+            set_config('app.correlation_id', $4, true)`,
+    [ids.organization, ids.user, ids.membership,
+      '92000000-0000-4000-8000-000000000551'],
+  );
+  await client.query('SET LOCAL ROLE taptime_admin_setup');
+  await client.query(
+    'SELECT taptime_server.set_organization_locations_enabled_v1($1, true)',
+    [ids.organization],
+  );
+  await client.query('RESET ROLE');
+  await client.query(
+    `UPDATE taptime_server.memberships
+     SET role = 'standortleitung', row_version = row_version + 1
+     WHERE organization_id = $1 AND id = $2`,
+    [ids.organization, ids.membership],
+  );
+  await client.query('COMMIT');
 }
 
 async function expectRejectedFrame(windowAge: string, windowStartOffset: string): Promise<void> {

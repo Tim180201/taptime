@@ -201,13 +201,13 @@ afterAll(async () => {
 });
 
 describe('C2 package, runtime composition, and least privilege', () => {
-  it('uses exactly migrations 001 through 019 and reruns the ledger cleanly', async () => {
+  it('uses exactly migrations 001 through 020 and reruns the ledger cleanly', async () => {
     expect((await loadMigrations()).map(({ version }) => version)).toEqual([
-      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019',
+      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019', '020',
     ]);
     await expect(migrate(installerPool)).resolves.toEqual({
       applied: [],
-      alreadyApplied: ['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019'],
+      alreadyApplied: ['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019', '020'],
     });
   });
 
@@ -286,6 +286,42 @@ describe('C2 package, runtime composition, and least privilege', () => {
       }
     }
   });
+
+  it('returns 403 instead of 503 when a Location Manager reaches administrator-only paths',
+    async () => {
+      await installerPool.query(
+        `UPDATE ${B3_SCHEMA}.memberships
+         SET role = 'standortleitung', row_version = row_version + 1
+         WHERE organization_id = $1 AND id = $2`,
+        [ids.organizationA, ids.membershipA],
+      );
+      const managerToken = await token(ids.subjectA);
+
+      const administration = await postProduct(
+        '/v1/administration/customers',
+        managerToken,
+        {
+          expectedMembershipId: ids.membershipA,
+          commandId: '13000000-0000-4000-8000-000000000015',
+          displayName: 'Unzulässige Anlage',
+        },
+      );
+      expectGenericError(administration, 403, 'forbidden');
+
+      const reassignment = await postProduct(
+        '/v1/administration/nfc-tags/reassign',
+        managerToken,
+        {
+          expectedMembershipId: ids.membershipA,
+          commandId: '13000000-0000-4000-8000-000000000016',
+          nfcTagId: ids.tagA,
+          expectedActiveAssignmentId: ids.assignmentA,
+          targetCustomerId: ids.otherCustomerA,
+        },
+      );
+      expectGenericError(reassignment, 403, 'forbidden');
+      expect(diagnostics).toEqual([]);
+    });
 
   it.each([
     ['not absolute', 'not-a-url'],

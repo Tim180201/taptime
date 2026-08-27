@@ -56,6 +56,41 @@ describe('C3E1 Employee enrollment HTTP contract', () => {
     });
   });
 
+  it('passes an explicit Home Location to invitation creation and rejects unknown roles', async () => {
+    const locationId = '21000000-0000-4000-8000-000000000001';
+    const createInvitation = vi.fn<EmployeeMembershipEnrollmentCoordinator['createInvitation']>(
+      async () => ({
+        status: 'succeeded',
+        invitationSecret,
+        expiresAt: '2026-07-15T12:34:56.789Z',
+      }),
+    );
+    const apiOrigin = await origin(coordinator({ createInvitation }));
+    const accepted = await post(apiOrigin, '/v1/administration/employee-invitations', {
+      expectedMembershipId: membershipId,
+      commandId,
+      displayName: 'Employee Alpha',
+      role: 'employee',
+      locationId,
+    });
+    expect(accepted.status).toBe(200);
+    expect(createInvitation).toHaveBeenCalledWith(
+      { accessToken, expectedMembershipId: membershipId, commandId,
+        displayName: 'Employee Alpha', role: 'employee', locationId },
+      { deadlineEpochMilliseconds: expect.any(Number) },
+    );
+
+    const rejected = await post(apiOrigin, '/v1/administration/employee-invitations', {
+      expectedMembershipId: membershipId,
+      commandId,
+      displayName: 'Employee Alpha',
+      role: 'unknown-role',
+      locationId,
+    });
+    expect(rejected.status).toBe(400);
+    expect(createInvitation).toHaveBeenCalledTimes(1);
+  });
+
   it.each([
     ['invitation_created_token_unavailable', 409],
     ['invitation_limit_reached', 409],

@@ -50,7 +50,7 @@ interface ActorRow extends QueryResultRow {
   readonly user_id: string;
   readonly organization_id: string;
   readonly membership_id: string;
-  readonly membership_role: 'employee' | 'administrator';
+  readonly membership_role: 'employee' | 'standortleitung' | 'administrator';
 }
 
 interface TargetRow extends QueryResultRow {

@@ -4,7 +4,12 @@ import {
   normalizeOrganizationNameV1,
 } from '@taptime/administration-contract';
 import type { AccessTokenVerifier } from '@taptime/backend-identity';
-import { MembershipId, OrganizationId } from '@taptime/core';
+import {
+  MembershipId,
+  OrganizationId,
+  isMembershipRole,
+  type MembershipRole,
+} from '@taptime/core';
 import type { Pool, PoolClient, QueryResultRow } from 'pg';
 import type {
   CreateEmployeeMembershipInvitationCommand,
@@ -115,6 +120,9 @@ export class EmployeeMembershipEnrollmentCoordinator {
       || !isCanonicalUuid(command.expectedMembershipId)
       || !isCanonicalUuid(command.commandId)
       || !isMembershipRole(command.role)
+      || (command.locationId !== undefined
+        && command.locationId !== null
+        && !isCanonicalUuid(command.locationId))
       || normalized.status === 'invalid'
     ) {
       return { status: 'invalid_request' };
@@ -135,8 +143,9 @@ export class EmployeeMembershipEnrollmentCoordinator {
       async (client) => {
         const result = await client.query<CreateInvitationRow>(
           `SELECT result_status, result_expires_at
-           FROM taptime_server.create_membership_invitation_v2($1, $2, $3, $4, $5)`,
-          [command.commandId, randomUUID(), normalized.canonicalName, command.role, tokenDigest],
+           FROM taptime_server.create_membership_invitation_v3($1, $2, $3, $4, $5, $6)`,
+          [command.commandId, randomUUID(), normalized.canonicalName, command.role,
+            command.locationId ?? null, tokenDigest],
         );
         const row = onlyRow(result.rows, 'Invitation creation');
         if (row.result_status !== 'succeeded') {
@@ -182,9 +191,7 @@ export class EmployeeMembershipEnrollmentCoordinator {
            FROM taptime_server.read_managed_memberships_v1($1, $2)`,
           [cursor, command.limit],
         );
-        if (result.rows.length === 0) {
-          throw new Error('Employee projection omitted its Organization');
-        }
+        if (result.rows.length === 0) return { status: 'forbidden' } as const;
         const first = result.rows[0]!;
         const normalizedOrganization = normalizeOrganizationNameV1(first.organization_name);
         if (
@@ -381,7 +388,7 @@ export class EmployeeMembershipEnrollmentCoordinator {
   private async mutateMembership(
     command: RevokeMembershipCommand,
     commandType: 'revoke' | 'change_role',
-    role: 'administrator' | 'employee' | null,
+    role: MembershipRole | null,
     controls: EmployeeEnrollmentCoordinatorControls,
   ): Promise<MembershipMutationResult> {
     if (
@@ -529,10 +536,6 @@ function validAccessToken(value: unknown): value is string {
 
 function isCanonicalUuid(value: unknown): value is string {
   return typeof value === 'string' && canonicalUuidPattern.test(value);
-}
-
-function isMembershipRole(value: unknown): value is 'administrator' | 'employee' {
-  return value === 'administrator' || value === 'employee';
 }
 
 function parseCursor(value: unknown): string | null | undefined {

@@ -218,17 +218,17 @@ afterAll(async () => {
 });
 
 describe('B5 versioned-schema and least-privilege runtime boundary', () => {
-  it('uses the current migrations 001 through 019 without a B5-owned migration', async () => {
+  it('uses the current migrations 001 through 020 without a B5-owned migration', async () => {
     const migrations = await loadMigrations();
-    expect(migrations.map(({ version }) => version)).toEqual(['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019']);
+    expect(migrations.map(({ version }) => version)).toEqual(['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019', '020']);
 
     const ledger = await installerPool.query<{ version: string }>(
       `SELECT version FROM ${B3_MIGRATION_TABLE} ORDER BY version`,
     );
-    expect(ledger.rows.map(({ version }) => version)).toEqual(['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019']);
+    expect(ledger.rows.map(({ version }) => version)).toEqual(['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019', '020']);
     expect(await migrate(installerPool)).toEqual({
       applied: [],
-      alreadyApplied: ['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019'],
+      alreadyApplied: ['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019', '020'],
     });
   });
 
@@ -588,6 +588,49 @@ describe('authoritative token, Membership, Organization and role binding', () =>
     expect(result).toMatchObject({
       status: 'accepted',
       value: { userId: ids.employeeA, role: 'employee' },
+    });
+  });
+
+  it('carries Standortleitung with Employee database privileges and no Administrator fallback', async () => {
+    const commandId = '91000000-0000-4000-8000-000000000002';
+    const client = await installerPool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(
+        `SELECT
+           set_config('app.user_id', $1, true),
+           set_config('app.organization_id', $2, true),
+           set_config('app.membership_id', $3, true),
+           set_config('app.membership_role', 'administrator', true),
+           set_config('app.correlation_id', $4, true)`,
+        [ids.adminA, ids.organizationA,
+          '12000000-0000-4000-8000-000000000001', commandId],
+      );
+      await client.query('SET LOCAL ROLE taptime_membership_manager');
+      const changed = await client.query<{ result_status: string }>(
+        `SELECT result_status
+         FROM ${B3_SCHEMA}.manage_membership_v1($1, $2, 1, 'change_role', 'standortleitung')`,
+        [commandId, '12000000-0000-4000-8000-000000000002'],
+      );
+      expect(changed.rows).toEqual([{ result_status: 'succeeded' }]);
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+
+    const result = await runAs(subjects.employeeA, async (repositories) => ({
+      own: await repositories.membership.findByUserId(UserId(ids.employeeA)),
+      other: await repositories.membership.findByUserId(UserId(ids.employeeA2)),
+    }));
+    expect(result).toMatchObject({
+      status: 'accepted',
+      value: {
+        own: { userId: ids.employeeA, role: 'standortleitung' },
+        other: null,
+      },
     });
   });
 

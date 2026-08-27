@@ -51,7 +51,7 @@ beforeAll(async () => {
   await installerPool.query(`DROP SCHEMA IF EXISTS ${B3_SCHEMA} CASCADE`);
   await installerPool.query(`DROP TABLE IF EXISTS ${B3_MIGRATION_TABLE}`);
   await expect(migrate(installerPool)).resolves.toEqual({
-    applied: ['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019'],
+    applied: ['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019', '020'],
     alreadyApplied: [],
   });
   await ensureC3E1RuntimeLogins(installerPool, invitationPassword, enrollmentPassword);
@@ -110,11 +110,11 @@ afterAll(async () => {
 describe('migration 008 Employee invitation and enrollment boundary', () => {
   it('records migration 008 and keeps creator and redeemer capabilities separated', async () => {
     expect((await loadMigrations()).map(({ version }) => version)).toEqual([
-      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019',
+      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019', '020',
     ]);
     await expect(migrate(installerPool)).resolves.toEqual({
       applied: [],
-      alreadyApplied: ['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019'],
+      alreadyApplied: ['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019', '020'],
     });
     expect(await postgresErrorCode(
       invitationPool.query('SET ROLE taptime_employee_enrollment_redeemer'),
@@ -512,6 +512,75 @@ describe('migration 008 Employee invitation and enrollment boundary', () => {
       { event_type: 'MembershipInvitationCreated', actor_user_id: ids.adminA },
       { event_type: 'MembershipGranted', actor_user_id: ids.adminA },
     ]);
+  });
+
+  it('carries a Standortleitung through invitation, redemption, scoped read and revocation', async () => {
+    const locationId = '21000000-0000-4000-8000-000000000001';
+    await expect(coordinator.changeMembershipRole({
+      accessToken: fixtureTokens.adminA,
+      expectedMembershipId: membershipIds.adminA,
+      commandId: randomUUID(),
+      targetMembershipId: membershipIds.employeeA,
+      expectedRowVersion: 1,
+      role: 'standortleitung',
+    })).resolves.toMatchObject({
+      status: 'succeeded',
+      membership: { role: 'standortleitung' },
+    });
+    await prepareLocationManagerModel(locationId);
+
+    const invitation = await coordinator.createInvitation({
+      accessToken: fixtureTokens.employeeA,
+      expectedMembershipId: membershipIds.employeeA,
+      commandId: randomUUID(),
+      displayName: 'Vom Standort eingeladen',
+      role: 'employee',
+      locationId,
+    });
+    expect(invitation.status).toBe('succeeded');
+    if (invitation.status !== 'succeeded') throw new Error('Expected invitation success');
+
+    await expect(coordinator.readEmployeeMembershipsProjection({
+      accessToken: fixtureTokens.employeeA,
+      expectedMembershipId: membershipIds.employeeA,
+      cursor: null,
+      limit: 20,
+    })).resolves.toMatchObject({
+      status: 'succeeded',
+      employeeMemberships: expect.arrayContaining([
+        expect.objectContaining({ id: membershipIds.employeeA, role: 'standortleitung' }),
+      ]),
+    });
+
+    await expect(coordinator.redeemInvitation({
+      accessToken: fixtureTokens.prospectiveA,
+      commandId: randomUUID(),
+      invitationSecret: invitation.invitationSecret,
+    })).resolves.toMatchObject({ status: 'succeeded', role: 'employee' });
+    const enrolled = await installerPool.query<{ id: string; row_version: string; location_id: string }>(
+      `SELECT membership.id, membership.row_version, home.location_id
+       FROM taptime_server.memberships AS membership
+       JOIN taptime_server.membership_home_location_assignments AS home
+         ON home.organization_id = membership.organization_id
+        AND home.membership_id = membership.id
+        AND home.revoked_at IS NULL
+       WHERE membership.organization_id = $1
+         AND membership.display_name = 'Vom Standort eingeladen'`,
+      [ids.organizationA],
+    );
+    expect(enrolled.rows).toHaveLength(1);
+    expect(enrolled.rows[0]!.location_id).toBe(locationId);
+
+    await expect(coordinator.revokeMembership({
+      accessToken: fixtureTokens.employeeA,
+      expectedMembershipId: membershipIds.employeeA,
+      commandId: randomUUID(),
+      targetMembershipId: MembershipId(enrolled.rows[0]!.id),
+      expectedRowVersion: Number(enrolled.rows[0]!.row_version),
+    })).resolves.toMatchObject({
+      status: 'succeeded',
+      membership: { active: false, role: 'employee' },
+    });
   });
 
   it('promotes an existing Membership and records the actor and target in the audit trail', async () => {
@@ -1047,6 +1116,61 @@ function createInvitation(commandId: string, displayName: string) {
     displayName,
     role: 'employee',
   });
+}
+
+async function prepareLocationManagerModel(locationId: string): Promise<void> {
+  await installerPool.query(
+    `INSERT INTO taptime_server.locations (id, organization_id, display_name)
+     VALUES ($1, $2, 'Verwalteter Standort')`,
+    [locationId, ids.organizationA],
+  );
+  await installerPool.query(
+    `INSERT INTO taptime_server.membership_home_location_assignments
+       (id, organization_id, membership_id, location_id)
+     SELECT gen_random_uuid(), membership.organization_id, membership.id, $2
+     FROM taptime_server.memberships AS membership
+     WHERE membership.organization_id = $1 AND membership.revoked_at IS NULL`,
+    [ids.organizationA, locationId],
+  );
+  await installerPool.query(
+    `INSERT INTO taptime_server.work_target_location_assignments
+       (id, organization_id, target_type, target_id, location_id)
+     SELECT gen_random_uuid(), target.organization_id, target.target_type, target.target_id, $2
+     FROM taptime_server.work_targets AS target
+     WHERE target.organization_id = $1 AND target.active`,
+    [ids.organizationA, locationId],
+  );
+  await installerPool.query(
+    `INSERT INTO taptime_server.membership_management_location_grants
+       (id, organization_id, membership_id, location_id)
+     VALUES (gen_random_uuid(), $1, $2, $3)`,
+    [ids.organizationA, membershipIds.employeeA, locationId],
+  );
+
+  const client = await installerPool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(
+      `SELECT
+         set_config('app.user_id', $1, true),
+         set_config('app.organization_id', $2, true),
+         set_config('app.membership_id', $3, true),
+         set_config('app.membership_role', 'administrator', true),
+         set_config('app.correlation_id', $4, true)`,
+      [ids.adminA, ids.organizationA, ids.membershipAdminA, randomUUID()],
+    );
+    await client.query('SET LOCAL ROLE taptime_admin_setup');
+    await client.query(
+      'SELECT taptime_server.set_organization_locations_enabled_v1($1, true)',
+      [ids.organizationA],
+    );
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 async function bootstrapIdentity(

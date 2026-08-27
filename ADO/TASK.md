@@ -4,141 +4,103 @@
 
 ---
 
-## T-015b · Die Standortleitung darf verwalten
+## T-015c · Die Oberfläche zeigt den Standort
 
-**Für:** Codex · **Risiko:** Berechtigungsdimension, Mandantengrenze → **unabhängiges Review verpflichtend**
-**Zeitbox:** fünf Arbeitssitzungen · **Grundlage:** ADR-0022 (korrigiert), ADR-0020 (DA6-L03, L04, L05, L08), D-013, D-022, **D-023**
+**Für:** Codex · **Risiko:** keine Berechtigungsentscheidung, aber sichtbare Standortgrenze
+**Zeitbox:** zwei Arbeitssitzungen · **Grundlage:** T-015b abgeschlossen, ADR-0022, **D-021**, `UI_Leitlinien.md`
 
 ### Zuerst lesen
 
-- **`ADR-0022`** — sie ist kurz und enthält die Abnahmekriterien wörtlich
-- **`ADR-0020`**, Abschnitte DA6-L03 (Rolle, Heimat, Zuweisungen), DA6-L04 (was allein dem
-  Administrator bleibt), DA6-L05 (die geschlossene Fähigkeitsmatrix), DA6-L08 (serverseitige
-  Prüfung und zugeschnittene Ergebnisse)
-- **`ADR-0025`** und **`D-022`** — ein Standort wird nie rückwirkend vergeben
-
-### Warum diese Aufgabe existiert
-
-D-008 nennt den Grund wörtlich: *„damit die Verwaltung der Mitarbeiter nicht nur auf den Admin
-fällt"*. Heute fällt sie das. In einem Nachhilfebetrieb liefe zu Semesterbeginn **jede** neue
-Lehrkraft über eine einzige Person. Standorte ohne delegierte Verwaltung wären eine Gliederung
-ohne Nutzen.
+**`ADO/01_Architecture/UI_Leitlinien.md`** — vollständig. Das Regelwerk gilt für **jede**
+Oberflächenaufgabe. Was dort steht, wird hier nicht wiederholt.
 
 ### Ziel
 
-**Eine Standortleitung lädt an ihrem Standort Beschäftigte ein und sperrt sie dort aus — und
-sonst nirgends und sonst nichts.**
+**Eine Standortleitung öffnet das Admin-Web und sieht ihren Standort — nicht den halben Betrieb
+mit gesperrten Schaltflächen.**
 
-### Die eine Stelle
+Fertig ist die Aufgabe, wenn sich eine Standortleitung anmelden, ihre Beschäftigten sehen,
+jemanden einladen und jemanden aussperren kann, ohne an einer Stelle zu raten, warum etwas fehlt.
 
-`T-009` hat vorgearbeitet: Die Zuständigkeit sitzt an **einer** Stelle,
-`has_membership_management_authority_v1` in Migration 016. Sie leitet die Berechtigung aus der
-Zugehörigkeit ab, nicht aus der Rolle allein; ein Kommentar markiert die Stelle für den
-Standortbezug.
+### Der Grundsatz
 
-**Die fachliche Entscheidung bleibt an dieser einen Stelle** — aber die Funktion antwortet
-nicht mehr wahr oder falsch. Sie liefert den erlaubten **Umfang** mit ausdrücklichem
-`scope_kind` (`organization` oder `location`), damit `NULL` nie als betriebsweite Freigabe
-durchgeht (**D-023**).
+**Nichts anzeigen, was diese Person nicht darf.** Keine ausgegrauten Schaltflächen, keine
+Bereiche, die beim Klick „nicht berechtigt" sagen. Eine Oberfläche, die Verbotenes zeigt, stellt
+bei jedem Blick dieselbe Frage und beantwortet sie nie.
 
-Vier Stellen tragen die Delegation mit und sind ausdrücklich im Umfang:
+Die Ausnahme ist der **leere Standort**: keine Beschäftigten ist der erstmalig leere Zustand aus
+dem Regelwerk und führt zur Einladung. Kein Fehler, keine unerklärte Leere.
 
-1. **Coordinator** — Rollenvalidierung, damit `standortleitung` nicht vor dem SQL-Aufruf
-   verworfen wird
-2. **Einladung und Einlösung** — der Standort wird ausdrücklich übergeben, im Einladungsdatensatz
-   **und im Idempotenz-Digest** gespeichert, bei der Einlösung erneut autorisiert und in
-   derselben Transaktion als Heimatstandort angelegt
-3. **Leseprojektion** — filtert mit dem gelieferten Umfang statt alle Zugehörigkeiten des
-   Betriebs zu liefern
-4. **`/v1/session`, Core-Rollenmodell, `TenantReadSessionCoordinator`** — deren Ausweichlogik
-   würde einen neuen Nicht-`employee`-Wert als **Administrator** auslegen. Das ist genau die
-   Rechteausweitung, die ADR-0022 verbietet, und muss vor allem anderen geschlossen werden.
+### Umfang
 
-### Was dazukommt
+**1 · Die Seitenleiste richtet sich nach der Rolle**
 
-**Die dritte Rolle.** `standortleitung` neben `administrator` und `employee`. Der `CHECK` auf
-`role` wird erweitert; die betroffenen Migrationen und Abstimmtabellen ziehen nach.
+Eine Standortleitung sieht nur Bereiche, die sie bedienen kann. Einrichtung, betriebsweiter
+Export und Standortverwaltung erscheinen gar nicht.
 
-**Verwaltungszuweisung ≠ Rolle.** Eine Standortleitung **ohne** aktive Verwaltungszuweisung hat
-keinerlei delegierte Befugnis. Eine Verwaltungszuweisung allein gibt kein Recht, dort selbst zu
-arbeiten. Die vier Begriffe aus T-015a bleiben getrennt.
+**2 · Der Standort ist sichtbar, immer**
 
-### Die Grenzen — sie sind der eigentliche Inhalt
+Wer mehrere Verwaltungsstandorte hat, muss erkennen, **welchen** er gerade sieht. Der Standort
+gehört sichtbar in den Kopfbereich und **in die Adresse** — ein Link führt zu genau diesem
+Standort, ein Lesezeichen ebenfalls.
 
-Aus ADR-0022, unverhandelbar:
+**3 · Listen sagen, worauf sie sich beziehen**
 
-1. **Keine Rollenvergabe.** Die Standortleitung macht niemanden zur Standortleitung oder zum
-   Administrator. Keine Rechteausweitung, auf keinem Weg
-2. **Kein fremder Standort.** Weder einladen noch aussperren
-3. **Keine Veränderung der eigenen Zugehörigkeit** und keiner Administrator-Zugehörigkeit
-4. **Niemals die eigene Arbeitszeit korrigieren, niemals die eigene Prüfung entscheiden**
+Eine Liste, die nur den eigenen Standort zeigt, muss das sagen. Der bestehende Trefferzähler
+bekommt den Bezug — sonst hält jemand die Zahl für den ganzen Betrieb.
 
-Punkt 4 ist die wichtigste Zeile in ADR-0020 und bleibt unverändert bestehen.
+**4 · Der Administrator sieht mehr, nicht anders**
 
-Die Organisation bleibt die harte Mandantengrenze. Die Berechtigung prüft **zuerst** die
-Organisation, **danach** den Standort. Eine fehlende, veraltete, mehrdeutige oder
-organisationsfremde Standortbindung schlägt fehl — **nicht** durchlässig.
+Gleicher Aufbau, betriebsweit, mit der Möglichkeit, auf einen Standort einzuschränken. Zwei
+verschiedene Oberflächen für dieselbe Aufgabe wären ein Wartungsfehler.
 
-### Ausgeschaltet bleibt ausgeschaltet
+**5 · Ausgeschaltet bleibt unsichtbar**
 
-Solange die Standort-Funktion aus ist, existiert keine Standortleitung und keine delegierte
-Befugnis. Die bestehende Testsuite muss das weiterhin belegen.
+Kein Standortwähler, kein Standortbezug, keine Hinweise. Die Oberfläche sieht aus wie heute.
 
-### Vision-Check
+### Wortschatz
 
-**One Tap. One Decision.** Für den Beschäftigten ändert sich nichts. Für den Betrieb hört die
-Verwaltung auf, an einer Person zu hängen.
+**Standort** und **Standortleitung**. Nicht Filiale, nicht Niederlassung, nicht Manager. Ergänze
+beide im verbindlichen Wortschatz des Regelwerks. Das Admin-Web **siezt** (D-021).
 
 ### Nicht anfassen
 
-- `BusinessEngine` und die Entscheidungsreihenfolge
-- `apps/admin-web` und `apps/mobile` — der Zuschnitt der Oberfläche ist **T-015c**
-- Alles aus DA6-L04, was dem Administrator vorbehalten bleibt: Standorte anlegen und ändern,
-  Zuweisungen vergeben, die Funktion ein- und ausschalten, Organisationseinstellungen
-- Rückwirkende Standortvergabe — siehe D-022
+- **Jede Berechtigungsentscheidung.** Sie liegt vollständig im Server; die Oberfläche fragt, sie
+  entscheidet nicht. Wenn du versucht bist, im Browser zu prüfen, wer was darf: melden
+- `packages/core`, Migrationen, Backend-Module
+- Die Mobile-App
+- Barrierefreiheit über den sichtbaren Tastaturfokus hinaus, CSP, Sitzungsdauer — das ist T-017
+- **Neue Funktionen.** Keine
 
 ### Prüfung — nachweisen, nicht behaupten
 
-Die ersten sechs stehen wörtlich in ADR-0022:
-
-- Eine Standortleitung lädt an ihrem Standort ein und sperrt dort aus — nachgewiesen
-- Derselbe Versuch an einem **fremden** Standort wird abgewiesen
-- Der Versuch, eine Rolle zu vergeben, wird abgewiesen
-- Der Versuch, eine Administrator-Zugehörigkeit zu verändern, wird abgewiesen
-- Die Berechtigungsprüfung liegt weiterhin an genau **einer** Stelle
-- Eine Standortleitung einer fremden **Organisation** sieht nichts davon
-- **Eine Standortleitung sieht in der Leseprojektion ausschließlich Beschäftigte ihrer
-  Verwaltungsstandorte.** Der wichtigste Nachweis dieser Aufgabe
-- Keine dritte Rolle wird auf **irgendeinem** Pfad als Administrator ausgelegt — insbesondere
-  nicht über eine Ausweichlogik
-- Eine Einlösung erzeugt bei eingeschalteter Funktion in derselben Transaktion eine gültige
-  Heimatstandort-Zuweisung; der Constraint-Trigger aus Migration 019 löst nicht aus
-- Zwei Einladungen mit gleichem Befehlskennzeichen, aber unterschiedlichem Standort werden
-  **nicht** stillschweigend zusammengefasst
-
-dazu:
-
-- Eine Standortleitung **ohne** Verwaltungszuweisung darf nichts
-- Eine Standortleitung mit **Arbeits**zuweisung an einem Standort darf dort **nicht** verwalten
-- Eine Standortleitung kann ihre eigene Zugehörigkeit nicht verändern
-- Bei **ausgeschalteter** Funktion existiert keine delegierte Befugnis
-- Der Grenzlauf aus T-025 bleibt grün; das gemessene Verhältnis steht im Bericht
+- Eine Standortleitung sieht **keinen** Bereich in der Seitenleiste, den sie nicht bedienen kann
+- Der angezeigte Standort steht in der Adresse; ein Link darauf öffnet genau diesen Standort
+- Jede standortbezogene Liste benennt ihren Bezug; keine Zahl kann für den Betrieb gehalten werden
+- Ein leerer Standort zeigt den erstmalig leeren Zustand mit dem Weg zur Einladung — **keinen**
+  Fehler und keine leere Fläche
+- Bei ausgeschalteter Standort-Funktion ist die Oberfläche unverändert
+- Kein technischer Fehlercode erreicht den Bildschirm; kein Toast für einen Fehler
+- Die Anwendung bleibt allein mit der Tastatur bedienbar, mit sichtbarem Fokus
+- Alle bestehenden Admin-Web-Tests bleiben grün
+- Der Grenzlauf aus T-025 bleibt grün; das Verhältnis steht im Bericht
 - CI grün, kein `[skip ci]`
 
 ### Zusätzliches Review
 
-> Gibt es **irgendeinen** Weg, auf dem eine Standortleitung mehr erreicht als die Matrix in
-> DA6-L05 erlaubt — über eine Einladung, über einen Rollenwechsel, über eine zweite
-> Zugehörigkeit, über eine Zuweisung an sich selbst? Suche danach, statt es auszuschließen.
+> Melde dich als Standortleitung an und versuche, an Daten eines fremden Standorts zu kommen —
+> über eine Adresse, einen Filter, ein Lesezeichen, den Zurück-Knopf. Der Server muss abweisen.
+> **Beschreibe, was der Benutzer dabei sieht.** Ein „nicht berechtigt" ohne Erklärung ist kein
+> Ergebnis, sondern ein zweiter Befund.
 
 ### Abschluss
 
-Vier Punkte melden. Entfernte oder umgeschriebene Tests **einzeln** benennen.
-**Nicht committen** vor `APPROVED` durch den Technical Lead.
+Vier Punkte melden — Nachweise als **Sätze**, nicht als Testzahlen. Entfernte oder umgeschriebene
+Tests **einzeln** benennen. **Nicht committen** vor `APPROVED` durch den Technical Lead.
 
 ---
 
 ## Danach
 
-`T-015c` Zuschnitt der Oberfläche · `T-020` Freigabekette (D-014) · `T-016` Löschkonzept ·
-siehe `ADO/PLAN.md`.
+`T-020` Freigabekette und Kennzeichnung der Selbstkorrektur (D-014, **D-026**) ·
+`T-016` Löschkonzept · `T-024` Geheimnisse rotieren · siehe `ADO/PLAN.md`.

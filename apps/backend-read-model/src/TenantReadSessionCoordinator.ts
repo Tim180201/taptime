@@ -1,4 +1,4 @@
-import { OrganizationId, type MembershipRole } from '@taptime/core';
+import { OrganizationId, isMembershipRole, type MembershipRole } from '@taptime/core';
 import type { SupabaseJwtAccessTokenVerifier } from '@taptime/backend-identity';
 import type { Pool, PoolClient } from 'pg';
 import { createTenantReadRepositories } from './readRepositories.js';
@@ -9,6 +9,7 @@ import type {
 } from './types.js';
 
 const identityResolverRole = 'taptime_identity_resolver';
+type TenantReadDatabaseRole = 'taptime_administrator' | 'taptime_employee';
 
 interface ResolvedActorRow {
   readonly user_id: string;
@@ -63,9 +64,9 @@ export class TenantReadSessionCoordinator {
         return { status: 'rejected', reason: 'requested_organization_mismatch' };
       }
 
-      const role = currentMembershipRole(actor.membership_role);
+      const { membershipRole: role, databaseRole } = resolveTenantReadRole(actor.membership_role);
       await setTransactionLocalActorContext(client, actor, role);
-      await selectFixedApplicationRole(client, role);
+      await client.query(`SET LOCAL ROLE ${databaseRole}`);
 
       let sessionActive = true;
       function assertSessionActive(): void {
@@ -99,11 +100,22 @@ export class TenantReadSessionCoordinator {
   }
 }
 
-function currentMembershipRole(value: string): MembershipRole {
-  if (value === 'employee' || value === 'administrator') {
-    return value;
+export function resolveTenantReadRole(value: unknown): {
+  readonly membershipRole: MembershipRole;
+  readonly databaseRole: TenantReadDatabaseRole;
+} {
+  if (!isMembershipRole(value)) {
+    throw new Error(`Unsupported resolved Membership role: ${String(value)}`);
   }
-  throw new Error(`Unsupported resolved Membership role: ${value}`);
+  switch (value) {
+    case 'administrator':
+      return { membershipRole: value, databaseRole: 'taptime_administrator' };
+    case 'standortleitung':
+    case 'employee':
+      return { membershipRole: value, databaseRole: 'taptime_employee' };
+    default:
+      return value satisfies never;
+  }
 }
 
 async function setTransactionLocalActorContext(
@@ -119,17 +131,6 @@ async function setTransactionLocalActorContext(
        set_config('app.membership_role', $4, true)`,
     [actor.user_id, actor.organization_id, actor.membership_id, role],
   );
-}
-
-async function selectFixedApplicationRole(
-  client: PoolClient,
-  role: MembershipRole,
-): Promise<void> {
-  if (role === 'employee') {
-    await client.query('SET LOCAL ROLE taptime_employee');
-    return;
-  }
-  await client.query('SET LOCAL ROLE taptime_administrator');
 }
 
 async function rollbackPreservingOriginalError(client: PoolClient): Promise<void> {

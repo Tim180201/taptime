@@ -336,19 +336,19 @@ afterAll(async () => {
 });
 
 describe('B6 migration and least-privilege runtime boundary', () => {
-  it('applies exactly migrations 001 through 019 and reruns the immutable ledger', async () => {
+  it('applies exactly migrations 001 through 020 and reruns the immutable ledger', async () => {
     expect((await loadMigrations()).map(({ version }) => version)).toEqual([
-      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019',
+      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019', '020',
     ]);
     const ledger = await installerPool.query<{ version: string }>(
       `SELECT version FROM ${B3_MIGRATION_TABLE} ORDER BY version`,
     );
     expect(ledger.rows.map(({ version }) => version)).toEqual([
-      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019',
+      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019', '020',
     ]);
     await expect(migrate(installerPool)).resolves.toEqual({
       applied: [],
-      alreadyApplied: ['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019'],
+      alreadyApplied: ['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019', '020'],
     });
   });
 
@@ -2011,6 +2011,54 @@ describe('T-015a pre-activation lifecycle carryover', () => {
       located_event_count: 0,
       entry_location: null,
     });
+  });
+});
+
+describe('T-015b Location Manager self capture', () => {
+  it('captures the manager own manual work at a valid Home Location', async () => {
+    await installerPool.query(
+      `UPDATE ${B3_SCHEMA}.memberships
+       SET role = 'administrator', row_version = row_version + 1
+       WHERE organization_id = $1 AND id = $2`,
+      [ids.organizationA, ids.membershipA],
+    );
+    await prepareAndEnableLocationsForOrganizationA();
+    await installerPool.query(
+      `UPDATE ${B3_SCHEMA}.memberships
+       SET role = 'standortleitung', row_version = row_version + 1
+       WHERE organization_id = $1 AND id = $2`,
+      [ids.organizationA, ids.membershipA],
+    );
+
+    const result = await manualCoordinator.ingestManual({
+      accessToken: await accessToken(),
+      expectedMembershipId: MembershipId(ids.membershipA),
+      workEvent: {
+        id: WorkEventId(uuid('5', 405)),
+        target: customerAssignmentTarget(CustomerId(ids.customerA)),
+      },
+      receipt: { id: uuid('6', 405), attemptNumber: 1 },
+    });
+    expect(result).toMatchObject({
+      status: 'synchronized',
+      decision: { status: 'time_entry_started' },
+    });
+
+    const captured = await installerPool.query<{
+      user_id: string;
+      accepted_work_location_id: string;
+      started_via: string;
+    }>(
+      `SELECT entry.user_id, entry.accepted_work_location_id, entry.started_via
+       FROM ${B3_SCHEMA}.time_entries AS entry
+       WHERE entry.organization_id = $1 AND entry.start_work_event_id = $2`,
+      [ids.organizationA, uuid('5', 405)],
+    );
+    expect(captured.rows).toEqual([{
+      user_id: ids.userA,
+      accepted_work_location_id: carryoverLocationId,
+      started_via: 'manual',
+    }]);
   });
 });
 

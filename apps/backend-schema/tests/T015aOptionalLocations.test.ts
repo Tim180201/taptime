@@ -370,8 +370,10 @@ describe('T-015a optional Location model remains off by default', () => {
            AS management_grant_is_work,
          ${B3_SCHEMA}.membership_has_management_location_v1($1, $3, $4)
            AS management_grant_is_management,
-         ${B3_SCHEMA}.has_membership_management_authority_v1(
-           $1, $5, $3, 'read', NULL, NULL
+         EXISTS (
+           SELECT 1 FROM ${B3_SCHEMA}.has_membership_management_authority_v1(
+             $1, $5, $3, 'read', NULL, NULL, NULL
+           )
          ) AS management_grant_is_people_authority`,
       [
         ids.organizationA,

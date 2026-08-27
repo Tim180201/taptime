@@ -10,6 +10,7 @@ import {
 import type { AccessTokenVerifier } from '@taptime/backend-identity';
 import {
   CustomerId,
+  isMembershipRole,
   NfcAssignmentId,
   NfcTagId,
   OrganizationId,
@@ -660,7 +661,7 @@ export class AdminWriteSessionCoordinator {
         transactionOpen = false;
         return { status: 'unauthorized' };
       }
-      if (actor.membership_role !== 'administrator' && actor.membership_role !== 'employee') {
+      if (!isMembershipRole(actor.membership_role)) {
         throw new Error('Locked identity resolver returned an unsupported Membership role');
       }
       if (

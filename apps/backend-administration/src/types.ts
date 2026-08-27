@@ -1,6 +1,7 @@
 import type {
   CustomerId,
   MembershipId,
+  MembershipRole,
   NfcAssignmentId,
   NfcTagId,
   OrganizationId,
@@ -33,7 +34,7 @@ export interface AdminProjectedNfcTagSummary extends AdminNfcTagSummary {
 export interface EmployeeMembershipSummary {
   readonly id: MembershipId;
   readonly displayName: string;
-  readonly role: 'administrator' | 'employee';
+  readonly role: MembershipRole;
   readonly active: boolean;
   readonly rowVersion: number;
 }
@@ -43,7 +44,8 @@ export interface CreateEmployeeMembershipInvitationCommand {
   readonly expectedMembershipId: MembershipId;
   readonly commandId: string;
   readonly displayName: string;
-  readonly role: 'administrator' | 'employee';
+  readonly role: MembershipRole;
+  readonly locationId?: string | null;
 }
 
 export interface RedeemEmployeeMembershipInvitationCommand {
@@ -78,7 +80,7 @@ export type RecordPasswordResetResult =
   | { readonly status: 'invalid_request' };
 
 export interface ChangeMembershipRoleCommand extends RevokeMembershipCommand {
-  readonly role: 'administrator' | 'employee';
+  readonly role: MembershipRole;
 }
 
 export type CreateEmployeeMembershipInvitationResult =
@@ -98,7 +100,7 @@ export type RedeemEmployeeMembershipInvitationResult =
       readonly status: 'succeeded';
       readonly organizationName: string;
       readonly membershipDisplayName: string;
-      readonly role: 'administrator' | 'employee';
+      readonly role: MembershipRole;
     }
   | { readonly status: 'unauthorized' }
   | { readonly status: 'enrollment_unavailable' }
@@ -119,7 +121,7 @@ export type MembershipMutationResult =
       readonly status: 'succeeded';
       readonly membership: {
         readonly id: MembershipId;
-        readonly role: 'administrator' | 'employee';
+        readonly role: MembershipRole;
         readonly active: boolean;
         readonly rowVersion: number;
       };

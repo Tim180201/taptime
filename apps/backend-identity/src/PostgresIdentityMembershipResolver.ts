@@ -2,7 +2,7 @@ import {
   MembershipId,
   OrganizationId,
   UserId,
-  type MembershipRole,
+  isMembershipRole,
 } from '@taptime/core';
 import type { Pool, PoolClient } from 'pg';
 import type {
@@ -18,7 +18,7 @@ interface ResolvedActorRow {
   readonly user_id: string;
   readonly organization_id: string;
   readonly membership_id: string;
-  readonly membership_role: MembershipRole;
+  readonly membership_role: string;
 }
 
 export class PostgresIdentityMembershipResolver implements IdentityMembershipResolver {
@@ -37,12 +37,15 @@ export class PostgresIdentityMembershipResolver implements IdentityMembershipRes
       if (result.rowCount !== null && result.rowCount > 1) {
         throw new Error('Identity resolver returned more than one active Membership');
       }
-      await client.query('COMMIT');
-
       const row = result.rows[0];
       if (row === undefined) {
+        await client.query('COMMIT');
         return { status: 'not_resolved' };
       }
+      if (!isMembershipRole(row.membership_role)) {
+        throw new Error(`Unsupported resolved Membership role: ${row.membership_role}`);
+      }
+      await client.query('COMMIT');
       return {
         status: 'resolved',
         membership: {

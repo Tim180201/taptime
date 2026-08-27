@@ -163,16 +163,16 @@ afterAll(async () => {
 });
 
 describe('versioned C1 foundation', () => {
-  it('uses exactly migrations 001 through 019 and reruns the ledger cleanly', async () => {
+  it('uses exactly migrations 001 through 020 and reruns the ledger cleanly', async () => {
     const migrations = await loadMigrations();
-    expect(migrations.map(({ version }) => version)).toEqual(['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019']);
+    expect(migrations.map(({ version }) => version)).toEqual(['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019', '020']);
     const ledger = await installerPool.query<{ version: string; checksum: string }>(
       `SELECT version, checksum FROM ${B3_MIGRATION_TABLE} ORDER BY version`,
     );
-    expect(ledger.rows.map(({ version }) => version)).toEqual(['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019']);
+    expect(ledger.rows.map(({ version }) => version)).toEqual(['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019', '020']);
     expect(ledger.rows.every(({ checksum }) => /^[0-9a-f]{64}$/.test(checksum))).toBe(true);
     await expect(migrate(installerPool)).resolves.toEqual({
-      applied: [], alreadyApplied: ['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019'],
+      applied: [], alreadyApplied: ['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019', '020'],
     });
   });
 });
@@ -198,6 +198,65 @@ describe('server-authoritative GET /v1/session', () => {
       membershipId: c1Ids.administratorAMembership,
       organizationId: c1Ids.organizationA,
       role: 'administrator',
+    });
+  });
+
+  it('returns a current Standortleitung role without elevating it to Administrator', async () => {
+    const commandId = '91000000-0000-4000-8000-000000000001';
+    const client = await installerPool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(
+        `SELECT
+           set_config('app.user_id', $1, true),
+           set_config('app.organization_id', $2, true),
+           set_config('app.membership_id', $3, true),
+           set_config('app.membership_role', 'administrator', true),
+           set_config('app.correlation_id', $4, true)`,
+        [c1Ids.administratorA, c1Ids.organizationA, c1Ids.administratorAMembership, commandId],
+      );
+      await client.query('SET LOCAL ROLE taptime_membership_manager');
+      const changed = await client.query<{ result_status: string }>(
+        `SELECT result_status
+         FROM ${B3_SCHEMA}.manage_membership_v1($1, $2, 1, 'change_role', 'standortleitung')`,
+        [commandId, c1Ids.employeeAMembership],
+      );
+      expect(changed.rows).toEqual([{ result_status: 'succeeded' }]);
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+
+    const response = await sessionRequest(await accessToken(jwks));
+    expectSuccess(response, {
+      userId: c1Ids.employeeA,
+      membershipId: c1Ids.employeeAMembership,
+      organizationId: c1Ids.organizationA,
+      role: 'standortleitung',
+    });
+  });
+
+  it('rejects an unknown Membership role instead of exposing it through the session', async () => {
+    const unsafeResolver = {
+      async resolve(identity: Parameters<typeof resolver.resolve>[0]) {
+        const resolution = await resolver.resolve(identity);
+        if (resolution.status === 'not_resolved') return resolution;
+        return {
+          status: 'resolved' as const,
+          membership: {
+            ...resolution.membership,
+            role: 'unknown-role' as never,
+          },
+        };
+      },
+    };
+    const authority = new B4SessionAuthorityResolver(verifier, unsafeResolver);
+
+    await expect(authority.resolve(await accessToken(jwks))).resolves.toEqual({
+      status: 'rejected',
     });
   });
 

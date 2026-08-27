@@ -99,16 +99,17 @@ danach Firma, Recht und Store.
 
 ## Aktuelle Aufgabe
 
-**T-015b — Die Standortleitung darf verwalten.** Siehe `ADO/TASK.md`. Berechtigungsdimension
-und Mandantengrenze, daher mit verpflichtendem unabhängigem Review. Grundlage ADR-0022.
+**T-015c — Die Oberfläche zeigt den Standort.** Siehe `ADO/TASK.md`. Keine
+Berechtigungsentscheidung — die liegt vollständig im Server —, aber die sichtbare Standortgrenze.
 
-**Zuletzt abgeschlossen:** T-025 (Grenztests messen statt raten), Head `28b1d34`, CI mit zwölf
-Jobs grün. Die drei Grenztests laufen isoliert mit eigenem PostgreSQL-Dienst und messen
-**relativ** gegen eine Bezugsgröße, die denselben zeilenweisen Pfad nachbildet. Budget `1,20×`;
-erster CI-Messpunkt `0,66×`. Belegt: eine echte Verschlechterung von 500 ms wird mit `1,83×`
-rot, dreifache Drosselung bleibt bei `1,01×` grün. **Ein rotes CI-Ergebnis bedeutet damit wieder
-„die Software ist kaputt".** Offen: nach zehn CI-Läufen die Verteilung der Verhältnisse
-auswerten und das Budget mit Daten nachziehen.
+**Zuletzt abgeschlossen:** T-015b (Die Standortleitung darf verwalten), Migration 020. Die
+Berechtigung liefert jetzt einen **Umfang** statt eines Wahrheitswerts (D-023). Belegt: eine
+Standortleitung sieht ausschließlich Beschäftigte ihrer Verwaltungsstandorte, lädt nur dort ein,
+vergibt keine Rolle und ändert ihre eigene Zugehörigkeit nicht. Sie erfasst ihre eigene
+Arbeitszeit mobil, sieht dabei keine fremden Zeiten; Verwaltungszuweisungen erweitern die mobile
+Selbstsicht nicht. Die Inventur aller Verzweigungen auf `membership_role` ergab **eine** wirksame
+Umdeutung — den TenantRead-Fallback, geschlossen — und zwei Altbefunde: **D-026** (Selbstkorrektur
+des Administrators, entschieden, Umsetzung T-020) und die Mobile-Allowlist, hier behoben.
 
 Danach die Folgeaufgaben in neuer Reihenfolge, siehe `ADO/PLAN.md`. Die Kette wurde am 24.08.
 nach Betriebsfähigkeit sortiert und um sieben Aufgaben erweitert (D-012). `T-001` bis `T-006`
