@@ -99,22 +99,16 @@ danach Firma, Recht und Store.
 
 ## Aktuelle Aufgabe
 
-**T-015c — Der Server sagt, was die Oberfläche zeigen darf.** Siehe `ADO/TASK.md`.
-Vertragsänderung an der Sitzung, daher mit verpflichtendem unabhängigem Review.
+**T-015d — Die Oberfläche zeigt den Standort.** Siehe `ADO/TASK.md`. Keine
+Berechtigungsentscheidung — der Server hat sie getroffen —, aber die sichtbare Standortgrenze.
 
-Die ursprüngliche Fassung von T-015c verlangte eine standortbewusste Oberfläche und verbot
-zugleich Backend-Änderungen — unmöglich, weil `/v1/session` nur Identität, Betrieb und Rolle
-liefert. Fehler des Technical Lead: Aufgabe geschrieben, ohne den Vertrag zu lesen, von dem sie
-abhängt. Von Codex vor der ersten Zeile gefunden. Die Oberfläche folgt als **T-015d**.
-
-**Zuletzt abgeschlossen:** T-015b (Die Standortleitung darf verwalten), Migration 020. Die
-Berechtigung liefert jetzt einen **Umfang** statt eines Wahrheitswerts (D-023). Belegt: eine
-Standortleitung sieht ausschließlich Beschäftigte ihrer Verwaltungsstandorte, lädt nur dort ein,
-vergibt keine Rolle und ändert ihre eigene Zugehörigkeit nicht. Sie erfasst ihre eigene
-Arbeitszeit mobil, sieht dabei keine fremden Zeiten; Verwaltungszuweisungen erweitern die mobile
-Selbstsicht nicht. Die Inventur aller Verzweigungen auf `membership_role` ergab **eine** wirksame
-Umdeutung — den TenantRead-Fallback, geschlossen — und zwei Altbefunde: **D-026** (Selbstkorrektur
-des Administrators, entschieden, Umsetzung T-020) und die Mobile-Allowlist, hier behoben.
+**Zuletzt abgeschlossen:** T-015c (Sitzungsvertrag), Commit `1712b55`, CI grün, Migration 021.
+`/v2/session` liefert `locationsEnabled`, `availableSections` und `managementScope` — **und keine
+Rolle.** Der Browser erfährt nicht, wer er ist, sondern nur, was offensteht; eine browserseitige
+Berechtigungsentscheidung ist damit unmöglich. Jeder Bereich stammt aus der Autorität, die dort
+ohnehin entscheidet (**D-027**): Einrichtung `007:336`, Beschäftigte `020:208`, Arbeitszeiten und
+Prüfungen `012:438`, Export `011:130`. Die Übersicht hat bewusst kein Merkmal (**D-028**).
+`/v1/session` bleibt unverändert, bis T-015d ausgeliefert und bestätigt ist.
 
 Danach die Folgeaufgaben in neuer Reihenfolge, siehe `ADO/PLAN.md`. Die Kette wurde am 24.08.
 nach Betriebsfähigkeit sortiert und um sieben Aufgaben erweitert (D-012). `T-001` bis `T-006`

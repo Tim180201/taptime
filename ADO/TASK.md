@@ -4,102 +4,118 @@
 
 ---
 
-## T-015c · Der Server sagt, was die Oberfläche zeigen darf
+## T-015d · Die Oberfläche zeigt den Standort
 
-**Für:** Codex · **Risiko:** Vertragsänderung an der Sitzung, Standortgrenze → **unabhängiges Review verpflichtend**
-**Zeitbox:** zwei Arbeitssitzungen · **Grundlage:** T-015b abgeschlossen, ADR-0020 (DA6-L08, L10), ADR-0022, D-023
+**Für:** Codex · **Risiko:** keine Berechtigungsentscheidung, aber die sichtbare Standortgrenze
+**Zeitbox:** drei Arbeitssitzungen · **Grundlage:** T-015c (`1712b55`), **D-021**, **D-027**, **D-028**, `UI_Leitlinien.md`
 
-### Warum es diese Aufgabe gibt
+### Zuerst lesen
 
-Die ursprüngliche Fassung von T-015c verlangte eine standortbewusste Oberfläche und verbot
-gleichzeitig Backend-Änderungen. **Das war unmöglich, und der Fehler lag bei mir:** Ich habe
-„die Oberfläche fragt den Server" geschrieben, ohne zu prüfen, ob der Server antworten kann. Er
-kann es nicht — `/v1/session` liefert nur Identität, Betrieb und Rolle.
+**`ADO/01_Architecture/UI_Leitlinien.md`** — vollständig. Das Regelwerk gilt für jede
+Oberflächenaufgabe und wird hier nicht wiederholt.
 
-Diese Aufgabe schließt die Lücke. Die Oberfläche folgt als **T-015d**.
+### Die Ausgangslage, gelesen statt vermutet
+
+`/v2/session` liefert `locationsEnabled`, `availableSections` und `managementScope` — **und keine
+Rolle.** Das ist bewusst so: Der Browser erfährt nicht, wer er ist, sondern nur, was offensteht.
+Eine browserseitige Berechtigungsentscheidung ist damit nicht nur verboten, sondern unmöglich.
+
+Im Admin-Web steht dem heute entgegen:
+
+- `parseSession` erwartet **exakt** vier Felder und nur `administrator` oder `employee`
+- `AdminWebCoordinator` lädt **alle vier** Projektionen ungefragt
+- die Übersicht zeichnet Arbeitszeiten und Prüfungen **immer** als Kachel und macht aus einer
+  Abweisung eine Kachel mit `0` und einem Wiederholen-Knopf (D-028)
+- eine veraltete Rollenprüfung verhindert heute die Anmeldung einer Standortleitung überhaupt
 
 ### Ziel
 
-**Eine Sitzungsantwort enthält alles, was die Oberfläche zum Zeichnen braucht — und nichts, was
-sie selbst entscheiden müsste.**
+**Eine Standortleitung meldet sich an und sieht ihren Standort — nichts, was sie nicht darf, und
+keine Kachel, die beim Laden scheitert.**
 
-Sie kommt als **`/v2/session`** (D-027). `/v1/session` bleibt **unverändert** — das Admin-Web
-weist unbekannte Felder ab, und diese Strenge wird nicht aufgeweicht. Der Wechsel der Oberfläche
-geschieht in T-015d.
+### Umfang
 
-### Der Grundsatz
+**1 · Auf `/v2` wechseln**
 
-DA6-L08 verlangt serverseitige Prüfung **und zugeschnittene Ergebnisse**. Die Oberfläche darf
-keine Berechtigungslogik enthalten. Also liefert der Server nicht die Bausteine für eine
-Entscheidung, sondern **das Ergebnis der Entscheidung**.
+Sitzung und Beschäftigtenprojektion. Der Parser bleibt **streng** — `exact` mit dem neuen
+Feldsatz, nicht tolerant. Die veraltete Rollenprüfung entfällt: Wer **keinen** Bereich hat,
+kommt nicht hinein; das ersetzt sie vollständig.
 
-**Eine Quelle je Bereich (D-027).** Jeder Bereich in der Liste wird von **der Autorität**
-beantwortet, die dort ohnehin entscheidet — Beschäftigte aus `has_membership_management_authority_v1`,
-Export, Prüfungen, Arbeitszeiten und Einrichtung aus ihren eigenen bestehenden Prüfungen. **Keine
-neue Zuordnung**, keine Ableitung aus der Rolle, keine Liste, die jemand pflegt.
+`/v1/session` bleibt vorerst bestehen. Es wird erst entfernt, wenn diese Fassung ausgeliefert und
+in Betrieb bestätigt ist — nicht in dieser Aufgabe.
 
-Findest du einen Bereich ohne aufrufbare Autorität: **das ist ein Befund**, keine Einladung, eine
-zu erfinden. Melden.
+**2 · Die Navigation kommt aus `availableSections`**
 
-### Was die Sitzung zusätzlich trägt
+Unverändert übernommen, nicht abgeleitet. Kein Rollenvergleich, keine Zuordnungstabelle im
+Browser. Was nicht in der Liste steht, erscheint nicht — nicht ausgegraut, gar nicht.
 
-1. **Ob die Standort-Funktion für diesen Betrieb an ist.** Ist sie aus, verhält sich alles wie
-   heute.
-2. **Die Bereiche, die dieser Person offenstehen** — als ausdrückliche Liste, nicht als Rolle,
-   aus der die Oberfläche etwas ableiten müsste.
-3. **Der Verwaltungsumfang:** betriebsweit oder eine Liste von Standorten mit Kennung und Namen.
-   Der Name ist nötig, damit die Oberfläche ihn anzeigen kann, ohne ihn nachzuschlagen.
+**3 · Nur laden, was offensteht — nur zeichnen, was geladen wurde (D-028)**
 
-### Was die Beschäftigtenprojektion zusätzlich trägt
+Die Übersicht ist eine Zusammensetzung. Eine Kachel entsteht, wenn ihr Bereich offensteht.
+Geschlossene Bereiche werden **nicht angefragt**. Keine Kachel mit `0` für etwas, das nie geladen
+werden durfte.
 
-- Den **Standort** je Zeile, mit Kennung und Namen
-- Einen **optionalen Standortfilter** in der Anfrage
+**4 · Der Standort ist sichtbar und steht in der Adresse**
 
-Der Filter wird **serverseitig autorisiert**. Ein fremder Standort wird abgewiesen — mit einem
-**unterscheidbaren Grund**, nicht mit einem nackten „nicht berechtigt". Die Oberfläche muss
-daraus einen wahren Satz bilden können; das ist die Voraussetzung für T-015d.
+Wer mehrere Verwaltungsstandorte hat, muss erkennen, welchen er gerade sieht. Der Standort gehört
+sichtbar in den Kopfbereich **und in die Adresse** — ein Link führt dorthin, ein Lesezeichen auch.
 
-### Vision-Check
+**5 · Listen benennen ihren Bezug**
 
-Kein neues fachliches Verhalten. Der Server sagt, was ohnehin gilt — nur so, dass man es
-darstellen kann.
+Der Trefferzähler sagt, worauf er sich bezieht. Niemand darf eine Standortzahl für den Betrieb
+halten.
+
+**6 · Der leere Standort führt weiter**
+
+Keine Beschäftigten am Standort ist der erstmalig leere Zustand aus dem Regelwerk und führt zur
+Einladung. Kein Fehler, keine unerklärte Leere.
+
+**7 · Ausgeschaltet bleibt unsichtbar**
+
+Ist die Standort-Funktion aus, sieht die Oberfläche aus wie heute. Kein Standortwähler, kein
+Bezug, keine Hinweise.
+
+### Die Antwortgrenze prüfen
+
+`readBoundedResponseText` begrenzt die Antwortgröße. Die Sitzung trägt jetzt eine **Liste von
+Standorten mit Namen**. Prüfe, ob die Grenze für einen Betrieb mit vielen Standorten reicht, und
+melde die Zahl, ab der sie nicht mehr reicht. Eine Sitzung, die wegen ihrer Größe als „nicht
+verfügbar" gilt, wäre ein Fehler, den niemand versteht.
 
 ### Nicht anfassen
 
-- `BusinessEngine` und die Entscheidungsreihenfolge
-- Die Autoritätsfunktion aus Migration 020 in ihrer **Entscheidung**. Sie darf gelesen und
-  projiziert, aber nicht in ihrer Wirkung verändert werden
-- `apps/admin-web` — das ist T-015d. Insbesondere **nicht** den Parser tolerant machen
-- `/v1/session` in seiner Antwortform
+- **Jede Berechtigungsentscheidung.** Der Server hat sie getroffen; die Oberfläche stellt sie dar
+- `packages/core`, Migrationen, Backend-Module
 - Die Mobile-App
-- Eine zweite Rollen- oder Fähigkeitszuordnung irgendwo im Backend. Wenn du eine brauchst, ist
-  der Entwurf falsch: **melden, nicht bauen**
+- `/v1/session` in seiner Antwortform
+- Barrierefreiheit über den sichtbaren Tastaturfokus hinaus, CSP, Sitzungsdauer — das ist T-017
+- **Neue Funktionen.** Keine
 
 ### Prüfung — nachweisen, nicht behaupten
 
-- Die Sitzung einer Standortleitung nennt **nur** die Bereiche, die sie öffnen darf
-- **Entzieht man ihr die Verwaltungszuweisung, ändern sich Umfang und Bereiche gemeinsam.**
-  Dieser Nachweis belegt die eine Quelle je Bereich und ist der wichtigste der Aufgabe
-- Für **jeden** gemeldeten Bereich steht im Bericht, welche bestehende Serverautorität ihn
-  beantwortet hat — namentlich, mit Fundstelle
-- `/v1/session` antwortet nach dieser Aufgabe **unverändert**; das bestehende Admin-Web meldet
-  sich weiterhin ohne Änderung an
-- Die Sitzung eines Administrators nennt den betriebsweiten Umfang
-- Eine Anfrage mit einem **fremden** Standort wird serverseitig abgewiesen, mit einem Grund, der
-  sich von „nicht angemeldet" und von „Betrieb unbekannt" unterscheidet
-- Die Beschäftigtenprojektion trägt je Zeile den Standort; eine Standortleitung sieht darin
-  weiterhin ausschließlich ihre Verwaltungsstandorte
-- Bei **ausgeschalteter** Standort-Funktion verhält sich die Sitzung wie vor dieser Aufgabe;
-  bestehende Admin-Web-Tests bleiben unverändert grün
-- Der Grenzlauf aus T-025 bleibt grün; das Verhältnis steht im Bericht **und wird in
-  `ADO/STATUS.md` in die laufende Reihe eingetragen**
+- Ändert man **allein** `availableSections`, ändert sich die Seitenleiste entsprechend — ohne
+  jede weitere Änderung. Dieser Nachweis belegt, dass nichts abgeleitet wird
+- Ein geschlossener Bereich wird **nicht angefragt**; das ist an den ausgehenden Aufrufen
+  nachzuweisen, nicht an der Darstellung
+- Die Übersicht einer Standortleitung enthält **keine** Kachel für Arbeitszeiten und Prüfungen —
+  weder gefüllt noch mit `0` noch als Fehler
+- Der angezeigte Standort steht in der Adresse; ein Link darauf öffnet genau diesen Standort
+- Jede standortbezogene Liste benennt ihren Bezug
+- Ein leerer Standort zeigt den erstmalig leeren Zustand mit dem Weg zur Einladung
+- Ein Aufruf mit **fremdem** Standort wird vom Server abgewiesen; die Oberfläche macht daraus
+  einen wahren Satz — **kein** nacktes „nicht berechtigt", kein technischer Fehlercode
+- Bei ausgeschalteter Standort-Funktion ist die Oberfläche unverändert; alle bestehenden
+  Admin-Web-Tests bleiben grün
+- Die Anwendung bleibt allein mit der Tastatur bedienbar, mit sichtbarem Fokus
+- Der Grenzlauf aus T-025 bleibt grün; das Verhältnis wird in `ADO/STATUS.md` eingetragen
 - CI grün, kein `[skip ci]`
 
 ### Zusätzliches Review
 
-> Gibt es nach dieser Änderung **irgendeine** Angabe in der Sitzungsantwort, die die Oberfläche
-> zu einer eigenen Berechtigungsentscheidung verleiten könnte — ein Rollenwert, ein Merker, eine
-> Liste, aus der man etwas ableiten *müsste*? Suche danach, statt es auszuschließen.
+> Melde dich als Standortleitung an und versuche, an einen fremden Standort zu kommen — über die
+> Adresse, einen Filter, ein Lesezeichen, den Zurück-Knopf. Der Server weist ab.
+> **Beschreibe, was der Benutzer dabei sieht.** Ein „nicht berechtigt" ohne Erklärung ist kein
+> Ergebnis, sondern ein zweiter Befund.
 
 ### Abschluss
 
@@ -110,5 +126,5 @@ Tests **einzeln** benennen. **Nicht committen** vor `APPROVED` durch den Technic
 
 ## Danach
 
-`T-015d` Die Oberfläche zeigt den Standort · `T-020` Freigabekette und Kennzeichnung der
-Selbstkorrektur (D-014, **D-026**) · `T-016` Löschkonzept · siehe `ADO/PLAN.md`.
+**Ausliefern.** Danach `T-020` Freigabekette und Kennzeichnung der Selbstkorrektur (D-014,
+**D-026**) · `T-016` Löschkonzept · `T-024` Geheimnisse rotieren · siehe `ADO/PLAN.md`.
