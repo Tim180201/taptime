@@ -680,3 +680,26 @@ Verbot hätte den Pilotbetrieb sofort ausgesperrt. Dieselbe Linie wie D-014: mar
 verbieten — das System urteilt nicht, es macht sichtbar.
 
 **Umsetzung in T-020**, nicht in T-015b.
+
+---
+
+## D-027 — Der Sitzungsvertrag wird versioniert, nicht aufgeweicht
+
+**Datum:** 26.08.2026 · **Entschieden vom Technical Lead** · **Umsetzung:** T-015c
+
+Die erweiterte Sitzungsantwort kommt als **`/v2/session`**. `/v1/session` bleibt unverändert,
+bis das Admin-Web in T-015d gewechselt ist.
+
+**Warum nicht den Parser tolerant machen:** Das Admin-Web weist unbekannte Felder ab. Das ist
+eine bewusste Eigenschaft, keine Nachlässigkeit — sie wird nicht per Anweisung aufgeweicht. Ein
+versionierter Endpunkt hält sie intakt, macht den Wechsel atomar und erlaubt, die Oberfläche
+zurückzunehmen, ohne die Schnittstelle anzufassen.
+
+**Zweite Festlegung — eine Quelle je Bereich.** Die Liste der offenen Bereiche wird **nicht** aus
+einer einzigen Funktion abgeleitet. Jeder Bereich wird von **der Autorität** beantwortet, die
+dort ohnehin entscheidet: Beschäftigte aus `has_membership_management_authority_v1`, Export,
+Prüfungen, Arbeitszeiten und Einrichtung aus ihren eigenen bestehenden Prüfungen. Ein Bereich
+ohne aufrufbare Autorität ist ein **Befund**, keine Einladung, eine zu erfinden.
+
+**Warum:** Eine Liste, die einen Bereich als offen ausweist, ohne dessen echte Autorität gefragt
+zu haben, ist eine zweite Wahrheit — genau das, was D-023 verhindern sollte.

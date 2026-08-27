@@ -23,15 +23,23 @@ Diese Aufgabe schließt die Lücke. Die Oberfläche folgt als **T-015d**.
 **Eine Sitzungsantwort enthält alles, was die Oberfläche zum Zeichnen braucht — und nichts, was
 sie selbst entscheiden müsste.**
 
+Sie kommt als **`/v2/session`** (D-027). `/v1/session` bleibt **unverändert** — das Admin-Web
+weist unbekannte Felder ab, und diese Strenge wird nicht aufgeweicht. Der Wechsel der Oberfläche
+geschieht in T-015d.
+
 ### Der Grundsatz
 
 DA6-L08 verlangt serverseitige Prüfung **und zugeschnittene Ergebnisse**. Die Oberfläche darf
 keine Berechtigungslogik enthalten. Also liefert der Server nicht die Bausteine für eine
 Entscheidung, sondern **das Ergebnis der Entscheidung**.
 
-**Eine Quelle der Wahrheit:** Alles, was hinzukommt, wird aus **derselben** Autoritätsfunktion
-abgeleitet wie die Berechtigung selbst (D-023). Keine zweite Tabelle, keine parallele
-Rollenzuordnung im Backend. Wer die Zuweisung entzieht, ändert damit zwingend beides.
+**Eine Quelle je Bereich (D-027).** Jeder Bereich in der Liste wird von **der Autorität**
+beantwortet, die dort ohnehin entscheidet — Beschäftigte aus `has_membership_management_authority_v1`,
+Export, Prüfungen, Arbeitszeiten und Einrichtung aus ihren eigenen bestehenden Prüfungen. **Keine
+neue Zuordnung**, keine Ableitung aus der Rolle, keine Liste, die jemand pflegt.
+
+Findest du einen Bereich ohne aufrufbare Autorität: **das ist ein Befund**, keine Einladung, eine
+zu erfinden. Melden.
 
 ### Was die Sitzung zusätzlich trägt
 
@@ -61,7 +69,8 @@ darstellen kann.
 - `BusinessEngine` und die Entscheidungsreihenfolge
 - Die Autoritätsfunktion aus Migration 020 in ihrer **Entscheidung**. Sie darf gelesen und
   projiziert, aber nicht in ihrer Wirkung verändert werden
-- `apps/admin-web` — das ist T-015d
+- `apps/admin-web` — das ist T-015d. Insbesondere **nicht** den Parser tolerant machen
+- `/v1/session` in seiner Antwortform
 - Die Mobile-App
 - Eine zweite Rollen- oder Fähigkeitszuordnung irgendwo im Backend. Wenn du eine brauchst, ist
   der Entwurf falsch: **melden, nicht bauen**
@@ -70,7 +79,11 @@ darstellen kann.
 
 - Die Sitzung einer Standortleitung nennt **nur** die Bereiche, die sie öffnen darf
 - **Entzieht man ihr die Verwaltungszuweisung, ändern sich Umfang und Bereiche gemeinsam.**
-  Dieser Nachweis belegt die eine Quelle der Wahrheit und ist der wichtigste der Aufgabe
+  Dieser Nachweis belegt die eine Quelle je Bereich und ist der wichtigste der Aufgabe
+- Für **jeden** gemeldeten Bereich steht im Bericht, welche bestehende Serverautorität ihn
+  beantwortet hat — namentlich, mit Fundstelle
+- `/v1/session` antwortet nach dieser Aufgabe **unverändert**; das bestehende Admin-Web meldet
+  sich weiterhin ohne Änderung an
 - Die Sitzung eines Administrators nennt den betriebsweiten Umfang
 - Eine Anfrage mit einem **fremden** Standort wird serverseitig abgewiesen, mit einem Grund, der
   sich von „nicht angemeldet" und von „Betrieb unbekannt" unterscheidet
