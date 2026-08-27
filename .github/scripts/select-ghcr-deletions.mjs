@@ -5,6 +5,7 @@ import { readFile } from 'node:fs/promises';
 const VERSION_PATTERN = /^[0-9a-f]{7}$/;
 const ADMIN_WEB_TAG_PREFIX = 'admin-web-';
 const OPERATIONS_TAG_PREFIX = 'operations-';
+const OPERATIONS_SHORTCUT_TAG = 'ops';
 
 function fail(message) {
   throw new Error(message);
@@ -81,7 +82,7 @@ export function selectGhcrDeletions(snapshot, response, keepNewest) {
     if (!Array.isArray(tags)) {
       fail(`GHCR package version ${String(version.id)} has no container tag list.`);
     }
-    return !tags.some((tag) => applicationVersions.has(tag) || (
+    return !tags.some((tag) => tag === OPERATIONS_SHORTCUT_TAG || applicationVersions.has(tag) || (
       tag.startsWith(ADMIN_WEB_TAG_PREFIX) &&
       applicationVersions.has(tag.slice(ADMIN_WEB_TAG_PREFIX.length))
     ) || (

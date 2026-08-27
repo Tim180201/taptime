@@ -34,6 +34,7 @@ test('cleanup protects application and independent operations versions outside t
     packageVersion(85, 'admin-web-7070707', 21),
     packageVersion(89, 'operations-4040404', 22),
     packageVersion(90, 'operations-7070707', 21),
+    packageVersion(92, 'ops', 23),
     packageVersion(83, '5050505', 23),
     packageVersion(86, 'admin-web-5050505', 23),
     packageVersion(91, 'operations-5050505', 23),
@@ -47,6 +48,7 @@ test('cleanup protects application and independent operations versions outside t
   assert(!deletedIds.includes(81), 'the previous image must not be deleted');
   assert(!deletedIds.includes(85), 'the previous Admin Web image must not be deleted');
   assert(!deletedIds.includes(89), 'the independently selected operations image must not be deleted');
+  assert(!deletedIds.includes(92), 'the console shortcut target must not be deleted before it moves');
   assert(!deletedIds.includes(80), 'every known version must be retained');
   assert(!deletedIds.includes(87), 'every known Admin Web version must be retained');
   assert(deletedIds.includes(88), 'an app version does not implicitly protect an operations tag');

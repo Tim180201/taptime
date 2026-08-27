@@ -283,6 +283,14 @@ jobs:
           provenance: mode=max
           sbom: true
 
+      - name: Stage the approved console bootstrap for old source refs
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -D -m 0755 \
+            control/infrastructure/operations/taptime-bootstrap \
+            source/infrastructure/operations/taptime-bootstrap
+
       - name: Build and publish the operations image once
         if: steps.operations_existing.outputs.publish == 'true'
         uses: docker/build-push-action@v7
@@ -300,3 +308,19 @@ jobs:
           cache-to: type=gha,mode=max
           provenance: mode=max
           sbom: true
+
+      - name: Point the console-only operations shortcut at the tested image
+        if: github.event_name == 'workflow_run'
+        shell: bash
+        env:
+          IMMUTABLE_IMAGE: ${{ steps.image.outputs.name }}:operations-${{ steps.image.outputs.short_sha }}
+          SHORTCUT_IMAGE: ${{ steps.image.outputs.name }}:ops
+        run: |
+          set -euo pipefail
+          docker buildx imagetools create --tag "$SHORTCUT_IMAGE" "$IMMUTABLE_IMAGE"
+          immutable_manifest="$(docker buildx imagetools inspect "$IMMUTABLE_IMAGE" --raw | sha256sum)"
+          shortcut_manifest="$(docker buildx imagetools inspect "$SHORTCUT_IMAGE" --raw | sha256sum)"
+          if [[ "$shortcut_manifest" != "$immutable_manifest" ]]; then
+            printf 'Console shortcut does not name the immutable operations image.\n' >&2
+            exit 1
+          fi

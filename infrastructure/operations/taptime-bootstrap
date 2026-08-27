@@ -1,0 +1,215 @@
+#!/usr/bin/env bash
+set -uo pipefail
+
+readonly EXPECTED_REVISION='@TAPTIME_VERSION@'
+readonly IMAGE_VERSION_FILE='/bootstrap/version.txt'
+readonly IMAGE_DEPLOY_SCRIPT='/bootstrap/taptime-deploy'
+readonly HOST_ROOT='/h'
+readonly HOST_DEPLOY_SCRIPT="$HOST_ROOT/usr/local/sbin/taptime-deploy"
+readonly HOST_PREVIOUS_SCRIPT="$HOST_DEPLOY_SCRIPT.previous"
+readonly HOST_STATE_DIRECTORY="$HOST_ROOT/var/lib/taptime-deploy"
+readonly HOST_VERSION_FILE="$HOST_STATE_DIRECTORY/operations-version"
+
+SNAPSHOT_DIRECTORY=''
+STAGED_DEPLOY=''
+STAGED_PREVIOUS=''
+STAGED_VERSION=''
+STATE_DIRECTORY_CREATED=0
+MUTATION_STARTED=0
+
+validate_revision() {
+  [[ "$1" =~ ^[0-9a-f]{7}$ ]]
+}
+
+read_image_revision() {
+  local revision
+
+  [[ -f "$IMAGE_VERSION_FILE" ]] || return 1
+  revision="$(tr -d '\r\n' < "$IMAGE_VERSION_FILE")" || return 1
+  validate_revision "$revision" || return 1
+  [[ "$revision" == "$EXPECTED_REVISION" ]] || return 1
+}
+
+validate_image_payload() {
+  validate_revision "$EXPECTED_REVISION" || return 1
+  read_image_revision || return 1
+  [[ -f "$IMAGE_DEPLOY_SCRIPT" && ! -L "$IMAGE_DEPLOY_SCRIPT" ]] || return 1
+  bash -n "$IMAGE_DEPLOY_SCRIPT" || return 1
+}
+
+validate_host_mount() {
+  awk '$2 == "/h" { found = 1 } END { exit !found }' /proc/mounts || return 1
+  [[ -d "$HOST_ROOT/usr/local/sbin" && -d "$HOST_ROOT/var/lib" ]] || return 1
+  [[ ! -e "$HOST_DEPLOY_SCRIPT" || -f "$HOST_DEPLOY_SCRIPT" ]] || return 1
+  [[ ! -L "$HOST_DEPLOY_SCRIPT" ]] || return 1
+  [[ ! -e "$HOST_PREVIOUS_SCRIPT" || -f "$HOST_PREVIOUS_SCRIPT" ]] || return 1
+  [[ ! -L "$HOST_PREVIOUS_SCRIPT" ]] || return 1
+  [[ ! -e "$HOST_VERSION_FILE" || -f "$HOST_VERSION_FILE" || -L "$HOST_VERSION_FILE" ]] || return 1
+}
+
+read_host_version() {
+  local target
+
+  if [[ -L "$HOST_VERSION_FILE" ]]; then
+    target="$(readlink "$HOST_VERSION_FILE")" || return 1
+    if [[ "$target" == /* ]]; then
+      target="$HOST_ROOT$target"
+    else
+      target="$HOST_STATE_DIRECTORY/$target"
+    fi
+  else
+    target="$HOST_VERSION_FILE"
+  fi
+  [[ -f "$target" ]] || return 1
+  tr -d '\r\n' < "$target"
+}
+
+already_installed() {
+  [[ -f "$HOST_DEPLOY_SCRIPT" ]] || return 1
+  cmp -s "$IMAGE_DEPLOY_SCRIPT" "$HOST_DEPLOY_SCRIPT" || return 1
+  [[ "$(read_host_version)" == "$EXPECTED_REVISION" ]]
+}
+
+snapshot_target() {
+  local target="$1"
+  local name="$2"
+
+  if [[ -L "$target" ]]; then
+    printf 'symlink\n' > "$SNAPSHOT_DIRECTORY/$name.kind" || return 1
+    cp -a "$target" "$SNAPSHOT_DIRECTORY/$name" || return 1
+  elif [[ -f "$target" ]]; then
+    printf 'file\n' > "$SNAPSHOT_DIRECTORY/$name.kind" || return 1
+    cp -a "$target" "$SNAPSHOT_DIRECTORY/$name" || return 1
+  elif [[ -e "$target" ]]; then
+    return 1
+  else
+    printf 'missing\n' > "$SNAPSHOT_DIRECTORY/$name.kind" || return 1
+  fi
+}
+
+restore_target() {
+  local target="$1"
+  local name="$2"
+  local kind
+
+  kind="$(cat "$SNAPSHOT_DIRECTORY/$name.kind")" || return 1
+  rm -f -- "$target" || return 1
+  if [[ "$kind" != 'missing' ]]; then
+    cp -a "$SNAPSHOT_DIRECTORY/$name" "$target" || return 1
+  fi
+}
+
+target_matches_snapshot() {
+  local target="$1"
+  local name="$2"
+  local kind
+
+  kind="$(cat "$SNAPSHOT_DIRECTORY/$name.kind")" || return 1
+  case "$kind" in
+    missing)
+      [[ ! -e "$target" && ! -L "$target" ]]
+      ;;
+    symlink)
+      [[ -L "$target" ]] || return 1
+      [[ "$(readlink "$target")" == "$(readlink "$SNAPSHOT_DIRECTORY/$name")" ]]
+      ;;
+    file)
+      [[ -f "$target" && ! -L "$target" ]] || return 1
+      cmp -s "$SNAPSHOT_DIRECTORY/$name" "$target" || return 1
+      [[ "$(stat -c '%a:%u:%g' "$SNAPSHOT_DIRECTORY/$name")" == \
+        "$(stat -c '%a:%u:%g' "$target")" ]]
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+remove_staged_files() {
+  [[ -z "$STAGED_DEPLOY" ]] || rm -f -- "$STAGED_DEPLOY"
+  [[ -z "$STAGED_PREVIOUS" ]] || rm -f -- "$STAGED_PREVIOUS"
+  [[ -z "$STAGED_VERSION" ]] || rm -f -- "$STAGED_VERSION"
+}
+
+rollback() {
+  local result=0
+
+  remove_staged_files || result=1
+  if (( MUTATION_STARTED == 1 )); then
+    restore_target "$HOST_DEPLOY_SCRIPT" deploy || result=1
+    restore_target "$HOST_PREVIOUS_SCRIPT" previous || result=1
+    restore_target "$HOST_VERSION_FILE" version || result=1
+    target_matches_snapshot "$HOST_DEPLOY_SCRIPT" deploy || result=1
+    target_matches_snapshot "$HOST_PREVIOUS_SCRIPT" previous || result=1
+    target_matches_snapshot "$HOST_VERSION_FILE" version || result=1
+  fi
+  if (( STATE_DIRECTORY_CREATED == 1 )); then
+    rmdir "$HOST_STATE_DIRECTORY" 2>/dev/null || result=1
+  fi
+  return "$result"
+}
+
+install_controller() {
+  local previous_kind
+
+  validate_image_payload || return 1
+  validate_host_mount || return 1
+  if already_installed; then
+    return 0
+  fi
+
+  SNAPSHOT_DIRECTORY="$(mktemp -d)" || return 1
+  snapshot_target "$HOST_DEPLOY_SCRIPT" deploy || return 1
+  snapshot_target "$HOST_PREVIOUS_SCRIPT" previous || return 1
+  snapshot_target "$HOST_VERSION_FILE" version || return 1
+
+  if [[ ! -d "$HOST_STATE_DIRECTORY" ]]; then
+    install -d -m 0755 "$HOST_STATE_DIRECTORY" || return 1
+    STATE_DIRECTORY_CREATED=1
+  fi
+
+  STAGED_DEPLOY="$(mktemp "$HOST_ROOT/usr/local/sbin/.taptime-deploy.XXXXXX")" || return 1
+  STAGED_VERSION="$(mktemp "$HOST_STATE_DIRECTORY/.operations-version.XXXXXX")" || return 1
+  cp "$IMAGE_DEPLOY_SCRIPT" "$STAGED_DEPLOY" || return 1
+  chmod 0755 "$STAGED_DEPLOY" || return 1
+  printf '%s\n' "$EXPECTED_REVISION" > "$STAGED_VERSION" || return 1
+  chmod 0644 "$STAGED_VERSION" || return 1
+  bash -n "$STAGED_DEPLOY" || return 1
+  [[ "$(tr -d '\r\n' < "$STAGED_VERSION")" == "$EXPECTED_REVISION" ]] || return 1
+
+  previous_kind="$(cat "$SNAPSHOT_DIRECTORY/deploy.kind")" || return 1
+  if [[ "$previous_kind" == 'file' ]]; then
+    STAGED_PREVIOUS="$(mktemp "$HOST_ROOT/usr/local/sbin/.taptime-deploy.previous.XXXXXX")" || return 1
+    cp -a "$SNAPSHOT_DIRECTORY/deploy" "$STAGED_PREVIOUS" || return 1
+  fi
+
+  MUTATION_STARTED=1
+  if [[ "$previous_kind" == 'file' ]]; then
+    mv -f "$STAGED_PREVIOUS" "$HOST_PREVIOUS_SCRIPT" || return 1
+    STAGED_PREVIOUS=''
+  else
+    rm -f -- "$HOST_PREVIOUS_SCRIPT" || return 1
+  fi
+  mv -f "$STAGED_VERSION" "$HOST_VERSION_FILE" || return 1
+  STAGED_VERSION=''
+  mv -f "$STAGED_DEPLOY" "$HOST_DEPLOY_SCRIPT" || return 1
+  STAGED_DEPLOY=''
+
+  cmp -s "$IMAGE_DEPLOY_SCRIPT" "$HOST_DEPLOY_SCRIPT" || return 1
+  [[ "$(read_host_version)" == "$EXPECTED_REVISION" ]] || return 1
+}
+
+if install_controller >/dev/null 2>&1; then
+  remove_staged_files >/dev/null 2>&1 || true
+  [[ -z "$SNAPSHOT_DIRECTORY" ]] || rm -rf -- "$SNAPSHOT_DIRECTORY"
+  printf 'ERFOLG: Deploy-Controller %s installiert.\n' "$EXPECTED_REVISION"
+  exit 0
+fi
+
+if rollback >/dev/null 2>&1; then
+  [[ -z "$SNAPSHOT_DIRECTORY" ]] || rm -rf -- "$SNAPSHOT_DIRECTORY"
+  printf 'FEHLER: Bootstrap abgebrochen; nichts wurde veraendert.\n'
+else
+  printf 'FEHLER: Bootstrap abgebrochen; Ruecknahme nicht vollstaendig.\n'
+fi
+exit 1

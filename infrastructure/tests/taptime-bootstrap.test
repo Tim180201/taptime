@@ -1,0 +1,105 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+TEST_ROOT="$(mktemp -d "$PWD/.taptime-bootstrap-test.XXXXXX")"
+readonly TEST_ROOT
+readonly TEST_IMAGE="taptime-operations-bootstrap-test:abcdef0-$$"
+readonly BROKEN_IMAGE="taptime-operations-bootstrap-test:broken-$$"
+readonly MISMATCH_IMAGE="taptime-operations-bootstrap-test:mismatch-$$"
+readonly HOST_VOLUME="taptime-bootstrap-host-$$"
+readonly IMAGE_HOLDER="taptime-bootstrap-image-$$"
+
+cleanup() {
+  docker rm --force "$IMAGE_HOLDER" >/dev/null 2>&1 || true
+  docker image rm --force "$TEST_IMAGE" "$BROKEN_IMAGE" "$MISMATCH_IMAGE" \
+    >/dev/null 2>&1 || true
+  docker volume rm --force "$HOST_VOLUME" >/dev/null 2>&1 || true
+  rm -rf -- "$TEST_ROOT"
+}
+trap cleanup EXIT
+
+docker build --quiet \
+  --build-arg TAPTIME_VERSION=abcdef0 \
+  --file infrastructure/operations/Dockerfile \
+  --tag "$TEST_IMAGE" . >/dev/null
+docker volume create "$HOST_VOLUME" >/dev/null
+docker run --rm --volume "$HOST_VOLUME:/h" "$TEST_IMAGE" bash -c '
+  set -e
+  mkdir -p /h/usr/local/sbin /h/var/lib/taptime-deploy
+  printf "#!/usr/bin/env bash\n:\n# old-controller\n" > /h/usr/local/sbin/taptime-deploy
+  printf "#!/usr/bin/env bash\n:\n# older-controller\n" > /h/usr/local/sbin/taptime-deploy.previous
+  chmod 0755 /h/usr/local/sbin/taptime-deploy /h/usr/local/sbin/taptime-deploy.previous
+  printf "aaaaaaa\n" > /h/var/lib/taptime-deploy/operations-version
+'
+
+run_bootstrap() {
+  local image="$1"
+
+  docker run --rm --volume "$HOST_VOLUME:/h" "$image"
+}
+
+assert_one_line() {
+  [[ "$(printf '%s\n' "$1" | wc -l | tr -d ' ')" == '1' ]]
+}
+
+host_fingerprint() {
+  docker run --rm --volume "$HOST_VOLUME:/h" "$TEST_IMAGE" bash -c '
+    set -e
+    stat -c "%a:%u:%g" \
+      /h/usr/local/sbin/taptime-deploy \
+      /h/usr/local/sbin/taptime-deploy.previous \
+      /h/var/lib/taptime-deploy/operations-version
+    cksum \
+      /h/usr/local/sbin/taptime-deploy \
+      /h/usr/local/sbin/taptime-deploy.previous \
+      /h/var/lib/taptime-deploy/operations-version
+  '
+}
+
+first_output="$(run_bootstrap "$TEST_IMAGE")"
+assert_one_line "$first_output"
+[[ "$first_output" == 'ERFOLG: Deploy-Controller abcdef0 installiert.' ]]
+docker run --rm --volume "$HOST_VOLUME:/h" "$TEST_IMAGE" bash -c '
+  set -e
+  cmp -s /bootstrap/taptime-deploy /h/usr/local/sbin/taptime-deploy
+  grep -Fq old-controller /h/usr/local/sbin/taptime-deploy.previous
+  grep -Fxq abcdef0 /h/var/lib/taptime-deploy/operations-version
+'
+first_fingerprint="$(host_fingerprint)"
+
+second_output="$(run_bootstrap "$TEST_IMAGE")"
+assert_one_line "$second_output"
+[[ "$second_output" == "$first_output" ]]
+[[ "$(host_fingerprint)" == "$first_fingerprint" ]]
+printf 'Bootstrap idempotence evidence: both runs installed abcdef0 and the second changed no host file.\n'
+
+printf '#!/usr/bin/env bash\nif (\n' > "$TEST_ROOT/broken-deploy"
+chmod 0755 "$TEST_ROOT/broken-deploy"
+docker create --name "$IMAGE_HOLDER" "$TEST_IMAGE" >/dev/null
+docker cp "$TEST_ROOT/broken-deploy" "$IMAGE_HOLDER:/bootstrap/taptime-deploy"
+docker commit "$IMAGE_HOLDER" "$BROKEN_IMAGE" >/dev/null
+docker rm "$IMAGE_HOLDER" >/dev/null
+set +e
+broken_output="$(run_bootstrap "$BROKEN_IMAGE" 2>&1)"
+broken_status=$?
+set -e
+[[ "$broken_status" == '1' ]]
+assert_one_line "$broken_output"
+[[ "$broken_output" == 'FEHLER: Bootstrap abgebrochen; nichts wurde veraendert.' ]]
+[[ "$(host_fingerprint)" == "$first_fingerprint" ]]
+printf 'Broken controller evidence: image rejected before changing any host file.\n'
+
+printf 'bbbbbbb\n' > "$TEST_ROOT/wrong-version"
+docker create --name "$IMAGE_HOLDER" "$TEST_IMAGE" >/dev/null
+docker cp "$TEST_ROOT/wrong-version" "$IMAGE_HOLDER:/bootstrap/version.txt"
+docker commit "$IMAGE_HOLDER" "$MISMATCH_IMAGE" >/dev/null
+docker rm "$IMAGE_HOLDER" >/dev/null
+set +e
+mismatch_output="$(run_bootstrap "$MISMATCH_IMAGE" 2>&1)"
+mismatch_status=$?
+set -e
+[[ "$mismatch_status" == '1' ]]
+assert_one_line "$mismatch_output"
+[[ "$mismatch_output" == 'FEHLER: Bootstrap abgebrochen; nichts wurde veraendert.' ]]
+[[ "$(host_fingerprint)" == "$first_fingerprint" ]]
+printf 'Revision mismatch evidence: image rejected before changing any host file.\n'

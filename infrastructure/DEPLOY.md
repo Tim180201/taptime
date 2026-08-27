@@ -7,8 +7,11 @@ zum Beispiel
 `ghcr.io/tim180201/taptime-backend-api:admin-web-abcdef0` und
 `ghcr.io/tim180201/taptime-backend-api:operations-abcdef0`. Sie liegen getrennt im selben
 öffentlichen GHCR-Paket und bleiben ohne Registry-Geheimnis anonym lesbar. Es gibt bewusst kein
-`latest` und keinen Build auf dem Server. Backend und Admin-Web werden immer gemeinsam auf die
-gewünschte Anwendungsversion geschaltet. Ein neuer Anwendungsstand nimmt automatisch sein
+`latest` und keinen Build auf dem Server. Nur der kurze Tag `ops` zeigt als Tippabkürzung auf das
+neueste automatisch veröffentlichte Operations-Abbild; dessen Revision wird im Abbild selbst
+geprüft. Ein manueller Bau für eine alte Rücknahmeversion verschiebt `ops` ausdrücklich nicht.
+Backend und Admin-Web werden immer gemeinsam auf die gewünschte Anwendungsversion geschaltet.
+Ein neuer Anwendungsstand nimmt automatisch sein
 gleich markiertes Operations-Abbild mit; eine Rücknahme auf eine bereits bekannte Anwendung
 behält dagegen den zuletzt installierten, neueren Betriebsstand.
 
@@ -54,44 +57,36 @@ install -d -o root -g root -m 0755 /opt/taptime/admin-web/status
 
 ### Einmaliger Wechsel auf den versionierten Betriebsweg
 
-Das Deploy-Skript kann sich nicht selbst ersetzen. Nach Freigabe des T-028-Commits muss der
-Product Owner deshalb genau einmal die Hetzner Console öffnen und dort als `root` die folgenden
-Befehle ausführen. `abcdef0` ist der freigegebene T-028-Commit, **nicht** die anschließend
-auszuliefernde Anwendungsversion:
+Das Deploy-Skript kann sich nicht selbst ersetzen. Nach Freigabe des T-028-Commits öffnet der
+Product Owner deshalb genau einmal die Hetzner Console, meldet sich als `root` an und tippt genau
+diesen Befehl:
 
 ```sh
-docker pull ghcr.io/tim180201/taptime-backend-api:operations-abcdef0
-docker create --name taptime-ops-bootstrap ghcr.io/tim180201/taptime-backend-api:operations-abcdef0
-install -d -m 0755 /var/lib/taptime-deploy
-docker cp taptime-ops-bootstrap:/bootstrap/taptime-deploy /usr/local/sbin/taptime-deploy.new
-docker cp taptime-ops-bootstrap:/bootstrap/version.txt /var/lib/taptime-deploy/operations-version.new
-chmod 0755 /usr/local/sbin/taptime-deploy.new
-bash -n /usr/local/sbin/taptime-deploy.new
-grep -Fx abcdef0 /var/lib/taptime-deploy/operations-version.new
-mv /var/lib/taptime-deploy/operations-version.new /var/lib/taptime-deploy/operations-version
-cp -a /usr/local/sbin/taptime-deploy /usr/local/sbin/taptime-deploy.previous
-mv /usr/local/sbin/taptime-deploy.new /usr/local/sbin/taptime-deploy
-grep -F operations- /usr/local/sbin/taptime-deploy
-docker rm taptime-ops-bootstrap
+docker run --rm -v /:/h ghcr.io/tim180201/taptime-backend-api:ops
 ```
 
-`bash -n` bleibt bei Erfolg ohne Ausgabe. Der erste `grep` muss genau `abcdef0` ausgeben, der
-zweite mehrere Zeilen mit `operations-`. Scheitert ein Befehl vor dem Verschieben des
-Deploy-Skripts, bleibt das bisherige Skript aktiv: stoppen und die Ausgabe sichern. Bleibt der
-zweite Nachweis nach dem Wechsel leer oder fehlerhaft, sofort zurücksetzen und die Ausgabe melden:
+Die vollständige Einbindung des Server-Dateisystems mit `-v /:/h` ist nur hier vertretbar:
+einmalig, durch `root` in der Hetzner Console und mit dem eigenen, geprüften Abbild. Sie gibt dem
+Container absichtlich Schreibzugriff auf den ganzen Server und gehört deshalb ausdrücklich in
+keinen automatisierten Ablauf, keine CI und keinen gewöhnlichen Deploy.
 
-```sh
-mv /usr/local/sbin/taptime-deploy.previous /usr/local/sbin/taptime-deploy
-```
+`ops` ist nur der kurze, bewegliche Name zum Tippen. Das Abbild trägt seine siebenstellige
+Revision zusätzlich fest im Installer und in einer getrennten Versionsdatei; der Installer
+vergleicht beide, bevor er den eingebundenen Server berührt. Das beweist nur, dass das Abbild in
+sich stimmig ist — nicht, dass der bewegliche Zeiger auf den gewünschten Stand zeigt; auch ein
+veraltetes, intern stimmiges Abbild würde diese Prüfung bestehen. Danach prüft der Installer die
+Shell-Syntax, sichert eine vorhandene Vorgängerfassung und ersetzt Controller und aufgezeichnete
+Betriebsversion mit vollständiger Rücknahme bei einem Fehler. Derselbe Befehl ist wiederholbar
+und gilt unverändert auf einem Ersatzserver ohne vorhandenes Deploy-Skript.
 
-Die Konsole bleibt offen, bis der erste SSH-Deploy mit dem neuen Skript begonnen hat. Die Datei
-`taptime-deploy.previous` wird erst nach einem vollständig erfolgreichen Deploy entfernt.
-
-Auf einem Ersatzserver ohne vorhandenes Deploy-Skript gelten dieselben Befehle, aber die Zeile
-mit `cp -a ... taptime-deploy.previous` wird ausgelassen. Nach dem ersten `grep` werden
-Operations-Version und Controller wie oben mit `mv` aktiviert; der zweite `grep` ist derselbe
-Erfolgsnachweis. Scheitert er, bleibt der Server abgeschaltet und die Konsole offen, bis der
-Bootstrap mit einem neu gebauten, freigegebenen Operations-Abbild wiederholt werden kann.
+Docker kann vor der Abschlussmeldung mehrere Ladezeilen ausgeben; für die Bedienung zählt die
+**letzte Zeile**. Erfolg lautet `ERFOLG: Deploy-Controller <revision> installiert.`. Der Product
+Owner vergleicht die dort genannte Revision mit dem aktuellen Kurzschlüssel von `main` und fährt
+nur bei Gleichheit fort. Dieser menschliche Vergleich ist die Freigabeprüfung, die der bewegliche
+Tag selbst nicht leisten kann. Bei einer abgewiesenen Nutzlast lautet die letzte Zeile
+`FEHLER: Bootstrap abgebrochen; nichts wurde veraendert.`; dann bleibt die Konsole offen und die
+vollständige Ausgabe wird gemeldet. Fehlt eine dieser Abschlusszeilen, ist schon Docker vor dem
+Start des Installers gescheitert und hat am Server nichts installiert.
 
 Vor jeder SSH-Härtung muss in einer **zweiten** Sitzung sowohl der neue Zugang als auch dessen
 einzige sudo-Regel funktionieren. Nach Schlüsselverlust ist die neu erzeugte Identität
@@ -137,8 +132,8 @@ Starte `Release container images` bei Bedarf manuell mit `source_ref` gleich dem
 Commit der gewünschten Version. Bereits vorhandene unveränderliche Abbilder werden geprüft und
 nicht neu gebaut; fehlende Backend-, Admin-Web- oder Operations-Abbilder werden ergänzt. Ein
 Operations-Abbild einer alten Rücknahmeversion wird zwar vollständig reproduzierbar gebaut, vom
-Deploy aber nicht ausgewählt. Für den noch ausstehenden Deploy ist die Anwendungsversion
-`3893611`; die Rücknahmeversion steht in
+Deploy aber nicht ausgewählt. Für den noch ausstehenden Deploy gilt der dann aktuelle, eigens
+freigegebene Commit; die Rücknahmeversion steht in
 `/var/lib/taptime-deploy/current-version`, die Betriebsfassung in
 `/var/lib/taptime-deploy/operations-version`. Keine davon darf geraten werden.
 
