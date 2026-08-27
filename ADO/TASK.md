@@ -4,127 +4,108 @@
 
 ---
 
-## T-015d · Die Oberfläche zeigt den Standort
+## T-026 · Die Oberfläche wird mit ausgeliefert — und der Nachweis beweist es
 
-**Für:** Codex · **Risiko:** keine Berechtigungsentscheidung, aber die sichtbare Standortgrenze
-**Zeitbox:** drei Arbeitssitzungen · **Grundlage:** T-015c (`1712b55`), **D-021**, **D-027**, **D-028**, `UI_Leitlinien.md`
+**Für:** Codex · **Risiko:** Auslieferungsweg, laufender Betrieb → **unabhängiges Review verpflichtend**
+**Zeitbox:** zwei Arbeitssitzungen · **Grundlage:** **D-030**, T-022, `infrastructure/DEPLOY.md`
 
-### Zuerst lesen
+### Der Befund
 
-**`ADO/01_Architecture/UI_Leitlinien.md`** — vollständig. Das Regelwerk gilt für jede
-Oberflächenaufgabe und wird hier nicht wiederholt.
+`infrastructure/deploy` liefert nur das Backend-Abbild aus. Caddy bedient das Admin-Web aus
+`/opt/taptime/admin-web` — einem Verzeichnis, das **niemand im Repository beschreibt**. Dort
+liegt ein von Hand kopierter Stand aus T-006.
 
-### Die Ausgangslage, gelesen statt vermutet
-
-`/v2/session` liefert `locationsEnabled`, `availableSections` und `managementScope` — **und keine
-Rolle.** Das ist bewusst so: Der Browser erfährt nicht, wer er ist, sondern nur, was offensteht.
-Eine browserseitige Berechtigungsentscheidung ist damit nicht nur verboten, sondern unmöglich.
-
-Im Admin-Web steht dem heute entgegen:
-
-- `parseSession` erwartet **exakt** vier Felder und nur `administrator` oder `employee`
-- `AdminWebCoordinator` lädt **alle vier** Projektionen ungefragt
-- die Übersicht zeichnet Arbeitszeiten und Prüfungen **immer** als Kachel und macht aus einer
-  Abweisung eine Kachel mit `0` und einem Wiederholen-Knopf (D-028)
-- eine veraltete Rollenprüfung verhindert heute die Anmeldung einer Standortleitung überhaupt
+**T-017a und T-015d sind nie in Produktion angekommen**, und der Gesundheitstest hat es nicht
+bemerkt, weil er nur prüft, ob etwas antwortet.
 
 ### Ziel
 
-**Eine Standortleitung meldet sich an und sieht ihren Standort — nichts, was sie nicht darf, und
-keine Kachel, die beim Laden scheitert.**
+**Eine Version ist eine Version.** Ein Commit-Kurzschlüssel liefert Backend **und** Oberfläche
+aus, und der Gesundheitstest **beweist**, dass beides in der erwarteten Version läuft.
 
-### Umfang
+### Schritte
 
-**1 · Auf `/v2` wechseln**
+**1. Die Oberfläche wird gebaut wie das Backend**
 
-Sitzung und Beschäftigtenprojektion. Der Parser bleibt **streng** — `exact` mit dem neuen
-Feldsatz, nicht tolerant. Die veraltete Rollenprüfung entfällt: Wer **keinen** Bereich hat,
-kommt nicht hinein; das ersetzt sie vollständig.
+Ein unveränderliches Abbild, in derselben CI erzeugt, mit **demselben** siebenstelligen
+Commit-Kurzschlüssel als Marke. Kein `latest`, kein Bauen auf dem Server, kein Kopieren von Hand.
 
-`/v1/session` bleibt vorerst bestehen. Es wird erst entfernt, wenn diese Fassung ausgeliefert und
-in Betrieb bestätigt ist — nicht in dieser Aufgabe.
+**2. Der Deploy legt sie ab — unteilbar**
 
-**2 · Die Navigation kommt aus `availableSections`**
+Der Inhalt wird zuerst vollständig danebengelegt und dann **in einem Zug** umgeschaltet. Es darf
+keinen Moment geben, in dem halb alte und halb neue Dateien nebeneinanderliegen: Ein Browser, der
+genau dann lädt, bekommt sonst eine `index.html`, die auf Bausteine zeigt, die es nicht mehr gibt.
 
-Unverändert übernommen, nicht abgeleitet. Kein Rollenvergleich, keine Zuordnungstabelle im
-Browser. Was nicht in der Liste steht, erscheint nicht — nicht ausgegraut, gar nicht.
+Der vorhandene `status`-Ordner unter `/opt/taptime/admin-web` **überlebt die Umschaltung** — dort
+liegen Sicherungsstatus und Versions-Schutzsatz.
 
-**3 · Nur laden, was offensteht — nur zeichnen, was geladen wurde (D-028)**
+**3. Die Version wird von außen prüfbar**
 
-Die Übersicht ist eine Zusammensetzung. Eine Kachel entsteht, wenn ihr Bereich offensteht.
-Geschlossene Bereiche werden **nicht angefragt**. Keine Kachel mit `0` für etwas, das nie geladen
-werden durfte.
+Die ausgelieferte Oberfläche trägt ihren Commit-Kurzschlüssel so, dass er **ohne Anmeldung**
+abfragbar ist. Halte es einfach.
 
-**4 · Der Standort ist sichtbar und steht in der Adresse**
+**4. Das Gesundheitstor prüft beide Hälften**
 
-Wer mehrere Verwaltungsstandorte hat, muss erkennen, welchen er gerade sieht. Der Standort gehört
-sichtbar in den Kopfbereich **und in die Adresse** — ein Link führt dorthin, ein Lesezeichen auch.
+`wait_for_health` prüft heute Containergesundheit und die externe Adresse. Es prüft künftig
+zusätzlich, dass die **ausgelieferte Oberfläche die erwartete Version meldet.** Stimmt sie nicht,
+ist der Deploy fehlgeschlagen und wird zurückgenommen — wie jeder andere Fehlschlag auch.
 
-**5 · Listen benennen ihren Bezug**
+Das ist der eigentliche Kern dieser Aufgabe. Ein Tor, das nur fragt „antwortet etwas?", hätte
+diesen Fehler nie gefunden.
 
-Der Trefferzähler sagt, worauf er sich bezieht. Niemand darf eine Standortzahl für den Betrieb
-halten.
+**5. Die Rücknahme nimmt beides zurück**
 
-**6 · Der leere Standort führt weiter**
+Ein Rollback auf eine frühere Version stellt **auch** die frühere Oberfläche wieder her. Eine
+Rücknahme, die nur das Backend zurückdreht, erzeugt einen Mischstand — schlimmer als der Fehler,
+den sie beheben soll.
 
-Keine Beschäftigten am Standort ist der erstmalig leere Zustand aus dem Regelwerk und führt zur
-Einladung. Kein Fehler, keine unerklärte Leere.
+**6. `DEPLOY.md` und `RESTORE.md` nachziehen**
 
-**7 · Ausgeschaltet bleibt unsichtbar**
+Beide beschreiben heute einen Weg, der die Oberfläche nicht kennt. `RESTORE.md` muss außerdem
+sagen, wie die Oberfläche auf einem Ersatzserver wieder dorthin kommt.
 
-Ist die Standort-Funktion aus, sieht die Oberfläche aus wie heute. Kein Standortwähler, kein
-Bezug, keine Hinweise.
+### Vision-Check
 
-### Die Antwortgrenze prüfen
-
-`readBoundedResponseText` begrenzt die Antwortgröße. Die Sitzung trägt jetzt eine **Liste von
-Standorten mit Namen**. Prüfe, ob die Grenze für einen Betrieb mit vielen Standorten reicht, und
-melde die Zahl, ab der sie nicht mehr reicht. Eine Sitzung, die wegen ihrer Größe als „nicht
-verfügbar" gilt, wäre ein Fehler, den niemand versteht.
+Kein Produktcode. Aber ohne diese Aufgabe kann der Pilotkunde nichts von dem sehen, was wir
+gebaut haben.
 
 ### Nicht anfassen
 
-- **Jede Berechtigungsentscheidung.** Der Server hat sie getroffen; die Oberfläche stellt sie dar
-- `packages/core`, Migrationen, Backend-Module
-- Die Mobile-App
-- `/v1/session` in seiner Antwortform
-- Barrierefreiheit über den sichtbaren Tastaturfokus hinaus, CSP, Sitzungsdauer — das ist T-017
-- **Neue Funktionen.** Keine
+- `apps/`, `packages/`, Migrationen — **keine** Produktänderung
+- Die Entscheidungslogik von `infrastructure/deploy`: Generalprobe, Sicherung, Migration,
+  Rücknahme bleiben unverändert in Ablauf und Reihenfolge
+- Der `status`-Ordner und sein Inhalt
+- Der eingeschränkte Deploy-Zugang aus T-022
 
 ### Prüfung — nachweisen, nicht behaupten
 
-- Ändert man **allein** `availableSections`, ändert sich die Seitenleiste entsprechend — ohne
-  jede weitere Änderung. Dieser Nachweis belegt, dass nichts abgeleitet wird
-- Ein geschlossener Bereich wird **nicht angefragt**; das ist an den ausgehenden Aufrufen
-  nachzuweisen, nicht an der Darstellung
-- Die Übersicht einer Standortleitung enthält **keine** Kachel für Arbeitszeiten und Prüfungen —
-  weder gefüllt noch mit `0` noch als Fehler
-- Der angezeigte Standort steht in der Adresse; ein Link darauf öffnet genau diesen Standort
-- Jede standortbezogene Liste benennt ihren Bezug
-- Ein leerer Standort zeigt den erstmalig leeren Zustand mit dem Weg zur Einladung
-- Ein Aufruf mit **fremdem** Standort wird vom Server abgewiesen; die Oberfläche macht daraus
-  einen wahren Satz — **kein** nacktes „nicht berechtigt", kein technischer Fehlercode
-- Bei ausgeschalteter Standort-Funktion ist die Oberfläche unverändert; alle bestehenden
-  Admin-Web-Tests bleiben grün
-- Die Anwendung bleibt allein mit der Tastatur bedienbar, mit sichtbarem Fokus
-- Der Grenzlauf aus T-025 bleibt grün; das Verhältnis wird in `ADO/STATUS.md` eingetragen
+- Ein echter Deploy liefert Backend und Oberfläche gemeinsam aus; die Ausgabe steht im Bericht
+- **Der wichtigste Nachweis:** Wird absichtlich eine falsche Oberflächenversion abgelegt, schlägt
+  das Gesundheitstor fehl und der Deploy wird zurückgenommen. Vorführen, nicht behaupten
+- Ein echter Rollback stellt die **vorherige** Oberfläche wieder her — nachgewiesen an der von
+  außen abgefragten Version
+- Während der Umschaltung liefert die Adresse zu **keinem** Zeitpunkt einen gemischten Stand
+- Der `status`-Ordner ist nach dem Deploy unverändert vorhanden
+- Nach dem Deploy meldet die Oberfläche `28dcac6` oder neuer, und der Text
+  „Bereich derzeit nicht verfügbar" kommt nicht mehr vor
+- `DEPLOY.md` und `RESTORE.md` beschreiben den vollständigen Weg
 - CI grün, kein `[skip ci]`
 
 ### Zusätzliches Review
 
-> Melde dich als Standortleitung an und versuche, an einen fremden Standort zu kommen — über die
-> Adresse, einen Filter, ein Lesezeichen, den Zurück-Knopf. Der Server weist ab.
-> **Beschreibe, was der Benutzer dabei sieht.** Ein „nicht berechtigt" ohne Erklärung ist kein
-> Ergebnis, sondern ein zweiter Befund.
+> Nenne jeden weiteren Bestandteil des laufenden Produkts, den der Auslieferungsweg **nicht**
+> mitnimmt — Konfiguration, Caddyfile, systemd-Dateien, Sicherungsskripte. Für jeden eine Zeile:
+> wie kommt er heute auf den Server, und was passiert, wenn er veraltet? Suche danach, statt es
+> auszuschließen.
 
 ### Abschluss
 
-Vier Punkte melden — Nachweise als **Sätze**, nicht als Testzahlen. Entfernte oder umgeschriebene
-Tests **einzeln** benennen. **Nicht committen** vor `APPROVED` durch den Technical Lead.
+Vier Punkte melden — Nachweise als **Sätze**. Entfernte oder umgeschriebene Tests **einzeln**
+benennen. **Nicht committen** vor `APPROVED` durch den Technical Lead.
 
 ---
 
 ## Danach
 
-**Ausliefern.** Danach `T-020` Freigabekette und Kennzeichnung der Selbstkorrektur (D-014,
-**D-026**) · `T-016` Löschkonzept · `T-024` Geheimnisse rotieren · siehe `ADO/PLAN.md`.
+`T-015e` Standorte auswählbar machen (D-029) · `T-020` Freigabekette (D-014, D-026) ·
+`T-016` Löschkonzept · siehe `ADO/PLAN.md`.

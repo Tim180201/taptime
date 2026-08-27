@@ -2,7 +2,7 @@
 
 > **Diese Datei wird überschrieben, nie angehängt.** Sie beschreibt nur den Jetzt-Zustand.
 
-**Stand:** 25.08.2026 (T-017a ausgeliefert, Produktion auf `471b376`) · **Ziel:** System fertig in ~6 Wochen, erster Kunde in ~3 Monaten
+**Stand:** 26.08.2026 (T-015d ausgeliefert, Produktion auf `28dcac6`, Migrationen 001–021) · **Ziel:** System fertig in ~6 Wochen, erster Kunde in ~3 Monaten
 
 ---
 
@@ -99,16 +99,16 @@ danach Firma, Recht und Store.
 
 ## Aktuelle Aufgabe
 
-**T-015d — Die Oberfläche zeigt den Standort.** Siehe `ADO/TASK.md`. Keine
-Berechtigungsentscheidung — der Server hat sie getroffen —, aber die sichtbare Standortgrenze.
+**T-026 — Die Oberfläche wird mit ausgeliefert.** Siehe `ADO/TASK.md`. **Vorgezogen vor allem
+anderen.**
 
-**Zuletzt abgeschlossen:** T-015c (Sitzungsvertrag), Commit `1712b55`, CI grün, Migration 021.
-`/v2/session` liefert `locationsEnabled`, `availableSections` und `managementScope` — **und keine
-Rolle.** Der Browser erfährt nicht, wer er ist, sondern nur, was offensteht; eine browserseitige
-Berechtigungsentscheidung ist damit unmöglich. Jeder Bereich stammt aus der Autorität, die dort
-ohnehin entscheidet (**D-027**): Einrichtung `007:336`, Beschäftigte `020:208`, Arbeitszeiten und
-Prüfungen `012:438`, Export `011:130`. Die Übersicht hat bewusst kein Merkmal (**D-028**).
-`/v1/session` bleibt unverändert, bis T-015d ausgeliefert und bestätigt ist.
+**Befund D-030:** Der Auslieferungsweg nimmt die Oberfläche nicht mit. T-017a und T-015d sind
+nie in Produktion angekommen; in `/opt/taptime/admin-web` liegt ein von Hand kopierter Stand aus
+T-006. Das Backend läuft korrekt auf `28dcac6` mit den Migrationen 001–021 — die Oberfläche
+nicht. Gefunden vom Product Owner im ersten Bildschirm.
+
+**Stand der Kette:** T-015a bis T-015d sind gebaut, geprüft und auf `main`. Sichtbar werden sie
+erst mit T-026.
 
 Danach die Folgeaufgaben in neuer Reihenfolge, siehe `ADO/PLAN.md`. Die Kette wurde am 24.08.
 nach Betriebsfähigkeit sortiert und um sieben Aufgaben erweitert (D-012). `T-001` bis `T-006`

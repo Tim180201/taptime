@@ -736,3 +736,25 @@ Liste **aller** Standorte eines Betriebs ist es nicht.
 **Sperre bis dahin:** Die Standort-Funktion darf in **keinem** Betrieb eingeschaltet werden,
 bevor `T-015e` steht. Sonst kann ein Administrator niemanden mehr einladen — die Einladung
 verlangt seit T-015b einen Heimatstandort, den die Oberfläche nicht anbieten kann.
+
+---
+
+## D-030 — Befund: Die Oberfläche wurde nie ausgeliefert
+
+**Datum:** 26.08.2026 · **Gefunden vom Product Owner beim ersten Blick in die Produktion** · **Umsetzung:** `T-026`
+
+`infrastructure/deploy` liefert **ausschließlich das Backend-Abbild** aus. Caddy bedient das
+Admin-Web aus `/opt/taptime/admin-web` — einem Verzeichnis, das **kein Skript, keine CI und keine
+Compose-Datei im Repository jemals beschreibt.** Dort liegt, was bei T-006 von Hand hinkopiert
+wurde.
+
+**Folge: T-017a und T-015d sind nie in Produktion angekommen.** Der Technical Lead hat beide als
+„ausgeliefert" gemeldet, ohne zu prüfen, ob der Auslieferungsweg die Oberfläche mitnimmt. Der
+Befund kam vom Product Owner, im ersten Bildschirm, an einem Text, den es im Quelltext nicht
+mehr gibt.
+
+**Dieselbe Ursache wie T-022:** ein Schritt, der nur in jemandes Händen existierte.
+
+**Die Lehre, verbindlich:** Ein Deployment ist erst bewährt, wenn der Gesundheitstest die
+ausgelieferte Version **belegt** — für Backend *und* Oberfläche. Ein Tor, das nur prüft, ob
+etwas antwortet, hätte diesen Fehler nie gefunden. `T-026` schließt beides.
