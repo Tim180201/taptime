@@ -589,7 +589,7 @@ Wiederherstellungsdatensatz einen Standort; die Regel wird in T-015b umgesetzt.
 
 ## D-023 — Berechtigung liefert einen Umfang, keinen Wahrheitswert
 
-**Datum:** 26.08.2026 · **Entschieden vom Technical Lead** · **Korrigiert:** ADR-0022
+**Datum:** 27.08.2026 · **Entschieden vom Technical Lead** · **Korrigiert:** ADR-0022
 
 `has_membership_management_authority_v1` antwortet künftig mit dem erlaubten **Umfang** statt mit
 wahr oder falsch — mit ausdrücklichem `scope_kind` (`organization` oder `location`), damit `NULL`
@@ -612,7 +612,7 @@ ist schlimmer als eine große Aufgabe.
 
 ## D-024 — Befund: Unser NFC-Modell gibt es, aber Jibble hat es nicht
 
-**Datum:** 26.08.2026 · **Recherchiert vom Technical Lead** · **Kein Beschluss, ein Befund**
+**Datum:** 27.08.2026 · **Recherchiert vom Technical Lead** · **Kein Beschluss, ein Befund**
 
 **TimeTac** und **TimO** bieten unser Modell seit Jahren an: Tag am Objekt, Scan mit dem eigenen
 Smartphone, Tag trägt eine Aufgabe. TimO kostet 4,49–4,99 € je Nutzer und Monat. Dazu ein ganzer
@@ -632,7 +632,7 @@ Quellen: `play.google.com` (studio.cocreation.taptime), `timetac.com/de/nfc-tags
 
 ## D-025 — Befund: Der Hebel ist Enge und Vertrieb, nicht Funktionsumfang
 
-**Datum:** 26.08.2026 · **Technical Lead auf Frage des Product Owners** · **Kein Beschluss, ein Befund**
+**Datum:** 27.08.2026 · **Technical Lead auf Frage des Product Owners** · **Kein Beschluss, ein Befund**
 
 Zu Urlaubsanträgen, Controlling und Abrechnung: **Funktionen anzubauen ist der schwächste
 Hebel.** Wettbewerber haben sie; auf Breite verliert ein Einzelgründer sicher.
@@ -655,7 +655,7 @@ ist, den Pilotkunden nach dem Testmonat zahlen zu lassen — auch nur 20 € —
 
 ## D-026 — Befund: Der Administrator prüft sich selbst
 
-**Datum:** 26.08.2026 · **Gefunden bei der Rolleninventur zu T-015b** · **Kein Beschluss, ein Befund**
+**Datum:** 27.08.2026 · **Gefunden bei der Rolleninventur zu T-015b** · **Kein Beschluss, ein Befund**
 
 `012:764` und `012:1071`: Nach der Administratorprüfung fehlt der Selbstausschluss. **Ein
 Administrator kann seine eigene Arbeitszeit korrigieren und seine eigene Prüfung entscheiden.**
@@ -685,7 +685,7 @@ verbieten — das System urteilt nicht, es macht sichtbar.
 
 ## D-027 — Der Sitzungsvertrag wird versioniert, nicht aufgeweicht
 
-**Datum:** 26.08.2026 · **Entschieden vom Technical Lead** · **Umsetzung:** T-015c
+**Datum:** 27.08.2026 · **Entschieden vom Technical Lead** · **Umsetzung:** T-015c
 
 Die erweiterte Sitzungsantwort kommt als **`/v2/session`**. `/v1/session` bleibt unverändert,
 bis das Admin-Web in T-015d gewechselt ist.
@@ -707,7 +707,7 @@ zu haben, ist eine zweite Wahrheit — genau das, was D-023 verhindern sollte.
 ---
 
 ## D-028 — Die Übersicht ist eine Zusammensetzung, kein Bereich
-**Datum:** 26.08.2026 · **Entschieden vom Technical Lead** · **Grundlage:** Befund aus T-015c, D-027
+**Datum:** 27.08.2026 · **Entschieden vom Technical Lead** · **Grundlage:** Befund aus T-015c, D-027
 
 Die Übersicht bekommt **kein** eigenes Merkmal in der Sitzung. Sie ist keine Ressource mit
 eigener Autorität, sondern aus anderen Bereichen zusammengesetzt. Ein `overview_available` wäre
@@ -721,7 +721,7 @@ daraus ab und erfinden kein eigenes Recht. Eine Kachel wird nur gezeichnet, wenn
 
 ## D-029 — Standorte stehen hinter einem eigenen Aufruf, nicht in der Sitzung
 
-**Datum:** 26.08.2026 · **Entschieden vom Technical Lead** · **Befund aus T-015d** · **Umsetzung:** `T-015e`
+**Datum:** 27.08.2026 · **Entschieden vom Technical Lead** · **Befund aus T-015d** · **Umsetzung:** `T-015e`
 
 `managementScope` trägt im Fall `organization` **keine** Standortliste und bekommt auch keine.
 Ein Administrator mit eingeschalteten Standorten wählt den Heimatstandort einer Einladung aus
@@ -741,7 +741,7 @@ verlangt seit T-015b einen Heimatstandort, den die Oberfläche nicht anbieten ka
 
 ## D-030 — Befund: Die Oberfläche wurde nie ausgeliefert
 
-**Datum:** 26.08.2026 · **Gefunden vom Product Owner beim ersten Blick in die Produktion** · **Umsetzung:** `T-026`
+**Datum:** 27.08.2026 · **Gefunden vom Product Owner beim ersten Blick in die Produktion** · **Umsetzung:** `T-026`
 
 `infrastructure/deploy` liefert **ausschließlich das Backend-Abbild** aus. Caddy bedient das
 Admin-Web aus `/opt/taptime/admin-web` — einem Verzeichnis, das **kein Skript, keine CI und keine
@@ -758,3 +758,44 @@ mehr gibt.
 **Die Lehre, verbindlich:** Ein Deployment ist erst bewährt, wenn der Gesundheitstest die
 ausgelieferte Version **belegt** — für Backend *und* Oberfläche. Ein Tor, das nur prüft, ob
 etwas antwortet, hätte diesen Fehler nie gefunden. `T-026` schließt beides.
+
+---
+
+## D-031 — Dunkle Oberfläche als einziges Farbschema
+
+**Datum:** 27.08.2026 · **Entschieden von Tim** · **Vorbereitet vom Technical Lead** · **Umsetzung:** `T-027`
+
+Das Admin-Web und die App werden **dunkel**. Ein Farbschema, kein Umschalter. Grundlage sind die
+Entwürfe vom 23.08.; das Farb- und Abstandsraster steht in `UI_Leitlinien.md`.
+
+**Warum kein Umschalter:** Jede Farbe müsste zweimal stimmen und zweimal geprüft werden — und es
+wäre genau die Art Entscheidung, die wir dem Nutzer abnehmen wollen (Vision).
+
+**Preis, bewusst getragen:** In hellen Räumen ist ein dunkler Bildschirm schlechter lesbar. Und
+ein Ausdruck braucht eigene Regeln — schwarze Schrift auf Weiß, kein Farbverlauf. Das gehört zu
+`T-027`, nicht später.
+
+**Was ausdrücklich NICHT entschieden ist:** Der **Inhalt** der Übersicht. Die Entwürfe zeigen
+Kacheln wie „6 manuell erfasste Zeiten warten auf Freigabe" — das ist T-020 und T-023 und beruht
+auf einer Vermutung des Technical Lead, nicht auf einer Aussage des Pilotbetriebs (D-020).
+`T-027` ändert **nur das Aussehen**, keinen Inhalt.
+
+---
+
+## D-032 — Befund: Auch die Betriebsskripte werden nicht ausgeliefert
+
+**Datum:** 27.08.2026 · **Gefunden durch die abgebrochene Generalprobe von T-026** · **Umsetzung:** `T-028`
+
+Die auf dem Server installierte `taptime-restore-verify` erwartet `32/32` RLS-Tabellen; seit
+Migration 019 sind es `37`. Das Repository ist seit T-015a richtig — die Datei kam nie dorthin.
+Ebenso von Hand installiert und still alternd: `taptime-backup`, die Monitoring-Skripte, die
+systemd-Einheiten und der Caddyfile. Derselbe Fall wie **D-030**, eine Schicht tiefer.
+
+**Belegt, nicht gefolgert:** genau **ein** Fehlschlag, im Deploy selbst ausgegeben (27.08.,
+zwischen 16:05 und 16:37 UTC). Letzte erfolgreiche Sicherung 16:05 UTC. Der wöchentliche Prüftimer
+hatte seinen ersten Termin noch nicht (30.08., 03:35 UTC), der Tagesmonitor läuft erst am 28.08.
+— eine Alarmierung war noch nicht fällig, sie ist nicht ausgeblieben.
+
+**Die Probe brach vor Sicherung, Migration und Aktivierung ab.** Das Tor hat gehalten.
+
+**Regel:** Was auf dem Server läuft, kommt aus einer versionierten Auslieferung.

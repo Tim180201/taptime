@@ -4,108 +4,99 @@
 
 ---
 
-## T-026 · Die Oberfläche wird mit ausgeliefert — und der Nachweis beweist es
+## T-028 · Der Auslieferungsweg trägt auch die Betriebsskripte
 
-**Für:** Codex · **Risiko:** Auslieferungsweg, laufender Betrieb → **unabhängiges Review verpflichtend**
-**Zeitbox:** zwei Arbeitssitzungen · **Grundlage:** **D-030**, T-022, `infrastructure/DEPLOY.md`
+**Für:** Codex · **Risiko:** Auslieferungsweg, Sicherung, laufender Betrieb → **unabhängiges Review verpflichtend**
+**Zeitbox:** zwei Arbeitssitzungen · **Grundlage:** **D-032**, D-030, T-026
 
-### Der Befund
+### Der Anlass
 
-`infrastructure/deploy` liefert nur das Backend-Abbild aus. Caddy bedient das Admin-Web aus
-`/opt/taptime/admin-web` — einem Verzeichnis, das **niemand im Repository beschreibt**. Dort
-liegt ein von Hand kopierter Stand aus T-006.
+Der erste Deploy nach T-026 brach in der Generalprobe ab. Die auf dem Server **installierte**
+`taptime-restore-verify` erwartet `32/32` RLS-Tabellen; seit Migration 019 sind es `37`. Das
+Repository ist seit T-015a richtig — die Datei kam nie dort an.
 
-**T-017a und T-015d sind nie in Produktion angekommen**, und der Gesundheitstest hat es nicht
-bemerkt, weil er nur prüft, ob etwas antwortet.
+T-026 hat die Oberfläche in den Auslieferungsweg geholt. **Die Betriebsskripte fehlen weiterhin.**
 
 ### Ziel
 
-**Eine Version ist eine Version.** Ein Commit-Kurzschlüssel liefert Backend **und** Oberfläche
-aus, und der Gesundheitstest **beweist**, dass beides in der erwarteten Version läuft.
+**Was auf dem Server läuft, kommt aus einer versionierten Auslieferung.** Keine von Hand
+installierte Datei bleibt Bestandteil des Produkts.
 
-### Schritte
+### Umfang
 
-**1. Die Oberfläche wird gebaut wie das Backend**
+Diese Dateien gehören dazu — prüfe die Liste und ergänze, was du zusätzlich findest:
 
-Ein unveränderliches Abbild, in derselben CI erzeugt, mit **demselben** siebenstelligen
-Commit-Kurzschlüssel als Marke. Kein `latest`, kein Bauen auf dem Server, kein Kopieren von Hand.
+- `taptime-restore-verify`, `taptime-backup` und ihre systemd-Einheiten
+- die Monitoring-Skripte und ihre Einheiten
+- der Caddyfile
+- `docker-compose.server.yml`
 
-**2. Der Deploy legt sie ab — unteilbar**
+**Nicht** dazu gehören Geheimnisse und Konfiguration mit betriebseigenen Werten:
+`/etc/taptime-backup/config`, die Passphrase-Datei, `/opt/taptime/.env`. Die bleiben, wo sie
+sind, und werden nicht aus einem Abbild überschrieben.
 
-Der Inhalt wird zuerst vollständig danebengelegt und dann **in einem Zug** umgeschaltet. Es darf
-keinen Moment geben, in dem halb alte und halb neue Dateien nebeneinanderliegen: Ein Browser, der
-genau dann lädt, bekommt sonst eine `index.html`, die auf Bausteine zeigt, die es nicht mehr gibt.
+### Die Reihenfolge, die zählt
 
-Der vorhandene `status`-Ordner unter `/opt/taptime/admin-web` **überlebt die Umschaltung** — dort
-liegen Sicherungsstatus und Versions-Schutzsatz.
+Die Skripte werden **vor** der Generalprobe installiert — sonst läuft die Probe wieder gegen
+einen alten Prüfer und die Aufgabe hätte nichts geändert.
 
-**3. Die Version wird von außen prüfbar**
+Schlägt die Installation fehl, ist der Deploy fehlgeschlagen: keine Sicherung, keine Migration,
+keine Aktivierung.
 
-Die ausgelieferte Oberfläche trägt ihren Commit-Kurzschlüssel so, dass er **ohne Anmeldung**
-abfragbar ist. Halte es einfach.
+Eine Einheit, deren Datei sich geändert hat, wird neu eingelesen. Ein Caddyfile, der sich
+geändert hat, wird geprüft **bevor** er übernommen wird — ein fehlerhafter Caddyfile nimmt die
+gesamte Adresse vom Netz.
 
-**4. Das Gesundheitstor prüft beide Hälften**
+### Die eine Handarbeit, die bleibt
 
-`wait_for_health` prüft heute Containergesundheit und die externe Adresse. Es prüft künftig
-zusätzlich, dass die **ausgelieferte Oberfläche die erwartete Version meldet.** Stimmt sie nicht,
-ist der Deploy fehlgeschlagen und wird zurückgenommen — wie jeder andere Fehlschlag auch.
+Das Deploy-Skript kann sich nicht selbst ausliefern. Es muss **einmal** von Hand ersetzt werden,
+und der Root-Zugang über SSH ist seit T-022 gesperrt — also über die Hetzner-Konsole.
 
-Das ist der eigentliche Kern dieser Aufgabe. Ein Tor, das nur fragt „antwortet etwas?", hätte
-diesen Fehler nie gefunden.
+**Schreibe dafür eine Anleitung**, die der Product Owner ohne Rückfrage befolgen kann: die
+genauen Befehle, in der genauen Reihenfolge, mit den **tatsächlichen** Pfaden — nachgesehen, nicht
+vermutet. Die Konsole verwendet eine US-Tastaturbelegung; halte die Befehle kurz und ohne
+Sonderzeichen, wo es geht.
 
-**5. Die Rücknahme nimmt beides zurück**
-
-Ein Rollback auf eine frühere Version stellt **auch** die frühere Oberfläche wieder her. Eine
-Rücknahme, die nur das Backend zurückdreht, erzeugt einen Mischstand — schlimmer als der Fehler,
-den sie beheben soll.
-
-**6. `DEPLOY.md` und `RESTORE.md` nachziehen**
-
-Beide beschreiben heute einen Weg, der die Oberfläche nicht kennt. `RESTORE.md` muss außerdem
-sagen, wie die Oberfläche auf einem Ersatzserver wieder dorthin kommt.
+Und schreibe dazu, **wie er merkt, dass es geklappt hat**, und was er tut, wenn nicht.
 
 ### Vision-Check
 
-Kein Produktcode. Aber ohne diese Aufgabe kann der Pilotkunde nichts von dem sehen, was wir
-gebaut haben.
+Kein Produktcode. Ohne diese Aufgabe altert der Server still weiter, und die nächste Überraschung
+kommt zum ungünstigsten Zeitpunkt.
 
 ### Nicht anfassen
 
-- `apps/`, `packages/`, Migrationen — **keine** Produktänderung
-- Die Entscheidungslogik von `infrastructure/deploy`: Generalprobe, Sicherung, Migration,
-  Rücknahme bleiben unverändert in Ablauf und Reihenfolge
-- Der `status`-Ordner und sein Inhalt
+- `apps/`, `packages/`, Migrationen
+- Die Entscheidungslogik der Generalprobe, der Sicherung und der Rücknahme
+- Geheimnisse und betriebseigene Konfiguration
 - Der eingeschränkte Deploy-Zugang aus T-022
 
 ### Prüfung — nachweisen, nicht behaupten
 
-- Ein echter Deploy liefert Backend und Oberfläche gemeinsam aus; die Ausgabe steht im Bericht
-- **Der wichtigste Nachweis:** Wird absichtlich eine falsche Oberflächenversion abgelegt, schlägt
-  das Gesundheitstor fehl und der Deploy wird zurückgenommen. Vorführen, nicht behaupten
-- Ein echter Rollback stellt die **vorherige** Oberfläche wieder her — nachgewiesen an der von
-  außen abgefragten Version
-- Während der Umschaltung liefert die Adresse zu **keinem** Zeitpunkt einen gemischten Stand
-- Der `status`-Ordner ist nach dem Deploy unverändert vorhanden
-- Nach dem Deploy meldet die Oberfläche `28dcac6` oder neuer, und der Text
-  „Bereich derzeit nicht verfügbar" kommt nicht mehr vor
-- `DEPLOY.md` und `RESTORE.md` beschreiben den vollständigen Weg
+- Ein echter Deploy installiert die Skripte und läuft anschließend durch; die Ausgabe steht im
+  Bericht
+- **Der wichtigste Nachweis:** Wird absichtlich eine kaputte Skriptfassung ausgeliefert, schlägt
+  der Deploy **vor** Sicherung und Migration fehl. Vorführen, nicht behaupten
+- Ein absichtlich fehlerhafter Caddyfile wird abgewiesen, **ohne** die Adresse vom Netz zu nehmen
+- Nach dem Deploy erwartet die installierte Wiederherstellungsprüfung `37/37`, und ein echter
+  Lauf von `taptime-restore-verify` ist grün
+- Geheimnisse und betriebseigene Konfiguration sind nach dem Deploy unverändert
+- Die Anleitung für die einmalige Handarbeit ist vollständig, mit echten Pfaden
 - CI grün, kein `[skip ci]`
 
 ### Zusätzliches Review
 
-> Nenne jeden weiteren Bestandteil des laufenden Produkts, den der Auslieferungsweg **nicht**
-> mitnimmt — Konfiguration, Caddyfile, systemd-Dateien, Sicherungsskripte. Für jeden eine Zeile:
-> wie kommt er heute auf den Server, und was passiert, wenn er veraltet? Suche danach, statt es
-> auszuschließen.
+> Melde den Zustand der Sicherung: Wann lief die letzte erfolgreiche Sicherung, wann die letzte
+> erfolgreiche Wiederherstellungsprüfung, und was steht in der Statusdatei? Seit dem letzten
+> Deploy schlägt die Prüfung fehl — ich will wissen, wie lange und ob es jemand gemeldet hat.
 
 ### Abschluss
 
-Vier Punkte melden — Nachweise als **Sätze**. Entfernte oder umgeschriebene Tests **einzeln**
-benennen. **Nicht committen** vor `APPROVED` durch den Technical Lead.
+Vier Punkte melden — Nachweise als **Sätze**. **Nicht committen** vor `APPROVED`.
 
 ---
 
 ## Danach
 
-`T-015e` Standorte auswählbar machen (D-029) · `T-020` Freigabekette (D-014, D-026) ·
-`T-016` Löschkonzept · siehe `ADO/PLAN.md`.
+Deploy von `3893611` · `T-027` Dunkles Gestaltungsraster (D-031) · `T-015e` (D-029) ·
+`T-020` Freigabekette · siehe `ADO/PLAN.md`.

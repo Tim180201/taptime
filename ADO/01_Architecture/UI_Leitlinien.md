@@ -189,3 +189,38 @@ Bildschirmfüllende Spinner. Kacheln ohne Aufgabe. Aktionen nur beim Überfahren
 Tabelle. Floating Labels. Sternchen-Wüsten. Deaktivierte Absenden-Schaltflächen. „Seite 3 von ?".
 Farbe als einziger Statusträger. Einführungstouren mit acht Schritten — der leere Zustand führt
 hin, nicht ein Assistent.
+
+
+---
+
+## Farb- und Gestaltungsraster (D-031)
+
+Verbindlich ab `T-027`. **Dunkel ist das einzige Farbschema.**
+
+| Rolle | Wert |
+|---|---|
+| Grund | `#0E1512` |
+| Fläche (Karte, Seitenleiste) | `#141C19` |
+| Fläche erhöht (Kachel, Eingabe) | `#1A2320` |
+| Linie | `#24302C` |
+| Schrift | `#F2F5F4` |
+| Schrift gedämpft | `#97A5A0` |
+| Akzent (aktiv, Schaltfläche) | `#7EE0C0` |
+| Akzent, Schrift darauf | `#0E1512` |
+| Handlungsaufforderung | `#C9F24D` |
+| Hinweis / offen | `#E0A44C` |
+| Fokusring | `#7EE0C0`, 3 px, immer sichtbar |
+
+**Schrift:** Inter, ersatzweise die Systemschrift. Zahlen weiterhin `tabular-nums`.
+
+**Rundungen:** Karten 12 px · Bedienelemente 10 px · Pillen und Chips 999 px.
+
+**Icons:** Linien-Icons, 20 px, in gedämpfter Schrift­farbe, im aktiven Bereich in Akzentfarbe.
+Jeder Bereich der Seitenleiste trägt eines. Icons stehen **neben** einer Beschriftung, nie allein
+— ein Symbol ohne Wort ist ein Rätsel.
+
+**Kontrast ist Pflicht, nicht Geschmack.** Jede Kombination aus Schrift und Untergrund wird
+geprüft; der vorhandene `contrastRatio`-Test wird dafür erweitert, nicht neu erfunden.
+
+**Ausdruck:** Eine gedruckte Zeitliste ist schwarz auf weiß, ohne Flächen und Verläufe. Ein
+Lohnnachweis, der als dunkler Block aus dem Drucker kommt, ist unbrauchbar.
